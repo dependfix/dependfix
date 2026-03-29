@@ -1,34 +1,35 @@
-import { __PROD__, __DEV__ } from '@/env'
-/**
- * say hello
- *
- * @author CaoMeiYouRen
- * @date 2020-11-28
- * @export
- */
-export function hello() {
-    if (__PROD__) {
-        console.log('Hello production')
-    }
-    if (__DEV__) {
-        console.log('Hello development')
-    }
-    console.log('你好，世界！')
+import { pathToFileURL } from 'node:url'
+import { runCli } from './cli'
+
+export * from './app'
+export * from './cli'
+export * from './config'
+export * from './core'
+export * from './core/alerts'
+export * from './core/filters'
+export * from './core/planner'
+export * from './core/report'
+export * from './fixers/code-scanning'
+export * from './fixers/dependency'
+export * from './fixers/pnpm'
+export * from './github'
+export * from './runners'
+export * from './utils'
+
+export function main(args: string[] = process.argv.slice(2)) {
+    return runCli(args)
 }
 
-// 测试 ESM 中的 CommonJS 变量（需要 shims 支持）
-console.log('__dirname:', typeof __dirname !== 'undefined' ? __dirname : 'not defined')
-console.log('__filename:', typeof __filename !== 'undefined' ? __filename : 'not defined')
+function isExecutedAsEntryPoint(): boolean {
+    const entry = process.argv[1]
 
-// 测试 ESM 中的 require（Node.js 平台自动注入）
-try {
-    const os = require && require('os')
-    console.log('require("os"):', !!os)
-} catch (e) {
-    console.log('require is not available:', e)
+    if (!entry) {
+        return false
+    }
+
+    return import.meta.url === pathToFileURL(entry).href
 }
 
-// 测试 CommonJS 中的 ESM 变量（始终可用）
-console.log('import.meta.url:', import.meta.url || 'not defined')
-console.log('import.meta.dirname:', import.meta.dirname || 'not defined')
-console.log('import.meta.filename:', import.meta.filename || 'not defined')
+if (isExecutedAsEntryPoint()) {
+    void main()
+}

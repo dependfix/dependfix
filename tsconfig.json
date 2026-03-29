@@ -17,6 +17,9 @@
         "resolveJsonModule": true,
         "moduleResolution": "bundler",
         "esModuleInterop": true,
+        "types": [
+            "node"
+        ],
         "paths": {
             "@/*": [
                 "./src/*"

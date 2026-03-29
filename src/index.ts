@@ -1,5 +1,6 @@
 import { pathToFileURL } from 'node:url'
 import { runCli } from './cli'
+import { toAppError } from './core'
 
 export * from './app'
 export * from './cli'
@@ -31,5 +32,11 @@ function isExecutedAsEntryPoint(): boolean {
 }
 
 if (isExecutedAsEntryPoint()) {
-    void main()
+    try {
+        main()
+    } catch (error) {
+        const appError = toAppError(error, 'CLI_EXECUTION_FAILED')
+        console.error(appError.message)
+        process.exitCode = 1
+    }
 }

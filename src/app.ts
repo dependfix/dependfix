@@ -1,4 +1,4 @@
-import { createConfigLayerDescriptor } from './config'
+import { createConfigLayerDescriptor, type RuntimeConfig } from './config'
 import { createLogger, type Logger } from './core'
 import { createDependencyFixerDescriptor } from './fixers/dependency'
 import { createCodeScanningFixerDescriptor } from './fixers/code-scanning'
@@ -20,11 +20,15 @@ export interface ApplicationSkeleton {
     }
 }
 
-export function createApplicationSkeleton(): ApplicationSkeleton {
+export interface CreateApplicationSkeletonOptions {
+    config: RuntimeConfig
+}
+
+export function createApplicationSkeleton(options: CreateApplicationSkeletonOptions): ApplicationSkeleton {
     return {
         logger: createLogger({ name: 'auto-fix-github-security' }),
         modules: {
-            config: createConfigLayerDescriptor(),
+            config: createConfigLayerDescriptor(options.config),
             github: createGitHubClientDescriptor(),
             fixers: [
                 createDependencyFixerDescriptor(),

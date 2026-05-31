@@ -26,6 +26,9 @@
 - 按问题级别过滤待处理问题。
 - 自动执行可控修复。
 - 自动修复 `pnpm i --frozen-lockfile` 类错误。
+- **自动处理 Dependabot 版本更新后的不兼容问题（breaking changes），通过 AI 研判提供修复方案，通过 Pull Request 提交，默认不自动合并。**
+- **支持作为 GitHub Action 引入（开源项目），用户可自定义 AI API Token，具备 Prompt 注入防护。**
+- **支持作为独立平台部署（闭源项目），提供权限控制、任务队列和批量处理能力。**
 - 支持手动指定或自动发现要处理的仓库列表。
 - 输出可归档、可审计的执行报告。
 
@@ -41,15 +44,19 @@
 4. 支持按严重级别、生态、仓库范围、规则类型进行过滤。
 5. 对依赖升级类问题优先执行自动修复，并补充最小验证。
 6. 对 `pnpm i --frozen-lockfile` 失败提供专门修复链路，提升自动化更新成功率。
-7. 支持本地直接运行和 GitHub Actions 定时/手动运行两种执行方式。
-8. 支持输出 Markdown/JSON 双格式报告，便于人读与机器消费。
+7. **对 Dependabot 版本更新后的不兼容问题（breaking changes），通过 AI 研判自动提供修复方案（代码改动 / 版本锁定 / 其他）。**
+8. 支持本地直接运行和 GitHub Actions 定时/手动运行两种执行方式。
+9. **在 GitHub Action 模式下，支持用户自定义 AI API Token，内置 Prompt 注入防护。**
+10. **支持作为独立平台部署，提供 Git 仓库联动、权限控制、任务队列、批量处理能力。**
+11. 支持输出 Markdown/JSON 双格式报告，便于人读与机器消费。
 
 ### 4.2 非目标
 
 1. 不承诺自动修复所有 Code Scanning 问题。复杂业务逻辑缺陷仅做分类、定位和建议。
-2. 不直接替代 Dependabot 原生升级 PR，而是作为“告警聚合 + 修复编排层”增强其能力。
+2. 不直接替代 Dependabot 原生升级 PR，而是作为"告警聚合 + 修复编排层"增强其能力。
 3. 不把高风险破坏性升级默认自动合并。默认只自动提交修复分支或 PR。
 4. 不在首期支持所有语言生态。首期优先 Node.js / pnpm 仓库。
+5. AI 生成的代码修复不保证 100% 正确，每个修复 PR 都需要人类审核。
 
 ## 5. 关键约束
 
@@ -550,9 +557,9 @@ docs/
 - 支持可模板化问题自动修复。
 - 不可自动修复问题输出建议。
 
-### Phase 4: 策略增强
+### Phase 4: 策略增强 + Breaking Change 研判
 
-目标：增强多仓库治理能力与风险控制。
+目标：增强多仓库治理能力，引入 AI 研判处理依赖升级不兼容问题。
 
 范围：
 
@@ -560,10 +567,215 @@ docs/
 - 仓库白名单 / 黑名单。
 - 更细粒度的升级策略。
 - 报告归档与趋势统计。
+- **AI 驱动的 breaking change 分析：读取 changelog，研判兼容性问题。**
+- **生成修复方案（代码改动 / 版本锁定 / 其他）。**
+- **创建修复 PR，默认不自动合并。**
 
-## 20. 验收标准
+### Phase 5: GitHub Action 增强 + 平台化
 
-满足以下条件，可认为方案进入“可实施”状态：
+目标：完善 GitHub Action 集成体验，实现独立平台部署能力。
+
+范围：
+
+- **用户自定义 AI API Token 支持。**
+- **Prompt 注入防护机制。**
+- **独立平台 Web UI 与 REST API。**
+- **Git 仓库管理与 OAuth 连接。**
+- **任务队列与并发控制。**
+- **RBAC 权限管理。**
+- **批量多项目处理。**
+- **Docker Compose / Helm Chart 部署支持。**
+
+## 20. AI 驱动的 Breaking Change 研判
+
+### 20.1 问题背景
+
+Dependabot/Renovate 等工具仅做版本号升级，当依赖升级涉及 breaking changes 时：
+- 升级后的包 API 签名变更导致编译/类型检查失败
+- 行为变更导致运行时错误
+- 上游包废弃某些功能或配置项
+
+本项目引入 AI 研判能力，在依赖升级后自动分析兼容性问题，提供修复方案。
+
+### 20.2 工作流程
+
+```
+依赖升级 PR → CI 失败检测 → AI 分析 changelog/migration guide
+    → 研判结果分类:
+        ├── 代码改动（生成修复 patch）
+        ├── 锁定版本（生成版本锁定建议 + 说明）
+        ├── 等待上游修复（记录原因）
+        └── 需要人工介入（输出分析摘要）
+    → 创建修复 PR（默认不自动合并）
+```
+
+### 20.3 AI 研判输入
+
+- 依赖包的 changelog / release notes
+- 升级前后的版本号差异
+- CI 失败日志（lint、typecheck、build、test）
+- 项目中受影响的代码文件及行号
+- 依赖包的 migration guide（如有）
+
+### 20.4 输出
+
+- 问题分类与严重程度
+- 修复方案建议（代码改动 / 版本锁定 / 其他）
+- 若为代码改动，生成具体 patch diff
+- 若为锁定版本，生成版本锁定配置与说明
+- 置信度评级
+
+---
+
+## 21. GitHub Action 集成（开源项目）
+
+### 21.1 设计目标
+
+使开源项目可以通过一行 workflow 引用，一键引入本项目的自动修复能力。
+
+```yaml
+# .github/workflows/auto-fix.yml
+name: Auto Fix Security & Dependencies
+on:
+  schedule:
+    - cron: '0 8 * * 1'  # 每周一
+  workflow_dispatch:
+jobs:
+  auto-fix:
+    uses: auto-fix-github-security/.github/workflows/security-auto-fix.yml@main
+    with:
+      severity_threshold: high
+      create_pr: true
+    secrets:
+      AI_API_TOKEN: ${{ secrets.AI_API_TOKEN }}
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+```
+
+### 21.2 用户自定义 AI API Token
+
+- 用户提供自己的 AI API Token（支持 OpenAI、Anthropic、DeepSeek 等兼容 API）
+- AI 调用完全走用户自己的账户，数据不经过项目维护方
+- Token 通过 GitHub Secrets 传入，不在日志中输出
+
+### 21.3 Prompt 注入防护
+
+为防止恶意用户在 Issue/PR 标题或内容中注入指令，采取以下措施：
+
+1. **触发权限限制**：只有仓库管理员（admin）可触发 AI 分析流程
+   - `workflow_dispatch` 需要 write 以上权限
+   - 不接受来自 Issue comment 或 PR comment 的触发命令
+   - schedule 触发不依赖外部输入
+
+2. **输入沙箱化**：
+   - AI 分析输入仅包含：changelog 原文、CI 失败日志、受影响的文件 diff
+   - 不接受自由文本输入
+   - 对 changelog 内容做结构性校验（过滤 HTML/JS/Shell 注入标记）
+
+3. **指令隔离**：
+   - AI 的系统提示词硬编码，不接受用户自定义
+   - 外部内容（changelog 等）作为 data 字段传入，与系统指令严格分离
+   - 使用 OpenAI/Anthropic API 的 system/user 角色分离策略
+
+4. **输出约束**：
+   - AI 输出需通过 schema 校验（结构化 JSON），不接受自由格式输出
+   - 生成的代码 patch 需经过 lint/typecheck 等质量门验证
+
+---
+
+## 22. 独立平台部署（闭源项目）
+
+### 22.1 设计目标
+
+对于无法将源码/Token 暴露到外部 GitHub Action 的闭源项目，提供独立部署的平台方案。
+
+### 22.2 架构概览
+
+```
+┌──────────────────────────────────────────────┐
+│              Auto-Fix Platform                 │
+│  ┌──────────┐  ┌──────────┐  ┌───────────┐   │
+│  │ Web UI   │  │ REST API │  │ CLI Tool  │   │
+│  └────┬─────┘  └────┬─────┘  └─────┬─────┘   │
+│       └──────────────┼──────────────┘          │
+│              ┌───────┴───────┐                 │
+│              │  Auth & RBAC  │                 │
+│              └───────┬───────┘                 │
+│  ┌───────────────────┼────────────────────┐    │
+│  │  ┌────────┐  ┌────┴────┐  ┌────────┐  │    │
+│  │  │ Git    │  │  Task   │  │ Report │  │    │
+│  │  │ Repo   │  │  Queue  │  │ Engine │  │    │
+│  │  │ Mgr    │  │  (MQ)   │  │        │  │    │
+│  │  └────────┘  └────┬────┘  └────────┘  │    │
+│  │  ┌────────────────┴────────────────┐   │    │
+│  │  │      Fix Execution Engine       │   │    │
+│  │  │  (Dependency + Code + AI Fix)   │   │    │
+│  │  └─────────────────────────────────┘   │    │
+│  └─────────────────────────────────────────┘   │
+└──────────────────────────────────────────────┘
+```
+
+### 22.3 核心模块
+
+#### Git 仓库管理
+- 支持连接 GitHub / GitLab / Bitbucket 仓库
+- 支持 Personal Access Token / OAuth App 认证
+- 仓库级别配置（包管理器、忽略列表、自定义验证命令）
+
+#### 任务队列
+- 使用消息队列（如 BullMQ + Redis）管理修复任务
+- 并发控制：每个仓库同一时间最多一个修复任务在执行
+- 优先级队列：security alerts > dependency updates > routine checks
+- 任务去重：同一仓库的重复提交在队列中合并
+- 失败重试策略：指数退避，最大重试次数可配
+
+#### 权限控制 (RBAC)
+- 角色：Admin、Org Admin、Repo Admin、Viewer
+- Admin：全局配置、用户管理、计费
+- Org Admin：管理组织下所有仓库
+- Repo Admin：管理特定仓库的修复策略
+- Viewer：只读查看报告
+
+#### 批量处理
+- 支持按组织/团队/标签批量选择仓库
+- 批量修复任务合并为一次调度
+- 结果聚合报告（跨仓库统计）
+
+### 22.4 部署方式
+
+- Docker Compose 单机部署（适合小团队）
+- Kubernetes 集群部署（适合企业）
+- 提供 Helm Chart
+
+---
+
+## 23. 竞品分析
+
+详细竞品调研报告见 [docs/competitive-research.md](competitive-research.md)。
+
+调研覆盖了以下维度：
+- **开源工具**：Renovate（21.7k stars）、Dependabot Core（5.6k stars）、Hypermod、autofix.ci、Sweep.dev
+- **商业化产品**：Snyk、Mend.io、Pixee、Aikido、RepoWarden、Endor Labs
+- **GitHub Actions**：AI Security Check for PR、Dependency Review、Dependencies Autoupdate
+
+核心发现：**市场上没有同时具备「安全告警聚合 + 依赖更新 Breaking Change 修复 + 开源/闭源双模式部署」的产品**。
+
+---
+
+## 23.1 成本估算
+
+详细成本分析见 [docs/cost-estimate.md](cost-estimate.md)。
+
+关键结论：
+- **开源项目**：GitHub Actions 免费 + DeepSeek API，月成本 **不到 $0.03**
+- **最小自部署**（Hetzner + DeepSeek）：年成本 **~$55**
+- **企业自部署**（高可用）：年成本 **~$840**
+- 对比 Snyk Ignite 50 人团队年费 ~$63,000，本项目成本仅为 **1.3%**
+
+---
+
+## 24. 验收标准
+
+满足以下条件，可认为方案进入"可实施"状态：
 
 1. 能在单仓库范围内成功拉取 Dependabot alerts。
 2. 能按严重级别过滤告警。
@@ -575,10 +787,15 @@ docs/
 8. 能支持自动发现一批目标仓库。
 9. 对 Code Scanning alerts 至少能拉取、过滤、报告，即使首期不能全部自动修复。
 10. 全流程对失败仓库具备隔离能力，不因单仓库失败中断整体任务。
+11. **GitHub Action 模式支持用户自定义 AI API Token。**
+12. **具备 Prompt 注入防护机制，非管理员无法触发 AI 分析。**
+13. **AI 能对依赖升级后的 breaking change 做出研判并输出分类建议。**
+14. **独立平台模式下支持任务队列和并发控制。**
+15. **独立平台模式下支持 RBAC 权限管理。**
 
-## 21. 主要风险与应对
+## 25. 主要风险与应对
 
-### 21.1 自动修复误伤业务
+### 25.1 自动修复误伤业务
 
 应对：
 
@@ -586,7 +803,7 @@ docs/
 - 默认限制 major 升级。
 - 强制最小验证。
 
-### 21.2 GitHub API 限流
+### 25.2 GitHub API 限流
 
 应对：
 
@@ -594,7 +811,7 @@ docs/
 - 并发控制。
 - 报告中记录被限流情况。
 
-### 21.3 lockfile 修复不稳定
+### 25.3 lockfile 修复不稳定
 
 应对：
 
@@ -602,15 +819,41 @@ docs/
 - 保存安装日志与 lockfile diff 摘要。
 - 将认证问题与依赖冲突问题分开分类。
 
-### 21.4 Code Scanning 问题自动修复范围过大
+### 25.4 Code Scanning 问题自动修复范围过大
 
 应对：
 
 - 首期只开放白名单规则。
 - 未命中白名单的规则只做建议输出。
 
-## 22. 结论
+### 25.5 AI 研判误判风险
 
-该项目应被定义为“GitHub Security 告警自动修复编排器”，而不是单一脚本。首期最值得优先落地的能力，是 Node.js / pnpm 仓库中的 Dependabot alerts 自动修复、`pnpm i --frozen-lockfile` 自动修复、严重级别过滤和报告输出。等基础链路稳定后，再逐步把 Code Scanning 的自动修复能力扩展进来。
+应对：
 
-这一路线能确保项目先解决最常见、最可自动化、最容易产生实际价值的问题，同时保留后续向组织级批量治理扩展的空间。
+- AI 生成的修复代码必须通过 lint/typecheck/build 质量门验证。
+- 修复 PR 默认不自动合并，必须经过人类 review。
+- AI 输出置信度低于阈值时，仅输出建议供人工参考。
+- 对生成代码的 patch 范围进行限制（如单次最多修改 5 个文件）。
+
+### 25.6 Prompt 注入攻击风险
+
+应对：
+
+- 严格限制 AI 分析的触发权限（仅管理员）。
+- AI 输入仅限结构化数据（changelog、CI 日志、diff），不接受自由文本。
+- 系统指令硬编码，与用户数据严格分离。
+- 对 changelog 等外部内容做结构性校验和清洗。
+
+### 25.7 平台模式下多租户安全
+
+应对：
+
+- 仓库间数据隔离（每个仓库独立工作目录和数据库）。
+- 用户 Token 加密存储。
+- 操作审计日志完整记录。
+
+## 26. 结论
+
+该项目应被定义为"GitHub Security 告警自动修复编排 + AI 研判平台"，而不是单一脚本。首期最值得优先落地的能力，是 Node.js / pnpm 仓库中的 Dependabot alerts 自动修复、`pnpm i --frozen-lockfile` 自动修复、严重级别过滤和报告输出。等基础链路稳定后，再逐步扩展 AI breaking change 研判、平台化部署和 Code Scanning 自动修复能力。
+
+最终演进方向：开源项目以 GitHub Action 方式快速接入，闭源项目以独立平台方式安全部署，形成安全告警 + 依赖升级的完整闭环。

@@ -1,5 +1,5 @@
 {
-  "name": "auto-fix-github-security",
+  "name": "dependfix",
   "version": "0.1.0",
   "description": "一个自动化修复 github security 告警的方案",
   "author": "CaoMeiYouRen",

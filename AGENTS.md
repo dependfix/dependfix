@@ -10,25 +10,51 @@
 
 ## 项目简介
 
-`auto-fix-github-security` 是一个用于自动化修复 GitHub Security 告警的方案仓库。
+`dependfix` 是一个自动化处理 Dependabot / Code Scanning 安全告警中那些简单、重复但数量庞大的修复工作的工具。
 
 当前项目的目标是围绕以下能力逐步落地实现：
 
-- 自动获取 Dependabot alerts。
-- 自动获取 Code Scanning alerts。
-- 按严重级别过滤并执行可控修复。
-- 自动处理 `pnpm i --frozen-lockfile` 类问题。
-- 支持本地直接运行和 GitHub Actions 运行。
-- 输出可归档、可审计的执行报告。
+- 自动获取 Dependabot alerts
+- 自动获取 Code Scanning alerts
+- 按严重级别过滤并执行可控修复
+- 自动处理 `pnpm i --frozen-lockfile` 类问题
+- AI 研判依赖升级 breaking change 并生成修复方案
+- 支持本地直接运行和 GitHub Actions 运行
+- 支持独立平台部署（闭源场景）
+- 输出可归档、可审计的执行报告
 
-当前仓库仍处于从 TypeScript 项目模板向实际业务实现演进的阶段，现有代码与文档已经明确了总体设计、实施计划和质量门要求。
+当前仓库处于从 TypeScript 项目模板向 Monorepo 演进的阶段。当前 src/ 为单包结构，后续将逐步迁移到 packages/ 多包架构。
 
 项目当前的已知基础事实包括：
 
-- 运行环境为 Node.js >= 20。
-- 包管理器以 pnpm 为主。
-- 仓库中已有基础 CI 工作流。
-- 后续实现将优先围绕 Node.js / pnpm 仓库的安全告警自动修复能力展开。
+- 运行环境为 Node.js >= 20
+- 包管理器以 pnpm 为主
+- 仓库中已有基础 CI 工作流
+- 后续实现将优先围绕 Node.js / pnpm 仓库的安全告警自动修复能力展开
+
+## 相关文档
+
+- 架构设计：[docs/design/architecture.md](docs/design/architecture.md)
+- 数据模型：[docs/design/data-model.md](docs/design/data-model.md)
+- 安全设计：[docs/design/security.md](docs/design/security.md)
+- 技术栈：[docs/guide/tech-stack.md](docs/guide/tech-stack.md)
+- 当前任务：[docs/plan/todo.md](docs/plan/todo.md)
+- 路线图：[docs/plan/roadmap.md](docs/plan/roadmap.md)
+- 竞品分析：[docs/research/competitive-research.md](docs/research/competitive-research.md)
+
+## AI 基建与规范复用
+
+本项目在 AI 协作规范、开发标准、文档约定等方面复用 [momei](https://github.com/CaoMeiYouRen/momei) 项目的成熟体系：
+
+| 来源 | 复用内容 |
+|------|----------|
+| `docs/standards/ai-collaboration.md` | PDTFC+ 工作流、搜索优先原则、验证矩阵 |
+| `docs/standards/development.md` | 命名规范、目录约束、模块分层 |
+| `docs/standards/documentation.md` | 文档层级、i18n 策略、行数阈值 |
+| `docs/standards/testing.md` | Vitest + Playwright、测试分级、覆盖率目标 |
+| `docs/standards/security.md` | 安全红线、密钥管理 |
+
+上述规范在实现时作为默认约定，本项目不再重复编写，直接引用 momei 对应文档。
 
 ## 必要检查
 
@@ -40,7 +66,7 @@
 2. 在变更被视为完成之前，`typecheck` 必须通过。
 3. 当变更可能影响打包、入口点、导出、生成产物、依赖解析、运行时启动或发布行为时，必须运行 `build`。
 4. 当变更影响可执行逻辑、行为、契约、解析、过滤、工作流逻辑或任何现有测试路径时，必须运行 `test`。
-5. 当完成一项 todo 任务时，应该更新相关的 todo 文档，并且如果该任务涉及代码变更，则必须满足上述检查要求。
+5. 当完成一项 todo 任务时，应该更新 [docs/plan/todo.md](docs/plan/todo.md)，并且如果该任务涉及代码变更，则必须满足上述检查要求。
 
 ### 检查选择
 

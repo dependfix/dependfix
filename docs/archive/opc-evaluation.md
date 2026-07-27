@@ -388,45 +388,94 @@ Tier 3: 企业定制用户 ($5,000-50,000/年)
 
 ---
 
-## 6. 风险与应对
+## 6. 风险与应对（对抗性审查后的修订版）
 
-| 风险 | 概率 | 影响 | 应对 |
-|------|:---:|:---:|------|
-| GitHub 在 Dependabot 中集成 Copilot 修复 | 中 | 高 | 差异化：支持多 AI 提供商、自部署平台模式 |
-| AI 修复质量不稳定 | 高 | 中 | PR 默认不自动合并、置信度低于阈值时仅建议、持续优化 prompt |
-| 开源社区不买账 | 低 | 中 | 先做 Dogfooding 验证价值、找种子用户内测 |
-| 用户不愿意配置 AI Token | 中 | 中 | 提供一键配置教程、推荐免费/便宜的 DeepSeek |
-| 竞品快速跟进 | 中 | 低 | 开源社区锁定 + 平台模式壁垒 |
+> 以下风险分析基于 2026-06-01 超级搜索对抗性审查。对比原版乐观评估，进行了大幅修正。
+
+### 6.1 高优先级风险
+
+| # | 风险 | 概率 | 影响 | 原版评级 | 修订后 | 依据 |
+|---|------|:---:|:---:|:---:|:---:|------|
+| R1 | **AI 生成的修复代码引入新漏洞** | 🔴 高 | 🔴 高 | 🟡 中 | 🔴 高 | 学术研究：40-45% AI 代码含安全缺陷 [1][2] |
+| R2 | **Devin/Cognition AI 等巨头直接竞争** | 🔴 高 | 🔴 高 | 🟡 中 | 🔴 高 | Devin $73M ARR，Goldman Sachs 采用 [3] |
+| R3 | **开源免费用户变现率极低** | 🔴 高 | 🟡 中 | 🟢 低 | 🔴 高 | 开源工具 免费→付费 转化率通常 <2% [4] |
+| R4 | **AI 修复方案仅 20-30% 无需人工修改** | 🔴 高 | 🟡 中 | 🟡 中 | 🔴 高 | Devin PR merge 率参考：仅 20-30% 直接合并 [5] |
+| R5 | **GitHub/Dependabot 团队可能集成 Copilot 修复** | 🟡 中 | 🔴 高 | 🟡 中 | 🔴 高 | GitHub 已在 Copilot 上大力投入 |
+
+### 6.2 中优先级风险
+
+| # | 风险 | 概率 | 影响 | 说明 |
+|---|------|:---:|:---:|------|
+| R6 | **GitHub Actions Marketplace 发现难度高** | 🟡 中 | 🟡 中 | 已有 16,730+ Actions，新工具难以被发现 [6] |
+| R7 | **用户不愿配置 AI Token（安全顾虑）** | 🟡 中 | 🟡 中 | 让用户自行管理 API key 增加 friction |
+| R8 | **Prompt 注入攻击突破防御** | 🟡 中 | 🔴 高 | changelog 内容可能被恶意构造 [7] |
+| R9 | **依赖的 AI API 涨价或政策变更** | 🟡 中 | 🟡 中 | AI 价格战可能结束，低成本 API 可能消失 |
+| R10 | **开源社区对"商业化的开源项目"天然抵触** | 🟡 中 | 🟡 中 | Elastic/MongoDB 换 license 引发社区抵制 [8] |
+| R11 | **"Confident Hallucination" 导致隐蔽 Bug** | 🔴 高 | 🔴 高 | AI 生成代码"看起来对但实际错"，比明错误更危险 [5] |
+
+### 6.3 依赖验证的关键假设（修订评估）
+
+| # | 假设 | 原版乐观评价 | 对抗性审查修正 | 新风险等级 |
+|---|------|:---:|------|:---:|
+| H1 | 用户愿意让 AI 自动修复 Dependabot PR | "开源用户大概率愿意" | Devin 用户也需要大量 review 开销（"保姆税"10-20 分钟/任务） | 🔴 |
+| H2 | Merge 率 ≥ 40% | "可通过 prompt 优化达到" | Devin 经过 18 个月迭代才从 34% → 67%；独立工具起点可能在 20-30% | 🔴 |
+| H3 | 配置 AI Token 的 friction 可接受 | "提供教程即可解决" | 需要信用卡注册 API + 管理 key + 担心超支，实际 drop-off 率可能 50%+ | 🟡 |
+| H4 | 有人愿意为自部署付费 | "开源→付费经典路径" | 开源工具免费→付费转化率 <2%，且需要企业级功能才有人买单 | 🔴 |
+| H5 | GitHub Action 能有效传播 | "生态成熟" | 16,730+ Actions 竞争激烈，新 Action 发现难度高 | 🟡 |
 
 ---
 
-## 7. 结论与行动建议
+## 7. 对抗性审查后的修正结论
 
-### 7.1 一人企业适配度评估
+### 7.1 适配度评分修订
 
-| 维度 | 评分 | 说明 |
-|------|:---:|------|
-| 杠杆密度 | ⭐⭐⭐⭐⭐ | 代码 + AI 双重杠杆，边际成本趋零 |
-| 边界变动窗口 | ⭐⭐⭐⭐⭐ | LLM 突破 + 现有玩家价值网络冲突，窗口正在打开 |
-| 资源匹配度 | ⭐⭐⭐⭐⭐ | 技术栈、领域认知、开源经验完全匹配 |
-| 现金流潜力 | ⭐⭐⭐ | 需要先建用户基础，收入在第 2 年才会显著 |
-| **总体适配度** | ⭐⭐⭐⭐⭐ | **非常适合一人企业模式** |
+| 维度 | 原版 | 修订后 | 修正理由 |
+|------|:---:|:---:|------|
+| 杠杆密度 | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ | 不受影响，代码+AI 杠杆依然成立 |
+| **边界变动窗口** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐ | Devin 已在同一赛道，窗口不如预期宽 |
+| 资源匹配度 | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ | 不受影响 |
+| **现金流潜力** | ⭐⭐⭐ | ⭐⭐ | 开源变现比预期更困难，收入时间线显著拉长 |
+| **总体适配度** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐ | 一人企业仍可行，但需要降低预期、拉长时间线 |
 
-### 7.2 立即行动（未来 2 周）
+### 7.2 关键发现（对抗性审查后）
+
+1. **Devin 是真实威胁，但也是验证信号。** Cognition AI 已证明"AI 自动修复安全漏洞"有真实市场需求（Goldman Sachs、Santander 付费使用）。但 Devin 是通用 AI 工程师，**不聚焦**于"Dependabot CI 失败后自动修复"这个细分场景。
+
+2. **AI 修复质量是最大的产品风险。** 40-45% 的 AI 生成代码含安全缺陷，这意味着项目的核心价值主张（AI 帮你修代码）本身就存在结构性风险。必须将"AI 修复 → 人类 review → 合并"的流程设计为**不可跳过的安全阀**。
+
+3. **开源变现期望需要显著下调。** 原版预计第 1 年 $1,000-$10,000 收入过于乐观。保守估计：第 1 年 $0-$500，第 2 年才可能出现第一位付费用户。不应基于收入预期来做 MVP 决策。
+
+4. **定位需要更加聚焦。** 不是"自动修复所有依赖问题"，而是"Dependabot CI 失败后的第一响应 + 诊断 + 建议"，降低 AI 直接修代码的承诺，增加"帮人类快速理解问题"的价值。
+
+### 7.3 修正后的立即行动
 
 1. ✅ 竞品调研、成本估算、设计文档已完成
-2. 🔜 完成核心引擎开发（Dependabot alert 拉取 + CI 状态检测 + AI 研判 + PR 创建）
-3. 🔜 在自己的 2-3 个开源仓库中 Dogfooding
-4. 🔜 完成 GitHub Action 封装（用户可一行 YAML 接入）
-5. 🔜 向 10-20 个开源维护者发送内测邀请
+2. 🔜 完成核心引擎（降低 scope：先做 AI 诊断 + 建议，再做修复）
+3. 🔜 Dogfooding 在自己仓库，**统计真实 merge 率和 AI 错误率**
+4. 🔜 **在 GitHub Issues 中搜索"dependabot CI failed"相关讨论，验证需求真实性**
+5. 🔜 与 10-20 个开源维护者做**问题访谈**（不是产品 demo），了解当前 workflow
 
-### 7.3 不要做的事
+### 7.4 修正后的"不要做"
 
-- ❌ 不要一开始就做 Web UI 平台（先验证假设 H1-H3）
-- ❌ 不要在首期支持 Code Scanning（分散精力）
-- ❌ 不要投入广告/付费推广（开源传播是唯一正道）
-- ❌ 不要在验证 AI 修复质量前设计付费方案
+- ❌ 不要一开始就做自动修复（先做诊断 + 建议）
+- ❌ 不要在首期做 Web UI 平台
+- ❌ 不要基于乐观收入预期做决策
+- ❌ **不要在验证 AI 修复低错误率（<10%）之前公开宣传"自动修复"**
 
 ---
 
-> **一句话定位**：自动修复 Dependabot 依赖升级后 CI 失败的开源 AI 工具——像 Dependabot 一样简单接入，但它会帮你修代码。
+## 8. 参考来源
+
+| # | 来源 | URL |
+|---|------|-----|
+| 1 | Endor Labs: AI-Generated Code Security Flaws (40%+) | https://www.endorlabs.com/learn/the-most-common-security-vulnerabilities-in-ai-generated-code |
+| 2 | arXiv: LLM Code Security Study (30-50%) | https://arxiv.org/html/2508.14727v1 |
+| 3 | Cognition AI: Devin 2025 Performance Review | https://cognition.ai/blog/devin-annual-performance-review-2025 |
+| 4 | Reo.dev: Open Source Monetization (7 Models) | https://www.reo.dev/blog/monetize-open-source-software |
+| 5 | SitePoint: Devin Aftermath - AI Engineers in Production | https://www.sitepoint.com/devin-ai-engineers-production-realities/ |
+| 6 | ACM: Developers' Perception of GitHub Actions | https://dl.acm.org/doi/fullHtml/10.1145/3593434.3593475 |
+| 7 | Knostic: AI Coding Agent Security | https://www.knostic.ai/blog/ai-coding-agent-security |
+| 8 | Reo.dev: OSS Monetization Backlash Cases (MongoDB, Elastic) | https://www.reo.dev/blog/monetize-open-source-software |
+| 9 | The Register: Devin is Bad at Its Job | https://www.theregister.com/software/2025/01/23/first-ai-software-engineer-is-bad-at-its-job/ |
+| 10 | Devin Pricing | https://devin.ai/pricing/ |
+| 11 | AugmentCode: 6 Devin Alternatives | https://www.augmentcode.com/tools/best-devin-alternatives |

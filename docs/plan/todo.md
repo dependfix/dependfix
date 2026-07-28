@@ -1,165 +1,280 @@
-# 当前阶段任务（M0-M1）
+# 当前阶段任务（M1）
 
-> 当前聚焦 M0（基线收敛）和 M1（MVP 单仓库修复）。
+> M0（基线收敛）已完成，任务归档见 [todo-archive.md](todo-archive.md)。
 > M2 及之后阶段的任务见 [backlog.md](backlog.md)。
-
-## M0: 基线收敛
-
-目标：把项目从模板状态收敛到可承载自动化方案的基础形态。
-
-### T001 建立 Monorepo 项目骨架
-
-- 状态：`已完成`
-- 交付物：Monorepo 目录结构与最小入口代码
-- [x] packages/core：核心域层（错误、日志、告警模型、过滤器、规划器、报告、工具链、通用工具）
-- [x] packages/cli：CLI 入口、配置层、GitHub 集成层、修复器目录、执行器
-- [x] pnpm workspace 配置，pnpm-workspace.yaml 迁移 overrides
-- [x] `@dependfix/core` 可独立构建（ESM + CJS + dts）
-- [x] `dependfix` CLI 包依赖 `@dependfix/core: workspace:*`，可独立构建
-- [x] `pnpm build` / `pnpm typecheck` / `pnpm test` 全部通过
-
-### T002 定义核心配置模型
-
-- 状态：`已完成`
-- 交付物：配置类型、默认配置、环境变量读取逻辑
-- [x] 定义运行模式、严重级别阈值、仓库列表、dry-run 等配置项
-- [x] 支持环境变量与 CLI 参数合并
-- [x] 缺失关键配置时能输出可读错误
-
-### T003 固定工具链策略
-
-- 状态：`已完成`
-- 依赖：T001
-- 交付物：ToolchainInfo / ToolchainRecord 类型定义与版本解析逻辑
-- [x] 定义运行时 Node 与 pnpm 版本来源优先级（packageManager → 环境变量 → config → runtime）
-- [x] 在 `@dependfix/core` 中实现 `resolveToolchainVersions()` 和 `createDefaultToolchain()`
-- [x] 设计 lockfile 修复前后的工具链记录字段（ToolchainRecord.before/after）
-
-### T004 定义标准告警模型
-
-- 状态：`已完成`
-- 依赖：T001
-- 交付物：NormalizedSecurityAlert 类型、严重级别映射、FixStrategy 枚举
-- [x] 定义 Dependabot 与 Code Scanning 的共同字段（NormalizedSecurityAlert 接口）
-- [x] 定义严重级别映射（SEVERITY_MAP + mapCodeScanningSeverity）
-- [x] 定义 fixable、fixStrategy、recommendedVersion 等扩展字段
-- [x] 保留 AlertReference 作为向后兼容的简化类型
 
 ---
 
 ## M1: MVP 单仓库自动修复
 
-目标：跑通单仓库、Node.js / pnpm 生态下的 Dependabot 告警拉取、过滤、修复、验证和报告。
+**目标**: 跑通单仓库、Node.js / pnpm 生态下的 Dependabot 告警拉取 → 过滤 → 修复 → 验证 → 报告的全链路闭环。
 
-> **平台化前瞻**：M1 实现时，建议将核心编排逻辑与 CLI 入口保持松耦合。避免在 `runCli()` 中直接硬编码 `process.env` / `console.log`，为后续 M5 的 T505 解耦重构减少工作量。
+**平台化前瞻**: M1 实现时将核心编排逻辑与 CLI 入口保持松耦合。避免在 `runCli()` 中直接硬编码 `process.env` / `console.log`，为后续 M6 平台解耦减少工作量。
+
+### 建议执行顺序
+
+```
+T102（GitHub 客户端）→ T103（告警拉取）
+                                    ↘
+T101（仓库选择）                        T104（过滤引擎）→ T105（依赖修复）→ T106（lockfile 修复）→ T107（验证执行）
+                                    ↗
+T901（样例数据，与实现并行）           → T108（报告生成）→ T109（CLI 入口串联）
+```
+
+---
 
 ### T101 实现仓库选择能力
 
-- 优先级：`P0`
-- 依赖：T002
-- [ ] 支持 CLI 传入单个仓库
-- [ ] 支持逗号分隔或文件形式传入多个仓库
-- [ ] 对非法仓库标识进行校验
+- **优先级**: P0
+- **依赖**: T002
+- **状态**: 未开始
+- **实现文件**: `packages/cli/src/github/repo-selector.ts`
+
+**验收标准**:
+
+- [ ] 支持 CLI `--repo owner/repo` 传入单个仓库（已有基础校验）
+- [ ] 支持 `--repo` 逗号分隔多仓库：`--repo a/b,c/d`
+- [ ] 支持 `--repos-file path/to/repos.txt` 从文件读取（每行一个 `owner/repo`）
+- [ ] 非法标识（无 `/`、空格、多 `/`）在解析阶段报错，给出明确格式提示
+- [ ] 返回去重后的仓库列表
+
+**非目标**: 不实现 owner 级自动发现（M4 T401）
+
+---
 
 ### T102 实现 GitHub 客户端封装
 
-- 优先级：`P0`
-- 依赖：T002, T004
-- [ ] 封装认证初始化
-- [ ] 封装仓库基础信息读取
-- [ ] 封装安全告警查询接口
+- **优先级**: P0
+- **依赖**: T002, T004
+- **状态**: 未开始
+- **前置条件**: ⚠️ **先出设计稿** [GitHub 客户端接口设计](../design/)
+
+**设计稿应明确**:
+- 认证初始化方式（PAT 令牌、过期处理）
+- API 调用接口签名（输入/输出类型、错误模型）
+- 分页与限流策略
+- Mock 层设计（用于本地开发与测试）
+- 需要调用的 GitHub REST API 端点清单
+
+**实现文件**:
+- `packages/cli/src/github/client.ts`（HTTP 客户端封装）
+- `packages/cli/src/github/types.ts`（GitHub API 响应类型）
+
+**验收标准**:
+
+- [ ] `GitHubClient` 类：`new GitHubClient({ token })` 初始化
+- [ ] `client.repos.get({ owner, repo })` 返回仓库基本信息
+- [ ] `client.security.advisories({ owner, repo })` 查询安全告警（分页、状态过滤）
+- [ ] 请求失败时抛 `AppError`，包含 HTTP 状态码和 API 错误信息
+- [ ] 单元测试覆盖正常/认证失败/限流/网络错误四种场景
+
+---
 
 ### T103 接入 Dependabot Alerts 拉取
 
-- 优先级：`P0`
-- 依赖：T102, T004
-- [ ] 拉取 open 状态告警
-- [ ] 解析受影响包、版本建议、生态类型
-- [ ] 转换为标准告警模型
+- **优先级**: P0
+- **依赖**: T102, T004
+- **状态**: 未开始
+- **前置条件**: ⚠️ **先出设计稿** [Dependabot 告警采集设计](../design/)
+
+**设计稿应明确**:
+- 调用的 GitHub API 端点（Dependabot alerts REST API）
+- 增量拉取策略（全量 vs 增量，如何标记已处理）
+- 与 T102 GitHub 客户端的接口约定
+- 异常场景处理（权限不足、仓库无告警、API 不可用）
+
+**实现文件**: `packages/cli/src/github/dependabot-fetcher.ts`
+
+**验收标准**:
+
+- [ ] `fetchDependabotAlerts(client, { owner, repo, state: 'open' })` 返回 `NormalizedSecurityAlert[]`
+- [ ] 正确映射：`dependabot severity` → `Severity`、`package_name` → `packageName`、`vulnerable_version_range` → 解析范围
+- [ ] 建议版本从 `security_advisory` / `security_vulnerability.first_patched_version` 提取
+- [ ] 状态过滤：只拉 `state === 'open'` 的告警
+- [ ] 分页自动处理：单页最多 100 条，自动翻页合并结果
+- [ ] 异常处理：权限不足 → `PERMISSION_DENIED`、API 不可用 → `GITHUB_API_ERROR`、仓库不存在 → `REPO_NOT_FOUND`
+- [ ] 集成测试：用样例数据 mock GitHub API 响应，验证映射正确性
+
+**非目标**: 不拉 Code Scanning 告警（M3 T301）
+
+---
 
 ### T104 实现告警过滤与优先级引擎
 
-- 优先级：`P0`
-- 依赖：T103
-- [ ] 支持 critical/high/medium/all 阈值过滤
-- [ ] 支持 fixable 优先
-- [ ] 支持每仓库最大处理数限制
+- **优先级**: P0
+- **依赖**: T103
+- **状态**: 未开始
+- **实现文件**: `packages/core/src/filters/alert-filter.ts`
+
+**验收标准**:
+
+- [ ] `filterAlerts(alerts, { severityThreshold: 'high' })` 过滤严重级别
+  - `>= critical`：只留 critical
+  - `>= high`：留 critical + high
+  - `>= medium`：留 critical + high + medium
+  - `all`：全保留
+- [ ] `prioritizeAlerts(alerts)` 排序：`fixable` 优先 → 严重级别降序 → 包名字母序
+- [ ] `limitAlerts(alerts, maxPerRepo: 20)` 截断，超限时记录 warning 日志
+- [ ] 返回值包含 `filtered`（过滤后列表）和 `skipped`（被跳过列表及原因）
+- [ ] 纯函数、无副作用、单元测试覆盖所有阈值组合
+
+---
 
 ### T105 实现依赖升级修复器
 
-- 优先级：`P0`
-- 依赖：T103, T104, T003
-- [ ] 支持按包名和建议版本执行升级
-- [ ] 支持更新 package.json 与 pnpm-lock.yaml
-- [ ] 为升级动作记录变更摘要
+- **优先级**: P0
+- **依赖**: T003, T104
+- **状态**: 未开始
+- **前置条件**: ⚠️ **先出设计稿** [依赖升级修复设计](../design/)
+
+**设计稿应明确**:
+- 升级策略：`pnpm update <pkg>@<version>` vs 直接修改 `package.json` + `pnpm install`
+- 回滚策略：升级失败后如何恢复到升级前状态
+- 变更摘要格式：哪些包、从哪个版本到哪个版本、是否为 major 升级
+- 增量修复 vs 批量修复的决策逻辑
+
+**实现文件**: `packages/cli/src/fixers/dependency/index.ts`
+
+**验收标准**:
+
+- [ ] `upgradeDependency({ packageName, targetVersion, workDir })` 执行单包升级
+- [ ] 升级后 `package.json` 和 `pnpm-lock.yaml` 已更新
+- [ ] 返回 `DependencyFixResult { packageName, fromVersion, toVersion, isMajor, success }`
+- [ ] 升级失败时恢复 `package.json` 和 lockfile（备份 → 升级 → 失败则还原）
+- [ ] 集成测试：在临时目录创建最小 `package.json` + `pnpm-lock.yaml`，执行升级后校验文件内容
+
+---
 
 ### T106 实现 pnpm frozen-lockfile 修复器
 
-- 优先级：`P0`
-- 依赖：T003, T105
-- [ ] 识别 lockfile 漂移类失败
-- [ ] 在固定 Node / pnpm 版本下执行 lockfile 修复
-- [ ] 对凭证、冲突、版本问题做失败分类
+- **优先级**: P0
+- **依赖**: T003, T105
+- **状态**: 未开始
+- **前置条件**: ⚠️ **先出设计稿** [lockfile 修复设计](../design/)
+
+**设计稿应明确**:
+- 漂移失败的识别逻辑（对比 `package.json` 声明的 pnpm 版本与 lockfile 中的版本）
+- 修复策略矩阵：`package.json` 与 lockfile 不一致 / pnpm 版本差异 / 间接依赖解析变化
+- 每种策略的命令序列与回滚方式
+- 失败分类模型（`CREDENTIAL_ERROR | VERSION_CONFLICT | RESOLVE_ERROR | UNKNOWN`）
+
+**实现文件**: `packages/cli/src/fixers/pnpm/index.ts`
+
+**验收标准**:
+
+- [ ] `repairLockfile({ workDir, toolchain })` 检测并修复 lockfile 漂移
+- [ ] 修复流程：固定 pnpm 版本 → `pnpm install --lockfile-only` → `pnpm install --frozen-lockfile` 验证
+- [ ] 记录 lockfile diff 摘要（行数变化、包数量变化）
+- [ ] 返回 `LockfileRepairResult { success, failureCategory?, diff? }`
+- [ ] 集成测试覆盖：lockfile 缺失、版本不一致、间接依赖漂移三种场景
+
+---
 
 ### T107 实现最小验证执行器
 
-- 优先级：`P0`
-- 依赖：T105, T106
-- [ ] 默认支持 install、lint、build
-- [ ] 记录每一步执行耗时与结果
+- **优先级**: P0
+- **依赖**: T105, T106
+- **状态**: 未开始
+- **实现文件**: `packages/cli/src/runners/verification-runner.ts`
+
+**验收标准**:
+
+- [ ] `runVerification({ workDir, commands?: string[] })` 按顺序执行命令
+- [ ] 默认命令：`pnpm install --frozen-lockfile` → `pnpm lint` → `pnpm build`
+- [ ] 支持仓库级自定义命令（如 `pnpm test`）
+- [ ] 每个命令记录：命令文本、耗时（ms）、退出码、stdout/stderr 摘要（截断到 200 行）
+- [ ] 任一命令失败 → 停止后续命令、返回 `VerificationResult { success: false, failedCommand, failure }`
+- [ ] 日志中不泄漏 token / 密码
+
+**非目标**: 不实现 E2E 测试执行（M3 可模板化修复需要时再扩展）
+
+---
 
 ### T108 实现 Markdown / JSON 报告生成
 
-- 优先级：`P0`
-- 依赖：T103, T104, T105, T106, T107
-- [ ] 输出运行摘要
-- [ ] 输出按仓库与按告警的执行明细
-- [ ] 输出失败分类与未修复原因
+- **优先级**: P0
+- **依赖**: T103, T104, T105, T106, T107
+- **状态**: 未开始
+- **前置条件**: ⚠️ **先出设计稿** [报告生成设计](../design/)
+
+**设计稿应明确**:
+- Markdown 报告模板（各节标题、表格格式、示例）
+- JSON 报告 schema（与 `RunResult` 类型对齐）
+- 报告文件命名规范（`dependfix-report-{date}-{runId}.md` / `.json`）
+- 输出目录约定
+
+**实现文件**:
+- `packages/core/src/report/markdown-generator.ts`
+- `packages/core/src/report/json-generator.ts`
+
+**验收标准**:
+
+- [ ] `generateMarkdownReport(result: RunResult): string`
+  - 运行元信息：时间、模式、阈值、仓库数
+  - 汇总统计：扫描仓库数、命中告警数、已修复数、失败数、跳过数（表格）
+  - 按仓库明细：每个仓库的告警列表（表格）
+  - 按严重级别统计（表格）
+  - 失败原因分类（表格）
+  - 生成的修复链接（若有 PR）
+- [ ] `generateJsonReport(result: RunResult): string`
+  - 包含 `runId`、`startedAt`/`finishedAt`、`config`、`summary`、`repositories[]`、`alerts[]`、`actions[]`、`errors[]`
+  - JSON 格式合法、可被 `JSON.parse` 解析
+- [ ] 报告写入文件：`writeReport(mdContent, jsonContent, outputDir)`
+- [ ] 单元测试验证 Markdown 和 JSON 的结构正确性
+
+**非目标**: 不实现 HTML 报告、不发送邮件通知
+
+---
 
 ### T109 实现本地运行入口
 
-- 优先级：`P0`
-- 依赖：T101, T108
-- [ ] 支持 report-only
-- [ ] 支持 fix
-- [ ] 预留 fix-and-pr 模式参数
+- **优先级**: P0
+- **依赖**: T101, T108
+- **状态**: 未开始
+- **实现文件**: `packages/cli/src/app.ts`（改造）、`packages/cli/src/cli/main.ts`
+
+**验收标准**:
+
+- [ ] `dependfix report --repo owner/repo` → 拉取告警 + 生成报告（不执行修复）
+- [ ] `dependfix fix --repo owner/repo` → 拉取 + 过滤 + 修复 + 验证（不推送、不创建 PR）
+- [ ] `dependfix fix-and-pr --repo owner/repo` → 预留模式（M1 阶段只做参数校验，实际 PR 创建在 M2 实现）
+- [ ] `--dry-run` 标志：打印将执行的操作列表，不实际写入文件
+- [ ] `--verbose` 标志：输出详细日志（每步耗时、API 调用详情）
+- [ ] 错误处理：优雅退出，输出结构化错误原因（非裸堆栈）
+- [ ] 退出码：成功 `0`、部分失败 `1`、全部失败 `2`
 
 ---
 
 ## MVP 完成判定
 
-满足以下条件时 M1 视为达成：
-
-- [ ] 能手动指定一个仓库执行任务
+- [ ] 能手动指定一个仓库执行 `dependfix report --repo owner/repo`
 - [ ] 能拉取 Dependabot alerts 并完成严重级别过滤
-- [ ] 能对可升级依赖执行自动修复
+- [ ] 能对可升级依赖执行自动修复（本地文件变更）
 - [ ] 能处理典型 `pnpm i --frozen-lockfile` 漂移错误
-- [ ] 能执行最小验证并输出成功或失败原因
-- [ ] 能生成 Markdown 和 JSON 报告
-- [ ] 本地命令链路可稳定复现
+- [ ] 能执行最小验证（install + lint + build）并输出成功或失败原因
+- [ ] 能生成 Markdown 和 JSON 报告到本地文件
+- [ ] `pnpm typecheck` + `pnpm lint` + `pnpm test` 全部通过
+- [ ] T102/T103/T105/T106/T108 的设计稿已产出
 
 ---
 
-## 横切任务
+## 并行横切任务（M1 期间同步推进）
 
 ### T901 测试与样例数据
 
-- [ ] 准备 Dependabot 告警样例数据
-- [ ] 准备 lockfile 漂移失败样例
-- [ ] 准备 Code Scanning 样例数据
+- [ ] `packages/core/src/alerts/__fixtures__/dependabot-alerts.json`：至少 5 条真实 Dependabot API 响应样例（覆盖 critical/high/medium、fixable/non-fixable、不同生态）
+- [ ] `packages/cli/src/fixers/pnpm/__fixtures__/lockfile-drift/`：3 个最小 pnpm 项目（正常、lockfile 缺失、版本不一致）
+- [ ] `packages/core/src/alerts/__fixtures__/code-scanning-alerts.json`：至少 3 条 Code Scanning API 响应样例（为 M3 准备）
 
 ### T902 单元测试与集成测试
 
-- [ ] 标准化模型与过滤规则单测
-- [ ] lockfile 修复器关键路径测试
-- [ ] 报告生成器结构测试
+- [ ] `packages/core/src/filters/alert-filter.spec.ts`：全部阈值 + fixable 排序 + 截断
+- [ ] `packages/core/src/report/markdown-generator.spec.ts`：验证输出结构
+- [ ] `packages/cli/src/fixers/pnpm/index.spec.ts`：lockfile 修复关键路径
+- [ ] 核心模块覆盖率 >= 80%
 
 ### T903 日志、错误码与审计字段统一
 
-- [ ] 定义 runId、repository、alertId、step 等核心字段
-- [ ] 定义错误分类与错误码
-- [ ] 确保日志中不泄漏敏感信息
-
-### T904 文档同步
-
-> 详细定义见 [backlog.md §横切任务（后续阶段）](backlog.md#横切任务后续阶段)。
+- [ ] `packages/core/src/logger.ts`：统一 JSON 日志字段（`runId`、`repository`、`alertId`、`step`、`duration`、`level`）
+- [ ] `packages/core/src/errors/app-error.ts`：错误码枚举（`PERMISSION_DENIED | GITHUB_API_ERROR | REPO_NOT_FOUND | CONFIG_VALIDATION_ERROR | LOCKFILE_REPAIR_FAILED | VERIFICATION_FAILED | UPGRADE_FAILED`）
+- [ ] 日志/报告中不输出 token、密码

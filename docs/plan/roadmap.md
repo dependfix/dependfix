@@ -23,6 +23,12 @@ Monorepo 骨架搭建、核心配置模型、工具链版本策略固定、标�
 
 跑通单仓库、Node.js / pnpm 生态下的 Dependabot 告警拉取、过滤、修复、验证和报告的全链路闭环。
 
+**交付物**:
+- `dependfix` CLI —— 通过 `npx dependfix` 运行
+- `@dependfix/core` —— 作为独立 npm 包发布
+- 三条命令：`report`（报告）、`fix`（修复+验证）、`fix-and-pr`（参数预留）
+- 本地文件变更，不推送不创建 PR
+
 > 详细任务见 [todo.md §M1](todo.md#m1-mvp-单仓库自动修复)
 
 ## M2: GitHub Action 接入

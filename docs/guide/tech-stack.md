@@ -102,9 +102,23 @@
 
 | 工具 | 用途 |
 |------|------|
-| semantic-release | 自动版本发布 |
-| semantic-release-cmyr-config | 发布预设 |
+| @changesets/cli | 子包独立版本管理 + npm 发布（开发者显式声明 bump 类型） |
+| @changesets/changelog-github | 子包 CHANGELOG 自动生成 |
 | commitizen + cz-conventional-changelog-cmyr | 交互式提交 |
+
+### 发布策略
+
+根包（`dependfix-monorepo`）是 pnpm workspace 壳，不交付任何产物，不参与版本发布。
+
+子包（`@dependfix/core`、`dependfix`）通过 changesets 独立发版：
+
+| 动作 | 命令 |
+|------|------|
+| 创建 changeset | `pnpm changeset` |
+| 消费 changeset 并 bump 版本 | `pnpm changeset:version` |
+| 发布到 npm | CI 中 `pnpm changeset publish`（OIDC 免 token 认证） |
+
+版本号各自独立，`@dependfix/core` 升级时通过 `updateInternalDependencies: "patch"` 自动 bump `dependfix` CLI 的 patch 版本。
 
 ## 文档站（docs/）
 

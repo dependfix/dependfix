@@ -22,7 +22,10 @@
     "prepare": "husky",
     "typecheck": "pnpm -r typecheck",
     "test": "vitest run",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "docs:dev": "pnpm --filter dependfix-docs dev",
+    "docs:build": "pnpm --filter dependfix-docs build",
+    "docs:preview": "pnpm --filter dependfix-docs preview"
   },
   "devDependencies": {
     "@changesets/changelog-github": "^0.7.0",

@@ -38,4 +38,7 @@ dist
 temp
 
 .session
-.vitepress
+
+# VitePress
+docs/.vitepress/dist
+docs/.vitepress/cache

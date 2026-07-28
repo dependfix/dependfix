@@ -1,4 +1,4 @@
-import { AppError } from '../core'
+import { AppError } from '@dependfix/core'
 
 export const RUNTIME_MODES = ['report-only', 'fix', 'fix-and-pr'] as const
 export const SEVERITY_THRESHOLDS = ['critical', 'high', 'medium', 'all'] as const

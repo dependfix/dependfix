@@ -6,8 +6,6 @@
         "allowJs": true,
         "checkJs": true,
         "sourceMap": false,
-        "rootDir": "./src",
-        "outDir": "./dist",
         "declaration": true,
         "importHelpers": true,
         "strictPropertyInitialization": false,
@@ -21,8 +19,11 @@
             "node"
         ],
         "paths": {
-            "@/*": [
-                "./src/*"
+            "@dependfix/core": [
+                "./packages/core/src"
+            ],
+            "@dependfix/core/*": [
+                "./packages/core/src/*"
             ]
         },
         "lib": [
@@ -34,12 +35,13 @@
         "skipLibCheck": true
     },
     "include": [
-        "src/*.ts",
-        "src/**/*.ts"
+        "packages/*/src/*.ts",
+        "packages/*/src/**/*.ts"
     ],
     "exclude": [
         "node_modules",
         "**/*.spec.ts",
-        "**/node_modules/*"
+        "**/node_modules/*",
+        "packages/*/dist"
     ]
 }

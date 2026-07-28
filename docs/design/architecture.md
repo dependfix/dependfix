@@ -2,18 +2,18 @@
 
 ## 项目组成
 
-dependfix 由以下子项目组成：
+dependfix 由以下子项目组成（标 ✅ 的已落地，其余为规划中）：
 
 ```
 dependfix/
-├── apps/platform/       # Nuxt 全栈独立平台（Web UI + REST API）
 ├── packages/
-│   ├── core/           # 核心业务逻辑库 @dependfix/core
-│   ├── cli/            # CLI 入口 dependfix
-│   ├── github/         # GitHub API 集成 @dependfix/github
-│   ├── action/         # GitHub Action 入口 @dependfix/action
-│   └── mcp/            # MCP Server @dependfix/mcp
-└── docs/               # VitePress 文档站
+│   ├── core/           # ✅ 核心业务逻辑库 @dependfix/core
+│   ├── cli/            # ✅ CLI 入口 dependfix
+│   ├── github/         # 规划中：GitHub API 集成 @dependfix/github
+│   ├── action/         # 规划中：GitHub Action 入口 @dependfix/action
+│   └── mcp/            # 规划中：MCP Server @dependfix/mcp
+├── apps/platform/      # 规划中：Nuxt 全栈独立平台（Web UI + REST API）
+└── docs/               # ✅ VitePress 文档站
 ```
 
 ## 总体方案

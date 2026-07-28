@@ -23,7 +23,7 @@
 - 支持独立平台部署（闭源场景）
 - 输出可归档、可审计的执行报告
 
-当前仓库处于从 TypeScript 项目模板向 Monorepo 演进的阶段。当前 src/ 为单包结构，后续将逐步迁移到 packages/ 多包架构。
+当前仓库已从 TypeScript 项目模板迁移到 pnpm workspace Monorepo 架构。当前包含 `packages/core`（核心领域模型库）和 `packages/cli`（CLI 应用入口），后续按需添加 `packages/github`、`packages/action`、`packages/mcp`、`apps/platform`。
 
 项目当前的已知基础事实包括：
 

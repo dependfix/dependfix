@@ -6,12 +6,18 @@ import { createLanguageOptions } from 'eslint-config-cmyr/utils'
 export default defineConfig([
     cmyr,
     {
+        ignores: [
+            '**/dist/**',
+            '**/node_modules/**',
+        ],
+    },
+    {
         files: [
             'commitlint.config.ts',
-            'tsdown.config.ts',
+            'packages/*/tsdown.config.ts',
             'vitest.config.ts',
-            'src/**/*.spec.ts',
-            'src/**/*.test.ts',
+            'packages/*/src/**/*.spec.ts',
+            'packages/*/src/**/*.test.ts',
         ],
         languageOptions: createLanguageOptions({}, {
             projectService: false,

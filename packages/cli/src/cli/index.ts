@@ -1,10 +1,10 @@
+import { compactRecord } from '@dependfix/core'
 import { createApplicationSkeleton } from '../app'
 import {
     type CliConfigOverrides,
     type RuntimeMode,
     resolveRuntimeConfig,
 } from '../config'
-import { compactRecord } from '../utils'
 
 export interface CliInvocation {
     mode?: RuntimeMode

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { AppError } from '../core'
+import { AppError } from '@dependfix/core'
 import { parseCliArgs } from '../cli'
 import { resolveRuntimeConfig } from './index'
 

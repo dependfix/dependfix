@@ -29,19 +29,18 @@
 ## 项目结构
 
 ```
-dependfix/               # 当前：单包结构（src/）
-├── src/
-│   ├── cli/            # CLI 参数解析与运行入口
-│   ├── config/         # 配置模型与环境变量合并
-│   ├── core/           # 日志、错误、告警、过滤、规划、报告
-│   ├── github/         # GitHub API 集成（待实现）
-│   ├── fixers/         # 依赖升级 / pnpm lockfile / Code Scanning 修复器
-│   ├── runners/        # 验证执行器（待实现）
-│   └── utils/          # 通用工具
-├── docs/               # 项目文档
-└── .github/            # CI/CD 工作流与技能定义
+dependfix/               # pnpm workspace Monorepo
+├── packages/
+│   ├── core/            # @dependfix/core — 核心领域模型库
+│   │   └── src/         # 错误、日志、告警模型、过滤器、规划器、报告、工具链、通用工具
+│   └── cli/             # dependfix — CLI 应用入口
+│       └── src/         # CLI 参数解析、配置、应用骨架、GitHub 集成、修复器、执行器
+├── docs/                # 项目文档
+└── .github/             # CI/CD 工作流与技能定义
 
-# 后续演进为 Monorepo：
-# ├── apps/platform/    # Nuxt 全栈独立平台
-# ├── packages/         # 多包架构（core/cli/github/action/mcp）
+# 后续按需添加：
+# ├── packages/github/   # @dependfix/github — GitHub API 集成
+# ├── packages/action/   # @dependfix/action — GitHub Action 入口
+# ├── packages/mcp/      # @dependfix/mcp — MCP Server
+# ├── apps/platform/     # Nuxt 全栈独立平台
 ```

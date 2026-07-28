@@ -7,13 +7,16 @@
 
 目标：把项目从模板状态收敛到可承载自动化方案的基础形态。
 
-### T001 建立项目骨架
+### T001 建立 Monorepo 项目骨架
 
 - 状态：`已完成`
-- 交付物：目录结构与最小入口代码
-- [x] CLI 入口、配置层、GitHub 集成层、核心域层、修复器目录
-- [x] 统一日志与错误模型基础设施
-- [x] `pnpm run build` 可通过
+- 交付物：Monorepo 目录结构与最小入口代码
+- [x] packages/core：核心域层（错误、日志、告警模型、过滤器、规划器、报告、工具链、通用工具）
+- [x] packages/cli：CLI 入口、配置层、GitHub 集成层、修复器目录、执行器
+- [x] pnpm workspace 配置，pnpm-workspace.yaml 迁移 overrides
+- [x] `@dependfix/core` 可独立构建（ESM + CJS + dts）
+- [x] `dependfix` CLI 包依赖 `@dependfix/core: workspace:*`，可独立构建
+- [x] `pnpm build` / `pnpm typecheck` / `pnpm test` 全部通过
 
 ### T002 定义核心配置模型
 
@@ -25,21 +28,22 @@
 
 ### T003 固定工具链策略
 
-- 状态：`未开始`
+- 状态：`已完成`
 - 依赖：T001
-- 交付物：Node / pnpm 版本策略文档与代码实现约束
-- [ ] 定义运行时 Node 与 pnpm 版本来源优先级
-- [ ] 明确禁止在自动修复链路中使用漂移型 `latest`
-- [ ] 设计 lockfile 修复前后的工具链记录字段
+- 交付物：ToolchainInfo / ToolchainRecord 类型定义与版本解析逻辑
+- [x] 定义运行时 Node 与 pnpm 版本来源优先级（packageManager → 环境变量 → config → runtime）
+- [x] 在 `@dependfix/core` 中实现 `resolveToolchainVersions()` 和 `createDefaultToolchain()`
+- [x] 设计 lockfile 修复前后的工具链记录字段（ToolchainRecord.before/after）
 
 ### T004 定义标准告警模型
 
-- 状态：`未开始`
+- 状态：`已完成`
 - 依赖：T001
-- 交付物：统一的 `NormalizedSecurityAlert` 类型与转换接口
-- [ ] 定义 Dependabot 与 Code Scanning 的共同字段
-- [ ] 定义严重级别映射
-- [ ] 定义 fixable、fixStrategy、recommendedVersion 等扩展字段
+- 交付物：NormalizedSecurityAlert 类型、严重级别映射、FixStrategy 枚举
+- [x] 定义 Dependabot 与 Code Scanning 的共同字段（NormalizedSecurityAlert 接口）
+- [x] 定义严重级别映射（SEVERITY_MAP + mapCodeScanningSeverity）
+- [x] 定义 fixable、fixStrategy、recommendedVersion 等扩展字段
+- [x] 保留 AlertReference 作为向后兼容的简化类型
 
 ---
 

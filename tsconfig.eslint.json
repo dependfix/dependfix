@@ -4,12 +4,12 @@
         "rootDir": "."
     },
     "include": [
-        "src/*.ts",
-        "src/**/*.ts",
-        "src/**/*.spec.ts",
-        "src/**/*.test.ts",
+        "packages/*/src/*.ts",
+        "packages/*/src/**/*.ts",
+        "packages/*/src/**/*.spec.ts",
+        "packages/*/src/**/*.test.ts",
         "commitlint.config.ts",
-        "tsdown.config.ts",
+        "packages/*/tsdown.config.ts",
         "vitest.config.ts"
     ],
     "exclude": [

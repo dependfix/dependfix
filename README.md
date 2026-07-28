@@ -35,34 +35,56 @@
 npm install
 ```
 
+## 📦 项目结构
+
+```text
+dependfix/
+├── packages/
+│   ├── core/           # @dependfix/core — 核心领域模型库
+│   └── cli/            # dependfix — CLI 应用入口
+└── docs/               # 项目文档
+```
+
 ## 👨‍💻 使用
 
 ```sh
-npm run start
+pnpm start
 ```
 
 ## 🛠️ 开发
 
 ```sh
-npm run dev
+pnpm dev
 ```
 
 ## 🔧 编译
 
 ```sh
-npm run build
+pnpm build
+```
+
+## 📋 类型检查
+
+```sh
+pnpm typecheck
 ```
 
 ## 🔍 Lint
 
 ```sh
-npm run lint
+pnpm lint
+```
+
+## 🧪 测试
+
+```sh
+pnpm test
 ```
 
 ## 💾 Commit
 
 ```sh
-npm run commit
+pnpm commit
 ```
 
 

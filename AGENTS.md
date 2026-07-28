@@ -38,17 +38,28 @@
 - 数据模型：[docs/design/data-model.md](docs/design/data-model.md)
 - 安全设计：[docs/design/security.md](docs/design/security.md)
 - 技术栈：[docs/guide/tech-stack.md](docs/guide/tech-stack.md)
+- AI 协同指南：[docs/guide/ai-development.md](docs/guide/ai-development.md)
 - 项目规范：[docs/standards/index.md](docs/standards/index.md)
 - 当前任务：[docs/plan/todo.md](docs/plan/todo.md)
 - 路线图：[docs/plan/roadmap.md](docs/plan/roadmap.md)
-- 待办积压：[docs/plan/backlog.md](docs/plan/backlog.md)
 - 竞品分析：[docs/research/competitive-research.md](docs/research/competitive-research.md)
 
-## AI 基建与规范复用
+## AI 基建与规范体系
 
-本项目当前处于早期开发阶段，在形成自身完整的项目规范前，**默认参照 [momei](https://github.com/CaoMeiYouRen/momei) 项目的成熟规范体系执行**。具体引用关系见 [docs/standards/index.md](docs/standards/index.md)。
+本项目规范体系以 [momei](https://github.com/CaoMeiYouRen/momei) 为蓝本，已在 M0-M1 阶段完成独立化：
 
-最迟在正式发布（v1.0.0）前，本项目应完成规范独立化。
+| 规范 | 文件 |
+|------|------|
+| AI 协作 | [docs/standards/ai-collaboration.md](docs/standards/ai-collaboration.md) |
+| AI 资产治理 | [docs/standards/ai-governance.md](docs/standards/ai-governance.md) |
+| 开发 | [docs/standards/development.md](docs/standards/development.md) |
+| 测试 | [docs/standards/testing.md](docs/standards/testing.md) |
+| 文档 | [docs/standards/documentation.md](docs/standards/documentation.md) |
+| 安全 | [docs/standards/security.md](docs/standards/security.md) |
+| Git | [docs/standards/git.md](docs/standards/git.md) |
+| 规划 | [docs/standards/planning.md](docs/standards/planning.md) |
+
+momei 仍作为上游参照，规范更新时优先参考其最新版本。
 
 ## 必要检查
 

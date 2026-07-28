@@ -249,6 +249,80 @@ flowchart TD
 
 ## 平台架构（apps/platform）
 
+平台分两个阶段交付：
+
+- **M6（最小平台 MVP）**：仓库 CRUD + 凭据管理 + 手动扫描 + 仪表板 + 单用户 + Docker Compose/SQLite
+- **M7（企业级增强）**：RBAC + BullMQ/Redis 任务队列 + 跨平台 Git + 批量处理 + K8s/Helm
+
+### 分层架构
+
+```
+apps/platform/
+├── pages/                    # Vue 3 页面
+│   ├── dashboard/            # 总览仪表板
+│   ├── repos/                # 仓库管理（列表/详情/配置）
+│   ├── alerts/               # 告警视图（按仓库/按严重级别/按来源）
+│   ├── runs/                 # 执行历史与报告
+│   └── settings/             # 组织设置、凭据管理
+├── server/
+│   ├── api/                  # REST API
+│   │   ├── repos/            # CRUD + 触发扫描
+│   │   ├── alerts/           # 查询、过滤、修复状态
+│   │   ├── runs/             # 扫描历史、报告
+│   │   └── auth/             # better-auth
+│   ├── services/             # 业务逻辑层
+│   │   ├── repo-sync.service    # 仓库自动发现与同步
+│   │   ├── scan-orchestrator    # 扫描编排（调用 core 包）
+│   │   ├── credential.service   # Token 加密/解密
+│   │   └── notification.service # 通知
+│   └── queue/                # BullMQ（M7）
+└── packages/shared/          # 前后端共享类型
+```
+
+### 核心数据模型
+
+```
+Organization (id / name / plan / createdAt)
+  └── 1:N → Repository
+              ├── owner / repo / platform(github)
+              ├── defaultBranch / packageManager
+              ├── credentialId → Credential (encryptedToken)
+              └── 1:N → ScanRun
+                          ├── mode / severityThreshold / status
+                          ├── startedAt / finishedAt / summary
+                          └── 1:N → ScanResult
+                                      ├── alertId / source / severity
+                                      ├── packageName / fixable / fixStrategy
+                                      └── recommendedVersion / errorMessage
+```
+
+### 平台与现有 packages 的关系
+
+```
+packages/cli (dependfix)
+    → 被 apps/platform/server/services/scan-orchestrator 引用
+    → 平台模式下不用 CLI 参数解析，直接调用编排核心
+    → 需要将 runCli 拆为"纯函数编排"和"CLI 入口"两层（T505）
+
+packages/core (@dependfix/core)
+    → apps/platform 直接依赖
+    → 共享类型：NormalizedSecurityAlert, ToolchainInfo, ExecutionSummary
+```
+
+### 扫描调度策略（M7）
+
+```
+触发方式：
+├── 手动触发（Web UI 点击）
+├── 定时触发（cron，组织级配置）
+└── 批量触发（选择多个仓库一次执行）
+
+并发控制：
+├── 全局最大并发数（如 5）
+├── 单仓库互斥（同仓库同时只能一个扫描）
+└── 优先级：手动 > 定时 > 批量
+```
+
 ### 前端
 
 - Vue 3 Composition API + `<script setup lang="ts">`
@@ -261,8 +335,15 @@ flowchart TD
 - Nuxt Server Routes 作为 REST API
 - better-auth 处理认证会话
 - TypeORM 实体 + 数据库迁移
+- SQLite（M6 开发/部署）/ PostgreSQL（M7 生产）
 - Zod 校验输入
-- BullMQ + Redis 任务调度
+- BullMQ + Redis 任务调度（M7）
+
+### 凭据安全
+
+- GitHub PAT 使用平台级密钥（环境变量 `ENCRYPTION_KEY`）做 AES-256-GCM 加密后存储
+- 解密仅在任务执行时、在 worker 内存中进行，用完即丢弃
+- M6 单用户模式下凭据管理简化；M7 多用户模式下按组织隔离
 
 ### 暗色模式
 
@@ -271,7 +352,7 @@ flowchart TD
 - SCSS 使用 `:global(.dark) .selector` 覆盖样式
 - 跟随系统偏好 + 用户手动切换
 
-### 国际化
+### 国际化（M7）
 
 - 最低支持：简体中文（zh-CN，默认）+ 英文（en-US）
 - 可扩展：zh-TW、ja-JP、ko-KR
@@ -281,11 +362,15 @@ flowchart TD
 ### 认证
 
 - better-auth 为核心
-- 内置：邮箱密码 + 邮箱验证
-- 插件：username、magicLink、emailOTP、twoFactor、admin、jwt
-- 第三方登录（可选）：GitHub OAuth、Google OAuth
+- M6：邮箱密码 + 邮箱验证（单用户模式）
+- M7 扩展：
+  - 插件：username、magicLink、emailOTP、twoFactor、admin、jwt、genericOAuth
+  - 第三方登录：GitHub OAuth、Google OAuth（可选，未配置环境变量时自动禁用对应登录方式）
+  - 未配置的第三方登录方式自动禁用，不阻塞启动
 - 数据库适配器：TypeORM Adapter
-- 会话：数据库持久化 + Cookie
+- 会话：数据库持久化 + Cookie，过期 30 天，每日更新
+- JWT 算法：EdDSA / Ed25519
+- RBAC：M7 实现角色模型（Admin / Org Admin / Repo Admin / Viewer）
 
 详见 [安全设计](security.md)。
 

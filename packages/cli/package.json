@@ -29,7 +29,8 @@
         "dev:tsdown": "cross-env NODE_ENV=development tsdown --watch",
         "start": "node ./dist/index.mjs",
         "start:tsx": "cross-env NODE_ENV=production tsx src/index.ts",
-        "typecheck": "tsc --noEmit"
+        "typecheck": "tsc --noEmit",
+        "lint": "eslint . --fix"
     },
     "dependencies": {
         "@dependfix/core": "workspace:*",

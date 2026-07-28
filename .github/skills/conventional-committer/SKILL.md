@@ -21,6 +21,9 @@ description: 需要生成 Conventional Commit 提交消息并执行单次提交�
 - [ ] Step 4: 执行提交 (conditional)
 	- [ ] 4.1 只有在用户明确允许时才执行 git add / git commit。
 	- [ ] 4.2 提交后复查消息是否符合 commitlint 习惯。
+    - [ ] 4.3 不自动 git push，除非用户明确要求。
+    - [ ] 4.4 若发现问题，立即回退并修正。
+    - [ ] 4.5 默认不添加 `Co-Authored-By`，除非确实是多人合作提交。
 
 ## 常见 type
 

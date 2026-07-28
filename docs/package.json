@@ -5,7 +5,9 @@
     "scripts": {
         "dev": "vitepress dev",
         "build": "vitepress build",
-        "preview": "vitepress preview"
+        "preview": "vitepress preview",
+        "lint": "eslint . --fix",
+        "typecheck": "tsc --noEmit"
     },
     "devDependencies": {
         "vitepress": "^1.6.4"

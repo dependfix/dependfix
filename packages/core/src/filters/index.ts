@@ -1,4 +1,10 @@
+export * from './alert-filter'
+
 import type { AlertReference } from '../alerts'
+
+// ---------------------------------------------------------------------------
+// Legacy / generic filter types (kept for backward compatibility)
+// ---------------------------------------------------------------------------
 
 export interface FilterDecision {
     accepted: boolean

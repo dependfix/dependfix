@@ -34,6 +34,7 @@
     },
     "dependencies": {
         "@dependfix/core": "workspace:*",
+        "citty": "^0.2.2",
         "dayjs": "^1.11.20",
         "dotenv": "^17.3.1",
         "fs-extra": "^11.3.4",

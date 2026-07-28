@@ -27,16 +27,23 @@ T901（样例数据，与实现并行）           → T108（报告生成）→
 
 - **优先级**: P0
 - **依赖**: T002
-- **状态**: 未开始
+- **状态**: ✅ 已完成
 - **实现文件**: `packages/cli/src/github/repo-selector.ts`
+
+**实现摘要**:
+- `readReposFile(filePath)` 从文件读取仓库列表（支持 `#` 注释、空行跳过、逐行校验）
+- `resolveRepoList(cliRepos, reposFilePath?)` 合并 CLI 与文件仓库列表、去重、校验
+- `parseCliArgs` 新增 `--repo` 简写、`--repos-file` 标志；迁移到 **citty** 统一参数解析（自动 `--help`、类型推断）
+- `CliConfigOverrides` 新增 `reposFilePath` 字段
+- `repo-selector.spec.ts`: 9 tests 覆盖文件读取、注释空行、校验、去重
 
 **验收标准**:
 
-- [ ] 支持 CLI `--repo owner/repo` 传入单个仓库（已有基础校验）
-- [ ] 支持 `--repo` 逗号分隔多仓库：`--repo a/b,c/d`
-- [ ] 支持 `--repos-file path/to/repos.txt` 从文件读取（每行一个 `owner/repo`）
-- [ ] 非法标识（无 `/`、空格、多 `/`）在解析阶段报错，给出明确格式提示
-- [ ] 返回去重后的仓库列表
+- [x] 支持 CLI `--repo owner/repo` 传入单个仓库（已有基础校验）
+- [x] 支持 `--repo` 逗号分隔多仓库：`--repo a/b,c/d`
+- [x] 支持 `--repos-file path/to/repos.txt` 从文件读取（每行一个 `owner/repo`）
+- [x] 非法标识（无 `/`、空格、多 `/`）在解析阶段报错，给出明确格式提示
+- [x] 返回去重后的仓库列表
 
 **非目标**: 不实现 owner 级自动发现（M4 T401）
 
@@ -103,20 +110,27 @@ T901（样例数据，与实现并行）           → T108（报告生成）→
 
 - **优先级**: P0
 - **依赖**: T103
-- **状态**: 未开始
+- **状态**: ✅ 已完成
 - **实现文件**: `packages/core/src/filters/alert-filter.ts`
+
+**实现摘要**:
+- `filterAlerts(alerts, { severityThreshold })` 按严重级别过滤（`>= critical` → 仅 critical，`>= high` → critical+high，`>= medium` → +medium，`all` → 全保留）
+- `prioritizeAlerts(alerts)` 三级排序：fixable 优先 → 严重级别降序 → 包名字母序
+- `limitAlerts(alerts, maxPerRepo)` 截断，超出部分以 `truncated` 返回含原因
+- 纯函数、无副作用，18 个单元测试覆盖所有阈值组合、排序验证、截断、空输入
+- `SeverityThreshold` 类型收敛到 `@dependfix/core`，cli config 通过 `export type { SeverityThreshold }` 重导出消除重复
 
 **验收标准**:
 
-- [ ] `filterAlerts(alerts, { severityThreshold: 'high' })` 过滤严重级别
+- [x] `filterAlerts(alerts, { severityThreshold: 'high' })` 过滤严重级别
   - `>= critical`：只留 critical
   - `>= high`：留 critical + high
   - `>= medium`：留 critical + high + medium
   - `all`：全保留
-- [ ] `prioritizeAlerts(alerts)` 排序：`fixable` 优先 → 严重级别降序 → 包名字母序
-- [ ] `limitAlerts(alerts, maxPerRepo: 20)` 截断，超限时记录 warning 日志
-- [ ] 返回值包含 `filtered`（过滤后列表）和 `skipped`（被跳过列表及原因）
-- [ ] 纯函数、无副作用、单元测试覆盖所有阈值组合
+- [x] `prioritizeAlerts(alerts)` 排序：`fixable` 优先 → 严重级别降序 → 包名字母序
+- [x] `limitAlerts(alerts, maxPerRepo: 20)` 截断，超限时返回 truncated 含原因（由调用方决定是否记录日志）
+- [x] 返回值包含 `filtered`（过滤后列表）和 `skipped`（被跳过列表及原因）
+- [x] 纯函数、无副作用、单元测试覆盖所有阈值组合
 
 ---
 

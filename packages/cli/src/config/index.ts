@@ -1,10 +1,11 @@
-import { AppError, isValidRepoIdentifier } from '@dependfix/core'
+import { AppError, isValidRepoIdentifier, type SeverityThreshold } from '@dependfix/core'
+import { resolveRepoList } from '../github/repo-selector'
 
 export const RUNTIME_MODES = ['report-only', 'fix', 'fix-and-pr'] as const
 export const SEVERITY_THRESHOLDS = ['critical', 'high', 'medium', 'all'] as const
 
 export type RuntimeMode = typeof RUNTIME_MODES[number]
-export type SeverityThreshold = typeof SEVERITY_THRESHOLDS[number]
+export type { SeverityThreshold }
 
 export interface RuntimeConfig {
     mode: RuntimeMode
@@ -27,6 +28,7 @@ export interface CliConfigOverrides {
     mode?: RuntimeMode
     severityThreshold?: SeverityThreshold
     repositories?: string[]
+    reposFilePath?: string
     dryRun?: boolean
     createPullRequest?: boolean
     githubToken?: string
@@ -157,10 +159,6 @@ function resolveCreatePullRequest(mode: RuntimeMode, cliOverrides: CliConfigOver
     return mode === 'fix-and-pr'
 }
 
-function dedupeRepositories(repositories: string[]): string[] {
-    return [...new Set(repositories.map((repository) => repository.trim()).filter(Boolean))]
-}
-
 function validateRuntimeConfig(config: RuntimeConfig): RuntimeConfig {
     if (!config.githubToken) {
         throw new AppError(
@@ -172,7 +170,7 @@ function validateRuntimeConfig(config: RuntimeConfig): RuntimeConfig {
     if (config.repositories.length === 0) {
         throw new AppError(
             'CONFIG_VALIDATION_ERROR',
-            'Missing target repositories. Provide --repository, --repositories or AUTO_FIX_GITHUB_SECURITY_REPOSITORIES.',
+            'Missing target repositories. Provide --repo, --repository, --repos-file or AUTO_FIX_GITHUB_SECURITY_REPOSITORIES.',
         )
     }
 
@@ -201,10 +199,10 @@ export function resolveRuntimeConfig(options: ResolveRuntimeConfigOptions = {}):
     const config: RuntimeConfig = {
         mode,
         severityThreshold: cliOverrides.severityThreshold ?? envConfig.severityThreshold ?? DEFAULT_RUNTIME_CONFIG.severityThreshold,
-        repositories: dedupeRepositories([
+        repositories: resolveRepoList([
             ...(envConfig.repositories ?? []),
             ...(cliOverrides.repositories ?? []),
-        ]),
+        ], cliOverrides.reposFilePath),
         dryRun: resolveDryRun(mode, cliOverrides, envConfig),
         createPullRequest: resolveCreatePullRequest(mode, cliOverrides, envConfig),
         githubToken: cliOverrides.githubToken ?? envConfig.githubToken ?? '',

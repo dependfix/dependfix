@@ -27,9 +27,7 @@ describe('resolveRuntimeConfig', () => {
         const invocation = parseCliArgs([
             'fix',
             '--severity-threshold=critical',
-            '--repository',
-            'cli-owner/repo-a',
-            '--repository=cli-owner/repo-b',
+            '--repository=cli-owner/repo-a,cli-owner/repo-b',
             '--github-token',
             'token-from-cli',
             '--no-dry-run',

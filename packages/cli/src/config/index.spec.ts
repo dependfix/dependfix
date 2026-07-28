@@ -72,4 +72,13 @@ describe('resolveRuntimeConfig', () => {
             },
         })).toThrow('createPullRequest cannot be enabled when mode is report-only.')
     })
+
+    it('rejects invalid repository identifier format', () => {
+        expect(() => resolveRuntimeConfig({
+            env: {
+                GITHUB_TOKEN: 'token-from-env',
+                AUTO_FIX_GITHUB_SECURITY_REPOSITORIES: 'owner/repo-a, invalid-repo, owner/repo-b',
+            },
+        })).toThrow('Invalid repository identifier')
+    })
 })

@@ -36,3 +36,6 @@ sessions
 #public
 dist
 temp
+
+.session
+.vitepress

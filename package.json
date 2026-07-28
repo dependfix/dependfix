@@ -1,65 +1,65 @@
 {
-    "name": "dependfix",
-    "version": "0.1.0",
-    "private": true,
-    "description": "一个自动化修复 github security 告警的方案",
-    "author": "CaoMeiYouRen",
-    "license": "MIT",
-    "type": "module",
-    "engines": {
-        "node": ">=20"
-    },
-    "scripts": {
-        "release": "semantic-release",
-        "lint": "cross-env NODE_ENV=production eslint . --fix",
-        "build": "pnpm -r build",
-        "dev": "pnpm --filter dependfix dev",
-        "start": "node packages/cli/dist/index.mjs",
-        "start:tsx": "cross-env NODE_ENV=production tsx packages/cli/src/index.ts",
-        "commit": "cz",
-        "prepare": "husky",
-        "typecheck": "pnpm -r typecheck",
-        "test": "vitest run",
-        "test:coverage": "vitest run --coverage"
-    },
-    "devDependencies": {
-        "@types/node": "^25.5.0",
-        "commitizen": "^4.3.1",
-        "commitlint": "^20.5.0",
-        "commitlint-config-cmyr": "^1.0.0",
-        "cross-env": "^10.0.0",
-        "cz-conventional-changelog-cmyr": "^2.0.0",
-        "eslint": "^9.34.0",
-        "eslint-config-cmyr": "^2.1.5",
-        "husky": "^9.1.7",
-        "lint-staged": "^16.4.0",
-        "semantic-release": "^25.0.3",
-        "semantic-release-cmyr-config": "^1.0.1",
-        "tsx": "^4.21.0",
-        "typescript": "^5.9.3",
-        "vite": "^7.0.5",
-        "vitest": "^3.2.4"
-    },
-    "lint-staged": {
-        "*.{js,ts}": [
-            "npm run lint"
-        ]
-    },
-    "keywords": [
-        "security",
-        "dependabot-alerts",
-        "code-scanning",
-        "typescript"
-    ],
-    "homepage": "https://github.com/CaoMeiYouRen/auto-fix-github-security#readme",
-    "repository": {
-        "type": "git",
-        "url": "git+https://github.com/CaoMeiYouRen/auto-fix-github-security.git"
-    },
-    "bugs": {
-        "url": "https://github.com/CaoMeiYouRen/auto-fix-github-security/issues"
-    },
-    "changelog": {
-        "language": "zh"
-    }
+  "name": "dependfix",
+  "version": "0.1.0",
+  "private": true,
+  "description": "一个自动化修复 github security 告警的方案",
+  "author": "CaoMeiYouRen",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "release": "semantic-release",
+    "lint": "cross-env NODE_ENV=production eslint . --fix",
+    "build": "pnpm -r build",
+    "dev": "pnpm --filter dependfix dev",
+    "start": "node packages/cli/dist/index.mjs",
+    "start:tsx": "cross-env NODE_ENV=production tsx packages/cli/src/index.ts",
+    "commit": "cz",
+    "prepare": "husky",
+    "typecheck": "pnpm -r typecheck",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage"
+  },
+  "devDependencies": {
+    "@types/node": "^25.5.0",
+    "commitizen": "^4.3.1",
+    "commitlint": "^20.5.0",
+    "commitlint-config-cmyr": "^1.0.0",
+    "cross-env": "^10.0.0",
+    "cz-conventional-changelog-cmyr": "^2.0.0",
+    "eslint": "^9.34.0",
+    "eslint-config-cmyr": "^2.1.5",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.4.0",
+    "semantic-release": "^25.0.3",
+    "semantic-release-cmyr-config": "^1.0.1",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3",
+    "vite": "^7.0.5",
+    "vitest": "^3.2.4"
+  },
+  "lint-staged": {
+    "*.{js,ts}": [
+      "npm run lint"
+    ]
+  },
+  "keywords": [
+    "security",
+    "dependabot-alerts",
+    "code-scanning",
+    "typescript"
+  ],
+  "homepage": "https://github.com/CaoMeiYouRen/auto-fix-github-security#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/CaoMeiYouRen/auto-fix-github-security.git"
+  },
+  "bugs": {
+    "url": "https://github.com/CaoMeiYouRen/auto-fix-github-security/issues"
+  },
+  "changelog": {
+    "language": "zh"
+  }
 }

@@ -1,4 +1,4 @@
-import { AppError } from '@dependfix/core'
+import { AppError, isValidRepoIdentifier } from '@dependfix/core'
 
 export const RUNTIME_MODES = ['report-only', 'fix', 'fix-and-pr'] as const
 export const SEVERITY_THRESHOLDS = ['critical', 'high', 'medium', 'all'] as const
@@ -174,6 +174,12 @@ function validateRuntimeConfig(config: RuntimeConfig): RuntimeConfig {
             'CONFIG_VALIDATION_ERROR',
             'Missing target repositories. Provide --repository, --repositories or AUTO_FIX_GITHUB_SECURITY_REPOSITORIES.',
         )
+    }
+
+    for (const repo of config.repositories) {
+        if (!isValidRepoIdentifier(repo)) {
+            throw new AppError('CONFIG_VALIDATION_ERROR', `Invalid repository identifier: "${repo}". Expected format: owner/repo`)
+        }
     }
 
     if (config.mode === 'report-only' && config.createPullRequest) {

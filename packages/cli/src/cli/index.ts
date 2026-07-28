@@ -1,4 +1,4 @@
-import { compactRecord } from '@dependfix/core'
+import { AppError, compactRecord, isValidRepoIdentifier } from '@dependfix/core'
 import { createApplicationSkeleton } from '../app'
 import {
     type CliConfigOverrides,
@@ -32,9 +32,15 @@ function appendRepositories(target: string[], value: string) {
     for (const repository of value.split(',')) {
         const trimmed = repository.trim()
 
-        if (trimmed) {
-            target.push(trimmed)
+        if (!trimmed) {
+            continue
         }
+
+        if (!isValidRepoIdentifier(trimmed)) {
+            throw new AppError('ARGUMENT_PARSE_ERROR', `Invalid repository identifier: "${trimmed}". Expected format: owner/repo`)
+        }
+
+        target.push(trimmed)
     }
 }
 

@@ -38,23 +38,17 @@
 - 数据模型：[docs/design/data-model.md](docs/design/data-model.md)
 - 安全设计：[docs/design/security.md](docs/design/security.md)
 - 技术栈：[docs/guide/tech-stack.md](docs/guide/tech-stack.md)
+- 项目规范：[docs/standards/index.md](docs/standards/index.md)
 - 当前任务：[docs/plan/todo.md](docs/plan/todo.md)
 - 路线图：[docs/plan/roadmap.md](docs/plan/roadmap.md)
+- 待办积压：[docs/plan/backlog.md](docs/plan/backlog.md)
 - 竞品分析：[docs/research/competitive-research.md](docs/research/competitive-research.md)
 
 ## AI 基建与规范复用
 
-本项目在 AI 协作规范、开发标准、文档约定等方面复用 [momei](https://github.com/CaoMeiYouRen/momei) 项目的成熟体系：
+本项目当前处于早期开发阶段，在形成自身完整的项目规范前，**默认参照 [momei](https://github.com/CaoMeiYouRen/momei) 项目的成熟规范体系执行**。具体引用关系见 [docs/standards/index.md](docs/standards/index.md)。
 
-| 来源 | 复用内容 |
-|------|----------|
-| `docs/standards/ai-collaboration.md` | PDTFC+ 工作流、搜索优先原则、验证矩阵 |
-| `docs/standards/development.md` | 命名规范、目录约束、模块分层 |
-| `docs/standards/documentation.md` | 文档层级、i18n 策略、行数阈值 |
-| `docs/standards/testing.md` | Vitest + Playwright、测试分级、覆盖率目标 |
-| `docs/standards/security.md` | 安全红线、密钥管理 |
-
-上述规范在实现时作为默认约定，本项目不再重复编写，直接引用 momei 对应文档。
+最迟在正式发布（v1.0.0）前，本项目应完成规范独立化。
 
 ## 必要检查
 

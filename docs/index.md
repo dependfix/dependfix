@@ -23,17 +23,25 @@
 - [安全设计](design/security.md)
 - [当前阶段任务](plan/todo.md)
 - [路线图](plan/roadmap.md)
+- [待办积压](plan/backlog.md)
+- [项目规范](standards/index.md)
 
 ## 项目结构
 
 ```
-dependfix/
-├── apps/platform/       # Nuxt 全栈独立平台
-├── packages/
-│   ├── core/           # 核心业务逻辑
-│   ├── cli/            # CLI 入口
-│   ├── github/         # GitHub API 集成
-│   ├── action/         # GitHub Action 入口
-│   └── mcp/            # MCP Server
-└── docs/               # VitePress 文档站
+dependfix/               # 当前：单包结构（src/）
+├── src/
+│   ├── cli/            # CLI 参数解析与运行入口
+│   ├── config/         # 配置模型与环境变量合并
+│   ├── core/           # 日志、错误、告警、过滤、规划、报告
+│   ├── github/         # GitHub API 集成（待实现）
+│   ├── fixers/         # 依赖升级 / pnpm lockfile / Code Scanning 修复器
+│   ├── runners/        # 验证执行器（待实现）
+│   └── utils/          # 通用工具
+├── docs/               # 项目文档
+└── .github/            # CI/CD 工作流与技能定义
+
+# 后续演进为 Monorepo：
+# ├── apps/platform/    # Nuxt 全栈独立平台
+# ├── packages/         # 多包架构（core/cli/github/action/mcp）
 ```

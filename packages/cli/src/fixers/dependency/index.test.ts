@@ -1,0 +1,427 @@
+import { mkdtempSync, writeFileSync, rmSync, readFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { tmpdir } from 'node:os'
+import { describe, expect, it, beforeEach, vi } from 'vitest'
+
+// Mock execSync to avoid needing pnpm in test environment.
+// Must use vi.hoisted because vi.mock is hoisted above imports.
+const { mockExecSync } = vi.hoisted(() => ({
+    mockExecSync: vi.fn(),
+}))
+
+vi.mock('node:child_process', () => ({
+    execSync: mockExecSync,
+}))
+
+import {
+    upgradeDependency,
+    extractPrefix,
+    parseMajorVersion,
+    findDependencyVersion,
+    type DependencyFixResult,
+} from './index'
+
+// ---------------------------------------------------------------------------
+// Test helpers
+// ---------------------------------------------------------------------------
+
+interface TempProject {
+    dir: string
+    pkgPath: string
+    lockfilePath: string
+}
+
+function createTempProject(
+    deps: Record<string, string>,
+    options?: {
+        devDeps?: Record<string, string>
+        optionalDeps?: Record<string, string>
+        withLockfile?: boolean
+    },
+): TempProject {
+    const dir = mkdtempSync(join(tmpdir(), 'dependfix-test-'))
+    const pkg: Record<string, unknown> = { name: 'test-project', version: '1.0.0' }
+    if (Object.keys(deps).length > 0) { pkg.dependencies = deps }
+    if (options?.devDeps && Object.keys(options.devDeps).length > 0) { pkg.devDependencies = options.devDeps }
+    if (options?.optionalDeps && Object.keys(options.optionalDeps).length > 0) { pkg.optionalDependencies = options.optionalDeps }
+    const pkgPath = join(dir, 'package.json')
+    const lockfilePath = join(dir, 'pnpm-lock.yaml')
+    writeFileSync(pkgPath, `${JSON.stringify(pkg, null, 2)}\n`)
+    if (options?.withLockfile !== false) {
+        writeFileSync(lockfilePath, '# mock lockfile\n')
+    }
+    return { dir, pkgPath, lockfilePath }
+}
+
+function readPackageVersion(project: TempProject, pkgName: string): string | undefined {
+    const pkg = JSON.parse(readFileSync(project.pkgPath, 'utf-8')) as Record<string, unknown>
+    const deps = pkg.dependencies as Record<string, string> | undefined
+    return deps?.[pkgName]
+}
+
+function cleanup(project: TempProject): void {
+    try { rmSync(project.dir, { recursive: true, force: true }) } catch { /* ignore */ }
+}
+
+// ---------------------------------------------------------------------------
+// Tests: Pure functions
+// ---------------------------------------------------------------------------
+
+describe('extractPrefix', () => {
+    it('returns empty string for exact semver', () => {
+        expect(extractPrefix('4.17.20')).toBe('')
+        expect(extractPrefix('1.2.3')).toBe('')
+    })
+
+    it('returns ^ for caret range', () => {
+        expect(extractPrefix('^4.17.20')).toBe('^')
+        expect(extractPrefix('^1.0.0')).toBe('^')
+    })
+
+    it('returns ~ for tilde range', () => {
+        expect(extractPrefix('~4.17.0')).toBe('~')
+        expect(extractPrefix('~2.3.4')).toBe('~')
+    })
+
+    it('defaults to ^ for complex ranges and wildcards', () => {
+        expect(extractPrefix('*')).toBe('^')
+        expect(extractPrefix('>=1.0.0 <2.0.0')).toBe('^')
+        expect(extractPrefix('latest')).toBe('^')
+    })
+
+    it('returns empty for leading digit with spaces', () => {
+        expect(extractPrefix('  4.17.20')).toBe('')
+    })
+})
+
+describe('parseMajorVersion', () => {
+    it('extracts major from caret version', () => {
+        expect(parseMajorVersion('^4.17.20')).toBe(4)
+    })
+
+    it('extracts major from tilde version', () => {
+        expect(parseMajorVersion('~2.0.0')).toBe(2)
+    })
+
+    it('extracts major from exact version', () => {
+        expect(parseMajorVersion('3.0.0')).toBe(3)
+    })
+
+    it('extracts major from complex range', () => {
+        expect(parseMajorVersion('>=1.0.0 <2.0.0')).toBe(1)
+    })
+
+    it('returns -1 for unparseable versions', () => {
+        expect(parseMajorVersion('*')).toBe(-1)
+        expect(parseMajorVersion('latest')).toBe(-1)
+        expect(parseMajorVersion('file:../local-pkg')).toBe(-1)
+    })
+
+    it('handles version with leading spaces', () => {
+        expect(parseMajorVersion('  ^5.1.0')).toBe(5)
+    })
+})
+
+describe('findDependencyVersion', () => {
+    it('finds package in dependencies', () => {
+        const result = findDependencyVersion(
+            { dependencies: { lodash: '^4.17.20' } },
+            'lodash',
+        )
+        expect(result).toEqual({ group: 'dependencies', version: '^4.17.20' })
+    })
+
+    it('finds package in devDependencies', () => {
+        const result = findDependencyVersion(
+            { devDependencies: { typescript: '~5.0.0' } },
+            'typescript',
+        )
+        expect(result).toEqual({ group: 'devDependencies', version: '~5.0.0' })
+    })
+
+    it('finds package in optionalDependencies', () => {
+        const result = findDependencyVersion(
+            { optionalDependencies: { fsevents: '2.3.0' } },
+            'fsevents',
+        )
+        expect(result).toEqual({ group: 'optionalDependencies', version: '2.3.0' })
+    })
+
+    it('prioritizes dependencies over devDependencies', () => {
+        const result = findDependencyVersion(
+            {
+                dependencies: { lodash: '^4.17.20' },
+                devDependencies: { lodash: '^4.17.21' },
+            },
+            'lodash',
+        )
+        expect(result).toEqual({ group: 'dependencies', version: '^4.17.20' })
+    })
+
+    it('returns null when package not found', () => {
+        expect(findDependencyVersion({}, 'lodash')).toBeNull()
+        expect(findDependencyVersion({ dependencies: {} }, 'lodash')).toBeNull()
+    })
+
+    it('handles scoped package names', () => {
+        const result = findDependencyVersion(
+            { dependencies: { '@babel/traverse': '^7.23.0' } },
+            '@babel/traverse',
+        )
+        expect(result).toEqual({ group: 'dependencies', version: '^7.23.0' })
+    })
+})
+
+// ---------------------------------------------------------------------------
+// Tests: upgradeDependency
+// ---------------------------------------------------------------------------
+
+describe('upgradeDependency', () => {
+    beforeEach(() => {
+        mockExecSync.mockReset()
+        mockExecSync.mockReturnValue(Buffer.from(''))
+    })
+
+    it('upgrades a package and preserves caret prefix', async () => {
+        const project = createTempProject({ lodash: '^4.17.20' })
+
+        const result = await upgradeDependency({
+            packageName: 'lodash',
+            targetVersion: '4.17.21',
+            workDir: project.dir,
+        })
+
+        expect(result).toEqual<DependencyFixResult>({
+            packageName: 'lodash',
+            fromVersion: '^4.17.20',
+            toVersion: '^4.17.21',
+            isMajor: false,
+            success: true,
+        })
+        expect(mockExecSync).toHaveBeenCalledWith(
+            'pnpm install --no-frozen-lockfile',
+            expect.objectContaining({ cwd: project.dir }),
+        )
+        expect(readPackageVersion(project, 'lodash')).toBe('^4.17.21')
+
+        cleanup(project)
+    })
+
+    it('upgrades a package with tilde prefix', async () => {
+        const project = createTempProject({ express: '~4.18.0' })
+
+        const result = await upgradeDependency({
+            packageName: 'express',
+            targetVersion: '4.19.1',
+            workDir: project.dir,
+        })
+
+        expect(result.success).toBe(true)
+        expect(result.fromVersion).toBe('~4.18.0')
+        expect(result.toVersion).toBe('~4.19.1')
+        expect(readPackageVersion(project, 'express')).toBe('~4.19.1')
+
+        cleanup(project)
+    })
+
+    it('preserves exact version format', async () => {
+        const project = createTempProject({ typescript: '5.0.0' })
+
+        const result = await upgradeDependency({
+            packageName: 'typescript',
+            targetVersion: '5.4.5',
+            workDir: project.dir,
+        })
+
+        expect(result.success).toBe(true)
+        expect(result.fromVersion).toBe('5.0.0')
+        expect(result.toVersion).toBe('5.4.5')
+        expect(readPackageVersion(project, 'typescript')).toBe('5.4.5')
+
+        cleanup(project)
+    })
+
+    it('detects major upgrade from ^4.x to ^5.0.0', async () => {
+        const project = createTempProject({ lodash: '^4.17.20' })
+
+        const result = await upgradeDependency({
+            packageName: 'lodash',
+            targetVersion: '5.0.0',
+            workDir: project.dir,
+        })
+
+        expect(result.success).toBe(true)
+        expect(result.isMajor).toBe(true)
+        expect(result.toVersion).toBe('^5.0.0')
+
+        cleanup(project)
+    })
+
+    it('detects minor/patch upgrade (not major)', async () => {
+        const project = createTempProject({ axios: '~1.5.0' })
+
+        const result = await upgradeDependency({
+            packageName: 'axios',
+            targetVersion: '1.6.0',
+            workDir: project.dir,
+        })
+
+        expect(result.success).toBe(true)
+        expect(result.isMajor).toBe(false)
+
+        cleanup(project)
+    })
+
+    it('finds package in devDependencies', async () => {
+        const project = createTempProject({}, { devDeps: { typescript: '~5.0.0' } })
+
+        const result = await upgradeDependency({
+            packageName: 'typescript',
+            targetVersion: '5.4.5',
+            workDir: project.dir,
+        })
+
+        expect(result.success).toBe(true)
+        expect(result.fromVersion).toBe('~5.0.0')
+        expect(result.toVersion).toBe('~5.4.5')
+
+        cleanup(project)
+    })
+
+    it('finds package in optionalDependencies', async () => {
+        const project = createTempProject({}, { optionalDeps: { fsevents: '2.3.0' } })
+
+        const result = await upgradeDependency({
+            packageName: 'fsevents',
+            targetVersion: '2.3.3',
+            workDir: project.dir,
+        })
+
+        expect(result.success).toBe(true)
+        expect(result.toVersion).toBe('2.3.3')
+
+        cleanup(project)
+    })
+
+    it('returns failure when package not in any dep group', async () => {
+        const project = createTempProject({ lodash: '^4.17.20' })
+
+        const result = await upgradeDependency({
+            packageName: 'nonexistent-pkg',
+            targetVersion: '1.0.0',
+            workDir: project.dir,
+        })
+
+        expect(result.success).toBe(false)
+        expect(result.error).toContain('not found')
+        expect(mockExecSync).not.toHaveBeenCalled()
+
+        cleanup(project)
+    })
+
+    it('returns failure when package.json does not exist', async () => {
+        const result = await upgradeDependency({
+            packageName: 'lodash',
+            targetVersion: '4.17.21',
+            workDir: '/tmp/nonexistent-dir-12345',
+        })
+
+        expect(result.success).toBe(false)
+        expect(result.error).toContain('file not found')
+    })
+
+    it('rolls back package.json on pnpm install failure', async () => {
+        const project = createTempProject({ lodash: '^4.17.20' })
+        const originalContent = readFileSync(project.pkgPath, 'utf-8')
+
+        mockExecSync.mockImplementation(() => {
+            throw Object.assign(new Error('Install failed'), {
+                stderr: 'ERR_PNPM_LOCKFILE_BREAKING_CHANGE',
+            })
+        })
+
+        const result = await upgradeDependency({
+            packageName: 'lodash',
+            targetVersion: '4.17.21',
+            workDir: project.dir,
+        })
+
+        expect(result.success).toBe(false)
+        expect(result.error).toContain('pnpm install failed')
+        expect(result.error).toContain('ERR_PNPM_LOCKFILE_BREAKING_CHANGE')
+
+        // Verify rollback: package.json restored
+        const restored = readFileSync(project.pkgPath, 'utf-8')
+        expect(restored).toBe(originalContent)
+
+        cleanup(project)
+    })
+
+    it('rolls back lockfile on pnpm install failure', async () => {
+        const project = createTempProject({ lodash: '^4.17.20' })
+        const originalLockfile = readFileSync(project.lockfilePath, 'utf-8')
+
+        mockExecSync.mockImplementation(() => {
+            throw new Error('Lockfile error')
+        })
+
+        await upgradeDependency({
+            packageName: 'lodash',
+            targetVersion: '4.18.0',
+            workDir: project.dir,
+        })
+
+        const restored = readFileSync(project.lockfilePath, 'utf-8')
+        expect(restored).toBe(originalLockfile)
+
+        cleanup(project)
+    })
+
+    it('handles scoped package names correctly', async () => {
+        const project = createTempProject({ '@babel/traverse': '^7.23.0' })
+
+        const result = await upgradeDependency({
+            packageName: '@babel/traverse',
+            targetVersion: '7.23.2',
+            workDir: project.dir,
+        })
+
+        expect(result.success).toBe(true)
+        expect(result.packageName).toBe('@babel/traverse')
+        expect(result.fromVersion).toBe('^7.23.0')
+        expect(result.toVersion).toBe('^7.23.2')
+
+        cleanup(project)
+    })
+
+    it('works without lockfile present', async () => {
+        const project = createTempProject({ lodash: '^4.17.20' }, { withLockfile: false })
+
+        const result = await upgradeDependency({
+            packageName: 'lodash',
+            targetVersion: '4.17.21',
+            workDir: project.dir,
+        })
+
+        expect(result.success).toBe(true)
+        expect(readPackageVersion(project, 'lodash')).toBe('^4.17.21')
+
+        cleanup(project)
+    })
+
+    it('returns failure for invalid JSON in package.json', async () => {
+        const project = createTempProject({ lodash: '^4.17.20' })
+        writeFileSync(project.pkgPath, 'not valid json')
+
+        const result = await upgradeDependency({
+            packageName: 'lodash',
+            targetVersion: '4.17.21',
+            workDir: project.dir,
+        })
+
+        expect(result.success).toBe(false)
+        expect(result.error).toContain('invalid JSON')
+
+        cleanup(project)
+    })
+})

@@ -173,13 +173,14 @@ T901（样例数据，与实现并行）           → T108（报告生成）→
 - **优先级**: P0
 - **依赖**: T003, T105
 - **状态**: 未开始
-- **前置条件**: ⚠️ **先出设计稿** [lockfile 修复设计](../design/)
+- **前置条件**: ✅ **设计稿已产出** [lockfile 修复设计](../design/pnpm-lockfile-fixer.md)
 
-**设计稿应明确**:
-- 漂移失败的识别逻辑（对比 `package.json` 声明的 pnpm 版本与 lockfile 中的版本）
-- 修复策略矩阵：`package.json` 与 lockfile 不一致 / pnpm 版本差异 / 间接依赖解析变化
-- 每种策略的命令序列与回滚方式
-- 失败分类模型（`CREDENTIAL_ERROR | VERSION_CONFLICT | RESOLVE_ERROR | UNKNOWN`）
+**设计稿覆盖**:
+- 7 分类模型：`LOCKFILE_NOT_FOUND | MANIFEST_MISMATCH | LOCKFILE_VERSION_MISMATCH | CORRUPTED_LOCKFILE | CREDENTIAL_ERROR | RESOLVE_ERROR | UNKNOWN`
+- 5 修复策略逐级升级：`REGENERATE` → `FIX_ENTRIES` → `PIN_TOOLCHAIN` → `REINSTALL`
+- 回滚：备份 `pnpm-lock.yaml` → 失败还原 → 清理 .bak
+- LockfileDiff 摘要：行数变化 + 包数量变化
+- 工具链固定：`packageManager` 字段 & corepack 兼容策略
 
 **实现文件**: `packages/cli/src/fixers/pnpm/index.ts`
 

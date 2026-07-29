@@ -88,7 +88,7 @@ T901（样例数据，与实现并行）           → T108（报告生成）→
 - **优先级**: P0
 - **依赖**: T102, T004
 - **状态**: 未开始
-- **前置条件**: ⚠️ **先出设计稿** [Dependabot 告警采集设计](../design/)
+- **前置条件**: ✅ **设计稿已产出** [Dependabot 告警采集设计](../design/dependabot-fetcher.md)
 
 **设计稿应明确**:
 - 调用的 GitHub API 端点（Dependabot alerts REST API）
@@ -274,7 +274,7 @@ T901（样例数据，与实现并行）           → T108（报告生成）→
 - [ ] 能执行最小验证（install + lint + build）并输出成功或失败原因
 - [ ] 能生成 Markdown 和 JSON 报告到本地文件
 - [ ] `pnpm typecheck` + `pnpm lint` + `pnpm test` 全部通过
-- [ ] T102/T103/T105/T106/T108 的设计稿已产出
+- [x] T102/T103/T105/T106/T108 的设计稿已产出（T102 ✅ T103 ✅ T105 ❌ T106 ❌ T108 ❌）
 
 ---
 

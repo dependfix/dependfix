@@ -1,0 +1,368 @@
+[
+    {
+        "number": 1,
+        "state": "open",
+        "dependency": {
+            "package": {
+                "ecosystem": "npm",
+                "name": "lodash"
+            },
+            "manifest_path": "package.json",
+            "scope": "runtime",
+            "relationship": "direct"
+        },
+        "security_advisory": {
+            "ghsa_id": "GHSA-xxxx-xxxx-xxxx",
+            "cve_id": "CVE-2021-23337",
+            "summary": "Lodash command injection vulnerability",
+            "description": "Lodash versions prior to 4.17.21 are vulnerable to Command Injection via the template function.",
+            "severity": "critical",
+            "vulnerabilities": [
+                {
+                    "package": {
+                        "ecosystem": "npm",
+                        "name": "lodash"
+                    },
+                    "severity": "critical",
+                    "vulnerable_version_range": ">= 1.0.0, < 4.17.21",
+                    "first_patched_version": {
+                        "identifier": "4.17.21"
+                    }
+                }
+            ],
+            "cvss": {
+                "score": 9.8,
+                "vector_string": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H"
+            },
+            "cwes": [
+                {
+                    "cwe_id": "CWE-77",
+                    "name": "Improper Neutralization of Special Elements used in a Command ('Command Injection')"
+                }
+            ],
+            "identifiers": [
+                { "type": "CVE", "value": "CVE-2021-23337" },
+                { "type": "GHSA", "value": "GHSA-xxxx-xxxx-xxxx" }
+            ],
+            "references": [
+                { "url": "https://github.com/advisories/GHSA-xxxx-xxxx-xxxx" }
+            ],
+            "published_at": "2021-02-15T12:00:00Z",
+            "updated_at": "2021-03-01T12:00:00Z",
+            "withdrawn_at": null
+        },
+        "security_vulnerability": {
+            "package": {
+                "ecosystem": "npm",
+                "name": "lodash"
+            },
+            "severity": "critical",
+            "vulnerable_version_range": ">= 1.0.0, < 4.17.21",
+            "first_patched_version": {
+                "identifier": "4.17.21"
+            }
+        },
+        "url": "https://api.github.com/repos/foo/bar/dependabot/alerts/1",
+        "html_url": "https://github.com/foo/bar/security/dependabot/1",
+        "created_at": "2021-02-15T12:00:00Z",
+        "updated_at": "2021-03-01T12:00:00Z",
+        "dismissed_at": null,
+        "dismissed_by": null,
+        "dismissed_reason": null,
+        "dismissed_comment": null,
+        "fixed_at": null,
+        "auto_dismissed_at": null
+    },
+    {
+        "number": 2,
+        "state": "open",
+        "dependency": {
+            "package": {
+                "ecosystem": "npm",
+                "name": "express"
+            },
+            "manifest_path": "package.json",
+            "scope": "runtime",
+            "relationship": "direct"
+        },
+        "security_advisory": {
+            "ghsa_id": "GHSA-yyyy-yyyy-yyyy",
+            "cve_id": "CVE-2024-29041",
+            "summary": "Express.js Open Redirect vulnerability",
+            "description": "Express.js versions prior to 4.19.1 are vulnerable to Open Redirect.",
+            "severity": "high",
+            "vulnerabilities": [
+                {
+                    "package": {
+                        "ecosystem": "npm",
+                        "name": "express"
+                    },
+                    "severity": "high",
+                    "vulnerable_version_range": ">= 4.0.0, < 4.19.1",
+                    "first_patched_version": {
+                        "identifier": "4.19.1"
+                    }
+                }
+            ],
+            "cvss": {
+                "score": 7.5,
+                "vector_string": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:H/A:N"
+            },
+            "cwes": [
+                {
+                    "cwe_id": "CWE-601",
+                    "name": "URL Redirection to Untrusted Site ('Open Redirect')"
+                }
+            ],
+            "identifiers": [
+                { "type": "CVE", "value": "CVE-2024-29041" },
+                { "type": "GHSA", "value": "GHSA-yyyy-yyyy-yyyy" }
+            ],
+            "references": [
+                { "url": "https://github.com/advisories/GHSA-yyyy-yyyy-yyyy" }
+            ],
+            "published_at": "2024-03-25T12:00:00Z",
+            "updated_at": "2024-04-01T12:00:00Z",
+            "withdrawn_at": null
+        },
+        "security_vulnerability": {
+            "package": {
+                "ecosystem": "npm",
+                "name": "express"
+            },
+            "severity": "high",
+            "vulnerable_version_range": ">= 4.0.0, < 4.19.1",
+            "first_patched_version": {
+                "identifier": "4.19.1"
+            }
+        },
+        "url": "https://api.github.com/repos/foo/bar/dependabot/alerts/2",
+        "html_url": "https://github.com/foo/bar/security/dependabot/2",
+        "created_at": "2024-03-25T12:00:00Z",
+        "updated_at": "2024-04-01T12:00:00Z",
+        "dismissed_at": null,
+        "dismissed_by": null,
+        "dismissed_reason": null,
+        "dismissed_comment": null,
+        "fixed_at": null,
+        "auto_dismissed_at": null
+    },
+    {
+        "number": 3,
+        "state": "open",
+        "dependency": {
+            "package": {
+                "ecosystem": "npm",
+                "name": "minimist"
+            },
+            "manifest_path": "package.json",
+            "scope": "development",
+            "relationship": "direct"
+        },
+        "security_advisory": {
+            "ghsa_id": "GHSA-zzzz-zzzz-zzzz",
+            "cve_id": "CVE-2020-7598",
+            "summary": "Minimist prototype pollution vulnerability",
+            "description": "Minimist is vulnerable to Prototype Pollution. There is currently no patched version available.",
+            "severity": "medium",
+            "vulnerabilities": [
+                {
+                    "package": {
+                        "ecosystem": "npm",
+                        "name": "minimist"
+                    },
+                    "severity": "medium",
+                    "vulnerable_version_range": ">= 1.0.0, < 1.2.6",
+                    "first_patched_version": null
+                }
+            ],
+            "cvss": {
+                "score": 5.6,
+                "vector_string": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:L/I:L/A:L"
+            },
+            "cwes": [
+                {
+                    "cwe_id": "CWE-1321",
+                    "name": "Improperly Controlled Modification of Object Prototype Attributes ('Prototype Pollution')"
+                }
+            ],
+            "identifiers": [
+                { "type": "CVE", "value": "CVE-2020-7598" },
+                { "type": "GHSA", "value": "GHSA-zzzz-zzzz-zzzz" }
+            ],
+            "references": [
+                { "url": "https://github.com/advisories/GHSA-zzzz-zzzz-zzzz" }
+            ],
+            "published_at": "2020-03-15T12:00:00Z",
+            "updated_at": "2020-06-01T12:00:00Z",
+            "withdrawn_at": null
+        },
+        "security_vulnerability": {
+            "package": {
+                "ecosystem": "npm",
+                "name": "minimist"
+            },
+            "severity": "medium",
+            "vulnerable_version_range": ">= 1.0.0, < 1.2.6",
+            "first_patched_version": null
+        },
+        "url": "https://api.github.com/repos/foo/bar/dependabot/alerts/3",
+        "html_url": "https://github.com/foo/bar/security/dependabot/3",
+        "created_at": "2020-03-15T12:00:00Z",
+        "updated_at": "2020-06-01T12:00:00Z",
+        "dismissed_at": null,
+        "dismissed_by": null,
+        "dismissed_reason": null,
+        "dismissed_comment": null,
+        "fixed_at": null,
+        "auto_dismissed_at": null
+    },
+    {
+        "number": 4,
+        "state": "open",
+        "dependency": {
+            "package": {
+                "ecosystem": "npm",
+                "name": "axios"
+            },
+            "manifest_path": "package.json",
+            "scope": "runtime",
+            "relationship": "direct"
+        },
+        "security_advisory": {
+            "ghsa_id": "GHSA-aaaa-aaaa-aaaa",
+            "cve_id": "CVE-2023-45857",
+            "summary": "Axios Cross-Site Request Forgery vulnerability",
+            "description": "Axios versions prior to 1.6.0 are vulnerable to CSRF. Note: this is a major version upgrade from 0.x to 1.x.",
+            "severity": "high",
+            "vulnerabilities": [
+                {
+                    "package": {
+                        "ecosystem": "npm",
+                        "name": "axios"
+                    },
+                    "severity": "high",
+                    "vulnerable_version_range": ">= 0.1.0, < 1.6.0",
+                    "first_patched_version": {
+                        "identifier": "1.6.0"
+                    }
+                }
+            ],
+            "cvss": {
+                "score": 7.5,
+                "vector_string": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N"
+            },
+            "cwes": [
+                {
+                    "cwe_id": "CWE-352",
+                    "name": "Cross-Site Request Forgery (CSRF)"
+                }
+            ],
+            "identifiers": [
+                { "type": "CVE", "value": "CVE-2023-45857" },
+                { "type": "GHSA", "value": "GHSA-aaaa-aaaa-aaaa" }
+            ],
+            "references": [
+                { "url": "https://github.com/advisories/GHSA-aaaa-aaaa-aaaa" }
+            ],
+            "published_at": "2023-11-15T12:00:00Z",
+            "updated_at": "2023-12-01T12:00:00Z",
+            "withdrawn_at": null
+        },
+        "security_vulnerability": {
+            "package": {
+                "ecosystem": "npm",
+                "name": "axios"
+            },
+            "severity": "high",
+            "vulnerable_version_range": ">= 0.1.0, < 1.6.0",
+            "first_patched_version": {
+                "identifier": "1.6.0"
+            }
+        },
+        "url": "https://api.github.com/repos/foo/bar/dependabot/alerts/4",
+        "html_url": "https://github.com/foo/bar/security/dependabot/4",
+        "created_at": "2023-11-15T12:00:00Z",
+        "updated_at": "2023-12-01T12:00:00Z",
+        "dismissed_at": null,
+        "dismissed_by": null,
+        "dismissed_reason": null,
+        "dismissed_comment": null,
+        "fixed_at": null,
+        "auto_dismissed_at": null
+    },
+    {
+        "number": 5,
+        "state": "open",
+        "dependency": {
+            "package": {
+                "ecosystem": "npm",
+                "name": "@babel/traverse"
+            },
+            "manifest_path": "package.json",
+            "scope": "development",
+            "relationship": "transitive"
+        },
+        "security_advisory": {
+            "ghsa_id": "GHSA-bbbb-bbbb-bbbb",
+            "cve_id": "CVE-2023-45133",
+            "summary": "Babel Traverse arbitrary code execution vulnerability",
+            "description": "@babel/traverse versions prior to 7.23.2 are vulnerable to arbitrary code execution when parsing maliciously crafted Babel config or source code.",
+            "severity": "critical",
+            "vulnerabilities": [
+                {
+                    "package": {
+                        "ecosystem": "npm",
+                        "name": "@babel/traverse"
+                    },
+                    "severity": "critical",
+                    "vulnerable_version_range": ">= 1.0.0, < 7.23.2",
+                    "first_patched_version": {
+                        "identifier": "7.23.2"
+                    }
+                }
+            ],
+            "cvss": {
+                "score": 9.8,
+                "vector_string": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H"
+            },
+            "cwes": [
+                {
+                    "cwe_id": "CWE-94",
+                    "name": "Improper Control of Generation of Code ('Code Injection')"
+                }
+            ],
+            "identifiers": [
+                { "type": "CVE", "value": "CVE-2023-45133" },
+                { "type": "GHSA", "value": "GHSA-bbbb-bbbb-bbbb" }
+            ],
+            "references": [
+                { "url": "https://github.com/advisories/GHSA-bbbb-bbbb-bbbb" }
+            ],
+            "published_at": "2023-10-15T12:00:00Z",
+            "updated_at": "2023-11-01T12:00:00Z",
+            "withdrawn_at": null
+        },
+        "security_vulnerability": {
+            "package": {
+                "ecosystem": "npm",
+                "name": "@babel/traverse"
+            },
+            "severity": "critical",
+            "vulnerable_version_range": ">= 1.0.0, < 7.23.2",
+            "first_patched_version": {
+                "identifier": "7.23.2"
+            }
+        },
+        "url": "https://api.github.com/repos/foo/bar/dependabot/alerts/5",
+        "html_url": "https://github.com/foo/bar/security/dependabot/5",
+        "created_at": "2023-10-15T12:00:00Z",
+        "updated_at": "2023-11-01T12:00:00Z",
+        "dismissed_at": null,
+        "dismissed_by": null,
+        "dismissed_reason": null,
+        "dismissed_comment": null,
+        "fixed_at": null,
+        "auto_dismissed_at": null
+    }
+]

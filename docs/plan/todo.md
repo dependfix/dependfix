@@ -62,26 +62,24 @@ T901（样例数据，与实现并行）           → T108（报告生成）→
 - `mapGitHubError(error, context)` 6 种错误码映射（401→AUTH_FAILED, 403→RATE_LIMITED/PERM_DENIED, 404→NOT_FOUND, 4xx/5xx→API_ERROR, 网络→NETWORK）
 - Mock 用 `nock` 拦截 HTTP 层，不维护 Mock 客户端
 - `GITHUB_ERROR_CODES` 枚举统一放入 `packages/core/src/errors/error-codes.ts`
-- `client.test.ts`: 11 tests 覆盖 repo get、auth header、分页、6 错误码映射
-
-**设计稿应明确**:
-- 认证初始化方式（PAT 令牌、过期处理）
-- API 调用接口签名（输入/输出类型、错误模型）
-- 分页与限流策略
-- Mock 层设计（用于本地开发与测试）
-- 需要调用的 GitHub REST API 端点清单
+- `client.spec.ts`: 11 tests 覆盖 repo get、auth header、分页、6 错误码映射
 
 **实现文件**:
-- `packages/cli/src/github/client.ts`（HTTP 客户端封装）
-- `packages/cli/src/github/types.ts`（GitHub API 响应类型）
+- `packages/cli/src/github/client.ts` — `createGitHubClient` 工厂
+- `packages/cli/src/github/errors.ts` — `mapGitHubError` 错误映射
+- `packages/cli/src/github/client.spec.ts` — 11 个单元测试（nock HTTP 拦截）
+- `packages/core/src/errors/error-codes.ts` — `GITHUB_ERROR_CODES` 枚举
 
 **验收标准**:
 
-- [ ] `GitHubClient` 类：`new GitHubClient({ token })` 初始化
-- [ ] `client.repos.get({ owner, repo })` 返回仓库基本信息
-- [ ] `client.security.advisories({ owner, repo })` 查询安全告警（分页、状态过滤）
-- [ ] 请求失败时抛 `AppError`，包含 HTTP 状态码和 API 错误信息
-- [ ] 单元测试覆盖正常/认证失败/限流/网络错误四种场景
+- [x] `createGitHubClient({ token })` 返回已认证的 `Octokit` 实例（`auth: token`）
+- [x] `octokit.rest.repos.get({ owner, repo })` 返回仓库基本信息（类型自动推导）
+- [x] `octokit.paginate(octokit.rest.dependabot.listAlertsForRepo, { state, per_page })` 自动分页拉取 Dependabot 告警
+- [x] 请求失败时 `mapGitHubError(error, context)` 抛 `AppError`，包含 code + HTTP 状态码 + request URL
+- [x] 错误码覆盖 6 种场景：`AUTHENTICATION_FAILED` / `RATE_LIMITED` / `PERMISSION_DENIED` / `REPO_NOT_FOUND` / `GITHUB_API_ERROR` / `NETWORK_ERROR`
+- [x] 单元测试覆盖：正常响应、auth header、分页、401/403/403-rate/404/422/500/网络异常（11 tests 全部通过）
+
+**非目标**: 不引入 `@octokit/plugin-throttling`（M2 引入）；不封装自定义类，直接暴露 Octokit 实例
 
 ---
 

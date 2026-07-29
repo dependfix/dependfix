@@ -230,13 +230,15 @@ T901（样例数据，与实现并行）           → T108（报告生成）→
 - **优先级**: P0
 - **依赖**: T103, T104, T105, T106, T107
 - **状态**: 未开始
-- **前置条件**: ⚠️ **先出设计稿** [报告生成设计](../design/)
+- **前置条件**: ✅ **设计稿已产出** [报告生成设计](../design/report-generator.md)
 
-**设计稿应明确**:
-- Markdown 报告模板（各节标题、表格格式、示例）
-- JSON 报告 schema（与 `RunResult` 类型对齐）
-- 报告文件命名规范（`dependfix-report-{date}-{runId}.md` / `.json`）
-- 输出目录约定
+**设计稿覆盖**:
+- 6 类型定义：RunResult / RunSummary / RepositoryResult / FixAction / FixError / RunReportConfig
+- Markdown 报告 6 节模板：元信息 → 汇总表 → 严重级别分布 → 仓库明细 → 修复动作 → 错误
+- JSON 报告：`JSON.stringify(RunResult)` 零序列化逻辑
+- 文件命名：`dependfix-report-{YYYYMMDD}-{runId}.{md|json}`
+- 输出目录：默认 `./dependfix-reports/`，自动创建
+- 映射函数将 T105/T106/T107 结果转为 FixAction
 
 **实现文件**:
 - `packages/core/src/report/markdown-generator.ts`

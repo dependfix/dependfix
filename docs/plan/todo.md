@@ -229,35 +229,40 @@ T901（样例数据，与实现并行）           → T108（报告生成）→
 
 - **优先级**: P0
 - **依赖**: T103, T104, T105, T106, T107
-- **状态**: 未开始
+- **状态**: ✅ 已完成
 - **前置条件**: ✅ **设计稿已产出** [报告生成设计](../design/report-generator.md)
 
-**设计稿覆盖**:
-- 6 类型定义：RunResult / RunSummary / RepositoryResult / FixAction / FixError / RunReportConfig
-- Markdown 报告 6 节模板：元信息 → 汇总表 → 严重级别分布 → 仓库明细 → 修复动作 → 错误
-- JSON 报告：`JSON.stringify(RunResult)` 零序列化逻辑
-- 文件命名：`dependfix-report-{YYYYMMDD}-{runId}.{md|json}`
-- 输出目录：默认 `./dependfix-reports/`，自动创建
-- 映射函数将 T105/T106/T107 结果转为 FixAction
+**实现摘要**:
+- 6 类型：`RunResult` / `RunSummary` / `RepositoryResult` / `FixAction` / `FixError` / `RunReportConfig`
+- `RunReportConfig` 为 `RuntimeConfig` 脱敏子集（排除 `githubToken`）
+- 辅助函数：`aggregateSeverity` / `groupByRepository` / `formatDuration` / `alertKey`
+- `generateMarkdownReport()`：6 节固定模板（Header → Summary → Severity → Repositories → Fix Actions → Errors）
+- `generateJsonReport()`：`JSON.stringify(RunResult, null, 2)`，零自定义序列化
+- `writeReport()`：写入 `.md` + `.json` 到输出目录，自动创建目录，日期 + runId 命名
+- 33 个单元测试覆盖 Markdown 所有节、JSON 所有键、写入、边界
+- 全量 192 tests 通过
 
 **实现文件**:
+- `packages/core/src/report/types.ts`
 - `packages/core/src/report/markdown-generator.ts`
 - `packages/core/src/report/json-generator.ts`
+- `packages/core/src/report/writer.ts`
+- `packages/core/src/report/index.ts`（更新导出）
 
 **验收标准**:
 
-- [ ] `generateMarkdownReport(result: RunResult): string`
+- [x] `generateMarkdownReport(result: RunResult): string`
   - 运行元信息：时间、模式、阈值、仓库数
   - 汇总统计：扫描仓库数、命中告警数、已修复数、失败数、跳过数（表格）
   - 按仓库明细：每个仓库的告警列表（表格）
   - 按严重级别统计（表格）
   - 失败原因分类（表格）
   - 生成的修复链接（若有 PR）
-- [ ] `generateJsonReport(result: RunResult): string`
+- [x] `generateJsonReport(result: RunResult): string`
   - 包含 `runId`、`startedAt`/`finishedAt`、`config`、`summary`、`repositories[]`、`alerts[]`、`actions[]`、`errors[]`
   - JSON 格式合法、可被 `JSON.parse` 解析
-- [ ] 报告写入文件：`writeReport(mdContent, jsonContent, outputDir)`
-- [ ] 单元测试验证 Markdown 和 JSON 的结构正确性
+- [x] 报告写入文件：`writeReport(mdContent, jsonContent, outputDir)`
+- [x] 单元测试验证 Markdown 和 JSON 的结构正确性
 
 **非目标**: 不实现 HTML 报告、不发送邮件通知
 

@@ -18,3 +18,8 @@ export function createEmptyExecutionSummary(): ExecutionSummary {
         failed: 0,
     }
 }
+
+export * from './types'
+export { generateMarkdownReport } from './markdown-generator'
+export { generateJsonReport } from './json-generator'
+export { writeReport } from './writer'

@@ -53,8 +53,16 @@ T901（样例数据，与实现并行）           → T108（报告生成）→
 
 - **优先级**: P0
 - **依赖**: T002, T004
-- **状态**: 未开始
-- **前置条件**: ⚠️ **先出设计稿** [GitHub 客户端接口设计](../design/)
+- **状态**: ✅ 已完成
+- **前置条件**: ⚠️ **先出设计稿** [GitHub 客户端接口设计](../design/github-client.md)（已完成）
+
+**实现摘要**:
+- 引入 `@octokit/rest` 替代手写 fetch 封装（M1-M4 累计 ~15 个端点，octokit 自带类型推导、`paginate()` 一行分页）
+- `createGitHubClient({ token })` 工厂函数，内部 `new Octokit({ auth: token })`
+- `mapGitHubError(error, context)` 6 种错误码映射（401→AUTH_FAILED, 403→RATE_LIMITED/PERM_DENIED, 404→NOT_FOUND, 4xx/5xx→API_ERROR, 网络→NETWORK）
+- Mock 用 `nock` 拦截 HTTP 层，不维护 Mock 客户端
+- `GITHUB_ERROR_CODES` 枚举统一放入 `packages/core/src/errors/error-codes.ts`
+- `client.spec.ts`: 11 tests 覆盖 repo get、auth header、分页、6 错误码映射
 
 **设计稿应明确**:
 - 认证初始化方式（PAT 令牌、过期处理）

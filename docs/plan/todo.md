@@ -35,7 +35,7 @@ T901（样例数据，与实现并行）           → T108（报告生成）→
 - `resolveRepoList(cliRepos, reposFilePath?)` 合并 CLI 与文件仓库列表、去重、校验
 - `parseCliArgs` 新增 `--repo` 简写、`--repos-file` 标志；迁移到 **citty** 统一参数解析（自动 `--help`、类型推断）
 - `CliConfigOverrides` 新增 `reposFilePath` 字段
-- `repo-selector.spec.ts`: 9 tests 覆盖文件读取、注释空行、校验、去重
+- `repo-selector.test.ts`: 9 tests 覆盖文件读取、注释空行、校验、去重
 
 **验收标准**:
 
@@ -62,7 +62,7 @@ T901（样例数据，与实现并行）           → T108（报告生成）→
 - `mapGitHubError(error, context)` 6 种错误码映射（401→AUTH_FAILED, 403→RATE_LIMITED/PERM_DENIED, 404→NOT_FOUND, 4xx/5xx→API_ERROR, 网络→NETWORK）
 - Mock 用 `nock` 拦截 HTTP 层，不维护 Mock 客户端
 - `GITHUB_ERROR_CODES` 枚举统一放入 `packages/core/src/errors/error-codes.ts`
-- `client.spec.ts`: 11 tests 覆盖 repo get、auth header、分页、6 错误码映射
+- `client.test.ts`: 11 tests 覆盖 repo get、auth header、分页、6 错误码映射
 
 **设计稿应明确**:
 - 认证初始化方式（PAT 令牌、过期处理）
@@ -290,9 +290,9 @@ T901（样例数据，与实现并行）           → T108（报告生成）→
 
 ### T902 单元测试与集成测试
 
-- [ ] `packages/core/src/filters/alert-filter.spec.ts`：全部阈值 + fixable 排序 + 截断
-- [ ] `packages/core/src/report/markdown-generator.spec.ts`：验证输出结构
-- [ ] `packages/cli/src/fixers/pnpm/index.spec.ts`：lockfile 修复关键路径
+- [ ] `packages/core/src/filters/alert-filter.test.ts`：全部阈值 + fixable 排序 + 截断
+- [ ] `packages/core/src/report/markdown-generator.test.ts`：验证输出结构
+- [ ] `packages/cli/src/fixers/pnpm/index.test.ts`：lockfile 修复关键路径
 - [ ] 核心模块覆盖率 >= 80%
 
 ### T903 日志、错误码与审计字段统一

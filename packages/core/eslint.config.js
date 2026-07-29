@@ -10,7 +10,6 @@ export default defineConfig([
     {
         files: [
             'tsdown.config.ts',
-            'src/**/*.spec.ts',
             'src/**/*.test.ts',
         ],
         languageOptions: createLanguageOptions({}, {

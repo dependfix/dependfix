@@ -16,7 +16,6 @@ export default defineConfig([
             'commitlint.config.ts',
             'packages/*/tsdown.config.ts',
             'vitest.config.ts',
-            'packages/*/src/**/*.spec.ts',
             'packages/*/src/**/*.test.ts',
         ],
         languageOptions: createLanguageOptions({}, {

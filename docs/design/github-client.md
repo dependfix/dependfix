@@ -221,7 +221,7 @@ const allAlerts = await octokit.paginate(
 ### 8.1 方案：`nock` 拦截 HTTP
 
 ```typescript
-// packages/cli/src/github/client.spec.ts
+// packages/cli/src/github/client.test.ts
 
 import nock from 'nock'
 import { createGitHubClient } from './client'
@@ -281,7 +281,7 @@ packages/cli/src/github/__fixtures__/
 └── empty-alerts.json         # 无告警
 ```
 
-Fixture 给 T103 `dependabot-fetcher.spec.ts` 使用，验证 Dependabot 原始类型 → `NormalizedSecurityAlert` 映射。
+Fixture 给 T103 `dependabot-fetcher.test.ts` 使用，验证 Dependabot 原始类型 → `NormalizedSecurityAlert` 映射。
 
 ---
 
@@ -291,7 +291,7 @@ Fixture 给 T103 `dependabot-fetcher.spec.ts` 使用，验证 Dependabot 原始�
 |------|------|
 | `packages/cli/src/github/client.ts` | `createGitHubClient()` 工厂函数 |
 | `packages/cli/src/github/errors.ts` | `mapGitHubError()` 错误映射 |
-| `packages/cli/src/github/client.spec.ts` | 6 场景单元测试（nock 拦截） |
+| `packages/cli/src/github/client.test.ts` | 6 场景单元测试（nock 拦截） |
 | `packages/core/src/errors/error-codes.ts` | `GITHUB_ERROR_CODES` 枚举 |
 | `packages/cli/package.json` | 新增 `@octokit/rest`（dep）+ `nock`（devDep） |
 

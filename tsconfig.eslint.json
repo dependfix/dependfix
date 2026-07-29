@@ -6,7 +6,6 @@
     "include": [
         "packages/*/src/*.ts",
         "packages/*/src/**/*.ts",
-        "packages/*/src/**/*.spec.ts",
         "packages/*/src/**/*.test.ts",
         "commitlint.config.ts",
         "packages/*/tsdown.config.ts",

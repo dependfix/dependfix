@@ -144,24 +144,27 @@ T901（样例数据，与实现并行）           → T108（报告生成）→
 
 - **优先级**: P0
 - **依赖**: T003, T104
-- **状态**: 未开始
+- **状态**: ✅ 已完成
 - **前置条件**: ✅ **设计稿已产出** [依赖升级修复设计](../design/dependency-fixer.md)
 
-**设计稿应明确**:
-- 升级策略：`pnpm update <pkg>@<version>` vs 直接修改 `package.json` + `pnpm install`
-- 回滚策略：升级失败后如何恢复到升级前状态
-- 变更摘要格式：哪些包、从哪个版本到哪个版本、是否为 major 升级
-- 增量修复 vs 批量修复的决策逻辑
+**实现摘要**:
+- `upgradeDependency({ packageName, targetVersion, workDir })` 直接修改 `package.json` + `pnpm install --no-frozen-lockfile`
+- 保留原始版本前缀（`^` / `~` / 精确），不强制改为精确版本
+- 升级前备份 `package.json` + `pnpm-lock.yaml`（`.bak`），`pnpm install` 失败自动回滚
+- `findDependencyVersion()` 按 `dependencies` → `devDependencies` → `optionalDependencies` 查找
+- `extractPrefix()` / `parseMajorVersion()` 分别处理前缀保留和 major 判定
+- 向后兼容保留 M0 的 `createDependencyFixerDescriptor()` stub
+- `index.test.ts`: 31 tests 覆盖 happy path / 前缀保留 / major 检测 / 回滚 / 边界
 
 **实现文件**: `packages/cli/src/fixers/dependency/index.ts`
 
 **验收标准**:
 
-- [ ] `upgradeDependency({ packageName, targetVersion, workDir })` 执行单包升级
-- [ ] 升级后 `package.json` 和 `pnpm-lock.yaml` 已更新
-- [ ] 返回 `DependencyFixResult { packageName, fromVersion, toVersion, isMajor, success }`
-- [ ] 升级失败时恢复 `package.json` 和 lockfile（备份 → 升级 → 失败则还原）
-- [ ] 集成测试：在临时目录创建最小 `package.json` + `pnpm-lock.yaml`，执行升级后校验文件内容
+- [x] `upgradeDependency({ packageName, targetVersion, workDir })` 执行单包升级
+- [x] 升级后 `package.json` 和 `pnpm-lock.yaml` 已更新
+- [x] 返回 `DependencyFixResult { packageName, fromVersion, toVersion, isMajor, success }`
+- [x] 升级失败时恢复 `package.json` 和 lockfile（备份 → 升级 → 失败则还原）
+- [x] 集成测试：在临时目录创建最小 `package.json` + `pnpm-lock.yaml`，执行升级后校验文件内容
 
 ---
 

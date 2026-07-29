@@ -1,3 +1,5 @@
+export * from './verification-runner'
+
 export interface CommandExecutionDescriptor {
     module: 'runner'
     commands: string[]

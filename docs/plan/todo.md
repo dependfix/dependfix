@@ -202,19 +202,26 @@ T901（样例数据，与实现并行）           → T108（报告生成）→
 
 - **优先级**: P0
 - **依赖**: T105, T106
-- **状态**: 未开始
+- **状态**: ✅ 已完成
 - **实现文件**: `packages/cli/src/runners/verification-runner.ts`
+
+**实现摘要**:
+- `runVerification({ workDir, commands? })` 按顺序执行，任一失败即停止
+- 默认命令链：`pnpm install --frozen-lockfile` → `pnpm lint` → `pnpm build`
+- 使用 `spawn` + `shell: true` 执行任意 shell 命令
+- 每条命令记录：文本、耗时、退出码、stdout/stderr 摘要（截断到 200 行）
+- `sanitizeOutput()` 脱敏：GITHUB_TOKEN、NPM_TOKEN、token=/secret= 模式、URL 认证信息
+- 命令不存在时捕获 spawn error（exitCode=-1）
+- 23 个单元测试覆盖 happy path / 失败停止 / 截断 / 脱敏 / 边界
 
 **验收标准**:
 
-- [ ] `runVerification({ workDir, commands?: string[] })` 按顺序执行命令
-- [ ] 默认命令：`pnpm install --frozen-lockfile` → `pnpm lint` → `pnpm build`
-- [ ] 支持仓库级自定义命令（如 `pnpm test`）
-- [ ] 每个命令记录：命令文本、耗时（ms）、退出码、stdout/stderr 摘要（截断到 200 行）
-- [ ] 任一命令失败 → 停止后续命令、返回 `VerificationResult { success: false, failedCommand, failure }`
-- [ ] 日志中不泄漏 token / 密码
-
-**非目标**: 不实现 E2E 测试执行（M3 可模板化修复需要时再扩展）
+- [x] `runVerification({ workDir, commands?: string[] })` 按顺序执行命令
+- [x] 默认命令：`pnpm install --frozen-lockfile` → `pnpm lint` → `pnpm build`
+- [x] 支持仓库级自定义命令（如 `pnpm test`）
+- [x] 每个命令记录：命令文本、耗时（ms）、退出码、stdout/stderr 摘要（截断到 200 行）
+- [x] 任一命令失败 → 停止后续命令、返回 `VerificationResult { success: false, failedCommand, failure }`
+- [x] 日志中不泄漏 token / 密码
 
 ---
 

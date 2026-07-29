@@ -267,11 +267,15 @@ T901（样例数据，与实现并行）           → T108（报告生成）→
 - **依赖**: T101, T108
 - **状态**: 未开始
 - **实现文件**: `packages/cli/src/app.ts`（改造）、`packages/cli/src/cli/main.ts`
+- **设计约束**: 脚本存在性校验在 T109 编排层完成，不放入 `runVerification` 执行器内部
 
 **验收标准**:
 
 - [ ] `dependfix report --repo owner/repo` → 拉取告警 + 生成报告（不执行修复）
 - [ ] `dependfix fix --repo owner/repo` → 拉取 + 过滤 + 修复 + 验证（不推送、不创建 PR）
+  - [ ] 验证阶段的默认命令链中，脚本命令（`pnpm lint` / `pnpm build`）执行前校验 `package.json#scripts` 是否存在对应键
+  - [ ] 缺失脚本 → 记录跳过原因（如 `skipped: no "lint" script`），不视为失败，不传递给 `runVerification`
+  - [ ] 用户通过 `--commands` 自定义的命令不校验（由用户保证正确性）
 - [ ] `dependfix fix-and-pr --repo owner/repo` → 预留模式（M1 阶段只做参数校验，实际 PR 创建在 M2 实现）
 - [ ] `--dry-run` 标志：打印将执行的操作列表，不实际写入文件
 - [ ] `--verbose` 标志：输出详细日志（每步耗时、API 调用详情）

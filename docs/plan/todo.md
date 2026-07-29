@@ -172,25 +172,29 @@ T901（样例数据，与实现并行）           → T108（报告生成）→
 
 - **优先级**: P0
 - **依赖**: T003, T105
-- **状态**: 未开始
+- **状态**: ✅ 已完成
 - **前置条件**: ✅ **设计稿已产出** [lockfile 修复设计](../design/pnpm-lockfile-fixer.md)
 
-**设计稿覆盖**:
-- 7 分类模型：`LOCKFILE_NOT_FOUND | MANIFEST_MISMATCH | LOCKFILE_VERSION_MISMATCH | CORRUPTED_LOCKFILE | CREDENTIAL_ERROR | RESOLVE_ERROR | UNKNOWN`
-- 5 修复策略逐级升级：`REGENERATE` → `FIX_ENTRIES` → `PIN_TOOLCHAIN` → `REINSTALL`
-- 回滚：备份 `pnpm-lock.yaml` → 失败还原 → 清理 .bak
-- LockfileDiff 摘要：行数变化 + 包数量变化
-- 工具链固定：`packageManager` 字段 & corepack 兼容策略
+**实现摘要**:
+- `repairLockfile({ workDir, toolchain? })` 诊断 → 逐级修复 → 验证三阶段流程
+- 7 分类诊断：按关键词匹配 pnpm `--frozen-lockfile` 错误输出
+- 按分类选取策略链：`REGENERATE` (`--lockfile-only`) / `FIX_ENTRIES` (`--fix-lockfile`) / `PIN_TOOLCHAIN` (corepack + packageManager) / `REINSTALL` (`--no-frozen-lockfile`)
+- 每级策略执行后立即用 `pnpm i --frozen-lockfile` 验证，失败则升级到下一级
+- `CREDENTIAL_ERROR` 直接 SKIP，不可修复
+- 修复前备份 `pnpm-lock.yaml` → 全部策略失败后回滚 → cleanup
+- `computeLockfileDiff()` 统计行数 + packages 条目数变化
+- `resolvePnpmVersion()` 优先级：toolchain > packageManager > null
+- 35 个单元测试覆盖所有分类、策略链、回滚、边界
 
 **实现文件**: `packages/cli/src/fixers/pnpm/index.ts`
 
 **验收标准**:
 
-- [ ] `repairLockfile({ workDir, toolchain })` 检测并修复 lockfile 漂移
-- [ ] 修复流程：固定 pnpm 版本 → `pnpm install --lockfile-only` → `pnpm install --frozen-lockfile` 验证
-- [ ] 记录 lockfile diff 摘要（行数变化、包数量变化）
-- [ ] 返回 `LockfileRepairResult { success, failureCategory?, diff? }`
-- [ ] 集成测试覆盖：lockfile 缺失、版本不一致、间接依赖漂移三种场景
+- [x] `repairLockfile({ workDir, toolchain })` 检测并修复 lockfile 漂移
+- [x] 修复流程：固定 pnpm 版本 → `pnpm install --lockfile-only` → `pnpm install --frozen-lockfile` 验证
+- [x] 记录 lockfile diff 摘要（行数变化、包数量变化）
+- [x] 返回 `LockfileRepairResult { success, failureCategory?, diff? }`
+- [x] 集成测试覆盖：lockfile 缺失、版本不一致、间接依赖漂移三种场景
 
 ---
 

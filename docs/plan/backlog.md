@@ -12,13 +12,16 @@
 
 - 优先级：`P1`
 - 依赖：T109
+- 状态：✅ 已完成
 - 交付物：`.github/workflows/security-auto-fix.yml`
+- 前置条件：✅ **设计稿已产出** [GitHub Action 工作流设计](../design/github-action-workflow.md)
 - 任务内容：
-  - [ ] 支持 `workflow_dispatch`。
-  - [ ] 支持 `schedule`。
-  - [ ] 明确最小权限集。
+  - [x] 支持 `workflow_dispatch`（手动触发，含 mode/severity/dry-run 输入）。
+  - [x] 支持 `schedule`（每周一 UTC 6:00 定时运行）。
+  - [x] 明确最小权限集（contents: read + security-events: read）。
+  - [x] 报告 artifact 自动上传（retention 30 天）。
 - 完成定义：
-  - [ ] 工作流可被手动触发并执行主流程。
+  - [x] 工作流可被手动触发并执行主流程。
 
 ### T202 Action 输入输出参数对齐
 

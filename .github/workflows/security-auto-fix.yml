@@ -1,0 +1,94 @@
+name: Security Auto Fix
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: '运行模式'
+        type: choice
+        required: true
+        options:
+          - report-only
+          - fix
+          - fix-and-pr
+        default: report-only
+      severity-threshold:
+        description: '严重级别阈值'
+        type: choice
+        required: false
+        options:
+          - critical
+          - high
+          - medium
+          - all
+        default: high
+      dry-run:
+        description: '试运行模式（不修改文件，仅在 fix 模式下生效）'
+        type: boolean
+        required: false
+        default: true
+      max-alerts-per-repository:
+        description: '每仓库最多处理的告警数'
+        type: string
+        required: false
+        default: '10'
+  schedule:
+    # 每周一 UTC 6:00（北京时间 14:00）
+    - cron: '0 6 * * 1'
+
+permissions:
+  contents: read
+  security-events: read
+  # T204 (fix-and-pr 落地) 后扩展为:
+  # contents: write
+  # pull-requests: write
+
+concurrency:
+  group: security-auto-fix-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  dependfix:
+    name: Dependfix Security Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: latest
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: lts/*
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm i --frozen-lockfile
+
+      - name: Build
+        run: pnpm build
+
+      - name: Run dependfix
+        run: |
+          pnpm dependfix ${{ inputs.mode || 'report-only' }} \
+            --repo ${{ github.repository }} \
+            --severity-threshold ${{ inputs.severity-threshold || 'high' }} \
+            --max-alerts-per-repository ${{ inputs.max-alerts-per-repository || '10' }} \
+            ${{ inputs.dry-run && '--dry-run' || '' }} \
+            --verbose
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload report artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependfix-report-${{ github.run_id }}
+          path: ./dependfix-reports/
+          retention-days: 30

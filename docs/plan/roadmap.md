@@ -5,8 +5,8 @@
 | 阶段 | 目标 | 优先级 | 状态 |
 |------|------|--------|:----:|
 | M0: 基线收敛 | Monorepo 骨架、配置模型、工具链策略、告警模型 | P0 | 已完成 |
-| M1: MVP 单仓库修复 | 告警拉取→过滤→修复→验证→报告闭环 | P0 | 未开始 |
-| M2: GitHub Action 接入 | workflow_dispatch + 定时 + PR + AI Token + Prompt 防护 | P1 | 未开始 |
+| M1: MVP 单仓库修复 | 告警拉取→过滤→修复→验证→报告闭环 | P0 | 已完成 |
+| M2: GitHub Action 接入 | workflow_dispatch + 定时 + PR + AI Token + Prompt 防护 | P1 | 进行中 |
 | M3: Code Scanning 扩展 | 规则分级、可模板化修复、建议输出 | P1 | 未开始 |
 | M4: 多仓库治理 | 自动发现、并发控制、报告归档 | P2 | 未开始 |
 | M5: AI Breaking Change 研判 | Changelog 采集、LLM 研判、修复生成、质量门 | P1 | 未开始 |
@@ -36,6 +36,8 @@ Monorepo 骨架搭建、核心配置模型、工具链版本策略固定、标�
 将 M1 能力接入 GitHub Actions，支持 `workflow_dispatch` + `schedule` 触发，输出报告 artifact，支持创建修复分支与 PR。包含用户自定义 AI Token 支持和 Prompt 注入防护。
 
 > 详细任务见 [backlog.md §M2](backlog.md#m2-github-action-接入)
+> 
+> **当前进度**: T201 设计稿 + 工作流已完成。
 
 ## M3: Code Scanning 扩展
 

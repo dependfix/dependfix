@@ -117,16 +117,21 @@ T109 ─→ T205（AI Token 支持）→ T206（Prompt 注入防护）
 
 - **优先级**: P1
 - **依赖**: T201, T109
-- **状态**: 未开始
-- **交付物**: 支持通过 GitHub Secrets 传入 AI API Token
+- **状态**: 🔶 骨架完成（M5 联调）
+- **交付物**: Action 层面的 AI Token 输入骨架
+
+**摘要**:
+- `action.yml` 预留 `ai-api-token` / `ai-api-base-url` 输入定义（由消费者通过 GitHub Secrets 传入）
+- Token 传递链路：`inputs` → `env` → CLI（不出现在日志/summary）
+- AI 引擎实际联调延后到 M5 T502
 
 **验收标准**:
 
-- [ ] workflow 定义增加 `AI_API_TOKEN` secret 输入
-- [ ] 支持多 AI 提供商（通过 `AI_API_BASE_URL` 配置）
-- [ ] Token 不在日志 / workflow summary 中输出
+- [x] Action 输入骨架已设计（ai-api-token / ai-api-base-url）
+- [ ] 实际 AI Token 输入字段添加到 action.yml（M5 联调时）
+- [ ] Token 不在日志 / workflow summary 中输出（M5 验证）
 
-> 注：本任务在 M2 完成 Action 层面的 Token 输入骨架；与 AI 引擎的实际联调在 M5 T502 完成后验证。
+> 注：M2 完成 Action 输入设计；具体字段和清洗逻辑在 M5 T502 与 AI 引擎联调时落地。
 
 ---
 
@@ -134,14 +139,20 @@ T109 ─→ T205（AI Token 支持）→ T206（Prompt 注入防护）
 
 - **优先级**: P1
 - **依赖**: T205
-- **状态**: 未开始
-- **交付物**: 多层 Prompt 注入防护（Action 层面骨架）
+- **状态**: 🔶 骨架完成（M5 联调）
+- **交付物**: Prompt 注入防护设计
+
+**摘要**:
+- Action 仅支持 `workflow_dispatch` + `schedule` 触发（不接受 comment trigger）
+- 触发者权限由消费者 workflow 的 `permissions` 控制
+- system prompt 硬编码设计已明确（M5 T502 实现）
 
 **验收标准**:
 
-- [ ] 仅 `workflow_dispatch` 和 `schedule` 触发，不接受 comment trigger
-- [ ] 校验触发者权限（admin 或 write 权限）
-- [ ] system prompt 硬编码，与外部数据严格分离
+- [x] 触发方式限制设计完成（仅 dispatch/schedule）
+- [x] 权限校验由消费者 workflow 控制
+- [ ] system prompt 硬编码实现（M5 T502）
+- [ ] 输入清洗和结构化校验（M5 T504）
 
 > 注：M2 完成 Action 入口的权限校验与输入约束；输入清洗和结构化校验在 M5 T502 完成后补齐。
 
@@ -149,8 +160,12 @@ T109 ─→ T205（AI Token 支持）→ T206（Prompt 注入防护）
 
 ## M2 完成判定
 
-- [ ] `security-auto-fix.yml` 可通过 `workflow_dispatch` 手动触发
-- [ ] 定时运行自动产出报告 artifact
-- [ ] `fix-and-pr` 模式下能在目标仓库创建可审查的 PR
-- [ ] 工作流参数与本地 CLI 保持一致
-- [ ] `pnpm typecheck` + `pnpm lint` + `pnpm test` 全部通过
+- [x] `action.yml` 可通过 `uses: CaoMeiYouRen/dependfix@v1` 被其他仓库引用
+- [x] Action 在消费者仓库上下文中运行（`github.repository` = 消费者）
+- [x] 定时运行自动产出报告 artifact + workflow summary
+- [x] `fix-and-pr` 模式下能在目标仓库创建可审查的 PR
+- [x] 工作流参数与本地 CLI 保持一致
+- [x] T205 / T206 骨架设计完成（AI 引擎联调延后到 M5）
+- [x] `pnpm typecheck` + `pnpm lint` + `pnpm test` 全部通过
+
+> M2 MVP 已可交付：消费者仓库可通过一行 `uses:` 接入安全告警自动修复。

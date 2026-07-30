@@ -1,5 +1,5 @@
 import type { Octokit, RestEndpointMethodTypes } from '@octokit/rest'
-import type { NormalizedSecurityAlert } from '@dependfix/core'
+import type { NormalizedSecurityAlert, DependencyType } from '@dependfix/core'
 import { mapGitHubError } from './errors'
 
 // ---------------------------------------------------------------------------
@@ -105,5 +105,26 @@ function normalizeAlert(
         fixable,
         fixStrategy: fixable ? 'upgrade' : null,
         recommendedVersion: firstPatched?.identifier ?? '',
+        dependencyType: normalizeDependencyRelationship(alert.dependency.relationship),
     }
+}
+
+// ---------------------------------------------------------------------------
+// Helpers (continued)
+// ---------------------------------------------------------------------------
+
+/**
+ * 将 Dependabot API 的 `dependency.relationship` 映射为 `DependencyType`。
+ *
+ * GitHub API 返回的合法值:
+ * - `'direct'`    → 直接依赖
+ * - `'indirect'`  → 间接依赖（transitive）
+ * - `null`/`undefined` → 未知
+ */
+function normalizeDependencyRelationship(
+    relationship: string | null | undefined,
+): DependencyType | undefined {
+    if (relationship === 'direct') { return 'direct' }
+    if (relationship === 'indirect') { return 'transitive' }
+    return undefined
 }

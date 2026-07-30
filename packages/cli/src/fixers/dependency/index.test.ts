@@ -15,9 +15,12 @@ vi.mock('node:child_process', () => ({
 
 import {
     upgradeDependency,
+    overrideTransitiveDependency,
     extractPrefix,
     parseMajorVersion,
     findDependencyVersion,
+    readLockfileVersion,
+    ensurePnpmOverrides,
     type DependencyFixResult,
 } from './index'
 
@@ -423,5 +426,202 @@ describe('upgradeDependency', () => {
         expect(result.error).toContain('invalid JSON')
 
         cleanup(project)
+    })
+})
+
+// ===========================================================================
+// overrideTransitiveDependency
+// ===========================================================================
+
+describe('overrideTransitiveDependency', () => {
+    beforeEach(() => {
+        mockExecSync.mockReset()
+        // 默认 mock：pnpm install 成功
+        mockExecSync.mockReturnValue(undefined)
+    })
+
+    it('adds package to pnpm.overrides and runs pnpm install', async () => {
+        const project = createTempProject({ lodash: '^4.17.20' })
+        // Write a minimal lockfile so readLockfileVersion can find the current version
+        writeFileSync(project.lockfilePath, [
+            'lockfileVersion: \'9.0\'',
+            '',
+            '/fast-uri/5.0.0:',
+            '  resolution: {integrity: sha512-xxx}',
+            '',
+        ].join('\n'))
+
+        const result = await overrideTransitiveDependency({
+            packageName: 'fast-uri',
+            targetVersion: '5.0.1',
+            workDir: project.dir,
+        })
+
+        expect(result.success).toBe(true)
+        expect(result.packageName).toBe('fast-uri')
+        expect(result.fromVersion).toBe('5.0.0')
+        expect(result.toVersion).toBe('5.0.1')
+
+        // Verify overrides were written
+        const pkg = JSON.parse(readFileSync(project.pkgPath, 'utf-8')) as Record<string, unknown>
+        expect(pkg.pnpm).toBeDefined()
+        expect((pkg.pnpm as Record<string, unknown>).overrides).toEqual({ 'fast-uri': '5.0.1' })
+
+        cleanup(project)
+    })
+
+    it('returns failure for direct dependencies (should use upgradeDependency)', async () => {
+        const project = createTempProject({ lodash: '^4.17.20' })
+
+        const result = await overrideTransitiveDependency({
+            packageName: 'lodash',
+            targetVersion: '4.17.21',
+            workDir: project.dir,
+        })
+
+        expect(result.success).toBe(false)
+        expect(result.error).toContain('direct dependency')
+
+        cleanup(project)
+    })
+
+    it('rolls back package.json on pnpm install failure', async () => {
+        mockExecSync.mockImplementation(() => {
+            throw Object.assign(new Error('install failed'), { stderr: 'ERR_PNPM_LOCKFILE_MISMATCH' })
+        })
+
+        const project = createTempProject({ lodash: '^4.17.20' })
+        const originalContent = readFileSync(project.pkgPath, 'utf-8')
+
+        writeFileSync(project.lockfilePath, [
+            'lockfileVersion: \'9.0\'',
+            '',
+            '/fast-uri/5.0.0:',
+            '  resolution: {integrity: sha512-xxx}',
+            '',
+        ].join('\n'))
+
+        const result = await overrideTransitiveDependency({
+            packageName: 'fast-uri',
+            targetVersion: '5.0.1',
+            workDir: project.dir,
+        })
+
+        expect(result.success).toBe(false)
+        expect(result.error).toContain('pnpm install failed')
+
+        // package.json should be restored
+        const restoredContent = readFileSync(project.pkgPath, 'utf-8')
+        expect(restoredContent).toBe(originalContent)
+
+        cleanup(project)
+    })
+
+    it('preserves existing overrides alongside new ones', async () => {
+        const project = createTempProject({ lodash: '^4.17.20' })
+        // Pre-populate with existing overrides
+        const pkgWithOverrides = JSON.parse(readFileSync(project.pkgPath, 'utf-8')) as Record<string, unknown>
+        pkgWithOverrides.pnpm = { overrides: { 'existing-pkg': '^1.0.0' } }
+        writeFileSync(project.pkgPath, `${JSON.stringify(pkgWithOverrides, null, 2)}\n`)
+
+        writeFileSync(project.lockfilePath, [
+            'lockfileVersion: \'9.0\'',
+            '',
+            '/fast-uri/5.0.0:',
+            '  resolution: {integrity: sha512-xxx}',
+            '',
+        ].join('\n'))
+
+        await overrideTransitiveDependency({
+            packageName: 'fast-uri',
+            targetVersion: '5.0.1',
+            workDir: project.dir,
+        })
+
+        const pkg = JSON.parse(readFileSync(project.pkgPath, 'utf-8')) as Record<string, unknown>
+        const overrides = (pkg.pnpm as Record<string, unknown>).overrides as Record<string, string>
+        expect(overrides['existing-pkg']).toBe('^1.0.0')
+        expect(overrides['fast-uri']).toBe('5.0.1')
+
+        cleanup(project)
+    })
+})
+
+// ===========================================================================
+// readLockfileVersion
+// ===========================================================================
+
+describe('readLockfileVersion', () => {
+    it('returns version from pnpm-lock.yaml v9 format', () => {
+        const dir = mkdtempSync(join(tmpdir(), 'dependfix-test-'))
+        const lockfilePath = join(dir, 'pnpm-lock.yaml')
+        writeFileSync(lockfilePath, [
+            'lockfileVersion: \'9.0\'',
+            '',
+            '/fast-uri/5.0.0:',
+            '  resolution: {integrity: sha512-xxx}',
+            '',
+        ].join('\n'))
+
+        const version = readLockfileVersion(lockfilePath, 'fast-uri')
+        expect(version).toBe('5.0.0')
+
+        rmSync(dir, { recursive: true })
+    })
+
+    it('returns null when package not found in lockfile', () => {
+        const dir = mkdtempSync(join(tmpdir(), 'dependfix-test-'))
+        const lockfilePath = join(dir, 'pnpm-lock.yaml')
+        writeFileSync(lockfilePath, 'lockfileVersion: \'9.0\'\n')
+
+        const version = readLockfileVersion(lockfilePath, 'nonexistent-pkg')
+        expect(version).toBeNull()
+
+        rmSync(dir, { recursive: true })
+    })
+
+    it('handles scoped packages (@scope/name)', () => {
+        const dir = mkdtempSync(join(tmpdir(), 'dependfix-test-'))
+        const lockfilePath = join(dir, 'pnpm-lock.yaml')
+        writeFileSync(lockfilePath, [
+            'lockfileVersion: \'9.0\'',
+            '',
+            '/@babel/traverse/7.26.0:',
+            '  resolution: {integrity: sha512-xxx}',
+            '',
+        ].join('\n'))
+
+        const version = readLockfileVersion(lockfilePath, '@babel/traverse')
+        expect(version).toBe('7.26.0')
+
+        rmSync(dir, { recursive: true })
+    })
+})
+
+// ===========================================================================
+// ensurePnpmOverrides
+// ===========================================================================
+
+describe('ensurePnpmOverrides', () => {
+    it('creates pnpm.overrides when pnpm field is missing', () => {
+        const pkg: Record<string, unknown> = { name: 'test' }
+        const overrides = ensurePnpmOverrides(pkg as Record<string, unknown> & { pnpm?: { overrides?: Record<string, string> } })
+        expect(overrides).toEqual({})
+        expect(pkg.pnpm).toEqual({ overrides: {} })
+    })
+
+    it('creates overrides when pnpm field exists without overrides', () => {
+        const pkg: Record<string, unknown> = { name: 'test', pnpm: { hoist: true } }
+        const overrides = ensurePnpmOverrides(pkg as Record<string, unknown> & { pnpm?: { overrides?: Record<string, string> } })
+        expect(overrides).toEqual({})
+        expect((pkg.pnpm as Record<string, unknown>).overrides).toEqual({})
+        expect((pkg.pnpm as Record<string, unknown>).hoist).toBe(true)
+    })
+
+    it('returns existing overrides without modification', () => {
+        const existing = { 'some-pkg': '^2.0.0' }
+        const pkg: Record<string, unknown> = { name: 'test', pnpm: { overrides: existing } }
+        const overrides = ensurePnpmOverrides(pkg as Record<string, unknown> & { pnpm?: { overrides?: Record<string, string> } })
+        expect(overrides).toBe(existing)
     })
 })

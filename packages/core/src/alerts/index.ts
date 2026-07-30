@@ -2,7 +2,10 @@ export type AlertSource = 'dependabot' | 'code-scanning'
 
 export type AlertSeverity = 'critical' | 'high' | 'medium' | 'low' | 'unknown'
 
-export type FixStrategy = 'upgrade' | 'lock' | 'wait-upstream' | 'manual'
+export type FixStrategy = 'upgrade' | 'lock' | 'wait-upstream' | 'manual' | 'override'
+
+/** Dependabot 报告中的依赖类型 */
+export type DependencyType = 'direct' | 'transitive'
 
 export interface NormalizedSecurityAlert {
     id: number
@@ -19,6 +22,8 @@ export interface NormalizedSecurityAlert {
     fixable: boolean
     fixStrategy: FixStrategy | null
     recommendedVersion: string
+    /** 依赖类型：`'direct'`（直接依赖）或 `'transitive'`（间接依赖），缺少数据时为 `undefined` */
+    dependencyType?: DependencyType
 }
 
 export const SEVERITY_MAP = {

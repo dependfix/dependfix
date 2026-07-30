@@ -35,6 +35,10 @@ interface PackageJson {
     devDependencies?: Record<string, string>
     optionalDependencies?: Record<string, string>
     peerDependencies?: Record<string, string>
+    pnpm?: {
+        overrides?: Record<string, string>
+        [key: string]: unknown
+    }
     [key: string]: unknown
 }
 
@@ -144,6 +148,118 @@ export async function upgradeDependency(
     }
 }
 
+/**
+ * 通过 pnpm `overrides` 升级间接（transitive）依赖。
+ *
+ * 间接依赖不在 `package.json` 的 `dependencies` / `devDependencies` 中列出，
+ * 因此无法通过常规 `upgradeDependency` 处理。本函数在 `package.json` 的 `pnpm.overrides`
+ * 中添加/更新版本约束，然后执行 `pnpm install --no-frozen-lockfile` 应用覆盖。
+ *
+ * - 自动继承原始版本前缀（从 lockfile 提取）
+ * - 失败时回滚 `package.json` 和 `pnpm-lock.yaml`
+ * - 不执行验证（由 T107 负责）
+ *
+ * @param params - 包名、目标版本、工作目录
+ * @returns 修复结果
+ */
+export async function overrideTransitiveDependency(
+    params: UpgradeDependencyParams,
+): Promise<DependencyFixResult> {
+    const { packageName, targetVersion, workDir } = params
+    const pkgPath = join(workDir, 'package.json')
+    const lockfilePath = join(workDir, 'pnpm-lock.yaml')
+
+    // ---- 1. 读取 package.json ----
+    if (!existsSync(pkgPath)) {
+        return failResult(packageName, targetVersion, '', `${pkgPath}: file not found`)
+    }
+
+    let pkg: PackageJson
+    try {
+        pkg = JSON.parse(readFileSync(pkgPath, 'utf-8')) as PackageJson
+    } catch {
+        return failResult(packageName, targetVersion, '', `${pkgPath}: invalid JSON`)
+    }
+
+    // ---- 2. 确认是间接依赖（不应在直接依赖列表中） ----
+    const directDep = findDependencyVersion(pkg, packageName)
+    if (directDep) {
+        return failResult(
+            packageName,
+            targetVersion,
+            directDep.version,
+            `package "${packageName}" is a direct dependency (${directDep.group}), use upgradeDependency instead`,
+        )
+    }
+
+    // ---- 3. 从 lockfile 提取当前版本（用于报告） ----
+    const fromVersion = readLockfileVersion(lockfilePath, packageName) ?? 'unknown'
+
+    // ---- 4. 构建目标版本声明 ----
+    const prefix = extractPrefix(fromVersion)
+    const toVersion = `${prefix}${targetVersion}`
+    const isMajor = parseMajorVersion(fromVersion) !== parseMajorVersion(toVersion)
+        && parseMajorVersion(fromVersion) !== -1
+        && parseMajorVersion(toVersion) !== -1
+
+    // ---- 5. 备份 ----
+    const pkgBackup = `${pkgPath}.bak`
+    const lockBackup = `${lockfilePath}.bak`
+
+    try {
+        copyFileSync(pkgPath, pkgBackup)
+        if (existsSync(lockfilePath)) {
+            copyFileSync(lockfilePath, lockBackup)
+        }
+    } catch {
+        return failResult(packageName, targetVersion, fromVersion, 'failed to create backup files')
+    }
+
+    // ---- 6. 写入 pnpm.overrides ----
+    const overrides = ensurePnpmOverrides(pkg)
+    const oldOverride = overrides[packageName]
+    overrides[packageName] = toVersion
+    writeFileSync(pkgPath, `${JSON.stringify(pkg, null, 2)}\n`, 'utf-8')
+
+    // ---- 7. 执行 pnpm install ----
+    try {
+        await execPnpmInstall(workDir)
+    } catch (installErr: unknown) {
+        // 回滚
+        if (oldOverride === undefined) {
+            delete overrides[packageName]
+            if (Object.keys(overrides).length === 0) {
+                delete pkg.pnpm.overrides
+                if (Object.keys(pkg.pnpm).length === 0) {
+                    delete pkg.pnpm
+                }
+            }
+        } else {
+            overrides[packageName] = oldOverride
+        }
+        writeFileSync(pkgPath, `${JSON.stringify(pkg, null, 2)}\n`, 'utf-8')
+        rollback(pkgPath, pkgBackup, lockfilePath, lockBackup)
+
+        const stderr = getStderr(installErr)
+        return {
+            packageName,
+            fromVersion,
+            toVersion,
+            isMajor,
+            success: false,
+            error: `pnpm install failed: ${stderr}`,
+        }
+    }
+
+    return {
+        packageName,
+        fromVersion,
+        toVersion,
+        isMajor,
+        success: true,
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Exported helpers (for unit testing)
 // ---------------------------------------------------------------------------
@@ -203,6 +319,55 @@ export function findDependencyVersion(
         }
     }
     return null
+}
+
+/**
+ * 确保 `package.json` 中存在 `pnpm.overrides` 对象，若不存在则创建。
+ * 返回 `overrides` 对象的引用，调用方可直接写入。
+ */
+export function ensurePnpmOverrides(pkg: PackageJson): Record<string, string> {
+    if (!pkg.pnpm) {
+        pkg.pnpm = {}
+    }
+    if (!pkg.pnpm.overrides) {
+        pkg.pnpm.overrides = {}
+    }
+    return pkg.pnpm.overrides
+}
+
+/**
+ * 从 `pnpm-lock.yaml` 中读取指定包的当前锁定版本。
+ * 通过简单的正则匹配查找，不解析完整 YAML（性能优先）。
+ *
+ * pnpm v9+ lockfile 格式（v9.0 起）:
+ *   /package-name/version:
+ *   /@scope/package-name/version:
+ *
+ * @returns 锁定版本字符串（如 `'5.0.0'`），未找到返回 `null`
+ */
+export function readLockfileVersion(lockfilePath: string, packageName: string): string | null {
+    if (!existsSync(lockfilePath)) {
+        return null
+    }
+
+    try {
+        const content = readFileSync(lockfilePath, 'utf-8')
+        // 匹配 `/packageName/version:` 行（v9 格式）
+        // 包名不转义：fast-uri → /fast-uri/5.0.0:；@babel/traverse → /@babel/traverse/7.26.0:
+        const escapedName = escapeRegExp(packageName)
+        const pattern = new RegExp(`^/${escapedName}/(\\d+(?:\\.\\d+(?:\\.\\d+)?(?:-[a-zA-Z0-9.]+)?)):`, 'm')
+        const match = pattern.exec(content)
+        return match ? match[1] : null
+    } catch {
+        return null
+    }
+}
+
+/**
+ * 转义正则表达式特殊字符。
+ */
+function escapeRegExp(str: string): string {
+    return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
 // ---------------------------------------------------------------------------

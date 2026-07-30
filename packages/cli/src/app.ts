@@ -22,7 +22,7 @@ import {
 } from '@dependfix/core'
 import { createGitHubClient } from './github/client'
 import { fetchDependabotAlerts } from './github/dependabot-fetcher'
-import { upgradeDependency, type DependencyFixResult } from './fixers/dependency'
+import { upgradeDependency, overrideTransitiveDependency, type DependencyFixResult } from './fixers/dependency'
 import { repairLockfile, type LockfileRepairResult } from './fixers/pnpm'
 import { runVerification, type VerificationResult } from './runners/verification-runner'
 import { createFixBranch, stageAndCommit, pushBranch, createPullRequest, generatePRBody } from './github/pr-creator'
@@ -428,15 +428,24 @@ export class DependfixApp {
         }
 
         try {
-            const result: DependencyFixResult = await upgradeDependency({
-                packageName: alert.packageName,
-                targetVersion: alert.recommendedVersion,
-                workDir: this.workDir,
-            })
+            // 间接依赖通过 pnpm.overrides 升级，直接依赖通过常规版本声明升级
+            const isTransitive = alert.dependencyType === 'transitive'
+            const result: DependencyFixResult = isTransitive
+                ? await overrideTransitiveDependency({
+                    packageName: alert.packageName,
+                    targetVersion: alert.recommendedVersion,
+                    workDir: this.workDir,
+                })
+                : await upgradeDependency({
+                    packageName: alert.packageName,
+                    targetVersion: alert.recommendedVersion,
+                    workDir: this.workDir,
+                })
 
+            const strategyLabel = isTransitive ? ' (pnpm overrides)' : ''
             this.logger.info(
                 result.success
-                    ? `Upgraded ${result.packageName}: ${result.fromVersion} → ${result.toVersion}`
+                    ? `Upgraded ${result.packageName}: ${result.fromVersion} → ${result.toVersion}${strategyLabel}`
                     : `Failed to upgrade ${result.packageName}: ${result.error}`,
             )
 

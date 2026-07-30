@@ -59,3 +59,69 @@
   - 辅助函数: `isFixable(alert)`、`mapCodeScanningSeverity(ruleSeverity)`
   - 向后兼容别名: `AlertReference`（简化版 5 字段模型）
 - **完成定义**: 任一数据源进入过滤层前能转换为统一模型
+
+---
+
+## M1: MVP 单仓库自动修复（已归档）
+
+> 归档日期: 2026-07-30
+> 阶段摘要: 参见 [roadmap.md §M1](roadmap.md#m1-mvp-单仓库自动修复)
+> 状态: 已完成
+> 最终提交: `4b41b70` feat(cli): 实现 DependfixApp 编排管线与 CLI 入口串联
+
+**阶段成果**: 跑通单仓库、Node.js / pnpm 生态下的 Dependabot 告警拉取 → 过滤 → 修复 → 验证 → 报告的全链路闭环。192 项测试通过，lint 0 error。
+
+### T101 实现仓库选择能力 ✅
+- **交付物**: `packages/cli/src/github/repo-selector.ts`
+- **实现内容**: `readReposFile()` 文件读取（支持注释跳过）、`resolveRepoList()` CLI+文件合并去重校验、citty 统一参数解析（`--repo` / `--repos-file`）
+- **测试**: 9 tests
+
+### T102 实现 GitHub 客户端封装 ✅
+- **交付物**: `packages/cli/src/github/client.ts`、`errors.ts`
+- **实现内容**: 引入 `@octokit/rest`、`createGitHubClient({ token })` 工厂、`mapGitHubError()` 6 种错误码映射、nock HTTP mock
+- **测试**: 11 tests
+
+### T103 接入 Dependabot Alerts 拉取 ✅
+- **交付物**: `packages/cli/src/github/dependabot-fetcher.ts`
+- **实现内容**: `octokit.paginate()` 自动分页、`normalizeAlert()` 映射到 `NormalizedSecurityAlert`、fixable 判定
+- **测试**: 14 tests（含 fixture 5 条样例数据）
+
+### T104 实现告警过滤与优先级引擎 ✅
+- **交付物**: `packages/core/src/filters/alert-filter.ts`
+- **实现内容**: `filterAlerts()` 按严重级别、`prioritizeAlerts()` 三级排序、`limitAlerts()` 截断
+- **测试**: 18 tests
+
+### T105 实现依赖升级修复器 ✅
+- **交付物**: `packages/cli/src/fixers/dependency/index.ts`
+- **实现内容**: `upgradeDependency()` 修改 package.json + `pnpm install --no-frozen-lockfile`、前缀保留、备份回滚
+- **测试**: 31 tests
+
+### T106 实现 pnpm frozen-lockfile 修复器 ✅
+- **交付物**: `packages/cli/src/fixers/pnpm/index.ts`
+- **实现内容**: `classifyLockfileFailure()` 7 分类诊断、`repairLockfile()` 多策略修复链、lockfile diff 统计
+- **测试**: 35 tests
+- **Fixture**: `lockfile-drift/`（normal / missing-lockfile / version-mismatch）
+
+### T107 实现最小验证执行器 ✅
+- **交付物**: `packages/cli/src/runners/verification-runner.ts`
+- **实现内容**: `runVerification()` 顺序执行命令、`sanitizeOutput()` 脱敏、默认 `pnpm install/lint/build`
+- **测试**: 23 tests
+
+### T108 实现 Markdown / JSON 报告生成 ✅
+- **交付物**: `packages/core/src/report/`（types / markdown-generator / json-generator / writer）
+- **实现内容**: 6 类型定义、`generateMarkdownReport()` 6 节模板、`generateJsonReport()`、`writeReport()`
+- **测试**: 33 tests
+
+### T109 实现本地运行入口 ✅
+- **交付物**: `packages/cli/src/app.ts`（DependfixApp）、`packages/cli/src/bin.ts`（CLI 入口）
+- **实现内容**: `DependfixApp` 类替代 M0 descriptor 模式、3 种运行模式、`--dry-run` / `--verbose`、脚本存在性校验、退出码 0/1/2、bin 字段
+- **收尾**: 清理 6 组 M0 descriptor stubs（-106 行）
+
+### MVP 完成判定（全部通过）
+- [x] `dependfix report --repo owner/repo`
+- [x] Dependabot alerts 拉取 + 严重级别过滤
+- [x] 可升级依赖自动修复（本地文件变更）
+- [x] pnpm frozen-lockfile 漂移修复
+- [x] 最小验证（install + lint + build）
+- [x] Markdown + JSON 报告生成
+- [x] typecheck + lint + test 全部通过

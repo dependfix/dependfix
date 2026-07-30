@@ -35,9 +35,9 @@ Monorepo 骨架搭建、核心配置模型、工具链版本策略固定、标�
 
 将 M1 能力接入 GitHub Actions，支持 `workflow_dispatch` + `schedule` 触发，输出报告 artifact，支持创建修复分支与 PR。包含用户自定义 AI Token 支持和 Prompt 注入防护。
 
-> 详细任务见 [backlog.md §M2](backlog.md#m2-github-action-接入)
+> 详细任务见 [todo.md §M2](todo.md#m2-github-action-接入)
 > 
-> **当前进度**: T201 设计稿 + 工作流已完成。
+> **当前进度**: T201-T203 已完成（工作流 + 参数对齐 + Artifact），T204 分支/PR 创建进行中。
 
 ## M3: Code Scanning 扩展
 
@@ -73,8 +73,8 @@ Changelog / Release Notes 采集、多 AI 提供商封装、AI 研判（问题�
 
 ## 详细任务
 
-- 当前阶段任务（M0-M1）：[todo.md](todo.md)
-- 后续阶段任务（M2-M7）：[backlog.md](backlog.md)
+- 当前阶段任务（M2）：[todo.md](todo.md)
+- 后续阶段任务（M3-M7）：[backlog.md](backlog.md)
 
 ## 交付原则
 

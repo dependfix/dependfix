@@ -30,6 +30,15 @@ inputs:
   github-token:
     description: 'GitHub Token（需 security-events 权限；fix-and-pr 模式需 contents + pull-requests 写权限）'
     required: true
+  # ── M5 AI 引擎联调骨架 ──
+  ai-api-token:
+    description: 'AI API Token（M5 联调启用，通过 GitHub Secrets 传入）'
+    required: false
+    default: ''
+  ai-api-base-url:
+    description: 'AI API Base URL（M5 联调启用，支持多 AI 提供商）'
+    required: false
+    default: ''
 
 outputs:
   report-artifact:
@@ -73,6 +82,9 @@ runs:
       shell: bash
       env:
         GITHUB_TOKEN: ${{ inputs.github-token }}
+        # M5: AI engine — passed to CLI when available
+        AI_API_TOKEN: ${{ inputs.ai-api-token }}
+        AI_API_BASE_URL: ${{ inputs.ai-api-base-url }}
 
     - name: Upload report artifact
       id: upload-report

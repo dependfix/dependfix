@@ -127,9 +127,8 @@ T109 ─→ T205（AI Token 支持）→ T206（Prompt 注入防护）
 
 **验收标准**:
 
-- [x] Action 输入骨架已设计（ai-api-token / ai-api-base-url）
-- [ ] 实际 AI Token 输入字段添加到 action.yml（M5 联调时）
-- [ ] Token 不在日志 / workflow summary 中输出（M5 验证）
+- [x] Action 输入骨架已实现（`ai-api-token` / `ai-api-base-url` 已加入 `action.yml`）
+- [ ] AI 引擎联调（M5 T502）
 
 > 注：M2 完成 Action 输入设计；具体字段和清洗逻辑在 M5 T502 与 AI 引擎联调时落地。
 

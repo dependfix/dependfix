@@ -26,6 +26,7 @@
 | `severity-threshold` | choice | `high` | 严重级别阈值：`critical` / `high` / `medium` / `all` |
 | `dry-run` | boolean | `true` | 仅在 `fix` 模式下生效；`true` 时不修改文件 |
 | `max-alerts-per-repository` | string | `10` | 每仓库最多处理的告警数 |
+| `repos` | string | `''`（空 = 当前仓库） | 逗号分隔的目标仓库（`owner/repo`），留空使用 `github.repository` |
 
 > `fix-and-pr` 模式在 M2 阶段仍为 stub，选择后将输出提示信息但不创建 PR（T204 实现后可用）。
 
@@ -136,6 +137,21 @@ pnpm dependfix ${{ inputs.mode || 'report-only' }} \
 ```
 
 文件名格式：`dependfix-report-YYYYMMDD-{runId}.md|.json`（由 `writeReport()` 生成）。
+
+### 5.3 Workflow Summary
+
+Markdown 报告内容同步写入 `$GITHUB_STEP_SUMMARY`，在 Actions 运行页直接可见：
+
+```yaml
+- name: Write workflow summary
+  if: always()
+  run: |
+    for f in ./dependfix-reports/dependfix-report-*.md; do
+      [ -f "$f" ] && cat "$f" >> "$GITHUB_STEP_SUMMARY"
+    done
+```
+
+报告无文件时输出 "⚠️ No report generated." 占位提示。
 
 ---
 

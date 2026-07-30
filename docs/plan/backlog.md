@@ -27,13 +27,14 @@
 
 - 优先级：`P1`
 - 依赖：T201
-- 交付物：GitHub Action 参数规范。
+- 状态：✅ 已完成
+- 交付物：GitHub Action 参数规范与 workflow summary。
 - 任务内容：
-  - [ ] 支持 repositories、owner、severity-threshold、mode、dry-run。
-  - [ ] 将输入映射到统一配置模型。
-  - [ ] 将执行结果输出到 workflow summary。
+  - [x] 支持 `repos` 输入（留空默认当前仓库）。
+  - [x] 所有输入映射到统一 CLI 配置模型（`--repo` / `--severity-threshold` / `--dry-run` 等）。
+  - [x] 将 Markdown 报告写入 `$GITHUB_STEP_SUMMARY`（Actions 运行页直接可见）。
 - 完成定义：
-  - [ ] Action 与本地 CLI 的配置模型保持一致。
+  - [x] Action 与本地 CLI 的配置模型保持一致。
 
 ### T203 报告 Artifact 输出
 

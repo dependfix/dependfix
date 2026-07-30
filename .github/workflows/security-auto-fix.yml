@@ -32,6 +32,11 @@ on:
         type: string
         required: false
         default: '10'
+      repos:
+        description: '目标仓库列表（逗号分隔 owner/repo，留空默认使用当前仓库）'
+        type: string
+        required: false
+        default: ''
   schedule:
     # 每周一 UTC 6:00（北京时间 14:00）
     - cron: '0 6 * * 1'
@@ -76,14 +81,33 @@ jobs:
 
       - name: Run dependfix
         run: |
+          REPOS="${{ inputs.repos }}"
+          if [ -z "$REPOS" ]; then
+            REPOS="${{ github.repository }}"
+          fi
           pnpm dependfix ${{ inputs.mode || 'report-only' }} \
-            --repo ${{ github.repository }} \
+            --repo "$REPOS" \
             --severity-threshold ${{ inputs.severity-threshold || 'high' }} \
             --max-alerts-per-repository ${{ inputs.max-alerts-per-repository || '10' }} \
             ${{ inputs.dry-run && '--dry-run' || '' }} \
             --verbose
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Write workflow summary
+        if: always()
+        run: |
+          FOUND=0
+          for f in ./dependfix-reports/dependfix-report-*.md; do
+            if [ -f "$f" ]; then
+              cat "$f" >> "$GITHUB_STEP_SUMMARY"
+              FOUND=1
+            fi
+          done
+          if [ "$FOUND" -eq 0 ]; then
+            echo "⚠️ No report generated." >> "$GITHUB_STEP_SUMMARY"
+          fi
+        shell: bash
 
       - name: Upload report artifact
         if: always()

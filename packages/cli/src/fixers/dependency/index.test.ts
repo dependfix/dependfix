@@ -22,6 +22,7 @@ import {
     readLockfileVersion,
     ensurePnpmOverrides,
     type DependencyFixResult,
+    type UpgradeDependencyParams,
 } from './index'
 
 // ---------------------------------------------------------------------------
@@ -542,6 +543,101 @@ describe('overrideTransitiveDependency', () => {
         const overrides = (pkg.pnpm as Record<string, unknown>).overrides as Record<string, string>
         expect(overrides['existing-pkg']).toBe('^1.0.0')
         expect(overrides['fast-uri']).toBe('5.0.1')
+
+        cleanup(project)
+    })
+
+    it('writes to pnpm-workspace.yaml when it exists', async () => {
+        const project = createTempProject({ lodash: '^4.17.20' })
+        writeFileSync(join(project.dir, 'pnpm-workspace.yaml'), 'packages:\n  - \'.\'\n')
+
+        writeFileSync(project.lockfilePath, [
+            'lockfileVersion: \'9.0\'',
+            '',
+            '/fast-uri/5.0.0:',
+            '  resolution: {integrity: sha512-xxx}',
+            '',
+        ].join('\n'))
+
+        const result = await overrideTransitiveDependency({
+            packageName: 'fast-uri',
+            targetVersion: '5.0.1',
+            workDir: project.dir,
+        })
+
+        expect(result.success).toBe(true)
+        expect(result.fromVersion).toBe('5.0.0')
+
+        const yamlContent = readFileSync(join(project.dir, 'pnpm-workspace.yaml'), 'utf-8')
+        expect(yamlContent).toContain('fast-uri')
+        expect(yamlContent).toContain('5.0.1')
+
+        // package.json should NOT have pnpm.overrides
+        const pkg = JSON.parse(readFileSync(project.pkgPath, 'utf-8')) as Record<string, unknown>
+        expect(pkg.pnpm).toBeUndefined()
+
+        cleanup(project)
+    })
+
+    it('rolls back pnpm-workspace.yaml on install failure', async () => {
+        mockExecSync.mockImplementation(() => {
+            throw Object.assign(new Error('install failed'), { stderr: 'ERR' })
+        })
+
+        const project = createTempProject({ lodash: '^4.17.20' })
+        const workspaceYamlPath = join(project.dir, 'pnpm-workspace.yaml')
+        const originalYaml = 'packages:\n  - \'.\'\n'
+        writeFileSync(workspaceYamlPath, originalYaml)
+
+        writeFileSync(project.lockfilePath, [
+            'lockfileVersion: \'9.0\'',
+            '',
+            '/fast-uri/5.0.0:',
+            '  resolution: {integrity: sha512-xxx}',
+            '',
+        ].join('\n'))
+
+        await overrideTransitiveDependency({
+            packageName: 'fast-uri',
+            targetVersion: '5.0.1',
+            workDir: project.dir,
+        })
+
+        const restored = readFileSync(workspaceYamlPath, 'utf-8')
+        expect(restored).toBe(originalYaml)
+
+        cleanup(project)
+    })
+
+    it('preserves existing workspace overrides alongside new ones', async () => {
+        const project = createTempProject({ lodash: '^4.17.20' })
+        writeFileSync(join(project.dir, 'pnpm-workspace.yaml'), [
+            'packages:',
+            '  - \'.\'',
+            'overrides:',
+            '  existing-pkg: ^1.0.0',
+            '',
+        ].join('\n'))
+
+        writeFileSync(project.lockfilePath, [
+            'lockfileVersion: \'9.0\'',
+            '',
+            '/fast-uri/5.0.0:',
+            '  resolution: {integrity: sha512-xxx}',
+            '',
+        ].join('\n'))
+
+        await overrideTransitiveDependency({
+            packageName: 'fast-uri',
+            targetVersion: '5.0.1',
+            workDir: project.dir,
+        })
+
+        const yamlContent = readFileSync(join(project.dir, 'pnpm-workspace.yaml'), 'utf-8')
+        expect(yamlContent).toContain('existing-pkg')
+        expect(yamlContent).toContain('^1.0.0')
+        expect(yamlContent).toContain('fast-uri')
+        expect(yamlContent).toContain('5.0.1')
 
         cleanup(project)
     })

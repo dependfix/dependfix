@@ -232,6 +232,34 @@
 - 完成定义：
   - [ ] 用户登录后可查看全局告警状态。
 
+### T605 MCP Server 骨架（`@dependfix/mcp`）
+
+- 优先级：`P1`
+- 依赖：T505, T109
+- 交付物：MCP Server 项目骨架 + 2 个只读 tool。
+- 任务内容：
+  - [ ] `packages/mcp` 初始化，配置 tsdown 构建。
+  - [ ] 集成 `@modelcontextprotocol/sdk`。
+  - [ ] 实现 `fetch_alerts` tool：拉取 Dependabot 告警。
+  - [ ] 实现 `get_last_report` tool：读取最近 JSON 报告。
+- 完成定义：
+  - [ ] 可通过 `npx @dependfix/mcp` 启动并注册 tool。
+- 设计文档：[MCP Server 设计](../design/mcp-server.md)
+
+### T606 MCP 写入 tool + CLI 互操作
+
+- 优先级：`P2`
+- 依赖：T605
+- 交付物：`run_scan` + `fix_dependency` tool。
+- 任务内容：
+  - [ ] 实现 `run_scan` tool（复用 `DependfixApp` 程序化接口）。
+  - [ ] 实现 `fix_dependency` tool（复用 `overrideTransitiveDependency`）。
+  - [ ] 验证 MCP tool 结果与 CLI 输出一致性。
+- 完成定义：
+  - [ ] AI 助手可通过 MCP tool 完成完整扫描修复闭环。
+
+> **T605 / T606** 是 CLI + Skills 自动化路径的基础设施。完成后可通过 `security-alert-remediator` skill 直接调用 MCP tool，代替手写 CLI 命令。
+
 ---
 
 ## M7: 企业级平台增强
@@ -303,6 +331,18 @@
   - [ ] 监控与告警集成（Sentry）。
 - 完成定义：
   - [ ] 可通过 Helm Chart 部署到 Kubernetes 集群。
+
+### T706 MCP Skill 集成与发布
+
+- 优先级：`P2`
+- 依赖：T606, M6
+- 交付物：MCP Server 正式发布 + Skill 集成。
+- 任务内容：
+  - [ ] `@dependfix/mcp` 发布到 npm。
+  - [ ] 更新 `security-alert-remediator` skill，对接 MCP tool。
+  - [ ] 编写 MCP 接入文档与 Skill 编排示例。
+- 完成定义：
+  - [ ] 用户可通过 AI 助手对话式完成安全告警修复闭环。
 
 ---
 

@@ -10,8 +10,8 @@
 | M3: Code Scanning 扩展 | 规则分级、可模板化修复、建议输出 | P1 | 未开始 |
 | M4: 多仓库治理 | 自动发现、并发控制、报告归档 | P2 | 未开始 |
 | M5: AI Breaking Change 研判 | Changelog 采集、LLM 研判、修复生成、质量门 | P1 | 未开始 |
-| M6: 最小平台 MVP | 仓库管理、凭据管理、手动扫描、仪表板、Docker 部署 | P1 | 未开始 |
-| M7: 企业级平台增强 | RBAC、BullMQ+Redis、跨平台 Git、批量处理、Helm Chart | P2 | 未开始 |
+| M6: 最小平台 MVP | 仓库管理、凭据管理、仪表板、MCP Server、Docker 部署 | P1 | 未开始 |
+| M7: 企业级平台增强 | RBAC、BullMQ+Redis、跨平台 Git、MCP Skill 集成、Helm Chart | P2 | 未开始 |
 
 ## M0: 基线收敛
 

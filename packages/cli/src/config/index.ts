@@ -1,3 +1,4 @@
+import { execSync } from 'node:child_process'
 import { AppError, isValidRepoIdentifier, type SeverityThreshold } from '@dependfix/core'
 import { resolveRepoList } from '../github/repo-selector'
 
@@ -35,6 +36,8 @@ export interface CliConfigOverrides {
 export interface ResolveRuntimeConfigOptions {
     env?: NodeJS.ProcessEnv
     cliOverrides?: CliConfigOverrides
+    /** 工作目录，用于从 git remote 推断仓库名（默认 `process.cwd()`） */
+    workDir?: string
 }
 
 export const DEFAULT_RUNTIME_CONFIG: Omit<RuntimeConfig, 'githubToken' | 'repositories' | 'dryRun' | 'createPullRequest'> = {
@@ -193,13 +196,24 @@ export function resolveRuntimeConfig(options: ResolveRuntimeConfigOptions = {}):
     const cliOverrides = options.cliOverrides ?? {}
     const mode = cliOverrides.mode ?? envConfig.mode ?? DEFAULT_RUNTIME_CONFIG.mode
 
+    let repositories = resolveRepoList([
+        ...(envConfig.repositories ?? []),
+        ...(cliOverrides.repositories ?? []),
+    ], cliOverrides.reposFilePath)
+
+    // 自动推断：所有来源都未提供仓库时，从 git remote 提取
+    if (repositories.length === 0) {
+        const workDir = options.workDir ?? process.cwd()
+        const inferred = inferRepoFromGitRemote(workDir)
+        if (inferred) {
+            repositories = [inferred]
+        }
+    }
+
     const config: RuntimeConfig = {
         mode,
         severityThreshold: cliOverrides.severityThreshold ?? envConfig.severityThreshold ?? DEFAULT_RUNTIME_CONFIG.severityThreshold,
-        repositories: resolveRepoList([
-            ...(envConfig.repositories ?? []),
-            ...(cliOverrides.repositories ?? []),
-        ], cliOverrides.reposFilePath),
+        repositories,
         dryRun: resolveDryRun(mode, cliOverrides, envConfig),
         createPullRequest: resolveCreatePullRequest(mode, cliOverrides, envConfig),
         githubToken: cliOverrides.githubToken ?? envConfig.githubToken ?? '',
@@ -207,4 +221,36 @@ export function resolveRuntimeConfig(options: ResolveRuntimeConfigOptions = {}):
     }
 
     return validateRuntimeConfig(config)
+}
+
+// ---------------------------------------------------------------------------
+// Git remote inference
+// ---------------------------------------------------------------------------
+
+/** 匹配 GitHub remote URL 的正则（HTTPS / SSH / git@ 格式） */
+const GITHUB_REMOTE_RE = /github\.com[/:]([^/]+)\/([^/\s.]+?)(?:\.git)?\s*$/i
+
+/**
+ * 从 git remote origin 推断 owner/repo。
+ *
+ * 支持格式：
+ * - `https://github.com/owner/repo.git`
+ * - `git@github.com:owner/repo.git`
+ * - `ssh://git@github.com/owner/repo.git`
+ *
+ * @returns `owner/repo` 或 `null`（非 GitHub / 无 origin）
+ */
+export function inferRepoFromGitRemote(workDir: string): string | null {
+    try {
+        const url = execSync('git remote get-url origin', {
+            cwd: workDir,
+            encoding: 'utf-8',
+            stdio: 'pipe',
+        }).trim()
+
+        const match = GITHUB_REMOTE_RE.exec(url)
+        return match ? `${match[1]}/${match[2]}` : null
+    } catch {
+        return null
+    }
 }

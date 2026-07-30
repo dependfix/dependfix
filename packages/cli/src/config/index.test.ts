@@ -80,3 +80,59 @@ describe('resolveRuntimeConfig', () => {
         })).toThrow('Invalid repository identifier')
     })
 })
+
+// ===========================================================================
+// GitHub remote URL regex (used by inferRepoFromGitRemote)
+// ===========================================================================
+
+const GITHUB_REMOTE_RE = /github\.com[/:]([^/]+)\/([^/\s.]+?)(?:\.git)?\s*$/i
+
+describe('GITHUB_REMOTE_RE', () => {
+    it('matches HTTPS GitHub URL with .git suffix', () => {
+        const m = GITHUB_REMOTE_RE.exec('https://github.com/CaoMeiYouRen/dependfix.git')
+        expect(m).not.toBeNull()
+        expect(m[1]).toBe('CaoMeiYouRen')
+        expect(m[2]).toBe('dependfix')
+    })
+
+    it('matches HTTPS GitHub URL without .git suffix', () => {
+        const m = GITHUB_REMOTE_RE.exec('https://github.com/CaoMeiYouRen/dependfix')
+        expect(m).not.toBeNull()
+        expect(m[2]).toBe('dependfix')
+    })
+
+    it('matches SSH git@ format', () => {
+        const m = GITHUB_REMOTE_RE.exec('git@github.com:CaoMeiYouRen/dependfix.git')
+        expect(m).not.toBeNull()
+        expect(m[1]).toBe('CaoMeiYouRen')
+        expect(m[2]).toBe('dependfix')
+    })
+
+    it('matches SSH ssh:// format', () => {
+        const m = GITHUB_REMOTE_RE.exec('ssh://git@github.com/CaoMeiYouRen/dependfix.git')
+        expect(m).not.toBeNull()
+        expect(m[1]).toBe('CaoMeiYouRen')
+        expect(m[2]).toBe('dependfix')
+    })
+
+    it('does not match GitLab URLs', () => {
+        expect(GITHUB_REMOTE_RE.exec('https://gitlab.com/foo/bar.git')).toBeNull()
+    })
+
+    it('does not match non-GitHub URLs', () => {
+        expect(GITHUB_REMOTE_RE.exec('https://example.com/foo/bar.git')).toBeNull()
+    })
+
+    it('matches with trailing whitespace/newline', () => {
+        const m = GITHUB_REMOTE_RE.exec('https://github.com/owner/repo.git\n')
+        expect(m).not.toBeNull()
+        expect(m[1]).toBe('owner')
+        expect(m[2]).toBe('repo')
+    })
+
+    it('matches with leading whitespace', () => {
+        const m = GITHUB_REMOTE_RE.exec(' https://github.com/owner/repo.git')
+        expect(m).not.toBeNull()
+        expect(m[1]).toBe('owner')
+    })
+})

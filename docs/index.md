@@ -32,6 +32,7 @@
 - [安全设计](design/security.md)
 - [GitHub Action 设计](design/github-action-workflow.md)
 - [.gitignore 自动管理](design/gitignore-management.md)
+- [仓库名自动推断](design/repo-auto-inference.md)
 - [当前阶段任务](plan/todo.md)
 - [路线图](plan/roadmap.md)
 - [待办积压](plan/backlog.md)

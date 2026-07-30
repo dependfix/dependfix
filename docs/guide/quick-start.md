@@ -23,6 +23,11 @@ npx dependfix report --repo owner/repo --github-token $GITHUB_TOKEN
 ### 报告模式（仅查看告警）
 
 ```bash
+# 在 git 仓库内运行时，--repo 可自动推断
+cd /path/to/your-repo
+dependfix report-only --github-token $GITHUB_TOKEN
+
+# 手动指定仓库
 dependfix report-only --repo owner/repo --github-token $GITHUB_TOKEN
 ```
 
@@ -115,7 +120,7 @@ jobs:
 | 参数 | 别名 | 说明 | 默认值 |
 |:-----|:-----|:-----|:-------|
 | `mode` | （位置参数） | `report-only` / `fix` / `fix-and-pr` | `report-only` |
-| `--repo` | `-r`, `--repository`, `--repositories` | 目标仓库（`owner/repo`），逗号分隔 | — |
+| `--repo` | `-r`, `--repository`, `--repositories` | 目标仓库（`owner/repo`）。在 git 仓库内可自动推断 | — |
 | `--repos-file` | — | 从文件读取仓库列表（每行一个） | — |
 | `--github-token` | — | GitHub PAT | `GITHUB_TOKEN` 环境变量 |
 | `--severity-threshold` | — | `critical` / `high` / `medium` / `all` | `high` |

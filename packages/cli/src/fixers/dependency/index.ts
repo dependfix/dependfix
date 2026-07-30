@@ -6,17 +6,6 @@ import { join } from 'node:path'
 // Types
 // ---------------------------------------------------------------------------
 
-/** @deprecated M0 遗留 descriptor 模式，T109 重构后移除。 */
-export interface DependencyFixerDescriptor {
-    module: 'dependency-fixer'
-    ecosystem: 'npm'
-}
-
-/** @deprecated M0 遗留，T109 重构后移除。 */
-export function createDependencyFixerDescriptor(): DependencyFixerDescriptor {
-    return { module: 'dependency-fixer', ecosystem: 'npm' }
-}
-
 export interface UpgradeDependencyParams {
     /** 包名（如 `'lodash'`, `'@babel/traverse'`） */
     packageName: string

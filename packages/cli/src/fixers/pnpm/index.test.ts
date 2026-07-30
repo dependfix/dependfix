@@ -17,7 +17,6 @@ import {
     computeLockfileDiff,
     resolvePnpmVersion,
     repairLockfile,
-    createPnpmLockfileFixerDescriptor,
     type LockfileFailureCategory,
 } from './index'
 
@@ -484,16 +483,3 @@ describe('repairLockfile', () => {
     })
 })
 
-// ---------------------------------------------------------------------------
-// M0 backward compatibility
-// ---------------------------------------------------------------------------
-
-describe('createPnpmLockfileFixerDescriptor', () => {
-    it('returns the legacy descriptor', () => {
-        const descriptor = createPnpmLockfileFixerDescriptor()
-        expect(descriptor).toEqual({
-            module: 'pnpm-lockfile-fixer',
-            command: 'pnpm i --frozen-lockfile',
-        })
-    })
-})

@@ -6,20 +6,6 @@ import { join } from 'node:path'
 // Types
 // ---------------------------------------------------------------------------
 
-/** @deprecated M0 遗留 descriptor 模式，T109 重构后移除。 */
-export interface PnpmLockfileFixerDescriptor {
-    module: 'pnpm-lockfile-fixer'
-    command: 'pnpm i --frozen-lockfile'
-}
-
-/** @deprecated M0 遗留，T109 重构后移除。 */
-export function createPnpmLockfileFixerDescriptor(): PnpmLockfileFixerDescriptor {
-    return {
-        module: 'pnpm-lockfile-fixer',
-        command: 'pnpm i --frozen-lockfile',
-    }
-}
-
 export type LockfileFailureCategory =
     | 'LOCKFILE_NOT_FOUND'
     | 'MANIFEST_MISMATCH'

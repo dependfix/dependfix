@@ -1,11 +1,3 @@
-export interface CodeScanningFixerDescriptor {
-    module: 'code-scanning-fixer'
-    mode: 'suggest-only'
-}
-
-export function createCodeScanningFixerDescriptor(): CodeScanningFixerDescriptor {
-    return {
-        module: 'code-scanning-fixer',
-        mode: 'suggest-only',
-    }
-}
+// Code Scanning fixer — reserved for M3 (T301)
+// No M0 descriptor stubs remain.
+export {}

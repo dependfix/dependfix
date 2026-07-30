@@ -17,13 +17,6 @@ export interface RuntimeConfig {
     maxAlertsPerRepository: number
 }
 
-export interface ConfigLayerDescriptor {
-    module: 'config'
-    supportedModes: RuntimeMode[]
-    envVarPrefix: 'AUTO_FIX_GITHUB_SECURITY'
-    config: RuntimeConfig
-}
-
 export interface CliConfigOverrides {
     mode?: RuntimeMode
     severityThreshold?: SeverityThreshold
@@ -214,13 +207,4 @@ export function resolveRuntimeConfig(options: ResolveRuntimeConfigOptions = {}):
     }
 
     return validateRuntimeConfig(config)
-}
-
-export function createConfigLayerDescriptor(config: RuntimeConfig = resolveRuntimeConfig()): ConfigLayerDescriptor {
-    return {
-        module: 'config',
-        supportedModes: [...RUNTIME_MODES],
-        envVarPrefix: 'AUTO_FIX_GITHUB_SECURITY',
-        config,
-    }
 }

@@ -155,7 +155,7 @@ T901（样例数据，与实现并行）           → T108（报告生成）→
 - 升级前备份 `package.json` + `pnpm-lock.yaml`（`.bak`），`pnpm install` 失败自动回滚
 - `findDependencyVersion()` 按 `dependencies` → `devDependencies` → `optionalDependencies` 查找
 - `extractPrefix()` / `parseMajorVersion()` 分别处理前缀保留和 major 判定
-- 向后兼容保留 M0 的 `createDependencyFixerDescriptor()` stub
+- 向后兼容保留 M0 的 `createDependencyFixerDescriptor()` stub → T109 后已移除
 - `index.test.ts`: 31 tests 覆盖 happy path / 前缀保留 / major 检测 / 回滚 / 边界
 
 **实现文件**: `packages/cli/src/fixers/dependency/index.ts`
@@ -320,8 +320,8 @@ T901（样例数据，与实现并行）           → T108（报告生成）→
 ### T901 测试与样例数据
 
 - [x] `packages/cli/src/github/__fixtures__/dependabot-alerts.json`：5 条真实 Dependabot API 响应样例（覆盖 critical/high/medium、fixable/non-fixable、不同生态）
-- [ ] `packages/cli/src/fixers/pnpm/__fixtures__/lockfile-drift/`：3 个最小 pnpm 项目（正常、lockfile 缺失、版本不一致）
-- [ ] `packages/core/src/alerts/__fixtures__/code-scanning-alerts.json`：至少 3 条 Code Scanning API 响应样例（为 M3 准备）
+- [x] `packages/cli/src/fixers/pnpm/__fixtures__/lockfile-drift/`：3 个最小 pnpm 项目（normal / missing-lockfile / version-mismatch）
+- [ ] `packages/core/src/alerts/__fixtures__/code-scanning-alerts.json`：至少 3 条 Code Scanning API 响应样例（延后到 M3 T301）
 
 ### T902 单元测试与集成测试
 

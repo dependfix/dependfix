@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { execSync } from 'node:child_process'
 import type { Octokit } from '@octokit/rest'
@@ -137,6 +137,9 @@ export class DependfixApp {
             const message = reportError instanceof Error ? reportError.message : String(reportError)
             this.logger.error(`Failed to write reports: ${message}`)
         }
+
+        // 确保目标仓库的 .gitignore 忽略报告目录
+        this.ensureGitignore()
 
         this.logger.info(`Run ${this.runId} completed`, { exitCode })
         return { result: runResult, exitCode }
@@ -746,5 +749,42 @@ export class DependfixApp {
         }
 
         return 2
+    }
+
+    /**
+     * 确保目标仓库的 `.gitignore` 中包含 `dependfix-reports/`。
+     *
+     * - 仅在 workDir 是 git 仓库时执行
+     * - 已存在该条目时幂等跳过
+     * - 失败（权限、磁盘满等）静默降级
+     */
+    private ensureGitignore(): void {
+        try {
+            const gitDir = join(this.workDir, '.git')
+            if (!existsSync(gitDir)) {
+                return
+            }
+
+            const gitignorePath = join(this.workDir, '.gitignore')
+            const entry = 'dependfix-reports/'
+
+            let content = ''
+            if (existsSync(gitignorePath)) {
+                content = readFileSync(gitignorePath, 'utf-8')
+            }
+
+            // 幂等检查
+            const lines = content.split('\n')
+            if (lines.some((l) => l.trim() === entry)) {
+                return
+            }
+
+            // 追加（末尾无换行时补一个）
+            const suffix = content.endsWith('\n') || content.length === 0 ? '' : '\n'
+            const block = `${suffix}# dependfix\n${entry}\n`
+            writeFileSync(gitignorePath, content + block, 'utf-8')
+        } catch {
+            // 静默降级
+        }
     }
 }

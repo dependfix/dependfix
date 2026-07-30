@@ -51,3 +51,6 @@ docs/.vitepress/cache
 .agents/skills
 .opencode/agents
 .opencode/skills
+
+# dependfix
+dependfix-reports/

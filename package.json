@@ -56,12 +56,12 @@
     "code-scanning",
     "typescript"
   ],
-  "homepage": "https://github.com/CaoMeiYouRen/auto-fix-github-security#readme",
+  "homepage": "https://github.com/CaoMeiYouRen/dependfix#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/CaoMeiYouRen/auto-fix-github-security.git"
+    "url": "git+https://github.com/CaoMeiYouRen/dependfix.git"
   },
   "bugs": {
-    "url": "https://github.com/CaoMeiYouRen/auto-fix-github-security/issues"
+    "url": "https://github.com/CaoMeiYouRen/dependfix/issues"
   }
 }

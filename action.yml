@@ -62,7 +62,7 @@ runs:
       run: |
         cd "${{ github.action_path }}"
         pnpm install --frozen-lockfile
-        pnpm build
+        pnpm --filter dependfix --filter @dependfix/core build
       shell: bash
 
     - name: Run dependfix

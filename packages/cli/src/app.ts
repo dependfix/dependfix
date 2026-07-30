@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { execSync } from 'node:child_process'
 import type { Octokit } from '@octokit/rest'
 import {
     createLogger,
@@ -24,6 +25,7 @@ import { fetchDependabotAlerts } from './github/dependabot-fetcher'
 import { upgradeDependency, type DependencyFixResult } from './fixers/dependency'
 import { repairLockfile, type LockfileRepairResult } from './fixers/pnpm'
 import { runVerification, type VerificationResult } from './runners/verification-runner'
+import { createFixBranch, stageAndCommit, pushBranch, createPullRequest, generatePRBody } from './github/pr-creator'
 import type { RuntimeConfig } from './config'
 
 // ---------------------------------------------------------------------------
@@ -153,7 +155,7 @@ export class DependfixApp {
                 await this.executeFixMode()
                 break
             case 'fix-and-pr':
-                this.executeFixAndPrMode()
+                await this.executeFixAndPrMode()
                 break
         }
     }
@@ -308,21 +310,100 @@ export class DependfixApp {
     }
 
     // -----------------------------------------------------------------------
-    // fix-and-pr mode (M1 stub)
+    // fix-and-pr mode
     // -----------------------------------------------------------------------
 
-    private executeFixAndPrMode(): void {
-        this.logger.warn(
-            'fix-and-pr mode is not implemented in M1. '
-            + 'PR creation will be available in M2. '
-            + 'Use "fix" mode for local-only repair.',
-        )
-        this.allErrors.push({
-            repository: '*',
-            stage: 'report',
-            category: 'NOT_IMPLEMENTED',
-            message: 'fix-and-pr mode is not implemented in M1',
-        })
+    private async executeFixAndPrMode(): Promise<void> {
+        const client = this.createClient()
+
+        // 1. Run fix pipeline for all repos (same as fix mode)
+        for (const repo of this.config.repositories) {
+            await this.processRepoForFix(client, repo)
+        }
+
+        // 2. Check if there are changes to commit (skip dry-run)
+        if (this.config.dryRun) {
+            this.logger.info('[dry-run] Would create branch, commit, push, and PR')
+            return
+        }
+
+        if (!this.hasGitChanges()) {
+            this.logger.info('No changes to commit — skipping PR creation')
+            return
+        }
+
+        // 3. Create fix branch + commit + push
+        const branchName = `dependfix/auto-fix-${this.runId.slice(0, 8)}`
+        const commitMessage = 'fix(deps): automated dependfix security repair'
+
+        try {
+            this.logger.info(`Creating fix branch: ${branchName}`)
+            createFixBranch(this.runId, this.workDir)
+
+            this.logger.info('Staging and committing changes')
+            stageAndCommit(commitMessage, this.workDir)
+
+            this.logger.info(`Pushing branch: ${branchName}`)
+            pushBranch(branchName, this.workDir)
+
+            // 4. Create PR (one PR covering all repos)
+            if (this.config.repositories.length > 0) {
+                const firstRepo = this.config.repositories[0]
+                const [owner, repo] = firstRepo.split('/')
+                const defaultBranch = await this.fetchDefaultBranch(client, owner, repo)
+
+                // Build RunResult for PR body
+                this.computeSummary()
+                const runResult = this.buildRunResult()
+                const prBody = generatePRBody(runResult)
+                const prTitle = `fix(deps): automated security fix — ${this.summary.alertsFixed} upgrades`
+
+                const pr = await createPullRequest({
+                    octokit: client,
+                    owner,
+                    repo,
+                    headBranch: branchName,
+                    baseBranch: defaultBranch,
+                    title: prTitle,
+                    body: prBody,
+                })
+
+                this.logger.info(`PR created: ${pr.htmlUrl}`)
+
+                // Record PR as a fix action
+                this.allActions.push({
+                    type: 'dependency-upgrade',
+                    repository: firstRepo,
+                    target: `PR #${pr.number}`,
+                    fromVersion: undefined,
+                    toVersion: pr.htmlUrl,
+                    isMajor: false,
+                    success: true,
+                    durationMs: 0,
+                })
+            }
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : String(error)
+            this.logger.error(`PR creation failed: ${message}`)
+            this.allErrors.push({
+                repository: this.config.repositories[0] ?? '*',
+                stage: 'report',
+                category: 'PR_CREATION_FAILED',
+                message,
+            })
+        }
+    }
+
+    /**
+     * 检查工作目录是否有未暂存的变更。
+     */
+    private hasGitChanges(): boolean {
+        try {
+            execSync('git diff --quiet', { cwd: this.workDir, stdio: 'pipe' })
+            return false // exit 0 = no changes
+        } catch {
+            return true // exit 1 = has changes
+        }
     }
 
     // -----------------------------------------------------------------------

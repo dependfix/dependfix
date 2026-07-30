@@ -42,11 +42,9 @@ on:
     - cron: '0 6 * * 1'
 
 permissions:
-  contents: read
+  contents: write
+  pull-requests: write
   security-events: read
-  # T204 (fix-and-pr 落地) 后扩展为:
-  # contents: write
-  # pull-requests: write
 
 concurrency:
   group: security-auto-fix-${{ github.workflow }}-${{ github.ref }}

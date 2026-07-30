@@ -87,16 +87,26 @@ T109 ─→ T205（AI Token 支持）→ T206（Prompt 注入防护）
 
 - **优先级**: P1
 - **依赖**: T201, T202, T107
-- **状态**: 未开始
+- **状态**: ✅ 已完成
 - **交付物**: `packages/cli/src/github/pr-creator.ts` + `fix-and-pr` 模式落地
+
+**实现摘要**:
+- `createFixBranch(runId, workDir)`: 创建 `dependfix/auto-fix-{runId}` 分支（幂等，已存在则切换）
+- `stageAndCommit(message, workDir)`: `git add .` + `git commit`（自动设置 bot user.name/email）
+- `pushBranch(branchName, workDir)`: `git push origin <branch>`
+- `createPullRequest({ octokit, owner, repo, ... })`: `octokit.rest.pulls.create` 创建 PR
+- `generatePRBody(result)`: 从 RunResult 生成结构化 Markdown PR body
+- `DependfixApp.executeFixAndPrMode()`: 修复 → 检查变更 → 创建分支 → 提交 → 推送 → 创建 PR
+- `hasGitChanges()`: `git diff --quiet` 检测工作区变更，无变更则跳过 PR 创建
+- Workflow permissions 升级为 `contents: write` + `pull-requests: write`
 
 **验收标准**:
 
-- [ ] `dependfix fix-and-pr --repo owner/repo` 创建修复分支（`dependfix/auto-fix-{runId}`）
-- [ ] 推送修复 commit 到分支
-- [ ] 通过 `octokit.rest.pulls.create` 创建 PR，附带报告摘要
-- [ ] Workflow 权限扩展为 `contents: write` + `pull-requests: write`
-- [ ] PR body 包含：修复摘要、变更列表、验证结果
+- [x] `dependfix fix-and-pr --repo owner/repo` 创建修复分支（`dependfix/auto-fix-{runId}`）
+- [x] 推送修复 commit 到分支
+- [x] 通过 `octokit.rest.pulls.create` 创建 PR，附带报告摘要
+- [x] Workflow 权限扩展为 `contents: write` + `pull-requests: write`
+- [x] PR body 包含：修复摘要、变更列表、验证结果
 
 ---
 

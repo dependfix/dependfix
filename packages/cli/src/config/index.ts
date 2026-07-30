@@ -33,6 +33,10 @@ export interface CliConfigOverrides {
     createPullRequest?: boolean
     githubToken?: string
     maxAlertsPerRepository?: number
+    /** 是否输出详细日志 */
+    verbose?: boolean
+    /** 自定义验证命令（覆盖默认的 `pnpm install --frozen-lockfile` / `pnpm lint` / `pnpm build`） */
+    commands?: string[]
 }
 
 export interface ResolveRuntimeConfigOptions {

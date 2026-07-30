@@ -19,6 +19,9 @@
     "files": [
         "dist"
     ],
+    "bin": {
+        "dependfix": "./dist/bin.mjs"
+    },
     "engines": {
         "node": ">=20"
     },

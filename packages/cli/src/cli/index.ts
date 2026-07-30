@@ -4,8 +4,8 @@ import {
     type ArgsDef,
     type ParsedArgs,
 } from 'citty'
-import { AppError, compactRecord, isValidRepoIdentifier } from '@dependfix/core'
-import { createApplicationSkeleton } from '../app'
+import { AppError, toAppError, isValidRepoIdentifier } from '@dependfix/core'
+import { DependfixApp } from '../app'
 import {
     type CliConfigOverrides,
     type RuntimeMode,
@@ -16,7 +16,7 @@ import {
 } from '../config'
 
 // ---------------------------------------------------------------------------
-// Public interfaces (unchanged)
+// Public interfaces
 // ---------------------------------------------------------------------------
 
 export interface CliInvocation {
@@ -75,6 +75,10 @@ const argsDef = {
         description: '每个仓库最多处理的告警数',
         default: '10' as const,
     },
+    commands: {
+        type: 'string' as const,
+        description: '自定义验证命令（逗号分隔），覆盖默认的 install/lint/build',
+    },
     verbose: {
         type: 'boolean' as const,
         description: '输出详细日志',
@@ -110,6 +114,13 @@ function appendRepositories(target: string[], value: string): void {
 
         target.push(trimmed)
     }
+}
+
+function parseCommandsFlag(value: string): string[] {
+    return value
+        .split(',')
+        .map((cmd) => cmd.trim())
+        .filter(Boolean)
 }
 
 function parsedArgsToCliOverrides(parsed: ParsedArgs<typeof argsDef>): CliConfigOverrides {
@@ -172,6 +183,17 @@ function parsedArgsToCliOverrides(parsed: ParsedArgs<typeof argsDef>): CliConfig
         overrides.maxAlertsPerRepository = num
     }
 
+    // verbose (three-state: true / false / undefined)
+    if (parsed.verbose !== undefined) {
+        overrides.verbose = parsed.verbose
+    }
+
+    // commands
+    const commandsValue = parsed.commands
+    if (commandsValue) {
+        overrides.commands = parseCommandsFlag(commandsValue)
+    }
+
     return overrides
 }
 
@@ -196,23 +218,33 @@ export function runCli(rawArgs: string[]): CliRunResult {
         env: process.env,
         cliOverrides: invocation.configOverrides,
     })
-    const app = createApplicationSkeleton({ config })
-
-    app.logger.info('Runtime configuration resolved', compactRecord({
-        mode: config.mode,
-        severityThreshold: config.severityThreshold,
-        repositories: config.repositories,
-        dryRun: config.dryRun,
-        createPullRequest: config.createPullRequest,
-        maxAlertsPerRepository: config.maxAlertsPerRepository,
-        args: invocation.rawArgs.length > 0 ? invocation.rawArgs : undefined,
-    }))
 
     return {
         ok: true,
         invocation,
         config,
     }
+}
+
+// ---------------------------------------------------------------------------
+// App execution
+// ---------------------------------------------------------------------------
+
+async function runApp(rawArgs: string[]): Promise<number> {
+    const invocation = parseCliArgs(rawArgs)
+    const config = resolveRuntimeConfig({
+        env: process.env,
+        cliOverrides: invocation.configOverrides,
+    })
+
+    const app = new DependfixApp({
+        config,
+        verbose: invocation.configOverrides.verbose,
+        commands: invocation.configOverrides.commands,
+    })
+
+    const { exitCode } = await app.run()
+    return exitCode
 }
 
 // ---------------------------------------------------------------------------
@@ -226,7 +258,15 @@ export const dependfixCommand = defineCommand({
         description: '自动化处理 Dependabot / Code Scanning 安全告警的修复工具',
     },
     args: argsDef,
-    run({ rawArgs }) {
-        runCli(rawArgs)
+    async run({ rawArgs }) {
+        let exitCode = 1
+        try {
+            exitCode = await runApp(rawArgs)
+        } catch (error: unknown) {
+            const appError = toAppError(error, 'CLI_EXECUTION_FAILED')
+            console.error(`Error: ${appError.message}`)
+            exitCode = 1
+        }
+        process.exitCode = exitCode
     },
 })

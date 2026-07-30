@@ -398,12 +398,12 @@ T108 (报告生成器)
 
 ---
 
-## 11. 非目标（M1 不做）
+## 11. 非目标 / 已解决
 
-- 不处理 transitive（间接）依赖的升级（M5 AI 研判）
+- ~~不处理 transitive（间接）依赖的升级（M5 AI 研判）~~ → **M2 已实现** `overrideTransitiveDependency()`，通过 pnpm overrides 修复间接依赖
 - 不处理 workspace 协议（`workspace:*`）的版本替换
 - 不处理 git/file 协议的依赖版本
-- 不支持 pnpm overrides / pnpm.patchedDependencies
+- ~~不支持 pnpm overrides / pnpm.patchedDependencies~~ → **M2 已实现**，支持 `pnpm-workspace.yaml` 和 `package.json#pnpm.overrides` 双路径
 - 不在此层判断升级后是否破坏 lint/build/test（T107 负责）
 - 不引入 semver 包做完整版本比较
 - 不支持跨工作区批量升级（M4 T401）

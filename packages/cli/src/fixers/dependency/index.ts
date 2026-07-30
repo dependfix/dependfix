@@ -1,5 +1,5 @@
 import { execSync } from 'node:child_process'
-import { copyFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs'
+import { copyFileSync, existsSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import YAML from 'yaml'
 
@@ -129,6 +129,9 @@ export async function upgradeDependency(
         // 回滚
         rollback(pkgPath, pkgBackup, lockfilePath, lockBackup)
 
+        // 回滚后清理备份
+        cleanupBackups({ pkgBackup, lockBackup })
+
         const stderr = getStderr(installErr)
         return {
             packageName,
@@ -139,6 +142,9 @@ export async function upgradeDependency(
             error: `pnpm install failed: ${stderr}`,
         }
     }
+
+    // 成功 — 清理备份文件
+    cleanupBackups({ pkgBackup, lockBackup })
 
     return {
         packageName,
@@ -253,6 +259,9 @@ export async function overrideTransitiveDependency(
             rollback(workspaceYamlPath, workspaceBackup, lockfilePath, null)
         }
 
+        // 回滚后清理备份
+        cleanupBackups({ pkgBackup, lockBackup, workspaceBackup })
+
         const stderr = getStderr(installErr)
         return {
             packageName,
@@ -263,6 +272,13 @@ export async function overrideTransitiveDependency(
             error: `pnpm install failed: ${stderr}`,
         }
     }
+
+    // 成功 — 清理备份文件
+    cleanupBackups({
+        pkgBackup,
+        lockBackup,
+        workspaceBackup,
+    })
 
     return {
         packageName,
@@ -439,6 +455,32 @@ function rollback(
         }
     } catch {
         // 回滚失败 → 已写入 result.error，不在此层二次抛异常
+    }
+}
+
+/**
+ * 安全删除备份文件，失败静默忽略。
+ */
+function safeUnlink(filePath: string): void {
+    try {
+        if (existsSync(filePath)) {
+            unlinkSync(filePath)
+        }
+    } catch {
+        // 静默降级
+    }
+}
+
+/**
+ * 清理所有备份文件。
+ */
+function cleanupBackups(paths: { pkgBackup: string, lockBackup: string | null, workspaceBackup?: string | null }): void {
+    safeUnlink(paths.pkgBackup)
+    if (paths.lockBackup !== null) {
+        safeUnlink(paths.lockBackup)
+    }
+    if (paths.workspaceBackup) {
+        safeUnlink(paths.workspaceBackup)
     }
 }
 

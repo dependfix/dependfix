@@ -428,26 +428,32 @@ export class DependfixApp {
         }
 
         try {
-            // 间接依赖通过 pnpm.overrides 升级，直接依赖通过常规版本声明升级
-            const isTransitive = alert.dependencyType === 'transitive'
-            const result: DependencyFixResult = isTransitive
-                ? await overrideTransitiveDependency({
-                    packageName: alert.packageName,
-                    targetVersion: alert.recommendedVersion,
-                    workDir: this.workDir,
-                })
-                : await upgradeDependency({
-                    packageName: alert.packageName,
-                    targetVersion: alert.recommendedVersion,
-                    workDir: this.workDir,
-                })
+            // 优先尝试直接升级，失败自动回退到 overrides（处理间接依赖）
+            let result: DependencyFixResult = await upgradeDependency({
+                packageName: alert.packageName,
+                targetVersion: alert.recommendedVersion,
+                workDir: this.workDir,
+            })
 
-            const strategyLabel = isTransitive ? ' (pnpm overrides)' : ''
-            this.logger.info(
-                result.success
-                    ? `Upgraded ${result.packageName}: ${result.fromVersion} → ${result.toVersion}${strategyLabel}`
-                    : `Failed to upgrade ${result.packageName}: ${result.error}`,
-            )
+            if (!result.success && result.error?.includes('not found in dependencies')) {
+                // 间接依赖 — 通过 pnpm overrides 升级
+                result = await overrideTransitiveDependency({
+                    packageName: alert.packageName,
+                    targetVersion: alert.recommendedVersion,
+                    workDir: this.workDir,
+                })
+                this.logger.info(
+                    result.success
+                        ? `Upgraded ${result.packageName}: ${result.fromVersion} → ${result.toVersion} (pnpm overrides)`
+                        : `Failed to upgrade ${result.packageName}: ${result.error}`,
+                )
+            } else {
+                this.logger.info(
+                    result.success
+                        ? `Upgraded ${result.packageName}: ${result.fromVersion} → ${result.toVersion}`
+                        : `Failed to upgrade ${result.packageName}: ${result.error}`,
+                )
+            }
 
             return {
                 type: 'dependency-upgrade',

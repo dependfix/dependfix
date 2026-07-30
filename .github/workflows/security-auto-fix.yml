@@ -60,57 +60,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+      - name: Run Dependfix Action
+        uses: ./
         with:
-          version: latest
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v5
-        with:
-          node-version: lts/*
-          cache: pnpm
-
-      - name: Install dependencies
-        run: pnpm i --frozen-lockfile
-
-      - name: Build
-        run: pnpm build
-
-      - name: Run dependfix
-        run: |
-          REPOS="${{ inputs.repos }}"
-          if [ -z "$REPOS" ]; then
-            REPOS="${{ github.repository }}"
-          fi
-          pnpm dependfix ${{ inputs.mode || 'report-only' }} \
-            --repo "$REPOS" \
-            --severity-threshold ${{ inputs.severity-threshold || 'high' }} \
-            --max-alerts-per-repository ${{ inputs.max-alerts-per-repository || '10' }} \
-            ${{ inputs.dry-run && '--dry-run' || '' }} \
-            --verbose
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Write workflow summary
-        if: always()
-        run: |
-          FOUND=0
-          for f in ./dependfix-reports/dependfix-report-*.md; do
-            if [ -f "$f" ]; then
-              cat "$f" >> "$GITHUB_STEP_SUMMARY"
-              FOUND=1
-            fi
-          done
-          if [ "$FOUND" -eq 0 ]; then
-            echo "⚠️ No report generated." >> "$GITHUB_STEP_SUMMARY"
-          fi
-        shell: bash
-
-      - name: Upload report artifact
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: dependfix-report-${{ github.run_id }}
-          path: ./dependfix-reports/
-          retention-days: 30
+          mode: ${{ inputs.mode || 'report-only' }}
+          severity-threshold: ${{ inputs.severity-threshold || 'high' }}
+          dry-run: ${{ inputs.dry-run || 'true' }}
+          max-alerts-per-repository: ${{ inputs.max-alerts-per-repository || '10' }}
+          repos: ${{ inputs.repos || '' }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}

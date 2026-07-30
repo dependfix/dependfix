@@ -1,169 +1,141 @@
-# T201 设计稿：GitHub Action 工作流
+# T201 设计稿：GitHub Composite Action
 
-> 对应任务: [T201 新增 GitHub Action 工作流](../plan/backlog.md#t201-新增-github-action-工作流)
+> 对应任务: [T201 创建 Composite Action](../plan/todo.md#t201-创建-composite-action-actionyml)
 >
-> **选型结论**: 使用标准 GitHub Actions YAML 工作流，构建于 `ubuntu-latest`，通过 `workflow_dispatch` + `schedule` 双触发，复用 `dependfix` CLI 编排管线。
+> **选型结论**: 使用 GitHub Composite Action（`action.yml`），通过 `uses: CaoMeiYouRen/dependfix@v1` 被其他仓库引用。Composite Action 可组合多个 workflow steps 为单一可复用单元，无需 Docker 或 JavaScript 封装。
 
 ---
 
 ## 1. 设计目标
 
-- 将 M1 完成的 `dependfix` CLI 能力接入 GitHub Actions，支持手动触发和定时运行
-- 工作流在目标仓库内运行，扫描当前仓库自身的 Dependabot 告警
-- 使用 GitHub Actions 自动注入的 `GITHUB_TOKEN` 完成 API 认证（零额外配置）
-- 输出 Markdown / JSON 报告为 workflow artifact，可在 Actions 页面下载
-- 为 T204（分支与 PR 创建）预留 `contents: write` + `pull-requests: write` 权限扩展点
+- 将 `dependfix` CLI 封装为可复用的 GitHub Composite Action
+- 消费者仓库通过一行 `uses:` 引用即可接入安全告警自动修复
+- Action 在消费者仓库上下文中运行（`github.repository` = 消费者）
+- 输出报告 artifact 和 workflow summary
+- 支持 `fix-and-pr` 模式（创建修复分支并提交 PR）
 
 ---
 
-## 2. 触发方式
+## 2. Action 定义（action.yml）
 
-### 2.1 workflow_dispatch（手动触发）
+### 2.1 元数据
+
+```yaml
+name: 'Dependfix Security Auto Fix'
+description: 'Automated remediation of Dependabot security alerts'
+author: 'CaoMeiYouRen'
+branding:
+  icon: 'shield'
+  color: 'green'
+```
+
+### 2.2 输入参数
 
 | 参数 | 类型 | 默认值 | 说明 |
 |:---|:---|:---|:---|
-| `mode` | choice | `report-only` | 运行模式：`report-only` / `fix` / `fix-and-pr` |
-| `severity-threshold` | choice | `high` | 严重级别阈值：`critical` / `high` / `medium` / `all` |
-| `dry-run` | boolean | `true` | 仅在 `fix` 模式下生效；`true` 时不修改文件 |
-| `max-alerts-per-repository` | string | `10` | 每仓库最多处理的告警数 |
-| `repos` | string | `''`（空 = 当前仓库） | 逗号分隔的目标仓库（`owner/repo`），留空使用 `github.repository` |
+| `mode` | string | `report-only` | 运行模式：`report-only` / `fix` / `fix-and-pr` |
+| `repos` | string | `''`（空=当前仓库） | 逗号分隔的目标仓库 |
+| `severity-threshold` | string | `high` | 严重级别阈值 |
+| `dry-run` | string | `true` | 试运行模式 |
+| `max-alerts-per-repository` | string | `10` | 每仓库最大告警数 |
+| `github-token` | string | **必填** | GitHub Token（需 security-events 权限） |
 
-> `fix-and-pr` 模式在 M2 阶段仍为 stub，选择后将输出提示信息但不创建 PR（T204 实现后可用）。
+### 2.3 输出
 
-### 2.2 schedule（定时触发）
+| 输出 | 说明 |
+|:---|:---|
+| `report-artifact` | 上传的报告 artifact 名称 |
 
-- **cron**: `0 6 * * 1`（每周一 UTC 6:00，北京时间 14:00）
-- 定时运行时使用默认参数：`mode=report-only, severity-threshold=high, dry-run=true`
-- 目的：每周自动生成安全告警报告，不自动修改代码
+### 2.4 消费方式
+
+```yaml
+# 消费者仓库的 .github/workflows/dependfix.yml
+name: Weekly Security Scan
+on:
+  schedule:
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  security-events: read
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: CaoMeiYouRen/dependfix@v1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+```
+
+### 2.5 Dogfooding（自举验证）
+
+dependfix 仓库自身通过 `.github/workflows/security-auto-fix.yml` 验证 Action：
+
+```yaml
+steps:
+  - uses: actions/checkout@v5
+  - uses: ./
+    with:
+      github-token: ${{ secrets.GITHUB_TOKEN }}
+```
 
 ---
 
-## 3. 权限模型
+## 3. 执行流程
 
-### 3.1 最小权限（M2 当前）
+```
+┌────────────────┐
+│ Setup pnpm     │  pnpm/action-setup@v4
+└───────┬────────┘
+        ▼
+┌────────────────┐
+│ Setup Node.js  │  actions/setup-node@v5 (lts/*)
+└───────┬────────┘
+        ▼
+┌────────────────┐
+│ Install+Build  │  cd ${{ github.action_path }} && pnpm i && pnpm build
+└───────┬────────┘
+        ▼
+┌────────────────┐
+│ Run dependfix  │  pnpm dependfix <mode> --repo <repos> ...
+└───────┬────────┘
+        ▼
+┌────────────────┐
+│ Upload Report  │  actions/upload-artifact@v4
+└───────┬────────┘
+        ▼
+┌────────────────┐
+│ Write Summary  │  cat report.md >> $GITHUB_STEP_SUMMARY
+└────────────────┘
+```
+
+---
+
+## 4. 权限模型
+
+> Composite Action 继承调用方 workflow 的 `permissions`。建议消费者配置：
 
 ```yaml
 permissions:
-  contents: read          # 读取仓库代码（checkout + 构建）
-  security-events: read   # 读取 Dependabot alerts API
+  contents: write          # fix-and-pr 模式需要（创建分支 + 推送 commits）
+  pull-requests: write     # fix-and-pr 模式需要（创建 PR）
+  security-events: read    # 读取 Dependabot alerts
 ```
 
-### 3.2 扩展权限（T204 实现后）
+仅 `report-only` / `fix` 模式时可将 `contents`/`pull-requests` 降为 `read`。
 
-```yaml
-permissions:
-  contents: write         # 创建分支 + 推送 commits
-  pull-requests: write    # 创建 PR
-  security-events: read   # 读取 Dependabot alerts
-```
-
-> `GITHUB_TOKEN` 由 GitHub Actions 自动注入，无需用户配置。Token 仅在当前仓库内有效（不可跨仓库扫描）。
-
----
-
-## 4. 运行环境
-
-| 组件 | 版本 | 说明 |
-|:---|:---|:---|
-| `runs-on` | `ubuntu-latest` | GitHub Actions 标准 Linux 镜像 |
-| Node.js | `>= 20` | 通过 `actions/setup-node@v4` 安装 |
-| pnpm | latest | 通过 `pnpm/action-setup@v4` 安装，自动读 `packageManager` |
-| `timeout-minutes` | `15` | 超时保护，避免长时间运行的修复流程卡死 |
-
-`GITHUB_TOKEN` 通过 `${{ secrets.GITHUB_TOKEN }}` 传入 CLI 环境变量。
-
----
-
-## 5. 执行流程
-
-```
-┌──────────────┐
-│   Checkout   │  actions/checkout@v4
-└──────┬───────┘
-       ▼
-┌──────────────┐
-│ Setup pnpm   │  pnpm/action-setup@v4
-└──────┬───────┘
-       ▼
-┌──────────────┐
-│ Setup Node   │  actions/setup-node@v4 (node 20, cache: pnpm)
-└──────┬───────┘
-       ▼
-┌──────────────┐
-│  pnpm i -f   │  安装依赖（frozen-lockfile）
-└──────┬───────┘
-       ▼
-┌──────────────┐
-│  pnpm build  │  构建 core + cli 两个包
-└──────┬───────┘
-       ▼
-┌──────────────┐
-│   Run CLI    │  pnpm dependfix <mode> --repo $REPO ...
-└──────┬───────┘
-       ▼
-┌──────────────┐
-│ Upload Rep.  │  actions/upload-artifact@v4
-└──────────────┘
-```
-
-### 5.1 CLI 参数映射
-
-工作流输入参数通过 shell 传递给 `pnpm dependfix`：
-
-```bash
-pnpm dependfix ${{ inputs.mode || 'report-only' }} \
-  --repo ${{ github.repository }} \
-  --severity-threshold ${{ inputs.severity-threshold || 'high' }} \
-  --max-alerts-per-repository ${{ inputs.max-alerts-per-repository || '10' }} \
-  ${{ inputs.dry-run && '--dry-run' || '' }} \
-  --verbose
-```
-
-- `--repo` 固定使用 `github.repository`（当前仓库，格式 `owner/repo`）
-- `--verbose` 在 CI 环境始终开启，方便排查问题
-- 定时运行（schedule）时所有参数使用默认值
-
-### 5.2 报告上传
-
-无论修复成功或失败，报告 artifact 始终上传（`if: always()`）：
-
-```yaml
-- uses: actions/upload-artifact@v4
-  if: always()
-  with:
-    name: dependfix-report-${{ github.run_id }}
-    path: ./dependfix-reports/
-    retention-days: 30
-```
-
-文件名格式：`dependfix-report-YYYYMMDD-{runId}.md|.json`（由 `writeReport()` 生成）。
-
-### 5.3 Workflow Summary
-
-Markdown 报告内容同步写入 `$GITHUB_STEP_SUMMARY`，在 Actions 运行页直接可见：
-
-```yaml
-- name: Write workflow summary
-  if: always()
-  run: |
-    for f in ./dependfix-reports/dependfix-report-*.md; do
-      [ -f "$f" ] && cat "$f" >> "$GITHUB_STEP_SUMMARY"
-    done
-```
-
-报告无文件时输出 "⚠️ No report generated." 占位提示。
-
----
-
-## 6. 安全考量
+## 5. 安全考量
 
 | 维度 | 措施 |
 |:---|:---|
-| Token 暴露 | `GITHUB_TOKEN` 仅在 `env` 中传递，不出现在日志 |
-| 输出脱敏 | `sanitizeOutput()` 过滤 `GITHUB_TOKEN`/`NPM_TOKEN`/`token=` 等模式 |
-| 权限最小化 | `contents: read` + `security-events: read`，无写权限（M2 阶段） |
-| 定时运行安全 | schedule 默认 `dry-run=true`，不自动修改代码 |
-| 并发控制 | 使用 `concurrency` group 防止同一 workflow 重复运行 |
+| Token 暴露 | 通过 `inputs.github-token` 传入，仅在 `env` 中使用 |
+| 输出脱敏 | `sanitizeOutput()` 过滤敏感信息 |
+| 权限最小化 | 消费者按需配置 permissions |
+| Action 来源 | 固定版本标签（`@v1`），避免跟踪 `@master` |
+| Prompt 防护 | 见 T206（M2 后续） |
 
 ---
 

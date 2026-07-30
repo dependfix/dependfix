@@ -1,0 +1,99 @@
+name: 'Dependfix Security Auto Fix'
+description: 'Automated remediation of Dependabot security alerts for pnpm/Node.js projects'
+author: 'CaoMeiYouRen'
+
+branding:
+  icon: 'shield'
+  color: 'green'
+
+inputs:
+  mode:
+    description: '运行模式'
+    required: false
+    default: 'report-only'
+  repos:
+    description: '目标仓库（逗号分隔 owner/repo，留空使用当前仓库）'
+    required: false
+    default: ''
+  severity-threshold:
+    description: '严重级别阈值'
+    required: false
+    default: 'high'
+  dry-run:
+    description: '试运行模式（不修改文件）'
+    required: false
+    default: 'true'
+  max-alerts-per-repository:
+    description: '每仓库最多处理的告警数'
+    required: false
+    default: '10'
+  github-token:
+    description: 'GitHub Token（需 security-events 权限；fix-and-pr 模式需 contents + pull-requests 写权限）'
+    required: true
+
+outputs:
+  report-artifact:
+    description: '上传的报告 artifact 名称'
+    value: ${{ steps.upload-report.outputs.artifact-name }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup pnpm
+      uses: pnpm/action-setup@v4
+      with:
+        version: latest
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v5
+      with:
+        node-version: lts/*
+
+    - name: Install and build dependfix
+      run: |
+        cd "${{ github.action_path }}"
+        pnpm install --frozen-lockfile
+        pnpm build
+      shell: bash
+
+    - name: Run dependfix
+      id: run-dependfix
+      run: |
+        REPOS="${{ inputs.repos }}"
+        if [ -z "$REPOS" ]; then
+          REPOS="${{ github.repository }}"
+        fi
+        cd "${{ github.action_path }}"
+        pnpm dependfix ${{ inputs.mode }} \
+          --repo "$REPOS" \
+          --severity-threshold ${{ inputs.severity-threshold }} \
+          --max-alerts-per-repository ${{ inputs.max-alerts-per-repository }} \
+          ${{ inputs.dry-run == 'true' && '--dry-run' || '' }} \
+          --verbose
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+
+    - name: Upload report artifact
+      id: upload-report
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: dependfix-report-${{ github.run_id }}
+        path: ${{ github.action_path }}/dependfix-reports/
+        retention-days: 30
+
+    - name: Write workflow summary
+      if: always()
+      run: |
+        FOUND=0
+        for f in "${{ github.action_path }}"/dependfix-reports/dependfix-report-*.md; do
+          if [ -f "$f" ]; then
+            cat "$f" >> "$GITHUB_STEP_SUMMARY"
+            FOUND=1
+          fi
+        done
+        if [ "$FOUND" -eq 0 ]; then
+          echo "⚠️ No report generated." >> "$GITHUB_STEP_SUMMARY"
+        fi
+      shell: bash

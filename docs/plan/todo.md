@@ -8,9 +8,9 @@
 
 ## M2: GitHub Action 接入
 
-**目标**: 将 M1 能力接入 GitHub Actions，支持定时或手动运行，实现分支创建与 PR 提交能力。
+**目标**: 提供可复用的 GitHub Composite Action（`action.yml`），其他仓库通过 `uses: CaoMeiYouRen/dependfix@v1` 引用，实现安全告警自动修复。
 
-**设计稿**: [GitHub Action 工作流设计](../design/github-action-workflow.md)
+**设计稿**: [GitHub Action 设计](../design/github-action-workflow.md)
 
 ### 建议执行顺序
 
@@ -24,26 +24,29 @@ T109 ─→ T205（AI Token 支持）→ T206（Prompt 注入防护）
 
 ---
 
-### T201 新增 GitHub Action 工作流
+### T201 创建 Composite Action（action.yml）
 
 - **优先级**: P1
 - **依赖**: T109
 - **状态**: ✅ 已完成
-- **交付物**: `.github/workflows/security-auto-fix.yml`
-- **前置条件**: ✅ **设计稿已产出** [GitHub Action 工作流设计](../design/github-action-workflow.md)
+- **交付物**: `action.yml`（仓库根目录）+ `.github/workflows/security-auto-fix.yml`（dogfooding）
+- **前置条件**: ✅ **设计稿已产出** [GitHub Action 设计](../design/github-action-workflow.md)
 
 **实现摘要**:
-- `workflow_dispatch` 手动触发（mode / severity / dry-run / repos 输入）
-- `schedule` 定时触发（每周一 UTC 6:00，默认 report-only）
-- 最小权限：`contents: read` + `security-events: read`
-- 构建链路：checkout → pnpm i → build → run CLI → upload artifact
-- `concurrency` 防止重复运行
+- `action.yml`: Composite Action（`runs.using: composite`），包含 6 个步骤
+- 步骤链：setup pnpm → setup Node → install+build dependfix → run CLI → upload artifact → workflow summary
+- 输入：`mode` / `repos` / `severity-threshold` / `dry-run` / `max-alerts-per-repo` / `github-token`
+- 输出：`report-artifact`（上传的 artifact 名称）
+- 使用 `${{ github.action_path }}` 引用 action 自身目录
+- Workflow 简化为调用 `uses: ./` 的薄封装（dogfooding 模式）
+- 定时：每周一 UTC 6:00 自动报告
 
 **验收标准**:
 
-- [x] 工作流可被手动触发并执行主流程
-- [x] 支持 `workflow_dispatch` 和 `schedule` 双触发
-- [x] 报告 artifact 自动上传（retention 30 天）
+- [x] 其他仓库可通过 `uses: CaoMeiYouRen/dependfix@v1` 引用
+- [x] Action 在消费者仓库上下文中运行（`github.repository` = 消费者）
+- [x] 支持 `workflow_dispatch` + `schedule` 双触发
+- [x] 报告 artifact 自动上传
 
 ---
 

@@ -12,6 +12,7 @@ dependfix/
 │   ├── github/         # 规划中：GitHub API 集成 @dependfix/github
 │   ├── action/         # 规划中：GitHub Action 入口 @dependfix/action
 │   └── mcp/            # 规划中：MCP Server @dependfix/mcp
+├── action.yml          # ✅ GitHub Composite Action 入口（M2 已落地）
 ├── apps/platform/      # 规划中：Nuxt 全栈独立平台（Web UI + REST API）
 └── docs/               # ✅ VitePress 文档站
 ```
@@ -140,7 +141,7 @@ flowchart TD
 - 目标仓库列表或自动发现参数
 - 修复策略配置
 - 严重级别过滤规则
-- 运行模式：`local`、`ci`、`report-only`、`fix`
+- 运行模式：`report-only`、`fix`、`fix-and-pr`
 
 ### 输出
 
@@ -236,7 +237,7 @@ flowchart TD
 | 类型检查 | tsc --noEmit |
 | 样式检查 | stylelint（stylelint-config-cmyr） |
 | 提交规范 | commitlint（commitlint-config-cmyr） + commitizen |
-| 版本发布 | semantic-release（semantic-release-cmyr-config） |
+| 版本发布 | @changesets/cli（独立子包发版 + CHANGELOG 自动生成） |
 
 ### 文档站（docs/）
 

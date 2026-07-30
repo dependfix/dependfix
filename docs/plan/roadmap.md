@@ -6,7 +6,7 @@
 |------|------|--------|:----:|
 | M0: 基线收敛 | Monorepo 骨架、配置模型、工具链策略、告警模型 | P0 | 已完成 |
 | M1: MVP 单仓库修复 | 告警拉取→过滤→修复→验证→报告闭环 | P0 | 已完成 |
-| M2: GitHub Action 接入 | workflow_dispatch + 定时 + PR + AI Token + Prompt 防护 | P1 | 进行中 |
+| M2: GitHub Action 接入 | workflow_dispatch + 定时 + PR + AI Token + Prompt 防护 | P1 | 已完成 |
 | M3: Code Scanning 扩展 | 规则分级、可模板化修复、建议输出 | P1 | 未开始 |
 | M4: 多仓库治理 | 自动发现、并发控制、报告归档 | P2 | 未开始 |
 | M5: AI Breaking Change 研判 | Changelog 采集、LLM 研判、修复生成、质量门 | P1 | 未开始 |
@@ -36,8 +36,8 @@ Monorepo 骨架搭建、核心配置模型、工具链版本策略固定、标�
 将 M1 能力接入 GitHub Actions，支持 `workflow_dispatch` + `schedule` 触发，输出报告 artifact，支持创建修复分支与 PR。包含用户自定义 AI Token 支持和 Prompt 注入防护。
 
 > 详细任务见 [todo.md §M2](todo.md#m2-github-action-接入)
-> 
-> **当前进度**: T201-T203 已完成（工作流 + 参数对齐 + Artifact），T204 分支/PR 创建进行中。
+>
+> **M2 已交付**：消费者仓库可通过 `uses: CaoMeiYouRen/dependfix@v1` 一行接入安全告警自动修复。
 
 ## M3: Code Scanning 扩展
 

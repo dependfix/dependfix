@@ -8,7 +8,7 @@
 
 ## M2: GitHub Action 接入
 
-**目标**: 提供可复用的 GitHub Composite Action（`action.yml`），其他仓库通过 `uses: CaoMeiYouRen/dependfix@v1` 引用，实现安全告警自动修复。
+**目标**: 提供可复用的 GitHub Composite Action（`action.yml`），其他仓库通过 `uses: dependfix/dependfix@v1` 引用，实现安全告警自动修复。
 
 **设计稿**: [GitHub Action 设计](../design/github-action-workflow.md)
 
@@ -43,7 +43,7 @@ T109 ─→ T205（AI Token 支持）→ T206（Prompt 注入防护）
 
 **验收标准**:
 
-- [x] 其他仓库可通过 `uses: CaoMeiYouRen/dependfix@v1` 引用
+- [x] 其他仓库可通过 `uses: dependfix/dependfix@v1` 引用
 - [x] Action 在消费者仓库上下文中运行（`github.repository` = 消费者）
 - [x] 支持 `workflow_dispatch` + `schedule` 双触发
 - [x] 报告 artifact 自动上传
@@ -159,7 +159,7 @@ T109 ─→ T205（AI Token 支持）→ T206（Prompt 注入防护）
 
 ## M2 完成判定
 
-- [x] `action.yml` 可通过 `uses: CaoMeiYouRen/dependfix@v1` 被其他仓库引用
+- [x] `action.yml` 可通过 `uses: dependfix/dependfix@v1` 被其他仓库引用
 - [x] Action 在消费者仓库上下文中运行（`github.repository` = 消费者）
 - [x] 定时运行自动产出报告 artifact + workflow summary
 - [x] `fix-and-pr` 模式下能在目标仓库创建可审查的 PR

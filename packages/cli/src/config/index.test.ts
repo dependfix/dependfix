@@ -89,29 +89,29 @@ const GITHUB_REMOTE_RE = /github\.com[/:]([^/]+)\/([^/\s.]+?)(?:\.git)?\s*$/i
 
 describe('GITHUB_REMOTE_RE', () => {
     it('matches HTTPS GitHub URL with .git suffix', () => {
-        const m = GITHUB_REMOTE_RE.exec('https://github.com/CaoMeiYouRen/dependfix.git')
+        const m = GITHUB_REMOTE_RE.exec('https://github.com/dependfix/dependfix.git')
         expect(m).not.toBeNull()
-        expect(m[1]).toBe('CaoMeiYouRen')
+        expect(m[1]).toBe('dependfix')
         expect(m[2]).toBe('dependfix')
     })
 
     it('matches HTTPS GitHub URL without .git suffix', () => {
-        const m = GITHUB_REMOTE_RE.exec('https://github.com/CaoMeiYouRen/dependfix')
+        const m = GITHUB_REMOTE_RE.exec('https://github.com/dependfix/dependfix')
         expect(m).not.toBeNull()
         expect(m[2]).toBe('dependfix')
     })
 
     it('matches SSH git@ format', () => {
-        const m = GITHUB_REMOTE_RE.exec('git@github.com:CaoMeiYouRen/dependfix.git')
+        const m = GITHUB_REMOTE_RE.exec('git@github.com:dependfix/dependfix.git')
         expect(m).not.toBeNull()
-        expect(m[1]).toBe('CaoMeiYouRen')
+        expect(m[1]).toBe('dependfix')
         expect(m[2]).toBe('dependfix')
     })
 
     it('matches SSH ssh:// format', () => {
-        const m = GITHUB_REMOTE_RE.exec('ssh://git@github.com/CaoMeiYouRen/dependfix.git')
+        const m = GITHUB_REMOTE_RE.exec('ssh://git@github.com/dependfix/dependfix.git')
         expect(m).not.toBeNull()
-        expect(m[1]).toBe('CaoMeiYouRen')
+        expect(m[1]).toBe('dependfix')
         expect(m[2]).toBe('dependfix')
     })
 

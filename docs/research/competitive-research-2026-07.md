@@ -1,4 +1,4 @@
-# auto-fix-github-security 竞品调研报告（2026年7月更新）
+# dependfix 竞品调研报告（2026年7月更新）
 
 > 生成时间: 2026-07-26 | 搜索深度: normal | 来源数量: 25+
 > 🔍 已触发验证: github-verification / competitive-analysis / date-verification

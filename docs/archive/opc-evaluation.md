@@ -1,4 +1,4 @@
-# auto-fix-github-security 一人企业方法论评估
+# dependfix 一人企业方法论评估
 
 > 编制日期：2026-06-01
 > 分析框架：OPC 一人企业方法论（利基定位 + 价值主张 + MVP 设计）

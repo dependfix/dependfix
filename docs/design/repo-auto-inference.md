@@ -42,8 +42,8 @@ resolveRuntimeConfig()
 
 ```
 git remote get-url origin
-  → https://github.com/CaoMeiYouRen/dependfix.git  → CaoMeiYouRen/dependfix
-  → git@github.com:CaoMeiYouRen/dependfix.git      → CaoMeiYouRen/dependfix
+  → https://github.com/dependfix/dependfix.git  → dependfix/dependfix
+  → git@github.com:dependfix/dependfix.git      → dependfix/dependfix
   → https://gitlab.com/foo/bar.git                  → null (非 GitHub)
   → 无 origin / 不在 git 仓库                        → null
 ```

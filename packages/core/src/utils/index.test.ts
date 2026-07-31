@@ -33,7 +33,7 @@ describe('ensureArray', () => {
 describe('isValidRepoIdentifier', () => {
     it('accepts valid owner/repo format', () => {
         expect(isValidRepoIdentifier('owner/repo')).toBe(true)
-        expect(isValidRepoIdentifier('CaoMeiYouRen/dependfix')).toBe(true)
+        expect(isValidRepoIdentifier('dependfix/dependfix')).toBe(true)
         expect(isValidRepoIdentifier('foo-bar/baz_qux')).toBe(true)
         expect(isValidRepoIdentifier('a.b-c_d/a.b-c_d')).toBe(true)
     })

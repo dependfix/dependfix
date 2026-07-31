@@ -87,7 +87,7 @@ jobs:
   scan:
     runs-on: ubuntu-latest
     steps:
-      - uses: CaoMeiYouRen/dependfix@v1
+      - uses: dependfix/dependfix@v1
         with:
           mode: fix-and-pr
           severity-threshold: high

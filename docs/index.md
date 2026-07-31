@@ -6,7 +6,7 @@
 
 **M2（GitHub Action 接入）已完成。** M1（MVP 单仓库修复）和 M0（基线收敛）已归档。
 
-`dependfix` CLI 现已支持三条命令（`report-only` / `fix` / `fix-and-pr`），并通过 GitHub Composite Action（`uses: CaoMeiYouRen/dependfix@v1`）提供零配置的自动化安全修复能力。
+`dependfix` CLI 现已支持三条命令（`report-only` / `fix` / `fix-and-pr`），并通过 GitHub Composite Action（`uses: dependfix/dependfix@v1`）提供零配置的自动化安全修复能力。
 
 ## 定位
 
@@ -90,7 +90,7 @@ jobs:
   scan:
     runs-on: ubuntu-latest
     steps:
-      - uses: CaoMeiYouRen/dependfix@v1
+      - uses: dependfix/dependfix@v1
         with:
           mode: fix-and-pr
           severity-threshold: high

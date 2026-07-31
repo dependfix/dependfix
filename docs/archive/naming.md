@@ -136,7 +136,7 @@ CLI 命令:                  npx guardup
 
 ## 5. 现有名称处理
 
-当前 GitHub 仓库名为 `auto-fix-github-security`：
+当前 GitHub 仓库名为 `dependfix`：
 
 - 优点：描述准确
 - 缺点：太长（22 字符），不利于记忆和传播

@@ -56,12 +56,12 @@
     "code-scanning",
     "typescript"
   ],
-  "homepage": "https://github.com/CaoMeiYouRen/dependfix#readme",
+  "homepage": "https://github.com/dependfix/dependfix#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/CaoMeiYouRen/dependfix.git"
+    "url": "git+https://github.com/dependfix/dependfix.git"
   },
   "bugs": {
-    "url": "https://github.com/CaoMeiYouRen/dependfix/issues"
+    "url": "https://github.com/dependfix/dependfix/issues"
   }
 }

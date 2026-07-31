@@ -37,7 +37,7 @@ Monorepo 骨架搭建、核心配置模型、工具链版本策略固定、标�
 
 > 详细任务见 [todo.md §M2](todo.md#m2-github-action-接入)
 >
-> **M2 已交付**：消费者仓库可通过 `uses: CaoMeiYouRen/dependfix@v1` 一行接入安全告警自动修复。
+> **M2 已交付**：消费者仓库可通过 `uses: dependfix/dependfix@v1` 一行接入安全告警自动修复。
 
 ## M3: Code Scanning 扩展
 

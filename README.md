@@ -1,18 +1,18 @@
 <h1 align="center">dependfix</h1>
 <p>
-  <img alt="Version" src="https://img.shields.io/github/package-json/v/CaoMeiYouRen/dependfix.svg" />
-  <a href="https://github.com/CaoMeiYouRen/dependfix/actions?query=workflow%3ARelease" target="_blank">
-    <img alt="GitHub Workflow Status" src="https://img.shields.io/github/actions/workflow/status/CaoMeiYouRen/dependfix/release.yml?branch=master">
+  <img alt="Version" src="https://img.shields.io/github/package-json/v/dependfix/dependfix.svg" />
+  <a href="https://github.com/dependfix/dependfix/actions?query=workflow%3ARelease" target="_blank">
+    <img alt="GitHub Workflow Status" src="https://img.shields.io/github/actions/workflow/status/dependfix/dependfix/release.yml?branch=master">
   </a>
   <img src="https://img.shields.io/badge/node-%3E%3D20-blue.svg" />
-  <a href="https://github.com/CaoMeiYouRen/dependfix#readme" target="_blank">
+  <a href="https://github.com/dependfix/dependfix#readme" target="_blank">
     <img alt="Documentation" src="https://img.shields.io/badge/documentation-yes-brightgreen.svg" />
   </a>
-  <a href="https://github.com/CaoMeiYouRen/dependfix/graphs/commit-activity" target="_blank">
+  <a href="https://github.com/dependfix/dependfix/graphs/commit-activity" target="_blank">
     <img alt="Maintenance" src="https://img.shields.io/badge/Maintained%3F-yes-green.svg" />
   </a>
-  <a href="https://github.com/CaoMeiYouRen/dependfix/blob/master/LICENSE" target="_blank">
-    <img alt="License: MIT" src="https://img.shields.io/github/license/CaoMeiYouRen/dependfix?color=yellow" />
+  <a href="https://github.com/dependfix/dependfix/blob/master/LICENSE" target="_blank">
+    <img alt="License: MIT" src="https://img.shields.io/github/license/dependfix/dependfix?color=yellow" />
   </a>
 </p>
 
@@ -24,7 +24,7 @@
 - **自动修复**：依赖升级、`pnpm frozen-lockfile` 修复、验证（lint/build）
 - **报告输出**：Markdown + JSON 双格式报告，包含修复摘要与失败原因
 - **PR 创建**：`fix-and-pr` 模式下自动创建修复分支并提交 Pull Request
-- **GitHub Action**：通过 `uses: CaoMeiYouRen/dependfix@v1` 一行接入，支持定时和手动触发
+- **GitHub Action**：通过 `uses: dependfix/dependfix@v1` 一行接入，支持定时和手动触发
 - **多仓库**：支持单仓库、批量仓库修复
 
 ## 快速开始
@@ -66,7 +66,7 @@ jobs:
   scan:
     runs-on: ubuntu-latest
     steps:
-      - uses: CaoMeiYouRen/dependfix@v1
+      - uses: dependfix/dependfix@v1
         with:
           mode: fix-and-pr
           severity-threshold: high
@@ -146,8 +146,8 @@ pnpm test
 ## 贡献
 
 欢迎贡献、提问或提出新功能！<br />
-如有问题请查看 [issues page](https://github.com/CaoMeiYouRen/dependfix/issues)。<br />
-贡献或提出新功能请查看 [contributing guide](https://github.com/CaoMeiYouRen/dependfix/blob/master/CONTRIBUTING.md)。
+如有问题请查看 [issues page](https://github.com/dependfix/dependfix/issues)。<br />
+贡献或提出新功能请查看 [contributing guide](https://github.com/dependfix/dependfix/blob/master/CONTRIBUTING.md)。
 
 ## 支持
 
@@ -155,9 +155,9 @@ pnpm test
 
 ## Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=CaoMeiYouRen/dependfix&type=Date)](https://star-history.com/#CaoMeiYouRen/dependfix&Date)
+[![Star History Chart](https://api.star-history.com/svg?repos=dependfix/dependfix&type=Date)](https://star-history.com/#dependfix/dependfix&Date)
 
 ## License
 
 Copyright © 2026 [CaoMeiYouRen](https://github.com/CaoMeiYouRen).<br />
-This project is [MIT](https://github.com/CaoMeiYouRen/dependfix/blob/master/LICENSE) licensed.
+This project is [MIT](https://github.com/dependfix/dependfix/blob/master/LICENSE) licensed.

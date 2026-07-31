@@ -2,7 +2,7 @@
 
 > 对应任务: [T201 创建 Composite Action](../plan/todo.md#t201-创建-composite-action-actionyml)
 >
-> **选型结论**: 使用 GitHub Composite Action（`action.yml`），通过 `uses: CaoMeiYouRen/dependfix@v1` 被其他仓库引用。Composite Action 可组合多个 workflow steps 为单一可复用单元，无需 Docker 或 JavaScript 封装。
+> **选型结论**: 使用 GitHub Composite Action（`action.yml`），通过 `uses: dependfix/dependfix@v1` 被其他仓库引用。Composite Action 可组合多个 workflow steps 为单一可复用单元，无需 Docker 或 JavaScript 封装。
 
 ---
 
@@ -65,7 +65,7 @@ jobs:
   scan:
     runs-on: ubuntu-latest
     steps:
-      - uses: CaoMeiYouRen/dependfix@v1
+      - uses: dependfix/dependfix@v1
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 ```

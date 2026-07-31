@@ -187,7 +187,7 @@ export function generatePRBody(result: RunResult): string {
         lines.push('')
     }
 
-    lines.push('---', '', '*This PR was automatically created by [dependfix](https://github.com/CaoMeiYouRen/dependfix).*')
+    lines.push('---', '', '*This PR was automatically created by [dependfix](https://github.com/dependfix/dependfix).*')
 
     return lines.join('\n')
 }

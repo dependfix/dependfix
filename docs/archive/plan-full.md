@@ -1,4 +1,4 @@
-# auto-fix-github-security 项目设计方案
+# dependfix 项目设计方案
 
 ## 1. 文档定位
 
@@ -642,7 +642,7 @@ on:
   workflow_dispatch:
 jobs:
   auto-fix:
-    uses: auto-fix-github-security/.github/workflows/security-auto-fix.yml@main
+    uses: dependfix/dependfix/.github/workflows/security-auto-fix.yml@main
     with:
       severity_threshold: high
       create_pr: true

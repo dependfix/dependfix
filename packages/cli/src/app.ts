@@ -336,12 +336,11 @@ export class DependfixApp {
         }
 
         // 3. Create fix branch + commit + push
-        const branchName = `dependfix/auto-fix-${this.runId.slice(0, 8)}`
         const commitMessage = 'fix(deps): automated dependfix security repair'
 
         try {
+            const { branchName } = createFixBranch(this.runId, this.workDir)
             this.logger.info(`Creating fix branch: ${branchName}`)
-            createFixBranch(this.runId, this.workDir)
 
             this.logger.info('Staging and committing changes')
             stageAndCommit(commitMessage, this.workDir)

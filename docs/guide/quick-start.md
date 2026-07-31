@@ -47,7 +47,7 @@ dependfix fix --repo owner/repo --github-token $GITHUB_TOKEN --severity-threshol
 dependfix fix-and-pr --repo owner/repo --github-token $GITHUB_TOKEN
 ```
 
-执行完整修复流程后，自动创建 `dependfix/auto-fix-{runId}` 分支、提交变更、推送并创建 Pull Request。PR body 包含修复摘要、变更列表和验证结果。
+执行完整修复流程后，自动创建 `dependfix/auto-fix-{runId尾段}` 分支（尾段为 runId 最后一个 `-` 分隔段，最多 8 字符）、提交变更、推送并创建 Pull Request。PR body 包含修复摘要、变更列表和验证结果。
 
 ### 批量仓库
 
@@ -134,7 +134,9 @@ jobs:
 
 每次运行生成两种格式的报告：
 
-- **Markdown**：`dependfix-report-YYYYMMDD-{runId}.md` — 包含汇总统计、按仓库明细、按严重级别统计、失败原因
-- **JSON**：`dependfix-report-YYYYMMDD-{runId}.json` — 结构化完整数据
+- **Markdown**：`dependfix-report-YYYYMMDD-HHmmss-{runId尾段}.md` — 包含汇总统计、按仓库明细、按严重级别统计、失败原因
+- **JSON**：`dependfix-report-YYYYMMDD-HHmmss-{runId尾段}.json` — 结构化完整数据
+
+文件名中的 `HHmmss` 为运行开始时刻（UTC），`{runId尾段}` 为 runId 最后一个 `-` 分隔段（最多 8 字符）。日期 + 时刻保证按文件名排序即按运行时间排序，便于定位最新报告。
 
 报告文件位于 `./dependfix-reports/` 目录。

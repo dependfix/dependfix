@@ -7,10 +7,14 @@ import type { ReportArtifact } from './index'
  *
  * @param mdContent Markdown 报告内容
  * @param jsonContent JSON 报告内容
- * @param startedAt ISO 8601 开始时间，从中提取日期用于文件名
- * @param runId 运行 ID（超过 8 字符会截断）
+ * @param startedAt ISO 8601 开始时间，从中提取日期与时刻用于文件名
+ * @param runId 运行 ID，文件名取最后一个 `-` 分隔段（如随机后缀）
  * @param outputDir 输出目录，默认 `./dependfix-reports`
  * @returns 生成的两个 ReportArtifact
+ *
+ * 文件名格式：`dependfix-report-YYYYMMDD-HHmmss-{runId尾段}.md|.json`。
+ * 日期 + 时刻保证同目录内按文件名排序即按运行时间排序（字典序 == 时间序），
+ * 尾段保证同一时刻多次运行的唯一性。
  */
 export function writeReport(
     mdContent: string,
@@ -23,10 +27,11 @@ export function writeReport(
     mkdirSync(outputDir, { recursive: true })
 
     const date = extractDate(startedAt)
-    const shortRunId = runId.slice(0, 8)
+    const time = extractTime(startedAt)
+    const shortRunId = extractRunSuffix(runId)
 
-    const mdPath = join(outputDir, `dependfix-report-${date}-${shortRunId}.md`)
-    const jsonPath = join(outputDir, `dependfix-report-${date}-${shortRunId}.json`)
+    const mdPath = join(outputDir, `dependfix-report-${date}-${time}-${shortRunId}.md`)
+    const jsonPath = join(outputDir, `dependfix-report-${date}-${time}-${shortRunId}.json`)
 
     writeFileSync(mdPath, mdContent, 'utf-8')
     writeFileSync(jsonPath, jsonContent, 'utf-8')
@@ -49,4 +54,29 @@ function extractDate(iso: string): string {
     const m = (now.getMonth() + 1).toString().padStart(2, '0')
     const d = now.getDate().toString().padStart(2, '0')
     return `${y}${m}${d}`
+}
+
+/** 从 ISO 8601 时间戳提取 HHmmss */
+function extractTime(iso: string): string {
+    const match = /T(\d{2}):(\d{2}):(\d{2})/.exec(iso)
+    if (match) {
+        return `${match[1]}${match[2]}${match[3]}`
+    }
+    // fallback: 使用当前时刻
+    const now = new Date()
+    const pad = (n: number) => n.toString().padStart(2, '0')
+    return `${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`
+}
+
+/**
+ * 提取用于文件名的短后缀（最多 8 字符）：
+ * 优先取 runId 最后一个 `-` 分隔段（如 `dependfix-<ts>-<rand>` 中的随机段），
+ * 无有效分隔段（无 `-` 或尾段为空）时取整个 runId 前 8 字符兜底。
+ * 注意：`packages/cli/src/github/pr-creator.ts` 中 `extractRunSuffix` 与此逻辑保持一致，
+ * 修改时需同步，避免报告文件名与分支名再次不一致。
+ */
+function extractRunSuffix(runId: string): string {
+    const idx = runId.lastIndexOf('-')
+    const tail = idx >= 0 && idx < runId.length - 1 ? runId.slice(idx + 1) : runId
+    return tail.slice(0, 8)
 }

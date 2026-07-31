@@ -76,7 +76,7 @@ T109 ─→ T205（AI Token 支持）→ T206（Prompt 注入防护）
 
 **实现摘要**:
 - `actions/upload-artifact@v4` 上传 `./dependfix-reports/` 目录
-- 文件名格式：`dependfix-report-YYYYMMDD-{runId}.md|.json`（由 `writeReport()` 自动生成）
+- 文件名格式：`dependfix-report-YYYYMMDD-HHmmss-{runId尾段}.md|.json`（由 `writeReport()` 自动生成；`HHmmss` 为运行开始时刻，`{runId尾段}` 为 runId 最后一个 `-` 分隔段，最多 8 字符）
 - Workflow summary 直接展示 Markdown 报告内容
 
 **验收标准**:
@@ -94,7 +94,7 @@ T109 ─→ T205（AI Token 支持）→ T206（Prompt 注入防护）
 - **交付物**: `packages/cli/src/github/pr-creator.ts` + `fix-and-pr` 模式落地
 
 **实现摘要**:
-- `createFixBranch(runId, workDir)`: 创建 `dependfix/auto-fix-{runId}` 分支（幂等，已存在则切换）
+- `createFixBranch(runId, workDir)`: 创建 `dependfix/auto-fix-{runId尾段}` 分支（幂等，已存在则切换；尾段取 runId 最后一个 `-` 分隔段，与报告文件名后缀一致）
 - `stageAndCommit(message, workDir)`: `git add .` + `git commit`（自动设置 bot user.name/email）
 - `pushBranch(branchName, workDir)`: `git push origin <branch>`
 - `createPullRequest({ octokit, owner, repo, ... })`: `octokit.rest.pulls.create` 创建 PR
@@ -105,7 +105,7 @@ T109 ─→ T205（AI Token 支持）→ T206（Prompt 注入防护）
 
 **验收标准**:
 
-- [x] `dependfix fix-and-pr --repo owner/repo` 创建修复分支（`dependfix/auto-fix-{runId}`）
+- [x] `dependfix fix-and-pr --repo owner/repo` 创建修复分支（`dependfix/auto-fix-{runId尾段}`）
 - [x] 推送修复 commit 到分支
 - [x] 通过 `octokit.rest.pulls.create` 创建 PR，附带报告摘要
 - [x] Workflow 权限扩展为 `contents: write` + `pull-requests: write`

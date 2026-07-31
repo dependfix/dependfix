@@ -51,13 +51,14 @@ const BOT_EMAIL = 'dependfix[bot]@users.noreply.github.com'
 /**
  * 在工作目录创建修复分支。
  *
- * - 分支命名: `dependfix/auto-fix-{runId}`
+ * - 分支命名: `dependfix/auto-fix-{runId尾段}`（取 runId 最后一个 `-` 分隔段，
+ *   与报告文件名后缀保持一致，避免固定前缀 `dependfix-` 截断后导致分支名恒定）
  * - 如果分支已存在（如重跑），切换到该分支
  *
  * @returns 分支名和是否为新创建
  */
 export function createFixBranch(runId: string, workDir: string): FixBranchResult {
-    const branchName = `dependfix/auto-fix-${runId.slice(0, 8)}`
+    const branchName = `dependfix/auto-fix-${extractRunSuffix(runId)}`
 
     const exists = branchExists(branchName, workDir)
     if (exists) {
@@ -194,6 +195,19 @@ export function generatePRBody(result: RunResult): string {
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+/**
+ * 提取分支名后缀（最多 8 字符）：
+ * 优先取 runId 最后一个 `-` 分隔段（如 `dependfix-<ts>-<rand>` 中的随机段），
+ * 无有效分隔段（无 `-` 或尾段为空）时取整个 runId 前 8 字符兜底。
+ * 注意：`packages/core/src/report/writer.ts` 中 `extractRunSuffix` 与此逻辑保持一致，
+ * 修改时需同步，避免分支名与报告文件名后缀再次不一致。
+ */
+function extractRunSuffix(runId: string): string {
+    const idx = runId.lastIndexOf('-')
+    const tail = idx >= 0 && idx < runId.length - 1 ? runId.slice(idx + 1) : runId
+    return tail.slice(0, 8)
+}
 
 function branchExists(branchName: string, workDir: string): boolean {
     try {

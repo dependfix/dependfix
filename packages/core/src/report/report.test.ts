@@ -411,15 +411,31 @@ describe('writeReport', () => {
         expect(existsSync(subdir)).toBe(true)
     })
 
-    it('truncates runId to 8 chars in filename', () => {
+    it('uses last runId segment as filename suffix', () => {
+        const artifacts = writeReport('# test', '{}', '2026-07-30T10:20:30.000Z', 'dependfix-m2k3x5a-7xk9q0', testDir)
+        expect(artifacts[0].path).toContain('dependfix-report-20260730-102030-7xk9q0.md')
+        expect(artifacts[1].path).toContain('dependfix-report-20260730-102030-7xk9q0.json')
+    })
+
+    it('truncates fallback suffix to 8 chars when runId has no dash', () => {
         const artifacts = writeReport('# test', '{}', '2026-07-30T00:00:00.000Z', 'abcdefghijkl', testDir)
         expect(artifacts[0].path).toContain('abcdefgh')
         expect(artifacts[0].path).not.toContain('abcdefghijkl')
     })
 
+    it('falls back to full runId when trailing dash yields empty segment', () => {
+        const artifacts = writeReport('# test', '{}', '2026-07-30T00:00:00.000Z', 'abc-', testDir)
+        expect(artifacts[0].path).toContain('dependfix-report-20260730-000000-abc-.md')
+    })
+
     it('extracts date from ISO string', () => {
         const artifacts = writeReport('# test', '{}', '2026-01-15T12:00:00.000Z', 'run1', testDir)
         expect(artifacts[0].path).toContain('20260115')
+    })
+
+    it('extracts time from ISO string', () => {
+        const artifacts = writeReport('# test', '{}', '2026-01-15T12:34:56.000Z', 'run1', testDir)
+        expect(artifacts[0].path).toContain('dependfix-report-20260115-123456-run1.md')
     })
 
     it('uses default output dir', () => {

@@ -282,12 +282,13 @@ export function writeReport(
 ### 5.2 文件命名
 
 ```
-{outputDir}/dependfix-report-{YYYYMMDD}-{runId}.md
-{outputDir}/dependfix-report-{YYYYMMDD}-{runId}.json
+{outputDir}/dependfix-report-{YYYYMMDD}-{HHmmss}-{runId尾段}.md
+{outputDir}/dependfix-report-{YYYYMMDD}-{HHmmss}-{runId尾段}.json
 ```
 
 - `date` 取 `startedAt` 的日期部分，格式 `YYYYMMDD`
-- `runId` 截断到 8 字符避免路径过长
+- `time` 取 `startedAt` 的时刻部分（UTC），格式 `HHmmss`；日期 + 时刻保证同目录内按文件名排序即按运行时间排序（字典序 == 时间序）
+- `runId尾段` 取 runId 最后一个 `-` 分隔段（如 `dependfix-<ts>-<rand>` 中的随机段），最多 8 字符；无有效分隔段时取整个 runId 前 8 字符兜底
 - 默认 `outputDir`：`./dependfix-reports`
 
 ### 5.3 输出目录行为

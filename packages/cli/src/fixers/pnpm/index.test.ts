@@ -1,4 +1,4 @@
-import { mkdtempSync, writeFileSync, rmSync, readFileSync } from 'node:fs'
+import { mkdtempSync, writeFileSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { describe, expect, it, afterEach, beforeEach, vi } from 'vitest'
@@ -17,7 +17,6 @@ import {
     computeLockfileDiff,
     resolvePnpmVersion,
     repairLockfile,
-    type LockfileFailureCategory,
 } from './index'
 
 // ---------------------------------------------------------------------------
@@ -69,7 +68,11 @@ function makeExecError(stderr: string): Error & { stderr: Buffer } {
 }
 
 function cleanupTemp(dir: string): void {
-    try { rmSync(dir, { recursive: true, force: true }) } catch { /* ignore */ }
+    try {
+        rmSync(dir, { recursive: true, force: true })
+    } catch {
+        /* ignore */
+    }
 }
 
 beforeEach(() => {
@@ -276,11 +279,17 @@ describe('repairLockfile', () => {
      * 每次调用取 commandSequence.shift()。
      */
     function setupExecSequence(): void {
-        mockExecSync.mockImplementation((_command: string, _options?: unknown) => {
+        mockExecSync.mockImplementation(() => {
             const action = commandSequence.shift()
-            if (!action) { return }
-            if (action === 'success') { return }
-            if (action instanceof Error) { throw action }
+            if (!action) {
+                return
+            }
+            if (action === 'success') {
+                return
+            }
+            if (action instanceof Error) {
+                throw action
+            }
             throw makeExecError(action.stderr)
         })
     }
@@ -307,19 +316,19 @@ describe('repairLockfile', () => {
         cleanupTemp(proj.dir)
     })
 
-    it('returns success when frozen-lockfile already passes', async () => {
+    it('returns success when frozen-lockfile already passes', () => {
         commandSequence = ['success']
         setupExecSequence()
-        const result = await repairLockfile({ workDir: proj.dir })
+        const result = repairLockfile({ workDir: proj.dir })
         expect(result.success).toBe(true)
         expect(result.strategy).toBeUndefined()
         expect(result.diff).toBeNull()
         expect(result.attemptHistory).toHaveLength(0)
     })
 
-    it('LOCKFILE_NOT_FOUND → REGENERATE succeeds', async () => {
+    it('LOCKFILE_NOT_FOUND → REGENERATE succeeds', () => {
         setupFixableScenario('Cannot find pnpm-lock.yaml')
-        const result = await repairLockfile({ workDir: proj.dir })
+        const result = repairLockfile({ workDir: proj.dir })
         expect(result.success).toBe(true)
         expect(result.strategy).toBe('REGENERATE')
         expect(result.diff?.summary).toBeDefined()
@@ -328,31 +337,31 @@ describe('repairLockfile', () => {
         expect(result.attemptHistory[0].success).toBe(true)
     })
 
-    it('MANIFEST_MISMATCH → REGENERATE succeeds', async () => {
+    it('MANIFEST_MISMATCH → REGENERATE succeeds', () => {
         setupFixableScenario('ERR_PNPM_OUTDATED_LOCKFILE')
-        const result = await repairLockfile({ workDir: proj.dir })
+        const result = repairLockfile({ workDir: proj.dir })
         expect(result.success).toBe(true)
         expect(result.strategy).toBe('REGENERATE')
     })
 
-    it('CORRUPTED_LOCKFILE → FIX_ENTRIES succeeds', async () => {
+    it('CORRUPTED_LOCKFILE → FIX_ENTRIES succeeds', () => {
         setupFixableScenario('ERR_PNPM_BROKEN_LOCKFILE: broken lockfile')
-        const result = await repairLockfile({ workDir: proj.dir })
+        const result = repairLockfile({ workDir: proj.dir })
         expect(result.success).toBe(true)
         expect(result.strategy).toBe('FIX_ENTRIES')
     })
 
-    it('CREDENTIAL_ERROR → SKIP, no repair attempted', async () => {
+    it('CREDENTIAL_ERROR → SKIP, no repair attempted', () => {
         commandSequence = [{ stderr: 'E401 authentication failed' }]
         setupExecSequence()
-        const result = await repairLockfile({ workDir: proj.dir })
+        const result = repairLockfile({ workDir: proj.dir })
         expect(result.success).toBe(false)
         expect(result.strategy).toBe('SKIP')
         expect(result.failureCategory).toBe('CREDENTIAL_ERROR')
         expect(result.attemptHistory).toHaveLength(0)
     })
 
-    it('REGENERATE fails → escalates to REINSTALL', async () => {
+    it('REGENERATE fails → escalates to REINSTALL', () => {
         commandSequence = [
             { stderr: 'ERR_PNPM_OUTDATED_LOCKFILE' }, // diagnosis fails
             makeExecError('REGENERATE failed'), // REGENERATE fails
@@ -360,7 +369,7 @@ describe('repairLockfile', () => {
             'success', // verify succeeds
         ]
         setupExecSequence()
-        const result = await repairLockfile({ workDir: proj.dir })
+        const result = repairLockfile({ workDir: proj.dir })
         expect(result.success).toBe(true)
         expect(result.strategy).toBe('REINSTALL')
         expect(result.attemptHistory).toHaveLength(2)
@@ -370,21 +379,21 @@ describe('repairLockfile', () => {
         expect(result.attemptHistory[1].success).toBe(true)
     })
 
-    it('all strategies fail → rollback, returns failure', async () => {
+    it('all strategies fail → rollback, returns failure', () => {
         commandSequence = [
             { stderr: 'ERR_PNPM_OUTDATED_LOCKFILE' },
             makeExecError('REGENERATE fail'),
             makeExecError('REINSTALL fail'),
         ]
         setupExecSequence()
-        const result = await repairLockfile({ workDir: proj.dir })
+        const result = repairLockfile({ workDir: proj.dir })
         expect(result.success).toBe(false)
         expect(result.failureCategory).toBe('MANIFEST_MISMATCH')
         // attemptHistory should include the failed strategies + rollback SKIP
         expect(result.attemptHistory.length).toBeGreaterThanOrEqual(2)
     })
 
-    it('strategy command succeeds but verify fails → escalate', async () => {
+    it('strategy command succeeds but verify fails → escalate', () => {
         commandSequence = [
             { stderr: 'ERR_PNPM_OUTDATED_LOCKFILE' },
             'success', // REGENERATE succeeds
@@ -393,12 +402,12 @@ describe('repairLockfile', () => {
             'success', // verify succeeds
         ]
         setupExecSequence()
-        const result = await repairLockfile({ workDir: proj.dir })
+        const result = repairLockfile({ workDir: proj.dir })
         expect(result.success).toBe(true)
         expect(result.strategy).toBe('REINSTALL')
     })
 
-    it('records attemptHistory with duration and errors', async () => {
+    it('records attemptHistory with duration and errors', () => {
         commandSequence = [
             { stderr: 'ERR_PNPM_OUTDATED_LOCKFILE' },
             makeExecError('REGENERATE error details'),
@@ -406,7 +415,7 @@ describe('repairLockfile', () => {
             'success',
         ]
         setupExecSequence()
-        const result = await repairLockfile({ workDir: proj.dir })
+        const result = repairLockfile({ workDir: proj.dir })
         expect(result.attemptHistory[0]).toMatchObject({
             strategy: 'REGENERATE',
             success: false,
@@ -416,7 +425,7 @@ describe('repairLockfile', () => {
         expect(result.attemptHistory[0].durationMs).toBeGreaterThanOrEqual(0)
     })
 
-    it('LOCKFILE_VERSION_MISMATCH includes PIN_TOOLCHAIN in chain', async () => {
+    it('LOCKFILE_VERSION_MISMATCH includes PIN_TOOLCHAIN in chain', () => {
         // PIN_TOOLCHAIN first (fails) → REGENERATE succeeds
         commandSequence = [
             { stderr: 'lockfile had been generated with pnpm v7' },
@@ -425,13 +434,13 @@ describe('repairLockfile', () => {
             'success', // verify succeeds
         ]
         setupExecSequence()
-        const result = await repairLockfile({ workDir: proj.dir })
+        const result = repairLockfile({ workDir: proj.dir })
         expect(result.success).toBe(true)
         expect(result.strategy).toBe('REGENERATE')
         expect(result.attemptHistory[0].strategy).toBe('PIN_TOOLCHAIN')
     })
 
-    it('RESOLVE_ERROR → REGENERATE then FIX_ENTRIES then REINSTALL', async () => {
+    it('RESOLVE_ERROR → REGENERATE then FIX_ENTRIES then REINSTALL', () => {
         // Chain: REGENERATE → FIX_ENTRIES → REINSTALL
         commandSequence = [
             { stderr: 'ERR_PNPM_NO_MATCHING_VERSION No matching version found' },
@@ -440,42 +449,42 @@ describe('repairLockfile', () => {
             'success', // verify succeeds
         ]
         setupExecSequence()
-        const result = await repairLockfile({ workDir: proj.dir })
+        const result = repairLockfile({ workDir: proj.dir })
         expect(result.success).toBe(true)
         expect(result.strategy).toBe('FIX_ENTRIES')
     })
 
-    it('UNKNOWN → REGENERATE then REINSTALL', async () => {
+    it('UNKNOWN → REGENERATE then REINSTALL', () => {
         commandSequence = [
             { stderr: 'completely unexpected error XYZ' },
             'success', // REGENERATE succeeds
             'success', // verify succeeds
         ]
         setupExecSequence()
-        const result = await repairLockfile({ workDir: proj.dir })
+        const result = repairLockfile({ workDir: proj.dir })
         expect(result.success).toBe(true)
         expect(result.strategy).toBe('REGENERATE')
     })
 
-    it('passes toolchain to resolvePnpmVersion', async () => {
+    it('accepts toolchain param (currently not consumed by implementation)', () => {
         commandSequence = ['success']
         setupExecSequence()
-        const result = await repairLockfile({ workDir: proj.dir, toolchain: { pnpmVersion: '9.0.0' } })
+        const result = repairLockfile({ workDir: proj.dir, toolchain: { pnpmVersion: '9.0.0' } })
         expect(result.success).toBe(true)
     })
 
-    it('diff is null when no repair needed', async () => {
+    it('diff is null when no repair needed', () => {
         commandSequence = ['success']
         setupExecSequence()
-        const result = await repairLockfile({ workDir: proj.dir })
+        const result = repairLockfile({ workDir: proj.dir })
         expect(result.diff).toBeNull()
     })
 
-    it('failureDetail is truncated when very long (CREDENTIAL_ERROR)', async () => {
+    it('failureDetail is truncated when very long (CREDENTIAL_ERROR)', () => {
         const longStderr = `E401 ${'X'.repeat(600)}`
         commandSequence = [{ stderr: longStderr }]
         setupExecSequence()
-        const result = await repairLockfile({ workDir: proj.dir })
+        const result = repairLockfile({ workDir: proj.dir })
         expect(result.failureCategory).toBe('CREDENTIAL_ERROR')
         // failureDetail should be ≤ prefix + truncate(500) + "…"
         expect(result.failureDetail.length).toBeLessThanOrEqual(550)

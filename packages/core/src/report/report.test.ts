@@ -1,4 +1,4 @@
-import { mkdtempSync, writeFileSync, readFileSync, existsSync, rmSync } from 'node:fs'
+import { readFileSync, existsSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { describe, expect, it, afterEach } from 'vitest'
@@ -7,13 +7,10 @@ import {
     generateJsonReport,
     writeReport,
     type RunResult,
-    type RunSummary,
-    type RunReportConfig,
     type RepositoryResult,
     type FixAction,
     type FixError,
     type NormalizedSecurityAlert,
-    type SeverityBreakdown,
     aggregateSeverity,
     groupByRepository,
     alertKey,
@@ -21,9 +18,6 @@ import {
     actionTypeLabel,
     statusIcon,
     createEmptyRunSummary,
-    type AlertSeverity,
-    type AlertSource,
-    type FixStrategy,
 } from './index'
 
 // ---------------------------------------------------------------------------
@@ -104,7 +98,11 @@ function makeError(overrides: Partial<FixError> = {}): FixError {
 }
 
 function cleanupTemp(dir: string): void {
-    try { rmSync(dir, { recursive: true, force: true }) } catch { /* ignore */ }
+    try {
+        rmSync(dir, { recursive: true, force: true })
+    } catch {
+        /* ignore */
+    }
 }
 
 // ---------------------------------------------------------------------------

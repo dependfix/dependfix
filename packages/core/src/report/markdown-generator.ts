@@ -144,7 +144,9 @@ export function generateMarkdownReport(result: RunResult): string {
 }
 
 function severityRow(label: string, row: { found: number, fixable: number, fixed: number, failed: number }): string {
-    if (row.found === 0) { return `| ${label} | — | — | — | — |` }
+    if (row.found === 0) {
+        return `| ${label} | — | — | — | — |`
+    }
     return `| ${label} | ${row.found} | ${row.fixable} | ${row.fixed} | ${row.failed} |`
 }
 

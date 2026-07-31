@@ -124,7 +124,11 @@ function normalizeAlert(
 function normalizeDependencyRelationship(
     relationship: string | null | undefined,
 ): DependencyType | undefined {
-    if (relationship === 'direct') { return 'direct' }
-    if (relationship === 'indirect') { return 'transitive' }
+    if (relationship === 'direct') {
+        return 'direct'
+    }
+    if (relationship === 'indirect') {
+        return 'transitive'
+    }
     return undefined
 }

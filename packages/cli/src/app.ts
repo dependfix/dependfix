@@ -11,6 +11,7 @@ import {
     generateJsonReport,
     writeReport,
     createEmptyRunSummary,
+    toErrorMessage,
     type Logger,
     type NormalizedSecurityAlert,
     type RunResult,
@@ -111,7 +112,7 @@ export class DependfixApp {
         try {
             await this.executeMode()
         } catch (error: unknown) {
-            const message = error instanceof Error ? error.message : String(error)
+            const message = toErrorMessage(error)
             this.logger.error(`Unexpected error: ${message}`)
             this.allErrors.push({
                 repository: '*',
@@ -134,7 +135,7 @@ export class DependfixApp {
             writeReport(md, json, this.startedAt, this.runId)
             this.logger.info(`Reports written to ./dependfix-reports/`)
         } catch (reportError: unknown) {
-            const message = reportError instanceof Error ? reportError.message : String(reportError)
+            const message = toErrorMessage(reportError)
             this.logger.error(`Failed to write reports: ${message}`)
         }
 
@@ -200,7 +201,7 @@ export class DependfixApp {
 
             this.logger.info(`Fetched ${limited.length} alerts for ${repo}`)
         } catch (error: unknown) {
-            const message = error instanceof Error ? error.message : String(error)
+            const message = toErrorMessage(error)
             this.logger.error(`Failed to fetch alerts for ${repo}: ${message}`)
             this.allErrors.push({
                 repository: repo,
@@ -273,7 +274,7 @@ export class DependfixApp {
             this.summary.alertsSkipped += skippedCount
 
             // 3. Lockfile repair
-            const repairAction = await this.tryLockfileRepair(repo)
+            const repairAction = this.tryLockfileRepair(repo)
             this.allActions.push(repairAction)
             if (repairAction.success) {
                 lockfileRepaired = true
@@ -289,7 +290,7 @@ export class DependfixApp {
                 verificationPassed = undefined
             }
         } catch (error: unknown) {
-            const message = error instanceof Error ? error.message : String(error)
+            const message = toErrorMessage(error)
             this.logger.error(`Failed to process ${repo}: ${message}`)
             this.allErrors.push({
                 repository: repo,
@@ -385,7 +386,7 @@ export class DependfixApp {
                 })
             }
         } catch (error: unknown) {
-            const message = error instanceof Error ? error.message : String(error)
+            const message = toErrorMessage(error)
             this.logger.error(`PR creation failed: ${message}`)
             this.allErrors.push({
                 repository: this.config.repositories[0] ?? '*',
@@ -469,7 +470,7 @@ export class DependfixApp {
                 durationMs: Date.now() - startMs,
             }
         } catch (error: unknown) {
-            const message = error instanceof Error ? error.message : String(error)
+            const message = toErrorMessage(error)
             this.logger.error(`Upgrade error for ${alert.packageName}: ${message}`)
             return {
                 type: 'dependency-upgrade',
@@ -487,7 +488,7 @@ export class DependfixApp {
     // Lockfile repair
     // -----------------------------------------------------------------------
 
-    private async tryLockfileRepair(repo: string): Promise<FixAction> {
+    private tryLockfileRepair(repo: string): FixAction {
         const startMs = Date.now()
 
         if (this.config.dryRun) {
@@ -502,7 +503,7 @@ export class DependfixApp {
         }
 
         try {
-            const result: LockfileRepairResult = await repairLockfile({ workDir: this.workDir })
+            const result: LockfileRepairResult = repairLockfile({ workDir: this.workDir })
 
             this.logger.info(
                 result.success
@@ -521,7 +522,7 @@ export class DependfixApp {
                 diff: result.diff?.summary,
             }
         } catch (error: unknown) {
-            const message = error instanceof Error ? error.message : String(error)
+            const message = toErrorMessage(error)
             this.logger.error(`Lockfile repair error for ${repo}: ${message}`)
             return {
                 type: 'lockfile-repair',
@@ -580,7 +581,7 @@ export class DependfixApp {
                 durationMs: cr.durationMs,
             }))
         } catch (error: unknown) {
-            const message = error instanceof Error ? error.message : String(error)
+            const message = toErrorMessage(error)
             this.logger.error(`Verification error for ${repo}: ${message}`)
             return [{
                 type: 'verification',

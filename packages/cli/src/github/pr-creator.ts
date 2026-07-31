@@ -1,6 +1,6 @@
 import { execSync } from 'node:child_process'
 import type { Octokit } from '@octokit/rest'
-import type { RunResult, FixAction } from '@dependfix/core'
+import type { RunResult } from '@dependfix/core'
 
 // ---------------------------------------------------------------------------
 // Types

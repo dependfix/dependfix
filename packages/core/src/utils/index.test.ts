@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { compactRecord, ensureArray, isValidRepoIdentifier } from './index'
+import { compactRecord, ensureArray, isValidRepoIdentifier, toErrorMessage } from './index'
 
 describe('compactRecord', () => {
     it('filters out undefined values', () => {
@@ -61,5 +61,43 @@ describe('isValidRepoIdentifier', () => {
     it('rejects whitespace', () => {
         expect(isValidRepoIdentifier(' owner/repo')).toBe(false)
         expect(isValidRepoIdentifier('owner /repo')).toBe(false)
+    })
+})
+
+describe('toErrorMessage', () => {
+    it('returns Error message', () => {
+        expect(toErrorMessage(new Error('boom'))).toBe('boom')
+    })
+
+    it('returns string as-is', () => {
+        expect(toErrorMessage('plain string')).toBe('plain string')
+    })
+
+    it('serializes serializable values as JSON', () => {
+        expect(toErrorMessage({ code: 42 })).toBe('{"code":42}')
+        expect(toErrorMessage([1, 2])).toBe('[1,2]')
+        expect(toErrorMessage(true)).toBe('true')
+        expect(toErrorMessage(3)).toBe('3')
+        expect(toErrorMessage(null)).toBe('null')
+    })
+
+    it('falls back to type description for non-serializable values', () => {
+        expect(toErrorMessage(undefined)).toBe('undefined')
+        expect(toErrorMessage(() => 'fn')).toBe('[object Function]')
+        expect(toErrorMessage(Symbol('s'))).toBe('[object Symbol]')
+    })
+
+    it('never throws on circular references', () => {
+        const circular: Record<string, unknown> = { name: 'circle' }
+        circular.self = circular
+        expect(() => toErrorMessage(circular)).not.toThrow()
+        expect(typeof toErrorMessage(circular)).toBe('string')
+    })
+
+    it('always returns a string for any input', () => {
+        const inputs: unknown[] = [0, '', false, NaN, Infinity, new Date(), Object('boxed'), { a: 1 }, []]
+        for (const input of inputs) {
+            expect(typeof toErrorMessage(input)).toBe('string')
+        }
     })
 })

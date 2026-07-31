@@ -22,7 +22,6 @@ import {
     readLockfileVersion,
     ensurePnpmOverrides,
     type DependencyFixResult,
-    type UpgradeDependencyParams,
 } from './index'
 
 // ---------------------------------------------------------------------------
@@ -45,9 +44,15 @@ function createTempProject(
 ): TempProject {
     const dir = mkdtempSync(join(tmpdir(), 'dependfix-test-'))
     const pkg: Record<string, unknown> = { name: 'test-project', version: '1.0.0' }
-    if (Object.keys(deps).length > 0) { pkg.dependencies = deps }
-    if (options?.devDeps && Object.keys(options.devDeps).length > 0) { pkg.devDependencies = options.devDeps }
-    if (options?.optionalDeps && Object.keys(options.optionalDeps).length > 0) { pkg.optionalDependencies = options.optionalDeps }
+    if (Object.keys(deps).length > 0) {
+        pkg.dependencies = deps
+    }
+    if (options?.devDeps && Object.keys(options.devDeps).length > 0) {
+        pkg.devDependencies = options.devDeps
+    }
+    if (options?.optionalDeps && Object.keys(options.optionalDeps).length > 0) {
+        pkg.optionalDependencies = options.optionalDeps
+    }
     const pkgPath = join(dir, 'package.json')
     const lockfilePath = join(dir, 'pnpm-lock.yaml')
     writeFileSync(pkgPath, `${JSON.stringify(pkg, null, 2)}\n`)
@@ -64,7 +69,11 @@ function readPackageVersion(project: TempProject, pkgName: string): string | und
 }
 
 function cleanup(project: TempProject): void {
-    try { rmSync(project.dir, { recursive: true, force: true }) } catch { /* ignore */ }
+    try {
+        rmSync(project.dir, { recursive: true, force: true })
+    } catch {
+        /* ignore */
+    }
 }
 
 // ---------------------------------------------------------------------------

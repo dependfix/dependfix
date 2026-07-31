@@ -1,5 +1,5 @@
 import { EventEmitter } from 'node:events'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 // ---------------------------------------------------------------------------
 // Mock child_process.spawn
@@ -21,8 +21,6 @@ vi.mock('node:child_process', () => ({
 import {
     runVerification,
     sanitizeOutput,
-    type VerificationResult,
-    type CommandResult,
 } from './verification-runner'
 
 // ---------------------------------------------------------------------------

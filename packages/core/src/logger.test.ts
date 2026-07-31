@@ -1,5 +1,6 @@
 import { describe, expect, it, vi, afterEach } from 'vitest'
-import { createLogger, type LoggerOptions } from './logger'
+import { createLogger } from './logger'
+import { toErrorMessage } from './utils'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -14,22 +15,18 @@ function captureConsole(): CapturedLine[] {
     const captured: CapturedLine[] = []
 
     vi.spyOn(console, 'log').mockImplementation((...args: unknown[]) => {
-        captured.push({ stream: 'stdout', line: String(args[0]) })
+        captured.push({ stream: 'stdout', line: toErrorMessage(args[0]) })
     })
 
     vi.spyOn(console, 'warn').mockImplementation((...args: unknown[]) => {
-        captured.push({ stream: 'stderr', line: String(args[0]) })
+        captured.push({ stream: 'stderr', line: toErrorMessage(args[0]) })
     })
 
     vi.spyOn(console, 'error').mockImplementation((...args: unknown[]) => {
-        captured.push({ stream: 'stderr', line: String(args[0]) })
+        captured.push({ stream: 'stderr', line: toErrorMessage(args[0]) })
     })
 
     return captured
-}
-
-function parseCapturedJson(captured: CapturedLine[]): Record<string, unknown>[] {
-    return captured.map((c) => JSON.parse(c.line) as Record<string, unknown>)
 }
 
 // ---------------------------------------------------------------------------

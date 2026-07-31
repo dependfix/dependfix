@@ -168,3 +168,16 @@ T109 ─→ T205（AI Token 支持）→ T206（Prompt 注入防护）
 - [x] `pnpm typecheck` + `pnpm lint` + `pnpm test` 全部通过
 
 > M2 MVP 已可交付：消费者仓库可通过一行 `uses:` 接入安全告警自动修复。
+
+---
+
+## 已知缺口登记
+
+### G1 PIN_TOOLCHAIN 策略未真正固定 pnpm 版本
+
+- **状态**: 🔶 待实现
+- **位置**: `packages/cli/src/fixers/pnpm/index.ts`
+- **问题**: `RepairLockfileParams.toolchain`（`toolchain.pnpmVersion`）虽被接受并文档声明"优先于 packageManager"，但 `repairLockfile()` 内部从未调用 `resolvePnpmVersion()`，`PIN_TOOLCHAIN` 策略命令与 `REGENERATE` 完全相同（`pnpm install --lockfile-only`），未按 toolchain 固定版本执行
+- **引入**: 自初版 fixer 起即为 stub（类型 + 测试骨架已搭，实现未接线）
+- **下一步**: 用 `resolvePnpmVersion()` 解析版本并切换为 `pnpm@<version>` / corepack 方式执行 PIN_TOOLCHAIN；落地后恢复测试名（当前测试 `accepts toolchain param (currently not consumed by implementation)` 仅保证参数被接受）
+- **发现来源**: lint 清理审计（2026-08-01）

@@ -1,4 +1,4 @@
-import { AppError, type GitHubErrorCode } from '@dependfix/core'
+import { AppError, toErrorMessage, type GitHubErrorCode } from '@dependfix/core'
 import { RequestError } from '@octokit/request-error'
 
 /**
@@ -20,7 +20,7 @@ export function mapGitHubError(error: unknown, context: string): AppError {
         return new AppError('NETWORK_ERROR', `${context}: ${error.message}`, { cause: error })
     }
 
-    return new AppError('NETWORK_ERROR', `${context}: unknown error`, { details: { raw: String(error) } })
+    return new AppError('NETWORK_ERROR', `${context}: unknown error`, { details: { raw: toErrorMessage(error) } })
 }
 
 // ---------------------------------------------------------------------------

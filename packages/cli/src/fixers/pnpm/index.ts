@@ -158,7 +158,7 @@ function getStrategyChain(category: LockfileFailureCategory): RepairStrategy[] {
     }
 }
 
-function getStrategyCommand(strategy: RepairStrategy, _workDir: string): string {
+function getStrategyCommand(strategy: RepairStrategy): string {
     switch (strategy) {
         case 'REGENERATE':
             return 'pnpm install --lockfile-only'
@@ -342,7 +342,7 @@ function rollback(bakPath: string, workDir: string): void {
  * 5. 所有策略失败 → 回滚 lockfile、返回失败结果
  */
 export function repairLockfile(params: RepairLockfileParams): LockfileRepairResult {
-    const { workDir, toolchain } = params
+    const { workDir } = params
     const workDir_ = workDir // alias for consistency
 
     const attempts: RepairAttempt[] = []
@@ -393,7 +393,7 @@ export function repairLockfile(params: RepairLockfileParams): LockfileRepairResu
     const startTimestamp = Date.now()
 
     for (const strategy of strategyChain) {
-        const command = getStrategyCommand(strategy, workDir_)
+        const command = getStrategyCommand(strategy)
         const t0 = Date.now()
 
         let strategySuccess = false

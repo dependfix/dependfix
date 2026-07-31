@@ -43,7 +43,9 @@ export const SEVERITY_MAP = {
 export function mapCodeScanningSeverity(
     ruleSeverity: 'error' | 'warning' | 'note' | 'none',
 ): AlertSeverity {
-    if (ruleSeverity === 'none') { return 'unknown' }
+    if (ruleSeverity === 'none') {
+        return 'unknown'
+    }
     return SEVERITY_MAP['code-scanning'][ruleSeverity]
 }
 

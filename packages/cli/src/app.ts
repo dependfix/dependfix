@@ -64,6 +64,9 @@ const DEFAULT_VERIFY_COMMANDS = [
 /** 匹配 `pnpm <singleWord>` 模式的命令（可能是 package.json script 引用） */
 const PNPM_SCRIPT_RE = /^pnpm\s+([a-zA-Z][a-zA-Z0-9:_-]*)$/
 
+/** 自动修复提交的标准消息（本地 --commit 与 fix-and-pr 共用） */
+const FIX_COMMIT_MESSAGE = 'fix(deps): automated dependfix security repair'
+
 // ---------------------------------------------------------------------------
 // DependfixApp
 // ---------------------------------------------------------------------------
@@ -231,6 +234,22 @@ export class DependfixApp {
         for (const repo of this.config.repositories) {
             await this.processRepoForFix(client, repo)
         }
+
+        // 修复完成后，按需在本地当前分支直接提交（不推送、不创建 PR）
+        if (this.config.commit) {
+            try {
+                this.commitLocalChanges()
+            } catch (error: unknown) {
+                const message = toErrorMessage(error)
+                this.logger.error(`Local commit failed: ${message}`)
+                this.allErrors.push({
+                    repository: '*',
+                    stage: 'fix',
+                    category: 'COMMIT_FAILED',
+                    message,
+                })
+            }
+        }
     }
 
     private async processRepoForFix(client: Octokit, repo: string): Promise<void> {
@@ -337,14 +356,12 @@ export class DependfixApp {
         }
 
         // 3. Create fix branch + commit + push
-        const commitMessage = 'fix(deps): automated dependfix security repair'
-
         try {
             const { branchName } = createFixBranch(this.runId, this.workDir)
             this.logger.info(`Creating fix branch: ${branchName}`)
 
             this.logger.info('Staging and committing changes')
-            stageAndCommit(commitMessage, this.workDir)
+            stageAndCommit(FIX_COMMIT_MESSAGE, this.workDir)
 
             this.logger.info(`Pushing branch: ${branchName}`)
             pushBranch(branchName, this.workDir)
@@ -398,14 +415,35 @@ export class DependfixApp {
     }
 
     /**
-     * 检查工作目录是否有未暂存的变更。
+     * 将修复产生的变更提交到本地当前分支。
+     *
+     * - 无任何变更（含已暂存变更）时跳过
+     * - config 校验已保证 `commit` 与 `dryRun` / `createPullRequest` 互斥，
+     *   因此这里不需要再检查这两个开关
+     */
+    private commitLocalChanges(): void {
+        if (!this.hasGitChanges()) {
+            this.logger.info('No changes to commit — skipping local commit')
+            return
+        }
+
+        // 提交前先确保报告目录被 .gitignore 忽略，避免残留的 dependfix-reports/ 被 git add 提交
+        this.ensureGitignore()
+
+        stageAndCommit(FIX_COMMIT_MESSAGE, this.workDir)
+        this.logger.info(`Committed fix changes to current branch: ${FIX_COMMIT_MESSAGE}`)
+    }
+
+    /**
+     * 检查工作目录是否有未提交的变更（含未暂存与已暂存）。
      */
     private hasGitChanges(): boolean {
         try {
             execSync('git diff --quiet', { cwd: this.workDir, stdio: 'pipe' })
-            return false // exit 0 = no changes
+            execSync('git diff --cached --quiet', { cwd: this.workDir, stdio: 'pipe' })
+            return false // 两者都无变更
         } catch {
-            return true // exit 1 = has changes
+            return true // 任一有变更
         }
     }
 

@@ -18,6 +18,7 @@ describe('resolveRuntimeConfig', () => {
             repositories: ['owner/repo-a', 'owner/repo-b'],
             dryRun: true,
             createPullRequest: false,
+            commit: false,
             githubToken: 'token-from-env',
             maxAlertsPerRepository: 10,
         })
@@ -51,6 +52,7 @@ describe('resolveRuntimeConfig', () => {
             repositories: ['env-owner/repo-c', 'cli-owner/repo-a', 'cli-owner/repo-b'],
             dryRun: false,
             createPullRequest: false,
+            commit: false,
             githubToken: 'token-from-cli',
             maxAlertsPerRepository: 3,
         })
@@ -69,6 +71,65 @@ describe('resolveRuntimeConfig', () => {
                 AUTO_FIX_GITHUB_SECURITY_CREATE_PR: 'true',
             },
         })).toThrow('createPullRequest cannot be enabled when mode is report-only.')
+    })
+
+    it('enables commit from cli override', () => {
+        const invocation = parseCliArgs([
+            'fix',
+            '--repository=owner/repo-a',
+            '--github-token',
+            't',
+            '--commit',
+        ])
+
+        const config = resolveRuntimeConfig({ cliOverrides: invocation.configOverrides })
+        expect(config.commit).toBe(true)
+    })
+
+    it('rejects commit while dry-run is enabled', () => {
+        expect(() => resolveRuntimeConfig({
+            env: {
+                GITHUB_TOKEN: 'token-from-env',
+                AUTO_FIX_GITHUB_SECURITY_REPOSITORIES: 'owner/repo-a',
+                AUTO_FIX_GITHUB_SECURITY_MODE: 'fix',
+                AUTO_FIX_GITHUB_SECURITY_COMMIT: 'true',
+                AUTO_FIX_GITHUB_SECURITY_DRY_RUN: 'true',
+            },
+        })).toThrow('commit cannot be enabled while dryRun is true.')
+    })
+
+    it('rejects commit in report-only mode', () => {
+        expect(() => resolveRuntimeConfig({
+            env: {
+                GITHUB_TOKEN: 'token-from-env',
+                AUTO_FIX_GITHUB_SECURITY_REPOSITORIES: 'owner/repo-a',
+                AUTO_FIX_GITHUB_SECURITY_COMMIT: 'true',
+            },
+        })).toThrow('commit is only supported in fix mode.')
+    })
+
+    it('rejects commit in fix-and-pr mode even without create-pr', () => {
+        expect(() => resolveRuntimeConfig({
+            env: {
+                GITHUB_TOKEN: 'token-from-env',
+                AUTO_FIX_GITHUB_SECURITY_REPOSITORIES: 'owner/repo-a',
+                AUTO_FIX_GITHUB_SECURITY_MODE: 'fix-and-pr',
+                AUTO_FIX_GITHUB_SECURITY_COMMIT: 'true',
+                AUTO_FIX_GITHUB_SECURITY_CREATE_PR: 'false',
+            },
+        })).toThrow('commit is only supported in fix mode.')
+    })
+
+    it('rejects commit together with createPullRequest', () => {
+        expect(() => resolveRuntimeConfig({
+            env: {
+                GITHUB_TOKEN: 'token-from-env',
+                AUTO_FIX_GITHUB_SECURITY_REPOSITORIES: 'owner/repo-a',
+                AUTO_FIX_GITHUB_SECURITY_MODE: 'fix',
+                AUTO_FIX_GITHUB_SECURITY_COMMIT: 'true',
+                AUTO_FIX_GITHUB_SECURITY_CREATE_PR: 'true',
+            },
+        })).toThrow('commit cannot be enabled together with createPullRequest.')
     })
 
     it('rejects invalid repository identifier format', () => {

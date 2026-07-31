@@ -171,6 +171,30 @@ T109 ─→ T205（AI Token 支持）→ T206（Prompt 注入防护）
 
 ---
 
+### T207 fix 模式支持本地直接提交（--commit）
+
+- **优先级**: P2
+- **依赖**: T204（复用 stageAndCommit）
+- **状态**: ✅ 已完成
+- **交付物**: `packages/cli`（config / cli / app）
+
+**实现摘要**:
+- 新增 `--commit` 参数与 `AUTO_FIX_GITHUB_SECURITY_COMMIT` 环境变量（默认 `false`）：`fix` 模式修复完成后在本地当前分支直接提交（不推送、不创建 PR）
+- 校验互斥：`--commit` 仅 `fix` 模式生效；与 `--dry-run` / `--create-pr` 同时启用时报配置错误
+- 提交前调用 `ensureGitignore()`，避免残留报告目录被 `git add .` 提交
+- `hasGitChanges()` 加固：同时检测未暂存与已暂存变更（fix-and-pr 同步受益）
+- 提交失败记录为 `stage: 'fix'` / `category: 'COMMIT_FAILED'`，不影响报告生成
+
+**验收标准**:
+
+- [x] `dependfix fix --commit` 修复后本地提交到当前分支
+- [x] 无变更时跳过提交
+- [x] `--commit` + `--dry-run` / `--create-pr` / 非 fix 模式报配置错误
+- [x] 报告目录不进入提交（ensureGitignore 前置）
+- [x] config 测试覆盖三态解析与互斥校验（+5 用例）
+
+---
+
 ## 已知缺口登记
 
 ### G1 PIN_TOOLCHAIN 策略未真正固定 pnpm 版本

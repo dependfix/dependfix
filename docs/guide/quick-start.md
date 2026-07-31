@@ -39,7 +39,15 @@ dependfix report-only --repo owner/repo --github-token $GITHUB_TOKEN
 dependfix fix --repo owner/repo --github-token $GITHUB_TOKEN --severity-threshold high
 ```
 
-执行依赖升级和 lockfile 修复，修改仅限本地文件。
+执行依赖升级和 lockfile 修复，修改仅限本地文件，默认不提交。
+
+加 `--commit` 可在修复完成后直接提交到当前分支（不推送、不创建 PR）：
+
+```bash
+dependfix fix --repo owner/repo --github-token $GITHUB_TOKEN --commit
+```
+
+> 注意：`--commit` 会提交工作区**所有**未提交变更（包括用户已有改动与验证失败的修复），建议在干净工作区上运行。
 
 ### 修复并创建 PR
 
@@ -126,6 +134,7 @@ jobs:
 | `--severity-threshold` | — | `critical` / `high` / `medium` / `all` | `high` |
 | `--dry-run` | — | 试运行，不写入文件。report-only 模式默认 `true` | `false`（fix/fix-and-pr） |
 | `--create-pr` | — | 创建 Pull Request | `false` |
+| `--commit` | — | 修复完成后在本地当前分支直接提交（仅 fix 模式；不推送、不创建 PR） | `false` |
 | `--max-alerts-per-repository` | — | 每仓库最大处理数 | `10` |
 | `--commands` | — | 自定义验证命令（逗号分隔） | — |
 | `--verbose` | — | 详细日志 | `false` |

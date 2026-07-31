@@ -86,6 +86,7 @@ jobs:
 | `--severity-threshold` | 严重级别阈值：`critical` / `high` / `medium` / `all` | `high` |
 | `--dry-run` | 试运行，不实际修改文件（report-only 模式默认 `true`） | 依模式而定 |
 | `--create-pr` | 创建 Pull Request（fix-and-pr 模式自动启用） | `false` |
+| `--commit` | 修复完成后在本地当前分支直接提交（仅 fix 模式；不推送、不创建 PR） | `false` |
 | `--max-alerts-per-repository` | 每仓库最大告警处理数 | `10` |
 | `--commands` | 自定义验证命令（逗号分隔） | — |
 | `--verbose` | 详细日志输出 | `false` |

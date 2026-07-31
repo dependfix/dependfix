@@ -14,6 +14,8 @@ export interface RuntimeConfig {
     repositories: string[]
     dryRun: boolean
     createPullRequest: boolean
+    /** 修复完成后是否在本地当前分支直接提交（不推送、不创建 PR） */
+    commit: boolean
     githubToken: string
     maxAlertsPerRepository: number
 }
@@ -25,6 +27,8 @@ export interface CliConfigOverrides {
     reposFilePath?: string
     dryRun?: boolean
     createPullRequest?: boolean
+    /** 修复完成后是否在本地当前分支直接提交 */
+    commit?: boolean
     githubToken?: string
     maxAlertsPerRepository?: number
     /** 是否输出详细日志 */
@@ -40,7 +44,7 @@ export interface ResolveRuntimeConfigOptions {
     workDir?: string
 }
 
-export const DEFAULT_RUNTIME_CONFIG: Omit<RuntimeConfig, 'githubToken' | 'repositories' | 'dryRun' | 'createPullRequest'> = {
+export const DEFAULT_RUNTIME_CONFIG: Omit<RuntimeConfig, 'githubToken' | 'repositories' | 'dryRun' | 'createPullRequest' | 'commit'> = {
     mode: 'report-only',
     severityThreshold: 'high',
     maxAlertsPerRepository: 10,
@@ -130,6 +134,7 @@ export function readEnvConfig(env: NodeJS.ProcessEnv = process.env): CliConfigOv
         repositories: normalizeList(env.AUTO_FIX_GITHUB_SECURITY_REPOSITORIES),
         dryRun: normalizeBoolean(env.AUTO_FIX_GITHUB_SECURITY_DRY_RUN, 'AUTO_FIX_GITHUB_SECURITY_DRY_RUN'),
         createPullRequest: normalizeBoolean(env.AUTO_FIX_GITHUB_SECURITY_CREATE_PR, 'AUTO_FIX_GITHUB_SECURITY_CREATE_PR'),
+        commit: normalizeBoolean(env.AUTO_FIX_GITHUB_SECURITY_COMMIT, 'AUTO_FIX_GITHUB_SECURITY_COMMIT'),
         githubToken: env.AUTO_FIX_GITHUB_SECURITY_GITHUB_TOKEN?.trim() || env.GITHUB_TOKEN?.trim() || undefined,
         maxAlertsPerRepository: normalizeInteger(env.AUTO_FIX_GITHUB_SECURITY_MAX_ALERTS_PER_REPOSITORY, 'AUTO_FIX_GITHUB_SECURITY_MAX_ALERTS_PER_REPOSITORY'),
     }
@@ -157,6 +162,18 @@ function resolveCreatePullRequest(mode: RuntimeMode, cliOverrides: CliConfigOver
     }
 
     return mode === 'fix-and-pr'
+}
+
+function resolveCommit(cliOverrides: CliConfigOverrides, envConfig: CliConfigOverrides): boolean {
+    if (cliOverrides.commit !== undefined) {
+        return cliOverrides.commit
+    }
+
+    if (envConfig.commit !== undefined) {
+        return envConfig.commit
+    }
+
+    return false
 }
 
 function validateRuntimeConfig(config: RuntimeConfig): RuntimeConfig {
@@ -188,6 +205,18 @@ function validateRuntimeConfig(config: RuntimeConfig): RuntimeConfig {
         throw new AppError('CONFIG_VALIDATION_ERROR', 'createPullRequest cannot be enabled while dryRun is true.')
     }
 
+    if (config.commit && config.mode !== 'fix') {
+        throw new AppError('CONFIG_VALIDATION_ERROR', 'commit is only supported in fix mode.')
+    }
+
+    if (config.commit && config.dryRun) {
+        throw new AppError('CONFIG_VALIDATION_ERROR', 'commit cannot be enabled while dryRun is true.')
+    }
+
+    if (config.commit && config.createPullRequest) {
+        throw new AppError('CONFIG_VALIDATION_ERROR', 'commit cannot be enabled together with createPullRequest. Use fix-and-pr mode instead.')
+    }
+
     return config
 }
 
@@ -216,6 +245,7 @@ export function resolveRuntimeConfig(options: ResolveRuntimeConfigOptions = {}):
         repositories,
         dryRun: resolveDryRun(mode, cliOverrides, envConfig),
         createPullRequest: resolveCreatePullRequest(mode, cliOverrides, envConfig),
+        commit: resolveCommit(cliOverrides, envConfig),
         githubToken: cliOverrides.githubToken ?? envConfig.githubToken ?? '',
         maxAlertsPerRepository: cliOverrides.maxAlertsPerRepository ?? envConfig.maxAlertsPerRepository ?? DEFAULT_RUNTIME_CONFIG.maxAlertsPerRepository,
     }

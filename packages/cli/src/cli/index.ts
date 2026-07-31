@@ -66,6 +66,11 @@ const argsDef = {
         description: '创建 Pull Request',
         negativeDescription: '不创建 Pull Request',
     },
+    commit: {
+        type: 'boolean' as const,
+        description: '修复完成后在本地当前分支直接提交（不推送、不创建 PR）',
+        negativeDescription: '不自动提交（默认）',
+    },
     'github-token': {
         type: 'string' as const,
         description: 'GitHub Personal Access Token',
@@ -162,6 +167,11 @@ function parsedArgsToCliOverrides(parsed: ParsedArgs<typeof argsDef>): CliConfig
     // create-pr (three-state: true / false / undefined)
     if (parsed['create-pr'] !== undefined) {
         overrides.createPullRequest = parsed['create-pr']
+    }
+
+    // commit (three-state: true / false / undefined)
+    if (parsed.commit !== undefined) {
+        overrides.commit = parsed.commit
     }
 
     // github-token

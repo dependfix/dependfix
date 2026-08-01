@@ -73,6 +73,39 @@ describe('resolveRuntimeConfig', () => {
         })).toThrow('createPullRequest cannot be enabled when mode is report-only.')
     })
 
+    it('resolves fix-and-pr defaults to dryRun=false and createPullRequest=true', () => {
+        const config = resolveRuntimeConfig({
+            env: {
+                GITHUB_TOKEN: 'token-from-env',
+                AUTO_FIX_GITHUB_SECURITY_REPOSITORIES: 'owner/repo-a',
+                AUTO_FIX_GITHUB_SECURITY_MODE: 'fix-and-pr',
+            },
+        })
+
+        expect(config.mode).toBe('fix-and-pr')
+        expect(config.dryRun).toBe(false)
+        expect(config.createPullRequest).toBe(true)
+        // 默认组合必须通过互斥校验（dryRun && createPullRequest 不允许）
+        expect(() => resolveRuntimeConfig({
+            env: {
+                GITHUB_TOKEN: 'token-from-env',
+                AUTO_FIX_GITHUB_SECURITY_REPOSITORIES: 'owner/repo-a',
+                AUTO_FIX_GITHUB_SECURITY_MODE: 'fix-and-pr',
+            },
+        })).not.toThrow()
+    })
+
+    it('rejects dryRun together with createPullRequest', () => {
+        expect(() => resolveRuntimeConfig({
+            env: {
+                GITHUB_TOKEN: 'token-from-env',
+                AUTO_FIX_GITHUB_SECURITY_REPOSITORIES: 'owner/repo-a',
+                AUTO_FIX_GITHUB_SECURITY_MODE: 'fix-and-pr',
+                AUTO_FIX_GITHUB_SECURITY_DRY_RUN: 'true',
+            },
+        })).toThrow('createPullRequest cannot be enabled while dryRun is true.')
+    })
+
     it('enables commit from cli override', () => {
         const invocation = parseCliArgs([
             'fix',

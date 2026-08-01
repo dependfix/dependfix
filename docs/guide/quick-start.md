@@ -97,19 +97,22 @@ jobs:
     steps:
       - uses: dependfix/dependfix@v1
         with:
+          # mode 默认已是 fix-and-pr（可省略），此处显式声明
           mode: fix-and-pr
           severity-threshold: high
           github-token: ${{ secrets.GITHUB_TOKEN }}
 ```
 
+> **⚠️ 破坏性变更（v0.2 起）**：Action 默认 `mode` 由 `report-only` 改为 `fix-and-pr`（`dry-run` 默认由 `true` 改为 `false`）。存量消费者未显式传参时，行为从"仅生成报告"变为"自动创建修复分支与 PR"（PR 不自动合并，可安全审查）。需要仅报告时可显式传 `mode: report-only` 或 `dry-run: true`。迁移后请确认 workflow `permissions` 已包含 `contents: write` + `pull-requests: write`（见上方示例）。
+
 ### Action 输入参数
 
 | 参数 | 必填 | 默认值 | 说明 |
 |:-----|:----:|:------|:-----|
-| `mode` | 否 | `report-only` | 运行模式：`report-only` / `fix` / `fix-and-pr` |
+| `mode` | 否 | `fix-and-pr` | 运行模式：`report-only` / `fix` / `fix-and-pr` |
 | `repos` | 否 | `''`（当前仓库） | 目标仓库（逗号分隔） |
 | `severity-threshold` | 否 | `high` | 严重级别阈值 |
-| `dry-run` | 否 | `true` | 试运行模式（Action 默认安全优先，CLI 默认 `false`） |
+| `dry-run` | 否 | `false` | 试运行模式（Action 默认自动修复并提 PR；CLI 本地默认仅报告，即 report-only 下 dry-run=true） |
 | `max-alerts-per-repository` | 否 | `10` | 每仓库最大告警数 |
 | `github-token` | 是 | — | GitHub Token |
 | `ai-api-token` | 否 | `''` | AI API Token（M5 联调） |

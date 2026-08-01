@@ -33,10 +33,10 @@ branding:
 
 | 参数 | 类型 | 默认值 | 说明 |
 |:---|:---|:---|:---|
-| `mode` | string | `report-only` | 运行模式：`report-only` / `fix` / `fix-and-pr` |
+| `mode` | string | `fix-and-pr`（T209 起） | 运行模式：`report-only` / `fix` / `fix-and-pr`；**破坏性变更**：存量消费者未显式传参时从"仅报告"变为"自动提 PR"（不自动合并） |
 | `repos` | string | `''`（空=当前仓库） | 逗号分隔的目标仓库 |
 | `severity-threshold` | string | `high` | 严重级别阈值 |
-| `dry-run` | string | `true` | 试运行模式 |
+| `dry-run` | string | `false`（T209 起，与 fix-and-pr 互斥配套） | 试运行模式 |
 | `max-alerts-per-repository` | string | `10` | 每仓库最大告警数 |
 | `github-token` | string | **必填** | GitHub Token（需 security-events 权限） |
 

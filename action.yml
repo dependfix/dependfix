@@ -10,7 +10,8 @@ inputs:
   mode:
     description: '运行模式'
     required: false
-    default: 'report-only'
+    # T209: Action 默认 fix-and-pr（本地 CLI 默认仍为 report-only）
+    default: 'fix-and-pr'
   repos:
     description: '目标仓库（逗号分隔 owner/repo，留空使用当前仓库）'
     required: false
@@ -22,7 +23,8 @@ inputs:
   dry-run:
     description: '试运行模式（不修改文件）'
     required: false
-    default: 'true'
+    # T209: 与 mode 默认 fix-and-pr 配套（dryRun 与 createPullRequest 互斥）
+    default: 'false'
   max-alerts-per-repository:
     description: '每仓库最多处理的告警数'
     required: false

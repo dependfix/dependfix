@@ -11,7 +11,7 @@ on:
           - report-only
           - fix
           - fix-and-pr
-        default: report-only
+        default: fix-and-pr
       severity-threshold:
         description: '严重级别阈值'
         type: choice
@@ -26,7 +26,7 @@ on:
         description: '试运行模式（不修改文件，仅在 fix 模式下生效）'
         type: boolean
         required: false
-        default: true
+        default: false
       max-alerts-per-repository:
         description: '每仓库最多处理的告警数'
         type: string
@@ -63,9 +63,9 @@ jobs:
       - name: Run Dependfix Action
         uses: ./
         with:
-          mode: ${{ inputs.mode || 'report-only' }}
+          mode: ${{ inputs.mode || 'fix-and-pr' }}
           severity-threshold: ${{ inputs.severity-threshold || 'high' }}
-          dry-run: ${{ inputs.dry-run || 'true' }}
+          dry-run: ${{ inputs.dry-run || 'false' }}
           max-alerts-per-repository: ${{ inputs.max-alerts-per-repository || '10' }}
           repos: ${{ inputs.repos || '' }}
           github-token: ${{ secrets.GITHUB_TOKEN }}

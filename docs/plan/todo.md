@@ -232,18 +232,19 @@ T109 ─→ T205（AI Token 支持）→ T206（Prompt 注入防护）
 
 - **优先级**: P1
 - **依赖**: T208（fix-and-pr 在 Action 中语义正确的前提）
-- **状态**: 🔶 待实现
+- **状态**: ✅ 已完成
 - **交付物**: `action.yml` + 文档
 
 **实现摘要**:
 - `action.yml`：`mode` 默认 `report-only` → `fix-and-pr`；`dry-run` 默认 `true` → `false`（否则触发 `dryRun && createPullRequest` 互斥校验）
 - CLI 本地默认保持 `report-only` 不变（本地保守、Action 主动，两场景语义分离）
-- 文档（quick-start / configuration / 设计稿）标注**破坏性变更**：存量消费者默认行为从"只报告"变为"自动提 PR"（不自动合并，风险可控）
+- dogfooding workflow（security-auto-fix.yml）dispatch 默认同步为 `fix-and-pr` / `false`，保持默认语义一致并自举验证新默认路径
+- 文档（quick-start / 设计稿）标注**破坏性变更**：存量消费者默认行为从"只报告"变为"自动提 PR"（不自动合并，风险可控）
 
 **验收标准**:
-- [ ] 无显式参数时 Action 默认执行 fix-and-pr（创建 PR）
-- [ ] 默认配置通过互斥校验（dry-run 默认 false）
-- [ ] 文档已标注破坏性变更
+- [x] 无显式参数时 Action 默认执行 fix-and-pr（创建 PR）
+- [x] 默认配置通过互斥校验（dry-run 默认 false）
+- [x] 文档已标注破坏性变更
 
 ---
 

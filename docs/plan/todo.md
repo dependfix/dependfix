@@ -195,6 +195,103 @@ T109 ─→ T205（AI Token 支持）→ T206（Prompt 注入防护）
 
 ---
 
+---
+
+## M2 增强：Action 默认 fix-and-pr + PR 去重 + 分支清理
+
+> 2026-08-02 需求评估确认（requirement-analyst + technical-architect）：
+> - 去重语义：告警未变动 → 修复结果一致 → 不重复提 PR；告警变动 → 关闭旧 PR、重评估后提新 PR，**永远给用户最新的修复 PR**
+> - 指纹 = 结构化升级集（成功升级 `pkg@toVersion` 排序 + 失败包集）sha256 前 8 位；分支名 `dependfix/auto-fix-{fp8}`（去 runId）
+> - 清理模式：删除前必须用户手动确认（CLI 交互 y/N；Action 仅报告清单不删除）
+> - 未来增强（comment/label、固定分支）登记 [backlog.md](backlog.md#m2-增强候选未排期)
+
+### T208 Action workDir 语义修正
+
+- **优先级**: P0（本次增强的地基）
+- **依赖**: T201, T204
+- **状态**: 🔶 待实现
+- **交付物**: `action.yml` + 相关文档
+
+**问题**: `action.yml` Run 步骤 `cd "${{ github.action_path }}"` 使修复/推送作用于 dependfix 源码快照目录，消费者 checkout（`$GITHUB_WORKSPACE`）从未被使用；alerts 来自 `repos` 指定仓库但修复文件写入 action 目录，修复对象与 PR 归属仓库脱节。
+
+**实现摘要**:
+- `action.yml` 首步增加 `actions/checkout@v5`（消费者仓库 checkout 到 `$GITHUB_WORKSPACE`，重复 checkout 幂等）
+- Run 步骤在 `$GITHUB_WORKSPACE` 中执行，CLI 以 `node "${{ github.action_path }}/packages/cli/dist/bin.mjs"` 调用（build 仍在 action_path）
+- artifact 上传与 summary 路径改为 `$GITHUB_WORKSPACE/dependfix-reports/`
+- 文档明确"消费者需 checkout（或依赖 action 内置 checkout）"
+
+**验收标准**:
+- [ ] 消费者场景修复/提交/推送作用于消费者仓库 checkout
+- [ ] dogfooding（`uses: ./`）场景行为不变
+- [ ] lint + typecheck + test 通过
+
+---
+
+### T209 Action 默认使用 fix-and-pr 模式
+
+- **优先级**: P1
+- **依赖**: T208（fix-and-pr 在 Action 中语义正确的前提）
+- **状态**: 🔶 待实现
+- **交付物**: `action.yml` + 文档
+
+**实现摘要**:
+- `action.yml`：`mode` 默认 `report-only` → `fix-and-pr`；`dry-run` 默认 `true` → `false`（否则触发 `dryRun && createPullRequest` 互斥校验）
+- CLI 本地默认保持 `report-only` 不变（本地保守、Action 主动，两场景语义分离）
+- 文档（quick-start / configuration / 设计稿）标注**破坏性变更**：存量消费者默认行为从"只报告"变为"自动提 PR"（不自动合并，风险可控）
+
+**验收标准**:
+- [ ] 无显式参数时 Action 默认执行 fix-and-pr（创建 PR）
+- [ ] 默认配置通过互斥校验（dry-run 默认 false）
+- [ ] 文档已标注破坏性变更
+
+---
+
+### T210 PR 去重：内容指纹 + 查重跳过 + 关旧开新
+
+- **优先级**: P1
+- **依赖**: T208
+- **状态**: 🔶 待实现
+- **交付物**: `packages/cli/src/github/pr-creator.ts` + `app.ts` + 测试
+
+**实现摘要**:
+- `computeFixFingerprint`：基于成功升级集（`pkg@toVersion` 排序拼接）+ 修复失败包集 → sha256 取前 8 位（结构化而非 git diff，规避 pnpm 版本漂移导致的 lockfile 抖动）
+- `findDependfixOpenPR`：`pulls.list(state=open)` 过滤 head 前缀 `dependfix/auto-fix-`（PR 数量少，单页足够；未来量大可启用 label 索引——见 backlog B1）
+- `executeFixAndPrMode` 重构：修复 → hasGitChanges → 计算指纹 → 查重：
+  - 无 open PR → 创建分支 `dependfix/auto-fix-{fp8}` → commit → push → create PR
+  - open PR 指纹相同 → **跳过**：不提交不推送，报告记录"已有 PR #N，内容一致"
+  - open PR 指纹不同 → **先创建新 PR（body 注明 `Supersedes #N`），成功后关闭旧 PR**；新 PR 创建失败则保留旧 PR
+- `createFixBranch` 参数从 runId 改为完整分支名（分支名不再含 runId）
+- `extractRunSuffix` 与报告文件名解耦（report/writer.ts 注释同步）
+
+**验收标准**:
+- [ ] 同告警集重复运行不产生新 PR（幂等跳过）
+- [ ] 告警变化 → 关闭旧 PR + 创建新 PR，同一时刻仅一条 dependfix open PR
+- [ ] 新 PR 创建失败时旧 PR 不被关闭
+- [ ] 单测覆盖：指纹确定性、查重匹配、关闭顺序（pr-creator.test.ts）
+
+---
+
+### T211 清理模式（cleanup-branches）
+
+- **优先级**: P2
+- **依赖**: T210（复用查重/分支模块）
+- **状态**: 🔶 待实现
+- **交付物**: `packages/cli`（config / cli / app / pr-creator）+ `action.yml`
+
+**实现摘要**:
+- `RUNTIME_MODES` 增加 `cleanup-branches`：`dependfix cleanup-branches --repo owner/repo` 独立执行清理流程（不拉 alerts、不修复）
+- `listDependfixBranches`（API 列出远端 `dependfix/` 前缀分支）+ `getBranchPrStatus`（对应 PR `state=closed & merged=true` 判定）+ `deleteRemoteBranch`（失败如分支保护 → 降级为报告提醒）
+- `executeCleanupBranchesMode`：清单分类（**已合并**=安全清理 / **已关闭未合并**=supersede 孤儿 / open=跳过）→ 展示清单 → **交互式 y/N 确认（非 TTY 默认拒绝）** → 逐个删除
+- 安全约束：只删 `dependfix/` 前缀、只删已合并或已关闭分支，绝不触碰 open PR 对应分支
+- `action.yml` 新增 `cleanup-branches` 输入（默认 `false`）：启用后 fix-and-pr 结束检测已合并分支，**仅写入报告与 workflow summary 清单，不自动删除**
+
+**验收标准**:
+- [ ] `dependfix cleanup-branches` 列出清单并需 y/N 确认（非 TTY 拒绝）
+- [ ] 只删 `dependfix/` 前缀且仅已合并/已关闭分支
+- [ ] Action 启用 `cleanup-branches` 后仅输出清单不删除
+
+---
+
 ## 已知缺口登记
 
 ### G1 PIN_TOOLCHAIN 策略未真正固定 pnpm 版本

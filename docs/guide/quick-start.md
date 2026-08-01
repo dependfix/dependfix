@@ -55,7 +55,23 @@ dependfix fix --repo owner/repo --github-token $GITHUB_TOKEN --commit
 dependfix fix-and-pr --repo owner/repo --github-token $GITHUB_TOKEN
 ```
 
-执行完整修复流程后，自动创建 `dependfix/auto-fix-{runId尾段}` 分支（尾段为 runId 最后一个 `-` 分隔段，最多 8 字符）、提交变更、推送并创建 Pull Request。PR body 包含修复摘要、变更列表和验证结果。
+执行完整修复流程后，自动创建 `dependfix/auto-fix-{内容指纹}` 分支（指纹为修复内容 sha256 前 8 位）、提交变更、推送并创建 Pull Request。PR body 包含修复摘要、变更列表和验证结果。
+
+**PR 去重（v0.2 起）**：同一修复内容（同告警集）重复运行不会重复提 PR；修复内容变化时自动关闭旧 PR 并创建新 PR（新 PR body 注明 `Supersedes`），同一时刻只有一条最新的 dependfix PR。
+
+### 清理已合并的分支
+
+```bash
+dependfix cleanup-branches --repo owner/repo --github-token $GITHUB_TOKEN
+```
+
+列出远端 `dependfix/` 前缀分支并按状态分类（已合并 / 已关闭 / open 保留），**交互式确认（y/N）后**才删除。非交互环境（CI/管道）默认拒绝删除。
+
+`fix-and-pr` 模式加 `--cleanup-branches` 可只把已合并分支列为待清理清单（写入报告，不删除）：
+
+```bash
+dependfix fix-and-pr --repo owner/repo --github-token $GITHUB_TOKEN --cleanup-branches
+```
 
 ### 批量仓库
 
@@ -114,6 +130,7 @@ jobs:
 | `severity-threshold` | 否 | `high` | 严重级别阈值 |
 | `dry-run` | 否 | `false` | 试运行模式（Action 默认自动修复并提 PR；CLI 本地默认仅报告，即 report-only 下 dry-run=true） |
 | `max-alerts-per-repository` | 否 | `10` | 每仓库最大告警数 |
+| `cleanup-branches` | 否 | `false` | （fix-and-pr 模式）结束后将已合并的 dependfix 分支列入报告待清理清单（不自动删除） |
 | `github-token` | 是 | — | GitHub Token |
 | `ai-api-token` | 否 | `''` | AI API Token（M5 联调） |
 | `ai-api-base-url` | 否 | `''` | AI API Base URL（M5 联调） |
@@ -130,7 +147,7 @@ jobs:
 
 | 参数 | 别名 | 说明 | 默认值 |
 |:-----|:-----|:-----|:-------|
-| `mode` | （位置参数） | `report-only` / `fix` / `fix-and-pr` | `report-only` |
+| `mode` | （位置参数） | `report-only` / `fix` / `fix-and-pr` / `cleanup-branches` | `report-only` |
 | `--repo` | `-r`, `--repository`, `--repositories` | 目标仓库（`owner/repo`）。在 git 仓库内可自动推断 | — |
 | `--repos-file` | — | 从文件读取仓库列表（每行一个） | — |
 | `--github-token` | — | GitHub PAT | `GITHUB_TOKEN` 环境变量 |
@@ -138,6 +155,7 @@ jobs:
 | `--dry-run` | — | 试运行，不写入文件。report-only 模式默认 `true` | `false`（fix/fix-and-pr） |
 | `--create-pr` | — | 创建 Pull Request | `false` |
 | `--commit` | — | 修复完成后在本地当前分支直接提交（仅 fix 模式；不推送、不创建 PR） | `false` |
+| `--cleanup-branches` | — | （fix-and-pr 模式）结束后列出已合并的 dependfix 分支到报告，不自动删除 | `false` |
 | `--max-alerts-per-repository` | — | 每仓库最大处理数 | `10` |
 | `--commands` | — | 自定义验证命令（逗号分隔） | — |
 | `--verbose` | — | 详细日志 | `false` |

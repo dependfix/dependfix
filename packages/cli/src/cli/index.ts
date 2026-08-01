@@ -38,7 +38,7 @@ export interface CliRunResult {
 const argsDef = {
     mode: {
         type: 'positional' as const,
-        description: '运行模式：report-only, fix, fix-and-pr',
+        description: '运行模式：report-only, fix, fix-and-pr, cleanup-branches',
         required: false,
         default: 'report-only' as const,
     },
@@ -70,6 +70,11 @@ const argsDef = {
         type: 'boolean' as const,
         description: '修复完成后在本地当前分支直接提交（不推送、不创建 PR）',
         negativeDescription: '不自动提交（默认）',
+    },
+    'cleanup-branches': {
+        type: 'boolean' as const,
+        description: '（fix-and-pr 模式）结束后列出已合并的 dependfix 分支到报告，不自动删除',
+        negativeDescription: '不执行分支清理检查',
     },
     'github-token': {
         type: 'string' as const,
@@ -172,6 +177,11 @@ function parsedArgsToCliOverrides(parsed: ParsedArgs<typeof argsDef>): CliConfig
     // commit (three-state: true / false / undefined)
     if (parsed.commit !== undefined) {
         overrides.commit = parsed.commit
+    }
+
+    // cleanup-branches (three-state: true / false / undefined)
+    if (parsed['cleanup-branches'] !== undefined) {
+        overrides.cleanupBranches = parsed['cleanup-branches']
     }
 
     // github-token

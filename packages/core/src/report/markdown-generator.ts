@@ -160,6 +160,8 @@ function actionDetails(action: FixAction): string {
                 : action.diff ?? '—'
         case 'verification':
             return '—'
+        case 'branch-cleanup':
+            return action.diff ?? '—'
     }
 }
 

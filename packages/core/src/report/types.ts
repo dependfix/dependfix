@@ -46,7 +46,7 @@ export interface RepositoryResult {
  * 修复动作记录（DependencyFixResult / LockfileRepairResult / VerificationResult 的扁平化表示）。
  */
 export interface FixAction {
-    type: 'dependency-upgrade' | 'lockfile-repair' | 'verification'
+    type: 'dependency-upgrade' | 'lockfile-repair' | 'verification' | 'branch-cleanup'
     repository: string
     target: string
     fromVersion?: string
@@ -208,6 +208,7 @@ export function actionTypeLabel(type: FixAction['type']): string {
         case 'dependency-upgrade': return 'dependency-upgrade'
         case 'lockfile-repair': return 'lockfile-repair'
         case 'verification': return 'verification'
+        case 'branch-cleanup': return 'branch-cleanup'
     }
 }
 

@@ -2,7 +2,7 @@ import { execSync } from 'node:child_process'
 import { AppError, isValidRepoIdentifier, type SeverityThreshold } from '@dependfix/core'
 import { resolveRepoList } from '../github/repo-selector'
 
-export const RUNTIME_MODES = ['report-only', 'fix', 'fix-and-pr'] as const
+export const RUNTIME_MODES = ['report-only', 'fix', 'fix-and-pr', 'cleanup-branches'] as const
 export const SEVERITY_THRESHOLDS = ['critical', 'high', 'medium', 'all'] as const
 
 export type RuntimeMode = typeof RUNTIME_MODES[number]
@@ -16,6 +16,8 @@ export interface RuntimeConfig {
     createPullRequest: boolean
     /** 修复完成后是否在本地当前分支直接提交（不推送、不创建 PR） */
     commit: boolean
+    /** fix-and-pr 模式下结束后是否列出已合并的 dependfix 分支到报告（不自动删除） */
+    cleanupBranches: boolean
     githubToken: string
     maxAlertsPerRepository: number
 }
@@ -29,6 +31,8 @@ export interface CliConfigOverrides {
     createPullRequest?: boolean
     /** 修复完成后是否在本地当前分支直接提交 */
     commit?: boolean
+    /** fix-and-pr 模式下结束后是否列出已合并的 dependfix 分支到报告 */
+    cleanupBranches?: boolean
     githubToken?: string
     maxAlertsPerRepository?: number
     /** 是否输出详细日志 */
@@ -44,7 +48,7 @@ export interface ResolveRuntimeConfigOptions {
     workDir?: string
 }
 
-export const DEFAULT_RUNTIME_CONFIG: Omit<RuntimeConfig, 'githubToken' | 'repositories' | 'dryRun' | 'createPullRequest' | 'commit'> = {
+export const DEFAULT_RUNTIME_CONFIG: Omit<RuntimeConfig, 'githubToken' | 'repositories' | 'dryRun' | 'createPullRequest' | 'commit' | 'cleanupBranches'> = {
     mode: 'report-only',
     severityThreshold: 'high',
     maxAlertsPerRepository: 10,
@@ -135,6 +139,7 @@ export function readEnvConfig(env: NodeJS.ProcessEnv = process.env): CliConfigOv
         dryRun: normalizeBoolean(env.AUTO_FIX_GITHUB_SECURITY_DRY_RUN, 'AUTO_FIX_GITHUB_SECURITY_DRY_RUN'),
         createPullRequest: normalizeBoolean(env.AUTO_FIX_GITHUB_SECURITY_CREATE_PR, 'AUTO_FIX_GITHUB_SECURITY_CREATE_PR'),
         commit: normalizeBoolean(env.AUTO_FIX_GITHUB_SECURITY_COMMIT, 'AUTO_FIX_GITHUB_SECURITY_COMMIT'),
+        cleanupBranches: normalizeBoolean(env.AUTO_FIX_GITHUB_SECURITY_CLEANUP_BRANCHES, 'AUTO_FIX_GITHUB_SECURITY_CLEANUP_BRANCHES'),
         githubToken: env.AUTO_FIX_GITHUB_SECURITY_GITHUB_TOKEN?.trim() || env.GITHUB_TOKEN?.trim() || undefined,
         maxAlertsPerRepository: normalizeInteger(env.AUTO_FIX_GITHUB_SECURITY_MAX_ALERTS_PER_REPOSITORY, 'AUTO_FIX_GITHUB_SECURITY_MAX_ALERTS_PER_REPOSITORY'),
     }
@@ -171,6 +176,18 @@ function resolveCommit(cliOverrides: CliConfigOverrides, envConfig: CliConfigOve
 
     if (envConfig.commit !== undefined) {
         return envConfig.commit
+    }
+
+    return false
+}
+
+function resolveCleanupBranches(cliOverrides: CliConfigOverrides, envConfig: CliConfigOverrides): boolean {
+    if (cliOverrides.cleanupBranches !== undefined) {
+        return cliOverrides.cleanupBranches
+    }
+
+    if (envConfig.cleanupBranches !== undefined) {
+        return envConfig.cleanupBranches
     }
 
     return false
@@ -246,6 +263,7 @@ export function resolveRuntimeConfig(options: ResolveRuntimeConfigOptions = {}):
         dryRun: resolveDryRun(mode, cliOverrides, envConfig),
         createPullRequest: resolveCreatePullRequest(mode, cliOverrides, envConfig),
         commit: resolveCommit(cliOverrides, envConfig),
+        cleanupBranches: resolveCleanupBranches(cliOverrides, envConfig),
         githubToken: cliOverrides.githubToken ?? envConfig.githubToken ?? '',
         maxAlertsPerRepository: cliOverrides.maxAlertsPerRepository ?? envConfig.maxAlertsPerRepository ?? DEFAULT_RUNTIME_CONFIG.maxAlertsPerRepository,
     }

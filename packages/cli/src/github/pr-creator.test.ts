@@ -13,6 +13,10 @@ import {
     findDependfixOpenPR,
     closePullRequest,
     generatePRBody,
+    listDependfixBranches,
+    getBranchPrStatus,
+    deleteRemoteBranch,
+    isConfirmAnswer,
     type DependfixOpenPR,
 } from './pr-creator'
 
@@ -66,12 +70,17 @@ function buildRunResult(): RunResult {
 
 function mockOctokit(options?: {
     listResult?: unknown[]
+    matchingRefs?: unknown[]
 }): Octokit {
     return {
         rest: {
             pulls: {
                 list: vi.fn().mockResolvedValue({ data: options?.listResult ?? [] }),
                 update: vi.fn().mockResolvedValue({ data: {} }),
+            },
+            git: {
+                listMatchingRefs: vi.fn().mockResolvedValue({ data: options?.matchingRefs ?? [] }),
+                deleteRef: vi.fn().mockResolvedValue({ data: {} }),
             },
         },
     } as unknown as Octokit
@@ -323,6 +332,152 @@ describe('createFixBranch', () => {
 
         expect(second.created).toBe(false)
         expect(second.branchName).toBe('dependfix/auto-fix-abc12345')
+    })
+})
+
+// ---------------------------------------------------------------------------
+// Branch cleanup API
+// ---------------------------------------------------------------------------
+
+describe('listDependfixBranches', () => {
+    it('returns branch names under the dependfix/ prefix', async () => {
+        const octokit = mockOctokit({
+            matchingRefs: [
+                { ref: 'refs/heads/dependfix/auto-fix-aaa11111' },
+                { ref: 'refs/heads/dependfix/auto-fix-bbb22222' },
+                { ref: 'refs/heads/main' },
+                { ref: 'refs/heads/feature/x' },
+            ],
+        })
+
+        const result = await listDependfixBranches(octokit, 'o', 'r')
+        expect(result).toEqual(['dependfix/auto-fix-aaa11111', 'dependfix/auto-fix-bbb22222'])
+        expect(octokit.rest.git.listMatchingRefs).toHaveBeenCalledWith({
+            owner: 'o',
+            repo: 'r',
+            ref: 'heads/dependfix',
+            per_page: 100,
+        })
+    })
+
+    it('returns empty when no matching refs exist', async () => {
+        const octokit = mockOctokit({ matchingRefs: [] })
+        await expect(listDependfixBranches(octokit, 'o', 'r')).resolves.toEqual([])
+    })
+})
+
+describe('getBranchPrStatus', () => {
+    it('queries with head match and updated sort', async () => {
+        const octokit = mockOctokit({ listResult: [] })
+        await getBranchPrStatus(octokit, 'o', 'r', 'dependfix/auto-fix-aaa11111')
+        expect(octokit.rest.pulls.list).toHaveBeenCalledWith({
+            owner: 'o',
+            repo: 'r',
+            head: 'o:dependfix/auto-fix-aaa11111',
+            state: 'all',
+            sort: 'updated',
+            direction: 'desc',
+            per_page: 1,
+        })
+    })
+
+    it('reports merged=true for a merged PR', async () => {
+        const octokit = mockOctokit({
+            listResult: [
+                {
+                    number: 7,
+                    state: 'closed',
+                    merged_at: '2026-08-01T00:00:00Z',
+                    head: { ref: 'dependfix/auto-fix-aaa11111' },
+                },
+            ],
+        })
+        const status = await getBranchPrStatus(octokit, 'o', 'r', 'dependfix/auto-fix-aaa11111')
+        expect(status).toEqual({
+            branch: 'dependfix/auto-fix-aaa11111',
+            prNumber: 7,
+            merged: true,
+            closed: true,
+        })
+    })
+
+    it('reports closed-but-not-merged for a closed PR', async () => {
+        const octokit = mockOctokit({
+            listResult: [
+                {
+                    number: 8,
+                    state: 'closed',
+                    merged_at: null,
+                    head: { ref: 'dependfix/auto-fix-bbb22222' },
+                },
+            ],
+        })
+        const status = await getBranchPrStatus(octokit, 'o', 'r', 'dependfix/auto-fix-bbb22222')
+        expect(status).toEqual({
+            branch: 'dependfix/auto-fix-bbb22222',
+            prNumber: 8,
+            merged: false,
+            closed: true,
+        })
+    })
+
+    it('reports open for an open PR', async () => {
+        const octokit = mockOctokit({
+            listResult: [
+                {
+                    number: 9,
+                    state: 'open',
+                    merged_at: null,
+                    head: { ref: 'dependfix/auto-fix-ccc33333' },
+                },
+            ],
+        })
+        const status = await getBranchPrStatus(octokit, 'o', 'r', 'dependfix/auto-fix-ccc33333')
+        expect(status.merged).toBe(false)
+        expect(status.closed).toBe(false)
+        expect(status.prNumber).toBe(9)
+    })
+
+    it('reports no PR when the branch has no PR record', async () => {
+        const octokit = mockOctokit({ listResult: [] })
+        const status = await getBranchPrStatus(octokit, 'o', 'r', 'dependfix/auto-fix-aaa11111')
+        expect(status).toEqual({
+            branch: 'dependfix/auto-fix-aaa11111',
+            prNumber: null,
+            merged: false,
+            closed: false,
+        })
+    })
+})
+
+describe('deleteRemoteBranch', () => {
+    it('calls git.deleteRef with the heads ref', async () => {
+        const octokit = mockOctokit()
+        await deleteRemoteBranch(octokit, 'owner', 'repo', 'dependfix/auto-fix-aaa11111')
+
+        expect(octokit.rest.git.deleteRef).toHaveBeenCalledWith({
+            owner: 'owner',
+            repo: 'repo',
+            ref: 'heads/dependfix/auto-fix-aaa11111',
+        })
+    })
+})
+
+describe('isConfirmAnswer', () => {
+    it('accepts y/yes in any case', () => {
+        expect(isConfirmAnswer('y')).toBe(true)
+        expect(isConfirmAnswer('yes')).toBe(true)
+        expect(isConfirmAnswer('Y')).toBe(true)
+        expect(isConfirmAnswer('YES')).toBe(true)
+        expect(isConfirmAnswer('  yes  ')).toBe(true)
+    })
+
+    it('rejects empty, n/no and arbitrary input', () => {
+        expect(isConfirmAnswer('')).toBe(false)
+        expect(isConfirmAnswer('n')).toBe(false)
+        expect(isConfirmAnswer('no')).toBe(false)
+        expect(isConfirmAnswer('maybe')).toBe(false)
+        expect(isConfirmAnswer('yes please')).toBe(false)
     })
 })
 

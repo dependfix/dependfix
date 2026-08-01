@@ -253,6 +253,98 @@ export async function createPullRequest(params: CreatePullRequestParams): Promis
 }
 
 // ---------------------------------------------------------------------------
+// Branch cleanup API
+// ---------------------------------------------------------------------------
+
+/** 分支清理状态（用于 cleanup-branches 清单分类） */
+export interface DependfixBranchStatus {
+    /** 分支名 */
+    branch: string
+    /** 关联 PR 编号（无 PR 记录时为 null） */
+    prNumber: number | null
+    /** PR 是否已合并 */
+    merged: boolean
+    /** PR 是否已关闭（含合并） */
+    closed: boolean
+}
+
+/**
+ * 列出远端所有 `dependfix/` 前缀分支（git.listMatchingRefs 精确前缀匹配）。
+ */
+export async function listDependfixBranches(
+    octokit: Octokit,
+    owner: string,
+    repo: string,
+): Promise<string[]> {
+    const { data } = await octokit.rest.git.listMatchingRefs({
+        owner,
+        repo,
+        ref: 'heads/dependfix',
+        per_page: 100,
+    })
+
+    return data
+        .map((ref) => ref.ref.replace(/^refs\/heads\//, ''))
+        .filter((name) => name.startsWith('dependfix/'))
+}
+
+/**
+ * 查询分支对应的最近 PR 状态（pulls.list head 精确匹配，按最近更新取 1 条）。
+ */
+export async function getBranchPrStatus(
+    octokit: Octokit,
+    owner: string,
+    repo: string,
+    branch: string,
+): Promise<DependfixBranchStatus> {
+    const { data } = await octokit.rest.pulls.list({
+        owner,
+        repo,
+        head: `${owner}:${branch}`,
+        state: 'all',
+        sort: 'updated',
+        direction: 'desc',
+        per_page: 1,
+    })
+
+    const pr = data[0]
+    if (!pr) {
+        return { branch, prNumber: null, merged: false, closed: false }
+    }
+
+    // pulls.list 摘要不含 `merged` 字段，用 `state=closed + merged_at 非空` 判定已合并
+    return {
+        branch,
+        prNumber: pr.number,
+        merged: pr.state === 'closed' && pr.merged_at !== null,
+        closed: pr.state === 'closed',
+    }
+}
+
+/**
+ * 删除远端分支（git ref delete）。失败（分支保护、不存在）由调用方捕获处理。
+ */
+export async function deleteRemoteBranch(
+    octokit: Octokit,
+    owner: string,
+    repo: string,
+    branch: string,
+): Promise<void> {
+    await octokit.rest.git.deleteRef({
+        owner,
+        repo,
+        ref: `heads/${branch}`,
+    })
+}
+
+/**
+ * 判定交互确认回答是否为"是"（y/yes，大小写不敏感；空输入默认拒绝）。
+ */
+export function isConfirmAnswer(answer: string): boolean {
+    return /^y(es)?$/i.test(answer.trim())
+}
+
+// ---------------------------------------------------------------------------
 // Report Helpers
 // ---------------------------------------------------------------------------
 

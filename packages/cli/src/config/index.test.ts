@@ -19,6 +19,7 @@ describe('resolveRuntimeConfig', () => {
             dryRun: true,
             createPullRequest: false,
             commit: false,
+            cleanupBranches: false,
             githubToken: 'token-from-env',
             maxAlertsPerRepository: 10,
         })
@@ -53,6 +54,7 @@ describe('resolveRuntimeConfig', () => {
             dryRun: false,
             createPullRequest: false,
             commit: false,
+            cleanupBranches: false,
             githubToken: 'token-from-cli',
             maxAlertsPerRepository: 3,
         })
@@ -104,6 +106,34 @@ describe('resolveRuntimeConfig', () => {
                 AUTO_FIX_GITHUB_SECURITY_DRY_RUN: 'true',
             },
         })).toThrow('createPullRequest cannot be enabled while dryRun is true.')
+    })
+
+    it('resolves cleanup-branches mode without repair-specific flags', () => {
+        const config = resolveRuntimeConfig({
+            env: {
+                GITHUB_TOKEN: 'token-from-env',
+                AUTO_FIX_GITHUB_SECURITY_REPOSITORIES: 'owner/repo-a',
+                AUTO_FIX_GITHUB_SECURITY_MODE: 'cleanup-branches',
+            },
+        })
+
+        expect(config.mode).toBe('cleanup-branches')
+        expect(config.createPullRequest).toBe(false)
+        expect(config.dryRun).toBe(false)
+        expect(config.commit).toBe(false)
+    })
+
+    it('enables cleanupBranches from cli override', () => {
+        const invocation = parseCliArgs([
+            'fix-and-pr',
+            '--repository=owner/repo-a',
+            '--github-token',
+            't',
+            '--cleanup-branches',
+        ])
+
+        const config = resolveRuntimeConfig({ cliOverrides: invocation.configOverrides })
+        expect(config.cleanupBranches).toBe(true)
     })
 
     it('enables commit from cli override', () => {

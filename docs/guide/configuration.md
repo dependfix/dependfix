@@ -18,6 +18,7 @@
 | `dryRun` | `AUTO_FIX_GITHUB_SECURITY_DRY_RUN` | `boolean` | `false` | 预演模式，不实际修改文件 |
 | `createPullRequest` | `AUTO_FIX_GITHUB_SECURITY_CREATE_PR` | `boolean` | `false` | 是否创建 PR（`fix-and-pr` 模式自动启用） |
 | `commit` | `AUTO_FIX_GITHUB_SECURITY_COMMIT` | `boolean` | `false` | 修复完成后在本地当前分支直接提交（仅 `fix` 模式生效；与 `--dry-run` / `--create-pr` 互斥） |
+| `cleanupBranches` | `AUTO_FIX_GITHUB_SECURITY_CLEANUP_BRANCHES` | `boolean` | `false` | （fix-and-pr 模式）结束后将已合并的 dependfix 分支列入报告待清理清单（不自动删除；删除需 `cleanup-branches` 模式交互确认） |
 | `githubToken` | `AUTO_FIX_GITHUB_SECURITY_GITHUB_TOKEN` / `GITHUB_TOKEN` | `string` | — | GitHub 认证 Token |
 | `maxAlertsPerRepository` | `AUTO_FIX_GITHUB_SECURITY_MAX_ALERTS_PER_REPOSITORY` | `number` | `10` | 每仓库最大告警处理数 |
 | `verbose` | — | `boolean` | `false` | 详细日志输出（仅 CLI `--verbose`） |
@@ -50,6 +51,7 @@ export AUTO_FIX_GITHUB_SECURITY_REPOSITORIES=owner/repo-a,owner/repo-b
 export AUTO_FIX_GITHUB_SECURITY_DRY_RUN=true
 export AUTO_FIX_GITHUB_SECURITY_MAX_ALERTS_PER_REPOSITORY=10
 export AUTO_FIX_GITHUB_SECURITY_COMMIT=false
+export AUTO_FIX_GITHUB_SECURITY_CLEANUP_BRANCHES=false
 ```
 
 > `GITHUB_TOKEN` 环境变量会被自动识别，无需额外配置前缀。`AUTO_FIX_GITHUB_SECURITY_GITHUB_TOKEN` 优先级高于 `GITHUB_TOKEN`。

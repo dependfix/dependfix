@@ -279,20 +279,22 @@ T109 ─→ T205（AI Token 支持）→ T206（Prompt 注入防护）
 
 - **优先级**: P2
 - **依赖**: T210（复用查重/分支模块）
-- **状态**: 🔶 待实现
+- **状态**: ✅ 已完成
 - **交付物**: `packages/cli`（config / cli / app / pr-creator）+ `action.yml`
 
 **实现摘要**:
 - `RUNTIME_MODES` 增加 `cleanup-branches`：`dependfix cleanup-branches --repo owner/repo` 独立执行清理流程（不拉 alerts、不修复）
-- `listDependfixBranches`（API 列出远端 `dependfix/` 前缀分支）+ `getBranchPrStatus`（对应 PR `state=closed & merged=true` 判定）+ `deleteRemoteBranch`（失败如分支保护 → 降级为报告提醒）
+- `listDependfixBranches`（git.listMatchingRefs 精确前缀匹配）+ `getBranchPrStatus`（`state=closed + merged_at 非空` 判定已合并，pulls.list 摘要无 merged 字段）+ `deleteRemoteBranch`（git.deleteRef，失败如分支保护 → 降级为报告提醒）
 - `executeCleanupBranchesMode`：清单分类（**已合并**=安全清理 / **已关闭未合并**=supersede 孤儿 / open=跳过）→ 展示清单 → **交互式 y/N 确认（非 TTY 默认拒绝）** → 逐个删除
 - 安全约束：只删 `dependfix/` 前缀、只删已合并或已关闭分支，绝不触碰 open PR 对应分支
-- `action.yml` 新增 `cleanup-branches` 输入（默认 `false`）：启用后 fix-and-pr 结束检测已合并分支，**仅写入报告与 workflow summary 清单，不自动删除**
+- `FixAction.type` 扩展 `branch-cleanup`（core types + markdown-generator + actionTypeLabel），清理动作可审计
+- `action.yml` 新增 `cleanup-branches` 输入（默认 `false`）：fix-and-pr 模式启用后检测已合并分支，**仅写入报告与日志清单，不自动删除**（`reportCleanupCandidates`）
 
 **验收标准**:
-- [ ] `dependfix cleanup-branches` 列出清单并需 y/N 确认（非 TTY 拒绝）
-- [ ] 只删 `dependfix/` 前缀且仅已合并/已关闭分支
-- [ ] Action 启用 `cleanup-branches` 后仅输出清单不删除
+- [x] `dependfix cleanup-branches` 列出清单并需 y/N 确认（非 TTY 拒绝）
+- [x] 只删 `dependfix/` 前缀且仅已合并/已关闭分支
+- [x] Action 启用 `cleanup-branches` 后仅输出清单不删除
+- [x] 单测覆盖：listDependfixBranches / getBranchPrStatus（merged/closed/open/无 PR）/ deleteRemoteBranch 参数 / config cleanup-branches 模式解析（pr-creator.test.ts + config/index.test.ts）
 
 ---
 

@@ -149,6 +149,7 @@ describe('actionTypeLabel', () => {
         expect(actionTypeLabel('dependency-upgrade')).toBe('dependency-upgrade')
         expect(actionTypeLabel('lockfile-repair')).toBe('lockfile-repair')
         expect(actionTypeLabel('verification')).toBe('verification')
+        expect(actionTypeLabel('branch-cleanup')).toBe('branch-cleanup')
     })
 })
 

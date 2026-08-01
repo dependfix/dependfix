@@ -38,6 +38,7 @@ branding:
 | `severity-threshold` | string | `high` | 严重级别阈值 |
 | `dry-run` | string | `false`（T209 起，与 fix-and-pr 互斥配套） | 试运行模式 |
 | `max-alerts-per-repository` | string | `10` | 每仓库最大告警数 |
+| `cleanup-branches` | string | `false`（T211 起） | fix-and-pr 结束后将已合并的 dependfix 分支列入报告待清理清单（不自动删除） |
 | `github-token` | string | **必填** | GitHub Token（需 security-events 权限） |
 
 ### 2.3 输出

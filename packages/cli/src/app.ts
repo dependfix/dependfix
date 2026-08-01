@@ -1,6 +1,7 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { execSync } from 'node:child_process'
+import { createInterface } from 'node:readline'
 import type { Octokit } from '@octokit/rest'
 import {
     createLogger,
@@ -36,6 +37,11 @@ import {
     computeFixAndPrPlan,
     findDependfixOpenPR,
     closePullRequest,
+    listDependfixBranches,
+    getBranchPrStatus,
+    deleteRemoteBranch,
+    isConfirmAnswer,
+    type DependfixBranchStatus,
 } from './github/pr-creator'
 import type { RuntimeConfig } from './config'
 
@@ -173,6 +179,9 @@ export class DependfixApp {
                 break
             case 'fix-and-pr':
                 await this.executeFixAndPrMode()
+                break
+            case 'cleanup-branches':
+                await this.executeCleanupBranchesMode()
                 break
         }
     }
@@ -362,6 +371,12 @@ export class DependfixApp {
             await this.processRepoForFix(client, repo)
         }
 
+        // 1.5 Optional: report merged dependfix branches for manual cleanup.
+        // 在 early return 之前执行，保证"PR 已存在（skip）"等高频路径也能输出清单。
+        if (this.config.cleanupBranches) {
+            await this.reportCleanupCandidates(client)
+        }
+
         // 2. Check if there are changes to commit (skip dry-run)
         if (this.config.dryRun) {
             this.logger.info('[dry-run] Would create branch, commit, push, and PR')
@@ -498,6 +513,162 @@ export class DependfixApp {
                     stage: 'report',
                     category: 'PR_CLOSE_FAILED',
                     message: `Failed to close PR #${old.number}: ${message}`,
+                })
+            }
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // cleanup-branches mode
+    // -----------------------------------------------------------------------
+
+    /**
+     * 清理已合并（或已关闭）的 dependfix 分支。
+     *
+     * - 分类：已合并（安全清理）/ 已关闭未合并（supersede 孤儿）/ open（跳过）
+     * - 删除前必须交互式确认（y/N）；非 TTY 环境（CI）默认拒绝
+     * - 只删 `dependfix/` 前缀分支，绝不触碰 open PR 对应分支
+     * - dry-run 模式仅列清单并打印 "would delete"，不执行删除
+     */
+    private async executeCleanupBranchesMode(): Promise<void> {
+        const client = this.createClient()
+
+        for (const repo of this.config.repositories) {
+            const [owner, name] = repo.split('/')
+            try {
+                const branches = await listDependfixBranches(client, owner, name)
+                if (branches.length === 0) {
+                    this.logger.info(`[cleanup] ${repo}: no dependfix branches found`)
+                    continue
+                }
+
+                const statuses: DependfixBranchStatus[] = []
+                for (const branch of branches) {
+                    statuses.push(await getBranchPrStatus(client, owner, name, branch))
+                }
+
+                const merged = statuses.filter((s) => s.merged)
+                const orphaned = statuses.filter((s) => s.closed && !s.merged)
+                const open = statuses.filter((s) => !s.closed)
+
+                this.logger.info(
+                    `[cleanup] ${repo}: ${merged.length} merged, ${orphaned.length} closed, ${open.length} kept`,
+                )
+                for (const s of merged) {
+                    this.logger.info(`  [merged] ${s.branch}${s.prNumber ? ` (PR #${s.prNumber})` : ''}`)
+                }
+                for (const s of orphaned) {
+                    this.logger.info(`  [closed] ${s.branch}${s.prNumber ? ` (PR #${s.prNumber})` : ''}`)
+                }
+                for (const s of open) {
+                    const label = s.prNumber ? `[open — kept]` : `[no PR — kept]`
+                    this.logger.info(`  ${label} ${s.branch}${s.prNumber ? ` (PR #${s.prNumber})` : ''}`)
+                }
+
+                const candidates = [...merged, ...orphaned]
+                if (candidates.length === 0) {
+                    this.logger.info('[cleanup] nothing to delete')
+                    continue
+                }
+
+                if (this.config.dryRun) {
+                    this.logger.info(`[dry-run] Would delete ${candidates.length} branch(es): ${candidates.map((s) => s.branch).join(', ')}`)
+                    continue
+                }
+
+                if (!(await this.confirmCleanup(repo, candidates))) {
+                    this.logger.info('[cleanup] cancelled by user')
+                    continue
+                }
+
+                for (const s of candidates) {
+                    try {
+                        await deleteRemoteBranch(client, owner, name, s.branch)
+                        this.logger.info(`Deleted branch: ${s.branch}`)
+                        this.allActions.push({
+                            type: 'branch-cleanup',
+                            repository: repo,
+                            target: s.branch,
+                            success: true,
+                            diff: s.merged ? 'merged' : 'closed',
+                            durationMs: 0,
+                        })
+                    } catch (error: unknown) {
+                        const message = toErrorMessage(error)
+                        this.logger.error(`Failed to delete branch ${s.branch}: ${message}`)
+                        this.allErrors.push({
+                            repository: repo,
+                            stage: 'report',
+                            category: 'BRANCH_DELETE_FAILED',
+                            message: `Failed to delete ${s.branch}: ${message}`,
+                        })
+                    }
+                }
+            } catch (error: unknown) {
+                const message = toErrorMessage(error)
+                this.logger.error(`[cleanup] failed for ${repo}: ${message}`)
+                this.allErrors.push({
+                    repository: repo,
+                    stage: 'report',
+                    category: 'CLEANUP_FAILED',
+                    message,
+                })
+            }
+        }
+    }
+
+    /**
+     * 交互式确认删除。非 TTY（CI/管道）时直接拒绝。
+     */
+    private confirmCleanup(repo: string, candidates: { branch: string }[]): Promise<boolean> {
+        if (!process.stdin.isTTY) {
+            this.logger.warn('[cleanup] non-TTY environment — deletion requires interactive confirmation, aborting')
+            return Promise.resolve(false)
+        }
+
+        const rl = createInterface({ input: process.stdin, output: process.stdout })
+        return new Promise((resolve) => {
+            rl.question(
+                `Delete ${candidates.length} branch(es) from ${repo}? [y/N] `,
+                (answer) => {
+                    rl.close()
+                    resolve(isConfirmAnswer(answer))
+                },
+            )
+        })
+    }
+
+    /**
+     * （fix-and-pr + --cleanup-branches）将已合并的 dependfix 分支列为待清理清单，
+     * 记录到报告与日志，不执行删除。
+     */
+    private async reportCleanupCandidates(client: Octokit): Promise<void> {
+        for (const repo of this.config.repositories) {
+            const [owner, name] = repo.split('/')
+            try {
+                const branches = await listDependfixBranches(client, owner, name)
+                for (const branch of branches) {
+                    const status = await getBranchPrStatus(client, owner, name, branch)
+                    if (status.merged) {
+                        this.logger.info(`[cleanup] merged branch awaiting manual cleanup: ${branch}`)
+                        this.allActions.push({
+                            type: 'branch-cleanup',
+                            repository: repo,
+                            target: branch,
+                            success: true,
+                            diff: 'merged; run `dependfix cleanup-branches` to delete',
+                            durationMs: 0,
+                        })
+                    }
+                }
+            } catch (error: unknown) {
+                const message = toErrorMessage(error)
+                this.logger.error(`[cleanup] detection failed for ${repo}: ${message}`)
+                this.allErrors.push({
+                    repository: repo,
+                    stage: 'report',
+                    category: 'CLEANUP_DETECT_FAILED',
+                    message,
                 })
             }
         }
@@ -859,8 +1030,12 @@ export class DependfixApp {
     private computeExitCode(): number {
         const hasErrors = this.allErrors.length > 0
         const hasFailures = this.allActions.some((a) => !a.success)
-        const hasSuccess = this.repoResults.length > 0
+        const hasRepoSuccess = this.repoResults.length > 0
             && this.repoResults.some((r) => r.alertsCount > 0 || r.fixed > 0 || r.verificationPassed === true)
+        // cleanup-branches 模式不填充 repoResults，以成功的 branch-cleanup 动作判定
+        const hasCleanupSuccess = this.config.mode === 'cleanup-branches'
+            && this.allActions.some((a) => a.success && a.type === 'branch-cleanup')
+        const hasSuccess = hasRepoSuccess || hasCleanupSuccess
 
         // fix-and-pr stub：总是返回 0（非错误）
         if (this.config.mode === 'fix-and-pr') {

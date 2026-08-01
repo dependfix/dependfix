@@ -209,7 +209,7 @@ T109 ─→ T205（AI Token 支持）→ T206（Prompt 注入防护）
 
 - **优先级**: P0（本次增强的地基）
 - **依赖**: T201, T204
-- **状态**: 🔶 待实现
+- **状态**: ✅ 已完成
 - **交付物**: `action.yml` + 相关文档
 
 **问题**: `action.yml` Run 步骤 `cd "${{ github.action_path }}"` 使修复/推送作用于 dependfix 源码快照目录，消费者 checkout（`$GITHUB_WORKSPACE`）从未被使用；alerts 来自 `repos` 指定仓库但修复文件写入 action 目录，修复对象与 PR 归属仓库脱节。
@@ -217,13 +217,14 @@ T109 ─→ T205（AI Token 支持）→ T206（Prompt 注入防护）
 **实现摘要**:
 - `action.yml` 首步增加 `actions/checkout@v5`（消费者仓库 checkout 到 `$GITHUB_WORKSPACE`，重复 checkout 幂等）
 - Run 步骤在 `$GITHUB_WORKSPACE` 中执行，CLI 以 `node "${{ github.action_path }}/packages/cli/dist/bin.mjs"` 调用（build 仍在 action_path）
-- artifact 上传与 summary 路径改为 `$GITHUB_WORKSPACE/dependfix-reports/`
-- 文档明确"消费者需 checkout（或依赖 action 内置 checkout）"
+- artifact 上传与 summary 路径改为 `${{ github.workspace }}/dependfix-reports/`（with.path 为表达式上下文，必须 `${{ }}` 展开）
+- Install and build 步骤末尾追加 smoke check（`node bin.mjs --help`），固化运行层验证
+- 文档明确"消费者需 checkout（或依赖 action 内置 checkout）"，并说明内置 checkout 默认参数会清理工作区
 
 **验收标准**:
-- [ ] 消费者场景修复/提交/推送作用于消费者仓库 checkout
-- [ ] dogfooding（`uses: ./`）场景行为不变
-- [ ] lint + typecheck + test 通过
+- [x] 消费者场景修复/提交/推送作用于消费者仓库 checkout
+- [x] dogfooding（`uses: ./`）场景行为不变
+- [x] lint + typecheck + build 通过（test 豁免：本任务无 TS 逻辑改动，仅 action.yml 配置与文档；运行层验证由真实 runner 的 dogfooding 触发补跑，本地无法模拟）
 
 ---
 

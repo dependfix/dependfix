@@ -70,23 +70,33 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 ```
 
+> **T208 起 action 内置 `actions/checkout@v5`**：消费者仓库自动 checkout 到 `$GITHUB_WORKSPACE`，无需消费者显式写 checkout 步骤（重复 checkout 幂等）。
+>
+> **注意**：当前版本内置 checkout **无条件执行且使用固定默认参数**（`clean: true`、`fetch-depth: 1`、ref = `github.sha`），会重置并清理工作区；消费者自定义 checkout（`fetch-depth: 0`、submodules、sparse-checkout）**暂不可用**。如未来需要，建议增加 `skip-checkout` 输入或参数透传。
+
 ### 2.5 Dogfooding（自举验证）
 
 dependfix 仓库自身通过 `.github/workflows/security-auto-fix.yml` 验证 Action：
 
 ```yaml
 steps:
-  - uses: actions/checkout@v5
+  - uses: actions/checkout@v5  # uses: ./ 的前置：action 自身代码需在工作区
   - uses: ./
     with:
       github-token: ${{ secrets.GITHUB_TOKEN }}
 ```
+
+> dogfooding 时 `uses: ./` 的 action_path 即 `$GITHUB_WORKSPACE`；action 内置的 checkout 步骤会再次 checkout 同一仓库（同 ref），行为与改动前一致。
 
 ---
 
 ## 3. 执行流程
 
 ```
+┌────────────────────┐
+│ Checkout 消费者仓库 │  actions/checkout@v5 → $GITHUB_WORKSPACE（T208 起内置）
+└───────┬────────────┘
+        ▼
 ┌────────────────┐
 │ Setup pnpm     │  pnpm/action-setup@v4
 └───────┬────────┘
@@ -100,17 +110,19 @@ steps:
 └───────┬────────┘
         ▼
 ┌────────────────┐
-│ Run dependfix  │  pnpm dependfix <mode> --repo <repos> ...
+│ Run dependfix  │  cd $GITHUB_WORKSPACE && node ${{ github.action_path }}/packages/cli/dist/bin.mjs <mode> ...
 └───────┬────────┘
         ▼
 ┌────────────────┐
-│ Upload Report  │  actions/upload-artifact@v4
+│ Upload Report  │  actions/upload-artifact@v4（${{ github.workspace }}/dependfix-reports/）
 └───────┬────────┘
         ▼
 ┌────────────────┐
 │ Write Summary  │  cat report.md >> $GITHUB_STEP_SUMMARY
 └────────────────┘
 ```
+
+**workDir 语义（T208）**：修复、提交、推送全部作用于 `$GITHUB_WORKSPACE`（消费者仓库 checkout）；`${{ github.action_path }}` 仅承载 action 自身代码（install/build/CLI bin 入口）。修复对象、alerts 来源与 PR 归属仓库三者保持一致。
 
 ---
 

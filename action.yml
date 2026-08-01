@@ -48,6 +48,11 @@ outputs:
 runs:
   using: 'composite'
   steps:
+    - name: Checkout target repository
+      uses: actions/checkout@v5
+      # 消费者仓库 checkout 到 $GITHUB_WORKSPACE（重复 checkout 幂等）。
+      # dependfix CLI 的修复/提交/推送均作用于该目录；action 自身代码仍在 github.action_path。
+
     - name: Setup pnpm
       uses: pnpm/action-setup@v4
       with:
@@ -63,6 +68,8 @@ runs:
         cd "${{ github.action_path }}"
         pnpm install --frozen-lockfile
         pnpm --filter dependfix --filter @dependfix/core build
+        # Smoke check：确认 CLI bin 可执行、外部依赖可解析（pnpm isolated 布局）
+        node "${{ github.action_path }}/packages/cli/dist/bin.mjs" --help > /dev/null
       shell: bash
 
     - name: Run dependfix
@@ -72,8 +79,9 @@ runs:
         if [ -z "$REPOS" ]; then
           REPOS="${{ github.repository }}"
         fi
-        cd "${{ github.action_path }}"
-        pnpm dependfix ${{ inputs.mode }} \
+        # CLI 工作目录 = 消费者 checkout；bin 入口指向 action 自身构建产物
+        cd "$GITHUB_WORKSPACE"
+        node "${{ github.action_path }}/packages/cli/dist/bin.mjs" ${{ inputs.mode }} \
           --repo "$REPOS" \
           --severity-threshold ${{ inputs.severity-threshold }} \
           --max-alerts-per-repository ${{ inputs.max-alerts-per-repository }} \
@@ -92,14 +100,15 @@ runs:
       uses: actions/upload-artifact@v4
       with:
         name: dependfix-report-${{ github.run_id }}
-        path: ${{ github.action_path }}/dependfix-reports/
+        # 注意：with.path 是表达式上下文，必须用 ${{ }} 展开（裸环境变量不会展开）
+        path: ${{ github.workspace }}/dependfix-reports/
         retention-days: 30
 
     - name: Write workflow summary
       if: always()
       run: |
         FOUND=0
-        for f in "${{ github.action_path }}"/dependfix-reports/dependfix-report-*.md; do
+        for f in "$GITHUB_WORKSPACE"/dependfix-reports/dependfix-report-*.md; do
           if [ -f "$f" ]; then
             cat "$f" >> "$GITHUB_STEP_SUMMARY"
             FOUND=1

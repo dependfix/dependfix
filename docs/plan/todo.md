@@ -252,24 +252,26 @@ T109 ─→ T205（AI Token 支持）→ T206（Prompt 注入防护）
 
 - **优先级**: P1
 - **依赖**: T208
-- **状态**: 🔶 待实现
+- **状态**: ✅ 已完成
 - **交付物**: `packages/cli/src/github/pr-creator.ts` + `app.ts` + 测试
 
 **实现摘要**:
-- `computeFixFingerprint`：基于成功升级集（`pkg@toVersion` 排序拼接）+ 修复失败包集 → sha256 取前 8 位（结构化而非 git diff，规避 pnpm 版本漂移导致的 lockfile 抖动）
+- `computeFixFingerprint`：基于成功升级集（`pkg@toVersion` 排序拼接）+ 修复失败包集 + lockfile 修复状态 → sha256 取前 8 位（结构化而非 git diff，规避 pnpm 版本漂移导致的 lockfile 抖动）
+- `extractFingerprintFromBranch`：从分支名提取指纹（非 `dependfix/auto-fix-` 格式返回 null → 旧 runId 分支会被 supersede）
 - `findDependfixOpenPR`：`pulls.list(state=open)` 过滤 head 前缀 `dependfix/auto-fix-`（PR 数量少，单页足够；未来量大可启用 label 索引——见 backlog B1）
 - `executeFixAndPrMode` 重构：修复 → hasGitChanges → 计算指纹 → 查重：
   - 无 open PR → 创建分支 `dependfix/auto-fix-{fp8}` → commit → push → create PR
   - open PR 指纹相同 → **跳过**：不提交不推送，报告记录"已有 PR #N，内容一致"
   - open PR 指纹不同 → **先创建新 PR（body 注明 `Supersedes #N`），成功后关闭旧 PR**；新 PR 创建失败则保留旧 PR
 - `createFixBranch` 参数从 runId 改为完整分支名（分支名不再含 runId）
-- `extractRunSuffix` 与报告文件名解耦（report/writer.ts 注释同步）
+- `generatePRBody` 支持 supersededNumbers 参数
+- `extractRunSuffix` 与报告文件名解耦（writer.ts 注释同步）
 
 **验收标准**:
-- [ ] 同告警集重复运行不产生新 PR（幂等跳过）
-- [ ] 告警变化 → 关闭旧 PR + 创建新 PR，同一时刻仅一条 dependfix open PR
-- [ ] 新 PR 创建失败时旧 PR 不被关闭
-- [ ] 单测覆盖：指纹确定性、查重匹配、关闭顺序（pr-creator.test.ts）
+- [x] 同告警集重复运行不产生新 PR（幂等跳过）
+- [x] 告警变化 → 关闭旧 PR + 创建新 PR，同一时刻仅一条 dependfix open PR
+- [x] 新 PR 创建失败时旧 PR 不被关闭（PR action 先记录、关闭失败单独分类 PR_CLOSE_FAILED 且不中断其余关闭）
+- [x] 单测覆盖：指纹确定性/顺序无关/内容变化、查重匹配、`computeFixAndPrPlan` 决策（skip/supersede/异常收敛/旧 runId 分支）、关闭参数、分支创建、PR body（pr-creator.test.ts，+23 用例）；"先建新后关旧"执行时序由代码顺序保证（新 PR 创建成功后进入关闭循环）
 
 ---
 

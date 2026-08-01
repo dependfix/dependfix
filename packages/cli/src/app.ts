@@ -26,7 +26,17 @@ import { fetchDependabotAlerts } from './github/dependabot-fetcher'
 import { upgradeDependency, overrideTransitiveDependency, type DependencyFixResult } from './fixers/dependency'
 import { repairLockfile, type LockfileRepairResult } from './fixers/pnpm'
 import { runVerification, type VerificationResult } from './runners/verification-runner'
-import { createFixBranch, stageAndCommit, pushBranch, createPullRequest, generatePRBody } from './github/pr-creator'
+import {
+    createFixBranch,
+    stageAndCommit,
+    pushBranch,
+    createPullRequest,
+    generatePRBody,
+    computeFixFingerprint,
+    computeFixAndPrPlan,
+    findDependfixOpenPR,
+    closePullRequest,
+} from './github/pr-creator'
 import type { RuntimeConfig } from './config'
 
 // ---------------------------------------------------------------------------
@@ -336,6 +346,14 @@ export class DependfixApp {
     // fix-and-pr mode
     // -----------------------------------------------------------------------
 
+    /**
+     * 修复 → 计算内容指纹 → 查重 →（同指纹跳过 / 异指纹关旧开新）。
+     *
+     * 去重语义（T210）：
+     * - 同告警集 → 同修复结果 → 同指纹 → 跳过，不重复提交相同 PR
+     * - 内容变化 → 先创建新 PR（body 注明 Supersedes），成功后关闭旧 PR；
+     *   新 PR 创建失败时保留旧 PR，避免出现"无 PR 窗口"
+     */
     private async executeFixAndPrMode(): Promise<void> {
         const client = this.createClient()
 
@@ -355,9 +373,50 @@ export class DependfixApp {
             return
         }
 
-        // 3. Create fix branch + commit + push
+        if (this.config.repositories.length === 0) {
+            return
+        }
+        const firstRepo = this.config.repositories[0]
+        const [owner, repo] = firstRepo.split('/')
+
         try {
-            const { branchName } = createFixBranch(this.runId, this.workDir)
+            // 3. Compute content fingerprint from actual fix results
+            const fingerprint = computeFixFingerprint(this.allActions)
+            this.logger.info(`Fix fingerprint: ${fingerprint}`)
+
+            // 4. Dedup: decide skip / supersede based on existing dependfix open PRs
+            const existingPRs = await findDependfixOpenPR(client, owner, repo)
+            const plan = computeFixAndPrPlan(existingPRs, fingerprint)
+
+            if (plan.action === 'skip' && plan.sameContentPR) {
+                this.logger.info(
+                    `Open PR #${plan.sameContentPR.number} already contains identical fixes — skipping PR creation`,
+                )
+                this.allActions.push({
+                    type: 'dependency-upgrade',
+                    repository: firstRepo,
+                    target: `PR #${plan.sameContentPR.number} (existing)`,
+                    fromVersion: undefined,
+                    toVersion: plan.sameContentPR.htmlUrl,
+                    isMajor: false,
+                    success: true,
+                    durationMs: 0,
+                })
+
+                // 关闭并存的异指纹旧 PR（保持"永远单线"，异常态也收敛）
+                await this.closeSupersededPRs(client, owner, repo, plan.supersedePRs)
+                return
+            }
+
+            if (plan.supersedePRs.length > 0) {
+                this.logger.info(
+                    `Existing PR(s) with different content will be superseded: ${plan.supersedePRs.map((pr) => `#${pr.number}`).join(', ')}`,
+                )
+            }
+
+            // 5. Create fix branch (content-addressed) + commit + push
+            const branchName = `dependfix/auto-fix-${fingerprint}`
+            createFixBranch(branchName, this.workDir)
             this.logger.info(`Creating fix branch: ${branchName}`)
 
             this.logger.info('Staging and committing changes')
@@ -366,42 +425,45 @@ export class DependfixApp {
             this.logger.info(`Pushing branch: ${branchName}`)
             pushBranch(branchName, this.workDir)
 
-            // 4. Create PR (one PR covering all repos)
-            if (this.config.repositories.length > 0) {
-                const firstRepo = this.config.repositories[0]
-                const [owner, repo] = firstRepo.split('/')
-                const defaultBranch = await this.fetchDefaultBranch(client, owner, repo)
+            // 6. Create PR (one PR covering all repos)
+            const defaultBranch = await this.fetchDefaultBranch(client, owner, repo)
 
-                // Build RunResult for PR body
-                this.computeSummary()
-                const runResult = this.buildRunResult()
-                const prBody = generatePRBody(runResult)
-                const prTitle = `fix(deps): automated security fix — ${this.summary.alertsFixed} upgrades`
+            // Build RunResult for PR body
+            this.computeSummary()
+            const runResult = this.buildRunResult()
+            const prBody = generatePRBody(
+                runResult,
+                plan.supersedePRs.map((pr) => pr.number),
+            )
+            const prTitle = `fix(deps): automated security fix — ${this.summary.alertsFixed} upgrades`
 
-                const pr = await createPullRequest({
-                    octokit: client,
-                    owner,
-                    repo,
-                    headBranch: branchName,
-                    baseBranch: defaultBranch,
-                    title: prTitle,
-                    body: prBody,
-                })
+            const pr = await createPullRequest({
+                octokit: client,
+                owner,
+                repo,
+                headBranch: branchName,
+                baseBranch: defaultBranch,
+                title: prTitle,
+                body: prBody,
+            })
 
-                this.logger.info(`PR created: ${pr.htmlUrl}`)
+            this.logger.info(`PR created: ${pr.htmlUrl}`)
 
-                // Record PR as a fix action
-                this.allActions.push({
-                    type: 'dependency-upgrade',
-                    repository: firstRepo,
-                    target: `PR #${pr.number}`,
-                    fromVersion: undefined,
-                    toVersion: pr.htmlUrl,
-                    isMajor: false,
-                    success: true,
-                    durationMs: 0,
-                })
-            }
+            // Record PR as a fix action before closing superseded PRs,
+            // so a close failure never hides the successfully created PR
+            this.allActions.push({
+                type: 'dependency-upgrade',
+                repository: firstRepo,
+                target: `PR #${pr.number}`,
+                fromVersion: undefined,
+                toVersion: pr.htmlUrl,
+                isMajor: false,
+                success: true,
+                durationMs: 0,
+            })
+
+            // 7. Close superseded PRs only after new PR created successfully
+            await this.closeSupersededPRs(client, owner, repo, plan.supersedePRs)
         } catch (error: unknown) {
             const message = toErrorMessage(error)
             this.logger.error(`PR creation failed: ${message}`)
@@ -411,6 +473,33 @@ export class DependfixApp {
                 category: 'PR_CREATION_FAILED',
                 message,
             })
+        }
+    }
+
+    /**
+     * 关闭被取代的旧 PR。单条关闭失败不中断其余 PR 的关闭，
+     * 失败记录为 `PR_CLOSE_FAILED`（与 PR 创建失败区分）。
+     */
+    private async closeSupersededPRs(
+        client: Octokit,
+        owner: string,
+        repo: string,
+        supersedePRs: { number: number }[],
+    ): Promise<void> {
+        for (const old of supersedePRs) {
+            try {
+                await closePullRequest(client, owner, repo, old.number)
+                this.logger.info(`Closed superseded PR #${old.number}`)
+            } catch (error: unknown) {
+                const message = toErrorMessage(error)
+                this.logger.error(`Failed to close superseded PR #${old.number}: ${message}`)
+                this.allErrors.push({
+                    repository: `${owner}/${repo}`,
+                    stage: 'report',
+                    category: 'PR_CLOSE_FAILED',
+                    message: `Failed to close PR #${old.number}: ${message}`,
+                })
+            }
         }
     }
 

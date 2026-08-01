@@ -72,8 +72,8 @@ function extractTime(iso: string): string {
  * 提取用于文件名的短后缀（最多 8 字符）：
  * 优先取 runId 最后一个 `-` 分隔段（如 `dependfix-<ts>-<rand>` 中的随机段），
  * 无有效分隔段（无 `-` 或尾段为空）时取整个 runId 前 8 字符兜底。
- * 注意：`packages/cli/src/github/pr-creator.ts` 中 `extractRunSuffix` 与此逻辑保持一致，
- * 修改时需同步，避免报告文件名与分支名再次不一致。
+ * 注意：T210 起修复分支名已改为内容指纹（`dependfix/auto-fix-{fp8}`，见 pr-creator.ts），
+ * 不再依赖 runId，本函数仅服务于报告文件名，无需与分支命名逻辑同步。
  */
 function extractRunSuffix(runId: string): string {
     const idx = runId.lastIndexOf('-')

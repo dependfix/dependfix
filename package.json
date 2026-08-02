@@ -13,6 +13,7 @@
     "changeset": "changeset",
     "changeset:version": "changeset version",
     "changeset:publish": "changeset publish",
+    "changelog": "node scripts/changelog.mjs",
     "lint": "cross-env NODE_ENV=production eslint . --fix --max-warnings 10",
     "build": "pnpm -r build",
     "dev": "pnpm --filter dependfix dev",
@@ -28,12 +29,13 @@
     "docs:preview": "pnpm --filter dependfix-docs preview"
   },
   "devDependencies": {
-    "@changesets/changelog-github": "^0.7.0",
     "@changesets/cli": "^2.31.1",
     "@types/node": "^25.5.0",
     "commitizen": "^4.3.1",
     "commitlint": "^20.5.0",
     "commitlint-config-cmyr": "^1.0.0",
+    "conventional-changelog": "^7.2.1",
+    "conventional-changelog-cmyr-config": "^3.0.0",
     "cross-env": "^10.0.0",
     "cz-conventional-changelog-cmyr": "^2.0.0",
     "eslint": "^9.34.0",
@@ -63,5 +65,8 @@
   },
   "bugs": {
     "url": "https://github.com/dependfix/dependfix/issues"
+  },
+  "changelog": {
+    "language": "zh"
   }
 }

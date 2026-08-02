@@ -103,7 +103,7 @@
 | 工具 | 用途 |
 |------|------|
 | @changesets/cli | 子包独立版本管理 + npm 发布（开发者显式声明 bump 类型） |
-| @changesets/changelog-github | 子包 CHANGELOG 自动生成 |
+| conventional-changelog + conventional-changelog-cmyr-config | CHANGELOG 生成（`pnpm changelog`，momei 同款格式） |
 | commitizen + cz-conventional-changelog-cmyr | 交互式提交 |
 
 ### 发布策略
@@ -116,6 +116,7 @@
 |------|------|
 | 创建 changeset | `pnpm changeset` |
 | 消费 changeset 并 bump 版本 | `pnpm changeset:version` |
+| 生成 CHANGELOG（根级 + 包级） | `pnpm changelog` |
 | 发布到 npm | CI 中 `pnpm changeset publish`（OIDC 免 token 认证） |
 
 版本号各自独立，`@dependfix/core` 升级时通过 `updateInternalDependencies: "patch"` 自动 bump `dependfix` CLI 的 patch 版本。

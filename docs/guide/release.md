@@ -18,7 +18,7 @@
   - npm 默认不安装带预发布后缀的版本（需显式 `dependfix@beta`），会给预览测试设置障碍；
   - changesets 的 pre 模式会增加每轮发布的维护成本。
 - **稳定信号来自 `1.0.0`**：API 稳定后发布 `1.0.0`，届时再启用 `@v1` 滚动 tag（GitHub Action 引用）。
-- 版本号由 Changesets 管理（`.changeset/` + `@changesets/changelog-github`），包版本升级语义（patch / minor / major）在提交时通过 changeset 声明。
+- 版本号由 Changesets 管理（`.changeset/`），包版本升级语义（patch / minor / major）在提交时通过 changeset 声明；CHANGELOG 由 `pnpm changelog` 基于 conventional commits 生成（见"CHANGELOG 策略"）。
 
 ## 发布架构
 
@@ -128,14 +128,17 @@ gh release create v0.1.0 --generate-notes --prerelease
 # 1. 代码变更时创建 changeset（选择受影响包 + 版本类型 + 变更描述）
 pnpm changeset
 
-# 2. 版本提升 + 自动生成包级 CHANGELOG（消费 .changeset/*.md，更新 package.json 版本）
-#    需要 GITHUB_TOKEN：@changesets/changelog-github 解析 PR 链接时缺少 token 会直接报错
-GITHUB_TOKEN=<你的 PAT> pnpm changeset version
+# 2. 版本提升（消费 .changeset/*.md，更新 package.json 版本）
+#    changelog 已禁用（"changelog": false），此步骤无需 GITHUB_TOKEN
+pnpm changeset version
 
-# 3. 审查并提交（含包级 CHANGELOG.md 与 package.json 版本变更）
+# 3. 生成 CHANGELOG（基于 conventional commits 重新生成三份日志，见"CHANGELOG 策略"）
+pnpm changelog
+
+# 4. 审查并提交（含包级 CHANGELOG.md 与 package.json 版本变更）
 git add -A && git commit -m "chore(release): 版本提升至 x.y.z"
 
-# 4. push 到 master —— 触发 .github/workflows/release.yml 自动发布
+# 5. push 到 master —— 触发 .github/workflows/release.yml 自动发布
 git push origin master
 ```
 
@@ -160,9 +163,17 @@ git push origin master
 
 ## CHANGELOG 策略
 
-- **包级 CHANGELOG.md 由 changesets 自动维护**：`changeset version` 会写入**每个包目录**（`packages/cli/CHANGELOG.md`、`packages/core/CHANGELOG.md`，首次运行时自动创建），供仓库维护者查阅（changesets 生态惯例）；注意发布产物由 `files: ["dist"]` 限定，包级 CHANGELOG 不会随包发布到 npm；
-- **`0.1.0` 段为手动编写**（首次发布没有 changeset 文件，changesets 无法生成首版 changelog）：根目录 `CHANGELOG.md` 与两个包级 `CHANGELOG.md` 均已手写 0.1.0 段，内容基于 git log 整理，格式对齐 `@changesets/changelog-github` 输出；后续 `changeset version` 会在包级文件顶部插入新版本段，与手写首版兼容；
-- 根目录 `CHANGELOG.md` 仅作为仓库级 0.1.0 发布记录（changesets 不管理根文件），后续版本不自动追加，如需同步可手动摘录或依赖 GitHub Releases。
+- **changesets 不负责生成 changelog**（`.changeset/config.json` 中 `"changelog": false`），仅负责版本提升与发布；
+- **CHANGELOG 由 `pnpm changelog` 生成**（`scripts/changelog.mjs`），基于 conventional commit 消息 + `conventional-changelog-cmyr-config`（与 momei / semantic-release-cmyr-config 生态同一套格式）：
+  - **根级 `CHANGELOG.md`**：全仓库的 feat/fix/refactor 类 commit（chore/ci/docs 等类型由 preset 过滤，不进入日志；全局改动如 CI / 文档 / workspace 配置自然不展示），版本段以 `dependfix@` tag 序列划分（dependfix 为主交付物，core 单独发布的变更会随下一次 dependfix 发布段出现）；
+  - **包级 `CHANGELOG.md`**（`packages/cli`、`packages/core`）：按 `git log -- <path>` 精确过滤——只有实际改动该包路径的 commit 才会进入对应日志（一个 commit 同时改两个包时会同时出现在两包日志中，这是真实影响面的体现）；
+  - 分组语言由根 `package.json` 的 `changelog.language: "zh"` 控制（中文 emoji 分组：✨ 新功能 / 🐛 Bug 修复 / 📦 代码重构 等）；
+- **全局改动归属约定**：根目录文件（`docs/`、`.github/`、`pnpm-workspace.yaml` 等）不匹配任何包的 path，不会出现在包级日志；若某全局改动确实影响包行为（如 overrides 改依赖解析），应在 commit 中落在包路径内或拆分提交，否则只记录在根级日志；
+- **生成是幂等的**：脚本每次全量重新生成（`releaseCount: 0`），不依赖历史 changelog 内容；
+- **生成时机与边界行为**：在 `changeset version` 之后、publish 之前运行（此时新版本尚无 tag，当前版本段输出全部新增 commit）；若在版本等于最新 tag 时运行（如 core-only 发布后、或发布后立即重跑），顶层段会复用该版本号并生成自引用 compare 链接，属正常现象，下一版本发布段会自动归位；
+- **版本标题与 tag**：根级与包级日志的版本段均按 `dependfix@` / `@dependfix/core@` tag 序列划分（changeset publish 自动创建）；无 tag 的首版（0.1.0）从仓库最早 commit 生成；
+- **依赖变更提示差异**：changesets 原会在依赖包变更时向依赖方日志写入 `Updated dependencies` 行，本方案不自动生成（npm 安装时会自动带上新依赖版本，不影响使用）；
+- **依赖版本**：必须使用 `conventional-changelog@^7`（8.x 模板引擎与 cmyr-config 3.x 不兼容）。
 
 ## 已知限制与排查
 
@@ -173,6 +184,8 @@ git push origin master
 | `npm publish` 发布产物中带 `workspace:*` | 使用了裸 `npm publish`。npm 不替换 workspace 协议，必须使用 `pnpm publish`（`changeset publish` 内部即走此路径） |
 | OIDC 发布报 E404 / E401（pnpm 11.0.3） | pnpm 11.0.3 存在 OIDC 回归（pnpm/pnpm#11566，已修复）。升级 pnpm（或改用 `pnpm/action-setup` 默认最新版） |
 | OIDC 发布报 E401 / Unable to authenticate | 检查：Trusted Publisher 的 workflow 文件名是否与 `release.yml` 完全一致（大小写敏感）；`id-token: write` 权限是否在发布 job 上；是否使用 GitHub-hosted runner |
+| `pnpm changelog` 输出英文分组 | 根 `package.json` 缺少 `changelog.language: "zh"`（cmyr-config 从 cwd 的 package.json 读取语言） |
+| `pnpm changelog` 报模板错误 | conventional-changelog 被解析为 8.x。必须使用 `conventional-changelog@^7`（8.x 模板引擎与 cmyr-config 3.x 不兼容） |
 
 ## 关于 provenance
 

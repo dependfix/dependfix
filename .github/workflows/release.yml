@@ -39,6 +39,27 @@ jobs:
       - run: pnpm run test
       - run: pnpm run build
 
+      # CHANGELOG 校验：发布前确认三份 CHANGELOG 已包含当前版本段。
+      # CHANGELOG 由本地 `pnpm changelog`（conventional-changelog-cmyr-config）生成并随
+      # 发布提交入库，CI 不重新生成；若版本已提升但日志缺失，说明漏跑了生成步骤，禁止发布。
+      # 普通提交（版本未变）时各日志已含对应版本段，校验自动通过。
+      - name: Verify changelog is up to date
+        run: |
+          for spec in "packages/cli:packages/cli/CHANGELOG.md" "packages/core:packages/core/CHANGELOG.md"; do
+            dir="${spec%%:*}"; file="${spec##*:}"
+            version=$(node -p "require('./$dir/package.json').version")
+            if ! grep -qE "^# \[?${version}([ )]|\$)" "$file"; then
+              echo "::error::$file 缺少版本段 ${version}，请先运行 pnpm changelog 并提交"
+              exit 1
+            fi
+          done
+          version=$(node -p "require('./packages/cli/package.json').version")
+          if ! grep -qE "^# \[?${version}([ )]|\$)" CHANGELOG.md; then
+            echo "::error::CHANGELOG.md 缺少版本段 ${version}，请先运行 pnpm changelog 并提交"
+            exit 1
+          fi
+          echo "changelog is up to date"
+
       # changeset publish：
       # - 只发布有 changeset 记录的包（无变更时安全退出，天然处理包版本不同步）
       # - 在 pnpm 项目内部调用 pnpm publish（自动将 workspace:* 替换为实际版本）

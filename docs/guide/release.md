@@ -147,12 +147,13 @@ git push origin master
 `release.yml`（push master 触发）依次执行：
 
 1. lint → typecheck → test → build（质量门，任一失败即中止）；
-2. `pnpm changeset publish`：
+2. `Verify changelog is up to date`：校验三份 CHANGELOG 已包含当前版本段（防止漏跑 `pnpm changelog` 直接发布；普通提交版本未变时自动通过）；
+3. `pnpm changeset publish`：
    - **只发布有 changeset 记录的包**，无变更时安全退出（`No unpublished projects to publish`）；
    - 在 pnpm 项目内部调用 `pnpm publish`：自动替换 `workspace:*` 为实际版本，发布顺序由 changesets 编排（`@dependfix/core` 先于 `dependfix`）；
    - 通过 **OIDC trusted publishing** 认证（`id-token: write` + npmjs.com 的 Trusted Publisher 配置），无需 `NPM_TOKEN`；
    - 发布成功后本地创建 `<pkg>@<version>` 格式的 git tag（如 `dependfix@0.1.1`）；
-3. `Push release tags`：将 changeset publish 创建的本地 tag 推送到 GitHub（`git push origin --tags`，通过 `GITHUB_TOKEN` 认证）。
+4. `Push release tags`：将 changeset publish 创建的本地 tag 推送到 GitHub（`git push origin --tags`，通过 `GITHUB_TOKEN` 认证）。
 
 ## tag 策略与包版本不同步
 
@@ -186,6 +187,7 @@ git push origin master
 | OIDC 发布报 E401 / Unable to authenticate | 检查：Trusted Publisher 的 workflow 文件名是否与 `release.yml` 完全一致（大小写敏感）；`id-token: write` 权限是否在发布 job 上；是否使用 GitHub-hosted runner |
 | `pnpm changelog` 输出英文分组 | 根 `package.json` 缺少 `changelog.language: "zh"`（cmyr-config 从 cwd 的 package.json 读取语言） |
 | `pnpm changelog` 报模板错误 | conventional-changelog 被解析为 8.x。必须使用 `conventional-changelog@^7`（8.x 模板引擎与 cmyr-config 3.x 不兼容） |
+| CI 报 "CHANGELOG 缺少版本段" | 版本已提升但漏跑了 `pnpm changelog`（发布前必须生成并提交日志） |
 
 ## 关于 provenance
 

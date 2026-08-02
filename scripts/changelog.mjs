@@ -15,14 +15,24 @@
  *   当前版本段输出全部新增 commit）。边界行为：若在版本 == 最新 tag 时运行
  *   （如 core-only 发布后重跑、或发布后立即重跑），顶层段会复用该版本号并生成
  *   自引用 compare 链接（old...old），属正常现象，下一版本发布段会自动归位）
+ * - 版本标题日期固定为 HEAD commit 日期（而非生成当天）：保证 CI 重跑幂等，
+ *   避免跨天产生无关 diff（release.yml 的 changelog 校验依赖此行为）
  * - 依赖 conventional-changelog@^7（8.x 模板引擎与 cmyr-config 3.x 不兼容）
  */
+import { execSync } from 'node:child_process'
 import { writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { ConventionalChangelog, defaultCommitTransform } from 'conventional-changelog'
 
 const repoRoot = fileURLToPath(new URL('..', import.meta.url))
+
+// 版本标题日期：HEAD commit 的 UTC 日期（yyyy-mm-dd），保证任意时刻重跑输出一致。
+// 注意转 UTC：writer 对已发布版本段使用 commit 日期的 UTC 形式（formatDate → toISOString），
+// 这里统一为 UTC，避免发布后重跑时已发布段日期被改写产生无关 diff
+const headDate = new Date(
+    execSync('git log -1 --format=%cI', { cwd: repoRoot }).toString().trim(),
+).toISOString().slice(0, 10)
 
 const targets = [
     {
@@ -72,6 +82,7 @@ async function generate({ commits, tags, pkg }) {
         })
         .commits(commits)
         .tags(tags)
+        .context({ date: headDate })
         .readPackage(join(repoRoot, pkg))
     for await (const chunk of cc.write(false)) {
         out += chunk

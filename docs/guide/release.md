@@ -25,8 +25,11 @@
 | 阶段 | 触发方式 | 认证方式 | 发布命令 |
 |------|----------|----------|----------|
 | 首次发布 `0.1.0` | 手动（一次性） | npm 账号登录（`npm login`） | `pnpm publish`（本地） |
-| 后续版本 `0.1.1+` | push 到 `master` | **OIDC Trusted Publishing**（无 `NPM_TOKEN`） | `pnpm changeset publish`（CI） |
+| 后续版本 `0.1.1+`（0.x 阶段） | **`workflow_dispatch` 手动触发** | **OIDC Trusted Publishing**（无 `NPM_TOKEN`） | `pnpm changeset publish`（CI） |
+| `1.0.0+`（正式版，规划） | 手动 + `schedule` 定时自动发布（可选 `push`） | OIDC Trusted Publishing | `pnpm changeset publish`（CI） |
 
+> **0.x 阶段仅手动发布**：`release.yml` 未启用 `on.push` / `on.schedule` 自动触发（每次推送触发 release 不符合 0.x 预览期的发布节奏）。定时自动发布配置已按 momei 模式内嵌（每周六 UTC+0 12:00 = UTC+8 20:00），1.0.0 正式版发布后取消 `schedule` 注释即可启用，自动发布逻辑（版本提升 + 日志生成 + 提交推送）无需额外配置。
+>
 > 发布底层始终是 **`pnpm publish`**（`changeset publish` 在 pnpm 项目内部调用它），它会自动把 `workspace:*` 依赖替换为实际版本号，保证发布产物可被消费者正常安装。**不要改用裸 `npm publish`**：npm 不会替换 `workspace:*`，会把字面量发布到 registry。
 
 ## 前置配置（一次性）
@@ -138,22 +141,34 @@ pnpm changelog
 # 4. 审查并提交（含包级 CHANGELOG.md 与 package.json 版本变更）
 git add -A && git commit -m "chore(release): 版本提升至 x.y.z"
 
-# 5. push 到 master —— 触发 .github/workflows/release.yml 自动发布
+# 5. push 到 master（提交本身不触发发布；0.x 阶段发布由手动 workflow_dispatch 触发）
 git push origin master
+
+# 6. 手动触发发布：GitHub Actions → Release → Run workflow（workflow_dispatch）
 ```
 
-### CI 自动发布行为
+### 定时自动发布（1.0.0+ 启用）
 
-`release.yml`（push master 触发）依次执行：
+`release.yml` 已内嵌 `schedule` 定时发布（每周六 UTC+0 12:00 = UTC+8 20:00，参照 momei），**1.0.0 正式版发布后取消 `schedule` 注释即启用**。定时触发时 CI 自动完成：
 
-1. lint → typecheck → test → build（质量门，任一失败即中止）；
-2. `Verify changelog is up to date`：校验三份 CHANGELOG 已包含当前版本段（防止漏跑 `pnpm changelog` 直接发布；普通提交版本未变时自动通过）；
-3. `pnpm changeset publish`：
+1. `changeset version`（消费待发布 changeset，无则无操作）+ `pnpm changelog`（生成日志）+ 提交并推送 master；
+2. 随后执行与手动发布相同的完整流程：质量门 → changelog 校验 → `changeset publish`（OIDC）→ push tags。
+
+手动发布（`workflow_dispatch`）时跳过自动版本提升步骤（版本已在本地提升并提交）。
+
+### CI 发布行为
+
+`release.yml`（`workflow_dispatch` 手动触发；1.0.0 后增加 `schedule` 定时触发）依次执行：
+
+1. （仅 `schedule` 触发）`Auto version & changelog`：自动版本提升 + CHANGELOG 生成 + 提交推送；
+2. lint → typecheck → test → build（质量门，任一失败即中止）；
+3. `Verify changelog is up to date`：校验三份 CHANGELOG 已包含当前版本段（防止漏跑 `pnpm changelog` 直接发布；普通提交版本未变时自动通过）；
+4. `pnpm changeset publish`：
    - **只发布有 changeset 记录的包**，无变更时安全退出（`No unpublished projects to publish`）；
    - 在 pnpm 项目内部调用 `pnpm publish`：自动替换 `workspace:*` 为实际版本，发布顺序由 changesets 编排（`@dependfix/core` 先于 `dependfix`）；
    - 通过 **OIDC trusted publishing** 认证（`id-token: write` + npmjs.com 的 Trusted Publisher 配置），无需 `NPM_TOKEN`；
    - 发布成功后本地创建 `<pkg>@<version>` 格式的 git tag（如 `dependfix@0.1.1`）；
-4. `Push release tags`：将 changeset publish 创建的本地 tag 推送到 GitHub（`git push origin --tags`，通过 `GITHUB_TOKEN` 认证）。
+5. `Push release tags`：将 changeset publish 创建的本地 tag 推送到 GitHub（`git push origin --tags`，通过 `GITHUB_TOKEN` 认证）。
 
 ## tag 策略与包版本不同步
 
@@ -181,7 +196,8 @@ git push origin master
 | 现象 | 原因与处理 |
 |------|-----------|
 | 包**首次**发布时 OIDC 报错 | npm 的 Trusted Publisher 要求包已存在才能配置（npm/cli#8544）。初始版本必须手动发布（`pnpm publish` + `npm login`），之后版本可走 OIDC |
-| push master 后所有包都被跳过 | 没有未发布的 changeset（`changeset version` 未执行或已发布过）；这是正常行为，不是错误 |
+| 手动触发发布后所有包都被跳过 | 没有未发布的 changeset（`changeset version` 未执行或已发布过）；这是正常行为，不是错误 |
+| 定时发布中途失败（质量门/发布挂） | master 可能处于"版本已提升未发布"状态：人工 `workflow_dispatch` 重试发布即可，或等待下一定时周期自愈（changeset 未消费则幂等重跑） |
 | `npm publish` 发布产物中带 `workspace:*` | 使用了裸 `npm publish`。npm 不替换 workspace 协议，必须使用 `pnpm publish`（`changeset publish` 内部即走此路径） |
 | OIDC 发布报 E404 / E401（pnpm 11.0.3） | pnpm 11.0.3 存在 OIDC 回归（pnpm/pnpm#11566，已修复）。升级 pnpm（或改用 `pnpm/action-setup` 默认最新版） |
 | OIDC 发布报 E401 / Unable to authenticate | 检查：Trusted Publisher 的 workflow 文件名是否与 `release.yml` 完全一致（大小写敏感）；`id-token: write` 权限是否在发布 job 上；是否使用 GitHub-hosted runner |

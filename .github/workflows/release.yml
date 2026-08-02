@@ -1,9 +1,15 @@
 name: Release
 on:
-  push:
-    branches:
-      - master
+  # 0.x 阶段仅手动发布（workflow_dispatch）；1.0.0 正式版发布前不启用任何自动触发
   workflow_dispatch:
+  # 定时自动发布（参照 momei）：每周六 UTC+0 12:00 = UTC+8 20:00
+  # 1.0.0 正式版发布后取消注释即可启用（自动发布逻辑已内嵌于 Auto version 步骤）
+  # schedule:
+  #   - cron: "0 12 * * 6"
+  # 1.0.0 正式版发布后如需提交即发布，可取消注释：
+  # push:
+  #   branches:
+  #     - master
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: false
@@ -34,6 +40,34 @@ jobs:
       - name: Upgrade npm
         run: npm install -g npm@latest
       - run: pnpm i --frozen-lockfile
+
+      # 定时发布（schedule 触发时自动完成版本提升 + CHANGELOG 生成 + 提交推送）：
+      # - 手动发布（workflow_dispatch）时版本已在本地通过 changeset version + pnpm changelog
+      #   提升并提交，此步骤跳过；
+      # - 没有待发布的 changeset 时全流程无操作（changeset version 无变更退出，
+      #   changelog 幂等生成，git commit 跳过；后续质量门 / 校验 / publish 均安全 no-op）；
+      # - 提交推送使用 GITHUB_TOKEN（x-access-token 方式，checkout 为 persist-credentials: false）。
+      # 1.0.0 正式版发布后取消上方 schedule 注释即启用。
+      - name: Auto version & changelog (schedule only)
+        if: github.event_name == 'schedule'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          pnpm changeset version
+          pnpm changelog
+          git add -A
+          if git diff --cached --quiet; then
+            echo "::notice::没有待发布的 changeset，定时发布无操作"
+          else
+            # GitHub runner 默认无 git 身份，需要显式配置（github-actions[bot] 官方身份）
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git commit -m "chore(release): 定时发布版本提升"
+            # 分支为当前默认分支 master（与 changeset config 的 baseBranch 一致）
+            git config --global url."https://x-access-token:${GITHUB_TOKEN}@github.com/".insteadOf "https://github.com/"
+            git push origin master
+          fi
+
       - run: pnpm run lint
       - run: pnpm run typecheck
       - run: pnpm run test

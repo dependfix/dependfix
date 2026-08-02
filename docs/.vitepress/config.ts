@@ -27,6 +27,7 @@ export default defineConfig({
                         { text: '快速开始', link: '/guide/quick-start' },
                         { text: '技术栈详解', link: '/guide/tech-stack' },
                         { text: '配置说明', link: '/guide/configuration' },
+                        { text: '发布指南', link: '/guide/release' },
                         { text: 'AI 协同开发', link: '/guide/ai-development' },
                     ],
                 },
@@ -82,7 +83,7 @@ export default defineConfig({
             ],
         },
         socialLinks: [
-            { icon: 'github', link: 'https://github.com/CaoMeiYouRen/dependfix' },
+            { icon: 'github', link: 'https://github.com/dependfix/dependfix' },
         ],
         footer: {
             message: 'Released under the MIT License.',

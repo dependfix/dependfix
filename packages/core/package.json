@@ -5,6 +5,20 @@
     "author": "CaoMeiYouRen",
     "license": "MIT",
     "type": "module",
+    "keywords": [
+        "security",
+        "dependabot",
+        "domain-model",
+        "dependfix"
+    ],
+    "homepage": "https://github.com/dependfix/dependfix#readme",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/dependfix/dependfix.git"
+    },
+    "bugs": {
+        "url": "https://github.com/dependfix/dependfix/issues"
+    },
     "main": "./dist/index.cjs",
     "module": "./dist/index.mjs",
     "types": "./dist/index.d.mts",

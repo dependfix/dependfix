@@ -13,11 +13,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
+      # OIDC trusted publishing：pnpm publish 通过 OIDC token 交换获得临时发布凭据，无需 NPM_TOKEN
       id-token: write
-      packages: write
+      # 推送 changeset publish 创建的 <pkg>@<version> git tag
       contents: write
-      issues: write
-      pull-requests: write
     steps:
       - uses: actions/checkout@v5
         with:
@@ -31,12 +30,30 @@ jobs:
           node-version: "lts/*"
           cache: "pnpm"
           registry-url: "https://registry.npmjs.org"
+      # changeset publish 内部会用 npm info 探测 registry 版本，保持 npm 工具链较新以兼容输出格式
+      - name: Upgrade npm
+        run: npm install -g npm@latest
       - run: pnpm i --frozen-lockfile
       - run: pnpm run lint
       - run: pnpm run typecheck
+      - run: pnpm run test
       - run: pnpm run build
 
+      # changeset publish：
+      # - 只发布有 changeset 记录的包（无变更时安全退出，天然处理包版本不同步）
+      # - 在 pnpm 项目内部调用 pnpm publish（自动将 workspace:* 替换为实际版本）
+      # - 通过 OIDC（id-token: write）完成 npm trusted publishing 认证，无需 NPM_TOKEN
+      # - 发布成功后仅在本地创建 <pkg>@<version> 格式的 git tag（--no-git-tag 可关闭）
       - name: Changeset Publish
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: pnpm changeset publish
+
+      # changeset publish 只创建本地 tag，需要显式推送（checkout 使用 persist-credentials: false，
+      # 通过 x-access-token 方式用 GITHUB_TOKEN 认证推送）
+      - name: Push release tags
+        run: |
+          git config --global url."https://x-access-token:${GITHUB_TOKEN}@github.com/".insteadOf "https://github.com/"
+          git push origin --tags
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

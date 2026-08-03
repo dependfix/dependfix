@@ -24,7 +24,7 @@ jobs:
       # 推送 changeset publish 创建的 <pkg>@<version> git tag
       contents: write
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
           fetch-depth: 0

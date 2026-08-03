@@ -55,7 +55,7 @@ runs:
   using: 'composite'
   steps:
     - name: Checkout target repository
-      uses: actions/checkout@v5
+      uses: actions/checkout@v7
       # 消费者仓库 checkout 到 $GITHUB_WORKSPACE（重复 checkout 幂等）。
       # dependfix CLI 的修复/提交/推送均作用于该目录；action 自身代码仍在 github.action_path。
 

@@ -311,6 +311,25 @@ T109 ─→ T205（AI Token 支持）→ T206（Prompt 注入防护）
 
 ---
 
+### G2 GITHUB_TOKEN 无法访问 Dependabot alerts API（产品设计级限制）
+
+- **状态**: 🔴 严重（影响产品核心能力，待方案调整）
+- **位置**: `action.yml`（`github-token` input）、`.github/workflows/security-auto-fix.yml`、`packages/cli/src/github/dependabot-fetcher.ts`
+- **问题**: `GET /repos/{owner}/{repo}/dependabot/alerts` 对 `GITHUB_TOKEN` 恒返回 403 `Resource not accessible by integration`——即使 workflow 声明 `permissions: security-events: read` 甚至 `write-all` 也一样。Actions App 自身无安装级 **Dependabot alerts** 仓库权限，workflow `permissions` 块只能在其已有权限子集内调整。GitHub 官方文档声称 `security-events: read` 可访问该端点，与实际行为矛盾（[community discussion #60612](https://github.com/orgs/community/discussions/60612)：2023-07 报告至今未修复，2026-06 仍有人确认）
+- **证据**: Security Auto Fix run [30844997175](https://github.com/dependfix/dependfix/actions/runs/30844997175)（2026-08-03）：fetch 403 → "No changes to commit — skipping PR creation" → exitCode 0 静默空跑；同一 API 用本地 PAT（`repo` scope 含 `security_events`）访问正常
+- **影响**:
+  1. 本仓库 dogfooding workflow（`secrets.GITHUB_TOKEN`）无法获取 Dependabot alerts，空跑且无感知
+  2. 产品设计：`uses: dependfix/dependfix@v1` 消费者若按现有文档引导使用 GITHUB_TOKEN，同样拉不到 Dependabot alerts——action 必须要求具备 Dependabot alerts 权限的 PAT / GitHub App token，或调整告警获取途径
+  3. CLI 错误处理缺陷：fetch 403 被当作"无告警"吞掉并以 exitCode 0 结束（与 `github-action-workflow.md` §7 声明"PERMISSION_DENIED → workflow 失败"不符）
+- **候选调整方向**（未定，需决策）:
+  - A. workflow / action 要求 fine-grained PAT（`Dependabot alerts: read`）或 GitHub App token，文档明确 GITHUB_TOKEN 限制
+  - B. CLI fetch 阶段 401/403 改为硬失败（非零退出 + 明确错误信息），杜绝静默空跑
+  - C. 验证 Code Scanning alerts 是否 GITHUB_TOKEN 可访问，决定两类告警的 token 策略
+- **下一步**: 用户确认 token 方案（PAT secret / GitHub App）→ 调整 workflow + action 文档；补 CLI 403 硬失败处理
+- **发现来源**: Security Auto Fix dogfooding run 30844997175（2026-08-03）
+
+---
+
 ## 已完成登记：代码质量治理（2026-08-03）
 
 ### Q1 eslint-config-cmyr 升级 2.1.5 → 2.3.1

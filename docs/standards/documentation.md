@@ -35,7 +35,8 @@ docs/
 - **代码块**: 标注语言 ` ```typescript `、` ```bash `、` ```yaml `
 - **图表**: 优先使用 Mermaid，不嵌入难维护的图片描述
 - **VitePress 容器**: 关键信息使用 `::: info` / `::: warning` / `::: danger`
-- **链接**: 使用相对路径，确保路径真实可用
+- **链接**: 使用相对路径，确保路径真实可用。本地文件链接默认**不带锚点**（`path.md`）：锚点 slug 规则跨平台不一致（GitHub 移除全角标点 `（）`、`、` 等，VS Code / VitePress 保留），带锚点链接在部分平台会失效；必须带锚点时，目标标题避免全角标点，且锚点需能被 [`check:links` 脚本](../../scripts/check-links.mjs) 验证通过
+- **链接检查**: `pnpm run check:links`（`scripts/check-links.mjs`，零依赖）验证全部 md 文件的本地路径存在性与锚点匹配——按宽松规范化（小写 + 移除标点/符号/空白）兼容 GitHub / VS Code / VitePress 三种 slug 规则差异，只抓真实断链与假锚点，已接入 CI（test.yml）
 
 ## 3. 文档行数阈值
 

@@ -51,4 +51,4 @@
 
 - [AI 资产治理规范](../standards/ai-governance.md)
 - [外部 Skills 准入清单](../standards/external-skills-intake.md)
-- [开发规范](./development.md)
+- [开发规范](../standards/development.md)

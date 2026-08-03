@@ -29,7 +29,7 @@ Monorepo 骨架搭建、核心配置模型、工具链版本策略固定、标�
 - 三条命令：`report`（报告）、`fix`（修复+验证）、`fix-and-pr`（参数预留）
 - 本地文件变更，不推送不创建 PR
 
-> 详细任务见 [todo.md §M1](todo.md#m1-mvp-单仓库自动修复)
+> 详细任务见 [todo-archive.md §M1](todo-archive.md#m1-mvp-单仓库自动修复已归档)
 
 ## M2: GitHub Action 接入
 

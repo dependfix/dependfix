@@ -59,7 +59,7 @@
 | Git | [docs/standards/git.md](docs/standards/git.md) |
 | 规划 | [docs/standards/planning.md](docs/standards/planning.md) |
 
-momei 仍作为上游参照，规范更新时优先参考其最新版本。
+momei 仅作为 1.0.0 前的参考蓝本，1.0.0 后按本项目自身实践演进，形成自有规范体系。
 
 ## 必要检查
 

@@ -54,7 +54,7 @@
         "@dependfix/core": "workspace:*",
         "@octokit/rest": "^22.0.1",
         "citty": "^0.2.2",
-        "dayjs": "^1.11.20",
+        "dayjs": "^1.11.21",
         "dotenv": "^17.4.2",
         "fs-extra": "^11.4.0",
         "isomorphic-unfetch": "^4.0.2",

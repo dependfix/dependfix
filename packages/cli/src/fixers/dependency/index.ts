@@ -344,7 +344,7 @@ export function findDependencyVersion(
     for (const group of groups) {
         const deps = pkg[group]
         if (deps && typeof deps === 'object' && packageName in deps) {
-            return { group, version: String(deps[packageName]) }
+            return { group, version: deps[packageName] }
         }
     }
     return null
@@ -418,7 +418,6 @@ function execPnpmInstall(workDir: string): Promise<void> {
             })
             resolve()
         } catch (err: unknown) {
-            // eslint-disable-next-line @typescript-eslint/no-base-to-string -- catch-all for unexpected non-Error throwables
             reject(err instanceof Error ? err : new Error(String(err)))
         }
     })
@@ -537,9 +536,13 @@ function rollbackOverrides(params: {
             const overrides = (doc.overrides ?? {}) as Record<string, string>
 
             if (oldOverride === undefined) {
-                delete overrides[packageName]
-                if (Object.keys(overrides).length === 0) {
+                const next = Object.fromEntries(
+                    Object.entries(overrides).filter(([key]) => key !== packageName),
+                )
+                if (Object.keys(next).length === 0) {
                     delete doc.overrides
+                } else {
+                    doc.overrides = next
                 }
             } else {
                 overrides[packageName] = oldOverride
@@ -553,12 +556,16 @@ function rollbackOverrides(params: {
         if (pkg.pnpm?.overrides) {
             const overrides = pkg.pnpm.overrides
             if (oldOverride === undefined) {
-                delete overrides[packageName]
-                if (Object.keys(overrides).length === 0) {
+                const next = Object.fromEntries(
+                    Object.entries(overrides).filter(([key]) => key !== packageName),
+                )
+                if (Object.keys(next).length === 0) {
                     delete pkg.pnpm.overrides
                     if (Object.keys(pkg.pnpm).length === 0) {
                         delete pkg.pnpm
                     }
+                } else {
+                    pkg.pnpm.overrides = next
                 }
             } else {
                 overrides[packageName] = oldOverride
@@ -577,12 +584,10 @@ function getStderr(err: unknown): string {
         if (Buffer.isBuffer(stderr)) {
             return stderr.toString('utf-8').trim()
         }
-        // eslint-disable-next-line @typescript-eslint/no-base-to-string -- catch-all for unknown error shapes
         return typeof stderr === 'object' && stderr !== null ? JSON.stringify(stderr) : String(stderr)
     }
     if (err instanceof Error) {
         return err.message
     }
-    // eslint-disable-next-line @typescript-eslint/no-base-to-string -- catch-all for unknown error types
     return typeof err === 'object' && err !== null ? JSON.stringify(err) : String(err)
 }

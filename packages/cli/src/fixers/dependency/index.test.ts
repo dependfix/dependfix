@@ -527,6 +527,81 @@ describe('overrideTransitiveDependency', () => {
         cleanup(project)
     })
 
+    it('rolls back only the newly added override when existing overrides remain', async () => {
+        mockExecSync.mockImplementation(() => {
+            throw Object.assign(new Error('install failed'), { stderr: 'ERR_PNPM_LOCKFILE_MISMATCH' })
+        })
+
+        const project = createTempProject({ lodash: '^4.17.20' })
+        // Pre-populate with an existing override that must survive the rollback
+        const pkgWithOverrides = JSON.parse(readFileSync(project.pkgPath, 'utf-8')) as Record<string, unknown>
+        pkgWithOverrides.pnpm = { overrides: { 'existing-pkg': '^1.0.0' } }
+        writeFileSync(project.pkgPath, `${JSON.stringify(pkgWithOverrides, null, 2)}\n`)
+
+        writeFileSync(project.lockfilePath, [
+            'lockfileVersion: \'9.0\'',
+            '',
+            '/fast-uri/5.0.0:',
+            '  resolution: {integrity: sha512-xxx}',
+            '',
+        ].join('\n'))
+
+        const result = await overrideTransitiveDependency({
+            packageName: 'fast-uri',
+            targetVersion: '5.0.1',
+            workDir: project.dir,
+        })
+
+        expect(result.success).toBe(false)
+
+        // The newly added override must be removed, existing ones kept, pnpm field retained
+        const pkg = JSON.parse(readFileSync(project.pkgPath, 'utf-8')) as Record<string, unknown>
+        const overrides = (pkg.pnpm as Record<string, unknown>).overrides as Record<string, string>
+        expect(overrides['fast-uri']).toBeUndefined()
+        expect(overrides['existing-pkg']).toBe('^1.0.0')
+
+        cleanup(project)
+    })
+
+    it('rolls back only the newly added workspace override when existing overrides remain', async () => {
+        mockExecSync.mockImplementation(() => {
+            throw Object.assign(new Error('install failed'), { stderr: 'ERR' })
+        })
+
+        const project = createTempProject({ lodash: '^4.17.20' })
+        const workspaceYamlPath = join(project.dir, 'pnpm-workspace.yaml')
+        const originalYaml = [
+            'packages:',
+            '  - \'.\'',
+            'overrides:',
+            '  existing-pkg: ^1.0.0',
+            '',
+        ].join('\n')
+        writeFileSync(workspaceYamlPath, originalYaml)
+
+        writeFileSync(project.lockfilePath, [
+            'lockfileVersion: \'9.0\'',
+            '',
+            '/fast-uri/5.0.0:',
+            '  resolution: {integrity: sha512-xxx}',
+            '',
+        ].join('\n'))
+
+        await overrideTransitiveDependency({
+            packageName: 'fast-uri',
+            targetVersion: '5.0.1',
+            workDir: project.dir,
+        })
+
+        // The newly added override must be removed, existing ones kept, overrides block retained
+        const yamlContent = readFileSync(workspaceYamlPath, 'utf-8')
+        expect(yamlContent).toContain('existing-pkg')
+        expect(yamlContent).toContain('^1.0.0')
+        expect(yamlContent).not.toContain('fast-uri')
+
+        cleanup(project)
+    })
+
     it('preserves existing overrides alongside new ones', async () => {
         const project = createTempProject({ lodash: '^4.17.20' })
         // Pre-populate with existing overrides

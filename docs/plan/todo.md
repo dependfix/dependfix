@@ -308,3 +308,24 @@ T109 ─→ T205（AI Token 支持）→ T206（Prompt 注入防护）
 - **引入**: 自初版 fixer 起即为 stub（类型 + 测试骨架已搭，实现未接线）
 - **下一步**: 用 `resolvePnpmVersion()` 解析版本并切换为 `pnpm@<version>` / corepack 方式执行 PIN_TOOLCHAIN；落地后恢复测试名（当前测试 `accepts toolchain param (currently not consumed by implementation)` 仅保证参数被接受）
 - **发现来源**: lint 清理审计（2026-08-01）
+
+---
+
+## 已完成登记：代码质量治理（2026-08-03）
+
+### Q1 eslint-config-cmyr 升级 2.1.5 → 2.3.1
+
+- [x] 升级 `eslint-config-cmyr` 至 `^2.3.1`（内置 `max-lines: 1000/600` 生产 warn；新增 `strict-type-checked` 入口）
+- [x] 新增显式依赖 `typescript-eslint@^8.65.0`（与 cmyr peer 对齐）
+
+### Q2 max-lines / max-lines-per-function 约束
+
+- [x] 4 个 eslint.config.js（根 / core / cli / docs）统一添加 `max-lines: [1, {max: 800}]`、`max-lines-per-function: [1, {max: 500}]`，测试文件放宽 `1000/800`（参照 momei）
+- [x] `packages/cli/src/app.ts` 1092 行 → 608 行：13 个辅助方法提取至新文件 `app-helpers.ts`（602 行），通过 `AppContext` 状态切片传参，行为与类方法一致
+
+### Q3 @typescript-eslint 严格化规则启用（no-explicit-any → no-unnecessary-type-conversion 区间）
+
+- [x] 评估：10 条规则全量启用为 warn，仅对生产 TS 生效（测试文件豁免，参照 momei strictTsRuleOverrides 思路）；评估命中 15 处：生产 6 处已修复、测试 9 处豁免
+- [x] 修复生产命中：`findDependencyVersion` String() 冗余、`rollbackOverrides` 两处 `no-dynamic-delete` 重构（Object.fromEntries 过滤替代 delete）、`errors.ts` String(remaining) 冗余、`main()` 返回类型、`toErrorMessage` unsafe-return 断言
+- [x] 补测试：rollbackOverrides 多条目回滚仅移除新增项（package.json + pnpm-workspace.yaml 两路径）
+- [x] 验证：lint 0 errors / typecheck 通过 / test 282 通过 / build 成功

@@ -9,7 +9,8 @@
         "packages/*/src/**/*.test.ts",
         "commitlint.config.ts",
         "packages/*/tsdown.config.ts",
-        "vitest.config.ts"
+        "vitest.config.ts",
+        "docs/.vitepress/config.ts"
     ],
     "exclude": [
         "node_modules",

@@ -33,7 +33,7 @@ function resolveErrorCode(error: RequestError): GitHubErrorCode {
             return 'AUTHENTICATION_FAILED'
         case 403: {
             const remaining = error.response?.headers['x-ratelimit-remaining']
-            if (remaining !== undefined && String(remaining) === '0') {
+            if (remaining !== undefined && remaining === '0') {
                 return 'RATE_LIMITED'
             }
             return 'PERMISSION_DENIED'

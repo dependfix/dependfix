@@ -1,11 +1,35 @@
+// eslint.config.js
 import { defineConfig } from 'eslint/config'
 import cmyr from 'eslint-config-cmyr'
 import { createLanguageOptions } from 'eslint-config-cmyr/utils'
+import tseslint from 'typescript-eslint'
+
+// 严格化规则：参照 momei 的 strictTsRuleOverrides 思路，仅对生产 TS 启用
+const strictRules = {
+    '@typescript-eslint/explicit-module-boundary-types': [1, {
+        allowArgumentsExplicitlyTypedAsAny: true,
+    }],
+    '@typescript-eslint/no-explicit-any': [1],
+    '@typescript-eslint/no-unsafe-argument': [1],
+    '@typescript-eslint/no-unsafe-assignment': [1],
+    '@typescript-eslint/no-unsafe-member-access': [1],
+    '@typescript-eslint/no-unsafe-return': [1],
+    '@typescript-eslint/no-unsafe-call': [1],
+    '@typescript-eslint/unbound-method': [1],
+    '@typescript-eslint/no-dynamic-delete': [1],
+    '@typescript-eslint/no-unnecessary-type-conversion': [1],
+}
 
 export default defineConfig([
     cmyr,
     {
         ignores: ['.vitepress/dist/**', '.vitepress/cache/**', 'node_modules/**'],
+    },
+    {
+        rules: {
+            'max-lines': [1, { max: 800 }], // 强制文件的最大行数
+            'max-lines-per-function': [1, { max: 500 }], // 强制函数最大行数
+        },
     },
     {
         files: ['.vitepress/config.ts'],
@@ -14,5 +38,17 @@ export default defineConfig([
             project: ['./tsconfig.eslint.json'],
             tsconfigRootDir: import.meta.dirname,
         }),
+    },
+    {
+        files: ['**/*.{ts,tsx,mts,cts}'],
+        plugins: {
+            '@typescript-eslint': tseslint.plugin,
+        },
+        languageOptions: createLanguageOptions({}, {
+            projectService: false,
+            project: ['./tsconfig.eslint.json'],
+            tsconfigRootDir: import.meta.dirname,
+        }),
+        rules: strictRules,
     },
 ])

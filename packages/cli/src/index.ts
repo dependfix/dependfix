@@ -1,7 +1,7 @@
 import { pathToFileURL } from 'node:url'
 import { runMain } from 'citty'
 import { toAppError } from '@dependfix/core'
-import { dependfixCommand, runCli } from './cli'
+import { dependfixCommand, runCli, type CliRunResult } from './cli'
 
 export * from '@dependfix/core'
 export * from './app'
@@ -13,9 +13,9 @@ export * from './github'
 export * from './runners'
 
 /**
- * 程序化调用的入口（保持向后兼容）。
+ * 简化调用的入口（内部数据处理，非 CLI 使用）。
  */
-export function main(args: string[] = process.argv.slice(2)) {
+export function main(args: string[] = process.argv.slice(2)): CliRunResult {
     return runCli(args)
 }
 

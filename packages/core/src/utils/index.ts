@@ -39,5 +39,5 @@ export function toErrorMessage(value: unknown): string {
     } catch {
         // 循环引用等不可序列化场景，走兜底
     }
-    return typeof value === 'undefined' ? 'undefined' : Object.prototype.toString.call(value)
+    return typeof value === 'undefined' ? 'undefined' : Object.prototype.toString.call(value) as string
 }

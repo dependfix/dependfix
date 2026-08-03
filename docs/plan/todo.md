@@ -1,7 +1,7 @@
 # 当前阶段任务（M2）
 
-> M0（基线收敛）已完成，归档见 [todo-archive.md](todo-archive.md#m0-基线收敛已归档)。
-> M1（MVP 单仓库修复）已完成，归档见 [todo-archive.md](todo-archive.md#m1-mvp-单仓库自动修复已归档)。
+> M0（基线收敛）已完成，归档见 [todo-archive.md](todo-archive.md)。
+> M1（MVP 单仓库修复）已完成，归档见 [todo-archive.md](todo-archive.md)。
 > M3 及之后阶段的任务见 [backlog.md](backlog.md)。
 
 ---
@@ -203,7 +203,7 @@ T109 ─→ T205（AI Token 支持）→ T206（Prompt 注入防护）
 > - 去重语义：告警未变动 → 修复结果一致 → 不重复提 PR；告警变动 → 关闭旧 PR、重评估后提新 PR，**永远给用户最新的修复 PR**
 > - 指纹 = 结构化升级集（成功升级 `pkg@toVersion` 排序 + 失败包集）sha256 前 8 位；分支名 `dependfix/auto-fix-{fp8}`（去 runId）
 > - 清理模式：删除前必须用户手动确认（CLI 交互 y/N；Action 仅报告清单不删除）
-> - 未来增强（comment/label、固定分支）登记 [backlog.md](backlog.md#m2-增强候选未排期)
+> - 未来增强（comment/label、固定分支）登记 [backlog.md](backlog.md)
 
 ### T208 Action workDir 语义修正
 

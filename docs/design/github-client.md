@@ -1,6 +1,6 @@
 # T102 设计稿：GitHub 客户端封装
 
-> 对应任务: [T102 实现 GitHub 客户端封装](../plan/todo-archive.md#t102-实现-github-客户端封装)
+> 对应任务: [T102 实现 GitHub 客户端封装](../plan/todo-archive.md)
 >
 > **选型结论**: 引入 `@octokit/rest`。M1-M4 累计需调用 ~15 个 GitHub REST 端点（跨 repos、dependabot、git、pulls、code-scanning、orgs 6 个 API 域），手写 fetch 封装在 M2（Git 低级操作: blob→tree→commit→ref→PR）会陡增维护成本。`@octokit/rest` 自带类型推导、`octokit.paginate()` 一行分页、内置认证，适合本项目。
 

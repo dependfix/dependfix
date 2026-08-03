@@ -1,6 +1,6 @@
 # T201 设计稿：GitHub Composite Action
 
-> 对应任务: [T201 创建 Composite Action](../plan/todo.md#t201-创建-composite-action-actionyml)
+> 对应任务: [T201 创建 Composite Action](../plan/todo.md)
 >
 > **选型结论**: 使用 GitHub Composite Action（`action.yml`），通过 `uses: dependfix/dependfix@v1` 被其他仓库引用。Composite Action 可组合多个 workflow steps 为单一可复用单元，无需 Docker 或 JavaScript 封装。
 

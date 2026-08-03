@@ -18,7 +18,7 @@
 ## M0: 基线收敛（已归档）
 
 > 归档日期: 2026-07-28
-> 阶段摘要: 参见 [roadmap.md §M0](roadmap.md#m0-基线收敛)
+> 阶段摘要: 参见 [roadmap.md §M0](roadmap.md)
 > 状态: 已完成
 
 ### T001 建立 Monorepo 项目骨架 ✅
@@ -65,7 +65,7 @@
 ## M1: MVP 单仓库自动修复（已归档）
 
 > 归档日期: 2026-07-30
-> 阶段摘要: 参见 [roadmap.md §M1](roadmap.md#m1-mvp-单仓库自动修复)
+> 阶段摘要: 参见 [roadmap.md §M1](roadmap.md)
 > 状态: 已完成
 > 最终提交: `4b41b70` feat(cli): 实现 DependfixApp 编排管线与 CLI 入口串联
 

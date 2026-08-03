@@ -60,9 +60,9 @@ runs:
       # dependfix CLI 的修复/提交/推送均作用于该目录；action 自身代码仍在 github.action_path。
 
     - name: Setup pnpm
+      # pnpm 版本由消费者/本仓库 package.json 的 packageManager 字段声明（单一来源），
+      # 不传 version 参数（v6 起同时指定且不一致会直接报错）
       uses: pnpm/action-setup@v6.0.9
-      with:
-        version: latest
 
     - name: Setup Node.js
       uses: actions/setup-node@v7

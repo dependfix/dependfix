@@ -95,15 +95,15 @@ steps:
 
 ```
 ┌────────────────────┐
-│ Checkout 消费者仓库 │  actions/checkout@v5 → $GITHUB_WORKSPACE（T208 起内置）
+│ Checkout 消费者仓库 │  actions/checkout@v7 → $GITHUB_WORKSPACE（T208 起内置）
 └───────┬────────────┘
         ▼
 ┌────────────────┐
-│ Setup pnpm     │  pnpm/action-setup@v4
+│ Setup pnpm     │  pnpm/action-setup@v6.0.9（版本读 packageManager 字段）
 └───────┬────────┘
         ▼
 ┌────────────────┐
-│ Setup Node.js  │  actions/setup-node@v5 (lts/*)
+│ Setup Node.js  │  actions/setup-node@v7 (lts/*)
 └───────┬────────┘
         ▼
 ┌────────────────┐

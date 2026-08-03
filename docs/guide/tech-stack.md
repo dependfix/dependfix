@@ -11,7 +11,7 @@
 
 ## Monorepo 结构
 
-参照 momei 的 packages 命名规范：
+采用 `packages/<name>` 命名规范（npm 包名带 `@dependfix/` scope）：
 
 | 子包 | npm 名 | 类型 | 构建 |
 |------|--------|------|------|

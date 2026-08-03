@@ -4,7 +4,8 @@ import cmyr from 'eslint-config-cmyr'
 import { createLanguageOptions } from 'eslint-config-cmyr/utils'
 import tseslint from 'typescript-eslint'
 
-// 严格化规则：参照 momei 的 strictTsRuleOverrides 思路，仅对生产 TS 启用
+// 严格化规则：仅对生产 TS 启用（no-explicit-any → no-unnecessary-type-conversion 区间），
+// 逐步收紧代码质量避免一次性修复过多问题
 const strictRules = {
     '@typescript-eslint/explicit-module-boundary-types': [1, {
         allowArgumentsExplicitlyTypedAsAny: true,
@@ -29,7 +30,7 @@ export default defineConfig([
         rules: {
             'max-lines': [1, { max: 800 }], // 强制文件的最大行数
             'max-lines-per-function': [1, { max: 500 }], // 强制函数最大行数
-            'no-console': [0], // CLI 工具允许使用 console（momei 前端项目才禁）
+            'no-console': [0], // CLI 工具允许使用 console（前端项目才禁）
         },
     },
     {

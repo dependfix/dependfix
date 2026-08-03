@@ -1,7 +1,5 @@
 # 测试规范
 
-本文档从 momei 继承并适配，定义 dependfix 项目的测试标准。
-
 ## 1. 测试框架
 
 - **单元/集成测试**: Vitest（与 Vite 生态无缝集成）
@@ -110,3 +108,5 @@
 - [开发规范](./development.md)
 - [AI 协作规范](./ai-collaboration.md)
 - [项目规划规范](./planning.md)
+
+> 本文档从上游 momei 项目继承并适配，更新规范时优先参考其最新版本。

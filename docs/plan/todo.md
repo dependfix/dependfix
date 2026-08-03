@@ -320,12 +320,12 @@ T109 ─→ T205（AI Token 支持）→ T206（Prompt 注入防护）
 
 ### Q2 max-lines / max-lines-per-function 约束
 
-- [x] 4 个 eslint.config.js（根 / core / cli / docs）统一添加 `max-lines: [1, {max: 800}]`、`max-lines-per-function: [1, {max: 500}]`，测试文件放宽 `1000/800`（参照 momei）
+- [x] 4 个 eslint.config.js（根 / core / cli / docs）统一添加 `max-lines: [1, {max: 800}]`、`max-lines-per-function: [1, {max: 500}]`，测试文件放宽 `1000/800`
 - [x] `packages/cli/src/app.ts` 1092 行 → 608 行：13 个辅助方法提取至新文件 `app-helpers.ts`（602 行），通过 `AppContext` 状态切片传参，行为与类方法一致
 
 ### Q3 @typescript-eslint 严格化规则启用（no-explicit-any → no-unnecessary-type-conversion 区间）
 
-- [x] 评估：10 条规则全量启用为 warn，仅对生产 TS 生效（测试文件豁免，参照 momei strictTsRuleOverrides 思路）；评估命中 15 处：生产 6 处已修复、测试 9 处豁免
+- [x] 评估：10 条规则全量启用为 warn，仅对生产 TS 生效（测试文件豁免，避免一次性修复过多问题）；评估命中 15 处：生产 6 处已修复、测试 9 处豁免
 - [x] 修复生产命中：`findDependencyVersion` String() 冗余、`rollbackOverrides` 两处 `no-dynamic-delete` 重构（Object.fromEntries 过滤替代 delete）、`errors.ts` String(remaining) 冗余、`main()` 返回类型、`toErrorMessage` unsafe-return 断言
 - [x] 补测试：rollbackOverrides 多条目回滚仅移除新增项（package.json + pnpm-workspace.yaml 两路径）
 - [x] 验证：lint 0 errors / typecheck 通过 / test 282 通过 / build 成功

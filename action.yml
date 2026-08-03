@@ -60,7 +60,7 @@ runs:
       # dependfix CLI 的修复/提交/推送均作用于该目录；action 自身代码仍在 github.action_path。
 
     - name: Setup pnpm
-      uses: pnpm/action-setup@v4
+      uses: pnpm/action-setup@v6.0.9
       with:
         version: latest
 

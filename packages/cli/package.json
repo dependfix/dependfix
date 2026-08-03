@@ -56,7 +56,7 @@
         "citty": "^0.2.2",
         "dayjs": "^1.11.20",
         "dotenv": "^17.4.2",
-        "fs-extra": "^11.3.4",
+        "fs-extra": "^11.4.0",
         "isomorphic-unfetch": "^4.0.2",
         "lodash-es": "^4.18.1",
         "p-queue": "^9.1.0",

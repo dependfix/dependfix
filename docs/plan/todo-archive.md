@@ -125,3 +125,76 @@
 - [x] 最小验证（install + lint + build）
 - [x] Markdown + JSON 报告生成
 - [x] typecheck + lint + test 全部通过
+
+---
+
+## M2: GitHub Action 接入（已归档）
+
+> 归档日期: 2026-08-05
+> 阶段摘要: 参见 [roadmap.md §M2](roadmap.md)
+> 状态: 已完成（含 M2 增强批次）
+> 最终提交: `c97fe2b` docs: 同步 T213 完成状态（评估发现状态滞后）
+
+**阶段成果**: 消费者仓库可通过 `uses: dependfix/dependfix@v1` 一行接入安全告警自动修复（fix-and-pr 默认、PR 去重、分支清理、分组升级）。M2 全部 13 个任务完成（11 个 ✅ + T205/T206 骨架按设计完成，M5 联调）。G2 处置闭环（T-G2-1~5）。448 tests。
+
+### T201 创建 Composite Action（action.yml）✅
+- **交付物**: `action.yml` + `.github/workflows/security-auto-fix.yml`（dogfooding）
+- **实现内容**: composite action 6 步（setup pnpm → Node → install+build → run CLI → upload artifact → summary）、`uses: ./` 薄封装、每周一 UTC 6:00 定时
+- **验收**: 消费者 `uses: dependfix/dependfix@v1` 可引用、dispatch + schedule 双触发
+
+### T202 Action 输入输出参数对齐 ✅
+- **实现内容**: `repos` 输入（留空默认 `github.repository`）、CLI 完整映射、报告写入 `$GITHUB_STEP_SUMMARY`
+
+### T203 报告 Artifact 输出 ✅
+- **实现内容**: `writeReport()` 文件名 `dependfix-report-YYYYMMDD-HHmmss-{runId尾段}.md|.json`、upload-artifact 上传 `./dependfix-reports/`
+
+### T204 分支与 PR 创建能力 ✅
+- **交付物**: `packages/cli/src/github/pr-creator.ts` + fix-and-pr 模式
+- **实现内容**: `createFixBranch` / `stageAndCommit` / `pushBranch` / `createPullRequest` / `generatePRBody` / `hasGitChanges`；workflow permissions `contents: write` + `pull-requests: write`
+
+### T205 AI Token 支持（🔶 骨架，M5 T502 联调）
+- **实现内容**: action.yml 预留 `ai-api-token` / `ai-api-base-url` 输入，经 env 传递（不出现在日志/summary）；AI 引擎联调延后 M5
+
+### T206 Prompt 注入防护（🔶 骨架，M5 联调）
+- **实现内容**: 触发仅 dispatch/schedule（不接受 comment trigger）、触发者权限由消费者 workflow 控制；system prompt 硬编码与输入清洗 M5 落地
+
+### T207 fix 模式本地提交（--commit）✅
+- **实现内容**: `--commit` / `AUTO_FIX_GITHUB_SECURITY_COMMIT`、互斥校验（dry-run/create-pr/非 fix）、`ensureGitignore` 前置、提交失败记 `COMMIT_FAILED` 不影响报告
+
+### T208 Action workDir 语义修正 ✅
+- **实现内容**: 首步 `actions/checkout`（消费者仓库到 `$GITHUB_WORKSPACE`）、Run 在 workspace 执行、CLI 从 action_path 调用、build 冒烟检查
+
+### T209 Action 默认 fix-and-pr ✅
+- **实现内容**: action.yml `mode` 默认 `fix-and-pr`、`dry-run` 默认 `false`；CLI 本地默认 report-only（两场景语义分离）；文档标注破坏性变更
+
+### T210 PR 去重：内容指纹 + 查重跳过 + 关旧开新 ✅
+- **实现内容**: `computeFixFingerprint`（结构化升级集 sha256 前 8 位）、`extractFingerprintFromBranch`、`computeFixAndPrPlan`（skip/supersede）、先建新后关旧；测试 +23
+
+### T211 清理模式（cleanup-branches）✅
+- **实现内容**: 独立模式（清单分类 + 交互 y/N 非 TTY 拒绝）、只删 `dependfix/` 前缀且仅 merged/closed、`FixAction.type` 扩展 `branch-cleanup`、action 仅报告清单不删除
+
+### T212 分支清理增强（supersede 删旧分支 + cleanup-branches-auto）✅
+- **实现内容**: `closeSupersededPRs` 关 PR 后回收 head 分支、`--cleanup-branches-auto` 非交互自动删除（dry-run 仅列）、双 flag 并存跳过报告清单
+
+### T213 依赖分组升级（Dependency Grouping）✅
+- **交付物**: `packages/cli/src/grouping/index.ts`（原 fix-grouping.ts）+ app 组级循环 + CLI 参数 + 设计稿
+- **实现内容**: dependabot.yml groups 解析 + @types 归并/孤儿检测 + scope/前缀启发式 + 显式分组 `--upgrade-groups`；组级验证 → 整组回滚 → 拆组兜底；`buildUpgradeGroups` / `parseDependabotGroups`；测试 +43（33 分组 + 6 app 集成 + 4 config）；两轮 Review Gate APPROVE
+
+### M2 完成判定（全部通过）
+- [x] `action.yml` 可通过 `uses: dependfix/dependfix@v1` 被其他仓库引用
+- [x] Action 在消费者仓库上下文中运行（`github.repository` = 消费者）
+- [x] 定时运行自动产出报告 artifact + workflow summary
+- [x] `fix-and-pr` 模式下能在目标仓库创建可审查的 PR
+- [x] 工作流参数与本地 CLI 保持一致
+- [x] T205 / T206 骨架设计完成（AI 引擎联调延后到 M5）
+- [x] `pnpm typecheck` + `pnpm lint` + `pnpm test` 全部通过
+
+### M2 阶段治理记录（2026-08-04 ~ 2026-08-05）
+
+#### G2 处置记录（GITHUB_TOKEN 无法访问 Dependabot alerts）
+
+- **G2 处置闭环**: T-G2-1 fetch 401/403 硬失败（a9e61b8）→ T-G2-2 Code Scanning 探针验证（GITHUB_TOKEN 可访问，HTTP 200）→ T-G2-3 双 token 方案（alertsToken + `dependabot-alerts-token` input）→ T-G2-4 pnpm audit fallback（`--alerts-source pnpm-audit`，d9fef68）→ T-G2-5 规划文档闭环（b6d04ad）
+- **G3 处理**: 同包收敛 + 不降级保护 + 逐包验证回滚（9de0fad）→ T213 分组升级（b962374）→ manifest 归属防护（640fe8c 修复跨 manifest 降级 + pnpm v11 lockfile 解析）→ P0 误伤修正（7b0fbb6，lockfile manifest 的间接依赖回归修复）
+- **运行复盘**: run 30929090403（vite 降级 + lockfile 解析失效）与 run 30933266831（P0 误伤全 skip）两轮复盘修复
+- **质量治理**: 代码质量 Q1-Q3（eslint 升级、max-lines 约束、严格化规则）、目录结构收敛（bb24ef0）、覆盖率统计 + Codecov 上报（1d76c24）
+- **遗留观察点**: G1（PIN_TOOLCHAIN stub，承接 M3 T305）、G3 报告统计口径（alertsConverged）、major overrides 确认机制评估（暂不实现）

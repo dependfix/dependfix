@@ -6,8 +6,8 @@
 |------|------|--------|:----:|
 | M0: 基线收敛 | Monorepo 骨架、配置模型、工具链策略、告警模型 | P0 | 已完成 |
 | M1: MVP 单仓库修复 | 告警拉取→过滤→修复→验证→报告闭环 | P0 | 已完成 |
-| M2: GitHub Action 接入 | workflow_dispatch + 定时 + PR + AI Token + Prompt 防护 | P1 | 已完成 ⚠️ 见 G2 |
-| M3: Code Scanning 扩展 | 规则分级、可模板化修复、建议输出 | P1 | 未开始 |
+| M2: GitHub Action 接入 | workflow_dispatch + 定时 + PR + AI Token + Prompt 防护 | P1 | 已完成（2026-08-05 归档；G2 处置闭环） |
+| M3: Code Scanning 扩展 | 规则分级、可模板化修复、建议输出 | P1 | 🔶 规划中（2026-08-05 启动） |
 | M4: 多仓库治理 | 自动发现、并发控制、报告归档 | P2 | 未开始 |
 | M5: AI Breaking Change 研判 | Changelog 采集、LLM 研判、修复生成、质量门 | P1 | 未开始 |
 | M6: 最小平台 MVP | 仓库管理、凭据管理、仪表板、MCP Server、Docker 部署 | P1 | 未开始 |
@@ -35,19 +35,19 @@ Monorepo 骨架搭建、核心配置模型、工具链版本策略固定、标�
 
 将 M1 能力接入 GitHub Actions，支持 `workflow_dispatch` + `schedule` 触发，输出报告 artifact，支持创建修复分支与 PR。包含用户自定义 AI Token 支持和 Prompt 注入防护。
 
-> 详细任务见 [todo.md §M2](todo.md)
+> 详细任务见 [todo-archive.md §M2](todo-archive.md#m2-github-action-接入已归档)
 >
-> **M2 已交付**：消费者仓库可通过 `uses: dependfix/dependfix@v1` 一行接入安全告警自动修复。
->
-> ⚠️ **G2 风险**：Dependabot alerts 拉取依赖 token 权限，`GITHUB_TOKEN` 恒 403（App-only 权限），消费者需提供 PAT（`security_events` / `Dependabot alerts: read`）或 GitHub App token。处置任务见 [todo.md G2 处置任务清单](todo.md#g2-github_token-无法访问-dependabot-alerts-api产品设计级限制)。
+> **M2 已交付（2026-08-05 归档）**：消费者仓库可通过 `uses: dependfix/dependfix@v1` 一行接入安全告警自动修复（fix-and-pr 默认、PR 去重、分支清理、分组升级、pnpm audit fallback）。G2 处置闭环：Dependabot alerts 需 PAT（`security_events` / `Dependabot alerts: read`）或 GitHub App token；Code Scanning 对 GITHUB_TOKEN 可访问（T-G2-2 已验证）。
 
 ## M3: Code Scanning 扩展
 
 接入 Code Scanning alerts 标准化采集，建立 A/B/C 三级规则分层，白名单规则自动修复，不可修复问题输出建议。
 
+> 详细任务见 [todo.md §M3](todo.md#m3-code-scanning-扩展)
+>
 > **前置（G2）已解除（2026-08-04 探针验证）**：Code Scanning alerts 对 GITHUB_TOKEN 可访问（HTTP 200，`security-events: read` 即可），M3 无需额外 token 方案；仅 Dependabot alerts 需要 PAT / GitHub App token。
-
-> 详细任务见 [backlog.md §M3](backlog.md)
+>
+> **规划要点（2026-08-05 启动）**：数据源**并行**而非回退（区别于 pnpm-audit）；复用 `SEVERITY_MAP` 的 code-scanning 映射与 fixers/code-scanning stub；G1（PIN_TOOLCHAIN stub）承接为 T305 并行任务。
 
 ## M4: 多仓库治理增强
 
@@ -65,7 +65,7 @@ Changelog / Release Notes 采集、多 AI 提供商封装、AI 研判（问题�
 
 在 M5 完成后交付一个可独立部署的集中管理平台的最小可用版本：仓库管理、凭据管理、手动触发扫描、仪表板、Docker Compose 部署。
 
-> **G2 驱动**：凭据管理须支持 PAT（classic / fine-grained）与 GitHub App 双模型——GITHUB_TOKEN 无法读取 Dependabot alerts，平台扫描必须依赖显式凭据（见 [todo.md G2](todo.md#g2-github_token-无法访问-dependabot-alerts-api产品设计级限制) 方案矩阵）。
+> **G2 驱动**：凭据管理须支持 PAT（classic / fine-grained）与 GitHub App 双模型——GITHUB_TOKEN 无法读取 Dependabot alerts，平台扫描必须依赖显式凭据（见 [todo-archive.md G2 处置记录](todo-archive.md#g2-处置记录-github_token-无法访问-dependabot-alerts) 方案矩阵）。
 
 > 详细任务见 [backlog.md §M6](backlog.md)
 

@@ -154,7 +154,7 @@ permissions:
 
 ## 6. 告警数据源与 Token 策略（G2）
 
-> 完整调研与方案矩阵见 [G2](../plan/todo.md#g2-github_token-无法访问-dependabot-alerts-api产品设计级限制) 与 [调研文档](../research/github-token-dependabot-bug-or-design.md)。
+> 完整调研与方案矩阵见 [G2](../plan/todo-archive.md#g2-处置记录-github_token-无法访问-dependabot-alerts) 与 [调研文档](../research/github-token-dependabot-bug-or-design.md)。
 
 **核心事实**：`GITHUB_TOKEN` **永远无法**访问 Dependabot alerts API——`vulnerability-alerts` 是 GitHub App-only 权限，Actions 权限模型从未支持（故意设计 + 官方文档误导）。
 
@@ -177,7 +177,7 @@ permissions:
 | 场景 | 预期行为 |
 |:---|:---|
 | 仓库无 Dependabot 告警 | 报告输出 0 alerts，workflow 成功退出（exit 0） |
-| `GITHUB_TOKEN` 访问 Dependabot alerts | ⚠️ **恒 403 `Resource not accessible by integration`**：Actions App 无 Dependabot alerts 权限，`permissions: security-events` 无法授予（与官方文档矛盾，社区 #60612 未修复）。必须使用带 `security_events`（classic PAT）/ `Dependabot alerts: read`（fine-grained PAT）或 GitHub App token。详见 [G2](../plan/todo.md#g2-github_token-无法访问-dependabot-alerts-api产品设计级限制) |
+| `GITHUB_TOKEN` 访问 Dependabot alerts | ⚠️ **恒 403 `Resource not accessible by integration`**：Actions App 无 Dependabot alerts 权限，`permissions: security-events` 无法授予（与官方文档矛盾，社区 #60612 未修复）。必须使用带 `security_events`（classic PAT）/ `Dependabot alerts: read`（fine-grained PAT）或 GitHub App token。详见 [G2](../plan/todo-archive.md#g2-处置记录-github_token-无法访问-dependabot-alerts) |
 | 其他 fetch 权限错误（401/403，非 GITHUB_TOKEN 固有限制） | ✅ 已修复（T-G2-1）：CLI 硬失败退出（无成功 → exit 2），错误信息附 token 指引 |
 | pnpm 构建失败 | workflow 在 build 步骤失败，不执行 CLI |
 | CLI 运行超时 | `timeout-minutes: 15` 触发，workflow 被取消 |

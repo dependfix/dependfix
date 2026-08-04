@@ -152,6 +152,25 @@ permissions:
 
 ---
 
+## 6. 告警数据源与 Token 策略（G2）
+
+> 完整调研与方案矩阵见 [G2](../plan/todo.md#g2-github_token-无法访问-dependabot-alerts-api产品设计级限制) 与 [调研文档](../research/github-token-dependabot-bug-or-design.md)。
+
+**核心事实**：`GITHUB_TOKEN` **永远无法**访问 Dependabot alerts API——`vulnerability-alerts` 是 GitHub App-only 权限，Actions 权限模型从未支持（故意设计 + 官方文档误导）。
+
+| 数据源 | Token 要求 | 状态 |
+|:---|:---|:---|
+| Dependabot alerts API | PAT（classic `security_events` / fine-grained `Dependabot alerts: read`）或 GitHub App installation token | 需要消费者提供；GITHUB_TOKEN 不可用 |
+| Code Scanning alerts API | `security-events: read`（GITHUB_TOKEN 应可用，待验证） | 验证后确定策略 |
+| pnpm audit（fallback） | 无 | 本地数据源候选：`pnpm audit --json` 归一化接入（severity 映射 + alert 结构映射 + 去重，参考 security-alert-remediator 的 `collect-security-alerts.mjs`） |
+
+**设计原则**：
+- action 文档必须明确告知消费者：Dependabot alerts 需要 PAT / GitHub App token，仅给 GITHUB_TOKEN 会静默空跑
+- fetch 阶段 401/403 不应被当作"无告警"（待修，G2 方向 2）
+- pnpm audit 回退（若采纳）标注数据源，不与 GitHub API 数据混同去重
+
+---
+
 ## 7. 边界与异常处理
 
 | 场景 | 预期行为 |

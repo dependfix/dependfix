@@ -321,12 +321,32 @@ T109 ─→ T205（AI Token 支持）→ T206（Prompt 注入防护）
   1. 本仓库 dogfooding workflow（`secrets.GITHUB_TOKEN`）无法获取 Dependabot alerts，空跑且无感知
   2. 产品设计：`uses: dependfix/dependfix@v1` 消费者若按现有文档引导使用 GITHUB_TOKEN，同样拉不到 Dependabot alerts——action 必须要求具备 Dependabot alerts 权限的 PAT / GitHub App token，或调整告警获取途径
   3. CLI 错误处理缺陷：fetch 403 被当作"无告警"吞掉并以 exitCode 0 结束（与 `github-action-workflow.md` §7 声明"PERMISSION_DENIED → workflow 失败"不符）
+- **调研结论**（2026-08-04，详见 [docs/research/github-token-dependabot-bug-or-design.md](../research/github-token-dependabot-bug-or-design.md) 交叉验证）:
+  - ✅ **本质是故意设计**：`vulnerability-alerts` 是 **GitHub App-only 权限**，Actions 工作流 `permissions:` 键列表根本不含该权限（[gh-aw #22707](https://github.com/github/gh-aw/issues/22707)）；Actions 内置应用无该权限配置位（[#60612](https://github.com/orgs/community/discussions/60612) zaataylor 权威解释）；GitHub 对 Dependabot 相关令牌有系统性收紧历史（2021-02 起 Dependabot PR 触发 workflow 只读 + 无 secrets）
+  - ⚠️ **同时是文档缺陷**：官方 REST 文档声称 PAT 需 `security_events` scope，暗示 Actions `security-events` 权限同样可用，实际对 Actions token 无效，多年未澄清（文档 bug）
+  - 🔭 官方 roadmap 无开放迹象，短期不会让 GITHUB_TOKEN 获得该权限
+- **解决方案矩阵**（GITHUB_TOKEN 权限不足的替代路径）:
+
+| 方案 | 认证方式 | 优点 | 缺点/注意 | 适用场景 |
+|:---|:---|:---|:---|:---|
+| A. PAT（classic） | `security_events` scope（`repo` 内含） | 配置最简单；用户现有 token 可直接用 | 长期凭证；classic 权限面大 | 个人仓库快速启用 |
+| B. PAT（fine-grained） | `Dependabot alerts: read`（仓库级） | 权限最小化、仓库限定、只读 | 需在 UI 创建并配置 | 个人/组织仓库推荐 |
+| C. GitHub App installation token | App 配 `Dependabot alerts: read`，workflow 用 `actions/create-github-app-token`（app-id + private-key secrets）交换短期 token | 短时效、最小权限、可审计、无个人凭证 | 需创建 App + 管理私钥 secret，配置成本高 | 组织级/生产级部署（M6 平台化候选） |
+| D. pnpm audit fallback | 本地 `pnpm audit --json`，无 token | 零凭证、本地可跑、非 GitHub 仓库也可用、可离线审计 | 只覆盖依赖漏洞（无 Code Scanning）；统计口径与 Dependabot 不同（advisory 数据库/解析方式/告警状态模型不同），需归一化 | CLI 本地模式 / 无 token 回退（见下） |
+| E. OSV-Scanner | 本地扫描 lockfile（Google OSV 数据库） | 无 token、跨生态 | 额外工具依赖；同样口径不同需归一 | 备选数据源（未定） |
+| ~~GraphQL vulnerabilityAlerts~~ | — | — | 对 Actions token 返回空结果，不可靠 | 不采用 |
+
+  - **pnpm audit 归一化参考**（security-alert-remediator skill 的 `collect-security-alerts.mjs` 已有成熟实现）：
+    - severity 归一：`info/note/low/warning/moderate/medium/high/error/critical` → GitHub 模型（`low/medium/high/critical`，warning→medium、error→high）
+    - 结构映射：audit 风险 → Dependabot alert 结构（`alertNumber: audit:<pkg>:<advisoryId>`、`severity`、`patchAvailable`、`patchedVersion`、`state: open`、`summary`）
+    - 去重：key = `packageName:advisoryId:severity`，paths 合并；兼容 legacy（`advisories`/`actions`）与 modern（`vulnerabilities`/`via`）两种 audit 输出格式
 - **候选调整方向**（未定，需决策）:
-  - A. workflow / action 要求 fine-grained PAT（`Dependabot alerts: read`）或 GitHub App token，文档明确 GITHUB_TOKEN 限制
-  - B. CLI fetch 阶段 401/403 改为硬失败（非零退出 + 明确错误信息），杜绝静默空跑
-  - C. 验证 Code Scanning alerts 是否 GITHUB_TOKEN 可访问，决定两类告警的 token 策略
-- **下一步**: 用户确认 token 方案（PAT secret / GitHub App）→ 调整 workflow + action 文档；补 CLI 403 硬失败处理
-- **发现来源**: Security Auto Fix dogfooding run 30844997175（2026-08-03）
+  - 1. token 方案选择：A（最快）/ B（推荐个人）/ C（生产级）——决定后改 `security-auto-fix.yml` + `action.yml` 输入描述 + README
+  - 2. CLI fetch 阶段 401/403 改为硬失败（非零退出 + 明确错误信息），杜绝静默空跑
+  - 3. CLI 增加无 token 回退路径：`GITHUB_TOKEN` 缺失/403 时自动尝试 `pnpm audit`（归一化后进入同一告警流水线）——需确认统计口径差异的处置策略（报告标注数据源、不混合同源去重）
+  - 4. 验证 Code Scanning alerts 是否 GITHUB_TOKEN 可访问，决定两类告警的 token 策略
+- **下一步**: 用户确认 token 方案与 pnpm audit 回退是否纳入 → 调整 workflow + action 文档；补 CLI 403 硬失败处理
+- **发现来源**: Security Auto Fix dogfooding run 30844997175（2026-08-03）；交叉验证调研（2026-08-04）
 
 ---
 

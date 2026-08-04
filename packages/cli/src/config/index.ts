@@ -19,6 +19,13 @@ export interface RuntimeConfig {
     /** fix-and-pr 模式下结束后是否列出已合并的 dependfix 分支到报告（不自动删除） */
     cleanupBranches: boolean
     githubToken: string
+    /**
+     * Dependabot alerts 专用 token（可选）。
+     * 提供时仅用于拉取 Dependabot alerts（G2：GITHUB_TOKEN 无法读取该 API，
+     * 建议使用最小权限 fine-grained PAT，仅 `Dependabot alerts: read`）；
+     * 缺省时回退使用 githubToken（本地完整 PAT 场景）。
+     */
+    alertsToken?: string
     maxAlertsPerRepository: number
 }
 
@@ -34,6 +41,8 @@ export interface CliConfigOverrides {
     /** fix-and-pr 模式下结束后是否列出已合并的 dependfix 分支到报告 */
     cleanupBranches?: boolean
     githubToken?: string
+    /** Dependabot alerts 专用 token（可选，最小权限；缺省回退 githubToken） */
+    alertsToken?: string
     maxAlertsPerRepository?: number
     /** 是否输出详细日志 */
     verbose?: boolean
@@ -141,6 +150,7 @@ export function readEnvConfig(env: NodeJS.ProcessEnv = process.env): CliConfigOv
         commit: normalizeBoolean(env.AUTO_FIX_GITHUB_SECURITY_COMMIT, 'AUTO_FIX_GITHUB_SECURITY_COMMIT'),
         cleanupBranches: normalizeBoolean(env.AUTO_FIX_GITHUB_SECURITY_CLEANUP_BRANCHES, 'AUTO_FIX_GITHUB_SECURITY_CLEANUP_BRANCHES'),
         githubToken: env.AUTO_FIX_GITHUB_SECURITY_GITHUB_TOKEN?.trim() || env.GITHUB_TOKEN?.trim() || undefined,
+        alertsToken: env.AUTO_FIX_GITHUB_SECURITY_ALERTS_TOKEN?.trim() || undefined,
         maxAlertsPerRepository: normalizeInteger(env.AUTO_FIX_GITHUB_SECURITY_MAX_ALERTS_PER_REPOSITORY, 'AUTO_FIX_GITHUB_SECURITY_MAX_ALERTS_PER_REPOSITORY'),
     }
 }
@@ -265,6 +275,7 @@ export function resolveRuntimeConfig(options: ResolveRuntimeConfigOptions = {}):
         commit: resolveCommit(cliOverrides, envConfig),
         cleanupBranches: resolveCleanupBranches(cliOverrides, envConfig),
         githubToken: cliOverrides.githubToken ?? envConfig.githubToken ?? '',
+        alertsToken: cliOverrides.alertsToken ?? envConfig.alertsToken,
         maxAlertsPerRepository: cliOverrides.maxAlertsPerRepository ?? envConfig.maxAlertsPerRepository ?? DEFAULT_RUNTIME_CONFIG.maxAlertsPerRepository,
     }
 

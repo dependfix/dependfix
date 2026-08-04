@@ -80,6 +80,10 @@ const argsDef = {
         type: 'string' as const,
         description: 'GitHub Personal Access Token',
     },
+    'alerts-token': {
+        type: 'string' as const,
+        description: 'Dependabot alerts 专用 token（可选，最小权限 PAT，仅 Dependabot alerts: read；缺省回退 --github-token。G2：GITHUB_TOKEN 无法读取 Dependabot alerts）',
+    },
     'max-alerts-per-repository': {
         type: 'string' as const,
         description: '每个仓库最多处理的告警数',
@@ -188,6 +192,12 @@ function parsedArgsToCliOverrides(parsed: ParsedArgs<typeof argsDef>): CliConfig
     const githubToken = parsed['github-token']
     if (githubToken) {
         overrides.githubToken = githubToken
+    }
+
+    // alerts-token
+    const alertsToken = parsed['alerts-token']
+    if (alertsToken) {
+        overrides.alertsToken = alertsToken
     }
 
     // max-alerts-per-repository

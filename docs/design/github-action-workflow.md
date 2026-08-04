@@ -144,9 +144,9 @@ permissions:
 
 | 维度 | 措施 |
 |:---|:---|
-| Token 暴露 | 通过 `inputs.github-token` 传入，仅在 `env` 中使用 |
+| Token 暴露 | 通过 `inputs.github-token` / `inputs.dependabot-alerts-token` 传入，仅在 `env` 中使用（alerts token 不经命令行，避免进程列表泄露） |
 | 输出脱敏 | `sanitizeOutput()` 过滤敏感信息 |
-| 权限最小化 | 消费者按需配置 permissions |
+| 权限最小化 | 消费者按需配置 permissions；Dependabot alerts 用最小权限专用 token（G2 双 token 设计） |
 | Action 来源 | 固定版本标签（`@v1`），避免跟踪 `@master` |
 | Prompt 防护 | 见 T206（M2 后续） |
 
@@ -165,6 +165,7 @@ permissions:
 | pnpm audit（fallback） | 无 | 本地数据源候选：`pnpm audit --json` 归一化接入（severity 映射 + alert 结构映射 + 去重，参考 security-alert-remediator 的 `collect-security-alerts.mjs`） |
 
 **设计原则**：
+- ✅ 双 token 设计已落地（T-G2-3）：`dependabot-alerts-token` input（最小权限 fine-grained PAT，仅 `Dependabot alerts: read`）经 env 传递，CLI 内 fetch alerts 用专用 client，其余操作走 `github-token`（GITHUB_TOKEN）；缺省回退主 token
 - action 文档必须明确告知消费者：Dependabot alerts 需要 PAT / GitHub App token，仅给 GITHUB_TOKEN 会静默空跑
 - ✅ fetch 阶段 401/403 已硬失败（T-G2-1，commit a9e61b8）：退出码非零（无成功 → 2）+ `dependabotAlertsTokenHint` 指引
 - pnpm audit 回退（若采纳）标注数据源，不与 GitHub API 数据混同去重

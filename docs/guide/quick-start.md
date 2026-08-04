@@ -117,6 +117,11 @@ jobs:
           mode: fix-and-pr
           severity-threshold: high
           github-token: ${{ secrets.GITHUB_TOKEN }}
+          # ⚠️ G2：GITHUB_TOKEN 无法读取 Dependabot alerts API（GitHub App-only 权限，恒 403）。
+          # 需配置最小权限 fine-grained PAT（仅 Dependabot alerts: read）作为专用 token：
+          # GitHub → Settings → Developer settings → Personal access tokens → Fine-grained tokens，
+          # Repository permissions → Dependabot alerts → Read-only。
+          dependabot-alerts-token: ${{ secrets.GH_PAT }}
 ```
 
 > **⚠️ 破坏性变更（v0.2 起）**：Action 默认 `mode` 由 `report-only` 改为 `fix-and-pr`（`dry-run` 默认由 `true` 改为 `false`）。存量消费者未显式传参时，行为从"仅生成报告"变为"自动创建修复分支与 PR"（PR 不自动合并，可安全审查）。需要仅报告时可显式传 `mode: report-only` 或 `dry-run: true`。迁移后请确认 workflow `permissions` 已包含 `contents: write` + `pull-requests: write`（见上方示例）。
@@ -131,7 +136,8 @@ jobs:
 | `dry-run` | 否 | `false` | 试运行模式（Action 默认自动修复并提 PR；CLI 本地默认仅报告，即 report-only 下 dry-run=true） |
 | `max-alerts-per-repository` | 否 | `10` | 每仓库最大告警数 |
 | `cleanup-branches` | 否 | `false` | （fix-and-pr 模式）结束后将已合并的 dependfix 分支列入报告待清理清单（不自动删除） |
-| `github-token` | 是 | — | GitHub Token |
+| `github-token` | 是 | — | GitHub Token（commit/push/PR 等操作；Dependabot alerts 读取不可用，见下行） |
+| `dependabot-alerts-token` | 否 | `''` | Dependabot alerts 专用最小权限 token（fine-grained PAT，仅 `Dependabot alerts: read`；缺省回退 `github-token`。G2：GITHUB_TOKEN 恒 403） |
 | `ai-api-token` | 否 | `''` | AI API Token（M5 联调） |
 | `ai-api-base-url` | 否 | `''` | AI API Base URL（M5 联调） |
 
@@ -151,6 +157,7 @@ jobs:
 | `--repo` | `-r`, `--repository`, `--repositories` | 目标仓库（`owner/repo`）。在 git 仓库内可自动推断 | — |
 | `--repos-file` | — | 从文件读取仓库列表（每行一个） | — |
 | `--github-token` | — | GitHub PAT | `GITHUB_TOKEN` 环境变量 |
+| `--alerts-token` | — | Dependabot alerts 专用最小权限 token（可选，仅 `Dependabot alerts: read`；缺省回退 `--github-token`。G2：GITHUB_TOKEN 无法读取 Dependabot alerts） | `AUTO_FIX_GITHUB_SECURITY_ALERTS_TOKEN` 环境变量 |
 | `--severity-threshold` | — | `critical` / `high` / `medium` / `all` | `high` |
 | `--dry-run` | — | 试运行，不写入文件。report-only 模式默认 `true` | `false`（fix/fix-and-pr） |
 | `--create-pr` | — | 创建 Pull Request | `false` |

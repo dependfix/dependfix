@@ -71,9 +71,14 @@ jobs:
           mode: fix-and-pr
           severity-threshold: high
           github-token: ${{ secrets.GITHUB_TOKEN }}
+          # ⚠️ G2：GITHUB_TOKEN 无法读取 Dependabot alerts API（GitHub App-only 权限）。
+          # 建议配置最小权限 fine-grained PAT（仅 Dependabot alerts: read）：
+          # GitHub → Settings → Developer settings → Fine-grained tokens，
+          # Repository permissions → Dependabot alerts → Read-only。
+          dependabot-alerts-token: ${{ secrets.GH_PAT }}
 ```
 
-> `fix-and-pr` 模式需要 `contents: write` + `pull-requests: write` 权限。仅 `report-only` 模式可降为只读。
+> `fix-and-pr` 模式需要 `contents: write` + `pull-requests: write` 权限。仅 `report-only` 模式可降为只读。`dependabot-alerts-token` 缺省时回退使用 `github-token`（本地完整 PAT 场景可用）。
 
 ## CLI 参数
 
@@ -83,6 +88,7 @@ jobs:
 | `--repo`, `-r` | 目标仓库（`owner/repo`），逗号分隔多个 | — |
 | `--repos-file` | 从文件读取仓库列表（每行一个） | — |
 | `--github-token` | GitHub Personal Access Token | `GITHUB_TOKEN` 环境变量 |
+| `--alerts-token` | Dependabot alerts 专用最小权限 token（可选，仅 `Dependabot alerts: read`；缺省回退 `--github-token`。G2：GITHUB_TOKEN 无法读取 Dependabot alerts） | `AUTO_FIX_GITHUB_SECURITY_ALERTS_TOKEN` 环境变量 |
 | `--severity-threshold` | 严重级别阈值：`critical` / `high` / `medium` / `all` | `high` |
 | `--dry-run` | 试运行，不实际修改文件（report-only 模式默认 `true`） | 依模式而定 |
 | `--create-pr` | 创建 Pull Request（fix-and-pr 模式自动启用） | `false` |

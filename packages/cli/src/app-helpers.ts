@@ -65,7 +65,7 @@ export function dependabotAlertsTokenHint(error: unknown): string | null {
         return '请检查 token 是否具备 Dependabot alerts 读取权限（classic PAT 需 security_events、fine-grained 需 Dependabot alerts: read、GitHub App 需对应仓库权限；Actions 默认 GITHUB_TOKEN 永远无法获得）'
     }
     if (error.code === 'AUTHENTICATION_FAILED') {
-        return 'token 无效或已过期，请检查 GITHUB_TOKEN 配置'
+        return 'token 无效或已过期，请检查 GITHUB_TOKEN / alertsToken 配置'
     }
     return null
 }

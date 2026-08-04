@@ -36,6 +36,10 @@ inputs:
   github-token:
     description: 'GitHub Token（需 security-events 权限；fix-and-pr 模式需 contents + pull-requests 写权限）'
     required: true
+  dependabot-alerts-token:
+    description: 'Dependabot alerts 专用 token（可选，最小权限 fine-grained PAT，仅需 Dependabot alerts: read；缺省回退 github-token。G2：GITHUB_TOKEN 无法读取 Dependabot alerts API，仅给 GITHUB_TOKEN 会拉取失败）'
+    required: false
+    default: ''
   # ── M5 AI 引擎联调骨架 ──
   ai-api-token:
     description: 'AI API Token（M5 联调启用，通过 GitHub Secrets 传入）'
@@ -97,6 +101,8 @@ runs:
       shell: bash
       env:
         GITHUB_TOKEN: ${{ inputs.github-token }}
+        # G2：Dependabot alerts 专用最小权限 token（经环境变量传递，避免出现在进程列表）
+        AUTO_FIX_GITHUB_SECURITY_ALERTS_TOKEN: ${{ inputs.dependabot-alerts-token }}
         # M5: AI engine — passed to CLI when available
         AI_API_TOKEN: ${{ inputs.ai-api-token }}
         AI_API_BASE_URL: ${{ inputs.ai-api-base-url }}

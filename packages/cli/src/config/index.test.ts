@@ -65,6 +65,51 @@ describe('resolveRuntimeConfig', () => {
         expect(() => resolveRuntimeConfig({ env: {} })).toThrow('Missing GitHub token')
     })
 
+    it('reads alertsToken from env (G2: Dependabot alerts 专用最小权限 token)', () => {
+        const config = resolveRuntimeConfig({
+            env: {
+                GITHUB_TOKEN: 'token-from-env',
+                AUTO_FIX_GITHUB_SECURITY_REPOSITORIES: 'owner/repo-a',
+                AUTO_FIX_GITHUB_SECURITY_ALERTS_TOKEN: 'github_pat_alerts_only',
+            },
+        })
+
+        expect(config.alertsToken).toBe('github_pat_alerts_only')
+        expect(config.githubToken).toBe('token-from-env')
+    })
+
+    it('lets cli alerts-token override env alertsToken', () => {
+        const invocation = parseCliArgs([
+            'report-only',
+            '--github-token',
+            'token-from-cli',
+            '--alerts-token',
+            'alerts-from-cli',
+        ])
+
+        const config = resolveRuntimeConfig({
+            env: {
+                GITHUB_TOKEN: 'token-from-env',
+                AUTO_FIX_GITHUB_SECURITY_REPOSITORIES: 'owner/repo-a',
+                AUTO_FIX_GITHUB_SECURITY_ALERTS_TOKEN: 'alerts-from-env',
+            },
+            cliOverrides: invocation.configOverrides,
+        })
+
+        expect(config.alertsToken).toBe('alerts-from-cli')
+    })
+
+    it('leaves alertsToken undefined when not provided (fallback to githubToken)', () => {
+        const config = resolveRuntimeConfig({
+            env: {
+                GITHUB_TOKEN: 'token-from-env',
+                AUTO_FIX_GITHUB_SECURITY_REPOSITORIES: 'owner/repo-a',
+            },
+        })
+
+        expect(config.alertsToken).toBeUndefined()
+    })
+
     it('rejects invalid create pr combinations', () => {
         expect(() => resolveRuntimeConfig({
             env: {

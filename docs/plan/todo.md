@@ -351,7 +351,7 @@ T109 ─→ T205（AI Token 支持）→ T206（Prompt 注入防护）
 - **处置任务清单**（状态化，按优先级）:
   - [x] T-G2-1 CLI fetch 阶段 401/403 硬失败（P0，杜绝静默空跑）——已完成：移除 fix-and-pr stub 退出码特判（fetch 403 → exit 2）；report-only/fix/fix-and-pr catch 均附加 dependabotAlertsTokenHint 指引（commit a9e61b8）
   - [x] T-G2-2 Code Scanning alerts 对 GITHUB_TOKEN 可访问性验证（P0，决定 M3 前置与文档口径）——已完成（探针 run 30903220726）：`code-scanning/alerts` → **HTTP 200**（GITHUB_TOKEN + `security-events: read` 可用）；`dependabot/alerts` → HTTP 403 对照确认。**M3 可沿用 GITHUB_TOKEN，无需额外 token 方案**
-  - [ ] T-G2-3 token 方案决策与落地：security-auto-fix.yml + action.yml 输入描述 + README 消费者引导（P0，待用户决策 PAT / GitHub App）
+  - [x] T-G2-3 token 方案决策与落地（P0）——已完成（方案 A + 双 token 设计）：CLI 新增 `alertsToken`（`--alerts-token` / `AUTO_FIX_GITHUB_SECURITY_ALERTS_TOKEN`，缺省回退主 token），fetch Dependabot alerts 专用 client；action.yml 新增 `dependabot-alerts-token` input（经 env 传递，避免进程列表泄露）；security-auto-fix.yml 传 `secrets.GH_PAT`。**待用户操作**：创建 fine-grained PAT（仅 `Dependabot alerts: read`）并配置仓库 secret `GH_PAT`——未配置前本仓库每周 schedule 的 Security Auto Fix 会显式失败（exit 2）提醒配置。GitHub App 方案留待 M6 平台化时评估
   - [ ] T-G2-4 pnpm audit fallback 设计评估：无 token 本地回退，口径归一化与数据源标注策略（P1）
   - [x] T-G2-5 规划文档闭环：roadmap M2 风险注记 / M3 前置 / M6 凭据双模型、backlog T301 / T602 调整（P1）——已完成（commit b6d04ad）
 - **发现来源**: Security Auto Fix dogfooding run 30844997175（2026-08-03）；交叉验证调研（2026-08-04）

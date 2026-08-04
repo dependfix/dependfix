@@ -188,17 +188,18 @@ export class DependfixApp {
 
     private async executeReportMode(): Promise<void> {
         const client = this.createClient()
+        const alertsClient = this.createAlertsClient()
         for (const repo of this.config.repositories) {
-            await this.processRepoForReport(client, repo)
+            await this.processRepoForReport(client, alertsClient, repo)
         }
     }
 
-    private async processRepoForReport(client: Octokit, repo: string): Promise<void> {
+    private async processRepoForReport(client: Octokit, alertsClient: Octokit, repo: string): Promise<void> {
         const startTime = Date.now()
         const [owner, name] = repo.split('/')
 
         try {
-            const alerts = await fetchDependabotAlerts(client, { owner, repo: name })
+            const alerts = await fetchDependabotAlerts(alertsClient, { owner, repo: name })
             const { filtered } = filterAlerts(alerts, { severityThreshold: this.config.severityThreshold })
             const prioritized = prioritizeAlerts(filtered)
             const { limited } = limitAlerts(prioritized, this.config.maxAlertsPerRepository)
@@ -247,8 +248,9 @@ export class DependfixApp {
 
     private async executeFixMode(): Promise<void> {
         const client = this.createClient()
+        const alertsClient = this.createAlertsClient()
         for (const repo of this.config.repositories) {
-            await this.processRepoForFix(client, repo)
+            await this.processRepoForFix(client, alertsClient, repo)
         }
 
         // 修复完成后，按需在本地当前分支直接提交（不推送、不创建 PR）
@@ -268,7 +270,7 @@ export class DependfixApp {
         }
     }
 
-    private async processRepoForFix(client: Octokit, repo: string): Promise<void> {
+    private async processRepoForFix(client: Octokit, alertsClient: Octokit, repo: string): Promise<void> {
         const startTime = Date.now()
         const [owner, name] = repo.split('/')
         let alertsCount = 0
@@ -280,8 +282,8 @@ export class DependfixApp {
         let defaultBranch = ''
 
         try {
-            // 1. Fetch alerts
-            const rawAlerts = await fetchDependabotAlerts(client, { owner, repo: name })
+            // 1. Fetch alerts（G2：使用 alertsClient，主 token 可能无法读取 Dependabot alerts）
+            const rawAlerts = await fetchDependabotAlerts(alertsClient, { owner, repo: name })
             const { filtered } = filterAlerts(rawAlerts, { severityThreshold: this.config.severityThreshold })
             const prioritized = prioritizeAlerts(filtered)
             const { limited } = limitAlerts(prioritized, this.config.maxAlertsPerRepository)
@@ -363,10 +365,11 @@ export class DependfixApp {
      */
     private async executeFixAndPrMode(): Promise<void> {
         const client = this.createClient()
+        const alertsClient = this.createAlertsClient()
 
         // 1. Run fix pipeline for all repos (same as fix mode)
         for (const repo of this.config.repositories) {
-            await this.processRepoForFix(client, repo)
+            await this.processRepoForFix(client, alertsClient, repo)
         }
 
         // 1.5 Optional: report merged dependfix branches for manual cleanup.
@@ -592,8 +595,17 @@ export class DependfixApp {
     // GitHub helpers
     // -----------------------------------------------------------------------
 
-    private createClient(): Octokit {
-        return createGitHubClient({ token: this.config.githubToken })
+    private createClient(token: string = this.config.githubToken): Octokit {
+        return createGitHubClient({ token })
+    }
+
+    /**
+     * 拉取 Dependabot alerts 使用的 client（G2 双 token 设计）：
+     * 优先使用 `alertsToken`（最小权限：仅 Dependabot alerts: read），
+     * 缺省回退主 token（本地完整 PAT 场景）。
+     */
+    private createAlertsClient(): Octokit {
+        return this.createClient(this.config.alertsToken || this.config.githubToken)
     }
 
     /**

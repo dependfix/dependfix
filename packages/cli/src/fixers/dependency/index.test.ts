@@ -18,6 +18,7 @@ import {
     overrideTransitiveDependency,
     extractPrefix,
     parseMajorVersion,
+    compareSemver,
     findDependencyVersion,
     readLockfileVersion,
     ensurePnpmOverrides,
@@ -132,6 +133,33 @@ describe('parseMajorVersion', () => {
 
     it('handles version with leading spaces', () => {
         expect(parseMajorVersion('  ^5.1.0')).toBe(5)
+    })
+
+    describe('compareSemver', () => {
+        it('returns positive when a > b', () => {
+            expect(compareSemver('4.18.0', '4.17.21')).toBeGreaterThan(0)
+            expect(compareSemver('5.0.0', '4.99.99')).toBeGreaterThan(0)
+            expect(compareSemver('1.2.3', '1.2.2')).toBeGreaterThan(0)
+        })
+
+        it('returns negative when a < b', () => {
+            expect(compareSemver('5.4.20', '6.4.3')).toBeLessThan(0)
+            expect(compareSemver('1.2.2', '1.2.3')).toBeLessThan(0)
+        })
+
+        it('returns 0 when equal', () => {
+            expect(compareSemver('1.2.3', '1.2.3')).toBe(0)
+            expect(compareSemver('v1.2.3', '1.2.3')).toBe(0)
+        })
+
+        it('ignores pre-release suffix', () => {
+            expect(compareSemver('1.0.0-beta', '1.0.0')).toBe(0)
+        })
+
+        it('treats unparseable versions as 0 segments (conservative)', () => {
+            expect(compareSemver('latest', '0.0.0')).toBe(0)
+            expect(compareSemver('latest', '1.0.0')).toBeLessThan(0)
+        })
     })
 })
 

@@ -334,6 +334,36 @@ export function parseMajorVersion(version: string): number {
 }
 
 /**
+ * 比较两个语义化版本（`x.y.z`，可选 pre-release 后缀）。
+ *
+ * - `a > b` 返回正数，`a < b` 返回负数，相等返回 0
+ * - 非 semver 字符串按 0 处理（保守：不参与大小比较）
+ * - 仅比较主/次/补丁段，pre-release 后缀忽略（如 `1.0.0-beta` 视为 `1.0.0`）
+ *
+ * @example
+ * compareSemver('4.18.0', '4.17.21')  // 1
+ * compareSemver('5.4.20', '6.4.3')    // -1
+ * compareSemver('1.2.3', '1.2.3')     // 0
+ */
+export function compareSemver(a: string, b: string): number {
+    const parse = (v: string): number[] => {
+        const match = /^v?(\d+)\.(\d+)\.(\d+)/.exec(v.trim())
+        return match ? [Number.parseInt(match[1], 10), Number.parseInt(match[2], 10), Number.parseInt(match[3], 10)] : [0, 0, 0]
+    }
+
+    const [aMajor, aMinor, aPatch] = parse(a)
+    const [bMajor, bMinor, bPatch] = parse(b)
+
+    if (aMajor !== bMajor) {
+        return aMajor - bMajor
+    }
+    if (aMinor !== bMinor) {
+        return aMinor - bMinor
+    }
+    return aPatch - bPatch
+}
+
+/**
  * 在 `package.json` 的 `dependencies` / `devDependencies` / `optionalDependencies` 中按顺序查找包。
  */
 export function findDependencyVersion(

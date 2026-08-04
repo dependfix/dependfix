@@ -1,3 +1,4 @@
+import { join } from 'node:path'
 import type { Octokit } from '@octokit/rest'
 import {
     createLogger,
@@ -22,6 +23,8 @@ import { enforceVerificationGate } from './verification-gate'
 import { fetchDependabotAlerts } from './github/dependabot-fetcher'
 import { createFixBranch, stageAndCommit, pushBranch, createPullRequest, generatePRBody, computeFixFingerprint, computeFixAndPrPlan, findDependfixOpenPR, listDependfixBranches, getBranchPrStatus, deleteRemoteBranch, type DependfixBranchStatus } from './github/pr-creator'
 import type { RuntimeConfig } from './config'
+import { compareSemver, readLockfileVersion } from './fixers/dependency'
+import { dedupeFixableAlerts, snapshotTrackedFiles, restoreTrackedFiles, quickVerifyProject } from './fix-helpers'
 import {
     buildCommitMessage,
     type AppContext,
@@ -306,16 +309,62 @@ export class DependfixApp {
 
             this.allAlerts.push(...limited)
 
-            // 2. Upgrade fixable dependencies
-            const fixableAlerts = limited.filter((a) => a.fixable && a.recommendedVersion)
+            // 2. Upgrade fixable dependencies（G3 同包收敛 + 逐包验证回滚）
+            // - 同包多个 alerts 去重，取最高 recommendedVersion（避免互相覆盖/降级）
+            // - 当前版本已 >= 目标版本时跳过（不降级保护）
+            // - 每包升级后快速验证（lint）；失败仅回滚该包（文件快照），继续下一包
+            const fixableAlerts = dedupeFixableAlerts(
+                limited.filter((a) => a.fixable && a.recommendedVersion),
+            )
+            const lockfilePath = join(this.workDir, 'pnpm-lock.yaml')
+
+            let snapshot = snapshotTrackedFiles(this.workDir)
             for (const alert of fixableAlerts) {
+                const currentVersion = readLockfileVersion(lockfilePath, alert.packageName)
+                if (currentVersion && compareSemver(currentVersion, alert.recommendedVersion) >= 0) {
+                    this.logger.info(
+                        `Skipping ${alert.packageName}: current ${currentVersion} >= target ${alert.recommendedVersion} (no upgrade needed)`,
+                    )
+                    this.summary.alertsSkipped++
+                    continue
+                }
+                if (currentVersion === null) {
+                    // lockfile 格式非 v9（pnpm <9 / peer 后缀条目）时无法解析当前版本，
+                    // 不降级保护失效——warn 提示（G3 遗留：P2-1）
+                    this.logger.warn(
+                        `Could not resolve current version of ${alert.packageName} from lockfile — no-downgrade protection inactive`,
+                    )
+                }
+
                 const action = await upgradeAlert(this.ctx, alert)
                 this.allActions.push(action)
-                if (action.success) {
-                    fixed++
-                } else {
+                if (!action.success) {
                     failed++
+                    continue
                 }
+
+                if (this.config.dryRun) {
+                    // dry-run 无实际文件改动，跳过逐包验证
+                    fixed++
+                    continue
+                }
+
+                // 逐包快速验证：lint 失败 → 仅回滚该包改动，保留此前成功的升级
+                const quickOk = await quickVerifyProject(this.ctx, repo)
+                if (!quickOk) {
+                    restoreTrackedFiles(this.workDir, snapshot)
+                    this.logger.warn(
+                        `Rolled back ${alert.packageName} upgrade: lint failed after upgrade (per-package verification)`,
+                    )
+                    action.success = false
+                    action.error = 'lint failed after upgrade; per-package verification failed, changes rolled back'
+                    failed++
+                    continue
+                }
+
+                fixed++
+                // 更新快照基线：后续包的失败回滚不应影响本包
+                snapshot = snapshotTrackedFiles(this.workDir)
             }
 
             // Track skipped (non-fixable) alerts

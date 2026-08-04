@@ -380,11 +380,20 @@ T109 ─→ T205（AI Token 支持）→ T206（Prompt 注入防护）
 
 ### G3 overrides 缺少"锁定大版本"的覆盖策略（待分析）
 
-- **状态**: 🟡 待分析（2026-08-04 登记，未排期）
-- **位置**: `packages/cli/src/fixers/dependency/index.ts`（overrideTransitiveDependency）
+- **状态**: ✅ 已处理（2026-08-04）：同包收敛 + 不降级保护 + 逐包验证回滚；"大版本锁定/跨 major 确认"策略仍待 M3+ 深入（见下方遗留）
+- **位置**: `packages/cli/src/fix-helpers.ts`（dedupeFixableAlerts）、`packages/cli/src/app.ts`（processRepoForFix 升级循环）、`packages/cli/src/fixers/dependency/index.ts`（compareSemver）
 - **问题**: 当前 `pnpm overrides` 修复路径（间接依赖）直接写入告警建议的补丁版本（如 `fast-uri: ^3.1.5`），但**未处理"需锁定大版本"的场景**——当某个间接依赖的修复涉及 major 版本跨越、或多个直接依赖对同一包有不同版本约束时，overrides 需要显式锁定/对齐大版本，否则可能与其他依赖的 peer/版本约束冲突，或升级后引入破坏性变更
-- **证据**: Security Auto Fix run 30910749960（2026-08-04）：fast-uri 连续 7 次 override 升级（^3.1.5 → ^3.1.1 逐个告警处理）、vite 连续 13 次升降级（^8.2.0 → ^6.4.3 → ... → ^5.4.20）——同包多次重复处理、且出现降级（downgrade）与来回抖动，说明 overrides 策略缺少"一次锁定/收敛到合理版本"的机制
-- **下一步**: 分析 override 版本收敛策略（如：同包多告警取最高补丁版本一次写入、major 跨越需人工确认或配置锁定大版本、避免降级）
+- **证据**: Security Auto Fix run 30910749960（2026-08-04）：fast-uri 连续 7 次 override 升级（^3.1.5 → ^3.1.1 逐个告警处理）、vite 连续 13 次升降级（^8.2.0 → ^6.4.3 → ... → ^5.4.20）——同包多次重复处理、且出现降级（downgrade）与来回抖动
+- **已落地处理**（2026-08-04）:
+  - `dedupeFixableAlerts`：同包多个 alerts 去重，取最高 recommendedVersion（一次升级满足所有告警，消除互相覆盖）
+  - 不降级保护：当前 lockfile 版本 >= 目标版本时跳过升级
+  - 逐包升级 + 快速验证（lint）+ 文件快照回滚：单包失败仅回滚该包，不再"一个包失败全部回滚"
+- **遗留（后续）**:
+  - major 跨越的 overrides 是否需要显式大版本锁定/人工确认；多直接依赖同包不同版本约束的对齐策略
+  - 不降级保护对 pnpm <9 / peer 后缀 lockfile 条目失效（lockfile 正则无法解析当前版本；已加 warn 提示，兜底解析待实现）
+  - 报告统计口径：`alertsSkipped` 混合"不可修复 / 同包收敛 / 无需升级"三种语义，Fixable 与 Fixed+Failed+Skipped 不对账，需独立字段（如 alertsConverged）
+  - 升级循环集成测试（包 A 成功 → 包 B 失败回滚 → A 保留）待补
+  - pre-release 版本比较相等时可能误跳过（低概率，first_patched_version 通常为正式版）
 - **发现来源**: Security Auto Fix dogfooding run 30910749960 / PR #23（2026-08-04）
 
 ---

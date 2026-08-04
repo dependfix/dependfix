@@ -342,7 +342,7 @@ export async function verifyProject(
  * - `pnpm lint` 等脚本命令 → 检查 `package.json#scripts` 是否存在对应键
  * - 用户自定义命令（`--commands`）不经过此校验
  */
-function validateVerifyCommands(commands: string[], workDir: string): { valid: string[], skipped: string[] } {
+export function validateVerifyCommands(commands: string[], workDir: string): { valid: string[], skipped: string[] } {
     const pkgJsonPath = join(workDir, 'package.json')
     let pkgScripts: Record<string, string> = {}
 

@@ -214,19 +214,48 @@ describe('buildCommitMessage', () => {
         ])
         expect(msg).not.toContain('PR #42')
         expect(msg).toContain('- js-yaml: ^4.3.0')
+        expect(msg).toContain('bump js-yaml')
     })
 
-    it('lists successful upgrades with from → to versions', () => {
+    it('uses single-package bump title with from → to (Dependabot style)', () => {
+        const msg = buildCommitMessage([
+            upgrade({ target: 'flatted', fromVersion: '3.3.3', toVersion: '3.4.2', strategy: 'override' }),
+        ])
+        expect(msg).toBe([
+            'fix(deps): bump flatted from 3.3.3 to 3.4.2',
+            '',
+            '- flatted: 3.3.3 → 3.4.2 (pnpm overrides)',
+        ].join('\n'))
+    })
+
+    it('omits from-version in title when unknown', () => {
+        const msg = buildCommitMessage([
+            upgrade({ target: 'fast-uri', fromVersion: 'unknown', toVersion: '^3.1.5' }),
+        ])
+        expect(msg).toContain('fix(deps): bump fast-uri to ^3.1.5')
+    })
+
+    it('lists all packages in title when under header limit', () => {
         const msg = buildCommitMessage([
             upgrade({ target: 'vite', fromVersion: '^8.2.0', toVersion: '^6.4.3' }),
             upgrade({ target: 'lodash', fromVersion: 'unknown', toVersion: '^4.18.0' }),
         ])
         expect(msg).toBe([
-            'fix(deps): automated dependfix security repair',
+            'fix(deps): bump vite, lodash',
             '',
             '- vite: ^8.2.0 → ^6.4.3',
             '- lodash: ^4.18.0',
         ].join('\n'))
+    })
+
+    it('truncates title with "and N more" when package list exceeds header limit', () => {
+        const names = Array.from({ length: 12 }, (_, i) => `package-name-${i + 1}`)
+        const msg = buildCommitMessage(names.map((n) => upgrade({ target: n, toVersion: '^1.0.0' })))
+        const [title] = msg.split('\n')
+        expect(title).toMatch(/^fix\(deps\): bump .+ and \d+ more$/)
+        expect(title.length).toBeLessThanOrEqual(140)
+        // 明细仍然完整列出所有包
+        expect(msg).toContain('- package-name-12: ^1.0.0')
     })
 
     it('marks pnpm overrides strategy in the detail line', () => {

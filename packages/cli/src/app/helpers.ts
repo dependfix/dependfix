@@ -73,15 +73,16 @@ export function resolveAlertRepositories(
     return ['local']
 }
 
-/** 自动修复提交的标准消息（本地 --commit 与 fix-and-pr 共用） */
+/** 自动修复提交的兜底标题（无成功升级 / 包名超长无法生成动态标题时） */
 export const FIX_COMMIT_MESSAGE = 'fix(deps): automated dependfix security repair'
 
+/** commitlint header-max-length 上限（commitlint-config-cmyr 覆盖为 140） */
+const COMMIT_HEADER_MAX_LENGTH = 140
+
 /**
- * 生成带升级明细的提交消息（参考 Dependabot 的 bump 信息风格）。
- * 明细来自成功升级的 actions：`- pkg: from → to (pnpm overrides)`；
- * fromVersion 为空/unknown 时省略来源版本；排除 `PR #N (existing)` 记录型 action
- * （与 computeFixFingerprint 对齐）；无成功升级时仅返回标题。
- * 边界：不包含 lockfile-repair / verification 信息，仅覆盖依赖升级明细。
+ * 生成带升级明细的提交消息（Dependabot bump 风格）。
+ * 标题含包名：单包 `bump flatted from 3.3.3 to 3.4.2`；多包列表（超长截断 `and N more`）。
+ * 明细 `- pkg: from → to (pnpm overrides)`；排除 `PR #N` 记录型 action；无成功升级仅返回标题。
  */
 export function buildCommitMessage(actions: FixAction[]): string {
     const upgrades = actions.filter((a) => a.type === 'dependency-upgrade' && a.success && !a.target.startsWith('PR #'))
@@ -90,7 +91,7 @@ export function buildCommitMessage(actions: FixAction[]): string {
         return FIX_COMMIT_MESSAGE
     }
 
-    const lines = [FIX_COMMIT_MESSAGE, '']
+    const lines = [buildCommitTitle(upgrades), '']
     for (const a of upgrades) {
         const from = a.fromVersion && a.fromVersion !== 'unknown' ? `${a.fromVersion} → ` : ''
         const to = a.toVersion ?? 'latest'
@@ -98,6 +99,34 @@ export function buildCommitMessage(actions: FixAction[]): string {
         lines.push(`- ${a.target}: ${from}${to}${suffix}`)
     }
     return lines.join('\n')
+}
+
+/** 生成提交标题：单包 `bump pkg from X to Y`；多包列表（超长截断为前 N 个 + `and M more`）。 */
+function buildCommitTitle(upgrades: FixAction[]): string {
+    if (upgrades.length === 1) {
+        const a = upgrades[0]
+        const from = a.fromVersion && a.fromVersion !== 'unknown' ? ` from ${a.fromVersion}` : ''
+        const to = a.toVersion ? ` to ${a.toVersion}` : ''
+        const title = `fix(deps): bump ${a.target}${from}${to}`
+        return title.length <= COMMIT_HEADER_MAX_LENGTH ? title : FIX_COMMIT_MESSAGE
+    }
+
+    const names = upgrades.map((a) => a.target)
+    const full = `fix(deps): bump ${names.join(', ')}`
+    if (full.length <= COMMIT_HEADER_MAX_LENGTH) {
+        return full
+    }
+
+    // 超长：逐步减少展示数量，直到 `bump a, b and N more` 不超过上限
+    let count = names.length - 1
+    while (count > 0) {
+        const candidate = `fix(deps): bump ${names.slice(0, count).join(', ')} and ${names.length - count} more`
+        if (candidate.length <= COMMIT_HEADER_MAX_LENGTH) {
+            return candidate
+        }
+        count--
+    }
+    return FIX_COMMIT_MESSAGE
 }
 
 /**

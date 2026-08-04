@@ -4,6 +4,9 @@
   <a href="https://github.com/dependfix/dependfix/actions?query=workflow%3ARelease" target="_blank">
     <img alt="GitHub Workflow Status" src="https://img.shields.io/github/actions/workflow/status/dependfix/dependfix/release.yml?branch=master">
   </a>
+  <a href="https://app.codecov.io/gh/dependfix/dependfix" target="_blank">
+    <img alt="Codecov" src="https://img.shields.io/codecov/c/github/dependfix/dependfix?branch=master">
+  </a>
   <img src="https://img.shields.io/badge/node-%3E%3D20-blue.svg" />
   <a href="https://github.com/dependfix/dependfix#readme" target="_blank">
     <img alt="Documentation" src="https://img.shields.io/badge/documentation-yes-brightgreen.svg" />

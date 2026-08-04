@@ -55,3 +55,7 @@ docs/.vitepress/.temp
 
 # dependfix
 dependfix-reports/
+
+# test coverage
+coverage/
+

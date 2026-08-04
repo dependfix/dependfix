@@ -36,6 +36,7 @@ import {
     computeSummary,
     buildRunResult,
     computeExitCode,
+    dependabotAlertsTokenHint,
 } from './app-helpers'
 
 // ---------------------------------------------------------------------------
@@ -219,12 +220,13 @@ export class DependfixApp {
             this.logger.info(`Fetched ${limited.length} alerts for ${repo}`)
         } catch (error: unknown) {
             const message = toErrorMessage(error)
-            this.logger.error(`Failed to fetch alerts for ${repo}: ${message}`)
+            const hint = dependabotAlertsTokenHint(error)
+            this.logger.error(`Failed to fetch alerts for ${repo}: ${message}${hint ? ` — ${hint}` : ''}`)
             this.allErrors.push({
                 repository: repo,
                 stage: 'fetch',
                 category: 'FETCH_FAILED',
-                message,
+                message: hint ? `${message}（${hint}）` : message,
             })
             this.repoResults.push({
                 repository: repo,
@@ -324,12 +326,13 @@ export class DependfixApp {
             }
         } catch (error: unknown) {
             const message = toErrorMessage(error)
-            this.logger.error(`Failed to process ${repo}: ${message}`)
+            const hint = dependabotAlertsTokenHint(error)
+            this.logger.error(`Failed to process ${repo}: ${message}${hint ? ` — ${hint}` : ''}`)
             this.allErrors.push({
                 repository: repo,
                 stage: 'fix',
                 category: 'PROCESS_FAILED',
-                message,
+                message: hint ? `${message}（${hint}）` : message,
             })
         }
 

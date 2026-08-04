@@ -8,6 +8,7 @@ import { execSync } from 'node:child_process'
 import { createInterface } from 'node:readline'
 import type { Octokit } from '@octokit/rest'
 import {
+    AppError,
     toErrorMessage,
     type FixAction,
     type FixError,
@@ -49,6 +50,25 @@ const PNPM_SCRIPT_RE = /^pnpm\s+([a-zA-Z][a-zA-Z0-9:_-]*)$/
 
 /** 自动修复提交的标准消息（本地 --commit 与 fix-and-pr 共用） */
 export const FIX_COMMIT_MESSAGE = 'fix(deps): automated dependfix security repair'
+
+/**
+ * Dependabot alerts 拉取路径的鉴权/权限错误用户指引（G2：GITHUB_TOKEN 无法读取 Dependabot alerts）。
+ * 返回附加到错误消息的提示文案；非鉴权类错误返回 null。
+ * ⚠️ 仅用于 alerts fetch 错误路径（`fetchDependabotAlerts` 抛出的 `AppError`）；
+ * 其他 API 的 PERMISSION_DENIED（如 PR 创建 403）语义不同，不得复用。
+ */
+export function dependabotAlertsTokenHint(error: unknown): string | null {
+    if (!(error instanceof AppError)) {
+        return null
+    }
+    if (error.code === 'PERMISSION_DENIED') {
+        return '请检查 token 是否具备 Dependabot alerts 读取权限（classic PAT 需 security_events、fine-grained 需 Dependabot alerts: read、GitHub App 需对应仓库权限；Actions 默认 GITHUB_TOKEN 永远无法获得）'
+    }
+    if (error.code === 'AUTHENTICATION_FAILED') {
+        return 'token 无效或已过期，请检查 GITHUB_TOKEN 配置'
+    }
+    return null
+}
 
 // ---------------------------------------------------------------------------
 // Context
@@ -578,17 +598,14 @@ export function computeExitCode(
     const { config, allErrors, allActions, repoResults } = ctx
     const hasErrors = allErrors.length > 0
     const hasFailures = allActions.some((a) => !a.success)
+    // 保守判定：dry-run 下成功仓库的 verificationPassed 为 undefined、alertsCount 可能为 0，
+    // 与失败仓库并存时会被判为"无成功"（返回 2 而非 1）——fail-safe 方向，可接受
     const hasRepoSuccess = repoResults.length > 0
         && repoResults.some((r) => r.alertsCount > 0 || r.fixed > 0 || r.verificationPassed === true)
     // cleanup-branches 模式不填充 repoResults，以成功的 branch-cleanup 动作判定
     const hasCleanupSuccess = config.mode === 'cleanup-branches'
         && allActions.some((a) => a.success && a.type === 'branch-cleanup')
     const hasSuccess = hasRepoSuccess || hasCleanupSuccess
-
-    // fix-and-pr stub：总是返回 0（非错误）
-    if (config.mode === 'fix-and-pr') {
-        return 0
-    }
 
     if (!hasErrors && !hasFailures) {
         return 0

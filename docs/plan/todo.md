@@ -322,8 +322,8 @@ T109 ─→ T205（AI Token 支持）→ T206（Prompt 注入防护）
 
 - **优先级**: P1
 - **依赖**: G3（同包收敛 + 逐包验证回滚，已落地）
-- **状态**: 🔶 待 Review Gate + 提交（代码与测试已完成，2026-08-04）
-- **交付物**: `packages/cli`（fix-grouping.ts / app.ts 组级循环 / CLI 参数）+ 设计文档 + 测试
+- **状态**: ✅ 已完成（2026-08-04，提交 b962374；两轮 Review Gate APPROVE，386 tests）
+- **交付物**: `packages/cli/src/grouping/index.ts`（原 fix-grouping.ts）/ `app/index.ts` 组级循环 / CLI 参数 + 设计文档 + 测试
 - **设计稿**: [docs/design/dependency-grouping.md](../design/dependency-grouping.md)
 - **任务内容**:
   - [x] fix-grouping.ts：dependabot.yml groups 解析（pattern 匹配：精确 / `@scope/*` / `prefix*`，忽略裸 `*`）+ @types 归并/孤儿检测 + scope/前缀启发式分组

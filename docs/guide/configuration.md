@@ -23,6 +23,7 @@
 | `githubToken` | `AUTO_FIX_GITHUB_SECURITY_GITHUB_TOKEN` / `GITHUB_TOKEN` | `string` | — | GitHub 认证 Token |
 | `alertsToken` | `AUTO_FIX_GITHUB_SECURITY_ALERTS_TOKEN` | `string` | — | Dependabot alerts 专用 token（可选，最小权限 fine-grained PAT，仅 `Dependabot alerts: read`；缺省回退 `githubToken`。GITHUB_TOKEN 无法读取 Dependabot alerts） |
 | `maxAlertsPerRepository` | `AUTO_FIX_GITHUB_SECURITY_MAX_ALERTS_PER_REPOSITORY` | `number` | `20` | 每仓库最大告警处理数 |
+| `upgradeGroups` | `AUTO_FIX_GITHUB_SECURITY_UPGRADE_GROUPS` | `Record<string, string[]>` | — | 用户显式依赖分组（覆盖自动分组），格式 `name1:pkg1,pkg2;name2:pkg3`（分号分隔组、冒号分隔组名与包列表、逗号分隔包名）。缺省时使用自动分组：`dependabot.yml groups` → `@types` 归并 → scope/前缀启发式 → 单包。详见 [依赖分组设计](../design/dependency-grouping.md) |
 | `verbose` | — | `boolean` | `false` | 详细日志输出（仅 CLI `--verbose`） |
 | `commands` | — | `string[]` | — | 自定义验证命令（仅 CLI `--commands`） |
 
@@ -54,6 +55,9 @@ export AUTO_FIX_GITHUB_SECURITY_DRY_RUN=true
 export AUTO_FIX_GITHUB_SECURITY_MAX_ALERTS_PER_REPOSITORY=20
 export AUTO_FIX_GITHUB_SECURITY_COMMIT=false
 export AUTO_FIX_GITHUB_SECURITY_CLEANUP_BRANCHES=false
+# 用户显式依赖分组（可选；缺省时自动分组）
+# 格式：name1:pkg1,pkg2;name2:pkg3
+export AUTO_FIX_GITHUB_SECURITY_UPGRADE_GROUPS="eslint-stack:eslint,eslint-plugin-vue;nuxt-stack:@nuxt/eslint,nuxt"
 # 仅当 GitHub token 无法读取 Dependabot alerts（如 Action 内 GITHUB_TOKEN）时配置，
 # 使用最小权限 fine-grained PAT（仅 Dependabot alerts: read）
 export AUTO_FIX_GITHUB_SECURITY_ALERTS_TOKEN=github_pat_xxx

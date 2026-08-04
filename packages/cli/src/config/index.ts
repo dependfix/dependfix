@@ -30,6 +30,13 @@ export interface RuntimeConfig {
      */
     alertsToken?: string
     maxAlertsPerRepository: number
+    /**
+     * 用户显式分组（最高优先级，覆盖自动分组）。
+     * 键为组名，值为组内包列表。缺省时使用自动分组
+     * （dependabot.yml groups → @types 归并 → scope/前缀启发式）。
+     * 详见 docs/design/dependency-grouping.md。
+     */
+    upgradeGroups?: Record<string, string[]>
 }
 
 export interface CliConfigOverrides {
@@ -49,6 +56,8 @@ export interface CliConfigOverrides {
     /** Dependabot alerts 专用 token（可选，最小权限；缺省回退 githubToken） */
     alertsToken?: string
     maxAlertsPerRepository?: number
+    /** 用户显式分组（覆盖自动分组），格式 `name1:pkg1,pkg2;name2:pkg3` */
+    upgradeGroups?: Record<string, string[]>
     /** 是否输出详细日志 */
     verbose?: boolean
     /** 自定义验证命令（覆盖默认的 `pnpm install --frozen-lockfile` / `pnpm lint` / `pnpm build`） */
@@ -121,6 +130,66 @@ function normalizeList(value: string | undefined): string[] | undefined {
     return items.length > 0 ? items : undefined
 }
 
+/**
+ * 解析用户显式分组字符串：`name1:pkg1,pkg2;name2:pkg3`。
+ * - `;` 分隔多个组
+ * - `:` 分隔组名与包列表
+ * - `,` 分隔组内包名
+ *
+ * 语义与 CLI 解析保持一致：
+ * - 空 entry（尾随/连续分号）忽略
+ * - 非空但缺冒号或组名/包列表为空 → 抛 CONFIG_VALIDATION_ERROR（fail-fast，避免静默退回自动分组）
+ * - 原型链风险键名（__proto__ / constructor / prototype）忽略
+ */
+function normalizeUpgradeGroups(value: string | undefined): Record<string, string[]> | undefined {
+    if (value === undefined || value.trim() === '') {
+        return undefined
+    }
+
+    const result: Record<string, string[]> = {}
+    for (const entry of value.split(';')) {
+        if (!entry.trim()) {
+            continue
+        }
+        const idx = entry.indexOf(':')
+        if (idx <= 0) {
+            throw new AppError(
+                'CONFIG_VALIDATION_ERROR',
+                `Invalid AUTO_FIX_GITHUB_SECURITY_UPGRADE_GROUPS entry: "${entry}". Expected format: "name:pkg1,pkg2"`,
+            )
+        }
+        const name = entry.slice(0, idx).trim()
+        const pkgs = entry
+            .slice(idx + 1)
+            .split(',')
+            .map((p) => p.trim())
+            .filter(Boolean)
+        if (!isSafeUpgradeGroupName(name)) {
+            continue
+        }
+        if (!name || pkgs.length === 0) {
+            throw new AppError(
+                'CONFIG_VALIDATION_ERROR',
+                `Invalid AUTO_FIX_GITHUB_SECURITY_UPGRADE_GROUPS entry: "${entry}". Expected format: "name:pkg1,pkg2"`,
+            )
+        }
+        if (pkgs.length === 0) {
+            throw new AppError(
+                'CONFIG_VALIDATION_ERROR',
+                `Invalid AUTO_FIX_GITHUB_SECURITY_UPGRADE_GROUPS entry: "${entry}". Expected format: "name:pkg1,pkg2"`,
+            )
+        }
+        result[name] = pkgs
+    }
+
+    return Object.keys(result).length > 0 ? result : undefined
+}
+
+/** 原型链风险键名过滤 */
+function isSafeUpgradeGroupName(name: string): boolean {
+    return name !== '__proto__' && name !== 'constructor' && name !== 'prototype'
+}
+
 function readRuntimeMode(value: string | undefined, fieldName: string): RuntimeMode | undefined {
     if (value === undefined || value.trim() === '') {
         return undefined
@@ -158,6 +227,7 @@ export function readEnvConfig(env: NodeJS.ProcessEnv = process.env): CliConfigOv
         githubToken: env.AUTO_FIX_GITHUB_SECURITY_GITHUB_TOKEN?.trim() || env.GITHUB_TOKEN?.trim() || undefined,
         alertsToken: env.AUTO_FIX_GITHUB_SECURITY_ALERTS_TOKEN?.trim() || undefined,
         maxAlertsPerRepository: normalizeInteger(env.AUTO_FIX_GITHUB_SECURITY_MAX_ALERTS_PER_REPOSITORY, 'AUTO_FIX_GITHUB_SECURITY_MAX_ALERTS_PER_REPOSITORY'),
+        upgradeGroups: normalizeUpgradeGroups(env.AUTO_FIX_GITHUB_SECURITY_UPGRADE_GROUPS),
     }
 }
 
@@ -296,6 +366,7 @@ export function resolveRuntimeConfig(options: ResolveRuntimeConfigOptions = {}):
         githubToken: cliOverrides.githubToken ?? envConfig.githubToken ?? '',
         alertsToken: cliOverrides.alertsToken ?? envConfig.alertsToken,
         maxAlertsPerRepository: cliOverrides.maxAlertsPerRepository ?? envConfig.maxAlertsPerRepository ?? DEFAULT_RUNTIME_CONFIG.maxAlertsPerRepository,
+        upgradeGroups: cliOverrides.upgradeGroups ?? envConfig.upgradeGroups,
     }
 
     return validateRuntimeConfig(config)

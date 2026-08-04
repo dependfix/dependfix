@@ -54,14 +54,16 @@ groups:
       - "eslint-config-cmyr"
 ```
 
-**pattern 匹配语义**（参考 dependabot 官方语法子集）：
+**pattern 匹配语义**（参考 dependabot 官方语法子集；glob 语义，`*` 匹配零个及以上字符）：
 
 | pattern 形式 | 示例 | 匹配 |
 |:---|:---|:---|
 | 精确包名 | `"lodash"` | `lodash` |
 | scope 通配 | `"@nuxt/*"` | `@nuxt/eslint`、`@nuxt/test-utils` |
-| 前缀通配 | `"markdown-it-*"` | `markdown-it-anchor` 等 |
+| 前缀通配 | `"markdown-it*"` | `markdown-it` 本体及其插件（`markdown-it-*` 因前缀含 `-` 不匹配本体，与 glob 语义一致） |
 | 裸 `*` | `"*"` | ⚠️ **忽略**（全匹配会导致误分组，禁止） |
+
+**实现子集声明**: 仅解析 `groups.<name>.patterns`；`exclude-patterns` / `dependency-type` / `update-types` 字段忽略（被 exclude 的包仍会按 patterns 命中分组——保守方向，不影响升级安全性，与用户意图有轻微偏差）。支持 `.github/dependabot.yml` 与 `.github/dependabot.yaml` 两个文件名变体。
 
 **降级策略**: 文件不存在 / YAML 解析失败 / groups 为空 → 跳过该层（warn 提示），不阻断流程。
 
@@ -75,7 +77,7 @@ groups:
 |:---|:---|:---|
 | **归并** | `@types/x` 且 `x` 也在待升级列表 | 并入 `x` 的组——类型定义与实现一起升级、一起验证（版本错位时 `tsc` 类型不匹配是组级验证可捕获的信号） |
 | **单独成组** | `@types/x` 且 `x` 在 package.json 依赖中（无告警） | `@types/x` 独立成组升级（主包不动，仅类型补丁） |
-| **清理候选（孤儿）** | `@types/x` 且 `x` **不在** package.json 任何依赖组 | **不升级**；记入 `cleanupCandidates`，报告/日志建议移除——疑似废弃（主包已移除，或新版本主包已内置类型，`@types` 不再被引用） |
+| **清理候选（孤儿）** | `@types/x` 且 `x` 不在 package.json 依赖组、**且** 不在 pnpm.overrides、**且** 不在 lockfile | **不升级**；记入 `cleanupCandidates`，报告/日志建议移除——疑似废弃（主包已移除，或新版本主包已内置类型，`@types` 不再被引用）。overrides/lockfile 命中视为间接依赖场景（`@types` 服务于间接主包），不误判 |
 
 **废弃检测的局限**: 本地只能检测"孤儿"（主包不在依赖）这一主信号；npm registry 的 `deprecated` 标记需要网络查询（`npm view @types/x deprecated`），作为可选增强（M3+，离线不可用）。主包"自带类型"但 `@types` 仍被依赖的情况静态难判，不阻塞。
 
@@ -121,8 +123,9 @@ for 组 in groups:
 
 ## 7. 配置与 CLI
 
-- `--upgrade-groups "name:pkg1,pkg2"`（可重复）：用户显式分组，优先级最高；与自动分组冲突时以显式为准
-- 环境变量 `AUTO_FIX_GITHUB_SECURITY_UPGRADE_GROUPS`（JSON，多组）
+- `--upgrade-groups "name1:pkg1,pkg2;name2:pkg3"`：用户显式分组，优先级最高；与自动分组冲突时以显式为准
+  - `;` 分隔多个组；`:` 分隔组名与包列表；`,` 分隔组内包名
+- 环境变量 `AUTO_FIX_GITHUB_SECURITY_UPGRADE_GROUPS`：与 CLI 同格式字符串（`"name1:pkg1,pkg2;name2:pkg3"`）
 - 配置文件支持（M4+，计划中）
 - 组内不降级保护、@types 归并等规则对显式分组同样生效
 
@@ -144,12 +147,16 @@ for 组 in groups:
 
 ## 9. 实施计划
 
-| 阶段 | 内容 | 交付 |
-|:---|:---|:---|
-| 1 | `fix-grouping.ts`：dependabot groups 解析 + pattern 匹配 + @types 归并/孤儿 + scope/前缀启发式 + 分组结果类型 | 模块 + 单测 |
-| 2 | `app.ts` 升级循环改为组级：组级验证 + 整组回滚 + 拆组兜底 | 流程改造 + 测试 |
-| 3 | CLI `--upgrade-groups` + env | 参数解析 + 测试 |
-| 4 | 文档同步（README/quick-start/configuration）+ 端到端验证 | 文档 + dogfooding |
+| 阶段 | 内容 | 交付 | 状态 |
+|:---|:---|:---|:---|
+| 1 | `fix-grouping.ts`：dependabot groups 解析 + pattern 匹配 + @types 归并/孤儿 + scope/前缀启发式 + 分组结果类型 | 模块 + 单测 | ✅ 完成（27 用例） |
+| 2 | `app.ts` 升级循环改为组级：组级验证 + 整组回滚 + 拆组兜底 | 流程改造 + 测试 | ✅ 完成（集成测试 3 用例） |
+| 3 | CLI `--upgrade-groups` + env | 参数解析 + 测试 | ✅ 完成 |
+| 4 | 文档同步（README/quick-start/configuration）+ 端到端验证 | 文档 + dogfooding | 🔶 文档已同步；端到端验证待跑 |
+
+**实现补充说明**（相对设计稿的细化）：
+- 孤儿判定增强：主包不存在判定为"不在 package.json 依赖组 **且** 不在 pnpm.overrides **且** 不在 lockfile"（lockfile/overrides 命中视为间接依赖场景，不误判）
+- env 与 CLI 统一使用 `"name1:pkg1,pkg2;name2:pkg3"` 格式（替代原设计稿的 JSON 设想）
 
 ---
 

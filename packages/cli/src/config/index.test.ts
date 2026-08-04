@@ -26,6 +26,59 @@ describe('resolveRuntimeConfig', () => {
         })
     })
 
+    it('parses upgradeGroups from env (name1:pkg1,pkg2;name2:pkg3)', () => {
+        const config = resolveRuntimeConfig({
+            env: {
+                GITHUB_TOKEN: 'token-from-env',
+                AUTO_FIX_GITHUB_SECURITY_REPOSITORIES: 'owner/repo-a',
+                AUTO_FIX_GITHUB_SECURITY_UPGRADE_GROUPS: 'eslint-stack:eslint,eslint-plugin-vue;types-group:@types/express,@types/koa',
+            },
+        })
+
+        expect(config.upgradeGroups).toEqual({
+            'eslint-stack': ['eslint', 'eslint-plugin-vue'],
+            'types-group': ['@types/express', '@types/koa'],
+        })
+    })
+
+    it('parses upgradeGroups from cli --upgrade-groups', () => {
+        const invocation = parseCliArgs([
+            'fix',
+            '--repo', 'owner/repo-a',
+            '--upgrade-groups', 'db:lodash,pkg-a;markdown:markdown-it,markdown-it-anchor',
+        ])
+
+        expect(invocation.configOverrides.upgradeGroups).toEqual({
+            db: ['lodash', 'pkg-a'],
+            markdown: ['markdown-it', 'markdown-it-anchor'],
+        })
+    })
+
+    it('lets cli upgradeGroups override env upgradeGroups', () => {
+        const config = resolveRuntimeConfig({
+            env: {
+                GITHUB_TOKEN: 'token-from-env',
+                AUTO_FIX_GITHUB_SECURITY_REPOSITORIES: 'owner/repo-a',
+                AUTO_FIX_GITHUB_SECURITY_UPGRADE_GROUPS: 'env-group:env-pkg',
+            },
+            cliOverrides: {
+                upgradeGroups: { 'cli-group': ['cli-pkg'] },
+            },
+        })
+
+        expect(config.upgradeGroups).toEqual({ 'cli-group': ['cli-pkg'] })
+    })
+
+    it('rejects malformed --upgrade-groups entries', () => {
+        expect(() =>
+            parseCliArgs([
+                'fix',
+                '--repo', 'owner/repo-a',
+                '--upgrade-groups', 'missing-colon-here',
+            ]),
+        ).toThrowError(/Invalid --upgrade-groups entry/)
+    })
+
     it('lets cli overrides take precedence over env', () => {
         const invocation = parseCliArgs([
             'fix',

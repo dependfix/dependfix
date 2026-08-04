@@ -94,6 +94,10 @@ const argsDef = {
         description: '每个仓库最多处理的告警数',
         default: '20' as const,
     },
+    'upgrade-groups': {
+        type: 'string' as const,
+        description: '用户显式分组（覆盖自动分组），格式 "name1:pkg1,pkg2;name2:pkg3"',
+    },
     commands: {
         type: 'string' as const,
         description: '自定义验证命令（逗号分隔），覆盖默认的 install/lint/build',
@@ -234,7 +238,52 @@ function parsedArgsToCliOverrides(parsed: ParsedArgs<typeof argsDef>): CliConfig
         overrides.commands = parseCommandsFlag(commandsValue)
     }
 
+    // upgrade-groups
+    const upgradeGroups = parsed['upgrade-groups']
+    if (upgradeGroups) {
+        overrides.upgradeGroups = parseUpgradeGroupsFlag(upgradeGroups)
+    }
+
     return overrides
+}
+
+/**
+ * 解析 `--upgrade-groups "name1:pkg1,pkg2;name2:pkg3"`。
+ * 与 config 的 normalizeUpgradeGroups 保持一致（CLI 与 env 同格式）：
+ * 空 entry 忽略；非空但缺冒号/组名或包列表为空 → 抛 ARGUMENT_PARSE_ERROR；
+ * 原型链风险键名（__proto__ / constructor / prototype）忽略。
+ */
+function parseUpgradeGroupsFlag(value: string): Record<string, string[]> {
+    const result: Record<string, string[]> = {}
+    for (const entry of value.split(';')) {
+        if (!entry.trim()) {
+            continue
+        }
+        const idx = entry.indexOf(':')
+        if (idx <= 0) {
+            throw new AppError(
+                'ARGUMENT_PARSE_ERROR',
+                `Invalid --upgrade-groups entry: "${entry}". Expected format: "name:pkg1,pkg2"`,
+            )
+        }
+        const name = entry.slice(0, idx).trim()
+        const pkgs = entry
+            .slice(idx + 1)
+            .split(',')
+            .map((p) => p.trim())
+            .filter(Boolean)
+        if (name === '__proto__' || name === 'constructor' || name === 'prototype') {
+            continue
+        }
+        if (!name || pkgs.length === 0) {
+            throw new AppError(
+                'ARGUMENT_PARSE_ERROR',
+                `Invalid --upgrade-groups entry: "${entry}". Expected format: "name:pkg1,pkg2"`,
+            )
+        }
+        result[name] = pkgs
+    }
+    return result
 }
 
 // ---------------------------------------------------------------------------

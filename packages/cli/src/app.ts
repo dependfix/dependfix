@@ -25,6 +25,7 @@ import { createFixBranch, stageAndCommit, pushBranch, createPullRequest, generat
 import type { RuntimeConfig } from './config'
 import { compareSemver, readLockfileVersion } from './fixers/dependency'
 import { dedupeFixableAlerts, snapshotTrackedFiles, restoreTrackedFiles, quickVerifyProject } from './fix-helpers'
+import { buildUpgradeGroups } from './fix-grouping'
 import {
     buildCommitMessage,
     type AppContext,
@@ -309,62 +310,131 @@ export class DependfixApp {
 
             this.allAlerts.push(...limited)
 
-            // 2. Upgrade fixable dependencies（G3 同包收敛 + 逐包验证回滚）
+            // 2. Upgrade fixable dependencies（T213 分组升级 + G3 同包收敛）
             // - 同包多个 alerts 去重，取最高 recommendedVersion（避免互相覆盖/降级）
+            // - 分组：显式分组 > dependabot.yml groups > @types 归并 > scope/前缀启发式 > 单包
+            // - 组级验证（lint）失败 → 整组回滚 → 拆组逐个重试（坏包隔离）
             // - 当前版本已 >= 目标版本时跳过（不降级保护）
-            // - 每包升级后快速验证（lint）；失败仅回滚该包（文件快照），继续下一包
             const fixableAlerts = dedupeFixableAlerts(
                 limited.filter((a) => a.fixable && a.recommendedVersion),
             )
             const lockfilePath = join(this.workDir, 'pnpm-lock.yaml')
 
-            let snapshot = snapshotTrackedFiles(this.workDir)
-            for (const alert of fixableAlerts) {
-                const currentVersion = readLockfileVersion(lockfilePath, alert.packageName)
-                if (currentVersion && compareSemver(currentVersion, alert.recommendedVersion) >= 0) {
-                    this.logger.info(
-                        `Skipping ${alert.packageName}: current ${currentVersion} >= target ${alert.recommendedVersion} (no upgrade needed)`,
-                    )
-                    this.summary.alertsSkipped++
-                    continue
-                }
-                if (currentVersion === null) {
-                    // lockfile 格式非 v9（pnpm <9 / peer 后缀条目）时无法解析当前版本，
-                    // 不降级保护失效——warn 提示（G3 遗留：P2-1）
-                    this.logger.warn(
-                        `Could not resolve current version of ${alert.packageName} from lockfile — no-downgrade protection inactive`,
-                    )
-                }
+            const { groups, cleanupCandidates } = buildUpgradeGroups(fixableAlerts, {
+                workDir: this.workDir,
+                explicitGroups: this.config.upgradeGroups,
+            })
+            for (const group of groups) {
+                this.logger.info(`[group] ${group.name} (${group.source}): ${group.packages.join(', ')}`)
+            }
+            if (cleanupCandidates.length > 0) {
+                this.logger.warn(
+                    `[group] orphan @types detected (main package removed) — not upgrading, consider removal: ${cleanupCandidates.join(', ')}`,
+                )
+            }
 
-                const action = await upgradeAlert(this.ctx, alert)
-                this.allActions.push(action)
-                if (!action.success) {
-                    failed++
-                    continue
-                }
+            const alertByPackage = new Map(fixableAlerts.map((a) => [a.packageName, a]))
+            let snapshot: ReturnType<typeof snapshotTrackedFiles>
 
-                if (this.config.dryRun) {
-                    // dry-run 无实际文件改动，跳过逐包验证
-                    fixed++
-                    continue
-                }
-
-                // 逐包快速验证：lint 失败 → 仅回滚该包改动，保留此前成功的升级
-                const quickOk = await quickVerifyProject(this.ctx, repo)
-                if (!quickOk) {
-                    restoreTrackedFiles(this.workDir, snapshot)
-                    this.logger.warn(
-                        `Rolled back ${alert.packageName} upgrade: lint failed after upgrade (per-package verification)`,
-                    )
-                    action.success = false
-                    action.error = 'lint failed after upgrade; per-package verification failed, changes rolled back'
-                    failed++
-                    continue
-                }
-
-                fixed++
-                // 更新快照基线：后续包的失败回滚不应影响本包
+            for (const group of groups) {
+                // 组前快照（整组回滚基线）
                 snapshot = snapshotTrackedFiles(this.workDir)
+
+                const pendingActions: FixAction[] = []
+                const upgradedInGroup: NormalizedSecurityAlert[] = []
+
+                for (const packageName of group.packages) {
+                    // 防御：assign 已通过 target 集合过滤，组内包必在 fixableAlerts 中
+                    const alert = alertByPackage.get(packageName)
+                    if (!alert) {
+                        continue
+                    }
+
+                    const currentVersion = readLockfileVersion(lockfilePath, alert.packageName)
+                    if (currentVersion && compareSemver(currentVersion, alert.recommendedVersion) >= 0) {
+                        this.logger.info(
+                            `Skipping ${alert.packageName}: current ${currentVersion} >= target ${alert.recommendedVersion} (no upgrade needed)`,
+                        )
+                        this.summary.alertsSkipped++
+                        continue
+                    }
+                    if (currentVersion === null) {
+                        // lockfile 格式非 v9（pnpm <9 / peer 后缀条目）时无法解析当前版本，
+                        // 不降级保护失效——warn 提示（G3 遗留：P2-1）
+                        this.logger.warn(
+                            `Could not resolve current version of ${alert.packageName} from lockfile — no-downgrade protection inactive`,
+                        )
+                    }
+
+                    const action = await upgradeAlert(this.ctx, alert)
+                    pendingActions.push(action)
+                    if (!action.success) {
+                        failed++
+                        continue
+                    }
+                    if (this.config.dryRun) {
+                        // dry-run 无实际文件改动，跳过验证
+                        fixed++
+                        continue
+                    }
+                    upgradedInGroup.push(alert)
+                }
+
+                // dry-run 或组内无实际升级：仅记录 action，不做组级验证
+                if (this.config.dryRun || upgradedInGroup.length === 0) {
+                    this.allActions.push(...pendingActions)
+                    continue
+                }
+
+                // 组级快速验证：lint 通过 → 整组保留（一次验证替代逐包 N 次验证）
+                const groupOk = await quickVerifyProject(this.ctx, repo)
+                if (groupOk) {
+                    this.allActions.push(...pendingActions)
+                    fixed += upgradedInGroup.length
+                    this.logger.info(
+                        `[group] ${group.name}: ${upgradedInGroup.length} upgrade(s) passed group verification`,
+                    )
+                    // 更新快照基线：后续组的失败回滚不应影响本组
+                    snapshot = snapshotTrackedFiles(this.workDir)
+                    continue
+                }
+
+                // 组级验证失败：整组回滚 → 拆组逐个重试（保留能单独通过的包）
+                restoreTrackedFiles(this.workDir, snapshot)
+                this.logger.warn(
+                    `[group] ${group.name}: group verification failed — rolling back group, retrying per-package`,
+                )
+
+                // 组内升级失败的包：保留原始失败记录（已计 failed）
+                for (const action of pendingActions) {
+                    if (!action.success) {
+                        this.allActions.push(action)
+                    }
+                }
+
+                // 组内升级成功但组验证失败的包：逐个重新升级 + 验证
+                for (const alert of upgradedInGroup) {
+                    const action = await upgradeAlert(this.ctx, alert)
+                    this.allActions.push(action)
+                    if (!action.success) {
+                        failed++
+                        continue
+                    }
+                    const quickOk = await quickVerifyProject(this.ctx, repo)
+                    if (!quickOk) {
+                        restoreTrackedFiles(this.workDir, snapshot)
+                        this.logger.warn(
+                            `Rolled back ${alert.packageName} upgrade: lint failed after upgrade (per-package verification)`,
+                        )
+                        action.success = false
+                        action.error = 'lint failed after upgrade; per-package verification failed, changes rolled back'
+                        failed++
+                        continue
+                    }
+                    fixed++
+                    // 更新快照基线：后续包的失败回滚不应影响本包
+                    snapshot = snapshotTrackedFiles(this.workDir)
+                }
             }
 
             // Track skipped (non-fixable) alerts

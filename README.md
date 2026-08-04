@@ -98,6 +98,7 @@ jobs:
 | `--cleanup-branches` | （fix-and-pr 模式）结束后列出已合并的 dependfix 分支到报告，不自动删除 | `false` |
 | `--cleanup-branches-auto` | （fix-and-pr 模式）结束后自动删除已合并/已关闭的 dependfix 分支（非交互；不删有 open PR 的分支） | `false` |
 | `--max-alerts-per-repository` | 每仓库最大告警处理数 | `20` |
+| `--upgrade-groups` | 用户显式依赖分组（覆盖自动分组），格式 `"name1:pkg1,pkg2;name2:pkg3"`（分号分隔组、冒号分隔组名与包列表、逗号分隔包名） | 自动分组（dependabot.yml groups → @types 归并 → scope/前缀启发式） |
 | `--commands` | 自定义验证命令（逗号分隔） | — |
 | `--verbose` | 详细日志输出 | `false` |
 

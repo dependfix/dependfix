@@ -11,6 +11,7 @@ import {
     computeExitCode,
     dependabotAlertsTokenHint,
     pullRequestCreationHint,
+    resolveAlertRepositories,
     type AppContext,
 } from './app-helpers'
 import { findVerificationFailedRepos, rollbackChanges } from './verification-gate'
@@ -29,6 +30,19 @@ const prCreatorMock = vi.hoisted(() => ({
 }))
 
 vi.mock('./github/pr-creator', () => prCreatorMock)
+
+// ---------------------------------------------------------------------------
+// Mock config（resolveAlertRepositories 依赖 inferRepoFromGitRemote）
+// ---------------------------------------------------------------------------
+
+const configMock = vi.hoisted(() => ({
+    inferRepoFromGitRemote: vi.fn(),
+}))
+
+vi.mock('./config', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('./config')>()
+    return { ...actual, inferRepoFromGitRemote: configMock.inferRepoFromGitRemote }
+})
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -455,5 +469,56 @@ describe('rollbackChanges', () => {
 
         expect(execSync('git status --porcelain', { cwd: workDir, encoding: 'utf-8' }).trim()).toBe('')
         expect(execSync('git show HEAD:package.json', { cwd: workDir, encoding: 'utf-8' })).toContain('"version":"1.0.0"')
+    })
+})
+
+// ---------------------------------------------------------------------------
+// resolveAlertRepositories
+// ---------------------------------------------------------------------------
+
+describe('resolveAlertRepositories', () => {
+    const logger = { info: vi.fn() } as never
+
+    beforeEach(() => {
+        configMock.inferRepoFromGitRemote.mockReset()
+    })
+
+    it('returns config repositories for github-dependabot source', () => {
+        const repos = resolveAlertRepositories({
+            config: { alertSource: 'github-dependabot', repositories: ['a/b', 'c/d'] } as never,
+            workDir: '/repo',
+            logger,
+        })
+        expect(repos).toEqual(['a/b', 'c/d'])
+    })
+
+    it('returns explicit repo for pnpm-audit source', () => {
+        const repos = resolveAlertRepositories({
+            config: { alertSource: 'pnpm-audit', repositories: ['owner/repo'] } as never,
+            workDir: '/repo',
+            logger,
+        })
+        expect(repos).toEqual(['owner/repo'])
+        expect(configMock.inferRepoFromGitRemote).not.toHaveBeenCalled()
+    })
+
+    it('infers repository from git remote for pnpm-audit when no explicit repo (no token does not mean no remote)', () => {
+        configMock.inferRepoFromGitRemote.mockReturnValue('owner/repo-from-remote')
+        const repos = resolveAlertRepositories({
+            config: { alertSource: 'pnpm-audit', repositories: [] } as never,
+            workDir: '/repo',
+            logger,
+        })
+        expect(repos).toEqual(['owner/repo-from-remote'])
+    })
+
+    it('falls back to local when pnpm-audit has no explicit repo and no git remote', () => {
+        configMock.inferRepoFromGitRemote.mockReturnValue(null)
+        const repos = resolveAlertRepositories({
+            config: { alertSource: 'pnpm-audit', repositories: [] } as never,
+            workDir: '/repo',
+            logger,
+        })
+        expect(repos).toEqual(['local'])
     })
 })

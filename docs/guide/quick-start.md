@@ -4,7 +4,7 @@
 
 - Node.js >= 20
 - pnpm（推荐最新稳定版）
-- GitHub Token（用于告警拉取和 PR 创建）
+- GitHub Token（用于告警拉取和 PR 创建；**本地无 token 也可用 `--alerts-source pnpm-audit` 回退**，见 [本地无 token 场景](#本地无-token-场景pnpm-audit-回退)）
   - `report-only` / `fix` 模式：需 `security-events: read` 权限
   - `fix-and-pr` 模式：额外需 `contents: write` + `pull-requests: write` 权限
 
@@ -82,6 +82,22 @@ dependfix fix --repo owner/repo-a,owner/repo-b --github-token $GITHUB_TOKEN
 # 从文件读取仓库列表
 dependfix fix --repos-file ./repos.txt --github-token $GITHUB_TOKEN
 ```
+
+### 本地无 token 场景（pnpm-audit 回退）
+
+无 GitHub token（或无法获得 Dependabot alerts 权限）时，可用本地 `pnpm audit` 作为告警数据源——零凭证、非 GitHub 仓库目录也可用：
+
+```bash
+cd /path/to/your-repo
+dependfix report-only --alerts-source pnpm-audit
+dependfix fix --alerts-source pnpm-audit --commit
+```
+
+- repository 解析优先级：显式 `--repo` → git remote（无 token 不代表无 remote）→ `local` 兜底
+- 报告 Header 明确标注 `Alert Source: pnpm-audit`；告警 `source` 均为 `pnpm-audit`，与 GitHub 数据源可区分
+- 限制：仅 `report-only` / `fix` 模式（`fix-and-pr` 需 GitHub PR）；最多 1 个 `--repo`
+- 403（有 token 但权限不足）**不会**自动降级——仍硬失败并提示可切换 `--alerts-source pnpm-audit`
+- 详见 [pnpm audit fallback 设计](../design/pnpm-audit-fallback.md)
 
 ### 试运行
 
@@ -161,6 +177,7 @@ jobs:
 | `--repos-file` | — | 从文件读取仓库列表（每行一个） | — |
 | `--github-token` | — | GitHub PAT | `GITHUB_TOKEN` 环境变量 |
 | `--alerts-token` | — | Dependabot alerts 专用最小权限 token（可选，仅 `Dependabot alerts: read`；缺省回退 `--github-token`。GITHUB_TOKEN 无法读取 Dependabot alerts） | `AUTO_FIX_GITHUB_SECURITY_ALERTS_TOKEN` 环境变量 |
+| `--alerts-source` | — | 告警数据源：`github-dependabot`（默认）/ `pnpm-audit`（本地无 token 回退，扫描当前工作区 lockfile；不要求 token / git remote；repository 解析 `--repo` → git remote → `local`） | `AUTO_FIX_GITHUB_SECURITY_ALERTS_SOURCE` 环境变量 |
 | `--severity-threshold` | — | `critical` / `high` / `medium` / `all` | `high` |
 | `--dry-run` | — | 试运行，不写入文件。report-only 模式默认 `true` | `false`（fix/fix-and-pr） |
 | `--create-pr` | — | 创建 Pull Request | `false` |

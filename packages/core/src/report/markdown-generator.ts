@@ -33,6 +33,7 @@ export function generateMarkdownReport(result: RunResult): string {
         `> **Date**: ${startedAt} → ${finishedAt}`,
         `> **Mode**: ${config.mode} (Severity ≥ ${config.severityThreshold})`,
         `> **Dry Run**: ${config.dryRun ? 'Yes' : 'No'}`,
+        `> **Alert Source**: ${config.alertSource === 'pnpm-audit' ? 'pnpm-audit (local workspace)' : 'GitHub Dependabot API'}`,
         '',
     )
 
@@ -77,7 +78,11 @@ export function generateMarkdownReport(result: RunResult): string {
         for (const repo of grouped) {
             const repoResult = repositories.find((r) => r.repository === repo.repository)
             const branch = repoResult?.defaultBranch ?? 'main'
-            sections.push(`### ${repo.repository} (branch: ${branch})`, '')
+            // pnpm-audit 本地兜底仓库显示友好名（内部值 local）
+            const header = repo.repository === 'local'
+                ? '### Local workspace'
+                : `### ${repo.repository} (branch: ${branch})`
+            sections.push(header, '')
             if (repo.alerts.length > 0) {
                 // 逐条保留每个 GHSA 的审计粒度（同包多告警各自成行，靠 GHSA 列区分）
                 sections.push(

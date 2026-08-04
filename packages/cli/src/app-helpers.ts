@@ -19,7 +19,7 @@ import {
     type RunReportConfig,
     type RunSummary,
 } from '@dependfix/core'
-import type { RuntimeConfig } from './config'
+import { inferRepoFromGitRemote, type RuntimeConfig } from './config'
 import {
     upgradeDependency,
     overrideTransitiveDependency,
@@ -49,6 +49,29 @@ const DEFAULT_VERIFY_COMMANDS = [
 
 /** 匹配 `pnpm <singleWord>` 模式的命令（可能是 package.json script 引用） */
 const PNPM_SCRIPT_RE = /^pnpm\s+([a-zA-Z][a-zA-Z0-9:_-]*)$/
+
+/**
+ * 解析本次运行要处理的仓库列表。
+ * - `github-dependabot`：config.repositories（配置层已保证非空）
+ * - `pnpm-audit`：显式 --repo（≤1）→ git remote 推断（无 token 不代表无 remote）→ `local` 兜底
+ */
+export function resolveAlertRepositories(
+    ctx: Pick<AppContext, 'config' | 'workDir' | 'logger'>,
+): string[] {
+    if (ctx.config.alertSource !== 'pnpm-audit') {
+        return ctx.config.repositories
+    }
+    if (ctx.config.repositories.length > 0) {
+        return ctx.config.repositories
+    }
+    const inferred = inferRepoFromGitRemote(ctx.workDir)
+    if (inferred) {
+        ctx.logger.info(`[alerts] pnpm-audit: repository inferred from git remote: ${inferred}`)
+        return [inferred]
+    }
+    ctx.logger.info('[alerts] pnpm-audit: no git remote found, using "local" as repository')
+    return ['local']
+}
 
 /** 自动修复提交的标准消息（本地 --commit 与 fix-and-pr 共用） */
 export const FIX_COMMIT_MESSAGE = 'fix(deps): automated dependfix security repair'
@@ -101,7 +124,7 @@ export function dependabotAlertsTokenHint(error: unknown): string | null {
         return null
     }
     if (error.code === 'PERMISSION_DENIED') {
-        return '请检查 token 是否具备 Dependabot alerts 读取权限（classic PAT 需 security_events、fine-grained 需 Dependabot alerts: read、GitHub App 需对应仓库权限；Actions 默认 GITHUB_TOKEN 永远无法获得）'
+        return '请检查 token 是否具备 Dependabot alerts 读取权限（classic PAT 需 security_events、fine-grained 需 Dependabot alerts: read、GitHub App 需对应仓库权限；Actions 默认 GITHUB_TOKEN 永远无法获得）。本地场景可切换 --alerts-source pnpm-audit 使用 pnpm audit 回退'
     }
     if (error.code === 'AUTHENTICATION_FAILED') {
         return 'token 无效或已过期，请检查 GITHUB_TOKEN / alertsToken 配置'
@@ -638,9 +661,9 @@ export function confirmCleanup(
 
 /** 汇总所有动作到 summary（alertsSkipped 已在 processRepoForFix 中累加）。 */
 export function computeSummary(
-    ctx: Pick<AppContext, 'config' | 'allActions' | 'allAlerts' | 'summary'>,
+    ctx: Pick<AppContext, 'allActions' | 'allAlerts' | 'repoResults' | 'summary'>,
 ): void {
-    const { config, allActions, allAlerts, summary } = ctx
+    const { allActions, allAlerts, repoResults, summary } = ctx
 
     let fixed = 0
     let failed = 0
@@ -670,7 +693,9 @@ export function computeSummary(
 
     const fixable = allAlerts.filter((a) => a.fixable).length
 
-    summary.repositoriesScanned = config.repositories.length
+    // 用 repoResults 而非 config.repositories：pnpm-audit + 无 remote 时
+    // config.repositories 为空但实际处理了 1 个 local 仓库（报告可审计性）
+    summary.repositoriesScanned = repoResults.length
     summary.alertsFound = allAlerts.length
     summary.alertsFixable = fixable
     summary.alertsFixed = fixed
@@ -691,6 +716,7 @@ export function buildRunResult(
         dryRun: ctx.config.dryRun,
         createPullRequest: ctx.config.createPullRequest,
         maxAlertsPerRepository: ctx.config.maxAlertsPerRepository,
+        alertSource: ctx.config.alertSource,
     }
 
     return {

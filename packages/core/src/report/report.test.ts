@@ -35,6 +35,7 @@ const EMPTY_RUN_RESULT: RunResult = {
         dryRun: false,
         createPullRequest: false,
         maxAlertsPerRepository: 10,
+        alertSource: 'github-dependabot',
     },
     summary: {
         repositoriesScanned: 0,
@@ -220,6 +221,37 @@ describe('generateMarkdownReport', () => {
         expect(md).toContain('test-run-001')
         expect(md).toContain('report-only')
         expect(md).toContain('Severity ≥ high')
+    })
+
+    it('renders local workspace label for pnpm-audit fallback repository', () => {
+        const repoResult: RepositoryResult = {
+            repository: 'local', defaultBranch: '', alertsCount: 1,
+            fixable: 1, fixed: 0, failed: 0, lockfileRepaired: false, durationMs: 500,
+        }
+        const result = {
+            ...EMPTY_RUN_RESULT,
+            config: { ...EMPTY_RUN_RESULT.config, alertSource: 'pnpm-audit' as const },
+            repositories: [repoResult],
+            alerts: [makeAlert({ source: 'pnpm-audit', repository: 'local', defaultBranch: '', ruleId: 'https://github.com/advisories/GHSA-x', htmlUrl: '' })],
+        }
+        const md = generateMarkdownReport(result)
+        expect(md).toContain('### Local workspace')
+        expect(md).not.toContain('### local')
+    })
+
+    it('renders alert source in header (github-dependabot default)', () => {
+        const md = generateMarkdownReport(EMPTY_RUN_RESULT)
+        expect(md).toContain('GitHub Dependabot API')
+    })
+
+    it('renders pnpm-audit alert source in header', () => {
+        const result = {
+            ...EMPTY_RUN_RESULT,
+            config: { ...EMPTY_RUN_RESULT.config, alertSource: 'pnpm-audit' as const },
+        }
+        const md = generateMarkdownReport(result)
+        expect(md).toContain('Alert Source')
+        expect(md).toContain('pnpm-audit (local workspace)')
     })
 
     it('renders summary table with all metrics', () => {

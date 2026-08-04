@@ -10,9 +10,11 @@ import {
     type CliConfigOverrides,
     type RuntimeMode,
     type SeverityThreshold,
+    type AlertSourceKind,
     resolveRuntimeConfig,
     RUNTIME_MODES,
     SEVERITY_THRESHOLDS,
+    ALERT_SOURCES,
 } from '../config'
 
 // ---------------------------------------------------------------------------
@@ -89,6 +91,10 @@ const argsDef = {
         type: 'string' as const,
         description: 'Dependabot alerts 专用 token（可选，最小权限 PAT，仅 Dependabot alerts: read；缺省回退 --github-token。GITHUB_TOKEN 无法读取 Dependabot alerts）',
     },
+    'alerts-source': {
+        type: 'string' as const,
+        description: '告警数据源：github-dependabot（默认，GitHub Dependabot alerts API）或 pnpm-audit（本地无 token 回退，扫描当前工作区 lockfile；repository 优先 --repo → git remote → local 兜底）',
+    },
     'max-alerts-per-repository': {
         type: 'string' as const,
         description: '每个仓库最多处理的告警数',
@@ -118,6 +124,10 @@ function isRuntimeMode(value: string): value is RuntimeMode {
 
 function isSeverityThreshold(value: string): value is SeverityThreshold {
     return SEVERITY_THRESHOLDS.includes(value as SeverityThreshold)
+}
+
+function isAlertSource(value: string): value is AlertSourceKind {
+    return ALERT_SOURCES.includes(value as AlertSourceKind)
 }
 
 function appendRepositories(target: string[], value: string): void {
@@ -212,6 +222,18 @@ function parsedArgsToCliOverrides(parsed: ParsedArgs<typeof argsDef>): CliConfig
     const alertsToken = parsed['alerts-token']
     if (alertsToken) {
         overrides.alertsToken = alertsToken
+    }
+
+    // alerts-source
+    const alertsSource = parsed['alerts-source']
+    if (alertsSource) {
+        if (!isAlertSource(alertsSource)) {
+            throw new AppError(
+                'ARGUMENT_PARSE_ERROR',
+                `Invalid --alerts-source value: "${alertsSource}". Expected one of: ${ALERT_SOURCES.join(', ')}.`,
+            )
+        }
+        overrides.alertSource = alertsSource
     }
 
     // max-alerts-per-repository

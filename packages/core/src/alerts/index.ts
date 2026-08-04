@@ -1,4 +1,4 @@
-export type AlertSource = 'dependabot' | 'code-scanning'
+export type AlertSource = 'dependabot' | 'code-scanning' | 'pnpm-audit'
 
 export type AlertSeverity = 'critical' | 'high' | 'medium' | 'low' | 'unknown'
 
@@ -38,7 +38,30 @@ export const SEVERITY_MAP = {
         warning: 'medium' as const,
         note: 'low' as const,
     },
+    'pnpm-audit': {
+        critical: 'critical' as const,
+        high: 'high' as const,
+        error: 'high' as const,
+        moderate: 'medium' as const,
+        medium: 'medium' as const,
+        warning: 'medium' as const,
+        low: 'low' as const,
+        info: 'low' as const,
+        note: 'low' as const,
+    },
 } as const
+
+/**
+ * pnpm audit severity 归一化（对齐 security-alert-remediator 的 SEVERITY_RANK 口径）。
+ * 未识别值 → 'unknown'（不抛异常，报告模型有 unknown 位）。
+ */
+export function normalizeAuditSeverity(value: string | null | undefined): AlertSeverity {
+    const normalized = (value ?? '').trim().toLowerCase()
+    if (!normalized) {
+        return 'unknown'
+    }
+    return (SEVERITY_MAP['pnpm-audit'] as Record<string, AlertSeverity>)[normalized] ?? 'unknown'
+}
 
 export function mapCodeScanningSeverity(
     ruleSeverity: 'error' | 'warning' | 'note' | 'none',

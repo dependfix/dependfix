@@ -21,6 +21,7 @@ import {
 import { createGitHubClient } from './github/client'
 import { enforceVerificationGate } from './verification-gate'
 import { fetchDependabotAlerts } from './github/dependabot-fetcher'
+import { fetchPnpmAuditAlerts } from './alerts/pnpm-audit-fetcher'
 import { createFixBranch, stageAndCommit, pushBranch, createPullRequest, generatePRBody, computeFixFingerprint, computeFixAndPrPlan, findDependfixOpenPR, listDependfixBranches, getBranchPrStatus, deleteRemoteBranch, type DependfixBranchStatus } from './github/pr-creator'
 import type { RuntimeConfig } from './config'
 import { compareSemver, readLockfileVersion } from './fixers/dependency'
@@ -44,6 +45,7 @@ import {
     computeExitCode,
     dependabotAlertsTokenHint,
     pullRequestCreationHint,
+    resolveAlertRepositories,
 } from './app-helpers'
 
 // ---------------------------------------------------------------------------
@@ -198,19 +200,18 @@ export class DependfixApp {
     // -----------------------------------------------------------------------
 
     private async executeReportMode(): Promise<void> {
-        const client = this.createClient()
-        const alertsClient = this.createAlertsClient()
-        for (const repo of this.config.repositories) {
-            await this.processRepoForReport(client, alertsClient, repo)
+        const client = this.githubClientOrNull()
+        for (const repo of resolveAlertRepositories(this.ctx)) {
+            await this.processRepoForReport(client, repo)
         }
     }
 
-    private async processRepoForReport(client: Octokit, alertsClient: Octokit, repo: string): Promise<void> {
+    private async processRepoForReport(client: Octokit | null, repo: string): Promise<void> {
         const startTime = Date.now()
         const [owner, name] = repo.split('/')
 
         try {
-            const alerts = await fetchDependabotAlerts(alertsClient, { owner, repo: name })
+            const alerts = await this.fetchAlerts(repo)
             const { filtered } = filterAlerts(alerts, { severityThreshold: this.config.severityThreshold })
             const prioritized = prioritizeAlerts(filtered)
             const { limited } = limitAlerts(prioritized, this.config.maxAlertsPerRepository)
@@ -258,10 +259,9 @@ export class DependfixApp {
     // -----------------------------------------------------------------------
 
     private async executeFixMode(): Promise<void> {
-        const client = this.createClient()
-        const alertsClient = this.createAlertsClient()
-        for (const repo of this.config.repositories) {
-            await this.processRepoForFix(client, alertsClient, repo)
+        const client = this.githubClientOrNull()
+        for (const repo of resolveAlertRepositories(this.ctx)) {
+            await this.processRepoForFix(client, repo)
         }
 
         // 修复完成后，按需在本地当前分支直接提交（不推送、不创建 PR）
@@ -286,7 +286,7 @@ export class DependfixApp {
         }
     }
 
-    private async processRepoForFix(client: Octokit, alertsClient: Octokit, repo: string): Promise<void> {
+    private async processRepoForFix(client: Octokit | null, repo: string): Promise<void> {
         const startTime = Date.now()
         const [owner, name] = repo.split('/')
         let alertsCount = 0
@@ -298,8 +298,9 @@ export class DependfixApp {
         let defaultBranch = ''
 
         try {
-            // 1. Fetch alerts（alertsClient 使用 alertsToken；主 token 无法读取 Dependabot alerts）
-            const rawAlerts = await fetchDependabotAlerts(alertsClient, { owner, repo: name })
+            // 1. Fetch alerts（github-dependabot：alertsClient 使用 alertsToken，主 token 无法读取 Dependabot alerts；
+            //    pnpm-audit：本地 `pnpm audit --json`，无 token）
+            const rawAlerts = await this.fetchAlerts(repo)
             const { filtered } = filterAlerts(rawAlerts, { severityThreshold: this.config.severityThreshold })
             const prioritized = prioritizeAlerts(filtered)
             const { limited } = limitAlerts(prioritized, this.config.maxAlertsPerRepository)
@@ -496,11 +497,11 @@ export class DependfixApp {
      */
     private async executeFixAndPrMode(): Promise<void> {
         const client = this.createClient()
-        const alertsClient = this.createAlertsClient()
 
         // 1. Run fix pipeline for all repos (same as fix mode)
+        // （config 校验已保证 fix-and-pr 仅 github-dependabot 源，client 恒非 null）
         for (const repo of this.config.repositories) {
-            await this.processRepoForFix(client, alertsClient, repo)
+            await this.processRepoForFix(client, repo)
         }
 
         // 1.5 Optional: report merged dependfix branches for manual cleanup.
@@ -742,6 +743,28 @@ export class DependfixApp {
     // GitHub helpers
     // -----------------------------------------------------------------------
 
+    /**
+     * 告警数据源统一入口：
+     * - `github-dependabot`：Octokit 拉取 Dependabot alerts（alertsToken 优先）
+     * - `pnpm-audit`：本地 `pnpm audit --json` 回退（无 token；repository 已由 resolveAlertRepositories 解析）
+     */
+    private async fetchAlerts(repo: string): Promise<NormalizedSecurityAlert[]> {
+        if (this.config.alertSource === 'pnpm-audit') {
+            return fetchPnpmAuditAlerts({ workDir: this.workDir, repository: repo })
+        }
+        const alertsClient = this.createAlertsClient()
+        const [owner, name] = repo.split('/')
+        return fetchDependabotAlerts(alertsClient, { owner, repo: name })
+    }
+
+    /** pnpm-audit 模式不创建 GitHub client（无 token）；github-dependabot 模式返回主 token client。 */
+    private githubClientOrNull(): Octokit | null {
+        if (this.config.alertSource === 'pnpm-audit') {
+            return null
+        }
+        return this.createClient()
+    }
+
     private createClient(token: string = this.config.githubToken): Octokit {
         return createGitHubClient({ token })
     }
@@ -758,9 +781,13 @@ export class DependfixApp {
 
     /**
      * 获取仓库的默认分支。
+     * pnpm-audit 模式 client 为 null → 返回 ''（报告显示 local）。
      * 失败时返回 `'unknown'`（不阻塞主流程）。
      */
-    private async fetchDefaultBranch(client: Octokit, owner: string, repo: string): Promise<string> {
+    private async fetchDefaultBranch(client: Octokit | null, owner: string, repo: string): Promise<string> {
+        if (!client) {
+            return ''
+        }
         try {
             const { data } = await client.rest.repos.get({ owner, repo })
             return data.default_branch

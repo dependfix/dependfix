@@ -22,6 +22,7 @@ describe('resolveRuntimeConfig', () => {
             cleanupBranches: false,
             cleanupBranchesAuto: false,
             githubToken: 'token-from-env',
+            alertSource: 'github-dependabot',
             maxAlertsPerRepository: 20,
         })
     })
@@ -111,6 +112,7 @@ describe('resolveRuntimeConfig', () => {
             cleanupBranches: false,
             cleanupBranchesAuto: false,
             githubToken: 'token-from-cli',
+            alertSource: 'github-dependabot',
             maxAlertsPerRepository: 3,
         })
     })
@@ -334,6 +336,111 @@ describe('resolveRuntimeConfig', () => {
                 AUTO_FIX_GITHUB_SECURITY_REPOSITORIES: 'owner/repo-a, invalid-repo, owner/repo-b',
             },
         })).toThrow('Invalid repository identifier')
+    })
+
+    it('reads alertSource from env (pnpm-audit local fallback)', () => {
+        const config = resolveRuntimeConfig({
+            env: {
+                AUTO_FIX_GITHUB_SECURITY_ALERTS_SOURCE: 'pnpm-audit',
+            },
+        })
+
+        expect(config.alertSource).toBe('pnpm-audit')
+    })
+
+    it('lets cli alerts-source override env', () => {
+        const invocation = parseCliArgs([
+            'report-only',
+            '--alerts-source',
+            'pnpm-audit',
+        ])
+
+        const config = resolveRuntimeConfig({
+            env: {
+                AUTO_FIX_GITHUB_SECURITY_ALERTS_SOURCE: 'github-dependabot',
+            },
+            cliOverrides: invocation.configOverrides,
+        })
+
+        expect(config.alertSource).toBe('pnpm-audit')
+    })
+
+    it('defaults alertSource to github-dependabot', () => {
+        const config = resolveRuntimeConfig({
+            env: { GITHUB_TOKEN: 'token', AUTO_FIX_GITHUB_SECURITY_REPOSITORIES: 'owner/repo-a' },
+        })
+
+        expect(config.alertSource).toBe('github-dependabot')
+    })
+
+    it('rejects invalid alerts-source value', () => {
+        expect(() => resolveRuntimeConfig({
+            env: { AUTO_FIX_GITHUB_SECURITY_ALERTS_SOURCE: 'osv-scanner' },
+        })).toThrow('AUTO_FIX_GITHUB_SECURITY_ALERTS_SOURCE must be one of')
+    })
+
+    it('rejects invalid --alerts-source from cli (ARGUMENT_PARSE_ERROR)', () => {
+        expect(() => parseCliArgs([
+            'report-only',
+            '--alerts-source',
+            'osv-scanner',
+        ])).toThrow('Invalid --alerts-source value')
+    })
+
+    it('allows pnpm-audit without GitHub token (repositories may fall back to git remote or local)', () => {
+        // 无 token 不报错；无 --repo 时由 app 层解析（git remote → local 兜底）。
+        // config 层在无显式 repos 时仍会尝试 git remote 推断（本仓库即 dependfix/dependfix）。
+        const config = resolveRuntimeConfig({
+            env: { AUTO_FIX_GITHUB_SECURITY_ALERTS_SOURCE: 'pnpm-audit' },
+        })
+
+        expect(config.alertSource).toBe('pnpm-audit')
+        expect(config.githubToken).toBe('')
+        expect(config.repositories.length).toBeLessThanOrEqual(1)
+    })
+
+    it('allows pnpm-audit with a single explicit repository', () => {
+        const config = resolveRuntimeConfig({
+            env: {
+                AUTO_FIX_GITHUB_SECURITY_ALERTS_SOURCE: 'pnpm-audit',
+                AUTO_FIX_GITHUB_SECURITY_REPOSITORIES: 'owner/repo-a',
+            },
+        })
+
+        expect(config.repositories).toEqual(['owner/repo-a'])
+    })
+
+    it('rejects pnpm-audit with multiple repositories (audit scans one workspace)', () => {
+        expect(() => resolveRuntimeConfig({
+            env: {
+                AUTO_FIX_GITHUB_SECURITY_ALERTS_SOURCE: 'pnpm-audit',
+                AUTO_FIX_GITHUB_SECURITY_REPOSITORIES: 'owner/repo-a, owner/repo-b',
+            },
+        })).toThrow('pnpm-audit alert source supports at most one repository')
+    })
+
+    it('rejects pnpm-audit with fix-and-pr mode (PR requires GitHub)', () => {
+        expect(() => resolveRuntimeConfig({
+            env: {
+                AUTO_FIX_GITHUB_SECURITY_ALERTS_SOURCE: 'pnpm-audit',
+                AUTO_FIX_GITHUB_SECURITY_MODE: 'fix-and-pr',
+            },
+        })).toThrow('fix-and-pr mode requires the github-dependabot alert source')
+    })
+
+    it('rejects pnpm-audit with cleanup-branches mode (branch cleanup needs GitHub API)', () => {
+        expect(() => resolveRuntimeConfig({
+            env: {
+                AUTO_FIX_GITHUB_SECURITY_ALERTS_SOURCE: 'pnpm-audit',
+                AUTO_FIX_GITHUB_SECURITY_MODE: 'cleanup-branches',
+            },
+        })).toThrow('cleanup-branches mode requires the github-dependabot alert source')
+    })
+
+    it('still requires token for github-dependabot source', () => {
+        expect(() => resolveRuntimeConfig({
+            env: { AUTO_FIX_GITHUB_SECURITY_ALERTS_SOURCE: 'github-dependabot' },
+        })).toThrow('Missing GitHub token')
     })
 })
 

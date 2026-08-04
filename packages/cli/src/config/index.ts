@@ -1,12 +1,13 @@
 import { execSync } from 'node:child_process'
-import { AppError, isValidRepoIdentifier, type SeverityThreshold } from '@dependfix/core'
+import { AppError, isValidRepoIdentifier, type SeverityThreshold, type AlertSourceKind } from '@dependfix/core'
 import { resolveRepoList } from '../github/repo-selector'
 
 export const RUNTIME_MODES = ['report-only', 'fix', 'fix-and-pr', 'cleanup-branches'] as const
 export const SEVERITY_THRESHOLDS = ['critical', 'high', 'medium', 'all'] as const
+export const ALERT_SOURCES: readonly AlertSourceKind[] = ['github-dependabot', 'pnpm-audit']
 
 export type RuntimeMode = typeof RUNTIME_MODES[number]
-export type { SeverityThreshold }
+export type { SeverityThreshold, AlertSourceKind }
 
 export interface RuntimeConfig {
     mode: RuntimeMode
@@ -21,6 +22,12 @@ export interface RuntimeConfig {
     /** fix-and-pr 模式下结束后是否自动删除已合并/已关闭的 dependfix 分支（非交互） */
     cleanupBranchesAuto: boolean
     githubToken: string
+    /**
+     * 告警数据源。默认 `github-dependabot`（GitHub Dependabot alerts API）；
+     * `pnpm-audit` 为本地无 token 回退（`pnpm audit --json`），repository 解析
+     * 优先显式 --repo → git remote → `local` 兜底。详见 docs/design/pnpm-audit-fallback.md。
+     */
+    alertSource: AlertSourceKind
     /**
      * Dependabot alerts 专用 token（可选）。
      * 提供时仅用于拉取 Dependabot alerts（GITHUB_TOKEN 无法读取该 API，
@@ -53,6 +60,8 @@ export interface CliConfigOverrides {
     /** fix-and-pr 模式下结束后是否自动删除已合并/已关闭的 dependfix 分支（非交互） */
     cleanupBranchesAuto?: boolean
     githubToken?: string
+    /** 告警数据源（`github-dependabot` / `pnpm-audit`） */
+    alertSource?: AlertSourceKind
     /** Dependabot alerts 专用 token（可选，最小权限；缺省回退 githubToken） */
     alertsToken?: string
     maxAlertsPerRepository?: number
@@ -74,6 +83,7 @@ export interface ResolveRuntimeConfigOptions {
 export const DEFAULT_RUNTIME_CONFIG: Omit<RuntimeConfig, 'githubToken' | 'repositories' | 'dryRun' | 'createPullRequest' | 'commit' | 'cleanupBranches' | 'cleanupBranchesAuto'> = {
     mode: 'report-only',
     severityThreshold: 'high',
+    alertSource: 'github-dependabot',
     maxAlertsPerRepository: 20,
 }
 
@@ -83,6 +93,10 @@ function isRuntimeMode(value: string): value is RuntimeMode {
 
 function isSeverityThreshold(value: string): value is SeverityThreshold {
     return SEVERITY_THRESHOLDS.includes(value as SeverityThreshold)
+}
+
+function isAlertSource(value: string): value is AlertSourceKind {
+    return ALERT_SOURCES.includes(value as AlertSourceKind)
 }
 
 function normalizeBoolean(value: string | undefined, fieldName: string): boolean | undefined {
@@ -214,6 +228,18 @@ function readSeverityThreshold(value: string | undefined, fieldName: string): Se
     return value
 }
 
+function readAlertSource(value: string | undefined, fieldName: string): AlertSourceKind | undefined {
+    if (value === undefined || value.trim() === '') {
+        return undefined
+    }
+
+    if (!isAlertSource(value)) {
+        throw new AppError('CONFIG_VALIDATION_ERROR', `${fieldName} must be one of: ${ALERT_SOURCES.join(', ')}`)
+    }
+
+    return value
+}
+
 export function readEnvConfig(env: NodeJS.ProcessEnv = process.env): CliConfigOverrides {
     return {
         mode: readRuntimeMode(env.AUTO_FIX_GITHUB_SECURITY_MODE, 'AUTO_FIX_GITHUB_SECURITY_MODE'),
@@ -226,6 +252,7 @@ export function readEnvConfig(env: NodeJS.ProcessEnv = process.env): CliConfigOv
         cleanupBranchesAuto: normalizeBoolean(env.AUTO_FIX_GITHUB_SECURITY_CLEANUP_BRANCHES_AUTO, 'AUTO_FIX_GITHUB_SECURITY_CLEANUP_BRANCHES_AUTO'),
         githubToken: env.AUTO_FIX_GITHUB_SECURITY_GITHUB_TOKEN?.trim() || env.GITHUB_TOKEN?.trim() || undefined,
         alertsToken: env.AUTO_FIX_GITHUB_SECURITY_ALERTS_TOKEN?.trim() || undefined,
+        alertSource: readAlertSource(env.AUTO_FIX_GITHUB_SECURITY_ALERTS_SOURCE, 'AUTO_FIX_GITHUB_SECURITY_ALERTS_SOURCE'),
         maxAlertsPerRepository: normalizeInteger(env.AUTO_FIX_GITHUB_SECURITY_MAX_ALERTS_PER_REPOSITORY, 'AUTO_FIX_GITHUB_SECURITY_MAX_ALERTS_PER_REPOSITORY'),
         upgradeGroups: normalizeUpgradeGroups(env.AUTO_FIX_GITHUB_SECURITY_UPGRADE_GROUPS),
     }
@@ -292,7 +319,10 @@ function resolveCleanupBranchesAuto(cliOverrides: CliConfigOverrides, envConfig:
 }
 
 function validateRuntimeConfig(config: RuntimeConfig): RuntimeConfig {
-    if (!config.githubToken) {
+    const isAuditSource = config.alertSource === 'pnpm-audit'
+
+    // pnpm-audit 模式不要求 GitHub token（本地回退的核心场景）
+    if (!isAuditSource && !config.githubToken) {
         throw new AppError(
             'CONFIG_VALIDATION_ERROR',
             'Missing GitHub token. Provide GITHUB_TOKEN or AUTO_FIX_GITHUB_SECURITY_GITHUB_TOKEN.',
@@ -300,16 +330,45 @@ function validateRuntimeConfig(config: RuntimeConfig): RuntimeConfig {
     }
 
     if (config.repositories.length === 0) {
-        throw new AppError(
-            'CONFIG_VALIDATION_ERROR',
-            'Missing target repositories. Provide --repo, --repository, --repos-file or AUTO_FIX_GITHUB_SECURITY_REPOSITORIES.',
-        )
+        if (isAuditSource) {
+            // pnpm-audit 模式允许无 --repo：repository 由 app 层解析（git remote → local 兜底）
+        } else {
+            throw new AppError(
+                'CONFIG_VALIDATION_ERROR',
+                'Missing target repositories. Provide --repo, --repository, --repos-file or AUTO_FIX_GITHUB_SECURITY_REPOSITORIES.',
+            )
+        }
     }
 
     for (const repo of config.repositories) {
         if (!isValidRepoIdentifier(repo)) {
             throw new AppError('CONFIG_VALIDATION_ERROR', `Invalid repository identifier: "${repo}". Expected format: owner/repo`)
         }
+    }
+
+    // pnpm-audit 只扫当前目录一个 lockfile，无法对应多个仓库
+    if (isAuditSource && config.repositories.length > 1) {
+        throw new AppError(
+            'CONFIG_VALIDATION_ERROR',
+            'pnpm-audit alert source supports at most one repository (it scans the current workspace lockfile).',
+        )
+    }
+
+    // PR 必须 GitHub，audit 数据无对应仓库
+    if (isAuditSource && config.mode === 'fix-and-pr') {
+        throw new AppError(
+            'CONFIG_VALIDATION_ERROR',
+            'fix-and-pr mode requires the github-dependabot alert source. Use pnpm-audit with report-only/fix mode instead.',
+        )
+    }
+
+    // 分支清理完全依赖 GitHub API，与 audit 数据源语义无关；
+    // 不校验则无 remote 目录 + audit 模式会 exit 0 静默空跑（复活 T-G2-1 语义缺陷）
+    if (isAuditSource && config.mode === 'cleanup-branches') {
+        throw new AppError(
+            'CONFIG_VALIDATION_ERROR',
+            'cleanup-branches mode requires the github-dependabot alert source (branch cleanup needs GitHub API).',
+        )
     }
 
     if (config.mode === 'report-only' && config.createPullRequest) {
@@ -365,6 +424,7 @@ export function resolveRuntimeConfig(options: ResolveRuntimeConfigOptions = {}):
         cleanupBranchesAuto: resolveCleanupBranchesAuto(cliOverrides, envConfig),
         githubToken: cliOverrides.githubToken ?? envConfig.githubToken ?? '',
         alertsToken: cliOverrides.alertsToken ?? envConfig.alertsToken,
+        alertSource: cliOverrides.alertSource ?? envConfig.alertSource ?? DEFAULT_RUNTIME_CONFIG.alertSource,
         maxAlertsPerRepository: cliOverrides.maxAlertsPerRepository ?? envConfig.maxAlertsPerRepository ?? DEFAULT_RUNTIME_CONFIG.maxAlertsPerRepository,
         upgradeGroups: cliOverrides.upgradeGroups ?? envConfig.upgradeGroups,
     }

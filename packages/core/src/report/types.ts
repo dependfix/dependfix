@@ -1,6 +1,13 @@
 import type { NormalizedSecurityAlert, AlertSeverity } from '../alerts'
 
 /**
+ * 告警数据源。
+ * - `github-dependabot`：GitHub Dependabot alerts API（默认）
+ * - `pnpm-audit`：本地 `pnpm audit --json`（无 token 回退）
+ */
+export type AlertSourceKind = 'github-dependabot' | 'pnpm-audit'
+
+/**
  * 报告级运行配置（RuntimeConfig 脱敏子集，不含 githubToken）。
  */
 export interface RunReportConfig {
@@ -10,6 +17,7 @@ export interface RunReportConfig {
     dryRun: boolean
     createPullRequest: boolean
     maxAlertsPerRepository: number
+    alertSource: AlertSourceKind
 }
 
 /**

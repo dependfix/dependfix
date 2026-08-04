@@ -59,6 +59,7 @@ function buildRunResult(): RunResult {
             dryRun: false,
             createPullRequest: true,
             maxAlertsPerRepository: 10,
+            alertSource: 'github-dependabot',
         },
         summary: createEmptyRunSummary(),
         repositories: [],

@@ -11,9 +11,10 @@
 ### T301 接入 Code Scanning Alerts 拉取
 
 - 优先级：`P1`
-- 依赖：T102, T004
+- 依赖：T102, T004, T-G2-2（前置：Code Scanning alerts 对 GITHUB_TOKEN 可访问性验证，见 [todo.md G2](../plan/todo.md#g2-github_token-无法访问-dependabot-alerts-api产品设计级限制)）
 - 交付物：Code Scanning 告警采集器。
 - 任务内容：
+  - [ ] （前置）验证 GITHUB_TOKEN 访问 Code Scanning alerts 是否可用；不可用则确定替代 token 方案（PAT / GitHub App）。
   - [ ] 拉取 open 状态 Code Scanning 告警。
   - [ ] 转换为标准告警模型。
   - [ ] 建立 error / warning / note 的统一映射。
@@ -203,7 +204,7 @@
 - 交付物：仓库 CRUD + 凭据加密存储。
 - 任务内容：
   - [ ] Repository 实体与 CRUD API。
-  - [ ] Credential 实体，AES-256-GCM 加密存储 PAT。
+  - [ ] Credential 实体，AES-256-GCM 加密存储；凭据类型支持 classic PAT / fine-grained PAT / GitHub App（app-id + private-key），Dependabot alerts 读取必须显式授权（GITHUB_TOKEN 不可用，见 G2）。
   - [ ] Web UI：仓库列表、添加/编辑/删除。
 - 完成定义：
   - [ ] 可通过 Web UI 管理仓库和关联凭据。

@@ -168,6 +168,8 @@ T109 ─→ T205（AI Token 支持）→ T206（Prompt 注入防护）
 - [x] `pnpm typecheck` + `pnpm lint` + `pnpm test` 全部通过
 
 > M2 MVP 已可交付：消费者仓库可通过一行 `uses:` 接入安全告警自动修复。
+>
+> ⚠️ **G2 风险注记（2026-08-04）**：接入 ≠ 可用。Dependabot alerts 拉取依赖 token 权限：`GITHUB_TOKEN` 恒 403（App-only 权限，见下方 G2），消费者必须提供带 `security_events`（classic PAT）/ `Dependabot alerts: read`（fine-grained PAT）或 GitHub App token，否则静默空跑。Code Scanning 是否同样受限待验证（T-G2-2）。
 
 ---
 
@@ -346,6 +348,12 @@ T109 ─→ T205（AI Token 支持）→ T206（Prompt 注入防护）
   - 3. CLI 增加无 token 回退路径：`GITHUB_TOKEN` 缺失/403 时自动尝试 `pnpm audit`（归一化后进入同一告警流水线）——需确认统计口径差异的处置策略（报告标注数据源、不混合同源去重）
   - 4. 验证 Code Scanning alerts 是否 GITHUB_TOKEN 可访问，决定两类告警的 token 策略
 - **下一步**: 用户确认 token 方案与 pnpm audit 回退是否纳入 → 调整 workflow + action 文档；补 CLI 403 硬失败处理
+- **处置任务清单**（状态化，按优先级）:
+  - [ ] T-G2-1 CLI fetch 阶段 401/403 硬失败（P0，杜绝静默空跑）
+  - [ ] T-G2-2 Code Scanning alerts 对 GITHUB_TOKEN 可访问性验证（P0，决定 M3 前置与文档口径）
+  - [ ] T-G2-3 token 方案决策与落地：security-auto-fix.yml + action.yml 输入描述 + README 消费者引导（P0，待用户决策 PAT / GitHub App）
+  - [ ] T-G2-4 pnpm audit fallback 设计评估：无 token 本地回退，口径归一化与数据源标注策略（P1）
+  - [ ] T-G2-5 规划文档闭环：roadmap M2 风险注记 / M3 前置 / M6 凭据双模型、backlog T301 / T602 调整（P1）
 - **发现来源**: Security Auto Fix dogfooding run 30844997175（2026-08-03）；交叉验证调研（2026-08-04）
 
 ---

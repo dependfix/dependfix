@@ -378,6 +378,17 @@ T109 ─→ T205（AI Token 支持）→ T206（Prompt 注入防护）
 
 ---
 
+### G3 overrides 缺少"锁定大版本"的覆盖策略（待分析）
+
+- **状态**: 🟡 待分析（2026-08-04 登记，未排期）
+- **位置**: `packages/cli/src/fixers/dependency/index.ts`（overrideTransitiveDependency）
+- **问题**: 当前 `pnpm overrides` 修复路径（间接依赖）直接写入告警建议的补丁版本（如 `fast-uri: ^3.1.5`），但**未处理"需锁定大版本"的场景**——当某个间接依赖的修复涉及 major 版本跨越、或多个直接依赖对同一包有不同版本约束时，overrides 需要显式锁定/对齐大版本，否则可能与其他依赖的 peer/版本约束冲突，或升级后引入破坏性变更
+- **证据**: Security Auto Fix run 30910749960（2026-08-04）：fast-uri 连续 7 次 override 升级（^3.1.5 → ^3.1.1 逐个告警处理）、vite 连续 13 次升降级（^8.2.0 → ^6.4.3 → ... → ^5.4.20）——同包多次重复处理、且出现降级（downgrade）与来回抖动，说明 overrides 策略缺少"一次锁定/收敛到合理版本"的机制
+- **下一步**: 分析 override 版本收敛策略（如：同包多告警取最高补丁版本一次写入、major 跨越需人工确认或配置锁定大版本、避免降级）
+- **发现来源**: Security Auto Fix dogfooding run 30910749960 / PR #23（2026-08-04）
+
+---
+
 ## 已完成登记：代码质量治理（2026-08-03）
 
 ### Q1 eslint-config-cmyr 升级 2.1.5 → 2.3.1

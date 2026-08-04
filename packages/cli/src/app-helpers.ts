@@ -720,8 +720,10 @@ export function computeExitCode(
     const hasFailures = allActions.some((a) => !a.success)
     // 保守判定：dry-run 下成功仓库的 verificationPassed 为 undefined、alertsCount 可能为 0，
     // 与失败仓库并存时会被判为"无成功"（返回 2 而非 1）——fail-safe 方向，可接受
+    // 验证失败（verificationPassed === false）的仓库不算成功交付（改动已回滚）
     const hasRepoSuccess = repoResults.length > 0
-        && repoResults.some((r) => r.alertsCount > 0 || r.fixed > 0 || r.verificationPassed === true)
+        && repoResults.some((r) => r.verificationPassed !== false
+            && (r.alertsCount > 0 || r.fixed > 0 || r.verificationPassed === true))
     // cleanup-branches 模式不填充 repoResults，以成功的 branch-cleanup 动作判定
     const hasCleanupSuccess = config.mode === 'cleanup-branches'
         && allActions.some((a) => a.success && a.type === 'branch-cleanup')

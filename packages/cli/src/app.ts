@@ -18,6 +18,7 @@ import {
     type FixError,
 } from '@dependfix/core'
 import { createGitHubClient } from './github/client'
+import { enforceVerificationGate } from './verification-gate'
 import { fetchDependabotAlerts } from './github/dependabot-fetcher'
 import { createFixBranch, stageAndCommit, pushBranch, createPullRequest, generatePRBody, computeFixFingerprint, computeFixAndPrPlan, findDependfixOpenPR, listDependfixBranches, getBranchPrStatus, deleteRemoteBranch, type DependfixBranchStatus } from './github/pr-creator'
 import type { RuntimeConfig } from './config'
@@ -82,6 +83,8 @@ export class DependfixApp {
     private readonly summary: RunSummary = createEmptyRunSummary()
     private startedAt: string = ''
     private finishedAt: string = ''
+    /** 运行前工作区是否已有未提交改动（验证门禁回滚保护：避免销毁用户本地工作） */
+    private preExistingDirty = false
 
     constructor(options: DependfixAppOptions) {
         this.config = options.config
@@ -121,6 +124,8 @@ export class DependfixApp {
     /** 执行完整的编排流程，返回结构化结果和退出码。 */
     async run(): Promise<DependfixRunResult> {
         this.startedAt = new Date().toISOString()
+        // 记录运行前工作区状态（验证门禁回滚时保护用户已有未提交改动）
+        this.preExistingDirty = hasGitChanges(this.workDir)
         this.logger.info(`Starting dependfix run ${this.runId}`, {
             mode: this.config.mode,
             repositories: this.config.repositories,
@@ -257,6 +262,11 @@ export class DependfixApp {
 
         // 修复完成后，按需在本地当前分支直接提交（不推送、不创建 PR）
         if (this.config.commit) {
+            // 验证门禁：任一仓库验证失败 → 回滚，不提交坏改动
+            if (enforceVerificationGate(this.ctx, { preExistingDirty: this.preExistingDirty, action: 'commit' })) {
+                return
+            }
+
             try {
                 commitLocalChanges(this.ctx)
             } catch (error: unknown) {
@@ -389,7 +399,13 @@ export class DependfixApp {
             }
         }
 
-        // 2. Check if there are changes to commit (skip dry-run)
+        // 2. Verification gate：任一仓库验证失败 → 回滚修复改动并跳过 PR 创建。
+        // 避免把未通过 lint/build/install 的坏改动提交给用户（曾导致坏 PR 被创建）。
+        if (enforceVerificationGate(this.ctx, { preExistingDirty: this.preExistingDirty, action: 'pr' })) {
+            return
+        }
+
+        // 3. Check if there are changes to commit (skip dry-run)
         if (this.config.dryRun) {
             this.logger.info('[dry-run] Would create branch, commit, push, and PR')
             return

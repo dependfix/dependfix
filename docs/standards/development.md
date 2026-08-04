@@ -123,10 +123,11 @@ apps/platform/               # Nuxt 全栈平台（后续阶段）
 
 在 `git commit` 之前必须通过以下检查：
 
-1. **Review Gate**: 所有改动必须经过至少一轮 review。
+1. **Review Gate**: 所有改动必须经过至少一轮 review，且 A 阶段（`@code-auditor`）已放行。
 2. **Lint**: `pnpm lint` 零 error。
 3. **Typecheck**: `pnpm typecheck` 零 error。
 4. **测试**: 定向测试通过；命中全量测试条件时执行 `pnpm test`。
+5. **提交执行**: 必须通过 `conventional-committer` skill 提交（禁止裸 `git commit -m`），详见 [Git 规范](./git.md) 与 [AGENTS.md 提交规范](../../AGENTS.md#提交规范-commit-convention)。
 
 ## 10. 相关文档
 

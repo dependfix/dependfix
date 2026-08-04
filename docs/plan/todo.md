@@ -401,7 +401,7 @@ T109 ─→ T205（AI Token 支持）→ T206（Prompt 注入防护）
 ### G3 overrides 缺少"锁定大版本"的覆盖策略（待分析）
 
 - **状态**: ✅ 已处理（2026-08-04）：同包收敛 + 不降级保护 + 逐包验证回滚；"大版本锁定/跨 major 确认"策略仍待 M3+ 深入（见下方遗留）
-- **位置**: `packages/cli/src/fix-helpers.ts`（dedupeFixableAlerts）、`packages/cli/src/app.ts`（processRepoForFix 升级循环）、`packages/cli/src/fixers/dependency/index.ts`（compareSemver）
+- **位置**: `packages/cli/src/helpers/index.ts`（dedupeFixableAlerts）、`packages/cli/src/app/index.ts`（processRepoForFix 升级循环）、`packages/cli/src/fixers/dependency/index.ts`（compareSemver / readLockfileVersion）
 - **问题**: 当前 `pnpm overrides` 修复路径（间接依赖）直接写入告警建议的补丁版本（如 `fast-uri: ^3.1.5`），但**未处理"需锁定大版本"的场景**——当某个间接依赖的修复涉及 major 版本跨越、或多个直接依赖对同一包有不同版本约束时，overrides 需要显式锁定/对齐大版本，否则可能与其他依赖的 peer/版本约束冲突，或升级后引入破坏性变更
 - **证据**: Security Auto Fix run 30910749960（2026-08-04）：fast-uri 连续 7 次 override 升级（^3.1.5 → ^3.1.1 逐个告警处理）、vite 连续 13 次升降级（^8.2.0 → ^6.4.3 → ... → ^5.4.20）——同包多次重复处理、且出现降级（downgrade）与来回抖动
 - **已落地处理**（2026-08-04）:
@@ -409,12 +409,13 @@ T109 ─→ T205（AI Token 支持）→ T206（Prompt 注入防护）
   - 不降级保护：当前 lockfile 版本 >= 目标版本时跳过升级
   - 逐包升级 + 快速验证（lint）+ 文件快照回滚：单包失败仅回滚该包，不再"一个包失败全部回滚"
 - **遗留（后续）**:
-  - major 跨越的 overrides 是否需要显式大版本锁定/人工确认；多直接依赖同包不同版本约束的对齐策略
-  - 不降级保护对 pnpm <9 / peer 后缀 lockfile 条目失效（lockfile 正则无法解析当前版本；已加 warn 提示，兜底解析待实现）
-  - 报告统计口径：`alertsSkipped` 混合"不可修复 / 同包收敛 / 无需升级"三种语义，Fixable 与 Fixed+Failed+Skipped 不对账，需独立字段（如 alertsConverged）
+  - **major overrides 确认机制评估（2026-08-05，run 30929090403 复盘）**：本次 brace-expansion 4.x→5.x overrides 触发 lint 失败被回滚（防护正常），但暴露"major 跨越无前置拦截"。**评估结论：暂不实现自动拦截**——① 现有逐包验证+回滚已兜住"升级破坏依赖树"（brace-expansion 案例即被正确回滚）；② major 升级的正确性无法静态判定（peer 兼容需 install 实测），前置确认只会制造"假确认"（无信息量的 y/N）；③ 更有效的低成本改进是 **P1 修复后的 fromVersion 精确化**（readLockfileVersion 已支持 pnpm v11 snapshot 格式，isMajor 判定从此有真实基线，不会再出现"unknown → ^5.0.7"式盲写）。**后续观察点**：若 major overrides 失败率持续偏高，再考虑"major overrides 仅 dry-run 报告 + 人工确认开关"（--confirm-major-overrides）
+  - 多直接依赖同包不同版本约束的对齐策略
+  - ~~不降级保护对 pnpm <9 / peer 后缀 lockfile 条目失效~~（✅ 2026-08-05 已修复：readLockfileVersion 支持 pnpm v10+/v11 snapshot 格式 `pkg@version:` / `'@scope/pkg@version':` / peer 后缀，多版本取最高防降级，见 run 30929090403 复盘 P1）
+  - 报告统计口径：`alertsSkipped` 混合"不可修复 / 同包收敛 / 无需升级 / 子目录 manifest"四种语义，Fixable 与 Fixed+Failed+Skipped 不对账，需独立字段（如 alertsConverged）
   - 升级循环集成测试（包 A 成功 → 包 B 失败回滚 → A 保留）待补
   - pre-release 版本比较相等时可能误跳过（低概率，first_patched_version 通常为正式版）
-- **发现来源**: Security Auto Fix dogfooding run 30910749960 / PR #23（2026-08-04）
+- **发现来源**: Security Auto Fix dogfooding run 30910749960 / PR #23（2026-08-04）；run 30929090403 复盘（2026-08-05）
 
 ---
 

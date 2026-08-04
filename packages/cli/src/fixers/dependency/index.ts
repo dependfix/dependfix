@@ -398,9 +398,13 @@ export function ensurePnpmOverrides(pkg: PackageJson): Record<string, string> {
  * 从 `pnpm-lock.yaml` 中读取指定包的当前锁定版本。
  * 通过简单的正则匹配查找，不解析完整 YAML（性能优先）。
  *
- * pnpm v9+ lockfile 格式（v9.0 起）:
- *   /package-name/version:
- *   /@scope/package-name/version:
+ * 支持两种 lockfile 键格式：
+ * 1. v9 早期格式（lockfileVersion 9.0 起）：`/package-name/version:`
+ * 2. pnpm v10+/v11 snapshot 格式：`package-name@version:` 或
+ *    `package-name@version(peer@x)(peer2@y):`（peer 后缀条目）
+ *
+ * 多版本并存时（如同一包同时被根与子目录 manifest 引用），取**最高版本**
+ * （保守：不降级保护依赖此语义，如根 vite@8.2.0 与 docs vite@5.4.14 并存）。
  *
  * @returns 锁定版本字符串（如 `'5.0.0'`），未找到返回 `null`
  */
@@ -411,12 +415,32 @@ export function readLockfileVersion(lockfilePath: string, packageName: string): 
 
     try {
         const content = readFileSync(lockfilePath, 'utf-8')
-        // 匹配 `/packageName/version:` 行（v9 格式）
-        // 包名不转义：fast-uri → /fast-uri/5.0.0:；@babel/traverse → /@babel/traverse/7.26.0:
         const escapedName = escapeRegExp(packageName)
-        const pattern = new RegExp(`^/${escapedName}/(\\d+(?:\\.\\d+(?:\\.\\d+)?(?:-[a-zA-Z0-9.]+)?)):`, 'm')
-        const match = pattern.exec(content)
-        return match ? match[1] : null
+        const versionCapture = '(\\d+(?:\\.\\d+(?:\\.\\d+)?(?:-[a-zA-Z0-9.]+)?))'
+
+        // 1. v9 格式：/packageName/version:
+        // 包名不转义：fast-uri → /fast-uri/5.0.0:；@babel/traverse → /@babel/traverse/7.26.0:
+        const v9Pattern = new RegExp(`^/${escapedName}/${versionCapture}:`, 'm')
+        const v9Match = v9Pattern.exec(content)
+        if (v9Match) {
+            return v9Match[1]
+        }
+
+        // 2. pnpm v10+/v11 snapshot 格式：
+        //    - 普通包：pkg@version: 或 pkg@version(peer...):
+        //    - scoped 包：'@types/node@26.1.2':（键带单引号，右引号在冒号前）
+        //    版本后边界允许 `:` / `(`（peer 后缀）/ `'`（引号键右引号）
+        const snapshotPattern = new RegExp(`^\\s*'?${escapedName}@${versionCapture}(?:[(:'])`, 'gm')
+        const versions: string[] = []
+        for (const match of content.matchAll(snapshotPattern)) {
+            versions.push(match[1])
+        }
+        if (versions.length === 0) {
+            return null
+        }
+        // 多版本并存 → 取最高（不降级保护语义）
+        versions.sort(compareSemver)
+        return versions[versions.length - 1]
     } catch {
         return null
     }

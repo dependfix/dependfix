@@ -102,3 +102,31 @@ export async function quickVerifyProject(
     }
     return true
 }
+
+/**
+ * 区分根 manifest 告警与子目录 manifest 告警（P0：vite 张冠李戴降级修复的防护）。
+ *
+ * Dependabot 告警携带 `dependency.manifest_path`（如 `docs/package.json`），
+ * 但修复模型是单根 workDir（package.json + pnpm overrides 全局生效）：
+ * - 子目录 manifest 的告警若包同时是根直接依赖（如 docs 的 vite@5 告警命中
+ *   根 vite@8），`upgradeDependency` 会误改根声明造成 major 降级（run 30929090403）；
+ * - pnpm overrides 是全局的，无法只修子目录而不影响根。
+ *
+ * 因此子目录 manifest 告警一律剔除修复链路（报告保留、计入 skipped），
+ * 标记"需人工处理"；pnpm-audit 源（manifestPath=''）不受影响。
+ */
+export function partitionSubmanifestAlerts(
+    alerts: NormalizedSecurityAlert[],
+): { root: NormalizedSecurityAlert[], sub: NormalizedSecurityAlert[] } {
+    const root: NormalizedSecurityAlert[] = []
+    const sub: NormalizedSecurityAlert[] = []
+    for (const alert of alerts) {
+        const normalized = alert.manifestPath.trim().replace(/\\/g, '/')
+        if (normalized && normalized !== 'package.json') {
+            sub.push(alert)
+        } else {
+            root.push(alert)
+        }
+    }
+    return { root, sub }
+}

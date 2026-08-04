@@ -508,6 +508,33 @@ describe('overrideTransitiveDependency', () => {
         cleanup(project)
     })
 
+    it('pins exact version with pnpm v11 snapshot lockfile (P1: fromVersion no longer unknown → ^x fallback)', async () => {
+        const project = createTempProject({ lodash: '^4.17.20' })
+        writeFileSync(project.lockfilePath, [
+            'lockfileVersion: \'9.0\'',
+            '',
+            '  fast-uri@3.1.5:',
+            '    resolution: {integrity: sha512-xxx}',
+            '',
+        ].join('\n'))
+
+        const result = await overrideTransitiveDependency({
+            packageName: 'fast-uri',
+            targetVersion: '3.1.6',
+            workDir: project.dir,
+        })
+
+        expect(result.success).toBe(true)
+        expect(result.fromVersion).toBe('3.1.5')
+        // 精确 pin（修复前 fromVersion='unknown' → extractPrefix 回退 '^' → '^3.1.6'）
+        expect(result.toVersion).toBe('3.1.6')
+
+        const pkg = JSON.parse(readFileSync(project.pkgPath, 'utf-8')) as Record<string, unknown>
+        expect((pkg.pnpm as Record<string, unknown>).overrides).toEqual({ 'fast-uri': '3.1.6' })
+
+        cleanup(project)
+    })
+
     it('returns failure for direct dependencies (should use upgradeDependency)', async () => {
         const project = createTempProject({ lodash: '^4.17.20' })
 
@@ -801,6 +828,123 @@ describe('readLockfileVersion', () => {
 
         const version = readLockfileVersion(lockfilePath, '@babel/traverse')
         expect(version).toBe('7.26.0')
+
+        rmSync(dir, { recursive: true })
+    })
+
+    it('reads pnpm v10+/v11 snapshot format (pkg@version:)', () => {
+        const dir = mkdtempSync(join(tmpdir(), 'dependfix-test-'))
+        const lockfilePath = join(dir, 'pnpm-lock.yaml')
+        writeFileSync(lockfilePath, [
+            'lockfileVersion: \'9.0\'',
+            '',
+            '  lodash@4.18.0:',
+            '    resolution: {integrity: sha512-xxx}',
+            '',
+            '  fast-uri@3.1.5:',
+            '    resolution: {integrity: sha512-yyy}',
+            '',
+        ].join('\n'))
+
+        expect(readLockfileVersion(lockfilePath, 'lodash')).toBe('4.18.0')
+        expect(readLockfileVersion(lockfilePath, 'fast-uri')).toBe('3.1.5')
+
+        rmSync(dir, { recursive: true })
+    })
+
+    it('reads snapshot entries with peer dependency suffixes (pkg@version(peer...))', () => {
+        const dir = mkdtempSync(join(tmpdir(), 'dependfix-test-'))
+        const lockfilePath = join(dir, 'pnpm-lock.yaml')
+        writeFileSync(lockfilePath, [
+            'lockfileVersion: \'9.0\'',
+            '',
+            '  vite@8.2.0(@types/node@26.1.2)(esbuild@0.25.12):',
+            '    resolution: {integrity: sha512-xxx}',
+            '',
+        ].join('\n'))
+
+        const version = readLockfileVersion(lockfilePath, 'vite')
+        expect(version).toBe('8.2.0')
+
+        rmSync(dir, { recursive: true })
+    })
+
+    it('does not mis-match importers specifiers or overrides entries (regression)', () => {
+        const dir = mkdtempSync(join(tmpdir(), 'dependfix-test-'))
+        const lockfilePath = join(dir, 'pnpm-lock.yaml')
+        writeFileSync(lockfilePath, [
+            'lockfileVersion: \'9.0\'',
+            '',
+            'importers:',
+            '  .:',
+            '    devDependencies:',
+            '      \'@octokit/request\':',
+            '        specifier: ^9.2.1',
+            '        version: 9.2.1',
+            '',
+            'overrides:',
+            '  compare-func: ^2.0.0',
+            '',
+            'packages:',
+            '',
+            'snapshots:',
+            '',
+            '  \'@octokit/request@9.2.1\':',
+            '    resolution: {integrity: sha512-xxx}',
+            '',
+        ].join('\n'))
+
+        // importers specifier（'@octokit/request': ^9.2.1 行首无版本键）与
+        // overrides 条目（compare-func: ^2.0.0）都不应被误判为 snapshot 版本
+        expect(readLockfileVersion(lockfilePath, '@octokit/request')).toBe('9.2.1')
+        expect(readLockfileVersion(lockfilePath, 'compare-func')).toBeNull()
+
+        rmSync(dir, { recursive: true })
+    })
+
+    it('reads scoped packages in snapshot format (quoted key)', () => {
+        const dir = mkdtempSync(join(tmpdir(), 'dependfix-test-'))
+        const lockfilePath = join(dir, 'pnpm-lock.yaml')
+        writeFileSync(lockfilePath, [
+            'lockfileVersion: \'9.0\'',
+            '',
+            '  \'@types/node@26.1.2\':',
+            '    resolution: {integrity: sha512-xxx}',
+            '',
+            '  \'@types/node@12.7.1\':',
+            '    resolution: {integrity: sha512-old}',
+            '',
+        ].join('\n'))
+
+        // scoped 包 snapshot 键带单引号；多版本并存取最高
+        expect(readLockfileVersion(lockfilePath, '@types/node')).toBe('26.1.2')
+
+        rmSync(dir, { recursive: true })
+    })
+
+    it('returns highest version when multiple snapshot entries exist (no-downgrade protection)', () => {
+        const dir = mkdtempSync(join(tmpdir(), 'dependfix-test-'))
+        const lockfilePath = join(dir, 'pnpm-lock.yaml')
+        writeFileSync(lockfilePath, [
+            'lockfileVersion: \'9.0\'',
+            '',
+            '  vite@5.4.14:',
+            '    resolution: {integrity: sha512-old}',
+            '',
+            '  vite@5.4.14(@types/node@26.1.2)(lightningcss@1.33.0):',
+            '    resolution: {integrity: sha512-old-peer}',
+            '',
+            '  vite@8.2.0:',
+            '    resolution: {integrity: sha512-new}',
+            '',
+            '  vite@8.2.0(@types/node@26.1.2)(esbuild@0.25.12):',
+            '    resolution: {integrity: sha512-new-peer}',
+            '',
+        ].join('\n'))
+
+        // 多版本并存（docs 的 vite@5.4.14 与根 vite@8.2.0）：取最高，防降级
+        const version = readLockfileVersion(lockfilePath, 'vite')
+        expect(version).toBe('8.2.0')
 
         rmSync(dir, { recursive: true })
     })

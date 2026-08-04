@@ -25,7 +25,7 @@ import { fetchPnpmAuditAlerts } from '../alerts/pnpm-audit-fetcher'
 import { createFixBranch, stageAndCommit, pushBranch, createPullRequest, generatePRBody, computeFixFingerprint, computeFixAndPrPlan, findDependfixOpenPR, listDependfixBranches, getBranchPrStatus, deleteRemoteBranch, type DependfixBranchStatus } from '../github/pr-creator'
 import type { RuntimeConfig } from '../config'
 import { compareSemver, readLockfileVersion } from '../fixers/dependency'
-import { dedupeFixableAlerts, snapshotTrackedFiles, restoreTrackedFiles, quickVerifyProject } from '../helpers'
+import { dedupeFixableAlerts, snapshotTrackedFiles, restoreTrackedFiles, quickVerifyProject, partitionSubmanifestAlerts } from '../helpers'
 import { buildUpgradeGroups } from '../grouping'
 import {
     buildCommitMessage,
@@ -298,8 +298,7 @@ export class DependfixApp {
         let defaultBranch = ''
 
         try {
-            // 1. Fetch alerts（github-dependabot：alertsClient 使用 alertsToken，主 token 无法读取 Dependabot alerts；
-            //    pnpm-audit：本地 `pnpm audit --json`，无 token）
+            // 1. Fetch alerts（双源：github-dependabot 走 alertsToken / pnpm-audit 本地回退）
             const rawAlerts = await this.fetchAlerts(repo)
             const { filtered } = filterAlerts(rawAlerts, { severityThreshold: this.config.severityThreshold })
             const prioritized = prioritizeAlerts(filtered)
@@ -311,13 +310,20 @@ export class DependfixApp {
 
             this.allAlerts.push(...limited)
 
+            // 2.0 子目录 manifest 告警（P0 防护：docs vite 告警曾误降级根 vite@8→6）→ 剔除修复链路
+            const { root: rootManifestAlerts, sub: submanifestAlerts } = partitionSubmanifestAlerts(limited)
+            if (submanifestAlerts.length > 0) {
+                this.logger.warn(
+                    `[alerts] ${submanifestAlerts.length} alert(s) from sub-directory manifest(s) skipped — manual review required: ${submanifestAlerts.map((a) => `${a.packageName} (${a.manifestPath})`).join(', ')}`,
+                )
+                this.summary.alertsSkipped += submanifestAlerts.length
+            }
+
             // 2. Upgrade fixable dependencies（T213 分组升级 + G3 同包收敛）
-            // - 同包多个 alerts 去重，取最高 recommendedVersion（避免互相覆盖/降级）
-            // - 分组：显式分组 > dependabot.yml groups > @types 归并 > scope/前缀启发式 > 单包
-            // - 组级验证（lint）失败 → 整组回滚 → 拆组逐个重试（坏包隔离）
-            // - 当前版本已 >= 目标版本时跳过（不降级保护）
+            // - 同包 alerts 去重取最高 recommendedVersion；分组显式 > dependabot.yml > @types > 启发式 > 单包
+            // - 组级验证失败 → 整组回滚 → 拆组逐个重试；当前版本 >= 目标时跳过（不降级保护）
             const fixableAlerts = dedupeFixableAlerts(
-                limited.filter((a) => a.fixable && a.recommendedVersion),
+                rootManifestAlerts.filter((a) => a.fixable && a.recommendedVersion),
             )
             const lockfilePath = join(this.workDir, 'pnpm-lock.yaml')
 
@@ -354,14 +360,13 @@ export class DependfixApp {
                     const currentVersion = readLockfileVersion(lockfilePath, alert.packageName)
                     if (currentVersion && compareSemver(currentVersion, alert.recommendedVersion) >= 0) {
                         this.logger.info(
-                            `Skipping ${alert.packageName}: current ${currentVersion} >= target ${alert.recommendedVersion} (no upgrade needed)`,
+                            `Skipping ${alert.packageName}: highest locked ${currentVersion} >= target ${alert.recommendedVersion} (no upgrade needed; vulnerable lower version may coexist across manifests — global fix not applicable, manual review advised)`,
                         )
                         this.summary.alertsSkipped++
                         continue
                     }
                     if (currentVersion === null) {
-                        // lockfile 格式非 v9（pnpm <9 / peer 后缀条目）时无法解析当前版本，
-                        // 不降级保护失效——warn 提示（G3 遗留：P2-1）
+                        // 包不在 lockfile（或格式非常规）——不降级保护失效，warn 提示
                         this.logger.warn(
                             `Could not resolve current version of ${alert.packageName} from lockfile — no-downgrade protection inactive`,
                         )
@@ -438,8 +443,8 @@ export class DependfixApp {
                 }
             }
 
-            // Track skipped (non-fixable) alerts
-            const skippedCount = limited.length - fixableAlerts.length
+            // Track skipped (non-fixable) alerts（子目录 manifest 已在 2.0 单独计入，避免重复计数）
+            const skippedCount = rootManifestAlerts.length - fixableAlerts.length
             this.summary.alertsSkipped += skippedCount
 
             // 3. Lockfile repair
@@ -505,22 +510,19 @@ export class DependfixApp {
         }
 
         // 1.5 Optional: report merged dependfix branches for manual cleanup.
-        // 在 early return 之前执行，保证"PR 已存在（skip）"等高频路径也能输出清单。
-        // cleanup-branches-auto 开启时跳过报告（避免同一分支同时出现"待清理"与"已删除"记录）。
+        // early return 前执行（"PR 已存在"等路径也输出清单）；cleanup-branches-auto 时跳过报告
         if (this.config.cleanupBranches && !this.config.cleanupBranchesAuto) {
             await reportCleanupCandidates(this.ctx, client)
         }
 
-        // 1.6 Optional: auto-delete merged/closed dependfix branches（非交互）。
-        // 与 cleanup-branches 可同时开启（报告 + 删除）。
+        // 1.6 Optional: auto-delete merged/closed dependfix branches（非交互，可与 1.5 同开）
         if (this.config.cleanupBranchesAuto) {
             for (const repo of this.config.repositories) {
                 await autoCleanupMergedBranches(this.ctx, client, repo)
             }
         }
 
-        // 2. Verification gate：任一仓库验证失败 → 回滚修复改动并跳过 PR 创建。
-        // 避免把未通过 lint/build/install 的坏改动提交给用户（曾导致坏 PR 被创建）。
+        // 2. Verification gate：任一仓库验证失败 → 回滚修复改动并跳过 PR 创建
         if (enforceVerificationGate(this.ctx, { preExistingDirty: this.preExistingDirty, action: 'pr' })) {
             return
         }

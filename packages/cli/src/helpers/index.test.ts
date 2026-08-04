@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { NormalizedSecurityAlert } from '@dependfix/core'
-import { dedupeFixableAlerts, quickVerifyProject, restoreTrackedFiles, snapshotTrackedFiles } from './index'
+import { dedupeFixableAlerts, partitionSubmanifestAlerts, quickVerifyProject, restoreTrackedFiles, snapshotTrackedFiles } from './index'
 
 // ---------------------------------------------------------------------------
 // Mock runVerification（quickVerifyProject 依赖）
@@ -164,6 +164,56 @@ describe('quickVerifyProject', () => {
 
         await expect(quickVerifyProject({ logger, workDir } as never, 'foo/bar')).resolves.toBe(true)
         expect(mockRunVerification).not.toHaveBeenCalled()
+    })
+})
+
+// ---------------------------------------------------------------------------
+// partitionSubmanifestAlerts（P0：子目录 manifest 告警剔除修复链路）
+// ---------------------------------------------------------------------------
+
+describe('partitionSubmanifestAlerts', () => {
+    const alert = (overrides: Partial<NormalizedSecurityAlert> = {}): NormalizedSecurityAlert => ({
+        id: 1,
+        source: 'dependabot',
+        repository: 'owner/repo',
+        defaultBranch: 'main',
+        severity: 'high',
+        packageEcosystem: 'npm',
+        packageName: 'vite',
+        manifestPath: '',
+        ruleId: 'GHSA-xxx',
+        summary: 'test',
+        htmlUrl: '',
+        fixable: true,
+        fixStrategy: 'upgrade',
+        recommendedVersion: '6.4.3',
+        ...overrides,
+    })
+
+    it('keeps alerts with empty manifestPath as root (pnpm-audit source)', () => {
+        const { root, sub } = partitionSubmanifestAlerts([alert({ packageName: 'fast-uri' })])
+        expect(root).toHaveLength(1)
+        expect(sub).toHaveLength(0)
+    })
+
+    it('keeps alerts pointing at root package.json as root', () => {
+        const { root, sub } = partitionSubmanifestAlerts([alert({ manifestPath: 'package.json' })])
+        expect(root).toHaveLength(1)
+        expect(sub).toHaveLength(0)
+    })
+
+    it('moves alerts from sub-directory manifests (docs/package.json) to sub', () => {
+        const { root, sub } = partitionSubmanifestAlerts([
+            alert({ packageName: 'vite', manifestPath: 'docs/package.json' }),
+            alert({ packageName: 'fast-uri', manifestPath: 'package.json' }),
+        ])
+        expect(root.map((a) => a.packageName)).toEqual(['fast-uri'])
+        expect(sub.map((a) => a.packageName)).toEqual(['vite'])
+    })
+
+    it('normalizes windows-style separators', () => {
+        const { sub } = partitionSubmanifestAlerts([alert({ manifestPath: 'docs\\package.json' })])
+        expect(sub).toHaveLength(1)
     })
 })
 

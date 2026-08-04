@@ -309,4 +309,34 @@ describe('DependfixApp group upgrade (T213)', () => {
         expect(bPkg?.success).toBe(false)
         expect(bPkg?.error).toBe('mock upgrade failure')
     })
+
+    it('skips sub-directory manifest alerts (P0: docs vite alert must not downgrade root vite)', async () => {
+        // 复现 run 30929090403：docs/package.json 的 vite 告警（推荐 6.4.3）命中根 vite@8.2.0
+        const viteAlert = alertJson('vite', 101)
+        const viteDep = viteAlert.dependency as Record<string, unknown>
+        const viteVuln = viteAlert.security_vulnerability as Record<string, unknown>
+        const viteAdvisory = viteAlert.security_advisory as Record<string, unknown>
+        viteDep.manifest_path = 'docs/package.json'
+        viteVuln.first_patched_version = { identifier: '6.4.3' }
+        ;(viteAdvisory.vulnerabilities as Array<Record<string, unknown>>)[0].first_patched_version = { identifier: '6.4.3' }
+        viteAlert.vulnerability_manifest_path = 'docs/package.json'
+        const normalAlert = alertJson('fast-uri', 102)
+
+        nockAlerts([viteAlert, normalAlert])
+        mockRunVerification
+            .mockImplementationOnce(() => Promise.resolve(verificationResult(true))) // fast-uri 组级验证
+            .mockImplementationOnce(() => Promise.resolve(verificationResult(true))) // 最终 verifyProject
+
+        const { exitCode, result } = await runFix([viteAlert, normalAlert])
+
+        expect(exitCode).toBe(0)
+        // 子目录 manifest 告警被剔除：vite 不进入升级（upgradeDependency 不被调用）
+        expect(mockUpgradeDependency).toHaveBeenCalledTimes(1)
+        expect(mockUpgradeDependency.mock.calls[0]?.[0].packageName).toBe('fast-uri')
+        const upgrades = result.actions.filter((a) => a.type === 'dependency-upgrade')
+        expect(upgrades.map((a) => a.target)).toEqual(['fast-uri'])
+        // 报告保留告警 + 计入 skipped
+        expect(result.alerts.some((a) => a.packageName === 'vite' && a.manifestPath === 'docs/package.json')).toBe(true)
+        expect(result.summary.alertsSkipped).toBe(1)
+    })
 })

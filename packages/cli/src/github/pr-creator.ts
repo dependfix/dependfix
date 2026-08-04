@@ -350,8 +350,76 @@ export function isConfirmAnswer(answer: string): boolean {
 // Report Helpers
 // ---------------------------------------------------------------------------
 
+/** 判定 action 是否代表真实的包升级（排除 skip 路径的 `PR #N` 伪 action，口径与 computeFixFingerprint 一致） */
+function isPackageUpgradeAction(action: FixAction): boolean {
+    return action.type === 'dependency-upgrade'
+        && typeof action.target === 'string'
+        && !/^PR #\d+/.test(action.target)
+}
+
+/** 转义 Markdown 表格单元格：`|` 转义、换行折叠为空格（错误消息常含多行） */
+function escapeTableCell(value: string): string {
+    return value.replace(/\|/g, '\\|').replace(/\r?\n/g, ' ')
+}
+
+/** 依赖升级 action 的聚合键（仓库 + 包名；跨仓库同包不合并） */
+function upgradeKey(action: FixAction): string {
+    return `${action.repository}\u0000${action.target}`
+}
+
+/** 按 (仓库, 包名) 聚合依赖升级 action。 */
+interface AggregatedUpgrade {
+    repository: string
+    packageName: string
+    fromVersion?: string
+    toVersion?: string
+    isMajor: boolean
+    strategy?: string
+    error?: string
+}
+
+function aggregateUpgradeActions(
+    actions: FixAction[],
+    predicate: (a: FixAction) => boolean,
+): AggregatedUpgrade[] {
+    const byKey = new Map<string, AggregatedUpgrade>()
+
+    for (const action of actions) {
+        if (!isPackageUpgradeAction(action) || !predicate(action)) {
+            continue
+        }
+        const key = upgradeKey(action)
+        const current = byKey.get(key)
+        if (!current) {
+            byKey.set(key, {
+                repository: action.repository,
+                packageName: action.target,
+                fromVersion: action.fromVersion,
+                toVersion: action.toVersion,
+                isMajor: action.isMajor === true,
+                strategy: action.strategy,
+                error: action.error,
+            })
+            continue
+        }
+        // 同包多条 action（同包多告警 / 重试路径）合并：
+        // from 取最早的起点，to 取最新的终点，任一 major 即标 ⚠️，strategy 优先 override
+        current.toVersion = action.toVersion ?? current.toVersion
+        current.isMajor = current.isMajor || action.isMajor === true
+        current.strategy = action.strategy === 'override' ? action.strategy : current.strategy
+        if (action.error) {
+            current.error = action.error
+        }
+    }
+
+    return [...byKey.values()]
+}
+
 /**
  * 从 RunResult 生成 PR body（Markdown）。
+ *
+ * 升级/失败列表按 (仓库, 包名) 聚合：同一包多次出现合并为一行
+ * （from 取最早起点、to 取最新终点），避免一个包出现多次。
  *
  * @param supersededNumbers 被本 PR 取代并已关闭的旧 PR 编号列表（用于 Supersedes 声明）
  */
@@ -380,25 +448,44 @@ export function generatePRBody(result: RunResult, supersededNumbers?: number[]):
         '',
     ]
 
-    // Upgrade actions
-    const upgrades = actions.filter((a) => a.type === 'dependency-upgrade' && a.success)
+    // Upgraded dependencies（按包聚合，每包一行）
+    const upgrades = aggregateUpgradeActions(actions, (a) => a.success)
     if (upgrades.length > 0) {
+        const multiRepo = new Set(upgrades.map((u) => u.repository)).size > 1
         lines.push('### 📦 Upgraded Dependencies', '')
-        lines.push('| Package | From | To | Major |')
-        lines.push('|---------|------|----|-------|')
-        for (const a of upgrades) {
-            const major = a.isMajor ? '⚠️ Yes' : 'No'
-            lines.push(`| \`${a.target}\` | ${a.fromVersion ?? '-'} | ${a.toVersion ?? '-'} | ${major} |`)
+        const headers = multiRepo
+            ? ['Repository', 'Package', 'From', 'To', 'Strategy', 'Major']
+            : ['Package', 'From', 'To', 'Strategy', 'Major']
+        lines.push(`| ${headers.join(' | ')} |`)
+        lines.push(`|${headers.map(() => '---').join('|')}|`)
+        for (const u of upgrades) {
+            const major = u.isMajor ? '⚠️ Yes' : 'No'
+            const strategy = u.strategy === 'override' ? 'pnpm overrides' : 'direct'
+            const cells = multiRepo
+                ? [u.repository, `\`${u.packageName}\``, u.fromVersion ?? '-', u.toVersion ?? '-', strategy, major]
+                : [`\`${u.packageName}\``, u.fromVersion ?? '-', u.toVersion ?? '-', strategy, major]
+            lines.push(`| ${cells.join(' | ')} |`)
         }
         lines.push('')
     }
 
-    // Failed upgrades
-    const failures = actions.filter((a) => a.type === 'dependency-upgrade' && !a.success)
+    // Failed upgrades（按包聚合，附目标版本与失败原因）
+    const failures = aggregateUpgradeActions(actions, (a) => !a.success)
     if (failures.length > 0) {
+        const multiRepo = new Set(failures.map((f) => f.repository)).size > 1
         lines.push('### ⚠️ Failed Upgrades', '')
-        for (const a of failures) {
-            lines.push(`- **\`${a.target}\`**: ${a.error ?? 'unknown error'}`)
+        const headers = multiRepo
+            ? ['Repository', 'Package', 'Target', 'Error']
+            : ['Package', 'Target', 'Error']
+        lines.push(`| ${headers.join(' | ')} |`)
+        lines.push(`|${headers.map(() => '---').join('|')}|`)
+        for (const f of failures) {
+            const target = f.toVersion ?? '-'
+            const error = escapeTableCell(f.error ?? 'unknown error')
+            const cells = multiRepo
+                ? [f.repository, `\`${f.packageName}\``, target, error]
+                : [`\`${f.packageName}\``, target, error]
+            lines.push(`| ${cells.join(' | ')} |`)
         }
         lines.push('')
     }

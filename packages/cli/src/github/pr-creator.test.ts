@@ -495,4 +495,120 @@ describe('generatePRBody', () => {
         const body = generatePRBody(buildRunResult())
         expect(body).not.toContain('Supersedes')
     })
+
+    it('aggregates duplicate packages into a single upgraded row (from = earliest, to = latest)', () => {
+        const result = buildRunResult()
+        result.actions = [
+            makeBodyAction({ target: 'vite', fromVersion: '5.4.20', toVersion: '6.4.3', isMajor: true }),
+            makeBodyAction({ target: 'vite', fromVersion: '6.4.3', toVersion: '8.2.1', isMajor: true }),
+            makeBodyAction({ target: 'fast-uri', fromVersion: '2.1.0', toVersion: '3.1.5' }),
+        ]
+        const body = generatePRBody(result)
+
+        // vite 只出现一次，from 为最早起点、to 为最新终点
+        expect(body.match(/\| `vite` \|/g)).toHaveLength(1)
+        expect(body).toContain('| `vite` | 5.4.20 | 8.2.1 | direct | ⚠️ Yes |')
+        expect(body).toContain('| `fast-uri` | 2.1.0 | 3.1.5 | direct | No |')
+    })
+
+    it('excludes PR skip pseudo-actions from the upgraded list', () => {
+        const result = buildRunResult()
+        result.actions = [
+            makeBodyAction({ target: 'PR #12 (existing)', success: true }),
+            makeBodyAction({ target: 'lodash', fromVersion: '4.17.20', toVersion: '4.17.21' }),
+        ]
+        const body = generatePRBody(result)
+
+        expect(body).not.toContain('PR #12')
+        expect(body).toContain('| `lodash` | 4.17.20 | 4.17.21 |')
+    })
+
+    it('keeps same package across repositories as separate rows with repository column', () => {
+        const result = buildRunResult()
+        result.actions = [
+            makeBodyAction({ repository: 'owner/repo-a', target: 'lodash', fromVersion: '4.17.20', toVersion: '4.17.21' }),
+            makeBodyAction({ repository: 'owner/repo-b', target: 'lodash', fromVersion: '4.17.19', toVersion: '4.17.21' }),
+        ]
+        const body = generatePRBody(result)
+
+        expect(body).toContain('| Repository | Package | From | To | Strategy | Major |')
+        expect(body.match(/\| `lodash` \|/g)).toHaveLength(2)
+        expect(body).toContain('| owner/repo-a | `lodash` | 4.17.20 | 4.17.21 | direct | No |')
+        expect(body).toContain('| owner/repo-b | `lodash` | 4.17.19 | 4.17.21 | direct | No |')
+    })
+
+    it('renders failed upgrades with package, target version and error, aggregated per package', () => {
+        const result = buildRunResult()
+        result.actions = [
+            makeBodyAction({ target: 'b-pkg', toVersion: '2.0.0', success: false, error: 'mock upgrade failure' }),
+            makeBodyAction({ target: 'b-pkg', toVersion: '2.0.0', success: false, error: 'lint failed after upgrade; per-package verification failed, changes rolled back' }),
+        ]
+        const body = generatePRBody(result)
+
+        expect(body).toContain('### ⚠️ Failed Upgrades')
+        // 聚合后 b-pkg 只出现一次，error 取最后一条
+        expect(body.match(/\| `b-pkg` \|/g)).toHaveLength(1)
+        expect(body).toContain('| `b-pkg` | 2.0.0 | lint failed after upgrade; per-package verification failed, changes rolled back |')
+    })
+
+    it('marks pnpm overrides strategy in the upgraded table', () => {
+        const result = buildRunResult()
+        result.actions = [
+            makeBodyAction({ target: 'fast-uri', fromVersion: '2.1.0', toVersion: '3.1.5', strategy: 'override' }),
+        ]
+        const body = generatePRBody(result)
+
+        expect(body).toContain('| `fast-uri` | 2.1.0 | 3.1.5 | pnpm overrides | No |')
+    })
+
+    it('escapes pipe and newlines in failure error cells', () => {
+        const result = buildRunResult()
+        result.actions = [
+            makeBodyAction({
+                target: 'b-pkg',
+                toVersion: '2.0.0',
+                success: false,
+                error: 'resolution failed\nfailed | to parse',
+            }),
+        ]
+        const body = generatePRBody(result)
+
+        expect(body).toContain('| `b-pkg` | 2.0.0 | resolution failed failed \\| to parse |')
+        expect(body).not.toContain('\nfailed | to parse')
+    })
+
+    it('excludes bare PR #N pseudo-actions (fingerprint-consistent filter)', () => {
+        const result = buildRunResult()
+        result.actions = [
+            makeBodyAction({ target: 'PR #12', success: true, toVersion: 'https://github.com/foo/bar/pull/12' }),
+        ]
+        const body = generatePRBody(result)
+
+        expect(body).not.toContain('PR #12')
+        expect(body).not.toContain('Upgraded Dependencies')
+    })
+
+    it('flags major when any merged action of the package is major', () => {
+        const result = buildRunResult()
+        result.actions = [
+            makeBodyAction({ target: 'vite', fromVersion: '5.4.20', toVersion: '6.4.3', isMajor: true }),
+            makeBodyAction({ target: 'vite', fromVersion: '6.4.3', toVersion: '6.4.4', isMajor: false }),
+        ]
+        const body = generatePRBody(result)
+
+        expect(body).toContain('| `vite` | 5.4.20 | 6.4.4 | direct | ⚠️ Yes |')
+    })
 })
+
+function makeBodyAction(overrides: Partial<FixAction>): FixAction {
+    return {
+        type: 'dependency-upgrade',
+        repository: 'owner/repo',
+        target: 'pkg',
+        fromVersion: '1.0.0',
+        toVersion: '2.0.0',
+        isMajor: false,
+        success: true,
+        ...overrides,
+    }
+}

@@ -79,24 +79,34 @@ export function generateMarkdownReport(result: RunResult): string {
             const branch = repoResult?.defaultBranch ?? 'main'
             sections.push(`### ${repo.repository} (branch: ${branch})`, '')
             if (repo.alerts.length > 0) {
+                // 逐条保留每个 GHSA 的审计粒度（同包多告警各自成行，靠 GHSA 列区分）
                 sections.push(
-                    '| Package | Severity | From | To | Major | Status |',
-                    '|---------|----------|------|----|-------|--------|',
+                    '| Package | GHSA | Severity | From | To | Major | Status |',
+                    '|---------|------|----------|------|----|-------|--------|',
                 )
                 for (const alert of repo.alerts) {
                     const action = actions.find(
                         (a) => a.type === 'dependency-upgrade' && a.repository === repo.repository && a.target === alert.packageName,
                     )
-                    const fromVer = action?.fromVersion ?? alert.recommendedVersion
-                    const toVer = action?.toVersion ?? alert.recommendedVersion
-                    const major = action?.isMajor ? 'Yes' : 'No'
+                    // Skipped（无 action）：当前版本未知 → From 显示 —，To 显示推荐修复版本
+                    const fromVer = action?.fromVersion ?? '—'
+                    let toVer = action?.toVersion ?? '—'
+                    let major = '—'
+                    if (!action) {
+                        toVer = alert.recommendedVersion || '—'
+                    } else if (action.isMajor === undefined) {
+                        major = '—'
+                    } else {
+                        major = action.isMajor ? 'Yes' : 'No'
+                    }
+                    const ghsa = alert.ruleId || '—'
                     let icon: string
                     if (action) {
                         icon = action.success ? '✅ Fixed' : '❌ Failed'
                     } else {
                         icon = '⏭️ Skipped'
                     }
-                    sections.push(`| \`${alert.packageName}\` | ${alert.severity.toUpperCase()} | ${fromVer} | ${toVer} | ${major} | ${icon} |`)
+                    sections.push(`| \`${alert.packageName}\` | ${escapeMd(ghsa)} | ${alert.severity.toUpperCase()} | ${fromVer} | ${toVer} | ${major} | ${icon} |`)
                 }
                 sections.push('')
             } else {
@@ -113,11 +123,11 @@ export function generateMarkdownReport(result: RunResult): string {
             '|------|------------|--------|---------|--------|----------|',
         )
         for (const action of actions) {
-            const details = actionDetails(action)
+            const details = actionDetails(action, action.error)
             const icon = statusIcon(action.success)
             const duration = action.durationMs !== null && action.durationMs !== undefined ? formatDuration(action.durationMs) : '—'
             sections.push(
-                `| ${actionTypeLabel(action.type)} | ${action.repository} | ${escapeMd(action.target)} | ${details} | ${icon} | ${duration} |`,
+                `| ${actionTypeLabel(action.type)} | ${escapeMd(action.repository)} | ${escapeMd(action.target)} | ${details} | ${icon} | ${duration} |`,
             )
         }
     } else {
@@ -135,7 +145,7 @@ export function generateMarkdownReport(result: RunResult): string {
         )
         for (const err of errors) {
             const cat = err.category ?? '—'
-            sections.push(`| ${err.repository} | ${err.stage} | ${cat} | ${escapeMd(err.message)} |`)
+            sections.push(`| ${escapeMd(err.repository)} | ${escapeMd(err.stage)} | ${escapeMd(cat)} | ${escapeMd(err.message)} |`)
         }
         sections.push('')
     }
@@ -150,22 +160,29 @@ function severityRow(label: string, row: { found: number, fixable: number, fixed
     return `| ${label} | ${row.found} | ${row.fixable} | ${row.fixed} | ${row.failed} |`
 }
 
-function actionDetails(action: FixAction): string {
-    switch (action.type) {
-        case 'dependency-upgrade':
-            return `${action.fromVersion ?? '?'} → ${action.toVersion ?? '?'}`
-        case 'lockfile-repair':
-            return action.strategy
-                ? `${action.strategy}: ${action.diff ?? ''}`
-                : action.diff ?? '—'
-        case 'verification':
-            return '—'
-        case 'branch-cleanup':
-            return action.diff ?? '—'
+function actionDetails(action: FixAction, error?: string): string {
+    const base = ((): string => {
+        switch (action.type) {
+            case 'dependency-upgrade':
+                return `${action.fromVersion ?? '?'} → ${action.toVersion ?? '?'}`
+            case 'lockfile-repair':
+                return action.strategy
+                    ? `${action.strategy}: ${action.diff ?? ''}`
+                    : action.diff ?? '—'
+            case 'verification':
+                return '—'
+            case 'branch-cleanup':
+                return action.diff ?? '—'
+        }
+    })()
+    // 失败 action 的原因必须可审计：追加错误信息（转义防表格错乱）
+    if (error) {
+        return `${base} — ⚠️ ${escapeMd(error)}`
     }
+    return base
 }
 
-/** 转义 Markdown 表格中的 `|` 字符 */
+/** 转义 Markdown 表格中的 `|` 与换行（错误消息常含多行，折叠为空格） */
 function escapeMd(text: string): string {
-    return text.replace(/\|/g, '\\|')
+    return text.replace(/\|/g, '\\|').replace(/\r?\n/g, ' ')
 }

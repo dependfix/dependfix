@@ -333,6 +333,80 @@ describe('generateMarkdownReport', () => {
         expect(md).toContain('### empty/repo')
         expect(md).toContain('_No alerts')
     })
+
+    it('renders GHSA column per alert (audit granularity for duplicate packages)', () => {
+        const repoResult: RepositoryResult = {
+            repository: 'owner/repo', defaultBranch: 'main', alertsCount: 2,
+            fixable: 2, fixed: 0, failed: 0, lockfileRepaired: false, durationMs: 1000,
+        }
+        const result = {
+            ...EMPTY_RUN_RESULT,
+            repositories: [repoResult],
+            // 同一包两条告警（fast-uri 场景）：逐条保留，GHSA 列区分
+            alerts: [
+                makeAlert({ packageName: 'fast-uri', ruleId: 'GHSA-aaaa', recommendedVersion: '3.1.5' }),
+                makeAlert({ packageName: 'fast-uri', ruleId: 'GHSA-bbbb', recommendedVersion: '3.1.5' }),
+            ],
+        }
+        const md = generateMarkdownReport(result)
+
+        expect(md).toContain('| Package | GHSA | Severity | From | To | Major | Status |')
+        expect(md.match(/\| `fast-uri` \|/g)).toHaveLength(2)
+        expect(md).toContain('GHSA-aaaa')
+        expect(md).toContain('GHSA-bbbb')
+    })
+
+    it('renders skipped alerts with target version and dash from (no misleading from/to)', () => {
+        const repoResult: RepositoryResult = {
+            repository: 'owner/repo', defaultBranch: 'main', alertsCount: 1,
+            fixable: 1, fixed: 0, failed: 0, lockfileRepaired: false, durationMs: 1000,
+        }
+        const result = {
+            ...EMPTY_RUN_RESULT,
+            repositories: [repoResult],
+            alerts: [makeAlert({ recommendedVersion: '4.17.21' })],
+        }
+        const md = generateMarkdownReport(result)
+
+        expect(md).toContain('| `lodash` | CVE-2021-23337 | HIGH | — | 4.17.21 | — | ⏭️ Skipped |')
+    })
+
+    it('renders failed action error in Fix Actions table with escaping', () => {
+        const result = {
+            ...EMPTY_RUN_RESULT,
+            actions: [
+                makeAction({
+                    success: false,
+                    fromVersion: '^1.0.0',
+                    toVersion: '^2.0.0',
+                    error: 'resolution failed\nfailed | to parse',
+                }),
+            ],
+        }
+        const md = generateMarkdownReport(result)
+
+        expect(md).toContain('⚠️ resolution failed failed \\| to parse')
+        expect(md).not.toContain('\nfailed | to parse')
+    })
+
+    it('renders verification failure error in Fix Actions table', () => {
+        const result = {
+            ...EMPTY_RUN_RESULT,
+            actions: [
+                makeAction({
+                    type: 'verification',
+                    target: 'pnpm lint',
+                    success: false,
+                    error: 'exit code 1',
+                    durationMs: 500,
+                }),
+            ],
+        }
+        const md = generateMarkdownReport(result)
+
+        expect(md).toContain('pnpm lint')
+        expect(md).toContain('⚠️ exit code 1')
+    })
 })
 
 // ---------------------------------------------------------------------------

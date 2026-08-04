@@ -191,7 +191,7 @@
   - [ ] 实现 `get_last_report` tool：读取最近 JSON 报告。
 - 完成定义：
   - [ ] 可通过 `npx @dependfix/mcp` 启动并注册 tool。
-- 设计文档：[MCP Server 设计](../design/mcp-server.md)
+- 设计文档：[MCP Server 设计](../design/governance/mcp-server.md)
 
 ### T606 MCP 写入 tool + CLI 互操作
 

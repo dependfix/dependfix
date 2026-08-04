@@ -16,7 +16,7 @@ export default defineConfig({
         nav: [
             { text: '首页', link: '/' },
             { text: '快速开始', link: '/guide/quick-start' },
-            { text: '架构设计', link: '/design/architecture' },
+            { text: '架构设计', link: '/design/governance/architecture' },
             { text: '路线图', link: '/plan/roadmap' },
         ],
         sidebar: {
@@ -34,11 +34,22 @@ export default defineConfig({
             ],
             '/design/': [
                 {
-                    text: '设计文档',
+                    text: '模块设计（packages）',
                     items: [
-                        { text: '系统架构', link: '/design/architecture' },
-                        { text: '数据模型', link: '/design/data-model' },
-                        { text: '安全设计', link: '/design/security' },
+                        { text: '模块索引', link: '/design/packages/index' },
+                        { text: '系统架构', link: '/design/governance/architecture' },
+                        { text: '数据模型', link: '/design/packages/data-model' },
+                        { text: '依赖分组升级', link: '/design/packages/dependency-grouping' },
+                        { text: 'pnpm audit fallback', link: '/design/packages/pnpm-audit-fallback' },
+                    ],
+                },
+                {
+                    text: '专项设计与治理（governance）',
+                    items: [
+                        { text: '治理索引', link: '/design/governance/index' },
+                        { text: '安全设计', link: '/design/governance/security' },
+                        { text: 'GitHub Action 工作流', link: '/design/governance/github-action-workflow' },
+                        { text: 'MCP Server 设计（M6）', link: '/design/governance/mcp-server' },
                     ],
                 },
             ],
@@ -74,10 +85,12 @@ export default defineConfig({
                 {
                     text: '调研',
                     items: [
-                        { text: '竞品分析', link: '/research/competitive-research' },
-                        { text: '竞品分析 2026-07', link: '/research/competitive-research-2026-07' },
-                        { text: '成本估算', link: '/research/cost-estimate' },
-                        { text: '战略思考', link: '/research/strategy' },
+                        { text: '调研规范', link: '/research/README' },
+                        { text: '竞品分析（2026-07）', link: '/research/2026-07-26-competitive-research' },
+                        { text: 'GITHUB_TOKEN 调研（2026-08）', link: '/research/2026-08-04-github-token-dependabot-bug-or-design' },
+                        { text: '发布工具对比（2026-08）', link: '/research/2026-08-02-release-tools-comparison' },
+                        { text: '成本估算（2026-06）', link: '/research/2026-06-01-cost-estimate' },
+                        { text: '战略思考（2026-07）', link: '/research/2026-07-26-strategy' },
                     ],
                 },
             ],

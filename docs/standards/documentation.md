@@ -54,15 +54,17 @@ docs/
 |:----:|------|------|
 | L0 | `AGENTS.md` | 项目级 AI 行为准则、安全红线、角色矩阵 |
 | L1 | `docs/standards/*.md` | 专项规范（开发、测试、文档等） |
-| L2 | `docs/design/*.md` | 架构与数据模型设计 |
+| L2 | `docs/design/packages/*.md` + `docs/design/governance/*.md` | 模块设计 / 专项设计与治理 |
 | L3 | 平台适配文件 | 工具差异、目录发现 |
 
 冲突顺序：L0 > L1 > L2 > L3。
 
 ## 5. 设计文档分层
 
-- **模块设计**: 稳定模块总设计写入 `docs/design/`
-- **治理/专题**: 专项治理、迁移方案、评估报告写入 `docs/design/` 或后续的 `docs/design/governance/`
+- **模块设计**: 稳定模块总设计写入 `docs/design/packages/`（当前实现/正在实现的模块，参照 monorepo packages 划分）
+- **治理/专题**: 专项治理、迁移方案、评估报告写入 `docs/design/governance/`
+- **索引**: `docs/design/packages/index.md` 与 `docs/design/governance/index.md` 分别维护索引；过时且暂不删除的文档归档到 `docs/design/governance/archive/`（按需创建）
+- **调研**: 调研类文档统一 `docs/research/`，命名规范见 [research/README.md](../research/README.md)（`{YYYY-MM-DD}-{topic-slug}.md`，同日多次调研追加 `-v{n}`）
 
 ## 6. 文档同步原则
 

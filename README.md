@@ -148,7 +148,7 @@ pnpm test
 - [快速开始](docs/guide/quick-start.md)
 - [配置说明](docs/guide/configuration.md)
 - [技术栈详解](docs/guide/tech-stack.md)
-- [系统架构](docs/design/architecture.md)
+- [系统架构](docs/design/governance/architecture.md)
 - [路线图](docs/plan/roadmap.md)
 - [当前阶段任务](docs/plan/todo.md)
 

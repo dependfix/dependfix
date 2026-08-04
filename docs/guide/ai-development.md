@@ -14,7 +14,7 @@
 |------|------|------|
 | L0 | `AGENTS.md` | 项目级 AI 行为准则、安全红线 |
 | L1 | `docs/standards/*.md` | 专项规范（开发、测试、文档、安全等） |
-| L2 | `docs/design/*.md` | 架构与数据模型设计 |
+| L2 | `docs/design/packages/*.md` + `docs/design/governance/*.md` | 模块设计 / 专项设计与治理 |
 | L3 | 平台适配文件 | 工具差异、目录发现 |
 
 冲突顺序：L0 > L1 > L2 > L3。

@@ -19,7 +19,7 @@ metadata:
 
 - **全周期基石**：[AGENTS.md](../../../AGENTS.md)、[AI 协作规范](../../../docs/standards/ai-collaboration.md)、[Git 规范](../../../docs/standards/git.md)
 - **规划与任务**：[路线图](../../../docs/plan/roadmap.md)、[当前任务](../../../docs/plan/todo.md)、[规划规范](../../../docs/standards/planning.md)
-- **开发与设计**：[开发规范](../../../docs/standards/development.md)、[API 规范](../../../docs/standards/api.md)、[架构设计](../../../docs/design/architecture.md)
+- **开发与设计**：[开发规范](../../../docs/standards/development.md)、[API 规范](../../../docs/standards/api.md)、[架构设计](../../../docs/design/governance/architecture.md)
 - **安全与质量**：[安全规范](../../../docs/standards/security.md)、[测试规范](../../../docs/standards/testing.md)
 
 ## 三、统一执行原则

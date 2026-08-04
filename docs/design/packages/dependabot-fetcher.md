@@ -1,6 +1,6 @@
 # T103 设计稿：Dependabot 告警采集
 
-> 对应任务: [T103 接入 Dependabot Alerts 拉取](../plan/todo-archive.md)
+> 对应任务: [T103 接入 Dependabot Alerts 拉取](../../plan/todo-archive.md)
 >
 > **依赖**: T102（GitHub 客户端）已完成，T004（告警模型）已完成
 >

@@ -1,5 +1,7 @@
 # 系统架构
 
+> 状态: ✅ 已落地（2026-08-05 修正——对齐当前实现；早期规划见 git 历史）
+
 ## 项目组成
 
 dependfix 由以下子项目组成（标 ✅ 的已落地，其余为规划中）：
@@ -7,15 +9,17 @@ dependfix 由以下子项目组成（标 ✅ 的已落地，其余为规划中�
 ```
 dependfix/
 ├── packages/
-│   ├── core/           # ✅ 核心业务逻辑库 @dependfix/core
-│   ├── cli/            # ✅ CLI 入口 dependfix
-│   ├── github/         # 规划中：GitHub API 集成 @dependfix/github
-│   ├── action/         # 规划中：GitHub Action 入口 @dependfix/action
-│   └── mcp/            # 规划中：MCP Server @dependfix/mcp
-├── action.yml          # ✅ GitHub Composite Action 入口（M2 已落地）
-├── apps/platform/      # 规划中：Nuxt 全栈独立平台（Web UI + REST API）
-└── docs/               # ✅ VitePress 文档站
+│   ├── core/            # ✅ 核心业务逻辑库 @dependfix/core（告警模型/过滤/报告/日志/工具链）
+│   ├── cli/             # ✅ CLI 入口 dependfix（config/app/github 集成/fixers/runners）
+│   ├── github/          # ✅ 已并入 packages/cli/src/github/（client/fetcher/pr-creator）
+│   ├── action/          # ✅ 已并入根 action.yml（Composite Action，M2 落地）
+│   └── mcp/             # 规划中：MCP Server @dependfix/mcp（M6）
+├── action.yml           # ✅ GitHub Composite Action 入口（M2 已落地）
+├── apps/platform/       # 规划中：Nuxt 全栈管理平台（Web UI + REST API，M6）
+└── docs/                # ✅ VitePress 文档站
 ```
+
+> 注：M0 规划中的 `packages/github` / `packages/action` 最终以"cli 内 github/ 目录 + 根 action.yml"形式落地（2026-08-05 目录收敛后），不再单独拆包。
 
 ## 总体方案
 
@@ -237,7 +241,7 @@ flowchart TD
 | 类型检查 | tsc --noEmit |
 | 样式检查 | stylelint（stylelint-config-cmyr） |
 | 提交规范 | commitlint（commitlint-config-cmyr） + commitizen |
-| 版本发布 | @changesets/cli（独立子包版本管理与发布）+ `pnpm changelog`（conventional-changelog-cmyr-config 生成日志，见[发布指南](../guide/release.md)） |
+| 版本发布 | @changesets/cli（独立子包版本管理与发布）+ `pnpm changelog`（conventional-changelog-cmyr-config 生成日志，见[发布指南](../../guide/release.md)） |
 
 ### 文档站（docs/）
 

@@ -34,15 +34,15 @@
 
 ## 相关文档
 
-- 架构设计：[docs/design/architecture.md](docs/design/architecture.md)
-- 数据模型：[docs/design/data-model.md](docs/design/data-model.md)
-- 安全设计：[docs/design/security.md](docs/design/security.md)
+- 架构设计：[docs/design/governance/architecture.md](docs/design/governance/architecture.md)
+- 数据模型：[docs/design/packages/data-model.md](docs/design/packages/data-model.md)
+- 安全设计：[docs/design/governance/security.md](docs/design/governance/security.md)
 - 技术栈：[docs/guide/tech-stack.md](docs/guide/tech-stack.md)
 - AI 协同指南：[docs/guide/ai-development.md](docs/guide/ai-development.md)
 - 项目规范：[docs/standards/index.md](docs/standards/index.md)
 - 当前任务：[docs/plan/todo.md](docs/plan/todo.md)
 - 路线图：[docs/plan/roadmap.md](docs/plan/roadmap.md)
-- 竞品分析：[docs/research/competitive-research.md](docs/research/competitive-research.md)
+- 竞品分析：[docs/research/2026-07-26-competitive-research.md](docs/research/2026-07-26-competitive-research.md)
 
 ## AI 基建与规范体系
 

@@ -97,7 +97,7 @@ dependfix fix --alerts-source pnpm-audit --commit
 - 报告 Header 明确标注 `Alert Source: pnpm-audit`；告警 `source` 均为 `pnpm-audit`，与 GitHub 数据源可区分
 - 限制：仅 `report-only` / `fix` 模式（`fix-and-pr` 需 GitHub PR）；最多 1 个 `--repo`
 - 403（有 token 但权限不足）**不会**自动降级——仍硬失败并提示可切换 `--alerts-source pnpm-audit`
-- 详见 [pnpm audit fallback 设计](../design/pnpm-audit-fallback.md)
+- 详见 [pnpm audit fallback 设计](../design/packages/pnpm-audit-fallback.md)
 
 ### 试运行
 

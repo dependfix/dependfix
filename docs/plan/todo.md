@@ -318,6 +318,26 @@ T109 ─→ T205（AI Token 支持）→ T206（Prompt 注入防护）
 - [x] dry-run 仅列不删；删除失败不中断不记 error
 - [x] 单测：autoCleanupMergedBranches 5 用例（open 保留 / merged 删 / closed 删 / dry-run / 删除失败）+ closeSupersededPRs 2 用例（成功删 / 失败不删）+ config 2 用例
 
+### T213 依赖分组升级（Dependency Grouping）
+
+- **优先级**: P1
+- **依赖**: G3（同包收敛 + 逐包验证回滚，已落地）
+- **状态**: 🔶 待实现（设计稿已出，2026-08-04）
+- **交付物**: `packages/cli`（fix-grouping.ts / app.ts 组级循环 / CLI 参数）+ 设计文档 + 测试
+- **设计稿**: [docs/design/dependency-grouping.md](../design/dependency-grouping.md)
+- **任务内容**:
+  - [ ] fix-grouping.ts：dependabot.yml groups 解析（pattern 匹配：精确 / `@scope/*` / `prefix*`，忽略裸 `*`）+ @types 归并/孤儿检测 + scope/前缀启发式分组
+  - [ ] @types 特殊处理：主包有告警→归并；主包有依赖无告警→单独组；主包不在依赖→清理候选（不升级，报告建议移除，疑似废弃）
+  - [ ] app.ts 升级循环改组级：组级快速验证（lint）→ 失败整组回滚（快照）→ 拆组兜底（组内逐个升级 + 验证，成功保留）；最终全量验证门禁保留
+  - [ ] CLI `--upgrade-groups "name:pkg1,pkg2"`（可重复）+ env 支持
+  - [ ] 测试：pattern 匹配 / @types 三种情况 / 启发式 / 组级流程 / 拆组兜底
+  - [ ] 文档同步（README/quick-start/configuration）
+- **完成定义**:
+  - [ ] 分组升级后验证次数从 N 降至 G；组失败隔离（整组回滚不影响其他组）
+  - [ ] @types 孤儿进入清理候选报告而非升级
+  - [ ] 无任何分组配置时行为与逐包一致（向后兼容）
+- **遗留关联**: G3（ignore/版本上限机制承接"必须锁步"场景）、报告统计口径（alertsConverged）
+
 ---
 
 ## 已知缺口登记

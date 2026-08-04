@@ -125,6 +125,8 @@ jobs:
 ```
 
 > **⚠️ 破坏性变更（v0.2 起）**：Action 默认 `mode` 由 `report-only` 改为 `fix-and-pr`（`dry-run` 默认由 `true` 改为 `false`）。存量消费者未显式传参时，行为从"仅生成报告"变为"自动创建修复分支与 PR"（PR 不自动合并，可安全审查）。需要仅报告时可显式传 `mode: report-only` 或 `dry-run: true`。迁移后请确认 workflow `permissions` 已包含 `contents: write` + `pull-requests: write`（见上方示例）。
+>
+> 💡 **分支清理建议**：① 在仓库设置开启 **Settings → General → Pull Requests → "Automatically delete head branches"**（PR 合并后自动删除 head 分支）；② 或在 workflow 中开启 `cleanup-branches-auto: true`（每次运行结束后自动删除已合并/已关闭的 `dependfix/` 分支，不删有 open PR 的分支）。
 
 ### Action 输入参数
 
@@ -136,6 +138,7 @@ jobs:
 | `dry-run` | 否 | `false` | 试运行模式（Action 默认自动修复并提 PR；CLI 本地默认仅报告，即 report-only 下 dry-run=true） |
 | `max-alerts-per-repository` | 否 | `20` | 每仓库最大告警数 |
 | `cleanup-branches` | 否 | `false` | （fix-and-pr 模式）结束后将已合并的 dependfix 分支列入报告待清理清单（不自动删除） |
+| `cleanup-branches-auto` | 否 | `false` | （fix-and-pr 模式）结束后自动删除已合并/已关闭的 dependfix 分支（非交互；不删有 open PR 的分支） |
 | `github-token` | 是 | — | GitHub Token（commit/push/PR 等操作；Dependabot alerts 读取不可用，见下行） |
 | `dependabot-alerts-token` | 否 | `''` | Dependabot alerts 专用最小权限 token（fine-grained PAT，仅 `Dependabot alerts: read`；缺省回退 `github-token`。GITHUB_TOKEN 恒 403） |
 | `ai-api-token` | 否 | `''` | AI API Token（M5 联调） |
@@ -163,6 +166,7 @@ jobs:
 | `--create-pr` | — | 创建 Pull Request | `false` |
 | `--commit` | — | 修复完成后在本地当前分支直接提交（仅 fix 模式；不推送、不创建 PR） | `false` |
 | `--cleanup-branches` | — | （fix-and-pr 模式）结束后列出已合并的 dependfix 分支到报告，不自动删除 | `false` |
+| `--cleanup-branches-auto` | — | （fix-and-pr 模式）结束后自动删除已合并/已关闭的 dependfix 分支（非交互；不删有 open PR 的分支） | `false` |
 | `--max-alerts-per-repository` | — | 每仓库最大处理数 | `20` |
 | `--commands` | — | 自定义验证命令（逗号分隔） | — |
 | `--verbose` | — | 详细日志 | `false` |

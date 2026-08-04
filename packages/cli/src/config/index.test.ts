@@ -20,6 +20,7 @@ describe('resolveRuntimeConfig', () => {
             createPullRequest: false,
             commit: false,
             cleanupBranches: false,
+            cleanupBranchesAuto: false,
             githubToken: 'token-from-env',
             maxAlertsPerRepository: 20,
         })
@@ -55,6 +56,7 @@ describe('resolveRuntimeConfig', () => {
             createPullRequest: false,
             commit: false,
             cleanupBranches: false,
+            cleanupBranchesAuto: false,
             githubToken: 'token-from-cli',
             maxAlertsPerRepository: 3,
         })
@@ -108,6 +110,38 @@ describe('resolveRuntimeConfig', () => {
         })
 
         expect(config.alertsToken).toBeUndefined()
+    })
+
+    it('reads cleanupBranchesAuto from env', () => {
+        const config = resolveRuntimeConfig({
+            env: {
+                GITHUB_TOKEN: 'token-from-env',
+                AUTO_FIX_GITHUB_SECURITY_REPOSITORIES: 'owner/repo-a',
+                AUTO_FIX_GITHUB_SECURITY_CLEANUP_BRANCHES_AUTO: 'true',
+            },
+        })
+
+        expect(config.cleanupBranchesAuto).toBe(true)
+    })
+
+    it('lets cli cleanup-branches-auto override env', () => {
+        const invocation = parseCliArgs([
+            'fix-and-pr',
+            '--github-token',
+            'token-from-cli',
+            '--cleanup-branches-auto',
+        ])
+
+        const config = resolveRuntimeConfig({
+            env: {
+                GITHUB_TOKEN: 'token-from-env',
+                AUTO_FIX_GITHUB_SECURITY_REPOSITORIES: 'owner/repo-a',
+                AUTO_FIX_GITHUB_SECURITY_CLEANUP_BRANCHES_AUTO: 'false',
+            },
+            cliOverrides: invocation.configOverrides,
+        })
+
+        expect(config.cleanupBranchesAuto).toBe(true)
     })
 
     it('rejects invalid create pr combinations', () => {

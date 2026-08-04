@@ -32,6 +32,7 @@ import {
     ensureGitignore,
     closeSupersededPRs,
     reportCleanupCandidates,
+    autoCleanupMergedBranches,
     confirmCleanup,
     computeSummary,
     buildRunResult,
@@ -375,8 +376,17 @@ export class DependfixApp {
 
         // 1.5 Optional: report merged dependfix branches for manual cleanup.
         // 在 early return 之前执行，保证"PR 已存在（skip）"等高频路径也能输出清单。
-        if (this.config.cleanupBranches) {
+        // cleanup-branches-auto 开启时跳过报告（避免同一分支同时出现"待清理"与"已删除"记录）。
+        if (this.config.cleanupBranches && !this.config.cleanupBranchesAuto) {
             await reportCleanupCandidates(this.ctx, client)
+        }
+
+        // 1.6 Optional: auto-delete merged/closed dependfix branches（非交互）。
+        // 与 cleanup-branches 可同时开启（报告 + 删除）。
+        if (this.config.cleanupBranchesAuto) {
+            for (const repo of this.config.repositories) {
+                await autoCleanupMergedBranches(this.ctx, client, repo)
+            }
         }
 
         // 2. Check if there are changes to commit (skip dry-run)

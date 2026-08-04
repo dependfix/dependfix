@@ -79,6 +79,8 @@ jobs:
 ```
 
 > `fix-and-pr` 模式需要 `contents: write` + `pull-requests: write` 权限。仅 `report-only` 模式可降为只读。`dependabot-alerts-token` 缺省时回退使用 `github-token`（本地完整 PAT 场景可用）。
+>
+> 💡 **分支清理建议**：① 在仓库设置开启 **Settings → General → Pull Requests → "Automatically delete head branches"**（PR 合并后 GitHub 自动删除 head 分支）；② 或在 workflow 中开启 `cleanup-branches-auto: true`（dependfix 在每次运行结束后自动删除已合并/已关闭的 `dependfix/` 分支，不删有 open PR 的分支）。
 
 ## CLI 参数
 
@@ -93,6 +95,8 @@ jobs:
 | `--dry-run` | 试运行，不实际修改文件（report-only 模式默认 `true`） | 依模式而定 |
 | `--create-pr` | 创建 Pull Request（fix-and-pr 模式自动启用） | `false` |
 | `--commit` | 修复完成后在本地当前分支直接提交（仅 fix 模式；不推送、不创建 PR） | `false` |
+| `--cleanup-branches` | （fix-and-pr 模式）结束后列出已合并的 dependfix 分支到报告，不自动删除 | `false` |
+| `--cleanup-branches-auto` | （fix-and-pr 模式）结束后自动删除已合并/已关闭的 dependfix 分支（非交互；不删有 open PR 的分支） | `false` |
 | `--max-alerts-per-repository` | 每仓库最大告警处理数 | `20` |
 | `--commands` | 自定义验证命令（逗号分隔） | — |
 | `--verbose` | 详细日志输出 | `false` |

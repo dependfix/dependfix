@@ -18,6 +18,8 @@ export interface RuntimeConfig {
     commit: boolean
     /** fix-and-pr 模式下结束后是否列出已合并的 dependfix 分支到报告（不自动删除） */
     cleanupBranches: boolean
+    /** fix-and-pr 模式下结束后是否自动删除已合并/已关闭的 dependfix 分支（非交互） */
+    cleanupBranchesAuto: boolean
     githubToken: string
     /**
      * Dependabot alerts 专用 token（可选）。
@@ -41,6 +43,8 @@ export interface CliConfigOverrides {
     commit?: boolean
     /** fix-and-pr 模式下结束后是否列出已合并的 dependfix 分支到报告 */
     cleanupBranches?: boolean
+    /** fix-and-pr 模式下结束后是否自动删除已合并/已关闭的 dependfix 分支（非交互） */
+    cleanupBranchesAuto?: boolean
     githubToken?: string
     /** Dependabot alerts 专用 token（可选，最小权限；缺省回退 githubToken） */
     alertsToken?: string
@@ -58,7 +62,7 @@ export interface ResolveRuntimeConfigOptions {
     workDir?: string
 }
 
-export const DEFAULT_RUNTIME_CONFIG: Omit<RuntimeConfig, 'githubToken' | 'repositories' | 'dryRun' | 'createPullRequest' | 'commit' | 'cleanupBranches'> = {
+export const DEFAULT_RUNTIME_CONFIG: Omit<RuntimeConfig, 'githubToken' | 'repositories' | 'dryRun' | 'createPullRequest' | 'commit' | 'cleanupBranches' | 'cleanupBranchesAuto'> = {
     mode: 'report-only',
     severityThreshold: 'high',
     maxAlertsPerRepository: 20,
@@ -150,6 +154,7 @@ export function readEnvConfig(env: NodeJS.ProcessEnv = process.env): CliConfigOv
         createPullRequest: normalizeBoolean(env.AUTO_FIX_GITHUB_SECURITY_CREATE_PR, 'AUTO_FIX_GITHUB_SECURITY_CREATE_PR'),
         commit: normalizeBoolean(env.AUTO_FIX_GITHUB_SECURITY_COMMIT, 'AUTO_FIX_GITHUB_SECURITY_COMMIT'),
         cleanupBranches: normalizeBoolean(env.AUTO_FIX_GITHUB_SECURITY_CLEANUP_BRANCHES, 'AUTO_FIX_GITHUB_SECURITY_CLEANUP_BRANCHES'),
+        cleanupBranchesAuto: normalizeBoolean(env.AUTO_FIX_GITHUB_SECURITY_CLEANUP_BRANCHES_AUTO, 'AUTO_FIX_GITHUB_SECURITY_CLEANUP_BRANCHES_AUTO'),
         githubToken: env.AUTO_FIX_GITHUB_SECURITY_GITHUB_TOKEN?.trim() || env.GITHUB_TOKEN?.trim() || undefined,
         alertsToken: env.AUTO_FIX_GITHUB_SECURITY_ALERTS_TOKEN?.trim() || undefined,
         maxAlertsPerRepository: normalizeInteger(env.AUTO_FIX_GITHUB_SECURITY_MAX_ALERTS_PER_REPOSITORY, 'AUTO_FIX_GITHUB_SECURITY_MAX_ALERTS_PER_REPOSITORY'),
@@ -199,6 +204,18 @@ function resolveCleanupBranches(cliOverrides: CliConfigOverrides, envConfig: Cli
 
     if (envConfig.cleanupBranches !== undefined) {
         return envConfig.cleanupBranches
+    }
+
+    return false
+}
+
+function resolveCleanupBranchesAuto(cliOverrides: CliConfigOverrides, envConfig: CliConfigOverrides): boolean {
+    if (cliOverrides.cleanupBranchesAuto !== undefined) {
+        return cliOverrides.cleanupBranchesAuto
+    }
+
+    if (envConfig.cleanupBranchesAuto !== undefined) {
+        return envConfig.cleanupBranchesAuto
     }
 
     return false
@@ -275,6 +292,7 @@ export function resolveRuntimeConfig(options: ResolveRuntimeConfigOptions = {}):
         createPullRequest: resolveCreatePullRequest(mode, cliOverrides, envConfig),
         commit: resolveCommit(cliOverrides, envConfig),
         cleanupBranches: resolveCleanupBranches(cliOverrides, envConfig),
+        cleanupBranchesAuto: resolveCleanupBranchesAuto(cliOverrides, envConfig),
         githubToken: cliOverrides.githubToken ?? envConfig.githubToken ?? '',
         alertsToken: cliOverrides.alertsToken ?? envConfig.alertsToken,
         maxAlertsPerRepository: cliOverrides.maxAlertsPerRepository ?? envConfig.maxAlertsPerRepository ?? DEFAULT_RUNTIME_CONFIG.maxAlertsPerRepository,

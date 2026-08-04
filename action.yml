@@ -33,6 +33,10 @@ inputs:
     description: '（fix-and-pr 模式）结束后将已合并的 dependfix 分支列入报告待清理清单（不自动删除）'
     required: false
     default: 'false'
+  cleanup-branches-auto:
+    description: '（fix-and-pr 模式）结束后自动删除已合并/已关闭的 dependfix 分支（非交互；不删有 open PR 的分支。配合 GitHub 仓库设置 "Automatically delete head branches" 可保持分支零残留）'
+    required: false
+    default: 'false'
   github-token:
     description: 'GitHub Token（需 security-events 权限；fix-and-pr 模式需 contents + pull-requests 写权限）'
     required: true
@@ -97,6 +101,7 @@ runs:
           --max-alerts-per-repository ${{ inputs.max-alerts-per-repository }} \
           ${{ inputs.dry-run == 'true' && '--dry-run' || '' }} \
           ${{ inputs.cleanup-branches == 'true' && '--cleanup-branches' || '' }} \
+          ${{ inputs.cleanup-branches-auto == 'true' && '--cleanup-branches-auto' || '' }} \
           --verbose
       shell: bash
       env:

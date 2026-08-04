@@ -37,6 +37,11 @@ on:
         type: string
         required: false
         default: ''
+      cleanup-branches-auto:
+        description: '（fix-and-pr 模式）结束后自动删除已合并/已关闭的 dependfix 分支（非交互；不删有 open PR 的分支）'
+        type: boolean
+        required: false
+        default: false
   schedule:
     # 每周一 UTC 6:00（北京时间 14:00）
     - cron: '0 6 * * 1'
@@ -72,3 +77,4 @@ jobs:
           # Dependabot alerts 读取需最小权限 PAT（fine-grained，仅 Dependabot alerts: read）；
           # GITHUB_TOKEN 无法读取该 API。仓库 Settings → Secrets 配置 GH_PAT。
           dependabot-alerts-token: ${{ secrets.GH_PAT }}
+          cleanup-branches-auto: ${{ inputs.cleanup-branches-auto || 'false' }}

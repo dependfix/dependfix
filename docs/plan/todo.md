@@ -298,6 +298,26 @@ T109 ─→ T205（AI Token 支持）→ T206（Prompt 注入防护）
 - [x] Action 启用 `cleanup-branches` 后仅输出清单不删除
 - [x] 单测覆盖：listDependfixBranches / getBranchPrStatus（merged/closed/open/无 PR）/ deleteRemoteBranch 参数 / config cleanup-branches 模式解析（pr-creator.test.ts + config/index.test.ts）
 
+### T212 分支清理增强：supersede 删旧分支 + cleanup-branches-auto
+
+- **优先级**: P1
+- **依赖**: T210（supersede 路径）、T211（分支清理原语）
+- **状态**: ✅ 已完成（2026-08-04）
+- **交付物**: `packages/cli`（app-helpers / app / config / cli）+ `action.yml` + 文档
+
+**实现摘要**:
+- `closeSupersededPRs` 签名改为接收 `DependfixOpenPR[]`（含 headRef）：旧 PR 关闭成功后回收其 head 分支（内容在 PR 记录中可审计）；关闭失败不删分支；删除失败仅 warn（家务活 best-effort，不触发非零退出）
+- 新增 `--cleanup-branches-auto` / `AUTO_FIX_GITHUB_SECURITY_CLEANUP_BRANCHES_AUTO`：fix-and-pr 结束后**非交互**自动删除 merged/closed 的 dependfix 分支（`autoCleanupMergedBranches`）；安全边界与 T211 一致（只删 `dependfix/` 前缀、绝不删 open PR 分支）；dry-run 仅列不删；删除失败仅 warn
+- 双 flag 并存时跳过 report 清单（避免同一分支出现"待清理"与"已删除"两条记录）
+- action.yml / security-auto-fix.yml 新增 `cleanup-branches-auto` input
+- 文档：README / quick-start 增加 GitHub "Automatically delete head branches" 设置引导 + 参数说明
+
+**验收标准**:
+- [x] supersede 关闭旧 PR 后删除其分支；close 失败不删
+- [x] `--cleanup-branches-auto` 非交互删除 merged/closed，open PR 分支保留
+- [x] dry-run 仅列不删；删除失败不中断不记 error
+- [x] 单测：autoCleanupMergedBranches 5 用例（open 保留 / merged 删 / closed 删 / dry-run / 删除失败）+ closeSupersededPRs 2 用例（成功删 / 失败不删）+ config 2 用例
+
 ---
 
 ## 已知缺口登记

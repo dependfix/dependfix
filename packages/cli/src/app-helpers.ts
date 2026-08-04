@@ -30,9 +30,11 @@ import { runVerification, type VerificationResult } from './runners/verification
 import {
     stageAndCommit,
     closePullRequest,
+    deleteRemoteBranch,
     listDependfixBranches,
     getBranchPrStatus,
     isConfirmAnswer,
+    type DependfixOpenPR,
 } from './github/pr-creator'
 
 // ---------------------------------------------------------------------------
@@ -467,7 +469,7 @@ export async function closeSupersededPRs(
     client: Octokit,
     owner: string,
     repo: string,
-    supersedePRs: { number: number }[],
+    supersedePRs: DependfixOpenPR[],
 ): Promise<void> {
     const { logger, allErrors } = ctx
     for (const old of supersedePRs) {
@@ -483,6 +485,17 @@ export async function closeSupersededPRs(
                 category: 'PR_CLOSE_FAILED',
                 message: `Failed to close PR #${old.number}: ${message}`,
             })
+            continue
+        }
+
+        // 旧 PR 已关闭，回收其 head 分支（内容仍在 PR 记录中可审计）。
+        // 删除失败不阻塞主流程，仅 warn（家务活 best-effort，不触发非零退出）
+        try {
+            await deleteRemoteBranch(client, owner, repo, old.headRef)
+            logger.info(`Deleted branch of superseded PR #${old.number}: ${old.headRef}`)
+        } catch (error: unknown) {
+            const message = toErrorMessage(error)
+            logger.warn(`Failed to delete branch ${old.headRef} of superseded PR #${old.number}: ${message}`)
         }
     }
 }
@@ -524,6 +537,72 @@ export async function reportCleanupCandidates(
                 message,
             })
         }
+    }
+}
+
+/**
+ * （fix-and-pr + --cleanup-branches-auto）自动删除已合并/已关闭的 dependfix 分支。
+ *
+ * - 非交互：CI 环境可用，无需 TTY 确认
+ * - 安全边界：只删 `dependfix/` 前缀且 merged / closed 状态的分支，绝不触碰 open PR 分支
+ * - dry-run 仅列出 would-delete，不执行删除
+ * - 删除动作记入 `branch-cleanup` action（报告可审计）；删除失败记录错误不中断
+ */
+export async function autoCleanupMergedBranches(
+    ctx: Pick<AppContext, 'config' | 'logger' | 'allActions' | 'allErrors'>,
+    client: Octokit,
+    repo: string,
+): Promise<void> {
+    const { config, logger, allActions, allErrors } = ctx
+    const [owner, name] = repo.split('/')
+
+    try {
+        const branches = await listDependfixBranches(client, owner, name)
+        if (branches.length === 0) {
+            logger.info(`[cleanup-auto] ${repo}: no dependfix branches found`)
+            return
+        }
+
+        let deleted = 0
+        for (const branch of branches) {
+            const status = await getBranchPrStatus(client, owner, name, branch)
+            if (!status.merged && !status.closed) {
+                continue // open PR 或未知状态，保留
+            }
+
+            if (config.dryRun) {
+                logger.info(`[cleanup-auto][dry-run] Would delete ${branch} (${status.merged ? 'merged' : 'closed'})`)
+                continue
+            }
+
+            try {
+                await deleteRemoteBranch(client, owner, name, branch)
+                deleted++
+                logger.info(`[cleanup-auto] Deleted branch: ${branch}`)
+                allActions.push({
+                    type: 'branch-cleanup',
+                    repository: repo,
+                    target: branch,
+                    success: true,
+                    diff: status.merged ? 'merged' : 'closed',
+                    durationMs: 0,
+                })
+            } catch (error: unknown) {
+                const message = toErrorMessage(error)
+                // 删除失败不中断（家务活 best-effort，不触发非零退出）
+                logger.warn(`[cleanup-auto] Failed to delete branch ${branch}: ${message}`)
+            }
+        }
+        logger.info(`[cleanup-auto] ${repo}: deleted ${deleted} branch(es)`)
+    } catch (error: unknown) {
+        const message = toErrorMessage(error)
+        logger.error(`[cleanup-auto] detection failed for ${repo}: ${message}`)
+        allErrors.push({
+            repository: repo,
+            stage: 'report',
+            category: 'CLEANUP_DETECT_FAILED',
+            message,
+        })
     }
 }
 

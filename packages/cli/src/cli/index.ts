@@ -76,6 +76,11 @@ const argsDef = {
         description: '（fix-and-pr 模式）结束后列出已合并的 dependfix 分支到报告，不自动删除',
         negativeDescription: '不执行分支清理检查',
     },
+    'cleanup-branches-auto': {
+        type: 'boolean' as const,
+        description: '（fix-and-pr 模式）结束后自动删除已合并/已关闭的 dependfix 分支（非交互，不删有 open PR 的分支）',
+        negativeDescription: '不自动删除分支',
+    },
     'github-token': {
         type: 'string' as const,
         description: 'GitHub Personal Access Token',
@@ -186,6 +191,11 @@ function parsedArgsToCliOverrides(parsed: ParsedArgs<typeof argsDef>): CliConfig
     // cleanup-branches (three-state: true / false / undefined)
     if (parsed['cleanup-branches'] !== undefined) {
         overrides.cleanupBranches = parsed['cleanup-branches']
+    }
+
+    // cleanup-branches-auto (three-state: true / false / undefined)
+    if (parsed['cleanup-branches-auto'] !== undefined) {
+        overrides.cleanupBranchesAuto = parsed['cleanup-branches-auto']
     }
 
     // github-token

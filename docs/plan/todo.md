@@ -411,6 +411,7 @@ T109 ─→ T205（AI Token 支持）→ T206（Prompt 注入防护）
 - **遗留（后续）**:
   - **major overrides 确认机制评估（2026-08-05，run 30929090403 复盘）**：本次 brace-expansion 4.x→5.x overrides 触发 lint 失败被回滚（防护正常），但暴露"major 跨越无前置拦截"。**评估结论：暂不实现自动拦截**——① 现有逐包验证+回滚已兜住"升级破坏依赖树"（brace-expansion 案例即被正确回滚）；② major 升级的正确性无法静态判定（peer 兼容需 install 实测），前置确认只会制造"假确认"（无信息量的 y/N）；③ 更有效的低成本改进是 **P1 修复后的 fromVersion 精确化**（readLockfileVersion 已支持 pnpm v11 snapshot 格式，isMajor 判定从此有真实基线，不会再出现"unknown → ^5.0.7"式盲写）。**后续观察点**：若 major overrides 失败率持续偏高，再考虑"major overrides 仅 dry-run 报告 + 人工确认开关"（--confirm-major-overrides）
   - 多直接依赖同包不同版本约束的对齐策略
+  - **P0 误伤复盘（2026-08-05，run 30933266831）**：partitionSubmanifestAlerts 初版把 `manifestPath !== 'package.json'` 全部剔除，但 **Dependabot 对间接依赖的 manifest_path 即 `pnpm-lock.yaml`** → 24 条告警全被误杀（全部 skipped、无 PR）。已修正：lockfile manifest + 非根直接依赖 → 走标准 overrides 修复；lockfile manifest + 根直接依赖（vite 场景）→ 跳过人工。**观察点**：① 根直接依赖 + lockfile manifest 一律跳过有覆盖损失（若推荐版本 > 根锁定版本其实可安全修，后续可细化为"推荐版本 < 根锁定版本才跳过"）；② monorepo 成员包（packages/x）直接依赖盲区——isRootDirectDependency 仅读根 package.json，成员包直接依赖会被误判为非直接 → overrides 全局写入，依赖 install 失败回滚兜底；③ pnpm catalog 依赖（仅存在于 pnpm-workspace.yaml）的 override 行为未实测
   - ~~不降级保护对 pnpm <9 / peer 后缀 lockfile 条目失效~~（✅ 2026-08-05 已修复：readLockfileVersion 支持 pnpm v10+/v11 snapshot 格式 `pkg@version:` / `'@scope/pkg@version':` / peer 后缀，多版本取最高防降级，见 run 30929090403 复盘 P1）
   - 报告统计口径：`alertsSkipped` 混合"不可修复 / 同包收敛 / 无需升级 / 子目录 manifest"四种语义，Fixable 与 Fixed+Failed+Skipped 不对账，需独立字段（如 alertsConverged）
   - 升级循环集成测试（包 A 成功 → 包 B 失败回滚 → A 保留）待补

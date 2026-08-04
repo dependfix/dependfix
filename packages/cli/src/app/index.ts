@@ -310,11 +310,11 @@ export class DependfixApp {
 
             this.allAlerts.push(...limited)
 
-            // 2.0 子目录 manifest 告警（P0 防护：docs vite 告警曾误降级根 vite@8→6）→ 剔除修复链路
-            const { root: rootManifestAlerts, sub: submanifestAlerts } = partitionSubmanifestAlerts(limited)
+            // 2.0 子目录 / 根直接依赖 lockfile 告警（P0 防护：docs vite 告警曾误降级根 vite@8→6）→ 剔除修复链路
+            const { root: rootManifestAlerts, sub: submanifestAlerts } = partitionSubmanifestAlerts(limited, this.workDir)
             if (submanifestAlerts.length > 0) {
                 this.logger.warn(
-                    `[alerts] ${submanifestAlerts.length} alert(s) from sub-directory manifest(s) skipped — manual review required: ${submanifestAlerts.map((a) => `${a.packageName} (${a.manifestPath})`).join(', ')}`,
+                    `[alerts] ${submanifestAlerts.length} alert(s) from sub-directory / root-direct-dep manifest(s) skipped — manual review required: ${submanifestAlerts.map((a) => `${a.packageName} (${a.manifestPath})`).join(', ')}`,
                 )
                 this.summary.alertsSkipped += submanifestAlerts.length
             }

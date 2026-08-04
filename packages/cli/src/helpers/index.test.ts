@@ -1,7 +1,7 @@
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { NormalizedSecurityAlert } from '@dependfix/core'
 import { dedupeFixableAlerts, partitionSubmanifestAlerts, quickVerifyProject, restoreTrackedFiles, snapshotTrackedFiles } from './index'
 
@@ -168,10 +168,12 @@ describe('quickVerifyProject', () => {
 })
 
 // ---------------------------------------------------------------------------
-// partitionSubmanifestAlerts（P0：子目录 manifest 告警剔除修复链路）
+// partitionSubmanifestAlerts（P0：子目录/根直接依赖告警剔除修复链路）
 // ---------------------------------------------------------------------------
 
 describe('partitionSubmanifestAlerts', () => {
+    let workDir: string
+
     const alert = (overrides: Partial<NormalizedSecurityAlert> = {}): NormalizedSecurityAlert => ({
         id: 1,
         source: 'dependabot',
@@ -190,29 +192,60 @@ describe('partitionSubmanifestAlerts', () => {
         ...overrides,
     })
 
+    beforeEach(() => {
+        workDir = mkdtempSync(join(tmpdir(), 'dependfix-partition-'))
+        // 根 package.json：vite 是直接依赖，fast-uri 不是
+        writeFileSync(join(workDir, 'package.json'), JSON.stringify({
+            name: 'fixture',
+            dependencies: { vite: '^8.2.0' },
+        }))
+    })
+
+    afterEach(() => {
+        rmSync(workDir, { recursive: true, force: true })
+    })
+
     it('keeps alerts with empty manifestPath as root (pnpm-audit source)', () => {
-        const { root, sub } = partitionSubmanifestAlerts([alert({ packageName: 'fast-uri' })])
+        const { root, sub } = partitionSubmanifestAlerts([alert({ packageName: 'fast-uri' })], workDir)
         expect(root).toHaveLength(1)
         expect(sub).toHaveLength(0)
     })
 
     it('keeps alerts pointing at root package.json as root', () => {
-        const { root, sub } = partitionSubmanifestAlerts([alert({ manifestPath: 'package.json' })])
+        const { root, sub } = partitionSubmanifestAlerts([alert({ manifestPath: 'package.json' })], workDir)
         expect(root).toHaveLength(1)
         expect(sub).toHaveLength(0)
+    })
+
+    it('keeps lockfile-manifest alerts for non-direct packages as root (overrides path, run 30933266831 regression)', () => {
+        // 间接依赖告警 manifest 即 pnpm-lock.yaml；fast-uri 非根直接依赖 → 走标准 overrides 修复
+        const { root, sub } = partitionSubmanifestAlerts([
+            alert({ packageName: 'fast-uri', manifestPath: 'pnpm-lock.yaml' }),
+        ], workDir)
+        expect(root.map((a) => a.packageName)).toEqual(['fast-uri'])
+        expect(sub).toHaveLength(0)
+    })
+
+    it('moves lockfile-manifest alerts for root direct dependencies to sub (vite scenario)', () => {
+        // vite 是根直接依赖：告警针对传递依赖实例，但 overrides 全局会降级根 → 跳过人工处理
+        const { root, sub } = partitionSubmanifestAlerts([
+            alert({ packageName: 'vite', manifestPath: 'pnpm-lock.yaml' }),
+        ], workDir)
+        expect(sub.map((a) => a.packageName)).toEqual(['vite'])
+        expect(root).toHaveLength(0)
     })
 
     it('moves alerts from sub-directory manifests (docs/package.json) to sub', () => {
         const { root, sub } = partitionSubmanifestAlerts([
             alert({ packageName: 'vite', manifestPath: 'docs/package.json' }),
             alert({ packageName: 'fast-uri', manifestPath: 'package.json' }),
-        ])
+        ], workDir)
         expect(root.map((a) => a.packageName)).toEqual(['fast-uri'])
         expect(sub.map((a) => a.packageName)).toEqual(['vite'])
     })
 
     it('normalizes windows-style separators', () => {
-        const { sub } = partitionSubmanifestAlerts([alert({ manifestPath: 'docs\\package.json' })])
+        const { sub } = partitionSubmanifestAlerts([alert({ manifestPath: 'docs\\package.json' })], workDir)
         expect(sub).toHaveLength(1)
     })
 })

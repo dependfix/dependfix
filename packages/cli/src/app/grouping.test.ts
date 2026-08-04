@@ -310,33 +310,45 @@ describe('DependfixApp group upgrade (T213)', () => {
         expect(bPkg?.error).toBe('mock upgrade failure')
     })
 
-    it('skips sub-directory manifest alerts (P0: docs vite alert must not downgrade root vite)', async () => {
-        // 复现 run 30929090403：docs/package.json 的 vite 告警（推荐 6.4.3）命中根 vite@8.2.0
+    it('keeps lockfile-manifest alerts for indirect deps but skips root-direct-dep ones (P0 + 30933266831 regression)', async () => {
+        // 真实场景（run 30933266831）：Dependabot 对间接依赖的 manifest_path 即 pnpm-lock.yaml。
+        // vite 是根直接依赖（devDependencies ^8.2.0）→ 跳过（overrides 全局会降级根）；
+        // fast-uri 非根直接依赖 → 走标准 overrides 修复。
+        writeFileSync(join(workDir, 'package.json'), JSON.stringify({
+            name: 'fixture',
+            scripts: { lint: 'exit 0' },
+            devDependencies: { vite: '^8.2.0' },
+        }))
+
         const viteAlert = alertJson('vite', 101)
         const viteDep = viteAlert.dependency as Record<string, unknown>
         const viteVuln = viteAlert.security_vulnerability as Record<string, unknown>
         const viteAdvisory = viteAlert.security_advisory as Record<string, unknown>
-        viteDep.manifest_path = 'docs/package.json'
+        viteDep.manifest_path = 'pnpm-lock.yaml'
         viteVuln.first_patched_version = { identifier: '6.4.3' }
         ;(viteAdvisory.vulnerabilities as Array<Record<string, unknown>>)[0].first_patched_version = { identifier: '6.4.3' }
-        viteAlert.vulnerability_manifest_path = 'docs/package.json'
-        const normalAlert = alertJson('fast-uri', 102)
+        viteAlert.vulnerability_manifest_path = 'pnpm-lock.yaml'
 
-        nockAlerts([viteAlert, normalAlert])
+        const fastUriAlert = alertJson('fast-uri', 102)
+        const fastUriDep = fastUriAlert.dependency as Record<string, unknown>
+        fastUriDep.manifest_path = 'pnpm-lock.yaml'
+        fastUriAlert.vulnerability_manifest_path = 'pnpm-lock.yaml'
+
+        nockAlerts([viteAlert, fastUriAlert])
         mockRunVerification
             .mockImplementationOnce(() => Promise.resolve(verificationResult(true))) // fast-uri 组级验证
             .mockImplementationOnce(() => Promise.resolve(verificationResult(true))) // 最终 verifyProject
 
-        const { exitCode, result } = await runFix([viteAlert, normalAlert])
+        const { exitCode, result } = await runFix([viteAlert, fastUriAlert])
 
         expect(exitCode).toBe(0)
-        // 子目录 manifest 告警被剔除：vite 不进入升级（upgradeDependency 不被调用）
+        // vite（根直接依赖 + lockfile manifest）被剔除：仅 fast-uri 进入升级
         expect(mockUpgradeDependency).toHaveBeenCalledTimes(1)
         expect(mockUpgradeDependency.mock.calls[0]?.[0].packageName).toBe('fast-uri')
         const upgrades = result.actions.filter((a) => a.type === 'dependency-upgrade')
         expect(upgrades.map((a) => a.target)).toEqual(['fast-uri'])
-        // 报告保留告警 + 计入 skipped
-        expect(result.alerts.some((a) => a.packageName === 'vite' && a.manifestPath === 'docs/package.json')).toBe(true)
+        // 报告保留 vite 告警 + 计入 skipped
+        expect(result.alerts.some((a) => a.packageName === 'vite' && a.manifestPath === 'pnpm-lock.yaml')).toBe(true)
         expect(result.summary.alertsSkipped).toBe(1)
     })
 })

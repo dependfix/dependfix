@@ -104,29 +104,59 @@ export async function quickVerifyProject(
 }
 
 /**
- * 区分根 manifest 告警与子目录 manifest 告警（P0：vite 张冠李戴降级修复的防护）。
+ * 区分可安全自动修复的告警与需人工处理的告警（P0 防护 + run 30933266831 复盘修正）。
  *
- * Dependabot 告警携带 `dependency.manifest_path`（如 `docs/package.json`），
- * 但修复模型是单根 workDir（package.json + pnpm overrides 全局生效）：
- * - 子目录 manifest 的告警若包同时是根直接依赖（如 docs 的 vite@5 告警命中
- *   根 vite@8），`upgradeDependency` 会误改根声明造成 major 降级（run 30929090403）；
- * - pnpm overrides 是全局的，无法只修子目录而不影响根。
+ * Dependabot 告警携带 `dependency.manifest_path`，其值与包类型相关：
+ * - 直接依赖 → `package.json`（根）
+ * - **间接依赖 → `pnpm-lock.yaml`**（lockfile 即间接依赖的 manifest，G3 overrides 修复的标准场景）
+ * - 子目录 manifest → `docs/package.json`、`packages/x/package.json`、fixtures 等
  *
- * 因此子目录 manifest 告警一律剔除修复链路（报告保留、计入 skipped），
- * 标记"需人工处理"；pnpm-audit 源（manifestPath=''）不受影响。
+ * 修复模型是单根 workDir（package.json + pnpm overrides 全局生效），规则：
+ * - `''` / `package.json` → root（正常修复；pnpm-audit 源 manifestPath='' 不受影响）
+ * - `pnpm-lock.yaml`：
+ *   - 包**不是**根直接依赖 → root（标准间接依赖，走 overrides 修复，fast-uri 等）
+ *   - 包**是**根直接依赖 → sub（告警针对传递依赖实例，但 overrides 全局会波及根声明，
+ *     如 vite@5 告警会降级根 vite@8——run 30929090403 教训；需人工处理）
+ * - 其他子目录 manifest → sub（单根模型无法安全修，需人工处理）
  */
 export function partitionSubmanifestAlerts(
     alerts: NormalizedSecurityAlert[],
+    workDir: string,
 ): { root: NormalizedSecurityAlert[], sub: NormalizedSecurityAlert[] } {
     const root: NormalizedSecurityAlert[] = []
     const sub: NormalizedSecurityAlert[] = []
     for (const alert of alerts) {
         const normalized = alert.manifestPath.trim().replace(/\\/g, '/')
-        if (normalized && normalized !== 'package.json') {
-            sub.push(alert)
-        } else {
+        if (normalized === '' || normalized === 'package.json') {
             root.push(alert)
+            continue
         }
+        if (normalized === 'pnpm-lock.yaml') {
+            if (isRootDirectDependency(workDir, alert.packageName)) {
+                sub.push(alert)
+            } else {
+                root.push(alert)
+            }
+            continue
+        }
+        sub.push(alert)
     }
     return { root, sub }
+}
+
+/** 判断包是否为根 package.json 的直接依赖（dependencies / devDependencies / optionalDependencies）。 */
+function isRootDirectDependency(workDir: string, packageName: string): boolean {
+    try {
+        const pkg = JSON.parse(readFileSync(join(workDir, 'package.json'), 'utf-8')) as Record<string, unknown>
+        for (const group of ['dependencies', 'devDependencies', 'optionalDependencies']) {
+            const deps = pkg[group]
+            // Object.hasOwn 防原型链误判（'toString' in {} 为 true）
+            if (deps && typeof deps === 'object' && Object.hasOwn(deps, packageName)) {
+                return true
+            }
+        }
+    } catch {
+        // package.json 缺失/损坏：视为非直接依赖（后续升级流程会明确报错，不静默）
+    }
+    return false
 }

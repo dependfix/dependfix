@@ -5,10 +5,16 @@
 ```
 docs/
 ├── index.md                 # 文档站首页（VitePress）
-├── design/                  # 架构、数据模型、安全设计
-│   ├── architecture.md      # 系统架构与模块边界
-│   ├── data-model.md        # 标准化告警/配置/报告模型
-│   └── security.md          # 认证体系、Prompt 防护、平台安全
+├── design/                  # 设计文档
+│   ├── packages/            # 模块设计（已实现/正在实现，参照 monorepo packages）
+│   │   ├── index.md         # 模块索引
+│   │   ├── data-model.md    # 标准化告警/配置/报告模型
+│   │   └── ...              # dependabot-fetcher / dependency-fixer / pnpm-lockfile-fixer 等
+│   └── governance/          # 专项设计与治理
+│       ├── index.md         # 治理索引
+│       ├── architecture.md  # 系统架构与模块边界
+│       ├── security.md      # 安全设计
+│       └── ...              # github-action-workflow / mcp-server(M6) 等
 ├── guide/                   # 使用指南
 │   ├── quick-start.md       # 快速开始
 │   ├── configuration.md     # 配置说明
@@ -17,13 +23,15 @@ docs/
 ├── plan/                    # 规划与任务
 │   ├── roadmap.md           # 路线图（阶段概览）
 │   ├── todo.md              # 当前阶段任务
+│   ├── todo-archive.md      # 已完成阶段归档
 │   └── backlog.md           # 待办积压（后续阶段详细任务）
-├── research/                # 调研与策略
-│   ├── competitive-research.md
-│   ├── cost-estimate.md
-│   └── strategy.md
-├── archive/                 # 历史文档归档
-└── standards/               # 项目规范（本目录）
+├── research/                # 调研文档（命名规范见 §5.2）
+│   ├── README.md            # 目录定位（简要，规范见本文档）
+│   ├── 2026-07-26-competitive-research.md
+│   ├── 2026-08-04-github-token-dependabot-bug-or-design.md
+│   └── ...
+├── standards/               # 项目规范（本目录）
+└── .vitepress/              # VitePress 站点配置（导航/侧边栏）
 ```
 
 ## 2. Markdown 约定
@@ -64,7 +72,43 @@ docs/
 - **模块设计**: 稳定模块总设计写入 `docs/design/packages/`（当前实现/正在实现的模块，参照 monorepo packages 划分）
 - **治理/专题**: 专项治理、迁移方案、评估报告写入 `docs/design/governance/`
 - **索引**: `docs/design/packages/index.md` 与 `docs/design/governance/index.md` 分别维护索引；过时且暂不删除的文档归档到 `docs/design/governance/archive/`（按需创建）
-- **调研**: 调研类文档统一 `docs/research/`，命名规范见 [research/README.md](../research/README.md)（`{YYYY-MM-DD}-{topic-slug}.md`，同日多次调研追加 `-v{n}`）
+
+### 5.1 调研文档规范（docs/research/）
+
+调研 / 研究类文档（竞品分析、技术调研、决策依据等）统一存放 `docs/research/`，
+与 `docs/design/`（设计落地）和 `docs/plan/`（规划）分离。
+
+**命名规范**:
+
+1. 文件名必须包含日期，格式 `{YYYY-MM-DD}-{topic-slug}.md`
+   - 示例：`2026-08-04-github-token-dependabot-bug-or-design.md`
+   - 日期为调研**完成日期**；topic-slug 为小写 kebab-case 主题词
+2. 同一天对同一主题多次调研（追加搜索、数据更新、结论修正）时，**追加版本后缀**：
+   - `2026-08-04-github-token-audit-v2.md`（保留旧版本作为历史决策依据，新版本 `-v{n}` 从 2 起）
+3. 旧版被新版完全覆盖且无决策参考价值时，可删除旧版
+
+**内容结构（建议）**:
+
+```markdown
+# {调研主题}
+
+> 调研日期: {YYYY-MM-DD}
+> 方法: {来源扫描 / 官方文档 / 交叉验证 / 本地实验}
+> 结论: {一句话核心结论}
+
+## 摘要
+## 关键事实（含出处/链接）
+## 交叉验证
+## 结论与建议
+```
+
+**内容处置流程**: 调研完成后按优先级处置，并在文档末尾注明去向——
+
+1. **落地**: 结论进入设计文档（`design/packages/` 或 `design/governance/`）与规划（`plan/`）
+2. **保留**: 作为未来决策依据（如发布工具对比支撑发布方案）
+3. **归档 / 删除**: 被覆盖或价值已尽
+
+**目录治理**: 调研文档与实现脱节时，判断"结论是否仍有效"：有效 → 保留；无效 → 删除或更新日期版本。阶段收尾时清理无引用、无价值的旧调研。
 
 ## 6. 文档同步原则
 

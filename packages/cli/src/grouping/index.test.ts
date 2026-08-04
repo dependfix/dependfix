@@ -9,7 +9,7 @@ import {
     isMainPackagePresent,
     matchesPattern,
     parseDependabotGroups,
-} from './fix-grouping'
+} from './index'
 
 // ---------------------------------------------------------------------------
 // Fixtures

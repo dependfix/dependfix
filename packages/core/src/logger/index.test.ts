@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, afterEach } from 'vitest'
-import { createLogger } from './logger'
-import { toErrorMessage } from './utils'
+import { toErrorMessage } from '../utils'
+import { createLogger } from './index'
 
 // ---------------------------------------------------------------------------
 // Helpers

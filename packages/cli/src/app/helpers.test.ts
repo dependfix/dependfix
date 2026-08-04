@@ -1,8 +1,4 @@
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
-import { join } from 'node:path'
-import { execSync } from 'node:child_process'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { AppError, type FixAction } from '@dependfix/core'
 import {
     autoCleanupMergedBranches,
@@ -13,8 +9,7 @@ import {
     pullRequestCreationHint,
     resolveAlertRepositories,
     type AppContext,
-} from './app-helpers'
-import { findVerificationFailedRepos, rollbackChanges } from './verification-gate'
+} from './helpers'
 
 // ---------------------------------------------------------------------------
 // Mock pr-creator（autoCleanupMergedBranches / closeSupersededPRs 依赖）
@@ -29,7 +24,7 @@ const prCreatorMock = vi.hoisted(() => ({
     isConfirmAnswer: vi.fn(),
 }))
 
-vi.mock('./github/pr-creator', () => prCreatorMock)
+vi.mock('../github/pr-creator', () => prCreatorMock)
 
 // ---------------------------------------------------------------------------
 // Mock config（resolveAlertRepositories 依赖 inferRepoFromGitRemote）
@@ -39,8 +34,8 @@ const configMock = vi.hoisted(() => ({
     inferRepoFromGitRemote: vi.fn(),
 }))
 
-vi.mock('./config', async (importOriginal) => {
-    const actual = await importOriginal<typeof import('./config')>()
+vi.mock('../config', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('../config')>()
     return { ...actual, inferRepoFromGitRemote: configMock.inferRepoFromGitRemote }
 })
 
@@ -419,56 +414,6 @@ describe('closeSupersededPRs', () => {
         expect(prCreatorMock.deleteRemoteBranch).not.toHaveBeenCalled()
         expect(baseCtx.allErrors).toHaveLength(1)
         expect(baseCtx.allErrors[0]?.category).toBe('PR_CLOSE_FAILED')
-    })
-})
-
-// ---------------------------------------------------------------------------
-// findVerificationFailedRepos / rollbackChanges（验证门禁）
-// ---------------------------------------------------------------------------
-
-describe('findVerificationFailedRepos', () => {
-    it('returns empty array when all repos passed verification', () => {
-        expect(findVerificationFailedRepos([
-            { repository: 'foo/a', verificationPassed: true } as never,
-            { repository: 'foo/b', verificationPassed: undefined } as never,
-        ])).toEqual([])
-    })
-
-    it('returns repos whose verification failed', () => {
-        expect(findVerificationFailedRepos([
-            { repository: 'foo/a', verificationPassed: true } as never,
-            { repository: 'foo/b', verificationPassed: false } as never,
-            { repository: 'foo/c', verificationPassed: false } as never,
-        ])).toEqual(['foo/b', 'foo/c'])
-    })
-})
-
-describe('rollbackChanges', () => {
-    let workDir: string
-
-    beforeEach(() => {
-        workDir = mkdtempSync(join(tmpdir(), 'dependfix-rollback-'))
-        execSync('git init -q', { cwd: workDir })
-        execSync('git config user.name test', { cwd: workDir })
-        execSync('git config user.email test@test', { cwd: workDir })
-    })
-
-    afterEach(() => {
-        rmSync(workDir, { recursive: true, force: true })
-    })
-
-    it('discards uncommitted fix changes (working tree + index)', () => {
-        writeFileSync(join(workDir, 'package.json'), '{"version":"1.0.0"}')
-        execSync('git add . && git commit -qm init', { cwd: workDir })
-
-        // 模拟修复改动：修改已跟踪文件 + 暂存
-        writeFileSync(join(workDir, 'package.json'), '{"version":"2.0.0"}')
-        execSync('git add package.json', { cwd: workDir })
-
-        rollbackChanges(workDir)
-
-        expect(execSync('git status --porcelain', { cwd: workDir, encoding: 'utf-8' }).trim()).toBe('')
-        expect(execSync('git show HEAD:package.json', { cwd: workDir, encoding: 'utf-8' })).toContain('"version":"1.0.0"')
     })
 })
 

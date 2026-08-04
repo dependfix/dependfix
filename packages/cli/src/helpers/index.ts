@@ -1,13 +1,13 @@
-// fix-helpers.ts
+// helpers/index.ts（原 fix-helpers.ts）
 // 修复规划与逐包验证辅助：同包告警收敛、文件快照回滚、逐包快速验证。
 // G3：多个 alerts 指向同一包时逐个升级会互相覆盖甚至降级；逐包验证失败
 // 只回滚该包改动，避免"一个包失败导致全部回滚"。
 import { existsSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { NormalizedSecurityAlert } from '@dependfix/core'
-import { compareSemver } from './fixers/dependency'
-import { runVerification } from './runners/verification-runner'
-import { validateVerifyCommands, type AppContext } from './app-helpers'
+import { compareSemver } from '../fixers/dependency'
+import { runVerification } from '../runners/verification-runner'
+import { validateVerifyCommands, type AppContext } from '../app/helpers'
 
 /**
  * 对可修复告警按包名去重（G3 同包收敛）。

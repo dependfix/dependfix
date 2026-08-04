@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { NormalizedSecurityAlert } from '@dependfix/core'
-import { dedupeFixableAlerts, quickVerifyProject, restoreTrackedFiles, snapshotTrackedFiles } from './fix-helpers'
+import { dedupeFixableAlerts, quickVerifyProject, restoreTrackedFiles, snapshotTrackedFiles } from './index'
 
 // ---------------------------------------------------------------------------
 // Mock runVerification（quickVerifyProject 依赖）
@@ -13,7 +13,7 @@ const { mockRunVerification } = vi.hoisted(() => ({
     mockRunVerification: vi.fn(),
 }))
 
-vi.mock('./runners/verification-runner', () => ({
+vi.mock('../runners/verification-runner', () => ({
     runVerification: mockRunVerification,
 }))
 

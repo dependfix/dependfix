@@ -3,13 +3,13 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import nock from 'nock'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { DependfixApp } from './app'
-import { resolveRuntimeConfig } from './config'
+import { resolveRuntimeConfig } from '../config'
+import { DependfixApp } from './index'
 
 // ---------------------------------------------------------------------------
 // T213 组级升级集成测试：
 // mock 掉真实依赖升级（fixers/dependency）与验证命令执行（verification-runner），
-// 验证 app.ts 的组级循环语义：组级验证 / 整组回滚 / 拆组兜底 / 验证次数。
+// 验证 app/index.ts 的组级循环语义：组级验证 / 整组回滚 / 拆组兜底 / 验证次数。
 // ---------------------------------------------------------------------------
 
 const { mockRunVerification, mockUpgradeDependency, mockOverrideTransitiveDependency, mockTryLockfileRepair } = vi.hoisted(() => ({
@@ -19,12 +19,12 @@ const { mockRunVerification, mockUpgradeDependency, mockOverrideTransitiveDepend
     mockTryLockfileRepair: vi.fn(),
 }))
 
-vi.mock('./runners/verification-runner', () => ({
+vi.mock('../runners/verification-runner', () => ({
     runVerification: mockRunVerification,
 }))
 
-vi.mock('./fixers/dependency', async (importOriginal) => {
-    const actual = await importOriginal<typeof import('./fixers/dependency')>()
+vi.mock('../fixers/dependency', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('../fixers/dependency')>()
     return {
         ...actual,
         upgradeDependency: mockUpgradeDependency,
@@ -33,8 +33,8 @@ vi.mock('./fixers/dependency', async (importOriginal) => {
 })
 
 // lockfile repair 依赖真实 pnpm 命令，与本测试无关——mock 为成功，聚焦组级语义
-vi.mock('./app-helpers', async (importOriginal) => {
-    const actual = await importOriginal<typeof import('./app-helpers')>()
+vi.mock('./helpers', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('./helpers')>()
     return {
         ...actual,
         tryLockfileRepair: mockTryLockfileRepair,

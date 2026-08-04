@@ -18,15 +18,15 @@ import {
     type FixAction,
     type FixError,
 } from '@dependfix/core'
-import { createGitHubClient } from './github/client'
-import { enforceVerificationGate } from './verification-gate'
-import { fetchDependabotAlerts } from './github/dependabot-fetcher'
-import { fetchPnpmAuditAlerts } from './alerts/pnpm-audit-fetcher'
-import { createFixBranch, stageAndCommit, pushBranch, createPullRequest, generatePRBody, computeFixFingerprint, computeFixAndPrPlan, findDependfixOpenPR, listDependfixBranches, getBranchPrStatus, deleteRemoteBranch, type DependfixBranchStatus } from './github/pr-creator'
-import type { RuntimeConfig } from './config'
-import { compareSemver, readLockfileVersion } from './fixers/dependency'
-import { dedupeFixableAlerts, snapshotTrackedFiles, restoreTrackedFiles, quickVerifyProject } from './fix-helpers'
-import { buildUpgradeGroups } from './fix-grouping'
+import { createGitHubClient } from '../github/client'
+import { enforceVerificationGate } from '../runners/verification-gate'
+import { fetchDependabotAlerts } from '../github/dependabot-fetcher'
+import { fetchPnpmAuditAlerts } from '../alerts/pnpm-audit-fetcher'
+import { createFixBranch, stageAndCommit, pushBranch, createPullRequest, generatePRBody, computeFixFingerprint, computeFixAndPrPlan, findDependfixOpenPR, listDependfixBranches, getBranchPrStatus, deleteRemoteBranch, type DependfixBranchStatus } from '../github/pr-creator'
+import type { RuntimeConfig } from '../config'
+import { compareSemver, readLockfileVersion } from '../fixers/dependency'
+import { dedupeFixableAlerts, snapshotTrackedFiles, restoreTrackedFiles, quickVerifyProject } from '../helpers'
+import { buildUpgradeGroups } from '../grouping'
 import {
     buildCommitMessage,
     type AppContext,
@@ -46,7 +46,7 @@ import {
     dependabotAlertsTokenHint,
     pullRequestCreationHint,
     resolveAlertRepositories,
-} from './app-helpers'
+} from './helpers'
 
 // ---------------------------------------------------------------------------
 // Types

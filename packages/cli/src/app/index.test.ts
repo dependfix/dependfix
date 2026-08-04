@@ -5,8 +5,8 @@ import { join } from 'node:path'
 import nock from 'nock'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { NormalizedSecurityAlert } from '@dependfix/core'
-import { DependfixApp } from './app'
-import { resolveRuntimeConfig } from './config'
+import { resolveRuntimeConfig } from '../config'
+import { DependfixApp } from './index'
 
 // ---------------------------------------------------------------------------
 // Mock pnpm-audit fetcher（pnpm-audit 集成测试注入固定告警，避免真实 spawn）
@@ -16,7 +16,7 @@ const auditFetcherMock = vi.hoisted(() => ({
     fetchPnpmAuditAlerts: vi.fn(),
 }))
 
-vi.mock('./alerts/pnpm-audit-fetcher', () => auditFetcherMock)
+vi.mock('../alerts/pnpm-audit-fetcher', () => auditFetcherMock)
 
 function makeAuditAlert(overrides: Partial<NormalizedSecurityAlert> = {}): NormalizedSecurityAlert {
     return {

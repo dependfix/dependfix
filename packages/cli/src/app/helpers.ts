@@ -1,6 +1,6 @@
-// app-helpers.ts
+// helpers.ts（原 app-helpers.ts）
 // DependfixApp 的辅助方法集合。
-// 为控制 app.ts 文件规模（max-lines 800），将不直接参与模式编排的方法
+// 为控制 app/index.ts 文件规模（max-lines 800），将不直接参与模式编排的方法
 // 提取为模块级函数；通过 AppContext 传入所需状态，行为与原类方法一致。
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -19,14 +19,14 @@ import {
     type RunReportConfig,
     type RunSummary,
 } from '@dependfix/core'
-import { inferRepoFromGitRemote, type RuntimeConfig } from './config'
+import { inferRepoFromGitRemote, type RuntimeConfig } from '../config'
 import {
     upgradeDependency,
     overrideTransitiveDependency,
     type DependencyFixResult,
-} from './fixers/dependency'
-import { repairLockfile, type LockfileRepairResult } from './fixers/pnpm'
-import { runVerification, type VerificationResult } from './runners/verification-runner'
+} from '../fixers/dependency'
+import { repairLockfile, type LockfileRepairResult } from '../fixers/pnpm'
+import { runVerification, type VerificationResult } from '../runners/verification-runner'
 import {
     stageAndCommit,
     closePullRequest,
@@ -35,7 +35,7 @@ import {
     getBranchPrStatus,
     isConfirmAnswer,
     type DependfixOpenPR,
-} from './github/pr-creator'
+} from '../github/pr-creator'
 
 // ---------------------------------------------------------------------------
 // Constants

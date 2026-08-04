@@ -1,4 +1,4 @@
-import { execSync } from 'node:child_process'
+import { execFileSync, execSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import type { Octokit } from '@octokit/rest'
 import type { FixAction, RunResult } from '@dependfix/core'
@@ -168,11 +168,13 @@ export function createFixBranch(branchName: string, workDir: string): FixBranchR
 /**
  * 暂存所有变更并提交。
  * 自动设置 git user.name / user.email（如未设置）。
+ * 使用 `execFileSync` 参数数组形式（不经 shell），保证多行 commit message
+ * 与 UTF-8 字符（如 →）在 Windows/Linux 双平台传递一致。
  */
 export function stageAndCommit(message: string, workDir: string): void {
     ensureGitConfig(workDir)
     execSync('git add .', { cwd: workDir, stdio: 'pipe' })
-    execSync(`git commit -m "${escapeShell(message)}"`, { cwd: workDir, stdio: 'pipe' })
+    execFileSync('git', ['commit', '-m', message], { cwd: workDir, stdio: 'pipe' })
 }
 
 /**
@@ -465,8 +467,4 @@ function gitConfigExists(key: string, workDir: string): boolean {
     } catch {
         return false
     }
-}
-
-function escapeShell(str: string): string {
-    return str.replace(/"/g, '\\"')
 }

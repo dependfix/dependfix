@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { AppError } from '@dependfix/core'
-import { computeExitCode, dependabotAlertsTokenHint, type AppContext } from './app-helpers'
+import { AppError, type FixAction } from '@dependfix/core'
+import {
+    buildCommitMessage,
+    computeExitCode,
+    dependabotAlertsTokenHint,
+    pullRequestCreationHint,
+    type AppContext,
+} from './app-helpers'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -150,6 +156,81 @@ describe('computeExitCode', () => {
 // ---------------------------------------------------------------------------
 // dependabotAlertsTokenHint
 // ---------------------------------------------------------------------------
+
+describe('buildCommitMessage', () => {
+    const upgrade = (overrides: Partial<FixAction>): FixAction => ({
+        type: 'dependency-upgrade',
+        repository: 'foo/bar',
+        target: 'vite',
+        success: true,
+        ...overrides,
+    })
+
+    it('returns title only when there are no successful upgrades', () => {
+        expect(buildCommitMessage([])).toBe('fix(deps): automated dependfix security repair')
+        expect(buildCommitMessage([{
+            type: 'verification',
+            repository: 'foo/bar',
+            target: 'pnpm lint',
+            success: true,
+        }])).toBe('fix(deps): automated dependfix security repair')
+    })
+
+    it('excludes PR-record actions from details', () => {
+        const msg = buildCommitMessage([
+            upgrade({ target: 'PR #42 (existing)', toVersion: 'https://github.com/foo/bar/pull/42' }),
+            upgrade({ target: 'js-yaml', fromVersion: 'unknown', toVersion: '^4.3.0' }),
+        ])
+        expect(msg).not.toContain('PR #42')
+        expect(msg).toContain('- js-yaml: ^4.3.0')
+    })
+
+    it('lists successful upgrades with from → to versions', () => {
+        const msg = buildCommitMessage([
+            upgrade({ target: 'vite', fromVersion: '^8.2.0', toVersion: '^6.4.3' }),
+            upgrade({ target: 'lodash', fromVersion: 'unknown', toVersion: '^4.18.0' }),
+        ])
+        expect(msg).toBe([
+            'fix(deps): automated dependfix security repair',
+            '',
+            '- vite: ^8.2.0 → ^6.4.3',
+            '- lodash: ^4.18.0',
+        ].join('\n'))
+    })
+
+    it('marks pnpm overrides strategy in the detail line', () => {
+        const msg = buildCommitMessage([
+            upgrade({ target: 'fast-uri', fromVersion: 'unknown', toVersion: '^3.1.5', strategy: 'override' }),
+        ])
+        expect(msg).toContain('- fast-uri: ^3.1.5 (pnpm overrides)')
+    })
+
+    it('ignores failed upgrades', () => {
+        const msg = buildCommitMessage([
+            upgrade({ success: false, toVersion: '^9.0.0', error: 'peer conflict' }),
+            upgrade({ target: 'js-yaml', fromVersion: 'unknown', toVersion: '^4.3.0' }),
+        ])
+        expect(msg).not.toContain('peer conflict')
+        expect(msg).toContain('- js-yaml: ^4.3.0')
+    })
+})
+
+describe('pullRequestCreationHint', () => {
+    it('returns guidance for GITHUB_TOKEN PR creation 403', () => {
+        const hint = pullRequestCreationHint(new AppError(
+            'PERMISSION_DENIED',
+            'GitHub Actions is not permitted to create or approve pull requests. - https://docs.github.com/rest/pulls/pulls#create-a-pull-request',
+        ))
+        expect(hint).toContain('Allow GitHub Actions to create and approve pull requests')
+        expect(hint).toContain('pull-requests: write')
+    })
+
+    it('returns null for other errors', () => {
+        expect(pullRequestCreationHint(new AppError('PERMISSION_DENIED', 'Resource not accessible by integration'))).toBeNull()
+        expect(pullRequestCreationHint(new AppError('REPO_NOT_FOUND', 'not found'))).toBeNull()
+        expect(pullRequestCreationHint(new Error('boom'))).toBeNull()
+    })
+})
 
 describe('dependabotAlertsTokenHint', () => {
     it('returns a hint for PERMISSION_DENIED (GITHUB_TOKEN cannot read Dependabot alerts)', () => {

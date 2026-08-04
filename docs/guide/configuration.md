@@ -38,7 +38,7 @@ repositories:
   - owner/repo-b
 severityThreshold: high
 mode: fix-and-pr
-maxAlertsPerRepository: 10
+maxAlertsPerRepository: 20
 commit: false
 ```
 
@@ -50,7 +50,7 @@ export AUTO_FIX_GITHUB_SECURITY_MODE=report-only
 export AUTO_FIX_GITHUB_SECURITY_SEVERITY_THRESHOLD=high
 export AUTO_FIX_GITHUB_SECURITY_REPOSITORIES=owner/repo-a,owner/repo-b
 export AUTO_FIX_GITHUB_SECURITY_DRY_RUN=true
-export AUTO_FIX_GITHUB_SECURITY_MAX_ALERTS_PER_REPOSITORY=10
+export AUTO_FIX_GITHUB_SECURITY_MAX_ALERTS_PER_REPOSITORY=20
 export AUTO_FIX_GITHUB_SECURITY_COMMIT=false
 export AUTO_FIX_GITHUB_SECURITY_CLEANUP_BRANCHES=false
 # 仅当 GitHub token 无法读取 Dependabot alerts（如 Action 内 GITHUB_TOKEN）时配置，

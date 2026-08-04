@@ -52,6 +52,43 @@ const PNPM_SCRIPT_RE = /^pnpm\s+([a-zA-Z][a-zA-Z0-9:_-]*)$/
 export const FIX_COMMIT_MESSAGE = 'fix(deps): automated dependfix security repair'
 
 /**
+ * 生成带升级明细的提交消息（参考 Dependabot 的 bump 信息风格）。
+ * 明细来自成功升级的 actions：`- pkg: from → to (pnpm overrides)`；
+ * fromVersion 为空/unknown 时省略来源版本；排除 `PR #N (existing)` 记录型 action
+ * （与 computeFixFingerprint 对齐）；无成功升级时仅返回标题。
+ * 边界：不包含 lockfile-repair / verification 信息，仅覆盖依赖升级明细。
+ */
+export function buildCommitMessage(actions: FixAction[]): string {
+    const upgrades = actions.filter((a) => a.type === 'dependency-upgrade' && a.success && !a.target.startsWith('PR #'))
+
+    if (upgrades.length === 0) {
+        return FIX_COMMIT_MESSAGE
+    }
+
+    const lines = [FIX_COMMIT_MESSAGE, '']
+    for (const a of upgrades) {
+        const from = a.fromVersion && a.fromVersion !== 'unknown' ? `${a.fromVersion} → ` : ''
+        const to = a.toVersion ?? 'latest'
+        const suffix = a.strategy === 'override' ? ' (pnpm overrides)' : ''
+        lines.push(`- ${a.target}: ${from}${to}${suffix}`)
+    }
+    return lines.join('\n')
+}
+
+/**
+ * PR 创建失败的用户指引。
+ * 识别 GITHUB_TOKEN 创建 PR 被仓库设置禁用的 403（"GitHub Actions is not
+ * permitted to create or approve pull requests"），返回解决指引；其他错误返回 null。
+ */
+export function pullRequestCreationHint(error: unknown): string | null {
+    const message = toErrorMessage(error)
+    if (message.includes('not permitted to create or approve pull requests')) {
+        return 'GitHub Actions 创建 PR 被仓库设置禁用：仓库 Settings → Actions → General → Workflow permissions → 勾选 "Allow GitHub Actions to create and approve pull requests"；或改用具备 pull-requests: write 权限的 PAT 作为 github-token'
+    }
+    return null
+}
+
+/**
  * Dependabot alerts 拉取路径的鉴权/权限错误用户指引（GITHUB_TOKEN 无法读取 Dependabot alerts）。
  * 返回附加到错误消息的提示文案；非鉴权类错误返回 null。
  * ⚠️ 仅用于 alerts fetch 错误路径（`fetchDependabotAlerts` 抛出的 `AppError`）；
@@ -126,9 +163,11 @@ export async function upgradeAlert(
             targetVersion: alert.recommendedVersion,
             workDir,
         })
+        let strategy: 'override' | undefined
 
         if (!result.success && result.error?.includes('not found in dependencies')) {
             // 间接依赖 — 通过 pnpm overrides 升级
+            strategy = 'override'
             result = await overrideTransitiveDependency({
                 packageName: alert.packageName,
                 targetVersion: alert.recommendedVersion,
@@ -154,6 +193,7 @@ export async function upgradeAlert(
             fromVersion: result.fromVersion,
             toVersion: result.toVersion,
             isMajor: result.isMajor,
+            strategy,
             success: result.success,
             error: result.error,
             durationMs: Date.now() - startMs,
@@ -347,9 +387,9 @@ function validateVerifyCommands(commands: string[], workDir: string): { valid: s
  *   因此这里不需要再检查这两个开关
  */
 export function commitLocalChanges(
-    ctx: Pick<AppContext, 'logger' | 'workDir'>,
+    ctx: Pick<AppContext, 'logger' | 'workDir' | 'allActions'>,
 ): void {
-    const { logger, workDir } = ctx
+    const { logger, workDir, allActions } = ctx
 
     if (!hasGitChanges(workDir)) {
         logger.info('No changes to commit — skipping local commit')
@@ -359,8 +399,9 @@ export function commitLocalChanges(
     // 提交前先确保报告目录被 .gitignore 忽略，避免残留的 dependfix-reports/ 被 git add 提交
     ensureGitignore(workDir)
 
-    stageAndCommit(FIX_COMMIT_MESSAGE, workDir)
-    logger.info(`Committed fix changes to current branch: ${FIX_COMMIT_MESSAGE}`)
+    const commitMessage = buildCommitMessage(allActions)
+    stageAndCommit(commitMessage, workDir)
+    logger.info(`Committed fix changes to current branch: ${commitMessage.split('\n')[0]}`)
 }
 
 /**

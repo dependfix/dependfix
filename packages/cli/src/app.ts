@@ -22,7 +22,7 @@ import { fetchDependabotAlerts } from './github/dependabot-fetcher'
 import { createFixBranch, stageAndCommit, pushBranch, createPullRequest, generatePRBody, computeFixFingerprint, computeFixAndPrPlan, findDependfixOpenPR, listDependfixBranches, getBranchPrStatus, deleteRemoteBranch, type DependfixBranchStatus } from './github/pr-creator'
 import type { RuntimeConfig } from './config'
 import {
-    FIX_COMMIT_MESSAGE,
+    buildCommitMessage,
     type AppContext,
     upgradeAlert,
     tryLockfileRepair,
@@ -37,6 +37,7 @@ import {
     buildRunResult,
     computeExitCode,
     dependabotAlertsTokenHint,
+    pullRequestCreationHint,
 } from './app-helpers'
 
 // ---------------------------------------------------------------------------
@@ -436,7 +437,7 @@ export class DependfixApp {
             this.logger.info(`Creating fix branch: ${branchName}`)
 
             this.logger.info('Staging and committing changes')
-            stageAndCommit(FIX_COMMIT_MESSAGE, this.workDir)
+            stageAndCommit(buildCommitMessage(this.allActions), this.workDir)
 
             this.logger.info(`Pushing branch: ${branchName}`)
             pushBranch(branchName, this.workDir)
@@ -482,12 +483,13 @@ export class DependfixApp {
             await closeSupersededPRs(this.ctx, client, owner, repo, plan.supersedePRs)
         } catch (error: unknown) {
             const message = toErrorMessage(error)
-            this.logger.error(`PR creation failed: ${message}`)
+            const hint = pullRequestCreationHint(error)
+            this.logger.error(`PR creation failed: ${message}${hint ? ` — ${hint}` : ''}`)
             this.allErrors.push({
                 repository: this.config.repositories[0] ?? '*',
                 stage: 'report',
                 category: 'PR_CREATION_FAILED',
-                message,
+                message: hint ? `${message}（${hint}）` : message,
             })
         }
     }

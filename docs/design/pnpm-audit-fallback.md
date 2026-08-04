@@ -2,7 +2,7 @@
 
 > 状态: ✅ 已实现（2026-08-04）
 > 日期: 2026-08-04
-> 关联: [G2 风险注记](../plan/todo.md#G2)（方案 D）、T-G2-1（fetch 硬失败）、T-G2-3（双 token 落地）
+> 关联: [G2 风险注记](../plan/todo.md#g2-github_token-无法访问-dependabot-alerts-api产品设计级限制)（方案 D）、T-G2-1（fetch 硬失败）、T-G2-3（双 token 落地）
 
 ## 1. 目标
 

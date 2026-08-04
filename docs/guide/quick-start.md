@@ -134,7 +134,7 @@ jobs:
 | `repos` | 否 | `''`（当前仓库） | 目标仓库（逗号分隔） |
 | `severity-threshold` | 否 | `high` | 严重级别阈值 |
 | `dry-run` | 否 | `false` | 试运行模式（Action 默认自动修复并提 PR；CLI 本地默认仅报告，即 report-only 下 dry-run=true） |
-| `max-alerts-per-repository` | 否 | `10` | 每仓库最大告警数 |
+| `max-alerts-per-repository` | 否 | `20` | 每仓库最大告警数 |
 | `cleanup-branches` | 否 | `false` | （fix-and-pr 模式）结束后将已合并的 dependfix 分支列入报告待清理清单（不自动删除） |
 | `github-token` | 是 | — | GitHub Token（commit/push/PR 等操作；Dependabot alerts 读取不可用，见下行） |
 | `dependabot-alerts-token` | 否 | `''` | Dependabot alerts 专用最小权限 token（fine-grained PAT，仅 `Dependabot alerts: read`；缺省回退 `github-token`。GITHUB_TOKEN 恒 403） |
@@ -163,7 +163,7 @@ jobs:
 | `--create-pr` | — | 创建 Pull Request | `false` |
 | `--commit` | — | 修复完成后在本地当前分支直接提交（仅 fix 模式；不推送、不创建 PR） | `false` |
 | `--cleanup-branches` | — | （fix-and-pr 模式）结束后列出已合并的 dependfix 分支到报告，不自动删除 | `false` |
-| `--max-alerts-per-repository` | — | 每仓库最大处理数 | `10` |
+| `--max-alerts-per-repository` | — | 每仓库最大处理数 | `20` |
 | `--commands` | — | 自定义验证命令（逗号分隔） | — |
 | `--verbose` | — | 详细日志 | `false` |
 

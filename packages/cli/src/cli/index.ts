@@ -87,7 +87,7 @@ const argsDef = {
     'max-alerts-per-repository': {
         type: 'string' as const,
         description: '每个仓库最多处理的告警数',
-        default: '10' as const,
+        default: '20' as const,
     },
     commands: {
         type: 'string' as const,

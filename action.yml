@@ -28,7 +28,7 @@ inputs:
   max-alerts-per-repository:
     description: '每仓库最多处理的告警数'
     required: false
-    default: '10'
+    default: '20'
   cleanup-branches:
     description: '（fix-and-pr 模式）结束后将已合并的 dependfix 分支列入报告待清理清单（不自动删除）'
     required: false

@@ -21,7 +21,7 @@ describe('resolveRuntimeConfig', () => {
             commit: false,
             cleanupBranches: false,
             githubToken: 'token-from-env',
-            maxAlertsPerRepository: 10,
+            maxAlertsPerRepository: 20,
         })
     })
 

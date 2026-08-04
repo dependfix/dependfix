@@ -61,7 +61,7 @@ export interface ResolveRuntimeConfigOptions {
 export const DEFAULT_RUNTIME_CONFIG: Omit<RuntimeConfig, 'githubToken' | 'repositories' | 'dryRun' | 'createPullRequest' | 'commit' | 'cleanupBranches'> = {
     mode: 'report-only',
     severityThreshold: 'high',
-    maxAlertsPerRepository: 10,
+    maxAlertsPerRepository: 20,
 }
 
 function isRuntimeMode(value: string): value is RuntimeMode {

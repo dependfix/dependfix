@@ -21,7 +21,7 @@
 | `cleanupBranches` | `AUTO_FIX_GITHUB_SECURITY_CLEANUP_BRANCHES` | `boolean` | `false` | （fix-and-pr 模式）结束后将已合并的 dependfix 分支列入报告待清理清单（不自动删除；删除需 `cleanup-branches` 模式交互确认） |
 | `githubToken` | `AUTO_FIX_GITHUB_SECURITY_GITHUB_TOKEN` / `GITHUB_TOKEN` | `string` | — | GitHub 认证 Token |
 | `alertsToken` | `AUTO_FIX_GITHUB_SECURITY_ALERTS_TOKEN` | `string` | — | Dependabot alerts 专用 token（可选，最小权限 fine-grained PAT，仅 `Dependabot alerts: read`；缺省回退 `githubToken`。GITHUB_TOKEN 无法读取 Dependabot alerts） |
-| `maxAlertsPerRepository` | `AUTO_FIX_GITHUB_SECURITY_MAX_ALERTS_PER_REPOSITORY` | `number` | `10` | 每仓库最大告警处理数 |
+| `maxAlertsPerRepository` | `AUTO_FIX_GITHUB_SECURITY_MAX_ALERTS_PER_REPOSITORY` | `number` | `20` | 每仓库最大告警处理数 |
 | `verbose` | — | `boolean` | `false` | 详细日志输出（仅 CLI `--verbose`） |
 | `commands` | — | `string[]` | — | 自定义验证命令（仅 CLI `--commands`） |
 

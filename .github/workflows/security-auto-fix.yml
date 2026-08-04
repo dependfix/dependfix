@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: '运行模式'
+        description: "运行模式"
         type: choice
         required: true
         options:
@@ -13,7 +13,7 @@ on:
           - fix-and-pr
         default: fix-and-pr
       severity-threshold:
-        description: '严重级别阈值'
+        description: "严重级别阈值"
         type: choice
         required: false
         options:
@@ -21,30 +21,30 @@ on:
           - high
           - medium
           - all
-        default: high
+        default: all
       dry-run:
-        description: '试运行模式（不修改文件，仅在 fix 模式下生效）'
+        description: "试运行模式（不修改文件，仅在 fix 模式下生效）"
         type: boolean
         required: false
         default: false
       max-alerts-per-repository:
-        description: '每仓库最多处理的告警数'
+        description: "每仓库最多处理的告警数"
         type: string
         required: false
-        default: '20'
+        default: "100"
       repos:
-        description: '目标仓库列表（逗号分隔 owner/repo，留空默认使用当前仓库）'
+        description: "目标仓库列表（逗号分隔 owner/repo，留空默认使用当前仓库）"
         type: string
         required: false
-        default: ''
+        default: ""
       cleanup-branches-auto:
-        description: '（fix-and-pr 模式）结束后自动删除已合并/已关闭的 dependfix 分支（非交互；不删有 open PR 的分支）'
+        description: "（fix-and-pr 模式）结束后自动删除已合并/已关闭的 dependfix 分支（非交互；不删有 open PR 的分支）"
         type: boolean
         required: false
-        default: false
+        default: true
   schedule:
     # 每周一 UTC 6:00（北京时间 14:00）
-    - cron: '0 6 * * 1'
+    - cron: "0 6 * * 1"
 
 permissions:
   contents: write

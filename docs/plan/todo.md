@@ -350,7 +350,7 @@ T109 ─→ T205（AI Token 支持）→ T206（Prompt 注入防护）
 - **下一步**: 用户确认 token 方案与 pnpm audit 回退是否纳入 → 调整 workflow + action 文档；补 CLI 403 硬失败处理
 - **处置任务清单**（状态化，按优先级）:
   - [x] T-G2-1 CLI fetch 阶段 401/403 硬失败（P0，杜绝静默空跑）——已完成：移除 fix-and-pr stub 退出码特判（fetch 403 → exit 2）；report-only/fix/fix-and-pr catch 均附加 dependabotAlertsTokenHint 指引（commit a9e61b8）
-  - [ ] T-G2-2 Code Scanning alerts 对 GITHUB_TOKEN 可访问性验证（P0，决定 M3 前置与文档口径）
+  - [x] T-G2-2 Code Scanning alerts 对 GITHUB_TOKEN 可访问性验证（P0，决定 M3 前置与文档口径）——已完成（探针 run 30903220726）：`code-scanning/alerts` → **HTTP 200**（GITHUB_TOKEN + `security-events: read` 可用）；`dependabot/alerts` → HTTP 403 对照确认。**M3 可沿用 GITHUB_TOKEN，无需额外 token 方案**
   - [ ] T-G2-3 token 方案决策与落地：security-auto-fix.yml + action.yml 输入描述 + README 消费者引导（P0，待用户决策 PAT / GitHub App）
   - [ ] T-G2-4 pnpm audit fallback 设计评估：无 token 本地回退，口径归一化与数据源标注策略（P1）
   - [x] T-G2-5 规划文档闭环：roadmap M2 风险注记 / M3 前置 / M6 凭据双模型、backlog T301 / T602 调整（P1）——已完成（commit b6d04ad）

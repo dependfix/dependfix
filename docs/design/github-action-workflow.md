@@ -160,8 +160,8 @@ permissions:
 
 | 数据源 | Token 要求 | 状态 |
 |:---|:---|:---|
-| Dependabot alerts API | PAT（classic `security_events` / fine-grained `Dependabot alerts: read`）或 GitHub App installation token | 需要消费者提供；GITHUB_TOKEN 不可用 |
-| Code Scanning alerts API | `security-events: read`（GITHUB_TOKEN 应可用，待验证） | 验证后确定策略 |
+| Dependabot alerts API | PAT（classic `security_events` / fine-grained `Dependabot alerts: read`）或 GitHub App installation token | 需要消费者提供；GITHUB_TOKEN 不可用（恒 403） |
+| Code Scanning alerts API | `security-events: read`（GITHUB_TOKEN 可用） | ✅ 已验证（探针 2026-08-04：HTTP 200），M3 无需额外 token 方案 |
 | pnpm audit（fallback） | 无 | 本地数据源候选：`pnpm audit --json` 归一化接入（severity 映射 + alert 结构映射 + 去重，参考 security-alert-remediator 的 `collect-security-alerts.mjs`） |
 
 **设计原则**：

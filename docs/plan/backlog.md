@@ -11,10 +11,9 @@
 ### T301 接入 Code Scanning Alerts 拉取
 
 - 优先级：`P1`
-- 依赖：T102, T004, T-G2-2（前置：Code Scanning alerts 对 GITHUB_TOKEN 可访问性验证，见 [todo.md G2](../plan/todo.md#g2-github_token-无法访问-dependabot-alerts-api产品设计级限制)）
+- 依赖：T102, T004（前置 T-G2-2 已完成：Code Scanning alerts 对 GITHUB_TOKEN 可访问，HTTP 200，无需额外 token）
 - 交付物：Code Scanning 告警采集器。
 - 任务内容：
-  - [ ] （前置）验证 GITHUB_TOKEN 访问 Code Scanning alerts 是否可用；不可用则确定替代 token 方案（PAT / GitHub App）。
   - [ ] 拉取 open 状态 Code Scanning 告警。
   - [ ] 转换为标准告警模型。
   - [ ] 建立 error / warning / note 的统一映射。

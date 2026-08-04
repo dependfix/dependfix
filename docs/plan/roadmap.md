@@ -45,7 +45,7 @@ Monorepo 骨架搭建、核心配置模型、工具链版本策略固定、标�
 
 接入 Code Scanning alerts 标准化采集，建立 A/B/C 三级规则分层，白名单规则自动修复，不可修复问题输出建议。
 
-> **前置（G2）**：先完成 T-G2-2（Code Scanning alerts 对 GITHUB_TOKEN 可访问性验证）——决定 M3 沿用 GITHUB_TOKEN 还是与 Dependabot 一样要求 PAT / GitHub App token。
+> **前置（G2）已解除（2026-08-04 探针验证）**：Code Scanning alerts 对 GITHUB_TOKEN 可访问（HTTP 200，`security-events: read` 即可），M3 无需额外 token 方案；仅 Dependabot alerts 需要 PAT / GitHub App token。
 
 > 详细任务见 [backlog.md §M3](backlog.md)
 

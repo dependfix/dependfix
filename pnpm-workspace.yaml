@@ -1,20 +1,20 @@
 packages:
-    - "packages/*"
-    - "docs"
-
+  - packages/*
+  - docs
 minimumReleaseAge: 60
-
 confirmModulesPurge: false
-
 allowBuilds:
-    esbuild: true
-
+  esbuild: true
 overrides:
-    compare-func: "^2.0.0"
-    katex: "^0.16.21"
-    esbuild: "^0.25.0"
-    "@octokit/plugin-paginate-rest": "^11.4.1"
-    "@octokit/request": "^9.2.1"
-    "@octokit/request-error": "^5.1.1"
-    tmp: "^0.2.4"
-    glob: "^11.1.0"
+  compare-func: ^2.0.0
+  katex: ^0.16.21
+  esbuild: ^0.25.0
+  "@octokit/plugin-paginate-rest": ^11.4.1
+  "@octokit/request": ^9.2.1
+  "@octokit/request-error": ^5.1.1
+  tmp: ^0.2.4
+  glob: ^11.1.0
+  fast-uri: ^3.1.5
+  flatted: ^3.4.2
+  js-yaml: ^4.3.0
+  lodash: ^4.18.0

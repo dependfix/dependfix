@@ -166,7 +166,7 @@ permissions:
 
 **设计原则**：
 - action 文档必须明确告知消费者：Dependabot alerts 需要 PAT / GitHub App token，仅给 GITHUB_TOKEN 会静默空跑
-- fetch 阶段 401/403 不应被当作"无告警"（待修，G2 方向 2）
+- ✅ fetch 阶段 401/403 已硬失败（T-G2-1，commit a9e61b8）：退出码非零（无成功 → 2）+ `dependabotAlertsTokenHint` 指引
 - pnpm audit 回退（若采纳）标注数据源，不与 GitHub API 数据混同去重
 
 ---
@@ -177,7 +177,7 @@ permissions:
 |:---|:---|
 | 仓库无 Dependabot 告警 | 报告输出 0 alerts，workflow 成功退出（exit 0） |
 | `GITHUB_TOKEN` 访问 Dependabot alerts | ⚠️ **恒 403 `Resource not accessible by integration`**：Actions App 无 Dependabot alerts 权限，`permissions: security-events` 无法授予（与官方文档矛盾，社区 #60612 未修复）。必须使用带 `security_events`（classic PAT）/ `Dependabot alerts: read`（fine-grained PAT）或 GitHub App token。详见 [G2](../plan/todo.md#g2-github_token-无法访问-dependabot-alerts-api产品设计级限制) |
-| 其他 fetch 权限错误（401/403，非 GITHUB_TOKEN 固有限制） | 当前实现：错误被吞并 exit 0 空跑（与 G2 一起待修，候选方向 B：硬失败） |
+| 其他 fetch 权限错误（401/403，非 GITHUB_TOKEN 固有限制） | ✅ 已修复（T-G2-1）：CLI 硬失败退出（无成功 → exit 2），错误信息附 token 指引 |
 | pnpm 构建失败 | workflow 在 build 步骤失败，不执行 CLI |
 | CLI 运行超时 | `timeout-minutes: 15` 触发，workflow 被取消 |
 | `fix-and-pr` 模式 | M2 stub：输出提示 "not implemented in M1"，exit 0 |

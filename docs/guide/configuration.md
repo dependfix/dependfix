@@ -20,7 +20,7 @@
 | `commit` | `AUTO_FIX_GITHUB_SECURITY_COMMIT` | `boolean` | `false` | 修复完成后在本地当前分支直接提交（仅 `fix` 模式生效；与 `--dry-run` / `--create-pr` 互斥） |
 | `cleanupBranches` | `AUTO_FIX_GITHUB_SECURITY_CLEANUP_BRANCHES` | `boolean` | `false` | （fix-and-pr 模式）结束后将已合并的 dependfix 分支列入报告待清理清单（不自动删除；删除需 `cleanup-branches` 模式交互确认） |
 | `githubToken` | `AUTO_FIX_GITHUB_SECURITY_GITHUB_TOKEN` / `GITHUB_TOKEN` | `string` | — | GitHub 认证 Token |
-| `alertsToken` | `AUTO_FIX_GITHUB_SECURITY_ALERTS_TOKEN` | `string` | — | Dependabot alerts 专用 token（可选，最小权限 fine-grained PAT，仅 `Dependabot alerts: read`；缺省回退 `githubToken`。G2：GITHUB_TOKEN 无法读取 Dependabot alerts） |
+| `alertsToken` | `AUTO_FIX_GITHUB_SECURITY_ALERTS_TOKEN` | `string` | — | Dependabot alerts 专用 token（可选，最小权限 fine-grained PAT，仅 `Dependabot alerts: read`；缺省回退 `githubToken`。GITHUB_TOKEN 无法读取 Dependabot alerts） |
 | `maxAlertsPerRepository` | `AUTO_FIX_GITHUB_SECURITY_MAX_ALERTS_PER_REPOSITORY` | `number` | `10` | 每仓库最大告警处理数 |
 | `verbose` | — | `boolean` | `false` | 详细日志输出（仅 CLI `--verbose`） |
 | `commands` | — | `string[]` | — | 自定义验证命令（仅 CLI `--commands`） |
@@ -53,7 +53,7 @@ export AUTO_FIX_GITHUB_SECURITY_DRY_RUN=true
 export AUTO_FIX_GITHUB_SECURITY_MAX_ALERTS_PER_REPOSITORY=10
 export AUTO_FIX_GITHUB_SECURITY_COMMIT=false
 export AUTO_FIX_GITHUB_SECURITY_CLEANUP_BRANCHES=false
-# G2：仅当 GitHub token 无法读取 Dependabot alerts（如 Action 内 GITHUB_TOKEN）时配置，
+# 仅当 GitHub token 无法读取 Dependabot alerts（如 Action 内 GITHUB_TOKEN）时配置，
 # 使用最小权限 fine-grained PAT（仅 Dependabot alerts: read）
 export AUTO_FIX_GITHUB_SECURITY_ALERTS_TOKEN=github_pat_xxx
 ```

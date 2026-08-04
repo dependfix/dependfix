@@ -69,6 +69,6 @@ jobs:
           max-alerts-per-repository: ${{ inputs.max-alerts-per-repository || '10' }}
           repos: ${{ inputs.repos || '' }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          # G2：Dependabot alerts 读取需最小权限 PAT（fine-grained，仅 Dependabot alerts: read）；
+          # Dependabot alerts 读取需最小权限 PAT（fine-grained，仅 Dependabot alerts: read）；
           # GITHUB_TOKEN 无法读取该 API。仓库 Settings → Secrets 配置 GH_PAT。
           dependabot-alerts-token: ${{ secrets.GH_PAT }}

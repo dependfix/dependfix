@@ -52,7 +52,7 @@ const PNPM_SCRIPT_RE = /^pnpm\s+([a-zA-Z][a-zA-Z0-9:_-]*)$/
 export const FIX_COMMIT_MESSAGE = 'fix(deps): automated dependfix security repair'
 
 /**
- * Dependabot alerts 拉取路径的鉴权/权限错误用户指引（G2：GITHUB_TOKEN 无法读取 Dependabot alerts）。
+ * Dependabot alerts 拉取路径的鉴权/权限错误用户指引（GITHUB_TOKEN 无法读取 Dependabot alerts）。
  * 返回附加到错误消息的提示文案；非鉴权类错误返回 null。
  * ⚠️ 仅用于 alerts fetch 错误路径（`fetchDependabotAlerts` 抛出的 `AppError`）；
  * 其他 API 的 PERMISSION_DENIED（如 PR 创建 403）语义不同，不得复用。

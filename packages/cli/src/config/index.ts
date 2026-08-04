@@ -21,9 +21,10 @@ export interface RuntimeConfig {
     githubToken: string
     /**
      * Dependabot alerts 专用 token（可选）。
-     * 提供时仅用于拉取 Dependabot alerts（G2：GITHUB_TOKEN 无法读取该 API，
+     * 提供时仅用于拉取 Dependabot alerts（GITHUB_TOKEN 无法读取该 API，
      * 建议使用最小权限 fine-grained PAT，仅 `Dependabot alerts: read`）；
      * 缺省时回退使用 githubToken（本地完整 PAT 场景）。
+     * 背景详见 docs/plan/todo.md「已知缺口 G2」。
      */
     alertsToken?: string
     maxAlertsPerRepository: number

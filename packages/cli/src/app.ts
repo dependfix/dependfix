@@ -282,7 +282,7 @@ export class DependfixApp {
         let defaultBranch = ''
 
         try {
-            // 1. Fetch alerts（G2：使用 alertsClient，主 token 可能无法读取 Dependabot alerts）
+            // 1. Fetch alerts（alertsClient 使用 alertsToken；主 token 无法读取 Dependabot alerts）
             const rawAlerts = await fetchDependabotAlerts(alertsClient, { owner, repo: name })
             const { filtered } = filterAlerts(rawAlerts, { severityThreshold: this.config.severityThreshold })
             const prioritized = prioritizeAlerts(filtered)
@@ -600,9 +600,10 @@ export class DependfixApp {
     }
 
     /**
-     * 拉取 Dependabot alerts 使用的 client（G2 双 token 设计）：
+     * 拉取 Dependabot alerts 使用的 client（双 token 设计）：
      * 优先使用 `alertsToken`（最小权限：仅 Dependabot alerts: read），
      * 缺省回退主 token（本地完整 PAT 场景）。
+     * 背景详见 docs/plan/todo.md「已知缺口 G2」。
      */
     private createAlertsClient(): Octokit {
         return this.createClient(this.config.alertsToken || this.config.githubToken)

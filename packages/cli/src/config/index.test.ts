@@ -65,7 +65,7 @@ describe('resolveRuntimeConfig', () => {
         expect(() => resolveRuntimeConfig({ env: {} })).toThrow('Missing GitHub token')
     })
 
-    it('reads alertsToken from env (G2: Dependabot alerts 专用最小权限 token)', () => {
+    it('reads alertsToken from env (Dependabot alerts 专用最小权限 token)', () => {
         const config = resolveRuntimeConfig({
             env: {
                 GITHUB_TOKEN: 'token-from-env',

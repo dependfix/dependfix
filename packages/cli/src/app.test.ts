@@ -7,11 +7,11 @@ import { DependfixApp } from './app'
 import { resolveRuntimeConfig } from './config'
 
 // ---------------------------------------------------------------------------
-// G2 双 token 接线集成测试：fetch Dependabot alerts 走 alertsToken，
+// 双 token 接线集成测试：fetch Dependabot alerts 走 alertsToken，
 // 其余 GitHub API（repos.get 等）走主 token。
 // ---------------------------------------------------------------------------
 
-describe('DependfixApp dual token (G2)', () => {
+describe('DependfixApp dual token', () => {
     let workDir: string
 
     beforeEach(() => {

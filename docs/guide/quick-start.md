@@ -117,7 +117,7 @@ jobs:
           mode: fix-and-pr
           severity-threshold: high
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          # ⚠️ G2：GITHUB_TOKEN 无法读取 Dependabot alerts API（GitHub App-only 权限，恒 403）。
+          # ⚠️ GITHUB_TOKEN 无法读取 Dependabot alerts API（GitHub App-only 权限，恒 403）。
           # 需配置最小权限 fine-grained PAT（仅 Dependabot alerts: read）作为专用 token：
           # GitHub → Settings → Developer settings → Personal access tokens → Fine-grained tokens，
           # Repository permissions → Dependabot alerts → Read-only。
@@ -137,7 +137,7 @@ jobs:
 | `max-alerts-per-repository` | 否 | `10` | 每仓库最大告警数 |
 | `cleanup-branches` | 否 | `false` | （fix-and-pr 模式）结束后将已合并的 dependfix 分支列入报告待清理清单（不自动删除） |
 | `github-token` | 是 | — | GitHub Token（commit/push/PR 等操作；Dependabot alerts 读取不可用，见下行） |
-| `dependabot-alerts-token` | 否 | `''` | Dependabot alerts 专用最小权限 token（fine-grained PAT，仅 `Dependabot alerts: read`；缺省回退 `github-token`。G2：GITHUB_TOKEN 恒 403） |
+| `dependabot-alerts-token` | 否 | `''` | Dependabot alerts 专用最小权限 token（fine-grained PAT，仅 `Dependabot alerts: read`；缺省回退 `github-token`。GITHUB_TOKEN 恒 403） |
 | `ai-api-token` | 否 | `''` | AI API Token（M5 联调） |
 | `ai-api-base-url` | 否 | `''` | AI API Base URL（M5 联调） |
 
@@ -157,7 +157,7 @@ jobs:
 | `--repo` | `-r`, `--repository`, `--repositories` | 目标仓库（`owner/repo`）。在 git 仓库内可自动推断 | — |
 | `--repos-file` | — | 从文件读取仓库列表（每行一个） | — |
 | `--github-token` | — | GitHub PAT | `GITHUB_TOKEN` 环境变量 |
-| `--alerts-token` | — | Dependabot alerts 专用最小权限 token（可选，仅 `Dependabot alerts: read`；缺省回退 `--github-token`。G2：GITHUB_TOKEN 无法读取 Dependabot alerts） | `AUTO_FIX_GITHUB_SECURITY_ALERTS_TOKEN` 环境变量 |
+| `--alerts-token` | — | Dependabot alerts 专用最小权限 token（可选，仅 `Dependabot alerts: read`；缺省回退 `--github-token`。GITHUB_TOKEN 无法读取 Dependabot alerts） | `AUTO_FIX_GITHUB_SECURITY_ALERTS_TOKEN` 环境变量 |
 | `--severity-threshold` | — | `critical` / `high` / `medium` / `all` | `high` |
 | `--dry-run` | — | 试运行，不写入文件。report-only 模式默认 `true` | `false`（fix/fix-and-pr） |
 | `--create-pr` | — | 创建 Pull Request | `false` |

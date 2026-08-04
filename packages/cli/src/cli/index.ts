@@ -82,7 +82,7 @@ const argsDef = {
     },
     'alerts-token': {
         type: 'string' as const,
-        description: 'Dependabot alerts 专用 token（可选，最小权限 PAT，仅 Dependabot alerts: read；缺省回退 --github-token。G2：GITHUB_TOKEN 无法读取 Dependabot alerts）',
+        description: 'Dependabot alerts 专用 token（可选，最小权限 PAT，仅 Dependabot alerts: read；缺省回退 --github-token。GITHUB_TOKEN 无法读取 Dependabot alerts）',
     },
     'max-alerts-per-repository': {
         type: 'string' as const,

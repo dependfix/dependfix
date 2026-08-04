@@ -46,7 +46,7 @@ describe('computeExitCode', () => {
         expect(exitCode).toBe(2)
     })
 
-    // G2 回归：report-only 模式（默认模式）fetch 403 必须非零退出
+    // 回归：report-only 模式（默认模式）fetch 403 必须非零退出
     it('returns 2 for report-only mode when fetch fails with 403', () => {
         const exitCode = computeExitCode(makeCtx({
             allErrors: [{
@@ -60,7 +60,7 @@ describe('computeExitCode', () => {
         expect(exitCode).toBe(2)
     })
 
-    // G2 回归：fix 模式 fetch 403 必须非零退出
+    // 回归：fix 模式 fetch 403 必须非零退出
     it('returns 2 for fix mode when fetch fails with 403', () => {
         const exitCode = computeExitCode(makeCtx({
             config: { mode: 'fix' } as AppContext['config'],
@@ -86,7 +86,7 @@ describe('computeExitCode', () => {
         expect(exitCode).toBe(1)
     })
 
-    // G2 回归：fix-and-pr 模式 fetch 403（PERMISSION_DENIED）时必须非零退出，杜绝静默空跑
+    // 回归：fix-and-pr 模式 fetch 403（PERMISSION_DENIED）时必须非零退出，杜绝静默空跑
     it('returns 2 for fix-and-pr mode when fetch fails with 403 and no repo succeeds', () => {
         const exitCode = computeExitCode(makeCtx({
             config: { mode: 'fix-and-pr' } as AppContext['config'],
@@ -152,7 +152,7 @@ describe('computeExitCode', () => {
 // ---------------------------------------------------------------------------
 
 describe('dependabotAlertsTokenHint', () => {
-    it('returns a hint for PERMISSION_DENIED (G2: GITHUB_TOKEN cannot read Dependabot alerts)', () => {
+    it('returns a hint for PERMISSION_DENIED (GITHUB_TOKEN cannot read Dependabot alerts)', () => {
         const hint = dependabotAlertsTokenHint(new AppError('PERMISSION_DENIED', 'Resource not accessible by integration'))
         expect(hint).toContain('security_events')
         expect(hint).toContain('Dependabot alerts: read')

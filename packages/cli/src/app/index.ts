@@ -25,11 +25,13 @@ import { fetchCodeScanningAlerts } from '../github/code-scanning-fetcher'
 import { fetchPnpmAuditAlerts } from '../alerts/pnpm-audit-fetcher'
 import { createFixBranch, stageAndCommit, pushBranch, createPullRequest, generatePRBody, computeFixFingerprint, computeFixAndPrPlan, findDependfixOpenPR } from '../github/pr-creator'
 import type { RuntimeConfig } from '../config'
-import { compareSemver, readLockfileVersion } from '../fixers/dependency'
+import { compareSemver, readLockfileVersion, applyVersionedOverrides } from '../fixers/dependency'
 import { dedupeFixableAlerts, snapshotTrackedFiles, restoreTrackedFiles, quickVerifyProject, partitionSubmanifestAlerts } from '../helpers'
 import { buildUpgradeGroups } from '../grouping'
 import {
     buildCommitMessage,
+    buildVersionedOverrides,
+    hasMultipleMajorVersions,
     type AppContext,
     upgradeAlert,
     tryLockfileRepair,
@@ -343,10 +345,104 @@ export class DependfixApp {
             // 2. Upgrade fixable dependencies（T213 分组升级 + G3 同包收敛）
             // - 同包 alerts 去重取最高 recommendedVersion；分组显式 > dependabot.yml > @types > 启发式 > 单包
             // - 组级验证失败 → 整组回滚 → 拆组逐个重试；当前版本 >= 目标时跳过（不降级保护）
-            const fixableAlerts = dedupeFixableAlerts(
-                rootManifestAlerts.filter((a) => a.fixable && a.recommendedVersion),
-            )
+            // - 多版本共存（vite@5.4.14 + vite@8.2.0）：版本化 overrides 分别覆盖（2026-08-06 复盘）
             const lockfilePath = join(this.workDir, 'pnpm-lock.yaml')
+
+            // 2.0 多版本共存 → 版本化 overrides（独立于分组升级，避免全局覆盖误伤根声明）
+            const fixableLockfileAlerts = rootManifestAlerts.filter(
+                (a) => a.source !== 'code-scanning' && a.manifestPath.trim().replace(/\\/g, '/') === 'pnpm-lock.yaml'
+                    && a.fixable && a.recommendedVersion,
+            )
+            const multiVersionPackages = new Set(
+                fixableLockfileAlerts
+                    .filter((a) => hasMultipleMajorVersions(lockfilePath, a.packageName))
+                    .map((a) => a.packageName),
+            )
+            // 多版本包的所有 lockfile 告警进入 2.0.1（按告警身份排除，不按包名——同包
+            // 其他 manifest 告警（package.json 根声明等）保留在常规链路，避免静默丢失）
+            const multiVersionAlerts = fixableLockfileAlerts.filter((a) => multiVersionPackages.has(a.packageName))
+            const multiVersionAlertIds = new Set(multiVersionAlerts.map((a) => a.id))
+            const singleVersionAlerts = rootManifestAlerts.filter((a) => !multiVersionAlertIds.has(a.id))
+
+            // 2.0.1 执行版本化 overrides 修复（逐包：快照 → 写入 → install → 组级验证 → 回滚）
+            // 同包多条告警（不同 GHSA）取 recommendedVersion 最高者（与 dedupeFixableAlerts 语义一致）
+            const upgradedMultiVersion = new Set<string>()
+            for (const alert of multiVersionAlerts) {
+                if (upgradedMultiVersion.has(alert.packageName)) {
+                    continue
+                }
+                upgradedMultiVersion.add(alert.packageName)
+                const bestAlert = multiVersionAlerts
+                    .filter((a) => a.packageName === alert.packageName)
+                    .reduce((best, a) => (compareSemver(a.recommendedVersion, best.recommendedVersion) > 0 ? a : best), alert)
+                if (this.config.dryRun) {
+                    // dry-run 不写盘：仅记录计划动作（与 upgradeAlert 的 dry-run 语义一致）
+                    this.logger.info(`[dry-run] Would apply versioned overrides for ${alert.packageName} targeting ${bestAlert.recommendedVersion}`)
+                    this.allActions.push({
+                        type: 'dependency-upgrade',
+                        repository: bestAlert.repository,
+                        target: bestAlert.packageName,
+                        fromVersion: '',
+                        toVersion: bestAlert.recommendedVersion,
+                        isMajor: false,
+                        strategy: 'versioned-override',
+                        success: true,
+                        durationMs: 0,
+                    })
+                    fixed++
+                    continue
+                }
+                const versionedOverrides = buildVersionedOverrides(lockfilePath, bestAlert)
+                if (Object.keys(versionedOverrides).length === 0) {
+                    this.logger.info(`Skipping ${bestAlert.packageName}: no vulnerable instances below target ${bestAlert.recommendedVersion}`)
+                    this.summary.alertsSkipped++
+                    continue
+                }
+                const snapshot = snapshotTrackedFiles(this.workDir)
+                this.logger.info(
+                    `[multi-version] ${bestAlert.packageName}: applying versioned overrides ${JSON.stringify(versionedOverrides)}`,
+                )
+                const result = await applyVersionedOverrides({
+                    packageName: bestAlert.packageName,
+                    versionedOverrides,
+                    workDir: this.workDir,
+                })
+                const action: FixAction = {
+                    type: 'dependency-upgrade',
+                    repository: bestAlert.repository,
+                    target: bestAlert.packageName,
+                    fromVersion: '',
+                    toVersion: result.toVersion,
+                    isMajor: false,
+                    strategy: 'versioned-override',
+                    success: result.success,
+                    error: result.error,
+                    durationMs: 0,
+                }
+                if (!result.success) {
+                    this.allActions.push(action)
+                    failed++
+                    continue
+                }
+                // 组级快速验证：lint 通过 → 保留；失败 → 回滚
+                const groupOk = await quickVerifyProject(this.ctx, repo)
+                if (groupOk) {
+                    this.allActions.push(action)
+                    fixed++
+                    this.logger.info(`[multi-version] ${alert.packageName}: versioned overrides passed verification`)
+                } else {
+                    restoreTrackedFiles(this.workDir, snapshot)
+                    action.success = false
+                    action.error = 'lint failed after versioned overrides; changes rolled back'
+                    this.allActions.push(action)
+                    failed++
+                    this.logger.warn(`[multi-version] ${alert.packageName}: verification failed — rolled back versioned overrides`)
+                }
+            }
+
+            const fixableAlerts = dedupeFixableAlerts(
+                singleVersionAlerts.filter((a) => a.fixable && a.recommendedVersion),
+            )
 
             const { groups, cleanupCandidates } = buildUpgradeGroups(fixableAlerts, {
                 workDir: this.workDir,
@@ -464,8 +560,9 @@ export class DependfixApp {
                 }
             }
 
-            // Track skipped (non-fixable) alerts（子目录 manifest 已在 2.0 单独计入，避免重复计数）
-            const skippedCount = rootManifestAlerts.length - fixableAlerts.length
+            // Track skipped (non-fixable) alerts（子目录 manifest 已在 2.0 单独计入，避免重复计数；
+            // 多版本共存包已在 2.0.1 独立处理，不计入此 skipped 差额）
+            const skippedCount = singleVersionAlerts.length - fixableAlerts.length
             this.summary.alertsSkipped += skippedCount
 
             // 3. Lockfile repair

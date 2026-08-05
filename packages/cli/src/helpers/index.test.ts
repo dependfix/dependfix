@@ -228,11 +228,50 @@ describe('partitionSubmanifestAlerts', () => {
 
     it('moves lockfile-manifest alerts for root direct dependencies to sub (vite scenario)', () => {
         // vite 是根直接依赖：告警针对传递依赖实例，但 overrides 全局会降级根 → 跳过人工处理
+        // （无 lockfile 或单版本时维持 sub；多版本共存场景见下一用例）
         const { root, sub } = partitionSubmanifestAlerts([
             alert({ packageName: 'vite', manifestPath: 'pnpm-lock.yaml' }),
         ], workDir)
         expect(sub.map((a) => a.packageName)).toEqual(['vite'])
         expect(root).toHaveLength(0)
+    })
+
+    it('keeps lockfile-manifest alerts for root direct dependencies with multi-version coexistence in root (versioned overrides)', () => {
+        // vite@5.4.14 + vite@8.2.0 共存：版本化 overrides 只影响对应实例，不波及其他大版本
+        // → 进入修复链路（root），2026-08-06 复盘
+        writeFileSync(join(workDir, 'pnpm-lock.yaml'), [
+            'lockfileVersion: \'9.0\'',
+            '',
+            '  vite@5.4.14:',
+            '    resolution: {integrity: sha512-old}',
+            '',
+            '  vite@8.2.0:',
+            '    resolution: {integrity: sha512-new}',
+            '',
+        ].join('\n'))
+
+        const { root, sub } = partitionSubmanifestAlerts([
+            alert({ packageName: 'vite', manifestPath: 'pnpm-lock.yaml' }),
+        ], workDir)
+        expect(root.map((a) => a.packageName)).toEqual(['vite'])
+        expect(sub).toHaveLength(0)
+    })
+
+    it('keeps lockfile-manifest alerts for non-direct packages in root even when single version (fast-uri)', () => {
+        // 非根直接依赖 + 单版本：仍走标准 overrides 修复路径（行为不变）
+        writeFileSync(join(workDir, 'pnpm-lock.yaml'), [
+            'lockfileVersion: \'9.0\'',
+            '',
+            '  fast-uri@3.1.5:',
+            '    resolution: {integrity: sha512-yyy}',
+            '',
+        ].join('\n'))
+
+        const { root, sub } = partitionSubmanifestAlerts([
+            alert({ packageName: 'fast-uri', manifestPath: 'pnpm-lock.yaml' }),
+        ], workDir)
+        expect(root.map((a) => a.packageName)).toEqual(['fast-uri'])
+        expect(sub).toHaveLength(0)
     })
 
     it('moves alerts from sub-directory manifests (docs/package.json) to sub', () => {

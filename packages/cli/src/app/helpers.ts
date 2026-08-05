@@ -19,6 +19,9 @@ import {
 } from '@dependfix/core'
 import { inferRepoFromGitRemote, type RuntimeConfig } from '../config'
 import {
+    compareSemver,
+    parseMajorVersion,
+    readLockfileVersions,
     upgradeDependency,
     overrideTransitiveDependency,
     type DependencyFixResult,
@@ -199,6 +202,53 @@ export interface AppContext {
 // ---------------------------------------------------------------------------
 // Upgrade helpers
 // ---------------------------------------------------------------------------
+
+/**
+ * 判断告警包是否在 lockfile 中多版本共存（版本化 overrides 修复的前置条件）。
+ *
+ * 多版本共存 = lockfile 中该包存在 **多个大版本**（如 vite@5.4.14 与 vite@8.2.0）。
+ * 同一大版本内的多个小版本（如 fast-uri@3.1.0 与 3.1.5）不构成多版本场景，
+ * 仍走常规单目标升级（lockfile 最高版本已 >= 目标时不降级保护跳过）。
+ */
+export function hasMultipleMajorVersions(lockfilePath: string, packageName: string): boolean {
+    const versions = readLockfileVersions(lockfilePath, packageName)
+    const majors = new Set(versions.map((v) => v.split('.')[0]))
+    return majors.size > 1
+}
+
+/**
+ * 为 lockfile 中多版本共存的包构建版本化 overrides 映射。
+ *
+ * 对 lockfile 中**与目标同大版本**且低于目标的脆弱实例（如 vite@5.4.14），
+ * 生成 `pkg@version: ^target`：
+ * - target = 告警的 recommendedVersion（Dependabot 的 first_patched_version）
+ * - key 使用**实例精确版本**（pnpm 版本化 override 惯例，参考用户提供的
+ *   path-to-regexp@0.1.12: ^0.1.13 示例），只影响该实例，不波及其他大版本
+ * - 仅覆盖与 target **同 major** 的实例：若告警 target 属更高 major（如 vite@8
+ *   告警 target 8.3.0），不强制把 5.x 实例跨大版本升级（子工作区破坏无法被
+ *   根 lint 验证捕获——Review Gate P2）
+ *
+ * @returns 版本化 overrides 映射；无法确定目标时不生成该 key
+ */
+export function buildVersionedOverrides(
+    lockfilePath: string,
+    alert: NormalizedSecurityAlert,
+): Record<string, string> {
+    const versions = readLockfileVersions(lockfilePath, alert.packageName)
+    const target = alert.recommendedVersion
+    if (!target) {
+        return {}
+    }
+    const targetMajor = parseMajorVersion(target)
+    const overrides: Record<string, string> = {}
+    for (const version of versions) {
+        // 只覆盖与目标同大版本且低于目标的脆弱实例（不跨 major 升级）
+        if (parseMajorVersion(version) === targetMajor && compareSemver(version, target) < 0) {
+            overrides[`${alert.packageName}@${version}`] = `^${target}`
+        }
+    }
+    return overrides
+}
 
 /**
  * 升级单个告警对应的依赖（dry-run 仅记录）。

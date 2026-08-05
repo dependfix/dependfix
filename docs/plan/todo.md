@@ -26,6 +26,29 @@
 
 ---
 
+## 待办：多版本共存分别 overrides（run 31021398673 复盘）
+
+- **优先级**: P1
+- **状态**: ✅ 已完成（2026-08-06）
+- **背景**: dependfix 自扫 run 31021398673 中 23 条告警 Skipped=22。拆解：vite×11（根直接依赖 + lockfile 告警，P0 防护整体跳过——run 30929090403 教训）、lodash×3（`__fixtures__/lockfile-drift/version-mismatch/pnpm-lock.yaml` 故意构造的漏洞场景被 Dependabot 扫到）、fast-uri/js-yaml（不降级保护，正确）、brace-expansion（lint 失败回滚）。用户指示：多版本共存应**分别 overrides**（`pkg@version: ^target`），而非整体跳过
+- **交付物**: 版本化 overrides 修复链路 + fixtures 死资产删除
+
+**任务内容**:
+
+- [x] `readLockfileVersions`：返回 lockfile 中该包**所有**实例版本（原 readLockfileVersion 只取最高，重构复用）
+- [x] `applyVersionedOverrides`：批量写入版本化 overrides（workspace yaml / pnpm.overrides）+ install + 失败回滚
+- [x] `partitionSubmanifestAlerts`：根直接依赖 + lockfile 告警，多版本共存 → root（版本化 overrides 只影响对应实例，不波及其他大版本）
+- [x] app 升级链路：多版本包独立走版本化 overrides 修复（`hasMultipleMajorVersions` + `buildVersionedOverrides`），替代整体跳过
+- [x] 删除 `__fixtures__/lockfile-drift/`（5 文件零引用死资产，用户确认；未来需要从 git log 找回）
+- [x] 测试 +17：readLockfileVersions（4）/ applyVersionedOverrides（5）/ partition 多版本（2）/ buildVersionedOverrides + hasMultipleMajorVersions（6）
+
+**完成定义**:
+
+- [x] 多版本共存（vite@5.4.14 + vite@8.2.0）不再整体 Skipped，生成 `vite@5.4.14: ^5.4.21` 版本化 overrides 修复
+- [x] 单版本根直接依赖维持 P0 防护（sub 跳过，防全局 overrides 降级根声明）
+- [x] `pnpm lint` + `pnpm typecheck` + `pnpm test`（567）+ `pnpm build` 通过；Review Gate 放行
+
+---
 ## M3: Code Scanning 扩展
 
 **目标**: 接入 Code Scanning alerts 标准化采集，建立 A/B/C 三级规则分层，白名单规则自动修复，不可修复问题输出建议。

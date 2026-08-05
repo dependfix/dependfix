@@ -16,11 +16,13 @@ vi.mock('node:child_process', () => ({
 import {
     upgradeDependency,
     overrideTransitiveDependency,
+    applyVersionedOverrides,
     extractPrefix,
     parseMajorVersion,
     compareSemver,
     findDependencyVersion,
     readLockfileVersion,
+    readLockfileVersions,
     ensurePnpmOverrides,
     type DependencyFixResult,
 } from './index'
@@ -947,6 +949,196 @@ describe('readLockfileVersion', () => {
         expect(version).toBe('8.2.0')
 
         rmSync(dir, { recursive: true })
+    })
+})
+
+// ===========================================================================
+// readLockfileVersions（多版本共存，版本化 overrides 前置）
+// ===========================================================================
+
+describe('readLockfileVersions', () => {
+    it('returns all versions for multi-version coexistence (vite@5.4.14 + vite@8.2.0)', () => {
+        const dir = mkdtempSync(join(tmpdir(), 'dependfix-test-'))
+        const lockfilePath = join(dir, 'pnpm-lock.yaml')
+        writeFileSync(lockfilePath, [
+            'lockfileVersion: \'9.0\'',
+            '',
+            '  vite@5.4.14:',
+            '    resolution: {integrity: sha512-old}',
+            '',
+            '  vite@8.2.0:',
+            '    resolution: {integrity: sha512-new}',
+            '',
+            '  vite@8.2.0(@types/node@26.1.2)(esbuild@0.25.12):',
+            '    resolution: {integrity: sha512-new-peer}',
+            '',
+        ].join('\n'))
+
+        const versions = readLockfileVersions(lockfilePath, 'vite')
+        // 去重 + 排序（peer 后缀条目不重复计数）
+        expect(versions).toEqual(['5.4.14', '8.2.0'])
+
+        rmSync(dir, { recursive: true })
+    })
+
+    it('returns single version when no coexistence', () => {
+        const dir = mkdtempSync(join(tmpdir(), 'dependfix-test-'))
+        const lockfilePath = join(dir, 'pnpm-lock.yaml')
+        writeFileSync(lockfilePath, [
+            'lockfileVersion: \'9.0\'',
+            '',
+            '  fast-uri@3.1.5:',
+            '    resolution: {integrity: sha512-yyy}',
+            '',
+        ].join('\n'))
+
+        expect(readLockfileVersions(lockfilePath, 'fast-uri')).toEqual(['3.1.5'])
+
+        rmSync(dir, { recursive: true })
+    })
+
+    it('returns empty array when package missing or lockfile absent', () => {
+        const dir = mkdtempSync(join(tmpdir(), 'dependfix-test-'))
+        const lockfilePath = join(dir, 'pnpm-lock.yaml')
+        expect(readLockfileVersions(lockfilePath, 'missing-pkg')).toEqual([])
+        expect(readLockfileVersions(join(dir, 'no-lockfile.yaml'), 'fast-uri')).toEqual([])
+
+        rmSync(dir, { recursive: true })
+    })
+
+    it('deduplicates peer-suffixed and plain entries', () => {
+        const dir = mkdtempSync(join(tmpdir(), 'dependfix-test-'))
+        const lockfilePath = join(dir, 'pnpm-lock.yaml')
+        writeFileSync(lockfilePath, [
+            'lockfileVersion: \'9.0\'',
+            '',
+            '  lodash@4.18.0:',
+            '    resolution: {integrity: sha512-xxx}',
+            '',
+            '  lodash@4.18.0(peer@1.0.0):',
+            '    resolution: {integrity: sha512-peer}',
+            '',
+        ].join('\n'))
+
+        expect(readLockfileVersions(lockfilePath, 'lodash')).toEqual(['4.18.0'])
+
+        rmSync(dir, { recursive: true })
+    })
+})
+
+// ===========================================================================
+// applyVersionedOverrides（版本化 overrides 批量写入）
+// ===========================================================================
+
+describe('applyVersionedOverrides', () => {
+    let dir: string
+    let pkgPath: string
+    let lockfilePath: string
+
+    beforeEach(() => {
+        dir = mkdtempSync(join(tmpdir(), 'dependfix-test-'))
+        pkgPath = join(dir, 'package.json')
+        lockfilePath = join(dir, 'pnpm-lock.yaml')
+        writeFileSync(pkgPath, JSON.stringify({ name: 'test-project', version: '1.0.0' }, null, 2))
+        writeFileSync(lockfilePath, 'lockfileVersion: \'9.0\'\n')
+        mockExecSync.mockReset()
+    })
+
+    it('writes versioned overrides to pnpm.overrides and runs pnpm install', async () => {
+        mockExecSync.mockReturnValue('Done')
+
+        const result = await applyVersionedOverrides({
+            packageName: 'vite',
+            versionedOverrides: { 'vite@5.4.14': '^5.4.21' },
+            workDir: dir,
+        })
+
+        expect(result.success).toBe(true)
+        expect(result.packageName).toBe('vite')
+        const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8'))
+        expect((pkg.pnpm as Record<string, unknown>).overrides).toEqual({ 'vite@5.4.14': '^5.4.21' })
+        expect(mockExecSync).toHaveBeenCalledWith(
+            expect.stringContaining('pnpm install --no-frozen-lockfile'),
+            expect.objectContaining({ cwd: dir }),
+        )
+    })
+
+    it('writes versioned overrides to pnpm-workspace.yaml when present', async () => {
+        mockExecSync.mockReturnValue('Done')
+        const workspaceYamlPath = join(dir, 'pnpm-workspace.yaml')
+        writeFileSync(workspaceYamlPath, 'packages:\n  - "packages/*"\n')
+
+        const result = await applyVersionedOverrides({
+            packageName: 'vite',
+            versionedOverrides: {
+                'vite@5.4.14': '^5.4.21',
+                'vite@8.2.0': '^8.2.0',
+            },
+            workDir: dir,
+        })
+
+        expect(result.success).toBe(true)
+        const yamlContent = readFileSync(workspaceYamlPath, 'utf-8')
+        expect(yamlContent).toContain('vite@5.4.14: ^5.4.21')
+        expect(yamlContent).toContain('vite@8.2.0: ^8.2.0')
+        // 原有 packages 保留
+        expect(yamlContent).toContain('packages/*')
+    })
+
+    it('rolls back versioned overrides and lockfile when pnpm install fails', async () => {
+        mockExecSync.mockImplementation(() => {
+            throw new Error('pnpm install failed: ERESOLVE')
+        })
+        const lockContent = 'lockfileVersion: \'9.0\'\n'
+        writeFileSync(lockfilePath, lockContent)
+
+        const result = await applyVersionedOverrides({
+            packageName: 'vite',
+            versionedOverrides: { 'vite@5.4.14': '^5.4.21' },
+            workDir: dir,
+        })
+
+        expect(result.success).toBe(false)
+        expect(result.error).toContain('ERESOLVE')
+        // package.json 回滚（overrides 未残留）
+        const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8'))
+        expect((pkg.pnpm as Record<string, unknown> | undefined)?.overrides).toBeUndefined()
+        // lockfile 回滚
+        expect(readFileSync(lockfilePath, 'utf-8')).toBe(lockContent)
+    })
+
+    it('merges with existing overrides and restores them on failure', async () => {
+        writeFileSync(pkgPath, JSON.stringify({
+            name: 'test-project',
+            version: '1.0.0',
+            pnpm: { overrides: { 'existing-pkg': '^1.0.0' } },
+        }, null, 2))
+        mockExecSync.mockImplementation(() => {
+            throw new Error('install boom')
+        })
+
+        const result = await applyVersionedOverrides({
+            packageName: 'vite',
+            versionedOverrides: { 'vite@5.4.14': '^5.4.21' },
+            workDir: dir,
+        })
+
+        expect(result.success).toBe(false)
+        const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8'))
+        const overrides = (pkg.pnpm as Record<string, unknown>).overrides as Record<string, string>
+        expect(overrides['vite@5.4.14']).toBeUndefined()
+        expect(overrides['existing-pkg']).toBe('^1.0.0')
+    })
+
+    it('returns failure when no overrides provided', async () => {
+        const result = await applyVersionedOverrides({
+            packageName: 'vite',
+            versionedOverrides: {},
+            workDir: dir,
+        })
+
+        expect(result.success).toBe(false)
+        expect(result.error).toContain('no versioned overrides')
     })
 })
 

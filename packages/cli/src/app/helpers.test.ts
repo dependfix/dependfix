@@ -1,13 +1,18 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { rmSync, writeFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { tmpdir } from 'node:os'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AppError, type FixAction } from '@dependfix/core'
 import {
     autoCleanupMergedBranches,
     buildCommitMessage,
     buildPrTitle,
+    buildVersionedOverrides,
     closeSupersededPRs,
     codeScanningAlertsTokenHint,
     computeExitCode,
     dependabotAlertsTokenHint,
+    hasMultipleMajorVersions,
     pullRequestCreationHint,
     resolveAlertRepositories,
     tryLockfileRepair,
@@ -696,5 +701,116 @@ describe('resolveAlertRepositories', () => {
             logger,
         })
         expect(repos).toEqual(['local'])
+    })
+})
+
+// ---------------------------------------------------------------------------
+// hasMultipleMajorVersions / buildVersionedOverrides（多版本共存 → 版本化 overrides）
+// ---------------------------------------------------------------------------
+
+describe('hasMultipleMajorVersions', () => {
+    it('returns true when lockfile has multiple major versions of the package', () => {
+        const lockfilePath = join(tmpdir(), 'vite-lock.yaml')
+        writeFileSync(lockfilePath, [
+            'lockfileVersion: \'9.0\'',
+            '',
+            '  vite@5.4.14:',
+            '    resolution: {integrity: sha512-old}',
+            '',
+            '  vite@8.2.0:',
+            '    resolution: {integrity: sha512-new}',
+            '',
+        ].join('\n'))
+
+        expect(hasMultipleMajorVersions(lockfilePath, 'vite')).toBe(true)
+
+        rmSync(lockfilePath, { force: true })
+    })
+
+    it('returns false for single version or same-major coexistence', () => {
+        const lockfilePath = join(tmpdir(), 'fast-uri-lock.yaml')
+        writeFileSync(lockfilePath, [
+            'lockfileVersion: \'9.0\'',
+            '',
+            '  fast-uri@3.1.0:',
+            '    resolution: {integrity: sha512-a}',
+            '',
+            '  fast-uri@3.1.5:',
+            '    resolution: {integrity: sha512-b}',
+            '',
+        ].join('\n'))
+
+        expect(hasMultipleMajorVersions(lockfilePath, 'fast-uri')).toBe(false)
+
+        rmSync(lockfilePath, { force: true })
+    })
+
+    it('returns false when lockfile missing', () => {
+        expect(hasMultipleMajorVersions(join(tmpdir(), 'missing.yaml'), 'vite')).toBe(false)
+    })
+})
+
+describe('buildVersionedOverrides', () => {
+    const lockfilePath = join(tmpdir(), 'vite-lock.yaml')
+
+    const alert = (packageName: string, recommendedVersion: string) => ({
+        id: 1,
+        source: 'dependabot' as const,
+        repository: 'owner/repo',
+        defaultBranch: 'main',
+        severity: 'high' as const,
+        packageEcosystem: 'npm' as const,
+        packageName,
+        manifestPath: 'pnpm-lock.yaml',
+        ruleId: 'GHSA-xxx',
+        summary: 'test',
+        htmlUrl: '',
+        fixable: true,
+        fixStrategy: 'upgrade' as const,
+        recommendedVersion,
+    })
+
+    beforeEach(() => {
+        writeFileSync(lockfilePath, [
+            'lockfileVersion: \'9.0\'',
+            '',
+            '  vite@5.4.14:',
+            '    resolution: {integrity: sha512-old}',
+            '',
+            '  vite@8.2.0:',
+            '    resolution: {integrity: sha512-new}',
+            '',
+        ].join('\n'))
+    })
+
+    afterEach(() => {
+        rmSync(lockfilePath, { force: true })
+    })
+
+    it('builds versioned overrides only for vulnerable instances below target', () => {
+        const overrides = buildVersionedOverrides(lockfilePath, alert('vite', '5.4.21'))
+        // vite@5.4.14 < 5.4.21 → 覆盖；vite@8.2.0 >= 5.4.21 → 不覆盖
+        expect(overrides).toEqual({ 'vite@5.4.14': '^5.4.21' })
+    })
+
+    it('does not force cross-major upgrades when target belongs to a higher major', () => {
+        // 若告警 target 属更高 major（vite@8 告警），不覆盖 5.x 实例（跨大版本
+        // 升级会破坏子工作区且根 lint 无法验证——Review Gate P2）
+        const overrides = buildVersionedOverrides(lockfilePath, alert('vite', '8.3.0'))
+        expect(overrides).toEqual({ 'vite@8.2.0': '^8.3.0' })
+    })
+
+    it('returns empty when target is higher than all instances (already safe)', () => {
+        const overrides = buildVersionedOverrides(lockfilePath, alert('vite', '5.4.10'))
+        expect(overrides).toEqual({})
+    })
+
+    it('returns empty when recommendedVersion missing', () => {
+        const a = alert('vite', '5.4.21')
+        const noTarget = {
+            ...a,
+            recommendedVersion: undefined as string | undefined,
+        }
+        expect(buildVersionedOverrides(lockfilePath, noTarget)).toEqual({})
     })
 })

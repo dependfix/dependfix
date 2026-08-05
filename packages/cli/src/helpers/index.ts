@@ -5,7 +5,7 @@
 import { existsSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { NormalizedSecurityAlert } from '@dependfix/core'
-import { compareSemver } from '../fixers/dependency'
+import { compareSemver, readLockfileVersions } from '../fixers/dependency'
 import { runVerification } from '../runners/verification-runner'
 import { validateVerifyCommands, type AppContext } from '../app/helpers'
 
@@ -115,8 +115,11 @@ export async function quickVerifyProject(
  * - `''` / `package.json` → root（正常修复；pnpm-audit 源 manifestPath='' 不受影响）
  * - `pnpm-lock.yaml`：
  *   - 包**不是**根直接依赖 → root（标准间接依赖，走 overrides 修复，fast-uri 等）
- *   - 包**是**根直接依赖 → sub（告警针对传递依赖实例，但 overrides 全局会波及根声明，
- *     如 vite@5 告警会降级根 vite@8——run 30929090403 教训；需人工处理）
+ *   - 包**是**根直接依赖：
+ *     - lockfile 中该包**多版本共存** → root（版本化 overrides `pkg@version` 只影响
+ *       对应实例，不会波及根声明——vite@5.4.14 与 vite@8.2.0 场景，2026-08-06 复盘）
+ *     - lockfile 中仅单版本 → sub（告警针对传递依赖实例，但全局 overrides 会波及根声明，
+ *       如 vite@5 告警会降级根 vite@8——run 30929090403 教训；需人工处理）
  * - 其他子目录 manifest → sub（单根模型无法安全修，需人工处理）
  */
 export function partitionSubmanifestAlerts(
@@ -133,7 +136,14 @@ export function partitionSubmanifestAlerts(
         }
         if (normalized === 'pnpm-lock.yaml') {
             if (isRootDirectDependency(workDir, alert.packageName)) {
-                sub.push(alert)
+                // 根直接依赖 + lockfile 告警：多版本共存时版本化 overrides 安全，
+                // 单版本时全局 overrides 会波及根声明（P0 防护），维持 sub
+                const versions = readLockfileVersions(join(workDir, 'pnpm-lock.yaml'), alert.packageName)
+                if (versions.length > 1) {
+                    root.push(alert)
+                } else {
+                    sub.push(alert)
+                }
             } else {
                 root.push(alert)
             }

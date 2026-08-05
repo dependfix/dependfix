@@ -408,3 +408,28 @@ T108 (报告生成器)
 - 不引入 semver 包做完整版本比较
 - 不支持跨工作区批量升级（M4 T401）
 - 不生成 `pnpm list --json` 做重验证（性能不划算）
+
+---
+
+## 12. 设计演进记录（2026-08 蒸馏自 Session Wisdom）
+
+> 以下条目为 M2→M3 实际运行复盘沉淀的设计演进，详见 [Session Wisdom 蒸馏机制](../governance/session-wisdom-distillation.md)。
+
+### 12.1 `dependencyType` 路由不可靠 → try→fallback 模式
+
+- **现象**：`fast-uri`、`js-yaml` 等包在 Dependabot API 中 `dependency.relationship` 可能为 `null`，基于 `dependencyType === 'transitive'` 的路由漏判
+- **解法**：try→fallback——先尝试 `upgradeDependency()`，失败且错误信息包含 `"not found in dependencies"` 时自动回退 `overrideTransitiveDependency()`
+- **启示**：外部 API 字段不可靠时，用行为反馈（失败重试）代替预判断
+
+### 12.2 防护要"精确修复"而非"扩大跳过"（P0 防护演进）
+
+- run 30929090403（docs vite@5 告警误降级根 vite@8→6）→ 引入 P0 防护：根直接依赖 + lockfile 告警整体跳过
+- run 30933266831（P0 误伤 fast-uri 等间接依赖）→ 修正 partition：非根直接依赖仍进 root
+- run 31021398673（Skipped 22/23 复盘）→ 用户指出多版本共存应**分别 overrides** → 修复链路升级（版本化 overrides）
+- **启示**：防护降级为"跳过/人工处理"时，应追问"能否精确修复"而不是安心扩大跳过范围——"根直接依赖 + lockfile 告警 → 整体跳过"是过度防护，真正问题（多版本共存）被掩盖
+
+### 12.3 pnpm overrides 版本化 key（多版本共存修复）
+
+- 同一包在 lockfile 共存多个大版本（vite@5.4.14 + vite@8.2.0）时，单一 `pkg: version` 全局覆盖会误伤根声明
+- 解法：对每个脆弱实例生成 `pkg@version: ^target`（如 `vite@5.4.14: ^5.4.21`），只影响对应实例
+- 实现要点：**只覆盖与 target 同 major 且低于目标的实例**（跨 major 会破坏子工作区且根 lint 无法验证）；同包多 GHSA 取 recommendedVersion 最高者；单版本根直接依赖维持 sub（P0 语义不变）

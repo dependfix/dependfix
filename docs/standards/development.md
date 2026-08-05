@@ -83,6 +83,33 @@ apps/platform/               # Nuxt 全栈平台（后续阶段）
 - 禁止 `any` 逃逸（逐步清零）
 - 优先使用 `interface` 定义类型，需要联合类型时使用 `type`
 
+### 5.1 工程经验（2026-08 蒸馏自 Session Wisdom）
+
+> 以下条目为跨 session 验证有效的工程实践，详见 [Session Wisdom 蒸馏机制](../design/governance/session-wisdom-distillation.md)。
+
+#### 5.1.1 错误路径 helper 的第一契约是"自身不抛异常"
+
+- 统一使用 `toErrorMessage(value)` 提取错误消息（Error→message、string→原样、可序列化→JSON、其余→类型描述），禁止在 catch 块手写 `error instanceof Error ? error.message : String(error)`（`String(obj)` 产生 `[object Object]`，eslint no-base-to-string 会报）
+- **错误路径 helper 必须 try/catch 包裹 JSON.stringify**（循环引用会 throw，掩盖原始错误）
+- 错误路径工具函数必须有单测锚定（12+ 调用点靠手工验证不可靠）
+
+#### 5.1.2 日志输出的人读/机读双模设计
+
+- 所有输出都应考虑"人读 vs 机读"双路径（CLI 工具基操）
+- 做法：`process.stdout.isTTY` 检测 → TTY 时输出格式化彩色文本，非 TTY（CI/管道）保持 JSON
+
+#### 5.1.3 固定前缀截断陷阱：`slice(0, N)` 截取带固定前缀的 ID
+
+- `runId.slice(0, 8)` 截取 `dependfix-<ts36>-<rand36>` 前 8 位恒为 `dependfi`（第 9 位 `x` 恰好被截掉），唯一部分被丢光 → 文件名/分支名对所有 run 恒定、同天多次运行互相覆盖
+- 做法：先去掉固定前缀再截断，或直接取最后一个分隔段；文件名用 `YYYYMMDD-HHmmss-{runId尾段}`（排序友好：字典序==时间序，尾段保证唯一）
+- **测试盲区教训**：测试应使用真实形态的输入（原测试用无前缀 `abcdefghijkl` 只验证了"截断行为本身"，未覆盖真实带前缀格式）
+
+#### 5.1.4 改名/迁移要全局排查命名残留
+
+- 项目改名只迁移仓库引用，环境变量前缀等散落硬编码会漏网（`AUTO_FIX_GITHUB_SECURITY_` → `DEPENDFIX_` 教训）
+- 做法：命名前缀抽为统一常量 + 封装读取辅助（`ENV_PREFIX` + `readEnv()`），所有读取必须走它（防再漏）
+- 改名后全局搜索旧名（含 env 前缀、错误消息、注释、示例），不只看文件引用；散落硬编码是漏网温床
+
 ## 6. 样式规范（平台阶段适用）
 
 - **纯 SCSS**: 禁止 CSS-in-JS、Tailwind。所有样式以纯 SCSS 编写。

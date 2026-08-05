@@ -121,6 +121,16 @@
 
 版本号各自独立，`@dependfix/core` 升级时通过 `updateInternalDependencies: "patch"` 自动 bump `dependfix` CLI 的 patch 版本。
 
+### 工具链事实（2026-08 蒸馏自 Session Wisdom，训练数据易过时）
+
+> 以下条目为跨 session 验证有效的工具链事实，详见 [Session Wisdom 蒸馏机制](../design/governance/session-wisdom-distillation.md)。
+
+- **pnpm overrides 写入位置版本差异**：pnpm v11 将 `overrides` 从 `package.json#pnpm.overrides` 迁移到 `pnpm-workspace.yaml`。做法：检测 `pnpm-workspace.yaml` 是否存在——存在则写 workspace yaml，不存在则回退 `package.json#pnpm.overrides`（文件存在性检测比版本号判断更稳健）。
+- **pnpm overrides 版本化 key 是生产惯例**：多版本共存时分别覆盖——`"path-to-regexp@0.1.12": "^0.1.13"`（精确版本）、`"body-parser@1": "^1.20.6"`（大版本）、`"ajv@^6.0.0": "^6.14.0"`（范围）三种 selector。实现要点：**只覆盖与 target 同 major 且低于目标的实例**（跨 major 会破坏子工作区且根 lint 无法验证）；同包多 GHSA 取 recommendedVersion 最高者。
+- **发布工具链关键事实**：npm OIDC trusted publishing 需 npm CLI >= 11.5.1 + Node >= 22.14，**包的初始版本无法用 OIDC 发布**（npm/cli#8544，需先手动发一次）；pnpm v11 publish 原生实现不走 npm CLI（11.0.3 曾有 OIDC 回归，已修复）；changesets 2.31.1 在 pnpm 项目 spawn pnpm publish（自动替换 workspace:*），`changelog: false` 可禁用 changelog 生成；conventional-changelog 8.x 模板引擎与旧式 preset（cmyr-config 3.x Handlebars）**不兼容**需锁 ^7，`transformCommit` 必须组合 `defaultCommitTransform` 否则破坏 tag 分段；版本标题日期用 HEAD commit 的 **UTC** 日期（`toISOString`）而非生成当天，保证 CI 重跑幂等；GitHub Actions 中 GITHUB_TOKEN 的 push **不会触发其他 workflow**（防递归），runner 默认无 git 身份需显式配置。
+- **0.x 版本语义**：0.x 本身即"开发期不稳定"语义；npm 默认不安装 prerelease 版本反而阻碍预览测试（npx 拿不到）。稳定信号来自 1.0.0（届时启用 v1 滚动 tag）；预览期直接发 latest + GitHub Release 标 pre-release 即可。
+- **Windows 开发环境行尾纪律**：PowerShell `Set-Content` 批量替换引入 CRLF（26 行噪音 diff）→ 用 .NET `ReadAllText/WriteAllText`（UTF8 no BOM）保持 LF；改后立即 `git diff` 检查行尾；CRLF 噪音单独 chore 提交（`统一行尾为 LF`）。
+
 ## 文档站（docs/）
 
 | 工具 | 用途 |

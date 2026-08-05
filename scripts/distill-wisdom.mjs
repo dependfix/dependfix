@@ -116,13 +116,14 @@ function parseWisdom(content) {
             currentSection = 'active'
         }
 
-        // Active 小节中 keep 条目（`### N.` 行，无日期分组）需可达（Review Gate P2）
-        if (currentDate === null && !trimmed.startsWith('[') && !trimmed.startsWith('### ')) {
+        // Active 小节中 keep 条目（`### N.` 行）与摘要行（`- [date]` 列表前缀）需可达（Review Gate P2）
+        if (currentDate === null && !trimmed.startsWith('### ') && !/^[-*]?\s*\[/u.test(trimmed)) {
             continue
         }
 
         // 蒸馏摘要行：[YYYY-MM-DD] [type] 摘要 → 详见/已迁移至 ...
-        const distilledMatch = trimmed.match(/^\[(\d{4}-\d{2}-\d{2})\]\s*\[(\w+)\]\s*(.+?)(?:→\s*(?:详见|已迁移至)\s*(.+))?$/u)
+        // 允许可选的 `- ` 列表前缀（markdown 常见写法）
+        const distilledMatch = trimmed.match(/^[-*]?\s*\[(\d{4}-\d{2}-\d{2})\]\s*\[(\w+)\]\s*(.+?)(?:→\s*(?:详见|已迁移至)\s*(.+))?$/u)
         if (distilledMatch) {
             flushEntry()
             entries.push({

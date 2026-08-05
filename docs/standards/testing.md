@@ -76,6 +76,8 @@
 - **Mock 原则**: mock 不掩盖真正的集成风险。优先真实调用，mock 仅在外部依赖不可控时使用。
 - **失败处理**: 测试失败时先解释根因，再决定改代码还是改测试。严禁直接改断言让它绿掉。
 - **CI 最终裁决**: 修复的验收标准是 CI 全部通过，不是本地通过。
+- **测试输入用真实形态**（2026-08 蒸馏自 Session Wisdom）：测试 fixture 应使用真实格式的输入（如带固定前缀的 runId），原测试用无前缀 `abcdefghijkl` 只验证了"截断行为本身"，未覆盖真实带前缀格式，导致 `slice(0,8)` 截断陷阱漏检。
+- **lint 门禁治理**：`--max-warnings N` 让存量 warning 变成 CI 硬门禁，倒逼清理（曾清理 62 个存量 warning）。常见假 async：测试文件里 `async () =>` 配 `await 同步函数`（require-await 会报），删 await 要同步删 async。误导性测试名会掩盖缺口（'passes toolchain to resolvePnpmVersion' 实际从未接线）——测试名应与真实断言一致。
 
 ## 7. 测试代码质量
 

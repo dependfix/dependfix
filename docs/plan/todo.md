@@ -151,12 +151,22 @@ T301（采集器）→ T302（规则分层）→ T303（模板修复器）→ T3
 
 ## M3 完成判定
 
-- [ ] report-only / fix 模式并行展示 Dependabot + Code Scanning 告警（Rule/Advisory 列语义化）
-- [ ] A/B/C 三层规则分类落地：自动修复 / 建议修复 / 仅报告
-- [ ] 至少一类 Code Scanning 问题自动修复闭环（T303）
-- [ ] 无法自动修复的问题不静默丢失（T304）
-- [ ] G1 工具链固定落地（T305）或明确延后并说明理由
-- [ ] `pnpm typecheck` + `pnpm lint` + `pnpm test` 全部通过；Review Gate 放行
+- [x] report-only / fix 模式并行展示 Dependabot + Code Scanning 告警（Rule/Advisory 列语义化）
+- [x] A/B/C 三层规则分类落地：自动修复 / 建议修复 / 仅报告
+- [x] 至少一类 Code Scanning 问题自动修复闭环（T303，eol-last）
+- [x] 无法自动修复的问题不静默丢失（T304，报告 + PR body 建议区块）
+- [x] G1 工具链固定落地（T305，PIN_TOOLCHAIN + corepack + 漂移检测）
+- [x] `pnpm typecheck` + `pnpm lint` + `pnpm test` 全部通过；Review Gate 放行
+
+**M3 完成记录（2026-08-05）**: T301~T305 全部完成，5 轮提交（7b8feb3 / 5b3e076 / aebf258+a7fa3a0 / dead17e / 486fea7），每任务独立 Review Gate（T303 经历 4 轮、T305 经历 2 轮），最终全量审查 APPROVE。
+
+**M3 收尾审查遗留（P2/P3，不阻塞，挂 M4/backlog）**:
+- PR 标题口径：code-scanning-only 修复时标题仍写 `fix(deps): ... N upgrades`（误标依赖升级）；lockfile-only 场景 "0 upgrades"——建议按动作构成动态生成或中性化（"N fixes / N upgrades"）
+- partitionSubmanifestAlerts 对 code-scanning 告警（manifestPath 为源码路径）全部落 sub 分支 → skip 计数与 warn 噪音（与 §Code Scanning Suggestions 可见性表述矛盾）——建议 partition 限定依赖源告警
+- 'unknown' 严重级（SARIF 上传场景）在默认阈值下静默滤除（filter skipped 不渲染）——建议 unknown 透传或 warn
+- report-only 模式 A 类规则建议原因措辞（"异常路径"误导）——按 mode 区分
+- maxAlertsPerRepository 截断明细不进报告（仅日志）——截断计数进报告
+- app/index.ts 非空行逼近 800 上限（1 warning）——下次重构拆 helper
 
 ---
 

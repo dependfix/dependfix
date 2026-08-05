@@ -7,7 +7,7 @@
 | M0: 基线收敛 | Monorepo 骨架、配置模型、工具链策略、告警模型 | P0 | 已完成 |
 | M1: MVP 单仓库修复 | 告警拉取→过滤→修复→验证→报告闭环 | P0 | 已完成 |
 | M2: GitHub Action 接入 | workflow_dispatch + 定时 + PR + AI Token + Prompt 防护 | P1 | 已完成（2026-08-05 归档；G2 处置闭环） |
-| M3: Code Scanning 扩展 | 规则分级、可模板化修复、建议输出 | P1 | 🔶 规划中（2026-08-05 启动） |
+| M3: Code Scanning 扩展 | 规则分级、可模板化修复、建议输出 | P1 | 已完成（2026-08-05 归档；T301-T305 全部完成） |
 | M4: 多仓库治理 | 自动发现、并发控制、报告归档 | P2 | 未开始 |
 | M5: AI Breaking Change 研判 | Changelog 采集、LLM 研判、修复生成、质量门 | P1 | 未开始 |
 | M6: 最小平台 MVP | 仓库管理、凭据管理、仪表板、MCP Server、Docker 部署 | P1 | 未开始 |
@@ -44,6 +44,8 @@ Monorepo 骨架搭建、核心配置模型、工具链版本策略固定、标�
 接入 Code Scanning alerts 标准化采集，建立 A/B/C 三级规则分层，白名单规则自动修复，不可修复问题输出建议。
 
 > 详细任务见 [todo.md §M3](todo.md#m3-code-scanning-扩展)
+>
+> **M3 已交付（2026-08-05 归档）**：Code Scanning alerts 与 Dependabot 并行采集（`--code-scanning` / `DEPENDFIX_CODE_SCANNING` / action `code-scanning` input），A/B/C 三级规则分层（自动修复 / 建议修复 / 仅报告），eol-last 自动修复闭环（T303），无法自动修复问题输出报告 + PR body 建议区块（T304），G1 工具链固定（T305）。
 >
 > **前置（G2）已解除（2026-08-04 探针验证）**：Code Scanning alerts 对 GITHUB_TOKEN 可访问（HTTP 200，`security-events: read` 即可），M3 无需额外 token 方案；仅 Dependabot alerts 需要 PAT / GitHub App token。
 >

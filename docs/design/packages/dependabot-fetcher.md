@@ -439,7 +439,7 @@ src/github/__fixtures__/dependabot-alerts.json
 
 ## 10. 非目标（M1 不做）
 
-- 不拉取 Code Scanning alerts（M3 T301）
+- 不拉取 Code Scanning alerts（职责边界：Code Scanning 由 `code-scanning-fetcher.ts` 并行承接，M3 T301）
 - 不拉取已 `dismissed` / `fixed` / `auto_dismissed` 的告警
 - 不实现增量拉取（全量拉取，不做 `since` / `cursor` 类标记）
 - 不在此层获取 `defaultBranch`（由上层调用 `octokit.rest.repos.get` 后填入）

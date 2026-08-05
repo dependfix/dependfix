@@ -44,6 +44,10 @@ inputs:
     description: 'Dependabot alerts 专用 token（可选，最小权限 fine-grained PAT，仅需 Dependabot alerts: read；缺省回退 github-token。GITHUB_TOKEN 无法读取 Dependabot alerts API，仅给 GITHUB_TOKEN 会拉取失败）'
     required: false
     default: ''
+  code-scanning:
+    description: '同时拉取 Code Scanning alerts（与 Dependabot 并行源，默认关闭；需要 token 具备 security-events: read，GITHUB_TOKEN 默认具备）'
+    required: false
+    default: 'false'
   # ── M5 AI 引擎联调骨架 ──
   ai-api-token:
     description: 'AI API Token（M5 联调启用，通过 GitHub Secrets 传入）'
@@ -102,6 +106,7 @@ runs:
           ${{ inputs.dry-run == 'true' && '--dry-run' || '' }} \
           ${{ inputs.cleanup-branches == 'true' && '--cleanup-branches' || '' }} \
           ${{ inputs.cleanup-branches-auto == 'true' && '--cleanup-branches-auto' || '' }} \
+          ${{ inputs.code-scanning == 'true' && '--code-scanning' || '' }} \
           --verbose
       shell: bash
       env:

@@ -38,7 +38,7 @@ interface NormalizedSecurityAlert {
 ## 告警数据源（2026-08-05 更新）
 
 - `github-dependabot`：GitHub Dependabot alerts API（默认；需 PAT / GitHub App token，GITHUB_TOKEN 恒 403——G2 已处置）
-- `code-scanning`：Code Scanning alerts（GITHUB_TOKEN 可访问，M3 规划中，与 dependabot **并行**）
+- `code-scanning`：Code Scanning alerts（GITHUB_TOKEN 可访问，M3 已落地，与 dependabot **并行**；默认关闭，`--code-scanning` / `DEPENDFIX_CODE_SCANNING` / action `code-scanning` input 开启）
 - `pnpm-audit`：本地 `pnpm audit --json` 回退（显式 `--alerts-source pnpm-audit`，与 GitHub 源**互斥**；详见 [pnpm audit fallback](./pnpm-audit-fallback.md)）
 
 ## 过滤模式

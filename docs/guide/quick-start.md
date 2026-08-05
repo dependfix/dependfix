@@ -138,6 +138,9 @@ jobs:
           # GitHub → Settings → Developer settings → Personal access tokens → Fine-grained tokens，
           # Repository permissions → Dependabot alerts → Read-only。
           dependabot-alerts-token: ${{ secrets.GH_PAT }}
+          # 可选：同时拉取 Code Scanning alerts（与 Dependabot 并行源；
+          # 需权限 security-events: read，GITHUB_TOKEN 默认具备）
+          code-scanning: true
 ```
 
 > **⚠️ 破坏性变更（v0.2 起）**：Action 默认 `mode` 由 `report-only` 改为 `fix-and-pr`（`dry-run` 默认由 `true` 改为 `false`）。存量消费者未显式传参时，行为从"仅生成报告"变为"自动创建修复分支与 PR"（PR 不自动合并，可安全审查）。需要仅报告时可显式传 `mode: report-only` 或 `dry-run: true`。迁移后请确认 workflow `permissions` 已包含 `contents: write` + `pull-requests: write`（见上方示例）。
@@ -157,6 +160,7 @@ jobs:
 | `cleanup-branches-auto` | 否 | `false` | （fix-and-pr 模式）结束后自动删除已合并/已关闭的 dependfix 分支（非交互；不删有 open PR 的分支） |
 | `github-token` | 是 | — | GitHub Token（commit/push/PR 等操作；Dependabot alerts 读取不可用，见下行） |
 | `dependabot-alerts-token` | 否 | `''` | Dependabot alerts 专用最小权限 token（fine-grained PAT，仅 `Dependabot alerts: read`；缺省回退 `github-token`。GITHUB_TOKEN 恒 403） |
+| `code-scanning` | 否 | `false` | 同时拉取 Code Scanning alerts（与 Dependabot 并行源，默认关闭；需 token 具备 `security-events: read`，GITHUB_TOKEN 默认具备） |
 | `ai-api-token` | 否 | `''` | AI API Token（M5 联调） |
 | `ai-api-base-url` | 否 | `''` | AI API Base URL（M5 联调） |
 
@@ -185,6 +189,7 @@ jobs:
 | `--cleanup-branches` | — | （fix-and-pr 模式）结束后列出已合并的 dependfix 分支到报告，不自动删除 | `false` |
 | `--cleanup-branches-auto` | — | （fix-and-pr 模式）结束后自动删除已合并/已关闭的 dependfix 分支（非交互；不删有 open PR 的分支） | `false` |
 | `--max-alerts-per-repository` | — | 每仓库最大处理数 | `20` |
+| `--code-scanning` | — | 同时拉取 Code Scanning alerts（与 Dependabot 并行源；需要 token 具备 `security-events: read`，GITHUB_TOKEN 默认具备） | `false`（env `DEPENDFIX_CODE_SCANNING`） |
 | `--commands` | — | 自定义验证命令（逗号分隔） | — |
 | `--verbose` | — | 详细日志 | `false` |
 

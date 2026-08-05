@@ -180,6 +180,7 @@ T301（采集器）→ T302（规则分层）→ T303（模板修复器）→ T3
 - [x] `pnpm typecheck` + `pnpm lint` + `pnpm test` 全部通过；Review Gate 放行
 
 **M3 完成记录（2026-08-05）**: T301~T305 全部完成，5 轮提交（7b8feb3 / 5b3e076 / aebf258+a7fa3a0 / dead17e / 486fea7），每任务独立 Review Gate（T303 经历 4 轮、T305 经历 2 轮），最终全量审查 APPROVE。
+**M3 配套补记（2026-08-05）**: action `code-scanning` input 接线（T301 配套，M3 收尾遗漏）——action.yml 增加 input + run 步骤传参，configuration.md / quick-start.md / README.md 文档同步，data-model.md / index.md / roadmap.md 状态修正为"已完成"。
 
 **M3 收尾审查遗留（2026-08-05 已按用户确认全部修复）**:
 - ✅ PR 标题口径：cs-only 修复不再误标 "N upgrades"——buildPrTitle 按动作构成动态生成（upgrades / code fixes / 中性标题），lockfile-only 不再 "0 upgrades"

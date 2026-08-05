@@ -301,6 +301,6 @@ Fixture 给 T103 `dependabot-fetcher.test.ts` 使用，验证 Dependabot 原始�
 
 - 不实现 GitHub App / Installation Token 认证
 - 不实现 `@octokit/plugin-throttling`（M2 引入）
-- 不调用 Code Scanning 端点（M3）
+- 不调用 Code Scanning 端点 —— 已由 `code-scanning-fetcher.ts`（M3 T301）承接，见 [code-scanning-fetcher](../../../packages/cli/src/github/code-scanning-fetcher.ts)
 - 不实现 `octokit.rest.repos.listForOrg()` 自动发现（M4）
 - 不封装自定义类，直接暴露 `Octokit` 实例

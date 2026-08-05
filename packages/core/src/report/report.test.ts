@@ -577,8 +577,8 @@ describe('generateMarkdownReport', () => {
         expect(md).toMatch(/\| Low \| 2 \| 0 \| 1 \| 0 \|/)
     })
 
-    it('counts dependency-upgrade fixes in severity table (prefix-stripped version key)', () => {
-        // 端到端：带前缀 toVersion（^4.17.21）与无前缀 recommendedVersion（4.17.21）匹配
+    it('counts dependency-upgrade fixes in severity table (package-level fixed key)', () => {
+        // 端到端：action toVersion 带前缀（^4.17.21），包级匹配不再依赖版本精确对齐
         const repoResult: RepositoryResult = {
             repository: 'owner/repo', defaultBranch: 'main', alertsCount: 1,
             fixable: 1, fixed: 1, failed: 0, lockfileRepaired: false, durationMs: 1000,

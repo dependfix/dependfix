@@ -131,9 +131,9 @@ export interface RepositoryActions {
 
 /**
  * 从告警列表中计算按严重级别的聚合。
- * fixedKeys 为已修复告警键集合：依赖升级用 `alertKey`（repo/pkg@ver），
- * Code Scanning 模板修复用 `${repo}/${ruleId}@${manifestPath}`（实例维度，同规则多文件区分）；
- * 内部同时检查两种键。
+ * fixedKeys 为已修复告警键集合（buildFixedKeys 单一事实源）：
+ * 依赖升级用包级 `repo/pkg`，Code Scanning 用 `repo/ruleId@filePath`（实例维度）；
+ * 兼容旧格式 `repo/pkg@version`（alertKey）。
  */
 export function aggregateSeverity(alerts: NormalizedSecurityAlert[], fixedKeys: Set<string>): SeverityBreakdown {
     const empty = (): SeverityRow => ({ found: 0, fixable: 0, fixed: 0, failed: 0 })
@@ -152,7 +152,8 @@ export function aggregateSeverity(alerts: NormalizedSecurityAlert[], fixedKeys: 
         if (alert.fixable) {
             row.fixable++
         }
-        const fixed = fixedKeys.has(alertKey(alert))
+        const fixed = fixedKeys.has(`${alert.repository}/${alert.packageName}`)
+            || fixedKeys.has(alertKey(alert))
             || fixedKeys.has(`${alert.repository}/${alert.ruleId}@${alert.manifestPath}`)
         if (fixed) {
             row.fixed++
@@ -201,6 +202,24 @@ export function groupByRepository(
  */
 export function alertKey(alert: NormalizedSecurityAlert): string {
     return `${alert.repository}/${alert.packageName}@${alert.recommendedVersion}`
+}
+
+/**
+ * 从动作列表构建已修复告警键集合（单一事实源，markdown 报告与 PR body 共用）。
+ *
+ * - 依赖升级：`repo/pkg`（**包级**匹配——同包多条 GHSA 告警推荐版本各异，
+ *   action 的 toVersion 是统一目标（版本化 overrides 甚至多目标逗号分隔），
+ *   按版本精确匹配必然漏列；包级匹配与 markdown 明细表口径一致）
+ * - Code Scanning：`repo/ruleId@filePath`（实例维度，同规则多文件区分；noOp 动作不算修复）
+ */
+export function buildFixedKeys(actions: FixAction[]): Set<string> {
+    return new Set(
+        actions
+            .filter((a) => a.success && !a.noOp && (a.type === 'dependency-upgrade' || a.type === 'code-scanning-fix'))
+            .map((a) => a.type === 'code-scanning-fix' && a.filePath
+                ? `${a.repository}/${a.target}@${a.filePath}`
+                : `${a.repository}/${a.target}`),
+    )
 }
 
 /**

@@ -4,6 +4,7 @@ import type { Octokit } from '@octokit/rest'
 import {
     type FixAction,
     type RunResult,
+    buildFixedKeys,
     collectCodeScanningSuggestions,
 } from '@dependfix/core'
 
@@ -474,6 +475,34 @@ export function generatePRBody(result: RunResult, supersededNumbers?: number[]):
             const cells = multiRepo
                 ? [u.repository, `\`${u.packageName}\``, u.fromVersion ?? '-', u.toVersion ?? '-', strategy, major]
                 : [`\`${u.packageName}\``, u.fromVersion ?? '-', u.toVersion ?? '-', strategy, major]
+            lines.push(`| ${cells.join(' | ')} |`)
+        }
+        lines.push('')
+    }
+
+    // Fixed Alerts（告警级明细：GHSA/规则 + 包 + 严重级 + 修复版本，与 markdown 报告 fixedKeys 口径一致）
+    // 依赖升级：包级 repo/pkg 匹配（同包多 GHSA 推荐版本各异，版本精确匹配会漏列——Review Gate P1）；
+    // Code Scanning：repo/ruleId@filePath（success && !noOp）
+    const fixedKeys = buildFixedKeys(actions)
+    const fixedAlerts = result.alerts.filter((alert) => {
+        const alertUpgradeKey = `${alert.repository}/${alert.packageName}`
+        const alertCsKey = `${alert.repository}/${alert.ruleId}@${alert.manifestPath}`
+        return fixedKeys.has(alertUpgradeKey) || fixedKeys.has(alertCsKey)
+    })
+    if (fixedAlerts.length > 0) {
+        const multiRepo = new Set(fixedAlerts.map((a) => a.repository)).size > 1
+        lines.push('### ✅ Fixed Alerts', '')
+        const headers = multiRepo
+            ? ['Repository', 'Package', 'Rule/Advisory', 'Severity', 'Fixed']
+            : ['Package', 'Rule/Advisory', 'Severity', 'Fixed']
+        lines.push(`| ${headers.join(' | ')} |`)
+        lines.push(`|${headers.map(() => '---').join('|')}|`)
+        for (const alert of fixedAlerts) {
+            // 依赖升级 → 推荐修复版本；Code Scanning → ruleId 本身
+            const fixedTo = alert.source === 'code-scanning' ? 'template applied' : (alert.recommendedVersion ?? '—')
+            const cells = multiRepo
+                ? [alert.repository, `\`${alert.packageName}\``, `\`${escapeTableCell(alert.ruleId)}\``, alert.severity.toUpperCase(), fixedTo]
+                : [`\`${alert.packageName}\``, `\`${escapeTableCell(alert.ruleId)}\``, alert.severity.toUpperCase(), fixedTo]
             lines.push(`| ${cells.join(' | ')} |`)
         }
         lines.push('')

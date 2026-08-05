@@ -3,6 +3,7 @@ import {
     type RunResult,
     type FixAction,
     aggregateSeverity,
+    buildFixedKeys,
     groupByRepository,
     formatDuration,
     actionTypeLabel,
@@ -23,16 +24,9 @@ import { collectCodeScanningSuggestions } from './suggestions'
  */
 export function generateMarkdownReport(result: RunResult): string {
     const { runId, startedAt, finishedAt, config, summary, repositories, alerts, actions, errors } = result
-    // 已修复告警键：依赖升级用 repo/pkg@版本（剥离 ^~ 等声明前缀，对齐
-    // alertKey 的 repo/pkg@recommendedVersion——recommendedVersion 无前缀）；
-    // Code Scanning 模板修复用 repo/ruleId@filePath（noOp 动作不算修复，排除在 fixedKeys 之外）
-    const fixedKeys = new Set(
-        actions
-            .filter((a) => a.success && !a.noOp && (a.type === 'dependency-upgrade' || a.type === 'code-scanning-fix'))
-            .map((a) => a.type === 'code-scanning-fix' && a.filePath
-                ? `${a.repository}/${a.target}@${a.filePath}`
-                : `${a.repository}/${a.target}@${stripVersionPrefix(a.toVersion ?? '')}`),
-    )
+    // 已修复告警键：单一事实源 buildFixedKeys（依赖升级包级 repo/pkg；
+    // Code Scanning repo/ruleId@filePath，noOp 不算修复）
+    const fixedKeys = buildFixedKeys(actions)
 
     const sections: string[] = []
 
@@ -217,11 +211,6 @@ function alertClassLabel(alertClass: AlertClass | undefined): string {
         case 'report-only': return 'C 仅报告'
         default: return '—'
     }
-}
-
-/** 剥离版本号声明前缀（^ ~ > < = >= <= 等），用于与无前缀的 recommendedVersion 对齐匹配。 */
-function stripVersionPrefix(version: string): string {
-    return version.replace(/^[~^<>=]+/, '')
 }
 
 function actionDetails(action: FixAction, error?: string): string {

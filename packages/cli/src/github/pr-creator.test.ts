@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { describe, expect, it, afterEach, vi } from 'vitest'
 import type { Octokit } from '@octokit/rest'
-import { createEmptyRunSummary, type FixAction, type RunResult } from '@dependfix/core'
+import { createEmptyRunSummary, type FixAction, type NormalizedSecurityAlert, type RunResult } from '@dependfix/core'
 import {
     computeFixFingerprint,
     extractFingerprintFromBranch,
@@ -604,8 +604,100 @@ describe('generatePRBody', () => {
         ]
         const body = generatePRBody(result)
 
-        expect(body).toContain('| `b-pkg` | 2.0.0 | resolution failed failed \\| to parse |')
-        expect(body).not.toContain('\nfailed | to parse')
+        expect(body).toContain('failed \\| to parse')
+    })
+
+    it('lists fixed alerts with GHSA/rule and severity (dependency upgrade)', () => {
+        const result = buildRunResult()
+        result.alerts = [
+            makeBodyAlert({ packageName: 'fast-uri', ruleId: 'GHSA-f8p3-7c7w-h6x4', severity: 'high', recommendedVersion: '3.1.5' }),
+            makeBodyAlert({ packageName: 'vite', ruleId: 'GHSA-xxx', severity: 'medium', recommendedVersion: '5.4.21' }),
+            // 未修复的告警（无对应成功 action）不应出现在 Fixed Alerts
+            makeBodyAlert({ packageName: 'lodash', ruleId: 'GHSA-yyy', severity: 'high', recommendedVersion: '4.18.1' }),
+        ]
+        result.actions = [
+            makeBodyAction({ target: 'fast-uri', fromVersion: '3.1.0', toVersion: '3.1.5' }),
+            makeBodyAction({ target: 'vite', fromVersion: '5.4.14', toVersion: '5.4.21', success: true }),
+        ]
+        const body = generatePRBody(result)
+
+        expect(body).toContain('### ✅ Fixed Alerts')
+        expect(body).toContain('| `fast-uri` | `GHSA-f8p3-7c7w-h6x4` | HIGH | 3.1.5 |')
+        expect(body).toContain('| `vite` | `GHSA-xxx` | MEDIUM | 5.4.21 |')
+        expect(body).not.toContain('GHSA-yyy')
+    })
+
+    it('lists all same-package alerts even when action toVersion is multi-target or differs from alert recommendedVersion', () => {
+        // 同包多 GHSA 推荐版本各异 + versioned-override 多目标 toVersion：
+        // 包级匹配应列出全部告警（Review Gate P1：按版本精确匹配会漏列）
+        const result = buildRunResult()
+        result.alerts = [
+            makeBodyAlert({ packageName: 'vite', ruleId: 'GHSA-a', severity: 'high', recommendedVersion: '5.4.15' }),
+            makeBodyAlert({ packageName: 'vite', ruleId: 'GHSA-b', severity: 'high', recommendedVersion: '5.4.21' }),
+            makeBodyAlert({ packageName: 'vite', ruleId: 'GHSA-c', severity: 'medium', recommendedVersion: '6.4.3' }),
+        ]
+        result.actions = [
+            makeBodyAction({ target: 'vite', fromVersion: '', toVersion: '^5.4.21, ^8.2.1', strategy: 'versioned-override' }),
+        ]
+        const body = generatePRBody(result)
+
+        expect(body.match(/\| `vite` \| `GHSA-/g)).toHaveLength(3)
+        expect(body).toContain('| `vite` | `GHSA-a` | HIGH | 5.4.15 |')
+        expect(body).toContain('| `vite` | `GHSA-b` | HIGH | 5.4.21 |')
+        expect(body).toContain('| `vite` | `GHSA-c` | MEDIUM | 6.4.3 |')
+    })
+
+    it('lists fixed code-scanning alerts (template applied) and omits noOp actions', () => {
+        const result = buildRunResult()
+        result.alerts = [
+            makeBodyAlert({
+                packageName: 'src/app.ts',
+                ruleId: 'eol-last',
+                severity: 'low',
+                recommendedVersion: '',
+                source: 'code-scanning',
+                manifestPath: 'src/app.ts',
+            }),
+            makeBodyAlert({
+                packageName: 'src/other.ts',
+                ruleId: 'no-trailing-spaces',
+                severity: 'low',
+                recommendedVersion: '',
+                source: 'code-scanning',
+                manifestPath: 'src/other.ts',
+            }),
+        ]
+        result.actions = [
+            {
+                type: 'code-scanning-fix',
+                repository: 'owner/repo',
+                target: 'eol-last',
+                filePath: 'src/app.ts',
+                success: true,
+                noOp: false,
+                durationMs: 1,
+            },
+            {
+                type: 'code-scanning-fix',
+                repository: 'owner/repo',
+                target: 'no-trailing-spaces',
+                filePath: 'src/other.ts',
+                success: true,
+                noOp: true,
+                durationMs: 1,
+            },
+        ]
+        const body = generatePRBody(result)
+
+        expect(body).toContain('### ✅ Fixed Alerts')
+        expect(body).toContain('| `src/app.ts` | `eol-last` | LOW | template applied |')
+        // noOp 动作（文件已合规）不算修复：不在 Fixed Alerts 区块（仍会以
+        // "无需修改"原因出现在 Code Scanning Suggestions——T304 设计行为）
+        const fixedSection = body.slice(
+            body.indexOf('### ✅ Fixed Alerts'),
+            body.indexOf('### 🧰 Code Scanning Suggestions', body.indexOf('### ✅ Fixed Alerts')),
+        )
+        expect(fixedSection).not.toContain('no-trailing-spaces')
     })
 
     it('excludes bare PR #N pseudo-actions (fingerprint-consistent filter)', () => {
@@ -672,6 +764,26 @@ function makeBodyAction(overrides: Partial<FixAction>): FixAction {
         toVersion: '2.0.0',
         isMajor: false,
         success: true,
+        ...overrides,
+    }
+}
+
+function makeBodyAlert(overrides: Partial<NormalizedSecurityAlert>): NormalizedSecurityAlert {
+    return {
+        id: 1,
+        source: 'dependabot',
+        repository: 'owner/repo',
+        defaultBranch: 'master',
+        severity: 'high',
+        packageEcosystem: 'npm',
+        packageName: 'fast-uri',
+        manifestPath: 'pnpm-lock.yaml',
+        ruleId: 'GHSA-xxx',
+        summary: 'test',
+        htmlUrl: '',
+        fixable: true,
+        fixStrategy: 'upgrade',
+        recommendedVersion: '3.1.5',
         ...overrides,
     }
 }

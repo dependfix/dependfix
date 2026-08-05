@@ -724,7 +724,11 @@ export function computeSummary(
     let verificationsFailed = 0
 
     for (const action of allActions) {
-        if (action.type === 'dependency-upgrade') {
+        // noOp（如 code-scanning 修复时文件已合规）不计入 fixed/failed（口径与 repoResults 一致）
+        if (action.noOp) {
+            continue
+        }
+        if (action.type === 'dependency-upgrade' || action.type === 'code-scanning-fix') {
             if (action.success) {
                 fixed++
             } else {

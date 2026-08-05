@@ -1,11 +1,20 @@
 import { describe, expect, it } from 'vitest'
+import { getCodeScanningFixTemplate } from '../fixers/code-scanning/templates'
 import { AUTO_FIXABLE_RULES, SUGGESTED_RULES, classifyRule } from './rule-classifier'
 
 describe('classifyRule', () => {
     it('classifies auto-fixable whitelist rules (A class)', () => {
-        expect(classifyRule('jsdoc/check-alignment')).toBe('auto-fixable')
-        expect(classifyRule('no-trailing-spaces')).toBe('auto-fixable')
         expect(classifyRule('eol-last')).toBe('auto-fixable')
+    })
+
+    it('no-trailing-spaces falls to report-only (template removed in T303 review)', () => {
+        // 模板字符串词法歧义无法保证不改变运行时值，模板与白名单条目均已移除
+        expect(classifyRule('no-trailing-spaces')).toBe('report-only')
+    })
+
+    it('jsdoc/check-alignment falls to report-only until a template exists (whitelist/template alignment)', () => {
+        // 白名单与模板注册表必须一致：无模板的规则不得进入 A 类（防止永久失败语义）
+        expect(classifyRule('jsdoc/check-alignment')).toBe('report-only')
     })
 
     it('classifies suggested rules (B class)', () => {
@@ -29,12 +38,19 @@ describe('classifyRule', () => {
 
     it('trims surrounding whitespace before matching', () => {
         expect(classifyRule('  js/sql-injection  ')).toBe('suggested')
-        expect(classifyRule('  no-trailing-spaces ')).toBe('auto-fixable')
+        expect(classifyRule('  eol-last ')).toBe('auto-fixable')
     })
 
     it('whitelist and suggested lists are disjoint', () => {
         for (const rule of AUTO_FIXABLE_RULES) {
             expect(SUGGESTED_RULES.has(rule)).toBe(false)
+        }
+    })
+
+    it('every auto-fixable whitelist rule has a fix template (whitelist/template registry alignment)', () => {
+        // 防回归：白名单新增规则忘加模板会重新引入"永久失败语义"（exit 1/2）
+        for (const rule of AUTO_FIXABLE_RULES) {
+            expect(getCodeScanningFixTemplate(rule)).toBeDefined()
         }
     })
 })

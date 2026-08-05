@@ -22,7 +22,16 @@ import {
  */
 export function generateMarkdownReport(result: RunResult): string {
     const { runId, startedAt, finishedAt, config, summary, repositories, alerts, actions, errors } = result
-    const fixedKeys = new Set(actions.filter((a) => a.success && a.type === 'dependency-upgrade').map((a) => `${a.repository}/${a.target}`))
+    // 已修复告警键：依赖升级用 repo/pkg@版本（剥离 ^~ 等声明前缀，对齐
+    // alertKey 的 repo/pkg@recommendedVersion——recommendedVersion 无前缀）；
+    // Code Scanning 模板修复用 repo/ruleId@filePath（noOp 动作不算修复，排除在 fixedKeys 之外）
+    const fixedKeys = new Set(
+        actions
+            .filter((a) => a.success && !a.noOp && (a.type === 'dependency-upgrade' || a.type === 'code-scanning-fix'))
+            .map((a) => a.type === 'code-scanning-fix' && a.filePath
+                ? `${a.repository}/${a.target}@${a.filePath}`
+                : `${a.repository}/${a.target}@${stripVersionPrefix(a.toVersion ?? '')}`),
+    )
 
     const sections: string[] = []
 
@@ -93,8 +102,12 @@ export function generateMarkdownReport(result: RunResult): string {
                     '|---------|---------------|-------|----------|------|----|-------|--------|',
                 )
                 for (const alert of repo.alerts) {
+                    // 修复动作匹配：依赖升级按包名；Code Scanning 模板修复按 ruleId + 文件路径（noOp 视为未修复）
                     const action = actions.find(
-                        (a) => a.type === 'dependency-upgrade' && a.repository === repo.repository && a.target === alert.packageName,
+                        (a) => a.repository === repo.repository
+                            && !a.noOp
+                            && ((a.type === 'dependency-upgrade' && a.target === alert.packageName)
+                                || (a.type === 'code-scanning-fix' && a.target === alert.ruleId && a.filePath === alert.manifestPath)),
                     )
                     // Skipped（无 action）：当前版本未知 → From 显示 —，To 显示推荐修复版本
                     const fromVer = action?.fromVersion ?? '—'
@@ -187,6 +200,11 @@ function alertClassLabel(alertClass: AlertClass | undefined): string {
     }
 }
 
+/** 剥离版本号声明前缀（^ ~ > < = >= <= 等），用于与无前缀的 recommendedVersion 对齐匹配。 */
+function stripVersionPrefix(version: string): string {
+    return version.replace(/^[~^<>=]+/, '')
+}
+
 function actionDetails(action: FixAction, error?: string): string {
     const base = ((): string => {
         switch (action.type) {
@@ -199,6 +217,8 @@ function actionDetails(action: FixAction, error?: string): string {
             case 'verification':
                 return '—'
             case 'branch-cleanup':
+                return action.diff ?? '—'
+            case 'code-scanning-fix':
                 return action.diff ?? '—'
         }
     })()

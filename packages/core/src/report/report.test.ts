@@ -448,6 +448,152 @@ describe('generateMarkdownReport', () => {
         expect(md).toContain('| `fast-uri` | GHSA-cccc | — | HIGH |')
     })
 
+    it('renders code-scanning fix as Fixed (not Skipped) in repository detail and severity rows', () => {
+        const repoResult: RepositoryResult = {
+            repository: 'owner/repo', defaultBranch: 'main', alertsCount: 1,
+            fixable: 0, fixed: 1, failed: 0, lockfileRepaired: false, durationMs: 1000,
+        }
+        const result = {
+            ...EMPTY_RUN_RESULT,
+            repositories: [repoResult],
+            alerts: [
+                makeAlert({
+                    source: 'code-scanning',
+                    packageName: 'End of line',
+                    ruleId: 'eol-last',
+                    severity: 'low',
+                    recommendedVersion: '',
+                    alertClass: 'auto-fixable',
+                    fixable: false,
+                    fixStrategy: null,
+                    manifestPath: 'src/foo.ts',
+                }),
+            ],
+            actions: [{
+                type: 'code-scanning-fix',
+                repository: 'owner/repo',
+                target: 'eol-last',
+                filePath: 'src/foo.ts',
+                success: true,
+                diff: 'appended trailing newline to src/foo.ts',
+                durationMs: 10,
+            }],
+        }
+        const md = generateMarkdownReport(result)
+
+        // 明细表：按 ruleId + 文件路径关联 code-scanning-fix action → Fixed，而非 Skipped
+        expect(md).toContain('| `End of line` | eol-last | A 自动修复 | LOW | — | — | — | ✅ Fixed |')
+        // Severity 表：low 行 fixed 计数 1（code-scanning 键 repo/ruleId@filePath 匹配）
+        expect(md).toMatch(/\| Low \| 1 \| 0 \| 1 \| 0 \|/)
+    })
+
+    it('excludes no-op fixes from fixed counts and renders them as skipped', () => {
+        const repoResult: RepositoryResult = {
+            repository: 'owner/repo', defaultBranch: 'main', alertsCount: 1,
+            fixable: 0, fixed: 0, failed: 0, lockfileRepaired: false, durationMs: 1000,
+        }
+        const result = {
+            ...EMPTY_RUN_RESULT,
+            summary: { ...EMPTY_RUN_RESULT.summary, alertsFixed: 0 },
+            repositories: [repoResult],
+            alerts: [
+                makeAlert({
+                    source: 'code-scanning',
+                    packageName: 'End of line',
+                    ruleId: 'eol-last',
+                    severity: 'low',
+                    recommendedVersion: '',
+                    alertClass: 'auto-fixable',
+                    fixable: false,
+                    fixStrategy: null,
+                }),
+            ],
+            actions: [{
+                type: 'code-scanning-fix',
+                repository: 'owner/repo',
+                target: 'eol-last',
+                filePath: 'src/foo.ts',
+                success: true,
+                noOp: true,
+                diff: 'no-op: src/foo.ts already ends with newline',
+                durationMs: 10,
+            }],
+        }
+        const md = generateMarkdownReport(result)
+
+        // no-op 不算修复：明细显示 Skipped，severity 表 fixed 为 0
+        expect(md).toContain('| `End of line` | eol-last | A 自动修复 | LOW | — | — | — | ⏭️ Skipped |')
+        expect(md).toMatch(/\| Low \| 1 \| 0 \| 0 \| 0 \|/)
+    })
+
+    it('distinguishes multi-instance fixes by file path (same rule, different files)', () => {
+        const repoResult: RepositoryResult = {
+            repository: 'owner/repo', defaultBranch: 'main', alertsCount: 2,
+            fixable: 0, fixed: 1, failed: 0, lockfileRepaired: false, durationMs: 1000,
+        }
+        const result = {
+            ...EMPTY_RUN_RESULT,
+            repositories: [repoResult],
+            alerts: [
+                makeAlert({
+                    source: 'code-scanning',
+                    packageName: 'End of line',
+                    ruleId: 'eol-last',
+                    severity: 'low',
+                    recommendedVersion: '',
+                    alertClass: 'auto-fixable',
+                    fixable: false,
+                    fixStrategy: null,
+                    manifestPath: 'src/a.ts',
+                }),
+                makeAlert({
+                    source: 'code-scanning',
+                    packageName: 'End of line',
+                    ruleId: 'eol-last',
+                    severity: 'low',
+                    recommendedVersion: '',
+                    alertClass: 'auto-fixable',
+                    fixable: false,
+                    fixStrategy: null,
+                    manifestPath: 'src/b.ts',
+                }),
+            ],
+            actions: [{
+                type: 'code-scanning-fix',
+                repository: 'owner/repo',
+                target: 'eol-last',
+                filePath: 'src/a.ts',
+                success: true,
+                diff: 'appended trailing newline to src/a.ts',
+                durationMs: 10,
+            }],
+        }
+        const md = generateMarkdownReport(result)
+
+        // 同规则多实例：仅修复的文件显示 Fixed，未修复的显示 Skipped；severity 表 fixed=1
+        expect(md).toContain('| `End of line` | eol-last | A 自动修复 | LOW | — | — | — | ✅ Fixed |')
+        expect(md).toContain('| `End of line` | eol-last | A 自动修复 | LOW | — | — | — | ⏭️ Skipped |')
+        expect(md).toMatch(/\| Low \| 2 \| 0 \| 1 \| 0 \|/)
+    })
+
+    it('counts dependency-upgrade fixes in severity table (prefix-stripped version key)', () => {
+        // 端到端：带前缀 toVersion（^4.17.21）与无前缀 recommendedVersion（4.17.21）匹配
+        const repoResult: RepositoryResult = {
+            repository: 'owner/repo', defaultBranch: 'main', alertsCount: 1,
+            fixable: 1, fixed: 1, failed: 0, lockfileRepaired: false, durationMs: 1000,
+        }
+        const result = {
+            ...EMPTY_RUN_RESULT,
+            repositories: [repoResult],
+            alerts: [makeAlert({ recommendedVersion: '4.17.21' })],
+            actions: [makeAction({ toVersion: '^4.17.21', success: true })],
+        }
+        const md = generateMarkdownReport(result)
+
+        expect(md).toMatch(/\| High \| 1 \| 1 \| 1 \| 0 \|/)
+        expect(md).toContain('| `lodash` | CVE-2021-23337 | — | HIGH | ^4.17.20 | ^4.17.21 | No | ✅ Fixed |')
+    })
+
     it('renders skipped alerts with target version and dash from (no misleading from/to)', () => {
         const repoResult: RepositoryResult = {
             repository: 'owner/repo', defaultBranch: 'main', alertsCount: 1,
@@ -610,3 +756,4 @@ describe('writeReport', () => {
         cleanupTemp('./dependfix-reports')
     })
 })
+

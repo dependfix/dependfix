@@ -28,6 +28,7 @@ import type { RuntimeConfig } from '../config'
 import { compareSemver, readLockfileVersion } from '../fixers/dependency'
 import { dedupeFixableAlerts, snapshotTrackedFiles, restoreTrackedFiles, quickVerifyProject, partitionSubmanifestAlerts } from '../helpers'
 import { buildUpgradeGroups } from '../grouping'
+import { applyCodeScanningFix, snapshotSourceFile, restoreSourceFile } from '../fixers/code-scanning'
 import {
     buildCommitMessage,
     type AppContext,
@@ -318,7 +319,79 @@ export class DependfixApp {
 
             this.allAlerts.push(...limited)
 
-            // 2.0 子目录 / 根直接依赖 lockfile 告警（P0 防护：docs vite 告警曾误降级根 vite@8→6）→ 剔除修复链路
+            // 2.0 Code Scanning 模板修复（T303，A 类白名单；与依赖升级链路并行、互不干扰）
+            // 逐告警：快照 → 应用模板 → quickVerify（lint）→ 失败回滚（不静默）；
+            // 无模板/模板不适用/缺文件/快照失败 → noOp 动作（回退建议模式，T304 展示；
+            // error 原因可审计，不计 failed 避免陈旧告警永久 exit 1/2）
+            const codeScanningAutoFixable = limited.filter(
+                (a) => a.source === 'code-scanning' && a.alertClass === 'auto-fixable',
+            )
+            for (const csAlert of codeScanningAutoFixable) {
+                // 源码文件快照（不在 snapshotTrackedFiles 清单范围内——回滚必须精确到目标文件）
+                const sourceSnapshot = snapshotSourceFile(this.workDir, csAlert.manifestPath)
+                if (!sourceSnapshot) {
+                    // 快照失败（路径越界/读取异常）：构造 noOp action 保证可审计（不静默）
+                    const snapAction: FixAction = {
+                        type: 'code-scanning-fix',
+                        repository: csAlert.repository,
+                        target: csAlert.ruleId,
+                        success: true,
+                        noOp: true,
+                        filePath: csAlert.manifestPath,
+                        error: `cannot snapshot ${csAlert.manifestPath} (unsafe path or unreadable)`,
+                        durationMs: 0,
+                    }
+                    this.allActions.push(snapAction)
+                    this.logger.warn(`[code-scanning] ${csAlert.ruleId} skipped: ${snapAction.error}`)
+                    continue
+                }
+                const action = applyCodeScanningFix({ workDir: this.workDir, alert: csAlert, dryRun: this.config.dryRun })
+                if (!action) {
+                    continue // 防御：过滤条件已保证非空
+                }
+                if (!action.success) {
+                    // 失败分支也恢复快照（写盘异常可能产生中间态；幂等，未改动时写回原内容无害）
+                    const restored = restoreSourceFile(this.workDir, sourceSnapshot)
+                    if (!restored) {
+                        action.error = `${action.error}; rollback failed, file may be modified`
+                    }
+                    this.allActions.push(action)
+                    failed++
+                    this.logger.warn(`[code-scanning] ${csAlert.ruleId} not auto-fixed: ${action.error}`)
+                    continue
+                }
+                // no-op / 无法安全处理（陈旧告警、无模板、歧义）→ 不计 fixed/failed，
+                // error 在 Fix Actions 表可见（不静默）
+                if (action.noOp) {
+                    this.allActions.push(action)
+                    if (action.error) {
+                        this.logger.warn(`[code-scanning] ${csAlert.ruleId} skipped: ${action.error}`)
+                    }
+                    continue
+                }
+                if (this.config.dryRun) {
+                    fixed++
+                    this.allActions.push(action)
+                    continue
+                }
+                const quickOk = await quickVerifyProject(this.ctx, repo)
+                if (!quickOk) {
+                    const restored = restoreSourceFile(this.workDir, sourceSnapshot)
+                    action.success = false
+                    action.error = restored
+                        ? 'lint failed after code-scanning fix; changes rolled back'
+                        : 'lint failed after code-scanning fix; rollback failed, file may be modified'
+                    this.allActions.push(action)
+                    failed++
+                    this.logger.warn(`[code-scanning] ${csAlert.ruleId} fix rolled back: lint failed`)
+                    continue
+                }
+                this.allActions.push(action)
+                fixed++
+                this.logger.info(`[code-scanning] ${csAlert.ruleId}: ${action.diff}`)
+            }
+
+            // 2.1 子目录 / 根直接依赖 lockfile 告警（P0 防护：docs vite 告警曾误降级根 vite@8→6）→ 剔除修复链路
             const { root: rootManifestAlerts, sub: submanifestAlerts } = partitionSubmanifestAlerts(limited, this.workDir)
             if (submanifestAlerts.length > 0) {
                 this.logger.warn(
@@ -758,7 +831,6 @@ export class DependfixApp {
      * - `github-dependabot`：Octokit 拉取 Dependabot alerts（alertsToken 优先）；
      *   `codeScanningEnabled` 时**并行**拉取 Code Scanning alerts（互不覆盖、互不回退）
      * - `pnpm-audit`：本地 `pnpm audit --json` 回退（无 token；repository 已由 resolveAlertRepositories 解析）
-     *
      * 并行源任一失败 → 抛 AppError 硬失败（沿用 T-G2-1 语义），由调用方 catch 记录 hint。
      */
     private async fetchAlerts(repo: string): Promise<NormalizedSecurityAlert[]> {

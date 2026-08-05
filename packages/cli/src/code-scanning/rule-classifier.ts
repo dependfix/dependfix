@@ -13,24 +13,22 @@ import type { AlertClass } from '@dependfix/core'
 export type { AlertClass }
 
 /**
- * A 类自动修复白名单：仅收录"删除/改动后不影响程序行为"的格式类规则。
+ * A 类自动修复白名单：仅收录"删除/改动后不影响程序行为"且**已有修复模板**的规则。
  *
  * 选择标准（实现时评审确认）：
  * - 可模板化：修复动作可机械描述（删行 / 对齐 / 移除空白）
  * - 无破坏性：不改变运行时行为，不删除可能含副作用的代码
  * - 因此 `no-unused-vars`（删除变量可能有副作用）不入选，归 B 类建议
- *
- * ⚠️ 例外声明：`no-trailing-spaces` 默认会处理多行模板字符串内的行尾空白
- * （`ignoreTemplateLiterals` 默认 false），删除会改变运行时字符串值——
- * T303 修复模板必须跳过模板字符串内部的行（按该规则 ignoreTemplateLiterals 语义）。
+ * - **白名单与模板注册表必须保持一致**（templates.ts TEMPLATES）：白名单成员
+ *   若缺少模板，A 类修复会产生"无法处理"动作——`jsdoc/check-alignment`（模板未实现）
+ *   与 `no-trailing-spaces`（模板字符串词法歧义无法保证不改变运行时值，3 轮
+ *   Review Gate 后移除，详见 templates.ts 历史决策）均不列入
  *
  * 注意：Code Scanning 的 ESLint 分析通常仅启用安全相关规则，
- * 纯格式规则（jsdoc/check-alignment 等）实际出现频率低；此处先建立机制，
+ * 纯格式规则（eol-last 等）实际出现频率低；此处先建立机制，
  * 规则命中与否不影响分层正确性。
  */
 export const AUTO_FIXABLE_RULES = new Set<string>([
-    'jsdoc/check-alignment', // JSDoc 注释星号对齐（纯格式，仅注释内，安全）
-    'no-trailing-spaces', // 行尾空白（纯格式；模板字符串例外见上，T303 处理）
     'eol-last', // 文件末尾换行（纯格式，无行为影响）
 ])
 

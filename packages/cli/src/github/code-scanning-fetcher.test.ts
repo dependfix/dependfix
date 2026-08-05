@@ -88,8 +88,8 @@ describe('fetchCodeScanningAlerts', () => {
             .reply(200, [
                 // B 类建议：js/sql-injection
                 makeRawAlert({ rule: { id: 'js/sql-injection', severity: 'error', security_severity_level: 'high', name: 'SQL injection' } }),
-                // A 类白名单：jsdoc/check-alignment（纯格式）
-                makeRawAlert({ number: 5, rule: { id: 'jsdoc/check-alignment', severity: 'warning', security_severity_level: null, name: 'JSDoc alignment' } }),
+                // A 类白名单：eol-last（纯格式）
+                makeRawAlert({ number: 5, rule: { id: 'eol-last', severity: 'warning', security_severity_level: null, name: 'End of line' } }),
             ])
 
         const client = setupClient()

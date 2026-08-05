@@ -61,7 +61,7 @@ T301（采集器）→ T302（规则分层）→ T303（模板修复器）→ T3
 **任务内容**:
 
 - [x] 定义 A/B/C 三类规则分层：A=自动修复白名单 / B=建议修复 / C=仅报告
-- [x] 建立自动修复白名单（首批：`jsdoc/check-alignment` / `no-trailing-spaces` / `eol-last`；`no-unused-vars` 因删除变量可能有副作用归 B 类——Review Gate 认可偏离）
+- [x] 建立自动修复白名单（当前：`eol-last`；`no-unused-vars` 因删除变量可能有副作用归 B 类——Review Gate 认可偏离；`jsdoc/check-alignment` 模板未实现、`no-trailing-spaces` 模板字符串词法歧义无法保证不改变运行时值——均不列入，详见 T303 历史决策）
 - [x] 建立仅建议输出的规则列表（CodeQL js/py/java 安全类 + no-unused-vars）
 - [x] 规则分类可配置（常量表 + 注释声明 M4+ 配置化扩展点）
 
@@ -71,7 +71,7 @@ T301（采集器）→ T302（规则分层）→ T303（模板修复器）→ T3
 
 **Review Gate 遗留（非阻塞）**:
 - B 类列表覆盖 js/py/java 精选集，其余语言（go/ruby/csharp/cpp）落 C 兜底；真实仓库 API 样本核对 rule id 格式与变体分布登记为演进项
-- no-trailing-spaces 模板字符串例外：T303 修复模板必须跳过模板字符串内部行
+- ~~no-trailing-spaces 模板字符串例外~~（已关闭：T303 评审移除该模板，M4+ 引入词法扫描后再评估恢复）
 
 ---
 
@@ -79,18 +79,23 @@ T301（采集器）→ T302（规则分层）→ T303（模板修复器）→ T3
 
 - **优先级**: P1
 - **依赖**: T302、T107（验证执行器）
-- **状态**: ⬜ 未开始
+- **状态**: ✅ 已完成（2026-08-05，待提交）
 - **交付物**: `packages/cli/src/fixers/code-scanning/` 首批修复模板（替换 M0 stub）
 
 **任务内容**:
 
-- [ ] 选择一组低风险规则作为首批支持对象（A 类白名单子集）
-- [ ] 实现补丁生成与验证（复用 verification-runner；`FixAction.type` 扩展或复用现有类型承载 code-scanning 修复记录）
-- [ ] 失败时回退到建议模式（不静默、可审计）
+- [x] 选择一组低风险规则作为首批支持对象（A 类白名单子集：`eol-last`；`no-trailing-spaces` 经 3 轮 Review Gate 因模板字符串词法歧义移除——无解析器无法保证"不改变运行时字符串值"红线，M4+ 引入词法扫描后再评估）
+- [x] 实现补丁生成与验证（复用 verification-runner；`FixAction.type` 扩展 `'code-scanning-fix'` 承载修复记录，含 noOp 三态语义）
+- [x] 失败时回退到建议模式（不静默、可审计：noOp 动作 + error 原因，Fix Actions 表可见）
 
 **完成定义**:
 
-- [ ] 至少一类 Code Scanning 问题可完成自动修复闭环（修复 → 验证 → 报告/PR）
+- [x] 至少一类 Code Scanning 问题可完成自动修复闭环（eol-last：修复 → quickVerify 验证 → 报告/PR）
+
+**Review Gate 遗留（非阻塞）**:
+- app 层非 dry-run 验证/回滚路径缺 e2e（组件单测已兜底；真实 lint 环境依赖 CI）
+- 多 cs 告警时逐告警全项目 lint（性能观察项，可合并验证）
+- 报告 Fix Actions 表 noOp 动作显示 ✅ 图标（观感，error 文本可审计）
 
 ---
 

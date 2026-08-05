@@ -94,7 +94,13 @@ export function computeFixFingerprint(actions: FixAction[]): string {
         .map((a) => `${a.target}:${a.success}`)
         .sort()
 
-    const payload = JSON.stringify([upgrades, failures, repairs])
+    // code-scanning 模板修复：target(ruleId)+success+diff（diff 含文件路径，内容变化 → 指纹变化）
+    const codeScanningFixes = actions
+        .filter((a) => a.type === 'code-scanning-fix')
+        .map((a) => `${a.target}:${a.success}:${a.diff ?? ''}`)
+        .sort()
+
+    const payload = JSON.stringify([upgrades, failures, repairs, codeScanningFixes])
     return createHash('sha256').update(payload).digest('hex').slice(0, 8)
 }
 

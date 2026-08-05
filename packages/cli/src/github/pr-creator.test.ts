@@ -155,6 +155,35 @@ describe('computeFixFingerprint', () => {
         expect(fp).toMatch(/^[0-9a-f]{8}$/)
         expect(fp).toBe(computeFixFingerprint([]))
     })
+
+    it('includes code-scanning fixes in the fingerprint (T303 dimension)', () => {
+        const csFix: FixAction = {
+            type: 'code-scanning-fix',
+            repository: 'owner/repo',
+            target: 'no-trailing-spaces',
+            success: true,
+            diff: 'removed trailing whitespace in src/foo.ts',
+            durationMs: 0,
+        }
+        expect(computeFixFingerprint([csFix])).not.toBe(computeFixFingerprint([]))
+        // 内容变化（diff 不同）→ 指纹变化
+        expect(computeFixFingerprint([csFix])).not.toBe(computeFixFingerprint([{
+            ...csFix,
+            diff: 'removed trailing whitespace in src/bar.ts',
+        }]))
+        // 成功/失败 → 指纹变化
+        expect(computeFixFingerprint([csFix])).not.toBe(computeFixFingerprint([{ ...csFix, success: false, error: 'no fix template' }]))
+        // 排序无关
+        const other: FixAction = {
+            type: 'code-scanning-fix',
+            repository: 'owner/repo',
+            target: 'eol-last',
+            success: true,
+            diff: 'appended trailing newline to src/baz.ts',
+            durationMs: 0,
+        }
+        expect(computeFixFingerprint([csFix, other])).toBe(computeFixFingerprint([other, csFix]))
+    })
 })
 
 // ---------------------------------------------------------------------------
@@ -317,6 +346,7 @@ describe('createFixBranch', () => {
         }
     })
 
+    // Windows 并发全量跑时 git init/commit 系列命令可能超过默认 5s 超时（基线 flaky）
     it('creates a new branch with the given name', () => {
         const dir = createGitRepo()
         const result = createFixBranch('dependfix/auto-fix-abc12345', dir)
@@ -324,7 +354,7 @@ describe('createFixBranch', () => {
         expect(result).toEqual({ branchName: 'dependfix/auto-fix-abc12345', created: true })
         const current = execSync('git branch --show-current', { cwd: dir, encoding: 'utf-8' }).trim()
         expect(current).toBe('dependfix/auto-fix-abc12345')
-    })
+    }, 15_000)
 
     it('switches to an existing branch instead of creating a duplicate', () => {
         const dir = createGitRepo()

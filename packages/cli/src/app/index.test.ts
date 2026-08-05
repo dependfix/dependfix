@@ -1,5 +1,5 @@
 import { execSync } from 'node:child_process'
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import nock from 'nock'
@@ -396,5 +396,71 @@ describe('DependfixApp code-scanning parallel source', () => {
         expect(fetchError).toBeDefined()
         expect(fetchError?.message).toContain('security-events')
         expect(fetchError?.category).toBe('FETCH_FAILED')
+    })
+
+    it('fix mode runs template fix for A-class code scanning alerts (dry-run)', async () => {
+        // 修复目标文件（A 类模板读取真实文件内容生成补丁；dry-run 不写盘）
+        const srcDir = join(workDir, 'src')
+        mkdirSync(srcDir, { recursive: true })
+        writeFileSync(join(srcDir, 'foo.ts'), 'const a = 1')
+
+        nock('https://api.github.com')
+            .get('/repos/foo/bar/dependabot/alerts')
+            .query({ state: 'open', per_page: '100' })
+            .reply(200, [])
+
+        nock('https://api.github.com')
+            .get('/repos/foo/bar/code-scanning/alerts')
+            .query({ state: 'open', per_page: '100' })
+            .reply(200, [
+                // A 类白名单规则（有模板）
+                makeCodeScanningAlert({
+                    number: 1,
+                    rule: { id: 'eol-last', severity: 'warning', security_severity_level: 'low', name: 'End of line' },
+                    most_recent_instance: {
+                        ref: 'refs/heads/main',
+                        location: { path: 'src/foo.ts', start_line: 1, end_line: 1 },
+                        message: { text: 'File does not end with a newline' },
+                    },
+                }),
+                // B 类建议规则（无模板，不产生 fix action）
+                makeCodeScanningAlert({
+                    number: 2,
+                    rule: { id: 'js/sql-injection', severity: 'error', security_severity_level: 'high', name: 'SQL injection' },
+                    most_recent_instance: {
+                        ref: 'refs/heads/main',
+                        location: { path: 'src/db.ts', start_line: 42, end_line: 42 },
+                        message: { text: 'This query depends on a user-provided value.' },
+                    },
+                }),
+            ])
+
+        nock('https://api.github.com')
+            .get('/repos/foo/bar')
+            .reply(200, { default_branch: 'main' })
+
+        const config = resolveRuntimeConfig({
+            env: {
+                GITHUB_TOKEN: 'main-token-value',
+                AUTO_FIX_GITHUB_SECURITY_MODE: 'fix',
+                AUTO_FIX_GITHUB_SECURITY_REPOSITORIES: 'foo/bar',
+                AUTO_FIX_GITHUB_SECURITY_CODE_SCANNING: 'true',
+                AUTO_FIX_GITHUB_SECURITY_DRY_RUN: 'true',
+                AUTO_FIX_GITHUB_SECURITY_SEVERITY_THRESHOLD: 'all', // 格式类规则多为 low，需全量保留
+            },
+        })
+
+        const app = new DependfixApp({ config, workDir })
+        const { exitCode, result } = await app.run()
+
+        expect(exitCode).toBe(0)
+        // A 类告警产生成功的 code-scanning-fix action（dry-run 不写盘）
+        const csFixes = result.actions.filter((a) => a.type === 'code-scanning-fix')
+        expect(csFixes).toHaveLength(1)
+        expect(csFixes[0].target).toBe('eol-last')
+        expect(csFixes[0].success).toBe(true)
+        // B 类告警不产生 fix action（建议模式，T304 展示）
+        expect(result.actions.some((a) => a.type === 'code-scanning-fix' && a.target === 'js/sql-injection')).toBe(false)
+        expect(nock.pendingMocks()).toEqual([])
     })
 })

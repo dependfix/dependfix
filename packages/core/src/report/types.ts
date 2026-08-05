@@ -56,7 +56,7 @@ export interface RepositoryResult {
  * 修复动作记录（DependencyFixResult / LockfileRepairResult / VerificationResult 的扁平化表示）。
  */
 export interface FixAction {
-    type: 'dependency-upgrade' | 'lockfile-repair' | 'verification' | 'branch-cleanup'
+    type: 'dependency-upgrade' | 'lockfile-repair' | 'verification' | 'branch-cleanup' | 'code-scanning-fix'
     repository: string
     target: string
     fromVersion?: string
@@ -67,6 +67,16 @@ export interface FixAction {
     strategy?: string
     durationMs?: number
     diff?: string
+    /**
+     * 标记"无需修改"（code-scanning 修复时文件已合规）。
+     * 不计入 fixed/failed 统计（summary 与 repoResults 口径一致）。
+     */
+    noOp?: boolean
+    /**
+     * code-scanning 修复的目标文件（告警 manifestPath，相对路径）。
+     * 用于告警级修复状态关联（同 ruleId 多实例区分）。
+     */
+    filePath?: string
 }
 
 /**
@@ -119,8 +129,11 @@ export interface RepositoryActions {
 
 /**
  * 从告警列表中计算按严重级别的聚合。
+ * fixedKeys 为已修复告警键集合：依赖升级用 `alertKey`（repo/pkg@ver），
+ * Code Scanning 模板修复用 `${repo}/${ruleId}@${manifestPath}`（实例维度，同规则多文件区分）；
+ * 内部同时检查两种键。
  */
-export function aggregateSeverity(alerts: NormalizedSecurityAlert[], fixedAlerts: Set<string>): SeverityBreakdown {
+export function aggregateSeverity(alerts: NormalizedSecurityAlert[], fixedKeys: Set<string>): SeverityBreakdown {
     const empty = (): SeverityRow => ({ found: 0, fixable: 0, fixed: 0, failed: 0 })
 
     const breakdown: Record<AlertSeverity, SeverityRow> = {
@@ -137,7 +150,9 @@ export function aggregateSeverity(alerts: NormalizedSecurityAlert[], fixedAlerts
         if (alert.fixable) {
             row.fixable++
         }
-        if (fixedAlerts.has(alertKey(alert))) {
+        const fixed = fixedKeys.has(alertKey(alert))
+            || fixedKeys.has(`${alert.repository}/${alert.ruleId}@${alert.manifestPath}`)
+        if (fixed) {
             row.fixed++
         }
     }
@@ -219,6 +234,7 @@ export function actionTypeLabel(type: FixAction['type']): string {
         case 'lockfile-repair': return 'lockfile-repair'
         case 'verification': return 'verification'
         case 'branch-cleanup': return 'branch-cleanup'
+        case 'code-scanning-fix': return 'code-scanning-fix'
     }
 }
 

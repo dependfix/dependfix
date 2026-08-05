@@ -124,6 +124,37 @@ describe('computeExitCode', () => {
         expect(exitCode).toBe(1)
     })
 
+    // 回归：code-scanning 修复的 noOp（陈旧告警/无模板）不计 failed，不得触发非零退出
+    it('returns 0 when only noOp code-scanning-fix actions exist (no permanent failure semantics)', () => {
+        const exitCode = computeExitCode(makeCtx({
+            allActions: [{
+                type: 'code-scanning-fix',
+                repository: 'foo/bar',
+                target: 'eol-last',
+                success: true,
+                noOp: true,
+                error: 'no fix template for rule',
+            } as never],
+            repoResults: [{ alertsCount: 1, fixed: 0, verificationPassed: true } as never],
+        }))
+        expect(exitCode).toBe(0)
+    })
+
+    // 回归：code-scanning 真实失败（写盘失败/验证回滚）仍计入 failed → 非零退出
+    it('returns 1 when code-scanning fix fails but repo has success', () => {
+        const exitCode = computeExitCode(makeCtx({
+            allActions: [{
+                type: 'code-scanning-fix',
+                repository: 'foo/bar',
+                target: 'eol-last',
+                success: false,
+                error: 'cannot write src/foo.ts',
+            } as never],
+            repoResults: [{ alertsCount: 2, fixed: 1, verificationPassed: true } as never],
+        }))
+        expect(exitCode).toBe(1)
+    })
+
     // 回归：fix-and-pr 模式 fetch 403（PERMISSION_DENIED）时必须非零退出，杜绝静默空跑
     it('returns 2 for fix-and-pr mode when fetch fails with 403 and no repo succeeds', () => {
         const exitCode = computeExitCode(makeCtx({

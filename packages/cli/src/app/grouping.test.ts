@@ -154,8 +154,8 @@ describe('DependfixApp group upgrade (T213)', () => {
         const config = resolveRuntimeConfig({
             env: {
                 GITHUB_TOKEN: 'token',
-                AUTO_FIX_GITHUB_SECURITY_MODE: 'fix',
-                AUTO_FIX_GITHUB_SECURITY_REPOSITORIES: 'foo/bar',
+                DEPENDFIX_MODE: 'fix',
+                DEPENDFIX_REPOSITORIES: 'foo/bar',
             },
             cliOverrides: {
                 commands: ['pnpm lint'],
@@ -266,9 +266,9 @@ describe('DependfixApp group upgrade (T213)', () => {
         const config = resolveRuntimeConfig({
             env: {
                 GITHUB_TOKEN: 'token',
-                AUTO_FIX_GITHUB_SECURITY_MODE: 'fix',
-                AUTO_FIX_GITHUB_SECURITY_DRY_RUN: 'true',
-                AUTO_FIX_GITHUB_SECURITY_REPOSITORIES: 'foo/bar',
+                DEPENDFIX_MODE: 'fix',
+                DEPENDFIX_DRY_RUN: 'true',
+                DEPENDFIX_REPOSITORIES: 'foo/bar',
             },
             cliOverrides: {
                 commands: ['pnpm lint'],

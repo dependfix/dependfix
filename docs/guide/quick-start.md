@@ -176,8 +176,8 @@ jobs:
 | `--repo` | `-r`, `--repository`, `--repositories` | 目标仓库（`owner/repo`）。在 git 仓库内可自动推断 | — |
 | `--repos-file` | — | 从文件读取仓库列表（每行一个） | — |
 | `--github-token` | — | GitHub PAT | `GITHUB_TOKEN` 环境变量 |
-| `--alerts-token` | — | Dependabot alerts 专用最小权限 token（可选，仅 `Dependabot alerts: read`；缺省回退 `--github-token`。GITHUB_TOKEN 无法读取 Dependabot alerts） | `AUTO_FIX_GITHUB_SECURITY_ALERTS_TOKEN` 环境变量 |
-| `--alerts-source` | — | 告警数据源：`github-dependabot`（默认）/ `pnpm-audit`（本地无 token 回退，扫描当前工作区 lockfile；不要求 token / git remote；repository 解析 `--repo` → git remote → `local`） | `AUTO_FIX_GITHUB_SECURITY_ALERTS_SOURCE` 环境变量 |
+| `--alerts-token` | — | Dependabot alerts 专用最小权限 token（可选，仅 `Dependabot alerts: read`；缺省回退 `--github-token`。GITHUB_TOKEN 无法读取 Dependabot alerts） | `DEPENDFIX_ALERTS_TOKEN` 环境变量 |
+| `--alerts-source` | — | 告警数据源：`github-dependabot`（默认）/ `pnpm-audit`（本地无 token 回退，扫描当前工作区 lockfile；不要求 token / git remote；repository 解析 `--repo` → git remote → `local`） | `DEPENDFIX_ALERTS_SOURCE` 环境变量 |
 | `--severity-threshold` | — | `critical` / `high` / `medium` / `all` | `high` |
 | `--dry-run` | — | 试运行，不写入文件。report-only 模式默认 `true` | `false`（fix/fix-and-pr） |
 | `--create-pr` | — | 创建 Pull Request | `false` |

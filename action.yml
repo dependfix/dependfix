@@ -107,7 +107,7 @@ runs:
       env:
         GITHUB_TOKEN: ${{ inputs.github-token }}
         # Dependabot alerts 专用最小权限 token（经环境变量传递，避免出现在进程列表）
-        AUTO_FIX_GITHUB_SECURITY_ALERTS_TOKEN: ${{ inputs.dependabot-alerts-token }}
+        DEPENDFIX_ALERTS_TOKEN: ${{ inputs.dependabot-alerts-token }}
         # M5: AI engine — passed to CLI when available
         AI_API_TOKEN: ${{ inputs.ai-api-token }}
         AI_API_BASE_URL: ${{ inputs.ai-api-base-url }}

@@ -8,7 +8,7 @@ describe('resolveRuntimeConfig', () => {
         const config = resolveRuntimeConfig({
             env: {
                 GITHUB_TOKEN: 'token-from-env',
-                AUTO_FIX_GITHUB_SECURITY_REPOSITORIES: 'owner/repo-a, owner/repo-b',
+                DEPENDFIX_REPOSITORIES: 'owner/repo-a, owner/repo-b',
             },
         })
 
@@ -32,8 +32,8 @@ describe('resolveRuntimeConfig', () => {
         const config = resolveRuntimeConfig({
             env: {
                 GITHUB_TOKEN: 'token-from-env',
-                AUTO_FIX_GITHUB_SECURITY_REPOSITORIES: 'owner/repo-a',
-                AUTO_FIX_GITHUB_SECURITY_UPGRADE_GROUPS: 'eslint-stack:eslint,eslint-plugin-vue;types-group:@types/express,@types/koa',
+                DEPENDFIX_REPOSITORIES: 'owner/repo-a',
+                DEPENDFIX_UPGRADE_GROUPS: 'eslint-stack:eslint,eslint-plugin-vue;types-group:@types/express,@types/koa',
             },
         })
 
@@ -60,8 +60,8 @@ describe('resolveRuntimeConfig', () => {
         const config = resolveRuntimeConfig({
             env: {
                 GITHUB_TOKEN: 'token-from-env',
-                AUTO_FIX_GITHUB_SECURITY_REPOSITORIES: 'owner/repo-a',
-                AUTO_FIX_GITHUB_SECURITY_UPGRADE_GROUPS: 'env-group:env-pkg',
+                DEPENDFIX_REPOSITORIES: 'owner/repo-a',
+                DEPENDFIX_UPGRADE_GROUPS: 'env-group:env-pkg',
             },
             cliOverrides: {
                 upgradeGroups: { 'cli-group': ['cli-pkg'] },
@@ -96,9 +96,9 @@ describe('resolveRuntimeConfig', () => {
         const config = resolveRuntimeConfig({
             env: {
                 GITHUB_TOKEN: 'token-from-env',
-                AUTO_FIX_GITHUB_SECURITY_REPOSITORIES: 'env-owner/repo-c',
-                AUTO_FIX_GITHUB_SECURITY_SEVERITY_THRESHOLD: 'medium',
-                AUTO_FIX_GITHUB_SECURITY_DRY_RUN: 'true',
+                DEPENDFIX_REPOSITORIES: 'env-owner/repo-c',
+                DEPENDFIX_SEVERITY_THRESHOLD: 'medium',
+                DEPENDFIX_DRY_RUN: 'true',
             },
             cliOverrides: invocation.configOverrides,
         })
@@ -128,8 +128,8 @@ describe('resolveRuntimeConfig', () => {
         const config = resolveRuntimeConfig({
             env: {
                 GITHUB_TOKEN: 'token-from-env',
-                AUTO_FIX_GITHUB_SECURITY_REPOSITORIES: 'owner/repo-a',
-                AUTO_FIX_GITHUB_SECURITY_ALERTS_TOKEN: 'github_pat_alerts_only',
+                DEPENDFIX_REPOSITORIES: 'owner/repo-a',
+                DEPENDFIX_ALERTS_TOKEN: 'github_pat_alerts_only',
             },
         })
 
@@ -149,8 +149,8 @@ describe('resolveRuntimeConfig', () => {
         const config = resolveRuntimeConfig({
             env: {
                 GITHUB_TOKEN: 'token-from-env',
-                AUTO_FIX_GITHUB_SECURITY_REPOSITORIES: 'owner/repo-a',
-                AUTO_FIX_GITHUB_SECURITY_ALERTS_TOKEN: 'alerts-from-env',
+                DEPENDFIX_REPOSITORIES: 'owner/repo-a',
+                DEPENDFIX_ALERTS_TOKEN: 'alerts-from-env',
             },
             cliOverrides: invocation.configOverrides,
         })
@@ -162,7 +162,7 @@ describe('resolveRuntimeConfig', () => {
         const config = resolveRuntimeConfig({
             env: {
                 GITHUB_TOKEN: 'token-from-env',
-                AUTO_FIX_GITHUB_SECURITY_REPOSITORIES: 'owner/repo-a',
+                DEPENDFIX_REPOSITORIES: 'owner/repo-a',
             },
         })
 
@@ -173,8 +173,8 @@ describe('resolveRuntimeConfig', () => {
         const config = resolveRuntimeConfig({
             env: {
                 GITHUB_TOKEN: 'token-from-env',
-                AUTO_FIX_GITHUB_SECURITY_REPOSITORIES: 'owner/repo-a',
-                AUTO_FIX_GITHUB_SECURITY_CLEANUP_BRANCHES_AUTO: 'true',
+                DEPENDFIX_REPOSITORIES: 'owner/repo-a',
+                DEPENDFIX_CLEANUP_BRANCHES_AUTO: 'true',
             },
         })
 
@@ -192,8 +192,8 @@ describe('resolveRuntimeConfig', () => {
         const config = resolveRuntimeConfig({
             env: {
                 GITHUB_TOKEN: 'token-from-env',
-                AUTO_FIX_GITHUB_SECURITY_REPOSITORIES: 'owner/repo-a',
-                AUTO_FIX_GITHUB_SECURITY_CLEANUP_BRANCHES_AUTO: 'false',
+                DEPENDFIX_REPOSITORIES: 'owner/repo-a',
+                DEPENDFIX_CLEANUP_BRANCHES_AUTO: 'false',
             },
             cliOverrides: invocation.configOverrides,
         })
@@ -205,8 +205,8 @@ describe('resolveRuntimeConfig', () => {
         expect(() => resolveRuntimeConfig({
             env: {
                 GITHUB_TOKEN: 'token-from-env',
-                AUTO_FIX_GITHUB_SECURITY_REPOSITORIES: 'owner/repo-a',
-                AUTO_FIX_GITHUB_SECURITY_CREATE_PR: 'true',
+                DEPENDFIX_REPOSITORIES: 'owner/repo-a',
+                DEPENDFIX_CREATE_PR: 'true',
             },
         })).toThrow('createPullRequest cannot be enabled when mode is report-only.')
     })
@@ -215,8 +215,8 @@ describe('resolveRuntimeConfig', () => {
         const config = resolveRuntimeConfig({
             env: {
                 GITHUB_TOKEN: 'token-from-env',
-                AUTO_FIX_GITHUB_SECURITY_REPOSITORIES: 'owner/repo-a',
-                AUTO_FIX_GITHUB_SECURITY_MODE: 'fix-and-pr',
+                DEPENDFIX_REPOSITORIES: 'owner/repo-a',
+                DEPENDFIX_MODE: 'fix-and-pr',
             },
         })
 
@@ -227,8 +227,8 @@ describe('resolveRuntimeConfig', () => {
         expect(() => resolveRuntimeConfig({
             env: {
                 GITHUB_TOKEN: 'token-from-env',
-                AUTO_FIX_GITHUB_SECURITY_REPOSITORIES: 'owner/repo-a',
-                AUTO_FIX_GITHUB_SECURITY_MODE: 'fix-and-pr',
+                DEPENDFIX_REPOSITORIES: 'owner/repo-a',
+                DEPENDFIX_MODE: 'fix-and-pr',
             },
         })).not.toThrow()
     })
@@ -237,9 +237,9 @@ describe('resolveRuntimeConfig', () => {
         expect(() => resolveRuntimeConfig({
             env: {
                 GITHUB_TOKEN: 'token-from-env',
-                AUTO_FIX_GITHUB_SECURITY_REPOSITORIES: 'owner/repo-a',
-                AUTO_FIX_GITHUB_SECURITY_MODE: 'fix-and-pr',
-                AUTO_FIX_GITHUB_SECURITY_DRY_RUN: 'true',
+                DEPENDFIX_REPOSITORIES: 'owner/repo-a',
+                DEPENDFIX_MODE: 'fix-and-pr',
+                DEPENDFIX_DRY_RUN: 'true',
             },
         })).toThrow('createPullRequest cannot be enabled while dryRun is true.')
     })
@@ -248,8 +248,8 @@ describe('resolveRuntimeConfig', () => {
         const config = resolveRuntimeConfig({
             env: {
                 GITHUB_TOKEN: 'token-from-env',
-                AUTO_FIX_GITHUB_SECURITY_REPOSITORIES: 'owner/repo-a',
-                AUTO_FIX_GITHUB_SECURITY_MODE: 'cleanup-branches',
+                DEPENDFIX_REPOSITORIES: 'owner/repo-a',
+                DEPENDFIX_MODE: 'cleanup-branches',
             },
         })
 
@@ -289,10 +289,10 @@ describe('resolveRuntimeConfig', () => {
         expect(() => resolveRuntimeConfig({
             env: {
                 GITHUB_TOKEN: 'token-from-env',
-                AUTO_FIX_GITHUB_SECURITY_REPOSITORIES: 'owner/repo-a',
-                AUTO_FIX_GITHUB_SECURITY_MODE: 'fix',
-                AUTO_FIX_GITHUB_SECURITY_COMMIT: 'true',
-                AUTO_FIX_GITHUB_SECURITY_DRY_RUN: 'true',
+                DEPENDFIX_REPOSITORIES: 'owner/repo-a',
+                DEPENDFIX_MODE: 'fix',
+                DEPENDFIX_COMMIT: 'true',
+                DEPENDFIX_DRY_RUN: 'true',
             },
         })).toThrow('commit cannot be enabled while dryRun is true.')
     })
@@ -301,8 +301,8 @@ describe('resolveRuntimeConfig', () => {
         expect(() => resolveRuntimeConfig({
             env: {
                 GITHUB_TOKEN: 'token-from-env',
-                AUTO_FIX_GITHUB_SECURITY_REPOSITORIES: 'owner/repo-a',
-                AUTO_FIX_GITHUB_SECURITY_COMMIT: 'true',
+                DEPENDFIX_REPOSITORIES: 'owner/repo-a',
+                DEPENDFIX_COMMIT: 'true',
             },
         })).toThrow('commit is only supported in fix mode.')
     })
@@ -311,10 +311,10 @@ describe('resolveRuntimeConfig', () => {
         expect(() => resolveRuntimeConfig({
             env: {
                 GITHUB_TOKEN: 'token-from-env',
-                AUTO_FIX_GITHUB_SECURITY_REPOSITORIES: 'owner/repo-a',
-                AUTO_FIX_GITHUB_SECURITY_MODE: 'fix-and-pr',
-                AUTO_FIX_GITHUB_SECURITY_COMMIT: 'true',
-                AUTO_FIX_GITHUB_SECURITY_CREATE_PR: 'false',
+                DEPENDFIX_REPOSITORIES: 'owner/repo-a',
+                DEPENDFIX_MODE: 'fix-and-pr',
+                DEPENDFIX_COMMIT: 'true',
+                DEPENDFIX_CREATE_PR: 'false',
             },
         })).toThrow('commit is only supported in fix mode.')
     })
@@ -323,10 +323,10 @@ describe('resolveRuntimeConfig', () => {
         expect(() => resolveRuntimeConfig({
             env: {
                 GITHUB_TOKEN: 'token-from-env',
-                AUTO_FIX_GITHUB_SECURITY_REPOSITORIES: 'owner/repo-a',
-                AUTO_FIX_GITHUB_SECURITY_MODE: 'fix',
-                AUTO_FIX_GITHUB_SECURITY_COMMIT: 'true',
-                AUTO_FIX_GITHUB_SECURITY_CREATE_PR: 'true',
+                DEPENDFIX_REPOSITORIES: 'owner/repo-a',
+                DEPENDFIX_MODE: 'fix',
+                DEPENDFIX_COMMIT: 'true',
+                DEPENDFIX_CREATE_PR: 'true',
             },
         })).toThrow('commit cannot be enabled together with createPullRequest.')
     })
@@ -335,7 +335,7 @@ describe('resolveRuntimeConfig', () => {
         expect(() => resolveRuntimeConfig({
             env: {
                 GITHUB_TOKEN: 'token-from-env',
-                AUTO_FIX_GITHUB_SECURITY_REPOSITORIES: 'owner/repo-a, invalid-repo, owner/repo-b',
+                DEPENDFIX_REPOSITORIES: 'owner/repo-a, invalid-repo, owner/repo-b',
             },
         })).toThrow('Invalid repository identifier')
     })
@@ -343,7 +343,7 @@ describe('resolveRuntimeConfig', () => {
     it('reads alertSource from env (pnpm-audit local fallback)', () => {
         const config = resolveRuntimeConfig({
             env: {
-                AUTO_FIX_GITHUB_SECURITY_ALERTS_SOURCE: 'pnpm-audit',
+                DEPENDFIX_ALERTS_SOURCE: 'pnpm-audit',
             },
         })
 
@@ -359,7 +359,7 @@ describe('resolveRuntimeConfig', () => {
 
         const config = resolveRuntimeConfig({
             env: {
-                AUTO_FIX_GITHUB_SECURITY_ALERTS_SOURCE: 'github-dependabot',
+                DEPENDFIX_ALERTS_SOURCE: 'github-dependabot',
             },
             cliOverrides: invocation.configOverrides,
         })
@@ -369,7 +369,7 @@ describe('resolveRuntimeConfig', () => {
 
     it('defaults alertSource to github-dependabot', () => {
         const config = resolveRuntimeConfig({
-            env: { GITHUB_TOKEN: 'token', AUTO_FIX_GITHUB_SECURITY_REPOSITORIES: 'owner/repo-a' },
+            env: { GITHUB_TOKEN: 'token', DEPENDFIX_REPOSITORIES: 'owner/repo-a' },
         })
 
         expect(config.alertSource).toBe('github-dependabot')
@@ -377,8 +377,8 @@ describe('resolveRuntimeConfig', () => {
 
     it('rejects invalid alerts-source value', () => {
         expect(() => resolveRuntimeConfig({
-            env: { AUTO_FIX_GITHUB_SECURITY_ALERTS_SOURCE: 'osv-scanner' },
-        })).toThrow('AUTO_FIX_GITHUB_SECURITY_ALERTS_SOURCE must be one of')
+            env: { DEPENDFIX_ALERTS_SOURCE: 'osv-scanner' },
+        })).toThrow('DEPENDFIX_ALERTS_SOURCE must be one of')
     })
 
     it('rejects invalid --alerts-source from cli (ARGUMENT_PARSE_ERROR)', () => {
@@ -393,7 +393,7 @@ describe('resolveRuntimeConfig', () => {
         // 无 token 不报错；无 --repo 时由 app 层解析（git remote → local 兜底）。
         // config 层在无显式 repos 时仍会尝试 git remote 推断（本仓库即 dependfix/dependfix）。
         const config = resolveRuntimeConfig({
-            env: { AUTO_FIX_GITHUB_SECURITY_ALERTS_SOURCE: 'pnpm-audit' },
+            env: { DEPENDFIX_ALERTS_SOURCE: 'pnpm-audit' },
         })
 
         expect(config.alertSource).toBe('pnpm-audit')
@@ -404,8 +404,8 @@ describe('resolveRuntimeConfig', () => {
     it('allows pnpm-audit with a single explicit repository', () => {
         const config = resolveRuntimeConfig({
             env: {
-                AUTO_FIX_GITHUB_SECURITY_ALERTS_SOURCE: 'pnpm-audit',
-                AUTO_FIX_GITHUB_SECURITY_REPOSITORIES: 'owner/repo-a',
+                DEPENDFIX_ALERTS_SOURCE: 'pnpm-audit',
+                DEPENDFIX_REPOSITORIES: 'owner/repo-a',
             },
         })
 
@@ -415,8 +415,8 @@ describe('resolveRuntimeConfig', () => {
     it('rejects pnpm-audit with multiple repositories (audit scans one workspace)', () => {
         expect(() => resolveRuntimeConfig({
             env: {
-                AUTO_FIX_GITHUB_SECURITY_ALERTS_SOURCE: 'pnpm-audit',
-                AUTO_FIX_GITHUB_SECURITY_REPOSITORIES: 'owner/repo-a, owner/repo-b',
+                DEPENDFIX_ALERTS_SOURCE: 'pnpm-audit',
+                DEPENDFIX_REPOSITORIES: 'owner/repo-a, owner/repo-b',
             },
         })).toThrow('pnpm-audit alert source supports at most one repository')
     })
@@ -424,8 +424,8 @@ describe('resolveRuntimeConfig', () => {
     it('rejects pnpm-audit with fix-and-pr mode (PR requires GitHub)', () => {
         expect(() => resolveRuntimeConfig({
             env: {
-                AUTO_FIX_GITHUB_SECURITY_ALERTS_SOURCE: 'pnpm-audit',
-                AUTO_FIX_GITHUB_SECURITY_MODE: 'fix-and-pr',
+                DEPENDFIX_ALERTS_SOURCE: 'pnpm-audit',
+                DEPENDFIX_MODE: 'fix-and-pr',
             },
         })).toThrow('fix-and-pr mode requires the github-dependabot alert source')
     })
@@ -433,15 +433,15 @@ describe('resolveRuntimeConfig', () => {
     it('rejects pnpm-audit with cleanup-branches mode (branch cleanup needs GitHub API)', () => {
         expect(() => resolveRuntimeConfig({
             env: {
-                AUTO_FIX_GITHUB_SECURITY_ALERTS_SOURCE: 'pnpm-audit',
-                AUTO_FIX_GITHUB_SECURITY_MODE: 'cleanup-branches',
+                DEPENDFIX_ALERTS_SOURCE: 'pnpm-audit',
+                DEPENDFIX_MODE: 'cleanup-branches',
             },
         })).toThrow('cleanup-branches mode requires the github-dependabot alert source')
     })
 
     it('disables code scanning by default (backward compatible)', () => {
         const config = resolveRuntimeConfig({
-            env: { GITHUB_TOKEN: 't', AUTO_FIX_GITHUB_SECURITY_REPOSITORIES: 'foo/bar' },
+            env: { GITHUB_TOKEN: 't', DEPENDFIX_REPOSITORIES: 'foo/bar' },
         })
 
         expect(config.codeScanningEnabled).toBe(false)
@@ -451,8 +451,8 @@ describe('resolveRuntimeConfig', () => {
         const config = resolveRuntimeConfig({
             env: {
                 GITHUB_TOKEN: 't',
-                AUTO_FIX_GITHUB_SECURITY_REPOSITORIES: 'foo/bar',
-                AUTO_FIX_GITHUB_SECURITY_CODE_SCANNING: 'true',
+                DEPENDFIX_REPOSITORIES: 'foo/bar',
+                DEPENDFIX_CODE_SCANNING: 'true',
             },
         })
 
@@ -469,8 +469,8 @@ describe('resolveRuntimeConfig', () => {
     it('rejects code scanning with pnpm-audit source (Code Scanning is a GitHub API source)', () => {
         expect(() => resolveRuntimeConfig({
             env: {
-                AUTO_FIX_GITHUB_SECURITY_ALERTS_SOURCE: 'pnpm-audit',
-                AUTO_FIX_GITHUB_SECURITY_CODE_SCANNING: 'true',
+                DEPENDFIX_ALERTS_SOURCE: 'pnpm-audit',
+                DEPENDFIX_CODE_SCANNING: 'true',
             },
         })).toThrow('code-scanning requires the github-dependabot alert source')
     })
@@ -479,8 +479,8 @@ describe('resolveRuntimeConfig', () => {
         const config = resolveRuntimeConfig({
             env: {
                 GITHUB_TOKEN: 't',
-                AUTO_FIX_GITHUB_SECURITY_REPOSITORIES: 'foo/bar',
-                AUTO_FIX_GITHUB_SECURITY_TOOLCHAIN_PNPM_VERSION: '10.5.2',
+                DEPENDFIX_REPOSITORIES: 'foo/bar',
+                DEPENDFIX_TOOLCHAIN_PNPM_VERSION: '10.5.2',
             },
         })
         expect(config.toolchainPnpmVersion).toBe('10.5.2')
@@ -496,7 +496,7 @@ describe('resolveRuntimeConfig', () => {
 
     it('defaults toolchainPnpmVersion to undefined (resolved from packageManager at repair time)', () => {
         const config = resolveRuntimeConfig({
-            env: { GITHUB_TOKEN: 't', AUTO_FIX_GITHUB_SECURITY_REPOSITORIES: 'foo/bar' },
+            env: { GITHUB_TOKEN: 't', DEPENDFIX_REPOSITORIES: 'foo/bar' },
         })
         expect(config.toolchainPnpmVersion).toBeUndefined()
     })
@@ -505,15 +505,15 @@ describe('resolveRuntimeConfig', () => {
         expect(() => resolveRuntimeConfig({
             env: {
                 GITHUB_TOKEN: 't',
-                AUTO_FIX_GITHUB_SECURITY_REPOSITORIES: 'foo/bar',
-                AUTO_FIX_GITHUB_SECURITY_TOOLCHAIN_PNPM_VERSION: '1; touch /tmp/pwned',
+                DEPENDFIX_REPOSITORIES: 'foo/bar',
+                DEPENDFIX_TOOLCHAIN_PNPM_VERSION: '1; touch /tmp/pwned',
             },
         })).toThrow('Invalid toolchainPnpmVersion')
     })
 
     it('still requires token for github-dependabot source', () => {
         expect(() => resolveRuntimeConfig({
-            env: { AUTO_FIX_GITHUB_SECURITY_ALERTS_SOURCE: 'github-dependabot' },
+            env: { DEPENDFIX_ALERTS_SOURCE: 'github-dependabot' },
         })).toThrow('Missing GitHub token')
     })
 })

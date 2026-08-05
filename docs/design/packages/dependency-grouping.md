@@ -125,7 +125,7 @@ for 组 in groups:
 
 - `--upgrade-groups "name1:pkg1,pkg2;name2:pkg3"`：用户显式分组，优先级最高；与自动分组冲突时以显式为准
   - `;` 分隔多个组；`:` 分隔组名与包列表；`,` 分隔组内包名
-- 环境变量 `AUTO_FIX_GITHUB_SECURITY_UPGRADE_GROUPS`：与 CLI 同格式字符串（`"name1:pkg1,pkg2;name2:pkg3"`）
+- 环境变量 `DEPENDFIX_UPGRADE_GROUPS`：与 CLI 同格式字符串（`"name1:pkg1,pkg2;name2:pkg3"`）
 - 配置文件支持（M4+，计划中）
 - 组内不降级保护、@types 归并等规则对显式分组同样生效
 

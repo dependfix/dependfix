@@ -70,9 +70,9 @@ describe('DependfixApp dual token', () => {
         const config = resolveRuntimeConfig({
             env: {
                 GITHUB_TOKEN: 'main-token-value',
-                AUTO_FIX_GITHUB_SECURITY_MODE: 'report-only',
-                AUTO_FIX_GITHUB_SECURITY_REPOSITORIES: 'foo/bar',
-                AUTO_FIX_GITHUB_SECURITY_ALERTS_TOKEN: 'alerts-token-value',
+                DEPENDFIX_MODE: 'report-only',
+                DEPENDFIX_REPOSITORIES: 'foo/bar',
+                DEPENDFIX_ALERTS_TOKEN: 'alerts-token-value',
             },
         })
 
@@ -98,8 +98,8 @@ describe('DependfixApp dual token', () => {
         const config = resolveRuntimeConfig({
             env: {
                 GITHUB_TOKEN: 'main-token-value',
-                AUTO_FIX_GITHUB_SECURITY_MODE: 'report-only',
-                AUTO_FIX_GITHUB_SECURITY_REPOSITORIES: 'foo/bar',
+                DEPENDFIX_MODE: 'report-only',
+                DEPENDFIX_REPOSITORIES: 'foo/bar',
             },
         })
 
@@ -146,8 +146,8 @@ describe('DependfixApp verification gate', () => {
         const config = resolveRuntimeConfig({
             env: {
                 GITHUB_TOKEN: 'token',
-                AUTO_FIX_GITHUB_SECURITY_MODE: 'fix-and-pr',
-                AUTO_FIX_GITHUB_SECURITY_REPOSITORIES: 'foo/bar',
+                DEPENDFIX_MODE: 'fix-and-pr',
+                DEPENDFIX_REPOSITORIES: 'foo/bar',
             },
             cliOverrides: {
                 commands: ['pnpm lint'],
@@ -188,8 +188,8 @@ describe('DependfixApp pnpm-audit source', () => {
 
         const config = resolveRuntimeConfig({
             env: {
-                AUTO_FIX_GITHUB_SECURITY_ALERTS_SOURCE: 'pnpm-audit',
-                AUTO_FIX_GITHUB_SECURITY_MODE: 'report-only',
+                DEPENDFIX_ALERTS_SOURCE: 'pnpm-audit',
+                DEPENDFIX_MODE: 'report-only',
             },
             // 指向无 git remote 的临时目录 → config 推断失败 → app 层 local 兜底
             workDir,
@@ -218,9 +218,9 @@ describe('DependfixApp pnpm-audit source', () => {
 
         const config = resolveRuntimeConfig({
             env: {
-                AUTO_FIX_GITHUB_SECURITY_ALERTS_SOURCE: 'pnpm-audit',
-                AUTO_FIX_GITHUB_SECURITY_MODE: 'report-only',
-                AUTO_FIX_GITHUB_SECURITY_REPOSITORIES: 'owner/repo',
+                DEPENDFIX_ALERTS_SOURCE: 'pnpm-audit',
+                DEPENDFIX_MODE: 'report-only',
+                DEPENDFIX_REPOSITORIES: 'owner/repo',
             },
         })
 
@@ -242,10 +242,10 @@ describe('DependfixApp pnpm-audit source', () => {
 
         const config = resolveRuntimeConfig({
             env: {
-                AUTO_FIX_GITHUB_SECURITY_ALERTS_SOURCE: 'pnpm-audit',
-                AUTO_FIX_GITHUB_SECURITY_MODE: 'fix',
-                AUTO_FIX_GITHUB_SECURITY_REPOSITORIES: 'owner/repo',
-                AUTO_FIX_GITHUB_SECURITY_DRY_RUN: 'true',
+                DEPENDFIX_ALERTS_SOURCE: 'pnpm-audit',
+                DEPENDFIX_MODE: 'fix',
+                DEPENDFIX_REPOSITORIES: 'owner/repo',
+                DEPENDFIX_DRY_RUN: 'true',
             },
         })
 
@@ -324,9 +324,9 @@ describe('DependfixApp code-scanning parallel source', () => {
         const config = resolveRuntimeConfig({
             env: {
                 GITHUB_TOKEN: 'main-token-value',
-                AUTO_FIX_GITHUB_SECURITY_MODE: 'report-only',
-                AUTO_FIX_GITHUB_SECURITY_REPOSITORIES: 'foo/bar',
-                AUTO_FIX_GITHUB_SECURITY_CODE_SCANNING: 'true',
+                DEPENDFIX_MODE: 'report-only',
+                DEPENDFIX_REPOSITORIES: 'foo/bar',
+                DEPENDFIX_CODE_SCANNING: 'true',
             },
         })
 
@@ -355,8 +355,8 @@ describe('DependfixApp code-scanning parallel source', () => {
         const config = resolveRuntimeConfig({
             env: {
                 GITHUB_TOKEN: 'main-token-value',
-                AUTO_FIX_GITHUB_SECURITY_MODE: 'report-only',
-                AUTO_FIX_GITHUB_SECURITY_REPOSITORIES: 'foo/bar',
+                DEPENDFIX_MODE: 'report-only',
+                DEPENDFIX_REPOSITORIES: 'foo/bar',
             },
         })
 
@@ -385,9 +385,9 @@ describe('DependfixApp code-scanning parallel source', () => {
         const config = resolveRuntimeConfig({
             env: {
                 GITHUB_TOKEN: 'main-token-value',
-                AUTO_FIX_GITHUB_SECURITY_MODE: 'report-only',
-                AUTO_FIX_GITHUB_SECURITY_REPOSITORIES: 'foo/bar',
-                AUTO_FIX_GITHUB_SECURITY_MAX_ALERTS_PER_REPOSITORY: '1',
+                DEPENDFIX_MODE: 'report-only',
+                DEPENDFIX_REPOSITORIES: 'foo/bar',
+                DEPENDFIX_MAX_ALERTS_PER_REPOSITORY: '1',
             },
         })
 
@@ -422,10 +422,10 @@ describe('DependfixApp code-scanning parallel source', () => {
         const config = resolveRuntimeConfig({
             env: {
                 GITHUB_TOKEN: 'main-token-value',
-                AUTO_FIX_GITHUB_SECURITY_MODE: 'report-only',
-                AUTO_FIX_GITHUB_SECURITY_REPOSITORIES: 'foo/bar',
-                AUTO_FIX_GITHUB_SECURITY_CODE_SCANNING: 'true',
-                AUTO_FIX_GITHUB_SECURITY_MAX_ALERTS_PER_REPOSITORY: '1',
+                DEPENDFIX_MODE: 'report-only',
+                DEPENDFIX_REPOSITORIES: 'foo/bar',
+                DEPENDFIX_CODE_SCANNING: 'true',
+                DEPENDFIX_MAX_ALERTS_PER_REPOSITORY: '1',
             },
         })
 
@@ -451,9 +451,9 @@ describe('DependfixApp code-scanning parallel source', () => {
         const config = resolveRuntimeConfig({
             env: {
                 GITHUB_TOKEN: 'main-token-value',
-                AUTO_FIX_GITHUB_SECURITY_MODE: 'report-only',
-                AUTO_FIX_GITHUB_SECURITY_REPOSITORIES: 'foo/bar',
-                AUTO_FIX_GITHUB_SECURITY_CODE_SCANNING: 'true',
+                DEPENDFIX_MODE: 'report-only',
+                DEPENDFIX_REPOSITORIES: 'foo/bar',
+                DEPENDFIX_CODE_SCANNING: 'true',
             },
         })
 
@@ -511,11 +511,11 @@ describe('DependfixApp code-scanning parallel source', () => {
         const config = resolveRuntimeConfig({
             env: {
                 GITHUB_TOKEN: 'main-token-value',
-                AUTO_FIX_GITHUB_SECURITY_MODE: 'fix',
-                AUTO_FIX_GITHUB_SECURITY_REPOSITORIES: 'foo/bar',
-                AUTO_FIX_GITHUB_SECURITY_CODE_SCANNING: 'true',
-                AUTO_FIX_GITHUB_SECURITY_DRY_RUN: 'true',
-                AUTO_FIX_GITHUB_SECURITY_SEVERITY_THRESHOLD: 'all', // 格式类规则多为 low，需全量保留
+                DEPENDFIX_MODE: 'fix',
+                DEPENDFIX_REPOSITORIES: 'foo/bar',
+                DEPENDFIX_CODE_SCANNING: 'true',
+                DEPENDFIX_DRY_RUN: 'true',
+                DEPENDFIX_SEVERITY_THRESHOLD: 'all', // 格式类规则多为 low，需全量保留
             },
         })
 

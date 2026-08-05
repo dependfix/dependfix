@@ -145,7 +145,7 @@
 
 ```text
 CLI:  --alerts-source <github-dependabot|pnpm-audit>     # 默认 github-dependabot
-Env:  AUTO_FIX_GITHUB_SECURITY_ALERTS_SOURCE
+Env:  DEPENDFIX_ALERTS_SOURCE
 ```
 
 - 校验：`pnpm-audit` + `fix-and-pr` → `CONFIG_VALIDATION_ERROR`；`pnpm-audit` + 多 `--repo`（≥2）→ 同上；0/1 个合法
@@ -196,7 +196,7 @@ Env:  AUTO_FIX_GITHUB_SECURITY_ALERTS_SOURCE
 ## 9. 实现记录（2026-08-04）
 
 - `packages/cli/src/alerts/pnpm-audit-fetcher.ts`：`pnpm audit --json` 执行（**不检查 exit code**——发现漏洞时 exit 1 是正常行为，仅空输出/解析失败为硬失败）+ legacy/modern 双格式解析 + `packageName:advisoryId:severity` 去重 + `normalizeAuditSeverity` 归一 + advisoryId 稳定哈希（id 数字约束）
-- config：`--alerts-source` / `AUTO_FIX_GITHUB_SECURITY_ALERTS_SOURCE`；pnpm-audit 下跳过 token 校验、允许 0/1 个 repo、拒绝 `fix-and-pr`
+- config：`--alerts-source` / `DEPENDFIX_ALERTS_SOURCE`；pnpm-audit 下跳过 token 校验、允许 0/1 个 repo、拒绝 `fix-and-pr`
 - app：`fetchAlerts` 双源分支；`resolveAlertRepositories`（`--repo` → git remote → `local`）；pnpm-audit 不创建 GitHub client
 - 报告：§1 Header 渲染 `Alert Source`；403 hint 追加 `--alerts-source pnpm-audit` 切换指引
 - 真实冒烟：dependfix 仓库 `report-only --alerts-source pnpm-audit` → 12 条 high 告警、git remote 推断、报告 GHSA 列正确

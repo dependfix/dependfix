@@ -93,7 +93,7 @@ jobs:
 | `--repo`, `-r` | 目标仓库（`owner/repo`），逗号分隔多个 | — |
 | `--repos-file` | 从文件读取仓库列表（每行一个） | — |
 | `--github-token` | GitHub Personal Access Token | `GITHUB_TOKEN` 环境变量 |
-| `--alerts-token` | Dependabot alerts 专用最小权限 token（可选，仅 `Dependabot alerts: read`；缺省回退 `--github-token`。GITHUB_TOKEN 无法读取 Dependabot alerts） | `AUTO_FIX_GITHUB_SECURITY_ALERTS_TOKEN` 环境变量 |
+| `--alerts-token` | Dependabot alerts 专用最小权限 token（可选，仅 `Dependabot alerts: read`；缺省回退 `--github-token`。GITHUB_TOKEN 无法读取 Dependabot alerts） | `DEPENDFIX_ALERTS_TOKEN` 环境变量 |
 | `--severity-threshold` | 严重级别阈值：`critical` / `high` / `medium` / `all` | `high` |
 | `--dry-run` | 试运行，不实际修改文件（report-only 模式默认 `true`） | 依模式而定 |
 | `--create-pr` | 创建 Pull Request（fix-and-pr 模式自动启用） | `false` |

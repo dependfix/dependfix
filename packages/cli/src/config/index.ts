@@ -7,6 +7,21 @@ export const RUNTIME_MODES = ['report-only', 'fix', 'fix-and-pr', 'cleanup-branc
 export const SEVERITY_THRESHOLDS = ['critical', 'high', 'medium', 'all'] as const
 export const ALERT_SOURCES: readonly AlertSourceKind[] = ['github-dependabot', 'pnpm-audit']
 
+/**
+ * 环境变量统一前缀（v0.2 起替代旧项目名遗留的 `AUTO_FIX_GITHUB_SECURITY_`）。
+ * 所有环境变量读取必须经由 {@link readEnv}，禁止散落硬编码，防止改名漏网。
+ */
+export const ENV_PREFIX = 'DEPENDFIX_'
+
+/**
+ * 从统一前缀读取环境变量。
+ * @param env 进程环境
+ * @param name 变量名（不含前缀），如 `'MODE'` → `DEPENDFIX_MODE`
+ */
+export function readEnv(env: NodeJS.ProcessEnv, name: string): string | undefined {
+    return env[ENV_PREFIX + name]
+}
+
 export type RuntimeMode = typeof RUNTIME_MODES[number]
 export type { SeverityThreshold, AlertSourceKind }
 
@@ -189,7 +204,7 @@ function normalizeUpgradeGroups(value: string | undefined): Record<string, strin
         if (idx <= 0) {
             throw new AppError(
                 'CONFIG_VALIDATION_ERROR',
-                `Invalid AUTO_FIX_GITHUB_SECURITY_UPGRADE_GROUPS entry: "${entry}". Expected format: "name:pkg1,pkg2"`,
+                `Invalid ${ENV_PREFIX}UPGRADE_GROUPS entry: "${entry}". Expected format: "name:pkg1,pkg2"`,
             )
         }
         const name = entry.slice(0, idx).trim()
@@ -204,13 +219,13 @@ function normalizeUpgradeGroups(value: string | undefined): Record<string, strin
         if (!name || pkgs.length === 0) {
             throw new AppError(
                 'CONFIG_VALIDATION_ERROR',
-                `Invalid AUTO_FIX_GITHUB_SECURITY_UPGRADE_GROUPS entry: "${entry}". Expected format: "name:pkg1,pkg2"`,
+                `Invalid ${ENV_PREFIX}UPGRADE_GROUPS entry: "${entry}". Expected format: "name:pkg1,pkg2"`,
             )
         }
         if (pkgs.length === 0) {
             throw new AppError(
                 'CONFIG_VALIDATION_ERROR',
-                `Invalid AUTO_FIX_GITHUB_SECURITY_UPGRADE_GROUPS entry: "${entry}". Expected format: "name:pkg1,pkg2"`,
+                `Invalid ${ENV_PREFIX}UPGRADE_GROUPS entry: "${entry}". Expected format: "name:pkg1,pkg2"`,
             )
         }
         result[name] = pkgs
@@ -262,21 +277,21 @@ function readAlertSource(value: string | undefined, fieldName: string): AlertSou
 
 export function readEnvConfig(env: NodeJS.ProcessEnv = process.env): CliConfigOverrides {
     return {
-        mode: readRuntimeMode(env.AUTO_FIX_GITHUB_SECURITY_MODE, 'AUTO_FIX_GITHUB_SECURITY_MODE'),
-        severityThreshold: readSeverityThreshold(env.AUTO_FIX_GITHUB_SECURITY_SEVERITY_THRESHOLD, 'AUTO_FIX_GITHUB_SECURITY_SEVERITY_THRESHOLD'),
-        repositories: normalizeList(env.AUTO_FIX_GITHUB_SECURITY_REPOSITORIES),
-        dryRun: normalizeBoolean(env.AUTO_FIX_GITHUB_SECURITY_DRY_RUN, 'AUTO_FIX_GITHUB_SECURITY_DRY_RUN'),
-        createPullRequest: normalizeBoolean(env.AUTO_FIX_GITHUB_SECURITY_CREATE_PR, 'AUTO_FIX_GITHUB_SECURITY_CREATE_PR'),
-        commit: normalizeBoolean(env.AUTO_FIX_GITHUB_SECURITY_COMMIT, 'AUTO_FIX_GITHUB_SECURITY_COMMIT'),
-        cleanupBranches: normalizeBoolean(env.AUTO_FIX_GITHUB_SECURITY_CLEANUP_BRANCHES, 'AUTO_FIX_GITHUB_SECURITY_CLEANUP_BRANCHES'),
-        cleanupBranchesAuto: normalizeBoolean(env.AUTO_FIX_GITHUB_SECURITY_CLEANUP_BRANCHES_AUTO, 'AUTO_FIX_GITHUB_SECURITY_CLEANUP_BRANCHES_AUTO'),
-        githubToken: env.AUTO_FIX_GITHUB_SECURITY_GITHUB_TOKEN?.trim() || env.GITHUB_TOKEN?.trim() || undefined,
-        alertsToken: env.AUTO_FIX_GITHUB_SECURITY_ALERTS_TOKEN?.trim() || undefined,
-        alertSource: readAlertSource(env.AUTO_FIX_GITHUB_SECURITY_ALERTS_SOURCE, 'AUTO_FIX_GITHUB_SECURITY_ALERTS_SOURCE'),
-        codeScanningEnabled: normalizeBoolean(env.AUTO_FIX_GITHUB_SECURITY_CODE_SCANNING, 'AUTO_FIX_GITHUB_SECURITY_CODE_SCANNING'),
-        maxAlertsPerRepository: normalizeInteger(env.AUTO_FIX_GITHUB_SECURITY_MAX_ALERTS_PER_REPOSITORY, 'AUTO_FIX_GITHUB_SECURITY_MAX_ALERTS_PER_REPOSITORY'),
-        upgradeGroups: normalizeUpgradeGroups(env.AUTO_FIX_GITHUB_SECURITY_UPGRADE_GROUPS),
-        toolchainPnpmVersion: env.AUTO_FIX_GITHUB_SECURITY_TOOLCHAIN_PNPM_VERSION?.trim() || undefined,
+        mode: readRuntimeMode(readEnv(env, 'MODE'), `${ENV_PREFIX}MODE`),
+        severityThreshold: readSeverityThreshold(readEnv(env, 'SEVERITY_THRESHOLD'), `${ENV_PREFIX}SEVERITY_THRESHOLD`),
+        repositories: normalizeList(readEnv(env, 'REPOSITORIES')),
+        dryRun: normalizeBoolean(readEnv(env, 'DRY_RUN'), `${ENV_PREFIX}DRY_RUN`),
+        createPullRequest: normalizeBoolean(readEnv(env, 'CREATE_PR'), `${ENV_PREFIX}CREATE_PR`),
+        commit: normalizeBoolean(readEnv(env, 'COMMIT'), `${ENV_PREFIX}COMMIT`),
+        cleanupBranches: normalizeBoolean(readEnv(env, 'CLEANUP_BRANCHES'), `${ENV_PREFIX}CLEANUP_BRANCHES`),
+        cleanupBranchesAuto: normalizeBoolean(readEnv(env, 'CLEANUP_BRANCHES_AUTO'), `${ENV_PREFIX}CLEANUP_BRANCHES_AUTO`),
+        githubToken: readEnv(env, 'GITHUB_TOKEN')?.trim() || env.GITHUB_TOKEN?.trim() || undefined,
+        alertsToken: readEnv(env, 'ALERTS_TOKEN')?.trim() || undefined,
+        alertSource: readAlertSource(readEnv(env, 'ALERTS_SOURCE'), `${ENV_PREFIX}ALERTS_SOURCE`),
+        codeScanningEnabled: normalizeBoolean(readEnv(env, 'CODE_SCANNING'), `${ENV_PREFIX}CODE_SCANNING`),
+        maxAlertsPerRepository: normalizeInteger(readEnv(env, 'MAX_ALERTS_PER_REPOSITORY'), `${ENV_PREFIX}MAX_ALERTS_PER_REPOSITORY`),
+        upgradeGroups: normalizeUpgradeGroups(readEnv(env, 'UPGRADE_GROUPS')),
+        toolchainPnpmVersion: readEnv(env, 'TOOLCHAIN_PNPM_VERSION')?.trim() || undefined,
     }
 }
 
@@ -347,7 +362,7 @@ function validateRuntimeConfig(config: RuntimeConfig): RuntimeConfig {
     if (!isAuditSource && !config.githubToken) {
         throw new AppError(
             'CONFIG_VALIDATION_ERROR',
-            'Missing GitHub token. Provide GITHUB_TOKEN or AUTO_FIX_GITHUB_SECURITY_GITHUB_TOKEN.',
+            'Missing GitHub token. Provide GITHUB_TOKEN or DEPENDFIX_GITHUB_TOKEN.',
         )
     }
 
@@ -357,7 +372,7 @@ function validateRuntimeConfig(config: RuntimeConfig): RuntimeConfig {
         } else {
             throw new AppError(
                 'CONFIG_VALIDATION_ERROR',
-                'Missing target repositories. Provide --repo, --repository, --repos-file or AUTO_FIX_GITHUB_SECURITY_REPOSITORIES.',
+                'Missing target repositories. Provide --repo, --repository, --repos-file or DEPENDFIX_REPOSITORIES.',
             )
         }
     }

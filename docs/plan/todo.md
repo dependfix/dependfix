@@ -5,6 +5,27 @@
 
 ---
 
+## 待办：环境变量前缀迁移（方案 B：直接替换，无兼容层）
+
+- **优先级**: P1
+- **状态**: ✅ 已完成（2026-08-05）
+- **背景**: 环境变量沿用旧项目名 `AUTO_FIX_GITHUB_SECURITY_`（改名时漏网，`1e73fad` 仅迁移仓库引用）；已评估（无存量用户，v0.1.0 未发布）→ 用户确认方案 B
+- **交付物**: 全部环境变量前缀迁移为 `DEPENDFIX_`；`config/index.ts` 抽取统一前缀常量防再漏
+
+**任务内容**:
+
+- [x] `packages/cli/src/config/index.ts`：15 个环境变量（16 处读取）+ 错误消息变量名替换为 `DEPENDFIX_`，新增 `ENV_PREFIX` 常量 + `readEnv` 辅助
+- [x] 测试替换：`config/index.test.ts` / `app/index.test.ts` / `grouping.test.ts`
+- [x] `action.yml` + 文档（configuration.md / quick-start.md / README.md / design docs）同步
+- [x] 全量搜索确认无旧前缀残留（仅 config/index.ts:11 历史注释保留；todo-archive.md 归档不动）
+
+**完成定义**:
+
+- [x] 新旧前缀行为等价（无双前缀兼容代码，纯字符串替换 + 常量抽取）
+- [x] `pnpm lint` + `pnpm typecheck` + `pnpm test` + `pnpm build` 通过；Review Gate APPROVE（2 个 P3 措辞已顺手修正）
+
+---
+
 ## M3: Code Scanning 扩展
 
 **目标**: 接入 Code Scanning alerts 标准化采集，建立 A/B/C 三级规则分层，白名单规则自动修复，不可修复问题输出建议。
@@ -132,7 +153,7 @@ T301（采集器）→ T302（规则分层）→ T303（模板修复器）→ T3
 
 **任务内容**:
 
-- [x] config 新增 `toolchainPnpmVersion`（`--toolchain-pnpm-version` / env `AUTO_FIX_GITHUB_SECURITY_TOOLCHAIN_PNPM_VERSION`，缺省从 packageManager 解析；semver 白名单校验防命令注入——Review Gate P1）
+- [x] config 新增 `toolchainPnpmVersion`（`--toolchain-pnpm-version` / env `DEPENDFIX_TOOLCHAIN_PNPM_VERSION`，缺省从 packageManager 解析；semver 白名单校验防命令注入——Review Gate P1）
 - [x] `repairLockfile` 接收 toolchain 并传入策略命令；`getStrategyCommand('PIN_TOOLCHAIN')` 改用 `corepack pnpm@<version> install --lockfile-only`（corepack 不可用/下载失败 → 降级为裸命令，靠策略链 REGENERATE 兜底）
 - [x] `tryLockfileRepair` 传递 toolchain；激活 `resolvePnpmVersion`（原死代码）
 - [x] 修复成功后校验 lockfile 格式与声明版本一致（lockfileVersion 前后对比 + lockfileVersionChanged 标注——防格式漂移，wisdom 记录 pnpm v11 overrides 迁移教训）

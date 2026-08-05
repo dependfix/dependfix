@@ -39,6 +39,83 @@ function makeAuditAlert(overrides: Partial<NormalizedSecurityAlert> = {}): Norma
 }
 
 // ---------------------------------------------------------------------------
+// 版本化 overrides 集成测试（2026-08-06 run 31028234123 复盘）：
+// 同 major 多版本（fast-uri@3.1.0 + 3.1.5）应进入版本化 overrides 分支，
+// 生成大版本 key（fast-uri@3: ^3.1.5），而非被常规链路"不降级保护"跳过。
+// ---------------------------------------------------------------------------
+
+describe('DependfixApp versioned overrides (same-major coexistence)', () => {
+    let workDir: string
+
+    beforeEach(() => {
+        workDir = mkdtempSync(join(tmpdir(), 'dependfix-app-'))
+        writeFileSync(join(workDir, 'package.json'), JSON.stringify({
+            name: 'fixture',
+            version: '1.0.0',
+            dependencies: { '@dependfix/core': '^1.0.0' },
+        }, null, 2))
+        // 双版本 lockfile（同 major 3：3.1.0 脆弱 + 3.1.5 安全）
+        writeFileSync(join(workDir, 'pnpm-lock.yaml'), [
+            'lockfileVersion: \'9.0\'',
+            '',
+            '  fast-uri@3.1.0:',
+            '    resolution: {integrity: sha512-a}',
+            '',
+            '  fast-uri@3.1.5:',
+            '    resolution: {integrity: sha512-b}',
+            '',
+        ].join('\n'))
+    })
+
+    afterEach(() => {
+        nock.cleanAll()
+        rmSync(workDir, { recursive: true, force: true })
+    })
+
+    it('routes same-major multi-version alerts to versioned overrides (dry-run records action)', async () => {
+        // Dependabot 告警：fast-uri（间接依赖，manifestPath=pnpm-lock.yaml）
+        nock('https://api.github.com')
+            .get('/repos/foo/bar/dependabot/alerts')
+            .query({ state: 'open', per_page: '100' })
+            .reply(200, [{
+                number: 1,
+                state: 'open',
+                security_advisory: { ghsa_id: 'GHSA-f8p3-7c7w-h6x4', severity: 'high' },
+                security_vulnerability: {
+                    package: { ecosystem: 'npm', name: 'fast-uri' },
+                    severity: 'high',
+                    vulnerable_version_range: '< 3.1.5',
+                    first_patched_version: { identifier: '3.1.5' },
+                },
+                dependency: { package: { ecosystem: 'npm', name: 'fast-uri' }, manifest_path: 'pnpm-lock.yaml' },
+            }])
+
+        nock('https://api.github.com')
+            .get('/repos/foo/bar')
+            .reply(200, { default_branch: 'master' })
+
+        const config = resolveRuntimeConfig({
+            env: {
+                GITHUB_TOKEN: 'main-token-value',
+                DEPENDFIX_MODE: 'fix',
+                DEPENDFIX_REPOSITORIES: 'foo/bar',
+                DEPENDFIX_DRY_RUN: 'true',
+            },
+        })
+
+        const app = new DependfixApp({ config, workDir })
+        const { exitCode, result } = await app.run()
+
+        expect(exitCode).toBe(0)
+        // dry-run：版本化 overrides 动作被记录，fast-uri 不再被跳过
+        const voActions = result.actions.filter((a) => a.strategy === 'versioned-override' && a.target === 'fast-uri')
+        expect(voActions).toHaveLength(1)
+        expect(voActions[0].toVersion).toContain('3.1.5')
+        expect(nock.pendingMocks()).toEqual([])
+    })
+})
+
+// ---------------------------------------------------------------------------
 // 双 token 接线集成测试：fetch Dependabot alerts 走 alertsToken，
 // 其余 GitHub API（repos.get 等）走主 token。
 // ---------------------------------------------------------------------------

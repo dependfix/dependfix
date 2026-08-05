@@ -219,32 +219,50 @@ export function hasMultipleMajorVersions(lockfilePath: string, packageName: stri
 /**
  * 为 lockfile 中多版本共存的包构建版本化 overrides 映射。
  *
- * 对 lockfile 中**与目标同大版本**且低于目标的脆弱实例（如 vite@5.4.14），
- * 生成 `pkg@version: ^target`：
- * - target = 告警的 recommendedVersion（Dependabot 的 first_patched_version）
- * - key 使用**实例精确版本**（pnpm 版本化 override 惯例，参考用户提供的
- *   path-to-regexp@0.1.12: ^0.1.13 示例），只影响该实例，不波及其他大版本
- * - 仅覆盖与 target **同 major** 的实例：若告警 target 属更高 major（如 vite@8
- *   告警 target 8.3.0），不强制把 5.x 实例跨大版本升级（子工作区破坏无法被
- *   根 lint 验证捕获——Review Gate P2）
+ * 输入为该包**所有** fixable 告警（不同 GHSA 各自的 recommendedVersion 不同），
+ * 按大版本分组取各线最高推荐：
+ * - vite 告警推荐 5.4.15~6.4.3 → major 5 线目标 5.4.21，生成 `vite@5: ^5.4.21`
+ *   （不再用全局最高 6.4.3 导致 5.x 实例匹配失败——2026-08-06 run 31028234123 复盘）
+ * - 同 major 多小版本（fast-uri@3.1.0 + 3.1.5）→ `fast-uri@3: ^3.1.5`，覆盖整条线
  *
- * @returns 版本化 overrides 映射；无法确定目标时不生成该 key
+ * key 使用**大版本号**（`pkg@major`，pnpm 版本化 override 惯例，参考
+ * body-parser@1: ^1.20.6 示例）而非精确版本：精确 key 只修当前实例，
+ * 未来 lockfile 更新引入同线新脆弱版本时告警会复发。
+ *
+ * @returns 版本化 overrides 映射（key 为 `pkg@major`）；无脆弱实例时返回 {}
  */
 export function buildVersionedOverrides(
     lockfilePath: string,
-    alert: NormalizedSecurityAlert,
+    alerts: NormalizedSecurityAlert[],
 ): Record<string, string> {
-    const versions = readLockfileVersions(lockfilePath, alert.packageName)
-    const target = alert.recommendedVersion
-    if (!target) {
+    const first = alerts[0]
+    if (!first) {
         return {}
     }
-    const targetMajor = parseMajorVersion(target)
+    const packageName = first.packageName
+    const versions = readLockfileVersions(lockfilePath, packageName)
+
+    // 按大版本分组取各线最高推荐
+    const targetByMajor = new Map<string, string>()
+    for (const alert of alerts) {
+        const target = alert.recommendedVersion
+        if (!target) {
+            continue
+        }
+        const major = String(parseMajorVersion(target))
+        const current = targetByMajor.get(major)
+        if (!current || compareSemver(target, current) > 0) {
+            targetByMajor.set(major, target)
+        }
+    }
+
     const overrides: Record<string, string> = {}
     for (const version of versions) {
-        // 只覆盖与目标同大版本且低于目标的脆弱实例（不跨 major 升级）
-        if (parseMajorVersion(version) === targetMajor && compareSemver(version, target) < 0) {
-            overrides[`${alert.packageName}@${version}`] = `^${target}`
+        const major = String(parseMajorVersion(version))
+        const target = targetByMajor.get(major)
+        // 该大版本线存在推荐目标且实例低于目标 → 脆弱，用大版本 key 覆盖整条线
+        if (target && compareSemver(version, target) < 0) {
+            overrides[`${packageName}@${major}`] = `^${target}`
         }
     }
     return overrides

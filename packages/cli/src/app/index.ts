@@ -31,7 +31,6 @@ import { buildUpgradeGroups } from '../grouping'
 import {
     buildCommitMessage,
     buildVersionedOverrides,
-    hasMultipleMajorVersions,
     type AppContext,
     upgradeAlert,
     tryLockfileRepair,
@@ -349,14 +348,28 @@ export class DependfixApp {
             const lockfilePath = join(this.workDir, 'pnpm-lock.yaml')
 
             // 2.0 多版本共存 → 版本化 overrides（独立于分组升级，避免全局覆盖误伤根声明）
+            // 门槛：该包在 lockfile 中存在脆弱实例（低于某大版本线的推荐目标）——
+            // 覆盖多 major（vite@5.4.14 + vite@8.2.0）与同 major 多小版本
+            // （fast-uri@3.1.0 + 3.1.5）两类场景（2026-08-06 run 31028234123 复盘）
             const fixableLockfileAlerts = rootManifestAlerts.filter(
                 (a) => a.source !== 'code-scanning' && a.manifestPath.trim().replace(/\\/g, '/') === 'pnpm-lock.yaml'
                     && a.fixable && a.recommendedVersion,
             )
+            // 按包分组，构建版本化 overrides；非空即存在脆弱实例 → 进入 2.0.1
+            const versionedOverridesByPackage = new Map<string, Record<string, string>>()
+            for (const alert of fixableLockfileAlerts) {
+                if (!versionedOverridesByPackage.has(alert.packageName)) {
+                    const packageAlerts = fixableLockfileAlerts.filter((a) => a.packageName === alert.packageName)
+                    versionedOverridesByPackage.set(
+                        alert.packageName,
+                        buildVersionedOverrides(lockfilePath, packageAlerts),
+                    )
+                }
+            }
             const multiVersionPackages = new Set(
-                fixableLockfileAlerts
-                    .filter((a) => hasMultipleMajorVersions(lockfilePath, a.packageName))
-                    .map((a) => a.packageName),
+                [...versionedOverridesByPackage.entries()]
+                    .filter(([, overrides]) => Object.keys(overrides).length > 0)
+                    .map(([packageName]) => packageName),
             )
             // 多版本包的所有 lockfile 告警进入 2.0.1（按告警身份排除，不按包名——同包
             // 其他 manifest 告警（package.json 根声明等）保留在常规链路，避免静默丢失）
@@ -365,25 +378,24 @@ export class DependfixApp {
             const singleVersionAlerts = rootManifestAlerts.filter((a) => !multiVersionAlertIds.has(a.id))
 
             // 2.0.1 执行版本化 overrides 修复（逐包：快照 → 写入 → install → 组级验证 → 回滚）
-            // 同包多条告警（不同 GHSA）取 recommendedVersion 最高者（与 dedupeFixableAlerts 语义一致）
             const upgradedMultiVersion = new Set<string>()
             for (const alert of multiVersionAlerts) {
                 if (upgradedMultiVersion.has(alert.packageName)) {
                     continue
                 }
                 upgradedMultiVersion.add(alert.packageName)
-                const bestAlert = multiVersionAlerts
-                    .filter((a) => a.packageName === alert.packageName)
-                    .reduce((best, a) => (compareSemver(a.recommendedVersion, best.recommendedVersion) > 0 ? a : best), alert)
+                const versionedOverrides = versionedOverridesByPackage.get(alert.packageName) ?? {}
+                const targets = Object.values(versionedOverrides)
+                const targetSummary = targets.length > 0 ? targets.join(', ') : alert.recommendedVersion
                 if (this.config.dryRun) {
                     // dry-run 不写盘：仅记录计划动作（与 upgradeAlert 的 dry-run 语义一致）
-                    this.logger.info(`[dry-run] Would apply versioned overrides for ${alert.packageName} targeting ${bestAlert.recommendedVersion}`)
+                    this.logger.info(`[dry-run] Would apply versioned overrides for ${alert.packageName}: ${JSON.stringify(versionedOverrides)}`)
                     this.allActions.push({
                         type: 'dependency-upgrade',
-                        repository: bestAlert.repository,
-                        target: bestAlert.packageName,
+                        repository: alert.repository,
+                        target: alert.packageName,
                         fromVersion: '',
-                        toVersion: bestAlert.recommendedVersion,
+                        toVersion: targetSummary,
                         isMajor: false,
                         strategy: 'versioned-override',
                         success: true,
@@ -392,25 +404,24 @@ export class DependfixApp {
                     fixed++
                     continue
                 }
-                const versionedOverrides = buildVersionedOverrides(lockfilePath, bestAlert)
                 if (Object.keys(versionedOverrides).length === 0) {
-                    this.logger.info(`Skipping ${bestAlert.packageName}: no vulnerable instances below target ${bestAlert.recommendedVersion}`)
+                    this.logger.info(`Skipping ${alert.packageName}: no vulnerable instances below targets`)
                     this.summary.alertsSkipped++
                     continue
                 }
                 const snapshot = snapshotTrackedFiles(this.workDir)
                 this.logger.info(
-                    `[multi-version] ${bestAlert.packageName}: applying versioned overrides ${JSON.stringify(versionedOverrides)}`,
+                    `[multi-version] ${alert.packageName}: applying versioned overrides ${JSON.stringify(versionedOverrides)}`,
                 )
                 const result = await applyVersionedOverrides({
-                    packageName: bestAlert.packageName,
+                    packageName: alert.packageName,
                     versionedOverrides,
                     workDir: this.workDir,
                 })
                 const action: FixAction = {
                     type: 'dependency-upgrade',
-                    repository: bestAlert.repository,
-                    target: bestAlert.packageName,
+                    repository: alert.repository,
+                    target: alert.packageName,
                     fromVersion: '',
                     toVersion: result.toVersion,
                     isMajor: false,

@@ -26,6 +26,30 @@
 
 ---
 
+## 待办：版本化 overrides 大版本 key + 存在脆弱实例门槛（run 31028234123 复盘）
+
+- **优先级**: P1
+- **状态**: ✅ 已完成（2026-08-06）
+- **背景**: PR #26（run 31028234123）20 条告警只修 2 条。两个根因：① `buildVersionedOverrides` 用单一 target（全局最高推荐 6.4.3，major 6），vite 脆弱实例 5.4.14（major 5）同 major 匹配失败 → 11 条 vite 全 Skipped；② `hasMultipleMajorVersions` 只认多 major，fast-uri（3.1.0+3.1.5 同 major）被排除 → 常规链路不降级保护跳过 → 5 条 Skipped。另用户指出：PR 用精确版本 key（`brace-expansion@5.0.5`）应改用大版本 key（`body-parser@1` 风格，覆盖整条线防复发）
+- **交付物**: buildVersionedOverrides 重构 + app 门槛调整 + 集成测试
+
+**任务内容**:
+
+- [x] `buildVersionedOverrides` 重构：接收该包**所有**告警，按 major 分组取各线最高推荐；key 改大版本 `pkg@major`（`vite@5: ^5.4.21`、`fast-uri@3: ^3.1.5`）
+- [x] app 2.0/2.0.1：门槛从 `hasMultipleMajorVersions`（多 major）改为"按包分组构建 overrides 非空即脆弱"，覆盖同 major 多小版本场景；移除 bestAlert 全局最高 reduce
+- [x] 测试：helpers 单测重写（大版本 key / 多 GHSA 按 major 分组 / fast-uri 同 major / 空输入）+ 集成测试（Dependabot 源 fast-uri 同 major → dry-run 记录 versioned-override 动作）
+- [x] `hasMultipleMajorVersions` 保留导出（测试锚定），不再被生产路径使用
+
+**完成定义**:
+
+- [x] 预期：vite→`vite@5: ^5.4.21`、fast-uri→`fast-uri@3: ^3.1.5`、brace-expansion→`brace-expansion@5: ^5.0.7`、js-yaml→`js-yaml@4: ^4.3.0`（18 条 Skipped 全部转可修复）
+- [x] `pnpm lint` + `pnpm typecheck` + `pnpm test`（571）+ `pnpm build` 通过；Review Gate APPROVE
+
+**Review Gate 遗留登记（非阻塞）**:
+- pnpm 11 不再读 `package.json#pnpm.overrides`（无 workspace.yaml 时 `applyVersionedOverrides` 回退写 package.json 会假成功——install 成功但 override 被忽略）。本项目有 pnpm-workspace.yaml 不受影响；建议后续加 pnpm 大版本探测/警告
+
+---
+
 ## 待办：多版本共存分别 overrides（run 31021398673 复盘）
 
 - **优先级**: P1

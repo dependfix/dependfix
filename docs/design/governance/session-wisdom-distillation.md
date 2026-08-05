@@ -1,7 +1,7 @@
 # Session Wisdom 蒸馏机制
 
 > 将 `.session/wisdom.md` 中的临时知识点定期提纯为永久文档，解决跨机器丢失、内容膨胀与过时残留问题。
-> 参照 momei [session-wisdom-distillation](../../../../momei/docs/design/governance/session-wisdom-distillation.md) 机制，按 dependfix 目录结构适配。
+> 参照 momei [session-wisdom-distillation](https://github.com/CaoMeiYouRen/momei/blob/master/docs/design/governance/session-wisdom-distillation.md) 机制，按 dependfix 目录结构适配。
 
 ## 1. 背景
 

@@ -28,9 +28,11 @@ export interface CodeScanningSuggestionRow {
 /**
  * 收集未自动修复的 Code Scanning 告警为建议行。
  * 已修复判定与报告 fixedKeys 口径一致（code-scanning 键 repo/ruleId@filePath）。
+ * @param mode 运行模式（必选：report-only 时 A 类告警原因措辞区分，避免"异常路径"误导）
  */
-export function collectCodeScanningSuggestions(result: RunResult): CodeScanningSuggestionRow[] {
+export function collectCodeScanningSuggestions(result: RunResult, mode: string): CodeScanningSuggestionRow[] {
     const { alerts, actions } = result
+    const isReportOnly = mode === 'report-only'
 
     const fixedKeys = new Set(
         actions
@@ -65,7 +67,10 @@ export function collectCodeScanningSuggestions(result: RunResult): CodeScanningS
         } else if (alert.alertClass === 'suggested') {
             reason = 'B 类建议规则（需人工判断）'
         } else if (alert.alertClass === 'auto-fixable') {
-            reason = 'A 类规则未产生修复动作（异常路径，请人工检查）'
+            // report-only 不执行修复是设计行为；fix 模式下无动作才是异常路径
+            reason = isReportOnly
+                ? 'A 类自动修复规则（report-only 模式不执行修复）'
+                : 'A 类规则未产生修复动作（异常路径，请人工检查）'
         } else {
             reason = 'C 类仅报告（未列入自动修复/建议列表）'
         }

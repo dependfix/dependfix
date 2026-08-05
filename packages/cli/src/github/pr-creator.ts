@@ -512,7 +512,7 @@ export function generatePRBody(result: RunResult, supersededNumbers?: number[]):
     }
 
     // Code Scanning 建议（T304：无法自动修复的问题不静默丢失）
-    const suggestions = collectCodeScanningSuggestions(result)
+    const suggestions = collectCodeScanningSuggestions(result, result.config.mode)
     if (suggestions.length > 0) {
         const multiRepo = new Set(suggestions.map((s) => s.repository)).size > 1
         lines.push('### 🧰 Code Scanning Suggestions', '')

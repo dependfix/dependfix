@@ -86,6 +86,18 @@ describe('filterAlerts', () => {
             expect(result.filtered.length + result.skipped.length).toBe(alerts.length)
         }
     })
+
+    it('keeps code-scanning unknown alerts regardless of threshold (SARIF no-severity passthrough)', () => {
+        // 收尾审查遗留修复：cs 告警 unknown 恒透传（不静默）；Dependabot unknown 维持过滤
+        const result = filterAlerts([
+            ...alerts,
+            alert({ id: 6, severity: 'unknown', source: 'code-scanning', packageName: 'js/x' }),
+        ], { severityThreshold: 'critical' })
+
+        expect(result.filtered.map((a) => a.id)).toContain(6)
+        expect(result.filtered).toHaveLength(2) // critical + cs-unknown
+        expect(result.skipped.some((s) => s.alert.id === 5)).toBe(true) // dependabot unknown 仍过滤
+    })
 })
 
 // ---------------------------------------------------------------------------

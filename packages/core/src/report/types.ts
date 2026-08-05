@@ -32,6 +32,8 @@ export interface RunSummary {
     alertsFixed: number
     alertsFailed: number
     alertsSkipped: number
+    /** 因 maxAlertsPerRepository 截断的告警数（收尾审查遗留：截断明细进报告） */
+    alertsTruncated: number
     lockfileRepairs: number
     verificationsPassed: number
     verificationsFailed: number
@@ -256,6 +258,7 @@ export function createEmptyRunSummary(): RunSummary {
         alertsFixed: 0,
         alertsFailed: 0,
         alertsSkipped: 0,
+        alertsTruncated: 0,
         lockfileRepairs: 0,
         verificationsPassed: 0,
         verificationsFailed: 0,

@@ -368,6 +368,75 @@ describe('DependfixApp code-scanning parallel source', () => {
         expect(nock.pendingMocks()).toEqual([])
     })
 
+    it('records truncated alert count in summary (max alerts per repository)', async () => {
+        // 2 条告警 + max=1 → alertsTruncated=1（截断明细进报告，收尾审查遗留修复）
+        nock('https://api.github.com')
+            .get('/repos/foo/bar/dependabot/alerts')
+            .query({ state: 'open', per_page: '100' })
+            .reply(200, [
+                makeDependabotAlert({ number: 1 }),
+                makeDependabotAlert({ number: 2 }),
+            ])
+
+        nock('https://api.github.com')
+            .get('/repos/foo/bar')
+            .reply(200, { default_branch: 'main' })
+
+        const config = resolveRuntimeConfig({
+            env: {
+                GITHUB_TOKEN: 'main-token-value',
+                AUTO_FIX_GITHUB_SECURITY_MODE: 'report-only',
+                AUTO_FIX_GITHUB_SECURITY_REPOSITORIES: 'foo/bar',
+                AUTO_FIX_GITHUB_SECURITY_MAX_ALERTS_PER_REPOSITORY: '1',
+            },
+        })
+
+        const app = new DependfixApp({ config, workDir })
+        const { exitCode, result } = await app.run()
+
+        expect(exitCode).toBe(0)
+        expect(result.summary.alertsTruncated).toBe(1)
+        expect(result.alerts).toHaveLength(1)
+        expect(nock.pendingMocks()).toEqual([])
+    })
+
+    it('counts code-scanning alerts toward truncation when enabled', async () => {
+        // cs 开启 + max=1 + 2 条 cs 告警 → alertsTruncated=1（cs 源截断累计）
+        nock('https://api.github.com')
+            .get('/repos/foo/bar/dependabot/alerts')
+            .query({ state: 'open', per_page: '100' })
+            .reply(200, [])
+
+        nock('https://api.github.com')
+            .get('/repos/foo/bar/code-scanning/alerts')
+            .query({ state: 'open', per_page: '100' })
+            .reply(200, [
+                makeCodeScanningAlert({ number: 1, rule: { id: 'js/sql-injection', severity: 'error', security_severity_level: 'high', name: 'SQL injection' } }),
+                makeCodeScanningAlert({ number: 2, rule: { id: 'js/xss', severity: 'error', security_severity_level: 'high', name: 'XSS' } }),
+            ])
+
+        nock('https://api.github.com')
+            .get('/repos/foo/bar')
+            .reply(200, { default_branch: 'main' })
+
+        const config = resolveRuntimeConfig({
+            env: {
+                GITHUB_TOKEN: 'main-token-value',
+                AUTO_FIX_GITHUB_SECURITY_MODE: 'report-only',
+                AUTO_FIX_GITHUB_SECURITY_REPOSITORIES: 'foo/bar',
+                AUTO_FIX_GITHUB_SECURITY_CODE_SCANNING: 'true',
+                AUTO_FIX_GITHUB_SECURITY_MAX_ALERTS_PER_REPOSITORY: '1',
+            },
+        })
+
+        const app = new DependfixApp({ config, workDir })
+        const { exitCode, result } = await app.run()
+
+        expect(exitCode).toBe(0)
+        expect(result.summary.alertsTruncated).toBe(1)
+        expect(nock.pendingMocks()).toEqual([])
+    })
+
     it('hard-fails with security-events hint when code scanning fetch returns 403', async () => {
         nock('https://api.github.com')
             .get('/repos/foo/bar/dependabot/alerts')
@@ -461,6 +530,8 @@ describe('DependfixApp code-scanning parallel source', () => {
         expect(csFixes[0].success).toBe(true)
         // B 类告警不产生 fix action（建议模式，T304 展示）
         expect(result.actions.some((a) => a.type === 'code-scanning-fix' && a.target === 'js/sql-injection')).toBe(false)
+        // 收尾修复：cs 告警（manifestPath 为源码路径）不再计入 partition skipped
+        expect(result.summary.alertsSkipped).toBe(0)
         expect(nock.pendingMocks()).toEqual([])
     })
 })

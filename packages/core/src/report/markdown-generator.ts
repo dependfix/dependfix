@@ -60,6 +60,7 @@ export function generateMarkdownReport(result: RunResult): string {
         `| Fixed | ${summary.alertsFixed} |`,
         `| Failed | ${summary.alertsFailed} |`,
         `| Skipped | ${summary.alertsSkipped} |`,
+        `| Truncated (max alerts/repo) | ${summary.alertsTruncated} |`,
         `| Lockfile repairs | ${summary.lockfileRepairs} |`,
         `| Verifications passed | ${summary.verificationsPassed} |`,
         `| Verifications failed | ${summary.verificationsFailed} |`,
@@ -139,7 +140,7 @@ export function generateMarkdownReport(result: RunResult): string {
     }
 
     // ---- 4.5 Code Scanning Suggestions（T304：无法自动修复的问题不静默丢失）----
-    const suggestions = collectCodeScanningSuggestions(result)
+    const suggestions = collectCodeScanningSuggestions(result, config.mode)
     if (suggestions.length > 0) {
         sections.push(
             '## Code Scanning Suggestions',

@@ -160,13 +160,20 @@ T301（采集器）→ T302（规则分层）→ T303（模板修复器）→ T3
 
 **M3 完成记录（2026-08-05）**: T301~T305 全部完成，5 轮提交（7b8feb3 / 5b3e076 / aebf258+a7fa3a0 / dead17e / 486fea7），每任务独立 Review Gate（T303 经历 4 轮、T305 经历 2 轮），最终全量审查 APPROVE。
 
-**M3 收尾审查遗留（P2/P3，不阻塞，挂 M4/backlog）**:
-- PR 标题口径：code-scanning-only 修复时标题仍写 `fix(deps): ... N upgrades`（误标依赖升级）；lockfile-only 场景 "0 upgrades"——建议按动作构成动态生成或中性化（"N fixes / N upgrades"）
-- partitionSubmanifestAlerts 对 code-scanning 告警（manifestPath 为源码路径）全部落 sub 分支 → skip 计数与 warn 噪音（与 §Code Scanning Suggestions 可见性表述矛盾）——建议 partition 限定依赖源告警
-- 'unknown' 严重级（SARIF 上传场景）在默认阈值下静默滤除（filter skipped 不渲染）——建议 unknown 透传或 warn
-- report-only 模式 A 类规则建议原因措辞（"异常路径"误导）——按 mode 区分
-- maxAlertsPerRepository 截断明细不进报告（仅日志）——截断计数进报告
-- app/index.ts 非空行逼近 800 上限（1 warning）——下次重构拆 helper
+**M3 收尾审查遗留（2026-08-05 已按用户确认全部修复）**:
+- ✅ PR 标题口径：cs-only 修复不再误标 "N upgrades"——buildPrTitle 按动作构成动态生成（upgrades / code fixes / 中性标题），lockfile-only 不再 "0 upgrades"
+- ✅ partitionSubmanifestAlerts 对 code-scanning 告警的 skip 计数噪音——partition 限定依赖源告警（source !== 'code-scanning'）
+- ✅ 'unknown' 严重级静默滤除——code-scanning 源 unknown 恒透传（Dependabot/pnpm-audit 维持过滤语义）
+- ✅ report-only 模式 A 类规则建议原因措辞——按 mode 区分（"report-only 模式不执行修复" vs "异常路径"）
+- ✅ maxAlertsPerRepository 截断明细不进报告——RunSummary.alertsTruncated + Summary 表行
+- ✅ app/index.ts 行数逼近上限——拆分 runCodeScanningFixes（helpers.ts）+ 分支清理家族独立模块 branch-cleanup.ts（helpers re-export 保持兼容）
+
+**M4/backlog 仍登记**:
+- verifyFrozenLockfile 仍用裸 pnpm 验证，可能架空 PIN_TOOLCHAIN 固定版本（建议 verify 与策略同版本）
+- 漂移检测为相对对比（before/after），非严格"声明版本一致性"校验（弱代理）
+- resolveWithinWorkDir 未处理符号链接逃逸（攻击者可控 repo 内容场景）
+- 大仓库建议区块行数可能使 PR body 接近 GitHub 64KB 上限
+- app/helpers.ts ↔ cli/helpers/index.ts 值级循环依赖（quickVerifyProject ↔ validateVerifyCommands，运行时安全，收尾修复引入反向边——建议 M4 下沉公共层或回调注入）
 
 ---
 

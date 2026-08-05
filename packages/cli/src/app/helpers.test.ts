@@ -3,6 +3,7 @@ import { AppError, type FixAction } from '@dependfix/core'
 import {
     autoCleanupMergedBranches,
     buildCommitMessage,
+    buildPrTitle,
     closeSupersededPRs,
     codeScanningAlertsTokenHint,
     computeExitCode,
@@ -318,6 +319,43 @@ describe('buildCommitMessage', () => {
         ])
         expect(msg).not.toContain('peer conflict')
         expect(msg).toContain('- js-yaml: ^4.3.0')
+    })
+})
+
+// ---------------------------------------------------------------------------
+// buildPrTitle（收尾审查遗留：cs-only 修复不再误标 N upgrades）
+// ---------------------------------------------------------------------------
+
+describe('buildPrTitle', () => {
+    it('labels upgrade-only runs as upgrades', () => {
+        expect(buildPrTitle({ alertsFixed: 3 }, [
+            { type: 'dependency-upgrade', repository: 'a/b', target: 'lodash', success: true },
+        ])).toBe('fix(deps): automated security fix — 3 upgrades')
+    })
+
+    it('labels code-scanning-only runs as code fixes (not upgrades)', () => {
+        expect(buildPrTitle({ alertsFixed: 2 }, [
+            { type: 'code-scanning-fix', repository: 'a/b', target: 'eol-last', success: true },
+            { type: 'code-scanning-fix', repository: 'a/b', target: 'eol-last', success: true },
+        ])).toBe('fix(deps): automated security fix — 2 code fixes')
+    })
+
+    it('combines upgrades and code fixes', () => {
+        expect(buildPrTitle({ alertsFixed: 3 }, [
+            { type: 'dependency-upgrade', repository: 'a/b', target: 'lodash', success: true },
+            { type: 'code-scanning-fix', repository: 'a/b', target: 'eol-last', success: true },
+            { type: 'code-scanning-fix', repository: 'a/b', target: 'eol-last', success: true },
+        ])).toBe('fix(deps): automated security fix — 1 upgrade, 2 code fixes')
+    })
+
+    it('uses neutral title when nothing was fixed (lockfile-only runs)', () => {
+        expect(buildPrTitle({ alertsFixed: 0 }, [])).toBe('fix(deps): automated security fix')
+    })
+
+    it('excludes noOp code-scanning actions from the fix count', () => {
+        expect(buildPrTitle({ alertsFixed: 0 }, [
+            { type: 'code-scanning-fix', repository: 'a/b', target: 'eol-last', success: true, noOp: true },
+        ])).toBe('fix(deps): automated security fix')
     })
 })
 

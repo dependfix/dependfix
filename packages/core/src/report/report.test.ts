@@ -734,7 +734,7 @@ describe('collectCodeScanningSuggestions', () => {
                 }),
             ],
         }
-        const rows = collectCodeScanningSuggestions(result)
+        const rows = collectCodeScanningSuggestions(result, 'fix')
 
         expect(rows).toHaveLength(2)
         expect(rows[0]).toMatchObject({
@@ -790,7 +790,7 @@ describe('collectCodeScanningSuggestions', () => {
                 },
             ],
         }
-        const rows = collectCodeScanningSuggestions(result)
+        const rows = collectCodeScanningSuggestions(result, 'fix')
 
         // a.ts 已修复 → 不出现；b.ts noOp → 出现且 reason 为 action error
         expect(rows).toHaveLength(1)
@@ -821,7 +821,7 @@ describe('collectCodeScanningSuggestions', () => {
                 durationMs: 10,
             }],
         }
-        const rows = collectCodeScanningSuggestions(result)
+        const rows = collectCodeScanningSuggestions(result, 'fix')
 
         // 修复失败 reason 优先于 B 类标签
         expect(rows).toHaveLength(1)
@@ -842,10 +842,31 @@ describe('collectCodeScanningSuggestions', () => {
                 }),
             ],
         }
-        const rows = collectCodeScanningSuggestions(result)
+        const rows = collectCodeScanningSuggestions(result, 'fix')
 
         expect(rows).toHaveLength(1)
         expect(rows[0].reason).toBe('A 类规则未产生修复动作（异常路径，请人工检查）')
+    })
+
+    it('uses report-only wording for A-class alerts when mode is report-only', () => {
+        const result = {
+            ...EMPTY_RUN_RESULT,
+            repositories: [repoResult],
+            alerts: [
+                csAlert({
+                    ruleId: 'eol-last',
+                    alertClass: 'auto-fixable',
+                    severity: 'low',
+                    manifestPath: 'src/c.ts',
+                    startLine: 1,
+                }),
+            ],
+        }
+        const rows = collectCodeScanningSuggestions(result, 'report-only')
+
+        expect(rows).toHaveLength(1)
+        // report-only 不执行修复是设计行为，不得显示"异常路径"
+        expect(rows[0].reason).toBe('A 类自动修复规则（report-only 模式不执行修复）')
     })
 
     it('renders suggestions section in markdown report', () => {

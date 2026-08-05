@@ -5,8 +5,6 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { execSync } from 'node:child_process'
-import { createInterface } from 'node:readline'
-import type { Octokit } from '@octokit/rest'
 import {
     AppError,
     toErrorMessage,
@@ -27,15 +25,9 @@ import {
 } from '../fixers/dependency'
 import { repairLockfile, type LockfileRepairResult } from '../fixers/pnpm'
 import { runVerification, type VerificationResult } from '../runners/verification-runner'
-import {
-    stageAndCommit,
-    closePullRequest,
-    deleteRemoteBranch,
-    listDependfixBranches,
-    getBranchPrStatus,
-    isConfirmAnswer,
-    type DependfixOpenPR,
-} from '../github/pr-creator'
+import { applyCodeScanningFix, restoreSourceFile, snapshotSourceFile } from '../fixers/code-scanning'
+import { quickVerifyProject } from '../helpers'
+import { stageAndCommit } from '../github/pr-creator'
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -294,6 +286,101 @@ export async function upgradeAlert(
 // Lockfile repair
 // ---------------------------------------------------------------------------
 
+/**
+ * 执行 Code Scanning 模板修复（T303 2.0 节；从 app/index.ts 提取以控制文件行数）。
+ * 仅处理 A 类告警；逐告警：快照 → 应用模板 → quickVerify（lint）→ 失败回滚（不静默）。
+ * - 快照失败 / 无模板 / 模板不适用 / 缺文件 → noOp 动作（回退建议模式，T304 展示；
+ *   error 原因可审计，不计 failed 避免陈旧告警永久 exit 1/2）
+ * - 写盘失败 / lint 验证失败 → failed（回滚并记录；回滚失败时注明 file may be modified）
+ * @returns 本批次实际修复数（fixed）与失败数（failed），调用方累加到仓库统计
+ */
+export async function runCodeScanningFixes(
+    ctx: Pick<AppContext, 'config' | 'workDir' | 'logger' | 'allActions'>,
+    repo: string,
+    alerts: NormalizedSecurityAlert[],
+): Promise<{ fixed: number, failed: number }> {
+    const { config, workDir, logger } = ctx
+    const codeScanningAutoFixable = alerts.filter(
+        (a) => a.source === 'code-scanning' && a.alertClass === 'auto-fixable',
+    )
+
+    let fixed = 0
+    let failed = 0
+
+    for (const csAlert of codeScanningAutoFixable) {
+        // 源码文件快照（不在 snapshotTrackedFiles 清单范围内——回滚必须精确到目标文件）
+        const sourceSnapshot = snapshotSourceFile(workDir, csAlert.manifestPath)
+        if (!sourceSnapshot) {
+            // 快照失败（路径越界/读取异常）：构造 noOp action 保证可审计（不静默）
+            const snapAction: FixAction = {
+                type: 'code-scanning-fix',
+                repository: csAlert.repository,
+                target: csAlert.ruleId,
+                success: true,
+                noOp: true,
+                filePath: csAlert.manifestPath,
+                error: `cannot snapshot ${csAlert.manifestPath} (unsafe path or unreadable)`,
+                durationMs: 0,
+            }
+            ctx.allActions.push(snapAction)
+            logger.warn(`[code-scanning] ${csAlert.ruleId} skipped: ${snapAction.error}`)
+            continue
+        }
+
+        const action = applyCodeScanningFix({ workDir, alert: csAlert, dryRun: config.dryRun })
+        if (!action) {
+            continue // 防御：过滤条件已保证非空
+        }
+
+        if (!action.success) {
+            // 失败分支也恢复快照（写盘异常可能产生中间态；幂等，未改动时写回原内容无害）
+            const restored = restoreSourceFile(workDir, sourceSnapshot)
+            if (!restored) {
+                action.error = `${action.error}; rollback failed, file may be modified`
+            }
+            ctx.allActions.push(action)
+            failed++
+            logger.warn(`[code-scanning] ${csAlert.ruleId} not auto-fixed: ${action.error}`)
+            continue
+        }
+
+        // no-op / 无法安全处理（陈旧告警、无模板、歧义）→ 不计 fixed/failed，
+        // error 在 Fix Actions 表可见（不静默）
+        if (action.noOp) {
+            ctx.allActions.push(action)
+            if (action.error) {
+                logger.warn(`[code-scanning] ${csAlert.ruleId} skipped: ${action.error}`)
+            }
+            continue
+        }
+
+        if (config.dryRun) {
+            fixed++
+            ctx.allActions.push(action)
+            continue
+        }
+
+        const quickOk = await quickVerifyProject(ctx, repo)
+        if (!quickOk) {
+            const restored = restoreSourceFile(workDir, sourceSnapshot)
+            action.success = false
+            action.error = restored
+                ? 'lint failed after code-scanning fix; changes rolled back'
+                : 'lint failed after code-scanning fix; rollback failed, file may be modified'
+            ctx.allActions.push(action)
+            failed++
+            logger.warn(`[code-scanning] ${csAlert.ruleId} fix rolled back: lint failed`)
+            continue
+        }
+
+        ctx.allActions.push(action)
+        fixed++
+        logger.info(`[code-scanning] ${csAlert.ruleId}: ${action.diff}`)
+    }
+
+    return { fixed, failed }
+}
+
 /** 尝试修复 pnpm-lock.yaml（dry-run 仅记录）。 */
 export function tryLockfileRepair(
     ctx: Pick<AppContext, 'config' | 'logger' | 'workDir'>,
@@ -542,179 +629,38 @@ export function ensureGitignore(workDir: string): void {
 }
 
 // ---------------------------------------------------------------------------
-// PR helpers
+// Branch cleanup（迁移至 ./branch-cleanup，保持向后兼容 re-export）
 // ---------------------------------------------------------------------------
 
-/**
- * 关闭被取代的旧 PR。单条关闭失败不中断其余 PR 的关闭，
- * 失败记录为 `PR_CLOSE_FAILED`（与 PR 创建失败区分）。
- */
-export async function closeSupersededPRs(
-    ctx: Pick<AppContext, 'logger' | 'allErrors'>,
-    client: Octokit,
-    owner: string,
-    repo: string,
-    supersedePRs: DependfixOpenPR[],
-): Promise<void> {
-    const { logger, allErrors } = ctx
-    for (const old of supersedePRs) {
-        try {
-            await closePullRequest(client, owner, repo, old.number)
-            logger.info(`Closed superseded PR #${old.number}`)
-        } catch (error: unknown) {
-            const message = toErrorMessage(error)
-            logger.error(`Failed to close superseded PR #${old.number}: ${message}`)
-            allErrors.push({
-                repository: `${owner}/${repo}`,
-                stage: 'report',
-                category: 'PR_CLOSE_FAILED',
-                message: `Failed to close PR #${old.number}: ${message}`,
-            })
-            continue
-        }
-
-        // 旧 PR 已关闭，回收其 head 分支（内容仍在 PR 记录中可审计）。
-        // 删除失败不阻塞主流程，仅 warn（家务活 best-effort，不触发非零退出）
-        try {
-            await deleteRemoteBranch(client, owner, repo, old.headRef)
-            logger.info(`Deleted branch of superseded PR #${old.number}: ${old.headRef}`)
-        } catch (error: unknown) {
-            const message = toErrorMessage(error)
-            logger.warn(`Failed to delete branch ${old.headRef} of superseded PR #${old.number}: ${message}`)
-        }
-    }
-}
+export {
+    autoCleanupMergedBranches,
+    closeSupersededPRs,
+    confirmCleanup,
+    reportCleanupCandidates,
+    runBranchCleanupForRepo,
+} from './branch-cleanup'
 
 /**
- * （fix-and-pr + --cleanup-branches）将已合并的 dependfix 分支列为待清理清单，
- * 记录到报告与日志，不执行删除。
+ * 按动作构成生成 PR 标题（收尾审查遗留修复：cs-only 修复不再误标 "N upgrades"，
+ * lockfile-only 不再出现 "0 upgrades"）。
+ * - 依赖升级 + code-scanning 修复分别计数；均为 0 时（lockfile-only）中性标题。
+ * - ⚠️ 不变式：`upgrades = alertsFixed - codeFixes` 依赖 computeSummary 与
+ *   codeFixes 过滤条件一致（均 success && !noOp）；任一侧口径变更必须同步。
  */
-export async function reportCleanupCandidates(
-    ctx: Pick<AppContext, 'config' | 'logger' | 'allActions' | 'allErrors'>,
-    client: Octokit,
-): Promise<void> {
-    const { config, logger, allActions, allErrors } = ctx
-    for (const repo of config.repositories) {
-        const [owner, name] = repo.split('/')
-        try {
-            const branches = await listDependfixBranches(client, owner, name)
-            for (const branch of branches) {
-                const status = await getBranchPrStatus(client, owner, name, branch)
-                if (status.merged) {
-                    logger.info(`[cleanup] merged branch awaiting manual cleanup: ${branch}`)
-                    allActions.push({
-                        type: 'branch-cleanup',
-                        repository: repo,
-                        target: branch,
-                        success: true,
-                        diff: 'merged; run `dependfix cleanup-branches` to delete',
-                        durationMs: 0,
-                    })
-                }
-            }
-        } catch (error: unknown) {
-            const message = toErrorMessage(error)
-            logger.error(`[cleanup] detection failed for ${repo}: ${message}`)
-            allErrors.push({
-                repository: repo,
-                stage: 'report',
-                category: 'CLEANUP_DETECT_FAILED',
-                message,
-            })
-        }
+export function buildPrTitle(summary: Pick<RunSummary, 'alertsFixed'>, actions: FixAction[]): string {
+    const codeFixes = actions.filter((a) => a.type === 'code-scanning-fix' && a.success && !a.noOp).length
+    const upgrades = Math.max(0, summary.alertsFixed - codeFixes)
+
+    const parts: string[] = []
+    if (upgrades > 0) {
+        parts.push(`${upgrades} upgrade${upgrades > 1 ? 's' : ''}`)
     }
-}
-
-/**
- * （fix-and-pr + --cleanup-branches-auto）自动删除已合并/已关闭的 dependfix 分支。
- *
- * - 非交互：CI 环境可用，无需 TTY 确认
- * - 安全边界：只删 `dependfix/` 前缀且 merged / closed 状态的分支，绝不触碰 open PR 分支
- * - dry-run 仅列出 would-delete，不执行删除
- * - 删除动作记入 `branch-cleanup` action（报告可审计）；删除失败记录错误不中断
- */
-export async function autoCleanupMergedBranches(
-    ctx: Pick<AppContext, 'config' | 'logger' | 'allActions' | 'allErrors'>,
-    client: Octokit,
-    repo: string,
-): Promise<void> {
-    const { config, logger, allActions, allErrors } = ctx
-    const [owner, name] = repo.split('/')
-
-    try {
-        const branches = await listDependfixBranches(client, owner, name)
-        if (branches.length === 0) {
-            logger.info(`[cleanup-auto] ${repo}: no dependfix branches found`)
-            return
-        }
-
-        let deleted = 0
-        for (const branch of branches) {
-            const status = await getBranchPrStatus(client, owner, name, branch)
-            if (!status.merged && !status.closed) {
-                continue // open PR 或未知状态，保留
-            }
-
-            if (config.dryRun) {
-                logger.info(`[cleanup-auto][dry-run] Would delete ${branch} (${status.merged ? 'merged' : 'closed'})`)
-                continue
-            }
-
-            try {
-                await deleteRemoteBranch(client, owner, name, branch)
-                deleted++
-                logger.info(`[cleanup-auto] Deleted branch: ${branch}`)
-                allActions.push({
-                    type: 'branch-cleanup',
-                    repository: repo,
-                    target: branch,
-                    success: true,
-                    diff: status.merged ? 'merged' : 'closed',
-                    durationMs: 0,
-                })
-            } catch (error: unknown) {
-                const message = toErrorMessage(error)
-                // 删除失败不中断（家务活 best-effort，不触发非零退出）
-                logger.warn(`[cleanup-auto] Failed to delete branch ${branch}: ${message}`)
-            }
-        }
-        logger.info(`[cleanup-auto] ${repo}: deleted ${deleted} branch(es)`)
-    } catch (error: unknown) {
-        const message = toErrorMessage(error)
-        logger.error(`[cleanup-auto] detection failed for ${repo}: ${message}`)
-        allErrors.push({
-            repository: repo,
-            stage: 'report',
-            category: 'CLEANUP_DETECT_FAILED',
-            message,
-        })
+    if (codeFixes > 0) {
+        parts.push(`${codeFixes} code fix${codeFixes > 1 ? 'es' : ''}`)
     }
-}
-
-/**
- * 交互式确认删除。非 TTY（CI/管道）时直接拒绝。
- */
-export function confirmCleanup(
-    ctx: Pick<AppContext, 'logger'>,
-    repo: string,
-    candidates: { branch: string }[],
-): Promise<boolean> {
-    const { logger } = ctx
-    if (!process.stdin.isTTY) {
-        logger.warn('[cleanup] non-TTY environment — deletion requires interactive confirmation, aborting')
-        return Promise.resolve(false)
-    }
-
-    const rl = createInterface({ input: process.stdin, output: process.stdout })
-    return new Promise((resolve) => {
-        rl.question(
-            `Delete ${candidates.length} branch(es) from ${repo}? [y/N] `,
-            (answer) => {
-                rl.close()
-                resolve(isConfirmAnswer(answer))
-            },
-        )
-    })
+    return parts.length > 0
+        ? `fix(deps): automated security fix — ${parts.join(', ')}`
+        : 'fix(deps): automated security fix'
 }
 
 // ---------------------------------------------------------------------------
@@ -832,3 +778,4 @@ export function computeExitCode(
 
     return 2
 }
+

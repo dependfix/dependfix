@@ -23,17 +23,18 @@ import { enforceVerificationGate } from '../runners/verification-gate'
 import { fetchDependabotAlerts } from '../github/dependabot-fetcher'
 import { fetchCodeScanningAlerts } from '../github/code-scanning-fetcher'
 import { fetchPnpmAuditAlerts } from '../alerts/pnpm-audit-fetcher'
-import { createFixBranch, stageAndCommit, pushBranch, createPullRequest, generatePRBody, computeFixFingerprint, computeFixAndPrPlan, findDependfixOpenPR, listDependfixBranches, getBranchPrStatus, deleteRemoteBranch, type DependfixBranchStatus } from '../github/pr-creator'
+import { createFixBranch, stageAndCommit, pushBranch, createPullRequest, generatePRBody, computeFixFingerprint, computeFixAndPrPlan, findDependfixOpenPR } from '../github/pr-creator'
 import type { RuntimeConfig } from '../config'
 import { compareSemver, readLockfileVersion } from '../fixers/dependency'
 import { dedupeFixableAlerts, snapshotTrackedFiles, restoreTrackedFiles, quickVerifyProject, partitionSubmanifestAlerts } from '../helpers'
 import { buildUpgradeGroups } from '../grouping'
-import { applyCodeScanningFix, snapshotSourceFile, restoreSourceFile } from '../fixers/code-scanning'
 import {
     buildCommitMessage,
     type AppContext,
     upgradeAlert,
     tryLockfileRepair,
+    runCodeScanningFixes,
+    runBranchCleanupForRepo,
     verifyProject,
     commitLocalChanges,
     hasGitChanges,
@@ -41,7 +42,6 @@ import {
     closeSupersededPRs,
     reportCleanupCandidates,
     autoCleanupMergedBranches,
-    confirmCleanup,
     computeSummary,
     buildRunResult,
     computeExitCode,
@@ -49,6 +49,7 @@ import {
     codeScanningAlertsTokenHint,
     pullRequestCreationHint,
     resolveAlertRepositories,
+    buildPrTitle,
 } from './helpers'
 
 // ---------------------------------------------------------------------------
@@ -219,6 +220,7 @@ export class DependfixApp {
             const prioritized = prioritizeAlerts(filtered)
             const { limited, truncated } = limitAlerts(prioritized, this.config.maxAlertsPerRepository)
             if (truncated.length > 0) {
+                this.summary.alertsTruncated += truncated.length
                 this.logger.warn(truncatedWarning(this.config, truncated.length))
             }
 
@@ -310,6 +312,7 @@ export class DependfixApp {
             const prioritized = prioritizeAlerts(filtered)
             const { limited, truncated } = limitAlerts(prioritized, this.config.maxAlertsPerRepository)
             if (truncated.length > 0) {
+                this.summary.alertsTruncated += truncated.length
                 this.logger.warn(truncatedWarning(this.config, truncated.length))
             }
             alertsCount = limited.length
@@ -320,79 +323,16 @@ export class DependfixApp {
             this.allAlerts.push(...limited)
 
             // 2.0 Code Scanning 模板修复（T303，A 类白名单；与依赖升级链路并行、互不干扰）
-            // 逐告警：快照 → 应用模板 → quickVerify（lint）→ 失败回滚（不静默）；
-            // 无模板/模板不适用/缺文件/快照失败 → noOp 动作（回退建议模式，T304 展示；
-            // error 原因可审计，不计 failed 避免陈旧告警永久 exit 1/2）
-            const codeScanningAutoFixable = limited.filter(
-                (a) => a.source === 'code-scanning' && a.alertClass === 'auto-fixable',
-            )
-            for (const csAlert of codeScanningAutoFixable) {
-                // 源码文件快照（不在 snapshotTrackedFiles 清单范围内——回滚必须精确到目标文件）
-                const sourceSnapshot = snapshotSourceFile(this.workDir, csAlert.manifestPath)
-                if (!sourceSnapshot) {
-                    // 快照失败（路径越界/读取异常）：构造 noOp action 保证可审计（不静默）
-                    const snapAction: FixAction = {
-                        type: 'code-scanning-fix',
-                        repository: csAlert.repository,
-                        target: csAlert.ruleId,
-                        success: true,
-                        noOp: true,
-                        filePath: csAlert.manifestPath,
-                        error: `cannot snapshot ${csAlert.manifestPath} (unsafe path or unreadable)`,
-                        durationMs: 0,
-                    }
-                    this.allActions.push(snapAction)
-                    this.logger.warn(`[code-scanning] ${csAlert.ruleId} skipped: ${snapAction.error}`)
-                    continue
-                }
-                const action = applyCodeScanningFix({ workDir: this.workDir, alert: csAlert, dryRun: this.config.dryRun })
-                if (!action) {
-                    continue // 防御：过滤条件已保证非空
-                }
-                if (!action.success) {
-                    // 失败分支也恢复快照（写盘异常可能产生中间态；幂等，未改动时写回原内容无害）
-                    const restored = restoreSourceFile(this.workDir, sourceSnapshot)
-                    if (!restored) {
-                        action.error = `${action.error}; rollback failed, file may be modified`
-                    }
-                    this.allActions.push(action)
-                    failed++
-                    this.logger.warn(`[code-scanning] ${csAlert.ruleId} not auto-fixed: ${action.error}`)
-                    continue
-                }
-                // no-op / 无法安全处理（陈旧告警、无模板、歧义）→ 不计 fixed/failed，
-                // error 在 Fix Actions 表可见（不静默）
-                if (action.noOp) {
-                    this.allActions.push(action)
-                    if (action.error) {
-                        this.logger.warn(`[code-scanning] ${csAlert.ruleId} skipped: ${action.error}`)
-                    }
-                    continue
-                }
-                if (this.config.dryRun) {
-                    fixed++
-                    this.allActions.push(action)
-                    continue
-                }
-                const quickOk = await quickVerifyProject(this.ctx, repo)
-                if (!quickOk) {
-                    const restored = restoreSourceFile(this.workDir, sourceSnapshot)
-                    action.success = false
-                    action.error = restored
-                        ? 'lint failed after code-scanning fix; changes rolled back'
-                        : 'lint failed after code-scanning fix; rollback failed, file may be modified'
-                    this.allActions.push(action)
-                    failed++
-                    this.logger.warn(`[code-scanning] ${csAlert.ruleId} fix rolled back: lint failed`)
-                    continue
-                }
-                this.allActions.push(action)
-                fixed++
-                this.logger.info(`[code-scanning] ${csAlert.ruleId}: ${action.diff}`)
-            }
+            // 逐告警：快照 → 应用模板 → quickVerify（lint）→ 失败回滚（不静默）
+            const csCounts = await runCodeScanningFixes(this.ctx, repo, limited)
+            fixed += csCounts.fixed
+            failed += csCounts.failed
 
             // 2.1 子目录 / 根直接依赖 lockfile 告警（P0 防护：docs vite 告警曾误降级根 vite@8→6）→ 剔除修复链路
-            const { root: rootManifestAlerts, sub: submanifestAlerts } = partitionSubmanifestAlerts(limited, this.workDir)
+            // 收尾审查遗留修复：code-scanning 告警（manifestPath 为源码路径）不参与依赖清单分区，
+            // 避免全部落 sub 桶产生 skip 计数噪音（其可见性由 §Code Scanning Suggestions 承担）
+            const dependencyAlerts = limited.filter((a) => a.source !== 'code-scanning')
+            const { root: rootManifestAlerts, sub: submanifestAlerts } = partitionSubmanifestAlerts(dependencyAlerts, this.workDir)
             if (submanifestAlerts.length > 0) {
                 this.logger.warn(
                     `[alerts] ${submanifestAlerts.length} alert(s) from sub-directory / root-direct-dep manifest(s) skipped — manual review required: ${submanifestAlerts.map((a) => `${a.packageName} (${a.manifestPath})`).join(', ')}`,
@@ -681,7 +621,7 @@ export class DependfixApp {
                 runResult,
                 plan.supersedePRs.map((pr) => pr.number),
             )
-            const prTitle = `fix(deps): automated security fix — ${this.summary.alertsFixed} upgrades`
+            const prTitle = buildPrTitle(this.summary, this.allActions)
 
             const pr = await createPullRequest({
                 octokit: client,
@@ -737,88 +677,8 @@ export class DependfixApp {
      */
     private async executeCleanupBranchesMode(): Promise<void> {
         const client = this.createClient()
-
         for (const repo of this.config.repositories) {
-            const [owner, name] = repo.split('/')
-            try {
-                const branches = await listDependfixBranches(client, owner, name)
-                if (branches.length === 0) {
-                    this.logger.info(`[cleanup] ${repo}: no dependfix branches found`)
-                    continue
-                }
-
-                const statuses: DependfixBranchStatus[] = []
-                for (const branch of branches) {
-                    statuses.push(await getBranchPrStatus(client, owner, name, branch))
-                }
-
-                const merged = statuses.filter((s) => s.merged)
-                const orphaned = statuses.filter((s) => s.closed && !s.merged)
-                const open = statuses.filter((s) => !s.closed)
-
-                this.logger.info(
-                    `[cleanup] ${repo}: ${merged.length} merged, ${orphaned.length} closed, ${open.length} kept`,
-                )
-                for (const s of merged) {
-                    this.logger.info(`  [merged] ${s.branch}${s.prNumber ? ` (PR #${s.prNumber})` : ''}`)
-                }
-                for (const s of orphaned) {
-                    this.logger.info(`  [closed] ${s.branch}${s.prNumber ? ` (PR #${s.prNumber})` : ''}`)
-                }
-                for (const s of open) {
-                    const label = s.prNumber ? `[open — kept]` : `[no PR — kept]`
-                    this.logger.info(`  ${label} ${s.branch}${s.prNumber ? ` (PR #${s.prNumber})` : ''}`)
-                }
-
-                const candidates = [...merged, ...orphaned]
-                if (candidates.length === 0) {
-                    this.logger.info('[cleanup] nothing to delete')
-                    continue
-                }
-
-                if (this.config.dryRun) {
-                    this.logger.info(`[dry-run] Would delete ${candidates.length} branch(es): ${candidates.map((s) => s.branch).join(', ')}`)
-                    continue
-                }
-
-                if (!(await confirmCleanup(this.ctx, repo, candidates))) {
-                    this.logger.info('[cleanup] cancelled by user')
-                    continue
-                }
-
-                for (const s of candidates) {
-                    try {
-                        await deleteRemoteBranch(client, owner, name, s.branch)
-                        this.logger.info(`Deleted branch: ${s.branch}`)
-                        this.allActions.push({
-                            type: 'branch-cleanup',
-                            repository: repo,
-                            target: s.branch,
-                            success: true,
-                            diff: s.merged ? 'merged' : 'closed',
-                            durationMs: 0,
-                        })
-                    } catch (error: unknown) {
-                        const message = toErrorMessage(error)
-                        this.logger.error(`Failed to delete branch ${s.branch}: ${message}`)
-                        this.allErrors.push({
-                            repository: repo,
-                            stage: 'report',
-                            category: 'BRANCH_DELETE_FAILED',
-                            message: `Failed to delete ${s.branch}: ${message}`,
-                        })
-                    }
-                }
-            } catch (error: unknown) {
-                const message = toErrorMessage(error)
-                this.logger.error(`[cleanup] failed for ${repo}: ${message}`)
-                this.allErrors.push({
-                    repository: repo,
-                    stage: 'report',
-                    category: 'CLEANUP_FAILED',
-                    message,
-                })
-            }
+            await runBranchCleanupForRepo(this.ctx, client, repo)
         }
     }
 

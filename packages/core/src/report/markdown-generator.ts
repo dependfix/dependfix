@@ -8,6 +8,7 @@ import {
     actionTypeLabel,
     statusIcon,
 } from './types'
+import { collectCodeScanningSuggestions } from './suggestions'
 
 /**
  * 生成 Markdown 格式报告字符串。
@@ -135,6 +136,23 @@ export function generateMarkdownReport(result: RunResult): string {
                 sections.push('_No alerts for this repository._', '')
             }
         }
+    }
+
+    // ---- 4.5 Code Scanning Suggestions（T304：无法自动修复的问题不静默丢失）----
+    const suggestions = collectCodeScanningSuggestions(result)
+    if (suggestions.length > 0) {
+        sections.push(
+            '## Code Scanning Suggestions',
+            '',
+            '| Repository | Rule | Location | Severity | Reason | Suggestion |',
+            '|------------|------|----------|----------|--------|------------|',
+        )
+        for (const s of suggestions) {
+            sections.push(
+                `| ${escapeMd(s.repository)} | \`${escapeMd(s.ruleId)}\` | \`${escapeMd(s.location)}\` | ${s.severity.toUpperCase()} | ${escapeMd(s.reason)} | ${escapeMd(s.suggestion)} |`,
+            )
+        }
+        sections.push('')
     }
 
     // ---- 5. Fix Actions ----

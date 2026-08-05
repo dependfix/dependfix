@@ -103,18 +103,23 @@ T301（采集器）→ T302（规则分层）→ T303（模板修复器）→ T3
 
 - **优先级**: P1
 - **依赖**: T301、T302、T108（报告）
-- **状态**: ⬜ 未开始
-- **交付物**: Code Scanning 修复建议报告（报告 §4 之外新增建议区块或并入现有表格）
+- **状态**: ✅ 已完成（2026-08-05，待提交）
+- **交付物**: Code Scanning 修复建议报告（报告 §Code Scanning Suggestions 区块 + PR body 区块）
 
 **任务内容**:
 
-- [ ] 输出规则 ID、位置（文件:行）、摘要、建议修复方向
-- [ ] 区分未自动修复原因（B/C 类规则 / 白名单外 / 修复失败回退）
-- [ ] PR body 中展示 Code Scanning 建议（fix-and-pr 模式）
+- [x] 输出规则 ID、位置（文件:行）、摘要、建议修复方向（fetcher 注入 suggestionFor，core 模型扩展 startLine/endLine/suggestion）
+- [x] 区分未自动修复原因（B/C 类规则 / noOp / 修复失败，reason 优先级链）
+- [x] PR body 中展示 Code Scanning 建议（fix-and-pr 模式，generatePRBody 区块）
 
 **完成定义**:
 
-- [ ] 无法自动修复的问题不会静默丢失（报告中明确可见 + 原因标注）
+- [x] 无法自动修复的问题不会静默丢失（报告 §Code Scanning Suggestions 明确可见 + 原因标注）
+
+**Review Gate 遗留（非阻塞）**:
+- summary 字段已收集未渲染（JSON 可见；报告/PR body 如需摘要列可加）
+- endLine 死字段（供后续多行范围展示）
+- 大仓库建议区块行数可能使 PR body 接近 GitHub 64KB 上限（告警级输出无上限）
 
 ---
 

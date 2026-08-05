@@ -1,7 +1,11 @@
 import { execFileSync, execSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import type { Octokit } from '@octokit/rest'
-import type { FixAction, RunResult } from '@dependfix/core'
+import {
+    type FixAction,
+    type RunResult,
+    collectCodeScanningSuggestions,
+} from '@dependfix/core'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -503,6 +507,25 @@ export function generatePRBody(result: RunResult, supersededNumbers?: number[]):
         for (const v of verifications) {
             const icon = v.success ? '✅' : '❌'
             lines.push(`- ${icon} \`${v.target}\` ${v.error ? `(${v.error})` : ''}`)
+        }
+        lines.push('')
+    }
+
+    // Code Scanning 建议（T304：无法自动修复的问题不静默丢失）
+    const suggestions = collectCodeScanningSuggestions(result)
+    if (suggestions.length > 0) {
+        const multiRepo = new Set(suggestions.map((s) => s.repository)).size > 1
+        lines.push('### 🧰 Code Scanning Suggestions', '')
+        const headers = multiRepo
+            ? ['Repository', 'Rule', 'Location', 'Reason', 'Suggestion']
+            : ['Rule', 'Location', 'Reason', 'Suggestion']
+        lines.push(`| ${headers.join(' | ')} |`)
+        lines.push(`|${headers.map(() => '---').join('|')}|`)
+        for (const s of suggestions) {
+            const cells = multiRepo
+                ? [s.repository, `\`${escapeTableCell(s.ruleId)}\``, `\`${escapeTableCell(s.location)}\``, escapeTableCell(s.reason), escapeTableCell(s.suggestion)]
+                : [`\`${escapeTableCell(s.ruleId)}\``, `\`${escapeTableCell(s.location)}\``, escapeTableCell(s.reason), escapeTableCell(s.suggestion)]
+            lines.push(`| ${cells.join(' | ')} |`)
         }
         lines.push('')
     }

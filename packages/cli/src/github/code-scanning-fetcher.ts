@@ -1,6 +1,6 @@
 import type { Octokit, RestEndpointMethodTypes } from '@octokit/rest'
 import { mapCodeScanningSeverity, type NormalizedSecurityAlert, type AlertSeverity } from '@dependfix/core'
-import { classifyRule } from '../code-scanning/rule-classifier'
+import { classifyRule, suggestionFor } from '../code-scanning/rule-classifier'
 import { mapGitHubError } from './errors'
 
 // ---------------------------------------------------------------------------
@@ -108,6 +108,9 @@ function normalizeAlert(
         fixStrategy: null,
         recommendedVersion: '',
         alertClass: classifyRule(ruleId),
+        startLine: instance?.location?.start_line ?? undefined,
+        endLine: instance?.location?.end_line ?? undefined,
+        suggestion: suggestionFor(ruleId),
     }
 }
 

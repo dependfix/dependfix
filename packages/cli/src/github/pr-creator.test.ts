@@ -629,6 +629,38 @@ describe('generatePRBody', () => {
 
         expect(body).toContain('| `vite` | 5.4.20 | 6.4.4 | direct | ⚠️ Yes |')
     })
+
+    it('renders code-scanning suggestions section (T304)', () => {
+        const result = buildRunResult()
+        result.alerts = [{
+            id: 2,
+            source: 'code-scanning',
+            repository: 'owner/repo',
+            defaultBranch: 'main',
+            severity: 'high',
+            packageEcosystem: 'code-scanning',
+            packageName: 'SQL injection',
+            manifestPath: 'src/db.ts',
+            ruleId: 'js/sql-injection',
+            summary: 'This query depends on a user-provided value.',
+            htmlUrl: 'https://github.com/o/r/security/code-scanning/2',
+            fixable: false,
+            fixStrategy: null,
+            recommendedVersion: '',
+            alertClass: 'suggested',
+            startLine: 42,
+            suggestion: '使用参数化查询',
+        }]
+        const body = generatePRBody(result)
+
+        expect(body).toContain('### 🧰 Code Scanning Suggestions')
+        expect(body).toContain('| `js/sql-injection` | `src/db.ts:42` | B 类建议规则（需人工判断） | 使用参数化查询 |')
+    })
+
+    it('omits suggestions section when no unfixed code-scanning alerts exist', () => {
+        const body = generatePRBody(buildRunResult())
+        expect(body).not.toContain('Code Scanning Suggestions')
+    })
 })
 
 function makeBodyAction(overrides: Partial<FixAction>): FixAction {

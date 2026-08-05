@@ -87,3 +87,35 @@ export function classifyRule(ruleId: string | null | undefined): AlertClass {
     }
     return 'report-only'
 }
+
+/**
+ * B 类建议规则的人工修复方向（T304，报告/PR body 建议区块展示）。
+ * 收录 SUGGESTED_RULES 的修复指引；未收录规则返回通用建议（C 类兜底，不静默）。
+ */
+const SUGGESTION_MAP: ReadonlyMap<string, string> = new Map([
+    ['no-unused-vars', '删除未使用的变量/导入；注意导出引用与副作用（import 副作用场景），确认后手动删除'],
+    ['js/sql-injection', '使用参数化查询（PreparedStatement / query builder），禁止字符串拼接 SQL'],
+    ['js/xss', '输出前 HTML 转义；innerHTML / document.write 场景用 DOMPurify 等清洗库'],
+    ['js/path-injection', '校验用户输入路径在预期目录内（path.resolve + 前缀校验），禁止直接拼接文件路径'],
+    ['js/command-line-injection', '避免 shell 字符串拼接，使用参数数组（child_process.spawn(args)）'],
+    ['js/insecure-randomness', '安全随机数使用 crypto.randomBytes / Web Crypto，禁止 Math.random'],
+    ['js/weak-cryptographic-algorithm', '升级为强算法（AES-256-GCM / Argon2 / SHA-256+），安全场景禁用 MD5/SHA-1'],
+    ['js/missing-rate-limiting', '为认证/敏感接口添加限流（如 express-rate-limit）'],
+    ['js/clear-text-storage-of-sensitive-data', '敏感数据加密存储（AES-256-GCM），禁止明文落盘'],
+    ['js/clear-text-transmission-of-sensitive-data', '启用 TLS（HTTPS/WSS），禁止明文传输敏感数据'],
+    ['js/hardcoded-credentials', '凭证移入环境变量/密钥管理服务（GitHub Secrets / Vault），禁止硬编码'],
+    ['py/sql-injection', '使用参数化查询（sqlite3 占位符 / SQLAlchemy 参数绑定），禁止字符串拼接 SQL'],
+    ['py/path-injection', '校验并规范化用户输入路径（os.path.realpath + 目录前缀校验）'],
+    ['py/command-line-injection', '使用参数数组（subprocess.run(args)），禁止 shell=True 字符串拼接'],
+    ['py/insecure-default-file-permissions', '创建文件时显式设置权限（os.open mode / umask）'],
+    ['java/sql-injection', '使用 PreparedStatement 参数绑定，禁止字符串拼接 SQL'],
+    ['java/path-injection', '校验用户输入路径（Path.normalize() + startsWith 检查），禁止直接拼接'],
+    ['java/command-line-injection', '使用 ProcessBuilder 参数列表，禁止 shell 字符串拼接'],
+])
+
+/** 生成修复建议方向文本；未知规则返回通用建议（C 类兜底）。 */
+export function suggestionFor(ruleId: string | null | undefined): string {
+    const id = ruleId?.trim() ?? ''
+    return SUGGESTION_MAP.get(id)
+        ?? '人工审查该 Code Scanning 告警：结合业务语义评估修复方案（参考 CodeQL 规则文档）'
+}

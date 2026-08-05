@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { getCodeScanningFixTemplate } from '../fixers/code-scanning/templates'
-import { AUTO_FIXABLE_RULES, SUGGESTED_RULES, classifyRule } from './rule-classifier'
+import { AUTO_FIXABLE_RULES, SUGGESTED_RULES, classifyRule, suggestionFor } from './rule-classifier'
 
 describe('classifyRule', () => {
     it('classifies auto-fixable whitelist rules (A class)', () => {
@@ -52,5 +52,23 @@ describe('classifyRule', () => {
         for (const rule of AUTO_FIXABLE_RULES) {
             expect(getCodeScanningFixTemplate(rule)).toBeDefined()
         }
+    })
+})
+
+describe('suggestionFor', () => {
+    it('returns rule-specific suggestions for suggested rules', () => {
+        expect(suggestionFor('js/sql-injection')).toContain('参数化查询')
+        expect(suggestionFor('no-unused-vars')).toContain('删除未使用')
+        expect(suggestionFor('py/path-injection')).toContain('realpath')
+    })
+
+    it('returns a generic fallback for unknown rules', () => {
+        expect(suggestionFor('js/exotic')).toContain('人工审查')
+        expect(suggestionFor('')).toContain('人工审查')
+        expect(suggestionFor(null)).toContain('人工审查')
+    })
+
+    it('trims rule id before lookup', () => {
+        expect(suggestionFor('  js/sql-injection  ')).toContain('参数化查询')
     })
 })

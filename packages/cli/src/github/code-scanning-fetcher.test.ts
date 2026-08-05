@@ -165,8 +165,8 @@ describe('fetchCodeScanningAlerts', () => {
             .query(true)
             .reply(200, [
                 makeRawAlert({
-                    rule: { id: 'js/unknown-rule', severity: 'error', name: 'SQL injection' },
-                    most_recent_instance: { location: { path: 'src/db.ts', start_line: 7, end_line: 7 }, message: { text: 'X' } },
+                    rule: { id: 'js/sql-injection', severity: 'error', name: 'SQL injection' },
+                    most_recent_instance: { location: { path: 'src/db.ts', start_line: 7, end_line: 9 }, message: { text: 'X' } },
                 }),
             ])
 
@@ -174,8 +174,30 @@ describe('fetchCodeScanningAlerts', () => {
         const [alert] = await fetchCodeScanningAlerts(client, { owner: 'foo', repo: 'bar' })
 
         expect(alert.packageName).toBe('SQL injection')
-        expect(alert.ruleId).toBe('js/unknown-rule')
+        expect(alert.ruleId).toBe('js/sql-injection')
         expect(alert.manifestPath).toBe('src/db.ts')
+    })
+
+    it('fills start/end line and suggestion for suggestion output (T304)', async () => {
+        nock(API_BASE)
+            .get(GET_ALERTS_PATH)
+            .query(true)
+            .reply(200, [
+                makeRawAlert({
+                    rule: { id: 'js/sql-injection', severity: 'error', security_severity_level: 'high', name: 'SQL injection' },
+                    most_recent_instance: {
+                        location: { path: 'src/db.ts', start_line: 42, end_line: 46 },
+                        message: { text: 'This query depends on a user-provided value.' },
+                    },
+                }),
+            ])
+
+        const client = setupClient()
+        const [alert] = await fetchCodeScanningAlerts(client, { owner: 'foo', repo: 'bar' })
+
+        expect(alert.startLine).toBe(42)
+        expect(alert.endLine).toBe(46)
+        expect(alert.suggestion).toContain('参数化查询')
     })
 
     it('returns empty array for a repo with no alerts', async () => {

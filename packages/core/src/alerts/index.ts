@@ -32,6 +32,18 @@ export interface NormalizedSecurityAlert {
      * 分类结果用于报告可见性与修复路由（T302/T303）。
      */
     alertClass?: AlertClass
+    /**
+     * Code Scanning 告警起始行（most_recent_instance.location.start_line）；
+     * 报告建议区块展示位置（文件:行）。
+     */
+    startLine?: number
+    /** Code Scanning 告警结束行 */
+    endLine?: number
+    /**
+     * Code Scanning 修复建议方向（rule-classifier.suggestionFor 生成，cli 侧填充）；
+     * 报告/PR body 建议区块展示。
+     */
+    suggestion?: string
 }
 
 export const SEVERITY_MAP = {

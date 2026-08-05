@@ -17,6 +17,7 @@ import {
     formatDuration,
     actionTypeLabel,
     statusIcon,
+    collectCodeScanningSuggestions,
     createEmptyRunSummary,
 } from './index'
 
@@ -685,6 +686,194 @@ describe('generateJsonReport', () => {
         const json = generateJsonReport(EMPTY_RUN_RESULT)
         expect(json).not.toContain('githubToken')
         expect(json).not.toContain('GITHUB_TOKEN')
+    })
+})
+
+// ---------------------------------------------------------------------------
+// collectCodeScanningSuggestions（T304 建议型输出）
+// ---------------------------------------------------------------------------
+
+describe('collectCodeScanningSuggestions', () => {
+    const repoResult: RepositoryResult = {
+        repository: 'owner/repo', defaultBranch: 'main', alertsCount: 3,
+        fixable: 0, fixed: 1, failed: 0, lockfileRepaired: false, durationMs: 1000,
+    }
+
+    function csAlert(overrides: Partial<NormalizedSecurityAlert> = {}): NormalizedSecurityAlert {
+        return makeAlert({
+            source: 'code-scanning',
+            packageName: 'Rule name',
+            fixable: false,
+            fixStrategy: null,
+            recommendedVersion: '',
+            ...overrides,
+        })
+    }
+
+    it('collects B/C class alerts with location, reason and suggestion', () => {
+        const result = {
+            ...EMPTY_RUN_RESULT,
+            repositories: [repoResult],
+            alerts: [
+                csAlert({
+                    ruleId: 'js/sql-injection',
+                    alertClass: 'suggested',
+                    severity: 'high',
+                    manifestPath: 'src/db.ts',
+                    startLine: 42,
+                    summary: 'This query depends on a user-provided value.',
+                    suggestion: '使用参数化查询',
+                }),
+                csAlert({
+                    ruleId: 'js/exotic',
+                    alertClass: 'report-only',
+                    severity: 'medium',
+                    manifestPath: 'src/x.ts',
+                    startLine: 7,
+                    summary: 'Exotic rule fired',
+                }),
+            ],
+        }
+        const rows = collectCodeScanningSuggestions(result)
+
+        expect(rows).toHaveLength(2)
+        expect(rows[0]).toMatchObject({
+            ruleId: 'js/sql-injection',
+            location: 'src/db.ts:42',
+            severity: 'high',
+            reason: 'B 类建议规则（需人工判断）',
+            suggestion: '使用参数化查询',
+        })
+        expect(rows[1].reason).toBe('C 类仅报告（未列入自动修复/建议列表）')
+        expect(rows[1].suggestion).toBe('人工审查该 Code Scanning 告警')
+    })
+
+    it('excludes auto-fixed alerts and uses noOp action error as reason', () => {
+        const result = {
+            ...EMPTY_RUN_RESULT,
+            repositories: [repoResult],
+            alerts: [
+                csAlert({
+                    ruleId: 'eol-last',
+                    alertClass: 'auto-fixable',
+                    severity: 'low',
+                    manifestPath: 'src/a.ts',
+                    startLine: 1,
+                }),
+                csAlert({
+                    ruleId: 'eol-last',
+                    alertClass: 'auto-fixable',
+                    severity: 'low',
+                    manifestPath: 'src/b.ts',
+                    startLine: 1,
+                }),
+            ],
+            actions: [
+                {
+                    type: 'code-scanning-fix',
+                    repository: 'owner/repo',
+                    target: 'eol-last',
+                    filePath: 'src/a.ts',
+                    success: true,
+                    diff: 'appended trailing newline',
+                    durationMs: 10,
+                },
+                {
+                    type: 'code-scanning-fix',
+                    repository: 'owner/repo',
+                    target: 'eol-last',
+                    filePath: 'src/b.ts',
+                    success: true,
+                    noOp: true,
+                    error: 'cannot read src/b.ts (stale alert?)',
+                    durationMs: 10,
+                },
+            ],
+        }
+        const rows = collectCodeScanningSuggestions(result)
+
+        // a.ts 已修复 → 不出现；b.ts noOp → 出现且 reason 为 action error
+        expect(rows).toHaveLength(1)
+        expect(rows[0].location).toBe('src/b.ts:1')
+        expect(rows[0].reason).toContain('stale alert')
+    })
+
+    it('uses failed action error as reason with priority over class label', () => {
+        const result = {
+            ...EMPTY_RUN_RESULT,
+            repositories: [repoResult],
+            alerts: [
+                csAlert({
+                    ruleId: 'js/sql-injection',
+                    alertClass: 'suggested',
+                    severity: 'high',
+                    manifestPath: 'src/db.ts',
+                    startLine: 42,
+                }),
+            ],
+            actions: [{
+                type: 'code-scanning-fix',
+                repository: 'owner/repo',
+                target: 'js/sql-injection',
+                filePath: 'src/db.ts',
+                success: false,
+                error: 'cannot write src/db.ts',
+                durationMs: 10,
+            }],
+        }
+        const rows = collectCodeScanningSuggestions(result)
+
+        // 修复失败 reason 优先于 B 类标签
+        expect(rows).toHaveLength(1)
+        expect(rows[0].reason).toBe('修复失败：cannot write src/db.ts')
+    })
+
+    it('flags A-class alert without action as abnormal path', () => {
+        const result = {
+            ...EMPTY_RUN_RESULT,
+            repositories: [repoResult],
+            alerts: [
+                csAlert({
+                    ruleId: 'eol-last',
+                    alertClass: 'auto-fixable',
+                    severity: 'low',
+                    manifestPath: 'src/c.ts',
+                    startLine: 1,
+                }),
+            ],
+        }
+        const rows = collectCodeScanningSuggestions(result)
+
+        expect(rows).toHaveLength(1)
+        expect(rows[0].reason).toBe('A 类规则未产生修复动作（异常路径，请人工检查）')
+    })
+
+    it('renders suggestions section in markdown report', () => {
+        const result = {
+            ...EMPTY_RUN_RESULT,
+            repositories: [repoResult],
+            alerts: [
+                csAlert({
+                    ruleId: 'js/sql-injection',
+                    alertClass: 'suggested',
+                    severity: 'high',
+                    manifestPath: 'src/db.ts',
+                    startLine: 42,
+                    summary: 'x',
+                    suggestion: '使用参数化查询',
+                }),
+            ],
+        }
+        const md = generateMarkdownReport(result)
+
+        expect(md).toContain('## Code Scanning Suggestions')
+        expect(md).toContain('| Repository | Rule | Location | Severity | Reason | Suggestion |')
+        expect(md).toContain('| `js/sql-injection` | `src/db.ts:42` | HIGH | B 类建议规则（需人工判断） | 使用参数化查询 |')
+    })
+
+    it('omits suggestions section when no unfixed code-scanning alerts exist', () => {
+        const md = generateMarkdownReport(EMPTY_RUN_RESULT)
+        expect(md).not.toContain('Code Scanning Suggestions')
     })
 })
 

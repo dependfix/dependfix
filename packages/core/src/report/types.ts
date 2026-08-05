@@ -18,6 +18,8 @@ export interface RunReportConfig {
     createPullRequest: boolean
     maxAlertsPerRepository: number
     alertSource: AlertSourceKind
+    /** 是否同时拉取 Code Scanning alerts（与 Dependabot 并行源） */
+    codeScanningEnabled?: boolean
 }
 
 /**

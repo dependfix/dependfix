@@ -366,7 +366,7 @@ describe('generateMarkdownReport', () => {
         expect(md).toContain('_No alerts')
     })
 
-    it('renders GHSA column per alert (audit granularity for duplicate packages)', () => {
+    it('renders Rule/Advisory column per alert (audit granularity for duplicate packages)', () => {
         const repoResult: RepositoryResult = {
             repository: 'owner/repo', defaultBranch: 'main', alertsCount: 2,
             fixable: 2, fixed: 0, failed: 0, lockfileRepaired: false, durationMs: 1000,
@@ -374,7 +374,7 @@ describe('generateMarkdownReport', () => {
         const result = {
             ...EMPTY_RUN_RESULT,
             repositories: [repoResult],
-            // 同一包两条告警（fast-uri 场景）：逐条保留，GHSA 列区分
+            // 同一包两条告警（fast-uri 场景）：逐条保留，Rule/Advisory 列区分
             alerts: [
                 makeAlert({ packageName: 'fast-uri', ruleId: 'GHSA-aaaa', recommendedVersion: '3.1.5' }),
                 makeAlert({ packageName: 'fast-uri', ruleId: 'GHSA-bbbb', recommendedVersion: '3.1.5' }),
@@ -382,10 +382,34 @@ describe('generateMarkdownReport', () => {
         }
         const md = generateMarkdownReport(result)
 
-        expect(md).toContain('| Package | GHSA | Severity | From | To | Major | Status |')
+        expect(md).toContain('| Package | Rule/Advisory | Severity | From | To | Major | Status |')
         expect(md.match(/\| `fast-uri` \|/g)).toHaveLength(2)
         expect(md).toContain('GHSA-aaaa')
         expect(md).toContain('GHSA-bbbb')
+    })
+
+    it('renders code-scanning alerts with rule id in Rule/Advisory column', () => {
+        const repoResult: RepositoryResult = {
+            repository: 'owner/repo', defaultBranch: 'main', alertsCount: 1,
+            fixable: 0, fixed: 0, failed: 0, lockfileRepaired: false, durationMs: 1000,
+        }
+        const result = {
+            ...EMPTY_RUN_RESULT,
+            repositories: [repoResult],
+            // Code Scanning 告警：packageName 显示规则名，Rule/Advisory 列显示 rule id
+            alerts: [
+                makeAlert({
+                    source: 'code-scanning',
+                    packageName: 'SQL injection',
+                    ruleId: 'js-sqli',
+                    severity: 'high',
+                    recommendedVersion: '',
+                }),
+            ],
+        }
+        const md = generateMarkdownReport(result)
+
+        expect(md).toContain('| `SQL injection` | js-sqli | HIGH | — | — | — | ⏭️ Skipped |')
     })
 
     it('renders skipped alerts with target version and dash from (no misleading from/to)', () => {

@@ -95,6 +95,11 @@ const argsDef = {
         type: 'string' as const,
         description: '告警数据源：github-dependabot（默认，GitHub Dependabot alerts API）或 pnpm-audit（本地无 token 回退，扫描当前工作区 lockfile；repository 优先 --repo → git remote → local 兜底）',
     },
+    'code-scanning': {
+        type: 'boolean' as const,
+        description: '同时拉取 Code Scanning alerts（与 Dependabot 并行，默认关闭；需要 token 具备 security-events: read，GITHUB_TOKEN 默认具备）',
+        negativeDescription: '不拉取 Code Scanning alerts（默认）',
+    },
     'max-alerts-per-repository': {
         type: 'string' as const,
         description: '每个仓库最多处理的告警数',
@@ -234,6 +239,11 @@ function parsedArgsToCliOverrides(parsed: ParsedArgs<typeof argsDef>): CliConfig
             )
         }
         overrides.alertSource = alertsSource
+    }
+
+    // code-scanning (three-state: true / false / undefined)
+    if (parsed['code-scanning'] !== undefined) {
+        overrides.codeScanningEnabled = parsed['code-scanning']
     }
 
     // max-alerts-per-repository

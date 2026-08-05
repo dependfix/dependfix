@@ -29,6 +29,13 @@ export interface RuntimeConfig {
      */
     alertSource: AlertSourceKind
     /**
+     * 是否同时拉取 Code Scanning alerts（与 Dependabot 并行源，非回退）。
+     * 默认关闭（行为与 M2 一致）；开启后 GitHub 源下 Dependabot + Code Scanning
+     * 并行拉取、互不覆盖。Code Scanning 告警默认不可自动修复（T303 按规则启用）。
+     * 需要 token 具备 `security-events: read` 权限（GITHUB_TOKEN 默认具备）。
+     */
+    codeScanningEnabled: boolean
+    /**
      * Dependabot alerts 专用 token（可选）。
      * 提供时仅用于拉取 Dependabot alerts（GITHUB_TOKEN 无法读取该 API，
      * 建议使用最小权限 fine-grained PAT，仅 `Dependabot alerts: read`）；
@@ -62,6 +69,8 @@ export interface CliConfigOverrides {
     githubToken?: string
     /** 告警数据源（`github-dependabot` / `pnpm-audit`） */
     alertSource?: AlertSourceKind
+    /** 是否同时拉取 Code Scanning alerts（默认 false） */
+    codeScanningEnabled?: boolean
     /** Dependabot alerts 专用 token（可选，最小权限；缺省回退 githubToken） */
     alertsToken?: string
     maxAlertsPerRepository?: number
@@ -84,6 +93,7 @@ export const DEFAULT_RUNTIME_CONFIG: Omit<RuntimeConfig, 'githubToken' | 'reposi
     mode: 'report-only',
     severityThreshold: 'high',
     alertSource: 'github-dependabot',
+    codeScanningEnabled: false,
     maxAlertsPerRepository: 20,
 }
 
@@ -253,6 +263,7 @@ export function readEnvConfig(env: NodeJS.ProcessEnv = process.env): CliConfigOv
         githubToken: env.AUTO_FIX_GITHUB_SECURITY_GITHUB_TOKEN?.trim() || env.GITHUB_TOKEN?.trim() || undefined,
         alertsToken: env.AUTO_FIX_GITHUB_SECURITY_ALERTS_TOKEN?.trim() || undefined,
         alertSource: readAlertSource(env.AUTO_FIX_GITHUB_SECURITY_ALERTS_SOURCE, 'AUTO_FIX_GITHUB_SECURITY_ALERTS_SOURCE'),
+        codeScanningEnabled: normalizeBoolean(env.AUTO_FIX_GITHUB_SECURITY_CODE_SCANNING, 'AUTO_FIX_GITHUB_SECURITY_CODE_SCANNING'),
         maxAlertsPerRepository: normalizeInteger(env.AUTO_FIX_GITHUB_SECURITY_MAX_ALERTS_PER_REPOSITORY, 'AUTO_FIX_GITHUB_SECURITY_MAX_ALERTS_PER_REPOSITORY'),
         upgradeGroups: normalizeUpgradeGroups(env.AUTO_FIX_GITHUB_SECURITY_UPGRADE_GROUPS),
     }
@@ -354,6 +365,14 @@ function validateRuntimeConfig(config: RuntimeConfig): RuntimeConfig {
         )
     }
 
+    // Code Scanning 是 GitHub API 并行源，pnpm-audit 本地场景无法拉取
+    if (isAuditSource && config.codeScanningEnabled) {
+        throw new AppError(
+            'CONFIG_VALIDATION_ERROR',
+            'code-scanning requires the github-dependabot alert source (Code Scanning alerts are fetched from the GitHub API).',
+        )
+    }
+
     // PR 必须 GitHub，audit 数据无对应仓库
     if (isAuditSource && config.mode === 'fix-and-pr') {
         throw new AppError(
@@ -425,6 +444,7 @@ export function resolveRuntimeConfig(options: ResolveRuntimeConfigOptions = {}):
         githubToken: cliOverrides.githubToken ?? envConfig.githubToken ?? '',
         alertsToken: cliOverrides.alertsToken ?? envConfig.alertsToken,
         alertSource: cliOverrides.alertSource ?? envConfig.alertSource ?? DEFAULT_RUNTIME_CONFIG.alertSource,
+        codeScanningEnabled: cliOverrides.codeScanningEnabled ?? envConfig.codeScanningEnabled ?? DEFAULT_RUNTIME_CONFIG.codeScanningEnabled,
         maxAlertsPerRepository: cliOverrides.maxAlertsPerRepository ?? envConfig.maxAlertsPerRepository ?? DEFAULT_RUNTIME_CONFIG.maxAlertsPerRepository,
         upgradeGroups: cliOverrides.upgradeGroups ?? envConfig.upgradeGroups,
     }

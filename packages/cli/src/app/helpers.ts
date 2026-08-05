@@ -143,17 +143,40 @@ export function pullRequestCreationHint(error: unknown): string | null {
 }
 
 /**
- * Dependabot alerts 拉取路径的鉴权/权限错误用户指引（GITHUB_TOKEN 无法读取 Dependabot alerts）。
- * 返回附加到错误消息的提示文案；非鉴权类错误返回 null。
- * ⚠️ 仅用于 alerts fetch 错误路径（`fetchDependabotAlerts` 抛出的 `AppError`）；
- * 其他 API 的 PERMISSION_DENIED（如 PR 创建 403）语义不同，不得复用。
+ * Dependabot alerts fetch 错误用户指引（GITHUB_TOKEN 无法读取 Dependabot alerts）。
+ * 仅用于 alerts fetch 错误路径；按精确 context 匹配（`fetch dependabot alerts for`），
+ * 不依赖裸关键字（仓库名可能包含对方关键字，如 dependabot/dependabot-core）。
  */
 export function dependabotAlertsTokenHint(error: unknown): string | null {
     if (!(error instanceof AppError)) {
         return null
     }
+    if (!error.message.includes('fetch dependabot alerts for')) {
+        return null
+    }
     if (error.code === 'PERMISSION_DENIED') {
         return '请检查 token 是否具备 Dependabot alerts 读取权限（classic PAT 需 security_events、fine-grained 需 Dependabot alerts: read、GitHub App 需对应仓库权限；Actions 默认 GITHUB_TOKEN 永远无法获得）。本地场景可切换 --alerts-source pnpm-audit 使用 pnpm audit 回退'
+    }
+    if (error.code === 'AUTHENTICATION_FAILED') {
+        return 'token 无效或已过期，请检查 GITHUB_TOKEN / alertsToken 配置'
+    }
+    return null
+}
+
+/**
+ * Code Scanning alerts fetch 错误用户指引（token 需 `security-events: read`）。
+ * 仅用于 Code Scanning fetch 错误路径；按精确 context 匹配（`fetch code scanning alerts for`），
+ * 不依赖裸关键字（仓库名可能包含对方关键字，如 dependabot/dependabot-core）。
+ */
+export function codeScanningAlertsTokenHint(error: unknown): string | null {
+    if (!(error instanceof AppError)) {
+        return null
+    }
+    if (!error.message.includes('fetch code scanning alerts for')) {
+        return null
+    }
+    if (error.code === 'PERMISSION_DENIED') {
+        return '请检查 token 是否具备 Code Scanning alerts 读取权限（security-events: read；Actions 默认 GITHUB_TOKEN 具备，本地 PAT 需勾选 Security events 或 fine-grained 的 Code scanning alerts: read）'
     }
     if (error.code === 'AUTHENTICATION_FAILED') {
         return 'token 无效或已过期，请检查 GITHUB_TOKEN / alertsToken 配置'
@@ -746,6 +769,7 @@ export function buildRunResult(
         createPullRequest: ctx.config.createPullRequest,
         maxAlertsPerRepository: ctx.config.maxAlertsPerRepository,
         alertSource: ctx.config.alertSource,
+        codeScanningEnabled: ctx.config.codeScanningEnabled,
     }
 
     return {

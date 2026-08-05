@@ -257,3 +257,144 @@ describe('DependfixApp pnpm-audit source', () => {
         expect(auditFetcherMock.fetchPnpmAuditAlerts).toHaveBeenCalled()
     })
 })
+
+// ---------------------------------------------------------------------------
+// Code Scanning 并行源集成测试：--code-scanning 开启时 Dependabot + Code Scanning
+// 并行拉取、互不覆盖；失败沿用硬失败语义 + hint。
+// ---------------------------------------------------------------------------
+
+describe('DependfixApp code-scanning parallel source', () => {
+    let workDir: string
+
+    beforeEach(() => {
+        workDir = mkdtempSync(join(tmpdir(), 'dependfix-app-'))
+    })
+
+    afterEach(() => {
+        nock.cleanAll()
+        rmSync(workDir, { recursive: true, force: true })
+    })
+
+    function makeDependabotAlert(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+        return {
+            number: 1,
+            state: 'open',
+            html_url: 'https://github.com/foo/bar/security/dependabot/1',
+            dependency: {
+                package: { ecosystem: 'npm', name: 'lodash' },
+                manifest_path: 'package.json',
+                relationship: 'direct',
+            },
+            security_advisory: { severity: 'high', summary: 'Lodash vulnerability', ghsa_id: 'GHSA-aaaa' },
+            security_vulnerability: { first_patched_version: null, package: { ecosystem: 'npm', name: 'lodash' } },
+            ...overrides,
+        }
+    }
+
+    function makeCodeScanningAlert(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+        return {
+            number: 2,
+            state: 'open',
+            html_url: 'https://github.com/foo/bar/security/code-scanning/2',
+            rule: { id: 'js-sqli', severity: 'error', security_severity_level: 'high', name: 'SQL injection' },
+            most_recent_instance: {
+                ref: 'refs/heads/main',
+                location: { path: 'src/db.ts', start_line: 42, end_line: 42 },
+                message: { text: 'This query depends on a user-provided value.' },
+            },
+            ...overrides,
+        }
+    }
+
+    it('fetches code scanning alerts in parallel with dependabot when enabled', async () => {
+        nock('https://api.github.com')
+            .get('/repos/foo/bar/dependabot/alerts')
+            .query({ state: 'open', per_page: '100' })
+            .reply(200, [makeDependabotAlert()])
+
+        nock('https://api.github.com')
+            .get('/repos/foo/bar/code-scanning/alerts')
+            .query({ state: 'open', per_page: '100' })
+            .reply(200, [makeCodeScanningAlert()])
+
+        nock('https://api.github.com')
+            .get('/repos/foo/bar')
+            .reply(200, { default_branch: 'main' })
+
+        const config = resolveRuntimeConfig({
+            env: {
+                GITHUB_TOKEN: 'main-token-value',
+                AUTO_FIX_GITHUB_SECURITY_MODE: 'report-only',
+                AUTO_FIX_GITHUB_SECURITY_REPOSITORIES: 'foo/bar',
+                AUTO_FIX_GITHUB_SECURITY_CODE_SCANNING: 'true',
+            },
+        })
+
+        const app = new DependfixApp({ config, workDir })
+        const { exitCode, result } = await app.run()
+
+        expect(exitCode).toBe(0)
+        // 两源并行展示、互不覆盖
+        expect(result.alerts.some((a) => a.source === 'dependabot' && a.packageName === 'lodash')).toBe(true)
+        expect(result.alerts.some((a) => a.source === 'code-scanning' && a.ruleId === 'js-sqli')).toBe(true)
+        expect(result.alerts.some((a) => a.source === 'code-scanning' && a.fixable === false)).toBe(true)
+        expect(nock.pendingMocks()).toEqual([])
+    })
+
+    it('does not fetch code scanning alerts by default (backward compatible)', async () => {
+        // 只 mock dependabot + repos.get；若误调 code-scanning 会因无 nock 匹配而失败
+        nock('https://api.github.com')
+            .get('/repos/foo/bar/dependabot/alerts')
+            .query({ state: 'open', per_page: '100' })
+            .reply(200, [makeDependabotAlert()])
+
+        nock('https://api.github.com')
+            .get('/repos/foo/bar')
+            .reply(200, { default_branch: 'main' })
+
+        const config = resolveRuntimeConfig({
+            env: {
+                GITHUB_TOKEN: 'main-token-value',
+                AUTO_FIX_GITHUB_SECURITY_MODE: 'report-only',
+                AUTO_FIX_GITHUB_SECURITY_REPOSITORIES: 'foo/bar',
+            },
+        })
+
+        const app = new DependfixApp({ config, workDir })
+        const { exitCode, result } = await app.run()
+
+        expect(exitCode).toBe(0)
+        expect(result.alerts.every((a) => a.source === 'dependabot')).toBe(true)
+        expect(nock.pendingMocks()).toEqual([])
+    })
+
+    it('hard-fails with security-events hint when code scanning fetch returns 403', async () => {
+        nock('https://api.github.com')
+            .get('/repos/foo/bar/dependabot/alerts')
+            .query({ state: 'open', per_page: '100' })
+            .reply(200, [makeDependabotAlert()])
+
+        nock('https://api.github.com')
+            .get('/repos/foo/bar/code-scanning/alerts')
+            .query({ state: 'open', per_page: '100' })
+            .reply(403, { message: 'Resource not accessible by integration' })
+
+        const config = resolveRuntimeConfig({
+            env: {
+                GITHUB_TOKEN: 'main-token-value',
+                AUTO_FIX_GITHUB_SECURITY_MODE: 'report-only',
+                AUTO_FIX_GITHUB_SECURITY_REPOSITORIES: 'foo/bar',
+                AUTO_FIX_GITHUB_SECURITY_CODE_SCANNING: 'true',
+            },
+        })
+
+        const app = new DependfixApp({ config, workDir })
+        const { exitCode, result } = await app.run()
+
+        expect(exitCode).toBe(2) // 唯一仓库 fetch 失败 → 无成功仓库
+        const fetchError = result.errors.find((e) => e.stage === 'fetch')
+        expect(fetchError).toBeDefined()
+        expect(fetchError?.message).toContain('security-events')
+        expect(fetchError?.category).toBe('FETCH_FAILED')
+    })
+})

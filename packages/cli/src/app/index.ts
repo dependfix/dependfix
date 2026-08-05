@@ -21,6 +21,7 @@ import {
 import { createGitHubClient } from '../github/client'
 import { enforceVerificationGate } from '../runners/verification-gate'
 import { fetchDependabotAlerts } from '../github/dependabot-fetcher'
+import { fetchCodeScanningAlerts } from '../github/code-scanning-fetcher'
 import { fetchPnpmAuditAlerts } from '../alerts/pnpm-audit-fetcher'
 import { createFixBranch, stageAndCommit, pushBranch, createPullRequest, generatePRBody, computeFixFingerprint, computeFixAndPrPlan, findDependfixOpenPR, listDependfixBranches, getBranchPrStatus, deleteRemoteBranch, type DependfixBranchStatus } from '../github/pr-creator'
 import type { RuntimeConfig } from '../config'
@@ -44,6 +45,7 @@ import {
     buildRunResult,
     computeExitCode,
     dependabotAlertsTokenHint,
+    codeScanningAlertsTokenHint,
     pullRequestCreationHint,
     resolveAlertRepositories,
 } from './helpers'
@@ -214,7 +216,10 @@ export class DependfixApp {
             const alerts = await this.fetchAlerts(repo)
             const { filtered } = filterAlerts(alerts, { severityThreshold: this.config.severityThreshold })
             const prioritized = prioritizeAlerts(filtered)
-            const { limited } = limitAlerts(prioritized, this.config.maxAlertsPerRepository)
+            const { limited, truncated } = limitAlerts(prioritized, this.config.maxAlertsPerRepository)
+            if (truncated.length > 0) {
+                this.logger.warn(truncatedWarning(this.config, truncated.length))
+            }
 
             const defaultBranch = await this.fetchDefaultBranch(client, owner, name)
 
@@ -233,7 +238,7 @@ export class DependfixApp {
             this.logger.info(`Fetched ${limited.length} alerts for ${repo}`)
         } catch (error: unknown) {
             const message = toErrorMessage(error)
-            const hint = dependabotAlertsTokenHint(error)
+            const hint = dependabotAlertsTokenHint(error) ?? codeScanningAlertsTokenHint(error)
             this.logger.error(`Failed to fetch alerts for ${repo}: ${message}${hint ? ` — ${hint}` : ''}`)
             this.allErrors.push({
                 repository: repo,
@@ -302,7 +307,10 @@ export class DependfixApp {
             const rawAlerts = await this.fetchAlerts(repo)
             const { filtered } = filterAlerts(rawAlerts, { severityThreshold: this.config.severityThreshold })
             const prioritized = prioritizeAlerts(filtered)
-            const { limited } = limitAlerts(prioritized, this.config.maxAlertsPerRepository)
+            const { limited, truncated } = limitAlerts(prioritized, this.config.maxAlertsPerRepository)
+            if (truncated.length > 0) {
+                this.logger.warn(truncatedWarning(this.config, truncated.length))
+            }
             alertsCount = limited.length
             fixable = limited.filter((a) => a.fixable).length
 
@@ -465,7 +473,7 @@ export class DependfixApp {
             }
         } catch (error: unknown) {
             const message = toErrorMessage(error)
-            const hint = dependabotAlertsTokenHint(error)
+            const hint = dependabotAlertsTokenHint(error) ?? codeScanningAlertsTokenHint(error)
             this.logger.error(`Failed to process ${repo}: ${message}${hint ? ` — ${hint}` : ''}`)
             this.allErrors.push({
                 repository: repo,
@@ -747,8 +755,11 @@ export class DependfixApp {
 
     /**
      * 告警数据源统一入口：
-     * - `github-dependabot`：Octokit 拉取 Dependabot alerts（alertsToken 优先）
+     * - `github-dependabot`：Octokit 拉取 Dependabot alerts（alertsToken 优先）；
+     *   `codeScanningEnabled` 时**并行**拉取 Code Scanning alerts（互不覆盖、互不回退）
      * - `pnpm-audit`：本地 `pnpm audit --json` 回退（无 token；repository 已由 resolveAlertRepositories 解析）
+     *
+     * 并行源任一失败 → 抛 AppError 硬失败（沿用 T-G2-1 语义），由调用方 catch 记录 hint。
      */
     private async fetchAlerts(repo: string): Promise<NormalizedSecurityAlert[]> {
         if (this.config.alertSource === 'pnpm-audit') {
@@ -756,7 +767,14 @@ export class DependfixApp {
         }
         const alertsClient = this.createAlertsClient()
         const [owner, name] = repo.split('/')
-        return fetchDependabotAlerts(alertsClient, { owner, repo: name })
+
+        const dependabotAlerts = await fetchDependabotAlerts(alertsClient, { owner, repo: name })
+        if (!this.config.codeScanningEnabled) {
+            return dependabotAlerts
+        }
+        const codeScanningAlerts = await fetchCodeScanningAlerts(alertsClient, { owner, repo: name })
+        this.logger.info(`Fetched ${codeScanningAlerts.length} code scanning alerts for ${repo}`)
+        return [...dependabotAlerts, ...codeScanningAlerts]
     }
 
     /** pnpm-audit 模式不创建 GitHub client（无 token）；github-dependabot 模式返回主 token client。 */
@@ -797,4 +815,12 @@ export class DependfixApp {
             return 'unknown'
         }
     }
+}
+
+/** 告警截断提示（report/fix 共用；code-scanning 开启时附加排序说明）。 */
+function truncatedWarning(config: RuntimeConfig, truncatedCount: number): string {
+    const base = `[alerts] ${truncatedCount} alert(s) truncated (max ${config.maxAlertsPerRepository} per repository) — consider --max-alerts-per-repository`
+    return config.codeScanningEnabled
+        ? `${base}; code-scanning alerts rank after fixable dependabot alerts`
+        : base
 }

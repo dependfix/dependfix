@@ -30,20 +30,24 @@ T301（采集器）→ T302（规则分层）→ T303（模板修复器）→ T3
 
 - **优先级**: P1
 - **依赖**: T102（GitHub client）、T004（标准告警模型）；前置 T-G2-2 已完成
-- **状态**: ⬜ 未开始
+- **状态**: ✅ 已完成（2026-08-05，待提交）
 - **交付物**: `packages/cli/src/github/code-scanning-fetcher.ts`（参照 dependabot-fetcher 模式）
 
 **任务内容**:
 
-- [ ] 拉取 open 状态 Code Scanning 告警（`GET /repos/{owner}/{repo}/code-scanning/alerts`，octokit.paginate 分页）
-- [ ] 转换为标准告警模型：`source: 'code-scanning'`、`ruleId`（rule.id）、severity 走 `mapCodeScanningSeverity`（`security_severity_level` 优先，缺失时 rule.severity 映射）
-- [ ] fixable 语义：Code Scanning 告警默认**不可自动修复**（`fixable: false`、`fixStrategy: null`），修复能力由 T303 规则模板按规则启用
-- [ ] 报告中可展示 Code Scanning 告警（与 Dependabot 并行，§4 表 Rule/Advisory 列）
+- [x] 拉取 open 状态 Code Scanning 告警（`GET /repos/{owner}/{repo}/code-scanning/alerts`，octokit.paginate 分页）
+- [x] 转换为标准告警模型：`source: 'code-scanning'`、`ruleId`（rule.id）、severity 走 `mapCodeScanningSeverity`（`security_severity_level` 优先，缺失时 rule.severity 映射）
+- [x] fixable 语义：Code Scanning 告警默认**不可自动修复**（`fixable: false`、`fixStrategy: null`），修复能力由 T303 规则模板按规则启用
+- [x] 报告中可展示 Code Scanning 告警（与 Dependabot 并行，§4 表 Rule/Advisory 列）
 
 **完成定义**:
 
-- [ ] report-only / fix 模式下 Dependabot 与 Code Scanning 告警并行展示、互不覆盖
-- [ ] 拉取失败（401/403）沿用 T-G2-1 硬失败语义 + hint
+- [x] report-only / fix 模式下 Dependabot 与 Code Scanning 告警并行展示、互不覆盖
+- [x] 拉取失败（401/403）沿用 T-G2-1 硬失败语义 + hint
+
+**演进选项（Review Gate 遗留，非阻塞）**:
+- per-source 错误隔离：并行源任一失败目前整体硬失败（已拉取的 Dependabot 结果会丢失）；演进为 warn + 仅弃该源（需确认语义，暂缓）
+- fix 模式下 code-scanning 告警（manifestPath 非根）经 partitionSubmanifestAlerts 计为 skipped——语义正确，但统计口径与 G3 alertsConverged 一并处理
 
 ---
 

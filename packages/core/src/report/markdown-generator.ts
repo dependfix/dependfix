@@ -33,7 +33,7 @@ export function generateMarkdownReport(result: RunResult): string {
         `> **Date**: ${startedAt} → ${finishedAt}`,
         `> **Mode**: ${config.mode} (Severity ≥ ${config.severityThreshold})`,
         `> **Dry Run**: ${config.dryRun ? 'Yes' : 'No'}`,
-        `> **Alert Source**: ${config.alertSource === 'pnpm-audit' ? 'pnpm-audit (local workspace)' : 'GitHub Dependabot API'}`,
+        `> **Alert Source**: ${alertSourceLabel(config)}`,
         '',
     )
 
@@ -84,10 +84,11 @@ export function generateMarkdownReport(result: RunResult): string {
                 : `### ${repo.repository} (branch: ${branch})`
             sections.push(header, '')
             if (repo.alerts.length > 0) {
-                // 逐条保留每个 GHSA 的审计粒度（同包多告警各自成行，靠 GHSA 列区分）
+                // 逐条保留每个告警的审计粒度（同包多告警各自成行，靠 Rule/Advisory 列区分）
+                // Rule/Advisory 列：Dependabot 显示 GHSA 编号、pnpm-audit 显示 advisory URL、Code Scanning 显示 rule id
                 sections.push(
-                    '| Package | GHSA | Severity | From | To | Major | Status |',
-                    '|---------|------|----------|------|----|-------|--------|',
+                    '| Package | Rule/Advisory | Severity | From | To | Major | Status |',
+                    '|---------|---------------|----------|------|----|-------|--------|',
                 )
                 for (const alert of repo.alerts) {
                     const action = actions.find(
@@ -104,14 +105,14 @@ export function generateMarkdownReport(result: RunResult): string {
                     } else {
                         major = action.isMajor ? 'Yes' : 'No'
                     }
-                    const ghsa = alert.ruleId || '—'
+                    const ruleOrAdvisory = alert.ruleId || '—'
                     let icon: string
                     if (action) {
                         icon = action.success ? '✅ Fixed' : '❌ Failed'
                     } else {
                         icon = '⏭️ Skipped'
                     }
-                    sections.push(`| \`${alert.packageName}\` | ${escapeMd(ghsa)} | ${alert.severity.toUpperCase()} | ${fromVer} | ${toVer} | ${major} | ${icon} |`)
+                    sections.push(`| \`${alert.packageName}\` | ${escapeMd(ruleOrAdvisory)} | ${alert.severity.toUpperCase()} | ${fromVer} | ${toVer} | ${major} | ${icon} |`)
                 }
                 sections.push('')
             } else {
@@ -163,6 +164,14 @@ function severityRow(label: string, row: { found: number, fixable: number, fixed
         return `| ${label} | — | — | — | — |`
     }
     return `| ${label} | ${row.found} | ${row.fixable} | ${row.fixed} | ${row.failed} |`
+}
+
+/** 报告 Header 的 Alert Source 标签（code-scanning 开启时标注并行源）。 */
+function alertSourceLabel(config: RunResult['config']): string {
+    if (config.alertSource === 'pnpm-audit') {
+        return 'pnpm-audit (local workspace)'
+    }
+    return config.codeScanningEnabled ? 'GitHub Dependabot + Code Scanning API' : 'GitHub Dependabot API'
 }
 
 function actionDetails(action: FixAction, error?: string): string {

@@ -28,7 +28,7 @@ export default defineConfig([
     },
     {
         rules: {
-            'max-lines': [1, { max: 800 }], // 强制文件的最大行数
+            'max-lines': [1, { max: 800, skipBlankLines: true }], // 强制文件的最大行数（空行不计入）
             'max-lines-per-function': [1, { max: 500 }], // 强制函数最大行数
             'no-console': [0], // CLI 工具允许使用 console（前端项目才禁）
         },

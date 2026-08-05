@@ -23,6 +23,7 @@ describe('resolveRuntimeConfig', () => {
             cleanupBranchesAuto: false,
             githubToken: 'token-from-env',
             alertSource: 'github-dependabot',
+            codeScanningEnabled: false,
             maxAlertsPerRepository: 20,
         })
     })
@@ -113,6 +114,7 @@ describe('resolveRuntimeConfig', () => {
             cleanupBranchesAuto: false,
             githubToken: 'token-from-cli',
             alertSource: 'github-dependabot',
+            codeScanningEnabled: false,
             maxAlertsPerRepository: 3,
         })
     })
@@ -435,6 +437,42 @@ describe('resolveRuntimeConfig', () => {
                 AUTO_FIX_GITHUB_SECURITY_MODE: 'cleanup-branches',
             },
         })).toThrow('cleanup-branches mode requires the github-dependabot alert source')
+    })
+
+    it('disables code scanning by default (backward compatible)', () => {
+        const config = resolveRuntimeConfig({
+            env: { GITHUB_TOKEN: 't', AUTO_FIX_GITHUB_SECURITY_REPOSITORIES: 'foo/bar' },
+        })
+
+        expect(config.codeScanningEnabled).toBe(false)
+    })
+
+    it('enables code scanning via env flag', () => {
+        const config = resolveRuntimeConfig({
+            env: {
+                GITHUB_TOKEN: 't',
+                AUTO_FIX_GITHUB_SECURITY_REPOSITORIES: 'foo/bar',
+                AUTO_FIX_GITHUB_SECURITY_CODE_SCANNING: 'true',
+            },
+        })
+
+        expect(config.codeScanningEnabled).toBe(true)
+    })
+
+    it('enables code scanning via CLI flag (three-state)', () => {
+        expect(parseCliArgs(['report-only', '--repo', 'foo/bar', '--code-scanning'])
+            .configOverrides.codeScanningEnabled).toBe(true)
+        expect(parseCliArgs(['report-only', '--repo', 'foo/bar', '--no-code-scanning'])
+            .configOverrides.codeScanningEnabled).toBe(false)
+    })
+
+    it('rejects code scanning with pnpm-audit source (Code Scanning is a GitHub API source)', () => {
+        expect(() => resolveRuntimeConfig({
+            env: {
+                AUTO_FIX_GITHUB_SECURITY_ALERTS_SOURCE: 'pnpm-audit',
+                AUTO_FIX_GITHUB_SECURITY_CODE_SCANNING: 'true',
+            },
+        })).toThrow('code-scanning requires the github-dependabot alert source')
     })
 
     it('still requires token for github-dependabot source', () => {

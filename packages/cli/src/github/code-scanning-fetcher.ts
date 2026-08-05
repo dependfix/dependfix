@@ -1,5 +1,6 @@
 import type { Octokit, RestEndpointMethodTypes } from '@octokit/rest'
 import { mapCodeScanningSeverity, type NormalizedSecurityAlert, type AlertSeverity } from '@dependfix/core'
+import { classifyRule } from '../code-scanning/rule-classifier'
 import { mapGitHubError } from './errors'
 
 // ---------------------------------------------------------------------------
@@ -106,6 +107,7 @@ function normalizeAlert(
         fixable: false,
         fixStrategy: null,
         recommendedVersion: '',
+        alertClass: classifyRule(ruleId),
     }
 }
 

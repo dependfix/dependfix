@@ -18,7 +18,7 @@ function makeRawAlert(overrides: Record<string, unknown> = {}): Record<string, u
         state: 'open',
         html_url: 'https://github.com/foo/bar/security/code-scanning/1',
         rule: {
-            id: 'js-sqli',
+            id: 'js/unknown-rule',
             severity: 'error',
             security_severity_level: 'high',
             name: 'SQL injection',
@@ -74,10 +74,29 @@ describe('fetchCodeScanningAlerts', () => {
         expect(alert.packageEcosystem).toBe('code-scanning')
         expect(alert.packageName).toBe('SQL injection')
         expect(alert.manifestPath).toBe('src/db.ts')
-        expect(alert.ruleId).toBe('js-sqli')
+        expect(alert.ruleId).toBe('js/unknown-rule')
         expect(alert.summary).toBe('This query depends on a user-provided value.')
         expect(alert.htmlUrl).toBe('https://github.com/foo/bar/security/code-scanning/1')
         expect(alert.recommendedVersion).toBe('')
+        expect(alert.alertClass).toBe('report-only') // js/unknown-rule 不在白名单/建议列表 → C 类
+    })
+
+    it('classifies rule ids into A/B/C alert classes', async () => {
+        nock(API_BASE)
+            .get(GET_ALERTS_PATH)
+            .query(true)
+            .reply(200, [
+                // B 类建议：js/sql-injection
+                makeRawAlert({ rule: { id: 'js/sql-injection', severity: 'error', security_severity_level: 'high', name: 'SQL injection' } }),
+                // A 类白名单：jsdoc/check-alignment（纯格式）
+                makeRawAlert({ number: 5, rule: { id: 'jsdoc/check-alignment', severity: 'warning', security_severity_level: null, name: 'JSDoc alignment' } }),
+            ])
+
+        const client = setupClient()
+        const alerts = await fetchCodeScanningAlerts(client, { owner: 'foo', repo: 'bar' })
+
+        expect(alerts[0].alertClass).toBe('suggested')
+        expect(alerts[1].alertClass).toBe('auto-fixable')
     })
 
     it('uses security_severity_level with priority over rule.severity', async () => {
@@ -86,7 +105,7 @@ describe('fetchCodeScanningAlerts', () => {
             .query(true)
             .reply(200, [
                 // security_severity_level 与 rule.severity 不一致时，前者优先
-                makeRawAlert({ rule: { id: 'js-sqli', severity: 'error', security_severity_level: 'critical', name: 'SQL injection' } }),
+                makeRawAlert({ rule: { id: 'js/unknown-rule', severity: 'error', security_severity_level: 'critical', name: 'SQL injection' } }),
             ])
 
         const client = setupClient()
@@ -146,7 +165,7 @@ describe('fetchCodeScanningAlerts', () => {
             .query(true)
             .reply(200, [
                 makeRawAlert({
-                    rule: { id: 'js-sqli', severity: 'error', name: 'SQL injection' },
+                    rule: { id: 'js/unknown-rule', severity: 'error', name: 'SQL injection' },
                     most_recent_instance: { location: { path: 'src/db.ts', start_line: 7, end_line: 7 }, message: { text: 'X' } },
                 }),
             ])
@@ -155,7 +174,7 @@ describe('fetchCodeScanningAlerts', () => {
         const [alert] = await fetchCodeScanningAlerts(client, { owner: 'foo', repo: 'bar' })
 
         expect(alert.packageName).toBe('SQL injection')
-        expect(alert.ruleId).toBe('js-sqli')
+        expect(alert.ruleId).toBe('js/unknown-rule')
         expect(alert.manifestPath).toBe('src/db.ts')
     })
 

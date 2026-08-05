@@ -296,7 +296,7 @@ describe('DependfixApp code-scanning parallel source', () => {
             number: 2,
             state: 'open',
             html_url: 'https://github.com/foo/bar/security/code-scanning/2',
-            rule: { id: 'js-sqli', severity: 'error', security_severity_level: 'high', name: 'SQL injection' },
+            rule: { id: 'js/sql-injection', severity: 'error', security_severity_level: 'high', name: 'SQL injection' },
             most_recent_instance: {
                 ref: 'refs/heads/main',
                 location: { path: 'src/db.ts', start_line: 42, end_line: 42 },
@@ -336,7 +336,7 @@ describe('DependfixApp code-scanning parallel source', () => {
         expect(exitCode).toBe(0)
         // 两源并行展示、互不覆盖
         expect(result.alerts.some((a) => a.source === 'dependabot' && a.packageName === 'lodash')).toBe(true)
-        expect(result.alerts.some((a) => a.source === 'code-scanning' && a.ruleId === 'js-sqli')).toBe(true)
+        expect(result.alerts.some((a) => a.source === 'code-scanning' && a.ruleId === 'js/sql-injection')).toBe(true)
         expect(result.alerts.some((a) => a.source === 'code-scanning' && a.fixable === false)).toBe(true)
         expect(nock.pendingMocks()).toEqual([])
     })

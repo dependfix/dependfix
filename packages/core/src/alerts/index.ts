@@ -4,6 +4,9 @@ export type AlertSeverity = 'critical' | 'high' | 'medium' | 'low' | 'unknown'
 
 export type FixStrategy = 'upgrade' | 'lock' | 'wait-upstream' | 'manual' | 'override'
 
+/** Code Scanning 规则分类（A=自动修复白名单 / B=建议修复 / C=仅报告） */
+export type AlertClass = 'auto-fixable' | 'suggested' | 'report-only'
+
 /** Dependabot 报告中的依赖类型 */
 export type DependencyType = 'direct' | 'transitive'
 
@@ -24,6 +27,11 @@ export interface NormalizedSecurityAlert {
     recommendedVersion: string
     /** 依赖类型：`'direct'`（直接依赖）或 `'transitive'`（间接依赖），缺少数据时为 `undefined` */
     dependencyType?: DependencyType
+    /**
+     * Code Scanning 规则分类（A/B/C）；Dependabot / pnpm-audit 源无此概念，缺省为空。
+     * 分类结果用于报告可见性与修复路由（T302/T303）。
+     */
+    alertClass?: AlertClass
 }
 
 export const SEVERITY_MAP = {

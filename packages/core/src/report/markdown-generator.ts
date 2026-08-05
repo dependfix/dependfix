@@ -1,3 +1,4 @@
+import type { AlertClass } from '../alerts'
 import {
     type RunResult,
     type FixAction,
@@ -86,9 +87,10 @@ export function generateMarkdownReport(result: RunResult): string {
             if (repo.alerts.length > 0) {
                 // 逐条保留每个告警的审计粒度（同包多告警各自成行，靠 Rule/Advisory 列区分）
                 // Rule/Advisory 列：Dependabot 显示 GHSA 编号、pnpm-audit 显示 advisory URL、Code Scanning 显示 rule id
+                // Class 列：Code Scanning 规则分层（A=自动修复 / B=建议 / C=仅报告），其他源显示 —
                 sections.push(
-                    '| Package | Rule/Advisory | Severity | From | To | Major | Status |',
-                    '|---------|---------------|----------|------|----|-------|--------|',
+                    '| Package | Rule/Advisory | Class | Severity | From | To | Major | Status |',
+                    '|---------|---------------|-------|----------|------|----|-------|--------|',
                 )
                 for (const alert of repo.alerts) {
                     const action = actions.find(
@@ -106,13 +108,14 @@ export function generateMarkdownReport(result: RunResult): string {
                         major = action.isMajor ? 'Yes' : 'No'
                     }
                     const ruleOrAdvisory = alert.ruleId || '—'
+                    const alertClass = alertClassLabel(alert.alertClass)
                     let icon: string
                     if (action) {
                         icon = action.success ? '✅ Fixed' : '❌ Failed'
                     } else {
                         icon = '⏭️ Skipped'
                     }
-                    sections.push(`| \`${alert.packageName}\` | ${escapeMd(ruleOrAdvisory)} | ${alert.severity.toUpperCase()} | ${fromVer} | ${toVer} | ${major} | ${icon} |`)
+                    sections.push(`| \`${alert.packageName}\` | ${escapeMd(ruleOrAdvisory)} | ${alertClass} | ${alert.severity.toUpperCase()} | ${fromVer} | ${toVer} | ${major} | ${icon} |`)
                 }
                 sections.push('')
             } else {
@@ -172,6 +175,16 @@ function alertSourceLabel(config: RunResult['config']): string {
         return 'pnpm-audit (local workspace)'
     }
     return config.codeScanningEnabled ? 'GitHub Dependabot + Code Scanning API' : 'GitHub Dependabot API'
+}
+
+/** Code Scanning 规则分层标签（A/B/C）；非 Code Scanning 源显示 —。 */
+function alertClassLabel(alertClass: AlertClass | undefined): string {
+    switch (alertClass) {
+        case 'auto-fixable': return 'A 自动修复'
+        case 'suggested': return 'B 建议'
+        case 'report-only': return 'C 仅报告'
+        default: return '—'
+    }
 }
 
 function actionDetails(action: FixAction, error?: string): string {

@@ -382,34 +382,70 @@ describe('generateMarkdownReport', () => {
         }
         const md = generateMarkdownReport(result)
 
-        expect(md).toContain('| Package | Rule/Advisory | Severity | From | To | Major | Status |')
+        expect(md).toContain('| Package | Rule/Advisory | Class | Severity | From | To | Major | Status |')
         expect(md.match(/\| `fast-uri` \|/g)).toHaveLength(2)
         expect(md).toContain('GHSA-aaaa')
         expect(md).toContain('GHSA-bbbb')
     })
 
-    it('renders code-scanning alerts with rule id in Rule/Advisory column', () => {
+    it('renders code-scanning alerts with rule id and class in their columns', () => {
         const repoResult: RepositoryResult = {
-            repository: 'owner/repo', defaultBranch: 'main', alertsCount: 1,
+            repository: 'owner/repo', defaultBranch: 'main', alertsCount: 3,
             fixable: 0, fixed: 0, failed: 0, lockfileRepaired: false, durationMs: 1000,
         }
         const result = {
             ...EMPTY_RUN_RESULT,
             repositories: [repoResult],
-            // Code Scanning 告警：packageName 显示规则名，Rule/Advisory 列显示 rule id
+            // Code Scanning 告警：packageName 显示规则名，Rule/Advisory 列显示 rule id，Class 列显示 A/B/C 分层
             alerts: [
                 makeAlert({
                     source: 'code-scanning',
                     packageName: 'SQL injection',
-                    ruleId: 'js-sqli',
+                    ruleId: 'js/sql-injection',
                     severity: 'high',
                     recommendedVersion: '',
+                    alertClass: 'suggested',
+                }),
+                makeAlert({
+                    source: 'code-scanning',
+                    packageName: 'Alignment',
+                    ruleId: 'jsdoc/check-alignment',
+                    severity: 'low',
+                    recommendedVersion: '',
+                    alertClass: 'auto-fixable',
+                }),
+                makeAlert({
+                    source: 'code-scanning',
+                    packageName: 'Exotic rule',
+                    ruleId: 'js/exotic',
+                    severity: 'medium',
+                    recommendedVersion: '',
+                    alertClass: 'report-only',
                 }),
             ],
         }
         const md = generateMarkdownReport(result)
 
-        expect(md).toContain('| `SQL injection` | js-sqli | HIGH | — | — | — | ⏭️ Skipped |')
+        expect(md).toContain('| `SQL injection` | js/sql-injection | B 建议 | HIGH | — | — | — | ⏭️ Skipped |')
+        expect(md).toContain('| `Alignment` | jsdoc/check-alignment | A 自动修复 | LOW | — | — | — | ⏭️ Skipped |')
+        expect(md).toContain('| `Exotic rule` | js/exotic | C 仅报告 | MEDIUM | — | — | — | ⏭️ Skipped |')
+    })
+
+    it('renders dash class for non-code-scanning sources', () => {
+        const repoResult: RepositoryResult = {
+            repository: 'owner/repo', defaultBranch: 'main', alertsCount: 1,
+            fixable: 1, fixed: 0, failed: 0, lockfileRepaired: false, durationMs: 1000,
+        }
+        const result = {
+            ...EMPTY_RUN_RESULT,
+            repositories: [repoResult],
+            alerts: [
+                makeAlert({ packageName: 'fast-uri', ruleId: 'GHSA-cccc', recommendedVersion: '3.1.5' }),
+            ],
+        }
+        const md = generateMarkdownReport(result)
+
+        expect(md).toContain('| `fast-uri` | GHSA-cccc | — | HIGH |')
     })
 
     it('renders skipped alerts with target version and dash from (no misleading from/to)', () => {
@@ -424,7 +460,7 @@ describe('generateMarkdownReport', () => {
         }
         const md = generateMarkdownReport(result)
 
-        expect(md).toContain('| `lodash` | CVE-2021-23337 | HIGH | — | 4.17.21 | — | ⏭️ Skipped |')
+        expect(md).toContain('| `lodash` | CVE-2021-23337 | — | HIGH | — | 4.17.21 | — | ⏭️ Skipped |')
     })
 
     it('renders failed action error in Fix Actions table with escaping', () => {

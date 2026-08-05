@@ -314,13 +314,23 @@ export function tryLockfileRepair(
     }
 
     try {
-        const result: LockfileRepairResult = repairLockfile({ workDir })
+        const result: LockfileRepairResult = repairLockfile({
+            workDir,
+            // 未配置 toolchainPnpmVersion 时省略（缺省从 packageManager 解析）
+            ...(config.toolchainPnpmVersion ? { toolchain: { pnpmVersion: config.toolchainPnpmVersion } } : {}),
+        })
 
         logger.info(
             result.success
                 ? `Lockfile repaired for ${repo} (strategy: ${result.strategy ?? 'N/A'})`
                 : `Lockfile repair failed for ${repo}: ${result.failureDetail ?? 'unknown'}`,
         )
+
+        // 格式漂移检测：lockfileVersion 变化时 diff 摘要附加标注（wisdom: pnpm v11 迁移教训）
+        let diffSummary = result.diff?.summary
+        if (result.lockfileVersionChanged && diffSummary) {
+            diffSummary = `${diffSummary} (lockfileVersion changed)`
+        }
 
         return {
             type: 'lockfile-repair',
@@ -330,7 +340,7 @@ export function tryLockfileRepair(
             error: result.success ? undefined : (result.failureDetail ?? 'Lockfile repair failed'),
             strategy: result.strategy,
             durationMs: Date.now() - startMs,
-            diff: result.diff?.summary,
+            diff: diffSummary,
         }
     } catch (error: unknown) {
         const message = toErrorMessage(error)

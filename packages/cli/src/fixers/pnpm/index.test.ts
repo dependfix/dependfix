@@ -15,6 +15,7 @@ vi.mock('node:child_process', () => ({
 import {
     classifyLockfileFailure,
     computeLockfileDiff,
+    extractLockfileVersion,
     resolvePnpmVersion,
     repairLockfile,
 } from './index'
@@ -267,6 +268,23 @@ describe('resolvePnpmVersion', () => {
 })
 
 // ---------------------------------------------------------------------------
+// extractLockfileVersion
+// ---------------------------------------------------------------------------
+
+describe('extractLockfileVersion', () => {
+    it('extracts quoted and unquoted lockfileVersion values', () => {
+        expect(extractLockfileVersion('lockfileVersion: \'9.0\'')).toBe('9.0')
+        expect(extractLockfileVersion('lockfileVersion: 6.0')).toBe('6.0')
+        expect(extractLockfileVersion('lockfileVersion: "9.0"')).toBe('9.0')
+    })
+
+    it('returns null when version is absent', () => {
+        expect(extractLockfileVersion('packages:\n  /a@1: {}')).toBeNull()
+        expect(extractLockfileVersion('')).toBeNull()
+    })
+})
+
+// ---------------------------------------------------------------------------
 // repairLockfile
 // ---------------------------------------------------------------------------
 
@@ -466,7 +484,130 @@ describe('repairLockfile', () => {
         expect(result.strategy).toBe('REGENERATE')
     })
 
-    it('accepts toolchain param (currently not consumed by implementation)', () => {
+    it('uses corepack with pinned pnpm version for PIN_TOOLCHAIN (G1/T305)', () => {
+        // LOCKFILE_VERSION_MISMATCH → PIN_TOOLCHAIN 用 toolchain 版本 + corepack；验证通过
+        commandSequence = [
+            { stderr: 'lockfile had been generated with pnpm v7' },
+            'success', // corepack pnpm@10.5.2 install --lockfile-only succeeds
+            'success', // verify succeeds
+        ]
+        setupExecSequence()
+        const result = repairLockfile({ workDir: proj.dir, toolchain: { pnpmVersion: '10.5.2' } })
+
+        expect(result.success).toBe(true)
+        expect(result.strategy).toBe('PIN_TOOLCHAIN')
+        expect(result.attemptHistory[0].command).toBe('corepack pnpm@10.5.2 install --lockfile-only')
+        // 修复后 lockfile 版本被记录（格式漂移检测基线）
+        expect(result.lockfileVersion).toBe('9.0')
+        expect(result.lockfileVersionChanged).toBe(false)
+    })
+
+    it('PIN_TOOLCHAIN falls back to bare command when pnpm version is unavailable', () => {
+        // 无 toolchain 且 package.json 无 packageManager → PIN_TOOLCHAIN 用裸命令（旧 stub 语义）
+        proj = createTempProject({ withLockfile: true }) // 无 packageManager
+        commandSequence = [
+            { stderr: 'lockfile had been generated with pnpm v7' },
+            'success',
+            'success',
+        ]
+        setupExecSequence()
+        const result = repairLockfile({ workDir: proj.dir })
+
+        expect(result.strategy).toBe('PIN_TOOLCHAIN')
+        expect(result.attemptHistory[0].command).toBe('pnpm install --lockfile-only')
+    })
+
+    it('corepack failure degrades to REGENERATE (behavior no worse than before)', () => {
+        // PIN_TOOLCHAIN（corepack 不可用）失败 → REGENERATE 兜底成功
+        commandSequence = [
+            { stderr: 'lockfile had been generated with pnpm v7' },
+            makeExecError('corepack not found or invalid'), // PIN_TOOLCHAIN fails
+            'success', // REGENERATE succeeds
+            'success', // verify succeeds
+        ]
+        setupExecSequence()
+        const result = repairLockfile({ workDir: proj.dir, toolchain: { pnpmVersion: '10.5.2' } })
+
+        expect(result.success).toBe(true)
+        expect(result.strategy).toBe('REGENERATE')
+        expect(result.attemptHistory[0].command).toBe('corepack pnpm@10.5.2 install --lockfile-only')
+        expect(result.attemptHistory[1].command).toBe('pnpm install --lockfile-only')
+    })
+
+    it('records lockfileVersion after successful repair (drift detection baseline)', () => {
+        commandSequence = [
+            { stderr: 'lockfile had been generated with pnpm v7' },
+            'success',
+            'success', // verify
+        ]
+        setupExecSequence()
+        const result = repairLockfile({ workDir: proj.dir })
+
+        expect(result.success).toBe(true)
+        expect(result.lockfileVersion).toBe('9.0')
+        // 测试 mock 不写文件 → before/after 相同 → 无漂移；字段存在（undefined → false 语义）
+        expect(result.lockfileVersionChanged).toBe(false)
+    })
+
+    it('uses packageManager-resolved pnpm version for PIN_TOOLCHAIN without explicit toolchain', () => {
+        // beforeEach 的 proj 有 packageManager: 'pnpm@10.5.2' → resolvePnpmVersion 激活（原死代码）
+        commandSequence = [
+            { stderr: 'lockfile had been generated with pnpm v7' },
+            'success', // corepack pnpm@10.5.2 install --lockfile-only succeeds
+            'success', // verify succeeds
+        ]
+        setupExecSequence()
+        const result = repairLockfile({ workDir: proj.dir })
+
+        expect(result.success).toBe(true)
+        expect(result.strategy).toBe('PIN_TOOLCHAIN')
+        expect(result.attemptHistory[0].command).toBe('corepack pnpm@10.5.2 install --lockfile-only')
+    })
+
+    it('rejects unsafe pnpm versions (command injection guard)', () => {
+        // packageManager 注入构造（不可信仓库输入）→ 解析为 null → PIN_TOOLCHAIN 裸命令兜底
+        proj = createTempProject({ packageManager: 'pnpm@1; touch /tmp/pwned' })
+        commandSequence = [
+            { stderr: 'lockfile had been generated with pnpm v7' },
+            'success',
+            'success',
+        ]
+        setupExecSequence()
+        const result = repairLockfile({ workDir: proj.dir })
+
+        expect(result.attemptHistory[0].command).toBe('pnpm install --lockfile-only')
+        expect(result.attemptHistory[0].command).not.toContain('touch')
+    })
+
+    it('rejects newline-injected pnpm versions (regex is fully anchored)', () => {
+        // 内嵌换行（trim 只剥首尾）→ 全串锚点 ^$ 失配 → 拒绝
+        proj = createTempProject({ packageManager: 'pnpm@10.5.2\n; touch /tmp/pwned' })
+        commandSequence = [
+            { stderr: 'lockfile had been generated with pnpm v7' },
+            'success',
+            'success',
+        ]
+        setupExecSequence()
+        const result = repairLockfile({ workDir: proj.dir })
+
+        expect(result.attemptHistory[0].command).toBe('pnpm install --lockfile-only')
+        expect(result.attemptHistory[0].command).not.toContain('touch')
+    })
+
+    it('accepts corepack sha512 hash suffix in pnpm version', () => {
+        proj = createTempProject({ packageManager: 'pnpm@10.5.2+sha512.1f2a3b4c' })
+        commandSequence = [
+            { stderr: 'lockfile had been generated with pnpm v7' },
+            'success',
+            'success',
+        ]
+        setupExecSequence()
+        const result = repairLockfile({ workDir: proj.dir })
+
+        expect(result.attemptHistory[0].command).toBe('corepack pnpm@10.5.2+sha512.1f2a3b4c install --lockfile-only')
+    })
+
+    it('accepts toolchain param when lockfile already passes', () => {
         commandSequence = ['success']
         setupExecSequence()
         const result = repairLockfile({ workDir: proj.dir, toolchain: { pnpmVersion: '9.0.0' } })

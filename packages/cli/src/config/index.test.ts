@@ -475,6 +475,42 @@ describe('resolveRuntimeConfig', () => {
         })).toThrow('code-scanning requires the github-dependabot alert source')
     })
 
+    it('reads toolchainPnpmVersion from env and CLI (G1/T305)', () => {
+        const config = resolveRuntimeConfig({
+            env: {
+                GITHUB_TOKEN: 't',
+                AUTO_FIX_GITHUB_SECURITY_REPOSITORIES: 'foo/bar',
+                AUTO_FIX_GITHUB_SECURITY_TOOLCHAIN_PNPM_VERSION: '10.5.2',
+            },
+        })
+        expect(config.toolchainPnpmVersion).toBe('10.5.2')
+
+        const invocation = parseCliArgs([
+            'fix',
+            '--repo', 'foo/bar',
+            '--github-token', 't',
+            '--toolchain-pnpm-version', '9.8.0',
+        ])
+        expect(invocation.configOverrides.toolchainPnpmVersion).toBe('9.8.0')
+    })
+
+    it('defaults toolchainPnpmVersion to undefined (resolved from packageManager at repair time)', () => {
+        const config = resolveRuntimeConfig({
+            env: { GITHUB_TOKEN: 't', AUTO_FIX_GITHUB_SECURITY_REPOSITORIES: 'foo/bar' },
+        })
+        expect(config.toolchainPnpmVersion).toBeUndefined()
+    })
+
+    it('rejects unsafe toolchainPnpmVersion (command injection guard)', () => {
+        expect(() => resolveRuntimeConfig({
+            env: {
+                GITHUB_TOKEN: 't',
+                AUTO_FIX_GITHUB_SECURITY_REPOSITORIES: 'foo/bar',
+                AUTO_FIX_GITHUB_SECURITY_TOOLCHAIN_PNPM_VERSION: '1; touch /tmp/pwned',
+            },
+        })).toThrow('Invalid toolchainPnpmVersion')
+    })
+
     it('still requires token for github-dependabot source', () => {
         expect(() => resolveRuntimeConfig({
             env: { AUTO_FIX_GITHUB_SECURITY_ALERTS_SOURCE: 'github-dependabot' },

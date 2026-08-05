@@ -1,6 +1,7 @@
 import { execSync } from 'node:child_process'
 import { AppError, isValidRepoIdentifier, type SeverityThreshold, type AlertSourceKind } from '@dependfix/core'
 import { resolveRepoList } from '../github/repo-selector'
+import { isValidPnpmVersion } from '../fixers/pnpm'
 
 export const RUNTIME_MODES = ['report-only', 'fix', 'fix-and-pr', 'cleanup-branches'] as const
 export const SEVERITY_THRESHOLDS = ['critical', 'high', 'medium', 'all'] as const
@@ -51,6 +52,13 @@ export interface RuntimeConfig {
      * 详见 docs/design/dependency-grouping.md。
      */
     upgradeGroups?: Record<string, string[]>
+    /**
+     * lockfile 修复用的 pnpm 版本（工具链固定，G1/T305）。
+     * 提供时 PIN_TOOLCHAIN 策略执行 `corepack pnpm@<version> install --lockfile-only`；
+     * 缺省从 package.json 的 `packageManager` 字段解析；都不可用时回退裸 pnpm 命令
+     * （由策略链 REGENERATE/REINSTALL 兜底）。
+     */
+    toolchainPnpmVersion?: string
 }
 
 export interface CliConfigOverrides {
@@ -76,6 +84,8 @@ export interface CliConfigOverrides {
     maxAlertsPerRepository?: number
     /** 用户显式分组（覆盖自动分组），格式 `name1:pkg1,pkg2;name2:pkg3` */
     upgradeGroups?: Record<string, string[]>
+    /** lockfile 修复用的 pnpm 版本（工具链固定；缺省从 packageManager 解析） */
+    toolchainPnpmVersion?: string
     /** 是否输出详细日志 */
     verbose?: boolean
     /** 自定义验证命令（覆盖默认的 `pnpm install --frozen-lockfile` / `pnpm lint` / `pnpm build`） */
@@ -266,6 +276,7 @@ export function readEnvConfig(env: NodeJS.ProcessEnv = process.env): CliConfigOv
         codeScanningEnabled: normalizeBoolean(env.AUTO_FIX_GITHUB_SECURITY_CODE_SCANNING, 'AUTO_FIX_GITHUB_SECURITY_CODE_SCANNING'),
         maxAlertsPerRepository: normalizeInteger(env.AUTO_FIX_GITHUB_SECURITY_MAX_ALERTS_PER_REPOSITORY, 'AUTO_FIX_GITHUB_SECURITY_MAX_ALERTS_PER_REPOSITORY'),
         upgradeGroups: normalizeUpgradeGroups(env.AUTO_FIX_GITHUB_SECURITY_UPGRADE_GROUPS),
+        toolchainPnpmVersion: env.AUTO_FIX_GITHUB_SECURITY_TOOLCHAIN_PNPM_VERSION?.trim() || undefined,
     }
 }
 
@@ -410,6 +421,14 @@ function validateRuntimeConfig(config: RuntimeConfig): RuntimeConfig {
         throw new AppError('CONFIG_VALIDATION_ERROR', 'commit cannot be enabled together with createPullRequest. Use fix-and-pr mode instead.')
     }
 
+    // 工具链 pnpm 版本格式校验（用户显式输入 fail-fast；格式非法拒绝，防命令注入）
+    if (config.toolchainPnpmVersion !== undefined && !isValidPnpmVersion(config.toolchainPnpmVersion)) {
+        throw new AppError(
+            'CONFIG_VALIDATION_ERROR',
+            `Invalid toolchainPnpmVersion: "${config.toolchainPnpmVersion}". Expected semver like 10.5.2 (optionally +sha512.<hash>).`,
+        )
+    }
+
     return config
 }
 
@@ -447,6 +466,7 @@ export function resolveRuntimeConfig(options: ResolveRuntimeConfigOptions = {}):
         codeScanningEnabled: cliOverrides.codeScanningEnabled ?? envConfig.codeScanningEnabled ?? DEFAULT_RUNTIME_CONFIG.codeScanningEnabled,
         maxAlertsPerRepository: cliOverrides.maxAlertsPerRepository ?? envConfig.maxAlertsPerRepository ?? DEFAULT_RUNTIME_CONFIG.maxAlertsPerRepository,
         upgradeGroups: cliOverrides.upgradeGroups ?? envConfig.upgradeGroups,
+        toolchainPnpmVersion: cliOverrides.toolchainPnpmVersion ?? envConfig.toolchainPnpmVersion,
     }
 
     return validateRuntimeConfig(config)

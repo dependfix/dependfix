@@ -55,6 +55,10 @@ export interface LockfileRepairResult {
     strategy?: RepairStrategy
     diff?: LockfileDiff | null
     attemptHistory: RepairAttempt[]
+    /** 修复后 lockfile 的 lockfileVersion（提取自 pnpm-lock.yaml） */
+    lockfileVersion?: string
+    /** 修复前后 lockfileVersion 是否变化（格式漂移检测，wisdom: pnpm v11 overrides 迁移教训） */
+    lockfileVersionChanged?: boolean
 }
 
 interface ClassificationResult {
@@ -158,7 +162,14 @@ function getStrategyChain(category: LockfileFailureCategory): RepairStrategy[] {
     }
 }
 
-function getStrategyCommand(strategy: RepairStrategy): string {
+/**
+ * 生成策略命令（G1/T305：PIN_TOOLCHAIN 用声明版本 pnpm 重生成 lockfile）。
+ * - `pnpmVersion` 提供时：`corepack pnpm@<version> install --lockfile-only`
+ *   （corepack 不可用/下载失败时命令本身失败 → 策略链 REGENERATE/REINSTALL 兜底，
+ *   行为不劣于现状）
+ * - `pnpmVersion` 缺省：回退裸 `pnpm install --lockfile-only`（保持旧 stub 语义）
+ */
+function getStrategyCommand(strategy: RepairStrategy, pnpmVersion?: string | null): string {
     switch (strategy) {
         case 'REGENERATE':
             return 'pnpm install --lockfile-only'
@@ -167,10 +178,18 @@ function getStrategyCommand(strategy: RepairStrategy): string {
         case 'REINSTALL':
             return 'pnpm install --no-frozen-lockfile'
         case 'PIN_TOOLCHAIN':
-            return 'pnpm install --lockfile-only'
+            return pnpmVersion
+                ? `corepack pnpm@${pnpmVersion} install --lockfile-only`
+                : 'pnpm install --lockfile-only'
         default:
             return ''
     }
+}
+
+/** 从 lockfile 内容提取 `lockfileVersion` 字段值（如 `9.0`）；缺失返回 null。 */
+export function extractLockfileVersion(content: string): string | null {
+    const match = /lockfileVersion:\s*['"]?([^'"\s]+)/.exec(content)
+    return match?.[1] ?? null
 }
 
 // ---------------------------------------------------------------------------
@@ -244,15 +263,28 @@ function countLockfilePackages(path: string): number {
 // ---------------------------------------------------------------------------
 
 /**
+ * pnpm 版本白名单格式（P1 安全加固：拒绝不可信 packageManager/config 的任意字符串，
+ * 防命令注入——corepack 命令是唯一动态拼接的 execSync 命令）。
+ * 兼容标准 semver 与 corepack 哈希后缀（pnpm@10.5.2+sha512.xxx）。
+ */
+const PNPM_VERSION_RE = /^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/
+
+/** 校验 pnpm 版本格式是否合法（非法返回 false，调用方回退裸命令/报错）。 */
+export function isValidPnpmVersion(version: string | undefined | null): version is string {
+    return typeof version === 'string' && PNPM_VERSION_RE.test(version.trim())
+}
+
+/**
  * 从 package.json 的 `packageManager` 字段解析 pnpm 版本。
  * 优先级: toolchain.pnpmVersion > packageManager > null
+ * 非法 toolchain 版本 → 回退 packageManager；两者都非法/缺失 → null（裸命令兜底）。
  */
 export function resolvePnpmVersion(
     workDir: string,
     toolchain?: { pnpmVersion?: string },
 ): string | null {
-    if (toolchain?.pnpmVersion) {
-        return toolchain.pnpmVersion
+    if (toolchain?.pnpmVersion && isValidPnpmVersion(toolchain.pnpmVersion)) {
+        return toolchain.pnpmVersion.trim()
     }
 
     const pkgPath = join(workDir, 'package.json')
@@ -265,8 +297,8 @@ export function resolvePnpmVersion(
         const pm = pkg.packageManager
         if (typeof pm === 'string') {
             const match = /pnpm@(.+)$/.exec(pm)
-            if (match?.[1]) {
-                return match[1]
+            if (match?.[1] && isValidPnpmVersion(match[1])) {
+                return match[1].trim()
             }
         }
     } catch {
@@ -344,11 +376,14 @@ function rollback(bakPath: string, workDir: string): void {
 export function repairLockfile(params: RepairLockfileParams): LockfileRepairResult {
     const { workDir } = params
     const workDir_ = workDir // alias for consistency
+    // G1/T305：解析 pnpm 版本（toolchain 显式 > packageManager 字段 > null）
+    const pnpmVersion = resolvePnpmVersion(workDir_, params.toolchain)
 
     const attempts: RepairAttempt[] = []
 
     // ---- 1. 备份 ----
     const bakPath = backupLockfilePath(workDir_)
+    const beforeLockfileVersion = readLockfileVersionOf(workDir_)
 
     // ---- 2. 诊断 ----
     const classification = classifyLockfileFailure(workDir_)
@@ -393,7 +428,7 @@ export function repairLockfile(params: RepairLockfileParams): LockfileRepairResu
     const startTimestamp = Date.now()
 
     for (const strategy of strategyChain) {
-        const command = getStrategyCommand(strategy)
+        const command = getStrategyCommand(strategy, pnpmVersion)
         const t0 = Date.now()
 
         let strategySuccess = false
@@ -418,8 +453,9 @@ export function repairLockfile(params: RepairLockfileParams): LockfileRepairResu
         const verify = verifyFrozenLockfile(workDir_)
 
         if (verify.ret === 0) {
-            // 验证通过 → 计算 diff
+            // 验证通过 → 计算 diff + 格式漂移检测（lockfileVersion 前后对比）
             const diff = computeLockfileDiff(bakPath, join(workDir_, LOCKFILE_NAME))
+            const afterLockfileVersion = readLockfileVersionOf(workDir_)
             try {
                 rmSync(bakPath)
             } catch {
@@ -430,6 +466,10 @@ export function repairLockfile(params: RepairLockfileParams): LockfileRepairResu
                 strategy,
                 diff,
                 attemptHistory: attempts,
+                lockfileVersion: afterLockfileVersion ?? undefined,
+                lockfileVersionChanged: beforeLockfileVersion !== null
+                    && afterLockfileVersion !== null
+                    && beforeLockfileVersion !== afterLockfileVersion,
             }
         }
 
@@ -464,4 +504,17 @@ function truncate(text: string, maxLen: number): string {
         return text
     }
     return `${text.slice(0, maxLen)}…`
+}
+
+/** 读取当前 lockfile 的 lockfileVersion（文件缺失/读取失败返回 null）。 */
+function readLockfileVersionOf(workDir: string): string | null {
+    const path = join(workDir, LOCKFILE_NAME)
+    if (!existsSync(path)) {
+        return null
+    }
+    try {
+        return extractLockfileVersion(readFileSync(path, 'utf-8'))
+    } catch {
+        return null
+    }
 }

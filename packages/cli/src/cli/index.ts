@@ -109,6 +109,10 @@ const argsDef = {
         type: 'string' as const,
         description: '用户显式分组（覆盖自动分组），格式 "name1:pkg1,pkg2;name2:pkg3"',
     },
+    'toolchain-pnpm-version': {
+        type: 'string' as const,
+        description: 'lockfile 修复用的 pnpm 版本（工具链固定；缺省从 package.json packageManager 解析；PIN_TOOLCHAIN 策略用 corepack pnpm@<version> 执行）',
+    },
     commands: {
         type: 'string' as const,
         description: '自定义验证命令（逗号分隔），覆盖默认的 install/lint/build',
@@ -274,6 +278,12 @@ function parsedArgsToCliOverrides(parsed: ParsedArgs<typeof argsDef>): CliConfig
     const upgradeGroups = parsed['upgrade-groups']
     if (upgradeGroups) {
         overrides.upgradeGroups = parseUpgradeGroupsFlag(upgradeGroups)
+    }
+
+    // toolchain-pnpm-version
+    const toolchainPnpmVersion = parsed['toolchain-pnpm-version']
+    if (toolchainPnpmVersion) {
+        overrides.toolchainPnpmVersion = toolchainPnpmVersion
     }
 
     return overrides

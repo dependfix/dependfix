@@ -127,21 +127,25 @@ T301（采集器）→ T302（规则分层）→ T303（模板修复器）→ T3
 
 - **优先级**: P2
 - **依赖**: 无（独立于 T301-T304，可并行）
-- **状态**: ⬜ 未开始（承接 [G1](#g1-pin_toolchain-策略未真正固定-pnpm-版本) 评估结论）
+- **状态**: ✅ 已完成（2026-08-05，待提交）
 - **交付物**: `packages/cli/src/fixers/pnpm/index.ts` 的 PIN_TOOLCHAIN 策略接线 + config 输入
 
 **任务内容**:
 
-- [ ] config 新增 `toolchainPnpmVersion`（`--toolchain-pnpm-version` / env `AUTO_FIX_GITHUB_SECURITY_TOOLCHAIN_PNPM_VERSION`，缺省从 packageManager 解析）
-- [ ] `repairLockfile` 接收 toolchain 并传入策略命令；`getStrategyCommand('PIN_TOOLCHAIN')` 改用 `corepack pnpm@<version> install --lockfile-only`（corepack 不可用/下载失败 → 降级为裸命令，靠策略链 REGENERATE 兜底）
-- [ ] `tryLockfileRepair` 传递 toolchain；激活 `resolvePnpmVersion`（当前死代码）
-- [ ] 修复成功后校验 lockfile 格式与声明版本一致（防格式漂移——wisdom 记录 pnpm v11 overrides 迁移教训）
-- [ ] 测试：corepack 成功 / corepack 缺失降级 / packageManager 解析 / config 解析
+- [x] config 新增 `toolchainPnpmVersion`（`--toolchain-pnpm-version` / env `AUTO_FIX_GITHUB_SECURITY_TOOLCHAIN_PNPM_VERSION`，缺省从 packageManager 解析；semver 白名单校验防命令注入——Review Gate P1）
+- [x] `repairLockfile` 接收 toolchain 并传入策略命令；`getStrategyCommand('PIN_TOOLCHAIN')` 改用 `corepack pnpm@<version> install --lockfile-only`（corepack 不可用/下载失败 → 降级为裸命令，靠策略链 REGENERATE 兜底）
+- [x] `tryLockfileRepair` 传递 toolchain；激活 `resolvePnpmVersion`（原死代码）
+- [x] 修复成功后校验 lockfile 格式与声明版本一致（lockfileVersion 前后对比 + lockfileVersionChanged 标注——防格式漂移，wisdom 记录 pnpm v11 overrides 迁移教训）
+- [x] 测试：corepack 成功 / corepack 缺失降级 / packageManager 解析 / config 解析 / 注入拒绝（+12）
 
 **完成定义**:
 
-- [ ] LOCKFILE_VERSION_MISMATCH 场景用声明版本 pnpm 重生成 lockfile（不再是"与 REGENERATE 相同"的 stub）
-- [ ] corepack 不可用时行为不劣于现状（REGENERATE/REINSTALL 兜底）
+- [x] LOCKFILE_VERSION_MISMATCH 场景用声明版本 pnpm 重生成 lockfile（不再是"与 REGENERATE 相同"的 stub）
+- [x] corepack 不可用时行为不劣于现状（REGENERATE/REINSTALL 兜底）
+
+**Review Gate 遗留（非阻塞）**:
+- verifyFrozenLockfile 仍用裸 pnpm 验证，可能架空 PIN_TOOLCHAIN 固定版本（旧版 runner 场景；建议后续 verify 与策略同版本）
+- 漂移检测为相对对比（before/after），非严格"声明版本一致性"校验（弱代理）
 
 ---
 
@@ -160,16 +164,10 @@ T301（采集器）→ T302（规则分层）→ T303（模板修复器）→ T3
 
 ### G1 PIN_TOOLCHAIN 策略未真正固定 pnpm 版本
 
-- **状态**: 🔶 待实现（已承接至 M3 T305）
+- **状态**: ✅ 已闭环（2026-08-05，T305 完成）
 - **位置**: `packages/cli/src/fixers/pnpm/index.ts`
 - **问题**: `RepairLockfileParams.toolchain`（`toolchain.pnpmVersion`）虽被接受并文档声明"优先于 packageManager"，但 `repairLockfile()` 内部从未调用 `resolvePnpmVersion()`，`PIN_TOOLCHAIN` 策略命令与 `REGENERATE` 完全相同（`pnpm install --lockfile-only`），未按 toolchain 固定版本执行
-- **引入**: 自初版 fixer 起即为 stub（类型 + 测试骨架已搭，实现未接线）
-- **评估结论（2026-08-05）**: **建议暂不改，M3 阶段处理**——
-  ① 非阻塞：`LOCKFILE_VERSION_MISMATCH` 策略链有 REINSTALL 兜底，修复仍能成功（仅 lockfile 可能被当前 pnpm 版本重生成，存在格式漂移风险）；
-  ② 缺输入源：`toolchain.pnpmVersion` 在 config 层无 CLI/env 来源，现在接线只能做"从 packageManager 解析"的半套方案；
-  ③ corepack 可用性 / 首次下载依赖网络，需真实环境验证（本地 Windows 难以模拟 CI）；
-  ④ 届时作为"工具链固定"功能统一设计（config 输入 + corepack 执行与降级 + 修复后验证 packageManager 一致性），即 M3 T305
-- **下一步**: T305（config 输入 → repairLockfile 接线 → corepack 执行与降级 → 测试）
+- **处置**: T305 完成——resolvePnpmVersion 激活（toolchain > packageManager，semver 白名单校验）；PIN_TOOLCHAIN 改用 `corepack pnpm@<version> install --lockfile-only`（corepack 失败 → 裸命令 → REGENERATE 兜底）；lockfileVersion 前后对比漂移标注；config/CLI/env 输入齐备（`toolchainPnpmVersion`）
 
 ---
 

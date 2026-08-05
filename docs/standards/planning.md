@@ -76,6 +76,7 @@
 - `roadmap.md` 已同步阶段状态
 - 质量门结论可查（lint + typecheck + 定向测试）
 - Review Gate 有 `Pass` / `Reject` 结论
+- **Session Wisdom 蒸馏检查**：若 `.session/wisdom.md` 活跃条目 >= 20（`pnpm distill:wisdom --check`），执行一次蒸馏（详见 [Session Wisdom 蒸馏机制](../design/governance/session-wisdom-distillation.md)）
 
 ## 5. 需求采访与意图抽离
 

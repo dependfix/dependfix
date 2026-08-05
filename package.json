@@ -15,6 +15,7 @@
     "changeset:version": "changeset version",
     "changeset:publish": "changeset publish",
     "changelog": "node scripts/changelog.mjs",
+    "distill:wisdom": "node scripts/distill-wisdom.mjs",
     "check:links": "node scripts/check-links.mjs",
     "lint": "cross-env NODE_ENV=production eslint . --fix --max-warnings 10",
     "build": "pnpm -r build",

@@ -62,7 +62,24 @@ jobs:
             # GitHub runner 默认无 git 身份，需要显式配置（github-actions[bot] 官方身份）
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git commit -m "chore(release): 定时发布版本提升"
+            # semantic-release 风格提交信息：标题带版本号 + body 附根 CHANGELOG 版本段全文
+            # （参考 momei semantic-release 提交 `chore(release): <version> [skip ci]`）
+            cli_version=$(node -p "require('./packages/cli/package.json').version")
+            core_version=$(node -p "require('./packages/core/package.json').version")
+            head_cli_version=$(git show HEAD:packages/cli/package.json 2>/dev/null | node -p "JSON.parse(require('fs').readFileSync(0, 'utf8')).version" || echo "0.0.0")
+            version="$cli_version"
+            # 仅 core 变更时（cli 未提升），标题取 core 版本，避免版本号与变更不符
+            if [ "$cli_version" = "$head_cli_version" ]; then
+              version="$core_version"
+            fi
+            # 仅提取最新版本段（`# 0.1.0 (date)` 到下一个 `# ` 版本段前），
+            # 避免 commit body 随 changelog 历史无界膨胀（Review Gate P2）
+            release_notes=$(awk '/^# [0-9]/{ if (n) exit; n = 1 } n { print }' CHANGELOG.md)
+            if [ -z "$release_notes" ]; then
+              echo "::error::CHANGELOG.md 缺少版本段，无法生成 release commit body"
+              exit 1
+            fi
+            git commit -m "chore(release): ${version} [skip ci]" -m "$release_notes"
             # 分支为当前默认分支 master（与 changeset config 的 baseBranch 一致）
             git config --global url."https://x-access-token:${GITHUB_TOKEN}@github.com/".insteadOf "https://github.com/"
             git push origin master

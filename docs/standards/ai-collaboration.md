@@ -67,16 +67,14 @@ Review Gate 的投入应与改动风险匹配，不应对所有改动一视同�
 - **审计 prompt 携带"已查证事实"**：执行角色把调研结论/实验证据写进审计任务，避免审计者从头翻源码，显著提升效率与命中率（2026-08 多轮 Review Gate 实证：抓到 tag 不推送、分段回归、runner 无 git 身份等真问题，同时每轮用时可控）；
 - 分级沿用 blocker / warning / suggest（见 [测试规范 §4.1 按风险分级执行](../standards/testing.md) 与 code-reviewer 技能）。
 
-#### 方法论蒸馏（2026-08 蒸馏自 Session Wisdom）
+#### 方法论
 
-> 以下条目为跨 session 验证有效的协作方法，详见 [Session Wisdom 蒸馏机制](../design/governance/session-wisdom-distillation.md)。
-
-- **外部平台限制先探针验证再设计**：外因问题（如 GITHUB_TOKEN 访问 Dependabot alerts 恒 403）先做最小验证（探针/官方文档/issue），确认是平台设计限制而非自家 bug，再设计应对方案（双 token + fallback），不要在自家代码里找不存在的 bug。
-- **真实运行复盘驱动产品演进**：每个真实 run 的异常统计（Skipped/Failed 占比异常）都是产品缺口信号。三次 run 逐级深化：run 30929090403（误降级）→ P0 防护；run 30933266831（误伤）→ 修正 partition；run 31021398673（Skipped 22/23）→ 版本化 overrides。先拆解归因再动代码。
-- **Review Gate 独立验证"测试声明"**：交付方"测试 +2"声明必须可核查（文件 + 断言内容）；审计独立复验，不采信自报（曾 grep 无命中抓到零覆盖）。
-- **dry-run 纪律：所有 mutation 前必须 guard**：新修复路径 checklist 第一项是 dry-run 时零写盘、零 install、零 mutation（多版本 overrides 分支曾在 dryRun 检查前调用写盘函数——Review Gate P1）。
-- **能力交付检查所有暴露层**：CLI flag / env / action input / 文档表四层缺一即不完整（M3 曾漏 action.yml input，用户发现）。
-- **不可行证明比硬实现更有价值**：当需求与模板/技术约束冲突时，记录论证过程后放弃是合规决策（no-trailing-spaces 模板 3 轮 Review 证明词法歧义不可保证 → 移除）——不要为了"有修复器"而引入不可验证的修复器。
+- **外部问题先验证再设计**：外因问题先做最小验证（探针/官方文档/issue），确认是平台限制而非自家 bug 后再设计应对，不要在自家代码里找不存在的 bug。
+- **真实运行复盘驱动演进**：真实运行报告中的异常统计（如 Skipped/Failed 占比异常）是产品缺口信号，先拆解归因再动代码。
+- **Review Gate 独立验证声明**：交付声明（如"测试 +N"）必须可核查（文件 + 断言）；审计独立复验，不采信自报。
+- **dry-run 纪律**：所有会写盘/执行/变更的路径，在 mutation 前必须 guard dry-run（零写盘、零 install、零 mutation）。
+- **交付检查所有暴露层**：能力交付前检查四层——CLI flag / env / action input / 文档表，缺一层即不完整。
+- **不可行证明优先于硬实现**：需求与实现约束冲突时，记录论证过程后放弃是合规决策；不引入不可验证的修复器。
 
 ## 2. PDTFC+ 工作流
 

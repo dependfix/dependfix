@@ -27,7 +27,7 @@
 
 常用 type：`feat` / `fix` / `docs` / `refactor` / `test` / `chore` / `perf` / `ci`
 
-**type 选择直觉校准**（2026-08 蒸馏自 Session Wisdom）：修复现有功能缺陷 → `fix`；新增能力 → `feat`。曾发生"修复间接依赖失败被标记为 `feat`"的偏差——凡是"让原本坏的东西变好"都是 `fix`。
+**type 选择校准**：修复现有功能缺陷 → `fix`；新增能力 → `feat`。凡是"让原本坏的东西变好"都是 `fix`。
 
 ## 4. AI 行为准则
 

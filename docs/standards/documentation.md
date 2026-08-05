@@ -25,7 +25,7 @@ docs/
 │   ├── todo.md              # 当前阶段任务
 │   ├── todo-archive.md      # 已完成阶段归档
 │   └── backlog.md           # 待办积压（后续阶段详细任务）
-├── research/                # 调研文档（命名规范见 §5.2）
+├── research/                # 调研文档（命名规范见 §5.0 / §5.1）
 │   ├── README.md            # 目录定位（简要，规范见本文档）
 │   ├── 2026-07-26-competitive-research.md
 │   ├── 2026-08-04-github-token-dependabot-bug-or-design.md
@@ -73,12 +73,26 @@ docs/
 - **治理/专题**: 专项治理、迁移方案、评估报告写入 `docs/design/governance/`
 - **索引**: `docs/design/packages/index.md` 与 `docs/design/governance/index.md` 分别维护索引；过时且暂不删除的文档归档到 `docs/design/governance/archive/`（按需创建）
 
+### 5.0 通用带日期文件命名规范
+
+**需要带日期的文件**（调研、评估、归档、快照、报告等）统一使用 `{YYYY-MM-DD}-{topic-slug}.md`：
+
+1. 日期为**完成日期**（YYYY-MM-DD），置于文件名最前——按文件名排序即按时间排序
+2. topic-slug 为小写 kebab-case 主题词
+3. 同一天多次产出追加版本后缀 `-v{n}`（从 2 起）
+4. 适用于所有文档目录（`docs/research/`、`docs/design/governance/`、`docs/plan/archive/` 等），不限于调研文档
+
+**示例**：
+- `2026-08-04-github-token-dependabot-bug-or-design.md`（调研）
+- `2026-08-06-experience-archive.md`（经验归档）
+- `2026-08-06-audit-report-v2.md`（同天第二版审计报告）
+
 ### 5.1 调研文档规范（docs/research/）
 
 调研 / 研究类文档（竞品分析、技术调研、决策依据等）统一存放 `docs/research/`，
 与 `docs/design/`（设计落地）和 `docs/plan/`（规划）分离。
 
-**命名规范**:
+**命名规范**（沿用 [§5.0 通用带日期文件命名规范](#50-通用带日期文件命名规范)）:
 
 1. 文件名必须包含日期，格式 `{YYYY-MM-DD}-{topic-slug}.md`
    - 示例：`2026-08-04-github-token-dependabot-bug-or-design.md`

@@ -77,7 +77,7 @@
 - 质量门结论可查（lint + typecheck + 定向测试）
 - Review Gate 有 `Pass` / `Reject` 结论
 - **Session Wisdom 蒸馏检查**：若 `.session/wisdom.md` 活跃条目 >= 20（`pnpm distill:wisdom --check`），执行一次蒸馏（详见 [Session Wisdom 蒸馏机制](../design/governance/session-wisdom-distillation.md)）
-- **用户可见文档同步**（2026-08 蒸馏自 Session Wisdom）：里程碑收口时除 todo/roadmap 外，还需同步 `docs/index.md` 当前状态、guide 文档与设计文档中的"规划中"标记——M3 完成后 index/roadmap 仍标"规划中"曾导致文档自相矛盾（Review Gate P2）
+- **用户可见文档同步**：里程碑收口时除 todo/roadmap 外，还需同步 `docs/index.md` 当前状态、guide 文档与设计文档中的"规划中"标记
 
 ## 5. 需求采访与意图抽离
 

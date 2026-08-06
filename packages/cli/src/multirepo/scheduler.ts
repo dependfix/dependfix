@@ -1,4 +1,4 @@
-import PQueue from 'p-queue'
+import type PQueue from 'p-queue'
 import type { Logger } from '@dependfix/core'
 
 // ---------------------------------------------------------------------------
@@ -9,6 +9,21 @@ import type { Logger } from '@dependfix/core'
 export const MAX_CONCURRENCY_LIMIT = 16
 /** 默认并发（保守：行为与现状一致，逐仓库串行） */
 export const DEFAULT_CONCURRENCY = 1
+
+/**
+ * p-queue 及其依赖 p-timeout 均为 ESM-only（type: module）。
+ * R4 修复：CJS 产物（dist/index.cjs）顶层 `require('p-queue')` 在 Node 20 会
+ * ERR_REQUIRE_ESM，改为运行时动态 `import()`（Node 20+ 的 CJS 模块原生支持
+ * 加载 ESM），模块级缓存避免重复加载。
+ */
+let pQueueModule: typeof import('p-queue') | null = null
+
+async function loadPQueue(): Promise<typeof PQueue> {
+    if (!pQueueModule) {
+        pQueueModule = await import('p-queue')
+    }
+    return pQueueModule.default
+}
 
 // ---------------------------------------------------------------------------
 // Types
@@ -52,7 +67,9 @@ export async function runWithConcurrency<T>(
 
     logger?.info(`[scheduler] processing ${items.length} item(s) with concurrency ${concurrency}`)
 
-    const queue = new PQueue({ concurrency })
+    // R4：动态加载 p-queue（ESM-only；CJS 产物兼容）
+    const PQueueCtor = await loadPQueue()
+    const queue = new PQueueCtor({ concurrency })
     await Promise.all(items.map((item) => queue.add(async () => {
         try {
             await task(item)

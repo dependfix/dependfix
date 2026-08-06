@@ -83,7 +83,7 @@ T404（归档/趋势，依赖 T402，可并行）
 **测试方案**: 调度器并发上限（mock 慢任务）、失败隔离集成测试（注入抛错仓库）、退避重试（mock 429 → 200） ✅（scheduler 4 例 + client retry 12 例 + app 失败隔离 1 例 + config 并发校验 7 例）
 
 > **Review Gate**: 首轮 REJECT（P1：fix/fix-and-pr 并发写共享 workDir 数据竞争——已修复为 maxConcurrency>1 仅限 report-only，fail-fast 校验；P2：scheduler 兜底静默吞错——已补 onError 记录）。复查 PASS。
-> **残余风险（登记 backlog）**: 写请求 429 重放（低）、MAX_BACKOFF_MS 硬编码、Retry-After 未解析、CJS require p-queue ESM-only。
+> **残余风险（登记 backlog，2026-08-06 已全部处置）**: 写请求 429 重放（R1 已修复：仅 GET/HEAD 重试）、MAX_BACKOFF_MS 硬编码（R2 已修复：--max-backoff-ms 可配）、Retry-After 未解析（R3 已修复）、CJS require p-queue ESM-only（R4 已修复：动态 import）。
 
 ---
 

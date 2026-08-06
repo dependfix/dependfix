@@ -147,3 +147,17 @@ if (value) { ... }  // fails for 0, "", false
 - "diff 中新增的注释/测试名是否含孤立编号标记？"
 - "编号是否带可反查的文档路径（导航指针例外）？"
 - "清理编号后解释正文是否保留、语义是否完整？"
+
+### Bulk Replacements & Line-Ending Integrity (批量替换/行尾审查)
+
+diff 包含大范围替换（脚本/正则批量改写、多文件机械变更）时，重点检查：
+
+- **行尾噪音**：`git diff --ignore-space-at-eol` 与普通 diff 行数差异大 → 说明整文件行尾被翻转（混合行尾仓库常见），要求按行保留原行尾重做
+- **代码误伤**：替换正则是否误删代码 token（空调用 `()`、方法名 `trim`/`toUpperCase` 后丢失括号、URL `https:// /` 出现空格）——注意 `typecheck` 不总能覆盖字符串/注释误伤
+- **外链破坏**：涉及 URL 文本时检查是否出现 `https:// /`、`http://` 等畸形（check-links 只查本地链接）
+
+规范见 [ai-collaboration.md §1.2 执行原则 6](../../../../docs/standards/ai-collaboration.md)，教训见 [经验归档 §十七](../../../../docs/design/governance/2026-08-06-experience-archive.md)。
+
+### Questions to Ask
+- "该改动是否为批量替换？若是，行尾/URL/代码 token 是否被误伤？"
+- "是否存在全文件行尾翻转（--ignore-space-at-eol 前后行数差异）？"

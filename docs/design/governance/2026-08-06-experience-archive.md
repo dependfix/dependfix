@@ -94,7 +94,26 @@
 - **案例**：run 31063128020 中 lockfile 只有 vite@5.4.14 + vite@8.2.0 实例，GHSA-fx2h（影响 `<= 6.4.2`、first_patched 6.4.3）对 5.x 实例**无同线修复版本**。原链路把 5.4.14 升到 5.4.21 后按包级匹配标 fixed；后续 run 又会被最高实例 8.2.0 掩盖而误判 converged——告警长期滞留且被误标。
 - **修复**：① `isCrossMajorFixRequired`（推荐版本 major 不在 lockfile 实例 majors → 跨线）在修复链路剔除（skipped + warn，交用户手动大版本升级/批准）；② fixed/converged 判定改为**逐目标同 major 版本满足**（`isAlertFixedByActions`：目标 >= 推荐 且 major 相同），markdown 报告 / severity 聚合 / PR body 三处同源，杜绝"同包其他线目标掩盖"。
 - **启示**：
-  - **跨大版本升级默认不做自动决策**（T405 修订，2026-08-07）：线内无修复版本 = 需要人工检查/执行/批准；自动升到跨线版本会破坏依赖语义（版本化覆盖 key 按 major 线语义）。**默认行为不变**；`--allow-major-upgrade`（CLI 专属、无 env 通道、Action 禁用）显式授权后，仅"直接依赖 + lockfile 单版本"的跨线告警自动升级，强制完整验证（install+lint+build），失败回滚——详见 [dependency-fixer.md §12.6](../packages/dependency-fixer.md)。
+  - **跨大版本升级默认不做自动决策**（T405 修订，2026-08-07）：线内无修复版本 = 需要人工检查/执行/批准；自动升到跨线版本会破坏依赖语义（版本化覆盖 key 按 major 线语义）。**默认行为不变**；`--allow-major-upgrade`（CLI 专属、无 env 通道、Action 禁用）显式授权后，仅"根 package.json 直接依赖 + lockfile 单版本"的跨线告警自动升级，升级后实例复核 + 强制完整验证（install+lint+build），失败回滚——详见 [dependency-fixer.md §12.6](../packages/dependency-fixer.md)。
   - **包级匹配是"快照"不是"真相"**：同包多 GHSA 推荐版本各异时，包级 fixed 标记必须被版本满足判定收敛，否则报告自相矛盾（Summary/明细/PR body 三口径）。
   - **最高实例版本会掩盖低线实例的脆弱**：收敛判定按实例维度而非最高版本一刀切。
   - **真实 GHSA 数据比假设更有价值**：复盘时用 GitHub Advisory API 拉 actual vulnerabilities range（如 `<= 6.4.2` 含 5.x）确认跨线事实，而非猜测。
+
+## 十五、跨线升级"单版本必然跟随"假设不成立（T405 Review Gate 首轮 REJECT）
+
+- **案例**：`--allow-major-upgrade` 2.0.2 链路首版设计假设"lockfile 单版本 → 升级根声明后脆弱实例必然跟随，告警真实消除"。Review Gate 指出：root 声明 `vite ^5.4.0` + workspace 成员（如 `docs/`）同 range 声明（共享单实例 5.4.14）时，跨线只改 root 声明 → install 成功（不同 major 共存）→ 验证通过 → 误标 fixed；且下一轮 lockfile 变为 {5.4.14, 6.4.3} → 不再跨线 → 常规链路 no-downgrade 取最高 6.4.3 → **误判 converged**——正是 PR #28"最高实例掩盖低线脆弱"的 pattern，由工具自身制造。
+- **修复**（按复查基线）：① 升级后实例复核——`upgradeDependency` 成功后重读 lockfile，仍存在 `< recommended` 实例（workspace 成员同 range / 传递依赖 pin 残留）→ 回滚 + 计 failed + 审计错误，不进入验证阶段；② 准入谓词从 `isWorkspaceDirectDependency` 收窄为 `isRootDirectDependency`（与修复器只改根 manifest 的能力对齐，成员独占声明维持人工）；③ 同包多跨线告警按包聚合取最高 recommendedVersion（镜像 dedupeFixableAlerts）；④ 完整验证动作入 allActions（报告可审计）。
+- **启示**：
+  - **实现者会相信自己的注释**："单版本必然跟随"写在注释里就成了实现依据；独立审计质疑假设才能暴露多消费方场景的残留。
+  - **准入谓词必须与修复器能力对齐**：判定"能处理"（workspace 直接依赖）宽于实际能力（只改根 manifest）时，必然产生"进入链路即失败"的路径。
+  - **成功判定 = 漏洞真实消除，而非"流程走完"**：install 成功 + 验证通过 ≠ 告警关闭；跨线升级等高风险路径必须复核最终状态（lockfile 实例）。
+
+## 十六、规范存在 ≠ 被执行：编号标记重复违规（3c714cc1 → T405 回归）
+
+- **案例**：3c714cc1 清理 60 处编号标记并立规（development.md §3：注释与测试名禁规划/任务/审计编号，例外仅真实常量与带文档路径的导航指针）。T405 实现（edfb9e07）又引入 8 处编号标记（`T405`、`P1-1`、`P2-1`、`C10` 等）——用户发现后指出与 3c714cc1 同类。
+- **根因**：规范条款没有挂接到执行环节——D 阶段自检清单不含"规范一致性"检查；A 阶段（Review Gate）必查项不含注释/测试名规范。规范写在文档里，但实现与审计两端都没有触发点，成为"纸面规范"。
+- **修复**：① 清理本次引入 8 处 + 既有残留 2 处（只删编号、保留解释正文）；② `code-auditor.agent.md` 主责边界新增"**开发流程编号标记检查（必查项）**"（禁止形态正则 + 例外两类 + 孤立编号退回清理）；③ `code-reviewer` code-quality-checklist 新增 `Standards Compliance > Development-Flow ID Markers` 小节；④ full-stack-master D 阶段自检补"规范一致性"检查项。
+- **启示**：
+  - **治理规则必须挂接触发点**：规范文档条款要映射到至少一个执行检查点（D 阶段自检清单 / A 阶段必查项 / lint 规则），否则必然回归。
+  - **新功能注释引用规划编号是"流程心智渗透代码"信号**：开发流程编号（T405/P1-1）属于 `docs/plan/` 的进度概念，代码中无意义且无法反查；实现时注释只写解释正文，编号留在规划文档与审计记录（git blame 可追溯）。
+  - **用户视角的规范一致性最有价值**：实现者聚焦新功能容易忽略与既有规范的冲突；交付前主动对照仓库规范（注释/命名/目录约束）可减少此类往返。

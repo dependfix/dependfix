@@ -46,15 +46,16 @@ description: 全局一体化开发与协作工作流技能，覆盖需求评估�
 
 1. 需求不清、范围可疑或可能插队时，先加载 [requirement-analyst](../../.github/skills/requirement-analyst/SKILL.md) 澄清。
 2. 代码实现阶段只保留一个主责执行者，避免多角色重做同一事项。
-3. **强制审计**：D 阶段完成后，必须立即加载本项目 [code-reviewer](../../.github/skills/code-reviewer/SKILL.md) skill 并移交 `@code-auditor` agent 执行 Review Gate。此步骤不可跳过、不可自我审查替代。A 阶段放行后方可进入 V / T / F。
+3. **D 阶段自检须含规范一致性**：实现收尾时除 lint/typecheck/定向测试外，对照 [开发规范](../../docs/standards/development.md) 检查新增/修改的注释与测试名——禁止引入规划/任务/审计/backlog 编号标记（如 `T405`、`P1-1`、`C10`，例外仅真实常量与带文档路径的导航指针）；同类问题曾因缺检查点而在 T405 回归（见 [经验归档 §十六](../../docs/design/governance/2026-08-06-experience-archive.md)）。
+4. **强制审计**：D 阶段完成后，必须立即加载本项目 [code-reviewer](../../.github/skills/code-reviewer/SKILL.md) skill 并移交 `@code-auditor` agent 执行 Review Gate。此步骤不可跳过、不可自我审查替代。A 阶段放行后方可进入 V / T / F。
    - **审计调用协议**：审计 prompt 必须携带 `audit-depth` 声明（`quick` / `standard` / `deep` + 理由）、变更文件清单、已验证证据摘要（lint/typecheck/test 结果 + 关键断言行号）、是否为复审（复审附上轮问题编号清单）。未声明 depth 时审计默认按 `deep` 执行（防御方向），但会显著拖长用时——小改动必须主动声明 `quick`。
    - **并发审计**：diff 文件数 > 8 或涉及 ≥ 2 个独立模块（如 `packages/core` + `packages/cli` + docs）时，按模块分区并行发起多个 `@code-auditor` 审计任务，主审汇总合并去重、取最严结论。小改动不得并发。
    - **复审只审修复点**：第 2+ 轮审计只移交上轮问题编号对应的修复 diff，不重发全量 diff。
    - **证据前置**：执行角色把调研结论/实验证据写进审计任务，避免审计者从头翻源码（见 [AI 协作规范 §1.3](../../docs/standards/ai-collaboration.md)）。
-4. 涉及界面时加载 `ui-validator`，涉及测试补强时加载 [test-engineer](../../.github/skills/test-engineer/SKILL.md)。
-5. 设计、规范、README、Guide 或 Plan 文档变化加载 [documentation-specialist](../../.github/skills/documentation-specialist/SKILL.md) 收口。
-6. **单次提交**：F 阶段收口时必须加载 [conventional-committer](../../.github/skills/conventional-committer/SKILL.md) skill 执行单次提交，生成符合 Conventional Commits 格式的消息（使用中文或用户使用的语言）。未通过 A 阶段 Review Gate 的改动不得提交。
-7. 处理与 Todo 相关的改动时，同步维护任务状态，避免实现进度与待办状态脱节。
+5. 涉及界面时加载 `ui-validator`，涉及测试补强时加载 [test-engineer](../../.github/skills/test-engineer/SKILL.md)。
+6. 设计、规范、README、Guide 或 Plan 文档变化加载 [documentation-specialist](../../.github/skills/documentation-specialist/SKILL.md) 收口。
+7. **单次提交**：F 阶段收口时必须加载 [conventional-committer](../../.github/skills/conventional-committer/SKILL.md) skill 执行单次提交，生成符合 Conventional Commits 格式的消息（使用中文或用户使用的语言）。未通过 A 阶段 Review Gate 的改动不得提交。
+8. 处理与 Todo 相关的改动时，同步维护任务状态，避免实现进度与待办状态脱节。
 
 ## 不应承担
 

@@ -4,7 +4,7 @@
 
 ## 当前状态
 
-**M4（多仓库治理增强）进行中。** M0（基线收敛）/ M1（MVP 单仓库修复）/ M2（GitHub Action 接入）/ M3（Code Scanning 扩展）已完成并归档。
+**M4（多仓库治理增强）已完成（2026-08-06），M4.5 跨线升级显式授权已完成（2026-08-07）。** M0（基线收敛）/ M1（MVP 单仓库修复）/ M2（GitHub Action 接入）/ M3（Code Scanning 扩展）已完成并归档。
 
 `dependfix` CLI 支持四类命令（`report-only` / `fix` / `fix-and-pr` / `cleanup-branches`），可通过 GitHub Composite Action（`uses: dependfix/dependfix@v1`）提供零配置的自动化安全修复能力。
 
@@ -21,7 +21,8 @@
 - ✅ `fix-and-pr` 模式下自动创建分支并提交 Pull Request（PR 去重：内容指纹 + 关旧开新）
 - ✅ 分支清理（`cleanup-branches` / `--cleanup-branches-auto`）
 - ✅ Code Scanning alerts 接入（`code-scanning` / `--code-scanning` / `DEPENDFIX_CODE_SCANNING`，A/B/C 规则分层自动修复，M3 已完成）
-- 🔶 owner 级仓库自动发现 / 多仓库并发治理 / 报告归档（M4 进行中）
+- ✅ owner 级仓库自动发现 / 多仓库并发治理 / 报告归档（M4 已完成，2026-08-06）
+- ✅ 跨线告警显式授权自动升级（`--allow-major-upgrade`，仅 CLI；M4.5 已完成，2026-08-07）
 - 🔶 AI 研判依赖升级 breaking change（M5 规划中）
 - 🔶 独立平台部署（闭源场景，M6 规划中）
 

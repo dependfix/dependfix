@@ -67,6 +67,7 @@ metadata:
 ### Step 4: 执行结构化审查
 
 - 使用 references/ 中的四份 checklist 逐项覆盖：正确性、安全、架构（SOLID）、可维护性、测试充分性。
+- **规范一致性必查**：新增/修改的注释与测试名不得含开发流程编号标记（`T405`、`P1-1` 等，例外仅真实常量与带文档路径的导航指针）——检查项在 [code-quality-checklist.md](./references/code-quality-checklist.md) 的 Standards Compliance 小节，规范原文见 [开发规范 §3](../../../docs/standards/development.md)。此检查适用于所有审计深度（含 `quick`，一行 grep 即可）。
 - 优先寻找会阻塞放行的问题，而不是按文件顺序复述 diff。
 - 重点检查：遗漏 mock、异常吞掉、权限边界缺失、证据链不闭环、超出当前 Todo 范围的静默扩写。
 

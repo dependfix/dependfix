@@ -2,7 +2,7 @@
 
 > M0（基线收敛）/ M1（MVP 单仓库修复）/ M2（GitHub Action 接入）/ M3（Code Scanning 扩展）已完成，归档见 [todo-archive.md](todo-archive.md)。
 > **M4（多仓库治理增强）已完成（2026-08-06）**：T401-T404 全部交付并通过 Review Gate（提交 cb801b60 / fedb7200 / 5860fb4d / 2a7fed00），全量质量门（typecheck + lint + build + 650 tests）通过。
-> **M4.5（跨线升级显式授权）进行中（2026-08-07）**：T405 `--allow-major-upgrade`。
+> **M4.5（跨线升级显式授权）已完成（2026-08-07）**：T405 `--allow-major-upgrade` 交付（提交 edfb9e07），Review Gate 首轮 REJECT 修复后复审 PASS；随后清理编号标记残留并纳入 Review Gate 必查项（提交 528d1aae）。全量质量门（typecheck + lint + build + 720 tests）通过。
 > M5 及之后阶段的任务见 [backlog.md](backlog.md)。
 
 ---
@@ -15,7 +15,7 @@
 
 - **优先级**: P1
 - **依赖**: PR #28 复盘结论（跨线告警剔除逻辑）、T105（upgradeDependency）、T107（verifyProject）
-- **状态**: 进行中（2026-08-07）
+- **状态**: 已完成（2026-08-07，提交后回链）
 - **交付物**: `packages/cli/src/app/index.ts` 2.0.2 跨线链路 + CLI 参数
 
 **任务内容**:
@@ -43,6 +43,17 @@
 **测试方案**: config 三态 + env 无通道守卫 + CLI 解析；app 集成 10 例（默认回归 / 直接依赖升级 / 验证失败回滚 / 实例残留回滚 / 同包多告警取最高 / 间接依赖人工 / 成员独占人工 / 多版本共存人工 / dry-run / 验证动作可审计） ✅
 
 > **Review Gate**: 首轮 REJECT（P1-1 实例残留误标 + P2-1 同包多告警目标选择 + P2-2 成员独占必然失败 + P2-3 验证证据缺失），已按复查基线修复（实例复核回滚、包级最高目标聚合、根声明准入、验证动作入报告）。复审：核心 4 项确认修复，P2 文本措辞残留（4 处"根/workspace"旧语义）已统一为"根 package.json 直接依赖"。**PASS（2026-08-07，T405-5）**，残余风险登记（理论降级边 / 合并告警计数 / node_modules 不回滚 / 自定义 commands 时验证链为用户链）。
+
+## M4.5 完成判定
+
+- [x] `--allow-major-upgrade` 仅 CLI 可用（无 env 通道、action.yml 不暴露 input → Action 结构性禁用）
+- [x] 开启后仅「根 package.json 直接依赖 + lockfile 单版本」跨线自动升级；默认行为与 PR #28 完全一致（现状回归测试）
+- [x] 升级后实例复核 + 强制完整验证（install+lint+build），失败/残留自动回滚计 failed，不误标 fixed/converged
+- [x] 间接依赖 / 成员独占 / 多版本共存跨线维持人工（skipped + warn）
+- [x] `pnpm typecheck` + `pnpm lint` + 720 tests + `pnpm build` 全部通过；Review Gate 复审 PASS
+- [x] 编号标记清理 + Review Gate 必查项落地（528d1aae），经验归档 §十五/§十六
+
+> **M4.5 交付说明（2026-08-07）**：T405 跨线显式授权（edfb9e07）——CLI 参数 + config（无 env 通道）+ 跨线分流（根声明准入）+ 2.0.2 链路（实例复核 + 完整验证 + 回滚）+ 10 集成测试；Review Gate 首轮 REJECT 4 项（P1-1 实例残留误标、P2-1 同包多告警目标选择、P2-2 成员独占必然失败、P2-3 验证证据缺失）全部修复后复审 PASS。随后用户指出 T405 引入与 3c714cc1 同类的编号标记问题 → 528d1aae 清理 10 处残留（8 处本次 + 2 处既有），并将"开发流程编号标记检查"纳入 code-auditor 必查项与 code-reviewer checklist；经验归档新增 §十五（跨线升级假设教训）与 §十六（规范存在 ≠ 被执行）。
 
 ---
 

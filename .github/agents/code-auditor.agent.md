@@ -42,6 +42,7 @@ description: 负责对代码、文档、配置、脚本与治理定义执行 Rev
 - 按改动类型核对最低验证矩阵，确认 `lint`、`typecheck`、`lint:md`、定向测试、构建验证或浏览器验证是否齐备。
 - 审核安全、权限、类型、命名与规范一致性。
 - 对测试代码、脚本代码、配置代码、规划文档和 skill / agent 定义同样适用，不只审业务代码。
+- **skill / agent 定义只审 `.github/` 源目录**：`.claude/`、`.agents/`、`.opencode/` 下的 agent / skill 文件是指向 `.github/agents`、`.github/skills` 的符号链接（由 `scripts/setup/setup-ai.mjs` 创建），不是独立副本——只审源目录即可，无需逐个审查平台副本（见 [AI 资产治理规范 §2.2](../../docs/standards/ai-governance.md)）。
 - 维护多轮 review 的问题编号与复查基线，避免问题在轮次之间丢失。
 - 审计时若发现改动对应的 Todo 状态未同步，必须要求执行角色补齐：已满足验收则关闭，未完成则更新为与实际进度一致。
 

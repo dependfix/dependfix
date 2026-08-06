@@ -24,7 +24,15 @@
 2. 任何内部定义调整都必须先改主定义。
 3. 内部维护的 skill 须在 frontmatter 中声明 `metadata.internal: true`。
 
-### 2.2 外部平台提供资产
+### 2.2 平台副本同步机制
+
+`.claude/agents`、`.claude/skills`、`.agents/skills`、`.opencode/agents` 均是由 [scripts/setup/setup-ai.mjs](../../scripts/setup/setup-ai.mjs) 创建的指向 `.github/agents`、`.github/skills` 的符号链接（junction），**不是独立副本**：
+
+- **审查/审计范围**：只审查 `.github/agents`、`.github/skills` 源目录即可，平台副本无需逐个审查（改源目录即全平台生效）。
+- **同步命令**：新增工作树或平台目录缺失时运行 `node scripts/setup/setup-ai.mjs` 重建符号链接。
+- **禁止**：直接修改 `.claude/`、`.agents/`、`.opencode/` 下的 agent / skill 文件（它们是符号链接，改源目录才是正确入口）。
+
+### 2.3 外部平台提供资产
 
 编辑器或扩展自带的外部 skill 只作为参考来源或调用入口，不纳入项目内部库存，不镜像到 `.github/`。
 

@@ -55,14 +55,8 @@
 
 ### 覆盖策略
 
-- **C10 根直接依赖 + lockfile 告警覆盖损失**（G3 遗留）
-  - 状态：🔶 待评估
-  - 内容：根直接依赖 + lockfile manifest 告警一律跳过；可细化为"推荐版本 < 根锁定版本才跳过"
-  - 来源：G3 处理记录（2026-08-05）
-- **C11 monorepo 成员包直接依赖盲区**（G3 遗留）
-  - 状态：🔶 待评估
-  - 内容：isRootDirectDependency 仅读根 package.json，成员包直接依赖未识别
-  - 来源：G3 处理记录（2026-08-05）
+- **C10 根直接依赖 + lockfile 告警覆盖损失**（G3 遗留）——**已修复 2026-08-06**：细化为按版本关系判定——推荐版本 >= 锁定版本 → 可安全修复（直接升级/精确 override 均不降级声明）；推荐 < 锁定或无版本信息 → 维持跳过。详见 [dependency-fixer.md §12.4](../design/packages/dependency-fixer.md)
+- **C11 monorepo 成员包直接依赖盲区**（G3 遗留）——**已修复 2026-08-06**：直接依赖判定扩展为根 + workspace 成员包（pnpm-workspace.yaml packages glob 展开，支持字面/*/**）。已知限制：`!` 排除模式未处理（保守方向）、递归不跟随符号链接。详见 [dependency-fixer.md §12.5](../design/packages/dependency-fixer.md)
 - **C12 major overrides 确认机制**（G3 遗留）
   - 状态：🔶 已评估，暂不实现（2026-08-05）
   - 内容：major overrides 自动拦截不实现（逐包验证 + 回滚已兜底）

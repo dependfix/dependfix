@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -286,6 +286,126 @@ describe('partitionSubmanifestAlerts', () => {
     it('normalizes windows-style separators', () => {
         const { sub } = partitionSubmanifestAlerts([alert({ manifestPath: 'docs\\package.json' })], workDir)
         expect(sub).toHaveLength(1)
+    })
+
+    // -----------------------------------------------------------------------
+    // C10：根直接依赖 + 单版本 → 推荐版本 >= 锁定版本时不再跳过（override 不降级）
+    // -----------------------------------------------------------------------
+
+    it('C10: keeps single-version root direct dependency when recommended >= locked (no downgrade)', () => {
+        // 根声明 vite ^6.4.0，lockfile 锁 6.4.0，告警推荐 6.4.3 → override ^6.4.3 不降级 → root
+        writeFileSync(join(workDir, 'pnpm-lock.yaml'), [
+            'lockfileVersion: \'9.0\'',
+            '',
+            '  vite@6.4.0:',
+            '    resolution: {integrity: sha512-v640}',
+            '',
+        ].join('\n'))
+
+        const { root, sub } = partitionSubmanifestAlerts([
+            alert({ packageName: 'vite', manifestPath: 'pnpm-lock.yaml', recommendedVersion: '6.4.3' }),
+        ], workDir)
+        expect(root.map((a) => a.packageName)).toEqual(['vite'])
+        expect(sub).toHaveLength(0)
+    })
+
+    it('C10: keeps single-version root direct dependency in sub when recommended < locked (downgrade risk)', () => {
+        // 根 vite 8.2.0 锁定，告警推荐 5.4.21 → override 会降级 → sub（vite 场景不变）
+        writeFileSync(join(workDir, 'pnpm-lock.yaml'), [
+            'lockfileVersion: \'9.0\'',
+            '',
+            '  vite@8.2.0:',
+            '    resolution: {integrity: sha512-v820}',
+            '',
+        ].join('\n'))
+
+        const { root, sub } = partitionSubmanifestAlerts([
+            alert({ packageName: 'vite', manifestPath: 'pnpm-lock.yaml', recommendedVersion: '5.4.21' }),
+        ], workDir)
+        expect(sub.map((a) => a.packageName)).toEqual(['vite'])
+        expect(root).toHaveLength(0)
+    })
+
+    it('C10: keeps root direct dependency in sub when lockfile has no version info (conservative)', () => {
+        // 无 lockfile（versions 为空）→ 无法判断降级风险 → sub
+        const { root, sub } = partitionSubmanifestAlerts([
+            alert({ packageName: 'vite', manifestPath: 'pnpm-lock.yaml', recommendedVersion: '6.4.3' }),
+        ], workDir)
+        expect(sub).toHaveLength(1)
+        expect(root).toHaveLength(0)
+    })
+
+    // -----------------------------------------------------------------------
+    // C11：workspace 成员包直接依赖识别（monorepo 盲区）
+    // -----------------------------------------------------------------------
+
+    it('C11: recognizes workspace member direct dependencies (single version + downgrade risk → sub)', () => {
+        // 根不依赖 vite；packages/app 依赖 vite ^8.0.0；lockfile 单版本 8.2.0；推荐 5.4.21
+        mkdirSync(join(workDir, 'packages', 'app'), { recursive: true })
+        writeFileSync(join(workDir, 'packages', 'app', 'package.json'), JSON.stringify({
+            name: 'app',
+            dependencies: { vite: '^8.0.0' },
+        }))
+        writeFileSync(join(workDir, 'pnpm-workspace.yaml'), 'packages:\n  - packages/*\n')
+        writeFileSync(join(workDir, 'pnpm-lock.yaml'), [
+            'lockfileVersion: \'9.0\'',
+            '',
+            '  vite@8.2.0:',
+            '    resolution: {integrity: sha512-v820}',
+            '',
+        ].join('\n'))
+
+        // 成员包直接依赖 → 视为直接依赖：推荐 < 锁定 → sub（修复前会错误进 root）
+        const { root, sub } = partitionSubmanifestAlerts([
+            alert({ packageName: 'vite', manifestPath: 'pnpm-lock.yaml', recommendedVersion: '5.4.21' }),
+        ], workDir)
+        expect(sub.map((a) => a.packageName)).toEqual(['vite'])
+        expect(root).toHaveLength(0)
+    })
+
+    it('C11: workspace member direct dependency with recommended >= locked is fixable (root)', () => {
+        mkdirSync(join(workDir, 'packages', 'app'), { recursive: true })
+        writeFileSync(join(workDir, 'packages', 'app', 'package.json'), JSON.stringify({
+            name: 'app',
+            dependencies: { vite: '^6.4.0' },
+        }))
+        writeFileSync(join(workDir, 'pnpm-workspace.yaml'), 'packages:\n  - packages/*\n')
+        writeFileSync(join(workDir, 'pnpm-lock.yaml'), [
+            'lockfileVersion: \'9.0\'',
+            '',
+            '  vite@6.4.0:',
+            '    resolution: {integrity: sha512-v640}',
+            '',
+        ].join('\n'))
+
+        const { root, sub } = partitionSubmanifestAlerts([
+            alert({ packageName: 'vite', manifestPath: 'pnpm-lock.yaml', recommendedVersion: '6.4.3' }),
+        ], workDir)
+        expect(root.map((a) => a.packageName)).toEqual(['vite'])
+        expect(sub).toHaveLength(0)
+    })
+
+    it('C11: recursive workspace glob (**) and literal paths are supported', () => {
+        mkdirSync(join(workDir, 'packages', 'a', 'nested'), { recursive: true })
+        writeFileSync(join(workDir, 'packages', 'a', 'nested', 'package.json'), JSON.stringify({
+            name: 'nested',
+            dependencies: { 'fast-uri': '^3.1.0' },
+        }))
+        writeFileSync(join(workDir, 'pnpm-workspace.yaml'), 'packages:\n  - packages/**\n')
+        writeFileSync(join(workDir, 'pnpm-lock.yaml'), [
+            'lockfileVersion: \'9.0\'',
+            '',
+            '  fast-uri@3.1.0:',
+            '    resolution: {integrity: sha512-fu}',
+            '',
+        ].join('\n'))
+
+        // 递归成员包直接依赖 fast-uri：推荐 3.1.5 >= 锁定 3.1.0 → root 可修
+        const { root, sub } = partitionSubmanifestAlerts([
+            alert({ packageName: 'fast-uri', manifestPath: 'pnpm-lock.yaml', recommendedVersion: '3.1.5' }),
+        ], workDir)
+        expect(root.map((a) => a.packageName)).toEqual(['fast-uri'])
+        expect(sub).toHaveLength(0)
     })
 })
 

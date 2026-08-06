@@ -4,7 +4,7 @@ export default defineConfig({
     platform: 'node',
     entry: ['src/index.ts', 'src/bin.ts'],
     outDir: 'dist',
-    format: ['cjs', 'esm'],
+    format: ['esm'],
     fixedExtension: true,
     hash: false,
     nodeProtocol: true,

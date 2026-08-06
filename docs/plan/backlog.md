@@ -104,7 +104,7 @@
 - ~~**R1 写请求 429 重放**~~（**已修复**）：限流重试 hook 现仅对 GET/HEAD 生效，写请求（POST/PATCH/PUT/DELETE）不做限流重试（非幂等避免重放）。行为变化：写请求遇限流立即失败，需用户重跑
 - ~~**R2 MAX_BACKOFF_MS 硬编码**~~（**已修复**）：`--max-backoff-ms` / `DEPENDFIX_MAX_BACKOFF_MS`（100-120000，默认 30000），Retry-After / reset / 指数退避均受此上限约束
 - ~~**R3 Retry-After 头未解析**~~（**已修复**）：等待优先级改为 Retry-After（秒，受 maxBackoffMs 上限）→ x-ratelimit-reset → 指数退避
-- **R4 CJS require p-queue ESM-only**（未修复，发布前 M5+ 处理）：Node 20 下编程式 `require('dependfix')` 会 ERR_REQUIRE_ESM（官方 bin.mjs / ESM 入口不受影响）；tsdown noExternal 或动态 import
+- **R4 CJS require p-queue ESM-only**（**已消除 2026-08-06，方案 A：全 ESM**）：消费面（CLI bin / Action / 仓库内 / 未来平台）均为 ESM，外部 CJS 编程式消费者为 0；两包改为单格式 `esm`（tsdown format 与 package.json exports 同步），R4 动态 import 兼容代码回退为静态 import。Node 22.12+ 原生 require(ESM) 兜底未来 CJS 消费者
 - ~~**R5 topics 匹配大小写敏感**~~（**已修复**）：配置与仓库 topics 均 toLowerCase 归一化比较；mergeRepositories 大小写不敏感去重
 - ~~**R6 glob ReDoS 面**~~（**已修复（加固）**）：`repoGlobToRegExp` 拒绝超长模式（>200 字符）；多通配符模式仍存在理论回溯面（受信配置 + 短输入，风险低），C18 正则引擎落地时需专项审计
 - ~~**R7 损坏 index.json 覆盖即丢历史**~~（**已修复**）：解析失败的损坏索引先备份为 `index.json.corrupt-{ts}.bak` 再重建

@@ -145,6 +145,8 @@ jobs:
 
 > **⚠️ 破坏性变更（v0.2 起）**：Action 默认 `mode` 由 `report-only` 改为 `fix-and-pr`（`dry-run` 默认由 `true` 改为 `false`）。存量消费者未显式传参时，行为从"仅生成报告"变为"自动创建修复分支与 PR"（PR 不自动合并，可安全审查）。需要仅报告时可显式传 `mode: report-only` 或 `dry-run: true`。迁移后请确认 workflow `permissions` 已包含 `contents: write` + `pull-requests: write`（见上方示例）。
 >
+> **⚠️ 破坏性变更（0.2.0 起，产物格式）**：`dependfix` / `@dependfix/core` 改为**纯 ESM**（移除 CJS 双格式产物）。CLI 命令与 GitHub Action 消费不受影响；编程式消费请使用 `import`；`require()` 需 Node 22.12+（原生 `require(ESM)`）。Node 20.x 的 CJS 编程式消费者需改用动态 `import()`。
+>
 > 💡 **分支清理建议**：① 在仓库设置开启 **Settings → General → Pull Requests → "Automatically delete head branches"**（PR 合并后自动删除 head 分支）；② 或在 workflow 中开启 `cleanup-branches-auto: true`（每次运行结束后自动删除已合并/已关闭的 `dependfix/` 分支，不删有 open PR 的分支）。
 
 ### Action 输入参数

@@ -10,6 +10,7 @@
 
 ### 工具链与锁文件
 
+- **C20 文档 Markdown 格式门禁（lint:md）**——**已落地 2026-08-07**：参照 momei 引入 `@lint-md/cli@2.2.4`（根 `.lintmdrc` 规则裁剪与 momei 一致，关闭半角标点等规则）+ `pnpm lint:md`（--fix 本地）与 `pnpm lint:md:check`（CI 门禁，test.yml / release.yml）+ lint-staged `*.md` 挂载。已知边界：`.changeset/`、`.session/` 不在 glob 内（工具生成/本地记忆，与 momei 覆盖一致）；lint-md 无内置 node_modules 忽略（当前零影响，未来 packages 下新增非 symlink md 需注意）
 - **C1 pnpm 11 不读 `package.json#pnpm.overrides` 假成功风险**（Review Gate 遗留）
   - 状态：🔶 待评估
   - 内容：无 pnpm-workspace.yaml 的仓库，`applyVersionedOverrides` 回退写 package.json 会假成功（install 通过但 override 被忽略）。建议 pnpm 大版本探测 + 警告（本仓库有 workspace.yaml 不受影响）

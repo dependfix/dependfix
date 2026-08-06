@@ -86,6 +86,7 @@ jobs:
           fi
 
       - run: pnpm run lint
+      - run: pnpm run lint:md:check
       - run: pnpm run typecheck
       - run: pnpm run test
       - run: pnpm run build

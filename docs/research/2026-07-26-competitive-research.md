@@ -1,4 +1,4 @@
-# dependfix 竞品调研报告（2026年7月更新）
+# dependfix 竞品调研报告（2026 年 7 月更新）
 
 > 生成时间: 2026-07-26 | 搜索深度: normal | 来源数量: 25+
 > 🔍 已触发验证: github-verification / competitive-analysis / date-verification
@@ -9,7 +9,7 @@
 
 距离上次调研（2026-06-01）不到两个月，市场发生了 **两项关键变化**：
 
-1. **GitHub 正式入局 AI 自动修复赛道** — 2026年4月推出 Dependabot alerts 可分配给 AI Agent（Copilot/Claude/Codex）进行修复；2026年7月推出 Agentic Autofix for Code Scanning（公开预览），支持多文件、多Agent并行修复。GitHub 正在将本项目设想的"告警聚合 + AI 修复"能力内置到平台中。
+1. **GitHub 正式入局 AI 自动修复赛道** — 2026 年 4 月推出 Dependabot alerts 可分配给 AI Agent（Copilot/Claude/Codex）进行修复；2026 年 7 月推出 Agentic Autofix for Code Scanning（公开预览），支持多文件、多 Agent 并行修复。GitHub 正在将本项目设想的"告警聚合 + AI 修复"能力内置到平台中。
 2. **Devin (Cognition AI) 完成 $1B Series D，估值 $26B** — 年化收入 $492M，Itaú 银行用 Devin 自动修复 70% 安全漏洞。证明了 AI 安全修复的商业价值，但也让竞争格局更清晰。
 
 其他竞品变化较小：RepoWarden 定位清晰化，Sweep 已转型为 JetBrains IDE 插件，Hypermod 社区活跃度低。
@@ -47,7 +47,7 @@
 
 ## 一、GitHub 平台内置化 — 最大竞争威胁
 
-### 1.1 Dependabot + AI Agent（2026年4月）
+### 1.1 Dependabot + AI Agent（2026 年 4 月）
 
 [GitHub 于 2026-04-07 宣布](https://github.blog/changelog/2026-04-07-dependabot-alerts-are-now-assignable-to-ai-agents-for-remediation/) Dependabot alerts 可直接分配给 AI coding agents（Copilot、Claude、Codex），实现：
 
@@ -58,9 +58,9 @@
 
 **限制**：需要 GitHub Code Security + Copilot plan（含 agent 访问权限）。
 
-### 1.2 Code Scanning Agentic Autofix（2026年7月）
+### 1.2 Code Scanning Agentic Autofix（2026 年 7 月）
 
-[GitHub 于 2026年7月 推出 Agentic Autofix 公开预览](https://github.blog/changelog/month/07-2026/page/2/)：
+[GitHub 于 2026 年 7 月 推出 Agentic Autofix 公开预览](https://github.blog/changelog/month/07-2026/page/2/)：
 
 - 覆盖 CodeQL 和第三方扫描工具的 alerts
 - 多文件修复能力
@@ -95,7 +95,7 @@
 | **安全修复案例** | 无具体案例 | Itaú（拉美最大银行）**自动修复 70% 安全漏洞** | [Cognition Series D](https://cognition.com/blog/series-d) |
 | **内部使用** | — | Cognition 自身 **89% 代码由 Devin 提交** | [Cognition Series D](https://cognition.com/blog/series-d) |
 
-### 定价更新（2026年4月14日）
+### 定价更新（2026 年 4 月 14 日）
 
 | 计划 | 月费 | 说明 |
 |------|:---:|------|
@@ -109,7 +109,7 @@
 
 旧 $500/mo Team 计划已被取消，改为更灵活的层级。
 
-### 独立评测结果（2026年3月）
+### 独立评测结果（2026 年 3 月）
 
 | 任务类别 | 成功率 | 平均耗时 | 干预次数 | 代码质量 |
 |---------|:-----:|:-------:|:--------:|:--------:|
@@ -126,7 +126,7 @@
 ### 已知局限性（本次调研确认）
 
 - **模糊需求能力差**：成功率仅 25-35%
-- **"最后30%"问题**：核心逻辑可用，但边缘情况、错误处理往往不完整
+- **"最后 30%"问题**：核心逻辑可用，但边缘情况、错误处理往往不完整
 - **安全感缺失**：可引入 SQL 注入、XSS、认证绕过
 - **架构判断薄弱**：不适合复杂重构和系统设计
 - **成本效率**：$500+/month（旧 Team 计划），新 $20/mo 降低门槛
@@ -135,7 +135,7 @@
 
 ## 三、RepoWarden — 直接竞品（更新）
 
-### 定价（2026年7月确认）
+### 定价（2026 年 7 月确认）
 
 | 计划 | 价格 | 仓库数 | 更新 PR/月 | CI 修复/月 |
 |------|:----:|:------:|:---------:|:---------:|
@@ -238,7 +238,7 @@ Endor Labs 的定位是 AI-Native AppSec 平台，与本项目的差异化在于
 
 ### 5.6 Snyk / Mend.io / Aikido（定价微调）
 
-| 产品 | 价格区间（2026年7月） | 来源 |
+| 产品 | 价格区间（2026 年 7 月） | 来源 |
 |------|---------------------|------|
 | **Snyk Team** | ~$25-32/月/开发者 | [Snyk Plans](https://snyk.io/plans/) |
 | **Snyk Enterprise** | ~$1,260/年/开发者 | [Snyk Plans](https://snyk.io/plans/) |
@@ -287,11 +287,11 @@ Endor Labs 的定位是 AI-Native AppSec 平台，与本项目的差异化在于
 | **AI 自定义 API Token** | — | — | 自带 | 自带 | 自带 | 自带 | 自带 | ✅ |
 | **Prompt 注入防护** | — | — | — | — | — | — | — | ✅ |
 | 开源可自部署 | 部分 | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
-| **成本** | **$0** | **$0** | **$20-200+/月** | $25+/人/月 | outcome-billed | £24-399/月 | Copilot费用 | **$0-$840/年** |
+| **成本** | **$0** | **$0** | **$20-200+/月** | $25+/人/月 | outcome-billed | £24-399/月 | Copilot 费用 | **$0-$840/年** |
 
 ### 6.3 新发现的核心威胁：GitHub Agentic Autofix
 
-2026年7月 GitHub 推出的 **Agentic Autofix** 直接覆盖了本项目的核心能力：
+2026 年 7 月 GitHub 推出的 **Agentic Autofix** 直接覆盖了本项目的核心能力：
 
 - ✅ 多文件修复
 - ✅ 自动运行测试验证
@@ -323,12 +323,12 @@ Endor Labs 的定位是 AI-Native AppSec 平台，与本项目的差异化在于
 - 置信度: high
 - 来源: [GitHub](https://github.com/dependabot/dependabot-core), [GitHub Issues](https://github.com/dependabot/dependabot-core/issues)
 
-### ✅ 多源确认: GitHub Dependabot + AI Agent 功能（2026年4月）
+### ✅ 多源确认: GitHub Dependabot + AI Agent 功能（2026 年 4 月）
 - 一致性: 多源确认
 - 置信度: high
 - 来源: [GitHub Changelog](https://github.blog/changelog/2026-04-07-dependabot-alerts-are-now-assignable-to-ai-agents-for-remediation/), [GitHub Docs](https://docs.github.com/en/code-security/responsible-use/security-and-quality-ai-features)
 
-### ⚠️ 第三方单源: GitHub Agentic Autofix 公开预览（2026年7月）
+### ⚠️ 第三方单源: GitHub Agentic Autofix 公开预览（2026 年 7 月）
 - 来源: [GitHub Changelog 07-2026](https://github.blog/changelog/month/07-2026/page/2/)
 - 置信度: medium-high
 - 说明: GitHub 官方 changelog 确认 Agentic Autofix 已进入公开预览；LinkedIn 和第三方博客有交叉引用，但功能细节仍需更多来源确认
@@ -339,14 +339,14 @@ Endor Labs 的定位是 AI-Native AppSec 平台，与本项目的差异化在于
 
 | 数据点 | 来源日期 | 距今 | 状态 |
 |--------|----------|------|------|
-| GitHub Dependabot + AI Agent | 2026-04-07 | ~3.5个月 | ✅ 可接受 |
-| GitHub Agentic Autofix | 2026-07 | <1个月 | ✅ 最新 |
-| Devin Series D ($1B @ $26B) | 2026-05-27 | ~2个月 | ✅ 可接受 |
-| Devin Self-Serve Pricing | 2026-04-14 | ~3个月 | ✅ 可接受 |
-| Devin Independent Review | 2026-03-03 | ~4.5个月 | ✅ 可接受 |
-| RepoWarden Comparison | 2026-03-12 | ~4.5个月 | ✅ 可接受 |
-| Renovate Review | 2026-06-18 | ~1个月 | ✅ 最新 |
-| Endor Labs Series B | 2025年（具体月份未标） | ~7+个月 | ⚠️ 接近过期 |
+| GitHub Dependabot + AI Agent | 2026-04-07 | ~3.5 个月 | ✅ 可接受 |
+| GitHub Agentic Autofix | 2026-07 | <1 个月 | ✅ 最新 |
+| Devin Series D ($1B @ $26B) | 2026-05-27 | ~2 个月 | ✅ 可接受 |
+| Devin Self-Serve Pricing | 2026-04-14 | ~3 个月 | ✅ 可接受 |
+| Devin Independent Review | 2026-03-03 | ~4.5 个月 | ✅ 可接受 |
+| RepoWarden Comparison | 2026-03-12 | ~4.5 个月 | ✅ 可接受 |
+| Renovate Review | 2026-06-18 | ~1 个月 | ✅ 最新 |
+| Endor Labs Series B | 2025 年（具体月份未标） | ~7+个月 | ⚠️ 接近过期 |
 | Hypermod Community ⭐ | 2026-07-26 | 即时 | ✅ 最新 |
 
 ---
@@ -355,7 +355,7 @@ Endor Labs 的定位是 AI-Native AppSec 平台，与本项目的差异化在于
 
 ### 🏆 最大威胁: GitHub 平台内置化
 
-GitHub 在 2026年 Q2-Q3 连续推出 Dependabot + AI Agent / Agentic Autofix，正在将本项目的核心设想内置为平台能力。这是 **存量市场最大的竞争变量**。
+GitHub 在 2026 年 Q2-Q3 连续推出 Dependabot + AI Agent / Agentic Autofix，正在将本项目的核心设想内置为平台能力。这是 **存量市场最大的竞争变量**。
 
 **应对策略**：
 1. **聚焦非 GitHub 平台**（GitLab/Bitbucket/Azure DevOps/自托管）作为差异化入口

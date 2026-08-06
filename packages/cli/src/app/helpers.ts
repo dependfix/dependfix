@@ -522,13 +522,23 @@ export function tryLockfileRepair(
 
 /** 执行验证命令链，返回逐命令结果。 */
 export async function verifyProject(
-    ctx: Pick<AppContext, 'customCommands' | 'logger' | 'workDir' | 'allErrors'>,
+    ctx: Pick<AppContext, 'config' | 'customCommands' | 'logger' | 'workDir' | 'allErrors'>,
     repo: string,
 ): Promise<FixAction[]> {
-    const { customCommands, logger, workDir, allErrors } = ctx
+    const { config, customCommands, logger, workDir, allErrors } = ctx
 
     // 确定要执行的命令：用户自定义 > 默认命令链
-    const rawCommands = customCommands ?? DEFAULT_VERIFY_COMMANDS
+    let rawCommands = customCommands ?? DEFAULT_VERIFY_COMMANDS
+
+    // C2：默认命令链的 install 与策略命令同版本（显式 toolchainPnpmVersion 时）
+    // 避免系统裸 pnpm 版本架空 PIN_TOOLCHAIN（旧版 pnpm 可能无法处理新版 lockfile）
+    if (!customCommands && config.toolchainPnpmVersion) {
+        rawCommands = rawCommands.map((cmd) => (
+            cmd === 'pnpm install --frozen-lockfile'
+                ? `corepack pnpm@${config.toolchainPnpmVersion} install --frozen-lockfile`
+                : cmd
+        ))
+    }
 
     // 仅对默认命令链做脚本存在性校验
     const isDefault = !customCommands

@@ -1,4 +1,4 @@
-import { rmSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -16,6 +16,7 @@ import {
     pullRequestCreationHint,
     resolveAlertRepositories,
     tryLockfileRepair,
+    verifyProject,
     type AppContext,
 } from './helpers'
 
@@ -59,6 +60,16 @@ vi.mock('../fixers/pnpm', async (importOriginal) => {
     const actual = await importOriginal<typeof import('../fixers/pnpm')>()
     return { ...actual, repairLockfile: pnpmFixerMock.repairLockfile }
 })
+
+// ---------------------------------------------------------------------------
+// Mock verification-runner（verifyProject 依赖，避免真实 spawn）
+// ---------------------------------------------------------------------------
+
+const verificationRunnerMock = vi.hoisted(() => ({
+    runVerification: vi.fn(),
+}))
+
+vi.mock('../runners/verification-runner', () => verificationRunnerMock)
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -835,5 +846,66 @@ describe('buildVersionedOverrides', () => {
 
     it('returns empty when no alerts provided', () => {
         expect(buildVersionedOverrides(lockfilePath, [])).toEqual({})
+    })
+})
+
+// ---------------------------------------------------------------------------
+// verifyProject（C2：默认命令链 install 与工具链同版本）
+// ---------------------------------------------------------------------------
+
+describe('verifyProject', () => {
+    let workDir: string
+
+    beforeEach(() => {
+        workDir = mkdtempSync(join(tmpdir(), 'dependfix-verify-'))
+        writeFileSync(join(workDir, 'package.json'), JSON.stringify({
+            name: 'fixture',
+            version: '1.0.0',
+            scripts: { lint: 'eslint .', build: 'tsc' },
+        }, null, 2))
+        verificationRunnerMock.runVerification.mockReset()
+        verificationRunnerMock.runVerification.mockResolvedValue({
+            success: true,
+            commandResults: [],
+        })
+    })
+
+    afterEach(() => {
+        rmSync(workDir, { recursive: true, force: true })
+    })
+
+    function makeVerifyCtx(toolchainPnpmVersion?: string, customCommands?: string[]): Pick<AppContext, 'config' | 'customCommands' | 'logger' | 'workDir' | 'allErrors'> {
+        return {
+            config: {
+                toolchainPnpmVersion,
+            } as AppContext['config'],
+            customCommands,
+            logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as unknown as AppContext['logger'],
+            workDir,
+            allErrors: [],
+        }
+    }
+
+    it('C2: replaces install command with corepack when toolchain version is set', async () => {
+        await verifyProject(makeVerifyCtx('10.5.2'), 'foo/bar')
+
+        const commands = verificationRunnerMock.runVerification.mock.calls[0][0].commands
+        expect(commands[0]).toBe('corepack pnpm@10.5.2 install --frozen-lockfile')
+        expect(commands[1]).toBe('pnpm lint')
+        expect(commands[2]).toBe('pnpm build')
+    })
+
+    it('C2: keeps bare pnpm install when no toolchain version is set', async () => {
+        await verifyProject(makeVerifyCtx(undefined), 'foo/bar')
+
+        const commands = verificationRunnerMock.runVerification.mock.calls[0][0].commands
+        expect(commands[0]).toBe('pnpm install --frozen-lockfile')
+    })
+
+    it('C2: does not touch custom commands', async () => {
+        await verifyProject(makeVerifyCtx('10.5.2', ['pnpm test']), 'foo/bar')
+
+        const commands = verificationRunnerMock.runVerification.mock.calls[0][0].commands
+        expect(commands).toEqual(['pnpm test'])
     })
 })

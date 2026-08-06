@@ -54,6 +54,7 @@ export function generateMarkdownReport(result: RunResult): string {
         `| Fixed | ${summary.alertsFixed} |`,
         `| Failed | ${summary.alertsFailed} |`,
         `| Skipped | ${summary.alertsSkipped} |`,
+        `| Converged (already >= target) | ${summary.alertsConverged} |`,
         `| Truncated (max alerts/repo) | ${summary.alertsTruncated} |`,
         `| Lockfile repairs | ${summary.lockfileRepairs} |`,
         `| Verifications passed | ${summary.verificationsPassed} |`,

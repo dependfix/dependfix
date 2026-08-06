@@ -426,11 +426,17 @@ function aggregateUpgradeActions(
     return [...byKey.values()]
 }
 
+/** GitHub PR body 上限（64KB 保守取 60KB，为 UTF-8 多字节字符与尾部内容留余量；C6） */
+const MAX_PR_BODY_BYTES = 60 * 1024
+
 /**
  * 从 RunResult 生成 PR body（Markdown）。
  *
  * 升级/失败列表按 (仓库, 包名) 聚合：同一包多次出现合并为一行
  * （from 取最早起点、to 取最新终点），避免一个包出现多次。
+ *
+ * C6：body 超出 GitHub 64KB 上限时从**尾部**逐行截断（保留头部摘要与升级明细，
+ * 明细表在尾部被截断），并附加截断说明——避免大仓库 PR 创建 422。
  *
  * @param supersededNumbers 被本 PR 取代并已关闭的旧 PR 编号列表（用于 Supersedes 声明）
  */
@@ -453,6 +459,7 @@ export function generatePRBody(result: RunResult, supersededNumbers?: number[]):
         `| Alerts fixable | ${summary.alertsFixable} |`,
         `| Dependencies upgraded | ${summary.alertsFixed} |`,
         `| Upgrades failed | ${summary.alertsFailed} |`,
+        `| Converged (already >= target) | ${summary.alertsConverged} |`,
         `| Lockfile repairs | ${summary.lockfileRepairs} |`,
         `| Verifications passed | ${summary.verificationsPassed} |`,
         `| Verifications failed | ${summary.verificationsFailed} |`,
@@ -574,7 +581,28 @@ export function generatePRBody(result: RunResult, supersededNumbers?: number[]):
         lines.push('', `> **Supersedes**: ${supersededNumbers.map((n) => `#${n}`).join(', ')}（内容已更新，将取代旧 PR）`)
     }
 
-    return lines.join('\n')
+    return truncatePRBody(lines)
+}
+
+/** C6：PR body 超限截断（从尾部逐行保留直到不超过上限，头部摘要优先保留）。 */
+function truncatePRBody(lines: string[]): string {
+    const body = lines.join('\n')
+    if (Buffer.byteLength(body, 'utf-8') <= MAX_PR_BODY_BYTES) {
+        return body
+    }
+
+    const truncationNote = '\n\n> ⚠️ **Body truncated**（超出 GitHub 64KB 上限）— 完整明细见本次运行报告 artifact。\n'
+    const kept: string[] = []
+    let bytes = Buffer.byteLength(truncationNote, 'utf-8')
+    for (const line of lines) {
+        const lineBytes = Buffer.byteLength(`${line}\n`, 'utf-8')
+        if (bytes + lineBytes > MAX_PR_BODY_BYTES) {
+            break
+        }
+        kept.push(line)
+        bytes += lineBytes
+    }
+    return `${kept.join('\n')}${truncationNote}`
 }
 
 // ---------------------------------------------------------------------------

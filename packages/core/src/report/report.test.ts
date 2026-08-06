@@ -45,6 +45,7 @@ const EMPTY_RUN_RESULT: RunResult = {
         alertsFixed: 0,
         alertsFailed: 0,
         alertsSkipped: 0,
+        alertsConverged: 0,
         lockfileRepairs: 0,
         verificationsPassed: 0,
         verificationsFailed: 0,

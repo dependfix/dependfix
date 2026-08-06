@@ -418,7 +418,7 @@ export class DependfixApp {
                 }
                 if (Object.keys(versionedOverrides).length === 0) {
                     this.logger.info(`Skipping ${alert.packageName}: no vulnerable instances below targets`)
-                    this.summary.alertsSkipped++
+                    this.summary.alertsConverged++
                     continue
                 }
                 const snapshot = snapshotTrackedFiles(this.workDir)
@@ -506,7 +506,8 @@ export class DependfixApp {
                         this.logger.info(
                             `Skipping ${alert.packageName}: highest locked ${currentVersion} >= target ${alert.recommendedVersion} (no upgrade needed; vulnerable lower version may coexist across manifests — global fix not applicable, manual review advised)`,
                         )
-                        this.summary.alertsSkipped++
+                        // C7：已收敛（当前版本已 >= 目标，无需升级），与"跳过/人工"语义分离
+                        this.summary.alertsConverged++
                         continue
                     }
                     if (currentVersion === null) {

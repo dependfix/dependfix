@@ -14,10 +14,7 @@
   - 状态：🔶 待评估
   - 内容：无 pnpm-workspace.yaml 的仓库，`applyVersionedOverrides` 回退写 package.json 会假成功（install 通过但 override 被忽略）。建议 pnpm 大版本探测 + 警告（本仓库有 workspace.yaml 不受影响）
   - 来源：版本化 overrides 复盘 Review Gate（2026-08-06）
-- **C2 verifyFrozenLockfile 仍用裸 pnpm 验证**（T305 遗留）
-  - 状态：🔶 待评估
-  - 内容：verify 可能架空 PIN_TOOLCHAIN 固定版本（旧版 runner 场景）；建议 verify 与策略命令同版本
-  - 来源：T305 Review Gate（2026-08-05）
+- **C2 verifyFrozenLockfile 仍用裸 pnpm 验证**（T305 遗留）——**已修复 2026-08-06**：默认验证命令链在显式 `toolchainPnpmVersion` 时 install 命令替换为 `corepack pnpm@<v> install --frozen-lockfile`（与 PIN_TOOLCHAIN 一致）。已知不对称：仅 packageManager 声明场景 verify 仍用裸 pnpm
 - **C3 漂移检测弱代理**（T305 遗留）
   - 状态：🔶 待评估
   - 内容：lockfileVersion 漂移检测为相对对比（before/after），非严格"声明版本一致性"校验
@@ -36,14 +33,8 @@
 
 ### 报告与统计口径
 
-- **C6 PR body 64KB 上限**（T304 遗留）
-  - 状态：🔶 待评估
-  - 内容：大仓库建议区块行数可能使 PR body 接近 GitHub 64KB 上限（告警级输出无上限）
-  - 来源：T304 Review Gate（2026-08-05）
-- **C7 报告统计口径 alertsConverged**（G3 遗留）
-  - 状态：🔶 待评估
-  - 内容：`alertsSkipped` 混合多种语义，需独立字段（如 alertsConverged）分离"跳过"与"已收敛"
-  - 来源：G3 处理记录（2026-08-05）
+- **C6 PR body 64KB 上限**（T304 遗留）——**已修复 2026-08-06**：generatePRBody 超 60KB（保守取 GitHub 64KB）时从尾部逐行截断（头部摘要保留）+ "Body truncated" 说明
+- **C7 报告统计口径 alertsConverged**（G3 遗留）——**已修复 2026-08-06**：RunSummary 新增 `alertsConverged`（已收敛：当前锁定版本 >= 推荐 / lockfile 无脆弱实例），从 `alertsSkipped` 拆分；markdown 报告与 PR body Summary 表新增 Converged 行。**行为变化**：原计入 Skipped 的部分场景改计 Converged，Skipped 数字变小
 - **C8 per-source 错误隔离**（T301 遗留）
   - 状态：🔶 待评估
   - 内容：并行源任一失败目前整体硬失败（已拉取的 Dependabot 结果丢失）；演进为 warn + 仅弃该源（需确认语义）

@@ -527,6 +527,46 @@ describe('generatePRBody', () => {
         expect(body).not.toContain('Supersedes')
     })
 
+    it('C6: truncates body from the tail when exceeding GitHub 64KB limit', () => {
+        const result = buildRunResult()
+        // 构造大量修复告警（每行约 50-60 字节）：3000 行 → body ~150KB，远超 60KB 截断线
+        result.actions = Array.from({ length: 3000 }, (_, i) => (
+            makeBodyAction({
+                target: `pkg-${i}`,
+                fromVersion: '1.0.0',
+                toVersion: `1.${i}.${i % 10}`,
+            })
+        ))
+        result.summary.alertsFixed = 3000
+        // 报告/PR 渲染需要 alerts 匹配 fixedKeys（告警级明细表）
+        result.alerts = result.actions.map((a) => ({
+            id: 1,
+            source: 'dependabot',
+            repository: 'owner/repo',
+            defaultBranch: 'main',
+            severity: 'high',
+            packageEcosystem: 'npm',
+            packageName: a.target,
+            manifestPath: 'package.json',
+            ruleId: 'GHSA-x',
+            summary: 'x',
+            htmlUrl: '',
+            fixable: true,
+            fixStrategy: 'upgrade',
+            recommendedVersion: a.toVersion,
+        } as never))
+
+        const body = generatePRBody(result)
+
+        // 不超过 GitHub 上限（60KB 截断线）
+        expect(Buffer.byteLength(body, 'utf-8')).toBeLessThanOrEqual(60 * 1024)
+        // 截断说明存在；头部摘要保留
+        expect(body).toContain('Body truncated')
+        expect(body).toContain('### 📊 Summary')
+        // 尾部明细被截断（不会包含最后构造的包）
+        expect(body).not.toContain('`pkg-2999`')
+    })
+
     it('aggregates duplicate packages into a single upgraded row (from = earliest, to = latest)', () => {
         const result = buildRunResult()
         result.actions = [

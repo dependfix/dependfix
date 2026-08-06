@@ -1088,3 +1088,69 @@ describe('DependfixApp per-source error isolation (C8)', () => {
         expect(exitCode).not.toBe(0)
     })
 })
+
+// ---------------------------------------------------------------------------
+// C7：alertsConverged 统计口径（已收敛 ≠ 跳过）
+// ---------------------------------------------------------------------------
+
+describe('DependfixApp converged alert counting (C7)', () => {
+    let workDir: string
+
+    beforeEach(() => {
+        workDir = mkdtempSync(join(tmpdir(), 'dependfix-c7-'))
+        writeFileSync(join(workDir, 'package.json'), JSON.stringify({
+            name: 'fixture',
+            version: '1.0.0',
+        }, null, 2))
+        // lockfile 已锁 fast-uri@3.1.5（>= 告警推荐 3.1.5 → 已收敛，无需升级）
+        writeFileSync(join(workDir, 'pnpm-lock.yaml'), [
+            'lockfileVersion: \'9.0\'',
+            '',
+            '  fast-uri@3.1.5:',
+            '    resolution: {integrity: sha512-a}',
+            '',
+        ].join('\n'))
+    })
+
+    afterEach(() => {
+        nock.cleanAll()
+        rmSync(workDir, { recursive: true, force: true })
+    })
+
+    it('counts already-satisfied alerts as converged instead of skipped', async () => {
+        nock('https://api.github.com')
+            .get('/repos/foo/bar/dependabot/alerts')
+            .query({ state: 'open', per_page: '100' })
+            .reply(200, [{
+                number: 1,
+                state: 'open',
+                security_advisory: { ghsa_id: 'GHSA-f8p3-7c7w-h6x4', severity: 'high' },
+                security_vulnerability: {
+                    package: { ecosystem: 'npm', name: 'fast-uri' },
+                    severity: 'high',
+                    vulnerable_version_range: '< 3.1.5',
+                    first_patched_version: { identifier: '3.1.5' },
+                },
+                dependency: { package: { ecosystem: 'npm', name: 'fast-uri' }, manifest_path: 'pnpm-lock.yaml' },
+            }])
+        nock('https://api.github.com')
+            .get('/repos/foo/bar')
+            .reply(200, { default_branch: 'main' })
+
+        const config = resolveRuntimeConfig({
+            env: {
+                GITHUB_TOKEN: 'main-token-value',
+                DEPENDFIX_MODE: 'fix',
+                DEPENDFIX_REPOSITORIES: 'foo/bar',
+                DEPENDFIX_DRY_RUN: 'true',
+            },
+        })
+
+        const app = new DependfixApp({ config, workDir, reportOutputDir: join(workDir, 'reports') })
+        const { result } = await app.run()
+
+        // C7：当前锁定版本已 >= 目标 → converged（不再计入 skipped）
+        expect(result.summary.alertsConverged).toBe(1)
+        expect(result.summary.alertsSkipped).toBe(0)
+    })
+})

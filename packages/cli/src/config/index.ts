@@ -98,6 +98,11 @@ export interface RuntimeConfig {
      */
     maxRetries: number
     /**
+     * 限流退避单次等待上限毫秒（R2）。默认 30000（30s）；
+     * Retry-After / x-ratelimit-reset / 指数退避均受此上限约束。
+     */
+    maxBackoffMs: number
+    /**
      * 用户显式分组（最高优先级，覆盖自动分组）。
      * 键为组名，值为组内包列表。缺省时使用自动分组
      * （dependabot.yml groups → @types 归并 → scope/前缀启发式）。
@@ -148,6 +153,8 @@ export interface CliConfigOverrides {
     maxConcurrency?: number
     /** GitHub API 限流重试次数（0-10，默认 3） */
     maxRetries?: number
+    /** 限流退避单次等待上限毫秒（100-120000，默认 30000） */
+    maxBackoffMs?: number
     /** 用户显式分组（覆盖自动分组），格式 `name1:pkg1,pkg2;name2:pkg3` */
     upgradeGroups?: Record<string, string[]>
     /** lockfile 修复用的 pnpm 版本（工具链固定；缺省从 packageManager 解析） */
@@ -178,6 +185,7 @@ export const DEFAULT_RUNTIME_CONFIG: Omit<RuntimeConfig, 'githubToken' | 'reposi
     maxAlertsPerRepository: 20,
     maxConcurrency: 1,
     maxRetries: 3,
+    maxBackoffMs: 30_000,
 }
 
 function isRuntimeMode(value: string): value is RuntimeMode {
@@ -215,7 +223,13 @@ function normalizeInteger(value: string | undefined, fieldName: string): number 
         return undefined
     }
 
-    const parsed = Number.parseInt(value, 10)
+    // 整数字面量严格校验（与 CLI parseIntegerFlag 对齐）：拒绝 `2.5` 被 parseInt 静默截断为 2
+    const trimmed = value.trim()
+    if (!/^\d+$/.test(trimmed)) {
+        throw new AppError('CONFIG_VALIDATION_ERROR', `${fieldName} must be a positive integer (got "${value}")`)
+    }
+
+    const parsed = Number.parseInt(trimmed, 10)
 
     if (!Number.isInteger(parsed) || parsed <= 0) {
         throw new AppError('CONFIG_VALIDATION_ERROR', `${fieldName} must be a positive integer`)
@@ -229,7 +243,13 @@ function normalizeNonNegativeInteger(value: string | undefined, fieldName: strin
         return undefined
     }
 
-    const parsed = Number.parseInt(value, 10)
+    // 整数字面量严格校验（与 CLI parseIntegerFlag 对齐）：拒绝 `2.5` 被 parseInt 静默截断为 2
+    const trimmed = value.trim()
+    if (!/^\d+$/.test(trimmed)) {
+        throw new AppError('CONFIG_VALIDATION_ERROR', `${fieldName} must be a non-negative integer (got "${value}")`)
+    }
+
+    const parsed = Number.parseInt(trimmed, 10)
 
     if (!Number.isInteger(parsed) || parsed < 0) {
         throw new AppError('CONFIG_VALIDATION_ERROR', `${fieldName} must be a non-negative integer`)
@@ -369,6 +389,7 @@ export function readEnvConfig(env: NodeJS.ProcessEnv = process.env): CliConfigOv
         maxAlertsPerRepository: normalizeInteger(readEnv(env, 'MAX_ALERTS_PER_REPOSITORY'), `${ENV_PREFIX}MAX_ALERTS_PER_REPOSITORY`),
         maxConcurrency: normalizeInteger(readEnv(env, 'MAX_CONCURRENCY'), `${ENV_PREFIX}MAX_CONCURRENCY`),
         maxRetries: normalizeNonNegativeInteger(readEnv(env, 'MAX_RETRIES'), `${ENV_PREFIX}MAX_RETRIES`),
+        maxBackoffMs: normalizeInteger(readEnv(env, 'MAX_BACKOFF_MS'), `${ENV_PREFIX}MAX_BACKOFF_MS`),
         upgradeGroups: normalizeUpgradeGroups(readEnv(env, 'UPGRADE_GROUPS')),
         toolchainPnpmVersion: readEnv(env, 'TOOLCHAIN_PNPM_VERSION')?.trim() || undefined,
     }
@@ -458,6 +479,14 @@ function validateRuntimeConfig(config: RuntimeConfig): RuntimeConfig {
         throw new AppError(
             'CONFIG_VALIDATION_ERROR',
             '--owner / DEPENDFIX_OWNER is not supported in cleanup-branches mode (branch cleanup requires explicit target repositories).',
+        )
+    }
+
+    // cleanup-branches 模式串行执行（不走并发管线）；maxConcurrency>1 属无效配置，fail-fast
+    if (config.mode === 'cleanup-branches' && config.maxConcurrency > 1) {
+        throw new AppError(
+            'CONFIG_VALIDATION_ERROR',
+            'maxConcurrency > 1 is not supported in cleanup-branches mode (branch cleanup runs sequentially).',
         )
     }
 
@@ -564,6 +593,14 @@ function validateRuntimeConfig(config: RuntimeConfig): RuntimeConfig {
         )
     }
 
+    // 退避等待上限（R2）：100ms-120s；过低会频繁重试打爆 API，过高会长时间空转
+    if (!Number.isInteger(config.maxBackoffMs) || config.maxBackoffMs < 100 || config.maxBackoffMs > 120_000) {
+        throw new AppError(
+            'CONFIG_VALIDATION_ERROR',
+            `maxBackoffMs must be between 100 and 120000 (got ${config.maxBackoffMs}).`,
+        )
+    }
+
     return config
 }
 
@@ -607,6 +644,7 @@ export function resolveRuntimeConfig(options: ResolveRuntimeConfigOptions = {}):
         maxAlertsPerRepository: cliOverrides.maxAlertsPerRepository ?? envConfig.maxAlertsPerRepository ?? DEFAULT_RUNTIME_CONFIG.maxAlertsPerRepository,
         maxConcurrency: cliOverrides.maxConcurrency ?? envConfig.maxConcurrency ?? DEFAULT_RUNTIME_CONFIG.maxConcurrency,
         maxRetries: cliOverrides.maxRetries ?? envConfig.maxRetries ?? DEFAULT_RUNTIME_CONFIG.maxRetries,
+        maxBackoffMs: cliOverrides.maxBackoffMs ?? envConfig.maxBackoffMs ?? DEFAULT_RUNTIME_CONFIG.maxBackoffMs,
         upgradeGroups: cliOverrides.upgradeGroups ?? envConfig.upgradeGroups,
         toolchainPnpmVersion: cliOverrides.toolchainPnpmVersion ?? envConfig.toolchainPnpmVersion,
     }

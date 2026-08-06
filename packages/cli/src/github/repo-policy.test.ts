@@ -5,6 +5,7 @@ import {
     matchesRepoGlob,
     matchesRepoInclude,
     matchesTopicsExclude,
+    MAX_GLOB_PATTERN_LENGTH,
     repoGlobToRegExp,
     type RepoPolicy,
 } from './repo-policy'
@@ -52,6 +53,19 @@ describe('repoGlobToRegExp / matchesRepoGlob', () => {
         const re = repoGlobToRegExp('owner/pkg-*')
         expect(re.source).toMatch(/^\^/)
         expect(re.source).toMatch(/\$$/)
+    })
+
+    it('rejects overly long patterns (R6 hardening)', () => {
+        expect(() => repoGlobToRegExp('a/'.repeat(MAX_GLOB_PATTERN_LENGTH))).toThrow(/exceeds/)
+    })
+})
+
+describe('topic matching case-insensitivity (R5)', () => {
+    it('matchesTopicsExclude is case-insensitive', () => {
+        const policy: RepoPolicy = { topicsExclude: ['Deprecated'] }
+        expect(matchesTopicsExclude(policy, ['deprecated'])).toBe(true)
+        expect(matchesTopicsExclude(policy, ['node', 'DEPRECATED'])).toBe(true)
+        expect(matchesTopicsExclude(policy, ['node'])).toBe(false)
     })
 })
 

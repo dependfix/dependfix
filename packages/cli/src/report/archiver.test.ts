@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -156,6 +156,69 @@ describe('writeArchive', () => {
 
         const { repoArtifacts } = writeArchive(runResult, outputDir)
         expect(repoArtifacts).toEqual([])
+    })
+
+    it('disambiguates slug collisions with numeric suffixes (a/b-c vs a-b/c)', () => {
+        const runResult = makeRunResult({
+            repositories: [
+                {
+                    repository: 'a/b-c',
+                    defaultBranch: 'main',
+                    alertsCount: 1,
+                    fixable: 0,
+                    fixed: 0,
+                    failed: 0,
+                    lockfileRepaired: false,
+                    durationMs: 1,
+                },
+                {
+                    repository: 'a-b/c',
+                    defaultBranch: 'main',
+                    alertsCount: 1,
+                    fixable: 0,
+                    fixed: 0,
+                    failed: 0,
+                    lockfileRepaired: false,
+                    durationMs: 1,
+                },
+            ],
+        })
+
+        const { repoArtifacts } = writeArchive(runResult, outputDir)
+        expect(repoArtifacts).toContain(join(outputDir, '2026-08', runResult.runId, 'a-b-c.md'))
+        expect(repoArtifacts).toContain(join(outputDir, '2026-08', runResult.runId, 'a-b-c-2.md'))
+        expect(existsSync(join(outputDir, '2026-08', runResult.runId, 'a-b-c-2.json'))).toBe(true)
+    })
+
+    it('does not update index.json when repository dimension is empty (cleanup-branches)', () => {
+        const runResult = makeRunResult({
+            repositories: [],
+        })
+
+        writeArchive(runResult, outputDir)
+        // summary.json 仍写盘（完整报告保留）
+        expect(existsSync(join(outputDir, '2026-08', runResult.runId, 'summary.json'))).toBe(true)
+        // index.json 不产生空条目
+        expect(readArchiveIndex(outputDir).runs).toEqual([])
+    })
+
+    it('backs up corrupted index.json before rebuilding (R7)', () => {
+        mkdirSync(outputDir, { recursive: true })
+        writeFileSync(join(outputDir, 'index.json'), '{ broken json', 'utf-8')
+
+        writeArchive(makeRunResult(), outputDir)
+
+        // 损坏文件被备份，新索引正常重建
+        const backups = readdirSync(outputDir).filter((f) => f.startsWith('index.json.corrupt-'))
+        expect(backups).toHaveLength(1)
+        expect(readArchiveIndex(outputDir).runs).toHaveLength(1)
+    })
+
+    it('writes index.json atomically (R8: no tmp leftovers)', () => {
+        writeArchive(makeRunResult(), outputDir)
+
+        const leftovers = readdirSync(outputDir).filter((f) => f.startsWith('index.json.tmp-'))
+        expect(leftovers).toEqual([])
     })
 })
 

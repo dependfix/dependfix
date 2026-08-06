@@ -183,6 +183,51 @@ describe('createGitHubClient rate-limit retry', () => {
         }
         expect(nock.pendingMocks()).toEqual([])
     })
+
+    it('does not retry write requests (POST/PATCH) even on 429 (R1)', async () => {
+        // POST 仅 mock 一次：若被重试会因无第二次 mock 而失败
+        nock(API_BASE)
+            .post('/repos/foo/bar/pulls')
+            .reply(429, { message: 'You have exceeded a secondary rate limit' })
+
+        const octokit = createGitHubClient({
+            token: 'test-token',
+            retry: { maxRetries: 3, baseDelayMs: 1 },
+        })
+
+        try {
+            await octokit.rest.pulls.create({
+                owner: 'foo',
+                repo: 'bar',
+                title: 't',
+                head: 'dependfix/x',
+                base: 'main',
+            })
+            expect.fail('Expected write request to throw without retry')
+        } catch (error) {
+            expect((error as RequestError).status).toBe(429)
+        }
+        expect(nock.pendingMocks()).toEqual([])
+    })
+
+    it('respects Retry-After header before exponential backoff (R3)', async () => {
+        nock(API_BASE)
+            .get('/repos/foo/bar')
+            .reply(429, { message: 'Too Many Requests' }, {
+                'retry-after': '1',
+            })
+        nock(API_BASE)
+            .get('/repos/foo/bar')
+            .reply(200, { id: 1, full_name: 'foo/bar' })
+
+        const octokit = createGitHubClient({
+            token: 'test-token',
+            retry: { maxRetries: 3, baseDelayMs: 1 },
+        })
+        const { data } = await octokit.rest.repos.get({ owner: 'foo', repo: 'bar' })
+
+        expect(data.id).toBe(1)
+    })
 })
 
 describe('computeRetryDelayMs', () => {
@@ -210,6 +255,21 @@ describe('computeRetryDelayMs', () => {
         expect(computeRetryDelayMs(makeError(429), 2, 1000)).toBe(4000)
     })
 
+    it('prefers Retry-After header over backoff (R3)', () => {
+        const error = makeError(429, { 'retry-after': '5' })
+        expect(computeRetryDelayMs(error, 0, 1000)).toBe(5000)
+    })
+
+    it('caps Retry-After wait at maxBackoffMs (R2)', () => {
+        const error = makeError(429, { 'retry-after': '600' })
+        expect(computeRetryDelayMs(error, 0, 1000, 30_000)).toBe(30_000)
+        expect(computeRetryDelayMs(error, 0, 1000, 10_000)).toBe(10_000)
+    })
+
+    it('respects custom maxBackoffMs for exponential backoff (R2)', () => {
+        expect(computeRetryDelayMs(makeError(429), 10, 1000, 5000)).toBe(5000)
+    })
+
     it('waits until reset + buffer when x-ratelimit-reset is present', () => {
         const reset = Math.floor(Date.now() / 1000) + 10
         const delay = computeRetryDelayMs(makeError(403, {
@@ -222,7 +282,7 @@ describe('computeRetryDelayMs', () => {
         expect(delay).toBeLessThanOrEqual(11_000)
     })
 
-    it('caps backoff at 30s', () => {
+    it('caps backoff at 30s by default', () => {
         expect(computeRetryDelayMs(makeError(429), 10, 1000)).toBe(30_000)
     })
 })

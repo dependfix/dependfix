@@ -950,8 +950,11 @@ export class DependfixApp {
     private createClient(token: string = this.config.githubToken): Octokit {
         return createGitHubClient({
             token,
-            // T402：429 / rate limit 指数退避重试（0 可关闭）
-            retry: { maxRetries: this.config.maxRetries },
+            // T402：429 / rate limit 指数退避重试（0 可关闭；退避上限可配）
+            retry: {
+                maxRetries: this.config.maxRetries,
+                maxBackoffMs: this.config.maxBackoffMs,
+            },
         })
     }
 

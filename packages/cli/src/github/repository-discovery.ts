@@ -92,10 +92,13 @@ export async function discoverRepositories(
                 continue
             }
 
-            // 2. topic 过滤（AND：仓库必须包含全部指定 topics）
+            // 2. topic 过滤（AND：仓库必须包含全部指定 topics；R5：大小写归一化）
             const repoTopics = repo.topics ?? []
-            if (topics.length > 0 && !topics.every((t) => repoTopics.includes(t))) {
-                continue
+            if (topics.length > 0) {
+                const repoTopicsLower = repoTopics.map((t) => t.toLowerCase())
+                if (!topics.every((t) => repoTopicsLower.includes(t.toLowerCase()))) {
+                    continue
+                }
             }
 
             // 3. T403 名单策略（探测前应用：被排除仓库不触达 contents API）
@@ -134,14 +137,16 @@ export async function discoverRepositories(
 /**
  * 合并显式仓库列表与发现结果：
  * - 显式优先：显式列表保持原顺序且在前
- * - 发现结果仅补充未出现的项（去重）
+ * - 发现结果仅补充未出现的项（去重；P3 修复：大小写不敏感——GitHub full_name 恒小写，
+ *   显式 `Owner/Repo` 与发现 `owner/repo` 视为同一仓库）
  */
 export function mergeRepositories(explicit: string[], discovered: string[]): string[] {
-    const seen = new Set(explicit)
+    const seen = new Set(explicit.map((r) => r.toLowerCase()))
     const merged = [...explicit]
     for (const repo of discovered) {
-        if (!seen.has(repo)) {
-            seen.add(repo)
+        const key = repo.toLowerCase()
+        if (!seen.has(key)) {
+            seen.add(key)
             merged.push(repo)
         }
     }

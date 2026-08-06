@@ -99,25 +99,28 @@
 ### M4 残余风险登记（2026-08-06，T402-T404 Review Gate 移交）
 
 > M4 交付时审计登记的 8 项残余风险，供后续阶段排期跟踪。
+> **2026-08-06 修复状态**：R1/R2/R3/R5/R6/R7 已修复（提交后回链）；R8 原子写部分完成（多进程竞态移交 M6）。
 
-- **R1 写请求 429 重放**（T402）：限流重试 hook 对 POST/PATCH/DELETE 同样重试（GitHub 限流检查在请求执行前，重放风险低；官方 @octokit/plugin-retry 同语义）。后续可对非 GET/HEAD 跳过重试
-- **R2 MAX_BACKOFF_MS 硬编码**（T402）：退避单次等待上限固定 30s（todo 原文"退避上限可配"未完全达成）；后续可配置化
-- **R3 Retry-After 头未解析**（T402）：当前仅按 x-ratelimit-reset 等待 + message 特征匹配；后续可优先尊重 Retry-After
-- **R4 CJS require p-queue ESM-only**（T402）：Node 20 下编程式 `require('dependfix')` 会 ERR_REQUIRE_ESM（官方 bin.mjs / ESM 入口不受影响）；发布前（M5+）需处理（tsdown noExternal 或动态 import）
-- **R5 topics 匹配大小写敏感**（T403）：与 GitHub API 返回原样比较；用户配置大小写不一致可能不匹配（文档已注明）
-- **R6 glob ReDoS 面**（T403）：多通配符模式理论 O(n^k) 回溯（输入为受信配置 + full_name ≤ ~140 字符，风险低）；C18 正则引擎落地时需专项审计
-- **R7 损坏 index.json 覆盖即丢历史**（T404）：索引损坏时按空索引重写，历史静默丢失；后续可写前备份 .bak
-- **R8 多进程 index 写竞态**（T404）：read-modify-write 非原子；CLI/action 单进程语义下可接受，平台化（M6+）需原子写
+- ~~**R1 写请求 429 重放**~~（**已修复**）：限流重试 hook 现仅对 GET/HEAD 生效，写请求（POST/PATCH/PUT/DELETE）不做限流重试（非幂等避免重放）。行为变化：写请求遇限流立即失败，需用户重跑
+- ~~**R2 MAX_BACKOFF_MS 硬编码**~~（**已修复**）：`--max-backoff-ms` / `DEPENDFIX_MAX_BACKOFF_MS`（100-120000，默认 30000），Retry-After / reset / 指数退避均受此上限约束
+- ~~**R3 Retry-After 头未解析**~~（**已修复**）：等待优先级改为 Retry-After（秒，受 maxBackoffMs 上限）→ x-ratelimit-reset → 指数退避
+- **R4 CJS require p-queue ESM-only**（未修复，发布前 M5+ 处理）：Node 20 下编程式 `require('dependfix')` 会 ERR_REQUIRE_ESM（官方 bin.mjs / ESM 入口不受影响）；tsdown noExternal 或动态 import
+- ~~**R5 topics 匹配大小写敏感**~~（**已修复**）：配置与仓库 topics 均 toLowerCase 归一化比较；mergeRepositories 大小写不敏感去重
+- ~~**R6 glob ReDoS 面**~~（**已修复（加固）**）：`repoGlobToRegExp` 拒绝超长模式（>200 字符）；多通配符模式仍存在理论回溯面（受信配置 + 短输入，风险低），C18 正则引擎落地时需专项审计
+- ~~**R7 损坏 index.json 覆盖即丢历史**~~（**已修复**）：解析失败的损坏索引先备份为 `index.json.corrupt-{ts}.bak` 再重建
+- **R8 多进程 index 写竞态**（**部分完成**）：原子写已落地（临时文件 + rename，无半截文件）；双进程 read-modify-write 丢失更新在单进程 CLI 语义下不可达，平台化（M6+ 数据库化）消解
 
 ### M4 已知限制（P3 观察项，非阻塞）
 
-- **--history 与运行参数并存**：CLI 短路优先 history，其余参数静默忽略；help 文档应注明互斥
-- **--max-concurrency / --max-retries 小数截断**：`2.5` 被 parseInt 静默截断为 `2`；后续可校验整数字面量
-- **mergeRepositories 大小写敏感**：显式 `Owner/Repo` 与发现 `owner/repo` 不去重（GitHub full_name 恒小写）
-- **repoSlug 坍缩**：`a/b-c` 与 `a-b/c` 归档文件名相同，多 owner 极端场景可能相互覆盖
-- **cleanup-branches 模式空归档条目**：该模式不填充 repoResults，每次运行向 index.json 累积 `repositories: []` 记录
-- **cleanup-branches 模式 maxConcurrency 静默忽略**：该模式不走 runRepoPipeline，`--max-concurrency > 1` 既不生效也无警告（config 校验仅禁 fix/fix-and-pr）；后续可校验拒绝或文档说明
-- **M4 参数未接入 Action**：action.yml 仅暴露 `repos` 输入；owner/并发/名单/归档能力当前限定 CLI（M4 范围）
+> **2026-08-06 修复状态**：以下 5 项已落实（提交后回链）：小数截断（CLI + env 双入口）、merge 大小写去重、repoSlug 碰撞后缀、cleanup-branches 空归档条目跳过、cleanup-branches maxConcurrency 拒绝。
+
+- ~~**--history 与运行参数并存**~~：CLI 短路优先 history，其余参数静默忽略；help 文档已注明互斥（configuration.md 配置项表）
+- ~~**--max-concurrency / --max-retries 小数截断**~~（**已修复**）：CLI `parseIntegerFlag` + env `normalizeInteger` 均严格整数字面量校验（`2.5` 拒绝而非截断）
+- ~~**mergeRepositories 大小写敏感**~~（**已修复**）：显式 `Owner/Repo` 与发现 `owner/repo` 视为同一仓库去重
+- ~~**repoSlug 坍缩**~~（**已修复**）：同 run 内 slug 碰撞追加 `-2`/`-3` 后缀（`a/b-c` 与 `a-b/c` 不再相互覆盖）
+- ~~**cleanup-branches 模式空归档条目**~~（**已修复**）：仓库维度为空时不更新 index.json（不累积 `repositories: []` 记录），summary.json 仍写盘
+- ~~**cleanup-branches 模式 maxConcurrency 静默忽略**~~（**已修复**）：`maxConcurrency > 1` + cleanup-branches 配置校验 fail-fast
+- **M4 参数未接入 Action**（**已修复 2026-08-06**）：action.yml 已接入 owner/repo-*/max-concurrency/max-retries 输入；建议每仓库单独配置 action 控制权限范围（见 quick-start/design 文档）
 - **action artifact 体积**：归档结构（summary.json + 每仓库 md/json）随上传，artifact 略增
 
 ---

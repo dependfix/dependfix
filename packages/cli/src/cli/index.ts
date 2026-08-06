@@ -137,6 +137,11 @@ const argsDef = {
         description: 'GitHub API 限流重试次数（0-10，默认 3；429/rate limit 指数退避重试）',
         default: '3' as const,
     },
+    'max-backoff-ms': {
+        type: 'string' as const,
+        description: '限流退避单次等待上限毫秒（100-120000，默认 30000；Retry-After / reset / 指数退避均受此约束）',
+        default: '30000' as const,
+    },
     history: {
         type: 'string' as const,
         description: '查询仓库历史运行摘要（读 dependfix-reports/index.json，倒序时间；不执行扫描）',
@@ -199,6 +204,21 @@ function parseCommandsFlag(value: string): string[] {
         .split(',')
         .map((cmd) => cmd.trim())
         .filter(Boolean)
+}
+
+/**
+ * 严格整数字面量解析（P3 修复：拒绝 `2.5` 被 parseInt 静默截断为 2）。
+ * 仅接受 `^\d+$`；范围语义由调用方在 expected 描述中声明（config 校验兜底）。
+ */
+function parseIntegerFlag(value: string, flagName: string, expected: string): number {
+    const trimmed = value.trim()
+    if (!/^\d+$/.test(trimmed)) {
+        throw new AppError(
+            'ARGUMENT_PARSE_ERROR',
+            `Invalid ${flagName} value: "${value}". ${expected}`,
+        )
+    }
+    return Number.parseInt(trimmed, 10)
 }
 
 /**
@@ -330,40 +350,25 @@ function parsedArgsToCliOverrides(parsed: ParsedArgs<typeof argsDef>): CliConfig
     // max-alerts-per-repository
     const maxAlerts = parsed['max-alerts-per-repository']
     if (maxAlerts) {
-        const num = Number.parseInt(maxAlerts, 10)
-        if (Number.isNaN(num)) {
-            throw new AppError(
-                'ARGUMENT_PARSE_ERROR',
-                `Invalid --max-alerts-per-repository value: "${maxAlerts}". Expected a positive integer.`,
-            )
-        }
-        overrides.maxAlertsPerRepository = num
+        overrides.maxAlertsPerRepository = parseIntegerFlag(maxAlerts, '--max-alerts-per-repository', 'Expected a positive integer.')
     }
 
     // max-concurrency（1-16，config 校验兜底）
     const maxConcurrency = parsed['max-concurrency']
     if (maxConcurrency) {
-        const num = Number.parseInt(maxConcurrency, 10)
-        if (Number.isNaN(num)) {
-            throw new AppError(
-                'ARGUMENT_PARSE_ERROR',
-                `Invalid --max-concurrency value: "${maxConcurrency}". Expected an integer between 1 and 16.`,
-            )
-        }
-        overrides.maxConcurrency = num
+        overrides.maxConcurrency = parseIntegerFlag(maxConcurrency, '--max-concurrency', 'Expected an integer between 1 and 16.')
     }
 
     // max-retries（0-10，config 校验兜底）
     const maxRetries = parsed['max-retries']
     if (maxRetries) {
-        const num = Number.parseInt(maxRetries, 10)
-        if (Number.isNaN(num)) {
-            throw new AppError(
-                'ARGUMENT_PARSE_ERROR',
-                `Invalid --max-retries value: "${maxRetries}". Expected an integer between 0 and 10.`,
-            )
-        }
-        overrides.maxRetries = num
+        overrides.maxRetries = parseIntegerFlag(maxRetries, '--max-retries', 'Expected an integer between 0 and 10.')
+    }
+
+    // max-backoff-ms（100-120000，config 校验兜底）
+    const maxBackoffMs = parsed['max-backoff-ms']
+    if (maxBackoffMs) {
+        overrides.maxBackoffMs = parseIntegerFlag(maxBackoffMs, '--max-backoff-ms', 'Expected an integer between 100 and 120000.')
     }
 
     // history（独立查询命令，不进入运行配置）

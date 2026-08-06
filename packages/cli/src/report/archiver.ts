@@ -3,7 +3,7 @@
 // 并维护 dependfix-reports/index.json 趋势索引。
 // 现有 writeReport（dependfix-report-*.md|.json 平铺输出）保持不变（向后兼容）。
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
     createEmptyRunSummary,
@@ -60,8 +60,13 @@ export interface ArchiveResult {
  * - `{outputDir}/{YYYY-MM}/{runId}/summary.json`：全局 RunResult 汇总（同字段口径）
  * - `{outputDir}/{YYYY-MM}/{runId}/{owner}-{repo}.md|.json`：每仓库报告切分
  * - 更新 `{outputDir}/index.json`（runId 幂等：重复归档同一 runId 覆盖旧条目）
+ * - 仓库维度为空（如 cleanup-branches 模式不填充 repoResults）时不更新 index.json
+ *   （无仓库趋势数据，避免累积 `repositories: []` 空条目）
  *
  * 现有 `writeReport` 平铺输出不受影响（向后兼容）。
+ *
+ * 可靠性（R7/R8）：index.json 采用临时文件 + 原子 rename 写入（并发/中断安全）；
+ * 解析失败的损坏索引先备份为 `index.json.corrupt-{ts}.bak` 再重建，历史不静默丢失。
  */
 export function writeArchive(runResult: RunResult, outputDir = './dependfix-reports'): ArchiveResult {
     const monthDir = extractYearMonth(runResult.startedAt)
@@ -72,8 +77,9 @@ export function writeArchive(runResult: RunResult, outputDir = './dependfix-repo
     writeFileSync(summaryJsonPath, generateJsonReport(runResult), 'utf-8')
 
     const repoArtifacts: string[] = []
+    const slugCounts = new Map<string, number>()
     for (const repoResult of runResult.repositories) {
-        const slug = repoSlug(repoResult.repository)
+        const slug = repoSlug(repoResult.repository, slugCounts)
         if (!slug) {
             continue
         }
@@ -85,17 +91,43 @@ export function writeArchive(runResult: RunResult, outputDir = './dependfix-repo
         repoArtifacts.push(mdPath, jsonPath)
     }
 
-    const index = readArchiveIndex(outputDir)
-    const entry: ArchiveRunEntry = buildArchiveEntry(runResult)
-    const existingIdx = index.runs.findIndex((r) => r.runId === entry.runId)
-    if (existingIdx >= 0) {
-        index.runs[existingIdx] = entry
-    } else {
-        index.runs.push(entry)
+    // 仓库维度为空（cleanup-branches 等模式）→ 不更新趋势索引
+    if (runResult.repositories.length > 0) {
+        const indexPath = join(outputDir, 'index.json')
+        // R7：损坏索引先备份再重建（历史不静默丢失）
+        backupCorruptedIndex(indexPath)
+        const index = readArchiveIndex(outputDir)
+        const entry: ArchiveRunEntry = buildArchiveEntry(runResult)
+        const existingIdx = index.runs.findIndex((r) => r.runId === entry.runId)
+        if (existingIdx >= 0) {
+            index.runs[existingIdx] = entry
+        } else {
+            index.runs.push(entry)
+        }
+        // R8：原子写（临时文件 + rename），避免中断/并发产生半截索引
+        const content = `${JSON.stringify(index, null, 2)}\n`
+        const tmpPath = join(outputDir, `index.json.tmp-${process.pid}-${Date.now()}`)
+        writeFileSync(tmpPath, content, 'utf-8')
+        renameSync(tmpPath, indexPath)
     }
-    writeFileSync(join(outputDir, 'index.json'), `${JSON.stringify(index, null, 2)}\n`, 'utf-8')
 
     return { summaryJsonPath, repoArtifacts }
+}
+
+/** R7：index.json 存在但解析失败时，备份为 `index.json.corrupt-{ts}.bak`（防历史静默丢失）。 */
+function backupCorruptedIndex(indexPath: string): void {
+    if (!existsSync(indexPath)) {
+        return
+    }
+    try {
+        JSON.parse(readFileSync(indexPath, 'utf-8'))
+    } catch {
+        try {
+            renameSync(indexPath, `${indexPath}.corrupt-${Date.now()}.bak`)
+        } catch {
+            // 备份失败静默（不影响本次归档写盘）
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -154,9 +186,19 @@ function extractYearMonth(iso: string): string {
     return match ? `${match[1]}-${match[2]}` : new Date().toISOString().slice(0, 7)
 }
 
-/** `owner/repo` → `owner-repo`（归档文件名，兼容 `local` 等无斜杠名）。 */
-function repoSlug(repo: string): string {
-    return repo.replace(/[^a-zA-Z0-9_.-]/g, '-')
+/**
+ * `owner/repo` → `owner-repo`（归档文件名，兼容 `local` 等无斜杠名）。
+ * R5 级加固：同 run 内 slug 碰撞（如 `a/b-c` 与 `a-b/c` 均坍缩为 `a-b-c`）时
+ * 依次追加 `-2`、`-3` 后缀，避免相互覆盖。
+ */
+function repoSlug(repo: string, slugCounts: Map<string, number>): string {
+    const base = repo.replace(/[^a-zA-Z0-9_.-]/g, '-')
+    if (!base) {
+        return ''
+    }
+    const count = slugCounts.get(base) ?? 0
+    slugCounts.set(base, count + 1)
+    return count === 0 ? base : `${base}-${count + 1}`
 }
 
 /**

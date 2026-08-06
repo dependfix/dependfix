@@ -30,6 +30,7 @@ describe('resolveRuntimeConfig', () => {
             maxAlertsPerRepository: 20,
             maxConcurrency: 1,
             maxRetries: 3,
+            maxBackoffMs: 30000,
         })
     })
 
@@ -123,6 +124,7 @@ describe('resolveRuntimeConfig', () => {
             maxAlertsPerRepository: 3,
             maxConcurrency: 1,
             maxRetries: 3,
+            maxBackoffMs: 30000,
         })
     })
 
@@ -616,6 +618,34 @@ describe('resolveRuntimeConfig', () => {
         expect(config.maxRetries).toBe(5)
     })
 
+    it('parses maxBackoffMs from env and cli', () => {
+        const envConfig = resolveRuntimeConfig({
+            env: {
+                GITHUB_TOKEN: 't',
+                DEPENDFIX_REPOSITORIES: 'foo/bar',
+                DEPENDFIX_MAX_BACKOFF_MS: '60000',
+            },
+        })
+        expect(envConfig.maxBackoffMs).toBe(60_000)
+
+        const invocation = parseCliArgs(['--max-backoff-ms', '5000'])
+        const cliConfig = resolveRuntimeConfig({
+            env: { GITHUB_TOKEN: 't', DEPENDFIX_REPOSITORIES: 'foo/bar' },
+            cliOverrides: invocation.configOverrides,
+        })
+        expect(cliConfig.maxBackoffMs).toBe(5000)
+    })
+
+    it('rejects maxBackoffMs outside 100-120000', () => {
+        expect(() => resolveRuntimeConfig({
+            env: {
+                GITHUB_TOKEN: 't',
+                DEPENDFIX_REPOSITORIES: 'foo/bar',
+                DEPENDFIX_MAX_BACKOFF_MS: '50',
+            },
+        })).toThrow('maxBackoffMs must be between 100 and 120000')
+    })
+
     it('rejects maxConcurrency outside 1-16', () => {
         expect(() => resolveRuntimeConfig({
             env: {
@@ -678,6 +708,72 @@ describe('resolveRuntimeConfig', () => {
             },
         })
         expect(config.maxConcurrency).toBe(4)
+    })
+
+    it('rejects maxConcurrency > 1 in cleanup-branches mode (sequential)', () => {
+        expect(() => resolveRuntimeConfig({
+            env: {
+                GITHUB_TOKEN: 't',
+                DEPENDFIX_REPOSITORIES: 'foo/bar',
+                DEPENDFIX_MODE: 'cleanup-branches',
+                DEPENDFIX_MAX_CONCURRENCY: '2',
+            },
+        })).toThrow('not supported in cleanup-branches mode')
+    })
+
+    // -----------------------------------------------------------------------
+    // 整数字面量严格校验（P3 修复：拒绝 parseInt 静默截断）
+    // -----------------------------------------------------------------------
+
+    it('rejects decimal env values instead of silently truncating', () => {
+        expect(() => resolveRuntimeConfig({
+            env: {
+                GITHUB_TOKEN: 't',
+                DEPENDFIX_REPOSITORIES: 'foo/bar',
+                DEPENDFIX_MAX_CONCURRENCY: '2.5',
+            },
+        })).toThrow('must be a positive integer')
+        expect(() => resolveRuntimeConfig({
+            env: {
+                GITHUB_TOKEN: 't',
+                DEPENDFIX_REPOSITORIES: 'foo/bar',
+                DEPENDFIX_MAX_BACKOFF_MS: '200.5',
+            },
+        })).toThrow('must be a positive integer')
+    })
+
+    it('rejects negative / malformed env integers', () => {
+        expect(() => resolveRuntimeConfig({
+            env: {
+                GITHUB_TOKEN: 't',
+                DEPENDFIX_REPOSITORIES: 'foo/bar',
+                DEPENDFIX_MAX_RETRIES: '-1',
+            },
+        })).toThrow('must be a non-negative integer')
+        expect(() => resolveRuntimeConfig({
+            env: {
+                GITHUB_TOKEN: 't',
+                DEPENDFIX_REPOSITORIES: 'foo/bar',
+                DEPENDFIX_MAX_CONCURRENCY: 'abc',
+            },
+        })).toThrow('must be a positive integer')
+    })
+
+    it('accepts whitespace-padded and leading-zero integers', () => {
+        const config = resolveRuntimeConfig({
+            env: {
+                GITHUB_TOKEN: 't',
+                DEPENDFIX_REPOSITORIES: 'foo/bar',
+                DEPENDFIX_MAX_RETRIES: ' 0 ',
+            },
+        })
+        expect(config.maxRetries).toBe(0)
+    })
+
+    it('rejects decimal cli flag values (parseIntegerFlag)', () => {
+        expect(() => parseCliArgs(['--max-concurrency', '2.5'])).toThrow('Expected an integer between 1 and 16')
+        expect(() => parseCliArgs(['--max-backoff-ms', '-5'])).toThrow('Expected an integer between 100 and 120000')
+        expect(() => parseCliArgs(['--max-retries', 'abc'])).toThrow('Expected an integer between 0 and 10')
     })
 })
 

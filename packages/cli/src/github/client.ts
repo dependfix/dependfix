@@ -6,6 +6,11 @@ export interface RetryPolicyOptions {
     maxRetries?: number
     /** 指数退避基数毫秒（默认 1000；测试时可调小） */
     baseDelayMs?: number
+    /**
+     * 指数退避单次等待上限毫秒（R2：默认 30000），防止长时间空转。
+     * Retry-After / x-ratelimit-reset 指定的等待同样受此上限约束。
+     */
+    maxBackoffMs?: number
 }
 
 export interface OctokitClientOptions {
@@ -60,6 +65,7 @@ export function createGitHubClient(options: OctokitClientOptions): Octokit {
         applyRetryPolicy(client, {
             maxRetries,
             baseDelayMs: options.retry?.baseDelayMs ?? 1000,
+            maxBackoffMs: options.retry?.maxBackoffMs ?? MAX_BACKOFF_MS_DEFAULT,
         })
     }
 
@@ -71,20 +77,28 @@ export function createGitHubClient(options: OctokitClientOptions): Octokit {
 // ---------------------------------------------------------------------------
 
 const SECONDARY_RATE_LIMIT_RE = /secondary rate limit|abuse|retry later|retry-after/i
-/** 指数退避单次等待上限（30s），防止长时间空转 */
-const MAX_BACKOFF_MS = 30_000
+/** 指数退避单次等待默认上限（30s），防止长时间空转（R2：可经 retry.maxBackoffMs 覆盖） */
+const MAX_BACKOFF_MS_DEFAULT = 30_000
 
 function applyRetryPolicy(client: Octokit, retry: RetryPolicyOptions): void {
     const maxRetries = retry.maxRetries ?? 3
     const baseDelayMs = retry.baseDelayMs ?? 1000
+    const maxBackoffMs = retry.maxBackoffMs ?? MAX_BACKOFF_MS_DEFAULT
 
     client.hook.wrap('request', async (request, options) => {
+        // R1：写请求（POST/PATCH/PUT/DELETE）不做限流重试——非幂等操作避免重放；
+        // 限流重试仅适用于只读 GET/HEAD（GitHub 限流检查在请求执行前，写请求重放风险虽低仍应规避）
+        const method = (options.method ?? 'GET').toUpperCase()
+        if (method !== 'GET' && method !== 'HEAD') {
+            return request(options)
+        }
+
         let attempt = 0
         for (;;) {
             try {
                 return await request(options)
             } catch (error: unknown) {
-                const delayMs = computeRetryDelayMs(error, attempt, baseDelayMs)
+                const delayMs = computeRetryDelayMs(error, attempt, baseDelayMs, maxBackoffMs)
                 if (delayMs === null || attempt >= maxRetries) {
                     throw error
                 }
@@ -103,9 +117,11 @@ function applyRetryPolicy(client: Octokit, retry: RetryPolicyOptions): void {
  * - 403 + `x-ratelimit-remaining: 0`（primary rate limit）
  * - 403/429 + message 含 secondary rate limit / abuse / retry 特征
  *
- * 等待策略：
- * - 响应带 `x-ratelimit-reset`（unix 秒）→ 等待到 reset + 1s 缓冲
- * - 否则 → 指数退避 `baseDelayMs * 2^attempt`（上限 30s）
+ * 等待策略（R3：Retry-After 优先）：
+ * 1. `retry-after` 头（秒）→ 等待其秒数（受 maxBackoffMs 上限约束）
+ * 2. `x-ratelimit-reset`（unix 秒）→ 等待到 reset + 1s 缓冲
+ * 3. 否则 → 指数退避 `baseDelayMs * 2^attempt`
+ * 所有等待均受 maxBackoffMs 上限约束（默认 30s）。
  *
  * 不重试（返回 null）：
  * - 非 RequestError（网络错误等由上层 AppError 语义处理）
@@ -116,6 +132,7 @@ export function computeRetryDelayMs(
     error: unknown,
     attempt: number,
     baseDelayMs = 1000,
+    maxBackoffMs = MAX_BACKOFF_MS_DEFAULT,
 ): number | null {
     if (!(error instanceof RequestError)) {
         return null
@@ -141,20 +158,29 @@ export function computeRetryDelayMs(
         return null
     }
 
-    // 优先等待到限流重置时刻（primary rate limit 标准行为）
+    // R3：Retry-After 头优先（GitHub secondary rate limit 常返回，秒为单位）
+    const retryAfter = headers['retry-after']
+    if (retryAfter !== undefined) {
+        const seconds = Number(retryAfter)
+        if (Number.isFinite(seconds) && seconds > 0) {
+            return Math.min(seconds * 1000, maxBackoffMs)
+        }
+    }
+
+    // 其次等待到限流重置时刻（primary rate limit 标准行为）
     const reset = headers['x-ratelimit-reset']
     if (reset !== undefined) {
         const resetMs = Number(reset) * 1000
         if (Number.isFinite(resetMs) && resetMs > 0) {
             const waitMs = resetMs - Date.now() + 1000
             if (waitMs > 0) {
-                return Math.min(waitMs, MAX_BACKOFF_MS)
+                return Math.min(waitMs, maxBackoffMs)
             }
         }
     }
 
     // 指数退避兜底
-    return Math.min(baseDelayMs * 2 ** attempt, MAX_BACKOFF_MS)
+    return Math.min(baseDelayMs * 2 ** attempt, maxBackoffMs)
 }
 
 function sleep(ms: number): Promise<void> {

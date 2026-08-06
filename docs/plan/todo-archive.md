@@ -198,3 +198,61 @@
 - **运行复盘**: run 30929090403（vite 降级 + lockfile 解析失效）与 run 30933266831（P0 误伤全 skip）两轮复盘修复
 - **质量治理**: 代码质量 Q1-Q3（eslint 升级、max-lines 约束、严格化规则）、目录结构收敛（bb24ef0）、覆盖率统计 + Codecov 上报（1d76c24）
 - **遗留观察点**: G1（PIN_TOOLCHAIN stub，承接 M3 T305）、G3 报告统计口径（alertsConverged）、major overrides 确认机制评估（暂不实现）
+
+---
+
+## M3: Code Scanning 扩展（已归档）
+
+> 归档日期: 2026-08-06
+> 阶段摘要: 参见 [roadmap.md §M3](roadmap.md)
+> 状态: 已完成（含 M3 收尾修复批次 + 反馈修复）
+> 最终提交: `a82f6580` feat: PR body 新增 ✅ Fixed Alerts 告警级明细（用户反馈 PR #27）
+
+**阶段成果**: Code Scanning alerts 与 Dependabot 并行采集（`--code-scanning` / `DEPENDFIX_CODE_SCANNING` / action `code-scanning` input），A/B/C 三级规则分层（自动修复 / 建议修复 / 仅报告），eol-last 自动修复闭环，无法自动修复问题输出报告 + PR body 建议区块，G1 工具链固定（PIN_TOOLCHAIN + corepack + 漂移检测）。574 tests。
+
+### T301 接入 Code Scanning Alerts 拉取 ✅
+- **交付物**: `packages/cli/src/github/code-scanning-fetcher.ts`
+- **实现内容**: octokit.paginate 分页拉取 open 告警；标准模型（`source: 'code-scanning'`、`ruleId`、`mapCodeScanningSeverity` 安全级别优先）；默认不可自动修复（fixable: false，由 T303 规则模板按规则启用）；与 Dependabot 并行展示
+- **验收**: report-only / fix 模式并行展示互不覆盖；拉取失败（401/403）硬失败 + hint
+- **演进项**: per-source 错误隔离（warn + 弃该源，暂缓）；fix 模式 code-scanning 告警统计口径与 G3 alertsConverged 一并处理
+
+### T302 规则分层与白名单机制 ✅
+- **交付物**: `packages/cli/src/code-scanning/rule-classifier.ts`
+- **实现内容**: A/B/C 三级规则分层；A 类白名单（eol-last）；B 类建议列表（CodeQL js/py/java 安全类 + no-unused-vars）；C 类仅报告兜底；分类结果报告 §4 Class 列可见
+- **历史决策**: no-unused-vars 因删除变量副作用归 B（Review Gate 认可）；no-trailing-spaces 模板字符串词法歧义 3 轮评审移除（M4+ 词法扫描后恢复）；jsdoc/check-alignment 模板未实现
+- **演进项**: B 类覆盖真实仓库样本核对（规则 id 格式与变体分布）；规则分类配置化（M4+ 扩展点）
+
+### T303 实现可模板化规则修复器 ✅
+- **交付物**: `packages/cli/src/fixers/code-scanning/` 首批修复模板（替换 M0 stub）
+- **实现内容**: eol-last 模板；`FixAction.type` 扩展 `'code-scanning-fix'`（noOp 三态语义）；复用 verification-runner；失败回退建议模式（不静默、可审计）
+- **验收**: eol-last 自动修复闭环（修复 → quickVerify → 报告/PR）
+- **遗留**: app 层非 dry-run 验证/回滚缺 e2e（组件单测兜底）；多 cs 告警逐告警全项目 lint 性能观察项；报告 Fix Actions 表 noOp 动作显示 ✅ 图标（观感，error 文本可审计）
+
+### T304 实现建议型输出 ✅
+- **交付物**: 报告 §Code Scanning Suggestions 区块 + PR body 区块
+- **实现内容**: 规则 ID / 位置（文件:行）/ 摘要 / 建议方向（fetcher 注入 suggestionFor）；未修复原因区分（B/C 类 / noOp / 修复失败，reason 优先级链）
+- **遗留**: summary 字段已收集未渲染；endLine 死字段（供后续多行范围展示，报告字段清理候选）；大仓库建议区块行数可能使 PR body 接近 64KB 上限
+
+### T305 工具链固定（G1 承接）✅
+- **交付物**: `packages/cli/src/fixers/pnpm/index.ts` 的 PIN_TOOLCHAIN 策略接线 + config 输入
+- **实现内容**: `toolchainPnpmVersion`（CLI/env，缺省 packageManager 解析，semver 白名单防注入——Review Gate P1）；`corepack pnpm@<version> install --lockfile-only`（corepack 失败 → 裸命令 → REGENERATE 兜底）；lockfileVersion 前后对比漂移标注；测试 +12
+- **遗留**: verifyFrozenLockfile 仍用裸 pnpm 验证（可能架空 PIN_TOOLCHAIN）；漂移检测为相对对比弱代理
+
+### M3 完成判定（全部通过）
+- [x] report-only / fix 模式并行展示 Dependabot + Code Scanning 告警（Rule/Advisory 列语义化）
+- [x] A/B/C 三层规则分类落地：自动修复 / 建议修复 / 仅报告
+- [x] 至少一类 Code Scanning 问题自动修复闭环（eol-last）
+- [x] 无法自动修复的问题不静默丢失（报告 + PR body 建议区块）
+- [x] G1 工具链固定落地（PIN_TOOLCHAIN + corepack + 漂移检测）
+- [x] `pnpm typecheck` + `pnpm lint` + `pnpm test` 全部通过；Review Gate 放行
+
+### M3 阶段治理记录（2026-08-05 ~ 2026-08-06）
+
+- **主交付**: T301~T305 五轮提交（7b8feb3 / 5b3e076 / aebf258+a7fa3a0 / dead17e / 486fea7），每任务独立 Review Gate（T303 经历 4 轮、T305 经历 2 轮），最终全量审查 APPROVE；配套 ed6c7737（action code-scanning input 接线）
+- **收尾修复批次（e1aad1e + c20218e，用户确认批次）**: PR 标题动态生成（cs-only 不再误标 "N upgrades"）、partition 限定依赖源告警（cs 噪音）、'unknown' 严重级 cs 源透传、report-only 措辞按模式区分、maxAlertsPerRepository 截断进报告、app/index.ts 行数拆分（helpers.ts + branch-cleanup.ts）
+- **环境变量前缀迁移（38722c5，方案 B）**: `AUTO_FIX_GITHUB_SECURITY_` → `DEPENDFIX_`（15 变量 16 处读取），config 抽取 ENV_PREFIX + readEnv 防再漏
+- **多版本共存分别 overrides（89d8c508，run 31021398673 复盘）**: readLockfileVersions 多实例读取、applyVersionedOverrides 批量写 + 回滚、partition 根/lockfile 多版本路由、`__fixtures__/lockfile-drift/` 死资产删除；测试 +17
+- **版本化 overrides 大版本 key（06843b9d，run 31028234123 复盘）**: 按 major 分组取各线最高推荐（`vite@5: ^5.4.21`）、存在脆弱实例门槛（替代 hasMultipleMajorVersions）、18 条 Skipped 全转可修复
+- **反馈修复（a82f6580，PR #27 用户反馈）**: PR body 新增 ✅ Fixed Alerts 告警级明细；buildFixedKeys 单一事实源（依赖升级包级 repo/pkg 匹配——同包多 GHSA + 多目标 toVersion 不漏列；CS 实例级 + noOp 排除）；测试 +4
+- **治理基建**: Session Wisdom 蒸馏机制（062ce9ef）+ 首次蒸馏（e6827785）+ 压缩抽象与日期命名规范（3b1bf7f8）+ momei http 引用（6690ed02）
+- **遗留登记（转入 backlog）**: pnpm 11 不读 package.json#pnpm.overrides 假成功风险、verifyFrozenLockfile 裸 pnpm、漂移检测弱代理、resolveWithinWorkDir 符号链接逃逸、PR body 64KB 上限、app/helpers ↔ cli/helpers 循环依赖、G3 统计口径与覆盖盲区观察点

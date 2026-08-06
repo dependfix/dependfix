@@ -2,6 +2,7 @@ import { execSync } from 'node:child_process'
 import { AppError, isValidRepoIdentifier, type SeverityThreshold, type AlertSourceKind } from '@dependfix/core'
 import { resolveRepoList } from '../github/repo-selector'
 import { isValidPnpmVersion } from '../fixers/pnpm'
+import { isValidConcurrency } from '../multirepo/scheduler'
 
 export const RUNTIME_MODES = ['report-only', 'fix', 'fix-and-pr', 'cleanup-branches'] as const
 export const SEVERITY_THRESHOLDS = ['critical', 'high', 'medium', 'all'] as const
@@ -72,6 +73,16 @@ export interface RuntimeConfig {
     alertsToken?: string
     maxAlertsPerRepository: number
     /**
+     * 多仓库并发窗口（T402）。默认 1（保守，行为与现状一致）；
+     * >1 时调度器输出警告（GitHub API 限流风险）。
+     */
+    maxConcurrency: number
+    /**
+     * GitHub API 限流重试次数（T402）。默认 3；
+     * 对 429 / primary rate limit / secondary rate limit 指数退避重试，0 关闭。
+     */
+    maxRetries: number
+    /**
      * 用户显式分组（最高优先级，覆盖自动分组）。
      * 键为组名，值为组内包列表。缺省时使用自动分组
      * （dependabot.yml groups → @types 归并 → scope/前缀启发式）。
@@ -112,6 +123,10 @@ export interface CliConfigOverrides {
     /** Dependabot alerts 专用 token（可选，最小权限；缺省回退 githubToken） */
     alertsToken?: string
     maxAlertsPerRepository?: number
+    /** 多仓库并发窗口（1-16，默认 1 保守） */
+    maxConcurrency?: number
+    /** GitHub API 限流重试次数（0-10，默认 3） */
+    maxRetries?: number
     /** 用户显式分组（覆盖自动分组），格式 `name1:pkg1,pkg2;name2:pkg3` */
     upgradeGroups?: Record<string, string[]>
     /** lockfile 修复用的 pnpm 版本（工具链固定；缺省从 packageManager 解析） */
@@ -135,6 +150,8 @@ export const DEFAULT_RUNTIME_CONFIG: Omit<RuntimeConfig, 'githubToken' | 'reposi
     alertSource: 'github-dependabot',
     codeScanningEnabled: false,
     maxAlertsPerRepository: 20,
+    maxConcurrency: 1,
+    maxRetries: 3,
 }
 
 function isRuntimeMode(value: string): value is RuntimeMode {
@@ -176,6 +193,20 @@ function normalizeInteger(value: string | undefined, fieldName: string): number 
 
     if (!Number.isInteger(parsed) || parsed <= 0) {
         throw new AppError('CONFIG_VALIDATION_ERROR', `${fieldName} must be a positive integer`)
+    }
+
+    return parsed
+}
+
+function normalizeNonNegativeInteger(value: string | undefined, fieldName: string): number | undefined {
+    if (value === undefined || value.trim() === '') {
+        return undefined
+    }
+
+    const parsed = Number.parseInt(value, 10)
+
+    if (!Number.isInteger(parsed) || parsed < 0) {
+        throw new AppError('CONFIG_VALIDATION_ERROR', `${fieldName} must be a non-negative integer`)
     }
 
     return parsed
@@ -307,6 +338,8 @@ export function readEnvConfig(env: NodeJS.ProcessEnv = process.env): CliConfigOv
         alertSource: readAlertSource(readEnv(env, 'ALERTS_SOURCE'), `${ENV_PREFIX}ALERTS_SOURCE`),
         codeScanningEnabled: normalizeBoolean(readEnv(env, 'CODE_SCANNING'), `${ENV_PREFIX}CODE_SCANNING`),
         maxAlertsPerRepository: normalizeInteger(readEnv(env, 'MAX_ALERTS_PER_REPOSITORY'), `${ENV_PREFIX}MAX_ALERTS_PER_REPOSITORY`),
+        maxConcurrency: normalizeInteger(readEnv(env, 'MAX_CONCURRENCY'), `${ENV_PREFIX}MAX_CONCURRENCY`),
+        maxRetries: normalizeNonNegativeInteger(readEnv(env, 'MAX_RETRIES'), `${ENV_PREFIX}MAX_RETRIES`),
         upgradeGroups: normalizeUpgradeGroups(readEnv(env, 'UPGRADE_GROUPS')),
         toolchainPnpmVersion: readEnv(env, 'TOOLCHAIN_PNPM_VERSION')?.trim() || undefined,
     }
@@ -477,6 +510,31 @@ function validateRuntimeConfig(config: RuntimeConfig): RuntimeConfig {
         )
     }
 
+    // 多仓库并发窗口（T402）：1-16；超过上限 fail-fast，避免无意打爆 GitHub API
+    if (!isValidConcurrency(config.maxConcurrency)) {
+        throw new AppError(
+            'CONFIG_VALIDATION_ERROR',
+            `maxConcurrency must be between 1 and 16 (got ${config.maxConcurrency}).`,
+        )
+    }
+
+    // fix / fix-and-pr 共享单一 workDir（package.json + pnpm-lock.yaml + node_modules），
+    // 并发写存在快照覆盖 / 互踩回滚 / install 竞争（T402 审计 P1-1），仅 report-only 允许并发
+    if (config.maxConcurrency > 1 && (config.mode === 'fix' || config.mode === 'fix-and-pr')) {
+        throw new AppError(
+            'CONFIG_VALIDATION_ERROR',
+            'maxConcurrency > 1 is only supported in report-only mode (fix / fix-and-pr share a single workDir — parallel writes are unsafe).',
+        )
+    }
+
+    // 限流重试次数（T402）：0-10；超过 10 次重试属异常配置
+    if (!Number.isInteger(config.maxRetries) || config.maxRetries < 0 || config.maxRetries > 10) {
+        throw new AppError(
+            'CONFIG_VALIDATION_ERROR',
+            `maxRetries must be between 0 and 10 (got ${config.maxRetries}).`,
+        )
+    }
+
     return config
 }
 
@@ -515,6 +573,8 @@ export function resolveRuntimeConfig(options: ResolveRuntimeConfigOptions = {}):
         alertSource: cliOverrides.alertSource ?? envConfig.alertSource ?? DEFAULT_RUNTIME_CONFIG.alertSource,
         codeScanningEnabled: cliOverrides.codeScanningEnabled ?? envConfig.codeScanningEnabled ?? DEFAULT_RUNTIME_CONFIG.codeScanningEnabled,
         maxAlertsPerRepository: cliOverrides.maxAlertsPerRepository ?? envConfig.maxAlertsPerRepository ?? DEFAULT_RUNTIME_CONFIG.maxAlertsPerRepository,
+        maxConcurrency: cliOverrides.maxConcurrency ?? envConfig.maxConcurrency ?? DEFAULT_RUNTIME_CONFIG.maxConcurrency,
+        maxRetries: cliOverrides.maxRetries ?? envConfig.maxRetries ?? DEFAULT_RUNTIME_CONFIG.maxRetries,
         upgradeGroups: cliOverrides.upgradeGroups ?? envConfig.upgradeGroups,
         toolchainPnpmVersion: cliOverrides.toolchainPnpmVersion ?? envConfig.toolchainPnpmVersion,
     }

@@ -2,7 +2,7 @@ import { describe, expect, it, afterEach } from 'vitest'
 import nock from 'nock'
 import { RequestError } from '@octokit/request-error'
 import { AppError } from '@dependfix/core'
-import { createGitHubClient } from './client'
+import { createGitHubClient, computeRetryDelayMs } from './client'
 import { mapGitHubError } from './errors'
 
 const API_BASE = 'https://api.github.com'
@@ -58,6 +58,172 @@ describe('createGitHubClient', () => {
 
         expect(alerts).toHaveLength(2)
         expect(alerts.map((a) => a.number)).toEqual([1, 2])
+    })
+})
+
+// ---------------------------------------------------------------------------
+// Rate-limit retry policy（T402）：429 / 403 rate limit → 指数退避重试
+// ---------------------------------------------------------------------------
+
+describe('createGitHubClient rate-limit retry', () => {
+    afterEach(() => {
+        nock.cleanAll()
+    })
+
+    it('retries 429 with backoff and succeeds on retry', async () => {
+        nock(API_BASE)
+            .get('/repos/foo/bar')
+            .reply(429, { message: 'You have exceeded a secondary rate limit' })
+        nock(API_BASE)
+            .get('/repos/foo/bar')
+            .reply(200, { id: 1, full_name: 'foo/bar' })
+
+        const octokit = createGitHubClient({
+            token: 'test-token',
+            retry: { maxRetries: 3, baseDelayMs: 1 },
+        })
+        const { data } = await octokit.rest.repos.get({ owner: 'foo', repo: 'bar' })
+
+        expect(data.id).toBe(1)
+        expect(nock.pendingMocks()).toEqual([])
+    })
+
+    it('retries 403 primary rate limit (x-ratelimit-remaining: 0) and succeeds', async () => {
+        nock(API_BASE)
+            .get('/repos/foo/bar')
+            .reply(403, { message: 'API rate limit exceeded' }, {
+                'x-ratelimit-remaining': '0',
+                'x-ratelimit-reset': String(Math.floor(Date.now() / 1000) + 2),
+            })
+        nock(API_BASE)
+            .get('/repos/foo/bar')
+            .reply(200, { id: 1, full_name: 'foo/bar' })
+
+        const octokit = createGitHubClient({
+            token: 'test-token',
+            retry: { maxRetries: 3, baseDelayMs: 1 },
+        })
+        const { data } = await octokit.rest.repos.get({ owner: 'foo', repo: 'bar' })
+
+        expect(data.id).toBe(1)
+    })
+
+    it('retries 403 secondary rate limit (abuse message) and succeeds', async () => {
+        nock(API_BASE)
+            .get('/repos/foo/bar')
+            .reply(403, { message: 'You have been flagged for abuse detection' })
+        nock(API_BASE)
+            .get('/repos/foo/bar')
+            .reply(200, { id: 1, full_name: 'foo/bar' })
+
+        const octokit = createGitHubClient({
+            token: 'test-token',
+            retry: { maxRetries: 3, baseDelayMs: 1 },
+        })
+        const { data } = await octokit.rest.repos.get({ owner: 'foo', repo: 'bar' })
+
+        expect(data.id).toBe(1)
+    })
+
+    it('gives up after maxRetries and throws the original error', async () => {
+        nock(API_BASE)
+            .get('/repos/foo/bar')
+            .times(2)
+            .reply(429, { message: 'Too Many Requests' })
+
+        const octokit = createGitHubClient({
+            token: 'test-token',
+            retry: { maxRetries: 1, baseDelayMs: 1 },
+        })
+
+        try {
+            await octokit.rest.repos.get({ owner: 'foo', repo: 'bar' })
+            expect.fail('Expected request to throw after retries exhausted')
+        } catch (error) {
+            expect(error).toBeInstanceOf(RequestError)
+            expect((error as RequestError).status).toBe(429)
+        }
+    })
+
+    it('does not retry permission-denied 403 (no rate-limit signals)', async () => {
+        nock(API_BASE)
+            .get('/repos/foo/bar')
+            .reply(403, { message: 'Resource not accessible by integration' })
+
+        const octokit = createGitHubClient({
+            token: 'test-token',
+            retry: { maxRetries: 3, baseDelayMs: 1 },
+        })
+
+        try {
+            await octokit.rest.repos.get({ owner: 'foo', repo: 'bar' })
+            expect.fail('Expected permission-denied request to throw')
+        } catch (error) {
+            expect(error).toBeInstanceOf(RequestError)
+            expect((error as RequestError).status).toBe(403)
+        }
+        expect(nock.pendingMocks()).toEqual([])
+    })
+
+    it('does not retry when maxRetries is 0', async () => {
+        nock(API_BASE)
+            .get('/repos/foo/bar')
+            .reply(429, { message: 'Too Many Requests' })
+
+        const octokit = createGitHubClient({
+            token: 'test-token',
+            retry: { maxRetries: 0 },
+        })
+
+        try {
+            await octokit.rest.repos.get({ owner: 'foo', repo: 'bar' })
+            expect.fail('Expected request to throw without retry')
+        } catch (error) {
+            expect((error as RequestError).status).toBe(429)
+        }
+        expect(nock.pendingMocks()).toEqual([])
+    })
+})
+
+describe('computeRetryDelayMs', () => {
+    function makeError(status: number, headers: Record<string, string> = {}, message = `HTTP ${status}`): RequestError {
+        return new RequestError(message, status, {
+            request: { method: 'GET', url: '/repos/foo/bar', headers: {} },
+            response: { status, headers, data: {}, url: '/repos/foo/bar' },
+        })
+    }
+
+    it('returns null for non-RequestError', () => {
+        expect(computeRetryDelayMs(new Error('boom'), 0)).toBeNull()
+    })
+
+    it('returns null for 500', () => {
+        expect(computeRetryDelayMs(makeError(500), 0)).toBeNull()
+    })
+
+    it('returns null for permission-denied 403', () => {
+        expect(computeRetryDelayMs(makeError(403), 0)).toBeNull()
+    })
+
+    it('returns backoff for 429 without reset header', () => {
+        expect(computeRetryDelayMs(makeError(429), 0, 1000)).toBe(1000)
+        expect(computeRetryDelayMs(makeError(429), 2, 1000)).toBe(4000)
+    })
+
+    it('waits until reset + buffer when x-ratelimit-reset is present', () => {
+        const reset = Math.floor(Date.now() / 1000) + 10
+        const delay = computeRetryDelayMs(makeError(403, {
+            'x-ratelimit-remaining': '0',
+            'x-ratelimit-reset': String(reset),
+        }), 0, 1000)
+
+        expect(delay).not.toBeNull()
+        expect(delay).toBeGreaterThan(9_000)
+        expect(delay).toBeLessThanOrEqual(11_000)
+    })
+
+    it('caps backoff at 30s', () => {
+        expect(computeRetryDelayMs(makeError(429), 10, 1000)).toBe(30_000)
     })
 })
 

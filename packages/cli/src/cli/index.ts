@@ -113,6 +113,16 @@ const argsDef = {
         description: '每个仓库最多处理的告警数',
         default: '20' as const,
     },
+    'max-concurrency': {
+        type: 'string' as const,
+        description: '多仓库并发窗口（1-16，默认 1 保守串行；>1 可能触发 GitHub 限流）',
+        default: '1' as const,
+    },
+    'max-retries': {
+        type: 'string' as const,
+        description: 'GitHub API 限流重试次数（0-10，默认 3；429/rate limit 指数退避重试）',
+        default: '3' as const,
+    },
     'upgrade-groups': {
         type: 'string' as const,
         description: '用户显式分组（覆盖自动分组），格式 "name1:pkg1,pkg2;name2:pkg3"',
@@ -296,6 +306,32 @@ function parsedArgsToCliOverrides(parsed: ParsedArgs<typeof argsDef>): CliConfig
             )
         }
         overrides.maxAlertsPerRepository = num
+    }
+
+    // max-concurrency（1-16，config 校验兜底）
+    const maxConcurrency = parsed['max-concurrency']
+    if (maxConcurrency) {
+        const num = Number.parseInt(maxConcurrency, 10)
+        if (Number.isNaN(num)) {
+            throw new AppError(
+                'ARGUMENT_PARSE_ERROR',
+                `Invalid --max-concurrency value: "${maxConcurrency}". Expected an integer between 1 and 16.`,
+            )
+        }
+        overrides.maxConcurrency = num
+    }
+
+    // max-retries（0-10，config 校验兜底）
+    const maxRetries = parsed['max-retries']
+    if (maxRetries) {
+        const num = Number.parseInt(maxRetries, 10)
+        if (Number.isNaN(num)) {
+            throw new AppError(
+                'ARGUMENT_PARSE_ERROR',
+                `Invalid --max-retries value: "${maxRetries}". Expected an integer between 0 and 10.`,
+            )
+        }
+        overrides.maxRetries = num
     }
 
     // verbose (three-state: true / false / undefined)

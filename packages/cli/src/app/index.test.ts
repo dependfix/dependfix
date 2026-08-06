@@ -717,3 +717,83 @@ describe('DependfixApp owner discovery wiring', () => {
         expect(nock.pendingMocks()).toEqual([])
     })
 })
+
+// ---------------------------------------------------------------------------
+// M4 并发与失败隔离集成测试（T402）
+// ---------------------------------------------------------------------------
+
+describe('DependfixApp failure isolation (multi-repo)', () => {
+    let workDir: string
+
+    beforeEach(() => {
+        workDir = mkdtempSync(join(tmpdir(), 'dependfix-isolation-'))
+        writeFileSync(join(workDir, 'package.json'), JSON.stringify({
+            name: 'fixture',
+            version: '1.0.0',
+        }, null, 2))
+    })
+
+    afterEach(() => {
+        nock.cleanAll()
+        rmSync(workDir, { recursive: true, force: true })
+    })
+
+    it('continues processing remaining repos when one repo fails, with failed details in report', async () => {
+        // repo-a：alerts API 500 → 拉取失败（注入故障）
+        nock('https://api.github.com')
+            .get('/repos/foo/a/dependabot/alerts')
+            .query({ state: 'open', per_page: '100' })
+            .reply(500, { message: 'Internal Server Error' })
+        // repo-b：1 条可修复告警（成功仓库判定：alertsCount > 0）
+        nock('https://api.github.com')
+            .get('/repos/foo/b/dependabot/alerts')
+            .query({ state: 'open', per_page: '100' })
+            .reply(200, [{
+                number: 11,
+                state: 'open',
+                security_advisory: { ghsa_id: 'GHSA-f8p3-7c7w-h6x4', severity: 'high' },
+                security_vulnerability: {
+                    package: { ecosystem: 'npm', name: 'fast-uri' },
+                    severity: 'high',
+                    vulnerable_version_range: '< 3.1.5',
+                    first_patched_version: { identifier: '3.1.5' },
+                },
+                dependency: { package: { ecosystem: 'npm', name: 'fast-uri' }, manifest_path: 'pnpm-lock.yaml' },
+            }])
+        nock('https://api.github.com')
+            .get('/repos/foo/b')
+            .reply(200, { default_branch: 'main' })
+        // repo-c：正常空告警
+        nock('https://api.github.com')
+            .get('/repos/foo/c/dependabot/alerts')
+            .query({ state: 'open', per_page: '100' })
+            .reply(200, [])
+        nock('https://api.github.com')
+            .get('/repos/foo/c')
+            .reply(200, { default_branch: 'main' })
+
+        const config = resolveRuntimeConfig({
+            env: {
+                GITHUB_TOKEN: 'main-token-value',
+                DEPENDFIX_REPOSITORIES: 'foo/a,foo/b,foo/c',
+                DEPENDFIX_MAX_CONCURRENCY: '3',
+            },
+        })
+
+        const app = new DependfixApp({ config, workDir })
+        const { result, exitCode } = await app.run()
+
+        // 失败隔离：3 个仓库都有结果（失败仓库不中断其余）
+        expect(result.repositories.map((r) => r.repository)).toEqual(['foo/a', 'foo/b', 'foo/c'])
+        // 失败仓库可见错误详情
+        const failedRepo = result.repositories.find((r) => r.repository === 'foo/a')
+        expect(failedRepo?.alertsCount).toBe(0)
+        expect(result.errors.some((e) => e.repository === 'foo/a' && e.stage === 'fetch')).toBe(true)
+        // 其余仓库正常完成（repo-b 拉到 1 条告警）
+        expect(result.repositories.find((r) => r.repository === 'foo/b')?.alertsCount).toBe(1)
+        expect(result.repositories.find((r) => r.repository === 'foo/c')?.alertsCount).toBe(0)
+        // 部分失败 → exitCode 1（有成功仓库 + 有错误）
+        expect(exitCode).toBe(1)
+        expect(nock.pendingMocks()).toEqual([])
+    })
+})

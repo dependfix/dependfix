@@ -28,6 +28,8 @@ describe('resolveRuntimeConfig', () => {
             alertSource: 'github-dependabot',
             codeScanningEnabled: false,
             maxAlertsPerRepository: 20,
+            maxConcurrency: 1,
+            maxRetries: 3,
         })
     })
 
@@ -119,6 +121,8 @@ describe('resolveRuntimeConfig', () => {
             alertSource: 'github-dependabot',
             codeScanningEnabled: false,
             maxAlertsPerRepository: 3,
+            maxConcurrency: 1,
+            maxRetries: 3,
         })
     })
 
@@ -576,6 +580,88 @@ describe('resolveRuntimeConfig', () => {
                 DEPENDFIX_OWNER: 'foo',
             },
         })).toThrow('not supported in cleanup-branches mode')
+    })
+
+    // -----------------------------------------------------------------------
+    // M4 并发配置（T402）
+    // -----------------------------------------------------------------------
+
+    it('parses maxConcurrency and maxRetries from env', () => {
+        const config = resolveRuntimeConfig({
+            env: {
+                GITHUB_TOKEN: 't',
+                DEPENDFIX_REPOSITORIES: 'foo/bar',
+                DEPENDFIX_MAX_CONCURRENCY: '4',
+                DEPENDFIX_MAX_RETRIES: '5',
+            },
+        })
+
+        expect(config.maxConcurrency).toBe(4)
+        expect(config.maxRetries).toBe(5)
+    })
+
+    it('rejects maxConcurrency outside 1-16', () => {
+        expect(() => resolveRuntimeConfig({
+            env: {
+                GITHUB_TOKEN: 't',
+                DEPENDFIX_REPOSITORIES: 'foo/bar',
+                DEPENDFIX_MAX_CONCURRENCY: '17',
+            },
+        })).toThrow('maxConcurrency must be between 1 and 16')
+    })
+
+    it('allows maxRetries=0 (retry disabled)', () => {
+        const config = resolveRuntimeConfig({
+            env: {
+                GITHUB_TOKEN: 't',
+                DEPENDFIX_REPOSITORIES: 'foo/bar',
+                DEPENDFIX_MAX_RETRIES: '0',
+            },
+        })
+        expect(config.maxRetries).toBe(0)
+    })
+
+    it('rejects maxRetries above 10', () => {
+        expect(() => resolveRuntimeConfig({
+            env: {
+                GITHUB_TOKEN: 't',
+                DEPENDFIX_REPOSITORIES: 'foo/bar',
+                DEPENDFIX_MAX_RETRIES: '11',
+            },
+        })).toThrow('maxRetries must be between 0 and 10')
+    })
+
+    it('rejects maxConcurrency > 1 in fix mode (shared workDir write race)', () => {
+        expect(() => resolveRuntimeConfig({
+            env: {
+                GITHUB_TOKEN: 't',
+                DEPENDFIX_REPOSITORIES: 'foo/bar',
+                DEPENDFIX_MODE: 'fix',
+                DEPENDFIX_MAX_CONCURRENCY: '2',
+            },
+        })).toThrow('only supported in report-only mode')
+    })
+
+    it('rejects maxConcurrency > 1 in fix-and-pr mode (shared workDir write race)', () => {
+        expect(() => resolveRuntimeConfig({
+            env: {
+                GITHUB_TOKEN: 't',
+                DEPENDFIX_REPOSITORIES: 'foo/bar',
+                DEPENDFIX_MODE: 'fix-and-pr',
+                DEPENDFIX_MAX_CONCURRENCY: '2',
+            },
+        })).toThrow('only supported in report-only mode')
+    })
+
+    it('allows maxConcurrency > 1 in report-only mode', () => {
+        const config = resolveRuntimeConfig({
+            env: {
+                GITHUB_TOKEN: 't',
+                DEPENDFIX_REPOSITORIES: 'foo/bar',
+                DEPENDFIX_MAX_CONCURRENCY: '4',
+            },
+        })
+        expect(config.maxConcurrency).toBe(4)
     })
 })
 

@@ -61,25 +61,28 @@ T404（归档/趋势，依赖 T402，可并行）
 
 - **优先级**: P2
 - **依赖**: T401、现有 app 多仓库循环
-- **状态**: 待办
+- **状态**: 已完成（2026-08-06，提交后回链）
 - **交付物**: `packages/cli/src/multirepo/scheduler.ts`（并发执行 + 每仓库独立状态）
 
 **任务内容**:
 
-- [ ] `--max-concurrency` / `DEPENDFIX_MAX_CONCURRENCY`（默认 1 保守，>1 输出警告），并发上限校验（1-16）
-- [ ] 仓库级失败隔离：单仓库异常记录该仓库失败结果（failed + 错误详情），其余仓库继续执行
-- [ ] GitHub API 限流统一处理：429 / 403 secondary rate limit → 指数退避重试（octokit 插件或统一包装，退避上限可配）
-- [ ] 聚合 RunResult：多仓库结果合并（repositories 数组 + Summary 汇总行）
+- [x] `--max-concurrency` / `DEPENDFIX_MAX_CONCURRENCY`（默认 1 保守，>1 输出警告），并发上限校验（1-16）
+- [x] 仓库级失败隔离：单仓库异常记录该仓库失败结果（failed + 错误详情），其余仓库继续执行
+- [x] GitHub API 限流统一处理：429 / 403 secondary rate limit → 指数退避重试（octokit hook 统一包装，退避基数/重试次数可配）
+- [x] 聚合 RunResult：多仓库结果合并（repositories 数组 + Summary 汇总行）
 
 **完成定义**:
 
-- [ ] 注入单个仓库失败时，其余仓库全部完成且报告可见失败仓库详情
-- [ ] 并发数配置生效且行为正确（调度日志可见并发窗口）
-- [ ] 429 模拟下自动退避重试成功，不丢失已拉取数据
+- [x] 注入单个仓库失败时，其余仓库全部完成且报告可见失败仓库详情
+- [x] 并发数配置生效且行为正确（调度日志可见并发窗口）
+- [x] 429 模拟下自动退避重试成功，不丢失已拉取数据
 
 **非目标**: 跨进程 / 分布式调度（M7 BullMQ + Redis）
 
-**测试方案**: 调度器并发上限（mock 慢任务）、失败隔离集成测试（注入抛错仓库）、退避重试（mock 429 → 200）
+**测试方案**: 调度器并发上限（mock 慢任务）、失败隔离集成测试（注入抛错仓库）、退避重试（mock 429 → 200） ✅（scheduler 4 例 + client retry 12 例 + app 失败隔离 1 例 + config 并发校验 7 例）
+
+> **Review Gate**: 首轮 REJECT（P1：fix/fix-and-pr 并发写共享 workDir 数据竞争——已修复为 maxConcurrency>1 仅限 report-only，fail-fast 校验；P2：scheduler 兜底静默吞错——已补 onError 记录）。复查 PASS。
+> **残余风险（登记 backlog）**: 写请求 429 重放（低）、MAX_BACKOFF_MS 硬编码、Retry-After 未解析、CJS require p-queue ESM-only。
 
 ---
 

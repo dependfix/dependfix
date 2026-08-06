@@ -20,6 +20,7 @@ import {
 } from '@dependfix/core'
 import { createGitHubClient } from '../github/client'
 import { discoverRepositories, mergeRepositories } from '../github/repository-discovery'
+import { runWithConcurrency } from '../multirepo/scheduler'
 import { enforceVerificationGate } from '../runners/verification-gate'
 import { fetchDependabotAlerts } from '../github/dependabot-fetcher'
 import { fetchCodeScanningAlerts } from '../github/code-scanning-fetcher'
@@ -207,9 +208,8 @@ export class DependfixApp {
 
     private async executeReportMode(): Promise<void> {
         const client = this.githubClientOrNull()
-        for (const repo of await this.resolveRepositories(client)) {
-            await this.processRepoForReport(client, repo)
-        }
+        const repositories = await this.resolveRepositories(client)
+        await this.runRepoPipeline(repositories, (repo) => this.processRepoForReport(client, repo))
     }
 
     private async processRepoForReport(client: Octokit | null, repo: string): Promise<void> {
@@ -270,9 +270,8 @@ export class DependfixApp {
 
     private async executeFixMode(): Promise<void> {
         const client = this.githubClientOrNull()
-        for (const repo of await this.resolveRepositories(client)) {
-            await this.processRepoForFix(client, repo)
-        }
+        const repositories = await this.resolveRepositories(client)
+        await this.runRepoPipeline(repositories, (repo) => this.processRepoForFix(client, repo))
 
         // 修复完成后，按需在本地当前分支直接提交（不推送、不创建 PR）
         if (this.config.commit) {
@@ -636,9 +635,7 @@ export class DependfixApp {
 
         // 1. Run fix pipeline for all repos (same as fix mode)
         // （config 校验已保证 fix-and-pr 仅 github-dependabot 源，client 恒非 null）
-        for (const repo of repositories) {
-            await this.processRepoForFix(client, repo)
-        }
+        await this.runRepoPipeline(repositories, (repo) => this.processRepoForFix(client, repo))
 
         // 1.5 Optional: report merged dependfix branches for manual cleanup.
         // early return 前执行（"PR 已存在"等路径也输出清单）；cleanup-branches-auto 时跳过报告
@@ -792,6 +789,47 @@ export class DependfixApp {
         }
     }
 
+    // -----------------------------------------------------------------------
+    // Multi-repo orchestration（T402：并发控制 + 失败隔离）
+    // -----------------------------------------------------------------------
+
+    /**
+     * 多仓库并发执行管线。
+     *
+     * - 并发窗口 = config.maxConcurrency（默认 1 保守串行，行为与现状一致）
+     * - `>1` 时输出警告（并行 GitHub API 调用可能触发限流）
+     * - 失败隔离由 task 内部 try-catch 承担（每仓库独立 repoResults 记录），
+     *   scheduler 提供 onError 兜底，单仓库异常不中断整体
+     */
+    private async runRepoPipeline(
+        repositories: string[],
+        task: (repo: string) => Promise<void>,
+    ): Promise<void> {
+        if (this.config.maxConcurrency > 1) {
+            this.logger.warn(
+                `[scheduler] maxConcurrency=${this.config.maxConcurrency} > 1 — parallel GitHub API calls may hit rate limits; --max-retries applies (${this.config.maxRetries})`,
+            )
+        }
+
+        await runWithConcurrency({
+            items: repositories,
+            concurrency: this.config.maxConcurrency,
+            task,
+            logger: this.logger,
+            // 防御兜底：task 内部未捕获异常 → 记录审计错误，不中断整体
+            onError: (repo, error) => {
+                const message = toErrorMessage(error)
+                this.logger.error(`Failed to process ${repo}: ${message}`)
+                this.allErrors.push({
+                    repository: repo,
+                    stage: 'fix',
+                    category: 'PROCESS_FAILED',
+                    message,
+                })
+            },
+        })
+    }
+
     /**
      * 解析本次运行要处理的仓库清单（M4 owner 自动发现 + 显式列表合并）。
      *
@@ -871,7 +909,11 @@ export class DependfixApp {
     }
 
     private createClient(token: string = this.config.githubToken): Octokit {
-        return createGitHubClient({ token })
+        return createGitHubClient({
+            token,
+            // T402：429 / rate limit 指数退避重试（0 可关闭）
+            retry: { maxRetries: this.config.maxRetries },
+        })
     }
 
     /**

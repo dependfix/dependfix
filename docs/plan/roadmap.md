@@ -10,7 +10,8 @@
 | M3: Code Scanning 扩展 | 规则分级、可模板化修复、建议输出 | P1 | 已完成（2026-08-06 归档；T301-T305 全部完成） |
 | M4: 多仓库治理 | 自动发现、并发控制、报告归档 | P2 | 已完成（2026-08-06 归档；T401-T404 全部完成） |
 | M4.5: 跨线升级显式授权 | `--allow-major-upgrade` 跨线告警显式授权自动升级（仅 CLI，实例复核 + 完整验证 + 回滚） | P2 | 已完成（2026-08-07 归档；T405 完成） |
-| M5: AI Breaking Change 研判 | Changelog 采集、LLM 研判、修复生成、质量门 | P1 | 未开始 |
+| M4.6: Monorepo 成员级修复 | workspace 成员包直接依赖告警自动升级（T406 成员级修复器 + T407 分流接线） | P1 | 未开始（2026-08-07 立项，完成后再推进 M5） |
+| M5: AI Breaking Change 研判 | Changelog 采集、LLM 研判、修复生成、质量门 | P1 | 未开始（M4.6 之后） |
 | M6: 最小平台 MVP | 仓库管理、凭据管理、仪表板、MCP Server、Docker 部署 | P1 | 未开始 |
 | M7: 企业级平台增强 | RBAC、BullMQ+Redis、跨平台 Git、MCP Skill 集成、Helm Chart | P2 | 未开始 |
 
@@ -59,6 +60,12 @@ Monorepo 骨架搭建、核心配置模型、工具链版本策略固定、标�
 支持 owner 级仓库自动发现、并发控制与失败隔离、仓库白名单/黑名单策略、报告归档与趋势统计。
 
 > 详细任务见 [todo.md §M4](todo.md#m4-多仓库治理增强)
+
+## M4.6: Monorepo 成员级修复增强
+
+workspace 成员包直接依赖告警的自动修复：成员 manifest 升级能力（T406）+ 告警分流与 app 接线（T407）。
+
+> 详细任务见 [todo.md §M4.6](todo.md#m46-monorepo-成员级修复增强t406t407)
 
 ## M5: AI Breaking Change 研判
 

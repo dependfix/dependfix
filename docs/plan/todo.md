@@ -1,8 +1,9 @@
-# 当前阶段任务（M4）
+# 当前阶段任务（M4.6）
 
 > M0（基线收敛）/ M1（MVP 单仓库修复）/ M2（GitHub Action 接入）/ M3（Code Scanning 扩展）已完成，归档见 [todo-archive.md](todo-archive.md)。
 > **M4（多仓库治理增强）已完成（2026-08-06）**：T401-T404 全部交付并通过 Review Gate（提交 cb801b60 / fedb7200 / 5860fb4d / 2a7fed00），全量质量门（typecheck + lint + build + 650 tests）通过。
 > **M4.5（跨线升级显式授权）已完成（2026-08-07）**：T405 `--allow-major-upgrade` 交付（提交 edfb9e07），Review Gate 首轮 REJECT 修复后复审 PASS；随后清理编号标记残留并纳入 Review Gate 必查项（提交 528d1aae）。全量质量门（typecheck + lint + build + 720 tests）通过。
+> **M4.6（Monorepo 成员级修复增强）为本期任务（2026-08-07 立项，用户决策：完成后再推进 M5）**：T406/T407 详见下文。
 > M5 及之后阶段的任务见 [backlog.md](backlog.md)。
 
 ---
@@ -54,6 +55,66 @@
 - [x] 编号标记清理 + Review Gate 必查项落地（528d1aae），经验归档 §十五/§十六
 
 > **M4.5 交付说明（2026-08-07）**：T405 跨线显式授权（edfb9e07）——CLI 参数 + config（无 env 通道）+ 跨线分流（根声明准入）+ 2.0.2 链路（实例复核 + 完整验证 + 回滚）+ 10 集成测试；Review Gate 首轮 REJECT 4 项（P1-1 实例残留误标、P2-1 同包多告警目标选择、P2-2 成员独占必然失败、P2-3 验证证据缺失）全部修复后复审 PASS。随后用户指出 T405 引入与 3c714cc1 同类的编号标记问题 → 528d1aae 清理 10 处残留（8 处本次 + 2 处既有），并将"开发流程编号标记检查"纳入 code-auditor 必查项与 code-reviewer checklist；经验归档新增 §十五（跨线升级假设教训）与 §十六（规范存在 ≠ 被执行）。
+
+---
+
+## M4.6: Monorepo 成员级修复增强（T406/T407）
+
+**目标**: 打通 workspace 成员包直接依赖告警的自动修复链路。当前 `manifest_path = packages/x/package.json`（成员直接依赖，如 `packages/web` 中的 vite）一律归 sub 人工处理（修复器 `upgradeDependency` 仅改根 manifest）；本阶段为成员 manifest 提供与根对齐的升级能力。**本阶段完成后推进 M5**（2026-08-07 用户决策）。
+
+### T406 成员级直接依赖升级修复器
+
+- **优先级**: P1
+- **依赖**: T105（upgradeDependency）、C11（workspace 成员识别）
+- **状态**: 未开始
+- **交付物**: `packages/cli/src/fixers/dependency/index.ts` 扩展（支持成员 manifest 路径）
+
+**任务内容**:
+
+- [ ] `upgradeDependency` 支持指定 manifest 路径（默认根 package.json，现状回归）；成员包升级在其 dependencies / devDependencies / optionalDependencies 段匹配声明
+- [ ] 备份/回滚扩展：成员 manifest + 根 package.json（install 可能更新）+ `pnpm-lock.yaml` + `pnpm-workspace.yaml`
+- [ ] 升级后实例复核（对齐 T405）：lockfile 无脆弱实例残留，残留回滚计 failed
+- [ ] 验证链：workspace 根 `pnpm install` + lint/build 验证（成员无独立脚本时的回退/跳过策略明确化）
+
+**完成定义**:
+
+- [ ] 根直接依赖行为与现状完全一致（回归）
+- [ ] 成员直接依赖升级成功：成员声明更新 + lockfile 更新 + 无脆弱实例残留
+- [ ] 验证失败 / 实例残留回滚（成员 manifest + lockfile 恢复），计 failed 而非 fixed
+- [ ] dry-run 记录计划动作不写盘
+
+**非目标**: 成员级跨线升级（T405 跨线语义仅限根直接依赖，成员维持人工）；成员级间接依赖（全局 overrides 已覆盖）；`catalog:` 协议（C4 未实测，排除影响面）；成员级 overrides 写入（pnpm overrides 仅根生效）
+
+**测试方案**: 修复器单测（成员声明匹配 / 备份回滚 / 残留复核）+ app 集成（成员升级成功 / 验证失败回滚 / 实例残留回滚 / 推荐<锁定人工回归 / dry-run）
+
+### T407 成员告警分流与 app 接线
+
+- **优先级**: P1
+- **依赖**: T406
+- **状态**: 未开始
+- **交付物**: `partitionSubmanifestAlerts` 判定调整 + app 路由 + 报告字段
+
+**任务内容**:
+
+- [ ] partition 判定调整：成员 manifest 直接依赖告警按版本关系判定（lockfile 单版本 + 推荐 >= 锁定 → 可修；推荐 < 锁定 / 无版本信息 → sub 人工），与 C10 语义对齐
+- [ ] app 2.0 链路接线：成员升级动作 + 验证 + 回滚入报告
+- [ ] 报告：FixAction 升级对象展示成员路径（如 `packages/web`），PR body 表格可见
+
+**完成定义**:
+
+- [ ] 成员直接依赖安全场景自动升级，报告可见成员 manifest 路径
+- [ ] 降级风险 / 无版本信息场景维持人工（现状回归）
+- [ ] 多版本共存成员告警维持根版本化 overrides 语义（现状回归）
+
+**非目标**: 成员级跨线分流；`!` 排除模式 / 符号链接跟随（既有限制，另行评估）
+
+**测试方案**: partition 判定矩阵（成员直接依赖 × 版本关系）+ app 集成 + 报告字段断言
+
+## M4.6 完成判定
+
+- [ ] T406/T407 交付并通过 Review Gate
+- [ ] `pnpm typecheck` + `pnpm lint` + 全量测试 + `pnpm build` 通过
+- [ ] 根直接依赖行为回归无损
 
 ---
 

@@ -156,6 +156,11 @@ export interface CliConfigOverrides {
     verbose?: boolean
     /** 自定义验证命令（覆盖默认的 `pnpm install --frozen-lockfile` / `pnpm lint` / `pnpm build`） */
     commands?: string[]
+    /**
+     * 历史查询（仅 CLI `--history`）：读取归档索引列出仓库历史运行摘要，
+     * 不进入运行配置（resolveRuntimeConfig 不消费），由 CLI 层直接处理。
+     */
+    history?: string
 }
 
 export interface ResolveRuntimeConfigOptions {

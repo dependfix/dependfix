@@ -16,6 +16,8 @@ import {
     SEVERITY_THRESHOLDS,
     ALERT_SOURCES,
 } from '../config'
+import { queryRepoHistory } from '../report/archiver'
+import { formatHistory } from '../report/history'
 
 // ---------------------------------------------------------------------------
 // Public interfaces
@@ -134,6 +136,10 @@ const argsDef = {
         type: 'string' as const,
         description: 'GitHub API 限流重试次数（0-10，默认 3；429/rate limit 指数退避重试）',
         default: '3' as const,
+    },
+    history: {
+        type: 'string' as const,
+        description: '查询仓库历史运行摘要（读 dependfix-reports/index.json，倒序时间；不执行扫描）',
     },
     'upgrade-groups': {
         type: 'string' as const,
@@ -360,6 +366,12 @@ function parsedArgsToCliOverrides(parsed: ParsedArgs<typeof argsDef>): CliConfig
         overrides.maxRetries = num
     }
 
+    // history（独立查询命令，不进入运行配置）
+    const history = parsed.history
+    if (history) {
+        overrides.history = history
+    }
+
     // verbose (three-state: true / false / undefined)
     if (parsed.verbose !== undefined) {
         overrides.verbose = parsed.verbose
@@ -460,6 +472,12 @@ export function runCli(rawArgs: string[]): CliRunResult {
 
 async function runApp(rawArgs: string[]): Promise<number> {
     const invocation = parseCliArgs(rawArgs)
+
+    // --history：独立查询命令（读归档索引，不执行扫描、不要求 token/仓库配置）
+    if (invocation.configOverrides.history) {
+        return runHistoryQuery(invocation.configOverrides.history)
+    }
+
     const config = resolveRuntimeConfig({
         env: process.env,
         cliOverrides: invocation.configOverrides,
@@ -473,6 +491,16 @@ async function runApp(rawArgs: string[]): Promise<number> {
 
     const { exitCode } = await app.run()
     return exitCode
+}
+
+/**
+ * 查询仓库历史运行摘要并打印（读 `./dependfix-reports/index.json`）。
+ * 无历史 / 索引缺失不视为错误（exit 0），输出提示。
+ */
+function runHistoryQuery(repo: string): number {
+    const entries = queryRepoHistory(repo)
+    console.log(formatHistory(entries, repo))
+    return 0
 }
 
 // ---------------------------------------------------------------------------

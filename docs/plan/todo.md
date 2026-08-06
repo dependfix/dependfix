@@ -117,24 +117,27 @@ T404（归档/趋势，依赖 T402，可并行）
 
 - **优先级**: P2
 - **依赖**: T203（runId 已有）、T402
-- **状态**: 待办
+- **状态**: 已完成（2026-08-06，提交后回链）
 - **交付物**: `packages/cli/src/report/archiver.ts` + 归档索引
 
 **任务内容**:
 
-- [ ] 归档结构 `dependfix-reports/{YYYY-MM}/{runId}/`：多仓库各自 md/json + 汇总 json（现有 `writeReport` 输出保留）
-- [ ] 归档索引 `dependfix-reports/index.json`：runId、时间、仓库列表、告警/修复/失败计数、时长（趋势基础字段）
-- [ ] `--history <repo>` 命令：列出该仓库历史运行摘要（读 index.json，倒序时间）
-- [ ] 汇总 json 与单仓库报告同字段口径（复用 RunSummary 序列化）
+- [x] 归档结构 `dependfix-reports/{YYYY-MM}/{runId}/`：多仓库各自 md/json + 汇总 json（现有 `writeReport` 输出保留）
+- [x] 归档索引 `dependfix-reports/index.json`：runId、时间、仓库列表、告警/修复/失败计数、时长（趋势基础字段）
+- [x] `--history <repo>` 命令：列出该仓库历史运行摘要（读 index.json，倒序时间；计数取 repoStats 仓库级口径）
+- [x] 汇总 json 与单仓库报告同字段口径（复用 RunSummary 序列化）
 
 **完成定义**:
 
-- [ ] 连续 2 次运行后 index.json 可查询按仓库趋势（告警/修复/失败计数随时间变化）
-- [ ] 现有单仓库报告输出与 action artifact 路径不破坏（向后兼容）
+- [x] 连续 2 次运行后 index.json 可查询按仓库趋势（告警/修复/失败计数随时间变化）
+- [x] 现有单仓库报告输出与 action artifact 路径不破坏（向后兼容）
 
 **非目标**: 图表 / 仪表板可视化（M6 平台）；报告保留策略（容量治理登记 backlog）
 
-**测试方案**: 归档写盘结构、index.json 更新幂等、history 输出格式、汇总字段与 RunSummary 对齐
+**测试方案**: 归档写盘结构、index.json 更新幂等、history 输出格式、汇总字段与 RunSummary 对齐 ✅（archiver 10 例 + history 3 例 + app 归档集成 1 例）
+
+> **Review Gate**: 首轮 REJECT（P1：--history 多仓库输出全局计数——已改为 repoStats 仓库级口径；P2：grouping.test.ts 污染 cwd——已补 reportOutputDir 隔离）。复审 PASS（代码级；todo 状态同步后放行）。
+> **残余风险（登记 backlog）**: 损坏 index.json 覆盖即丢历史（无保留策略）；多进程并发写 index.json 非原子（单进程语义可接受）。
 
 ---
 

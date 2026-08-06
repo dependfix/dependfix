@@ -162,7 +162,7 @@ describe('DependfixApp group upgrade (T213)', () => {
                 upgradeGroups,
             },
         })
-        const app = new DependfixApp({ config, workDir, commands: ['pnpm lint'] })
+        const app = new DependfixApp({ config, workDir, reportOutputDir: join(workDir, 'reports'), commands: ['pnpm lint'] })
         return app.run()
     }
 
@@ -275,7 +275,7 @@ describe('DependfixApp group upgrade (T213)', () => {
                 upgradeGroups: { g: ['a-pkg', 'b-pkg'] },
             },
         })
-        const app = new DependfixApp({ config, workDir, commands: ['pnpm lint'] })
+        const app = new DependfixApp({ config, workDir, reportOutputDir: join(workDir, 'reports'), commands: ['pnpm lint'] })
         const { exitCode, result } = await app.run()
 
         expect(exitCode).toBe(0)

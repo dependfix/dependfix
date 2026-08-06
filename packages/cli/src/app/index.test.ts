@@ -1,5 +1,5 @@
 import { execSync } from 'node:child_process'
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import nock from 'nock'
@@ -103,7 +103,7 @@ describe('DependfixApp versioned overrides (same-major coexistence)', () => {
             },
         })
 
-        const app = new DependfixApp({ config, workDir })
+        const app = new DependfixApp({ config, workDir, reportOutputDir: join(workDir, 'reports') })
         const { exitCode, result } = await app.run()
 
         expect(exitCode).toBe(0)
@@ -153,7 +153,7 @@ describe('DependfixApp dual token', () => {
             },
         })
 
-        const app = new DependfixApp({ config, workDir })
+        const app = new DependfixApp({ config, workDir, reportOutputDir: join(workDir, 'reports') })
         const { exitCode } = await app.run()
 
         expect(exitCode).toBe(0)
@@ -180,7 +180,7 @@ describe('DependfixApp dual token', () => {
             },
         })
 
-        const app = new DependfixApp({ config, workDir })
+        const app = new DependfixApp({ config, workDir, reportOutputDir: join(workDir, 'reports') })
         const { exitCode } = await app.run()
 
         expect(exitCode).toBe(0)
@@ -231,7 +231,7 @@ describe('DependfixApp verification gate', () => {
             },
         })
 
-        const app = new DependfixApp({ config, workDir })
+        const app = new DependfixApp({ config, workDir, reportOutputDir: join(workDir, 'reports') })
         const { exitCode, result } = await app.run()
 
         expect(exitCode).toBe(2)
@@ -272,7 +272,7 @@ describe('DependfixApp pnpm-audit source', () => {
             workDir,
         })
 
-        const app = new DependfixApp({ config, workDir })
+        const app = new DependfixApp({ config, workDir, reportOutputDir: join(workDir, 'reports') })
         const { exitCode, result } = await app.run()
 
         expect(exitCode).toBe(0)
@@ -301,7 +301,7 @@ describe('DependfixApp pnpm-audit source', () => {
             },
         })
 
-        const app = new DependfixApp({ config, workDir })
+        const app = new DependfixApp({ config, workDir, reportOutputDir: join(workDir, 'reports') })
         const { exitCode, result } = await app.run()
 
         expect(exitCode).toBe(0)
@@ -326,7 +326,7 @@ describe('DependfixApp pnpm-audit source', () => {
             },
         })
 
-        const app = new DependfixApp({ config, workDir })
+        const app = new DependfixApp({ config, workDir, reportOutputDir: join(workDir, 'reports') })
         const { exitCode } = await app.run()
 
         expect(exitCode).toBe(0)
@@ -407,7 +407,7 @@ describe('DependfixApp code-scanning parallel source', () => {
             },
         })
 
-        const app = new DependfixApp({ config, workDir })
+        const app = new DependfixApp({ config, workDir, reportOutputDir: join(workDir, 'reports') })
         const { exitCode, result } = await app.run()
 
         expect(exitCode).toBe(0)
@@ -437,7 +437,7 @@ describe('DependfixApp code-scanning parallel source', () => {
             },
         })
 
-        const app = new DependfixApp({ config, workDir })
+        const app = new DependfixApp({ config, workDir, reportOutputDir: join(workDir, 'reports') })
         const { exitCode, result } = await app.run()
 
         expect(exitCode).toBe(0)
@@ -468,7 +468,7 @@ describe('DependfixApp code-scanning parallel source', () => {
             },
         })
 
-        const app = new DependfixApp({ config, workDir })
+        const app = new DependfixApp({ config, workDir, reportOutputDir: join(workDir, 'reports') })
         const { exitCode, result } = await app.run()
 
         expect(exitCode).toBe(0)
@@ -506,7 +506,7 @@ describe('DependfixApp code-scanning parallel source', () => {
             },
         })
 
-        const app = new DependfixApp({ config, workDir })
+        const app = new DependfixApp({ config, workDir, reportOutputDir: join(workDir, 'reports') })
         const { exitCode, result } = await app.run()
 
         expect(exitCode).toBe(0)
@@ -534,7 +534,7 @@ describe('DependfixApp code-scanning parallel source', () => {
             },
         })
 
-        const app = new DependfixApp({ config, workDir })
+        const app = new DependfixApp({ config, workDir, reportOutputDir: join(workDir, 'reports') })
         const { exitCode, result } = await app.run()
 
         expect(exitCode).toBe(2) // 唯一仓库 fetch 失败 → 无成功仓库
@@ -596,7 +596,7 @@ describe('DependfixApp code-scanning parallel source', () => {
             },
         })
 
-        const app = new DependfixApp({ config, workDir })
+        const app = new DependfixApp({ config, workDir, reportOutputDir: join(workDir, 'reports') })
         const { exitCode, result } = await app.run()
 
         expect(exitCode).toBe(0)
@@ -672,7 +672,7 @@ describe('DependfixApp owner discovery wiring', () => {
             },
         })
 
-        const app = new DependfixApp({ config, workDir })
+        const app = new DependfixApp({ config, workDir, reportOutputDir: join(workDir, 'reports') })
         const { result } = await app.run()
 
         // 报告 config 反映用户输入（显式列表原样，发现结果不污染配置）
@@ -706,7 +706,7 @@ describe('DependfixApp owner discovery wiring', () => {
             },
         })
 
-        const app = new DependfixApp({ config, workDir })
+        const app = new DependfixApp({ config, workDir, reportOutputDir: join(workDir, 'reports') })
         const { result, exitCode } = await app.run()
 
         // 显式仓库未被丢弃，且发现失败有审计记录
@@ -714,6 +714,34 @@ describe('DependfixApp owner discovery wiring', () => {
         expect(result.errors.some((e) => e.category === 'DISCOVERY_FAILED')).toBe(true)
         // 有错误 → 非 0 退出码
         expect(exitCode).not.toBe(0)
+        expect(nock.pendingMocks()).toEqual([])
+    })
+
+    it('writes archive with index.json trend entry after a run (T404)', async () => {
+        nock('https://api.github.com')
+            .get('/repos/foo/bar/dependabot/alerts')
+            .query({ state: 'open', per_page: '100' })
+            .reply(200, [])
+        nock('https://api.github.com')
+            .get('/repos/foo/bar')
+            .reply(200, { default_branch: 'main' })
+
+        const config = resolveRuntimeConfig({
+            env: {
+                GITHUB_TOKEN: 'main-token-value',
+                DEPENDFIX_REPOSITORIES: 'foo/bar',
+            },
+        })
+
+        const app = new DependfixApp({ config, workDir, reportOutputDir: join(workDir, 'reports') })
+        await app.run()
+
+        // 归档结构：{YYYY-MM}/{runId}/summary.json + index.json 趋势条目
+        const indexPath = join(workDir, 'reports', 'index.json')
+        expect(existsSync(indexPath)).toBe(true)
+        const index = JSON.parse(readFileSync(indexPath, 'utf-8')) as { runs: Array<{ repositories: string[] }> }
+        expect(index.runs).toHaveLength(1)
+        expect(index.runs[0].repositories).toEqual(['foo/bar'])
         expect(nock.pendingMocks()).toEqual([])
     })
 
@@ -765,7 +793,7 @@ describe('DependfixApp owner discovery wiring', () => {
             },
         })
 
-        const app = new DependfixApp({ config, workDir })
+        const app = new DependfixApp({ config, workDir, reportOutputDir: join(workDir, 'reports') })
         const { result } = await app.run()
 
         // 显式：foo/manual 保留（include 不适用）；foo/legacy-2 被 exclude 剔除
@@ -791,7 +819,7 @@ describe('DependfixApp owner discovery wiring', () => {
             },
         })
 
-        const app = new DependfixApp({ config, workDir })
+        const app = new DependfixApp({ config, workDir, reportOutputDir: join(workDir, 'reports') })
         const { result } = await app.run()
 
         expect(result.repositories.map((r) => r.repository)).toEqual(['foo/keep'])
@@ -861,7 +889,7 @@ describe('DependfixApp failure isolation (multi-repo)', () => {
             },
         })
 
-        const app = new DependfixApp({ config, workDir })
+        const app = new DependfixApp({ config, workDir, reportOutputDir: join(workDir, 'reports') })
         const { result, exitCode } = await app.run()
 
         // 失败隔离：3 个仓库都有结果（失败仓库不中断其余）

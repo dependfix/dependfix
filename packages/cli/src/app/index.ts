@@ -25,6 +25,7 @@ import {
     type RepoPolicy,
 } from '../github/repo-policy'
 import { runWithConcurrency } from '../multirepo/scheduler'
+import { writeArchive } from '../report/archiver'
 import { enforceVerificationGate } from '../runners/verification-gate'
 import { fetchDependabotAlerts } from '../github/dependabot-fetcher'
 import { fetchCodeScanningAlerts } from '../github/code-scanning-fetcher'
@@ -68,6 +69,8 @@ export interface DependfixAppOptions {
     config: RuntimeConfig
     /** 工作目录（默认 `process.cwd()`） */
     workDir?: string
+    /** 报告输出目录（默认 `./dependfix-reports`；测试可指向临时目录） */
+    reportOutputDir?: string
     /** 是否输出详细日志 */
     verbose?: boolean
     /** 自定义验证命令（覆盖默认命令链） */
@@ -88,6 +91,7 @@ export interface DependfixRunResult {
 export class DependfixApp {
     private readonly config: RuntimeConfig
     private readonly workDir: string
+    private readonly reportOutputDir: string
     private readonly logger: Logger
     private readonly verbose: boolean
     private readonly customCommands?: string[]
@@ -106,6 +110,7 @@ export class DependfixApp {
     constructor(options: DependfixAppOptions) {
         this.config = options.config
         this.workDir = options.workDir ?? process.cwd()
+        this.reportOutputDir = options.reportOutputDir ?? './dependfix-reports'
         this.verbose = options.verbose ?? false
         this.customCommands = options.commands
         this.runId = `dependfix-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
@@ -171,8 +176,11 @@ export class DependfixApp {
         try {
             const md = generateMarkdownReport(runResult)
             const json = generateJsonReport(runResult)
-            writeReport(md, json, this.startedAt, this.runId)
-            this.logger.info(`Reports written to ./dependfix-reports/`)
+            writeReport(md, json, this.startedAt, this.runId, this.reportOutputDir)
+            this.logger.info(`Reports written to ${this.reportOutputDir}/`)
+            // T404 归档：{YYYY-MM}/{runId}/ + index.json 趋势索引（幂等）
+            writeArchive(runResult, this.reportOutputDir)
+            this.logger.info(`Archive written to ${this.reportOutputDir}/`)
         } catch (reportError: unknown) {
             const message = toErrorMessage(reportError)
             this.logger.error(`Failed to write reports: ${message}`)

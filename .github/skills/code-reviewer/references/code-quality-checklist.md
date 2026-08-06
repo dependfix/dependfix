@@ -128,3 +128,22 @@ if (value) { ... }  // fails for 0, "", false
 - "What if this collection is empty?"
 - "What's the valid range for this number?"
 - "What happens at the boundaries (0, -1, MAX_INT)?"
+
+---
+
+## Standards Compliance
+
+### Development-Flow ID Markers in Comments & Test Names (必查)
+
+审查新增/修改的注释与测试名是否残留规划/任务/审计/backlog 编号标记。规范见项目 [development.md §3 注释规范](../../../../docs/standards/development.md)。
+
+- **禁止形态**：`C1:`、`T303`、`G2`、`M4+`、`R2`、`P0`、`P1-1` 等孤立编号（含 `C1：xxx` 中文冒号与 `it('C1: xxx')` 测试名前缀）
+- **例外（允许保留）**：
+  - 代码内真实常量：如 HTTP 错误码 `E401`
+  - 带文档路径/章节名的导航指针：如"背景详见 `docs/plan/todo.md`「已知缺口 G2」"、"见 todo.md G3"
+- **修复方式**：删除编号前缀，保留编号后的解释正文（如 `// 按包聚合（P2-1 修复）` → `// 按包聚合（避免同包多告警丢失）`）
+
+### Questions to Ask
+- "diff 中新增的注释/测试名是否含孤立编号标记？"
+- "编号是否带可反查的文档路径（导航指针例外）？"
+- "清理编号后解释正文是否保留、语义是否完整？"

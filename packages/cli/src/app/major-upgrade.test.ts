@@ -7,11 +7,11 @@ import { resolveRuntimeConfig } from '../config'
 import { DependfixApp } from './index'
 
 // ---------------------------------------------------------------------------
-// 跨线升级集成测试（T405 --allow-major-upgrade）：
+// 跨线升级集成测试（--allow-major-upgrade）：
 // mock 掉真实依赖升级（fixers/dependency 的 upgradeDependency）与验证命令执行
 // （verification-runner），验证 app/index.ts 2.0.2 跨线链路语义：
-// 仅「直接依赖 + lockfile 单版本」自动跨线；强制完整验证；失败回滚；
-// 间接依赖 / 多版本共存维持人工；默认关闭行为不变。
+// 仅「根直接依赖 + lockfile 单版本」自动跨线；升级后实例复核；强制完整验证；
+// 失败回滚；成员独占 / 间接依赖 / 多版本共存维持人工；默认关闭行为不变。
 // ---------------------------------------------------------------------------
 
 const { mockRunVerification, mockUpgradeDependency, mockTryLockfileRepair } = vi.hoisted(() => ({
@@ -50,7 +50,7 @@ vi.mock('./helpers', async (importOriginal) => {
  * 同时更新 lockfile 模拟 install 结果：
  * - `keepOldInstance: false`（默认）：单版本跟随——lockfile 中旧实例替换为目标版本
  * - `keepOldInstance: true`：模拟 workspace 成员同 range / 传递依赖 pin 残留——
- *   lockfile 中旧实例保留并追加目标版本（共存状态，触发 P1-1 实例复核回滚）
+ *   lockfile 中旧实例保留并追加目标版本（共存状态，触发实例复核回滚）
  */
 function mockUpgradeWritingManifest(
     packageName: string,

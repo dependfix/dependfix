@@ -6,7 +6,7 @@ import { AppError, normalizeAuditSeverity, type NormalizedSecurityAlert } from '
  * pnpm audit 本地回退数据源（无 GitHub token 场景）。
  *
  * 设计见 docs/design/pnpm-audit-fallback.md：
- * - 显式 `--alerts-source pnpm-audit` 触发（403 不自动降级，保持 T-G2-1 硬失败语义）
+ * - 显式 `--alerts-source pnpm-audit` 触发（403 不自动降级，保持硬失败语义）
  * - 归一化口径对齐 security-alert-remediator 的 collect-security-alerts.mjs
  *   （severity 映射 / legacy + modern 双格式解析 / 按 packageName:advisoryId:severity 去重）
  * - repository 由调用方注入（显式 --repo → git remote → local 兜底）

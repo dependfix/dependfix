@@ -177,7 +177,7 @@ function isWorkspaceDirectDependency(workDir: string, packageName: string): bool
  *
  * 与 `isWorkspaceDirectDependency` 的区别：修复器 `upgradeDependency` 只修改
  * 根 manifest，跨线升级准入必须与修复器能力对齐——仅成员声明的包（root 未声明）
- * 进入跨线链路必然失败，维持人工处理（T405 Review Gate P2-2 修复）。
+ * 进入跨线链路必然失败，维持人工处理。
  */
 export function isRootDirectDependency(workDir: string, packageName: string): boolean {
     const names = new Set<string>()

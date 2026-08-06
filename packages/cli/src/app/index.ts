@@ -367,7 +367,7 @@ export class DependfixApp {
                 (a) => a.source !== 'code-scanning' && a.manifestPath.trim().replace(/\\/g, '/') === 'pnpm-lock.yaml'
                     && a.fixable && a.recommendedVersion,
             )
-            // 2.0 跨线告警分流（PR #28 复盘 2026-08-06 + T405 --allow-major-upgrade 扩展）：
+            // 2.0 跨线告警分流（跨线告警复盘 + --allow-major-upgrade 扩展）：
             // 推荐版本的 major 不在 lockfile 实例 majors 中 → 本大版本线无修复版本
             // （如 5.x 实例的 GHSA-fx2h 推荐 6.4.3），只能跨大版本升级修复。
             // 默认保持不跨大版本自动升级——此类告警不修复、不标 fixed/converged，
@@ -377,7 +377,7 @@ export class DependfixApp {
             // 验证 + 失败回滚）；workspace 成员独占声明（root 未声明，修复器只改根
             // manifest——必然失败）、间接依赖、多版本共存跨线告警维持人工（跨线版本化
             // overrides 会破坏依赖方 range 导致 install 失败，全局 override 会降级根声明
-            // ——保守正确，C10 教训）。
+            // ——保守正确，降级声明教训）。
             const allCrossMajorAlerts = lockfileManifestAlerts.filter((a) => isCrossMajorFixRequired(lockfilePath, a))
             const manualCrossMajorAlerts = allCrossMajorAlerts.filter(
                 (a) => !(this.config.allowMajorUpgrade
@@ -511,7 +511,7 @@ export class DependfixApp {
             // 同包多条跨线告警取最高 recommendedVersion 为升级目标（镜像 dedupeFixableAlerts
             // 语义），被合并告警随代表告警一并处理并在日志中说明。
             // 不误标 fixed/converged：成功仅计入 fixed；失败计 failed + 错误可审计。
-            // 按包聚合：取最高推荐版本为代表告警（P2-1 修复）
+            // 按包聚合：取最高推荐版本为代表告警（避免同包多告警只升第一条目标、其余静默丢失）
             const autoMajorByPackage = new Map<string, NormalizedSecurityAlert>()
             for (const alert of autoMajorAlerts) {
                 const existing = autoMajorByPackage.get(alert.packageName)
@@ -570,7 +570,7 @@ export class DependfixApp {
                     failed++
                     continue
                 }
-                // 升级后实例复核（P1-1）：root 声明已升，但 workspace 成员同 range /
+                // 升级后实例复核：root 声明已升，但 workspace 成员同 range /
                 // 传递依赖 pin 可能仍锁旧 major → lockfile 残留脆弱实例 → 回滚
                 // （不进入验证阶段，省时且不制造"跨线成功但告警未消除"状态）
                 const remainingVersions = readLockfileVersions(lockfilePath, alert.packageName)
@@ -599,7 +599,7 @@ export class DependfixApp {
                 }
                 // 跨线强制完整验证（install + lint + build）
                 const majorVerifyActions = await verifyProject(this.ctx, repo)
-                // 验证动作入 allActions（P2-3）：成功证据可审计（summary 验证计数 + PR body Verification 章节）
+                // 验证动作入 allActions：成功证据可审计（summary 验证计数 + PR body Verification 章节）
                 this.allActions.push(...majorVerifyActions)
                 const majorOk = majorVerifyActions.every((a) => a.success)
                 if (majorOk) {

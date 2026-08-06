@@ -41,6 +41,7 @@ description: 负责对代码、文档、配置、脚本与治理定义执行 Rev
 - 审核实现是否满足 Todo 验收标准，而不是只检查是否"能跑"。
 - 按改动类型核对最低验证矩阵，确认 `lint`、`typecheck`、`lint:md`、定向测试、构建验证或浏览器验证是否齐备。
 - 审核安全、权限、类型、命名与规范一致性。
+- **开发流程编号标记检查（必查项）**：按 [开发规范 §3 注释规范](../../docs/standards/development.md) 检查 diff 中新增/修改的注释与测试名是否出现规划/任务/审计/backlog 编号（`T\d{3}`、`P[0-3](?:-[0-9])?`、`C\d+`、`G\d`、`R\d`、`M\d+`、`B\d` 等形态，含中文冒号形式与 `it('C1: xxx')` 测试名）。例外仅两类：代码内真实常量（如 `E401`）与**带文档路径或章节名的导航指针**（如"见 `docs/plan/todo.md`「已知缺口 G2」"）；孤立编号必须退回执行角色清理，保留编号后的解释正文。
 - 对测试代码、脚本代码、配置代码、规划文档和 skill / agent 定义同样适用，不只审业务代码。
 - **skill / agent 定义只审 `.github/` 源目录**：`.claude/`、`.agents/`、`.opencode/` 下的 agent / skill 文件是指向 `.github/agents`、`.github/skills` 的符号链接（由 `scripts/setup/setup-ai.mjs` 创建），不是独立副本——只审源目录即可，无需逐个审查平台副本（见 [AI 资产治理规范 §2.2](../../docs/standards/ai-governance.md)）。
 - 维护多轮 review 的问题编号与复查基线，避免问题在轮次之间丢失。

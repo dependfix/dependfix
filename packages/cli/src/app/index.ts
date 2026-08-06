@@ -925,7 +925,10 @@ export class DependfixApp {
      * - `github-dependabot`：Octokit 拉取 Dependabot alerts（alertsToken 优先）；
      *   `codeScanningEnabled` 时**并行**拉取 Code Scanning alerts（互不覆盖、互不回退）
      * - `pnpm-audit`：本地 `pnpm audit --json` 回退（无 token；repository 已由 resolveAlertRepositories 解析）
-     * 并行源任一失败 → 抛 AppError 硬失败（沿用 T-G2-1 语义），由调用方 catch 记录 hint。
+     *
+     * C8 per-source 错误隔离：并行源任一失败 → 记录该源 FETCH_FAILED 错误
+     * （退出码保持非 0）并保留成功源数据继续处理；**全部源失败**才抛错
+     * （调用方 catch 记录仓库失败，保持 hint 语义）。
      */
     private async fetchAlerts(repo: string): Promise<NormalizedSecurityAlert[]> {
         if (this.config.alertSource === 'pnpm-audit') {
@@ -934,13 +937,61 @@ export class DependfixApp {
         const alertsClient = this.createAlertsClient()
         const [owner, name] = repo.split('/')
 
-        const dependabotAlerts = await fetchDependabotAlerts(alertsClient, { owner, repo: name })
-        if (!this.config.codeScanningEnabled) {
-            return dependabotAlerts
+        const [dependabotResult, codeScanningResult] = await Promise.allSettled([
+            fetchDependabotAlerts(alertsClient, { owner, repo: name }),
+            this.config.codeScanningEnabled
+                ? fetchCodeScanningAlerts(alertsClient, { owner, repo: name })
+                : Promise.resolve([] as NormalizedSecurityAlert[]),
+        ])
+
+        const alerts: NormalizedSecurityAlert[] = []
+        const failedSources: string[] = []
+
+        if (dependabotResult.status === 'fulfilled') {
+            alerts.push(...dependabotResult.value)
+        } else {
+            failedSources.push('dependabot')
+            this.recordAlertSourceError(repo, 'dependabot', dependabotResult.reason)
         }
-        const codeScanningAlerts = await fetchCodeScanningAlerts(alertsClient, { owner, repo: name })
-        this.logger.info(`Fetched ${codeScanningAlerts.length} code scanning alerts for ${repo}`)
-        return [...dependabotAlerts, ...codeScanningAlerts]
+
+        if (this.config.codeScanningEnabled) {
+            if (codeScanningResult.status === 'fulfilled') {
+                alerts.push(...codeScanningResult.value)
+                this.logger.info(`Fetched ${codeScanningResult.value.length} code scanning alerts for ${repo}`)
+            } else {
+                failedSources.push('code-scanning')
+                this.recordAlertSourceError(repo, 'code-scanning', codeScanningResult.reason)
+            }
+        }
+
+        // 全部源失败 → 抛第一个失败（调用方 catch 保持仓库失败语义 + token hint）
+        const totalSources = this.config.codeScanningEnabled ? 2 : 1
+        if (failedSources.length === totalSources) {
+            let firstReason: unknown
+            if (dependabotResult.status === 'rejected') {
+                firstReason = dependabotResult.reason
+            } else if (codeScanningResult.status === 'rejected') {
+                firstReason = codeScanningResult.reason
+            } else {
+                firstReason = new Error(`failed to fetch alerts for ${repo}`)
+            }
+            throw firstReason
+        }
+
+        return alerts
+    }
+
+    /** C8：记录单个告警源的拉取失败（不中断另一源的处理）。 */
+    private recordAlertSourceError(repo: string, source: string, error: unknown): void {
+        const message = toErrorMessage(error)
+        const hint = dependabotAlertsTokenHint(error) ?? codeScanningAlertsTokenHint(error)
+        this.logger.error(`Failed to fetch ${source} alerts for ${repo}: ${message}${hint ? ` — ${hint}` : ''}`)
+        this.allErrors.push({
+            repository: repo,
+            stage: 'fetch',
+            category: 'FETCH_FAILED',
+            message: hint ? `${message}（${hint}）` : message,
+        })
     }
 
     /** pnpm-audit 模式不创建 GitHub client（无 token）；github-dependabot 模式返回主 token client。 */

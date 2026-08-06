@@ -238,7 +238,7 @@ describe('DependfixApp verification gate', () => {
         expect(result.errors.some((e) => e.category === 'VERIFICATION_FAILED')).toBe(true)
         // 已跟踪文件已回滚（untracked 的 pnpm-lock.yaml / node_modules 是运行产物，保留为预期行为）
         expect(execSync('git status --porcelain --untracked-files=no', { cwd: workDir, encoding: 'utf-8' }).trim()).toBe('')
-    })
+    }, 30_000) // 含真实 git init/回滚 + 验证子进程：Windows 并行负载下放宽超时
 })
 
 // ---------------------------------------------------------------------------
@@ -514,7 +514,7 @@ describe('DependfixApp code-scanning parallel source', () => {
         expect(nock.pendingMocks()).toEqual([])
     })
 
-    it('hard-fails with security-events hint when code scanning fetch returns 403', async () => {
+    it('C8: keeps dependabot data with security-events hint when code scanning fetch returns 403', async () => {
         nock('https://api.github.com')
             .get('/repos/foo/bar/dependabot/alerts')
             .query({ state: 'open', per_page: '100' })
@@ -524,6 +524,10 @@ describe('DependfixApp code-scanning parallel source', () => {
             .get('/repos/foo/bar/code-scanning/alerts')
             .query({ state: 'open', per_page: '100' })
             .reply(403, { message: 'Resource not accessible by integration' })
+
+        nock('https://api.github.com')
+            .get('/repos/foo/bar')
+            .reply(200, { default_branch: 'main' })
 
         const config = resolveRuntimeConfig({
             env: {
@@ -537,7 +541,10 @@ describe('DependfixApp code-scanning parallel source', () => {
         const app = new DependfixApp({ config, workDir, reportOutputDir: join(workDir, 'reports') })
         const { exitCode, result } = await app.run()
 
-        expect(exitCode).toBe(2) // 唯一仓库 fetch 失败 → 无成功仓库
+        // C8 语义：cs 源失败不再硬失败——保留 dependabot 数据，源失败记录错误（退出码非 0）
+        expect(result.repositories[0].alertsCount).toBe(1)
+        expect(result.alerts.some((a) => a.source === 'dependabot')).toBe(true)
+        expect(exitCode).toBe(1) // 有错误 + 有成功仓库 → 部分失败
         const fetchError = result.errors.find((e) => e.stage === 'fetch')
         expect(fetchError).toBeDefined()
         expect(fetchError?.message).toContain('security-events')
@@ -937,5 +944,147 @@ describe('DependfixApp failure isolation (multi-repo)', () => {
         // 部分失败 → exitCode 1（有成功仓库 + 有错误）
         expect(exitCode).toBe(1)
         expect(nock.pendingMocks()).toEqual([])
+    })
+})
+
+// ---------------------------------------------------------------------------
+// C8 per-source 错误隔离：并行源任一失败保留成功源数据，退出码保持非 0
+// ---------------------------------------------------------------------------
+
+describe('DependfixApp per-source error isolation (C8)', () => {
+    let workDir: string
+
+    beforeEach(() => {
+        workDir = mkdtempSync(join(tmpdir(), 'dependfix-c8-'))
+        writeFileSync(join(workDir, 'package.json'), JSON.stringify({
+            name: 'fixture',
+            version: '1.0.0',
+        }, null, 2))
+    })
+
+    afterEach(() => {
+        nock.cleanAll()
+        rmSync(workDir, { recursive: true, force: true })
+    })
+
+    function makeDependabotAlert(number = 1): Record<string, unknown> {
+        return {
+            number,
+            state: 'open',
+            html_url: `https://github.com/foo/bar/security/dependabot/${number}`,
+            security_advisory: { ghsa_id: 'GHSA-xxxx-xxxx-xxxx', severity: 'critical', summary: 'test' },
+            security_vulnerability: {
+                package: { ecosystem: 'npm', name: 'lodash' },
+                severity: 'critical',
+                vulnerable_version_range: '< 4.17.21',
+                first_patched_version: { identifier: '4.17.21' },
+            },
+            dependency: { package: { ecosystem: 'npm', name: 'lodash' }, manifest_path: 'package.json' },
+        }
+    }
+
+    function makeCodeScanningAlert(): Record<string, unknown> {
+        return {
+            number: 2,
+            state: 'open',
+            html_url: 'https://github.com/foo/bar/security/code-scanning/2',
+            rule: { id: 'js/sql-injection', severity: 'error', security_severity_level: 'high', name: 'SQL injection' },
+            most_recent_instance: {
+                ref: 'refs/heads/main',
+                location: { path: 'src/db.ts', start_line: 42, end_line: 42 },
+                message: { text: 'This query depends on a user-provided value.' },
+            },
+        }
+    }
+
+    it('keeps code-scanning alerts when dependabot source fails (dependabot 500)', async () => {
+        nock('https://api.github.com')
+            .get('/repos/foo/bar/dependabot/alerts')
+            .query({ state: 'open', per_page: '100' })
+            .reply(500, { message: 'Internal Server Error' })
+        nock('https://api.github.com')
+            .get('/repos/foo/bar/code-scanning/alerts')
+            .query({ state: 'open', per_page: '100' })
+            .reply(200, [makeCodeScanningAlert()])
+        nock('https://api.github.com')
+            .get('/repos/foo/bar')
+            .reply(200, { default_branch: 'main' })
+
+        const config = resolveRuntimeConfig({
+            env: {
+                GITHUB_TOKEN: 'main-token-value',
+                DEPENDFIX_REPOSITORIES: 'foo/bar',
+                DEPENDFIX_CODE_SCANNING: 'true',
+            },
+        })
+
+        const app = new DependfixApp({ config, workDir, reportOutputDir: join(workDir, 'reports') })
+        const { result, exitCode } = await app.run()
+
+        // 仓库正常完成（保留 cs 源数据），源失败有审计记录
+        expect(result.repositories[0].alertsCount).toBe(1)
+        expect(result.alerts.some((a) => a.source === 'code-scanning')).toBe(true)
+        expect(result.errors.some((e) => e.repository === 'foo/bar' && e.stage === 'fetch')).toBe(true)
+        // 退出码保持非 0（有错误）
+        expect(exitCode).not.toBe(0)
+        expect(nock.pendingMocks()).toEqual([])
+    })
+
+    it('keeps dependabot alerts when code-scanning source fails (cs 500)', async () => {
+        nock('https://api.github.com')
+            .get('/repos/foo/bar/dependabot/alerts')
+            .query({ state: 'open', per_page: '100' })
+            .reply(200, [makeDependabotAlert()])
+        nock('https://api.github.com')
+            .get('/repos/foo/bar/code-scanning/alerts')
+            .query({ state: 'open', per_page: '100' })
+            .reply(500, { message: 'Internal Server Error' })
+        nock('https://api.github.com')
+            .get('/repos/foo/bar')
+            .reply(200, { default_branch: 'main' })
+
+        const config = resolveRuntimeConfig({
+            env: {
+                GITHUB_TOKEN: 'main-token-value',
+                DEPENDFIX_REPOSITORIES: 'foo/bar',
+                DEPENDFIX_CODE_SCANNING: 'true',
+            },
+        })
+
+        const app = new DependfixApp({ config, workDir, reportOutputDir: join(workDir, 'reports') })
+        const { result, exitCode } = await app.run()
+
+        expect(result.repositories[0].alertsCount).toBe(1)
+        expect(result.alerts.some((a) => a.source === 'dependabot')).toBe(true)
+        expect(result.errors.some((e) => e.repository === 'foo/bar' && e.stage === 'fetch')).toBe(true)
+        expect(exitCode).not.toBe(0)
+        expect(nock.pendingMocks()).toEqual([])
+    })
+
+    it('fails the repository when both sources fail (throws, no partial data)', async () => {
+        nock('https://api.github.com')
+            .get('/repos/foo/bar/dependabot/alerts')
+            .query({ state: 'open', per_page: '100' })
+            .reply(500, { message: 'boom' })
+        nock('https://api.github.com')
+            .get('/repos/foo/bar/code-scanning/alerts')
+            .query({ state: 'open', per_page: '100' })
+            .reply(500, { message: 'boom' })
+
+        const config = resolveRuntimeConfig({
+            env: {
+                GITHUB_TOKEN: 'main-token-value',
+                DEPENDFIX_REPOSITORIES: 'foo/bar',
+                DEPENDFIX_CODE_SCANNING: 'true',
+            },
+        })
+
+        const app = new DependfixApp({ config, workDir, reportOutputDir: join(workDir, 'reports') })
+        const { result, exitCode } = await app.run()
+
+        // 仓库失败语义保持：alertsCount 0 + 错误可见 + 非 0 退出
+        expect(result.repositories[0].alertsCount).toBe(0)
+        expect(result.errors.length).toBeGreaterThanOrEqual(1)
+        expect(exitCode).not.toBe(0)
     })
 })

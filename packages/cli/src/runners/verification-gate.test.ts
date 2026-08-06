@@ -56,5 +56,5 @@ describe('rollbackChanges', () => {
 
         expect(execSync('git status --porcelain', { cwd: workDir, encoding: 'utf-8' }).trim()).toBe('')
         expect(execSync('git show HEAD:package.json', { cwd: workDir, encoding: 'utf-8' })).toContain('"version":"1.0.0"')
-    })
+    }, 30_000) // git 操作在 Windows 并行测试负载下可能较慢：显式放宽超时（默认 5s 偶发超时）
 })

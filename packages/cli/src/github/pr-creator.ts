@@ -71,8 +71,10 @@ const BRANCH_PREFIX = 'dependfix/auto-fix-'
  * 计算修复内容指纹（sha256 前 8 位）。
  *
  * 指纹基于**结构化修复结果**而非 git diff：
- * - 成功升级集：`pkg@toVersion`（排序拼接）
- * - 修复失败集：失败包名（排序拼接）
+ * - 成功升级集：`pkg@toVersion@manifest`（排序拼接；manifest 区分根升级与
+ *   成员升级——成员级修复（T406/T407）后，同包根/成员升级是不同修复内容，
+ *   若指纹不含 manifest 维度，根升级 PR 会错误 skip 后续成员升级，P2-1）
+ * - 修复失败集：失败包名@manifest（排序拼接）
  * - lockfile 修复状态（成功/失败）
  *
  * 同告警集 → 同修复结果 → 同指纹 → 幂等跳过；
@@ -86,12 +88,12 @@ export function computeFixFingerprint(actions: FixAction[]): string {
 
     const upgrades = actions
         .filter((a) => isUpgrade(a) && a.success && a.toVersion)
-        .map((a) => `${a.target}@${a.toVersion}`)
+        .map((a) => `${a.target}@${a.toVersion}@${a.filePath ?? 'root'}`)
         .sort()
 
     const failures = actions
         .filter((a) => isUpgrade(a) && !a.success)
-        .map((a) => a.target)
+        .map((a) => `${a.target}@${a.filePath ?? 'root'}`)
         .sort()
 
     const repairs = actions
@@ -373,9 +375,13 @@ function escapeTableCell(value: string): string {
     return value.replace(/\|/g, '\\|').replace(/\r?\n/g, ' ')
 }
 
-/** 依赖升级 action 的聚合键（仓库 + 包名；跨仓库同包不合并） */
+/**
+ * 依赖升级 action 的聚合键（仓库 + 包名 + 目标 manifest；跨仓库同包不合并；
+ * 同包根升级与成员升级（T406/T407）各自成行，避免成员 filePath 丢失——
+ * Review Gate P2-1）。
+ */
 function upgradeKey(action: FixAction): string {
-    return `${action.repository}\u0000${action.target}`
+    return `${action.repository}\u0000${action.target}\u0000${action.filePath ?? ''}`
 }
 
 /** 按 (仓库, 包名) 聚合依赖升级 action。 */
@@ -387,6 +393,8 @@ interface AggregatedUpgrade {
     isMajor: boolean
     strategy?: string
     error?: string
+    /** 成员级升级目标 manifest（相对路径，如 `packages/web/package.json`）；根升级缺省 */
+    filePath?: string
 }
 
 function aggregateUpgradeActions(
@@ -410,6 +418,7 @@ function aggregateUpgradeActions(
                 isMajor: action.isMajor === true,
                 strategy: action.strategy,
                 error: action.error,
+                filePath: action.filePath,
             })
             continue
         }
@@ -483,10 +492,13 @@ export function generatePRBody(result: RunResult, supersededNumbers?: number[]):
                 strategy = 'pnpm overrides'
             } else if (u.strategy === 'major-upgrade') {
                 strategy = 'major-upgrade'
+            } else if (u.strategy === 'member-upgrade') {
+                strategy = 'member upgrade'
             }
+            const packageCell = u.filePath ? `\`${u.packageName}\` (${u.filePath})` : `\`${u.packageName}\``
             const cells = multiRepo
-                ? [u.repository, `\`${u.packageName}\``, u.fromVersion ?? '-', u.toVersion ?? '-', strategy, major]
-                : [`\`${u.packageName}\``, u.fromVersion ?? '-', u.toVersion ?? '-', strategy, major]
+                ? [u.repository, packageCell, u.fromVersion ?? '-', u.toVersion ?? '-', strategy, major]
+                : [packageCell, u.fromVersion ?? '-', u.toVersion ?? '-', strategy, major]
             lines.push(`| ${cells.join(' | ')} |`)
         }
         lines.push('')
@@ -530,9 +542,10 @@ export function generatePRBody(result: RunResult, supersededNumbers?: number[]):
         for (const f of failures) {
             const target = f.toVersion ?? '-'
             const error = escapeTableCell(f.error ?? 'unknown error')
+            const packageCell = f.filePath ? `\`${f.packageName}\` (${f.filePath})` : `\`${f.packageName}\``
             const cells = multiRepo
-                ? [f.repository, `\`${f.packageName}\``, target, error]
-                : [`\`${f.packageName}\``, target, error]
+                ? [f.repository, packageCell, target, error]
+                : [packageCell, target, error]
             lines.push(`| ${cells.join(' | ')} |`)
         }
         lines.push('')

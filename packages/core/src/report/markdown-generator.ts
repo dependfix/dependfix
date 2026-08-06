@@ -230,7 +230,8 @@ function actionDetails(action: FixAction, error?: string): string {
     const base = ((): string => {
         switch (action.type) {
             case 'dependency-upgrade':
-                return `${action.fromVersion ?? '?'} → ${action.toVersion ?? '?'}`
+                // 成员级升级（T406/T407）展示目标 manifest，根升级不受影响
+                return `${action.fromVersion ?? '?'} → ${action.toVersion ?? '?'}${action.filePath ? ` (${action.filePath})` : ''}`
             case 'lockfile-repair':
                 return action.strategy
                     ? `${action.strategy}: ${action.diff ?? ''}`

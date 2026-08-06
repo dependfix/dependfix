@@ -6,7 +6,7 @@ import { existsSync, readdirSync, readFileSync, statSync, unlinkSync, writeFileS
 import { join } from 'node:path'
 import { parse as parseYaml } from 'yaml'
 import type { NormalizedSecurityAlert } from '@dependfix/core'
-import { compareSemver, readLockfileVersions } from '../fixers/dependency'
+import { compareSemver, readLockfileVersions, isCrossMajorFixRequired } from '../fixers/dependency'
 import { runVerification } from '../runners/verification-runner'
 import { validateVerifyCommands, type AppContext } from '../app/helpers'
 
@@ -41,10 +41,12 @@ export function dedupeFixableAlerts(alerts: NormalizedSecurityAlert[]): Normaliz
  * 读取修复涉及的关键文件快照（逐包回滚基线）。
  *
  * 快照文件：`package.json` / `pnpm-workspace.yaml` / `pnpm-lock.yaml`（存在才记录）。
+ * `extraPaths` 可附加额外相对路径（key 即相对路径，如 `packages/web/package.json`），
+ * 用于成员级修复（T406/T407）将成员 manifest 纳入回滚基线。
  * 用于逐包升级验证失败时精确回滚该包产生的改动，而不影响此前已成功的包。
  */
-export function snapshotTrackedFiles(workDir: string): Record<string, string | null> {
-    const targets = ['package.json', 'pnpm-workspace.yaml', 'pnpm-lock.yaml']
+export function snapshotTrackedFiles(workDir: string, extraPaths?: string[]): Record<string, string | null> {
+    const targets = ['package.json', 'pnpm-workspace.yaml', 'pnpm-lock.yaml', ...(extraPaths ?? [])]
     const snapshot: Record<string, string | null> = {}
 
     for (const name of targets) {
@@ -105,6 +107,24 @@ export async function quickVerifyProject(
 }
 
 /**
+ * 成员级可修复告警条目：告警 + 所属成员目录（相对 workDir，如 `packages/web`）。
+ */
+export interface MemberManifestAlert {
+    alert: NormalizedSecurityAlert
+    /** 成员目录（相对 workDir，如 `packages/web`） */
+    manifestDir: string
+}
+
+/**
+ * 告警分区结果：根 manifest / 成员 manifest（可自动修复）/ 其他（人工）。
+ */
+export interface SubmanifestPartition {
+    root: NormalizedSecurityAlert[]
+    member: MemberManifestAlert[]
+    sub: NormalizedSecurityAlert[]
+}
+
+/**
  * 区分可安全自动修复的告警与需人工处理的告警（防护 + run 30933266831 复盘修正）。
  *
  * Dependabot 告警携带 `dependency.manifest_path`，其值与包类型相关：
@@ -124,14 +144,22 @@ export async function quickVerifyProject(
  *     - lockfile 中仅单版本且**推荐版本 < 锁定版本** → sub（全局 overrides 会降级声明，
  *       如 vite@5 告警会降级根 vite@8——run 30929090403 教训；需人工处理）
  *     - lockfile 无版本信息 → sub（无法判断降级风险，保守跳过）
- * - 其他子目录 manifest → sub（单根模型无法安全修，需人工处理）
+ * - 其他子目录 manifest：
+ *   - **workspace 成员 manifest**（目录 ∈ `pnpm-workspace.yaml` packages 白名单）
+ *     + 包在成员 manifest 直接声明 + lockfile 单版本 + 推荐 >= 锁定 + 非跨线
+ *     → member（成员级升级，T406/T407）
+ *   - 其余 → sub（单根模型无法安全修 / 多版本共存 / 降级风险 / 跨线 / 非成员路径，
+ *     需人工处理）
  */
 export function partitionSubmanifestAlerts(
     alerts: NormalizedSecurityAlert[],
     workDir: string,
-): { root: NormalizedSecurityAlert[], sub: NormalizedSecurityAlert[] } {
+): SubmanifestPartition {
     const root: NormalizedSecurityAlert[] = []
+    const member: MemberManifestAlert[] = []
     const sub: NormalizedSecurityAlert[] = []
+    // 成员白名单（绝对路径）一次计算，供所有告警复用
+    const memberDirs = findWorkspaceMembers(workDir)
     for (const alert of alerts) {
         const normalized = alert.manifestPath.trim().replace(/\\/g, '/')
         if (normalized === '' || normalized === 'package.json') {
@@ -157,9 +185,71 @@ export function partitionSubmanifestAlerts(
             }
             continue
         }
+        const memberDir = resolveMemberManifestDir(workDir, memberDirs, normalized, alert)
+        if (memberDir) {
+            member.push({ alert, manifestDir: memberDir })
+            continue
+        }
         sub.push(alert)
     }
-    return { root, sub }
+    return { root, member, sub }
+}
+
+/**
+ * 判定告警是否来自 workspace 成员 manifest 且可安全自动升级（T406/T407）。
+ * 返回成员目录（相对 workDir，如 `packages/web`）；不满足任一准入条件返回 null。
+ *
+ * 准入（全部满足）：
+ * - manifestPath 的目录部分 ∈ 成员白名单（绝对路径集合，防路径穿越 / 非成员路径）
+ * - 包在成员 manifest 直接声明（dependencies / devDependencies / optionalDependencies）
+ * - 告警可修复（`fixable`，与 2.0.1/2.0.2 链路的 fixable 过滤语义一致）
+ * - lockfile 该包**单版本**（多版本共存 → 成员声明无法安全收敛，人工）
+ * - 推荐版本 >= 锁定版本（防降级，C10 语义）
+ * - **非跨线**（跨线语义仅限根直接依赖，T405）
+ */
+function resolveMemberManifestDir(
+    workDir: string,
+    memberDirs: string[],
+    manifestPath: string,
+    alert: NormalizedSecurityAlert,
+): string | null {
+    const slashIdx = manifestPath.lastIndexOf('/')
+    // 仅处理 manifest 文件本身（Dependabot 只产出 package.json；其他文件名落 sub）
+    const basename = slashIdx >= 0 ? manifestPath.slice(slashIdx + 1) : manifestPath
+    if (basename !== 'package.json') {
+        return null
+    }
+    const manifestDir = slashIdx > 0 ? manifestPath.slice(0, slashIdx) : ''
+    if (!manifestDir) {
+        return null
+    }
+    // 成员白名单校验（绝对路径包含判断）
+    if (!memberDirs.includes(join(workDir, manifestDir))) {
+        return null
+    }
+    // 告警可修复（无修复版本的成员告警维持人工，进入 sub 桶计 skipped）
+    if (!alert.fixable) {
+        return null
+    }
+    // 包在成员 manifest 直接声明
+    const names = new Set<string>()
+    collectDirectDependencyNames(names, join(workDir, manifestDir, 'package.json'))
+    if (!names.has(alert.packageName)) {
+        return null
+    }
+    // lockfile 版本关系：单版本 + 推荐 >= 锁定 + 非跨线
+    const lockfilePath = join(workDir, 'pnpm-lock.yaml')
+    const versions = readLockfileVersions(lockfilePath, alert.packageName)
+    if (versions.length !== 1) {
+        return null
+    }
+    if (!alert.recommendedVersion || compareSemver(alert.recommendedVersion, versions[0]) < 0) {
+        return null
+    }
+    if (isCrossMajorFixRequired(lockfilePath, alert)) {
+        return null
+    }
+    return manifestDir
 }
 
 /**

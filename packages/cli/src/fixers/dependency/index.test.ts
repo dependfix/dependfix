@@ -1,4 +1,4 @@
-import { mkdtempSync, writeFileSync, rmSync, readFileSync } from 'node:fs'
+import { mkdtempSync, writeFileSync, rmSync, readFileSync, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest'
@@ -26,6 +26,7 @@ import {
     readLockfileVersions,
     ensurePnpmOverrides,
     isCrossMajorFixRequired,
+    isNonSemverDeclaration,
     type DependencyFixResult,
 } from './index'
 
@@ -164,6 +165,44 @@ describe('parseMajorVersion', () => {
             expect(compareSemver('latest', '0.0.0')).toBe(0)
             expect(compareSemver('latest', '1.0.0')).toBeLessThan(0)
         })
+    })
+})
+
+describe('isNonSemverDeclaration', () => {
+    it('returns false for semver ranges', () => {
+        expect(isNonSemverDeclaration('^4.17.20')).toBe(false)
+        expect(isNonSemverDeclaration('~1.2.0')).toBe(false)
+        expect(isNonSemverDeclaration('1.2.3')).toBe(false)
+        expect(isNonSemverDeclaration('*')).toBe(false)
+        expect(isNonSemverDeclaration('>=1.0.0 <2.0.0')).toBe(false)
+        expect(isNonSemverDeclaration('latest')).toBe(false)
+    })
+
+    it('returns true for package manager protocol declarations', () => {
+        expect(isNonSemverDeclaration('workspace:*')).toBe(true)
+        expect(isNonSemverDeclaration('workspace:^')).toBe(true)
+        expect(isNonSemverDeclaration('catalog:')).toBe(true)
+        expect(isNonSemverDeclaration('link:../pkg')).toBe(true)
+        expect(isNonSemverDeclaration('file:../local-pkg')).toBe(true)
+        expect(isNonSemverDeclaration('npm:lodash@1.0.0')).toBe(true)
+        // git / URL 协议（Review Gate P1-1：来源从 fork/私有源静默切回 registry 的改写风险）
+        expect(isNonSemverDeclaration('git+ssh://git@github.com/org/pkg.git#v1.0.0')).toBe(true)
+        expect(isNonSemverDeclaration('git+https://github.com/org/pkg.git')).toBe(true)
+        expect(isNonSemverDeclaration('git://github.com/org/pkg.git')).toBe(true)
+        expect(isNonSemverDeclaration('https://example.com/pkg.tgz')).toBe(true)
+        expect(isNonSemverDeclaration('http://example.com/pkg.tgz')).toBe(true)
+        expect(isNonSemverDeclaration('ssh://git@example.com/pkg.git')).toBe(true)
+        // 自托管平台与 git 变体（Review Gate 复审 P2-2）
+        expect(isNonSemverDeclaration('gitlab:user/repo#v1.0.0')).toBe(true)
+        expect(isNonSemverDeclaration('bitbucket:user/repo#v1.0.0')).toBe(true)
+        expect(isNonSemverDeclaration('gist:user/abc123#v1.0.0')).toBe(true)
+        expect(isNonSemverDeclaration('git+http://example.com/pkg.git')).toBe(true)
+        expect(isNonSemverDeclaration('git+file:///path/to/pkg.git')).toBe(true)
+    })
+
+    it('ignores surrounding whitespace', () => {
+        expect(isNonSemverDeclaration('  catalog:')).toBe(true)
+        expect(isNonSemverDeclaration('^4.17.20 ')).toBe(false)
     })
 })
 
@@ -468,6 +507,150 @@ describe('upgradeDependency', () => {
         expect(result.error).toContain('invalid JSON')
 
         cleanup(project)
+    })
+})
+
+// ---------------------------------------------------------------------------
+// upgradeDependency — member manifest (manifestDir)
+// ---------------------------------------------------------------------------
+
+describe('upgradeDependency (member manifest / manifestDir)', () => {
+    beforeEach(() => {
+        mockExecSync.mockReset()
+        mockExecSync.mockReturnValue(Buffer.from(''))
+    })
+
+    function createMemberProject(
+        memberDeps: Record<string, string> = { vite: '^5.4.0' },
+    ): { dir: string, memberPkgPath: string } {
+        const dir = mkdtempSync(join(tmpdir(), 'dependfix-member-test-'))
+        writeFileSync(join(dir, 'package.json'), `${JSON.stringify({ name: 'root', version: '1.0.0' }, null, 2)}\n`)
+        writeFileSync(join(dir, 'pnpm-workspace.yaml'), 'packages:\n  - packages/*\n')
+        writeFileSync(join(dir, 'pnpm-lock.yaml'), '# mock lockfile\n')
+        mkdirSync(join(dir, 'packages', 'web'), { recursive: true })
+        const memberPkgPath = join(dir, 'packages', 'web', 'package.json')
+        writeFileSync(
+            memberPkgPath,
+            `${JSON.stringify({ name: 'web', version: '1.0.0', dependencies: memberDeps }, null, 2)}\n`,
+        )
+        return { dir, memberPkgPath }
+    }
+
+    it('upgrades a member manifest dependency and runs install at workspace root', async () => {
+        const { dir, memberPkgPath } = createMemberProject()
+
+        const result = await upgradeDependency({
+            packageName: 'vite',
+            targetVersion: '5.4.14',
+            workDir: dir,
+            manifestDir: 'packages/web',
+        })
+
+        expect(result).toEqual<DependencyFixResult>({
+            packageName: 'vite',
+            fromVersion: '^5.4.0',
+            toVersion: '^5.4.14',
+            isMajor: false,
+            success: true,
+        })
+        // install 仍在 workspace 根执行（workspace 解析语义）
+        expect(mockExecSync).toHaveBeenCalledWith(
+            'pnpm install --no-frozen-lockfile',
+            expect.objectContaining({ cwd: dir }),
+        )
+        const memberPkg = JSON.parse(readFileSync(memberPkgPath, 'utf-8')) as Record<string, Record<string, string>>
+        expect(memberPkg.dependencies?.['vite']).toBe('^5.4.14')
+
+        rmSync(dir, { recursive: true, force: true })
+    })
+
+    it('finds the package in member devDependencies', async () => {
+        const dir = mkdtempSync(join(tmpdir(), 'dependfix-member-test-'))
+        writeFileSync(join(dir, 'package.json'), `${JSON.stringify({ name: 'root', version: '1.0.0' }, null, 2)}\n`)
+        writeFileSync(join(dir, 'pnpm-lock.yaml'), '# mock lockfile\n')
+        mkdirSync(join(dir, 'packages', 'web'), { recursive: true })
+        const memberPkgPath = join(dir, 'packages', 'web', 'package.json')
+        writeFileSync(
+            memberPkgPath,
+            `${JSON.stringify({ name: 'web', version: '1.0.0', devDependencies: { typescript: '~5.0.0' } }, null, 2)}\n`,
+        )
+
+        const result = await upgradeDependency({
+            packageName: 'typescript',
+            targetVersion: '5.4.5',
+            workDir: dir,
+            manifestDir: 'packages/web',
+        })
+
+        expect(result.success).toBe(true)
+        expect(result.fromVersion).toBe('~5.0.0')
+        expect(result.toVersion).toBe('~5.4.5')
+
+        rmSync(dir, { recursive: true, force: true })
+    })
+
+    it('rolls back member manifest and lockfile on install failure', async () => {
+        const { dir, memberPkgPath } = createMemberProject()
+        const originalMember = readFileSync(memberPkgPath, 'utf-8')
+        const lockfilePath = join(dir, 'pnpm-lock.yaml')
+        const originalLockfile = readFileSync(lockfilePath, 'utf-8')
+
+        mockExecSync.mockImplementation(() => {
+            throw new Error('Install failed')
+        })
+
+        const result = await upgradeDependency({
+            packageName: 'vite',
+            targetVersion: '5.4.14',
+            workDir: dir,
+            manifestDir: 'packages/web',
+        })
+
+        expect(result.success).toBe(false)
+        expect(result.error).toContain('pnpm install failed')
+        expect(readFileSync(memberPkgPath, 'utf-8')).toBe(originalMember)
+        expect(readFileSync(lockfilePath, 'utf-8')).toBe(originalLockfile)
+
+        rmSync(dir, { recursive: true, force: true })
+    })
+
+    it('rejects non-semver member declarations (workspace:/catalog:) without writing', async () => {
+        for (const declaration of ['workspace:*', 'catalog:', 'link:../pkg']) {
+            const { dir, memberPkgPath } = createMemberProject({ vite: declaration })
+            const originalMember = readFileSync(memberPkgPath, 'utf-8')
+            mockExecSync.mockClear()
+
+            const result = await upgradeDependency({
+                packageName: 'vite',
+                targetVersion: '5.4.14',
+                workDir: dir,
+                manifestDir: 'packages/web',
+            })
+
+            expect(result.success).toBe(false)
+            expect(result.error).toContain('non-semver declaration')
+            expect(mockExecSync).not.toHaveBeenCalled()
+            expect(readFileSync(memberPkgPath, 'utf-8')).toBe(originalMember)
+
+            rmSync(dir, { recursive: true, force: true })
+        }
+    })
+
+    it('returns failure when member manifest is missing', async () => {
+        const { dir } = createMemberProject()
+
+        const result = await upgradeDependency({
+            packageName: 'vite',
+            targetVersion: '5.4.14',
+            workDir: dir,
+            manifestDir: 'packages/not-exist',
+        })
+
+        expect(result.success).toBe(false)
+        expect(result.error).toContain('file not found')
+        expect(mockExecSync).not.toHaveBeenCalled()
+
+        rmSync(dir, { recursive: true, force: true })
     })
 })
 

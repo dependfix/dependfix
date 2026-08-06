@@ -3,7 +3,7 @@
 > M0（基线收敛）/ M1（MVP 单仓库修复）/ M2（GitHub Action 接入）/ M3（Code Scanning 扩展）已完成，归档见 [todo-archive.md](todo-archive.md)。
 > **M4（多仓库治理增强）已完成（2026-08-06）**：T401-T404 全部交付并通过 Review Gate（提交 cb801b60 / fedb7200 / 5860fb4d / 2a7fed00），全量质量门（typecheck + lint + build + 650 tests）通过。
 > **M4.5（跨线升级显式授权）已完成（2026-08-07）**：T405 `--allow-major-upgrade` 交付（提交 edfb9e07），Review Gate 首轮 REJECT 修复后复审 PASS；随后清理编号标记残留并纳入 Review Gate 必查项（提交 528d1aae）。全量质量门（typecheck + lint + build + 720 tests）通过。
-> **M4.6（Monorepo 成员级修复增强）为本期任务（2026-08-07 立项，用户决策：完成后再推进 M5）**：T406/T407 详见下文。
+> **M4.6（Monorepo 成员级修复增强）已完成（2026-08-07）**：T406 成员级直接依赖升级修复器 + T407 分流接线与 app 2.0.3 链路，Review Gate 三审 PASS（首轮 REJECT 1×P1+3×P2 → 复审 PASS + 2 新 P2 → 终审 PASS）。全量质量门（typecheck + lint + 755 tests + build）通过。完成后推进 M5。
 > M5 及之后阶段的任务见 [backlog.md](backlog.md)。
 
 ---
@@ -75,22 +75,22 @@
 
 - **优先级**: P1
 - **依赖**: T105（upgradeDependency）、C11（workspace 成员识别）
-- **状态**: 未开始
+- **状态**: 已实现（2026-08-07，Review Gate 首轮 REJECT 修复后待复审）
 - **交付物**: `packages/cli/src/fixers/dependency/index.ts` 扩展（支持成员 manifest 路径）
 
 **任务内容**:
 
-- [ ] `UpgradeDependencyParams` 新增 `manifestDir?: string`；`upgradeDependency` 按 `join(workDir, manifestDir ?? '.', 'package.json')` 解析目标 manifest（缺省 = 根，现状回归）
-- [ ] 备份/回滚：成员 manifest + `pnpm-lock.yaml`（install 失败回滚这两者）；根 manifest 理论不被 `--no-frozen-lockfile` 修改，验证失败回滚由 app 层快照兜底
-- [ ] 声明非 semver（`workspace:` / `catalog:` / `link:`）→ 明确 failResult（不静默、不误修）
-- [ ] 返回 `fromVersion/toVersion` 保留成员声明前缀（复用 `extractPrefix`）
+- [x] `UpgradeDependencyParams` 新增 `manifestDir?: string`；`upgradeDependency` 按 `join(workDir, manifestDir ?? '.', 'package.json')` 解析目标 manifest（缺省 = 根，现状回归）
+- [x] 备份/回滚：成员 manifest + `pnpm-lock.yaml`（install 失败回滚这两者）；根 manifest 理论不被 `--no-frozen-lockfile` 修改，验证失败回滚由 app 层快照兜底
+- [x] 声明非 semver（`workspace:` / `catalog:` / `link:`）→ 明确 failResult（不静默、不误修）
+- [x] 返回 `fromVersion/toVersion` 保留成员声明前缀（复用 `extractPrefix`）
 
 **完成定义**:
 
-- [ ] 根直接依赖行为与现状完全一致（回归）
-- [ ] 成员直接依赖升级成功：成员声明更新 + lockfile 更新（install 在根执行）+ 无脆弱实例残留
-- [ ] install 失败回滚（成员 manifest + lockfile 恢复），计 failed 而非 fixed
-- [ ] dry-run 不落修复器层（app 层处理），修复器保持无验证职责
+- [x] 根直接依赖行为与现状完全一致（回归）
+- [x] 成员直接依赖升级成功：成员声明更新 + lockfile 更新（install 在根执行）+ 无脆弱实例残留
+- [x] install 失败回滚（成员 manifest + lockfile 恢复），计 failed 而非 fixed
+- [x] dry-run 不落修复器层（app 层处理），修复器保持无验证职责
 
 **非目标**: 成员级跨线升级（T405 跨线语义仅限根直接依赖，成员维持人工）；成员级间接依赖（全局 overrides 已覆盖）；`catalog:` 协议支持（C4 未实测，遇声明直接 failResult 不自动处理）；成员级 overrides 写入（pnpm overrides 仅根生效）
 
@@ -100,22 +100,22 @@
 
 - **优先级**: P1
 - **依赖**: T406
-- **状态**: 未开始
+- **状态**: 已实现（2026-08-07，Review Gate 首轮 REJECT 修复后待复审）
 - **交付物**: `partitionSubmanifestAlerts` 三桶化 + 快照扩展 + app 2.0.3 链路 + 报告渲染
 
 **任务内容**:
 
-- [ ] `snapshotTrackedFiles(workDir, extraPaths?)` / `restoreTrackedFiles` 支持额外相对路径（key = 相对路径）
-- [ ] `partitionSubmanifestAlerts` 三桶化：`{ root, member: { alert, manifestDir }[], sub }`——member 准入 = 成员目录白名单 + 成员直接声明 + lockfile 单版本 + 推荐 >= 锁定 + 非跨线；sub 计数相应减少（T404 口径回归断言）
-- [ ] app 2.0.3 链路：按「包名 + manifestDir」聚合取最高推荐 → dry-run（strategy='member-upgrade'）→ 快照（根三件套 + 成员 manifest）→ 成员升级 → 升级后实例复核（残留回滚）→ quickVerify（根 lint）→ 失败回滚 → 成功 fixed
-- [ ] 报告：FixAction `strategy='member-upgrade'` + `filePath=成员 manifest 相对路径`；markdown-generator / PR body 确认或补充 filePath 渲染
+- [x] `snapshotTrackedFiles(workDir, extraPaths?)` / `restoreTrackedFiles` 支持额外相对路径（key = 相对路径）
+- [x] `partitionSubmanifestAlerts` 三桶化：`{ root, member: { alert, manifestDir }[], sub }`——member 准入 = 成员目录白名单 + 成员直接声明 + lockfile 单版本 + 推荐 >= 锁定 + 非跨线；sub 计数相应减少（T404 口径回归断言）
+- [x] app 2.0.3 链路：按「包名 + manifestDir」聚合取最高推荐 → dry-run（strategy='member-upgrade'）→ 快照（根三件套 + 成员 manifest）→ 成员升级 → 升级后实例复核（残留回滚）→ quickVerify（根 lint）→ 失败回滚 → 成功 fixed
+- [x] 报告：FixAction `strategy='member-upgrade'` + `filePath=成员 manifest 相对路径`；markdown-generator / PR body 确认或补充 filePath 渲染
 
 **完成定义**:
 
-- [ ] 成员直接依赖安全场景自动升级，报告可见成员 manifest 路径（filePath）
-- [ ] 降级风险 / 无版本信息 / 多版本共存 / 跨线场景维持人工（现状回归）
-- [ ] 根直接依赖与 lockfile 告警链路行为零变化（回归）
-- [ ] 失败 / 残留回滚计 failed，不误标 fixed/converged
+- [x] 成员直接依赖安全场景自动升级，报告可见成员 manifest 路径（filePath）
+- [x] 降级风险 / 无版本信息 / 多版本共存 / 跨线场景维持人工（现状回归）
+- [x] 根直接依赖与 lockfile 告警链路行为零变化（回归）
+- [x] 失败 / 残留回滚计 failed，不误标 fixed/converged
 
 **非目标**: 成员级跨线分流；`!` 排除模式 / 符号链接跟随（既有限制，另行评估）；成员独立 lint 脚本验证（根验证为主，演进项）
 
@@ -123,10 +123,12 @@
 
 ## M4.6 完成判定
 
-- [ ] T406/T407 交付并通过 Review Gate
-- [ ] `pnpm typecheck` + `pnpm lint` + 全量测试 + `pnpm build` 通过
-- [ ] 根直接依赖行为回归无损
-- [ ] 方案细化三项决策已确认落盘（验证链 lint-only / 多版本共存 sub / filePath 复用）
+- [x] T406/T407 交付并通过 Review Gate（三审 PASS，2026-08-07）
+- [x] `pnpm typecheck` + `pnpm lint` + 755 tests + `pnpm build` 通过
+- [x] 根直接依赖行为回归无损（既有测试全量通过）
+- [x] 方案细化三项决策已确认落盘（验证链 lint-only / 多版本共存 sub / filePath 复用）
+
+> **M4.6 交付说明（2026-08-07）**：T406 成员级修复器（`UpgradeDependencyParams.manifestDir` + 非 semver 声明防护 `isNonSemverDeclaration`）+ T407 三桶化 partition（root/member/sub，member 准入 = 成员白名单 + 成员直接声明 + fixable + lockfile 单版本 + 推荐≥锁定 + 非跨线）+ app 2.0.3 链路（按包+成员聚合 → 快照含成员 manifest → 升级 → 实例复核 → lint-only 验证 → 回滚）+ 报告（strategy='member-upgrade' + filePath 展示，markdown + PR body + 指纹含 manifest 维度）。**Review Gate 三审**：首轮 REJECT（P1-1 协议正则漏 git+ssh 等 / P2-1 PR 聚合丢成员路径 / P2-2 同包多成员 pin 复核互斥 / P2-3 todo 状态）→ 修复复审 PASS（新增 P2-1 指纹未含 filePath / P2-2 正则漏 gitlab 等变体）→ 修复终审 PASS。残余风险登记：成员验证为 lint-only（演进项：成员独立 lint）、明细表 action 查找粒度、多成员精确 pin 场景需人工介入、`latest`/`*` 等 range 的 `^` 归约行为未纳入防护。
 
 ---
 

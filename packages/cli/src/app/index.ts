@@ -33,7 +33,7 @@ import { fetchPnpmAuditAlerts } from '../alerts/pnpm-audit-fetcher'
 import { createFixBranch, stageAndCommit, pushBranch, createPullRequest, generatePRBody, computeFixFingerprint, computeFixAndPrPlan, findDependfixOpenPR } from '../github/pr-creator'
 import type { RuntimeConfig } from '../config'
 import { compareSemver, readLockfileVersion, readLockfileVersions, applyVersionedOverrides, isCrossMajorFixRequired, upgradeDependency } from '../fixers/dependency'
-import { dedupeFixableAlerts, snapshotTrackedFiles, restoreTrackedFiles, quickVerifyProject, partitionSubmanifestAlerts, isRootDirectDependency } from '../helpers'
+import { dedupeFixableAlerts, snapshotTrackedFiles, restoreTrackedFiles, quickVerifyProject, partitionSubmanifestAlerts, isRootDirectDependency, type MemberManifestAlert } from '../helpers'
 import { buildUpgradeGroups } from '../grouping'
 import {
     buildCommitMessage,
@@ -345,7 +345,7 @@ export class DependfixApp {
             // 收尾审查遗留修复：code-scanning 告警（manifestPath 为源码路径）不参与依赖清单分区，
             // 避免全部落 sub 桶产生 skip 计数噪音（其可见性由 §Code Scanning Suggestions 承担）
             const dependencyAlerts = limited.filter((a) => a.source !== 'code-scanning')
-            const { root: rootManifestAlerts, sub: submanifestAlerts } = partitionSubmanifestAlerts(dependencyAlerts, this.workDir)
+            const { root: rootManifestAlerts, member: memberManifestAlerts, sub: submanifestAlerts } = partitionSubmanifestAlerts(dependencyAlerts, this.workDir)
             if (submanifestAlerts.length > 0) {
                 this.logger.warn(
                     `[alerts] ${submanifestAlerts.length} alert(s) from sub-directory / root-direct-dep manifest(s) skipped — manual review required: ${submanifestAlerts.map((a) => `${a.packageName} (${a.manifestPath})`).join(', ')}`,
@@ -635,6 +635,145 @@ export class DependfixApp {
                         `[major-upgrade] ${alert.packageName}: full verification failed — rolled back cross-major upgrade`,
                     )
                 }
+            }
+
+            // 2.0.3 成员级升级（workspace 成员 manifest 直接依赖；member 桶由
+            // partitionSubmanifestAlerts 三桶化产出，准入已保证：成员白名单 +
+            // 成员直接声明 + fixable + lockfile 单版本 + 推荐 >= 锁定 + 非跨线）
+            // 按「包名 + manifestDir」聚合取最高 recommendedVersion 为代表（镜像
+            // dedupeFixableAlerts 语义，同成员多告警只升一条目标、其余随代表处理）
+            // 逐项：快照（根三件套 + 成员 manifest）→ upgradeDependency({ manifestDir })
+            // → 升级后实例复核（lockfile 残留脆弱实例 → 回滚，覆盖根全局 override
+            // 冲突 / 其他位置 pin 场景，不误标 fixed——T405 纪律）→ quickVerify
+            // （根 lint，与 2.0 常规升级一致；线内升级破坏面小，不做完整验证）
+            // → 失败回滚 → 成功 fixed。不误标 fixed/converged。
+            const memberByPackageAndDir = new Map<string, MemberManifestAlert>()
+            for (const item of memberManifestAlerts) {
+                const key = `${item.alert.packageName}@${item.manifestDir}`
+                const existing = memberByPackageAndDir.get(key)
+                const existingTarget = existing?.alert.recommendedVersion
+                const alertTarget = item.alert.recommendedVersion
+                if (!existing || (existingTarget && alertTarget && compareSemver(alertTarget, existingTarget) > 0)) {
+                    memberByPackageAndDir.set(key, item)
+                }
+            }
+            if (memberManifestAlerts.length > memberByPackageAndDir.size) {
+                this.logger.info(
+                    `[member-upgrade] ${memberManifestAlerts.length - memberByPackageAndDir.size} member alert(s) merged into package+dir representatives (highest target per package per member)`,
+                )
+            }
+            for (const item of [...memberByPackageAndDir.values()]) {
+                const { alert, manifestDir } = item
+                const memberManifestPath = `${manifestDir}/package.json`
+                if (this.config.dryRun) {
+                    // dry-run 不写盘：仅记录计划动作（与 2.0.1/2.0.2 dry-run 语义一致）
+                    this.logger.info(`[dry-run] Would upgrade ${alert.packageName} in ${memberManifestPath} → ${alert.recommendedVersion}`)
+                    this.allActions.push({
+                        type: 'dependency-upgrade',
+                        repository: alert.repository,
+                        target: alert.packageName,
+                        fromVersion: '',
+                        toVersion: alert.recommendedVersion,
+                        isMajor: false,
+                        strategy: 'member-upgrade',
+                        success: true,
+                        durationMs: 0,
+                        filePath: memberManifestPath,
+                    })
+                    fixed++
+                    continue
+                }
+                const memberSnapshot = snapshotTrackedFiles(this.workDir, [memberManifestPath])
+                this.logger.warn(
+                    `[member-upgrade] ${alert.packageName}: upgrading member declaration in ${memberManifestPath} → ${alert.recommendedVersion}`,
+                )
+                const memberResult = await upgradeDependency({
+                    packageName: alert.packageName,
+                    targetVersion: alert.recommendedVersion!,
+                    workDir: this.workDir,
+                    manifestDir,
+                })
+                if (!memberResult.success) {
+                    this.allActions.push({
+                        type: 'dependency-upgrade',
+                        repository: alert.repository,
+                        target: alert.packageName,
+                        fromVersion: memberResult.fromVersion,
+                        toVersion: alert.recommendedVersion,
+                        isMajor: memberResult.isMajor,
+                        strategy: 'member-upgrade',
+                        success: false,
+                        error: memberResult.error,
+                        durationMs: 0,
+                        filePath: memberManifestPath,
+                    })
+                    failed++
+                    continue
+                }
+                // 升级后实例复核：成员声明已升，但根全局 override / 其他位置 pin
+                // 可能仍锁旧版本 → 残留脆弱实例 → 回滚（不进入验证阶段）
+                const remainingMemberVersions = readLockfileVersions(lockfilePath, alert.packageName)
+                const stillVulnerable = remainingMemberVersions.some(
+                    (v) => compareSemver(v, alert.recommendedVersion!) < 0,
+                )
+                if (stillVulnerable) {
+                    restoreTrackedFiles(this.workDir, memberSnapshot)
+                    this.allActions.push({
+                        type: 'dependency-upgrade',
+                        repository: alert.repository,
+                        target: alert.packageName,
+                        fromVersion: memberResult.fromVersion,
+                        toVersion: alert.recommendedVersion,
+                        isMajor: false,
+                        strategy: 'member-upgrade',
+                        success: false,
+                        error: 'vulnerable instance(s) remain after member upgrade (root override / other pin); changes rolled back',
+                        durationMs: 0,
+                        filePath: memberManifestPath,
+                    })
+                    failed++
+                    this.logger.warn(
+                        `[member-upgrade] ${alert.packageName}: vulnerable instance(s) remain (${remainingMemberVersions.join(', ')}) — rolled back member upgrade in ${memberManifestPath}; residual instance likely pinned by another workspace member / root override, manual review required`,
+                    )
+                    continue
+                }
+                // 快速验证（根 lint，与 2.0 常规升级一致）
+                const memberOk = await quickVerifyProject(this.ctx, repo)
+                if (!memberOk) {
+                    restoreTrackedFiles(this.workDir, memberSnapshot)
+                    this.allActions.push({
+                        type: 'dependency-upgrade',
+                        repository: alert.repository,
+                        target: alert.packageName,
+                        fromVersion: memberResult.fromVersion,
+                        toVersion: memberResult.toVersion,
+                        isMajor: memberResult.isMajor,
+                        strategy: 'member-upgrade',
+                        success: false,
+                        error: 'member upgrade failed verification; changes rolled back',
+                        durationMs: 0,
+                        filePath: memberManifestPath,
+                    })
+                    failed++
+                    this.logger.warn(
+                        `[member-upgrade] ${alert.packageName}: verification failed — rolled back member upgrade in ${memberManifestPath}`,
+                    )
+                    continue
+                }
+                this.allActions.push({
+                    type: 'dependency-upgrade',
+                    repository: alert.repository,
+                    target: alert.packageName,
+                    fromVersion: memberResult.fromVersion,
+                    toVersion: memberResult.toVersion,
+                    isMajor: memberResult.isMajor,
+                    strategy: 'member-upgrade',
+                    success: true,
+                    durationMs: 0,
+                    filePath: memberManifestPath,
+                })
+                fixed++
+                this.logger.info(`[member-upgrade] ${alert.packageName}: member upgrade passed verification (${memberManifestPath})`)
             }
 
             const fixableAlerts = dedupeFixableAlerts(

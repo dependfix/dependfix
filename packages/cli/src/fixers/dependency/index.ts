@@ -13,8 +13,15 @@ export interface UpgradeDependencyParams {
     packageName: string
     /** 目标精确版本（如 `'4.17.21'`） */
     targetVersion: string
-    /** 工作目录（包含 `package.json` 和 `pnpm-lock.yaml`） */
+    /** 工作目录（workspace 根，包含 `package.json` 和 `pnpm-lock.yaml`） */
     workDir: string
+    /**
+     * 可选：目标 manifest 所在成员目录（相对 workDir，如 `'packages/web'`）。
+     * 缺省 = 根 `package.json`（现状行为）。
+     * 指定时：修改成员 manifest 的依赖声明，`pnpm install` 仍在根 `workDir`
+     * 执行（workspace 解析语义），失败回滚成员 manifest + `pnpm-lock.yaml`。
+     */
+    manifestDir?: string
 }
 
 export interface DependencyFixResult {
@@ -58,19 +65,23 @@ interface DependencyInfo {
 /**
  * 升级单个依赖到指定版本。
  *
- * - 在 `workDir` 中查找 `package.json` 并修改目标包的版本声明（保留原始前缀）
- * - 执行 `pnpm install --no-frozen-lockfile` 更新 lockfile
- * - 失败时自动回滚 `package.json` 和 `pnpm-lock.yaml`
+ * - 在目标 manifest（根 `package.json`，或 `params.manifestDir` 指定的成员 manifest）
+ *   中修改目标包的版本声明（保留原始前缀）
+ * - 执行 `pnpm install --no-frozen-lockfile` 更新 lockfile（始终在根 `workDir` 执行，
+ *   workspace 解析语义——成员声明变更会触发全 workspace 重新解析）
+ * - 失败时自动回滚目标 manifest 和 `pnpm-lock.yaml`
+ * - 声明为包管理器协议（`workspace:` / `catalog:` / `link:` 等）时明确失败，
+ *   不做不可逆的声明改写
  * - 不执行验证（由验证执行器负责）
  *
- * @param params - 包名、目标版本、工作目录
+ * @param params - 包名、目标版本、工作目录、可选成员目录
  * @returns 修复结果
  */
 export async function upgradeDependency(
     params: UpgradeDependencyParams,
 ): Promise<DependencyFixResult> {
-    const { packageName, targetVersion, workDir } = params
-    const pkgPath = join(workDir, 'package.json')
+    const { packageName, targetVersion, workDir, manifestDir } = params
+    const pkgPath = join(workDir, manifestDir ?? '.', 'package.json')
     const lockfilePath = join(workDir, 'pnpm-lock.yaml')
 
     // ---- 1. 读取 package.json ----
@@ -93,6 +104,18 @@ export async function upgradeDependency(
             targetVersion,
             '',
             `package "${packageName}" not found in dependencies / devDependencies / optionalDependencies`,
+        )
+    }
+
+    // ---- 2.5 非 semver 声明防护 ----
+    // `workspace:` / `catalog:` / `link:` 等协议声明无法安全改写为 semver range
+    // （extractPrefix 会将其误归为 `^`，导致声明被不可逆改写），明确失败计 failed。
+    if (isNonSemverDeclaration(dep.version)) {
+        return failResult(
+            packageName,
+            targetVersion,
+            dep.version,
+            `package "${packageName}" has a non-semver declaration "${dep.version}" (workspace:/catalog:/link:/etc.); manual upgrade required`,
         )
     }
 
@@ -510,6 +533,30 @@ export function extractPrefix(version: string): string {
     }
     // 复杂 range / * / latest → 默认 ^
     return '^'
+}
+
+/**
+ * 检测版本声明是否包含包管理器协议前缀
+ * （`workspace:` / `catalog:` / `link:` / `file:` / `npm:` / `github:` /
+ * `gitlab:` / `bitbucket:` / `gist:` / `git:` / `git+ssh:` / `git+https:` /
+ * `git+http:` / `git+file:` / `https:` / `ssh:` 等）。
+ *
+ * 这类声明不是 semver range，`extractPrefix` 会将其误归为 `^` 导致声明被
+ * 不可逆改写（如 `catalog:` → `^x.y.z`、`git+ssh:` 来源从 fork/私有源静默
+ * 切回 registry），升级前必须拒绝。
+ *
+ * @example
+ * isNonSemverDeclaration('^4.17.20')      // false
+ * isNonSemverDeclaration('workspace:*')   // true
+ * isNonSemverDeclaration('catalog:')      // true
+ * isNonSemverDeclaration('link:../pkg')   // true
+ * isNonSemverDeclaration('git+ssh://...') // true
+ * isNonSemverDeclaration('gitlab:...')    // true
+ * isNonSemverDeclaration('https://...tgz') // true
+ */
+export function isNonSemverDeclaration(version: string): boolean {
+    const trimmed = version.trim()
+    return /^(workspace|catalog|link|file|npm|github|gitlab|bitbucket|gist|git(?:\+ssh|\+https|\+http|\+file)?|portal|patch|https?|ssh)\s*:/.test(trimmed)
 }
 
 /**

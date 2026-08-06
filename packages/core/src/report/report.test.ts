@@ -448,6 +448,20 @@ describe('generateMarkdownReport', () => {
         expect(md).toContain('^1.0.0 → ^2.0.0')
     })
 
+    it('shows member upgrade manifest path in action details (T406/T407)', () => {
+        const result = {
+            ...EMPTY_RUN_RESULT,
+            actions: [makeAction({
+                fromVersion: '^5.4.0',
+                toVersion: '^5.4.20',
+                strategy: 'member-upgrade',
+                filePath: 'packages/web/package.json',
+            })],
+        }
+        const md = generateMarkdownReport(result)
+        expect(md).toContain('^5.4.0 → ^5.4.20 (packages/web/package.json)')
+    })
+
     it('shows lockfile repair action with strategy', () => {
         const action: FixAction = {
             type: 'lockfile-repair',

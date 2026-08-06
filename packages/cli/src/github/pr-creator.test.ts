@@ -125,6 +125,27 @@ describe('computeFixFingerprint', () => {
         expect(computeFixFingerprint(v1)).not.toBe(computeFixFingerprint(v2))
     })
 
+    it('distinguishes root upgrade from member upgrade of the same package (Review Gate P2-1)', () => {
+        const root = [makeUpgradeAction('vite', '5.4.20', true)]
+        const member = [{
+            ...makeUpgradeAction('vite', '5.4.20', true),
+            strategy: 'member-upgrade',
+            filePath: 'packages/web/package.json',
+        }]
+        // 同包同版本，仅 manifest 不同 → 不同修复内容 → 指纹不同（否则成员升级被根 PR 错误 skip）
+        expect(computeFixFingerprint(root)).not.toBe(computeFixFingerprint(member))
+    })
+
+    it('distinguishes failed member upgrade from failed root upgrade (fingerprint failures dimension)', () => {
+        const rootFailure = [makeUpgradeAction('vite', '5.4.20', false)]
+        const memberFailure = [{
+            ...makeUpgradeAction('vite', '5.4.20', false),
+            strategy: 'member-upgrade',
+            filePath: 'packages/api/package.json',
+        }]
+        expect(computeFixFingerprint(rootFailure)).not.toBe(computeFixFingerprint(memberFailure))
+    })
+
     it('includes failed upgrades in the fingerprint', () => {
         const allSuccess = [makeUpgradeAction('lodash', '4.17.21', true)]
         const withFailure = [makeUpgradeAction('lodash', '4.17.21', true), makeUpgradeAction('express', '4.19.0', false)]
@@ -630,6 +651,65 @@ describe('generatePRBody', () => {
         const body = generatePRBody(result)
 
         expect(body).toContain('| `fast-uri` | 2.1.0 | 3.1.5 | pnpm overrides | No |')
+    })
+
+    it('renders member upgrades with member upgrade strategy and manifest path', () => {
+        const result = buildRunResult()
+        result.actions = [
+            makeBodyAction({
+                target: 'vite',
+                fromVersion: '^5.4.0',
+                toVersion: '^5.4.20',
+                strategy: 'member-upgrade',
+                filePath: 'packages/web/package.json',
+            }),
+            // 根升级不受 filePath 影响（不追加路径后缀）
+            makeBodyAction({ target: 'fast-uri', fromVersion: '2.1.0', toVersion: '3.1.5' }),
+        ]
+        const body = generatePRBody(result)
+
+        expect(body).toContain('| `vite` (packages/web/package.json) | ^5.4.0 | ^5.4.20 | member upgrade | No |')
+        expect(body).toContain('| `fast-uri` | 2.1.0 | 3.1.5 | direct | No |')
+    })
+
+    it('renders failed member upgrades with manifest path', () => {
+        const result = buildRunResult()
+        result.actions = [
+            makeBodyAction({
+                target: 'vite',
+                toVersion: '^5.4.20',
+                success: false,
+                strategy: 'member-upgrade',
+                filePath: 'packages/web/package.json',
+                error: 'vulnerable instance(s) remain after member upgrade',
+            }),
+        ]
+        const body = generatePRBody(result)
+
+        expect(body).toContain('### ⚠️ Failed Upgrades')
+        expect(body).toContain('| `vite` (packages/web/package.json) | ^5.4.20 | vulnerable instance(s) remain after member upgrade |')
+    })
+
+    it('keeps root and member upgrades of the same package as separate rows (Review Gate P2-1)', () => {
+        const result = buildRunResult()
+        result.actions = [
+            // 根升级（无 filePath）
+            makeBodyAction({ target: 'vite', fromVersion: '^5.4.0', toVersion: '^5.4.20' }),
+            // 成员升级（带 filePath）
+            makeBodyAction({
+                target: 'vite',
+                fromVersion: '^5.4.0',
+                toVersion: '^5.4.20',
+                strategy: 'member-upgrade',
+                filePath: 'packages/web/package.json',
+            }),
+        ]
+        const body = generatePRBody(result)
+
+        // 两行均可见：根行不带路径、成员行带路径
+        expect(body.match(/\| `vite` \|/g)).toHaveLength(1)
+        expect(body).toContain('| `vite` | ^5.4.0 | ^5.4.20 | direct | No |')
+        expect(body).toContain('| `vite` (packages/web/package.json) | ^5.4.0 | ^5.4.20 | member upgrade | No |')
     })
 
     it('escapes pipe and newlines in failure error cells', () => {

@@ -123,6 +123,43 @@ describe('snapshotTrackedFiles / restoreTrackedFiles', () => {
         expect(readFileSync(join(workDir, 'package.json'), 'utf-8'))
             .toBe('{"dependencies":{"a":"^2.0.0"}}')
     })
+
+    it('includes extra relative paths (member manifest) in snapshot and restores them', () => {
+        makeWorkDir()
+        mkdirSync(join(workDir, 'packages', 'web'), { recursive: true })
+        writeFileSync(
+            join(workDir, 'packages', 'web', 'package.json'),
+            '{"name":"web","dependencies":{"vite":"^5.4.0"}}',
+        )
+
+        const snapshot = snapshotTrackedFiles(workDir, ['packages/web/package.json'])
+
+        // 模拟成员级升级改动
+        writeFileSync(
+            join(workDir, 'packages', 'web', 'package.json'),
+            '{"name":"web","dependencies":{"vite":"^5.4.14"}}',
+        )
+
+        restoreTrackedFiles(workDir, snapshot)
+
+        expect(readFileSync(join(workDir, 'packages', 'web', 'package.json'), 'utf-8'))
+            .toBe('{"name":"web","dependencies":{"vite":"^5.4.0"}}')
+        // 根三件套不受影响
+        expect(readFileSync(join(workDir, 'package.json'), 'utf-8')).toBe('{"version":"1.0.0"}')
+    })
+
+    it('removes extra files that did not exist at snapshot time', () => {
+        makeWorkDir()
+        const snapshot = snapshotTrackedFiles(workDir, ['packages/web/package.json'])
+        expect(snapshot['packages/web/package.json']).toBeNull()
+
+        mkdirSync(join(workDir, 'packages', 'web'), { recursive: true })
+        writeFileSync(join(workDir, 'packages', 'web', 'package.json'), '{"name":"web"}')
+
+        restoreTrackedFiles(workDir, snapshot)
+
+        expect(existsSync(join(workDir, 'packages', 'web', 'package.json'))).toBe(false)
+    })
 })
 
 // ---------------------------------------------------------------------------
@@ -406,6 +443,164 @@ describe('partitionSubmanifestAlerts', () => {
         ], workDir)
         expect(root.map((a) => a.packageName)).toEqual(['fast-uri'])
         expect(sub).toHaveLength(0)
+    })
+
+    // -----------------------------------------------------------------------
+    // member 桶（workspace 成员 manifest 直接依赖升级，T406/T407）
+    // -----------------------------------------------------------------------
+
+    function setupMemberWorkspace(memberDeps: Record<string, string>): void {
+        writeFileSync(join(workDir, 'pnpm-workspace.yaml'), 'packages:\n  - packages/*\n')
+        mkdirSync(join(workDir, 'packages', 'web'), { recursive: true })
+        writeFileSync(join(workDir, 'packages', 'web', 'package.json'), JSON.stringify({
+            name: 'web',
+            dependencies: memberDeps,
+        }))
+    }
+
+    function writeLockfileVersions(...versions: string[]): void {
+        writeFileSync(join(workDir, 'pnpm-lock.yaml'), [
+            'lockfileVersion: \'9.0\'',
+            '',
+            ...versions.map((v) => `  ${v}:`),
+            '    resolution: {integrity: sha512-x}',
+            '',
+        ].join('\n'))
+    }
+
+    it('routes member manifest direct dependency (single version, recommended >= locked) to member bucket', () => {
+        setupMemberWorkspace({ vite: '^5.4.0' })
+        writeLockfileVersions('vite@5.4.0')
+
+        const { member, sub } = partitionSubmanifestAlerts([
+            alert({ packageName: 'vite', manifestPath: 'packages/web/package.json', recommendedVersion: '5.4.14' }),
+        ], workDir)
+
+        expect(member).toHaveLength(1)
+        expect(member[0].manifestDir).toBe('packages/web')
+        expect(sub).toHaveLength(0)
+    })
+
+    it('keeps member manifest alert in sub when recommended < locked (downgrade risk)', () => {
+        setupMemberWorkspace({ vite: '^5.4.14' })
+        writeLockfileVersions('vite@5.4.14')
+
+        const { member, sub } = partitionSubmanifestAlerts([
+            alert({ packageName: 'vite', manifestPath: 'packages/web/package.json', recommendedVersion: '5.4.12' }),
+        ], workDir)
+
+        expect(member).toHaveLength(0)
+        expect(sub.map((a) => a.packageName)).toEqual(['vite'])
+    })
+
+    it('keeps member manifest alert in sub when lockfile has no version info (conservative)', () => {
+        setupMemberWorkspace({ vite: '^5.4.0' })
+        // 无 lockfile
+
+        const { member, sub } = partitionSubmanifestAlerts([
+            alert({ packageName: 'vite', manifestPath: 'packages/web/package.json', recommendedVersion: '5.4.14' }),
+        ], workDir)
+
+        expect(member).toHaveLength(0)
+        expect(sub).toHaveLength(1)
+    })
+
+    it('keeps member manifest alert in sub when multiple versions coexist (member declaration cannot converge)', () => {
+        setupMemberWorkspace({ vite: '^5.4.0' })
+        writeLockfileVersions('vite@5.4.0', 'vite@8.2.0')
+
+        const { member, sub } = partitionSubmanifestAlerts([
+            alert({ packageName: 'vite', manifestPath: 'packages/web/package.json', recommendedVersion: '8.2.1' }),
+        ], workDir)
+
+        expect(member).toHaveLength(0)
+        expect(sub).toHaveLength(1)
+    })
+
+    it('keeps member manifest alert in sub when cross-major (T405 semantics: root only)', () => {
+        setupMemberWorkspace({ vite: '^5.4.0' })
+        writeLockfileVersions('vite@5.4.14')
+
+        // 推荐 6.4.3：major 6 不在 lockfile 实例 majors（仅 5.x）→ 跨线 → sub
+        const { member, sub } = partitionSubmanifestAlerts([
+            alert({ packageName: 'vite', manifestPath: 'packages/web/package.json', recommendedVersion: '6.4.3' }),
+        ], workDir)
+
+        expect(member).toHaveLength(0)
+        expect(sub.map((a) => a.packageName)).toEqual(['vite'])
+    })
+
+    it('keeps alert in sub when package is not declared in the member manifest (root-only declaration)', () => {
+        setupMemberWorkspace({ lodash: '^4.17.20' })
+        writeLockfileVersions('vite@5.4.0')
+
+        const { member, sub } = partitionSubmanifestAlerts([
+            alert({ packageName: 'vite', manifestPath: 'packages/web/package.json', recommendedVersion: '5.4.14' }),
+        ], workDir)
+
+        expect(member).toHaveLength(0)
+        expect(sub).toHaveLength(1)
+    })
+
+    it('keeps alert in sub when manifest directory is not a workspace member', () => {
+        // packages/other 不在 pnpm-workspace.yaml 白名单（仅 packages/* 覆盖子目录，
+        // 但此处构造 packages/web 之外的其他目录 + 白名单不含它）
+        writeFileSync(join(workDir, 'pnpm-workspace.yaml'), 'packages:\n  - packages/web\n')
+        mkdirSync(join(workDir, 'packages', 'other'), { recursive: true })
+        writeFileSync(join(workDir, 'packages', 'other', 'package.json'), JSON.stringify({
+            name: 'other',
+            dependencies: { vite: '^5.4.0' },
+        }))
+        writeLockfileVersions('vite@5.4.0')
+
+        const { member, sub } = partitionSubmanifestAlerts([
+            alert({ packageName: 'vite', manifestPath: 'packages/other/package.json', recommendedVersion: '5.4.14' }),
+        ], workDir)
+
+        expect(member).toHaveLength(0)
+        expect(sub.map((a) => a.packageName)).toEqual(['vite'])
+    })
+
+    it('normalizes windows separators for member manifest paths', () => {
+        setupMemberWorkspace({ vite: '^5.4.0' })
+        writeLockfileVersions('vite@5.4.0')
+
+        const { member, sub } = partitionSubmanifestAlerts([
+            alert({ packageName: 'vite', manifestPath: 'packages\\web\\package.json', recommendedVersion: '5.4.14' }),
+        ], workDir)
+
+        expect(member).toHaveLength(1)
+        expect(member[0].manifestDir).toBe('packages/web')
+        expect(sub).toHaveLength(0)
+    })
+
+    it('keeps member alert in sub when not fixable (no patched version)', () => {
+        setupMemberWorkspace({ vite: '^5.4.0' })
+        writeLockfileVersions('vite@5.4.0')
+
+        const { member, sub } = partitionSubmanifestAlerts([
+            alert({
+                packageName: 'vite',
+                manifestPath: 'packages/web/package.json',
+                recommendedVersion: '5.4.14',
+                fixable: false,
+            }),
+        ], workDir)
+
+        expect(member).toHaveLength(0)
+        expect(sub.map((a) => a.packageName)).toEqual(['vite'])
+    })
+
+    it('keeps member alert in sub when manifest basename is not package.json (Review Gate P3-1)', () => {
+        setupMemberWorkspace({ vite: '^5.4.0' })
+        writeLockfileVersions('vite@5.4.0')
+
+        const { member, sub } = partitionSubmanifestAlerts([
+            alert({ packageName: 'vite', manifestPath: 'packages/web/whatever.json', recommendedVersion: '5.4.14' }),
+        ], workDir)
+
+        expect(member).toHaveLength(0)
+        expect(sub).toHaveLength(1)
     })
 })
 

@@ -18,21 +18,24 @@ description: 全局一体化开发与协作工作流技能，覆盖需求评估�
 ## 优先复用的 Skills 与规范
 
 - **权威规则**：[AGENTS.md](../../AGENTS.md)、[AI 协作规范](../../docs/standards/ai-collaboration.md)、[规划规范](../../docs/standards/planning.md)
-- **规划技能**：`requirement-analyst`、`context-analyzer`
+- **规划技能**：[requirement-analyst](../../.github/skills/requirement-analyst/SKILL.md)、[context-analyzer](../../.github/skills/context-analyzer/SKILL.md)
 - **实现技能**：按需使用对应技术栈 skill（`nuxt`、`vue`、`pnpm`、`tsdown` 等）
-- **质量技能**：`code-reviewer`、`test-engineer`、`security-guardian`
-- **交付技能**：`documentation-specialist`、`conventional-committer`
+- **质量技能**：[code-reviewer](../../.github/skills/code-reviewer/SKILL.md)、[test-engineer](../../.github/skills/test-engineer/SKILL.md)、[security-guardian](../../.github/skills/security-guardian/SKILL.md)
+- **交付技能**：[documentation-specialist](../../.github/skills/documentation-specialist/SKILL.md)、[conventional-committer](../../.github/skills/conventional-committer/SKILL.md)
+- **技能路径约定**：以上技能均以项目内 `.github/skills/` 版本为准，禁止使用全局同名 skill 替代（项目版本含分级审计、时间盒等本项目特有规则）。
 
 ## 专项智能体矩阵
 
+> 路径约定：下表主责角色中，项目内 `.github/skills/` 存在本地版本的 skill 一律用相对路径链接引用（禁裸名解析到全局同名版本）；无本地版本的（`ui-validator`、`backend-expert`、`frontend-expert`、`nuxt`、`vue`、`pnpm`、`tsdown` 等技术栈 skill）使用全局版本。
+
 | 阶段 | 主责角色 | 你提供的输入 | 期望接回的输出 |
 | :--- | :--- | :--- | :--- |
-| P (Plan) | `requirement-analyst` | 用户目标、Todo/Roadmap 上下文、插队疑点 | 范围结论、验收标准、任务拆解 |
+| P (Plan) | [requirement-analyst](../../.github/skills/requirement-analyst/SKILL.md) | 用户目标、Todo/Roadmap 上下文、插队疑点 | 范围结论、验收标准、任务拆解 |
 | D (Do) | `backend-expert` / `frontend-expert` / 对应技术栈 skill | 已批准方案、受影响文件清单、技术约束 | 聚焦代码改动与自检记录 |
 | A (Audit) | [@Code Auditor](./code-auditor.agent.md) | 代码 diff、验收点、验证结果 | 审计结论、问题分级、放行/退回建议 |
 | V (Validate) | `ui-validator` | 受影响页面、运行入口、验证重点 | 浏览器验证结论、截图或问题清单 |
-| T (Test) | `test-engineer` | 行为预期、改动模块、预算约束 | 新增/修正测试、运行结果、剩余缺口 |
-| F (Docs/Close & Commit) | `documentation-specialist` + `conventional-committer` | 已确认实现或规划变化、A 阶段放行结论 | 文档同步说明、回链、闭环记录、单次 `git commit`（中文/用户语言的 Conventional Commits） |
+| T (Test) | [test-engineer](../../.github/skills/test-engineer/SKILL.md) | 行为预期、改动模块、预算约束 | 新增/修正测试、运行结果、剩余缺口 |
+| F (Docs/Close & Commit) | [documentation-specialist](../../.github/skills/documentation-specialist/SKILL.md) + [conventional-committer](../../.github/skills/conventional-committer/SKILL.md) | 已确认实现或规划变化、A 阶段放行结论 | 文档同步说明、回链、闭环记录、单次 `git commit`（中文/用户语言的 Conventional Commits） |
 
 ## 输入与输出
 
@@ -41,18 +44,22 @@ description: 全局一体化开发与协作工作流技能，覆盖需求评估�
 
 ## 默认交接
 
-1. 需求不清、范围可疑或可能插队时，先加载 `requirement-analyst` 澄清。
+1. 需求不清、范围可疑或可能插队时，先加载 [requirement-analyst](../../.github/skills/requirement-analyst/SKILL.md) 澄清。
 2. 代码实现阶段只保留一个主责执行者，避免多角色重做同一事项。
-3. **强制审计**：D 阶段完成后，必须立即加载 `code-reviewer` skill 并移交 `@code-auditor` agent 执行 Review Gate。此步骤不可跳过、不可自我审查替代。A 阶段放行后方可进入 V / T / F。
-4. 涉及界面时加载 `ui-validator`，涉及测试补强时加载 `test-engineer`。
-5. 设计、规范、README、Guide 或 Plan 文档变化加载 `documentation-specialist` 收口。
-6. **单次提交**：F 阶段收口时必须加载 `conventional-committer` skill 执行单次提交，生成符合 Conventional Commits 格式的消息（使用中文或用户使用的语言）。未通过 A 阶段 Review Gate 的改动不得提交。
+3. **强制审计**：D 阶段完成后，必须立即加载本项目 [code-reviewer](../../.github/skills/code-reviewer/SKILL.md) skill 并移交 `@code-auditor` agent 执行 Review Gate。此步骤不可跳过、不可自我审查替代。A 阶段放行后方可进入 V / T / F。
+   - **审计调用协议**：审计 prompt 必须携带 `audit-depth` 声明（`quick` / `standard` / `deep` + 理由）、变更文件清单、已验证证据摘要（lint/typecheck/test 结果 + 关键断言行号）、是否为复审（复审附上轮问题编号清单）。未声明 depth 时审计默认按 `deep` 执行（防御方向），但会显著拖长用时——小改动必须主动声明 `quick`。
+   - **并发审计**：diff 文件数 > 8 或涉及 ≥ 2 个独立模块（如 `packages/core` + `packages/cli` + docs）时，按模块分区并行发起多个 `@code-auditor` 审计任务，主审汇总合并去重、取最严结论。小改动不得并发。
+   - **复审只审修复点**：第 2+ 轮审计只移交上轮问题编号对应的修复 diff，不重发全量 diff。
+   - **证据前置**：执行角色把调研结论/实验证据写进审计任务，避免审计者从头翻源码（见 [AI 协作规范 §1.3](../../docs/standards/ai-collaboration.md)）。
+4. 涉及界面时加载 `ui-validator`，涉及测试补强时加载 [test-engineer](../../.github/skills/test-engineer/SKILL.md)。
+5. 设计、规范、README、Guide 或 Plan 文档变化加载 [documentation-specialist](../../.github/skills/documentation-specialist/SKILL.md) 收口。
+6. **单次提交**：F 阶段收口时必须加载 [conventional-committer](../../.github/skills/conventional-committer/SKILL.md) skill 执行单次提交，生成符合 Conventional Commits 格式的消息（使用中文或用户使用的语言）。未通过 A 阶段 Review Gate 的改动不得提交。
 7. 处理与 Todo 相关的改动时，同步维护任务状态，避免实现进度与待办状态脱节。
 
 ## 不应承担
 
-- 不应在需求模糊时跳过 `requirement-analyst` 直接开工。
-- 不应绕过 `@code-auditor`、`ui-validator`、`test-engineer`、`conventional-committer` 等专项角色或技能直接宣布完成或直接提交。
+- 不应在需求模糊时跳过 [requirement-analyst](../../.github/skills/requirement-analyst/SKILL.md) 直接开工。
+- 不应绕过 `@code-auditor`、`ui-validator`、[test-engineer](../../.github/skills/test-engineer/SKILL.md)、[conventional-committer](../../.github/skills/conventional-committer/SKILL.md) 等专项角色或技能直接宣布完成或直接提交。
 - 不应在本文件内重复抄写 `AGENTS.md`、专项 skills 或规范文档已经定义的完整门禁流程。
 
 ## PDTFC+ 修复工作流补充

@@ -48,13 +48,15 @@ metadata:
 
 ### A (Audit) — 审计放行（强制）
 
-1. **强制入口**：D 阶段完成后立即加载 `code-reviewer` skill 执行完整审查。
+1. **强制入口**：D 阶段完成后立即加载本项目 `code-reviewer` skill（[code-reviewer](../code-reviewer/SKILL.md)，禁止全局同名版本）执行完整审查。
 2. **审查范围**：代码、文档、配置、脚本均须审查。
 3. **审计任务携带已查证事实**：把调研结论、实验证据、源码行号引用写进审计 prompt，避免审计者从头翻源码（证据优先级见 [AI 协作规范 §1.3 证据获取手段优先级](../../../docs/standards/ai-collaboration.md)）。
-4. **按风险分级分配深度**：高风险（发布/安全/配置/agent 定义）深度审计；低风险（文档/简单配置）快速审查，控制整体用时。
-5. **退回策略**：发现 blocker 退回 D 或回流 P。
+4. **按风险分级分配深度 + 时间盒**：高风险（发布/安全/配置/agent 定义）→ `deep`（≤ 20 分钟）；常规业务 → `standard`（≤ 10 分钟）；文档/简单配置 → `quick`（≤ 5 分钟）。审计 prompt 必须显式声明 `audit-depth` 与理由。
+5. **复审只审修复点**：第 2+ 轮只移交上轮问题编号对应的修复 diff，不重发全量 diff。
+6. **并发审计（仅大改动）**：diff 文件数 > 8 或涉及 ≥ 2 个独立模块时，按模块分区并行发起多个审计任务，汇总取最严结论；小改动不得并发。
+7. **退回策略**：发现 blocker 退回 D 或回流 P。
 
-- **技能**：`code-reviewer`、`security-guardian`
+- **技能**：[code-reviewer](../code-reviewer/SKILL.md)、[security-guardian](../security-guardian/SKILL.md)
 
 ### V (Validate) — 浏览器与流程验证
 
@@ -68,7 +70,7 @@ metadata:
 1. 根据改动类型和预算选择定向/全量/coverage 验证。
 2. 测试暴露的代码改动必须回到 D 并重新经过 A 阶段。
 
-- **技能**：`test-engineer`、`code-reviewer`
+- **技能**：[test-engineer](../test-engineer/SKILL.md)、[code-reviewer](../code-reviewer/SKILL.md)
 
 ### F (Finish) — 文档收口与单次提交
 

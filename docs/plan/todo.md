@@ -1,274 +1,140 @@
-# 当前阶段任务（M3）
+# 当前阶段任务（M4）
 
-> M0（基线收敛）/ M1（MVP 单仓库修复）/ M2（GitHub Action 接入）已完成，归档见 [todo-archive.md](todo-archive.md)。
-> M4 及之后阶段的任务见 [backlog.md](backlog.md)。
-
----
-
-## 待办：环境变量前缀迁移（方案 B：直接替换，无兼容层）
-
-- **优先级**: P1
-- **状态**: ✅ 已完成（2026-08-05）
-- **背景**: 环境变量沿用旧项目名 `AUTO_FIX_GITHUB_SECURITY_`（改名时漏网，`1e73fad` 仅迁移仓库引用）；已评估（无存量用户，v0.1.0 未发布）→ 用户确认方案 B
-- **交付物**: 全部环境变量前缀迁移为 `DEPENDFIX_`；`config/index.ts` 抽取统一前缀常量防再漏
-
-**任务内容**:
-
-- [x] `packages/cli/src/config/index.ts`：15 个环境变量（16 处读取）+ 错误消息变量名替换为 `DEPENDFIX_`，新增 `ENV_PREFIX` 常量 + `readEnv` 辅助
-- [x] 测试替换：`config/index.test.ts` / `app/index.test.ts` / `grouping.test.ts`
-- [x] `action.yml` + 文档（configuration.md / quick-start.md / README.md / design docs）同步
-- [x] 全量搜索确认无旧前缀残留（仅 config/index.ts:11 历史注释保留；todo-archive.md 归档不动）
-
-**完成定义**:
-
-- [x] 新旧前缀行为等价（无双前缀兼容代码，纯字符串替换 + 常量抽取）
-- [x] `pnpm lint` + `pnpm typecheck` + `pnpm test` + `pnpm build` 通过；Review Gate APPROVE（2 个 P3 措辞已顺手修正）
+> M0（基线收敛）/ M1（MVP 单仓库修复）/ M2（GitHub Action 接入）/ M3（Code Scanning 扩展）已完成，归档见 [todo-archive.md](todo-archive.md)。
+> M5 及之后阶段的任务见 [backlog.md](backlog.md)。
 
 ---
 
-## 待办：版本化 overrides 大版本 key + 存在脆弱实例门槛（run 31028234123 复盘）
+## M4: 多仓库治理增强
 
-- **优先级**: P1
-- **状态**: ✅ 已完成（2026-08-06）
-- **背景**: PR #26（run 31028234123）20 条告警只修 2 条。两个根因：① `buildVersionedOverrides` 用单一 target（全局最高推荐 6.4.3，major 6），vite 脆弱实例 5.4.14（major 5）同 major 匹配失败 → 11 条 vite 全 Skipped；② `hasMultipleMajorVersions` 只认多 major，fast-uri（3.1.0+3.1.5 同 major）被排除 → 常规链路不降级保护跳过 → 5 条 Skipped。另用户指出：PR 用精确版本 key（`brace-expansion@5.0.5`）应改用大版本 key（`body-parser@1` 风格，覆盖整条线防复发）
-- **交付物**: buildVersionedOverrides 重构 + app 门槛调整 + 集成测试
+**目标**: 支持 owner 级仓库自动发现、并发控制与失败隔离、仓库白名单/黑名单策略、报告归档与趋势统计。
 
-**任务内容**:
-
-- [x] `buildVersionedOverrides` 重构：接收该包**所有**告警，按 major 分组取各线最高推荐；key 改大版本 `pkg@major`（`vite@5: ^5.4.21`、`fast-uri@3: ^3.1.5`）
-- [x] app 2.0/2.0.1：门槛从 `hasMultipleMajorVersions`（多 major）改为"按包分组构建 overrides 非空即脆弱"，覆盖同 major 多小版本场景；移除 bestAlert 全局最高 reduce
-- [x] 测试：helpers 单测重写（大版本 key / 多 GHSA 按 major 分组 / fast-uri 同 major / 空输入）+ 集成测试（Dependabot 源 fast-uri 同 major → dry-run 记录 versioned-override 动作）
-- [x] `hasMultipleMajorVersions` 保留导出（测试锚定），不再被生产路径使用
-
-**完成定义**:
-
-- [x] 预期：vite→`vite@5: ^5.4.21`、fast-uri→`fast-uri@3: ^3.1.5`、brace-expansion→`brace-expansion@5: ^5.0.7`、js-yaml→`js-yaml@4: ^4.3.0`（18 条 Skipped 全部转可修复）
-- [x] `pnpm lint` + `pnpm typecheck` + `pnpm test`（571）+ `pnpm build` 通过；Review Gate APPROVE
-
-**Review Gate 遗留登记（非阻塞）**:
-- pnpm 11 不再读 `package.json#pnpm.overrides`（无 workspace.yaml 时 `applyVersionedOverrides` 回退写 package.json 会假成功——install 成功但 override 被忽略）。本项目有 pnpm-workspace.yaml 不受影响；建议后续加 pnpm 大版本探测/警告
-
----
-
-## 待办：多版本共存分别 overrides（run 31021398673 复盘）
-
-- **优先级**: P1
-- **状态**: ✅ 已完成（2026-08-06）
-- **背景**: dependfix 自扫 run 31021398673 中 23 条告警 Skipped=22。拆解：vite×11（根直接依赖 + lockfile 告警，P0 防护整体跳过——run 30929090403 教训）、lodash×3（`__fixtures__/lockfile-drift/version-mismatch/pnpm-lock.yaml` 故意构造的漏洞场景被 Dependabot 扫到）、fast-uri/js-yaml（不降级保护，正确）、brace-expansion（lint 失败回滚）。用户指示：多版本共存应**分别 overrides**（`pkg@version: ^target`），而非整体跳过
-- **交付物**: 版本化 overrides 修复链路 + fixtures 死资产删除
-
-**任务内容**:
-
-- [x] `readLockfileVersions`：返回 lockfile 中该包**所有**实例版本（原 readLockfileVersion 只取最高，重构复用）
-- [x] `applyVersionedOverrides`：批量写入版本化 overrides（workspace yaml / pnpm.overrides）+ install + 失败回滚
-- [x] `partitionSubmanifestAlerts`：根直接依赖 + lockfile 告警，多版本共存 → root（版本化 overrides 只影响对应实例，不波及其他大版本）
-- [x] app 升级链路：多版本包独立走版本化 overrides 修复（`hasMultipleMajorVersions` + `buildVersionedOverrides`），替代整体跳过
-- [x] 删除 `__fixtures__/lockfile-drift/`（5 文件零引用死资产，用户确认；未来需要从 git log 找回）
-- [x] 测试 +17：readLockfileVersions（4）/ applyVersionedOverrides（5）/ partition 多版本（2）/ buildVersionedOverrides + hasMultipleMajorVersions（6）
-
-**完成定义**:
-
-- [x] 多版本共存（vite@5.4.14 + vite@8.2.0）不再整体 Skipped，生成 `vite@5.4.14: ^5.4.21` 版本化 overrides 修复
-- [x] 单版本根直接依赖维持 P0 防护（sub 跳过，防全局 overrides 降级根声明）
-- [x] `pnpm lint` + `pnpm typecheck` + `pnpm test`（567）+ `pnpm build` 通过；Review Gate 放行
-
----
-## M3: Code Scanning 扩展
-
-**目标**: 接入 Code Scanning alerts 标准化采集，建立 A/B/C 三级规则分层，白名单规则自动修复，不可修复问题输出建议。
-
-**前置（已解除）**: T-G2-2（2026-08-04 探针验证）——Code Scanning alerts 对 GITHUB_TOKEN 可访问（HTTP 200，`security-events: read` 即可），**M3 无需额外 token 方案**；仅 Dependabot alerts 需要 PAT / GitHub App token（G2 已处置闭环）。
+**前置基础（已具备）**: CLI 已支持 `repositories: string[]` 显式多仓库配置（app 逐仓库循环执行），action 已暴露 `repos` 输入。M4 补齐**自动发现**与**治理能力**，显式列表语义不变。
 
 **设计要点（实现前确认）**:
-- **数据源并行而非回退**：M3 的 Code Scanning 与 Dependabot 是**并行源**（`fetchAlerts` 扩展为组合获取），区别于 `pnpm-audit` 的互斥回退；`AlertSource` 枚举已含 `'code-scanning'`，`SEVERITY_MAP` 已有 error/warning/note → high/medium/low 映射
-- **现状复用**：`packages/cli/src/fixers/code-scanning/index.ts` 已有 stub（M0 遗留）、core `AlertSeverity` 含 `'unknown'` 位
-- **报告列语义**：§4 Repositories 的 GHSA 列对 code-scanning 显示的是 `ruleId`（如 `js-sqli`），M3 落地时顺手将列名改为语义化的 "Rule/Advisory"（Review Gate 遗留 P3）
+- **发现与显式共存**：`--owner` 发现结果与显式 `repositories` 列表合并去重，显式优先；显式列表受 exclude 约束但不受 include 影响
+- **技术栈探测不做全量内容扫描**（成本与 token 面）：首版基于 topic / 默认分支 `dependabot.yml` 存在性探测（contents API 仅对候选仓库），内容嗅探为演进项
+- **并发默认保守**：`--max-concurrency` 默认 1（行为与现状一致），>1 时输出警告
+- **失败隔离语义**：单仓库失败记录该仓库结果（failed 状态 + 错误详情），不中断整体；聚合到单一 RunResult
+- **归档向后兼容**：现有 `dependfix-report-*.md|.json` 输出不变，新增归档结构仅追加
 
 ### 建议执行顺序
 
 ```
-T301（采集器）→ T302（规则分层）→ T303（模板修复器）→ T304（建议输出）
-                                      ↘
-                          T305（工具链固定 G1，P2 可并行）
+T401（发现）→ T402（并发/隔离）→ T403（名单策略，依赖发现）
+              ↘
+T404（归档/趋势，依赖 T402，可并行）
 ```
 
 ---
 
-### T301 接入 Code Scanning Alerts 拉取
-
-- **优先级**: P1
-- **依赖**: T102（GitHub client）、T004（标准告警模型）；前置 T-G2-2 已完成
-- **状态**: ✅ 已完成（2026-08-05，待提交）
-- **交付物**: `packages/cli/src/github/code-scanning-fetcher.ts`（参照 dependabot-fetcher 模式）
-
-**任务内容**:
-
-- [x] 拉取 open 状态 Code Scanning 告警（`GET /repos/{owner}/{repo}/code-scanning/alerts`，octokit.paginate 分页）
-- [x] 转换为标准告警模型：`source: 'code-scanning'`、`ruleId`（rule.id）、severity 走 `mapCodeScanningSeverity`（`security_severity_level` 优先，缺失时 rule.severity 映射）
-- [x] fixable 语义：Code Scanning 告警默认**不可自动修复**（`fixable: false`、`fixStrategy: null`），修复能力由 T303 规则模板按规则启用
-- [x] 报告中可展示 Code Scanning 告警（与 Dependabot 并行，§4 表 Rule/Advisory 列）
-
-**完成定义**:
-
-- [x] report-only / fix 模式下 Dependabot 与 Code Scanning 告警并行展示、互不覆盖
-- [x] 拉取失败（401/403）沿用 T-G2-1 硬失败语义 + hint
-
-**演进选项（Review Gate 遗留，非阻塞）**:
-- per-source 错误隔离：并行源任一失败目前整体硬失败（已拉取的 Dependabot 结果会丢失）；演进为 warn + 仅弃该源（需确认语义，暂缓）
-- fix 模式下 code-scanning 告警（manifestPath 非根）经 partitionSubmanifestAlerts 计为 skipped——语义正确，但统计口径与 G3 alertsConverged 一并处理
-
----
-
-### T302 规则分层与白名单机制
-
-- **优先级**: P1
-- **依赖**: T301
-- **状态**: ✅ 已完成（2026-08-05，待提交）
-- **交付物**: `packages/cli/src/code-scanning/rule-classifier.ts`（规则分类策略）
-
-**任务内容**:
-
-- [x] 定义 A/B/C 三类规则分层：A=自动修复白名单 / B=建议修复 / C=仅报告
-- [x] 建立自动修复白名单（当前：`eol-last`；`no-unused-vars` 因删除变量可能有副作用归 B 类——Review Gate 认可偏离；`jsdoc/check-alignment` 模板未实现、`no-trailing-spaces` 模板字符串词法歧义无法保证不改变运行时值——均不列入，详见 T303 历史决策）
-- [x] 建立仅建议输出的规则列表（CodeQL js/py/java 安全类 + no-unused-vars）
-- [x] 规则分类可配置（常量表 + 注释声明 M4+ 配置化扩展点）
-
-**完成定义**:
-
-- [x] 系统能区分"自动修复""建议修复""仅报告"三类，且分类结果在报告中可见（§4 Class 列 A/B/C）
-
-**Review Gate 遗留（非阻塞）**:
-- B 类列表覆盖 js/py/java 精选集，其余语言（go/ruby/csharp/cpp）落 C 兜底；真实仓库 API 样本核对 rule id 格式与变体分布登记为演进项
-- ~~no-trailing-spaces 模板字符串例外~~（已关闭：T303 评审移除该模板，M4+ 引入词法扫描后再评估恢复）
-
----
-
-### T303 实现可模板化规则修复器
-
-- **优先级**: P1
-- **依赖**: T302、T107（验证执行器）
-- **状态**: ✅ 已完成（2026-08-05，待提交）
-- **交付物**: `packages/cli/src/fixers/code-scanning/` 首批修复模板（替换 M0 stub）
-
-**任务内容**:
-
-- [x] 选择一组低风险规则作为首批支持对象（A 类白名单子集：`eol-last`；`no-trailing-spaces` 经 3 轮 Review Gate 因模板字符串词法歧义移除——无解析器无法保证"不改变运行时字符串值"红线，M4+ 引入词法扫描后再评估）
-- [x] 实现补丁生成与验证（复用 verification-runner；`FixAction.type` 扩展 `'code-scanning-fix'` 承载修复记录，含 noOp 三态语义）
-- [x] 失败时回退到建议模式（不静默、可审计：noOp 动作 + error 原因，Fix Actions 表可见）
-
-**完成定义**:
-
-- [x] 至少一类 Code Scanning 问题可完成自动修复闭环（eol-last：修复 → quickVerify 验证 → 报告/PR）
-
-**Review Gate 遗留（非阻塞）**:
-- app 层非 dry-run 验证/回滚路径缺 e2e（组件单测已兜底；真实 lint 环境依赖 CI）
-- 多 cs 告警时逐告警全项目 lint（性能观察项，可合并验证）
-- 报告 Fix Actions 表 noOp 动作显示 ✅ 图标（观感，error 文本可审计）
-
----
-
-### T304 实现建议型输出
-
-- **优先级**: P1
-- **依赖**: T301、T302、T108（报告）
-- **状态**: ✅ 已完成（2026-08-05，待提交）
-- **交付物**: Code Scanning 修复建议报告（报告 §Code Scanning Suggestions 区块 + PR body 区块）
-
-**任务内容**:
-
-- [x] 输出规则 ID、位置（文件:行）、摘要、建议修复方向（fetcher 注入 suggestionFor，core 模型扩展 startLine/endLine/suggestion）
-- [x] 区分未自动修复原因（B/C 类规则 / noOp / 修复失败，reason 优先级链）
-- [x] PR body 中展示 Code Scanning 建议（fix-and-pr 模式，generatePRBody 区块）
-
-**完成定义**:
-
-- [x] 无法自动修复的问题不会静默丢失（报告 §Code Scanning Suggestions 明确可见 + 原因标注）
-
-**Review Gate 遗留（非阻塞）**:
-- summary 字段已收集未渲染（JSON 可见；报告/PR body 如需摘要列可加）
-- endLine 死字段（供后续多行范围展示）
-- 大仓库建议区块行数可能使 PR body 接近 GitHub 64KB 上限（告警级输出无上限）
-
----
-
-### T305 工具链固定（G1 承接）
+### T401 实现 owner 级仓库自动发现
 
 - **优先级**: P2
-- **依赖**: 无（独立于 T301-T304，可并行）
-- **状态**: ✅ 已完成（2026-08-05，待提交）
-- **交付物**: `packages/cli/src/fixers/pnpm/index.ts` 的 PIN_TOOLCHAIN 策略接线 + config 输入
+- **依赖**: T102（GitHub client）
+- **状态**: 待办
+- **交付物**: `packages/cli/src/github/repository-discovery.ts`
 
 **任务内容**:
 
-- [x] config 新增 `toolchainPnpmVersion`（`--toolchain-pnpm-version` / env `DEPENDFIX_TOOLCHAIN_PNPM_VERSION`，缺省从 packageManager 解析；semver 白名单校验防命令注入——Review Gate P1）
-- [x] `repairLockfile` 接收 toolchain 并传入策略命令；`getStrategyCommand('PIN_TOOLCHAIN')` 改用 `corepack pnpm@<version> install --lockfile-only`（corepack 不可用/下载失败 → 降级为裸命令，靠策略链 REGENERATE 兜底）
-- [x] `tryLockfileRepair` 传递 toolchain；激活 `resolvePnpmVersion`（原死代码）
-- [x] 修复成功后校验 lockfile 格式与声明版本一致（lockfileVersion 前后对比 + lockfileVersionChanged 标注——防格式漂移，wisdom 记录 pnpm v11 overrides 迁移教训）
-- [x] 测试：corepack 成功 / corepack 缺失降级 / packageManager 解析 / config 解析 / 注入拒绝（+12）
+- [ ] 按 owner / org 拉取仓库列表（`GET /users/{owner}/repos` / `GET /orgs/{org}/repos`，octokit.paginate 分页）
+- [ ] 基础过滤：archived / disabled / fork 剔除，默认分支缺失剔除
+- [ ] topic 过滤（`--repo-topics node,pnpm`，AND 语义）；dependabot.yml 存在性探测（默认分支 contents API，仅对候选仓库，404 视为不支持）
+- [ ] 与显式 `repositories` 配置合并去重（显式优先，发现仅补充未出现项）
+- [ ] 发现结果排序确定性（仓库名排序，保证同输入多次运行结果一致——runId/指纹稳定性前提）
 
 **完成定义**:
 
-- [x] LOCKFILE_VERSION_MISMATCH 场景用声明版本 pnpm 重生成 lockfile（不再是"与 REGENERATE 相同"的 stub）
-- [x] corepack 不可用时行为不劣于现状（REGENERATE/REINSTALL 兜底）
+- [ ] `--owner` 模式生成稳定处理清单：同输入多次运行结果一致
+- [ ] 自动发现 + 显式列表合并无重复，显式仓库不因探测失败被剔除
+- [ ] 探测请求数量受控（仅候选仓库触达 contents API，不扫描全部）
 
-**Review Gate 遗留（非阻塞）**:
-- verifyFrozenLockfile 仍用裸 pnpm 验证，可能架空 PIN_TOOLCHAIN 固定版本（旧版 runner 场景；建议后续 verify 与策略同版本）
-- 漂移检测为相对对比（before/after），非严格"声明版本一致性"校验（弱代理）
+**非目标**: 全量内容扫描判断技术栈（首版基于 topic/元数据探测；内容嗅探登记 backlog 演进项）
 
----
-
-## M3 完成判定
-
-- [x] report-only / fix 模式并行展示 Dependabot + Code Scanning 告警（Rule/Advisory 列语义化）
-- [x] A/B/C 三层规则分类落地：自动修复 / 建议修复 / 仅报告
-- [x] 至少一类 Code Scanning 问题自动修复闭环（T303，eol-last）
-- [x] 无法自动修复的问题不静默丢失（T304，报告 + PR body 建议区块）
-- [x] G1 工具链固定落地（T305，PIN_TOOLCHAIN + corepack + 漂移检测）
-- [x] `pnpm typecheck` + `pnpm lint` + `pnpm test` 全部通过；Review Gate 放行
-
-**M3 完成记录（2026-08-05）**: T301~T305 全部完成，5 轮提交（7b8feb3 / 5b3e076 / aebf258+a7fa3a0 / dead17e / 486fea7），每任务独立 Review Gate（T303 经历 4 轮、T305 经历 2 轮），最终全量审查 APPROVE。
-**M3 配套补记（2026-08-05）**: action `code-scanning` input 接线（T301 配套，M3 收尾遗漏）——action.yml 增加 input + run 步骤传参，configuration.md / quick-start.md / README.md 文档同步，data-model.md / index.md / roadmap.md 状态修正为"已完成"。
-
-**M3 收尾审查遗留（2026-08-05 已按用户确认全部修复）**:
-- ✅ PR 标题口径：cs-only 修复不再误标 "N upgrades"——buildPrTitle 按动作构成动态生成（upgrades / code fixes / 中性标题），lockfile-only 不再 "0 upgrades"
-- ✅ partitionSubmanifestAlerts 对 code-scanning 告警的 skip 计数噪音——partition 限定依赖源告警（source !== 'code-scanning'）
-- ✅ 'unknown' 严重级静默滤除——code-scanning 源 unknown 恒透传（Dependabot/pnpm-audit 维持过滤语义）
-- ✅ report-only 模式 A 类规则建议原因措辞——按 mode 区分（"report-only 模式不执行修复" vs "异常路径"）
-- ✅ maxAlertsPerRepository 截断明细不进报告——RunSummary.alertsTruncated + Summary 表行
-- ✅ app/index.ts 行数逼近上限——拆分 runCodeScanningFixes（helpers.ts）+ 分支清理家族独立模块 branch-cleanup.ts（helpers re-export 保持兼容）
-
-**M4/backlog 仍登记**:
-- verifyFrozenLockfile 仍用裸 pnpm 验证，可能架空 PIN_TOOLCHAIN 固定版本（建议 verify 与策略同版本）
-- 漂移检测为相对对比（before/after），非严格"声明版本一致性"校验（弱代理）
-- resolveWithinWorkDir 未处理符号链接逃逸（攻击者可控 repo 内容场景）
-- 大仓库建议区块行数可能使 PR body 接近 GitHub 64KB 上限
-- app/helpers.ts ↔ cli/helpers/index.ts 值级循环依赖（quickVerifyProject ↔ validateVerifyCommands，运行时安全，收尾修复引入反向边——建议 M4 下沉公共层或回调注入）
+**测试方案**: mock octokit 分页 + 过滤组合矩阵单测；排序确定性；显式/发现合并优先级；topic 探测 404 语义
 
 ---
 
-## 已知缺口登记
+### T402 并发控制与失败隔离
 
-### G1 PIN_TOOLCHAIN 策略未真正固定 pnpm 版本
+- **优先级**: P2
+- **依赖**: T401、现有 app 多仓库循环
+- **状态**: 待办
+- **交付物**: `packages/cli/src/multirepo/scheduler.ts`（并发执行 + 每仓库独立状态）
 
-- **状态**: ✅ 已闭环（2026-08-05，T305 完成）
-- **位置**: `packages/cli/src/fixers/pnpm/index.ts`
-- **问题**: `RepairLockfileParams.toolchain`（`toolchain.pnpmVersion`）虽被接受并文档声明"优先于 packageManager"，但 `repairLockfile()` 内部从未调用 `resolvePnpmVersion()`，`PIN_TOOLCHAIN` 策略命令与 `REGENERATE` 完全相同（`pnpm install --lockfile-only`），未按 toolchain 固定版本执行
-- **处置**: T305 完成——resolvePnpmVersion 激活（toolchain > packageManager，semver 白名单校验）；PIN_TOOLCHAIN 改用 `corepack pnpm@<version> install --lockfile-only`（corepack 失败 → 裸命令 → REGENERATE 兜底）；lockfileVersion 前后对比漂移标注；config/CLI/env 输入齐备（`toolchainPnpmVersion`）
+**任务内容**:
+
+- [ ] `--max-concurrency` / `DEPENDFIX_MAX_CONCURRENCY`（默认 1 保守，>1 输出警告），并发上限校验（1-16）
+- [ ] 仓库级失败隔离：单仓库异常记录该仓库失败结果（failed + 错误详情），其余仓库继续执行
+- [ ] GitHub API 限流统一处理：429 / 403 secondary rate limit → 指数退避重试（octokit 插件或统一包装，退避上限可配）
+- [ ] 聚合 RunResult：多仓库结果合并（repositories 数组 + Summary 汇总行）
+
+**完成定义**:
+
+- [ ] 注入单个仓库失败时，其余仓库全部完成且报告可见失败仓库详情
+- [ ] 并发数配置生效且行为正确（调度日志可见并发窗口）
+- [ ] 429 模拟下自动退避重试成功，不丢失已拉取数据
+
+**非目标**: 跨进程 / 分布式调度（M7 BullMQ + Redis）
+
+**测试方案**: 调度器并发上限（mock 慢任务）、失败隔离集成测试（注入抛错仓库）、退避重试（mock 429 → 200）
 
 ---
 
-## 已完成登记：M2 阶段治理（2026-08-04 ~ 2026-08-05）
+### T403 仓库白名单 / 黑名单策略
 
-### G2 GITHUB_TOKEN 无法访问 Dependabot alerts API（产品设计级限制）——已闭环
+- **优先级**: P2
+- **依赖**: T401
+- **状态**: 待办
+- **交付物**: discovery 过滤链扩展（include/exclude 合并）
 
-- **结论**: 本质是故意设计（`vulnerability-alerts` 为 GitHub App-only 权限）+ 官方文档缺陷；处置任务 T-G2-1~5 全部完成（fetch 硬失败 / Code Scanning 探针验证 / 双 token 方案 / pnpm audit fallback / 规划文档闭环），详细记录已随 M2 归档至 [todo-archive.md §M2](todo-archive.md#m2-github-action-接入已归档)
+**任务内容**:
 
-### G3 overrides 覆盖策略——已处理 + 遗留观察
+- [ ] `--repo-include` / `--repo-exclude`（glob 模式 `owner/*`、`owner/pkg-*`；支持多次传入）
+- [ ] 优先级语义：显式 repositories 列表受 exclude 约束、不受 include 影响；发现结果同时受 include + exclude 约束；include 与 exclude 冲突时 exclude 胜出
+- [ ] topic 黑名单（`--repo-topics-exclude`，排除含任一指定 topic 的仓库）
+- [ ] 优先级语义写入配置文档（configuration.md）
 
-- **已落地**: 同包收敛 / 不降级保护 / 逐包验证回滚 / 分组升级（T213）/ manifest 归属防护 / pnpm v11 lockfile 解析（P1）
-- **遗留观察点**（不阻塞，随运行反馈再评估）:
-  - major overrides 确认机制：暂不实现自动拦截（评估 2026-08-05，逐包验证+回滚已兜底）
-  - 报告统计口径：`alertsSkipped` 混合多种语义，需独立字段（如 alertsConverged）
-  - 根直接依赖 + lockfile manifest 告警一律跳过有覆盖损失（可细化为"推荐版本 < 根锁定版本才跳过"）
-  - monorepo 成员包直接依赖盲区（isRootDirectDependency 仅读根 package.json）
-  - pnpm catalog 依赖的 override 行为未实测
+**完成定义**:
+
+- [ ] include / exclude / 显式列表 / topic 组合矩阵结果确定可预期（单测覆盖）
+- [ ] 文档写明优先级语义，无歧义
+
+**非目标**: 正则表达式引擎（首版 glob 通配；正则演进登记 backlog）
+
+**测试方案**: include/exclude/显式列表/topic 优先级矩阵单测；glob 匹配单测
+
+---
+
+### T404 报告归档与趋势统计
+
+- **优先级**: P2
+- **依赖**: T203（runId 已有）、T402
+- **状态**: 待办
+- **交付物**: `packages/cli/src/report/archiver.ts` + 归档索引
+
+**任务内容**:
+
+- [ ] 归档结构 `dependfix-reports/{YYYY-MM}/{runId}/`：多仓库各自 md/json + 汇总 json（现有 `writeReport` 输出保留）
+- [ ] 归档索引 `dependfix-reports/index.json`：runId、时间、仓库列表、告警/修复/失败计数、时长（趋势基础字段）
+- [ ] `--history <repo>` 命令：列出该仓库历史运行摘要（读 index.json，倒序时间）
+- [ ] 汇总 json 与单仓库报告同字段口径（复用 RunSummary 序列化）
+
+**完成定义**:
+
+- [ ] 连续 2 次运行后 index.json 可查询按仓库趋势（告警/修复/失败计数随时间变化）
+- [ ] 现有单仓库报告输出与 action artifact 路径不破坏（向后兼容）
+
+**非目标**: 图表 / 仪表板可视化（M6 平台）；报告保留策略（容量治理登记 backlog）
+
+**测试方案**: 归档写盘结构、index.json 更新幂等、history 输出格式、汇总字段与 RunSummary 对齐
+
+---
+
+## M4 完成判定
+
+- [ ] 通过 `--owner` 一次拉取多仓库处理清单（T401）
+- [ ] 显式 + 发现 + 名单组合结果可预期（T401+T403）
+- [ ] 多仓库失败隔离 + 并发可控（T402）
+- [ ] 历史归档可查趋势（T404）
+- [ ] `pnpm typecheck` + `pnpm lint` + `pnpm test` 全部通过；Review Gate 放行

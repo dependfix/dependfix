@@ -79,6 +79,18 @@ export interface RuntimeConfig {
      */
     codeScanningEnabled: boolean
     /**
+     * 跨线告警（推荐版本跨大版本）显式授权自动升级（`--allow-major-upgrade`）。
+     *
+     * 仅 CLI 参数入口，**刻意不提供 env 通道**（action 结构性禁用：
+     * action.yml 未暴露 input 且无 `DEPENDFIX_ALLOW_MAJOR_UPGRADE` 可绕过）。
+     *
+     * 开启后仅对「根 package.json 直接依赖（workspace 成员独占声明维持人工）
+     * + lockfile 单版本」的跨线告警自动升级，升级后复核脆弱实例消除、
+     * 强制完整验证（install + lint + build），失败自动回滚；
+     * 间接依赖 / 多版本共存跨线告警维持人工处理（skipped + warn）。
+     */
+    allowMajorUpgrade: boolean
+    /**
      * Dependabot alerts 专用 token（可选）。
      * 提供时仅用于拉取 Dependabot alerts（GITHUB_TOKEN 无法读取该 API，
      * 建议使用最小权限 fine-grained PAT，仅 `Dependabot alerts: read`）；
@@ -146,6 +158,11 @@ export interface CliConfigOverrides {
     alertSource?: AlertSourceKind
     /** 是否同时拉取 Code Scanning alerts（默认 false） */
     codeScanningEnabled?: boolean
+    /**
+     * 跨线告警显式授权自动升级（仅 CLI `--allow-major-upgrade` 入口，
+     * 无 env 通道；Action 不支持）。详见 RuntimeConfig.allowMajorUpgrade。
+     */
+    allowMajorUpgrade?: boolean
     /** Dependabot alerts 专用 token（可选，最小权限；缺省回退 githubToken） */
     alertsToken?: string
     maxAlertsPerRepository?: number
@@ -182,6 +199,7 @@ export const DEFAULT_RUNTIME_CONFIG: Omit<RuntimeConfig, 'githubToken' | 'reposi
     severityThreshold: 'high',
     alertSource: 'github-dependabot',
     codeScanningEnabled: false,
+    allowMajorUpgrade: false,
     maxAlertsPerRepository: 20,
     maxConcurrency: 1,
     maxRetries: 3,
@@ -641,6 +659,7 @@ export function resolveRuntimeConfig(options: ResolveRuntimeConfigOptions = {}):
         alertsToken: cliOverrides.alertsToken ?? envConfig.alertsToken,
         alertSource: cliOverrides.alertSource ?? envConfig.alertSource ?? DEFAULT_RUNTIME_CONFIG.alertSource,
         codeScanningEnabled: cliOverrides.codeScanningEnabled ?? envConfig.codeScanningEnabled ?? DEFAULT_RUNTIME_CONFIG.codeScanningEnabled,
+        allowMajorUpgrade: cliOverrides.allowMajorUpgrade ?? DEFAULT_RUNTIME_CONFIG.allowMajorUpgrade,
         maxAlertsPerRepository: cliOverrides.maxAlertsPerRepository ?? envConfig.maxAlertsPerRepository ?? DEFAULT_RUNTIME_CONFIG.maxAlertsPerRepository,
         maxConcurrency: cliOverrides.maxConcurrency ?? envConfig.maxConcurrency ?? DEFAULT_RUNTIME_CONFIG.maxConcurrency,
         maxRetries: cliOverrides.maxRetries ?? envConfig.maxRetries ?? DEFAULT_RUNTIME_CONFIG.maxRetries,

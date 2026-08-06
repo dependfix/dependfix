@@ -171,6 +171,20 @@ function isWorkspaceDirectDependency(workDir: string, packageName: string): bool
     return scanWorkspaceDirectDependencies(workDir).has(packageName)
 }
 
+/**
+ * 判断包是否为**根** `package.json` 的直接依赖（仅查根声明的
+ * dependencies / devDependencies / optionalDependencies）。
+ *
+ * 与 `isWorkspaceDirectDependency` 的区别：修复器 `upgradeDependency` 只修改
+ * 根 manifest，跨线升级准入必须与修复器能力对齐——仅成员声明的包（root 未声明）
+ * 进入跨线链路必然失败，维持人工处理（T405 Review Gate P2-2 修复）。
+ */
+export function isRootDirectDependency(workDir: string, packageName: string): boolean {
+    const names = new Set<string>()
+    collectDirectDependencyNames(names, join(workDir, 'package.json'))
+    return names.has(packageName)
+}
+
 /** 收集根 + 所有 workspace 成员包的直接依赖名集合。 */
 function scanWorkspaceDirectDependencies(workDir: string): Set<string> {
     const names = new Set<string>()

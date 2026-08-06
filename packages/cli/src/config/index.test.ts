@@ -27,6 +27,7 @@ describe('resolveRuntimeConfig', () => {
             githubToken: 'token-from-env',
             alertSource: 'github-dependabot',
             codeScanningEnabled: false,
+            allowMajorUpgrade: false,
             maxAlertsPerRepository: 20,
             maxConcurrency: 1,
             maxRetries: 3,
@@ -121,6 +122,7 @@ describe('resolveRuntimeConfig', () => {
             githubToken: 'token-from-cli',
             alertSource: 'github-dependabot',
             codeScanningEnabled: false,
+            allowMajorUpgrade: false,
             maxAlertsPerRepository: 3,
             maxConcurrency: 1,
             maxRetries: 3,
@@ -482,6 +484,34 @@ describe('resolveRuntimeConfig', () => {
                 DEPENDFIX_CODE_SCANNING: 'true',
             },
         })).toThrow('code-scanning requires the github-dependabot alert source')
+    })
+
+    it('disables major upgrade by default (backward compatible)', () => {
+        const config = resolveRuntimeConfig({
+            env: { GITHUB_TOKEN: 't', DEPENDFIX_REPOSITORIES: 'foo/bar' },
+        })
+
+        expect(config.allowMajorUpgrade).toBe(false)
+    })
+
+    it('enables major upgrade via CLI flag (three-state)', () => {
+        expect(parseCliArgs(['report-only', '--repo', 'foo/bar', '--allow-major-upgrade'])
+            .configOverrides.allowMajorUpgrade).toBe(true)
+        expect(parseCliArgs(['report-only', '--repo', 'foo/bar', '--no-allow-major-upgrade'])
+            .configOverrides.allowMajorUpgrade).toBe(false)
+    })
+
+    it('ignores env variable for major upgrade (CLI-only, no env channel)', () => {
+        // 刻意无 DEPENDFIX_ALLOW_MAJOR_UPGRADE 通道：保证 Action 结构性禁用（action.yml 未暴露 input 且无法经 env 绕过）
+        const config = resolveRuntimeConfig({
+            env: {
+                GITHUB_TOKEN: 't',
+                DEPENDFIX_REPOSITORIES: 'foo/bar',
+                DEPENDFIX_ALLOW_MAJOR_UPGRADE: 'true',
+            },
+        })
+
+        expect(config.allowMajorUpgrade).toBe(false)
     })
 
     it('reads toolchainPnpmVersion from env and CLI', () => {

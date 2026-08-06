@@ -478,7 +478,12 @@ export function generatePRBody(result: RunResult, supersededNumbers?: number[]):
         lines.push(`|${headers.map(() => '---').join('|')}|`)
         for (const u of upgrades) {
             const major = u.isMajor ? '⚠️ Yes' : 'No'
-            const strategy = u.strategy === 'override' ? 'pnpm overrides' : 'direct'
+            let strategy = 'direct'
+            if (u.strategy === 'override') {
+                strategy = 'pnpm overrides'
+            } else if (u.strategy === 'major-upgrade') {
+                strategy = 'major-upgrade'
+            }
             const cells = multiRepo
                 ? [u.repository, `\`${u.packageName}\``, u.fromVersion ?? '-', u.toVersion ?? '-', strategy, major]
                 : [`\`${u.packageName}\``, u.fromVersion ?? '-', u.toVersion ?? '-', strategy, major]

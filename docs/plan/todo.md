@@ -2,7 +2,47 @@
 
 > M0（基线收敛）/ M1（MVP 单仓库修复）/ M2（GitHub Action 接入）/ M3（Code Scanning 扩展）已完成，归档见 [todo-archive.md](todo-archive.md)。
 > **M4（多仓库治理增强）已完成（2026-08-06）**：T401-T404 全部交付并通过 Review Gate（提交 cb801b60 / fedb7200 / 5860fb4d / 2a7fed00），全量质量门（typecheck + lint + build + 650 tests）通过。
+> **M4.5（跨线升级显式授权）进行中（2026-08-07）**：T405 `--allow-major-upgrade`。
 > M5 及之后阶段的任务见 [backlog.md](backlog.md)。
+
+---
+
+## M4.5: 跨线升级显式授权（T405）
+
+**目标**: 当告警推荐版本跨大版本（当前线内无修复版本，PR #28 场景）时，用户通过 CLI 显式参数授权后，对可安全自动处理的跨线告警执行"跨线升级 → 强制完整验证 → 失败回滚"。默认行为不变（跨线告警维持 skipped + 人工）。
+
+### T405 实现 `--allow-major-upgrade` 跨线显式授权
+
+- **优先级**: P1
+- **依赖**: PR #28 复盘结论（跨线告警剔除逻辑）、T105（upgradeDependency）、T107（verifyProject）
+- **状态**: 进行中（2026-08-07）
+- **交付物**: `packages/cli/src/app/index.ts` 2.0.2 跨线链路 + CLI 参数
+
+**任务内容**:
+
+- [x] `--allow-major-upgrade` CLI 三态布尔参数（**无 env 通道**；action.yml 不暴露 input → Action 结构性禁用）
+- [x] config 层：`RuntimeConfig.allowMajorUpgrade`（默认 false）+ `CliConfigOverrides` + resolve 直通；`readEnvConfig` 刻意不读取
+- [x] helpers 导出 `isRootDirectDependency`（根声明判定，与修复器能力对齐）
+- [x] app 层跨线分流：开启时仅「根直接依赖 + lockfile 单版本」进入 2.0.2；workspace 成员独占声明 / 间接依赖 / 多版本共存维持 skipped + warn（现状回归）
+- [x] 2.0.2 跨线链路：快照 → upgradeDependency（改根声明）→ **升级后实例复核**（残留脆弱实例回滚，Review Gate P1-1）→ **强制完整验证**（install+lint+build）→ 失败 restoreTrackedFiles 回滚 → failed；成功 fixed（不误标纪律）；验证动作入报告（P2-3）
+- [x] 同包多跨线告警按包聚合取最高目标（P2-1）；PR body strategy 列映射 major-upgrade（P3）
+- [x] 报告：`FixAction.strategy='major-upgrade'` + `isMajor=true`（PR body ⚠️ Major 标记天然生效）
+
+**完成定义**:
+
+- [x] 未开启时行为与 PR #28 完全一致（跨线告警 skipped，不误标 fixed/converged）——现状回归测试
+- [x] 开启后：根直接依赖单版本跨线自动升级 + 实例复核 + 强制完整验证；残留脆弱实例回滚不标 fixed（workspace 成员/传递依赖 pin 场景）
+- [x] 间接依赖 / 成员独占 / 多版本共存仍人工（skipped + warn）
+- [x] 验证失败 / 实例残留回滚（manifest + lockfile 恢复），计 failed 而非 fixed
+- [x] dry-run 记录计划动作不写盘
+- [x] Action 无法启用（无 input、无 env 通道）
+- [x] 文档告知风险：API 破坏面 / 验证耗时 / 回滚边界 / 语义变化 / 实例残留（quick-start.md 风险章节）
+
+**非目标**: 间接依赖跨线自动升级（保守范围）；workspace 成员独占声明跨线（修复器仅改根 manifest）；多版本共存跨线自动升级（overrides 技术限制）；C12 major overrides 拦截确认机制（仍不实现）
+
+**测试方案**: config 三态 + env 无通道守卫 + CLI 解析；app 集成 10 例（默认回归 / 直接依赖升级 / 验证失败回滚 / 实例残留回滚 / 同包多告警取最高 / 间接依赖人工 / 成员独占人工 / 多版本共存人工 / dry-run / 验证动作可审计） ✅
+
+> **Review Gate**: 首轮 REJECT（P1-1 实例残留误标 + P2-1 同包多告警目标选择 + P2-2 成员独占必然失败 + P2-3 验证证据缺失），已按复查基线修复（实例复核回滚、包级最高目标聚合、根声明准入、验证动作入报告）。复审：核心 4 项确认修复，P2 文本措辞残留（4 处"根/workspace"旧语义）已统一为"根 package.json 直接依赖"。**PASS（2026-08-07，T405-5）**，残余风险登记（理论降级边 / 合并告警计数 / node_modules 不回滚 / 自定义 commands 时验证链为用户链）。
 
 ---
 

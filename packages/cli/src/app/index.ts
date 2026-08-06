@@ -32,8 +32,8 @@ import { fetchCodeScanningAlerts } from '../github/code-scanning-fetcher'
 import { fetchPnpmAuditAlerts } from '../alerts/pnpm-audit-fetcher'
 import { createFixBranch, stageAndCommit, pushBranch, createPullRequest, generatePRBody, computeFixFingerprint, computeFixAndPrPlan, findDependfixOpenPR } from '../github/pr-creator'
 import type { RuntimeConfig } from '../config'
-import { compareSemver, readLockfileVersion, applyVersionedOverrides, isCrossMajorFixRequired } from '../fixers/dependency'
-import { dedupeFixableAlerts, snapshotTrackedFiles, restoreTrackedFiles, quickVerifyProject, partitionSubmanifestAlerts } from '../helpers'
+import { compareSemver, readLockfileVersion, readLockfileVersions, applyVersionedOverrides, isCrossMajorFixRequired, upgradeDependency } from '../fixers/dependency'
+import { dedupeFixableAlerts, snapshotTrackedFiles, restoreTrackedFiles, quickVerifyProject, partitionSubmanifestAlerts, isRootDirectDependency } from '../helpers'
 import { buildUpgradeGroups } from '../grouping'
 import {
     buildCommitMessage,
@@ -367,23 +367,37 @@ export class DependfixApp {
                 (a) => a.source !== 'code-scanning' && a.manifestPath.trim().replace(/\\/g, '/') === 'pnpm-lock.yaml'
                     && a.fixable && a.recommendedVersion,
             )
-            // 2.0 跨线告警剔除（PR #28 复盘 2026-08-06）：推荐版本的 major 不在 lockfile
-            // 实例 majors 中 → 本大版本线无修复版本（如 5.x 实例的 GHSA-fx2h 推荐 6.4.3），
-            // 只能跨大版本升级修复。保持不跨大版本自动升级——此类告警不修复、不标
-            // fixed/converged，计入 skipped 并提示人工检查/升级/批准。
-            const crossMajorAlertIds = new Set(
-                lockfileManifestAlerts
-                    .filter((a) => isCrossMajorFixRequired(lockfilePath, a))
-                    .map((a) => a.id),
+            // 2.0 跨线告警分流（PR #28 复盘 2026-08-06 + T405 --allow-major-upgrade 扩展）：
+            // 推荐版本的 major 不在 lockfile 实例 majors 中 → 本大版本线无修复版本
+            // （如 5.x 实例的 GHSA-fx2h 推荐 6.4.3），只能跨大版本升级修复。
+            // 默认保持不跨大版本自动升级——此类告警不修复、不标 fixed/converged，
+            // 计入 skipped 并提示人工检查/升级/批准。
+            // --allow-major-upgrade 显式授权后，仅「根 package.json 直接依赖 + lockfile
+            // 单版本」的跨线告警进入 2.0.2 自动跨线（改声明 + 升级后实例复核 + 强制完整
+            // 验证 + 失败回滚）；workspace 成员独占声明（root 未声明，修复器只改根
+            // manifest——必然失败）、间接依赖、多版本共存跨线告警维持人工（跨线版本化
+            // overrides 会破坏依赖方 range 导致 install 失败，全局 override 会降级根声明
+            // ——保守正确，C10 教训）。
+            const allCrossMajorAlerts = lockfileManifestAlerts.filter((a) => isCrossMajorFixRequired(lockfilePath, a))
+            const manualCrossMajorAlerts = allCrossMajorAlerts.filter(
+                (a) => !(this.config.allowMajorUpgrade
+                    && isRootDirectDependency(this.workDir, a.packageName)
+                    && readLockfileVersions(lockfilePath, a.packageName).length === 1),
             )
-            if (crossMajorAlertIds.size > 0) {
-                const crossMajorAlerts = lockfileManifestAlerts.filter((a) => crossMajorAlertIds.has(a.id))
+            const autoMajorAlertIds = new Set(
+                allCrossMajorAlerts.filter((a) => !manualCrossMajorAlerts.some((m) => m.id === a.id)).map((a) => a.id),
+            )
+            const crossMajorAlertIds = new Set(manualCrossMajorAlerts.map((a) => a.id))
+            if (manualCrossMajorAlerts.length > 0) {
                 this.logger.warn(
-                    `[alerts] ${crossMajorAlerts.length} alert(s) require a cross-major upgrade (no fix within the installed major line) — manual review required: ${crossMajorAlerts.map((a) => `${a.packageName} → ${a.recommendedVersion}`).join(', ')}`,
+                    `[alerts] ${manualCrossMajorAlerts.length} alert(s) require a cross-major upgrade (no fix within the installed major line) — manual review required: ${manualCrossMajorAlerts.map((a) => `${a.packageName} → ${a.recommendedVersion}`).join(', ')}`,
                 )
-                this.summary.alertsSkipped += crossMajorAlerts.length
+                this.summary.alertsSkipped += manualCrossMajorAlerts.length
             }
-            const fixableLockfileAlerts = lockfileManifestAlerts.filter((a) => !crossMajorAlertIds.has(a.id))
+            const autoMajorAlerts = lockfileManifestAlerts.filter((a) => autoMajorAlertIds.has(a.id))
+            const fixableLockfileAlerts = lockfileManifestAlerts.filter(
+                (a) => !crossMajorAlertIds.has(a.id) && !autoMajorAlertIds.has(a.id),
+            )
             // 按包分组，构建版本化 overrides；非空即存在脆弱实例 → 进入 2.0.1
             const versionedOverridesByPackage = new Map<string, Record<string, string>>()
             for (const alert of fixableLockfileAlerts) {
@@ -407,7 +421,7 @@ export class DependfixApp {
             // 常规链路同样排除跨线告警（避免 no-downgrade 用最高实例版本误判 converged——
             // 8.2.0 的安全会掩盖 5.4.x 实例的跨线告警未修复，PR #28 复盘）
             const singleVersionAlerts = rootManifestAlerts.filter(
-                (a) => !multiVersionAlertIds.has(a.id) && !crossMajorAlertIds.has(a.id),
+                (a) => !multiVersionAlertIds.has(a.id) && !crossMajorAlertIds.has(a.id) && !autoMajorAlertIds.has(a.id),
             )
 
             // 2.0.1 执行版本化 overrides 修复（逐包：快照 → 写入 → install → 组级验证 → 回滚）
@@ -484,6 +498,142 @@ export class DependfixApp {
                     this.allActions.push(action)
                     failed++
                     this.logger.warn(`[multi-version] ${alert.packageName}: verification failed — rolled back versioned overrides`)
+                }
+            }
+
+            // 2.0.2 跨线升级（--allow-major-upgrade 显式授权；仅根直接依赖 + lockfile 单版本）
+            // 逐包：快照 → upgradeDependency（改根声明 + install 内建失败回滚）→
+            // 升级后实例复核（确认脆弱实例真实消除——跨线只改 root 声明，workspace 成员
+            // 同 range / 传递依赖 pin 可能仍锁旧 major，残留实例必须回滚，避免误标 fixed
+            // 且下一轮被最高实例掩盖误判 converged，PR #28 纪律）→ 强制完整验证
+            // （install + lint + build，跨线 breaking change 面大，lint-only 不足以兜底
+            // 类型/构建错误）→ 失败回滚。
+            // 同包多条跨线告警取最高 recommendedVersion 为升级目标（镜像 dedupeFixableAlerts
+            // 语义），被合并告警随代表告警一并处理并在日志中说明。
+            // 不误标 fixed/converged：成功仅计入 fixed；失败计 failed + 错误可审计。
+            // 按包聚合：取最高推荐版本为代表告警（P2-1 修复）
+            const autoMajorByPackage = new Map<string, NormalizedSecurityAlert>()
+            for (const alert of autoMajorAlerts) {
+                const existing = autoMajorByPackage.get(alert.packageName)
+                const existingTarget = existing?.recommendedVersion
+                const alertTarget = alert.recommendedVersion
+                if (!existing || (existingTarget && alertTarget && compareSemver(alertTarget, existingTarget) > 0)) {
+                    autoMajorByPackage.set(alert.packageName, alert)
+                }
+            }
+            const autoMajorRepresentatives = [...autoMajorByPackage.values()]
+            if (autoMajorAlerts.length > autoMajorRepresentatives.length) {
+                this.logger.info(
+                    `[major-upgrade] ${autoMajorAlerts.length - autoMajorRepresentatives.length} cross-major alert(s) merged into package representatives (highest target per package)`,
+                )
+            }
+            for (const alert of autoMajorRepresentatives) {
+                if (this.config.dryRun) {
+                    // dry-run 不写盘：仅记录计划动作（与 2.0.1 dry-run 语义一致）
+                    this.logger.info(`[dry-run] Would apply major upgrade for ${alert.packageName} → ${alert.recommendedVersion}`)
+                    this.allActions.push({
+                        type: 'dependency-upgrade',
+                        repository: alert.repository,
+                        target: alert.packageName,
+                        fromVersion: '',
+                        toVersion: alert.recommendedVersion,
+                        isMajor: true,
+                        strategy: 'major-upgrade',
+                        success: true,
+                        durationMs: 0,
+                    })
+                    fixed++
+                    continue
+                }
+                const majorSnapshot = snapshotTrackedFiles(this.workDir)
+                this.logger.warn(
+                    `[major-upgrade] ${alert.packageName}: applying cross-major upgrade → ${alert.recommendedVersion} (explicit --allow-major-upgrade; full verification required)`,
+                )
+                const majorResult = await upgradeDependency({
+                    packageName: alert.packageName,
+                    targetVersion: alert.recommendedVersion!,
+                    workDir: this.workDir,
+                })
+                if (!majorResult.success) {
+                    this.allActions.push({
+                        type: 'dependency-upgrade',
+                        repository: alert.repository,
+                        target: alert.packageName,
+                        fromVersion: majorResult.fromVersion,
+                        toVersion: alert.recommendedVersion,
+                        isMajor: true,
+                        strategy: 'major-upgrade',
+                        success: false,
+                        error: majorResult.error,
+                        durationMs: 0,
+                    })
+                    failed++
+                    continue
+                }
+                // 升级后实例复核（P1-1）：root 声明已升，但 workspace 成员同 range /
+                // 传递依赖 pin 可能仍锁旧 major → lockfile 残留脆弱实例 → 回滚
+                // （不进入验证阶段，省时且不制造"跨线成功但告警未消除"状态）
+                const remainingVersions = readLockfileVersions(lockfilePath, alert.packageName)
+                const stillVulnerable = remainingVersions.some(
+                    (v) => compareSemver(v, alert.recommendedVersion!) < 0,
+                )
+                if (stillVulnerable) {
+                    restoreTrackedFiles(this.workDir, majorSnapshot)
+                    this.allActions.push({
+                        type: 'dependency-upgrade',
+                        repository: alert.repository,
+                        target: alert.packageName,
+                        fromVersion: majorResult.fromVersion,
+                        toVersion: alert.recommendedVersion,
+                        isMajor: true,
+                        strategy: 'major-upgrade',
+                        success: false,
+                        error: 'vulnerable instance(s) remain after cross-major upgrade (workspace member / transitive pin); changes rolled back',
+                        durationMs: 0,
+                    })
+                    failed++
+                    this.logger.warn(
+                        `[major-upgrade] ${alert.packageName}: vulnerable instance(s) remain (${remainingVersions.join(', ')}) — rolled back cross-major upgrade, manual review required`,
+                    )
+                    continue
+                }
+                // 跨线强制完整验证（install + lint + build）
+                const majorVerifyActions = await verifyProject(this.ctx, repo)
+                // 验证动作入 allActions（P2-3）：成功证据可审计（summary 验证计数 + PR body Verification 章节）
+                this.allActions.push(...majorVerifyActions)
+                const majorOk = majorVerifyActions.every((a) => a.success)
+                if (majorOk) {
+                    this.allActions.push({
+                        type: 'dependency-upgrade',
+                        repository: alert.repository,
+                        target: alert.packageName,
+                        fromVersion: majorResult.fromVersion,
+                        toVersion: majorResult.toVersion,
+                        isMajor: true,
+                        strategy: 'major-upgrade',
+                        success: true,
+                        durationMs: 0,
+                    })
+                    fixed++
+                    this.logger.info(`[major-upgrade] ${alert.packageName}: cross-major upgrade passed full verification`)
+                } else {
+                    restoreTrackedFiles(this.workDir, majorSnapshot)
+                    this.allActions.push({
+                        type: 'dependency-upgrade',
+                        repository: alert.repository,
+                        target: alert.packageName,
+                        fromVersion: majorResult.fromVersion,
+                        toVersion: alert.recommendedVersion,
+                        isMajor: true,
+                        strategy: 'major-upgrade',
+                        success: false,
+                        error: 'major upgrade failed full verification; changes rolled back',
+                        durationMs: 0,
+                    })
+                    failed++
+                    this.logger.warn(
+                        `[major-upgrade] ${alert.packageName}: full verification failed — rolled back cross-major upgrade`,
+                    )
                 }
             }
 

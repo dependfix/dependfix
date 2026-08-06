@@ -443,3 +443,18 @@ T108 (报告生成器)
   - pnpm-workspace.yaml `packages` glob 展开（字面路径 / `dir/*` / `dir/**` / `**`，递归收集子目录；`.` 与排除模式除外）
   - 成员包直接依赖 + 单版本 + 推荐 < 锁定 → sub（修复前会错误走全局 override 降级成员声明）
   - 已知限制：`!` 排除模式未处理（多算 sub，保守方向）；`**` 递归不跟随符号链接
+
+### 12.6 跨线告警显式授权升级（T405，--allow-major-upgrade）
+
+- PR #28 复盘的"跨线告警不自动修复"（推荐版本 major 不在 lockfile 实例 majors → 当前线内无修复版本）在默认行为下**保持不变**：不修复、不标 fixed/converged、计入 skipped 并提示人工。
+- `--allow-major-upgrade`（CLI 专属，**无 env 通道**，Action 结构性禁用）显式授权后，**仅**以下跨线告警进入自动跨线链路（2.0.2）：
+  - **根 package.json** 直接依赖（`isRootDirectDependency`，修复器只改根 manifest——workspace 成员独占声明维持人工，Review Gate P2-2 修正）
+  - lockfile 中该包**单版本**（`readLockfileVersions` 长度 1）
+- 处理流程：快照 → `upgradeDependency`（改根声明，install 失败内建回滚）→ **升级后实例复核**（重读 lockfile：仍存在 `< recommended` 的脆弱实例——workspace 成员同 range / 传递依赖 pin 残留——则回滚 + failed，不进入验证，避免误标 fixed 且下一轮被最高实例掩盖误判 converged）→ **强制完整验证**（`verifyProject`：install + lint + build，非 lint-only——跨线 breaking change 面大，类型/构建错误 lint 无法兜底）→ 全部通过保留 / 任一失败 `restoreTrackedFiles` 回滚并计 failed。验证动作入 allActions（报告可审计，Review Gate P2-3 修正）。
+- **维持人工的场景**（即使开启）：
+  - 间接依赖跨线（全局 override 会波及所有实例与声明，破坏面不可控）
+  - workspace 成员独占声明（root 未声明——修复器 `upgradeDependency` 仅改根 manifest，必然失败）
+  - 多版本共存跨线（版本化 overrides 跨 major 会破坏依赖方 range 导致 install 失败；全局 override 会降级根声明——C10 教训）
+- 同包多条跨线告警按包聚合，取最高 `recommendedVersion` 为升级目标（镜像 `dedupeFixableAlerts` 语义，Review Gate P2-1 修正）
+- 统计口径：跨线升级成功 → fixed；失败（install 失败 / 实例残留 / 验证失败）→ failed；维持人工 → skipped。不误标纪律延续（PR #28）。
+- 已知限制：lint/build 通过 ≠ 运行时功能正确；验证耗时逐包完整链；快照回滚不还原 node_modules。

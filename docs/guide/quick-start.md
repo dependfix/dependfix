@@ -212,8 +212,29 @@ jobs:
 | `--max-retries` | — | GitHub API 限流重试次数（0-10，默认 3） | `DEPENDFIX_MAX_RETRIES` |
 | `--history` | — | 查询仓库历史运行摘要（读 `dependfix-reports/index.json`，倒序；不执行扫描） | — |
 | `--code-scanning` | — | 同时拉取 Code Scanning alerts（与 Dependabot 并行源；需要 token 具备 `security-events: read`，GITHUB_TOKEN 默认具备） | `false`（env `DEPENDFIX_CODE_SCANNING`） |
+| `--allow-major-upgrade` | — | 跨线告警（推荐版本跨大版本，当前线内无修复版本）显式授权自动升级：仅根 package.json 直接依赖（workspace 成员独占声明维持人工）且 lockfile 单版本的告警自动跨线升级，升级后复核脆弱实例消除、强制完整验证（install+lint+build），失败自动回滚；间接依赖 / 多版本共存跨线告警维持人工处理。**仅 CLI 可用，Action 不支持**（详见下方"跨大版本升级"风险章节） | `false`（**无 env 通道**） |
 | `--commands` | — | 自定义验证命令（逗号分隔） | — |
 | `--verbose` | — | 详细日志 | `false` |
+
+### ⚠️ 跨大版本升级（实验性，风险须知）
+
+`--allow-major-upgrade` 允许 dependfix 在**当前大版本线内没有修复版本**时（如某告警只影响 `<= 6.4.2`，而你锁定的 5.x 线无修复版本，Dependabot 推荐 6.4.3），对满足以下条件的跨线告警执行自动跨大版本升级：
+
+- ✅ **根 package.json 直接依赖**（声明在根 package.json 中；仅成员声明的包维持人工——修复器只改根声明）
+- ✅ **lockfile 中该包仅一个版本**（单版本场景）
+- ⏭️ 间接依赖 / workspace 成员独占声明 / 多版本共存的跨线告警**仍维持人工处理**（跨线版本化 overrides 会破坏依赖方 range，全局 override 会降级根声明——保守正确）
+
+**处理流程**：改根声明 → `pnpm install` → **升级后实例复核**（确认脆弱实例真实消除；若 workspace 成员同 range / 传递依赖 pin 仍锁旧版本导致残留，则自动回滚并计 failed）→ **强制完整验证**（`pnpm install --frozen-lockfile` + `pnpm lint` + `pnpm build`）→ 全部通过才保留；任一失败自动回滚并计入 failed。
+
+**已知风险与问题**：
+
+1. **API 破坏面**：跨大版本升级必然引入 breaking change。完整验证能兜底编译/类型/构建错误，但 **lint/build 通过 ≠ 运行时功能正确**——建议在合并前人工审查 PR（PR body 中跨线升级带 ⚠️ Major 标记）。
+2. **验证耗时**：每个跨线包执行一次完整 install + lint + build（逐包串行），耗时显著高于常规 lint-only 组级验证。
+3. **回滚边界**：快照回滚覆盖 package.json / pnpm-lock.yaml 等受跟踪文件；`node_modules` 不还原（临时目录语义，可接受）。
+4. **语义变化**：跨线升级会改变依赖声明（如 `^5.4.0` → `^6.4.3`），影响面超出漏洞本身——升级后其他 API 用法可能失效。
+5. **Action 不可用**：GitHub Action 刻意**不暴露**该参数，且**无 `DEPENDFIX_ALLOW_MAJOR_UPGRADE` 环境变量通道**（结构性禁用，防止 CI 自动跨线引发意外破坏）。
+
+> 默认不开启：不传 `--allow-major-upgrade` 时，跨线告警维持 skipped + 人工处理（PR #28 语义不变）。
 
 ## 报告
 

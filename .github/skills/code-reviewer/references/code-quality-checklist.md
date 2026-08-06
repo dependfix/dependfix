@@ -1,139 +1,142 @@
-# Code Quality Checklist
+# 代码质量审查清单
 
-## Error Handling
+## 错误处理
 
-### Anti-patterns to Flag
+### 需要标记的反模式
 
-- **Swallowed exceptions**: Empty catch blocks or catch with only logging
+- **吞异常（Swallowed exceptions）**：空 catch 块或只记录日志的 catch
   ```javascript
-  try { ... } catch (e) { }  // Silent failure
-  try { ... } catch (e) { console.log(e) }  // Log and forget
+  try { ... } catch (e) { }  // 静默失败
+  try { ... } catch (e) { console.log(e) }  // 只记录后忘记
   ```
-- **Overly broad catch**: Catching `Exception`/`Error` base class instead of specific types
-- **Error information leakage**: Stack traces or internal details exposed to users
-- **Missing error handling**: No try-catch around fallible operations (I/O, network, parsing)
-- **Async error handling**: Unhandled promise rejections, missing `.catch()`, no error boundary
+- **catch 过宽**：捕获 `Exception`/`Error` 基类而不是具体类型
+- **错误信息泄露**：向用户暴露堆栈或内部细节
+- **缺失错误处理**：对易失败操作（I/O、网络、解析）没有 try-catch
+- **异步错误处理**：未处理的 promise rejection、缺失 `.catch()`、无错误边界
 
-### Best Practices to Check
+### 最佳实践核对
 
-- [ ] Errors are caught at appropriate boundaries
-- [ ] Error messages are user-friendly (no internal details exposed)
-- [ ] Errors are logged with sufficient context for debugging
-- [ ] Async errors are properly propagated or handled
-- [ ] Fallback behavior is defined for recoverable errors
-- [ ] Critical errors trigger alerts/monitoring
+- [ ] 错误在合适的边界被捕获
+- [ ] 错误消息对用户友好（不暴露内部细节）
+- [ ] 错误记录包含足够调试上下文
+- [ ] 异步错误被正确传播或处理
+- [ ] 可恢复错误有回退行为定义
+- [ ] 关键错误触发告警/监控
 
-### Questions to Ask
-- "What happens when this operation fails?"
-- "Will the caller know something went wrong?"
-- "Is there enough context to debug this error?"
+### 应提出的问题
+
+- "这个操作失败时会怎样？"
+- "调用方能否知道出错了？"
+- "是否有足够的上下文来调试这个错误？"
 
 ---
 
-## Performance & Caching
+## 性能与缓存
 
-### CPU-Intensive Operations
+### CPU 密集型操作
 
-- **Expensive operations in hot paths**: Regex compilation, JSON parsing, crypto in loops
-- **Blocking main thread**: Sync I/O, heavy computation without worker/async
-- **Unnecessary recomputation**: Same calculation done multiple times
-- **Missing memoization**: Pure functions called repeatedly with same inputs
+- **热路径上的昂贵操作**：循环中的正则编译、JSON 解析、加密
+- **阻塞主线程**：同步 I/O、无 worker/async 的重计算
+- **不必要的重复计算**：同一计算执行多次
+- **缺失记忆化**：纯函数被相同输入重复调用
 
-### Database & I/O
+### 数据库与 I/O
 
-- **N+1 queries**: Loop that makes a query per item instead of batch
+- **N+1 查询**：循环内逐条查询而不是批量查询
   ```javascript
-  // Bad: N+1
+  // 坏：N+1
   for (const id of ids) {
     const user = await db.query(`SELECT * FROM users WHERE id = ?`, id)
   }
-  // Good: Batch
+  // 好：批量
   const users = await db.query(`SELECT * FROM users WHERE id IN (?)`, ids)
   ```
-- **Missing indexes**: Queries on unindexed columns
-- **Over-fetching**: SELECT * when only few columns needed
-- **No pagination**: Loading entire dataset into memory
+- **缺失索引**：在未索引列上查询
+- **过度获取**：只需几列却 `SELECT *`
+- **无分页**：一次性把整个数据集加载进内存
 
-### Caching Issues
+### 缓存问题
 
-- **Missing cache for expensive operations**: Repeated API calls, DB queries, computations
-- **Cache without TTL**: Stale data served indefinitely
-- **Cache without invalidation strategy**: Data updated but cache not cleared
-- **Cache key collisions**: Insufficient key uniqueness
-- **Caching user-specific data globally**: Security/privacy issue
+- **昂贵操作缺少缓存**：重复 API 调用、DB 查询、计算
+- **缓存无 TTL**：过期数据无限期提供
+- **缓存无失效策略**：数据更新但缓存未清除
+- **缓存 key 冲突**：key 唯一性不足
+- **用户特定数据全局缓存**：安全/隐私问题
 
-### Memory
+### 内存
 
-- **Unbounded collections**: Arrays/maps that grow without limit
-- **Large object retention**: Holding references preventing GC
-- **String concatenation in loops**: Use StringBuilder/join instead
-- **Loading large files entirely**: Use streaming instead
+- **无界集合**：无限增长的数组/map
+- **大对象驻留**：持有引用阻碍 GC
+- **循环内字符串拼接**：改用 StringBuilder/join
+- **整体加载大文件**：改用流式处理
 
-### Questions to Ask
-- "What's the time complexity of this operation?"
-- "How does this behave with 10x/100x data?"
-- "Is this result cacheable? Should it be?"
-- "Can this be batched instead of one-by-one?"
+### 应提出的问题
+
+- "这个操作的时间复杂度是多少？"
+- "10x/100x 数据量下表现如何？"
+- "这个结果可缓存吗？应该缓存吗？"
+- "能否批量处理而不是逐个处理？"
 
 ---
 
-## Boundary Conditions
+## 边界条件
 
-### Null/Undefined Handling
+### Null/Undefined 处理
 
-- **Missing null checks**: Accessing properties on potentially null objects
-- **Truthy/falsy confusion**: `if (value)` when `0` or `""` are valid
-- **Optional chaining overuse**: `a?.b?.c?.d` hiding structural issues
-- **Null vs undefined inconsistency**: Mixed usage without clear convention
+- **缺失 null 检查**：在可能为 null 的对象上访问属性
+- **Truthy/falsy 混淆**：`if (value)` 当 `0` 或 `""` 是合法值时
+- **可选链过度使用**：`a?.b?.c?.d` 掩盖结构性问题
+- **null 与 undefined 不一致**：混用且无明确约定
 
-### Empty Collections
+### 空集合
 
-- **Empty array not handled**: Code assumes array has items
-- **Empty object edge case**: `for...in` or `Object.keys` on empty object
-- **First/last element access**: `arr[0]` or `arr[arr.length-1]` without length check
+- **空数组未处理**：代码假设数组有元素
+- **空对象边界**：在空对象上 `for...in` 或 `Object.keys`
+- **首/尾元素访问**：`arr[0]` 或 `arr[arr.length-1]` 未检查长度
 
-### Numeric Boundaries
+### 数值边界
 
-- **Division by zero**: Missing check before division
-- **Integer overflow**: Large numbers exceeding safe integer range
-- **Floating point comparison**: Using `===` instead of epsilon comparison
-- **Negative values**: Index or count that shouldn't be negative
-- **Off-by-one errors**: Loop bounds, array slicing, pagination
+- **除零**：除法前缺少检查
+- **整数溢出**：大数超过安全整数范围
+- **浮点比较**：用 `===` 而不是 epsilon 比较
+- **负值**：不应为负的索引或计数
+- **差一错误**：循环边界、数组切片、分页
 
-### String Boundaries
+### 字符串边界
 
-- **Empty string**: Not handled as edge case
-- **Whitespace-only string**: Passes truthy check but is effectively empty
-- **Very long strings**: No length limits causing memory/display issues
-- **Unicode edge cases**: Emoji, RTL text, combining characters
+- **空字符串**：未作为边界情况处理
+- **纯空白字符串**：通过 truthy 检查但实际为空
+- **超长字符串**：无长度限制导致内存/显示问题
+- **Unicode 边界**：emoji、RTL 文本、组合字符
 
-### Common Patterns to Flag
+### 需要标记的常见模式
 
 ```javascript
-// Dangerous: no null check
+// 危险：无 null 检查
 const name = user.profile.name
 
-// Dangerous: array access without check
+// 危险：数组访问无检查
 const first = items[0]
 
-// Dangerous: division without check
+// 危险：除法无检查
 const avg = total / count
 
-// Dangerous: truthy check excludes valid values
-if (value) { ... }  // fails for 0, "", false
+// 危险：truthy 检查排除合法值
+if (value) { ... }  // 对 0, "", false 失效
 ```
 
-### Questions to Ask
-- "What if this is null/undefined?"
-- "What if this collection is empty?"
-- "What's the valid range for this number?"
-- "What happens at the boundaries (0, -1, MAX_INT)?"
+### 应提出的问题
+
+- "如果是 null/undefined 会怎样？"
+- "如果集合为空会怎样？"
+- "这个数字的合法范围是什么？"
+- "在边界（0、-1、MAX_INT）会发生什么？"
 
 ---
 
-## Standards Compliance
+## 规范一致性（Standards Compliance）
 
-### Development-Flow ID Markers in Comments & Test Names (必查)
+### 注释与测试名中的开发流程编号标记（必查）
 
 审查新增/修改的注释与测试名是否残留规划/任务/审计/backlog 编号标记。规范见项目 [development.md §3 注释规范](../../../../docs/standards/development.md)。
 
@@ -143,12 +146,13 @@ if (value) { ... }  // fails for 0, "", false
   - 带文档路径/章节名的导航指针：如"背景详见 `docs/plan/todo.md`「已知缺口 G2」"、"见 todo.md G3"
 - **修复方式**：删除编号前缀，保留编号后的解释正文（如 `// 按包聚合（P2-1 修复）` → `// 按包聚合（避免同包多告警丢失）`）
 
-### Questions to Ask
+### 应提出的问题
+
 - "diff 中新增的注释/测试名是否含孤立编号标记？"
 - "编号是否带可反查的文档路径（导航指针例外）？"
 - "清理编号后解释正文是否保留、语义是否完整？"
 
-### Bulk Replacements & Line-Ending Integrity (批量替换/行尾审查)
+### 批量替换与行尾完整性（批量替换/行尾审查）
 
 diff 包含大范围替换（脚本/正则批量改写、多文件机械变更）时，重点检查：
 
@@ -158,6 +162,7 @@ diff 包含大范围替换（脚本/正则批量改写、多文件机械变更�
 
 规范见 [ai-collaboration.md §1.2 执行原则 6](../../../../docs/standards/ai-collaboration.md)，教训见 [经验归档 §十七](../../../../docs/design/governance/2026-08-06-experience-archive.md)。
 
-### Questions to Ask
+### 应提出的问题
+
 - "该改动是否为批量替换？若是，行尾/URL/代码 token 是否被误伤？"
 - "是否存在全文件行尾翻转（--ignore-space-at-eol 前后行数差异）？"

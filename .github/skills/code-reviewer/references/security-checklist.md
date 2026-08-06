@@ -1,118 +1,124 @@
-# Security and Reliability Checklist
+# 安全与可靠性审查清单
 
-## Input/Output Safety
+## 输入/输出安全
 
-- **XSS**: Unsafe HTML injection, `dangerouslySetInnerHTML`, unescaped templates, innerHTML assignments
-- **Injection**: SQL/NoSQL/command/GraphQL injection via string concatenation or template literals
-- **SSRF**: User-controlled URLs reaching internal services without allowlist validation
-- **Path traversal**: User input in file paths without sanitization (`../` attacks)
-- **Prototype pollution**: Unsafe object merging in JavaScript (`Object.assign`, spread with user input)
+- **XSS**：不安全的 HTML 注入、`dangerouslySetInnerHTML`、未转义模板、innerHTML 赋值
+- **注入**：通过字符串拼接或模板字面量导致的 SQL/NoSQL/命令/GraphQL 注入
+- **SSRF**：用户可控 URL 未经验证白名单就触达内部服务
+- **路径穿越**：用户输入未消毒就用于文件路径（`../` 攻击）
+- **原型污染**：不安全的 JavaScript 对象合并（`Object.assign`、带用户输入的 spread）
 
-## AuthN/AuthZ
+## 认证/授权（AuthN/AuthZ）
 
-- Missing tenant or ownership checks for read/write operations
-- New endpoints without auth guards or RBAC enforcement
-- Trusting client-provided roles/flags/IDs
-- Broken access control (IDOR - Insecure Direct Object Reference)
-- Session fixation or weak session management
+- 读写操作缺少租户或所有权检查
+- 新端点没有认证守卫或 RBAC 强制
+- 信任客户端提供的角色/标志/ID
+- 破坏的访问控制（IDOR - 不安全的直接对象引用）
+- 会话固定或弱会话管理
 
-## JWT & Token Security
+## JWT 与 Token 安全
 
-- Algorithm confusion attacks (accepting `none` or `HS256` when expecting `RS256`)
-- Weak or hardcoded secrets
-- Missing expiration (`exp`) or not validating it
-- Sensitive data in JWT payload (tokens are base64, not encrypted)
-- Not validating `iss` (issuer) or `aud` (audience)
+- 算法混淆攻击（期望 `RS256` 时接受 `none` 或 `HS256`）
+- 弱密钥或硬编码密钥
+- 缺少 `exp`（过期时间）或未校验
+- JWT 载荷中的敏感数据（token 是 base64，非加密）
+- 未校验 `iss`（签发者）或 `aud`（受众）
 
-## Secrets and PII
+## 密钥与个人隐私数据（PII）
 
-- API keys, tokens, or credentials in code/config/logs
-- Secrets in git history or environment variables exposed to client
-- Excessive logging of PII or sensitive payloads
-- Missing data masking in error messages
+- 代码/配置/日志中的 API key、token 或凭据
+- git 历史中的密钥，或暴露给客户端的环境变量
+- 过度记录 PII 或敏感载荷
+- 错误消息中缺少数据脱敏
 
-## Supply Chain & Dependencies
+## 供应链与依赖
 
-- Unpinned dependencies allowing malicious updates
-- Dependency confusion (private package name collision)
-- Importing from untrusted sources or CDNs without integrity checks
-- Outdated dependencies with known CVEs
+- 未锁定版本的依赖允许恶意更新
+- 依赖混淆（私有包名冲突）
+- 从不信任来源或 CDN 导入且无完整性校验
+- 已知 CVE 的过时依赖
 
-## CORS & Headers
+## CORS 与响应头
 
-- Overly permissive CORS (`Access-Control-Allow-Origin: *` with credentials)
-- Missing security headers (CSP, X-Frame-Options, X-Content-Type-Options)
-- Exposed internal headers or stack traces
+- 过度宽松的 CORS（`Access-Control-Allow-Origin: *` 且带凭据）
+- 缺少安全响应头（CSP、X-Frame-Options、X-Content-Type-Options）
+- 暴露内部响应头或堆栈
 
-## Runtime Risks
+## 运行时风险
 
-- Unbounded loops, recursive calls, or large in-memory buffers
-- Missing timeouts, retries, or rate limiting on external calls
-- Blocking operations on request path (sync I/O in async context)
-- Resource exhaustion (file handles, connections, memory)
-- ReDoS (Regular Expression Denial of Service)
+- 无界循环、递归调用或大型内存缓冲
+- 外部调用缺少超时、重试或限流
+- 请求路径上的阻塞操作（async 上下文中的同步 I/O）
+- 资源耗尽（文件句柄、连接、内存）
+- ReDoS（正则表达式拒绝服务）
 
-## Cryptography
+## 密码学
 
-- Weak algorithms (MD5, SHA1 for security purposes)
-- Hardcoded IVs or salts
-- Using encryption without authentication (ECB mode, no HMAC)
-- Insufficient key length
+- 弱算法（安全用途的 MD5、SHA1）
+- 硬编码 IV 或盐
+- 无认证的加密（ECB 模式、无 HMAC）
+- 密钥长度不足
 
-## Race Conditions
+## 竞态条件
 
-Race conditions are subtle bugs that cause intermittent failures and security vulnerabilities. Pay special attention to:
+竞态条件是导致间歇性故障与安全漏洞的隐蔽 bug。特别注意：
 
-### Shared State Access
-- Multiple threads/goroutines/async tasks accessing shared variables without synchronization
-- Global state or singletons modified concurrently
-- Lazy initialization without proper locking (double-checked locking issues)
-- Non-thread-safe collections used in concurrent context
+### 共享状态访问
 
-### Check-Then-Act (TOCTOU)
-- `if (exists) then use` patterns without atomic operations
-- `if (authorized) then perform` where authorization can change
-- File existence check followed by file operation
-- Balance check followed by deduction (financial operations)
-- Inventory check followed by order placement
+- 多线程/goroutine/async 任务在无同步下访问共享变量
+- 并发修改的全局状态或单例
+- 无适当锁的懒初始化（双重检查锁定问题）
+- 并发上下文中使用非线程安全集合
 
-### Database Concurrency
-- Missing optimistic locking (`version` column, `updated_at` checks)
-- Missing pessimistic locking (`SELECT FOR UPDATE`)
-- Read-modify-write without transaction isolation
-- Counter increments without atomic operations (`UPDATE SET count = count + 1`)
-- Unique constraint violations in concurrent inserts
+### 检查后行动（TOCTOU）
 
-### Distributed Systems
-- Missing distributed locks for shared resources
-- Leader election race conditions
-- Cache invalidation races (stale reads after writes)
-- Event ordering dependencies without proper sequencing
-- Split-brain scenarios in cluster operations
+- `if (exists) then use` 模式无原子操作
+- `if (authorized) then perform` 授权可能中途变化
+- 文件存在性检查后紧跟文件操作
+- 余额检查后紧跟扣款（金融操作）
+- 库存检查后紧跟下单
 
-### Common Patterns to Flag
+### 数据库并发
+
+- 缺少乐观锁（`version` 列、`updated_at` 检查）
+- 缺少悲观锁（`SELECT FOR UPDATE`）
+- 无事务隔离的读-改-写
+- 无原子操作的计数器自增（`UPDATE SET count = count + 1`）
+- 并发插入中的唯一约束冲突
+
+### 分布式系统
+
+- 共享资源缺少分布式锁
+- 主节点选举竞态
+- 缓存失效竞态（写后过期读）
+- 无正确排序的事件顺序依赖
+- 集群操作中的脑裂场景
+
+### 需要标记的常见模式
+
 ```
-# Dangerous patterns:
+# 危险模式：
 if not exists(key):       # TOCTOU
     create(key)
 
-value = get(key)          # Read-modify-write
+value = get(key)          # 读-改-写
 value += 1
 set(key, value)
 
-if user.balance >= amount:  # Check-then-act
+if user.balance >= amount:  # 检查后行动
     user.balance -= amount
 ```
 
-### Questions to Ask
-- "What happens if two requests hit this code simultaneously?"
-- "Is this operation atomic or can it be interrupted?"
-- "What shared state does this code access?"
-- "How does this behave under high concurrency?"
+### 应提出的问题
 
-## Data Integrity
+- "两个请求同时命中这段代码会发生什么？"
+- "这个操作是原子的还是可被中断的？"
+- "这段代码访问哪些共享状态？"
+- "高并发下表现如何？"
 
-- Missing transactions, partial writes, or inconsistent state updates
-- Weak validation before persistence (type coercion issues)
-- Missing idempotency for retryable operations
-- Lost updates due to concurrent modifications
+## 数据完整性
+
+- 缺少事务、部分写入或不一致的状态更新
+- 持久化前弱校验（类型强制问题）
+- 可重试操作缺少幂等性
+- 并发修改导致的丢失更新

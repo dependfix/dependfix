@@ -34,12 +34,30 @@ branding:
 | 参数 | 类型 | 默认值 | 说明 |
 |:---|:---|:---|:---|
 | `mode` | string | `fix-and-pr`（T209 起） | 运行模式：`report-only` / `fix` / `fix-and-pr`；**破坏性变更**：存量消费者未显式传参时从"仅报告"变为"自动提 PR"（不自动合并） |
-| `repos` | string | `''`（空=当前仓库） | 逗号分隔的目标仓库 |
+| `repos` | string | `''`（空=当前仓库） | 逗号分隔的目标仓库；与 `owner` 同时给出时合并去重（显式优先） |
+| `owner` | string | `''` | owner / org 自动发现（M4 T401，逗号分隔多个）。**权限要求**：GITHUB_TOKEN 仅能访问当前仓库，owner 发现其他仓库必须使用具备仓库读取权限的 PAT（`github-token` 输入）；Dependabot alerts 拉取仍需 `dependabot-alerts-token`（最小权限 fine-grained PAT） |
+| `repo-topics` | string | `''` | 发现结果 topic 白名单（逗号分隔，AND 语义；仅影响 owner 发现结果） |
+| `repo-include` | string | `''` | 仓库白名单 glob（逗号分隔多个；仅作用于发现结果） |
+| `repo-exclude` | string | `''` | 仓库黑名单 glob（显式列表与发现结果均受约束，与 include 冲突时胜出） |
+| `repo-topics-exclude` | string | `''` | 发现结果 topic 黑名单（排除含任一指定 topic 的仓库） |
+| `max-concurrency` | string | `1` | 多仓库并发窗口（1-16；>1 仅 report-only 允许，fix/fix-and-pr 共享单一 workDir 会被配置校验拒绝） |
+| `max-retries` | string | `3` | GitHub API 限流重试次数（0-10；429/rate limit 指数退避重试） |
 | `severity-threshold` | string | `high` | 严重级别阈值 |
 | `dry-run` | string | `false`（T209 起，与 fix-and-pr 互斥配套） | 试运行模式 |
 | `max-alerts-per-repository` | string | `20` | 每仓库最大告警数 |
 | `cleanup-branches` | string | `false`（T211 起） | fix-and-pr 结束后将已合并的 dependfix 分支列入报告待清理清单（不自动删除） |
+| `cleanup-branches-auto` | string | `false` | fix-and-pr 结束后自动删除已合并/已关闭的 dependfix 分支（非交互；不删有 open PR 的分支） |
+| `dependabot-alerts-token` | string | `''` | Dependabot alerts 专用最小权限 token（fine-grained PAT，仅 `Dependabot alerts: read`；缺省回退 `github-token`。GITHUB_TOKEN 无法读取 Dependabot alerts） |
+| `code-scanning` | string | `false` | 同时拉取 Code Scanning alerts（与 Dependabot 并行源；需 token 具备 `security-events: read`） |
+| `ai-api-token` | string | `''` | AI API Token（M5 联调，经 GitHub Secrets 传入） |
+| `ai-api-base-url` | string | `''` | AI API Base URL（M5 联调，支持多 AI 提供商） |
 | `github-token` | string | **必填** | GitHub Token（需 security-events 权限） |
+
+> **M4 接入建议（2026-08-06）**：多仓库治理参数（`owner` / `repo-*` / `max-concurrency` / `max-retries`）已接入 Action 输入。**建议为每个仓库单独配置 action**（而非跨仓库 owner 发现）：
+> 1. **权限范围最小化**：单仓库 action 仅需该仓库的 token（`GITHUB_TOKEN` 即可，或按仓库独立的最小权限 PAT）；owner 模式需要跨仓库读取权限的 PAT，token 泄露影响面更大。
+> 2. **告警源兼容**：Dependabot alerts 拉取始终需要 `dependabot-alerts-token`（GITHUB_TOKEN 无法读取），逐仓库配置时可分别用不同仓库的最小权限 token。
+> 3. **失败隔离**：单仓库 action 失败不影响其他仓库；owner 模式单仓库失败只记录该仓库结果（T402 失败隔离），但 PR 汇总在首个仓库。
+> owner 模式适用于自托管单用户管理多个自己的仓库（本地 CLI 场景），或组织内统一巡检（需组织级 PAT）。
 
 ### 2.3 输出
 

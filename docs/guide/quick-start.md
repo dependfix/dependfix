@@ -152,7 +152,14 @@ jobs:
 | 参数 | 必填 | 默认值 | 说明 |
 |:-----|:----:|:------|:-----|
 | `mode` | 否 | `fix-and-pr` | 运行模式：`report-only` / `fix` / `fix-and-pr` |
-| `repos` | 否 | `''`（当前仓库） | 目标仓库（逗号分隔） |
+| `repos` | 否 | `''`（当前仓库） | 目标仓库（逗号分隔）；与 `owner` 同时给出时合并去重（显式优先） |
+| `owner` | 否 | `''` | owner / org 自动发现（M4，逗号分隔多个）。⚠️ GITHUB_TOKEN 仅能访问当前仓库，owner 发现其他仓库必须用 PAT（`github-token`）；**建议为每个仓库单独配置 action** 以控制 token 权限范围（见下注） |
+| `repo-topics` | 否 | `''` | 发现结果 topic 白名单（逗号分隔，AND 语义；仅影响 owner 发现结果） |
+| `repo-include` | 否 | `''` | 仓库白名单 glob（逗号分隔多个，如 `owner/*`、`owner/pkg-*`；仅作用于发现结果） |
+| `repo-exclude` | 否 | `''` | 仓库黑名单 glob（逗号分隔多个；显式列表与发现结果均受约束，与 include 冲突时胜出） |
+| `repo-topics-exclude` | 否 | `''` | 发现结果 topic 黑名单（排除含任一指定 topic 的仓库） |
+| `max-concurrency` | 否 | `1` | 多仓库并发窗口（1-16；>1 仅 `report-only` 允许——fix/fix-and-pr 共享单一工作区，配置校验拒绝并发） |
+| `max-retries` | 否 | `3` | GitHub API 限流重试次数（0-10；429/rate limit 指数退避重试） |
 | `severity-threshold` | 否 | `high` | 严重级别阈值 |
 | `dry-run` | 否 | `false` | 试运行模式（Action 默认自动修复并提 PR；CLI 本地默认仅报告，即 report-only 下 dry-run=true） |
 | `max-alerts-per-repository` | 否 | `20` | 每仓库最大告警数 |
@@ -163,6 +170,11 @@ jobs:
 | `code-scanning` | 否 | `false` | 同时拉取 Code Scanning alerts（与 Dependabot 并行源，默认关闭；需 token 具备 `security-events: read`，GITHUB_TOKEN 默认具备） |
 | `ai-api-token` | 否 | `''` | AI API Token（M5 联调） |
 | `ai-api-base-url` | 否 | `''` | AI API Base URL（M5 联调） |
+
+> **⚠️ M4 建议：为每个仓库单独配置 action（2026-08-06）**：多仓库治理参数虽已接入 Action，但推荐单仓库独立 action：
+> - **权限最小化**：单仓库 action 用 `GITHUB_TOKEN` + 该仓库最小权限的 `dependabot-alerts-token` 即可；owner 发现需要跨仓库读取权限的 PAT，泄露影响面更大。
+> - **告警源与失败隔离**：Dependabot alerts 始终需专用 PAT；单仓库 action 失败互不影响，而 owner 模式多仓库 PR 汇总在首个仓库。
+> - owner 模式（自托管多仓库巡检 / 组织统一治理）更适合本地 CLI 或组织级 PAT 场景。
 
 ### Action 输出
 
@@ -189,6 +201,14 @@ jobs:
 | `--cleanup-branches` | — | （fix-and-pr 模式）结束后列出已合并的 dependfix 分支到报告，不自动删除 | `false` |
 | `--cleanup-branches-auto` | — | （fix-and-pr 模式）结束后自动删除已合并/已关闭的 dependfix 分支（非交互；不删有 open PR 的分支） | `false` |
 | `--max-alerts-per-repository` | — | 每仓库最大处理数 | `20` |
+| `--owner` | — | owner / org 自动发现（逗号分隔多个或多次传入），与 `--repo` 合并去重（显式优先） | `DEPENDFIX_OWNER` |
+| `--repo-topics` | — | 发现结果 topic 白名单（逗号分隔，AND 语义） | `DEPENDFIX_REPO_TOPICS` |
+| `--repo-include` | — | 仓库白名单 glob（逗号分隔多个或多次传入；仅作用于发现结果） | `DEPENDFIX_REPO_INCLUDE` |
+| `--repo-exclude` | — | 仓库黑名单 glob（显式列表与发现结果均受约束，与 include 冲突时胜出） | `DEPENDFIX_REPO_EXCLUDE` |
+| `--repo-topics-exclude` | — | 发现结果 topic 黑名单（排除含任一指定 topic 的仓库） | `DEPENDFIX_REPO_TOPICS_EXCLUDE` |
+| `--max-concurrency` | — | 多仓库并发窗口（1-16，默认 1 保守串行；>1 仅 report-only 允许） | `DEPENDFIX_MAX_CONCURRENCY` |
+| `--max-retries` | — | GitHub API 限流重试次数（0-10，默认 3） | `DEPENDFIX_MAX_RETRIES` |
+| `--history` | — | 查询仓库历史运行摘要（读 `dependfix-reports/index.json`，倒序；不执行扫描） | — |
 | `--code-scanning` | — | 同时拉取 Code Scanning alerts（与 Dependabot 并行源；需要 token 具备 `security-events: read`，GITHUB_TOKEN 默认具备） | `false`（env `DEPENDFIX_CODE_SCANNING`） |
 | `--commands` | — | 自定义验证命令（逗号分隔） | — |
 | `--verbose` | — | 详细日志 | `false` |
@@ -201,5 +221,18 @@ jobs:
 - **JSON**：`dependfix-report-YYYYMMDD-HHmmss-{runId尾段}.json` — 结构化完整数据
 
 文件名中的 `HHmmss` 为运行开始时刻（UTC），`{runId尾段}` 为 runId 最后一个 `-` 分隔段（最多 8 字符）。日期 + 时刻保证按文件名排序即按运行时间排序，便于定位最新报告。
+
+### 归档与趋势（M4）
+
+- **归档结构**：`dependfix-reports/{YYYY-MM}/{runId}/` — `summary.json`（全局汇总）+ 每仓库 `{owner}-{repo}.md|.json`（报告切分），现有平铺报告输出不变（向后兼容）。
+- **趋势索引**：`dependfix-reports/index.json` — 每次运行记录 runId、时间、仓库列表、告警/修复/失败计数、时长（幂等更新，同 runId 覆盖）。
+- **历史查询**：`dependfix --history <owner/repo>` 列出该仓库历史运行摘要（倒序时间，计数为仓库级口径）。
+- 示例：
+
+```bash
+# 本地一次 owner 巡检后查询趋势
+dependfix --owner your-org --repo-topics node --max-concurrency 4 --max-retries 5
+dependfix --history your-org/app
+```
 
 报告文件位于 `./dependfix-reports/` 目录。

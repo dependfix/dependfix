@@ -13,9 +13,38 @@ inputs:
     # T209: Action 默认 fix-and-pr（本地 CLI 默认仍为 report-only）
     default: 'fix-and-pr'
   repos:
-    description: '目标仓库（逗号分隔 owner/repo，留空使用当前仓库）'
+    description: '目标仓库（逗号分隔 owner/repo，留空使用当前仓库；与 owner 同时给出时合并去重，显式优先）'
     required: false
     default: ''
+  # ── M4 多仓库治理（T401/T403）──
+  owner:
+    description: 'owner / org 自动发现（逗号分隔多个）。注意：GITHUB_TOKEN 仅能访问当前仓库，owner 发现其他仓库必须使用具备仓库读取权限的 PAT（github-token 输入）；如需按仓库隔离权限，建议为每个仓库单独配置 action，而不是跨仓库发现'
+    required: false
+    default: ''
+  repo-topics:
+    description: '发现结果 topic 白名单（逗号分隔，AND 语义；仅影响 owner 发现结果）'
+    required: false
+    default: ''
+  repo-include:
+    description: '仓库白名单 glob（逗号分隔多个，如 owner/*、owner/pkg-*；仅作用于发现结果）'
+    required: false
+    default: ''
+  repo-exclude:
+    description: '仓库黑名单 glob（逗号分隔多个；显式列表与发现结果均受约束，与 include 冲突时胜出）'
+    required: false
+    default: ''
+  repo-topics-exclude:
+    description: '发现结果 topic 黑名单（逗号分隔，排除含任一指定 topic 的仓库）'
+    required: false
+    default: ''
+  max-concurrency:
+    description: '多仓库并发窗口（1-16，默认 1 保守串行；>1 仅 report-only 模式允许——fix/fix-and-pr 共享单一 workDir，配置校验会拒绝并发）'
+    required: false
+    default: '1'
+  max-retries:
+    description: 'GitHub API 限流重试次数（0-10，默认 3；429/rate limit 指数退避重试）'
+    required: false
+    default: '3'
   severity-threshold:
     description: '严重级别阈值'
     required: false
@@ -93,21 +122,47 @@ runs:
     - name: Run dependfix
       id: run-dependfix
       run: |
+        # 安全模式：所有 input 先赋变量（${{ }} 只在赋值行出现一次，避免命令替换注入面），
+        # 再用 bash 数组承载参数（"${args[@]}" 双引号展开不做分词与 glob 展开——
+        # repo-include 等 glob 值不会被路径名展开改写，带空格值也不会被拆分）
+        MODE="${{ inputs.mode }}"
+        SEVERITY_THRESHOLD="${{ inputs.severity-threshold }}"
+        MAX_ALERTS="${{ inputs.max-alerts-per-repository }}"
+        MAX_CONCURRENCY="${{ inputs.max-concurrency }}"
+        MAX_RETRIES="${{ inputs.max-retries }}"
         REPOS="${{ inputs.repos }}"
-        if [ -z "$REPOS" ]; then
+        OWNER="${{ inputs.owner }}"
+        REPO_TOPICS="${{ inputs.repo-topics }}"
+        REPO_INCLUDE="${{ inputs.repo-include }}"
+        REPO_EXCLUDE="${{ inputs.repo-exclude }}"
+        REPO_TOPICS_EXCLUDE="${{ inputs.repo-topics-exclude }}"
+        DRY_RUN="${{ inputs.dry-run }}"
+        CLEANUP_BRANCHES="${{ inputs.cleanup-branches }}"
+        CLEANUP_BRANCHES_AUTO="${{ inputs.cleanup-branches-auto }}"
+        CODE_SCANNING="${{ inputs.code-scanning }}"
+        if [ -z "$REPOS" ] && [ -z "$OWNER" ]; then
           REPOS="${{ github.repository }}"
         fi
         # CLI 工作目录 = 消费者 checkout；bin 入口指向 action 自身构建产物
         cd "$GITHUB_WORKSPACE"
-        node "${{ github.action_path }}/packages/cli/dist/bin.mjs" ${{ inputs.mode }} \
-          --repo "$REPOS" \
-          --severity-threshold ${{ inputs.severity-threshold }} \
-          --max-alerts-per-repository ${{ inputs.max-alerts-per-repository }} \
-          ${{ inputs.dry-run == 'true' && '--dry-run' || '' }} \
-          ${{ inputs.cleanup-branches == 'true' && '--cleanup-branches' || '' }} \
-          ${{ inputs.cleanup-branches-auto == 'true' && '--cleanup-branches-auto' || '' }} \
-          ${{ inputs.code-scanning == 'true' && '--code-scanning' || '' }} \
-          --verbose
+        args=("$MODE")
+        # owner 模式：显式 repos 可选（合并去重）；无 owner 时 repos 兜底当前仓库
+        if [ -n "$REPOS" ]; then args+=("--repo" "$REPOS"); fi
+        if [ -n "$OWNER" ]; then args+=("--owner" "$OWNER"); fi
+        args+=("--severity-threshold" "$SEVERITY_THRESHOLD")
+        args+=("--max-alerts-per-repository" "$MAX_ALERTS")
+        args+=("--max-concurrency" "$MAX_CONCURRENCY")
+        args+=("--max-retries" "$MAX_RETRIES")
+        if [ -n "$REPO_TOPICS" ]; then args+=("--repo-topics" "$REPO_TOPICS"); fi
+        if [ -n "$REPO_INCLUDE" ]; then args+=("--repo-include" "$REPO_INCLUDE"); fi
+        if [ -n "$REPO_EXCLUDE" ]; then args+=("--repo-exclude" "$REPO_EXCLUDE"); fi
+        if [ -n "$REPO_TOPICS_EXCLUDE" ]; then args+=("--repo-topics-exclude" "$REPO_TOPICS_EXCLUDE"); fi
+        if [ "$DRY_RUN" = 'true' ]; then args+=("--dry-run"); fi
+        if [ "$CLEANUP_BRANCHES" = 'true' ]; then args+=("--cleanup-branches"); fi
+        if [ "$CLEANUP_BRANCHES_AUTO" = 'true' ]; then args+=("--cleanup-branches-auto"); fi
+        if [ "$CODE_SCANNING" = 'true' ]; then args+=("--code-scanning"); fi
+        args+=("--verbose")
+        node "${{ github.action_path }}/packages/cli/dist/bin.mjs" "${args[@]}"
       shell: bash
       env:
         GITHUB_TOKEN: ${{ inputs.github-token }}

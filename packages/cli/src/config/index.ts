@@ -32,7 +32,7 @@ export interface RuntimeConfig {
     repositories: string[]
     /**
      * owner / org 列表（`--owner` / `DEPENDFIX_OWNER`）。
-     * 提供时按 owner 自动发现仓库（T401）：与显式 `repositories` 合并去重
+     * 提供时按 owner 自动发现仓库：与显式 `repositories` 合并去重
      * （显式优先，发现仅补充未出现项）。适用于 report-only / fix / fix-and-pr。
      */
     owner?: string[]
@@ -42,17 +42,17 @@ export interface RuntimeConfig {
      */
     repoTopics?: string[]
     /**
-     * 仓库白名单 glob（T403，`--repo-include`，如 `owner/*`、`owner/pkg-*`）。
+     * 仓库白名单 glob（`--repo-include`，如 `owner/*`、`owner/pkg-*`）。
      * 仅作用于发现结果；显式 repositories 列表不受 include 影响（显式优先）。
      */
     repoInclude?: string[]
     /**
-     * 仓库黑名单 glob（T403，`--repo-exclude`）。
+     * 仓库黑名单 glob（`--repo-exclude`）。
      * 显式列表与发现结果均受 exclude 约束；与 include 冲突时 exclude 胜出。
      */
     repoExclude?: string[]
     /**
-     * 发现结果 topic 黑名单（T403，`--repo-topics-exclude`）：
+     * 发现结果 topic 黑名单（`--repo-topics-exclude`）：
      * 排除含任一指定 topic 的仓库。仅作用于发现结果（显式列表无 topics 元数据）。
      */
     repoTopicsExclude?: string[]
@@ -73,8 +73,8 @@ export interface RuntimeConfig {
     alertSource: AlertSourceKind
     /**
      * 是否同时拉取 Code Scanning alerts（与 Dependabot 并行源，非回退）。
-     * 默认关闭（行为与 M2 一致）；开启后 GitHub 源下 Dependabot + Code Scanning
-     * 并行拉取、互不覆盖。Code Scanning 告警默认不可自动修复（T303 按规则启用）。
+     * 默认关闭（行为与现状一致）；开启后 GitHub 源下 Dependabot + Code Scanning
+     * 并行拉取、互不覆盖。Code Scanning 告警默认不可自动修复（按规则启用）。
      * 需要 token 具备 `security-events: read` 权限（GITHUB_TOKEN 默认具备）。
      */
     codeScanningEnabled: boolean
@@ -88,17 +88,17 @@ export interface RuntimeConfig {
     alertsToken?: string
     maxAlertsPerRepository: number
     /**
-     * 多仓库并发窗口（T402）。默认 1（保守，行为与现状一致）；
+     * 多仓库并发窗口。默认 1（保守，行为与现状一致）；
      * >1 时调度器输出警告（GitHub API 限流风险）。
      */
     maxConcurrency: number
     /**
-     * GitHub API 限流重试次数（T402）。默认 3；
+     * GitHub API 限流重试次数。默认 3；
      * 对 429 / primary rate limit / secondary rate limit 指数退避重试，0 关闭。
      */
     maxRetries: number
     /**
-     * 限流退避单次等待上限毫秒（R2）。默认 30000（30s）；
+     * 限流退避单次等待上限毫秒。默认 30000（30s）；
      * Retry-After / x-ratelimit-reset / 指数退避均受此上限约束。
      */
     maxBackoffMs: number
@@ -110,7 +110,7 @@ export interface RuntimeConfig {
      */
     upgradeGroups?: Record<string, string[]>
     /**
-     * lockfile 修复用的 pnpm 版本（工具链固定，G1/T305）。
+     * lockfile 修复用的 pnpm 版本（工具链固定）。
      * 提供时 PIN_TOOLCHAIN 策略执行 `corepack pnpm@<version> install --lockfile-only`；
      * 缺省从 package.json 的 `packageManager` 字段解析；都不可用时回退裸 pnpm 命令
      * （由策略链 REGENERATE/REINSTALL 兜底）。
@@ -532,7 +532,7 @@ function validateRuntimeConfig(config: RuntimeConfig): RuntimeConfig {
     }
 
     // 分支清理完全依赖 GitHub API，与 audit 数据源语义无关；
-    // 不校验则无 remote 目录 + audit 模式会 exit 0 静默空跑（复活 T-G2-1 语义缺陷）
+    // 不校验则无 remote 目录 + audit 模式会 exit 0 静默空跑（同构缺陷）
     if (isAuditSource && config.mode === 'cleanup-branches') {
         throw new AppError(
             'CONFIG_VALIDATION_ERROR',
@@ -568,7 +568,7 @@ function validateRuntimeConfig(config: RuntimeConfig): RuntimeConfig {
         )
     }
 
-    // 多仓库并发窗口（T402）：1-16；超过上限 fail-fast，避免无意打爆 GitHub API
+    // 多仓库并发窗口：1-16；超过上限 fail-fast，避免无意打爆 GitHub API
     if (!isValidConcurrency(config.maxConcurrency)) {
         throw new AppError(
             'CONFIG_VALIDATION_ERROR',
@@ -577,7 +577,7 @@ function validateRuntimeConfig(config: RuntimeConfig): RuntimeConfig {
     }
 
     // fix / fix-and-pr 共享单一 workDir（package.json + pnpm-lock.yaml + node_modules），
-    // 并发写存在快照覆盖 / 互踩回滚 / install 竞争（T402 审计 P1-1），仅 report-only 允许并发
+    // 并发写存在快照覆盖 / 互踩回滚 / install 竞争，仅 report-only 允许并发
     if (config.maxConcurrency > 1 && (config.mode === 'fix' || config.mode === 'fix-and-pr')) {
         throw new AppError(
             'CONFIG_VALIDATION_ERROR',
@@ -585,7 +585,7 @@ function validateRuntimeConfig(config: RuntimeConfig): RuntimeConfig {
         )
     }
 
-    // 限流重试次数（T402）：0-10；超过 10 次重试属异常配置
+    // 限流重试次数：0-10；超过 10 次重试属异常配置
     if (!Number.isInteger(config.maxRetries) || config.maxRetries < 0 || config.maxRetries > 10) {
         throw new AppError(
             'CONFIG_VALIDATION_ERROR',
@@ -593,7 +593,7 @@ function validateRuntimeConfig(config: RuntimeConfig): RuntimeConfig {
         )
     }
 
-    // 退避等待上限（R2）：100ms-120s；过低会频繁重试打爆 API，过高会长时间空转
+    // 退避等待上限：100ms-120s；过低会频繁重试打爆 API，过高会长时间空转
     if (!Number.isInteger(config.maxBackoffMs) || config.maxBackoffMs < 100 || config.maxBackoffMs > 120_000) {
         throw new AppError(
             'CONFIG_VALIDATION_ERROR',

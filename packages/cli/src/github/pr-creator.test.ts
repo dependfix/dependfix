@@ -156,7 +156,7 @@ describe('computeFixFingerprint', () => {
         expect(fp).toBe(computeFixFingerprint([]))
     })
 
-    it('includes code-scanning fixes in the fingerprint (T303 dimension)', () => {
+    it('includes code-scanning fixes in the fingerprint', () => {
         const csFix: FixAction = {
             type: 'code-scanning-fix',
             repository: 'owner/repo',
@@ -527,7 +527,7 @@ describe('generatePRBody', () => {
         expect(body).not.toContain('Supersedes')
     })
 
-    it('C6: truncates body from the tail when exceeding GitHub 64KB limit', () => {
+    it('truncates body from the tail when exceeding GitHub 64KB limit', () => {
         const result = buildRunResult()
         // 构造大量修复告警（每行约 50-60 字节）：3000 行 → body ~150KB，远超 60KB 截断线
         result.actions = Array.from({ length: 3000 }, (_, i) => (
@@ -734,7 +734,7 @@ describe('generatePRBody', () => {
         expect(body).toContain('### ✅ Fixed Alerts')
         expect(body).toContain('| `src/app.ts` | `eol-last` | LOW | template applied |')
         // noOp 动作（文件已合规）不算修复：不在 Fixed Alerts 区块（仍会以
-        // "无需修改"原因出现在 Code Scanning Suggestions——T304 设计行为）
+        // "无需修改"原因出现在 Code Scanning Suggestions——设计行为）
         const fixedSection = body.slice(
             body.indexOf('### ✅ Fixed Alerts'),
             body.indexOf('### 🧰 Code Scanning Suggestions', body.indexOf('### ✅ Fixed Alerts')),
@@ -764,7 +764,7 @@ describe('generatePRBody', () => {
         expect(body).toContain('| `vite` | 5.4.20 | 6.4.4 | direct | ⚠️ Yes |')
     })
 
-    it('renders code-scanning suggestions section (T304)', () => {
+    it('renders code-scanning suggestions section', () => {
         const result = buildRunResult()
         result.alerts = [{
             id: 2,

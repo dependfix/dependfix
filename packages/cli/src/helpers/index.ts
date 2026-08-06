@@ -1,6 +1,6 @@
 // helpers/index.ts（原 fix-helpers.ts）
 // 修复规划与逐包验证辅助：同包告警收敛、文件快照回滚、逐包快速验证。
-// G3：多个 alerts 指向同一包时逐个升级会互相覆盖甚至降级；逐包验证失败
+// 多个 alerts 指向同一包时逐个升级会互相覆盖甚至降级；逐包验证失败
 // 只回滚该包改动，避免"一个包失败导致全部回滚"。
 import { existsSync, readdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -11,7 +11,7 @@ import { runVerification } from '../runners/verification-runner'
 import { validateVerifyCommands, type AppContext } from '../app/helpers'
 
 /**
- * 对可修复告警按包名去重（G3 同包收敛）。
+ * 对可修复告警按包名去重（同包收敛）。
  *
  * 同一包可能对应多个 Dependabot alerts（不同 GHSA 各自的 `first_patched_version`
  * 不同），逐个升级会互相覆盖甚至降级。本函数每组只保留一个代表 alert：
@@ -105,21 +105,21 @@ export async function quickVerifyProject(
 }
 
 /**
- * 区分可安全自动修复的告警与需人工处理的告警（P0 防护 + run 30933266831 复盘修正）。
+ * 区分可安全自动修复的告警与需人工处理的告警（防护 + run 30933266831 复盘修正）。
  *
  * Dependabot 告警携带 `dependency.manifest_path`，其值与包类型相关：
  * - 直接依赖 → `package.json`（根）
- * - **间接依赖 → `pnpm-lock.yaml`**（lockfile 即间接依赖的 manifest，G3 overrides 修复的标准场景）
+ * - **间接依赖 → `pnpm-lock.yaml`**（lockfile 即间接依赖的 manifest，overrides 修复的标准场景）
  * - 子目录 manifest → `docs/package.json`、`packages/x/package.json`、fixtures 等
  *
  * 修复模型是单根 workDir（package.json + pnpm overrides 全局生效），规则：
  * - `''` / `package.json` → root（正常修复；pnpm-audit 源 manifestPath='' 不受影响）
  * - `pnpm-lock.yaml`：
- *   - 包**不是**直接依赖（根或 workspace 成员，C11 扩展）→ root（标准间接依赖，走 overrides 修复，fast-uri 等）
+ *   - 包**不是**直接依赖（根或 workspace 成员）→ root（标准间接依赖，走 overrides 修复，fast-uri 等）
  *   - 包**是**直接依赖：
  *     - lockfile 中该包**多版本共存** → root（版本化 overrides `pkg@version` 只影响
  *       对应实例，不会波及根声明——vite@5.4.14 与 vite@8.2.0 场景，2026-08-06 复盘）
- *     - lockfile 中仅单版本且**推荐版本 >= 锁定版本** → root（C10 细化：全局 overrides
+ *     - lockfile 中仅单版本且**推荐版本 >= 锁定版本** → root（全局 overrides
  *       `^recommended` 只会把实例升到 >= 锁定版本，不降级声明，可安全修复）
  *     - lockfile 中仅单版本且**推荐版本 < 锁定版本** → sub（全局 overrides 会降级声明，
  *       如 vite@5 告警会降级根 vite@8——run 30929090403 教训；需人工处理）
@@ -141,8 +141,8 @@ export function partitionSubmanifestAlerts(
         if (normalized === 'pnpm-lock.yaml') {
             if (isWorkspaceDirectDependency(workDir, alert.packageName)) {
                 // 直接依赖（根或 workspace 成员）+ lockfile 告警：
-                // 多版本共存 → 版本化 overrides 安全；单版本且推荐 >= 锁定 → 不降级可修（C10）；
-                // 其余（推荐 < 锁定 / 无版本信息）→ 全局 overrides 会波及声明（P0 防护），sub
+                // 多版本共存 → 版本化 overrides 安全；单版本且推荐 >= 锁定 → 不降级可修；
+                // 其余（推荐 < 锁定 / 无版本信息）→ 全局 overrides 会波及声明（防降级保护），sub
                 const versions = readLockfileVersions(join(workDir, 'pnpm-lock.yaml'), alert.packageName)
                 if (versions.length > 1) {
                     root.push(alert)
@@ -164,7 +164,7 @@ export function partitionSubmanifestAlerts(
 
 /**
  * 判断包是否为工作区的直接依赖（根 + 所有 workspace 成员包的
- * dependencies / devDependencies / optionalDependencies，C11 扩展）。
+ * dependencies / devDependencies / optionalDependencies，覆盖根与 workspace 成员）。
  * 单次调用扫描一次 workspace 成员依赖集合（成员数少，成本可接受）。
  */
 function isWorkspaceDirectDependency(workDir: string, packageName: string): boolean {

@@ -178,7 +178,7 @@ export class DependfixApp {
             const json = generateJsonReport(runResult)
             writeReport(md, json, this.startedAt, this.runId, this.reportOutputDir)
             this.logger.info(`Reports written to ${this.reportOutputDir}/`)
-            // T404 归档：{YYYY-MM}/{runId}/ + index.json 趋势索引（幂等）
+            // 归档：{YYYY-MM}/{runId}/ + index.json 趋势索引（幂等）
             writeArchive(runResult, this.reportOutputDir)
             this.logger.info(`Archive written to ${this.reportOutputDir}/`)
         } catch (reportError: unknown) {
@@ -335,13 +335,13 @@ export class DependfixApp {
 
             this.allAlerts.push(...limited)
 
-            // 2.0 Code Scanning 模板修复（T303，A 类白名单；与依赖升级链路并行、互不干扰）
+            // 2.0 Code Scanning 模板修复（A 类白名单；与依赖升级链路并行、互不干扰）
             // 逐告警：快照 → 应用模板 → quickVerify（lint）→ 失败回滚（不静默）
             const csCounts = await runCodeScanningFixes(this.ctx, repo, limited)
             fixed += csCounts.fixed
             failed += csCounts.failed
 
-            // 2.1 子目录 / 根直接依赖 lockfile 告警（P0 防护：docs vite 告警曾误降级根 vite@8→6）→ 剔除修复链路
+            // 2.1 子目录 / 根直接依赖 lockfile 告警（防护：docs vite 告警曾误降级根 vite@8→6）→ 剔除修复链路
             // 收尾审查遗留修复：code-scanning 告警（manifestPath 为源码路径）不参与依赖清单分区，
             // 避免全部落 sub 桶产生 skip 计数噪音（其可见性由 §Code Scanning Suggestions 承担）
             const dependencyAlerts = limited.filter((a) => a.source !== 'code-scanning')
@@ -353,7 +353,7 @@ export class DependfixApp {
                 this.summary.alertsSkipped += submanifestAlerts.length
             }
 
-            // 2. Upgrade fixable dependencies（T213 分组升级 + G3 同包收敛）
+            // 2. Upgrade fixable dependencies（分组升级 + 同包收敛）
             // - 同包 alerts 去重取最高 recommendedVersion；分组显式 > dependabot.yml > @types > 启发式 > 单包
             // - 组级验证失败 → 整组回滚 → 拆组逐个重试；当前版本 >= 目标时跳过（不降级保护）
             // - 多版本共存（vite@5.4.14 + vite@8.2.0）：版本化 overrides 分别覆盖（2026-08-06 复盘）
@@ -451,7 +451,6 @@ export class DependfixApp {
                     versionedOverrides,
                     workDir: this.workDir,
                 })
-                // C1：overrides 写入位置可能被 pnpm v10+ 忽略 → 成功但需用户注意的 warning 进日志
                 if (result.success && result.warning) {
                     this.logger.warn(`[multi-version] ${alert.packageName}: ${result.warning}`)
                 }
@@ -527,7 +526,6 @@ export class DependfixApp {
                         this.logger.info(
                             `Skipping ${alert.packageName}: highest locked ${currentVersion} >= target ${alert.recommendedVersion} (no upgrade needed; vulnerable lower version may coexist across manifests — global fix not applicable, manual review advised)`,
                         )
-                        // C7：已收敛（当前版本已 >= 目标，无需升级），与"跳过/人工"语义分离
                         this.summary.alertsConverged++
                         continue
                     }
@@ -662,7 +660,7 @@ export class DependfixApp {
     /**
      * 修复 → 计算内容指纹 → 查重 →（同指纹跳过 / 异指纹关旧开新）。
      *
-     * 去重语义（T210）：
+     * 去重语义：
      * - 同告警集 → 同修复结果 → 同指纹 → 跳过，不重复提交相同 PR
      * - 内容变化 → 先创建新 PR（body 注明 Supersedes），成功后关闭旧 PR；
      *   新 PR 创建失败时保留旧 PR，避免出现"无 PR 窗口"
@@ -828,7 +826,7 @@ export class DependfixApp {
     }
 
     // -----------------------------------------------------------------------
-    // Multi-repo orchestration（T402：并发控制 + 失败隔离）
+    // Multi-repo orchestration（并发控制 + 失败隔离）
     // -----------------------------------------------------------------------
 
     /**
@@ -838,7 +836,7 @@ export class DependfixApp {
      * - `>1` 时输出警告（并行 GitHub API 调用可能触发限流）
      * - 失败隔离由 task 内部 try-catch 承担（每仓库独立 repoResults 记录），
      *   scheduler 提供 onError 兜底，单仓库异常不中断整体
-     * - 空清单：记录 EMPTY_REPO_LIST 错误（非 0 退出），避免静默空跑（T-G2-1 同构缺陷）
+     * - 空清单：记录 EMPTY_REPO_LIST 错误（非 0 退出），避免静默空跑（同构缺陷）
      */
     private async runRepoPipeline(
         repositories: string[],
@@ -883,7 +881,7 @@ export class DependfixApp {
     }
 
     /**
-     * 解析本次运行要处理的仓库清单（M4 owner 自动发现 + 显式列表合并）。
+     * 解析本次运行要处理的仓库清单（owner 自动发现 + 显式列表合并）。
      *
      * - 配置了 `--owner` 且 client 可用：自动发现 → 与显式 `repositories` 合并去重
      *   （显式优先：显式列表保持原顺序在前，发现结果按仓库名排序仅补充未出现项）
@@ -893,7 +891,7 @@ export class DependfixApp {
      */
     private async resolveRepositories(client: Octokit | null): Promise<string[]> {
         const { owner } = this.config
-        // T403 名单策略：include 仅作用于发现结果；exclude 对显式 + 发现均生效；
+        // 名单策略：include 仅作用于发现结果；exclude 对显式 + 发现均生效；
         // topicsExclude 仅作用于发现结果（显式列表无 topics 元数据）
         const policy: RepoPolicy = {
             include: this.config.repoInclude,
@@ -902,7 +900,7 @@ export class DependfixApp {
         }
 
         if (!client || !owner || owner.length === 0) {
-            // 无 owner 发现：显式列表仍受 exclude 约束（T403 语义）
+            // 无 owner 发现：显式列表仍受 exclude 约束（语义）
             return filterExplicitRepositories(policy, resolveAlertRepositories(this.ctx))
         }
 
@@ -911,7 +909,7 @@ export class DependfixApp {
                 client,
                 owners: owner,
                 topics: this.config.repoTopics,
-                // T403：策略在发现探测前应用（被排除仓库不触达 contents API）
+                // 策略在发现探测前应用（被排除仓库不触达 contents API）
                 policy,
             })
             // 显式列表：仅 exclude 约束（include 不适用于显式，显式优先）
@@ -948,7 +946,7 @@ export class DependfixApp {
      *   `codeScanningEnabled` 时**并行**拉取 Code Scanning alerts（互不覆盖、互不回退）
      * - `pnpm-audit`：本地 `pnpm audit --json` 回退（无 token；repository 已由 resolveAlertRepositories 解析）
      *
-     * C8 per-source 错误隔离：并行源任一失败 → 记录该源 FETCH_FAILED 错误
+     * per-source 错误隔离：并行源任一失败 → 记录该源 FETCH_FAILED 错误
      * （退出码保持非 0）并保留成功源数据继续处理；**全部源失败**才抛错
      * （调用方 catch 记录仓库失败，保持 hint 语义）。
      */
@@ -1003,7 +1001,7 @@ export class DependfixApp {
         return alerts
     }
 
-    /** C8：记录单个告警源的拉取失败（不中断另一源的处理）。 */
+    /** 记录单个告警源的拉取失败（不中断另一源的处理）。 */
     private recordAlertSourceError(repo: string, source: string, error: unknown): void {
         const message = toErrorMessage(error)
         const hint = dependabotAlertsTokenHint(error) ?? codeScanningAlertsTokenHint(error)
@@ -1027,7 +1025,7 @@ export class DependfixApp {
     private createClient(token: string = this.config.githubToken): Octokit {
         return createGitHubClient({
             token,
-            // T402：429 / rate limit 指数退避重试（0 可关闭；退避上限可配）
+            // 429 / rate limit 指数退避重试（0 可关闭；退避上限可配）
             retry: {
                 maxRetries: this.config.maxRetries,
                 maxBackoffMs: this.config.maxBackoffMs,

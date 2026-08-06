@@ -323,7 +323,6 @@ export async function upgradeAlert(
             )
         }
 
-        // C1：overrides 写入位置可能被 pnpm v10+ 忽略 → 成功但需用户注意的 warning 进日志
         if (result.success && result.warning) {
             logger.warn(`[upgrade] ${result.packageName}: ${result.warning}`)
         }
@@ -360,9 +359,9 @@ export async function upgradeAlert(
 // ---------------------------------------------------------------------------
 
 /**
- * 执行 Code Scanning 模板修复（T303 2.0 节；从 app/index.ts 提取以控制文件行数）。
+ * 执行 Code Scanning 模板修复（2.0 节；从 app/index.ts 提取以控制文件行数）。
  * 仅处理 A 类告警；逐告警：快照 → 应用模板 → quickVerify（lint）→ 失败回滚（不静默）。
- * - 快照失败 / 无模板 / 模板不适用 / 缺文件 → noOp 动作（回退建议模式，T304 展示；
+ * - 快照失败 / 无模板 / 模板不适用 / 缺文件 → noOp 动作（回退建议模式，展示；
  *   error 原因可审计，不计 failed 避免陈旧告警永久 exit 1/2）
  * - 写盘失败 / lint 验证失败 → failed（回滚并记录；回滚失败时注明 file may be modified）
  * @returns 本批次实际修复数（fixed）与失败数（failed），调用方累加到仓库统计
@@ -530,7 +529,7 @@ export async function verifyProject(
     // 确定要执行的命令：用户自定义 > 默认命令链
     let rawCommands = customCommands ?? DEFAULT_VERIFY_COMMANDS
 
-    // C2：默认命令链的 install 与策略命令同版本（显式 toolchainPnpmVersion 时）
+    // 默认命令链的 install 与策略命令同版本（显式 toolchainPnpmVersion 时）
     // 避免系统裸 pnpm 版本架空 PIN_TOOLCHAIN（旧版 pnpm 可能无法处理新版 lockfile）
     if (!customCommands && config.toolchainPnpmVersion) {
         rawCommands = rawCommands.map((cmd) => (

@@ -7,7 +7,7 @@ import { resolveRuntimeConfig } from '../config'
 import { DependfixApp } from './index'
 
 // ---------------------------------------------------------------------------
-// T213 组级升级集成测试：
+// 组级升级集成测试：
 // mock 掉真实依赖升级（fixers/dependency）与验证命令执行（verification-runner），
 // 验证 app/index.ts 的组级循环语义：组级验证 / 整组回滚 / 拆组兜底 / 验证次数。
 // ---------------------------------------------------------------------------
@@ -103,7 +103,7 @@ function verificationResult(success: boolean): ReturnType<typeof mockRunVerifica
     }
 }
 
-describe('DependfixApp group upgrade (T213)', () => {
+describe('DependfixApp group upgrade', () => {
     let workDir: string
 
     beforeEach(() => {
@@ -310,7 +310,7 @@ describe('DependfixApp group upgrade (T213)', () => {
         expect(bPkg?.error).toBe('mock upgrade failure')
     })
 
-    it('keeps lockfile-manifest alerts for indirect deps but skips root-direct-dep ones (P0 + 30933266831 regression)', async () => {
+    it('keeps lockfile-manifest alerts for indirect deps but skips root-direct-dep ones', async () => {
         // 真实场景（run 30933266831）：Dependabot 对间接依赖的 manifest_path 即 pnpm-lock.yaml。
         // vite 是根直接依赖（devDependencies ^8.2.0）→ 跳过（overrides 全局会降级根）；
         // fast-uri 非根直接依赖 → 走标准 overrides 修复。

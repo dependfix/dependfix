@@ -146,7 +146,7 @@ export function generateMarkdownReport(result: RunResult): string {
         }
     }
 
-    // ---- 4.5 Code Scanning Suggestions（T304：无法自动修复的问题不静默丢失）----
+    // ---- 4.5 Code Scanning Suggestions（无法自动修复的问题不静默丢失）----
     const suggestions = collectCodeScanningSuggestions(result, config.mode)
     if (suggestions.length > 0) {
         sections.push(

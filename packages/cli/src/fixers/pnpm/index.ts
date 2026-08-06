@@ -163,7 +163,7 @@ function getStrategyChain(category: LockfileFailureCategory): RepairStrategy[] {
 }
 
 /**
- * 生成策略命令（G1/T305：PIN_TOOLCHAIN 用声明版本 pnpm 重生成 lockfile）。
+ * 生成策略命令（PIN_TOOLCHAIN 用声明版本 pnpm 重生成 lockfile）。
  * - `pnpmVersion` 提供时：`corepack pnpm@<version> install --lockfile-only`
  *   （corepack 不可用/下载失败时命令本身失败 → 策略链 REGENERATE/REINSTALL 兜底，
  *   行为不劣于现状）
@@ -263,7 +263,7 @@ function countLockfilePackages(path: string): number {
 // ---------------------------------------------------------------------------
 
 /**
- * pnpm 版本白名单格式（P1 安全加固：拒绝不可信 packageManager/config 的任意字符串，
+ * pnpm 版本白名单格式（安全加固：拒绝不可信 packageManager/config 的任意字符串，
  * 防命令注入——corepack 命令是唯一动态拼接的 execSync 命令）。
  * 兼容标准 semver 与 corepack 哈希后缀（pnpm@10.5.2+sha512.xxx）。
  */
@@ -376,7 +376,7 @@ function rollback(bakPath: string, workDir: string): void {
 export function repairLockfile(params: RepairLockfileParams): LockfileRepairResult {
     const { workDir } = params
     const workDir_ = workDir // alias for consistency
-    // G1/T305：解析 pnpm 版本（toolchain 显式 > packageManager 字段 > null）
+    // 解析 pnpm 版本（toolchain 显式 > packageManager 字段 > null）
     const pnpmVersion = resolvePnpmVersion(workDir_, params.toolchain)
 
     const attempts: RepairAttempt[] = []

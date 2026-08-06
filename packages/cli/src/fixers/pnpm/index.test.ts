@@ -484,7 +484,7 @@ describe('repairLockfile', () => {
         expect(result.strategy).toBe('REGENERATE')
     })
 
-    it('uses corepack with pinned pnpm version for PIN_TOOLCHAIN (G1/T305)', () => {
+    it('uses corepack with pinned pnpm version for PIN_TOOLCHAIN', () => {
         // LOCKFILE_VERSION_MISMATCH → PIN_TOOLCHAIN 用 toolchain 版本 + corepack；验证通过
         commandSequence = [
             { stderr: 'lockfile had been generated with pnpm v7' },

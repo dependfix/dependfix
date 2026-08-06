@@ -1,4 +1,4 @@
-// history.ts（M4 T404）
+// history.ts
 // --history 命令输出格式化（纯函数，可单测）。
 
 import type { ArchiveRunEntry } from './archiver'

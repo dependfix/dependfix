@@ -207,7 +207,7 @@ function parseCommandsFlag(value: string): string[] {
 }
 
 /**
- * 严格整数字面量解析（P3 修复：拒绝 `2.5` 被 parseInt 静默截断为 2）。
+ * 严格整数字面量解析（修复：拒绝 `2.5` 被 parseInt 静默截断为 2）。
  * 仅接受 `^\d+$`；范围语义由调用方在 expected 描述中声明（config 校验兜底）。
  */
 function parseIntegerFlag(value: string, flagName: string, expected: string): number {
@@ -273,7 +273,7 @@ function parsedArgsToCliOverrides(parsed: ParsedArgs<typeof argsDef>): CliConfig
         overrides.repoTopics = repoTopicsValue
     }
 
-    // repo-include / repo-exclude / repo-topics-exclude（T403 名单策略）
+    // repo-include / repo-exclude / repo-topics-exclude（名单策略）
     const repoIncludeValue = normalizeFlagList(parsed['repo-include'])
     if (repoIncludeValue.length > 0) {
         overrides.repoInclude = repoIncludeValue

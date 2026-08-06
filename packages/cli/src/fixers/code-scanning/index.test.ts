@@ -188,7 +188,7 @@ describe('getCodeScanningFixTemplate', () => {
         expect(getCodeScanningFixTemplate('eol-last')).toBeDefined()
     })
 
-    it('returns undefined for unregistered rules (incl. no-trailing-spaces removed in T303 review)', () => {
+    it('returns undefined for unregistered rules (incl. no-trailing-spaces removed in review)', () => {
         expect(getCodeScanningFixTemplate('no-trailing-spaces')).toBeUndefined()
         expect(getCodeScanningFixTemplate('jsdoc/check-alignment')).toBeUndefined()
         expect(getCodeScanningFixTemplate('unknown-rule')).toBeUndefined()
@@ -232,10 +232,10 @@ describe('snapshotSourceFile / restoreSourceFile', () => {
     })
 
     // -----------------------------------------------------------------------
-    // C5 符号链接逃逸防护（安全加固）：词法在 workDir 内但 realpath 指向外部
+    // 符号链接逃逸防护（安全加固）：词法在 workDir 内但 realpath 指向外部
     // -----------------------------------------------------------------------
 
-    it('C5: rejects symlink escaping work dir (existing target)', () => {
+    it('rejects symlink escaping work dir (existing target)', () => {
         // 外部目录 + 外部文件
         const outside = mkdtempSync(join(tmpdir(), 'dependfix-outside-'))
         try {
@@ -259,7 +259,7 @@ describe('snapshotSourceFile / restoreSourceFile', () => {
         }
     })
 
-    it('C5: rejects symlink escaping work dir (non-existing target below link)', () => {
+    it('rejects symlink escaping work dir (non-existing target below link)', () => {
         const outside = mkdtempSync(join(tmpdir(), 'dependfix-outside-'))
         try {
             mkdirSync(join(workDir, 'src'), { recursive: true })
@@ -278,7 +278,7 @@ describe('snapshotSourceFile / restoreSourceFile', () => {
         }
     })
 
-    it('C5: allows symlink pointing inside work dir (no escape)', () => {
+    it('allows symlink pointing inside work dir (no escape)', () => {
         try {
             mkdirSync(join(workDir, 'real'), { recursive: true })
             writeFileSync(join(workDir, 'real', 'ok.ts'), '// ok\n')

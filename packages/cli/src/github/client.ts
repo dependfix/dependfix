@@ -7,7 +7,7 @@ export interface RetryPolicyOptions {
     /** 指数退避基数毫秒（默认 1000；测试时可调小） */
     baseDelayMs?: number
     /**
-     * 指数退避单次等待上限毫秒（R2：默认 30000），防止长时间空转。
+     * 指数退避单次等待上限毫秒（默认 30000），防止长时间空转。
      * Retry-After / x-ratelimit-reset 指定的等待同样受此上限约束。
      */
     maxBackoffMs?: number
@@ -77,7 +77,7 @@ export function createGitHubClient(options: OctokitClientOptions): Octokit {
 // ---------------------------------------------------------------------------
 
 const SECONDARY_RATE_LIMIT_RE = /secondary rate limit|abuse|retry later|retry-after/i
-/** 指数退避单次等待默认上限（30s），防止长时间空转（R2：可经 retry.maxBackoffMs 覆盖） */
+/** 指数退避单次等待默认上限（30s），防止长时间空转（可经 retry.maxBackoffMs 覆盖） */
 const MAX_BACKOFF_MS_DEFAULT = 30_000
 
 function applyRetryPolicy(client: Octokit, retry: RetryPolicyOptions): void {
@@ -86,7 +86,7 @@ function applyRetryPolicy(client: Octokit, retry: RetryPolicyOptions): void {
     const maxBackoffMs = retry.maxBackoffMs ?? MAX_BACKOFF_MS_DEFAULT
 
     client.hook.wrap('request', async (request, options) => {
-        // R1：写请求（POST/PATCH/PUT/DELETE）不做限流重试——非幂等操作避免重放；
+        // 写请求（POST/PATCH/PUT/DELETE）不做限流重试——非幂等操作避免重放；
         // 限流重试仅适用于只读 GET/HEAD（GitHub 限流检查在请求执行前，写请求重放风险虽低仍应规避）
         const method = (options.method ?? 'GET').toUpperCase()
         if (method !== 'GET' && method !== 'HEAD') {
@@ -117,7 +117,7 @@ function applyRetryPolicy(client: Octokit, retry: RetryPolicyOptions): void {
  * - 403 + `x-ratelimit-remaining: 0`（primary rate limit）
  * - 403/429 + message 含 secondary rate limit / abuse / retry 特征
  *
- * 等待策略（R3：Retry-After 优先）：
+ * 等待策略（Retry-After 优先）：
  * 1. `retry-after` 头（秒）→ 等待其秒数（受 maxBackoffMs 上限约束）
  * 2. `x-ratelimit-reset`（unix 秒）→ 等待到 reset + 1s 缓冲
  * 3. 否则 → 指数退避 `baseDelayMs * 2^attempt`
@@ -158,7 +158,7 @@ export function computeRetryDelayMs(
         return null
     }
 
-    // R3：Retry-After 头优先（GitHub secondary rate limit 常返回，秒为单位）
+    // Retry-After 头优先（GitHub secondary rate limit 常返回，秒为单位）
     const retryAfter = headers['retry-after']
     if (retryAfter !== undefined) {
         const seconds = Number(retryAfter)

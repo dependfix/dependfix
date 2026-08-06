@@ -29,7 +29,7 @@ export interface DependencyFixResult {
     success: boolean
     /** 失败原因（仅 `success=false` 时有值） */
     error?: string
-    /** 成功但存在需要用户注意的附加信息（如 overrides 写入位置可能被 pnpm 忽略，C1） */
+    /** 成功但存在需要用户注意的附加信息（如 overrides 写入位置可能被 pnpm 忽略） */
     warning?: string
 }
 
@@ -61,7 +61,7 @@ interface DependencyInfo {
  * - 在 `workDir` 中查找 `package.json` 并修改目标包的版本声明（保留原始前缀）
  * - 执行 `pnpm install --no-frozen-lockfile` 更新 lockfile
  * - 失败时自动回滚 `package.json` 和 `pnpm-lock.yaml`
- * - 不执行验证（由 T107 负责）
+ * - 不执行验证（由验证执行器负责）
  *
  * @param params - 包名、目标版本、工作目录
  * @returns 修复结果
@@ -167,7 +167,7 @@ export async function upgradeDependency(
  * - **有 `pnpm-workspace.yaml`**（monorepo / workspace）→ 写入其中的 `overrides` 字段（pnpm v10+ 推荐）
  * - **无 `pnpm-workspace.yaml`**（单包项目）→ 写入 `package.json` 的 `pnpm.overrides`
  *
- * 失败时自动回滚被修改的文件和 `pnpm-lock.yaml`。不执行验证（由 T107 负责）。
+ * 失败时自动回滚被修改的文件和 `pnpm-lock.yaml`。不执行验证（由验证执行器负责）。
  *
  * @param params - 包名、目标版本、工作目录
  * @returns 修复结果
@@ -234,7 +234,7 @@ export async function overrideTransitiveDependency(
 
     // ---- 6. 写入 overrides ----
     let oldOverride: string | undefined
-    // C1：无 workspace.yaml 且 pnpm v10+ → package.json overrides 可能被忽略（假成功风险）
+    // 无 workspace.yaml 且 pnpm v10+ → package.json overrides 可能被忽略（假成功风险）
     let pkgJsonOverrideWarning: string | undefined
     let verifyOverrideTookEffect = false
 
@@ -281,7 +281,7 @@ export async function overrideTransitiveDependency(
         }
     }
 
-    // ---- 7.5 C1 生效校验：仅"无 workspace.yaml + pnpm v10+"风险场景——
+    // ---- 7.5 生效校验：仅"无 workspace.yaml + pnpm v10+"风险场景——
     // install 后 lockfile 版本必须达到目标，否则判定假成功：回滚 + 报错 ----
     if (verifyOverrideTookEffect) {
         const afterVersion = readLockfileVersion(lockfilePath, packageName)
@@ -393,7 +393,6 @@ export async function applyVersionedOverrides(
 
     // ---- 3. 记录旧值并写入版本化 overrides ----
     const oldValues = new Map<string, string | undefined>()
-    // C1：无 workspace.yaml 且 pnpm v10+ → package.json overrides 可能被忽略
     let pkgJsonOverrideWarning: string | undefined
 
     if (usesWorkspaceYaml) {
@@ -666,7 +665,7 @@ function escapeRegExp(str: string): string {
 // ---------------------------------------------------------------------------
 
 /**
- * 探测当前 pnpm 大版本（C1：pnpm v10+ 对无 `pnpm-workspace.yaml` 的项目
+ * 探测当前 pnpm 大版本（pnpm v10+ 对无 `pnpm-workspace.yaml` 的项目
  * 可能不读取 `package.json#pnpm.overrides`，写入会"假成功"）。
  * 探测失败（pnpm 不可用 / 输出异常）返回 null，调用方降级为不告警。
  */
@@ -755,7 +754,7 @@ function failResult(
 }
 
 /**
- * 回滚一次 overrides 写入 + install 的全部变更（C1 复用：install 失败与
+ * 回滚一次 overrides 写入 + install 的全部变更（复用：install 失败与
  * 生效校验失败共用同一回滚路径，保证"写盘但未生效"也不残留脏状态）。
  */
 function rollbackOverrideWrite(params: {

@@ -13,7 +13,7 @@ export interface FetchDependabotAlertsParams {
     repo: string
     /**
      * 告警状态过滤。
-     * M1 只拉 `open`（默认）。
+     * 只拉 `open`（默认）。
      */
     state?: 'open' | 'fixed' | 'dismissed' | 'auto_dismissed'
     /** 每页数量，默认 100（GitHub API 最大值） */

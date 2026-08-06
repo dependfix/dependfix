@@ -14,7 +14,7 @@ export interface FetchCodeScanningAlertsParams {
     repo: string
     /**
      * 告警状态过滤。
-     * M3 只拉 `open`（默认）。
+     * 只拉 `open`（默认）。
      */
     state?: 'open' | 'fixed' | 'dismissed'
     /** 每页数量，默认 100（GitHub API 最大值） */
@@ -40,7 +40,7 @@ type CodeScanningAlertItem =
  * - severity：`security_severity_level`（GitHub 计算值）优先，
  *   缺失时用 `rule.severity`（error/warning/note/none）经 `mapCodeScanningSeverity` 映射
  * - Code Scanning 告警默认**不可自动修复**（`fixable: false`、`fixStrategy: null`），
- *   修复能力由 T303 规则模板按规则启用
+ *   修复能力由规则模板按规则启用
  * - 异常通过 `mapGitHubError` 转为 `AppError`
  * - 空仓库返回 `[]`，不抛异常
  *
@@ -81,7 +81,7 @@ export async function fetchCodeScanningAlerts(
  *   报告 Package 列对 code-scanning 展示规则名
  * - ruleId 取 `rule.id`（如 `js-sqli`），报告 Rule/Advisory 列展示
  * - manifestPath 取告警文件路径（`most_recent_instance.location.path`）
- * - fixable 恒为 `false`（Code Scanning 告警默认不可自动修复，T303 按规则启用）
+ * - fixable 恒为 `false`（Code Scanning 告警默认不可自动修复，按规则启用）
  * - `defaultBranch` 不在此层填充（由上层调用方获取后注入）
  */
 function normalizeAlert(

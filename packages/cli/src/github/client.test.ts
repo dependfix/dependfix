@@ -62,7 +62,7 @@ describe('createGitHubClient', () => {
 })
 
 // ---------------------------------------------------------------------------
-// Rate-limit retry policy（T402）：429 / 403 rate limit → 指数退避重试
+// Rate-limit retry policy：429 / 403 rate limit → 指数退避重试
 // ---------------------------------------------------------------------------
 
 describe('createGitHubClient rate-limit retry', () => {
@@ -184,7 +184,7 @@ describe('createGitHubClient rate-limit retry', () => {
         expect(nock.pendingMocks()).toEqual([])
     })
 
-    it('does not retry write requests (POST/PATCH) even on 429 (R1)', async () => {
+    it('does not retry write requests (POST/PATCH) even on 429', async () => {
         // POST 仅 mock 一次：若被重试会因无第二次 mock 而失败
         nock(API_BASE)
             .post('/repos/foo/bar/pulls')
@@ -210,7 +210,7 @@ describe('createGitHubClient rate-limit retry', () => {
         expect(nock.pendingMocks()).toEqual([])
     })
 
-    it('respects Retry-After header before exponential backoff (R3)', async () => {
+    it('respects Retry-After header before exponential backoff', async () => {
         nock(API_BASE)
             .get('/repos/foo/bar')
             .reply(429, { message: 'Too Many Requests' }, {
@@ -255,18 +255,18 @@ describe('computeRetryDelayMs', () => {
         expect(computeRetryDelayMs(makeError(429), 2, 1000)).toBe(4000)
     })
 
-    it('prefers Retry-After header over backoff (R3)', () => {
+    it('prefers Retry-After header over backoff', () => {
         const error = makeError(429, { 'retry-after': '5' })
         expect(computeRetryDelayMs(error, 0, 1000)).toBe(5000)
     })
 
-    it('caps Retry-After wait at maxBackoffMs (R2)', () => {
+    it('caps Retry-After wait at maxBackoffMs', () => {
         const error = makeError(429, { 'retry-after': '600' })
         expect(computeRetryDelayMs(error, 0, 1000, 30_000)).toBe(30_000)
         expect(computeRetryDelayMs(error, 0, 1000, 10_000)).toBe(10_000)
     })
 
-    it('respects custom maxBackoffMs for exponential backoff (R2)', () => {
+    it('respects custom maxBackoffMs for exponential backoff', () => {
         expect(computeRetryDelayMs(makeError(429), 10, 1000, 5000)).toBe(5000)
     })
 

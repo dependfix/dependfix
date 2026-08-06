@@ -514,7 +514,7 @@ describe('DependfixApp code-scanning parallel source', () => {
         expect(nock.pendingMocks()).toEqual([])
     })
 
-    it('C8: keeps dependabot data with security-events hint when code scanning fetch returns 403', async () => {
+    it('keeps dependabot data with security-events hint when code scanning fetch returns 403', async () => {
         nock('https://api.github.com')
             .get('/repos/foo/bar/dependabot/alerts')
             .query({ state: 'open', per_page: '100' })
@@ -541,7 +541,7 @@ describe('DependfixApp code-scanning parallel source', () => {
         const app = new DependfixApp({ config, workDir, reportOutputDir: join(workDir, 'reports') })
         const { exitCode, result } = await app.run()
 
-        // C8 语义：cs 源失败不再硬失败——保留 dependabot 数据，源失败记录错误（退出码非 0）
+        // 语义：cs 源失败不再硬失败——保留 dependabot 数据，源失败记录错误（退出码非 0）
         expect(result.repositories[0].alertsCount).toBe(1)
         expect(result.alerts.some((a) => a.source === 'dependabot')).toBe(true)
         expect(exitCode).toBe(1) // 有错误 + 有成功仓库 → 部分失败
@@ -612,7 +612,7 @@ describe('DependfixApp code-scanning parallel source', () => {
         expect(csFixes).toHaveLength(1)
         expect(csFixes[0].target).toBe('eol-last')
         expect(csFixes[0].success).toBe(true)
-        // B 类告警不产生 fix action（建议模式，T304 展示）
+        // B 类告警不产生 fix action（建议模式，展示）
         expect(result.actions.some((a) => a.type === 'code-scanning-fix' && a.target === 'js/sql-injection')).toBe(false)
         // 收尾修复：cs 告警（manifestPath 为源码路径）不再计入 partition skipped
         expect(result.summary.alertsSkipped).toBe(0)
@@ -621,7 +621,7 @@ describe('DependfixApp code-scanning parallel source', () => {
 })
 
 // ---------------------------------------------------------------------------
-// M4 owner discovery 接线测试（T401）：resolveRepositories 合并去重与失败回退
+// owner discovery 接线测试：resolveRepositories 合并去重与失败回退
 // ---------------------------------------------------------------------------
 
 describe('DependfixApp owner discovery wiring', () => {
@@ -724,7 +724,7 @@ describe('DependfixApp owner discovery wiring', () => {
         expect(nock.pendingMocks()).toEqual([])
     })
 
-    it('writes archive with index.json trend entry after a run (T404)', async () => {
+    it('writes archive with index.json trend entry after a run', async () => {
         nock('https://api.github.com')
             .get('/repos/foo/bar/dependabot/alerts')
             .query({ state: 'open', per_page: '100' })
@@ -859,7 +859,7 @@ describe('DependfixApp owner discovery wiring', () => {
         const app = new DependfixApp({ config, workDir, reportOutputDir: join(workDir, 'reports') })
         const { result, exitCode } = await app.run()
 
-        // 空清单不再静默成功（T-G2-1 同构缺陷防护）
+        // 空清单不再静默成功（同构缺陷防护）
         expect(result.repositories).toEqual([])
         expect(result.errors.some((e) => e.category === 'EMPTY_REPO_LIST')).toBe(true)
         expect(exitCode).not.toBe(0)
@@ -868,7 +868,7 @@ describe('DependfixApp owner discovery wiring', () => {
 })
 
 // ---------------------------------------------------------------------------
-// M4 并发与失败隔离集成测试（T402）
+// 并发与失败隔离集成测试
 // ---------------------------------------------------------------------------
 
 describe('DependfixApp failure isolation (multi-repo)', () => {
@@ -948,10 +948,10 @@ describe('DependfixApp failure isolation (multi-repo)', () => {
 })
 
 // ---------------------------------------------------------------------------
-// C8 per-source 错误隔离：并行源任一失败保留成功源数据，退出码保持非 0
+// per-source 错误隔离：并行源任一失败保留成功源数据，退出码保持非 0
 // ---------------------------------------------------------------------------
 
-describe('DependfixApp per-source error isolation (C8)', () => {
+describe('DependfixApp per-source error isolation', () => {
     let workDir: string
 
     beforeEach(() => {
@@ -1090,10 +1090,10 @@ describe('DependfixApp per-source error isolation (C8)', () => {
 })
 
 // ---------------------------------------------------------------------------
-// C7：alertsConverged 统计口径（已收敛 ≠ 跳过）
+// alertsConverged 统计口径（已收敛 ≠ 跳过）
 // ---------------------------------------------------------------------------
 
-describe('DependfixApp converged alert counting (C7)', () => {
+describe('DependfixApp converged alert counting', () => {
     let workDir: string
 
     beforeEach(() => {
@@ -1149,7 +1149,6 @@ describe('DependfixApp converged alert counting (C7)', () => {
         const app = new DependfixApp({ config, workDir, reportOutputDir: join(workDir, 'reports') })
         const { result } = await app.run()
 
-        // C7：当前锁定版本已 >= 目标 → converged（不再计入 skipped）
         expect(result.summary.alertsConverged).toBe(1)
         expect(result.summary.alertsSkipped).toBe(0)
     })

@@ -484,7 +484,7 @@ describe('resolveRuntimeConfig', () => {
         })).toThrow('code-scanning requires the github-dependabot alert source')
     })
 
-    it('reads toolchainPnpmVersion from env and CLI (G1/T305)', () => {
+    it('reads toolchainPnpmVersion from env and CLI', () => {
         const config = resolveRuntimeConfig({
             env: {
                 GITHUB_TOKEN: 't',
@@ -527,7 +527,7 @@ describe('resolveRuntimeConfig', () => {
     })
 
     // -----------------------------------------------------------------------
-    // M4 owner discovery（T401）
+    // owner discovery
     // -----------------------------------------------------------------------
 
     it('parses owner and repoTopics from env (comma separated)', () => {
@@ -601,7 +601,7 @@ describe('resolveRuntimeConfig', () => {
     })
 
     // -----------------------------------------------------------------------
-    // M4 并发配置（T402）
+    // 并发配置
     // -----------------------------------------------------------------------
 
     it('parses maxConcurrency and maxRetries from env', () => {
@@ -722,7 +722,7 @@ describe('resolveRuntimeConfig', () => {
     })
 
     // -----------------------------------------------------------------------
-    // 整数字面量严格校验（P3 修复：拒绝 parseInt 静默截断）
+    // 整数字面量严格校验（修复：拒绝 parseInt 静默截断）
     // -----------------------------------------------------------------------
 
     it('rejects decimal env values instead of silently truncating', () => {

@@ -512,7 +512,7 @@ describe('overrideTransitiveDependency', () => {
         cleanup(project)
     })
 
-    it('pins exact version with pnpm v11 snapshot lockfile (P1: fromVersion no longer unknown → ^x fallback)', async () => {
+    it('pins exact version with pnpm v11 snapshot lockfile (fromVersion no longer unknown → ^x fallback)', async () => {
         const project = createTempProject({ lodash: '^4.17.20' })
         writeFileSync(project.lockfilePath, [
             'lockfileVersion: \'9.0\'',
@@ -785,10 +785,10 @@ describe('overrideTransitiveDependency', () => {
     })
 
     // -----------------------------------------------------------------------
-    // C1：pnpm v10+ 无 pnpm-workspace.yaml → package.json overrides 假成功防护
+    // pnpm v10+ 无 pnpm-workspace.yaml → package.json overrides 假成功防护
     // -----------------------------------------------------------------------
 
-    it('C1: detects pnpm v10+ writing to package.json overrides and verifies lockfile effect', async () => {
+    it('detects pnpm v10+ writing to package.json overrides and verifies lockfile effect', async () => {
         mockExecSync.mockImplementation((cmd: string) => {
             if (String(cmd).includes('--version')) {
                 return '11.5.0' // pnpm v11（不读 package.json overrides）
@@ -822,7 +822,7 @@ describe('overrideTransitiveDependency', () => {
         cleanup(project)
     })
 
-    it('C1: succeeds with warning when lockfile actually updated', async () => {
+    it('succeeds with warning when lockfile actually updated', async () => {
         mockExecSync.mockImplementation((cmd: string) => {
             if (String(cmd).includes('--version')) {
                 return '11.5.0'
@@ -852,7 +852,7 @@ describe('overrideTransitiveDependency', () => {
         cleanup(project)
     })
 
-    it('C1: no verification when pnpm major is unknown (mock install does not update lockfile)', async () => {
+    it('no verification when pnpm major is unknown (mock install does not update lockfile)', async () => {
         // mockExecSync 默认返回 undefined → detectPnpmMajor 无法解析 → 不触发校验
         const project = createTempProject({ lodash: '^4.17.20' })
         writeFileSync(project.lockfilePath, [

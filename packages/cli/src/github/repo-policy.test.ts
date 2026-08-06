@@ -55,12 +55,12 @@ describe('repoGlobToRegExp / matchesRepoGlob', () => {
         expect(re.source).toMatch(/\$$/)
     })
 
-    it('rejects overly long patterns (R6 hardening)', () => {
+    it('rejects overly long patterns (hardening)', () => {
         expect(() => repoGlobToRegExp('a/'.repeat(MAX_GLOB_PATTERN_LENGTH))).toThrow(/exceeds/)
     })
 })
 
-describe('topic matching case-insensitivity (R5)', () => {
+describe('topic matching case-insensitivity', () => {
     it('matchesTopicsExclude is case-insensitive', () => {
         const policy: RepoPolicy = { topicsExclude: ['Deprecated'] }
         expect(matchesTopicsExclude(policy, ['deprecated'])).toBe(true)

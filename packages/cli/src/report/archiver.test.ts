@@ -202,7 +202,7 @@ describe('writeArchive', () => {
         expect(readArchiveIndex(outputDir).runs).toEqual([])
     })
 
-    it('backs up corrupted index.json before rebuilding (R7)', () => {
+    it('backs up corrupted index.json before rebuilding', () => {
         mkdirSync(outputDir, { recursive: true })
         writeFileSync(join(outputDir, 'index.json'), '{ broken json', 'utf-8')
 
@@ -214,7 +214,7 @@ describe('writeArchive', () => {
         expect(readArchiveIndex(outputDir).runs).toHaveLength(1)
     })
 
-    it('writes index.json atomically (R8: no tmp leftovers)', () => {
+    it('writes index.json atomically (no tmp leftovers)', () => {
         writeArchive(makeRunResult(), outputDir)
 
         const leftovers = readdirSync(outputDir).filter((f) => f.startsWith('index.json.tmp-'))

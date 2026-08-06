@@ -18,7 +18,7 @@ vi.mock('../runners/verification-runner', () => ({
 }))
 
 // ---------------------------------------------------------------------------
-// dedupeFixableAlerts（G3 同包收敛）
+// dedupeFixableAlerts（同包收敛）
 // ---------------------------------------------------------------------------
 
 describe('dedupeFixableAlerts', () => {
@@ -168,7 +168,7 @@ describe('quickVerifyProject', () => {
 })
 
 // ---------------------------------------------------------------------------
-// partitionSubmanifestAlerts（P0：子目录/根直接依赖告警剔除修复链路）
+// partitionSubmanifestAlerts（子目录/根直接依赖告警剔除修复链路）
 // ---------------------------------------------------------------------------
 
 describe('partitionSubmanifestAlerts', () => {
@@ -289,10 +289,10 @@ describe('partitionSubmanifestAlerts', () => {
     })
 
     // -----------------------------------------------------------------------
-    // C10：根直接依赖 + 单版本 → 推荐版本 >= 锁定版本时不再跳过（override 不降级）
+    // 根直接依赖 + 单版本 → 推荐版本 >= 锁定版本时不再跳过（override 不降级）
     // -----------------------------------------------------------------------
 
-    it('C10: keeps single-version root direct dependency when recommended >= locked (no downgrade)', () => {
+    it('keeps single-version root direct dependency when recommended >= locked (no downgrade)', () => {
         // 根声明 vite ^6.4.0，lockfile 锁 6.4.0，告警推荐 6.4.3 → override ^6.4.3 不降级 → root
         writeFileSync(join(workDir, 'pnpm-lock.yaml'), [
             'lockfileVersion: \'9.0\'',
@@ -309,7 +309,7 @@ describe('partitionSubmanifestAlerts', () => {
         expect(sub).toHaveLength(0)
     })
 
-    it('C10: keeps single-version root direct dependency in sub when recommended < locked (downgrade risk)', () => {
+    it('keeps single-version root direct dependency in sub when recommended < locked (downgrade risk)', () => {
         // 根 vite 8.2.0 锁定，告警推荐 5.4.21 → override 会降级 → sub（vite 场景不变）
         writeFileSync(join(workDir, 'pnpm-lock.yaml'), [
             'lockfileVersion: \'9.0\'',
@@ -326,7 +326,7 @@ describe('partitionSubmanifestAlerts', () => {
         expect(root).toHaveLength(0)
     })
 
-    it('C10: keeps root direct dependency in sub when lockfile has no version info (conservative)', () => {
+    it('keeps root direct dependency in sub when lockfile has no version info (conservative)', () => {
         // 无 lockfile（versions 为空）→ 无法判断降级风险 → sub
         const { root, sub } = partitionSubmanifestAlerts([
             alert({ packageName: 'vite', manifestPath: 'pnpm-lock.yaml', recommendedVersion: '6.4.3' }),
@@ -336,10 +336,10 @@ describe('partitionSubmanifestAlerts', () => {
     })
 
     // -----------------------------------------------------------------------
-    // C11：workspace 成员包直接依赖识别（monorepo 盲区）
+    // workspace 成员包直接依赖识别（monorepo 盲区）
     // -----------------------------------------------------------------------
 
-    it('C11: recognizes workspace member direct dependencies (single version + downgrade risk → sub)', () => {
+    it('recognizes workspace member direct dependencies (single version + downgrade risk → sub)', () => {
         // 根不依赖 vite；packages/app 依赖 vite ^8.0.0；lockfile 单版本 8.2.0；推荐 5.4.21
         mkdirSync(join(workDir, 'packages', 'app'), { recursive: true })
         writeFileSync(join(workDir, 'packages', 'app', 'package.json'), JSON.stringify({
@@ -363,7 +363,7 @@ describe('partitionSubmanifestAlerts', () => {
         expect(root).toHaveLength(0)
     })
 
-    it('C11: workspace member direct dependency with recommended >= locked is fixable (root)', () => {
+    it('workspace member direct dependency with recommended >= locked is fixable (root)', () => {
         mkdirSync(join(workDir, 'packages', 'app'), { recursive: true })
         writeFileSync(join(workDir, 'packages', 'app', 'package.json'), JSON.stringify({
             name: 'app',
@@ -385,7 +385,7 @@ describe('partitionSubmanifestAlerts', () => {
         expect(sub).toHaveLength(0)
     })
 
-    it('C11: recursive workspace glob (**) and literal paths are supported', () => {
+    it('recursive workspace glob (**) and literal paths are supported', () => {
         mkdirSync(join(workDir, 'packages', 'a', 'nested'), { recursive: true })
         writeFileSync(join(workDir, 'packages', 'a', 'nested', 'package.json'), JSON.stringify({
             name: 'nested',

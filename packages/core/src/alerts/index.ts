@@ -29,7 +29,7 @@ export interface NormalizedSecurityAlert {
     dependencyType?: DependencyType
     /**
      * Code Scanning 规则分类（A/B/C）；Dependabot / pnpm-audit 源无此概念，缺省为空。
-     * 分类结果用于报告可见性与修复路由（T302/T303）。
+     * 分类结果用于报告可见性与修复路由。
      */
     alertClass?: AlertClass
     /**

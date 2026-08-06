@@ -33,12 +33,12 @@ export interface RunSummary {
     alertsFailed: number
     /**
      * 跳过（不可自动修复 / 需人工处理：非 fixable、子目录 manifest、降级风险等）。
-     * 与 `alertsConverged`（已收敛，无需升级）语义分离（C7）。
+     * 与 `alertsConverged`（已收敛，无需升级）语义分离。
      */
     alertsSkipped: number
     /**
      * 已收敛：当前锁定版本已 >= 推荐版本（或 lockfile 已无脆弱实例），
-     * 无需升级。C7 起从 alertsSkipped 拆分，避免混合语义。
+     * 无需升级。从 alertsSkipped 拆分，避免混合语义。
      */
     alertsConverged: number
     /** 因 maxAlertsPerRepository 截断的告警数（收尾审查遗留：截断明细进报告） */

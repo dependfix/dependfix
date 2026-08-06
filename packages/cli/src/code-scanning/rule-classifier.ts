@@ -2,10 +2,10 @@
 // Code Scanning 规则分层（A/B/C）
 //
 // A = auto-fixable：自动修复白名单（低风险、可模板化、无破坏性）
-// B = suggested：建议修复（高风险 / 需人工判断，T304 输出建议）
+// B = suggested：建议修复（高风险 / 需人工判断，输出建议）
 // C = report-only：仅报告（默认，未列入 A/B 的规则）
 //
-// 规则集当前为常量表；M4+ 计划支持配置文件覆盖（保留扩展点，见 TODO）。
+// 规则集当前为常量表；计划支持配置文件覆盖（保留扩展点，见 TODO）。
 // ---------------------------------------------------------------------------
 
 import type { AlertClass } from '@dependfix/core'
@@ -39,12 +39,12 @@ export const AUTO_FIXABLE_RULES = new Set<string>([
  * - 安全敏感（注入 / XSS / 路径穿越 / 密码学等），修复需结合业务语义
  * - 或"看似可自动修但存在破坏性"（如删除未使用变量）
  *
- * 采用显式列表而非启发式匹配：可审计、可配置（M4+ 支持配置覆盖）。
+ * 采用显式列表而非启发式匹配：可审计、可配置（支持配置覆盖）。
  * CodeQL 规则 id 格式通常为 `语言/规则名`（如 js/sql-injection）。
  *
  * ⚠️ 覆盖声明：当前收录 js/py/java 精选集（安全类 + no-unused-vars），
  * 其余语言（go/ruby/csharp/cpp 等）与未收录变体（如 js/reflected-xss）落 C 类兜底；
- * 真实仓库 API 样本核对（rule id 格式与变体分布）登记为 M3 演进项。
+ * 真实仓库 API 样本核对（rule id 格式与变体分布）登记为演进项。
  */
 export const SUGGESTED_RULES = new Set<string>([
     // ESLint 类（无前缀）
@@ -89,7 +89,7 @@ export function classifyRule(ruleId: string | null | undefined): AlertClass {
 }
 
 /**
- * B 类建议规则的人工修复方向（T304，报告/PR body 建议区块展示）。
+ * B 类建议规则的人工修复方向（报告/PR body 建议区块展示）。
  * 收录 SUGGESTED_RULES 的修复指引；未收录规则返回通用建议（C 类兜底，不静默）。
  */
 const SUGGESTION_MAP: ReadonlyMap<string, string> = new Map([

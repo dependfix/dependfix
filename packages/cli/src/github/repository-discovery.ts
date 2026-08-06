@@ -17,7 +17,7 @@ export interface RepositoryDiscoveryOptions {
      */
     topics?: string[]
     /**
-     * T403 名单策略（include / exclude / topicsExclude）：
+     * 名单策略（include / exclude / topicsExclude）：
      * 在基础过滤与 topic 过滤之后、dependabot.yml 探测**之前**应用——
      * 被策略排除的仓库不触达 contents API（探测请求数量受控）。
      * include 与 exclude 冲突时 exclude 胜出。
@@ -55,7 +55,7 @@ const DEPENDABOT_CONFIG_PATH = '.github/dependabot.yml'
  * 过滤链（按顺序）：
  * 1. 基础过滤：archived / disabled / fork 剔除，默认分支缺失剔除
  * 2. topic 过滤（`--repo-topics`，AND 语义）
- * 3. 名单策略过滤（T403：include / exclude / topicsExclude，探测前应用）
+ * 3. 名单策略过滤（include / exclude / topicsExclude，探测前应用）
  * 4. dependabot.yml 探测（仅候选仓库触达 contents API；404 视为不支持，不剔除）
  *
  * 结果按 `fullName` 字典序排序，保证同输入多次运行结果一致
@@ -92,7 +92,7 @@ export async function discoverRepositories(
                 continue
             }
 
-            // 2. topic 过滤（AND：仓库必须包含全部指定 topics；R5：大小写归一化）
+            // 2. topic 过滤（AND：仓库必须包含全部指定 topics；大小写归一化）
             const repoTopics = repo.topics ?? []
             if (topics.length > 0) {
                 const repoTopicsLower = repoTopics.map((t) => t.toLowerCase())
@@ -101,7 +101,7 @@ export async function discoverRepositories(
                 }
             }
 
-            // 3. T403 名单策略（探测前应用：被排除仓库不触达 contents API）
+            // 3. 名单策略（探测前应用：被排除仓库不触达 contents API）
             if (policy) {
                 if (!matchesRepoInclude(policy, repo.full_name)) {
                     continue
@@ -137,7 +137,7 @@ export async function discoverRepositories(
 /**
  * 合并显式仓库列表与发现结果：
  * - 显式优先：显式列表保持原顺序且在前
- * - 发现结果仅补充未出现的项（去重；P3 修复：大小写不敏感——GitHub full_name 恒小写，
+ * - 发现结果仅补充未出现的项（去重；大小写不敏感——GitHub full_name 恒小写，
  *   显式 `Owner/Repo` 与发现 `owner/repo` 视为同一仓库）
  */
 export function mergeRepositories(explicit: string[], discovered: string[]): string[] {

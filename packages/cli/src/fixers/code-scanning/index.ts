@@ -4,7 +4,7 @@ import type { FixAction, NormalizedSecurityAlert } from '@dependfix/core'
 import { getCodeScanningFixTemplate } from './templates'
 
 // ---------------------------------------------------------------------------
-// Code Scanning 模板化修复执行器（T303，替换 M0 stub）
+// Code Scanning 模板化修复执行器（替换初始 stub）
 //
 // 职责边界：
 // - 模板选择 + 补丁生成 + 文件读写（本文件）
@@ -135,7 +135,7 @@ export function applyCodeScanningFix(params: ApplyCodeScanningFixParams): FixAct
 }
 
 // ---------------------------------------------------------------------------
-// 源码文件快照/恢复（B1：snapshotTrackedFiles 仅覆盖清单文件，
+// 源码文件快照/恢复（snapshotTrackedFiles 仅覆盖清单文件，
 // code-scanning fix 修改任意源码文件，必须单独快照目标文件本身）
 // ---------------------------------------------------------------------------
 
@@ -196,10 +196,10 @@ export function restoreSourceFile(workDir: string, snapshot: SourceFileSnapshot)
 }
 
 /**
- * 将相对路径解析到工作目录内（W5：防 `../` 与绝对路径逃逸；C5：防符号链接逃逸）。
+ * 将相对路径解析到工作目录内（防 `../` 与绝对路径逃逸；防符号链接逃逸）。
  * 返回 null 表示越界（调用方拒绝处理）。
  *
- * C5（安全加固）：词法校验（resolve + startsWith）不足以防御符号链接——
+ * 安全加固：词法校验（resolve + startsWith）不足以防御符号链接——
  * 工作区内 `src/link → /外部/目录` 词法上仍在 workDir 内，但 realpath 指向外部。
  * 因此对目标做 realpath 校验：目标文件存在 → realpath 文件本身必须在 workDir
  * realpath 内；不存在 → 逐级向上对最近存在的父目录做 realpath 校验。
@@ -215,7 +215,7 @@ export function resolveWithinWorkDir(workDir: string, relativePath: string): str
         return null
     }
 
-    // C5：realpath 校验（目标存在 → 校验文件本身；不存在 → 校验最近存在的父目录）
+    // realpath 校验（目标存在 → 校验文件本身；不存在 → 校验最近存在的父目录）
     try {
         const realRoot = realpathSync(root)
         if (existsSync(target)) {

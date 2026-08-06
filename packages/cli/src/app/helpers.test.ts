@@ -603,7 +603,7 @@ describe('closeSupersededPRs', () => {
 })
 
 // ---------------------------------------------------------------------------
-// tryLockfileRepair（G1/T305：toolchain 传递 + 格式漂移标注）
+// tryLockfileRepair（toolchain 传递 + 格式漂移标注）
 // ---------------------------------------------------------------------------
 
 describe('tryLockfileRepair', () => {
@@ -850,7 +850,7 @@ describe('buildVersionedOverrides', () => {
 })
 
 // ---------------------------------------------------------------------------
-// verifyProject（C2：默认命令链 install 与工具链同版本）
+// verifyProject（默认命令链 install 与工具链同版本）
 // ---------------------------------------------------------------------------
 
 describe('verifyProject', () => {
@@ -886,7 +886,7 @@ describe('verifyProject', () => {
         }
     }
 
-    it('C2: replaces install command with corepack when toolchain version is set', async () => {
+    it('replaces install command with corepack when toolchain version is set', async () => {
         await verifyProject(makeVerifyCtx('10.5.2'), 'foo/bar')
 
         const commands = verificationRunnerMock.runVerification.mock.calls[0][0].commands
@@ -895,14 +895,14 @@ describe('verifyProject', () => {
         expect(commands[2]).toBe('pnpm build')
     })
 
-    it('C2: keeps bare pnpm install when no toolchain version is set', async () => {
+    it('keeps bare pnpm install when no toolchain version is set', async () => {
         await verifyProject(makeVerifyCtx(undefined), 'foo/bar')
 
         const commands = verificationRunnerMock.runVerification.mock.calls[0][0].commands
         expect(commands[0]).toBe('pnpm install --frozen-lockfile')
     })
 
-    it('C2: does not touch custom commands', async () => {
+    it('does not touch custom commands', async () => {
         await verifyProject(makeVerifyCtx('10.5.2', ['pnpm test']), 'foo/bar')
 
         const commands = verificationRunnerMock.runVerification.mock.calls[0][0].commands

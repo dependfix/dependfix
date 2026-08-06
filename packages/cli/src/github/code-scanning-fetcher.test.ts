@@ -178,7 +178,7 @@ describe('fetchCodeScanningAlerts', () => {
         expect(alert.manifestPath).toBe('src/db.ts')
     })
 
-    it('fills start/end line and suggestion for suggestion output (T304)', async () => {
+    it('fills start/end line and suggestion for suggestion output', async () => {
         nock(API_BASE)
             .get(GET_ALERTS_PATH)
             .query(true)

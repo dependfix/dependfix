@@ -7,7 +7,7 @@ describe('classifyRule', () => {
         expect(classifyRule('eol-last')).toBe('auto-fixable')
     })
 
-    it('no-trailing-spaces falls to report-only (template removed in T303 review)', () => {
+    it('no-trailing-spaces falls to report-only (template removed in review)', () => {
         // 模板字符串词法歧义无法保证不改变运行时值，模板与白名单条目均已移除
         expect(classifyRule('no-trailing-spaces')).toBe('report-only')
     })

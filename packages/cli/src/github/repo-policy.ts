@@ -1,4 +1,4 @@
-// repo-policy.ts（M4 T403）
+// repo-policy.ts
 // 仓库白名单 / 黑名单策略：include / exclude glob 过滤 + topic 黑名单。
 // 与 repository-discovery 配合：发现结果受 include + exclude + topicsExclude 约束；
 // 显式 repositories 列表受 exclude 约束、不受 include 影响。
@@ -7,7 +7,7 @@
 // Glob matching
 // ---------------------------------------------------------------------------
 
-/** 单条 glob 模式长度上限（R6 加固：防止超长模式引入匹配开销；受信配置 + 短输入） */
+/** 单条 glob 模式长度上限（加固：防止超长模式引入匹配开销；受信配置 + 短输入） */
 export const MAX_GLOB_PATTERN_LENGTH = 200
 
 /**
@@ -21,7 +21,7 @@ export const MAX_GLOB_PATTERN_LENGTH = 200
  * 匹配对象为完整 `owner/repo` 字符串（大小写敏感，与 GitHub full_name 一致）。
  * 模式仅限受信配置输入（CLI/env），长度超过 {@link MAX_GLOB_PATTERN_LENGTH} 时拒绝。
  * 多通配符模式存在理论 O(n^k) 回溯面（`[^/]*` 单层字符类、输入 ≤ ~140 字符，风险低）；
- * C18 正则引擎演进时需专项 ReDoS 审计。
+ * 正则引擎演进时需专项 ReDoS 审计。
  */
 export function repoGlobToRegExp(pattern: string): RegExp {
     if (pattern.length > MAX_GLOB_PATTERN_LENGTH) {
@@ -69,7 +69,7 @@ export function matchesRepoInclude(policy: RepoPolicy, fullName: string): boolea
     return include.length === 0 || include.some((pattern) => matchesRepoGlob(pattern, fullName))
 }
 
-/** topic 黑名单：仓库 topics 含任一指定 topic 即排除（R5：大小写归一化后比较）。 */
+/** topic 黑名单：仓库 topics 含任一指定 topic 即排除（大小写归一化后比较）。 */
 export function matchesTopicsExclude(policy: RepoPolicy, topics: string[]): boolean {
     const blocked = (policy.topicsExclude ?? []).map((t) => t.toLowerCase())
     return topics.map((t) => t.toLowerCase()).some((topic) => blocked.includes(topic))

@@ -5,7 +5,7 @@ import type { Logger } from '@dependfix/core'
 // Constants
 // ---------------------------------------------------------------------------
 
-/** 并发上限（1-16，T402 配置校验范围） */
+/** 并发上限（1-16，配置校验范围） */
 export const MAX_CONCURRENCY_LIMIT = 16
 /** 默认并发（保守：行为与现状一致，逐仓库串行） */
 export const DEFAULT_CONCURRENCY = 1
@@ -34,7 +34,7 @@ export interface ConcurrencySchedulerOptions<T> {
 // ---------------------------------------------------------------------------
 
 /**
- * 以受限并发执行任务列表（T402）。
+ * 以受限并发执行任务列表。
  *
  * - 并发窗口 = concurrency（p-queue 调度；>1 时调用方应输出警告）
  * - 失败隔离：单任务异常不影响其余任务（配合 task 内部 try-catch +

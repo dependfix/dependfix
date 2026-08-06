@@ -278,7 +278,7 @@ describe('mergeRepositories', () => {
         expect(mergeRepositories([], ['a/b', 'a/a'])).toEqual(['a/b', 'a/a'])
     })
 
-    it('dedupes case-insensitively (R5: explicit Owner/Repo vs discovered owner/repo)', () => {
+    it('dedupes case-insensitively (explicit Owner/Repo vs discovered owner/repo)', () => {
         const merged = mergeRepositories(['Owner/Repo'], ['owner/repo'])
         expect(merged).toEqual(['Owner/Repo'])
     })

@@ -227,7 +227,7 @@ describe('isAlertFixedByActions', () => {
         expect(isAlertFixedByActions(alert, [depAction('5.4.21, 6.4.3')])).toBe(true)
     })
 
-    it('does NOT mark fixed when only a different-major target exists (P1-2 mixed scenario)', () => {
+    it('does NOT mark fixed when only a different-major target exists', () => {
         // 跨线告警 X（推荐 6.4.3）+ 同包线内 action（目标 ^8.2.1）→ 8.x 目标不满足 6.x 告警
         const alert = makeAlert({ recommendedVersion: '6.4.3' })
         expect(isAlertFixedByActions(alert, [depAction('^8.2.1')])).toBe(false)
@@ -839,7 +839,7 @@ describe('generateJsonReport', () => {
 })
 
 // ---------------------------------------------------------------------------
-// collectCodeScanningSuggestions（T304 建议型输出）
+// collectCodeScanningSuggestions（建议型输出）
 // ---------------------------------------------------------------------------
 
 describe('collectCodeScanningSuggestions', () => {

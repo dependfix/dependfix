@@ -10,7 +10,7 @@ const GET_ALERTS_PATH = '/repos/foo/bar/dependabot/alerts'
 
 function setupClient(token = 'test-token', retry = { maxRetries: 0 }) {
     // 默认关闭限流重试：本文件聚焦错误映射语义；
-    // 重试行为由 client.test.ts 的 rate-limit retry 专项覆盖（T402）
+    // 重试行为由 client.test.ts 的 rate-limit retry 专项覆盖
     return createGitHubClient({ token, retry })
 }
 

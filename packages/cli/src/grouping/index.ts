@@ -1,5 +1,5 @@
 // grouping/index.ts（原 fix-grouping.ts）
-// T213 依赖分组升级：分组来源解析与分组结果构建。
+// 依赖分组升级：分组来源解析与分组结果构建。
 // 分组来源优先级：显式分组（CLI）> dependabot.yml groups > @types 归并 > scope/前缀启发式 > 单包。
 // 设计详见 docs/design/dependency-grouping.md。
 import { existsSync, readFileSync } from 'node:fs'

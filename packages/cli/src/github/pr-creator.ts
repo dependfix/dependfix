@@ -60,7 +60,7 @@ export interface DependfixOpenPR {
 const BOT_NAME = 'dependfix[bot]'
 const BOT_EMAIL = 'dependfix[bot]@users.noreply.github.com'
 
-/** 自动修复分支统一前缀（T210 起分支名 = 前缀 + 内容指纹 8 位） */
+/** 自动修复分支统一前缀（分支名 = 前缀 + 内容指纹 8 位） */
 const BRANCH_PREFIX = 'dependfix/auto-fix-'
 
 // ---------------------------------------------------------------------------
@@ -160,7 +160,7 @@ export function computeFixAndPrPlan(existingPRs: DependfixOpenPR[], fingerprint:
 /**
  * 在工作目录创建修复分支。
  *
- * - 分支名由调用方传入（T210 起为 `dependfix/auto-fix-{内容指纹}`，不再依赖 runId）
+ * - 分支名由调用方传入（分支名为 `dependfix/auto-fix-{内容指纹}`，不再依赖 runId）
  * - 如果分支已存在（如重跑），切换到该分支
  *
  * @returns 分支名和是否为新创建
@@ -426,7 +426,7 @@ function aggregateUpgradeActions(
     return [...byKey.values()]
 }
 
-/** GitHub PR body 上限（64KB 保守取 60KB，为 UTF-8 多字节字符与尾部内容留余量；C6） */
+/** GitHub PR body 上限（64KB 保守取 60KB，为 UTF-8 多字节字符与尾部内容留余量） */
 const MAX_PR_BODY_BYTES = 60 * 1024
 
 /**
@@ -435,7 +435,7 @@ const MAX_PR_BODY_BYTES = 60 * 1024
  * 升级/失败列表按 (仓库, 包名) 聚合：同一包多次出现合并为一行
  * （from 取最早起点、to 取最新终点），避免一个包出现多次。
  *
- * C6：body 超出 GitHub 64KB 上限时从**尾部**逐行截断（保留头部摘要与升级明细，
+ * body 超出 GitHub 64KB 上限时从**尾部**逐行截断（保留头部摘要与升级明细，
  * 明细表在尾部被截断），并附加截断说明——避免大仓库 PR 创建 422。
  *
  * @param supersededNumbers 被本 PR 取代并已关闭的旧 PR 编号列表（用于 Supersedes 声明）
@@ -544,7 +544,7 @@ export function generatePRBody(result: RunResult, supersededNumbers?: number[]):
         lines.push('')
     }
 
-    // Code Scanning 建议（T304：无法自动修复的问题不静默丢失）
+    // Code Scanning 建议（无法自动修复的问题不静默丢失）
     const suggestions = collectCodeScanningSuggestions(result, result.config.mode)
     if (suggestions.length > 0) {
         const multiRepo = new Set(suggestions.map((s) => s.repository)).size > 1
@@ -581,7 +581,6 @@ export function generatePRBody(result: RunResult, supersededNumbers?: number[]):
     return truncatePRBody(lines)
 }
 
-/** C6：PR body 超限截断（从尾部逐行保留直到不超过上限，头部摘要优先保留）。 */
 function truncatePRBody(lines: string[]): string {
     const body = lines.join('\n')
     if (Buffer.byteLength(body, 'utf-8') <= MAX_PR_BODY_BYTES) {

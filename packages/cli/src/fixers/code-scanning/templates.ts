@@ -1,7 +1,7 @@
 import type { NormalizedSecurityAlert } from '@dependfix/core'
 
 // ---------------------------------------------------------------------------
-// Code Scanning 可模板化修复（T303）
+// Code Scanning 可模板化修复
 //
 // 每个模板对应 A 类白名单中的一条规则（rule-classifier.AUTO_FIXABLE_RULES）。
 // 安全底线：模板只做"删除/改动后不影响程序行为"的格式类修改；
@@ -10,7 +10,7 @@ import type { NormalizedSecurityAlert } from '@dependfix/core'
 // 历史决策（2026-08-05）：no-trailing-spaces 模板因模板字符串词法歧义
 // （嵌套模板收尾 / markdown 围栏 / 插值内反引号）无法在不引入词法解析器
 // 的情况下保证"不改变运行时字符串值"红线，经 3 轮 Review Gate 后移除；
-// 未来 M4+ 引入真正词法扫描后再评估恢复。白名单同步只保留 eol-last。
+// 未来引入真正词法扫描后再评估恢复。白名单同步只保留 eol-last。
 // ---------------------------------------------------------------------------
 
 export interface TemplateApplyResult {

@@ -28,6 +28,8 @@ export interface DependencyFixResult {
     success: boolean
     /** 失败原因（仅 `success=false` 时有值） */
     error?: string
+    /** 成功但存在需要用户注意的附加信息（如 overrides 写入位置可能被 pnpm 忽略，C1） */
+    warning?: string
 }
 
 interface PackageJson {
@@ -231,10 +233,18 @@ export async function overrideTransitiveDependency(
 
     // ---- 6. 写入 overrides ----
     let oldOverride: string | undefined
+    // C1：无 workspace.yaml 且 pnpm v10+ → package.json overrides 可能被忽略（假成功风险）
+    let pkgJsonOverrideWarning: string | undefined
+    let verifyOverrideTookEffect = false
 
     if (usesWorkspaceYaml) {
         oldOverride = writeWorkspaceOverride(workspaceYamlPath, packageName, toVersion)
     } else {
+        const pnpmMajor = detectPnpmMajor(workDir)
+        if (pnpmMajor !== null && pnpmMajor >= 10) {
+            pkgJsonOverrideWarning = `pnpm v${pnpmMajor} may ignore package.json#pnpm.overrides without pnpm-workspace.yaml — if the lockfile does not update to >= ${targetVersion}, create pnpm-workspace.yaml with the override instead`
+            verifyOverrideTookEffect = true
+        }
         const overrides = ensurePnpmOverrides(pkg)
         oldOverride = overrides[packageName]
         overrides[packageName] = toVersion
@@ -246,21 +256,18 @@ export async function overrideTransitiveDependency(
         await execPnpmInstall(workDir)
     } catch (installErr: unknown) {
         // 回滚
-        rollbackOverrides({
+        rollbackOverrideWrite({
             usesWorkspaceYaml,
             workspaceYamlPath,
             packageName,
             oldOverride,
             pkg,
             pkgPath,
+            pkgBackup,
+            lockfilePath,
+            lockBackup,
+            workspaceBackup,
         })
-        rollback(pkgPath, pkgBackup, lockfilePath, lockBackup)
-        if (usesWorkspaceYaml) {
-            rollback(workspaceYamlPath, workspaceBackup, lockfilePath, null)
-        }
-
-        // 回滚后清理备份
-        cleanupBackups({ pkgBackup, lockBackup, workspaceBackup })
 
         const stderr = getStderr(installErr)
         return {
@@ -270,6 +277,34 @@ export async function overrideTransitiveDependency(
             isMajor,
             success: false,
             error: `pnpm install failed: ${stderr}`,
+        }
+    }
+
+    // ---- 7.5 C1 生效校验：仅"无 workspace.yaml + pnpm v10+"风险场景——
+    // install 后 lockfile 版本必须达到目标，否则判定假成功：回滚 + 报错 ----
+    if (verifyOverrideTookEffect) {
+        const afterVersion = readLockfileVersion(lockfilePath, packageName)
+        if (afterVersion !== null && compareSemver(afterVersion, targetVersion) < 0) {
+            rollbackOverrideWrite({
+                usesWorkspaceYaml,
+                workspaceYamlPath,
+                packageName,
+                oldOverride,
+                pkg,
+                pkgPath,
+                pkgBackup,
+                lockfilePath,
+                lockBackup,
+                workspaceBackup,
+            })
+            return {
+                packageName,
+                fromVersion,
+                toVersion,
+                isMajor,
+                success: false,
+                error: `override did not take effect: lockfile still at ${afterVersion} (< ${targetVersion}). pnpm v10+ may ignore package.json#pnpm.overrides without pnpm-workspace.yaml — changes rolled back; create pnpm-workspace.yaml with the override and retry.`,
+            }
         }
     }
 
@@ -286,6 +321,7 @@ export async function overrideTransitiveDependency(
         toVersion,
         isMajor,
         success: true,
+        warning: pkgJsonOverrideWarning,
     }
 }
 
@@ -356,6 +392,8 @@ export async function applyVersionedOverrides(
 
     // ---- 3. 记录旧值并写入版本化 overrides ----
     const oldValues = new Map<string, string | undefined>()
+    // C1：无 workspace.yaml 且 pnpm v10+ → package.json overrides 可能被忽略
+    let pkgJsonOverrideWarning: string | undefined
 
     if (usesWorkspaceYaml) {
         let doc: Record<string, unknown>
@@ -373,6 +411,10 @@ export async function applyVersionedOverrides(
         doc.overrides = overrides
         writeFileSync(workspaceYamlPath, YAML.stringify(doc), 'utf-8')
     } else {
+        const pnpmMajor = detectPnpmMajor(workDir)
+        if (pnpmMajor !== null && pnpmMajor >= 10) {
+            pkgJsonOverrideWarning = `pnpm v${pnpmMajor} may ignore package.json#pnpm.overrides without pnpm-workspace.yaml — verify the lockfile actually updated; create pnpm-workspace.yaml with the overrides if not`
+        }
         const overrides = ensurePnpmOverrides(pkg)
         for (const [key, target] of entries) {
             oldValues.set(key, overrides[key])
@@ -437,6 +479,7 @@ export async function applyVersionedOverrides(
         toVersion: entries.map((entry) => entry[1]).join(', '),
         isMajor: false,
         success: true,
+        warning: pkgJsonOverrideWarning,
     }
 }
 
@@ -622,6 +665,30 @@ function escapeRegExp(str: string): string {
 // ---------------------------------------------------------------------------
 
 /**
+ * 探测当前 pnpm 大版本（C1：pnpm v10+ 对无 `pnpm-workspace.yaml` 的项目
+ * 可能不读取 `package.json#pnpm.overrides`，写入会"假成功"）。
+ * 探测失败（pnpm 不可用 / 输出异常）返回 null，调用方降级为不告警。
+ */
+export function detectPnpmMajor(workDir: string): number | null {
+    try {
+        const raw = execSync('pnpm --version', {
+            cwd: workDir,
+            encoding: 'utf-8',
+            stdio: ['ignore', 'pipe', 'ignore'],
+            timeout: 10_000,
+        })
+        const match = /(\d+)\./.exec(raw.trim())
+        if (!match) {
+            return null
+        }
+        const major = Number.parseInt(match[1], 10)
+        return Number.isInteger(major) ? major : null
+    } catch {
+        return null
+    }
+}
+
+/**
  * 执行 `pnpm install --no-frozen-lockfile`。
  * 将同步 `execSync` 包装为 Promise，使上层 `upgradeDependency` 保持 async 语义。
  */
@@ -655,6 +722,49 @@ function failResult(
         success: false,
         error,
     }
+}
+
+/**
+ * 回滚一次 overrides 写入 + install 的全部变更（C1 复用：install 失败与
+ * 生效校验失败共用同一回滚路径，保证"写盘但未生效"也不残留脏状态）。
+ */
+function rollbackOverrideWrite(params: {
+    usesWorkspaceYaml: boolean
+    workspaceYamlPath: string
+    packageName: string
+    oldOverride: string | undefined
+    pkg: PackageJson
+    pkgPath: string
+    pkgBackup: string
+    lockfilePath: string
+    lockBackup: string
+    workspaceBackup: string | null
+}): void {
+    const {
+        usesWorkspaceYaml,
+        workspaceYamlPath,
+        packageName,
+        oldOverride,
+        pkg,
+        pkgPath,
+        pkgBackup,
+        lockfilePath,
+        lockBackup,
+        workspaceBackup,
+    } = params
+    rollbackOverrides({
+        usesWorkspaceYaml,
+        workspaceYamlPath,
+        packageName,
+        oldOverride,
+        pkg,
+        pkgPath,
+    })
+    rollback(pkgPath, pkgBackup, lockfilePath, lockBackup)
+    if (usesWorkspaceYaml) {
+        rollback(workspaceYamlPath, workspaceBackup, lockfilePath, null)
+    }
+    cleanupBackups({ pkgBackup, lockBackup, workspaceBackup })
 }
 
 function rollback(

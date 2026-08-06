@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -229,5 +229,72 @@ describe('snapshotSourceFile / restoreSourceFile', () => {
         expect(resolveWithinWorkDir(workDir, 'src/foo.ts')).toBe(join(workDir, 'src/foo.ts'))
         expect(resolveWithinWorkDir(workDir, '../escape.ts')).toBeNull()
         expect(resolveWithinWorkDir(workDir, '')).toBeNull()
+    })
+
+    // -----------------------------------------------------------------------
+    // C5 符号链接逃逸防护（安全加固）：词法在 workDir 内但 realpath 指向外部
+    // -----------------------------------------------------------------------
+
+    it('C5: rejects symlink escaping work dir (existing target)', () => {
+        // 外部目录 + 外部文件
+        const outside = mkdtempSync(join(tmpdir(), 'dependfix-outside-'))
+        try {
+            writeFileSync(join(outside, 'pwn.ts'), '// outside\n')
+            // 工作区内 symlink：src → outside（词法上仍在 workDir 内）
+            mkdirSync(join(workDir, 'src'), { recursive: true })
+            symlinkSync(outside, join(workDir, 'src', 'link'), 'junction')
+
+            // 经 symlink 访问外部文件 → 拒绝
+            expect(resolveWithinWorkDir(workDir, 'src/link/pwn.ts')).toBeNull()
+            expect(snapshotSourceFile(workDir, 'src/link/pwn.ts')).toBeNull()
+        } catch (error) {
+            // Windows 无开发者模式时 symlink/junction 创建可能失败 → 跳过
+            const e = error as NodeJS.ErrnoException
+            if (e.code === 'EPERM' || e.code === 'EACCES' || e.code === 'ENOTSUP') {
+                return
+            }
+            throw error
+        } finally {
+            rmSync(outside, { recursive: true, force: true })
+        }
+    })
+
+    it('C5: rejects symlink escaping work dir (non-existing target below link)', () => {
+        const outside = mkdtempSync(join(tmpdir(), 'dependfix-outside-'))
+        try {
+            mkdirSync(join(workDir, 'src'), { recursive: true })
+            symlinkSync(outside, join(workDir, 'src', 'link'), 'junction')
+
+            // 文件尚不存在：父目录（symlink）realpath 指向外部 → 拒绝
+            expect(resolveWithinWorkDir(workDir, 'src/link/new.ts')).toBeNull()
+        } catch (error) {
+            const e = error as NodeJS.ErrnoException
+            if (e.code === 'EPERM' || e.code === 'EACCES' || e.code === 'ENOTSUP') {
+                return
+            }
+            throw error
+        } finally {
+            rmSync(outside, { recursive: true, force: true })
+        }
+    })
+
+    it('C5: allows symlink pointing inside work dir (no escape)', () => {
+        try {
+            mkdirSync(join(workDir, 'real'), { recursive: true })
+            writeFileSync(join(workDir, 'real', 'ok.ts'), '// ok\n')
+            mkdirSync(join(workDir, 'src'), { recursive: true })
+            symlinkSync(join(workDir, 'real'), join(workDir, 'src', 'link'), 'junction')
+
+            const resolved = resolveWithinWorkDir(workDir, 'src/link/ok.ts')
+            expect(resolved).not.toBeNull()
+            // 返回真实路径（realpath 解析后仍在 workDir 内）
+            expect(readFileSync(resolved!, 'utf-8')).toBe('// ok\n')
+        } catch (error) {
+            const e = error as NodeJS.ErrnoException
+            if (e.code === 'EPERM' || e.code === 'EACCES' || e.code === 'ENOTSUP') {
+                return
+            }
+            throw error
+        }
     })
 })

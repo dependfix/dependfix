@@ -323,6 +323,11 @@ export async function upgradeAlert(
             )
         }
 
+        // C1：overrides 写入位置可能被 pnpm v10+ 忽略 → 成功但需用户注意的 warning 进日志
+        if (result.success && result.warning) {
+            logger.warn(`[upgrade] ${result.packageName}: ${result.warning}`)
+        }
+
         return {
             type: 'dependency-upgrade',
             repository: alert.repository,

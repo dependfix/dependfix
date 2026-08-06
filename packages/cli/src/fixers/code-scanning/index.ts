@@ -1,5 +1,5 @@
-import { existsSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs'
-import { resolve, sep } from 'node:path'
+import { existsSync, readFileSync, realpathSync, unlinkSync, writeFileSync } from 'node:fs'
+import { basename, dirname, join, resolve, sep } from 'node:path'
 import type { FixAction, NormalizedSecurityAlert } from '@dependfix/core'
 import { getCodeScanningFixTemplate } from './templates'
 
@@ -196,8 +196,14 @@ export function restoreSourceFile(workDir: string, snapshot: SourceFileSnapshot)
 }
 
 /**
- * 将相对路径解析到工作目录内（W5：防 `../` 与绝对路径逃逸）。
+ * 将相对路径解析到工作目录内（W5：防 `../` 与绝对路径逃逸；C5：防符号链接逃逸）。
  * 返回 null 表示越界（调用方拒绝处理）。
+ *
+ * C5（安全加固）：词法校验（resolve + startsWith）不足以防御符号链接——
+ * 工作区内 `src/link → /外部/目录` 词法上仍在 workDir 内，但 realpath 指向外部。
+ * 因此对目标做 realpath 校验：目标文件存在 → realpath 文件本身必须在 workDir
+ * realpath 内；不存在 → 逐级向上对最近存在的父目录做 realpath 校验。
+ * 返回**真实路径**（后续读写走真实路径，避免再次经过 symlink）。
  */
 export function resolveWithinWorkDir(workDir: string, relativePath: string): string | null {
     const root = resolve(workDir)
@@ -205,5 +211,34 @@ export function resolveWithinWorkDir(workDir: string, relativePath: string): str
     if (target === root) {
         return null
     }
-    return target.startsWith(root + sep) ? target : null
+    if (!target.startsWith(root + sep)) {
+        return null
+    }
+
+    // C5：realpath 校验（目标存在 → 校验文件本身；不存在 → 校验最近存在的父目录）
+    try {
+        const realRoot = realpathSync(root)
+        if (existsSync(target)) {
+            const realTarget = realpathSync(target)
+            return realTarget.startsWith(realRoot + sep) || realTarget === realRoot
+                ? realTarget
+                : null
+        }
+
+        // 目标不存在（快照/新建场景）：逐级向上找最近存在的父目录
+        let dir = dirname(target)
+        const missingTail: string[] = []
+        while (dir !== realRoot && !existsSync(dir)) {
+            missingTail.unshift(basename(dir))
+            dir = dirname(dir)
+        }
+        const realDir = realpathSync(dir)
+        if (realDir !== realRoot && !realDir.startsWith(realRoot + sep)) {
+            return null
+        }
+        return join(realDir, ...missingTail, basename(target))
+    } catch {
+        // realpath 失败（权限、不可解析等）→ 保守拒绝
+        return null
+    }
 }

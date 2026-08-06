@@ -589,8 +589,7 @@ describe('overrideTransitiveDependency', () => {
             throw Object.assign(new Error('install failed'), { stderr: 'ERR_PNPM_LOCKFILE_MISMATCH' })
         })
 
-        const project = createTempProject({ lodash: '^4.17.20' })
-        // Pre-populate with an existing override that must survive the rollback
+        const project = createTempProject({ lodash: '^4.17.20' }) // Pre-populate with an existing override that must survive the rollback
         const pkgWithOverrides = JSON.parse(readFileSync(project.pkgPath, 'utf-8')) as Record<string, unknown>
         pkgWithOverrides.pnpm = { overrides: { 'existing-pkg': '^1.0.0' } }
         writeFileSync(project.pkgPath, `${JSON.stringify(pkgWithOverrides, null, 2)}\n`)
@@ -779,6 +778,98 @@ describe('overrideTransitiveDependency', () => {
         expect(yamlContent).toContain('^1.0.0')
         expect(yamlContent).toContain('fast-uri')
         expect(yamlContent).toContain('5.0.1')
+
+        cleanup(project)
+    })
+
+    // -----------------------------------------------------------------------
+    // C1：pnpm v10+ 无 pnpm-workspace.yaml → package.json overrides 假成功防护
+    // -----------------------------------------------------------------------
+
+    it('C1: detects pnpm v10+ writing to package.json overrides and verifies lockfile effect', async () => {
+        mockExecSync.mockImplementation((cmd: string) => {
+            if (String(cmd).includes('--version')) {
+                return '11.5.0' // pnpm v11（不读 package.json overrides）
+            }
+            return undefined // install 成功（mock 不更新 lockfile）
+        })
+
+        const project = createTempProject({ lodash: '^4.17.20' })
+        writeFileSync(project.lockfilePath, [
+            'lockfileVersion: \'9.0\'',
+            '',
+            '/fast-uri/5.0.0:',
+            '  resolution: {integrity: sha512-xxx}',
+            '',
+        ].join('\n'))
+
+        const result = await overrideTransitiveDependency({
+            packageName: 'fast-uri',
+            targetVersion: '5.0.1',
+            workDir: project.dir,
+        })
+
+        // install "成功" 但 lockfile 未更新（5.0.0 < 5.0.1）→ 判定假成功：回滚 + 报错
+        expect(result.success).toBe(false)
+        expect(result.error).toContain('override did not take effect')
+
+        // package.json 被回滚（无残留 override）
+        const pkg = JSON.parse(readFileSync(project.pkgPath, 'utf-8')) as Record<string, unknown>
+        expect(pkg.pnpm).toBeUndefined()
+
+        cleanup(project)
+    })
+
+    it('C1: succeeds with warning when lockfile actually updated', async () => {
+        mockExecSync.mockImplementation((cmd: string) => {
+            if (String(cmd).includes('--version')) {
+                return '11.5.0'
+            }
+            return undefined
+        })
+
+        const project = createTempProject({ lodash: '^4.17.20' })
+        // lockfile 已处于目标版本（模拟 install 生效）
+        writeFileSync(project.lockfilePath, [
+            'lockfileVersion: \'9.0\'',
+            '',
+            '/fast-uri/5.0.1:',
+            '  resolution: {integrity: sha512-xxx}',
+            '',
+        ].join('\n'))
+
+        const result = await overrideTransitiveDependency({
+            packageName: 'fast-uri',
+            targetVersion: '5.0.1',
+            workDir: project.dir,
+        })
+
+        expect(result.success).toBe(true)
+        expect(result.warning).toContain('pnpm v11 may ignore package.json#pnpm.overrides')
+
+        cleanup(project)
+    })
+
+    it('C1: no verification when pnpm major is unknown (mock install does not update lockfile)', async () => {
+        // mockExecSync 默认返回 undefined → detectPnpmMajor 无法解析 → 不触发校验
+        const project = createTempProject({ lodash: '^4.17.20' })
+        writeFileSync(project.lockfilePath, [
+            'lockfileVersion: \'9.0\'',
+            '',
+            '/fast-uri/5.0.0:',
+            '  resolution: {integrity: sha512-xxx}',
+            '',
+        ].join('\n'))
+
+        const result = await overrideTransitiveDependency({
+            packageName: 'fast-uri',
+            targetVersion: '5.0.1',
+            workDir: project.dir,
+        })
+
+        // 未知 pnpm 版本 → 不校验（保持旧行为），成功且无 warning
+        expect(result.success).toBe(true)
+        expect(result.warning).toBeUndefined()
 
         cleanup(project)
     })

@@ -1,6 +1,7 @@
 # 当前阶段任务（M4）
 
 > M0（基线收敛）/ M1（MVP 单仓库修复）/ M2（GitHub Action 接入）/ M3（Code Scanning 扩展）已完成，归档见 [todo-archive.md](todo-archive.md)。
+> **M4（多仓库治理增强）已完成（2026-08-06）**：T401-T404 全部交付并通过 Review Gate（提交 cb801b60 / fedb7200 / 5860fb4d / 2a7fed00），全量质量门（typecheck + lint + build + 650 tests）通过。
 > M5 及之后阶段的任务见 [backlog.md](backlog.md)。
 
 ---
@@ -143,8 +144,10 @@ T404（归档/趋势，依赖 T402，可并行）
 
 ## M4 完成判定
 
-- [ ] 通过 `--owner` 一次拉取多仓库处理清单（T401）
-- [ ] 显式 + 发现 + 名单组合结果可预期（T401+T403）
-- [ ] 多仓库失败隔离 + 并发可控（T402）
-- [ ] 历史归档可查趋势（T404）
-- [ ] `pnpm typecheck` + `pnpm lint` + `pnpm test` 全部通过；Review Gate 放行
+- [x] 通过 `--owner` 一次拉取多仓库处理清单（T401）
+- [x] 显式 + 发现 + 名单组合结果可预期（T401+T403）
+- [x] 多仓库失败隔离 + 并发可控（T402）
+- [x] 历史归档可查趋势（T404）
+- [x] `pnpm typecheck` + `pnpm lint` + `pnpm test` 全部通过；Review Gate 放行
+
+> **M4 交付说明（2026-08-06）**：T401 自动发现（owner/org 分页 + 基础/topic 过滤 + dependabot.yml 探测 + 排序确定性 + 显式优先合并）；T402 并发调度（p-queue 1-16，fix/fix-and-pr 因共享 workDir 禁并发）+ 限流指数退避重试（429/403 primary/secondary，权限 403 不重试）；T403 名单策略（glob include/exclude + topics 黑名单，策略在探测前应用，exclude 冲突胜出，configuration.md 优先级矩阵）；T404 归档与趋势（{YYYY-MM}/{runId}/ 每仓库 md/json + index.json + --history 仓库级计数）。四项均经独立 Review Gate（T402/T404 首轮 REJECT 后修复复审 PASS），4 次单提交落库（本地，未推送）。

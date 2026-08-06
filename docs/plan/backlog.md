@@ -96,6 +96,30 @@
 - **C18 名单正则引擎**：T403 非目标（首版 glob 通配）
 - **C19 报告保留策略**：T404 非目标（容量治理：归档上限 / 清理策略）
 
+### M4 残余风险登记（2026-08-06，T402-T404 Review Gate 移交）
+
+> M4 交付时审计登记的 8 项残余风险，供后续阶段排期跟踪。
+
+- **R1 写请求 429 重放**（T402）：限流重试 hook 对 POST/PATCH/DELETE 同样重试（GitHub 限流检查在请求执行前，重放风险低；官方 @octokit/plugin-retry 同语义）。后续可对非 GET/HEAD 跳过重试
+- **R2 MAX_BACKOFF_MS 硬编码**（T402）：退避单次等待上限固定 30s（todo 原文"退避上限可配"未完全达成）；后续可配置化
+- **R3 Retry-After 头未解析**（T402）：当前仅按 x-ratelimit-reset 等待 + message 特征匹配；后续可优先尊重 Retry-After
+- **R4 CJS require p-queue ESM-only**（T402）：Node 20 下编程式 `require('dependfix')` 会 ERR_REQUIRE_ESM（官方 bin.mjs / ESM 入口不受影响）；发布前（M5+）需处理（tsdown noExternal 或动态 import）
+- **R5 topics 匹配大小写敏感**（T403）：与 GitHub API 返回原样比较；用户配置大小写不一致可能不匹配（文档已注明）
+- **R6 glob ReDoS 面**（T403）：多通配符模式理论 O(n^k) 回溯（输入为受信配置 + full_name ≤ ~140 字符，风险低）；C18 正则引擎落地时需专项审计
+- **R7 损坏 index.json 覆盖即丢历史**（T404）：索引损坏时按空索引重写，历史静默丢失；后续可写前备份 .bak
+- **R8 多进程 index 写竞态**（T404）：read-modify-write 非原子；CLI/action 单进程语义下可接受，平台化（M6+）需原子写
+
+### M4 已知限制（P3 观察项，非阻塞）
+
+- **--history 与运行参数并存**：CLI 短路优先 history，其余参数静默忽略；help 文档应注明互斥
+- **--max-concurrency / --max-retries 小数截断**：`2.5` 被 parseInt 静默截断为 `2`；后续可校验整数字面量
+- **mergeRepositories 大小写敏感**：显式 `Owner/Repo` 与发现 `owner/repo` 不去重（GitHub full_name 恒小写）
+- **repoSlug 坍缩**：`a/b-c` 与 `a-b/c` 归档文件名相同，多 owner 极端场景可能相互覆盖
+- **cleanup-branches 模式空归档条目**：该模式不填充 repoResults，每次运行向 index.json 累积 `repositories: []` 记录
+- **cleanup-branches 模式 maxConcurrency 静默忽略**：该模式不走 runRepoPipeline，`--max-concurrency > 1` 既不生效也无警告（config 校验仅禁 fix/fix-and-pr）；后续可校验拒绝或文档说明
+- **M4 参数未接入 Action**：action.yml 仅暴露 `repos` 输入；owner/并发/名单/归档能力当前限定 CLI（M4 范围）
+- **action artifact 体积**：归档结构（summary.json + 每仓库 md/json）随上传，artifact 略增
+
 ---
 
 ## M5: AI Breaking Change 研判

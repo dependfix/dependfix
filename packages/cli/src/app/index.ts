@@ -812,11 +812,25 @@ export class DependfixApp {
      * - `>1` 时输出警告（并行 GitHub API 调用可能触发限流）
      * - 失败隔离由 task 内部 try-catch 承担（每仓库独立 repoResults 记录），
      *   scheduler 提供 onError 兜底，单仓库异常不中断整体
+     * - 空清单：记录 EMPTY_REPO_LIST 错误（非 0 退出），避免静默空跑（T-G2-1 同构缺陷）
      */
     private async runRepoPipeline(
         repositories: string[],
         task: (repo: string) => Promise<void>,
     ): Promise<void> {
+        if (repositories.length === 0) {
+            this.logger.warn(
+                '[scheduler] no repositories to process — check --owner discovery and policy filtering (--repo-topics / --repo-include / --repo-exclude / --repo-topics-exclude)',
+            )
+            this.allErrors.push({
+                repository: '*',
+                stage: 'report',
+                category: 'EMPTY_REPO_LIST',
+                message: 'No repositories to process after owner discovery and policy filtering.',
+            })
+            return
+        }
+
         if (this.config.maxConcurrency > 1) {
             this.logger.warn(
                 `[scheduler] maxConcurrency=${this.config.maxConcurrency} > 1 — parallel GitHub API calls may hit rate limits; --max-retries applies (${this.config.maxRetries})`,

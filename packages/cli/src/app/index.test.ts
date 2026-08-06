@@ -825,6 +825,39 @@ describe('DependfixApp owner discovery wiring', () => {
         expect(result.repositories.map((r) => r.repository)).toEqual(['foo/keep'])
         expect(nock.pendingMocks()).toEqual([])
     })
+
+    it('records EMPTY_REPO_LIST error (non-zero exit) when policy filters everything out', async () => {
+        // owner 发现 1 个仓库但被 exclude 全部剔除；无显式列表
+        nock('https://api.github.com')
+            .get('/users/foo')
+            .reply(200, { login: 'foo', type: 'User' })
+        nock('https://api.github.com')
+            .get('/users/foo/repos')
+            .query({ per_page: '100', type: 'all' })
+            .reply(200, [
+                { full_name: 'foo/legacy-1', default_branch: 'main', archived: false, disabled: false, fork: false, topics: [] },
+            ])
+        // 被 exclude 剔除 → 不触达 contents API / alerts API（无 mock 即验证）
+
+        const config = resolveRuntimeConfig({
+            env: {
+                GITHUB_TOKEN: 'main-token-value',
+                DEPENDFIX_OWNER: 'foo',
+                DEPENDFIX_REPO_EXCLUDE: 'foo/legacy-*',
+            },
+            // 无 git remote 的目录，避免 git remote 推断把 cwd 仓库并入显式列表
+            workDir,
+        })
+
+        const app = new DependfixApp({ config, workDir, reportOutputDir: join(workDir, 'reports') })
+        const { result, exitCode } = await app.run()
+
+        // 空清单不再静默成功（T-G2-1 同构缺陷防护）
+        expect(result.repositories).toEqual([])
+        expect(result.errors.some((e) => e.category === 'EMPTY_REPO_LIST')).toBe(true)
+        expect(exitCode).not.toBe(0)
+        expect(nock.pendingMocks()).toEqual([])
+    })
 })
 
 // ---------------------------------------------------------------------------

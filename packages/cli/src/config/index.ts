@@ -29,6 +29,17 @@ export interface RuntimeConfig {
     mode: RuntimeMode
     severityThreshold: SeverityThreshold
     repositories: string[]
+    /**
+     * owner / org 列表（`--owner` / `DEPENDFIX_OWNER`）。
+     * 提供时按 owner 自动发现仓库（T401）：与显式 `repositories` 合并去重
+     * （显式优先，发现仅补充未出现项）。适用于 report-only / fix / fix-and-pr。
+     */
+    owner?: string[]
+    /**
+     * 发现结果的 topic 白名单（`--repo-topics` / `DEPENDFIX_REPO_TOPICS`，AND 语义）。
+     * 仓库必须包含全部指定 topics 才保留。仅影响发现结果，不影响显式列表。
+     */
+    repoTopics?: string[]
     dryRun: boolean
     createPullRequest: boolean
     /** 修复完成后是否在本地当前分支直接提交（不推送、不创建 PR） */
@@ -81,6 +92,10 @@ export interface CliConfigOverrides {
     severityThreshold?: SeverityThreshold
     repositories?: string[]
     reposFilePath?: string
+    /** owner / org 列表（自动发现仓库，与显式列表合并去重） */
+    owner?: string[]
+    /** 发现结果 topic 白名单（AND 语义） */
+    repoTopics?: string[]
     dryRun?: boolean
     createPullRequest?: boolean
     /** 修复完成后是否在本地当前分支直接提交 */
@@ -280,6 +295,8 @@ export function readEnvConfig(env: NodeJS.ProcessEnv = process.env): CliConfigOv
         mode: readRuntimeMode(readEnv(env, 'MODE'), `${ENV_PREFIX}MODE`),
         severityThreshold: readSeverityThreshold(readEnv(env, 'SEVERITY_THRESHOLD'), `${ENV_PREFIX}SEVERITY_THRESHOLD`),
         repositories: normalizeList(readEnv(env, 'REPOSITORIES')),
+        owner: normalizeList(readEnv(env, 'OWNER')),
+        repoTopics: normalizeList(readEnv(env, 'REPO_TOPICS')),
         dryRun: normalizeBoolean(readEnv(env, 'DRY_RUN'), `${ENV_PREFIX}DRY_RUN`),
         createPullRequest: normalizeBoolean(readEnv(env, 'CREATE_PR'), `${ENV_PREFIX}CREATE_PR`),
         commit: normalizeBoolean(readEnv(env, 'COMMIT'), `${ENV_PREFIX}COMMIT`),
@@ -366,13 +383,29 @@ function validateRuntimeConfig(config: RuntimeConfig): RuntimeConfig {
         )
     }
 
-    if (config.repositories.length === 0) {
+    // owner 发现需要 GitHub API，pnpm-audit 本地场景无法发现
+    if (isAuditSource && config.owner && config.owner.length > 0) {
+        throw new AppError(
+            'CONFIG_VALIDATION_ERROR',
+            '--owner / DEPENDFIX_OWNER requires the github-dependabot alert source (owner discovery uses the GitHub API).',
+        )
+    }
+
+    // cleanup-branches 模式不做 owner 发现（分支清理需明确目标仓库）
+    if (config.mode === 'cleanup-branches' && config.owner && config.owner.length > 0) {
+        throw new AppError(
+            'CONFIG_VALIDATION_ERROR',
+            '--owner / DEPENDFIX_OWNER is not supported in cleanup-branches mode (branch cleanup requires explicit target repositories).',
+        )
+    }
+
+    if (config.repositories.length === 0 && !(config.owner && config.owner.length > 0)) {
         if (isAuditSource) {
             // pnpm-audit 模式允许无 --repo：repository 由 app 层解析（git remote → local 兜底）
         } else {
             throw new AppError(
                 'CONFIG_VALIDATION_ERROR',
-                'Missing target repositories. Provide --repo, --repository, --repos-file or DEPENDFIX_REPOSITORIES.',
+                'Missing target repositories. Provide --repo, --repository, --repos-file, --owner or DEPENDFIX_REPOSITORIES / DEPENDFIX_OWNER.',
             )
         }
     }
@@ -470,6 +503,8 @@ export function resolveRuntimeConfig(options: ResolveRuntimeConfigOptions = {}):
         mode,
         severityThreshold: cliOverrides.severityThreshold ?? envConfig.severityThreshold ?? DEFAULT_RUNTIME_CONFIG.severityThreshold,
         repositories,
+        owner: cliOverrides.owner ?? envConfig.owner,
+        repoTopics: cliOverrides.repoTopics ?? envConfig.repoTopics,
         dryRun: resolveDryRun(mode, cliOverrides, envConfig),
         createPullRequest: resolveCreatePullRequest(mode, cliOverrides, envConfig),
         commit: resolveCommit(cliOverrides, envConfig),

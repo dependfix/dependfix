@@ -612,3 +612,108 @@ describe('DependfixApp code-scanning parallel source', () => {
         expect(nock.pendingMocks()).toEqual([])
     })
 })
+
+// ---------------------------------------------------------------------------
+// M4 owner discovery 接线测试（T401）：resolveRepositories 合并去重与失败回退
+// ---------------------------------------------------------------------------
+
+describe('DependfixApp owner discovery wiring', () => {
+    let workDir: string
+
+    beforeEach(() => {
+        workDir = mkdtempSync(join(tmpdir(), 'dependfix-owner-'))
+        writeFileSync(join(workDir, 'package.json'), JSON.stringify({
+            name: 'fixture',
+            version: '1.0.0',
+        }, null, 2))
+    })
+
+    afterEach(() => {
+        nock.cleanAll()
+        rmSync(workDir, { recursive: true, force: true })
+    })
+
+    it('merges explicit repositories with owner discovery (explicit first, deduped)', async () => {
+        // owner 发现：foo 下两个仓库（乱序返回，验证排序确定性）
+        nock('https://api.github.com')
+            .get('/users/foo')
+            .reply(200, { login: 'foo', type: 'User' })
+        nock('https://api.github.com')
+            .get('/users/foo/repos')
+            .query({ per_page: '100', type: 'all' })
+            .reply(200, [
+                { full_name: 'foo/zeta', default_branch: 'main', archived: false, disabled: false, fork: false, topics: [] },
+                { full_name: 'foo/alpha', default_branch: 'main', archived: false, disabled: false, fork: false, topics: [] },
+            ])
+        // 探测 dependabot.yml（alpha 存在、zeta 不存在）
+        nock('https://api.github.com')
+            .get(new RegExp('/repos/foo/alpha/contents/'))
+            .reply(200, { type: 'file' })
+        nock('https://api.github.com')
+            .get(new RegExp('/repos/foo/zeta/contents/'))
+            .reply(404, { message: 'Not Found' })
+
+        // 显式 foo/bar + 发现 alpha/zeta → 处理 3 个仓库（report-only dry-run）
+        for (const repo of ['foo/bar', 'foo/alpha', 'foo/zeta']) {
+            nock('https://api.github.com')
+                .get(`/repos/${repo}/dependabot/alerts`)
+                .query({ state: 'open', per_page: '100' })
+                .reply(200, [])
+            nock('https://api.github.com')
+                .get(`/repos/${repo}`)
+                .reply(200, { default_branch: 'main' })
+        }
+
+        const config = resolveRuntimeConfig({
+            env: {
+                GITHUB_TOKEN: 'main-token-value',
+                DEPENDFIX_OWNER: 'foo',
+                DEPENDFIX_REPOSITORIES: 'foo/bar',
+            },
+        })
+
+        const app = new DependfixApp({ config, workDir })
+        const { result } = await app.run()
+
+        // 报告 config 反映用户输入（显式列表原样，发现结果不污染配置）
+        expect(result.config.repositories).toEqual(['foo/bar'])
+        // 实际处理清单 = 显式优先（foo/bar 在前）+ 发现结果按名排序补充
+        expect(result.repositories.map((r) => r.repository)).toEqual(['foo/bar', 'foo/alpha', 'foo/zeta'])
+        expect(result.errors).toEqual([])
+        expect(nock.pendingMocks()).toEqual([])
+    })
+
+    it('falls back to explicit repositories with DISCOVERY_FAILED error when discovery throws', async () => {
+        // owner 信息获取失败（404 → REPO_NOT_FOUND）
+        nock('https://api.github.com')
+            .get('/users/nobody')
+            .reply(404, { message: 'Not Found' })
+
+        // 显式列表仍被处理（显式优先回退语义）
+        nock('https://api.github.com')
+            .get('/repos/foo/bar/dependabot/alerts')
+            .query({ state: 'open', per_page: '100' })
+            .reply(200, [])
+        nock('https://api.github.com')
+            .get('/repos/foo/bar')
+            .reply(200, { default_branch: 'main' })
+
+        const config = resolveRuntimeConfig({
+            env: {
+                GITHUB_TOKEN: 'main-token-value',
+                DEPENDFIX_OWNER: 'nobody',
+                DEPENDFIX_REPOSITORIES: 'foo/bar',
+            },
+        })
+
+        const app = new DependfixApp({ config, workDir })
+        const { result, exitCode } = await app.run()
+
+        // 显式仓库未被丢弃，且发现失败有审计记录
+        expect(result.repositories.map((r) => r.repository)).toEqual(['foo/bar'])
+        expect(result.errors.some((e) => e.category === 'DISCOVERY_FAILED')).toBe(true)
+        // 有错误 → 非 0 退出码
+        expect(exitCode).not.toBe(0)
+        expect(nock.pendingMocks()).toEqual([])
+    })
+})

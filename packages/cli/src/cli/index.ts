@@ -53,6 +53,14 @@ const argsDef = {
         type: 'string' as const,
         description: '从文件读取仓库列表（每行一个 owner/repo）',
     },
+    owner: {
+        type: 'string' as const,
+        description: 'owner / org 自动发现（逗号分隔多个或多次传入），与 --repo 合并去重（显式优先）',
+    },
+    'repo-topics': {
+        type: 'string' as const,
+        description: '发现结果 topic 白名单（逗号分隔，AND 语义；仅影响 --owner 发现结果）',
+    },
     'severity-threshold': {
         type: 'string' as const,
         description: '严重级别阈值：critical, high, medium, all',
@@ -165,6 +173,21 @@ function parseCommandsFlag(value: string): string[] {
         .filter(Boolean)
 }
 
+/**
+ * 归一化可重复 flag 值（citty/mri 对重复传入返回数组，单次传入返回字符串）：
+ * 按逗号拆分 + 去空白 + 去空项。`--owner a,b --owner c` → ['a', 'b', 'c']。
+ */
+function normalizeFlagList(value: string | string[] | undefined): string[] {
+    if (value === undefined) {
+        return []
+    }
+    const parts = Array.isArray(value) ? value : [value]
+    return parts
+        .flatMap((v) => v.split(','))
+        .map((s) => s.trim())
+        .filter(Boolean)
+}
+
 function parsedArgsToCliOverrides(parsed: ParsedArgs<typeof argsDef>): CliConfigOverrides {
     const overrides: CliConfigOverrides = {}
 
@@ -188,6 +211,18 @@ function parsedArgsToCliOverrides(parsed: ParsedArgs<typeof argsDef>): CliConfig
     const reposFile = parsed['repos-file']
     if (reposFile) {
         overrides.reposFilePath = reposFile
+    }
+
+    // owner（自动发现；逗号分隔多个或多次传入）
+    const ownerValue = normalizeFlagList(parsed.owner)
+    if (ownerValue.length > 0) {
+        overrides.owner = ownerValue
+    }
+
+    // repo-topics（发现结果 topic 白名单，AND 语义）
+    const repoTopicsValue = normalizeFlagList(parsed['repo-topics'])
+    if (repoTopicsValue.length > 0) {
+        overrides.repoTopics = repoTopicsValue
     }
 
     // severity-threshold

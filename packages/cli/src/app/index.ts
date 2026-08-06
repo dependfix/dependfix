@@ -19,6 +19,7 @@ import {
     type FixError,
 } from '@dependfix/core'
 import { createGitHubClient } from '../github/client'
+import { discoverRepositories, mergeRepositories } from '../github/repository-discovery'
 import { enforceVerificationGate } from '../runners/verification-gate'
 import { fetchDependabotAlerts } from '../github/dependabot-fetcher'
 import { fetchCodeScanningAlerts } from '../github/code-scanning-fetcher'
@@ -206,7 +207,7 @@ export class DependfixApp {
 
     private async executeReportMode(): Promise<void> {
         const client = this.githubClientOrNull()
-        for (const repo of resolveAlertRepositories(this.ctx)) {
+        for (const repo of await this.resolveRepositories(client)) {
             await this.processRepoForReport(client, repo)
         }
     }
@@ -269,7 +270,7 @@ export class DependfixApp {
 
     private async executeFixMode(): Promise<void> {
         const client = this.githubClientOrNull()
-        for (const repo of resolveAlertRepositories(this.ctx)) {
+        for (const repo of await this.resolveRepositories(client)) {
             await this.processRepoForFix(client, repo)
         }
 
@@ -631,10 +632,11 @@ export class DependfixApp {
      */
     private async executeFixAndPrMode(): Promise<void> {
         const client = this.createClient()
+        const repositories = await this.resolveRepositories(client)
 
         // 1. Run fix pipeline for all repos (same as fix mode)
         // （config 校验已保证 fix-and-pr 仅 github-dependabot 源，client 恒非 null）
-        for (const repo of this.config.repositories) {
+        for (const repo of repositories) {
             await this.processRepoForFix(client, repo)
         }
 
@@ -646,7 +648,7 @@ export class DependfixApp {
 
         // 1.6 Optional: auto-delete merged/closed dependfix branches（非交互，可与 1.5 同开）
         if (this.config.cleanupBranchesAuto) {
-            for (const repo of this.config.repositories) {
+            for (const repo of repositories) {
                 await autoCleanupMergedBranches(this.ctx, client, repo)
             }
         }
@@ -667,10 +669,10 @@ export class DependfixApp {
             return
         }
 
-        if (this.config.repositories.length === 0) {
+        if (repositories.length === 0) {
             return
         }
-        const firstRepo = this.config.repositories[0]
+        const firstRepo = repositories[0]
         const [owner, repo] = firstRepo.split('/')
 
         try {
@@ -763,7 +765,7 @@ export class DependfixApp {
             const hint = pullRequestCreationHint(error)
             this.logger.error(`PR creation failed: ${message}${hint ? ` — ${hint}` : ''}`)
             this.allErrors.push({
-                repository: this.config.repositories[0] ?? '*',
+                repository: repositories[0] ?? '*',
                 stage: 'report',
                 category: 'PR_CREATION_FAILED',
                 message: hint ? `${message}（${hint}）` : message,
@@ -787,6 +789,49 @@ export class DependfixApp {
         const client = this.createClient()
         for (const repo of this.config.repositories) {
             await runBranchCleanupForRepo(this.ctx, client, repo)
+        }
+    }
+
+    /**
+     * 解析本次运行要处理的仓库清单（M4 owner 自动发现 + 显式列表合并）。
+     *
+     * - 配置了 `--owner` 且 client 可用：自动发现 → 与显式 `repositories` 合并去重
+     *   （显式优先：显式列表保持原顺序在前，发现结果按仓库名排序仅补充未出现项）
+     * - 发现失败（token 权限、网络等全局性问题）：记录 DISCOVERY_FAILED 错误，
+     *   回退处理显式列表（显式优先语义，不静默丢弃显式仓库）
+     * - 未配置 `--owner`：沿用现有 resolveAlertRepositories 语义
+     */
+    private async resolveRepositories(client: Octokit | null): Promise<string[]> {
+        const { owner } = this.config
+        if (!client || !owner || owner.length === 0) {
+            return resolveAlertRepositories(this.ctx)
+        }
+
+        try {
+            const discovered = await discoverRepositories({
+                client,
+                owners: owner,
+                topics: this.config.repoTopics,
+            })
+            const merged = mergeRepositories(
+                this.config.repositories,
+                discovered.map((r) => r.fullName),
+            )
+            this.logger.info(
+                `[discovery] owner(s) ${owner.join(', ')}: discovered ${discovered.length} repo(s), total ${merged.length} to process`,
+            )
+            return merged
+        } catch (error: unknown) {
+            const message = toErrorMessage(error)
+            this.logger.error(`[discovery] owner discovery failed: ${message}`)
+            this.allErrors.push({
+                repository: '*',
+                stage: 'report',
+                category: 'DISCOVERY_FAILED',
+                message,
+            })
+            // 发现失败不阻塞显式列表（显式优先语义）
+            return this.config.repositories
         }
     }
 

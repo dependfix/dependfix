@@ -1,3 +1,6 @@
+import { mkdtempSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { AppError } from '@dependfix/core'
 import { parseCliArgs } from '../cli'
@@ -515,6 +518,64 @@ describe('resolveRuntimeConfig', () => {
         expect(() => resolveRuntimeConfig({
             env: { DEPENDFIX_ALERTS_SOURCE: 'github-dependabot' },
         })).toThrow('Missing GitHub token')
+    })
+
+    // -----------------------------------------------------------------------
+    // M4 owner discovery（T401）
+    // -----------------------------------------------------------------------
+
+    it('parses owner and repoTopics from env (comma separated)', () => {
+        const config = resolveRuntimeConfig({
+            env: {
+                GITHUB_TOKEN: 't',
+                DEPENDFIX_OWNER: 'foo, my-org',
+                DEPENDFIX_REPO_TOPICS: 'node, pnpm',
+            },
+        })
+
+        expect(config.owner).toEqual(['foo', 'my-org'])
+        expect(config.repoTopics).toEqual(['node', 'pnpm'])
+    })
+
+    it('lets cli owner overrides env owner', () => {
+        const invocation = parseCliArgs(['--owner', 'cli-owner'])
+        const config = resolveRuntimeConfig({
+            env: { GITHUB_TOKEN: 't', DEPENDFIX_OWNER: 'env-owner' },
+            cliOverrides: invocation.configOverrides,
+        })
+
+        expect(config.owner).toEqual(['cli-owner'])
+    })
+
+    it('allows missing repositories when owner is provided', () => {
+        const config = resolveRuntimeConfig({
+            env: { GITHUB_TOKEN: 't', DEPENDFIX_OWNER: 'foo' },
+            // 无 git remote 的目录，避免 repositories 推断干扰
+            workDir: mkdtempSync(join(tmpdir(), 'dependfix-config-')),
+        })
+
+        expect(config.repositories).toEqual([])
+        expect(config.owner).toEqual(['foo'])
+    })
+
+    it('rejects owner discovery with pnpm-audit alert source', () => {
+        expect(() => resolveRuntimeConfig({
+            env: {
+                GITHUB_TOKEN: 't',
+                DEPENDFIX_ALERTS_SOURCE: 'pnpm-audit',
+                DEPENDFIX_OWNER: 'foo',
+            },
+        })).toThrow('--owner / DEPENDFIX_OWNER requires the github-dependabot alert source')
+    })
+
+    it('rejects owner discovery in cleanup-branches mode', () => {
+        expect(() => resolveRuntimeConfig({
+            env: {
+                GITHUB_TOKEN: 't',
+                DEPENDFIX_MODE: 'cleanup-branches',
+                DEPENDFIX_OWNER: 'foo',
+            },
+        })).toThrow('not supported in cleanup-branches mode')
     })
 })
 

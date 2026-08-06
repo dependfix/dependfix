@@ -32,26 +32,28 @@ T404（归档/趋势，依赖 T402，可并行）
 
 - **优先级**: P2
 - **依赖**: T102（GitHub client）
-- **状态**: 待办
+- **状态**: 已完成（2026-08-06，提交后回链）
 - **交付物**: `packages/cli/src/github/repository-discovery.ts`
 
 **任务内容**:
 
-- [ ] 按 owner / org 拉取仓库列表（`GET /users/{owner}/repos` / `GET /orgs/{org}/repos`，octokit.paginate 分页）
-- [ ] 基础过滤：archived / disabled / fork 剔除，默认分支缺失剔除
-- [ ] topic 过滤（`--repo-topics node,pnpm`，AND 语义）；dependabot.yml 存在性探测（默认分支 contents API，仅对候选仓库，404 视为不支持）
-- [ ] 与显式 `repositories` 配置合并去重（显式优先，发现仅补充未出现项）
-- [ ] 发现结果排序确定性（仓库名排序，保证同输入多次运行结果一致——runId/指纹稳定性前提）
+- [x] 按 owner / org 拉取仓库列表（`GET /users/{owner}/repos` / `GET /orgs/{org}/repos`，octokit.paginate 分页）
+- [x] 基础过滤：archived / disabled / fork 剔除，默认分支缺失剔除
+- [x] topic 过滤（`--repo-topics node,pnpm`，AND 语义）；dependabot.yml 存在性探测（默认分支 contents API，仅对候选仓库，404 视为不支持）
+- [x] 与显式 `repositories` 配置合并去重（显式优先，发现仅补充未出现项）
+- [x] 发现结果排序确定性（仓库名排序，保证同输入多次运行结果一致——runId/指纹稳定性前提）
 
 **完成定义**:
 
-- [ ] `--owner` 模式生成稳定处理清单：同输入多次运行结果一致
-- [ ] 自动发现 + 显式列表合并无重复，显式仓库不因探测失败被剔除
-- [ ] 探测请求数量受控（仅候选仓库触达 contents API，不扫描全部）
+- [x] `--owner` 模式生成稳定处理清单：同输入多次运行结果一致
+- [x] 自动发现 + 显式列表合并无重复，显式仓库不因探测失败被剔除
+- [x] 探测请求数量受控（仅候选仓库触达 contents API，不扫描全部）
 
 **非目标**: 全量内容扫描判断技术栈（首版基于 topic/元数据探测；内容嗅探登记 backlog 演进项）
 
-**测试方案**: mock octokit 分页 + 过滤组合矩阵单测；排序确定性；显式/发现合并优先级；topic 探测 404 语义
+**测试方案**: mock octokit 分页 + 过滤组合矩阵单测；排序确定性；显式/发现合并优先级；topic 探测 404 语义 ✅（repository-discovery.test.ts 10 例 + config/app 接线 7 例）
+
+> **Review Gate**: 审计 PASS（无 P0/P1；P2 测试缺口已当场补齐：config 校验 5 例 + app 接线 2 例）。
 
 ---
 

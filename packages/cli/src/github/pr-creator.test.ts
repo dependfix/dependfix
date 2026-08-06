@@ -667,9 +667,10 @@ describe('generatePRBody', () => {
         expect(body).not.toContain('GHSA-yyy')
     })
 
-    it('lists all same-package alerts even when action toVersion is multi-target or differs from alert recommendedVersion', () => {
+    it('lists only version-satisfied alerts; cross-major alerts are excluded (PR #28 semantics)', () => {
         // 同包多 GHSA 推荐版本各异 + versioned-override 多目标 toVersion：
-        // 包级匹配应列出全部告警（Review Gate P1：按版本精确匹配会漏列）
+        // 版本满足判定（isAlertFixedByActions）——5.x 线告警（5.4.15/5.4.21）被
+        // ^5.4.21 目标满足 → 列出；6.4.3 跨线告警（无 6.x 目标）→ 不列入 Fixed Alerts
         const result = buildRunResult()
         result.alerts = [
             makeBodyAlert({ packageName: 'vite', ruleId: 'GHSA-a', severity: 'high', recommendedVersion: '5.4.15' }),
@@ -681,10 +682,11 @@ describe('generatePRBody', () => {
         ]
         const body = generatePRBody(result)
 
-        expect(body.match(/\| `vite` \| `GHSA-/g)).toHaveLength(3)
+        // 5.x 线告警被满足 → 列出；跨线 6.4.3 不误标
+        expect(body.match(/\| `vite` \| `GHSA-/g)).toHaveLength(2)
         expect(body).toContain('| `vite` | `GHSA-a` | HIGH | 5.4.15 |')
         expect(body).toContain('| `vite` | `GHSA-b` | HIGH | 5.4.21 |')
-        expect(body).toContain('| `vite` | `GHSA-c` | MEDIUM | 6.4.3 |')
+        expect(body).not.toContain('GHSA-c')
     })
 
     it('lists fixed code-scanning alerts (template applied) and omits noOp actions', () => {

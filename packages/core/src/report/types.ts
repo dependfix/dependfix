@@ -140,11 +140,13 @@ export interface RepositoryActions {
 
 /**
  * 从告警列表中计算按严重级别的聚合。
- * fixedKeys 为已修复告警键集合（buildFixedKeys 单一事实源）：
- * 依赖升级用包级 `repo/pkg`，Code Scanning 用 `repo/ruleId@filePath`（实例维度）；
- * 兼容旧格式 `repo/pkg@version`（alertKey）。
+ * @param alerts 告警列表
+ * @param actions 修复动作（用于精确 fixed 判定，见 {@link isAlertFixedByActions}）
  */
-export function aggregateSeverity(alerts: NormalizedSecurityAlert[], fixedKeys: Set<string>): SeverityBreakdown {
+export function aggregateSeverity(
+    alerts: NormalizedSecurityAlert[],
+    actions: FixAction[],
+): SeverityBreakdown {
     const empty = (): SeverityRow => ({ found: 0, fixable: 0, fixed: 0, failed: 0 })
 
     const breakdown: Record<AlertSeverity, SeverityRow> = {
@@ -161,10 +163,7 @@ export function aggregateSeverity(alerts: NormalizedSecurityAlert[], fixedKeys: 
         if (alert.fixable) {
             row.fixable++
         }
-        const fixed = fixedKeys.has(`${alert.repository}/${alert.packageName}`)
-            || fixedKeys.has(alertKey(alert))
-            || fixedKeys.has(`${alert.repository}/${alert.ruleId}@${alert.manifestPath}`)
-        if (fixed) {
+        if (isAlertFixedByActions(alert, actions)) {
             row.fixed++
         }
     }
@@ -175,6 +174,113 @@ export function aggregateSeverity(alerts: NormalizedSecurityAlert[], fixedKeys: 
         medium: breakdown.medium,
         low: breakdown.low,
     }
+}
+
+/**
+ * 精确判定单条告警是否已被修复（防跨线误标，2026-08-06 复盘 PR #28）。
+ *
+ * - Code Scanning：既有规则 `repo/ruleId@filePath` 匹配（success && !noOp）
+ * - 依赖升级：存在同仓库同包的**成功** action，且其升级目标中存在
+ *   **与推荐版本同 major 且 >= 推荐版本**的目标（{@link parseRangeTargets}）。
+ *   推荐版本为空时回退包级匹配（兼容无推荐场景）。
+ *
+ * 与包级匹配（buildFixedKeys）的区别：包级匹配会把同包所有告警标 fixed，
+ * 包括"推荐版本需要跨大版本升级"（如 5.x 实例的告警推荐 6.4.3 而只升到 5.4.21，
+ * 或同包其他线的目标 8.2.1 掩盖 5.x 实例未修复）的未真正修复告警——
+ * 本函数按"同 major 版本满足"判定，杜绝该误标。
+ */
+export function isAlertFixedByActions(
+    alert: NormalizedSecurityAlert,
+    actions: FixAction[],
+): boolean {
+    // Code Scanning：实例维度
+    if (alert.source === 'code-scanning') {
+        const csKey = `${alert.repository}/${alert.ruleId}@${alert.manifestPath}`
+        return actions.some((a) => (
+            a.success
+            && !a.noOp
+            && a.type === 'code-scanning-fix'
+            && `${a.repository}/${a.target}@${a.filePath ?? ''}` === csKey
+        ))
+    }
+
+    // 依赖升级：版本满足判定
+    const upgradeActions = actions.filter((a) => (
+        a.success
+        && !a.noOp
+        && a.type === 'dependency-upgrade'
+        && a.repository === alert.repository
+        && a.target === alert.packageName
+    ))
+    if (upgradeActions.length === 0) {
+        return false
+    }
+
+    // 推荐版本为空（无修复版本信息）→ 包级匹配兜底（有成功升级即视为处理）
+    if (!alert.recommendedVersion) {
+        return true
+    }
+
+    // 逐目标判定：存在一个升级目标 >= 推荐版本 **且 major 相同**。
+    // major 匹配要求杜绝跨线误标：5.x 实例的告警推荐 6.4.3 而目标只有 8.2.1
+    // （或 5.4.21）时——目标 major 8（或 5）≠ 推荐 major 6 → 不标 fixed
+    // （PR #28 复盘；"max of targets" 会被同包其他线目标掩盖，故用逐目标判定）
+    const recommendedMajor = parseMajorVersion(alert.recommendedVersion)
+    return upgradeActions.some((a) => parseRangeTargets([a.toVersion]).some((t) => (
+        parseMajorVersion(t) === recommendedMajor
+        && compareVersions(t, alert.recommendedVersion as string) >= 0
+    )))
+}
+
+/**
+ * 解析升级目标 range 中出现的全部版本（含版本化覆盖多目标）。
+ * - `^5.4.21` / `~5.4.21` / `>=5.4.21` / `5.4.21` → `['5.4.21']`
+ * - `5.4.21, 6.4.3` → `['5.4.21', '6.4.3']`
+ * - 无有效版本 → `[]`
+ */
+export function parseRangeTargets(ranges: Array<string | undefined>): string[] {
+    const targets: string[] = []
+    for (const range of ranges) {
+        if (!range) {
+            continue
+        }
+        for (const part of range.split(',')) {
+            const bare = part.trim().replace(/^[\^~>=<\s]+/, '')
+            const match = /^\d+\.\d+\.\d+/.exec(bare)
+            if (match) {
+                targets.push(match[0])
+            }
+        }
+    }
+    return targets
+}
+
+/**
+ * 简单三段版本比较（core 无 semver 依赖；语义与 cli compareSemver 对齐：
+ * 缺失段补 0，pre-release 忽略）。非法版本按 0.0.0 处理。
+ */
+export function compareVersions(a: string, b: string): number {
+    const pa = parseVersion(a)
+    const pb = parseVersion(b)
+    for (let i = 0; i < 3; i++) {
+        if (pa[i] !== pb[i]) {
+            return pa[i] < pb[i] ? -1 : 1
+        }
+    }
+    return 0
+}
+
+function parseVersion(v: string): [number, number, number] {
+    const match = /^(\d+)\.(\d+)\.(\d+)/.exec(v.trim())
+    if (!match) {
+        return [0, 0, 0]
+    }
+    return [Number(match[1]), Number(match[2]), Number(match[3])]
+}
+
+/** 大版本号（非法版本按 0）。 */
+function parseMajorVersion(v: string): number {
+    return parseVersion(v)[0]
 }
 
 /**

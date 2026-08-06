@@ -1154,3 +1154,89 @@ describe('DependfixApp converged alert counting (C7)', () => {
         expect(result.summary.alertsSkipped).toBe(0)
     })
 })
+
+// ---------------------------------------------------------------------------
+// PR #28 复盘：跨线告警（推荐版本 major 无 lockfile 实例）不自动修复、不误标
+// ---------------------------------------------------------------------------
+
+describe('DependfixApp cross-major alert handling (PR #28)', () => {
+    let workDir: string
+
+    beforeEach(() => {
+        workDir = mkdtempSync(join(tmpdir(), 'dependfix-crossmajor-'))
+        writeFileSync(join(workDir, 'package.json'), JSON.stringify({
+            name: 'fixture',
+            version: '1.0.0',
+            devDependencies: { vite: '^8.2.0' },
+        }, null, 2))
+        // lockfile：vite@5.4.14（间接实例）+ vite@8.2.0（根声明）——无 6.x 实例
+        writeFileSync(join(workDir, 'pnpm-lock.yaml'), [
+            'lockfileVersion: \'9.0\'',
+            '',
+            '  vite@5.4.14:',
+            '    resolution: {integrity: sha512-a}',
+            '',
+            '  vite@8.2.0:',
+            '    resolution: {integrity: sha512-b}',
+            '',
+        ].join('\n'))
+    })
+
+    afterEach(() => {
+        nock.cleanAll()
+        rmSync(workDir, { recursive: true, force: true })
+    })
+
+    function makeViteAlert(number: number, recommended: string): Record<string, unknown> {
+        return {
+            number,
+            state: 'open',
+            html_url: `https://github.com/foo/bar/security/dependabot/${number}`,
+            security_advisory: { ghsa_id: `GHSA-${number}`, severity: 'high', summary: 'vite vuln' },
+            security_vulnerability: {
+                package: { ecosystem: 'npm', name: 'vite' },
+                severity: 'high',
+                vulnerable_version_range: `< ${recommended}`,
+                first_patched_version: { identifier: recommended },
+            },
+            dependency: { package: { ecosystem: 'npm', name: 'vite' }, manifest_path: 'pnpm-lock.yaml' },
+        }
+    }
+
+    it('skips cross-major alerts (recommend 6.4.3, no 6.x instance) without marking fixed/converged', async () => {
+        // 跨线告警（推荐 6.4.3，lockfile 无 6.x 实例）+ 线内告警（推荐 5.4.21）
+        nock('https://api.github.com')
+            .get('/repos/foo/bar/dependabot/alerts')
+            .query({ state: 'open', per_page: '100' })
+            .reply(200, [
+                makeViteAlert(1, '6.4.3'),
+                makeViteAlert(2, '5.4.21'),
+            ])
+        nock('https://api.github.com')
+            .get('/repos/foo/bar')
+            .reply(200, { default_branch: 'main' })
+
+        const config = resolveRuntimeConfig({
+            env: {
+                GITHUB_TOKEN: 'main-token-value',
+                DEPENDFIX_MODE: 'fix',
+                DEPENDFIX_REPOSITORIES: 'foo/bar',
+                DEPENDFIX_DRY_RUN: 'true',
+            },
+        })
+
+        const app = new DependfixApp({ config, workDir, reportOutputDir: join(workDir, 'reports') })
+        const { result } = await app.run()
+
+        // 跨线告警：不修复（无 versioned-override action 针对 6.x）、不收敛 → skipped
+        expect(result.summary.alertsSkipped).toBe(1)
+        expect(result.summary.alertsConverged).toBe(0)
+        // 线内告警正常修复（dry-run 记录 action）
+        const voActions = result.actions.filter((a) => a.type === 'dependency-upgrade' && a.strategy === 'versioned-override')
+        expect(voActions.length).toBe(1)
+        expect(voActions[0].toVersion).toContain('5.4.21')
+        // 跨线告警仍在告警列表（报告可见），且未被标记 fixed（版本满足判定）
+        const crossAlert = result.alerts.find((a) => a.ruleId === 'GHSA-1')
+        expect(crossAlert).toBeDefined()
+    })
+})

@@ -1,7 +1,8 @@
 import { mkdtempSync, writeFileSync, rmSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { describe, expect, it, beforeEach, vi } from 'vitest'
+import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest'
+import type { NormalizedSecurityAlert } from '@dependfix/core'
 
 // Mock execSync to avoid needing pnpm in test environment.
 // Must use vi.hoisted because vi.mock is hoisted above imports.
@@ -24,6 +25,7 @@ import {
     readLockfileVersion,
     readLockfileVersions,
     ensurePnpmOverrides,
+    isCrossMajorFixRequired,
     type DependencyFixResult,
 } from './index'
 
@@ -872,6 +874,93 @@ describe('overrideTransitiveDependency', () => {
         expect(result.warning).toBeUndefined()
 
         cleanup(project)
+    })
+})
+
+// ===========================================================================
+// isCrossMajorFixRequired（PR #28 复盘：跨线修复判定）
+// ===========================================================================
+
+describe('isCrossMajorFixRequired', () => {
+    let workDir: string
+
+    beforeEach(() => {
+        workDir = mkdtempSync(join(tmpdir(), 'dependfix-crossmajor-'))
+    })
+
+    afterEach(() => {
+        rmSync(workDir, { recursive: true, force: true })
+    })
+
+    function alertFor(overrides: Partial<NormalizedSecurityAlert> = {}): NormalizedSecurityAlert {
+        return {
+            id: 1,
+            source: 'dependabot',
+            repository: 'owner/repo',
+            defaultBranch: 'main',
+            severity: 'high',
+            packageEcosystem: 'npm',
+            packageName: 'vite',
+            manifestPath: 'pnpm-lock.yaml',
+            ruleId: 'GHSA-x',
+            summary: 'x',
+            htmlUrl: '',
+            fixable: true,
+            fixStrategy: 'upgrade',
+            recommendedVersion: '6.4.3',
+            ...overrides,
+        }
+    }
+
+    it('returns true when recommended major has no instance in lockfile (5.x + 8.x instances, target 6.x)', () => {
+        // PR #28 场景：lockfile 只有 vite@5.4.14 + vite@8.2.0，告警推荐 6.4.3 → 跨线
+        const lockfilePath = join(workDir, 'pnpm-lock.yaml')
+        writeFileSync(lockfilePath, [
+            'lockfileVersion: \'9.0\'',
+            '',
+            '  vite@5.4.14:',
+            '    resolution: {integrity: sha512-a}',
+            '',
+            '  vite@8.2.0:',
+            '    resolution: {integrity: sha512-b}',
+            '',
+        ].join('\n'))
+
+        expect(isCrossMajorFixRequired(lockfilePath, alertFor({ recommendedVersion: '6.4.3' }))).toBe(true)
+    })
+
+    it('returns false when recommended major exists in lockfile (5.x instance, target 5.4.21)', () => {
+        const lockfilePath = join(workDir, 'pnpm-lock.yaml')
+        writeFileSync(lockfilePath, [
+            'lockfileVersion: \'9.0\'',
+            '',
+            '  vite@5.4.14:',
+            '    resolution: {integrity: sha512-a}',
+            '',
+        ].join('\n'))
+
+        expect(isCrossMajorFixRequired(lockfilePath, alertFor({ recommendedVersion: '5.4.21' }))).toBe(false)
+    })
+
+    it('returns false when lockfile has no instances (handled by partition sub logic)', () => {
+        const lockfilePath = join(workDir, 'pnpm-lock.yaml')
+        writeFileSync(lockfilePath, 'lockfileVersion: \'9.0\'\n')
+
+        expect(isCrossMajorFixRequired(lockfilePath, alertFor({ recommendedVersion: '6.4.3' }))).toBe(false)
+    })
+
+    it('returns false when recommendedVersion is missing or unparseable', () => {
+        const lockfilePath = join(workDir, 'pnpm-lock.yaml')
+        writeFileSync(lockfilePath, [
+            'lockfileVersion: \'9.0\'',
+            '',
+            '  vite@5.4.14:',
+            '    resolution: {integrity: sha512-a}',
+            '',
+        ].join('\n'))
+
+        expect(isCrossMajorFixRequired(lockfilePath, alertFor({ recommendedVersion: '' }))).toBe(false)
+        expect(isCrossMajorFixRequired(lockfilePath, alertFor({ recommendedVersion: 'not-a-version' }))).toBe(false)
     })
 })
 

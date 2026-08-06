@@ -16,6 +16,8 @@ import {
     alertKey,
     formatDuration,
     actionTypeLabel,
+    isAlertFixedByActions,
+    parseRangeTargets,
     statusIcon,
     collectCodeScanningSuggestions,
     createEmptyRunSummary,
@@ -170,7 +172,7 @@ describe('aggregateSeverity', () => {
             makeAlert({ severity: 'high', fixable: true }),
             makeAlert({ severity: 'medium', fixable: false }),
         ]
-        const breakdown = aggregateSeverity(alerts, new Set())
+        const breakdown = aggregateSeverity(alerts, [])
         expect(breakdown.critical.found).toBe(1)
         expect(breakdown.critical.fixable).toBe(1)
         expect(breakdown.high.found).toBe(1)
@@ -179,11 +181,121 @@ describe('aggregateSeverity', () => {
         expect(breakdown.low.found).toBe(0)
     })
 
-    it('tracks fixed alerts', () => {
-        const alert = makeAlert({ severity: 'high', fixable: true })
-        const key = alertKey(alert)
-        const breakdown = aggregateSeverity([alert], new Set([key]))
+    it('tracks fixed alerts by version satisfaction (isAlertFixedByActions)', () => {
+        const alert = makeAlert({ severity: 'high', fixable: true, recommendedVersion: '4.17.21' })
+        const actions: FixAction[] = [{
+            type: 'dependency-upgrade',
+            repository: 'owner/repo',
+            target: 'lodash',
+            toVersion: '^4.17.21',
+            success: true,
+        }]
+        const breakdown = aggregateSeverity([alert], actions)
         expect(breakdown.high.fixed).toBe(1)
+    })
+
+    it('does not mark cross-major alerts as fixed when target not reached (PR #28 regression)', () => {
+        // 告警推荐 6.4.3，实际只升到 5.4.21（跨线未修复）→ 不标 fixed
+        const alert = makeAlert({ severity: 'high', fixable: true, recommendedVersion: '6.4.3' })
+        const actions: FixAction[] = [{
+            type: 'dependency-upgrade',
+            repository: 'owner/repo',
+            target: 'vite',
+            toVersion: '^5.4.21',
+            success: true,
+        }]
+        const breakdown = aggregateSeverity([alert], actions)
+        expect(breakdown.high.fixed).toBe(0)
+    })
+})
+
+describe('isAlertFixedByActions', () => {
+    function depAction(toVersion: string | undefined, overrides: Partial<FixAction> = {}): FixAction {
+        return {
+            type: 'dependency-upgrade',
+            repository: 'owner/repo',
+            target: 'lodash', // 与 makeAlert 默认 packageName 一致
+            toVersion,
+            success: true,
+            ...overrides,
+        }
+    }
+
+    it('marks fixed when same-major target reaches recommended version', () => {
+        const alert = makeAlert({ recommendedVersion: '5.4.21' })
+        expect(isAlertFixedByActions(alert, [depAction('^5.4.21')])).toBe(true)
+        expect(isAlertFixedByActions(alert, [depAction('5.4.21, 6.4.3')])).toBe(true)
+    })
+
+    it('does NOT mark fixed when only a different-major target exists (P1-2 mixed scenario)', () => {
+        // 跨线告警 X（推荐 6.4.3）+ 同包线内 action（目标 ^8.2.1）→ 8.x 目标不满足 6.x 告警
+        const alert = makeAlert({ recommendedVersion: '6.4.3' })
+        expect(isAlertFixedByActions(alert, [depAction('^8.2.1')])).toBe(false)
+    })
+
+    it('does NOT mark fixed when target is lower than recommended (same major)', () => {
+        const alert = makeAlert({ recommendedVersion: '5.4.21' })
+        expect(isAlertFixedByActions(alert, [depAction('^5.4.14')])).toBe(false)
+    })
+
+    it('falls back to package-level match when recommendedVersion is empty', () => {
+        const alert = makeAlert({ recommendedVersion: '' })
+        expect(isAlertFixedByActions(alert, [depAction('^4.17.21')])).toBe(true)
+        expect(isAlertFixedByActions(alert, [])).toBe(false)
+    })
+
+    it('treats noOp / failed / wrong-package actions as not fixing', () => {
+        const alert = makeAlert({ recommendedVersion: '5.4.21' })
+        expect(isAlertFixedByActions(alert, [depAction('^5.4.21', { noOp: true })])).toBe(false)
+        expect(isAlertFixedByActions(alert, [depAction('^5.4.21', { success: false })])).toBe(false)
+        expect(isAlertFixedByActions(alert, [depAction('^5.4.21', { target: 'other' })])).toBe(false)
+        expect(isAlertFixedByActions(alert, [depAction('^5.4.21', { repository: 'other/repo' })])).toBe(false)
+    })
+
+    it('handles code-scanning alerts by ruleId@filePath', () => {
+        const csAlert = makeAlert({
+            source: 'code-scanning',
+            packageName: 'eol-last',
+            ruleId: 'eol-last',
+            manifestPath: 'src/foo.ts',
+            recommendedVersion: '',
+        })
+        const csAction: FixAction = {
+            type: 'code-scanning-fix',
+            repository: 'owner/repo',
+            target: 'eol-last',
+            filePath: 'src/foo.ts',
+            success: true,
+        }
+        expect(isAlertFixedByActions(csAlert, [csAction])).toBe(true)
+        expect(isAlertFixedByActions(csAlert, [{ ...csAction, filePath: 'src/other.ts' }])).toBe(false)
+        expect(isAlertFixedByActions(csAlert, [{ ...csAction, noOp: true }])).toBe(false)
+    })
+
+    it('ignores unparseable toVersion values', () => {
+        const alert = makeAlert({ recommendedVersion: '5.4.21' })
+        expect(isAlertFixedByActions(alert, [depAction('unknown')])).toBe(false)
+        expect(isAlertFixedByActions(alert, [depAction(undefined)])).toBe(false)
+    })
+})
+
+describe('parseRangeTargets', () => {
+    it('extracts versions from caret/tilde/geq prefixes', () => {
+        expect(parseRangeTargets(['^5.4.21'])).toEqual(['5.4.21'])
+        expect(parseRangeTargets(['~5.4.21'])).toEqual(['5.4.21'])
+        expect(parseRangeTargets(['>=5.4.21'])).toEqual(['5.4.21'])
+        expect(parseRangeTargets(['5.4.21'])).toEqual(['5.4.21'])
+    })
+
+    it('extracts all targets from comma-separated lists', () => {
+        expect(parseRangeTargets(['5.4.21, 6.4.3'])).toEqual(['5.4.21', '6.4.3'])
+    })
+
+    it('returns empty for unparseable input', () => {
+        expect(parseRangeTargets([])).toEqual([])
+        expect(parseRangeTargets([undefined])).toEqual([])
+        expect(parseRangeTargets(['unknown'])).toEqual([])
+        expect(parseRangeTargets(['not-a-version'])).toEqual([])
     })
 })
 
@@ -487,6 +599,42 @@ describe('generateMarkdownReport', () => {
         expect(md).toContain('| `End of line` | eol-last | A 自动修复 | LOW | — | — | — | ✅ Fixed |')
         // Severity 表：low 行 fixed 计数 1（code-scanning 键 repo/ruleId@filePath 匹配）
         expect(md).toMatch(/\| Low \| 1 \| 0 \| 1 \| 0 \|/)
+    })
+
+    it('renders cross-major alerts as Skipped with recommended version, not Fixed (PR #28)', () => {
+        // 跨线告警（推荐 6.4.3，无 6.x 目标）+ 同包线内成功 action（^5.4.21）
+        // → Repo 表显示 ⏭️ Skipped + To=6.4.3；Severity 表 fixed 计数 0
+        const repoResult: RepositoryResult = {
+            repository: 'owner/repo', defaultBranch: 'main', alertsCount: 1,
+            fixable: 1, fixed: 0, failed: 0, lockfileRepaired: false, durationMs: 1000,
+        }
+        const result = {
+            ...EMPTY_RUN_RESULT,
+            repositories: [repoResult],
+            alerts: [
+                makeAlert({
+                    packageName: 'vite',
+                    ruleId: 'GHSA-fx2h',
+                    severity: 'high',
+                    recommendedVersion: '6.4.3',
+                }),
+            ],
+            actions: [{
+                type: 'dependency-upgrade',
+                repository: 'owner/repo',
+                target: 'vite',
+                fromVersion: '5.4.14',
+                toVersion: '^5.4.21',
+                isMajor: false,
+                success: true,
+            }],
+        }
+        const md = generateMarkdownReport(result)
+
+        // 跨线行：Skipped + To 显示推荐版本（不因同包 action 误标 Fixed）
+        expect(md).toContain('| `vite` | GHSA-fx2h | — | HIGH | — | 6.4.3 | — | ⏭️ Skipped |')
+        // Severity 表：high 行 fixed 0
+        expect(md).toMatch(/\| High \| 1 \| 1 \| 0 \| 0 \|/)
     })
 
     it('excludes no-op fixes from fixed counts and renders them as skipped', () => {

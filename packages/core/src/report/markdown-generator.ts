@@ -3,10 +3,10 @@ import {
     type RunResult,
     type FixAction,
     aggregateSeverity,
-    buildFixedKeys,
     groupByRepository,
     formatDuration,
     actionTypeLabel,
+    isAlertFixedByActions,
     statusIcon,
 } from './types'
 import { collectCodeScanningSuggestions } from './suggestions'
@@ -24,9 +24,6 @@ import { collectCodeScanningSuggestions } from './suggestions'
  */
 export function generateMarkdownReport(result: RunResult): string {
     const { runId, startedAt, finishedAt, config, summary, repositories, alerts, actions, errors } = result
-    // 已修复告警键：单一事实源 buildFixedKeys（依赖升级包级 repo/pkg；
-    // Code Scanning repo/ruleId@filePath，noOp 不算修复）
-    const fixedKeys = buildFixedKeys(actions)
 
     const sections: string[] = []
 
@@ -64,7 +61,7 @@ export function generateMarkdownReport(result: RunResult): string {
 
     // ---- 3. Alerts by Severity ----
     if (alerts.length > 0) {
-        const breakdown = aggregateSeverity(alerts, fixedKeys)
+        const breakdown = aggregateSeverity(alerts, actions)
         sections.push(
             '## Alerts by Severity',
             '',
@@ -99,32 +96,47 @@ export function generateMarkdownReport(result: RunResult): string {
                     '|---------|---------------|-------|----------|------|----|-------|--------|',
                 )
                 for (const alert of repo.alerts) {
-                    // 修复动作匹配：依赖升级按包名；Code Scanning 模板修复按 ruleId + 文件路径（noOp 视为未修复）
+                    // 修复状态：版本满足精确判定（isAlertFixedByActions，PR #28 复盘——
+                    // 跨线告警不因同包其他线目标被误标 Fixed）
+                    const fixed = isAlertFixedByActions(alert, actions)
+                    // 展示动作（优先成功 action，避免同包失败 action 先入队时版本错配）
                     const action = actions.find(
                         (a) => a.repository === repo.repository
                             && !a.noOp
+                            && a.success
                             && ((a.type === 'dependency-upgrade' && a.target === alert.packageName)
                                 || (a.type === 'code-scanning-fix' && a.target === alert.ruleId && a.filePath === alert.manifestPath)),
                     )
-                    // Skipped（无 action）：当前版本未知 → From 显示 —，To 显示推荐修复版本
-                    const fromVer = action?.fromVersion ?? '—'
-                    let toVer = action?.toVersion ?? '—'
+                    const failedAction = actions.find(
+                        (a) => a.repository === repo.repository
+                            && !a.noOp
+                            && !a.success
+                            && ((a.type === 'dependency-upgrade' && a.target === alert.packageName)
+                                || (a.type === 'code-scanning-fix' && a.target === alert.ruleId && a.filePath === alert.manifestPath)),
+                    )
+                    let fromVer = '—'
+                    let toVer = '—'
                     let major = '—'
-                    if (!action) {
-                        toVer = alert.recommendedVersion || '—'
-                    } else if (action.isMajor === undefined) {
-                        major = '—'
+                    let icon: string
+                    if (fixed && action) {
+                        icon = '✅ Fixed'
+                        fromVer = action.fromVersion ?? '—'
+                        toVer = action.toVersion ?? '—'
+                        if (action.isMajor === undefined) {
+                            major = '—'
+                        } else {
+                            major = action.isMajor ? 'Yes' : 'No'
+                        }
+                    } else if (failedAction) {
+                        icon = '❌ Failed'
+                        fromVer = failedAction.fromVersion ?? '—'
+                        toVer = failedAction.toVersion ?? '—'
                     } else {
-                        major = action.isMajor ? 'Yes' : 'No'
+                        icon = '⏭️ Skipped'
+                        toVer = alert.recommendedVersion || '—'
                     }
                     const ruleOrAdvisory = alert.ruleId || '—'
                     const alertClass = alertClassLabel(alert.alertClass)
-                    let icon: string
-                    if (action) {
-                        icon = action.success ? '✅ Fixed' : '❌ Failed'
-                    } else {
-                        icon = '⏭️ Skipped'
-                    }
                     sections.push(`| \`${alert.packageName}\` | ${escapeMd(ruleOrAdvisory)} | ${alertClass} | ${alert.severity.toUpperCase()} | ${fromVer} | ${toVer} | ${major} | ${icon} |`)
                 }
                 sections.push('')

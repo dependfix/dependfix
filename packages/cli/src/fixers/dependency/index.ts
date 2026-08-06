@@ -1,6 +1,7 @@
 import { execSync } from 'node:child_process'
 import { copyFileSync, existsSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
+import type { NormalizedSecurityAlert } from '@dependfix/core'
 import YAML from 'yaml'
 
 // ---------------------------------------------------------------------------
@@ -686,6 +687,35 @@ export function detectPnpmMajor(workDir: string): number | null {
     } catch {
         return null
     }
+}
+
+/**
+ * 跨线修复判定（2026-08-06 复盘 PR #28）。
+ *
+ * lockfile 告警的推荐版本 major 不在 lockfile 实例 majors 中 → 本仓库没有该
+ * 大版本线的实例，且当前线（如 5.x）没有该告警的修复版本（如 GHSA-fx2h
+ * 影响 `<= 6.4.2`、first_patched 6.4.3）——只能**跨大版本升级**才能修复。
+ *
+ * 保持不跨大版本自动升级：此类告警不进入修复链路（不标 fixed/converged），
+ * 由上层计入 skipped 并提示用户手动检查/升级/批准。
+ *
+ * lockfile 中无该包实例（versions 为空）时返回 false——"无实例"场景由
+ * partitionSubmanifestAlerts 的常规跳过逻辑处理，避免重复计数。
+ */
+export function isCrossMajorFixRequired(lockfilePath: string, alert: NormalizedSecurityAlert): boolean {
+    const target = alert.recommendedVersion
+    if (!target) {
+        return false
+    }
+    const targetMajor = parseMajorVersion(target)
+    if (targetMajor === -1) {
+        return false
+    }
+    const versions = readLockfileVersions(lockfilePath, alert.packageName)
+    if (versions.length === 0) {
+        return false
+    }
+    return !versions.some((v) => parseMajorVersion(v) === targetMajor)
 }
 
 /**

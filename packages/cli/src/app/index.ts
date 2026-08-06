@@ -32,7 +32,7 @@ import { fetchCodeScanningAlerts } from '../github/code-scanning-fetcher'
 import { fetchPnpmAuditAlerts } from '../alerts/pnpm-audit-fetcher'
 import { createFixBranch, stageAndCommit, pushBranch, createPullRequest, generatePRBody, computeFixFingerprint, computeFixAndPrPlan, findDependfixOpenPR } from '../github/pr-creator'
 import type { RuntimeConfig } from '../config'
-import { compareSemver, readLockfileVersion, applyVersionedOverrides } from '../fixers/dependency'
+import { compareSemver, readLockfileVersion, applyVersionedOverrides, isCrossMajorFixRequired } from '../fixers/dependency'
 import { dedupeFixableAlerts, snapshotTrackedFiles, restoreTrackedFiles, quickVerifyProject, partitionSubmanifestAlerts } from '../helpers'
 import { buildUpgradeGroups } from '../grouping'
 import {
@@ -363,10 +363,27 @@ export class DependfixApp {
             // 门槛：该包在 lockfile 中存在脆弱实例（低于某大版本线的推荐目标）——
             // 覆盖多 major（vite@5.4.14 + vite@8.2.0）与同 major 多小版本
             // （fast-uri@3.1.0 + 3.1.5）两类场景（2026-08-06 run 31028234123 复盘）
-            const fixableLockfileAlerts = rootManifestAlerts.filter(
+            const lockfileManifestAlerts = rootManifestAlerts.filter(
                 (a) => a.source !== 'code-scanning' && a.manifestPath.trim().replace(/\\/g, '/') === 'pnpm-lock.yaml'
                     && a.fixable && a.recommendedVersion,
             )
+            // 2.0 跨线告警剔除（PR #28 复盘 2026-08-06）：推荐版本的 major 不在 lockfile
+            // 实例 majors 中 → 本大版本线无修复版本（如 5.x 实例的 GHSA-fx2h 推荐 6.4.3），
+            // 只能跨大版本升级修复。保持不跨大版本自动升级——此类告警不修复、不标
+            // fixed/converged，计入 skipped 并提示人工检查/升级/批准。
+            const crossMajorAlertIds = new Set(
+                lockfileManifestAlerts
+                    .filter((a) => isCrossMajorFixRequired(lockfilePath, a))
+                    .map((a) => a.id),
+            )
+            if (crossMajorAlertIds.size > 0) {
+                const crossMajorAlerts = lockfileManifestAlerts.filter((a) => crossMajorAlertIds.has(a.id))
+                this.logger.warn(
+                    `[alerts] ${crossMajorAlerts.length} alert(s) require a cross-major upgrade (no fix within the installed major line) — manual review required: ${crossMajorAlerts.map((a) => `${a.packageName} → ${a.recommendedVersion}`).join(', ')}`,
+                )
+                this.summary.alertsSkipped += crossMajorAlerts.length
+            }
+            const fixableLockfileAlerts = lockfileManifestAlerts.filter((a) => !crossMajorAlertIds.has(a.id))
             // 按包分组，构建版本化 overrides；非空即存在脆弱实例 → 进入 2.0.1
             const versionedOverridesByPackage = new Map<string, Record<string, string>>()
             for (const alert of fixableLockfileAlerts) {
@@ -387,7 +404,11 @@ export class DependfixApp {
             // 其他 manifest 告警（package.json 根声明等）保留在常规链路，避免静默丢失）
             const multiVersionAlerts = fixableLockfileAlerts.filter((a) => multiVersionPackages.has(a.packageName))
             const multiVersionAlertIds = new Set(multiVersionAlerts.map((a) => a.id))
-            const singleVersionAlerts = rootManifestAlerts.filter((a) => !multiVersionAlertIds.has(a.id))
+            // 常规链路同样排除跨线告警（避免 no-downgrade 用最高实例版本误判 converged——
+            // 8.2.0 的安全会掩盖 5.4.x 实例的跨线告警未修复，PR #28 复盘）
+            const singleVersionAlerts = rootManifestAlerts.filter(
+                (a) => !multiVersionAlertIds.has(a.id) && !crossMajorAlertIds.has(a.id),
+            )
 
             // 2.0.1 执行版本化 overrides 修复（逐包：快照 → 写入 → install → 组级验证 → 回滚）
             const upgradedMultiVersion = new Set<string>()

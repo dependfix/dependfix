@@ -4,8 +4,8 @@ import type { Octokit } from '@octokit/rest'
 import {
     type FixAction,
     type RunResult,
-    buildFixedKeys,
     collectCodeScanningSuggestions,
+    isAlertFixedByActions,
 } from '@dependfix/core'
 
 // ---------------------------------------------------------------------------
@@ -487,15 +487,12 @@ export function generatePRBody(result: RunResult, supersededNumbers?: number[]):
         lines.push('')
     }
 
-    // Fixed Alerts（告警级明细：GHSA/规则 + 包 + 严重级 + 修复版本，与 markdown 报告 fixedKeys 口径一致）
-    // 依赖升级：包级 repo/pkg 匹配（同包多 GHSA 推荐版本各异，版本精确匹配会漏列——Review Gate P1）；
+    // Fixed Alerts（告警级明细：GHSA/规则 + 包 + 严重级 + 修复版本）
+    // 依赖升级：按**版本满足**精确判定（isAlertFixedByActions）——同包多 GHSA 推荐版本
+    // 各异时，仅推荐版本被实际升级目标满足的告警计入（2026-08-06 复盘 PR #28：
+    // 5.x 实例推荐 6.4.3 只升到 5.4.21 的跨线告警不再误标 fixed）；
     // Code Scanning：repo/ruleId@filePath（success && !noOp）
-    const fixedKeys = buildFixedKeys(actions)
-    const fixedAlerts = result.alerts.filter((alert) => {
-        const alertUpgradeKey = `${alert.repository}/${alert.packageName}`
-        const alertCsKey = `${alert.repository}/${alert.ruleId}@${alert.manifestPath}`
-        return fixedKeys.has(alertUpgradeKey) || fixedKeys.has(alertCsKey)
-    })
+    const fixedAlerts = result.alerts.filter((alert) => isAlertFixedByActions(alert, actions))
     if (fixedAlerts.length > 0) {
         const multiRepo = new Set(fixedAlerts.map((a) => a.repository)).size > 1
         lines.push('### ✅ Fixed Alerts', '')

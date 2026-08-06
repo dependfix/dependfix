@@ -4,6 +4,8 @@
  * 2. 锚点（#xxx）必须对应目标文件中的某个标题——按"宽松规范化"比较
  *    （小写 + 移除标点/符号（含 emoji）/空白），兼容 GitHub / VS Code / VitePress
  *    三种 slug 规则差异，只抓真实断链与假锚点。
+ * 3. 拒绝本地绝对路径（POSIX `/xxx` 或 Windows `C:/xxx` / `\\server`）；
+ * 4. 拒绝路径穿越（`../..` 解析结果超出仓库根目录）。
  *
  * 说明：
  * - 跨平台锚点 slug 规则不一致（GitHub 移除全角标点，VS Code / VitePress 保留，
@@ -12,12 +14,14 @@
  * - 用法：node scripts/check-links.mjs（或 pnpm check:links）
  */
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
-import { dirname, join, resolve } from 'node:path'
+import { dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const repoRoot = fileURLToPath(new URL('..', import.meta.url))
 const EXCLUDED_DIRS = new Set(['node_modules', '.git', '.changeset', '.vitepress', 'dist', 'archive', '.agents', '.claude'])
 const LINK_RE = /\[([^\]]*)\]\(([^)]+)\)/g
+// 本地绝对路径：POSIX（/xxx）、Windows 盘符（C:/xxx / C:\xxx）、UNC（\\server）
+const ABS_PATH_RE = /^(?:[a-zA-Z]:[\\/]|\\\\|\/)/
 
 function walk(dir, out = []) {
     for (const entry of readdirSync(dir)) {
@@ -110,7 +114,25 @@ for (const file of files) {
                 return
             }
 
+            // 本地绝对路径拒绝：md 中的本地链接必须使用相对路径
+            // （绝对路径随仓库迁移/平台差异失效，且可能指向项目外文件）
+            if (ABS_PATH_RE.test(pathPart)) {
+                errors.push(`${rel}:${idx + 1} 链接目标为本地绝对路径，应使用相对路径: ${pathPart}`)
+                return
+            }
+
             const targetFile = resolve(dirname(file), pathPart)
+
+            // 路径穿越拒绝：解析结果不得超出仓库根目录
+            // （relative 返回 `..` 开头或跨盘绝对路径均表示越界；
+            // 精确匹配 `..` + 分隔符，避免误伤 `..hidden` 类目录名）
+            const relTarget = relative(repoRoot, targetFile)
+            const sep = relTarget.includes('\\') ? '\\' : '/'
+            if (relTarget === '..' || relTarget.startsWith(`..${sep}`) || isAbsolute(relTarget)) {
+                errors.push(`${rel}:${idx + 1} 链接目标超出项目范围（路径穿越）: ${pathPart}`)
+                return
+            }
+
             if (!existsSync(targetFile)) {
                 errors.push(`${rel}:${idx + 1} 链接目标不存在: ${pathPart}`)
                 return

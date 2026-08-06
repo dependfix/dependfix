@@ -62,6 +62,15 @@
 
 **目标**: 打通 workspace 成员包直接依赖告警的自动修复链路。当前 `manifest_path = packages/x/package.json`（成员直接依赖，如 `packages/web` 中的 vite）一律归 sub 人工处理（修复器 `upgradeDependency` 仅改根 manifest）；本阶段为成员 manifest 提供与根对齐的升级能力。**本阶段完成后推进 M5**（2026-08-07 用户决策）。
 
+**方案细化（2026-08-07 落盘，用户确认三项决策）**:
+
+- **D1 修复器扩展**：`UpgradeDependencyParams` 新增 `manifestDir?: string`（相对 workDir 的成员目录，缺省 = 根 manifest，现状回归）；`pkgPath` 解析到成员 manifest，`findDependencyVersion` 三段匹配不变；**install 仍在根 workDir 执行**（workspace 解析语义）；非 semver 声明（`workspace:` / `catalog:` / `link:` 等）→ 明确 failResult 计 failed
+- **D2 快照扩展**：`snapshotTrackedFiles(workDir, extraPaths?)` 支持额外相对路径（key = 相对路径，如 `packages/web/package.json`），默认根三件套行为不变；`restoreTrackedFiles` 签名同步（相对路径 key join workDir 恢复）
+- **D3 partition 三桶化**：`partitionSubmanifestAlerts` 返回 `{ root, member: { alert, manifestDir }[], sub }`——member 桶准入（全部满足）：manifestPath 目录 ∈ `findWorkspaceMembers` 白名单（防路径穿越）+ 包在成员 manifest 直接声明 + lockfile **单版本**且**推荐 ≥ 锁定** + **非跨线**；其余（推荐 < 锁定 / 无版本信息 / 多版本共存 / 跨线 / 非成员路径）维持 sub
+- **D4 app 2.0.3 链路**：按「包名 + manifestDir」聚合取最高推荐（镜像 dedupeFixableAlerts）→ dry-run 记录（strategy='member-upgrade'）→ 快照（根三件套 + 成员 manifest）→ `upgradeDependency({ manifestDir })` → **升级后实例复核**（lockfile 残留脆弱实例 → 回滚 + failed，T405 纪律；覆盖根全局 override 冲突场景）→ **quickVerify（lint-only，与 2.0 常规升级一致——用户确认决策 1，跨线才需完整验证）** → 失败回滚 → 成功 fixed
+- **D5 报告**：FixAction **复用 `filePath`**（成员 manifest 相对路径）+ `strategy='member-upgrade'`，不新增字段（用户确认决策 3）；T407 确认 markdown-generator / PR body 对 `filePath` 的渲染（code-scanning 已渲染则直接复用）
+- **决策 2（用户确认）**：多版本共存成员告警维持 sub 人工，不纳入成员链路
+
 ### T406 成员级直接依赖升级修复器
 
 - **优先级**: P1
@@ -71,50 +80,53 @@
 
 **任务内容**:
 
-- [ ] `upgradeDependency` 支持指定 manifest 路径（默认根 package.json，现状回归）；成员包升级在其 dependencies / devDependencies / optionalDependencies 段匹配声明
-- [ ] 备份/回滚扩展：成员 manifest + 根 package.json（install 可能更新）+ `pnpm-lock.yaml` + `pnpm-workspace.yaml`
-- [ ] 升级后实例复核（对齐 T405）：lockfile 无脆弱实例残留，残留回滚计 failed
-- [ ] 验证链：workspace 根 `pnpm install` + lint/build 验证（成员无独立脚本时的回退/跳过策略明确化）
+- [ ] `UpgradeDependencyParams` 新增 `manifestDir?: string`；`upgradeDependency` 按 `join(workDir, manifestDir ?? '.', 'package.json')` 解析目标 manifest（缺省 = 根，现状回归）
+- [ ] 备份/回滚：成员 manifest + `pnpm-lock.yaml`（install 失败回滚这两者）；根 manifest 理论不被 `--no-frozen-lockfile` 修改，验证失败回滚由 app 层快照兜底
+- [ ] 声明非 semver（`workspace:` / `catalog:` / `link:`）→ 明确 failResult（不静默、不误修）
+- [ ] 返回 `fromVersion/toVersion` 保留成员声明前缀（复用 `extractPrefix`）
 
 **完成定义**:
 
 - [ ] 根直接依赖行为与现状完全一致（回归）
-- [ ] 成员直接依赖升级成功：成员声明更新 + lockfile 更新 + 无脆弱实例残留
-- [ ] 验证失败 / 实例残留回滚（成员 manifest + lockfile 恢复），计 failed 而非 fixed
-- [ ] dry-run 记录计划动作不写盘
+- [ ] 成员直接依赖升级成功：成员声明更新 + lockfile 更新（install 在根执行）+ 无脆弱实例残留
+- [ ] install 失败回滚（成员 manifest + lockfile 恢复），计 failed 而非 fixed
+- [ ] dry-run 不落修复器层（app 层处理），修复器保持无验证职责
 
-**非目标**: 成员级跨线升级（T405 跨线语义仅限根直接依赖，成员维持人工）；成员级间接依赖（全局 overrides 已覆盖）；`catalog:` 协议（C4 未实测，排除影响面）；成员级 overrides 写入（pnpm overrides 仅根生效）
+**非目标**: 成员级跨线升级（T405 跨线语义仅限根直接依赖，成员维持人工）；成员级间接依赖（全局 overrides 已覆盖）；`catalog:` 协议支持（C4 未实测，遇声明直接 failResult 不自动处理）；成员级 overrides 写入（pnpm overrides 仅根生效）
 
-**测试方案**: 修复器单测（成员声明匹配 / 备份回滚 / 残留复核）+ app 集成（成员升级成功 / 验证失败回滚 / 实例残留回滚 / 推荐<锁定人工回归 / dry-run）
+**测试方案**: 修复器单测（成员声明匹配 deps/dev/optional / 前缀保留 / install 失败回滚 / 非 semver failResult / 缺省 manifestDir 回归）
 
 ### T407 成员告警分流与 app 接线
 
 - **优先级**: P1
 - **依赖**: T406
 - **状态**: 未开始
-- **交付物**: `partitionSubmanifestAlerts` 判定调整 + app 路由 + 报告字段
+- **交付物**: `partitionSubmanifestAlerts` 三桶化 + 快照扩展 + app 2.0.3 链路 + 报告渲染
 
 **任务内容**:
 
-- [ ] partition 判定调整：成员 manifest 直接依赖告警按版本关系判定（lockfile 单版本 + 推荐 >= 锁定 → 可修；推荐 < 锁定 / 无版本信息 → sub 人工），与 C10 语义对齐
-- [ ] app 2.0 链路接线：成员升级动作 + 验证 + 回滚入报告
-- [ ] 报告：FixAction 升级对象展示成员路径（如 `packages/web`），PR body 表格可见
+- [ ] `snapshotTrackedFiles(workDir, extraPaths?)` / `restoreTrackedFiles` 支持额外相对路径（key = 相对路径）
+- [ ] `partitionSubmanifestAlerts` 三桶化：`{ root, member: { alert, manifestDir }[], sub }`——member 准入 = 成员目录白名单 + 成员直接声明 + lockfile 单版本 + 推荐 >= 锁定 + 非跨线；sub 计数相应减少（T404 口径回归断言）
+- [ ] app 2.0.3 链路：按「包名 + manifestDir」聚合取最高推荐 → dry-run（strategy='member-upgrade'）→ 快照（根三件套 + 成员 manifest）→ 成员升级 → 升级后实例复核（残留回滚）→ quickVerify（根 lint）→ 失败回滚 → 成功 fixed
+- [ ] 报告：FixAction `strategy='member-upgrade'` + `filePath=成员 manifest 相对路径`；markdown-generator / PR body 确认或补充 filePath 渲染
 
 **完成定义**:
 
-- [ ] 成员直接依赖安全场景自动升级，报告可见成员 manifest 路径
-- [ ] 降级风险 / 无版本信息场景维持人工（现状回归）
-- [ ] 多版本共存成员告警维持根版本化 overrides 语义（现状回归）
+- [ ] 成员直接依赖安全场景自动升级，报告可见成员 manifest 路径（filePath）
+- [ ] 降级风险 / 无版本信息 / 多版本共存 / 跨线场景维持人工（现状回归）
+- [ ] 根直接依赖与 lockfile 告警链路行为零变化（回归）
+- [ ] 失败 / 残留回滚计 failed，不误标 fixed/converged
 
-**非目标**: 成员级跨线分流；`!` 排除模式 / 符号链接跟随（既有限制，另行评估）
+**非目标**: 成员级跨线分流；`!` 排除模式 / 符号链接跟随（既有限制，另行评估）；成员独立 lint 脚本验证（根验证为主，演进项）
 
-**测试方案**: partition 判定矩阵（成员直接依赖 × 版本关系）+ app 集成 + 报告字段断言
+**测试方案**: partition 三桶判定矩阵（成员直接依赖 × 单/多版本 × 推荐>=/< 锁定 × 无版本信息 × 跨线 × 非成员路径）+ 快照扩展单测 + app 集成（成员升级成功 / 验证失败回滚 / 实例残留回滚 / dry-run / 根回归）
 
 ## M4.6 完成判定
 
 - [ ] T406/T407 交付并通过 Review Gate
 - [ ] `pnpm typecheck` + `pnpm lint` + 全量测试 + `pnpm build` 通过
 - [ ] 根直接依赖行为回归无损
+- [ ] 方案细化三项决策已确认落盘（验证链 lint-only / 多版本共存 sub / filePath 复用）
 
 ---
 

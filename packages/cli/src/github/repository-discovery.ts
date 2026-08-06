@@ -1,5 +1,6 @@
 import type { Octokit, RestEndpointMethodTypes } from '@octokit/rest'
 import { mapGitHubError } from './errors'
+import { matchesRepoExclude, matchesRepoInclude, matchesTopicsExclude, type RepoPolicy } from './repo-policy'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -15,6 +16,13 @@ export interface RepositoryDiscoveryOptions {
      * 为空时不按 topic 过滤。
      */
     topics?: string[]
+    /**
+     * T403 名单策略（include / exclude / topicsExclude）：
+     * 在基础过滤与 topic 过滤之后、dependabot.yml 探测**之前**应用——
+     * 被策略排除的仓库不触达 contents API（探测请求数量受控）。
+     * include 与 exclude 冲突时 exclude 胜出。
+     */
+    policy?: RepoPolicy
     /**
      * 是否探测 `.github/dependabot.yml` 存在性（默认 true）。
      * 仅对候选仓库触达 contents API；404 视为不支持（false），不剔除仓库。
@@ -47,7 +55,8 @@ const DEPENDABOT_CONFIG_PATH = '.github/dependabot.yml'
  * 过滤链（按顺序）：
  * 1. 基础过滤：archived / disabled / fork 剔除，默认分支缺失剔除
  * 2. topic 过滤（`--repo-topics`，AND 语义）
- * 3. dependabot.yml 探测（仅候选仓库触达 contents API；404 视为不支持，不剔除）
+ * 3. 名单策略过滤（T403：include / exclude / topicsExclude，探测前应用）
+ * 4. dependabot.yml 探测（仅候选仓库触达 contents API；404 视为不支持，不剔除）
  *
  * 结果按 `fullName` 字典序排序，保证同输入多次运行结果一致
  * （runId / 指纹稳定性前提）。
@@ -57,7 +66,7 @@ const DEPENDABOT_CONFIG_PATH = '.github/dependabot.yml'
 export async function discoverRepositories(
     options: RepositoryDiscoveryOptions,
 ): Promise<DiscoveredRepository[]> {
-    const { client, owners, topics = [], probeDependabot = true, probeConcurrency = 5 } = options
+    const { client, owners, topics = [], policy, probeDependabot = true, probeConcurrency = 5 } = options
 
     const discovered: DiscoveredRepository[] = []
 
@@ -89,6 +98,19 @@ export async function discoverRepositories(
                 continue
             }
 
+            // 3. T403 名单策略（探测前应用：被排除仓库不触达 contents API）
+            if (policy) {
+                if (!matchesRepoInclude(policy, repo.full_name)) {
+                    continue
+                }
+                if (matchesRepoExclude(policy, repo.full_name)) {
+                    continue
+                }
+                if (matchesTopicsExclude(policy, repoTopics)) {
+                    continue
+                }
+            }
+
             discovered.push({
                 fullName: repo.full_name,
                 defaultBranch,
@@ -98,7 +120,7 @@ export async function discoverRepositories(
         }
     }
 
-    // 3. dependabot.yml 探测（仅候选仓库；并发受限）
+    // 4. dependabot.yml 探测（仅候选仓库；并发受限）
     if (probeDependabot) {
         await probeDependabotConfigs(client, discovered, probeConcurrency)
     }

@@ -41,6 +41,21 @@ export interface RuntimeConfig {
      * 仓库必须包含全部指定 topics 才保留。仅影响发现结果，不影响显式列表。
      */
     repoTopics?: string[]
+    /**
+     * 仓库白名单 glob（T403，`--repo-include`，如 `owner/*`、`owner/pkg-*`）。
+     * 仅作用于发现结果；显式 repositories 列表不受 include 影响（显式优先）。
+     */
+    repoInclude?: string[]
+    /**
+     * 仓库黑名单 glob（T403，`--repo-exclude`）。
+     * 显式列表与发现结果均受 exclude 约束；与 include 冲突时 exclude 胜出。
+     */
+    repoExclude?: string[]
+    /**
+     * 发现结果 topic 黑名单（T403，`--repo-topics-exclude`）：
+     * 排除含任一指定 topic 的仓库。仅作用于发现结果（显式列表无 topics 元数据）。
+     */
+    repoTopicsExclude?: string[]
     dryRun: boolean
     createPullRequest: boolean
     /** 修复完成后是否在本地当前分支直接提交（不推送、不创建 PR） */
@@ -107,6 +122,12 @@ export interface CliConfigOverrides {
     owner?: string[]
     /** 发现结果 topic 白名单（AND 语义） */
     repoTopics?: string[]
+    /** 仓库白名单 glob（仅作用于发现结果） */
+    repoInclude?: string[]
+    /** 仓库黑名单 glob（显式列表与发现结果均受约束） */
+    repoExclude?: string[]
+    /** 发现结果 topic 黑名单（排除含任一指定 topic 的仓库） */
+    repoTopicsExclude?: string[]
     dryRun?: boolean
     createPullRequest?: boolean
     /** 修复完成后是否在本地当前分支直接提交 */
@@ -328,6 +349,9 @@ export function readEnvConfig(env: NodeJS.ProcessEnv = process.env): CliConfigOv
         repositories: normalizeList(readEnv(env, 'REPOSITORIES')),
         owner: normalizeList(readEnv(env, 'OWNER')),
         repoTopics: normalizeList(readEnv(env, 'REPO_TOPICS')),
+        repoInclude: normalizeList(readEnv(env, 'REPO_INCLUDE')),
+        repoExclude: normalizeList(readEnv(env, 'REPO_EXCLUDE')),
+        repoTopicsExclude: normalizeList(readEnv(env, 'REPO_TOPICS_EXCLUDE')),
         dryRun: normalizeBoolean(readEnv(env, 'DRY_RUN'), `${ENV_PREFIX}DRY_RUN`),
         createPullRequest: normalizeBoolean(readEnv(env, 'CREATE_PR'), `${ENV_PREFIX}CREATE_PR`),
         commit: normalizeBoolean(readEnv(env, 'COMMIT'), `${ENV_PREFIX}COMMIT`),
@@ -563,6 +587,9 @@ export function resolveRuntimeConfig(options: ResolveRuntimeConfigOptions = {}):
         repositories,
         owner: cliOverrides.owner ?? envConfig.owner,
         repoTopics: cliOverrides.repoTopics ?? envConfig.repoTopics,
+        repoInclude: cliOverrides.repoInclude ?? envConfig.repoInclude,
+        repoExclude: cliOverrides.repoExclude ?? envConfig.repoExclude,
+        repoTopicsExclude: cliOverrides.repoTopicsExclude ?? envConfig.repoTopicsExclude,
         dryRun: resolveDryRun(mode, cliOverrides, envConfig),
         createPullRequest: resolveCreatePullRequest(mode, cliOverrides, envConfig),
         commit: resolveCommit(cliOverrides, envConfig),

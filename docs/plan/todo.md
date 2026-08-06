@@ -90,24 +90,26 @@ T404（归档/趋势，依赖 T402，可并行）
 
 - **优先级**: P2
 - **依赖**: T401
-- **状态**: 待办
+- **状态**: 已完成（2026-08-06，提交后回链）
 - **交付物**: discovery 过滤链扩展（include/exclude 合并）
 
 **任务内容**:
 
-- [ ] `--repo-include` / `--repo-exclude`（glob 模式 `owner/*`、`owner/pkg-*`；支持多次传入）
-- [ ] 优先级语义：显式 repositories 列表受 exclude 约束、不受 include 影响；发现结果同时受 include + exclude 约束；include 与 exclude 冲突时 exclude 胜出
-- [ ] topic 黑名单（`--repo-topics-exclude`，排除含任一指定 topic 的仓库）
-- [ ] 优先级语义写入配置文档（configuration.md）
+- [x] `--repo-include` / `--repo-exclude`（glob 模式 `owner/*`、`owner/pkg-*`；支持多次传入）
+- [x] 优先级语义：显式 repositories 列表受 exclude 约束、不受 include 影响；发现结果同时受 include + exclude 约束；include 与 exclude 冲突时 exclude 胜出
+- [x] topic 黑名单（`--repo-topics-exclude`，排除含任一指定 topic 的仓库）
+- [x] 优先级语义写入配置文档（configuration.md）
 
 **完成定义**:
 
-- [ ] include / exclude / 显式列表 / topic 组合矩阵结果确定可预期（单测覆盖）
-- [ ] 文档写明优先级语义，无歧义
+- [x] include / exclude / 显式列表 / topic 组合矩阵结果确定可预期（单测覆盖）
+- [x] 文档写明优先级语义，无歧义
 
 **非目标**: 正则表达式引擎（首版 glob 通配；正则演进登记 backlog）
 
-**测试方案**: include/exclude/显式列表/topic 优先级矩阵单测；glob 匹配单测
+**测试方案**: include/exclude/显式列表/topic 优先级矩阵单测；glob 匹配单测 ✅（repo-policy 16 例 + discovery 策略集成 2 例 + app 接线 2 例 + config 1 例）
+
+> **Review Gate**: 审计 PASS（无 P0/P1；P2 仅 todo 状态同步；P3 已落实 disableNetConnect，topics 大小写敏感/ReDoS 面登记）。
 
 ---
 

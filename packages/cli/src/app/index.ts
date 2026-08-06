@@ -20,6 +20,10 @@ import {
 } from '@dependfix/core'
 import { createGitHubClient } from '../github/client'
 import { discoverRepositories, mergeRepositories } from '../github/repository-discovery'
+import {
+    filterExplicitRepositories,
+    type RepoPolicy,
+} from '../github/repo-policy'
 import { runWithConcurrency } from '../multirepo/scheduler'
 import { enforceVerificationGate } from '../runners/verification-gate'
 import { fetchDependabotAlerts } from '../github/dependabot-fetcher'
@@ -841,8 +845,17 @@ export class DependfixApp {
      */
     private async resolveRepositories(client: Octokit | null): Promise<string[]> {
         const { owner } = this.config
+        // T403 名单策略：include 仅作用于发现结果；exclude 对显式 + 发现均生效；
+        // topicsExclude 仅作用于发现结果（显式列表无 topics 元数据）
+        const policy: RepoPolicy = {
+            include: this.config.repoInclude,
+            exclude: this.config.repoExclude,
+            topicsExclude: this.config.repoTopicsExclude,
+        }
+
         if (!client || !owner || owner.length === 0) {
-            return resolveAlertRepositories(this.ctx)
+            // 无 owner 发现：显式列表仍受 exclude 约束（T403 语义）
+            return filterExplicitRepositories(policy, resolveAlertRepositories(this.ctx))
         }
 
         try {
@@ -850,13 +863,17 @@ export class DependfixApp {
                 client,
                 owners: owner,
                 topics: this.config.repoTopics,
+                // T403：策略在发现探测前应用（被排除仓库不触达 contents API）
+                policy,
             })
+            // 显式列表：仅 exclude 约束（include 不适用于显式，显式优先）
+            const explicitFiltered = filterExplicitRepositories(policy, this.config.repositories)
             const merged = mergeRepositories(
-                this.config.repositories,
+                explicitFiltered,
                 discovered.map((r) => r.fullName),
             )
             this.logger.info(
-                `[discovery] owner(s) ${owner.join(', ')}: discovered ${discovered.length} repo(s), total ${merged.length} to process`,
+                `[discovery] owner(s) ${owner.join(', ')}: discovered ${discovered.length} repo(s), ${merged.length} total after policy/merge`,
             )
             return merged
         } catch (error: unknown) {
@@ -868,8 +885,8 @@ export class DependfixApp {
                 category: 'DISCOVERY_FAILED',
                 message,
             })
-            // 发现失败不阻塞显式列表（显式优先语义）
-            return this.config.repositories
+            // 发现失败不阻塞显式列表（显式优先语义；显式列表仍受 exclude 约束）
+            return filterExplicitRepositories(policy, this.config.repositories)
         }
     }
 

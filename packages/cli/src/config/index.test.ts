@@ -541,6 +541,22 @@ describe('resolveRuntimeConfig', () => {
         expect(config.repoTopics).toEqual(['node', 'pnpm'])
     })
 
+    it('parses repo include/exclude/topics-exclude policies from env', () => {
+        const config = resolveRuntimeConfig({
+            env: {
+                GITHUB_TOKEN: 't',
+                DEPENDFIX_OWNER: 'foo',
+                DEPENDFIX_REPO_INCLUDE: 'foo/*,bar/*',
+                DEPENDFIX_REPO_EXCLUDE: 'foo/legacy-*',
+                DEPENDFIX_REPO_TOPICS_EXCLUDE: 'deprecated,archived',
+            },
+        })
+
+        expect(config.repoInclude).toEqual(['foo/*', 'bar/*'])
+        expect(config.repoExclude).toEqual(['foo/legacy-*'])
+        expect(config.repoTopicsExclude).toEqual(['deprecated', 'archived'])
+    })
+
     it('lets cli owner overrides env owner', () => {
         const invocation = parseCliArgs(['--owner', 'cli-owner'])
         const config = resolveRuntimeConfig({

@@ -61,6 +61,18 @@ const argsDef = {
         type: 'string' as const,
         description: '发现结果 topic 白名单（逗号分隔，AND 语义；仅影响 --owner 发现结果）',
     },
+    'repo-include': {
+        type: 'string' as const,
+        description: '仓库白名单 glob（逗号分隔多个或多次传入，如 owner/*、owner/pkg-*；仅作用于发现结果）',
+    },
+    'repo-exclude': {
+        type: 'string' as const,
+        description: '仓库黑名单 glob（逗号分隔多个或多次传入；显式列表与发现结果均受约束，与 include 冲突时胜出）',
+    },
+    'repo-topics-exclude': {
+        type: 'string' as const,
+        description: '发现结果 topic 黑名单（逗号分隔，排除含任一指定 topic 的仓库）',
+    },
     'severity-threshold': {
         type: 'string' as const,
         description: '严重级别阈值：critical, high, medium, all',
@@ -233,6 +245,20 @@ function parsedArgsToCliOverrides(parsed: ParsedArgs<typeof argsDef>): CliConfig
     const repoTopicsValue = normalizeFlagList(parsed['repo-topics'])
     if (repoTopicsValue.length > 0) {
         overrides.repoTopics = repoTopicsValue
+    }
+
+    // repo-include / repo-exclude / repo-topics-exclude（T403 名单策略）
+    const repoIncludeValue = normalizeFlagList(parsed['repo-include'])
+    if (repoIncludeValue.length > 0) {
+        overrides.repoInclude = repoIncludeValue
+    }
+    const repoExcludeValue = normalizeFlagList(parsed['repo-exclude'])
+    if (repoExcludeValue.length > 0) {
+        overrides.repoExclude = repoExcludeValue
+    }
+    const repoTopicsExcludeValue = normalizeFlagList(parsed['repo-topics-exclude'])
+    if (repoTopicsExcludeValue.length > 0) {
+        overrides.repoTopicsExclude = repoTopicsExcludeValue
     }
 
     // severity-threshold

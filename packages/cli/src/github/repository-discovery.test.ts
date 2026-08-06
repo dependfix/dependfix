@@ -1,4 +1,4 @@
-import { describe, expect, it, afterEach } from 'vitest'
+import { describe, expect, it, afterEach, beforeEach } from 'vitest'
 import nock from 'nock'
 import { AppError } from '@dependfix/core'
 import { createGitHubClient } from './client'
@@ -26,6 +26,11 @@ function makeRepo(overrides: Record<string, unknown> = {}) {
 describe('discoverRepositories', () => {
     afterEach(() => {
         nock.cleanAll()
+    })
+
+    beforeEach(() => {
+        // 未 mock 的请求立即失败（负向测试防真实外发）
+        nock.disableNetConnect()
     })
 
     it('discovers user-owned repos with pagination, filtering and deterministic sort', async () => {
@@ -200,6 +205,62 @@ describe('discoverRepositories', () => {
             expect(error).toBeInstanceOf(AppError)
             expect((error as AppError).code).toBe('PERMISSION_DENIED')
         }
+    })
+
+    it('applies include/exclude/topics-exclude policy before probing (excluded repos never hit contents API)', async () => {
+        nock(API_BASE)
+            .get('/users/org')
+            .reply(200, { login: 'org', type: 'User' })
+        nock(API_BASE)
+            .get('/users/org/repos')
+            .query(true)
+            .reply(200, [
+                makeRepo({ full_name: 'org/app', topics: ['node'] }),
+                makeRepo({ full_name: 'org/legacy-1', topics: ['node'] }),
+                makeRepo({ full_name: 'org/deprecated-app', topics: ['node', 'deprecated'] }),
+                makeRepo({ full_name: 'other/app', topics: ['node'] }),
+            ])
+        // 仅 org/app 通过策略进入探测；其余仓库若触达 contents API 会因无 mock 而失败
+        nock(API_BASE)
+            .get(new RegExp('/repos/org/app/contents/'))
+            .reply(200, { type: 'file' })
+
+        const repos = await discoverRepositories({
+            client: setupClient(),
+            owners: ['org'],
+            policy: {
+                include: ['org/*'],
+                exclude: ['org/legacy-*'],
+                topicsExclude: ['deprecated'],
+            },
+        })
+
+        expect(repos.map((r) => r.fullName)).toEqual(['org/app'])
+        expect(nock.pendingMocks()).toEqual([])
+    })
+
+    it('include + exclude conflict: exclude wins during discovery', async () => {
+        nock(API_BASE)
+            .get('/users/org')
+            .reply(200, { login: 'org', type: 'User' })
+        nock(API_BASE)
+            .get('/users/org/repos')
+            .query(true)
+            .reply(200, [
+                makeRepo({ full_name: 'org/legacy-1', topics: [] }),
+            ])
+        // 若被错误保留会触发 contents 探测 → 无 mock 失败；此处不 mock 探测
+
+        const repos = await discoverRepositories({
+            client: setupClient(),
+            owners: ['org'],
+            policy: {
+                include: ['org/legacy-1'],
+                exclude: ['org/legacy-*'],
+            },
+        })
+
+        expect(repos).toEqual([])
     })
 })
 

@@ -716,6 +716,87 @@ describe('DependfixApp owner discovery wiring', () => {
         expect(exitCode).not.toBe(0)
         expect(nock.pendingMocks()).toEqual([])
     })
+
+    it('applies include/exclude/topics-exclude policy to discovered + explicit repos', async () => {
+        // 发现 4 个仓库：app（保留）、legacy-1（exclude）、deprecated-app（topics 黑名单）、other（include 外）
+        nock('https://api.github.com')
+            .get('/users/foo')
+            .reply(200, { login: 'foo', type: 'User' })
+        nock('https://api.github.com')
+            .get('/users/foo/repos')
+            .query({ per_page: '100', type: 'all' })
+            .reply(200, [
+                { full_name: 'foo/app', default_branch: 'main', archived: false, disabled: false, fork: false, topics: ['node'] },
+                { full_name: 'foo/legacy-1', default_branch: 'main', archived: false, disabled: false, fork: false, topics: ['node'] },
+                { full_name: 'foo/deprecated-app', default_branch: 'main', archived: false, disabled: false, fork: false, topics: ['node', 'deprecated'] },
+                { full_name: 'other/app', default_branch: 'main', archived: false, disabled: false, fork: false, topics: ['node'] },
+            ])
+        // 仅 foo/app 通过策略进入探测
+        nock('https://api.github.com')
+            .get(new RegExp('/repos/foo/app/contents/'))
+            .reply(200, { type: 'file' })
+
+        // 显式 foo/manual（include 不适用但保留）与 foo/legacy-2（exclude 剔除）
+        for (const repo of ['foo/manual']) {
+            nock('https://api.github.com')
+                .get(`/repos/${repo}/dependabot/alerts`)
+                .query({ state: 'open', per_page: '100' })
+                .reply(200, [])
+            nock('https://api.github.com')
+                .get(`/repos/${repo}`)
+                .reply(200, { default_branch: 'main' })
+        }
+        nock('https://api.github.com')
+            .get('/repos/foo/app/dependabot/alerts')
+            .query({ state: 'open', per_page: '100' })
+            .reply(200, [])
+        nock('https://api.github.com')
+            .get('/repos/foo/app')
+            .reply(200, { default_branch: 'main' })
+
+        const config = resolveRuntimeConfig({
+            env: {
+                GITHUB_TOKEN: 'main-token-value',
+                DEPENDFIX_OWNER: 'foo',
+                DEPENDFIX_REPOSITORIES: 'foo/manual,foo/legacy-2',
+                DEPENDFIX_REPO_INCLUDE: 'foo/*',
+                DEPENDFIX_REPO_EXCLUDE: 'foo/legacy-*',
+                DEPENDFIX_REPO_TOPICS_EXCLUDE: 'deprecated',
+            },
+        })
+
+        const app = new DependfixApp({ config, workDir })
+        const { result } = await app.run()
+
+        // 显式：foo/manual 保留（include 不适用）；foo/legacy-2 被 exclude 剔除
+        // 发现：仅 foo/app 通过（include+exclude+topics 黑名单）
+        expect(result.repositories.map((r) => r.repository)).toEqual(['foo/manual', 'foo/app'])
+        expect(nock.pendingMocks()).toEqual([])
+    })
+
+    it('applies exclude to explicit repositories without owner discovery', async () => {
+        nock('https://api.github.com')
+            .get('/repos/foo/keep/dependabot/alerts')
+            .query({ state: 'open', per_page: '100' })
+            .reply(200, [])
+        nock('https://api.github.com')
+            .get('/repos/foo/keep')
+            .reply(200, { default_branch: 'main' })
+
+        const config = resolveRuntimeConfig({
+            env: {
+                GITHUB_TOKEN: 'main-token-value',
+                DEPENDFIX_REPOSITORIES: 'foo/keep,foo/legacy-x',
+                DEPENDFIX_REPO_EXCLUDE: 'foo/legacy-*',
+            },
+        })
+
+        const app = new DependfixApp({ config, workDir })
+        const { result } = await app.run()
+
+        expect(result.repositories.map((r) => r.repository)).toEqual(['foo/keep'])
+        expect(nock.pendingMocks()).toEqual([])
+    })
 })
 
 // ---------------------------------------------------------------------------

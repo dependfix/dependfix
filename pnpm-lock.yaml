@@ -126,6 +126,9 @@ importers:
       yaml:
         specifier: ^2.9.0
         version: 2.9.0
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
       zx:
         specifier: ^8.8.5
         version: 8.8.5
@@ -4483,6 +4486,9 @@ packages:
 
   yuku-parser@0.8.3:
     resolution: {integrity: sha512-KPQcpF9aj77ywlJBIkQWCQ9DObdxnCA8AJdUOmA5CZZx042Xt4+dvbQmPJfWxF3E+KG5dVAZ2fBKuDJ8VsKWgA==}
+
+  zod@4.4.3:
+    resolution: {integrity: sha512-ytENFjIJFl2UwYglde2jchW2Hwm4GJFLDiSXWdTrJQBIN9Fcyp7n4DhxJEiWNAJMV1/BqWfW/kkg71UDcHJyTQ==}
 
   zwitch@2.0.4:
     resolution: {integrity: sha512-bXE4cR/kVZhKZX/RjPEflHaKVhUVl85noU3v6b8apfQEc1x4A+zBxjZ4lN8LqGd6WZ3dl98pY4o717VFmoPp+A==}
@@ -9316,6 +9322,8 @@ snapshots:
       '@yuku-parser/binding-linux-x64-musl': 0.8.3
       '@yuku-parser/binding-win32-arm64': 0.8.3
       '@yuku-parser/binding-win32-x64': 0.8.3
+
+  zod@4.4.3: {}
 
   zwitch@2.0.4: {}
 

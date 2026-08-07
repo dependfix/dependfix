@@ -61,7 +61,7 @@
 
 - **优先级**: P1
 - **依赖**: T501、T107
-- **状态**: 未开始
+- **状态**: 已实现（2026-08-07，待 Review Gate）
 - **交付物**: `packages/cli/src/ai/`（provider / prompt / schema / usage / secrets）
 
 **方案细化（2026-08-07 落盘）**:
@@ -75,19 +75,19 @@
 
 **任务内容**:
 
-- [ ] `AiProvider` 接口 + OpenAI 兼容实现 + Anthropic 实现 + factory（fetch 封装，无 SDK）
-- [ ] system prompt 硬编码（不接受用户输入）；用户可控内容仅作 data 注入——prompt 注入防护
-- [ ] 研判上下文构建：changelog + 升级失败日志 + 受影响文件（截断控制）
-- [ ] 结构化输出 schema（Zod：classification / summary / changes / confidence / rationale），校验失败重试一次 → 降级建议模式
-- [ ] token 用量聚合（input/output/calls）+ 日志输出每次调用消耗 + 可选成本估算（内置单价表，标注推算）
-- [ ] `maskSecrets` 脱敏工具（日志/错误消息）
+- [x] `AiProvider` 接口 + OpenAI 兼容实现 + Anthropic 实现 + factory（fetch 封装，无 SDK）
+- [x] system prompt 硬编码（不接受用户输入）；用户可控内容仅作 data 注入——prompt 注入防护
+- [x] 研判上下文构建：changelog + 升级失败日志 + 受影响文件（截断控制）
+- [x] 结构化输出 schema（Zod：classification / summary / changes / confidence / rationale），校验失败重试一次 → 降级建议模式
+- [x] token 用量聚合（input/output/calls）+ 可选成本估算（内置单价表，标注推算）；**日志输出由 app 接线承接（T503/T504）**
+- [x] `maskSecrets` 脱敏工具（provider 层错误构造时脱敏 + 编排层兜底——防御纵深）
 
 **完成定义**:
 
-- [ ] 给定升级失败上下文，AI 输出符合 schema 的结构化研判
-- [ ] 非法输出可检测（schema 校验失败 → 重试 → 降级），不静默
-- [ ] 无 AI token 配置时链路清晰失败（提示配置），不产生费用
-- [ ] apiKey 不进报告/日志（脱敏单测）
+- [x] 给定升级失败上下文，AI 输出符合 schema 的结构化研判
+- [x] 非法输出可检测（schema 校验失败 → 重试 → 降级），不静默
+- [~] 无 AI token 配置时链路清晰失败（提示配置），不产生费用——**由 app 接线承接（T503/T504 config 校验）**；组件层空 key 行为为降级 provider error
+- [x] apiKey 不进报告/日志（provider 层 + 编排层脱敏单测，含响应体回显 key 场景）
 
 **非目标**: AI 训练/微调；多轮对话交互；供应商 failover 自动切换（首版单提供商失败即降级）
 

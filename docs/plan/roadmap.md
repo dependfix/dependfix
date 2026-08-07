@@ -12,7 +12,7 @@
 | M4.5: 跨线升级显式授权 | `--allow-major-upgrade` 跨线告警显式授权自动升级（仅 CLI，实例复核 + 完整验证 + 回滚） | P2 | 已完成（2026-08-07 归档；T405 完成） |
 | M4.6: Monorepo 成员级修复 | workspace 成员包直接依赖告警自动升级（T406 成员级修复器 + T407 分流接线） | P1 | 已完成（2026-08-07 归档；T406/T407 完成，Review Gate 三审 PASS） |
 | M5: AI Breaking Change 研判 | Changelog 采集、LLM 研判、修复生成、质量门、CLI 解耦 | P1 | 已完成（2026-08-07 归档；T501-T506 全部完成，903 tests，Review Gate 每任务独立审计） |
-| M5.5: Skill 编排（CLI 先行） | 产品 skill 分发（npx skills 主通道 + 自研兜底）与主流 agent 工具接入，MCP 为后续增强后端 | P2 | 进行中（当前阶段；2026-08-07 决策 + T506-T508 任务定义落盘，M5 归档后启动） |
+| M5.5: Skill 编排（CLI 先行） | 产品 skill 分发（npx skills 主通道 + 自研兜底）与主流 agent 工具接入，MCP 为后续增强后端 | P2 | 已完成（2026-08-07 归档；T506-T508 完成，929 tests，Review Gate 每任务独立审计 PASS） |
 | M6: 最小平台 MVP | 仓库管理、凭据管理、仪表板、MCP Server、Docker 部署 | P1 | 未开始 |
 | M7: 企业级平台增强 | RBAC、BullMQ+Redis、跨平台 Git、MCP Skill 集成、Helm Chart | P2 | 未开始 |
 
@@ -84,7 +84,9 @@ Changelog / Release Notes 采集、多 AI 提供商封装、AI 研判（问题�
 
 **生态决策（2026-08-07 补充）**：`npx skills`（vercel-labs/skills，2026-01 发布，28.1k stars）已成为主流 agent skills 安装方式（70+ agents、自动检测本机工具、无需提交 registry）——作为**主安装通道**（发布 = git push 仓库根 `skills/` 目录）；自研 `dependfix skills install` 仅作离线兜底。内部开发 skill（code-reviewer 等）以 `metadata.internal: true` 标记，不进入生态正常发现。
 
-> 详细任务见 [todo.md §M5.5](todo.md#m55-skill-编排cli-先行)（2026-08-07 启动；编号说明：M5.5 T506-T508 与已归档 M5 的 T506 重叠，以"阶段 + 编号"全称区分）
+> **M5.5 已交付（2026-08-07 归档）**：产品 skill（`dependfix-remediator`）权威源与 CLI 编排（T506）、npx skills 生态主通道 + 自研兜底安装器（T507，本机 3 agent 实测 + 可见性矩阵 1/11）、MCP 双后端扩展点（T508，一致性断言清单）；`@dependfix/skills` 纳入发布与 CHANGELOG 体系。已知边界：GitHub 源端到端复验依赖 CI 裁决（本地网络受限）。
+
+> 详细任务见 [todo-archive.md §M5.5](todo-archive.md#m55-skill-编排cli-先行已归档)（编号说明：M5.5 T506-T508 与已归档 M5 的 T506 重叠，以"阶段 + 编号"全称区分）
 
 ## M6: 最小平台 MVP
 
@@ -104,7 +106,8 @@ Changelog / Release Notes 采集、多 AI 提供商封装、AI 研判（问题�
 
 ## 详细任务
 
-- 当前阶段任务（M5.5）：[todo.md](todo.md)
+- 当前阶段任务：[todo.md](todo.md)（当前无进行中阶段，M5.5 已归档）
+- 已归档阶段：[todo-archive.md](todo-archive.md)
 - 后续阶段任务（M6-M7）：[backlog.md](backlog.md)
 
 ## 交付原则

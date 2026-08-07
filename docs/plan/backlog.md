@@ -1,6 +1,6 @@
 # 待办积压 (Backlog)
 
-> 本文档存放后续阶段的详细任务。当前阶段（M5.5）的任务见 [todo.md](todo.md)。
+> 本文档存放后续阶段与未排期增强候选。当前阶段任务见 [todo.md](todo.md)；已归档阶段见 [todo-archive.md](todo-archive.md)。
 
 
 ## M4 增强候选（未排期）
@@ -9,12 +9,8 @@
 
 ### 工具链与锁文件
 
-- **C20 文档 Markdown 格式门禁（lint:md）**——**已落地 2026-08-07**：参照 momei 引入 `@lint-md/cli@2.2.4`（根 `.lintmdrc` 规则裁剪与 momei 一致，关闭半角标点等规则）+ `pnpm lint:md`（--fix 本地）与 `pnpm lint:md:check`（CI 门禁，test.yml / release.yml）+ lint-staged `*.md` 挂载。已知边界：`.changeset/`、`.session/` 不在 glob 内（工具生成/本地记忆，与 momei 覆盖一致）；lint-md 无内置 node_modules 忽略（当前零影响，未来 packages 下新增非 symlink md 需注意）
-- **C1 pnpm 11 不读 `package.json#pnpm.overrides` 假成功风险**（Review Gate 遗留）
-  - 状态：🔶 待评估
-  - 内容：无 pnpm-workspace.yaml 的仓库，`applyVersionedOverrides` 回退写 package.json 会假成功（install 通过但 override 被忽略）。建议 pnpm 大版本探测 + 警告（本仓库有 workspace.yaml 不受影响）
-  - 来源：版本化 overrides 复盘 Review Gate（2026-08-06）
-- **C2 verifyFrozenLockfile 仍用裸 pnpm 验证**（T305 遗留）——**已修复 2026-08-06**：默认验证命令链在显式 `toolchainPnpmVersion` 时 install 命令替换为 `corepack pnpm@<v> install --frozen-lockfile`（与 PIN_TOOLCHAIN 一致）。已知不对称：仅 packageManager 声明场景 verify 仍用裸 pnpm
+> 已闭环（2026-08-06/07 清理，记录见 [todo-archive.md §M4](todo-archive.md#m4-阶段治理记录2026-08-05--2026-08-06)）：C1 pnpm 11 overrides 假成功检测（12af197d）、C2 toolchainPnpmVersion 验证链（cf12e381）、C20 lint:md 文档门禁（47050e6e）。
+
 - **C3 漂移检测弱代理**（T305 遗留）
   - 状态：🔶 待评估
   - 内容：lockfileVersion 漂移检测为相对对比（before/after），非严格"声明版本一致性"校验
@@ -24,17 +20,10 @@
   - 内容：使用 pnpm catalog 声明的依赖，版本化 overrides 是否生效未实测
   - 来源：G3 处理记录（2026-08-05）
 
-### 安全与输入边界
-
-- **C5 resolveWithinWorkDir 未处理符号链接逃逸**（安全项）
-  - 状态：🔶 待评估
-  - 内容：攻击者可控 repo 内容场景下，路径解析可能逃出工作目录
-  - 来源：M3 收尾审查登记（2026-08-05）
-
 ### 报告与统计口径
 
-- **C6 PR body 64KB 上限**（T304 遗留）——**已修复 2026-08-06**：generatePRBody 超 60KB（保守取 GitHub 64KB）时从尾部逐行截断（头部摘要保留）+ "Body truncated" 说明
-- **C7 报告统计口径 alertsConverged**（G3 遗留）——**已修复 2026-08-06**：RunSummary 新增 `alertsConverged`（已收敛：当前锁定版本 >= 推荐 / lockfile 无脆弱实例），从 `alertsSkipped` 拆分；markdown 报告与 PR body Summary 表新增 Converged 行。**行为变化**：原计入 Skipped 的部分场景改计 Converged，Skipped 数字变小
+> 已闭环（2026-08-06 清理，cf12e381）：C6 PR body 64KB 截断、C7 alertsConverged 口径拆分。
+
 - **C8 per-source 错误隔离**（T301 遗留）
   - 状态：🔶 待评估
   - 内容：并行源任一失败目前整体硬失败（已拉取的 Dependabot 结果丢失）；演进为 warn + 仅弃该源（需确认语义）
@@ -46,8 +35,7 @@
 
 ### 覆盖策略
 
-- **C10 根直接依赖 + lockfile 告警覆盖损失**（G3 遗留）——**已修复 2026-08-06**：细化为按版本关系判定——推荐版本 >= 锁定版本 → 可安全修复（直接升级/精确 override 均不降级声明）；推荐 < 锁定或无版本信息 → 维持跳过。详见 [dependency-fixer.md §12.4](../design/packages/dependency-fixer.md)
-- **C11 monorepo 成员包直接依赖盲区**（G3 遗留）——**已修复 2026-08-06**：直接依赖判定扩展为根 + workspace 成员包（pnpm-workspace.yaml packages glob 展开，支持字面/*/**）。已知限制：`!` 排除模式未处理（保守方向）、递归不跟随符号链接。详见 [dependency-fixer.md §12.5](../design/packages/dependency-fixer.md)
+> 已闭环（2026-08-06 清理，10927851）：C10 lockfile 告警版本关系细化、C11 workspace 成员直接依赖识别。
 - **C12 major overrides 确认机制**（G3 遗留）
   - 状态：🔶 已评估，暂不实现（2026-08-05）
   - 内容：major overrides 自动拦截不实现（逐包验证 + 回滚已兜底）
@@ -114,34 +102,20 @@
 
 ### M4 残余风险登记（2026-08-06，T402-T404 Review Gate 移交）
 
-> M4 交付时审计登记的 8 项残余风险，供后续阶段排期跟踪。
-> **2026-08-06 修复状态**：R1/R2/R3/R5/R6/R7 已修复（提交后回链）；R8 原子写部分完成（多进程竞态移交 M6）。
+> M4 交付时审计登记的 8 项残余风险。
+> **2026-08-07 清理**：R1-R7 已全部闭环（修复批次 3d19d499 / ac8ce5c7 / 965e68f3），记录见 [todo-archive.md §M4 治理记录](todo-archive.md#m4-阶段治理记录2026-08-05--2026-08-06)，本条仅保留 R8。
 
-- ~~**R1 写请求 429 重放**~~（**已修复**）：限流重试 hook 现仅对 GET/HEAD 生效，写请求（POST/PATCH/PUT/DELETE）不做限流重试（非幂等避免重放）。行为变化：写请求遇限流立即失败，需用户重跑
-- ~~**R2 MAX_BACKOFF_MS 硬编码**~~（**已修复**）：`--max-backoff-ms` / `DEPENDFIX_MAX_BACKOFF_MS`（100-120000，默认 30000），Retry-After / reset / 指数退避均受此上限约束
-- ~~**R3 Retry-After 头未解析**~~（**已修复**）：等待优先级改为 Retry-After（秒，受 maxBackoffMs 上限）→ x-ratelimit-reset → 指数退避
-- **R4 CJS require p-queue ESM-only**（**已消除 2026-08-06，方案 A：全 ESM**）：消费面（CLI bin / Action / 仓库内 / 未来平台）均为 ESM，外部 CJS 编程式消费者为 0；两包改为单格式 `esm`（tsdown format 与 package.json exports 同步），R4 动态 import 兼容代码回退为静态 import。Node 22.12+ 原生 require(ESM) 兜底未来 CJS 消费者
-- ~~**R5 topics 匹配大小写敏感**~~（**已修复**）：配置与仓库 topics 均 toLowerCase 归一化比较；mergeRepositories 大小写不敏感去重
-- ~~**R6 glob ReDoS 面**~~（**已修复（加固）**）：`repoGlobToRegExp` 拒绝超长模式（>200 字符）；多通配符模式仍存在理论回溯面（受信配置 + 短输入，风险低），C18 正则引擎落地时需专项审计
-- ~~**R7 损坏 index.json 覆盖即丢历史**~~（**已修复**）：解析失败的损坏索引先备份为 `index.json.corrupt-{ts}.bak` 再重建
 - **R8 多进程 index 写竞态**（**部分完成**）：原子写已落地（临时文件 + rename，无半截文件）；双进程 read-modify-write 丢失更新在单进程 CLI 语义下不可达，平台化（M6+ 数据库化）消解
 
 ### M4 已知限制（P3 观察项，非阻塞）
 
-> **2026-08-06 修复状态**：以下 5 项已落实（提交后回链）：小数截断（CLI + env 双入口）、merge 大小写去重、repoSlug 碰撞后缀、cleanup-branches 空归档条目跳过、cleanup-branches maxConcurrency 拒绝。
+> **2026-08-07 清理**：7 项已闭环（--history 与运行参数并存、小数截断拒绝、merge 大小写去重、repoSlug 碰撞后缀、cleanup-branches 空归档跳过、cleanup-branches maxConcurrency 拒绝、M4 参数接入 Action），记录见 [todo-archive.md §M4 治理记录](todo-archive.md#m4-阶段治理记录2026-08-05--2026-08-06)，本条仅保留观察项。
 
-- ~~**--history 与运行参数并存**~~：CLI 短路优先 history，其余参数静默忽略；help 文档已注明互斥（configuration.md 配置项表）
-- ~~**--max-concurrency / --max-retries 小数截断**~~（**已修复**）：CLI `parseIntegerFlag` + env `normalizeInteger` 均严格整数字面量校验（`2.5` 拒绝而非截断）
-- ~~**mergeRepositories 大小写敏感**~~（**已修复**）：显式 `Owner/Repo` 与发现 `owner/repo` 视为同一仓库去重
-- ~~**repoSlug 坍缩**~~（**已修复**）：同 run 内 slug 碰撞追加 `-2`/`-3` 后缀（`a/b-c` 与 `a-b/c` 不再相互覆盖）
-- ~~**cleanup-branches 模式空归档条目**~~（**已修复**）：仓库维度为空时不更新 index.json（不累积 `repositories: []` 记录），summary.json 仍写盘
-- ~~**cleanup-branches 模式 maxConcurrency 静默忽略**~~（**已修复**）：`maxConcurrency > 1` + cleanup-branches 配置校验 fail-fast
-- **M4 参数未接入 Action**（**已修复 2026-08-06**）：action.yml 已接入 owner/repo-*/max-concurrency/max-retries 输入；建议每仓库单独配置 action 控制权限范围（见 quick-start/design 文档）
 - **action artifact 体积**：归档结构（summary.json + 每仓库 md/json）随上传，artifact 略增
 
 ## M5.5: Skill 编排（CLI 先行）
 
-> **已转入 [todo.md §M5.5](todo.md#m55-skill-编排cli-先行)（2026-08-07 启动）**：T506-T508 任务定义已移入当前阶段任务页（编号说明：M5.5 T506/T507/T508 与已归档 M5 的 T506 编号重叠，以"阶段 + 编号"全称区分）。
+> **已归档（2026-08-07）**：T506-T508 全部完成，见 [todo-archive.md §M5.5](todo-archive.md#m55-skill-编排cli-先行已归档)。
 
 ## M6: 最小平台 MVP
 

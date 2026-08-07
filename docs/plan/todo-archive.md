@@ -350,3 +350,60 @@
 - **经验沉淀**: 归档 §二十二（CI 链式暴露 + 本地不可测陷阱）/ §二十三（行尾方向检测 + 特殊字符脚本写临时文件）；规范 ai-collaboration 4.2（剥洋葱）/ 4.3（本地不可测配置纪律）/ 1.2-6（行尾 + 脚本纪律）、documentation 链接检查（归档锚点联动）
 - **残余风险**: AI 调用失败路径的 token 计费盲区（provider 响应无 usage）；本地无法完全模拟 CI 环境（依赖 CI 端到端裁决，推送后复跑）；10 个 lint warning 存量临界（max-warnings 顶格）
 - **遗留登记**: 报告 aiUsage 聚合段已交付；PR body 展示 AI 消耗登记 M6 增强候选；无阻塞项，M5.5 可启动
+
+---
+
+## M5.5: Skill 编排（CLI 先行）（已归档）
+
+> 归档日期: 2026-08-07
+> 阶段摘要: 参见 [roadmap.md §M5.5](roadmap.md)
+> 状态: 已完成
+> 最终提交: `ba5be12b` refactor(skills): @dependfix/skills 包精简与同步脚本仓库化
+
+**阶段成果**: 产品 skill（`dependfix-remediator`）权威源与 CLI 编排（T506）、npx skills 生态主通道 + 自研兜底安装器（T507）、MCP 双后端扩展点（T508）；`@dependfix/skills` 纳入发布与 CHANGELOG 体系。929 tests（38 files）。
+
+> 编号说明：M5.5 T506-T508 与已归档 M5 的 T506 编号重叠，归档后仍以"阶段 + 编号"全称（如 M5.5 T506）区分。
+
+### 规划决策（2026-08-07 用户确认）
+
+- **D1 CLI 先行、MCP 为增强后端**: CLI 能力面（report/fix/fix-and-pr/cleanup-branches + 多仓库 + 双源 + PR 链路）已覆盖 MCP 规划的 4 个 tool（fetch_alerts / run_scan / fix_dependency / get_last_report）；skill 编排不依赖 MCP，MCP Server 本体随 M6 T605/T606 交付
+- **D2 生态主通道**: `npx skills`（vercel-labs/skills）为主安装通道（发布 = git push 仓库根 `skills/` 目录）；自研 `dependfix skills install` 仅离线兜底
+- **D3 内部 skill 防发现**: 10 个内部开发 skill 以 `metadata.internal: true` 标记（.github/skills 权威源），不进入生态正常发现（实测矩阵：正常 1 个产品 skill / `INSTALL_INTERNAL_SKILLS=1` 11 个）
+
+### T506 产品 Skill 权威源与 CLI 编排 ✅
+
+- **交付物**: `packages/skills/dependfix-remediator/`（SKILL.md + REFERENCES.md）+ 仓库根 `skills/` 分发目录（npx skills 生态发现）
+- **实现内容**: SKILL.md（frontmatter `name`/`description` + 编排步骤 + 决策树）；执行后端 = CLI 命令映射表（report → `dependfix report-only`；fix → `dependfix fix` / `fix-and-pr`；告警查询 → `--history` / 归档）；能力契约解耦预留 MCP tool 映射位；skill 放置规范落盘（[skill-distribution.md](../design/governance/skill-distribution.md)：packages/skills 权威源 / 根 skills/ 生态分发 / .github/skills 内部开发，职责分离）
+- **验收**: 本机冒烟通过（npx skills 生态发现 + 安装到 opencode 全局目录）；SKILL.md 无 MCP 依赖
+- **Review Gate**: 两轮闭环 PASS
+
+### T507 npx skills 生态接入 + 自研兜底安装器 ✅
+
+- **交付物**: npx skills 主通道 + `dependfix skills install`（兜底）/ doctor + README 安装指引
+- **实现内容**: 主通道本地源实证（`npx skills add <source> -s dependfix-remediator -g` 发现 + copied 安装，发布 = git push）；内部 skill 防发现（10 个 metadata.internal: true，可见性矩阵 1/11 实测）；兜底安装器（agent 目录约定检测 → 复制产品 skill → 安装清单；非 TTY 默认拒绝覆盖，--force 强制；幂等可重跑）；doctor（目录约定漂移 + 安装状态/内容一致性 + internal 标记完整性检查）
+- **验收**: 兜底本机 3 agent 实测 installed/up-to-date + doctor 0 error；主通道与兜底均幂等可重跑
+- **Review Gate**: 首轮 PASS + 复审
+- **已知边界**: GitHub 源端到端（`npx skills add dependfix/dependfix`）待推送后 CI 复验（本机 clone github.com 网络受限）
+
+### T508 MCP 双后端扩展点（衔接 T606/T706）✅
+
+- **交付物**: SKILL.md MCP 探测与双后端指引 + REFERENCES.md 一致性断言清单
+- **实现内容**: 执行后端探测步骤（Claude Code `claude mcp list` / `.mcp.json`，OpenCode mcp 字段 → MCP tool 优先 / CLI 回退 / MCP 调用失败降级 CLI）；能力契约映射表补齐 MCP tool 列（fetch_alerts / run_scan / fix_dependency / get_last_report 入参要点 + CLI 对应）；双后端一致性断言清单（以 @dependfix/core RunResult / ArchiveRunEntry 契约为基准，4 条能力逐项断言）
+- **验收**: 探测/决策/降级规则落 SKILL.md；一致性断言清单已定义（MCP Server 交付后按清单验证，当前无法实测属已知边界）
+- **Review Gate**: PASS
+
+### M5.5 完成判定（全部通过）
+
+- [x] T506-T508 交付并通过 Review Gate（每任务独立审计：T506 两轮闭环、T507 首轮 PASS+复审、T508 PASS）
+- [x] npx skills 主通道 + 兜底安装器双路径验证通过（主通道本地源实证 + 兜底本机 3 agent 实测；GitHub 源端到端待推送后复验）
+- [x] 内部开发 skill 生态不可见（可见性矩阵实测：正常 1 个 / INSTALL_INTERNAL_SKILLS=1 11 个）
+- [x] `pnpm typecheck` + `pnpm lint` + 全量测试 + `pnpm build` 通过（串行 929/929；并行 2 个已知 Windows flaky 与本次改动无关）
+- [x] CLI 现状行为回归无损（主命令 positional 命令面 + --help 实测正常）
+
+### M5.5 阶段治理记录（2026-08-07）
+
+- **提交序列**: 规划决策（56a91446 + d177e3b3）→ T506（21fae4d4 + da7d4c95）→ T507（6f9e5eea + 480497b9 + ba5be12b）→ T508（1837f21e）→ 完成判定勾选（84809da4）→ 发布体系（24e5c097 + 1c5bc3c1）
+- **Review Gate**: T506 两轮闭环 / T507 首轮 PASS + 复审 / T508 PASS
+- **发布体系**: `@dependfix/skills` 纳入发布包清单与 CHANGELOG 体系（24e5c097，release.md 同步）；changeset 自动生成脚本（1c5bc3c1，semantic-release 规则从 git log 推导 bump 级别）
+- **已知边界（归档时点）**: GitHub 源端到端复验（主通道 + 全链质量门）依赖 CI 端到端裁决（本地网络受限），推送后复跑确认
+- **遗留登记**: MCP Server 本体（M6 T605/T606）；org 增强候选（C22-C24）；无阻塞项

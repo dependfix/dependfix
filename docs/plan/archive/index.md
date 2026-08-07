@@ -38,5 +38,5 @@
 ## 4. 当前基线
 
 - `roadmap.md`: 健康窗口。
-- `todo.md`: 健康窗口（M5.5 当前阶段，106 行）。
-- `todo-archive.md`: 健康窗口（M2-M5 近线保留，352 行；M0/M1 已迁分片 [todo-archive-phases-m0-m1.md](todo-archive-phases-m0-m1.md)）。
+- `todo.md`: 健康窗口（无进行中阶段状态页，约 12 行；M5.5 已归档）。
+- `todo-archive.md`: 健康窗口（M2-M5.5 近线保留；M0/M1 已迁分片 [todo-archive-phases-m0-m1.md](todo-archive-phases-m0-m1.md)）。

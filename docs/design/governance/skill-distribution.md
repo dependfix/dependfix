@@ -33,6 +33,6 @@
 
 ## 相关任务
 
-- T506（产品 Skill 权威源与 CLI 编排）：本规范落盘 + `packages/skills` 交付（详见 [todo.md §M5.5](../../plan/todo.md#m55-skill-编排cli-先行)）
-- T507（npx skills 生态接入 + 兜底安装器）：主通道验证、内部 skill 全量标记、`dependfix skills install` / `doctor`（详见 [todo.md §M5.5](../../plan/todo.md#m55-skill-编排cli-先行)）
-- T508（MCP 双后端扩展点）：SKILL.md 能力契约映射表补齐 MCP 列（详见 [todo.md §M5.5](../../plan/todo.md#m55-skill-编排cli-先行)）
+- T506（产品 Skill 权威源与 CLI 编排）：本规范落盘 + `packages/skills` 交付（详见 [todo-archive.md §M5.5](../../plan/todo-archive.md#m55-skill-编排cli-先行已归档)）
+- T507（npx skills 生态接入 + 兜底安装器）：主通道验证、内部 skill 全量标记、`dependfix skills install` / `doctor`（详见 [todo-archive.md §M5.5](../../plan/todo-archive.md#m55-skill-编排cli-先行已归档)）
+- T508（MCP 双后端扩展点）：SKILL.md 能力契约映射表补齐 MCP 列（详见 [todo-archive.md §M5.5](../../plan/todo-archive.md#m55-skill-编排cli-先行已归档)）

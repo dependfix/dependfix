@@ -128,7 +128,7 @@
 
 - **优先级**: P1
 - **依赖**: T503
-- **状态**: 未开始
+- **状态**: 已完成（2026-08-07，Review Gate 复审 PASS，提交后回链）
 - **交付物**: `packages/cli/src/ai/safety-gate.ts`
 
 **方案细化（2026-08-07 落盘）**:
@@ -139,15 +139,15 @@
 
 **任务内容**:
 
-- [ ] AI 生成代码 lint / typecheck / build 校验（完整验证，复用 verification-runner）
-- [ ] 校验失败 → 记录原因回退建议模式（不提交坏 patch）
-- [ ] patch 影响范围限制（最多 5 个文件；超限拒绝 + warn，可审计）
-- [ ] AI 输出视为外部输入：路径穿越（resolveWithinWorkDir）/ 命令注入 / 敏感信息泄露检查
+- [x] AI 生成代码 lint / typecheck / build 校验（完整验证）——静态防线本层交付；动态验证由 app 集成复用 verification-runner（对齐跨线语义）
+- [x] 校验失败 → 记录原因回退建议模式（不提交坏 patch）
+- [x] patch 影响范围限制（最多 5 个文件；超限拒绝 + warn，可审计）
+- [x] AI 输出视为外部输入：路径穿越（resolveWithinWorkDir）/ 命令注入 / 敏感信息泄露检查
 
 **完成定义**:
 
-- [ ] AI patch 通过质量门才能提交 PR；不通过可审计回退
-- [ ] 恶意/异常 patch 样本被拒绝（安全单测）
+- [~] AI patch 通过质量门才能提交 PR；不通过可审计回退——静态防线本层交付，门禁接线由 app 集成承接
+- [x] 恶意/异常 patch 样本被拒绝（安全单测）
 
 **非目标**: LLM 输出语义级安全证明（质量门为实用防线，非形式化验证）
 

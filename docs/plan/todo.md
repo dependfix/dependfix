@@ -30,7 +30,7 @@
 
 - **优先级**: P1
 - **依赖**: 无（AI 链路入口）
-- **状态**: 未开始
+- **状态**: 已完成（2026-08-07，Review Gate 复审 PASS，提交后回链）
 - **交付物**: `packages/cli/src/ai/changelog-fetcher.ts`（npm registry + GitHub Release 双源）
 
 **方案细化（2026-08-07 落盘）**:
@@ -41,17 +41,17 @@
 
 **任务内容**:
 
-- [ ] npm registry 源：packument 拉取（含 repository 字段解析 owner/repo）
-- [ ] GitHub Release 源：octokit `repos.listReleases` 拉取 release body（含 breaking changes 段落）
-- [ ] markdown 解析：提取 breaking changes 条目（`Breaking changes` / `⚠️` / `Migration` / `BREAKING CHANGE` 等段落启发式）
-- [ ] run 内缓存（同包多告警不重复请求，单测断言请求次数）
-- [ ] 失败降级：源不可达 / 包不在 registry / 无 repo → null + 原因，上层跳过 AI（不静默）
+- [x] npm registry 源：packument 拉取（含 repository 字段解析 owner/repo）
+- [x] GitHub Release 源：octokit `repos.listReleases` 拉取 release body（含 breaking changes 段落）
+- [x] markdown 解析：提取 breaking changes 条目（`Breaking changes` / `⚠️` / `Migration` / `BREAKING CHANGE` 等段落启发式）
+- [x] run 内缓存（同包多告警不重复请求，单测断言请求次数）
+- [x] 失败降级：源不可达 / 包不在 registry / 无 repo → null + 原因，上层跳过 AI（不静默）
 
 **完成定义**:
 
-- [ ] 给定包名 + 版本范围能获取 changelog 并提取 breaking 条目
-- [ ] 缓存命中不重复请求（单测断言请求次数）
-- [ ] 双源失败降级路径可测试
+- [x] 给定包名 + 版本范围能获取 changelog 并提取 breaking 条目
+- [x] 缓存命中不重复请求（单测断言请求次数）
+- [x] 双源失败降级路径可测试
 
 **非目标**: 完整 changelog 语义解析（首版启发式提取）；CHANGELOG.md 文件采集（演进项）；多语言 changelog 模板适配
 

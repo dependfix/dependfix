@@ -185,14 +185,14 @@ describe('isNonSemverDeclaration', () => {
         expect(isNonSemverDeclaration('link:../pkg')).toBe(true)
         expect(isNonSemverDeclaration('file:../local-pkg')).toBe(true)
         expect(isNonSemverDeclaration('npm:lodash@1.0.0')).toBe(true)
-        // git / URL 协议（Review Gate P1-1：来源从 fork/私有源静默切回 registry 的改写风险）
+        // git / URL 协议（来源从 fork/私有源静默切回 registry 的改写风险）
         expect(isNonSemverDeclaration('git+ssh://git@github.com/org/pkg.git#v1.0.0')).toBe(true)
         expect(isNonSemverDeclaration('git+https://github.com/org/pkg.git')).toBe(true)
         expect(isNonSemverDeclaration('git://github.com/org/pkg.git')).toBe(true)
         expect(isNonSemverDeclaration('https://example.com/pkg.tgz')).toBe(true)
         expect(isNonSemverDeclaration('http://example.com/pkg.tgz')).toBe(true)
         expect(isNonSemverDeclaration('ssh://git@example.com/pkg.git')).toBe(true)
-        // 自托管平台与 git 变体（Review Gate 复审 P2-2）
+        // 自托管平台与 git 变体
         expect(isNonSemverDeclaration('gitlab:user/repo#v1.0.0')).toBe(true)
         expect(isNonSemverDeclaration('bitbucket:user/repo#v1.0.0')).toBe(true)
         expect(isNonSemverDeclaration('gist:user/abc123#v1.0.0')).toBe(true)

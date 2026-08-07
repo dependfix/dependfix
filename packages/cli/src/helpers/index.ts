@@ -42,7 +42,7 @@ export function dedupeFixableAlerts(alerts: NormalizedSecurityAlert[]): Normaliz
  *
  * 快照文件：`package.json` / `pnpm-workspace.yaml` / `pnpm-lock.yaml`（存在才记录）。
  * `extraPaths` 可附加额外相对路径（key 即相对路径，如 `packages/web/package.json`），
- * 用于成员级修复（T406/T407）将成员 manifest 纳入回滚基线。
+ * 用于成员级修复将成员 manifest 纳入回滚基线。
  * 用于逐包升级验证失败时精确回滚该包产生的改动，而不影响此前已成功的包。
  */
 export function snapshotTrackedFiles(workDir: string, extraPaths?: string[]): Record<string, string | null> {
@@ -147,7 +147,7 @@ export interface SubmanifestPartition {
  * - 其他子目录 manifest：
  *   - **workspace 成员 manifest**（目录 ∈ `pnpm-workspace.yaml` packages 白名单）
  *     + 包在成员 manifest 直接声明 + lockfile 单版本 + 推荐 >= 锁定 + 非跨线
- *     → member（成员级升级，T406/T407）
+ *     → member（成员级升级）
  *   - 其余 → sub（单根模型无法安全修 / 多版本共存 / 降级风险 / 跨线 / 非成员路径，
  *     需人工处理）
  */
@@ -196,7 +196,7 @@ export function partitionSubmanifestAlerts(
 }
 
 /**
- * 判定告警是否来自 workspace 成员 manifest 且可安全自动升级（T406/T407）。
+ * 判定告警是否来自 workspace 成员 manifest 且可安全自动升级。
  * 返回成员目录（相对 workDir，如 `packages/web`）；不满足任一准入条件返回 null。
  *
  * 准入（全部满足）：
@@ -204,8 +204,8 @@ export function partitionSubmanifestAlerts(
  * - 包在成员 manifest 直接声明（dependencies / devDependencies / optionalDependencies）
  * - 告警可修复（`fixable`，与 2.0.1/2.0.2 链路的 fixable 过滤语义一致）
  * - lockfile 该包**单版本**（多版本共存 → 成员声明无法安全收敛，人工）
- * - 推荐版本 >= 锁定版本（防降级，C10 语义）
- * - **非跨线**（跨线语义仅限根直接依赖，T405）
+ * - 推荐版本 >= 锁定版本（防降级）
+ * - **非跨线**（跨线语义仅限根直接依赖）
  */
 function resolveMemberManifestDir(
     workDir: string,

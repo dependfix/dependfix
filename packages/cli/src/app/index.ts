@@ -644,7 +644,7 @@ export class DependfixApp {
             // dedupeFixableAlerts 语义，同成员多告警只升一条目标、其余随代表处理）
             // 逐项：快照（根三件套 + 成员 manifest）→ upgradeDependency({ manifestDir })
             // → 升级后实例复核（lockfile 残留脆弱实例 → 回滚，覆盖根全局 override
-            // 冲突 / 其他位置 pin 场景，不误标 fixed——T405 纪律）→ quickVerify
+            // 冲突 / 其他位置 pin 场景，不误标 fixed）→ quickVerify
             // （根 lint，与 2.0 常规升级一致；线内升级破坏面小，不做完整验证）
             // → 失败回滚 → 成功 fixed。不误标 fixed/converged。
             const memberByPackageAndDir = new Map<string, MemberManifestAlert>()

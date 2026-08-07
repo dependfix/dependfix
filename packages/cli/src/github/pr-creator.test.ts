@@ -125,7 +125,7 @@ describe('computeFixFingerprint', () => {
         expect(computeFixFingerprint(v1)).not.toBe(computeFixFingerprint(v2))
     })
 
-    it('distinguishes root upgrade from member upgrade of the same package (Review Gate P2-1)', () => {
+    it('distinguishes root upgrade from member upgrade of the same package', () => {
         const root = [makeUpgradeAction('vite', '5.4.20', true)]
         const member = [{
             ...makeUpgradeAction('vite', '5.4.20', true),
@@ -690,7 +690,7 @@ describe('generatePRBody', () => {
         expect(body).toContain('| `vite` (packages/web/package.json) | ^5.4.20 | vulnerable instance(s) remain after member upgrade |')
     })
 
-    it('keeps root and member upgrades of the same package as separate rows (Review Gate P2-1)', () => {
+    it('keeps root and member upgrades of the same package as separate rows', () => {
         const result = buildRunResult()
         result.actions = [
             // 根升级（无 filePath）

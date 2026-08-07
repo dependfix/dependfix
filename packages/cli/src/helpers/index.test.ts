@@ -446,7 +446,7 @@ describe('partitionSubmanifestAlerts', () => {
     })
 
     // -----------------------------------------------------------------------
-    // member 桶（workspace 成员 manifest 直接依赖升级，T406/T407）
+    // member 桶（workspace 成员 manifest 直接依赖升级）
     // -----------------------------------------------------------------------
 
     function setupMemberWorkspace(memberDeps: Record<string, string>): void {
@@ -517,7 +517,7 @@ describe('partitionSubmanifestAlerts', () => {
         expect(sub).toHaveLength(1)
     })
 
-    it('keeps member manifest alert in sub when cross-major (T405 semantics: root only)', () => {
+    it('keeps member manifest alert in sub when cross-major (root only)', () => {
         setupMemberWorkspace({ vite: '^5.4.0' })
         writeLockfileVersions('vite@5.4.14')
 
@@ -591,7 +591,7 @@ describe('partitionSubmanifestAlerts', () => {
         expect(sub.map((a) => a.packageName)).toEqual(['vite'])
     })
 
-    it('keeps member alert in sub when manifest basename is not package.json (Review Gate P3-1)', () => {
+    it('keeps member alert in sub when manifest basename is not package.json', () => {
         setupMemberWorkspace({ vite: '^5.4.0' })
         writeLockfileVersions('vite@5.4.0')
 

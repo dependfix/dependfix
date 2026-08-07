@@ -448,7 +448,7 @@ describe('generateMarkdownReport', () => {
         expect(md).toContain('^1.0.0 → ^2.0.0')
     })
 
-    it('shows member upgrade manifest path in action details (T406/T407)', () => {
+    it('shows member upgrade manifest path in action details', () => {
         const result = {
             ...EMPTY_RUN_RESULT,
             actions: [makeAction({

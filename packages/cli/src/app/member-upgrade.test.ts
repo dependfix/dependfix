@@ -7,7 +7,7 @@ import { resolveRuntimeConfig } from '../config'
 import { DependfixApp } from './index'
 
 // ---------------------------------------------------------------------------
-// 成员级升级集成测试（2.0.3 链路，T406/T407）：
+// 成员级升级集成测试（2.0.3 链路）：
 // mock 掉真实依赖升级（fixers/dependency 的 upgradeDependency）与验证命令执行
 // （verification-runner），验证 app/index.ts 2.0.3 成员链路语义：
 // workspace 成员 manifest 直接依赖（manifest_path = packages/web/package.json）
@@ -189,7 +189,7 @@ function nockAlerts(alerts: Record<string, unknown>[]): void {
         .reply(200, { default_branch: 'main' })
 }
 
-describe('DependfixApp member upgrade (2.0.3, T406/T407)', () => {
+describe('DependfixApp member upgrade (2.0.3)', () => {
     let workDir: string
 
     beforeEach(() => {
@@ -354,7 +354,7 @@ describe('DependfixApp member upgrade (2.0.3, T406/T407)', () => {
         expect(mockUpgradeDependency).not.toHaveBeenCalled()
     })
 
-    it('keeps member manifest alert manual when cross-major (T405 semantics: root only)', async () => {
+    it('keeps member manifest alert manual when cross-major (root only)', async () => {
         setupMemberWorkspace(workDir)
         writeSingleVersionLockfile(workDir)
         nockAlerts([makeViteMemberAlert(1, '6.4.3')])
@@ -385,7 +385,7 @@ describe('DependfixApp member upgrade (2.0.3, T406/T407)', () => {
         expect(memberActions[0].toVersion).toBe('^5.4.20')
     })
 
-    it('fails both members without false fixed when the same package is exactly pinned by two members (Review Gate P2-2)', async () => {
+    it('fails both members without false fixed when the same package is exactly pinned by two members', async () => {
         // 两个成员均精确 pin vite 5.4.14；任一个升级后另一成员实例残留 → 各自回滚计 failed
         writeFileSync(join(workDir, 'package.json'), JSON.stringify({
             name: 'fixture-root',

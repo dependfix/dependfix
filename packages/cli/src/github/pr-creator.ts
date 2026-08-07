@@ -72,8 +72,8 @@ const BRANCH_PREFIX = 'dependfix/auto-fix-'
  *
  * 指纹基于**结构化修复结果**而非 git diff：
  * - 成功升级集：`pkg@toVersion@manifest`（排序拼接；manifest 区分根升级与
- *   成员升级——成员级修复（T406/T407）后，同包根/成员升级是不同修复内容，
- *   若指纹不含 manifest 维度，根升级 PR 会错误 skip 后续成员升级，P2-1）
+ *   成员升级——成员级修复后，同包根/成员升级是不同修复内容，
+ *   若指纹不含 manifest 维度，根升级 PR 会错误 skip 后续成员升级）
  * - 修复失败集：失败包名@manifest（排序拼接）
  * - lockfile 修复状态（成功/失败）
  *
@@ -377,8 +377,7 @@ function escapeTableCell(value: string): string {
 
 /**
  * 依赖升级 action 的聚合键（仓库 + 包名 + 目标 manifest；跨仓库同包不合并；
- * 同包根升级与成员升级（T406/T407）各自成行，避免成员 filePath 丢失——
- * Review Gate P2-1）。
+ * 同包根升级与成员升级各自成行，避免成员 filePath 丢失）。
  */
 function upgradeKey(action: FixAction): string {
     return `${action.repository}\u0000${action.target}\u0000${action.filePath ?? ''}`

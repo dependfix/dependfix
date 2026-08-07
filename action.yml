@@ -10,13 +10,13 @@ inputs:
   mode:
     description: '运行模式'
     required: false
-    # T209: Action 默认 fix-and-pr（本地 CLI 默认仍为 report-only）
+    # Action 默认 fix-and-pr（本地 CLI 默认仍为 report-only）
     default: 'fix-and-pr'
   repos:
     description: '目标仓库（逗号分隔 owner/repo，留空使用当前仓库；与 owner 同时给出时合并去重，显式优先）'
     required: false
     default: ''
-  # ── M4 多仓库治理（T401/T403）──
+  # ── 多仓库治理 ──
   owner:
     description: 'owner / org 自动发现（逗号分隔多个）。注意：GITHUB_TOKEN 仅能访问当前仓库，owner 发现其他仓库必须使用具备仓库读取权限的 PAT（github-token 输入）；如需按仓库隔离权限，建议为每个仓库单独配置 action，而不是跨仓库发现'
     required: false
@@ -52,7 +52,7 @@ inputs:
   dry-run:
     description: '试运行模式（不修改文件）'
     required: false
-    # T209: 与 mode 默认 fix-and-pr 配套（dryRun 与 createPullRequest 互斥）
+    # 与 mode 默认 fix-and-pr 配套（dryRun 与 createPullRequest 互斥）
     default: 'false'
   max-alerts-per-repository:
     description: '每仓库最多处理的告警数'
@@ -77,13 +77,13 @@ inputs:
     description: '同时拉取 Code Scanning alerts（与 Dependabot 并行源，默认关闭；需要 token 具备 security-events: read，GITHUB_TOKEN 默认具备）'
     required: false
     default: 'false'
-  # ── M5 AI 引擎联调骨架 ──
+  # ── AI 引擎联调骨架 ──
   ai-api-token:
-    description: 'AI API Token（M5 联调启用，通过 GitHub Secrets 传入）'
+    description: 'AI API Token（联调启用，通过 GitHub Secrets 传入）'
     required: false
     default: ''
   ai-api-base-url:
-    description: 'AI API Base URL（M5 联调启用，支持多 AI 提供商）'
+    description: 'AI API Base URL（联调启用，支持多 AI 提供商）'
     required: false
     default: ''
 
@@ -168,7 +168,7 @@ runs:
         GITHUB_TOKEN: ${{ inputs.github-token }}
         # Dependabot alerts 专用最小权限 token（经环境变量传递，避免出现在进程列表）
         DEPENDFIX_ALERTS_TOKEN: ${{ inputs.dependabot-alerts-token }}
-        # M5: AI engine — passed to CLI when available
+        # AI engine — passed to CLI when available
         AI_API_TOKEN: ${{ inputs.ai-api-token }}
         AI_API_BASE_URL: ${{ inputs.ai-api-base-url }}
 

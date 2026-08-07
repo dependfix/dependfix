@@ -29,7 +29,8 @@ jobs:
           node-version: "lts/*"
           cache: "pnpm"
       - run: pnpm i --frozen-lockfile
-      # platform 的 nuxt typecheck 依赖 .nuxt 类型生成（nuxt prepare 在 postinstall 中执行）
+      # platform 的 lint/typecheck 依赖 .nuxt 类型生成（.nuxt 为 Nuxt 生成产物且已 gitignore，
+      # 无 postinstall 钩子，必须显式 prepare 生成；删除此步骤会导致 lint/typecheck 解析失败）
       - run: pnpm --filter @dependfix/platform exec nuxt prepare
       - run: pnpm run lint
       - run: pnpm run lint:md:check

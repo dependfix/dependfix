@@ -40,6 +40,8 @@ jobs:
       - name: Upgrade npm
         run: npm install -g npm@latest
       - run: pnpm i --frozen-lockfile
+      # Nuxt 平台 eslint 依赖 .nuxt/tsconfig.json（Nuxt 生成的类型），需先 prepare 生成
+      - run: pnpm --filter @dependfix/platform exec nuxt prepare
 
       # 定时发布（schedule 触发时自动完成版本提升 + CHANGELOG 生成 + 提交推送）：
       # - 手动发布（workflow_dispatch）时版本已在本地通过 changeset version + pnpm changelog
@@ -96,18 +98,21 @@ jobs:
       # 发布提交入库，CI 不重新生成；若版本已提升但日志缺失，说明漏跑了生成步骤，禁止发布。
       # 普通提交（版本未变）时各日志已含对应版本段，校验自动通过。
       # 段标题兼容 minor（`# [0.x.0]`）与 patch（`## [0.x.y]`，cmyr-config 按 isPatch 输出）两种前缀。
+      # 注意：正则须为 POSIX ERE 兼容写法（CI 用 grep -E 校验）——字符类内 `\]` 不代表字面 `]`，
+      # 须用分组 `(\]| |\$)`：`\]` 匹配 `# [0.x.0]` 的右括号、空格匹配 `# 0.x.0 (date)` 无链接
+      # 标题的版本后空白、`\$` 匹配纯版本标题的行尾。
       - name: Verify changelog is up to date
         run: |
           for spec in "packages/cli:packages/cli/CHANGELOG.md" "packages/core:packages/core/CHANGELOG.md" "packages/skills:packages/skills/CHANGELOG.md"; do
             dir="${spec%%:*}"; file="${spec##*:}"
             version=$(node -p "require('./$dir/package.json').version")
-            if ! grep -qE "^#{1,2} \[?${version}([\] )]|\$)" "$file"; then
+            if ! grep -qE "^#{1,2} \[?${version}(\]| |\$)" "$file"; then
               echo "::error::$file 缺少版本段 ${version}，请先运行 pnpm changelog 并提交"
               exit 1
             fi
           done
           version=$(node -p "require('./packages/cli/package.json').version")
-          if ! grep -qE "^#{1,2} \[?${version}([\] )]|\$)" CHANGELOG.md; then
+          if ! grep -qE "^#{1,2} \[?${version}(\]| |\$)" CHANGELOG.md; then
             echo "::error::CHANGELOG.md 缺少版本段 ${version}，请先运行 pnpm changelog 并提交"
             exit 1
           fi

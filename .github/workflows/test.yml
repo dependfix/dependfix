@@ -18,6 +18,8 @@ jobs:
           node-version: "lts/*"
           cache: "pnpm"
       - run: pnpm i --frozen-lockfile
+      # Nuxt 平台 eslint 依赖 .nuxt/tsconfig.json（Nuxt 生成的类型），需先 prepare 生成
+      - run: pnpm --filter @dependfix/platform exec nuxt prepare
       - run: pnpm run lint
       - run: pnpm run lint:md:check
       - run: pnpm run check:links

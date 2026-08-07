@@ -42,7 +42,7 @@ docs/
 - **图表**: 优先使用 Mermaid，不嵌入难维护的图片描述
 - **VitePress 容器**: 关键信息使用 `::: info` / `::: warning` / `::: danger`
 - **链接**: 使用相对路径，确保路径真实可用。本地文件链接默认**不带锚点**（`path.md`）：锚点 slug 规则跨平台不一致（GitHub 移除全角标点 `（）`、`、` 等，VS Code / VitePress 保留），带锚点链接在部分平台会失效；必须带锚点时，目标标题避免全角标点，且锚点需能被 [`check:links` 脚本](../../scripts/check-links.mjs) 验证通过
-- **链接检查**: `pnpm run check:links`（`scripts/check-links.mjs`，零依赖）验证全部 md 文件的本地路径存在性与锚点匹配——按宽松规范化（小写 + 移除标点/符号/空白）兼容 GitHub / VS Code / VitePress 三种 slug 规则差异，只抓真实断链与假锚点；**同时拒绝本地绝对路径**（`/xxx`、`C:/xxx`、`\\server`）与**路径穿越**（`../..` 解析超出仓库根）——md 本地链接必须使用项目内相对路径。已接入 CI（test.yml）。**归档/重命名标题时**：内容移入归档文件（标题带"已归档"等后缀）或标题改写后，必须全局检索指向该标题的锚点链接（`rg -n '\[[^]]*\]\([^)]*#.*'` 链接文本），同步改指新位置/新锚点——check:links 是最后防线，会在 CI 滞后暴露（2026-08-07 roadmap → todo-archive 锚点失效案例，见 [经验归档 §二十二](../design/governance/2026-08-06-experience-archive.md)）
+- **链接检查**: `pnpm run check:links`（`scripts/check-links.mjs`，零依赖）验证全部 md 文件的本地路径存在性与锚点匹配——按宽松规范化（小写 + 移除标点/符号/空白）兼容 GitHub / VS Code / VitePress 三种 slug 规则差异，只抓真实断链与假锚点；**同时拒绝本地绝对路径**（`/xxx`、`C:/xxx`、`\\server`）与**路径穿越**（`../..` 解析超出仓库根）——md 本地链接必须使用项目内相对路径。已接入 CI（test.yml）。**归档/重命名标题时**：内容移入归档文件（标题带"已归档"等后缀）或标题改写后，必须全局检索指向该标题的锚点链接（`rg -n '\[[^]]*\]\([^)]*#.*'` 链接文本），同步改指新位置/新锚点——check:links 是最后防线，会在 CI 滞后暴露（2026-08-07 roadmap → todo-archive 锚点失效案例，见 [经验归档 §二十二](../design/governance/experience-archive.md)）
 - **Markdown 格式检查**: `pnpm run lint:md`（`@lint-md/cli`，`--fix` 自动格式化：中英文/数字间距、标题规范、列表缩进等）与 `pnpm run lint:md:check`（无 `--fix`，CI 门禁用，已接入 test.yml / release.yml）。规则裁剪见根目录 [`.lintmdrc`](../../.lintmdrc)（关闭半角标点等与中文技术文档冲突的规则，参照 momei 项目做法）。提交前运行 `pnpm run lint:md` 保持文档格式化一致；lint-staged 已挂载 `*.md` 自动执行
 
 ## 3. 文档行数阈值
@@ -68,7 +68,7 @@ docs/
 
 冲突顺序：L0 > L1 > L2 > L3。
 
-**规范单点声明原则**：每条规则只在其职责归属的权威文档中**完整声明一次**（如任务粒度约束 → [规划规范 §1.1](./planning.md)），其他文档 / skill / agent 定义只做**一行链接引用**（`见 [X 规范 §Y](./xxx.md)`），禁止在多处重复抄写完整条款、阈值或教训。理由：多处重复必然漂移（改一处漏一处），且膨胀各文档阅读负担。执行分工：**宽松指引**（应当、建议）可在执行阶段（skill/agent）声明；**严格约束**（必须、阈值、禁令）优先挂在 **review 阶段检查点**（[code-reviewer 检查项](../../.github/skills/code-reviewer/SKILL.md)、Code Auditor 必查项）——review 阶段上下文干净（只看 diff + 验证证据），比开发阶段更容易强制执行（教训见 [经验归档 §二十四](../design/governance/2026-08-06-experience-archive.md)）。
+**规范单点声明原则**：每条规则只在其职责归属的权威文档中**完整声明一次**（如任务粒度约束 → [规划规范 §1.1](./planning.md)），其他文档 / skill / agent 定义只做**一行链接引用**（`见 [X 规范 §Y](./xxx.md)`），禁止在多处重复抄写完整条款、阈值或教训。理由：多处重复必然漂移（改一处漏一处），且膨胀各文档阅读负担。执行分工：**宽松指引**（应当、建议）可在执行阶段（skill/agent）声明；**严格约束**（必须、阈值、禁令）优先挂在 **review 阶段检查点**（[code-reviewer 检查项](../../.github/skills/code-reviewer/SKILL.md)、Code Auditor 必查项）——review 阶段上下文干净（只看 diff + 验证证据），比开发阶段更容易强制执行（教训见 [经验归档 §二十四](../design/governance/experience-archive.md)）。
 
 ## 5. 设计文档分层
 
@@ -84,10 +84,11 @@ docs/
 2. topic-slug 为小写 kebab-case 主题词
 3. 同一天多次产出追加版本后缀 `-v{n}`（从 2 起）
 4. 适用于所有文档目录（`docs/research/`、`docs/design/governance/`、`docs/plan/archive/` 等），不限于调研文档
+5. **例外（持续追加型文档不设日期）**：跨阶段持续追加、不随单一产出结束的文档使用**固定名**，不套日期规则——如 [经验归档](../design/governance/experience-archive.md)（`experience-archive.md`，章节按序追加，见其文件头"准入标准"）；再如 `todo-archive.md`、`backlog.md` 等规划滚动文档。判断标准：文档的"完成日期"不存在（永远在追加）→ 不设日期。
 
 **示例**：
 - `2026-08-04-github-token-dependabot-bug-or-design.md`（调研）
-- `2026-08-06-experience-archive.md`（经验归档）
+- `experience-archive.md`（经验归档）
 - `2026-08-06-audit-report-v2.md`（同天第二版审计报告）
 
 ### 5.1 调研文档规范（docs/research/）

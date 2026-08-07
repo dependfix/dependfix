@@ -160,7 +160,7 @@ diff 包含大范围替换（脚本/正则批量改写、多文件机械变更�
 - **代码误伤**：替换正则是否误删代码 token（空调用 `()`、方法名 `trim`/`toUpperCase` 后丢失括号、URL `https:// /` 出现空格）——注意 `typecheck` 不总能覆盖字符串/注释误伤
 - **外链破坏**：涉及 URL 文本时检查是否出现 `https:// /`、`http://` 等畸形（check-links 只查本地链接）
 
-规范见 [ai-collaboration.md §1.2 执行原则 6](../../../../docs/standards/ai-collaboration.md)，教训见 [经验归档 §十七](../../../../docs/design/governance/2026-08-06-experience-archive.md)。
+规范见 [ai-collaboration.md §1.2 执行原则 6](../../../../docs/standards/ai-collaboration.md)，教训见 [经验归档 §十七](../../../../docs/design/governance/experience-archive.md)。
 
 ### 应提出的问题
 
@@ -175,7 +175,7 @@ diff 包含大范围替换（脚本/正则批量改写、多文件机械变更�
 - **不可逆操作前的最后防线**：凡"改写前判定"（如版本声明改写、文件写入、URL 拼接），漏判的后果是数据/声明永久损坏时，全集核对是强制项
 - **同类扫描**：修复审计发现（正则漏项等）后，是否对同正则家族/同判定模式全量扫描（grep 同 pattern 的其他位置），避免"修一个漏一批"
 
-规范见 [经验归档 §十八](../../../../docs/design/governance/2026-08-06-experience-archive.md)。
+规范见 [经验归档 §十八](../../../../docs/design/governance/experience-archive.md)。
 
 ### 应提出的问题
 
@@ -191,7 +191,7 @@ diff 包含大范围替换（脚本/正则批量改写、多文件机械变更�
 - **同构键一致性**：聚合键与指纹键若口径不一致（如聚合含维度、指纹不含），会导致"报告可见但去重错误"的隐性不一致
 - **默认值语义**：新维度缺省值（如 `?? 'root'`）在所有消费方语义一致，不产生碰撞（根 vs 成员同键合并）
 
-规范见 [经验归档 §十九](../../../../docs/design/governance/2026-08-06-experience-archive.md)。
+规范见 [经验归档 §十九](../../../../docs/design/governance/experience-archive.md)。
 
 ### 应提出的问题
 

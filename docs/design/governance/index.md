@@ -13,7 +13,7 @@
 | [.gitignore 自动管理](./gitignore-management.md) | 杂项治理 | ✅ 已落地 |
 | [仓库名自动推断](./repo-auto-inference.md) | 杂项设计 | ✅ 已落地 |
 | [Session Wisdom 蒸馏机制](./session-wisdom-distillation.md) | AI 治理（知识沉淀） | ✅ 已落地（2026-08-06） |
-| [经验归档 2026-08](./2026-08-06-experience-archive.md) | 经验备份（首次蒸馏详情） | ✅ 已落地（2026-08-06） |
+| [经验归档](./experience-archive.md) | 经验备份（持续追加，准入标准见文件头） | ✅ 持续追加 |
 | [Skill 分发治理](./skill-distribution.md) | 专项治理（M5.5 Skill 编排） | ✅ 已落地（2026-08-07） |
 | [MCP Server 设计](./mcp-server.md) | 未来规划（M6） | 🔶 未开始 |
 

@@ -6,6 +6,7 @@
  *   preset 过滤，不进入日志），版本段以 dependfix@ tag 序列划分（dependfix 为主交付物）
  * - packages/cli/CHANGELOG.md：仅 packages/cli 路径下的 commit（path 过滤 + dependfix@ tag 序列）
  * - packages/core/CHANGELOG.md：仅 packages/core 路径下的 commit（path 过滤 + @dependfix/core@ tag 序列）
+ * - packages/skills/CHANGELOG.md：仅 packages/skills 路径下的 commit（path 过滤 + @dependfix/skills@ tag 序列）
  *
  * 注意：
  * - 必须在仓库根目录运行（pnpm changelog），cmyr-config 从 cwd 的 package.json 读取
@@ -56,6 +57,13 @@ const targets = [
         commits: { path: 'packages/core' },
         tags: { prefix: '@dependfix/core@' },
         pkg: 'packages/core/package.json',
+    },
+    {
+        file: 'packages/skills/CHANGELOG.md',
+        title: '@dependfix/skills',
+        commits: { path: 'packages/skills' },
+        tags: { prefix: '@dependfix/skills@' },
+        pkg: 'packages/skills/package.json',
     },
 ]
 

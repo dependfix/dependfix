@@ -91,13 +91,13 @@ jobs:
       - run: pnpm run test
       - run: pnpm run build
 
-      # CHANGELOG 校验：发布前确认三份 CHANGELOG 已包含当前版本段。
+      # CHANGELOG 校验：发布前确认四份 CHANGELOG（根级 + 三个包级）已包含当前版本段。
       # CHANGELOG 由本地 `pnpm changelog`（conventional-changelog-cmyr-config）生成并随
       # 发布提交入库，CI 不重新生成；若版本已提升但日志缺失，说明漏跑了生成步骤，禁止发布。
       # 普通提交（版本未变）时各日志已含对应版本段，校验自动通过。
       - name: Verify changelog is up to date
         run: |
-          for spec in "packages/cli:packages/cli/CHANGELOG.md" "packages/core:packages/core/CHANGELOG.md"; do
+          for spec in "packages/cli:packages/cli/CHANGELOG.md" "packages/core:packages/core/CHANGELOG.md" "packages/skills:packages/skills/CHANGELOG.md"; do
             dir="${spec%%:*}"; file="${spec##*:}"
             version=$(node -p "require('./$dir/package.json').version")
             if ! grep -qE "^# \[?${version}([ )]|\$)" "$file"; then

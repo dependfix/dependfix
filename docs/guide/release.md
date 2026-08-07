@@ -4,12 +4,15 @@
 
 ## 发布包清单
 
-当前 Monorepo 对外发布两个 npm 包：
+当前 Monorepo 对外发布三个 npm 包：
 
 | 包 | 说明 | npm 地址 |
 |----|------|----------|
 | `dependfix` | CLI 应用入口（含 `dependfix` bin 命令） | https://www.npmjs.com/package/dependfix |
 | `@dependfix/core` | 核心领域模型库 | https://www.npmjs.com/package/@dependfix/core |
+| `@dependfix/skills` | 产品 Agent Skill 权威源（`dependfix-remediator`，纯内容包） | https://www.npmjs.com/package/@dependfix/skills |
+
+> 依赖关系：`dependfix` 依赖 `@dependfix/core` 与 `@dependfix/skills`（运行时解析 skill 内容）；`@dependfix/skills` 无依赖。发布顺序：被依赖方先行（`@dependfix/core` → `@dependfix/skills` → `dependfix`）。
 
 ## 版本策略
 
@@ -45,9 +48,9 @@
    - **Repository**: `dependfix`
    - **Workflow filename**: `release.yml`
    - **Allowed actions**: `npm publish`
-4. 两个包（`dependfix` 与 `@dependfix/core`）都要配置。
+4. 三个包（`dependfix`、`@dependfix/core` 与 `@dependfix/skills`）都要配置。
 
-> ⚠️ 包必须已存在于 npm 上才能配置 Trusted Publisher（npm/cli#8544）。因此 `@dependfix/core` 的首次发布必须先手动完成（见下），之后才能配置并启用 OIDC。
+> ⚠️ 包必须已存在于 npm 上才能配置 Trusted Publisher（npm/cli#8544）。因此 `@dependfix/core` 与 `@dependfix/skills` 的首次发布必须先手动完成（见下），之后才能配置并启用 OIDC。
 
 ### 2. package.json 元数据
 
@@ -91,8 +94,9 @@ pnpm typecheck
 pnpm test
 pnpm build
 
-# 2. 检查包内容（确认 dist / bin / README / LICENSE 都在）
+# 2. 检查包内容（确认 dist / bin / README / LICENSE 都在；@dependfix/skills 为纯内容包，确认 dependfix-remediator/ 与 README 在发布内容中）
 pnpm --filter @dependfix/core pack --pack-destination "$env:TEMP"   # Windows PowerShell
+pnpm --filter @dependfix/skills pack --pack-destination "$env:TEMP" # Windows PowerShell
 pnpm --filter dependfix pack --pack-destination "$env:TEMP"        # Windows PowerShell
 # bash/zsh 使用：pnpm --filter @dependfix/core pack --pack-destination /tmp
 
@@ -102,9 +106,10 @@ node packages/cli/dist/bin.mjs --help
 # 4. npm 登录（一次性，pnpm publish 复用 npm 凭据）
 npm login
 
-# 5. 发布（顺序重要：先被依赖方 @dependfix/core，再 dependfix）
+# 5. 发布（顺序重要：先被依赖方 @dependfix/core，再 @dependfix/skills，最后 dependfix）
 #    必须使用 pnpm publish：它会替换 workspace:* 为实际版本
 pnpm --filter @dependfix/core publish
+pnpm --filter @dependfix/skills publish
 pnpm --filter dependfix publish
 
 # 6. 打 tag（供 GitHub Release 关联与 Action 引用）
@@ -114,13 +119,14 @@ git push origin v0.1.0
 # 7. 验证
 npm view dependfix version          # 期望 0.1.0，dist-tags.latest
 npm view @dependfix/core version    # 期望 0.1.0
-npm view dependfix dependencies     # 期望 @dependfix/core 为具体版本（非 workspace:*）
+npm view @dependfix/skills version  # 期望 0.1.0
+npm view dependfix dependencies     # 期望 @dependfix/core 与 @dependfix/skills 为具体版本（非 workspace:*）
 npm i -g dependfix && dependfix --version   # 或临时目录 npx dependfix --help
 
 # 8.（可选）GitHub Release（预览版标记 pre-release）
 gh release create v0.1.0 --generate-notes --prerelease
 
-# 9. 在 npmjs.com 为两个包配置 Trusted Publisher（见"前置配置"）
+# 9. 在 npmjs.com 为三个包配置 Trusted Publisher（见"前置配置"）
 ```
 
 ## 后续版本（0.1.1+）
@@ -135,7 +141,7 @@ pnpm changeset
 #    changelog 已禁用（"changelog": false），此步骤无需 GITHUB_TOKEN
 pnpm changeset version
 
-# 3. 生成 CHANGELOG（基于 conventional commits 重新生成三份日志，见"CHANGELOG 策略"）
+# 3. 生成 CHANGELOG（基于 conventional commits 重新生成四份日志，见"CHANGELOG 策略"）
 pnpm changelog
 
 # 4. 审查并提交（含包级 CHANGELOG.md 与 package.json 版本变更）
@@ -162,10 +168,10 @@ git push origin master
 
 1. （仅 `schedule` 触发）`Auto version & changelog`：自动版本提升 + CHANGELOG 生成 + 提交推送；
 2. lint → typecheck → test → build（质量门，任一失败即中止）；
-3. `Verify changelog is up to date`：校验三份 CHANGELOG 已包含当前版本段（防止漏跑 `pnpm changelog` 直接发布；普通提交版本未变时自动通过）；
+3. `Verify changelog is up to date`：校验四份 CHANGELOG（根级 + `packages/cli` / `packages/core` / `packages/skills`）已包含当前版本段（防止漏跑 `pnpm changelog` 直接发布；普通提交版本未变时自动通过）；
 4. `pnpm changeset publish`：
    - **只发布有 changeset 记录的包**，无变更时安全退出（`No unpublished projects to publish`）；
-   - 在 pnpm 项目内部调用 `pnpm publish`：自动替换 `workspace:*` 为实际版本，发布顺序由 changesets 编排（`@dependfix/core` 先于 `dependfix`）；
+   - 在 pnpm 项目内部调用 `pnpm publish`：自动替换 `workspace:*` 为实际版本，发布顺序由 changesets 编排（`@dependfix/core` / `@dependfix/skills` 先于 `dependfix`）；
    - 通过 **OIDC trusted publishing** 认证（`id-token: write` + npmjs.com 的 Trusted Publisher 配置），无需 `NPM_TOKEN`；
    - 发布成功后本地创建 `<pkg>@<version>` 格式的 git tag（如 `dependfix@0.1.1`）；
 5. `Push release tags`：将 changeset publish 创建的本地 tag 推送到 GitHub（`git push origin --tags`，通过 `GITHUB_TOKEN` 认证）。
@@ -182,12 +188,12 @@ git push origin master
 - **changesets 不负责生成 changelog**（`.changeset/config.json` 中 `"changelog": false`），仅负责版本提升与发布；
 - **CHANGELOG 由 `pnpm changelog` 生成**（`scripts/changelog.mjs`），基于 conventional commit 消息 + `conventional-changelog-cmyr-config`（与 momei / semantic-release-cmyr-config 生态同一套格式）：
   - **根级 `CHANGELOG.md`**：全仓库的 feat/fix/refactor 类 commit（chore/ci/docs 等类型由 preset 过滤，不进入日志；全局改动如 CI / 文档 / workspace 配置自然不展示），版本段以 `dependfix@` tag 序列划分（dependfix 为主交付物，core 单独发布的变更会随下一次 dependfix 发布段出现）；
-  - **包级 `CHANGELOG.md`**（`packages/cli`、`packages/core`）：按 `git log -- <path>` 精确过滤——只有实际改动该包路径的 commit 才会进入对应日志（一个 commit 同时改两个包时会同时出现在两包日志中，这是真实影响面的体现）；
+  - **包级 `CHANGELOG.md`**（`packages/cli`、`packages/core`、`packages/skills`）：按 `git log -- <path>` 精确过滤——只有实际改动该包路径的 commit 才会进入对应日志（一个 commit 同时改两个包时会同时出现在两包日志中，这是真实影响面的体现）；`@dependfix/skills` 的同步脚本 `scripts/sync-skills.mjs` 属仓库根路径，不匹配任何包，其改动只进根级日志；
   - 分组语言由根 `package.json` 的 `changelog.language: "zh"` 控制（中文 emoji 分组：✨ 新功能 / 🐛 Bug 修复 / 📦 代码重构 等）；
 - **全局改动归属约定**：根目录文件（`docs/`、`.github/`、`pnpm-workspace.yaml` 等）不匹配任何包的 path，不会出现在包级日志；若某全局改动确实影响包行为（如 overrides 改依赖解析），应在 commit 中落在包路径内或拆分提交，否则只记录在根级日志；
 - **生成是幂等的**：脚本每次全量重新生成（`releaseCount: 0`），不依赖历史 changelog 内容；
 - **生成时机与边界行为**：在 `changeset version` 之后、publish 之前运行（此时新版本尚无 tag，当前版本段输出全部新增 commit）；若在版本等于最新 tag 时运行（如 core-only 发布后、或发布后立即重跑），顶层段会复用该版本号并生成自引用 compare 链接，属正常现象，下一版本发布段会自动归位；
-- **版本标题与 tag**：根级与包级日志的版本段均按 `dependfix@` / `@dependfix/core@` tag 序列划分（changeset publish 自动创建）；无 tag 的首版（0.1.0）从仓库最早 commit 生成；
+- **版本标题与 tag**：根级与包级日志的版本段均按 `dependfix@` / `@dependfix/core@` / `@dependfix/skills@` tag 序列划分（changeset publish 自动创建）；无 tag 的首版（0.1.0）从仓库最早 commit 生成；
 - **依赖变更提示差异**：changesets 原会在依赖包变更时向依赖方日志写入 `Updated dependencies` 行，本方案不自动生成（npm 安装时会自动带上新依赖版本，不影响使用）；
 - **依赖版本**：必须使用 `conventional-changelog@^7`（8.x 模板引擎与 cmyr-config 3.x 不兼容）。
 

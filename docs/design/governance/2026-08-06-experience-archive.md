@@ -135,3 +135,35 @@
   - **正则默认是危险的**：能用精确字符串就不写正则；必须用正则时限定前缀/上下文，禁止 `[^)]*`、`.*?` 等贪婪通配在注释与代码混合的文件中跨上下文匹配。
   - **混合行尾仓库的读写纪律**：Windows 下 git 不统一行尾（core.autocrlf=false 时 LF/CRLF 并存），任何脚本写文件必须按行保留原行尾，否则制造全文件噪音 diff（见 §十）。
   - **替换类变更的验证矩阵 = typecheck + 定向测试 + diff 噪音检查 + 残留扫描**，四者缺一不可。
+
+
+## 十八、防护正则/枚举按"全集"核对，修复 Review 发现时做同类扫描（M4.6 T406 两轮 P1/P2）
+
+- **案例**：T406 新增 `isNonSemverDeclaration`（拒绝 `workspace:`/`catalog:` 等协议声明被 `extractPrefix` 误改）。首轮 Review Gate 发现正则漏 `git+ssh`/`git+https`/`https`/`ssh`（P1-1：来源从 fork/私有源静默切回 registry 的不可逆改写）；修复后复审又发现漏 `gitlab`/`bitbucket`/`gist`/`git+http`/`git+file`（P2-2）——**同类遗漏连续两轮**。
+- **根因**：防护正则按"已知场景"手写，而非对照协议全集（npm-package-arg 的 gitProtocols：`git+ssh`/`git+https`/`git+http`/`git+file`/`git` + `github`/`gitlab`/`bitbucket`/`gist`）编写测试；修复审计发现时只补了报告的点，未对同类变体全量扫描。
+- **修复**：正则扩展为协议全集 + 落地测试矩阵（index.test.ts：正向 18 例 / 反向 7 例，含 whitespace 变体）并经 node 实跑核验。
+- **启示**：
+  - **防护性正则/枚举必须按"全集"编写测试**：npm-package-arg、semver 规范、语言关键字表等权威清单是测试用例来源，不是"常见写法"。
+  - **修复 Review 发现 = 同类扫描时机**：拿到一个 P1/P2 后，先 grep 全库同类 pattern（同正则家族、同字段、同调用模式），再动手修，避免"修一个漏一批"（与 code-auditor 根因分析"扫描同类 bug"一致）。
+
+## 十九、新增维度字段必须检查全部消费点（聚合/指纹/去重/渲染）（M4.6 T406/T407）
+
+- **案例**：T406 给 `FixAction` 引入 `filePath` 维度（成员 manifest 路径）。Review Gate 两轮各发现一个遗漏消费点：① `aggregateUpgradeActions` 按 (repo, package) 聚合，成员 action 与根 action 合并时 filePath 丢失（P2-1）；② `computeFixFingerprint` 的 upgrades 键不含 filePath，根升级与成员升级产生相同指纹 → fix-and-pr 模式下成员变更被旧 PR 错误 skip（复审 P2-1）。
+- **根因**：新增维度时只改了"产生方"（app 2.0.3 写入 filePath）与"直接渲染方"（报告），未盘点实体的**全部消费方**：聚合键、指纹键、去重键、fixed 判定、明细表渲染。
+- **修复**：聚合键与指纹键均纳入 filePath（缺省 `'root'`），三处消费点统一。
+- **启示**：给 action/alert/entity 增加语义字段时，先列出该实体的消费方清单（聚合、指纹、去重、报告渲染、状态判定），逐项确认是否需要纳入新维度；Review 时同样按此清单核对（已加入 code-reviewer checklist）。
+
+## 二十、测试断言要精确到"链路身份"，不笼统断言"未调用"（M4.6 集成测试）
+
+- **案例**：成员实例残留用例最初断言 `mockRunVerification` **未被调用**——但主流程在修复完成后还有整体验证（install+lint），mock 实际被调用 1 次，断言失败。修正为"无 lint-only quickVerify 调用"（按 commands 签名过滤）后通过。
+- **根因**：同一 runner（runVerification）被多条链路复用（quickVerifyProject 单命令 lint / verifyProject 完整链），断言"未调用"没有区分链路身份。
+- **启示**：mock 被多链路复用时，断言按**调用参数签名**（commands 数组、cwd 等）过滤到目标链路，而不是笼统断言调用次数/未调用；这也让断言对"未来新增验证链路"免疫。
+
+## 二十一、脚本化编辑必须验证文件内容，不能信命令输出（PowerShell 内联脚本陷阱）
+
+- **案例**：用 `node -e` 更新 todo.md 状态行（PowerShell 双引号包裹），脚本内反引号被 PowerShell 当作转义符吞掉 → 替换模式不匹配、静默失败（输出 "updated" 但文件没变）。同批 checkbox 更新（无反引号）成功，状态行更新（含反引号）失败——**同一脚本部分生效**。
+- **修复**：改用编辑工具直接改文件；之后用 node 读取文件内容核验。
+- **启示**：
+  - 脚本化批量编辑后必须**读回文件内容验证**（grep/read 关键行），不能相信命令的"成功"输出——部分匹配/转义失效会静默。
+  - PowerShell 中内联 node -e 脚本避免在双引号内嵌反引号（`` ` `` 是 PS 转义符）；复杂替换优先用编辑工具或独立脚本文件。
+  - 文档状态类更新（todo.md checkbox/状态行）失败率高且难察觉，更新后必须抽查渲染结果。

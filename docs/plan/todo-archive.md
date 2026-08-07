@@ -256,3 +256,138 @@
 - **反馈修复（a82f6580，PR #27 用户反馈）**: PR body 新增 ✅ Fixed Alerts 告警级明细；buildFixedKeys 单一事实源（依赖升级包级 repo/pkg 匹配——同包多 GHSA + 多目标 toVersion 不漏列；CS 实例级 + noOp 排除）；测试 +4
 - **治理基建**: Session Wisdom 蒸馏机制（062ce9ef）+ 首次蒸馏（e6827785）+ 压缩抽象与日期命名规范（3b1bf7f8）+ momei http 引用（6690ed02）
 - **遗留登记（转入 backlog）**: pnpm 11 不读 package.json#pnpm.overrides 假成功风险、verifyFrozenLockfile 裸 pnpm、漂移检测弱代理、resolveWithinWorkDir 符号链接逃逸、PR body 64KB 上限、app/helpers ↔ cli/helpers 循环依赖、G3 统计口径与覆盖盲区观察点
+
+---
+
+## M4: 多仓库治理增强（已归档）
+
+> 归档日期: 2026-08-06
+> 阶段摘要: 参见 [roadmap.md §M4](roadmap.md)
+> 状态: 已完成（含收尾批次 + 增强候选）
+> 最终提交: `cf12e381`（增强候选 C2+C6+C7 批次）
+
+**阶段成果**: owner 级仓库自动发现 + 并发控制与失败隔离 + 名单策略 + 报告归档与趋势统计。650 tests。
+
+### T401 实现 owner 级仓库自动发现 ✅
+
+- **交付物**: `packages/cli/src/github/repository-discovery.ts`
+- **实现内容**: owner/org 分页拉取（octokit.paginate）+ archived/fork 剔除 + topic 过滤（AND）+ dependabot.yml 存在性探测（仅候选仓库，404 视为不支持）+ 显式列表合并去重（显式优先）+ 排序确定性（runId/指纹稳定）
+- **验收**: 同输入多次运行结果一致；探测请求数量受控
+- **Review Gate**: PASS（P2 测试缺口当场补齐：config 校验 5 例 + app 接线 2 例）
+- **非目标**: 全量内容扫描判断技术栈（登记 backlog C17）
+
+### T402 并发控制与失败隔离 ✅
+
+- **交付物**: `packages/cli/src/multirepo/scheduler.ts`
+- **实现内容**: `--max-concurrency` / `DEPENDFIX_MAX_CONCURRENCY`（1-16 默认 1，>1 警告；fix/fix-and-pr 因共享 workDir 禁并发）+ 仓库级失败隔离（单仓库失败记录 failed 不中断）+ 429/403 限流指数退避重试（octokit hook 统一包装，写请求不重试）+ 聚合 RunResult
+- **验收**: 注入失败仓库不影响其余；并发配置生效；429 退避重试不丢数据
+- **Review Gate**: 首轮 REJECT（P1 并发写共享 workDir 数据竞争 → 修复 maxConcurrency>1 仅 report-only + fail-fast 校验；P2 scheduler 兜底静默吞错 → 补 onError 记录）→ 复审 PASS；残余 R1-R8 处置见 backlog
+- **非目标**: 跨进程/分布式调度（M7 BullMQ + Redis）
+
+### T403 仓库白名单 / 黑名单策略 ✅
+
+- **交付物**: discovery 过滤链扩展（include/exclude 合并）
+- **实现内容**: `--repo-include` / `--repo-exclude` glob（多次传入）+ 优先级语义（显式列表受 exclude 约束、不受 include 影响；发现结果受两者约束；include 与 exclude 冲突时 exclude 胜出）+ topic 黑名单 + 优先级矩阵写入 configuration.md
+- **验收**: 组合矩阵结果确定可预期
+- **Review Gate**: PASS（P2 仅 todo 状态同步；P3 topics 大小写敏感/ReDoS 面登记）
+- **非目标**: 正则引擎（登记 backlog C18）
+
+### T404 报告归档与趋势统计 ✅
+
+- **交付物**: `packages/cli/src/report/archiver.ts` + 归档索引
+- **实现内容**: `dependfix-reports/{YYYY-MM}/{runId}/` 多仓库各自 md/json + 汇总 json + `index.json`（runId/时间/仓库/计数/时长）+ `--history <repo>` 仓库级历史（repoStats 口径）+ 与 RunSummary 同字段口径
+- **验收**: 连续 2 次运行 index.json 可查按仓库趋势；现有报告输出与 action artifact 不破坏
+- **Review Gate**: 首轮 REJECT（P1 --history 多仓库输出全局计数 → 改 repoStats 仓库级口径；P2 grouping.test.ts 污染 cwd → reportOutputDir 隔离）→ 复审 PASS
+- **非目标**: 图表/仪表板（M6 平台）；报告保留策略（登记 backlog C19）
+
+### M4 完成判定（全部通过）
+
+- [x] `--owner` 一次拉取多仓库处理清单
+- [x] 显式 + 发现 + 名单组合结果可预期
+- [x] 多仓库失败隔离 + 并发可控
+- [x] 历史归档可查趋势
+- [x] typecheck + lint + 650 tests 全部通过；Review Gate 放行
+
+### M4 阶段治理记录（2026-08-05 ~ 2026-08-06）
+
+- **主交付**: T401-T404 四轮提交（cb801b60 / fedb7200 / 5860fb4d / 2a7fed00），T402/T404 首轮 REJECT 后修复复审 PASS，每任务独立 Review Gate
+- **Action 接入（7c39db00）**: owner / repo-* / max-concurrency / max-retries 输入接线；建议每仓库单独配置 action 控制权限范围
+- **backlog 修复批次（3d19d499 / ac8ce5c7）**: R1 写请求 429 不重试、R2 `--max-backoff-ms` 可配、R3 Retry-After 解析、R5 topics 大小写归一、R6 glob ReDoS 加固（>200 字符拒绝）、R7 损坏 index 备份重建；P3 五项（小数截断拒绝、merge 大小写去重、repoSlug 碰撞后缀、cleanup-branches 空归档跳过、cleanup-branches maxConcurrency fail-fast）
+- **全 ESM（965e68f3）**: 两包单格式 esm（R4 消除），Node 22.12+ 原生 require(ESM) 兜底未来 CJS 消费者
+- **增强候选批次**: C5+C1（12af197d，resolveWithinWorkDir 符号链接防护 + pnpm 11 overrides 假成功警告）、C10+C11（10927851，lockfile 告警版本关系细化 + workspace 成员直接依赖识别）、C8（67157985，per-source 错误隔离保留待评估）、C2+C6+C7（cf12e381，toolchainPnpmVersion 验证链 + PR body 64KB 截断 + alertsConverged 口径拆分）
+- **编号标记清理（3c714cc1）**: 60 处编号标记清理 + development.md §3 立规（教训 §十六/§十七）
+- **遗留登记（转入 backlog）**: C3/C4/C9/C13-C19 等增强候选
+
+---
+
+## M4.5: 跨线升级显式授权（已归档）
+
+> 归档日期: 2026-08-07
+> 阶段摘要: 参见 [roadmap.md §M4.5](roadmap.md)
+> 状态: 已完成（含编号标记治理闭环）
+> 最终提交: `528d1aae`（编号标记残留清理 + Review Gate 必查项）
+
+**阶段成果**: `--allow-major-upgrade` 跨线告警显式授权自动升级（仅 CLI，无 env 通道、Action 结构性禁用）。720 tests。
+
+### T405 实现 --allow-major-upgrade 跨线显式授权 ✅
+
+- **交付物**: `packages/cli/src/app/index.ts` 2.0.2 跨线链路 + CLI 参数
+- **实现内容**: 三态布尔 CLI 参数（无 env 通道；action.yml 不暴露 input → Action 结构性禁用）+ config 直通；跨线分流（仅根直接依赖 + lockfile 单版本进入自动跨线）；2.0.2 链路（快照 → upgradeDependency → **升级后实例复核** → **强制完整验证 install+lint+build** → 失败 restoreTrackedFiles 回滚）；同包多跨线告警按包聚合取最高目标；报告 `strategy='major-upgrade'` + `isMajor=true`
+- **验收**: 默认行为与 PR #28 完全一致（跨线 skipped 不误标）；开启后仅根直接依赖单版本跨线自动升级；间接依赖/成员独占/多版本共存维持人工；dry-run 不写盘；验证动作入报告
+- **Review Gate**: 首轮 REJECT（P1-1 实例残留误标 + P2-1 同包多告警目标选择 + P2-2 成员独占必然失败 + P2-3 验证证据缺失）→ 全部修复复审 PASS
+- **残余风险登记（转入 backlog 跟踪）**: 理论降级边（跨线升级后仍可能被未来推荐版本降级？）/ 合并告警计数（同包多告警合并后 skipped/fixed 计数口径）/ node_modules 不回滚（回滚仅 manifest + lockfile，node_modules 残留旧包）/ 自定义 commands 时验证链为用户链（verifyCommands 自定义时完整验证语义由用户命令决定）
+- **后续治理**: 用户指出编号标记问题（与 3c714cc1 同类）→ 528d1aae 清理 10 处残留 + code-auditor 必查项 + code-reviewer checklist（教训 §十五/§十六）
+
+### M4.5 完成判定（全部通过）
+
+- [x] `--allow-major-upgrade` 仅 CLI 可用（Action 结构性禁用）
+- [x] 开启后仅「根 package.json 直接依赖 + lockfile 单版本」跨线自动升级
+- [x] 升级后实例复核 + 强制完整验证，失败/残留回滚计 failed 不误标
+- [x] 间接依赖 / 成员独占 / 多版本共存跨线维持人工
+- [x] typecheck + lint + 720 tests + build 通过；Review Gate 复审 PASS
+
+---
+
+## M4.6: Monorepo 成员级修复增强（已归档）
+
+> 归档日期: 2026-08-07
+> 阶段摘要: 参见 [roadmap.md §M4.6](roadmap.md)
+> 状态: 已完成
+> 最终提交: `7fb264e3` feat(cli): 支持 workspace 成员级直接依赖自动升级
+
+**阶段成果**: workspace 成员包直接依赖告警自动升级（成员级修复器 + 三桶化分流 + app 2.0.3 链路 + 报告/指纹 manifest 维度）。755 tests。
+
+### 方案细化（2026-08-07 落盘，三项用户决策）
+
+- **D1 修复器扩展**: `UpgradeDependencyParams.manifestDir?`（缺省 = 根 manifest 现状回归）；install 仍在根 workDir 执行（workspace 解析语义）；非 semver 声明 failResult
+- **D2 快照扩展**: `snapshotTrackedFiles(workDir, extraPaths?)` 支持成员 manifest 相对路径
+- **D3 partition 三桶化**: `{ root, member, sub }`——member 准入 = 成员白名单 + 成员直接声明 + fixable + lockfile 单版本 + 推荐>=锁定 + 非跨线
+- **D4 app 2.0.3 链路**: 按「包名 + manifestDir」聚合取最高推荐 → 快照 → 升级 → 实例复核（残留回滚）→ **lint-only 验证**（用户决策 1）→ 失败回滚
+- **D5 报告**: FixAction 复用 `filePath` + `strategy='member-upgrade'`（用户决策 3）；多版本共存成员告警维持 sub（用户决策 2）
+
+### T406 成员级直接依赖升级修复器 ✅
+
+- **交付物**: `packages/cli/src/fixers/dependency/index.ts` 扩展
+- **实现内容**: `manifestDir` 参数（成员 manifest 解析 / 备份 / install 失败回滚成员 manifest + lockfile）；`isNonSemverDeclaration` 协议防护（workspace/catalog/link/file/npm/github/gitlab/bitbucket/gist/git+ssh/git+https/git+http/git+file/git/http/ssh/portal/patch 等，全集见源码正则）；`fromVersion/toVersion` 保留成员声明前缀
+- **验收**: 根直接依赖行为零变化；成员升级成功 / install 失败回滚 / 非 semver failResult（不写盘、不触发 install）
+
+### T407 成员告警分流与 app 接线 ✅
+
+- **交付物**: partition 三桶化 + 快照扩展 + app 2.0.3 链路 + 报告渲染
+- **实现内容**: `snapshotTrackedFiles(extraPaths)`；`partitionSubmanifestAlerts` 返回 `{ root, member, sub }`（member 桶准入见 D3）；app 2.0.3（聚合 / dry-run / 快照 / 实例复核 / lint-only / 回滚，残留回滚日志含"其他成员 pin / 根 override"归因）；markdown actionDetails filePath 展示 + PR body `member upgrade` 策略与成员路径列 + `computeFixFingerprint` 纳入 manifest 维度（防根/成员升级指纹碰撞）
+- **验收**: 成员直接依赖安全场景自动升级且报告可见成员路径；降级风险 / 无版本信息 / 多版本共存 / 跨线维持人工；失败 / 残留回滚计 failed 不误标 fixed/converged
+
+### M4.6 完成判定（全部通过）
+
+- [x] T406/T407 交付并通过 Review Gate（三审 PASS）
+- [x] typecheck + lint + 755 tests + build 通过
+- [x] 根直接依赖行为回归无损
+- [x] 方案细化三项决策已确认落盘
+
+### M4.6 阶段治理记录（2026-08-07）
+
+- **提交**: 立项（2607b665）+ 方案细化（c19bf091）+ 实现（7fb264e3）
+- **Review Gate 三审**: 首轮 REJECT（P1-1 协议正则漏 git+ssh 等 / P2-1 PR 聚合丢成员路径 / P2-2 同包多成员 pin 复核互斥 / P2-3 todo 状态未同步）→ 修复复审 PASS（新增 P2-1 指纹未含 filePath / P2-2 正则漏 gitlab 变体）→ 修复终审 PASS
+- **经验沉淀**: 归档 §十八（防护正则按全集核对 + 同类扫描）/ §十九（维度字段传播检查）/ §二十（断言精确到链路身份）/ §二十一（脚本化编辑验证文件内容）+ code-reviewer checklist 新增「协议/枚举全集核对」「维度字段传播检查」两小节
+- **残余风险**: 成员验证 lint-only（演进项：成员独立 lint 脚本）；明细表 action 查找粒度；同包多成员精确 pin 场景需人工介入；`latest`/`*` 等 range 的 `^` 归约行为未纳入防护
+- **遗留登记**: 无阻塞项，M5 可启动

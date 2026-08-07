@@ -28,7 +28,7 @@
 - **报告输出**：Markdown + JSON 双格式报告，包含修复摘要与失败原因
 - **PR 创建**：`fix-and-pr` 模式下自动创建修复分支并提交 Pull Request
 - **GitHub Action**：通过 `uses: dependfix/dependfix@v1` 一行接入，支持定时和手动触发
-- **多仓库**：支持单仓库、批量仓库修复
+- **多仓库**：支持单仓库、批量仓库修复，可对 GitHub Organization / 用户自动发现仓库（`--owner`，含 topic / glob 过滤）
 - **Agent Skill**：`dependfix-remediator` 可分发给主流 AI 编码工具（Claude Code / Copilot / Cursor / OpenCode），对话式驱动修复闭环
 
 ## 快速开始
@@ -48,6 +48,9 @@ dependfix fix --repo owner/repo --github-token $GITHUB_TOKEN --severity-threshol
 
 # 修复并创建 PR
 dependfix fix-and-pr --repo owner/repo --github-token $GITHUB_TOKEN
+
+# GitHub Organization / 用户自动发现仓库（与 --repo 合并去重，显式优先）
+dependfix fix-and-pr --owner your-org --github-token $GITHUB_TOKEN
 ```
 
 ## Agent Skill 安装
@@ -110,6 +113,43 @@ jobs:
 >
 > 💡 **分支清理建议**：① 在仓库设置开启 **Settings → General → Pull Requests → "Automatically delete head branches"**（PR 合并后 GitHub 自动删除 head 分支）；② 或在 workflow 中开启 `cleanup-branches-auto: true`（dependfix 在每次运行结束后自动删除已合并/已关闭的 `dependfix/` 分支，不删有 open PR 的分支）。
 
+## GitHub Organization 支持
+
+通过 `--owner`（或 `DEPENDFIX_OWNER`）自动发现组织 / 用户下的仓库，与显式 `--repo` 合并去重（显式优先）：
+
+```bash
+# 自动发现 org 下全部仓库：报告 → 修复 → 创建 PR
+dependfix fix-and-pr --owner your-org --github-token $GITHUB_TOKEN
+
+# 多个 owner / org 混合（用户 + 组织）
+dependfix fix-and-pr --owner your-org,your-user --github-token $GITHUB_TOKEN
+
+# 限定发现范围：topic 白名单（AND）+ 仓库 glob 白名单
+dependfix fix-and-pr --owner your-org --repo-topics security-tracked --repo-include "your-org/*" --github-token $GITHUB_TOKEN
+
+# 先报告确认范围，再执行修复
+dependfix report-only --owner your-org --github-token $GITHUB_TOKEN
+```
+
+**发现机制**：先查询 `GET /users/{owner}` 判断主体类型（Organization / User），组织走 `GET /orgs/{org}/repos`、用户走 `GET /users/{user}/repos`；随后按顺序过滤——archived / disabled / fork 剔除 → topic 白名单（AND）→ include / exclude / topicsExclude 名单策略 → 探测 `.github/dependabot.yml`（仅候选仓库，并发受限）。结果按 `owner/repo` 字典序排序，多次运行结果一致（runId / 报告指纹稳定性前提）。
+
+**token 权限要求**（org 场景）：
+
+| 能力 | classic PAT | fine-grained PAT |
+|:---|:---|:---|
+| 发现 + 修复 + PR | `repo`（含 `security_events`） | `Contents: read/write` + `Pull requests: read/write`（自动附带 `Metadata: read`） |
+| Dependabot alerts | `security_events` | `Dependabot alerts: read`（GITHUB_TOKEN 无法读取该 API，见 [G2 处置记录](docs/plan/todo-archive.md#g2-处置记录-github_token-无法访问-dependabot-alerts)） |
+| Code Scanning（可选） | `security_events` | `Security events: read` |
+
+> 启用 SAML SSO 的组织：classic PAT 需在 GitHub 网页对组织逐个 **Enable SSO**；fine-grained PAT 需组织管理员授权仓库范围。私有 org 仓库仅返回 token 可见范围内的仓库——`--owner` 发现不保证覆盖全部私有仓库，需按仓库授权。
+
+**限制与边界**：
+
+- GitHub Action 内 `GITHUB_TOKEN` 仅能访问当前仓库——跨仓库 org 发现 / 修复必须提供独立 PAT（`github-token` 输入），或为每个仓库单独配置 action。
+- `cleanup-branches` 模式不支持 `--owner`（分支清理需明确目标仓库，配置校验 fail-fast）。
+- 修复分支直接推送到目标仓库（同仓库内创建 PR，无需 fork）；org 仓库需确保 token 有 `Contents: write`。
+- 当前仅支持 PAT 认证（classic / fine-grained）；GitHub App / installation token 认证、发现规模上限（max-repos）、org 级 alerts API 已在 [backlog.md](docs/plan/backlog.md) 登记为增强候选。
+
 ## CLI 参数
 
 | 参数 | 说明 | 默认值 |
@@ -117,6 +157,11 @@ jobs:
 | `mode` | 运行模式：`report-only` / `fix` / `fix-and-pr` | `report-only` |
 | `--repo`, `-r` | 目标仓库（`owner/repo`），逗号分隔多个 | — |
 | `--repos-file` | 从文件读取仓库列表（每行一个） | — |
+| `--owner` | owner / org 自动发现仓库（逗号分隔多个或多次传入；与 `--repo` 合并去重，显式优先；仅 github-dependabot 数据源可用） | `DEPENDFIX_OWNER` 环境变量 |
+| `--repo-topics` | 发现结果 topic 白名单（逗号分隔，AND 语义；仅影响 `--owner` 发现结果） | `DEPENDFIX_REPO_TOPICS` 环境变量 |
+| `--repo-include` | 仓库白名单 glob（如 `owner/*`、`owner/pkg-*`；仅作用于发现结果） | `DEPENDFIX_REPO_INCLUDE` 环境变量 |
+| `--repo-exclude` | 仓库黑名单 glob（显式列表与发现结果均受约束；与 include 冲突时 exclude 胜出） | `DEPENDFIX_REPO_EXCLUDE` 环境变量 |
+| `--repo-topics-exclude` | 发现结果 topic 黑名单（排除含任一指定 topic 的仓库；仅作用于发现结果） | `DEPENDFIX_REPO_TOPICS_EXCLUDE` 环境变量 |
 | `--github-token` | GitHub Personal Access Token | `GITHUB_TOKEN` 环境变量 |
 | `--alerts-token` | Dependabot alerts 专用最小权限 token（可选，仅 `Dependabot alerts: read`；缺省回退 `--github-token`。GITHUB_TOKEN 无法读取 Dependabot alerts） | `DEPENDFIX_ALERTS_TOKEN` 环境变量 |
 | `--severity-threshold` | 严重级别阈值：`critical` / `high` / `medium` / `all` | `high` |

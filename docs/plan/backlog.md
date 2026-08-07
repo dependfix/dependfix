@@ -92,6 +92,26 @@
 - **C18 名单正则引擎**：T403 非目标（首版 glob 通配）
 - **C19 报告保留策略**：T404 非目标（容量治理：归档上限 / 清理策略）
 
+### GitHub Organization 增强候选（2026-08-07 评估登记）
+
+> 评估结论：M4 已交付 org 基础支持（`--owner` 发现走 `GET /orgs/{org}/repos`、过滤链、per-repo 告警拉取、直接推送分支建 PR、测试覆盖），基础可用。以下为评估后登记的增强项，按价值排序；README 已补 org 用法与权限说明。
+
+- **C22 GitHub App / installation token 认证**（CLI 侧增强，org 场景安全性关键项）
+  - 状态：🔶 待评估（关联 M6 T602）
+  - 内容：当前仅支持 PAT（`GITHUB_TOKEN` / `DEPENDFIX_GITHUB_TOKEN` / `DEPENDFIX_ALERTS_TOKEN`）；架构文档声明输入含 "GitHub App 凭证"（[architecture.md](../design/governance/architecture.md)），但 [github-client.md](../design/packages/github-client.md) 明确"不实现 GitHub App / Installation Token 认证"。org 场景 PAT 痛点：classic PAT 需 `repo` 全量 scope（权限过大）；fine-grained PAT 需逐仓库配置 + 逐个 org 启用 SSO；个人 token 离职/轮换管理困难。GitHub App 价值：按仓库授权限、短时 token、org 管理员可控可审计
+  - 实现路径：`createGitHubClient` 增加 app auth（appId + privateKey → JWT → installation token），或支持直接注入 installation token（后者近零成本，当前传任意有效 token 即可用，缺的是文档化 + 生成链路）
+  - 关联：M6 T602 凭据管理已规划 GitHub App 凭据类型（app-id + private-key）；CLI 侧认证能力为其前置或并行增强
+  - 来源：2026-08-07 GitHub Organization 支持评估
+- **C23 发现规模上限 max-repos**（架构文档已规划未实现）
+  - 状态：🔶 待评估
+  - 内容：[architecture.md](../design/governance/architecture.md) 规划 `max-repos` 输入参数，代码未实现（grep 零命中）。大 org（数百仓库）一次性全量发现 + 逐仓库探测 `.github/dependabot.yml`（N 次 contents API），配额消耗与总耗时不可控；现有防护仅 concurrency（report-only 16）+ 限流重试 + probe 并发 5，无总量上限
+  - 建议：发现层按配置上限截断（排序后截断保证确定性），或拆为分批处理
+  - 来源：2026-08-07 GitHub Organization 支持评估
+- **C24 org 级 alerts API 批量拉取**（优化项）
+  - 状态：🔶 待评估（等真实大 org 用户痛点再动）
+  - 内容：GitHub 提供 org 级 `GET /orgs/{org}/dependabot/alerts` 与 `GET /orgs/{org}/code-scanning/alerts`，当前按仓库逐仓拉取（listAlertsForRepo）。大 org 场景可显著减少 API 调用，但需按仓库重组结果 + defaultBranch 注入（org 级响应可能缺省分支上下文），复杂度上升
+  - 来源：2026-08-07 GitHub Organization 支持评估
+
 ### M4 残余风险登记（2026-08-06，T402-T404 Review Gate 移交）
 
 > M4 交付时审计登记的 8 项残余风险，供后续阶段排期跟踪。

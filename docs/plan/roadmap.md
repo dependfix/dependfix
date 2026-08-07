@@ -60,13 +60,13 @@ Monorepo 骨架搭建、核心配置模型、工具链版本策略固定、标�
 
 支持 owner 级仓库自动发现、并发控制与失败隔离、仓库白名单/黑名单策略、报告归档与趋势统计。
 
-> 详细任务见 [todo.md §M4](todo.md#m4-多仓库治理增强)
+> 详细任务见 [todo-archive.md §M4](todo-archive.md#m4-多仓库治理增强已归档)
 
 ## M4.6: Monorepo 成员级修复增强
 
 workspace 成员包直接依赖告警的自动修复：成员 manifest 升级能力（T406）+ 告警分流与 app 接线（T407）。
 
-> 详细任务见 [todo.md §M4.6](todo.md#m46-monorepo-成员级修复增强t406t407)
+> 详细任务见 [todo-archive.md §M4.6](todo-archive.md#m46-monorepo-成员级修复增强已归档)
 
 ## M5: AI Breaking Change 研判
 

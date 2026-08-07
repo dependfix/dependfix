@@ -42,7 +42,7 @@ docs/
 - **图表**: 优先使用 Mermaid，不嵌入难维护的图片描述
 - **VitePress 容器**: 关键信息使用 `::: info` / `::: warning` / `::: danger`
 - **链接**: 使用相对路径，确保路径真实可用。本地文件链接默认**不带锚点**（`path.md`）：锚点 slug 规则跨平台不一致（GitHub 移除全角标点 `（）`、`、` 等，VS Code / VitePress 保留），带锚点链接在部分平台会失效；必须带锚点时，目标标题避免全角标点，且锚点需能被 [`check:links` 脚本](../../scripts/check-links.mjs) 验证通过
-- **链接检查**: `pnpm run check:links`（`scripts/check-links.mjs`，零依赖）验证全部 md 文件的本地路径存在性与锚点匹配——按宽松规范化（小写 + 移除标点/符号/空白）兼容 GitHub / VS Code / VitePress 三种 slug 规则差异，只抓真实断链与假锚点；**同时拒绝本地绝对路径**（`/xxx`、`C:/xxx`、`\\server`）与**路径穿越**（`../..` 解析超出仓库根）——md 本地链接必须使用项目内相对路径。已接入 CI（test.yml）
+- **链接检查**: `pnpm run check:links`（`scripts/check-links.mjs`，零依赖）验证全部 md 文件的本地路径存在性与锚点匹配——按宽松规范化（小写 + 移除标点/符号/空白）兼容 GitHub / VS Code / VitePress 三种 slug 规则差异，只抓真实断链与假锚点；**同时拒绝本地绝对路径**（`/xxx`、`C:/xxx`、`\\server`）与**路径穿越**（`../..` 解析超出仓库根）——md 本地链接必须使用项目内相对路径。已接入 CI（test.yml）。**归档/重命名标题时**：内容移入归档文件（标题带"已归档"等后缀）或标题改写后，必须全局检索指向该标题的锚点链接（`rg -n '\[[^]]*\]\([^)]*#.*'` 链接文本），同步改指新位置/新锚点——check:links 是最后防线，会在 CI 滞后暴露（2026-08-07 roadmap → todo-archive 锚点失效案例，见 [经验归档 §二十二](../design/governance/2026-08-06-experience-archive.md)）
 - **Markdown 格式检查**: `pnpm run lint:md`（`@lint-md/cli`，`--fix` 自动格式化：中英文/数字间距、标题规范、列表缩进等）与 `pnpm run lint:md:check`（无 `--fix`，CI 门禁用，已接入 test.yml / release.yml）。规则裁剪见根目录 [`.lintmdrc`](../../.lintmdrc)（关闭半角标点等与中文技术文档冲突的规则，参照 momei 项目做法）。提交前运行 `pnpm run lint:md` 保持文档格式化一致；lint-staged 已挂载 `*.md` 自动执行
 
 ## 3. 文档行数阈值

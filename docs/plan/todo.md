@@ -23,7 +23,7 @@
 
 - [x] **决策 1：AI 提供商**——**OpenAI 兼容端点优先，同时支持 Anthropic**；DeepSeek 等通过指定端点（`--ai-base-url`）走 OpenAI 兼容协议。实现：轻量 fetch 封装（不引入 SDK），`AiProvider` 接口 + `OpenAICompatibleProvider` / `AnthropicProvider` + factory
 - [x] **决策 2：触发时机**——**验证失败 + major 升级触发，可手动配置**。`--ai` 总开关（默认 false）开启后，默认在「升级验证失败 或 major 升级」时触发研判；`--ai-trigger` 可配（failure / major / all）
-- [x] **决策 3：Token 来源与凭据安全**——CLI：`DEPENDFIX_AI_API_KEY` env（优先）/ `--ai-api-key`（警示：进程列表/shell history 泄露面，文档注明）；action：`ai-api-key` input（`secret: true`）；独立平台：M6 T602 统一凭据管理（AES-256-GCM）。**凭据泄露防护（用户要求考虑）**：① apiKey 不落盘（不进入 RunReportConfig / RunResult 序列化）② 日志与 AI 错误消息脱敏（`maskSecrets` 工具）③ action input 声明 secret ④ 文档警示 CLI 参数泄露面
+- [x] **决策 3：Token 来源与凭据安全**——CLI：`DEPENDFIX_AI_API_KEY` env（优先）/ `--ai-api-key`（警示：进程列表/shell history 泄露面，文档注明）；action：`ai-api-key` input（`secret: true`——**实现注记 2026-08-07**：composite action input 不支持 `secret` 属性，实际采用经 env `DEPENDFIX_AI_API_KEY` 传递自动打码）；独立平台：M6 T602 统一凭据管理（AES-256-GCM）。**凭据泄露防护（用户要求考虑）**：① apiKey 不落盘（不进入 RunReportConfig / RunResult 序列化）② 日志与 AI 错误消息脱敏（`maskSecrets` 工具）③ action input 声明 secret ④ 文档警示 CLI 参数泄露面
 - [x] **决策 4：成本默认关闭 + token 消耗展示**——AI 默认关闭（`--ai` opt-in，计费多为推算）；**每次 AI 调用记录 usage（input/output tokens）**，聚合展示：日志（每次调用）+ 报告（§AI 研判区块：调用次数 + token 消耗 + 可选成本估算——内置常见模型单价表，标注"估算仅供参考"）
 
 ### T501 实现 Changelog / Release Notes 采集
@@ -180,25 +180,25 @@
 
 - **优先级**: P1
 - **依赖**: T502（ai/ 组件）、T503、T504、T210（PR 链路）
-- **状态**: 未开始
+- **状态**: 已实现（2026-08-07，待 Review Gate）
 - **交付物**: config 接线 + app 触发接入 + 报告展示 + action 输入
 
 **任务内容**:
 
-- [ ] config：--ai / --ai-provider / --ai-model（默认 deepseek-v4-flash，2026-08-07 用户确认）/ --ai-base-url / --ai-api-key / --ai-trigger；RuntimeConfig.ai 子配置；开启时 apiKey 缺失 → 清晰报错（承接 T502 待办项）
-- [ ] 凭据安全：ai.apiKey 不进 RunReportConfig 序列化（报告/JSON 排除）；日志脱敏（复用 maskSecrets）
-- [ ] app 触发：升级验证失败 或 major 升级（--ai-trigger 可配）→ 构建研判上下文（changelog + 失败日志 + 文件）→ assessBreakingChange
-- [ ] 结果分流：code-change → safety-gate → applyChanges → 完整验证（install+lint+build）→ 成功提交（FixAction strategy=ai-patch + diff）失败回滚；version-lock → 复用 override 链路；wait-upstream/manual → 报告建议区块
-- [ ] usage 日志（每次调用消耗 + 估算成本）与报告展示（aiUsage 聚合）
-- [ ] action.yml：ai-api-key input（secret: true）+ ai 相关输入
+- [x] config：--ai / --ai-provider / --ai-model（默认 deepseek-v4-flash，2026-08-07 用户确认）/ --ai-base-url / --ai-api-key / --ai-trigger；RuntimeConfig.ai 子配置；开启时 apiKey 缺失 → 清晰报错（承接 T502 待办项）
+- [x] 凭据安全：ai.apiKey 不进 RunReportConfig 序列化（报告/JSON 排除）；日志脱敏（复用 maskSecrets）
+- [x] app 触发：升级验证失败 或 major 升级（--ai-trigger 可配）→ 构建研判上下文（changelog + 失败日志 + 文件）→ assessBreakingChange
+- [x] 结果分流：code-change → safety-gate → applyChanges → 完整验证（install+lint+build）→ 成功提交（FixAction strategy=ai-patch + diff）失败回滚；version-lock → 复用 override 链路；wait-upstream/manual → 报告建议区块
+- [~] usage 日志（每次调用消耗 + 估算成本）已交付；报告 aiUsage 聚合段登记演进（当前 AI 动作在 Fix Actions 表可见）
+- [x] action.yml：ai 系列 inputs + DEPENDFIX_AI_* env（api-key 经 env 传递自动打码）
 
 **完成定义**:
 
-- [ ] --ai 开启 + apiKey 配置后，验证失败/major 升级自动触发 AI 研判并产出可审计结果
-- [ ] code-change 修复通过质量门才提交；失败回滚计 failed 不误标
-- [ ] 未开启 --ai 时行为与现状完全一致（回归）
-- [ ] apiKey 不进报告/日志（脱敏测试）
-- [ ] dry-run 不触发 AI（不产生费用）
+- [x] --ai 开启 + apiKey 配置后，验证失败/major 升级自动触发 AI 研判并产出可审计结果
+- [x] code-change 修复通过质量门才提交；失败回滚计 failed 不误标
+- [x] 未开启 --ai 时行为与现状完全一致（回归）
+- [x] apiKey 不进报告/日志（脱敏测试）
+- [x] dry-run 不触发 AI（不产生费用）
 
 **非目标**: M6 平台凭据管理接入（T602）；AI 多轮交互
 

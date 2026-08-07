@@ -15,8 +15,10 @@ export interface AiUsage {
 export const MODEL_PRICE_TABLE: Record<string, { inputPerM: number, outputPerM: number }> = {
     'gpt-4o-mini': { inputPerM: 0.15, outputPerM: 0.6 },
     'gpt-4o': { inputPerM: 2.5, outputPerM: 10 },
-    'deepseek-chat': { inputPerM: 0.27, outputPerM: 1.1 },
-    'deepseek-reasoner': { inputPerM: 0.55, outputPerM: 2.19 },
+    'deepseek-chat': { inputPerM: 0.14, outputPerM: 0.28 },
+    'deepseek-reasoner': { inputPerM: 0.14, outputPerM: 0.28 },
+    'deepseek-v4-flash': { inputPerM: 0.14, outputPerM: 0.28 },
+    'deepseek-v4-pro': { inputPerM: 0.43, outputPerM: 0.87 },
     'claude-3-5-haiku': { inputPerM: 0.8, outputPerM: 4 },
     'claude-3-5-sonnet': { inputPerM: 3, outputPerM: 15 },
 }

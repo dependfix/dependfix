@@ -77,15 +77,35 @@ inputs:
     description: '同时拉取 Code Scanning alerts（与 Dependabot 并行源，默认关闭；需要 token 具备 security-events: read，GITHUB_TOKEN 默认具备）'
     required: false
     default: 'false'
-  # ── AI 引擎联调骨架 ──
-  ai-api-token:
-    description: 'AI API Token（联调启用，通过 GitHub Secrets 传入）'
+  # ── AI breaking change 研判（与 CLI --ai 系列对齐）──
+  ai:
+    description: '开启 AI breaking change 研判（默认 false；需配置 ai-api-key；dry-run 不触发不产生费用）'
+    required: false
+    default: 'false'
+  ai-api-key:
+    description: 'AI API Key（通过 GitHub Secrets 传入，如 ${{ secrets.DEEPSEEK_API_KEY }}；经环境变量传递自动打码）'
     required: false
     default: ''
-  ai-api-base-url:
-    description: 'AI API Base URL（联调启用，支持多 AI 提供商）'
+  ai-provider:
+    description: 'AI 提供商：openai-compatible（默认，DeepSeek 等）/ anthropic'
+    required: false
+    default: 'openai-compatible'
+  ai-model:
+    description: 'AI 模型名（默认 deepseek-v4-flash）'
+    required: false
+    default: 'deepseek-v4-flash'
+  ai-base-url:
+    description: 'OpenAI 兼容端点（默认 https://api.deepseek.com，与默认模型配套）'
+    required: false
+    default: 'https://api.deepseek.com'
+  ai-api-url:
+    description: 'Anthropic 兼容端点（默认 https://api.anthropic.com/v1/messages；自托管/网关可指定）'
     required: false
     default: ''
+  ai-trigger:
+    description: 'AI 触发范围：both（默认，验证失败或 major 升级）/ failure / major'
+    required: false
+    default: 'both'
 
 outputs:
   report-artifact:
@@ -168,9 +188,14 @@ runs:
         GITHUB_TOKEN: ${{ inputs.github-token }}
         # Dependabot alerts 专用最小权限 token（经环境变量传递，避免出现在进程列表）
         DEPENDFIX_ALERTS_TOKEN: ${{ inputs.dependabot-alerts-token }}
-        # AI engine — passed to CLI when available
-        AI_API_TOKEN: ${{ inputs.ai-api-token }}
-        AI_API_BASE_URL: ${{ inputs.ai-api-base-url }}
+        # AI 研判（经环境变量传递：api-key 自动打码、不进进程列表）
+        DEPENDFIX_AI: ${{ inputs.ai }}
+        DEPENDFIX_AI_API_KEY: ${{ inputs.ai-api-key }}
+        DEPENDFIX_AI_PROVIDER: ${{ inputs.ai-provider }}
+        DEPENDFIX_AI_MODEL: ${{ inputs.ai-model }}
+        DEPENDFIX_AI_BASE_URL: ${{ inputs.ai-base-url }}
+        DEPENDFIX_AI_API_URL: ${{ inputs.ai-api-url }}
+        DEPENDFIX_AI_TRIGGER: ${{ inputs.ai-trigger }}
 
     - name: Upload report artifact
       id: upload-report

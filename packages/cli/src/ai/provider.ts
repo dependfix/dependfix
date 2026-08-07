@@ -10,8 +10,18 @@ export interface AiConfig {
     model: string
     /** API Key（仅运行时持有，不落盘不进报告，见 secrets.ts 脱敏） */
     apiKey: string
-    /** OpenAI 兼容端点基地址（默认 https://api.openai.com/v1；DeepSeek 等指到对应 /v1） */
+    /**
+     * OpenAI 兼容端点基地址（默认 `https://api.deepseek.com`，与默认模型
+     * deepseek-v4-flash 配套；DeepSeek 官方 OpenAI 兼容端点）。
+     * 使用 OpenAI 官方模型时显式指定 `https://api.openai.com/v1`。
+     */
     baseUrl?: string
+    /**
+     * Anthropic 兼容端点（仅 provider=anthropic 生效；
+     * 默认 `https://api.anthropic.com/v1/messages`）。
+     * 自托管 / 网关等 anthropic 格式兼容端点可显式指定。
+     */
+    apiUrl?: string
     /** 单次调用最大输出 token（默认 2048） */
     maxTokens?: number
     /** 请求超时毫秒（默认 60000） */
@@ -100,7 +110,7 @@ class OpenAICompatibleProvider implements AiProvider {
         private readonly opts: { fetchFn: typeof fetch, timeoutMs: number, maxTokens: number, temperature: number },
     ) {
         this.name = 'openai-compatible'
-        this.baseUrl = (config.baseUrl ?? 'https://api.openai.com/v1').replace(/\/+$/, '')
+        this.baseUrl = (config.baseUrl ?? 'https://api.deepseek.com').replace(/\/+$/, '')
     }
 
     async chat(params: AiChatParams): Promise<AiChatResult> {
@@ -153,12 +163,14 @@ class OpenAICompatibleProvider implements AiProvider {
 
 class AnthropicProvider implements AiProvider {
     readonly name = 'anthropic'
-    private readonly apiUrl = 'https://api.anthropic.com/v1/messages'
+    private readonly apiUrl: string
 
     constructor(
         private readonly config: AiConfig,
         private readonly opts: { fetchFn: typeof fetch, timeoutMs: number, maxTokens: number, temperature: number },
-    ) {}
+    ) {
+        this.apiUrl = (config.apiUrl ?? 'https://api.anthropic.com/v1/messages').replace(/\/+$/, '')
+    }
 
     async chat(params: AiChatParams): Promise<AiChatResult> {
         // Anthropic messages API：system 独立字段，messages 仅 user/assistant

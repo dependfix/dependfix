@@ -128,6 +128,47 @@ export interface RuntimeConfig {
      * （由策略链 REGENERATE/REINSTALL 兜底）。
      */
     toolchainPnpmVersion?: string
+    /**
+     * AI 研判配置（`--ai` 系列参数 / `DEPENDFIX_AI_*` env）。
+     * 默认关闭（opt-in）；开启后依赖升级验证失败或 major 升级时触发
+     * breaking change 研判（触发范围由 `trigger` 控制）。
+     * `apiKey` 为凭据：仅运行时持有，**不进入 RunReportConfig 序列化**。
+     */
+    ai?: AiOptions
+}
+
+/**
+ * AI 研判触发范围。
+ * - `failure`：仅升级验证失败时触发
+ * - `major`：仅 major 升级时触发
+ * - `both`（默认）：验证失败 或 major 升级均触发
+ */
+export type AiTriggerKind = 'failure' | 'major' | 'both'
+
+export interface AiOptions {
+    /** AI 研判总开关（默认 false，opt-in；dry-run 下不触发） */
+    enabled: boolean
+    /** 提供商：openai-compatible（默认，DeepSeek 等指定 baseUrl）/ anthropic */
+    provider: 'openai-compatible' | 'anthropic'
+    /** 模型名（默认 `deepseek-v4-flash`，2026-08-07 决策，models.dev 确认） */
+    model: string
+    /**
+     * OpenAI 兼容端点基地址。
+     * 默认 `https://api.deepseek.com`（与默认模型 deepseek-v4-flash 配套；
+     * DeepSeek 官方 OpenAI 兼容端点，models.dev 确认）。
+     * 使用 OpenAI 官方模型时显式指定 `--ai-base-url https://api.openai.com/v1`
+     * 并配合对应 --ai-model。
+     */
+    baseUrl: string
+    /**
+     * Anthropic 兼容端点（仅 provider=anthropic 生效；
+     * 默认 `https://api.anthropic.com/v1/messages`；自托管/网关可显式指定）。
+     */
+    apiUrl?: string
+    /** AI API Key（凭据：仅运行时，不进报告/日志） */
+    apiKey?: string
+    /** 触发范围（默认 both） */
+    trigger: AiTriggerKind
 }
 
 export interface CliConfigOverrides {
@@ -176,6 +217,20 @@ export interface CliConfigOverrides {
     upgradeGroups?: Record<string, string[]>
     /** lockfile 修复用的 pnpm 版本（工具链固定；缺省从 packageManager 解析） */
     toolchainPnpmVersion?: string
+    /** AI 研判总开关（`--ai`） */
+    aiEnabled?: boolean
+    /** AI 提供商（`--ai-provider`：openai-compatible / anthropic） */
+    aiProvider?: 'openai-compatible' | 'anthropic'
+    /** AI 模型（`--ai-model`，默认 deepseek-v4-flash） */
+    aiModel?: string
+    /** AI 端点（`--ai-base-url`，OpenAI 兼容） */
+    aiBaseUrl?: string
+    /** AI Anthropic 兼容端点（`--ai-api-url`，仅 provider=anthropic 生效） */
+    aiApiUrl?: string
+    /** AI API Key（`--ai-api-key`；优先 DEPENDFIX_AI_API_KEY env） */
+    aiApiKey?: string
+    /** AI 触发范围（`--ai-trigger`：failure / major / both） */
+    aiTrigger?: AiTriggerKind
     /** 是否输出详细日志 */
     verbose?: boolean
     /** 自定义验证命令（覆盖默认的 `pnpm install --frozen-lockfile` / `pnpm lint` / `pnpm build`） */
@@ -204,6 +259,13 @@ export const DEFAULT_RUNTIME_CONFIG: Omit<RuntimeConfig, 'githubToken' | 'reposi
     maxConcurrency: 1,
     maxRetries: 3,
     maxBackoffMs: 30_000,
+    ai: {
+        enabled: false,
+        provider: 'openai-compatible',
+        model: 'deepseek-v4-flash',
+        baseUrl: 'https://api.deepseek.com',
+        trigger: 'both',
+    },
 }
 
 function isRuntimeMode(value: string): value is RuntimeMode {
@@ -410,7 +472,36 @@ export function readEnvConfig(env: NodeJS.ProcessEnv = process.env): CliConfigOv
         maxBackoffMs: normalizeInteger(readEnv(env, 'MAX_BACKOFF_MS'), `${ENV_PREFIX}MAX_BACKOFF_MS`),
         upgradeGroups: normalizeUpgradeGroups(readEnv(env, 'UPGRADE_GROUPS')),
         toolchainPnpmVersion: readEnv(env, 'TOOLCHAIN_PNPM_VERSION')?.trim() || undefined,
+        aiEnabled: normalizeBoolean(readEnv(env, 'AI'), `${ENV_PREFIX}AI`),
+        aiProvider: readAiProvider(readEnv(env, 'AI_PROVIDER'), `${ENV_PREFIX}AI_PROVIDER`),
+        aiModel: readEnv(env, 'AI_MODEL')?.trim() || undefined,
+        aiBaseUrl: readEnv(env, 'AI_BASE_URL')?.trim() || undefined,
+        aiApiUrl: readEnv(env, 'AI_API_URL')?.trim() || undefined,
+        aiApiKey: readEnv(env, 'AI_API_KEY')?.trim() || undefined,
+        aiTrigger: readAiTrigger(readEnv(env, 'AI_TRIGGER'), `${ENV_PREFIX}AI_TRIGGER`),
     }
+}
+
+function readAiProvider(value: string | undefined, name: string): 'openai-compatible' | 'anthropic' | undefined {
+    if (value === undefined) {
+        return undefined
+    }
+    const normalized = value.trim().toLowerCase()
+    if (normalized === 'openai-compatible' || normalized === 'anthropic') {
+        return normalized
+    }
+    throw new AppError('CONFIG_PARSE_ERROR', `Invalid ${name} value: "${value}". Expected "openai-compatible" or "anthropic".`)
+}
+
+function readAiTrigger(value: string | undefined, name: string): AiTriggerKind | undefined {
+    if (value === undefined) {
+        return undefined
+    }
+    const normalized = value.trim().toLowerCase()
+    if (normalized === 'failure' || normalized === 'major' || normalized === 'both') {
+        return normalized
+    }
+    throw new AppError('CONFIG_PARSE_ERROR', `Invalid ${name} value: "${value}". Expected "failure", "major" or "both".`)
 }
 
 function resolveDryRun(mode: RuntimeMode, cliOverrides: CliConfigOverrides, envConfig: CliConfigOverrides): boolean {
@@ -619,6 +710,14 @@ function validateRuntimeConfig(config: RuntimeConfig): RuntimeConfig {
         )
     }
 
+    // AI 研判：开启时必须提供 apiKey（防静默不生效 / 意外产生费用）；dry-run 不触发
+    if (config.ai?.enabled && !config.ai.apiKey) {
+        throw new AppError(
+            'CONFIG_VALIDATION_ERROR',
+            'AI 研判已开启但缺少 API Key。请设置 DEPENDFIX_AI_API_KEY 或 --ai-api-key（OpenAI 兼容端点 / Anthropic）。',
+        )
+    }
+
     return config
 }
 
@@ -666,9 +765,23 @@ export function resolveRuntimeConfig(options: ResolveRuntimeConfigOptions = {}):
         maxBackoffMs: cliOverrides.maxBackoffMs ?? envConfig.maxBackoffMs ?? DEFAULT_RUNTIME_CONFIG.maxBackoffMs,
         upgradeGroups: cliOverrides.upgradeGroups ?? envConfig.upgradeGroups,
         toolchainPnpmVersion: cliOverrides.toolchainPnpmVersion ?? envConfig.toolchainPnpmVersion,
+        ai: resolveAiOptions(cliOverrides, envConfig),
     }
 
     return validateRuntimeConfig(config)
+}
+
+function resolveAiOptions(cliOverrides: CliConfigOverrides, envConfig: CliConfigOverrides): AiOptions {
+    const defaults = DEFAULT_RUNTIME_CONFIG.ai!
+    return {
+        enabled: cliOverrides.aiEnabled ?? envConfig.aiEnabled ?? defaults.enabled,
+        provider: cliOverrides.aiProvider ?? envConfig.aiProvider ?? defaults.provider,
+        model: cliOverrides.aiModel ?? envConfig.aiModel ?? defaults.model,
+        baseUrl: cliOverrides.aiBaseUrl ?? envConfig.aiBaseUrl ?? defaults.baseUrl,
+        apiUrl: cliOverrides.aiApiUrl ?? envConfig.aiApiUrl ?? defaults.apiUrl,
+        apiKey: cliOverrides.aiApiKey ?? envConfig.aiApiKey ?? defaults.apiKey,
+        trigger: cliOverrides.aiTrigger ?? envConfig.aiTrigger ?? defaults.trigger,
+    }
 }
 
 // ---------------------------------------------------------------------------

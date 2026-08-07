@@ -155,6 +155,35 @@ export const argsDef = {
         type: 'boolean' as const,
         description: '输出详细日志',
     },
+    ai: {
+        type: 'boolean' as const,
+        description: '开启 AI breaking change 研判（默认关闭；需配置 AI API Key。触发范围见 --ai-trigger；dry-run 不触发、不产生费用）',
+        negativeDescription: '关闭 AI 研判（默认）',
+    },
+    'ai-provider': {
+        type: 'string' as const,
+        description: 'AI 提供商：openai-compatible（默认，DeepSeek 等指定 --ai-base-url 兼容）或 anthropic',
+    },
+    'ai-model': {
+        type: 'string' as const,
+        description: 'AI 模型名（默认 deepseek-v4-flash）',
+    },
+    'ai-base-url': {
+        type: 'string' as const,
+        description: 'OpenAI 兼容端点基地址（默认 https://api.deepseek.com，与默认模型 deepseek-v4-flash 配套；使用 OpenAI 官方模型时指定 https://api.openai.com/v1 + --ai-model）',
+    },
+    'ai-api-url': {
+        type: 'string' as const,
+        description: 'Anthropic 兼容端点（仅 --ai-provider anthropic 生效；默认 https://api.anthropic.com/v1/messages，自托管/网关可显式指定）',
+    },
+    'ai-api-key': {
+        type: 'string' as const,
+        description: 'AI API Key（优先 DEPENDFIX_AI_API_KEY env；注意命令行参数会出现在进程列表/shell history，敏感环境请用 env）',
+    },
+    'ai-trigger': {
+        type: 'string' as const,
+        description: 'AI 研判触发范围：failure（升级验证失败）/ major（major 升级）/ both（默认）',
+    },
 } satisfies ArgsDef
 
 // ---------------------------------------------------------------------------
@@ -396,6 +425,47 @@ function parsedArgsToCliOverrides(parsed: ParsedArgs<typeof argsDef>): CliConfig
     const toolchainPnpmVersion = parsed['toolchain-pnpm-version']
     if (toolchainPnpmVersion) {
         overrides.toolchainPnpmVersion = toolchainPnpmVersion
+    }
+
+    // AI 研判（--ai 系列；--ai-api-key 为敏感参数，env 优先）
+    if (parsed.ai !== undefined) {
+        overrides.aiEnabled = parsed.ai
+    }
+    const aiProvider = parsed['ai-provider']
+    if (aiProvider) {
+        if (aiProvider !== 'openai-compatible' && aiProvider !== 'anthropic') {
+            throw new AppError(
+                'ARGUMENT_PARSE_ERROR',
+                `Invalid --ai-provider value: "${aiProvider}". Expected "openai-compatible" or "anthropic".`,
+            )
+        }
+        overrides.aiProvider = aiProvider
+    }
+    const aiModel = parsed['ai-model']
+    if (aiModel) {
+        overrides.aiModel = aiModel
+    }
+    const aiBaseUrl = parsed['ai-base-url']
+    if (aiBaseUrl) {
+        overrides.aiBaseUrl = aiBaseUrl
+    }
+    const aiApiUrl = parsed['ai-api-url']
+    if (aiApiUrl) {
+        overrides.aiApiUrl = aiApiUrl
+    }
+    const aiApiKey = parsed['ai-api-key']
+    if (aiApiKey) {
+        overrides.aiApiKey = aiApiKey
+    }
+    const aiTrigger = parsed['ai-trigger']
+    if (aiTrigger) {
+        if (aiTrigger !== 'failure' && aiTrigger !== 'major' && aiTrigger !== 'both') {
+            throw new AppError(
+                'ARGUMENT_PARSE_ERROR',
+                `Invalid --ai-trigger value: "${aiTrigger}". Expected "failure", "major" or "both".`,
+            )
+        }
+        overrides.aiTrigger = aiTrigger
     }
 
     return overrides

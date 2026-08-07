@@ -83,8 +83,12 @@ const BRANCH_PREFIX = 'dependfix/auto-fix-'
  * 导致"告警没变但指纹变"。
  */
 export function computeFixFingerprint(actions: FixAction[]): string {
-    // 排除 PR 记录 action（target 为 "PR #N"），它们不代表修复内容本身
-    const isUpgrade = (a: FixAction): boolean => a.type === 'dependency-upgrade' && !!a.target && !a.target.startsWith('PR #')
+    // 排除 PR 记录 action（target 为 "PR #N"）与 AI 建议类 noOp（建议非真实升级，计入指纹会
+    // 造成"开关切换/建议交替"时指纹漂移与关旧开新噪音；口径与 isPackageUpgradeAction 一致）
+    const isUpgrade = (a: FixAction): boolean => a.type === 'dependency-upgrade'
+        && !!a.target
+        && !a.target.startsWith('PR #')
+        && !a.noOp
 
     const upgrades = actions
         .filter((a) => isUpgrade(a) && a.success && a.toVersion)
@@ -206,7 +210,7 @@ export function pushBranch(branchName: string, workDir: string): void {
  *
  * GitHub 的 `pulls.list` 的 `head` 参数不支持通配符，因此拉取 open PR 列表后
  * 按 head 分支前缀 `dependfix/auto-fix-` 过滤。假设 PR 数量不多（单页 100 足够），
- * 未来 PR 数量增大时可引入 label 索引（见 backlog B1）。
+ * 未来 PR 数量增大时可引入 label 索引（backlog 已登记演进项）。
  */
 export async function findDependfixOpenPR(
     octokit: Octokit,
@@ -363,11 +367,12 @@ export function isConfirmAnswer(answer: string): boolean {
 // Report Helpers
 // ---------------------------------------------------------------------------
 
-/** 判定 action 是否代表真实的包升级（排除 skip 路径的 `PR #N` 伪 action，口径与 computeFixFingerprint 一致） */
+/** 判定 action 是否代表真实的包升级（排除 skip 路径的 `PR #N` 伪 action 与 AI 建议类 noOp，口径与 computeFixFingerprint 一致） */
 function isPackageUpgradeAction(action: FixAction): boolean {
     return action.type === 'dependency-upgrade'
         && typeof action.target === 'string'
         && !/^PR #\d+/.test(action.target)
+        && !action.noOp
 }
 
 /** 转义 Markdown 表格单元格：`|` 转义、换行折叠为空格（错误消息常含多行） */

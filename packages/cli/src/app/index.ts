@@ -34,6 +34,7 @@ import { createFixBranch, stageAndCommit, pushBranch, createPullRequest, generat
 import type { RuntimeConfig } from '../config'
 import { compareSemver, readLockfileVersion, readLockfileVersions, applyVersionedOverrides, isCrossMajorFixRequired, upgradeDependency } from '../fixers/dependency'
 import { dedupeFixableAlerts, snapshotTrackedFiles, restoreTrackedFiles, quickVerifyProject, partitionSubmanifestAlerts, isRootDirectDependency, type MemberManifestAlert } from '../helpers'
+import { runAiIntegration } from '../ai/app-integration'
 import { buildUpgradeGroups } from '../grouping'
 import {
     buildCommitMessage,
@@ -601,7 +602,45 @@ export class DependfixApp {
                 const majorVerifyActions = await verifyProject(this.ctx, repo)
                 // 验证动作入 allActions：成功证据可审计（summary 验证计数 + PR body Verification 章节）
                 this.allActions.push(...majorVerifyActions)
-                const majorOk = majorVerifyActions.every((a) => a.success)
+                let majorOk = majorVerifyActions.every((a) => a.success)
+
+                // AI 研判接入：升级验证失败（带失败日志）或 major 升级（预防性）
+                // 时触发 → code-change 修复（apply + 内部完整验证）→ 通过则保留。
+                // 仅 --ai 开启且非 dry-run（不产生费用）。
+                const ai = this.config.ai
+                const aiTriggered = ai?.enabled === true
+                    && !this.config.dryRun
+                    && (ai.trigger === 'both' || ai.trigger === 'major' || (ai.trigger === 'failure' && !majorOk))
+                if (aiTriggered) {
+                    const failureLog = majorOk
+                        ? undefined
+                        : majorVerifyActions.filter((a) => !a.success)
+                            .map((a) => a.error ?? `exit code for ${a.target}`)
+                            .join('\n')
+                    const aiResult = await runAiIntegration({
+                        ai,
+                        // 2.0.2 段仅对 lockfile 告警可达（GitHub 源），client 恒非空；
+                        // pnpm-audit 源告警 manifestPath='' 不满足 lockfileManifestAlerts 过滤
+                        client: client!,
+                        ctx: this.ctx,
+                        repo,
+                        dryRun: this.config.dryRun,
+                    }, {
+                        packageName: alert.packageName,
+                        fromVersion: majorResult.fromVersion,
+                        toVersion: alert.recommendedVersion!,
+                        failureLog,
+                    })
+                    this.allActions.push(...aiResult.actions)
+                    // AI patch 成功 = AI 内部已通过完整验证（apply + verify）
+                    const aiPatchSuccess = aiResult.actions.some(
+                        (a) => a.strategy === 'ai-patch' && a.success && !a.noOp,
+                    )
+                    if (aiPatchSuccess) {
+                        majorOk = true
+                    }
+                }
+
                 if (majorOk) {
                     this.allActions.push({
                         type: 'dependency-upgrade',
@@ -617,6 +656,7 @@ export class DependfixApp {
                     fixed++
                     this.logger.info(`[major-upgrade] ${alert.packageName}: cross-major upgrade passed full verification`)
                 } else {
+                    // 回滚声明 + lockfile（AI patch 已由 applier 内部回滚或未应用）
                     restoreTrackedFiles(this.workDir, majorSnapshot)
                     this.allActions.push({
                         type: 'dependency-upgrade',

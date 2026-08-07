@@ -724,6 +724,11 @@ export function computeSummary(
         if (action.noOp) {
             continue
         }
+        // AI 辅助动作（ai-patch 修复 / ai-suggestion 建议）是过程证据，不计入 fixed/failed——
+        // 告警结果由主动作（major-upgrade 等）代表，避免同告警重复计数
+        if (action.strategy === 'ai-patch' || action.strategy === 'ai-suggestion') {
+            continue
+        }
         if (action.type === 'dependency-upgrade' || action.type === 'code-scanning-fix') {
             if (action.success) {
                 fixed++
@@ -790,6 +795,10 @@ export function buildRunResult(
  * - 0: 全部仓库处理成功（无 failed actions、无 errors）
  * - 1: 部分仓库失败
  * - 2: 全部仓库失败（或无仓库被成功处理）
+ *
+ * 语义注记：AI 辅助动作（ai-patch）失败计入 exit code（fail-safe——AI 修复失败
+ * 说明 breaking change 未解决，应报红提醒人工），但不计入 summary.alertsFailed
+ * （告警结果由主动作代表；见 computeSummary 的 ai 辅助动作排除规则）。
  */
 export function computeExitCode(
     ctx: Pick<AppContext, 'config' | 'allErrors' | 'allActions' | 'repoResults'>,

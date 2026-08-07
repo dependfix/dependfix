@@ -5,7 +5,7 @@
 
 ## 1. 背景
 
-`.session/wisdom.md` 存储跨 session 值得复用的发现（pattern / bug / decision / env / test / baseline），已融入 `full-stack-master` agent 的 Session 感知协议（`.github/agents/full-stack-master.agent.md`）。
+`.session/wisdom.md` 存储跨 session 值得复用的发现（pattern / bug / decision / env / test / baseline），已融入 `Full Stack Master (全栈大师)` agent 的 Session 感知协议（`.github/agents/full-stack-master.agent.md`）。
 
 当前问题：
 
@@ -127,7 +127,7 @@ pnpm distill:wisdom                      # package.json script 别名
 
 | 触发点 | 集成方式 |
 |:---|:---|
-| **Session 收尾**（full-stack-master agent） | 当 wisdom 条目数 >= 20 时，附加一句提醒："wisdom 条目数已达 N，建议执行蒸馏" |
+| **Session 收尾**（Full Stack Master (全栈大师) agent） | 当 wisdom 条目数 >= 20 时，附加一句提醒："wisdom 条目数已达 N，建议执行蒸馏" |
 | **阶段归档**（planning.md §4.3） | 在阶段归档最低验证中增加蒸馏检查项（已落地 2026-08-06） |
 | **用户主动要求** | 直接执行完整蒸馏工作流 |
 
@@ -136,13 +136,13 @@ pnpm distill:wisdom                      # package.json script 别名
 蒸馏涉及对 `docs/` 目录的写入，应接交 `documentation-specialist` 负责文档更新：
 
 ```
-知识固化 → full-stack-master 评估分类
+知识固化 → Full Stack Master (全栈大师) 评估分类
     ↓ 确认迁移目标
-full-stack-master 判断 → documentation-specialist 编写/更新 docs/ 目标文档
+Full Stack Master (全栈大师) 判断 → documentation-specialist 编写/更新 docs/ 目标文档
     ↓ 审计
-@code-auditor Review Gate（文档变更属于正式审查对象）
+Code Auditor (代码审计员) Review Gate（文档变更属于正式审查对象）
     ↓ 压缩
-full-stack-master 压缩 wisdom.md，删除/精简已迁移条目
+Full Stack Master (全栈大师) 压缩 wisdom.md，删除/精简已迁移条目
 ```
 
 ### 5.3 蒸馏产物的提交策略

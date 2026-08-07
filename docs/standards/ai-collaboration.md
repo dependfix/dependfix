@@ -67,7 +67,7 @@ Review Gate 的投入应与改动风险匹配，不应对所有改动一视同�
 配套实践：
 - **审计 prompt 携带"已查证事实"**：执行角色把调研结论/实验证据写进审计任务，避免审计者从头翻源码，显著提升效率与命中率（2026-08 多轮 Review Gate 实证：抓到 tag 不推送、分段回归、runner 无 git 身份等真问题，同时每轮用时可控）；
 - **分级沿用 blocker / warning / suggest**（见 [测试规范 §4.1 按风险分级执行](../standards/testing.md) 与 [code-reviewer skill](../../.github/skills/code-reviewer/SKILL.md)）；
-- **审计调用协议**：`full-stack-master` 发起审计时必须显式声明 `audit-depth`（quick / standard / deep + 理由）、变更文件清单、已验证证据摘要与复审问题编号；未声明按 `deep` 防御执行。审计结论必须回填实际用时与是否超时间盒；
+- **审计调用协议**：`Full Stack Master (全栈大师)` 发起审计时必须显式声明 `audit-depth`（quick / standard / deep + 理由）、变更文件清单、已验证证据摘要与复审问题编号；未声明按 `deep` 防御执行。审计结论必须回填实际用时与是否超时间盒；
 - **复审只审修复点**：第 2+ 轮审计只移交上轮问题编号对应的修复 diff，不重发全量 diff；审计者不得重读全量；
 - **并发审计**：diff 文件数 > 8 或涉及 ≥ 2 个独立模块时，按模块分区并行发起多个审计任务，主审汇总合并去重、取最严结论；小改动不得并发（token 成本近似线性，仅大改动值得）；
 - **技能引用路径**：审计相关 skill（`code-reviewer`、`security-guardian` 等）一律以项目内 `.github/skills/` 版本为准，agent 定义中写明相对路径链接，禁止裸名引用导致解析到全局同名 skill。

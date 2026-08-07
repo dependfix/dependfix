@@ -346,7 +346,7 @@
 
 - **提交序列**: T501（21c07b67）→ T502（3475e6e5）→ T503（f9affe5f）→ T504（31997adc）→ T505（e30f2a3e）→ flaky 修复（451cdcc5）→ T506 主实现（7509e3e2）+ 测试补充（9f62a34f）+ 状态回链（1db75efc）→ aiUsage 聚合段（a7530299）→ roadmap 锚点修复（ae93bd2a）→ action.yml manifest 修复（61929613）→ 经验沉淀 docs(governance)（a4dfd884）
 - **Review Gate**: T501-T506 每任务独立审计 PASS；T503 三审（首轮 REJECT 写盘回滚/schema 契约/todo 状态 → 二轮 REJECT 编号标记 → 终审 PASS）；T506 复审 PASS（F1 指纹口径 / F2 场景 C exit 语义 / F3 todo 标注）；aiUsage 聚合段独立审查 PASS
-- **CI 链式修复（剥洋葱）**: ① lint:md:check 穿透 node_modules（.lintmdrc 显式空排除覆盖工具默认）→ 修复；② check:links roadmap 锚点指向已归档标题 → 修复（改指 todo-archive）；③ Security Scan dogfood workflow 暴露 action.yml description 内嵌 `${{ secrets.DEEPSEEK_API_KEY }}` manifest 模板校验失败 → 修复。教训沉淀归档 §二十二 / §二十三
+- **CI 链式修复（剥洋葱）**: ① lint:md:check 穿透 node_modules（.lintmdrc 显式空排除覆盖工具默认）→ 修复；② check:links roadmap 锚点指向已归档标题 → 修复（改指 todo-archive）；③ Security Scan dogfood workflow 暴露 action.yml description 内嵌 <span v-pre>`${{ secrets.DEEPSEEK_API_KEY }}`</span> manifest 模板校验失败 → 修复。教训沉淀归档 §二十二 / §二十三
 - **经验沉淀**: 归档 §二十二（CI 链式暴露 + 本地不可测陷阱）/ §二十三（行尾方向检测 + 特殊字符脚本写临时文件）；规范 ai-collaboration 4.2（剥洋葱）/ 4.3（本地不可测配置纪律）/ 1.2-6（行尾 + 脚本纪律）、documentation 链接检查（归档锚点联动）
 - **残余风险**: AI 调用失败路径的 token 计费盲区（provider 响应无 usage）；本地无法完全模拟 CI 环境（依赖 CI 端到端裁决，推送后复跑）；10 个 lint warning 存量临界（max-warnings 顶格）
 - **遗留登记**: 报告 aiUsage 聚合段已交付；PR body 展示 AI 消耗登记 M6 增强候选；无阻塞项，M5.5 可启动

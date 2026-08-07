@@ -17,7 +17,7 @@ Agent-First 的完整项目级定义以 `AGENTS.md` 为准。Agent 是默认任�
 3. **简洁优先**：默认选择满足当前验收标准的最小实现，不得借机引入与当前目标无关的抽象或未来能力预埋。
 4. **外科式改动**：改动范围应与用户请求、Todo 验收点或 blocker 一一对应；发现无关问题时可以记录，但不得顺手并入当前实现。
 5. **目标驱动验证**：在进入实现前应明确成功标准、最低验证矩阵与首条区分性检查；完成首个实质改动后，优先做最小充分验证，再决定是否继续扩写。
-6. **批量替换纪律**：脚本/正则批量改写代码时，先改 1 个代表性文件 → typecheck + diff 审查 → 确认无误再铺开全量；正则必须限定上下文（注释行、字符串前缀、精确清单），禁止 `[^)]*`、`.*?` 等通配在注释与代码混合文件中跨上下文匹配；写文件必须按行保留原行尾（混合行尾仓库整体转换会制造全文件噪音 diff）；统一行尾是**按文件**的操作——先 `git show HEAD:<file>` 检测 repo 存储方向（`core.autocrlf=false` 时 repo 可能存 CRLF），转错方向 = 全文件 diff；替换后验证矩阵 = typecheck + 定向测试 + `git diff --stat`/`--ignore-space-at-eol` diff 规模核验 + 残留扫描，涉及外链文本时额外核对（check-links 只查本地链接）。PowerShell 环境含 `${{`、`${`、反引号、嵌套引号等特殊字符的脚本一律写临时 .cjs 文件执行，不再尝试内联 `node -e`。教训见 [经验归档 §十七 / §二十三](../design/governance/2026-08-06-experience-archive.md)。
+6. **批量替换纪律**：脚本/正则批量改写代码时，先改 1 个代表性文件 → typecheck + diff 审查 → 确认无误再铺开全量；正则必须限定上下文（注释行、字符串前缀、精确清单），禁止 `[^)]*`、`.*?` 等通配在注释与代码混合文件中跨上下文匹配；写文件必须按行保留原行尾（混合行尾仓库整体转换会制造全文件噪音 diff）；统一行尾是**按文件**的操作——先 `git show HEAD:<file>` 检测 repo 存储方向（`core.autocrlf=false` 时 repo 可能存 CRLF），转错方向 = 全文件 diff；替换后验证矩阵 = typecheck + 定向测试 + `git diff --stat`/`--ignore-space-at-eol` diff 规模核验 + 残留扫描，涉及外链文本时额外核对（check-links 只查本地链接）。PowerShell 环境含 <span v-pre>`${{`</span>、`${`、反引号、嵌套引号等特殊字符的脚本一律写临时 .cjs 文件执行，不再尝试内联 `node -e`。教训见 [经验归档 §十七 / §二十三](../design/governance/2026-08-06-experience-archive.md)。
 
 ### 1.3 搜索优先
 
@@ -182,7 +182,7 @@ CI 失败后不得回退到全量重试，应分析具体失败点针对性修�
 ### 4.3 本地不可测配置的变更纪律
 
 - 配置文件显式写"空默认值"（如 `excludeFiles: []`）会覆盖工具内置保护，修改前先确认工具默认值。
-- composite action（action.yml）中 `${{ }}` 只允许出现在合法上下文（runs 步、outputs 表达式、with 表达式值）；description / 纯文本 / 注释内嵌表达式会被 manifest 模板校验求值并可能引用不可用上下文。action.yml 变更后应跑一次真实 action（本仓库 `security-auto-fix.yml` dogfood workflow）验证。
+- composite action（action.yml）中 <span v-pre>`${{ }}`</span> 只允许出现在合法上下文（runs 步、outputs 表达式、with 表达式值）；description / 纯文本 / 注释内嵌表达式会被 manifest 模板校验求值并可能引用不可用上下文。action.yml 变更后应跑一次真实 action（本仓库 `security-auto-fix.yml` dogfood workflow）验证。
 
 ## 5. 相关文档
 

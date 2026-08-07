@@ -52,6 +52,7 @@
     },
     "dependencies": {
         "@dependfix/core": "workspace:*",
+        "@dependfix/skills": "workspace:*",
         "@octokit/rest": "^22.0.1",
         "citty": "^0.2.2",
         "dayjs": "^1.11.21",

@@ -2,7 +2,7 @@
 name: full-stack-master
 description: 全局一体化开发与协作工作流技能，覆盖需求评估、开发、测试、质量、文档、提交等全链路阶段，实现 PDTFC+ 循环自动化及分工合作优化。
 metadata:
-    internal: true
+  internal: true
 ---
 
 # Full Stack Master Workflow Skill

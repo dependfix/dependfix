@@ -29,6 +29,7 @@
 - **PR 创建**：`fix-and-pr` 模式下自动创建修复分支并提交 Pull Request
 - **GitHub Action**：通过 `uses: dependfix/dependfix@v1` 一行接入，支持定时和手动触发
 - **多仓库**：支持单仓库、批量仓库修复
+- **Agent Skill**：`dependfix-remediator` 可分发给主流 AI 编码工具（Claude Code / Copilot / Cursor / OpenCode），对话式驱动修复闭环
 
 ## 快速开始
 
@@ -48,6 +49,27 @@ dependfix fix --repo owner/repo --github-token $GITHUB_TOKEN --severity-threshol
 # 修复并创建 PR
 dependfix fix-and-pr --repo owner/repo --github-token $GITHUB_TOKEN
 ```
+
+## Agent Skill 安装
+
+dependfix 提供可分发的 Agent Skill（`dependfix-remediator`），安装后 AI 助手可直接对话式完成"拉告警 → 研判 → 修复 → 报告"闭环，无需手工执行命令。
+
+### 主通道（推荐，npx skills 生态）
+
+```bash
+npx skills add dependfix/dependfix -s dependfix-remediator -g -a claude-code -a opencode -a cursor
+```
+
+一条命令完成安装，自动写入本机已检测 agent 工具的官方 skills 目录（支持 70+ agents，`-a` 可省略以自动选择）。发布即 git push——仓库根 `skills/` 目录由 npx skills 生态自动发现，无需提交 registry。
+
+### 兜底安装（离线 / 无 npx skills 环境）
+
+```bash
+npx dependfix skills install     # 检测本机已装 agent 工具并安装（默认全局；--project 装到当前项目）
+npx dependfix skills doctor      # 检查安装状态、目录约定漂移与内部 skill 标记完整性
+```
+
+`skills install` 不依赖 npx skills：复制产品 skill 到各 agent 官方目录并输出安装清单，可重复执行（幂等）；目标存在内容不一致的同名 skill 时会要求确认覆盖（非交互环境默认跳过，用 `--force` 强制覆盖）。flag 请写在子命令之后（标准写法 `skills install --project`）。
 
 ## GitHub Action 使用
 

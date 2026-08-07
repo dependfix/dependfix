@@ -1,7 +1,6 @@
 import { pathToFileURL } from 'node:url'
-import { runMain } from 'citty'
 import { toAppError } from '@dependfix/core'
-import { dependfixCommand, runCli, type CliRunResult } from './cli/runner'
+import { runCli, runDependfixMain, type CliRunResult } from './cli/runner'
 
 export * from '@dependfix/core'
 export * from './app'
@@ -35,7 +34,7 @@ function isExecutedAsEntryPoint(): boolean {
 
 if (isExecutedAsEntryPoint()) {
     // 优先使用 citty 接管（自动 --help、子命令等）
-    void runMain(dependfixCommand).catch((error: unknown) => {
+    void runDependfixMain().catch((error: unknown) => {
         const appError = toAppError(error, 'CLI_EXECUTION_FAILED')
         console.error(appError.message)
         process.exitCode = 1

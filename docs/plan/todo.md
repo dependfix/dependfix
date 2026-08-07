@@ -53,23 +53,23 @@
 
 - **优先级**: P1
 - **依赖**: T506
-- **状态**: 未开始
+- **状态**: 已完成（2026-08-07 交付，Review Gate 复审通过）
 - **交付物**: npx skills 生态主通道（仓库根 `skills/` 被发现安装）+ `dependfix skills install`（兜底）/ doctor
 
 **任务内容**:
 
-- [ ] **主通道**：验证 `npx skills add dependfix/dependfix -s dependfix-remediator -g` 可发现并安装产品 skill 到本机已检测的 agent 工具（symlink 或 copy）；发布 = git push，skills.sh 经 telemetry 自动收录
-- [ ] **内部 skill 防发现**：10 个内部开发 skill（code-reviewer 等）SKILL.md frontmatter 加 `metadata.internal: true`（.github/skills 权威源 + .agents/skills / .claude/skills 副本同步，hash 保持一致）；验证 `npx skills` 正常发现不可见、`INSTALL_INTERNAL_SKILLS=1` 可见，且主流 agent（Claude Code / OpenCode / Cursor）加载不受该字段影响
-- [ ] **兜底安装器**：`dependfix skills install`——检测本机已装 agent 工具 → 复制产品 skill 到官方目录 → 输出安装清单（不依赖 npx skills；不复刻 add/list/update/remove 矩阵）；存在同名 skill 则提示覆盖确认，不静默
-- [ ] `dependfix skills doctor`：目录约定漂移检测（官方路径变更）+ 内部 skill internal 标记完整性检查
-- [ ] README 安装指引：一行命令 `npx skills add dependfix/dependfix -s dependfix-remediator -g -a claude-code -a opencode -a cursor` 覆盖主流工具；注明兜底离线安装方式
+- [x] **主通道**：验证 `npx skills add <source> -s dependfix-remediator -g` 可发现并安装产品 skill 到本机已检测的 agent 工具——本地源实证通过（发现 + copied 安装）；发布 = git push，skills.sh 经 telemetry 自动收录；GitHub 源端到端待推送后验证（本机 clone github.com 网络受限）
+- [x] **内部 skill 防发现**：10 个内部开发 skill（code-reviewer 等）SKILL.md frontmatter 加 `metadata.internal: true`（.github/skills 权威源，.agents/skills / .claude/skills junction 副本自动同步 hash 一致）；验证矩阵：正常 `--list` 仅 1 个产品 skill（内部全隐藏），`INSTALL_INTERNAL_SKILLS=1` 11 个全可见
+- [x] **兜底安装器**：`dependfix skills install`——检测本机已装 agent 工具（Claude Code / OpenCode / Cursor / Copilot 目录约定与 npx skills 生态对齐）→ 复制产品 skill 到官方目录（内容源 = @dependfix/skills 包）→ 输出安装清单；存在同名 skill 则提示覆盖确认（非 TTY 默认拒绝，--force 强制）；幂等可重跑
+- [x] `dependfix skills doctor`：agent 目录约定漂移检测（主目录在但 skills 目录缺失提示）+ 产品 skill 安装状态/内容一致性 + 内部 skill internal 标记完整性检查
+- [x] README 安装指引：一行命令 `npx skills add dependfix/dependfix -s dependfix-remediator -g -a claude-code -a opencode -a cursor` 覆盖主流工具；注明兜底离线安装方式
 
 **完成定义**:
 
-- [ ] 主通道：在装有任一主流 agent 的机器上 `npx skills add` 一条命令完成安装，工具可直接发现并使用 skill
-- [ ] 兜底：无 npx skills 环境下 `dependfix skills install` 完成同等安装
-- [ ] `npx skills` 正常发现（--list / find）不出现任何内部开发 skill
-- [ ] 主通道与兜底均幂等可重跑
+- [x] 主通道：在装有任一主流 agent 的机器上 `npx skills add` 一条命令完成安装——本地源实证安装成功；GitHub 源待推送后端到端复验（网络受限边界）
+- [x] 兜底：无 npx skills 环境下 `dependfix skills install` 完成同等安装（本机 3 agent 实测 installed/up-to-date + doctor 0 error）
+- [x] `npx skills` 正常发现（--list）不出现任何内部开发 skill（实测 1/11 矩阵）
+- [x] 主通道与兜底均幂等可重跑（重复 install 全部 up-to-date）
 
 **非目标**: 复刻 npx skills 完整命令矩阵（add/list/update/remove）
 

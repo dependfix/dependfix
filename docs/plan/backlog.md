@@ -192,6 +192,57 @@
 
 ---
 
+## M5.5: Skill 编排（CLI 先行）
+
+> **2026-08-07 决策落盘（用户确认）**：Skills 不需要等 MCP 上线才开始设计。当前 CLI 能力面（report/fix/fix-and-pr/cleanup-branches + 多仓库治理 + 双数据源 + PR 链路 + 报告归档）已覆盖 MCP 规划 tool（fetch_alerts / run_scan / fix_dependency / get_last_report）。Skill 编排层先以 **CLI 为执行后端** 落地，MCP 作为后续增强后端（T606 验证一致性后，T706 接入双后端）。
+>
+> **CLI vs MCP 对比结论（评估记录）**：
+> - CLI 优势：零配置（`npx dependfix` 开箱即用）、无 shell 客户端外均可用、命令面完整、报告天然落盘可审计、不依赖 T505 解耦
+> - MCP 优势：结构化 schema 返回零解析、覆盖无 shell 客户端（Claude Desktop / Copilot 等）、常驻进程可缓存/增量查询、细粒度读写 tool 安全边界
+> - 结论：**两者是叠加关系**——skill 编排逻辑不变，执行后端可切换；CLI 先行不阻塞也不被 MCP 阻塞
+
+### T506 产品 Skill 权威源与 CLI 编排
+
+- 优先级：`P1`（M5 归档后启动，与 M6 T601-T602 并行）
+- 依赖：无（CLI 命令面已齐备）
+- 交付物：`packages/skills/dependfix-remediator/`（SKILL.md + 支撑脚本），npm 包 `@dependfix/skills`
+- 任务内容：
+  - [ ] SKILL.md（YAML frontmatter + 编排步骤 + 决策树），执行后端 = `dependfix` CLI 命令映射表（report → `dependfix report`；fix → `dependfix fix --create-pr`；告警查询 → `--history` / 归档）
+  - [ ] 编排逻辑与执行后端解耦：SKILL.md 中步骤只依赖"能力契约"（拉告警/修复/取报告），CLI 子命令为当前实现，预留 MCP tool 映射位（T606/T706 接入）
+  - [ ] skill 放置规范落盘：仓库内权威源 = `packages/skills/`（产品 skill，随 npm 发布）；`.github/skills/` 保持内部开发 skill 权威源（code-reviewer 等 10 个），二者职责分离
+- 完成定义：
+  - [ ] 用户按 README 安装 skill 后，AI 助手可对话式完成"拉告警 → 研判 → 修复 → 报告"闭环（CLI 后端）
+  - [ ] SKILL.md 中无 MCP 依赖（T706 前不要求 MCP 可用）
+
+### T507 多 agent 工具接入与安装器
+
+- 优先级：`P1`
+- 依赖：T506
+- 交付物：`dependfix skills` 子命令（install / list / doctor）
+- 任务内容：
+  - [ ] 支持安装目标：Claude Code（`~/.claude/skills/`）、GitHub Copilot / VS Code（`~/.copilot/skills/`）、Cursor（`.agents/skills/`）、OpenCode（`~/.config/opencode/skills/`）——目录随各工具官方约定维护
+  - [ ] `dependfix skills install`：检测已安装的 agent 工具 → 复制 `packages/skills/dependfix-remediator/` 到对应目录 → 输出安装清单
+  - [ ] `dependfix skills list`（已安装状态）/ `dependfix skills doctor`（目录约定漂移检测，如官方路径变更）
+  - [ ] 安装器不触碰用户已有同名 skill（存在则提示覆盖确认，不静默）
+- 完成定义：
+  - [ ] 在装有以下任一工具的机器上执行 `dependfix skills install` 后，该工具可直接发现并使用 skill
+  - [ ] 安装器幂等可重跑（重复执行不产生重复目录）
+
+### T508 MCP 双后端扩展点（衔接 T606/T706）
+
+- 优先级：`P2`
+- 依赖：T506, T606（M6）
+- 交付物：SKILL.md 增加 MCP 探测与双后端指引
+- 任务内容：
+  - [ ] SKILL.md 增加"执行后端探测"步骤：检测 `@dependfix/mcp` 是否可用（MCP 配置存在）→ MCP tool 优先 / CLI 回退
+  - [ ] 能力契约映射表补齐 MCP tool 列（fetch_alerts / run_scan / fix_dependency / get_last_report）
+  - [ ] 与 T606 一致性验证对齐：MCP tool 输出与 CLI 输出同源断言
+- 完成定义：
+  - [ ] 配置了 MCP 的环境走 tool 调用，未配置的环境走 CLI，两条路径输出一致
+  - [ ] T706 发布 `@dependfix/mcp` 时 skill 无需改版即可双后端工作
+
+---
+
 ## M6: 最小平台 MVP
 
 目标：交付一个可独立部署的集中管理平台的最小可用版本。
@@ -271,7 +322,7 @@
 - 完成定义：
   - [ ] AI 助手可通过 MCP tool 完成完整扫描修复闭环。
 
-> **T605 / T606** 是 CLI + Skills 自动化路径的基础设施。完成后可通过 `security-alert-remediator` skill 直接调用 MCP tool，代替手写 CLI 命令。
+> **T605 / T606** 是 MCP 作为 Skill 执行后端的基础设施：完成后 `dependfix-remediator` skill（M5.5 T508）可优先走 MCP tool，未配置 MCP 的环境回退 CLI 命令——CLI 驱动路径已由 M5.5 T506 先行落地，MCP 是增强而非前置。
 
 ---
 
@@ -349,10 +400,10 @@
 
 - 优先级：`P2`
 - 依赖：T606, M6
-- 交付物：MCP Server 正式发布 + Skill 集成。
+- 交付物：MCP Server 正式发布 + Skill 双后端集成。
 - 任务内容：
   - [ ] `@dependfix/mcp` 发布到 npm。
-  - [ ] 更新 `security-alert-remediator` skill，对接 MCP tool。
+  - [ ] `dependfix-remediator` skill（M5.5）确认 MCP 双后端探测与映射（T508 验收）。
   - [ ] 编写 MCP 接入文档与 Skill 编排示例。
 - 完成定义：
   - [ ] 用户可通过 AI 助手对话式完成安全告警修复闭环。

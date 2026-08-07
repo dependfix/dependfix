@@ -152,12 +152,12 @@ MCP 提供底层 tool 能力，Skills 提供高层编排：
 ```
 MCP Tool: fetch_alerts, run_scan, fix_dependency
      ↑
-Skill: security-alert-remediator
+Skill: dependfix-remediator
      ↑
 Agent: 用户对话 → Skill 编排 → MCP 执行 → 报告
 ```
 
-当前已有的 `security-alert-remediator` skill 将来可通过 `@dependfix/mcp` 的 tool 直接调用，代替手写 CLI 命令。
+产品 skill `dependfix-remediator`（规划见 [backlog.md §M5.5](../../plan/backlog.md#m55-skill-编排cli-先行)）以 **CLI 为先行执行后端**（M5.5 T506/T507），MCP 为增强后端：配置了 MCP 的环境走 tool 调用（T606 验证一致性、T706 发布），未配置的环境回退 CLI 命令。
 
 ---
 

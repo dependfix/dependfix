@@ -32,6 +32,13 @@ describe('resolveRuntimeConfig', () => {
             maxConcurrency: 1,
             maxRetries: 3,
             maxBackoffMs: 30000,
+            ai: {
+                enabled: false,
+                provider: 'openai-compatible',
+                model: 'deepseek-v4-flash',
+                baseUrl: 'https://api.deepseek.com',
+                trigger: 'both',
+            },
         })
     })
 
@@ -127,6 +134,13 @@ describe('resolveRuntimeConfig', () => {
             maxConcurrency: 1,
             maxRetries: 3,
             maxBackoffMs: 30000,
+            ai: {
+                enabled: false,
+                provider: 'openai-compatible',
+                model: 'deepseek-v4-flash',
+                baseUrl: 'https://api.deepseek.com',
+                trigger: 'both',
+            },
         })
     })
 
@@ -804,6 +818,95 @@ describe('resolveRuntimeConfig', () => {
         expect(() => parseCliArgs(['--max-concurrency', '2.5'])).toThrow('Expected an integer between 1 and 16')
         expect(() => parseCliArgs(['--max-backoff-ms', '-5'])).toThrow('Expected an integer between 100 and 120000')
         expect(() => parseCliArgs(['--max-retries', 'abc'])).toThrow('Expected an integer between 0 and 10')
+    })
+
+    // -----------------------------------------------------------------------
+    // AI 研判配置（--ai 系列 / DEPENDFIX_AI_*）
+    // -----------------------------------------------------------------------
+
+    it('parses AI options from env (enabled + apiKey)', () => {
+        const config = resolveRuntimeConfig({
+            env: {
+                GITHUB_TOKEN: 't',
+                DEPENDFIX_REPOSITORIES: 'foo/bar',
+                DEPENDFIX_AI: 'true',
+                DEPENDFIX_AI_API_KEY: 'sk-test-key-1234567890',
+                DEPENDFIX_AI_MODEL: 'custom-model',
+                DEPENDFIX_AI_TRIGGER: 'major',
+            },
+        })
+
+        expect(config.ai).toEqual({
+            enabled: true,
+            provider: 'openai-compatible',
+            model: 'custom-model',
+            baseUrl: 'https://api.deepseek.com',
+            trigger: 'major',
+            apiKey: 'sk-test-key-1234567890',
+        })
+    })
+
+    it('parses AI options from cli flags and precedence over env (incl. anthropic apiUrl)', () => {
+        const invocation = parseCliArgs([
+            '--ai',
+            '--ai-provider', 'anthropic',
+            '--ai-model', 'claude-3-5-haiku',
+            '--ai-base-url', 'https://api.example.com/v1',
+            '--ai-api-url', 'https://gateway.example.com/v1/messages',
+            '--ai-trigger', 'failure',
+            '--ai-api-key', 'cli-key-1234567890',
+        ])
+        const config = resolveRuntimeConfig({
+            env: {
+                GITHUB_TOKEN: 't',
+                DEPENDFIX_REPOSITORIES: 'foo/bar',
+                DEPENDFIX_AI: 'false',
+                DEPENDFIX_AI_MODEL: 'env-model',
+                DEPENDFIX_AI_API_KEY: 'env-key-1234567890',
+                DEPENDFIX_AI_API_URL: 'https://env.example.com/v1/messages',
+            },
+            cliOverrides: invocation.configOverrides,
+        })
+
+        expect(config.ai).toEqual({
+            enabled: true,
+            provider: 'anthropic',
+            model: 'claude-3-5-haiku',
+            baseUrl: 'https://api.example.com/v1',
+            apiUrl: 'https://gateway.example.com/v1/messages',
+            trigger: 'failure',
+            apiKey: 'cli-key-1234567890',
+        })
+    })
+
+    it('rejects AI enabled without apiKey (clear configuration error)', () => {
+        expect(() => resolveRuntimeConfig({
+            env: {
+                GITHUB_TOKEN: 't',
+                DEPENDFIX_REPOSITORIES: 'foo/bar',
+                DEPENDFIX_AI: 'true',
+            },
+        })).toThrow('AI 研判已开启但缺少 API Key')
+    })
+
+    it('rejects invalid ai-provider and ai-trigger values', () => {
+        expect(() => parseCliArgs(['--ai-provider', 'google'])).toThrow('Invalid --ai-provider')
+        expect(() => parseCliArgs(['--ai-trigger', 'always'])).toThrow('Invalid --ai-trigger')
+        expect(() => resolveRuntimeConfig({
+            env: {
+                GITHUB_TOKEN: 't',
+                DEPENDFIX_REPOSITORIES: 'foo/bar',
+                DEPENDFIX_AI_PROVIDER: 'google',
+            },
+        })).toThrow('Invalid DEPENDFIX_AI_PROVIDER')
+    })
+
+    it('keeps AI disabled by default (opt-in, no cost)', () => {
+        const config = resolveRuntimeConfig({
+            env: { GITHUB_TOKEN: 't', DEPENDFIX_REPOSITORIES: 'foo/bar' },
+        })
+        expect(config.ai?.enabled).toBe(false)
+        expect(config.ai?.apiKey).toBeUndefined()
     })
 })
 

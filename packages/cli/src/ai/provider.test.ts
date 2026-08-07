@@ -33,7 +33,8 @@ describe('createAiProvider (openai-compatible)', () => {
 
         expect(fetchFn).toHaveBeenCalledTimes(1)
         const [url, init] = fetchFn.mock.calls[0] as [string, RequestInit]
-        expect(url).toBe('https://api.openai.com/v1/chat/completions')
+        // 默认端点与默认模型 deepseek-v4-flash 配套（DeepSeek 官方 OpenAI 兼容端点）
+        expect(url).toBe('https://api.deepseek.com/chat/completions')
         expect((init.headers as Record<string, string>).authorization).toBe('Bearer sk-test-key-1234567890')
         const body = JSON.parse(init.body as string)
         expect(body.model).toBe('deepseek-chat')
@@ -57,6 +58,24 @@ describe('createAiProvider (openai-compatible)', () => {
         await provider.chat({ messages: [{ role: 'user', content: 'hi' }] })
 
         expect(fetchFn.mock.calls[0][0]).toBe('https://api.deepseek.com/v1/chat/completions')
+    })
+
+    it('uses custom apiUrl for anthropic-compatible endpoints (gateway/self-hosted)', async () => {
+        const fetchFn = vi.fn().mockResolvedValue(jsonResponse({
+            content: [{ type: 'text', text: '{"ok":true}' }],
+            usage: { input_tokens: 1, output_tokens: 1 },
+        }))
+        const provider = createAiProvider({
+            provider: 'anthropic',
+            model: 'claude-3-5-haiku',
+            apiKey: 'sk-ant-test-key-1234567890',
+            apiUrl: 'https://gateway.example.com/v1/messages/',
+        }, { fetchFn })
+
+        await provider.chat({ messages: [{ role: 'user', content: 'hi' }] })
+
+        // 尾部斜杠去除后拼接
+        expect(fetchFn.mock.calls[0][0]).toBe('https://gateway.example.com/v1/messages')
     })
 
     it('throws AiProviderError with masked body on non-2xx', async () => {

@@ -53,9 +53,10 @@ describe('maskSecrets', () => {
 
 describe('estimateCostUsd', () => {
     it('computes cost from model price table', () => {
-        // deepseek-chat: 0.27 / 1M input, 1.1 / 1M output
-        expect(estimateCostUsd('deepseek-chat', 1_000_000, 0)).toBeCloseTo(0.27, 5)
-        expect(estimateCostUsd('deepseek-chat', 0, 1_000_000)).toBeCloseTo(1.1, 5)
+        // deepseek-chat: 0.14 / 1M input, 0.28 / 1M output（models.dev 2026 定价）
+        expect(estimateCostUsd('deepseek-chat', 1_000_000, 0)).toBeCloseTo(0.14, 5)
+        expect(estimateCostUsd('deepseek-chat', 0, 1_000_000)).toBeCloseTo(0.28, 5)
+        expect(estimateCostUsd('deepseek-v4-flash', 1_000_000, 1_000_000)).toBeCloseTo(0.42, 5)
     })
 
     it('returns undefined for unknown models (no misleading estimate)', () => {

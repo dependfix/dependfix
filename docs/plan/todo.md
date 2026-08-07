@@ -31,19 +31,19 @@
 
 - **优先级**: P1（M5 归档后启动，与 M6 T601-T602 并行）
 - **依赖**: 无（CLI 命令面已齐备）
-- **状态**: 未开始
-- **交付物**: `packages/skills/dependfix-remediator/`（SKILL.md + 支撑脚本），npm 包 `@dependfix/skills`；仓库根 `skills/dependfix-remediator/` 分发目录（npx skills 生态发现）
+- **状态**: 已完成（2026-08-07 交付，Review Gate 复审通过）
+- **交付物**: `packages/skills/dependfix-remediator/`（SKILL.md + REFERENCES.md），npm 包 `@dependfix/skills`；仓库根 `skills/dependfix-remediator/` 分发目录（npx skills 生态发现）
 
 **任务内容**:
 
-- [ ] SKILL.md（YAML frontmatter：`name` / `description` 必填 + 编排步骤 + 决策树），符合 Agent Skills 共享规范（npx skills / Claude Code / Copilot / Cursor / OpenCode 均可加载）；执行后端 = `dependfix` CLI 命令映射表（report → `dependfix report`；fix → `dependfix fix --create-pr`；告警查询 → `--history` / 归档）
-- [ ] 编排逻辑与执行后端解耦：SKILL.md 中步骤只依赖"能力契约"（拉告警/修复/取报告），CLI 子命令为当前实现，预留 MCP tool 映射位（T606/T706 接入）
-- [ ] skill 放置规范落盘：仓库内权威源 = `packages/skills/`（产品 skill，随 npm 发布）；仓库根 `skills/` = npx skills 生态分发目录（发布 = git push，npx skills 自动发现，与 packages/skills 内容一致）；`.github/skills/` 保持内部开发 skill 权威源（code-reviewer 等 10 个），二者职责分离
+- [x] SKILL.md（YAML frontmatter：`name` / `description` 必填 + 编排步骤 + 决策树），符合 Agent Skills 共享规范（npx skills / Claude Code / Copilot / Cursor / OpenCode 均可加载）；执行后端 = `dependfix` CLI 命令映射表（report → `dependfix report-only`；fix → `dependfix fix` / `fix-and-pr`；告警查询 → `--history` / 归档）
+- [x] 编排逻辑与执行后端解耦：SKILL.md 中步骤只依赖"能力契约"（拉告警/修复/取报告），CLI 子命令为当前实现，预留 MCP tool 映射位（T606/T706 接入）
+- [x] skill 放置规范落盘：仓库内权威源 = `packages/skills/`（产品 skill，随 npm 发布）；仓库根 `skills/` = npx skills 生态分发目录（发布 = git push，npx skills 自动发现，与 packages/skills 内容一致）；`.github/skills/` 保持内部开发 skill 权威源（code-reviewer 等 10 个），二者职责分离（规范见 [skill-distribution.md](../design/governance/skill-distribution.md)）
 
 **完成定义**:
 
-- [ ] 用户按 README 安装 skill 后，AI 助手可对话式完成"拉告警 → 研判 → 修复 → 报告"闭环（CLI 后端）
-- [ ] SKILL.md 中无 MCP 依赖（T706 前不要求 MCP 可用）
+- [x] 用户按 README 安装 skill 后，AI 助手可对话式完成"拉告警 → 研判 → 修复 → 报告"闭环（CLI 后端）——本机冒烟通过：`npx skills` 生态发现 + 安装到 opencode 全局目录成功；README 安装指引随 T507 补充
+- [x] SKILL.md 中无 MCP 依赖（T706 前不要求 MCP 可用）
 
 **非目标**: MCP Server 本体（M6 T605/T606）；skill 市场提交
 

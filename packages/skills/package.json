@@ -1,0 +1,35 @@
+{
+    "name": "@dependfix/skills",
+    "version": "0.1.0",
+    "description": "dependfix 产品 Agent Skills 权威源（dependfix-remediator），随 npm 发布",
+    "author": "CaoMeiYouRen",
+    "license": "MIT",
+    "type": "module",
+    "keywords": [
+        "skills",
+        "agent-skills",
+        "dependabot",
+        "security",
+        "dependfix"
+    ],
+    "homepage": "https://github.com/dependfix/dependfix#readme",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/dependfix/dependfix.git"
+    },
+    "bugs": {
+        "url": "https://github.com/dependfix/dependfix/issues"
+    },
+    "files": [
+        "dependfix-remediator"
+    ],
+    "engines": {
+        "node": ">=20"
+    },
+    "scripts": {
+        "sync:dist": "node scripts/sync-dist.mjs"
+    },
+    "publishConfig": {
+        "access": "public"
+    }
+}

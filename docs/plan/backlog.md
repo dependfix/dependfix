@@ -200,33 +200,38 @@
 > - CLI 优势：零配置（`npx dependfix` 开箱即用）、无 shell 客户端外均可用、命令面完整、报告天然落盘可审计、不依赖 T505 解耦
 > - MCP 优势：结构化 schema 返回零解析、覆盖无 shell 客户端（Claude Desktop / Copilot 等）、常驻进程可缓存/增量查询、细粒度读写 tool 安全边界
 > - 结论：**两者是叠加关系**——skill 编排逻辑不变，执行后端可切换；CLI 先行不阻塞也不被 MCP 阻塞
+>
+> **生态决策补充（2026-08-07 用户确认）**：`npx skills`（vercel-labs/skills，2026-01 发布，28.1k stars，MIT）已成为主流 agent skills 安装方式——支持 70+ agents（Claude Code / OpenCode / Codex / Cursor / Copilot / Windsurf / Trae / Gemini CLI / Qwen Code 等）、自动检测本机工具、无需提交 registry（公开仓库含 SKILL.md 即可安装，skills.sh telemetry 自动收录）。**决定：npx skills 为主安装通道，自研安装器仅作兜底（离线 / 无 npx 环境的最坏情况）；内部开发 skill（code-reviewer 等 10 个）不得被生态发现**——通过 `metadata.internal: true` 标记隐藏（npx skills 官方支持，正常发现不可见、需 `INSTALL_INTERNAL_SKILLS=1` 才显示）。
 
 ### T506 产品 Skill 权威源与 CLI 编排
 
 - 优先级：`P1`（M5 归档后启动，与 M6 T601-T602 并行）
 - 依赖：无（CLI 命令面已齐备）
-- 交付物：`packages/skills/dependfix-remediator/`（SKILL.md + 支撑脚本），npm 包 `@dependfix/skills`
+- 交付物：`packages/skills/dependfix-remediator/`（SKILL.md + 支撑脚本），npm 包 `@dependfix/skills`；仓库根 `skills/dependfix-remediator/` 分发目录（npx skills 生态发现）
 - 任务内容：
-  - [ ] SKILL.md（YAML frontmatter + 编排步骤 + 决策树），执行后端 = `dependfix` CLI 命令映射表（report → `dependfix report`；fix → `dependfix fix --create-pr`；告警查询 → `--history` / 归档）
+  - [ ] SKILL.md（YAML frontmatter：`name` / `description` 必填 + 编排步骤 + 决策树），符合 Agent Skills 共享规范（npx skills / Claude Code / Copilot / Cursor / OpenCode 均可加载）；执行后端 = `dependfix` CLI 命令映射表（report → `dependfix report`；fix → `dependfix fix --create-pr`；告警查询 → `--history` / 归档）
   - [ ] 编排逻辑与执行后端解耦：SKILL.md 中步骤只依赖"能力契约"（拉告警/修复/取报告），CLI 子命令为当前实现，预留 MCP tool 映射位（T606/T706 接入）
-  - [ ] skill 放置规范落盘：仓库内权威源 = `packages/skills/`（产品 skill，随 npm 发布）；`.github/skills/` 保持内部开发 skill 权威源（code-reviewer 等 10 个），二者职责分离
+  - [ ] skill 放置规范落盘：仓库内权威源 = `packages/skills/`（产品 skill，随 npm 发布）；仓库根 `skills/` = npx skills 生态分发目录（发布 = git push，npx skills 自动发现，与 packages/skills 内容一致）；`.github/skills/` 保持内部开发 skill 权威源（code-reviewer 等 10 个），二者职责分离
 - 完成定义：
   - [ ] 用户按 README 安装 skill 后，AI 助手可对话式完成"拉告警 → 研判 → 修复 → 报告"闭环（CLI 后端）
   - [ ] SKILL.md 中无 MCP 依赖（T706 前不要求 MCP 可用）
 
-### T507 多 agent 工具接入与安装器
+### T507 npx skills 生态接入 + 自研兜底安装器
 
 - 优先级：`P1`
 - 依赖：T506
-- 交付物：`dependfix skills` 子命令（install / list / doctor）
+- 交付物：npx skills 生态主通道（仓库根 `skills/` 被发现安装）+ `dependfix skills install`（兜底）/ doctor
 - 任务内容：
-  - [ ] 支持安装目标：Claude Code（`~/.claude/skills/`）、GitHub Copilot / VS Code（`~/.copilot/skills/`）、Cursor（`.agents/skills/`）、OpenCode（`~/.config/opencode/skills/`）——目录随各工具官方约定维护
-  - [ ] `dependfix skills install`：检测已安装的 agent 工具 → 复制 `packages/skills/dependfix-remediator/` 到对应目录 → 输出安装清单
-  - [ ] `dependfix skills list`（已安装状态）/ `dependfix skills doctor`（目录约定漂移检测，如官方路径变更）
-  - [ ] 安装器不触碰用户已有同名 skill（存在则提示覆盖确认，不静默）
+  - [ ] **主通道**：验证 `npx skills add dependfix/dependfix -s dependfix-remediator -g` 可发现并安装产品 skill 到本机已检测的 agent 工具（symlink 或 copy）；发布 = git push，skills.sh 经 telemetry 自动收录
+  - [ ] **内部 skill 防发现**：10 个内部开发 skill（code-reviewer 等）SKILL.md frontmatter 加 `metadata.internal: true`（.github/skills 权威源 + .agents/skills / .claude/skills 副本同步，hash 保持一致）；验证 `npx skills` 正常发现不可见、`INSTALL_INTERNAL_SKILLS=1` 可见，且主流 agent（Claude Code / OpenCode / Cursor）加载不受该字段影响
+  - [ ] **兜底安装器**：`dependfix skills install`——检测本机已装 agent 工具 → 复制产品 skill 到官方目录 → 输出安装清单（不依赖 npx skills；不复刻 add/list/update/remove 矩阵）；存在同名 skill 则提示覆盖确认，不静默
+  - [ ] `dependfix skills doctor`：目录约定漂移检测（官方路径变更）+ 内部 skill internal 标记完整性检查
+  - [ ] README 安装指引：一行命令 `npx skills add dependfix/dependfix -s dependfix-remediator -g -a claude-code -a opencode -a cursor` 覆盖主流工具；注明兜底离线安装方式
 - 完成定义：
-  - [ ] 在装有以下任一工具的机器上执行 `dependfix skills install` 后，该工具可直接发现并使用 skill
-  - [ ] 安装器幂等可重跑（重复执行不产生重复目录）
+  - [ ] 主通道：在装有任一主流 agent 的机器上 `npx skills add` 一条命令完成安装，工具可直接发现并使用 skill
+  - [ ] 兜底：无 npx skills 环境下 `dependfix skills install` 完成同等安装
+  - [ ] `npx skills` 正常发现（--list / find）不出现任何内部开发 skill
+  - [ ] 主通道与兜底均幂等可重跑
 
 ### T508 MCP 双后端扩展点（衔接 T606/T706）
 

@@ -16,6 +16,7 @@
     "changeset:publish": "changeset publish",
     "changelog": "node scripts/changelog.mjs",
     "distill:wisdom": "node scripts/distill-wisdom.mjs",
+    "sync:skills": "node scripts/sync-skills.mjs",
     "check:links": "node scripts/check-links.mjs",
     "lint": "cross-env NODE_ENV=production eslint . --fix --max-warnings 10",
     "lint:md": "lint-md \"*.md\" \"docs/**/*.md\" \".github/**/*.md\" \"packages/**/*.md\" \"skills/**/*.md\" --fix",
@@ -64,7 +65,7 @@
       "git add"
     ],
     "packages/skills/dependfix-remediator/**": [
-      "pnpm --filter @dependfix/skills sync:dist",
+      "node scripts/sync-skills.mjs",
       "git add skills/dependfix-remediator"
     ]
   },

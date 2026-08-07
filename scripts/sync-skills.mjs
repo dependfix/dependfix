@@ -9,15 +9,15 @@
  * 空源直接报错（镜像语义下"源清空"几乎必为误操作，防止清空目标）。
  * 幂等可重跑；一致性由 packages/skills/test/sync-consistency.test.mjs 保证。
  *
- * 用法：node packages/skills/scripts/sync-dist.mjs（或 pnpm --filter @dependfix/skills sync:dist）
+ * 用法：node scripts/sync-skills.mjs（或 pnpm sync:skills）
  */
 import { cpSync, existsSync, mkdirSync, readdirSync, rmSync, statSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const here = dirname(fileURLToPath(import.meta.url))
-const srcDir = join(here, '..', 'dependfix-remediator')
-const distDir = join(here, '..', '..', '..', 'skills', 'dependfix-remediator')
+const srcDir = join(here, '..', 'packages', 'skills', 'dependfix-remediator')
+const distDir = join(here, '..', 'skills', 'dependfix-remediator')
 
 if (!existsSync(srcDir)) {
     throw new Error(`权威源目录不存在: ${srcDir}`)

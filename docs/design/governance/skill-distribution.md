@@ -14,7 +14,7 @@
 
 产品 skill 权威源与生态分发目录必须保持文件集合与内容 hash 一致：
 
-- 同步脚本：`packages/skills/scripts/sync-dist.mjs`（`pnpm --filter @dependfix/skills sync:dist`）
+- 同步脚本：`scripts/sync-skills.mjs`（`pnpm sync:skills`，仓库级治理工具，不随 npm 包发布）
 - 一致性测试：`packages/skills/test/sync-consistency.test.mjs`（文件集合 + sha256 双断言）
 - 自动同步：lint-staged 命中 `packages/skills/dependfix-remediator/**` 时自动执行同步并暂存 `skills/`（改权威源 = 自动同步分发）
 - 改动产品 skill 后必须执行同步脚本（或经 lint-staged 自动同步），测试失败即 CI 拦截，不允许带漂移提交

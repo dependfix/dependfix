@@ -21,13 +21,11 @@
         "url": "https://github.com/dependfix/dependfix/issues"
     },
     "files": [
-        "dependfix-remediator"
+        "dependfix-remediator",
+        "README.md"
     ],
     "engines": {
         "node": ">=20"
-    },
-    "scripts": {
-        "sync:dist": "node scripts/sync-dist.mjs"
     },
     "publishConfig": {
         "access": "public"

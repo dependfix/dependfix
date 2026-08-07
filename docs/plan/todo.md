@@ -99,8 +99,10 @@
 
 ## M5.5 完成判定（草案，方案细化后定稿）
 
-- [ ] T506-T507 交付并通过 Review Gate（每任务独立审计）
-- [ ] npx skills 主通道 + 兜底安装器双路径验证通过
-- [ ] 内部开发 skill 生态不可见（metadata.internal 验证）
-- [ ] `pnpm typecheck` + `pnpm lint` + 全量测试 + `pnpm build` 通过
-- [ ] CLI 现状行为回归无损
+- [x] T506-T508 交付并通过 Review Gate（每任务独立审计：T506 两轮闭环、T507 首轮 PASS+复审、T508 PASS）
+- [x] npx skills 主通道 + 兜底安装器双路径验证通过（主通道本地源实证 + 兜底本机 3 agent 实测；GitHub 源端到端待推送后复验）
+- [x] 内部开发 skill 生态不可见（可见性矩阵实测：正常 1 个 / INSTALL_INTERNAL_SKILLS=1 11 个）
+- [x] `pnpm typecheck` + `pnpm lint` + 全量测试 + `pnpm build` 通过（串行 929/929；并行 2 个已知 Windows flaky 与本次改动无关）
+- [x] CLI 现状行为回归无损（主命令 positional 命令面 + --help 实测正常）
+
+> 收口提示：待推送后 CI 端到端复验（GitHub 源主通道 + 全链质量门），通过后归档 M5.5 并更新 roadmap。

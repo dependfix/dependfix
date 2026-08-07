@@ -43,7 +43,7 @@ metadata:
 1. **单一主责**：同一事项同一时点只保留一个实现主责。
 2. **核心实现**：遵循开发规范；涉及持久化优先处理数据模型，再落业务逻辑。
 3. **规范一致性自检**：注释与测试名不得引入规划/任务/审计编号标记（`T405`、`P1-1` 等，例外仅真实常量与带文档路径的导航指针，见 [开发规范 §3](../../../docs/standards/development.md)）；新实现与既有规范冲突时先对照规范再定写法（教训见 [经验归档 §十六](../../../docs/design/governance/2026-08-06-experience-archive.md)）。
-4. **批次拆分**：预计本次改动 > 10 文件或 > 800 行新增时，先返回 P 阶段把任务拆为多个原子条目，按"可独立验证"顺序分批实现、分批审计、分批提交；禁止整条长任务攒成巨型 diff（教训见 [经验归档 §二十四](../../../docs/design/governance/2026-08-06-experience-archive.md)）。
+4. **批次拆分**：预计本次改动超出 [规划规范 §1.1 任务粒度约束](../../../docs/standards/planning.md) 阈值时，先返回 P 阶段把任务拆为多个原子条目，按"可独立验证"顺序分批实现、分批审计、分批提交；合规核验在 review 阶段强制（见 [code-reviewer](../code-reviewer/SKILL.md) 检查点）。
 5. **范围闸门**：发现新的优化点或非阻塞事项时，返回 P 阶段重新分流。
 
 - **技能**：按需使用对应技术栈 skill（`nuxt`、`vue` 等）
@@ -77,7 +77,7 @@ metadata:
 ### F (Finish) — 文档收口与分批提交
 
 1. **文档同步**：更新 `todo.md` 状态，按需同步相关文档。
-2. **分批提交**：每个原子条目独立提交，单次提交 ≤ 10 文件且 ≤ 800 行新增，超出时退回 P 拆分；每批加载 `conventional-committer` skill，确认 A 阶段已放行且 lint/typecheck/测试通过，生成 Conventional Commits 消息并 `git commit`（教训见 [经验归档 §二十四](../../../docs/design/governance/2026-08-06-experience-archive.md)）。
+2. **分批提交**：每个原子条目独立提交，规模约束与拆分规则见 [规划规范 §1.1 任务粒度约束](../../../docs/standards/planning.md)；每批加载 `conventional-committer` skill，确认 A 阶段已放行且 lint/typecheck/测试通过，生成 Conventional Commits 消息并 `git commit`。
 3. **推送禁令**：不自动 push。
 
 - **技能**：`documentation-specialist`、`conventional-committer`

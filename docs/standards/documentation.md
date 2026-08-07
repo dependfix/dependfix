@@ -68,6 +68,8 @@ docs/
 
 冲突顺序：L0 > L1 > L2 > L3。
 
+**规范单点声明原则**：每条规则只在其职责归属的权威文档中**完整声明一次**（如任务粒度约束 → [规划规范 §1.1](./planning.md)），其他文档 / skill / agent 定义只做**一行链接引用**（`见 [X 规范 §Y](./xxx.md)`），禁止在多处重复抄写完整条款、阈值或教训。理由：多处重复必然漂移（改一处漏一处），且膨胀各文档阅读负担。执行分工：**宽松指引**（应当、建议）可在执行阶段（skill/agent）声明；**严格约束**（必须、阈值、禁令）优先挂在 **review 阶段检查点**（[code-reviewer 检查项](../../.github/skills/code-reviewer/SKILL.md)、Code Auditor 必查项）——review 阶段上下文干净（只看 diff + 验证证据），比开发阶段更容易强制执行（教训见 [经验归档 §二十四](../design/governance/2026-08-06-experience-archive.md)）。
+
 ## 5. 设计文档分层
 
 - **模块设计**: 稳定模块总设计写入 `docs/design/packages/`（当前实现/正在实现的模块，参照 monorepo packages 划分）

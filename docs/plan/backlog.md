@@ -119,84 +119,16 @@
 
 ## M6: 最小平台 MVP
 
-目标：交付一个可独立部署的集中管理平台的最小可用版本。
+> **已转入 todo.md（2026-08-07 规划）**：M6 任务明细与细化见 [todo.md §M6](todo.md#m6-最小平台-mvp)。规划决策（执行深度 A/B 双模式、同步执行、MCP 保留合并、沙箱设计先行、Action 触发实现）与 6 项任务（T601-T605 + T607，原 T605/T606 合并）已落盘。以下仅保留本阶段转移出的增强候选。
 
-### T601 平台项目骨架搭建
-
-- 优先级：`P1`
-- 依赖：T505
-- 交付物：Nuxt 4 全栈项目（`apps/platform/`）。
-- 任务内容：
-  - [ ] Nuxt 4 项目初始化，配置 TypeScript、PrimeVue、SCSS。
-  - [ ] better-auth 认证集成（邮箱密码登录）。
-  - [ ] TypeORM + SQLite 数据库初始化。
-  - [ ] Docker Compose 开发/部署配置。
-- 完成定义：
-  - [ ] `docker compose up` 可拉起完整平台。
-
-### T602 仓库与凭据管理
-
-- 优先级：`P1`
-- 依赖：T601
-- 交付物：仓库 CRUD + 凭据加密存储。
-- 任务内容：
-  - [ ] Repository 实体与 CRUD API。
-  - [ ] Credential 实体，AES-256-GCM 加密存储；凭据类型支持 classic PAT / fine-grained PAT / GitHub App（app-id + private-key），Dependabot alerts 读取必须显式授权（GITHUB_TOKEN 不可用，见 G2）。
-  - [ ] Web UI：仓库列表、添加/编辑/删除。
-- 完成定义：
-  - [ ] 可通过 Web UI 管理仓库和关联凭据。
-
-### T603 扫描触发与结果存储
-
-- 优先级：`P1`
-- 依赖：T602, T505
-- 交付物：手动触发扫描 + 结果持久化。
-- 任务内容：
-  - [ ] ScanRun / ScanResult 实体设计。
-  - [ ] Web UI 触发单仓库扫描，复用 `packages/cli` 编排逻辑。
-  - [ ] 扫描结果写入 SQLite。
-- 完成定义：
-  - [ ] 可从 Web UI 对单个仓库触发扫描并查看结果。
-
-### T604 仪表板与告警视图
-
-- 优先级：`P1`
-- 依赖：T603
-- 交付物：仪表板 + 告警筛选视图。
-- 任务内容：
-  - [ ] 仪表板：仓库数、告警数、已修复数。
-  - [ ] 告警视图：按仓库/严重级别/来源筛选。
-  - [ ] 扫描历史列表。
-- 完成定义：
-  - [ ] 用户登录后可查看全局告警状态。
-
-### T605 MCP Server 骨架（`@dependfix/mcp`）
-
-- 优先级：`P1`
-- 依赖：T505, T109
-- 交付物：MCP Server 项目骨架 + 2 个只读 tool。
-- 任务内容：
-  - [ ] `packages/mcp` 初始化，配置 tsdown 构建。
-  - [ ] 集成 `@modelcontextprotocol/sdk`。
-  - [ ] 实现 `fetch_alerts` tool：拉取 Dependabot 告警。
-  - [ ] 实现 `get_last_report` tool：读取最近 JSON 报告。
-- 完成定义：
-  - [ ] 可通过 `npx @dependfix/mcp` 启动并注册 tool。
-- 设计文档：[MCP Server 设计](../design/governance/mcp-server.md)
-
-### T606 MCP 写入 tool + CLI 互操作
-
-- 优先级：`P2`
-- 依赖：T605
-- 交付物：`run_scan` + `fix_dependency` tool。
-- 任务内容：
-  - [ ] 实现 `run_scan` tool（复用 `DependfixApp` 程序化接口）。
-  - [ ] 实现 `fix_dependency` tool（复用 `overrideTransitiveDependency`）。
-  - [ ] 验证 MCP tool 结果与 CLI 输出一致性。
-- 完成定义：
-  - [ ] AI 助手可通过 MCP tool 完成完整扫描修复闭环。
-
-> **T605 / T606** 是 MCP 作为 Skill 执行后端的基础设施：完成后 `dependfix-remediator` skill（M5.5 T508）可优先走 MCP tool，未配置 MCP 的环境回退 CLI 命令——CLI 驱动路径已由 M5.5 T506 先行落地，MCP 是增强而非前置。
+- **C25 M6 Action 触发结果回填**（T607 登记，Q5=B 已知边界）
+  - 状态：🔶 待评估（M6 不实现）
+  - 内容：平台触发 `workflow_dispatch` 后，action 输出（扫描/修复结果）回填到平台结果存储（ScanRun/ScanResult）是独立难题——需要 action 侧上报通道（如完成时 POST 回调、artifact 解析或 webhook 事件）+ 平台侧接收端点与映射；触发与执行闭环需人工核对或在目标仓库侧查看 action 运行页
+  - 来源：M6 规划（2026-08-07，Q5=B 评估+实现触发，回填边界）
+- **C26 独立沙箱容器执行实现**（T607 设计文档产出后的实现候选）
+  - 状态：🔶 待评估（M7 候选）
+  - 内容：平台容器即沙箱的最小实现（M6 T603 `ContainerExecutor`）之后，若恶意依赖升级威胁面评估结论需要更严格隔离，实现独立 worker 容器（每任务/每仓库容器，网络/文件系统隔离）；与 M7 T702 BullMQ worker 模型结合
+  - 来源：M6 规划（2026-08-07，Q4=A 设计+最小实现，完整沙箱留后续）
 
 ---
 
@@ -273,7 +205,7 @@
 ### T706 MCP Skill 集成与发布
 
 - 优先级：`P2`
-- 依赖：T606, M6
+- 依赖：T605, M6
 - 交付物：MCP Server 正式发布 + Skill 双后端集成。
 - 任务内容：
   - [ ] `@dependfix/mcp` 发布到 npm。

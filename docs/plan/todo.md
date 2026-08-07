@@ -175,6 +175,34 @@
 
 **测试方案**: 现有 CLI 全量回归 + pipeline 注入替身（mock logger/config）单测
 
+
+### T506 AI 链路 app 接线（收口 M5）
+
+- **优先级**: P1
+- **依赖**: T502（ai/ 组件）、T503、T504、T210（PR 链路）
+- **状态**: 未开始
+- **交付物**: config 接线 + app 触发接入 + 报告展示 + action 输入
+
+**任务内容**:
+
+- [ ] config：--ai / --ai-provider / --ai-model（默认 deepseek-v4-flash，2026-08-07 用户确认）/ --ai-base-url / --ai-api-key / --ai-trigger；RuntimeConfig.ai 子配置；开启时 apiKey 缺失 → 清晰报错（承接 T502 待办项）
+- [ ] 凭据安全：ai.apiKey 不进 RunReportConfig 序列化（报告/JSON 排除）；日志脱敏（复用 maskSecrets）
+- [ ] app 触发：升级验证失败 或 major 升级（--ai-trigger 可配）→ 构建研判上下文（changelog + 失败日志 + 文件）→ assessBreakingChange
+- [ ] 结果分流：code-change → safety-gate → applyChanges → 完整验证（install+lint+build）→ 成功提交（FixAction strategy=ai-patch + diff）失败回滚；version-lock → 复用 override 链路；wait-upstream/manual → 报告建议区块
+- [ ] usage 日志（每次调用消耗 + 估算成本）与报告展示（aiUsage 聚合）
+- [ ] action.yml：ai-api-key input（secret: true）+ ai 相关输入
+
+**完成定义**:
+
+- [ ] --ai 开启 + apiKey 配置后，验证失败/major 升级自动触发 AI 研判并产出可审计结果
+- [ ] code-change 修复通过质量门才提交；失败回滚计 failed 不误标
+- [ ] 未开启 --ai 时行为与现状完全一致（回归）
+- [ ] apiKey 不进报告/日志（脱敏测试）
+- [ ] dry-run 不触发 AI（不产生费用）
+
+**非目标**: M6 平台凭据管理接入（T602）；AI 多轮交互
+
+**测试方案**: config 解析/校验矩阵；触发判定单元测试；app 集成（研判成功 code-change 链路 / 降级建议 / version-lock / wait-upstream / 回归）；报告字段断言；action.yml 接线
 ## M5 完成判定（草案，方案细化后定稿）
 
 - [x] T501-T505 交付并通过 Review Gate（每任务独立审计，T503 三审 / 其余 PASS）

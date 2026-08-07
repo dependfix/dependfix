@@ -108,15 +108,15 @@
 - 依赖：T601
 - 交付物：执行器/沙箱设计文档 + `ActionTriggerExecutor` 实现 + Action 降级接入评估结论。
 - 任务内容：
-  - [ ] **设计文档**（先于 T603）：恶意依赖升级威胁建模（install scripts / postinstall / 构建链投毒 / 凭据泄露风险面）+ 执行器方案矩阵（平台容器 / 独立沙箱容器 / GitHub Action / 临时目录）+ Executor 接口契约（执行后端可插拔）
+  - [x] **设计文档**（先于 T603）：恶意依赖升级威胁建模（install scripts / postinstall / 构建链投毒 / 凭据泄露风险面）+ 执行器方案矩阵（平台容器 / 独立沙箱容器 / GitHub Action / 临时目录）+ Executor 接口契约（执行后端可插拔）——见 [executor-sandbox.md](../design/governance/executor-sandbox.md)
   - [ ] `ActionTriggerExecutor`：对已配置 action 的仓库触发 `workflow_dispatch`（需 `actions: write`，凭据复用仓库关联 Credential；目标 workflow 文件名在仓库配置中声明）
-  - [ ] B 模式接入评估：目标仓库添加 action 的使用方式/体验/成本结论（写入设计文档；**结果回填登记 backlog，不在 M6 实现**）
-  - [ ] `mcp-server.md` 里程碑编号修正（T606/T607 → 本阶段 T605 合并口径，见规划决策 3）
+  - [x] B 模式接入评估：目标仓库添加 action 的使用方式/体验/成本结论（已写入 [executor-sandbox.md §5](../design/governance/executor-sandbox.md)；**结果回填登记 backlog C25，不在 M6 实现**）
+  - [x] `mcp-server.md` 里程碑编号修正（T606/T607 → 本阶段 T605 合并口径，见规划决策 3）
 - 非目标：独立沙箱容器执行实现（M7）、action 结果回填（backlog 登记）
 - 完成定义：
-  - [ ] 设计文档经 Review Gate 通过（威胁建模 + 方案矩阵 + Executor 契约）
+  - [x] 设计文档经 Review Gate 通过（威胁建模 + 方案矩阵 + Executor 契约）
   - [ ] 对配置了 action 的仓库，平台可触发 `workflow_dispatch` 并返回触发结果
-  - [ ] B 模式接入成本评估结论落盘（含权限面与体验分析）
+  - [x] B 模式接入成本评估结论落盘（含权限面与体验分析）
 
 ---
 

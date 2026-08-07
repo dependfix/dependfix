@@ -115,10 +115,10 @@ Review Gate 的投入应与改动风险匹配，不应对所有改动一视同�
 - **测试覆盖**：编写测试用例。
 - **风险导向**：优先补当前缺陷会打断的断言、失败路径与边界行为。
 
-### F (Finish) — 任务完结与单次提交
+### F (Finish) — 任务完结与分批提交
 
 - **闭环管理**：更新 `todo.md` 状态为 `已完成`，同步更新相关文档。
-- **单次提交**：整个任务产生的所有改动一次性提交。提交前加载 `conventional-committer` skill，生成符合 Conventional Commits 格式的消息，执行 `git commit`。
+- **分批提交（长任务强制）**：每个原子条目独立提交；单次提交建议规模 ≤ 10 个文件且 ≤ 800 行新增，超出时回到 P 阶段拆分（见 [规划规范 §1.1 任务粒度约束](./planning.md)）。每批提交前加载 `conventional-committer` skill，生成符合 Conventional Commits 格式的消息，执行 `git commit`；禁止把整条长任务攒成一次巨型提交（教训见 [经验归档 §二十四](../design/governance/2026-08-06-experience-archive.md)）。
 - **推送禁令**：commit 后不得自动 `git push`，仅限用户明确要求时执行。
 
 ## 2.1 迭代中途发现事项处理

@@ -62,6 +62,10 @@
     "*.md": [
       "npm run lint:md",
       "git add"
+    ],
+    "packages/skills/dependfix-remediator/**": [
+      "pnpm --filter @dependfix/skills sync:dist",
+      "git add skills/dependfix-remediator"
     ]
   },
   "keywords": [

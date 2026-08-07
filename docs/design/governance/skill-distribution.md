@@ -16,7 +16,8 @@
 
 - 同步脚本：`packages/skills/scripts/sync-dist.mjs`（`pnpm --filter @dependfix/skills sync:dist`）
 - 一致性测试：`packages/skills/test/sync-consistency.test.mjs`（文件集合 + sha256 双断言）
-- 改动产品 skill 后必须执行同步脚本，测试失败即 CI 拦截，不允许带漂移提交
+- 自动同步：lint-staged 命中 `packages/skills/dependfix-remediator/**` 时自动执行同步并暂存 `skills/`（改权威源 = 自动同步分发）
+- 改动产品 skill 后必须执行同步脚本（或经 lint-staged 自动同步），测试失败即 CI 拦截，不允许带漂移提交
 
 ## 命名规范
 

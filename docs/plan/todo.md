@@ -61,7 +61,7 @@
 
 - **优先级**: P1
 - **依赖**: T501、T107
-- **状态**: 已实现（2026-08-07，待 Review Gate）
+- **状态**: 已完成（2026-08-07，Review Gate 复审 PASS，提交后回链）
 - **交付物**: `packages/cli/src/ai/`（provider / prompt / schema / usage / secrets）
 
 **方案细化（2026-08-07 落盘）**:
@@ -97,7 +97,7 @@
 
 - **优先级**: P1
 - **依赖**: T502、T210
-- **状态**: 已实现（2026-08-07，待 Review Gate）
+- **状态**: 已完成（2026-08-07，Review Gate 三审 PASS，提交后回链）
 - **交付物**: `packages/cli/src/ai/patch-applier.ts`
 
 **方案细化（2026-08-07 落盘）**:
@@ -177,7 +177,7 @@
 
 ## M5 完成判定（草案，方案细化后定稿）
 
-- [ ] T501-T505 交付并通过 Review Gate
-- [ ] 4 项规划决策已确认落盘
+- [x] T501-T505 交付并通过 Review Gate（每任务独立审计，T503 三审 / 其余 PASS）
+- [x] 4 项规划决策已确认落盘（2026-08-07）
 - [ ] `pnpm typecheck` + `pnpm lint` + 全量测试 + `pnpm build` 通过
-- [ ] 本地 CLI 模式行为回归无损（T505）
+- [x] 本地 CLI 模式行为回归无损（T505 全量回归）

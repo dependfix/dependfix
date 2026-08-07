@@ -4,8 +4,12 @@
 import { z } from 'zod'
 
 export const replaceBlockSchema = z.object({
-    /** 需匹配的原文（唯一性校验在应用层：同文件多块必须精确匹配且互不重叠） */
-    search: z.string().min(1, 'search must not be empty').max(20_000, 'search too long'),
+    /**
+     * 需匹配的原文（唯一性校验在应用层：同文件多块必须精确匹配且互不重叠）。
+     * 允许空串：仅"新建文件"场景合法（应用层按文件存在性决定语义——
+     * 既有文件空 search 拒绝）。
+     */
+    search: z.string().max(20_000, 'search too long'),
     /** 替换后的内容（可为空字符串 = 删除） */
     replace: z.string().max(20_000, 'replace too long'),
 })

@@ -64,7 +64,7 @@ describe('parseAssessment', () => {
         }
     })
 
-    it('rejects empty search block', () => {
+    it('accepts empty search block (new-file semantics decided by applier)', () => {
         const result = parseAssessment(JSON.stringify({
             classification: 'code-change',
             summary: 'm',
@@ -72,7 +72,10 @@ describe('parseAssessment', () => {
             confidence: 0.5,
         }))
 
-        expect(result.ok).toBe(false)
+        expect(result.ok).toBe(true)
+        if (result.ok) {
+            expect(result.value.changes[0].replace[0].search).toBe('')
+        }
     })
 
     it('rejects confidence out of range', () => {

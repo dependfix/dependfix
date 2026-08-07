@@ -7,124 +7,12 @@
 
 - 后续阶段归档分片存放于 `docs/plan/archive/` 目录。
 - 归档治理规则见 [archive/index.md](archive/index.md)。
+- 早期阶段分片：[M0 / M1](archive/todo-archive-phases-m0-m1.md)（2026-08-07 迁出）
 
 ## 主窗口保留范围
 
 - 主文档保留最近阶段的近线归档块。
 - 当 `todo-archive.md` 超过 500 行时，将早期阶段迁入分片归档。
-
----
-
-## M0: 基线收敛（已归档）
-
-> 归档日期: 2026-07-28
-> 阶段摘要: 参见 [roadmap.md §M0](roadmap.md)
-> 状态: 已完成
-
-### T001 建立 Monorepo 项目骨架 ✅
-
-- **交付物**: Monorepo 目录结构与最小入口代码
-- **实现内容**:
-  - `packages/core`: 核心域层（错误 `AppError`、JSON 日志 `createLogger`、告警模型 `NormalizedSecurityAlert`、过滤器接口 `AlertFilter`、规划器 `FixPlan`、报告 `RunResult`/`RunSummary`、工具链 `ToolchainInfo`/`resolveToolchainVersions`、通用工具 `compactRecord`/`ensureArray`/`isValidRepoIdentifier`）
-  - `packages/cli`: CLI 入口、配置层 `resolveRuntimeConfig`（多源合并）、GitHub 集成层描述符、修复器描述符（dependency/pnpm/code-scanning）、执行器描述符
-  - `pnpm-workspace.yaml`: 迁移 overrides、`minimumReleaseAge: 60`、`confirmModulesPurge: false`
-  - `@dependfix/core` 可独立构建（ESM + CJS + dts）
-  - `dependfix` CLI 包依赖 `@dependfix/core: workspace:*`，可独立构建
-- **完成定义**: `pnpm build` / `pnpm typecheck` / `pnpm test` 全部通过
-
-### T002 定义核心配置模型 ✅
-
-- **交付物**: `RuntimeConfig`、`RuntimeMode`、`SeverityThreshold` 类型定义
-- **实现内容**:
-  - `packages/cli/src/config/index.ts`: 配置类型（`RuntimeConfig`、`CliConfigOverrides`）、默认值（`DEFAULT_RUNTIME_CONFIG`）、环境变量读取（`readEnvConfig`）
-  - 多源合并优先级: CLI 参数 > 环境变量 > 默认值
-  - 校验: token 缺失、repositories 为空、createPr/dryRun 组合冲突 → 抛出 `AppError`
-- **完成定义**: 缺失关键配置时输出可读错误；配置解析器单测覆盖
-
-### T003 固定工具链策略 ✅
-
-- **交付物**: `ToolchainInfo` / `ToolchainRecord` 类型
-- **实现内容**:
-  - `packages/core/src/toolchain/index.ts`: `resolveToolchainVersions()` 版本优先级（`packageManager` 字段 → 环境变量 → config → runtime 探测）
-  - `ToolchainRecord.before` / `ToolchainRecord.after`: lockfile 修复前后的 Node/pnpm 版本快照
-  - `createDefaultToolchain()`: 基于当前运行环境生成默认工具链记录
-- **完成定义**: 后续执行器能读取确定版本配置，不依赖漂移型 `latest`
-
-### T004 定义标准告警模型 ✅
-
-- **交付物**: `NormalizedSecurityAlert` 接口（13 字段）、`SEVERITY_MAP`、`FixStrategy` 枚举
-- **实现内容**:
-  - `packages/core/src/alerts/index.ts`: 告警来源（`dependabot | code-scanning`）、严重级别映射（Dependabot severity ↔ Code Scanning rule severity → 内部 `Severity`）
-  - `FixStrategy` 枚举: `upgrade | lock | wait-upstream | manual`
-  - 辅助函数: `isFixable(alert)`、`mapCodeScanningSeverity(ruleSeverity)`
-  - 向后兼容别名: `AlertReference`（简化版 5 字段模型）
-- **完成定义**: 任一数据源进入过滤层前能转换为统一模型
-
----
-
-## M1: MVP 单仓库自动修复（已归档）
-
-> 归档日期: 2026-07-30
-> 阶段摘要: 参见 [roadmap.md §M1](roadmap.md)
-> 状态: 已完成
-> 最终提交: `4b41b70` feat(cli): 实现 DependfixApp 编排管线与 CLI 入口串联
-
-**阶段成果**: 跑通单仓库、Node.js / pnpm 生态下的 Dependabot 告警拉取 → 过滤 → 修复 → 验证 → 报告的全链路闭环。192 项测试通过，lint 0 error。
-
-### T101 实现仓库选择能力 ✅
-- **交付物**: `packages/cli/src/github/repo-selector.ts`
-- **实现内容**: `readReposFile()` 文件读取（支持注释跳过）、`resolveRepoList()` CLI+文件合并去重校验、citty 统一参数解析（`--repo` / `--repos-file`）
-- **测试**: 9 tests
-
-### T102 实现 GitHub 客户端封装 ✅
-- **交付物**: `packages/cli/src/github/client.ts`、`errors.ts`
-- **实现内容**: 引入 `@octokit/rest`、`createGitHubClient({ token })` 工厂、`mapGitHubError()` 6 种错误码映射、nock HTTP mock
-- **测试**: 11 tests
-
-### T103 接入 Dependabot Alerts 拉取 ✅
-- **交付物**: `packages/cli/src/github/dependabot-fetcher.ts`
-- **实现内容**: `octokit.paginate()` 自动分页、`normalizeAlert()` 映射到 `NormalizedSecurityAlert`、fixable 判定
-- **测试**: 14 tests（含 fixture 5 条样例数据）
-
-### T104 实现告警过滤与优先级引擎 ✅
-- **交付物**: `packages/core/src/filters/alert-filter.ts`
-- **实现内容**: `filterAlerts()` 按严重级别、`prioritizeAlerts()` 三级排序、`limitAlerts()` 截断
-- **测试**: 18 tests
-
-### T105 实现依赖升级修复器 ✅
-- **交付物**: `packages/cli/src/fixers/dependency/index.ts`
-- **实现内容**: `upgradeDependency()` 修改 package.json + `pnpm install --no-frozen-lockfile`、前缀保留、备份回滚
-- **测试**: 31 tests
-
-### T106 实现 pnpm frozen-lockfile 修复器 ✅
-- **交付物**: `packages/cli/src/fixers/pnpm/index.ts`
-- **实现内容**: `classifyLockfileFailure()` 7 分类诊断、`repairLockfile()` 多策略修复链、lockfile diff 统计
-- **测试**: 35 tests
-- **Fixture**: `lockfile-drift/`（normal / missing-lockfile / version-mismatch）
-
-### T107 实现最小验证执行器 ✅
-- **交付物**: `packages/cli/src/runners/verification-runner.ts`
-- **实现内容**: `runVerification()` 顺序执行命令、`sanitizeOutput()` 脱敏、默认 `pnpm install/lint/build`
-- **测试**: 23 tests
-
-### T108 实现 Markdown / JSON 报告生成 ✅
-- **交付物**: `packages/core/src/report/`（types / markdown-generator / json-generator / writer）
-- **实现内容**: 6 类型定义、`generateMarkdownReport()` 6 节模板、`generateJsonReport()`、`writeReport()`
-- **测试**: 33 tests
-
-### T109 实现本地运行入口 ✅
-- **交付物**: `packages/cli/src/app.ts`（DependfixApp）、`packages/cli/src/bin.ts`（CLI 入口）
-- **实现内容**: `DependfixApp` 类替代 M0 descriptor 模式、3 种运行模式、`--dry-run` / `--verbose`、脚本存在性校验、退出码 0/1/2、bin 字段
-- **收尾**: 清理 6 组 M0 descriptor stubs（-106 行）
-
-### MVP 完成判定（全部通过）
-- [x] `dependfix report --repo owner/repo`
-- [x] Dependabot alerts 拉取 + 严重级别过滤
-- [x] 可升级依赖自动修复（本地文件变更）
-- [x] pnpm frozen-lockfile 漂移修复
-- [x] 最小验证（install + lint + build）
-- [x] Markdown + JSON 报告生成
-- [x] typecheck + lint + test 全部通过
 
 ---
 
@@ -391,3 +279,74 @@
 - **经验沉淀**: 归档 §十八（防护正则按全集核对 + 同类扫描）/ §十九（维度字段传播检查）/ §二十（断言精确到链路身份）/ §二十一（脚本化编辑验证文件内容）+ code-reviewer checklist 新增「协议/枚举全集核对」「维度字段传播检查」两小节
 - **残余风险**: 成员验证 lint-only（演进项：成员独立 lint 脚本）；明细表 action 查找粒度；同包多成员精确 pin 场景需人工介入；`latest`/`*` 等 range 的 `^` 归约行为未纳入防护
 - **遗留登记**: 无阻塞项，M5 可启动
+
+
+## M5: AI Breaking Change 研判（已归档）
+
+> 归档日期: 2026-08-07
+> 阶段摘要: 参见 [roadmap.md §M5](roadmap.md)
+> 状态: 已完成
+> 最终提交: `61929613` fix(action): ai-api-key description 去除 secrets 表达式示例（CI 链式修复收口）
+
+**阶段成果**: AI 对依赖升级 breaking change 的自动研判闭环——Changelog 双源采集 → 多 provider 研判 → 结构化 patch 应用 → 安全门 + 完整验证 → app 触发接线 + 报告 aiUsage 聚合。903 tests（38 files）。
+
+### 规划决策（2026-08-07 已确认，用户确认内容）
+
+- **D1 AI 提供商**: OpenAI 兼容端点优先 + Anthropic 双 provider（fetch 封装无 SDK；DeepSeek 等走 `--ai-base-url`；anthropic 模式支持 `--ai-api-url` 自定义兼容端点）
+- **D2 触发时机**: 验证失败 + major 升级触发，`--ai-trigger` 可配（both / failure / major）
+- **D3 Token 来源与凭据安全**: CLI `DEPENDFIX_AI_API_KEY` env（优先）/ `--ai-api-key`（泄露面文档警示）；action `ai-api-key` input（composite 不支持 `secret` 属性 → 经 env 传递自动打码）；apiKey 不落盘 + maskSecrets 脱敏 + action input 声明；M6 T602 统一凭据管理
+- **D4 成本默认关闭 + token 消耗展示**: `--ai` opt-in；每次调用记录 usage（input/output tokens），聚合展示（日志每次调用 + 报告 aiUsage 段 + console run 总计 + 内置单价表标注"估算仅供参考"）
+
+### T501 实现 Changelog / Release Notes 采集 ✅
+
+- **交付物**: `packages/cli/src/ai/changelog-fetcher.ts`（npm registry packument → GitHub Releases 双源）
+- **实现内容**: packument 解析 repository 字段 → octokit `repos.listReleases` 取 release body；breaking 段落启发式提取（Breaking changes / ⚠️ / Migration / BREAKING CHANGE）；run 内 Map 缓存（单测断言请求次数）；双源失败降级 null + 原因（不静默）
+- **验收**: 双源失败降级路径可测试；缓存命中不重复请求
+
+### T502 实现 AI 研判引擎 ✅
+
+- **交付物**: `packages/cli/src/ai/`（provider / prompt / schema / usage / secrets）
+- **实现内容**: `AiProvider` 接口 + `OpenAICompatibleProvider`（/chat/completions）+ `AnthropicProvider`（/v1/messages，x-api-key + anthropic-version header）+ factory；system prompt 硬编码（用户内容仅 data 注入，prompt 注入防护）；Zod 输出 schema（classification / summary / changes / confidence / rationale），校验失败重试 1 次 → 降级建议模式；usage 聚合 + 单价表成本估算；`maskSecrets` 脱敏（provider 层 + 编排层防御纵深）
+- **验收**: 非法输出可检测不静默；apiKey 不进报告/日志（含响应体回显 key 场景）
+
+### T503 实现修复方案生成器 ✅
+
+- **交付物**: `packages/cli/src/ai/patch-applier.ts`
+- **实现内容**: 结构化 changes 应用（search 精确匹配 + 唯一性校验 → 失败回退建议模式）；快照/回滚（snapshotTrackedFiles + 新文件登记）；version-lock → override 生成；wait-upstream → 说明文档
+- **验收**: patch 应用成功/失败/冲突（search 不唯一）矩阵可测；失败可审计回退；默认不自动合并
+- **承接登记**: PR 提交由 app 集成（T506）承接
+
+### T504 AI 输出安全校验与质量门 ✅
+
+- **交付物**: `packages/cli/src/ai/safety-gate.ts`
+- **实现内容**: patch 范围限制（≤5 文件，超限拒绝可审计）；路径穿越（resolveWithinWorkDir）/ 命令注入（结构化数据不执行 shell，检查危险模式）/ 敏感信息泄露（sk- / ghp_ / private key 模式）检查；完整验证链（install+lint+build，对齐 T405 跨线语义）
+- **验收**: 恶意/异常 patch 样本拒绝矩阵（安全单测）；失败回滚 + 记录原因回退建议模式
+- **承接登记**: 质量门动态验证接线由 app 集成（T506）承接
+
+### T505 CLI 解耦重构（平台化前置）✅
+
+- **交付物**: `packages/cli/src/app/pipeline.ts`（`createPipeline(deps)` 抽象）
+- **实现内容**: runCli() 中 process.env / console.log 紧耦合抽离为可注入依赖（logger / config resolver / io）；local 与 platform 模式共用同一编排核心；C13 循环依赖（app/helpers ↔ cli/helpers）解环
+- **验收**: 本地 CLI 行为不变（全量回归）；platform 模式可注入不同 logger / config resolver 复用编排逻辑
+
+### T506 AI 链路 app 接线（收口 M5）✅
+
+- **交付物**: config 接线 + app 触发接入 + 报告展示 + action 输入
+- **实现内容**: config（--ai / --ai-provider / --ai-model 默认 deepseek-v4-flash / --ai-base-url 默认 https://api.deepseek.com / --ai-api-key / --ai-trigger / --ai-api-url；开启时 apiKey 缺失 → CONFIG_VALIDATION_ERROR 清晰报错）；app 2.0.2 触发接入（验证失败带 failureLog / major 预防性；ai-patch 成功 → majorOk 升级保留；dry-run 不触发不产生费用）；`runAiIntegration` 分流闭环（code-change → safety-gate → applyChanges → 完整验证 → 回滚；version-lock / wait-upstream / 降级 → 建议 noOp）；计数语义（ai 辅助动作不计 fixed/failed，主动作代表；指纹排除 noOp 防漂移）；报告 aiUsage 聚合段（RunResult.aiUsage / Markdown AI Usage 节 / JSON / console run 总计）；action.yml ai 系列 inputs + DEPENDFIX_AI_* env（api-key 经 env 传递自动打码）
+- **验收**: --ai 开启 + apiKey 配置后自动触发研判并产出可审计结果；code-change 通过质量门才提交；未开启 --ai 行为与现状完全一致（回归）；dry-run 不触发
+
+### M5 完成判定（全部通过）
+
+- [x] T501-T506 交付并通过 Review Gate（每任务独立审计，T503 三审 / 其余 PASS + 复审）
+- [x] 4 项规划决策已确认落盘（2026-08-07）
+- [x] `pnpm typecheck` + `pnpm lint` + 全量测试（903/903）+ `pnpm build` 通过
+- [x] 本地 CLI 模式行为回归无损（T505 全量回归 + T506 回归断言）
+
+### M5 阶段治理记录（2026-08-07）
+
+- **提交序列**: T501（21c07b67）→ T502（3475e6e5）→ T503（f9affe5f）→ T504（31997adc）→ T505（e30f2a3e）→ flaky 修复（451cdcc5）→ T506 主实现（7509e3e2）+ 测试补充（9f62a34f）+ 状态回链（1db75efc）→ aiUsage 聚合段（a7530299）→ roadmap 锚点修复（ae93bd2a）→ action.yml manifest 修复（61929613）→ 经验沉淀 docs(governance)（a4dfd884）
+- **Review Gate**: T501-T506 每任务独立审计 PASS；T503 三审（首轮 REJECT 写盘回滚/schema 契约/todo 状态 → 二轮 REJECT 编号标记 → 终审 PASS）；T506 复审 PASS（F1 指纹口径 / F2 场景 C exit 语义 / F3 todo 标注）；aiUsage 聚合段独立审查 PASS
+- **CI 链式修复（剥洋葱）**: ① lint:md:check 穿透 node_modules（.lintmdrc 显式空排除覆盖工具默认）→ 修复；② check:links roadmap 锚点指向已归档标题 → 修复（改指 todo-archive）；③ Security Scan dogfood workflow 暴露 action.yml description 内嵌 `${{ secrets.DEEPSEEK_API_KEY }}` manifest 模板校验失败 → 修复。教训沉淀归档 §二十二 / §二十三
+- **经验沉淀**: 归档 §二十二（CI 链式暴露 + 本地不可测陷阱）/ §二十三（行尾方向检测 + 特殊字符脚本写临时文件）；规范 ai-collaboration 4.2（剥洋葱）/ 4.3（本地不可测配置纪律）/ 1.2-6（行尾 + 脚本纪律）、documentation 链接检查（归档锚点联动）
+- **残余风险**: AI 调用失败路径的 token 计费盲区（provider 响应无 usage）；本地无法完全模拟 CI 环境（依赖 CI 端到端裁决，推送后复跑）；10 个 lint warning 存量临界（max-warnings 顶格）
+- **遗留登记**: 报告 aiUsage 聚合段已交付；PR body 展示 AI 消耗登记 M6 增强候选；无阻塞项，M5.5 可启动

@@ -1,12 +1,11 @@
 # 待办积压 (Backlog)
 
-> 本文档存放 M5 及之后阶段的详细任务。当前阶段（M4）的任务见 [todo.md](todo.md)。
+> 本文档存放后续阶段的详细任务。当前阶段（M5.5）的任务见 [todo.md](todo.md)。
 
----
 
 ## M4 增强候选（未排期）
 
-> 2026-08-06 M3 归档时从阶段遗留 / 观察点整理，非 M4 本期范围（M4 核心为多仓库治理 T401-T404，见 [todo.md](todo.md)）。按主题分组，随运行反馈再评估上收。
+> 2026-08-06 M3 归档时从阶段遗留 / 观察点整理，非 M4 本期范围（M4 核心为多仓库治理 T401-T404，见 [todo-archive.md](todo-archive.md#m4-多仓库治理增强已归档)）。按主题分组，随运行反馈再评估上收。
 
 ### 工具链与锁文件
 
@@ -120,133 +119,9 @@
 - **M4 参数未接入 Action**（**已修复 2026-08-06**）：action.yml 已接入 owner/repo-*/max-concurrency/max-retries 输入；建议每仓库单独配置 action 控制权限范围（见 quick-start/design 文档）
 - **action artifact 体积**：归档结构（summary.json + 每仓库 md/json）随上传，artifact 略增
 
----
-
-## M5: AI Breaking Change 研判
-
-> **已转入 [todo.md §M5](todo.md#m5-ai-breaking-change-研判)（2026-08-07 启动规划）**：任务定义已细化（T501 采集 / T502 研判 / T503 生成 / T504 质量门 / T505 CLI 解耦），并列出 4 项待确认决策（AI 提供商 / 触发时机 / Token 来源 / 成本默认值）。下文保留 2026-08-02 原始草案供追溯，不再作为执行依据。
-
-目标：引入 AI 能力，对依赖升级后的不兼容问题进行自动研判，生成修复方案并通过 PR 提交。
-
-### T501 实现 Changelog / Release Notes 采集
-
-- 优先级：`P1`
-- 依赖：T105
-- 交付物：从依赖包获取 changelog 的能力。
-- 任务内容：
-  - [ ] 从 npm registry / GitHub Release 获取 changelog。
-  - [ ] 解析 markdown 格式 changelog，提取 breaking changes 条目。
-  - [ ] 缓存已获取的 changelog 数据。
-- 完成定义：
-  - [ ] 能根据包名和版本号自动获取对应的 changelog 内容。
-
-### T502 实现 AI 研判引擎
-
-- 优先级：`P1`
-- 依赖：T501, T107
-- 交付物：基于 LLM 的 breaking change 分析能力。
-- 任务内容：
-  - [ ] 封装多 AI 提供商 API（OpenAI、Anthropic、DeepSeek 等）。
-  - [ ] 设计 AI 研判的 system prompt（硬编码，不接受用户输入）。
-  - [ ] 构建研判输入上下文（changelog + CI 失败日志 + 受影响文件 diff）。
-  - [ ] 定义研判结果结构化输出 schema（问题分类、修复方案、代码 patch、置信度）。
-- 完成定义：
-  - [ ] 给定一组升级失败日志，AI 能输出结构化的研判结果。
-
-### T503 实现修复方案生成器
-
-- 优先级：`P1`
-- 依赖：T502
-- 交付物：将 AI 研判转换为可执行修复 PR 的能力。
-- 任务内容：
-  - [ ] 将 AI 生成的代码 patch 应用到工作分支。
-  - [ ] 若研判结果为"锁定版本"，生成版本锁定配置。
-  - [ ] 若研判结果为"等待上游"，生成说明文档。
-  - [ ] 将所有变更提交为修复 PR，默认不自动合并。
-- 完成定义：
-  - [ ] AI 研判结果能稳定转换为可审查的 PR。
-
-### T504 AI 输出安全校验与质量门
-
-- 优先级：`P1`
-- 依赖：T503
-- 交付物：AI 输出安全与质量校验流程。
-- 任务内容：
-  - [ ] 对 AI 生成的代码进行 lint 校验。
-  - [ ] 对 AI 生成的代码进行 typecheck 校验。
-  - [ ] 若校验失败，记录原因并回退到建议模式。
-  - [ ] 限制 AI 单次 patch 影响范围（如最多修改 5 个文件）。
-- 完成定义：
-  - [ ] AI 生成的代码通过质量门才能被提交为 PR。
-
-### T505 CLI 解耦重构（平台化前置）
-
-- 优先级：`P1`
-- 依赖：T109
-- 交付物：`packages/cli` 的编排逻辑与 CLI 入口解耦。
-- 任务内容：
-  - [ ] 将 `runCli()` 中 `process.env` / `console.log` 紧耦合抽离为可注入依赖。
-  - [ ] 抽象 `createPipeline(deps)` 接口，local 和 platform 模式共用同一编排核心。
-- 完成定义：
-  - [ ] 本地 CLI 模式行为不变，platform 模式可通过注入不同的 logger / config resolver 使用同一编排逻辑。
-
----
-
 ## M5.5: Skill 编排（CLI 先行）
 
-> **2026-08-07 决策落盘（用户确认）**：Skills 不需要等 MCP 上线才开始设计。当前 CLI 能力面（report/fix/fix-and-pr/cleanup-branches + 多仓库治理 + 双数据源 + PR 链路 + 报告归档）已覆盖 MCP 规划 tool（fetch_alerts / run_scan / fix_dependency / get_last_report）。Skill 编排层先以 **CLI 为执行后端** 落地，MCP 作为后续增强后端（T606 验证一致性后，T706 接入双后端）。
->
-> **CLI vs MCP 对比结论（评估记录）**：
-> - CLI 优势：零配置（`npx dependfix` 开箱即用）、无 shell 客户端外均可用、命令面完整、报告天然落盘可审计、不依赖 T505 解耦
-> - MCP 优势：结构化 schema 返回零解析、覆盖无 shell 客户端（Claude Desktop / Copilot 等）、常驻进程可缓存/增量查询、细粒度读写 tool 安全边界
-> - 结论：**两者是叠加关系**——skill 编排逻辑不变，执行后端可切换；CLI 先行不阻塞也不被 MCP 阻塞
->
-> **生态决策补充（2026-08-07 用户确认）**：`npx skills`（vercel-labs/skills，2026-01 发布，28.1k stars，MIT）已成为主流 agent skills 安装方式——支持 70+ agents（Claude Code / OpenCode / Codex / Cursor / Copilot / Windsurf / Trae / Gemini CLI / Qwen Code 等）、自动检测本机工具、无需提交 registry（公开仓库含 SKILL.md 即可安装，skills.sh telemetry 自动收录）。**决定：npx skills 为主安装通道，自研安装器仅作兜底（离线 / 无 npx 环境的最坏情况）；内部开发 skill（code-reviewer 等 10 个）不得被生态发现**——通过 `metadata.internal: true` 标记隐藏（npx skills 官方支持，正常发现不可见、需 `INSTALL_INTERNAL_SKILLS=1` 才显示）。
-
-### T506 产品 Skill 权威源与 CLI 编排
-
-- 优先级：`P1`（M5 归档后启动，与 M6 T601-T602 并行）
-- 依赖：无（CLI 命令面已齐备）
-- 交付物：`packages/skills/dependfix-remediator/`（SKILL.md + 支撑脚本），npm 包 `@dependfix/skills`；仓库根 `skills/dependfix-remediator/` 分发目录（npx skills 生态发现）
-- 任务内容：
-  - [ ] SKILL.md（YAML frontmatter：`name` / `description` 必填 + 编排步骤 + 决策树），符合 Agent Skills 共享规范（npx skills / Claude Code / Copilot / Cursor / OpenCode 均可加载）；执行后端 = `dependfix` CLI 命令映射表（report → `dependfix report`；fix → `dependfix fix --create-pr`；告警查询 → `--history` / 归档）
-  - [ ] 编排逻辑与执行后端解耦：SKILL.md 中步骤只依赖"能力契约"（拉告警/修复/取报告），CLI 子命令为当前实现，预留 MCP tool 映射位（T606/T706 接入）
-  - [ ] skill 放置规范落盘：仓库内权威源 = `packages/skills/`（产品 skill，随 npm 发布）；仓库根 `skills/` = npx skills 生态分发目录（发布 = git push，npx skills 自动发现，与 packages/skills 内容一致）；`.github/skills/` 保持内部开发 skill 权威源（code-reviewer 等 10 个），二者职责分离
-- 完成定义：
-  - [ ] 用户按 README 安装 skill 后，AI 助手可对话式完成"拉告警 → 研判 → 修复 → 报告"闭环（CLI 后端）
-  - [ ] SKILL.md 中无 MCP 依赖（T706 前不要求 MCP 可用）
-
-### T507 npx skills 生态接入 + 自研兜底安装器
-
-- 优先级：`P1`
-- 依赖：T506
-- 交付物：npx skills 生态主通道（仓库根 `skills/` 被发现安装）+ `dependfix skills install`（兜底）/ doctor
-- 任务内容：
-  - [ ] **主通道**：验证 `npx skills add dependfix/dependfix -s dependfix-remediator -g` 可发现并安装产品 skill 到本机已检测的 agent 工具（symlink 或 copy）；发布 = git push，skills.sh 经 telemetry 自动收录
-  - [ ] **内部 skill 防发现**：10 个内部开发 skill（code-reviewer 等）SKILL.md frontmatter 加 `metadata.internal: true`（.github/skills 权威源 + .agents/skills / .claude/skills 副本同步，hash 保持一致）；验证 `npx skills` 正常发现不可见、`INSTALL_INTERNAL_SKILLS=1` 可见，且主流 agent（Claude Code / OpenCode / Cursor）加载不受该字段影响
-  - [ ] **兜底安装器**：`dependfix skills install`——检测本机已装 agent 工具 → 复制产品 skill 到官方目录 → 输出安装清单（不依赖 npx skills；不复刻 add/list/update/remove 矩阵）；存在同名 skill 则提示覆盖确认，不静默
-  - [ ] `dependfix skills doctor`：目录约定漂移检测（官方路径变更）+ 内部 skill internal 标记完整性检查
-  - [ ] README 安装指引：一行命令 `npx skills add dependfix/dependfix -s dependfix-remediator -g -a claude-code -a opencode -a cursor` 覆盖主流工具；注明兜底离线安装方式
-- 完成定义：
-  - [ ] 主通道：在装有任一主流 agent 的机器上 `npx skills add` 一条命令完成安装，工具可直接发现并使用 skill
-  - [ ] 兜底：无 npx skills 环境下 `dependfix skills install` 完成同等安装
-  - [ ] `npx skills` 正常发现（--list / find）不出现任何内部开发 skill
-  - [ ] 主通道与兜底均幂等可重跑
-
-### T508 MCP 双后端扩展点（衔接 T606/T706）
-
-- 优先级：`P2`
-- 依赖：T506, T606（M6）
-- 交付物：SKILL.md 增加 MCP 探测与双后端指引
-- 任务内容：
-  - [ ] SKILL.md 增加"执行后端探测"步骤：检测 `@dependfix/mcp` 是否可用（MCP 配置存在）→ MCP tool 优先 / CLI 回退
-  - [ ] 能力契约映射表补齐 MCP tool 列（fetch_alerts / run_scan / fix_dependency / get_last_report）
-  - [ ] 与 T606 一致性验证对齐：MCP tool 输出与 CLI 输出同源断言
-- 完成定义：
-  - [ ] 配置了 MCP 的环境走 tool 调用，未配置的环境走 CLI，两条路径输出一致
-  - [ ] T706 发布 `@dependfix/mcp` 时 skill 无需改版即可双后端工作
-
----
+> **已转入 [todo.md §M5.5](todo.md#m55-skill-编排cli-先行)（2026-08-07 启动）**：T506-T508 任务定义已移入当前阶段任务页（编号说明：M5.5 T506/T507/T508 与已归档 M5 的 T506 编号重叠，以"阶段 + 编号"全称区分）。
 
 ## M6: 最小平台 MVP
 

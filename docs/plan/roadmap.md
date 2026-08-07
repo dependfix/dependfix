@@ -11,8 +11,8 @@
 | M4: 多仓库治理 | 自动发现、并发控制、报告归档 | P2 | 已完成（2026-08-06 归档；T401-T404 全部完成） |
 | M4.5: 跨线升级显式授权 | `--allow-major-upgrade` 跨线告警显式授权自动升级（仅 CLI，实例复核 + 完整验证 + 回滚） | P2 | 已完成（2026-08-07 归档；T405 完成） |
 | M4.6: Monorepo 成员级修复 | workspace 成员包直接依赖告警自动升级（T406 成员级修复器 + T407 分流接线） | P1 | 已完成（2026-08-07 归档；T406/T407 完成，Review Gate 三审 PASS） |
-| M5: AI Breaking Change 研判 | Changelog 采集、LLM 研判、修复生成、质量门、CLI 解耦 | P1 | 进行中（2026-08-07 启动规划，4 项决策已确认；T501-T504 已实现，T505 未开始） |
-| M5.5: Skill 编排（CLI 先行） | 产品 skill 分发（npx skills 主通道 + 自研兜底）与主流 agent 工具接入，MCP 为后续增强后端 | P2 | 未开始（2026-08-07 决策落盘，建议 M5 归档后立即启动） |
+| M5: AI Breaking Change 研判 | Changelog 采集、LLM 研判、修复生成、质量门、CLI 解耦 | P1 | 已完成（2026-08-07 归档；T501-T506 全部完成，903 tests，Review Gate 每任务独立审计） |
+| M5.5: Skill 编排（CLI 先行） | 产品 skill 分发（npx skills 主通道 + 自研兜底）与主流 agent 工具接入，MCP 为后续增强后端 | P2 | 进行中（当前阶段；2026-08-07 决策 + T506-T508 任务定义落盘，M5 归档后启动） |
 | M6: 最小平台 MVP | 仓库管理、凭据管理、仪表板、MCP Server、Docker 部署 | P1 | 未开始 |
 | M7: 企业级平台增强 | RBAC、BullMQ+Redis、跨平台 Git、MCP Skill 集成、Helm Chart | P2 | 未开始 |
 
@@ -20,7 +20,7 @@
 
 Monorepo 骨架搭建、核心配置模型、工具链版本策略固定、标准化告警模型定义。已完成。
 
-> 详细任务与完成记录见 [todo-archive.md §M0](todo-archive.md)
+> 详细任务与完成记录见 [archive/todo-archive-phases-m0-m1.md §M0](archive/todo-archive-phases-m0-m1.md#m0-基线收敛已归档)
 
 ## M1: MVP 单仓库自动修复
 
@@ -32,7 +32,7 @@ Monorepo 骨架搭建、核心配置模型、工具链版本策略固定、标�
 - 三条命令：`report`（报告）、`fix`（修复+验证）、`fix-and-pr`（参数预留）
 - 本地文件变更，不推送不创建 PR
 
-> 详细任务见 [todo-archive.md §M1](todo-archive.md)
+> 详细任务见 [archive/todo-archive-phases-m0-m1.md §M1](archive/todo-archive-phases-m0-m1.md#m1-mvp-单仓库自动修复已归档)
 
 ## M2: GitHub Action 接入
 
@@ -72,7 +72,9 @@ workspace 成员包直接依赖告警的自动修复：成员 manifest 升级能
 
 Changelog / Release Notes 采集、多 AI 提供商封装、AI 研判（问题分类 + 修复方案 + 代码 patch）、AI 输出安全校验与质量门、CLI 解耦重构（平台化前置）。
 
-> 详细任务见 [todo.md §M5](todo.md#m5-ai-breaking-change-研判)；4 项规划决策（AI 提供商 / 触发时机 / Token 来源 / 成本默认值）已于 2026-08-07 确认落盘
+> 详细任务见 [todo-archive.md §M5](todo-archive.md#m5-ai-breaking-change-研判已归档)
+>
+> **M5 已交付（2026-08-07 归档）**：T501-T506 全部完成——Changelog 双源采集（T501）、多 provider 研判引擎 + Zod 结构化输出 + prompt 注入防护（T502）、结构化 patch 应用与回滚（T503）、安全门 + 完整验证链（T504）、CLI 解耦平台化（T505）、app 触发接线 + 报告 aiUsage 聚合段（T506）。4 项规划决策（AI 提供商 / 触发时机 / Token 来源 / 成本默认值）已确认。903 tests。
 
 ## M5.5: Skill 编排（CLI 先行）
 
@@ -82,7 +84,7 @@ Changelog / Release Notes 采集、多 AI 提供商封装、AI 研判（问题�
 
 **生态决策（2026-08-07 补充）**：`npx skills`（vercel-labs/skills，2026-01 发布，28.1k stars）已成为主流 agent skills 安装方式（70+ agents、自动检测本机工具、无需提交 registry）——作为**主安装通道**（发布 = git push 仓库根 `skills/` 目录）；自研 `dependfix skills install` 仅作离线兜底。内部开发 skill（code-reviewer 等）以 `metadata.internal: true` 标记，不进入生态正常发现。
 
-> 详细任务见 [backlog.md §M5.5](backlog.md#m55-skill-编排cli-先行)
+> 详细任务见 [todo.md §M5.5](todo.md#m55-skill-编排cli-先行)（2026-08-07 启动；编号说明：M5.5 T506-T508 与已归档 M5 的 T506 重叠，以"阶段 + 编号"全称区分）
 
 ## M6: 最小平台 MVP
 
@@ -102,8 +104,8 @@ Changelog / Release Notes 采集、多 AI 提供商封装、AI 研判（问题�
 
 ## 详细任务
 
-- 当前阶段任务（M4）：[todo.md](todo.md)
-- 后续阶段任务（M5-M7）：[backlog.md](backlog.md)
+- 当前阶段任务（M5.5）：[todo.md](todo.md)
+- 后续阶段任务（M6-M7）：[backlog.md](backlog.md)
 
 ## 交付原则
 

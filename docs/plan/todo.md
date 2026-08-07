@@ -1,211 +1,106 @@
-# 当前阶段任务（M5）
+# 当前阶段任务（M5.5）
 
-> M0（基线收敛）/ M1（MVP 单仓库修复）/ M2（GitHub Action 接入）/ M3（Code Scanning 扩展）/ M4（多仓库治理增强）/ M4.5（跨线升级显式授权）/ M4.6（Monorepo 成员级修复增强）已完成，归档见 [todo-archive.md](todo-archive.md)。
-> **M4.6（2026-08-07）**：T406/T407 成员级直接依赖升级交付（`7fb264e3`），Review Gate 三审 PASS，755 tests。
-> **M5（AI Breaking Change 研判）为本期任务（2026-08-07 启动规划，4 项决策已确认）**：T501-T505 详见下文。
+> M0（基线收敛）/ M1（MVP 单仓库修复）/ M2（GitHub Action 接入）/ M3（Code Scanning 扩展）/ M4（多仓库治理增强）/ M4.5（跨线升级显式授权）/ M4.6（Monorepo 成员级修复增强）/ **M5（AI Breaking Change 研判）** 已完成，归档见 [todo-archive.md](todo-archive.md)。
+> **M5（2026-08-07 归档）**：T501-T506 全部交付（903 tests），Review Gate 每任务独立审计 PASS（T503 三审），AI 链路闭环 + 报告 aiUsage 聚合段；CI 链式修复（lint-md 穿透 / check-links 锚点 / action manifest 模板）收口。
+> **M5.5（Skill 编排，CLI 先行）为本期任务（2026-08-07 决策落盘，M5 归档后启动）**：T506-T508 详见下文。
+>
+> **编号说明**：本阶段 T506/T507/T508 与已归档 M5 的 T506（AI 链路 app 接线）编号重叠——M5 的 T506 已归档完成，本阶段编号自 M5.5 规划起独立计数，后续如有歧义以"阶段 + 任务编号"全称（如 M5.5 T506）为准。
 
 ---
 
-## M5: AI Breaking Change 研判
+## M5.5: Skill 编排（CLI 先行）
 
-**目标**: 引入 AI 能力，对依赖升级后的不兼容问题（breaking change）进行自动研判，生成修复方案并通过 PR 提交；AI 输出必须经过安全校验与质量门才能落地。
+**目标**: 将 dependfix 的自动化修复能力封装为可分发的 Agent Skill（`dependfix-remediator`），通过 CLI 直接调用，支持主流 agent 工具（Claude Code / GitHub Copilot / Cursor / OpenCode）接入；MCP 作为后续增强执行后端（T606/T706），与 CLI 后端并存。
 
 **范围与依赖**:
 
-- 主链路（串行）：T501（Changelog 采集）→ T502（AI 研判）→ T503（修复生成）→ T504（安全质量门）
-- 平台化前置（独立）：T505（CLI 解耦重构，M6 平台复用编排核心）
-- 复用基础：T105（upgradeDependency）、T107（verifyProject）、T210（PR 链路/指纹）、verification-runner、`FixAction` 报告模型、C13（app/helpers ↔ cli/helpers 循环依赖，T505 一并处理）
-- **安全基线**：AI 输出视为外部输入——prompt 注入防护（system prompt 硬编码，用户可控内容仅作数据注入）、输出 schema 校验、patch 范围限制、质量门（lint/typecheck）通过才可提交
+- 主链路（串行）：T506（Skill 权威源与 CLI 编排）→ T507（npx skills 生态接入 + 兜底安装器）
+- 增强（独立）：T508（MCP 双后端扩展点，依赖 M6 T606）
+- 复用基础：CLI 命令面（report / fix / fix-and-pr / cleanup-branches）、多仓库治理、双数据源、PR 链路、报告归档、T505 pipeline 解耦
+- **生态决策**：`npx skills`（vercel-labs/skills）为主安装通道（发布 = git push 仓库根 `skills/`）；自研 `dependfix skills install` 仅作离线兜底；内部开发 skill（code-reviewer 等 10 个）以 `metadata.internal: true` 标记，不进入生态正常发现
 
-**建议执行顺序**: T501 → T502 → T503 → T504（主链路）；T505 可与主链路并行或收尾（平台化前置，依赖 T109 概念对齐）
+**建议执行顺序**: T506 → T507（主链路）；T508 可与 M6 T601-T602 并行
 
-### 规划决策（2026-08-07 已确认，用户确认内容）
+### 背景与决策（2026-08-07 用户确认）
 
-- [x] **决策 1：AI 提供商**——**OpenAI 兼容端点优先，同时支持 Anthropic**；DeepSeek 等通过指定端点（`--ai-base-url`）走 OpenAI 兼容协议。实现：轻量 fetch 封装（不引入 SDK），`AiProvider` 接口 + `OpenAICompatibleProvider` / `AnthropicProvider` + factory
-- [x] **决策 2：触发时机**——**验证失败 + major 升级触发，可手动配置**。`--ai` 总开关（默认 false）开启后，默认在「升级验证失败 或 major 升级」时触发研判；`--ai-trigger` 可配（failure / major / all）
-- [x] **决策 3：Token 来源与凭据安全**——CLI：`DEPENDFIX_AI_API_KEY` env（优先）/ `--ai-api-key`（警示：进程列表/shell history 泄露面，文档注明）；action：`ai-api-key` input（`secret: true`——**实现注记 2026-08-07**：composite action input 不支持 `secret` 属性，实际采用经 env `DEPENDFIX_AI_API_KEY` 传递自动打码）；独立平台：M6 T602 统一凭据管理（AES-256-GCM）。**凭据泄露防护（用户要求考虑）**：① apiKey 不落盘（不进入 RunReportConfig / RunResult 序列化）② 日志与 AI 错误消息脱敏（`maskSecrets` 工具）③ action input 声明 secret ④ 文档警示 CLI 参数泄露面
-- [x] **决策 4：成本默认关闭 + token 消耗展示**——AI 默认关闭（`--ai` opt-in，计费多为推算）；**每次 AI 调用记录 usage（input/output tokens）**，聚合展示：日志（每次调用）+ 报告（§AI 研判区块：调用次数 + token 消耗 + 可选成本估算——内置常见模型单价表，标注"估算仅供参考"）
+- **MCP 不等 Skill**: MCP Server 原规划在 M6/M7 才落地，但当前 CLI 能力面（report/fix/fix-and-pr/cleanup-branches + 多仓库 + 双源 + PR 链路）已覆盖 MCP 规划的 4 个 tool（fetch_alerts / run_scan / fix_dependency / get_last_report）。skill 编排不依赖 MCP 即可工作
+- **CLI vs MCP 对比结论**: CLI 优势——零配置（`npx dependfix` 开箱即用）、无 shell 客户端外均可用、命令面完整、报告天然落盘可审计、不依赖 T505 解耦；MCP 优势——结构化 schema 返回零解析、覆盖无 shell 客户端（Claude Desktop / Copilot 等）、常驻进程可缓存/增量查询、细粒度读写 tool 安全边界。**两者叠加关系**——skill 编排逻辑不变，执行后端可切换；CLI 先行不阻塞也不被 MCP 阻塞
+- **生态决策**: `npx skills`（2026-01 发布，28.1k stars，MIT）支持 70+ agents、自动检测本机工具、无需提交 registry——**主安装通道**；自研安装器仅兜底（离线 / 无 npx 环境）；内部开发 skill 通过 `metadata.internal: true` 隐藏（正常发现不可见、需 `INSTALL_INTERNAL_SKILLS=1` 才显示）
 
-### T501 实现 Changelog / Release Notes 采集
+### T506 产品 Skill 权威源与 CLI 编排
 
-- **优先级**: P1
-- **依赖**: 无（AI 链路入口）
-- **状态**: 已完成（2026-08-07，Review Gate 复审 PASS，提交后回链）
-- **交付物**: `packages/cli/src/ai/changelog-fetcher.ts`（npm registry + GitHub Release 双源）
-
-**方案细化（2026-08-07 落盘）**:
-
-- npm registry 无标准 changelog 端点 → **主路径 = packument 解析 repository 字段 → GitHub Release（octokit `repos.listReleases`）取 release body**；CHANGELOG.md 文件采集登记演进项
-- 缓存：run 内 Map（packageName → changelog，避免同包多告警重复拉取）
-- 非 npm 源（git/workspace 依赖）→ 无 registry 元数据 → 返回 null + 原因（上层跳过 AI 研判）
+- **优先级**: P1（M5 归档后启动，与 M6 T601-T602 并行）
+- **依赖**: 无（CLI 命令面已齐备）
+- **状态**: 未开始
+- **交付物**: `packages/skills/dependfix-remediator/`（SKILL.md + 支撑脚本），npm 包 `@dependfix/skills`；仓库根 `skills/dependfix-remediator/` 分发目录（npx skills 生态发现）
 
 **任务内容**:
 
-- [x] npm registry 源：packument 拉取（含 repository 字段解析 owner/repo）
-- [x] GitHub Release 源：octokit `repos.listReleases` 拉取 release body（含 breaking changes 段落）
-- [x] markdown 解析：提取 breaking changes 条目（`Breaking changes` / `⚠️` / `Migration` / `BREAKING CHANGE` 等段落启发式）
-- [x] run 内缓存（同包多告警不重复请求，单测断言请求次数）
-- [x] 失败降级：源不可达 / 包不在 registry / 无 repo → null + 原因，上层跳过 AI（不静默）
+- [ ] SKILL.md（YAML frontmatter：`name` / `description` 必填 + 编排步骤 + 决策树），符合 Agent Skills 共享规范（npx skills / Claude Code / Copilot / Cursor / OpenCode 均可加载）；执行后端 = `dependfix` CLI 命令映射表（report → `dependfix report`；fix → `dependfix fix --create-pr`；告警查询 → `--history` / 归档）
+- [ ] 编排逻辑与执行后端解耦：SKILL.md 中步骤只依赖"能力契约"（拉告警/修复/取报告），CLI 子命令为当前实现，预留 MCP tool 映射位（T606/T706 接入）
+- [ ] skill 放置规范落盘：仓库内权威源 = `packages/skills/`（产品 skill，随 npm 发布）；仓库根 `skills/` = npx skills 生态分发目录（发布 = git push，npx skills 自动发现，与 packages/skills 内容一致）；`.github/skills/` 保持内部开发 skill 权威源（code-reviewer 等 10 个），二者职责分离
 
 **完成定义**:
 
-- [x] 给定包名 + 版本范围能获取 changelog 并提取 breaking 条目
-- [x] 缓存命中不重复请求（单测断言请求次数）
-- [x] 双源失败降级路径可测试
+- [ ] 用户按 README 安装 skill 后，AI 助手可对话式完成"拉告警 → 研判 → 修复 → 报告"闭环（CLI 后端）
+- [ ] SKILL.md 中无 MCP 依赖（T706 前不要求 MCP 可用）
 
-**非目标**: 完整 changelog 语义解析（首版启发式提取）；CHANGELOG.md 文件采集（演进项）；多语言 changelog 模板适配
+**非目标**: MCP Server 本体（M6 T605/T606）；skill 市场提交
 
-**测试方案**: mock octokit + registry 响应；markdown 解析矩阵（breaking 段落变体）；缓存幂等；降级路径
+**测试方案**: skill 安装到本机 agent 工具的冒烟验证；SKILL.md 规范校验（frontmatter 必填字段）
 
-### T502 实现 AI 研判引擎
+### T507 npx skills 生态接入 + 自研兜底安装器
 
 - **优先级**: P1
-- **依赖**: T501、T107
-- **状态**: 已完成（2026-08-07，Review Gate 复审 PASS，提交后回链）
-- **交付物**: `packages/cli/src/ai/`（provider / prompt / schema / usage / secrets）
-
-**方案细化（2026-08-07 落盘）**:
-
-- **`AiProvider` 接口**：`chat({ system, messages, maxTokens, temperature }) → { text, usage }`；`OpenAICompatibleProvider`（baseURL + apiKey + model，`/chat/completions`；DeepSeek 等指定 baseURL 兼容）与 `AnthropicProvider`（`/v1/messages`，x-api-key + anthropic-version header）；工厂按 `--ai-provider` 创建
-- **凭据安全**：apiKey 仅运行时持有，不进报告序列化；`maskSecrets` 对日志/错误脱敏（决策 3）
-- **输出 schema（Zod）**：结构化修改而非 raw diff——`classification`（code-change / version-lock / wait-upstream / manual）+ `summary` + `changes: [{ filePath, replace: [{ search, replace }] }]` + `confidence` + `rationale`（结构化让 T503 应用可控、T504 可校验）
-- **上下文构建**：changelog（超限取首尾截断）+ 失败日志（tail）+ 受影响文件片段；system prompt 硬编码（决策 2 安全基线）
-- **校验重试**：schema 校验失败重试 1 次 → 降级建议模式（记录原因，可审计）
-- **usage 记录**：provider 返回 token 用量 → 聚合（决策 4）
+- **依赖**: T506
+- **状态**: 未开始
+- **交付物**: npx skills 生态主通道（仓库根 `skills/` 被发现安装）+ `dependfix skills install`（兜底）/ doctor
 
 **任务内容**:
 
-- [x] `AiProvider` 接口 + OpenAI 兼容实现 + Anthropic 实现 + factory（fetch 封装，无 SDK）
-- [x] system prompt 硬编码（不接受用户输入）；用户可控内容仅作 data 注入——prompt 注入防护
-- [x] 研判上下文构建：changelog + 升级失败日志 + 受影响文件（截断控制）
-- [x] 结构化输出 schema（Zod：classification / summary / changes / confidence / rationale），校验失败重试一次 → 降级建议模式
-- [x] token 用量聚合（input/output/calls）+ 可选成本估算（内置单价表，标注推算）；**日志输出由 app 接线承接（T503/T504）**
-- [x] `maskSecrets` 脱敏工具（provider 层错误构造时脱敏 + 编排层兜底——防御纵深）
+- [ ] **主通道**：验证 `npx skills add dependfix/dependfix -s dependfix-remediator -g` 可发现并安装产品 skill 到本机已检测的 agent 工具（symlink 或 copy）；发布 = git push，skills.sh 经 telemetry 自动收录
+- [ ] **内部 skill 防发现**：10 个内部开发 skill（code-reviewer 等）SKILL.md frontmatter 加 `metadata.internal: true`（.github/skills 权威源 + .agents/skills / .claude/skills 副本同步，hash 保持一致）；验证 `npx skills` 正常发现不可见、`INSTALL_INTERNAL_SKILLS=1` 可见，且主流 agent（Claude Code / OpenCode / Cursor）加载不受该字段影响
+- [ ] **兜底安装器**：`dependfix skills install`——检测本机已装 agent 工具 → 复制产品 skill 到官方目录 → 输出安装清单（不依赖 npx skills；不复刻 add/list/update/remove 矩阵）；存在同名 skill 则提示覆盖确认，不静默
+- [ ] `dependfix skills doctor`：目录约定漂移检测（官方路径变更）+ 内部 skill internal 标记完整性检查
+- [ ] README 安装指引：一行命令 `npx skills add dependfix/dependfix -s dependfix-remediator -g -a claude-code -a opencode -a cursor` 覆盖主流工具；注明兜底离线安装方式
 
 **完成定义**:
 
-- [x] 给定升级失败上下文，AI 输出符合 schema 的结构化研判
-- [x] 非法输出可检测（schema 校验失败 → 重试 → 降级），不静默
-- [~] 无 AI token 配置时链路清晰失败（提示配置），不产生费用——**由 app 接线承接（T503/T504 config 校验）**；组件层空 key 行为为降级 provider error
-- [x] apiKey 不进报告/日志（provider 层 + 编排层脱敏单测，含响应体回显 key 场景）
+- [ ] 主通道：在装有任一主流 agent 的机器上 `npx skills add` 一条命令完成安装，工具可直接发现并使用 skill
+- [ ] 兜底：无 npx skills 环境下 `dependfix skills install` 完成同等安装
+- [ ] `npx skills` 正常发现（--list / find）不出现任何内部开发 skill
+- [ ] 主通道与兜底均幂等可重跑
 
-**非目标**: AI 训练/微调；多轮对话交互；供应商 failover 自动切换（首版单提供商失败即降级）
+**非目标**: 复刻 npx skills 完整命令矩阵（add/list/update/remove）
 
-**测试方案**: mock provider 响应（合法/非法 schema）；prompt 注入样本（用户内容含指令不改变输出）；截断/超时路径；脱敏矩阵
+**测试方案**: 本机主流 agent 实测（Claude Code / OpenCode / Cursor）；internal 标记可见性矩阵；安装幂等性
 
-### T503 实现修复方案生成器
+### T508 MCP 双后端扩展点（衔接 T606/T706）
 
-- **优先级**: P1
-- **依赖**: T502、T210
-- **状态**: 已完成（2026-08-07，Review Gate 三审 PASS，提交后回链）
-- **交付物**: `packages/cli/src/ai/patch-applier.ts`
-
-**方案细化（2026-08-07 落盘）**:
-
-- **结构化 patch 应用**（非 raw diff）：`changes[].replace[]` 的 search 精确匹配（search 唯一性校验，不唯一 → 失败回退），replace 替换；应用前快照（`snapshotTrackedFiles` + 新文件登记），失败回滚
-- 按 classification 分流：`code-change` → patch 应用 → T504 质量门；`version-lock` → 复用 override 机制生成锁定；`wait-upstream` → 报告建议区块；`manual` → 建议区块
-- PR 复用 T210 链路（指纹含 AI patch diff——`FixAction.diff` 字段）
+- **优先级**: P2
+- **依赖**: T506, T606（M6）
+- **状态**: 未开始
+- **交付物**: SKILL.md 增加 MCP 探测与双后端指引
 
 **任务内容**:
 
-- [x] 结构化 changes 应用（search 精确匹配 + 唯一性校验；应用失败回退建议模式，不静默）
-- [x] 快照/回滚（复用 snapshotTrackedFiles；AI 修改文件 + 新增文件）
-- [x] 研判"锁定版本" → 版本锁定配置生成（复用 override 机制）
-- [x] 研判"等待上游" → 说明文档生成（报告建议区块）
-- [~] 变更提交为修复 PR（复用 T210 PR 链路与指纹去重，diff 入指纹）——由 app 集成承接（T210 链路，组件层无接线入口）
+- [ ] SKILL.md 增加"执行后端探测"步骤：检测 `@dependfix/mcp` 是否可用（MCP 配置存在）→ MCP tool 优先 / CLI 回退
+- [ ] 能力契约映射表补齐 MCP tool 列（fetch_alerts / run_scan / fix_dependency / get_last_report）
+- [ ] 与 T606 一致性验证对齐：MCP tool 输出与 CLI 输出同源断言
 
 **完成定义**:
 
-- [~] AI 研判结果稳定转换为可审查 PR（patch 应用成功路径）——patch 应用已闭环；PR 提交由 app 集成承接
-- [x] patch 应用失败可审计回退（计入 failed + 错误详情）
-- [x] 默认不自动合并 PR
+- [ ] 配置了 MCP 的环境走 tool 调用，未配置的环境走 CLI，两条路径输出一致
+- [ ] T706 发布 `@dependfix/mcp` 时 skill 无需改版即可双后端工作
 
-**非目标**: 自动合并；多 PR 拆分策略（首版单 PR）；unified diff 解析（结构化修改优先）
+**非目标**: MCP Server 实现（M6 T605/T606）
 
-**测试方案**: patch 应用成功/失败/冲突（search 不唯一）矩阵；锁定版本生成；等待上游文档输出；PR 链路 mock
+**测试方案**: 双后端输出一致性断言；探测降级路径
 
-### T504 AI 输出安全校验与质量门
+## M5.5 完成判定（草案，方案细化后定稿）
 
-- **优先级**: P1
-- **依赖**: T503
-- **状态**: 已完成（2026-08-07，Review Gate 复审 PASS，提交后回链）
-- **交付物**: `packages/cli/src/ai/safety-gate.ts`
-
-**方案细化（2026-08-07 落盘）**:
-
-- **完整验证链**（对齐 T405 跨线语义）：AI 修改面大，验证用 install+lint+build 完整验证而非 lint-only
-- patch 范围 ≤5 文件；路径穿越复用 `resolveWithinWorkDir`；命令注入：patch 为结构化数据不执行 shell，但检查 scripts/命令字段危险模式；敏感信息泄露：patch 含 `sk-` / `ghp_` / private key 模式 → warn/拒绝
-- 校验失败 → 回滚 + 记录原因回退建议模式（不提交坏 patch，可审计）
-
-**任务内容**:
-
-- [x] AI 生成代码 lint / typecheck / build 校验（完整验证）——静态防线本层交付；动态验证由 app 集成复用 verification-runner（对齐跨线语义）
-- [x] 校验失败 → 记录原因回退建议模式（不提交坏 patch）
-- [x] patch 影响范围限制（最多 5 个文件；超限拒绝 + warn，可审计）
-- [x] AI 输出视为外部输入：路径穿越（resolveWithinWorkDir）/ 命令注入 / 敏感信息泄露检查
-
-**完成定义**:
-
-- [~] AI patch 通过质量门才能提交 PR；不通过可审计回退——静态防线本层交付，门禁接线由 app 集成承接
-- [x] 恶意/异常 patch 样本被拒绝（安全单测）
-
-**非目标**: LLM 输出语义级安全证明（质量门为实用防线，非形式化验证）
-
-**测试方案**: 恶意 patch 样本（路径穿越/命令注入/敏感信息）拒绝矩阵；范围超限；完整验证失败回退
-
-### T505 CLI 解耦重构（平台化前置）
-
-- **优先级**: P1
-- **依赖**: C13 关联
-- **状态**: 已完成（2026-08-07，Review Gate PASS，提交后回链）
-- **交付物**: `packages/cli/src/app/pipeline.ts`（`createPipeline(deps)` 抽象）
-
-**任务内容**:
-
-- [x] `runCli()` 中 `process.env` / `console.log` 紧耦合抽离为可注入依赖（logger / config resolver / io）
-- [x] `createPipeline(deps)` 接口：local 与 platform 模式共用同一编排核心
-- [x] 处理 C13 循环依赖（app/helpers ↔ cli/helpers）
-
-**完成定义**:
-
-- [x] 本地 CLI 模式行为不变（现状回归）
-- [x] platform 模式可通过注入不同 logger / config resolver 复用同一编排逻辑
-
-**非目标**: M6 平台本体（数据库/认证/Web UI）
-
-**测试方案**: 现有 CLI 全量回归 + pipeline 注入替身（mock logger/config）单测
-
-
-### T506 AI 链路 app 接线（收口 M5）
-
-- **优先级**: P1
-- **依赖**: T502（ai/ 组件）、T503、T504、T210（PR 链路）
-- **状态**: 已完成（2026-08-07，Review Gate 复审 PASS，提交后回链）
-- **交付物**: config 接线 + app 触发接入 + 报告展示 + action 输入
-
-**任务内容**:
-
-- [x] config：--ai / --ai-provider / --ai-model（默认 deepseek-v4-flash，2026-08-07 用户确认）/ --ai-base-url / --ai-api-key / --ai-trigger；RuntimeConfig.ai 子配置；开启时 apiKey 缺失 → 清晰报错（承接 T502 待办项）
-- [x] 凭据安全：ai.apiKey 不进 RunReportConfig 序列化（报告/JSON 排除）；日志脱敏（复用 maskSecrets）
-- [x] app 触发：升级验证失败 或 major 升级（--ai-trigger 可配）→ 构建研判上下文（changelog + 失败日志 + 文件）→ assessBreakingChange
-- [x] 结果分流：code-change → safety-gate → applyChanges → 完整验证（install+lint+build）→ 成功提交（FixAction strategy=ai-patch + diff）失败回滚；version-lock → 复用 override 链路；wait-upstream/manual → 报告建议区块
-- [x] usage 日志（每次调用消耗 + 估算成本）+ 报告 aiUsage 聚合段（RunResult.aiUsage / Markdown AI Usage 节 / JSON / console run 总计）
-- [x] action.yml：ai 系列 inputs + DEPENDFIX_AI_* env（api-key 经 env 传递自动打码）
-
-**完成定义**:
-
-- [x] --ai 开启 + apiKey 配置后，验证失败/major 升级自动触发 AI 研判并产出可审计结果
-- [x] code-change 修复通过质量门才提交；失败回滚计 failed 不误标
-- [x] 未开启 --ai 时行为与现状完全一致（回归）
-- [x] apiKey 不进报告/日志（脱敏测试）
-- [x] dry-run 不触发 AI（不产生费用）
-
-**非目标**: M6 平台凭据管理接入（T602）；AI 多轮交互
-
-**测试方案**: config 解析/校验矩阵；触发判定单元测试；app 集成（研判成功 code-change 链路 / 降级建议 / version-lock / wait-upstream / 回归）；报告字段断言；action.yml 接线
-## M5 完成判定（草案，方案细化后定稿）
-
-- [x] T501-T505 交付并通过 Review Gate（每任务独立审计，T503 三审 / 其余 PASS）
-- [x] 4 项规划决策已确认落盘（2026-08-07）
+- [ ] T506-T507 交付并通过 Review Gate（每任务独立审计）
+- [ ] npx skills 主通道 + 兜底安装器双路径验证通过
+- [ ] 内部开发 skill 生态不可见（metadata.internal 验证）
 - [ ] `pnpm typecheck` + `pnpm lint` + 全量测试 + `pnpm build` 通过
-- [x] 本地 CLI 模式行为回归无损（T505 全量回归）
+- [ ] CLI 现状行为回归无损

@@ -1,0 +1,123 @@
+// dependfix 平台全局样式（SCSS + BEM）
+
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: 'Inter', 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    font-size: $font-size-base;
+    color: $color-text;
+    background-color: $color-bg;
+    transition: background-color 0.2s ease, color 0.2s ease;
+
+    @include dark-mode {
+        color: $color-text-dark;
+        background-color: $color-bg-dark;
+    }
+}
+
+a {
+    color: $color-primary;
+    text-decoration: none;
+
+    &:hover {
+        color: $color-primary-dark;
+    }
+}
+
+// 平台布局
+.platform {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+
+    &__header {
+        height: $header-height;
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 $space-5;
+        border-bottom: 1px solid $color-border;
+        background-color: $color-surface;
+
+        @include dark-mode {
+            border-bottom-color: $color-border-dark;
+            background-color: $color-surface-dark;
+        }
+    }
+
+    &__brand {
+        display: flex;
+        align-items: center;
+        gap: $space-2;
+        font-size: $font-size-lg;
+        font-weight: 600;
+    }
+
+    &__body {
+        flex: 1;
+        padding: $space-5;
+        display: flex;
+        justify-content: center;
+    }
+
+    &__content {
+        width: 100%;
+        max-width: 1200px;
+    }
+}
+
+// 认证页（登录/注册）
+.auth {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: $space-5;
+    background: linear-gradient(135deg, rgba($color-primary, 0.08), rgba($color-primary, 0.02));
+
+    @include dark-mode {
+        background: linear-gradient(135deg, rgba($color-primary, 0.12), rgba($color-primary, 0.04));
+    }
+
+    &__card {
+        width: 100%;
+        max-width: 420px;
+    }
+
+    &__title {
+        margin: 0 0 $space-1;
+        font-size: $font-size-xl;
+        font-weight: 600;
+        text-align: center;
+    }
+
+    &__subtitle {
+        margin: 0 0 $space-5;
+        color: $color-text-muted;
+        text-align: center;
+        font-size: $font-size-sm;
+    }
+
+    &__switch {
+        margin-top: $space-4;
+        text-align: center;
+        font-size: $font-size-sm;
+        color: $color-text-muted;
+    }
+}
+
+// 通用工具类
+.text-muted {
+    color: $color-text-muted;
+}

@@ -1,0 +1,43 @@
+// 通用 SCSS mixin
+
+// 暗色模式覆盖（PrimeVue darkModeSelector 使用 .dark class）
+@mixin dark-mode {
+    :global(.dark) & {
+        @content;
+    }
+}
+
+// 响应式断点（移动优先）
+@mixin respond-to($breakpoint) {
+    @if $breakpoint == sm {
+        @media (min-width: 640px) {
+            @content;
+        }
+    } @else if $breakpoint == md {
+        @media (min-width: 768px) {
+            @content;
+        }
+    } @else if $breakpoint == lg {
+        @media (min-width: 1024px) {
+            @content;
+        }
+    } @else if $breakpoint == xl {
+        @media (min-width: 1280px) {
+            @content;
+        }
+    }
+}
+
+// 文本截断
+@mixin text-ellipsis($lines: 1) {
+    @if $lines == 1 {
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+    } @else {
+        display: -webkit-box;
+        -webkit-line-clamp: $lines;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+}

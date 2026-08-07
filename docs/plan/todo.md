@@ -33,8 +33,9 @@
   - [ ] PrimeVue 4 + `@primeuix/themes` + SCSS（BEM），暗色模式 `.dark` 类切换
   - [ ] better-auth 集成（邮箱密码登录，TypeORM Adapter，会话数据库持久化 30 天；SMTP 未配置时邮箱验证自动跳过——对齐"未配置自动禁用"模式）
   - [ ] TypeORM + SQLite 初始化（`server/database/sqlite/`，momei 结构参考）
-  - [ ] Dockerfile（node 20 + git + pnpm 工具链，为容器内执行准备）+ `compose.yaml`（SQLite 数据卷）
+  - [ ] Dockerfile（多阶段 alpine 镜像：构建含 git/pnpm 工具链，运行时最小化；基础镜像固定 digest）+ `docker-compose.yml`（SQLite 数据卷）
   - [ ] env 隔离约束（T905 预案生效）：`PORT` 可配、DB 文件路径独立
+  - [ ] 容器内执行器依赖闭包约束登记（T603 前置）：runtime 镜像仅含 `.output` + cli/core dist，cli 运行时依赖（@octokit/rest/zx/fs-extra 等）与 git/pnpm 命令的解析方案在 T603 设计时确定（复制闭包 / cli 全打包 noExternal / 独立执行容器三选一）
 - 非目标：页面业务功能（T602-T604 承接）、i18n / PWA / Sentry（M7）
 - 完成定义：
   - [ ] `docker compose up` 可拉起完整平台（登录页可访问）

@@ -1,0 +1,28 @@
+# 依赖与构建产物（防宿主污染：Windows 原生二进制/DLL 覆盖 Linux 编译产物）
+node_modules/
+**/node_modules/
+**/dist/
+**/.nuxt/
+**/.output/
+**/.data/
+apps/platform/data/
+
+# VCS 与本地环境
+.git/
+.gitignore
+.github/
+.session/
+coverage/
+*.log
+.env*
+!.env.example
+
+# 文档站构建产物
+docs/.vitepress/dist/
+docs/.vitepress/cache/
+docs/.vitepress/.temp/
+
+# 临时与系统文件
+temp/
+*.sw*
+.DS_Store

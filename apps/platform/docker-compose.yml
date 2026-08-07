@@ -1,0 +1,21 @@
+# dependfix 平台部署编排（SQLite 数据卷持久化）
+services:
+  platform:
+    build:
+      context: ../..
+      dockerfile: apps/platform/Dockerfile
+    ports:
+      - "${PORT:-3000}:3000"
+    environment:
+      PORT: 3000
+      # Nuxt runtimeConfig 运行时覆盖只认 NUXT_ 前缀（AUTH_SECRET 在构建期已烘焙，运行时无效）
+      NUXT_AUTH_SECRET: ${AUTH_SECRET:-change-me-to-a-random-secret}
+      DATABASE_PATH: /app/data/dependfix.sqlite
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-}
+      NUXT_PUBLIC_BETTER_AUTH_URL: ${NUXT_PUBLIC_BETTER_AUTH_URL:-http://localhost:3000}
+    volumes:
+      - dependfix-data:/app/data
+    restart: unless-stopped
+
+volumes:
+  dependfix-data:

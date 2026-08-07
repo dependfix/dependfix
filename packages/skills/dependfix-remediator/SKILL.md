@@ -21,6 +21,19 @@ description: 自动拉取并修复 GitHub Dependabot / Code Scanning 安全告�
 
 未配置 MCP 时全部走 CLI；MCP 接入后（后续版本）探测到 MCP 工具则优先调用，两条后端输出保持一致。本 skill 当前不依赖 MCP，CLI 后端开箱即用。
 
+## 执行后端探测
+
+开始编排前先确定执行后端（只需一次）：
+
+1. **检查当前会话是否已加载 dependfix MCP 工具**：工具列表中是否存在 `fetch_alerts` / `run_scan` / `fix_dependency` / `get_last_report`（server 前缀可能为 `dependfix` 或 `@dependfix/mcp`）。不确定时用命令确认：
+   - Claude Code：`claude mcp list`（或检查项目根 `.mcp.json` 的 `mcpServers`）
+   - OpenCode：检查 `opencode.json` / `~/.config/opencode/opencode.json` 的 `mcp` 配置
+2. **决策规则**：
+   - 4 个 MCP tool 均可用 → **MCP tool 优先**（按能力契约映射表调用，详见 [REFERENCES.md](REFERENCES.md)）
+   - 未配置 MCP 或探测不到 → **CLI 后端**（本 skill 默认路径）
+   - MCP 调用失败（tool 不存在 / 超时 / 报错）→ **降级 CLI 并告知用户**，不中断流程
+3. 两条后端的输出以同一份能力契约（报告结构见 [REFERENCES.md](REFERENCES.md) 一致性断言清单）为准，MCP 与 CLI 结果应一致；发现不一致时以 CLI 报告为准并记录。
+
 ## 前置条件
 
 1. Node.js >= 20（检查：`node --version`）。

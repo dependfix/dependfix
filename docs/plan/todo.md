@@ -79,19 +79,19 @@
 
 - **优先级**: P2
 - **依赖**: T506, T606（M6）
-- **状态**: 未开始
+- **状态**: 已完成（2026-08-07 交付，Review Gate 通过）
 - **交付物**: SKILL.md 增加 MCP 探测与双后端指引
 
 **任务内容**:
 
-- [ ] SKILL.md 增加"执行后端探测"步骤：检测 `@dependfix/mcp` 是否可用（MCP 配置存在）→ MCP tool 优先 / CLI 回退
-- [ ] 能力契约映射表补齐 MCP tool 列（fetch_alerts / run_scan / fix_dependency / get_last_report）
-- [ ] 与 T606 一致性验证对齐：MCP tool 输出与 CLI 输出同源断言
+- [x] SKILL.md 增加"执行后端探测"步骤：检测 MCP 配置存在（Claude Code `claude mcp list` / `.mcp.json`，OpenCode `opencode.json` mcp 字段）→ MCP tool 优先 / CLI 回退 / MCP 调用失败降级 CLI
+- [x] 能力契约映射表补齐 MCP tool 列（fetch_alerts / run_scan / fix_dependency / get_last_report 入参要点 + CLI 对应，详见 REFERENCES.md）
+- [x] 与 T606 一致性验证对齐：REFERENCES.md 双后端一致性断言清单（以 @dependfix/core RunResult / ArchiveRunEntry 契约为基准，4 条能力逐项断言）——MCP 交付时按清单验证同源一致
 
 **完成定义**:
 
-- [ ] 配置了 MCP 的环境走 tool 调用，未配置的环境走 CLI，两条路径输出一致
-- [ ] T706 发布 `@dependfix/mcp` 时 skill 无需改版即可双后端工作
+- [x] 配置了 MCP 的环境走 tool 调用，未配置的环境走 CLI，两条路径输出一致——探测/决策/降级规则已落 SKILL.md；一致性断言清单已定义（MCP Server 交付后按清单执行验证，当前无法实测属已知边界）
+- [x] T706 发布 `@dependfix/mcp` 时 skill 无需改版即可双后端工作——SKILL.md/REFERENCES.md 已按能力契约解耦，MCP tool 名与映射为基准约定
 
 **非目标**: MCP Server 实现（M6 T605/T606）
 

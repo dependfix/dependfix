@@ -1,0 +1,30 @@
+{
+    "$schema": "https://opencode.ai/config.json",
+    "model": "opencode-go/deepseek-v4-flash",
+    "default_agent": "full-stack-master",
+    "instructions": [
+        "AGENTS.md"
+    ],
+    "agent": {
+        "full-stack-master": {
+            "mode": "primary",
+            "description": "默认开发主责角色，统一负责需求理解、方案设计与前后端落地，编排 PDTFC+ 全流程。",
+            "prompt": "{file:.github/agents/full-stack-master.agent.md}",
+            "model": "opencode-go/deepseek-v4-flash",
+            "variant": "max"
+        },
+        "code-auditor": {
+            "mode": "subagent",
+            "description": "Review Gate 负责人，对代码、文档、配置、脚本与治理定义执行审计，输出 Pass/Reject 结论。",
+            "prompt": "{file:.github/agents/code-auditor.agent.md}",
+            "model": "opencode-go/deepseek-v4-flash",
+            "variant": "max"
+        },
+        "ui-validator": {
+            "mode": "subagent",
+            "description": "浏览器验证角色，负责在真实渲染环境中确认 UI 变更的可用性、响应式与主题表现；具备视觉识别能力（截图审查、视觉回归）。",
+            "prompt": "{file:.github/agents/ui-validator.agent.md}",
+            "model": "opencode-go/qwen3.7-plus"
+        }
+    }
+}

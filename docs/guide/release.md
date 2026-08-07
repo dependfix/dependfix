@@ -212,9 +212,9 @@ git push origin master
   - **包级 `CHANGELOG.md`**（`packages/cli`、`packages/core`、`packages/skills`）：按 `git log -- <path>` 精确过滤——只有实际改动该包路径的 commit 才会进入对应日志（一个 commit 同时改两个包时会同时出现在两包日志中，这是真实影响面的体现）；`@dependfix/skills` 的同步脚本 `scripts/sync-skills.mjs` 属仓库根路径，不匹配任何包，其改动只进根级日志；
   - 分组语言由根 `package.json` 的 `changelog.language: "zh"` 控制（中文 emoji 分组：✨ 新功能 / 🐛 Bug 修复 / 📦 代码重构 等）；
 - **全局改动归属约定**：根目录文件（`docs/`、`.github/`、`pnpm-workspace.yaml` 等）不匹配任何包的 path，不会出现在包级日志；若某全局改动确实影响包行为（如 overrides 改依赖解析），应在 commit 中落在包路径内或拆分提交，否则只记录在根级日志；
-- **生成是幂等的**：脚本每次全量重新生成（`releaseCount: 0`），不依赖历史 changelog 内容；
-- **生成时机与边界行为**：在 `changeset version` 之后、publish 之前运行（此时新版本尚无 tag，当前版本段输出全部新增 commit）；若在版本等于最新 tag 时运行（如 core-only 发布后、或发布后立即重跑），顶层段会复用该版本号并生成自引用 compare 链接，属正常现象，下一版本发布段会自动归位；
-- **版本标题与 tag**：根级与包级日志的版本段均按 `dependfix@` / `@dependfix/core@` / `@dependfix/skills@` tag 序列划分（changeset publish 自动创建）；无 tag 的首版（0.1.0）从仓库最早 commit 生成；
+- **生成是增量追加的**：已存在的 CHANGELOG.md 只更新**未发布版本段**（版本号等于当前 pkg 版本且尚无对应 tag 的段，即最新 tag 之后的全部新增 commit），已发布历史段完整保留文件现状——历史 commit 重写或手动编辑均不被覆盖；文件不存在时首次全量生成；无未发布内容（版本等于最新 tag）时文件保持不变；
+- **生成时机与边界行为**：在 `changeset version` 之后、publish 之前运行（此时新版本尚无 tag，未发布段输出全部新增 commit）；若在版本等于最新 tag 时运行（如 core-only 发布后、或发布后立即重跑），未发布段无新增内容（writer 可能产生的空版本段会被自动过滤），文件保持不变；
+- **版本标题与 tag**：根级与包级日志的版本段均按 `dependfix@` / `@dependfix/core@` / `@dependfix/skills@` tag 序列划分（changeset publish 自动创建）。**手动发布补 tag 约束**：分段锚点是"tag 指向的 commit 自身携带的 gitTags"，包级日志还有 `git log -- <path>` 过滤——因此补打历史 tag 时必须指向**同时 touch 该包路径**的 commit（0.1.0 补打 `dependfix@0.1.0` / `@dependfix/core@0.1.0` 指向 dc607026，该 commit 同时改动两包 eslint.config.js）；若 tag 指向纯 docs/全局 commit（如 `v0.1.0` → c213fc21），包级日志因 path 过滤看不到锚点，全部历史会并入当前版本段（表现为 changelog 非增量）；
 - **依赖变更提示差异**：changesets 原会在依赖包变更时向依赖方日志写入 `Updated dependencies` 行，本方案不自动生成（npm 安装时会自动带上新依赖版本，不影响使用）；
 - **依赖版本**：必须使用 `conventional-changelog@^7`（8.x 模板引擎与 cmyr-config 3.x 不兼容）。
 
@@ -231,6 +231,7 @@ git push origin master
 | `pnpm changelog` 输出英文分组 | 根 `package.json` 缺少 `changelog.language: "zh"`（cmyr-config 从 cwd 的 package.json 读取语言） |
 | `pnpm changelog` 报模板错误 | conventional-changelog 被解析为 8.x。必须使用 `conventional-changelog@^7`（8.x 模板引擎与 cmyr-config 3.x 不兼容） |
 | CI 报 "CHANGELOG 缺少版本段" | 版本已提升但漏跑了 `pnpm changelog`（发布前必须生成并提交日志） |
+| 包级 CHANGELOG 非增量（0.2.0 段吞掉全部历史） | `<pkg>@<version>` 锚点 tag 缺失，或指向的 commit 未 touch 该包路径（path 过滤后看不到锚点）。处理：补打/移动 tag 到 touch 该包路径的 commit 后重跑 `pnpm changelog` |
 
 ## 关于 provenance
 

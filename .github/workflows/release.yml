@@ -95,25 +95,28 @@ jobs:
       # CHANGELOG 由本地 `pnpm changelog`（conventional-changelog-cmyr-config）生成并随
       # 发布提交入库，CI 不重新生成；若版本已提升但日志缺失，说明漏跑了生成步骤，禁止发布。
       # 普通提交（版本未变）时各日志已含对应版本段，校验自动通过。
+      # 段标题兼容 minor（`# [0.x.0]`）与 patch（`## [0.x.y]`，cmyr-config 按 isPatch 输出）两种前缀。
       - name: Verify changelog is up to date
         run: |
           for spec in "packages/cli:packages/cli/CHANGELOG.md" "packages/core:packages/core/CHANGELOG.md" "packages/skills:packages/skills/CHANGELOG.md"; do
             dir="${spec%%:*}"; file="${spec##*:}"
             version=$(node -p "require('./$dir/package.json').version")
-            if ! grep -qE "^# \[?${version}([ )]|\$)" "$file"; then
+            if ! grep -qE "^#{1,2} \[?${version}([\] )]|\$)" "$file"; then
               echo "::error::$file 缺少版本段 ${version}，请先运行 pnpm changelog 并提交"
               exit 1
             fi
           done
           version=$(node -p "require('./packages/cli/package.json').version")
-          if ! grep -qE "^# \[?${version}([ )]|\$)" CHANGELOG.md; then
+          if ! grep -qE "^#{1,2} \[?${version}([\] )]|\$)" CHANGELOG.md; then
             echo "::error::CHANGELOG.md 缺少版本段 ${version}，请先运行 pnpm changelog 并提交"
             exit 1
           fi
           echo "changelog is up to date"
 
       # changeset publish：
-      # - 只发布有 changeset 记录的包（无变更时安全退出，天然处理包版本不同步）
+      # - 判断依据是"本地版本未出现在 npm registry 已发布版本列表"（npm info 对比），
+      #   与 .changeset/ 目录是否存在无关（changeset version 已消费并删除 changeset 文件）；
+      #   无待发布版本时安全退出，天然处理包版本不同步
       # - 在 pnpm 项目内部调用 pnpm publish（自动将 workspace:* 替换为实际版本）
       # - 通过 OIDC（id-token: write）完成 npm trusted publishing 认证，无需 NPM_TOKEN
       # - 发布成功后仅在本地创建 <pkg>@<version> 格式的 git tag（--no-git-tag 可关闭）

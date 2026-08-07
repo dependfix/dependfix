@@ -1,6 +1,7 @@
 # @dependfix/skills
 
-# 0.1.0 (2026-08-07)
+
+# [0.1.0](https://github.com/dependfix/dependfix/compare/21fae4d...@dependfix/skills@0.1.0) (2026-08-07)
 
 
 ### ✨ 新功能

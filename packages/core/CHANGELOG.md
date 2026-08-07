@@ -1,6 +1,35 @@
 # @dependfix/core
 
-# 0.1.0 (2026-08-02)
+# [0.2.0](https://github.com/dependfix/dependfix/compare/@dependfix/core@0.1.0...@dependfix/core@0.2.0) (2026-08-07)
+
+
+### ✨ 新功能
+
+* 报告文件补齐 GHSA 审计粒度与失败原因展示 ([6eaf367](https://github.com/dependfix/dependfix/commit/6eaf367))
+* 接入 Code Scanning alerts 采集（T301） ([7b8feb3](https://github.com/dependfix/dependfix/commit/7b8feb3))
+* **cli:** 支持 workspace 成员级直接依赖自动升级（M4.6 T406/T407） ([7fb264e](https://github.com/dependfix/dependfix/commit/7fb264e))
+* Code Scanning 规则分层 A/B/C 与白名单机制（T302） ([5b3e076](https://github.com/dependfix/dependfix/commit/5b3e076))
+* Code Scanning 建议型输出（T304） ([dead17e](https://github.com/dependfix/dependfix/commit/dead17e))
+* Code Scanning 模板化规则修复器（T303） ([aebf258](https://github.com/dependfix/dependfix/commit/aebf258))
+* pnpm audit fallback——本地无 token 依赖漏洞审计与修复 ([d9fef68](https://github.com/dependfix/dependfix/commit/d9fef68))
+* PR body 新增 ✅ Fixed Alerts 告警级明细（用户反馈 PR [#27](https://github.com/dependfix/dependfix/issues/27)） ([a82f658](https://github.com/dependfix/dependfix/commit/a82f658))
+* **report:** AI 用量聚合段（aiUsage 进报告/JSON/摘要）+ 修复 CI lint-md 穿透 node_modules ([a753029](https://github.com/dependfix/dependfix/commit/a753029))
+
+
+### 🐛 Bug 修复
+
+* **cli:** 跨线告警不自动修复且不误标 fixed/converged（PR [#28](https://github.com/dependfix/dependfix/issues/28) 复盘） ([220df7b](https://github.com/dependfix/dependfix/commit/220df7b))
+* **cli:** verify 工具链同版本 + PR body 截断 + 统计口径拆分（C2/C6/C7） ([cf12e38](https://github.com/dependfix/dependfix/commit/cf12e38))
+* M3 收尾遗留修复（用户确认批次） ([e1aad1e](https://github.com/dependfix/dependfix/commit/e1aad1e))
+
+
+### 📦 代码重构
+
+* 清理注释与测试名中的开发流程编号标记（C/T/M/G/R/P 系列） ([3c714cc](https://github.com/dependfix/dependfix/commit/3c714cc))
+* 清理注释与测试名中的开发流程编号标记（T405/T406/T407 等） ([3a8fbda](https://github.com/dependfix/dependfix/commit/3a8fbda))
+* src 目录结构收敛——根目录仅保留入口文件 ([bb24ef0](https://github.com/dependfix/dependfix/commit/bb24ef0))
+
+# 0.1.0 (2026-08-03)
 
 
 ### ✨ 新功能

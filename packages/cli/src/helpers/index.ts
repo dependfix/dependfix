@@ -8,7 +8,8 @@ import { parse as parseYaml } from 'yaml'
 import type { NormalizedSecurityAlert } from '@dependfix/core'
 import { compareSemver, readLockfileVersions, isCrossMajorFixRequired } from '../fixers/dependency'
 import { runVerification } from '../runners/verification-runner'
-import { validateVerifyCommands, type AppContext } from '../app/helpers'
+import { validateVerifyCommands } from '../verification/validate-commands'
+import type { AppContext } from '../app/helpers'
 
 /**
  * 对可修复告警按包名去重（同包收敛）。

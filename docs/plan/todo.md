@@ -157,19 +157,19 @@
 
 - **优先级**: P1
 - **依赖**: C13 关联
-- **状态**: 未开始
+- **状态**: 已完成（2026-08-07，Review Gate PASS，提交后回链）
 - **交付物**: `packages/cli/src/app/pipeline.ts`（`createPipeline(deps)` 抽象）
 
 **任务内容**:
 
-- [ ] `runCli()` 中 `process.env` / `console.log` 紧耦合抽离为可注入依赖（logger / config resolver / io）
-- [ ] `createPipeline(deps)` 接口：local 与 platform 模式共用同一编排核心
-- [ ] 处理 C13 循环依赖（app/helpers ↔ cli/helpers）
+- [x] `runCli()` 中 `process.env` / `console.log` 紧耦合抽离为可注入依赖（logger / config resolver / io）
+- [x] `createPipeline(deps)` 接口：local 与 platform 模式共用同一编排核心
+- [x] 处理 C13 循环依赖（app/helpers ↔ cli/helpers）
 
 **完成定义**:
 
-- [ ] 本地 CLI 模式行为不变（现状回归）
-- [ ] platform 模式可通过注入不同 logger / config resolver 复用同一编排逻辑
+- [x] 本地 CLI 模式行为不变（现状回归）
+- [x] platform 模式可通过注入不同 logger / config resolver 复用同一编排逻辑
 
 **非目标**: M6 平台本体（数据库/认证/Web UI）
 

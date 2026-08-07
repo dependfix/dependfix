@@ -1,24 +1,18 @@
 import {
-    defineCommand,
     parseArgs,
     type ArgsDef,
     type ParsedArgs,
 } from 'citty'
-import { AppError, toAppError, isValidRepoIdentifier } from '@dependfix/core'
-import { DependfixApp } from '../app'
+import { AppError, isValidRepoIdentifier } from '@dependfix/core'
 import {
     type CliConfigOverrides,
     type RuntimeMode,
     type SeverityThreshold,
     type AlertSourceKind,
-    resolveRuntimeConfig,
     RUNTIME_MODES,
     SEVERITY_THRESHOLDS,
     ALERT_SOURCES,
 } from '../config'
-import { queryRepoHistory } from '../report/archiver'
-import { formatHistory } from '../report/history'
-
 // ---------------------------------------------------------------------------
 // Public interfaces
 // ---------------------------------------------------------------------------
@@ -29,17 +23,11 @@ export interface CliInvocation {
     rawArgs: string[]
 }
 
-export interface CliRunResult {
-    ok: true
-    invocation: CliInvocation
-    config: ReturnType<typeof resolveRuntimeConfig>
-}
-
 // ---------------------------------------------------------------------------
 // Args definition for citty
 // ---------------------------------------------------------------------------
 
-const argsDef = {
+export const argsDef = {
     mode: {
         type: 'positional' as const,
         description: '运行模式：report-only, fix, fix-and-pr, cleanup-branches',
@@ -453,7 +441,7 @@ function parseUpgradeGroupsFlag(value: string): Record<string, string[]> {
 }
 
 // ---------------------------------------------------------------------------
-// Public API (unchanged signatures)
+// Parsing API
 // ---------------------------------------------------------------------------
 
 export function parseCliArgs(rawArgs: string[]): CliInvocation {
@@ -466,78 +454,3 @@ export function parseCliArgs(rawArgs: string[]): CliInvocation {
         rawArgs: [...rawArgs],
     }
 }
-
-export function runCli(rawArgs: string[]): CliRunResult {
-    const invocation = parseCliArgs(rawArgs)
-    const config = resolveRuntimeConfig({
-        env: process.env,
-        cliOverrides: invocation.configOverrides,
-    })
-
-    return {
-        ok: true,
-        invocation,
-        config,
-    }
-}
-
-// ---------------------------------------------------------------------------
-// App execution
-// ---------------------------------------------------------------------------
-
-async function runApp(rawArgs: string[]): Promise<number> {
-    const invocation = parseCliArgs(rawArgs)
-
-    // --history：独立查询命令（读归档索引，不执行扫描、不要求 token/仓库配置）
-    if (invocation.configOverrides.history) {
-        return runHistoryQuery(invocation.configOverrides.history)
-    }
-
-    const config = resolveRuntimeConfig({
-        env: process.env,
-        cliOverrides: invocation.configOverrides,
-    })
-
-    const app = new DependfixApp({
-        config,
-        verbose: invocation.configOverrides.verbose,
-        commands: invocation.configOverrides.commands,
-    })
-
-    const { exitCode } = await app.run()
-    return exitCode
-}
-
-/**
- * 查询仓库历史运行摘要并打印（读 `./dependfix-reports/index.json`）。
- * 无历史 / 索引缺失不视为错误（exit 0），输出提示。
- */
-function runHistoryQuery(repo: string): number {
-    const entries = queryRepoHistory(repo)
-    console.log(formatHistory(entries, repo))
-    return 0
-}
-
-// ---------------------------------------------------------------------------
-// citty command
-// ---------------------------------------------------------------------------
-
-export const dependfixCommand = defineCommand({
-    meta: {
-        name: 'dependfix',
-        version: '0.1.0',
-        description: '自动化处理 Dependabot / Code Scanning 安全告警的修复工具',
-    },
-    args: argsDef,
-    async run({ rawArgs }) {
-        let exitCode = 1
-        try {
-            exitCode = await runApp(rawArgs)
-        } catch (error: unknown) {
-            const appError = toAppError(error, 'CLI_EXECUTION_FAILED')
-            console.error(`Error: ${appError.message}`)
-            exitCode = 1
-        }
-        process.exitCode = exitCode
-    },
-})

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { runMain } from 'citty'
 import { toAppError } from '@dependfix/core'
-import { dependfixCommand } from './cli'
+import { dependfixCommand } from './cli/runner'
 
 void runMain(dependfixCommand).catch((error: unknown) => {
     const appError = toAppError(error, 'CLI_EXECUTION_FAILED')

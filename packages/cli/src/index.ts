@@ -1,16 +1,20 @@
 import { pathToFileURL } from 'node:url'
 import { runMain } from 'citty'
 import { toAppError } from '@dependfix/core'
-import { dependfixCommand, runCli, type CliRunResult } from './cli'
+import { dependfixCommand, runCli, type CliRunResult } from './cli/runner'
 
 export * from '@dependfix/core'
 export * from './app'
 export * from './cli'
+export * from './cli/runner'
 export * from './config'
 export * from './fixers/dependency'
 export * from './fixers/pnpm'
 export * from './github'
 export * from './runners'
+// 平台化管线抽象（独立平台前置）：local 与 platform 共用编排核心
+export { createPipeline } from './app/pipeline'
+export type { Pipeline, PipelineDeps, PipelineLogger, PipelineParseResult } from './app/pipeline'
 
 /**
  * 简化调用的入口（内部数据处理，非 CLI 使用）。

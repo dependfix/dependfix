@@ -23,7 +23,7 @@
 | 类别 | 规则 | 示例 |
 |------|------|------|
 | 文件 | `kebab-case.ts` | `app-error.ts`、`runtime-config.ts` |
-| Vue 组件 | `PascalCase.vue` | `DashboardView.vue` |
+| Vue 组件 | `kebab-case.vue` | `app-header.vue`、`dashboard-view.vue` |
 | 类型/接口 | `PascalCase`，优先 `interface` | `NormalizedSecurityAlert`、`RuntimeConfig` |
 | 函数/变量 | `camelCase` | `resolveRuntimeConfig`、`isValidRepoIdentifier` |
 | 常量 | `UPPER_SNAKE_CASE` | `RUNTIME_MODES`、`SEVERITY_THRESHOLDS` |
@@ -124,9 +124,11 @@ apps/platform/               # Nuxt 全栈平台（后续阶段）
 | `packages/github` | `@dependfix/github` | 内部库 | GitHub API 集成 |
 | `packages/action` | `@dependfix/action` | Action | GitHub Action 入口 |
 | `packages/mcp` | `@dependfix/mcp` | MCP Server | MCP 协议服务 |
+| `apps/platform` | `@dependfix/platform` | 应用（Nuxt 全栈） | 管理平台，非库；归 `apps/` 目录体系 |
 
 - CLI / 可执行入口使用 **unscoped** `dependfix` 名称
 - 内部库使用 **scoped** `@dependfix/*` 前缀
+- 应用（`apps/*`）使用 **scoped** `@dependfix/*` 前缀，仅限工作区内部消费，不发布 npm
 
 ## 8. 提交规范
 

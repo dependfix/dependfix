@@ -21,7 +21,7 @@
   - npm 默认不安装带预发布后缀的版本（需显式 `dependfix@beta`），会给预览测试设置障碍；
   - changesets 的 pre 模式会增加每轮发布的维护成本。
 - **稳定信号来自 `1.0.0`**：API 稳定后发布 `1.0.0`，届时再启用 `@v1` 滚动 tag（GitHub Action 引用）。
-- 版本号由 Changesets 管理（`.changeset/`），包版本升级语义（patch / minor / major）在提交时通过 changeset 声明；CHANGELOG 由 `pnpm changelog` 基于 conventional commits 生成（见"CHANGELOG 策略"）。
+- 版本号由 Changesets 管理（`.changeset/`），包版本升级语义（patch / minor / major）在发布前由 `pnpm changeset:generate` 基于 conventional commits 自动推导（见"changeset 生成规则"），可人工修正；CHANGELOG 由 `pnpm changelog` 基于 conventional commits 生成（见"CHANGELOG 策略"）。
 
 ## 发布架构
 
@@ -131,26 +131,47 @@ gh release create v0.1.0 --generate-notes --prerelease
 
 ## 后续版本（0.1.1+）
 
+### changeset 生成规则
+
+版本提升级别由 `pnpm changeset:generate`（`scripts/create-changeset.mjs`）从 git log 自动推导，规则参照 semantic-release / conventionalcommits：
+
+| commit 类型 | bump | 说明 |
+|---|---|---|
+| `feat` | minor | |
+| `fix` / `perf` / `revert` | patch | |
+| BREAKING（`!` 后缀或 `BREAKING CHANGE:` footer） | 0.x → minor；1.0.0+ → major | 0.x 阶段不直接跳到 1.0.0（0.x 语义中 minor 即可表达破坏性变更） |
+| `refactor` / `docs` / `chore` / `build` / `ci` / `test` / `style` | 不 bump | 变更仍会进入 CHANGELOG，随同轮其他发布附带 |
+
+- **包影响面**：按 commit 改动路径映射（`packages/core` → `@dependfix/core`、`packages/cli` → `dependfix`、`packages/skills` → `@dependfix/skills`）；依赖传导（如 core 升级后 cli 的依赖范围更新）由 changesets 的 `updateInternalDependencies` 自动处理，无需手动声明；
+- **每轮只保留一个 changeset**：固定文件名为 `.changeset/release.md`；脚本检测到该文件已存在时会拒绝覆盖（防止丢失人工修正），需先删除或人工合并；
+- **人工兜底（生成后必须 review）**：
+  - breaking 判定只识别 commit 中显式标注的 `!` / `BREAKING CHANGE:` footer，未标注的破坏性变更（如以 `build:` 类型提交的纯 ESM 改造）需手动修正 bump 级别；
+  - 推导基线为最新 git tag，若存在"手动发布但未打 tag"的版本（如 `@dependfix/skills` 0.1.0 手动发布晚于 `v0.1.0` tag），推导会包含已发布内容——按实际发布决策剔除本轮不发布的包；
+  - summary 仅为 git 追踪可读说明，不进 CHANGELOG（见"CHANGELOG 策略"），无需精心撰写。
+
 ### 常规流程
 
 ```bash
-# 1. 代码变更时创建 changeset（选择受影响包 + 版本类型 + 变更描述）
-pnpm changeset
+# 1. 自动生成发布 changeset（从 git log 推导版本提升级别，生成 .changeset/release.md，见"changeset 生成规则"）
+pnpm changeset:generate
 
-# 2. 版本提升（消费 .changeset/*.md，更新 package.json 版本）
+# 2. 人工 review release.md：检查 bump 级别与包清单，剔除本轮不发布的包，
+#    修正未标注 breaking 的破坏性变更；确保 .changeset/ 下仅保留这一个 changeset
+
+# 3. 版本提升（消费 .changeset/*.md，更新 package.json 版本）
 #    changelog 已禁用（"changelog": false），此步骤无需 GITHUB_TOKEN
 pnpm changeset version
 
-# 3. 生成 CHANGELOG（基于 conventional commits 重新生成四份日志，见"CHANGELOG 策略"）
+# 4. 生成 CHANGELOG（基于 conventional commits 重新生成四份日志，见"CHANGELOG 策略"）
 pnpm changelog
 
-# 4. 审查并提交（含包级 CHANGELOG.md 与 package.json 版本变更）
+# 5. 审查并提交（含包级 CHANGELOG.md 与 package.json 版本变更）
 git add -A && git commit -m "chore(release): 版本提升至 x.y.z"
 
-# 5. push 到 master（提交本身不触发发布；0.x 阶段发布由手动 workflow_dispatch 触发）
+# 6. push 到 master（提交本身不触发发布；0.x 阶段发布由手动 workflow_dispatch 触发）
 git push origin master
 
-# 6. 手动触发发布：GitHub Actions → Release → Run workflow（workflow_dispatch）
+# 7. 手动触发发布：GitHub Actions → Release → Run workflow（workflow_dispatch）
 ```
 
 ### 定时自动发布（1.0.0+ 启用）

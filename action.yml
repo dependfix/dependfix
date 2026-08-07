@@ -83,7 +83,7 @@ inputs:
     required: false
     default: 'false'
   ai-api-key:
-    description: 'AI API Key（通过 GitHub Secrets 传入，如 ${{ secrets.DEEPSEEK_API_KEY }}；经环境变量传递自动打码）'
+    description: 'AI API Key（在 workflow 中引用 secrets.DEEPSEEK_API_KEY 等 GitHub Secrets 传入；经环境变量传递自动打码）'
     required: false
     default: ''
   ai-provider:

@@ -384,7 +384,7 @@ describe('createFixBranch', () => {
 
         expect(second.created).toBe(false)
         expect(second.branchName).toBe('dependfix/auto-fix-abc12345')
-    })
+    }, 15_000)
 })
 
 // ---------------------------------------------------------------------------

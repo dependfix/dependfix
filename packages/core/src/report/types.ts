@@ -102,6 +102,20 @@ export interface FixError {
 }
 
 /**
+ * AI 研判用量聚合（run 级；每次成功调用累计）。
+ * 成本估算仅当全部调用的模型均有单价数据时输出（无单价 → undefined）。
+ */
+export interface AiUsageAggregate {
+    /** 成功调用次数（provider 正常返回；失败调用不计入） */
+    calls: number
+    inputTokens: number
+    outputTokens: number
+    totalTokens: number
+    /** 估算成本（USD，公开定价推算，仅供参考）；模型无单价数据时为 undefined */
+    estimatedCostUsd?: number
+}
+
+/**
  * 报告顶层容器。
  */
 export interface RunResult {
@@ -114,6 +128,8 @@ export interface RunResult {
     alerts: NormalizedSecurityAlert[]
     actions: FixAction[]
     errors: FixError[]
+    /** AI 研判用量聚合（仅 --ai 开启且实际调用时存在） */
+    aiUsage?: AiUsageAggregate
 }
 
 /** 按严重级别聚合的统计。 */

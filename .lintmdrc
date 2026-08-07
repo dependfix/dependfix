@@ -1,5 +1,8 @@
 {
-    "excludeFiles": [],
+    "excludeFiles": [
+        "**/node_modules/**",
+        "**/.git/**"
+    ],
     "rules": {
         "no-empty-code": 0,
         "correct-title-trailing-punctuation": 0,

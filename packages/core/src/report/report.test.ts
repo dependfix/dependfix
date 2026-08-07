@@ -392,6 +392,34 @@ describe('generateMarkdownReport', () => {
         expect(md).not.toContain('## Alerts by Severity')
     })
 
+    it('renders AI Usage section when aiUsage present', () => {
+        const result = {
+            ...EMPTY_RUN_RESULT,
+            aiUsage: { calls: 3, inputTokens: 1200, outputTokens: 340, totalTokens: 1540, estimatedCostUsd: 0.000312 },
+        }
+        const md = generateMarkdownReport(result)
+        expect(md).toContain('## AI Usage')
+        expect(md).toContain('3')
+        expect(md).toContain('1,200')
+        expect(md).toContain('340')
+        expect(md).toContain('$0.0003')
+    })
+
+    it('omits AI Usage section when aiUsage absent', () => {
+        const md = generateMarkdownReport(EMPTY_RUN_RESULT)
+        expect(md).not.toContain('## AI Usage')
+    })
+
+    it('renders AI Usage without cost when model has no price data', () => {
+        const result = {
+            ...EMPTY_RUN_RESULT,
+            aiUsage: { calls: 1, inputTokens: 100, outputTokens: 50, totalTokens: 150, estimatedCostUsd: undefined },
+        }
+        const md = generateMarkdownReport(result)
+        expect(md).toContain('## AI Usage')
+        expect(md).toContain('成本未估算')
+    })
+
     it('renders repository section', () => {
         const repoResult: RepositoryResult = {
             repository: 'owner/repo', defaultBranch: 'main', alertsCount: 1,
@@ -834,6 +862,15 @@ describe('generateJsonReport', () => {
         expect(parsed).toHaveProperty('alerts')
         expect(parsed).toHaveProperty('actions')
         expect(parsed).toHaveProperty('errors')
+    })
+
+    it('includes aiUsage when present', () => {
+        const result = {
+            ...EMPTY_RUN_RESULT,
+            aiUsage: { calls: 2, inputTokens: 800, outputTokens: 200, totalTokens: 1000, estimatedCostUsd: 0.0002 },
+        }
+        const parsed = JSON.parse(generateJsonReport(result)) as RunResult
+        expect(parsed.aiUsage).toEqual(result.aiUsage)
     })
 
     it('arrays are present even when empty', () => {

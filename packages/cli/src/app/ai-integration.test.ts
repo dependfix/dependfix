@@ -325,6 +325,7 @@ describe('DependfixApp AI integration (2.0.2 × AI)', () => {
         // AI 内部验证失败 → 已回滚 patch（ai-patch failed 动作）
         mockRunAiIntegration.mockResolvedValue({
             attempted: true,
+            usage: { calls: 1, inputTokens: 1200, outputTokens: 340, totalTokens: 1540, estimatedCostUsd: 0.0003 },
             actions: [{
                 type: 'dependency-upgrade',
                 repository: 'foo/bar',
@@ -355,5 +356,7 @@ describe('DependfixApp AI integration (2.0.2 × AI)', () => {
         const aiPatchActions = result.actions.filter((a) => a.strategy === 'ai-patch')
         expect(aiPatchActions).toHaveLength(1)
         expect(aiPatchActions[0].success).toBe(false)
+        // AI 用量聚合进报告（aiUsage 段数据源）
+        expect(result.aiUsage).toEqual({ calls: 1, inputTokens: 1200, outputTokens: 340, totalTokens: 1540, estimatedCostUsd: 0.0003 })
     })
 })

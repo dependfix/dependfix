@@ -189,7 +189,7 @@
 - [x] 凭据安全：ai.apiKey 不进 RunReportConfig 序列化（报告/JSON 排除）；日志脱敏（复用 maskSecrets）
 - [x] app 触发：升级验证失败 或 major 升级（--ai-trigger 可配）→ 构建研判上下文（changelog + 失败日志 + 文件）→ assessBreakingChange
 - [x] 结果分流：code-change → safety-gate → applyChanges → 完整验证（install+lint+build）→ 成功提交（FixAction strategy=ai-patch + diff）失败回滚；version-lock → 复用 override 链路；wait-upstream/manual → 报告建议区块
-- [~] usage 日志（每次调用消耗 + 估算成本）已交付；报告 aiUsage 聚合段登记演进（当前 AI 动作在 Fix Actions 表可见）
+- [x] usage 日志（每次调用消耗 + 估算成本）+ 报告 aiUsage 聚合段（RunResult.aiUsage / Markdown AI Usage 节 / JSON / console run 总计）
 - [x] action.yml：ai 系列 inputs + DEPENDFIX_AI_* env（api-key 经 env 传递自动打码）
 
 **完成定义**:

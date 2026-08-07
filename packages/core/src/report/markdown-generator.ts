@@ -14,13 +14,14 @@ import { collectCodeScanningSuggestions } from './suggestions'
 /**
  * 生成 Markdown 格式报告字符串。
  *
- * 模板固定 6 节：
+ * 模板固定 7 节：
  * 1. Header（runId / 时间 / 模式）
  * 2. Summary 表
- * 3. Alerts by Severity 表
- * 4. Repositories 明细
- * 5. Fix Actions 表
- * 6. Errors 节（有错误时才渲染）
+ * 3. AI Usage（仅 AI 实际调用时渲染）
+ * 4. Alerts by Severity 表
+ * 5. Repositories 明细
+ * 6. Fix Actions 表
+ * 7. Errors 节（有错误时才渲染）
  */
 export function generateMarkdownReport(result: RunResult): string {
     const { runId, startedAt, finishedAt, config, summary, repositories, alerts, actions, errors } = result
@@ -59,7 +60,21 @@ export function generateMarkdownReport(result: RunResult): string {
         '',
     )
 
-    // ---- 3. Alerts by Severity ----
+    // ---- 3. AI Usage（仅 --ai 实际调用时渲染；run 级聚合）----
+    if (result.aiUsage && result.aiUsage.calls > 0) {
+        const u = result.aiUsage
+        const costText = u.estimatedCostUsd !== undefined
+            ? ` (估算成本 **$${u.estimatedCostUsd.toFixed(4)}**，公开定价推算)`
+            : '（模型无单价数据，成本未估算）'
+        sections.push(
+            '## AI Usage',
+            '',
+            `> AI 研判调用 **${u.calls}** 次，消耗 **${u.inputTokens.toLocaleString('en-US')}** in / **${u.outputTokens.toLocaleString()}** out tokens（合计 ${u.totalTokens.toLocaleString('en-US')}）${costText}`,
+            '',
+        )
+    }
+
+    // ---- 4. Alerts by Severity ----
     if (alerts.length > 0) {
         const breakdown = aggregateSeverity(alerts, actions)
         sections.push(
@@ -75,7 +90,7 @@ export function generateMarkdownReport(result: RunResult): string {
         )
     }
 
-    // ---- 4. Repositories ----
+    // ---- 5. Repositories ----
     const grouped = groupByRepository(alerts, actions, repositories)
     if (grouped.length > 0) {
         sections.push('## Repositories', '')
@@ -146,7 +161,7 @@ export function generateMarkdownReport(result: RunResult): string {
         }
     }
 
-    // ---- 4.5 Code Scanning Suggestions（无法自动修复的问题不静默丢失）----
+    // ---- 5.5 Code Scanning Suggestions（无法自动修复的问题不静默丢失）----
     const suggestions = collectCodeScanningSuggestions(result, config.mode)
     if (suggestions.length > 0) {
         sections.push(
@@ -163,7 +178,7 @@ export function generateMarkdownReport(result: RunResult): string {
         sections.push('')
     }
 
-    // ---- 5. Fix Actions ----
+    // ---- 6. Fix Actions ----
     sections.push('## Fix Actions', '')
     if (actions.length > 0) {
         sections.push(
@@ -183,7 +198,7 @@ export function generateMarkdownReport(result: RunResult): string {
     }
     sections.push('')
 
-    // ---- 6. Errors ----
+    // ---- 7. Errors ----
     if (errors.length > 0) {
         sections.push(
             '## Errors',

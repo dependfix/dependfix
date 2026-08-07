@@ -16,6 +16,7 @@ import {
     type RunResult,
     type RunReportConfig,
     type RunSummary,
+    type AiUsageAggregate,
 } from '@dependfix/core'
 import { inferRepoFromGitRemote, type RuntimeConfig } from '../config'
 import {
@@ -27,6 +28,7 @@ import {
     type DependencyFixResult,
 } from '../fixers/dependency'
 import { repairLockfile, type LockfileRepairResult } from '../fixers/pnpm'
+import type { AiUsage } from '../ai/usage'
 import { runVerification, type VerificationResult } from '../runners/verification-runner'
 import { applyCodeScanningFix, restoreSourceFile, snapshotSourceFile } from '../fixers/code-scanning'
 import { quickVerifyProject } from '../helpers'
@@ -765,6 +767,7 @@ export function computeSummary(
 /** 组装最终运行结果。 */
 export function buildRunResult(
     ctx: Pick<AppContext, 'config' | 'runId' | 'startedAt' | 'finishedAt' | 'summary' | 'repoResults' | 'allAlerts' | 'allActions' | 'allErrors'>,
+    aiUsage?: AiUsageAggregate,
 ): RunResult {
     const reportConfig: RunReportConfig = {
         mode: ctx.config.mode,
@@ -787,7 +790,41 @@ export function buildRunResult(
         alerts: ctx.allAlerts,
         actions: ctx.allActions,
         errors: ctx.allErrors,
+        aiUsage: aiUsage && aiUsage.calls > 0 ? aiUsage : undefined,
     }
+}
+
+/**
+ * 聚合一次 AI 研判消耗到 run 级累计。
+ * - 单次未调用（usage 为 undefined）幂等返回原累计
+ * - 成本合并：任一侧 undefined 时结果 undefined（模型无单价 → 不做误导性估算）
+ */
+export function mergeAiUsage(
+    aggregate: AiUsageAggregate | undefined,
+    usage: AiUsage | undefined,
+): AiUsageAggregate | undefined {
+    if (!usage || usage.calls === 0) {
+        return aggregate
+    }
+    const next: AiUsageAggregate = {
+        calls: (aggregate?.calls ?? 0) + usage.calls,
+        inputTokens: (aggregate?.inputTokens ?? 0) + usage.inputTokens,
+        outputTokens: (aggregate?.outputTokens ?? 0) + usage.outputTokens,
+        totalTokens: (aggregate?.totalTokens ?? 0) + usage.totalTokens,
+    }
+    // 成本合并语义：
+    // - 首次聚合（aggregate 为空）→ 直接采用本次成本（含 undefined）
+    // - 两侧均有单价 → 相加
+    // - 已有累计成本而本次无单价（或反之）→ 整体 undefined（同模型单价一致，
+    //   混合只会由异常配置产生，保守不估算，避免误导）
+    if (aggregate === undefined) {
+        next.estimatedCostUsd = usage.estimatedCostUsd
+    } else if (aggregate.estimatedCostUsd === undefined || usage.estimatedCostUsd === undefined) {
+        next.estimatedCostUsd = undefined
+    } else {
+        next.estimatedCostUsd = aggregate.estimatedCostUsd + usage.estimatedCostUsd
+    }
+    return next
 }
 
 /**

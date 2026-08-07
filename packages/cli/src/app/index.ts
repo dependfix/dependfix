@@ -14,6 +14,7 @@ import {
     type NormalizedSecurityAlert,
     type RunResult,
     type RunSummary,
+    type AiUsageAggregate,
     type RepositoryResult,
     type FixAction,
     type FixError,
@@ -53,6 +54,7 @@ import {
     autoCleanupMergedBranches,
     computeSummary,
     buildRunResult,
+    mergeAiUsage,
     computeExitCode,
     dependabotAlertsTokenHint,
     codeScanningAlertsTokenHint,
@@ -103,6 +105,8 @@ export class DependfixApp {
     private readonly allErrors: FixError[] = []
     private readonly repoResults: RepositoryResult[] = []
     private readonly summary: RunSummary = createEmptyRunSummary()
+    /** run 级 AI 用量聚合（--ai 实际调用时填充；报告 aiUsage 段数据源） */
+    private aiUsageAggregate: AiUsageAggregate | undefined
     private startedAt: string = ''
     private finishedAt: string = ''
     /** 运行前工作区是否已有未提交改动（验证门禁回滚保护：避免销毁用户本地工作） */
@@ -170,7 +174,7 @@ export class DependfixApp {
         this.finishedAt = new Date().toISOString()
         computeSummary(this.ctx)
 
-        const runResult = buildRunResult(this.ctx)
+        const runResult = buildRunResult(this.ctx, this.aiUsageAggregate)
         const exitCode = computeExitCode(this.ctx)
 
         // 生成并写入报告
@@ -191,6 +195,16 @@ export class DependfixApp {
         ensureGitignore(this.workDir)
 
         this.logger.info(`Run ${this.runId} completed`, { exitCode })
+        // AI 用量摘要（决策 4 可见性；报告 aiUsage 段同源）
+        if (this.aiUsageAggregate && this.aiUsageAggregate.calls > 0) {
+            const u = this.aiUsageAggregate
+            const costText = u.estimatedCostUsd !== undefined
+                ? `, 估算成本 $${u.estimatedCostUsd.toFixed(4)}`
+                : ''
+            this.logger.info(
+                `[ai] run 总计: ${u.calls} 次调用, ${u.inputTokens} in / ${u.outputTokens} out tokens${costText}`,
+            )
+        }
         return { result: runResult, exitCode }
     }
 
@@ -632,6 +646,8 @@ export class DependfixApp {
                         failureLog,
                     })
                     this.allActions.push(...aiResult.actions)
+                    // run 级用量聚合（进报告 aiUsage 段）
+                    this.aiUsageAggregate = mergeAiUsage(this.aiUsageAggregate, aiResult.usage)
                     // AI patch 成功 = AI 内部已通过完整验证（apply + verify）
                     const aiPatchSuccess = aiResult.actions.some(
                         (a) => a.strategy === 'ai-patch' && a.success && !a.noOp,
@@ -1088,7 +1104,7 @@ export class DependfixApp {
 
             // Build RunResult for PR body
             computeSummary(this.ctx)
-            const runResult = buildRunResult(this.ctx)
+            const runResult = buildRunResult(this.ctx, this.aiUsageAggregate)
             const prBody = generatePRBody(
                 runResult,
                 plan.supersedePRs.map((pr) => pr.number),

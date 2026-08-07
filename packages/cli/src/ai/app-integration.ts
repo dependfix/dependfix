@@ -36,6 +36,8 @@ export interface AiIntegrationResult {
     attempted: boolean
     /** 产出动作：ai-patch 修复（code-change 成功）或 ai-suggestion 建议（降级/其他分类/被拒） */
     actions: FixAction[]
+    /** 本次研判的 token 消耗（changelog 采集失败等未发生调用时为 undefined；app 层聚合进报告） */
+    usage?: AiUsage
 }
 
 /**
@@ -87,13 +89,15 @@ export async function runAiIntegration(
         },
     })
 
-    // 3. usage 日志（决策 4：每次调用消耗可见）
+    // 3. usage 日志（决策 4：每次调用消耗可见）+ 透出给 app 聚合进报告
     logUsage(logger, request.packageName, ai.model, assess.usage)
+    const usage = assess.usage
 
     if (assess.degraded || !assess.assessment) {
         return {
             attempted: true,
             actions: [suggestionAction(repo, request, 'AI 研判降级，转人工建议', assess.error)],
+            usage,
         }
     }
 
@@ -101,7 +105,7 @@ export async function runAiIntegration(
     const assessment = assess.assessment
     if (assessment.classification === 'code-change') {
         const action = await applyCodeChangeFix(deps, request, assessment)
-        return { attempted: true, actions: [action] }
+        return { attempted: true, actions: [action], usage }
     }
     if (assessment.classification === 'version-lock') {
         const lock = buildVersionLockOverride(request.packageName, request.toVersion)
@@ -111,17 +115,20 @@ export async function runAiIntegration(
         return {
             attempted: true,
             actions: [suggestionAction(repo, request, `版本锁定建议：${assessment.summary}`, `${detail}\n\n${assessment.rationale}`)],
+            usage,
         }
     }
     if (assessment.classification === 'wait-upstream') {
         return {
             attempted: true,
             actions: [suggestionAction(repo, request, buildWaitUpstreamNote(assessment), assessment.rationale)],
+            usage,
         }
     }
     return {
         attempted: true,
         actions: [suggestionAction(repo, request, `人工处理建议：${assessment.summary}`, assessment.rationale)],
+        usage,
     }
 }
 

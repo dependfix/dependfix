@@ -1,5 +1,6 @@
 import type { RunResult } from '@dependfix/core'
 import { resolveScanRunState } from './scan-run-state'
+import { withRepoLock } from './repo-lock'
 import { decryptToken, getEncryptionKey } from './credential.service'
 import { ContainerExecutor } from './executor/container-executor'
 import { ActionTriggerExecutor } from './executor/action-trigger-executor'
@@ -19,6 +20,9 @@ import { ensureDatabaseInitialized } from '#server/database'
  * 2. 按 executorKind 选择执行器（container 默认 / github-action 需配置 actionWorkflowFile）
  * 3. 执行 → 结果落库 ScanRun + ScanResult（原子写：失败不写半截结果）
  * 4. 回填 Repository.lastScanAt
+ *
+ * 并发防护：同仓库互斥（进程内锁，M6 单实例够用；M7 T702（见 docs/plan/backlog.md）换 BullMQ 队列承接多实例/优先级）。
+ * 同一仓库同一时间只允许一个扫描——防止容器执行器对同一 workDir 的并发写冲突。
  */
 
 export interface ScanRequest {
@@ -31,6 +35,14 @@ export interface ScanRequest {
 }
 
 export const runScanForRepository = async (
+    repositoryId: string,
+    request: ScanRequest,
+): Promise<ScanRun> =>
+    // 同仓库互斥：同一仓库同时只允许一个扫描（防止容器执行器并发写同一 workDir）
+    withRepoLock(repositoryId, () => runScanInternal(repositoryId, request))
+
+
+const runScanInternal = async (
     repositoryId: string,
     request: ScanRequest,
 ): Promise<ScanRun> => {

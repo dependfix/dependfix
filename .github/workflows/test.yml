@@ -50,6 +50,9 @@ jobs:
           node-version: "lts/*"
           cache: "pnpm"
       - run: pnpm i --frozen-lockfile
+      # platform 测试文件 import 类型依赖 Nuxt 生成的 .nuxt/tsconfig.json（vitest 转换时读取），
+      # coverage job 独立于 test job，需单独 prepare；顺序与 test job 保持一致
+      - run: pnpm --filter @dependfix/platform exec nuxt prepare
       - run: pnpm run test:coverage
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v7

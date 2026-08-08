@@ -46,9 +46,11 @@ describe('ActionResultFetcher', () => {
     })
 
     it('throws on timeout when run never completes', async () => {
+        // pollDelayMs=0 + runTimeoutMs=1000：CI（Linux）1 秒窗口内请求数可能超过原 times(100)，
+        // 放大到 1000 次避免 nock "No match" flaky（本地 Windows 事件循环较慢恰好未触发）
         nock(API)
             .get('/repos/o/r/actions/runs/101')
-            .times(100)
+            .times(1000)
             .reply(200, mockRun('in_progress'))
 
         const fetcher = new ActionResultFetcher('ghp_test', { pollDelayMs: 0, runTimeoutMs: 1000 })

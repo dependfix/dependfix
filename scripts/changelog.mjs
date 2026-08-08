@@ -3,10 +3,8 @@
  *
  * 使用 conventional-changelog + conventional-changelog-cmyr-config 生成日志：
  * - 根级 CHANGELOG.md：全仓库 feat/fix/refactor 类 commit（chore/ci/docs 等类型由
- *   preset 过滤，不进入日志），版本段以 dependfix@ tag 序列划分（dependfix 为主交付物）
- * - packages/cli/CHANGELOG.md：仅 packages/cli 路径下的 commit（path 过滤 + dependfix@ tag 序列）
- * - packages/core/CHANGELOG.md：仅 packages/core 路径下的 commit（path 过滤 + @dependfix/core@ tag 序列）
- * - packages/skills/CHANGELOG.md：仅 packages/skills 路径下的 commit（path 过滤 + @dependfix/skills@ tag 序列）
+ *   preset 过滤，不进入日志），版本段以主交付物 tag 序列划分
+ * - 包级 CHANGELOG.md（packages/*）：按各包路径过滤 commit（包清单见 packages.config.mjs）
  *
  * 注意：
  * - 必须在仓库根目录运行（pnpm changelog），cmyr-config 从 cwd 的 package.json 读取
@@ -29,6 +27,7 @@ import { readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { ConventionalChangelog, defaultCommitTransform } from 'conventional-changelog'
+import { PACKAGES, ROOT_PACKAGE } from './packages.config.mjs'
 
 const repoRoot = fileURLToPath(new URL('..', import.meta.url))
 
@@ -39,36 +38,23 @@ const headDate = new Date(
     execSync('git log -1 --format=%cI', { cwd: repoRoot }).toString().trim(),
 ).toISOString().slice(0, 10)
 
+// 包级 CHANGELOG targets：从单点配置派生（包级日志 = 各发布包；根级 = 主交付物）
 const targets = [
     {
         file: 'CHANGELOG.md',
-        title: 'dependfix',
+        title: ROOT_PACKAGE.pkg,
         commits: {},
-        tags: { prefix: 'dependfix@' },
-        // 根级版本锚 = dependfix 包版本（与 dependfix@ tag 序列同步，由 changesets 维护）
-        pkg: 'packages/cli/package.json',
+        tags: ROOT_PACKAGE.tags,
+        // 根级版本锚 = 主交付物包版本（与其 tag 序列同步，由 changesets 维护）
+        pkg: `${ROOT_PACKAGE.path}/package.json`,
     },
-    {
-        file: 'packages/cli/CHANGELOG.md',
-        title: 'dependfix',
-        commits: { path: 'packages/cli' },
-        tags: { prefix: 'dependfix@' },
-        pkg: 'packages/cli/package.json',
-    },
-    {
-        file: 'packages/core/CHANGELOG.md',
-        title: '@dependfix/core',
-        commits: { path: 'packages/core' },
-        tags: { prefix: '@dependfix/core@' },
-        pkg: 'packages/core/package.json',
-    },
-    {
-        file: 'packages/skills/CHANGELOG.md',
-        title: '@dependfix/skills',
-        commits: { path: 'packages/skills' },
-        tags: { prefix: '@dependfix/skills@' },
-        pkg: 'packages/skills/package.json',
-    },
+    ...PACKAGES.filter((p) => p.changelog).map((p) => ({
+        file: p.changelog,
+        title: p.pkg,
+        commits: { path: p.path },
+        tags: p.tags,
+        pkg: `${p.path}/package.json`,
+    })),
 ]
 
 async function generate({ commits, tags, pkg, releaseCount = 0 }) {
@@ -140,10 +126,16 @@ function mergeUnreleased(existing, version, unreleased) {
 }
 
 /**
- * 判断某版本是否已有对应 tag（<prefix><version> 存在即视为已发布）。
- * 发布后重跑 changelog 时用于保护已发布版本段不被改写。
+ * 判断某版本是否已发布（已发布段不可改写）。
+ * 判定顺序（任一命中即视为已发布）：
+ * 1. 本地 git tag 存在 `<prefix><version>`（changesets 发布产物）；
+ * 2. npm registry 已存在该版本（`npm view <pkg>@<version>` 命中）——
+ *    兼容"手动发布但 tag 缺失/未推送"场景（如 0.2.0 曾由 npm 手动发布而 git tag 仅 0.1.0 系列，
+ *    导致该版本被误判为未发布段、重算时污染既有 CHANGELOG 段）。
+ * 注意：npm 查询有网络开销，命中 tag 时短路跳过；查询失败（离线/限流）保守视为未发布
+ * （宁可多生成一次未发布段也不改写已发布段——由 mergeUnreleased 的版本匹配兜底，同版本段会被整段替换）。
  */
-function isVersionTagged(prefix, version) {
+function isVersionTagged(prefix, version, pkgName) {
     try {
         execSync(`git rev-parse --verify --quiet "${prefix}${version}"`, {
             cwd: repoRoot,
@@ -151,7 +143,22 @@ function isVersionTagged(prefix, version) {
         })
         return true
     } catch {
-        return false
+        // 本地无 tag：查 npm registry 确认是否已发布
+        // 注意：不能拼 `2>/dev/null`（Windows shell 不支持该重定向，npm 直接报路径错误）；
+        // 统一用 stdio 捕获 stderr，失败时 execSync 抛错走 catch。
+        // 失败（离线/限流）返回 false → 走增量重算：mergeUnreleased 对同版本段是"整段替换"，
+        // 极端场景（手动发布无 tag + npm 不可达 + 有新 commit）仍可能改写顶部段；
+        // 正常 changesets 流程有 tag 短路，且无新内容时 generate 返回空保持 unchanged。
+        try {
+            const out = execSync(`npm view ${pkgName}@${version} version --json`, {
+                cwd: repoRoot,
+                stdio: 'pipe',
+                timeout: 10_000,
+            }).toString().trim()
+            return out.length > 0 && !out.startsWith('npm error')
+        } catch {
+            return false
+        }
     }
 }
 
@@ -174,9 +181,9 @@ for (const target of targets) {
         console.log(`generated ${target.file} (${full.length} bytes)`)
         continue
     }
-    // 版本已发布（存在 <prefix><version> tag）：无未发布内容，且 releaseCount: 1
-    // 会输出自引用 compare 的同版本段，直接跳过写入，保证已发布段不被改写
-    if (isVersionTagged(target.tags.prefix, version)) {
+    // 版本已发布（存在 <prefix><version> tag 或 npm registry 已发布）：无未发布内容，
+    // 且 releaseCount: 1 会输出自引用 compare 的同版本段，直接跳过写入，保证已发布段不被改写
+    if (isVersionTagged(target.tags.prefix, version, target.title)) {
         console.log(`unchanged ${target.file}`)
         continue
     }

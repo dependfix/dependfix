@@ -19,14 +19,12 @@ import { execSync } from 'node:child_process'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+import { PKG_PATH_MAP } from './packages.config.mjs'
 
 const repoRoot = fileURLToPath(new URL('..', import.meta.url))
 const CHANGESET_FILE = join(repoRoot, '.changeset/release.md')
-const PKG_PATHS = {
-    'packages/core': '@dependfix/core',
-    'packages/cli': 'dependfix',
-    'packages/skills': '@dependfix/skills',
-}
+// 包清单单点来源：scripts/packages.config.mjs（新增发布包只改一处）
+const PKG_PATHS = PKG_PATH_MAP
 const TYPE_BUMP = {
     feat: 'minor',
     fix: 'patch',

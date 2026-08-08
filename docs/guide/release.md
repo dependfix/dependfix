@@ -4,7 +4,11 @@
 
 ## 发布包清单
 
-当前 Monorepo 对外发布三个 npm 包：
+> **包清单单点声明**：发布包列表定义在 [scripts/packages.config.mjs](../../scripts/packages.config.mjs)（`publishable: true` 的包进入发布链路）。
+> 新增发布包时：① 在该文件登记；② 补充包 README；其余（changelog 生成、changeset 映射、CI 校验）自动生效。
+> 当前 `packages/mcp` 已登记但 `publishable: false`（发布链路待 [todo.md §M7（T706）](../plan/todo.md) 就绪）。
+
+当前 Monorepo 对外发布的 npm 包：
 
 | 包 | 说明 | npm 地址 |
 |----|------|----------|
@@ -12,7 +16,7 @@
 | `@dependfix/core` | 核心领域模型库 | https://www.npmjs.com/package/@dependfix/core |
 | `@dependfix/skills` | 产品 Agent Skill 权威源（`dependfix-remediator`，纯内容包） | https://www.npmjs.com/package/@dependfix/skills |
 
-> 依赖关系：`dependfix` 依赖 `@dependfix/core` 与 `@dependfix/skills`（运行时解析 skill 内容）；`@dependfix/skills` 无依赖。发布顺序：被依赖方先行（`@dependfix/core` → `@dependfix/skills` → `dependfix`）。
+> 依赖关系：`dependfix` 依赖 `@dependfix/core` 与 `@dependfix/skills`（运行时解析 skill 内容）；`@dependfix/skills` 无依赖。发布顺序：被依赖方先行（`@dependfix/core` → `@dependfix/skills` → `dependfix`）。`@dependfix/mcp`（MCP Server）发布待 [todo.md §M7（T706）](../plan/todo.md)。
 
 ## 版本策略
 

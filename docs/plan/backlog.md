@@ -122,15 +122,15 @@
 > **已转入 todo.md（2026-08-07 规划）**：M6 任务明细与细化见 [todo.md §M6](todo.md#m6-最小平台-mvp)。规划决策（执行深度 A/B 双模式、同步执行、MCP 保留合并、沙箱设计先行、Action 触发实现）与 6 项任务（T601-T605 + T607，原 T605/T606 合并）已落盘。以下仅保留本阶段转移出的增强候选。
 
 - **C25 M6 Action 触发结果回填**（T607 登记，Q5=B 已知边界）
-  - 状态：🔶 待评估（M6 不实现）
-  - 内容：平台触发 `workflow_dispatch` 后，action 输出（扫描/修复结果）回填到平台结果存储（ScanRun/ScanResult）是独立难题——需要 action 侧上报通道（如完成时 POST 回调、artifact 解析或 webhook 事件）+ 平台侧接收端点与映射；触发与执行闭环需人工核对或在目标仓库侧查看 action 运行页
-  - 来源：M6 规划（2026-08-07，Q5=B 评估+实现触发，回填边界）
+  - 状态：✅ 已实现（2026-08-08）——`ActionResultFetcher`（轮询 run 完成 → 下载 `dependfix-report-{runId}` artifact → 解析 JSON 落库 ScanRun/ScanResult）；B 模式触发后同步等待结果，`completed` + 明细 / 结果未就绪 `dispatched` + runUrl / 触发失败 `failed`
+  - 内容：平台触发 `workflow_dispatch` 后，action 输出（扫描/修复结果）回填到平台结果存储（ScanRun/ScanResult）——通过 artifact 下载通道（action.yml 已上传 `dependfix-report-{runId}`）
+  - 来源：M6 规划（2026-08-07，Q5=B 评估+实现触发，回填边界）→ M6 增强（2026-08-08 用户要求自动拉取）
 - **C26 独立沙箱容器执行实现**（T607 设计文档产出后的实现候选）
   - 状态：🔶 待评估（M7 候选）
   - 内容：平台容器即沙箱的最小实现（M6 T603 `ContainerExecutor`）之后，若恶意依赖升级威胁面评估结论需要更严格隔离，实现独立 worker 容器（每任务/每仓库容器，网络/文件系统隔离）；与 M7 T702 BullMQ worker 模型结合
   - 来源：M6 规划（2026-08-07，Q4=A 设计+最小实现，完整沙箱留后续）
 - **C27 B 模式 runUrl 未定位状态语义**（M6 终审 W3 登记）
-  - 状态：🔶 待评估（不阻塞 M6）
+  - 状态：✅ 已闭环（2026-08-08，随 C25 实现联动解决）——orchestrator B 模式三分支：结果已拉取 `completed` + 明细 / 触发成功但结果未就绪 `dispatched` + runUrl / 触发失败 `failed`；`run_url_not_resolved` 不再误置 failed
   - 内容：`ActionTriggerExecutor` 触发 204 受理但轮询未定位 run 时返回 `run_url_not_resolved`，orchestrator 将 ScanRun 置 `failed`——UI 显示"扫描失败"，但 action 实际已在目标仓库运行，与事实不符。建议独立状态（如 `dispatched` + 提示"已触发，未能定位运行详情"）或前端按 error.code 区分展示；与 C25 结果回填联动评估
   - 来源：M6 终审（2026-08-08，deep Review Gate warning 3）
 - **C28 security.md 补凭据加密存储章节**（M6 终审 W4 登记）

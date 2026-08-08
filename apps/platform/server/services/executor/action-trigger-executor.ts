@@ -103,8 +103,8 @@ export class ActionTriggerExecutor implements ScanExecutor {
             }
         }
 
-        // 触发受理成功（204）→ 轮询 runs 定位 runUrl（短退避；失败不视为扫描失败）
-        const runUrl = await this.pollRunUrl(ctx, startedAt)
+        // 触发受理成功（204）→ 轮询 runs 定位本次 run（短退避；失败不视为扫描失败）
+        const polledRun = await this.pollRun(ctx, startedAt)
         const finishedAt = new Date().toISOString()
 
         return {
@@ -131,9 +131,10 @@ export class ActionTriggerExecutor implements ScanExecutor {
                 actions: [],
                 errors: [],
             },
-            // runUrl 存在性独立于 error：有 runUrl → error undefined；无 → 提示未定位
-            runUrl: runUrl ?? undefined,
-            error: runUrl
+            // runUrl/runId 存在性独立于 error：定位到 run → 均有值；未定位 → error 提示
+            runUrl: polledRun?.html_url,
+            runId: polledRun?.id,
+            error: polledRun
                 ? undefined
                 : {
                     code: 'run_url_not_resolved',
@@ -142,8 +143,8 @@ export class ActionTriggerExecutor implements ScanExecutor {
         }
     }
 
-    /** 触发后短轮询定位本次 run 的 runUrl（默认 5s × 3，测试可注入更短间隔）。 */
-    private async pollRunUrl(ctx: ScanExecutorContext, startedAt: string): Promise<string | null> {
+    /** 触发后短轮询定位本次 run（默认 5s × 3，测试可注入更短间隔）。 */
+    private async pollRun(ctx: ScanExecutorContext, startedAt: string): Promise<{ id: number, html_url: string } | null> {
         const { owner, name, actionWorkflowFile } = ctx.repository
         for (let i = 0; i < this.pollAttempts; i++) {
             if (i > 0) {
@@ -159,7 +160,7 @@ export class ActionTriggerExecutor implements ScanExecutor {
                 })
                 const run = data.workflow_runs.find((r) => new Date(r.created_at).toISOString() >= startedAt)
                 if (run) {
-                    return run.html_url
+                    return { id: run.id, html_url: run.html_url }
                 }
             } catch (pollError) {
                 // 轮询失败不阻断（runUrl 缺失可接受）；下一轮重试

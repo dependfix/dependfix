@@ -14,7 +14,7 @@
 |:--|:--|:--|:--|:--|
 | 平台容器内子进程（`ContainerExecutor`） | 进程级（容器即沙箱） | 平台镜像内置 git/node/pnpm | ✅ 实现（T603） | 保留 |
 | 独立沙箱容器（`SandboxExecutor`） | 容器级（每任务/每仓库容器） | 同一镜像或精简镜像 | 🔶 设计（本文档） | 实现（backlog C26） |
-| GitHub Action（`ActionTriggerExecutor`） | GitHub 托管环境 | 目标仓库自带（action.yml 引用） | ✅ 触发实现（T607） | 保留 + 结果回填（C25） |
+| GitHub Action（`ActionTriggerExecutor`） | GitHub 托管环境 | 目标仓库自带（action.yml 引用） | ✅ 触发实现（T607）+ 结果回填（C25） | 保留 |
 | 本地临时目录（`LocalExecutor`） | 无隔离（开发调试用） | 宿主工具链 | —（仅开发） | — |
 
 ---
@@ -120,7 +120,7 @@ export interface ScanExecutor {
   → POST /repos/{owner}/{name}/actions/workflows/{workflowFile}/dispatches
       { ref: defaultBranch, inputs: { mode, severity-threshold, ... } }
   → 返回 { ok: true, dispatchId, runUrl }（GitHub 不返回 run id，需轮询 run 列表定位）
-  → ScanRun.status = 'dispatched'（结果回填 = 已知边界 C25）
+  → ScanRun.status = 'dispatched'（触发成功但结果未就绪；结果回填见 C25：轮询 run 完成 → 下载 artifact 解析落库）
 ```
 
 ### 4.2 权限要求
@@ -160,7 +160,7 @@ GitHub `dispatches` API 成功返回 204 即触发受理，但不返回 run id�
 | 维度 | 评估 |
 |:--|:--|
 | 优点 | 平台零工具链依赖（服务器配置低也无需内置 git/node/pnpm）；执行环境由 GitHub 托管、隔离性好（恶意依赖脚本跑在 GitHub runner 上）；无需维护执行镜像 |
-| 缺点 | **结果回填缺失**：平台只知"已触发"，扫描结果/报告需用户到目标仓库 Actions 页查看（回填通道 = backlog C25，独立难题）；执行延迟高（runner 排队 + checkout + install，通常分钟级）；依赖目标仓库已配置 workflow（接入前置成本） |
+| 缺点 | ~~结果回填缺失~~（已实现：`ActionResultFetcher` 轮询 run 完成 + 下载 `dependfix-report-{runId}` artifact 解析回填）；执行延迟高（runner 排队 + checkout + install，通常分钟级）；依赖目标仓库已配置 workflow（接入前置成本） |
 | 触发可靠性 | `workflow_dispatch` 无排队保障，rate limit 5000/h 内足够；对私有仓库需 token 有该仓库访问权 + `actions: write` |
 
 ### 5.3 成本评估
@@ -169,16 +169,16 @@ GitHub `dispatches` API 成功返回 204 即触发受理，但不返回 run id�
 |:--|:--|:--|
 | 计算成本 | 平台服务器（已部署则边际成本≈0） | 目标仓库 Actions minutes（私有仓库计费；公共仓库免费） |
 | 工具链维护 | 平台镜像内置（Dockerfile 已含 git/pnpm） | 无（GitHub runner 自带） |
-| 结果获取 | 直接回填（T603） | 需回填通道（C25）或人工查看 |
+| 结果获取 | 直接回填（T603） | 自动拉取（C25 已实现：artifact 下载）或人工查看 |
 
-**结论**：B 模式作为**降级路径**保留——适合"平台服务器资源受限 + 目标仓库已配置 action"场景；M6 实现触发（`ActionTriggerExecutor`）与结果回填边界登记（C25 已登记 backlog）；默认路径仍是 A 模式 `ContainerExecutor`（T603）。
+**结论**：B 模式作为**降级路径**保留——适合"平台服务器资源受限 + 目标仓库已配置 action"场景；M6 实现触发（`ActionTriggerExecutor`）与结果回填（`ActionResultFetcher`，C25 已实现）；默认路径仍是 A 模式 `ContainerExecutor`（T603）。
 
 ---
 
 ## 6. 相关文档
 
 - [todo.md §M6 规划决策](../../plan/todo.md)：Q1/Q4/Q5 决策依据
-- [backlog.md C25 Action 触发结果回填](../../plan/backlog.md)：结果回填边界登记
+- [backlog.md C25 Action 触发结果回填](../../plan/backlog.md)：结果回填实现记录
 - [backlog.md C26 独立沙箱容器执行实现](../../plan/backlog.md)：独立沙箱容器 backlog 登记
 - [架构设计](./architecture.md)：平台分层与 Executor 定位
 - [安全设计](./security.md)：凭据加密存储与最小化

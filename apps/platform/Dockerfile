@@ -43,6 +43,8 @@ COPY --from=builder /app/packages/cli/package.json packages/cli/package.json
 # 阶段四：生产
 FROM runtime
 ENV NODE_ENV=production
+# unzip: B mode result fetch (ActionResultFetcher unzip artifact) needs it
+RUN apk add --no-cache unzip && rm -rf /var/cache/apk/*
 WORKDIR /app
 COPY --from=docker-minifier /app /app
 EXPOSE 3000

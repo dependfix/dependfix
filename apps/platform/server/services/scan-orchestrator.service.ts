@@ -1,7 +1,9 @@
 import type { RunResult } from '@dependfix/core'
+import { resolveScanRunState } from './scan-run-state'
 import { decryptToken, getEncryptionKey } from './credential.service'
 import { ContainerExecutor } from './executor/container-executor'
 import { ActionTriggerExecutor } from './executor/action-trigger-executor'
+import { ActionResultFetcher } from './executor/action-result-fetcher'
 import type { ScanExecutorContext } from './executor/types'
 import { Repository } from '#server/entities/repository'
 import { Credential } from '#server/entities/credential'
@@ -111,6 +113,24 @@ export const runScanForRepository = async (
             result = execResult.result
             error = execResult.error
             runUrl = execResult.runUrl ?? null
+
+            // 触发成功且定位到 run → 等待 action 完成并拉取报告回填（结果回填见 docs/design/governance/executor-sandbox.md §4）
+            if (!error && execResult.runId) {
+                try {
+                    const fetcher = new ActionResultFetcher(token ?? '')
+                    const fetched = await fetcher.fetch(repository.owner, repository.name, execResult.runId)
+                    if (fetched) {
+                        result = fetched
+                        error = undefined
+                    }
+                } catch (fetchError) {
+                    // 结果拉取失败不阻断触发（run 已在目标仓库运行）；标记 dispatched + 提示
+                    error = {
+                        code: 'result_fetch_failed',
+                        message: fetchError instanceof Error ? fetchError.message : String(fetchError),
+                    }
+                }
+            }
         } else {
             const executor = new ContainerExecutor({
                 workRoot: process.env.RUN_WORK_ROOT ?? 'data/runs',
@@ -120,26 +140,25 @@ export const runScanForRepository = async (
             error = execResult.error
         }
 
-        // 落库（B 模式与 A 模式状态语义分离）：
+        // 落库（状态机决策见 scan-run-state.ts 纯函数）：
         // - A 模式（container）：成功 → completed + results；执行级失败 → failed（不写半截结果）
-        // - B 模式（github-action）：受理即 dispatched（结果回填为已知边界，见 docs/plan/backlog.md「C25」）；触发失败 → failed
-        if (executorKind === 'github-action') {
-            if (!error) {
-                savedRun.status = 'dispatched'
-                savedRun.runUrl = runUrl
-            } else {
-                savedRun.status = 'failed'
-                savedRun.finishedAt = new Date()
-                savedRun.errorJson = JSON.stringify(error)
-            }
-        } else if (error && !result) {
+        // - B 模式（github-action）：结果已拉取 → completed + results；触发已受理但结果未就绪
+        //   （result_fetch_failed / run_url_not_resolved：action 已在目标仓库运行）→ dispatched + runUrl + 提示；
+        //   仅触发级失败（workflow 未配置/不存在/无权限等，action 未运行）→ failed
+        const decision = resolveScanRunState(executorKind, error, result)
+        if (decision.status === 'dispatched') {
+            savedRun.status = 'dispatched'
+            savedRun.runUrl = runUrl
+            savedRun.errorJson = decision.errorJson ? JSON.stringify(decision.errorJson) : null
+        } else if (decision.status === 'failed') {
             savedRun.status = 'failed'
             savedRun.finishedAt = new Date()
-            savedRun.errorJson = JSON.stringify(error)
+            savedRun.errorJson = error ? JSON.stringify(error) : null
         } else if (result) {
             savedRun.status = 'completed'
             savedRun.finishedAt = new Date()
             savedRun.summaryJson = JSON.stringify(result.summary)
+            savedRun.runUrl = runUrl
             // 原子写结果明细（与 RunResult.alerts 一一对应）
             const results = (result as RunResult).alerts.map((alert) => ({
                 scanRunId: savedRun.id,

@@ -34,6 +34,8 @@ export interface ScanExecutorResult {
     error?: { code: string, message: string }
     /** B 模式：action run 页面 URL（触发后轮询定位；容器执行无此字段） */
     runUrl?: string
+    /** B 模式：GitHub Actions run id（结果回填时下载 artifact 用） */
+    runId?: number
     startedAt: string
     finishedAt: string
 }

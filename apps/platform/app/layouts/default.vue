@@ -23,6 +23,29 @@ const logout = async () => {
                 <span class="pi pi-shield" aria-hidden="true" />
                 <span>dependfix</span>
             </div>
+            <nav v-if="session?.user" class="platform__nav">
+                <NuxtLink
+                    to="/dashboard"
+                    class="platform__nav-link"
+                    active-class="platform__nav-link--active"
+                >
+                    仪表板
+                </NuxtLink>
+                <NuxtLink
+                    to="/repos"
+                    class="platform__nav-link"
+                    active-class="platform__nav-link--active"
+                >
+                    仓库
+                </NuxtLink>
+                <NuxtLink
+                    to="/credentials"
+                    class="platform__nav-link"
+                    active-class="platform__nav-link--active"
+                >
+                    凭据
+                </NuxtLink>
+            </nav>
             <div class="platform__actions">
                 <Button
                     :icon="dark ? 'pi pi-sun' : 'pi pi-moon'"

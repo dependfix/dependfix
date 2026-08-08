@@ -64,6 +64,29 @@ a {
         font-weight: 600;
     }
 
+    &__nav {
+        display: flex;
+        align-items: center;
+        gap: $space-4;
+        margin-left: $space-6;
+    }
+
+    &__nav-link {
+        font-size: $font-size-base;
+        color: $color-text-muted;
+        padding: $space-1 $space-2;
+        border-radius: $radius-sm;
+
+        &:hover {
+            color: $color-primary;
+        }
+
+        &--active {
+            color: $color-primary;
+            font-weight: 500;
+        }
+    }
+
     &__body {
         flex: 1;
         padding: $space-5;

@@ -10,6 +10,8 @@ import { Account } from '../entities/account'
 import { Session } from '../entities/session'
 import { User } from '../entities/user'
 import { Verification } from '../entities/verification'
+import { Credential } from '../entities/credential'
+import { Repository } from '../entities/repository'
 import { SnakeCaseNamingStrategy } from './naming-strategy'
 import { resolveDatabaseType, type DatabaseType } from './type'
 
@@ -38,6 +40,8 @@ export const createDataSourceOptions = (): DataSourceOptions => {
             Session,
             Account,
             Verification,
+            Credential,
+            Repository,
         ],
         synchronize,
         entityPrefix,

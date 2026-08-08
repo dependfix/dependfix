@@ -122,7 +122,7 @@ export const runScanForRepository = async (
 
         // 落库（B 模式与 A 模式状态语义分离）：
         // - A 模式（container）：成功 → completed + results；执行级失败 → failed（不写半截结果）
-        // - B 模式（github-action）：受理即 dispatched（结果回填为已知边界 C25）；触发失败 → failed
+        // - B 模式（github-action）：受理即 dispatched（结果回填为已知边界，见 docs/plan/backlog.md「C25」）；触发失败 → failed
         if (executorKind === 'github-action') {
             if (!error) {
                 savedRun.status = 'dispatched'

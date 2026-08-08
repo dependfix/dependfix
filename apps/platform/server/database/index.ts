@@ -12,6 +12,8 @@ import { User } from '../entities/user'
 import { Verification } from '../entities/verification'
 import { Credential } from '../entities/credential'
 import { Repository } from '../entities/repository'
+import { ScanRun } from '../entities/scan-run'
+import { ScanResult } from '../entities/scan-result'
 import { SnakeCaseNamingStrategy } from './naming-strategy'
 import { resolveDatabaseType, type DatabaseType } from './type'
 
@@ -42,6 +44,8 @@ export const createDataSourceOptions = (): DataSourceOptions => {
             Verification,
             Credential,
             Repository,
+            ScanRun,
+            ScanResult,
         ],
         synchronize,
         entityPrefix,

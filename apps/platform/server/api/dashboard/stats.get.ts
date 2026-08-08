@@ -34,8 +34,9 @@ export default defineEventHandler(async (event) => {
     // 已修复数（fixStatus 计数：success 视为已修复）
     const fixedCount = allResults.filter((r) => r.fixStatus === 'success').length
 
-    // 最近扫描
+    // 最近扫描（TypeORM 1.x findOne 必须提供 where，空对象表示无条件取最新一条）
     const latestRun = await runRepo.findOne({
+        where: {},
         order: { createdAt: 'DESC' },
         relations: { repository: true },
     })

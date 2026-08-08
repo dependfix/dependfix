@@ -1,4 +1,5 @@
 import { overrideTransitiveDependency, repairLockfile, upgradeDependency, type LockfileDiff } from 'dependfix'
+import { toToolError } from './errors'
 
 /** `fix_dependency` 返回结构（按 fixType 判别） */
 export type FixDependencyResult =
@@ -102,7 +103,7 @@ export const fixDependency = async (input: {
         return {
             ok: false,
             fixType,
-            error: error instanceof Error ? error.message : String(error),
+            error: toToolError(error).error,
         }
     }
 }

@@ -1,9 +1,16 @@
 import { z } from 'zod'
+import { RUNTIME_MODES, SEVERITY_THRESHOLDS } from 'dependfix'
+
+// run_scan 的 mode 子集：排除 cleanup-branches（由独立 cleanup_branches tool 承担；
+// DependfixApp 的该 mode 走交互确认，MCP stdio 不可用——见 mcp-server.md §8.3）。
+// 从 cli RUNTIME_MODES 派生（filter 跟随 cli 演进），非独立硬编码。
+// as unknown 桥接：filter 返回数组类型，z.enum 需要 readonly 元组。
+const RUN_SCAN_MODES = RUNTIME_MODES.filter((m) => m !== 'cleanup-branches') as unknown as readonly ['report-only', 'fix', 'fix-and-pr']
 
 /** `fetch_alerts` 输入：拉取指定仓库的安全告警（Dependabot + 可选 Code Scanning） */
 export const fetchAlertsSchema = z.object({
     repo: z.string().describe('目标仓库，格式 owner/repo'),
-    severity: z.enum(['critical', 'high', 'medium', 'all']).default('high').describe('严重级别阈值（high 保留 critical + high，与 CLI 一致）'),
+    severity: z.enum(SEVERITY_THRESHOLDS).default('high').describe('严重级别阈值（high 保留 critical + high，与 CLI 一致）'),
     code_scanning: z.boolean().optional().describe('同时拉取 Code Scanning 告警（与 Dependabot 并行；需要 token 具备 security-events: read）'),
 })
 
@@ -13,8 +20,8 @@ export const getLastReportSchema = z.object({})
 /** `run_scan` 输入：对目标仓库执行 dependfix 扫描并修复 */
 export const runScanSchema = z.object({
     repo: z.string().describe('目标仓库，格式 owner/repo'),
-    mode: z.enum(['report-only', 'fix', 'fix-and-pr']).default('report-only').describe('执行模式（默认仅报告）'),
-    severity: z.enum(['critical', 'high', 'medium', 'all']).default('high').describe('严重级别阈值'),
+    mode: z.enum(RUN_SCAN_MODES).default('report-only').describe('执行模式（默认仅报告）'),
+    severity: z.enum(SEVERITY_THRESHOLDS).default('high').describe('严重级别阈值'),
     code_scanning: z.boolean().optional().describe('同时拉取 Code Scanning 告警（默认 false）'),
     max_alerts: z.number().int().min(1).max(1000).optional().describe('每仓库最多处理的告警数（默认 20）'),
     max_concurrency: z.number().int().min(1).max(16).optional().describe('多仓库并发窗口（默认 1 保守串行）'),

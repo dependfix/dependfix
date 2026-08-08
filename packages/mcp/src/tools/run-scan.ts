@@ -1,5 +1,6 @@
-import { DependfixApp, type RuntimeConfig } from 'dependfix'
+import { DependfixApp, DEFAULT_RUNTIME_CONFIG, type RuntimeConfig } from 'dependfix'
 import { isValidRepoIdentifier } from '@dependfix/core'
+import { requireToken, toToolError } from './errors'
 
 /** `run_scan` 返回结构 */
 export type RunScanResult =
@@ -31,9 +32,9 @@ export const runScan = async (input: {
     ai_model?: string
     ai_trigger?: 'failure' | 'major' | 'both'
 }): Promise<RunScanResult> => {
-    const token = process.env.GITHUB_TOKEN
-    if (!token) {
-        return { ok: false, error: 'GITHUB_TOKEN not set（请配置环境变量）' }
+    const token = requireToken()
+    if (typeof token !== 'string') {
+        return token
     }
 
     // repo 格式校验复用 core（与 CLI 同源）
@@ -42,7 +43,10 @@ export const runScan = async (input: {
     }
     const [owner, repo] = input.repo.split('/')
 
+    // 展开 cli 默认配置（maxAlerts/maxConcurrency/maxRetries/maxBackoff/alertSource/ai 默认等
+    // 与 CLI 单一事实源对齐，避免手写默认值漂移），仅覆盖 tool 参数可控制字段。
     const config: RuntimeConfig = {
+        ...DEFAULT_RUNTIME_CONFIG,
         mode: input.mode,
         severityThreshold: input.severity as 'critical' | 'high' | 'medium' | 'all',
         repositories: [`${owner}/${repo}`],
@@ -53,24 +57,21 @@ export const runScan = async (input: {
         cleanupBranches: false,
         cleanupBranchesAuto: false,
         githubToken: token,
-        alertSource: 'github-dependabot',
-        codeScanningEnabled: input.code_scanning ?? false,
-        allowMajorUpgrade: input.allow_major_upgrade ?? false,
-        maxAlertsPerRepository: input.max_alerts ?? 20,
-        maxConcurrency: input.max_concurrency ?? 1,
-        maxRetries: 3,
-        maxBackoffMs: 30_000,
-        // AI 研判（P2-6）：仅透传开关/提供商/模型/触发范围；
-        // apiKey 只从 env 读取（DEPENDFIX_AI_API_KEY），禁止经 tool 参数传入（防客户端日志泄露）。
-        // 模型与 baseUrl 默认值与 CLI 对齐（2026-08-07 决策：deepseek-v4-flash）。
+        codeScanningEnabled: input.code_scanning ?? DEFAULT_RUNTIME_CONFIG.codeScanningEnabled,
+        allowMajorUpgrade: input.allow_major_upgrade ?? DEFAULT_RUNTIME_CONFIG.allowMajorUpgrade,
+        maxAlertsPerRepository: input.max_alerts ?? DEFAULT_RUNTIME_CONFIG.maxAlertsPerRepository,
+        maxConcurrency: input.max_concurrency ?? DEFAULT_RUNTIME_CONFIG.maxConcurrency,
+        // AI 研判：展开 cli 默认（provider/model/baseUrl/trigger 与 CLI 对齐），
+        // 仅覆盖开关与显式参数；apiKey 只从 env 读取（DEPENDFIX_AI_API_KEY），
+        // 禁止经 tool 参数传入（防客户端日志泄露）。
         ai: input.ai_enabled
             ? {
+                ...DEFAULT_RUNTIME_CONFIG.ai,
                 enabled: true,
-                provider: input.ai_provider ?? 'openai-compatible',
-                model: input.ai_model ?? 'deepseek-v4-flash',
-                baseUrl: 'https://api.deepseek.com',
+                provider: input.ai_provider ?? DEFAULT_RUNTIME_CONFIG.ai.provider,
+                model: input.ai_model ?? DEFAULT_RUNTIME_CONFIG.ai.model,
+                trigger: input.ai_trigger ?? DEFAULT_RUNTIME_CONFIG.ai.trigger,
                 apiKey: process.env.DEPENDFIX_AI_API_KEY,
-                trigger: input.ai_trigger ?? 'both',
             }
             : undefined,
     }
@@ -106,9 +107,6 @@ export const runScan = async (input: {
             })),
         }
     } catch (error) {
-        return {
-            ok: false,
-            error: error instanceof Error ? error.message : String(error),
-        }
+        return toToolError(error)
     }
 }

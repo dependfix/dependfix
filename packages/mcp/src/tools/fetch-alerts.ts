@@ -1,5 +1,6 @@
 import { createGitHubClient, fetchCodeScanningAlerts, fetchDependabotAlerts, type FetchDependabotAlertsParams } from 'dependfix'
 import { filterAlerts, isValidRepoIdentifier, type SeverityThreshold } from '@dependfix/core'
+import { requireToken, toToolError } from './errors'
 
 /** `fetch_alerts` 返回结构 */
 export type FetchAlertsResult =
@@ -24,12 +25,9 @@ export type FetchAlertsResult =
  * 凭据从 GITHUB_TOKEN 环境变量读取（mcp-server.md §4.3）。
  */
 export const fetchAlerts = async (input: { repo: string, severity: SeverityThreshold, code_scanning?: boolean }): Promise<FetchAlertsResult> => {
-    const token = process.env.GITHUB_TOKEN
-    if (!token) {
-        return {
-            ok: false,
-            error: 'GITHUB_TOKEN not set（请配置环境变量）',
-        }
+    const token = requireToken()
+    if (typeof token !== 'string') {
+        return token
     }
 
     // repo 格式校验复用 core（与 CLI 同源，避免自研校验漂移）
@@ -77,9 +75,6 @@ export const fetchAlerts = async (input: { repo: string, severity: SeverityThres
             })),
         }
     } catch (error) {
-        return {
-            ok: false,
-            error: error instanceof Error ? error.message : String(error),
-        }
+        return toToolError(error)
     }
 }

@@ -4,6 +4,25 @@ import { runScan } from './run-scan'
 
 vi.mock('dependfix', () => ({
     DependfixApp: vi.fn(),
+    // 与 cli DEFAULT_RUNTIME_CONFIG 对齐的测试副本（默认值一致性由实现注释 + typecheck 保证）
+    DEFAULT_RUNTIME_CONFIG: {
+        mode: 'report-only',
+        severityThreshold: 'high',
+        alertSource: 'github-dependabot',
+        codeScanningEnabled: false,
+        allowMajorUpgrade: false,
+        maxAlertsPerRepository: 20,
+        maxConcurrency: 1,
+        maxRetries: 3,
+        maxBackoffMs: 30_000,
+        ai: {
+            enabled: false,
+            provider: 'openai-compatible',
+            model: 'deepseek-v4-flash',
+            baseUrl: 'https://api.deepseek.com',
+            trigger: 'both',
+        },
+    },
 }))
 
 const DependfixAppMock = vi.mocked(DependfixApp)

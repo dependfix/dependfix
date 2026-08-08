@@ -1,4 +1,5 @@
 import { createGitHubClient, discoverRepositories, type RepoPolicy } from 'dependfix'
+import { requireToken, toToolError } from './errors'
 
 /** `discover_repos` 返回结构 */
 export type DiscoverReposResult =
@@ -26,9 +27,9 @@ export const discoverRepos = async (input: {
     exclude?: string[]
     probe_dependabot?: boolean
 }): Promise<DiscoverReposResult> => {
-    const token = process.env.GITHUB_TOKEN
-    if (!token) {
-        return { ok: false, error: 'GITHUB_TOKEN not set（请配置环境变量）' }
+    const token = requireToken()
+    if (typeof token !== 'string') {
+        return token
     }
     if (input.owner.length === 0) {
         return { ok: false, error: 'owner 必填（至少一个 owner/org）' }
@@ -58,9 +59,6 @@ export const discoverRepos = async (input: {
             })),
         }
     } catch (error) {
-        return {
-            ok: false,
-            error: error instanceof Error ? error.message : String(error),
-        }
+        return toToolError(error)
     }
 }

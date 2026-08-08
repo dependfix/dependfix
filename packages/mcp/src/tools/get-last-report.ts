@@ -1,5 +1,6 @@
 import { readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
+import { toToolError } from './errors'
 
 /** `get_last_report` 返回结构 */
 export type GetLastReportResult =
@@ -27,9 +28,6 @@ export const getLastReport = async (): Promise<GetLastReportResult> => {
             report: JSON.parse(content),
         }
     } catch (error) {
-        return {
-            ok: false,
-            error: error instanceof Error ? error.message : String(error),
-        }
+        return toToolError(error)
     }
 }

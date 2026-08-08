@@ -1,5 +1,6 @@
 import { createGitHubClient, deleteRemoteBranch, getBranchPrStatus, listDependfixBranches } from 'dependfix'
 import { isValidRepoIdentifier } from '@dependfix/core'
+import { requireToken, toToolError } from './errors'
 
 /** `cleanup_branches` 返回结构 */
 export type CleanupBranchesResult =
@@ -29,9 +30,9 @@ export type CleanupBranchesResult =
  * 含交互式确认（非 TTY 默认拒绝），MCP stdio 下不可用。
  */
 export const cleanupBranches = async (input: { repo: string, dry_run?: boolean }): Promise<CleanupBranchesResult> => {
-    const token = process.env.GITHUB_TOKEN
-    if (!token) {
-        return { ok: false, error: 'GITHUB_TOKEN not set（请配置环境变量）' }
+    const token = requireToken()
+    if (typeof token !== 'string') {
+        return token
     }
     if (!isValidRepoIdentifier(input.repo)) {
         return { ok: false, error: `repo 格式非法（预期 owner/repo，收到 ${input.repo}）` }
@@ -83,9 +84,6 @@ export const cleanupBranches = async (input: { repo: string, dry_run?: boolean }
             failed,
         }
     } catch (error) {
-        return {
-            ok: false,
-            error: error instanceof Error ? error.message : String(error),
-        }
+        return toToolError(error)
     }
 }

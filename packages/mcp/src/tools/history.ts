@@ -1,5 +1,6 @@
 import { queryRepoHistory } from 'dependfix'
 import { isValidRepoIdentifier } from '@dependfix/core'
+import { toToolError } from './errors'
 
 /** `history` 返回结构 */
 export type HistoryResult =
@@ -43,9 +44,6 @@ export const getHistory = async (input: { repo: string }): Promise<HistoryResult
             })),
         }
     } catch (error) {
-        return {
-            ok: false,
-            error: error instanceof Error ? error.message : String(error),
-        }
+        return toToolError(error)
     }
 }

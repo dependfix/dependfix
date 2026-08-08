@@ -16,6 +16,7 @@
     "changeset:version": "changeset version",
     "changeset:publish": "changeset publish",
     "changelog": "node scripts/changelog.mjs",
+    "tag:released": "node scripts/tag-released-versions.mjs",
     "distill:wisdom": "node scripts/distill-wisdom.mjs",
     "sync:skills": "node scripts/sync-skills.mjs",
     "check:links": "node scripts/check-links.mjs",

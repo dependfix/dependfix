@@ -123,9 +123,12 @@ pnpm --filter @dependfix/mcp publish
 #    changelog 分段锚点与 changeset 推导基线都依赖它——参照 scripts/changelog.mjs 的
 #    tags.prefix（`git rev-parse --verify <prefix><version>`）与 scripts/create-changeset.mjs
 #    的"最新 tag"基线解析；缺失时后续 changelog 分段会把全部历史并入当前版本段）
-#    锚点约束：每个 tag 必须指向"同时 touch 该包路径"的 commit（见"CHANGELOG 策略"，
-#    若指向纯 docs/全局 commit，包级日志因 path 过滤看不到锚点）。
-#    锚点查询：git log -1 --format=%H -- packages/<path>（取发布时最新 touch 该路径的 commit）
+#    推荐用脚本辅助（自动检测"npm 已发布但本地无 tag"的版本并补打，锚点自动取
+#    touch 该包路径的最新 commit，幂等可重跑）：
+pnpm tag:released --dry-run    # 预览将创建的 tag（针对当前 package.json 版本，建议每次发布后立即执行）
+pnpm tag:released              # 确认后执行补打
+#    手动方式（锚点约束：每个 tag 必须指向"同时 touch 该包路径"的 commit，
+#    见"CHANGELOG 策略"；锚点查询：git log -1 --format=%H -- packages/<path>）：
 git tag @dependfix/core@0.1.0 <core-anchor>   # 指向 touch packages/core 的 commit
 git tag @dependfix/skills@0.1.0 <skills-anchor> # 指向 touch packages/skills 的 commit
 git tag dependfix@0.1.0 <cli-anchor>          # 指向 touch packages/cli 的 commit

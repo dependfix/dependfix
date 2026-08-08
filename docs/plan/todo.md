@@ -48,13 +48,13 @@
 - 依赖：T601
 - 交付物：Repository CRUD + Credential 加密存储 + Web UI。
 - 任务内容：
-  - [ ] Repository 实体（owner/repo/platform/defaultBranch/packageManager/credentialId）与 CRUD API（Zod 校验）
-  - [ ] Credential 实体：type（classic-pat / fine-grained-pat / github-app），AES-256-GCM 加密存储（`ENCRYPTION_KEY` 平台级密钥），解密仅在执行时 worker 内存中；Dependabot alerts 读取必须显式凭据（GITHUB_TOKEN 不可用，见 [G2 处置记录](todo-archive.md#g2-处置记录github_token-无法访问-dependabot-alerts)）
-  - [ ] Web UI：仓库列表、添加/编辑/删除；凭据管理页
+  - [x] Repository 实体（owner/repo/platform/defaultBranch/packageManager/credentialId）与 CRUD API（Zod 校验）
+  - [x] Credential 实体：type（classic-pat / fine-grained-pat / github-app），AES-256-GCM 加密存储（`ENCRYPTION_KEY` 平台级密钥），解密仅在执行时 worker 内存中；Dependabot alerts 读取必须显式凭据（GITHUB_TOKEN 不可用，见 [G2 处置记录](todo-archive.md#g2-处置记录github_token-无法访问-dependabot-alerts)）
+  - [x] Web UI：仓库列表、添加/编辑/删除；凭据管理页
 - 非目标：org 级仓库自动发现/同步（repo-sync，后续增强）、GitHub App installation token 生成链路（C22 评估项）、RBAC（M7）
 - 完成定义：
-  - [ ] 可通过 Web UI 管理仓库和关联凭据（增删改查闭环）
-  - [ ] DB 中 token 为密文（直查 sqlite 验证），解密单元测试通过
+  - [x] 可通过 Web UI 管理仓库和关联凭据（增删改查闭环）
+  - [x] DB 中 token 为密文（直查 sqlite 验证），解密单元测试通过
 
 ### T603 扫描触发与结果存储
 
@@ -109,13 +109,13 @@
 - 交付物：执行器/沙箱设计文档 + `ActionTriggerExecutor` 实现 + Action 降级接入评估结论。
 - 任务内容：
   - [x] **设计文档**（先于 T603）：恶意依赖升级威胁建模（install scripts / postinstall / 构建链投毒 / 凭据泄露风险面）+ 执行器方案矩阵（平台容器 / 独立沙箱容器 / GitHub Action / 临时目录）+ Executor 接口契约（执行后端可插拔）——见 [executor-sandbox.md](../design/governance/executor-sandbox.md)
-  - [ ] `ActionTriggerExecutor`：对已配置 action 的仓库触发 `workflow_dispatch`（需 `actions: write`，凭据复用仓库关联 Credential；目标 workflow 文件名在仓库配置中声明）
+  - [x] `ActionTriggerExecutor`：对已配置 action 的仓库触发 `workflow_dispatch`（需 `actions: write`，凭据复用仓库关联 Credential；目标 workflow 文件名在仓库配置中声明）
   - [x] B 模式接入评估：目标仓库添加 action 的使用方式/体验/成本结论（已写入 [executor-sandbox.md §5](../design/governance/executor-sandbox.md)；**结果回填登记 backlog C25，不在 M6 实现**）
   - [x] `mcp-server.md` 里程碑编号修正（T606/T607 → 本阶段 T605 合并口径，见规划决策 3）
 - 非目标：独立沙箱容器执行实现（M7）、action 结果回填（backlog 登记）
 - 完成定义：
   - [x] 设计文档经 Review Gate 通过（威胁建模 + 方案矩阵 + Executor 契约）
-  - [ ] 对配置了 action 的仓库，平台可触发 `workflow_dispatch` 并返回触发结果
+  - [x] 对配置了 action 的仓库，平台可触发 `workflow_dispatch` 并返回触发结果
   - [x] B 模式接入成本评估结论落盘（含权限面与体验分析）
 
 ---

@@ -24,9 +24,10 @@ const strictRules = {
     '@typescript-eslint/no-unnecessary-type-conversion': [1],
 }
 
-// Nuxt 平台（apps/platform）：使用 Nuxt 生成的 tsconfig（.nuxt/tsconfig.json），
-// 该 tsconfig 会展开 app/ 与 server/ 的自动导入类型。
-const nuxtTsconfig = './apps/platform/.nuxt/tsconfig.json'
+// Nuxt 平台（apps/platform）：使用平台自己的 tsconfig.json（extends .nuxt/tsconfig.json 并显式 include server/**/*）。
+// 不能直接用 .nuxt/tsconfig.json：其 include 只有 `../server` + `../server/*`（不递归），
+// 深层目录（如 server/services/executor/）不在项目中会触发 "file was not found in any project"。
+const nuxtTsconfig = './apps/platform/tsconfig.json'
 
 export default defineConfig([
     cmyr,
@@ -82,15 +83,29 @@ export default defineConfig([
         rules: strictRules,
     },
     {
-        // Nuxt 平台（apps/platform）：TS 使用 Nuxt 生成的 tsconfig
+        // Nuxt 平台（apps/platform）：TS 使用平台 tsconfig（extends .nuxt/tsconfig.json 并 include server/**/*）
         files: ['apps/platform/**/*.{ts,tsx,mts,cts}'],
-        ignores: [...testFiles],
+        // nuxt.config.ts 使用 Nuxt auto-import（defineNuxtConfig），须用 .nuxt/tsconfig.json 单独校验
+        ignores: [...testFiles, 'apps/platform/nuxt.config.ts'],
         plugins: {
             '@typescript-eslint': tseslint.plugin,
         },
         languageOptions: createLanguageOptions({}, {
             projectService: false,
             project: [nuxtTsconfig],
+            tsconfigRootDir: process.cwd(),
+        }),
+        rules: strictRules,
+    },
+    {
+        // nuxt.config.ts：Nuxt auto-import（defineNuxtConfig）只能用 .nuxt/tsconfig.json 解析
+        files: ['apps/platform/nuxt.config.ts'],
+        plugins: {
+            '@typescript-eslint': tseslint.plugin,
+        },
+        languageOptions: createLanguageOptions({}, {
+            projectService: false,
+            project: ['./apps/platform/.nuxt/tsconfig.json'],
             tsconfigRootDir: process.cwd(),
         }),
         rules: strictRules,

@@ -5,5 +5,10 @@
         "emitDecoratorMetadata": true,
         "strictPropertyInitialization": false,
         "esModuleInterop": true
-    }
+    },
+    "include": [
+        ".nuxt/nuxt.d.ts",
+        "app/**/*",
+        "server/**/*"
+    ]
 }

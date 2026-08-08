@@ -128,6 +128,43 @@ const remove = async (repo: RepoView) => {
 
 const repoDisplay = (repo: RepoView) => `${repo.owner}/${repo.name}`
 
+// 扫描触发（同步执行：请求内完成，loading 展示）
+const scanningId = ref<string | null>(null)
+const scanError = ref('')
+const scanSuccess = ref('')
+const lastRunUrl = ref<string | null>(null)
+
+const triggerScan = async (repo: RepoView) => {
+    scanError.value = ''
+    scanSuccess.value = ''
+    lastRunUrl.value = null
+    scanningId.value = repo.id
+    try {
+        const run = await $fetch(`/api/repos/${repo.id}/scan`, {
+            method: 'POST',
+            body: {
+                mode: 'report-only',
+                severityThreshold: 'high',
+                executorKind: repo.executorKind === 'github-action' ? 'github-action' : undefined,
+            },
+        })
+        const runData = run as { id: string, status: string, runUrl: string | null }
+        if (runData.status === 'dispatched') {
+            lastRunUrl.value = runData.runUrl
+            scanSuccess.value = runData.runUrl ? '已触发 GitHub Action 扫描，点击下方链接查看运行' : '已触发 GitHub Action 扫描（可在扫描历史中查看）'
+        } else if (runData.status === 'completed') {
+            scanSuccess.value = '扫描完成，可在扫描历史中查看结果'
+        } else {
+            scanError.value = `扫描失败：${(run as { error?: { message?: string } }).error?.message ?? '未知错误'}`
+        }
+        await fetchData()
+    } catch (e: any) {
+        scanError.value = `触发失败：${e?.data?.message ?? e?.message ?? '未知错误'}`
+    } finally {
+        scanningId.value = null
+    }
+}
+
 const toastMessage = computed(() => success.value)
 watch(toastMessage, (v) => {
     if (v) {
@@ -168,6 +205,28 @@ watch(toastMessage, (v) => {
         >
             {{ success }}
         </Message>
+        <Message
+            v-if="scanError"
+            severity="error"
+            :closable="false"
+        >
+            {{ scanError }}
+        </Message>
+        <Message
+            v-if="scanSuccess"
+            severity="success"
+            :closable="false"
+        >
+            {{ scanSuccess }}
+            <a
+                v-if="lastRunUrl"
+                :href="lastRunUrl"
+                target="_blank"
+                rel="noopener noreferrer"
+            >
+                打开运行页
+            </a>
+        </Message>
 
         <Card v-if="!loading">
             <template #content>
@@ -200,8 +259,28 @@ watch(toastMessage, (v) => {
                             <Tag :value="data.executorKind === 'github-action' ? 'GitHub Action' : '平台容器'" />
                         </template>
                     </Column>
-                    <Column header="操作" :style="{ width: '160px' }">
+                    <Column header="操作" :style="{ width: '230px' }">
                         <template #body="{ data }">
+                            <Button
+                                icon="pi pi-play"
+                                text
+                                rounded
+                                size="small"
+                                :loading="scanningId === data.id"
+                                :disabled="scanningId !== null && scanningId !== data.id"
+                                aria-label="触发扫描"
+                                title="触发扫描"
+                                @click="triggerScan(data)"
+                            />
+                            <Button
+                                icon="pi pi-history"
+                                text
+                                rounded
+                                size="small"
+                                aria-label="扫描历史"
+                                title="扫描历史"
+                                @click="navigateTo(`/repos/${data.id}/runs`)"
+                            />
                             <Button
                                 icon="pi pi-pencil"
                                 text

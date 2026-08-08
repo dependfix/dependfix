@@ -27,7 +27,18 @@ export const repositorySchema = repositoryBase.superRefine((data, ctx) => {
     }
 })
 
-/** 仓库更新：允许部分字段（含同一交叉校验，仅当字段存在时生效）。 */
-export const repositoryUpdateSchema = repositorySchema.partial()
+/**
+ * 仓库更新：允许部分字段（含同一交叉校验，仅当字段存在时生效）。
+ * 注意：Zod v4 不允许对含 refinement 的 schema 调用 .partial()，故先 partial 再挂 superRefine。
+ */
+export const repositoryUpdateSchema = repositoryBase.partial().superRefine((data, ctx) => {
+    if (data.executorKind === 'github-action' && !data.actionWorkflowFile?.trim()) {
+        ctx.addIssue({
+            code: 'custom',
+            path: ['actionWorkflowFile'],
+            message: '选择 GitHub Action 执行时必须填写目标 workflow 文件路径',
+        })
+    }
+})
 
 export type RepositoryInput = z.infer<typeof repositorySchema>

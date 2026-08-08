@@ -1,9 +1,9 @@
 import type { H3Event } from 'h3'
-import { Credential } from '../../entities/credential'
-import { ensureDatabaseInitialized } from '../../database'
-import { credentialSchema } from '../../schemas/credential'
-import { encryptToken, getEncryptionKey } from '../../services/credential.service'
-import { requireAuth } from '../../utils/guard'
+import { Credential } from '#server/entities/credential'
+import { ensureDatabaseInitialized } from '#server/database'
+import { credentialSchema } from '#server/schemas/credential'
+import { encryptToken, getEncryptionKey } from '#server/services/credential.service'
+import { requireAuth } from '#server/utils/guard'
 
 /** 脱敏视图：永不返回 encryptedToken / 明文 token */
 const toView = (c: Credential) => ({

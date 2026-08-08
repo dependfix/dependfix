@@ -1,5 +1,5 @@
 import type { H3Event } from 'h3'
-import { getAuth, type AuthInstance } from '../utils/auth'
+import { getAuth, type AuthInstance } from '#server/utils/auth'
 
 /**
  * API 认证守卫：要求已登录会话。

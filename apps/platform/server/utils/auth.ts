@@ -1,8 +1,8 @@
 import { betterAuth } from 'better-auth'
-import { typeormAdapter } from '../database/typeorm-adapter'
-import { ensureDatabaseInitialized } from '../database'
-import { User } from '../entities/user'
 import { snowflake } from './snowflake'
+import { typeormAdapter } from '#server/database/typeorm-adapter'
+import { ensureDatabaseInitialized } from '#server/database'
+import { User } from '#server/entities/user'
 
 /**
  * better-auth 实例（邮箱密码登录）。

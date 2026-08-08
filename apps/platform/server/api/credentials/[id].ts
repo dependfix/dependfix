@@ -1,9 +1,9 @@
 import type { H3Event } from 'h3'
-import { Credential } from '../../entities/credential'
-import { ensureDatabaseInitialized } from '../../database'
-import { credentialUpdateSchema } from '../../schemas/credential'
-import { encryptToken, getEncryptionKey } from '../../services/credential.service'
-import { requireAuth } from '../../utils/guard'
+import { Credential } from '#server/entities/credential'
+import { ensureDatabaseInitialized } from '#server/database'
+import { credentialUpdateSchema } from '#server/schemas/credential'
+import { encryptToken, getEncryptionKey } from '#server/services/credential.service'
+import { requireAuth } from '#server/utils/guard'
 
 /** GET /api/credentials/[id]：凭据详情（脱敏） */
 const getCredential = async (event: H3Event, id: string) => {

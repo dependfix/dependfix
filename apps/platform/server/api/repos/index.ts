@@ -1,8 +1,8 @@
 import type { H3Event } from 'h3'
-import { Repository } from '../../entities/repository'
-import { ensureDatabaseInitialized } from '../../database'
-import { repositorySchema } from '../../schemas/repository'
-import { requireAuth } from '../../utils/guard'
+import { Repository } from '#server/entities/repository'
+import { ensureDatabaseInitialized } from '#server/database'
+import { repositorySchema } from '#server/schemas/repository'
+import { requireAuth } from '#server/utils/guard'
 
 const toView = (r: Repository) => ({
     id: r.id,

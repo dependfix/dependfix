@@ -1,4 +1,4 @@
-import { getAuth } from '../../utils/auth'
+import { getAuth } from '#server/utils/auth'
 
 export default defineEventHandler(async (event) => {
     const auth = await getAuth()

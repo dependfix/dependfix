@@ -3,8 +3,8 @@ import {
     Entity,
     Index,
 } from 'typeorm'
-import { getDateType } from '../database/type'
 import { BaseEntity } from './base-entity'
+import { getDateType } from '#server/database/type'
 
 /** better-auth 会话表（数据库持久化，30 天过期） */
 @Entity('session')

@@ -3,8 +3,8 @@ import {
     Entity,
     Index,
 } from 'typeorm'
-import { getDateType } from '../database/type'
 import { BaseEntity } from './base-entity'
+import { getDateType } from '#server/database/type'
 
 /** better-auth 账户表（邮箱密码凭据 / 第三方账户） */
 @Entity('account')

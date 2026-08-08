@@ -3,8 +3,8 @@ import {
     Entity,
     Index,
 } from 'typeorm'
-import { getDateType } from '../database/type'
 import { BaseEntity } from './base-entity'
+import { getDateType } from '#server/database/type'
 
 /** better-auth 验证码 / 一次性 token 表 */
 @Entity('verification')

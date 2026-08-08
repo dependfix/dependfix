@@ -1,8 +1,8 @@
 import type { H3Event } from 'h3'
-import { Repository } from '../../entities/repository'
-import { ensureDatabaseInitialized } from '../../database'
-import { repositoryUpdateSchema } from '../../schemas/repository'
-import { requireAuth } from '../../utils/guard'
+import { Repository } from '#server/entities/repository'
+import { ensureDatabaseInitialized } from '#server/database'
+import { repositoryUpdateSchema } from '#server/schemas/repository'
+import { requireAuth } from '#server/utils/guard'
 
 /** GET /api/repos/[id]：仓库详情 */
 const getRepository = async (event: H3Event, id: string) => {

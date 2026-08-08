@@ -1,13 +1,13 @@
 import type { RunResult } from '@dependfix/core'
-import { Repository } from '../entities/repository'
-import { Credential } from '../entities/credential'
-import { ScanRun } from '../entities/scan-run'
-import { ScanResult } from '../entities/scan-result'
-import { ensureDatabaseInitialized } from '../database'
 import { decryptToken, getEncryptionKey } from './credential.service'
 import { ContainerExecutor } from './executor/container-executor'
 import { ActionTriggerExecutor } from './executor/action-trigger-executor'
 import type { ScanExecutorContext } from './executor/types'
+import { Repository } from '#server/entities/repository'
+import { Credential } from '#server/entities/credential'
+import { ScanRun } from '#server/entities/scan-run'
+import { ScanResult } from '#server/entities/scan-result'
+import { ensureDatabaseInitialized } from '#server/database'
 
 /**
  * 扫描编排：触发 → 执行 → 落库（同步执行模型 Q2，请求内完成）。

@@ -1,7 +1,7 @@
-import { ScanRun } from '../../entities/scan-run'
-import { ScanResult } from '../../entities/scan-result'
-import { ensureDatabaseInitialized } from '../../database'
-import { requireAuth } from '../../utils/guard'
+import { ScanRun } from '#server/entities/scan-run'
+import { ScanResult } from '#server/entities/scan-result'
+import { ensureDatabaseInitialized } from '#server/database'
+import { requireAuth } from '#server/utils/guard'
 
 /** GET /api/runs/[id]：扫描详情（含结果明细） */
 export default defineEventHandler(async (event) => {

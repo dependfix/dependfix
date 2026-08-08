@@ -1,6 +1,6 @@
-import { ScanRun } from '../../entities/scan-run'
-import { ensureDatabaseInitialized } from '../../database'
-import { requireAuth } from '../../utils/guard'
+import { ScanRun } from '#server/entities/scan-run'
+import { ensureDatabaseInitialized } from '#server/database'
+import { requireAuth } from '#server/utils/guard'
 
 const toView = (r: ScanRun) => ({
     id: r.id,

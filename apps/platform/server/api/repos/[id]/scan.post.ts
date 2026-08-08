@@ -1,6 +1,6 @@
-import { scanRequestSchema } from '../../../schemas/scan'
-import { runScanForRepository } from '../../../services/scan-orchestrator.service'
-import { requireAuth } from '../../../utils/guard'
+import { scanRequestSchema } from '#server/schemas/scan'
+import { runScanForRepository } from '#server/services/scan-orchestrator.service'
+import { requireAuth } from '#server/utils/guard'
 
 /** POST /api/repos/[id]/scan：触发单仓库扫描（同步执行，请求内完成） */
 export default defineEventHandler(async (event) => {

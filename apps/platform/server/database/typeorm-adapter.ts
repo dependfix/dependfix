@@ -18,7 +18,7 @@ import {
     type DBTransactionAdapter,
     type Where,
 } from 'better-auth/adapters'
-import { snowflake } from '../utils/snowflake'
+import { snowflake } from '#server/utils/snowflake'
 
 /**
  * better-auth TypeORM 适配器（基于官方 createAdapterFactory 精简实现）。

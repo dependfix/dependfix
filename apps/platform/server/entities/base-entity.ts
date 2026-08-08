@@ -4,8 +4,8 @@ import {
     PrimaryColumn,
     UpdateDateColumn,
 } from 'typeorm'
-import { snowflake } from '../utils/snowflake'
-import { getDateType } from '../database/type'
+import { snowflake } from '#server/utils/snowflake'
+import { getDateType } from '#server/database/type'
 
 /**
  * 基础实体：所有实体共享的主键与时间戳。

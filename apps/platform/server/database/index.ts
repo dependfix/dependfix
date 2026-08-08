@@ -110,7 +110,7 @@ const getGlobalScope = (): DataSourceGlobal => globalThis as DataSourceGlobal
 export const getDataSource = (): DataSource => {
     if (!appDataSource) {
         const existing = getGlobalScope()[GLOBAL_DS_KEY]
-        if (existing && existing.isInitialized) {
+        if (existing?.isInitialized) {
             console.log(`[database] reuse global DataSource (pid=${process.pid})`)
             appDataSource = existing
         } else {

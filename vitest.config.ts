@@ -5,6 +5,9 @@ export default defineConfig({
     resolve: {
         alias: {
             '@dependfix/core': resolve(import.meta.dirname, 'packages/core/src'),
+            // dependfix = packages/cli（CLI 包）：MCP/Platform 通过 alias 直接解析源码，
+            // 避免 CI 中 workspace 包未构建（无 dist）时 "Failed to resolve entry" 失败
+            dependfix: resolve(import.meta.dirname, 'packages/cli/src'),
         },
     },
     test: {

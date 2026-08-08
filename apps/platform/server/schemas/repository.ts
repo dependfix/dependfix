@@ -20,7 +20,7 @@ const repositoryBase = z.object({
 export const repositorySchema = repositoryBase.superRefine((data, ctx) => {
     if (data.executorKind === 'github-action' && !data.actionWorkflowFile?.trim()) {
         ctx.addIssue({
-            code: z.ZodIssueCode.custom,
+            code: 'custom',
             path: ['actionWorkflowFile'],
             message: '选择 GitHub Action 执行时必须填写目标 workflow 文件路径',
         })

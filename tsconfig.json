@@ -24,6 +24,9 @@
             ],
             "@dependfix/core/*": [
                 "./packages/core/src/*"
+            ],
+            "dependfix": [
+                "./packages/cli/src"
             ]
         },
         "lib": [

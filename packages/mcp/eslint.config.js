@@ -1,4 +1,5 @@
-// eslint.config.js
+// packages/mcp/eslint.config.js
+// MCP 包独立 eslint 配置：参考 cli/core 的配置结构（cmyr + 生产 TS 严格化规则）
 import { defineConfig } from 'eslint/config'
 import cmyr from 'eslint-config-cmyr'
 import { createLanguageOptions } from 'eslint-config-cmyr/utils'
@@ -32,7 +33,7 @@ export default defineConfig([
         rules: {
             'max-lines': [1, { max: 800, skipBlankLines: true }], // 强制文件的最大行数（空行不计入）
             'max-lines-per-function': [1, { max: 500 }], // 强制函数最大行数
-            'no-console': [0], // CLI 工具允许使用 console（前端项目才禁）
+            'no-console': [0], // MCP Server 允许使用 console（stdio 日志）
         },
     },
     {
@@ -68,4 +69,3 @@ export default defineConfig([
         rules: strictRules,
     },
 ])
-

@@ -84,6 +84,9 @@ export default defineConfig([
     },
     {
         // Nuxt 平台（apps/platform）：TS 使用平台 tsconfig（extends .nuxt/tsconfig.json 并 include server/**/*）
+        // 规则采用 momei 的 Nuxt 策略：no-unsafe-* 系列关闭（Nuxt/TypeORM/better-auth 生态类型复杂，
+        // 且 workspace 包未构建（无 dist）时类型解析失败会触发 unsafe 警告爆炸，渐进收紧）。
+        // 与 apps/platform/eslint.config.js（eslint-config-cmyr/nuxt 为基础）保持同一语义。
         files: ['apps/platform/**/*.{ts,tsx,mts,cts}'],
         // nuxt.config.ts 使用 Nuxt auto-import（defineNuxtConfig），须用 .nuxt/tsconfig.json 单独校验
         ignores: [...testFiles, 'apps/platform/nuxt.config.ts'],
@@ -95,7 +98,36 @@ export default defineConfig([
             project: [nuxtTsconfig],
             tsconfigRootDir: process.cwd(),
         }),
-        rules: strictRules,
+        rules: {
+            '@typescript-eslint/no-deprecated': [1],
+            '@typescript-eslint/no-floating-promises': [1],
+            '@typescript-eslint/no-misused-promises': [1],
+            '@typescript-eslint/await-thenable': [1],
+            '@typescript-eslint/no-base-to-string': [1],
+            '@typescript-eslint/no-unnecessary-type-assertion': [0],
+            '@typescript-eslint/no-redundant-type-constituents': [1],
+            '@typescript-eslint/only-throw-error': [1],
+            '@typescript-eslint/prefer-optional-chain': [1],
+            '@typescript-eslint/require-await': [1],
+            '@typescript-eslint/no-unused-vars': [1, { argsIgnorePattern: '^_' }],
+            '@typescript-eslint/no-extraneous-class': [0],
+            '@typescript-eslint/no-confusing-void-expression': [0],
+            '@typescript-eslint/restrict-template-expressions': [0],
+            '@typescript-eslint/no-non-null-assertion': [0],
+            '@typescript-eslint/no-unnecessary-condition': [0],
+            '@typescript-eslint/restrict-plus-operands': [0],
+            '@typescript-eslint/ban-ts-comment': [0],
+            // Nuxt/TypeORM/better-auth 生态类型复杂：unsafe 系列渐进收紧（与 momei 一致）
+            '@typescript-eslint/no-explicit-any': [0],
+            '@typescript-eslint/no-unsafe-argument': [0],
+            '@typescript-eslint/no-unsafe-assignment': [0],
+            '@typescript-eslint/no-unsafe-member-access': [0],
+            '@typescript-eslint/no-unsafe-return': [0],
+            '@typescript-eslint/no-unsafe-call': [0],
+            '@typescript-eslint/unbound-method': [0],
+            '@typescript-eslint/no-dynamic-delete': [0],
+            '@typescript-eslint/no-unnecessary-type-conversion': [0],
+        },
     },
     {
         // nuxt.config.ts：Nuxt auto-import（defineNuxtConfig）只能用 .nuxt/tsconfig.json 解析

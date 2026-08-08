@@ -30,21 +30,27 @@ const buildAuth = (ds: Awaited<ReturnType<typeof ensureDatabaseInitialized>>, op
         disableSignUp: options.registrationDisabled,
         minPasswordLength: 8,
         requireEmailVerification: options.smtpEnabled,
-        sendResetPassword: async () => {
-            // SMTP 未配置时不支持重置密码邮件；单用户 MVP 依赖注册 + 会话
+        sendResetPassword: async ({ user, url }) => {
+            // SMTP 未配置时：不支持发送密码重置邮件（用户 MVP 仅注册 + 会话）
             if (!options.smtpEnabled) {
-                console.warn('[auth] SMTP 未配置，重置密码邮件未发送')
+                console.warn('[auth] SMTP 未配置，密码重置邮件未发送')
             }
+            void user
+            void url
+            await Promise.resolve()
         },
     },
     emailVerification: {
         sendOnSignUp: options.smtpEnabled,
         autoSignInAfterVerification: true,
-        sendVerificationEmail: async () => {
-            // SMTP 未配置时跳过验证邮件发送
+        sendVerificationEmail: async ({ user, url }) => {
+            // SMTP 未配置时：不发验证邮件（注册自动通过）
             if (!options.smtpEnabled) {
                 console.warn('[auth] SMTP 未配置，验证邮件未发送')
             }
+            void user
+            void url
+            await Promise.resolve()
         },
     },
     session: {

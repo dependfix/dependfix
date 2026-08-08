@@ -24,10 +24,10 @@ export class ActionTriggerExecutor implements ScanExecutor {
         this.pollAttempts = options.pollAttempts ?? 3
     }
 
-    async isAvailable(): Promise<boolean> {
-        // 触发前预检：目标 workflow 存在 + 仓库可访问（404 即不可用）
-        // 具体校验在 execute 内做（需要 ctx.repository 信息），此处仅确认 client 可构造
-        return true
+    isAvailable(): Promise<boolean> {
+        // 前置预检：目标 workflow 文件 + 仓库可访问性（404 视为可用），
+        // 真正的校验在 execute 中（需要 ctx.repository 信息），此处仅确认 client 构造成功。
+        return Promise.resolve(true)
     }
 
     async execute(ctx: ScanExecutorContext): Promise<ScanExecutorResult> {

@@ -129,6 +129,14 @@
   - 状态：🔶 待评估（M7 候选）
   - 内容：平台容器即沙箱的最小实现（M6 T603 `ContainerExecutor`）之后，若恶意依赖升级威胁面评估结论需要更严格隔离，实现独立 worker 容器（每任务/每仓库容器，网络/文件系统隔离）；与 M7 T702 BullMQ worker 模型结合
   - 来源：M6 规划（2026-08-07，Q4=A 设计+最小实现，完整沙箱留后续）
+- **C27 B 模式 runUrl 未定位状态语义**（M6 终审 W3 登记）
+  - 状态：🔶 待评估（不阻塞 M6）
+  - 内容：`ActionTriggerExecutor` 触发 204 受理但轮询未定位 run 时返回 `run_url_not_resolved`，orchestrator 将 ScanRun 置 `failed`——UI 显示"扫描失败"，但 action 实际已在目标仓库运行，与事实不符。建议独立状态（如 `dispatched` + 提示"已触发，未能定位运行详情"）或前端按 error.code 区分展示；与 C25 结果回填联动评估
+  - 来源：M6 终审（2026-08-08，deep Review Gate warning 3）
+- **C28 security.md 补凭据加密存储章节**（M6 终审 W4 登记）
+  - 状态：🔶 待评估（不阻塞 M6）
+  - 内容：security.md 未登记 T602 凭据加密机制（ENCRYPTION_KEY / AES-256-GCM / 解密仅执行时内存 / 凭据最小化），加密设计散落 executor-sandbox.md §3 与 credential.service.ts 注释；安全设计文档应与实现同步补"凭据加密存储"一节
+  - 来源：M6 终审（2026-08-08，deep Review Gate warning 4）
 
 ---
 

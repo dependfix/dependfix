@@ -196,8 +196,10 @@ Agent: 用户对话 → Skill 编排 → MCP 执行 → 报告
 |:---|:-----|:---------|:-----|
 | `discover_repos` | org 发现 + 名单策略（topics / include / exclude / probe_dependabot） | `discoverRepositories`（已导出） | 覆盖 `--owner` / `--repos-file` 场景 |
 | `cleanup_branches` | 列出并删除已合并/已关闭的 dependfix 分支（`dry_run` 仅列清单） | `listDependfixBranches` / `getBranchPrStatus` / `deleteRemoteBranch`（已导出） | **不走 DependfixApp cleanup-branches mode**：`runBranchCleanupForRepo` 含交互确认（非 TTY 默认拒绝），MCP stdio 下不可用；按 `autoCleanupMergedBranches` 语义自编排（只删 `dependfix/` 前缀 + merged/closed，绝不触碰 open PR 分支） |
-| run_scan AI 透传 | `ai_enabled` / `ai_provider` / `ai_model` / `ai_trigger` | `RuntimeConfig.ai`（`DEPENDFIX_AI_API_KEY` env） | **安全约束：apiKey 只走 env，禁止进 tool 参数**（防客户端日志泄露） |
+| run_scan AI 透传 | `ai_enabled` / `ai_provider` / `ai_model` / `ai_trigger` | `RuntimeConfig.ai`（`DEPENDFIX_AI_API_KEY` env） | **安全约束：apiKey 只走 env，禁止进 tool 参数**（防客户端日志泄露）。后续登记：`ai_api_url`（anthropic 兼容端点）透传评估中 |
 | `history` | 查询某仓库历史运行摘要（倒序） | `queryRepoHistory`（补 cli 导出） | 与 get_last_report 语义不同（聚合 index.json vs 单文件） |
+
+> 后续登记（审计 suggest，非阻塞）：`ai_api_url` 透传（provider=anthropic 时兼容端点不可注入）；cleanup_branches 状态批量查询 `Promise.all` 全并发，仓库分支量大时可加并发上限（对齐 probeConcurrency 风格）。
 
 ### 8.4 P3 — 远期目标（登记不实施）
 

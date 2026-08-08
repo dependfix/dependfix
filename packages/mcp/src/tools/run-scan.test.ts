@@ -103,4 +103,40 @@ describe('runScan（config 映射与参数透传）', () => {
 
         expect(result).toMatchObject({ ok: true, exitCode: 0, runId: 'run-1' })
     })
+
+    it('builds ai config from params when ai_enabled is true (apiKey from env only)', async () => {
+        process.env.GITHUB_TOKEN = 'ghp_test'
+        process.env.DEPENDFIX_AI_API_KEY = 'sk-test'
+        resolveOkRun()
+
+        await runScan({
+            repo: 'owner-a/repo-b',
+            mode: 'report-only',
+            severity: 'high',
+            ai_enabled: true,
+            ai_provider: 'anthropic',
+            ai_model: 'claude-x',
+            ai_trigger: 'failure',
+        })
+
+        const config = DependfixAppMock.mock.calls[0][0].config
+        expect(config.ai).toEqual({
+            enabled: true,
+            provider: 'anthropic',
+            model: 'claude-x',
+            baseUrl: 'https://api.deepseek.com',
+            apiKey: 'sk-test',
+            trigger: 'failure',
+        })
+    })
+
+    it('omits ai config when ai_enabled is false', async () => {
+        process.env.GITHUB_TOKEN = 'ghp_test'
+        resolveOkRun()
+
+        await runScan({ repo: 'owner-a/repo-b', mode: 'report-only', severity: 'high' })
+
+        const config = DependfixAppMock.mock.calls[0][0].config
+        expect(config.ai).toBeUndefined()
+    })
 })

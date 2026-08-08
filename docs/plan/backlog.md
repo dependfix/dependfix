@@ -149,7 +149,7 @@
   - 内容：run_scan 配置参数化（`code_scanning` / `max_alerts` / `max_concurrency` / `dry_run` / `allow_major_upgrade`）；fetch_alerts 加 `code_scanning` 双源（前置：补 cli 导出 `fetchCodeScanningAlerts`）；fix_dependency 扩展 `fix_type`（override / direct / lockfile）
   - 前置：M7 T706 发布 npm 前完成
 - **C32 MCP 能力补充 P2**
-  - 状态：🔶 实施中（2026-08-09 登记；P2 代码尚未交付，交付后更新状态）
+  - 状态：✅ 已交付（2026-08-09，提交 62a655e3 后代码实施批次）
   - 内容：`discover_repos` tool（复用 discoverRepositories，org 发现 + 名单策略）；`cleanup_branches` tool（复用 pr-creator 底层函数自编排，语义对齐 autoCleanupMergedBranches——DependfixApp 的 cleanup-branches mode 走交互确认，非 TTY 不可用）；run_scan 加 AI 研判透传（`ai_enabled` / `ai_provider` / `ai_model` / `ai_trigger`，apiKey 从 env 读取）；`history` tool（复用 queryRepoHistory，前置：补 cli 导出）
   - 前置：M7 T706 发布 npm 前完成
 - **C33 MCP 能力补充 P3**（远期目标，不实施）

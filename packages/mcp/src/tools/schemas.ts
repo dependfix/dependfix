@@ -20,6 +20,10 @@ export const runScanSchema = z.object({
     max_concurrency: z.number().int().min(1).max(16).optional().describe('多仓库并发窗口（默认 1 保守串行）'),
     dry_run: z.boolean().optional().describe('试运行不实际写入；缺省按 mode 推断（report-only 为 true）。与 mode=fix/fix-and-pr 互斥（会返回配置校验错误）'),
     allow_major_upgrade: z.boolean().optional().describe('跨线 major 升级显式授权（默认 false；仅根直接依赖 + lockfile 单版本，强制完整验证）'),
+    ai_enabled: z.boolean().optional().describe('开启 AI breaking change 研判（默认 false；apiKey 从 DEPENDFIX_AI_API_KEY env 读取，禁止经 tool 参数传入）'),
+    ai_provider: z.enum(['openai-compatible', 'anthropic']).optional().describe('AI 提供商（默认 openai-compatible）'),
+    ai_model: z.string().optional().describe('AI 模型名（默认 deepseek-v4-flash）'),
+    ai_trigger: z.enum(['failure', 'major', 'both']).optional().describe('AI 触发范围（默认 both）'),
 })
 
 /** `fix_dependency` 输入：修复单个依赖（多修复类型） */
@@ -32,4 +36,24 @@ export const fixDependencySchema = z.object({
     packageName: z.string().optional().describe('依赖包名（fix_type=override/direct 必填）'),
     /** override / direct 必填 */
     targetVersion: z.string().optional().describe('目标精确版本，如 4.17.21（fix_type=override/direct 必填）'),
+})
+
+/** `discover_repos` 输入：按 owner / org 自动发现仓库 */
+export const discoverReposSchema = z.object({
+    owner: z.array(z.string()).min(1).describe('owner / org 列表（分别发现后合并）'),
+    topics: z.array(z.string()).optional().describe('topic 白名单（AND 语义：必须包含全部指定 topics）'),
+    include: z.array(z.string()).optional().describe('仓库白名单 glob（如 owner/*、owner/pkg-*）'),
+    exclude: z.array(z.string()).optional().describe('仓库黑名单 glob（与 include 冲突时胜出）'),
+    probe_dependabot: z.boolean().optional().describe('探测 .github/dependabot.yml 存在性（默认 true；会额外触达 contents API）'),
+})
+
+/** `cleanup_branches` 输入：清理已合并/已关闭的 dependfix 分支 */
+export const cleanupBranchesSchema = z.object({
+    repo: z.string().describe('目标仓库，格式 owner/repo'),
+    dry_run: z.boolean().optional().describe('仅列出待清理分支，不执行删除（默认 false）'),
+})
+
+/** `history` 输入：查询仓库历史运行摘要 */
+export const historySchema = z.object({
+    repo: z.string().describe('目标仓库，格式 owner/repo'),
 })

@@ -26,6 +26,10 @@ export const runScan = async (input: {
     max_concurrency?: number
     dry_run?: boolean
     allow_major_upgrade?: boolean
+    ai_enabled?: boolean
+    ai_provider?: 'openai-compatible' | 'anthropic'
+    ai_model?: string
+    ai_trigger?: 'failure' | 'major' | 'both'
 }): Promise<RunScanResult> => {
     const token = process.env.GITHUB_TOKEN
     if (!token) {
@@ -56,6 +60,19 @@ export const runScan = async (input: {
         maxConcurrency: input.max_concurrency ?? 1,
         maxRetries: 3,
         maxBackoffMs: 30_000,
+        // AI 研判（P2-6）：仅透传开关/提供商/模型/触发范围；
+        // apiKey 只从 env 读取（DEPENDFIX_AI_API_KEY），禁止经 tool 参数传入（防客户端日志泄露）。
+        // 模型与 baseUrl 默认值与 CLI 对齐（2026-08-07 决策：deepseek-v4-flash）。
+        ai: input.ai_enabled
+            ? {
+                enabled: true,
+                provider: input.ai_provider ?? 'openai-compatible',
+                model: input.ai_model ?? 'deepseek-v4-flash',
+                baseUrl: 'https://api.deepseek.com',
+                apiKey: process.env.DEPENDFIX_AI_API_KEY,
+                trigger: input.ai_trigger ?? 'both',
+            }
+            : undefined,
     }
 
     try {

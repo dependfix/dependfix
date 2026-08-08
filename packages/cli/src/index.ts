@@ -11,6 +11,8 @@ export * from './fixers/dependency'
 export * from './fixers/pnpm'
 export * from './github'
 export * from './runners'
+// report 模块最小导出（mcp history tool 复用；仅暴露查询函数，保持 API 面最小）
+export { queryRepoHistory } from './report/archiver'
 // 平台化管线抽象（独立平台前置）：local 与 platform 共用编排核心
 export { createPipeline } from './app/pipeline'
 export type { Pipeline, PipelineDeps, PipelineLogger, PipelineParseResult } from './app/pipeline'

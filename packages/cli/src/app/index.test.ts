@@ -286,7 +286,7 @@ describe('DependfixApp pnpm-audit source', () => {
             workDir,
             repository: 'local',
         })
-    })
+    }, 30_000) // 含真实 git remote 推断：对齐同文件 git 集成测试超时（Windows 并行负载）
 
     it('report-only with pnpm-audit source uses explicit --repo (no git remote needed)', async () => {
         auditFetcherMock.fetchPnpmAuditAlerts.mockResolvedValue([

@@ -217,3 +217,18 @@
   - **"一个原子条目 = 一个提交"不等于"一个任务 = 一个提交"**：原子性约束的是逻辑边界，不是规模；长任务必须在 P 阶段拆成多个原子条目，每个条目独立验收、独立审查、独立提交。
   - **审计者也受规模惩罚**：大 diff 的并发分区审计虽然可行，但跨区问题（如 compose 前缀与 auth 校验互相关联）仍会漏到复审才发现——分区审计不能替代事前拆分。
   - **规范要单点声明，严格约束挂 review 阶段**（2026-08-08 二次修正）：首批治理把"分批提交"完整条款抄进 5 处（planning/git/ai-collaboration/skill/agent）——本身制造了新的维护漂移面。正确模式：**权威声明只留一处**（planning.md §1.1 任务粒度约束），其余文档仅一行链接引用；**严格约束（阈值/禁令）放在 review 阶段检查点**（code-reviewer SKILL.md diff 规模核验必查项 + Code Auditor 主责边界），因为 review 阶段上下文干净（只看 diff 与验证证据），比开发阶段（上下文杂、任务重）更容易强制执行。原则已写入 [documentation.md §4 规范单点声明原则](../../../docs/standards/documentation.md)。
+
+## 二十五、新增发布包会散落多处遗漏：包清单必须单点声明（2026-08-08）
+
+- **案例**：M6 新增 `packages/mcp` 后，用户指出三处遗漏：① 包无 README；② `docs/guide/release.md` 发布包清单未更新；③ `scripts/changelog.mjs` / `scripts/create-changeset.mjs` / `.github/workflows/release.yml` 的包列表硬编码未加 mcp——每加一个包要手动改 4-5 处，漏一处即发布链路残缺。同时发现更深 bug：cli/core 的 0.2.0 已在 npm 发布但 git tag 仅 0.1.0 系列，`changelog.mjs` 的 `isVersionTagged` 只用本地 tag 判断"已发布"，导致 0.2.0 被误判为未发布段——重跑 `pnpm changelog` 会把新提交塞进已发布段并改写日期（08-07 → 08-08），污染已发布 CHANGELOG。
+- **根因**：① 包元数据（路径/包名/发布顺序/是否就绪）没有单一权威来源，散落脚本与 CI 的硬编码；② "是否已发布"判定只信本地 git tag，不信 npm registry——手动发布（npm publish 但 tag 未推送/遗漏）与正常 changesets 流程（tag 随发布创建）状态不一致。
+- **修复**：
+  - 新增 `scripts/packages.config.mjs` 单点声明（4 包 path/pkg/changelog/tags/publishOrder/publishable），changelog.mjs / create-changeset.mjs / release.yml 全部改为引用派生，新增包只改一处；
+  - `publishable: false` 未就绪包必须同步 `.changeset/config.json` `ignore` 登记（防 changeset publish 意外发布不可逆 npm 包）+ `changelog: null`（不为未发布包生成包级日志）；
+  - `isVersionTagged` 增加 npm registry 兜底（`npm view <pkg>@<version>`），修复 Windows `2>/dev/null` 重定向不兼容（改 stdio 捕获）；tag 短路保留（正常流程零网络开销）；
+  - review 阶段新增"新增发布包链路完整性"必查项（code-quality-checklist.md）：单点登记 / changeset ignore / README / release.md / CI 引用 / Docker 影响面。
+- **启示**：
+  - **包清单是典型的单点声明场景**：路径、包名、发布顺序、就绪状态这些元数据一旦散落多处，必然漂移。收敛到一处配置 + 派生引用，新增包成本从"改 4-5 处"降到"改 1 处 + 补 README"。
+  - **"已发布"判定不能只信单一来源**：npm registry 是发布事实的最终权威，git tag 只是 changesets 流程的产物——手动发布路径会打破两者一致性。判定应"任一命中即已发布"（tag 短路 + registry 兜底），且失败方向要保守（宁可漏生成也不改写已发布段）。
+  - **脚本的跨平台兼容性要用真实环境验证**：`2>/dev/null` 在 Linux 正常、Windows 直接报"系统找不到指定的路径"——跨平台脚本的 shell 重定向必须用 Node 的 stdio 捕获替代。
+  - **生成类脚本的幂等性要"干净状态实测"**：changelog 类脚本必须在干净工作区（git stash 后）重跑验证"已发布段 unchanged"，而不是在污染后的状态上观察输出——上一轮"updated"其实是修复前残留，只有 stash 后重跑才暴露真实行为。

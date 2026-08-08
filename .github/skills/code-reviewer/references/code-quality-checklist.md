@@ -146,11 +146,24 @@ if (value) { ... }  // 对 0, "", false 失效
   - 带文档路径/章节名的导航指针：如"背景详见 `docs/plan/todo.md`「已知缺口 G2」"、"见 todo.md G3"
 - **修复方式**：删除编号前缀，保留编号后的解释正文（如 `// 按包聚合（P2-1 修复）` → `// 按包聚合（避免同包多告警丢失）`）
 
+### 新增发布包的链路完整性（必查项）
+
+新增 `packages/*` 目录或修改 `scripts/packages.config.mjs` 时，检查发布/文档链路是否同步：
+
+- **单点登记**：新包是否已在 [packages.config.mjs](../../../../scripts/packages.config.mjs) 登记（path/pkg/changelog/tags/publishOrder/publishable）
+- **发布就绪语义**：未就绪包是否 `publishable: false` + `.changeset/config.json` `ignore` 登记（防止 changeset publish 意外发布不可逆 npm 包）——两处联动缺一不可
+- **README 与文档**：包 README 是否存在；[release.md](../../../../docs/guide/release.md) 发布包清单与 npm 链接是否更新
+- **CI 引用**：release.yml / changelog.mjs / create-changeset.mjs 是否自动覆盖（单点化后无需逐个改，但需确认无残留硬编码包列表）
+- **Docker 影响面**：平台镜像（apps/platform/Dockerfile）是否需要在构建/运行时包含该包
+
+教训见 [经验归档 §二十五](../../../../docs/design/governance/experience-archive.md)（mcp 包遗漏 README/release 链路），规范见 [release.md](../../../../docs/guide/release.md)。
+
 ### 应提出的问题
 
 - "diff 中新增的注释/测试名是否含孤立编号标记？"
 - "编号是否带可反查的文档路径（导航指针例外）？"
 - "清理编号后解释正文是否保留、语义是否完整？"
+- "新增/改动发布包时，单点登记、changeset ignore、README、release.md、CI 引用是否同步？"
 
 ### 批量替换与行尾完整性（批量替换/行尾审查）
 

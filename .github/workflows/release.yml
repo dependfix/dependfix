@@ -138,10 +138,31 @@ jobs:
         run: pnpm changeset publish
 
       # changeset publish 只创建本地 tag，需要显式推送（checkout 使用 persist-credentials: false，
-      # 通过 x-access-token 方式用 GITHUB_TOKEN 认证推送）
+      # 通过 x-access-token 方式用 GITHUB_TOKEN 认证推送）。
+      # 教训（2026-08-08 实证）：`git config --global url."https://x-access-token:${TOKEN}@github.com/".insteadOf
+      # "https://github.com/"` + `git push origin --tags` 在 CI 下实测输出 "Everything up-to-date" 但 tag
+      # 未推送（远程始终缺 changeset 创建的 tag，run 31208208621）——insteadOf 的 URL 替换在 Actions
+      # checkout（fetch-tags: false + persist-credentials: false）环境下不可靠。
+      # 改用显式带 token 的 push URL（官方推荐模式），并推送后核验 tag 已同步远程（失败即报错）。
       - name: Push release tags
         run: |
-          git config --global url."https://x-access-token:${GITHUB_TOKEN}@github.com/".insteadOf "https://github.com/"
-          git push origin --tags
+          set -euo pipefail
+          git push "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" --tags
+          # 核验：本次 workflow 中 changeset 创建的 tag 是否已出现在远程
+          git fetch "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" --tags
+          local_tags=$(git tag)
+          remote_tags=$(git ls-remote "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" --tags | awk '{print $2}' | sed 's|refs/tags/||')
+          missing=""
+          for t in $local_tags; do
+            case " $remote_tags " in
+              *" $t "*) ;;
+              *) missing="$missing $t" ;;
+            esac
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::以下 tag 未同步到远程（推送失败或未生成）：$missing"
+            exit 1
+          fi
+          echo "all release tags pushed to remote"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

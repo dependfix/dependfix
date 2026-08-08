@@ -1,4 +1,5 @@
 import { DependfixApp, type RuntimeConfig } from 'dependfix'
+import { isValidRepoIdentifier } from '@dependfix/core'
 
 /** `run_scan` 返回结构 */
 export type RunScanResult =
@@ -22,11 +23,11 @@ export const runScan = async (input: { repo: string, mode: 'report-only' | 'fix'
         return { ok: false, error: 'GITHUB_TOKEN not set（请配置环境变量）' }
     }
 
-    const parts = input.repo.split('/')
-    if (parts.length !== 2 || !parts[0] || !parts[1]) {
+    // repo 格式校验复用 core（与 CLI 同源）
+    if (!isValidRepoIdentifier(input.repo)) {
         return { ok: false, error: `repo 格式非法（预期 owner/repo，收到 ${input.repo}）` }
     }
-    const [owner, repo] = parts
+    const [owner, repo] = input.repo.split('/')
 
     const config: RuntimeConfig = {
         mode: input.mode,

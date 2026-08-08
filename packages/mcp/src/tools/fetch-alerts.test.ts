@@ -56,7 +56,7 @@ describe('fetchAlerts (一致性：与 CLI fetchDependabotAlerts 同源)', () =>
         })
     })
 
-    it('filters by severity when severity is not all', async () => {
+    it('filters by severity threshold (high keeps critical + high, aligned with CLI)', async () => {
         process.env.GITHUB_TOKEN = 'ghp_test'
         nock(API)
             .get('/repos/owner-a/repo-b/dependabot/alerts')
@@ -69,7 +69,41 @@ describe('fetchAlerts (一致性：与 CLI fetchDependabotAlerts 同源)', () =>
         const result = await fetchAlerts({ repo: 'owner-a/repo-b', severity: 'high' })
 
         const alerts = (result as { alerts: Array<{ id: number }> }).alerts
-        expect(alerts.map((a) => a.id)).toEqual([2])
+        // 阈值语义：high 保留 critical + high（与 CLI filterAlerts 一致），保持原顺序
+        expect(alerts.map((a) => a.id)).toEqual([1, 2])
+    })
+
+    it('filters by severity threshold (critical keeps only critical)', async () => {
+        process.env.GITHUB_TOKEN = 'ghp_test'
+        nock(API)
+            .get('/repos/owner-a/repo-b/dependabot/alerts')
+            .query(true)
+            .reply(200, [
+                rawDependabotAlert({ number: 1, security_advisory: { severity: 'critical', summary: 'x', ghsa_id: 'GHSA-1' } }),
+                rawDependabotAlert({ number: 2 }),
+            ])
+
+        const result = await fetchAlerts({ repo: 'owner-a/repo-b', severity: 'critical' })
+
+        const alerts = (result as { alerts: Array<{ id: number }> }).alerts
+        expect(alerts.map((a) => a.id)).toEqual([1])
+    })
+
+    it('keeps all severities in original order when severity is all', async () => {
+        process.env.GITHUB_TOKEN = 'ghp_test'
+        nock(API)
+            .get('/repos/owner-a/repo-b/dependabot/alerts')
+            .query(true)
+            .reply(200, [
+                rawDependabotAlert({ number: 1, security_advisory: { severity: 'critical', summary: 'x', ghsa_id: 'GHSA-1' } }),
+                rawDependabotAlert({ number: 2 }),
+                rawDependabotAlert({ number: 3, security_advisory: { severity: 'medium', summary: 'y', ghsa_id: 'GHSA-3' } }),
+            ])
+
+        const result = await fetchAlerts({ repo: 'owner-a/repo-b', severity: 'all' })
+
+        const alerts = (result as { alerts: Array<{ id: number }> }).alerts
+        expect(alerts.map((a) => a.id)).toEqual([1, 2, 3])
     })
 
     it('returns error when GITHUB_TOKEN is not set', async () => {

@@ -1,4 +1,5 @@
 import { createGitHubClient, fetchDependabotAlerts, type FetchDependabotAlertsParams } from 'dependfix'
+import { filterAlerts, isValidRepoIdentifier, type SeverityThreshold } from '@dependfix/core'
 
 /** `fetch_alerts` 返回结构 */
 export type FetchAlertsResult =
@@ -22,7 +23,7 @@ export type FetchAlertsResult =
  * `fetch_alerts`：拉取指定仓库的 Dependabot 安全告警（只读）。
  * 凭据从 GITHUB_TOKEN 环境变量读取（mcp-server.md §4.3）。
  */
-export const fetchAlerts = async (input: { repo: string, severity: string }): Promise<FetchAlertsResult> => {
+export const fetchAlerts = async (input: { repo: string, severity: SeverityThreshold }): Promise<FetchAlertsResult> => {
     const token = process.env.GITHUB_TOKEN
     if (!token) {
         return {
@@ -31,11 +32,11 @@ export const fetchAlerts = async (input: { repo: string, severity: string }): Pr
         }
     }
 
-    const parts = input.repo.split('/')
-    if (parts.length !== 2 || !parts[0] || !parts[1]) {
+    // repo 格式校验复用 core（与 CLI 同源，避免自研校验漂移）
+    if (!isValidRepoIdentifier(input.repo)) {
         return { ok: false, error: `repo 格式非法（预期 owner/repo，收到 ${input.repo}）` }
     }
-    const [owner, repo] = parts
+    const [owner, repo] = input.repo.split('/')
 
     try {
         const client = createGitHubClient({ token })
@@ -46,9 +47,9 @@ export const fetchAlerts = async (input: { repo: string, severity: string }): Pr
         }
         const alerts = await fetchDependabotAlerts(client, params)
 
-        const filtered = input.severity === 'all'
-            ? alerts
-            : alerts.filter((a) => a.severity === input.severity)
+        // 严重级别过滤复用 core 阈值语义（与 CLI 一致：high 保留 critical + high；
+        // all 不过滤）。不使用相等匹配，避免 high 漏掉 critical。
+        const { filtered } = filterAlerts(alerts, { severityThreshold: input.severity })
 
         return {
             ok: true,

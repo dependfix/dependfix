@@ -14,10 +14,11 @@
  * - tags：tag 前缀（changesets 发布用 `<pkg>@<version>`）
  * - publishOrder：发布顺序（被依赖方先行；越小越先发布）
  * - rootChangelog：是否作为根级 CHANGELOG 版本锚（主交付物）
- * - publishable：是否纳入发布链路（release.yml 校验 + changeset publish；false = 未就绪包，
- *   如 mcp 待发布（见 docs/plan/todo.md §M7 T706）。**注意联动**：publishable: false 的包必须在
- *   .changeset/config.json 的 `ignore` 中登记，否则 changeset publish 会按"本地版本未在 npm registry"
- *   将其意外发布（npm 发布不可逆）。就绪时同步移除两处声明并启用 changelog。
+ * - publishable：是否纳入发布链路（release.yml 校验 + changeset publish；false = 未就绪包）。
+ *   **注意联动**：publishable: false 的包必须在 .changeset/config.json 的 `ignore` 中登记，
+ *   否则 changeset publish 会按"本地版本未在 npm registry"将其意外发布（npm 发布不可逆）。
+ *   就绪时同步移除两处声明并启用 changelog（先例：@dependfix/mcp，2026-08-09 就绪，
+ *   见 docs/plan/backlog.md §T706）。
  * - changelog：包级 CHANGELOG.md 相对路径（null = 不生成包级日志；未就绪包先置 null，
  *   待发布链路就绪后再启用，避免为未发布包生成与已发布段混排的日志）
  */
@@ -53,13 +54,13 @@ export const PACKAGES = [
     {
         path: 'packages/mcp',
         pkg: '@dependfix/mcp',
-        // 包级 CHANGELOG 待发布链路就绪（见 docs/plan/todo.md §M7 T706）后启用
-        changelog: null,
+        changelog: 'packages/mcp/CHANGELOG.md',
         tags: { prefix: '@dependfix/mcp@' },
         publishOrder: 4,
         rootChangelog: false,
-        // 发布链路未就绪：已在 .changeset/config.json ignore 登记，避免被意外发布
-        publishable: false,
+        // 发布链路已就绪（2026-08-09，M7 T706 前置动作，见 docs/plan/backlog.md §T706）：
+        // 发布前置完成后已从 .changeset/config.json ignore 同步移除
+        publishable: true,
     },
 ]
 

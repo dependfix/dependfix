@@ -6,7 +6,7 @@
 
 > **包清单单点声明**：发布包列表定义在 [scripts/packages.config.mjs](../../scripts/packages.config.mjs)（`publishable: true` 的包进入发布链路）。
 > 新增发布包时：① 在该文件登记；② 补充包 README；其余（changelog 生成、changeset 映射、CI 校验）自动生效。
-> 当前 `packages/mcp` 已登记但 `publishable: false`（发布链路待 [todo.md §M7（T706）](../plan/todo.md) 就绪）。
+> `@dependfix/mcp` 发布链路已就绪（2026-08-09，M7 T706 前置动作，见 [backlog.md §T706](../plan/backlog.md)）。
 
 当前 Monorepo 对外发布的 npm 包：
 
@@ -15,8 +15,9 @@
 | `dependfix` | CLI 应用入口（含 `dependfix` bin 命令） | https://www.npmjs.com/package/dependfix |
 | `@dependfix/core` | 核心领域模型库 | https://www.npmjs.com/package/@dependfix/core |
 | `@dependfix/skills` | 产品 Agent Skill 权威源（`dependfix-remediator`，纯内容包） | https://www.npmjs.com/package/@dependfix/skills |
+| `@dependfix/mcp` | MCP Server（stdio 传输，7 个 tool 暴露扫描/修复能力） | https://www.npmjs.com/package/@dependfix/mcp |
 
-> 依赖关系：`dependfix` 依赖 `@dependfix/core` 与 `@dependfix/skills`（运行时解析 skill 内容）；`@dependfix/skills` 无依赖。发布顺序：被依赖方先行（`@dependfix/core` → `@dependfix/skills` → `dependfix`）。`@dependfix/mcp`（MCP Server）发布待 [todo.md §M7（T706）](../plan/todo.md)。
+> 依赖关系：`dependfix` 依赖 `@dependfix/core` 与 `@dependfix/skills`（运行时解析 skill 内容）；`@dependfix/skills` 无依赖；`@dependfix/mcp` 依赖 `dependfix` 与 `@dependfix/core`。发布顺序：被依赖方先行（`@dependfix/core` → `@dependfix/skills` → `dependfix` → `@dependfix/mcp`）。
 
 ## 版本策略
 
@@ -52,9 +53,9 @@
    - **Repository**: `dependfix`
    - **Workflow filename**: `release.yml`
    - **Allowed actions**: `npm publish`
-4. 三个包（`dependfix`、`@dependfix/core` 与 `@dependfix/skills`）都要配置。
+4. 四个包（`dependfix`、`@dependfix/core`、`@dependfix/skills` 与 `@dependfix/mcp`）都要配置。
 
-> ⚠️ 包必须已存在于 npm 上才能配置 Trusted Publisher（npm/cli#8544）。因此 `@dependfix/core` 与 `@dependfix/skills` 的首次发布必须先手动完成（见下），之后才能配置并启用 OIDC。
+> ⚠️ 包必须已存在于 npm 上才能配置 Trusted Publisher（npm/cli#8544）。因此 `@dependfix/core`、`@dependfix/skills` 与 `@dependfix/mcp` 的首次发布必须先手动完成（见下），之后才能配置并启用 OIDC。
 
 ### 2. package.json 元数据
 
@@ -98,10 +99,11 @@ pnpm typecheck
 pnpm test
 pnpm build
 
-# 2. 检查包内容（确认 dist / bin / README / LICENSE 都在；@dependfix/skills 为纯内容包，确认 dependfix-remediator/ 与 README 在发布内容中）
+# 2. 检查包内容（确认 dist / bin / README / LICENSE 都在；@dependfix/skills 为纯内容包，确认 dependfix-remediator/ 与 README 在发布内容中；@dependfix/mcp 确认 dist/src.mjs 含全部 7 个 tool）
 pnpm --filter @dependfix/core pack --pack-destination "$env:TEMP"   # Windows PowerShell
 pnpm --filter @dependfix/skills pack --pack-destination "$env:TEMP" # Windows PowerShell
 pnpm --filter dependfix pack --pack-destination "$env:TEMP"        # Windows PowerShell
+pnpm --filter @dependfix/mcp pack --pack-destination "$env:TEMP"   # Windows PowerShell
 # bash/zsh 使用：pnpm --filter @dependfix/core pack --pack-destination /tmp
 
 # 3. 本地试跑构建产物
@@ -110,28 +112,42 @@ node packages/cli/dist/bin.mjs --help
 # 4. npm 登录（一次性，pnpm publish 复用 npm 凭据）
 npm login
 
-# 5. 发布（顺序重要：先被依赖方 @dependfix/core，再 @dependfix/skills，最后 dependfix）
+# 5. 发布（顺序重要：先被依赖方 @dependfix/core，再 @dependfix/skills，最后 dependfix 与 @dependfix/mcp）
 #    必须使用 pnpm publish：它会替换 workspace:* 为实际版本
 pnpm --filter @dependfix/core publish
 pnpm --filter @dependfix/skills publish
 pnpm --filter dependfix publish
+pnpm --filter @dependfix/mcp publish
 
-# 6. 打 tag（供 GitHub Release 关联与 Action 引用）
-git tag v0.1.0
-git push origin v0.1.0
+# 6. 打 tag（手动发布**不会**自动创建 tag，必须手动补打 `<pkg>@<version>` 格式：
+#    changelog 分段锚点与 changeset 推导基线都依赖它——参照 scripts/changelog.mjs 的
+#    tags.prefix（`git rev-parse --verify <prefix><version>`）与 scripts/create-changeset.mjs
+#    的"最新 tag"基线解析；缺失时后续 changelog 分段会把全部历史并入当前版本段）
+#    锚点约束：每个 tag 必须指向"同时 touch 该包路径"的 commit（见"CHANGELOG 策略"，
+#    若指向纯 docs/全局 commit，包级日志因 path 过滤看不到锚点）。
+#    锚点查询：git log -1 --format=%H -- packages/<path>（取发布时最新 touch 该路径的 commit）
+git tag @dependfix/core@0.1.0 <core-anchor>   # 指向 touch packages/core 的 commit
+git tag @dependfix/skills@0.1.0 <skills-anchor> # 指向 touch packages/skills 的 commit
+git tag dependfix@0.1.0 <cli-anchor>          # 指向 touch packages/cli 的 commit
+git tag @dependfix/mcp@0.1.0 <mcp-anchor>     # 指向 touch packages/mcp 的 commit
+git tag v0.1.0                                # （可选）GitHub Release 展示用
+git push origin --tags
 
 # 7. 验证
 npm view dependfix version          # 期望 0.1.0，dist-tags.latest
 npm view @dependfix/core version    # 期望 0.1.0
 npm view @dependfix/skills version  # 期望 0.1.0
+npm view @dependfix/mcp version     # 期望 0.1.0
 npm view dependfix dependencies     # 期望 @dependfix/core 与 @dependfix/skills 为具体版本（非 workspace:*）
 npm i -g dependfix && dependfix --version   # 或临时目录 npx dependfix --help
 
 # 8.（可选）GitHub Release（预览版标记 pre-release）
 gh release create v0.1.0 --generate-notes --prerelease
 
-# 9. 在 npmjs.com 为三个包配置 Trusted Publisher（见"前置配置"）
+# 9. 在 npmjs.com 为四个包配置 Trusted Publisher（见"前置配置"）
 ```
+
+> **新包首次发布（如 `@dependfix/mcp` 0.1.0）**：npm 的 Trusted Publisher 要求包已存在才能配置（npm/cli#8544），因此新包的 0.1.0 必须手动发布（`pnpm --filter @dependfix/mcp publish` + `npm login`，产物检查同上），发布成功后按"前置配置"为它配置 Trusted Publisher，并**手动补打 `<pkg>@<version>` tag**（见上方步骤 6 的锚点约束，如 `@dependfix/mcp@0.1.0` 指向 touch `packages/mcp` 的 commit，推送后 changeset publish 才能正确识别该版本已发布）；此后该包的后续版本（0.1.1+）自动纳入 `release.yml` 的 OIDC 发布流程（changeset publish 按 registry 版本对比，已发布版本 no-op）。
 
 ## 后续版本（0.1.1+）
 
@@ -146,7 +162,7 @@ gh release create v0.1.0 --generate-notes --prerelease
 | BREAKING（`!` 后缀或 `BREAKING CHANGE:` footer） | 0.x → minor；1.0.0+ → major | 0.x 阶段不直接跳到 1.0.0（0.x 语义中 minor 即可表达破坏性变更） |
 | `refactor` / `docs` / `chore` / `build` / `ci` / `test` / `style` | 不 bump | 变更仍会进入 CHANGELOG，随同轮其他发布附带 |
 
-- **包影响面**：按 commit 改动路径映射（`packages/core` → `@dependfix/core`、`packages/cli` → `dependfix`、`packages/skills` → `@dependfix/skills`）；依赖传导（如 core 升级后 cli 的依赖范围更新）由 changesets 的 `updateInternalDependencies` 自动处理，无需手动声明；
+- **包影响面**：按 commit 改动路径映射（`packages/core` → `@dependfix/core`、`packages/cli` → `dependfix`、`packages/skills` → `@dependfix/skills`、`packages/mcp` → `@dependfix/mcp`）；依赖传导（如 core 升级后 cli 的依赖范围更新）由 changesets 的 `updateInternalDependencies` 自动处理，无需手动声明；
 - **每轮只保留一个 changeset**：固定文件名为 `.changeset/release.md`；脚本检测到该文件已存在时会拒绝覆盖（防止丢失人工修正），需先删除或人工合并；
 - **人工兜底（生成后必须 review）**：
   - breaking 判定只识别 commit 中显式标注的 `!` / `BREAKING CHANGE:` footer，未标注的破坏性变更（如以 `build:` 类型提交的纯 ESM 改造）需手动修正 bump 级别；
@@ -166,7 +182,7 @@ pnpm changeset:generate
 #    changelog 已禁用（"changelog": false），此步骤无需 GITHUB_TOKEN
 pnpm changeset version
 
-# 4. 生成 CHANGELOG（基于 conventional commits 重新生成四份日志，见"CHANGELOG 策略"）
+# 4. 生成 CHANGELOG（基于 conventional commits 重新生成五份日志，见"CHANGELOG 策略"）
 pnpm changelog
 
 # 5. 审查并提交（含包级 CHANGELOG.md 与 package.json 版本变更）
@@ -193,10 +209,10 @@ git push origin master
 
 1. （仅 `schedule` 触发）`Auto version & changelog`：自动版本提升 + CHANGELOG 生成 + 提交推送；
 2. lint → typecheck → test → build（质量门，任一失败即中止）；
-3. `Verify changelog is up to date`：校验四份 CHANGELOG（根级 + `packages/cli` / `packages/core` / `packages/skills`）已包含当前版本段（防止漏跑 `pnpm changelog` 直接发布；普通提交版本未变时自动通过）；
+3. `Verify changelog is up to date`：校验五份 CHANGELOG（根级 + `packages/cli` / `packages/core` / `packages/skills` / `packages/mcp`）已包含当前版本段（防止漏跑 `pnpm changelog` 直接发布；普通提交版本未变时自动通过）；
 4. `pnpm changeset publish`：
    - **只发布有 changeset 记录的包**，无变更时安全退出（`No unpublished projects to publish`）；
-   - 在 pnpm 项目内部调用 `pnpm publish`：自动替换 `workspace:*` 为实际版本，发布顺序由 changesets 编排（`@dependfix/core` / `@dependfix/skills` 先于 `dependfix`）；
+   - 在 pnpm 项目内部调用 `pnpm publish`：自动替换 `workspace:*` 为实际版本，发布顺序由 changesets 编排（`@dependfix/core` / `@dependfix/skills` 先于 `dependfix`，`@dependfix/mcp` 最后）；
    - 通过 **OIDC trusted publishing** 认证（`id-token: write` + npmjs.com 的 Trusted Publisher 配置），无需 `NPM_TOKEN`；
    - 发布成功后本地创建 `<pkg>@<version>` 格式的 git tag（如 `dependfix@0.1.1`）；
 5. `Push release tags`：将 changeset publish 创建的本地 tag 推送到 GitHub（`git push origin --tags`，通过 `GITHUB_TOKEN` 认证）。
@@ -205,6 +221,7 @@ git push origin master
 
 - **发布不需要手动打 `v*` tag**：`changeset publish` 只发布有变更的包，包版本不同步（例如只 bump 了 `dependfix`，`@dependfix/core` 未变）时未变更的包会被自动跳过，不存在"一个 tag 表达不了多版本"的问题；
 - `changeset publish` 成功后会为每个发布的包创建 `<pkg>@<version>` 格式的 git tag（changesets / lerna 生态惯例），由 CI 的 `Push release tags` 步骤推送到 GitHub，供 GitHub Release 关联与后续精确回溯；
+- **手动发布（首次 0.1.0 / 补发）不会创建 tag**：必须手动补打 `<pkg>@<version>` tag 并推送（见"首次发布"步骤 6），否则 changelog 分段锚点缺失（全部历史并入当前版本段）且 changeset 推导基线错位；
 - 注意：若发布成功但后续步骤失败导致重跑，已发布的包会被跳过、tag 不会重建（可从 Git 历史手动补打）；
 - 首次发布的 `v0.1.0` tag 仅用于 GitHub Release 展示与 Action 引用；文档中的 `uses: dependfix/dependfix@v1` 滚动 tag 待 `1.0.0` 稳定版发布后再启用。
 
@@ -213,12 +230,12 @@ git push origin master
 - **changesets 不负责生成 changelog**（`.changeset/config.json` 中 `"changelog": false`），仅负责版本提升与发布；
 - **CHANGELOG 由 `pnpm changelog` 生成**（`scripts/changelog.mjs`），基于 conventional commit 消息 + `conventional-changelog-cmyr-config`（与 momei / semantic-release-cmyr-config 生态同一套格式）：
   - **根级 `CHANGELOG.md`**：全仓库的 feat/fix/refactor 类 commit（chore/ci/docs 等类型由 preset 过滤，不进入日志；全局改动如 CI / 文档 / workspace 配置自然不展示），版本段以 `dependfix@` tag 序列划分（dependfix 为主交付物，core 单独发布的变更会随下一次 dependfix 发布段出现）；
-  - **包级 `CHANGELOG.md`**（`packages/cli`、`packages/core`、`packages/skills`）：按 `git log -- <path>` 精确过滤——只有实际改动该包路径的 commit 才会进入对应日志（一个 commit 同时改两个包时会同时出现在两包日志中，这是真实影响面的体现）；`@dependfix/skills` 的同步脚本 `scripts/sync-skills.mjs` 属仓库根路径，不匹配任何包，其改动只进根级日志；
+  - **包级 `CHANGELOG.md`**（`packages/cli`、`packages/core`、`packages/skills`、`packages/mcp`）：按 `git log -- <path>` 精确过滤——只有实际改动该包路径的 commit 才会进入对应日志（一个 commit 同时改两个包时会同时出现在两包日志中，这是真实影响面的体现）；`@dependfix/skills` 的同步脚本 `scripts/sync-skills.mjs` 属仓库根路径，不匹配任何包，其改动只进根级日志；
   - 分组语言由根 `package.json` 的 `changelog.language: "zh"` 控制（中文 emoji 分组：✨ 新功能 / 🐛 Bug 修复 / 📦 代码重构 等）；
 - **全局改动归属约定**：根目录文件（`docs/`、`.github/`、`pnpm-workspace.yaml` 等）不匹配任何包的 path，不会出现在包级日志；若某全局改动确实影响包行为（如 overrides 改依赖解析），应在 commit 中落在包路径内或拆分提交，否则只记录在根级日志；
 - **生成是增量追加的**：已存在的 CHANGELOG.md 只更新**未发布版本段**（版本号等于当前 pkg 版本且尚无对应 tag 的段，即最新 tag 之后的全部新增 commit），已发布历史段完整保留文件现状——历史 commit 重写或手动编辑均不被覆盖；文件不存在时首次全量生成；无未发布内容（版本等于最新 tag）时文件保持不变；
 - **生成时机与边界行为**：在 `changeset version` 之后、publish 之前运行（此时新版本尚无 tag，未发布段输出全部新增 commit）；若在版本等于最新 tag 时运行（如 core-only 发布后、或发布后立即重跑），未发布段无新增内容（writer 可能产生的空版本段会被自动过滤），文件保持不变；
-- **版本标题与 tag**：根级与包级日志的版本段均按 `dependfix@` / `@dependfix/core@` / `@dependfix/skills@` tag 序列划分（changeset publish 自动创建）。**手动发布补 tag 约束**：分段锚点是"tag 指向的 commit 自身携带的 gitTags"，包级日志还有 `git log -- <path>` 过滤——因此补打历史 tag 时必须指向**同时 touch 该包路径**的 commit（0.1.0 补打 `dependfix@0.1.0` / `@dependfix/core@0.1.0` 指向 dc607026，该 commit 同时改动两包 eslint.config.js）；若 tag 指向纯 docs/全局 commit（如 `v0.1.0` → c213fc21），包级日志因 path 过滤看不到锚点，全部历史会并入当前版本段（表现为 changelog 非增量）；
+- **版本标题与 tag**：根级与包级日志的版本段均按 `dependfix@` / `@dependfix/core@` / `@dependfix/skills@` / `@dependfix/mcp@` tag 序列划分（changeset publish 自动创建）。**手动发布补 tag 约束**：分段锚点是"tag 指向的 commit 自身携带的 gitTags"，包级日志还有 `git log -- <path>` 过滤——因此补打历史 tag 时必须指向**同时 touch 该包路径**的 commit（0.1.0 补打 `dependfix@0.1.0` / `@dependfix/core@0.1.0` 指向 dc607026，该 commit 同时改动两包 eslint.config.js）；若 tag 指向纯 docs/全局 commit（如 `v0.1.0` → c213fc21），包级日志因 path 过滤看不到锚点，全部历史会并入当前版本段（表现为 changelog 非增量）；
 - **依赖变更提示差异**：changesets 原会在依赖包变更时向依赖方日志写入 `Updated dependencies` 行，本方案不自动生成（npm 安装时会自动带上新依赖版本，不影响使用）；
 - **依赖版本**：必须使用 `conventional-changelog@^7`（8.x 模板引擎与 cmyr-config 3.x 不兼容）。
 

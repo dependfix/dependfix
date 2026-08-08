@@ -26,6 +26,9 @@
     "bin": {
         "dependfix-mcp": "./dist/bin.mjs"
     },
+    "engines": {
+        "node": ">=20"
+    },
     "exports": {
         ".": {
             "types": "./dist/index.d.mts",

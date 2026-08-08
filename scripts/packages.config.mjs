@@ -54,13 +54,13 @@ export const PACKAGES = [
     {
         path: 'packages/mcp',
         pkg: '@dependfix/mcp',
-        changelog: 'packages/mcp/CHANGELOG.md',
+        // 发布链路暂未就绪（延后：先完成拆包调整，见 docs/plan/backlog.md §T706）
+        changelog: null,
         tags: { prefix: '@dependfix/mcp@' },
         publishOrder: 4,
         rootChangelog: false,
-        // 发布链路已就绪（2026-08-09，M7 T706 前置动作，见 docs/plan/backlog.md §T706）：
-        // 发布前置完成后已从 .changeset/config.json ignore 同步移除
-        publishable: true,
+        // 已在 .changeset/config.json ignore 登记，避免被 changeset publish 意外发布
+        publishable: false,
     },
 ]
 

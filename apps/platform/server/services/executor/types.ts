@@ -32,6 +32,8 @@ export interface ScanExecutorResult {
     result?: RunResult
     /** 执行级失败（非业务失败：超时/环境缺失/触发失败等） */
     error?: { code: string, message: string }
+    /** B 模式：action run 页面 URL（触发后轮询定位；容器执行无此字段） */
+    runUrl?: string
     startedAt: string
     finishedAt: string
 }

@@ -131,6 +131,8 @@ export class ActionTriggerExecutor implements ScanExecutor {
                 actions: [],
                 errors: [],
             },
+            // runUrl 存在性独立于 error：有 runUrl → error undefined；无 → 提示未定位
+            runUrl: runUrl ?? undefined,
             error: runUrl
                 ? undefined
                 : {
@@ -159,8 +161,9 @@ export class ActionTriggerExecutor implements ScanExecutor {
                 if (run) {
                     return run.html_url
                 }
-            } catch {
-                // 轮询失败不阻断（runUrl 缺失可接受）
+            } catch (pollError) {
+                // 轮询失败不阻断（runUrl 缺失可接受）；下一轮重试
+                void pollError
             }
         }
         return null

@@ -13,7 +13,7 @@ export default defineConfig({
         coverage: {
             provider: 'v8',
             // 只统计两个包的源码；排除测试文件 / 构建产物 / 声明文件
-            include: ['packages/core/src/**/*.ts', 'packages/cli/src/**/*.ts'],
+            include: ['packages/core/src/**/*.ts', 'packages/cli/src/**/*.ts', 'packages/mcp/src/**/*.ts'],
             exclude: [
                 '**/*.test.ts',
                 '**/*.d.ts',

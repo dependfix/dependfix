@@ -1,0 +1,63 @@
+{
+    "name": "@dependfix/mcp",
+    "version": "0.1.0",
+    "description": "MCP Server for dependfix: expose scan/fix capabilities to AI assistants",
+    "author": "CaoMeiYouRen",
+    "license": "MIT",
+    "type": "module",
+    "keywords": [
+        "mcp",
+        "model-context-protocol",
+        "dependabot",
+        "security",
+        "dependfix"
+    ],
+    "homepage": "https://github.com/dependfix/dependfix#readme",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/dependfix/dependfix.git"
+    },
+    "bugs": {
+        "url": "https://github.com/dependfix/dependfix/issues"
+    },
+    "main": "./dist/index.mjs",
+    "module": "./dist/index.mjs",
+    "types": "./dist/index.d.mts",
+    "bin": {
+        "dependfix-mcp": "./dist/bin.mjs"
+    },
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.mts",
+            "import": "./dist/index.mjs",
+            "default": "./dist/index.mjs"
+        },
+        "./package.json": "./package.json"
+    },
+    "files": [
+        "dist"
+    ],
+    "scripts": {
+        "build": "tsdown",
+        "prebuild": "rimraf dist",
+        "dev": "tsdown --watch",
+        "typecheck": "tsc --noEmit",
+        "lint": "eslint . --fix",
+        "test": "vitest run"
+    },
+    "dependencies": {
+        "@dependfix/core": "workspace:*",
+        "@modelcontextprotocol/sdk": "^1.30.0",
+        "dependfix": "workspace:*",
+        "zod": "^4.4.3"
+    },
+    "devDependencies": {
+        "nock": "^14.0.17",
+        "rimraf": "^6.1.3",
+        "tsdown": "^0.22.14",
+        "typescript": "^5.9.3"
+    },
+    "publishConfig": {
+        "access": "public"
+    }
+}

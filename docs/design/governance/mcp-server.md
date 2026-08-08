@@ -24,8 +24,8 @@
 | Tool | 功能 | 输入 Schema | 输出 |
 |:-----|:-----|:-----|:-----|
 | `fetch_alerts` | 拉取 Dependabot 告警 | `repo: string`, `severity?: string` | `NormalizedSecurityAlert[]` |
-| `fix_dependency` | 修复单个依赖 | `repo: string`, `packageName: string`, `targetVersion: string` | `DependencyFixResult` |
-| `run_scan` | 执行完整扫描修复 | `repo: string`, `mode?: 'report-only' \| 'fix'`, `severity?: string` | `RunResult` |
+| `fix_dependency` | 修复单个依赖 | `workDir: string`, `packageName: string`, `targetVersion: string` | `DependencyFixResult` |
+| `run_scan` | 执行完整扫描修复 | `repo: string`, `mode?: 'report-only' \| 'fix' \| 'fix-and-pr'`, `severity?: string` | `RunResult` |
 | `get_last_report` | 读取最近一次 JSON 报告 | — | `RunResult \| null` |
 
 ---
@@ -97,13 +97,14 @@ MCP Server 不依赖 CLI args 解析，直接走程序化 API。这要求 `Depen
   description: '对目标仓库执行 dependfix 扫描并修复',
   inputSchema: {
     repo: { type: 'string', description: 'owner/repo' },
-    mode: { type: 'string', enum: ['report-only', 'fix'], default: 'report-only' },
+    mode: { type: 'string', enum: ['report-only', 'fix', 'fix-and-pr'], default: 'report-only' },
     severity: { type: 'string', default: 'high' },
   },
 }
 ```
 
-> 注意：`fix` 模式会修改文件，应以 `report-only` 为默认。
+> 注意：`fix` / `fix-and-pr` 模式会修改文件或创建 PR，应以 `report-only` 为默认。
+> `fix` 类模式依赖进程 cwd 为目标仓库 clone 目录（fix_dependency 同理需本地 workDir）。
 
 ### 4.3 认证
 

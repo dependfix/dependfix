@@ -90,17 +90,17 @@
 - 依赖：T505、T109（`DependfixApp` 程序化接口）
 - 交付物：`packages/mcp`（`@dependfix/mcp`）+ 4 个 tool + CLI 一致性断言。
 - 任务内容：
-  - [ ] `packages/mcp` 初始化，tsdown 构建（ESM + CJS + dts）
-  - [ ] 集成 `@modelcontextprotocol/sdk`（stdio 传输）
-  - [ ] `fetch_alerts`（只读）：拉取 Dependabot 告警，schema 见 [mcp-server.md](../design/governance/mcp-server.md)（T508 预留核对点）
-  - [ ] `get_last_report`（只读）：读取最近 JSON 报告
-  - [ ] `run_scan`（写入）：复用 `DependfixApp` 程序化接口，默认 `report-only`
-  - [ ] `fix_dependency`（写入）：复用 `overrideTransitiveDependency` 升级逻辑
-  - [ ] 验证 MCP tool 结果与 CLI 输出一致性（T508 一致性断言清单承接）
+  - [x] `packages/mcp` 初始化，tsdown 构建（ESM + CJS + dts）
+  - [x] 集成 `@modelcontextprotocol/sdk`（stdio 传输）
+  - [x] `fetch_alerts`（只读）：拉取 Dependabot 告警，schema 见 [mcp-server.md](../design/governance/mcp-server.md)（T508 预留核对点）
+  - [x] `get_last_report`（只读）：读取最近 JSON 报告
+  - [x] `run_scan`（写入）：复用 `DependfixApp` 程序化接口，默认 `report-only`
+  - [x] `fix_dependency`（写入）：复用 `overrideTransitiveDependency` 升级逻辑
+  - [x] 验证 MCP tool 结果与 CLI 输出一致性（T508 一致性断言清单承接）
 - 非目标：npm 发布与 skill 双后端集成（M7 T706）、多传输（http/SSE）、凭据管理（读环境变量，见设计文档 §4.3）
 - 完成定义：
-  - [ ] 可通过 `npx @dependfix/mcp` 启动并注册 4 个 tool
-  - [ ] MCP tool 与 CLI 输出一致性测试通过
+  - [x] 可通过 `npx @dependfix/mcp` 启动并注册 4 个 tool（bin 构建产物验证：`dist/bin.mjs` 生成 + `createMcpServer` 冒烟；发布级启动留 T706）
+  - [x] MCP tool 与 CLI 输出一致性测试通过（fetch-alerts nock 一致性断言 4 用例）
 
 ### T607 执行器设计与沙箱评估（设计先行 + Action 触发实现）
 

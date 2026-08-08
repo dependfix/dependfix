@@ -137,6 +137,10 @@
   - 状态：🔶 待评估（不阻塞 M6）
   - 内容：security.md 未登记 T602 凭据加密机制（ENCRYPTION_KEY / AES-256-GCM / 解密仅执行时内存 / 凭据最小化），加密设计散落 executor-sandbox.md §3 与 credential.service.ts 注释；安全设计文档应与实现同步补"凭据加密存储"一节
   - 来源：M6 终审（2026-08-08，deep Review Gate warning 4）
+- **C29 平台 UI 暗色模式不可用**（用户反馈登记）
+  - 状态：🔶 待修复（后续处理，不阻塞 M6 验收）
+  - 内容：M6 平台 UI 的暗色模式不可用（T601 任务内容含"暗色模式 `.dark` 类切换"，`nuxt.config.ts` 已配 `darkModeSelector: '.dark'` 与 PrimeVue 主题预设，但实际切换后样式异常/不生效）。修复前需先以视觉验证确认现象与范围（用 UI Validator 子 agent，视觉模型 opencode-go/qwen3.7-plus 截图审计），修复方向：`.dark` 类挂载位置与 PrimeVue 主题联动、SCSS/BEM 变量（`_variables.scss`）暗色分支、页面级硬编码颜色清查
+  - 来源：2026-08-08 用户反馈（附截图，需视觉能力复核）
 
 ---
 

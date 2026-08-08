@@ -51,6 +51,8 @@ export default defineNuxtConfig({
         authSecret: process.env.AUTH_SECRET || 'dev-secret-change-me',
         encryptionKey: process.env.ENCRYPTION_KEY || '',
         smtpEnabled: !!process.env.SMTP_HOST,
+        // 关闭注册（保留登录）：公开部署时设置 REGISTRATION_DISABLED=true
+        registrationDisabled: process.env.REGISTRATION_DISABLED === 'true',
         public: {
             // 客户端可见配置
             appName: 'dependfix',

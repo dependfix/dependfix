@@ -37,7 +37,12 @@ const onSubmit = async () => {
             name: name.value.trim() || (email.value.split('@')[0] ?? ''),
         })
         if (signUpError) {
-            error.value = `注册失败：${signUpError.message ?? '未知错误'}`
+            // better-auth 禁用注册时返回 EMAIL_PASSWORD_SIGN_UP_DISABLED → 映射为友好中文提示
+            if (signUpError.message?.includes('sign up is not enabled') || signUpError.code === 'EMAIL_PASSWORD_SIGN_UP_DISABLED') {
+                error.value = '注册已关闭：平台未开放注册，请联系管理员'
+            } else {
+                error.value = `注册失败：${signUpError.message ?? '未知错误'}`
+            }
             return
         }
         await navigateTo('/dashboard')

@@ -11,18 +11,23 @@ import { User } from '#server/entities/user'
  * - 会话数据库持久化 30 天，每 1 天续期
  * - 雪花 ID 与实体 @BeforeInsert 同源
  * - 单用户 MVP：注册默认开放，首个注册用户自动成为管理员（任务归属见 `docs/plan/todo.md` §M6）
+ * - 注册开关：`REGISTRATION_DISABLED=true` 时禁用注册（better-auth disableSignUp，
+ *   登录不受影响；首个管理员需在开放期注册，之后可关闭）
  */
 
 /** better-auth 实例类型（由实际配置推断，含 role 等附加字段） */
 const buildAuth = (ds: Awaited<ReturnType<typeof ensureDatabaseInitialized>>, options: {
     authSecret: string
     smtpEnabled: boolean
+    registrationDisabled: boolean
 }) => betterAuth({
     appName: 'dependfix',
     secret: options.authSecret,
     database: typeormAdapter(ds),
     emailAndPassword: {
         enabled: true,
+        // 关闭注册（保留登录）：部署到公开环境时设置 REGISTRATION_DISABLED=true
+        disableSignUp: options.registrationDisabled,
         minPasswordLength: 8,
         requireEmailVerification: options.smtpEnabled,
         sendResetPassword: async () => {
@@ -90,6 +95,7 @@ export type AuthInstance = ReturnType<typeof buildAuth>
 export const getAuthInstance = async (options: {
     authSecret: string
     smtpEnabled: boolean
+    registrationDisabled: boolean
 }): Promise<AuthInstance> => {
     const ds = await ensureDatabaseInitialized()
 
@@ -124,6 +130,7 @@ export const getAuth = async (): Promise<AuthInstance> => {
         scope[GLOBAL_AUTH_KEY] = await getAuthInstance({
             authSecret: config.authSecret,
             smtpEnabled: config.smtpEnabled,
+            registrationDisabled: config.registrationDisabled,
         })
     }
     return scope[GLOBAL_AUTH_KEY]!

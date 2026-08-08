@@ -1,4 +1,5 @@
-import { mkdtemp, readFile, rm } from 'node:fs/promises'
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { readdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { execFile } from 'node:child_process'
@@ -87,19 +88,15 @@ export class ActionResultFetcher {
         const tempDir = await mkdtemp(join(tmpdir(), 'dependfix-artifact-'))
         try {
             const zipPath = join(tempDir, 'report.zip')
-            const { writeFile } = await import('node:fs/promises')
             await writeFile(zipPath, zipBuffer)
             await execFileAsync('unzip', ['-o', zipPath, '-d', tempDir], { timeout: 30_000 })
-            const { readdirSync } = await import('node:fs')
-            const files = readdirSync(tempDir).filter((f) => f.endsWith('.json'))
-            if (files.length === 0) {
-                throw new Error('artifact 中未找到 JSON 报告')
+            // 显式按 dependfix-report- 前缀过滤（排除 index.json 等归档索引，避免 readdir 顺序依赖）
+            const reportFiles = readdirSync(tempDir)
+                .filter((f) => f.startsWith('dependfix-report-') && f.endsWith('.json'))
+            if (reportFiles.length === 0) {
+                throw new Error('artifact 中未找到 dependfix-report-*.json 报告')
             }
-            const reportFile = files[0]
-            if (!reportFile) {
-                throw new Error('artifact 中未找到 JSON 报告')
-            }
-            const report = JSON.parse(await readFile(join(tempDir, reportFile), 'utf-8')) as RunResult
+            const report = JSON.parse(await readFile(join(tempDir, reportFiles[0]!), 'utf-8')) as RunResult
             return report
         } finally {
             await rm(tempDir, { recursive: true, force: true }).catch(() => { /* 清理失败静默 */ })

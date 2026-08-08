@@ -173,6 +173,8 @@ GitHub `dispatches` API 成功返回 204 即触发受理，但不返回 run id�
 
 **结论**：B 模式作为**降级路径**保留——适合"平台服务器资源受限 + 目标仓库已配置 action"场景；M6 实现触发（`ActionTriggerExecutor`）与结果回填（`ActionResultFetcher`，C25 已实现）；默认路径仍是 A 模式 `ContainerExecutor`（T603）。
 
+> **同步等待边界**：M6 同步执行模型下，B 模式结果回填的 fetcher 轮询最长 30 分钟（`runTimeoutMs` 可配）——HTTP 请求会同步挂起至该上限。反向代理默认超时（如 Nginx 60s）可能先断开，用户侧表现为"扫描无响应"；此时已有降级路径（`result_fetch_failed` → `dispatched` + runUrl 提示跳转查看，action 实际已在目标仓库运行）。M7 T702 队列化后 B 模式改为异步回填，消除同步阻塞。
+
 ---
 
 ## 6. 相关文档

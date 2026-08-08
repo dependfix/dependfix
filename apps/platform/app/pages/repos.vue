@@ -139,6 +139,11 @@ const triggerScan = async (repo: RepoView) => {
     scanSuccess.value = ''
     lastRunUrl.value = null
     scanningId.value = repo.id
+    // B 模式（GitHub Action）同步等待 action 完成最长 30 分钟（结果回填）；
+    // 先提示用户避免误以为无响应（服务端降级为 dispatched + runUrl 提示）
+    if (repo.executorKind === 'github-action') {
+        scanSuccess.value = '正在触发 GitHub Action 扫描并等待结果（最长 30 分钟，可在扫描历史查看进度）…'
+    }
     try {
         const run = await $fetch(`/api/repos/${repo.id}/scan`, {
             method: 'POST',

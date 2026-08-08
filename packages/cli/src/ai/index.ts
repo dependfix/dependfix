@@ -92,6 +92,9 @@ export async function assessBreakingChange(options: AssessOptions): Promise<Asse
     }
 }
 
+// 注意：changelog-fetcher 刻意不在此收口——它仅供 ai 内部研判链路使用
+// （app-integration / prompt 深路径引用），当前非公共 API。
+// 如需从 API 面导出请先评估兼容性（与 runners/verification-gate 同款策略）。
 export { maskSecrets } from './secrets'
 export { estimateCostUsd, AiUsageTracker, type AiUsage } from './usage'
 export type { AiAssessment, AiFileChange, AiReplaceBlock } from './schema'

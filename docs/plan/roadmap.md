@@ -13,7 +13,7 @@
 | M4.6: Monorepo 成员级修复 | workspace 成员包直接依赖告警自动升级（T406 成员级修复器 + T407 分流接线） | P1 | 已完成（2026-08-07 归档；T406/T407 完成，Review Gate 三审 PASS） |
 | M5: AI Breaking Change 研判 | Changelog 采集、LLM 研判、修复生成、质量门、CLI 解耦 | P1 | 已完成（2026-08-07 归档；T501-T506 全部完成，903 tests，Review Gate 每任务独立审计） |
 | M5.5: Skill 编排（CLI 先行） | 产品 skill 分发（npx skills 主通道 + 自研兜底）与主流 agent 工具接入，MCP 为后续增强后端 | P2 | 已完成（2026-08-07 归档；T506-T508 完成，929 tests，Review Gate 每任务独立审计 PASS） |
-| M6: 最小平台 MVP | 仓库管理、凭据管理、仪表板、MCP Server、Docker 部署 | P1 | 规划中（2026-08-07，待 T601 启动） |
+| M6: 最小平台 MVP | 仓库管理、凭据管理、仪表板、MCP Server、Docker 部署 | P1 | 已完成（2026-08-08 归档；T601-T605+T607 全部完成，991 tests） |
 | M7: 企业级平台增强 | RBAC、BullMQ+Redis、跨平台 Git、MCP Skill 集成、Helm Chart | P2 | 未开始 |
 
 ## M0: 基线收敛
@@ -78,7 +78,7 @@ Changelog / Release Notes 采集、多 AI 提供商封装、AI 研判（问题�
 
 ## M5.5: Skill 编排（CLI 先行）
 
-将 dependfix 的自动化修复能力封装为可分发的 Agent Skill（`dependfix-remediator`），通过 CLI 直接调用，支持主流 agent 工具（Claude Code / GitHub Copilot / Cursor / OpenCode）接入；MCP 作为后续增强执行后端（M6 T605/M7 T706，合并口径见 [todo.md §M6](todo.md#m6-最小平台-mvp)），与 CLI 后端并存。
+将 dependfix 的自动化修复能力封装为可分发的 Agent Skill（`dependfix-remediator`），通过 CLI 直接调用，支持主流 agent 工具（Claude Code / GitHub Copilot / Cursor / OpenCode）接入；MCP 作为后续增强执行后端（M6 T605/M7 T706，合并口径见 [todo-archive.md §M6](todo-archive.md#m6-最小平台-mvp已归档)），与 CLI 后端并存。
 
 **背景与决策（2026-08-07 用户确认）**：MCP Server 原规划在 M6/M7 才落地，但当前 CLI 能力面（report/fix/fix-and-pr/cleanup-branches + 多仓库 + 双源 + PR 链路）已覆盖 MCP 规划的 4 个 tool（fetch_alerts / run_scan / fix_dependency / get_last_report）。skill 编排不依赖 MCP 即可工作；MCP 的增量价值是结构化 schema、无 shell 客户端覆盖与常驻进程批处理，属增强路径而非前置条件。
 
@@ -94,23 +94,25 @@ Changelog / Release Notes 采集、多 AI 提供商封装、AI 研判（问题�
 
 > **G2 驱动**：凭据管理须支持 PAT（classic / fine-grained）与 GitHub App 双模型——GITHUB_TOKEN 无法读取 Dependabot alerts，平台扫描必须依赖显式凭据（见 [todo-archive.md G2 处置记录](todo-archive.md#g2-处置记录github_token-无法访问-dependabot-alerts) 方案矩阵）。
 
-> **规划要点（2026-08-07 启动，任务定义见 [todo.md §M6](todo.md#m6-最小平台-mvp)）**：执行深度 A（平台容器完整修复链路）为主、B（触发目标仓库 Action）为降级；同步执行先行；MCP 保留并合并（T605 四 tool 完整交付）；沙箱问题重新评估（Q4=A 设计 + 容器内执行最小实现，T607 设计先行于 T603）；Action 触发实现 + 结果回填登记 backlog（C25）。平台定位为触发器/调度器（控制面），修复执行以 Executor 抽象隔离（数据面可在平台容器 / 独立沙箱 / Action）。
+> **规划要点（2026-08-07 启动，任务定义见 [todo-archive.md §M6](todo-archive.md#m6-最小平台-mvp已归档)）**：执行深度 A（平台容器完整修复链路）为主、B（触发目标仓库 Action）为降级；同步执行先行；MCP 保留并合并（T605 四 tool 完整交付）；沙箱问题重新评估（Q4=A 设计 + 容器内执行最小实现，T607 设计先行于 T603）；Action 触发实现 + 结果回填（C25 增强实现）。
 
-> 详细任务见 [todo.md §M6](todo.md#m6-最小平台-mvp)（原 [backlog.md §M6](backlog.md#m6-最小平台-mvp) 已转入）
+> **M6 已交付（2026-08-08 归档）**：T601-T605 + T607 全部完成——Nuxt 4 平台骨架（T601）、仓库与凭据管理 AES-256-GCM 加密存储（T602）、扫描触发与结果存储（T603）、仪表板与告警视图（T604）、`@dependfix/mcp` MCP Server 4 tool（T605）、执行器设计与沙箱评估 + ActionTriggerExecutor（T607）；M6 增强：B 模式结果回填（C25）、同仓库扫描互斥锁、REGISTRATION_DISABLED。991 tests。CI Test 端到端裁决通过；Docker 镜像构建 CI 链路未裁决（backlog C30）；平台 UI 暗色模式待修复（C29）。
+
+> 详细任务见 [todo-archive.md §M6](todo-archive.md#m6-最小平台-mvp已归档)
 
 ## M7: 企业级平台增强
 
 补齐多租户、高可用与跨平台能力：RBAC 权限、BullMQ + Redis 任务队列、GitLab/Bitbucket 支持、定时批量、PostgreSQL、Helm Chart。
 
-> 详细任务见 [backlog.md §M7](backlog.md)
+> 详细任务见 [backlog.md §M7](backlog.md#m7-企业级平台增强)
 
 ---
 
 ## 详细任务
 
-- 当前阶段任务：[todo.md](todo.md)（当前无进行中阶段，M5.5 已归档）
+- 当前阶段任务：[todo.md](todo.md)（当前无进行中阶段，M6 已归档）
 - 已归档阶段：[todo-archive.md](todo-archive.md)
-- 后续阶段任务（M6-M7）：[backlog.md](backlog.md)
+- 后续阶段任务（M7）：[backlog.md](backlog.md)
 
 ## 交付原则
 

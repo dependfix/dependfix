@@ -88,7 +88,7 @@
   - 状态：🔶 待评估（关联 M6 T602）
   - 内容：当前仅支持 PAT（`GITHUB_TOKEN` / `DEPENDFIX_GITHUB_TOKEN` / `DEPENDFIX_ALERTS_TOKEN`）；架构文档声明输入含 "GitHub App 凭证"（[architecture.md](../design/governance/architecture.md)），但 [github-client.md](../design/packages/github-client.md) 明确"不实现 GitHub App / Installation Token 认证"。org 场景 PAT 痛点：classic PAT 需 `repo` 全量 scope（权限过大）；fine-grained PAT 需逐仓库配置 + 逐个 org 启用 SSO；个人 token 离职/轮换管理困难。GitHub App 价值：按仓库授权限、短时 token、org 管理员可控可审计
   - 实现路径：`createGitHubClient` 增加 app auth（appId + privateKey → JWT → installation token），或支持直接注入 installation token（后者近零成本，当前传任意有效 token 即可用，缺的是文档化 + 生成链路）
-  - 关联：M6 T602 凭据管理已规划 GitHub App 凭据类型（app-id + private-key）；CLI 侧认证能力为其前置或并行增强
+  - 关联：M6 T602 凭据管理已交付 GitHub App 凭据类型（app-id + private-key，见 [todo-archive.md §M6](todo-archive.md#m6-最小平台-mvp已归档)）；CLI 侧认证能力为其前置或并行增强
   - 来源：2026-08-07 GitHub Organization 支持评估
 - **C23 发现规模上限 max-repos**（架构文档已规划未实现）
   - 状态：🔶 待评估
@@ -119,28 +119,25 @@
 
 ## M6: 最小平台 MVP
 
-> **已转入 todo.md（2026-08-07 规划）**：M6 任务明细与细化见 [todo.md §M6](todo.md#m6-最小平台-mvp)。规划决策（执行深度 A/B 双模式、同步执行、MCP 保留合并、沙箱设计先行、Action 触发实现）与 6 项任务（T601-T605 + T607，原 T605/T606 合并）已落盘。以下仅保留本阶段转移出的增强候选。
+> **已归档（2026-08-08）**：T601-T605 + T607 全部完成，见 [todo-archive.md §M6](todo-archive.md#m6-最小平台-mvp已归档)。以下仅保留本阶段转移出的增强候选与遗留观察项。
+> **已闭环清理**：C25（B 模式结果回填，17c5082f + 60d9fd6e）、C27（runUrl 状态语义，随 C25 联动解决）——记录见 [todo-archive.md §M6 治理记录](todo-archive.md#m6-阶段治理记录2026-08-07--2026-08-08)。
 
-- **C25 M6 Action 触发结果回填**（T607 登记，Q5=B 已知边界）
-  - 状态：✅ 已实现（2026-08-08）——`ActionResultFetcher`（轮询 run 完成 → 下载 `dependfix-report-{runId}` artifact → 解析 JSON 落库 ScanRun/ScanResult）；B 模式触发后同步等待结果，`completed` + 明细 / 结果未就绪 `dispatched` + runUrl / 触发失败 `failed`
-  - 内容：平台触发 `workflow_dispatch` 后，action 输出（扫描/修复结果）回填到平台结果存储（ScanRun/ScanResult）——通过 artifact 下载通道（action.yml 已上传 `dependfix-report-{runId}`）
-  - 来源：M6 规划（2026-08-07，Q5=B 评估+实现触发，回填边界）→ M6 增强（2026-08-08 用户要求自动拉取）
 - **C26 独立沙箱容器执行实现**（T607 设计文档产出后的实现候选）
   - 状态：🔶 待评估（M7 候选）
   - 内容：平台容器即沙箱的最小实现（M6 T603 `ContainerExecutor`）之后，若恶意依赖升级威胁面评估结论需要更严格隔离，实现独立 worker 容器（每任务/每仓库容器，网络/文件系统隔离）；与 M7 T702 BullMQ worker 模型结合
   - 来源：M6 规划（2026-08-07，Q4=A 设计+最小实现，完整沙箱留后续）
-- **C27 B 模式 runUrl 未定位状态语义**（M6 终审 W3 登记）
-  - 状态：✅ 已闭环（2026-08-08，随 C25 实现联动解决）——orchestrator B 模式三分支：结果已拉取 `completed` + 明细 / 触发成功但结果未就绪 `dispatched` + runUrl / 触发失败 `failed`；`run_url_not_resolved` 不再误置 failed
-  - 内容：`ActionTriggerExecutor` 触发 204 受理但轮询未定位 run 时返回 `run_url_not_resolved`，orchestrator 将 ScanRun 置 `failed`——UI 显示"扫描失败"，但 action 实际已在目标仓库运行，与事实不符。建议独立状态（如 `dispatched` + 提示"已触发，未能定位运行详情"）或前端按 error.code 区分展示；与 C25 结果回填联动评估
-  - 来源：M6 终审（2026-08-08，deep Review Gate warning 3）
 - **C28 security.md 补凭据加密存储章节**（M6 终审 W4 登记）
-  - 状态：🔶 待评估（不阻塞 M6）
-  - 内容：security.md 未登记 T602 凭据加密机制（ENCRYPTION_KEY / AES-256-GCM / 解密仅执行时内存 / 凭据最小化），加密设计散落 executor-sandbox.md §3 与 credential.service.ts 注释；安全设计文档应与实现同步补"凭据加密存储"一节
+  - 状态：🔶 待评估（不阻塞）
+  - 内容：security.md 未登记 T602 凭据加密机制（ENCRYPTION_KEY / AES-256-GCM / 解密仅执行时内存 / 凭据最小化），加密设计散落 executor-sandbox.md §3 与 credential.service.ts 注释；安全设计文档应与实现同步补"凭据加密存储"一节（T602 已交付，文档待补）
   - 来源：M6 终审（2026-08-08，deep Review Gate warning 4）
 - **C29 平台 UI 暗色模式不可用**（用户反馈登记）
   - 状态：🔶 待修复（后续处理，不阻塞 M6 验收）
   - 内容：M6 平台 UI 的暗色模式不可用（T601 任务内容含"暗色模式 `.dark` 类切换"，`nuxt.config.ts` 已配 `darkModeSelector: '.dark'` 与 PrimeVue 主题预设，但实际切换后样式异常/不生效）。修复前需先以视觉验证确认现象与范围（用 UI Validator 子 agent，视觉模型 opencode-go/qwen3.7-plus 截图审计），修复方向：`.dark` 类挂载位置与 PrimeVue 主题联动、SCSS/BEM 变量（`_variables.scss`）暗色分支、页面级硬编码颜色清查
   - 来源：2026-08-08 用户反馈（附截图，需视觉能力复核）
+- **C30 Publish Docker build job 被取消排查**（M6 归档 CI 端到端裁决登记）
+  - 状态：🔶 待评估（阻塞"镜像构建 CI 端到端裁决通过"结论）
+  - 内容：Publish Docker 工作流 build job（run 31260609196，e16aeda4 触发）在 QEMU 双平台（linux/amd64,linux/arm64）构建中运行 1h19m 后被取消（`##[error]The operation was canceled.`）。**根因已定位**：同 workflow 同 ref（master）的新 push（7cb1ad22d，15:13:11）触发 concurrency `cancel-in-progress: true` 取消旧 run；叠加 QEMU arm64 模拟构建过慢（1h+ 未完成）。缓解方向：docker.yml 拆分平台构建或减少平台、优先 amd64、验证 gha cache 命中；若采用频繁 push + 双平台模式，需评估取消旧 run 对镜像发布的影响
+  - 来源：M6 归档 CI 裁决（2026-08-08，run 31260609196 被 run 31263908976 取消）
 
 ---
 

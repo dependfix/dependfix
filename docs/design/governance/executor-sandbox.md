@@ -1,7 +1,7 @@
 # 执行器设计与沙箱评估
 
 > 状态：🔶 设计先行（T607，2026-08-08）——契约与威胁建模落盘，供 T603 实现 `ContainerExecutor`；独立沙箱容器实现留 M7。
-> 背景决策见 [todo.md §M6 规划决策](../../plan/todo.md#m6-最小平台-mvp)（Q1 执行深度 A/B 双模式、Q4 沙箱=A、Q5 Action 触发=B）。
+> 背景决策见 [todo-archive.md §M6 规划决策](../../plan/todo-archive.md#m6-最小平台-mvp已归档)（Q1 执行深度 A/B 双模式、Q4 沙箱=A、Q5 Action 触发=B）。
 
 ---
 

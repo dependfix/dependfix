@@ -407,3 +407,84 @@
 - **发布体系**: `@dependfix/skills` 纳入发布包清单与 CHANGELOG 体系（24e5c097，release.md 同步）；changeset 自动生成脚本（1c5bc3c1，semantic-release 规则从 git log 推导 bump 级别）
 - **已知边界（归档时点）**: GitHub 源端到端复验（主通道 + 全链质量门）依赖 CI 端到端裁决（本地网络受限），推送后复跑确认
 - **遗留登记**: MCP Server 本体（M6 T605/T606）；org 增强候选（C22-C24）；无阻塞项
+
+---
+
+## M6: 最小平台 MVP（已归档）
+
+> 归档日期: 2026-08-08
+> 阶段摘要: 参见 [roadmap.md §M6](roadmap.md)
+> 状态: 已完成（T601-T605 + T607 全部完成；CI Test 端到端裁决通过；Docker 镜像构建 CI 链路未裁决通过，登记 backlog C30）
+> 最终提交: `7cb1ad22d` docs(plan): 登记 C29 平台 UI 暗色模式待修复问题（含 M6 收尾修复批次 ec7221fd / 6cfbcb3c / 6edb4ac7）
+
+**阶段成果**: 可独立部署的最小平台 MVP——Nuxt 4 全栈平台（仓库/凭据管理 + 同步扫描 + 仪表板 + 注册登录）+ `@dependfix/mcp` MCP Server（4 tool）+ 执行器设计与沙箱评估文档 + B 模式 Action 触发与结果回填。991 tests（CI Test workflow 实测）。
+
+### 规划决策（2026-08-07 用户确认）
+
+- **D1 执行深度（Q1）**：平台扫描以 A 模式（完整修复链路）为主——平台容器内置 git/node/pnpm 工具链，复用 `DependfixApp` 程序化接口完整执行；B 模式（触发目标仓库 GitHub Action）为降级
+- **D2 执行模型（Q2）**：同步执行先行（请求内完成，前端 loading）；阻塞时间过长再演进后台异步（M7 T702 BullMQ 承接）
+- **D3 MCP（Q3）**：保留在 M6（原 T605/T606 合并为本阶段 T605，容量约束"进一出一"，同为 `@dependfix/mcp` 交付物）
+- **D4 沙箱（Q4=A）**：执行器抽象 + 容器内执行（平台 Docker 容器即沙箱）；独立沙箱容器 / GitHub Action 后端仅设计不实现
+- **D5 Action 降级触发（Q5=B）**：平台对已配置 action 的仓库触发 `workflow_dispatch`（需 `actions: write`）；结果回填曾为已知边界 → M6 增强（C25）实现
+- **D6 平台定位**：平台 = 触发器/调度器 + 结果展示（控制面）；修复执行（数据面）以 Executor 抽象隔离
+- **D7 平台结构参考**：`apps/platform/` 对齐 momei 项目结构（Nuxt 全栈：`server/api` + `server/services` + `server/database` + better-auth + TypeORM + SQLite）
+
+### T601 平台项目骨架搭建 ✅
+
+- **交付物**: `apps/platform/` Nuxt 4 全栈项目 + Dockerfile + docker-compose.yml
+- **实现内容**: Nuxt 4 初始化（TypeScript strict、`<script setup>`）+ PrimeVue 4 + `@primeuix/themes` + SCSS（BEM）+ 暗色模式 `.dark` 类；better-auth 集成（邮箱密码登录 + TypeORM Adapter + 会话持久化 30 天 + SMTP 未配置自动跳过邮箱验证 + `REGISTRATION_DISABLED` 关闭注册）；TypeORM + SQLite（`server/database/sqlite/`）；Dockerfile 多阶段 alpine（构建含 git/pnpm 工具链）；env 隔离约束（`PORT` 可配、DB 文件路径独立）
+- **非目标**: 页面业务功能（T602-T604）、i18n / PWA / Sentry（M7）
+- **验收**: 根 lint/typecheck 通过（含平台，CI 实测）；`pnpm dev` 注册登录闭环本地验证；docker compose 拉起依赖镜像构建（C30 观察）
+- **Review Gate / 经验**: T601 单次大 diff 成本失控教训 → 长任务分批提交治理（a808b376 立规，经验归档 §二十四）
+
+### T602 仓库与凭据管理 ✅
+
+- **交付物**: Repository CRUD + Credential 加密存储 + Web UI
+- **实现内容**: Repository 实体（owner/repo/platform/defaultBranch/packageManager/credentialId）+ CRUD API（Zod 校验）；Credential 实体（classic-pat / fine-grained-pat / github-app）+ AES-256-GCM 加密存储（`ENCRYPTION_KEY` 平台级密钥，解密仅在执行时 worker 内存中）；Dependabot alerts 读取必须显式凭据（G2 处置）；Web UI 仓库列表/添加/编辑/删除 + 凭据管理页
+- **验收**: Web UI 增删改查闭环；DB 中 token 为密文（直查 sqlite 验证）+ 解密单元测试
+
+### T603 扫描触发与结果存储 ✅
+
+- **交付物**: ScanRun/ScanResult 持久化 + 同步扫描执行（ContainerExecutor）+ Web UI 触发与结果查看
+- **实现内容**: ScanRun/ScanResult 实体（repoId/mode/severityThreshold/status/startedAt/finishedAt/summary）；Executor 抽象（T607 契约）——`ContainerExecutor`（默认，平台容器内置工具链，clone + 执行 `DependfixApp` + 结果回填）；同步执行模型（请求内执行，失败 → `failed`，原子写不写半截结果）；Web UI 触发单仓库扫描 + 结果/报告查看；同仓库扫描互斥锁（e1ef2a95，M6 轻量版，M7 T702 BullMQ 承接）
+- **验收**: Web UI 触发扫描并查看结构化结果；结果持久化 SQLite 重启可查
+
+### T604 仪表板与告警视图 ✅
+
+- **交付物**: 仪表板 + 告警筛选视图 + 扫描历史
+- **实现内容**: 仪表板统计（仓库数/告警数按严重级别/已修复数/最近扫描）+ 告警视图（按仓库/严重级别/来源筛选）+ 扫描历史列表与详情（仓库级扫描历史页 + 详情 Dialog）
+- **非目标**: 趋势图表、通知（M7）、导出
+- **验收**: 用户登录后可查看全局告警状态并筛选
+
+### T605 MCP Server（原 T605 + T606 合并）✅
+
+- **交付物**: `packages/mcp`（`@dependfix/mcp`）+ 4 个 tool + CLI 一致性断言
+- **实现内容**: `packages/mcp` 初始化（tsdown 构建 ESM + CJS + dts）；集成 `@modelcontextprotocol/sdk`（stdio 传输）；`fetch_alerts`（只读，schema 见 [mcp-server.md](../design/governance/mcp-server.md)）/ `get_last_report`（只读）/ `run_scan`（写入，复用 `DependfixApp` 默认 report-only）/ `fix_dependency`（写入，复用 `overrideTransitiveDependency`）；MCP tool 与 CLI 输出一致性断言（fetch-alerts nock 一致性断言 4 用例）
+- **非目标**: npm 发布与 skill 双后端集成（M7 T706）、多传输（http/SSE）
+- **验收**: `npx @dependfix/mcp` 启动注册 4 个 tool（`dist/bin.mjs` 生成 + `createMcpServer` 冒烟测试）；一致性断言测试通过
+
+### T607 执行器设计与沙箱评估（设计先行 + Action 触发实现）✅
+
+- **交付物**: 执行器/沙箱设计文档 + `ActionTriggerExecutor` + B 模式接入评估结论
+- **实现内容**: 设计文档（恶意依赖升级威胁建模 + 执行器方案矩阵 + Executor 接口契约）——见 [executor-sandbox.md](../design/governance/executor-sandbox.md)；`ActionTriggerExecutor`（对配置 action 的仓库触发 `workflow_dispatch`，凭据复用仓库关联 Credential，workflow 文件名仓库配置声明）；B 模式接入评估（使用方式/体验/成本写入设计文档 §5）；mcp-server.md 里程碑编号修正
+- **非目标**: 独立沙箱容器执行实现（M7）、action 结果回填（M6 内由 C25 增强实现）
+- **验收**: 设计文档 Review Gate 通过；平台可触发 `workflow_dispatch` 并返回触发结果；B 模式接入成本评估结论落盘
+
+### M6 完成判定（全部通过）
+
+- [x] T601-T605 + T607 全部交付并通过 Review Gate（M6 终审 deep Review Gate，warning 3/4 处置见 C27/C28）
+- [x] `pnpm typecheck` + `pnpm lint` + 全量测试 + `pnpm build` 通过（CI Test workflow 实测 991 passed；本地串行验证）
+- [x] `docker compose` 部署链路可构建（镜像构建 CI 端到端未裁决，登记 C30）
+- [x] MCP tool 注册冒烟 + CLI 一致性断言通过
+- [x] 沙箱设计文档 Review Gate + `workflow_dispatch` 触发实测
+
+### M6 阶段治理记录（2026-08-07 ~ 2026-08-08）
+
+- **提交序列**: M6 规划（681efec5）→ T601（48f9c7eb）→ **T607 设计文档（56b0e518，设计先行于 T602）** → T602（85aca268）→ ActionTriggerExecutor（1c7cdb90）→ T603（3d645b54 数据层 / 209bc48c 执行链路 / 98b3f4ab 前端）→ T604（506dd7c9 API / 2cb941e3 UI）→ T605（014f6d2c + 69f32796）→ server 别名（fb62e259）→ 完成标记（1d2ff14b）→ 发布包清单单点化（83edffc5）+ 经验归档 §二十五（89a2f142）→ REGISTRATION_DISABLED（9a4309cb）→ backlog 登记 C27/C28（216b00cb）→ C25 结果回填（17c5082f + 60d9fd6e 修复）→ 互斥锁（e1ef2a95）→ CI 链式修复（6b41556e / fcc161b4 / e16aeda4）→ **交付后收尾批次**（ec7221fd repositoryUpdateSchema partial 崩溃修复 / 6cfbcb3c platform lint 脚本与 vue 格式 / 6edb4ac7 dashboard stats findOne 缺 where 条件修复 / 7cb1ad22d 登记 C29 平台 UI 暗色模式待修复）
+- **Review Gate**: 每任务独立审计 + M6 终审 deep Review Gate（warning：W3 C27 runUrl 状态语义 → 随 C25 实现联动闭环；W4 C28 security.md 凭据加密章节 → 登记 backlog 待评估）
+- **M6 增强批次**: C25 B 模式结果回填（`ActionResultFetcher`：轮询 run 完成 → 下载 `dependfix-report-{runId}` artifact → 解析 JSON 落库；orchestrator 三分支 completed/dispatched/failed）；同仓库互斥锁（withRepoLock，进程内 FIFO）；REGISTRATION_DISABLED
+- **发布体系**: `@dependfix/mcp` 纳入发布包清单（发布包清单单点化 refactor）
+- **CI 端到端裁决（2026-08-08 推送后）**: Test workflow ✅（lint + lint:md + typecheck + 991 tests + nuxt prepare + workspace 预构建）；CodeQL ×2 ✅；Pages ✅；Publish Docker ❌（QA ✅；build 在 QEMU 双平台构建中 1h19m 被同 ref 新 push 的 concurrency cancel-in-progress 取消，登记 C30，根因已定位）
+- **经验沉淀**: 归档 §二十四（单次大 diff 成本失控：长任务分批提交）/ §二十五（新增发布包散落遗漏：包清单单点声明）；规范 a808b376（任务粒度约束与提交规模上限）
+- **已知边界（归档时点）**: Docker 镜像构建 CI 链路未裁决（C30）；M5.5 GitHub 源端到端复验仍依赖后续 CI 运行；security.md 凭据加密章节待补（C28）；平台 UI 暗色模式不可用待修复（C29）
+- **遗留登记（转入 backlog）**: C26（独立沙箱容器实现，M7 候选）、C28（security.md 凭据章节）、C29（平台 UI 暗色模式）、C30（Docker CI build 取消排查）；M7 T701-T706

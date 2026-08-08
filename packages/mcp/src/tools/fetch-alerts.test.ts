@@ -26,6 +26,23 @@ const rawDependabotAlert = (overrides: Record<string, unknown> = {}): Record<str
     ...overrides,
 })
 
+const rawCodeScanningAlert = (overrides: Record<string, unknown> = {}): Record<string, unknown> => ({
+    number: 11,
+    state: 'open',
+    rule: {
+        id: 'js/example-rule',
+        name: 'Example rule',
+        severity: 'error',
+        security_severity_level: 'high',
+    },
+    most_recent_instance: {
+        location: { path: 'src/foo.js', start_line: 1, end_line: 2 },
+        message: { text: 'example finding' },
+    },
+    html_url: 'https://github.com/o/r/security/code-scanning/11',
+    ...overrides,
+})
+
 afterEach(() => {
     nock.cleanAll()
     delete process.env.GITHUB_TOKEN
@@ -117,5 +134,65 @@ describe('fetchAlerts (一致性：与 CLI fetchDependabotAlerts 同源)', () =>
         const result = await fetchAlerts({ repo: 'invalid', severity: 'high' })
         expect(result.ok).toBe(false)
         expect((result as { error: string }).error).toContain('owner/repo')
+    })
+
+    it('fetches code scanning alerts in parallel when code_scanning is true', async () => {
+        process.env.GITHUB_TOKEN = 'ghp_test'
+        nock(API)
+            .get('/repos/owner-a/repo-b/dependabot/alerts')
+            .query(true)
+            .reply(200, [rawDependabotAlert()])
+        nock(API)
+            .get('/repos/owner-a/repo-b/code-scanning/alerts')
+            .query(true)
+            .reply(200, [rawCodeScanningAlert()])
+
+        const result = await fetchAlerts({ repo: 'owner-a/repo-b', severity: 'all', code_scanning: true })
+
+        expect(result.ok).toBe(true)
+        const alerts = (result as { alerts: Array<Record<string, unknown>> }).alerts
+        expect(alerts).toHaveLength(2)
+        // CS 告警字段对齐：packageName 为规则名、severity 映射、fixable 恒 false
+        expect(alerts[1]).toMatchObject({
+            severity: 'high',
+            packageName: 'Example rule',
+            manifestPath: 'src/foo.js',
+            fixable: false,
+        })
+    })
+
+    it('skips code scanning when code_scanning is false', async () => {
+        process.env.GITHUB_TOKEN = 'ghp_test'
+        nock(API)
+            .get('/repos/owner-a/repo-b/dependabot/alerts')
+            .query(true)
+            .reply(200, [rawDependabotAlert()])
+        nock(API)
+            .get('/repos/owner-a/repo-b/code-scanning/alerts')
+            .query(true)
+            .reply(200, [rawCodeScanningAlert()])
+
+        const result = await fetchAlerts({ repo: 'owner-a/repo-b', severity: 'all' })
+
+        expect(result.ok).toBe(true)
+        const alerts = (result as { alerts: Array<Record<string, unknown>> }).alerts
+        expect(alerts).toHaveLength(1)
+    })
+
+    it('fails the whole tool when code scanning fetch fails (no silent drop)', async () => {
+        process.env.GITHUB_TOKEN = 'ghp_test'
+        nock(API)
+            .get('/repos/owner-a/repo-b/dependabot/alerts')
+            .query(true)
+            .reply(200, [rawDependabotAlert()])
+        nock(API)
+            .get('/repos/owner-a/repo-b/code-scanning/alerts')
+            .query(true)
+            .reply(403, { message: 'Resource not accessible by integration' })
+
+        const result = await fetchAlerts({ repo: 'owner-a/repo-b', severity: 'all', code_scanning: true })
+
+        expect(result.ok).toBe(false)
+        expect((result as { error: string }).error).toContain('code scanning')
     })
 })

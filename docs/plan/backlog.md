@@ -144,12 +144,12 @@
 > 来源：2026-08-09 mcp 复用率与能力差距评估（core/cli/mcp 复用分析 + 与 CLI 能力面对比）。设计详见 [mcp-server.md §8 能力差距与演进路线](../design/governance/mcp-server.md#8-能力差距与演进路线)。
 > **约束**：MCP tool schema 变更对客户端是 breaking，P1 项一次性批量升级；AI apiKey 只走 env（`DEPENDFIX_AI_API_KEY`），禁止进 tool 参数；新能力优先复用 cli/core 已导出 API，缺导出先补 1 行导出而非在 mcp 层重写。
 
-- **C31 MCP 能力补充 P1**（本次实施）
-  - 状态：✅ 已交付（2026-08-09，见 [todo-archive.md §MCP 能力补充](todo-archive.md#mcp-能力补充p1p2p3)）
+- **C31 MCP 能力补充 P1**
+  - 状态：✅ 已交付（2026-08-09，提交 627f3b0d 后代码实施批次）
   - 内容：run_scan 配置参数化（`code_scanning` / `max_alerts` / `max_concurrency` / `dry_run` / `allow_major_upgrade`）；fetch_alerts 加 `code_scanning` 双源（前置：补 cli 导出 `fetchCodeScanningAlerts`）；fix_dependency 扩展 `fix_type`（override / direct / lockfile）
   - 前置：M7 T706 发布 npm 前完成
-- **C32 MCP 能力补充 P2**（本次实施）
-  - 状态：✅ 已交付（2026-08-09，见 [todo-archive.md §MCP 能力补充](todo-archive.md#mcp-能力补充p1p2p3)）
+- **C32 MCP 能力补充 P2**
+  - 状态：🔶 实施中（2026-08-09 登记；P2 代码尚未交付，交付后更新状态）
   - 内容：`discover_repos` tool（复用 discoverRepositories，org 发现 + 名单策略）；`cleanup_branches` tool（复用 pr-creator 底层函数自编排，语义对齐 autoCleanupMergedBranches——DependfixApp 的 cleanup-branches mode 走交互确认，非 TTY 不可用）；run_scan 加 AI 研判透传（`ai_enabled` / `ai_provider` / `ai_model` / `ai_trigger`，apiKey 从 env 读取）；`history` tool（复用 queryRepoHistory，前置：补 cli 导出）
   - 前置：M7 T706 发布 npm 前完成
 - **C33 MCP 能力补充 P3**（远期目标，不实施）

@@ -17,7 +17,16 @@ export type RunScanResult =
  * `run_scan`：对目标仓库执行 dependfix 扫描并修复。
  * 凭据从 GITHUB_TOKEN 环境变量读取；repo 为 GitHub 远程仓库（report-only 无需 clone）。
  */
-export const runScan = async (input: { repo: string, mode: 'report-only' | 'fix' | 'fix-and-pr', severity: string }): Promise<RunScanResult> => {
+export const runScan = async (input: {
+    repo: string
+    mode: 'report-only' | 'fix' | 'fix-and-pr'
+    severity: string
+    code_scanning?: boolean
+    max_alerts?: number
+    max_concurrency?: number
+    dry_run?: boolean
+    allow_major_upgrade?: boolean
+}): Promise<RunScanResult> => {
     const token = process.env.GITHUB_TOKEN
     if (!token) {
         return { ok: false, error: 'GITHUB_TOKEN not set（请配置环境变量）' }
@@ -33,17 +42,18 @@ export const runScan = async (input: { repo: string, mode: 'report-only' | 'fix'
         mode: input.mode,
         severityThreshold: input.severity as 'critical' | 'high' | 'medium' | 'all',
         repositories: [`${owner}/${repo}`],
-        dryRun: input.mode === 'report-only',
+        // dry-run 显式参数优先，缺省按 mode 推断（report-only 即只读）
+        dryRun: input.dry_run ?? (input.mode === 'report-only'),
         createPullRequest: input.mode === 'fix-and-pr',
         commit: input.mode === 'fix',
         cleanupBranches: false,
         cleanupBranchesAuto: false,
         githubToken: token,
         alertSource: 'github-dependabot',
-        codeScanningEnabled: false,
-        allowMajorUpgrade: false,
-        maxAlertsPerRepository: 20,
-        maxConcurrency: 1,
+        codeScanningEnabled: input.code_scanning ?? false,
+        allowMajorUpgrade: input.allow_major_upgrade ?? false,
+        maxAlertsPerRepository: input.max_alerts ?? 20,
+        maxConcurrency: input.max_concurrency ?? 1,
         maxRetries: 3,
         maxBackoffMs: 30_000,
     }

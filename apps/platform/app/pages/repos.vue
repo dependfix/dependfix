@@ -244,28 +244,28 @@ watch(toastMessage, (v) => {
                     <Column field="owner" header="Owner" />
                     <Column field="name" header="仓库" />
                     <Column header="默认分支">
-                        <template #body="{ data }">
+                        <template #body="{data}">
                             {{ data.defaultBranch }}
                         </template>
                     </Column>
                     <Column header="包管理器">
-                        <template #body="{ data }">
+                        <template #body="{data}">
                             <Tag :value="data.packageManager" severity="secondary" />
                         </template>
                     </Column>
                     <Column header="凭据">
-                        <template #body="{ data }">
+                        <template #body="{data}">
                             <span v-if="data.credentialName">{{ data.credentialName }}</span>
                             <span v-else class="text-muted">未关联</span>
                         </template>
                     </Column>
                     <Column header="执行方式">
-                        <template #body="{ data }">
+                        <template #body="{data}">
                             <Tag :value="data.executorKind === 'github-action' ? 'GitHub Action' : '平台容器'" />
                         </template>
                     </Column>
-                    <Column header="操作" :style="{ width: '230px' }">
-                        <template #body="{ data }">
+                    <Column header="操作" :style="{width: '230px'}">
+                        <template #body="{data}">
                             <Button
                                 icon="pi pi-play"
                                 text
@@ -316,7 +316,7 @@ watch(toastMessage, (v) => {
             v-model:visible="dialogVisible"
             :header="editingId ? '编辑仓库' : '添加仓库'"
             modal
-            :style="{ width: '520px' }"
+            :style="{width: '520px'}"
         >
             <form class="repo-form" @submit.prevent="submit">
                 <div class="repo-form__row">
@@ -380,8 +380,8 @@ watch(toastMessage, (v) => {
                             id="executorKind"
                             v-model="form.executorKind"
                             :options="[
-                                { label: '平台容器', value: 'container' },
-                                { label: 'GitHub Action', value: 'github-action' },
+                                {label: '平台容器', value: 'container'},
+                                {label: 'GitHub Action', value: 'github-action'}
                             ]"
                             option-label="label"
                             option-value="value"

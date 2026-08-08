@@ -198,18 +198,18 @@ onMounted(async () => {
                 >
                     <Column field="repository" header="仓库" />
                     <Column header="严重级别">
-                        <template #body="{ data }">
+                        <template #body="{data}">
                             <Tag :value="data.severity" :severity="severityTagSeverity(data.severity)" />
                         </template>
                     </Column>
                     <Column field="packageName" header="包/规则" />
                     <Column header="来源">
-                        <template #body="{ data }">
+                        <template #body="{data}">
                             <Tag :value="data.source" severity="secondary" />
                         </template>
                     </Column>
                     <Column header="可修复">
-                        <template #body="{ data }">
+                        <template #body="{data}">
                             <Tag
                                 :value="data.fixable ? '是' : '否'"
                                 :severity="data.fixable ? 'success' : 'secondary'"
@@ -218,12 +218,12 @@ onMounted(async () => {
                     </Column>
                     <Column field="recommendedVersion" header="推荐版本" />
                     <Column header="状态">
-                        <template #body="{ data }">
+                        <template #body="{data}">
                             <Tag :value="fixStatusLabel(data.fixStatus)" severity="secondary" />
                         </template>
                     </Column>
                     <Column header="链接">
-                        <template #body="{ data }">
+                        <template #body="{data}">
                             <a
                                 v-if="data.htmlUrl"
                                 :href="data.htmlUrl"

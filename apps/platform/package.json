@@ -8,10 +8,11 @@
     "node": ">=20"
   },
   "scripts": {
-    "dev": "nuxt dev",
+    "dev": "nuxt dev -o",
     "build": "nuxt build",
     "preview": "nuxt preview",
     "typecheck": "nuxt typecheck",
+    "lint": "cross-env NODE_ENV=production eslint . --fix --max-warnings 10",
     "test": "vitest run"
   },
   "dependencies": {
@@ -40,6 +41,7 @@
     "@types/better-sqlite3": "^7.6.13",
     "@types/pg": "^8.20.4",
     "nock": "^14.0.17",
-    "vue-tsc": "^3.3.9"
+    "vue-tsc": "^3.3.9",
+    "cross-env": "^10.0.0"
   }
 }

@@ -175,12 +175,12 @@ watch(toastMessage, (v) => {
                 >
                     <Column field="name" header="名称" />
                     <Column header="类型">
-                        <template #body="{ data }">
+                        <template #body="{data}">
                             <Tag :value="typeLabel(data.type)" />
                         </template>
                     </Column>
                     <Column header="Token">
-                        <template #body="{ data }">
+                        <template #body="{data}">
                             <Tag
                                 v-if="data.hasToken"
                                 value="已配置"
@@ -194,12 +194,12 @@ watch(toastMessage, (v) => {
                         </template>
                     </Column>
                     <Column header="创建时间">
-                        <template #body="{ data }">
+                        <template #body="{data}">
                             {{ new Date(data.createdAt).toLocaleString() }}
                         </template>
                     </Column>
-                    <Column header="操作" :style="{ width: '160px' }">
-                        <template #body="{ data }">
+                    <Column header="操作" :style="{width: '160px'}">
+                        <template #body="{data}">
                             <Button
                                 icon="pi pi-pencil"
                                 text
@@ -230,7 +230,7 @@ watch(toastMessage, (v) => {
             v-model:visible="dialogVisible"
             :header="editingId ? '编辑凭据' : '添加凭据'"
             modal
-            :style="{ width: '480px' }"
+            :style="{width: '480px'}"
         >
             <form class="credential-form" @submit.prevent="submit">
                 <div class="credential-form__field">
@@ -249,9 +249,9 @@ watch(toastMessage, (v) => {
                         id="type"
                         v-model="form.type"
                         :options="[
-                            { label: '经典 PAT', value: 'classic-pat' },
-                            { label: '细粒度 PAT', value: 'fine-grained-pat' },
-                            { label: 'GitHub App', value: 'github-app' },
+                            {label: '经典 PAT', value: 'classic-pat'},
+                            {label: '细粒度 PAT', value: 'fine-grained-pat'},
+                            {label: 'GitHub App', value: 'github-app'}
                         ]"
                         option-label="label"
                         option-value="value"

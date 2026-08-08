@@ -158,6 +158,9 @@ importers:
       '@types/pg':
         specifier: ^8.20.4
         version: 8.20.4
+      cross-env:
+        specifier: ^10.0.0
+        version: 10.1.0
       nock:
         specifier: ^14.0.17
         version: 14.0.17

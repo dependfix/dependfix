@@ -39,6 +39,13 @@ const logout = async () => {
                     仓库
                 </NuxtLink>
                 <NuxtLink
+                    to="/alerts"
+                    class="platform__nav-link"
+                    active-class="platform__nav-link--active"
+                >
+                    告警
+                </NuxtLink>
+                <NuxtLink
                     to="/credentials"
                     class="platform__nav-link"
                     active-class="platform__nav-link--active"

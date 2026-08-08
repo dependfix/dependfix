@@ -62,14 +62,14 @@
 - 依赖：T602、T505、**T607（设计先行）**
 - 交付物：ScanRun/ScanResult 持久化 + 同步扫描执行（Executor 容器内执行）+ Web UI 触发与结果查看。
 - 任务内容：
-  - [ ] ScanRun（repoId/mode/severityThreshold/status/startedAt/finishedAt/summary）与 ScanResult 实体设计
-  - [ ] Executor 抽象落地（T607 契约）：`ContainerExecutor`（默认，平台容器内置工具链，clone + 执行 `DependfixApp` + 结果回填）
-  - [ ] 同步执行模型（Q2）：请求内执行，前端 loading，失败 → `failed` 状态，不写半截结果（原子写）
-  - [ ] Web UI 触发单仓库扫描 + 结果/报告查看
+  - [x] ScanRun（repoId/mode/severityThreshold/status/startedAt/finishedAt/summary）与 ScanResult 实体设计
+  - [x] Executor 抽象落地（T607 契约）：`ContainerExecutor`（默认，平台容器内置工具链，clone + 执行 `DependfixApp` + 结果回填）
+  - [x] 同步执行模型（Q2）：请求内执行，前端 loading，失败 → `failed` 状态，不写半截结果（原子写）
+  - [x] Web UI 触发单仓库扫描 + 结果/报告查看
 - 非目标：后台异步队列/并发控制（M7 T702）、独立沙箱容器执行（T607 设计，M7 实现）
 - 完成定义：
-  - [ ] 可从 Web UI 对单个仓库触发扫描并查看结构化结果
-  - [ ] 扫描结果持久化 SQLite，重启平台后仍可查看
+  - [x] 可从 Web UI 对单个仓库触发扫描并查看结构化结果
+  - [x] 扫描结果持久化 SQLite，重启平台后仍可查看
 
 ### T604 仪表板与告警视图
 
@@ -77,12 +77,12 @@
 - 依赖：T603
 - 交付物：仪表板 + 告警筛选视图 + 扫描历史。
 - 任务内容：
-  - [ ] 仪表板：仓库数、告警数（按严重级别）、已修复数、最近扫描
-  - [ ] 告警视图：按仓库/严重级别/来源筛选
-  - [ ] 扫描历史列表与详情
+  - [x] 仪表板：仓库数、告警数（按严重级别）、已修复数、最近扫描
+  - [x] 告警视图：按仓库/严重级别/来源筛选
+  - [x] 扫描历史列表与详情（由 T603 runs.vue 承载：仓库级扫描历史页 + 详情 Dialog）
 - 非目标：趋势图表、通知（M7）、导出
 - 完成定义：
-  - [ ] 用户登录后可查看全局告警状态并筛选
+  - [x] 用户登录后可查看全局告警状态并筛选
 
 ### T605 MCP Server（原 T605 + T606 合并）
 

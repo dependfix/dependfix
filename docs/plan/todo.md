@@ -18,10 +18,10 @@
   - [x] 子任务 3（个人界面）：个人资料（头像/显示名）、修改密码/邮箱、第三方账号绑定、语言偏好（与 T708 联动）
 - 非目标：审计日志、邀请注册机制（登记 backlog）、T707 的第三方登录本身、repo_admin/username/多租户成员体系（登记 backlog，设计决策 D1/D2/D3）。
 - 验收：
-  - [ ] 权限矩阵测试：三角色登录后仅能访问权限范围内的 API 与页面（viewer 写操作 403）
-  - [ ] Admin 可完成用户管理闭环（列表/禁用/角色分配）；用户可编辑个人资料与偏好
-  - [ ] 组织归属落地（决策 D3 解读）：Repository/Credential 挂 organizationId + 默认组织迁移（SQLite 存量用例），凭据按组织归属隔离（架构文档 M7 预设）
-  - [ ] 写操作权限收紧为 admin/org_admin（预期行为变更，存量 user→viewer 披露）
+  - [x] 权限矩阵测试：三角色登录后仅能访问权限范围内的 API 与页面（viewer 写操作 403）——guard 层 11 例覆盖函数语义（admin 全通、org_admin 放行 [admin,org_admin] 拒 admin-only、viewer 403、未登录 401）；页面级守卫经浏览器验证（非 admin 访问 /users 跳 /dashboard）；端点级矩阵登记 backlog 补强
+  - [x] Admin 可完成用户管理闭环（列表/禁用/角色分配）；用户可编辑个人资料与偏好——浏览器验证 8/8 通过（用户列表/角色 Dropdown/禁用删除、个人设置五卡片、绑定账号过滤、修改资料/密码/邮箱）
+  - [x] 组织归属落地（决策 D3 解读）：Repository/Credential 挂 organizationId + 默认组织迁移（SQLite 存量用例），凭据按组织归属隔离（架构文档 M7 预设）——organization.test.ts 8 例实证（存量填充/幂等/并发安全/归属不覆盖/角色迁移）
+  - [x] 写操作权限收紧为 admin/org_admin（预期行为变更，存量 user→viewer 披露）——repos/credentials/scan 写路径全部 requireRole(['admin','org_admin']) + requireOrgResource；设计文档 §8.2 披露
 - 任务粒度：3 个子任务独立提交（对齐经验归档 §二十四）。
 
 ### T707 认证扩展：OIDC SSO / GitHub·Google OAuth / 邮箱域名黑白名单
@@ -45,7 +45,7 @@
 
 ## 当前状态
 
-- **规划状态**：M7 规划定稿（64efbb3e）→ M7.1 任务上收（23a9058b）→ 设计先行 [platform-auth-users.md](../design/governance/platform-auth-users.md) 完成（b0a0d33b，Review Gate 两轮 Pass）→ 决策 D1/D2/D3 用户确认（ac4ef8c0）。**当前为 M7.1 实施进行中**：T701 三个子任务全部完成（提交 5811e524 + 8d515aa8 + 2c2620e6 + dc712df1 + 待 T701-3 提交），等待 T701 整体验收与浏览器验证。
+- **规划状态**：M7 规划定稿（64efbb3e）→ M7.1 任务上收（23a9058b）→ 设计先行 [platform-auth-users.md](../design/governance/platform-auth-users.md) 完成（b0a0d33b，Review Gate 两轮 Pass）→ 决策 D1/D2/D3 用户确认（ac4ef8c0）。**T701 全部完成**（提交 5811e524 + 8d515aa8 + 2c2620e6 + dc712df1 + ce36ec37 + a115e351 + 781d3fa5）：子任务 1/2/3 与全部验收点落地，浏览器视觉验证 8/8 PASS（含 SSR 会话修复）。**当前为 T707 实施前状态**（依赖 T701，待推进）。
 - **已知边界**：
   - M5.5 的 npx skills GitHub 源端到端验证（主通道 + 全链质量门）依赖 CI 端到端裁决（本机 clone github.com 网络受限）。
   - Publish Docker 工作流 build job 在 QEMU 双平台构建中 1h19m 被同 ref 新 push 取消，镜像构建 CI 链路未裁决通过，排查项见 [backlog.md §M6](backlog.md)（C30）。

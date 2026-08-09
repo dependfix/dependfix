@@ -58,6 +58,25 @@ const adminRoles = {
     }),
 }
 
+/**
+ * 认证端点限流配置。
+ * 生产：better-auth 内置特殊规则已覆盖 sign-in/sign-up（10s/3 次）与密码重置类（60s/3 次），
+ * 且优先级高于 customRules（1.6.26 实证）——此处仅设全局兜底（60s/60 次），不重复声明无效规则。
+ * e2e 测试环境（E2E_TEST=true）：放宽全局 + 禁用 IP 追踪（见 advanced.ipAddress），避免并行用例触发 429。
+ */
+const buildRateLimit = () => {
+    if (process.env.E2E_TEST === 'true') {
+        return {
+            window: 60,
+            max: 1000,
+        }
+    }
+    return {
+        window: 60,
+        max: 60,
+    }
+}
+
 /** better-auth 实例类型（由实际配置推断，含 role 等附加字段） */
 const buildAuth = (ds: Awaited<ReturnType<typeof ensureDatabaseInitialized>>, options: {
     authSecret: string
@@ -67,6 +86,7 @@ const buildAuth = (ds: Awaited<ReturnType<typeof ensureDatabaseInitialized>>, op
     appName: 'dependfix',
     secret: options.authSecret,
     database: typeormAdapter(ds),
+    rateLimit: buildRateLimit(),
     plugins: [
         admin({
             // 新注册用户默认 viewer（角色模型；存量 'user' 由 migrateLegacyRoles 迁移）
@@ -114,6 +134,12 @@ const buildAuth = (ds: Awaited<ReturnType<typeof ensureDatabaseInitialized>>, op
         database: {
             // 与实体 @BeforeInsert 同源，保证 better-auth 生成的 id 也是雪花 ID
             generateId: () => snowflake.generateId(),
+        },
+        ipAddress: {
+            // e2e 测试环境禁用 IP 追踪：better-auth 内置特殊规则（sign-in 10s/3 次）
+            // 优先于 customRules，且无代理 IP 头时回退共享桶——并行测试必触发 429。
+            // 生产环境不设置（保留限流防护）。
+            ...(process.env.E2E_TEST === 'true' ? { disableIpTracking: true } : {}),
         },
     },
     user: {

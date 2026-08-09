@@ -13,10 +13,13 @@
     "preview": "nuxt preview",
     "typecheck": "nuxt typecheck",
     "lint": "cross-env NODE_ENV=production eslint . --fix --max-warnings 10",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "test:e2e:install": "playwright install chromium"
   },
   "dependencies": {
     "@dependfix/core": "workspace:*",
+    "@dependfix/engine": "workspace:*",
     "@octokit/rest": "^21.1.1",
     "@primeuix/themes": "^2.0.3",
     "@primevue/nuxt-module": "^4.5.5",
@@ -34,14 +37,14 @@
     "typeorm": "^1.1.0",
     "vue": "^3.5.40",
     "vue-router": "^5.2.0",
-    "zod": "^4.4.3",
-    "@dependfix/engine": "workspace:*"
+    "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@playwright/test": "^1.62.1",
     "@types/better-sqlite3": "^7.6.13",
     "@types/pg": "^8.20.4",
+    "cross-env": "^10.0.0",
     "nock": "^14.0.17",
-    "vue-tsc": "^3.3.9",
-    "cross-env": "^10.0.0"
+    "vue-tsc": "^3.3.9"
   }
 }

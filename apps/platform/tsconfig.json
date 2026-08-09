@@ -9,6 +9,8 @@
     "include": [
         ".nuxt/nuxt.d.ts",
         "app/**/*",
-        "server/**/*"
+        "server/**/*",
+        "playwright.config.ts",
+        "tests/**/*"
     ]
 }

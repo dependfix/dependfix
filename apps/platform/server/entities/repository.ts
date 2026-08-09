@@ -12,8 +12,14 @@ import { Organization } from './organization'
 /** 仓库托管平台（当前仅 GitHub） */
 export type RepositoryPlatform = 'github'
 
-/** 目标仓库（平台控制面记录，数据面执行由 Executor 承担） */
+/**
+ * 目标仓库（平台控制面记录，数据面执行由 Executor 承担）。
+ * owner/name/platform 组合唯一（同一平台同一仓库只允许一条记录）。
+ * 注意：复合唯一索引必须声明在类级——TypeORM 1.x 列级 @Index(['a','b','c'])
+ * 会错误生成仅含末列的单列索引（实测 UNIQUE(platform)），导致第二个仓库必然 500。
+ */
 @Entity('repository')
+@Index(['owner', 'name', 'platform'], { unique: true })
 export class Repository extends BaseEntity {
     /**
      * 所属组织 id（物理可空列：存量库 ALTER TABLE 无法加无默认值 NOT NULL 列；
@@ -34,8 +40,6 @@ export class Repository extends BaseEntity {
     @Column({ type: 'varchar', length: 100 })
     name!: string
 
-    /** owner/name/platform 组合唯一（同一平台同一仓库只允许一条记录） */
-    @Index(['owner', 'name', 'platform'], { unique: true })
     @Column({ type: 'varchar', length: 32, default: 'github' })
     platform!: RepositoryPlatform
 

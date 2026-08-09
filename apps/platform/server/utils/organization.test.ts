@@ -115,6 +115,23 @@ describe('organization utils', () => {
             const repos = await repoRepo.find()
             expect(repos[0]!.organizationId).toBe('another-org')
         })
+
+        it('多个仓库可共存（复合唯一索引为 owner+name+platform，非单列 platform）', async () => {
+            ds = await createMemoryDataSource()
+            const repoRepo = ds.getRepository(Repository)
+
+            // 回归保护：TypeORM 1.x 列级复合 @Index 会错误生成单列 UNIQUE(platform)，
+            // 导致第二个仓库（platform='github'）插入必然 500（e2e 二次运行实证）。
+            await repoRepo.save(repoRepo.create({ owner: 'o1', name: 'r1', platform: 'github' }))
+            await repoRepo.save(repoRepo.create({ owner: 'o2', name: 'r2', platform: 'github' }))
+            await repoRepo.save(repoRepo.create({ owner: 'o1', name: 'r3', platform: 'github' }))
+
+            const repos = await repoRepo.find()
+            expect(repos).toHaveLength(3)
+
+            // 相同 owner+name 才应冲突
+            await expect(repoRepo.save(repoRepo.create({ owner: 'o1', name: 'r1', platform: 'github' }))).rejects.toThrow()
+        })
     })
 
     describe('resolveOrganizationId', () => {

@@ -45,8 +45,9 @@
 
 ## 当前状态
 
-- **规划状态**：M7 规划定稿（64efbb3e）→ M7.1 任务上收（23a9058b）→ 设计先行 [platform-auth-users.md](../design/governance/platform-auth-users.md) 完成（b0a0d33b，Review Gate 两轮 Pass）→ 决策 D1/D2/D3 用户确认（ac4ef8c0）。**T701 全部完成**（提交 5811e524 + 8d515aa8 + 2c2620e6 + dc712df1 + ce36ec37 + a115e351 + 781d3fa5）：子任务 1/2/3 与全部验收点落地，浏览器视觉验证 8/8 PASS（含 SSR 会话修复）。**当前为 T707 实施前状态**（依赖 T701，待推进）。
+- **规划状态**：M7 规划定稿（64efbb3e）→ M7.1 任务上收（23a9058b）→ 设计先行 [platform-auth-users.md](../design/governance/platform-auth-users.md) 完成（b0a0d33b，Review Gate 两轮 Pass）→ 决策 D1/D2/D3 用户确认（ac4ef8c0）。**T701 全部完成**（提交 5811e524 + 8d515aa8 + 2c2620e6 + dc712df1 + ce36ec37 + a115e351 + 781d3fa5）：子任务 1/2/3 与全部验收点落地，浏览器视觉验证 8/8 PASS（含 SSR 会话修复）。**平台增强（2026-08-10，未排期上收）**：仓库批量导入（GitHub 仓库列表多选导入，`GET /api/repos/importable` + `POST /api/repos/batch` + repos.vue 批量导入对话框）；platform e2e 测试基建（Playwright 22 用例覆盖全部页面关键功能点 + CI e2e job）。**当前为 T707 实施前状态**（依赖 T701，待推进）。
 - **已知边界**：
   - M5.5 的 npx skills GitHub 源端到端验证（主通道 + 全链质量门）依赖 CI 端到端裁决（本机 clone github.com 网络受限）。
   - Publish Docker 工作流 build job 在 QEMU 双平台构建中 1h19m 被同 ref 新 push 取消，镜像构建 CI 链路未裁决通过，排查项见 [backlog.md §M6](backlog.md)（C30）。
   - security.md 凭据加密存储章节未补（[backlog.md §M6](backlog.md) C28）。
+  - 平台 UI 暗色模式不可用（暂缓，后续优化，[backlog.md §M6](backlog.md) C29）。

@@ -32,6 +32,40 @@ jobs:
       - run: pnpm run build
 
   # ===============================================================
+  #  E2E — 平台浏览器端到端测试（Playwright，参考 momei）
+  #  e2e 服务端使用构建产物 .output/server/index.mjs（独立端口 + 独立库）
+  # ===============================================================
+  e2e:
+    name: E2E
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6.0.9
+      - name: Setup Node.js@lts environment
+        uses: actions/setup-node@v7
+        with:
+          node-version: "lts/*"
+          cache: "pnpm"
+      - run: pnpm i --frozen-lockfile
+      # 平台 server 依赖 workspace 包 dist 类型；e2e 服务端用构建产物，需完整构建链
+      - run: pnpm --filter @dependfix/core build && pnpm --filter @dependfix/engine build && pnpm --filter dependfix build
+      - run: pnpm --filter @dependfix/platform build
+      - name: Install Playwright Browsers
+        run: pnpm --filter @dependfix/platform exec playwright install --with-deps chromium
+      - name: Run E2E tests
+        working-directory: apps/platform
+        run: pnpm exec playwright test
+      - name: Upload E2E report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-report
+          path: apps/platform/test-results/
+          retention-days: 7
+
+  # ===============================================================
   #  Coverage — 覆盖率统计并上报 Codecov
   #  （需要仓库配置 CODECOV_TOKEN secret，见
   #   https://docs.codecov.com/docs/quick-start#set-your-repository-upload-token）

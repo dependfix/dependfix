@@ -4,3 +4,9 @@ data/
 # Nuxt 构建产物
 .nuxt/
 .output/
+
+# Playwright e2e
+test-results/
+playwright-report/
+blob-report/
+tests/e2e/.auth/

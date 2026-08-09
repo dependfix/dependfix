@@ -27,6 +27,9 @@ export default [
             'dist',
             'coverage',
             'logs',
+            'test-results',
+            'playwright-report',
+            'blob-report',
         ],
     },
     {

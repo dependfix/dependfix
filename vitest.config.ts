@@ -18,7 +18,15 @@ export default defineConfig({
     test: {
         globals: true,
         environment: 'node',
-        // 限制并发 worker 数：全量测试含大量真实 git 命令与子进程（cli 集成测试），
+        // e2e 测试由 Playwright 运行（apps/platform/tests/e2e），vitest 不扫描
+        exclude: [
+            '**/node_modules/**',
+            '**/dist/**',
+            '**/.nuxt/**',
+            '**/.output/**',
+            '**/tests/e2e/**',
+        ],
+        // 控制并行 worker 数：全量测试含大量真实 git 命令与子进程（cli 集成测试），
         // 默认 worker = CPU 核数 - 1，Windows 全量并发时 CPU 竞争导致 git/子进程测试超时 flaky
         // （pr-creator/app-index 曾随机失败）。4 worker 兼顾并行度与稳定性（实测全量通过）。
         maxWorkers: 4,

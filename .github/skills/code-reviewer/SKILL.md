@@ -69,6 +69,7 @@ metadata:
 
 - 使用 references/ 中的四份 checklist 逐项覆盖：正确性、安全、架构（SOLID）、可维护性、测试充分性。
 - **规范一致性必查**：新增/修改的注释与测试名不得含开发流程编号标记（`T405`、`P1-1` 等，例外仅真实常量与带文档路径的导航指针）——检查项在 [code-quality-checklist.md](./references/code-quality-checklist.md) 的 Standards Compliance 小节，规范原文见 [开发规范 §3](../../../docs/standards/development.md)。此检查适用于所有审计深度（含 `quick`，一行 grep 即可）。
+- **治理定义必查（含 `quick`）**：改动涉及 `docs/standards/*.md`、`.github/skills/*/SKILL.md`、`.github/agents/*.agent.md` 时，按 [code-quality-checklist.md](./references/code-quality-checklist.md) Standards Compliance 小节执行：**规范单点声明**（不得与权威文档重复抄写完整条款/阈值/教训，应一行链接引用）与**规范执行分层**（新增严格约束须声明并挂接 review 检查点；宽松指引留在执行层）。此检查适用于所有审计深度：治理定义改动多为 `deep` 全量执行，`quick` 仅限措辞级改动，至少完成新增 diff 文本与权威文档的比对目检（重复条款无固定形态可 grep，只能读 diff 比对）。
 - 优先寻找会阻塞放行的问题，而不是按文件顺序复述 diff。
 - 重点检查：遗漏 mock、异常吞掉、权限边界缺失、证据链不闭环、超出当前 Todo 范围的静默扩写。
 

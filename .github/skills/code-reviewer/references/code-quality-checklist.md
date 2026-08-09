@@ -158,12 +158,35 @@ if (value) { ... }  // 对 0, "", false 失效
 
 教训见 [经验归档 §二十五](../../../../docs/design/governance/experience-archive.md)（mcp 包遗漏 README/release 链路），规范见 [release.md](../../../../docs/guide/release.md)。
 
+### 规范单点声明（必查项）
+
+改动涉及治理定义（`docs/standards/*.md`、`.github/skills/*/SKILL.md`、`.github/agents/*.agent.md`）时，检查新增/修改的条款是否存在与权威文档重复抄写：
+
+- **权威声明唯一**：每条规则只在其职责归属的权威文档完整声明一次；其他文档 / skill / agent 定义只做一行链接引用（`见 [X 规范 §Y](./xxx.md)`），禁止重复抄写完整条款、阈值或教训
+- **冲突裁定**：同一规则出现两处完整声明时，按事实源层次（documentation.md §4：L0 > L1 > L2 > L3）更高层为准，退回执行角色收敛为引用
+- **执行层例外**：宽松指引（应当、建议）可在执行阶段（skill/agent）声明；严格约束（必须、阈值、禁令）不得在执行文档复制完整条款，只能引用
+
+规范见 [documentation.md §4 规范单点声明原则](../../../../docs/standards/documentation.md)，教训见 [经验归档 §二十四](../../../../docs/design/governance/experience-archive.md)。
+
+### 规范执行分层（严格约束须挂 review 检查点）
+
+改动 `docs/standards/*.md`（新增/修改规范条款）时，检查新增条款的执行挂接：
+
+- **分层判定**：条款是否明确区分"宽松指引"（应当、建议 → 执行阶段声明即可）与"严格约束"（必须、阈值、禁令 → 须挂 review 阶段检查点）？
+- **挂接声明**：严格约束是否在规范文档中声明 review 挂钩（如 planning.md §1.1"合规核验由 review 阶段执行"句式）？
+- **检查点落地**：是否已在 code-reviewer SKILL.md / 本 checklist / Code Auditor 必查项中实际存在对应检查点？缺失则要求补挂，或登记 backlog 并在本轮明确标记"待补挂"
+- **反模式**：严格约束只写在执行文档（skill/agent）而未挂 review 检查点——执行阶段上下文杂、易跳过，review 阶段上下文干净才可强制
+
+规范见 [documentation.md §4 规范单点声明原则](../../../../docs/standards/documentation.md)。
+
 ### 应提出的问题
 
 - "diff 中新增的注释/测试名是否含孤立编号标记？"
 - "编号是否带可反查的文档路径（导航指针例外）？"
 - "清理编号后解释正文是否保留、语义是否完整？"
 - "新增/改动发布包时，单点登记、changeset ignore、README、release.md、CI 引用是否同步？"
+- "本次新增/修改的条款是否与权威文档重复抄写？应改为一行链接引用（治理定义改动必查）？"
+- "新增的严格约束（必须/阈值/禁令）是否已声明并挂接 review 检查点？宽松指引是否留在执行层？"
 
 ### 批量替换与行尾完整性（批量替换/行尾审查）
 

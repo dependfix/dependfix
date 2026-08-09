@@ -87,6 +87,13 @@ a {
         }
     }
 
+    &__actions {
+        display: flex;
+        align-items: center;
+        gap: $space-3;
+        margin-left: auto;
+    }
+
     &__user {
         display: flex;
         align-items: center;

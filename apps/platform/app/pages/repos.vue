@@ -26,10 +26,14 @@ const editingId = ref<string | null>(null)
 const error = ref('')
 const success = ref('')
 
+// 全局默认分支（nuxt.config runtimeConfig.public.defaultBranch，可用 DEFAULT_BRANCH 覆盖）
+const config = useRuntimeConfig()
+const defaultBranch = (config.public.defaultBranch as string) || 'main'
+
 const emptyForm = (): RepoForm => ({
     owner: '',
     name: '',
-    defaultBranch: 'main',
+    defaultBranch,
     packageManager: 'pnpm',
     credentialId: null,
     actionWorkflowFile: '',
@@ -389,15 +393,18 @@ watch(toastMessage, (v) => {
                         />
                     </div>
                 </div>
-                <div class="repo-form__field">
-                    <label for="actionWorkflowFile">Action workflow 文件（B 模式）</label>
+                <div
+                    v-if="form.executorKind === 'github-action'"
+                    class="repo-form__field"
+                >
+                    <label for="actionWorkflowFile">Action workflow 文件</label>
                     <InputText
                         id="actionWorkflowFile"
                         v-model="form.actionWorkflowFile"
                         placeholder=".github/workflows/security-auto-fix.yml"
                         fluid
                     />
-                    <small class="text-muted">选择 GitHub Action 执行时必填（目标仓库内 workflow 路径）</small>
+                    <small class="text-muted">目标仓库内 workflow 路径（GitHub Action 执行方式必填）</small>
                 </div>
                 <div class="repo-form__field">
                     <label for="note">备注</label>

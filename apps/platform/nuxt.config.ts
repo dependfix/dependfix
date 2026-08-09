@@ -56,6 +56,8 @@ export default defineNuxtConfig({
         public: {
             // 客户端可见配置
             appName: 'dependfix',
+            // 新建仓库默认分支（DEFAULT_BRANCH 为构建时注入，运行期修改需重建镜像）
+            defaultBranch: process.env.DEFAULT_BRANCH || 'main',
         },
     },
     vite: {

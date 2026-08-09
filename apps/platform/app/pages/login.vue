@@ -29,6 +29,9 @@ const onSubmit = async () => {
             error.value = '登录失败：邮箱或密码错误'
             return
         }
+        // 刷新会话缓存后再导航：signIn 后 session atom 可能尚未就绪，
+        // 立即导航会触发 auth middleware 误判未登录（与 middleware 异步等待配套）
+        await refreshNuxtData('session')
         await navigateTo('/dashboard')
     } finally {
         loading.value = false

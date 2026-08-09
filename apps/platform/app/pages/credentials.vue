@@ -269,6 +269,16 @@ watch(toastMessage, (v) => {
                         fluid
                         :required="!editingId"
                     />
+                    <small class="text-muted">
+                        如何获取？
+                        <a
+                            href="https://docs.github.com/zh/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                        >
+                            GitHub 官方文档：管理个人访问令牌
+                        </a>
+                    </small>
                 </div>
                 <div class="credential-form__field">
                     <label for="note">备注</label>

@@ -131,9 +131,10 @@
   - 内容：security.md 未登记 T602 凭据加密机制（ENCRYPTION_KEY / AES-256-GCM / 解密仅执行时内存 / 凭据最小化），加密设计散落 executor-sandbox.md §3 与 credential.service.ts 注释；安全设计文档应与实现同步补"凭据加密存储"一节（T602 已交付，文档待补）
   - 来源：M6 终审（2026-08-08，deep Review Gate warning 4）
 - **C29 平台 UI 暗色模式不可用**（用户反馈登记）
-  - 状态：🔶 待修复（后续处理，不阻塞 M6 验收）
+  - 状态：✅ 已关闭（2026-08-09，T701 浏览器视觉复测确认）
   - 内容：M6 平台 UI 的暗色模式不可用（T601 任务内容含"暗色模式 `.dark` 类切换"，`nuxt.config.ts` 已配 `darkModeSelector: '.dark'` 与 PrimeVue 主题预设，但实际切换后样式异常/不生效）。修复前需先以视觉验证确认现象与范围（用 UI Validator 子 agent，视觉模型 opencode-go/qwen3.7-plus 截图审计），修复方向：`.dark` 类挂载位置与 PrimeVue 主题联动、SCSS/BEM 变量（`_variables.scss`）暗色分支、页面级硬编码颜色清查
   - 来源：2026-08-08 用户反馈（附截图，需视觉能力复核）
+  - **关闭依据**：T701 浏览器视觉复测（2026-08-09，ui-validator + qwen3.7-plus）多次验证暗色/亮色切换正常（登录页卡片/输入框/按钮、header 背景/图标/Avatar、dashboard 卡片均正确渲染）；header 暗色按钮布局漂移（platform__actions 缺 flex 样式）已随 T701 修复
 - **C30 Publish Docker build job 被取消/失败排查**（M6 归档 CI 端到端裁决登记）
   - 状态：🔶 待评估（阻塞"镜像构建 CI 端到端裁决通过"结论）
   - 内容：Publish Docker 工作流 build job（run 31260609196，e16aeda4 触发）在 QEMU 双平台（linux/amd64,linux/arm64）构建中运行 1h19m 后被取消（`##[error]The operation was canceled.`）。**根因已定位**：同 workflow 同 ref（master）的新 push（7cb1ad22d，15:13:11）触发 concurrency `cancel-in-progress: true` 取消旧 run；叠加 QEMU arm64 模拟构建过慢（1h+ 未完成）。缓解方向：docker.yml 拆分平台构建或减少平台、优先 amd64、验证 gha cache 命中；若采用频繁 push + 双平台模式，需评估取消旧 run 对镜像发布的影响

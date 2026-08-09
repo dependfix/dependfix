@@ -49,5 +49,4 @@
 - **已知边界**：
   - M5.5 的 npx skills GitHub 源端到端验证（主通道 + 全链质量门）依赖 CI 端到端裁决（本机 clone github.com 网络受限）。
   - Publish Docker 工作流 build job 在 QEMU 双平台构建中 1h19m 被同 ref 新 push 取消，镜像构建 CI 链路未裁决通过，排查项见 [backlog.md §M6](backlog.md)（C30）。
-  - 平台 UI 暗色模式不可用，待修复（[backlog.md §M6](backlog.md) C29）。
   - security.md 凭据加密存储章节未补（[backlog.md §M6](backlog.md) C28）。

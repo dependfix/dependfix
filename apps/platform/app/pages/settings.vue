@@ -46,12 +46,15 @@ const fetchAccounts = async () => {
             error.value = `加载失败：${accountError.message ?? '未知错误'}`
             return
         }
-        accounts.value = (data ?? []).map((a) => ({
-            id: a.id,
-            providerId: a.providerId,
-            accountId: a.accountId,
-            createdAt: typeof a.createdAt === 'string' ? a.createdAt : a.createdAt.toISOString(),
-        }))
+        // 仅展示第三方绑定账号（credential = 邮箱密码，不属于"绑定账号"管理范围）
+        accounts.value = (data ?? [])
+            .filter((a) => a.providerId !== 'credential')
+            .map((a) => ({
+                id: a.id,
+                providerId: a.providerId,
+                accountId: a.accountId,
+                createdAt: typeof a.createdAt === 'string' ? a.createdAt : a.createdAt.toISOString(),
+            }))
     } catch (e: any) {
         error.value = `加载失败：${e?.message ?? '未知错误'}`
     }

@@ -134,10 +134,11 @@
   - 状态：🔶 待修复（后续处理，不阻塞 M6 验收）
   - 内容：M6 平台 UI 的暗色模式不可用（T601 任务内容含"暗色模式 `.dark` 类切换"，`nuxt.config.ts` 已配 `darkModeSelector: '.dark'` 与 PrimeVue 主题预设，但实际切换后样式异常/不生效）。修复前需先以视觉验证确认现象与范围（用 UI Validator 子 agent，视觉模型 opencode-go/qwen3.7-plus 截图审计），修复方向：`.dark` 类挂载位置与 PrimeVue 主题联动、SCSS/BEM 变量（`_variables.scss`）暗色分支、页面级硬编码颜色清查
   - 来源：2026-08-08 用户反馈（附截图，需视觉能力复核）
-- **C30 Publish Docker build job 被取消排查**（M6 归档 CI 端到端裁决登记）
+- **C30 Publish Docker build job 被取消/失败排查**（M6 归档 CI 端到端裁决登记）
   - 状态：🔶 待评估（阻塞"镜像构建 CI 端到端裁决通过"结论）
   - 内容：Publish Docker 工作流 build job（run 31260609196，e16aeda4 触发）在 QEMU 双平台（linux/amd64,linux/arm64）构建中运行 1h19m 后被取消（`##[error]The operation was canceled.`）。**根因已定位**：同 workflow 同 ref（master）的新 push（7cb1ad22d，15:13:11）触发 concurrency `cancel-in-progress: true` 取消旧 run；叠加 QEMU arm64 模拟构建过慢（1h+ 未完成）。缓解方向：docker.yml 拆分平台构建或减少平台、优先 amd64、验证 gha cache 命中；若采用频繁 push + 双平台模式，需评估取消旧 run 对镜像发布的影响
-  - 来源：M6 归档 CI 裁决（2026-08-08，run 31260609196 被 run 31263908976 取消）
+  - 补充（2026-08-09，run 31305727667）：同一 build job 出现第二种失败模式——arm64 builder 阶段 `pnpm --filter @dependfix/core build` 前，pnpm 11 默认 `verifyDepsBeforeRun=install` 检测到 workspace 依赖不完整（builder 阶段仅复制根 node_modules，各项目内依赖链接缺失）自动执行 `pnpm install`，该子进程在 QEMU 模拟 arm64 下被 SIGILL 杀死。**已修复**：builder 阶段改为 `COPY --from=deps /app .` 复制完整依赖布局 + `pnpm config set verify-deps-before-run=false` 禁用自动安装（仅 Docker 构建环境生效）
+  - 来源：M6 归档 CI 裁决（2026-08-08，run 31260609196 被 run 31263908976 取消）+ 2026-08-09 run 31305727667 SIGILL 失败
 
 ### MCP 能力补充（2026-08-09 评估登记）
 

@@ -24,9 +24,14 @@ RUN pnpm install --frozen-lockfile --filter @dependfix/platform... --filter depe
 # 阶段二：构建（core → engine → cli → platform）
 FROM nodejs AS builder
 WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
+# 复制 deps 阶段完整目录（含各 workspace 项目内的 node_modules 依赖链接，如 apps/platform/node_modules/@dependfix），
+# 仅复制根 node_modules 会导致项目内依赖链接缺失（COPY . . 排除 node_modules，见 .dockerignore）
+COPY --from=deps /app .
 COPY . .
-RUN pnpm --filter @dependfix/core build \
+# pnpm 11 默认 verifyDepsBeforeRun=install：pnpm run 前若检测到 workspace 依赖不完整会自动执行 pnpm install，
+# 该子进程在 QEMU 模拟 arm64 下偶发 SIGILL（见 run 31305727667），故在 Docker 构建环境（全局配置）禁用自动安装
+RUN pnpm config set verify-deps-before-run=false \
+    && pnpm --filter @dependfix/core build \
     && pnpm --filter @dependfix/engine build \
     && pnpm --filter dependfix build \
     && pnpm --filter @dependfix/platform build

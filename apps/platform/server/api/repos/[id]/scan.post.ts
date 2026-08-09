@@ -1,15 +1,26 @@
 import { scanRequestSchema } from '#server/schemas/scan'
 import { runScanForRepository } from '#server/services/scan-orchestrator.service'
-import { requireAuth } from '#server/utils/guard'
+import { requireOrgResource, requireRole } from '#server/utils/guard'
+import { Repository } from '#server/entities/repository'
+import { ensureDatabaseInitialized } from '#server/database'
 
-/** POST /api/repos/[id]/scan：触发单仓库扫描（同步执行，请求内完成） */
+/** POST /api/repos/[id]/scan：触发单仓库扫描（同步执行，请求内完成；写操作限 admin/org_admin） */
 export default defineEventHandler(async (event) => {
-    await requireAuth(event)
+    await requireRole(event, ['admin', 'org_admin'])
 
     const id = getRouterParam(event, 'id') as string
     if (!id) {
         throw createError({ statusCode: 400, statusMessage: 'Bad Request', message: '缺少仓库 id' })
     }
+
+    // 扫描目标仓库必须存在且归属当前组织
+    const ds = await ensureDatabaseInitialized()
+    const repo = ds.getRepository(Repository)
+    const found = await repo.findOne({ where: { id } })
+    if (!found) {
+        throw createError({ statusCode: 404, statusMessage: 'Not Found', message: '仓库不存在' })
+    }
+    await requireOrgResource(event, found.organizationId)
 
     const body = await readBody<Record<string, unknown>>(event).catch(() => ({}))
     const parsed = scanRequestSchema.safeParse(body)

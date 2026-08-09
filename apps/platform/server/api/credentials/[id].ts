@@ -3,7 +3,7 @@ import { Credential } from '#server/entities/credential'
 import { ensureDatabaseInitialized } from '#server/database'
 import { credentialUpdateSchema } from '#server/schemas/credential'
 import { encryptToken, getEncryptionKey } from '#server/services/credential.service'
-import { requireAuth } from '#server/utils/guard'
+import { requireAuth, requireOrgResource, requireRole } from '#server/utils/guard'
 
 /** GET /api/credentials/[id]：凭据详情（脱敏） */
 const getCredential = async (event: H3Event, id: string) => {
@@ -27,9 +27,9 @@ const getCredential = async (event: H3Event, id: string) => {
     }
 }
 
-/** PUT /api/credentials/[id]：更新凭据（token 为空表示不修改） */
+/** PUT /api/credentials/[id]：更新凭据（token 为空表示不修改；写操作限 admin/org_admin） */
 const updateCredential = async (event: H3Event, id: string) => {
-    await requireAuth(event)
+    await requireRole(event, ['admin', 'org_admin'])
     const body = await readBody<Record<string, unknown>>(event)
     const parsed = credentialUpdateSchema.safeParse(body)
 
@@ -48,6 +48,7 @@ const updateCredential = async (event: H3Event, id: string) => {
     if (!found) {
         throw createError({ statusCode: 404, statusMessage: 'Not Found', message: '凭据不存在' })
     }
+    await requireOrgResource(event, found.organizationId)
 
     if (parsed.data.name !== undefined) {
         found.name = parsed.data.name
@@ -65,9 +66,9 @@ const updateCredential = async (event: H3Event, id: string) => {
     return { id: saved.id, updated: true }
 }
 
-/** DELETE /api/credentials/[id]：删除凭据 */
+/** DELETE /api/credentials/[id]：删除凭据（写操作限 admin/org_admin） */
 const deleteCredential = async (event: H3Event, id: string) => {
-    await requireAuth(event)
+    await requireRole(event, ['admin', 'org_admin'])
     const ds = await ensureDatabaseInitialized()
     const repo = ds.getRepository(Credential)
 
@@ -75,6 +76,7 @@ const deleteCredential = async (event: H3Event, id: string) => {
     if (!found) {
         throw createError({ statusCode: 404, statusMessage: 'Not Found', message: '凭据不存在' })
     }
+    await requireOrgResource(event, found.organizationId)
     await repo.remove(found)
     return { id, deleted: true }
 }

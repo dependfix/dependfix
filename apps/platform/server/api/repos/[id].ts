@@ -2,7 +2,7 @@ import type { H3Event } from 'h3'
 import { Repository } from '#server/entities/repository'
 import { ensureDatabaseInitialized } from '#server/database'
 import { repositoryUpdateSchema } from '#server/schemas/repository'
-import { requireAuth } from '#server/utils/guard'
+import { requireAuth, requireOrgResource, requireRole } from '#server/utils/guard'
 
 /** GET /api/repos/[id]：仓库详情 */
 const getRepository = async (event: H3Event, id: string) => {
@@ -35,9 +35,9 @@ const getRepository = async (event: H3Event, id: string) => {
     }
 }
 
-/** PUT /api/repos/[id]：更新仓库（部分字段） */
+/** PUT /api/repos/[id]：更新仓库（部分字段，写操作限 admin/org_admin + 组织归属校验） */
 const updateRepository = async (event: H3Event, id: string) => {
-    await requireAuth(event)
+    await requireRole(event, ['admin', 'org_admin'])
     const body = await readBody<Record<string, unknown>>(event)
     const parsed = repositoryUpdateSchema.safeParse(body)
 
@@ -56,6 +56,7 @@ const updateRepository = async (event: H3Event, id: string) => {
     if (!found) {
         throw createError({ statusCode: 404, statusMessage: 'Not Found', message: '仓库不存在' })
     }
+    await requireOrgResource(event, found.organizationId)
 
     // 唯一性冲突预检（owner/name 变更时）
     if (parsed.data.owner !== undefined || parsed.data.name !== undefined) {
@@ -84,9 +85,9 @@ const updateRepository = async (event: H3Event, id: string) => {
     return { id: saved.id, updated: true }
 }
 
-/** DELETE /api/repos/[id]：删除仓库 */
+/** DELETE /api/repos/[id]：删除仓库（写操作限 admin/org_admin + 组织归属校验） */
 const deleteRepository = async (event: H3Event, id: string) => {
-    await requireAuth(event)
+    await requireRole(event, ['admin', 'org_admin'])
     const ds = await ensureDatabaseInitialized()
     const repo = ds.getRepository(Repository)
 
@@ -94,6 +95,7 @@ const deleteRepository = async (event: H3Event, id: string) => {
     if (!found) {
         throw createError({ statusCode: 404, statusMessage: 'Not Found', message: '仓库不存在' })
     }
+    await requireOrgResource(event, found.organizationId)
     await repo.remove(found)
     return { id, deleted: true }
 }

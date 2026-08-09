@@ -2,7 +2,8 @@ import type { H3Event } from 'h3'
 import { Repository } from '#server/entities/repository'
 import { ensureDatabaseInitialized } from '#server/database'
 import { repositorySchema } from '#server/schemas/repository'
-import { requireAuth } from '#server/utils/guard'
+import { requireAuth, requireRole } from '#server/utils/guard'
+import { resolveOrganizationId } from '#server/utils/organization'
 
 const toView = (r: Repository) => ({
     id: r.id,
@@ -34,9 +35,9 @@ const listRepositories = async (event: H3Event) => {
     return repos.map(toView)
 }
 
-/** POST /api/repos：创建仓库（Zod 校验 + owner/name 唯一性） */
+/** POST /api/repos：创建仓库（Zod 校验 + owner/name 唯一性 + 组织归属填充） */
 const createRepository = async (event: H3Event) => {
-    await requireAuth(event)
+    await requireRole(event, ['admin', 'org_admin'])
     const body = await readBody<Record<string, unknown>>(event)
     const parsed = repositorySchema.safeParse(body)
 
@@ -66,7 +67,11 @@ const createRepository = async (event: H3Event) => {
         })
     }
 
+    // 创建路径经 resolveOrganizationId 填充归属（应用层强制非空，杜绝无归属数据）
+    const organizationId = await resolveOrganizationId(ds)
+
     const entity = repo.create({
+        organizationId,
         owner: parsed.data.owner,
         name: parsed.data.name,
         platform: parsed.data.platform,

@@ -3,7 +3,8 @@ import { Credential } from '#server/entities/credential'
 import { ensureDatabaseInitialized } from '#server/database'
 import { credentialSchema } from '#server/schemas/credential'
 import { encryptToken, getEncryptionKey } from '#server/services/credential.service'
-import { requireAuth } from '#server/utils/guard'
+import { requireAuth, requireRole } from '#server/utils/guard'
+import { resolveOrganizationId } from '#server/utils/organization'
 
 /** 脱敏视图：永不返回 encryptedToken / 明文 token */
 const toView = (c: Credential) => ({
@@ -28,9 +29,9 @@ const listCredentials = async (event: H3Event) => {
     return creds.map(toView)
 }
 
-/** POST /api/credentials：创建凭据（token 加密存储） */
+/** POST /api/credentials：创建凭据（token 加密存储，写操作限 admin/org_admin） */
 const createCredential = async (event: H3Event) => {
-    await requireAuth(event)
+    await requireRole(event, ['admin', 'org_admin'])
     const body = await readBody<Record<string, unknown>>(event)
     const parsed = credentialSchema.safeParse(body)
 
@@ -47,7 +48,11 @@ const createCredential = async (event: H3Event) => {
     const ds = await ensureDatabaseInitialized()
     const repo = ds.getRepository(Credential)
 
+    // 创建路径经 resolveOrganizationId 填充归属（应用层强制非空，杜绝无归属数据）
+    const organizationId = await resolveOrganizationId(ds)
+
     const entity = repo.create({
+        organizationId,
         name: parsed.data.name,
         type: parsed.data.type,
         encryptedToken: encrypted,

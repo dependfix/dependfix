@@ -13,7 +13,7 @@
 - 依赖：M6；设计文档 [platform-auth-users.md](../design/governance/platform-auth-users.md)（2026-08-09 Review Gate Pass）
 - 交付物：角色权限系统 + 用户管理界面 + 个人设置界面。
 - 实现内容：
-  - [ ] 子任务 1（数据层）：单组织归属（Organization 实体 + Repository/Credential.organizationId + 默认组织初始化 + 存量迁移）；角色模型（**Admin / Org Admin / Viewer 三角色**，repo_admin 登记 backlog——决策 D1）；better-auth `admin` 插件（**不含 username——决策 D2**）；角色迁移（存量 'user' → 'viewer'）+ guard 扩展（requireRole / requireOrgResource）+ 权限矩阵测试
+  - [x] 子任务 1（数据层）：单组织归属（Organization 实体 + Repository/Credential.organizationId + 默认组织初始化 + 存量迁移）；角色模型（**Admin / Org Admin / Viewer 三角色**，repo_admin 登记 backlog——决策 D1）；better-auth `admin` 插件（**不含 username——决策 D2**）；角色迁移（存量 'user' → 'viewer'）+ guard 扩展（requireRole / requireOrgResource）+ 权限矩阵测试
   - [ ] 子任务 2（管理 UI）：用户列表/搜索、启用/禁用、角色分配 + server 中间件与页面路由守卫
   - [ ] 子任务 3（个人界面）：个人资料（头像/显示名）、修改密码/邮箱、第三方账号绑定、语言偏好（与 T708 联动）
 - 非目标：审计日志、邀请注册机制（登记 backlog）、T707 的第三方登录本身、repo_admin/username/多租户成员体系（登记 backlog，设计决策 D1/D2/D3）。
@@ -45,7 +45,7 @@
 
 ## 当前状态
 
-- **规划状态**：M7 规划定稿（64efbb3e）→ M7.1 任务上收（23a9058b）→ 设计先行 [platform-auth-users.md](../design/governance/platform-auth-users.md) 完成（b0a0d33b，Review Gate 两轮 Pass）→ 决策 D1/D2/D3 用户确认（ac4ef8c0）。**当前为 M7.1 实施进行中**：T701-1 提交 1（组织数据层 + 角色模型）完成并审计放行，T701-1 提交 2（守卫扩展 + API 写门槛 + 权限矩阵）与 T701-2/T701-3 待实施。
+- **规划状态**：M7 规划定稿（64efbb3e）→ M7.1 任务上收（23a9058b）→ 设计先行 [platform-auth-users.md](../design/governance/platform-auth-users.md) 完成（b0a0d33b，Review Gate 两轮 Pass）→ 决策 D1/D2/D3 用户确认（ac4ef8c0）。**当前为 M7.1 实施进行中**：T701-1（数据层 + 角色模型 + 权限矩阵）完成（提交 5811e524 + 8d515aa8，审计两轮 Pass）；T701-2（用户管理）实施中。
 - **已知边界**：
   - M5.5 的 npx skills GitHub 源端到端验证（主通道 + 全链质量门）依赖 CI 端到端裁决（本机 clone github.com 网络受限）。
   - Publish Docker 工作流 build job 在 QEMU 双平台构建中 1h19m 被同 ref 新 push 取消，镜像构建 CI 链路未裁决通过，排查项见 [backlog.md §M6](backlog.md)（C30）。

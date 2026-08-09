@@ -52,6 +52,14 @@ const logout = async () => {
                 >
                     凭据
                 </NuxtLink>
+                <NuxtLink
+                    v-if="session?.user?.role === 'admin'"
+                    to="/users"
+                    class="platform__nav-link"
+                    active-class="platform__nav-link--active"
+                >
+                    用户
+                </NuxtLink>
             </nav>
             <div class="platform__actions">
                 <Button

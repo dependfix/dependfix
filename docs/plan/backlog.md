@@ -274,6 +274,8 @@
 - **D1-repo_admin 角色 + RepositoryAccess**：仓库级管理角色（管理特定仓库修复策略）需 `RepositoryAccess` 关联表；M7.1 单组织下与 org_admin 权限面重复，未实现。触发条件：多租户/多组织需求出现，或单实例出现"仓库级管理员"真实诉求。
 - **D2-username 用户名字段**：better-auth `username` 插件（user.username 字段 + 用户名设置 API）；M7.1 用户管理按 email/name 展示足够。触发条件：用户明确需要用户名体系（公开平台展示名等）。
 - **D3-多租户组织体系**：better-auth `organization` 插件（Organization/Member/Invitation/Team + 成员角色 API），替代 M7.1 的自建单组织模型。触发条件：多组织/多租户部署成为真实需求（当前 AUTH_MODE 企业/公开均为单实例单组织场景）。
+- **D8-remove-user 关联资源检查**（2026-08-09 T701-2 审计登记）：设计决策点 8"用户名下存在仓库/凭据关联时拒绝删除（409）"未实施——当前 Repository/Credential 不直接引用 User（仅 organization_id/credential_id，均 SET NULL），"名下资源"无数据模型载体，删除用户不产生业务数据悬空。触发条件：引入 user→resource 关联（如创建者 created_by 或 D1 的 RepositoryAccess）时随模型落地。
+- **T701 管理端点集成测试补强**（2026-08-09 T701-2 审计登记）：设计 §9 矩阵的"list-users 分页/搜索、set-role 非 admin 403、ban/unban 会话失效、remove-user 级联"未落地（当前 guard 层 11 例 + rethrowAuthError 4 例覆盖函数语义）；端点级真实 HTTP × 三角色矩阵待补。触发条件：引入 @nuxt/test-utils 或 e2e 基建时统一落地（T701 验收/浏览器验证阶段评估）。
 - **SAML 2.0 SSO**：企业 SSO 仅 OIDC（better-auth `genericOAuth` 原生支持，覆盖 Azure AD / Okta / Keycloak / Google Workspace）；SAML 需额外集成层（better-auth 无原生支持，成本高），登记 backlog。触发条件：企业 IdP 仅提供 SAML（如部分传统 IdP）时评估。
 
 ---

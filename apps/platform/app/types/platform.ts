@@ -31,3 +31,20 @@ export interface CredentialView {
     updatedAt: string
     hasToken: boolean
 }
+
+/** 全局角色（与 server guard.ts Role 对齐；前端只读消费） */
+export type Role = 'admin' | 'org_admin' | 'viewer'
+
+/** 用户管理视图（server/api/users 返回结构） */
+export interface UserView {
+    id: string
+    email: string
+    name: string | null
+    image: string | null
+    role: Role | null
+    banned: boolean
+    banReason: string | null
+    emailVerified: boolean
+    createdAt: string
+    updatedAt: string
+}

@@ -1,5 +1,5 @@
 import { betterAuth } from 'better-auth'
-import { admin } from 'better-auth/plugins'
+import { admin, createAccessControl } from 'better-auth/plugins'
 import { snowflake } from './snowflake'
 import { typeormAdapter } from '#server/database/typeorm-adapter'
 import { ensureDatabaseInitialized } from '#server/database'
@@ -13,10 +13,50 @@ import { User } from '#server/entities/user'
  * - 会话数据库持久化 30 天，每 1 天续期
  * - 雪花 ID 与实体 @BeforeInsert 同源
  * - 角色模型：admin / org_admin / viewer（默认注册 viewer；首个注册用户自动 admin）
- * - admin 插件：adminRoles 仅 'admin'（org_admin/viewer 无用户管理权限，设计决策 D7）
+ * - admin 插件：adminRoles 仅 'admin'（org_admin/viewer 无用户管理权限，设计决策 D7）；
+ *   roles 显式声明三角色，保证 setRole 类型面与运行时权限语义一致
  * - 注册开关：`REGISTRATION_DISABLED=true` 时禁用注册（better-auth disableSignUp，
  *   登录不受影响；首个管理员需在开放期注册，之后可关闭）
  */
+
+/** admin 插件权限语句（对齐插件内置 defaultStatements，显式声明以获得三角色类型面） */
+const adminStatements = {
+    user: [
+        'create',
+        'list',
+        'set-role',
+        'ban',
+        'impersonate',
+        'delete',
+        'set-password',
+        'set-email',
+        'get',
+        'update',
+    ],
+    session: [
+        'list',
+        'revoke',
+        'delete',
+    ],
+} as const
+
+const adminAccessControl = createAccessControl(adminStatements)
+
+/** 三角色权限：仅 admin 拥有用户管理权限；org_admin/viewer 无（has-permission 403 兜底） */
+const adminRoles = {
+    admin: adminAccessControl.newRole({
+        user: [...adminStatements.user],
+        session: [...adminStatements.session],
+    }),
+    org_admin: adminAccessControl.newRole({
+        user: [],
+        session: [],
+    }),
+    viewer: adminAccessControl.newRole({
+        user: [],
+        session: [],
+    }),
+}
 
 /** better-auth 实例类型（由实际配置推断，含 role 等附加字段） */
 const buildAuth = (ds: Awaited<ReturnType<typeof ensureDatabaseInitialized>>, options: {
@@ -33,6 +73,7 @@ const buildAuth = (ds: Awaited<ReturnType<typeof ensureDatabaseInitialized>>, op
             defaultRole: 'viewer',
             // 用户管理仅 admin（三角色模型对齐；org_admin 管理仓库/凭据但无用户管理权限）
             adminRoles: ['admin'],
+            roles: adminRoles,
         }),
     ],
     emailAndPassword: {

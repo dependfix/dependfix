@@ -126,7 +126,7 @@ Account / Session / Verification（better-auth 标准，不变）
 | API | 角色门槛 | 变更 |
 |---|---|---|
 | `server/api/auth/[...].ts` | 公开 | 透传不变（admin 插件路由 `/api/auth/admin/*` 由插件内置守卫，`adminRoles: ['admin']` 与三角色模型对齐，见 §11 决策点 7） |
-| `server/api/users/index.get.ts` / `[id].patch.ts` / `[id].delete.ts` | **写 = admin 读 = admin** | **新增**：代理 admin 插件（list-users / set-role / ban / unban / remove-user），`requireRole('admin')`；Zod 校验 + 统一错误语义（越权 403、资源不存在 404、业务冲突 409） |
+| `server/api/users/index.get.ts` / `[id].patch.ts` / `[id].delete.ts` | **写 = admin 读 = admin** | **新增**：代理 admin 插件（list-users / set-role / ban / unban / remove-user），`requireRole('admin')`；Zod 校验 + 统一错误语义（越权 403、资源不存在 404、业务冲突 400——better-auth 原生语义透传，如禁删/禁禁自己） |
 | `server/api/repos/index.ts` / `credentials/index.ts` POST（创建） | **admin / org_admin** | `requireRole(['admin', 'org_admin'])` + `resolveOrganizationId()` 填充 organizationId（创建无资源 id，无归属校验对象） |
 | `server/api/repos/[id].ts` / `credentials/[id].ts` PUT / DELETE | **admin / org_admin** | `requireRole(['admin', 'org_admin'])` + `requireOrgResource`（校验资源归属默认组织） |
 | `server/api/repos/[id]/scan.post.ts` | **admin / org_admin** | `requireRole(['admin', 'org_admin'])` + `requireOrgResource` |

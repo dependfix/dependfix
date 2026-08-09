@@ -15,7 +15,7 @@
     - [x] 批次 3：`app/`（DependfixApp）+ helpers/grouping/runners/verification/alerts/ai 迁移，cli 薄壳化（b5a736f6）
     - [x] 批次 4：mcp/platform 依赖切换 + 发布链路恢复（engine/mcp publishable + changelog + release.md）
   - 结果：mcp 依赖 `@dependfix/engine` + `@dependfix/core`（不再依赖 dependfix）；engine/mcp 发布链路就绪（首次发布需手动 `pnpm publish` + 补 tag，见 release.md）
-- **下一阶段**：M7（企业级平台增强），任务定义见 [backlog.md §M7](backlog.md#m7-企业级平台增强)。
+- **下一阶段**：M7（企业级平台增强，**2026-08-09 规划定稿**——拆 M7.1 认证与用户体系 / M7.2 平台能力深化，新增用户管理、个人界面、第三方登录（OIDC SSO / GitHub·Google OAuth / 域名黑白名单）与 i18n；部署模式 `AUTH_MODE` 互斥二选一），任务定义见 [backlog.md §M7](backlog.md#m7-企业级平台增强)。
 - **已知边界**：
   - M5.5 的 npx skills GitHub 源端到端验证（主通道 + 全链质量门）依赖 CI 端到端裁决（本机 clone github.com 网络受限）。
   - Publish Docker 工作流 build job 在 QEMU 双平台构建中 1h19m 被同 ref 新 push 取消，镜像构建 CI 链路未裁决通过，排查项见 [backlog.md §M6](backlog.md)（C30）。

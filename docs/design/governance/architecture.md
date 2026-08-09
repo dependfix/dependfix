@@ -373,6 +373,7 @@ packages/core (@dependfix/core)
   - 插件：username、magicLink、emailOTP、twoFactor、admin、jwt、genericOAuth
   - 第三方登录：GitHub OAuth、Google OAuth（可选，未配置环境变量时自动禁用对应登录方式）
   - 未配置的第三方登录方式自动禁用，不阻塞启动
+  - **部署模式互斥（2026-08-09 M7 规划决策）**：`AUTH_MODE=enterprise|public` 二选一，不混合——`enterprise`（企业内部）：OIDC SSO（better-auth `genericOAuth`，Azure AD / Okta / Keycloak / Google Workspace）+ 邮箱域名白名单注册准入；`public`（公开平台）：GitHub / Google OAuth + 邮箱域名黑名单注册准入。SAML 2.0 不实现（登记 backlog）
 - 数据库适配器：TypeORM Adapter
 - 会话：数据库持久化 + Cookie，过期 30 天，每日更新
 - JWT 算法：EdDSA / Ed25519

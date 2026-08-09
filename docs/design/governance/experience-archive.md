@@ -232,3 +232,19 @@
   - **"已发布"判定不能只信单一来源**：npm registry 是发布事实的最终权威，git tag 只是 changesets 流程的产物——手动发布路径会打破两者一致性。判定应"任一命中即已发布"（tag 短路 + registry 兜底），且失败方向要保守（宁可漏生成也不改写已发布段）。
   - **脚本的跨平台兼容性要用真实环境验证**：`2>/dev/null` 在 Linux 正常、Windows 直接报"系统找不到指定的路径"——跨平台脚本的 shell 重定向必须用 Node 的 stdio 捕获替代。
   - **生成类脚本的幂等性要"干净状态实测"**：changelog 类脚本必须在干净工作区（git stash 后）重跑验证"已发布段 unchanged"，而不是在污染后的状态上观察输出——上一轮"updated"其实是修复前残留，只有 stash 后重跑才暴露真实行为。
+## 二十六、git tag 的"创建"与"推送"分离：CI 推送静默失败 + 本地补打不推送（2026-08-08）
+
+- **案例**：发布 0.2.0 后排查发现远程 tag 严重不齐——本地 6 个 tag（v0.1.0 + 0.1.0 三个包 tag + 0.2.0 两个包 tag）与远程（仅 v0.1.0）长期不同步。两条独立路径共同导致：
+  1. **0.1.0 包 tag 本地补打后从未推送**：commit 40d3085b 说明"依赖本地补打的 dependfix@0.1.0 / @dependfix/core@0.1.0 / @dependfix/skills@0.1.0 锚点 tag"——为 changelog 判定补打后只留在本地，普通 `git push` 不带 `--tags` 不推送 tag（`push.followTags` 未配置时 git 默认只推分支）。
+  2. **0.2.0 tag CI 创建但推送静默失败**：run 31208208621 日志显示 changeset publish 明确创建 annotated tag（`🦋 New tag: dependfix@0.2.0`），但随后 `Push release tags` 步骤 `git push origin --tags` 输出 **`Everything up-to-date`**——tag 实际未推送，远程始终缺失。本地完整模拟（fetch --no-tags + refs/tags 镜像 + annotated tag + push --tags）无法复现，确认是 CI 环境特有行为（`persist-credentials: false` + `git config --global url."...".insteadOf` 组合在 Actions checkout 下不可靠）。
+- **根因**：① tag 的"创建"（changeset 在 runner 临时仓库中）与"推送"（显式 push 步骤）是两个独立动作，任何一环静默失败 tag 即丢失，且 runner 销毁后本地无从追溯；② `git push origin --tags` 依赖 insteadOf URL 替换，该机制在 CI 环境下不可靠却**静默返回 up-to-date**；③ 本地补打 tag 无推送纪律（followTags 未配置 + 无核验）。
+- **修复**：
+  - release.yml `Push release tags` 改为**显式带 token 的 push URL**（`git push https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git --tags`，官方推荐模式），不再依赖 insteadOf 全局替换；
+  - 推送后**核验本地/远程 tag 集合一致**（`git ls-remote` 对比，缺失即 `::error::` + exit 1），静默失败从此显式化；
+  - changelog 已发布判定加 npm registry 兜底（§二十五），tag 缺失不再影响发布段保护；
+  - 经验教训：本地开发建议 `git config --global push.followTags true`（日常 push 自动带 annotated tag，防止补打 tag 滞留本地）。
+- **启示**：
+  - **发布链路的"创建"与"推送"必须分开核验**：生成类步骤（changeset publish）只保证本地创建，推送是独立职责；任何"静默成功但未生效"的输出（`Everything up-to-date`）都要怀疑——本地/远程集合对比是最低成本的真相核验。
+  - **CI 环境行为不能从本地推断**：insteadOf URL 替换、persist-credentials: false 组合下的 push 行为，本地模拟（含 fetch --no-tags + tags 镜像）完全正常、CI 却 up-to-date——CI 特有的交互只能用 CI 实证（真实 run 日志），本地模拟只能排除本地因素。
+  - **git 默认不推 tag 是常识级陷阱**：`push.followTags` 未配置时普通 push 只推分支不推 tag；补打 tag 后必须显式 `--tags` 或配置 followTags，否则 tag 永远留在本地。
+  - **tag 是 changelog/发布判定的依赖时，tag 生命周期必须有纪律**：创建（changeset/手动补打）→ 推送（显式 + 核验）→ 验证（本地=远程），三环缺一即产生"tag 不同步却无人察觉"的漂移。

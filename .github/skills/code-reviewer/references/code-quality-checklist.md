@@ -158,6 +158,17 @@ if (value) { ... }  // 对 0, "", false 失效
 
 教训见 [经验归档 §二十五](../../../../docs/design/governance/experience-archive.md)（mcp 包遗漏 README/release 链路），规范见 [release.md](../../../../docs/guide/release.md)。
 
+### 发布链路 tag 推送核验（必查项）
+
+修改发布相关脚本/工作流（release.yml / changelog.mjs / changeset 配置 / 手动发布文档）时，检查 tag 生命周期闭环：
+
+- **创建与推送分离**：生成类步骤（changeset publish）只保证本地创建 tag，是否配套显式推送步骤（`git push <url> --tags` 而非依赖 insteadOf 全局替换）
+- **推送后核验**：推送步骤是否对比本地/远程 tag 集合（`git ls-remote` 缺失即报错）——CI 曾实测输出 `Everything up-to-date` 但 tag 未推送（run 31208208621，静默失败）
+- **本地补打纪律**：手动补打 tag 后文档是否提示显式 `--tags` 推送 + followTags 建议（git 默认不推 tag）
+- **判定多源兜底**：changelog 等"已发布"判定是否依赖 tag 单源——应有 npm registry 兜底（见 §二十五）
+
+教训见 [经验归档 §二十六](../../../../docs/design/governance/experience-archive.md)（tag 创建与推送分离 + CI 推送静默失败），规范见 [release.md](../../../../docs/guide/release.md)。
+
 ### 包依赖约束（必查项）
 
 改动内部包依赖（`packages/*/package.json` 的 dependencies，或新增内部包）时，检查依赖方向是否符合 [development.md §4 依赖约束](../../../../docs/standards/development.md)：

@@ -26,6 +26,7 @@
   - npm 默认不安装带预发布后缀的版本（需显式 `dependfix@beta`），会给预览测试设置障碍；
   - changesets 的 pre 模式会增加每轮发布的维护成本。
 - **稳定信号来自 `1.0.0`**：API 稳定后发布 `1.0.0`，届时再启用 `@v1` 滚动 tag（GitHub Action 引用）。
+- **tag 推送纪律**：git 默认不推送 tag——本地开发建议 `git config --global push.followTags true`（日常 push 自动带 annotated tag）；补打 tag 后必须显式 `--tags` 推送并核验（教训见 [经验归档 §二十六](../design/governance/experience-archive.md)）。
 - 版本号由 Changesets 管理（`.changeset/`），包版本升级语义（patch / minor / major）在发布前由 `pnpm changeset:generate` 基于 conventional commits 自动推导（见"changeset 生成规则"），可人工修正；CHANGELOG 由 `pnpm changelog` 基于 conventional commits 生成（见"CHANGELOG 策略"）。
 
 ## 发布架构
@@ -138,6 +139,8 @@ git tag dependfix@0.1.0 <cli-anchor>          # 指向 touch packages/cli 的 co
 git tag @dependfix/mcp@0.1.0 <mcp-anchor>     # 指向 touch packages/mcp 的 commit
 git tag v0.1.0                                # （可选）GitHub Release 展示用
 git push origin --tags
+# 推送后核验（tag 曾因 CI 静默失败/本地漏推而长期不同步，教训见经验归档 §二十六）：
+git fetch origin --tags && git tag | while read t; do git ls-remote --tags origin "$t" >/dev/null || echo "未同步: $t"; done
 
 # 7. 验证
 npm view dependfix version          # 期望 0.1.0，dist-tags.latest

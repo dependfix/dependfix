@@ -844,6 +844,20 @@ describe('buildVersionedOverrides', () => {
         rmSync(lockfilePath, { force: true })
     })
 
+    /** 单 major 共存 fixture（fast-uri@3.1.0 + 3.1.5，同 major 多小版本场景） */
+    const writeFastUriLockfile = (): void => {
+        writeFileSync(lockfilePath, [
+            'lockfileVersion: \'9.0\'',
+            '',
+            '  fast-uri@3.1.0:',
+            '    resolution: {integrity: sha512-a}',
+            '',
+            '  fast-uri@3.1.5:',
+            '    resolution: {integrity: sha512-b}',
+            '',
+        ].join('\n'))
+    }
+
     it('uses major-version key and covers the whole line (body-parser@1 style)', () => {
         const overrides = buildVersionedOverrides(lockfilePath, [alert('vite', '5.4.21')])
         // vite@5.4.14 < 5.4.21 → `vite@5` 大版本 key 覆盖整条 5.x 线；8.2.0 无推荐不覆盖
@@ -863,19 +877,47 @@ describe('buildVersionedOverrides', () => {
         })
     })
 
-    it('covers same-major multi-version coexistence (fast-uri@3.1.0 + 3.1.5)', () => {
-        writeFileSync(lockfilePath, [
-            'lockfileVersion: \'9.0\'',
-            '',
-            '  fast-uri@3.1.0:',
-            '    resolution: {integrity: sha512-a}',
-            '',
-            '  fast-uri@3.1.5:',
-            '    resolution: {integrity: sha512-b}',
-            '',
-        ].join('\n'))
+    it('uses plain key for same-major multi-version coexistence (fast-uri@3.1.0 + 3.1.5)', () => {
+        writeFastUriLockfile()
         const overrides = buildVersionedOverrides(lockfilePath, [alert('fast-uri', '3.1.5')])
-        // 3.1.0 脆弱 → fast-uri@3 覆盖整条 3.x 线（含已安全的 3.1.5 保持不动）
+        // 单 major（仅 3.x 共存）用无版本号 key，避免 `fast-uri@3` 与既有无版本号条目分裂
+        expect(overrides).toEqual({ 'fast-uri': '^3.1.5' })
+    })
+
+    it('merges existing plain override to max for single-major package', () => {
+        writeFastUriLockfile()
+        const overrides = buildVersionedOverrides(
+            lockfilePath,
+            [alert('fast-uri', '3.1.5')],
+            { 'fast-uri': '^3.1.3' },
+        )
+        // 已有无版本号 ^3.1.3 < 推荐 3.1.5 → 升级目标取 max
+        expect(overrides).toEqual({ 'fast-uri': '^3.1.5' })
+    })
+
+    it('keeps existing plain override untouched when already >= target', () => {
+        writeFastUriLockfile()
+        const overrides = buildVersionedOverrides(
+            lockfilePath,
+            [alert('fast-uri', '3.1.5')],
+            { 'fast-uri': '^3.1.8' },
+        )
+        // 已有 ^3.1.8 已 >= 推荐 → 无需写入
+        expect(overrides).toEqual({})
+    })
+
+    it('merges existing versioned override to max for multi-major package', () => {
+        const overrides = buildVersionedOverrides(lockfilePath, [alert('vite', '5.4.21')], { 'vite@5': '^5.4.15' })
+        // 多 major（5.x + 8.x）→ 版本化 key，目标与已有条目取 max；无关包条目不参与
+        expect(overrides).toEqual({ 'vite@5': '^5.4.21' })
+        const compat = buildVersionedOverrides(lockfilePath, [alert('vite', '5.4.21')], { 'brace-expansion': '^2.0.3' })
+        expect(compat).toEqual({ 'vite@5': '^5.4.21' })
+    })
+
+    it('reuses existing versioned key when single-major package has legacy @major entry', () => {
+        writeFastUriLockfile()
+        const overrides = buildVersionedOverrides(lockfilePath, [alert('fast-uri', '3.1.5')], { 'fast-uri@3': '^3.1.3' })
+        // 单 major 已有历史 @major 条目 → 沿用版本化 key（避免无版本号新条目被精确 key 截获），目标取 max
         expect(overrides).toEqual({ 'fast-uri@3': '^3.1.5' })
     })
 

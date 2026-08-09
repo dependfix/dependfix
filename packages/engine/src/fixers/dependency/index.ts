@@ -350,12 +350,17 @@ export async function overrideTransitiveDependency(
 }
 
 /**
- * 通过 pnpm `overrides` **批量**写入版本化覆盖并执行 install（多版本共存场景）。
+ * 通过 pnpm `overrides` **批量**写入覆盖条目并执行 install（多版本共存 / 单 major 统一入口）。
  *
  * 场景：lockfile 中同一包共存多个版本实例（如 vite@5.4.14 与 vite@8.2.0），
  * 单一 `pkg: version` 全局覆盖会波及所有实例（可能误降级根声明），
- * 因此按版本实例分别写 `pkg@version: ^target`（pnpm 版本化 override 惯例，
+ * 因此按版本实例分别写 `pkg@major: ^target`（pnpm 版本化 override 惯例，
  * 参考用户提供的 path-to-regexp / picomatch 多版本分别覆盖示例）。
+ *
+ * key 形式由生成侧（buildVersionedOverrides）按大版本冲突判定决定：
+ * - 多 major 共存 → 版本化 key `pkg@major: ^target`
+ * - 单 major（含同 major 多小版本）→ 无版本号 key `pkg: ^target`
+ * 本函数对 key 形式无感知，按 entries 通用写入（2026-08-09 复盘）。
  *
  * 写入位置与 `overrideTransitiveDependency` 一致：
  * - 存在 `pnpm-workspace.yaml` → 写入其中 `overrides`
@@ -363,7 +368,7 @@ export async function overrideTransitiveDependency(
  *
  * 失败时自动回滚被修改的文件和 `pnpm-lock.yaml`。不执行验证（由上层负责）。
  *
- * @param params - 包名、版本化 overrides 映射（`pkg@version` → `^target`）、工作目录
+ * @param params - 包名、overrides 映射（`pkg@major` 或 `pkg` → `^target`）、工作目录
  * @returns 修复结果（fromVersion 为空字符串，表示多实例无单一来源版本）
  */
 export async function applyVersionedOverrides(
@@ -698,6 +703,36 @@ export function readLockfileVersion(lockfilePath: string, packageName: string): 
     }
     // 多版本并存 → 取最高（不降级保护语义）
     return versions[versions.length - 1]
+}
+
+/**
+ * 读取当前已生效的 pnpm overrides 映射（与写入位置保持一致）：
+ * - 存在 `pnpm-workspace.yaml` → 读取其中 `overrides` 字段（pnpm v10+ 推荐位置）
+ * - 否则 → 读取 `package.json` 的 `pnpm.overrides`
+ *
+ * 供 overrides 生成侧协同使用（如 buildVersionedOverrides）：新目标与已有
+ * 条目取 max 合并，不丢不改写已有条目（2026-08-09 复盘：此前生成侧不感知
+ * 已有条目，导致 `pkg: ^x` 与 `pkg@major: ^y` 并存分裂）。
+ *
+ * @returns 已有 overrides 映射（key → 版本声明）；无配置或解析失败返回 {}
+ */
+export function readExistingOverrides(workDir: string): Record<string, string> {
+    const workspaceYamlPath = join(workDir, 'pnpm-workspace.yaml')
+    try {
+        if (existsSync(workspaceYamlPath)) {
+            const raw = readFileSync(workspaceYamlPath, 'utf-8')
+            const doc = YAML.parse(raw) as Record<string, unknown> ?? {}
+            return (doc.overrides ?? {}) as Record<string, string>
+        }
+        const pkgPath = join(workDir, 'package.json')
+        if (existsSync(pkgPath)) {
+            const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8')) as PackageJson
+            return (pkg.pnpm?.overrides ?? {}) as Record<string, string>
+        }
+        return {}
+    } catch {
+        return {}
+    }
 }
 
 /**

@@ -44,6 +44,7 @@ import {
     readLockfileVersions,
     applyVersionedOverrides,
     isCrossMajorFixRequired,
+    readExistingOverrides,
     upgradeDependency,
 } from '../fixers/dependency'
 import type { RuntimeConfig } from '../config'
@@ -389,10 +390,12 @@ export class DependfixApp {
             // - 多版本共存（vite@5.4.14 + vite@8.2.0）：版本化 overrides 分别覆盖（2026-08-06 复盘）
             const lockfilePath = join(this.workDir, 'pnpm-lock.yaml')
 
-            // 2.0 多版本共存 → 版本化 overrides（独立于分组升级，避免全局覆盖误伤根声明）
+            // 2.0 lockfile 脆弱实例 → overrides 修复（独立于分组升级，避免全局覆盖误伤根声明）
             // 门槛：该包在 lockfile 中存在脆弱实例（低于某大版本线的推荐目标）——
             // 覆盖多 major（vite@5.4.14 + vite@8.2.0）与同 major 多小版本
-            // （fast-uri@3.1.0 + 3.1.5）两类场景（2026-08-06 run 31028234123 复盘）
+            // （fast-uri@3.1.0 + 3.1.5）两类场景（2026-08-06 run 31028234123 复盘）。
+            // key 形式：真实多 major 共存 → 版本化 `pkg@major`；单 major → 无版本号 `pkg`
+            // （2026-08-09 复盘：单 major 用 `pkg@major` 会与既有无版本号条目分裂并存）
             const lockfileManifestAlerts = rootManifestAlerts.filter(
                 (a) => a.source !== 'code-scanning' && a.manifestPath.trim().replace(/\\/g, '/') === 'pnpm-lock.yaml'
                     && a.fixable && a.recommendedVersion,
@@ -428,14 +431,18 @@ export class DependfixApp {
             const fixableLockfileAlerts = lockfileManifestAlerts.filter(
                 (a) => !crossMajorAlertIds.has(a.id) && !autoMajorAlertIds.has(a.id),
             )
-            // 按包分组，构建版本化 overrides；非空即存在脆弱实例 → 进入 2.0.1
+            // 按包分组，构建 overrides（key 形式由大版本冲突判定决定：
+            // 真实多 major 共存 → `pkg@major` 版本化；单 major → 无版本号 `pkg`，
+            // 2026-08-09 复盘）；与已有 overrides 条目协同取 max，不丢不改写已有条目。
+            // 非空即存在脆弱实例 → 进入 2.0.1
+            const existingOverrides = readExistingOverrides(this.workDir)
             const versionedOverridesByPackage = new Map<string, Record<string, string>>()
             for (const alert of fixableLockfileAlerts) {
                 if (!versionedOverridesByPackage.has(alert.packageName)) {
                     const packageAlerts = fixableLockfileAlerts.filter((a) => a.packageName === alert.packageName)
                     versionedOverridesByPackage.set(
                         alert.packageName,
-                        buildVersionedOverrides(lockfilePath, packageAlerts),
+                        buildVersionedOverrides(lockfilePath, packageAlerts, existingOverrides),
                     )
                 }
             }

@@ -221,23 +221,27 @@ export function hasMultipleMajorVersions(lockfilePath: string, packageName: stri
 }
 
 /**
- * 为 lockfile 中多版本共存的包构建版本化 overrides 映射。
+ * 为 lockfile 中存在脆弱实例的包构建 overrides 映射。
  *
- * 输入为该包**所有** fixable 告警（不同 GHSA 各自的 recommendedVersion 不同），
- * 按大版本分组取各线最高推荐：
- * - vite 告警推荐 5.4.15~6.4.3 → major 5 线目标 5.4.21，生成 `vite@5: ^5.4.21`
- *   （不再用全局最高 6.4.3 导致 5.x 实例匹配失败——2026-08-06 run 31028234123 复盘）
- * - 同 major 多小版本（fast-uri@3.1.0 + 3.1.5）→ `fast-uri@3: ^3.1.5`，覆盖整条线
+ * 输入为该包所有 fixable 告警（不同 GHSA 推荐版本不同），按大版本分组取各线
+ * 最高推荐（2026-08-06 run 31028234123 复盘：不用全局最高导致 5.x 实例匹配失败）。
  *
- * key 使用**大版本号**（`pkg@major`，pnpm 版本化 override 惯例，参考
- * body-parser@1: ^1.20.6 示例）而非精确版本：精确 key 只修当前实例，
- * 未来 lockfile 更新引入同线新脆弱版本时告警会复发。
+ * **key 形式决策**（2026-08-09 复盘）：真实大版本冲突（多 major 共存，如
+ * vite@5.4.14 + vite@8.2.0）→ 版本化 key `pkg@major`；单 major（含同 major 多
+ * 小版本）→ 无版本号 key `pkg`——与既有无版本号条目并存会语义分裂（无版本号
+ * 兜底匹配未命中 `@major` 的实例，多 major 下可能静默跨线强制）。例外：单 major
+ * 已有 `pkg@major` 条目（历史遗留）时沿用版本化 key，否则新条目被精确 key 截获。
  *
- * @returns 版本化 overrides 映射（key 为 `pkg@major`）；无脆弱实例时返回 {}
+ * **与既有 overrides 协同**：目标与已有同 key 条目取 max（剥离前缀比较），
+ * 已有条目不删除、不改写形式；已有目标 >= 推荐时不重复写入。
+ *
+ * @param existingOverrides - 当前已生效的 overrides 映射（readExistingOverrides 读取）
+ * @returns 需要新增/更新的 overrides 映射；无脆弱实例或无需更新时返回 {}
  */
 export function buildVersionedOverrides(
     lockfilePath: string,
     alerts: NormalizedSecurityAlert[],
+    existingOverrides: Record<string, string> = {},
 ): Record<string, string> {
     const first = alerts[0]
     if (!first) {
@@ -260,13 +264,26 @@ export function buildVersionedOverrides(
         }
     }
 
+    // 大版本冲突判定：多 major 共存才用版本化 key；单 major 已有版本化条目则沿用
+    const majors = [...new Set(versions.map((v) => String(parseMajorVersion(v))))]
+    const useVersionedKey = majors.length > 1
+        || existingOverrides[`${packageName}@${majors[0] ?? ''}`] !== undefined
+    // 剥离 ^ / ~ 前缀后比较（compareSemver 不处理前缀）
+    const existingTarget = (key: string): string | undefined =>
+        existingOverrides[key]?.replace(/^\s*[\^~>=<]*\s*/, '')
+
     const overrides: Record<string, string> = {}
     for (const version of versions) {
         const major = String(parseMajorVersion(version))
         const target = targetByMajor.get(major)
-        // 该大版本线存在推荐目标且实例低于目标 → 脆弱，用大版本 key 覆盖整条线
+        // 该大版本线存在推荐目标且实例低于目标 → 脆弱，覆盖整条线
         if (target && compareSemver(version, target) < 0) {
-            overrides[`${packageName}@${major}`] = `^${target}`
+            const key = useVersionedKey ? `${packageName}@${major}` : packageName
+            // 与已有条目协同：目标取 max，已有 >= 推荐则无需写入
+            const existing = existingTarget(key)
+            if (!existing || compareSemver(target, existing) > 0) {
+                overrides[key] = `^${target}`
+            }
         }
     }
     return overrides

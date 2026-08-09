@@ -134,14 +134,7 @@ apps/platform/               # Nuxt 全栈平台（后续阶段）
 
 遵循 [Conventional Commits](https://www.conventionalcommits.org/)：
 
-- `feat`: 新功能
-- `fix`: 修复 Bug
-- `docs`: 文档变更
-- `refactor`: 代码重构
-- `test`: 测试相关
-- `ci`: CI 配置变更
-- `chore`: 构建/工具链变动
-- `perf`: 性能优化
+- 提交类型（`feat` / `fix` / `docs` / `refactor` / `test` / `ci` / `chore` / `perf` / `style` / `build` / `revert`）、主题行与正文的完整编写规则见 [Git 规范 §3.1 提交消息格式](./git.md)。
 
 提交语言使用中文或用户使用的语言。单次提交对应一个逻辑变更，避免"大杂烩"提交。
 

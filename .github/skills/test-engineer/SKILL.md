@@ -36,6 +36,12 @@ metadata:
 - 如果仓库已有 tests/testSetup.ts 或全局 mock 入口，优先复用，不要在每个测试里重复造轮子。
 - 涉及前端逻辑时，优先考虑对 useI18n、路由和外部请求的可控 mock。
 - 写测试前先核对 package.json 中真实存在的测试命令与运行方式。
+- **平台 e2e（Playwright）**：`apps/platform/tests/e2e/`，运行 `pnpm --filter @dependfix/platform test:e2e`（服务端用构建产物，需先 build）。关键纪律：
+  - 用例必须**幂等**：固定数据名（如仓库 `e2e-owner/e2e-repo`）二次运行必撞唯一索引 → 用 `Date.now()` 时间戳唯一名；global-setup 注册账号容忍已存在。
+  - **e2e 二次运行是回归验证手段**：能暴露单次运行不可见的隐性缺陷（TypeORM 列级复合索引 bug 即由此暴露）。
+  - e2e 库是共享 SQLite（`data/e2e.sqlite`），CI 单 worker 串行；本地多 worker 并行时避免用例间共享可变数据。
+  - better-auth 限流：e2e 环境 `E2E_TEST=true` 已豁免（disableIpTracking），测试内无需处理 429。
+  - 详细经验见 [testing.md §6.1](../../../docs/standards/testing.md) 与 [经验归档 §二十九/§三十](../../../docs/design/governance/experience-archive.md)。
 
 ## 反模式
 

@@ -169,6 +169,17 @@ if (value) { ... }  // 对 0, "", false 失效
 
 教训见 [经验归档 §二十七](../../../../docs/design/governance/experience-archive.md)（monorepo CI 类型解析链），规范见 [ai-collaboration.md §4.2](../../../../docs/standards/ai-collaboration.md)。
 
+### TypeORM 实体复合索引声明（必查项）
+
+修改 `apps/platform/server/entities/*.ts`（TypeORM 实体）时，检查复合索引声明位置：
+
+- **复合索引必须类级**：多列 `@Index(['a','b','c'])` 声明在列上时，TypeORM 1.x 会错误生成**仅末列**的单列索引（实测 SQLite DDL `UNIQUE("platform")`，`owner/name/platform` 复合唯一失效 → 第二个同 platform 仓库插入必 500，单仓库场景永不暴露）
+- **正确写法**：`@Entity('table')` + 类上方 `@Index(['a','b','c'], { unique: true })`
+- **验证手段**：e2e 二次运行（连跑两遍 `test:e2e` 验证幂等）；或查 SQLite DDL（`SELECT sql FROM sqlite_master WHERE type='index' AND tbl_name='...'`）确认索引列集合
+- **回归覆盖**：唯一约束语义是否被集成/回归测试覆盖（同键冲突报错 + 不同键共存）
+
+教训见 [经验归档 §三十](../../../../docs/design/governance/experience-archive.md)（TypeORM 1.x 列级复合索引 bug，e2e 二次运行暴露）。
+
 ### 发布链路 tag 推送核验（必查项）
 
 修改发布相关脚本/工作流（release.yml / changelog.mjs / changeset 配置 / 手动发布文档）时，检查 tag 生命周期闭环：

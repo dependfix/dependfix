@@ -80,6 +80,15 @@
 - **测试输入用真实形态**: 测试 fixture 应使用真实格式的输入（如带固定前缀的 ID），合成数据会漏掉真实格式才触发的缺陷。
 - **lint 门禁**: `--max-warnings N` 让存量 warning 变成 CI 硬门禁倒逼清理；测试名应与真实断言一致（误导性测试名会掩盖缺口）。
 
+### 6.1 E2E 实践经验（Playwright）
+
+- **用例必须幂等**：同一数据库二次运行是回归验证手段（能暴露单次运行不可见的隐性缺陷，如 §三十 TypeORM 复合索引 bug）。固定名（如 `e2e-owner/e2e-repo`）二次运行必撞唯一索引 → 用例用 `Date.now()` 时间戳唯一名；global-setup 注册账号容忍已存在（200/201/422 均视为成功）。
+- **服务端用构建产物**：`.output/server/index.mjs`（对齐生产形态），独立端口 + 独立库 + 独立 AUTH_SECRET；生产构建 synchronize 默认关闭，e2e 库必须 `DATABASE_SYNCHRONIZE=true` 显式开启。
+- **会话复用**：global-setup 注册首用户 admin（首个注册自动 admin）保存 storageState，管理页用例 `test.use({ storageState })` 复用；权限用例（viewer）在测试内注册登录。
+- **CI 单 worker 串行**：共享 SQLite 库下并行写互相干扰；CI `workers: 1` + retry 2 + blob 报告。
+- **目录隔离**：`*.e2e.test.ts` 会被 vitest 默认扫描，vitest.config 必须 `exclude: ['**/tests/e2e/**']`。
+- **限流豁免**：better-auth 1.6.26 内置特殊规则（sign-in 10s/3 次）优先于 customRules，无代理 IP 头时回退共享桶（并行必 429）→ e2e 环境 `E2E_TEST=true` + `advanced.ipAddress.disableIpTracking: true` 完全跳过（[经验归档 §三十](../design/governance/experience-archive.md)）。
+
 ## 7. 测试代码质量
 
 - 测试代码本身也需要通过 lint + typecheck

@@ -291,3 +291,25 @@
 - **启示**：
   - lint/typecheck 全绿 ≠ CI 全绿：test/coverage/build 各自独立 job，每个 job 的依赖准备（prepare/build）必须独立显式；修复上一轮失败点后，**必须等全链（lint → md → links → typecheck → test → build）真正跑完**才算闭环（§二十二 原则的第二次实证）。
   - 本地全量测试 991/991 通过不能覆盖 CI 特有差异（Linux 更快、job 隔离、无本地 .nuxt 残留）——本地模拟（移走 dist、删 .nuxt）能提高置信度，最终以 CI 复跑为准。
+
+## 二十九、e2e 测试基建：Playwright 落地模式与幂等设计（2026-08-10）
+
+> 平台阶段启用 e2e（参考 momei 项目模式），22 用例覆盖全部页面关键功能点。
+
+- **案例**：platform e2e 基建（playwright.config.ts + global-setup + helpers + 22 用例 + CI e2e job，提交 432c59a1）。过程中两次"二次运行必挂"暴露两个不同根因，均为单次运行无法发现的隐性缺陷。
+- **启示**：
+  - **e2e 用例必须幂等**：同一 SQLite 库二次运行，固定仓库名（如 e2e-owner/e2e-repo）必撞唯一索引；用例用 `Date.now()` 时间戳唯一名，global-setup 注册容忍已存在（200/201/422 均视为成功），"修改显示名"重复填写同值仍成功。
+  - **e2e 服务端用构建产物**：`.output/server/index.mjs`（对齐生产形态），独立端口 + 独立库 + 独立 AUTH_SECRET；生产构建 synchronize 默认关闭，e2e 库必须 `DATABASE_SYNCHRONIZE=true` 显式开启。
+  - **storageState 复用会话**：global-setup 注册首用户 admin（首个注册自动 admin）并保存认证状态，管理页用例 `test.use({ storageState })` 复用；viewer 权限用例在测试内注册登录。
+  - **CI 单 worker 串行**：共享 SQLite 库下并行写会互相干扰；CI `workers: 1` + retry 2 + blob 报告；本地可并行。
+  - **vitest 与 playwright 目录隔离**：e2e 文件命名 `*.e2e.test.ts` 会被 vitest 默认扫描（Playwright Test did not expect...），vitest.config `exclude: ['**/tests/e2e/**']` 必须显式排除。
+  - **e2e 驱动发现生产缺陷**：二次运行暴露 TypeORM 复合索引 bug（§三十），说明 e2e"重复运行"本身是回归验证手段。
+
+## 三十、TypeORM 1.x 列级复合索引 bug + better-auth 限流/生产细节（2026-08-10）
+
+- **案例**：e2e 二次运行"添加仓库"用例 500（UNIQUE constraint failed: dependfix_repository.platform）——实体声明 `@Index(['owner','name','platform'], { unique: true })` 在列级，实测 SQLite DDL 生成 `UNIQUE ("platform")`（仅末列！），第二个仓库（platform='github'）插入必 500；单仓库场景永不暴露。修复：复合索引移到类级 `@Entity` 上 + organization.test.ts 回归用例（3 仓库共存 + 同 owner/name 冲突），DDL 实证 `UNIQUE ("owner","name","platform")`。
+- **启示**：
+  - **TypeORM 1.x 列级复合 `@Index([...])` 会错误生成单列索引**（只取末列），复合唯一索引必须声明在类级；同批检查其他实体（scan-run/scan-result/user/credential 均为单列 @Index，无此问题）。
+  - **better-auth 1.6.26 内置限流特殊规则优先于 customRules**：sign-in/sign-up 默认 10s/3 次，`/sign-in/*` customRules 不生效；无代理 IP 头时回退共享桶（并行测试必 429）。豁免：`advanced.ipAddress.disableIpTracking: true` 完全跳过限流（e2e 用 E2E_TEST=true 条件注入）。
+  - **better-auth 生产模式细节**：Set-Cookie 带 `__Secure-` 前缀（Secure cookie）；无 Origin 头的 Node fetch 请求被拒（MISSING_OR_NULL_ORIGIN）——手动 API 复现需带 origin 头 + 完整 cookie 名。
+  - **手动复现纪律**：复现 500 前先清理测试库残留（同库重复创建必 500 干扰归因），server 日志（stderr）是定位第一手证据。

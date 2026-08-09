@@ -87,6 +87,34 @@ a {
         }
     }
 
+    &__user {
+        display: flex;
+        align-items: center;
+        gap: $space-2;
+        color: $color-text-muted;
+        font-size: $font-size-sm;
+
+        &:hover {
+            color: $color-primary;
+        }
+    }
+
+    &__user-name {
+        max-width: 160px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    &__avatar {
+        // 与 PrimeVue Avatar size="small"（32px）对齐，保证有/无头像用户头部视觉一致
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        object-fit: cover;
+        flex-shrink: 0;
+    }
+
     &__body {
         flex: 1;
         padding: $space-5;

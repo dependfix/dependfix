@@ -70,7 +70,25 @@ const logout = async () => {
                     @click="toggle"
                 />
                 <template v-if="session?.user">
-                    <span class="text-muted">{{ session.user.email }}</span>
+                    <NuxtLink
+                        to="/settings"
+                        class="platform__user"
+                        title="个人设置"
+                    >
+                        <img
+                            v-if="session.user.image"
+                            :src="session.user.image"
+                            alt="头像"
+                            class="platform__avatar"
+                        >
+                        <Avatar
+                            v-else
+                            :label="(session.user.name || session.user.email || '?').slice(0, 1).toUpperCase()"
+                            shape="circle"
+                            size="small"
+                        />
+                        <span class="platform__user-name">{{ session.user.name || session.user.email }}</span>
+                    </NuxtLink>
                     <Button
                         label="退出登录"
                         severity="secondary"

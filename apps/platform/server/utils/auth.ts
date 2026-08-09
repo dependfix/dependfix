@@ -127,6 +127,25 @@ const buildAuth = (ds: Awaited<ReturnType<typeof ensureDatabaseInitialized>>, op
                 input: false,
             },
         },
+        changeEmail: {
+            enabled: true,
+            // SMTP 未配置时直接改邮箱（对齐"未配置自动跳过验证"模式）；已配置时发确认邮件
+            updateEmailWithoutVerification: !options.smtpEnabled,
+            sendChangeEmailConfirmation: async ({ user, newEmail, url }) => {
+                // SMTP 未配置时：不发确认邮件（changeEmail 直接生效）
+                // SMTP 已配置但邮件发送器未实现：确认邮件不发出（M6 既有降级模式，
+                // 与 sendVerificationEmail/sendResetPassword 一致；统一实现登记 backlog）
+                if (!options.smtpEnabled) {
+                    console.warn('[auth] SMTP 未配置，邮箱变更确认邮件未发送')
+                } else {
+                    console.warn('[auth] 邮件发送器未实现，邮箱变更确认邮件未发送（变更需在 verify-email 链接确认）')
+                }
+                void user
+                void newEmail
+                void url
+                await Promise.resolve()
+            },
+        },
     },
     databaseHooks: {
         user: {

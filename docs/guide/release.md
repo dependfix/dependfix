@@ -6,17 +6,18 @@
 
 > **包清单单点声明**：发布包列表定义在 [scripts/packages.config.mjs](../../scripts/packages.config.mjs)（`publishable: true` 的包进入发布链路）。
 > 新增发布包时：① 在该文件登记；② 补充包 README；其余（changelog 生成、changeset 映射、CI 校验）自动生效。
-> 当前 `packages/mcp` 已登记但 `publishable: false`（发布链路待 [backlog.md §T706](../plan/backlog.md) 拆包调整后就绪）。
 
 当前 Monorepo 对外发布的 npm 包：
 
 | 包 | 说明 | npm 地址 |
 |----|------|----------|
-| `dependfix` | CLI 应用入口（含 `dependfix` bin 命令） | https://www.npmjs.com/package/dependfix |
+| `dependfix` | CLI 应用入口（含 `dependfix` bin 命令，薄壳：参数解析 + runner） | https://www.npmjs.com/package/dependfix |
 | `@dependfix/core` | 核心领域模型库 | https://www.npmjs.com/package/@dependfix/core |
+| `@dependfix/engine` | 执行引擎（编排/采集/修复/研判，cli/mcp/platform 共享） | https://www.npmjs.com/package/@dependfix/engine |
 | `@dependfix/skills` | 产品 Agent Skill 权威源（`dependfix-remediator`，纯内容包） | https://www.npmjs.com/package/@dependfix/skills |
+| `@dependfix/mcp` | MCP Server（stdio 传输，7 个 tool 暴露扫描/修复能力） | https://www.npmjs.com/package/@dependfix/mcp |
 
-> 依赖关系：`dependfix` 依赖 `@dependfix/core` 与 `@dependfix/skills`（运行时解析 skill 内容）；`@dependfix/skills` 无依赖。发布顺序：被依赖方先行（`@dependfix/core` → `@dependfix/skills` → `dependfix`）。`@dependfix/mcp`（MCP Server）发布待 [backlog.md §T706](../plan/backlog.md) 拆包调整后。
+> 依赖关系：`dependfix` 依赖 `@dependfix/core`、`@dependfix/engine` 与 `@dependfix/skills`（运行时解析 skill 内容）；`@dependfix/engine` 依赖 `@dependfix/core`；`@dependfix/mcp` 依赖 `@dependfix/core` 与 `@dependfix/engine`。发布顺序：被依赖方先行（`@dependfix/core` → `@dependfix/engine` → `@dependfix/skills` → `dependfix` → `@dependfix/mcp`）。
 
 ## 版本策略
 
@@ -52,9 +53,9 @@
    - **Repository**: `dependfix`
    - **Workflow filename**: `release.yml`
    - **Allowed actions**: `npm publish`
-4. 三个包（`dependfix`、`@dependfix/core` 与 `@dependfix/skills`）都要配置。
+4. 五个包（`dependfix`、`@dependfix/core`、`@dependfix/engine`、`@dependfix/skills` 与 `@dependfix/mcp`）都要配置。
 
-> ⚠️ 包必须已存在于 npm 上才能配置 Trusted Publisher（npm/cli#8544）。因此 `@dependfix/core` 与 `@dependfix/skills` 的首次发布必须先手动完成（见下），之后才能配置并启用 OIDC。
+> ⚠️ 包必须已存在于 npm 上才能配置 Trusted Publisher（npm/cli#8544）。因此尚未发布的新包（如 `@dependfix/engine`、`@dependfix/mcp`）的首次发布必须先手动完成（见下），之后才能配置并启用 OIDC。
 
 ### 2. package.json 元数据
 
@@ -100,8 +101,10 @@ pnpm build
 
 # 2. 检查包内容（确认 dist / bin / README / LICENSE 都在；@dependfix/skills 为纯内容包，确认 dependfix-remediator/ 与 README 在发布内容中）
 pnpm --filter @dependfix/core pack --pack-destination "$env:TEMP"   # Windows PowerShell
+pnpm --filter @dependfix/engine pack --pack-destination "$env:TEMP" # Windows PowerShell
 pnpm --filter @dependfix/skills pack --pack-destination "$env:TEMP" # Windows PowerShell
 pnpm --filter dependfix pack --pack-destination "$env:TEMP"        # Windows PowerShell
+pnpm --filter @dependfix/mcp pack --pack-destination "$env:TEMP"   # Windows PowerShell
 # bash/zsh 使用：pnpm --filter @dependfix/core pack --pack-destination /tmp
 
 # 3. 本地试跑构建产物
@@ -110,11 +113,13 @@ node packages/cli/dist/bin.mjs --help
 # 4. npm 登录（一次性，pnpm publish 复用 npm 凭据）
 npm login
 
-# 5. 发布（顺序重要：先被依赖方 @dependfix/core，再 @dependfix/skills，最后 dependfix）
+# 5. 发布（顺序重要：被依赖方先行——@dependfix/core → @dependfix/engine → @dependfix/skills → dependfix → @dependfix/mcp）
 #    必须使用 pnpm publish：它会替换 workspace:* 为实际版本
 pnpm --filter @dependfix/core publish
+pnpm --filter @dependfix/engine publish
 pnpm --filter @dependfix/skills publish
 pnpm --filter dependfix publish
+pnpm --filter @dependfix/mcp publish
 
 # 6. 打 tag（手动发布**不会**自动创建 tag，必须手动补打 `<pkg>@<version>` 格式：
 #    changelog 分段锚点与 changeset 推导基线都依赖它——参照 scripts/changelog.mjs 的
@@ -127,22 +132,26 @@ pnpm tag:released              # 确认后执行补打
 #    手动方式（锚点约束：每个 tag 必须指向"同时 touch 该包路径"的 commit，
 #    见"CHANGELOG 策略"；锚点查询：git log -1 --format=%H -- packages/<path>）：
 git tag @dependfix/core@0.1.0 <core-anchor>   # 指向 touch packages/core 的 commit
+git tag @dependfix/engine@0.1.0 <engine-anchor> # 指向 touch packages/engine 的 commit
 git tag @dependfix/skills@0.1.0 <skills-anchor> # 指向 touch packages/skills 的 commit
 git tag dependfix@0.1.0 <cli-anchor>          # 指向 touch packages/cli 的 commit
+git tag @dependfix/mcp@0.1.0 <mcp-anchor>     # 指向 touch packages/mcp 的 commit
 git tag v0.1.0                                # （可选）GitHub Release 展示用
 git push origin --tags
 
 # 7. 验证
 npm view dependfix version          # 期望 0.1.0，dist-tags.latest
 npm view @dependfix/core version    # 期望 0.1.0
+npm view @dependfix/engine version  # 期望 0.1.0
 npm view @dependfix/skills version  # 期望 0.1.0
+npm view @dependfix/mcp version     # 期望 0.1.0
 npm view dependfix dependencies     # 期望 @dependfix/core 与 @dependfix/skills 为具体版本（非 workspace:*）
 npm i -g dependfix && dependfix --version   # 或临时目录 npx dependfix --help
 
 # 8.（可选）GitHub Release（预览版标记 pre-release）
 gh release create v0.1.0 --generate-notes --prerelease
 
-# 9. 在 npmjs.com 为三个包配置 Trusted Publisher（见"前置配置"）
+# 9. 在 npmjs.com 为五个包配置 Trusted Publisher（见"前置配置"）
 ```
 
 ## 后续版本（0.1.1+）
@@ -178,7 +187,7 @@ pnpm changeset:generate
 #    changelog 已禁用（"changelog": false），此步骤无需 GITHUB_TOKEN
 pnpm changeset version
 
-# 4. 生成 CHANGELOG（基于 conventional commits 重新生成四份日志，见"CHANGELOG 策略"）
+# 4. 生成 CHANGELOG（基于 conventional commits 重新生成六份日志，见"CHANGELOG 策略"）
 pnpm changelog
 
 # 5. 审查并提交（含包级 CHANGELOG.md 与 package.json 版本变更）
@@ -205,7 +214,7 @@ git push origin master
 
 1. （仅 `schedule` 触发）`Auto version & changelog`：自动版本提升 + CHANGELOG 生成 + 提交推送；
 2. lint → typecheck → test → build（质量门，任一失败即中止）；
-3. `Verify changelog is up to date`：校验四份 CHANGELOG（根级 + `packages/cli` / `packages/core` / `packages/skills`）已包含当前版本段（防止漏跑 `pnpm changelog` 直接发布；普通提交版本未变时自动通过）；
+3. `Verify changelog is up to date`：校验六份 CHANGELOG（根级 + `packages/cli` / `packages/core` / `packages/engine` / `packages/skills` / `packages/mcp`）已包含当前版本段（防止漏跑 `pnpm changelog` 直接发布；普通提交版本未变时自动通过）；
 4. `pnpm changeset publish`：
    - **只发布有 changeset 记录的包**，无变更时安全退出（`No unpublished projects to publish`）；
    - 在 pnpm 项目内部调用 `pnpm publish`：自动替换 `workspace:*` 为实际版本，发布顺序由 changesets 编排（`@dependfix/core` / `@dependfix/skills` 先于 `dependfix`）；

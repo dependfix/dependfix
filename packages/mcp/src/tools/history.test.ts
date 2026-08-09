@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { queryRepoHistory } from 'dependfix'
+import { queryRepoHistory } from '@dependfix/engine'
 import { getHistory } from './history'
 
-vi.mock('dependfix', () => ({
+vi.mock('@dependfix/engine', () => ({
     queryRepoHistory: vi.fn(),
 }))
 

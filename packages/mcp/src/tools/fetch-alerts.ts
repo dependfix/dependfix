@@ -1,4 +1,4 @@
-import { createGitHubClient, fetchCodeScanningAlerts, fetchDependabotAlerts, type FetchDependabotAlertsParams } from 'dependfix'
+import { createGitHubClient, fetchCodeScanningAlerts, fetchDependabotAlerts, type FetchDependabotAlertsParams } from '@dependfix/engine'
 import { filterAlerts, isValidRepoIdentifier, type SeverityThreshold } from '@dependfix/core'
 import { requireToken, toToolError } from './errors'
 

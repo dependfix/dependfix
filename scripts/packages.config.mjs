@@ -36,13 +36,12 @@ export const PACKAGES = [
     {
         path: 'packages/engine',
         pkg: '@dependfix/engine',
-        // 发布链路随拆包批次 4 就绪（见 docs/plan/todo.md 进行中任务）
-        changelog: null,
+        changelog: 'packages/engine/CHANGELOG.md',
         tags: { prefix: '@dependfix/engine@' },
         publishOrder: 2,
         rootChangelog: false,
-        // 已在 .changeset/config.json ignore 登记，避免被 changeset publish 意外发布
-        publishable: false,
+        // 拆包调整完成（2026-08-09，见 docs/plan/todo.md 进行中任务），发布链路就绪
+        publishable: true,
     },
     {
         path: 'packages/skills',
@@ -65,13 +64,12 @@ export const PACKAGES = [
     {
         path: 'packages/mcp',
         pkg: '@dependfix/mcp',
-        // 发布链路暂未就绪（延后：先完成拆包调整，见 docs/plan/backlog.md §T706）
-        changelog: null,
+        // 拆包调整完成（2026-08-09，依赖切换至 engine），发布链路就绪
+        changelog: 'packages/mcp/CHANGELOG.md',
         tags: { prefix: '@dependfix/mcp@' },
         publishOrder: 5,
         rootChangelog: false,
-        // 已在 .changeset/config.json ignore 登记，避免被 changeset publish 意外发布
-        publishable: false,
+        publishable: true,
     },
 ]
 

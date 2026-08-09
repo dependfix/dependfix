@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { createGitHubClient, deleteRemoteBranch, getBranchPrStatus, listDependfixBranches } from 'dependfix'
+import { createGitHubClient, deleteRemoteBranch, getBranchPrStatus, listDependfixBranches } from '@dependfix/engine'
 import { cleanupBranches } from './cleanup-branches'
 
-vi.mock('dependfix', () => ({
+vi.mock('@dependfix/engine', () => ({
     createGitHubClient: vi.fn(),
     deleteRemoteBranch: vi.fn(),
     getBranchPrStatus: vi.fn(),

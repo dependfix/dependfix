@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { DependfixApp } from 'dependfix'
+import { DependfixApp } from '@dependfix/engine'
 import { runScan } from './run-scan'
 
-vi.mock('dependfix', () => ({
+vi.mock('@dependfix/engine', () => ({
     DependfixApp: vi.fn(),
     // 与 cli DEFAULT_RUNTIME_CONFIG 对齐的测试副本（默认值一致性由实现注释 + typecheck 保证）
     DEFAULT_RUNTIME_CONFIG: {

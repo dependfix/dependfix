@@ -94,6 +94,9 @@ importers:
       '@dependfix/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@dependfix/engine':
+        specifier: workspace:*
+        version: link:../../packages/engine
       '@octokit/rest':
         specifier: ^21.1.1
         version: 21.1.1
@@ -109,9 +112,6 @@ importers:
       better-sqlite3:
         specifier: ^12.11.1
         version: 12.11.1
-      dependfix:
-        specifier: workspace:*
-        version: link:../../packages/cli
       h3:
         specifier: ^1.15.11
         version: 1.15.11
@@ -311,12 +311,12 @@ importers:
       '@dependfix/core':
         specifier: workspace:*
         version: link:../core
+      '@dependfix/engine':
+        specifier: workspace:*
+        version: link:../engine
       '@modelcontextprotocol/sdk':
         specifier: ^1.30.0
         version: 1.30.0(supports-color@10.2.2)(zod@4.4.3)
-      dependfix:
-        specifier: workspace:*
-        version: link:../cli
       zod:
         specifier: ^4.4.3
         version: 4.4.3

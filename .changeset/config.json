@@ -7,8 +7,5 @@
     "access": "public",
     "baseBranch": "master",
     "updateInternalDependencies": "patch",
-    "ignore": [
-        "@dependfix/engine",
-        "@dependfix/mcp"
-    ]
+    "ignore": []
 }

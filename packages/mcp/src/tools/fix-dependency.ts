@@ -1,4 +1,4 @@
-import { overrideTransitiveDependency, repairLockfile, upgradeDependency, type LockfileDiff } from 'dependfix'
+import { overrideTransitiveDependency, repairLockfile, upgradeDependency, type LockfileDiff } from '@dependfix/engine'
 import { toToolError } from './errors'
 
 /** `fix_dependency` 返回结构（按 fixType 判别） */

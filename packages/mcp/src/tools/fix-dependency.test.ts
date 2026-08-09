@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { overrideTransitiveDependency, repairLockfile, upgradeDependency } from 'dependfix'
+import { overrideTransitiveDependency, repairLockfile, upgradeDependency } from '@dependfix/engine'
 import { fixDependency } from './fix-dependency'
 
-vi.mock('dependfix', () => ({
+vi.mock('@dependfix/engine', () => ({
     overrideTransitiveDependency: vi.fn(),
     repairLockfile: vi.fn(),
     upgradeDependency: vi.fn(),

@@ -1,4 +1,4 @@
-import { DependfixApp, DEFAULT_RUNTIME_CONFIG, type RuntimeConfig } from 'dependfix'
+import { DependfixApp, DEFAULT_RUNTIME_CONFIG, type RuntimeConfig } from '@dependfix/engine'
 import { isValidRepoIdentifier } from '@dependfix/core'
 import { requireToken, toToolError } from './errors'
 

@@ -2,7 +2,7 @@ import { mkdir, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
-import { DependfixApp, type RuntimeConfig } from 'dependfix'
+import { DependfixApp, type RuntimeConfig } from '@dependfix/engine'
 import type { ScanExecutor, ScanExecutorContext, ScanExecutorResult } from './types'
 
 const execFileAsync = promisify(execFile)

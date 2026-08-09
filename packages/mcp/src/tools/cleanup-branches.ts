@@ -1,4 +1,4 @@
-import { createGitHubClient, deleteRemoteBranch, getBranchPrStatus, listDependfixBranches } from 'dependfix'
+import { createGitHubClient, deleteRemoteBranch, getBranchPrStatus, listDependfixBranches } from '@dependfix/engine'
 import { isValidRepoIdentifier } from '@dependfix/core'
 import { requireToken, toToolError } from './errors'
 

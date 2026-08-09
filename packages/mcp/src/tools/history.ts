@@ -1,4 +1,4 @@
-import { queryRepoHistory } from 'dependfix'
+import { queryRepoHistory } from '@dependfix/engine'
 import { isValidRepoIdentifier } from '@dependfix/core'
 import { toToolError } from './errors'
 

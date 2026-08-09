@@ -1,5 +1,5 @@
 import type { RunResult } from '@dependfix/core'
-import type { RuntimeConfig } from 'dependfix'
+import type { RuntimeConfig } from '@dependfix/engine'
 
 /** 执行器类型标识 */
 export type ExecutorKind = 'container' | 'sandbox' | 'github-action' | 'local'

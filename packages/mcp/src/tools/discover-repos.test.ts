@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { createGitHubClient, discoverRepositories } from 'dependfix'
+import { createGitHubClient, discoverRepositories } from '@dependfix/engine'
 import { discoverRepos } from './discover-repos'
 
-vi.mock('dependfix', () => ({
+vi.mock('@dependfix/engine', () => ({
     createGitHubClient: vi.fn(),
     discoverRepositories: vi.fn(),
 }))

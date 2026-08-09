@@ -1,4 +1,4 @@
-import { createGitHubClient, discoverRepositories, type RepoPolicy } from 'dependfix'
+import { createGitHubClient, discoverRepositories, type RepoPolicy } from '@dependfix/engine'
 import { requireToken, toToolError } from './errors'
 
 /** `discover_repos` 返回结构 */

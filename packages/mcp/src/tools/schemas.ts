@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { RUNTIME_MODES, SEVERITY_THRESHOLDS } from 'dependfix'
+import { RUNTIME_MODES, SEVERITY_THRESHOLDS } from '@dependfix/engine'
 
 // run_scan 的 mode 子集：排除 cleanup-branches（由独立 cleanup_branches tool 承担；
 // DependfixApp 的该 mode 走交互确认，MCP stdio 不可用——见 mcp-server.md §8.3）。

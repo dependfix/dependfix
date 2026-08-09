@@ -22,11 +22,10 @@ import {
 } from './helpers'
 
 // ---------------------------------------------------------------------------
-// Mock engine 相关方法（config/fixers 已并入 @dependfix/engine，统一部分 mock）：
+// Mock engine 内部模块（engine 内相对导入，mock 路径用相对引用）：
 // - pr-creator 方法（autoCleanupMergedBranches / closeSupersededPRs 依赖）
 // - inferRepoFromGitRemote（resolveAlertRepositories 依赖）
 // - repairLockfile（tryLockfileRepair 依赖，避免真实 pnpm）
-// 保留 engine 其余真实实现（整模块替换会导致未触达路径符号为 undefined）
 // ---------------------------------------------------------------------------
 
 const prCreatorMock = vi.hoisted(() => ({
@@ -46,14 +45,19 @@ const pnpmFixerMock = vi.hoisted(() => ({
     repairLockfile: vi.fn(),
 }))
 
-vi.mock('@dependfix/engine', async (importOriginal) => {
-    const actual = await importOriginal<typeof import('@dependfix/engine')>()
-    return {
-        ...actual,
-        ...prCreatorMock,
-        inferRepoFromGitRemote: configMock.inferRepoFromGitRemote,
-        repairLockfile: pnpmFixerMock.repairLockfile,
-    }
+vi.mock('../github/pr-creator', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('../github/pr-creator')>()
+    return { ...actual, ...prCreatorMock }
+})
+
+vi.mock('../config', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('../config')>()
+    return { ...actual, inferRepoFromGitRemote: configMock.inferRepoFromGitRemote }
+})
+
+vi.mock('../fixers/pnpm', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('../fixers/pnpm')>()
+    return { ...actual, repairLockfile: pnpmFixerMock.repairLockfile }
 })
 
 // ---------------------------------------------------------------------------

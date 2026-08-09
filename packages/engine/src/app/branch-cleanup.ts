@@ -9,7 +9,7 @@ import {
     listDependfixBranches,
     type DependfixOpenPR,
     type DependfixBranchStatus,
-} from '@dependfix/engine'
+} from '../github/pr-creator'
 import type { AppContext } from './helpers'
 
 // ---------------------------------------------------------------------------

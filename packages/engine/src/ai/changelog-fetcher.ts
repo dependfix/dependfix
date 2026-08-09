@@ -1,5 +1,5 @@
 import type { Octokit, RestEndpointMethodTypes } from '@octokit/rest'
-import { mapGitHubError } from '@dependfix/engine'
+import { mapGitHubError } from '../github/errors'
 
 // ---------------------------------------------------------------------------
 // Changelog / Release Notes 采集（AI 研判链路入口）

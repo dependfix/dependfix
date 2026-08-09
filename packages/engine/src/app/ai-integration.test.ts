@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import nock from 'nock'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { FixAction } from '@dependfix/core'
-import { resolveRuntimeConfig } from '@dependfix/engine'
+import { resolveRuntimeConfig } from '../config'
 import { DependfixApp } from './index'
 
 // ---------------------------------------------------------------------------
@@ -27,8 +27,8 @@ vi.mock('../runners/verification-runner', () => ({
     runVerification: mockRunVerification,
 }))
 
-vi.mock('@dependfix/engine', async (importOriginal) => {
-    const actual = await importOriginal<typeof import('@dependfix/engine')>()
+vi.mock('../fixers/dependency', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('../fixers/dependency')>()
     return {
         ...actual,
         upgradeDependency: mockUpgradeDependency,

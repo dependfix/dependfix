@@ -3,15 +3,14 @@ import { toAppError } from '@dependfix/core'
 import { runCli, runDependfixMain, type CliRunResult } from './cli/runner'
 
 export * from '@dependfix/core'
-export * from './app'
 export * from './cli'
 export * from './cli/runner'
-// engine 公共面（github/fixers/config/report/multirepo/code-scanning）。
-// 技术债：engine 后续并入 app 等模块时，与 cli 自身同名导出会因 `export *`
-// 静默排除（ambient conflict）——届时需改为显式选择性导出。
+// engine 公共面（github/fixers/config/report/multirepo/helpers/grouping/runners/
+// alerts/ai/app——cli 的执行内核已全部收归 engine，本行是 cli 公共面的单一转发源）。
+// 技术债：engine 与 cli 自身（skills 等）同名导出会因 `export *` 静默排除
+// （ambient conflict）——出现时需改为显式选择性导出。
 export * from '@dependfix/engine'
-export * from './runners'
-// 平台化管线抽象（独立平台前置）：local 与 platform 共用编排核心
+// 平台化管线抽象（local 与 platform 共用编排核心；依赖 CLI 参数解析，归属 cli 层）
 export { createPipeline } from './app/pipeline'
 export type { Pipeline, PipelineDeps, PipelineLogger, PipelineParseResult } from './app/pipeline'
 

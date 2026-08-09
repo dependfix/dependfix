@@ -3,7 +3,8 @@
 
 import type { Octokit } from '@octokit/rest'
 import type { FixAction } from '@dependfix/core'
-import { parseMajorVersion, type AiOptions } from '@dependfix/engine'
+import { parseMajorVersion } from '../fixers/dependency'
+import type { AiOptions } from '../config'
 import { verifyProject, type AppContext } from '../app/helpers'
 import { createChangelogFetcher } from './changelog-fetcher'
 import { applyChanges, buildVersionLockOverride, buildWaitUpstreamNote } from './patch-applier'

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Octokit } from '@octokit/rest'
-import type { AiOptions } from '@dependfix/engine'
+import type { AiOptions } from '../config'
 import type { AppContext } from '../app/helpers'
 import { runAiIntegration } from './app-integration'
 

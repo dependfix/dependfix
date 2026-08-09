@@ -9,6 +9,10 @@ export default defineConfig({
             // dependfix = packages/cli（CLI 包）：MCP/Platform 通过 alias 直接解析源码，
             // 避免 CI 中 workspace 包未构建（无 dist）时 "Failed to resolve entry" 失败
             dependfix: resolve(import.meta.dirname, 'packages/cli/src'),
+            // Nuxt server 别名：platform 测试 import #server/* 时解析到真实源码
+            // （与 apps/platform/.nuxt/tsconfig.json 的 paths 保持一致，vitest 转换时不自动读取）
+            '#server': resolve(import.meta.dirname, 'apps/platform/server'),
+            '#server/*': resolve(import.meta.dirname, 'apps/platform/server/*'),
         },
     },
     test: {

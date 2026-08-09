@@ -14,6 +14,7 @@ import { User } from '#server/entities/user'
 import { Verification } from '#server/entities/verification'
 import { Credential } from '#server/entities/credential'
 import { Repository } from '#server/entities/repository'
+import { Organization } from '#server/entities/organization'
 import { ScanRun } from '#server/entities/scan-run'
 import { ScanResult } from '#server/entities/scan-result'
 
@@ -44,6 +45,7 @@ export const createDataSourceOptions = (): DataSourceOptions => {
             Verification,
             Credential,
             Repository,
+            Organization,
             ScanRun,
             ScanResult,
         ],

@@ -1,16 +1,19 @@
 import { betterAuth } from 'better-auth'
+import { admin } from 'better-auth/plugins'
 import { snowflake } from './snowflake'
 import { typeormAdapter } from '#server/database/typeorm-adapter'
 import { ensureDatabaseInitialized } from '#server/database'
+import { ensureDefaultOrganization, migrateLegacyRoles } from '#server/utils/organization'
 import { User } from '#server/entities/user'
 
 /**
- * better-auth 实例（邮箱密码登录）。
+ * better-auth 实例（邮箱密码登录 + admin 用户管理插件）。
  * 配置要点：
  * - SMTP 未配置时邮箱验证自动跳过（对齐"未配置自动禁用"模式）
  * - 会话数据库持久化 30 天，每 1 天续期
  * - 雪花 ID 与实体 @BeforeInsert 同源
- * - 单用户 MVP：注册默认开放，首个注册用户自动成为管理员（任务归属见 `docs/plan/todo.md` §M6）
+ * - 角色模型：admin / org_admin / viewer（默认注册 viewer；首个注册用户自动 admin）
+ * - admin 插件：adminRoles 仅 'admin'（org_admin/viewer 无用户管理权限，设计决策 D7）
  * - 注册开关：`REGISTRATION_DISABLED=true` 时禁用注册（better-auth disableSignUp，
  *   登录不受影响；首个管理员需在开放期注册，之后可关闭）
  */
@@ -24,6 +27,14 @@ const buildAuth = (ds: Awaited<ReturnType<typeof ensureDatabaseInitialized>>, op
     appName: 'dependfix',
     secret: options.authSecret,
     database: typeormAdapter(ds),
+    plugins: [
+        admin({
+            // 新注册用户默认 viewer（角色模型；存量 'user' 由 migrateLegacyRoles 迁移）
+            defaultRole: 'viewer',
+            // 用户管理仅 admin（三角色模型对齐；org_admin 管理仓库/凭据但无用户管理权限）
+            adminRoles: ['admin'],
+        }),
+    ],
     emailAndPassword: {
         enabled: true,
         // 关闭注册（保留登录）：部署到公开环境时设置 REGISTRATION_DISABLED=true
@@ -69,7 +80,8 @@ const buildAuth = (ds: Awaited<ReturnType<typeof ensureDatabaseInitialized>>, op
             role: {
                 type: 'string',
                 required: false,
-                defaultValue: 'user',
+                // 角色模型默认 viewer（存量 'user' 启动迁移为 viewer）
+                defaultValue: 'viewer',
                 // 防客户端注入：role 只能由服务端维护
                 input: false,
             },
@@ -104,6 +116,10 @@ export const getAuthInstance = async (options: {
     registrationDisabled: boolean
 }): Promise<AuthInstance> => {
     const ds = await ensureDatabaseInitialized()
+
+    // 数据迁移（幂等）：默认组织创建 + 存量 Repository/Credential 挂默认组织 + 角色 'user'→'viewer'
+    await ensureDefaultOrganization(ds)
+    await migrateLegacyRoles(ds)
 
     return buildAuth(ds, options)
 }

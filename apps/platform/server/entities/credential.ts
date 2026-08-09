@@ -2,8 +2,11 @@ import {
     Column,
     Entity,
     Index,
+    JoinColumn,
+    ManyToOne,
 } from 'typeorm'
 import { BaseEntity } from './base-entity'
+import { Organization } from './organization'
 
 /**
  * 凭据类型：GitHub 访问凭据。
@@ -23,6 +26,19 @@ export const CREDENTIAL_TYPES: readonly CredentialType[] = [
 /** GitHub 平台凭据：token 加密存储（AES-256-GCM，ENCRYPTION_KEY 平台级密钥） */
 @Entity('credential')
 export class Credential extends BaseEntity {
+    /**
+     * 所属组织 id（物理可空列：存量库 ALTER TABLE 无法加无默认值 NOT NULL 列；
+     * 应用层强制非空——创建路径经 resolveOrganizationId 填充，初始化时存量数据统一挂默认组织）
+     */
+    @Index()
+    @Column({ type: 'varchar', length: 36, nullable: true })
+    organizationId!: string | null
+
+    /** 所属组织实体（仅查询时加载，不参与写入） */
+    @ManyToOne(() => Organization, { nullable: true, onDelete: 'SET NULL' })
+    @JoinColumn({ name: 'organization_id' })
+    organization!: Organization | null
+
     /** 展示名称（用户可辨识，如 "dependfix-bot"） */
     @Column({ type: 'varchar', length: 100 })
     name!: string

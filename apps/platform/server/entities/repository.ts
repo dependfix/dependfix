@@ -7,6 +7,7 @@ import {
 } from 'typeorm'
 import { BaseEntity } from './base-entity'
 import { Credential } from './credential'
+import { Organization } from './organization'
 
 /** 仓库托管平台（当前仅 GitHub） */
 export type RepositoryPlatform = 'github'
@@ -14,6 +15,19 @@ export type RepositoryPlatform = 'github'
 /** 目标仓库（平台控制面记录，数据面执行由 Executor 承担） */
 @Entity('repository')
 export class Repository extends BaseEntity {
+    /**
+     * 所属组织 id（物理可空列：存量库 ALTER TABLE 无法加无默认值 NOT NULL 列；
+     * 应用层强制非空——创建路径经 resolveOrganizationId 填充，初始化时存量数据统一挂默认组织）
+     */
+    @Index()
+    @Column({ type: 'varchar', length: 36, nullable: true })
+    organizationId!: string | null
+
+    /** 所属组织实体（仅查询时加载，不参与写入） */
+    @ManyToOne(() => Organization, { nullable: true, onDelete: 'SET NULL' })
+    @JoinColumn({ name: 'organization_id' })
+    organization!: Organization | null
+
     @Column({ type: 'varchar', length: 100 })
     owner!: string
 

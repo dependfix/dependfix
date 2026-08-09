@@ -6,6 +6,9 @@
  *    三种 slug 规则差异，只抓真实断链与假锚点。
  * 3. 拒绝本地绝对路径（POSIX `/xxx` 或 Windows `C:/xxx` / `\\server`）；
  * 4. 拒绝路径穿越（`../..` 解析结果超出仓库根目录）。
+ * 5. 正文文本（含行内代码，跳过 fenced code block）中拒绝个人机器路径
+ *    （Windows 盘符 `C:\xxx` / `C:/xxx`、UNC `\\server\share`）——仅高特征模式，
+ *    不扫描 POSIX `/xxx` 概念路径（`/etc`、`/tmp` 等教学示例普遍，易误报）。
  *
  * 说明：
  * - 跨平台锚点 slug 规则不一致（GitHub 移除全角标点，VS Code / VitePress 保留，
@@ -22,6 +25,10 @@ const EXCLUDED_DIRS = new Set(['node_modules', '.git', '.changeset', '.vitepress
 const LINK_RE = /\[([^\]]*)\]\(([^)]+)\)/g
 // 本地绝对路径：POSIX（/xxx）、Windows 盘符（C:/xxx / C:\xxx）、UNC（\\server）
 const ABS_PATH_RE = /^(?:[a-zA-Z]:[\\/]|\\\\|\/)/
+// 正文中的个人机器路径（高特征）：Windows 盘符 + 分隔符、UNC 双反斜杠前缀；
+// 盘符分支加字母负向断言，排除 URL scheme 末尾（https:// 的 s:/）被误判为盘符；
+// 排除空白/括号/引号/反引号/中文标点等路径边界字符，避免把相邻文本一并吞入
+const BODY_ABS_PATH_RE = /(?<![a-zA-Z])(?:[a-zA-Z]:[\\/][^\s`)'"，。；：！？、`]+|\\\\[^\s`)'"，。；：！？、`]+)/g
 
 function walk(dir, out = []) {
     for (const entry of readdirSync(dir)) {
@@ -96,6 +103,7 @@ for (const file of files) {
         if (inCode) {
             return
         }
+        const rel = file === repoRoot ? '' : file.slice(repoRoot.length)
         // 去掉行内代码段，避免误匹配代码里的链接
         const clean = line.replace(/`[^`]*`/g, '')
         for (const m of clean.matchAll(LINK_RE)) {
@@ -104,7 +112,6 @@ for (const file of files) {
                 continue
             }
             const [pathPart, anchor] = target.split('#')
-            const rel = file === repoRoot ? '' : file.slice(repoRoot.length)
 
             if (!pathPart) {
                 // 站内锚点：验证当前文件标题
@@ -143,6 +150,13 @@ for (const file of files) {
                     errors.push(`${rel}:${idx + 1} 锚点 "#${anchor}" 在 ${pathPart} 中找不到对应标题`)
                 }
             }
+        }
+
+        // 正文个人机器路径拒绝：扫描原始行（含行内代码），跳过 fenced code block
+        // （上方已处理）；先移除链接语法部分，避免与链接绝对路径检查重复报错
+        const linkless = line.replace(LINK_RE, '')
+        for (const m of linkless.matchAll(BODY_ABS_PATH_RE)) {
+            errors.push(`${rel}:${idx + 1} 正文包含本地绝对路径（个人机器路径），应使用项目相对路径或 <repo-root>/ 占位符: ${m[0]}`)
         }
     })
 }

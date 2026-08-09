@@ -25,6 +25,12 @@
             "@dependfix/core/*": [
                 "./packages/core/src/*"
             ],
+            "@dependfix/engine": [
+                "./packages/engine/src"
+            ],
+            "@dependfix/engine/*": [
+                "./packages/engine/src/*"
+            ],
             "dependfix": [
                 "./packages/cli/src"
             ]

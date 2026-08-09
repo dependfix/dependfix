@@ -34,7 +34,13 @@ const prCreatorMock = vi.hoisted(() => ({
     isConfirmAnswer: vi.fn(),
 }))
 
-vi.mock('../github/pr-creator', () => prCreatorMock)
+// 部分 mock：仅覆盖 pr-creator 相关方法，保留 engine 其余真实实现
+// （helpers 依赖链中 config/fixers/code-scanning 等符号也来自 engine，
+// 整模块替换会导致未触达路径的符号为 undefined，误判为业务 bug）
+vi.mock('@dependfix/engine', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('@dependfix/engine')>()
+    return { ...actual, ...prCreatorMock }
+})
 
 // ---------------------------------------------------------------------------
 // Mock config（resolveAlertRepositories 依赖 inferRepoFromGitRemote）

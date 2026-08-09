@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { getCodeScanningFixTemplate } from '../fixers/code-scanning/templates'
+import { getCodeScanningFixTemplate } from './templates'
 import { AUTO_FIXABLE_RULES, SUGGESTED_RULES, classifyRule, suggestionFor } from './rule-classifier'
 
 describe('classifyRule', () => {

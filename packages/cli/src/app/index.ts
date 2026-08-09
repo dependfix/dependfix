@@ -19,19 +19,27 @@ import {
     type FixAction,
     type FixError,
 } from '@dependfix/core'
-import { createGitHubClient } from '../github/client'
-import { discoverRepositories, mergeRepositories } from '../github/repository-discovery'
 import {
+    createFixBranch,
+    stageAndCommit,
+    pushBranch,
+    createPullRequest,
+    generatePRBody,
+    computeFixFingerprint,
+    computeFixAndPrPlan,
+    findDependfixOpenPR,
+    createGitHubClient,
+    discoverRepositories,
+    mergeRepositories,
     filterExplicitRepositories,
+    fetchDependabotAlerts,
+    fetchCodeScanningAlerts,
     type RepoPolicy,
-} from '../github/repo-policy'
+} from '@dependfix/engine'
 import { runWithConcurrency } from '../multirepo/scheduler'
 import { writeArchive } from '../report/archiver'
 import { enforceVerificationGate } from '../runners/verification-gate'
-import { fetchDependabotAlerts } from '../github/dependabot-fetcher'
-import { fetchCodeScanningAlerts } from '../github/code-scanning-fetcher'
 import { fetchPnpmAuditAlerts } from '../alerts'
-import { createFixBranch, stageAndCommit, pushBranch, createPullRequest, generatePRBody, computeFixFingerprint, computeFixAndPrPlan, findDependfixOpenPR } from '../github/pr-creator'
 import type { RuntimeConfig } from '../config'
 import { compareSemver, readLockfileVersion, readLockfileVersions, applyVersionedOverrides, isCrossMajorFixRequired, upgradeDependency } from '../fixers/dependency'
 import { dedupeFixableAlerts, snapshotTrackedFiles, restoreTrackedFiles, quickVerifyProject, partitionSubmanifestAlerts, isRootDirectDependency, type MemberManifestAlert } from '../helpers'

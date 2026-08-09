@@ -34,11 +34,22 @@ export const PACKAGES = [
         publishable: true,
     },
     {
+        path: 'packages/engine',
+        pkg: '@dependfix/engine',
+        // 发布链路随拆包批次 4 就绪（见 docs/plan/todo.md 进行中任务）
+        changelog: null,
+        tags: { prefix: '@dependfix/engine@' },
+        publishOrder: 2,
+        rootChangelog: false,
+        // 已在 .changeset/config.json ignore 登记，避免被 changeset publish 意外发布
+        publishable: false,
+    },
+    {
         path: 'packages/skills',
         pkg: '@dependfix/skills',
         changelog: 'packages/skills/CHANGELOG.md',
         tags: { prefix: '@dependfix/skills@' },
-        publishOrder: 2,
+        publishOrder: 3,
         rootChangelog: false,
         publishable: true,
     },
@@ -47,7 +58,7 @@ export const PACKAGES = [
         pkg: 'dependfix',
         changelog: 'packages/cli/CHANGELOG.md',
         tags: { prefix: 'dependfix@' },
-        publishOrder: 3,
+        publishOrder: 4,
         rootChangelog: true,
         publishable: true,
     },
@@ -57,7 +68,7 @@ export const PACKAGES = [
         // 发布链路暂未就绪（延后：先完成拆包调整，见 docs/plan/backlog.md §T706）
         changelog: null,
         tags: { prefix: '@dependfix/mcp@' },
-        publishOrder: 4,
+        publishOrder: 5,
         rootChangelog: false,
         // 已在 .changeset/config.json ignore 登记，避免被 changeset publish 意外发布
         publishable: false,

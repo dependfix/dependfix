@@ -18,6 +18,7 @@ import {
     type RunSummary,
     type AiUsageAggregate,
 } from '@dependfix/core'
+import { stageAndCommit } from '@dependfix/engine'
 import { inferRepoFromGitRemote, type RuntimeConfig } from '../config'
 import {
     compareSemver,
@@ -33,7 +34,6 @@ import { runVerification, type VerificationResult } from '../runners/verificatio
 import { applyCodeScanningFix, restoreSourceFile, snapshotSourceFile } from '../fixers/code-scanning'
 import { quickVerifyProject } from '../helpers'
 import { validateVerifyCommands } from '../verification/validate-commands'
-import { stageAndCommit } from '../github/pr-creator'
 
 // ---------------------------------------------------------------------------
 // Constants

@@ -10,16 +10,17 @@ dependfix 由以下子项目组成（标 ✅ 的已落地，其余为规划中�
 dependfix/
 ├── packages/
 │   ├── core/            # ✅ 核心业务逻辑库 @dependfix/core（告警模型/过滤/报告/日志/工具链）
-│   ├── cli/             # ✅ CLI 入口 dependfix（config/app/github 集成/fixers/runners）
-│   ├── github/          # ✅ 已并入 packages/cli/src/github/（client/fetcher/pr-creator）
+│   ├── engine/          # ✅ 执行引擎 @dependfix/engine（github 采集/fixers 修复/config/编排内核，cli/mcp/platform 共享）
+│   ├── cli/             # ✅ CLI 入口 dependfix（bin/参数解析/runner 薄壳/skills）
+│   ├── github/          # ✅ 已并入 packages/engine/src/github/（client/fetcher/pr-creator）
 │   ├── action/          # ✅ 已并入根 action.yml（Composite Action，M2 落地）
-│   └── mcp/             # 规划中：MCP Server @dependfix/mcp（M6）
+│   └── mcp/             # ✅ MCP Server @dependfix/mcp（M6 落地，依赖 engine）
 ├── action.yml           # ✅ GitHub Composite Action 入口（M2 已落地）
-├── apps/platform/       # 规划中：Nuxt 全栈管理平台（Web UI + REST API，M6）
+├── apps/platform/       # ✅ Nuxt 全栈管理平台（Web UI + REST API，M6 落地，依赖 engine）
 └── docs/                # ✅ VitePress 文档站
 ```
 
-> 注：M0 规划中的 `packages/github` / `packages/action` 最终以"cli 内 github/ 目录 + 根 action.yml"形式落地（2026-08-05 目录收敛后），不再单独拆包。
+> 注：M0 规划中的 `packages/github` 曾于 2026-08-05 目录收敛并入 `packages/cli/src/github/`（当时仅 cli 一个消费方）；**2026-08-09 修订**——mcp/platform 成为第二个/第三个消费方后，"应用层互相依赖（mcp → cli）"导致依赖连带膨胀与版本耦合，`github/` 与执行核心（fixers/config/app）拆入共享引擎包 `@dependfix/engine`（方案 B，见 [todo.md](../plan/todo.md) 进行中任务），cli 薄壳化。`packages/action` 维持根 action.yml 形式。
 
 ## 总体方案
 

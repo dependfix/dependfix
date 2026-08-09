@@ -1,7 +1,7 @@
 import { existsSync, readFileSync, realpathSync, unlinkSync, writeFileSync } from 'node:fs'
 import { basename, dirname, join, resolve, sep } from 'node:path'
 import type { FixAction, NormalizedSecurityAlert } from '@dependfix/core'
-import { getCodeScanningFixTemplate } from './templates'
+import { getCodeScanningFixTemplate } from '@dependfix/engine'
 
 // ---------------------------------------------------------------------------
 // Code Scanning 模板化修复执行器（替换初始 stub）

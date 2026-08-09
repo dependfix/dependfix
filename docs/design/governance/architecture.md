@@ -20,7 +20,7 @@ dependfix/
 └── docs/                # ✅ VitePress 文档站
 ```
 
-> 注：M0 规划中的 `packages/github` 曾于 2026-08-05 目录收敛并入 `packages/cli/src/github/`（当时仅 cli 一个消费方）；**2026-08-09 修订**——mcp/platform 成为第二个/第三个消费方后，"应用层互相依赖（mcp → cli）"导致依赖连带膨胀与版本耦合，`github/` 与执行核心（fixers/config/app）拆入共享引擎包 `@dependfix/engine`（方案 B，见 [todo.md](../plan/todo.md) 进行中任务），cli 薄壳化。`packages/action` 维持根 action.yml 形式。
+> 注：M0 规划中的 `packages/github` 曾于 2026-08-05 目录收敛并入 `packages/cli/src/github/`（当时仅 cli 一个消费方）；**2026-08-09 修订**——mcp/platform 成为第二个/第三个消费方后，"应用层互相依赖（mcp → cli）"导致依赖连带膨胀与版本耦合，`github/` 与执行核心（fixers/config/app）拆入共享引擎包 `@dependfix/engine`（方案 B，见 [todo.md](../../plan/todo.md) 进行中任务），cli 薄壳化。`packages/action` 维持根 action.yml 形式。
 
 ## 总体方案
 

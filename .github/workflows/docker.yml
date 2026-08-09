@@ -32,10 +32,10 @@ jobs:
       # platform 的 lint/typecheck 依赖 .nuxt 类型生成（.nuxt 为 Nuxt 生成产物且已 gitignore，
       # 无 postinstall 钩子，必须显式 prepare 生成；删除此步骤会导致 lint/typecheck 解析失败）
       - run: pnpm --filter @dependfix/platform exec nuxt prepare
-      # 平台 server 代码 import dependfix/@dependfix/core 的 dist 类型声明（Nuxt tsconfig 不映射 workspace 源码）：
-      # CI 中 pnpm i 不构建 workspace 包，必须先构建 core+cli 否则 lint/typecheck 类型解析失败
-      # （顺序与 Dockerfile 的 core → cli → platform 一致）
-      - run: pnpm --filter @dependfix/core build && pnpm --filter dependfix build
+      # 平台 server 代码 import dependfix、@dependfix/core、@dependfix/engine 的 dist 类型声明（Nuxt tsconfig 不映射 workspace 源码）：
+      # CI 中 pnpm i 不构建 workspace 包，必须先构建 core+engine+cli 否则 lint/typecheck 类型解析失败
+      # （顺序与 Dockerfile 的 core → engine → cli → platform 一致）
+      - run: pnpm --filter @dependfix/core build && pnpm --filter @dependfix/engine build && pnpm --filter dependfix build
       - run: pnpm run lint
       - run: pnpm run lint:md:check
       - run: pnpm run typecheck

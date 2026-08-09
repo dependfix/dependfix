@@ -42,6 +42,10 @@ jobs:
       - run: pnpm i --frozen-lockfile
       # Nuxt 平台 eslint 依赖 .nuxt/tsconfig.json（Nuxt 生成的类型），需先 prepare 生成
       - run: pnpm --filter @dependfix/platform exec nuxt prepare
+      # 平台 server 代码 import dependfix、@dependfix/core、@dependfix/engine 的 dist 类型声明（Nuxt tsconfig 不映射 workspace 源码）：
+      # CI 中 pnpm i 不构建 workspace 包，必须先构建 core+engine+cli 否则 lint/typecheck 类型解析失败
+      # （顺序与 test.yml / Dockerfile 的 core → engine → cli → platform 一致）
+      - run: pnpm --filter @dependfix/core build && pnpm --filter @dependfix/engine build && pnpm --filter dependfix build
 
       # 定时发布（schedule 触发时自动完成版本提升 + CHANGELOG 生成 + 提交推送）：
       # - 手动发布（workflow_dispatch）时版本已在本地通过 changeset version + pnpm changelog

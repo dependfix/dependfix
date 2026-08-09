@@ -15,17 +15,19 @@ WORKDIR /app
 RUN apk add --no-cache python3 make g++ && rm -rf /var/cache/apk/*
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
 COPY packages/core/package.json packages/core/package.json
+COPY packages/engine/package.json packages/engine/package.json
 COPY packages/cli/package.json packages/cli/package.json
 COPY packages/skills/package.json packages/skills/package.json
 COPY apps/platform/package.json apps/platform/package.json
 RUN pnpm install --frozen-lockfile --filter @dependfix/platform... --filter dependfix... --filter @dependfix/core... --filter @dependfix/skills...
 
-# 阶段二：构建（core → cli → platform）
+# 阶段二：构建（core → engine → cli → platform）
 FROM nodejs AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN pnpm --filter @dependfix/core build \
+    && pnpm --filter @dependfix/engine build \
     && pnpm --filter dependfix build \
     && pnpm --filter @dependfix/platform build
 
@@ -34,9 +36,11 @@ FROM nodejs AS docker-minifier
 WORKDIR /app
 # .output 自带完整 node_modules（含已编译 better-sqlite3），无需复制 node_modules
 COPY --from=builder /app/apps/platform/.output ./.output
-# 容器内执行器：在容器内运行 DependfixApp 需要 cli/core 构建产物（含 package.json 供依赖解析）
+# 容器内执行器：在容器内运行 DependfixApp 需要 cli/core/engine 构建产物（含 package.json 供依赖解析）
 COPY --from=builder /app/packages/core/dist packages/core/dist
 COPY --from=builder /app/packages/core/package.json packages/core/package.json
+COPY --from=builder /app/packages/engine/dist packages/engine/dist
+COPY --from=builder /app/packages/engine/package.json packages/engine/package.json
 COPY --from=builder /app/packages/cli/dist packages/cli/dist
 COPY --from=builder /app/packages/cli/package.json packages/cli/package.json
 

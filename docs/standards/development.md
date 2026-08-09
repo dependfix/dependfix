@@ -51,33 +51,57 @@ packages/core/src/           # 核心域层，不依赖任何运行时环境
 ├── alerts/                  # 告警标准化模型
 ├── errors/                  # 错误模型（AppError）
 ├── filters/                 # 告警过滤引擎
+├── logger/                  # 日志工具
 ├── planner/                 # 修复规划模型
 ├── report/                  # 报告模型
 ├── toolchain/               # 工具链策略
 └── utils/                   # 纯函数工具（不依赖外部服务）
 
-packages/cli/src/            # CLI 入口，可依赖 Node.js API
-├── cli/                     # 参数解析与运行入口
+packages/engine/src/         # 共享执行引擎（DependfixApp），cli / mcp / platform 共同依赖
+├── ai/                      # AI 研判（breaking change 分析、patch 生成）
+├── alerts/                  # 告警处理
+├── app/                     # DependfixApp 应用骨架
+├── code-scanning/           # Code Scanning 集成
 ├── config/                  # 配置层（多源合并、校验）
-├── github/                  # GitHub API 集成
 ├── fixers/                  # 修复器（dependency / pnpm / code-scanning）
+├── github/                  # GitHub API 集成
+├── grouping/                # 依赖分组升级
+├── helpers/                 # 公共辅助
+├── multirepo/               # 多仓库治理
+├── report/                  # 报告模型
 ├── runners/                 # 执行器
-└── app.ts                   # 应用骨架
+└── verification/            # 验证链（install / lint / build）
 
-apps/platform/               # Nuxt 全栈平台（后续阶段）
-├── server/                  # API 路由、中间件、数据库
-├── pages/                   # 页面路由
-├── components/              # Vue 组件
-├── composables/             # 组合式 API
-└── utils/                   # 前后端工具函数
+packages/cli/src/            # CLI 入口（薄壳），编排依赖 engine
+├── app/                     # pipeline（本地执行编排）
+├── cli/                     # 参数解析与运行入口
+└── skills/                  # skill 编排（agents / doctor / installer / source）
+
+packages/mcp/src/            # MCP Server，能力复用 engine
+├── bin.ts                   # 进程入口
+└── tools/                   # MCP tools（run_scan / fix_dependency 等）
+
+packages/skills/             # 产品 skill 权威源（dependfix-remediator，发布 npm）
+├── dependfix-remediator/    # skill 内容（SKILL.md / REFERENCES.md）
+└── test/                    # 一致性测试
+
+apps/platform/               # Nuxt 全栈平台
+├── app/                     # 前端（pages / components / composables / utils / layouts / middleware）
+├── server/                  # API 路由、数据库、服务
+└── data/                    # 运行时数据（不入库内容）
 ```
 
 ### 依赖约束
 
-- `packages/core/` 不依赖任何运行时环境（Node / 浏览器 API）
-- `packages/cli/` 可依赖 Node.js API，但核心编排逻辑应与 CLI 入口松耦合
-- `packages/core/` ← `packages/cli/` 单向依赖，禁止反向
-- 禁止循环引用
+- `packages/core/` 不依赖任何运行时环境（Node / 浏览器 API）与任何内部包
+- `packages/engine/` 承载共享执行能力（`DependfixApp`），内部包依赖仅 `@dependfix/core`
+- `packages/cli/` 为薄壳，依赖 engine 编排
+- **禁止 cli / mcp / platform 应用层之间互相依赖**：mcp 曾依赖 cli（`dependfix` 包）导致应用层互相依赖 + 连带安装膨胀 + 版本耦合，engine 拆包解决（见 [todo.md](../plan/todo.md)「已完成任务：@dependfix/engine 拆包」）；`packages/mcp/` 与 `apps/platform/` 均只依赖 `@dependfix/engine` + `@dependfix/core`
+- `packages/skills/` 为资源包（无运行时依赖），仅被 cli 消费
+- 依赖方向单向：`core` ← `engine` ← `{cli, mcp, platform}`；禁止反向与循环引用
+- 共享能力一律下沉 engine 后在应用层复用，禁止应用层复制实现或直连 core 内部模块
+
+**执行挂接**：本依赖约束的合规核验由 A 阶段 Review Gate 必查项执行（见 [code-quality-checklist 包依赖约束](../../.github/skills/code-reviewer/references/code-quality-checklist.md) 与 `Code Auditor (代码审计员)` 必查项）。
 
 ## 5. TypeScript
 
@@ -120,11 +144,13 @@ apps/platform/               # Nuxt 全栈平台（后续阶段）
 | 子包 | npm 名 | 类型 | 说明 |
 |------|--------|------|------|
 | `packages/core` | `@dependfix/core` | 内部库 | 核心领域模型，被其他包消费 |
+| `packages/engine` | `@dependfix/engine` | 内部库 | 共享执行引擎（DependfixApp），cli / mcp / platform 共同依赖 |
+| `packages/skills` | `@dependfix/skills` | 内部库 | 产品 skill 权威源（dependfix-remediator） |
 | `packages/cli` | `dependfix` | CLI 工具 | 用户通过 `npx dependfix` 调用 |
-| `packages/github` | `@dependfix/github` | 内部库 | GitHub API 集成 |
-| `packages/action` | `@dependfix/action` | Action | GitHub Action 入口 |
 | `packages/mcp` | `@dependfix/mcp` | MCP Server | MCP 协议服务 |
 | `apps/platform` | `@dependfix/platform` | 应用（Nuxt 全栈） | 管理平台，非库；归 `apps/` 目录体系 |
+
+> 可发布包清单单点权威声明见 [packages.config.mjs](../../scripts/packages.config.mjs)；新增发布包须登记并同步 README / release.md / CI 引用（见 [code-quality-checklist 新增发布包链路完整性](../../.github/skills/code-reviewer/references/code-quality-checklist.md)）。`packages/github`、`packages/action` 为规划中未实现的包，按需添加（见 [AGENTS.md 项目简介](../../AGENTS.md)）。
 
 - CLI / 可执行入口使用 **unscoped** `dependfix` 名称
 - 内部库使用 **scoped** `@dependfix/*` 前缀

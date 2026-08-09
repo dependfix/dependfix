@@ -158,6 +158,18 @@ if (value) { ... }  // 对 0, "", false 失效
 
 教训见 [经验归档 §二十五](../../../../docs/design/governance/experience-archive.md)（mcp 包遗漏 README/release 链路），规范见 [release.md](../../../../docs/guide/release.md)。
 
+### 包依赖约束（必查项）
+
+改动内部包依赖（`packages/*/package.json` 的 dependencies，或新增内部包）时，检查依赖方向是否符合 [development.md §4 依赖约束](../../../../docs/standards/development.md)：
+
+- **单向分层**：依赖方向 `core` ← `engine` ← `{cli, mcp, platform}`；禁止反向依赖与循环引用
+- **应用层禁互相依赖**：`cli` / `mcp` / `platform` 之间不得互相依赖——mcp 曾依赖 cli（`dependfix`）导致应用层互相依赖 + 安装膨胀 + 版本耦合（engine 拆包教训，见 [todo.md](../../../../docs/plan/todo.md)「已完成任务：@dependfix/engine 拆包」）
+- **共享能力下沉 engine**：应用层不得复制 engine 已导出的实现或直连 core 内部模块；缺导出先补 1 行导出
+- **core 纯净**：`@dependfix/core` 不得新增 Node / 浏览器运行时环境依赖（tslib 等编译辅助除外）
+- **skills 资源包**：`@dependfix/skills` 不引入运行时依赖，仅被 cli 消费
+
+违规（如 `cli` 依赖 `mcp`、`core` 引入 Node API 依赖）→ `Reject` 退回修正。
+
 ### 规范单点声明（必查项）
 
 改动涉及治理定义（`docs/standards/*.md`、`.github/skills/*/SKILL.md`、`.github/agents/*.agent.md`）时，检查新增/修改的条款是否存在与权威文档重复抄写：
@@ -185,6 +197,7 @@ if (value) { ... }  // 对 0, "", false 失效
 - "编号是否带可反查的文档路径（导航指针例外）？"
 - "清理编号后解释正文是否保留、语义是否完整？"
 - "新增/改动发布包时，单点登记、changeset ignore、README、release.md、CI 引用是否同步？"
+- "本次内部包依赖改动是否符合依赖方向（core ← engine ← {cli, mcp, platform}）？应用层（cli/mcp/platform）是否互相依赖？"
 - "本次新增/修改的条款是否与权威文档重复抄写？应改为一行链接引用（治理定义改动必查）？"
 - "新增的严格约束（必须/阈值/禁令）是否已声明并挂接 review 检查点？宽松指引是否留在执行层？"
 

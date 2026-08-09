@@ -323,4 +323,4 @@
 - 状态：🔶 待评估（2026-08-09 用户确认不着急处理存量，排期即可）
 - 内容：对 `docs/standards/*.md` 存量规范做"严格约束（必须 / 禁止 / 不得 / 阈值）→ review 检查点"全量映射盘点——grep 提取各规范严格条款，逐一核对是否已实际挂接（code-reviewer SKILL.md / code-quality-checklist.md / Code Auditor 必查项），未挂接的登记补挂或标记为待评估
 - 背景：2026-08-09 审查体系补强（bc7eac10）新增"规范执行分层"检查项，仅约束**新增**条款；存量条款挂接状态未盘点，盘点补齐后该机制完全闭环
-- 来源：2026-08-09 审查机制评估（宽松指引 / 严格约束区分校验能力评估结论，见 [documentation.md §4 规范单点声明原则](../../standards/documentation.md)）
+- 来源：2026-08-09 审查机制评估（宽松指引 / 严格约束区分校验能力评估结论，见 [documentation.md §4 规范单点声明原则](../standards/documentation.md)）

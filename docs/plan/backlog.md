@@ -266,6 +266,14 @@
 - 完成定义：
   - [ ] 用户可通过 AI 助手对话式完成安全告警修复闭环。
 
+### M7 已确认 backlog 登记（2026-08-09，设计决策 D1/D2/D3 用户确认）
+
+> M7.1 设计文档（[platform-auth-users.md](../design/governance/platform-auth-users.md) §11）决策点 1/2/3 确认后登记的候选项，均为 M7.1 非目标。
+
+- **D1-repo_admin 角色 + RepositoryAccess**：仓库级管理角色（管理特定仓库修复策略）需 `RepositoryAccess` 关联表；M7.1 单组织下与 org_admin 权限面重复，未实现。触发条件：多租户/多组织需求出现，或单实例出现"仓库级管理员"真实诉求。
+- **D2-username 用户名字段**：better-auth `username` 插件（user.username 字段 + 用户名设置 API）；M7.1 用户管理按 email/name 展示足够。触发条件：用户明确需要用户名体系（公开平台展示名等）。
+- **D3-多租户组织体系**：better-auth `organization` 插件（Organization/Member/Invitation/Team + 成员角色 API），替代 M7.1 的自建单组织模型。触发条件：多组织/多租户部署成为真实需求（当前 AUTH_MODE 企业/公开均为单实例单组织场景）。
+
 ---
 
 ## M2 增强候选（未排期）

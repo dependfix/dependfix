@@ -10,17 +10,18 @@
 ### T701 RBAC 权限管理 + 用户管理 + 个人界面
 
 - 优先级：`P2`
-- 依赖：M6
+- 依赖：M6；设计文档 [platform-auth-users.md](../design/governance/platform-auth-users.md)（2026-08-09 Review Gate Pass）
 - 交付物：角色权限系统 + 用户管理界面 + 个人设置界面。
 - 实现内容：
-  - [ ] 子任务 1（数据层）：用户模型扩展（better-auth `admin` 插件 + `username`）+ 组织成员关系（Organization ↔ User）+ 角色模型（Admin / Org Admin / Repo Admin / Viewer）+ 权限 API（角色-资源矩阵）
-  - [ ] 子任务 2（管理 UI）：用户列表/搜索、启用/禁用、角色分配、组织成员管理 + server 中间件与页面路由守卫
+  - [ ] 子任务 1（数据层）：单组织归属（Organization 实体 + Repository/Credential.organizationId + 默认组织初始化 + 存量迁移）；角色模型（**Admin / Org Admin / Viewer 三角色**，repo_admin 登记 backlog——决策 D1）；better-auth `admin` 插件（**不含 username——决策 D2**）；角色迁移（存量 'user' → 'viewer'）+ guard 扩展（requireRole / requireOrgResource）+ 权限矩阵测试
+  - [ ] 子任务 2（管理 UI）：用户列表/搜索、启用/禁用、角色分配 + server 中间件与页面路由守卫
   - [ ] 子任务 3（个人界面）：个人资料（头像/显示名）、修改密码/邮箱、第三方账号绑定、语言偏好（与 T708 联动）
-- 非目标：审计日志、邀请注册机制（登记 backlog）、T707 的第三方登录本身。
+- 非目标：审计日志、邀请注册机制（登记 backlog）、T707 的第三方登录本身、repo_admin/username/多租户成员体系（登记 backlog，设计决策 D1/D2/D3）。
 - 验收：
-  - [ ] 权限矩阵测试：不同角色登录后仅能访问权限范围内的 API 与页面
+  - [ ] 权限矩阵测试：三角色登录后仅能访问权限范围内的 API 与页面（viewer 写操作 403）
   - [ ] Admin 可完成用户管理闭环（列表/禁用/角色分配）；用户可编辑个人资料与偏好
-  - [ ] 组织成员关系落地，凭据按组织归属隔离（架构文档 M7 预设）
+  - [ ] 组织归属落地（决策 D3 解读）：Repository/Credential 挂 organizationId + 默认组织迁移（SQLite 存量用例），凭据按组织归属隔离（架构文档 M7 预设）
+  - [ ] 写操作权限收紧为 admin/org_admin（预期行为变更，存量 user→viewer 披露）
 - 任务粒度：3 个子任务独立提交（对齐经验归档 §二十四）。
 
 ### T707 认证扩展：OIDC SSO / GitHub·Google OAuth / 邮箱域名黑白名单

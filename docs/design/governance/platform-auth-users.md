@@ -142,11 +142,15 @@ Account / Session / Verification（better-auth 标准，不变）
 ```
 enterprise: 白名单非空且 email 域名 ∉ 白名单 → 抛错拒绝
 public:     email 域名 ∈ 黑名单 → 抛错拒绝
-REGISTRATION_DISABLED=true: 直接拒绝（better-auth disableSignUp 已覆盖注册路径；
-            自动开通路径由 before hook 拦截）
+REGISTRATION_DISABLED=true: 拒绝所有注册渠道——邮箱密码路径由
+            emailAndPassword.disableSignUp 原生拦截（better-auth sign-up.mjs
+            抛 BAD_REQUEST）；OAuth/SSO 自动开通路径 disableSignUp 不生效
+            （callback.mjs / generic-oauth routes.mjs 中 disableSignUp 为
+            provider 级 disableImplicitSignUp，非全局开关），统一由本 hook
+            显式检查 REGISTRATION_DISABLED 拦截
 ```
 
-- **单一拦截点假设已实证**：better-auth `createOAuthUser` 与 `createUser` 均经 `createWithHooks(data, 'user')` 触发 `user.create.before`，OAuth/SSO 自动开通与邮箱注册同源拦截。
+- **单一拦截点假设已实证**：better-auth `createOAuthUser` 与 `createUser` 均经 `createWithHooks(data, 'user')` 触发 `user.create.before`，OAuth/SSO 自动开通与邮箱注册同源拦截；`REGISTRATION_DISABLED` 总开关、域名名单均在 hook 内判断（任何新注册渠道接入不会绕过准入）。
 - **email 缺失 fail-closed**：OAuth/SSO 用户信息无 email（如 GitHub 私有邮箱）时**拒绝开通**（不静默放行、不生成占位邮箱）。
 - **错误语义**：hook 抛错包装为 4xx（`EMAIL_DOMAIN_NOT_ALLOWED` → 403 + 用户可读提示），不落 500；`user.create.before` 抛 `APIError`（better-auth 支持）而非裸 Error。
 

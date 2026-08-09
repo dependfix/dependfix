@@ -1,21 +1,49 @@
-# 当前阶段任务（已完成：@dependfix/engine 拆包）
+# 当前阶段任务（M7.1：认证与用户体系）
 
 > M0-M6 已完成并归档，见 [todo-archive.md](todo-archive.md) 与 [archive/todo-archive-phases-m0-m1.md](archive/todo-archive-phases-m0-m1.md)。
-> **M6（2026-08-08 归档）**：T601-T605 + T607 全部交付（991 tests，CI Test 端到端裁决通过），最小平台 MVP 落地；Docker 镜像构建 CI 链路未裁决（backlog C30）。
+> **M7 规划定稿（2026-08-09）**：拆 M7.1 认证与用户体系 / M7.2 平台能力深化；规划决策（AUTH_MODE 互斥二选一 / OIDC / 执行顺序）与 M7.2 任务定义见 [backlog.md §M7](backlog.md#m7-企业级平台增强)。
+
+---
+
+## M7.1: 认证与用户体系
+
+### T701 RBAC 权限管理 + 用户管理 + 个人界面
+
+- 优先级：`P2`
+- 依赖：M6
+- 交付物：角色权限系统 + 用户管理界面 + 个人设置界面。
+- 实现内容：
+  - [ ] 子任务 1（数据层）：用户模型扩展（better-auth `admin` 插件 + `username`）+ 组织成员关系（Organization ↔ User）+ 角色模型（Admin / Org Admin / Repo Admin / Viewer）+ 权限 API（角色-资源矩阵）
+  - [ ] 子任务 2（管理 UI）：用户列表/搜索、启用/禁用、角色分配、组织成员管理 + server 中间件与页面路由守卫
+  - [ ] 子任务 3（个人界面）：个人资料（头像/显示名）、修改密码/邮箱、第三方账号绑定、语言偏好（与 T708 联动）
+- 非目标：审计日志、邀请注册机制（登记 backlog）、T707 的第三方登录本身。
+- 验收：
+  - [ ] 权限矩阵测试：不同角色登录后仅能访问权限范围内的 API 与页面
+  - [ ] Admin 可完成用户管理闭环（列表/禁用/角色分配）；用户可编辑个人资料与偏好
+  - [ ] 组织成员关系落地，凭据按组织归属隔离（架构文档 M7 预设）
+- 任务粒度：3 个子任务独立提交（对齐经验归档 §二十四）。
+
+### T707 认证扩展：OIDC SSO / GitHub·Google OAuth / 邮箱域名黑白名单
+
+- 优先级：`P2`
+- 依赖：T701
+- 交付物：多登录方式 + 部署模式互斥配置 + 注册准入控制。
+- 实现内容：
+  - [ ] 子任务 1（部署模式与准入）：`AUTH_MODE=enterprise|public` 互斥配置；注册策略从 `REGISTRATION_DISABLED` 演进为按部署模式开放/关闭；邮箱域名白名单（enterprise）/ 黑名单（public）注册拦截
+  - [ ] 子任务 2（OAuth）：GitHub OAuth + Google OAuth（public 模式；未配置对应环境变量时自动禁用该登录方式，不阻塞启动）
+  - [ ] 子任务 3（OIDC SSO）：enterprise 模式；better-auth `genericOAuth` 插件；`OIDC_ISSUER` / `OIDC_CLIENT_ID` / `OIDC_CLIENT_SECRET` 配置（Azure AD / Okta / Keycloak / Google Workspace）；登录页多方式展示与禁用态联动
+- 非目标：SAML 2.0（登记 backlog）、magic link / email OTP / 2FA / JWT 插件（架构预设，未排期）、OIDC 自动开通账户的域名匹配细节（实施时随白名单策略确认）。
+- 验收：
+  - [ ] enterprise 模式：OIDC 登录闭环；非白名单域名邮箱注册被拒
+  - [ ] public 模式：GitHub / Google 登录闭环；黑名单域名邮箱注册被拒
+  - [ ] 未配置的登录方式在登录页自动隐藏/禁用，不阻塞启动
+- 任务粒度：3 个子任务独立提交。
 
 ---
 
 ## 当前状态
 
-- **已完成任务**：`@dependfix/engine` 拆包（方案 B，2026-08-09 用户决策）——4 批次全部交付
-  - 背景：mcp 依赖 cli（dependfix 包）导致应用层互相依赖 + 连带安装膨胀 + 版本耦合；`DependfixApp` 被 cli/mcp/platform 三方共享。拆出共享执行引擎包 `@dependfix/engine`，cli/mcp/platform 共同依赖。
-  - 验收点：
-    - [x] 批次 1：engine 包骨架 + `github/` 与 `code-scanning/` 迁移（71916091）
-    - [x] 批次 2：`fixers/` + `config/` + `report/` + `multirepo/` 迁移（7f839710）
-    - [x] 批次 3：`app/`（DependfixApp）+ helpers/grouping/runners/verification/alerts/ai 迁移，cli 薄壳化（b5a736f6）
-    - [x] 批次 4：mcp/platform 依赖切换 + 发布链路恢复（engine/mcp publishable + changelog + release.md）
-  - 结果：mcp 依赖 `@dependfix/engine` + `@dependfix/core`（不再依赖 dependfix）；engine/mcp 发布链路就绪（首次发布需手动 `pnpm publish` + 补 tag，见 release.md）
-- **下一阶段**：M7（企业级平台增强，**2026-08-09 规划定稿**——拆 M7.1 认证与用户体系 / M7.2 平台能力深化，新增用户管理、个人界面、第三方登录（OIDC SSO / GitHub·Google OAuth / 域名黑白名单）与 i18n；部署模式 `AUTH_MODE` 互斥二选一），任务定义见 [backlog.md §M7](backlog.md#m7-企业级平台增强)。
+- **规划状态**：M7 规划定稿（2026-08-09 提交 64efbb3e）；M7.1 已上收为当前阶段，设计先行（认证与用户体系设计文档）为 T701/T707 准入门槛（涉及用户模型与认证契约重写，规划规范 §1.1 设计先行闸门）。
 - **已知边界**：
   - M5.5 的 npx skills GitHub 源端到端验证（主通道 + 全链质量门）依赖 CI 端到端裁决（本机 clone github.com 网络受限）。
   - Publish Docker 工作流 build job 在 QEMU 双平台构建中 1h19m 被同 ref 新 push 取消，镜像构建 CI 链路未裁决通过，排查项见 [backlog.md §M6](backlog.md)（C30）。

@@ -179,40 +179,10 @@
 
 ### M7.1 认证与用户体系
 
-#### T701 RBAC 权限管理 + 用户管理 + 个人界面（原 T701 扩展合并）
+> **已上收（2026-08-09）**：T701 / T707 完整任务定义移至 [todo.md](todo.md)（当前阶段），本处不再重复；以下仅保留阶段定义。
 
-- 优先级：`P2`
-- 依赖：M6
-- 交付物：角色权限系统 + 用户管理界面 + 个人设置界面。
-- 任务内容：
-  - [ ] 用户模型扩展：better-auth `admin` 插件 + `username`；组织成员关系（Organization ↔ User，承接架构文档 M7 多用户按组织隔离凭据的预设）。
-  - [ ] 角色模型：Admin（全局配置、用户管理）、Org Admin（管理组织下仓库）、Repo Admin（管理特定仓库修复策略）、Viewer（只读查看报告）。
-  - [ ] 用户管理 API + UI：用户列表/搜索、启用/禁用、角色分配、组织成员管理。
-  - [ ] 个人界面：个人资料（头像/显示名）、修改密码/邮箱、第三方账号绑定、语言偏好（与 T708 联动）。
-  - [ ] API 权限守卫：server 中间件 + 页面路由守卫按角色控制访问。
-- 非目标：审计日志、邀请注册机制（登记 backlog）、T707 的第三方登录本身。
-- 完成定义：
-  - [ ] 权限矩阵测试：不同角色登录后仅能访问权限范围内的 API 与页面。
-  - [ ] Admin 可完成用户管理闭环（列表/禁用/角色分配）；用户可编辑个人资料与偏好。
-- 任务粒度：按数据层（模型 + 权限 API）、管理 UI、个人界面拆 3 个子任务独立提交（对齐经验归档 §二十四 长任务分批）。
-
-#### T707 认证扩展：OIDC SSO / GitHub·Google OAuth / 邮箱域名黑白名单
-
-- 优先级：`P2`
-- 依赖：T701
-- 交付物：多登录方式 + 部署模式互斥配置 + 注册准入控制。
-- 任务内容：
-  - [ ] 部署模式配置：`AUTH_MODE=enterprise|public` 互斥二选一（D1）；注册策略从 `REGISTRATION_DISABLED` 演进为按部署模式开放/关闭。
-  - [ ] GitHub OAuth + Google OAuth（`public` 模式；未配置对应环境变量时自动禁用该登录方式，不阻塞启动）。
-  - [ ] OIDC SSO（`enterprise` 模式；better-auth `genericOAuth` 插件；`OIDC_ISSUER` / `OIDC_CLIENT_ID` / `OIDC_CLIENT_SECRET` 配置；支持 Azure AD / Okta / Keycloak / Google Workspace）。
-  - [ ] 邮箱域名白名单（`enterprise`）/ 黑名单（`public`）注册准入：配置项（如 `ALLOWED_EMAIL_DOMAINS` / `BLOCKED_EMAIL_DOMAINS`）+ 注册拦截。
-  - [ ] 登录页多方式展示与禁用态联动。
-- 非目标：SAML 2.0（登记 backlog）、magic link / email OTP / 2FA / JWT 插件（架构预设，未排期）、OIDC 自动开通账户的域名匹配细节（实施时随白名单策略确认）。
-- 完成定义：
-  - [ ] `enterprise` 模式：OIDC 登录闭环；非白名单域名邮箱注册被拒。
-  - [ ] `public` 模式：GitHub / Google 登录闭环；黑名单域名邮箱注册被拒。
-  - [ ] 未配置的登录方式在登录页自动隐藏/禁用，不阻塞启动。
-- 任务粒度：按部署模式配置 + 注册准入、OAuth（GitHub/Google）、OIDC SSO 拆 3 个子任务独立提交。
+- **T701 RBAC 权限管理 + 用户管理 + 个人界面**：角色权限系统 + 用户管理界面 + 个人设置界面（原 T701 扩展合并用户管理与个人界面；3 个子任务分批）。
+- **T707 认证扩展：OIDC SSO / GitHub·Google OAuth / 邮箱域名黑白名单**：部署模式互斥配置 + 注册准入 + OAuth + OIDC（3 个子任务分批）。
 
 ### M7.2 平台能力深化
 

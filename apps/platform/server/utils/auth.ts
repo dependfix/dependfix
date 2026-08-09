@@ -133,8 +133,9 @@ const buildAuth = (ds: Awaited<ReturnType<typeof ensureDatabaseInitialized>>, op
             updateEmailWithoutVerification: !options.smtpEnabled,
             sendChangeEmailConfirmation: async ({ user, newEmail, url }) => {
                 // SMTP 未配置时：不发确认邮件（changeEmail 直接生效）
-                // SMTP 已配置但邮件发送器未实现：确认邮件不发出（M6 既有降级模式，
-                // 与 sendVerificationEmail/sendResetPassword 一致；统一实现登记 backlog）
+                // SMTP 已配置但邮件发送器未实现：确认邮件不发出（既有降级模式，
+                // 与 sendVerificationEmail/sendResetPassword 一致；统一实现已登记
+                // docs/plan/backlog.md「邮件发送器统一实现」条目）
                 if (!options.smtpEnabled) {
                     console.warn('[auth] SMTP 未配置，邮箱变更确认邮件未发送')
                 } else {

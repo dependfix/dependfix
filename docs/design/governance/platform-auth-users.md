@@ -220,7 +220,7 @@ REGISTRATION_DISABLED=true: 拒绝所有注册渠道——邮箱密码路径由
 | 4 | 单组织模型 + 默认组织迁移（organizationId 可空列 + 应用层强制非空） | 采纳 | 否 | 多租户登记 backlog（better-auth organization 插件届时评估） |
 | 5 | 域名黑白名单应用于所有注册渠道（含 OAuth/SSO 自动开通）；email 缺失 fail-closed | 采纳 | 否 | 准入语义统一，hook 单一拦截点 |
 | 6 | enterprise 模式邮箱密码注册：白名单为空 = 关闭邮箱注册；REGISTRATION_DISABLED 保留为总开关 | 采纳 | 否 | 注册策略矩阵 |
-| 7 | admin 插件 `adminRoles: ['admin']`，与三角色模型对齐；`/api/auth/admin/*` 与 `/api/users/*` 代理双轨权限一致 | 采纳 | 否 | 避免双轨权限漂移（org_admin/viewer 不触发 admin 端点） |
+| 7 | admin 插件 `adminRoles: ['admin']`，与三角色模型对齐；`/api/auth/admin/*` 与 `/api/users/*` 代理双轨权限一致 | 采纳 | 否 | 避免双轨权限漂移（org_admin/viewer 不触发 admin 端点）。**（a115e351 实施后修订：自建 `/api/users/*` 代理已移除，统一走 admin 插件原生端点单轨，前端经 `authClient.admin.*` 直连）** |
 | 8 | remove-user 级联：用户名下存在仓库/凭据关联时拒绝删除（409，提示先转移/删除资源） | 采纳 | 否 | 数据完整性；用户管理 API 错误语义 |
 | 9 | 登录方式列表经 runtimeConfig public 注入前端（未配置隐藏） | 采纳 | 否 | 无硬编码 provider 列表 |
 | 10 | SMTP 未配置时 OAuth/SSO 用户 emailVerified 视为 true（better-auth 默认），邮箱密码用户维持现状（不强制验证） | 采纳 | 否 | 与 M6 行为一致 |

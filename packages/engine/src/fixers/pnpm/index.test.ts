@@ -628,7 +628,7 @@ describe('repairLockfile', () => {
         const result = repairLockfile({ workDir: proj.dir })
         expect(result.failureCategory).toBe('CREDENTIAL_ERROR')
         // failureDetail should be ≤ prefix + truncate(500) + "…"
-        expect(result.failureDetail.length).toBeLessThanOrEqual(550)
+        expect(result.failureDetail!.length).toBeLessThanOrEqual(550)
         expect(result.failureDetail).toContain('\u2026')
     })
 })

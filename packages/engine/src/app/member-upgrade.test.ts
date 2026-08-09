@@ -211,7 +211,7 @@ describe('DependfixApp member upgrade (2.0.3)', () => {
         rmSync(workDir, { recursive: true, force: true })
     })
 
-    function runApp(overrides: { env?: Record<string, string>, cliOverrides?: Parameters<typeof resolveRuntimeConfig>[0]['cliOverrides'] } = {}): Promise<Awaited<ReturnType<DependfixApp['run']>>> {
+    function runApp(overrides: { env?: Record<string, string>, cliOverrides?: NonNullable<Parameters<typeof resolveRuntimeConfig>[0]>['cliOverrides'] } = {}): Promise<Awaited<ReturnType<DependfixApp['run']>>> {
         const config = resolveRuntimeConfig({
             env: {
                 GITHUB_TOKEN: 'main-token-value',

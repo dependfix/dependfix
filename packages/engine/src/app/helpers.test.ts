@@ -528,8 +528,8 @@ describe('autoCleanupMergedBranches', () => {
     const baseCtx = {
         config: { dryRun: false, repositories: ['foo/bar'] } as unknown as AppContext['config'],
         logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } as never,
-        allActions: [],
-        allErrors: [],
+        allActions: [] as AppContext['allActions'],
+        allErrors: [] as AppContext['allErrors'],
     }
 
     beforeEach(() => {
@@ -600,7 +600,7 @@ describe('closeSupersededPRs', () => {
     const client = {} as never
     const baseCtx = {
         logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } as never,
-        allErrors: [],
+        allErrors: [] as AppContext['allErrors'],
     }
 
     beforeEach(() => {

@@ -48,14 +48,20 @@ export const fixDependency = async (input: {
         switch (fixType) {
             case 'lockfile': {
                 const result = repairLockfile({ workDir: input.workDir })
+                if (result.success) {
+                    return {
+                        ok: true,
+                        fixType: 'lockfile',
+                        strategy: result.strategy,
+                        diff: result.diff ?? null,
+                        lockfileVersion: result.lockfileVersion,
+                        lockfileVersionChanged: result.lockfileVersionChanged,
+                    }
+                }
                 return {
-                    ok: result.success,
+                    ok: false,
                     fixType: 'lockfile',
-                    strategy: result.strategy,
-                    diff: result.diff ?? null,
-                    lockfileVersion: result.lockfileVersion,
-                    lockfileVersionChanged: result.lockfileVersionChanged,
-                    error: result.success ? undefined : (result.failureDetail ?? 'lockfile repair failed'),
+                    error: result.failureDetail ?? 'lockfile repair failed',
                 }
             }
             case 'direct': {
@@ -67,15 +73,25 @@ export const fixDependency = async (input: {
                     targetVersion: input.targetVersion,
                     workDir: input.workDir,
                 })
+                if (result.success) {
+                    return {
+                        ok: true,
+                        fixType: 'direct',
+                        packageName: result.packageName,
+                        fromVersion: result.fromVersion,
+                        toVersion: result.toVersion,
+                        isMajor: result.isMajor,
+                        warning: result.warning,
+                    }
+                }
                 return {
-                    ok: result.success,
+                    ok: false,
                     fixType: 'direct',
                     packageName: result.packageName,
                     fromVersion: result.fromVersion,
                     toVersion: result.toVersion,
                     isMajor: result.isMajor,
-                    warning: result.warning,
-                    error: result.error,
+                    error: result.error ?? 'upgrade failed',
                 }
             }
             case 'override': {
@@ -87,15 +103,25 @@ export const fixDependency = async (input: {
                     targetVersion: input.targetVersion,
                     workDir: input.workDir,
                 })
+                if (result.success) {
+                    return {
+                        ok: true,
+                        fixType: 'override',
+                        packageName: result.packageName,
+                        fromVersion: result.fromVersion,
+                        toVersion: result.toVersion,
+                        isMajor: result.isMajor,
+                        warning: result.warning,
+                    }
+                }
                 return {
-                    ok: result.success,
+                    ok: false,
                     fixType: 'override',
                     packageName: result.packageName,
                     fromVersion: result.fromVersion,
                     toVersion: result.toVersion,
                     isMajor: result.isMajor,
-                    warning: result.warning,
-                    error: result.error,
+                    error: result.error ?? 'override failed',
                 }
             }
         }

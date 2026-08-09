@@ -654,30 +654,33 @@ describe('resolveRuntimeConfig', () => {
 
 const GITHUB_REMOTE_RE = /github\.com[/:]([^/]+)\/([^/\s.]+?)(?:\.git)?\s*$/i
 
+/** 执行正则并断言有匹配（strict 下类型收窄：返回非空 RegExpExecArray） */
+function execGitHubRemote(url: string): RegExpExecArray {
+    const m = GITHUB_REMOTE_RE.exec(url)
+    expect(m).not.toBeNull()
+    return m!
+}
+
 describe('GITHUB_REMOTE_RE', () => {
     it('matches HTTPS GitHub URL with .git suffix', () => {
-        const m = GITHUB_REMOTE_RE.exec('https://github.com/dependfix/dependfix.git')
-        expect(m).not.toBeNull()
+        const m = execGitHubRemote('https://github.com/dependfix/dependfix.git')
         expect(m[1]).toBe('dependfix')
         expect(m[2]).toBe('dependfix')
     })
 
     it('matches HTTPS GitHub URL without .git suffix', () => {
-        const m = GITHUB_REMOTE_RE.exec('https://github.com/dependfix/dependfix')
-        expect(m).not.toBeNull()
+        const m = execGitHubRemote('https://github.com/dependfix/dependfix')
         expect(m[2]).toBe('dependfix')
     })
 
     it('matches SSH git@ format', () => {
-        const m = GITHUB_REMOTE_RE.exec('git@github.com:dependfix/dependfix.git')
-        expect(m).not.toBeNull()
+        const m = execGitHubRemote('git@github.com:dependfix/dependfix.git')
         expect(m[1]).toBe('dependfix')
         expect(m[2]).toBe('dependfix')
     })
 
     it('matches SSH ssh:// format', () => {
-        const m = GITHUB_REMOTE_RE.exec('ssh://git@github.com/dependfix/dependfix.git')
-        expect(m).not.toBeNull()
+        const m = execGitHubRemote('ssh://git@github.com/dependfix/dependfix.git')
         expect(m[1]).toBe('dependfix')
         expect(m[2]).toBe('dependfix')
     })
@@ -691,15 +694,13 @@ describe('GITHUB_REMOTE_RE', () => {
     })
 
     it('matches with trailing whitespace/newline', () => {
-        const m = GITHUB_REMOTE_RE.exec('https://github.com/owner/repo.git\n')
-        expect(m).not.toBeNull()
+        const m = execGitHubRemote('https://github.com/owner/repo.git\n')
         expect(m[1]).toBe('owner')
         expect(m[2]).toBe('repo')
     })
 
     it('matches with leading whitespace', () => {
-        const m = GITHUB_REMOTE_RE.exec(' https://github.com/owner/repo.git')
-        expect(m).not.toBeNull()
+        const m = execGitHubRemote(' https://github.com/owner/repo.git')
         expect(m[1]).toBe('owner')
     })
 })

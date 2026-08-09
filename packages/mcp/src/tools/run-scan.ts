@@ -45,6 +45,7 @@ export const runScan = async (input: {
 
     // 展开 cli 默认配置（maxAlerts/maxConcurrency/maxRetries/maxBackoff/alertSource/ai 默认等
     // 与 CLI 单一事实源对齐，避免手写默认值漂移），仅覆盖 tool 参数可控制字段。
+    const defaultAi = DEFAULT_RUNTIME_CONFIG.ai
     const config: RuntimeConfig = {
         ...DEFAULT_RUNTIME_CONFIG,
         mode: input.mode,
@@ -64,13 +65,14 @@ export const runScan = async (input: {
         // AI 研判：展开 cli 默认（provider/model/baseUrl/trigger 与 CLI 对齐），
         // 仅覆盖开关与显式参数；apiKey 只从 env 读取（DEPENDFIX_AI_API_KEY），
         // 禁止经 tool 参数传入（防客户端日志泄露）。
-        ai: input.ai_enabled
+        // defaultAi 收窄：默认配置缺失时视为未开启（与类型声明一致，运行时恒有值）
+        ai: input.ai_enabled && defaultAi
             ? {
-                ...DEFAULT_RUNTIME_CONFIG.ai,
+                ...defaultAi,
                 enabled: true,
-                provider: input.ai_provider ?? DEFAULT_RUNTIME_CONFIG.ai.provider,
-                model: input.ai_model ?? DEFAULT_RUNTIME_CONFIG.ai.model,
-                trigger: input.ai_trigger ?? DEFAULT_RUNTIME_CONFIG.ai.trigger,
+                provider: input.ai_provider ?? defaultAi.provider,
+                model: input.ai_model ?? defaultAi.model,
+                trigger: input.ai_trigger ?? defaultAi.trigger,
                 apiKey: process.env.DEPENDFIX_AI_API_KEY,
             }
             : undefined,

@@ -245,7 +245,7 @@ export async function overrideTransitiveDependency(
 
     try {
         copyFileSync(pkgPath, pkgBackup)
-        if (usesWorkspaceYaml) {
+        if (usesWorkspaceYaml && workspaceBackup) {
             copyFileSync(workspaceYamlPath, workspaceBackup)
         }
         if (existsSync(lockfilePath)) {
@@ -404,7 +404,7 @@ export async function applyVersionedOverrides(
 
     try {
         copyFileSync(pkgPath, pkgBackup)
-        if (usesWorkspaceYaml) {
+        if (usesWorkspaceYaml && workspaceBackup) {
             copyFileSync(workspaceYamlPath, workspaceBackup)
         }
         if (existsSync(lockfilePath)) {
@@ -477,7 +477,7 @@ export async function applyVersionedOverrides(
             writeFileSync(pkgPath, `${JSON.stringify(pkg, null, 2)}\n`, 'utf-8')
         }
         rollback(pkgPath, pkgBackup, lockfilePath, lockBackup)
-        if (usesWorkspaceYaml) {
+        if (usesWorkspaceYaml && workspaceBackup) {
             rollback(workspaceYamlPath, workspaceBackup, lockfilePath, null)
         }
         cleanupBackups({ pkgBackup, lockBackup, workspaceBackup })
@@ -837,7 +837,7 @@ function rollbackOverrideWrite(params: {
         pkgPath,
     })
     rollback(pkgPath, pkgBackup, lockfilePath, lockBackup)
-    if (usesWorkspaceYaml) {
+    if (usesWorkspaceYaml && workspaceBackup) {
         rollback(workspaceYamlPath, workspaceBackup, lockfilePath, null)
     }
     cleanupBackups({ pkgBackup, lockBackup, workspaceBackup })

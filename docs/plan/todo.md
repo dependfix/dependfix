@@ -27,16 +27,17 @@
 ### T707 认证扩展：OIDC SSO / GitHub·Google OAuth / 邮箱域名黑白名单
 
 - 优先级：`P2`
-- 依赖：T701
+- 依赖：T701；设计文档 [platform-auth-users.md](../design/governance/platform-auth-users.md)（2026-08-09 Review Gate Pass）
 - 交付物：多登录方式 + 部署模式互斥配置 + 注册准入控制。
 - 实现内容：
-  - [ ] 子任务 1（部署模式与准入）：`AUTH_MODE=enterprise|public` 互斥配置；注册策略从 `REGISTRATION_DISABLED` 演进为按部署模式开放/关闭；邮箱域名白名单（enterprise）/ 黑名单（public）注册拦截
-  - [ ] 子任务 2（OAuth）：GitHub OAuth + Google OAuth（public 模式；未配置对应环境变量时自动禁用该登录方式，不阻塞启动）
-  - [ ] 子任务 3（OIDC SSO）：enterprise 模式；better-auth `genericOAuth` 插件；`OIDC_ISSUER` / `OIDC_CLIENT_ID` / `OIDC_CLIENT_SECRET` 配置（Azure AD / Okta / Keycloak / Google Workspace）；登录页多方式展示与禁用态联动
-- 非目标：SAML 2.0（登记 backlog）、magic link / email OTP / 2FA / JWT 插件（架构预设，未排期）、OIDC 自动开通账户的域名匹配细节（实施时随白名单策略确认）。
+  - [ ] 子任务 1（部署模式与准入）：`AUTH_MODE=enterprise|public` 互斥配置（缺省 public）；注册策略从 `REGISTRATION_DISABLED` 演进——保留为总开关（关闭所有注册渠道，OAuth/SSO 自动开通路径由 `user.create.before` hook 显式拦截）；邮箱域名白名单（enterprise）/ 黑名单（public）注册拦截（hook 单一准入点，覆盖邮箱注册与自动开通全渠道）；OAuth/SSO email 缺失 fail-closed（拒绝开通）
+  - [ ] 子任务 2（OAuth）：GitHub OAuth + Google OAuth（public 模式；未配置对应环境变量时自动禁用该登录方式，不阻塞启动；登录方式列表经 runtimeConfig public 注入前端）
+  - [ ] 子任务 3（OIDC SSO）：enterprise 模式；better-auth `genericOAuth` 插件（`OIDC_DISCOVERY_URL` / `OIDC_CLIENT_ID` / `OIDC_CLIENT_SECRET`，支持 `OIDC_ISSUER` 等覆盖，`requireIssuerValidation: true`）；登录页多方式展示与禁用态联动
+- 非目标：SAML 2.0（登记 backlog）、magic link / email OTP / 2FA / JWT 插件（架构预设，未排期）、OIDC 自动开通账户的域名匹配细节（随白名单策略随子任务 1 落地）。
 - 验收：
-  - [ ] enterprise 模式：OIDC 登录闭环；非白名单域名邮箱注册被拒
-  - [ ] public 模式：GitHub / Google 登录闭环；黑名单域名邮箱注册被拒
+  - [ ] enterprise 模式：OIDC 登录闭环；非白名单域名邮箱注册被拒（403 EMAIL_DOMAIN_NOT_ALLOWED 非 500）
+  - [ ] public 模式：GitHub / Google 登录闭环；黑名单域名邮箱注册被拒；email 缺失拒绝开通
+  - [ ] `REGISTRATION_DISABLED=true` 时所有注册渠道（含 OAuth/SSO 自动开通）均拒绝
   - [ ] 未配置的登录方式在登录页自动隐藏/禁用，不阻塞启动
 - 任务粒度：3 个子任务独立提交。
 
@@ -44,7 +45,7 @@
 
 ## 当前状态
 
-- **规划状态**：M7 规划定稿（2026-08-09 提交 64efbb3e）；M7.1 已上收为当前阶段，设计先行（认证与用户体系设计文档）为 T701/T707 准入门槛（涉及用户模型与认证契约重写，规划规范 §1.1 设计先行闸门）。
+- **规划状态**：M7 规划定稿（64efbb3e）→ M7.1 任务上收（23a9058b）→ 设计先行 [platform-auth-users.md](../design/governance/platform-auth-users.md) 完成（b0a0d33b，Review Gate 两轮 Pass）→ 决策 D1/D2/D3 用户确认（ac4ef8c0）。**当前为 M7.1 实施就绪状态**（规划与设计文档闭环，尚未开始代码实现）。
 - **已知边界**：
   - M5.5 的 npx skills GitHub 源端到端验证（主通道 + 全链质量门）依赖 CI 端到端裁决（本机 clone github.com 网络受限）。
   - Publish Docker 工作流 build job 在 QEMU 双平台构建中 1h19m 被同 ref 新 push 取消，镜像构建 CI 链路未裁决通过，排查项见 [backlog.md §M6](backlog.md)（C30）。

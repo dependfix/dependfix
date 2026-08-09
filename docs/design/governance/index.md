@@ -17,6 +17,7 @@
 | [Skill 分发治理](./skill-distribution.md) | 专项治理（M5.5 Skill 编排） | ✅ 已落地（2026-08-07） |
 | [执行器设计与沙箱评估](./executor-sandbox.md) | 专项设计（T607 设计先行） | 🔶 设计中（2026-08-08） |
 | [MCP Server 设计](./mcp-server.md) | 未来规划（M6） | 🔶 未开始 |
+| [平台认证与用户体系设计](./platform-auth-users.md) | 专项设计（M7.1 T701/T707 设计先行） | ✅ 已落地（2026-08-09，Review Gate Pass） |
 
 ## 使用约定
 

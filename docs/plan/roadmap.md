@@ -102,17 +102,18 @@ Changelog / Release Notes 采集、多 AI 提供商封装、AI 研判（问题�
 
 ## M7: 企业级平台增强
 
-补齐多租户、高可用与跨平台能力：RBAC 权限、BullMQ + Redis 任务队列、GitLab/Bitbucket 支持、定时批量、PostgreSQL、Helm Chart。
+拆两个子阶段（2026-08-09 规划定稿，需求澄清见 [backlog.md §M7 规划决策](backlog.md#m7-企业级平台增强)）：
 
-> 详细任务见 [backlog.md §M7](backlog.md#m7-企业级平台增强)
+- **M7.1 认证与用户体系**（当前阶段，[todo.md](todo.md)）：T701 RBAC + 用户管理 + 个人界面（三角色，决策 D1/D2/D3 已确认）、T707 认证扩展（`AUTH_MODE` 互斥二选一：enterprise OIDC SSO + 域名白名单 / public GitHub·Google OAuth + 域名黑名单）。设计文档：[platform-auth-users.md](../design/governance/platform-auth-users.md)（Review Gate Pass）。
+- **M7.2 平台能力深化**（后续，[backlog.md §M7](backlog.md#m7-企业级平台增强)）：T702 BullMQ+Redis 任务队列、T704 定时扫描与批量、T708 国际化 i18n、T705 生产级部署（PostgreSQL + Helm + Sentry）、T703 跨平台 Git（GitLab/Bitbucket）、T706 MCP Skill 集成与发布。
 
 ---
 
 ## 详细任务
 
-- 当前阶段任务：[todo.md](todo.md)（当前无进行中阶段，M6 已归档）
+- 当前阶段任务：[todo.md](todo.md)（M7.1 认证与用户体系，规划定稿 + 设计先行完成，待实施）
 - 已归档阶段：[todo-archive.md](todo-archive.md)
-- 后续阶段任务（M7）：[backlog.md](backlog.md)
+- 后续阶段任务（M7.2 + 未排期）：[backlog.md](backlog.md)
 
 ## 交付原则
 

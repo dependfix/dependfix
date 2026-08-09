@@ -257,8 +257,9 @@ flowchart TD
 
 平台分两个阶段交付：
 
-- **M6（最小平台 MVP）**：仓库 CRUD + 凭据管理 + 手动扫描 + 仪表板 + 单用户 + Docker Compose/SQLite
-- **M7（企业级增强）**：RBAC + BullMQ/Redis 任务队列 + 跨平台 Git + 批量处理 + K8s/Helm
+- **M6（最小平台 MVP）**：仓库 CRUD + 凭据管理 + 手动扫描 + 仪表板 + 单用户 + Docker Compose/SQLite（已交付 2026-08-08）
+- **M7.1（认证与用户体系）**：RBAC 三角色（admin/org_admin/viewer）+ 用户管理 + 个人界面 + 认证扩展（AUTH_MODE 互斥：OIDC SSO / GitHub·Google OAuth / 域名黑白名单）；单组织模型（默认组织）——规划定稿 + 设计先行完成（2026-08-09）
+- **M7.2（平台能力深化）**：BullMQ/Redis 任务队列 + 定时批量 + i18n + 生产部署（PostgreSQL/Helm/Sentry）+ 跨平台 Git + MCP 发布（见 [backlog.md §M7](../../plan/backlog.md#m7-企业级平台增强)）
 
 ### 分层架构
 
@@ -365,12 +366,14 @@ packages/core (@dependfix/core)
 - URL 策略：`prefix_and_default`（zh-CN 无前缀，en-US 加 `/en`）
 - 语言检测：Cookie + 浏览器偏好 + URL
 
+> M7.2 T708 任务定义与验收见 [backlog.md §M7.2 T708](../../plan/backlog.md#t708-国际化-i18n)。
+
 ### 认证
 
 - better-auth 为核心
 - M6：邮箱密码 + 邮箱验证（单用户模式）
-- M7 扩展：
-  - 插件：username、magicLink、emailOTP、twoFactor、admin、jwt、genericOAuth
+- M7 扩展（设计详见 [platform-auth-users.md](platform-auth-users.md)，2026-08-09 定稿）：
+  - 插件：admin（用户管理，M7.1 启用）、genericOAuth（OIDC SSO，M7.1 启用）；username、magicLink、emailOTP、twoFactor、jwt 为架构预设但**未排期**（username 明确不启用——设计决策 D2）
   - 第三方登录：GitHub OAuth、Google OAuth（可选，未配置环境变量时自动禁用对应登录方式）
   - 未配置的第三方登录方式自动禁用，不阻塞启动
   - **部署模式互斥（2026-08-09 M7 规划决策）**：`AUTH_MODE=enterprise|public` 二选一，不混合——`enterprise`（企业内部）：OIDC SSO（better-auth `genericOAuth`，Azure AD / Okta / Keycloak / Google Workspace）+ 邮箱域名白名单注册准入；`public`（公开平台）：GitHub / Google OAuth + 邮箱域名黑名单注册准入。SAML 2.0 不实现（登记 backlog）

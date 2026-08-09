@@ -4,9 +4,9 @@
 
 ## 当前状态
 
-**M4（多仓库治理增强）已完成（2026-08-06），M4.5 跨线升级显式授权已完成（2026-08-07）。** M0（基线收敛）/ M1（MVP 单仓库修复）/ M2（GitHub Action 接入）/ M3（Code Scanning 扩展）已完成并归档。
+**M6（最小平台 MVP）已完成（2026-08-08），M7.1（认证与用户体系）规划定稿 + 设计先行完成（2026-08-09，待实施）。** M0（基线收敛）/ M1（MVP 单仓库修复）/ M2（GitHub Action 接入）/ M3（Code Scanning 扩展）/ M4（多仓库治理）/ M4.5（跨线升级显式授权）/ M4.6（Monorepo 成员级修复）/ M5（AI Breaking Change 研判）/ M5.5（Skill 编排）/ M6（最小平台 MVP）已完成并归档。
 
-`dependfix` CLI 支持四类命令（`report-only` / `fix` / `fix-and-pr` / `cleanup-branches`），可通过 GitHub Composite Action（`uses: dependfix/dependfix@v1`）提供零配置的自动化安全修复能力。
+`dependfix` CLI 支持四类命令（`report-only` / `fix` / `fix-and-pr` / `cleanup-branches`），可通过 GitHub Composite Action（`uses: dependfix/dependfix@v1`）提供零配置的自动化安全修复能力；独立管理平台（仓库/凭据管理、扫描触发、仪表板）与 MCP Server 已随 M6 落地。
 
 ## 定位
 
@@ -23,8 +23,11 @@
 - ✅ Code Scanning alerts 接入（`code-scanning` / `--code-scanning` / `DEPENDFIX_CODE_SCANNING`，A/B/C 规则分层自动修复，M3 已完成）
 - ✅ owner 级仓库自动发现 / 多仓库并发治理 / 报告归档（M4 已完成，2026-08-06）
 - ✅ 跨线告警显式授权自动升级（`--allow-major-upgrade`，仅 CLI；M4.5 已完成，2026-08-07）
-- 🔶 AI 研判依赖升级 breaking change（M5 规划中）
-- 🔶 独立平台部署（闭源场景，M6 规划中）
+- ✅ AI 研判依赖升级 breaking change（M5 已完成，2026-08-07：Changelog 采集 + 多 provider 研判 + 结构化 patch + 安全门）
+- ✅ Agent Skill 编排（M5.5 已完成：`dependfix-remediator` skill，npx skills 主通道 + CLI 兜底）
+- ✅ 独立平台部署（M6 已完成，2026-08-08：仓库/凭据管理、扫描触发、仪表板、MCP Server、Docker 部署）
+- 🔶 多用户认证与 RBAC（M7.1 规划定稿：用户管理、个人界面、OIDC SSO / GitHub·Google OAuth、邮箱域名黑白名单）
+- 🔶 平台能力深化（M7.2：BullMQ 任务队列、定时批量、i18n、生产级部署、跨平台 Git、MCP 发布）
 
 ## 快速导航
 
@@ -44,15 +47,13 @@ dependfix/               # pnpm workspace Monorepo
 ├── packages/
 │   ├── core/            # ✅ @dependfix/core — 核心领域模型库
 │   │   └── src/         # 告警模型、过滤器、规划器、报告生成、日志、工具函数
-│   └── cli/             # ✅ dependfix — CLI 应用入口
-│       └── src/         # CLI 参数解析、配置、GitHub 集成、修复器、验证执行器
+│   ├── engine/          # ✅ @dependfix/engine — 共享执行引擎（github 采集/fixers/config/编排内核）
+│   ├── cli/             # ✅ dependfix — CLI 应用入口（薄壳 + skills 编排）
+│   └── mcp/             # ✅ @dependfix/mcp — MCP Server（M6，4+ tool）
+├── apps/platform/       # ✅ Nuxt 全栈管理平台（Web UI + REST API，M6）
 ├── docs/                # ✅ VitePress 文档站
 ├── action.yml           # ✅ GitHub Composite Action 入口
 └── .github/             # ✅ CI/CD 工作流与技能定义
-
-# 后续按需添加：
-# ├── apps/platform/     # Nuxt 全栈独立平台（M6）
-# ├── packages/mcp/      # MCP Server（M6+）
 ```
 
 ## 快速开始

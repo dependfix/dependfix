@@ -7,8 +7,8 @@
 
 import { defineCommand, renderUsage, runCommand, runMain, showUsage } from 'citty'
 import { toAppError } from '@dependfix/core'
+import type { RuntimeConfig } from '@dependfix/engine'
 import { createPipeline, type PipelineLogger } from '../app/pipeline'
-import type { RuntimeConfig } from '../config'
 import { skillsCommand } from '../skills'
 import { argsDef, type CliInvocation } from './index'
 

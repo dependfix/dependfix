@@ -6,7 +6,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import YAML from 'yaml'
 import type { NormalizedSecurityAlert } from '@dependfix/core'
-import { findDependencyVersion, readLockfileVersion } from '../fixers/dependency'
+import { findDependencyVersion, readLockfileVersion } from '@dependfix/engine'
 
 // ---------------------------------------------------------------------------
 // Types

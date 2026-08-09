@@ -1,6 +1,6 @@
 import { execSync } from 'node:child_process'
 import { AppError, isValidRepoIdentifier, type SeverityThreshold, type AlertSourceKind } from '@dependfix/core'
-import { resolveRepoList } from '@dependfix/engine'
+import { resolveRepoList } from '../github/repo-selector'
 import { isValidPnpmVersion } from '../fixers/pnpm'
 import { isValidConcurrency } from '../multirepo/scheduler'
 

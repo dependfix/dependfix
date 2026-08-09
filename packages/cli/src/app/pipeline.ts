@@ -3,10 +3,8 @@
 // DependfixApp.run → 退出码。process.env / console / process.exitCode
 // 全部经 PipelineDeps 注入，platform 可替换 env / logger / config resolver / exit。
 
+import { resolveRuntimeConfig, queryRepoHistory, formatHistory, type CliConfigOverrides } from '@dependfix/engine'
 import { parseCliArgs, type CliInvocation } from '../cli'
-import { resolveRuntimeConfig, type CliConfigOverrides } from '../config'
-import { queryRepoHistory } from '../report/archiver'
-import { formatHistory } from '../report/history'
 import { DependfixApp } from './index'
 
 export interface PipelineLogger {

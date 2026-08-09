@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import nock from 'nock'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { resolveRuntimeConfig } from '../config'
+import { resolveRuntimeConfig } from '@dependfix/engine'
 import { DependfixApp } from './index'
 
 // ---------------------------------------------------------------------------
@@ -24,8 +24,8 @@ vi.mock('../runners/verification-runner', () => ({
     runVerification: mockRunVerification,
 }))
 
-vi.mock('../fixers/dependency', async (importOriginal) => {
-    const actual = await importOriginal<typeof import('../fixers/dependency')>()
+vi.mock('@dependfix/engine', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('@dependfix/engine')>()
     return {
         ...actual,
         upgradeDependency: mockUpgradeDependency,

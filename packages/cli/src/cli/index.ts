@@ -12,7 +12,7 @@ import {
     RUNTIME_MODES,
     SEVERITY_THRESHOLDS,
     ALERT_SOURCES,
-} from '../config'
+} from '@dependfix/engine'
 // ---------------------------------------------------------------------------
 // Public interfaces
 // ---------------------------------------------------------------------------

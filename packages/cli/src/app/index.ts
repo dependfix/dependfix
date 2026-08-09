@@ -34,14 +34,19 @@ import {
     filterExplicitRepositories,
     fetchDependabotAlerts,
     fetchCodeScanningAlerts,
+    runWithConcurrency,
+    writeArchive,
+    compareSemver,
+    readLockfileVersion,
+    readLockfileVersions,
+    applyVersionedOverrides,
+    isCrossMajorFixRequired,
+    upgradeDependency,
+    type RuntimeConfig,
     type RepoPolicy,
 } from '@dependfix/engine'
-import { runWithConcurrency } from '../multirepo/scheduler'
-import { writeArchive } from '../report/archiver'
 import { enforceVerificationGate } from '../runners/verification-gate'
 import { fetchPnpmAuditAlerts } from '../alerts'
-import type { RuntimeConfig } from '../config'
-import { compareSemver, readLockfileVersion, readLockfileVersions, applyVersionedOverrides, isCrossMajorFixRequired, upgradeDependency } from '../fixers/dependency'
 import { dedupeFixableAlerts, snapshotTrackedFiles, restoreTrackedFiles, quickVerifyProject, partitionSubmanifestAlerts, isRootDirectDependency, type MemberManifestAlert } from '../helpers'
 import { runAiIntegration } from '../ai/app-integration'
 import { buildUpgradeGroups } from '../grouping'

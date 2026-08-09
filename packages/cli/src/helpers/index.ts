@@ -6,7 +6,7 @@ import { existsSync, readdirSync, readFileSync, statSync, unlinkSync, writeFileS
 import { join } from 'node:path'
 import { parse as parseYaml } from 'yaml'
 import type { NormalizedSecurityAlert } from '@dependfix/core'
-import { compareSemver, readLockfileVersions, isCrossMajorFixRequired } from '../fixers/dependency'
+import { compareSemver, readLockfileVersions, isCrossMajorFixRequired } from '@dependfix/engine'
 import { runVerification } from '../runners/verification-runner'
 import { validateVerifyCommands } from '../verification/validate-commands'
 import type { AppContext } from '../app/helpers'

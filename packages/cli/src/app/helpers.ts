@@ -18,20 +18,26 @@ import {
     type RunSummary,
     type AiUsageAggregate,
 } from '@dependfix/core'
-import { stageAndCommit } from '@dependfix/engine'
-import { inferRepoFromGitRemote, type RuntimeConfig } from '../config'
 import {
+    stageAndCommit,
+    applyCodeScanningFix,
+    restoreSourceFile,
+    snapshotSourceFile,
+    inferRepoFromGitRemote,
     compareSemver,
     parseMajorVersion,
     readLockfileVersions,
     upgradeDependency,
     overrideTransitiveDependency,
+    repairLockfile,
+    type RuntimeConfig,
     type DependencyFixResult,
-} from '../fixers/dependency'
-import { repairLockfile, type LockfileRepairResult } from '../fixers/pnpm'
+    type LockfileRepairResult,
+} from '@dependfix/engine'
+
 import type { AiUsage } from '../ai/usage'
 import { runVerification, type VerificationResult } from '../runners/verification-runner'
-import { applyCodeScanningFix, restoreSourceFile, snapshotSourceFile } from '../fixers/code-scanning'
+
 import { quickVerifyProject } from '../helpers'
 import { validateVerifyCommands } from '../verification/validate-commands'
 

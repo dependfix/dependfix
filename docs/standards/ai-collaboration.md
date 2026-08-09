@@ -179,6 +179,16 @@ CI 失败后不得回退到全量重试，应分析具体失败点针对性修�
 
 **CI 修复是剥洋葱**：修复一个失败点后，必须让该 job 此前被短路跳过的**全部后续步骤**真正执行，确认全链通过才算修复完成；独立 workflow（dogfood、Security Scan 等）会暴露主 CI 不覆盖的层（action manifest 模板校验、真实 API 调用），同样纳入最终裁决。本地无法复现的环境类问题（glob 穿透、manifest 校验、依赖安装差异）只能做"模拟探针"提高置信度，最终以 CI 复跑为准。教训见 [经验归档 §二十二](../design/governance/experience-archive.md)。
 
+**每个 CI job 都是独立环境**：coverage / test / lint / build 各自独立 runner，任何依赖生成产物（`.nuxt/tsconfig.json`、workspace dist）的步骤必须在**该 job 内**显式准备——test job 跑过 prepare 不继承给 coverage job（[经验归档 §二十七/§二十八](../design/governance/experience-archive.md) 实证：coverage job 缺 `nuxt prepare` 导致 platform 测试 TSCONFIG_ERROR）。
+
+**monorepo 应用层依赖 workspace 包类型的 CI 纪律**：`pnpm i --frozen-lockfile` 不构建 workspace 包；应用层（如 Nuxt platform）若直接 import 其他 workspace 包的类型，lint/typecheck 前必须先构建依赖包 dist（`pnpm --filter <dep> build`，顺序参考 Dockerfile 依赖图）。Nuxt 生成的 tsconfig 不映射 workspace 源码——`typescript.tsConfig.paths` 不合并、`alias` 指向 src 会把源码纳入 Nuxt strict 编译上下文报错，两条路都不可靠（[经验归档 §二十七](../design/governance/experience-archive.md)）。
+
+**ESLint 9 flat config 配置发现是"单文件"模型**：根目录 `eslint .` 只加载根 eslint.config.js，**不自动加载子目录配置**（与 eslintrc 的目录级联不同）；子目录 eslint.config.js 只在包内 lint 时生效。monorepo 根 lint 必须把各包规则写进根配置，或接受根 lint 与 IDE/包内 lint 行为漂移。sub-config 的 `extends`（tseslint.configs.*）不可直接内联进数组（返回嵌套数组），需 `tseslint.config(...)` 工厂展开。
+
+**引入依赖前审查依赖链的破坏性传递**：官方集成（如 `@nuxt/eslint`）也可能通过工具链（config-inspector → devframe → h3@2.x）引入与项目核心（Nuxt 4 → h3@1.x）冲突的 breaking 版本，直接破坏 typecheck。引入前后各跑一次 `pnpm why <关键依赖>` 是标准动作。
+
+**pnpm 严格模式不提升传递依赖**：代码直接 `import` 的包必须在本包 package.json 显式声明；"恰好能解析"（靠另一条依赖链间接提供）是脆弱假设，移除该链立即暴露。
+
 ### 4.3 本地不可测配置的变更纪律
 
 - 配置文件显式写"空默认值"（如 `excludeFiles: []`）会覆盖工具内置保护，修改前先确认工具默认值。

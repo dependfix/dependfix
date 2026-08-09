@@ -248,3 +248,38 @@
   - **CI 环境行为不能从本地推断**：insteadOf URL 替换、persist-credentials: false 组合下的 push 行为，本地模拟（含 fetch --no-tags + tags 镜像）完全正常、CI 却 up-to-date——CI 特有的交互只能用 CI 实证（真实 run 日志），本地模拟只能排除本地因素。
   - **git 默认不推 tag 是常识级陷阱**：`push.followTags` 未配置时普通 push 只推分支不推 tag；补打 tag 后必须显式 `--tags` 或配置 followTags，否则 tag 永远留在本地。
   - **tag 是 changelog/发布判定的依赖时，tag 生命周期必须有纪律**：创建（changeset/手动补打）→ 推送（显式 + 核验）→ 验证（本地=远程），三环缺一即产生"tag 不同步却无人察觉"的漂移。
+
+## 二十七、monorepo CI 类型解析链：workspace 包未构建 + Nuxt tsconfig 不映射源码 + ESLint 子配置不自动加载（2026-08-08）
+
+- **案例**：M6 平台阶段推送后连续三个 CI run 暴露同一条类型解析链上的多个独立问题：
+  1. run 31252254642 / 31252254646（60d9fd6e）：`pnpm run lint` 报大量 `@typescript-eslint/no-unsafe-*`（platform 的 executor/scan-orchestrator 文件）超 `--max-warnings 10`；`pnpm run test:coverage` 报 `Failed to resolve entry for package "dependfix"`。根因：CI 中 `pnpm i --frozen-lockfile` **不构建 workspace 包**，`dependfix`（=packages/cli）、`@dependfix/core` 无 dist → platform 的 Nuxt tsconfig（`.nuxt/tsconfig.json` 由 Nuxt 生成、不映射 workspace 源码）类型解析失败 → type-aware 规则把导入当 error/any → unsafe 警告爆炸；vitest 缺 `dependfix` alias → mcp 测试入口解析失败。
+  2. 修复期实证：**Nuxt 的 `typescript.tsConfig.compilerOptions.paths` 不会被合并进 `.nuxt/tsconfig.json`**（实测 paths 仍 38 个、新增不生效）；`alias` 配置虽会写入 tsconfig paths，但基准是 `.nuxt/` 目录且指向 src 会把 cli/core 源码纳入 Nuxt 的 strict 编译上下文（TS2532 等大量错误）——**Nuxt 平台无法通过 paths/alias 把 workspace 包映射到 src，唯一可靠路径是 CI 先构建依赖包的 dist**（与 Dockerfile 的 core → cli → platform 顺序一致）。
+  3. **ESLint 9 flat config 从根目录 `eslint .` 不自动加载子目录 eslint.config.js**（实测 cli/core/mcp/platform 的独立配置在根 lint 中均未生效；`--print-config` 与行为级验证都只命中根配置）——子配置只在包目录内 lint（`pnpm --filter X lint`）时生效，monorepo 根 lint 必须把各包规则写进根配置或显式引用。
+  4. 移除 `@nuxt/eslint` 后（withNuxt 方案因依赖链 h3 冲突被否）暴露 **platform 直接 `import { H3Event } from 'h3'` 但未显式声明 h3**（此前靠 @nuxt/eslint → devframe → h3@2.x 恰好提供）——pnpm 严格模式不会提升传递依赖，直接 import 的包必须显式声明。
+  5. run 31259481235 / 31259481230（fcc161b4 后）：lint/typecheck 已绿，但 **coverage job 6 个 platform 测试 TSCONFIG_ERROR**（coverage job 独立环境缺 `nuxt prepare`，vitest 转换测试文件需读 `.nuxt/tsconfig.json`）；**1 个 nock 测试 flaky**（`times(100)` 在 CI Linux 1 秒超时窗口内请求数超过 100 → 第 101 次 No match，本地 Windows 事件循环较慢恰好未触发）。
+- **根因**：① monorepo 中"应用层（Nuxt platform）直接 import workspace 包类型"与"CI 不构建 workspace 包"天然冲突，且 Nuxt 生成的 tsconfig 不感知 workspace 源码；② ESLint 9 flat config 的配置发现机制是"从 cwd 找唯一配置"，与 eslintrc 时代"目录级联"心智不同；③ 引入 `@nuxt/eslint`（withNuxt 的标准路径）时未审查依赖链副作用（config-inspector → devframe → h3@2.x 与 Nuxt 4 的 h3@1.x 是 breaking API）；④ CI 每个 job 是独立环境，test job 的 prepare 不继承给 coverage job；⑤ 固定次数 mock 对执行速度敏感。
+- **修复**：
+  - test.yml / docker.yml：nuxt prepare 后、lint 前新增 `pnpm --filter @dependfix/core build && pnpm --filter dependfix build`（注释说明"Nuxt tsconfig 不映射 workspace 源码，必须先构建 dist"，顺序与 Dockerfile 一致）；
+  - coverage job 补 `nuxt prepare`（与 test job 对齐）；
+  - vitest.config.ts 增加 `dependfix` alias → `packages/cli/src`（与既有 `@dependfix/core` alias 对齐）；根 tsconfig.json paths 增加 `dependfix` → `./packages/cli/src`（mcp typecheck/lint 源码级解析，不依赖 dist）；
+  - apps/platform 显式声明 `h3@^1.15.11`；
+  - apps/platform/eslint.config.js（新增）：参考 momei 以 `eslint-config-cmyr/nuxt` 为基础的手写 flat config；**不用 withNuxt**（避免 @nuxt/eslint → h3@2.x 冲突）；no-unsafe-* 系列关闭（渐进收紧策略）；根 eslint.config.js 平台块同步改为 momei 风格；packages/mcp/eslint.config.js + tsconfig.eslint.json（新增，参考 cli/core）；
+  - action-result-fetcher.test.ts 超时测试 `times(100)` → `times(1000)`（注释说明跨平台 flaky）；
+  - pnpm-workspace.yaml `unrs-resolver` 占位文本 → `true`（pnpm 11 allowBuilds 白名单，`ERR_PNPM_IGNORED_BUILDS`）。
+- **启示**：
+  - **monorepo 应用层依赖 workspace 包类型时，CI 必须先构建依赖包**：Nuxt 生成的 tsconfig 不映射 workspace 源码（paths/alias 均不可靠），`pnpm i --frozen-lockfile` 不构建包——lint/typecheck 前的显式 `pnpm --filter <dep> build` 是唯一可靠路径，顺序参考 Dockerfile 的依赖图。
+  - **ESLint 9 flat config 的配置发现是"单文件"模型**：根目录 `eslint .` 只用根配置，子目录 eslint.config.js 只在包内 lint 生效；monorepo 根 lint 要么把各包规则写进根配置（单源），要么接受"根 lint 与 IDE/包内 lint 行为漂移"（审计 W3 即此风险）。withNuxt 的 chainable 对象不可迭代，根配置引用需 `await` 展开，且 files 模式基准会错位——直接复用子配置进根配置同样有坑。
+  - **引入依赖前审查依赖链的破坏性传递**：`@nuxt/eslint` 是 Nuxt 官方 eslint 集成，但其 config-inspector → devframe → h3@2.x 与 Nuxt 4 的 h3@1.x 是 breaking API 冲突，直接破坏 platform typecheck（双 h3 版本并存时 Nuxt 类型检查报 H3Event 不兼容）。`pnpm why h3` 在引入前/后各跑一次是标准动作。
+  - **pnpm 严格模式不提升传递依赖**：代码直接 `import` 的包必须在本包 package.json 显式声明，即使"恰好"能解析（此前靠另一条依赖链间接提供）；移除该链后立即暴露。
+  - **CI job 隔离是常识级陷阱**：coverage/test/lint 各自独立环境，任何依赖生成产物（`.nuxt/tsconfig.json`、dist）的步骤都要在该 job 内显式准备，不能假设"别的 job 跑过"。
+  - **固定次数 mock 对执行速度敏感（跨平台 flaky）**：`times(100)` 这类"够用就行"的 mock 上限，在更快环境（CI Linux vs 本地 Windows）可能被突破；循环/轮询类测试优先用 `persist()` 或放大 10 倍上限，并注明原因。
+  - **PowerShell 管道输出中文乱码 ≠ 文件损坏**：git diff / 文件读取经 PowerShell 管道会按 GBK 转码产生 mojibake 假象；用 Node `execSync`/`TextDecoder` 直接读字节验证编码（本次 HEAD 与工作区均为合法 UTF-8）。
+
+## 二十八、CI 修复是剥洋葱的再印证：lint 绿 ≠ test 绿，coverage 环境独立（2026-08-08）
+
+> 本条目与 §二十二 同主题的第二次实证，合并记忆锚点：**每个 CI job 都是独立环境 + 修复一项后必须让全链真正执行**。
+
+- **案例**：fcc161b4 修复 lint/typecheck 后推送，run 31259481235 / 31259481230 显示 lint ✅ typecheck ✅，但 test 阶段暴露两个此前被短路的新问题（见 §二十七 第 5 点）——coverage job 的 prepare 缺失与 nock 固定次数 flaky。
+- **启示**：
+  - lint/typecheck 全绿 ≠ CI 全绿：test/coverage/build 各自独立 job，每个 job 的依赖准备（prepare/build）必须独立显式；修复上一轮失败点后，**必须等全链（lint → md → links → typecheck → test → build）真正跑完**才算闭环（§二十二 原则的第二次实证）。
+  - 本地全量测试 991/991 通过不能覆盖 CI 特有差异（Linux 更快、job 隔离、无本地 .nuxt 残留）——本地模拟（移走 dist、删 .nuxt）能提高置信度，最终以 CI 复跑为准。

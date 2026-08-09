@@ -158,6 +158,17 @@ if (value) { ... }  // 对 0, "", false 失效
 
 教训见 [经验归档 §二十五](../../../../docs/design/governance/experience-archive.md)（mcp 包遗漏 README/release 链路），规范见 [release.md](../../../../docs/guide/release.md)。
 
+### CI 工作流类型解析完整性（必查项）
+
+修改 `.github/workflows/*.yml` 或内部包依赖（package.json workspace 引用）时，检查 CI 各 job 的类型解析前提是否独立显式：
+
+- **workspace 依赖包预构建**：lint/typecheck 前是否显式构建被 import 的 workspace 包（`pnpm --filter <dep> build`）？`pnpm i --frozen-lockfile` 不构建包；应用层（如 Nuxt platform）tsconfig 不映射 workspace 源码——`typescript.tsConfig.paths` 不合并、`alias` 指向 src 会把源码纳入 strict 编译上下文报错（两条路均不可靠），必须先构建 dist
+- **job 独立环境**：coverage / test / lint / build 各自独立 runner，依赖生成产物（`.nuxt/tsconfig.json`、dist）的步骤是否在**该 job 内**显式准备？（test job 的 prepare 不继承给 coverage job——曾致 platform 测试 TSCONFIG_ERROR）
+- **构建顺序**：多包预构建顺序是否与 Dockerfile 依赖图一致（core → engine → cli → platform）
+- **新增内部包时**：新包的 src 是否需要加入根 tsconfig.json paths / vitest.config.ts alias（源码级解析，避免无 dist 时 "Failed to resolve entry"）
+
+教训见 [经验归档 §二十七](../../../../docs/design/governance/experience-archive.md)（monorepo CI 类型解析链），规范见 [ai-collaboration.md §4.2](../../../../docs/standards/ai-collaboration.md)。
+
 ### 发布链路 tag 推送核验（必查项）
 
 修改发布相关脚本/工作流（release.yml / changelog.mjs / changeset 配置 / 手动发布文档）时，检查 tag 生命周期闭环：

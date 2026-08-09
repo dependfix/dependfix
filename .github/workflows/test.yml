@@ -8,6 +8,8 @@ jobs:
     name: Test
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v7
       - name: Setup pnpm
@@ -39,6 +41,11 @@ jobs:
     name: E2E
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    permissions:
+      # e2e 需上传测试报告 artifact：upload-artifact 走 Actions 内部 API，
+      # 需 actions: write（仅 contents: read 会把未列出的 actions 域置为 none 导致上传失败）
+      contents: read
+      actions: write
     steps:
       - uses: actions/checkout@v7
       - name: Setup pnpm
@@ -74,6 +81,8 @@ jobs:
     name: Coverage
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v7
       - name: Setup pnpm

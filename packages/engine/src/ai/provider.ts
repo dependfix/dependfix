@@ -82,6 +82,15 @@ const DEFAULT_TIMEOUT_MS = 60_000
 const DEFAULT_MAX_TOKENS = 2048
 const DEFAULT_TEMPERATURE = 0.2
 
+/** 去除 URL 末尾斜杠（非正则实现，避免 ReDoS 告警；语义与 `replace(/\/+$/, '')` 一致） */
+function stripTrailingSlash(url: string): string {
+    let result = url
+    while (result.endsWith('/')) {
+        result = result.slice(0, -1)
+    }
+    return result
+}
+
 export function createAiProvider(
     config: AiConfig,
     options: CreateAiProviderOptions = {},
@@ -110,7 +119,7 @@ class OpenAICompatibleProvider implements AiProvider {
         private readonly opts: { fetchFn: typeof fetch, timeoutMs: number, maxTokens: number, temperature: number },
     ) {
         this.name = 'openai-compatible'
-        this.baseUrl = (config.baseUrl ?? 'https://api.deepseek.com').replace(/\/+$/, '')
+        this.baseUrl = stripTrailingSlash(config.baseUrl ?? 'https://api.deepseek.com')
     }
 
     async chat(params: AiChatParams): Promise<AiChatResult> {
@@ -169,7 +178,7 @@ class AnthropicProvider implements AiProvider {
         private readonly config: AiConfig,
         private readonly opts: { fetchFn: typeof fetch, timeoutMs: number, maxTokens: number, temperature: number },
     ) {
-        this.apiUrl = (config.apiUrl ?? 'https://api.anthropic.com/v1/messages').replace(/\/+$/, '')
+        this.apiUrl = stripTrailingSlash(config.apiUrl ?? 'https://api.anthropic.com/v1/messages')
     }
 
     async chat(params: AiChatParams): Promise<AiChatResult> {

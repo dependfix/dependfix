@@ -174,11 +174,11 @@ export function computeFixAndPrPlan(existingPRs: DependfixOpenPR[], fingerprint:
 export function createFixBranch(branchName: string, workDir: string): FixBranchResult {
     const exists = branchExists(branchName, workDir)
     if (exists) {
-        execSync(`git checkout ${branchName}`, { cwd: workDir, stdio: 'pipe' })
+        execFileSync('git', ['checkout', branchName], { cwd: workDir, stdio: 'pipe' })
         return { branchName, created: false }
     }
 
-    execSync(`git checkout -b ${branchName}`, { cwd: workDir, stdio: 'pipe' })
+    execFileSync('git', ['checkout', '-b', branchName], { cwd: workDir, stdio: 'pipe' })
     return { branchName, created: true }
 }
 
@@ -198,7 +198,7 @@ export function stageAndCommit(message: string, workDir: string): void {
  * 推送分支到远程 origin。
  */
 export function pushBranch(branchName: string, workDir: string): void {
-    execSync(`git push origin ${branchName}`, { cwd: workDir, stdio: 'pipe' })
+    execFileSync('git', ['push', 'origin', branchName], { cwd: workDir, stdio: 'pipe' })
 }
 
 // ---------------------------------------------------------------------------
@@ -375,9 +375,9 @@ function isPackageUpgradeAction(action: FixAction): boolean {
         && !action.noOp
 }
 
-/** 转义 Markdown 表格单元格：`|` 转义、换行折叠为空格（错误消息常含多行） */
+/** 转义 Markdown 表格单元格：`\` 先转义再转义 `|`（避免已有转义双重处理），换行折叠为空格（错误消息常含多行） */
 function escapeTableCell(value: string): string {
-    return value.replace(/\|/g, '\\|').replace(/\r?\n/g, ' ')
+    return value.replace(/\\/g, '\\\\').replace(/\|/g, '\\|').replace(/\r?\n/g, ' ')
 }
 
 /**
@@ -629,7 +629,7 @@ function truncatePRBody(lines: string[]): string {
 
 function branchExists(branchName: string, workDir: string): boolean {
     try {
-        execSync(`git rev-parse --verify ${branchName}`, {
+        execFileSync('git', ['rev-parse', '--verify', branchName], {
             cwd: workDir,
             stdio: 'pipe',
         })

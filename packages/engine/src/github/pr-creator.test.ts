@@ -727,6 +727,22 @@ describe('generatePRBody', () => {
         expect(body).toContain('failed \\| to parse')
     })
 
+    it('does not double-escape pre-escaped backslash-pipe in error cells', () => {
+        const result = buildRunResult()
+        result.actions = [
+            makeBodyAction({
+                target: 'b-pkg',
+                toVersion: '2.0.0',
+                success: false,
+                error: 'already escaped \\| pipe',
+            }),
+        ]
+        const body = generatePRBody(result)
+
+        // 输入已有 `\|`：先转义反斜杠再转义管道，输出为 `\\\|`（渲染回字面 `\|`）
+        expect(body).toContain('already escaped \\\\\\| pipe')
+    })
+
     it('lists fixed alerts with GHSA/rule and severity (dependency upgrade)', () => {
         const result = buildRunResult()
         result.alerts = [

@@ -266,7 +266,7 @@ function actionDetails(action: FixAction, error?: string): string {
     return base
 }
 
-/** 转义 Markdown 表格中的 `|` 与换行（错误消息常含多行，折叠为空格） */
+/** 转义 Markdown 表格中的 `\` 与 `|`（先转义反斜杠避免已有转义双重处理）与换行（错误消息常含多行，折叠为空格） */
 function escapeMd(text: string): string {
-    return text.replace(/\|/g, '\\|').replace(/\r?\n/g, ' ')
+    return text.replace(/\\/g, '\\\\').replace(/\|/g, '\\|').replace(/\r?\n/g, ' ')
 }

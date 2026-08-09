@@ -78,6 +78,33 @@ describe('createAiProvider (openai-compatible)', () => {
         expect(fetchFn.mock.calls[0][0]).toBe('https://gateway.example.com/v1/messages')
     })
 
+    it('strips all trailing slashes on edge inputs (all-slash / empty)', async () => {
+        const fetchFn = vi.fn().mockResolvedValue(jsonResponse({ choices: [{ message: { content: 'x' } }] }))
+        const provider = createAiProvider({
+            provider: 'openai-compatible',
+            model: 'deepseek-chat',
+            apiKey: 'sk-test',
+            baseUrl: '///',
+        }, { fetchFn })
+
+        await provider.chat({ messages: [{ role: 'user', content: 'hi' }] })
+
+        // 纯斜杠串全部剥除（等价原 `replace(/\/+$/, '')`，且线性复杂度无 ReDoS）
+        expect(fetchFn.mock.calls[0][0]).toBe('/chat/completions')
+
+        // 空串：`??` 默认不生效，空 baseUrl 原样保留（等价原正则行为），拼接后为相对路径
+        fetchFn.mockClear()
+        fetchFn.mockResolvedValue(jsonResponse({ choices: [{ message: { content: 'x' } }] }))
+        const emptyProvider = createAiProvider({
+            provider: 'openai-compatible',
+            model: 'deepseek-chat',
+            apiKey: 'sk-test',
+            baseUrl: '',
+        }, { fetchFn })
+        await emptyProvider.chat({ messages: [{ role: 'user', content: 'hi' }] })
+        expect(fetchFn.mock.calls[0][0]).toBe('/chat/completions')
+    })
+
     it('throws AiProviderError with masked body on non-2xx', async () => {
         const fetchFn = vi.fn().mockResolvedValue(new Response('invalid api key', { status: 401 }))
         const provider = createAiProvider({

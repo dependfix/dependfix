@@ -201,7 +201,7 @@
 - **启示**：
   - 统一行尾是**按文件**的操作，不是按批次：`git show HEAD:<file> | 检测 CRLF 计数` 确定方向后再转换；转错方向 = 全文件 diff（违反最小改动）。
   - 行尾统一后必须 `git diff --stat` 核验 diff 规模恢复局部化，再跑受影响测试（行尾转换不影响行为，但确认无意外改写）。
-  - PowerShell 内联 node 脚本含 <span v-pre>`${{`</span>、`${`、反引号、嵌套引号时反复触发 ParserError（§二十一 再犯 3 次）——**含任何特殊字符的脚本一律写临时 .cjs 文件执行**（`C:\Users\CAOMEI~1\AppData\Local\Temp\opencode\`），不再尝试内联。
+  - PowerShell 内联 node 脚本含 <span v-pre>`${{`</span>、`${`、反引号、嵌套引号时反复触发 ParserError（§二十一 再犯 3 次）——**含任何特殊字符的脚本一律写临时 .cjs 文件执行**（写入项目根 `temp/`，已被 git 忽略；临时文件位置约定见 [AI 协作规范 §1.2 执行原则第 7 条](../../standards/ai-collaboration.md)），不再尝试内联。
 
 ## 二十四、单次大 diff 成本失控：长任务必须分批提交（T601 平台骨架，2026-08-08）
 

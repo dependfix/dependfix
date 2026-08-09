@@ -182,6 +182,101 @@ watch(toastMessage, (v) => {
         }, 3000)
     }
 })
+
+// ===== 批量导入（从 GitHub 仓库列表选中多个）=====
+interface ImportableRepo {
+    id: number
+    name: string
+    fullName: string
+    owner: string
+    private: boolean
+    defaultBranch: string
+    description: string | null
+    imported: boolean
+}
+
+const importDialogVisible = ref(false)
+const importLoading = ref(false)
+const importSaving = ref(false)
+const importCredentials = ref<{ id: string, name: string }[]>([])
+const importCredentialId = ref<string | null>(null)
+const importableRepos = ref<ImportableRepo[]>([])
+const selectedRepos = ref<ImportableRepo[]>([])
+
+/** 可勾选仓库（排除已导入项；全选/计数均基于此集合） */
+const selectableRepos = computed(() => importableRepos.value.filter((r) => !r.imported))
+const importError = ref('')
+const importSuccess = ref('')
+
+const openImportDialog = async () => {
+    importDialogVisible.value = true
+    importError.value = ''
+    importSuccess.value = ''
+    selectedRepos.value = []
+    importableRepos.value = []
+    // 加载凭据列表供选择
+    try {
+        const creds = await $fetch('/api/credentials')
+        importCredentials.value = creds as { id: string, name: string }[]
+        if (importCredentials.value.length === 1) {
+            importCredentialId.value = importCredentials.value[0]!.id
+            await loadImportable()
+        }
+    } catch (e: any) {
+        importError.value = `加载凭据失败：${e?.data?.message ?? e?.message ?? '未知错误'}`
+    }
+}
+
+const loadImportable = async () => {
+    if (!importCredentialId.value) {
+        importableRepos.value = []
+        return
+    }
+    importLoading.value = true
+    importError.value = ''
+    try {
+        const res = await $fetch('/api/repos/importable', {
+            query: { credentialId: importCredentialId.value },
+        })
+        importableRepos.value = res as ImportableRepo[]
+        // 自动勾选未导入的仓库
+        selectedRepos.value = importableRepos.value.filter((r) => !r.imported)
+    } catch (e: any) {
+        importError.value = `拉取仓库失败：${e?.data?.message ?? e?.message ?? '未知错误'}`
+    } finally {
+        importLoading.value = false
+    }
+}
+
+const submitImport = async () => {
+    if (!selectedRepos.value.length) {
+        importError.value = '请至少选择一个仓库'
+        return
+    }
+    importSaving.value = true
+    importError.value = ''
+    importSuccess.value = ''
+    try {
+        const res = await $fetch('/api/repos/batch', {
+            method: 'POST',
+            body: {
+                repos: selectedRepos.value.map((r) => ({
+                    owner: r.owner,
+                    name: r.name,
+                    defaultBranch: r.defaultBranch,
+                })),
+            },
+        })
+        const data = res as { imported: number, skipped: number }
+        importSuccess.value = `批量导入完成：新增 ${data.imported} 个，跳过已存在 ${data.skipped} 个`
+        await fetchData()
+        await loadImportable()
+    } catch (e: any) {
+        importError.value = `批量导入失败：${e?.data?.message ?? e?.message ?? '未知错误'}`
+    } finally {
+        importSaving.value = false
+    }
+}
 </script>
 
 <template>
@@ -193,11 +288,19 @@ watch(toastMessage, (v) => {
                     管理扫描目标仓库与执行配置
                 </p>
             </div>
-            <Button
-                icon="pi pi-plus"
-                label="添加仓库"
-                @click="openCreate"
-            />
+            <div class="repos__header-actions">
+                <Button
+                    icon="pi pi-upload"
+                    label="批量导入"
+                    severity="secondary"
+                    @click="openImportDialog"
+                />
+                <Button
+                    icon="pi pi-plus"
+                    label="添加仓库"
+                    @click="openCreate"
+                />
+            </div>
         </div>
 
         <Message
@@ -432,6 +535,123 @@ watch(toastMessage, (v) => {
                 </div>
             </form>
         </Dialog>
+
+        <Dialog
+            v-model:visible="importDialogVisible"
+            header="批量导入仓库"
+            modal
+            :style="{width: '680px'}"
+        >
+            <div class="import-form">
+                <div class="import-form__row">
+                    <div class="import-form__field">
+                        <label for="importCredential">GitHub 凭据</label>
+                        <Select
+                            id="importCredential"
+                            v-model="importCredentialId"
+                            :options="importCredentials"
+                            option-label="name"
+                            option-value="id"
+                            placeholder="选择凭据"
+                            :loading="importLoading"
+                            fluid
+                            @change="loadImportable"
+                        />
+                    </div>
+                    <Button
+                        icon="pi pi-refresh"
+                        text
+                        rounded
+                        aria-label="刷新仓库列表"
+                        title="刷新仓库列表"
+                        :disabled="!importCredentialId || importLoading"
+                        @click="loadImportable"
+                    />
+                </div>
+
+                <Message
+                    v-if="importError"
+                    severity="error"
+                    :closable="false"
+                >
+                    {{ importError }}
+                </Message>
+                <Message
+                    v-if="importSuccess"
+                    severity="success"
+                    :closable="false"
+                >
+                    {{ importSuccess }}
+                </Message>
+
+                <div v-if="importLoading" class="text-muted">
+                    加载中…
+                </div>
+                <div v-else-if="importableRepos.length" class="import-form__list">
+                    <div class="import-form__list-actions">
+                        <label>
+                            <Checkbox
+                                :model-value="selectedRepos.length === selectableRepos.length && selectableRepos.length > 0"
+                                :binary="true"
+                                @update:model-value="(v: boolean) => selectedRepos = v ? [...selectableRepos] : []"
+                            />
+                            全选（{{ selectableRepos.length }}）
+                        </label>
+                        <span class="text-muted">已选 {{ selectedRepos.length }} 个</span>
+                    </div>
+                    <div
+                        v-for="repo in importableRepos"
+                        :key="repo.id"
+                        class="import-form__item"
+                    >
+                        <Checkbox
+                            :model-value="selectedRepos.some((r) => r.id === repo.id)"
+                            :binary="true"
+                            :disabled="repo.imported"
+                            @update:model-value="(checked: boolean) => {
+                                selectedRepos = checked
+                                    ? [...selectedRepos, repo]
+                                    : selectedRepos.filter((r) => r.id !== repo.id)
+                            }"
+                        />
+                        <div class="import-form__item-info">
+                            <span>{{ repo.fullName }}</span>
+                            <small class="text-muted">
+                                {{ repo.private ? '私有' : '公开' }} · {{ repo.defaultBranch }}
+                                <template v-if="repo.imported"> · 已导入</template>
+                            </small>
+                        </div>
+                        <Tag
+                            v-if="repo.imported"
+                            value="已存在"
+                            severity="secondary"
+                        />
+                    </div>
+                </div>
+                <p v-else-if="!importLoading && importCredentialId" class="text-muted">
+                    未获取到仓库列表（凭据无权访问或没有匹配仓库）
+                </p>
+                <p v-else class="text-muted">
+                    请先选择 GitHub 凭据
+                </p>
+
+                <div class="import-form__actions">
+                    <Button
+                        label="取消"
+                        severity="secondary"
+                        text
+                        @click="importDialogVisible = false"
+                    />
+                    <Button
+                        label="导入所选"
+                        icon="pi pi-check"
+                        :loading="importSaving"
+                        :disabled="!selectedRepos.length"
+                        @click="submitImport"
+                    />
+                </div>
+            </div>
+        </Dialog>
     </div>
 </template>
 
@@ -451,6 +671,90 @@ watch(toastMessage, (v) => {
     &__header p {
         margin: 0;
         font-size: $font-size-sm;
+    }
+
+    &__header-actions {
+        display: flex;
+        align-items: center;
+        gap: $space-2;
+    }
+}
+
+.import-form {
+    display: flex;
+    flex-direction: column;
+    gap: $space-4;
+
+    &__row {
+        display: flex;
+        align-items: center;
+        gap: $space-2;
+    }
+
+    &__field {
+        display: flex;
+        flex-direction: column;
+        gap: $space-1;
+        flex: 1;
+    }
+
+    &__field label {
+        font-size: $font-size-sm;
+        font-weight: 500;
+    }
+
+    &__list {
+        display: flex;
+        flex-direction: column;
+        gap: $space-1;
+        max-height: 360px;
+        overflow-y: auto;
+        border: 1px solid $color-border;
+        border-radius: $radius-sm;
+        padding: $space-2;
+
+        @include dark-mode {
+            border-color: $color-border-dark;
+        }
+    }
+
+    &__list-actions {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: $space-1 $space-2 $space-2;
+        border-bottom: 1px solid $color-border;
+        font-size: $font-size-sm;
+
+        @include dark-mode {
+            border-bottom-color: $color-border-dark;
+        }
+    }
+
+    &__item {
+        display: flex;
+        align-items: center;
+        gap: $space-2;
+        padding: $space-2;
+        border-radius: $radius-sm;
+
+        &:hover {
+            background-color: rgba($color-primary, 0.05);
+        }
+    }
+
+    &__item-info {
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+        min-width: 0;
+    }
+
+    &__actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: $space-2;
+        margin-top: $space-2;
     }
 }
 

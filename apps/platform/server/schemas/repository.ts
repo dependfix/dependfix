@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
-/** 仓库创建校验（Zod）。owner/name 为必填，其余有默认或可选。 */
-const repositoryBase = z.object({
+/** 仓库创建基础校验（Zod）。owner/name 为必填，其余有默认或可选。 */
+export const repositoryBase = z.object({
     owner: z.string().trim().min(1, 'owner 不能为空').max(100).regex(/^[A-Za-z0-9_.-]+$/, 'owner 含非法字符'),
     name: z.string().trim().min(1, '仓库名不能为空').max(100).regex(/^[A-Za-z0-9_.-]+$/, '仓库名含非法字符'),
     platform: z.enum(['github']).default('github'),

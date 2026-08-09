@@ -1,20 +1,11 @@
 <script setup lang="ts">
 // 个人设置：资料（姓名/头像）、修改密码、修改邮箱、绑定账号状态、语言偏好占位
+// 全部操作走 better-auth 原生端点（/api/auth/*，经 authClient 封装），不自建代理 API
 import { authClient } from '~/utils/auth-client'
 
 definePageMeta({
     middleware: 'auth',
 })
-
-interface MeProfile {
-    id: string
-    email: string
-    name: string | null
-    image: string | null
-    emailVerified: boolean
-    role: string | null
-    createdAt: string
-}
 
 interface BoundAccount {
     id: string
@@ -30,7 +21,7 @@ const PROFILE_LABELS: Record<string, string> = {
     oidc: 'OIDC SSO',
 }
 
-const profile = ref<MeProfile | null>(null)
+const { session } = useSession()
 const accounts = ref<BoundAccount[]>([])
 const loading = ref(true)
 const error = ref('')
@@ -47,42 +38,57 @@ const emailSaving = ref(false)
 
 const unlinkSaving = ref<{ id: string } | null>(null)
 
-const fetchData = async () => {
-    loading.value = true
+const fetchAccounts = async () => {
     error.value = ''
     try {
-        const [meRes, accountsRes] = await Promise.all([
-            $fetch<MeProfile>('/api/me'),
-            $fetch<{ accounts: BoundAccount[] }>('/api/me/accounts'),
-        ])
-        profile.value = meRes
-        accounts.value = accountsRes.accounts
-        nameForm.value = meRes.name ?? ''
-        emailForm.value = meRes.email
+        const { data, error: accountError } = await authClient.listAccounts()
+        if (accountError) {
+            error.value = `加载失败：${accountError.message ?? '未知错误'}`
+            return
+        }
+        accounts.value = (data ?? []).map((a) => ({
+            id: a.id,
+            providerId: a.providerId,
+            accountId: a.accountId,
+            createdAt: typeof a.createdAt === 'string' ? a.createdAt : a.createdAt.toISOString(),
+        }))
     } catch (e: any) {
-        error.value = `加载失败：${e?.data?.message ?? e?.message ?? '未知错误'}`
-    } finally {
-        loading.value = false
+        error.value = `加载失败：${e?.message ?? '未知错误'}`
     }
 }
 
-onMounted(fetchData)
+onMounted(async () => {
+    loading.value = true
+    nameForm.value = session.value?.user?.name ?? ''
+    emailForm.value = session.value?.user?.email ?? ''
+    await fetchAccounts()
+    loading.value = false
+})
 
 const providerLabel = (providerId: string) => PROFILE_LABELS[providerId] ?? providerId
 
 const saveName = async () => {
+    const trimmedName = nameForm.value.trim()
+    // better-auth updateUser 的 name 仅接受 string（不支持 null 清空语义），
+    // 空值视为未修改并提示，避免"保存成功但值未变"误导
+    if (!trimmedName) {
+        error.value = '姓名不能为空'
+        return
+    }
     nameSaving.value = true
     error.value = ''
     try {
-        await $fetch('/api/me', {
-            method: 'PATCH',
-            body: { name: nameForm.value.trim() || null },
+        const { error: updateError } = await authClient.updateUser({
+            name: trimmedName,
         })
+        if (updateError) {
+            error.value = `保存失败：${updateError.message ?? '未知错误'}`
+            return
+        }
         success.value = '个人资料已更新'
         await refreshNuxtData()
-        await fetchData()
     } catch (e: any) {
-        error.value = `保存失败：${e?.data?.message ?? e?.message ?? '未知错误'}`
+        error.value = `保存失败：${e?.message ?? '未知错误'}`
     } finally {
         nameSaving.value = false
     }
@@ -96,17 +102,19 @@ const changePassword = async () => {
     }
     passwordSaving.value = true
     try {
-        await $fetch('/api/me/change-password', {
-            method: 'POST',
-            body: {
-                currentPassword: passwordForm.value.currentPassword,
-                newPassword: passwordForm.value.newPassword,
-            },
+        const { error: changeError } = await authClient.changePassword({
+            currentPassword: passwordForm.value.currentPassword,
+            newPassword: passwordForm.value.newPassword,
+            revokeOtherSessions: true,
         })
+        if (changeError) {
+            error.value = `修改失败：${changeError.message ?? '未知错误'}`
+            return
+        }
         success.value = '密码已修改，其他设备会话已失效'
         passwordForm.value = { currentPassword: '', newPassword: '', confirmPassword: '' }
     } catch (e: any) {
-        error.value = `修改失败：${e?.data?.message ?? e?.message ?? '未知错误'}`
+        error.value = `修改失败：${e?.message ?? '未知错误'}`
     } finally {
         passwordSaving.value = false
     }
@@ -116,15 +124,17 @@ const changeEmail = async () => {
     error.value = ''
     emailSaving.value = true
     try {
-        await $fetch('/api/me/change-email', {
-            method: 'POST',
-            body: { newEmail: emailForm.value.trim() },
+        const { error: changeError } = await authClient.changeEmail({
+            newEmail: emailForm.value.trim(),
         })
+        if (changeError) {
+            error.value = `修改失败：${changeError.message ?? '未知错误'}`
+            return
+        }
         success.value = '邮箱已修改'
         await refreshNuxtData()
-        await fetchData()
     } catch (e: any) {
-        error.value = `修改失败：${e?.data?.message ?? e?.message ?? '未知错误'}`
+        error.value = `修改失败：${e?.message ?? '未知错误'}`
     } finally {
         emailSaving.value = false
     }
@@ -137,14 +147,18 @@ const unlink = async (account: BoundAccount) => {
     error.value = ''
     unlinkSaving.value = { id: account.id }
     try {
-        await $fetch('/api/me/accounts/unlink', {
-            method: 'POST',
-            body: { providerId: account.providerId, accountId: account.accountId },
+        const { error: unlinkError } = await authClient.unlinkAccount({
+            providerId: account.providerId,
+            accountId: account.accountId,
         })
+        if (unlinkError) {
+            error.value = `解绑失败：${unlinkError.message ?? '未知错误'}`
+            return
+        }
         success.value = `已解绑 ${providerLabel(account.providerId)}`
-        await fetchData()
+        await fetchAccounts()
     } catch (e: any) {
-        error.value = `解绑失败：${e?.data?.message ?? e?.message ?? '未知错误'}`
+        error.value = `解绑失败：${e?.message ?? '未知错误'}`
     } finally {
         unlinkSaving.value = null
     }
@@ -215,13 +229,13 @@ onUnmounted(() => {
                         <div class="settings-form__field">
                             <label>邮箱</label>
                             <div class="text-muted">
-                                {{ profile?.email }}
+                                {{ session?.user?.email }}
                             </div>
                             <small class="text-muted">邮箱修改见下方"邮箱"卡片</small>
                         </div>
                         <div class="settings-form__field">
                             <label>角色</label>
-                            <Tag :value="profile?.role ?? 'viewer'" severity="secondary" />
+                            <Tag :value="session?.user?.role ?? 'viewer'" severity="secondary" />
                         </div>
                         <Button
                             type="submit"

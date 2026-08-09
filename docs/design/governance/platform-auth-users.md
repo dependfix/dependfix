@@ -126,12 +126,12 @@ Account / Session / Verification（better-auth 标准，不变）
 | API | 角色门槛 | 变更 |
 |---|---|---|
 | `server/api/auth/[...].ts` | 公开 | 透传不变（admin 插件路由 `/api/auth/admin/*` 由插件内置守卫，`adminRoles: ['admin']` 与三角色模型对齐，见 §11 决策点 7） |
-| `server/api/users/index.get.ts` / `[id].patch.ts` / `[id].delete.ts` | **写 = admin 读 = admin** | **新增**：代理 admin 插件（list-users / set-role / ban / unban / remove-user），`requireRole('admin')`；Zod 校验 + 统一错误语义（越权 403、资源不存在 404、业务冲突 400——better-auth 原生语义透传，如禁删/禁禁自己） |
+| 用户管理（`/api/auth/admin/*` 原生端点） | **插件内置：admin** | **不新增自建代理**：admin 插件原生提供 list-users / set-role / ban / unban / remove-user（`authClient.admin.*` 客户端封装）；插件内置 has-permission 403 兜底（非 admin 越权拒绝），错误语义 403/404/400 原生透传 |
 | `server/api/repos/index.ts` / `credentials/index.ts` POST（创建） | **admin / org_admin** | `requireRole(['admin', 'org_admin'])` + `resolveOrganizationId()` 填充 organizationId（创建无资源 id，无归属校验对象） |
 | `server/api/repos/[id].ts` / `credentials/[id].ts` PUT / DELETE | **admin / org_admin** | `requireRole(['admin', 'org_admin'])` + `requireOrgResource`（校验资源归属默认组织） |
 | `server/api/repos/[id]/scan.post.ts` | **admin / org_admin** | `requireRole(['admin', 'org_admin'])` + `requireOrgResource` |
 | `server/api/repos/*` / `credentials/*` / `alerts` / `runs` / `dashboard` 读 | **登录可读（含 viewer）** | `requireAuth`；按组织过滤（单组织行为不变） |
-| `server/api/me/*`（个人界面） | **登录（本人）** | **新增**：`requireAuth`；基于 better-auth changePassword / changeEmail / listUserAccounts / link-social / unlinkAccount（详见 §7） |
+| 个人界面（`/api/auth/*` 原生端点） | **登录（本人，插件内置会话守卫）** | **不新增自建代理**：直接使用 better-auth 原生端点 changePassword / changeEmail / updateUser / list-accounts / unlink-account（`authClient.*` 客户端封装），会话守卫由插件内置（详见 §7） |
 
 > 写操作从 M6 的 `requireAuth` 收紧为 `requireRole(['admin', 'org_admin'])` 是**预期行为变更**（viewer 只读），见 §8.2 披露。
 
@@ -160,10 +160,12 @@ REGISTRATION_DISABLED=true: 拒绝所有注册渠道——邮箱密码路径由
 |---|---|
 | `login.vue` | 按 `AUTH_MODE` 展示登录方式（enterprise：邮箱密码 + OIDC 按钮；public：邮箱密码 + GitHub/Google 按钮）；未配置方式自动隐藏（服务端注入 `authOptions` 到 `useRuntimeConfig().public`） |
 | `register.vue` | 展示注册策略提示（enterprise 白名单域提示）；`REGISTRATION_DISABLED` 时隐藏入口 |
-| `users.vue` **新增** | 用户管理（admin）：列表/搜索、启用/禁用、角色分配（Dropdown：admin/org_admin/viewer） |
-| `settings.vue`（个人界面）**新增** | 个人资料（name/email 展示）、修改密码、邮箱修改、第三方账号绑定状态（public 模式展示 GitHub/Google 绑定/解绑；enterprise 展示 OIDC 绑定状态）、语言偏好占位（T708 联动点） |
+| `users.vue` **新增** | 用户管理（admin）：列表/搜索、启用/禁用、角色分配（Dropdown：admin/org_admin/viewer）；**全部经 `authClient.admin.*` 调用 admin 插件原生端点**（listUsers / setRole / banUser / unbanUser / removeUser，路由 `/api/auth/admin/*`），不新增自建代理 API |
+| `settings.vue`（个人界面）**新增** | 个人资料（name/email 展示）、修改密码、邮箱修改、第三方账号绑定状态（public 模式展示 GitHub/Google 绑定/解绑；enterprise 展示 OIDC 绑定状态）、语言偏好占位（T708 联动点）；**全部经 `authClient.*` 调用 better-auth 原生端点**（updateUser / changePassword / changeEmail / listAccounts / unlinkAccount，路由 `/api/auth/*`），不新增自建代理 API |
 | `layouts/default.vue` | 导航按角色显示（admin 可见用户管理入口）；登录用户显示头像/姓名（含登出入口） |
 | `middleware/auth.ts` | 保留未登录跳转；页面级角色守卫（`definePageMeta` 扩展 `roles`，`middleware/auth.ts` 内校验 role） |
+
+> **原生端点优先原则**：个人界面与用户管理的所有操作均优先使用 better-auth 原生 API（`authClient.*` / `authClient.admin.*`），仅当 better-auth 无法完成任务时才新增自定义 API（对齐 momei 项目实践与 better-auth 官方文档建议）。
 
 ## 8. 迁移与兼容
 
@@ -187,11 +189,11 @@ REGISTRATION_DISABLED=true: 拒绝所有注册渠道——邮箱密码路径由
 
 | 测试 | 覆盖 |
 |---|---|
-| 权限矩阵（核心） | 三角色 × 主要 API（users/repos/credentials/runs/dashboard/me）访问矩阵用例：admin 全通、org_admin 管理仓库/凭据（写）、viewer 只读（写被拒 403）、未登录 401；创建路径角色门槛 + organizationId 填充断言 |
+| 权限矩阵（核心） | 三角色 × 主要 API（users/repos/credentials/runs/dashboard）访问矩阵用例：admin 全通、org_admin 管理仓库/凭据（写）、viewer 只读（写被拒 403）、未登录 401；创建路径角色门槛 + organizationId 填充断言。用户管理/个人界面走 better-auth 原生端点，越权拒绝由 admin 插件 has-permission（403）与端点会话守卫覆盖 |
 | 注册准入 | enterprise 白名单命中/未命中；public 黑名单命中/未命中；REGISTRATION_DISABLED 总开关；hook 拒绝路径（注册 + OAuth/SSO 自动开通）；email 缺失 fail-closed（拒绝开通）；拒绝错误为 4xx 非 500 |
 | 认证流 | OIDC discovery 配置冒烟（mock discovery 端点）；GitHub/Google OAuth callback 冒烟（mock provider）；未配置方式隐藏 |
-| 用户管理 | list-users 分页/搜索；set-role 越权拒绝（非 admin 403）；ban/unban 后会话失效；remove-user 级联行为（名下有关联资源时拒绝删除，见 §11 决策点 8） |
-| 个人界面 | changePassword / changeEmail / listUserAccounts / link-social / unlinkAccount 闭环 |
+| 用户管理 | list-users 分页/搜索；set-role 越权拒绝（非 admin 403）；ban/unban 后会话失效；remove-user 级联行为（better-auth 原生：删除用户 + 会话 + 账号；资源关联检查见 §11 决策点 8 / backlog D8） |
+| 个人界面 | changePassword / changeEmail / listAccounts / link-social / unlinkAccount 闭环（better-auth 原生端点） |
 | 迁移 | **SQLite 存量迁移实验**（B1 验收）：预置存量数据 + 无 organization_id 列 → 启动 synchronize 建列 → 初始化填充 → 断言存量 organization_id 非空；角色 'user'→'viewer' 迁移幂等 |
 | 类型/质量门 | `pnpm typecheck` + `pnpm lint` + 定向 vitest（`apps/platform`） |
 
@@ -200,8 +202,8 @@ REGISTRATION_DISABLED=true: 拒绝所有注册渠道——邮箱密码路径由
 | 子任务 | 内容 | 提交粒度 |
 |---|---|---|
 | T701-1 数据层 | Organization 实体 + Repository/Credential.organizationId + 默认组织初始化（含 SQLite 存量迁移验收用例，§8.1 步骤 4）+ 角色迁移 + guard 扩展（requireRole/requireOrgResource）+ 权限矩阵测试 | 2-3 个提交 |
-| T701-2 用户管理 | admin 插件接入 + `/api/users/*` 代理 + users.vue + 导航角色控制 | 2-3 个提交 |
-| T701-3 个人界面 | `/api/me/*` + settings.vue + 布局头部用户区 | 2 个提交 |
+| T701-2 用户管理 | admin 插件接入（服务端）+ `authClient.admin.*` 原生端点调用（users.vue）+ 导航角色控制；**不新增自建代理 API** | 2-3 个提交 |
+| T701-3 个人界面 | auth.ts changeEmail 配置 + `authClient.*` 原生端点调用（settings.vue）+ 布局头部用户区；**不新增自建代理 API** | 2 个提交 |
 | T707-1 部署模式与准入 | AUTH_MODE/域名名单 env + runtimeConfig + before hook 准入 + 登录页模式感知 | 2 个提交 |
 | T707-2 OAuth | GitHub/Google socialProviders + 自动开通 + 登录页按钮 | 1-2 个提交 |
 | T707-3 OIDC SSO | genericOAuth 插件接入 + OIDC_* env + 自动开通 + enterprise 登录页按钮 | 2 个提交 |

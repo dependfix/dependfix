@@ -488,3 +488,33 @@
 - **经验沉淀**: 归档 §二十四（单次大 diff 成本失控：长任务分批提交）/ §二十五（新增发布包散落遗漏：包清单单点声明）；规范 a808b376（任务粒度约束与提交规模上限）
 - **已知边界（归档时点）**: Docker 镜像构建 CI 链路未裁决（C30）；M5.5 GitHub 源端到端复验仍依赖后续 CI 运行；security.md 凭据加密章节待补（C28）；平台 UI 暗色模式不可用待修复（C29）
 - **遗留登记（转入 backlog）**: C26（独立沙箱容器实现，M7 候选）、C28（security.md 凭据章节）、C29（平台 UI 暗色模式）、C30（Docker CI build 取消排查）；M7 T701-T706
+
+---
+
+## M7.1: 认证与用户体系（已归档）
+
+> 归档日期: 2026-08-10（T701/T707 代码交付完成，**剩余 3 项真实凭据人工验收**见下方「遗留登记」）
+> 阶段摘要: 参见 [roadmap.md §M7](roadmap.md)
+> 设计文档: [platform-auth-users.md](../design/governance/platform-auth-users.md)（Review Gate 两轮 Pass）
+
+### T701 RBAC 权限管理 + 用户管理 + 个人界面 ✅
+
+- **交付物**: 角色权限系统 + 用户管理界面 + 个人设置界面
+- **实现内容**: 子任务 1（数据层）：单组织归属（Organization 实体 + Repository/Credential.organizationId + 默认组织初始化 + 存量迁移）+ 角色模型（admin/org_admin/viewer 三角色）+ better-auth admin 插件 + 角色迁移 + guard 扩展（requireRole/requireOrgResource）；子任务 2（管理 UI）：用户列表/搜索/启用禁用/角色分配 + 页面守卫；子任务 3（个人界面）：资料/密码/邮箱/绑定账号/语言偏好占位
+- **非目标**: 审计日志、邀请注册（backlog）、T707 第三方登录、repo_admin/username/多租户（backlog，决策 D1/D2/D3）
+- **验收**: 权限矩阵 guard 11 例 + 浏览器验证 8/8 + organization.test.ts 8 例（存量填充/幂等/并发安全）+ 写操作收紧 admin/org_admin 披露
+- **提交**: 5811e524 + 8d515aa8 + 2c2620e6 + dc712df1 + ce36ec37 + a115e351 + 781d3fa5 + 3cc58165 + 08a68315（含平台增强：仓库批量导入 85c6988d + e2e 基建 432c59a1）
+- **Review Gate**: 子任务独立审计 + T701 收口审计 Pass（W1 注释编号清理后复审通过）
+
+### T707 认证扩展：OIDC SSO / GitHub·Google OAuth / 邮箱域名黑白名单 ✅（代码交付，3 项人工验收待办）
+
+- **交付物**: 多登录方式 + 部署模式互斥配置 + 注册准入控制
+- **实现内容**:
+  - 子任务 1（部署模式与准入）：`AUTH_MODE=enterprise|public` 互斥（启动校验非法值拒绝）；注册准入 `user.create.before` hook 单一准入点（REGISTRATION_DISABLED 总开关 + email 缺失 fail-closed + 域名白名单/黑名单）；首用户 admin 短路优先（决策点 11）；`disableSignUp` 不合并 enterprise 空白名单（P1 死锁修复：端点级拦截阻断首用户 bootstrap）
+  - 子任务 2（OAuth）：GitHub/Google `socialProviders` 条件化（凭据齐全才启用）；登录页按钮（`resolveSocialProviders` 纯函数 6 例单测）；可用性布尔仅根级 env（前后端通道一致）
+  - 子任务 3（OIDC SSO）：`genericOAuth` 插件条件化（discoveryUrl/issuer 二选一 + 手动端点覆盖 + `requireIssuerValidation: true` RFC 9207 防护）；`genericOAuthClient()` 客户端注册；enterprise 登录页按钮
+- **决策**: D1 部署模式互斥（enterprise 白名单 / public 黑名单）；决策点 6 修订（enterprise 白名单空 = 完全关闭自动开通）；决策点 11 新增（首用户 admin 优先于准入检查）——2026-08-10 用户确认
+- **验收**: 单测 92/92（email-domain 11 + auth-access 集成 10 + social-providers 6）+ e2e 22 用例 + ui-validator 视觉 8/8 + lint/typecheck/build；「未配置登录方式自动隐藏」与「单测/e2e 覆盖项」勾选完成
+- **提交**: bd6e9ffc（T707-1）+ 56e56f95（T707-2）+ 6f4b7d1f（T707-3）+ 25ac7540（状态同步）
+- **Review Gate**: T707-1 双轮（首轮 REJECT P1 死锁 + P2×3/P3×5 → 修复后复审 APPROVE）；T707-2/3 各 APPROVE
+- **遗留登记（待人工验收，真实凭据）**: ① 真实 GitHub/Google OAuth 登录闭环（需 OAuth App 凭据）；② 真实 IdP OIDC 登录闭环（需 RFC 9207 iss 回显支持的 IdP）；③ 构建期配置凭据后按钮显示路径实测

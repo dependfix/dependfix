@@ -260,7 +260,7 @@ git push origin master
 | `pnpm changelog` 报模板错误 | conventional-changelog 被解析为 8.x。必须使用 `conventional-changelog@^7`（8.x 模板引擎与 cmyr-config 3.x 不兼容） |
 | CI 报 "CHANGELOG 缺少版本段" | 版本已提升但漏跑了 `pnpm changelog`（发布前必须生成并提交日志） |
 | 包级 CHANGELOG 非增量（0.2.0 段吞掉全部历史） | `<pkg>@<version>` 锚点 tag 缺失，或指向的 commit 未 touch 该包路径（path 过滤后看不到锚点）。处理：补打/移动 tag 到 touch 该包路径的 commit 后重跑 `pnpm changelog` |
-| `release:publish` 报"HEAD 不是 touch <path> 的提交" | 在非发布提交上执行了发布（未走 release:version + changelog 提交）。处理：完成版本提升与 changelog 提交后再发布 |
+| `release:publish` 报"HEAD 不是 touch `<path>` 的提交" | 在非发布提交上执行了发布（未走 release:version + changelog 提交）。处理：完成版本提升与 changelog 提交后再发布 |
 
 ## 关于 provenance
 

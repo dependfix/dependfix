@@ -5,17 +5,17 @@
  * 决策见 docs/design/governance/platform-scheduled-batch.md §4。
  *
  * Schedule 增删改时通过 registerSchedule / unregisterSchedule 同步更新调度注册；
- * triggerSchedule 为统一触发入口（cron 到点 / 手动触发共用）：
- * 解析仓库列表 → 创建 BatchRun → 逐仓库入队（async）或同步串行（sync）。
+ * triggerSchedule 为统一触发入口（cron 到点 / 手动触发 / Worker scheduled-scan job 共用）：
+ * 解析仓库列表 → executeBatchRun（创建 BatchRun → 逐仓库入队/串行）→ 回填触发信息。
  */
 import cron, { type ScheduledTask } from 'node-cron'
 import { createError } from 'h3'
 import { getQueueService } from '../queue/queue.service'
 import { SCAN_JOB_PRIORITY } from '../queue/queue-mode'
-import { createPendingScanRun, runScanForRepository, type ScanRequest } from '../scan-orchestrator.service'
+import type { ScanRequest } from '../scan-orchestrator.service'
+import { executeBatchRun } from '../batch/batch-executor'
 import { resolveRepositoryIds, type ScheduleSelectorData } from './selector'
 import { Schedule } from '#server/entities/schedule'
-import { BatchRun } from '#server/entities/batch-run'
 import { ensureDatabaseInitialized } from '#server/database'
 import { resolveOrganizationId } from '#server/utils/organization'
 
@@ -115,9 +115,9 @@ export interface TriggerResult {
 }
 
 /**
- * 统一触发：解析仓库列表 → 创建 BatchRun → 逐仓库执行（async 入队 / sync 串行）。
- * 手动触发（/api/schedules/[id]/trigger）与 cron 到点共用；disabled 计划手动触发
- * 也允许（测试配置用），但调度器不会自动触发。
+ * 统一触发：解析仓库列表 → executeBatchRun（创建 BatchRun → 逐仓库执行）→ 回填触发信息。
+ * 手动触发（/api/schedules/[id]/trigger）与 cron 到点、Worker scheduled-scan job 消费共用；
+ * disabled 计划手动触发也允许（测试配置用），但调度器不会自动触发。
  */
 export const triggerSchedule = async (scheduleId: string): Promise<TriggerResult> => {
     const ds = await ensureDatabaseInitialized()
@@ -133,45 +133,25 @@ export const triggerSchedule = async (scheduleId: string): Promise<TriggerResult
         organizationId,
     })
 
-    // 创建 BatchRun（聚合更新采用轮询策略：GET /api/batch-runs/[id] 时实时聚合，见设计 §5.2）
-    const batchRun = await ds.getRepository(BatchRun).save(ds.getRepository(BatchRun).create({
+    // 统一批量执行（与手动批量 API 共用）：创建 BatchRun → 逐仓库入队（async）/串行（sync）；
+    // 空批次/中断终态兜底在 executeBatchRun 内收敛（设计 §5.2 轮询聚合）
+    const result = await executeBatchRun({
         source: 'scheduled',
         scheduleId: schedule.id,
-        mode: schedule.mode,
-        severityThreshold: schedule.severityThreshold,
-        repositoryCount: repositoryIds.length,
-        status: 'running',
+        repositoryIds,
+        request: {
+            mode: schedule.mode as ScanRequest['mode'],
+            severityThreshold: schedule.severityThreshold,
+        },
         organizationId,
-    }))
-
-    const request: ScanRequest = {
-        mode: schedule.mode as ScanRequest['mode'],
-        severityThreshold: schedule.severityThreshold,
-    }
-
-    const queueService = await getQueueService()
-    if (queueService.mode === 'async' && queueService.queue) {
-        // async：预创建 pending run + 入队（priority=scheduled；jobId 去重合并同仓库进行中任务）
-        for (const repositoryId of repositoryIds) {
-            const run = await createPendingScanRun(repositoryId, request, { batchRunId: batchRun.id })
-            await queueService.queue.add(repositoryId, request, {
-                priority: SCAN_JOB_PRIORITY.scheduled,
-                runId: run.id,
-            })
-        }
-    } else {
-        // sync 降级：逐仓库同步串行执行（复用队列基础设施的同步路径）
-        for (const repositoryId of repositoryIds) {
-            await runScanForRepository(repositoryId, request, { batchRunId: batchRun.id })
-        }
-    }
+    })
 
     // 回填最近触发信息
     schedule.lastTriggeredAt = new Date()
-    schedule.lastBatchRunId = batchRun.id
+    schedule.lastBatchRunId = result.batchRunId
     await ds.getRepository(Schedule).save(schedule)
 
-    return { batchRunId: batchRun.id, repositoryCount: repositoryIds.length }
+    return { batchRunId: result.batchRunId, repositoryCount: result.repositoryCount }
 }
 
 /** 供手动触发 API 与 Worker processor 复用；关闭清理（进程退出时调用，防御性） */

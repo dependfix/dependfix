@@ -13,19 +13,15 @@ const {
     destroyMock,
     upsertMock,
     removeSchedulerMock,
-    queueAddMock,
     resolveRepositoryIdsMock,
-    createPendingRunMock,
-    runSyncMock,
+    executeBatchRunMock,
 } = vi.hoisted(() => ({
     scheduleMock: vi.fn(),
     destroyMock: vi.fn(),
     upsertMock: vi.fn(),
     removeSchedulerMock: vi.fn(),
-    queueAddMock: vi.fn(),
     resolveRepositoryIdsMock: vi.fn(),
-    createPendingRunMock: vi.fn(),
-    runSyncMock: vi.fn(),
+    executeBatchRunMock: vi.fn(),
 }))
 
 vi.mock('node-cron', () => ({
@@ -41,9 +37,12 @@ vi.mock('../queue/queue.service', () => ({
     getQueueService: vi.fn(),
 }))
 
-vi.mock('../scan-orchestrator.service', () => ({
-    createPendingScanRun: createPendingRunMock,
-    runScanForRepository: runSyncMock,
+vi.mock('#server/utils/organization', () => ({
+    resolveOrganizationId: vi.fn(),
+}))
+
+vi.mock('../batch/batch-executor', () => ({
+    executeBatchRun: executeBatchRunMock,
 }))
 
 vi.mock('./selector', () => ({
@@ -64,9 +63,8 @@ import {
     unregisterSchedule,
 } from './scheduler.service'
 import { Schedule } from '#server/entities/schedule'
-import { BatchRun } from '#server/entities/batch-run'
-import { Repository } from '#server/entities/repository'
 import { ensureDatabaseInitialized } from '#server/database'
+import { resolveOrganizationId } from '#server/utils/organization'
 
 // ---------- mock 工厂 ----------
 const mockQueueService = (mode: 'async' | 'sync') => {
@@ -74,7 +72,7 @@ const mockQueueService = (mode: 'async' | 'sync') => {
         mode,
         queue: mode === 'async'
             ? {
-                add: queueAddMock,
+                add: vi.fn(),
                 upsertJobScheduler: upsertMock,
                 removeJobScheduler: removeSchedulerMock,
                 close: vi.fn(),
@@ -84,45 +82,22 @@ const mockQueueService = (mode: 'async' | 'sync') => {
     } as never)
 }
 
-/** 构建 mock DataSource：getRepository 按实体返回对应 repo mock；返回各 repo 引用供断言 */
-const mockDataSource = (overrides: {
-    schedule?: Partial<Schedule> | null
-    onBatchRunSave?: (data: Partial<BatchRun>) => void
-} = {}) => {
-    const scheduleRow = overrides.schedule === undefined ? null : overrides.schedule
-    const savedBatchRuns: BatchRun[] = []
+/** 构建 mock DataSource：scheduler 只消费 Schedule repo（批量执行已委托 executeBatchRun） */
+const mockDataSource = (scheduleRow: Partial<Schedule> | null) => {
     const scheduleRepo = {
         findOne: vi.fn(async () => scheduleRow ? makeSchedule(scheduleRow) : null),
         save: vi.fn(async (s: Schedule) => s),
         find: vi.fn(async () => []),
     }
-    const batchRunRepo = {
-        create: vi.fn((data: Partial<BatchRun>) => data),
-        save: vi.fn(async (data: Partial<BatchRun>) => {
-            const saved = { ...data, id: `batch-${savedBatchRuns.length + 1}` } as BatchRun
-            savedBatchRuns.push(saved)
-            overrides.onBatchRunSave?.(data)
-            return saved
-        }),
-        findOne: vi.fn(async ({ where }: { where: { id: string } }) =>
-            savedBatchRuns.find((b) => b.id === where.id) ?? null),
-    }
-    const repositoryRepo = { find: vi.fn(async () => []), findOne: vi.fn() }
     vi.mocked(ensureDatabaseInitialized).mockResolvedValue({
         getRepository: (entity: unknown) => {
             if (entity === Schedule) {
                 return scheduleRepo
             }
-            if (entity === BatchRun) {
-                return batchRunRepo
-            }
-            if (entity === Repository) {
-                return repositoryRepo
-            }
             throw new Error(`unexpected entity: ${String(entity)}`)
         },
     } as never)
-    return { scheduleRepo, batchRunRepo, repositoryRepo, savedBatchRuns }
+    return { scheduleRepo }
 }
 
 const makeSchedule = (overrides: Partial<Schedule> = {}): Schedule => Object.assign({
@@ -146,9 +121,11 @@ describe('scheduler.service（双模调度注册/注销/触发）', () => {
     beforeEach(() => {
         vi.clearAllMocks()
         resolveRepositoryIdsMock.mockResolvedValue([])
-        queueAddMock.mockResolvedValue({ jobId: 'scan-x', reused: false })
-        createPendingRunMock.mockImplementation(async (repositoryId: string) => ({ id: `run-${repositoryId}` }))
-        runSyncMock.mockImplementation(async (repositoryId: string) => ({ id: `run-${repositoryId}` }))
+        vi.mocked(resolveOrganizationId).mockResolvedValue('org-a')
+        executeBatchRunMock.mockImplementation(async (input: { repositoryIds: string[] }) => ({
+            batchRunId: 'batch-1',
+            repositoryCount: input.repositoryIds.length,
+        }))
     })
 
     afterEach(() => {
@@ -233,40 +210,36 @@ describe('scheduler.service（双模调度注册/注销/触发）', () => {
     describe('triggerSchedule', () => {
         it('不存在计划抛 404', async () => {
             mockQueueService('sync')
-            mockDataSource({ schedule: null })
+            mockDataSource(null)
             await expect(triggerSchedule('no-such')).rejects.toMatchObject({ statusCode: 404 })
         })
 
-        it('sync：创建 BatchRun → 逐仓库串行 runScanForRepository（带 batchRunId）→ 回填触发信息', async () => {
+        it('解析仓库列表 → executeBatchRun（source=scheduled + 参数透传）→ 回填触发信息', async () => {
             mockQueueService('sync')
             resolveRepositoryIdsMock.mockResolvedValue(['repo-1', 'repo-2'])
-            const { scheduleRepo, savedBatchRuns } = mockDataSource({ schedule: {} })
+            const { scheduleRepo } = mockDataSource({})
 
             const result = await triggerSchedule('schedule-1')
 
-            expect(result.batchRunId).toBe('batch-1')
-            expect(result.repositoryCount).toBe(2)
+            expect(result).toEqual({ batchRunId: 'batch-1', repositoryCount: 2 })
 
-            // BatchRun 创建参数
-            expect(savedBatchRuns).toHaveLength(1)
-            expect(savedBatchRuns[0]).toMatchObject({
-                source: 'scheduled',
-                scheduleId: 'schedule-1',
-                mode: 'report-only',
-                severityThreshold: 'high',
-                repositoryCount: 2,
-                status: 'running',
+            // 解析输入
+            expect(resolveRepositoryIdsMock).toHaveBeenCalledTimes(1)
+            expect(resolveRepositoryIdsMock.mock.calls[0]![1]).toEqual({
+                kind: 'tag',
+                data: { tag: 'frontend' },
                 organizationId: 'org-a',
             })
 
-            // 逐仓库同步串行（batchRunId 关联）
-            expect(runSyncMock).toHaveBeenCalledTimes(2)
-            expect(runSyncMock.mock.calls[0]![0]).toBe('repo-1')
-            expect(runSyncMock.mock.calls[0]![2]).toEqual({ batchRunId: 'batch-1' })
-            expect(runSyncMock.mock.calls[1]![0]).toBe('repo-2')
-            expect(runSyncMock.mock.calls[1]![2]).toEqual({ batchRunId: 'batch-1' })
-            expect(createPendingRunMock).not.toHaveBeenCalled()
-            expect(queueAddMock).not.toHaveBeenCalled()
+            // executeBatchRun 委托（批量执行细节由 batch-executor 自测覆盖）
+            expect(executeBatchRunMock).toHaveBeenCalledTimes(1)
+            expect(executeBatchRunMock.mock.calls[0]![0]).toEqual({
+                source: 'scheduled',
+                scheduleId: 'schedule-1',
+                repositoryIds: ['repo-1', 'repo-2'],
+                request: { mode: 'report-only', severityThreshold: 'high' },
+                organizationId: 'org-a',
+            })
 
             // Schedule 回填
             expect(scheduleRepo.save).toHaveBeenCalled()
@@ -275,28 +248,21 @@ describe('scheduler.service（双模调度注册/注销/触发）', () => {
             expect(savedSchedule.lastTriggeredAt).not.toBeNull()
         })
 
-        it('async：预创建 pending run + 逐仓库入队（priority=scheduled=10）', async () => {
-            mockQueueService('async')
-            resolveRepositoryIdsMock.mockResolvedValue(['repo-1'])
-            mockDataSource({ schedule: {} })
+        it('organizationId 缺失时经 resolveOrganizationId 兜底', async () => {
+            mockQueueService('sync')
+            resolveRepositoryIdsMock.mockResolvedValue([])
+            mockDataSource({ organizationId: null })
 
-            const result = await triggerSchedule('schedule-1')
+            await triggerSchedule('schedule-1')
 
-            expect(result.repositoryCount).toBe(1)
-            expect(createPendingRunMock).toHaveBeenCalledTimes(1)
-            expect(createPendingRunMock.mock.calls[0]![0]).toBe('repo-1')
-            expect(createPendingRunMock.mock.calls[0]![2]).toEqual({ batchRunId: 'batch-1' })
-            expect(queueAddMock).toHaveBeenCalledTimes(1)
-            const [repoId, , opts] = queueAddMock.mock.calls[0]!
-            expect(repoId).toBe('repo-1')
-            expect(opts.priority).toBe(10)
-            expect(runSyncMock).not.toHaveBeenCalled()
+            expect(resolveOrganizationId).toHaveBeenCalledTimes(1)
+            expect(executeBatchRunMock.mock.calls[0]![0].organizationId).toBe('org-a')
         })
 
         it('selectorJson 非法时容错为空对象（不抛错）', async () => {
             mockQueueService('sync')
             resolveRepositoryIdsMock.mockResolvedValue([])
-            mockDataSource({ schedule: { selectorJson: 'not-json' } })
+            mockDataSource({ selectorJson: 'not-json' })
             await expect(triggerSchedule('schedule-1')).resolves.toMatchObject({ repositoryCount: 0 })
         })
     })

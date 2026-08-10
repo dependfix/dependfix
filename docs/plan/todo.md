@@ -48,14 +48,14 @@
       - `user.create.before` 是邮箱注册与 OAuth/SSO 自动开通的单一拦截点（设计文档 §6 实证：`createOAuthUser` 与 `createUser` 均经 `createWithHooks`）
       - 边界条件已确认（决策点 6 修订 + 决策点 11，2026-08-10 用户确认）：enterprise 白名单为空 = 完全关闭自动开通（邮箱 `disableSignUp` + OIDC hook 拒绝），仅允许 admin 手动创建与首用户路径（首用户经 hook `count==0` 放行，不走准入检查）
     - 提交粒度：2 个提交（① server 准入逻辑 + 单元测试；② 前端模式感知 + env 文档）
-  - [ ] 子任务 2（OAuth）：GitHub OAuth + Google OAuth（public 模式；未配置对应环境变量时自动禁用该登录方式，不阻塞启动；登录方式列表经 runtimeConfig public 注入前端）
+  - [x] 子任务 2（OAuth）：GitHub OAuth + Google OAuth（public 模式；未配置对应环境变量时自动禁用该登录方式，不阻塞启动；登录方式列表经 runtimeConfig public 注入前端）
     - 执行步骤：
-      - [ ] `apps/platform/nuxt.config.ts` runtimeConfig 扩展：私有 `github.clientId` / `github.clientSecret` / `google.clientId` / `google.clientSecret`（从 env）；public `githubAvailable` / `googleAvailable`（由 env 是否配置决定，前端按钮显隐）
-      - [ ] `apps/platform/server/utils/auth.ts`：`buildAuth` options 增加 github/google 配置；`socialProviders` 条件化注入（`clientId` 均存在才加该 provider，未配置不阻塞启动、不暴露端点），返回值走 better-auth 主配置（非插件）
-      - [ ] `apps/platform/app/utils/auth-client.ts`：socialProviders 客户端无需额外插件（`signIn.social` 原生支持 github/google）
-      - [ ] `apps/platform/app/pages/login.vue`：`authMode === 'public'` && `githubAvailable` → 显示"GitHub 登录"按钮；`googleAvailable` → "Google 登录"按钮；`@click` 调 `authClient.signIn.social({ provider: 'github', callbackURL: '/dashboard' })`
-      - [ ] `apps/platform/.env.example` 补充 `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` / `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`
-      - [ ] e2e `apps/platform/tests/e2e/auth.e2e.test.ts` 补按钮可见性用例（authMode=public + 未配置 env → 隐藏；配置 → 显示；登录闭环依赖真实 provider，跳 mock 或 skip）
+      - [x] `apps/platform/nuxt.config.ts` runtimeConfig 扩展：私有 `github.clientId` / `github.clientSecret` / `google.clientId` / `google.clientSecret`（从 env）；public `githubAvailable` / `googleAvailable`（由 env 是否配置决定，前端按钮显隐；仅基于根级 env 判断，与服务端读取通道一致）
+      - [x] `apps/platform/server/utils/auth.ts`：`buildAuth` options 增加 github/google 配置；`socialProviders` 条件化注入（`clientId` 均存在才加该 provider，未配置不阻塞启动、不暴露端点），返回值走 better-auth 主配置（非插件）
+      - [x] `apps/platform/app/utils/auth-client.ts`：socialProviders 客户端无需额外插件（`signIn.social` 原生支持 github/google）
+      - [x] `apps/platform/app/pages/login.vue`：`authMode === 'public'` && `githubAvailable` → 显示"GitHub 登录"按钮；`googleAvailable` → "Google 登录"按钮；`@click` 调 `authClient.signIn.social({ provider: 'github', callbackURL: '/dashboard' })`（按钮决策提取为 `app/utils/social-providers.ts` 纯函数 + 5 例单测）
+      - [x] `apps/platform/.env.example` 补充 `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` / `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`（含回调 URL 由请求 Host 推断的说明）
+      - [x] e2e `apps/platform/tests/e2e/auth.e2e.test.ts` 补按钮可见性用例（authMode=public + 未配置 env → 隐藏；配置 → 显示由单测覆盖，真实 provider 闭环登记人工验收）
     - 受影响文件：`server/utils/auth.ts` / `nuxt.config.ts` / `app/pages/login.vue` / `.env.example` / `tests/e2e/auth.e2e.test.ts`
     - 技术约束：
       - 回调 URL 由 better-auth 固定为 `${baseURL}/api/auth/callback/{provider}`（不可被客户端覆盖；与 `NUXT_PUBLIC_BETTER_AUTH_URL` 联动，反代/容器部署需对齐）

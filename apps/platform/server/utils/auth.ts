@@ -86,6 +86,10 @@ const buildAuth = (ds: Awaited<ReturnType<typeof ensureDatabaseInitialized>>, op
     authMode: AuthMode
     allowedEmailDomains: string[]
     blockedEmailDomains: string[]
+    githubClientId?: string
+    githubClientSecret?: string
+    googleClientId?: string
+    googleClientSecret?: string
 }) => betterAuth({
     appName: 'dependfix',
     secret: options.authSecret,
@@ -119,6 +123,25 @@ const buildAuth = (ds: Awaited<ReturnType<typeof ensureDatabaseInitialized>>, op
             void url
             await Promise.resolve()
         },
+    },
+    // OAuth 登录（public 模式）：clientId/clientSecret 均配置才启用，未配置自动禁用不阻塞启动
+    socialProviders: {
+        ...(options.githubClientId && options.githubClientSecret
+            ? {
+                github: {
+                    clientId: options.githubClientId,
+                    clientSecret: options.githubClientSecret,
+                },
+            }
+            : {}),
+        ...(options.googleClientId && options.googleClientSecret
+            ? {
+                google: {
+                    clientId: options.googleClientId,
+                    clientSecret: options.googleClientSecret,
+                },
+            }
+            : {}),
     },
     emailVerification: {
         sendOnSignUp: options.smtpEnabled,
@@ -210,6 +233,10 @@ export const getAuthInstance = async (options: {
     authMode: AuthMode
     allowedEmailDomains: string[]
     blockedEmailDomains: string[]
+    githubClientId?: string
+    githubClientSecret?: string
+    googleClientId?: string
+    googleClientSecret?: string
 }): Promise<AuthInstance> => {
     const ds = await ensureDatabaseInitialized()
 
@@ -262,6 +289,10 @@ export const getAuth = async (): Promise<AuthInstance> => {
             authMode,
             allowedEmailDomains: parseDomainList(config.allowedEmailDomains),
             blockedEmailDomains: parseDomainList(config.blockedEmailDomains),
+            githubClientId: config.githubClientId,
+            githubClientSecret: config.githubClientSecret,
+            googleClientId: config.googleClientId,
+            googleClientSecret: config.googleClientSecret,
         })
     }
     return scope[GLOBAL_AUTH_KEY]!

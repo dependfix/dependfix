@@ -15,6 +15,14 @@ test.describe('认证流程', () => {
         await expect(page.locator('a[href="/register"]')).toBeVisible()
     })
 
+    test('未配置 OAuth 凭据时第三方登录区隐藏（GitHub/Google 按钮不显示）', async ({ page }) => {
+        await page.goto('/login')
+        // 第三方登录区（auth__social）整体不渲染；GitHub/Google 按钮零命中
+        await expect(page.locator('.auth__social')).toHaveCount(0)
+        await expect(page.locator('button:has-text("GitHub 登录")')).toHaveCount(0)
+        await expect(page.locator('button:has-text("Google 登录")')).toHaveCount(0)
+    })
+
     test('错误凭据提示登录失败且停留在登录页', async ({ page }) => {
         await page.goto('/login')
         await page.locator('input#email').fill('wrong@dependfix.test')

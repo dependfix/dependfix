@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useColorMode } from '~/composables/use-color-mode'
 import { authClient } from '~/utils/auth-client'
+import { resolveSocialProviders } from '~/utils/social-providers'
 
 definePageMeta({
     layout: false,
@@ -17,7 +18,13 @@ onMounted(() => {
 const publicConfig = useRuntimeConfig().public
 const authMode = publicConfig.authMode
 const registrationClosed = publicConfig.registrationDisabled === true
-const socialProviders = ref<string[]>([])
+// 第三方登录方式（public 模式：GitHub/Google 凭据配置才可用；OIDC 由 enterprise 子任务填充）
+// authMode 运行时收窄：服务端 assertAuthMode 已保证只可能是 public|enterprise
+const socialProviders = computed<string[]>(() => resolveSocialProviders({
+    authMode: publicConfig.authMode as 'public' | 'enterprise',
+    githubAvailable: publicConfig.githubAvailable === true,
+    googleAvailable: publicConfig.googleAvailable === true,
+}))
 
 const PROVIDER_LABELS: Record<string, string> = {
     github: 'GitHub',

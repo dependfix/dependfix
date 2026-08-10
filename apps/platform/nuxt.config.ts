@@ -60,6 +60,11 @@ export default defineNuxtConfig({
         // 注册域名名单（逗号分隔，原始字符串；auth.ts 经 parseDomainList 解析为数组）
         allowedEmailDomains: process.env.ALLOWED_EMAIL_DOMAINS || '',
         blockedEmailDomains: process.env.BLOCKED_EMAIL_DOMAINS || '',
+        // OAuth 凭据（public 模式；均配置时才启用对应登录方式，未配置自动禁用不阻塞启动）
+        githubClientId: process.env.GITHUB_CLIENT_ID || '',
+        githubClientSecret: process.env.GITHUB_CLIENT_SECRET || '',
+        googleClientId: process.env.GOOGLE_CLIENT_ID || '',
+        googleClientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
         public: {
             // 客户端可见配置（前端可见 env 一律 NUXT_PUBLIC_* 优先，普通 env 兜底：
             // 构建时内联 + 运行时 NUXT_PUBLIC_* 覆盖双通道，对齐 momei 写法）
@@ -76,6 +81,10 @@ export default defineNuxtConfig({
             registrationDisabled:
                 process.env.NUXT_PUBLIC_REGISTRATION_DISABLED === 'true'
                 || process.env.REGISTRATION_DISABLED === 'true',
+            // OAuth 可用性布尔（仅基于根级 env 判断，与服务端 runtimeConfig 私有侧读取通道
+            // 严格一致，避免 NUXT_PUBLIC_ 通道导致前后端显示不一致：凭据不通过 NUXT_PUBLIC_ 注入）
+            githubAvailable: !!(process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET),
+            googleAvailable: !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET),
         },
     },
     vite: {

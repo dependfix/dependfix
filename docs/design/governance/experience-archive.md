@@ -313,3 +313,21 @@
   - **better-auth 1.6.26 内置限流特殊规则优先于 customRules**：sign-in/sign-up 默认 10s/3 次，`/sign-in/*` customRules 不生效；无代理 IP 头时回退共享桶（并行测试必 429）。豁免：`advanced.ipAddress.disableIpTracking: true` 完全跳过限流（e2e 用 E2E_TEST=true 条件注入）。
   - **better-auth 生产模式细节**：Set-Cookie 带 `__Secure-` 前缀（Secure cookie）；无 Origin 头的 Node fetch 请求被拒（MISSING_OR_NULL_ORIGIN）——手动 API 复现需带 origin 头 + 完整 cookie 名。
   - **手动复现纪律**：复现 500 前先清理测试库残留（同库重复创建必 500 干扰归因），server 日志（stderr）是定位第一手证据。
+
+## 三十一、BullMQ 任务队列集成三坑 + 进程内集成测试方法论（2026-08-10）
+
+> T702 任务队列（BullMQ 6 + ioredis 6 + Redis 7.4.1）真实环境验收暴露的三连坑，以及"后台服务冒烟不可靠 → 进程内集成测试"的方案演进。
+
+- **案例**：T702 扫描队列 async 闭环验收。三轮冒烟均表现为"扫描 completed（同步路径）"或挂起，排查链：
+  1. **queue/worker 共享 Redis 连接** → worker BLPOP 阻塞 queue 命令，POST /scan 挂起 120s+。修复：BullMQ 要求 Queue 与 Worker 独立连接（官方硬性要求）。
+  2. **仅 ping 探测通过但 Redis 3.0 版本过低**（< BullMQ 6 要求 5.0）→ queue.add 挂起不报错。修复：probeRedis 加 `INFO server` 版本解析，< 5.0 判不可用降级 sync（渐进式降级语义）。
+  3. **jobId 含冒号**：`scan:{repoId}` 被 BullMQ 6 拒绝（`Custom Id cannot contain :`，冒号是 Redis key 分隔符）→ add 抛错 → failover 自动降级同步 → **表面 completed 掩盖真实错误**。修复：`scan-` 前缀。此坑被 failover 掩盖，最终靠服务日志 `[scan] 入队失败，降级同步执行：Custom Id cannot contain :` 定位。
+- **启示**：
+  - **BullMQ 6 集成三铁律**：① 自定义 jobId 禁止冒号（Redis key 分隔符）；② Queue/Worker 必须独立 Redis 连接（BLPOP 阻塞）；③ Redis 版本门槛（>= 5.0）必须探测校验（仅 ping 不够——旧版本 add 挂起不报错）。同类依赖的版本门槛先查依赖源码/文档的 minimumVersion 实锤（BullMQ 6.0.9 `minimumVersion = '5.0.0'`）。
+  - **failover 会掩盖真实错误**：自动降级（可用性优先）路径必须打 warn 日志且**冒烟验证必须能取到服务日志**——决定性证据来自日志而非猜测/试错循环。
+  - **后台常驻服务冒烟在 Windows shell 工具环境不可靠**：`Start-Process` / `cmd start /b` 起的 node 进程脱离会话运行，占用 `.output` 文件锁（后续 build EPERM）、端口、句柄；且反复"起服务→请求→停服务"循环进展慢、易误判。**改用进程内集成测试**（见下）。
+  - **进程内集成测试模式（真实基础设施验证首选）**：vitest 直接驱动基础设施（真实 Redis）——`describe.skipIf(!env)` 门控（CI 无 Redis 自动 skip，本地设 env 启用）、随机 id 幂等（`integration-${Date.now()}`，避免残留冲突）、进程内 worker 消费断言（scan-worker 支持 processor 注入，测试传 mock）、连接显式关闭。跑完即退出，无进程管理负担，可重复、可进 CI。**验证顺序修正**：优先进程内集成测试（确定性），后台服务冒烟仅作最后 HTTP 层补验。
+  - **pnpm 11 allowBuilds 审批**：新增依赖带构建脚本（msgpackr-extract）时，pnpm-workspace.yaml `allowBuilds` 未审批 → `pnpm install` 报 ERR_PNPM_IGNORED_BUILDS（且 verifyDepsBeforeRun 自动 install 失败会阻断后续命令）——占位值（`set this to true or false`）必须显式赋值。
+  - **ESLint 9 flat config 不读 .gitignore**：Playwright 生成物（playwright-report/ / test-results/ / blob-report/）被全量 lint 报海量错误（生成 JS 被当源码）——必须显式 ignores。e2e 运行后立即检查 lint 回归。
+  - **Nuxt runtimeConfig 运行时覆盖只认 NUXT_ 前缀**（再印证 §三十 better-auth 案例）：构建期烘焙默认值，启动时无前缀 env（REDIS_URL 等）不生效——部署/验证环境一律 NUXT_ 前缀。
+

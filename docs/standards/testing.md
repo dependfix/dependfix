@@ -89,6 +89,16 @@
 - **目录隔离**：`*.e2e.test.ts` 会被 vitest 默认扫描，vitest.config 必须 `exclude: ['**/tests/e2e/**']`。
 - **限流豁免**：better-auth 1.6.26 内置特殊规则（sign-in 10s/3 次）优先于 customRules，无代理 IP 头时回退共享桶（并行必 429）→ e2e 环境 `E2E_TEST=true` + `advanced.ipAddress.disableIpTracking: true` 完全跳过（[经验归档 §三十](../design/governance/experience-archive.md)）。
 
+### 6.2 真实基础设施集成测试（进程内，优先于后台服务冒烟）
+
+验证依赖真实外部设施（Redis、DB 服务等）的代码路径时，**优先进程内集成测试**（vitest 直驱，跑完即退出），而非后台常驻服务冒烟——后者在 Windows shell 工具环境不可靠（进程脱离会话、`.output` 文件锁、端口/句柄占用，[经验归档 §三十一](../design/governance/experience-archive.md)）。
+
+- **环境门控**：`describe.skipIf(!process.env.TEMP_XXX)` 或类似标记——本地设 env 启用（真实设施可达），CI 无设施自动 skip（不失败）。
+- **幂等设计**：测试用 `Date.now()` 随机 id（如 `integration-${Date.now()}`），避免重复运行命中上次残留（等待中的 job、未清理的数据）。
+- **依赖注入可测性**：被测模块的处理器/回调支持注入（如 worker 的 `processor` 参数），测试传 mock 断言"收到正确数据"，不依赖真实业务执行。
+- **资源清理**：测试尾部显式 `close()` + `disconnect()`，避免连接泄漏与句柄堆积。
+- **职责边界**：进程内集成测试覆盖"基础设施层行为"（入队/消费/去重/终态重建）；HTTP 层状态流转（pending→running→completed + 轮询）才需要后台服务验证（staging 或 CI service container）。
+
 ## 7. 测试代码质量
 
 - 测试代码本身也需要通过 lint + typecheck

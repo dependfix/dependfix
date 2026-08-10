@@ -2,7 +2,7 @@
 
 > M0-M7.1 已完成并归档，见 [todo-archive.md](todo-archive.md) 与 [archive/todo-archive-phases-m0-m1.md](archive/todo-archive-phases-m0-m1.md)。
 > **M7 规划定稿（2026-08-09）**：拆 M7.1 认证与用户体系（已归档 2026-08-10）/ M7.2 平台能力深化；执行顺序（决策 D3）：T702 → T704 → T708 → T705 → T703 → T706。
-> **T702 已完成**（BullMQ + Redis 队列 + 降级矩阵，3 子任务 APPROVE）；**T704 设计先行完成**（2026-08-10，[platform-scheduled-batch.md](../design/governance/platform-scheduled-batch.md)），T704-1 已实施完成（2026-08-10，双轮 APPROVE，9f13aa0b + 55fa20a9）。
+> **T702 已完成**（BullMQ + Redis 队列 + 降级矩阵，3 子任务 APPROVE）；**T704 设计先行完成**（2026-08-10，[platform-scheduled-batch.md](../design/governance/platform-scheduled-batch.md)），T704-1/2 已实施完成（2026-08-10，多轮 APPROVE；9f13aa0b + 55fa20a9 + 45c3d3cf + b830630e + ee0f533f）。
 > **T706 代码前置（C31/C32）已完成**，仅剩发布与文档收口。
 
 ---
@@ -93,13 +93,13 @@
     - [x] `server/schemas/schedule.ts`：Zod 校验（scheduleSchema 4 策略 selectorJson 交叉校验 + batchScanSchema + cronIsValid 5/6 段 + isValidTimezone）
     - [x] 仓库更新 API 扩展 tags 字段支持（GET 列表/详情 + POST 创建 + PUT 更新；undefined=不修改 / null 或 [] = 清空）
     - [x] 单测：实体字段（内存 SQLite roundtrip）、Zod 校验、cron 表达式合法/非法校验（schedule.test.ts 23 例）
-  - [ ] 子任务 2（定时调度服务 + API + 前端页面）：
-    - [ ] `server/services/scheduler/scheduler.service.ts`：调度服务单例（async 用 BullMQ upsertJobScheduler / sync 用 node-cron；Schedule 增删改时同步更新调度注册）
-    - [ ] `server/services/scheduler/selector.ts`：仓库选择策略解析纯函数（4 种 selectorKind + 权限隔离）
-    - [ ] Schedule CRUD API（`/api/schedules` + `/api/schedules/[id]` + `/api/schedules/[id]/trigger` 手动触发）
-    - [ ] 前端 `/schedules` 页面（列表 + 新建/编辑/删除/手动触发对话框）
-    - [ ] `layouts/default.vue` 导航新增「定时计划」入口
-    - [ ] 单测：selector 4 种策略、cron 校验、调度注册/销毁、权限隔离
+  - [x] 子任务 2（定时调度服务 + API + 前端页面）：
+    - [x] `server/services/scheduler/scheduler.service.ts`：调度服务单例（async 用 BullMQ upsertJobScheduler / sync 用 node-cron；register/unregister/init/triggerSchedule 统一触发 + sync 注册幂等）
+    - [x] `server/services/scheduler/selector.ts`：仓库选择策略解析纯函数（4 种 selectorKind + 组织权限隔离，explicit 静默过滤跨组织）
+    - [x] Schedule CRUD API（`/api/schedules` + `/api/schedules/[id]` + `/api/schedules/[id]/trigger` 手动触发；权限 admin/org_admin + requireOrgResource；调度同步：创建注册/更新注销重注册/删除注销）
+    - [x] 前端 `/schedules` 页面（列表 + 新建/编辑/删除/手动触发/启用禁用对话框 + 4 策略动态表单）
+    - [x] `layouts/default.vue` 导航新增「定时计划」入口（viewer 隐藏）
+    - [x] 单测：selector 4 种策略 + 权限隔离、调度注册/注销双模、触发 sync 串行/async 入队、update schema 无 default 覆盖回归（scheduler 15 例 + schedule 29 例）
   - [ ] 子任务 3（批量执行 + 聚合报告 + 前端）：
     - [ ] 批量扫描 API（`POST /api/repos/batch-scan`，手动批量触发）
     - [ ] BatchRun 列表/详情 API（`/api/batch-runs` + `/api/batch-runs/[id]`，详情含聚合统计 + 下属 ScanRun 列表）
@@ -134,7 +134,7 @@
 
 - **M7.1 已归档（2026-08-10）**：T701（RBAC + 用户管理 + 个人界面）与 T707（认证扩展：AUTH_MODE 互斥 + OAuth + OIDC SSO）代码交付完成，全部 Review Gate 通过（T707-1 双轮、T707-2/3 各一轮）。质量门：单测 92/92 + e2e 22 用例 + ui-validator 视觉 8/8 + lint/typecheck/build。**剩余 3 项真实凭据人工验收**（OAuth 闭环 / OIDC 闭环 / 配置显示路径），登记 [todo-archive.md §M7.1](todo-archive.md#m71-认证与用户体系已归档)。
 - **T702 已实施完成（2026-08-10）**：三个子任务全部落地并独立提交——T702-1 队列基础设施（93057088：queue-mode 决策 + jobId 去重 + 优先级 + 重试，双轮 APPROVE）、T702-2 扫描 API 异步化（d909b89c：scan.post 三态 + 轮询 + failover + 终态竞态防护，双轮 APPROVE）、T702-3 部署接线（57a84a1c：compose redis + env + 单容器 worker 形态，APPROVE）。质量门：单测 106/106 + e2e 23 用例 + lint/typecheck/build 全过。**真实环境验收（2026-08-10 补充）**：本地 Redis 7.4.1 + 进程内集成测试（queue-integration.test.ts 4 例：入队→worker 消费 / 去重 / 终态重建）验证 async 队列闭环；降级路径实测（Redis 3.0 version_too_old → sync）。**修复两个冒烟暴露缺陷**：① jobId 含冒号（BullMQ 6 禁止 `:`，add 抛 Custom Id 错误 → failover 同步）→ 改 `scan-` 前缀；② 后台服务冒烟模式在 Windows 不可靠（进程锁/句柄）→ 改进程内集成测试方案。**剩余人工验收项**：HTTP 层 pending→running→completed 状态流转 + 前端轮询体验（需后台服务环境，如 staging 或 CI redis service）。
-- **T704 设计先行完成（2026-08-10）**：设计文档 [platform-scheduled-batch.md](../design/governance/platform-scheduled-batch.md) 落盘——双模调度（async 用 BullMQ `upsertJobScheduler` / sync 降级用 node-cron）、4 种仓库选择策略（all/organization/tag/explicit，Repository 加 tags JSON 列）、BatchRun 聚合实体 + 轮询聚合更新策略、3 子任务拆分（数据模型 / 调度服务+API / 批量执行+聚合报告）。复用 T702 队列基础设施（priority=scheduled=10 已预留）。**T704-1 已实施完成（2026-08-10）**：Schedule/BatchRun 实体 + Repository.tags + ScanRun.batchRunId + Zod 校验（scheduleSchema 4 策略交叉校验 + batchScanSchema + cronIsValid 5/6 段 + isValidTimezone），仓库 API tags 读写（undefined=不修改 / null 或 [] = 清空）；双轮 Review Gate APPROVE；质量门 lint/typecheck/单测 129/build 全过。**设计文档两处补强**（organizationId 归属列，支撑 §6.1 列表"当前组织"与权限隔离）。剩余 T704-2（调度服务 + API + /schedules 页面）、T704-3（批量执行 + 聚合报告 + /batch-runs 页面）。
+- **T704 设计先行完成（2026-08-10）**：设计文档 [platform-scheduled-batch.md](../design/governance/platform-scheduled-batch.md) 落盘——双模调度（async 用 BullMQ `upsertJobScheduler` / sync 降级用 node-cron）、4 种仓库选择策略（all/organization/tag/explicit，Repository 加 tags JSON 列）、BatchRun 聚合实体 + 轮询聚合更新策略、3 子任务拆分（数据模型 / 调度服务+API / 批量执行+聚合报告）。复用 T702 队列基础设施（priority=scheduled=10 已预留）。**T704-1 已实施完成（2026-08-10）**：Schedule/BatchRun 实体 + Repository.tags + ScanRun.batchRunId + Zod 校验（scheduleSchema 4 策略交叉校验 + batchScanSchema + cronIsValid 5/6 段 + isValidTimezone），仓库 API tags 读写；双轮 Review Gate APPROVE；质量门 lint/typecheck/单测 129/build 全过。**设计文档两处补强**（organizationId 归属列，支撑列表"当前组织"与权限隔离）。**T704-2 已实施完成（2026-08-10）**：双模调度服务（BullMQ upsertJobScheduler / node-cron 降级 + sync 注册幂等）、selector 4 策略权限隔离、Schedule CRUD API + 手动触发（调度同步：创建注册/更新注销重注册/删除注销）、前端 /schedules 页面 + 导航入口；3 分区并发审计 + 3 轮复审（B1 blocker：PATCH default 覆盖已修复——scheduleFields 无 default + scheduleCreateFields 挂缺省值）；质量门 lint/typecheck/单测 150/build 全过。**登记风险**：async 模式 scheduled-scan job 需 T704-3 processor 落地后才被正确消费（合入前不创建 async 定时计划）；空批次/中断 BatchRun 兜底归 T704-3。剩余 T704-3（批量执行 + 聚合报告 + /batch-runs 页面 + e2e）。
 - **发布管线自研化（进行中，2026-08-10）**：移除 changeset，自研 release 脚本体系（双模式：A 本地手动提升 + B CI 定时自动，参照 semantic-release）。设计文档 [release-pipeline.md](../design/governance/release-pipeline.md) 落盘；拆分 4 提交（release-version 执行器 → release-publish 发布器 → 原子切换 → 文档收口）。**进度**：提交 1（`release-version.mjs` 版本提升执行器 + 16 单测，依赖传导替代 `updateInternalDependencies`）、提交 2（`release-publish.mjs` 发布执行器 + 5 单测；含 `isPublishedOnRegistry` fetch 化修复——npm view 在 Windows 下 10s 超时必失效）、提交 3（原子切换：脚本改名 + release.yml 双模式接线 + 移除 @changesets/cli + HEAD 锚点校验）均已完成并 Review Gate Pass（双轮/单轮，P3 观察项：main 副作用路径测试登记后续）。待提交 4（文档收口）。
 - **已知边界**：
   - M5.5 的 npx skills GitHub 源端到端验证（主通道 + 全链质量门）依赖 CI 端到端裁决（本机 clone github.com 网络受限）。

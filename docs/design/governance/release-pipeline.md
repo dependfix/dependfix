@@ -1,6 +1,7 @@
 # 发布管线自研化设计（移除 changeset）
 
 > 状态：🔶 设计落盘（2026-08-10）——契约与算法落盘，供实现阶段参考。
+> 增补：GitHub Release 自动化设计（§4.4，2026-08-10）——每轮发布创建聚合 GitHub Release。
 > 背景：changeset 在发布链路中的作用已退化为"遍历发布 + 打 tag"（changelog 生成、changeset 文件生成、tag 补打、发布顺序均已由自定义脚本替代），剩余版本提升执行与依赖传导为最后两块专属逻辑。
 > 相关文档：[发布指南](../../guide/release.md)、[发布工具选型调研](../../research/2026-08-02-release-tools-comparison.md)、[经验归档 §二十五/§二十六](./experience-archive.md)
 
@@ -8,7 +9,7 @@
 
 ## 1. 定位
 
-用自研 release 脚本体系替换 changeset，覆盖发布链路全环节，并按"当前手动阶段 → 未来定时阶段"双模式演进（参照 semantic-release 的 commit 驱动 + CI 全自动思路，但保留 0.x 手动阶段的人工闸门）。
+用自研 release 脚本体系替换 changeset，覆盖发布链路全环节（npm 发布 + GitHub Release），并按"当前手动阶段 → 未来定时阶段"双模式演进（参照 semantic-release 的 commit 驱动 + CI 全自动思路，但保留 0.x 手动阶段的人工闸门）。
 
 **目标**：
 
@@ -17,12 +18,13 @@
 3. 通过 git log 自动生成 changelog（根级 + 分包级）
 4. 通过 git log 推导版本提升级别，并打对应 `<pkg>@<version>` tag
 5. 解决包发布顺序（依赖方后发），避免依赖问题
+6. **npm 发包同时创建聚合 GitHub Release**（每轮一个，notes 使用项目 changelog 格式）
 
 **非目标**：
 
 - 不迁移 semantic-release / release-it / Nx Release（调研结论：semantic-release monorepo 多包独立版本是硬伤，Nx 引入整个工具链过重；自研 = 现有自定义体系补齐最后两块，成本最低）
 - 不引入 semver 依赖（版本递增手写纯函数）
-- 不做 GitHub Release 自动化（保持现状 `gh release create` 手动）
+- 不为每个包单独创建 GitHub Release（多包轮次只建一个聚合 Release，避免噪音）
 - 不启用 provenance（0.x 阶段不强制，`--provenance` 需要 OIDC 环境，本地手动发布不适用；留待后续评估）
 
 ---
@@ -125,6 +127,58 @@ CI（schedule）：release:plan → release:version → pnpm changelog
 
 手写纯函数 `incVersion('0.2.0', 'minor') → '0.3.0'`（patch/minor/major 三态），不引入 semver 依赖（pnpm 严格模式无法直接 import 传递依赖）。
 
+### 4.4 GitHub Release 自动化（聚合 Release + 项目 changelog notes）
+
+**目标**：`release:publish` 完成 npm 发布后，CI 自动为**本轮发布**创建一个聚合 GitHub Release（每轮一个，非每包一个），notes 使用项目 changelog 格式。解决"多包版本不同步 × GitHub Release 单 tag 锚"的矛盾。
+
+**锚版本选择**（主交付物优先，与根 CHANGELOG 锚 / release commit 版本选择逻辑一致）：
+
+```
+1. dependfix 本轮发布 → 锚 = dependfix 版本
+2. 否则 @dependfix/core 本轮发布 → 锚 = core 版本
+3. 否则依次 @dependfix/engine → @dependfix/skills → @dependfix/mcp
+4. 本轮无包发布（重跑全跳过）→ 不创建 GitHub Release
+```
+
+**v 聚合 tag**：
+
+- 由 `release:publish` 在**全部包发布成功后**创建（与 `<pkg>@<version>` 包 tag 同批，锚版本 = 本轮发布锚包版本），指向发布提交
+- **时机约束**：v tag 必须在 `Push release tags` 步骤**之前**创建，随现有全量推送（`git push --tags`）带出并核验（经验归档 §二十六：创建 → 推送 → 核验三环闭环）——`release:github` 步骤在其后，只做 GitHub Release 创建，**不创建/不推送 tag**
+- 与 1.0.0 后规划的 `v1` 滚动 tag 命名空间兼容（固定 tag + 移动 tag 共存）
+- 幂等：v tag 已存在 → 跳过打 tag（不覆盖历史 tag），Release 复用该 tag 或跳过
+
+**Notes 生成**（项目 changelog 格式）：
+
+```
+1. 优先：根 CHANGELOG.md 最新版本段（复用 release commit 的 awk 提取逻辑，
+   与 release commit body 同源，格式一致）
+2. 兜底（core-only 等根段为空）：锚包的包级 CHANGELOG 最新段
+3. 追加"本轮发布版本矩阵"（本轮实际发布包列表：<pkg>@<version> 每行）
+4. 0.x 阶段统一 --prerelease
+```
+
+**数据流**（本轮发布列表传递）：
+
+```
+release:publish → 全部发布成功后：打 v 聚合 tag + 写 release-publish-result.json
+  （gitignore 临时产物：本轮 action=publish 的包列表 + 版本 + 锚版本）
+release.yml Push release tags（全量推送，含 v tag，推送后核验）
+  → pnpm release:github（scripts/create-github-release.mjs）：
+     读 result.json → 提取 changelog 段 + 版本矩阵
+     → gh release create v<锚版本>（幂等 + warn 不阻断）
+```
+
+**幂等与失败语义**：
+
+| 场景 | 行为 |
+|:---|:---|
+| v tag 已存在 | 跳过打 tag（不覆盖历史 tag） |
+| Release 已存在（重跑） | `gh release view <tag>` 检测 → 跳过 |
+| Release 创建失败 | `::warning::` 不退出非零（npm 已发布完成，Release 是展示辅助，可后补） |
+| 本轮无发布列表 | 不创建 |
+
+**合规性**：`gh release create` 不修改仓库文件（仅创建 Release 对象 + 关联 tag），满足"CI 发布时不得改动其他部分"；本地 A 模式（首次手动发布）保持手动 `gh release create`（release.md 现有步骤）。
+
 ---
 
 ## 5. 文件映射
@@ -137,6 +191,8 @@ CI（schedule）：release:plan → release:version → pnpm changelog
 | `scripts/release-publish.mjs` | 发布列表选择 + 按序 publish + 打 tag |
 | `scripts/release-version.test.mjs` | 计划解析 / 传导闭包 / 版本递增（纯函数 + 依赖注入） |
 | `scripts/release-publish.test.mjs` | 发布列表选择（注入已发布判定）/ tag 计划 / dry-run |
+| `scripts/create-github-release.mjs` | 锚版本选择 + v tag + changelog 段提取 + 版本矩阵 + gh release create（纯函数 + main 守卫，§4.4） |
+| `scripts/create-github-release.test.mjs` | 锚包选择 / 段提取 / 幂等判定（注入 gh 调用） |
 | `docs/design/governance/release-pipeline.md` | 本文档 |
 
 ### 修改
@@ -151,6 +207,10 @@ CI（schedule）：release:plan → release:version → pnpm changelog
 | `.github/agents/code-auditor.agent.md` | 必查项「新增发布包链路完整性」：changeset ignore 联动条目删除，改为引用 packages.config.mjs 单点 |
 | `.github/skills/code-reviewer/references/code-quality-checklist.md` | 同一并更新 |
 | `scripts/packages.config.mjs` | `publishable` 字段注释更新（ignore 联动说明 → 新脚本语义） |
+| `scripts/release-publish.mjs` | 全部发布成功后：打 `v<锚版本>` 聚合 tag（锚版本 = 主交付物优先）+ 写 `release-publish-result.json`（本轮实际发布列表，gitignore 临时产物） |
+| `package.json` | scripts 新增 `release:github`（node scripts/create-github-release.mjs） |
+| `.github/workflows/release.yml` | `Push release tags` 后加一步 `pnpm release:github` |
+| `.gitignore` | 新增 `release-publish-result.json` |
 
 ### 删除
 
@@ -168,6 +228,8 @@ CI（schedule）：release:plan → release:version → pnpm changelog
 | `docs/design/governance/architecture.md` | 版本发布行更新 |
 | `docs/design/governance/experience-archive.md` | §二十五 追加演进注记（ignore 联动消亡）；§二十六 保留（教训已继承） |
 | `docs/research/2026-08-02-release-tools-comparison.md` | 文首加注演进说明（历史调研保留） |
+| `docs/guide/release.md` | CI 发布行为 + tag 策略 + 已知限制（GitHub Release 自动化步骤） |
+| `scripts/README.md` | 命令速查新增 `release:github` |
 
 **不修改**：`docs/standards/ai-collaboration.md`（react-turnstile 为外部项目事实引用）、`docs/plan/todo-archive.md`（历史归档）。
 
@@ -183,6 +245,9 @@ CI（schedule）：release:plan → release:version → pnpm changelog
 | 已发布判定网络依赖 | 低 | 复用现有保守策略（tag 短路 + registry 兜底 + 失败跳过） |
 | Trusted Publisher 失效 | 低 | workflow 文件名 `release.yml` 不变（npm 侧 OIDC 配置不受影响）；底层仍 `pnpm publish` |
 | 供应链风险（自研发布脚本） | 低 | 保持现状安全基线：OIDC + 最小权限 + A 模式人工闸门（review 计划文件 + changelog 校验）；脚本纯函数化可审计 |
+| GitHub Release 创建失败 | 低 | warn 不阻断（Release 为展示辅助，npm 发布已完成，可后补 `gh release create`）；幂等跳过已存在 Release |
+| v tag 命名冲突（锚版本与历史 v tag 重复） | 低 | 跳过打 tag + Release 复用已存在 v tag 或跳过；warn 提示 |
+| 本地无法端到端验证 gh release create | 低 | 纯函数单测 + dry-run；CI 端到端为最终裁决（同发布链路惯例） |
 
 ## 7. 执行顺序与提交拆分
 
@@ -192,6 +257,7 @@ CI（schedule）：release:plan → release:version → pnpm changelog
 | 2 | `release-publish.mjs` + 单测（纯增量） | 单测全过：发布列表选择（注入判定）、tag 计划、dry-run |
 | 3 | **原子切换**：改名 + release.yml 接线 + package.json scripts 切换 + 移除 @changesets/cli + 删除 .changeset/ + .gitignore + 审计清单 | `pnpm install` 后 lockfile 无 @changesets；`pnpm release:plan` 端到端跑通；lint/typecheck/test 全过 |
 | 4 | 文档收口（release.md 重构 + tech-stack + architecture + 经验归档注记 + research 加注） | lint:md 通过；文档无 changeset 命令残留（grep 核验） |
+| 5 | GitHub Release 自动化（`create-github-release.mjs` + 单测 + release-publish 写 result.json + release.yml 接线 + 文档） | 单测全过：锚包选择 / 段提取 / 幂等判定；`release:github --dry-run` 本地实测；CI 端到端创建 Release 为最终裁决 |
 
 **质量门**：lint / typecheck / test / lint:md 全过；CI 端到端为最终裁决。
 
@@ -204,3 +270,4 @@ CI（schedule）：release:plan → release:version → pnpm changelog
 | changelog 自动/分包 | 复用 changelog.mjs（现状能力），CI 校验步骤确保入库 |
 | 推导版本 + 打 tag | release:plan 推导（既有单测）+ release:version 传导写回（新单测）+ release:publish 创建 annotated tag |
 | 发布顺序 | publishOrder 遍历 + 传导闭包保证依赖方后发；发布列表按 publishOrder 输出 |
+| GitHub Release 自动化 | 每轮发布（含 core-only）自动创建 1 个聚合 Release：锚版本 = 主交付物优先；notes = 根 changelog 段（core-only 取锚包包级段）+ 版本矩阵；0.x 标 prerelease；幂等（已存在跳过）；失败 warn 不阻断 |

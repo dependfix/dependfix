@@ -1,119 +1,119 @@
-name: 'Dependfix Security Auto Fix'
-description: 'Automated remediation of Dependabot security alerts for pnpm/Node.js projects'
-author: 'CaoMeiYouRen'
+name: "Dependfix Security Auto Fix"
+description: "Automated remediation of Dependabot security alerts for pnpm/Node.js projects"
+author: "CaoMeiYouRen"
 
 branding:
-  icon: 'shield'
-  color: 'green'
+  icon: "shield"
+  color: "green"
 
 inputs:
   mode:
-    description: '运行模式'
+    description: "运行模式"
     required: false
     # Action 默认 fix-and-pr（本地 CLI 默认仍为 report-only）
-    default: 'fix-and-pr'
+    default: "fix-and-pr"
   repos:
-    description: '目标仓库（逗号分隔 owner/repo，留空使用当前仓库；与 owner 同时给出时合并去重，显式优先）'
+    description: "目标仓库（逗号分隔 owner/repo，留空使用当前仓库；与 owner 同时给出时合并去重，显式优先）"
     required: false
-    default: ''
+    default: ""
   # ── 多仓库治理 ──
   owner:
-    description: 'owner / org 自动发现（逗号分隔多个）。注意：GITHUB_TOKEN 仅能访问当前仓库，owner 发现其他仓库必须使用具备仓库读取权限的 PAT（github-token 输入）；如需按仓库隔离权限，建议为每个仓库单独配置 action，而不是跨仓库发现'
+    description: "owner / org 自动发现（逗号分隔多个）。注意：GITHUB_TOKEN 仅能访问当前仓库，owner 发现其他仓库必须使用具备仓库读取权限的 PAT（github-token 输入）；如需按仓库隔离权限，建议为每个仓库单独配置 action，而不是跨仓库发现"
     required: false
-    default: ''
+    default: ""
   repo-topics:
-    description: '发现结果 topic 白名单（逗号分隔，AND 语义；仅影响 owner 发现结果）'
+    description: "发现结果 topic 白名单（逗号分隔，AND 语义；仅影响 owner 发现结果）"
     required: false
-    default: ''
+    default: ""
   repo-include:
-    description: '仓库白名单 glob（逗号分隔多个，如 owner/*、owner/pkg-*；仅作用于发现结果）'
+    description: "仓库白名单 glob（逗号分隔多个，如 owner/*、owner/pkg-*；仅作用于发现结果）"
     required: false
-    default: ''
+    default: ""
   repo-exclude:
-    description: '仓库黑名单 glob（逗号分隔多个；显式列表与发现结果均受约束，与 include 冲突时胜出）'
+    description: "仓库黑名单 glob（逗号分隔多个；显式列表与发现结果均受约束，与 include 冲突时胜出）"
     required: false
-    default: ''
+    default: ""
   repo-topics-exclude:
-    description: '发现结果 topic 黑名单（逗号分隔，排除含任一指定 topic 的仓库）'
+    description: "发现结果 topic 黑名单（逗号分隔，排除含任一指定 topic 的仓库）"
     required: false
-    default: ''
+    default: ""
   max-concurrency:
-    description: '多仓库并发窗口（1-16，默认 1 保守串行；>1 仅 report-only 模式允许——fix/fix-and-pr 共享单一 workDir，配置校验会拒绝并发）'
+    description: "多仓库并发窗口（1-16，默认 1 保守串行；>1 仅 report-only 模式允许——fix/fix-and-pr 共享单一 workDir，配置校验会拒绝并发）"
     required: false
-    default: '1'
+    default: "1"
   max-retries:
-    description: 'GitHub API 限流重试次数（0-10，默认 3；429/rate limit 指数退避重试）'
+    description: "GitHub API 限流重试次数（0-10，默认 3；429/rate limit 指数退避重试）"
     required: false
-    default: '3'
+    default: "3"
   severity-threshold:
-    description: '严重级别阈值'
+    description: "严重级别阈值"
     required: false
-    default: 'high'
+    default: "high"
   dry-run:
-    description: '试运行模式（不修改文件）'
+    description: "试运行模式（不修改文件）"
     required: false
     # 与 mode 默认 fix-and-pr 配套（dryRun 与 createPullRequest 互斥）
-    default: 'false'
+    default: "false"
   max-alerts-per-repository:
-    description: '每仓库最多处理的告警数'
+    description: "每仓库最多处理的告警数"
     required: false
-    default: '20'
+    default: "20"
   cleanup-branches:
-    description: '（fix-and-pr 模式）结束后将已合并的 dependfix 分支列入报告待清理清单（不自动删除）'
+    description: "（fix-and-pr 模式）结束后将已合并的 dependfix 分支列入报告待清理清单（不自动删除）"
     required: false
-    default: 'false'
+    default: "false"
   cleanup-branches-auto:
     description: '（fix-and-pr 模式）结束后自动删除已合并/已关闭的 dependfix 分支（非交互；不删有 open PR 的分支。配合 GitHub 仓库设置 "Automatically delete head branches" 可保持分支零残留）'
     required: false
-    default: 'false'
+    default: "false"
   github-token:
-    description: 'GitHub Token（需 security-events 权限；fix-and-pr 模式需 contents + pull-requests 写权限）'
+    description: "GitHub Token（需 security-events 权限；fix-and-pr 模式需 contents + pull-requests 写权限）"
     required: true
   dependabot-alerts-token:
-    description: 'Dependabot alerts 专用 token（可选，最小权限 fine-grained PAT，仅需 Dependabot alerts: read；缺省回退 github-token。GITHUB_TOKEN 无法读取 Dependabot alerts API，仅给 GITHUB_TOKEN 会拉取失败）'
+    description: "Dependabot alerts 专用 token（可选，最小权限 fine-grained PAT，仅需 Dependabot alerts: read；缺省回退 github-token。GITHUB_TOKEN 无法读取 Dependabot alerts API，仅给 GITHUB_TOKEN 会拉取失败）"
     required: false
-    default: ''
+    default: ""
   code-scanning:
-    description: '同时拉取 Code Scanning alerts（与 Dependabot 并行源，默认关闭；需要 token 具备 security-events: read，GITHUB_TOKEN 默认具备）'
+    description: "同时拉取 Code Scanning alerts（与 Dependabot 并行源，默认关闭；需要 token 具备 security-events: read，GITHUB_TOKEN 默认具备）"
     required: false
-    default: 'false'
+    default: "false"
   # ── AI breaking change 研判（与 CLI --ai 系列对齐）──
   ai:
-    description: '开启 AI breaking change 研判（默认 false；需配置 ai-api-key；dry-run 不触发不产生费用）'
+    description: "开启 AI breaking change 研判（默认 false；需配置 ai-api-key；dry-run 不触发不产生费用）"
     required: false
-    default: 'false'
+    default: "false"
   ai-api-key:
-    description: 'AI API Key（在 workflow 中引用 secrets.DEEPSEEK_API_KEY 等 GitHub Secrets 传入；经环境变量传递自动打码）'
+    description: "AI API Key（在 workflow 中引用 secrets.DEEPSEEK_API_KEY 等 GitHub Secrets 传入；经环境变量传递自动打码）"
     required: false
-    default: ''
+    default: ""
   ai-provider:
-    description: 'AI 提供商：openai-compatible（默认，DeepSeek 等）/ anthropic'
+    description: "AI 提供商：openai-compatible（默认，DeepSeek 等）/ anthropic"
     required: false
-    default: 'openai-compatible'
+    default: "openai-compatible"
   ai-model:
-    description: 'AI 模型名（默认 deepseek-v4-flash）'
+    description: "AI 模型名（默认 deepseek-v4-flash）"
     required: false
-    default: 'deepseek-v4-flash'
+    default: "deepseek-v4-flash"
   ai-base-url:
-    description: 'OpenAI 兼容端点（默认 https://api.deepseek.com，与默认模型配套）'
+    description: "OpenAI 兼容端点（默认 https://api.deepseek.com，与默认模型配套）"
     required: false
-    default: 'https://api.deepseek.com'
+    default: "https://api.deepseek.com"
   ai-api-url:
-    description: 'Anthropic 兼容端点（默认 https://api.anthropic.com/v1/messages；自托管/网关可指定）'
+    description: "Anthropic 兼容端点（默认 https://api.anthropic.com/v1/messages；自托管/网关可指定）"
     required: false
-    default: ''
+    default: ""
   ai-trigger:
-    description: 'AI 触发范围：both（默认，验证失败或 major 升级）/ failure / major'
+    description: "AI 触发范围：both（默认，验证失败或 major 升级）/ failure / major"
     required: false
-    default: 'both'
+    default: "both"
 
 outputs:
   report-artifact:
-    description: '上传的报告 artifact 名称'
+    description: "上传的报告 artifact 名称"
     value: ${{ steps.upload-report.outputs.artifact-name }}
 
 runs:
-  using: 'composite'
+  using: "composite"
   steps:
     - name: Checkout target repository
       uses: actions/checkout@v7
@@ -123,7 +123,7 @@ runs:
     - name: Setup pnpm
       # pnpm 版本由消费者/本仓库 package.json 的 packageManager 字段声明（单一来源），
       # 不传 version 参数（v6 起同时指定且不一致会直接报错）
-      uses: pnpm/action-setup@v6.0.10
+      uses: pnpm/action-setup@v6
 
     - name: Setup Node.js
       uses: actions/setup-node@v7

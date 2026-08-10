@@ -1,5 +1,6 @@
 import Aura from '@primeuix/themes/aura'
 import { definePreset } from '@primeuix/themes'
+import { parseDomainList } from './server/utils/email-domain'
 
 // 自定义 PrimeVue 主题预设：语义主色（青灰）跟随明暗模式
 const DependfixPreset = definePreset(Aura, {
@@ -53,11 +54,28 @@ export default defineNuxtConfig({
         smtpEnabled: !!process.env.SMTP_HOST,
         // 关闭注册（保留登录）：公开部署时设置 REGISTRATION_DISABLED=true
         registrationDisabled: process.env.REGISTRATION_DISABLED === 'true',
+        // 认证部署模式（enterprise | public，互斥二选一，缺省 public）：
+        // 登录方式与注册准入策略（enterprise 白名单 / public 黑名单）
+        authMode: process.env.AUTH_MODE || 'public',
+        // 注册域名名单（逗号分隔，原始字符串；auth.ts 经 parseDomainList 解析为数组）
+        allowedEmailDomains: process.env.ALLOWED_EMAIL_DOMAINS || '',
+        blockedEmailDomains: process.env.BLOCKED_EMAIL_DOMAINS || '',
         public: {
-            // 客户端可见配置
+            // 客户端可见配置（前端可见 env 一律 NUXT_PUBLIC_* 优先，普通 env 兜底：
+            // 构建时内联 + 运行时 NUXT_PUBLIC_* 覆盖双通道，对齐 momei 写法）
             appName: 'dependfix',
             // 新建仓库默认分支（DEFAULT_BRANCH 为构建时注入，运行期修改需重建镜像）
-            defaultBranch: process.env.DEFAULT_BRANCH || 'main',
+            defaultBranch: process.env.NUXT_PUBLIC_DEFAULT_BRANCH || process.env.DEFAULT_BRANCH || 'main',
+            // 认证模式（enterprise | public）：登录/注册页按模式展示登录方式与注册策略
+            authMode: process.env.NUXT_PUBLIC_AUTH_MODE || process.env.AUTH_MODE || 'public',
+            // 注册域名名单（enterprise 白名单域提示用；黑名单不暴露，最小暴露原则）
+            allowedEmailDomains: parseDomainList(
+                process.env.NUXT_PUBLIC_ALLOWED_EMAIL_DOMAINS || process.env.ALLOWED_EMAIL_DOMAINS || '',
+            ),
+            // 关闭注册总开关：前端隐藏注册入口
+            registrationDisabled:
+                process.env.NUXT_PUBLIC_REGISTRATION_DISABLED === 'true'
+                || process.env.REGISTRATION_DISABLED === 'true',
         },
     },
     vite: {

@@ -19,6 +19,18 @@ const confirmPassword = ref('')
 const loading = ref(false)
 const error = ref('')
 
+// 注册策略感知：enterprise 展示白名单域提示；REGISTRATION_DISABLED 隐藏注册入口
+const publicConfig = useRuntimeConfig().public
+const isEnterprise = publicConfig.authMode === 'enterprise'
+// 防御运行时 NUXT_PUBLIC_ALLOWED_EMAIL_DOMAINS 覆盖：Nuxt 运行时 env 覆盖后该值可能为
+// 逗号分隔字符串（destr 解析，非 build 期数组）——统一归一为数组
+const rawAllowedDomains: string[] | string = publicConfig.allowedEmailDomains as string[] | string
+const allowedDomains: string[] = typeof rawAllowedDomains === 'string'
+    ? rawAllowedDomains.split(',').map((d: string) => d.trim().toLowerCase()).filter((d: string) => d.length > 0)
+    : rawAllowedDomains
+const showDomainHint = isEnterprise && allowedDomains.length > 0
+const registrationClosed = publicConfig.registrationDisabled === true
+
 const onSubmit = async () => {
     error.value = ''
     if (password.value !== confirmPassword.value) {
@@ -37,8 +49,10 @@ const onSubmit = async () => {
             name: name.value.trim() || (email.value.split('@')[0] ?? ''),
         })
         if (signUpError) {
-            // better-auth 禁用注册时返回 EMAIL_PASSWORD_SIGN_UP_DISABLED → 映射为友好中文提示
-            if (signUpError.message?.includes('sign up is not enabled') || signUpError.code === 'EMAIL_PASSWORD_SIGN_UP_DISABLED') {
+            // 准入拒绝映射：域名不在允许列表（enterprise 白名单 / public 黑名单）与注册关闭分别提示
+            if (signUpError.code === 'EMAIL_DOMAIN_NOT_ALLOWED') {
+                error.value = '邮箱域名不在允许列表中，无法注册'
+            } else if (signUpError.message?.includes('sign up is not enabled') || signUpError.code === 'EMAIL_PASSWORD_SIGN_UP_DISABLED') {
                 error.value = '注册已关闭：平台未开放注册，请联系管理员'
             } else {
                 error.value = `注册失败：${signUpError.message ?? '未知错误'}`
@@ -66,7 +80,25 @@ const onSubmit = async () => {
             </p>
             <Card>
                 <template #content>
-                    <form class="auth-form" @submit.prevent="onSubmit">
+                    <Message
+                        v-if="registrationClosed"
+                        severity="warn"
+                        :closable="false"
+                    >
+                        平台未开放注册：请联系管理员开通账号
+                    </Message>
+                    <Message
+                        v-else-if="showDomainHint"
+                        severity="info"
+                        :closable="false"
+                    >
+                        仅接受 {{ allowedDomains.map((d) => `@${d}`).join('、') }} 邮箱注册
+                    </Message>
+                    <form
+                        v-if="!registrationClosed"
+                        class="auth-form"
+                        @submit.prevent="onSubmit"
+                    >
                         <div class="auth-form__field">
                             <label for="name">名称（可选）</label>
                             <InputText

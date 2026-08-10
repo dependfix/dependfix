@@ -30,18 +30,18 @@
 - 依赖：T701；设计文档 [platform-auth-users.md](../design/governance/platform-auth-users.md)（2026-08-09 Review Gate Pass，§5 env 矩阵 / §6 准入实现 / §10 实施拆分）
 - 交付物：多登录方式 + 部署模式互斥配置 + 注册准入控制。
 - 实现内容：
-  - [ ] 子任务 1（部署模式与准入）：`AUTH_MODE=enterprise|public` 互斥配置（缺省 public）；注册策略从 `REGISTRATION_DISABLED` 演进——保留为总开关（关闭所有注册渠道，OAuth/SSO 自动开通路径由 `user.create.before` hook 显式拦截）；邮箱域名白名单（enterprise）/ 黑名单（public）注册拦截（hook 单一准入点，覆盖邮箱注册与自动开通全渠道）；OAuth/SSO email 缺失 fail-closed（拒绝开通）
+  - [x] 子任务 1（部署模式与准入）：`AUTH_MODE=enterprise|public` 互斥配置（缺省 public）；注册策略从 `REGISTRATION_DISABLED` 演进——保留为总开关（关闭所有注册渠道，OAuth/SSO 自动开通路径由 `user.create.before` hook 显式拦截）；邮箱域名白名单（enterprise）/ 黑名单（public）注册拦截（hook 单一准入点，覆盖邮箱注册与自动开通全渠道）；OAuth/SSO email 缺失 fail-closed（拒绝开通）
     - 执行步骤：
-      - [ ] 新增 `apps/platform/server/utils/email-domain.ts`：`extractDomain(email)` / `isEmailDomainAllowed(email, mode, list)` 纯函数（不依赖 DataSource，便于单元测试）
-      - [ ] `apps/platform/nuxt.config.ts` runtimeConfig 扩展：私有 `authMode` / `allowedEmailDomains`（逗号分隔转数组）/ `blockedEmailDomains`；public `authMode`（供前端登录页模式感知）
-      - [ ] `apps/platform/server/utils/auth.ts`：`buildAuth` options 接收 `authMode` / `allowedEmailDomains` / `blockedEmailDomains`；`getAuth` 从 runtimeConfig 注入；启动校验 `authMode ∈ {enterprise, public}`（非法值抛错）
-      - [ ] `apps/platform/server/utils/auth.ts` `databaseHooks.user.create.before` 准入检查顺序（设计决策点 11）：① 首用户 admin（`count==0` → 设置 `role='admin'` → **直接返回，不走准入检查**）→ ② `REGISTRATION_DISABLED=true` 抛 `APIError` 4xx 拦截全渠道（邮箱已由 disableSignUp 前置拦截，此处兜底 OAuth/SSO 自动开通） → ③ `!user.email` fail-closed 抛 `APIError('EMAIL_REQUIRED')` → ④ enterprise 白名单未命中 / public 黑名单命中抛 `APIError('EMAIL_DOMAIN_NOT_ALLOWED')` 403）
-      - [ ] `apps/platform/server/utils/auth.ts` `disableSignUp` 条件化合并：`registrationDisabled || (authMode === 'enterprise' && allowedEmailDomains.length === 0)`（决策点 6/11：首用户经 hook `count==0` 放行不受 `disableSignUp` 影响——`disableSignUp` 仅拦截邮箱注册表单提交，首用户在开放期注册后可关闭）
-      - [ ] `apps/platform/app/pages/register.vue`：enterprise + 白名单非空时展示"仅接受 @域名 邮箱"提示；`REGISTRATION_DISABLED` 时隐藏注册入口（已有错误提示映射，补入口隐藏）
-      - [ ] `apps/platform/app/pages/login.vue`：读 `useRuntimeConfig().public.authMode`，为 OAuth/SSO 按钮预留占位容器（子任务 1 仅搭骨架，按钮本体在子任务 2/3 填充）
-      - [ ] `apps/platform/.env.example` 补充 `AUTH_MODE` / `ALLOWED_EMAIL_DOMAINS` / `BLOCKED_EMAIL_DOMAINS` 注释样例
-      - [ ] 新增 `apps/platform/server/utils/email-domain.test.ts`：纯函数边界（空名单、大小写、子域、多域、email 缺失）
-      - [ ] 新增 `apps/platform/server/utils/auth-access.test.ts`：hook 准入路径单元测试（mock `userRepo.count` + 注入 user）——REGISTRATION_DISABLED 拒绝、email 缺失拒绝、enterprise 白名单命中/未命中、public 黑名单命中/未命中、首用户 admin 不被准入拦截覆盖
+      - [x] 新增 `apps/platform/server/utils/email-domain.ts`：`extractDomain(email)` / `isEmailDomainAllowed(email, mode, list)` 纯函数（不依赖 DataSource，便于单元测试）
+      - [x] `apps/platform/nuxt.config.ts` runtimeConfig 扩展：私有 `authMode` / `allowedEmailDomains`（逗号分隔转数组）/ `blockedEmailDomains`；public `authMode`（供前端登录页模式感知）
+      - [x] `apps/platform/server/utils/auth.ts`：`buildAuth` options 接收 `authMode` / `allowedEmailDomains` / `blockedEmailDomains`；`getAuth` 从 runtimeConfig 注入；启动校验 `authMode ∈ {enterprise, public}`（非法值抛错）
+      - [x] `apps/platform/server/utils/auth.ts` `databaseHooks.user.create.before` 准入检查顺序（设计决策点 11）：① 首用户 admin（`count==0` → 设置 `role='admin'` → **直接返回，不走准入检查**）→ ② `REGISTRATION_DISABLED=true` 抛 `APIError` 4xx 拦截全渠道（邮箱已由 disableSignUp 前置拦截，此处兜底 OAuth/SSO 自动开通） → ③ `!user.email` fail-closed 抛 `APIError('EMAIL_REQUIRED')` → ④ enterprise 白名单未命中 / public 黑名单命中抛 `APIError('EMAIL_DOMAIN_NOT_ALLOWED')` 403）
+      - [x] `apps/platform/server/utils/auth.ts` `disableSignUp` 保持仅 `registrationDisabled`（**P1-1 修订**：enterprise 白名单空**不**合并进 disableSignUp——sign-up 端点级拦截发生在 hook 之前，会阻断首用户 admin bootstrap；白名单准入统一由 `user.create.before` hook 拒绝（决策点 6/11，hook 单一准入点））
+      - [x] `apps/platform/app/pages/register.vue`：enterprise + 白名单非空时展示"仅接受 @域名 邮箱"提示；`REGISTRATION_DISABLED` 时隐藏注册入口（已有错误提示映射，补入口隐藏）
+      - [x] `apps/platform/app/pages/login.vue`：读 `useRuntimeConfig().public.authMode`，为 OAuth/SSO 按钮预留占位容器（子任务 1 仅搭骨架，按钮本体在子任务 2/3 填充）
+      - [x] `apps/platform/.env.example` 补充 `AUTH_MODE` / `ALLOWED_EMAIL_DOMAINS` / `BLOCKED_EMAIL_DOMAINS` 注释样例
+      - [x] 新增 `apps/platform/server/utils/email-domain.test.ts`：纯函数边界（空名单、大小写、子域、多域、email 缺失）
+      - [x] 新增 `apps/platform/server/utils/auth-access.test.ts`：hook 准入路径单元测试（mock `userRepo.count` + 注入 user）——REGISTRATION_DISABLED 拒绝、email 缺失拒绝、enterprise 白名单命中/未命中、public 黑名单命中/未命中、首用户 admin 不被准入拦截覆盖
     - 受影响文件：`server/utils/email-domain.ts`（新）/ `server/utils/auth.ts` / `nuxt.config.ts` / `app/pages/{login,register}.vue` / `.env.example` / `server/utils/email-domain.test.ts`（新）/ `server/utils/auth-access.test.ts`（新）
     - 技术约束：
       - hook 抛 better-auth `APIError` 而非裸 Error，保证 4xx 非 500（`EMAIL_DOMAIN_NOT_ALLOWED` → 403）

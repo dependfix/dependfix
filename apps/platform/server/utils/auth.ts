@@ -4,7 +4,8 @@ import { snowflake } from './snowflake'
 import { typeormAdapter } from '#server/database/typeorm-adapter'
 import { ensureDatabaseInitialized } from '#server/database'
 import { ensureDefaultOrganization, migrateLegacyRoles } from '#server/utils/organization'
-import { User } from '#server/entities/user'
+import { parseDomainList, type AuthMode } from '#server/utils/email-domain'
+import { buildCreateUserBefore } from '#server/utils/registration-access'
 
 /**
  * better-auth 实例（邮箱密码登录 + admin 用户管理插件）。
@@ -82,6 +83,9 @@ const buildAuth = (ds: Awaited<ReturnType<typeof ensureDatabaseInitialized>>, op
     authSecret: string
     smtpEnabled: boolean
     registrationDisabled: boolean
+    authMode: AuthMode
+    allowedEmailDomains: string[]
+    blockedEmailDomains: string[]
 }) => betterAuth({
     appName: 'dependfix',
     secret: options.authSecret,
@@ -98,7 +102,11 @@ const buildAuth = (ds: Awaited<ReturnType<typeof ensureDatabaseInitialized>>, op
     ],
     emailAndPassword: {
         enabled: true,
-        // 关闭注册（保留登录）：部署到公开环境时设置 REGISTRATION_DISABLED=true
+        // 关闭注册（保留登录）：部署到公开环境时设置 REGISTRATION_DISABLED=true。
+        // enterprise 白名单为空时**不**合并进 disableSignUp：sign-up 端点级拦截
+        // 发生在 user.create.before hook 之前，会阻断首用户 admin 的 bootstrap
+        // （platform-auth-users.md §11 决策点 11）；白名单准入统一由 hook 拒绝
+        // （hook 单一准入点，platform-auth-users.md §11 决策点 6）
         disableSignUp: options.registrationDisabled,
         minPasswordLength: 8,
         requireEmailVerification: options.smtpEnabled,
@@ -177,19 +185,17 @@ const buildAuth = (ds: Awaited<ReturnType<typeof ensureDatabaseInitialized>>, op
     databaseHooks: {
         user: {
             create: {
-                before: async (user) => {
-                    // 首个注册用户自动成为管理员。
-                    // count 失败时抛错中止注册：若静默降级为默认 user，后续 count 不再为 0，
-                    // 系统将永久无管理员（管理员分配失败必须阻断创建）。
-                    const userRepo = ds.getRepository(User)
-                    const count = await userRepo.count()
-                    if (count === 0) {
-                        user.role = 'admin'
-                    }
-                    return {
-                        data: user,
-                    }
-                },
+                // 注册准入 + 首用户 admin（platform-auth-users.md §11 决策点 11 短路先于准入检查；决策点 6/5 准入）
+                // 独立为 buildCreateUserBefore 以便集成测试（auth-access.test.ts）
+                before: buildCreateUserBefore({
+                    ds,
+                    ctx: {
+                        authMode: options.authMode,
+                        registrationDisabled: options.registrationDisabled,
+                        allowedEmailDomains: options.allowedEmailDomains,
+                        blockedEmailDomains: options.blockedEmailDomains,
+                    },
+                }),
             },
         },
     },
@@ -201,6 +207,9 @@ export const getAuthInstance = async (options: {
     authSecret: string
     smtpEnabled: boolean
     registrationDisabled: boolean
+    authMode: AuthMode
+    allowedEmailDomains: string[]
+    blockedEmailDomains: string[]
 }): Promise<AuthInstance> => {
     const ds = await ensureDatabaseInitialized()
 
@@ -231,15 +240,28 @@ const assertAuthSecret = (authSecret: string): void => {
     }
 }
 
+/** 启动校验并收窄 AUTH_MODE：只允许 enterprise | public（部署模式互斥二选一，platform-auth-users.md §11 决策 D1）。 */
+const assertAuthMode = (authMode: string): AuthMode => {
+    if (authMode !== 'enterprise' && authMode !== 'public') {
+        throw new Error(`[auth] AUTH_MODE 配置非法：${authMode}，只允许 enterprise | public`)
+    }
+    return authMode
+}
+
 export const getAuth = async (): Promise<AuthInstance> => {
     const scope = getGlobalScope()
     if (!scope[GLOBAL_AUTH_KEY]) {
         const config = useRuntimeConfig()
         assertAuthSecret(config.authSecret)
+        // 启动校验 AUTH_MODE 合法性（非法值在首个认证请求时抛错，避免静默回退默认模式）
+        const authMode = assertAuthMode(config.authMode)
         scope[GLOBAL_AUTH_KEY] = await getAuthInstance({
             authSecret: config.authSecret,
             smtpEnabled: config.smtpEnabled,
             registrationDisabled: config.registrationDisabled,
+            authMode,
+            allowedEmailDomains: parseDomainList(config.allowedEmailDomains),
+            blockedEmailDomains: parseDomainList(config.blockedEmailDomains),
         })
     }
     return scope[GLOBAL_AUTH_KEY]!

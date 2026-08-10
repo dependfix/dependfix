@@ -12,10 +12,35 @@ onMounted(() => {
     initColorMode()
 })
 
+// 认证模式感知：按 authMode 决定第三方登录方式展示；
+// socialProviders 由 OAuth（GitHub/Google）与 OIDC SSO 子任务填充
+const publicConfig = useRuntimeConfig().public
+const authMode = publicConfig.authMode
+const registrationClosed = publicConfig.registrationDisabled === true
+const socialProviders = ref<string[]>([])
+
+const PROVIDER_LABELS: Record<string, string> = {
+    github: 'GitHub',
+    google: 'Google',
+    oidc: '企业 SSO',
+}
+const providerLabel = (provider: string) => PROVIDER_LABELS[provider] ?? provider
+
 const email = ref('')
 const password = ref('')
 const loading = ref(false)
 const error = ref('')
+
+const onSocialSignIn = async (provider: string) => {
+    error.value = ''
+    const { error: socialError } = await authClient.signIn.social({
+        provider,
+        callbackURL: '/dashboard',
+    })
+    if (socialError) {
+        error.value = `登录失败：${socialError.message ?? '未知错误'}`
+    }
+}
 
 const onSubmit = async () => {
     error.value = ''
@@ -88,7 +113,25 @@ const onSubmit = async () => {
                             fluid
                         />
                     </form>
-                    <div class="auth__switch">
+                    <!-- 第三方登录区：authMode 感知 + 已配置 provider 才显示（OAuth / OIDC 子任务填充） -->
+                    <div v-if="authMode && socialProviders.length" class="auth__social">
+                        <div class="auth__divider">
+                            或
+                        </div>
+                        <div class="auth__social-buttons">
+                            <Button
+                                v-for="provider in socialProviders"
+                                :key="provider"
+                                :label="provider === 'oidc' ? '企业 SSO 登录' : `${providerLabel(provider)} 登录`"
+                                icon="pi pi-user"
+                                text
+                                outlined
+                                fluid
+                                @click="onSocialSignIn(provider)"
+                            />
+                        </div>
+                    </div>
+                    <div v-if="!registrationClosed" class="auth__switch">
                         还没有账号？
                         <NuxtLink to="/register">
                             立即注册
@@ -124,6 +167,33 @@ const onSubmit = async () => {
             font-size: $font-size-sm;
             font-weight: 500;
         }
+    }
+}
+
+.auth__social {
+    margin-top: $space-4;
+
+    &-buttons {
+        display: flex;
+        flex-direction: column;
+        gap: $space-2;
+    }
+}
+
+.auth__divider {
+    display: flex;
+    align-items: center;
+    gap: $space-3;
+    margin-bottom: $space-3;
+    color: var(--p-content-muted-color);
+    font-size: $font-size-sm;
+
+    &::before,
+    &::after {
+        content: '';
+        flex: 1;
+        height: 1px;
+        background: var(--p-content-border-color);
     }
 }
 </style>

@@ -1,33 +1,52 @@
 /**
  * 扫描任务 Worker（BullMQ Worker 封装）。
- * processor 复用 runScanForRepository（同步模型执行主体，队列化后由 worker 消费）。
+ * 默认 processor 按 job.name 分发：
+ * - 'scan'（SCAN_QUEUE_NAME）：单仓库扫描，复用 runScanForRepository（续用 API 预创建的 pending run）
+ * - 'scheduled-scan'（SCHEDULED_JOB_NAME）：定时计划到点（BullMQ job scheduler 产生）→ triggerSchedule
+ *   （解析仓库列表 → 创建 BatchRun → 逐仓库入队），async 窗口期闭环
  * 并发控制：同仓库由 jobId 去重保证（同一仓库同时一个 job）；不同仓库按 concurrency 并发
  * （默认 1 保守——容器执行器按 runId 隔离 workDir，跨仓库并发安全；env 可调）。
  */
 import { Worker } from 'bullmq'
 import type { Redis } from 'ioredis'
 import { runScanForRepository } from '../scan-orchestrator.service'
+import { SCHEDULED_JOB_NAME, triggerSchedule } from '../scheduler/scheduler.service'
 import { SCAN_QUEUE_NAME, type ScanJobData } from './scan-queue'
+
+/** scheduled-scan job 数据（BullMQ job scheduler 模板，见 scheduler.service registerSchedule） */
+export interface ScheduledScanJobData {
+    scheduleId: string
+}
+
+/** worker 可消费的 job 数据联合（scan / scheduled-scan 两种形状） */
+export type ScanWorkerJobData = ScanJobData | ScheduledScanJobData
 
 export interface ScanWorker {
     close: () => Promise<void>
 }
 
-/** job 处理器签名（默认复用 runScanForRepository；测试可注入 mock） */
-export type ScanJobProcessor = (data: ScanJobData) => Promise<unknown>
+/** job 处理器签名（测试可注入 mock；默认 processor 按 job.name 分发） */
+export type ScanJobProcessor = (data: ScanWorkerJobData, jobName: string) => Promise<unknown>
 
-const defaultProcessor: ScanJobProcessor = async ({ repositoryId, request, runId }) =>
+/** 默认处理器：按 job.name 分发（导出便于单测） */
+export const defaultProcessor: ScanJobProcessor = async (data, jobName) => {
+    if (jobName === SCHEDULED_JOB_NAME) {
+        const { scheduleId } = data as ScheduledScanJobData
+        return triggerSchedule(scheduleId)
+    }
+    const { repositoryId, request, runId } = data as ScanJobData
     // 续用 API 预创建的 pending run（runId 非空时）；同步降级路径不经过 worker
-    runScanForRepository(repositoryId, request, runId ? { runId } : undefined)
+    return runScanForRepository(repositoryId, request, runId ? { runId } : undefined)
+}
 
 
 export const createScanWorker = (
     connection: Redis,
     options?: { concurrency?: number, processor?: ScanJobProcessor },
 ): ScanWorker => {
-    const worker = new Worker<ScanJobData>(SCAN_QUEUE_NAME, async (job) => {
+    const worker = new Worker<ScanWorkerJobData>(SCAN_QUEUE_NAME, async (job) => {
         const processor = options?.processor ?? defaultProcessor
-        return processor(job.data)
+        return processor(job.data, job.name)
     }, {
         connection,
         concurrency: options?.concurrency ?? 1,

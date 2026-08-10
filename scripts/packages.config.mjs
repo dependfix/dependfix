@@ -3,7 +3,7 @@
  *
  * 新增发布包时只改此文件（+ 对应包 README），引用方自动生效：
  * - scripts/changelog.mjs（包级 CHANGELOG 生成）
- * - scripts/create-changeset.mjs（commit 路径 → 包名映射）
+ * - scripts/create-release-plan.mjs（commit 路径 → 包名映射）
  * - .github/workflows/release.yml（changelog 校验循环）
  * - docs/guide/release.md（发布指南表格由 README 链接引用，无独立清单）
  *
@@ -11,13 +11,13 @@
  * - path：包目录（相对仓库根）
  * - pkg：包名（@dependfix/* 或裸名）
  * - changelog：包级 CHANGELOG.md 相对路径（null = 不生成包级日志）
- * - tags：tag 前缀（changesets 发布用 `<pkg>@<version>`）
+ * - tags：tag 前缀（release:publish 发布用 `<pkg>@<version>`）
  * - publishOrder：发布顺序（被依赖方先行；越小越先发布）
  * - rootChangelog：是否作为根级 CHANGELOG 版本锚（主交付物）
- * - publishable：是否纳入发布链路（release.yml 校验 + changeset publish；false = 未就绪包）。
- *   **注意联动**：publishable: false 的包必须在 .changeset/config.json 的 `ignore` 中登记，
- *   否则 changeset publish 会按"本地版本未在 npm registry"将其意外发布（npm 发布不可逆）。
- *   就绪时同步移除两处声明并启用 changelog（先例：@dependfix/mcp，2026-08-09 就绪，
+ * - publishable：是否纳入发布链路（release:version/publish 仅消费 publishable: true
+ *   的包；false = 未就绪包，天然不进发布链路，无需其他联动。注：release:plan 的
+ *   PKG_PATH_MAP 为全量映射，未就绪包条目由 release:version 的 KNOWN_PKGS 硬校验拦截）。
+ *   就绪时置 true 并启用 changelog（先例：@dependfix/mcp，2026-08-09 就绪，
  *   见 docs/plan/backlog.md §T706）。
  * - changelog：包级 CHANGELOG.md 相对路径（null = 不生成包级日志；未就绪包先置 null，
  *   待发布链路就绪后再启用，避免为未发布包生成与已发布段混排的日志）
@@ -79,7 +79,7 @@ export const PACKAGES_BY_ORDER = [...PACKAGES].sort((a, b) => a.publishOrder - b
 /** 已就绪发布包（publishable: true） */
 export const PUBLISHABLE_PACKAGES = PACKAGES.filter((p) => p.publishable)
 
-/** commit 路径 → 包名映射（create-changeset pathToPkg 用） */
+/** commit 路径 → 包名映射（create-release-plan pathToPkg 用） */
 export const PKG_PATH_MAP = Object.fromEntries(PACKAGES.map((p) => [p.path, p.pkg]))
 
 /** 主交付物（根级 CHANGELOG 版本锚） */

@@ -1,8 +1,8 @@
 /**
- * 发布 changeset 生成脚本
+ * 发布计划生成脚本（release:plan）
  *
  * 参照 semantic-release / conventionalcommits 规则，从 git log 自动推导各包的版本提升级别，
- * 生成 .changeset/release.md（每轮发布固定一个 changeset 文件）：
+ * 生成 release-plan.md（每轮发布固定一个计划文件，人工 review 后可编辑修正 bump 级别）：
  * - feat → minor
  * - fix / perf / revert → patch
  * - BREAKING（subject `!` 后缀或 `BREAKING CHANGE:` footer）→ 0.x 阶段 minor（preMajor），1.0.0+ 阶段 major
@@ -10,10 +10,10 @@
  *
  * 包影响面按 commit 改动路径映射：packages/core → @dependfix/core、packages/cli → dependfix、
  * packages/skills → @dependfix/skills；根目录 / docs / scripts 等不生成条目
- * （依赖传导由 changesets 的 updateInternalDependencies 处理，无需为依赖方手动声明）。
+ * （依赖传导由 release:version 的传导闭包处理，无需为依赖方手动声明）。
  *
  * 已知局限（人工兜底）：breaking 判定仅识别 commit 中显式标注的 `!` / BREAKING CHANGE footer；
- * 未标注的破坏性变更（如纯 ESM 改造以 build 类型提交）需在 review 时手动修正 release.md 的 bump 级别。
+ * 未标注的破坏性变更（如纯 ESM 改造以 build 类型提交）需在 review 时手动修正计划文件的 bump 级别。
  */
 import { execSync } from 'node:child_process'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
@@ -22,7 +22,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { PKG_PATH_MAP } from './packages.config.mjs'
 
 const repoRoot = fileURLToPath(new URL('..', import.meta.url))
-const CHANGESET_FILE = join(repoRoot, '.changeset/release.md')
+const PLAN_FILE = join(repoRoot, 'release-plan.md')
 // 包清单单点来源：scripts/packages.config.mjs（新增发布包只改一处）
 const PKG_PATHS = PKG_PATH_MAP
 const TYPE_BUMP = {
@@ -84,7 +84,7 @@ export function buildReleasePlan(commits, preMajor) {
     return plan
 }
 
-/** 渲染 changeset 文件内容（frontmatter 单引号风格与现有 changeset 保持一致） */
+/** 渲染发布计划文件内容（frontmatter 单引号风格沿用既有 changeset 格式） */
 export function renderChangeset(plan, summary) {
     const lines = ['---']
     for (const [pkg, bump] of plan) {
@@ -160,11 +160,11 @@ export function main() {
     const preMajor = isPreMajor()
     const plan = buildReleasePlan(commits, preMajor)
     if (plan.size === 0) {
-        console.log('未发现需要提升版本的变更，不生成 changeset')
+        console.log('未发现需要提升版本的变更，不生成发布计划')
         return
     }
-    if (existsSync(CHANGESET_FILE)) {
-        console.error(`已存在 ${CHANGESET_FILE}，请先删除或人工合并后重新生成`)
+    if (existsSync(PLAN_FILE)) {
+        console.error(`已存在 ${PLAN_FILE}，请先删除或人工合并后重新生成`)
         process.exit(1)
     }
     const summary = commits
@@ -172,8 +172,8 @@ export function main() {
         .map((c) => stripDevTags(c.subject))
         .join('；')
     const content = renderChangeset(plan, summary.length > SUMMARY_MAX_LEN ? `${summary.slice(0, SUMMARY_MAX_LEN)}……` : summary)
-    writeFileSync(CHANGESET_FILE, content, 'utf8')
-    console.log(`generated ${CHANGESET_FILE}`)
+    writeFileSync(PLAN_FILE, content, 'utf8')
+    console.log(`generated ${PLAN_FILE}`)
     for (const [pkg, bump] of plan) {
         console.log(`- ${pkg}: ${bump}`)
     }

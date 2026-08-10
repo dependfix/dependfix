@@ -21,7 +21,7 @@ import { dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const repoRoot = fileURLToPath(new URL('..', import.meta.url))
-const EXCLUDED_DIRS = new Set(['node_modules', '.git', '.changeset', '.vitepress', 'dist', 'archive', '.agents', '.claude'])
+const EXCLUDED_DIRS = new Set(['node_modules', '.git', '.vitepress', 'dist', 'archive', '.agents', '.claude'])
 const LINK_RE = /\[([^\]]*)\]\(([^)]+)\)/g
 // 本地绝对路径：POSIX（/xxx）、Windows 盘符（C:/xxx / C:\xxx）、UNC（\\server）
 const ABS_PATH_RE = /^(?:[a-zA-Z]:[\\/]|\\\\|\/)/

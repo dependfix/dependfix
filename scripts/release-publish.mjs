@@ -62,6 +62,14 @@ export function buildPublishPlan(packages, deps) {
 
 /** 执行发布 + 打 tag（副作用；失败时 execSync 抛错 → 进程非零退出） */
 export function publishOne(planItem) {
+    // 锚点防御：tag 必须指向"同时 touch 该包路径"的提交（changelog 分段锚点约束，
+    // 经验归档 §二十五/§二十六）。正常流程 HEAD = release:version + changelog 提交，
+    // 天然满足；若在非发布提交上误执行，禁止打错 tag 污染推导基线。
+    if (!headTouchesPath(planItem.path)) {
+        throw new Error(
+            `HEAD 不是 touch ${planItem.path} 的提交（${headHash()}），请确认已执行 release:version 并提交发布变更（package.json 版本 + CHANGELOG）后再发布`,
+        )
+    }
     console.log(`publishing ${planItem.pkg}@${planItem.version}`)
     execSync(`pnpm --filter ${planItem.pkg} publish --no-git-checks`, {
         cwd: repoRoot,
@@ -70,6 +78,19 @@ export function publishOne(planItem) {
     })
     git(`tag -a "${planItem.tagName}" -m "release ${planItem.tagName}"`)
     console.log(`published ${planItem.pkg}@${planItem.version}，tag ${planItem.tagName} 已创建`)
+}
+
+/** HEAD commit 是否 touch 该包路径（`git log -1 -- <path>` 锚点 == HEAD） */
+function headTouchesPath(pkgPath) {
+    try {
+        return git(`log -1 --format=%H -- "${pkgPath}"`) === headHash()
+    } catch {
+        return false
+    }
+}
+
+function headHash() {
+    return git('rev-parse HEAD')
 }
 
 export async function main() {

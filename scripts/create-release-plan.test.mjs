@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildReleasePlan, parseCommit, pathToPkg, renderChangeset, stripDevTags, toBump } from './create-changeset.mjs'
+import { buildReleasePlan, parseCommit, pathToPkg, renderChangeset, stripDevTags, toBump } from './create-release-plan.mjs'
 
 describe('parseCommit', () => {
     it('parses type and description', () => {

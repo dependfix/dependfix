@@ -151,9 +151,9 @@ if (value) { ... }  // 对 0, "", false 失效
 新增 `packages/*` 目录或修改 `scripts/packages.config.mjs` 时，检查发布/文档链路是否同步：
 
 - **单点登记**：新包是否已在 [packages.config.mjs](../../../../scripts/packages.config.mjs) 登记（path/pkg/changelog/tags/publishOrder/publishable）
-- **发布就绪语义**：未就绪包是否 `publishable: false` + `.changeset/config.json` `ignore` 登记（防止 changeset publish 意外发布不可逆 npm 包）——两处联动缺一不可
+- **发布就绪语义**：未就绪包 `publishable: false`（release 脚本仅消费 publishable 就绪包，无需 ignore 联动；就绪时置 true 并启用 changelog）
 - **README 与文档**：包 README 是否存在；[release.md](../../../../docs/guide/release.md) 发布包清单与 npm 链接是否更新
-- **CI 引用**：release.yml / changelog.mjs / create-changeset.mjs 是否自动覆盖（单点化后无需逐个改，但需确认无残留硬编码包列表）
+- **CI 引用**：release.yml / changelog.mjs / create-release-plan.mjs 是否自动覆盖（单点化后无需逐个改，但需确认无残留硬编码包列表）
 - **Docker 影响面**：平台镜像（apps/platform/Dockerfile）是否需要在构建/运行时包含该包
 
 教训见 [经验归档 §二十五](../../../../docs/design/governance/experience-archive.md)（mcp 包遗漏 README/release 链路），规范见 [release.md](../../../../docs/guide/release.md)。
@@ -182,9 +182,9 @@ if (value) { ... }  // 对 0, "", false 失效
 
 ### 发布链路 tag 推送核验（必查项）
 
-修改发布相关脚本/工作流（release.yml / changelog.mjs / changeset 配置 / 手动发布文档）时，检查 tag 生命周期闭环：
+修改发布相关脚本/工作流（release.yml / changelog.mjs / release 脚本 / 手动发布文档）时，检查 tag 生命周期闭环：
 
-- **创建与推送分离**：生成类步骤（changeset publish）只保证本地创建 tag，是否配套显式推送步骤（`git push <url> --tags` 而非依赖 insteadOf 全局替换）
+- **创建与推送分离**：生成类步骤（release:publish）只保证本地创建 tag，是否配套显式推送步骤（`git push <url> --tags` 而非依赖 insteadOf 全局替换）
 - **推送后核验**：推送步骤是否对比本地/远程 tag 集合（`git ls-remote` 缺失即报错）——CI 曾实测输出 `Everything up-to-date` 但 tag 未推送（run 31208208621，静默失败）
 - **本地补打纪律**：手动补打 tag 后文档是否提示显式 `--tags` 推送 + followTags 建议（git 默认不推 tag）
 - **判定多源兜底**：changelog 等"已发布"判定是否依赖 tag 单源——应有 npm registry 兜底（见 §二十五）
@@ -229,7 +229,7 @@ if (value) { ... }  // 对 0, "", false 失效
 - "diff 中新增的注释/测试名是否含孤立编号标记？"
 - "编号是否带可反查的文档路径（导航指针例外）？"
 - "清理编号后解释正文是否保留、语义是否完整？"
-- "新增/改动发布包时，单点登记、changeset ignore、README、release.md、CI 引用是否同步？"
+- "新增/改动发布包时，单点登记、publishable 语义、README、release.md、CI 引用是否同步？"
 - "本次内部包依赖改动是否符合依赖方向（core ← engine ← {cli, mcp, platform}）？应用层（cli/mcp/platform）是否互相依赖？"
 - "本次新增/修改的条款是否与权威文档重复抄写？应改为一行链接引用（治理定义改动必查）？"
 - "新增的严格约束（必须/阈值/禁令）是否已声明并挂接 review 检查点？宽松指引是否留在执行层？"

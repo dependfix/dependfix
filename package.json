@@ -11,10 +11,9 @@
   },
   "packageManager": "pnpm@11.17.0",
   "scripts": {
-    "changeset": "changeset",
-    "changeset:generate": "node scripts/create-changeset.mjs",
-    "changeset:version": "changeset version",
-    "changeset:publish": "changeset publish",
+    "release:plan": "node scripts/create-release-plan.mjs",
+    "release:version": "node scripts/release-version.mjs",
+    "release:publish": "node scripts/release-publish.mjs",
     "changelog": "node scripts/changelog.mjs",
     "tag:released": "node scripts/tag-released-versions.mjs",
     "distill:wisdom": "node scripts/distill-wisdom.mjs",
@@ -37,7 +36,6 @@
     "docs:preview": "pnpm --filter dependfix-docs preview"
   },
   "devDependencies": {
-    "@changesets/cli": "^2.31.1",
     "@lint-md/cli": "2.2.4",
     "@types/node": "^26.1.2",
     "@vitest/coverage-v8": "^4.1.10",

@@ -21,7 +21,7 @@ jobs:
     permissions:
       # OIDC trusted publishing：pnpm publish 通过 OIDC token 交换获得临时发布凭据，无需 NPM_TOKEN
       id-token: write
-      # 推送 changeset publish 创建的 <pkg>@<version> git tag
+      # 推送 release:publish 创建的 <pkg>@<version> git tag
       contents: write
     steps:
       - uses: actions/checkout@v7
@@ -36,9 +36,6 @@ jobs:
           node-version: "lts/*"
           cache: "pnpm"
           registry-url: "https://registry.npmjs.org"
-      # changeset publish 内部会用 npm info 探测 registry 版本，保持 npm 工具链较新以兼容输出格式
-      - name: Upgrade npm
-        run: npm install -g npm@latest
       - run: pnpm i --frozen-lockfile
       # Nuxt 平台 eslint 依赖 .nuxt/tsconfig.json（Nuxt 生成的类型），需先 prepare 生成
       - run: pnpm --filter @dependfix/platform exec nuxt prepare
@@ -48,9 +45,10 @@ jobs:
       - run: pnpm --filter @dependfix/core build && pnpm --filter @dependfix/engine build && pnpm --filter dependfix build
 
       # 定时发布（schedule 触发时自动完成版本提升 + CHANGELOG 生成 + 提交推送）：
-      # - 手动发布（workflow_dispatch）时版本已在本地通过 changeset version + pnpm changelog
-      #   提升并提交，此步骤跳过；
-      # - 没有待发布的 changeset 时全流程无操作（changeset version 无变更退出，
+      # - 手动发布（workflow_dispatch）时版本已在本地通过 release:plan + release:version
+      #   + pnpm changelog 提升并提交，此步骤跳过；
+      # - 没有待发布变更时全流程无操作（release:plan 无推导结果不生成计划文件，
+      #   release:version 无计划可消费时报错会中断——因此前置防御性清理残留计划文件；
       #   changelog 幂等生成，git commit 跳过；后续质量门 / 校验 / publish 均安全 no-op）；
       # - 提交推送使用 GITHUB_TOKEN（x-access-token 方式，checkout 为 persist-credentials: false）。
       # 1.0.0 正式版发布后取消上方 schedule 注释即启用。
@@ -59,11 +57,17 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          pnpm changeset version
+          rm -f release-plan.md
+          pnpm release:plan
+          if [ -f release-plan.md ]; then
+            pnpm release:version
+          else
+            echo "::notice::没有待提升的版本，跳过 release:version"
+          fi
           pnpm changelog
           git add -A
           if git diff --cached --quiet; then
-            echo "::notice::没有待发布的 changeset，定时发布无操作"
+            echo "::notice::没有待发布的版本变更，定时发布无操作"
           else
             # GitHub runner 默认无 git 身份，需要显式配置（github-actions[bot] 官方身份）
             git config user.name "github-actions[bot]"
@@ -86,7 +90,7 @@ jobs:
               exit 1
             fi
             git commit -m "chore(release): ${version} [skip ci]" -m "$release_notes"
-            # 分支为当前默认分支 master（与 changeset config 的 baseBranch 一致）
+            # 分支为当前默认分支 master（release:version 消费计划后无 baseBranch 概念，固定 master）
             git config --global url."https://x-access-token:${GITHUB_TOKEN}@github.com/".insteadOf "https://github.com/"
             git push origin master
           fi
@@ -129,30 +133,29 @@ jobs:
           done
           echo "changelog is up to date"
 
-      # changeset publish：
-      # - 判断依据是"本地版本未出现在 npm registry 已发布版本列表"（npm info 对比），
-      #   与 .changeset/ 目录是否存在无关（changeset version 已消费并删除 changeset 文件）；
+      # release:publish：
+      # - 判断依据是"本地版本未出现在 npm registry 已发布版本列表"（fetch 直连
+      #   registry 对比），与 release-plan.md 是否存在无关（release:version 已消费删除）；
       #   无待发布版本时安全退出，天然处理包版本不同步
-      # - 在 pnpm 项目内部调用 pnpm publish（自动将 workspace:* 替换为实际版本）
+      # - 底层调用 pnpm publish（自动将 workspace:* 替换为实际版本）
       # - 通过 OIDC（id-token: write）完成 npm trusted publishing 认证，无需 NPM_TOKEN
-      # - 发布成功后仅在本地创建 <pkg>@<version> 格式的 git tag（--no-git-tag 可关闭）
-      - name: Changeset Publish
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: pnpm changeset publish
+      # - 发布成功后创建 <pkg>@<version> 格式的 annotated git tag（指向 HEAD，
+      #   HEAD 锚点校验：HEAD 必须 touch 待发布包路径，防误发布）
+      - name: Release Publish
+        run: pnpm release:publish
 
-      # changeset publish 只创建本地 tag，需要显式推送（checkout 使用 persist-credentials: false，
+      # release:publish 只创建本地 tag，需要显式推送（checkout 使用 persist-credentials: false，
       # 通过 x-access-token 方式用 GITHUB_TOKEN 认证推送）。
       # 教训（2026-08-08 实证）：`git config --global url."https://x-access-token:${TOKEN}@github.com/".insteadOf
       # "https://github.com/"` + `git push origin --tags` 在 CI 下实测输出 "Everything up-to-date" 但 tag
-      # 未推送（远程始终缺 changeset 创建的 tag，run 31208208621）——insteadOf 的 URL 替换在 Actions
+      # 未推送（远程始终缺 release:publish 创建的 tag，run 31208208621）——insteadOf 的 URL 替换在 Actions
       # checkout（fetch-tags: false + persist-credentials: false）环境下不可靠。
       # 改用显式带 token 的 push URL（官方推荐模式），并推送后核验 tag 已同步远程（失败即报错）。
       - name: Push release tags
         run: |
           set -euo pipefail
           git push "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" --tags
-          # 核验：本次 workflow 中 changeset 创建的 tag 是否已出现在远程
+          # 核验：本次 workflow 中 release:publish 创建的 tag 是否已出现在远程
           git fetch "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" --tags
           local_tags=$(git tag)
           remote_tags=$(git ls-remote "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" --tags | awk '{print $2}' | sed 's|refs/tags/||')

@@ -63,3 +63,7 @@ coverage/
 # Review Gate 审计记录
 artifacts/
 
+# release 计划临时产物（release:plan 生成 → 人工 review → release:version 消费删除）
+release-plan.md
+
+

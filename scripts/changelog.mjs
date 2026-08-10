@@ -14,7 +14,7 @@
  *   包括历史 commit 重写、手动编辑等，一律不覆盖。未发布段在文件不存在时以
  *   releaseCount: 0 全量生成，之后每次运行仅重算顶部未发布段（releaseCount: 1），
  *   无未发布内容（版本 == 最新 tag）时文件保持不变；
- * - 生成时机：changeset version 之后、publish 之前（此时新版本尚无 tag，
+ * - 生成时机：release:version 之后、publish 之前（此时新版本尚无 tag，
  *   未发布段输出全部新增 commit）。边界行为：若在版本 == 最新 tag 时运行
  *   （如 core-only 发布后重跑、或发布后立即重跑），未发布段无新增内容，跳过写入；
  *   writer 在该边界下可能产生无任何分组内容的空版本段，生成时自动过滤；
@@ -45,7 +45,7 @@ const targets = [
         title: ROOT_PACKAGE.pkg,
         commits: {},
         tags: ROOT_PACKAGE.tags,
-        // 根级版本锚 = 主交付物包版本（与其 tag 序列同步，由 changesets 维护）
+        // 根级版本锚 = 主交付物包版本（与其 tag 序列同步，由 release:version 维护）
         pkg: `${ROOT_PACKAGE.path}/package.json`,
     },
     ...PACKAGES.filter((p) => p.changelog).map((p) => ({
@@ -128,7 +128,7 @@ function mergeUnreleased(existing, version, unreleased) {
 /**
  * 判断某版本是否已发布（已发布段不可改写）。
  * 判定顺序（任一命中即视为已发布）：
- * 1. 本地 git tag 存在 `<prefix><version>`（changesets 发布产物）；
+ * 1. 本地 git tag 存在 `<prefix><version>`（release:publish 发布产物）；
  * 2. npm registry 已存在该版本（`npm view <pkg>@<version>` 命中）——
  *    兼容"手动发布但 tag 缺失/未推送"场景（如 0.2.0 曾由 npm 手动发布而 git tag 仅 0.1.0 系列，
  *    导致该版本被误判为未发布段、重算时污染既有 CHANGELOG 段）。
@@ -148,7 +148,7 @@ function isVersionTagged(prefix, version, pkgName) {
         // 统一用 stdio 捕获 stderr，失败时 execSync 抛错走 catch。
         // 失败（离线/限流）返回 false → 走增量重算：mergeUnreleased 对同版本段是"整段替换"，
         // 极端场景（手动发布无 tag + npm 不可达 + 有新 commit）仍可能改写顶部段；
-        // 正常 changesets 流程有 tag 短路，且无新内容时 generate 返回空保持 unchanged。
+        // 正常 release 流程有 tag 短路，且无新内容时 generate 返回空保持 unchanged。
         try {
             const out = execSync(`npm view ${pkgName}@${version} version --json`, {
                 cwd: repoRoot,

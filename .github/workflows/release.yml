@@ -102,36 +102,11 @@ jobs:
       - run: pnpm run build
 
       # CHANGELOG 校验：发布前确认各份 CHANGELOG（根级 + 全部发布包级）已包含当前版本段。
-      # 包清单来自单点配置 scripts/packages.config.mjs（新增发布包只改一处，此处自动生效）。
-      # CHANGELOG 由本地 `pnpm changelog`（conventional-changelog-cmyr-config）生成并随
-      # 发布提交入库，CI 不重新生成；若版本已提升但日志缺失，说明漏跑了生成步骤，禁止发布。
-      # 普通提交（版本未变）时各日志已含对应版本段，校验自动通过。
-      # 段标题兼容 minor（`# [0.x.0]`）与 patch（`## [0.x.y]`，cmyr-config 按 isPatch 输出）两种前缀。
-      # 注意：正则须为 POSIX ERE 兼容写法（CI 用 grep -E 校验）——字符类内 `\]` 不代表字面 `]`，
-      # 须用分组 `(\]| |\$)`：`\]` 匹配 `# [0.x.0]` 的右括号、空格匹配 `# 0.x.0 (date)` 无链接
-      # 标题的版本后空白、`\$` 匹配纯版本标题的行尾。
+      # 包清单来自单点配置 scripts/packages.config.mjs（新增发布包自动生效）。
+      # CHANGELOG 由本地 `pnpm changelog` 生成并随发布提交入库，CI 不重新生成；
+      # 若版本已提升但日志缺失，说明漏跑了生成步骤，禁止发布（详见 scripts/verify-changelog.mjs）。
       - name: Verify changelog is up to date
-        run: |
-          node --input-type=module -e '
-            import { readFileSync } from "node:fs"
-            import { PUBLISHABLE_PACKAGES } from "./scripts/packages.config.mjs"
-            const specs = PUBLISHABLE_PACKAGES.map((p) => `${p.path}:${p.changelog}`)
-            specs.push(`__root__:CHANGELOG.md`)
-            process.stdout.write(specs.join(" ") + "\n")
-          ' > /tmp/changelog-specs.txt
-          for spec in $(cat /tmp/changelog-specs.txt); do
-            dir="${spec%%:*}"; file="${spec##*:}"
-            if [ "$dir" = "__root__" ]; then
-              version=$(node -p "require('./packages/cli/package.json').version")
-            else
-              version=$(node -p "require('./$dir/package.json').version")
-            fi
-            if ! grep -qE "^#{1,2} \[?${version}(\]| |\$)" "$file"; then
-              echo "::error::$file 缺少版本段 ${version}，请先运行 pnpm changelog 并提交"
-              exit 1
-            fi
-          done
-          echo "changelog is up to date"
+        run: pnpm verify:changelog
 
       # release:publish：
       # - 判断依据是"本地版本未出现在 npm registry 已发布版本列表"（fetch 直连

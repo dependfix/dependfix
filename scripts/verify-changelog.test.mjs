@@ -70,7 +70,9 @@ describe('collectFailures', () => {
     }
 
     it('collects missing-section failures', () => {
-        const failures = collectFailures(specs, readFile)
+        // 仅缺段场景（不含缺失文件，ENOENT 单独用例覆盖）
+        const okSpecs = [{ file: 'packages/core/CHANGELOG.md', version: '0.2.0' }, { file: 'packages/cli/CHANGELOG.md', version: '0.3.0' }]
+        const failures = collectFailures(okSpecs, readFile)
         expect(failures).toHaveLength(1)
         expect(failures[0]).toContain('packages/cli/CHANGELOG.md 缺少版本段 0.3.0')
     })
@@ -78,6 +80,8 @@ describe('collectFailures', () => {
     it('reports missing file separately with ENOENT message', () => {
         const failures = collectFailures(specs, readFile)
         expect(failures.some((f) => f.includes('missing/CHANGELOG.md 不存在'))).toBe(true)
+        // 缺段 + 不存在各计一项（specs 全量场景共 2 项）
+        expect(failures).toHaveLength(2)
     })
 
     it('returns empty when all pass', () => {

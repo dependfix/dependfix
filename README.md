@@ -185,6 +185,7 @@ dependfix/                          # pnpm workspace Monorepo
 │   │   └── src/                    # 告警模型、过滤器、规划器、报告生成、日志
 │   └── cli/                        # dependfix — CLI 应用入口
 │       └── src/                    # 命令行参数解析、GitHub 集成、依赖修复、验证执行
+├── scripts/                        # 仓库级脚本（发布链路 / 文档检查 / AI 治理，见 [scripts/README.md](scripts/README.md)）
 ├── docs/                           # VitePress 文档站
 ├── .github/                        # CI/CD 工作流与 Action 定义
 └── action.yml                      # GitHub Composite Action 入口

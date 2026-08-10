@@ -113,6 +113,8 @@
 | conventional-changelog + conventional-changelog-cmyr-config | CHANGELOG 生成（`pnpm changelog`，momei 同款格式） |
 | commitizen + cz-conventional-changelog-cmyr | 交互式提交 |
 
+> 仓库级脚本（发布链路 / 文档检查 / AI 治理）完整清单与调用方式见 [scripts/README.md](../../scripts/README.md)。
+
 ### 发布策略
 
 根包（`dependfix-monorepo`）是 pnpm workspace 壳，不交付任何产物，不参与版本发布。

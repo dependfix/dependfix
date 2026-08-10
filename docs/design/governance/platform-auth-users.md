@@ -140,7 +140,11 @@ Account / Session / Verification（better-auth 标准，不变）
 `auth.ts` 的 `databaseHooks.user.create.before` 扩展：按 `AUTH_MODE` 校验 `user.email` 域名——
 
 ```
-enterprise: 白名单非空且 email 域名 ∉ 白名单 → 抛错拒绝
+首用户优先: hook 开头 count==0 时设置 role='admin' 后直接返回，不走准入检查
+            （决策点 11；确保系统在任何 AUTH_MODE/名单配置下都能创建首个管理员）
+enterprise: 白名单为空 = 完全关闭自动开通（邮箱 disableSignUp + OIDC hook 拒绝，
+            仅允许 admin 手动创建与首用户路径；决策点 6 修订）；
+            白名单非空且 email 域名 ∉ 白名单 → 抛错拒绝
 public:     email 域名 ∈ 黑名单 → 抛错拒绝
 REGISTRATION_DISABLED=true: 拒绝所有注册渠道——邮箱密码路径由
             emailAndPassword.disableSignUp 原生拦截（better-auth sign-up.mjs
@@ -219,10 +223,11 @@ REGISTRATION_DISABLED=true: 拒绝所有注册渠道——邮箱密码路径由
 | 3 | **组织成员关系降级为单组织归属**（对 T701 原文微调：T701 验收含 "组织成员关系落地"） | Organization 实体仅 id/name/createdAt，无 member 表；成员关系 = Repository/Credential 的 organizationId 归属；多租户（organization 插件 + 成员/邀请）登记 backlog | **是** | todo.md T701 验收"组织成员关系落地"的重新解读（落地形态 = 资源归属 + 默认组织，非 membership 表）；**存量 user→viewer 迁移后写权限收回**（原 M6 任意登录用户可写，现收紧为 admin/org_admin，见 §8.2） |
 | 4 | 单组织模型 + 默认组织迁移（organizationId 可空列 + 应用层强制非空） | 采纳 | 否 | 多租户登记 backlog（better-auth organization 插件届时评估） |
 | 5 | 域名黑白名单应用于所有注册渠道（含 OAuth/SSO 自动开通）；email 缺失 fail-closed | 采纳 | 否 | 准入语义统一，hook 单一拦截点 |
-| 6 | enterprise 模式邮箱密码注册：白名单为空 = 关闭邮箱注册；REGISTRATION_DISABLED 保留为总开关 | 采纳 | 否 | 注册策略矩阵 |
+| 6 | enterprise 模式注册准入：白名单为空 = **完全关闭自动开通**（邮箱 `disableSignUp` + OIDC hook 拒绝，仅允许 admin 手动创建与首用户路径）；白名单非空时校验域名；`REGISTRATION_DISABLED` 保留为总开关 | 采纳（2026-08-10 修订：原"关闭邮箱注册"扩展为"完全关闭自动开通"含 OIDC） | 否 | 注册策略矩阵；T707-1 `disableSignUp` 条件化合并 + hook 拒绝 |
 | 7 | admin 插件 `adminRoles: ['admin']`，与三角色模型对齐；`/api/auth/admin/*` 与 `/api/users/*` 代理双轨权限一致 | 采纳 | 否 | 避免双轨权限漂移（org_admin/viewer 不触发 admin 端点）。**（a115e351 实施后修订：自建 `/api/users/*` 代理已移除，统一走 admin 插件原生端点单轨，前端经 `authClient.admin.*` 直连）** |
 | 8 | remove-user 级联：用户名下存在仓库/凭据关联时拒绝删除（409，提示先转移/删除资源） | 采纳 | 否 | 数据完整性；用户管理 API 错误语义 |
 | 9 | 登录方式列表经 runtimeConfig public 注入前端（未配置隐藏） | 采纳 | 否 | 无硬编码 provider 列表 |
 | 10 | SMTP 未配置时 OAuth/SSO 用户 emailVerified 视为 true（better-auth 默认），邮箱密码用户维持现状（不强制验证） | 采纳 | 否 | 与 M6 行为一致 |
+| 11 | **首用户 admin 路径优先于准入检查**（2026-08-10 用户确认） | 采纳 | 否 | `user.create.before` hook 开头 `count==0` 时设置 `role='admin'` 后直接返回，不走 `REGISTRATION_DISABLED`/域名名单/email 缺失检查；确保系统在任何 `AUTH_MODE`/名单配置（含 enterprise 白名单空）下都能创建首个管理员；T707-1 实现约束 |
 
 **安全注意**：OIDC `requireIssuerValidation: true`（防 issuer 混淆）；OAuth/SSO 自动开通账户默认 viewer 角色；角色字段 `input: false` 持续防注入；`AUTH_SECRET` 生产校验不变；注册准入 hook 抛错包装为 4xx（`EMAIL_DOMAIN_NOT_ALLOWED` → 403）而非 500。

@@ -49,25 +49,42 @@ export function hasLocalTag(tagName) {
 }
 
 /**
- * npm registry 是否已发布该版本。
- * - 输出非空且非错误 = 已发布（true）
- * - npm view 对不存在的包输出 E404 到 stderr 并退出非零 → false（未发布）
- * - 其他查询失败（离线/限流）→ null（调用方保守跳过）
+ * npm registry 是否已发布该版本（Node 原生 fetch 直连 registry，异步）。
+ * - HTTP 200 且 versions 含该版本 → true（已发布）
+ * - HTTP 404 → false（未发布，包不存在或版本不存在）
+ * - 其他查询失败（离线/限流/超时）→ null（调用方保守跳过）
+ *
+ * 实现说明：早期版本用 `execSync('npm view ...', { timeout: 10_000 })`，在 Windows
+ * 下 npm CLI 单次启动 + 查询实测耗时 > 13s，10s 超时必然触发 → 全部保守跳过，
+ * 已发布判定在本地完全失效（发布链路依赖此判定，影响 release:publish 与补 tag）。
+ * 改用 fetch 直连 registry.npmjs.org（Node 20 原生，无新增依赖）：实测 1-2s，
+ * 超时由 AbortSignal.timeout 可靠控制；首次连接建立可能慢（UND_ERR_CONNECT_TIMEOUT
+ * 实测偶发），网络异常时重试一次（连接池复用后稳定），仍失败才保守返回 null。
  */
-export function isPublishedOnRegistry(pkgName, version) {
-    try {
-        const out = execSync(`npm view ${pkgName}@${version} version --json`, {
-            cwd: repoRoot,
-            stdio: 'pipe',
-            timeout: 10_000,
-        }).toString().trim()
-        return out.length > 0 && !out.startsWith('npm error')
-    } catch (err) {
-        const stderr = (err && typeof err.stderr === 'object' && err.stderr !== null
-            ? err.stderr.toString()
-            : '') || (err instanceof Error ? err.message : '')
-        return stderr.includes('E404') || stderr.includes('Not found') ? false : null
+export async function isPublishedOnRegistry(pkgName, version) {
+    const url = `https://registry.npmjs.org/${encodeURIComponent(pkgName)}`
+    for (let attempt = 1; attempt <= 2; attempt++) {
+        try {
+            const res = await fetch(url, {
+                headers: { accept: 'application/vnd.npm.install-v1+json' },
+                signal: AbortSignal.timeout(20_000),
+            })
+            if (res.status === 404) {
+                return false
+            }
+            if (!res.ok) {
+                return null
+            }
+            const data = await res.json()
+            return Boolean(data.versions?.[version])
+        } catch (err) {
+            // 网络瞬态失败（连接建立慢/超时）：重试一次；404/非 2xx 已提前 return 不重试
+            if (attempt === 2) {
+                return null
+            }
+        }
     }
+    return null
 }
 
 /** 锚点：touch 该包路径的最新 commit（无命中返回 null） */
@@ -110,7 +127,7 @@ export function buildTagPlan(packages, deps) {
     })
 }
 
-export function main() {
+export async function main() {
     const dryRun = process.argv.includes('--dry-run')
     const atIndex = process.argv.indexOf('--at')
     const at = atIndex >= 0 ? process.argv[atIndex + 1] : undefined
@@ -119,10 +136,18 @@ export function main() {
         process.exit(1)
     }
 
+    // registry 查询并行化（每包一次 fetch），全部完成后构建计划
+    const publishedByPkg = new Map()
+    await Promise.all(
+        PUBLISHABLE_PACKAGES.map(async (p) => {
+            const version = readPackageVersion(p.path)
+            publishedByPkg.set(p.pkg, await isPublishedOnRegistry(p.pkg, version))
+        }),
+    )
     const plan = buildTagPlan(PUBLISHABLE_PACKAGES, {
         versionOf: (path) => readPackageVersion(path),
         hasTag: (tagName) => hasLocalTag(tagName),
-        isPublished: (pkg, version) => isPublishedOnRegistry(pkg, version),
+        isPublished: (pkg) => publishedByPkg.get(pkg),
         anchorOf: (path) => findPathAnchor(path),
         at,
     })

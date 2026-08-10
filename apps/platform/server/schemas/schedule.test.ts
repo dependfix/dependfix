@@ -7,7 +7,7 @@ import {
 } from 'vitest'
 import { DataSource } from 'typeorm'
 import BetterSqlite3 from 'better-sqlite3'
-import { batchScanSchema, cronIsValid, isValidTimezone, scheduleSchema } from './schedule'
+import { batchScanSchema, cronIsValid, isValidTimezone, scheduleSchema, scheduleUpdateSchema } from './schedule'
 import { parseTags, Repository } from '#server/entities/repository'
 import { Schedule } from '#server/entities/schedule'
 import { BatchRun } from '#server/entities/batch-run'
@@ -140,6 +140,52 @@ describe('scheduleSchema', () => {
     it('时区非法校验', () => {
         expect(scheduleSchema.safeParse({ ...validBase, timezone: 'Not/AZone' }).success).toBe(false)
         expect(scheduleSchema.safeParse({ ...validBase, timezone: 'Asia/Shanghai' }).success).toBe(true)
+    })
+})
+
+describe('scheduleUpdateSchema', () => {
+    it('空对象合法（部分更新）', () => {
+        expect(scheduleUpdateSchema.safeParse({}).success).toBe(true)
+        expect(scheduleUpdateSchema.safeParse({ enabled: false }).success).toBe(true)
+    })
+
+    it('部分更新不触发 default 覆盖：未传字段保持 undefined（存量语义）', () => {
+        // 关键回归断言：PATCH 只改 name，mode/severityThreshold/enabled 必须不在输出中
+        // （否则 [id].ts 的 ?? found 兜底会恒取默认值，禁用计划被意外重新启用）
+        const parsed = scheduleUpdateSchema.safeParse({ name: 'x' })
+        expect(parsed.success).toBe(true)
+        if (parsed.success) {
+            expect(parsed.data.mode).toBeUndefined()
+            expect(parsed.data.severityThreshold).toBeUndefined()
+            expect(parsed.data.enabled).toBeUndefined()
+        }
+        const withEnabled = scheduleUpdateSchema.safeParse({ enabled: false })
+        if (withEnabled.success) {
+            expect(withEnabled.data.mode).toBeUndefined()
+            expect(withEnabled.data.enabled).toBe(false)
+        }
+    })
+
+    it('交叉校验仅当 selectorKind 随本次请求出现时生效', () => {
+        // 只改 cron，不涉及 selectorKind → 不触发交叉校验
+        expect(scheduleUpdateSchema.safeParse({ cron: '0 3 * * 2' }).success).toBe(true)
+        // 改了 selectorKind 但缺 selectorJson 参数 → 交叉校验生效
+        expect(scheduleUpdateSchema.safeParse({ selectorKind: 'tag' }).success).toBe(false)
+        expect(scheduleUpdateSchema.safeParse({
+            selectorKind: 'tag',
+            selectorJson: JSON.stringify({ tag: 'frontend' }),
+        }).success).toBe(true)
+    })
+
+    it('timezone null 合法（清空时区 → 服务器本地）', () => {
+        expect(scheduleUpdateSchema.safeParse({ timezone: null }).success).toBe(true)
+        expect(scheduleUpdateSchema.safeParse({ timezone: 'Not/AZone' }).success).toBe(false)
+        // 空串在 schema 层合法（服务器本地语义），归一化为 null 由 API 映射层负责
+        expect(scheduleUpdateSchema.safeParse({ timezone: '' }).success).toBe(true)
+    })
+
+    it('selectorJson null 合法（清空参数，仅对 all 策略有意义）', () => {
+        expect(scheduleUpdateSchema.safeParse({ selectorJson: null }).success).toBe(true)
     })
 })
 

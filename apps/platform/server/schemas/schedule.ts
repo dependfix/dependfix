@@ -57,18 +57,18 @@ const parseSelectorJson = (raw: string | undefined): unknown => {
     }
 }
 
-/** 定时计划创建校验（Zod）。selectorJson 为 JSON 字符串，按 selectorKind 交叉校验。 */
-export const scheduleSchema = z.object({
-    name: z.string().trim().min(1, '计划名称不能为空').max(100),
-    cron: z.string().max(100).refine(cronIsValid, '无效的 cron 表达式'),
-    timezone: z.string().trim().max(50).refine(isValidTimezone, '无效的时区名称').optional(),
-    selectorKind: z.enum(['all', 'organization', 'tag', 'explicit']),
-    selectorJson: z.string().optional(),
-    mode: z.enum(['report-only', 'fix', 'fix-and-pr']).default('report-only'),
-    severityThreshold: z.enum(['critical', 'high', 'medium', 'all']).default('high'),
-    enabled: z.boolean().default(true),
-}).superRefine((data, ctx) => {
-    const parsed = parseSelectorJson(data.selectorJson)
+/**
+ * selectorJson 交叉校验（创建/更新共用；update 时 selectorKind 未变则不校验）。
+ * selectorKind 存在但 selectorJson 缺失/非法时按策略要求必填字段。
+ */
+const validateSelectorJson = (data: {
+    selectorKind?: ScheduleSelectorKind
+    selectorJson?: string | null
+}, ctx: z.RefinementCtx): void => {
+    if (data.selectorKind === undefined) {
+        return
+    }
+    const parsed = parseSelectorJson(data.selectorJson ?? undefined)
     if (parsed === undefined) {
         ctx.addIssue({
             code: 'custom',
@@ -78,7 +78,7 @@ export const scheduleSchema = z.object({
         return
     }
     const obj = parsed && typeof parsed === 'object' ? parsed as Record<string, unknown> : null
-    switch (data.selectorKind as ScheduleSelectorKind) {
+    switch (data.selectorKind) {
         case 'organization': {
             const organizationId = obj?.organizationId
             if (typeof organizationId !== 'string' || !organizationId.trim()) {
@@ -128,7 +128,36 @@ export const scheduleSchema = z.object({
             // all：selectorJson 忽略（可缺省）
             break
     }
+}
+
+/**
+ * 定时计划基础字段（创建/更新共享定义，无 default——PATCH 部分更新语义"未传 = undefined = 保持存量"）。
+ * 注意：Zod v4 不允许对含 refinement 的 schema 调用 .partial()，故拆出基础字段后分别挂 superRefine；
+ * 且 .partial() 不会移除 .default()（default 在部分更新时仍会填充），默认值必须只在创建 schema 上挂。
+ */
+const scheduleFields = z.object({
+    name: z.string().trim().min(1, '计划名称不能为空').max(100),
+    cron: z.string().max(100).refine(cronIsValid, '无效的 cron 表达式'),
+    timezone: z.string().trim().max(50).refine(isValidTimezone, '无效的时区名称').nullable().optional(),
+    selectorKind: z.enum(['all', 'organization', 'tag', 'explicit']),
+    selectorJson: z.string().nullable().optional(),
+    mode: z.enum(['report-only', 'fix', 'fix-and-pr']),
+    severityThreshold: z.enum(['critical', 'high', 'medium', 'all']),
+    enabled: z.boolean(),
 })
+
+/** 定时计划创建字段（POST 缺省语义：mode/severityThreshold/enabled 有默认值） */
+const scheduleCreateFields = scheduleFields.extend({
+    mode: scheduleFields.shape.mode.default('report-only'),
+    severityThreshold: scheduleFields.shape.severityThreshold.default('high'),
+    enabled: scheduleFields.shape.enabled.default(true),
+})
+
+/** 定时计划创建校验（Zod）。selectorJson 为 JSON 字符串，按 selectorKind 交叉校验。 */
+export const scheduleSchema = scheduleCreateFields.superRefine(validateSelectorJson)
+
+/** 定时计划更新校验（部分字段；交叉校验仅当 selectorKind 随本次请求出现时生效；无 default——未传即保持存量） */
+export const scheduleUpdateSchema = scheduleFields.partial().superRefine(validateSelectorJson)
 
 /** 手动批量扫描校验（Zod）：勾选仓库列表 + 扫描参数 */
 export const batchScanSchema = z.object({

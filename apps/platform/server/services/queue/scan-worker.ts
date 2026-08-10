@@ -13,13 +13,14 @@ export interface ScanWorker {
     close: () => Promise<void>
 }
 
-export const createScanWorker = (connection: Redis, options: { concurrency?: number }): ScanWorker => {
+export const createScanWorker = (connection: Redis, options?: { concurrency?: number }): ScanWorker => {
     const worker = new Worker<ScanJobData>(SCAN_QUEUE_NAME, async (job) => {
-        const { repositoryId, request } = job.data
-        return runScanForRepository(repositoryId, request)
+        const { repositoryId, request, runId } = job.data
+        // 续用 API 预创建的 pending run（runId 非空时）；同步降级路径不经过 worker
+        return runScanForRepository(repositoryId, request, runId ? { runId } : undefined)
     }, {
         connection,
-        concurrency: options.concurrency ?? 1,
+        concurrency: options?.concurrency ?? 1,
     })
 
     return {

@@ -34,12 +34,14 @@
     - [x] `server/services/queue/queue-mode.ts`：模式决策纯函数（QUEUE_ENABLED auto/true/false + Redis 探测 + failover 降级同步）+ jobId/优先级/重试配置解析
     - [x] 单测：`queue-mode.test.ts` 14 例（模式决策 5 + env 解析 + jobId 去重 + 重试配置 + 优先级顺序）
     - [ ] `IN_PROCESS_WORKER` 启动接线（子任务 3 与 scan.post.ts 异步化一并落地）
-  - [ ] 子任务 2（扫描 API 异步化）：
-    - [ ] `scan.post.ts`：队列模式 → 预创建 ScanRun(status `pending`) + enqueue + 立即返回；同步降级 → 现有行为（请求内完成）
-    - [ ] `runScanForRepository` 拆分：worker processor 复用执行主体；pending run 由 worker 续用（queued → running）
-    - [ ] 状态机：`resolveScanRunState` 扩展 pending 流转（pending → running → completed/failed/dispatched）；ScanRunStatus 复用既有 `pending`
-    - [ ] `repos.vue` triggerScan：入队后轮询 `GET /api/runs/[id]`（间隔 2s；容器模式超时 10min / B 模式 30min；同步降级响应直接展示）
-    - [ ] e2e：有 Redis 时队列闭环（入队 → worker 执行 → 状态流转 → 前端完成）；无 Redis 时同步降级（现有用例保持 M6 行为）
+  - [x] 子任务 2（扫描 API 异步化）：
+    - [x] `scan.post.ts`：队列模式 → 预创建 ScanRun(status `pending`) + enqueue + 立即返回；同步降级 → 现有行为（请求内完成）；入队失败 failover → 同步执行（续用 pending run，任务不丢失）
+    - [x] `runScanForRepository` 拆分：`createPendingScanRun`（队列模式预创建）+ `ScanRunOptions.runId` 续用（worker 消费时 pending → running）；executorKind 推断提取 `resolveExecutorKind`
+    - [x] 状态机：pending 流转（pending → running → completed/failed/dispatched；ScanRunStatus 复用既有 `pending`，无需改状态机）
+    - [x] `repos.vue` triggerScan：pending 响应 → 轮询 `GET /api/runs/[id]`（2s 间隔；容器 10min / B 模式 30min 超时）；同步响应直接展示
+    - [x] `queue.service.ts`（新增）：惰性单例——探测（**含 BullMQ 版本校验 Redis >= 5.0**）+ 模式决策 + queue/worker（**独立 Redis 连接**，BullMQ 要求）+ IN_PROCESS_WORKER 接线
+    - [x] 冒烟验证（真实环境）：**降级路径 ✅**——本地 Redis 3.0 版本过低 → 自动降级 sync（completed 无挂起）；**队列闭环待验证**——本地无 Redis >= 5，登记人工验收（CI redis service 或 Redis 7 环境）
+    - [x] e2e：playwright env 显式 `QUEUE_ENABLED=false`（本地有 Redis 会 async 且无 worker 消费导致挂起；强制同步保证本地/CI 一致）
   - [ ] 子任务 3（部署与运维）：
     - [ ] docker-compose：`redis:7-alpine` 服务 + platform `REDIS_URL` + 可选 worker 服务（独立进程形态）
     - [ ] `.env.example`：`REDIS_URL` / `QUEUE_ENABLED`（auto|true|false）/ `QUEUE_JOB_RETRIES` / `QUEUE_BACKOFF_MS` / `IN_PROCESS_WORKER`

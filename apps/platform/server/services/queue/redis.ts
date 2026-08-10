@@ -1,7 +1,7 @@
 /**
  * Redis 连接封装（BullMQ 基础设施）。
  * lazyConnect + maxRetriesPerRequest: null（BullMQ 要求，避免 worker 因连接重试卡死）。
- * pingRedis 用于队列模式探测（QUEUE_ENABLED=auto 时决定 async/sync 降级）。
+ * probeRedis 用于队列模式探测（ping + 版本校验，QUEUE_ENABLED=auto 时决定 async/sync 降级）。
  */
 import Redis from 'ioredis'
 
@@ -27,25 +27,53 @@ export const createRedisClient = (url: string, options?: { maxRetries?: number }
 
 const PING_TIMEOUT_MS = 5_000
 
+/** BullMQ 6 最低 Redis 版本要求（旧版本 add 会挂起而非报错） */
+const MIN_REDIS_VERSION = 5.0
+
+export interface RedisProbeResult {
+    /** Redis 可用且版本满足 BullMQ 要求（>= 5.0） */
+    available: boolean
+    /** 探测到的 Redis 版本（INFO server 解析；不可用时 null） */
+    version: string | null
+    /** 不可用原因（版本不足 / 连接失败 / 超时），供 warn 日志 */
+    reason?: 'version_too_old' | 'connect_failed' | 'timeout'
+}
+
 /**
- * ping 探测：返回 Redis 是否可用。
+ * Redis 探测：ping + 版本校验。
+ * BullMQ 6 要求 Redis >= 5.0：仅 ping 通过但版本过低时，queue.add 会挂起而非报错
+ * （版本检查在 add 路径内）——探测必须一并校验版本，不满足即判不可用（降级 sync）。
  * 超时兜底（5s）：ioredis 默认 retryStrategy 无限重试时 ping 命令在 offline queue 排队
  * 不 resolve 不 reject——无超时则无 Redis 环境下探测永久挂起、降级失效。
  */
-export const pingRedis = async (client: Redis): Promise<boolean> => {
-    const timeout = new Promise<boolean>((resolve) => {
+export const probeRedis = async (client: Redis): Promise<RedisProbeResult> => {
+    const timeout = new Promise<RedisProbeResult>((resolve) => {
         setTimeout(() => {
-            resolve(false)
+            resolve({ available: false, version: null, reason: 'timeout' })
         }, PING_TIMEOUT_MS)
     })
     try {
         const result = await Promise.race([
-            client.ping(),
+            (async () => {
+                await client.ping()
+                // INFO server 解析 redis_version（旧命令 ping 通过但版本可能不满足 BullMQ）
+                const info = await client.info('server')
+                const match = /redis_version:([0-9.]+)/.exec(info)
+                const version = match?.[1] ?? null
+                if (!version) {
+                    return { available: false, version: null, reason: 'connect_failed' as const }
+                }
+                const major = Number(version.split('.')[0])
+                if (Number.isNaN(major) || major < MIN_REDIS_VERSION) {
+                    return { available: false, version, reason: 'version_too_old' as const }
+                }
+                return { available: true, version }
+            })(),
             timeout,
         ])
-        return result === 'PONG'
+        return result
     } catch {
-        return false
+        return { available: false, version: null, reason: 'connect_failed' }
     } finally {
         // 探测完成（含超时）：关闭连接，避免句柄泄漏与重连风暴
         client.disconnect()

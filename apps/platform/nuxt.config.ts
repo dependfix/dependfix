@@ -75,6 +75,15 @@ export default defineNuxtConfig({
         oidcTokenUrl: process.env.OIDC_TOKEN_URL || '',
         oidcUserInfoUrl: process.env.OIDC_USERINFO_URL || '',
         oidcScopes: process.env.OIDC_SCOPES || '',
+        // 扫描任务队列（渐进式降级）：REDIS_URL 可用时异步队列；不可用自动降级同步
+        redisUrl: process.env.REDIS_URL || 'redis://127.0.0.1:6379',
+        // auto（默认）：Redis 探测决定 async/sync；true：强制队列（不可用降级同步 warn）；false：强制同步
+        queueEnabled: process.env.QUEUE_ENABLED || 'auto',
+        // 失败重试：次数 + 指数退避起点 ms（BullMQ backoff）
+        queueJobRetries: process.env.QUEUE_JOB_RETRIES || '',
+        queueBackoffMs: process.env.QUEUE_BACKOFF_MS || '',
+        // 单容器部署：Nuxt 进程内消费队列（无需独立 worker 进程）
+        inProcessWorker: process.env.IN_PROCESS_WORKER === 'true',
         public: {
             // 客户端可见配置（前端可见 env 一律 NUXT_PUBLIC_* 优先，普通 env 兜底：
             // 构建时内联 + 运行时 NUXT_PUBLIC_* 覆盖双通道，对齐 momei 写法）

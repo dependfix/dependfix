@@ -16,7 +16,9 @@ const e2eBaseURL = `http://${e2eHost}:${e2ePort}`
 const e2eAuthSecret = 'e2e-test-secret-0123456789abcdef'
 
 /** 测试环境变量：独立数据库 + 固定密钥 + 允许注册（globalSetup 需注册首用户）
- *  DATABASE_SYNCHRONIZE=true：生产构建默认关闭自动建表，e2e 独立库需显式开启 */
+ *  DATABASE_SYNCHRONIZE=true：生产构建默认关闭自动建表，e2e 独立库需显式开启
+ *  QUEUE_ENABLED=false：强制同步降级——本地有 Redis 会走 async 且无 worker 消费导致扫描挂起；
+ *  CI 无 Redis 时 auto 探测也降级同步；显式 false 保证本地/CI 行为一致（队列闭环由手动冒烟验证） */
 const e2eServerEnv = [
     'NODE_ENV=production',
     'E2E_TEST=true',
@@ -26,6 +28,7 @@ const e2eServerEnv = [
     `NUXT_ENCRYPTION_KEY=e2e-encryption-key-32-bytes!!!`,
     `DATABASE_PATH=data/e2e.sqlite`,
     'DATABASE_SYNCHRONIZE=true',
+    'QUEUE_ENABLED=false',
 ].join(' ')
 
 /** CI 强制串行（共享 SQLite 库）；本地默认并行 */

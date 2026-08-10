@@ -132,21 +132,67 @@ const remove = async (repo: RepoView) => {
 
 const repoDisplay = (repo: RepoView) => `${repo.owner}/${repo.name}`
 
-// 扫描触发（同步执行：请求内完成，loading 展示）
+// 扫描触发（异步队列：入队立即返回 + 轮询状态；同步降级：请求内完成）
 const scanningId = ref<string | null>(null)
 const scanError = ref('')
 const scanSuccess = ref('')
 const lastRunUrl = ref<string | null>(null)
 
+/** 轮询扫描状态（间隔 2s；容器模式 10min / B 模式 30min 上限，超时提示去历史查看） */
+const pollTimeoutMs = 10 * 60_000
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+
+/** 轮询取消标志：组件卸载时置位，避免 SPA 导航离开后继续轮询 */
+let pollCancelled = false
+
+const pollRun = async (runId: string, executorKind: string) => {
+    const startedAt = Date.now()
+    const timeout = executorKind === 'github-action' ? 30 * 60_000 : pollTimeoutMs
+    while (!pollCancelled && Date.now() - startedAt < timeout) {
+        await sleep(2000)
+        // 原生 fetch（$fetch 对动态 URL 的路由类型推断递归过深；同源请求自动携带会话 cookie）
+        const response = await fetch(`/api/runs/${runId}`)
+        if (!response.ok) {
+            scanError.value = '扫描状态查询失败，可在扫描历史中查看'
+            return
+        }
+        const run = await response.json() as { status: string, runUrl: string | null, error?: { code?: string, message?: string } | null }
+        if (run.status === 'completed') {
+            scanSuccess.value = '扫描完成，可在扫描历史中查看结果'
+            return
+        }
+        if (run.status === 'failed') {
+            // duplicate_scan（去重合并）：非执行失败，提示合并语义而非"扫描失败"
+            scanError.value = run.error?.code === 'duplicate_scan'
+                ? (run.error.message ?? '该仓库已有进行中的扫描任务')
+                : `扫描失败：${run.error?.message ?? '未知错误'}`
+            return
+        }
+        if (run.status === 'dispatched') {
+            lastRunUrl.value = run.runUrl
+            scanSuccess.value = run.runUrl ? '已触发 GitHub Action 扫描，点击下方链接查看运行' : '已触发 GitHub Action 扫描（可在扫描历史中查看）'
+            return
+        }
+        // pending / running：继续轮询
+    }
+    if (!pollCancelled) {
+        scanSuccess.value = '扫描仍在进行，可在扫描历史中查看进度'
+    }
+}
+
+onUnmounted(() => {
+    pollCancelled = true
+})
+
 const triggerScan = async (repo: RepoView) => {
+    pollCancelled = false
     scanError.value = ''
     scanSuccess.value = ''
     lastRunUrl.value = null
     scanningId.value = repo.id
-    // B 模式（GitHub Action）同步等待 action 完成最长 30 分钟（结果回填）；
-    // 先提示用户避免误以为无响应（服务端降级为 dispatched + runUrl 提示）
+    // B 模式（GitHub Action）异步队列下由 worker 后台执行（不再同步挂起 30 分钟）
     if (repo.executorKind === 'github-action') {
-        scanSuccess.value = '正在触发 GitHub Action 扫描并等待结果（最长 30 分钟，可在扫描历史查看进度）…'
+        scanSuccess.value = '正在触发 GitHub Action 扫描（后台执行，可在扫描历史查看进度）…'
     }
     try {
         const run = await $fetch(`/api/repos/${repo.id}/scan`, {
@@ -157,8 +203,12 @@ const triggerScan = async (repo: RepoView) => {
                 executorKind: repo.executorKind === 'github-action' ? 'github-action' : undefined,
             },
         })
-        const runData = run as { id: string, status: string, runUrl: string | null }
-        if (runData.status === 'dispatched') {
+        const runData = run as unknown as { id: string, status: string, runUrl: string | null }
+        if (runData.status === 'pending') {
+            // 队列模式：已入队，轮询状态
+            scanSuccess.value = '扫描任务已入队，正在等待执行…'
+            await pollRun(runData.id, repo.executorKind ?? 'container')
+        } else if (runData.status === 'dispatched') {
             lastRunUrl.value = runData.runUrl
             scanSuccess.value = runData.runUrl ? '已触发 GitHub Action 扫描，点击下方链接查看运行' : '已触发 GitHub Action 扫描（可在扫描历史中查看）'
         } else if (runData.status === 'completed') {

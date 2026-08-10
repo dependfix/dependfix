@@ -21,7 +21,7 @@ import { ensureDatabaseInitialized } from '#server/database'
  * 3. 执行 → 结果落库 ScanRun + ScanResult（原子写：失败不写半截结果）
  * 4. 回填 Repository.lastScanAt
  *
- * 并发防护：同仓库互斥（进程内锁，M6 单实例够用；M7 T702（见 docs/plan/backlog.md）换 BullMQ 队列承接多实例/优先级）。
+ * 并发防护：同仓库互斥（进程内锁；队列化后由 BullMQ jobId 去重承接跨进程/多实例语义，本锁兜底单进程内竞态）。
  * 同一仓库同一时间只允许一个扫描——防止容器执行器对同一 workDir 的并发写冲突。
  */
 
@@ -34,17 +34,58 @@ export interface ScanRequest {
     executorKind?: 'container' | 'github-action'
 }
 
+export interface ScanRunOptions {
+    /** 队列模式：复用已创建的 pending run（worker 消费时续用）；同步模式不传则新建 */
+    runId?: string
+}
+
+/** 执行器选择：显式指定优先，其次按 actionWorkflowFile 自动（B 模式） */
+const resolveExecutorKind = (
+    repository: Repository,
+    request: ScanRequest,
+): 'container' | 'github-action' => request.executorKind ?? (repository.actionWorkflowFile ? 'github-action' : 'container')
+
+/**
+ * 队列模式：预创建 pending run（API 入队时调用，立即返回；worker 消费时经
+ * runScanForRepository({ runId }) 续用并标记 running）。
+ */
+export const createPendingScanRun = async (
+    repositoryId: string,
+    request: ScanRequest,
+): Promise<ScanRun> => {
+    const ds = await ensureDatabaseInitialized()
+    const repoRepo = ds.getRepository(Repository)
+    const runRepo = ds.getRepository(ScanRun)
+
+    const repository = await repoRepo.findOne({ where: { id: repositoryId } })
+    if (!repository) {
+        throw createError({ statusCode: 404, statusMessage: 'Not Found', message: '仓库不存在' })
+    }
+
+    const run = runRepo.create({
+        repositoryId: repository.id,
+        mode: request.mode,
+        severityThreshold: request.severityThreshold,
+        executorKind: resolveExecutorKind(repository, request),
+        status: 'pending',
+        startedAt: null,
+    })
+    return runRepo.save(run)
+}
+
 export const runScanForRepository = async (
     repositoryId: string,
     request: ScanRequest,
+    options?: ScanRunOptions,
 ): Promise<ScanRun> =>
     // 同仓库互斥：同一仓库同时只允许一个扫描（防止容器执行器并发写同一 workDir）
-    withRepoLock(repositoryId, () => runScanInternal(repositoryId, request))
+    withRepoLock(repositoryId, () => runScanInternal(repositoryId, request, options))
 
 
 const runScanInternal = async (
     repositoryId: string,
     request: ScanRequest,
+    options?: ScanRunOptions,
 ): Promise<ScanRun> => {
     const ds = await ensureDatabaseInitialized()
     const repoRepo = ds.getRepository(Repository)
@@ -60,18 +101,34 @@ const runScanInternal = async (
     }
 
     // 执行器选择：显式指定优先，其次按 actionWorkflowFile 自动（B 模式）
-    const executorKind = request.executorKind ?? (repository.actionWorkflowFile ? 'github-action' : 'container')
+    const executorKind = resolveExecutorKind(repository, request)
 
-    // 预创建 ScanRun（状态 running；失败时更新为 failed——保持一条记录可追溯）
-    const run = runRepo.create({
-        repositoryId: repository.id,
-        mode: request.mode,
-        severityThreshold: request.severityThreshold,
-        executorKind,
-        status: 'running',
-        startedAt: new Date(),
-    })
-    const savedRun = await runRepo.save(run)
+    // 预创建/续用 ScanRun（队列模式续用 pending run；同步模式新建 running run——失败时更新为 failed 保持一条记录可追溯）
+    let savedRun: ScanRun
+    if (options?.runId) {
+        const existing = await runRepo.findOne({ where: { id: options.runId } })
+        if (!existing) {
+            throw createError({ statusCode: 404, statusMessage: 'Not Found', message: '扫描记录不存在' })
+        }
+        // 终态校验（竞态防护）：入队半成功 + failover 双执行时，job 续用不得回滚已终态的 run
+        // （worker 侧抛错走 BullMQ 重试/失败，不触碰 run 记录）；pending/running 允许续用（保留崩溃重试）
+        if (existing.status === 'completed' || existing.status === 'failed' || existing.status === 'dispatched') {
+            throw new Error(`[scan] run ${existing.id} 已处于终态 ${existing.status}，跳过重复执行`)
+        }
+        existing.status = 'running'
+        existing.startedAt = existing.startedAt ?? new Date()
+        savedRun = await runRepo.save(existing)
+    } else {
+        const run = runRepo.create({
+            repositoryId: repository.id,
+            mode: request.mode,
+            severityThreshold: request.severityThreshold,
+            executorKind,
+            status: 'running',
+            startedAt: new Date(),
+        })
+        savedRun = await runRepo.save(run)
+    }
 
     // 解密凭据（仅执行时内存，用后即弃）
     let token: string | undefined

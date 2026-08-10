@@ -18,6 +18,8 @@ export const SCAN_QUEUE_NAME = 'scan'
 export interface ScanJobData {
     repositoryId: string
     request: ScanRequest
+    /** 队列模式：API 预创建的 pending run（worker 续用）；同步降级不产生 job */
+    runId: string
 }
 
 /** 队列默认选项（纯函数便于单测：重试/backoff/清理策略） */
@@ -39,8 +41,8 @@ export const buildScanQueueOptions = (options: { retriesRaw?: string, backoffMsR
 }
 
 export interface ScanQueue {
-    /** 入队（等待/活跃中合并；终态自动重建，保证可立即重新扫描） */
-    add: (repositoryId: string, request: ScanRequest, options?: { priority?: number }) => Promise<string>
+    /** 入队结果：jobId 供状态关联；reused=true 表示命中同仓库进行中任务（去重合并，未新建 job） */
+    add: (repositoryId: string, request: ScanRequest, options?: { priority?: number, runId?: string }) => Promise<{ jobId: string, reused: boolean }>
     close: () => Promise<void>
 }
 
@@ -53,20 +55,23 @@ export const createScanQueue = (connection: Redis, options: { retriesRaw?: strin
     return {
         add: async (repositoryId, request, opts) => {
             const jobId = buildScanJobId(repositoryId)
-            // 终态 job 检测（BullMQ 6：EXISTS job key 即幂等返回，终态在清理前占用 jobId）
             const existing = await queue.getJob(jobId)
             if (existing) {
                 const state = await existing.getState()
                 if (state === 'completed' || state === 'failed') {
+                    // 终态 job（BullMQ 6：EXISTS job key 即幂等返回，终态在清理前占用 jobId）：
+                    // 先移除再重建，保证"扫描完成后可立即再次触发"
                     await existing.remove()
+                } else {
+                    // 等待/活跃/延迟中：去重合并（不新建 job），告知调用方复用
+                    return { jobId, reused: true }
                 }
-                // 等待/活跃/延迟中：保留（去重合并，不重建）
             }
-            await queue.add(SCAN_QUEUE_NAME, { repositoryId, request }, {
+            await queue.add(SCAN_QUEUE_NAME, { repositoryId, request, runId: opts?.runId ?? '' }, {
                 jobId,
                 priority: opts?.priority ?? SCAN_JOB_PRIORITY.manual,
             })
-            return jobId
+            return { jobId, reused: false }
         },
         close: async () => {
             await queue.close()

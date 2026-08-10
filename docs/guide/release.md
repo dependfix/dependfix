@@ -205,7 +205,7 @@ git push origin master
 
 `release.yml` 已内嵌 `schedule` 定时发布（每周六 UTC+0 12:00 = UTC+8 20:00，参照 momei），**1.0.0 正式版发布后取消 `schedule` 注释即启用**。定时触发时 CI 自动完成：
 
-1. `release:plan`（推导计划，无推导结果则跳过）+ `release:version`（消费计划提升版本）+ `pnpm changelog`（生成日志）+ 提交并推送 master（semantic-release 风格提交：`chore(release): x.y.z [skip ci]` + 根 CHANGELOG 版本段全文）；
+1. `release:plan`（推导计划，无推导结果则跳过）+ `release:version`（消费计划提升版本）+ `pnpm changelog`（生成日志）+ 提交并推送 master（semantic-release 风格提交：`chore(release): x.y.z [skip ci]` + 根 CHANGELOG 版本段全文）——全流程由 `pnpm release:auto-version` 脚本化执行（无变更安全 no-op，见 [scripts/README.md](../../scripts/README.md)）；
 2. 随后执行与手动发布相同的完整流程：质量门 → changelog 校验 → `release:publish`（OIDC）→ push tags。
 
 手动发布（`workflow_dispatch`）时跳过自动版本提升步骤（版本已在本地提升并提交）。
@@ -214,7 +214,7 @@ git push origin master
 
 `release.yml`（`workflow_dispatch` 手动触发；1.0.0 后增加 `schedule` 定时触发）依次执行：
 
-1. （仅 `schedule` 触发）`Auto version & changelog`：自动版本提升 + CHANGELOG 生成 + 提交推送；
+1. （仅 `schedule` 触发）`Auto version & changelog`：自动版本提升 + CHANGELOG 生成 + 提交推送（`pnpm release:auto-version` 脚本化执行）；
 2. lint → typecheck → test → build（质量门，任一失败即中止）；
 3. `Verify changelog is up to date`：校验六份 CHANGELOG（根级 + `packages/cli` / `packages/core` / `packages/engine` / `packages/skills` / `packages/mcp`）已包含当前版本段（防止漏跑 `pnpm changelog` 直接发布；普通提交版本未变时自动通过）；
 4. `pnpm release:publish`：

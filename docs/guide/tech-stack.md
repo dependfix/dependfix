@@ -48,6 +48,13 @@
 | @better-auth/sso | SSO / 第三方登录 |
 | better-auth-localization | 认证 UI 多语言 |
 
+#### better-auth × Nuxt 集成要点（T701/T707 实践沉淀）
+
+- **SSR 会话必须用 request-scoped client**：`authClient.getSession()` 在 SSR 不转发 cookie 且无 baseURL；per-request `fetchOptions.baseURL` 不走 `withPath` 补 `/api/auth`（请求落 `/get-session` 404）→ SSR 分支必须 `createAuthClient({ baseURL: useRequestURL().origin, fetchOptions: { headers: useRequestHeaders(['cookie']) } })`（官方 Approach B；案例 `apps/platform/app/composables/use-session.ts`）。
+- **原生端点优先**：用户管理/个人界面优先用 better-auth 原生端点（`authClient.*` / `authClient.admin.*`，路由 `/api/auth/*` 透传），**仅当 better-auth 无法完成任务时才自定义 API**——自建 `/api/me/*`、`/api/users/*` 代理是冗余（momei 项目实践 + 用户指令）。
+- **middleware 读取 useAsyncData 必须 await 数据就绪**：同步读 `session.value` 在 SSR 首屏恒为 undefined → 全部受保护页面误跳 /login；async middleware + `watch(isPending)` 等待。
+- **admin 插件自定义角色需同时配置服务端 roles 与客户端类型面**：服务端 `admin({ roles: {三角色} })` 后，客户端 `adminClient()` 类型面仍为 user/admin（`InferAdminRolesFromOption` 默认）→ setRole 传三角色需类型窄化断言（运行时由服务端校验兜底）。
+
 ### 数据库与 ORM
 
 | 依赖 | 用途 |

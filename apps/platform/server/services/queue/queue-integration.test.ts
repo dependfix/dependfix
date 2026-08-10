@@ -70,18 +70,20 @@ describe.skipIf(!enabled)('scan queue real-redis integration', () => {
     it('jobId 去重：同仓库等待中重复入队返回 reused', async () => {
         const queueConnection = createRedisClient(REDIS_URL)
         const queue = createScanQueue(queueConnection, {})
+        // 随机 repoId：避免重复运行测试时命中上次残留 waiting job（幂等，e2e 同款设计）
+        const repoId = `integration-repo-2-${Date.now()}`
         // 第一个 job 入队（无 worker 消费，保持 waiting）
-        const first = await queue.add('integration-repo-2', {
+        const first = await queue.add(repoId, {
             mode: 'report-only',
             severityThreshold: 'high',
-        }, { runId: 'integration-run-2' })
+        }, { runId: `integration-run-2-${Date.now()}` })
         expect(first.reused).toBe(false)
 
         // 第二次入队：等待中 → 去重合并
-        const second = await queue.add('integration-repo-2', {
+        const second = await queue.add(repoId, {
             mode: 'report-only',
             severityThreshold: 'high',
-        }, { runId: 'integration-run-2b' })
+        }, { runId: `integration-run-2b-${Date.now()}` })
         expect(second.reused).toBe(true)
 
         await queue.close()

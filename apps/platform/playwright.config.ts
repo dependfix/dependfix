@@ -19,8 +19,8 @@ const e2eAuthSecret = 'e2e-test-secret-0123456789abcdef'
  *  DATABASE_SYNCHRONIZE=true：生产构建默认关闭自动建表，e2e 独立库需显式开启
  *  NUXT_QUEUE_ENABLED=false：强制同步降级——Nuxt runtimeConfig 运行时覆盖只认 NUXT_ 前缀
  *  （无前缀 QUEUE_ENABLED 只在构建时烘焙，运行时设置无效——本地 Redis 可达时 auto 会走
- *  async 且无 worker 消费导致扫描挂起；T702-2 用无前缀值实际未生效，T704-3 批量扫描
- *  首次触发真实执行后暴露）；CI 无 Redis 时 auto 探测也降级同步；显式 false 保证本地/CI 一致 */
+ *  async 且无 worker 消费导致扫描挂起；该问题在批量扫描首次触发真实执行后才暴露）；
+ *  CI 无 Redis 时 auto 探测也降级同步；显式 false 保证本地/CI 一致 */
 const e2eServerEnv = [
     'NODE_ENV=production',
     'E2E_TEST=true',
@@ -61,7 +61,7 @@ export default defineConfig({
         command: `pnpm exec cross-env ${e2eServerEnv} node .output/server/index.mjs`,
         url: e2eBaseURL,
         // 强制新进程（不复用）：runtimeConfig 覆盖 env（NUXT_QUEUE_ENABLED 等）只在进程启动时读取，
-        // 复用残留进程会导致 env 变更不生效（T704-3 e2e 暴露：旧 QUEUE_ENABLED 烘焙 auto + 本地 Redis → async 挂起）
+        // 复用残留进程会导致 env 变更不生效（e2e 批量扫描暴露：旧无前缀 QUEUE_ENABLED 烘焙 auto + 本地 Redis → async 挂起）
         reuseExistingServer: false,
         timeout: 600000,
     },

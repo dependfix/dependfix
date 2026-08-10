@@ -101,3 +101,11 @@ export const aggregateScanRuns = (runs: ScanRun[], results: ScanResult[] = []): 
         summary: { alertsTotal, severityCounts, fixedCount },
     }
 }
+
+/**
+ * 轮询聚合写回决策：聚合状态是否允许覆盖 BatchRun 存储状态。
+ * failed 是 executor 显式落库的终态（async 全部入队失败，无下属 run），聚合只产出
+ * completed/running，覆盖会把它"修复"成 completed——仅 running 态允许流转。
+ */
+export const shouldWriteBackStatus = (storedStatus: string, aggregationStatus: string): boolean =>
+    storedStatus === 'running' && aggregationStatus !== storedStatus

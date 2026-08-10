@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
     aggregateScanRuns,
     EMPTY_BATCH_SUMMARY,
+    shouldWriteBackStatus,
     type BatchAggregation,
 } from './batch-aggregate'
 import type { ScanRun } from '#server/entities/scan-run'
@@ -158,5 +159,21 @@ describe('aggregateScanRuns（BatchRun 聚合纯函数）', () => {
             summary: EMPTY_BATCH_SUMMARY,
         }
         expect(agg).toEqual(expected)
+    })
+})
+
+describe('shouldWriteBackStatus（轮询聚合写回决策）', () => {
+    it('running → completed/running：允许流转', () => {
+        expect(shouldWriteBackStatus('running', 'completed')).toBe(true)
+        expect(shouldWriteBackStatus('running', 'running')).toBe(false)
+    })
+
+    it('failed 终态受保护：聚合值不可覆盖（executor 显式终态，如 async 全部入队失败）', () => {
+        expect(shouldWriteBackStatus('failed', 'completed')).toBe(false)
+        expect(shouldWriteBackStatus('failed', 'running')).toBe(false)
+    })
+
+    it('completed 终态不再写回（幂等收敛）', () => {
+        expect(shouldWriteBackStatus('completed', 'completed')).toBe(false)
     })
 })

@@ -86,6 +86,13 @@ describe('scan-worker（job 分发 + worker 封装）', () => {
             expect(runScanMock).toHaveBeenCalledTimes(1)
             expect(runScanMock.mock.calls[0]![2]).toBeUndefined()
         })
+
+        it('未知 job name：显式抛错（不静默按 scan 解构——undefined repositoryId 有误扫风险）', async () => {
+            await expect(defaultProcessor({} as never, 'unknown-job')).rejects.toThrow('unknown job name: unknown-job')
+
+            expect(runScanMock).not.toHaveBeenCalled()
+            expect(triggerScheduleMock).not.toHaveBeenCalled()
+        })
     })
 
     describe('createScanWorker', () => {

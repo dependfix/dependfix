@@ -180,6 +180,26 @@ describe('executeBatchRun（批量执行服务）', () => {
         expect(batch.status).toBe('running')
     })
 
+    it('async 单仓库入队失败（pending run 已创建，queue.add 抛错）：run 置 failed + enqueue_failed，避免孤儿 run', async () => {
+        mockQueueService('async')
+        const { savedBatchRuns, scanRunRepo } = mockDataSource()
+        // repo-1 入队抛错（Redis 抖动等）；repo-2 正常
+        queueAddMock.mockRejectedValueOnce(new Error('Redis connection lost'))
+        queueAddMock.mockResolvedValueOnce({ jobId: 'scan-2', reused: false })
+
+        await expect(executeBatchRun(baseInput)).resolves.toMatchObject({ repositoryCount: 2 })
+
+        expect(queueAddMock).toHaveBeenCalledTimes(2)
+        // 已创建但入队失败的 pending run 被回收为 failed（聚合可收敛，批次不会永久 running）
+        expect(scanRunRepo.save).toHaveBeenCalledTimes(1)
+        const failedRun = scanRunRepo.save.mock.calls[0]![0] as ScanRun
+        expect(failedRun.status).toBe('failed')
+        expect(failedRun.finishedAt).not.toBeNull()
+        const errorJson = JSON.parse(failedRun.errorJson ?? '{}') as { code: string }
+        expect(errorJson.code).toBe('enqueue_failed')
+        expect(savedBatchRuns[0]!.status).toBe('running')
+    })
+
     it('async 全部入队失败：批次直接 failed 终态（避免永久 running）', async () => {
         mockQueueService('async')
         const { savedBatchRuns } = mockDataSource()

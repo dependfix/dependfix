@@ -65,8 +65,9 @@ export const executeBatchRun = async (input: ExecuteBatchInput): Promise<Execute
     if (queueService.mode === 'async' && queueService.queue) {
         let enqueued = 0
         for (const repositoryId of input.repositoryIds) {
+            let run: ScanRun | null = null
             try {
-                const run = await createPendingScanRun(repositoryId, input.request, { batchRunId: batchRun.id })
+                run = await createPendingScanRun(repositoryId, input.request, { batchRunId: batchRun.id })
                 const { reused } = await queueService.queue.add(repositoryId, input.request, { priority, runId: run.id })
                 if (reused) {
                     // 同仓库已有进行中任务（jobId 去重合并）：本次预创建的 pending run 不会被 worker 消费，
@@ -82,9 +83,18 @@ export const executeBatchRun = async (input: ExecuteBatchInput): Promise<Execute
                     enqueued++
                 }
             } catch (error) {
-                // 单仓库入队失败不中断批次（如仓库并发删除）：跳过 + 记日志；终态由轮询聚合兜底
                 const message = error instanceof Error ? error.message : String(error)
-                console.warn(`[batch] 仓库 ${repositoryId} 入队失败（跳过）：${message}`)
+                if (run) {
+                    // 已创建 pending run 但入队失败（Redis 抖动等）：run 置 failed + enqueue_failed，
+                    // 避免孤儿 pending run 无法被 worker 消费 → 聚合永远 pending → 批次永久 running
+                    run.status = 'failed'
+                    run.finishedAt = new Date()
+                    run.errorJson = JSON.stringify({ code: 'enqueue_failed', message })
+                    await ds.getRepository(ScanRun).save(run)
+                } else {
+                    // pending run 创建失败（如仓库并发删除）：无残留，跳过继续（不中断批次）
+                    console.warn(`[batch] 仓库 ${repositoryId} 入队失败（跳过）：${message}`)
+                }
             }
         }
         // 全部入队失败 → 批次直接 failed 终态（避免永久 running）

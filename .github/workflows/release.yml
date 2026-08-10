@@ -173,3 +173,11 @@ jobs:
           echo "all release tags pushed to remote"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # 聚合 GitHub Release：读 release-publish-result.json（release:publish 产物），
+      # 提取根 CHANGELOG 段（core-only 取锚包包级段）+ 版本矩阵，gh release create。
+      # 注意：v<锚版本> tag 已由 release:publish 创建并随上方 Push release tags 全量
+      # 推送核验，本步骤只创建 Release 对象（gh release create 不改仓库文件）。
+      # 幂等：Release 已存在跳过；创建失败 ::warning:: 不阻断（npm 已发布完成）。
+      - name: Create GitHub Release
+        run: pnpm release:github

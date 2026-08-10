@@ -222,13 +222,24 @@ git push origin master
    - 在 pnpm 项目内部调用 `pnpm publish`：自动替换 `workspace:*` 为实际版本，发布顺序按 `publishOrder`（`@dependfix/core` / `@dependfix/engine` / `@dependfix/skills` 先于 `dependfix` / `@dependfix/mcp`）；
    - 通过 **OIDC trusted publishing** 认证（`id-token: write` + npmjs.com 的 Trusted Publisher 配置），无需 `NPM_TOKEN`；
    - 发布前校验 **HEAD 锚点**（HEAD 必须 touch 待发布包路径，防误在非发布提交执行）；
-   - 发布成功后本地创建 `<pkg>@<version>` 格式的 annotated git tag（如 `dependfix@0.1.1`）；
-5. `Push release tags`：将 `release:publish` 创建的本地 tag 推送到 GitHub（`git push <url> --tags`，显式 token URL + 推送后核验，通过 `GITHUB_TOKEN` 认证）。
+   - 发布成功后本地创建 `<pkg>@<version>` 格式的 annotated git tag（如 `dependfix@0.1.1`）+ `v<锚版本>` 聚合 tag（锚 = 主交付物优先，见"GitHub Release 自动化"）；
+5. `Push release tags`：将 `release:publish` 创建的本地 tag 推送到 GitHub（`git push <url> --tags`，显式 token URL + 推送后核验，通过 `GITHUB_TOKEN` 认证）；
+6. `Create GitHub Release`（`pnpm release:github`）：读 `release-publish-result.json` 为本轮发布创建聚合 GitHub Release——tag 为 `v<锚版本>`，notes 为版本矩阵 + 根 CHANGELOG 最新段（core-only 轮次取锚包包级段），0.x 阶段标 pre-release；Release 已存在则跳过，创建失败仅警告不阻断（npm 已发布完成，可后补 `gh release create`）。
+
+### GitHub Release 自动化
+
+- **每轮发布创建一个聚合 GitHub Release**（非每包一个）：锚版本 = 主交付物优先（`dependfix` → `@dependfix/core` → `@dependfix/engine` → `@dependfix/skills` → `@dependfix/mcp`，即本轮实际发布列表中 rootChangelog 锚包优先、其余按 publishOrder）；
+- **v tag**：`release:publish` 在全部包发布成功后创建 `v<锚版本>` annotated tag（指向发布提交，幂等不覆盖），随 `Push release tags` 全量推送并核验；
+- **notes**：本轮发布包版本矩阵 + 根 CHANGELOG 最新版本段（与 release commit body 同源格式）；根段为空（core-only）时取锚包的包级 CHANGELOG 段；两处均无则跳过创建；
+- **pre-release**：0.x 阶段所有 Release 标记 pre-release（与版本策略一致）；
+- **幂等与失败**：Release 已存在（重跑）跳过；创建失败 `::warning::` 不阻断 CI（可后补 `gh release create v<版本> --notes-file <file>`）；
+- 首次手动发布（0.1.0）仍按上文手动 `gh release create`（CI 发布链路自此自动创建）。
 
 ## tag 策略与包版本不同步
 
 - **发布不需要手动打 `v*` tag**：`release:publish` 只发布有变更的包，包版本不同步（例如只 bump 了 `dependfix`，`@dependfix/core` 未变）时未变更的包会被自动跳过，不存在"一个 tag 表达不了多版本"的问题；
 - `release:publish` 成功后会为每个发布的包创建 `<pkg>@<version>` 格式的 git tag（changesets / lerna 生态惯例，沿用），由 CI 的 `Push release tags` 步骤推送到 GitHub，供 GitHub Release 关联与后续精确回溯；
+- `v<锚版本>` 聚合 tag 用于 GitHub Release 关联（锚版本 = 主交付物优先，见"GitHub Release 自动化"）；与 1.0.0 后规划的 `v1` 滚动 tag 命名空间兼容（固定 tag + 移动 tag 共存）；
 - 注意：若发布成功但后续步骤失败导致重跑，已发布的包会被跳过、tag 不会重建（可从 Git 历史手动补打，用 `pnpm tag:released`）；
 - 首次发布的 `v0.1.0` tag 仅用于 GitHub Release 展示与 Action 引用；文档中的 `uses: dependfix/dependfix@v1` 滚动 tag 待 `1.0.0` 稳定版发布后再启用。
 
@@ -261,6 +272,8 @@ git push origin master
 | CI 报 "CHANGELOG 缺少版本段" | 版本已提升但漏跑了 `pnpm changelog`（发布前必须生成并提交日志） |
 | 包级 CHANGELOG 非增量（0.2.0 段吞掉全部历史） | `<pkg>@<version>` 锚点 tag 缺失，或指向的 commit 未 touch 该包路径（path 过滤后看不到锚点）。处理：补打/移动 tag 到 touch 该包路径的 commit 后重跑 `pnpm changelog` |
 | `release:publish` 报"HEAD 不是 touch `<path>` 的提交" | 在非发布提交上执行了发布（未走 release:version + changelog 提交）。处理：完成版本提升与 changelog 提交后再发布 |
+| GitHub Release 未创建（CI 仅警告） | 创建失败不阻断发布（npm 已发布完成）。处理：手动补建 `gh release create v<版本> --notes-file <notes.md> --prerelease`，notes 可从根/包级 CHANGELOG 对应版本段截取 |
+| GitHub Release 显示旧版本号 | `v<锚版本>` 以主交付物优先（dependfix 未发布时取 core 等）；core-only 轮次的 Release 版本号代表该轮核心变更包，属预期行为 |
 
 ## 关于 provenance
 

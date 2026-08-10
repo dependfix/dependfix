@@ -23,11 +23,15 @@
  * pnpm publish 会自动将 workspace:* 依赖替换为实际版本号。
  */
 import { execSync } from 'node:child_process'
+import { writeFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { PUBLISHABLE_PACKAGES } from './packages.config.mjs'
 import { hasLocalTag, isPublishedOnRegistry, readPackageVersion } from './tag-released-versions.mjs'
 
 const repoRoot = fileURLToPath(new URL('..', import.meta.url))
+/** 发布结果临时产物（release:github 消费；gitignore） */
+const RESULT_FILE = join(repoRoot, 'release-publish-result.json')
 
 function git(args) {
     return execSync(`git ${args}`, { cwd: repoRoot, encoding: 'utf8' }).trim()
@@ -93,6 +97,73 @@ function headHash() {
     return git('rev-parse HEAD')
 }
 
+/**
+ * 解析聚合 Release 锚版本（纯函数）：主交付物优先（rootChangelog 包 → 其余按
+ * publishOrder），在本轮实际发布列表中取第一个命中者。无发布 → null。
+ */
+export function resolveAnchorVersion(published, packages) {
+    const order = [...packages].sort((a, b) => {
+        if (a.rootChangelog !== b.rootChangelog) {
+            return a.rootChangelog ? -1 : 1
+        }
+        return a.publishOrder - b.publishOrder
+    })
+    for (const p of order) {
+        const item = published.find((x) => x.pkg === p.pkg)
+        if (item) {
+            return { pkg: item.pkg, version: item.version }
+        }
+    }
+    return null
+}
+
+/**
+ * 构建发布收尾计划（纯函数，依赖注入便于测试）：v tag 动作 + result.json 内容。
+ * 返回 { result, vTag, vTagAction }：
+ * - vTagAction: create / skip-exists（v tag 已存在不覆盖）/ skip-no-anchor（无锚包）
+ * - result 恒为非空结构（published 可空）：release:github 据此走 skip-no-published
+ *   安全退出（CI 无发布变更轮次 / 发布后重跑不红）
+ */
+export function buildFinalizePlan(published, packages, hasTag) {
+    const anchor = resolveAnchorVersion(published, packages)
+    const vTag = anchor ? `v${anchor.version}` : null
+    let vTagAction
+    if (!vTag) {
+        vTagAction = 'skip-no-anchor'
+    } else if (hasTag(vTag)) {
+        vTagAction = 'skip-exists'
+    } else {
+        vTagAction = 'create'
+    }
+    return {
+        result: {
+            published: published.map((p) => ({ pkg: p.pkg, version: p.version })),
+            anchorVersion: anchor?.version ?? null,
+            anchorPkg: anchor?.pkg ?? null,
+        },
+        vTag,
+        vTagAction,
+    }
+}
+
+/**
+ * 发布收尾（全部包发布成功后调用）：打 v<锚版本> 聚合 tag（幂等）+ 写 result.json。
+ * 时机约束：必须在 Push release tags 之前完成（v tag 随全量推送带出并核验）。
+ */
+function finalizeRelease(published) {
+    const plan = buildFinalizePlan(published, PUBLISHABLE_PACKAGES, (tag) => hasLocalTag(tag))
+    if (plan.vTagAction === 'create') {
+        git(`tag -a "${plan.vTag}" -m "release ${plan.vTag}"`)
+        console.log(`created ${plan.vTag}（聚合 Release tag）`)
+    } else if (plan.vTagAction === 'skip-exists') {
+        console.log(`skip ${plan.vTag}（v tag 已存在，不覆盖）`)
+    } else {
+        console.log('skip v tag（本轮无锚包发布）')
+    }
+    writeFileSync(RESULT_FILE, `${JSON.stringify(plan.result, null, 4)}\n`, 'utf8')
+    console.log(`written ${RESULT_FILE}（release:github 消费）`)
+}
+
 export async function main() {
     const dryRun = process.argv.includes('--dry-run')
     // registry 查询并行化（每包一次 fetch，isPublishedOnRegistry 为异步实现）
@@ -133,9 +204,16 @@ export async function main() {
                 break
         }
     }
-    if (dryRun && publishes.length > 0) {
-        console.log('dry-run 完成，未执行任何发布；确认无误后去掉 --dry-run 执行')
+    if (dryRun) {
+        if (publishes.length > 0) {
+            console.log('dry-run 完成，未执行任何发布；确认无误后去掉 --dry-run 执行')
+        }
+        return
     }
+    // 无条件写 result.json（无发布时写空结构）：release:github 据此走
+    // skip-no-published 安全退出——CI 无发布变更轮次 / 发布后重跑不红；
+    // create-github-release 的 ENOENT 报错保留给"未执行过 release:publish"的手动误用
+    finalizeRelease(publishes)
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

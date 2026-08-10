@@ -14,6 +14,7 @@
     "release:plan": "node scripts/create-release-plan.mjs",
     "release:version": "node scripts/release-version.mjs",
     "release:publish": "node scripts/release-publish.mjs",
+    "release:github": "node scripts/create-github-release.mjs",
     "changelog": "node scripts/changelog.mjs",
     "tag:released": "node scripts/tag-released-versions.mjs",
     "distill:wisdom": "node scripts/distill-wisdom.mjs",

@@ -66,4 +66,7 @@ artifacts/
 # release 计划临时产物（release:plan 生成 → 人工 review → release:version 消费删除）
 release-plan.md
 
+# 发布结果临时产物（release:publish 写入 → release:github 消费）
+release-publish-result.json
+
 

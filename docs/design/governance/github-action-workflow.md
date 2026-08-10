@@ -69,10 +69,10 @@ branding:
 
 ```yaml
 # 消费者仓库的 .github/workflows/dependfix.yml
-name: Weekly Security Scan
+name: Daily Security Scan
 on:
   schedule:
-    - cron: '0 6 * * 1'
+    - cron: '0 6 * * *'
   workflow_dispatch:
 
 permissions:

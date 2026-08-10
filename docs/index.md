@@ -74,10 +74,10 @@ npx dependfix fix-and-pr --repo owner/repo --github-token $GITHUB_TOKEN
 ### GitHub Action
 
 ```yaml
-name: Weekly Security Scan
+name: Daily Security Scan
 on:
   schedule:
-    - cron: '0 6 * * 1'
+    - cron: '0 6 * * *'
   workflow_dispatch:
 
 permissions:

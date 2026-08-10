@@ -112,10 +112,10 @@ dependfix fix --repo owner/repo --github-token $GITHUB_TOKEN --dry-run
 在你的仓库中创建 `.github/workflows/dependfix.yml`：
 
 ```yaml
-name: Weekly Security Scan
+name: Daily Security Scan
 on:
   schedule:
-    - cron: '0 6 * * 1'   # 每周一 UTC 6:00
+    - cron: '0 6 * * *'   # 每天 UTC 6:00
   workflow_dispatch:        # 手动触发
 
 permissions:

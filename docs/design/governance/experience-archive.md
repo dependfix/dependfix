@@ -353,3 +353,14 @@
   - **表格/正文中的 `<占位符>` 必须反引号包裹**：markdown 中反引号内内容才会被转义为 `&lt;...&gt;`；裸 `<tag>` 会被当 raw HTML 透传进 Vue 模板。代码块（fenced code block）内不受影响（审计核实 133-137 行 `<core-anchor>` 等在 ```bash 块内安全），但若未来移出代码块（如改表格）必须补反引号。
   - **CI 全绿 ≠ 交付就绪**：检查矩阵之外仍有真实失败面（docs build 与 Pages 部署）。docs 变更的本地验证必须包含 `docs:build`，不能只跑 `lint:md` + `check:links`；CI 侧把高频失败面前置（docs build 提前），让失败在 1 分钟内暴露而不是等 test/typecheck 跑完。
   - **裸标签排查方法**：`rg '<[a-z][a-z0-9-]*>' | rg -v '`'` 扫描正文/表格裸标签 + 用 vitepress `createMarkdownRenderer` 渲染断言转义结果，是 docs 变更的可复用验证手段。
+
+## 三十四、NUXT_ 前缀 env 的 destr 布尔陷阱 + 轮询聚合写回必须保护既有终态（2026-08-11）
+
+> 批量扫描 e2e 闭环暴露的两个生产级坑，均被"真实执行"而非单测拦截。与 §三十一（NUXT_ 前缀）互为补充：前缀解决了"读不读得到"，本条解决"读到的值形态"。
+
+- **案例一（destr 布尔陷阱）**：playwright webServer 已设 `NUXT_QUEUE_ENABLED=false`，runtimeConfig 也读到 false（服务日志 `queueEnabled=false`），但队列模式仍走 auto → 本地 Redis 可达 → async 入队无 worker 消费 → ScanRun 永远 pending → 批次永久 running。根因：**Nuxt 的 getEnv 用 destr 解析 env 值**（`NUXT_QUEUE_ENABLED=false` → 布尔 `false` 而非字符串 `'false'`），`parseQueueEnabled` 只认字符串三值（`'true'/'false'/'auto'`），布尔 `false` 掉进默认分支返回 `'auto'`——**运行时覆盖"看似生效实则失效"**。修复：解析函数签名改 `string | boolean | undefined`，布尔 `true/false` 显式映射；补布尔形态单测。排查路径：服务日志同时打印 `config.queueEnabled` 与 `process.env.NUXT_QUEUE_ENABLED` 对照（机制层"已生效" vs 解析层"形态不匹配"立刻现形）。
+- **案例二（聚合写回覆盖既有终态）**：`executeBatchRun` async 模式全部入队失败时显式落库 `status='failed'`（无下属 run，聚合无法推导），但详情 API 的轮询聚合写回条件只看 `aggregation.status !== stored.status`——聚合只产出 `completed/running`，首次轮询即把 failed 覆盖成 completed（失败批次被展示为成功）。修复：写回决策抽纯函数 `shouldWriteBackStatus(stored, aggregation)`——**仅 running 态允许 status 流转，executor 显式落库的终态（failed）受保护**；对外 status 取"受保护后的有效值"。配套单测覆盖 running 流转 / failed 保护 / completed 幂等三态。
+- **启示**：
+  - **runtimeConfig 运行时覆盖值形态不可假设**：NUXT_ 前缀 env 经 destr 解析——`true/false` 变布尔、`123` 变 number、JSON 变对象。消费方（parse/校验）必须声明联合类型并逐形态处理，且**布尔形态必须有单测**（字符串测试全绿 ≠ 运行时形态正确）。
+  - **轮询/后台收敛逻辑写回状态时必须尊重显式终态**：凡"推导值"（聚合、心跳、探活）写回"权威值"（executor/worker 显式落库），必须定义写回判定函数（何时允许覆盖），否则推导模型覆盖不了的状态（failed 兜底、人工置终态）会被推导值"修复"成错误终态。判定函数进领域模块 + 单测，比散落在 API 层更易审计。
+  - **e2e"真实执行"是运行时形态类 bug 的最后防线**：单测 mock 的是字符串形态（构建期烘焙），运行时 destr 转换只在实际 server 进程 + 真实 env 注入下出现——e2e 必须跑真实 env 注入（NUXT_ 前缀）而不是只靠构建烘焙默认值。

@@ -81,11 +81,11 @@
     - 提交粒度：2 个提交（① server genericOAuth 插件 + 配置；② 前端按钮 + auth-client 插件 + e2e 可见性）
 - 非目标：SAML 2.0（登记 backlog）、magic link / email OTP / 2FA / JWT 插件（架构预设，未排期）、OIDC 自动开通账户的域名匹配细节（随白名单策略随子任务 1 落地）。
 - 验收：
-  - [ ] enterprise 模式：OIDC 登录闭环；非白名单域名邮箱注册被拒（403 `EMAIL_DOMAIN_NOT_ALLOWED` 非 500）
-  - [ ] public 模式：GitHub / Google 登录闭环；黑名单域名邮箱注册被拒；email 缺失拒绝开通
-  - [ ] `REGISTRATION_DISABLED=true` 时所有注册渠道（含 OAuth/SSO 自动开通）均拒绝
-  - [ ] 未配置的登录方式在登录页自动隐藏/禁用，不阻塞启动
-  - [ ] 单元测试：`email-domain.test.ts` + `auth-access.test.ts` 全过；e2e 按钮可见性用例通过
+  - [ ] enterprise 模式：OIDC 登录闭环（**待人工验收**：需真实 IdP + RFC 9207 iss 回显支持）；非白名单域名邮箱注册被拒（403 `EMAIL_DOMAIN_NOT_ALLOWED` 非 500）——**已覆盖**（auth-access.test.ts 单元 + hook 集成测试）
+  - [ ] public 模式：GitHub / Google 登录闭环（**待人工验收**：需真实 OAuth App 凭据）；黑名单域名邮箱注册被拒——**已覆盖**（单测）；email 缺失拒绝开通——**已覆盖**（单测 fail-closed）
+  - [ ] `REGISTRATION_DISABLED=true` 时所有注册渠道（含 OAuth/SSO 自动开通）均拒绝——**已覆盖**（disableSignUp 端点拦截 + hook 403 单测）
+  - [x] 未配置的登录方式在登录页自动隐藏/禁用，不阻塞启动——e2e 22 用例 + ui-validator 视觉 8/8 通过
+  - [x] 单元测试：`email-domain.test.ts` + `auth-access.test.ts` 全过；e2e 按钮可见性用例通过（92/92 单测 + 22 e2e）
 - 任务粒度：3 个子任务独立提交（总 5-6 提交，单批 ≤ 10 文件 / ≤ 800 行新增，对齐经验归档 §二十四）。
 - 风险与对策：
   - **better-auth 1.6.26 genericOAuth 插件 API 形态**：已用 context7 v1.6.23 文档复核 `discoveryUrl` / `requireIssuerValidation` / `overrideUserInfo` 默认 false；实现时再验 `genericOAuthClient` 客户端类型面与 `signIn.social` provider id 匹配
@@ -103,7 +103,7 @@
 
 ## 当前状态
 
-- **规划状态**：M7 规划定稿（64efbb3e）→ M7.1 任务上收（23a9058b）→ 设计先行 [platform-auth-users.md](../design/governance/platform-auth-users.md) 完成（b0a0d33b，Review Gate 两轮 Pass）→ 决策 D1/D2/D3 用户确认（ac4ef8c0）。**T701 全部完成**（提交 5811e524 + 8d515aa8 + 2c2620e6 + dc712df1 + ce36ec37 + a115e351 + 781d3fa5）：子任务 1/2/3 与全部验收点落地，浏览器视觉验证 8/8 PASS（含 SSR 会话修复）。**平台增强（2026-08-10，未排期上收）**：仓库批量导入（GitHub 仓库列表多选导入，`GET /api/repos/importable` + `POST /api/repos/batch` + repos.vue 批量导入对话框）；platform e2e 测试基建（Playwright 22 用例覆盖全部页面关键功能点 + CI e2e job）。**T707 规划已细化**（2026-08-10）：子任务 1/2/3 执行步骤、受影响文件清单、技术约束、风险与对策、复用基线锚点均已落地本文件 T707 段落，可进入 D 阶段实施 T707-1。
+- **规划状态**：M7 规划定稿（64efbb3e）→ M7.1 任务上收（23a9058b）→ 设计先行 [platform-auth-users.md](../design/governance/platform-auth-users.md) 完成（b0a0d33b，Review Gate 两轮 Pass）→ 决策 D1/D2/D3 用户确认（ac4ef8c0）。**T701 全部完成**（提交 5811e524 + 8d515aa8 + 2c2620e6 + dc712df1 + ce36ec37 + a115e351 + 781d3fa5）：子任务 1/2/3 与全部验收点落地，浏览器视觉验证 8/8 PASS（含 SSR 会话修复）。**平台增强（2026-08-10，未排期上收）**：仓库批量导入（GitHub 仓库列表多选导入，`GET /api/repos/importable` + `POST /api/repos/batch` + repos.vue 批量导入对话框）；platform e2e 测试基建（Playwright 22 用例覆盖全部页面关键功能点 + CI e2e job）。**T707 已实施完成（2026-08-10）**：三个子任务全部落地并独立提交——T707-1 部署模式与准入（bd6e9ffc：AUTH_MODE 互斥 + 域名黑白名单 + hook 单一准入点 + 首用户 admin 短路，Review Gate 双轮 PASS）、T707-2 OAuth（56e56f95：GitHub/Google socialProviders 条件化 + 登录页按钮 + 可用性单测，Review Gate APPROVE）、T707-3 OIDC SSO（6f4b7d1f：genericOAuth 插件 + RFC 9207 防护 + 按钮，Review Gate APPROVE）。质量门：单测 92/92 + e2e 22 用例 + ui-validator 视觉 8/8 + lint/typecheck/build 全过。**剩余人工验收项**（见 T707 验收勾选）：真实 GitHub/Google OAuth 登录闭环、真实 IdP OIDC 登录闭环（需 RFC 9207 支持）、构建期配置凭据后的按钮显示路径。
 - **已知边界**：
   - M5.5 的 npx skills GitHub 源端到端验证（主通道 + 全链质量门）依赖 CI 端到端裁决（本机 clone github.com 网络受限）。
   - Publish Docker 工作流 build job 在 QEMU 双平台构建中 1h19m 被同 ref 新 push 取消，镜像构建 CI 链路未裁决通过，排查项见 [backlog.md §M6](backlog.md)（C30）。

@@ -39,6 +39,10 @@ export default defineConfig([
             '**/.output/**',
             '**/.data/**',
             'apps/platform/data/**',
+            // Playwright 生成物（e2e 运行产出，ESLint 9 flat config 不读 .gitignore 需显式排除）
+            'apps/platform/playwright-report/**',
+            'apps/platform/test-results/**',
+            'apps/platform/blob-report/**',
         ],
     },
     {

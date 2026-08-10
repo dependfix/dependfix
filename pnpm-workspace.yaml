@@ -8,8 +8,9 @@ allowBuilds:
   '@parcel/watcher': true
   better-sqlite3: true
   esbuild: true
-  # unrs-resolver：pnpm 11 安全策略要求的构建脚本白名单条目（由 eslint-config-cmyr 依赖链引入），
-  # 此前是未赋值的占位文本导致 pnpm install 报 ERR_PNPM_IGNORED_BUILDS
+  msgpackr-extract: true
+  # unrs-resolver��pnpm 11 ��ȫ����Ҫ��Ĺ����ű���������Ŀ���� eslint-config-cmyr ���������룩��
+  # ��ǰ��δ��ֵ��ռλ�ı����� pnpm install �� ERR_PNPM_IGNORED_BUILDS
   unrs-resolver: true
 overrides:
   compare-func: ^2.0.0

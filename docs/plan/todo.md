@@ -26,13 +26,14 @@
   | ❌ | — | 同步降级（M6 行为，API 兼容） |
 
 - **实现内容**：
-  - [ ] 子任务 1（队列基础设施）：
-    - [ ] 依赖：bullmq + ioredis（apps/platform）
-    - [ ] `server/services/queue/redis.ts`：ioredis 连接封装 + 启动探测（`QUEUE_ENABLED=auto` 时 ping 决定模式，失败不阻塞启动）
-    - [ ] `server/services/queue/scan-queue.ts`：BullMQ Queue（name `scan`；jobId=repositoryId 去重——同仓库未完成扫描合并；priority 手动 1 / webhook 5 / 定时 10；backoff 指数退避；retries 可配 env）
-    - [ ] `server/services/queue/scan-worker.ts`：Worker + processor（复用 `runScanForRepository`；`IN_PROCESS_WORKER` 时由 Nuxt 启动钩子创建）
-    - [ ] `server/services/queue/queue-mode.ts`：队列模式决策纯函数（Redis 可用性 + QUEUE_ENABLED + 入队失败 failover 同步）——便于单测
-    - [ ] 单测：模式决策（auto/true/false + failover）、jobId 去重推导、重试/backoff 配置解析
+  - [x] 子任务 1（队列基础设施）：
+    - [x] 依赖：bullmq + ioredis（apps/platform；pnpm-workspace.yaml 审批 msgpackr-extract 构建）
+    - [x] `server/services/queue/redis.ts`：ioredis 连接封装（lazyConnect + maxRetriesPerRequest null）+ ping 探测（失败断开防泄漏）
+    - [x] `server/services/queue/scan-queue.ts`：BullMQ Queue（name `scan`；jobId=repositoryId 去重；priority 手动 1 / webhook 5 / 定时 10；指数退避；retries 可配 env；完成 1h/失败 24h 清理）
+    - [x] `server/services/queue/scan-worker.ts`：Worker + processor（复用 `runScanForRepository`；concurrency 默认 1 可配）
+    - [x] `server/services/queue/queue-mode.ts`：模式决策纯函数（QUEUE_ENABLED auto/true/false + Redis 探测 + failover 降级同步）+ jobId/优先级/重试配置解析
+    - [x] 单测：`queue-mode.test.ts` 14 例（模式决策 5 + env 解析 + jobId 去重 + 重试配置 + 优先级顺序）
+    - [ ] `IN_PROCESS_WORKER` 启动接线（子任务 3 与 scan.post.ts 异步化一并落地）
   - [ ] 子任务 2（扫描 API 异步化）：
     - [ ] `scan.post.ts`：队列模式 → 预创建 ScanRun(status `pending`) + enqueue + 立即返回；同步降级 → 现有行为（请求内完成）
     - [ ] `runScanForRepository` 拆分：worker processor 复用执行主体；pending run 由 worker 续用（queued → running）

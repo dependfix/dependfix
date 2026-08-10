@@ -17,6 +17,8 @@ import { Repository } from '#server/entities/repository'
 import { Organization } from '#server/entities/organization'
 import { ScanRun } from '#server/entities/scan-run'
 import { ScanResult } from '#server/entities/scan-result'
+import { Schedule } from '#server/entities/schedule'
+import { BatchRun } from '#server/entities/batch-run'
 
 /**
  * TypeORM DataSource 单例（多后端：SQLite 默认 / MySQL / PostgreSQL）。
@@ -48,6 +50,8 @@ export const createDataSourceOptions = (): DataSourceOptions => {
             Organization,
             ScanRun,
             ScanResult,
+            Schedule,
+            BatchRun,
         ],
         synchronize,
         entityPrefix,

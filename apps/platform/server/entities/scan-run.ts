@@ -64,4 +64,9 @@ export class ScanRun extends BaseEntity {
     /** B 模式：action run 页面 URL（触发后轮询定位） */
     @Column({ type: 'varchar', length: 500, nullable: true })
     runUrl!: string | null
+
+    /** 所属批量运行 id（定时/批量触发时关联；单独手动触发为 null） */
+    @Index()
+    @Column({ type: 'varchar', length: 36, nullable: true })
+    batchRunId!: string | null
 }

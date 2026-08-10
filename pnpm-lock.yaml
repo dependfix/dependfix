@@ -115,6 +115,9 @@ importers:
       bullmq:
         specifier: ^6.0.9
         version: 6.0.9(ioredis@6.0.0(supports-color@10.2.2))(pg@8.22.0)
+      cron-parser:
+        specifier: ^5.8.1
+        version: 5.8.1
       h3:
         specifier: ^1.15.11
         version: 1.15.11
@@ -3696,6 +3699,10 @@ packages:
 
   cron-parser@5.7.0:
     resolution: {integrity: sha512-iSpDHpwwW/GhIg4JVODYlWUEpMNSimaHvqOhHpOz1W+Y97z1lL1nf+dpcF17cNwFRpTtKN9devgi1fxflp3Phw==}
+    engines: {node: '>=18'}
+
+  cron-parser@5.8.1:
+    resolution: {integrity: sha512-fVw5nGEkTVmiPKo3fY0j28Thq6jR00VKWyL22llWrsbII4sDHI+8Kx1kcL+QzGQJfCfk64bbMotrgTZRpzYpLQ==}
     engines: {node: '>=18'}
 
   croner@10.0.1:
@@ -11395,6 +11402,10 @@ snapshots:
       readable-stream: 4.7.0
 
   cron-parser@5.7.0:
+    dependencies:
+      luxon: 3.7.2
+
+  cron-parser@5.8.1:
     dependencies:
       luxon: 3.7.2
 

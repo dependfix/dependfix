@@ -79,4 +79,27 @@ export class Repository extends BaseEntity {
     /** 最近扫描时间（扫描任务回填） */
     @Column({ type: 'datetime', nullable: true })
     lastScanAt!: Date | null
+
+    /**
+     * 仓库标签（JSON 数组字符串，如 '["frontend","critical"]'；用于批量选择策略，
+     * 空数组存 null）。选择用 JSON 字符串列而非关联表：标签量小且仅用于选择过滤，
+     * 演进路径：后续需要标签管理 UI 时再升级为独立关联表。
+     */
+    @Column({ type: 'text', nullable: true })
+    tags!: string | null
+}
+
+/** 解析 tags JSON 字符串 → 字符串数组（非法/缺失返回空数组，容错不抛错） */
+export const parseTags = (raw: string | null | undefined): string[] => {
+    if (!raw) {
+        return []
+    }
+    try {
+        const parsed: unknown = JSON.parse(raw)
+        return Array.isArray(parsed)
+            ? parsed.filter((tag): tag is string => typeof tag === 'string')
+            : []
+    } catch {
+        return []
+    }
 }

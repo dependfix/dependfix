@@ -40,9 +40,24 @@ export const buildScanQueueOptions = (options: { retriesRaw?: string, backoffMsR
     }
 }
 
+/** BullMQ job scheduler 模板（data 形状与 scan job 不同，封装层独立声明） */
+export interface ScheduledJobTemplate {
+    name: string
+    data?: unknown
+    opts?: { priority?: number }
+}
+
 export interface ScanQueue {
     /** 入队结果：jobId 供状态关联；reused=true 表示命中同仓库进行中任务（去重合并，未新建 job） */
     add: (repositoryId: string, request: ScanRequest, options?: { priority?: number, runId?: string }) => Promise<{ jobId: string, reused: boolean }>
+    /** BullMQ job scheduler 透传：注册/更新定时调度（定时扫描能力） */
+    upsertJobScheduler: (
+        schedulerId: string,
+        repeatOpts: { pattern: string, tz?: string },
+        template: ScheduledJobTemplate,
+    ) => Promise<void>
+    /** BullMQ job scheduler 透传：注销定时调度 */
+    removeJobScheduler: (schedulerId: string) => Promise<void>
     close: () => Promise<void>
 }
 
@@ -72,6 +87,13 @@ export const createScanQueue = (connection: Redis, options: { retriesRaw?: strin
                 priority: opts?.priority ?? SCAN_JOB_PRIORITY.manual,
             })
             return { jobId, reused: false }
+        },
+        upsertJobScheduler: async (schedulerId, repeatOpts, template) => {
+            // 模板 data 形状与 scan job 不同（scheduleId 而非 repositoryId），断言透传
+            await queue.upsertJobScheduler(schedulerId, repeatOpts, template as never)
+        },
+        removeJobScheduler: async (schedulerId) => {
+            await queue.removeJobScheduler(schedulerId)
         },
         close: async () => {
             await queue.close()

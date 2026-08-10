@@ -37,6 +37,8 @@ export interface ScanRequest {
 export interface ScanRunOptions {
     /** 队列模式：复用已创建的 pending run（worker 消费时续用）；同步模式不传则新建 */
     runId?: string
+    /** 所属批量运行 id（定时/批量触发时关联；单独手动触发不传为 null） */
+    batchRunId?: string
 }
 
 /** 执行器选择：显式指定优先，其次按 actionWorkflowFile 自动（B 模式） */
@@ -52,6 +54,7 @@ const resolveExecutorKind = (
 export const createPendingScanRun = async (
     repositoryId: string,
     request: ScanRequest,
+    options?: { batchRunId?: string },
 ): Promise<ScanRun> => {
     const ds = await ensureDatabaseInitialized()
     const repoRepo = ds.getRepository(Repository)
@@ -69,6 +72,7 @@ export const createPendingScanRun = async (
         executorKind: resolveExecutorKind(repository, request),
         status: 'pending',
         startedAt: null,
+        batchRunId: options?.batchRunId ?? null,
     })
     return runRepo.save(run)
 }
@@ -126,6 +130,7 @@ const runScanInternal = async (
             executorKind,
             status: 'running',
             startedAt: new Date(),
+            batchRunId: options?.batchRunId ?? null,
         })
         savedRun = await runRepo.save(run)
     }

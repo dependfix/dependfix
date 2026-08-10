@@ -342,3 +342,14 @@
   - **ESLint 9 flat config 不读 .gitignore**：Playwright 生成物（playwright-report/ / test-results/ / blob-report/）被全量 lint 报海量错误（生成 JS 被当源码）——必须显式 ignores。e2e 运行后立即检查 lint 回归。
   - **Nuxt runtimeConfig 运行时覆盖只认 NUXT_ 前缀**（再印证 §三十 better-auth 案例）：构建期烘焙默认值，启动时无前缀 env（REDIS_URL 等）不生效——部署/验证环境一律 NUXT_ 前缀。
 
+## 三十三、markdown 裸 HTML 标签破坏 VitePress 构建：lint 绿 ≠ docs build 绿（2026-08-10）
+
+> 本条目与 §二十二 / §二十八 的第三次实证：**"检查全绿"只对"已跑过的检查"成立，未覆盖的环节（docs build）照样挂。**
+
+- **案例**：两个 CI run 同时失败——Test workflow（run 31387884319）lint/lint:md/check:links/typecheck/test 全绿，挂最后的 `pnpm run build`（`pnpm -r build` 含 docs 包）；Pages Deploy workflow（run 31387884214）挂 `docs:build`。同一错误：`guide/release.md (368:55): Element is missing end tag.`。根因：`docs/guide/release.md` 263 行"已知限制与排查"表格中 `<path>` 是**裸 HTML 标签**（缺反引号），markdown-it 按 raw HTML 输出（SVG 元素非自闭合），Vue 编译器解析模板时因缺 `</path>` 报错；转换后 HTML 行号 368 > 源文件 268 行——**报错行号是转换产物行号，不能按源文件行号找**。引入 commit：765af514（发布指南重构）。
+- **根因**：markdown 表格单元格内的 `<tag>` 若不用反引号包裹，会被 markdown-it 当作 raw HTML 原样透传，VitePress 的 vue 模板编译把任何非自闭合标签视为需要闭合 → 构建即失败。lint-md（`lint:md`）与 check-links 均**不检查 HTML 标签配对**，本地 `docs:build` 未纳入日常检查，问题被 CI 最后一步拦截前无人察觉。
+- **修复**：`<path>` 加反引号转义（与同表 262 行 `<pkg>@<version>` 惯例一致）；本地验证（`pnpm --filter dependfix-docs build` 通过 + markdown-it 渲染断言 `&lt;path&gt;` 且 `html.includes('<path>')` = false）后提交（28ba588b + f724a800）。**配套防复发**：test.yml 将 docs 构建从末尾 `pnpm -r build` 中拆出并**前置**到 `check:links` 之后（`pnpm --filter dependfix-docs build`），末尾 build 排除 docs 包（`pnpm -r --filter=!dependfix-docs build`）避免重复构建。
+- **启示**：
+  - **表格/正文中的 `<占位符>` 必须反引号包裹**：markdown 中反引号内内容才会被转义为 `&lt;...&gt;`；裸 `<tag>` 会被当 raw HTML 透传进 Vue 模板。代码块（fenced code block）内不受影响（审计核实 133-137 行 `<core-anchor>` 等在 ```bash 块内安全），但若未来移出代码块（如改表格）必须补反引号。
+  - **CI 全绿 ≠ 交付就绪**：检查矩阵之外仍有真实失败面（docs build 与 Pages 部署）。docs 变更的本地验证必须包含 `docs:build`，不能只跑 `lint:md` + `check:links`；CI 侧把高频失败面前置（docs build 提前），让失败在 1 分钟内暴露而不是等 test/typecheck 跑完。
+  - **裸标签排查方法**：`rg '<[a-z][a-z0-9-]*>' | rg -v '`'` 扫描正文/表格裸标签 + 用 vitepress `createMarkdownRenderer` 渲染断言转义结果，是 docs 变更的可复用验证手段。

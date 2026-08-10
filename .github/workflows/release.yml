@@ -47,53 +47,15 @@ jobs:
       # 定时发布（schedule 触发时自动完成版本提升 + CHANGELOG 生成 + 提交推送）：
       # - 手动发布（workflow_dispatch）时版本已在本地通过 release:plan + release:version
       #   + pnpm changelog 提升并提交，此步骤跳过；
-      # - 没有待发布变更时全流程无操作（release:plan 无推导结果不生成计划文件，
-      #   release:version 无计划可消费时报错会中断——因此前置防御性清理残留计划文件；
-      #   changelog 幂等生成，git commit 跳过；后续质量门 / 校验 / publish 均安全 no-op）；
-      # - 提交推送使用 GITHUB_TOKEN（x-access-token 方式，checkout 为 persist-credentials: false）。
+      # - 无待发布变更时脚本内部安全 no-op（notice 退出，job 不红）；
+      # - 提交推送使用显式 token URL（不依赖 insteadOf，见经验归档 §二十六）；
+      #   详细行为见 scripts/auto-version.mjs。
       # 1.0.0 正式版发布后取消上方 schedule 注释即启用。
       - name: Auto version & changelog (schedule only)
         if: github.event_name == 'schedule'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          rm -f release-plan.md
-          pnpm release:plan
-          if [ -f release-plan.md ]; then
-            pnpm release:version
-          else
-            echo "::notice::没有待提升的版本，跳过 release:version"
-          fi
-          pnpm changelog
-          git add -A
-          if git diff --cached --quiet; then
-            echo "::notice::没有待发布的版本变更，定时发布无操作"
-          else
-            # GitHub runner 默认无 git 身份，需要显式配置（github-actions[bot] 官方身份）
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            # semantic-release 风格提交信息：标题带版本号 + body 附根 CHANGELOG 版本段全文
-            # （参考 momei semantic-release 提交 `chore(release): <version> [skip ci]`）
-            cli_version=$(node -p "require('./packages/cli/package.json').version")
-            core_version=$(node -p "require('./packages/core/package.json').version")
-            head_cli_version=$(git show HEAD:packages/cli/package.json 2>/dev/null | node -p "JSON.parse(require('fs').readFileSync(0, 'utf8')).version" || echo "0.0.0")
-            version="$cli_version"
-            # 仅 core 变更时（cli 未提升），标题取 core 版本，避免版本号与变更不符
-            if [ "$cli_version" = "$head_cli_version" ]; then
-              version="$core_version"
-            fi
-            # 仅提取最新版本段（`# 0.1.0 (date)` 到下一个 `# ` 版本段前），
-            # 避免 commit body 随 changelog 历史无界膨胀（Review Gate P2）
-            release_notes=$(awk '/^# [0-9]/{ if (n) exit; n = 1 } n { print }' CHANGELOG.md)
-            if [ -z "$release_notes" ]; then
-              echo "::error::CHANGELOG.md 缺少版本段，无法生成 release commit body"
-              exit 1
-            fi
-            git commit -m "chore(release): ${version} [skip ci]" -m "$release_notes"
-            # 分支为当前默认分支 master（release:version 消费计划后无 baseBranch 概念，固定 master）
-            git config --global url."https://x-access-token:${GITHUB_TOKEN}@github.com/".insteadOf "https://github.com/"
-            git push origin master
-          fi
+        run: pnpm release:auto-version
 
       - run: pnpm run lint
       - run: pnpm run lint:md:check

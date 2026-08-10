@@ -16,6 +16,7 @@
     "release:publish": "node scripts/release-publish.mjs",
     "release:github": "node scripts/create-github-release.mjs",
     "release:push-tags": "node scripts/push-release-tags.mjs",
+    "release:auto-version": "node scripts/auto-version.mjs",
     "verify:changelog": "node scripts/verify-changelog.mjs",
     "changelog": "node scripts/changelog.mjs",
     "tag:released": "node scripts/tag-released-versions.mjs",

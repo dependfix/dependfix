@@ -19,6 +19,10 @@
   - 状态：🔶 待评估
   - 内容：使用 pnpm catalog 声明的依赖，版本化 overrides 是否生效未实测
   - 来源：G3 处理记录（2026-08-05）
+- **C35 pnpm audit 拉取应显式指定官方 registry**（用户反馈登记）
+  - 状态：🔶 待修复
+  - 内容：`runPnpmAudit`（`packages/engine/src/alerts/pnpm-audit-fetcher.ts`）执行 `pnpm audit --json` 时未指定 `--registry`，会继承用户 `.npmrc` / `npm_config_registry` 环境变量中的镜像站配置；部分镜像站（如 npmmirror）audit 元数据缺失或不同步，导致拉取不到数据或数据不完整。修复方向：spawn 命令追加 `--registry=https://registry.npmjs.org/`，对齐 `changelog-fetcher.ts` 的 registryBaseUrl 官方 registry 默认口径（该处已默认 `https://registry.npmjs.org`）；注意与 `fixers/dependency/index.ts` 的 registry 校验逻辑（fork/私有源切回官方 registry 的改写风险防护）保持语义一致
+  - 来源：2026-08-10 用户反馈
 
 ### 报告与统计口径
 

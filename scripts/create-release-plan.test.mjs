@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildReleasePlan, parseCommit, pathToPkg, renderChangeset, stripDevTags, toBump } from './create-release-plan.mjs'
+import { buildReleasePlan, parseCommit, pathToPkg, renderPlan, stripDevTags, toBump } from './create-release-plan.mjs'
 
 describe('parseCommit', () => {
     it('parses type and description', () => {
@@ -93,13 +93,13 @@ describe('buildReleasePlan', () => {
     })
 })
 
-describe('renderChangeset', () => {
+describe('renderPlan', () => {
     it('renders frontmatter with single-quoted package names', () => {
         const plan = new Map([
             ['dependfix', 'minor'],
             ['@dependfix/core', 'minor'],
         ])
-        expect(renderChangeset(plan, 'feat: 新功能')).toBe('---\n\'dependfix\': minor\n\'@dependfix/core\': minor\n---\n\nfeat: 新功能\n')
+        expect(renderPlan(plan, 'feat: 新功能')).toBe('---\n\'dependfix\': minor\n\'@dependfix/core\': minor\n---\n\nfeat: 新功能\n')
     })
 })
 

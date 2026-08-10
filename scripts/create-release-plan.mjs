@@ -85,7 +85,7 @@ export function buildReleasePlan(commits, preMajor) {
 }
 
 /** 渲染发布计划文件内容（frontmatter 单引号风格沿用既有 changeset 格式） */
-export function renderChangeset(plan, summary) {
+export function renderPlan(plan, summary) {
     const lines = ['---']
     for (const [pkg, bump] of plan) {
         lines.push(`'${pkg}': ${bump}`)
@@ -171,7 +171,7 @@ export function main() {
         .filter((c) => c.packages.length > 0 && toBump(c, preMajor))
         .map((c) => stripDevTags(c.subject))
         .join('；')
-    const content = renderChangeset(plan, summary.length > SUMMARY_MAX_LEN ? `${summary.slice(0, SUMMARY_MAX_LEN)}……` : summary)
+    const content = renderPlan(plan, summary.length > SUMMARY_MAX_LEN ? `${summary.slice(0, SUMMARY_MAX_LEN)}……` : summary)
     writeFileSync(PLAN_FILE, content, 'utf8')
     console.log(`generated ${PLAN_FILE}`)
     for (const [pkg, bump] of plan) {

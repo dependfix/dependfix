@@ -109,7 +109,7 @@
 
 | 工具 | 用途 |
 |------|------|
-| @changesets/cli | 子包独立版本管理 + npm 发布（开发者显式声明 bump 类型） |
+| 自研 release 脚本（`scripts/release-*.mjs`） | 子包独立版本管理 + npm 发布（`release:plan` git log 推导 bump / `release:version` 版本提升 / `release:publish` 发布，见[发布管线设计](../design/governance/release-pipeline.md)） |
 | conventional-changelog + conventional-changelog-cmyr-config | CHANGELOG 生成（`pnpm changelog`，momei 同款格式） |
 | commitizen + cz-conventional-changelog-cmyr | 交互式提交 |
 
@@ -117,22 +117,22 @@
 
 根包（`dependfix-monorepo`）是 pnpm workspace 壳，不交付任何产物，不参与版本发布。
 
-子包（`@dependfix/core`、`dependfix`）通过 changesets 独立发版：
+子包（`@dependfix/core`、`dependfix` 等发布包）通过自研 release 脚本独立发版（双模式：A 本地手动提升 + B CI 定时自动，见[发布管线设计](../design/governance/release-pipeline.md)）：
 
 | 动作 | 命令 |
 |------|------|
-| 创建 changeset | `pnpm changeset` |
-| 消费 changeset 并 bump 版本 | `pnpm changeset:version` |
+| 生成发布计划（git log 推导 bump） | `pnpm release:plan`（产出 `release-plan.md`，人工 review/修正） |
+| 消费计划并 bump 版本（含依赖传导） | `pnpm release:version`（`--dry-run` 预览 / `--force` 跳过干净检查） |
 | 生成 CHANGELOG（根级 + 包级） | `pnpm changelog` |
-| 发布到 npm | CI 中 `pnpm changeset publish`（OIDC 免 token 认证） |
+| 发布到 npm（按 publishOrder + 打 tag） | `pnpm release:publish`（CI 中 OIDC 免 token 认证；`--dry-run` 预览） |
 
-版本号各自独立，`@dependfix/core` 升级时通过 `updateInternalDependencies: "patch"` 自动 bump `dependfix` CLI 的 patch 版本。
+版本号各自独立，`@dependfix/core` 升级时通过自研依赖传导闭包自动 bump 依赖方（`@dependfix/engine` / `dependfix` / `@dependfix/mcp`）的 patch 版本并重发（等价于 changesets 的 `updateInternalDependencies: "patch"` 语义；依赖范围为 `workspace:*`，pnpm publish 时自动替换为实际版本）。
 
 ### 工具链事实（训练数据易过时）
 
 - **pnpm overrides 写入位置**：pnpm v11 起 `overrides` 迁移到 `pnpm-workspace.yaml`。检测文件存在性：存在则写 workspace yaml，否则写 `package.json#pnpm.overrides`（比版本号判断稳健）。
 - **pnpm overrides 版本化 key**：多版本共存时分别覆盖——`"pkg@精确版本": "^target"`（精确）、`"pkg@大版本": "^target"`（major）、`"pkg@范围": "^target"`（range）三种 selector。**只覆盖与 target 同 major 且低于目标的实例**（跨 major 会破坏子工作区且根验证无法覆盖）；同包多告警取 recommendedVersion 最高者。
-- **发布工具链**：npm OIDC trusted publishing 需 npm CLI >= 11.5.1 + Node >= 22.14，**初始版本无法用 OIDC 发布**（npm/cli#8544）；pnpm v11 publish 原生实现不走 npm CLI；changesets 在 pnpm 项目 spawn `pnpm publish`（自动替换 `workspace:*`）；conventional-changelog 8.x 与旧式 preset（Handlebars 模板）**不兼容**需锁版本，`transformCommit` 必须组合 `defaultCommitTransform`；CHANGELOG 版本标题日期用 HEAD commit 的 **UTC** 日期保证 CI 重跑幂等；GitHub Actions 中 GITHUB_TOKEN 的 push 不触发其他 workflow（防递归），runner 默认无 git 身份需显式配置。
+- **发布工具链**：npm OIDC trusted publishing 需 npm CLI >= 11.5.1 + Node >= 22.14，**初始版本无法用 OIDC 发布**（npm/cli#8544）；pnpm v11 publish 原生实现不走 npm CLI；release:publish 底层为 `pnpm publish`（自动替换 `workspace:*`）；"已发布"判定用 Node fetch 直连 registry（npm view 在 Windows 下 10s 超时必失效，教训见[经验归档 §三十二](../design/governance/experience-archive.md)）；conventional-changelog 8.x 与旧式 preset（Handlebars 模板）**不兼容**需锁版本，`transformCommit` 必须组合 `defaultCommitTransform`；CHANGELOG 版本标题日期用 HEAD commit 的 **UTC** 日期保证 CI 重跑幂等；GitHub Actions 中 GITHUB_TOKEN 的 push 不触发其他 workflow（防递归），runner 默认无 git 身份需显式配置。
 - **0.x 版本语义**：0.x 即"开发期不稳定"；npm 默认不安装 prerelease 版本会阻碍预览（npx 拿不到）。预览期直接发 latest + GitHub Release 标 pre-release，稳定信号来自 1.0.0。
 - **Windows 行尾纪律**：避免用 PowerShell `Set-Content` 批量改文件（引入 CRLF 噪音）；用 .NET `ReadAllText/WriteAllText`（UTF8 no BOM）保持 LF；改后立即 `git diff` 检查行尾。
 

@@ -1,6 +1,8 @@
 # Monorepo 发布工具对比调研（2026-08）
 
 > 调研日期：2026-08-02 | 用途：评估 dependfix（pnpm workspace monorepo）的发布工具选型与 changelog 格式方案
+>
+> **演进注记（2026-08-10）**：本调研的结论"保持 changesets + 自研 changelog"已进一步演进——changeset 的剩余职责（版本提升执行 + 依赖传导 + 遍历发布）也由自研脚本替代（`release:plan` / `release:version` / `release:publish`，见[发布管线设计](../design/governance/release-pipeline.md)与[发布指南](../../docs/guide/release.md)），changeset 已完全移除。调研中"changesets 的 changelog 自定义能力最弱"与"semantic-release monorepo 硬伤"两个结论仍是演进方向的依据：changelog 走 conventional-changelog-cmyr 生态（同 momei 格式）、版本与发布自研（规避 semantic-release 的多包独立版本问题）。
 
 ## 结论摘要
 

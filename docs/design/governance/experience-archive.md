@@ -240,6 +240,17 @@
   - **"已发布"判定不能只信单一来源**：npm registry 是发布事实的最终权威，git tag 只是 changesets 流程的产物——手动发布路径会打破两者一致性。判定应"任一命中即已发布"（tag 短路 + registry 兜底），且失败方向要保守（宁可漏生成也不改写已发布段）。
   - **脚本的跨平台兼容性要用真实环境验证**：`2>/dev/null` 在 Linux 正常、Windows 直接报"系统找不到指定的路径"——跨平台脚本的 shell 重定向必须用 Node 的 stdio 捕获替代。
   - **生成类脚本的幂等性要"干净状态实测"**：changelog 类脚本必须在干净工作区（git stash 后）重跑验证"已发布段 unchanged"，而不是在污染后的状态上观察输出——上一轮"updated"其实是修复前残留，只有 stash 后重跑才暴露真实行为。
+  - **演进注记（2026-08-10）**：本条目描述的 `publishable: false` 与 `.changeset/config.json` `ignore` 联动已随 changeset 移除而消亡（[发布管线自研化](./release-pipeline.md)）——新脚本 release:version/publish 仅消费 `publishable: true` 的包，未就绪包条目由 release:version 的 `KNOWN_PKGS` 硬校验拦截，单点声明收敛为一处。
+
+## 三十二、"已发布"判定不能依赖 npm CLI：Windows 下 execSync 超时必失效（2026-08-10）
+
+- **案例**：发布管线自研化时实测 `isPublishedOnRegistry`（`execSync('npm view <pkg>@<version> version --json', { timeout: 10_000 })`）在 Windows 本地**每次都在 10s 整超时**（ETIMEDOUT，err.stderr 为空、status null），导致判定恒返回 null（保守跳过）——tag:released / release:publish 的"已发布判定"在本地完全失效。而同进程 Node fetch 直连 registry.npmjs.org 实测 1-2s 完成（E404 正确识别）。
+- **根因**：npm CLI 在 Windows 是 `.cmd` 包裹（cmd.exe 派生 node 进程），单次启动 + registry 查询实测 >13s（与网络波动叠加），10s 超时必然触发；execSync 的 timeout 对 cmd 包裹进程的终止语义不可靠。**npm 慢不是网络慢**——registry 直连毫秒级响应，瓶颈在 CLI 启动开销。
+- **修复**：`isPublishedOnRegistry` 改用 Node 原生 `fetch` 直连 `https://registry.npmjs.org/<pkg>`（abbreviated metadata header），语义保持：404→false / 非 2xx→null / `versions[version]` 命中→true；`AbortSignal.timeout(20_000)` 控超时；首次连接建立可能慢（UND_ERR_CONNECT_TIMEOUT 偶发）→ 网络异常重试一次（连接池复用后稳定），404/非 2xx 不重试；仍失败才保守返回 null。main 异步化并行查询（每包一次 fetch）。
+- **启示**：
+  - **registry 状态查询优先直连 API，不绕 npm CLI**：fetch 直连 registry.npmjs.org 无 CLI 启动开销、超时可控（AbortSignal）、无跨平台 shell 差异——发布/版本判定的标准实现。
+  - **超时类缺陷要用"恰好在超时点失败"的模式识别**：10s 超时、每次都 10.0-10.2s 失败 = 稳定超时而非网络抖动；再对比同进程内其他网络操作耗时，即可定位"CLI 开销"还是"网络慢"。
+  - **保守方向语义要保留**：查询失败返回 null（调用方跳过）比误判安全——漏发可重试，误发不可逆；重试逻辑只覆盖网络瞬态，不覆盖确定状态（404）。
 ## 二十六、git tag 的"创建"与"推送"分离：CI 推送静默失败 + 本地补打不推送（2026-08-08）
 
 - **案例**：发布 0.2.0 后排查发现远程 tag 严重不齐——本地 6 个 tag（v0.1.0 + 0.1.0 三个包 tag + 0.2.0 两个包 tag）与远程（仅 v0.1.0）长期不同步。两条独立路径共同导致：

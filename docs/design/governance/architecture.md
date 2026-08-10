@@ -242,7 +242,7 @@ flowchart TD
 | 类型检查 | tsc --noEmit |
 | 样式检查 | stylelint（stylelint-config-cmyr） |
 | 提交规范 | commitlint（commitlint-config-cmyr） + commitizen |
-| 版本发布 | @changesets/cli（独立子包版本管理与发布）+ `pnpm changelog`（conventional-changelog-cmyr-config 生成日志，见[发布指南](../../guide/release.md)） |
+| 版本发布 | 自研 release 脚本（`release:plan` 推导 + `release:version` 版本提升 + `release:publish` 发布，见[发布管线设计](./release-pipeline.md)与[发布指南](../../guide/release.md)）+ `pnpm changelog`（conventional-changelog-cmyr-config 生成日志） |
 
 ### 文档站（docs/）
 

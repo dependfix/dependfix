@@ -1,5 +1,5 @@
 import type { H3Event } from 'h3'
-import { Repository } from '#server/entities/repository'
+import { parseTags, Repository } from '#server/entities/repository'
 import { ensureDatabaseInitialized } from '#server/database'
 import { repositorySchema } from '#server/schemas/repository'
 import { requireAuth, requireRole } from '#server/utils/guard'
@@ -17,6 +17,7 @@ const toView = (r: Repository) => ({
     actionWorkflowFile: r.actionWorkflowFile,
     executorKind: r.executorKind,
     note: r.note,
+    tags: parseTags(r.tags),
     lastScanAt: r.lastScanAt,
     createdAt: r.createdAt,
     updatedAt: r.updatedAt,
@@ -70,6 +71,12 @@ const createRepository = async (event: H3Event) => {
     // 创建路径经 resolveOrganizationId 填充归属（应用层强制非空，杜绝无归属数据）
     const organizationId = await resolveOrganizationId(ds)
 
+    // tags 数组 → JSON 字符串列（空数组存 null，实体语义见 Repository.tags）
+    let tags: string | null = null
+    if (parsed.data.tags !== undefined && parsed.data.tags !== null) {
+        tags = parsed.data.tags.length > 0 ? JSON.stringify(parsed.data.tags) : null
+    }
+
     const entity = repo.create({
         organizationId,
         owner: parsed.data.owner,
@@ -81,6 +88,7 @@ const createRepository = async (event: H3Event) => {
         actionWorkflowFile: parsed.data.actionWorkflowFile ?? null,
         executorKind: parsed.data.executorKind,
         note: parsed.data.note ?? null,
+        tags,
     })
     const saved = await repo.save(entity)
     // 保存后重查以加载 relations（创建响应与 GET 语义一致，credentialName 不恒为 null）

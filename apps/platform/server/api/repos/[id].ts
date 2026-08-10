@@ -1,5 +1,5 @@
 import type { H3Event } from 'h3'
-import { Repository } from '#server/entities/repository'
+import { parseTags, Repository } from '#server/entities/repository'
 import { ensureDatabaseInitialized } from '#server/database'
 import { repositoryUpdateSchema } from '#server/schemas/repository'
 import { requireAuth, requireOrgResource, requireRole } from '#server/utils/guard'
@@ -29,6 +29,7 @@ const getRepository = async (event: H3Event, id: string) => {
         actionWorkflowFile: found.actionWorkflowFile,
         executorKind: found.executorKind,
         note: found.note,
+        tags: parseTags(found.tags),
         lastScanAt: found.lastScanAt,
         createdAt: found.createdAt,
         updatedAt: found.updatedAt,
@@ -70,6 +71,13 @@ const updateRepository = async (event: H3Event, id: string) => {
         }
     }
 
+    // tags 数组 → JSON 字符串列（空数组存 null，实体语义见 Repository.tags；
+    // 更新语义与 credentialId/note 一致：undefined=不修改 / null 或 [] = 清空）
+    let tagsValue: string | null = found.tags
+    if (parsed.data.tags !== undefined) {
+        tagsValue = parsed.data.tags && parsed.data.tags.length > 0 ? JSON.stringify(parsed.data.tags) : null
+    }
+
     Object.assign(found, {
         owner: parsed.data.owner ?? found.owner,
         name: parsed.data.name ?? found.name,
@@ -80,6 +88,7 @@ const updateRepository = async (event: H3Event, id: string) => {
         actionWorkflowFile: parsed.data.actionWorkflowFile !== undefined ? parsed.data.actionWorkflowFile : found.actionWorkflowFile,
         executorKind: parsed.data.executorKind ?? found.executorKind,
         note: parsed.data.note !== undefined ? parsed.data.note : found.note,
+        tags: tagsValue,
     })
     const saved = await repo.save(found)
     return { id: saved.id, updated: true }

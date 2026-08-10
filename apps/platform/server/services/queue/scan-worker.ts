@@ -13,11 +13,21 @@ export interface ScanWorker {
     close: () => Promise<void>
 }
 
-export const createScanWorker = (connection: Redis, options?: { concurrency?: number }): ScanWorker => {
+/** job 处理器签名（默认复用 runScanForRepository；测试可注入 mock） */
+export type ScanJobProcessor = (data: ScanJobData) => Promise<unknown>
+
+const defaultProcessor: ScanJobProcessor = async ({ repositoryId, request, runId }) =>
+    // 续用 API 预创建的 pending run（runId 非空时）；同步降级路径不经过 worker
+    runScanForRepository(repositoryId, request, runId ? { runId } : undefined)
+
+
+export const createScanWorker = (
+    connection: Redis,
+    options?: { concurrency?: number, processor?: ScanJobProcessor },
+): ScanWorker => {
     const worker = new Worker<ScanJobData>(SCAN_QUEUE_NAME, async (job) => {
-        const { repositoryId, request, runId } = job.data
-        // 续用 API 预创建的 pending run（runId 非空时）；同步降级路径不经过 worker
-        return runScanForRepository(repositoryId, request, runId ? { runId } : undefined)
+        const processor = options?.processor ?? defaultProcessor
+        return processor(job.data)
     }, {
         connection,
         concurrency: options?.concurrency ?? 1,

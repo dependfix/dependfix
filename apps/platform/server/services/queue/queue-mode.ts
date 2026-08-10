@@ -39,8 +39,11 @@ export const parseQueueEnabled = (raw: string | undefined): QueueEnabled => {
     return 'auto'
 }
 
-/** 入队参数 → jobId（去重键）：同仓库同时只有一个未完成扫描任务 */
-export const buildScanJobId = (repositoryId: string): string => `scan:${repositoryId}`
+/**
+ * 入队参数 → jobId（去重键）：同仓库同时只有一个未完成扫描任务。
+ * 注意：BullMQ 6 自定义 jobId 禁止包含冒号（Redis key 分隔符）——使用 `scan-` 前缀而非 `scan:`。
+ */
+export const buildScanJobId = (repositoryId: string): string => `scan-${repositoryId}`
 
 /** 扫描任务优先级（手动 > webhook > 定时；webhook/定时为后续调度任务预留） */
 export const SCAN_JOB_PRIORITY = {

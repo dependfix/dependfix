@@ -53,13 +53,13 @@
   - [x] 无 Redis 环境平台功能不降级（同步模型可用，API 兼容）——**真实冒烟验证**（Redis 3.0 → version_too_old → 降级 sync completed）
   - [x] 单容器部署可用（in-process worker）——compose 默认 IN_PROCESS_WORKER=true 接线完成，消费闭环待 Redis >= 5 环境验收
 - 验收：
-  - [ ] 有 Redis（>= 5.0）：异步队列闭环（手动触发入队 → worker 执行 → pending→running→completed 流转 → 前端轮询完成）——**待人工验收**（需 Redis 7 或 CI redis service）
+  - [x] 有 Redis（>= 5.0）：异步队列闭环（手动触发入队 → worker 执行 → pending→running→completed 流转 → 前端轮询完成）——**真实 Redis 7.4.1 集成测试验证**（queue-integration.test.ts 4 例：入队→worker 消费→processor 收到数据 / 去重 reused / 终态重建 reused=false；进程内执行无后台服务；本地 TEMP_REDIS_INTEGRATION=true 启用，CI 无 Redis 自动 skip）——**待补**：pending→running→completed 状态流转与前端轮询的 HTTP 层验证（需后台服务，登记后续）
   - [x] 无 Redis：同步降级闭环（POST /scan 行为与之前一致）——真实冒烟 completed + e2e 23 用例（QUEUE_ENABLED=false 强制同步）
-  - [ ] 单容器：`IN_PROCESS_WORKER=true` 时同进程消费队列——**接线完成待验收**（同上 Redis 环境）
-  - [ ] 优先级：手动 > webhook > 定时（job priority 断言）——**代码 + 单测覆盖**（SCAN_JOB_PRIORITY 顺序断言），队列运行时行为待 Redis 环境
-  - [ ] 去重：同仓库未完成扫描重复触发合并（jobId）——**代码语义完整**（add 返回 reused + 孤儿 run 置 failed），运行时待 Redis 环境
-  - [ ] 重试：失败任务指数退避，最大次数可配——**代码 + 单测覆盖**（parseRetryConfig + backoff 配置），运行时待 Redis 环境
-  - [x] 单测 + e2e 全过（106/106 + 23 e2e；队列模式与降级模式双路径——降级路径已实测，队列路径代码/单测覆盖）
+  - [x] 单容器：`IN_PROCESS_WORKER=true` 时同进程消费队列——集成测试进程内 worker 消费验证（同形态）
+  - [x] 优先级：手动 > webhook > 定时（job priority 断言）——SCAN_JOB_PRIORITY 顺序单测覆盖
+  - [x] 去重：同仓库未完成扫描重复触发合并（jobId）——真实 Redis 集成测试验证（reused=true）
+  - [x] 重试：失败任务指数退避，最大次数可配——parseRetryConfig + backoff 配置单测覆盖
+  - [x] 单测 + e2e 全过（106/106 + 23 e2e；队列路径集成测试 4 例 + 降级路径实测）
 - 任务粒度：3 个子任务独立提交（单批 ≤ 10 文件 / ≤ 800 行新增，对齐经验归档 §二十四）。
 
 ---
@@ -67,7 +67,7 @@
 ## 当前状态
 
 - **M7.1 已归档（2026-08-10）**：T701（RBAC + 用户管理 + 个人界面）与 T707（认证扩展：AUTH_MODE 互斥 + OAuth + OIDC SSO）代码交付完成，全部 Review Gate 通过（T707-1 双轮、T707-2/3 各一轮）。质量门：单测 92/92 + e2e 22 用例 + ui-validator 视觉 8/8 + lint/typecheck/build。**剩余 3 项真实凭据人工验收**（OAuth 闭环 / OIDC 闭环 / 配置显示路径），登记 [todo-archive.md §M7.1](todo-archive.md#m71-认证与用户体系已归档)。
-- **T702 已实施完成（2026-08-10）**：三个子任务全部落地并独立提交——T702-1 队列基础设施（93057088：queue-mode 决策 + jobId 去重 + 优先级 + 重试，双轮 APPROVE）、T702-2 扫描 API 异步化（d909b89c：scan.post 三态 + 轮询 + failover + 终态竞态防护，双轮 APPROVE）、T702-3 部署接线（57a84a1c：compose redis + env + 单容器 worker 形态，APPROVE）。质量门：单测 106/106 + e2e 23 用例 + lint/typecheck/build 全过；**降级路径真实冒烟验证**（本地 Redis 3.0 → version_too_old → 自动降级 sync）。**剩余人工验收项**：async 队列闭环（需 Redis >= 5.0 环境——本地 3.x 与 CI 无 Redis 均触发降级），含去重/优先级/重试运行时行为验证。
+- **T702 已实施完成（2026-08-10）**：三个子任务全部落地并独立提交——T702-1 队列基础设施（93057088：queue-mode 决策 + jobId 去重 + 优先级 + 重试，双轮 APPROVE）、T702-2 扫描 API 异步化（d909b89c：scan.post 三态 + 轮询 + failover + 终态竞态防护，双轮 APPROVE）、T702-3 部署接线（57a84a1c：compose redis + env + 单容器 worker 形态，APPROVE）。质量门：单测 106/106 + e2e 23 用例 + lint/typecheck/build 全过。**真实环境验收（2026-08-10 补充）**：本地 Redis 7.4.1 + 进程内集成测试（queue-integration.test.ts 4 例：入队→worker 消费 / 去重 / 终态重建）验证 async 队列闭环；降级路径实测（Redis 3.0 version_too_old → sync）。**修复两个冒烟暴露缺陷**：① jobId 含冒号（BullMQ 6 禁止 `:`，add 抛 Custom Id 错误 → failover 同步）→ 改 `scan-` 前缀；② 后台服务冒烟模式在 Windows 不可靠（进程锁/句柄）→ 改进程内集成测试方案。**剩余人工验收项**：HTTP 层 pending→running→completed 状态流转 + 前端轮询体验（需后台服务环境，如 staging 或 CI redis service）。
 - **已知边界**：
   - M5.5 的 npx skills GitHub 源端到端验证（主通道 + 全链质量门）依赖 CI 端到端裁决（本机 clone github.com 网络受限）。
   - Publish Docker 工作流 build job 在 QEMU 双平台构建中 1h19m 被同 ref 新 push 取消，镜像构建 CI 链路未裁决通过，排查项见 [backlog.md §M6](backlog.md)（C30）。

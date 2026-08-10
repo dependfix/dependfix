@@ -44,9 +44,10 @@ describe('parseQueueEnabled', () => {
 })
 
 describe('buildScanJobId（去重键）', () => {
-    it('同仓库固定 jobId（等待中重复入队合并）', () => {
-        expect(buildScanJobId('repo-1')).toBe('scan:repo-1')
+    it('同仓库固定 jobId（等待中重复入队合并）；不含冒号（BullMQ 6 限制）', () => {
+        expect(buildScanJobId('repo-1')).toBe('scan-repo-1')
         expect(buildScanJobId('repo-1')).toBe(buildScanJobId('repo-1'))
+        expect(buildScanJobId('repo-1')).not.toContain(':')
     })
 
     it('不同仓库 jobId 隔离', () => {

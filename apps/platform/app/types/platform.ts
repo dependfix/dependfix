@@ -15,6 +15,7 @@ export interface RepoView {
     actionWorkflowFile: string | null
     executorKind: string
     note: string | null
+    tags: string[]
     lastScanAt: string | null
     createdAt: string
     updatedAt: string
@@ -67,4 +68,49 @@ export interface ScheduleView {
     lastBatchRunId: string | null
     createdAt: string
     updatedAt: string
+}
+
+/** 批量运行状态（与 server BatchRunStatus 对齐） */
+export type BatchRunStatus = 'running' | 'completed' | 'failed'
+
+/** 跨仓库聚合统计（BatchRun.summaryJson 形状） */
+export interface BatchRunSummary {
+    alertsTotal: number
+    severityCounts: Record<string, number>
+    fixedCount: number
+}
+
+/** 批量运行视图（server/api/batch-runs 返回结构；列表为存储值，详情为实时聚合值） */
+export interface BatchRunView {
+    id: string
+    source: 'scheduled' | 'manual'
+    scheduleId: string | null
+    mode: string
+    severityThreshold: string
+    repositoryCount: number
+    finishedCount: number
+    completedCount: number
+    failedCount: number
+    pendingCount: number
+    summary: BatchRunSummary | null
+    status: BatchRunStatus
+    finishedAt: string | null
+    createdAt: string
+}
+
+/** 批量运行下属 ScanRun（详情 runs 数组元素，与 /api/runs 视图同构） */
+export interface BatchRunRun {
+    id: string
+    repositoryId: string
+    owner: string | null
+    name: string | null
+    mode: string
+    severityThreshold: string
+    executorKind: string
+    status: string
+    startedAt: string | null
+    finishedAt: string | null
+    runUrl: string | null
+    summary: Record<string, unknown> | null
+    error: { code: string, message: string } | null
 }

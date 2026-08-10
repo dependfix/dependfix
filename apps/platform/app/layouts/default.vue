@@ -54,6 +54,13 @@ const logout = async () => {
                     定时计划
                 </NuxtLink>
                 <NuxtLink
+                    to="/batch-runs"
+                    class="platform__nav-link"
+                    active-class="platform__nav-link--active"
+                >
+                    批量运行
+                </NuxtLink>
+                <NuxtLink
                     to="/credentials"
                     class="platform__nav-link"
                     active-class="platform__nav-link--active"

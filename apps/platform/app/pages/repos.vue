@@ -15,6 +15,7 @@ interface RepoForm {
     actionWorkflowFile: string
     executorKind: 'container' | 'github-action'
     note: string
+    tags: string[]
 }
 
 const loading = ref(true)
@@ -39,6 +40,7 @@ const emptyForm = (): RepoForm => ({
     actionWorkflowFile: '',
     executorKind: 'container',
     note: '',
+    tags: [],
 })
 
 const form = ref<RepoForm>(emptyForm())
@@ -79,6 +81,7 @@ const openEdit = (repo: RepoView) => {
         actionWorkflowFile: repo.actionWorkflowFile ?? '',
         executorKind: repo.executorKind as RepoForm['executorKind'],
         note: repo.note ?? '',
+        tags: [...(repo.tags ?? [])],
     }
     dialogVisible.value = true
 }
@@ -96,6 +99,7 @@ const submit = async () => {
             ...form.value,
             actionWorkflowFile: form.value.actionWorkflowFile.trim() || null,
             note: form.value.note.trim() || null,
+            tags: form.value.tags.length > 0 ? form.value.tags : null,
         }
         if (editingId.value) {
             await $fetch(`/api/repos/${editingId.value}`, {
@@ -233,6 +237,60 @@ watch(toastMessage, (v) => {
     }
 })
 
+// ===== 批量扫描（勾选多仓库 → 一次触发 → 跳转批量运行页）=====
+const selectedRows = ref<RepoView[]>([])
+const batchDialogVisible = ref(false)
+const batchSubmitting = ref(false)
+const batchError = ref('')
+const batchMode = ref('report-only')
+const batchSeverityThreshold = ref('high')
+
+const batchModeOptions = [
+    { label: '仅报告', value: 'report-only' },
+    { label: '修复', value: 'fix' },
+    { label: '修复并建 PR', value: 'fix-and-pr' },
+]
+
+const batchSeverityOptions = [
+    { label: 'Critical', value: 'critical' },
+    { label: 'High', value: 'high' },
+    { label: 'Medium', value: 'medium' },
+    { label: '全部', value: 'all' },
+]
+
+const openBatchScan = () => {
+    if (!selectedRows.value.length) {
+        return
+    }
+    batchError.value = ''
+    batchMode.value = 'report-only'
+    batchSeverityThreshold.value = 'high'
+    batchDialogVisible.value = true
+}
+
+/** 批量触发：POST /api/repos/batch-scan → 跳转批量运行页查看进度与聚合结果 */
+const submitBatchScan = async () => {
+    batchSubmitting.value = true
+    batchError.value = ''
+    try {
+        const result = await $fetch<{ batchRunId: string, repositoryCount: number }>('/api/repos/batch-scan', {
+            method: 'POST',
+            body: {
+                repositoryIds: selectedRows.value.map((r) => r.id),
+                mode: batchMode.value,
+                severityThreshold: batchSeverityThreshold.value,
+            },
+        })
+        batchDialogVisible.value = false
+        success.value = `已触发批量扫描（${result.repositoryCount} 个仓库），正在打开批量运行页…`
+        await navigateTo('/batch-runs')
+    } catch (e: any) {
+        batchError.value = `批量扫描失败：${e?.data?.message ?? e?.message ?? '未知错误'}`
+    } finally {
+        batchSubmitting.value = false
+    }
+}
+
 // ===== 批量导入（从 GitHub 仓库列表选中多个）=====
 interface ImportableRepo {
     id: number
@@ -346,6 +404,16 @@ const submitImport = async () => {
                     @click="openImportDialog"
                 />
                 <Button
+                    icon="pi pi-list"
+                    label="批量扫描"
+                    severity="secondary"
+                    :disabled="!selectedRows.length"
+                    :badge="selectedRows.length ? String(selectedRows.length) : undefined"
+                    badge-class="p-badge-danger"
+                    title="勾选多个仓库后批量触发扫描"
+                    @click="openBatchScan"
+                />
+                <Button
                     icon="pi pi-plus"
                     label="添加仓库"
                     @click="openCreate"
@@ -393,13 +461,30 @@ const submitImport = async () => {
         <Card v-if="!loading">
             <template #content>
                 <DataTable
+                    v-model:selection="selectedRows"
                     :value="repos"
+                    data-key="id"
                     striped-rows
                     size="small"
                     :empty-message="'暂无仓库，点击右上角添加'"
                 >
+                    <Column selection-mode="multiple" header-style="{width: '3rem'}" />
                     <Column field="owner" header="Owner" />
                     <Column field="name" header="仓库" />
+                    <Column header="标签">
+                        <template #body="{data}">
+                            <div v-if="data.tags?.length" class="repos__tags">
+                                <Tag
+                                    v-for="tag in data.tags"
+                                    :key="tag"
+                                    :value="tag"
+                                    severity="info"
+                                    rounded
+                                />
+                            </div>
+                            <span v-else class="text-muted">—</span>
+                        </template>
+                    </Column>
                     <Column header="默认分支">
                         <template #body="{data}">
                             {{ data.defaultBranch }}
@@ -568,6 +653,16 @@ const submitImport = async () => {
                         fluid
                     />
                 </div>
+                <div class="repo-form__field">
+                    <label for="tags">标签</label>
+                    <Chips
+                        id="tags"
+                        v-model="form.tags"
+                        placeholder="输入标签后回车（如 frontend / critical），用于定时计划按标签选择"
+                        fluid
+                    />
+                    <small class="text-muted">定时计划可按标签批量选择仓库；留空不设置</small>
+                </div>
 
                 <div class="repo-form__actions">
                     <Button
@@ -702,6 +797,70 @@ const submitImport = async () => {
                 </div>
             </div>
         </Dialog>
+
+        <Dialog
+            v-model:visible="batchDialogVisible"
+            :header="`批量扫描（${selectedRows.length} 个仓库）`"
+            modal
+            :style="{width: '480px'}"
+        >
+            <div class="batch-form">
+                <Message
+                    v-if="batchError"
+                    severity="error"
+                    :closable="false"
+                >
+                    {{ batchError }}
+                </Message>
+                <div class="batch-form__repos">
+                    <span
+                        v-for="repo in selectedRows"
+                        :key="repo.id"
+                        class="batch-form__repo"
+                    >
+                        {{ repoDisplay(repo) }}
+                    </span>
+                </div>
+                <div class="batch-form__row">
+                    <div class="batch-form__field">
+                        <label for="batchMode">扫描模式</label>
+                        <Select
+                            id="batchMode"
+                            v-model="batchMode"
+                            :options="batchModeOptions"
+                            option-label="label"
+                            option-value="value"
+                            fluid
+                        />
+                    </div>
+                    <div class="batch-form__field">
+                        <label for="batchSeverity">严重级别阈值</label>
+                        <Select
+                            id="batchSeverity"
+                            v-model="batchSeverityThreshold"
+                            :options="batchSeverityOptions"
+                            option-label="label"
+                            option-value="value"
+                            fluid
+                        />
+                    </div>
+                </div>
+                <div class="batch-form__actions">
+                    <Button
+                        label="取消"
+                        severity="secondary"
+                        text
+                        @click="batchDialogVisible = false"
+                    />
+                    <Button
+                        label="开始扫描"
+                        icon="pi pi-play"
+                        :loading="batchSubmitting"
+                        @click="submitBatchScan"
+                    />
+                </div>
+            </div>
+        </Dialog>
     </div>
 </template>
 
@@ -812,6 +971,57 @@ const submitImport = async () => {
     display: flex;
     flex-direction: column;
     gap: $space-4;
+
+    &__row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: $space-3;
+    }
+
+    &__field {
+        display: flex;
+        flex-direction: column;
+        gap: $space-1;
+    }
+
+    &__field label {
+        font-size: $font-size-sm;
+        font-weight: 500;
+    }
+
+    &__actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: $space-2;
+        margin-top: $space-2;
+    }
+}
+
+.repos__tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: $space-1;
+}
+
+.batch-form {
+    display: flex;
+    flex-direction: column;
+    gap: $space-4;
+
+    &__repos {
+        display: flex;
+        flex-wrap: wrap;
+        gap: $space-1;
+        max-height: 120px;
+        overflow-y: auto;
+    }
+
+    &__repo {
+        font-size: $font-size-sm;
+        background-color: rgba($color-primary, 0.08);
+        border-radius: $radius-sm;
+        padding: $space-1 $space-2;
+    }
 
     &__row {
         display: grid;

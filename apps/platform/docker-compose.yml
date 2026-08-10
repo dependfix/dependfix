@@ -1,5 +1,13 @@
-# dependfix 平台部署编排（SQLite 数据卷持久化）
+# dependfix 平台部署编排（SQLite 数据卷持久化 + Redis 扫描队列）
 services:
+  # Redis（BullMQ 扫描队列存储；BullMQ 6 要求 Redis >= 5.0，redis:7-alpine 满足）
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - dependfix-redis:/data
+    # 仅平台服务内部访问，不映射宿主机端口
+
   platform:
     build:
       context: ../..
@@ -16,9 +24,39 @@ services:
       # 注意：首次部署需保持 false 注册首个管理员后再关闭，否则平台无管理员。
       NUXT_REGISTRATION_DISABLED: ${REGISTRATION_DISABLED:-false}
       NUXT_PUBLIC_BETTER_AUTH_URL: ${NUXT_PUBLIC_BETTER_AUTH_URL:-http://localhost:3000}
+      # 扫描任务队列（渐进式降级）：Redis 可达且版本 >= 5.0 时异步队列，否则自动降级同步。
+      # 运行时覆盖需 NUXT_ 前缀（构建产物烘焙默认值）
+      NUXT_REDIS_URL: redis://redis:6379
+      NUXT_QUEUE_ENABLED: ${QUEUE_ENABLED:-auto}
+      NUXT_QUEUE_JOB_RETRIES: ${QUEUE_JOB_RETRIES:-}
+      NUXT_QUEUE_BACKOFF_MS: ${QUEUE_BACKOFF_MS:-}
+      # 单容器直接部署形态：Nuxt 进程内消费队列（SQLite 单写者安全）。
+      # 独立 worker 进程形态（多容器）需等 PostgreSQL 迁移（SQLite 多进程写不兼容）后启用
+      NUXT_IN_PROCESS_WORKER: ${IN_PROCESS_WORKER:-true}
+    depends_on:
+      - redis
     volumes:
       - dependfix-data:/app/data
     restart: unless-stopped
 
+  # 独立 worker 进程（预留，PostgreSQL 生产迁移后启用）：
+  # SQLite 下多容器共享 DB 存在写锁冲突，当前阶段使用单容器 in-process worker 形态。
+  # worker:
+  #   build:
+  #     context: ../..
+  #     dockerfile: apps/platform/Dockerfile
+  #   environment:
+  #     NUXT_REDIS_URL: redis://redis:6379
+  #     NUXT_IN_PROCESS_WORKER: "true"
+  #     DATABASE_PATH: /app/data/dependfix.sqlite
+  #     ENCRYPTION_KEY: ${ENCRYPTION_KEY:-}
+  #   depends_on:
+  #     - redis
+  #     - platform
+  #   volumes:
+  #     - dependfix-data:/app/data
+  #   restart: unless-stopped
+
 volumes:
   dependfix-data:
+  dependfix-redis:

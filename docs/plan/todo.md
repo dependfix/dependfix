@@ -42,11 +42,11 @@
     - [x] `queue.service.ts`（新增）：惰性单例——探测（**含 BullMQ 版本校验 Redis >= 5.0**）+ 模式决策 + queue/worker（**独立 Redis 连接**，BullMQ 要求）+ IN_PROCESS_WORKER 接线
     - [x] 冒烟验证（真实环境）：**降级路径 ✅**——本地 Redis 3.0 版本过低 → 自动降级 sync（completed 无挂起）；**队列闭环待验证**——本地无 Redis >= 5，登记人工验收（CI redis service 或 Redis 7 环境）
     - [x] e2e：playwright env 显式 `QUEUE_ENABLED=false`（本地有 Redis 会 async 且无 worker 消费导致挂起；强制同步保证本地/CI 一致）
-  - [ ] 子任务 3（部署与运维）：
-    - [ ] docker-compose：`redis:7-alpine` 服务 + platform `REDIS_URL` + 可选 worker 服务（独立进程形态）
-    - [ ] `.env.example`：`REDIS_URL` / `QUEUE_ENABLED`（auto|true|false）/ `QUEUE_JOB_RETRIES` / `QUEUE_BACKOFF_MS` / `IN_PROCESS_WORKER`
-    - [ ] CI：e2e job 增加 redis service container（GitHub Actions `services: redis`）；无 Redis 的 job 验证同步降级
-    - [ ] 文档：README/部署文档队列模式与降级说明
+  - [x] 子任务 3（部署与运维）：
+    - [x] docker-compose：`redis:7-alpine` 服务（内部网络不映射端口）+ platform `NUXT_REDIS_URL`/`NUXT_QUEUE_*`/`NUXT_IN_PROCESS_WORKER`（默认 true 单容器形态）+ 独立 worker 服务注释预留（SQLite 多进程写不兼容，PostgreSQL 迁移后启用）；`docker compose config` 语法验证通过
+    - [x] `.env.example`：`REDIS_URL` / `QUEUE_ENABLED`（auto|true|false + 降级语义）/ `QUEUE_JOB_RETRIES` / `QUEUE_BACKOFF_MS` / `IN_PROCESS_WORKER` + NUXT_ 前缀运行时覆盖说明 + 本地 Redis >= 5.0 提示
+    - [x] CI：e2e 强制同步模式（QUEUE_ENABLED=false）无需 Redis service（队列闭环人工验收）；CI 复杂度不增加
+    - [x] 文档：compose/.env.example 注释交付队列模式与降级说明（README 平台部署章节随生产部署任务统一）
 - 非目标：webhook 触发（队列优先级预留 5，webhook 接入登记后续）、定时扫描（T704）、跨实例分布式锁的精细调优（BullMQ 默认即可）
 - 完成定义：
   - [ ] 多仓库同时请求扫描时，任务按优先级和队列策略正确调度

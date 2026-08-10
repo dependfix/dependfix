@@ -1,5 +1,5 @@
 import { betterAuth } from 'better-auth'
-import { admin, createAccessControl } from 'better-auth/plugins'
+import { admin, createAccessControl, genericOAuth } from 'better-auth/plugins'
 import { snowflake } from './snowflake'
 import { typeormAdapter } from '#server/database/typeorm-adapter'
 import { ensureDatabaseInitialized } from '#server/database'
@@ -90,139 +90,177 @@ const buildAuth = (ds: Awaited<ReturnType<typeof ensureDatabaseInitialized>>, op
     githubClientSecret?: string
     googleClientId?: string
     googleClientSecret?: string
-}) => betterAuth({
-    appName: 'dependfix',
-    secret: options.authSecret,
-    database: typeormAdapter(ds),
-    rateLimit: buildRateLimit(),
-    plugins: [
-        admin({
+    oidcDiscoveryUrl?: string
+    oidcClientId?: string
+    oidcClientSecret?: string
+    oidcIssuer?: string
+    oidcAuthorizationUrl?: string
+    oidcTokenUrl?: string
+    oidcUserInfoUrl?: string
+    oidcScopes?: string
+}) => {
+    // OIDC SSO 启用条件（与前端 oidcAvailable 一致——nuxt.config.ts public 段同构条件，
+    // 双处声明互相指向：discovery/issuer + clientId + clientSecret 齐全）
+    const oidcEnabled = Boolean(
+        (options.oidcDiscoveryUrl || options.oidcIssuer)
+        && options.oidcClientId
+        && options.oidcClientSecret,
+    )
+
+    return betterAuth({
+        appName: 'dependfix',
+        secret: options.authSecret,
+        database: typeormAdapter(ds),
+        rateLimit: buildRateLimit(),
+        plugins: [
+            admin({
             // 新注册用户默认 viewer（角色模型；存量 'user' 由 migrateLegacyRoles 迁移）
-            defaultRole: 'viewer',
-            // 用户管理仅 admin（三角色模型对齐；org_admin 管理仓库/凭据但无用户管理权限）
-            adminRoles: ['admin'],
-            roles: adminRoles,
-        }),
-    ],
-    emailAndPassword: {
-        enabled: true,
-        // 关闭注册（保留登录）：部署到公开环境时设置 REGISTRATION_DISABLED=true。
-        // enterprise 白名单为空时**不**合并进 disableSignUp：sign-up 端点级拦截
-        // 发生在 user.create.before hook 之前，会阻断首用户 admin 的 bootstrap
-        // （platform-auth-users.md §11 决策点 11）；白名单准入统一由 hook 拒绝
-        // （hook 单一准入点，platform-auth-users.md §11 决策点 6）
-        disableSignUp: options.registrationDisabled,
-        minPasswordLength: 8,
-        requireEmailVerification: options.smtpEnabled,
-        sendResetPassword: async ({ user, url }) => {
-            // SMTP 未配置时：不支持发送密码重置邮件（用户 MVP 仅注册 + 会话）
-            if (!options.smtpEnabled) {
-                console.warn('[auth] SMTP 未配置，密码重置邮件未发送')
-            }
-            void user
-            void url
-            await Promise.resolve()
-        },
-    },
-    // OAuth 登录（public 模式）：clientId/clientSecret 均配置才启用，未配置自动禁用不阻塞启动
-    socialProviders: {
-        ...(options.githubClientId && options.githubClientSecret
-            ? {
-                github: {
-                    clientId: options.githubClientId,
-                    clientSecret: options.githubClientSecret,
-                },
-            }
-            : {}),
-        ...(options.googleClientId && options.googleClientSecret
-            ? {
-                google: {
-                    clientId: options.googleClientId,
-                    clientSecret: options.googleClientSecret,
-                },
-            }
-            : {}),
-    },
-    emailVerification: {
-        sendOnSignUp: options.smtpEnabled,
-        autoSignInAfterVerification: true,
-        sendVerificationEmail: async ({ user, url }) => {
-            // SMTP 未配置时：不发验证邮件（注册自动通过）
-            if (!options.smtpEnabled) {
-                console.warn('[auth] SMTP 未配置，验证邮件未发送')
-            }
-            void user
-            void url
-            await Promise.resolve()
-        },
-    },
-    session: {
-        expiresIn: 60 * 60 * 24 * 30, // 30 天
-        updateAge: 60 * 60 * 24, // 1 天
-        storeSessionInDatabase: true,
-    },
-    advanced: {
-        database: {
-            // 与实体 @BeforeInsert 同源，保证 better-auth 生成的 id 也是雪花 ID
-            generateId: () => snowflake.generateId(),
-        },
-        ipAddress: {
-            // e2e 测试环境禁用 IP 追踪：better-auth 内置特殊规则（sign-in 10s/3 次）
-            // 优先于 customRules，且无代理 IP 头时回退共享桶——并行测试必触发 429。
-            // 生产环境不设置（保留限流防护）。
-            ...(process.env.E2E_TEST === 'true' ? { disableIpTracking: true } : {}),
-        },
-    },
-    user: {
-        additionalFields: {
-            role: {
-                type: 'string',
-                required: false,
-                // 角色模型默认 viewer（存量 'user' 启动迁移为 viewer）
-                defaultValue: 'viewer',
-                // 防客户端注入：role 只能由服务端维护
-                input: false,
-            },
-        },
-        changeEmail: {
+                defaultRole: 'viewer',
+                // 用户管理仅 admin（三角色模型对齐；org_admin 管理仓库/凭据但无用户管理权限）
+                adminRoles: ['admin'],
+                roles: adminRoles,
+            }),
+            // OIDC SSO（enterprise 模式）：oidcEnabled 时才启用（clientId 等在条件内保证非空）；
+            // 未配置自动禁用不阻塞启动。
+            // requireIssuerValidation: true 防 issuer 混淆（platform-auth-users.md §11 安全注意）
+            ...(oidcEnabled
+                ? [genericOAuth({
+                    config: [{
+                        providerId: 'oidc',
+                        discoveryUrl: options.oidcDiscoveryUrl || undefined,
+                        issuer: options.oidcIssuer || undefined,
+                        clientId: options.oidcClientId!,
+                        clientSecret: options.oidcClientSecret!,
+                        scopes: (options.oidcScopes || 'openid,profile,email').split(',').map((s) => s.trim()).filter(Boolean),
+                        requireIssuerValidation: true,
+                        // 无 discovery 的 IdP 手动声明端点（OIDC_AUTHORIZATION_URL 等覆盖）
+                        ...(options.oidcAuthorizationUrl ? { authorizationUrl: options.oidcAuthorizationUrl } : {}),
+                        ...(options.oidcTokenUrl ? { tokenUrl: options.oidcTokenUrl } : {}),
+                        ...(options.oidcUserInfoUrl ? { userInfoUrl: options.oidcUserInfoUrl } : {}),
+                    }],
+                })]
+                : []),
+        ],
+        emailAndPassword: {
             enabled: true,
-            // SMTP 未配置时直接改邮箱（对齐"未配置自动跳过验证"模式）；已配置时发确认邮件
-            updateEmailWithoutVerification: !options.smtpEnabled,
-            sendChangeEmailConfirmation: async ({ user, newEmail, url }) => {
-                // SMTP 未配置时：不发确认邮件（changeEmail 直接生效）
-                // SMTP 已配置但邮件发送器未实现：确认邮件不发出（既有降级模式，
-                // 与 sendVerificationEmail/sendResetPassword 一致；统一实现已登记
-                // docs/plan/backlog.md「邮件发送器统一实现」条目）
+            // 关闭注册（保留登录）：部署到公开环境时设置 REGISTRATION_DISABLED=true。
+            // enterprise 白名单为空时**不**合并进 disableSignUp：sign-up 端点级拦截
+            // 发生在 user.create.before hook 之前，会阻断首用户 admin 的 bootstrap
+            // （platform-auth-users.md §11 决策点 11）；白名单准入统一由 hook 拒绝
+            // （hook 单一准入点，platform-auth-users.md §11 决策点 6）
+            disableSignUp: options.registrationDisabled,
+            minPasswordLength: 8,
+            requireEmailVerification: options.smtpEnabled,
+            sendResetPassword: async ({ user, url }) => {
+            // SMTP 未配置时：不支持发送密码重置邮件（用户 MVP 仅注册 + 会话）
                 if (!options.smtpEnabled) {
-                    console.warn('[auth] SMTP 未配置，邮箱变更确认邮件未发送')
-                } else {
-                    console.warn('[auth] 邮件发送器未实现，邮箱变更确认邮件未发送（变更需在 verify-email 链接确认）')
+                    console.warn('[auth] SMTP 未配置，密码重置邮件未发送')
                 }
                 void user
-                void newEmail
                 void url
                 await Promise.resolve()
             },
         },
-    },
-    databaseHooks: {
-        user: {
-            create: {
-                // 注册准入 + 首用户 admin（platform-auth-users.md §11 决策点 11 短路先于准入检查；决策点 6/5 准入）
-                // 独立为 buildCreateUserBefore 以便集成测试（auth-access.test.ts）
-                before: buildCreateUserBefore({
-                    ds,
-                    ctx: {
-                        authMode: options.authMode,
-                        registrationDisabled: options.registrationDisabled,
-                        allowedEmailDomains: options.allowedEmailDomains,
-                        blockedEmailDomains: options.blockedEmailDomains,
+        // OAuth 登录（public 模式）：clientId/clientSecret 均配置才启用，未配置自动禁用不阻塞启动
+        socialProviders: {
+            ...(options.githubClientId && options.githubClientSecret
+                ? {
+                    github: {
+                        clientId: options.githubClientId,
+                        clientSecret: options.githubClientSecret,
                     },
-                }),
+                }
+                : {}),
+            ...(options.googleClientId && options.googleClientSecret
+                ? {
+                    google: {
+                        clientId: options.googleClientId,
+                        clientSecret: options.googleClientSecret,
+                    },
+                }
+                : {}),
+        },
+        emailVerification: {
+            sendOnSignUp: options.smtpEnabled,
+            autoSignInAfterVerification: true,
+            sendVerificationEmail: async ({ user, url }) => {
+            // SMTP 未配置时：不发验证邮件（注册自动通过）
+                if (!options.smtpEnabled) {
+                    console.warn('[auth] SMTP 未配置，验证邮件未发送')
+                }
+                void user
+                void url
+                await Promise.resolve()
             },
         },
-    },
-})
+        session: {
+            expiresIn: 60 * 60 * 24 * 30, // 30 天
+            updateAge: 60 * 60 * 24, // 1 天
+            storeSessionInDatabase: true,
+        },
+        advanced: {
+            database: {
+            // 与实体 @BeforeInsert 同源，保证 better-auth 生成的 id 也是雪花 ID
+                generateId: () => snowflake.generateId(),
+            },
+            ipAddress: {
+            // e2e 测试环境禁用 IP 追踪：better-auth 内置特殊规则（sign-in 10s/3 次）
+            // 优先于 customRules，且无代理 IP 头时回退共享桶——并行测试必触发 429。
+            // 生产环境不设置（保留限流防护）。
+                ...(process.env.E2E_TEST === 'true' ? { disableIpTracking: true } : {}),
+            },
+        },
+        user: {
+            additionalFields: {
+                role: {
+                    type: 'string',
+                    required: false,
+                    // 角色模型默认 viewer（存量 'user' 启动迁移为 viewer）
+                    defaultValue: 'viewer',
+                    // 防客户端注入：role 只能由服务端维护
+                    input: false,
+                },
+            },
+            changeEmail: {
+                enabled: true,
+                // SMTP 未配置时直接改邮箱（对齐"未配置自动跳过验证"模式）；已配置时发确认邮件
+                updateEmailWithoutVerification: !options.smtpEnabled,
+                sendChangeEmailConfirmation: async ({ user, newEmail, url }) => {
+                // SMTP 未配置时：不发确认邮件（changeEmail 直接生效）
+                // SMTP 已配置但邮件发送器未实现：确认邮件不发出（既有降级模式，
+                // 与 sendVerificationEmail/sendResetPassword 一致；统一实现已登记
+                // docs/plan/backlog.md「邮件发送器统一实现」条目）
+                    if (!options.smtpEnabled) {
+                        console.warn('[auth] SMTP 未配置，邮箱变更确认邮件未发送')
+                    } else {
+                        console.warn('[auth] 邮件发送器未实现，邮箱变更确认邮件未发送（变更需在 verify-email 链接确认）')
+                    }
+                    void user
+                    void newEmail
+                    void url
+                    await Promise.resolve()
+                },
+            },
+        },
+        databaseHooks: {
+            user: {
+                create: {
+                // 注册准入 + 首用户 admin（platform-auth-users.md §11 决策点 11 短路先于准入检查；决策点 6/5 准入）
+                // 独立为 buildCreateUserBefore 以便集成测试（auth-access.test.ts）
+                    before: buildCreateUserBefore({
+                        ds,
+                        ctx: {
+                            authMode: options.authMode,
+                            registrationDisabled: options.registrationDisabled,
+                            allowedEmailDomains: options.allowedEmailDomains,
+                            blockedEmailDomains: options.blockedEmailDomains,
+                        },
+                    }),
+                },
+            },
+        },
+    })
+}
 
 export type AuthInstance = ReturnType<typeof buildAuth>
 
@@ -237,6 +275,14 @@ export const getAuthInstance = async (options: {
     githubClientSecret?: string
     googleClientId?: string
     googleClientSecret?: string
+    oidcDiscoveryUrl?: string
+    oidcClientId?: string
+    oidcClientSecret?: string
+    oidcIssuer?: string
+    oidcAuthorizationUrl?: string
+    oidcTokenUrl?: string
+    oidcUserInfoUrl?: string
+    oidcScopes?: string
 }): Promise<AuthInstance> => {
     const ds = await ensureDatabaseInitialized()
 
@@ -293,6 +339,14 @@ export const getAuth = async (): Promise<AuthInstance> => {
             githubClientSecret: config.githubClientSecret,
             googleClientId: config.googleClientId,
             googleClientSecret: config.googleClientSecret,
+            oidcDiscoveryUrl: config.oidcDiscoveryUrl,
+            oidcClientId: config.oidcClientId,
+            oidcClientSecret: config.oidcClientSecret,
+            oidcIssuer: config.oidcIssuer,
+            oidcAuthorizationUrl: config.oidcAuthorizationUrl,
+            oidcTokenUrl: config.oidcTokenUrl,
+            oidcUserInfoUrl: config.oidcUserInfoUrl,
+            oidcScopes: config.oidcScopes,
         })
     }
     return scope[GLOBAL_AUTH_KEY]!

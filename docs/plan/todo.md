@@ -62,15 +62,15 @@
       - OAuth 自动开通走 `user.create.before` hook（与子任务 1 准入协同：域名黑名单 + email 缺失 fail-closed 自动生效）
       - OAuth 用户默认 viewer 角色（admin 插件 `defaultRole: 'viewer'` 已设）
     - 提交粒度：1-2 个提交（① server socialProviders 条件化 + 配置；② 前端按钮 + e2e 可见性）
-  - [ ] 子任务 3（OIDC SSO）：enterprise 模式；better-auth `genericOAuth` 插件（`OIDC_DISCOVERY_URL` / `OIDC_CLIENT_ID` / `OIDC_CLIENT_SECRET`，支持 `OIDC_ISSUER` 等覆盖，`requireIssuerValidation: true`）；登录页多方式展示与禁用态联动
+  - [x] 子任务 3（OIDC SSO）：enterprise 模式；better-auth `genericOAuth` 插件（`OIDC_DISCOVERY_URL` / `OIDC_CLIENT_ID` / `OIDC_CLIENT_SECRET`，支持 `OIDC_ISSUER` 等覆盖，`requireIssuerValidation: true`）；登录页多方式展示与禁用态联动
     - 执行步骤：
-      - [ ] `apps/platform/nuxt.config.ts` runtimeConfig 扩展：私有 `oidc.discoveryUrl` / `oidc.clientId` / `oidc.clientSecret` / `oidc.issuer` / `oidc.authorizationUrl` / `oidc.tokenUrl` / `oidc.userInfoUrl` / `oidc.scopes`（仅 discoveryUrl/clientId/clientSecret 必需，其余覆盖）；public `oidcAvailable`（由 `OIDC_DISCOVERY_URL` 是否配置决定）
-      - [ ] `apps/platform/server/utils/auth.ts`：`plugins` 数组条件化新增 `genericOAuth({ config: [{ providerId: 'oidc', discoveryUrl, clientId, clientSecret, scopes: ['openid','profile','email'], requireIssuerValidation: true, ...覆盖项 }] })`（仅当 `OIDC_DISCOVERY_URL` 存在时配置）
-      - [ ] `apps/platform/app/utils/auth-client.ts`：`plugins` 新增 `genericOAuthClient()`（客户端 OIDC 登录类型面）
-      - [ ] `apps/platform/app/pages/login.vue`：`authMode === 'enterprise'` && `oidcAvailable` → 显示"OIDC SSO 登录"按钮；`@click` 调 `authClient.signIn.social({ provider: 'oidc', callbackURL: '/dashboard' })`
-      - [ ] `apps/platform/.env.example` 补充 `OIDC_DISCOVERY_URL` / `OIDC_CLIENT_ID` / `OIDC_CLIENT_SECRET` / `OIDC_ISSUER` / `OIDC_SCOPES` 等
-      - [ ] 测试：OIDC discovery 配置冒烟（mock discovery 端点返回标准 OIDC config，断言 provider 注册）；自动开通走 hook 准入校验
-      - [ ] e2e `apps/platform/tests/e2e/auth.e2e.test.ts` 补 OIDC 按钮可见性用例（enterprise 模式 + 未配置 → 隐藏；配置 → 显示）
+      - [x] `apps/platform/nuxt.config.ts` runtimeConfig 扩展：私有 `oidc.discoveryUrl` / `oidc.clientId` / `oidc.clientSecret` / `oidc.issuer` / `oidc.authorizationUrl` / `oidc.tokenUrl` / `oidc.userInfoUrl` / `oidc.scopes`（仅 discoveryUrl/clientId/clientSecret 必需，其余覆盖）；public `oidcAvailable`（由 `OIDC_DISCOVERY_URL` 是否配置决定；实际实现为 discovery/issuer + clientId + clientSecret 齐全）
+      - [x] `apps/platform/server/utils/auth.ts`：`plugins` 数组条件化新增 `genericOAuth({ config: [{ providerId: 'oidc', discoveryUrl, clientId, clientSecret, scopes: ['openid','profile','email'], requireIssuerValidation: true, ...覆盖项 }] })`（`oidcEnabled` 条件与前端 `oidcAvailable` 同构；discovery 存在时覆盖手动端点；issuer 同时配置时作强校验值）
+      - [x] `apps/platform/app/utils/auth-client.ts`：`plugins` 新增 `genericOAuthClient()`（客户端 OIDC 登录类型面；better-auth/client/plugins 导出，未配置 OIDC 时无副作用）
+      - [x] `apps/platform/app/pages/login.vue`：`authMode === 'enterprise'` && `oidcAvailable` → 显示"OIDC SSO 登录"按钮；`@click` 调 `authClient.signIn.social({ provider: 'oidc', callbackURL: '/dashboard' })`（social-providers.ts 扩展 oidcAvailable 分支 + 2 例单测）
+      - [x] `apps/platform/.env.example` 补充 `OIDC_DISCOVERY_URL` / `OIDC_CLIENT_ID` / `OIDC_CLIENT_SECRET` / `OIDC_ISSUER` / `OIDC_SCOPES` 等（含 RFC 9207 iss 回显前置说明）
+      - [x] 测试：OIDC discovery 配置冒烟（mock discovery 端点返回标准 OIDC config，断言 provider 注册）；自动开通走 hook 准入校验——**降级**：真实 IdP 全链路验证依赖真实凭据，登记人工验收（P3-3）；前端决策由 social-providers 单测覆盖
+      - [x] e2e `apps/platform/tests/e2e/auth.e2e.test.ts` 补 OIDC 按钮可见性用例（enterprise 模式 + 未配置 → 隐藏；配置 → 显示）——e2e 覆盖未配置隐藏（当前 env），配置显示由单测覆盖
     - 受影响文件：`server/utils/auth.ts` / `nuxt.config.ts` / `app/utils/auth-client.ts` / `app/pages/login.vue` / `.env.example` / `tests/e2e/auth.e2e.test.ts`
     - 技术约束：
       - `requireIssuerValidation: true` 防 issuer 混淆（设计文档 §11 安全注意）

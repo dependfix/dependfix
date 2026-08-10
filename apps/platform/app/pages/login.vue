@@ -18,12 +18,13 @@ onMounted(() => {
 const publicConfig = useRuntimeConfig().public
 const authMode = publicConfig.authMode
 const registrationClosed = publicConfig.registrationDisabled === true
-// 第三方登录方式（public 模式：GitHub/Google 凭据配置才可用；OIDC 由 enterprise 子任务填充）
+// 第三方登录方式（public：GitHub/Google；enterprise：OIDC SSO；凭据配置才可用）
 // authMode 运行时收窄：服务端 assertAuthMode 已保证只可能是 public|enterprise
 const socialProviders = computed<string[]>(() => resolveSocialProviders({
     authMode: publicConfig.authMode as 'public' | 'enterprise',
     githubAvailable: publicConfig.githubAvailable === true,
     googleAvailable: publicConfig.googleAvailable === true,
+    oidcAvailable: publicConfig.oidcAvailable === true,
 }))
 
 const PROVIDER_LABELS: Record<string, string> = {

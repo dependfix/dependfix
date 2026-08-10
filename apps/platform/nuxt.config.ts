@@ -65,6 +65,16 @@ export default defineNuxtConfig({
         githubClientSecret: process.env.GITHUB_CLIENT_SECRET || '',
         googleClientId: process.env.GOOGLE_CLIENT_ID || '',
         googleClientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
+        // OIDC SSO（enterprise 模式；OIDC_DISCOVERY_URL + clientId/clientSecret 配置才启用；
+        // 支持 issuer/authorizationUrl/tokenUrl/userInfoUrl/scopes 覆盖，兼容无 discovery 的 IdP）
+        oidcDiscoveryUrl: process.env.OIDC_DISCOVERY_URL || '',
+        oidcClientId: process.env.OIDC_CLIENT_ID || '',
+        oidcClientSecret: process.env.OIDC_CLIENT_SECRET || '',
+        oidcIssuer: process.env.OIDC_ISSUER || '',
+        oidcAuthorizationUrl: process.env.OIDC_AUTHORIZATION_URL || '',
+        oidcTokenUrl: process.env.OIDC_TOKEN_URL || '',
+        oidcUserInfoUrl: process.env.OIDC_USERINFO_URL || '',
+        oidcScopes: process.env.OIDC_SCOPES || '',
         public: {
             // 客户端可见配置（前端可见 env 一律 NUXT_PUBLIC_* 优先，普通 env 兜底：
             // 构建时内联 + 运行时 NUXT_PUBLIC_* 覆盖双通道，对齐 momei 写法）
@@ -85,6 +95,12 @@ export default defineNuxtConfig({
             // 严格一致，避免 NUXT_PUBLIC_ 通道导致前后端显示不一致：凭据不通过 NUXT_PUBLIC_ 注入）
             githubAvailable: !!(process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET),
             googleAvailable: !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET),
+            // OIDC 可用性布尔（enterprise 模式；OIDC_DISCOVERY_URL + clientId/clientSecret 均配置才 true）
+            oidcAvailable: !!(
+                (process.env.OIDC_DISCOVERY_URL || process.env.OIDC_ISSUER)
+                && process.env.OIDC_CLIENT_ID
+                && process.env.OIDC_CLIENT_SECRET
+            ),
         },
     },
     vite: {

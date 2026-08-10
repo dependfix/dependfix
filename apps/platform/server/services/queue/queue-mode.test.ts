@@ -36,6 +36,11 @@ describe('parseQueueEnabled', () => {
         expect(parseQueueEnabled('auto')).toBe('auto')
     })
 
+    it('布尔值解析（runtimeConfig 运行时覆盖经 destr 转布尔——NUXT_QUEUE_ENABLED=false）', () => {
+        expect(parseQueueEnabled(true)).toBe('true')
+        expect(parseQueueEnabled(false)).toBe('false')
+    })
+
     it('未设置/非法值回退 auto', () => {
         expect(parseQueueEnabled(undefined)).toBe('auto')
         expect(parseQueueEnabled('')).toBe('auto')

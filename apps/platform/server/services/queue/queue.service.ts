@@ -41,6 +41,7 @@ export const getQueueService = async (): Promise<QueueService> => {
     const mode = resolveQueueMode({ enabled, redisAvailable })
 
     if (mode === 'sync') {
+        console.info(`[queue] 同步模式（queueEnabled=${enabled}，Redis ${redisAvailable ? '可用' : '不可用'}${probe.reason === 'version_too_old' ? `，版本 ${probe.version} 低于 5.0` : ''}）`)
         if (enabled === 'true' && !redisAvailable) {
             console.warn(`[queue] QUEUE_ENABLED=true 但 Redis 不可用，降级同步执行（failover）：${probe.reason === 'version_too_old' ? `Redis 版本 ${probe.version} 低于 BullMQ 要求的 5.0` : probe.reason}`)
         } else if (probe.reason === 'version_too_old') {
@@ -59,6 +60,7 @@ export const getQueueService = async (): Promise<QueueService> => {
     }
 
     // async 模式：队列连接（与探测连接分离；BullMQ 自管重连）
+    console.info(`[queue] 异步模式（queueEnabled=${enabled}，Redis ${probe.version ?? '未知版本'}）`)
     const queueConnection = createRedisClient(config.redisUrl)
     const queue = createScanQueue(queueConnection, {
         retriesRaw: config.queueJobRetries,

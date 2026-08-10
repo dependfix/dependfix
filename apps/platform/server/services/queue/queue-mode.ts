@@ -31,8 +31,19 @@ export const resolveQueueMode = (input: QueueModeInput): QueueMode => {
     return input.redisAvailable ? 'async' : 'sync'
 }
 
-/** QUEUE_ENABLED env 解析（非法值回退 auto） */
-export const parseQueueEnabled = (raw: string | undefined): QueueEnabled => {
+/**
+ * QUEUE_ENABLED env 解析（非法值回退 auto）。
+ * 注意：runtimeConfig 运行时覆盖（NUXT_QUEUE_ENABLED）经 destr 解析为布尔值，
+ * 与构建期烘焙的字符串形态并存——必须同时处理 string 与 boolean（T704-3 e2e 暴露：
+ * 只认字符串时布尔 false 掉进默认分支 → 强制同步失效 → 本地 Redis 可达时走 async 挂起）。
+ */
+export const parseQueueEnabled = (raw: string | boolean | undefined): QueueEnabled => {
+    if (raw === true) {
+        return 'true'
+    }
+    if (raw === false) {
+        return 'false'
+    }
     if (raw === 'true' || raw === 'false' || raw === 'auto') {
         return raw
     }

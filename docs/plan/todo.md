@@ -2,7 +2,7 @@
 
 > M0-M7.1 已完成并归档，见 [todo-archive.md](todo-archive.md) 与 [archive/todo-archive-phases-m0-m1.md](archive/todo-archive-phases-m0-m1.md)。
 > **M7 规划定稿（2026-08-09）**：拆 M7.1 认证与用户体系（已归档 2026-08-10）/ M7.2 平台能力深化；执行顺序（决策 D3）：T702 → T704 → T708 → T705 → T703 → T706。
-> **T702 已完成**（BullMQ + Redis 队列 + 降级矩阵，3 子任务 APPROVE）；**T704 设计先行完成**（2026-08-10，[platform-scheduled-batch.md](../design/governance/platform-scheduled-batch.md)），待实施。
+> **T702 已完成**（BullMQ + Redis 队列 + 降级矩阵，3 子任务 APPROVE）；**T704 设计先行完成**（2026-08-10，[platform-scheduled-batch.md](../design/governance/platform-scheduled-batch.md)），T704-1 已实施完成（2026-08-10，双轮 APPROVE，9f13aa0b + 55fa20a9）。
 > **T706 代码前置（C31/C32）已完成**，仅剩发布与文档收口。
 
 ---
@@ -84,15 +84,15 @@
   | ❌ sync | node-cron 进程内 | 逐仓库同步串行 runScanForRepository | 轮询聚合 |
 
 - **实现内容**：
-  - [ ] 子任务 1（数据模型 + 仓库标签扩展）：
-    - [ ] `server/entities/schedule.ts`：Schedule 实体（name/cron/timezone/selectorKind/selectorJson/mode/severityThreshold/enabled/lastTriggeredAt/lastBatchRunId）
-    - [ ] `server/entities/batch-run.ts`：BatchRun 实体（source[scheduled|manual]/scheduleId/mode/severityThreshold/repositoryCount/finishedCount/completedCount/failedCount/pendingCount/summaryJson/status/finishedAt）
-    - [ ] Repository 扩展 `tags` 字段（JSON 字符串列，nullable）
-    - [ ] ScanRun 扩展 `batchRunId` 字段（Index，nullable，定时/批量触发时关联）
-    - [ ] `server/database/index.ts` 注册 Schedule + BatchRun 实体
-    - [ ] `server/schemas/schedule.ts` + `server/schemas/batch-scan.ts`：Zod 校验（含 cron-parser 表达式校验）
-    - [ ] 仓库更新 API 扩展 tags 字段支持
-    - [ ] 单测：实体字段、Zod 校验、cron 表达式合法/非法校验
+  - [x] 子任务 1（数据模型 + 仓库标签扩展）：
+    - [x] `server/entities/schedule.ts`：Schedule 实体（name/cron/timezone/selectorKind/selectorJson/mode/severityThreshold/enabled/lastTriggeredAt/lastBatchRunId + organizationId 补强）
+    - [x] `server/entities/batch-run.ts`：BatchRun 实体（source[scheduled|manual]/scheduleId/mode/severityThreshold/repositoryCount/finishedCount/completedCount/failedCount/pendingCount/summaryJson/status/finishedAt + organizationId 补强）
+    - [x] Repository 扩展 `tags` 字段（JSON 字符串列，nullable；parseTags 容错解析，空数组存 null）
+    - [x] ScanRun 扩展 `batchRunId` 字段（Index，nullable，定时/批量触发时关联）
+    - [x] `server/database/index.ts` 注册 Schedule + BatchRun 实体
+    - [x] `server/schemas/schedule.ts`：Zod 校验（scheduleSchema 4 策略 selectorJson 交叉校验 + batchScanSchema + cronIsValid 5/6 段 + isValidTimezone）
+    - [x] 仓库更新 API 扩展 tags 字段支持（GET 列表/详情 + POST 创建 + PUT 更新；undefined=不修改 / null 或 [] = 清空）
+    - [x] 单测：实体字段（内存 SQLite roundtrip）、Zod 校验、cron 表达式合法/非法校验（schedule.test.ts 23 例）
   - [ ] 子任务 2（定时调度服务 + API + 前端页面）：
     - [ ] `server/services/scheduler/scheduler.service.ts`：调度服务单例（async 用 BullMQ upsertJobScheduler / sync 用 node-cron；Schedule 增删改时同步更新调度注册）
     - [ ] `server/services/scheduler/selector.ts`：仓库选择策略解析纯函数（4 种 selectorKind + 权限隔离）
@@ -134,7 +134,7 @@
 
 - **M7.1 已归档（2026-08-10）**：T701（RBAC + 用户管理 + 个人界面）与 T707（认证扩展：AUTH_MODE 互斥 + OAuth + OIDC SSO）代码交付完成，全部 Review Gate 通过（T707-1 双轮、T707-2/3 各一轮）。质量门：单测 92/92 + e2e 22 用例 + ui-validator 视觉 8/8 + lint/typecheck/build。**剩余 3 项真实凭据人工验收**（OAuth 闭环 / OIDC 闭环 / 配置显示路径），登记 [todo-archive.md §M7.1](todo-archive.md#m71-认证与用户体系已归档)。
 - **T702 已实施完成（2026-08-10）**：三个子任务全部落地并独立提交——T702-1 队列基础设施（93057088：queue-mode 决策 + jobId 去重 + 优先级 + 重试，双轮 APPROVE）、T702-2 扫描 API 异步化（d909b89c：scan.post 三态 + 轮询 + failover + 终态竞态防护，双轮 APPROVE）、T702-3 部署接线（57a84a1c：compose redis + env + 单容器 worker 形态，APPROVE）。质量门：单测 106/106 + e2e 23 用例 + lint/typecheck/build 全过。**真实环境验收（2026-08-10 补充）**：本地 Redis 7.4.1 + 进程内集成测试（queue-integration.test.ts 4 例：入队→worker 消费 / 去重 / 终态重建）验证 async 队列闭环；降级路径实测（Redis 3.0 version_too_old → sync）。**修复两个冒烟暴露缺陷**：① jobId 含冒号（BullMQ 6 禁止 `:`，add 抛 Custom Id 错误 → failover 同步）→ 改 `scan-` 前缀；② 后台服务冒烟模式在 Windows 不可靠（进程锁/句柄）→ 改进程内集成测试方案。**剩余人工验收项**：HTTP 层 pending→running→completed 状态流转 + 前端轮询体验（需后台服务环境，如 staging 或 CI redis service）。
-- **T704 设计先行完成（2026-08-10）**：设计文档 [platform-scheduled-batch.md](../design/governance/platform-scheduled-batch.md) 落盘——双模调度（async 用 BullMQ `upsertJobScheduler` / sync 降级用 node-cron）、4 种仓库选择策略（all/organization/tag/explicit，Repository 加 tags JSON 列）、BatchRun 聚合实体 + 轮询聚合更新策略、3 子任务拆分（数据模型 / 调度服务+API / 批量执行+聚合报告）。复用 T702 队列基础设施（priority=scheduled=10 已预留）。待实施。
+- **T704 设计先行完成（2026-08-10）**：设计文档 [platform-scheduled-batch.md](../design/governance/platform-scheduled-batch.md) 落盘——双模调度（async 用 BullMQ `upsertJobScheduler` / sync 降级用 node-cron）、4 种仓库选择策略（all/organization/tag/explicit，Repository 加 tags JSON 列）、BatchRun 聚合实体 + 轮询聚合更新策略、3 子任务拆分（数据模型 / 调度服务+API / 批量执行+聚合报告）。复用 T702 队列基础设施（priority=scheduled=10 已预留）。**T704-1 已实施完成（2026-08-10）**：Schedule/BatchRun 实体 + Repository.tags + ScanRun.batchRunId + Zod 校验（scheduleSchema 4 策略交叉校验 + batchScanSchema + cronIsValid 5/6 段 + isValidTimezone），仓库 API tags 读写（undefined=不修改 / null 或 [] = 清空）；双轮 Review Gate APPROVE；质量门 lint/typecheck/单测 129/build 全过。**设计文档两处补强**（organizationId 归属列，支撑 §6.1 列表"当前组织"与权限隔离）。剩余 T704-2（调度服务 + API + /schedules 页面）、T704-3（批量执行 + 聚合报告 + /batch-runs 页面）。
 - **已知边界**：
   - M5.5 的 npx skills GitHub 源端到端验证（主通道 + 全链质量门）依赖 CI 端到端裁决（本机 clone github.com 网络受限）。
   - Publish Docker 工作流 build job 在 QEMU 双平台构建中 1h19m 被同 ref 新 push 取消，镜像构建 CI 链路未裁决通过，排查项见 [backlog.md §M6](backlog.md)（C30）。

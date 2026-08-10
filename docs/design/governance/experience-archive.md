@@ -364,3 +364,14 @@
   - **runtimeConfig 运行时覆盖值形态不可假设**：NUXT_ 前缀 env 经 destr 解析——`true/false` 变布尔、`123` 变 number、JSON 变对象。消费方（parse/校验）必须声明联合类型并逐形态处理，且**布尔形态必须有单测**（字符串测试全绿 ≠ 运行时形态正确）。
   - **轮询/后台收敛逻辑写回状态时必须尊重显式终态**：凡"推导值"（聚合、心跳、探活）写回"权威值"（executor/worker 显式落库），必须定义写回判定函数（何时允许覆盖），否则推导模型覆盖不了的状态（failed 兜底、人工置终态）会被推导值"修复"成错误终态。判定函数进领域模块 + 单测，比散落在 API 层更易审计。
   - **e2e"真实执行"是运行时形态类 bug 的最后防线**：单测 mock 的是字符串形态（构建期烘焙），运行时 destr 转换只在实际 server 进程 + 真实 env 注入下出现——e2e 必须跑真实 env 注入（NUXT_ 前缀）而不是只靠构建烘焙默认值。
+
+## 三十五、新增 workspace 运行时依赖包必须同步所有构建链入口（2026-08-11）
+
+> 教训形态：**"漏同步"**——新增包 + 既有入口清单未更新，CI/生产首跑才暴露。与 §二十六（依赖版本更新触发端到端验证）同族。
+
+- **案例**：Security Auto Fix workflow（`uses: ./` 复合 action）首跑失败——`ERR_MODULE_NOT_FOUND: Cannot find module '@dependfix/engine/dist/index.mjs' imported from packages/cli/dist/runner.mjs`。根因：cli 运行时依赖 `@dependfix/engine`（tsdown external 不打包，产物 import dist），但 action.yml 构建命令只选 `--filter dependfix --filter @dependfix/core`——engine 包在后续任务中加入后，action 构建链未同步（test.yml 的显式 `core && engine && cli` 链和 apps/platform/Dockerfile 均已含 engine，action.yml 是唯一漏网入口）。tsdown 构建本身成功（external 不校验），失败发生在**构建后立即执行的 smoke check**（`node dist/bin.mjs --help`）——bin 加载即解析 engine dist。
+- **修复**：构建命令补齐 `--filter @dependfix/engine`；本地模拟 CI 干净环境（删 engine dist）复跑修复后命令 → Scope 3 of 8、三包构建成功、smoke check 通过。
+- **启示**：
+  - **新增 workspace 运行时依赖（被 import 的包）后，必须全局搜索并同步所有"显式构建链"入口**：`rg -n "filter.*build|--filter" .github action.yml Dockerfile* package.json`——pnpm install 会按拓扑链接，但 `pnpm --filter X build` 不会自动带依赖构建（test.yml 注释已明示这一点，action.yml 是同类清单里的漏网者）。
+  - **tsdown external 依赖的构建缺口要到"运行期加载"才暴露**：lint/typecheck/build 全绿不代表可运行——复合 action 的 smoke check（构建后立即执行 bin --help）是拦截此类问题的关键关卡，应保留。
+  - **"新增包"的提交必须连带检查清单**：CI 构建链（test.yml）、部署构建链（Dockerfile）、action 构建链（action.yml）、release 构建链——四者各自维护 filter 清单时容易不同步；至少让新增运行时依赖包出现时逐个核对。

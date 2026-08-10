@@ -46,6 +46,14 @@ const logout = async () => {
                     告警
                 </NuxtLink>
                 <NuxtLink
+                    v-if="session?.user?.role !== 'viewer'"
+                    to="/schedules"
+                    class="platform__nav-link"
+                    active-class="platform__nav-link--active"
+                >
+                    定时计划
+                </NuxtLink>
+                <NuxtLink
                     to="/credentials"
                     class="platform__nav-link"
                     active-class="platform__nav-link--active"

@@ -48,3 +48,23 @@ export interface UserView {
     createdAt: string
     updatedAt: string
 }
+
+/** 仓库选择策略（与 server ScheduleSelectorKind 对齐） */
+export type ScheduleSelectorKind = 'all' | 'organization' | 'tag' | 'explicit'
+
+/** 定时计划视图（server/api/schedules 返回结构） */
+export interface ScheduleView {
+    id: string
+    name: string
+    cron: string
+    timezone: string | null
+    selectorKind: ScheduleSelectorKind
+    selectorJson: string | null
+    mode: string
+    severityThreshold: string
+    enabled: boolean
+    lastTriggeredAt: string | null
+    lastBatchRunId: string | null
+    createdAt: string
+    updatedAt: string
+}

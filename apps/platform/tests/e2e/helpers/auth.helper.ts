@@ -1,4 +1,5 @@
 import { type APIRequestContext, type Page, expect } from '@playwright/test'
+import { waitForHydration } from './hydration.helper'
 
 /**
  * e2e 测试账号（global-setup 注册首用户 admin；viewer 测试内注册）。
@@ -16,9 +17,14 @@ export const TEST_VIEWER = {
     name: 'E2E Viewer',
 }
 
+/** e2e 服务地址（与 playwright.config e2eBaseURL 一致；API 请求需模拟浏览器同源 Origin，
+ *  否则 better-auth 的 Origin 校验对 `Origin: null` 返回 403 MISSING_OR_NULL_ORIGIN） */
+export const E2E_ORIGIN = 'http://127.0.0.1:3101'
+
 /** 通过 API 注册用户（sign-up/email；首个注册用户自动 admin） */
 export async function apiSignUp(request: APIRequestContext, user: { email: string, password: string, name: string }): Promise<void> {
     const response = await request.post('/api/auth/sign-up/email', {
+        headers: { origin: E2E_ORIGIN },
         data: {
             email: user.email,
             password: user.password,
@@ -32,6 +38,7 @@ export async function apiSignUp(request: APIRequestContext, user: { email: strin
 /** 通过 API 登录并返回 Set-Cookie（供 API 级断言使用） */
 export async function apiSignIn(request: APIRequestContext, user: { email: string, password: string }): Promise<string> {
     const response = await request.post('/api/auth/sign-in/email', {
+        headers: { origin: E2E_ORIGIN },
         data: {
             email: user.email,
             password: user.password,
@@ -46,6 +53,8 @@ export async function apiSignIn(request: APIRequestContext, user: { email: strin
 /** 页面级登录（用于 storageState 之外的测试） */
 export async function pageSignIn(page: Page, user: { email: string, password: string }): Promise<void> {
     await page.goto('/login')
+    // 等待 hydration（SSR 静态 DOM 无事件绑定；global-setup 与各测试共用此路径）
+    await waitForHydration(page)
     await page.locator('input#email').fill(user.email)
     await page.locator('#password input').fill(user.password)
     await page.locator('button[type="submit"]').click()

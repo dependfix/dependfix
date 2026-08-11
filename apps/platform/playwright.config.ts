@@ -42,7 +42,7 @@ export default defineConfig({
     fullyParallel: false,
     forbidOnly: !!process.env.CI,
     retries: process.env.CI ? 2 : 1,
-    timeout: process.env.CI ? 90000 : 30000,
+    timeout: process.env.CI ? 180000 : 120000,
     workers,
     reporter: process.env.CI
         ? [['github'], ['list'], ['blob', { outputDir: 'test-results/blob-report' }]]

@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test'
 import { TEST_ADMIN, TEST_VIEWER, pageSignIn } from './helpers/auth.helper'
+import { waitForHydration } from './helpers/hydration.helper'
 
 test.describe('认证流程', () => {
     test('未登录访问受保护页面跳转 /login', async ({ page }) => {
@@ -26,6 +27,7 @@ test.describe('认证流程', () => {
 
     test('错误凭据提示登录失败且停留在登录页', async ({ page }) => {
         await page.goto('/login')
+        await waitForHydration(page)
         await page.locator('input#email').fill('wrong@dependfix.test')
         await page.locator('#password input').fill('wrong-password')
         await page.locator('button[type="submit"]').click()

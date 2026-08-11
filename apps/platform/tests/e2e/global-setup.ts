@@ -1,6 +1,7 @@
 import path from 'node:path'
 import { chromium, type FullConfig } from '@playwright/test'
 import { TEST_ADMIN, TEST_VIEWER, apiSignUp } from './helpers/auth.helper'
+import { waitForHydration } from './helpers/hydration.helper'
 
 /**
  * Playwright 全局初始化：
@@ -28,6 +29,10 @@ async function globalSetup(config: FullConfig): Promise<void> {
         // 登录 admin 保存认证状态
         console.info('[e2e global-setup] signing in admin...')
         await page.goto('/login')
+        // 等待 Vue 应用挂载完成（SSR 静态 DOM 无事件绑定；fill 对原生 input 有效但
+        // 点击 submit 需 hydration 完成才触发 onSubmit——页面初始化导航链可能延迟挂载，
+        // 直接点击会静默失效导致 waitForURL 超时）
+        await waitForHydration(page)
         await page.locator('input#email').fill(TEST_ADMIN.email)
         await page.locator('#password input').fill(TEST_ADMIN.password)
         await page.locator('button[type="submit"]').click()

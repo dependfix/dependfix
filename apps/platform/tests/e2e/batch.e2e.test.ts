@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { waitForHydration } from './helpers/hydration.helper'
 
 /**
  * 批量扫描闭环 e2e（QUEUE_ENABLED=false 强制 sync 降级模式，见 playwright.config）：
@@ -17,6 +18,7 @@ test.describe('批量扫描（sync 降级模式）', () => {
     test('勾选多仓库 → 批量扫描 → BatchRun 聚合统计闭环', async ({ page }) => {
         // 浏览器上下文就绪后，构造会话 Cookie header 供 API 请求使用
         await page.goto('/repos')
+        await waitForHydration(page)
         await expect(page.locator('.p-datatable')).toBeVisible({ timeout: 15000 })
         const cookieHeader = (await page.context().cookies())
             .map((c) => `${c.name}=${c.value}`)
@@ -42,6 +44,7 @@ test.describe('批量扫描（sync 降级模式）', () => {
 
         // 重新导航（带唯一 query 强制全新加载）→ 新仓库恒排最前（createdAt DESC）
         await page.goto(`/repos?r=${stamp}`)
+        await waitForHydration(page)
         await expect(page.locator('.p-datatable')).toBeVisible({ timeout: 15000 })
         const rows = page.locator('.p-datatable-tbody tr')
         // 本轮创建的 2 个仓库是列表前 2 行；行选择 checkbox 为原生 input（无显式 role 属性）
@@ -84,6 +87,7 @@ test.describe('批量扫描（sync 降级模式）', () => {
 
     test('导航栏包含批量运行入口', async ({ page }) => {
         await page.goto('/dashboard')
+        await waitForHydration(page)
         await expect(page.locator('a[href="/batch-runs"]')).toBeVisible()
     })
 })

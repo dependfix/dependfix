@@ -6,6 +6,8 @@ definePageMeta({
     middleware: 'auth',
 })
 
+const { t } = useI18n()
+
 interface RepoForm {
     owner: string
     name: string
@@ -56,7 +58,7 @@ const fetchData = async () => {
         repos.value = repoRes as RepoView[]
         credentials.value = credRes as { id: string, name: string, type: string }[]
     } catch (e: any) {
-        error.value = `加载失败：${e?.data?.message ?? e?.message ?? '未知错误'}`
+        error.value = t('repos.errors.loadFailed', { message: e?.data?.message ?? e?.message ?? t('common.errors.unknown') })
     } finally {
         loading.value = false
     }
@@ -106,18 +108,18 @@ const submit = async () => {
                 method: 'PUT',
                 body: payload,
             })
-            success.value = '仓库已更新'
+            success.value = t('repos.success.updated')
         } else {
             await $fetch('/api/repos', {
                 method: 'POST',
                 body: payload,
             })
-            success.value = '仓库已添加'
+            success.value = t('repos.success.added')
         }
         dialogVisible.value = false
         await fetchData()
     } catch (e: any) {
-        error.value = `保存失败：${e?.data?.message ?? e?.message ?? '未知错误'}`
+        error.value = t('repos.errors.saveFailed', { message: e?.data?.message ?? e?.message ?? t('common.errors.unknown') })
     } finally {
         saving.value = false
     }
@@ -127,10 +129,10 @@ const remove = async (repo: RepoView) => {
     error.value = ''
     try {
         await $fetch(`/api/repos/${repo.id}`, { method: 'DELETE' })
-        success.value = '仓库已删除'
+        success.value = t('repos.success.deleted')
         await fetchData()
     } catch (e: any) {
-        error.value = `删除失败：${e?.data?.message ?? e?.message ?? '未知错误'}`
+        error.value = t('repos.errors.deleteFailed', { message: e?.data?.message ?? e?.message ?? t('common.errors.unknown') })
     }
 }
 
@@ -157,30 +159,30 @@ const pollRun = async (runId: string, executorKind: string) => {
         // 原生 fetch（$fetch 对动态 URL 的路由类型推断递归过深；同源请求自动携带会话 cookie）
         const response = await fetch(`/api/runs/${runId}`)
         if (!response.ok) {
-            scanError.value = '扫描状态查询失败，可在扫描历史中查看'
+            scanError.value = t('repos.scanStatusQueryFailed')
             return
         }
         const run = await response.json() as { status: string, runUrl: string | null, error?: { code?: string, message?: string } | null }
         if (run.status === 'completed') {
-            scanSuccess.value = '扫描完成，可在扫描历史中查看结果'
+            scanSuccess.value = t('repos.scanCompleted')
             return
         }
         if (run.status === 'failed') {
             // duplicate_scan（去重合并）：非执行失败，提示合并语义而非"扫描失败"
             scanError.value = run.error?.code === 'duplicate_scan'
-                ? (run.error.message ?? '该仓库已有进行中的扫描任务')
-                : `扫描失败：${run.error?.message ?? '未知错误'}`
+                ? (run.error.message ?? t('repos.scanDuplicate'))
+                : t('repos.scanFailed', { message: run.error?.message ?? t('common.errors.unknown') })
             return
         }
         if (run.status === 'dispatched') {
             lastRunUrl.value = run.runUrl
-            scanSuccess.value = run.runUrl ? '已触发 GitHub Action 扫描，点击下方链接查看运行' : '已触发 GitHub Action 扫描（可在扫描历史中查看）'
+            scanSuccess.value = run.runUrl ? t('repos.scanDispatchedWithUrl') : t('repos.scanDispatched')
             return
         }
         // pending / running：继续轮询
     }
     if (!pollCancelled) {
-        scanSuccess.value = '扫描仍在进行，可在扫描历史中查看进度'
+        scanSuccess.value = t('repos.scanInProgress')
     }
 }
 
@@ -196,7 +198,7 @@ const triggerScan = async (repo: RepoView) => {
     scanningId.value = repo.id
     // B 模式（GitHub Action）异步队列下由 worker 后台执行（不再同步挂起 30 分钟）
     if (repo.executorKind === 'github-action') {
-        scanSuccess.value = '正在触发 GitHub Action 扫描（后台执行，可在扫描历史查看进度）…'
+        scanSuccess.value = t('repos.scanTriggering')
     }
     try {
         const run = await $fetch(`/api/repos/${repo.id}/scan`, {
@@ -210,19 +212,19 @@ const triggerScan = async (repo: RepoView) => {
         const runData = run as unknown as { id: string, status: string, runUrl: string | null }
         if (runData.status === 'pending') {
             // 队列模式：已入队，轮询状态
-            scanSuccess.value = '扫描任务已入队，正在等待执行…'
+            scanSuccess.value = t('repos.scanQueued')
             await pollRun(runData.id, repo.executorKind ?? 'container')
         } else if (runData.status === 'dispatched') {
             lastRunUrl.value = runData.runUrl
-            scanSuccess.value = runData.runUrl ? '已触发 GitHub Action 扫描，点击下方链接查看运行' : '已触发 GitHub Action 扫描（可在扫描历史中查看）'
+            scanSuccess.value = runData.runUrl ? t('repos.scanDispatchedWithUrl') : t('repos.scanDispatched')
         } else if (runData.status === 'completed') {
-            scanSuccess.value = '扫描完成，可在扫描历史中查看结果'
+            scanSuccess.value = t('repos.scanCompleted')
         } else {
-            scanError.value = `扫描失败：${(run as { error?: { message?: string } }).error?.message ?? '未知错误'}`
+            scanError.value = t('repos.scanFailed', { message: (run as { error?: { message?: string } }).error?.message ?? t('common.errors.unknown') })
         }
         await fetchData()
     } catch (e: any) {
-        scanError.value = `触发失败：${e?.data?.message ?? e?.message ?? '未知错误'}`
+        scanError.value = t('repos.errors.triggerFailed', { message: e?.data?.message ?? e?.message ?? t('common.errors.unknown') })
     } finally {
         scanningId.value = null
     }
@@ -245,18 +247,18 @@ const batchError = ref('')
 const batchMode = ref('report-only')
 const batchSeverityThreshold = ref('high')
 
-const batchModeOptions = [
-    { label: '仅报告', value: 'report-only' },
-    { label: '修复', value: 'fix' },
-    { label: '修复并建 PR', value: 'fix-and-pr' },
-]
+const batchModeOptions = computed(() => [
+    { label: t('common.scanMode.reportOnly'), value: 'report-only' },
+    { label: t('common.scanMode.fix'), value: 'fix' },
+    { label: t('common.scanMode.fixAndPr'), value: 'fix-and-pr' },
+])
 
-const batchSeverityOptions = [
+const batchSeverityOptions = computed(() => [
     { label: 'Critical', value: 'critical' },
     { label: 'High', value: 'high' },
     { label: 'Medium', value: 'medium' },
-    { label: '全部', value: 'all' },
-]
+    { label: t('common.severity.all'), value: 'all' },
+])
 
 const openBatchScan = () => {
     if (!selectedRows.value.length) {
@@ -282,10 +284,10 @@ const submitBatchScan = async () => {
             },
         })
         batchDialogVisible.value = false
-        success.value = `已触发批量扫描（${result.repositoryCount} 个仓库），正在打开批量运行页…`
+        success.value = t('repos.success.batchTriggered', { count: result.repositoryCount })
         await navigateTo('/batch-runs')
     } catch (e: any) {
-        batchError.value = `批量扫描失败：${e?.data?.message ?? e?.message ?? '未知错误'}`
+        batchError.value = t('repos.errors.batchFailed', { message: e?.data?.message ?? e?.message ?? t('common.errors.unknown') })
     } finally {
         batchSubmitting.value = false
     }
@@ -331,7 +333,7 @@ const openImportDialog = async () => {
             await loadImportable()
         }
     } catch (e: any) {
-        importError.value = `加载凭据失败：${e?.data?.message ?? e?.message ?? '未知错误'}`
+        importError.value = t('repos.errors.credentialLoadFailed', { message: e?.data?.message ?? e?.message ?? t('common.errors.unknown') })
     }
 }
 
@@ -350,7 +352,7 @@ const loadImportable = async () => {
         // 自动勾选未导入的仓库
         selectedRepos.value = importableRepos.value.filter((r) => !r.imported)
     } catch (e: any) {
-        importError.value = `拉取仓库失败：${e?.data?.message ?? e?.message ?? '未知错误'}`
+        importError.value = t('repos.errors.repoFetchFailed', { message: e?.data?.message ?? e?.message ?? t('common.errors.unknown') })
     } finally {
         importLoading.value = false
     }
@@ -358,7 +360,7 @@ const loadImportable = async () => {
 
 const submitImport = async () => {
     if (!selectedRepos.value.length) {
-        importError.value = '请至少选择一个仓库'
+        importError.value = t('repos.errors.selectAtLeastOne')
         return
     }
     importSaving.value = true
@@ -376,11 +378,11 @@ const submitImport = async () => {
             },
         })
         const data = res as { imported: number, skipped: number }
-        importSuccess.value = `批量导入完成：新增 ${data.imported} 个，跳过已存在 ${data.skipped} 个`
+        importSuccess.value = t('repos.success.importDone', { imported: data.imported, skipped: data.skipped })
         await fetchData()
         await loadImportable()
     } catch (e: any) {
-        importError.value = `批量导入失败：${e?.data?.message ?? e?.message ?? '未知错误'}`
+        importError.value = t('repos.errors.importFailed', { message: e?.data?.message ?? e?.message ?? t('common.errors.unknown') })
     } finally {
         importSaving.value = false
     }
@@ -391,31 +393,31 @@ const submitImport = async () => {
     <div class="repos">
         <div class="repos__header">
             <div>
-                <h2>仓库管理</h2>
+                <h2>{{ t('repos.title') }}</h2>
                 <p class="text-muted">
-                    管理扫描目标仓库与执行配置
+                    {{ t('repos.subtitle') }}
                 </p>
             </div>
             <div class="repos__header-actions">
                 <Button
                     icon="pi pi-upload"
-                    label="批量导入"
+                    :label="t('repos.import')"
                     severity="secondary"
                     @click="openImportDialog"
                 />
                 <Button
                     icon="pi pi-list"
-                    label="批量扫描"
+                    :label="t('repos.batchScan')"
                     severity="secondary"
                     :disabled="!selectedRows.length"
                     :badge="selectedRows.length ? String(selectedRows.length) : undefined"
                     badge-class="p-badge-danger"
-                    title="勾选多个仓库后批量触发扫描"
+                    :title="t('repos.batchScanTitle')"
                     @click="openBatchScan"
                 />
                 <Button
                     icon="pi pi-plus"
-                    label="添加仓库"
+                    :label="t('repos.addRepo')"
                     @click="openCreate"
                 />
             </div>
@@ -454,7 +456,7 @@ const submitImport = async () => {
                 target="_blank"
                 rel="noopener noreferrer"
             >
-                打开运行页
+                {{ t('repos.openRunPage') }}
             </a>
         </Message>
 
@@ -466,12 +468,12 @@ const submitImport = async () => {
                     data-key="id"
                     striped-rows
                     size="small"
-                    :empty-message="'暂无仓库，点击右上角添加'"
+                    :empty-message="t('repos.empty')"
                 >
                     <Column selection-mode="multiple" header-style="{width: '3rem'}" />
-                    <Column field="owner" header="Owner" />
-                    <Column field="name" header="仓库" />
-                    <Column header="标签">
+                    <Column field="owner" :header="t('repos.colOwner')" />
+                    <Column field="name" :header="t('repos.colRepo')" />
+                    <Column :header="t('repos.colTags')">
                         <template #body="{data}">
                             <div v-if="data.tags?.length" class="repos__tags">
                                 <Tag
@@ -485,28 +487,28 @@ const submitImport = async () => {
                             <span v-else class="text-muted">—</span>
                         </template>
                     </Column>
-                    <Column header="默认分支">
+                    <Column :header="t('repos.colDefaultBranch')">
                         <template #body="{data}">
                             {{ data.defaultBranch }}
                         </template>
                     </Column>
-                    <Column header="包管理器">
+                    <Column :header="t('repos.colPackageManager')">
                         <template #body="{data}">
                             <Tag :value="data.packageManager" severity="secondary" />
                         </template>
                     </Column>
-                    <Column header="凭据">
+                    <Column :header="t('repos.colCredential')">
                         <template #body="{data}">
                             <span v-if="data.credentialName">{{ data.credentialName }}</span>
-                            <span v-else class="text-muted">未关联</span>
+                            <span v-else class="text-muted">{{ t('repos.notLinked') }}</span>
                         </template>
                     </Column>
-                    <Column header="执行方式">
+                    <Column :header="t('repos.colExecutor')">
                         <template #body="{data}">
-                            <Tag :value="data.executorKind === 'github-action' ? 'GitHub Action' : '平台容器'" />
+                            <Tag :value="data.executorKind === 'github-action' ? t('repos.githubAction') : t('repos.platformContainer')" />
                         </template>
                     </Column>
-                    <Column header="操作" :style="{width: '230px'}">
+                    <Column :header="t('repos.colActions')" :style="{width: '230px'}">
                         <template #body="{data}">
                             <Button
                                 icon="pi pi-play"
@@ -515,8 +517,8 @@ const submitImport = async () => {
                                 size="small"
                                 :loading="scanningId === data.id"
                                 :disabled="scanningId !== null && scanningId !== data.id"
-                                aria-label="触发扫描"
-                                title="触发扫描"
+                                :aria-label="t('repos.actionTriggerScan')"
+                                :title="t('repos.actionTriggerScan')"
                                 @click="triggerScan(data)"
                             />
                             <Button
@@ -524,8 +526,8 @@ const submitImport = async () => {
                                 text
                                 rounded
                                 size="small"
-                                aria-label="扫描历史"
-                                title="扫描历史"
+                                :aria-label="t('repos.actionScanHistory')"
+                                :title="t('repos.actionScanHistory')"
                                 @click="navigateTo(`/repos/${data.id}/runs`)"
                             />
                             <Button
@@ -533,7 +535,7 @@ const submitImport = async () => {
                                 text
                                 rounded
                                 size="small"
-                                aria-label="编辑"
+                                :aria-label="t('repos.actionEdit')"
                                 @click="openEdit(data)"
                             />
                             <Button
@@ -542,7 +544,7 @@ const submitImport = async () => {
                                 rounded
                                 size="small"
                                 severity="danger"
-                                aria-label="删除"
+                                :aria-label="t('repos.actionDelete')"
                                 @click="remove(data)"
                             />
                         </template>
@@ -551,19 +553,19 @@ const submitImport = async () => {
             </template>
         </Card>
         <p v-else class="text-muted">
-            加载中…
+            {{ t('common.empty.loading') }}
         </p>
 
         <Dialog
             v-model:visible="dialogVisible"
-            :header="editingId ? '编辑仓库' : '添加仓库'"
+            :header="editingId ? t('repos.dialogEditTitle') : t('repos.dialogAddTitle')"
             modal
             :style="{width: '520px'}"
         >
             <form class="repo-form" @submit.prevent="submit">
                 <div class="repo-form__row">
                     <div class="repo-form__field">
-                        <label for="owner">Owner *</label>
+                        <label for="owner">{{ t('repos.fieldOwner') }}</label>
                         <InputText
                             id="owner"
                             v-model="form.owner"
@@ -573,7 +575,7 @@ const submitImport = async () => {
                         />
                     </div>
                     <div class="repo-form__field">
-                        <label for="name">仓库名 *</label>
+                        <label for="name">{{ t('repos.fieldName') }}</label>
                         <InputText
                             id="name"
                             v-model="form.name"
@@ -585,7 +587,7 @@ const submitImport = async () => {
                 </div>
                 <div class="repo-form__row">
                     <div class="repo-form__field">
-                        <label for="defaultBranch">默认分支</label>
+                        <label for="defaultBranch">{{ t('repos.fieldDefaultBranch') }}</label>
                         <InputText
                             id="defaultBranch"
                             v-model="form.defaultBranch"
@@ -593,7 +595,7 @@ const submitImport = async () => {
                         />
                     </div>
                     <div class="repo-form__field">
-                        <label for="packageManager">包管理器</label>
+                        <label for="packageManager">{{ t('repos.fieldPackageManager') }}</label>
                         <Select
                             id="packageManager"
                             v-model="form.packageManager"
@@ -604,7 +606,7 @@ const submitImport = async () => {
                 </div>
                 <div class="repo-form__row">
                     <div class="repo-form__field">
-                        <label for="credentialId">关联凭据</label>
+                        <label for="credentialId">{{ t('repos.fieldCredential') }}</label>
                         <Select
                             id="credentialId"
                             v-model="form.credentialId"
@@ -612,18 +614,18 @@ const submitImport = async () => {
                             option-label="name"
                             option-value="id"
                             :show-clear="true"
-                            placeholder="未关联"
+                            :placeholder="t('repos.notLinked')"
                             fluid
                         />
                     </div>
                     <div class="repo-form__field">
-                        <label for="executorKind">执行方式</label>
+                        <label for="executorKind">{{ t('repos.fieldExecutor') }}</label>
                         <Select
                             id="executorKind"
                             v-model="form.executorKind"
                             :options="[
-                                {label: '平台容器', value: 'container'},
-                                {label: 'GitHub Action', value: 'github-action'}
+                                {label: t('repos.platformContainer'), value: 'container'},
+                                {label: t('repos.githubAction'), value: 'github-action'}
                             ]"
                             option-label="label"
                             option-value="value"
@@ -635,17 +637,17 @@ const submitImport = async () => {
                     v-if="form.executorKind === 'github-action'"
                     class="repo-form__field"
                 >
-                    <label for="actionWorkflowFile">Action workflow 文件</label>
+                    <label for="actionWorkflowFile">{{ t('repos.fieldWorkflowFile') }}</label>
                     <InputText
                         id="actionWorkflowFile"
                         v-model="form.actionWorkflowFile"
                         placeholder=".github/workflows/security-auto-fix.yml"
                         fluid
                     />
-                    <small class="text-muted">目标仓库内 workflow 路径（GitHub Action 执行方式必填）</small>
+                    <small class="text-muted">{{ t('repos.fieldWorkflowFileHint') }}</small>
                 </div>
                 <div class="repo-form__field">
-                    <label for="note">备注</label>
+                    <label for="note">{{ t('repos.fieldNote') }}</label>
                     <Textarea
                         id="note"
                         v-model="form.note"
@@ -654,26 +656,26 @@ const submitImport = async () => {
                     />
                 </div>
                 <div class="repo-form__field">
-                    <label for="tags">标签</label>
+                    <label for="tags">{{ t('repos.fieldTags') }}</label>
                     <Chips
                         id="tags"
                         v-model="form.tags"
-                        placeholder="输入标签后回车（如 frontend / critical），用于定时计划按标签选择"
+                        :placeholder="t('repos.fieldTagsPlaceholder')"
                         fluid
                     />
-                    <small class="text-muted">定时计划可按标签批量选择仓库；留空不设置</small>
+                    <small class="text-muted">{{ t('repos.fieldTagsHint') }}</small>
                 </div>
 
                 <div class="repo-form__actions">
                     <Button
-                        label="取消"
+                        :label="t('common.actions.cancel')"
                         severity="secondary"
                         text
                         @click="closeDialog"
                     />
                     <Button
                         type="submit"
-                        label="保存"
+                        :label="t('common.actions.save')"
                         icon="pi pi-check"
                         :loading="saving"
                     />
@@ -683,21 +685,21 @@ const submitImport = async () => {
 
         <Dialog
             v-model:visible="importDialogVisible"
-            header="批量导入仓库"
+            :header="t('repos.importTitle')"
             modal
             :style="{width: '680px'}"
         >
             <div class="import-form">
                 <div class="import-form__row">
                     <div class="import-form__field">
-                        <label for="importCredential">GitHub 凭据</label>
+                        <label for="importCredential">{{ t('repos.importCredential') }}</label>
                         <Select
                             id="importCredential"
                             v-model="importCredentialId"
                             :options="importCredentials"
                             option-label="name"
                             option-value="id"
-                            placeholder="选择凭据"
+                            :placeholder="t('repos.importCredentialPlaceholder')"
                             :loading="importLoading"
                             fluid
                             @change="loadImportable"
@@ -707,8 +709,8 @@ const submitImport = async () => {
                         icon="pi pi-refresh"
                         text
                         rounded
-                        aria-label="刷新仓库列表"
-                        title="刷新仓库列表"
+                        :aria-label="t('repos.importRefresh')"
+                        :title="t('repos.importRefresh')"
                         :disabled="!importCredentialId || importLoading"
                         @click="loadImportable"
                     />
@@ -730,7 +732,7 @@ const submitImport = async () => {
                 </Message>
 
                 <div v-if="importLoading" class="text-muted">
-                    加载中…
+                    {{ t('common.empty.loading') }}
                 </div>
                 <div v-else-if="importableRepos.length" class="import-form__list">
                     <div class="import-form__list-actions">
@@ -740,9 +742,9 @@ const submitImport = async () => {
                                 :binary="true"
                                 @update:model-value="(v: boolean) => selectedRepos = v ? [...selectableRepos] : []"
                             />
-                            全选（{{ selectableRepos.length }}）
+                            {{ t('repos.importSelectAll', {count: selectableRepos.length}) }}
                         </label>
-                        <span class="text-muted">已选 {{ selectedRepos.length }} 个</span>
+                        <span class="text-muted">{{ t('repos.importSelectedCount', {count: selectedRepos.length}) }}</span>
                     </div>
                     <div
                         v-for="repo in importableRepos"
@@ -762,33 +764,33 @@ const submitImport = async () => {
                         <div class="import-form__item-info">
                             <span>{{ repo.fullName }}</span>
                             <small class="text-muted">
-                                {{ repo.private ? '私有' : '公开' }} · {{ repo.defaultBranch }}
-                                <template v-if="repo.imported"> · 已导入</template>
+                                {{ repo.private ? t('repos.privateRepo') : t('repos.publicRepo') }} · {{ repo.defaultBranch }}
+                                <template v-if="repo.imported"> · {{ t('repos.imported') }}</template>
                             </small>
                         </div>
                         <Tag
                             v-if="repo.imported"
-                            value="已存在"
+                            :value="t('repos.exists')"
                             severity="secondary"
                         />
                     </div>
                 </div>
                 <p v-else-if="!importLoading && importCredentialId" class="text-muted">
-                    未获取到仓库列表（凭据无权访问或没有匹配仓库）
+                    {{ t('repos.importNoRepos') }}
                 </p>
                 <p v-else class="text-muted">
-                    请先选择 GitHub 凭据
+                    {{ t('repos.importSelectCredential') }}
                 </p>
 
                 <div class="import-form__actions">
                     <Button
-                        label="取消"
+                        :label="t('common.actions.cancel')"
                         severity="secondary"
                         text
                         @click="importDialogVisible = false"
                     />
                     <Button
-                        label="导入所选"
+                        :label="t('repos.importSelect')"
                         icon="pi pi-check"
                         :loading="importSaving"
                         :disabled="!selectedRepos.length"
@@ -800,7 +802,7 @@ const submitImport = async () => {
 
         <Dialog
             v-model:visible="batchDialogVisible"
-            :header="`批量扫描（${selectedRows.length} 个仓库）`"
+            :header="t('repos.batchHeader', {count: selectedRows.length})"
             modal
             :style="{width: '480px'}"
         >
@@ -823,7 +825,7 @@ const submitImport = async () => {
                 </div>
                 <div class="batch-form__row">
                     <div class="batch-form__field">
-                        <label for="batchMode">扫描模式</label>
+                        <label for="batchMode">{{ t('repos.batchMode') }}</label>
                         <Select
                             id="batchMode"
                             v-model="batchMode"
@@ -834,7 +836,7 @@ const submitImport = async () => {
                         />
                     </div>
                     <div class="batch-form__field">
-                        <label for="batchSeverity">严重级别阈值</label>
+                        <label for="batchSeverity">{{ t('repos.batchSeverity') }}</label>
                         <Select
                             id="batchSeverity"
                             v-model="batchSeverityThreshold"
@@ -847,13 +849,13 @@ const submitImport = async () => {
                 </div>
                 <div class="batch-form__actions">
                     <Button
-                        label="取消"
+                        :label="t('common.actions.cancel')"
                         severity="secondary"
                         text
                         @click="batchDialogVisible = false"
                     />
                     <Button
-                        label="开始扫描"
+                        :label="t('repos.batchStart')"
                         icon="pi pi-play"
                         :loading="batchSubmitting"
                         @click="submitBatchScan"

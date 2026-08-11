@@ -6,6 +6,8 @@ definePageMeta({
     middleware: 'auth',
 })
 
+const { t } = useI18n()
+
 interface ScheduleForm {
     name: string
     cron: string
@@ -42,28 +44,28 @@ const emptyForm = (): ScheduleForm => ({
 
 const form = ref<ScheduleForm>(emptyForm())
 
-const selectorOptions = [
-    { label: '全部仓库', value: 'all' },
-    { label: '按组织', value: 'organization' },
-    { label: '按标签', value: 'tag' },
-    { label: '手动指定', value: 'explicit' },
-]
+const selectorOptions = computed(() => [
+    { label: t('schedules.selector.all'), value: 'all' },
+    { label: t('schedules.selector.organization'), value: 'organization' },
+    { label: t('schedules.selector.tag'), value: 'tag' },
+    { label: t('schedules.selector.explicit'), value: 'explicit' },
+])
 
-const modeOptions = [
-    { label: '仅报告', value: 'report-only' },
-    { label: '修复', value: 'fix' },
-    { label: '修复并建 PR', value: 'fix-and-pr' },
-]
+const modeOptions = computed(() => [
+    { label: t('common.scanMode.reportOnly'), value: 'report-only' },
+    { label: t('common.scanMode.fix'), value: 'fix' },
+    { label: t('common.scanMode.fixAndPr'), value: 'fix-and-pr' },
+])
 
-const severityOptions = [
+const severityOptions = computed(() => [
     { label: 'Critical', value: 'critical' },
     { label: 'High', value: 'high' },
     { label: 'Medium', value: 'medium' },
-    { label: '全部', value: 'all' },
-]
+    { label: t('common.severity.all'), value: 'all' },
+])
 
 const selectorLabel = (kind: string) =>
-    selectorOptions.find((o) => o.value === kind)?.label ?? kind
+    selectorOptions.value.find((o) => o.value === kind)?.label ?? kind
 
 const fetchSchedules = async () => {
     loading.value = true
@@ -71,7 +73,7 @@ const fetchSchedules = async () => {
     try {
         schedules.value = await $fetch<ScheduleView[]>('/api/schedules')
     } catch (e: any) {
-        error.value = `加载失败：${e?.data?.message ?? e?.message ?? '未知错误'}`
+        error.value = t('schedules.errors.loadFailed', { message: e?.data?.message ?? e?.message ?? t('common.errors.unknown') })
     } finally {
         loading.value = false
     }
@@ -140,13 +142,13 @@ const buildSelectorJson = (): string | null => {
     if (kind === 'tag') {
         const tag = form.value.tag.trim()
         if (!tag) {
-            throw new Error('按标签策略需要填写标签')
+            throw new Error(t('schedules.errors.tagRequired'))
         }
         return JSON.stringify({ tag })
     }
     const ids = form.value.repositoryIds
     if (ids.length === 0) {
-        throw new Error('手动指定策略需要至少选择一个仓库')
+        throw new Error(t('schedules.errors.reposRequired'))
     }
     return JSON.stringify({ repositoryIds: ids })
 }
@@ -170,18 +172,18 @@ const submit = async () => {
                 method: 'PATCH',
                 body: payload,
             })
-            success.value = '定时计划已更新'
+            success.value = t('schedules.success.updated')
         } else {
             await $fetch('/api/schedules', {
                 method: 'POST',
                 body: payload,
             })
-            success.value = '定时计划已创建'
+            success.value = t('schedules.success.created')
         }
         dialogVisible.value = false
         await fetchSchedules()
     } catch (e: any) {
-        error.value = `保存失败：${e?.data?.message ?? e?.message ?? '未知错误'}`
+        error.value = t('schedules.errors.saveFailed', { message: e?.data?.message ?? e?.message ?? t('common.errors.unknown') })
     } finally {
         saving.value = false
     }
@@ -191,10 +193,10 @@ const remove = async (schedule: ScheduleView) => {
     error.value = ''
     try {
         await $fetch(`/api/schedules/${schedule.id}`, { method: 'DELETE' })
-        success.value = '定时计划已删除'
+        success.value = t('schedules.success.deleted')
         await fetchSchedules()
     } catch (e: any) {
-        error.value = `删除失败：${e?.data?.message ?? e?.message ?? '未知错误'}`
+        error.value = t('schedules.errors.deleteFailed', { message: e?.data?.message ?? e?.message ?? t('common.errors.unknown') })
     }
 }
 
@@ -203,10 +205,10 @@ const trigger = async (schedule: ScheduleView) => {
     triggering.value = schedule.id
     try {
         const result = await $fetch<{ batchRunId: string, repositoryCount: number }>(`/api/schedules/${schedule.id}/trigger`, { method: 'POST' })
-        success.value = `已触发批量扫描（${result.repositoryCount} 个仓库），可在批量运行页查看进度`
+        success.value = t('schedules.success.triggered', { count: result.repositoryCount })
         await fetchSchedules()
     } catch (e: any) {
-        error.value = `触发失败：${e?.data?.message ?? e?.message ?? '未知错误'}`
+        error.value = t('schedules.errors.triggerFailed', { message: e?.data?.message ?? e?.message ?? t('common.errors.unknown') })
     } finally {
         triggering.value = null
     }
@@ -219,10 +221,10 @@ const toggleEnabled = async (schedule: ScheduleView) => {
             method: 'PATCH',
             body: { enabled: !schedule.enabled },
         })
-        success.value = schedule.enabled ? '定时计划已禁用' : '定时计划已启用'
+        success.value = schedule.enabled ? t('schedules.success.disabled') : t('schedules.success.enabled')
         await fetchSchedules()
     } catch (e: any) {
-        error.value = `操作失败：${e?.data?.message ?? e?.message ?? '未知错误'}`
+        error.value = t('schedules.errors.operationFailed', { message: e?.data?.message ?? e?.message ?? t('common.errors.unknown') })
     }
 }
 
@@ -240,14 +242,14 @@ watch(toastMessage, (v) => {
     <div class="schedules">
         <div class="schedules__header">
             <div>
-                <h2>定时计划</h2>
+                <h2>{{ t('schedules.title') }}</h2>
                 <p class="text-muted">
-                    cron 到点自动触发批量扫描（异步队列 / 无 Redis 时降级进程内调度）
+                    {{ t('schedules.subtitle') }}
                 </p>
             </div>
             <Button
                 icon="pi pi-plus"
-                label="新建计划"
+                :label="t('schedules.newPlan')"
                 @click="openCreate"
             />
         </div>
@@ -273,49 +275,49 @@ watch(toastMessage, (v) => {
                     :value="schedules"
                     striped-rows
                     size="small"
-                    :empty-message="'暂无定时计划，点击右上角新建'"
+                    :empty-message="t('schedules.empty')"
                 >
-                    <Column field="name" header="名称" />
-                    <Column header="cron 表达式">
+                    <Column field="name" :header="t('schedules.colName')" />
+                    <Column :header="t('schedules.colCron')">
                         <template #body="{data}">
                             <code>{{ data.cron }}</code>
                             <small
                                 v-if="data.timezone"
                                 class="text-muted"
-                            >（{{ data.timezone }}）</small>
+                            >{{ t('schedules.timezoneSuffix', {timezone: data.timezone}) }}</small>
                         </template>
                     </Column>
-                    <Column header="仓库策略">
+                    <Column :header="t('schedules.colStrategy')">
                         <template #body="{data}">
                             {{ selectorLabel(data.selectorKind) }}
                         </template>
                     </Column>
-                    <Column header="模式">
+                    <Column :header="t('schedules.colMode')">
                         <template #body="{data}">
                             <Tag :value="modeOptions.find((m) => m.value === data.mode)?.label ?? data.mode" />
                         </template>
                     </Column>
-                    <Column header="状态">
+                    <Column :header="t('schedules.colStatus')">
                         <template #body="{data}">
                             <Tag
-                                :value="data.enabled ? '已启用' : '已禁用'"
+                                :value="data.enabled ? t('schedules.enabled') : t('schedules.disabled')"
                                 :severity="data.enabled ? 'success' : 'warn'"
                             />
                         </template>
                     </Column>
-                    <Column header="最近触发">
+                    <Column :header="t('schedules.colLastTriggered')">
                         <template #body="{data}">
                             {{ data.lastTriggeredAt ? new Date(data.lastTriggeredAt).toLocaleString() : '—' }}
                         </template>
                     </Column>
-                    <Column header="操作" :style="{width: '220px'}">
+                    <Column :header="t('schedules.colActions')" :style="{width: '220px'}">
                         <template #body="{data}">
                             <Button
                                 icon="pi pi-play"
                                 text
                                 rounded
                                 size="small"
-                                title="手动触发一次"
+                                :title="t('schedules.actionTrigger')"
                                 :loading="triggering === data.id"
                                 @click="trigger(data)"
                             />
@@ -324,7 +326,7 @@ watch(toastMessage, (v) => {
                                 text
                                 rounded
                                 size="small"
-                                :title="data.enabled ? '禁用' : '启用'"
+                                :title="data.enabled ? t('schedules.actionDisable') : t('schedules.actionEnable')"
                                 @click="toggleEnabled(data)"
                             />
                             <Button
@@ -332,7 +334,7 @@ watch(toastMessage, (v) => {
                                 text
                                 rounded
                                 size="small"
-                                aria-label="编辑"
+                                :aria-label="t('schedules.actionEdit')"
                                 @click="openEdit(data)"
                             />
                             <Button
@@ -341,7 +343,7 @@ watch(toastMessage, (v) => {
                                 rounded
                                 size="small"
                                 severity="danger"
-                                aria-label="删除"
+                                :aria-label="t('schedules.actionDelete')"
                                 @click="remove(data)"
                             />
                         </template>
@@ -350,28 +352,28 @@ watch(toastMessage, (v) => {
             </template>
         </Card>
         <p v-else class="text-muted">
-            加载中…
+            {{ t('common.empty.loading') }}
         </p>
 
         <Dialog
             v-model:visible="dialogVisible"
-            :header="editingId ? '编辑定时计划' : '新建定时计划'"
+            :header="editingId ? t('schedules.dialogEditTitle') : t('schedules.dialogCreateTitle')"
             modal
             :style="{width: '560px'}"
         >
             <form class="schedule-form" @submit.prevent="submit">
                 <div class="schedule-form__field">
-                    <label for="name">计划名称 *</label>
+                    <label for="name">{{ t('schedules.fieldName') }}</label>
                     <InputText
                         id="name"
                         v-model="form.name"
-                        placeholder="如 每周一凌晨扫描"
+                        :placeholder="t('schedules.fieldNamePlaceholder')"
                         fluid
                         required
                     />
                 </div>
                 <div class="schedule-form__field">
-                    <label for="cron">cron 表达式 *</label>
+                    <label for="cron">{{ t('schedules.fieldCron') }}</label>
                     <InputText
                         id="cron"
                         v-model="form.cron"
@@ -380,20 +382,20 @@ watch(toastMessage, (v) => {
                         required
                     />
                     <small class="text-muted">
-                        5 段（分 时 日 月 周）或 6 段（含秒），如 <code>0 2 * * 1</code> = 每周一 02:00；建议间隔不小于 1 小时
+                        {{ t('schedules.fieldCronHint') }}
                     </small>
                 </div>
                 <div class="schedule-form__field">
-                    <label for="timezone">时区（可选）</label>
+                    <label for="timezone">{{ t('schedules.fieldTimezone') }}</label>
                     <InputText
                         id="timezone"
                         v-model="form.timezone"
-                        placeholder="Asia/Shanghai，留空用服务器本地时区"
+                        :placeholder="t('schedules.fieldTimezonePlaceholder')"
                         fluid
                     />
                 </div>
                 <div class="schedule-form__field">
-                    <label for="selectorKind">仓库选择策略</label>
+                    <label for="selectorKind">{{ t('schedules.fieldSelector') }}</label>
                     <Select
                         id="selectorKind"
                         v-model="form.selectorKind"
@@ -408,11 +410,11 @@ watch(toastMessage, (v) => {
                     v-if="form.selectorKind === 'tag'"
                     class="schedule-form__field"
                 >
-                    <label for="tag">标签</label>
+                    <label for="tag">{{ t('schedules.fieldTag') }}</label>
                     <InputText
                         id="tag"
                         v-model="form.tag"
-                        placeholder="如 frontend（命中仓库的 tags 包含该标签）"
+                        :placeholder="t('schedules.fieldTagPlaceholder')"
                         fluid
                     />
                 </div>
@@ -420,7 +422,7 @@ watch(toastMessage, (v) => {
                     v-if="form.selectorKind === 'explicit'"
                     class="schedule-form__field"
                 >
-                    <label for="repositoryIds">目标仓库（{{ form.repositoryIds.length }} 个）</label>
+                    <label for="repositoryIds">{{ t('schedules.fieldRepos', {count: form.repositoryIds.length}) }}</label>
                     <MultiSelect
                         id="repositoryIds"
                         v-model="form.repositoryIds"
@@ -429,11 +431,11 @@ watch(toastMessage, (v) => {
                         option-value="id"
                         filter
                         display="chip"
-                        placeholder="选择仓库"
+                        :placeholder="t('schedules.fieldReposPlaceholder')"
                         fluid
                     />
                     <small class="text-muted">
-                        选项格式为仓库名，owner/name 见仓库列表
+                        {{ t('schedules.fieldReposHint') }}
                     </small>
                 </div>
                 <div
@@ -441,13 +443,13 @@ watch(toastMessage, (v) => {
                     class="schedule-form__field"
                 >
                     <small class="text-muted">
-                        当前单组织模型下按组织选择等同全部仓库
+                        {{ t('schedules.orgHint') }}
                     </small>
                 </div>
 
                 <div class="schedule-form__row">
                     <div class="schedule-form__field">
-                        <label for="mode">扫描模式</label>
+                        <label for="mode">{{ t('schedules.fieldMode') }}</label>
                         <Select
                             id="mode"
                             v-model="form.mode"
@@ -458,7 +460,7 @@ watch(toastMessage, (v) => {
                         />
                     </div>
                     <div class="schedule-form__field">
-                        <label for="severityThreshold">严重级别阈值</label>
+                        <label for="severityThreshold">{{ t('schedules.fieldSeverity') }}</label>
                         <Select
                             id="severityThreshold"
                             v-model="form.severityThreshold"
@@ -471,21 +473,21 @@ watch(toastMessage, (v) => {
                 </div>
                 <div class="schedule-form__field">
                     <div class="schedule-form__switch">
-                        <span>启用定时触发</span>
+                        <span>{{ t('schedules.enableTrigger') }}</span>
                         <InputSwitch v-model="form.enabled" />
                     </div>
                 </div>
 
                 <div class="schedule-form__actions">
                     <Button
-                        label="取消"
+                        :label="t('common.actions.cancel')"
                         severity="secondary"
                         text
                         @click="closeDialog"
                     />
                     <Button
                         type="submit"
-                        label="保存"
+                        :label="t('common.actions.save')"
                         icon="pi pi-check"
                         :loading="saving"
                     />

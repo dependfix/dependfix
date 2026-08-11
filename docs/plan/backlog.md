@@ -149,15 +149,8 @@
 
 > 来源：2026-08-09 mcp 复用率与能力差距评估（core/cli/mcp 复用分析 + 与 CLI 能力面对比）。设计详见 [mcp-server.md §8 能力差距与演进路线](../design/governance/mcp-server.md#8-能力差距与演进路线)。
 > **约束**：MCP tool schema 变更对客户端是 breaking，P1 项一次性批量升级；AI apiKey 只走 env（`DEPENDFIX_AI_API_KEY`），禁止进 tool 参数；新能力优先复用 cli/core 已导出 API，缺导出先补 1 行导出而非在 mcp 层重写。
+> **已闭环清理（2026-08-11）**：C31（P1 能力补充，627f3b0d 后批次交付）、C32（P2 能力补充，62a655e3 后批次交付）均已交付，代码实施在 T706 发布 npm 前完成（前置已满足）；完整能力登记与演进路线见 [mcp-server.md §8 能力差距与演进路线](../design/governance/mcp-server.md#8-能力差距与演进路线)。
 
-- **C31 MCP 能力补充 P1**
-  - 状态：✅ 已交付（2026-08-09，提交 627f3b0d 后代码实施批次）
-  - 内容：run_scan 配置参数化（`code_scanning` / `max_alerts` / `max_concurrency` / `dry_run` / `allow_major_upgrade`）；fetch_alerts 加 `code_scanning` 双源（前置：补 cli 导出 `fetchCodeScanningAlerts`）；fix_dependency 扩展 `fix_type`（override / direct / lockfile）
-  - 前置：M7 T706 发布 npm 前完成
-- **C32 MCP 能力补充 P2**
-  - 状态：✅ 已交付（2026-08-09，提交 62a655e3 后代码实施批次）
-  - 内容：`discover_repos` tool（复用 discoverRepositories，org 发现 + 名单策略）；`cleanup_branches` tool（复用 pr-creator 底层函数自编排，语义对齐 autoCleanupMergedBranches——DependfixApp 的 cleanup-branches mode 走交互确认，非 TTY 不可用）；run_scan 加 AI 研判透传（`ai_enabled` / `ai_provider` / `ai_model` / `ai_trigger`，apiKey 从 env 读取）；`history` tool（复用 queryRepoHistory，前置：补 cli 导出）
-  - 前置：M7 T706 发布 npm 前完成
 - **C33 MCP 能力补充 P3**（远期目标，不实施）
   - 状态：🔶 远期登记
   - 内容：pnpm-audit 本地扫描 tool（需 workDir 语义，等本地场景真实需求）；统一错误包装 helper（token 检查 + try/catch → ok:false 模板代码收口）；返回结构对齐完整 `RunResult`（当前 run_scan 只映射 8 字段，完整契约会扩大 MCP 响应体积，保持简化 + 文档声明）
@@ -192,48 +185,12 @@
 
 ### M7.2 平台能力深化
 
-#### T702 任务队列与并发控制
+> **T702 / T704 / T708 已上收 [todo.md](todo.md)（当前阶段）**，本处不再重复任务定义：
+> - **T702 任务队列与并发控制**：✅ 已完成（2026-08-10，BullMQ + Redis + 降级矩阵，3 子任务 APPROVE，记录见 [todo.md §T702](todo.md#t702-任务队列与并发控制bullmq--redis--渐进式降级)）。
+> - **T704 定时扫描与批量处理**：✅ 已完成（2026-08-10/11，双模调度 + 批量执行 + 聚合报告，3 子任务全部 Review Gate Pass，记录见 [todo.md §T704](todo.md#t704-定时扫描与批量处理cron-调度--批量选择--聚合报告)）；剩余人工验收：async 定时触发集成测试（需 Redis >= 5）、Schedule CRUD e2e。
+> - **T708 国际化 i18n**：📋 已上收（2026-08-11 规划定稿，4 子任务拆分与验收见 [todo.md §T708](todo.md#t708-国际化-i18n全平台-ui-双语-zh-cn--en-us)）。
 
-- 优先级：`P2`
-- 依赖：M6
-- 交付物：基于 BullMQ + Redis 的任务调度系统。
-- 任务内容：
-  - [ ] 集成 BullMQ + Redis 实现任务队列（承接 M6 进程内互斥锁升级为跨进程/多实例）。
-  - [ ] 并发控制：同一仓库同一时间仅一个扫描任务（**M6 已落地轻量版**：进程内同仓库互斥锁 `withRepoLock`，见 `apps/platform/server/services/repo-lock.ts`——单实例 FIFO 串行；M7 换 BullMQ 承接多实例/跨进程）。
-  - [ ] 优先级队列：手动触发 > webhook > 定时。
-  - [ ] 任务去重：重复任务在队列中合并。
-  - [ ] 失败重试策略：指数退避、最大重试可配。
-- 完成定义：
-  - [ ] 多仓库同时请求扫描时，任务按优先级和队列策略正确调度。
-
-#### T704 定时扫描与批量处理
-
-- 优先级：`P2`
-- 依赖：T702
-- 交付物：定时调度 + 批量执行 + 聚合报告。
-- 任务内容：
-  - [ ] cron 定时扫描配置。
-  - [ ] 按组织/团队/标签批量选择仓库。
-  - [ ] 批量扫描任务合并调度。
-  - [ ] 跨仓库结果聚合统计。
-- 完成定义：
-  - [ ] 能配置定时任务并对多仓库批量执行。
-
-#### T708 国际化 i18n
-
-- 优先级：`P2`
-- 依赖：M6（文案基线）；建议在 T701/T707 认证 UI 定稿后执行（避免认证文案重复抽取，与 T701 语言偏好联动）
-- 交付物：全平台 UI 双语（zh-CN / en-US）。
-- 任务内容：
-  - [ ] `@nuxtjs/i18n` 接入（`prefix_and_default`：zh-CN 默认无前缀，en-US 加 `/en`）。
-  - [ ] 全量页面/组件文案抽取语言包（zh-CN / en-US 双语）。
-  - [ ] 语言检测（Cookie + 浏览器偏好 + URL）+ 语言切换器（导航栏 + 个人设置联动，与 T701 语言偏好打通）。
-  - [ ] 时间/日期/数字格式随 locale 本地化。
-- 非目标：zh-TW / ja-JP / ko-KR 第三方语言（结构可扩展，暂不实施）、邮件通知 i18n、报告文档 i18n。
-- 完成定义：
-  - [ ] 切换语言后全平台页面文案切换，无硬编码文案残留（grep 扫描零命中）。
-  - [ ] 默认 zh-CN 无前缀 URL 行为正确，`/en` 前缀路由可用。
-- 任务粒度：按页面/模块分批抽取（对齐经验归档 §二十四，避免单次大 diff）。
+以下为未排期任务（T705 / T703 / T706，按 D3 执行顺序位于 T708 之后）：
 
 #### T705 生产级部署
 
@@ -283,6 +240,19 @@
 - **T701 管理端点集成测试补强**（2026-08-09 T701-2 审计登记，2026-08-09 实施后修订）：设计 §9 矩阵的"list-users 分页/搜索、set-role 非 admin 403、ban/unban 会话失效、remove-user 级联、个人界面 changePassword/changeEmail 闭环"未落地（当前 guard 层 11 例覆盖函数语义；用户管理/个人界面已改为 better-auth 原生端点链路，authClient 直连 `/api/auth/*`）。触发条件：引入 @nuxt/test-utils 或 e2e 基建时统一落地（T701 验收/浏览器验证阶段评估）。
 - **邮件发送器统一实现**（2026-08-09 T701-3 审计登记）：sendVerificationEmail / sendResetPassword / sendChangeEmailConfirmation 三处回调均为空实现（SMTP 未配置降级为 console.warn）；SMTP_HOST 配置后注册验证/密码重置/邮箱变更确认邮件均不实际发送（M6 既有模式）。触发条件：引入邮件发送依赖（如 nodemailer）或 SMTP 配置成为真实部署需求时统一接通三处回调。
 - **SAML 2.0 SSO**：企业 SSO 仅 OIDC（better-auth `genericOAuth` 原生支持，覆盖 Azure AD / Okta / Keycloak / Google Workspace）；SAML 需额外集成层（better-auth 无原生支持，成本高），登记 backlog。触发条件：企业 IdP 仅提供 SAML（如部分传统 IdP）时评估。
+
+### M7.2 i18n 非目标登记（2026-08-11，T708 规划定稿）
+
+> T708 国际化 i18n 已上收 [todo.md](todo.md)（4 子任务，见 [todo.md §T708](todo.md#t708-国际化-i18n全平台-ui-双语-zh-cn--en-us)）。以下为本期明确不做、随需求登记后续的项。
+
+- **C36 服务端 API 错误消息 i18n**（T708 非目标）
+  - 状态：🔶 待评估
+  - 内容：服务端 API `createError` / `statusMessage` 共 55 处中文错误消息未纳入 i18n（前端页面文案先行）；接入方式候选：错误码化（客户端按 code 查语言包）或服务端按 Accept-Language 返回本地化消息。触发条件：英文用户实际使用平台并反馈错误提示语言混杂
+  - 来源：2026-08-11 T708 规划（apps/platform/server/api 统计 55 处）
+- **C37 语言偏好多设备同步**（T708 非目标）
+  - 状态：🔶 待评估
+  - 内容：T708 D3 决策语言偏好存 Cookie（登录/未登录一致、简单可靠）；登录用户语言偏好持久化到服务端（better-auth user 字段或独立偏好表，多设备同步）未实现。触发条件：多设备使用成为常态或用户反馈语言偏好不同步
+  - 来源：2026-08-11 T708 规划（D3 决策登记）
 
 ---
 

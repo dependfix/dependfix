@@ -1,11 +1,17 @@
 <script setup lang="ts">
-// 个人设置：资料（姓名/头像）、修改密码、修改邮箱、绑定账号状态、语言偏好占位
+// 个人设置：资料（姓名/头像）、修改密码、修改邮箱、绑定账号状态、语言偏好
 // 全部操作走 better-auth 原生端点（/api/auth/*，经 authClient 封装），不自建代理 API
 import { authClient } from '~/utils/auth-client'
 
 definePageMeta({
     middleware: 'auth',
 })
+
+// 语言偏好：选择即 setLocale 写 i18n_locale cookie，与导航栏切换器联动
+const { locale, setLocale, locales } = useI18n()
+const switchLocale = async (code: string) => {
+    await setLocale(code as typeof locale.value)
+}
 
 interface BoundAccount {
     id: string
@@ -375,14 +381,14 @@ onUnmounted(() => {
                         <label for="language">界面语言</label>
                         <Select
                             id="language"
-                            :model-value="'zh-CN'"
-                            :options="[{label: '简体中文', value: 'zh-CN'}]"
-                            option-label="label"
-                            option-value="value"
-                            disabled
+                            :model-value="locale"
+                            :options="locales"
+                            option-label="name"
+                            option-value="code"
                             fluid
+                            @update:model-value="switchLocale"
                         />
-                        <small class="text-muted">多语言支持规划中，当前固定简体中文</small>
+                        <small class="text-muted">多语言切换即写入偏好，刷新后保持</small>
                     </div>
                 </template>
             </Card>

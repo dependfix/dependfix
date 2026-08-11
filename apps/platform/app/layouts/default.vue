@@ -5,6 +5,12 @@ import { authClient } from '~/utils/auth-client'
 const { session } = useSession()
 const { dark, toggle, initColorMode } = useColorMode()
 
+const { locale, setLocale, locales, t } = useI18n()
+// 切换语言：setLocale 自动写 i18n_locale cookie，登录/未登录一致（偏好持久化）
+const switchLocale = async (code: string) => {
+    await setLocale(code as typeof locale.value)
+}
+
 onMounted(() => {
     initColorMode()
 })
@@ -29,21 +35,21 @@ const logout = async () => {
                     class="platform__nav-link"
                     active-class="platform__nav-link--active"
                 >
-                    仪表板
+                    {{ t('common.nav.dashboard') }}
                 </NuxtLink>
                 <NuxtLink
                     to="/repos"
                     class="platform__nav-link"
                     active-class="platform__nav-link--active"
                 >
-                    仓库
+                    {{ t('common.nav.repos') }}
                 </NuxtLink>
                 <NuxtLink
                     to="/alerts"
                     class="platform__nav-link"
                     active-class="platform__nav-link--active"
                 >
-                    告警
+                    {{ t('common.nav.alerts') }}
                 </NuxtLink>
                 <NuxtLink
                     v-if="session?.user?.role !== 'viewer'"
@@ -51,21 +57,21 @@ const logout = async () => {
                     class="platform__nav-link"
                     active-class="platform__nav-link--active"
                 >
-                    定时计划
+                    {{ t('common.nav.schedules') }}
                 </NuxtLink>
                 <NuxtLink
                     to="/batch-runs"
                     class="platform__nav-link"
                     active-class="platform__nav-link--active"
                 >
-                    批量运行
+                    {{ t('common.nav.batchRuns') }}
                 </NuxtLink>
                 <NuxtLink
                     to="/credentials"
                     class="platform__nav-link"
                     active-class="platform__nav-link--active"
                 >
-                    凭据
+                    {{ t('common.nav.credentials') }}
                 </NuxtLink>
                 <NuxtLink
                     v-if="session?.user?.role === 'admin'"
@@ -73,27 +79,36 @@ const logout = async () => {
                     class="platform__nav-link"
                     active-class="platform__nav-link--active"
                 >
-                    用户
+                    {{ t('common.nav.users') }}
                 </NuxtLink>
             </nav>
             <div class="platform__actions">
+                <Select
+                    :model-value="locale"
+                    :options="locales"
+                    option-label="name"
+                    option-value="code"
+                    size="small"
+                    class="platform__lang"
+                    @update:model-value="switchLocale"
+                />
                 <Button
                     :icon="dark ? 'pi pi-sun' : 'pi pi-moon'"
                     text
                     rounded
-                    aria-label="切换暗色模式"
+                    :aria-label="t('common.nav.toggleDarkMode')"
                     @click="toggle"
                 />
                 <template v-if="session?.user">
                     <NuxtLink
                         to="/settings"
                         class="platform__user"
-                        title="个人设置"
+                        :title="t('common.nav.userSettings')"
                     >
                         <img
                             v-if="session.user.image"
                             :src="session.user.image"
-                            alt="头像"
+                            :alt="t('common.nav.userAvatar')"
                             class="platform__avatar"
                         >
                         <Avatar
@@ -105,7 +120,7 @@ const logout = async () => {
                         <span class="platform__user-name">{{ session.user.name || session.user.email }}</span>
                     </NuxtLink>
                     <Button
-                        label="退出登录"
+                        :label="t('common.nav.logout')"
                         severity="secondary"
                         text
                         size="small"

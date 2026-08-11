@@ -30,6 +30,7 @@
 - **GitHub Action**：通过 `uses: dependfix/dependfix@v1` 一行接入，支持定时和手动触发
 - **多仓库**：支持单仓库、批量仓库修复，可对 GitHub Organization / 用户自动发现仓库（`--owner`，含 topic / glob 过滤）
 - **Agent Skill**：`dependfix-remediator` 可分发给主流 AI 编码工具（Claude Code / Copilot / Cursor / OpenCode），对话式驱动修复闭环
+- **管理平台（i18n）**：集中管理平台界面支持简体中文 / English 双语（导航栏或个人设置切换，偏好持久化；默认 zh-CN 无前缀 URL，英文经 `/en` 前缀访问）
 
 ## 快速开始
 

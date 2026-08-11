@@ -7,6 +7,7 @@ definePageMeta({
 })
 
 const { dark, toggle, initColorMode } = useColorMode()
+const { t } = useI18n()
 
 onMounted(() => {
     initColorMode()
@@ -34,11 +35,11 @@ const registrationClosed = publicConfig.registrationDisabled === true
 const onSubmit = async () => {
     error.value = ''
     if (password.value !== confirmPassword.value) {
-        error.value = '两次输入的密码不一致'
+        error.value = t('auth.register.errors.passwordMismatch')
         return
     }
     if (password.value.length < 8) {
-        error.value = '密码至少 8 位'
+        error.value = t('auth.register.errors.passwordTooShort')
         return
     }
     loading.value = true
@@ -51,11 +52,11 @@ const onSubmit = async () => {
         if (signUpError) {
             // 准入拒绝映射：域名不在允许列表（enterprise 白名单 / public 黑名单）与注册关闭分别提示
             if (signUpError.code === 'EMAIL_DOMAIN_NOT_ALLOWED') {
-                error.value = '邮箱域名不在允许列表中，无法注册'
+                error.value = t('auth.register.errors.domainNotAllowed')
             } else if (signUpError.message?.includes('sign up is not enabled') || signUpError.code === 'EMAIL_PASSWORD_SIGN_UP_DISABLED') {
-                error.value = '注册已关闭：平台未开放注册，请联系管理员'
+                error.value = t('auth.register.errors.signUpDisabled')
             } else {
-                error.value = `注册失败：${signUpError.message ?? '未知错误'}`
+                error.value = t('auth.register.errors.registerFailed', { message: signUpError.message ?? t('common.errors.unknown') })
             }
             return
         }
@@ -76,7 +77,7 @@ const onSubmit = async () => {
                 dependfix
             </h1>
             <p class="auth__subtitle">
-                创建管理平台账号
+                {{ t('auth.register.subtitle') }}
             </p>
             <Card>
                 <template #content>
@@ -85,14 +86,14 @@ const onSubmit = async () => {
                         severity="warn"
                         :closable="false"
                     >
-                        平台未开放注册：请联系管理员开通账号
+                        {{ t('auth.register.registrationClosed') }}
                     </Message>
                     <Message
                         v-else-if="showDomainHint"
                         severity="info"
                         :closable="false"
                     >
-                        仅接受 {{ allowedDomains.map((d) => `@${d}`).join('、') }} 邮箱注册
+                        {{ t('auth.register.onlyDomains', {domains: allowedDomains.map((d) => `@${d}`).join(t('auth.register.domainSeparator'))}) }}
                     </Message>
                     <form
                         v-if="!registrationClosed"
@@ -100,16 +101,16 @@ const onSubmit = async () => {
                         @submit.prevent="onSubmit"
                     >
                         <div class="auth-form__field">
-                            <label for="name">名称（可选）</label>
+                            <label for="name">{{ t('auth.register.name') }}</label>
                             <InputText
                                 id="name"
                                 v-model="name"
-                                placeholder="管理员"
+                                :placeholder="t('auth.register.namePlaceholder')"
                                 fluid
                             />
                         </div>
                         <div class="auth-form__field">
-                            <label for="email">邮箱</label>
+                            <label for="email">{{ t('auth.register.email') }}</label>
                             <InputText
                                 id="email"
                                 v-model="email"
@@ -120,25 +121,25 @@ const onSubmit = async () => {
                             />
                         </div>
                         <div class="auth-form__field">
-                            <label for="password">密码</label>
+                            <label for="password">{{ t('auth.register.password') }}</label>
                             <Password
                                 id="password"
                                 v-model="password"
                                 :feedback="false"
                                 toggle-mask
-                                placeholder="至少 8 位"
+                                :placeholder="t('auth.register.passwordPlaceholder')"
                                 fluid
                                 required
                             />
                         </div>
                         <div class="auth-form__field">
-                            <label for="confirm-password">确认密码</label>
+                            <label for="confirm-password">{{ t('auth.register.confirmPassword') }}</label>
                             <Password
                                 id="confirm-password"
                                 v-model="confirmPassword"
                                 :feedback="false"
                                 toggle-mask
-                                placeholder="再次输入密码"
+                                :placeholder="t('auth.register.confirmPasswordPlaceholder')"
                                 fluid
                                 required
                             />
@@ -152,15 +153,15 @@ const onSubmit = async () => {
                         </Message>
                         <Button
                             type="submit"
-                            label="注册"
+                            :label="t('auth.register.submit')"
                             :loading="loading"
                             fluid
                         />
                     </form>
                     <div class="auth__switch">
-                        已有账号？
+                        {{ t('auth.register.hasAccount') }}
                         <NuxtLink to="/login">
-                            返回登录
+                            {{ t('auth.register.backToLogin') }}
                         </NuxtLink>
                     </div>
                 </template>
@@ -170,7 +171,7 @@ const onSubmit = async () => {
                     :icon="dark ? 'pi pi-sun' : 'pi pi-moon'"
                     text
                     rounded
-                    aria-label="切换暗色模式"
+                    :aria-label="t('auth.register.toggleDarkMode')"
                     @click="toggle"
                 />
             </div>

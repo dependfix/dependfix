@@ -8,7 +8,7 @@ definePageMeta({
 })
 
 // 语言偏好：选择即 setLocale 写 i18n_locale cookie，与导航栏切换器联动
-const { locale, setLocale, locales } = useI18n()
+const { locale, setLocale, locales, t } = useI18n()
 const switchLocale = async (code: string) => {
     await setLocale(code as typeof locale.value)
 }
@@ -21,10 +21,15 @@ interface BoundAccount {
 }
 
 const PROFILE_LABELS: Record<string, string> = {
-    credential: '邮箱密码',
     github: 'GitHub',
     google: 'Google',
     oidc: 'OIDC SSO',
+}
+const providerLabel = (providerId: string) => {
+    if (providerId === 'credential') {
+        return t('settings.credentialProvider')
+    }
+    return PROFILE_LABELS[providerId] ?? providerId
 }
 
 const { session } = useSession()
@@ -49,7 +54,7 @@ const fetchAccounts = async () => {
     try {
         const { data, error: accountError } = await authClient.listAccounts()
         if (accountError) {
-            error.value = `加载失败：${accountError.message ?? '未知错误'}`
+            error.value = t('settings.errors.loadFailed', { message: accountError.message ?? t('common.errors.unknown') })
             return
         }
         // 仅展示第三方绑定账号（credential = 邮箱密码，不属于"绑定账号"管理范围）
@@ -62,7 +67,7 @@ const fetchAccounts = async () => {
                 createdAt: typeof a.createdAt === 'string' ? a.createdAt : a.createdAt.toISOString(),
             }))
     } catch (e: any) {
-        error.value = `加载失败：${e?.message ?? '未知错误'}`
+        error.value = t('settings.errors.loadFailed', { message: e?.message ?? t('common.errors.unknown') })
     }
 }
 
@@ -74,14 +79,12 @@ onMounted(async () => {
     loading.value = false
 })
 
-const providerLabel = (providerId: string) => PROFILE_LABELS[providerId] ?? providerId
-
 const saveName = async () => {
     const trimmedName = nameForm.value.trim()
     // better-auth updateUser 的 name 仅接受 string（不支持 null 清空语义），
     // 空值视为未修改并提示，避免"保存成功但值未变"误导
     if (!trimmedName) {
-        error.value = '姓名不能为空'
+        error.value = t('settings.errors.nameRequired')
         return
     }
     nameSaving.value = true
@@ -91,13 +94,13 @@ const saveName = async () => {
             name: trimmedName,
         })
         if (updateError) {
-            error.value = `保存失败：${updateError.message ?? '未知错误'}`
+            error.value = t('settings.errors.saveFailed', { message: updateError.message ?? t('common.errors.unknown') })
             return
         }
-        success.value = '个人资料已更新'
+        success.value = t('settings.success.profileUpdated')
         await refreshNuxtData()
     } catch (e: any) {
-        error.value = `保存失败：${e?.message ?? '未知错误'}`
+        error.value = t('settings.errors.saveFailed', { message: e?.message ?? t('common.errors.unknown') })
     } finally {
         nameSaving.value = false
     }
@@ -106,7 +109,7 @@ const saveName = async () => {
 const changePassword = async () => {
     error.value = ''
     if (passwordForm.value.newPassword !== passwordForm.value.confirmPassword) {
-        error.value = '两次输入的新密码不一致'
+        error.value = t('settings.errors.passwordMismatch')
         return
     }
     passwordSaving.value = true
@@ -117,13 +120,13 @@ const changePassword = async () => {
             revokeOtherSessions: true,
         })
         if (changeError) {
-            error.value = `修改失败：${changeError.message ?? '未知错误'}`
+            error.value = t('settings.errors.changeFailed', { message: changeError.message ?? t('common.errors.unknown') })
             return
         }
-        success.value = '密码已修改，其他设备会话已失效'
+        success.value = t('settings.success.passwordChanged')
         passwordForm.value = { currentPassword: '', newPassword: '', confirmPassword: '' }
     } catch (e: any) {
-        error.value = `修改失败：${e?.message ?? '未知错误'}`
+        error.value = t('settings.errors.changeFailed', { message: e?.message ?? t('common.errors.unknown') })
     } finally {
         passwordSaving.value = false
     }
@@ -137,20 +140,20 @@ const changeEmail = async () => {
             newEmail: emailForm.value.trim(),
         })
         if (changeError) {
-            error.value = `修改失败：${changeError.message ?? '未知错误'}`
+            error.value = t('settings.errors.changeFailed', { message: changeError.message ?? t('common.errors.unknown') })
             return
         }
-        success.value = '邮箱已修改'
+        success.value = t('settings.success.emailChanged')
         await refreshNuxtData()
     } catch (e: any) {
-        error.value = `修改失败：${e?.message ?? '未知错误'}`
+        error.value = t('settings.errors.changeFailed', { message: e?.message ?? t('common.errors.unknown') })
     } finally {
         emailSaving.value = false
     }
 }
 
 const unlink = async (account: BoundAccount) => {
-    if (!confirm(`确认解绑 ${providerLabel(account.providerId)} 账号？`)) {
+    if (!confirm(t('settings.confirm.unlinkAccount', { provider: providerLabel(account.providerId) }))) {
         return
     }
     error.value = ''
@@ -161,13 +164,13 @@ const unlink = async (account: BoundAccount) => {
             accountId: account.accountId,
         })
         if (unlinkError) {
-            error.value = `解绑失败：${unlinkError.message ?? '未知错误'}`
+            error.value = t('settings.errors.unlinkFailed', { message: unlinkError.message ?? t('common.errors.unknown') })
             return
         }
-        success.value = `已解绑 ${providerLabel(account.providerId)}`
+        success.value = t('settings.success.unlinked', { provider: providerLabel(account.providerId) })
         await fetchAccounts()
     } catch (e: any) {
-        error.value = `解绑失败：${e?.message ?? '未知错误'}`
+        error.value = t('settings.errors.unlinkFailed', { message: e?.message ?? t('common.errors.unknown') })
     } finally {
         unlinkSaving.value = null
     }
@@ -196,9 +199,9 @@ onUnmounted(() => {
     <div class="settings">
         <div class="settings__header">
             <div>
-                <h2>个人设置</h2>
+                <h2>{{ t('settings.title') }}</h2>
                 <p class="text-muted">
-                    管理个人资料、密码、邮箱与绑定账号
+                    {{ t('settings.subtitle') }}
                 </p>
             </div>
         </div>
@@ -221,34 +224,34 @@ onUnmounted(() => {
         <div v-if="!loading" class="settings__grid">
             <Card>
                 <template #title>
-                    个人资料
+                    {{ t('settings.profileCard') }}
                 </template>
                 <template #content>
                     <form class="settings-form" @submit.prevent="saveName">
                         <div class="settings-form__field">
-                            <label for="name">显示名</label>
+                            <label for="name">{{ t('settings.displayName') }}</label>
                             <InputText
                                 id="name"
                                 v-model="nameForm"
-                                placeholder="输入显示名"
+                                :placeholder="t('settings.displayNamePlaceholder')"
                                 fluid
                                 required
                             />
                         </div>
                         <div class="settings-form__field">
-                            <label>邮箱</label>
+                            <label>{{ t('settings.emailLabel') }}</label>
                             <div class="text-muted">
                                 {{ session?.user?.email }}
                             </div>
-                            <small class="text-muted">邮箱修改见下方"邮箱"卡片</small>
+                            <small class="text-muted">{{ t('settings.emailHint') }}</small>
                         </div>
                         <div class="settings-form__field">
-                            <label>角色</label>
+                            <label>{{ t('settings.roleLabel') }}</label>
                             <Tag :value="session?.user?.role ?? 'viewer'" severity="secondary" />
                         </div>
                         <Button
                             type="submit"
-                            label="保存资料"
+                            :label="t('settings.saveProfile')"
                             icon="pi pi-check"
                             :loading="nameSaving"
                         />
@@ -258,65 +261,65 @@ onUnmounted(() => {
 
             <Card>
                 <template #title>
-                    修改密码
+                    {{ t('settings.passwordCard') }}
                 </template>
                 <template #content>
                     <form class="settings-form" @submit.prevent="changePassword">
                         <div class="settings-form__field">
-                            <label for="currentPassword">当前密码</label>
+                            <label for="currentPassword">{{ t('settings.currentPassword') }}</label>
                             <Password
                                 id="currentPassword"
                                 v-model="passwordForm.currentPassword"
                                 :feedback="false"
                                 toggle-mask
-                                placeholder="请输入当前密码"
+                                :placeholder="t('settings.currentPasswordPlaceholder')"
                                 fluid
                                 required
                             />
                         </div>
                         <div class="settings-form__field">
-                            <label for="newPassword">新密码</label>
+                            <label for="newPassword">{{ t('settings.newPassword') }}</label>
                             <Password
                                 id="newPassword"
                                 v-model="passwordForm.newPassword"
                                 :feedback="false"
                                 toggle-mask
-                                placeholder="至少 8 位"
+                                :placeholder="t('settings.newPasswordPlaceholder')"
                                 fluid
                                 required
                             />
                         </div>
                         <div class="settings-form__field">
-                            <label for="confirmPassword">确认新密码</label>
+                            <label for="confirmPassword">{{ t('settings.confirmNewPassword') }}</label>
                             <Password
                                 id="confirmPassword"
                                 v-model="passwordForm.confirmPassword"
                                 :feedback="false"
                                 toggle-mask
-                                placeholder="再次输入新密码"
+                                :placeholder="t('settings.confirmNewPasswordPlaceholder')"
                                 fluid
                                 required
                             />
                         </div>
                         <Button
                             type="submit"
-                            label="修改密码"
+                            :label="t('settings.changePassword')"
                             icon="pi pi-lock"
                             :loading="passwordSaving"
                         />
-                        <small class="text-muted">修改后其他设备会话将失效（需重新登录）</small>
+                        <small class="text-muted">{{ t('settings.passwordChangedHint') }}</small>
                     </form>
                 </template>
             </Card>
 
             <Card>
                 <template #title>
-                    邮箱
+                    {{ t('settings.emailCard') }}
                 </template>
                 <template #content>
                     <form class="settings-form" @submit.prevent="changeEmail">
                         <div class="settings-form__field">
-                            <label for="newEmail">新邮箱</label>
+                            <label for="newEmail">{{ t('settings.newEmail') }}</label>
                             <InputText
                                 id="newEmail"
                                 v-model="emailForm"
@@ -328,18 +331,18 @@ onUnmounted(() => {
                         </div>
                         <Button
                             type="submit"
-                            label="修改邮箱"
+                            :label="t('settings.changeEmail')"
                             icon="pi pi-envelope"
                             :loading="emailSaving"
                         />
-                        <small class="text-muted">SMTP 未配置时直接生效；已配置时需邮件确认</small>
+                        <small class="text-muted">{{ t('settings.emailChangedHint') }}</small>
                     </form>
                 </template>
             </Card>
 
             <Card>
                 <template #title>
-                    绑定账号
+                    {{ t('settings.accountsCard') }}
                 </template>
                 <template #content>
                     <div v-if="accounts.length" class="settings-accounts">
@@ -359,26 +362,26 @@ onUnmounted(() => {
                                 size="small"
                                 severity="danger"
                                 :loading="unlinkSaving?.id === account.id"
-                                aria-label="解绑"
-                                title="解绑"
+                                :aria-label="t('settings.unlink')"
+                                :title="t('settings.unlink')"
                                 @click="unlink(account)"
                             />
                         </div>
                     </div>
                     <p v-else class="text-muted">
-                        暂无绑定账号
+                        {{ t('settings.noAccounts') }}
                     </p>
-                    <small class="text-muted">第三方登录绑定（GitHub / Google / OIDC）随认证扩展开放</small>
+                    <small class="text-muted">{{ t('settings.accountsHint') }}</small>
                 </template>
             </Card>
 
             <Card>
                 <template #title>
-                    语言偏好
+                    {{ t('settings.languageCard') }}
                 </template>
                 <template #content>
                     <div class="settings-form__field">
-                        <label for="language">界面语言</label>
+                        <label for="language">{{ t('settings.languageLabel') }}</label>
                         <Select
                             id="language"
                             :model-value="locale"
@@ -388,13 +391,13 @@ onUnmounted(() => {
                             fluid
                             @update:model-value="switchLocale"
                         />
-                        <small class="text-muted">多语言切换即写入偏好，刷新后保持</small>
+                        <small class="text-muted">{{ t('settings.languageHint') }}</small>
                     </div>
                 </template>
             </Card>
         </div>
         <p v-else class="text-muted">
-            加载中…
+            {{ t('common.empty.loading') }}
         </p>
     </div>
 </template>

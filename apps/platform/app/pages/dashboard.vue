@@ -1,6 +1,7 @@
 <script setup lang="ts">
 // 仪表板：仓库数/告警数（按严重级别）/已修复数/最近扫描
 const { session } = useSession()
+const { t } = useI18n()
 
 definePageMeta({
     middleware: 'auth',
@@ -31,7 +32,7 @@ const fetchStats = async () => {
         const res = await $fetch('/api/dashboard/stats')
         stats.value = res as DashboardStats
     } catch (e: any) {
-        error.value = `加载失败：${e?.data?.message ?? e?.message ?? '未知错误'}`
+        error.value = t('dashboard.errors.loadFailed', { message: e?.data?.message ?? e?.message ?? t('common.errors.unknown') })
     } finally {
         loading.value = false
     }
@@ -55,9 +56,9 @@ const severityTagSeverity = (severity: string) => {
 
 <template>
     <div class="dashboard">
-        <h2>仪表板</h2>
+        <h2>{{ t('dashboard.title') }}</h2>
         <p class="text-muted">
-            欢迎回来，{{ session?.user?.email }}
+            {{ t('dashboard.welcome', {email: session?.user?.email}) }}
         </p>
 
         <Message
@@ -76,7 +77,7 @@ const severityTagSeverity = (severity: string) => {
                             {{ stats.repositoryCount }}
                         </div>
                         <div class="dashboard__stat-label text-muted">
-                            仓库数
+                            {{ t('dashboard.repositoryCount') }}
                         </div>
                     </template>
                 </Card>
@@ -86,7 +87,7 @@ const severityTagSeverity = (severity: string) => {
                             {{ stats.alertsTotal }}
                         </div>
                         <div class="dashboard__stat-label text-muted">
-                            告警数
+                            {{ t('dashboard.alertsTotal') }}
                         </div>
                     </template>
                 </Card>
@@ -96,7 +97,7 @@ const severityTagSeverity = (severity: string) => {
                             {{ stats.fixedCount }}
                         </div>
                         <div class="dashboard__stat-label text-muted">
-                            已修复
+                            {{ t('dashboard.fixedCount') }}
                         </div>
                     </template>
                 </Card>
@@ -106,14 +107,14 @@ const severityTagSeverity = (severity: string) => {
                             {{ stats.latestRun?.repository ?? '—' }}
                         </div>
                         <div class="dashboard__stat-label text-muted">
-                            最近扫描
+                            {{ t('dashboard.latestRun') }}
                         </div>
                     </template>
                 </Card>
             </div>
 
             <div class="dashboard__severity">
-                <h3>告警按严重级别</h3>
+                <h3>{{ t('dashboard.severityTitle') }}</h3>
                 <div class="dashboard__severity-row">
                     <span
                         v-for="severity in ['critical', 'high', 'medium', 'low', 'unknown']"
@@ -129,7 +130,7 @@ const severityTagSeverity = (severity: string) => {
             </div>
         </template>
         <p v-else-if="loading" class="text-muted">
-            加载中…
+            {{ t('common.empty.loading') }}
         </p>
     </div>
 </template>

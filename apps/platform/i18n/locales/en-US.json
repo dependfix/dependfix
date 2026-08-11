@@ -37,6 +37,9 @@
             "loading": "Loading…",
             "error": "Failed to load, please try again later"
         },
+        "errors": {
+            "unknown": "Unknown error"
+        },
         "status": {
             "enabled": "Enabled",
             "disabled": "Disabled",
@@ -45,12 +48,157 @@
             "failed": "Failed",
             "running": "Running",
             "scheduled": "Scheduled",
-            "manual": "Manual"
+            "manual": "Manual",
+            "banned": "Banned",
+            "active": "Active",
+            "verified": "Verified",
+            "unverified": "Unverified"
         },
         "language": {
             "label": "Language",
             "zh-CN": "简体中文",
             "en-US": "English"
+        }
+    },
+    "index": {
+        "subtitle": "Automated security alert remediation platform"
+    },
+    "auth": {
+        "login": {
+            "subtitle": "Sign in to the platform",
+            "email": "Email",
+            "password": "Password",
+            "passwordPlaceholder": "Enter your password",
+            "submit": "Sign in",
+            "or": "or",
+            "ssoLogin": "Sign in with enterprise SSO",
+            "socialLogin": "Sign in with {provider}",
+            "noAccount": "No account yet?",
+            "registerNow": "Create one",
+            "toggleDarkMode": "Toggle dark mode",
+            "errors": {
+                "loginFailed": "Sign in failed: {message}",
+                "invalidCredentials": "Sign in failed: incorrect email or password"
+            }
+        },
+        "register": {
+            "subtitle": "Create a platform account",
+            "registrationClosed": "Registration is closed: please contact an administrator",
+            "onlyDomains": "Only emails from {domains} are accepted",
+            "domainSeparator": ", ",
+            "name": "Name (optional)",
+            "namePlaceholder": "Admin",
+            "email": "Email",
+            "password": "Password",
+            "passwordPlaceholder": "At least 8 characters",
+            "confirmPassword": "Confirm password",
+            "confirmPasswordPlaceholder": "Enter the password again",
+            "submit": "Sign up",
+            "hasAccount": "Already have an account?",
+            "backToLogin": "Back to sign in",
+            "toggleDarkMode": "Toggle dark mode",
+            "errors": {
+                "passwordMismatch": "Passwords do not match",
+                "passwordTooShort": "Password must be at least 8 characters",
+                "domainNotAllowed": "Email domain is not in the allowed list, registration is not permitted",
+                "signUpDisabled": "Registration is closed: the platform does not allow sign-up, please contact an administrator",
+                "registerFailed": "Sign up failed: {message}"
+            }
+        }
+    },
+    "dashboard": {
+        "title": "Dashboard",
+        "welcome": "Welcome back, {email}",
+        "repositoryCount": "Repositories",
+        "alertsTotal": "Alerts",
+        "fixedCount": "Fixed",
+        "latestRun": "Latest scan",
+        "severityTitle": "Alerts by severity",
+        "errors": {
+            "loadFailed": "Failed to load: {message}"
+        }
+    },
+    "settings": {
+        "title": "Settings",
+        "subtitle": "Manage your profile, password, email and linked accounts",
+        "profileCard": "Profile",
+        "displayName": "Display name",
+        "displayNamePlaceholder": "Enter a display name",
+        "emailLabel": "Email",
+        "emailHint": "Email changes are handled in the Email card below",
+        "roleLabel": "Role",
+        "saveProfile": "Save profile",
+        "passwordCard": "Change password",
+        "currentPassword": "Current password",
+        "currentPasswordPlaceholder": "Enter your current password",
+        "newPassword": "New password",
+        "newPasswordPlaceholder": "At least 8 characters",
+        "confirmNewPassword": "Confirm new password",
+        "confirmNewPasswordPlaceholder": "Enter the new password again",
+        "changePassword": "Change password",
+        "passwordChangedHint": "Sessions on other devices will be invalidated (you will need to sign in again)",
+        "emailCard": "Email",
+        "newEmail": "New email",
+        "changeEmail": "Change email",
+        "emailChangedHint": "Takes effect immediately when SMTP is not configured; otherwise requires email confirmation",
+        "accountsCard": "Linked accounts",
+        "noAccounts": "No linked accounts",
+        "accountsHint": "Third-party login links (GitHub / Google / OIDC) open with authentication extensions",
+        "languageCard": "Language preference",
+        "languageLabel": "Language",
+        "languageHint": "Changing the language saves your preference and persists across refreshes",
+        "unlink": "Unlink",
+        "credentialProvider": "Email & password",
+        "errors": {
+            "loadFailed": "Failed to load: {message}",
+            "saveFailed": "Failed to save: {message}",
+            "nameRequired": "Display name is required",
+            "passwordMismatch": "The new passwords do not match",
+            "changeFailed": "Failed to update: {message}",
+            "unlinkFailed": "Failed to unlink: {message}"
+        },
+        "success": {
+            "profileUpdated": "Profile updated",
+            "passwordChanged": "Password changed, sessions on other devices have been invalidated",
+            "emailChanged": "Email changed",
+            "unlinked": "Unlinked {provider}"
+        },
+        "confirm": {
+            "unlinkAccount": "Unlink the {provider} account?"
+        }
+    },
+    "users": {
+        "title": "User management",
+        "subtitle": "Manage platform users, roles and access status ({total} total)",
+        "searchPlaceholder": "Search email / name",
+        "empty": "No users",
+        "email": "Email",
+        "name": "Name",
+        "role": "Role",
+        "status": "Status",
+        "emailVerified": "Email verified",
+        "actions": "Actions",
+        "assignRole": "Assign role",
+        "enable": "Enable",
+        "disable": "Disable",
+        "delete": "Delete",
+        "unknownRole": "Unknown",
+        "errors": {
+            "loadFailed": "Failed to load: {message}",
+            "roleUpdateFailed": "Failed to update role: {message}",
+            "enableFailed": "Failed to enable: {message}",
+            "disableFailed": "Failed to disable: {message}",
+            "statusUpdateFailed": "Failed to update status: {message}",
+            "deleteFailed": "Failed to delete: {message}"
+        },
+        "success": {
+            "roleUpdated": "Role updated for {email}",
+            "enabled": "Enabled {email}",
+            "disabled": "Disabled {email}",
+            "deleted": "Deleted {email}"
+        },
+        "confirm": {
+            "deleteUser": "Delete user {email}? This action cannot be undone (it will cascade-delete their sessions and account links)."
         }
     }
 }

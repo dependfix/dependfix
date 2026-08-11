@@ -8,6 +8,7 @@ definePageMeta({
 })
 
 const { dark, toggle, initColorMode } = useColorMode()
+const { t } = useI18n()
 
 onMounted(() => {
     initColorMode()
@@ -27,13 +28,6 @@ const socialProviders = computed<string[]>(() => resolveSocialProviders({
     oidcAvailable: publicConfig.oidcAvailable === true,
 }))
 
-const PROVIDER_LABELS: Record<string, string> = {
-    github: 'GitHub',
-    google: 'Google',
-    oidc: '企业 SSO',
-}
-const providerLabel = (provider: string) => PROVIDER_LABELS[provider] ?? provider
-
 const email = ref('')
 const password = ref('')
 const loading = ref(false)
@@ -46,7 +40,7 @@ const onSocialSignIn = async (provider: string) => {
         callbackURL: '/dashboard',
     })
     if (socialError) {
-        error.value = `登录失败：${socialError.message ?? '未知错误'}`
+        error.value = t('auth.login.errors.loginFailed', { message: socialError.message ?? t('common.errors.unknown') })
     }
 }
 
@@ -59,7 +53,7 @@ const onSubmit = async () => {
             password: password.value,
         })
         if (signInError) {
-            error.value = '登录失败：邮箱或密码错误'
+            error.value = t('auth.login.errors.invalidCredentials')
             return
         }
         // 刷新会话缓存后再导航：signIn 后 session atom 可能尚未就绪，
@@ -79,13 +73,13 @@ const onSubmit = async () => {
                 dependfix
             </h1>
             <p class="auth__subtitle">
-                登录管理平台
+                {{ t('auth.login.subtitle') }}
             </p>
             <Card>
                 <template #content>
                     <form class="auth-form" @submit.prevent="onSubmit">
                         <div class="auth-form__field">
-                            <label for="email">邮箱</label>
+                            <label for="email">{{ t('auth.login.email') }}</label>
                             <InputText
                                 id="email"
                                 v-model="email"
@@ -96,13 +90,13 @@ const onSubmit = async () => {
                             />
                         </div>
                         <div class="auth-form__field">
-                            <label for="password">密码</label>
+                            <label for="password">{{ t('auth.login.password') }}</label>
                             <Password
                                 id="password"
                                 v-model="password"
                                 :feedback="false"
                                 toggle-mask
-                                placeholder="请输入密码"
+                                :placeholder="t('auth.login.passwordPlaceholder')"
                                 fluid
                                 required
                             />
@@ -116,7 +110,7 @@ const onSubmit = async () => {
                         </Message>
                         <Button
                             type="submit"
-                            label="登录"
+                            :label="t('auth.login.submit')"
                             :loading="loading"
                             fluid
                         />
@@ -124,13 +118,13 @@ const onSubmit = async () => {
                     <!-- 第三方登录区：authMode 感知 + 已配置 provider 才显示（OAuth / OIDC 子任务填充） -->
                     <div v-if="authMode && socialProviders.length" class="auth__social">
                         <div class="auth__divider">
-                            或
+                            {{ t('auth.login.or') }}
                         </div>
                         <div class="auth__social-buttons">
                             <Button
                                 v-for="provider in socialProviders"
                                 :key="provider"
-                                :label="provider === 'oidc' ? '企业 SSO 登录' : `${providerLabel(provider)} 登录`"
+                                :label="provider === 'oidc' ? t('auth.login.ssoLogin') : t('auth.login.socialLogin', {provider})"
                                 icon="pi pi-user"
                                 text
                                 outlined
@@ -140,9 +134,9 @@ const onSubmit = async () => {
                         </div>
                     </div>
                     <div v-if="!registrationClosed" class="auth__switch">
-                        还没有账号？
+                        {{ t('auth.login.noAccount') }}
                         <NuxtLink to="/register">
-                            立即注册
+                            {{ t('auth.login.registerNow') }}
                         </NuxtLink>
                     </div>
                 </template>
@@ -152,7 +146,7 @@ const onSubmit = async () => {
                     :icon="dark ? 'pi pi-sun' : 'pi pi-moon'"
                     text
                     rounded
-                    aria-label="切换暗色模式"
+                    :aria-label="t('auth.login.toggleDarkMode')"
                     @click="toggle"
                 />
             </div>

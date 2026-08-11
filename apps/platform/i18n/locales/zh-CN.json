@@ -37,6 +37,9 @@
             "loading": "加载中…",
             "error": "加载失败，请稍后重试"
         },
+        "errors": {
+            "unknown": "未知错误"
+        },
         "status": {
             "enabled": "已启用",
             "disabled": "已禁用",
@@ -45,12 +48,157 @@
             "failed": "失败",
             "running": "运行中",
             "scheduled": "定时",
-            "manual": "手动"
+            "manual": "手动",
+            "banned": "已禁用",
+            "active": "正常",
+            "verified": "已验证",
+            "unverified": "未验证"
         },
         "language": {
             "label": "界面语言",
             "zh-CN": "简体中文",
             "en-US": "English"
+        }
+    },
+    "index": {
+        "subtitle": "安全告警自动修复平台"
+    },
+    "auth": {
+        "login": {
+            "subtitle": "登录管理平台",
+            "email": "邮箱",
+            "password": "密码",
+            "passwordPlaceholder": "请输入密码",
+            "submit": "登录",
+            "or": "或",
+            "ssoLogin": "企业 SSO 登录",
+            "socialLogin": "{provider} 登录",
+            "noAccount": "还没有账号？",
+            "registerNow": "立即注册",
+            "toggleDarkMode": "切换暗色模式",
+            "errors": {
+                "loginFailed": "登录失败：{message}",
+                "invalidCredentials": "登录失败：邮箱或密码错误"
+            }
+        },
+        "register": {
+            "subtitle": "创建管理平台账号",
+            "registrationClosed": "平台未开放注册：请联系管理员开通账号",
+            "onlyDomains": "仅接受 {domains} 邮箱注册",
+            "domainSeparator": "、",
+            "name": "名称（可选）",
+            "namePlaceholder": "管理员",
+            "email": "邮箱",
+            "password": "密码",
+            "passwordPlaceholder": "至少 8 位",
+            "confirmPassword": "确认密码",
+            "confirmPasswordPlaceholder": "再次输入密码",
+            "submit": "注册",
+            "hasAccount": "已有账号？",
+            "backToLogin": "返回登录",
+            "toggleDarkMode": "切换暗色模式",
+            "errors": {
+                "passwordMismatch": "两次输入的密码不一致",
+                "passwordTooShort": "密码至少 8 位",
+                "domainNotAllowed": "邮箱域名不在允许列表中，无法注册",
+                "signUpDisabled": "注册已关闭：平台未开放注册，请联系管理员",
+                "registerFailed": "注册失败：{message}"
+            }
+        }
+    },
+    "dashboard": {
+        "title": "仪表板",
+        "welcome": "欢迎回来，{email}",
+        "repositoryCount": "仓库数",
+        "alertsTotal": "告警数",
+        "fixedCount": "已修复",
+        "latestRun": "最近扫描",
+        "severityTitle": "告警按严重级别",
+        "errors": {
+            "loadFailed": "加载失败：{message}"
+        }
+    },
+    "settings": {
+        "title": "个人设置",
+        "subtitle": "管理个人资料、密码、邮箱与绑定账号",
+        "profileCard": "个人资料",
+        "displayName": "显示名",
+        "displayNamePlaceholder": "输入显示名",
+        "emailLabel": "邮箱",
+        "emailHint": "邮箱修改见下方“邮箱”卡片",
+        "roleLabel": "角色",
+        "saveProfile": "保存资料",
+        "passwordCard": "修改密码",
+        "currentPassword": "当前密码",
+        "currentPasswordPlaceholder": "请输入当前密码",
+        "newPassword": "新密码",
+        "newPasswordPlaceholder": "至少 8 位",
+        "confirmNewPassword": "确认新密码",
+        "confirmNewPasswordPlaceholder": "再次输入新密码",
+        "changePassword": "修改密码",
+        "passwordChangedHint": "修改后其他设备会话将失效（需重新登录）",
+        "emailCard": "邮箱",
+        "newEmail": "新邮箱",
+        "changeEmail": "修改邮箱",
+        "emailChangedHint": "SMTP 未配置时直接生效；已配置时需邮件确认",
+        "accountsCard": "绑定账号",
+        "noAccounts": "暂无绑定账号",
+        "accountsHint": "第三方登录绑定（GitHub / Google / OIDC）随认证扩展开放",
+        "languageCard": "语言偏好",
+        "languageLabel": "界面语言",
+        "languageHint": "多语言切换即写入偏好，刷新后保持",
+        "unlink": "解绑",
+        "credentialProvider": "邮箱密码",
+        "errors": {
+            "loadFailed": "加载失败：{message}",
+            "saveFailed": "保存失败：{message}",
+            "nameRequired": "姓名不能为空",
+            "passwordMismatch": "两次输入的新密码不一致",
+            "changeFailed": "修改失败：{message}",
+            "unlinkFailed": "解绑失败：{message}"
+        },
+        "success": {
+            "profileUpdated": "个人资料已更新",
+            "passwordChanged": "密码已修改，其他设备会话已失效",
+            "emailChanged": "邮箱已修改",
+            "unlinked": "已解绑 {provider}"
+        },
+        "confirm": {
+            "unlinkAccount": "确认解绑 {provider} 账号？"
+        }
+    },
+    "users": {
+        "title": "用户管理",
+        "subtitle": "管理平台用户、角色与访问状态（共 {total} 人）",
+        "searchPlaceholder": "搜索邮箱 / 姓名",
+        "empty": "暂无用户",
+        "email": "邮箱",
+        "name": "姓名",
+        "role": "角色",
+        "status": "状态",
+        "emailVerified": "邮箱验证",
+        "actions": "操作",
+        "assignRole": "分配角色",
+        "enable": "启用",
+        "disable": "禁用",
+        "delete": "删除",
+        "unknownRole": "未知",
+        "errors": {
+            "loadFailed": "加载失败：{message}",
+            "roleUpdateFailed": "角色更新失败：{message}",
+            "enableFailed": "启用失败：{message}",
+            "disableFailed": "禁用失败：{message}",
+            "statusUpdateFailed": "状态更新失败：{message}",
+            "deleteFailed": "删除失败：{message}"
+        },
+        "success": {
+            "roleUpdated": "已更新 {email} 的角色",
+            "enabled": "已启用 {email}",
+            "disabled": "已禁用 {email}",
+            "deleted": "已删除 {email}"
+        },
+        "confirm": {
+            "deleteUser": "确认删除用户 {email}？该操作不可撤销（会级联删除其会话与账号关联）。"
         }
     }
 }

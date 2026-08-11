@@ -40,8 +40,15 @@ export default defineNuxtConfig({
         ],
         langDir: 'locales',
         lazy: true,
-        // 检测交给自定义 localeDetector（URL > Cookie > Accept-Language > 默认），关闭模块内置浏览器检测避免双重逻辑
-        detectBrowserLanguage: false,
+        // 语言偏好持久化：useCookie 启用 setLocale 写 i18n_locale（切换器/设置页）；
+        // redirectOn 'root' 仅根路径做浏览器检测（首页立即跳转无影响），其余路径 locale 由
+        // URL 前缀决定（无前缀 = zh-CN / en 前缀 = en），避免客户端检测重置前缀页 locale
+        detectBrowserLanguage: {
+            useCookie: true,
+            cookieKey: 'i18n_locale',
+            redirectOn: 'root',
+            alwaysRedirect: false,
+        },
         // Vue I18n 构建期配置（datetime/number 格式本地化），相对 app/i18n/ 解析
         vueI18n: './i18n.config.ts',
         experimental: {

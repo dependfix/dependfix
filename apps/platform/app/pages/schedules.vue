@@ -6,7 +6,7 @@ definePageMeta({
     middleware: 'auth',
 })
 
-const { t } = useI18n()
+const { t, d } = useI18n()
 
 interface ScheduleForm {
     name: string
@@ -307,7 +307,7 @@ watch(toastMessage, (v) => {
                     </Column>
                     <Column :header="t('schedules.colLastTriggered')">
                         <template #body="{data}">
-                            {{ data.lastTriggeredAt ? new Date(data.lastTriggeredAt).toLocaleString() : '—' }}
+                            {{ data.lastTriggeredAt ? d(new Date(data.lastTriggeredAt), 'long') : '—' }}
                         </template>
                     </Column>
                     <Column :header="t('schedules.colActions')" :style="{width: '220px'}">

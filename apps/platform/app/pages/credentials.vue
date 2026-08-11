@@ -6,6 +6,8 @@ definePageMeta({
     middleware: 'auth',
 })
 
+const { t, d } = useI18n()
+
 interface CredentialForm {
     name: string
     type: 'classic-pat' | 'fine-grained-pat' | 'github-app'
@@ -37,7 +39,7 @@ const fetchData = async () => {
         const res = await $fetch('/api/credentials')
         credentials.value = res as CredentialView[]
     } catch (e: any) {
-        error.value = `加载失败：${e?.data?.message ?? e?.message ?? '未知错误'}`
+        error.value = t('credentials.errors.loadFailed', { message: e?.data?.message ?? e?.message ?? t('common.errors.unknown') })
     } finally {
         loading.value = false
     }
@@ -45,18 +47,11 @@ const fetchData = async () => {
 
 onMounted(fetchData)
 
-const typeLabel = (type: string) => {
-    switch (type) {
-        case 'classic-pat':
-            return '经典 PAT'
-        case 'fine-grained-pat':
-            return '细粒度 PAT'
-        case 'github-app':
-            return 'GitHub App'
-        default:
-            return type
-    }
-}
+const typeLabel = (type: string) => ({
+    'classic-pat': t('credentials.typeClassicPat'),
+    'fine-grained-pat': t('credentials.typeFineGrainedPat'),
+    'github-app': t('credentials.typeGithubApp'),
+})[type] ?? type
 
 const openCreate = () => {
     editingId.value = null
@@ -96,18 +91,18 @@ const submit = async () => {
                 method: 'PUT',
                 body: payload,
             })
-            success.value = '凭据已更新'
+            success.value = t('credentials.success.updated')
         } else {
             await $fetch('/api/credentials', {
                 method: 'POST',
                 body: payload,
             })
-            success.value = '凭据已添加'
+            success.value = t('credentials.success.added')
         }
         dialogVisible.value = false
         await fetchData()
     } catch (e: any) {
-        error.value = `保存失败：${e?.data?.message ?? e?.message ?? '未知错误'}`
+        error.value = t('credentials.errors.saveFailed', { message: e?.data?.message ?? e?.message ?? t('common.errors.unknown') })
     } finally {
         saving.value = false
     }
@@ -117,10 +112,10 @@ const remove = async (credential: CredentialView) => {
     error.value = ''
     try {
         await $fetch(`/api/credentials/${credential.id}`, { method: 'DELETE' })
-        success.value = '凭据已删除'
+        success.value = t('credentials.success.deleted')
         await fetchData()
     } catch (e: any) {
-        error.value = `删除失败：${e?.data?.message ?? e?.message ?? '未知错误'}`
+        error.value = t('credentials.errors.deleteFailed', { message: e?.data?.message ?? e?.message ?? t('common.errors.unknown') })
     }
 }
 
@@ -138,14 +133,14 @@ watch(toastMessage, (v) => {
     <div class="credentials">
         <div class="credentials__header">
             <div>
-                <h2>凭据管理</h2>
+                <h2>{{ t('credentials.title') }}</h2>
                 <p class="text-muted">
-                    GitHub Token 加密存储（AES-256-GCM），仅执行时解密
+                    {{ t('credentials.subtitle') }}
                 </p>
             </div>
             <Button
                 icon="pi pi-plus"
-                label="添加凭据"
+                :label="t('credentials.add')"
                 @click="openCreate"
             />
         </div>
@@ -171,41 +166,41 @@ watch(toastMessage, (v) => {
                     :value="credentials"
                     striped-rows
                     size="small"
-                    :empty-message="'暂无凭据，点击右上角添加'"
+                    :empty-message="t('credentials.empty')"
                 >
-                    <Column field="name" header="名称" />
-                    <Column header="类型">
+                    <Column field="name" :header="t('credentials.colName')" />
+                    <Column :header="t('credentials.colType')">
                         <template #body="{data}">
                             <Tag :value="typeLabel(data.type)" />
                         </template>
                     </Column>
-                    <Column header="Token">
+                    <Column :header="t('credentials.colToken')">
                         <template #body="{data}">
                             <Tag
                                 v-if="data.hasToken"
-                                value="已配置"
+                                :value="t('credentials.tokenConfigured')"
                                 severity="success"
                             />
                             <Tag
                                 v-else
-                                value="未配置"
+                                :value="t('credentials.tokenNotConfigured')"
                                 severity="warn"
                             />
                         </template>
                     </Column>
-                    <Column header="创建时间">
+                    <Column :header="t('credentials.colCreatedAt')">
                         <template #body="{data}">
-                            {{ new Date(data.createdAt).toLocaleString() }}
+                            {{ d(new Date(data.createdAt), 'long') }}
                         </template>
                     </Column>
-                    <Column header="操作" :style="{width: '160px'}">
+                    <Column :header="t('credentials.colActions')" :style="{width: '160px'}">
                         <template #body="{data}">
                             <Button
                                 icon="pi pi-pencil"
                                 text
                                 rounded
                                 size="small"
-                                aria-label="编辑"
+                                :aria-label="t('repos.actionEdit')"
                                 @click="openEdit(data)"
                             />
                             <Button
@@ -214,7 +209,7 @@ watch(toastMessage, (v) => {
                                 rounded
                                 size="small"
                                 severity="danger"
-                                aria-label="删除"
+                                :aria-label="t('repos.actionDelete')"
                                 @click="remove(data)"
                             />
                         </template>
@@ -223,35 +218,35 @@ watch(toastMessage, (v) => {
             </template>
         </Card>
         <p v-else class="text-muted">
-            加载中…
+            {{ t('common.empty.loading') }}
         </p>
 
         <Dialog
             v-model:visible="dialogVisible"
-            :header="editingId ? '编辑凭据' : '添加凭据'"
+            :header="editingId ? t('credentials.dialogEditTitle') : t('credentials.dialogAddTitle')"
             modal
             :style="{width: '480px'}"
         >
             <form class="credential-form" @submit.prevent="submit">
                 <div class="credential-form__field">
-                    <label for="name">名称 *</label>
+                    <label for="name">{{ t('credentials.fieldName') }}</label>
                     <InputText
                         id="name"
                         v-model="form.name"
-                        placeholder="如 dependfix-bot"
+                        :placeholder="t('credentials.fieldNamePlaceholder')"
                         fluid
                         required
                     />
                 </div>
                 <div class="credential-form__field">
-                    <label for="type">类型</label>
+                    <label for="type">{{ t('credentials.fieldType') }}</label>
                     <Select
                         id="type"
                         v-model="form.type"
                         :options="[
-                            {label: '经典 PAT', value: 'classic-pat'},
-                            {label: '细粒度 PAT', value: 'fine-grained-pat'},
-                            {label: 'GitHub App', value: 'github-app'}
+                            {label: t('credentials.typeClassicPat'), value: 'classic-pat'},
+                            {label: t('credentials.typeFineGrainedPat'), value: 'fine-grained-pat'},
+                            {label: t('credentials.typeGithubApp'), value: 'github-app'}
                         ]"
                         option-label="label"
                         option-value="value"
@@ -259,29 +254,29 @@ watch(toastMessage, (v) => {
                     />
                 </div>
                 <div class="credential-form__field">
-                    <label for="token">Token{{ editingId ? '（留空不修改）' : ' *' }}</label>
+                    <label for="token">{{ editingId ? t('credentials.fieldTokenEdit') : t('credentials.fieldTokenNew') }}</label>
                     <Password
                         id="token"
                         v-model="form.token"
                         :feedback="false"
                         toggle-mask
-                        :placeholder="editingId ? '留空保持不变' : 'ghp_... / github_pat_...'"
+                        :placeholder="editingId ? t('credentials.fieldTokenPlaceholderEdit') : t('credentials.fieldTokenPlaceholderNew')"
                         fluid
                         :required="!editingId"
                     />
                     <small class="text-muted">
-                        如何获取？
+                        {{ t('credentials.howToGet') }}
                         <a
                             href="https://docs.github.com/zh/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens"
                             target="_blank"
                             rel="noopener noreferrer"
                         >
-                            GitHub 官方文档：管理个人访问令牌
+                            {{ t('credentials.githubDocs') }}
                         </a>
                     </small>
                 </div>
                 <div class="credential-form__field">
-                    <label for="note">备注</label>
+                    <label for="note">{{ t('repos.fieldNote') }}</label>
                     <Textarea
                         id="note"
                         v-model="form.note"
@@ -292,14 +287,14 @@ watch(toastMessage, (v) => {
 
                 <div class="credential-form__actions">
                     <Button
-                        label="取消"
+                        :label="t('common.actions.cancel')"
                         severity="secondary"
                         text
                         @click="closeDialog"
                     />
                     <Button
                         type="submit"
-                        label="保存"
+                        :label="t('common.actions.save')"
                         icon="pi pi-check"
                         :loading="saving"
                     />

@@ -40,6 +40,15 @@
         "errors": {
             "unknown": "Unknown error"
         },
+        "yes": "Yes",
+        "no": "No",
+        "fixStatus": {
+            "success": "Fixed",
+            "failed": "Failed",
+            "skipped": "Skipped",
+            "converged": "Converged",
+            "pending": "Pending"
+        },
         "status": {
             "enabled": "Enabled",
             "disabled": "Disabled",
@@ -352,6 +361,141 @@
         },
         "confirm": {
             "deleteUser": "Delete user {email}? This action cannot be undone (it will cascade-delete their sessions and account links)."
+        }
+    },
+    "alerts": {
+        "title": "Alerts",
+        "subtitle": "Filter alerts by repository / severity / source",
+        "empty": "No alert data (trigger a scan on the repositories page first)",
+        "allRepositories": "All repositories",
+        "filterRepository": "Repository",
+        "filterSeverity": "Severity",
+        "filterSource": "Source",
+        "filterApply": "Filter",
+        "severityAll": "All levels",
+        "sourceAll": "All sources",
+        "colRepository": "Repository",
+        "colSeverity": "Severity",
+        "colPackage": "Package / rule",
+        "colSource": "Source",
+        "colFixable": "Fixable",
+        "colRecommended": "Recommended",
+        "colStatus": "Status",
+        "colLink": "Link",
+        "view": "View",
+        "errors": {
+            "loadFailed": "Failed to load: {message}"
+        }
+    },
+    "credentials": {
+        "title": "Credentials",
+        "subtitle": "GitHub tokens are encrypted (AES-256-GCM) and only decrypted during execution",
+        "empty": "No credentials yet, click Add in the top right",
+        "add": "Add credential",
+        "colName": "Name",
+        "colType": "Type",
+        "colToken": "Token",
+        "colCreatedAt": "Created",
+        "colActions": "Actions",
+        "tokenConfigured": "Configured",
+        "tokenNotConfigured": "Not configured",
+        "typeClassicPat": "Classic PAT",
+        "typeFineGrainedPat": "Fine-grained PAT",
+        "typeGithubApp": "GitHub App",
+        "dialogEditTitle": "Edit credential",
+        "dialogAddTitle": "Add credential",
+        "fieldName": "Name *",
+        "fieldNamePlaceholder": "e.g. dependfix-bot",
+        "fieldType": "Type",
+        "fieldTokenEdit": "Token (leave empty to keep)",
+        "fieldTokenNew": "Token *",
+        "fieldTokenPlaceholderEdit": "Leave empty to keep",
+        "fieldTokenPlaceholderNew": "ghp_... / github_pat_...",
+        "howToGet": "How to get one?",
+        "githubDocs": "GitHub docs: managing personal access tokens",
+        "fieldNote": "Note",
+        "success": {
+            "updated": "Credential updated",
+            "added": "Credential added",
+            "deleted": "Credential deleted"
+        },
+        "errors": {
+            "loadFailed": "Failed to load: {message}",
+            "saveFailed": "Failed to save: {message}",
+            "deleteFailed": "Failed to delete: {message}"
+        }
+    },
+    "batchRuns": {
+        "title": "Batch Runs",
+        "subtitle": "Cross-repository scan summary from schedules / manual batch scans (expand for aggregate stats and per-repo results)",
+        "refresh": "Refresh",
+        "empty": "No batch runs yet, select repositories and trigger a batch scan or configure a schedule",
+        "colSource": "Source",
+        "colCreatedAt": "Triggered",
+        "colParams": "Params",
+        "colProgress": "Progress",
+        "colStatus": "Status",
+        "colFinishedAt": "Finished",
+        "sourceScheduled": "Scheduled",
+        "sourceManual": "Manual",
+        "progressPending": "{done}/{total} done",
+        "progressDone": "Done {done}/{total}",
+        "progressFailed": "({count} failed)",
+        "statusCompleted": "Completed",
+        "statusFailed": "Failed",
+        "statusRunning": "Running",
+        "statAlertsTotal": "Total alerts",
+        "statFixedCount": "Fixed",
+        "statSuccessFinished": "Succeeded/Finished",
+        "runStatus": {
+            "pending": "Pending",
+            "running": "Running",
+            "completed": "Succeeded",
+            "failed": "Failed",
+            "dispatched": "Dispatched"
+        },
+        "colRepo": "Repository",
+        "colStatus": "Status",
+        "colExecutor": "Executor",
+        "colAlerts": "Alerts",
+        "colResult": "Result",
+        "openRun": "Open run",
+        "subEmpty": "No scan runs",
+        "errors": {
+            "loadFailed": "Failed to load: {message}",
+            "detailLoadFailed": "Failed to load details: {message}"
+        }
+    },
+    "runs": {
+        "title": "Scan history",
+        "back": "Back",
+        "empty": "No scan runs",
+        "colStatus": "Status",
+        "colMode": "Mode",
+        "colThreshold": "Threshold",
+        "colExecutor": "Executor",
+        "colStartedAt": "Started",
+        "colAlerts": "Alerts",
+        "colFixed": "Fixed",
+        "colActions": "Actions",
+        "statusCompleted": "Completed",
+        "statusFailed": "Failed",
+        "statusDispatched": "Dispatched",
+        "statusRunning": "Running",
+        "actionViewActionRun": "View Action run",
+        "actionViewDetail": "View details",
+        "dialogTitle": "Scan details",
+        "detailEmpty": "No alert details in this scan",
+        "colPackage": "Package",
+        "colSeverity": "Severity",
+        "colSource": "Source",
+        "colFixable": "Fixable",
+        "colRecommended": "Recommended",
+        "colLink": "Link",
+        "view": "View",
+        "errors": {
+            "loadFailed": "Failed to load: {message}",
+            "detailLoadFailed": "Failed to load details: {message}"
         }
     }
 }

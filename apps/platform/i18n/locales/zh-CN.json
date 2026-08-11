@@ -40,6 +40,15 @@
         "errors": {
             "unknown": "未知错误"
         },
+        "yes": "是",
+        "no": "否",
+        "fixStatus": {
+            "success": "已修复",
+            "failed": "失败",
+            "skipped": "跳过",
+            "converged": "已收敛",
+            "pending": "未处理"
+        },
         "status": {
             "enabled": "已启用",
             "disabled": "已禁用",
@@ -352,6 +361,141 @@
         },
         "confirm": {
             "deleteUser": "确认删除用户 {email}？该操作不可撤销（会级联删除其会话与账号关联）。"
+        }
+    },
+    "alerts": {
+        "title": "告警视图",
+        "subtitle": "按仓库/严重级别/来源筛选告警",
+        "empty": "暂无告警数据（可先在仓库页触发扫描）",
+        "allRepositories": "全部仓库",
+        "filterRepository": "仓库",
+        "filterSeverity": "严重级别",
+        "filterSource": "来源",
+        "filterApply": "筛选",
+        "severityAll": "全部级别",
+        "sourceAll": "全部来源",
+        "colRepository": "仓库",
+        "colSeverity": "严重级别",
+        "colPackage": "包/规则",
+        "colSource": "来源",
+        "colFixable": "可修复",
+        "colRecommended": "推荐版本",
+        "colStatus": "状态",
+        "colLink": "链接",
+        "view": "查看",
+        "errors": {
+            "loadFailed": "加载失败：{message}"
+        }
+    },
+    "credentials": {
+        "title": "凭据管理",
+        "subtitle": "GitHub Token 加密存储（AES-256-GCM），仅执行时解密",
+        "empty": "暂无凭据，点击右上角添加",
+        "add": "添加凭据",
+        "colName": "名称",
+        "colType": "类型",
+        "colToken": "Token",
+        "colCreatedAt": "创建时间",
+        "colActions": "操作",
+        "tokenConfigured": "已配置",
+        "tokenNotConfigured": "未配置",
+        "typeClassicPat": "经典 PAT",
+        "typeFineGrainedPat": "细粒度 PAT",
+        "typeGithubApp": "GitHub App",
+        "dialogEditTitle": "编辑凭据",
+        "dialogAddTitle": "添加凭据",
+        "fieldName": "名称 *",
+        "fieldNamePlaceholder": "如 dependfix-bot",
+        "fieldType": "类型",
+        "fieldTokenEdit": "Token（留空不修改）",
+        "fieldTokenNew": "Token *",
+        "fieldTokenPlaceholderEdit": "留空保持不变",
+        "fieldTokenPlaceholderNew": "ghp_... / github_pat_...",
+        "howToGet": "如何获取？",
+        "githubDocs": "GitHub 官方文档：管理个人访问令牌",
+        "fieldNote": "备注",
+        "success": {
+            "updated": "凭据已更新",
+            "added": "凭据已添加",
+            "deleted": "凭据已删除"
+        },
+        "errors": {
+            "loadFailed": "加载失败：{message}",
+            "saveFailed": "保存失败：{message}",
+            "deleteFailed": "删除失败：{message}"
+        }
+    },
+    "batchRuns": {
+        "title": "批量运行",
+        "subtitle": "定时计划 / 手动批量触发的跨仓库扫描汇总（展开查看聚合统计与各仓库结果）",
+        "refresh": "刷新",
+        "empty": "暂无批量运行记录，可在仓库页勾选批量扫描或配置定时计划触发",
+        "colSource": "触发来源",
+        "colCreatedAt": "触发时间",
+        "colParams": "参数",
+        "colProgress": "进度",
+        "colStatus": "状态",
+        "colFinishedAt": "完成时间",
+        "sourceScheduled": "定时触发",
+        "sourceManual": "手动批量",
+        "progressPending": "{done}/{total} 完成",
+        "progressDone": "完成 {done}/{total}",
+        "progressFailed": "（失败 {count}）",
+        "statusCompleted": "已完成",
+        "statusFailed": "失败",
+        "statusRunning": "进行中",
+        "statAlertsTotal": "告警总数",
+        "statFixedCount": "修复数",
+        "statSuccessFinished": "成功/完成",
+        "runStatus": {
+            "pending": "等待中",
+            "running": "执行中",
+            "completed": "成功",
+            "failed": "失败",
+            "dispatched": "已触发"
+        },
+        "colRepo": "仓库",
+        "colStatus": "状态",
+        "colExecutor": "执行方式",
+        "colAlerts": "告警数",
+        "colResult": "结果",
+        "openRun": "打开运行",
+        "subEmpty": "暂无下属扫描记录",
+        "errors": {
+            "loadFailed": "加载失败：{message}",
+            "detailLoadFailed": "详情加载失败：{message}"
+        }
+    },
+    "runs": {
+        "title": "扫描历史",
+        "back": "返回",
+        "empty": "暂无扫描记录",
+        "colStatus": "状态",
+        "colMode": "模式",
+        "colThreshold": "阈值",
+        "colExecutor": "执行方式",
+        "colStartedAt": "开始时间",
+        "colAlerts": "告警数",
+        "colFixed": "已修复",
+        "colActions": "操作",
+        "statusCompleted": "已完成",
+        "statusFailed": "失败",
+        "statusDispatched": "已触发",
+        "statusRunning": "执行中",
+        "actionViewActionRun": "查看 Action 运行",
+        "actionViewDetail": "查看详情",
+        "dialogTitle": "扫描详情",
+        "detailEmpty": "本次扫描无告警明细",
+        "colPackage": "包",
+        "colSeverity": "严重级别",
+        "colSource": "来源",
+        "colFixable": "可修复",
+        "colRecommended": "推荐版本",
+        "colLink": "链接",
+        "view": "查看",
+        "errors": {
+            "loadFailed": "加载失败：{message}",
+            "detailLoadFailed": "详情加载失败：{message}"
         }
     }
 }

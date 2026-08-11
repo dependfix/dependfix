@@ -4,6 +4,8 @@ definePageMeta({
     middleware: 'auth',
 })
 
+const { t } = useI18n()
+
 interface AlertView {
     id: string
     runId: string
@@ -33,21 +35,21 @@ const filters = ref({
     source: 'all',
 })
 
-const severityOptions = [
-    { label: '全部级别', value: 'all' },
+const severityOptions = computed(() => [
+    { label: t('alerts.severityAll'), value: 'all' },
     { label: 'Critical', value: 'critical' },
     { label: 'High', value: 'high' },
     { label: 'Medium', value: 'medium' },
     { label: 'Low', value: 'low' },
     { label: 'Unknown', value: 'unknown' },
-]
+])
 
-const sourceOptions = [
-    { label: '全部来源', value: 'all' },
+const sourceOptions = computed(() => [
+    { label: t('alerts.sourceAll'), value: 'all' },
     { label: 'Dependabot', value: 'dependabot' },
     { label: 'Code Scanning', value: 'code-scanning' },
     { label: 'pnpm audit', value: 'pnpm-audit' },
-]
+])
 
 const severityTagSeverity = (severity: string) => {
     switch (severity) {
@@ -62,33 +64,25 @@ const severityTagSeverity = (severity: string) => {
     }
 }
 
-const fixStatusLabel = (status: string) => {
-    switch (status) {
-        case 'success':
-            return '已修复'
-        case 'failed':
-            return '失败'
-        case 'skipped':
-            return '跳过'
-        case 'converged':
-            return '已收敛'
-        default:
-            return '未处理'
-    }
-}
+const fixStatusLabel = (status: string) => ({
+    success: t('common.fixStatus.success'),
+    failed: t('common.fixStatus.failed'),
+    skipped: t('common.fixStatus.skipped'),
+    converged: t('common.fixStatus.converged'),
+})[status] ?? t('common.fixStatus.pending')
 
 const fetchRepositories = async () => {
     try {
         const res = await $fetch('/api/repos')
         repositories.value = [
-            { id: 'all', name: '全部仓库' },
+            { id: 'all', name: t('alerts.allRepositories') },
             ...(res as Array<{ id: string, owner: string, name: string }>).map((r) => ({
                 id: r.id,
                 name: `${r.owner}/${r.name}`,
             })),
         ]
     } catch {
-        repositories.value = [{ id: 'all', name: '全部仓库' }]
+        repositories.value = [{ id: 'all', name: t('alerts.allRepositories') }]
     }
 }
 
@@ -109,7 +103,7 @@ const fetchAlerts = async () => {
         const res = await $fetch('/api/alerts', { query })
         alerts.value = res as AlertView[]
     } catch (e: any) {
-        error.value = `加载失败：${e?.data?.message ?? e?.message ?? '未知错误'}`
+        error.value = t('alerts.errors.loadFailed', { message: e?.data?.message ?? e?.message ?? t('common.errors.unknown') })
     } finally {
         loading.value = false
     }
@@ -125,9 +119,9 @@ onMounted(async () => {
     <div class="alerts">
         <div class="alerts__header">
             <div>
-                <h2>告警视图</h2>
+                <h2>{{ t('alerts.title') }}</h2>
                 <p class="text-muted">
-                    按仓库/严重级别/来源筛选告警
+                    {{ t('alerts.subtitle') }}
                 </p>
             </div>
         </div>
@@ -136,19 +130,19 @@ onMounted(async () => {
             <template #content>
                 <div class="alerts__filter-row">
                     <div class="alerts__filter-field">
-                        <label for="repo">仓库</label>
+                        <label for="repo">{{ t('alerts.filterRepository') }}</label>
                         <Select
                             id="repo"
                             v-model="filters.repositoryId"
                             :options="repositories"
                             option-label="name"
                             option-value="id"
-                            placeholder="全部仓库"
+                            :placeholder="t('alerts.allRepositories')"
                             fluid
                         />
                     </div>
                     <div class="alerts__filter-field">
-                        <label for="severity">严重级别</label>
+                        <label for="severity">{{ t('alerts.filterSeverity') }}</label>
                         <Select
                             id="severity"
                             v-model="filters.severity"
@@ -159,7 +153,7 @@ onMounted(async () => {
                         />
                     </div>
                     <div class="alerts__filter-field">
-                        <label for="source">来源</label>
+                        <label for="source">{{ t('alerts.filterSource') }}</label>
                         <Select
                             id="source"
                             v-model="filters.source"
@@ -171,7 +165,7 @@ onMounted(async () => {
                     </div>
                     <div class="alerts__filter-field">
                         <Button
-                            label="筛选"
+                            :label="t('alerts.filterApply')"
                             icon="pi pi-filter"
                             @click="fetchAlerts"
                         />
@@ -194,35 +188,35 @@ onMounted(async () => {
                     :value="alerts"
                     striped-rows
                     size="small"
-                    :empty-message="'暂无告警数据（可先在仓库页触发扫描）'"
+                    :empty-message="t('alerts.empty')"
                 >
-                    <Column field="repository" header="仓库" />
-                    <Column header="严重级别">
+                    <Column field="repository" :header="t('alerts.colRepository')" />
+                    <Column :header="t('alerts.colSeverity')">
                         <template #body="{data}">
                             <Tag :value="data.severity" :severity="severityTagSeverity(data.severity)" />
                         </template>
                     </Column>
-                    <Column field="packageName" header="包/规则" />
-                    <Column header="来源">
+                    <Column field="packageName" :header="t('alerts.colPackage')" />
+                    <Column :header="t('alerts.colSource')">
                         <template #body="{data}">
                             <Tag :value="data.source" severity="secondary" />
                         </template>
                     </Column>
-                    <Column header="可修复">
+                    <Column :header="t('alerts.colFixable')">
                         <template #body="{data}">
                             <Tag
-                                :value="data.fixable ? '是' : '否'"
+                                :value="data.fixable ? t('common.yes') : t('common.no')"
                                 :severity="data.fixable ? 'success' : 'secondary'"
                             />
                         </template>
                     </Column>
-                    <Column field="recommendedVersion" header="推荐版本" />
-                    <Column header="状态">
+                    <Column field="recommendedVersion" :header="t('alerts.colRecommended')" />
+                    <Column :header="t('alerts.colStatus')">
                         <template #body="{data}">
                             <Tag :value="fixStatusLabel(data.fixStatus)" severity="secondary" />
                         </template>
                     </Column>
-                    <Column header="链接">
+                    <Column :header="t('alerts.colLink')">
                         <template #body="{data}">
                             <a
                                 v-if="data.htmlUrl"
@@ -230,7 +224,7 @@ onMounted(async () => {
                                 target="_blank"
                                 rel="noopener noreferrer"
                             >
-                                查看
+                                {{ t('alerts.view') }}
                             </a>
                             <span v-else class="text-muted">—</span>
                         </template>
@@ -239,7 +233,7 @@ onMounted(async () => {
             </template>
         </Card>
         <p v-else class="text-muted">
-            加载中…
+            {{ t('common.empty.loading') }}
         </p>
     </div>
 </template>

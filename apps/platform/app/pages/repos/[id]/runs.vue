@@ -4,6 +4,8 @@ definePageMeta({
     middleware: 'auth',
 })
 
+const { t, d } = useI18n()
+
 interface RunView {
     id: string
     repositoryId: string
@@ -41,20 +43,12 @@ const statusSeverity = (status: string) => {
     }
 }
 
-const statusLabel = (status: string) => {
-    switch (status) {
-        case 'completed':
-            return '已完成'
-        case 'failed':
-            return '失败'
-        case 'dispatched':
-            return '已触发'
-        case 'running':
-            return '执行中'
-        default:
-            return status
-    }
-}
+const statusLabel = (status: string) => ({
+    completed: t('runs.statusCompleted'),
+    failed: t('runs.statusFailed'),
+    dispatched: t('runs.statusDispatched'),
+    running: t('runs.statusRunning'),
+})[status] ?? status
 
 const fetchRuns = async () => {
     loading.value = true
@@ -64,7 +58,7 @@ const fetchRuns = async () => {
         const res = await $fetch('/api/runs', { query: { repositoryId: repoId } })
         runs.value = res as RunView[]
     } catch (e: any) {
-        error.value = `加载失败：${e?.data?.message ?? e?.message ?? '未知错误'}`
+        error.value = t('runs.errors.loadFailed', { message: e?.data?.message ?? e?.message ?? t('common.errors.unknown') })
     } finally {
         loading.value = false
     }
@@ -79,7 +73,7 @@ const openDetail = async (run: RunView) => {
         const res = await $fetch(`/api/runs/${run.id}`)
         detail.value = res as { results: unknown[] }
     } catch (e: any) {
-        error.value = `详情加载失败：${e?.data?.message ?? e?.message ?? '未知错误'}`
+        error.value = t('runs.errors.detailLoadFailed', { message: e?.data?.message ?? e?.message ?? t('common.errors.unknown') })
     } finally {
         detailLoading.value = false
     }
@@ -100,10 +94,10 @@ const openRunUrl = (url: string) => {
                     text
                     rounded
                     size="small"
-                    aria-label="返回"
+                    :aria-label="t('runs.back')"
                     @click="backToRepos"
                 />
-                <h2>扫描历史</h2>
+                <h2>{{ t('runs.title') }}</h2>
             </div>
         </div>
 
@@ -121,36 +115,36 @@ const openRunUrl = (url: string) => {
                     :value="runs"
                     striped-rows
                     size="small"
-                    :empty-message="'暂无扫描记录'"
+                    :empty-message="t('runs.empty')"
                 >
-                    <Column header="状态">
+                    <Column :header="t('runs.colStatus')">
                         <template #body="{data}">
                             <Tag :value="statusLabel(data.status)" :severity="statusSeverity(data.status)" />
                         </template>
                     </Column>
-                    <Column field="mode" header="模式" />
-                    <Column field="severityThreshold" header="阈值" />
-                    <Column header="执行方式">
+                    <Column field="mode" :header="t('runs.colMode')" />
+                    <Column field="severityThreshold" :header="t('runs.colThreshold')" />
+                    <Column :header="t('runs.colExecutor')">
                         <template #body="{data}">
-                            <Tag :value="data.executorKind === 'github-action' ? 'GitHub Action' : '平台容器'" severity="secondary" />
+                            <Tag :value="data.executorKind === 'github-action' ? t('repos.githubAction') : t('repos.platformContainer')" severity="secondary" />
                         </template>
                     </Column>
-                    <Column header="开始时间">
+                    <Column :header="t('runs.colStartedAt')">
                         <template #body="{data}">
-                            {{ data.startedAt ? new Date(data.startedAt).toLocaleString() : '—' }}
+                            {{ data.startedAt ? d(new Date(data.startedAt), 'long') : '—' }}
                         </template>
                     </Column>
-                    <Column header="告警数">
+                    <Column :header="t('runs.colAlerts')">
                         <template #body="{data}">
                             {{ (data.summary as Record<string, number> | null)?.alertsFound ?? 0 }}
                         </template>
                     </Column>
-                    <Column header="已修复">
+                    <Column :header="t('runs.colFixed')">
                         <template #body="{data}">
                             {{ (data.summary as Record<string, number> | null)?.alertsFixed ?? 0 }}
                         </template>
                     </Column>
-                    <Column header="操作" :style="{width: '200px'}">
+                    <Column :header="t('runs.colActions')" :style="{width: '200px'}">
                         <template #body="{data}">
                             <Button
                                 v-if="data.runUrl"
@@ -158,8 +152,8 @@ const openRunUrl = (url: string) => {
                                 text
                                 rounded
                                 size="small"
-                                aria-label="查看 Action 运行"
-                                title="查看 Action 运行"
+                                :aria-label="t('runs.actionViewActionRun')"
+                                :title="t('runs.actionViewActionRun')"
                                 @click="openRunUrl(data.runUrl)"
                             />
                             <Button
@@ -167,8 +161,8 @@ const openRunUrl = (url: string) => {
                                 text
                                 rounded
                                 size="small"
-                                aria-label="查看详情"
-                                title="查看详情"
+                                :aria-label="t('runs.actionViewDetail')"
+                                :title="t('runs.actionViewDetail')"
                                 @click="openDetail(data)"
                             />
                         </template>
@@ -177,39 +171,39 @@ const openRunUrl = (url: string) => {
             </template>
         </Card>
         <p v-else class="text-muted">
-            加载中…
+            {{ t('common.empty.loading') }}
         </p>
 
         <Dialog
             v-model:visible="detailVisible"
-            header="扫描详情"
+            :header="t('runs.dialogTitle')"
             modal
             :style="{width: '720px'}"
         >
             <div v-if="detailLoading" class="text-muted">
-                加载中…
+                {{ t('common.empty.loading') }}
             </div>
             <div v-else-if="detail">
                 <DataTable
                     :value="(detail as {results: Array<{id: string; packageName: string; severity: string; source: string; fixable: boolean; fixStrategy: string | null; recommendedVersion: string | null; htmlUrl: string | null}>}).results"
                     striped-rows
                     size="small"
-                    :empty-message="'本次扫描无告警明细'"
+                    :empty-message="t('runs.detailEmpty')"
                 >
-                    <Column field="packageName" header="包" />
-                    <Column header="严重级别">
+                    <Column field="packageName" :header="t('runs.colPackage')" />
+                    <Column :header="t('runs.colSeverity')">
                         <template #body="{data}">
                             <Tag :value="data.severity" :severity="data.severity === 'critical' ? 'danger' : data.severity === 'high' ? 'warn' : 'info'" />
                         </template>
                     </Column>
-                    <Column field="source" header="来源" />
-                    <Column header="可修复">
+                    <Column field="source" :header="t('runs.colSource')" />
+                    <Column :header="t('runs.colFixable')">
                         <template #body="{data}">
-                            <Tag :value="data.fixable ? '是' : '否'" :severity="data.fixable ? 'success' : 'secondary'" />
+                            <Tag :value="data.fixable ? t('common.yes') : t('common.no')" :severity="data.fixable ? 'success' : 'secondary'" />
                         </template>
                     </Column>
-                    <Column field="recommendedVersion" header="推荐版本" />
-                    <Column header="链接">
+                    <Column field="recommendedVersion" :header="t('runs.colRecommended')" />
+                    <Column :header="t('runs.colLink')">
                         <template #body="{data}">
                             <a
                                 v-if="data.htmlUrl"
@@ -217,7 +211,7 @@ const openRunUrl = (url: string) => {
                                 target="_blank"
                                 rel="noopener noreferrer"
                             >
-                                查看
+                                {{ t('runs.view') }}
                             </a>
                         </template>
                     </Column>

@@ -1,0 +1,23 @@
+{
+    // i18n 目录定向类型检查：@nuxtjs/i18n 模块设计上把 localeDetector.ts 排除出 .nuxt/tsconfig.json
+    // （服务端 nitro tsconfig include 兜底），此处以独立 tsconfig 覆盖排除并纳入常规类型检查。
+    // #imports 的 server 导出类型由 i18n/i18n-detector-env.d.ts 声明补充（paths 映射）。
+    // 运行：npx tsc -p tsconfig.i18n.json --noEmit
+    "compilerOptions": {
+        "target": "ES2022",
+        "module": "ESNext",
+        "moduleResolution": "bundler",
+        "strict": true,
+        "noEmit": true,
+        "skipLibCheck": true,
+        "esModuleInterop": true,
+        "lib": ["ES2022"],
+        "types": ["node"],
+        "paths": {
+            "#imports": ["./i18n/i18n-detector-env.d.ts"]
+        }
+    },
+    "include": [
+        "i18n/**/*"
+    ]
+}

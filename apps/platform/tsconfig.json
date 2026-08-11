@@ -10,6 +10,7 @@
         ".nuxt/nuxt.d.ts",
         "app/**/*",
         "server/**/*",
+        "i18n/**/*",
         "playwright.config.ts",
         "tests/**/*"
     ]

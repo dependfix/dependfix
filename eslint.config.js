@@ -92,8 +92,10 @@ export default defineConfig([
         // 且 workspace 包未构建（无 dist）时类型解析失败会触发 unsafe 警告爆炸，渐进收紧）。
         // 与 apps/platform/eslint.config.js（eslint-config-cmyr/nuxt 为基础）保持同一语义。
         files: ['apps/platform/**/*.{ts,tsx,mts,cts}'],
-        // nuxt.config.ts 使用 Nuxt auto-import（defineNuxtConfig），须用 .nuxt/tsconfig.json 单独校验
-        ignores: [...testFiles, 'apps/platform/nuxt.config.ts'],
+        // nuxt.config.ts 使用 Nuxt auto-import（defineNuxtConfig），须用 .nuxt/tsconfig.json 单独校验；
+        // i18n/localeDetector.ts 被 @nuxtjs/i18n 排除出平台 tsconfig（nitro tsconfig 兜底类型检查），
+        // 由平台独立定向检查（tsconfig.i18n.json）覆盖，根 lint 跳过避免 project 解析报错
+        ignores: [...testFiles, 'apps/platform/nuxt.config.ts', 'apps/platform/i18n/localeDetector.ts'],
         plugins: {
             '@typescript-eslint': tseslint.plugin,
         },

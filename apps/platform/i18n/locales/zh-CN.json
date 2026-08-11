@@ -1,0 +1,56 @@
+{
+    "common": {
+        "appName": "dependfix",
+        "nav": {
+            "dashboard": "仪表板",
+            "repos": "仓库",
+            "alerts": "告警",
+            "schedules": "定时计划",
+            "batchRuns": "批量运行",
+            "credentials": "凭据",
+            "users": "用户",
+            "settings": "个人设置",
+            "logout": "退出登录",
+            "toggleDarkMode": "切换暗色模式",
+            "userAvatar": "头像",
+            "userSettings": "个人设置"
+        },
+        "actions": {
+            "save": "保存",
+            "cancel": "取消",
+            "confirm": "确认",
+            "delete": "删除",
+            "edit": "编辑",
+            "create": "新建",
+            "close": "关闭",
+            "refresh": "刷新",
+            "back": "返回",
+            "submit": "提交",
+            "search": "搜索"
+        },
+        "dialog": {
+            "confirmTitle": "确认操作",
+            "deleteConfirm": "确定要执行此操作吗？"
+        },
+        "empty": {
+            "noData": "暂无数据",
+            "loading": "加载中…",
+            "error": "加载失败，请稍后重试"
+        },
+        "status": {
+            "enabled": "已启用",
+            "disabled": "已禁用",
+            "pending": "处理中",
+            "completed": "已完成",
+            "failed": "失败",
+            "running": "运行中",
+            "scheduled": "定时",
+            "manual": "手动"
+        },
+        "language": {
+            "label": "界面语言",
+            "zh-CN": "简体中文",
+            "en-US": "English"
+        }
+    }
+}

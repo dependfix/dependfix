@@ -27,7 +27,27 @@ export default defineNuxtConfig({
     devtools: { enabled: false },
     modules: [
         '@primevue/nuxt-module',
+        '@nuxtjs/i18n',
     ],
+    // 国际化：zh-CN 默认无前缀 / en 加 /en 前缀；语言检测见 i18n/localeDetector.ts
+    i18n: {
+        strategy: 'prefix_and_default',
+        defaultLocale: 'zh-CN',
+        locales: [
+            { code: 'zh-CN', name: '简体中文', file: 'zh-CN.json', language: 'zh-CN' },
+            // code 决定 URL 前缀（/en）；language 保留完整语言标识用于 Accept-Language 匹配
+            { code: 'en', name: 'English', file: 'en-US.json', language: 'en-US' },
+        ],
+        langDir: 'locales',
+        lazy: true,
+        // 检测交给自定义 localeDetector（URL > Cookie > Accept-Language > 默认），关闭模块内置浏览器检测避免双重逻辑
+        detectBrowserLanguage: false,
+        // Vue I18n 构建期配置（datetime/number 格式本地化），相对 app/i18n/ 解析
+        vueI18n: './i18n.config.ts',
+        experimental: {
+            localeDetector: 'localeDetector.ts',
+        },
+    },
     css: [
         'primeicons/primeicons.css',
         '@/assets/styles/main.scss',

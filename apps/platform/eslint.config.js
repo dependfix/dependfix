@@ -55,7 +55,10 @@ export default [
     ...tseslint.config(
         {
             files: tsFiles,
-            ignores: ['nuxt.config.ts'],
+            // i18n/localeDetector.ts：@nuxtjs/i18n 模块设计上将其从 Nuxt tsconfig exclude
+            // （.nuxt/tsconfig.json，服务端 nitro tsconfig include 兜底类型检查），无法参与 type-checked lint，
+            // 回落 cmyrConfig 非 type-checked 解析（语法/风格规则仍生效）
+            ignores: ['i18n/localeDetector.ts', 'nuxt.config.ts'],
             extends: [
                 tseslint.configs.recommendedTypeChecked,
                 tseslint.configs.strictTypeChecked,

@@ -83,6 +83,21 @@ dependfix fix --repo owner/repo-a,owner/repo-b --github-token $GITHUB_TOKEN
 dependfix fix --repos-file ./repos.txt --github-token $GITHUB_TOKEN
 ```
 
+#### org / 用户自动发现（`--owner`）
+
+通过 `--owner`（或 `DEPENDFIX_OWNER`）自动发现组织 / 用户下的仓库，与显式 `--repo` 合并去重（显式优先）：
+
+```bash
+# 自动发现 org 下全部仓库并创建修复 PR
+dependfix fix-and-pr --owner your-org --github-token $GITHUB_TOKEN
+```
+
+发现机制：先查询 `GET /users/{owner}` 判断主体类型（Organization / User），组织走 `GET /orgs/{org}/repos`、用户走 `GET /users/{user}/repos`；随后按顺序过滤——archived / disabled / fork 剔除 → topic 白名单（AND）→ include / exclude / topicsExclude 名单策略 → 探测 `.github/dependabot.yml`（仅候选仓库，并发受限）。结果按 `owner/repo` 字典序排序，多次运行结果一致。token 权限要求见 [配置说明 → 名单策略](configuration.md#m4-名单策略优先级语义-t403)。
+
+> ⚠️ **SAML SSO 注意**：启用 SAML SSO 的组织，classic PAT 需在 GitHub 网页对组织逐个 **Enable SSO**；fine-grained PAT 需组织管理员授权仓库范围。私有 org 仓库仅返回 token 可见范围内的仓库——`--owner` 发现不保证覆盖全部私有仓库，需按仓库授权。
+>
+> **限制与边界**：`cleanup-branches` 模式（位置参数）不支持 `--owner`（分支清理需明确目标仓库，配置校验 fail-fast）；`--cleanup-branches` / `--cleanup-branches-auto` 为 fix-and-pr 附加选项，与 `--owner` 兼容。修复分支直接推送到目标仓库（同仓库内创建 PR，无需 fork），org 仓库需确保 token 有 `Contents: write`。
+
 ### 本地无 token 场景（pnpm-audit 回退）
 
 无 GitHub token（或无法获得 Dependabot alerts 权限）时，可用本地 `pnpm audit` 作为告警数据源——零凭证、非 GitHub 仓库目录也可用：

@@ -48,14 +48,14 @@ dependfix fix-and-pr --repo owner/repo --github-token $GITHUB_TOKEN
 | 方式 | 说明 | 文档 |
 |:-----|:-----|:-----|
 | CLI | 命令行工具，支持 `report-only` / `fix` / `fix-and-pr` 三种模式 | [packages/cli/README.md](packages/cli/README.md) |
-| GitHub Action | 通过 `uses: dependfix/dependfix@v1` 一行接入 CI，支持定时与手动触发 | [快速开始 → GitHub Action](docs/guide/quick-start.md) |
+| GitHub Action | 通过 `uses: dependfix/dependfix@v1` 一行接入 CI，支持定时与手动触发 | [快速开始 → GitHub Action](docs/guide/quick-start.md#github-action-使用) |
 | MCP Server | 将扫描 / 修复能力暴露给 AI 编程助手（Claude / Copilot / Cursor 等） | [packages/mcp/README.md](packages/mcp/README.md) |
 | Agent Skill | `dependfix-remediator` 可分发给主流 AI 编码工具，对话式驱动修复闭环 | [packages/skills/README.md](packages/skills/README.md) |
-| 管理平台 | 集中管理平台，支持简体中文 / English 双语 | [系统架构 → 平台架构](docs/design/governance/architecture.md) |
+| 管理平台 | 集中管理平台，支持简体中文 / English 双语 | [系统架构 → 平台架构](docs/design/governance/architecture.md#平台架构-apps-platform) |
 
 ## 仓库结构
 
-dependfix 采用 pnpm workspace Monorepo 布局：`packages/` 为核心库与可分发入口（core / engine / cli / mcp / skills），`apps/platform` 为管理平台，`docs/` 为 VitePress 文档站。详细结构见 [系统架构 → 项目组成](docs/design/governance/architecture.md)。
+dependfix 采用 pnpm workspace Monorepo 布局：`packages/` 为核心库与可分发入口（core / engine / cli / mcp / skills），`apps/platform` 为管理平台，`docs/` 为 VitePress 文档站。详细结构见 [系统架构 → 项目组成](docs/design/governance/architecture.md#项目组成)。
 
 ## 开发
 

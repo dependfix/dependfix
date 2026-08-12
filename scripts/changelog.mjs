@@ -28,6 +28,7 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { ConventionalChangelog, defaultCommitTransform } from 'conventional-changelog'
 import { PACKAGES, ROOT_PACKAGE } from './packages.config.mjs'
+import { isPublishedOnRegistry } from './tag-released-versions.mjs'
 
 const repoRoot = fileURLToPath(new URL('..', import.meta.url))
 
@@ -98,6 +99,61 @@ async function generate({ commits, tags, pkg, releaseCount = 0 }) {
 // 版本段标题行：`# [0.2.0](...) (date)` / `# 0.1.0 (date)` / patch 段 `## [0.2.1](...) (date)`
 // （cmyr-config header.hbs 对 patch 版本（0.x.y, y>0）输出 `## ` 前缀）
 const sectionRegex = /^#{1,2} \[?(\d+\.\d+\.\d+)\]?(?:\([^)]*\))?\s/m
+
+/** semver 小于比较（0.9.0 < 0.10.0），用于识别"低于当前版本"的残留段 */
+export function versionLt(a, b) {
+    const pa = a.split('.').map(Number)
+    const pb = b.split('.').map(Number)
+    for (let i = 0; i < 3; i++) {
+        const x = pa[i] ?? 0
+        const y = pb[i] ?? 0
+        if (x !== y) {
+            return x < y
+        }
+    }
+    return false
+}
+
+/**
+ * 清理残留未发布段（发布中断恢复的防重复增强，经验归档 §三十七）：
+ * 上次发布中断会遗留"版本低于当前版本、无对应 tag、npm 未发布"的旧版本段
+ * （如 0.3.0 段未发布残留，本轮提升到 0.3.1 后旧段不再被 mergeUnreleased 管理），
+ * 不清理则新旧两段覆盖相同 commit 范围，CHANGELOG 出现重复日志。
+ * 判定（任一命中即保留）：版本不小于当前版本（当前段由 mergeUnreleased 管理）/
+ * 本地 tag 存在（已发布锚点）/ npm 已发布（手动发布无 tag 场景，如 engine 0.1.0）/
+ * npm 查询失败（保守保留，宁残留不误删）。确认未发布（fetch 三态返回 false）才删除。
+ * 返回清理后的全文（无残留时原样返回同一引用）。
+ * 注意：isPublished 为异步实现（registry fetch），必须 await 判定结果——
+ * 直接与 Promise 比较（`!== false`）恒为 true，清理将永不生效。
+ */
+export async function cleanupUnreleasedSections(existing, { version, prefix, pkgName, hasTag, isPublished }) {
+    const regex = new RegExp(sectionRegex.source, 'gm')
+    const matches = [...existing.matchAll(regex)]
+    const removals = []
+    for (let i = 0; i < matches.length; i++) {
+        const sectionVersion = matches[i][1]
+        if (!versionLt(sectionVersion, version)) {
+            continue
+        }
+        if (hasTag(`${prefix}${sectionVersion}`)) {
+            continue
+        }
+        if ((await isPublished(pkgName, sectionVersion)) !== false) {
+            continue
+        }
+        removals.push({ start: matches[i].index, end: matches[i + 1]?.index ?? existing.length })
+    }
+    if (removals.length === 0) {
+        return existing
+    }
+    let out = existing
+    for (let i = removals.length - 1; i >= 0; i--) {
+        const { start, end } = removals[i]
+        out = `${out.slice(0, start)}${out.slice(end)}`
+    }
+    // 段删除后空行规范化（\n{3,} → \n\n）与文件尾空白收敛（保留单个 \n）
+    return out.replace(/\n{3,}/g, '\n\n').replace(/\s+$/, '\n')
+}
 
 /**
  * 增量合并：将新生成的未发布段写入既有 CHANGELOG.md。
@@ -180,6 +236,29 @@ for (const target of targets) {
         await writeFile(dest, full, 'utf8')
         console.log(`generated ${target.file} (${full.length} bytes)`)
         continue
+    }
+    // 清理残留未发布段（发布中断恢复防重复，经验归档 §三十七）：上次发布中断遗留的
+    // "版本低于当前版本、无 tag、npm 未发布"旧段（如 0.3.0 段残留后提升到 0.3.1），
+    // 不清理会产生覆盖相同 commit 范围的重复日志。清理独立于发布判定执行——
+    // 即使当前版本已发布（下方 unchanged 短路），残留段同样需要删除。
+    const cleaned = await cleanupUnreleasedSections(existing, {
+        version,
+        prefix: target.tags.prefix,
+        pkgName: target.title,
+        hasTag: (tagName) => {
+            try {
+                execSync(`git rev-parse --verify --quiet "${tagName}"`, { cwd: repoRoot, stdio: 'pipe' })
+                return true
+            } catch {
+                return false
+            }
+        },
+        isPublished: (pkgName, ver) => isPublishedOnRegistry(pkgName, ver),
+    })
+    if (cleaned !== existing) {
+        await writeFile(dest, cleaned, 'utf8')
+        console.log(`updated ${target.file}（清理残留未发布段）`)
+        existing = cleaned
     }
     // 版本已发布（存在 <prefix><version> tag 或 npm registry 已发布）：无未发布内容，
     // 且 releaseCount: 1 会输出自引用 compare 的同版本段，直接跳过写入，保证已发布段不被改写

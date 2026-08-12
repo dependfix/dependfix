@@ -253,6 +253,7 @@ git push origin master
   - 分组语言由根 `package.json` 的 `changelog.language: "zh"` 控制（中文 emoji 分组：✨ 新功能 / 🐛 Bug 修复 / 📦 代码重构 等）；
 - **全局改动归属约定**：根目录文件（`docs/`、`.github/`、`pnpm-workspace.yaml` 等）不匹配任何包的 path，不会出现在包级日志；若某全局改动确实影响包行为（如 overrides 改依赖解析），应在 commit 中落在包路径内或拆分提交，否则只记录在根级日志；
 - **生成是增量追加的**：已存在的 CHANGELOG.md 只更新**未发布版本段**（版本号等于当前 pkg 版本且尚无对应 tag 的段，即最新 tag 之后的全部新增 commit），已发布历史段完整保留文件现状——历史 commit 重写或手动编辑均不被覆盖；文件不存在时首次全量生成；无未发布内容（版本等于最新 tag）时文件保持不变；
+- **残留未发布段自动清理**：发布中断（如 CI 打 tag 失败）会遗留"版本低于当前版本、无对应 tag、npm 未发布"的旧版本段，后续再次提升版本时旧段不再被增量逻辑管理，残留会产生内容重复的两个版本段。生成时自动清理此类残留段（经验归档 §三十七）：本地 tag 存在 / npm 已发布（手动发布无 tag 场景）/ npm 查询失败均保守保留，仅确认未发布（registry fetch 三态 false）才删除；
 - **生成时机与边界行为**：在 `release:version` 之后、publish 之前运行（此时新版本尚无 tag，未发布段输出全部新增 commit）；若在版本等于最新 tag 时运行（如 core-only 发布后、或发布后立即重跑），未发布段无新增内容（writer 可能产生的空版本段会被自动过滤），文件保持不变；
 - **版本标题与 tag**：根级与包级日志的版本段均按 `dependfix@` / `@dependfix/core@` / `@dependfix/skills@` tag 序列划分（`release:publish` 自动创建）。**手动发布补 tag 约束**：分段锚点是"tag 指向的 commit 自身携带的 gitTags"，包级日志还有 `git log -- <path>` 过滤——因此补打历史 tag 时必须指向**同时 touch 该包路径**的 commit（0.1.0 补打 `dependfix@0.1.0` / `@dependfix/core@0.1.0` 指向 dc607026，该 commit 同时改动两包 eslint.config.js）；若 tag 指向纯 docs/全局 commit（如 `v0.1.0` → c213fc21），包级日志因 path 过滤看不到锚点，全部历史会并入当前版本段（表现为 changelog 非增量）；
 - **依赖变更提示差异**：changesets 原会在依赖包变更时向依赖方日志写入 `Updated dependencies` 行，本方案不自动生成（npm 安装时会自动带上新依赖版本，不影响使用）；

@@ -28,8 +28,10 @@ export function pushAndVerifyTags({ git, token, repository }) {
     git(`push "${url}" --tags`)
     git(`fetch "${url}" --tags`)
     const localTags = git('tag').split('\n').filter(Boolean)
+    // 注意：`--tags` 必须放在 URL 之前（`git ls-remote <url> --tags` 会把 --tags 当
+    // ref pattern 匹配，恒输出空 → 核验误报全部缺失；run 31574450935 首次真实执行暴露）
     const remoteTags = new Set(
-        git(`ls-remote "${url}" --tags`)
+        git(`ls-remote --tags "${url}"`)
             .split('\n')
             .filter(Boolean)
             .map((line) => line.split('\t')[1]?.replace('refs/tags/', ''))

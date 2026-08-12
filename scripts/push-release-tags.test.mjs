@@ -16,8 +16,8 @@ const baseRecorded = {
     'push "https://x-access-token:ghs_abcdef1234567890abcdef1234567890abcdef@github.com/dependfix/dependfix.git" --tags': '',
     'fetch "https://x-access-token:ghs_abcdef1234567890abcdef1234567890abcdef@github.com/dependfix/dependfix.git" --tags': '',
     tag: 'dependfix@0.2.0\n@dependfix/core@0.2.0\nv0.2.0',
-    'ls-remote "https://x-access-token:ghs_abcdef1234567890abcdef1234567890abcdef@github.com/dependfix/dependfix.git" --tags':
-        'abc1234\trefs/tags/dependfix@0.2.0\ndef5678\trefs/tags/@dependfix/core@0.2.0\nfff0000\trefs/tags/v0.2.0',
+    'ls-remote --tags "https://x-access-token:ghs_abcdef1234567890abcdef1234567890abcdef@github.com/dependfix/dependfix.git"':
+        'abc1234\trefs/tags/dependfix@0.2.0\ndef5678\trefs/tags/@dependfix/core@0.2.0\nfff0000\trefs/tags/v0.2.0\nfff0000\trefs/tags/v0.2.0^{}',
 }
 
 describe('pushAndVerifyTags', () => {
@@ -30,7 +30,7 @@ describe('pushAndVerifyTags', () => {
     it('throws when a local tag is missing on remote', () => {
         const recorded = {
             ...baseRecorded,
-            'ls-remote "https://x-access-token:ghs_abcdef1234567890abcdef1234567890abcdef@github.com/dependfix/dependfix.git" --tags':
+            'ls-remote --tags "https://x-access-token:ghs_abcdef1234567890abcdef1234567890abcdef@github.com/dependfix/dependfix.git"':
                 'abc1234\trefs/tags/dependfix@0.2.0',
         }
         const git = createGitMock(recorded)
@@ -43,7 +43,7 @@ describe('pushAndVerifyTags', () => {
         const recorded = {
             ...baseRecorded,
             tag: '',
-            'ls-remote "https://x-access-token:ghs_abcdef1234567890abcdef1234567890abcdef@github.com/dependfix/dependfix.git" --tags': '',
+            'ls-remote --tags "https://x-access-token:ghs_abcdef1234567890abcdef1234567890abcdef@github.com/dependfix/dependfix.git"': '',
         }
         const git = createGitMock(recorded)
         expect(pushAndVerifyTags({ git, token: 'ghs_abcdef1234567890abcdef1234567890abcdef', repository: 'dependfix/dependfix' })).toEqual([])

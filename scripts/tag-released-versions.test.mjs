@@ -288,6 +288,8 @@ describe('main', () => {
 
     it('exits when --at is provided without a commit hash', async () => {
         const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => {})
+        // exit 被 mock 后 main 不会中断，会继续执行 registry 查询——必须 stub 防真实网络
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ status: 200, ok: true, json: async () => ({ versions: {} }) }))
         process.argv = ['node', 'tag-released-versions.mjs', '--at']
         await main()
         expect(exitSpy).toHaveBeenCalledWith(1)

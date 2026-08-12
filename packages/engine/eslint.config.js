@@ -21,6 +21,7 @@ const strictRules = {
     '@typescript-eslint/unbound-method': [1],
     '@typescript-eslint/no-dynamic-delete': [1],
     '@typescript-eslint/no-unnecessary-type-conversion': [1],
+    '@typescript-eslint/no-unused-vars': [1, { argsIgnorePattern: '^_' }], // _ 前缀 = 故意未使用参数（与 platform 配置口径一致）
 }
 
 export default defineConfig([

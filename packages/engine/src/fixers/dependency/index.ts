@@ -1,8 +1,17 @@
 import { execSync } from 'node:child_process'
-import { copyFileSync, existsSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs'
+import { copyFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { NormalizedSecurityAlert } from '@dependfix/core'
 import YAML from 'yaml'
+import {
+    cleanupBackups,
+    execPnpmInstall,
+    failResult,
+    getStderr,
+    rollback,
+    rollbackOverrideWrite,
+    writeWorkspaceOverride,
+} from './overrides-io'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -40,7 +49,7 @@ export interface DependencyFixResult {
     warning?: string
 }
 
-interface PackageJson {
+export interface PackageJson {
     name?: string
     dependencies?: Record<string, string>
     devDependencies?: Record<string, string>
@@ -455,30 +464,35 @@ export async function applyVersionedOverrides(
     try {
         await execPnpmInstall(workDir)
     } catch (installErr: unknown) {
-        // 回滚 overrides 到旧值（或删除新增 key）
-        const restoreOverrides = (map: Record<string, string>): void => {
-            for (const [key] of entries) {
-                const old = oldValues.get(key)
-                if (old === undefined) {
-                    delete map[key]
-                } else {
-                    map[key] = old
+        // 回滚 overrides 到旧值（或删除新增 key）。
+        // 不可变重建（避免动态 delete）：本次新增的 key（旧值 undefined）剔除，
+        // 既有 key 恢复旧值，其余保留原样。
+        const restoreOverrides = (map: Record<string, string>): Record<string, string> => {
+            const removed = new Set(
+                entries.filter(([key]) => oldValues.get(key) === undefined).map(([key]) => key),
+            )
+            const next: Record<string, string> = {}
+            for (const [key, value] of Object.entries(map)) {
+                if (removed.has(key)) {
+                    continue
                 }
+                const old = oldValues.get(key)
+                next[key] = old !== undefined ? old : value
             }
+            return next
         }
         if (usesWorkspaceYaml) {
             try {
                 const raw = readFileSync(workspaceYamlPath, 'utf-8')
                 const doc = YAML.parse(raw) as Record<string, unknown> ?? {}
-                const overrides = (doc.overrides ?? {}) as Record<string, string>
-                restoreOverrides(overrides)
-                doc.overrides = overrides
+                doc.overrides = restoreOverrides((doc.overrides ?? {}) as Record<string, string>)
                 writeFileSync(workspaceYamlPath, YAML.stringify(doc), 'utf-8')
             } catch {
                 // 回滚失败时由下方 rollback(workspaceBackup) 兜底
             }
         } else {
-            restoreOverrides(ensurePnpmOverrides(pkg))
+            const pnpm = pkg.pnpm ?? {}
+            pnpm.overrides = restoreOverrides(pnpm.overrides ?? {})
             writeFileSync(pkgPath, `${JSON.stringify(pkg, null, 2)}\n`, 'utf-8')
         }
         rollback(pkgPath, pkgBackup, lockfilePath, lockBackup)
@@ -797,236 +811,4 @@ export function isCrossMajorFixRequired(lockfilePath: string, alert: NormalizedS
         return false
     }
     return !versions.some((v) => parseMajorVersion(v) === targetMajor)
-}
-
-/**
- * 执行 `pnpm install --no-frozen-lockfile`。
- * 将同步 `execSync` 包装为 Promise，使上层 `upgradeDependency` 保持 async 语义。
- */
-function execPnpmInstall(workDir: string): Promise<void> {
-    return new Promise<void>((resolve, reject) => {
-        try {
-            execSync('pnpm install --no-frozen-lockfile', {
-                cwd: workDir,
-                encoding: 'utf-8',
-                stdio: 'pipe',
-                timeout: 120_000, // 2 min
-            })
-            resolve()
-        } catch (err: unknown) {
-            reject(err instanceof Error ? err : new Error(String(err)))
-        }
-    })
-}
-
-function failResult(
-    packageName: string,
-    targetVersion: string,
-    fromVersion: string,
-    error: string,
-): DependencyFixResult {
-    return {
-        packageName,
-        fromVersion,
-        toVersion: targetVersion, // 无原始前缀上下文
-        isMajor: false,
-        success: false,
-        error,
-    }
-}
-
-/**
- * 回滚一次 overrides 写入 + install 的全部变更（复用：install 失败与
- * 生效校验失败共用同一回滚路径，保证"写盘但未生效"也不残留脏状态）。
- */
-function rollbackOverrideWrite(params: {
-    usesWorkspaceYaml: boolean
-    workspaceYamlPath: string
-    packageName: string
-    oldOverride: string | undefined
-    pkg: PackageJson
-    pkgPath: string
-    pkgBackup: string
-    lockfilePath: string
-    lockBackup: string
-    workspaceBackup: string | null
-}): void {
-    const {
-        usesWorkspaceYaml,
-        workspaceYamlPath,
-        packageName,
-        oldOverride,
-        pkg,
-        pkgPath,
-        pkgBackup,
-        lockfilePath,
-        lockBackup,
-        workspaceBackup,
-    } = params
-    rollbackOverrides({
-        usesWorkspaceYaml,
-        workspaceYamlPath,
-        packageName,
-        oldOverride,
-        pkg,
-        pkgPath,
-    })
-    rollback(pkgPath, pkgBackup, lockfilePath, lockBackup)
-    if (usesWorkspaceYaml && workspaceBackup) {
-        rollback(workspaceYamlPath, workspaceBackup, lockfilePath, null)
-    }
-    cleanupBackups({ pkgBackup, lockBackup, workspaceBackup })
-}
-
-function rollback(
-    pkgPath: string,
-    pkgBackup: string,
-    lockfilePath: string,
-    lockBackup: string | null,
-): void {
-    try {
-        if (existsSync(pkgBackup)) {
-            copyFileSync(pkgBackup, pkgPath)
-        }
-        if (lockBackup !== null && existsSync(lockBackup)) {
-            copyFileSync(lockBackup, lockfilePath)
-        }
-    } catch {
-        // 回滚失败 → 已写入 result.error，不在此层二次抛异常
-    }
-}
-
-/**
- * 安全删除备份文件，失败静默忽略。
- */
-function safeUnlink(filePath: string): void {
-    try {
-        if (existsSync(filePath)) {
-            unlinkSync(filePath)
-        }
-    } catch {
-        // 静默降级
-    }
-}
-
-/**
- * 清理所有备份文件。
- */
-function cleanupBackups(paths: { pkgBackup: string, lockBackup: string | null, workspaceBackup?: string | null }): void {
-    safeUnlink(paths.pkgBackup)
-    if (paths.lockBackup !== null) {
-        safeUnlink(paths.lockBackup)
-    }
-    if (paths.workspaceBackup) {
-        safeUnlink(paths.workspaceBackup)
-    }
-}
-
-/**
- * 在 `pnpm-workspace.yaml` 中写入一条 override。
- *
- * 读取现有 YAML → 设置 `overrides[packageName] = version` → 原样写回。
- *
- * @returns 写入前该包的旧值（`undefined` 表示原先不存在该 override）
- */
-function writeWorkspaceOverride(
-    workspaceYamlPath: string,
-    packageName: string,
-    version: string,
-): string | undefined {
-    let doc: Record<string, unknown>
-
-    try {
-        const raw = readFileSync(workspaceYamlPath, 'utf-8')
-        doc = YAML.parse(raw) as Record<string, unknown> ?? {}
-    } catch {
-        doc = {}
-    }
-
-    const overrides = (doc.overrides ?? {}) as Record<string, string>
-    const old = overrides[packageName]
-    overrides[packageName] = version
-    doc.overrides = overrides
-
-    writeFileSync(workspaceYamlPath, YAML.stringify(doc), 'utf-8')
-    return old
-}
-
-/**
- * 回滚 override 写入操作。
- *
- * - `pnpm-workspace.yaml` 模式：删除刚写入的条目，或恢复旧值
- * - `package.json` 模式：同理操作 `pkg.pnpm.overrides`
- */
-function rollbackOverrides(params: {
-    usesWorkspaceYaml: boolean
-    workspaceYamlPath: string
-    packageName: string
-    oldOverride: string | undefined
-    pkg: PackageJson
-    pkgPath: string
-}): void {
-    const { usesWorkspaceYaml, workspaceYamlPath, packageName, oldOverride, pkg, pkgPath } = params
-
-    if (usesWorkspaceYaml) {
-        try {
-            const raw = readFileSync(workspaceYamlPath, 'utf-8')
-            const doc = YAML.parse(raw) as Record<string, unknown> ?? {}
-            const overrides = (doc.overrides ?? {}) as Record<string, string>
-
-            if (oldOverride === undefined) {
-                const next = Object.fromEntries(
-                    Object.entries(overrides).filter(([key]) => key !== packageName),
-                )
-                if (Object.keys(next).length === 0) {
-                    delete doc.overrides
-                } else {
-                    doc.overrides = next
-                }
-            } else {
-                overrides[packageName] = oldOverride
-            }
-
-            writeFileSync(workspaceYamlPath, YAML.stringify(doc), 'utf-8')
-        } catch {
-            // 回滚失败 → 已被 backup 机制覆盖
-        }
-    } else {
-        if (pkg.pnpm?.overrides) {
-            const overrides = pkg.pnpm.overrides
-            if (oldOverride === undefined) {
-                const next = Object.fromEntries(
-                    Object.entries(overrides).filter(([key]) => key !== packageName),
-                )
-                if (Object.keys(next).length === 0) {
-                    delete pkg.pnpm.overrides
-                    if (Object.keys(pkg.pnpm).length === 0) {
-                        delete pkg.pnpm
-                    }
-                } else {
-                    pkg.pnpm.overrides = next
-                }
-            } else {
-                overrides[packageName] = oldOverride
-            }
-        }
-        writeFileSync(pkgPath, `${JSON.stringify(pkg, null, 2)}\n`, 'utf-8')
-    }
-}
-
-function getStderr(err: unknown): string {
-    if (err instanceof Error && 'stderr' in err) {
-        const stderr = (err as Error & { stderr: unknown }).stderr
-        if (typeof stderr === 'string') {
-            return stderr.trim()
-        }
-        if (Buffer.isBuffer(stderr)) {
-            return stderr.toString('utf-8').trim()
-        }
-        return typeof stderr === 'object' && stderr !== null ? JSON.stringify(stderr) : String(stderr)
-    }
-    if (err instanceof Error) {
-        return err.message
-    }
-    return typeof err === 'object' && err !== null ? JSON.stringify(err) : String(err)
 }

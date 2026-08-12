@@ -39,7 +39,7 @@ export interface CodeScanningFixTemplate {
 
 const EOL_LAST_TEMPLATE: CodeScanningFixTemplate = {
     ruleId: 'eol-last',
-    apply(_filePath, content, _alert) {
+    apply(_filePath, content) {
         if (content.length === 0) {
             return null // 空文件：无末尾换行语义
         }
@@ -50,7 +50,7 @@ const EOL_LAST_TEMPLATE: CodeScanningFixTemplate = {
         const eol = content.includes('\r\n') ? '\r\n' : '\n'
         return { content: content + eol, changed: true }
     },
-    describe(filePath, changed, _alert) {
+    describe(filePath, changed) {
         return changed ? `appended trailing newline to ${filePath}` : `no-op: ${filePath} already ends with newline`
     },
 }

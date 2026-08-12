@@ -18,6 +18,8 @@ export default defineConfig({
     test: {
         globals: true,
         environment: 'node',
+        // Nuxt server auto-import 模拟（API handler 测试用；setup 文件只注入全局 h3 工具，无副作用）
+        setupFiles: ['apps/platform/tests/setup-nuxt-server.ts'],
         // e2e 测试由 Playwright 运行（apps/platform/tests/e2e），vitest 不扫描
         exclude: [
             '**/node_modules/**',

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { cleanupUnreleasedSections, versionLt } from './changelog.mjs'
+import { cleanupUnreleasedSections, mergeUnreleased, versionLt } from './changelog.mjs'
 
 describe('versionLt', () => {
     it('compares numeric segments (0.9.0 < 0.10.0)', () => {
@@ -115,5 +115,39 @@ describe('cleanupUnreleasedSections', () => {
         expect(out).not.toContain('[0.2.0](')
         expect(out).toContain('## [0.3.1](')
         expect(out).not.toMatch(/\n{3,}/)
+    })
+})
+
+describe('mergeUnreleased', () => {
+    const unreleased = '## [0.2.1](https://github.com/dependfix/dependfix/compare/dependfix@0.2.0...dependfix@0.2.1) (2026-08-12)\n\n### ✨ 新功能\n\n* **cli:** 新条目 ([abc1234](https://github.com/dependfix/dependfix/commit/abc1234))\n'
+    const oldSection = '# [0.2.1](https://github.com/dependfix/dependfix/compare/dependfix@0.2.0...dependfix@0.2.1) (2026-08-10)\n\n### ✨ 新功能\n\n* **cli:** 旧条目 ([def5678](https://github.com/dependfix/dependfix/commit/def5678))\n'
+    const historySection = '# [0.2.0](https://github.com/dependfix/dependfix/compare/dependfix@0.1.0...dependfix@0.2.0) (2026-08-09)\n\n### ✨ 新功能\n\n* **cli:** 历史条目 ([feed001](https://github.com/dependfix/dependfix/commit/feed001))\n'
+
+    it('appends after title when file has no version sections', () => {
+        const existing = '# dependfix\n\n'
+        const out = mergeUnreleased(existing, '0.2.1', unreleased)
+        expect(out).toBe(`# dependfix\n\n${unreleased}`)
+    })
+
+    it('replaces the top same-version section keeping later history', () => {
+        const existing = `# dependfix\n\n${oldSection}\n${historySection}`
+        const out = mergeUnreleased(existing, '0.2.1', unreleased)
+        expect(out).toContain(unreleased)
+        expect(out).not.toContain('旧条目')
+        expect(out).toContain('历史条目')
+        // 新段 + 历史段完整保留
+        expect(out).toBe(`# dependfix\n\n${unreleased}\n${historySection}`)
+    })
+
+    it('replaces to end of file when top section is the only section', () => {
+        const existing = `# dependfix\n\n${oldSection}`
+        const out = mergeUnreleased(existing, '0.2.1', unreleased)
+        expect(out).toBe(`# dependfix\n\n${unreleased}\n`)
+    })
+
+    it('inserts before the first version section when top version differs', () => {
+        const existing = `# dependfix\n\n${historySection}`
+        const out = mergeUnreleased(existing, '0.2.1', unreleased)
+        expect(out).toBe(`# dependfix\n\n${unreleased}\n${historySection}`)
     })
 })

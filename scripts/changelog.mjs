@@ -181,6 +181,8 @@ function mergeUnreleased(existing, version, unreleased) {
     return `${existing.slice(0, idx)}${unreleased}\n${existing.slice(idx)}`
 }
 
+export { mergeUnreleased }
+
 /**
  * 判断某版本是否已发布（已发布段不可改写）。
  * 判定顺序（任一命中即视为已发布）：

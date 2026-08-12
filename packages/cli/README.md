@@ -86,4 +86,8 @@ const { result, exitCode } = await app.run()
 
 ## 相关包
 
-- [@dependfix/core](../core/README.md) — 核心领域模型库（本包依赖）
+- [dependfix 主项目](https://github.com/dependfix/dependfix) — 本包源码与完整文档
+- [@dependfix/core](https://github.com/dependfix/dependfix/blob/master/packages/core/README.md) — 核心领域模型库（本包依赖）
+- [@dependfix/engine](https://github.com/dependfix/dependfix/blob/master/packages/engine/README.md) — 执行引擎（本包依赖）
+- [@dependfix/skills](https://github.com/dependfix/dependfix/blob/master/packages/skills/README.md) — 产品 Agent Skill 权威源（本包依赖）
+- [@dependfix/mcp](https://github.com/dependfix/dependfix/blob/master/packages/mcp/README.md) — MCP Server（AI 助手使用形态）

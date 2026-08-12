@@ -25,3 +25,11 @@
 pnpm --filter @dependfix/engine build   # 构建 dist
 pnpm --filter @dependfix/engine test    # 测试
 ```
+
+## 相关包
+
+- [dependfix 主项目](https://github.com/dependfix/dependfix) — 本包源码与完整文档
+- [@dependfix/core](https://github.com/dependfix/dependfix/blob/master/packages/core/README.md) — 核心领域模型库（本包依赖）
+- [dependfix](https://github.com/dependfix/dependfix/blob/master/packages/cli/README.md) — CLI 应用入口（依赖本包）
+- [@dependfix/mcp](https://github.com/dependfix/dependfix/blob/master/packages/mcp/README.md) — MCP Server（依赖本包）
+- [@dependfix/skills](https://github.com/dependfix/dependfix/blob/master/packages/skills/README.md) — 产品 Agent Skill 权威源

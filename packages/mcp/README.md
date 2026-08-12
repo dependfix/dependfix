@@ -64,4 +64,12 @@ node packages/mcp/dist/bin.mjs       # stdio 启动
 
 ## 设计
 
-详见 [mcp-server.md](../../docs/design/governance/mcp-server.md)（Tool schema、与 CLI 的一致性、错误处理、能力差距与演进路线）。
+详见 [mcp-server.md](https://github.com/dependfix/dependfix/blob/master/docs/design/governance/mcp-server.md)（Tool schema、与 CLI 的一致性、错误处理、能力差距与演进路线）。
+
+## 相关包
+
+- [dependfix 主项目](https://github.com/dependfix/dependfix) — 本包源码与完整文档
+- [@dependfix/core](https://github.com/dependfix/dependfix/blob/master/packages/core/README.md) — 核心领域模型库（本包依赖）
+- [@dependfix/engine](https://github.com/dependfix/dependfix/blob/master/packages/engine/README.md) — 执行引擎（本包依赖）
+- [dependfix](https://github.com/dependfix/dependfix/blob/master/packages/cli/README.md) — CLI 应用入口（同源能力）
+- [@dependfix/skills](https://github.com/dependfix/dependfix/blob/master/packages/skills/README.md) — 产品 Agent Skill 权威源

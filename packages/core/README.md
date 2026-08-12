@@ -58,4 +58,8 @@ writeReport(md, json, new Date().toISOString(), 'run-abc123')
 
 ## 相关包
 
-- [dependfix](../cli/README.md) — CLI 应用入口，依赖本包
+- [dependfix 主项目](https://github.com/dependfix/dependfix) — 本包源码与完整文档
+- [dependfix](https://github.com/dependfix/dependfix/blob/master/packages/cli/README.md) — CLI 应用入口（依赖本包）
+- [@dependfix/engine](https://github.com/dependfix/dependfix/blob/master/packages/engine/README.md) — 执行引擎（依赖本包）
+- [@dependfix/mcp](https://github.com/dependfix/dependfix/blob/master/packages/mcp/README.md) — MCP Server（依赖本包）
+- [@dependfix/skills](https://github.com/dependfix/dependfix/blob/master/packages/skills/README.md) — 产品 Agent Skill 权威源

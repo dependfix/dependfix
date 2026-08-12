@@ -33,3 +33,11 @@ npx dependfix skills install
 pnpm sync:skills    # 同步权威源到仓库根分发目录（scripts/sync-skills.mjs）
 pnpm test           # 一致性 / frontmatter 规范 / MCP 契约测试（packages/skills/test/）
 ```
+
+## 相关包
+
+- [dependfix 主项目](https://github.com/dependfix/dependfix) — 本包源码与完整文档
+- [dependfix](https://github.com/dependfix/dependfix/blob/master/packages/cli/README.md) — CLI 应用入口（`dependfix skills install` 安装本包 Skill）
+- [@dependfix/core](https://github.com/dependfix/dependfix/blob/master/packages/core/README.md) — 核心领域模型库
+- [@dependfix/engine](https://github.com/dependfix/dependfix/blob/master/packages/engine/README.md) — 执行引擎
+- [@dependfix/mcp](https://github.com/dependfix/dependfix/blob/master/packages/mcp/README.md) — MCP Server

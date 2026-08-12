@@ -1,6 +1,6 @@
 # dependfix
 
-# [0.3.0](https://github.com/dependfix/dependfix/compare/dependfix@0.2.0...dependfix@0.3.0) (2026-08-12)
+## [0.3.1](https://github.com/dependfix/dependfix/compare/dependfix@0.2.0...dependfix@0.3.1) (2026-08-12)
 
 
 ### ✨ 新功能
@@ -54,6 +54,7 @@
 * **ci:** 修复 Publish Docker 构建 arm64 SIGILL（复制完整依赖布局 + 禁用 pnpm 自动安装） ([8a24810](https://github.com/dependfix/dependfix/commit/8a24810))
 * **ci:** coverage job 补 nuxt prepare + 超时测试 nock 上限放大 ([e16aeda](https://github.com/dependfix/dependfix/commit/e16aeda))
 * **docs:** 转义 release 指南表格裸 HTML 标签修复 VitePress 构建失败 ([28ba588](https://github.com/dependfix/dependfix/commit/28ba588))
+* **engine:** 清理 lint 警告（未使用参数、动态删除与 IO 组拆分） ([8f95a2e](https://github.com/dependfix/dependfix/commit/8f95a2e))
 * **engine:** 验证失败时附 stdout/stderr 摘要提升可观测性 ([36aa07f](https://github.com/dependfix/dependfix/commit/36aa07f))
 * **engine:** overrides 生成先判定大版本冲突并与已有条目取 max 合并 ([2d5cc0c](https://github.com/dependfix/dependfix/commit/2d5cc0c))
 * **mcp:** 修正 fetch_alerts severity 阈值语义并复用 core 过滤校验 API ([4fc22fb](https://github.com/dependfix/dependfix/commit/4fc22fb))
@@ -81,14 +82,15 @@
 * **engine:** 拆包批次 3（app/helpers/ai/runners 等迁入 engine，cli 薄壳化） ([b5a736f](https://github.com/dependfix/dependfix/commit/b5a736f))
 * **engine:** 拆包批次 4（mcp/platform 切换 engine 依赖，恢复发布链路） ([74f821a](https://github.com/dependfix/dependfix/commit/74f821a))
 * **engine:** 拆出 @dependfix/engine 共享执行引擎（批次 1：github/code-scanning 迁移） ([7191609](https://github.com/dependfix/dependfix/commit/7191609))
+* **engine:** processRepoForFix 拆分为步骤管线（repo-fix/repo-alerts 模块） ([660362f](https://github.com/dependfix/dependfix/commit/660362f))
 * **mcp:** 收口复用缺口（统一错误包装 / 复用 cli 默认配置 / enum 对齐常量） ([fd99262](https://github.com/dependfix/dependfix/commit/fd99262))
 * **platform:** 用户管理与个人设置改用 better-auth 原生端点（移除自建 /api/me 与 /api/users 代理） ([a115e35](https://github.com/dependfix/dependfix/commit/a115e35))
+* **platform:** repos 页批量导入 Dialog 拆分为 ImportReposDialog 子组件 ([4ee9cf5](https://github.com/dependfix/dependfix/commit/4ee9cf5))
 * **platform:** server 代码统一改用 #server/ 别名引入 ([fb62e25](https://github.com/dependfix/dependfix/commit/fb62e25))
 * **release:** 发布包清单单点化 + 修复 changelog 已发布判定 ([83edffc](https://github.com/dependfix/dependfix/commit/83edffc))
 * **scripts:** 移除 changeset 切换自研 release 链路（原子切换） ([3469691](https://github.com/dependfix/dependfix/commit/3469691))
 
 # [0.2.0](https://github.com/dependfix/dependfix/compare/dependfix@0.1.0...dependfix@0.2.0) (2026-08-07)
-
 
 ### ✨ 新功能
 
@@ -123,7 +125,6 @@
 * **skills:** 新增 dependfix-remediator 产品 skill 与 npx skills 生态分发 ([21fae4d](https://github.com/dependfix/dependfix/commit/21fae4d))
 * T213 依赖分组升级（Dependency Grouping） ([b962374](https://github.com/dependfix/dependfix/commit/b962374))
 
-
 ### 🐛 Bug 修复
 
 * 版本化 overrides 改大版本 key + 存在脆弱实例门槛（run 31028234123 复盘） ([06843b9](https://github.com/dependfix/dependfix/commit/06843b9)), closes [#26](https://github.com/dependfix/dependfix/issues/26)
@@ -154,7 +155,6 @@
 * **scripts:** check-links 增加本地绝对路径与路径穿越校验 ([aaaa2c7](https://github.com/dependfix/dependfix/commit/aaaa2c7))
 * **test:** pr-creator 分支用例补齐超时参数（根治全量并行 flaky） ([451cdcc](https://github.com/dependfix/dependfix/commit/451cdcc))
 
-
 ### 📦 代码重构
 
 * 环境变量前缀迁移为 DEPENDFIX_（方案 B） ([38722c5](https://github.com/dependfix/dependfix/commit/38722c5))
@@ -168,7 +168,6 @@
 * src 目录结构收敛——根目录仅保留入口文件 ([bb24ef0](https://github.com/dependfix/dependfix/commit/bb24ef0))
 
 # [0.1.0](https://github.com/dependfix/dependfix/compare/3655944...dependfix@0.1.0) (2026-08-03)
-
 
 ### ✨ 新功能
 
@@ -196,7 +195,6 @@
 * **report:** 实现 Markdown / JSON 报告生成器 ([a0556d9](https://github.com/dependfix/dependfix/commit/a0556d9))
 * **runner:** 实现最小验证执行器, 支持命令序列执行与脱敏 ([0c8c576](https://github.com/dependfix/dependfix/commit/0c8c576))
 
-
 ### 🐛 Bug 修复
 
 * 报告文件名与分支名改用 runId 尾段，修复固定前缀截断导致相互覆盖 ([60a0e8d](https://github.com/dependfix/dependfix/commit/60a0e8d))
@@ -206,7 +204,6 @@
 * **cli:** overrideTransitiveDependency 根据 pnpm-workspace.yaml 存在性选择写入位置 ([8e750a3](https://github.com/dependfix/dependfix/commit/8e750a3))
 * **cli:** upgradeAlert 改为 try→fallback 模式，直接升级失败自动回退 overrides ([a0950fb](https://github.com/dependfix/dependfix/commit/a0950fb))
 * **package:** 修复 exports 中 types 条件排序警告, 更新 T105 状态 ([cae3202](https://github.com/dependfix/dependfix/commit/cae3202))
-
 
 ### 📦 代码重构
 

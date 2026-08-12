@@ -28,10 +28,15 @@
 
   | 阶段 | 内容 | 缺口（statements） | 状态 |
   |:--|:--|--:|:--|
-  | 1 | `scripts` 提升至 80%（distill-wisdom/check-links/sync-skills 纯函数提取 + 补测；auto-version/tag-released-versions 等补测） | 419 | 🔄 进行中 |
+  | 1 | `scripts` 提升至 80%（distill-wisdom/check-links/sync-skills 纯函数提取 + 补测；auto-version/tag-released-versions 等补测） | 419 | 🔄 进行中（69.57%，缺口 ~95） |
   | 2 | `apps/platform/server` api 路由层 + database + queue 服务补测 | 550 | ⬜ |
   | 3 | `packages/cli` 入口 + `apps/platform/app` 层补测 | 100 | ⬜ |
   | 4 | 全局收口（branches/functions 维度补强，目标四维均 ≥ 80%） | — | ⬜ |
+
+- **阶段 1 checkpoint 记录（2026-08-12）**：
+  - 基线 33.7% → 批次 1a（distill/sync，b57d476b）→ 批次 1b（check-links，ce336a90）→ 批次 1c（auto-version/tag-released，fd6a2074）→ 批次 1d（发布脚本 main，47459b4a）→ **69.57%**；全量测试 1345 passed / 4 skipped 无回归；每批 Review Gate Pass
+  - 剩余高 ROI 候选：release-publish（38.14%，缺 41）、create-release-plan（43.9%，缺 30）、changelog（51.42%，缺 30）、create-github-release（50.66%，缺 22）；release-version main 写回真实文件不可测（放弃）
+  - 已知测试约定：main() 若无条件先查 registry（tag-released），测试必须 stub fetch 防真实网络
 
 - 冲刺执行按 [testing.md §5.1 覆盖率冲刺执行方法](../standards/testing.md)（fresh 基线 → 高 ROI 切片 → 小步快跑 → 全量 checkpoint）。
 - 验收：`pnpm run test:coverage` 四维全部 >= 80%（CI coverage job 转绿）。

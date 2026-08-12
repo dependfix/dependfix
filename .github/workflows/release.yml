@@ -70,6 +70,16 @@ jobs:
       - name: Verify changelog is up to date
         run: pnpm verify:changelog
 
+      # git tag 需要 committer identity：annotated tag 创建依赖 user.name/user.email。
+      # runner 全局 git config 为空（教训 2026-08-12，经验归档 §三十七），而 identity
+      # 配置此前仅存在于 Auto version 步骤（schedule-only，手动触发时被跳过导致
+      # release:publish 打 tag 失败，run 31561400025）。此处显式配置（与
+      # auto-version.mjs 同款 github-actions[bot] 身份），手动/定时触发均生效。
+      - name: Setup git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
       # release:publish：
       # - 判断依据是"本地版本未出现在 npm registry 已发布版本列表"（fetch 直连
       #   registry 对比），与 release-plan.md 是否存在无关（release:version 已消费删除）；
@@ -78,6 +88,8 @@ jobs:
       # - 通过 OIDC（id-token: write）完成 npm trusted publishing 认证，无需 NPM_TOKEN
       # - 发布成功后创建 <pkg>@<version> 格式的 annotated git tag（指向 HEAD，
       #   HEAD 锚点校验：HEAD 必须 touch 待发布包路径，防误发布）
+      # - 幂等自愈：npm 已发布但本地无 tag（上次发布中途失败等中间态）时自动补
+      #   annotated tag 并计入 v tag 锚点解析，重跑即可全链路恢复，无需手动补打
       - name: Release Publish
         run: pnpm release:publish
 

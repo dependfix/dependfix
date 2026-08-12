@@ -84,6 +84,21 @@ export function publishOne(planItem) {
     console.log(`published ${planItem.pkg}@${planItem.version}，tag ${planItem.tagName} 已创建`)
 }
 
+/**
+ * 半发布状态恢复（幂等自愈）：npm 已发布但本地无 tag（上次发布中途失败，如 tag 创建
+ * 前 CI 中断——经验归档 §三十七）或手动发布未补 tag 时，补打 annotated tag。
+ * 锚点约束与 publishOne 一致（HEAD 必须 touch 该包路径）；校验失败返回 false，
+ * 保持 skip-published 的安全跳过语义（不阻断其他包发布、不在错误 commit 上打 tag）。
+ */
+export function tagRecovered(planItem, deps) {
+    const { headTouches, tag } = deps
+    if (!headTouches(planItem.path)) {
+        return false
+    }
+    tag(planItem.tagName)
+    return true
+}
+
 /** HEAD commit 是否 touch 该包路径（`git log -1 -- <path>` 锚点 == HEAD） */
 function headTouchesPath(pkgPath) {
     try {
@@ -147,11 +162,13 @@ export function buildFinalizePlan(published, packages, hasTag) {
 }
 
 /**
- * 发布收尾（全部包发布成功后调用）：打 v<锚版本> 聚合 tag（幂等）+ 写 result.json。
+ * 发布收尾（全部包发布/补 tag 完成后调用）：打 v<锚版本> 聚合 tag（幂等）+ 写 result.json。
+ * tagged 为本轮实际打 tag 的包（发布 + 半发布状态补 tag），result.json 的 published
+ * 语义 = "本轮打 tag 的包"（release:github 展示本轮版本矩阵，补 tag 恢复轮同样成立）。
  * 时机约束：必须在 Push release tags 之前完成（v tag 随全量推送带出并核验）。
  */
-function finalizeRelease(published) {
-    const plan = buildFinalizePlan(published, PUBLISHABLE_PACKAGES, (tag) => hasLocalTag(tag))
+function finalizeRelease(tagged) {
+    const plan = buildFinalizePlan(tagged, PUBLISHABLE_PACKAGES, (tag) => hasLocalTag(tag))
     if (plan.vTagAction === 'create') {
         git(`tag -a "${plan.vTag}" -m "release ${plan.vTag}"`)
         console.log(`created ${plan.vTag}（聚合 Release tag）`)
@@ -184,6 +201,8 @@ export async function main() {
     if (publishes.length === 0) {
         console.log('没有需要发布的版本（全部已发布 / 查询失败保守跳过）')
     }
+    // 本轮实际打 tag 的包（发布 + 半发布状态补 tag），v tag 锚点解析与 result.json 均以此为准
+    const tagged = []
     for (const p of plan) {
         switch (p.action) {
             case 'publish':
@@ -191,13 +210,26 @@ export async function main() {
                     console.log(`[dry-run] would publish ${p.pkg}@${p.version} + tag ${p.tagName}`)
                 } else {
                     publishOne(p)
+                    tagged.push(p)
                 }
                 break
             case 'skip-tag-exists':
                 console.log(`skip ${p.pkg}@${p.version}（本地 tag ${p.tagName} 已存在）`)
                 break
             case 'skip-published':
-                console.log(`skip ${p.pkg}@${p.version}（npm 已发布）`)
+                if (dryRun) {
+                    console.log(`skip ${p.pkg}@${p.version}（npm 已发布）`)
+                } else if (
+                    tagRecovered(p, {
+                        headTouches: headTouchesPath,
+                        tag: (tagName) => git(`tag -a "${tagName}" -m "release ${tagName}"`),
+                    })
+                ) {
+                    console.log(`tagged ${p.tagName}（npm 已发布，补 annotated tag）`)
+                    tagged.push(p)
+                } else {
+                    console.log(`skip ${p.pkg}@${p.version}（npm 已发布；HEAD 不 touch ${p.path}，不补 tag）`)
+                }
                 break
             case 'skip-registry-error':
                 console.log(`skip ${p.pkg}@${p.version}（npm 查询失败，保守跳过）`)
@@ -213,7 +245,7 @@ export async function main() {
     // 无条件写 result.json（无发布时写空结构）：release:github 据此走
     // skip-no-published 安全退出——CI 无发布变更轮次 / 发布后重跑不红；
     // create-github-release 的 ENOENT 报错保留给"未执行过 release:publish"的手动误用
-    finalizeRelease(publishes)
+    finalizeRelease(tagged)
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

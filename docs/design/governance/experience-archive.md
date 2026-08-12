@@ -388,3 +388,13 @@
   - **CI 每个 job 的验证链要与该 job 的实际执行环境自洽**：dependfix 这类"修完即验"的工具，默认验证链对 Nuxt/VitePress 等需要 prepare/生成物的项目不成立——要么暴露自定义验证命令（action `commands` 输入），要么在默认链中探测 prepare 需求。
   - **验证失败必须携带可定位证据**：验证门只报 `exit code 1` 时，用户无法区分"lint 语法错误 / 缺生成物 / 环境问题"——失败 action 附 stdout/stderr 摘要（脱敏后）是验证门的基本可观测性要求。
   - **工具"吃自己狗粮"的价值**：dependfix 扫描自身仓库即暴露 action 接口缺口（commands 未透传）与验证链盲区，dogfooding 是产品缺陷的第一发现者。
+
+## 三十七、CI git tag 需要显式 committer identity + 发布流程必须可重入自愈（2026-08-12）
+
+> 教训形态：**"环境前提缺失" + "中间态被 skip 逻辑吞掉"**。与 §二十六（tag 创建与推送分离）同属发布链路 CI 教训族。
+
+- **案例（Release run 31561400025，workflow_dispatch 手动发布 0.2.1）**：`pnpm release:publish` 已成功把 `@dependfix/core@0.2.1` 发布到 npm（OIDC），随后 `git tag -a` 失败——`Committer identity unknown`。根因：git identity 配置只存在于 `scripts/auto-version.mjs`（release.yml 的 "Auto version & changelog" 步骤，schedule-only），手动触发时该步骤被跳过，runner 全局 git config 无 user.name/user.email，annotated tag 创建必然失败。连带后果：tag 未创建 → 重跑 CI 时 core@0.2.1 命中 `skip-published` 被跳过 → `<pkg>@<version>` tag、`v<锚版本>` 聚合 tag、GitHub Release 全部永久缺失（原设计只能靠手动 `pnpm tag:released` 恢复）。
+- **修复**：① `release.yml` 在 Release Publish 步骤前显式配置 git identity（`github-actions[bot]` / `41898282+github-actions[bot]@users.noreply.github.com`，与 auto-version.mjs 同款，手动/定时触发均生效）；② `release-publish.mjs` 新增幂等自愈：`skip-published` 分支在"npm 已发布但本地无 tag"且 HEAD 锚点校验（HEAD touch 包路径）通过时自动补 annotated tag，并把该包计入 v tag 锚点解析——重跑 CI 全链路恢复（补 tag → v tag → GitHub Release），锚点校验失败则安全跳过（保持 skip 语义）。
+- **启示**：
+  - **CI 脚本依赖 git 写操作（commit/tag）时，identity 必须由 workflow 显式配置**——不能依赖"某个条件步骤顺带配置"（schedule-only 步骤在手动触发时被跳过即中招）；github-actions[bot] 身份是标准选择。
+  - **发布/打 tag 是连续副作用，必须可重入**："发布成功、tag 失败"的中间态一旦被 skip 判定吞掉，就变成永久缺口；检测中间态并补完（幂等自愈）优先于"失败后手动补"，重跑即恢复是发布工具的基本要求。

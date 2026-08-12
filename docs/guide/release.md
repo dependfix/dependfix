@@ -223,6 +223,7 @@ git push origin master
    - 通过 **OIDC trusted publishing** 认证（`id-token: write` + npmjs.com 的 Trusted Publisher 配置），无需 `NPM_TOKEN`；
    - 发布前校验 **HEAD 锚点**（HEAD 必须 touch 待发布包路径，防误在非发布提交执行）；
    - 发布成功后本地创建 `<pkg>@<version>` 格式的 annotated git tag（如 `dependfix@0.1.1`）+ `v<锚版本>` 聚合 tag（锚 = 主交付物优先，见"GitHub Release 自动化"）；
+   - **幂等自愈**：npm 已发布但本地无 tag（上次发布中途失败等中间态）时自动补 annotated tag（HEAD 锚点校验通过才打，否则安全跳过），并计入 v tag 锚点解析——重跑 CI 即可全链路恢复，无需手动补打（见"tag 策略与包版本不同步"）；
 5. `Push release tags`：将 `release:publish` 创建的本地 tag 推送到 GitHub（`git push <url> --tags`，显式 token URL + 推送后核验，通过 `GITHUB_TOKEN` 认证）；
 6. `Create GitHub Release`（`pnpm release:github`）：读 `release-publish-result.json` 为本轮发布创建聚合 GitHub Release——tag 为 `v<锚版本>`，notes 为版本矩阵 + 根 CHANGELOG 最新段（core-only 轮次取锚包包级段），0.x 阶段标 pre-release；Release 已存在则跳过，创建失败仅警告不阻断（npm 已发布完成，可后补 `gh release create`）。
 
@@ -240,7 +241,7 @@ git push origin master
 - **发布不需要手动打 `v*` tag**：`release:publish` 只发布有变更的包，包版本不同步（例如只 bump 了 `dependfix`，`@dependfix/core` 未变）时未变更的包会被自动跳过，不存在"一个 tag 表达不了多版本"的问题；
 - `release:publish` 成功后会为每个发布的包创建 `<pkg>@<version>` 格式的 git tag（changesets / lerna 生态惯例，沿用），由 CI 的 `Push release tags` 步骤推送到 GitHub，供 GitHub Release 关联与后续精确回溯；
 - `v<锚版本>` 聚合 tag 用于 GitHub Release 关联（锚版本 = 主交付物优先，见"GitHub Release 自动化"）；与 1.0.0 后规划的 `v1` 滚动 tag 命名空间兼容（固定 tag + 移动 tag 共存）；
-- 注意：若发布成功但后续步骤失败导致重跑，已发布的包会被跳过、tag 不会重建（可从 Git 历史手动补打，用 `pnpm tag:released`）；
+- 注意：若发布成功但后续步骤失败导致重跑（如 CI git identity 缺失致 tag 创建失败，见 [经验归档 §三十七](../design/governance/experience-archive.md)），`release:publish` 会自动检测"npm 已发布但本地无 tag"的中间态并补打 annotated tag（HEAD 锚点校验通过时，校验失败则安全跳过）——重跑即可全链路恢复（`<pkg>@<version>` tag + `v<锚版本>` tag + GitHub Release）；仅当 HEAD 不 touch 包路径时才需手动 `pnpm tag:released` 补打；
 - 首次发布的 `v0.1.0` tag 仅用于 GitHub Release 展示与 Action 引用；文档中的 `uses: dependfix/dependfix@v1` 滚动 tag 待 `1.0.0` 稳定版发布后再启用。
 
 ## CHANGELOG 策略
@@ -271,6 +272,7 @@ git push origin master
 | `pnpm changelog` 报模板错误 | conventional-changelog 被解析为 8.x。必须使用 `conventional-changelog@^7`（8.x 模板引擎与 cmyr-config 3.x 不兼容） |
 | CI 报 "CHANGELOG 缺少版本段" | 版本已提升但漏跑了 `pnpm changelog`（发布前必须生成并提交日志） |
 | 包级 CHANGELOG 非增量（0.2.0 段吞掉全部历史） | `<pkg>@<version>` 锚点 tag 缺失，或指向的 commit 未 touch 该包路径（path 过滤后看不到锚点）。处理：补打/移动 tag 到 touch 该包路径的 commit 后重跑 `pnpm changelog` |
+| `release:publish` 报 "Committer identity unknown" | CI runner 全局 git config 无 user.name/user.email（annotated tag 创建需要 identity；此前 identity 仅在 schedule-only 的 Auto version 步骤中配置，手动触发时缺失）。处理：release.yml 已在 Release Publish 前显式配置 github-actions[bot] 身份；旧 run 遗留的中间态（npm 已发布但 tag 缺失）直接重跑即可自愈补 tag |
 | `release:publish` 报"HEAD 不是 touch `<path>` 的提交" | 在非发布提交上执行了发布（未走 release:version + changelog 提交）。处理：完成版本提升与 changelog 提交后再发布 |
 | GitHub Release 未创建（CI 仅警告） | 创建失败不阻断发布（npm 已发布完成）。处理：手动补建 `gh release create v<版本> --notes-file <notes.md> --prerelease`，notes 可从根/包级 CHANGELOG 对应版本段截取 |
 | GitHub Release 显示旧版本号 | `v<锚版本>` 以主交付物优先（dependfix 未发布时取 core 等）；core-only 轮次的 Release 版本号代表该轮核心变更包，属预期行为 |

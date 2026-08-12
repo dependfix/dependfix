@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest'
-import { buildFinalizePlan, buildPublishPlan, resolveAnchorVersion } from './release-publish.mjs'
+import { describe, expect, it, vi } from 'vitest'
+import { buildFinalizePlan, buildPublishPlan, resolveAnchorVersion, tagRecovered } from './release-publish.mjs'
 
 // 注：isPublishedOnRegistry 的真实 npm 调用行为（E404 stderr → false）不在此处测试
 // （网络依赖 + 慢），由实际 `pnpm release:publish --dry-run` 实证；buildPublishPlan
@@ -99,6 +99,24 @@ describe('resolveAnchorVersion', () => {
 
     it('returns null for empty published list', () => {
         expect(resolveAnchorVersion([], packages)).toBeNull()
+    })
+})
+
+describe('tagRecovered', () => {
+    const planItem = { pkg: '@dependfix/core', path: 'packages/core', version: '0.2.1', tagName: '@dependfix/core@0.2.1' }
+
+    it('tags when npm already published and HEAD touches the path (re-run self-heal)', () => {
+        const tag = vi.fn()
+        const ok = tagRecovered(planItem, { headTouches: () => true, tag })
+        expect(ok).toBe(true)
+        expect(tag).toHaveBeenCalledExactlyOnceWith('@dependfix/core@0.2.1')
+    })
+
+    it('refuses to tag when HEAD does not touch the path (keep safe skip)', () => {
+        const tag = vi.fn()
+        const ok = tagRecovered(planItem, { headTouches: () => false, tag })
+        expect(ok).toBe(false)
+        expect(tag).not.toHaveBeenCalled()
     })
 })
 

@@ -154,7 +154,6 @@
             "deleteFailed": "删除失败：{message}",
             "triggerFailed": "触发失败：{message}",
             "batchFailed": "批量扫描失败：{message}",
-            "credentialLoadFailed": "加载凭据失败：{message}",
             "repoFetchFailed": "拉取仓库失败：{message}",
             "importFailed": "批量导入失败：{message}",
             "selectAtLeastOne": "请至少选择一个仓库"

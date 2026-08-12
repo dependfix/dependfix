@@ -154,7 +154,6 @@
             "deleteFailed": "Failed to delete: {message}",
             "triggerFailed": "Failed to trigger: {message}",
             "batchFailed": "Batch scan failed: {message}",
-            "credentialLoadFailed": "Failed to load credentials: {message}",
             "repoFetchFailed": "Failed to fetch repositories: {message}",
             "importFailed": "Import failed: {message}",
             "selectAtLeastOne": "Select at least one repository"

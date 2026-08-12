@@ -5,6 +5,7 @@
 > **T702 已完成**（BullMQ + Redis 队列 + 降级矩阵，3 子任务 APPROVE）；**T704 已全部完成**（2026-08-10 设计先行 + 3 子任务实施，[platform-scheduled-batch.md](../design/governance/platform-scheduled-batch.md)；9f13aa0b + 55fa20a9 + 45c3d3cf + b830630e + ee0f533f + d6112649 + 81969be6 + d2898023 + 35b2e95c）。剩余人工验收：async 定时触发集成测试（需 Redis >= 5）、Schedule CRUD e2e。
 > **T708 规划定稿（2026-08-11）**：i18n 国际化上收（4 子任务），见下方 M7.2 T708 区块；非目标登记 backlog（服务端错误消息 / 偏好多设备同步）。
 > **T706 代码前置（C31/C32）已完成**，仅剩发布与文档收口。
+> **T709 已完成（2026-08-12）**：治理规范收敛——验证分级矩阵与分级审计执行协议去冲突（单点声明收敛，deep 审计 Pass），见下方 T709 区块。
 
 ---
 
@@ -179,7 +180,27 @@
 
 ---
 
+### T709 治理规范收敛：验证分级矩阵与分级审计执行协议去冲突（✅ 已完成）
+
+- 优先级：`P3`（治理）
+- **为何插队**：用户直接指出 `docs/standards/ai-collaboration.md` §2.2 验证分级矩阵与 `.github` 下 agent/skill 实际执行的 `audit-depth` 分级审计执行协议两套体系并存冲突（同一张表三处重复抄写且 standard 行措辞已漂移、两维关系未声明、默认 `deep` 规则覆盖不一致）。属治理定义缺陷，直接影响后续所有 Review Gate 执行口径，修复成本低，插队处理。
+- 交付物：消除两套分级体系冲突，按 [documentation.md §4 规范单点声明原则](../standards/documentation.md) 收敛为单一权威 + 一行引用。
+- 实现内容：
+  - [x] `ai-collaboration.md`：§1.3 升级为"分级审计执行协议（audit-depth）"唯一权威（quick/standard/deep + 时间盒，统一 standard 适用改动措辞）；§2.2 补充两维正交关系声明（验证矩阵=最低证据门槛，audit-depth=核验投入）
+  - [x] `code-reviewer/SKILL.md`：步骤 2.5 删除重复表格 → 一行引用 + 保留 5 条执行规则 + 补"未声明默认 deep"（此前缺失）
+  - [x] `code-auditor.agent.md`：分级审计执行协议收敛为引用（保留"不得自行升级深度"），总结句对齐 audit-depth 术语
+  - [x] `full-stack-master` agent + skill：审计调用协议补充 §1.3 引用、删除重复时间盒数值
+- 验收：
+  - [x] 全库 grep：时间盒数值仅存于 §1.3 一处；三级适用改动措辞四文件一致；默认 deep 规则 5 处一致
+  - [x] lint:md + check:links（115 文件）+ 编号标记扫描零命中
+  - [x] Review Gate：deep 审计 Pass（无 blocker；warning-1 Todo 登记已补齐、suggest-1 总结句收敛已关闭）
+- 任务粒度：单批提交（5 文件 / 16+ 行，对齐经验归档 §二十四）。
+
+---
+
 ## 当前状态
+
+- **T709 治理规范收敛已完成（2026-08-12）**：用户指出 `ai-collaboration.md` §2.2 验证分级矩阵与 `.github` agent/skill 执行的 `audit-depth` 分级审计执行协议冲突——同一张表在 3 处重复抄写（standard 行措辞漂移）、两维关系未声明、默认 `deep` 规则覆盖不一致。修复：§1.3 升级为唯一权威协议（quick/standard/deep + 时间盒）并声明与 §2.2 正交关系（验证矩阵=最低证据门槛 / audit-depth=核验投入），code-reviewer SKILL 步骤 2.5 / code-auditor agent / full-stack-master agent+skill 全部收敛为一行引用（补"未声明默认 deep"）。质量门：lint:md + check:links（115 文件）+ 编号扫描零命中；deep 审计 Pass（无 blocker，warning-1 Todo 登记与 suggest-1 总结句收敛均已关闭）。提交：单批。
 
 - **M7.1 已归档（2026-08-10）**：T701（RBAC + 用户管理 + 个人界面）与 T707（认证扩展：AUTH_MODE 互斥 + OAuth + OIDC SSO）代码交付完成，全部 Review Gate 通过（T707-1 双轮、T707-2/3 各一轮）。质量门：单测 92/92 + e2e 22 用例 + ui-validator 视觉 8/8 + lint/typecheck/build。**剩余 3 项真实凭据人工验收**（OAuth 闭环 / OIDC 闭环 / 配置显示路径），登记 [todo-archive.md §M7.1](todo-archive.md#m71-认证与用户体系已归档)。
 - **T702 已实施完成（2026-08-10）**：三个子任务全部落地并独立提交——T702-1 队列基础设施（93057088：queue-mode 决策 + jobId 去重 + 优先级 + 重试，双轮 APPROVE）、T702-2 扫描 API 异步化（d909b89c：scan.post 三态 + 轮询 + failover + 终态竞态防护，双轮 APPROVE）、T702-3 部署接线（57a84a1c：compose redis + env + 单容器 worker 形态，APPROVE）。质量门：单测 106/106 + e2e 23 用例 + lint/typecheck/build 全过。**真实环境验收（2026-08-10 补充）**：本地 Redis 7.4.1 + 进程内集成测试（queue-integration.test.ts 4 例：入队→worker 消费 / 去重 / 终态重建）验证 async 队列闭环；降级路径实测（Redis 3.0 version_too_old → sync）。**修复两个冒烟暴露缺陷**：① jobId 含冒号（BullMQ 6 禁止 `:`，add 抛 Custom Id 错误 → failover 同步）→ 改 `scan-` 前缀；② 后台服务冒烟模式在 Windows 不可靠（进程锁/句柄）→ 改进程内集成测试方案。**剩余人工验收项**：HTTP 层 pending→running→completed 状态流转 + 前端轮询体验（需后台服务环境，如 staging 或 CI redis service）。

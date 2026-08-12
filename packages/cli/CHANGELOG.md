@@ -1,5 +1,26 @@
 # dependfix
 
+# [0.3.0](https://github.com/dependfix/dependfix/compare/dependfix@0.2.0...dependfix@0.3.0) (2026-08-12)
+
+
+### ✨ 新功能
+
+* **mcp:** 实施 P1 能力补充（run_scan 参数化 / fetch_alerts 双源 / fix_dependency 多类型） ([62a655e](https://github.com/dependfix/dependfix/commit/62a655e))
+* **mcp:** 实施 P2 能力补充（discover_repos / cleanup_branches / AI 透传 / history） ([d312570](https://github.com/dependfix/dependfix/commit/d312570))
+
+
+### 🐛 Bug 修复
+
+* **test:** 修复全量并发时 cli git/子进程测试超时 flaky ([db4d8e6](https://github.com/dependfix/dependfix/commit/db4d8e6))
+
+
+### 📦 代码重构
+
+* **cli:** 补充 alerts 模块出口并显式声明 fetcher 聚合口径 ([9e025f5](https://github.com/dependfix/dependfix/commit/9e025f5))
+* **engine:** 拆包批次 2（fixers/config/report/multirepo 迁入 engine） ([7f83971](https://github.com/dependfix/dependfix/commit/7f83971))
+* **engine:** 拆包批次 3（app/helpers/ai/runners 等迁入 engine，cli 薄壳化） ([b5a736f](https://github.com/dependfix/dependfix/commit/b5a736f))
+* **engine:** 拆出 @dependfix/engine 共享执行引擎（批次 1：github/code-scanning 迁移） ([7191609](https://github.com/dependfix/dependfix/commit/7191609))
+
 # [0.2.0](https://github.com/dependfix/dependfix/compare/dependfix@0.1.0...dependfix@0.2.0) (2026-08-07)
 
 

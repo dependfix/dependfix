@@ -1,5 +1,12 @@
 # @dependfix/core
 
+## [0.2.1](https://github.com/dependfix/dependfix/compare/@dependfix/core@0.2.0...@dependfix/core@0.2.1) (2026-08-12)
+
+
+### 🐛 Bug 修复
+
+* **security:** 修复 CodeQL 告警（Actions 权限 / shell 参数化 / ReDoS / 表格转义） ([34e5575](https://github.com/dependfix/dependfix/commit/34e5575))
+
 # [0.2.0](https://github.com/dependfix/dependfix/compare/@dependfix/core@0.1.0...@dependfix/core@0.2.0) (2026-08-07)
 
 

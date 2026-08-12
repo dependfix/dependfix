@@ -1,5 +1,92 @@
 # dependfix
 
+# [0.3.0](https://github.com/dependfix/dependfix/compare/dependfix@0.2.0...dependfix@0.3.0) (2026-08-12)
+
+
+### ✨ 新功能
+
+* **action:** 新增 commands 输入支持自定义验证链（Nuxt prepare 修复验证失败） ([2612e1a](https://github.com/dependfix/dependfix/commit/2612e1a))
+* **mcp:** 实施 P1 能力补充（run_scan 参数化 / fetch_alerts 双源 / fix_dependency 多类型） ([62a655e](https://github.com/dependfix/dependfix/commit/62a655e))
+* **mcp:** 实施 P2 能力补充（discover_repos / cleanup_branches / AI 透传 / history） ([d312570](https://github.com/dependfix/dependfix/commit/d312570))
+* **mcp:** 新增 @dependfix/mcp MCP Server（T605） ([014f6d2](https://github.com/dependfix/dependfix/commit/014f6d2))
+* **platform:** 仓库 API 支持标签读写（创建/更新/查询 tags 字段） ([55fa20a](https://github.com/dependfix/dependfix/commit/55fa20a))
+* **platform:** 仓库批量导入（GitHub 仓库列表多选 + 幂等批量创建，校验复用 repositorySchema） ([85c6988](https://github.com/dependfix/dependfix/commit/85c6988))
+* **platform:** 定时调度服务（双模：BullMQ scheduler / node-cron 降级 + 仓库选择策略） ([45c3d3c](https://github.com/dependfix/dependfix/commit/45c3d3c))
+* **platform:** 定时计划 CRUD API（列表/创建/更新/删除/手动触发 + 校验重构） ([b830630](https://github.com/dependfix/dependfix/commit/b830630))
+* **platform:** 定时计划管理页面（列表 + 新建/编辑/删除/手动触发 + 导航入口） ([ee0f533](https://github.com/dependfix/dependfix/commit/ee0f533))
+* **platform:** 定时扫描与批量处理数据模型（Schedule/BatchRun 实体 + 仓库标签 + 批量扫描校验） ([9f13aa0](https://github.com/dependfix/dependfix/commit/9f13aa0))
+* **platform:** 告警/凭据/批量运行/扫描历史文案抽取 + 日期格式本地化 + 语言偏好持久化修复 ([90c392d](https://github.com/dependfix/dependfix/commit/90c392d))
+* **platform:** 个人设置界面与 /api/me 个人资料端点（修改密码/邮箱/绑定账号管理） ([ce36ec3](https://github.com/dependfix/dependfix/commit/ce36ec3))
+* **platform:** 批量扫描 API + 批量运行查询 + scheduled-scan worker 闭环 ([81969be](https://github.com/dependfix/dependfix/commit/81969be))
+* **platform:** 批量扫描前端闭环（repos 批量选择+参数弹窗、批量运行页聚合统计+轮询详情、e2e 批量闭环） ([d289802](https://github.com/dependfix/dependfix/commit/d289802))
+* **platform:** 批量执行服务层（BatchRun 聚合纯函数 + 批量执行器） ([d611264](https://github.com/dependfix/dependfix/commit/d611264))
+* **platform:** 认证部署模式与注册准入（AUTH_MODE 互斥 + 邮箱域名黑白名单 + 总开关） ([bd6e9ff](https://github.com/dependfix/dependfix/commit/bd6e9ff))
+* **platform:** 认证与框架页面文案抽取（登录注册/个人设置/用户管理/仪表板双语化） ([4fa36f9](https://github.com/dependfix/dependfix/commit/4fa36f9))
+* **platform:** 扫描异步化（队列入队 + 轮询 + 渐进式降级接线） ([d909b89](https://github.com/dependfix/dependfix/commit/d909b89))
+* **platform:** 同仓库扫描互斥锁（并发防护，M6 轻量版） ([e1ef2a9](https://github.com/dependfix/dependfix/commit/e1ef2a9))
+* **platform:** 写操作权限收紧为 admin/org_admin 并新增组织资源校验（requireRole/requireOrgResource + 权限矩阵测试） ([8d515aa](https://github.com/dependfix/dependfix/commit/8d515aa))
+* **platform:** 新增 ActionTriggerExecutor（T607 B 模式触发） ([1c7cdb9](https://github.com/dependfix/dependfix/commit/1c7cdb9))
+* **platform:** 新增 ContainerExecutor 与扫描编排 API（T603 执行链路） ([209bc48](https://github.com/dependfix/dependfix/commit/209bc48))
+* **platform:** 新增 ScanRun/ScanResult 扫描实体（T603 数据层） ([3d645b5](https://github.com/dependfix/dependfix/commit/3d645b5))
+* **platform:** 新增仓库与凭据管理（T602） ([85aca26](https://github.com/dependfix/dependfix/commit/85aca26))
+* **platform:** 新增扫描触发与结果查看 UI（T603 前端） ([98b3f4a](https://github.com/dependfix/dependfix/commit/98b3f4a))
+* **platform:** 新增仪表板统计与告警视图 API（T604 后端） ([506dd7c](https://github.com/dependfix/dependfix/commit/506dd7c))
+* **platform:** 新增仪表板与告警视图 UI（T604 前端） ([2cb941e](https://github.com/dependfix/dependfix/commit/2cb941e))
+* **platform:** 业务大页文案抽取（仓库管理与定时计划双语化，选项数组响应式化） ([bcc0e25](https://github.com/dependfix/dependfix/commit/bcc0e25))
+* **platform:** 用户管理界面与 API（admin 插件代理 + 列表搜索/角色分配/禁用删除 + 页面角色守卫） ([dc712df](https://github.com/dependfix/dependfix/commit/dc712df))
+* **platform:** 语言切换器与语言偏好联动（导航栏 + 设置页 + PrimeVue locale 同步） ([5515a4a](https://github.com/dependfix/dependfix/commit/5515a4a))
+* **platform:** 支持关闭注册（REGISTRATION_DISABLED 环境变量） ([9a4309c](https://github.com/dependfix/dependfix/commit/9a4309c))
+* **platform:** 组织数据层与角色模型落地（默认组织初始化 + 角色迁移 + admin 插件） ([5811e52](https://github.com/dependfix/dependfix/commit/5811e52))
+* **platform:** B 模式结果回填——自动拉取 action 运行结果（C25） ([17c5082](https://github.com/dependfix/dependfix/commit/17c5082))
+* **platform:** BullMQ 扫描任务队列基础设施（去重/优先级/重试 + 渐进式降级） ([9305708](https://github.com/dependfix/dependfix/commit/9305708))
+* **platform:** GitHub/Google OAuth 登录（socialProviders 条件化 + 登录页按钮 + 可用性单测） ([56e56f9](https://github.com/dependfix/dependfix/commit/56e56f9))
+* **platform:** i18n 基建接入（@nuxtjs/i18n 配置 + 双语语言包 + localeDetector 与定向类型检查） ([80322f8](https://github.com/dependfix/dependfix/commit/80322f8))
+* **platform:** OIDC SSO 企业登录（genericOAuth 插件条件化 + 登录页按钮 + RFC 9207 安全防护） ([6f4b7d1](https://github.com/dependfix/dependfix/commit/6f4b7d1))
+* **scripts:** 发布链路自动化聚合 GitHub Release（release:github） ([179c626](https://github.com/dependfix/dependfix/commit/179c626))
+* **scripts:** release-publish 发布执行器（替代 changeset publish） ([3b51126](https://github.com/dependfix/dependfix/commit/3b51126))
+* **scripts:** release-version 版本提升执行器（替代 changeset version） ([40b6478](https://github.com/dependfix/dependfix/commit/40b6478))
+
+
+### 🐛 Bug 修复
+
+* **action:** 构建链补齐 @dependfix/engine（cli 运行时 imports engine dist，漏构建导致 Security Auto Fix 首跑 ERR_MODULE_NOT_FOUND） ([288ff36](https://github.com/dependfix/dependfix/commit/288ff36))
+* **ci:** 补 engine 构建链并修复失效文档链接（拆包批次 4 CI 回归） ([8dae226](https://github.com/dependfix/dependfix/commit/8dae226))
+* **ci:** 修复 Publish Docker 构建 arm64 SIGILL（复制完整依赖布局 + 禁用 pnpm 自动安装） ([8a24810](https://github.com/dependfix/dependfix/commit/8a24810))
+* **ci:** coverage job 补 nuxt prepare + 超时测试 nock 上限放大 ([e16aeda](https://github.com/dependfix/dependfix/commit/e16aeda))
+* **docs:** 转义 release 指南表格裸 HTML 标签修复 VitePress 构建失败 ([28ba588](https://github.com/dependfix/dependfix/commit/28ba588))
+* **engine:** 验证失败时附 stdout/stderr 摘要提升可观测性 ([36aa07f](https://github.com/dependfix/dependfix/commit/36aa07f))
+* **engine:** overrides 生成先判定大版本冲突并与已有条目取 max 合并 ([2d5cc0c](https://github.com/dependfix/dependfix/commit/2d5cc0c))
+* **mcp:** 修正 fetch_alerts severity 阈值语义并复用 core 过滤校验 API ([4fc22fb](https://github.com/dependfix/dependfix/commit/4fc22fb))
+* **platform:** 结果回填 artifact 选取显式前缀过滤 + B 模式同步等待边界说明 ([60d9fd6](https://github.com/dependfix/dependfix/commit/60d9fd6))
+* **platform:** 批量终态收敛修复（failed 写回保护、入队失败孤儿 run 回收、未知 job 显式抛错）+ 编号清理 ([35b2e95](https://github.com/dependfix/dependfix/commit/35b2e95))
+* **platform:** 修复 dashboard stats 接口因 findOne 缺少 where 条件报错 ([6edb4ac](https://github.com/dependfix/dependfix/commit/6edb4ac))
+* **platform:** 修复 repositoryUpdateSchema 对含 refinement 的 schema 调用 partial 导致 dev 启动崩溃 ([ec7221f](https://github.com/dependfix/dependfix/commit/ec7221f))
+* **platform:** 修复 SSR 会话丢失（request-scoped client 转发 cookie）并调整认证与表单 UI ([781d3fa](https://github.com/dependfix/dependfix/commit/781d3fa))
+* **platform:** BullMQ jobId 冒号限制修复 + worker processor 注入 + 真实 Redis 集成测试 ([98e04af](https://github.com/dependfix/dependfix/commit/98e04af))
+* **platform:** parseQueueEnabled 兼容布尔值（NUXT_QUEUE_ENABLED 运行时覆盖经 destr 解析为布尔，只认字符串时强制同步失效→本地 Redis 可达时走 async 挂起） ([a42631e](https://github.com/dependfix/dependfix/commit/a42631e))
+* **scripts:** 已发布判定改用 fetch 直连 registry（npm view 在 Windows 下必超时失效） ([0c102f2](https://github.com/dependfix/dependfix/commit/0c102f2))
+* **scripts:** check-links 增加正文绝对路径扫描，拒绝个人机器路径泄漏 ([d3ed27b](https://github.com/dependfix/dependfix/commit/d3ed27b))
+* **security:** 修复 CodeQL 告警（Actions 权限 / shell 参数化 / ReDoS / 表格转义） ([34e5575](https://github.com/dependfix/dependfix/commit/34e5575))
+* **test:** 修复全量并发时 cli git/子进程测试超时 flaky ([db4d8e6](https://github.com/dependfix/dependfix/commit/db4d8e6))
+* **types:** strict 迁移修复（null/undefined 收窄与类型对齐） ([50c9dac](https://github.com/dependfix/dependfix/commit/50c9dac))
+
+
+### 📦 代码重构
+
+* **ci:** Auto version 步骤提取为 release:auto-version 脚本（schedule 专属） ([8fa6119](https://github.com/dependfix/dependfix/commit/8fa6119))
+* **ci:** changelog 校验提取为 verify:changelog 脚本（消除 CI 内嵌 shell+Node 混合） ([6fde4bd](https://github.com/dependfix/dependfix/commit/6fde4bd))
+* **ci:** tag 推送核验提取为 release:push-tags 脚本（消除 CI 内嵌 shell 循环） ([8fc4e5b](https://github.com/dependfix/dependfix/commit/8fc4e5b))
+* **cli:** 补充 alerts 模块出口并显式声明 fetcher 聚合口径 ([9e025f5](https://github.com/dependfix/dependfix/commit/9e025f5))
+* **engine:** 拆包批次 2（fixers/config/report/multirepo 迁入 engine） ([7f83971](https://github.com/dependfix/dependfix/commit/7f83971))
+* **engine:** 拆包批次 3（app/helpers/ai/runners 等迁入 engine，cli 薄壳化） ([b5a736f](https://github.com/dependfix/dependfix/commit/b5a736f))
+* **engine:** 拆包批次 4（mcp/platform 切换 engine 依赖，恢复发布链路） ([74f821a](https://github.com/dependfix/dependfix/commit/74f821a))
+* **engine:** 拆出 @dependfix/engine 共享执行引擎（批次 1：github/code-scanning 迁移） ([7191609](https://github.com/dependfix/dependfix/commit/7191609))
+* **mcp:** 收口复用缺口（统一错误包装 / 复用 cli 默认配置 / enum 对齐常量） ([fd99262](https://github.com/dependfix/dependfix/commit/fd99262))
+* **platform:** 用户管理与个人设置改用 better-auth 原生端点（移除自建 /api/me 与 /api/users 代理） ([a115e35](https://github.com/dependfix/dependfix/commit/a115e35))
+* **platform:** server 代码统一改用 #server/ 别名引入 ([fb62e25](https://github.com/dependfix/dependfix/commit/fb62e25))
+* **release:** 发布包清单单点化 + 修复 changelog 已发布判定 ([83edffc](https://github.com/dependfix/dependfix/commit/83edffc))
+* **scripts:** 移除 changeset 切换自研 release 链路（原子切换） ([3469691](https://github.com/dependfix/dependfix/commit/3469691))
+
 # [0.2.0](https://github.com/dependfix/dependfix/compare/dependfix@0.1.0...dependfix@0.2.0) (2026-08-07)
 
 

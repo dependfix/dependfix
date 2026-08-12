@@ -1,6 +1,6 @@
 # @dependfix/mcp
 
-# 0.1.0 (2026-08-09)
+# 0.1.0 (2026-08-12)
 
 
 ### ✨ 新功能
@@ -13,9 +13,12 @@
 ### 🐛 Bug 修复
 
 * **mcp:** 修正 fetch_alerts severity 阈值语义并复用 core 过滤校验 API ([4fc22fb](https://github.com/dependfix/dependfix/commit/4fc22fb))
+* **types:** strict 迁移修复（null/undefined 收窄与类型对齐） ([50c9dac](https://github.com/dependfix/dependfix/commit/50c9dac))
 
 
 ### 📦 代码重构
 
+* **engine:** 拆包批次 4（mcp/platform 切换 engine 依赖，恢复发布链路） ([74f821a](https://github.com/dependfix/dependfix/commit/74f821a))
 * **mcp:** 收口复用缺口（统一错误包装 / 复用 cli 默认配置 / enum 对齐常量） ([fd99262](https://github.com/dependfix/dependfix/commit/fd99262))
 * **release:** 发布包清单单点化 + 修复 changelog 已发布判定 ([83edffc](https://github.com/dependfix/dependfix/commit/83edffc))
+

@@ -1,5 +1,9 @@
-import { describe, expect, it } from 'vitest'
-import { buildVerifySpecs, collectFailures, verifyChangelog } from './verify-changelog.mjs'
+import { readFileSync } from 'node:fs'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { buildVerifySpecs, collectFailures, main, verifyChangelog } from './verify-changelog.mjs'
+
+// main() 依赖真实 fs（readFileSync 读 package.json 与 changelog），统一 mock
+vi.mock('node:fs', () => ({ readFileSync: vi.fn() }))
 
 // 模拟 changelog 内容（minor 段 + patch 段 + 历史段，与 create-github-release.test.mjs 同款形态）
 const changelog = [
@@ -87,5 +91,60 @@ describe('collectFailures', () => {
     it('returns empty when all pass', () => {
         const okSpecs = [{ file: 'packages/core/CHANGELOG.md', version: '0.2.0' }]
         expect(collectFailures(okSpecs, readFile)).toEqual([])
+    })
+
+    it('rethrows non-ENOENT read errors (fail-closed, not silently skipped)', () => {
+        const readFile = () => {
+            throw Object.assign(new Error('permission denied'), { code: 'EACCES' })
+        }
+        expect(() => collectFailures([{ file: 'packages/core/CHANGELOG.md', version: '0.2.0' }], readFile)).toThrow('permission denied')
+    })
+})
+
+describe('main', () => {
+    const changelogWithSection = [
+        '# dependfix',
+        '',
+        '## [0.2.1](https://github.com/dependfix/dependfix/compare/0.2.0...0.2.1) (2026-08-12)',
+        '',
+        '### ✨ 新功能',
+        '',
+        '* **cli:** 发布能力 ([abc1234](https://github.com/dependfix/dependfix/commit/abc1234))',
+        '',
+    ].join('\n')
+
+    beforeEach(() => {
+        vi.spyOn(console, 'log').mockImplementation(() => {})
+        vi.spyOn(console, 'error').mockImplementation(() => {})
+    })
+
+    afterEach(() => {
+        vi.unstubAllGlobals()
+        vi.restoreAllMocks()
+    })
+
+    it('passes when all package and root changelogs contain the version sections', () => {
+        vi.mocked(readFileSync).mockImplementation((file) => {
+            if (String(file).endsWith('package.json')) {
+                return JSON.stringify({ version: '0.2.1' })
+            }
+            return changelogWithSection
+        })
+        main()
+        expect(console.log).toHaveBeenCalledWith('changelog is up to date')
+        expect(console.error).not.toHaveBeenCalled()
+    })
+
+    it('reports failures with ::error:: and exits 1 when a section is missing', () => {
+        const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => {})
+        vi.mocked(readFileSync).mockImplementation((file) => {
+            if (String(file).endsWith('package.json')) {
+                return JSON.stringify({ version: '9.9.9' })
+            }
+            return changelogWithSection
+        })
+        main()
+        expect(console.error).toHaveBeenCalledWith(expect.stringContaining('::error::'))
+        expect(exitSpy).toHaveBeenCalledWith(1)
     })
 })

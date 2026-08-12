@@ -375,3 +375,16 @@
   - **新增 workspace 运行时依赖（被 import 的包）后，必须全局搜索并同步所有"显式构建链"入口**：`rg -n "filter.*build|--filter" .github action.yml Dockerfile* package.json`——pnpm install 会按拓扑链接，但 `pnpm --filter X build` 不会自动带依赖构建（test.yml 注释已明示这一点，action.yml 是同类清单里的漏网者）。
   - **tsdown external 依赖的构建缺口要到"运行期加载"才暴露**：lint/typecheck/build 全绿不代表可运行——复合 action 的 smoke check（构建后立即执行 bin --help）是拦截此类问题的关键关卡，应保留。
   - **"新增包"的提交必须连带检查清单**：CI 构建链（test.yml）、部署构建链（Dockerfile）、action 构建链（action.yml）、release 构建链——四者各自维护 filter 清单时容易不同步；至少让新增运行时依赖包出现时逐个核对。
+
+## 三十六、CI 双 run 失败：锚点漂移 + dependfix 验证链缺 nuxt prepare（2026-08-12）
+
+> 两个独立 run 同日失败，各暴露一类"检查通过 ≠ 可运行"的缺口：check:links 的锚点校验规则与文档实际改动不同步；dependfix 默认验证链对 Nuxt 消费仓库不成立且失败信息不可见。
+
+- **案例一（Test run 31518301846）**：`check:links` 失败——`docs/design/governance/architecture.md:369` 锚点 `#t708-国际化-i18n` 指向 `../../plan/backlog.md`，但 T708 已从 backlog 上收为 todo.md 当前任务（backlog.md 无此标题）。修复：锚点改指向 `todo.md#t708-国际化-i18n全平台-ui-双语-zh-cn--en-us`（本地 check:links 15 个 md 全部通过后提交）。
+- **案例二（Security Auto Fix run 31552922137）**：dependfix 验证门失败（`pnpm lint` exit 1，60s）→ 回滚 → 整体 exit 2。根因链：eslint.config.js 对 `apps/platform/nuxt.config.ts` 的类型解析使用 `project: ['./apps/platform/.nuxt/tsconfig.json']`（nuxt prepare 生成物）→ dependfix 默认验证链（install + lint + build）无 prepare 步骤 → CI 上 `.nuxt` 缺失 → `Parsing error: TS5012`。本地移走 `.nuxt` 精确复现（1 error）。同日 Test workflow lint 通过是因为 test.yml 有独立 `nuxt prepare` 步骤（§二十七 已登记同款教训），而 Security Auto Fix 的 action 内验证链没有。
+- **修复**：① action.yml 新增 `commands` 输入透传 CLI `--commands`（CLI 早已支持自定义验证链，action 未暴露是接口缺口）；② security-auto-fix.yml 默认验证链改为 `pnpm install --frozen-lockfile, pnpm --filter @dependfix/platform exec nuxt prepare, pnpm lint, pnpm build`；③ verifyProject 失败时附 stdout/stderr 摘要（`formatVerificationError`：`exit code N — 摘要`，超长 head/tail 截断）并 logger.error，解决"报告只有 exit code 1 无法定位"的可观测性缺陷。
+- **启示**：
+  - **锚点指向"当前状态"而非"历史位置"**：任务从 backlog 上收/归档时，引用其锚点的文档必须同步（check:links 校验的是 looseNorm 后的标题存在性，只认当前文件标题）。
+  - **CI 每个 job 的验证链要与该 job 的实际执行环境自洽**：dependfix 这类"修完即验"的工具，默认验证链对 Nuxt/VitePress 等需要 prepare/生成物的项目不成立——要么暴露自定义验证命令（action `commands` 输入），要么在默认链中探测 prepare 需求。
+  - **验证失败必须携带可定位证据**：验证门只报 `exit code 1` 时，用户无法区分"lint 语法错误 / 缺生成物 / 环境问题"——失败 action 附 stdout/stderr 摘要（脱敏后）是验证门的基本可观测性要求。
+  - **工具"吃自己狗粮"的价值**：dependfix 扫描自身仓库即暴露 action 接口缺口（commands 未透传）与验证链盲区，dogfooding 是产品缺陷的第一发现者。

@@ -1,7 +1,7 @@
 {
   "name": "@dependfix/mcp",
   "version": "0.1.2",
-  "description": "MCP Server for dependfix: expose scan/fix capabilities to AI assistants",
+  "description": "dependfix MCP 服务：向 AI 助手暴露扫描/修复能力（stdio）",
   "author": "CaoMeiYouRen",
   "license": "MIT",
   "type": "module",

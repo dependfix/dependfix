@@ -29,13 +29,20 @@
   | 阶段 | 内容 | 缺口（statements） | 状态 |
   |:--|:--|--:|:--|
   | 1 | `scripts` 提升至 80%（distill-wisdom/check-links/sync-skills 纯函数提取 + 补测；auto-version/tag-released-versions 等补测） | 419 | ✅ 完成（2026-08-12，四维 ≥ 80%） |
-  | 2 | `apps/platform/server` api 路由层 + database + queue 服务补测 | 550 | ⬜ |
+  | 2 | `apps/platform/server` api 路由层 + database + queue 服务补测 | 550 | 🔄 进行中（api 路由层 16/22 handler 已覆盖） |
   | 3 | `packages/cli` 入口 + `apps/platform/app` 层补测 | 100 | ⬜ |
-  | 4 | 全局收口（branches/functions 维度补强，目标四维均 ≥ 80%） | — | ⬜ |
+  | 4 | 全局收口（branches/functions 维度补强，目标四维均 ≥ 80%） | — | 🔄 提前启动（branches 76.38% 未达标） |
 
 - **阶段 1 完成记录（2026-08-12）**：scripts 33.7% → **Stmts 81.8% / Branch 80.59% / Funcs 83.08% / Lines 81.76%**（四维达标）；全量测试 1363 passed / 4 skipped 无回归。批次：1a（b57d476b distill/sync）→ 1b（ce336a90 check-links）→ 1c（fd6a2074 auto-version/tag-released）→ 1d（47459b4a 发布脚本 main）→ 1e（f3ed43c2 release-publish main）→ 1f（538f268e create-release-plan）→ 1g（6bd81b1d changelog mergeUnreleased），每批 Review Gate Pass。
   - 已知边界：release-version main 写回真实 package.json 不可测（放弃，61%）；changelog 顶层循环依赖本地 tag 短路 / npm 可达（离线 CI 需注意）；isPreMajor 测试断言 0.x 与真实版本耦合（1.0.0 发布后需同步更新，登记 Note）。
   - 下一阶段：阶段 2 `apps/platform/server`（api 路由层 + database + queue，缺口 550 stmts）
+- **阶段 2 checkpoint（2026-08-12）**：
+  - **api 路由层 16/22 handler 已覆盖**（除 auth/[...].ts better-auth 代理外全部）：repos（index/[id]/importable/batch/batch-scan/scan.post）、credentials（index/[id]）、runs（index/[id]）、batch-runs（index/[id]）、alerts、dashboard、schedules（index/[id]/trigger）
+  - 测试基建：`apps/platform/tests/api-helper.ts`（h3 event 构造：req.body 预置 unenv 风格 + context.params；expectError；:memory: SQLite）+ `setup-nuxt-server.ts`（5 个 Nuxt auto-import 注入）+ vitest setupFiles
+  - 测试模式（已审计通过）：guard 层 mock（鉴权由 guard.test.ts 单独覆盖）、`repo.create()` 手动 save（plain object 不触发 BeforeInsert）、vi.hoisted（mock factory 提升）、Octokit class mock
+  - **全量 checkpoint：Statements 81.53% / Lines 81.59% / Functions 80.61%（三达标）/ Branches 76.38%（未达标，阶段 4 攻坚）**；1434 passed / 4 skipped
+  - 剩余高 ROI（branches 缺口）：scan-orchestrator（缺 52）、utils/auth（缺 38）、typeorm-adapter（缺 30）、queue.service（16）+ redis/scan-queue、database/index（10）、engine/branch-cleanup（19）+ app/index（17）+ pnpm-audit-fetcher（21）、cli/skills/index（24）、app/middleware/auth（10）
+  - 补测候选（suggest 登记）：scan.post 409 终态分支、importable private 无 push 权限过滤、batch-scan 混合 id 过滤、credentials token:'' 保护分支
 
 - 冲刺执行按 [testing.md §5.1 覆盖率冲刺执行方法](../standards/testing.md)（fresh 基线 → 高 ROI 切片 → 小步快跑 → 全量 checkpoint）。
 - 验收：`pnpm run test:coverage` 四维全部 >= 80%（CI coverage job 转绿）。

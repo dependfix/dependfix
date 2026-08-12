@@ -518,3 +518,61 @@
 - **提交**: bd6e9ffc（T707-1）+ 56e56f95（T707-2）+ 6f4b7d1f（T707-3）+ 25ac7540（状态同步）
 - **Review Gate**: T707-1 双轮（首轮 REJECT P1 死锁 + P2×3/P3×5 → 修复后复审 APPROVE）；T707-2/3 各 APPROVE
 - **遗留登记（待人工验收，真实凭据）**: ① 真实 GitHub/Google OAuth 登录闭环（需 OAuth App 凭据）；② 真实 IdP OIDC 登录闭环（需 RFC 9207 iss 回显支持的 IdP）；③ 构建期配置凭据后按钮显示路径实测
+
+---
+
+## M7.2: 平台能力深化（已归档）
+
+> 归档日期: 2026-08-12（T702/T704/T708/T709/T710 代码交付完成；T711 覆盖率冲刺进行中不归档；T705/T703 按用户指示延期至 backlog）
+> 阶段摘要: 参见 [roadmap.md §M7](roadmap.md)
+> 设计文档: [platform-scheduled-batch.md](../design/governance/platform-scheduled-batch.md)（T704，Review Gate Pass）
+
+### T702 任务队列与并发控制（BullMQ + Redis + 渐进式降级） ✅
+
+- **交付物**: 基于 BullMQ + Redis 的任务调度系统（异步扫描队列 + 并发控制 + 优先级 + 去重 + 重试）
+- **实现决策**: D1 扫描异步化（入队立即返回 + 前端轮询；B 模式结果回填异步化）；D2 Redis 基础设施（本地本机 Redis / 生产 compose / 无 Redis 同步降级）；D3 worker 部署形态（独立进程 / in-process worker / 同步降级三态）
+- **实现内容**: 子任务 1（队列基础设施）：redis.ts 连接封装（lazyConnect + ping 探测）+ scan-queue.ts（BullMQ jobId 去重 + priority 1/5/10 + 指数退避）+ scan-worker.ts + queue-mode.ts 模式决策纯函数（14 例单测）；子任务 2（扫描 API 异步化）：scan.post 三态（入队/pending/同步）+ runScanForRepository 拆分 + repos.vue 轮询（2s）+ queue.service.ts 惰性单例 + 真实 Redis 7.4.1 集成测试 4 例（入队→消费/去重/终态重建）；子任务 3（部署运维）：docker-compose redis:7-alpine + NUXT_REDIS_URL/QUEUE_*/IN_PROCESS_WORKER env + .env.example
+- **验收**: 单测 106/106 + e2e 23 用例；降级路径实测（Redis 3.0 version_too_old → sync completed）；队列闭环真实 Redis 集成测试；修复 jobId 冒号限制（scan- 前缀）与 parseQueueEnabled 布尔解析两个冒烟缺陷
+- **提交**: 93057088（T702-1）+ d909b89c（T702-2）+ 57a84a1c（T702-3），双轮 Review Gate APPROVE
+- **非目标**: webhook 触发（队列优先级预留 5，登记 backlog）、跨实例分布式锁的精细调优（BullMQ 默认即可）
+- **遗留登记（待人工验收）**: HTTP 层 pending→running→completed 状态流转 + 前端轮询体验（需后台服务/staging 环境）
+
+### T704 定时扫描与批量处理（cron 调度 + 批量选择 + 聚合报告） ✅
+
+- **交付物**: 定时调度 + 批量执行 + 聚合报告（到点自动触发 + 多仓库一次执行 + 跨仓库统计）
+- **实现决策**: D1 双模调度（BullMQ upsertJobScheduler / node-cron 降级）；D2 4 种仓库选择策略（all/organization/tag/explicit + tags JSON 列）；D3 聚合轮询更新（无 Worker 回调）；D4 tags JSON 字符串列
+- **实现内容**: 子任务 1（数据模型）：Schedule/BatchRun 实体 + Repository.tags + ScanRun.batchRunId + Zod 校验（scheduleSchema 交叉校验 + cronIsValid 5/6 段 + isValidTimezone，23 例单测）；子任务 2（调度服务 + API + 前端）：scheduler.service 双模单例 + selector 4 策略权限隔离 + Schedule CRUD + 手动触发 + /schedules 页面（15+29 例单测）；子任务 3（批量执行 + 聚合报告）：batch-scan API + batch-runs 列表/详情 + 聚合统计纯函数 + scheduled-scan processor + repos 复选框批量扫描 + /batch-runs 页面 + e2e 闭环
+- **验收**: platform 单测 179 过/4 条件跳过 + e2e 25 用例 + lint/typecheck/build；修复 e2e 根因（NUXT_QUEUE_ENABLED destr 布尔解析）；Review Gate 3 分区并发 + 复审（B1 聚合写回覆盖 failed 终态等 4 项关闭）
+- **提交**: 9f13aa0b（T704-1）+ 55fa20a9 + 45c3d3cf（T704-2）+ b830630e + ee0f533f + d6112649 + 81969be6 + d2898023 + 35b2e95c（T704-3）
+- **非目标**: webhook 触发（T702 预留 priority=5）、标签管理独立 UI（tags 经仓库编辑表单输入）、定时计划执行历史趋势图、邮件通知（SMTP 配置依赖，登记后续）、跨组织批量选择（随多租户 backlog）
+- **遗留登记（待人工验收）**: ① async 定时触发集成测试（BullMQ upsertJobScheduler 短间隔验证，需 Redis >= 5）；② Schedule CRUD e2e 补覆盖（当前单测覆盖，e2e 未覆盖）
+
+### T708 国际化 i18n（全平台 UI 双语 zh-CN / en-US） ✅
+
+- **交付物**: 全平台 UI 双语（zh-CN 默认 / en-US /en 前缀）+ 语言切换/检测/本地化格式
+- **实现决策**: D1 @nuxtjs/i18n v10 + prefix_and_default；D2 检测优先级 URL > Cookie > 浏览器 > 默认；D3 偏好存 Cookie（多设备同步登记 C37）；D4 PrimeVue locale 联动；D5 datetime/number 格式本地化
+- **实现内容**: 子任务 1（基建）：@nuxtjs/i18n 10.6.0 + primelocale 2.4.0 + localeDetector（resolveLocale 纯函数 7 例）+ 语言包骨架 40 键 + 切换器 + PrimeVue 联动插件；子任务 2（认证框架）：login/register/settings/users/dashboard/index 六页面文案抽取（153 键）；子任务 3（业务大页）：repos/schedules 文案 t() 化（288 键，batchModeOptions 响应式）；子任务 4（其余业务+收尾）：alerts/credentials/batch-runs/runs 抽取（410 键）+ d() 日期格式统一 + detectBrowserLanguage 修复 + e2e 基建（hydration 等待/Origin 头）+ i18n e2e 3 用例
+- **验收**: 单测 186/190 + e2e 28 用例 + lint/typecheck/build；全平台用户可见中文零命中（含全角标点口径）；README 补 i18n 说明
+- **提交**: 4 子任务分批提交（基建 / 认证框架 / 业务大页 / 其余收尾），逐批 Review Gate Pass
+- **非目标**: 服务端 API 错误消息 i18n（C36）、语言偏好多设备同步（C37）、第三方语言
+- **已知边界**: localeDetector 执行面当前未激活（@intlify/h3 惰性绑定，平台无服务端 useTranslation 调用），TypeError 隐患已消除但端到端触发验证待服务端翻译场景引入时覆盖
+
+### T709 治理规范收敛：验证分级矩阵与分级审计执行协议去冲突 ✅
+
+- **交付物**: 消除两套分级体系冲突（同一张表三处重复抄写、两维关系未声明、默认 deep 覆盖不一致）
+- **实现内容**: ai-collaboration.md §1.3 升级为 audit-depth 唯一权威协议；code-reviewer SKILL / code-auditor agent / full-stack-master agent+skill 收敛为一行引用（补"未声明默认 deep"）
+- **验收**: 全库 grep 单点声明 + lint:md + check:links（115 文件）+ 编号扫描零命中；deep 审计 Pass
+- **提交**: 单批（2026-08-12）
+
+### T710 CI lint 警告清理（10 → 0） ✅
+
+- **交付物**: pnpm run lint 警告 10 → 0（test/release/docker 三工作流恢复绿）
+- **实现内容**: 批次 1+2（templates.ts 未用参数 + no-dynamic-delete 重建 + overrides-io 拆分）；批次 3（processRepoForFix 681 行拆 repo-fix.ts/repo-alerts.ts）；批次 4（3 个 >1000 行测试文件拆 describe + test-helpers）；批次 5（repos.vue 980 行拆 ImportReposDialog.vue）
+- **验收**: 全仓 lint 0 警告；全量测试无回归（core 129 + engine 764 + platform 186/190 + e2e 28）
+- **提交**: 8f95a2ec + 660362fb + e9998354 + 4ee9cf59
+
+### 遗留登记（归档时点）
+
+- **转入当前任务 [todo.md](todo.md)**: T711 覆盖率冲刺（进行中，口径修正已完成，分阶段补测中）；T705 生产级部署 / T703 跨平台 Git（已延期，见 [backlog.md §M7.2](backlog.md#m72-平台能力深化)）
+- **待人工验收（真实环境）**: T701 真实凭据 3 项（OAuth 闭环 / OIDC 闭环 / 配置显示路径）；T702 HTTP 层状态流转 + 前端轮询；T704 async 定时触发集成测试 + Schedule CRUD e2e
+- **已知边界（归档时点）**: 见 [todo.md 已知边界](todo.md) 与 [backlog.md](backlog.md)（C26/C28/C29/C30、C33、C34、C36/C37、B1/B2、T904/T905/T906、D1/D2/D3/D8 触发条件项）

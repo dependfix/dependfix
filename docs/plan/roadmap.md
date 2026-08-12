@@ -14,7 +14,7 @@
 | M5: AI Breaking Change 研判 | Changelog 采集、LLM 研判、修复生成、质量门、CLI 解耦 | P1 | 已完成（2026-08-07 归档；T501-T506 全部完成，903 tests，Review Gate 每任务独立审计） |
 | M5.5: Skill 编排（CLI 先行） | 产品 skill 分发（npx skills 主通道 + 自研兜底）与主流 agent 工具接入，MCP 为后续增强后端 | P2 | 已完成（2026-08-07 归档；T506-T508 完成，929 tests，Review Gate 每任务独立审计 PASS） |
 | M6: 最小平台 MVP | 仓库管理、凭据管理、仪表板、MCP Server、Docker 部署 | P1 | 已完成（2026-08-08 归档；T601-T605+T607 全部完成，991 tests） |
-| M7: 企业级平台增强 | M7.1 认证与用户体系（RBAC+用户管理+个人界面、OIDC SSO / GitHub·Google OAuth、邮箱域名黑白名单）；M7.2 平台能力深化（BullMQ+Redis、定时批量、i18n、生产部署、跨平台 Git、MCP 发布） | P2 | 进行中（2026-08-09 规划定稿；M7.1 已归档 2026-08-10；M7.2 T702/T704 已完成，T708 规划中） |
+| M7: 企业级平台增强 | M7.1 认证与用户体系（RBAC+用户管理+个人界面、OIDC SSO / GitHub·Google OAuth、邮箱域名黑白名单）；M7.2 平台能力深化（BullMQ+Redis、定时批量、i18n、生产部署、跨平台 Git、MCP 发布） | P2 | 已归档（M7.1 2026-08-10 / M7.2 2026-08-12，T702/T704/T708/T709/T710/T706 完成；T705/T703 延期 2026-08-12；后续任务 T711 覆盖率冲刺） |
 
 ## M0: 基线收敛
 
@@ -100,20 +100,20 @@ Changelog / Release Notes 采集、多 AI 提供商封装、AI 研判（问题�
 
 > 详细任务见 [todo-archive.md §M6](todo-archive.md#m6-最小平台-mvp已归档)
 
-## M7: 企业级平台增强
+## M7: 企业级平台增强（已归档）
 
 拆两个子阶段（2026-08-09 规划定稿，需求澄清见 [backlog.md §M7 规划决策](backlog.md#m7-企业级平台增强)）：
 
 - **M7.1 认证与用户体系**（已归档 2026-08-10，见 [todo-archive.md §M7.1](todo-archive.md#m71-认证与用户体系已归档)）：T701 RBAC + 用户管理 + 个人界面（三角色，决策 D1/D2/D3 已确认）、T707 认证扩展（`AUTH_MODE` 互斥二选一：enterprise OIDC SSO + 域名白名单 / public GitHub·Google OAuth + 域名黑名单）。设计文档：[platform-auth-users.md](../design/governance/platform-auth-users.md)（Review Gate Pass）。
-- **M7.2 平台能力深化**（进行中，[todo.md](todo.md)）：T702 BullMQ+Redis 任务队列（✅ 已完成 2026-08-10）、T704 定时扫描与批量（✅ 已完成 2026-08-11）、T708 国际化 i18n（📋 规划定稿 2026-08-11，见 [todo.md §T708](todo.md#t708-国际化-i18n全平台-ui-双语-zh-cn--en-us)）；T705 生产级部署（PostgreSQL + Helm + Sentry）、T703 跨平台 Git（GitLab/Bitbucket）、T706 MCP Skill 集成与发布（未排期，见 [backlog.md §M7.2](backlog.md#m72-平台能力深化)）。
+- **M7.2 平台能力深化**（已归档 2026-08-12，见 [todo-archive.md §M7.2](todo-archive.md#m72-平台能力深化已归档)）：T702 BullMQ+Redis 任务队列（✅ 2026-08-10）、T704 定时扫描与批量（✅ 2026-08-11）、T708 国际化 i18n（✅ 2026-08-11）、T709 治理规范收敛 + T710 CI lint 清理（✅ 2026-08-12）、T706 MCP 发布（✅ 2026-08-12，`@dependfix/mcp@0.1.2`）；T705 生产级部署（PostgreSQL + Helm + Sentry）、T703 跨平台 Git（GitLab/Bitbucket）**已延期 2026-08-12**（用户指示，见 [backlog.md §M7.2](backlog.md#m72-平台能力深化)）；当前任务：T711 覆盖率冲刺至 80%（[todo.md §T711](todo.md#t711-覆盖率口径修正--冲刺至-80口径已完成冲刺进行中)）。
 
 ---
 
 ## 详细任务
 
-- 当前阶段任务：[todo.md](todo.md)（M7.2 平台能力深化：T702/T704 已完成、T708 规划定稿待实施）
+- 当前阶段任务：[todo.md](todo.md)（M7 已归档；T711 覆盖率冲刺 + 待人工验收项）
 - 已归档阶段：[todo-archive.md](todo-archive.md)
-- 后续阶段任务（M7.2 + 未排期）：[backlog.md](backlog.md)
+- 后续阶段任务（延期项 + 未排期增强候选）：[backlog.md](backlog.md)
 
 ## 交付原则
 

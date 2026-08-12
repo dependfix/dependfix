@@ -398,3 +398,10 @@
 - **启示**：
   - **CI 脚本依赖 git 写操作（commit/tag）时，identity 必须由 workflow 显式配置**——不能依赖"某个条件步骤顺带配置"（schedule-only 步骤在手动触发时被跳过即中招）；github-actions[bot] 身份是标准选择。
   - **发布/打 tag 是连续副作用，必须可重入**："发布成功、tag 失败"的中间态一旦被 skip 判定吞掉，就变成永久缺口；检测中间态并补完（幂等自愈）优先于"失败后手动补"，重跑即恢复是发布工具的基本要求。
+
+## 三十八、PowerShell 文本管道按 GBK 解码损坏 UTF-8 + tsconfig exclude 掩盖测试类型错误（2026-08-12，T710 归档转接）
+
+> 来源：T710 CI lint 警告清理（10 → 0）附带经验，归档 M7.2 时从 todo.md 转接沉淀。
+
+- **经验一：git show | Set-Content 文本管道按 GBK 解码会损坏 UTF-8（写入侧）**——Windows PowerShell 文本管道默认按系统代码页（GBK）解码，git show <hash> | Set-Content file 会把 UTF-8 内容读成乱码再写回。**正确做法**：用 cmd 重定向字节安全导出（cmd /c "git show <hash> > file"）或直接 git show <hash> -o file（git 原生写文件）。
+- **经验二：tsconfig exclude *.test.ts 会掩盖测试文件类型错误**——被 exclude 的测试文件不参与 	sc --noEmit，其中类型错误（缺失字段/来源错误）静默通过；test-helpers 提取（T710 批次 4）暴露该问题后，已修正来源与缺失字段。**教训**：测试文件必须纳入类型检查范围（可用 	sconfig.test.json 单独包含，或依赖 vitest 的转换期类型校验），禁止用 exclude 排除测试文件。

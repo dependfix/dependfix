@@ -1,5 +1,15 @@
-import { describe, expect, it } from 'vitest'
-import { buildReleasePlan, parseCommit, pathToPkg, renderPlan, stripDevTags, toBump } from './create-release-plan.mjs'
+import { execSync } from 'node:child_process'
+import { existsSync, writeFileSync } from 'node:fs'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { buildReleasePlan, isPreMajor, main, parseCommit, pathToPkg, renderPlan, stripDevTags, toBump } from './create-release-plan.mjs'
+
+// main()/getLatestTag/collectCommits 依赖真实 git 与文件写入（写 repoRoot/release-plan.md），统一 mock；
+// readFileSync 保留真实实现（isPreMajor 读 core package.json）
+vi.mock('node:child_process', () => ({ execSync: vi.fn() }))
+vi.mock('node:fs', async (importOriginal) => {
+    const actual = await importOriginal()
+    return { ...actual, writeFileSync: vi.fn(), existsSync: vi.fn(() => false) }
+})
 
 describe('parseCommit', () => {
     it('parses type and description', () => {
@@ -117,6 +127,87 @@ describe('stripDevTags', () => {
     })
 
     it('keeps plain text unchanged', () => {
-        expect(stripDevTags('feat(cli): 新增功能')).toBe('feat(cli): 新增功能')
+        expect(stripDevTags('feat(cli): 新增能力')).toBe('feat(cli): 新增能力')
+    })
+})
+
+describe('isPreMajor', () => {
+    it('returns true for current 0.x version (real package.json)', () => {
+        expect(isPreMajor()).toBe(true)
+    })
+})
+
+describe('main', () => {
+    const realArgv = process.argv
+
+    beforeEach(() => {
+        vi.mocked(execSync).mockReset()
+        vi.mocked(execSync).mockImplementation((cmd) => {
+            const c = String(cmd)
+            if (c.includes('tag --merged')) {
+                return ''
+            }
+            if (c.includes('--grep=')) {
+                return ''
+            }
+            if (c.includes('git log')) {
+                return 'abc1234\x1ffix(core): 修复问题\npackages/core/src/a.ts\n'
+            }
+            return ''
+        })
+        vi.spyOn(console, 'log').mockImplementation(() => {})
+        vi.spyOn(console, 'error').mockImplementation(() => {})
+    })
+
+    afterEach(() => {
+        process.argv = realArgv
+        vi.restoreAllMocks()
+    })
+
+    it('reports no changes when git log is empty (no commits)', async () => {
+        vi.mocked(execSync).mockImplementation((cmd) => {
+            if (String(cmd).includes('git log')) {
+                return ''
+            }
+            return ''
+        })
+        main()
+        expect(console.log).toHaveBeenCalledWith('未发现需要提升版本的变更，不生成发布计划')
+        expect(writeFileSync).not.toHaveBeenCalled()
+    })
+
+    it('generates plan file and prints bump lines for changed packages', async () => {
+        main()
+        expect(console.log).toHaveBeenCalledWith('基线 tag：无（使用全量历史）')
+        expect(console.log).toHaveBeenCalledWith(expect.stringContaining('generated'))
+        expect(writeFileSync).toHaveBeenCalledOnce()
+        expect(console.log).toHaveBeenCalledWith(expect.stringContaining('@dependfix/core: patch'))
+    })
+
+    it('uses latest merged tag as baseline when present', async () => {
+        vi.mocked(execSync).mockImplementation((cmd) => {
+            const c = String(cmd)
+            if (c.includes('tag --merged')) {
+                return 'v0.2.1'
+            }
+            if (c.includes('--grep=')) {
+                return ''
+            }
+            if (c.includes('git log')) {
+                return 'abc1234\x1ffeat(core): 新功能\npackages/core/src/b.ts\n'
+            }
+            return ''
+        })
+        main()
+        expect(console.log).toHaveBeenCalledWith('基线 tag：v0.2.1')
+        expect(console.log).toHaveBeenCalledWith(expect.stringContaining('@dependfix/core: minor'))
+    })
+
+    it('exits 1 when plan file already exists', async () => {
+        const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => {})
+        vi.mocked(existsSync).mockReturnValue(true)
+        main()
+        expect(console.error).toHaveBeenCalledWith(expect.stringContaining('已存在'))
+        expect(exitSpy).toHaveBeenCalledWith(1)
     })
 })

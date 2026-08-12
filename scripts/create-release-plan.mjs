@@ -148,7 +148,7 @@ function collectCommits(base) {
 }
 
 /** 读取包版本判断 preMajor（0.x 阶段）。假设三发布包版本同步（当前均为 0.1.0），以 core 为基准 */
-function isPreMajor() {
+export function isPreMajor() {
     const pkg = JSON.parse(readFileSync(join(repoRoot, 'packages/core/package.json'), 'utf8'))
     return typeof pkg.version === 'string' && pkg.version.startsWith('0.')
 }

@@ -198,16 +198,18 @@
 
 ---
 
-### T710 CI lint 警告清理（10 → 0）（✅ 进行中）
+### T710 CI lint 警告清理（10 → 0）（✅ 已完成）
 
 - 优先级：`P2`（CI 门禁修复，2026-08-12 插队）
 - 背景：`pnpm run lint`（`eslint . --fix --max-warnings 10`）在 test/release/docker 三工作流失败——全仓 10 个警告（6 文件 max-lines + 1 max-lines-per-function + 2 unused-vars + 1 no-dynamic-delete）。
 - 拆分批次（单批 ≤ 10 文件，对齐经验归档 §二十四）：
   - [x] 批次 1+2（提交 8f95a2ec）：templates.ts 未用参数 ×2 + engine argsIgnorePattern `^_` 口径 + no-dynamic-delete 不可变重建 + dependency fixer IO 组拆 `overrides-io.ts`（max-lines 947→~720）——10→6
-  - [x] 批次 3（本批）：`app/index.ts` processRepoForFix（681 行）拆 5 步骤函数至 `repo-fix.ts`（max-lines-per-function 681→336），fetch/默认分支/截断提示模块化至 `repo-alerts.ts`，aiUsageAggregate → aiUsageRef 引用回写（max-lines 1331→~590）——6→4
-  - [ ] 批次 4：3 个测试文件 max-lines（>1000）拆分——`core/report/report.test.ts`（1169）/ `engine/app/index.test.ts`（1241）/ `engine/fixers/dependency/index.test.ts`（1534）
-  - [ ] 批次 5：`apps/platform/app/pages/repos.vue` max-lines（980/800）拆组件
-- 验收：全仓 `pnpm run lint` 0 警告（10→0）；各批次 Review Gate Pass；全量测试无回归。
+  - [x] 批次 3（提交 660362fb）：`app/index.ts` processRepoForFix（681 行）拆 5 步骤函数至 `repo-fix.ts`（max-lines-per-function 681→336），fetch/默认分支/截断提示模块化至 `repo-alerts.ts`，aiUsageAggregate → aiUsageRef 引用回写（max-lines 1331→~590）——6→4
+  - [x] 批次 4（提交 e9998354）：3 个测试文件 max-lines（>1000）拆分——`core/report/report.test.ts`（1169）+ `engine/app/index.test.ts`（1241）+ `engine/fixers/dependency/index.test.ts`（1534）拆 describe 至新文件 + 提取 test-helpers——4→1
+  - [x] 批次 5（提交 4ee9cf59）：`apps/platform/app/pages/repos.vue` max-lines（980/800）批量导入 Dialog 拆 `ImportReposDialog.vue` 子组件——1→0
+- 验收：全仓 `pnpm run lint` **0 警告**（10→0）；各批次 Review Gate Pass；全量测试无回归（core 129 + engine 764 + platform 186/190 + e2e 28）。
+- 附带清理：repo-fix 拆出时顺手修正 helpers.ts 注释漂移；i18n 孤儿 key credentialLoadFailed 删除。
+- 经验：① PowerShell `git show | Set-Content` 文本管道按 GBK 解码会损坏 UTF-8（改用 cmd 重定向字节安全导出）；② tsconfig exclude `*.test.ts` 会掩盖测试文件类型错误（test-helpers 提取暴露后已修正来源与缺失字段）。
 
 ---
 

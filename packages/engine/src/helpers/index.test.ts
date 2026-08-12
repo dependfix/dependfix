@@ -13,9 +13,13 @@ const { mockRunVerification } = vi.hoisted(() => ({
     mockRunVerification: vi.fn(),
 }))
 
-vi.mock('../runners/verification-runner', () => ({
-    runVerification: mockRunVerification,
-}))
+vi.mock('../runners/verification-runner', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('../runners/verification-runner')>()
+    return {
+        ...actual,
+        runVerification: mockRunVerification,
+    }
+})
 
 // ---------------------------------------------------------------------------
 // dedupeFixableAlerts（同包收敛）

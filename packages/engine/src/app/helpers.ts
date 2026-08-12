@@ -32,7 +32,7 @@ import { applyCodeScanningFix, restoreSourceFile, snapshotSourceFile } from '../
 import { inferRepoFromGitRemote, type RuntimeConfig } from '../config'
 
 import type { AiUsage } from '../ai/usage'
-import { runVerification, type VerificationResult } from '../runners/verification-runner'
+import { formatVerificationError, runVerification, type VerificationResult } from '../runners/verification-runner'
 
 import { quickVerifyProject } from '../helpers'
 import { validateVerifyCommands } from '../verification/validate-commands'
@@ -589,14 +589,14 @@ export async function verifyProject(
             commands: valid,
         })
 
-        return result.commandResults.map((cr) => ({
-            type: 'verification' as const,
-            repository: repo,
-            target: cr.command,
-            success: cr.exitCode === 0,
-            error: cr.exitCode !== 0 ? `exit code ${cr.exitCode}` : undefined,
-            durationMs: cr.durationMs,
-        }))
+        return result.commandResults.map((cr) => {
+            // 失败时附 stdout/stderr 摘要（已脱敏截断）供日志/报告定位失败原因（run 31552922137 教训：仅 "exit code 1" 无法定位）
+            const error = cr.exitCode !== 0 ? formatVerificationError(cr) : undefined
+            if (error) {
+                logger.error(`Verification failed for ${repo}: ${cr.command} — ${error}`)
+            }
+            return { type: 'verification' as const, repository: repo, target: cr.command, success: cr.exitCode === 0, error, durationMs: cr.durationMs }
+        })
     } catch (error: unknown) {
         const message = toErrorMessage(error)
         logger.error(`Verification error for ${repo}: ${message}`)

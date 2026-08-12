@@ -66,6 +66,7 @@ vi.mock('../fixers/pnpm', async (importOriginal) => {
 
 const verificationRunnerMock = vi.hoisted(() => ({
     runVerification: vi.fn(),
+    formatVerificationError: vi.fn(),
 }))
 
 vi.mock('../runners/verification-runner', () => verificationRunnerMock)

@@ -19,8 +19,10 @@ vi.mock('node:child_process', () => ({
 }))
 
 import {
+    formatVerificationError,
     runVerification,
     sanitizeOutput,
+    summarizeVerificationOutput,
 } from './verification-runner'
 
 // ---------------------------------------------------------------------------
@@ -317,5 +319,64 @@ describe('runVerification', () => {
         })
 
         expect(result.commandResults).toHaveLength(2)
+    })
+})
+
+// ---------------------------------------------------------------------------
+// summarizeVerificationOutput
+// ---------------------------------------------------------------------------
+
+describe('summarizeVerificationOutput', () => {
+    it('keeps short output unchanged', () => {
+        const input = 'Parsing error: TS5012: Cannot read file .nuxt/tsconfig.json'
+        expect(summarizeVerificationOutput(input)).toBe(input)
+    })
+
+    it('keeps output at exactly max length unchanged', () => {
+        const input = 'A'.repeat(1200)
+        expect(summarizeVerificationOutput(input)).toBe(input)
+    })
+
+    it('trims long output with head/tail and omission notice', () => {
+        const output = summarizeVerificationOutput('A'.repeat(3000))
+
+        // head(600) + tail(500) 保留 1100，实际省略 1900（提示数字与实际一致）
+        expect(output).toContain('(1900 chars omitted)')
+        expect(output.startsWith('A'.repeat(600))).toBe(true)
+        expect(output.endsWith('A'.repeat(500))).toBe(true)
+    })
+
+    it('handles empty string', () => {
+        expect(summarizeVerificationOutput('')).toBe('')
+    })
+})
+
+// ---------------------------------------------------------------------------
+// formatVerificationError
+// ---------------------------------------------------------------------------
+
+describe('formatVerificationError', () => {
+    it('includes stderr detail with exit code', () => {
+        const result = formatVerificationError({
+            command: 'pnpm lint',
+            exitCode: 1,
+            durationMs: 100,
+            stdout: '',
+            stderr: 'Parsing error: TS5012: Cannot read file .nuxt/tsconfig.json',
+        })
+
+        expect(result).toBe('exit code 1 — Parsing error: TS5012: Cannot read file .nuxt/tsconfig.json')
+    })
+
+    it('falls back to bare exit code when no output', () => {
+        const result = formatVerificationError({
+            command: 'pnpm lint',
+            exitCode: 2,
+            durationMs: 100,
+            stdout: '',
+            stderr: '',
+        })
+
+        expect(result).toBe('exit code 2')
     })
 })

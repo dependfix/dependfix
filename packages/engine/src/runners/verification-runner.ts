@@ -52,6 +52,31 @@ const DEFAULT_COMMANDS = [
 const MAX_OUTPUT_LINES = 200
 
 /**
+ * 压缩验证命令输出为报告可读的摘要（首尾各取若干行，超长中间省略）。
+ * 完整输出由日志承载；报告保持紧凑，避免 error 字段失控膨胀。
+ */
+export function summarizeVerificationOutput(output: string): string {
+    const maxLength = 1200
+    if (output.length <= maxLength) {
+        return output
+    }
+    const head = output.slice(0, 600).trimEnd()
+    const tail = output.slice(-500).trimStart()
+    return `${head}\n... (${output.length - head.length - tail.length} chars omitted) ...\n${tail}`
+}
+
+/**
+ * 构造失败验证命令的 error 描述：`exit code N — <stdout/stderr 摘要>`。
+ * 无输出时退化为裸 `exit code N`。stdout/stderr 已在 execCommand 中脱敏、截断 200 行。
+ */
+export function formatVerificationError(cr: CommandResult): string {
+    const detail = [cr.stdout, cr.stderr].filter(Boolean).join('\n--- stderr ---\n').trim()
+    return detail
+        ? `exit code ${cr.exitCode} — ${summarizeVerificationOutput(detail)}`
+        : `exit code ${cr.exitCode}`
+}
+
+/**
  * 按顺序在工作目录执行命令序列，任一命令失败则停止。
  *
  * @example

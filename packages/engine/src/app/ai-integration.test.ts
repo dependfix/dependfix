@@ -23,9 +23,13 @@ const { mockRunVerification, mockUpgradeDependency, mockTryLockfileRepair, mockR
     mockRunAiIntegration: vi.fn(),
 }))
 
-vi.mock('../runners/verification-runner', () => ({
-    runVerification: mockRunVerification,
-}))
+vi.mock('../runners/verification-runner', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('../runners/verification-runner')>()
+    return {
+        ...actual,
+        runVerification: mockRunVerification,
+    }
+})
 
 vi.mock('../fixers/dependency', async (importOriginal) => {
     const actual = await importOriginal<typeof import('../fixers/dependency')>()

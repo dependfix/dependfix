@@ -106,6 +106,10 @@ inputs:
     description: "AI 触发范围：both（默认，验证失败或 major 升级）/ failure / major"
     required: false
     default: "both"
+  commands:
+    description: "自定义验证命令（逗号分隔，覆盖默认 install + lint + build）。例如 Nuxt 项目需要先 prepare：`pnpm install --frozen-lockfile, pnpm --filter @dependfix/platform exec nuxt prepare, pnpm lint, pnpm build`"
+    required: false
+    default: ""
 
 outputs:
   report-artifact:
@@ -162,6 +166,7 @@ runs:
         CLEANUP_BRANCHES="${{ inputs.cleanup-branches }}"
         CLEANUP_BRANCHES_AUTO="${{ inputs.cleanup-branches-auto }}"
         CODE_SCANNING="${{ inputs.code-scanning }}"
+        COMMANDS="${{ inputs.commands }}"
         if [ -z "$REPOS" ] && [ -z "$OWNER" ]; then
           REPOS="${{ github.repository }}"
         fi
@@ -183,6 +188,7 @@ runs:
         if [ "$CLEANUP_BRANCHES" = 'true' ]; then args+=("--cleanup-branches"); fi
         if [ "$CLEANUP_BRANCHES_AUTO" = 'true' ]; then args+=("--cleanup-branches-auto"); fi
         if [ "$CODE_SCANNING" = 'true' ]; then args+=("--code-scanning"); fi
+        if [ -n "$COMMANDS" ]; then args+=("--commands" "$COMMANDS"); fi
         args+=("--verbose")
         node "${{ github.action_path }}/packages/cli/dist/bin.mjs" "${args[@]}"
       shell: bash

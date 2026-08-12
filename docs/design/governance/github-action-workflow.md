@@ -51,6 +51,7 @@ branding:
 | `code-scanning` | string | `false` | 同时拉取 Code Scanning alerts（与 Dependabot 并行源；需 token 具备 `security-events: read`） |
 | `ai-api-token` | string | `''` | AI API Token（M5 联调，经 GitHub Secrets 传入） |
 | `ai-api-base-url` | string | `''` | AI API Base URL（M5 联调，支持多 AI 提供商） |
+| `commands` | string | `''` | 自定义验证命令（逗号分隔，覆盖默认 `install + lint + build` 链）。Nuxt 项目需先 `nuxt prepare`（lint 依赖 `.nuxt/tsconfig.json` 生成物），否则 eslint 解析失败——run 31552922137 教训。例：`pnpm install --frozen-lockfile, pnpm --filter @dependfix/platform exec nuxt prepare, pnpm lint, pnpm build` |
 | `github-token` | string | **必填** | GitHub Token（需 security-events 权限） |
 
 > **M4 接入建议（2026-08-06）**：多仓库治理参数（`owner` / `repo-*` / `max-concurrency` / `max-retries`）已接入 Action 输入。**建议为每个仓库单独配置 action**（而非跨仓库 owner 发现）：

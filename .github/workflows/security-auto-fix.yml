@@ -42,6 +42,11 @@ on:
         type: boolean
         required: false
         default: true
+      commands:
+        description: "自定义验证命令（逗号分隔；留空使用本仓库默认链：install + nuxt prepare + lint + build）"
+        type: string
+        required: false
+        default: ""
   schedule:
     # 每天 UTC 0:00（北京时间 8:00）——Dependabot alerts 按天更新，每日巡检覆盖新增漏洞
     - cron: "0 0 * * *"
@@ -80,3 +85,6 @@ jobs:
           # GITHUB_TOKEN 无法读取该 API。仓库 Settings → Secrets 配置 GH_PAT。
           dependabot-alerts-token: ${{ secrets.GH_PAT }}
           cleanup-branches-auto: ${{ inputs.cleanup-branches-auto || 'true' }}
+          # 自定义验证链：Nuxt 平台 lint 依赖 .nuxt/tsconfig.json（nuxt prepare 生成物），
+          # 默认链（install + lint + build）无 prepare 步骤会导致 eslint Parsing error（教训：run 31552922137）
+          commands: ${{ inputs.commands || 'pnpm install --frozen-lockfile, pnpm --filter @dependfix/platform exec nuxt prepare, pnpm lint, pnpm build' }}

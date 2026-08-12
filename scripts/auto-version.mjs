@@ -68,7 +68,7 @@ export function resolveNotes(rootContent, files, anchor, readFile) {
 }
 
 /** 锚包（rootChangelog）→ 包级 changelog 路径映射（单点配置派生） */
-function buildChangelogByPkg() {
+export function buildChangelogByPkg() {
     return Object.fromEntries(
         PUBLISHABLE_PACKAGES.filter((p) => p.changelog).map((p) => [p.pkg, p.changelog]),
     )
@@ -91,20 +91,31 @@ export function main() {
     }
 }
 
-export function run({ git, token, repository }) {
+export function run({ git, token, repository }, deps = {}) {
+    // 依赖注入（测试用）：exec = pnpm 命令执行；文件操作默认走真实 fs / repoRoot
+    const {
+        exec = (cmd) => execSync(cmd, { cwd: repoRoot, stdio: 'inherit', encoding: 'utf8' }),
+        planFile = PLAN_FILE,
+        readFile = (path) => readFileSync(join(repoRoot, path), 'utf8'),
+        exists = existsSync,
+        unlink = unlinkSync,
+        writeFile = writeFileSync,
+        tmpFile = join(tmpdir(), `release-commit-${process.pid}.txt`),
+    } = deps
+
     // 1. 防御性清理残留计划文件（上次失败残留）→ 生成 → 条件消费
     try {
-        unlinkSync(PLAN_FILE)
+        unlink(planFile)
     } catch {
         // 不存在则跳过
     }
-    execSync('pnpm release:plan', { cwd: repoRoot, stdio: 'inherit', encoding: 'utf8' })
-    if (existsSync(PLAN_FILE)) {
-        execSync('pnpm release:version', { cwd: repoRoot, stdio: 'inherit', encoding: 'utf8' })
+    exec('pnpm release:plan')
+    if (exists(planFile)) {
+        exec('pnpm release:version')
     } else {
         console.log('::notice::没有待提升的版本，跳过 release:version')
     }
-    execSync('pnpm changelog', { cwd: repoRoot, stdio: 'inherit', encoding: 'utf8' })
+    exec('pnpm changelog')
 
     // 2. 无变更检测（版本未提升时 changelog 幂等无变化 → no-op）
     git('add -A')
@@ -114,7 +125,7 @@ export function run({ git, token, repository }) {
     }
 
     // 3. 版本选择（主交付物优先）与 changelog 段提取
-    const versionOf = (path) => JSON.parse(readFileSync(join(repoRoot, path, 'package.json'), 'utf8')).version
+    const versionOf = (path) => JSON.parse(readFile(`${path}/package.json`)).version
     const headVersionOf = (path) => {
         const head = readHeadFile(git, `${path}/package.json`)
         return head ? JSON.parse(head).version : '0.0.0'
@@ -123,9 +134,9 @@ export function run({ git, token, repository }) {
     if (!anchor) {
         throw new Error('检测到已暂存变更但无版本变化的发布包，无法确定发布版本（请检查 release:plan/release:version 是否正常）')
     }
-    const notes = resolveNotes(readFileSync(join(repoRoot, ROOT_CHANGELOG), 'utf8'), {
+    const notes = resolveNotes(readFile(ROOT_CHANGELOG), {
         byPkg: buildChangelogByPkg(),
-    }, anchor, (file) => readFileSync(join(repoRoot, file), 'utf8'))
+    }, anchor, readFile)
     if (!notes) {
         throw new Error(`CHANGELOG.md 缺少版本段 ${anchor.version}，无法生成 release commit body`)
     }
@@ -133,15 +144,14 @@ export function run({ git, token, repository }) {
     // 4. commit（-F 文件方式避免多行 body 引号转义）+ push（显式 token URL）
     git('config user.name "github-actions[bot]"')
     git('config user.email "41898282+github-actions[bot]@users.noreply.github.com"')
-    const msgFile = join(tmpdir(), `release-commit-${process.pid}.txt`)
     try {
-        writeFileSync(msgFile, `chore(release): ${anchor.version} [skip ci]\n\n${notes}\n`, 'utf8')
-        git(`commit -F "${msgFile}"`)
+        writeFile(tmpFile, `chore(release): ${anchor.version} [skip ci]\n\n${notes}\n`, 'utf8')
+        git(`commit -F "${tmpFile}"`)
         git(`push "https://x-access-token:${token}@github.com/${repository}.git" master`)
         console.log(`release commit pushed: chore(release): ${anchor.version} [skip ci]`)
     } finally {
         try {
-            unlinkSync(msgFile)
+            unlink(tmpFile)
         } catch {
             // 临时文件不存在则跳过
         }

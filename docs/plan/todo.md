@@ -198,6 +198,19 @@
 
 ---
 
+### T710 CI lint 警告清理（10 → 0）（✅ 进行中）
+
+- 优先级：`P2`（CI 门禁修复，2026-08-12 插队）
+- 背景：`pnpm run lint`（`eslint . --fix --max-warnings 10`）在 test/release/docker 三工作流失败——全仓 10 个警告（6 文件 max-lines + 1 max-lines-per-function + 2 unused-vars + 1 no-dynamic-delete）。
+- 拆分批次（单批 ≤ 10 文件，对齐经验归档 §二十四）：
+  - [x] 批次 1+2（提交 8f95a2ec）：templates.ts 未用参数 ×2 + engine argsIgnorePattern `^_` 口径 + no-dynamic-delete 不可变重建 + dependency fixer IO 组拆 `overrides-io.ts`（max-lines 947→~720）——10→6
+  - [x] 批次 3（本批）：`app/index.ts` processRepoForFix（681 行）拆 5 步骤函数至 `repo-fix.ts`（max-lines-per-function 681→336），fetch/默认分支/截断提示模块化至 `repo-alerts.ts`，aiUsageAggregate → aiUsageRef 引用回写（max-lines 1331→~590）——6→4
+  - [ ] 批次 4：3 个测试文件 max-lines（>1000）拆分——`core/report/report.test.ts`（1169）/ `engine/app/index.test.ts`（1241）/ `engine/fixers/dependency/index.test.ts`（1534）
+  - [ ] 批次 5：`apps/platform/app/pages/repos.vue` max-lines（980/800）拆组件
+- 验收：全仓 `pnpm run lint` 0 警告（10→0）；各批次 Review Gate Pass；全量测试无回归。
+
+---
+
 ## 当前状态
 
 - **T709 治理规范收敛已完成（2026-08-12）**：用户指出 `ai-collaboration.md` §2.2 验证分级矩阵与 `.github` agent/skill 执行的 `audit-depth` 分级审计执行协议冲突——同一张表在 3 处重复抄写（standard 行措辞漂移）、两维关系未声明、默认 `deep` 规则覆盖不一致。修复：§1.3 升级为唯一权威协议（quick/standard/deep + 时间盒）并声明与 §2.2 正交关系（验证矩阵=最低证据门槛 / audit-depth=核验投入），code-reviewer SKILL 步骤 2.5 / code-auditor agent / full-stack-master agent+skill 全部收敛为一行引用（补"未声明默认 deep"）。质量门：lint:md + check:links（115 文件）+ 编号扫描零命中；deep 审计 Pass（无 blocker，warning-1 Todo 登记与 suggest-1 总结句收敛均已关闭）。提交：单批。

@@ -728,7 +728,7 @@ export function buildPrTitle(summary: Pick<RunSummary, 'alertsFixed'>, actions: 
 // Result assembly
 // ---------------------------------------------------------------------------
 
-/** 汇总所有动作到 summary（alertsSkipped 已在 processRepoForFix 中累加）。 */
+/** 汇总所有动作到 summary（alertsSkipped 已在 repo-fix 修复管线中累加）。 */
 export function computeSummary(
     ctx: Pick<AppContext, 'allActions' | 'allAlerts' | 'repoResults' | 'summary'>,
 ): void {

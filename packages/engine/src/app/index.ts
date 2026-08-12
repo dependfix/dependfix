@@ -1,4 +1,3 @@
-import { join } from 'node:path'
 import type { Octokit } from '@octokit/rest'
 import {
     createLogger,
@@ -14,7 +13,6 @@ import {
     type NormalizedSecurityAlert,
     type RunResult,
     type RunSummary,
-    type AiUsageAggregate,
     type RepositoryResult,
     type FixAction,
     type FixError,
@@ -32,51 +30,32 @@ import {
     discoverRepositories,
     mergeRepositories,
     filterExplicitRepositories,
-    fetchDependabotAlerts,
-    fetchCodeScanningAlerts,
     type RepoPolicy,
 } from '../github'
 import { runWithConcurrency } from '../multirepo/scheduler'
 import { writeArchive } from '../report/archiver'
-import {
-    compareSemver,
-    readLockfileVersion,
-    readLockfileVersions,
-    applyVersionedOverrides,
-    isCrossMajorFixRequired,
-    readExistingOverrides,
-    upgradeDependency,
-} from '../fixers/dependency'
 import type { RuntimeConfig } from '../config'
 import { enforceVerificationGate } from '../runners/verification-gate'
-import { fetchPnpmAuditAlerts } from '../alerts'
-import { dedupeFixableAlerts, snapshotTrackedFiles, restoreTrackedFiles, quickVerifyProject, partitionSubmanifestAlerts, isRootDirectDependency, type MemberManifestAlert } from '../helpers'
-import { runAiIntegration } from '../ai/app-integration'
-import { buildUpgradeGroups } from '../grouping'
+import { fetchRepoAlerts, fetchDefaultBranch, truncatedWarning } from './repo-alerts'
+import { processRepoFix, type AiUsageRef } from './repo-fix'
 import {
     buildCommitMessage,
-    buildVersionedOverrides,
-    type AppContext,
-    upgradeAlert,
-    tryLockfileRepair,
-    runCodeScanningFixes,
-    runBranchCleanupForRepo,
-    verifyProject,
-    commitLocalChanges,
-    hasGitChanges,
-    ensureGitignore,
+    buildPrTitle,
+    buildRunResult,
     closeSupersededPRs,
+    codeScanningAlertsTokenHint,
+    commitLocalChanges,
+    computeExitCode,
+    computeSummary,
+    dependabotAlertsTokenHint,
+    ensureGitignore,
+    hasGitChanges,
+    pullRequestCreationHint,
     reportCleanupCandidates,
     autoCleanupMergedBranches,
-    computeSummary,
-    buildRunResult,
-    mergeAiUsage,
-    computeExitCode,
-    dependabotAlertsTokenHint,
-    codeScanningAlertsTokenHint,
-    pullRequestCreationHint,
     resolveAlertRepositories,
-    buildPrTitle,
+    runBranchCleanupForRepo,
+    type AppContext,
 } from './helpers'
 
 // ---------------------------------------------------------------------------
@@ -121,8 +100,8 @@ export class DependfixApp {
     private readonly allErrors: FixError[] = []
     private readonly repoResults: RepositoryResult[] = []
     private readonly summary: RunSummary = createEmptyRunSummary()
-    /** run 级 AI 用量聚合（--ai 实际调用时填充；报告 aiUsage 段数据源） */
-    private aiUsageAggregate: AiUsageAggregate | undefined
+    /** run 级 AI 用量聚合（--ai 实际调用时填充；报告 aiUsage 段数据源；由 repo-fix 管线步骤回写） */
+    private readonly aiUsageRef: AiUsageRef = { aggregate: undefined }
     private startedAt: string = ''
     private finishedAt: string = ''
     /** 运行前工作区是否已有未提交改动（验证门禁回滚保护：避免销毁用户本地工作） */
@@ -190,7 +169,7 @@ export class DependfixApp {
         this.finishedAt = new Date().toISOString()
         computeSummary(this.ctx)
 
-        const runResult = buildRunResult(this.ctx, this.aiUsageAggregate)
+        const runResult = buildRunResult(this.ctx, this.aiUsageRef.aggregate)
         const exitCode = computeExitCode(this.ctx)
 
         // 生成并写入报告
@@ -212,8 +191,8 @@ export class DependfixApp {
 
         this.logger.info(`Run ${this.runId} completed`, { exitCode })
         // AI 用量摘要（决策 4 可见性；报告 aiUsage 段同源）
-        if (this.aiUsageAggregate && this.aiUsageAggregate.calls > 0) {
-            const u = this.aiUsageAggregate
+        if (this.aiUsageRef.aggregate && this.aiUsageRef.aggregate.calls > 0) {
+            const u = this.aiUsageRef.aggregate
             const costText = u.estimatedCostUsd !== undefined
                 ? `, 估算成本 $${u.estimatedCostUsd.toFixed(4)}`
                 : ''
@@ -260,7 +239,7 @@ export class DependfixApp {
         const [owner, name] = repo.split('/')
 
         try {
-            const alerts = await this.fetchAlerts(repo)
+            const alerts = await fetchRepoAlerts(this.ctx, repo)
             const { filtered } = filterAlerts(alerts, { severityThreshold: this.config.severityThreshold })
             const prioritized = prioritizeAlerts(filtered)
             const { limited, truncated } = limitAlerts(prioritized, this.config.maxAlertsPerRepository)
@@ -269,7 +248,7 @@ export class DependfixApp {
                 this.logger.warn(truncatedWarning(this.config, truncated.length))
             }
 
-            const defaultBranch = await this.fetchDefaultBranch(client, owner, name)
+            const defaultBranch = await fetchDefaultBranch(client, owner, name)
 
             this.allAlerts.push(...limited)
             this.repoResults.push({
@@ -339,685 +318,7 @@ export class DependfixApp {
     }
 
     private async processRepoForFix(client: Octokit | null, repo: string): Promise<void> {
-        const startTime = Date.now()
-        const [owner, name] = repo.split('/')
-        let alertsCount = 0
-        let fixable = 0
-        let fixed = 0
-        let failed = 0
-        let lockfileRepaired = false
-        let verificationPassed: boolean | undefined
-        let defaultBranch = ''
-
-        try {
-            // 1. Fetch alerts（双源：github-dependabot 走 alertsToken / pnpm-audit 本地回退）
-            const rawAlerts = await this.fetchAlerts(repo)
-            const { filtered } = filterAlerts(rawAlerts, { severityThreshold: this.config.severityThreshold })
-            const prioritized = prioritizeAlerts(filtered)
-            const { limited, truncated } = limitAlerts(prioritized, this.config.maxAlertsPerRepository)
-            if (truncated.length > 0) {
-                this.summary.alertsTruncated += truncated.length
-                this.logger.warn(truncatedWarning(this.config, truncated.length))
-            }
-            alertsCount = limited.length
-            fixable = limited.filter((a) => a.fixable).length
-
-            defaultBranch = await this.fetchDefaultBranch(client, owner, name)
-
-            this.allAlerts.push(...limited)
-
-            // 2.0 Code Scanning 模板修复（A 类白名单；与依赖升级链路并行、互不干扰）
-            // 逐告警：快照 → 应用模板 → quickVerify（lint）→ 失败回滚（不静默）
-            const csCounts = await runCodeScanningFixes(this.ctx, repo, limited)
-            fixed += csCounts.fixed
-            failed += csCounts.failed
-
-            // 2.1 子目录 / 根直接依赖 lockfile 告警（防护：docs vite 告警曾误降级根 vite@8→6）→ 剔除修复链路
-            // 收尾审查遗留修复：code-scanning 告警（manifestPath 为源码路径）不参与依赖清单分区，
-            // 避免全部落 sub 桶产生 skip 计数噪音（其可见性由 §Code Scanning Suggestions 承担）
-            const dependencyAlerts = limited.filter((a) => a.source !== 'code-scanning')
-            const { root: rootManifestAlerts, member: memberManifestAlerts, sub: submanifestAlerts } = partitionSubmanifestAlerts(dependencyAlerts, this.workDir)
-            if (submanifestAlerts.length > 0) {
-                this.logger.warn(
-                    `[alerts] ${submanifestAlerts.length} alert(s) from sub-directory / root-direct-dep manifest(s) skipped — manual review required: ${submanifestAlerts.map((a) => `${a.packageName} (${a.manifestPath})`).join(', ')}`,
-                )
-                this.summary.alertsSkipped += submanifestAlerts.length
-            }
-
-            // 2. Upgrade fixable dependencies（分组升级 + 同包收敛）
-            // - 同包 alerts 去重取最高 recommendedVersion；分组显式 > dependabot.yml > @types > 启发式 > 单包
-            // - 组级验证失败 → 整组回滚 → 拆组逐个重试；当前版本 >= 目标时跳过（不降级保护）
-            // - 多版本共存（vite@5.4.14 + vite@8.2.0）：版本化 overrides 分别覆盖（2026-08-06 复盘）
-            const lockfilePath = join(this.workDir, 'pnpm-lock.yaml')
-
-            // 2.0 lockfile 脆弱实例 → overrides 修复（独立于分组升级，避免全局覆盖误伤根声明）
-            // 门槛：该包在 lockfile 中存在脆弱实例（低于某大版本线的推荐目标）——
-            // 覆盖多 major（vite@5.4.14 + vite@8.2.0）与同 major 多小版本
-            // （fast-uri@3.1.0 + 3.1.5）两类场景（2026-08-06 run 31028234123 复盘）。
-            // key 形式：真实多 major 共存 → 版本化 `pkg@major`；单 major → 无版本号 `pkg`
-            // （2026-08-09 复盘：单 major 用 `pkg@major` 会与既有无版本号条目分裂并存）
-            const lockfileManifestAlerts = rootManifestAlerts.filter(
-                (a) => a.source !== 'code-scanning' && a.manifestPath.trim().replace(/\\/g, '/') === 'pnpm-lock.yaml'
-                    && a.fixable && a.recommendedVersion,
-            )
-            // 2.0 跨线告警分流（跨线告警复盘 + --allow-major-upgrade 扩展）：
-            // 推荐版本的 major 不在 lockfile 实例 majors 中 → 本大版本线无修复版本
-            // （如 5.x 实例的 GHSA-fx2h 推荐 6.4.3），只能跨大版本升级修复。
-            // 默认保持不跨大版本自动升级——此类告警不修复、不标 fixed/converged，
-            // 计入 skipped 并提示人工检查/升级/批准。
-            // --allow-major-upgrade 显式授权后，仅「根 package.json 直接依赖 + lockfile
-            // 单版本」的跨线告警进入 2.0.2 自动跨线（改声明 + 升级后实例复核 + 强制完整
-            // 验证 + 失败回滚）；workspace 成员独占声明（root 未声明，修复器只改根
-            // manifest——必然失败）、间接依赖、多版本共存跨线告警维持人工（跨线版本化
-            // overrides 会破坏依赖方 range 导致 install 失败，全局 override 会降级根声明
-            // ——保守正确，降级声明教训）。
-            const allCrossMajorAlerts = lockfileManifestAlerts.filter((a) => isCrossMajorFixRequired(lockfilePath, a))
-            const manualCrossMajorAlerts = allCrossMajorAlerts.filter(
-                (a) => !(this.config.allowMajorUpgrade
-                    && isRootDirectDependency(this.workDir, a.packageName)
-                    && readLockfileVersions(lockfilePath, a.packageName).length === 1),
-            )
-            const autoMajorAlertIds = new Set(
-                allCrossMajorAlerts.filter((a) => !manualCrossMajorAlerts.some((m) => m.id === a.id)).map((a) => a.id),
-            )
-            const crossMajorAlertIds = new Set(manualCrossMajorAlerts.map((a) => a.id))
-            if (manualCrossMajorAlerts.length > 0) {
-                this.logger.warn(
-                    `[alerts] ${manualCrossMajorAlerts.length} alert(s) require a cross-major upgrade (no fix within the installed major line) — manual review required: ${manualCrossMajorAlerts.map((a) => `${a.packageName} → ${a.recommendedVersion}`).join(', ')}`,
-                )
-                this.summary.alertsSkipped += manualCrossMajorAlerts.length
-            }
-            const autoMajorAlerts = lockfileManifestAlerts.filter((a) => autoMajorAlertIds.has(a.id))
-            const fixableLockfileAlerts = lockfileManifestAlerts.filter(
-                (a) => !crossMajorAlertIds.has(a.id) && !autoMajorAlertIds.has(a.id),
-            )
-            // 按包分组，构建 overrides（key 形式由大版本冲突判定决定：
-            // 真实多 major 共存 → `pkg@major` 版本化；单 major → 无版本号 `pkg`，
-            // 2026-08-09 复盘）；与已有 overrides 条目协同取 max，不丢不改写已有条目。
-            // 非空即存在脆弱实例 → 进入 2.0.1
-            const existingOverrides = readExistingOverrides(this.workDir)
-            const versionedOverridesByPackage = new Map<string, Record<string, string>>()
-            for (const alert of fixableLockfileAlerts) {
-                if (!versionedOverridesByPackage.has(alert.packageName)) {
-                    const packageAlerts = fixableLockfileAlerts.filter((a) => a.packageName === alert.packageName)
-                    versionedOverridesByPackage.set(
-                        alert.packageName,
-                        buildVersionedOverrides(lockfilePath, packageAlerts, existingOverrides),
-                    )
-                }
-            }
-            const multiVersionPackages = new Set(
-                [...versionedOverridesByPackage.entries()]
-                    .filter(([, overrides]) => Object.keys(overrides).length > 0)
-                    .map(([packageName]) => packageName),
-            )
-            // 多版本包的所有 lockfile 告警进入 2.0.1（按告警身份排除，不按包名——同包
-            // 其他 manifest 告警（package.json 根声明等）保留在常规链路，避免静默丢失）
-            const multiVersionAlerts = fixableLockfileAlerts.filter((a) => multiVersionPackages.has(a.packageName))
-            const multiVersionAlertIds = new Set(multiVersionAlerts.map((a) => a.id))
-            // 常规链路同样排除跨线告警（避免 no-downgrade 用最高实例版本误判 converged——
-            // 8.2.0 的安全会掩盖 5.4.x 实例的跨线告警未修复，PR #28 复盘）
-            const singleVersionAlerts = rootManifestAlerts.filter(
-                (a) => !multiVersionAlertIds.has(a.id) && !crossMajorAlertIds.has(a.id) && !autoMajorAlertIds.has(a.id),
-            )
-
-            // 2.0.1 执行版本化 overrides 修复（逐包：快照 → 写入 → install → 组级验证 → 回滚）
-            const upgradedMultiVersion = new Set<string>()
-            for (const alert of multiVersionAlerts) {
-                if (upgradedMultiVersion.has(alert.packageName)) {
-                    continue
-                }
-                upgradedMultiVersion.add(alert.packageName)
-                const versionedOverrides = versionedOverridesByPackage.get(alert.packageName) ?? {}
-                const targets = Object.values(versionedOverrides)
-                const targetSummary = targets.length > 0 ? targets.join(', ') : alert.recommendedVersion
-                if (this.config.dryRun) {
-                    // dry-run 不写盘：仅记录计划动作（与 upgradeAlert 的 dry-run 语义一致）
-                    this.logger.info(`[dry-run] Would apply versioned overrides for ${alert.packageName}: ${JSON.stringify(versionedOverrides)}`)
-                    this.allActions.push({
-                        type: 'dependency-upgrade',
-                        repository: alert.repository,
-                        target: alert.packageName,
-                        fromVersion: '',
-                        toVersion: targetSummary,
-                        isMajor: false,
-                        strategy: 'versioned-override',
-                        success: true,
-                        durationMs: 0,
-                    })
-                    fixed++
-                    continue
-                }
-                if (Object.keys(versionedOverrides).length === 0) {
-                    this.logger.info(`Skipping ${alert.packageName}: no vulnerable instances below targets`)
-                    this.summary.alertsConverged++
-                    continue
-                }
-                const snapshot = snapshotTrackedFiles(this.workDir)
-                this.logger.info(
-                    `[multi-version] ${alert.packageName}: applying versioned overrides ${JSON.stringify(versionedOverrides)}`,
-                )
-                const result = await applyVersionedOverrides({
-                    packageName: alert.packageName,
-                    versionedOverrides,
-                    workDir: this.workDir,
-                })
-                if (result.success && result.warning) {
-                    this.logger.warn(`[multi-version] ${alert.packageName}: ${result.warning}`)
-                }
-                const action: FixAction = {
-                    type: 'dependency-upgrade',
-                    repository: alert.repository,
-                    target: alert.packageName,
-                    fromVersion: '',
-                    toVersion: result.toVersion,
-                    isMajor: false,
-                    strategy: 'versioned-override',
-                    success: result.success,
-                    error: result.error,
-                    durationMs: 0,
-                }
-                if (!result.success) {
-                    this.allActions.push(action)
-                    failed++
-                    continue
-                }
-                // 组级快速验证：lint 通过 → 保留；失败 → 回滚
-                const groupOk = await quickVerifyProject(this.ctx, repo)
-                if (groupOk) {
-                    this.allActions.push(action)
-                    fixed++
-                    this.logger.info(`[multi-version] ${alert.packageName}: versioned overrides passed verification`)
-                } else {
-                    restoreTrackedFiles(this.workDir, snapshot)
-                    action.success = false
-                    action.error = 'lint failed after versioned overrides; changes rolled back'
-                    this.allActions.push(action)
-                    failed++
-                    this.logger.warn(`[multi-version] ${alert.packageName}: verification failed — rolled back versioned overrides`)
-                }
-            }
-
-            // 2.0.2 跨线升级（--allow-major-upgrade 显式授权；仅根直接依赖 + lockfile 单版本）
-            // 逐包：快照 → upgradeDependency（改根声明 + install 内建失败回滚）→
-            // 升级后实例复核（确认脆弱实例真实消除——跨线只改 root 声明，workspace 成员
-            // 同 range / 传递依赖 pin 可能仍锁旧 major，残留实例必须回滚，避免误标 fixed
-            // 且下一轮被最高实例掩盖误判 converged，PR #28 纪律）→ 强制完整验证
-            // （install + lint + build，跨线 breaking change 面大，lint-only 不足以兜底
-            // 类型/构建错误）→ 失败回滚。
-            // 同包多条跨线告警取最高 recommendedVersion 为升级目标（镜像 dedupeFixableAlerts
-            // 语义），被合并告警随代表告警一并处理并在日志中说明。
-            // 不误标 fixed/converged：成功仅计入 fixed；失败计 failed + 错误可审计。
-            // 按包聚合：取最高推荐版本为代表告警（避免同包多告警只升第一条目标、其余静默丢失）
-            const autoMajorByPackage = new Map<string, NormalizedSecurityAlert>()
-            for (const alert of autoMajorAlerts) {
-                const existing = autoMajorByPackage.get(alert.packageName)
-                const existingTarget = existing?.recommendedVersion
-                const alertTarget = alert.recommendedVersion
-                if (!existing || (existingTarget && alertTarget && compareSemver(alertTarget, existingTarget) > 0)) {
-                    autoMajorByPackage.set(alert.packageName, alert)
-                }
-            }
-            const autoMajorRepresentatives = [...autoMajorByPackage.values()]
-            if (autoMajorAlerts.length > autoMajorRepresentatives.length) {
-                this.logger.info(
-                    `[major-upgrade] ${autoMajorAlerts.length - autoMajorRepresentatives.length} cross-major alert(s) merged into package representatives (highest target per package)`,
-                )
-            }
-            for (const alert of autoMajorRepresentatives) {
-                if (this.config.dryRun) {
-                    // dry-run 不写盘：仅记录计划动作（与 2.0.1 dry-run 语义一致）
-                    this.logger.info(`[dry-run] Would apply major upgrade for ${alert.packageName} → ${alert.recommendedVersion}`)
-                    this.allActions.push({
-                        type: 'dependency-upgrade',
-                        repository: alert.repository,
-                        target: alert.packageName,
-                        fromVersion: '',
-                        toVersion: alert.recommendedVersion,
-                        isMajor: true,
-                        strategy: 'major-upgrade',
-                        success: true,
-                        durationMs: 0,
-                    })
-                    fixed++
-                    continue
-                }
-                const majorSnapshot = snapshotTrackedFiles(this.workDir)
-                this.logger.warn(
-                    `[major-upgrade] ${alert.packageName}: applying cross-major upgrade → ${alert.recommendedVersion} (explicit --allow-major-upgrade; full verification required)`,
-                )
-                const majorResult = await upgradeDependency({
-                    packageName: alert.packageName,
-                    targetVersion: alert.recommendedVersion!,
-                    workDir: this.workDir,
-                })
-                if (!majorResult.success) {
-                    this.allActions.push({
-                        type: 'dependency-upgrade',
-                        repository: alert.repository,
-                        target: alert.packageName,
-                        fromVersion: majorResult.fromVersion,
-                        toVersion: alert.recommendedVersion,
-                        isMajor: true,
-                        strategy: 'major-upgrade',
-                        success: false,
-                        error: majorResult.error,
-                        durationMs: 0,
-                    })
-                    failed++
-                    continue
-                }
-                // 升级后实例复核：root 声明已升，但 workspace 成员同 range /
-                // 传递依赖 pin 可能仍锁旧 major → lockfile 残留脆弱实例 → 回滚
-                // （不进入验证阶段，省时且不制造"跨线成功但告警未消除"状态）
-                const remainingVersions = readLockfileVersions(lockfilePath, alert.packageName)
-                const stillVulnerable = remainingVersions.some(
-                    (v) => compareSemver(v, alert.recommendedVersion!) < 0,
-                )
-                if (stillVulnerable) {
-                    restoreTrackedFiles(this.workDir, majorSnapshot)
-                    this.allActions.push({
-                        type: 'dependency-upgrade',
-                        repository: alert.repository,
-                        target: alert.packageName,
-                        fromVersion: majorResult.fromVersion,
-                        toVersion: alert.recommendedVersion,
-                        isMajor: true,
-                        strategy: 'major-upgrade',
-                        success: false,
-                        error: 'vulnerable instance(s) remain after cross-major upgrade (workspace member / transitive pin); changes rolled back',
-                        durationMs: 0,
-                    })
-                    failed++
-                    this.logger.warn(
-                        `[major-upgrade] ${alert.packageName}: vulnerable instance(s) remain (${remainingVersions.join(', ')}) — rolled back cross-major upgrade, manual review required`,
-                    )
-                    continue
-                }
-                // 跨线强制完整验证（install + lint + build）
-                const majorVerifyActions = await verifyProject(this.ctx, repo)
-                // 验证动作入 allActions：成功证据可审计（summary 验证计数 + PR body Verification 章节）
-                this.allActions.push(...majorVerifyActions)
-                let majorOk = majorVerifyActions.every((a) => a.success)
-
-                // AI 研判接入：升级验证失败（带失败日志）或 major 升级（预防性）
-                // 时触发 → code-change 修复（apply + 内部完整验证）→ 通过则保留。
-                // 仅 --ai 开启且非 dry-run（不产生费用）。
-                const ai = this.config.ai
-                const aiTriggered = ai?.enabled === true
-                    && !this.config.dryRun
-                    && (ai.trigger === 'both' || ai.trigger === 'major' || (ai.trigger === 'failure' && !majorOk))
-                if (aiTriggered) {
-                    const failureLog = majorOk
-                        ? undefined
-                        : majorVerifyActions.filter((a) => !a.success)
-                            .map((a) => a.error ?? `exit code for ${a.target}`)
-                            .join('\n')
-                    const aiResult = await runAiIntegration({
-                        ai,
-                        // 2.0.2 段仅对 lockfile 告警可达（GitHub 源），client 恒非空；
-                        // pnpm-audit 源告警 manifestPath='' 不满足 lockfileManifestAlerts 过滤
-                        client: client!,
-                        ctx: this.ctx,
-                        repo,
-                        dryRun: this.config.dryRun,
-                    }, {
-                        packageName: alert.packageName,
-                        fromVersion: majorResult.fromVersion,
-                        toVersion: alert.recommendedVersion!,
-                        failureLog,
-                    })
-                    this.allActions.push(...aiResult.actions)
-                    // run 级用量聚合（进报告 aiUsage 段）
-                    this.aiUsageAggregate = mergeAiUsage(this.aiUsageAggregate, aiResult.usage)
-                    // AI patch 成功 = AI 内部已通过完整验证（apply + verify）
-                    const aiPatchSuccess = aiResult.actions.some(
-                        (a) => a.strategy === 'ai-patch' && a.success && !a.noOp,
-                    )
-                    if (aiPatchSuccess) {
-                        majorOk = true
-                    }
-                }
-
-                if (majorOk) {
-                    this.allActions.push({
-                        type: 'dependency-upgrade',
-                        repository: alert.repository,
-                        target: alert.packageName,
-                        fromVersion: majorResult.fromVersion,
-                        toVersion: majorResult.toVersion,
-                        isMajor: true,
-                        strategy: 'major-upgrade',
-                        success: true,
-                        durationMs: 0,
-                    })
-                    fixed++
-                    this.logger.info(`[major-upgrade] ${alert.packageName}: cross-major upgrade passed full verification`)
-                } else {
-                    // 回滚声明 + lockfile（AI patch 已由 applier 内部回滚或未应用）
-                    restoreTrackedFiles(this.workDir, majorSnapshot)
-                    this.allActions.push({
-                        type: 'dependency-upgrade',
-                        repository: alert.repository,
-                        target: alert.packageName,
-                        fromVersion: majorResult.fromVersion,
-                        toVersion: alert.recommendedVersion,
-                        isMajor: true,
-                        strategy: 'major-upgrade',
-                        success: false,
-                        error: 'major upgrade failed full verification; changes rolled back',
-                        durationMs: 0,
-                    })
-                    failed++
-                    this.logger.warn(
-                        `[major-upgrade] ${alert.packageName}: full verification failed — rolled back cross-major upgrade`,
-                    )
-                }
-            }
-
-            // 2.0.3 成员级升级（workspace 成员 manifest 直接依赖；member 桶由
-            // partitionSubmanifestAlerts 三桶化产出，准入已保证：成员白名单 +
-            // 成员直接声明 + fixable + lockfile 单版本 + 推荐 >= 锁定 + 非跨线）
-            // 按「包名 + manifestDir」聚合取最高 recommendedVersion 为代表（镜像
-            // dedupeFixableAlerts 语义，同成员多告警只升一条目标、其余随代表处理）
-            // 逐项：快照（根三件套 + 成员 manifest）→ upgradeDependency({ manifestDir })
-            // → 升级后实例复核（lockfile 残留脆弱实例 → 回滚，覆盖根全局 override
-            // 冲突 / 其他位置 pin 场景，不误标 fixed）→ quickVerify
-            // （根 lint，与 2.0 常规升级一致；线内升级破坏面小，不做完整验证）
-            // → 失败回滚 → 成功 fixed。不误标 fixed/converged。
-            const memberByPackageAndDir = new Map<string, MemberManifestAlert>()
-            for (const item of memberManifestAlerts) {
-                const key = `${item.alert.packageName}@${item.manifestDir}`
-                const existing = memberByPackageAndDir.get(key)
-                const existingTarget = existing?.alert.recommendedVersion
-                const alertTarget = item.alert.recommendedVersion
-                if (!existing || (existingTarget && alertTarget && compareSemver(alertTarget, existingTarget) > 0)) {
-                    memberByPackageAndDir.set(key, item)
-                }
-            }
-            if (memberManifestAlerts.length > memberByPackageAndDir.size) {
-                this.logger.info(
-                    `[member-upgrade] ${memberManifestAlerts.length - memberByPackageAndDir.size} member alert(s) merged into package+dir representatives (highest target per package per member)`,
-                )
-            }
-            for (const item of [...memberByPackageAndDir.values()]) {
-                const { alert, manifestDir } = item
-                const memberManifestPath = `${manifestDir}/package.json`
-                if (this.config.dryRun) {
-                    // dry-run 不写盘：仅记录计划动作（与 2.0.1/2.0.2 dry-run 语义一致）
-                    this.logger.info(`[dry-run] Would upgrade ${alert.packageName} in ${memberManifestPath} → ${alert.recommendedVersion}`)
-                    this.allActions.push({
-                        type: 'dependency-upgrade',
-                        repository: alert.repository,
-                        target: alert.packageName,
-                        fromVersion: '',
-                        toVersion: alert.recommendedVersion,
-                        isMajor: false,
-                        strategy: 'member-upgrade',
-                        success: true,
-                        durationMs: 0,
-                        filePath: memberManifestPath,
-                    })
-                    fixed++
-                    continue
-                }
-                const memberSnapshot = snapshotTrackedFiles(this.workDir, [memberManifestPath])
-                this.logger.warn(
-                    `[member-upgrade] ${alert.packageName}: upgrading member declaration in ${memberManifestPath} → ${alert.recommendedVersion}`,
-                )
-                const memberResult = await upgradeDependency({
-                    packageName: alert.packageName,
-                    targetVersion: alert.recommendedVersion!,
-                    workDir: this.workDir,
-                    manifestDir,
-                })
-                if (!memberResult.success) {
-                    this.allActions.push({
-                        type: 'dependency-upgrade',
-                        repository: alert.repository,
-                        target: alert.packageName,
-                        fromVersion: memberResult.fromVersion,
-                        toVersion: alert.recommendedVersion,
-                        isMajor: memberResult.isMajor,
-                        strategy: 'member-upgrade',
-                        success: false,
-                        error: memberResult.error,
-                        durationMs: 0,
-                        filePath: memberManifestPath,
-                    })
-                    failed++
-                    continue
-                }
-                // 升级后实例复核：成员声明已升，但根全局 override / 其他位置 pin
-                // 可能仍锁旧版本 → 残留脆弱实例 → 回滚（不进入验证阶段）
-                const remainingMemberVersions = readLockfileVersions(lockfilePath, alert.packageName)
-                const stillVulnerable = remainingMemberVersions.some(
-                    (v) => compareSemver(v, alert.recommendedVersion!) < 0,
-                )
-                if (stillVulnerable) {
-                    restoreTrackedFiles(this.workDir, memberSnapshot)
-                    this.allActions.push({
-                        type: 'dependency-upgrade',
-                        repository: alert.repository,
-                        target: alert.packageName,
-                        fromVersion: memberResult.fromVersion,
-                        toVersion: alert.recommendedVersion,
-                        isMajor: false,
-                        strategy: 'member-upgrade',
-                        success: false,
-                        error: 'vulnerable instance(s) remain after member upgrade (root override / other pin); changes rolled back',
-                        durationMs: 0,
-                        filePath: memberManifestPath,
-                    })
-                    failed++
-                    this.logger.warn(
-                        `[member-upgrade] ${alert.packageName}: vulnerable instance(s) remain (${remainingMemberVersions.join(', ')}) — rolled back member upgrade in ${memberManifestPath}; residual instance likely pinned by another workspace member / root override, manual review required`,
-                    )
-                    continue
-                }
-                // 快速验证（根 lint，与 2.0 常规升级一致）
-                const memberOk = await quickVerifyProject(this.ctx, repo)
-                if (!memberOk) {
-                    restoreTrackedFiles(this.workDir, memberSnapshot)
-                    this.allActions.push({
-                        type: 'dependency-upgrade',
-                        repository: alert.repository,
-                        target: alert.packageName,
-                        fromVersion: memberResult.fromVersion,
-                        toVersion: memberResult.toVersion,
-                        isMajor: memberResult.isMajor,
-                        strategy: 'member-upgrade',
-                        success: false,
-                        error: 'member upgrade failed verification; changes rolled back',
-                        durationMs: 0,
-                        filePath: memberManifestPath,
-                    })
-                    failed++
-                    this.logger.warn(
-                        `[member-upgrade] ${alert.packageName}: verification failed — rolled back member upgrade in ${memberManifestPath}`,
-                    )
-                    continue
-                }
-                this.allActions.push({
-                    type: 'dependency-upgrade',
-                    repository: alert.repository,
-                    target: alert.packageName,
-                    fromVersion: memberResult.fromVersion,
-                    toVersion: memberResult.toVersion,
-                    isMajor: memberResult.isMajor,
-                    strategy: 'member-upgrade',
-                    success: true,
-                    durationMs: 0,
-                    filePath: memberManifestPath,
-                })
-                fixed++
-                this.logger.info(`[member-upgrade] ${alert.packageName}: member upgrade passed verification (${memberManifestPath})`)
-            }
-
-            const fixableAlerts = dedupeFixableAlerts(
-                singleVersionAlerts.filter((a) => a.fixable && a.recommendedVersion),
-            )
-
-            const { groups, cleanupCandidates } = buildUpgradeGroups(fixableAlerts, {
-                workDir: this.workDir,
-                explicitGroups: this.config.upgradeGroups,
-            })
-            for (const group of groups) {
-                this.logger.info(`[group] ${group.name} (${group.source}): ${group.packages.join(', ')}`)
-            }
-            if (cleanupCandidates.length > 0) {
-                this.logger.warn(
-                    `[group] orphan @types detected (main package removed) — not upgrading, consider removal: ${cleanupCandidates.join(', ')}`,
-                )
-            }
-
-            const alertByPackage = new Map(fixableAlerts.map((a) => [a.packageName, a]))
-            let snapshot: ReturnType<typeof snapshotTrackedFiles>
-
-            for (const group of groups) {
-                // 组前快照（整组回滚基线）
-                snapshot = snapshotTrackedFiles(this.workDir)
-
-                const pendingActions: FixAction[] = []
-                const upgradedInGroup: NormalizedSecurityAlert[] = []
-
-                for (const packageName of group.packages) {
-                    // 防御：assign 已通过 target 集合过滤，组内包必在 fixableAlerts 中
-                    const alert = alertByPackage.get(packageName)
-                    if (!alert) {
-                        continue
-                    }
-
-                    const currentVersion = readLockfileVersion(lockfilePath, alert.packageName)
-                    if (currentVersion && compareSemver(currentVersion, alert.recommendedVersion) >= 0) {
-                        this.logger.info(
-                            `Skipping ${alert.packageName}: highest locked ${currentVersion} >= target ${alert.recommendedVersion} (no upgrade needed; vulnerable lower version may coexist across manifests — global fix not applicable, manual review advised)`,
-                        )
-                        this.summary.alertsConverged++
-                        continue
-                    }
-                    if (currentVersion === null) {
-                        // 包不在 lockfile（或格式非常规）——不降级保护失效，warn 提示
-                        this.logger.warn(
-                            `Could not resolve current version of ${alert.packageName} from lockfile — no-downgrade protection inactive`,
-                        )
-                    }
-
-                    const action = await upgradeAlert(this.ctx, alert)
-                    pendingActions.push(action)
-                    if (!action.success) {
-                        failed++
-                        continue
-                    }
-                    if (this.config.dryRun) {
-                        // dry-run 无实际文件改动，跳过验证
-                        fixed++
-                        continue
-                    }
-                    upgradedInGroup.push(alert)
-                }
-
-                // dry-run 或组内无实际升级：仅记录 action，不做组级验证
-                if (this.config.dryRun || upgradedInGroup.length === 0) {
-                    this.allActions.push(...pendingActions)
-                    continue
-                }
-
-                // 组级快速验证：lint 通过 → 整组保留（一次验证替代逐包 N 次验证）
-                const groupOk = await quickVerifyProject(this.ctx, repo)
-                if (groupOk) {
-                    this.allActions.push(...pendingActions)
-                    fixed += upgradedInGroup.length
-                    this.logger.info(
-                        `[group] ${group.name}: ${upgradedInGroup.length} upgrade(s) passed group verification`,
-                    )
-                    // 更新快照基线：后续组的失败回滚不应影响本组
-                    snapshot = snapshotTrackedFiles(this.workDir)
-                    continue
-                }
-
-                // 组级验证失败：整组回滚 → 拆组逐个重试（保留能单独通过的包）
-                restoreTrackedFiles(this.workDir, snapshot)
-                this.logger.warn(
-                    `[group] ${group.name}: group verification failed — rolling back group, retrying per-package`,
-                )
-
-                // 组内升级失败的包：保留原始失败记录（已计 failed）
-                for (const action of pendingActions) {
-                    if (!action.success) {
-                        this.allActions.push(action)
-                    }
-                }
-
-                // 组内升级成功但组验证失败的包：逐个重新升级 + 验证
-                for (const alert of upgradedInGroup) {
-                    const action = await upgradeAlert(this.ctx, alert)
-                    this.allActions.push(action)
-                    if (!action.success) {
-                        failed++
-                        continue
-                    }
-                    const quickOk = await quickVerifyProject(this.ctx, repo)
-                    if (!quickOk) {
-                        restoreTrackedFiles(this.workDir, snapshot)
-                        this.logger.warn(
-                            `Rolled back ${alert.packageName} upgrade: lint failed after upgrade (per-package verification)`,
-                        )
-                        action.success = false
-                        action.error = 'lint failed after upgrade; per-package verification failed, changes rolled back'
-                        failed++
-                        continue
-                    }
-                    fixed++
-                    // 更新快照基线：后续包的失败回滚不应影响本包
-                    snapshot = snapshotTrackedFiles(this.workDir)
-                }
-            }
-
-            // Track skipped (non-fixable) alerts（子目录 manifest 已在 2.0 单独计入，避免重复计数；
-            // 多版本共存包已在 2.0.1 独立处理，不计入此 skipped 差额）
-            const skippedCount = singleVersionAlerts.length - fixableAlerts.length
-            this.summary.alertsSkipped += skippedCount
-
-            // 3. Lockfile repair
-            const repairAction = tryLockfileRepair(this.ctx, repo)
-            this.allActions.push(repairAction)
-            if (repairAction.success) {
-                lockfileRepaired = true
-            }
-
-            // 4. Verification (skip in dry-run mode)
-            if (!this.config.dryRun) {
-                const verifyActions = await verifyProject(this.ctx, repo)
-                this.allActions.push(...verifyActions)
-                verificationPassed = verifyActions.every((a) => a.success)
-            } else {
-                this.logger.info(`[dry-run] Skipping verification for ${repo}`)
-                verificationPassed = undefined
-            }
-        } catch (error: unknown) {
-            const message = toErrorMessage(error)
-            const hint = dependabotAlertsTokenHint(error) ?? codeScanningAlertsTokenHint(error)
-            this.logger.error(`Failed to process ${repo}: ${message}${hint ? ` — ${hint}` : ''}`)
-            this.allErrors.push({
-                repository: repo,
-                stage: 'fix',
-                category: 'PROCESS_FAILED',
-                message: hint ? `${message}（${hint}）` : message,
-            })
-        }
-
-        this.repoResults.push({
-            repository: repo,
-            defaultBranch,
-            alertsCount,
-            fixable,
-            fixed,
-            failed,
-            lockfileRepaired,
-            verificationPassed,
-            durationMs: Date.now() - startTime,
-        })
+        await processRepoFix({ ...this.ctx, aiUsageRef: this.aiUsageRef }, client, repo)
     }
 
     // -----------------------------------------------------------------------
@@ -1122,11 +423,11 @@ export class DependfixApp {
             pushBranch(branchName, this.workDir)
 
             // 6. Create PR (one PR covering all repos)
-            const defaultBranch = await this.fetchDefaultBranch(client, owner, repo)
+            const defaultBranch = await fetchDefaultBranch(client, owner, repo)
 
             // Build RunResult for PR body
             computeSummary(this.ctx)
-            const runResult = buildRunResult(this.ctx, this.aiUsageAggregate)
+            const runResult = buildRunResult(this.ctx, this.aiUsageRef.aggregate)
             const prBody = generatePRBody(
                 runResult,
                 plan.supersedePRs.map((pr) => pr.number),
@@ -1307,80 +608,6 @@ export class DependfixApp {
     // GitHub helpers
     // -----------------------------------------------------------------------
 
-    /**
-     * 告警数据源统一入口：
-     * - `github-dependabot`：Octokit 拉取 Dependabot alerts（alertsToken 优先）；
-     *   `codeScanningEnabled` 时**并行**拉取 Code Scanning alerts（互不覆盖、互不回退）
-     * - `pnpm-audit`：本地 `pnpm audit --json` 回退（无 token；repository 已由 resolveAlertRepositories 解析）
-     *
-     * per-source 错误隔离：并行源任一失败 → 记录该源 FETCH_FAILED 错误
-     * （退出码保持非 0）并保留成功源数据继续处理；**全部源失败**才抛错
-     * （调用方 catch 记录仓库失败，保持 hint 语义）。
-     */
-    private async fetchAlerts(repo: string): Promise<NormalizedSecurityAlert[]> {
-        if (this.config.alertSource === 'pnpm-audit') {
-            return fetchPnpmAuditAlerts({ workDir: this.workDir, repository: repo })
-        }
-        const alertsClient = this.createAlertsClient()
-        const [owner, name] = repo.split('/')
-
-        const [dependabotResult, codeScanningResult] = await Promise.allSettled([
-            fetchDependabotAlerts(alertsClient, { owner, repo: name }),
-            this.config.codeScanningEnabled
-                ? fetchCodeScanningAlerts(alertsClient, { owner, repo: name })
-                : Promise.resolve([] as NormalizedSecurityAlert[]),
-        ])
-
-        const alerts: NormalizedSecurityAlert[] = []
-        const failedSources: string[] = []
-
-        if (dependabotResult.status === 'fulfilled') {
-            alerts.push(...dependabotResult.value)
-        } else {
-            failedSources.push('dependabot')
-            this.recordAlertSourceError(repo, 'dependabot', dependabotResult.reason)
-        }
-
-        if (this.config.codeScanningEnabled) {
-            if (codeScanningResult.status === 'fulfilled') {
-                alerts.push(...codeScanningResult.value)
-                this.logger.info(`Fetched ${codeScanningResult.value.length} code scanning alerts for ${repo}`)
-            } else {
-                failedSources.push('code-scanning')
-                this.recordAlertSourceError(repo, 'code-scanning', codeScanningResult.reason)
-            }
-        }
-
-        // 全部源失败 → 抛第一个失败（调用方 catch 保持仓库失败语义 + token hint）
-        const totalSources = this.config.codeScanningEnabled ? 2 : 1
-        if (failedSources.length === totalSources) {
-            let firstReason: unknown
-            if (dependabotResult.status === 'rejected') {
-                firstReason = dependabotResult.reason
-            } else if (codeScanningResult.status === 'rejected') {
-                firstReason = codeScanningResult.reason
-            } else {
-                firstReason = new Error(`failed to fetch alerts for ${repo}`)
-            }
-            throw firstReason
-        }
-
-        return alerts
-    }
-
-    /** 记录单个告警源的拉取失败（不中断另一源的处理）。 */
-    private recordAlertSourceError(repo: string, source: string, error: unknown): void {
-        const message = toErrorMessage(error)
-        const hint = dependabotAlertsTokenHint(error) ?? codeScanningAlertsTokenHint(error)
-        this.logger.error(`Failed to fetch ${source} alerts for ${repo}: ${message}${hint ? ` — ${hint}` : ''}`)
-        this.allErrors.push({
-            repository: repo,
-            stage: 'fetch',
-            category: 'FETCH_FAILED',
-            message: hint ? `${message}（${hint}）` : message,
-        })
-    }
-
     /** pnpm-audit 模式不创建 GitHub client（无 token）；github-dependabot 模式返回主 token client。 */
     private githubClientOrNull(): Octokit | null {
         if (this.config.alertSource === 'pnpm-audit') {
@@ -1399,39 +626,4 @@ export class DependfixApp {
             },
         })
     }
-
-    /**
-     * 拉取 Dependabot alerts 使用的 client（双 token 设计）：
-     * 优先使用 `alertsToken`（最小权限：仅 Dependabot alerts: read），
-     * 缺省回退主 token（本地完整 PAT 场景）。
-     * 背景详见 docs/plan/todo.md「已知缺口 G2」。
-     */
-    private createAlertsClient(): Octokit {
-        return this.createClient(this.config.alertsToken || this.config.githubToken)
-    }
-
-    /**
-     * 获取仓库的默认分支。
-     * pnpm-audit 模式 client 为 null → 返回 ''（报告显示 local）。
-     * 失败时返回 `'unknown'`（不阻塞主流程）。
-     */
-    private async fetchDefaultBranch(client: Octokit | null, owner: string, repo: string): Promise<string> {
-        if (!client) {
-            return ''
-        }
-        try {
-            const { data } = await client.rest.repos.get({ owner, repo })
-            return data.default_branch
-        } catch {
-            return 'unknown'
-        }
-    }
-}
-
-/** 告警截断提示（report/fix 共用；code-scanning 开启时附加排序说明）。 */
-function truncatedWarning(config: RuntimeConfig, truncatedCount: number): string {
-    const base = `[alerts] ${truncatedCount} alert(s) truncated (max ${config.maxAlertsPerRepository} per repository) — consider --max-alerts-per-repository`
-    return config.codeScanningEnabled
-        ? `${base}; code-scanning alerts rank after fixable dependabot alerts`
-        : base
 }

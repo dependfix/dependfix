@@ -51,11 +51,16 @@
 
 ## 5. 覆盖率目标
 
+统计口径以 `vitest.config.ts` 的 coverage.include 为唯一权威（新增源码目录时须两处同步）：`packages/*/src/**/*.ts` + `apps/platform/app/**/*.ts` + `apps/platform/server/**/*.ts` + `scripts/*.mjs`。`.vue` 组件与 Playwright e2e（`apps/platform/tests/e2e/`）不纳入 vitest 覆盖率统计——前者无组件级单测且 v8 对 SFC 插桩依赖 vue 插件（测试环境为纯 node），后者由 `test.exclude` 排除。
+
 | 范围 | 目标 |
 |------|:----:|
-| 整体 | >= 60% |
-| `packages/core/` | >= 80% |
-| `packages/cli/` | >= 60% |
+| 整体 | >= 80%（vitest thresholds 全局门槛；未达标时 `pnpm run test:coverage` 非零退出） |
+| `packages/core/` / `packages/engine/` / `packages/cli/` / `packages/mcp/` | >= 80% |
+| `apps/platform/server/` / `apps/platform/app/` | >= 80% |
+| `scripts/` | >= 80% |
+
+> 基线（2026-08-12 口径修正后）：整体 Statements 67.81% / Branches 65.39% / Functions 68.43% / Lines 67.83%，未达门槛。补测冲刺见 [todo.md T711](../plan/todo.md)。
 
 提升策略：先补缺口分析，再逐模块推进，不追求一次性全量达标。
 

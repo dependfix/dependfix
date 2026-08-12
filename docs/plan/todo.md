@@ -213,7 +213,32 @@
 
 ---
 
+### T711 覆盖率口径修正 + 冲刺至 80%（口径已完成，冲刺进行中）
+
+- 优先级：`P2`（质量门禁）
+- 背景：`vitest.config.ts` coverage.include 只统计 `packages/*/src`，忽略了 `apps/platform`（server/app 源码 + 25+ 测试文件）与 `scripts/*.mjs`（9 个 `.test.mjs`），覆盖率数字虚高失真。用户要求：优化统计口径 + 目标设为 80%。
+- 口径修正（2026-08-12 已完成）：
+  - [x] coverage.include 扩展为 5 段：`packages/{core,engine,cli,mcp}/src/**/*.ts` + `apps/platform/app/**/*.ts` + `apps/platform/server/**/*.ts` + `scripts/*.mjs`
+  - [x] exclude 追加 `**/*.test.mjs`；`.vue` 组件与 e2e 不纳入（口径声明见 [testing.md §5](../standards/testing.md)）
+  - [x] thresholds 四维 80（statements/branches/functions/lines）
+  - [x] testing.md §5 目标表同步（整体 60% → 80%，模块目标统一 80%，登记新口径基线）
+- **基线（新口径）**：Statements **67.81%**（4382/6462）/ Branches 65.39% / Functions 68.43% / Lines 67.83%——未达门槛，`pnpm run test:coverage` 当前非零退出（CI coverage job 会红，直至冲刺达标）。
+- **缺口分析（低覆盖高 ROI 候选）**：
+  - `apps/platform`：`server/api/*` 22 个 Nuxt 路由 handler 全 0%、`app/` composables/middleware/plugins 全 0%（e2e 覆盖但单测未覆盖）、`database/typeorm-adapter.ts` 0%、`queue.service.ts` 8%、`scan-orchestrator.service.ts` 5%、`utils/auth.ts` 0%
+  - `scripts`：整体 33.66%——check-links 0% / distill-wisdom 0% / sync-skills 0% / auto-version 29% / tag-released-versions 20%
+  - `packages/mcp`：整体 35%（bin.ts 0%、index.ts 39%——入口薄壳）
+  - `packages/cli`：runner.ts 0%、bin.ts 0%、skills/source.ts 25%
+  - `packages/core`：errors/app-error 44%、report/writer 69%、若干 re-export 入口 0%（planner/index、toolchain/index）
+  - `packages/engine`：app/branch-cleanup 31%、app/index 62%、runners/verification-gate 73%
+- 冲刺执行按 [testing.md §5.1 覆盖率冲刺执行方法](../standards/testing.md)（fresh 基线 → 高 ROI 切片 → 小步快跑 → 全量 checkpoint）。
+- 验收：`pnpm run test:coverage` 四维全部 >= 80%（CI coverage job 转绿）。
+- 任务粒度：口径修正单批提交（1 配置 + 2 文档）；冲刺按切片分批提交（单批 <= 10 文件）。
+
+---
+
 ## 当前状态
+
+- **T711 覆盖率口径修正已完成（2026-08-12）**：coverage.include 从仅 `packages/*/src` 扩展为 5 段口径（packages 四包 + apps/platform app+server + scripts），thresholds 四维 80。新口径基线 Statements 67.81% / Branches 65.39% / Functions 68.43% / Lines 67.83%——未达 80% 门槛，`pnpm run test:coverage` 当前非零退出（CI coverage job 红，冲刺见上 T711 区块；文档见 [testing.md §5](../standards/testing.md)）。
 
 - **T709 治理规范收敛已完成（2026-08-12）**：用户指出 `ai-collaboration.md` §2.2 验证分级矩阵与 `.github` agent/skill 执行的 `audit-depth` 分级审计执行协议冲突——同一张表在 3 处重复抄写（standard 行措辞漂移）、两维关系未声明、默认 `deep` 规则覆盖不一致。修复：§1.3 升级为唯一权威协议（quick/standard/deep + 时间盒）并声明与 §2.2 正交关系（验证矩阵=最低证据门槛 / audit-depth=核验投入），code-reviewer SKILL 步骤 2.5 / code-auditor agent / full-stack-master agent+skill 全部收敛为一行引用（补"未声明默认 deep"）。质量门：lint:md + check:links（115 文件）+ 编号扫描零命中；deep 审计 Pass（无 blocker，warning-1 Todo 登记与 suggest-1 总结句收敛均已关闭）。提交：单批。
 

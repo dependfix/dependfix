@@ -53,7 +53,7 @@ const KEYWORD_TYPES = [
 
 const TYPE_ORDER = ['bug', 'pattern', 'decision', 'env', 'test', 'baseline']
 
-function inferType(title) {
+export function inferType(title) {
     for (const { type, keywords } of KEYWORD_TYPES) {
         if (keywords.some((k) => title.includes(k))) {
             return type
@@ -63,7 +63,7 @@ function inferType(title) {
 }
 
 /** 判断小节标题：active / historical / 其他日期分组（兼容旧格式无小节标题的情况） */
-function classifySection(title) {
+export function classifySection(title) {
     if (title.includes('当前条目') || title.includes('Active')) {
         return 'active'
     }
@@ -73,7 +73,7 @@ function classifySection(title) {
     return null
 }
 
-function parseWisdom(content) {
+export function parseWisdom(content) {
     const lines = content.split(/\r?\n/u)
     const entries = []
     let currentSection = null
@@ -116,7 +116,7 @@ function parseWisdom(content) {
             currentSection = 'active'
         }
 
-        // Active 小节中 keep 条目（`### N.` 行）与摘要行（`- [date]` 列表前缀）需可达（Review Gate P2）
+        // Active 小节中 keep 条目（`### N.` 行）与摘要行（`- [date]` 列表前缀）需可达
         if (currentDate === null && !trimmed.startsWith('### ') && !/^[-*]?\s*\[/u.test(trimmed)) {
             continue
         }

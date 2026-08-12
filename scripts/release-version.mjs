@@ -8,8 +8,9 @@
  *   保证 npm registry 上依赖方的依赖范围指向新版本。
  *   **关键简化**：各包依赖范围均为 `workspace:*`，pnpm publish 发布时自动替换
  *   为实际版本，因此本脚本不改写依赖范围字段，只负责版本提升。
- * - 版本写回：更新各包 package.json 的 version 字段（UTF8 无 BOM、LF 行尾），
- *   其余字段原样保留（JSON.parse/stringify 保持 key 顺序）。
+ * - 版本写回：更新各包 package.json 的 version 字段（UTF8 无 BOM），
+ *   其余字段原样保留（JSON.parse/stringify 保持 key 顺序；缩进与末尾换行
+ *   跟随原文件——.editorconfig 约定 package.json 为 2 空格、无末尾换行）。
  *
  * 用法：
  *   pnpm release:version            # 消费 release-plan.md，写回版本并删除计划文件
@@ -160,6 +161,20 @@ function ensureCleanWorkspace() {
     }
 }
 
+/**
+ * 序列化写回内容：保持原文件的缩进与末尾换行风格，避免格式化重排
+ * （.editorconfig 约定 package.json 为 2 空格缩进、无末尾换行；检测不到
+ * 缩进时回退 2 空格）。
+ * @param {object} pkgJson 写回的对象（version 已更新）
+ * @param {string} raw 原文件内容
+ * @returns {string} 写回文本
+ */
+export function serializePkgJson(pkgJson, raw) {
+    const indent = raw.match(/\n( +)"/)?.[1] ?? '  '
+    const trailing = raw.endsWith('\n') ? '\n' : ''
+    return JSON.stringify(pkgJson, null, indent) + trailing
+}
+
 export function main() {
     const dryRun = process.argv.includes('--dry-run')
     const force = process.argv.includes('--force')
@@ -194,13 +209,16 @@ export function main() {
         console.log('dry-run 完成，未写回任何版本')
         return
     }
-    ensureCleanWorkspace()
+    if (!force) {
+        ensureCleanWorkspace()
+    }
     for (const [pkg, bump] of bumps) {
         const file = join(repoRoot, pkgPath.get(pkg), 'package.json')
-        const pkgJson = JSON.parse(readFileSync(file, 'utf8'))
+        const raw = readFileSync(file, 'utf8')
+        const pkgJson = JSON.parse(raw)
         pkgJson.version = incVersion(pkgJson.version, bump)
-        // UTF8 无 BOM + LF 行尾（JSON.stringify 保持字段顺序）
-        writeFileSync(file, `${JSON.stringify(pkgJson, null, 4)}\n`, 'utf8')
+        // 保持原缩进与行尾风格写回（不重排格式，UTF8 无 BOM）
+        writeFileSync(file, serializePkgJson(pkgJson, raw), 'utf8')
     }
     unlinkSync(PLAN_FILE)
     console.log(`已更新 ${bumps.size} 个包版本，release-plan.md 已删除`)

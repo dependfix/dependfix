@@ -1,6 +1,6 @@
 {
   "name": "@dependfix/mcp",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "MCP Server for dependfix: expose scan/fix capabilities to AI assistants",
   "author": "CaoMeiYouRen",
   "license": "MIT",

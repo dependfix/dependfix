@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildDepGraph, computeBumps, incVersion, parsePlan, renderSummary } from './release-version.mjs'
+import { buildDepGraph, computeBumps, incVersion, parsePlan, renderSummary, serializePkgJson } from './release-version.mjs'
 
 // 模拟发布包清单（结构对齐 packages.config.mjs）
 const packages = [
@@ -135,5 +135,44 @@ describe('renderSummary', () => {
         const out = renderSummary(bumps, () => '0.2.0', new Set(['@dependfix/core']))
         expect(out).toContain('@dependfix/core: 0.2.0 → 0.3.0 (minor，计划)')
         expect(out).toContain('dependfix: 0.2.0 → 0.2.1 (patch，传导)')
+    })
+})
+
+describe('serializePkgJson', () => {
+    it('keeps 2-space indent and no trailing newline (editorconfig package.json default)', () => {
+        const raw = '{\n  "name": "a",\n  "version": "0.1.0"\n}'
+        expect(serializePkgJson({ name: 'a', version: '0.2.0' }, raw)).toBe(
+            '{\n  "name": "a",\n  "version": "0.2.0"\n}',
+        )
+    })
+
+    it('keeps 4-space indent of original file instead of reformatting', () => {
+        const raw = '{\n    "name": "a",\n    "version": "0.1.0"\n}'
+        expect(serializePkgJson({ name: 'a', version: '0.2.0' }, raw)).toBe(
+            '{\n    "name": "a",\n    "version": "0.2.0"\n}',
+        )
+    })
+
+    it('keeps trailing newline when original file ends with one', () => {
+        const raw = '{\n  "version": "0.1.0"\n}\n'
+        expect(serializePkgJson({ version: '0.2.0' }, raw)).toBe('{\n  "version": "0.2.0"\n}\n')
+    })
+
+    it('falls back to 2-space indent for compact single-line json', () => {
+        expect(serializePkgJson({ version: '0.2.0' }, '{"version":"0.1.0"}')).toBe(
+            '{\n  "version": "0.2.0"\n}',
+        )
+    })
+
+    it('falls back to 2-space indent for tab-indented json (space regex only matches spaces)', () => {
+        const raw = '{\n\t"version": "0.1.0"\n}'
+        expect(serializePkgJson({ version: '0.2.0' }, raw)).toBe('{\n  "version": "0.2.0"\n}')
+    })
+
+    it('preserves key order of original file', () => {
+        const raw = '{\n  "name": "a",\n  "version": "0.1.0",\n  "license": "MIT"\n}'
+        const out = serializePkgJson(JSON.parse(raw), raw)
+        expect(out.indexOf('name')).toBeLessThan(out.indexOf('version'))
+        expect(out.indexOf('version')).toBeLessThan(out.indexOf('license'))
     })
 })

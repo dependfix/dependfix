@@ -1,6 +1,6 @@
 # @dependfix/mcp
 
-## 0.1.1 (2026-08-12)
+## 0.1.2 (2026-08-12)
 
 
 ### ✨ 新功能
@@ -21,4 +21,3 @@
 * **engine:** 拆包批次 4（mcp/platform 切换 engine 依赖，恢复发布链路） ([74f821a](https://github.com/dependfix/dependfix/commit/74f821a))
 * **mcp:** 收口复用缺口（统一错误包装 / 复用 cli 默认配置 / enum 对齐常量） ([fd99262](https://github.com/dependfix/dependfix/commit/fd99262))
 * **release:** 发布包清单单点化 + 修复 changelog 已发布判定 ([83edffc](https://github.com/dependfix/dependfix/commit/83edffc))
-

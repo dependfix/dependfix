@@ -1,6 +1,6 @@
 # dependfix
 
-## [0.3.1](https://github.com/dependfix/dependfix/compare/dependfix@0.2.0...dependfix@0.3.1) (2026-08-12)
+## [0.3.2](https://github.com/dependfix/dependfix/compare/dependfix@0.2.0...dependfix@0.3.2) (2026-08-12)
 
 
 ### ✨ 新功能
@@ -50,6 +50,7 @@
 ### 🐛 Bug 修复
 
 * **action:** 构建链补齐 @dependfix/engine（cli 运行时 imports engine dist，漏构建导致 Security Auto Fix 首跑 ERR_MODULE_NOT_FOUND） ([288ff36](https://github.com/dependfix/dependfix/commit/288ff36))
+* **changelog:** 自动清理残留未发布段防止版本重复日志 ([cac9989](https://github.com/dependfix/dependfix/commit/cac9989))
 * **ci:** 补 engine 构建链并修复失效文档链接（拆包批次 4 CI 回归） ([8dae226](https://github.com/dependfix/dependfix/commit/8dae226))
 * **ci:** 修复 Publish Docker 构建 arm64 SIGILL（复制完整依赖布局 + 禁用 pnpm 自动安装） ([8a24810](https://github.com/dependfix/dependfix/commit/8a24810))
 * **ci:** coverage job 补 nuxt prepare + 超时测试 nock 上限放大 ([e16aeda](https://github.com/dependfix/dependfix/commit/e16aeda))

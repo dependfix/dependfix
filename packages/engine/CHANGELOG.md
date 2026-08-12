@@ -1,6 +1,6 @@
 # @dependfix/engine
 
-## 0.1.2 (2026-08-12)
+## 0.1.3 (2026-08-12)
 
 
 ### 🐛 Bug 修复
@@ -19,4 +19,3 @@
 * **engine:** 拆包批次 4（mcp/platform 切换 engine 依赖，恢复发布链路） ([74f821a](https://github.com/dependfix/dependfix/commit/74f821a))
 * **engine:** 拆出 @dependfix/engine 共享执行引擎（批次 1：github/code-scanning 迁移） ([7191609](https://github.com/dependfix/dependfix/commit/7191609))
 * **engine:** processRepoForFix 拆分为步骤管线（repo-fix/repo-alerts 模块） ([660362f](https://github.com/dependfix/dependfix/commit/660362f))
-

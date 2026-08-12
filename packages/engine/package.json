@@ -1,6 +1,6 @@
 {
   "name": "@dependfix/engine",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "dependfix 执行引擎：编排、采集、修复与研判核心（cli / mcp / platform 共享）",
   "author": "CaoMeiYouRen",
   "license": "MIT",

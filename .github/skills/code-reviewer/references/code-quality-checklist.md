@@ -180,6 +180,27 @@ if (value) { ... }  // 对 0, "", false 失效
 
 教训见 [经验归档 §三十](../../../../docs/design/governance/experience-archive.md)（TypeORM 1.x 列级复合索引 bug，e2e 二次运行暴露）。
 
+### docs 裸 HTML 标签与本地 docs:build 验证（必查项）
+
+修改 `docs/` 站点内 md（含 experience-archive.md 等持续追加文档、归档转接）时，检查：
+
+- **裸 `<tag>` 占位符**：正文/表格中 `<tag>` / `<file>` / `<hash>` 等是否反引号包裹（`` `<hash>` ``）——markdown 裸 `<tag>` 被当 raw HTML 透传进 Vue 模板 → docs build 报 `Element is missing end tag`；报错行号是**转换产物行号**，不能按源文件行号找（lint:md 与 check:links 均不查 HTML 配对）
+- **加粗内裸 `*`**：`**...*.test.ts...**` 中裸 `*` 破坏强调解析（转换产物出现 `<em>` 嵌套错乱），须反引号包裹
+- **本地 docs:build 证据**：`pnpm --filter dependfix-docs build` 是否已执行并提供通过证据？docs build 是唯一防线，缺失 → 退回补验证
+- **排查命令**：`rg '<[a-z][a-z0-9-]*>'` 后人工过滤反引号内命中
+
+规范见 [documentation.md §2 裸 HTML 标签禁令](../../../../docs/standards/documentation.md)，教训见 [经验归档 §三十九](../../../../docs/design/governance/experience-archive.md)（§三十三 `<path>` 后二次复现：登记 ≠ 防御，教训必须落成检查点）。
+
+### Node 脚本 main 入口守卫（必查项）
+
+新增/修改 `scripts/*.mjs` 或根目录可执行脚本时，检查：
+
+- **入口守卫**：main 调用是否包裹 `if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href)`？无守卫时 vitest import 模块即执行 main()（顶层副作用）
+- **git 忽略文件依赖**：脚本/测试是否隐式依赖 `.session/`、`temp/` 等 git 忽略目录文件的存在性（本地有、CI 无 → 行为分叉）？依赖路径是否可注入或已模拟缺失场景验证
+- **典型故障**：依赖缺失文件时 main() 内 `process.exit(0)` 被 vitest 拦截 → catch 再 `process.exit(1)` → `process.exit unexpectedly called` Unhandled Rejection，仅 CI 暴露
+
+规范见 [development.md §5.1.5/§5.1.6](../../../../docs/standards/development.md)，教训见 [经验归档 §三十九](../../../../docs/design/governance/experience-archive.md)。
+
 ### 发布链路 tag 推送核验（必查项）
 
 修改发布相关脚本/工作流（release.yml / changelog.mjs / release 脚本 / 手动发布文档）时，检查 tag 生命周期闭环：

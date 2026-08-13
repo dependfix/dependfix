@@ -29,9 +29,9 @@
   | 阶段 | 内容 | 缺口（statements） | 状态 |
   |:--|:--|--:|:--|
   | 1 | `scripts` 提升至 80%（distill-wisdom/check-links/sync-skills 纯函数提取 + 补测；auto-version/tag-released-versions 等补测） | 419 | ✅ 完成（2026-08-12，四维 ≥ 80%） |
-  | 2 | `apps/platform/server` api 路由层 + database + queue 服务补测 | 550 | 🔄 进行中（api 路由层 16/22 handler 已覆盖） |
-  | 3 | `packages/cli` 入口 + `apps/platform/app` 层补测 | 100 | ⬜ |
-  | 4 | 全局收口（branches/functions 维度补强，目标四维均 ≥ 80%） | — | 🔄 提前启动（branches 76.38% 未达标） |
+  | 2 | `apps/platform/server` api 路由层 + database + queue 服务补测 | 550 | ✅ 完成（2026-08-13，api 16/22 + 服务层 7 文件） |
+  | 3 | `packages/cli` 入口 + `apps/platform/app` 层补测 | 100 | ⬜（已达标，可跳过或低优先） |
+  | 4 | 全局收口（branches/functions 维度补强，目标四维均 ≥ 80%） | — | ✅ 完成（2026-08-13） |
 
 - **阶段 1 完成记录（2026-08-12）**：scripts 33.7% → **Stmts 81.8% / Branch 80.59% / Funcs 83.08% / Lines 81.76%**（四维达标）；全量测试 1363 passed / 4 skipped 无回归。批次：1a（b57d476b distill/sync）→ 1b（ce336a90 check-links）→ 1c（fd6a2074 auto-version/tag-released）→ 1d（47459b4a 发布脚本 main）→ 1e（f3ed43c2 release-publish main）→ 1f（538f268e create-release-plan）→ 1g（6bd81b1d changelog mergeUnreleased），每批 Review Gate Pass。
   - 已知边界：release-version main 写回真实 package.json 不可测（放弃，61%）；changelog 顶层循环依赖本地 tag 短路 / npm 可达（离线 CI 需注意）；isPreMajor 测试断言 0.x 与真实版本耦合（1.0.0 发布后需同步更新，登记 Note）。
@@ -46,6 +46,7 @@
 
 - 冲刺执行按 [testing.md §5.1 覆盖率冲刺执行方法](../standards/testing.md)（fresh 基线 → 高 ROI 切片 → 小步快跑 → 全量 checkpoint）。
 - 验收：`pnpm run test:coverage` 四维全部 >= 80%（CI coverage job 转绿）。
+- **✅ 达成记录（2026-08-13）**：全量 checkpoint **Statements 85.89% / Branches 80.6% / Functions 85.51% / Lines 85.96%**——四维全部 ≥ 80%，`pnpm run test:coverage` 零 ERROR；1494 passed / 4 skipped；lint 0/0 + typecheck 全过。阶段 3（cli 入口/app 层）已无必要（全局达标），标记可跳过；后续补测按需（审计 suggest 项登记：typeorm-adapter createdAt 同毫秒 flaky、transaction 回滚断言、redis error 监听断言、queue close disconnect 断言）。
 - 任务粒度：口径修正单批提交（1 配置 + 2 文档）；冲刺按切片分批提交（单批 <= 10 文件）。
 
 ---

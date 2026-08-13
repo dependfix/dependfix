@@ -53,8 +53,8 @@ metadata:
 1. **强制入口**：D 阶段完成后立即加载本项目 `code-reviewer` skill（[code-reviewer](../code-reviewer/SKILL.md)，禁止全局同名版本）执行完整审查。
 2. **审查范围**：代码、文档、配置、脚本均须审查。
 3. **审计任务携带已查证事实**：把调研结论、实验证据、源码行号引用写进审计 prompt，避免审计者从头翻源码（证据优先级见 [AI 协作规范 §1.3 证据获取手段优先级](../../../docs/standards/ai-collaboration.md)）。
-4. **显式声明审计深度**：审计 prompt 必须显式声明 `audit-depth`（`quick` / `standard` / `deep`，分级与时间盒见 [AI 协作规范 §1.3 分级审计执行协议](../../../docs/standards/ai-collaboration.md)）与理由，并携带**审计启动时间戳**（宿主系统时钟）；未声明时审计按 `deep` 防御执行，会显著拖长用时——小改动必须主动声明 `quick`。
-4b. **真实用时实测**：发起审计 task 前用宿主系统时钟记录启动时间戳，审计返回后实测 elapsed，将"实际用时 / 是否超时间盒"回填审计结论与证据记录——agent 自报用时为 LLM 估算值，不得作为时间盒核验依据（见 [AI 协作规范 §1.3 真实用时实测](../../../docs/standards/ai-collaboration.md)）。
+4. **显式声明审计深度**：审计 prompt 必须显式声明 `audit-depth`（`quick` / `standard` / `deep`，分级与时间盒见 [AI 协作规范 §1.3 分级审计执行协议](../../../docs/standards/ai-collaboration.md)）与理由；未声明时审计按 `deep` 防御执行，会显著拖长用时——小改动必须主动声明 `quick`。
+4b. **真实用时实测（事后校准）**：发起审计 task 前用宿主系统时钟记录启动时间戳，审计返回后实测 elapsed，将"实际用时 / 是否超时间盒"回填审计结论与证据记录——agent 自报用时为 LLM 估算值，不得作为时间盒核验依据；审计过程中不要求审计方感知时间，实测超时仅作分级校准数据（见 [AI 协作规范 §1.3 真实用时实测](../../../docs/standards/ai-collaboration.md)）。
 5. **复审只审修复点**：第 2+ 轮只移交上轮问题编号对应的修复 diff，不重发全量 diff。
 6. **并发审计（仅大改动）**：diff 文件数 > 8 或涉及 ≥ 2 个独立模块时，按模块分区并行发起多个审计任务，汇总取最严结论；小改动不得并发。
 7. **退回策略**：发现 blocker 退回 D 或回流 P。

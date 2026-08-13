@@ -405,3 +405,23 @@
 
 - **经验一：git show | Set-Content 文本管道按 GBK 解码会损坏 UTF-8（写入侧）**——Windows PowerShell 文本管道默认按系统代码页（GBK）解码，`git show <hash> | Set-Content file` 会把 UTF-8 内容读成乱码再写回。**正确做法**：用 cmd 重定向字节安全导出（`cmd /c "git show <hash> > file"`）或直接 `git show <hash> -o file`（git 原生写文件）。
 - **经验二：tsconfig exclude `*.test.ts` 会掩盖测试文件类型错误**——被 exclude 的测试文件不参与 `tsc --noEmit`，其中类型错误（缺失字段/来源错误）静默通过；test-helpers 提取（T710 批次 4）暴露该问题后，已修正来源与缺失字段。**教训**：测试文件必须纳入类型检查范围（可用 `tsconfig.test.json` 单独包含，或依赖 vitest 的转换期类型校验），禁止用 exclude 排除测试文件。
+
+## 三十九、CI 双 run 同时失败：裸标签坑二次复现 + scripts 入口守卫缺失（2026-08-13）
+
+> 教训形态：**"登记 ≠ 防御"**——§三十三 裸标签教训已入档但未落规范/未挂检查点，同坑二次复现；同时暴露 scripts 新增脚本未对齐既有 main 守卫模式。
+
+- **案例**：两个独立 CI run 同日同时失败（run 31657996992 Publish Docker / run 31657996981 VitePress Pages）：
+  - **失败一（docs build）**：`experience-archive.md (518:266): Element is missing end tag.`。根因：T710 归档转接新增的 §三十八 条目（406-407 行）含**裸 `<hash>` 标签**（`git show <hash> | Set-Content file` 等三处，缺反引号）+ `**...*.test.ts...**` 加粗内的裸 `*`（破坏强调解析，转换产物 516 行出现 `<em>` 嵌套错乱）——与 §三十三（release.md 的 `<path>`）**完全同款**。518 行号是转换产物行号（§三十三 已登记：不能按源文件行号找）。
+  - **失败二（QA test）**：`scripts/distill-wisdom.test.mjs` 报 `process.exit unexpectedly called with "1"`（distill-wisdom.mjs:295）→ Unhandled Rejection。根因：distill-wisdom.mjs 是 scripts/ 下**唯一没有 main 入口守卫**的脚本（其余 8 个均有 `process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href` 守卫）。CI 环境 `.session/wisdom.md` 不存在（git 忽略）→ vitest import 模块时 main() 无条件执行 → ENOENT 分支 `process.exit(0)` 被 vitest 拦截 → catch 再 `process.exit(1)` → Unhandled Rejection。**本地因 wisdom.md 存在而侥幸通过**。
+- **根因**：
+  - 裸标签教训在 §三十三 只有"启示"段落（含排查命令与修复先例），**没有同步为 documentation.md 规范条款、没有挂 A 阶段必查项**——登记入档后无强制检查点，第二次复现是必然。与 §十六"规范存在 ≠ 被执行"同源：规范/教训要生效必须挂接 D 阶段自检或 A 阶段必查项。
+  - 新增 scripts 脚本（distill-wisdom 为 Session Wisdom 蒸馏机制配套脚本）时未做"同类脚本模式对齐"检查——8 个既有脚本的守卫形态已经稳定，新脚本复制时漏掉入口守卫。
+  - 测试依赖 git 忽略的工作区文件（.session/）存在性：本地有、CI 无 → 行为分叉，再次印证"本地通过 ≠ CI 通过"（§二十七/§二十八 同族）。
+- **修复**：
+  - §三十八 两行全部命令/占位符补反引号（`<hash>`、`*.test.ts`、`tsc --noEmit`、`tsconfig.test.json`），与 §三十三 `<path>` 先例一致；
+  - distill-wisdom.mjs 补与其余 8 脚本逐字一致的 main 守卫（import pathToFileURL + 包裹 main().catch()）。
+  - 验证闭环：`pnpm --filter dependfix-docs build` 修复前复现 518:266、修复后 23.18s 通过；模拟 CI（移走 wisdom.md）跑 distill-wisdom 测试修复前必挂、修复后 18 passed；lint/typecheck 全绿；Code Auditor quick Pass。
+- **启示**：
+  - **教训入档 ≠ 防御生效**：同一模式第二次复现（裸标签）后，必须把教训落成"可执行检查点"（规范条款 + A 阶段必查项），否则归档只是故事。检查点形态见 [documentation.md §2 裸 HTML 标签禁令](../../standards/documentation.md) 与 code-auditor 必查项。
+  - **新增 scripts/*.mjs 必须对齐既有 main 守卫模式**：`process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href` 包裹 main()——vitest 单测 import 模块时不执行入口副作用；新脚本复制旧脚本骨架时守卫是最容易被漏掉的一行。
+  - **测试不得依赖 git 忽略工作区文件的存在性**：.session/ 下的文件本地存在、CI 不存在，依赖它的测试必须模拟缺失场景（移走文件）验证，或把依赖注入为参数。

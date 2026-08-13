@@ -127,9 +127,9 @@
 > **已闭环清理**：C25（B 模式结果回填，17c5082f + 60d9fd6e）、C27（runUrl 状态语义，随 C25 联动解决）——记录见 [todo-archive.md §M6 治理记录](todo-archive.md#m6-阶段治理记录2026-08-07--2026-08-08)。
 
 - **C26 独立沙箱容器执行实现**（T607 设计文档产出后的实现候选）
-  - 状态：🔶 待评估（M7 候选）
-  - 内容：平台容器即沙箱的最小实现（M6 T603 `ContainerExecutor`）之后，若恶意依赖升级威胁面评估结论需要更严格隔离，实现独立 worker 容器（每任务/每仓库容器，网络/文件系统隔离）；与 M7 T702 BullMQ worker 模型结合
-  - 来源：M6 规划（2026-08-07，Q4=A 设计+最小实现，完整沙箱留后续）
+  - 状态：🔶 **已评估，提级 M7 前置**（2026-08-14 安全专项评估——G5 并发共享容器交叉污染：BullMQ 并发后恶意仓库 A 的脚本可读仓库 B 的工作目录与环境，随 T702 并发落地变为现实；评估详见 [sandbox-security-governance.md §3 路径 D](../design/governance/sandbox-security-governance.md)）
+  - 内容：平台容器即沙箱的最小实现（M6 T603 `ContainerExecutor`）之后，实现独立 worker 容器（每任务/每仓库容器，网络出站白名单 + 文件系统隔离），与 M7 T702 BullMQ worker 模型结合；验收对照 [安全基线 §4](../design/governance/sandbox-security-governance.md)
+  - 来源：M6 规划（2026-08-07，Q4=A 设计+最小实现，完整沙箱留后续）；2026-08-14 安全专项评估提级
 - **C28 security.md 补凭据加密存储章节**（M6 终审 W4 登记）
   - 状态：🔶 待评估（不阻塞）
   - 内容：security.md 未登记 T602 凭据加密机制（ENCRYPTION_KEY / AES-256-GCM / 解密仅执行时内存 / 凭据最小化），加密设计散落 executor-sandbox.md §3 与 credential.service.ts 注释；安全设计文档应与实现同步补"凭据加密存储"一节（T602 已交付，文档待补）
@@ -251,6 +251,39 @@
   - 状态：🔶 待评估
   - 内容：T708 D3 决策语言偏好存 Cookie（登录/未登录一致、简单可靠）；登录用户语言偏好持久化到服务端（better-auth user 字段或独立偏好表，多设备同步）未实现。触发条件：多设备使用成为常态或用户反馈语言偏好不同步
   - 来源：2026-08-11 T708 规划（D3 决策登记）
+
+### 沙箱与恶意依赖防护治理登记（2026-08-14 安全专项评估）
+
+> 来源：2026-08-14 安全专项评估（"dependfix 不能成为漏洞扩散工具"评估，结论与威胁链详见 [sandbox-security-governance.md](../design/governance/sandbox-security-governance.md)）。以下为评估登记的治理缺口，按 P0 → P2 排序；修复验收对照治理文档 §7。
+
+- **C38 平台 Dockerfile 补 `USER` 降权**（P0，设计-实现偏差）
+  - 状态：🔶 待修复（低改动，建议尽快）
+  - 内容：executor-sandbox.md §2.2 明确 M6 必做"非 root 用户运行（镜像 `USER` 降权）"，但 `apps/platform/Dockerfile` 无 `USER` 指令，容器以 root 运行——恶意依赖脚本以 root 执行（可读 `/proc` 其他进程环境、写容器文件系统），削弱凭据最小化收敛效果。修复方向：基础镜像（alpine-nodejs-minimize）内置非 root 用户确认后加 `USER` 指令，`/app/data` 数据卷权限适配（`docker-compose.yml` 或镜像内目录 chown），构建与 e2e 回归验证
+  - 来源：2026-08-14 安全专项评估（G1）
+- **C39 CLI 本地模式安全防线**（P0，威胁模型与产品形态偏差）
+  - 状态：🔶 待评估（文档警示已落盘 quick-start）
+  - 内容：威胁模型将本地执行定位"仅开发调试"，但 CLI 是产品发布形态之一——本地模式零隔离，恶意依赖脚本直接在用户机器执行、可读用户 shell 全部环境（含 `GITHUB_TOKEN`/`DEPENDFIX_AI_API_KEY`）。候选方向：① 启动时检查并提示 token 权限面（与 C42 共用）；② 可选容器执行参数（复用平台镜像）；③ 运行前交互确认"将以本地权限执行不可信代码"
+  - 来源：2026-08-14 安全专项评估（G2）
+- **C40 执行期网络外联日志与限制**（P1）
+  - 状态：🔶 待评估（M7 出站白名单前置项）
+  - 内容：设计承诺"M6 记录执行期外联日志（备查）"未实现；M7 出站白名单（npm/pnpm registry + GitHub API，默认 deny）落地前，至少实现外联审计日志供事故溯源；与 C26 独立容器结合实现网络隔离
+  - 来源：2026-08-14 安全专项评估（G3）
+- **C41 验证命令单命令超时与资源上限**（P1）
+  - 状态：🔶 待评估（M7 cgroup 前置项）
+  - 内容：`verification-runner.execCommand` 无单命令 timeout（仅外层总超时 30 分钟兜底，恶意死循环脚本可长时间占用）；无内存/CPU/磁盘配额（设计说"磁盘配额随数据卷"未落地）。修复方向：单命令 timeout（如 10 分钟可配）+ M7 cgroup 限制
+  - 来源：2026-08-14 安全专项评估（G4）
+- **C42 Action/CLI 凭据权限面启动检查**（P1）
+  - 状态：🔶 待评估
+  - 内容：action.yml `github-token`（用户 PAT，owner 模式需跨仓库权限）与 `ai-api-key` 进环境变量，恶意 install 脚本可直接读取；B 路径（恶意仓库经 owner 扫描）的最终防线是凭据权限面。候选方向：启动时调用 `/user` + 权限探测，对超出最小权限（repo 全量 scope / 非 fine-grained）的 token 输出警告（不强制，避免破坏存量用法）
+  - 来源：2026-08-14 安全专项评估（G6）
+- **C43 升级研判供应链信号披露**（P2）
+  - 状态：🔶 待评估
+  - 内容：报告/PR 未披露"本次新增/升级的包是否带 lifecycle scripts 且已被目标仓库 `allowBuilds` 批准"——该信号是路径 A（合法包被投毒）合入前人工确认的关键依据。候选方向：升级后解析目标仓库 `pnpm-workspace.yaml` 批准列表与 lockfile 脚本标记，将带脚本且被批准的包列入报告/PR 警示区
+  - 来源：2026-08-14 安全专项评估（G7）
+- **C44 安全规范 §5.3 挂接 review 检查点**（2026-08-14 审计登记）
+  - 状态：🔶 待评估（不阻塞）
+  - 内容：`standards/security.md` §5.3 新增的必须级条款（非 root 执行 / 单命令超时 / 供应链信号披露 / 新执行后端威胁建模评审等）未挂接 `code-reviewer` 的 `code-quality-checklist` 检查点，按"规范执行分层"（严格约束挂 review 检查点）需补挂；与 C34 存量规范盘点同机制，可随其排期一并落地
+  - 来源：2026-08-14 沙箱安全治理 Review Gate（RG-W2）
 
 ---
 

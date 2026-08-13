@@ -2,6 +2,7 @@
 
 > 状态：🔶 设计先行（T607，2026-08-08）——契约与威胁建模落盘，供 T603 实现 `ContainerExecutor`；独立沙箱容器实现留 M7。
 > 背景决策见 [todo-archive.md §M6 规划决策](../../plan/todo-archive.md#m6-最小平台-mvp已归档)（Q1 执行深度 A/B 双模式、Q4 沙箱=A、Q5 Action 触发=B）。
+> **安全评估（2026-08-14）**：评估结论、治理决议与不可简化的安全基线见 [沙箱与恶意依赖防护治理](./sandbox-security-governance.md)；本文档 §2.2 的 M6 缓解存在未落地项（USER 降权、外联日志），登记 [backlog C38/C40](../../plan/backlog.md)。
 
 ---
 
@@ -47,6 +48,8 @@ dependfix 的核心动作是**升级第三方依赖**，本质是"拉取并执�
 | 提权逃逸 | 低（单租户自托管） | 非 root + 不挂载 docker.sock + 容器只读部分 | 独立容器 + seccomp/apparmor 加固 |
 
 > **M6 结论**：平台容器即沙箱（进程级隔离）可接受——单租户自托管场景下威胁模型以"恶意依赖脚本"为主，通过非 root + 临时目录 + 凭据最小化 + 超时四项缓解即可达安全基线；更高隔离（网络出站限制、每任务容器）登记 backlog C26，M7 随 BullMQ worker 模型实现。
+>
+> **⚠️ 2026-08-14 评估修正**：M6 四项缓解中的"非 root 运行（镜像 `USER` 降权）"**未在 Dockerfile 落地**（容器以 root 运行）——已登记 [backlog C38](../../plan/backlog.md) 待修复；"记录执行期外联日志"未实现——登记 C40。修复前，A 模式（ContainerExecutor）实际缓解为：临时目录 + 凭据最小化 + 超时 三项；C26 独立沙箱提级为 M7 前置（并发共享容器交叉污染，见 [治理文档 §3 路径 D](./sandbox-security-governance.md)）。
 
 ---
 

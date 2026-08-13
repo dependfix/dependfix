@@ -37,6 +37,30 @@
 - 依赖混淆（私有包名冲突）
 - 从不信任来源或 CDN 导入且无完整性校验
 - 已知 CVE 的过时依赖
+- **幻觉依赖**: import/require 的包真实存在？manifest 与代码引用一致——AI 推荐包约 20% 在官方 registry 不存在，安装前须查官方页
+- **AI 推荐包来源验证**: 新引入包是否核验官方 registry 页与拼写（typosquatting），是否钉精确版本并提交锁文件
+- **外部技能/agent/MCP 来源**: skills、AGENTS.md、.cursorrules、MCP server 的来源是否可信（TrustFall 伪装"有用文档"诱导信任），是否核对 repo URL 与维护组织
+
+> 权威条款见 [security.md §5.2](../../../../docs/standards/security.md)，本清单只列检查项。
+
+## AI 生成代码与 Agent/MCP 特化
+
+AI 代码"能跑、测试过"不代表安全——Veracode 2025 实测 45% 的 AI 代码含 OWASP Top 10 漏洞（100+ LLM）。审查时按以下特化项检查：
+
+- **授权缺失（最高频）**: 每个接口/工具调用都校验权限？AI 漏洞中授权缺失是最常见类型（OWASP A01）
+- **注入与转义**: SQL/Shell 拼接是否参数化；输出是否转义（AI 代码 XSS 率 2.74x 人工——Veracode 2025，A03）
+- **硬编码密钥**: 搜 api_key/password/token；密钥入 `.env` 不入库（AI 生成代码硬编码凭据更常见，A07）
+- **配置与默认值**: 默认口令、CORS 宽松、调试模式上线？（A05）
+- **输入验证**: 边界值/恶意输入/超大输入；LLM 应用另查 prompt injection（A03 + LLM01）
+- **错误处理泄漏**: 异常是否泄漏内部路径/堆栈/SQL；catch 是否吞异常（A05）
+- **日志审计**: 敏感数据是否进日志（A09）
+- **Agent/MCP 特化**:
+  - 工具 description 是否被注入指令（恶意仓库可诱导调用）
+  - skills/AGENTS.md/.cursorrules 来源是否可信（上下文投毒入口）
+  - MCP env 密钥是否只读不改；敏感配置有无写保护
+  - 路径遍历：文件读取类工具是否防任意路径（`../`、绝对路径、符号链接）
+
+> 权威条款见 [security.md](../../../../docs/standards/security.md)（§1 鉴权 / §2 数据 / §3 Web / §4 日志 / §7 AI 输出），本清单只列检查项。
 
 ## CORS 与响应头
 

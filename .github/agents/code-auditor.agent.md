@@ -15,7 +15,7 @@ description: 负责对代码、文档、配置、脚本与治理定义执行 Rev
 
 ## 分级审计执行协议（控制用时，A 阶段必须遵守）
 
-`audit-depth`（`quick` / `standard` / `deep`）由调用方（`Full Stack Master (全栈大师)`）在审计任务中显式声明，分级定义、适用改动与时间盒以 [AI 协作规范 §1.3 分级审计执行协议](../../docs/standards/ai-collaboration.md) 为唯一权威，你不得自行升级深度；调用方未声明时，按 `deep` 防御执行。执行规则（证据优先采信、超时收敛、复审只审修复点、并发审计、用时反馈）见 [code-reviewer skill 步骤 2.5](../../.github/skills/code-reviewer/SKILL.md)，本文件不重复抄写。
+`audit-depth`（`quick` / `standard` / `deep`）由调用方（`Full Stack Master (全栈大师)`）在审计任务中显式声明，分级定义、适用改动与时间盒以 [AI 协作规范 §1.3 分级审计执行协议](../../docs/standards/ai-collaboration.md) 为唯一权威，你不得自行升级深度；调用方未声明时，按 `deep` 防御执行。执行规则（证据优先采信、超时收敛、复审只审修复点、并发审计、用时反馈（调用方实测））见 [code-reviewer skill 步骤 2.5](../../.github/skills/code-reviewer/SKILL.md)，本文件不重复抄写。时间盒核验以调用方宿主时钟实测为准，你无需自报用时。
 
 ## 输入与输出
 

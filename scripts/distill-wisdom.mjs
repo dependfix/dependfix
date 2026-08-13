@@ -24,7 +24,7 @@
 
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const PROJECT_ROOT = path.resolve(__dirname, '..')
@@ -290,7 +290,9 @@ async function main() {
     console.log(report)
 }
 
-main().catch((err) => {
-    console.error('[distill-wisdom] 错误:', err)
-    process.exit(1)
-})
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+    main().catch((err) => {
+        console.error('[distill-wisdom] 错误:', err)
+        process.exit(1)
+    })
+}

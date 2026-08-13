@@ -131,6 +131,24 @@ apps/platform/               # Nuxt 全栈平台
 - 命名前缀抽为统一常量 + 封装读取辅助，所有读取必须走它（防漏网）。
 - 改名后全局搜索旧名（含 env 前缀、错误消息、注释、示例），不只看文件引用。
 
+#### 5.1.5 Node 脚本 main 入口守卫（必须）
+
+- `scripts/*.mjs` 等可执行脚本**必须**用入口守卫包裹 `main()` 调用：
+
+  ```javascript
+  if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+      main().catch(...)
+  }
+  ```
+
+- 原因：vitest 单测 `import` 模块时会执行顶层副作用——无守卫时 main() 无条件运行，若依赖工作区文件（如 `.session/wisdom.md`）会 `process.exit` 被 vitest 拦截报 `Unhandled Rejection`，且仅 CI（无该文件）暴露、本地侥幸通过（2026-08-13 distill-wisdom 案例，见 [经验归档 §三十九](../design/governance/experience-archive.md)）。
+- 新增脚本复制既有脚本骨架时，守卫是最容易被漏掉的一行——完成新脚本后 grep `process.argv[1]` 确认。
+
+#### 5.1.6 测试不得依赖 git 忽略工作区文件的存在性
+
+- 测试/脚本不得隐式依赖 `.session/`、`temp/` 等 git 忽略目录下文件的存在性（本地有、CI 无 → 行为分叉，CI 挂、本地过）。
+- 必须依赖时：把路径/内容作为参数注入，或模拟缺失场景（临时移走文件）验证两分支。
+
 ## 6. 样式规范（平台阶段适用）
 
 - **纯 SCSS**: 禁止 CSS-in-JS、Tailwind。所有样式以纯 SCSS 编写。

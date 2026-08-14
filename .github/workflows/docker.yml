@@ -79,15 +79,28 @@ jobs:
           registry: registry.cn-hangzhou.aliyuncs.com
           username: ${{ secrets.ALIYUN_USERNAME }}
           password: ${{ secrets.ALIYUN_PASSWORD }}
-      - name: Extract Docker metadata
+      # 镜像命名：Docker Hub / 阿里云暂用 caomeiyouren/dependfix（dependfix/dependfix 未注册）；
+      # GitHub 用 dependfix/dependfix。metadata 按 registry 分组拆成两步，使各推送步骤
+      # 直接消费对应 tags，避免在表达式内做 filter/split 过滤（GitHub 表达式解析器不支持
+      # `=>` 箭头函数，filter 亦不在官方函数列表，2026-08 实证 422：Unexpected symbol '='）。
+      # 注意：两个步骤的 tags 策略需保持同步。
+      - name: Extract Docker metadata (Docker Hub & GHCR)
         id: metadata
         uses: docker/metadata-action@v6
         with:
-          # 镜像命名：Docker Hub / 阿里云暂用 caomeiyouren/dependfix（dependfix/dependfix 未注册）；
-          # GitHub 用 dependfix/dependfix
           images: |
             caomeiyouren/dependfix
             ghcr.io/dependfix/dependfix
+          tags: |
+            type=raw,value=latest,enable=true
+            type=raw,value={{date 'YYYY-MM-DD' tz='Asia/Shanghai'}},enable=true
+            type=sha,format=short,prefix=sha-,enable=true
+          flavor: latest=false
+      - name: Extract Docker metadata (Alibaba Cloud ACR)
+        id: metadata-acr
+        uses: docker/metadata-action@v6
+        with:
+          images: |
             registry.cn-hangzhou.aliyuncs.com/caomeiyouren/dependfix
           tags: |
             type=raw,value=latest,enable=true
@@ -105,8 +118,7 @@ jobs:
           context: .
           file: apps/platform/Dockerfile
           push: true
-          tags: |
-            ${{ join(filter(split(steps.metadata.outputs.tags, '\n'), x => !startsWith(x, 'registry.cn-hangzhou.aliyuncs.com/')), '\n') }}
+          tags: ${{ steps.metadata.outputs.tags }}
           labels: ${{ steps.metadata.outputs.labels }}
           platforms: linux/amd64,linux/arm64
           cache-from: type=gha
@@ -117,9 +129,8 @@ jobs:
           context: .
           file: apps/platform/Dockerfile
           push: true
-          tags: |
-            ${{ join(filter(split(steps.metadata.outputs.tags, '\n'), x => startsWith(x, 'registry.cn-hangzhou.aliyuncs.com/')), '\n') }}
-          labels: ${{ steps.metadata.outputs.labels }}
+          tags: ${{ steps.metadata-acr.outputs.tags }}
+          labels: ${{ steps.metadata-acr.outputs.labels }}
           platforms: linux/amd64,linux/arm64
           provenance: false
           sbom: false

@@ -49,7 +49,7 @@
 | 去重 | key = `packageName:advisoryId:severity`，paths 合并 |
 | 双格式兼容 | legacy（`advisories`/`actions`）与 modern（`vulnerabilities`/`via`）两种 pnpm audit 输出 |
 | 触发 | Dependabot source 非 `ok`（含 403）时整体回退，**不混合数据** |
-| 修复版本 | `fixAvailable`（`{name, version, isSemVerMajor}`）或 legacy `action.target` |
+| 修复版本 | `fixAvailable`（`{name, version, isSemVerMajor}`）、legacy `action.target`，或 legacy `patched_versions`（无 actions 时，pnpm 11 常见）——**range 字符串（如 `>=0.2.4`）剥离前缀取裸版本**，否则 compareSemver 解析退化为 `[0,0,0]` 导致告警假跳过（T801 实证，2026-08-14 修复） |
 
 **与本项目的关键差异**：参考实现是**收集/快照工具**（只读、报告用途），可接受"403 自动降级"；dependfix 是**修复工具**（写 package.json / lockfile / 建 PR），隐式降级的风险不可接受——这是本评估的核心分歧点（§5.1）。
 

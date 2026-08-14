@@ -147,6 +147,61 @@ describe('parseAuditReport', () => {
         expect(jsYaml.title).toBe('Code Injection via load() in js-yaml')
     })
 
+    it('strips range prefix from patched_versions (legacy without actions)', () => {
+        // pnpm 11 的 advisories 输出常不带 actions（actionMap 为空）→ patched_versions 为 range 字符串；
+        // 不剥离前缀会让 compareSemver 退化为 [0,0,0]，当前版本被误判已达标而假跳过（T801 实证回归）
+        const risks = parseAuditReport({
+            advisories: {
+                '123': {
+                    id: 123,
+                    module_name: 'minimist',
+                    patched_versions: '>=0.2.4',
+                    severity: 'critical',
+                    title: 'Prototype Pollution in minimist',
+                    url: 'https://github.com/advisories/GHSA-xvch-5gv4-984h',
+                },
+            },
+        })
+        expect(risks).toHaveLength(1)
+        expect(risks[0].patchedVersion).toBe('0.2.4')
+    })
+
+    it('strips range prefix with upper bound (patched_versions ">=1.2.3 <2")', () => {
+        const risks = parseAuditReport({
+            advisories: {
+                '456': {
+                    id: 456,
+                    module_name: 'foo',
+                    patched_versions: '>=1.2.3 <2',
+                    severity: 'high',
+                    title: 't',
+                    url: 'https://npmjs.com/advisories/456',
+                },
+            },
+        })
+        expect(risks[0].patchedVersion).toBe('1.2.3')
+    })
+
+    it('treats legacy sentinel patched_versions as unfixable (no regression on sentinel interception)', () => {
+        // 哨兵值（<0.0.0 / manual review required 等）必须先于 range 剥离拦截——否则会被剥离为裸版本误判可修
+        // （patchedVersion 为 null 时上层 mapAuditRiskToAlert 派生 fixable=false）
+        for (const sentinel of ['<0.0.0', 'manual review required', 'none', 'unavailable']) {
+            const risks = parseAuditReport({
+                advisories: {
+                    '789': {
+                        id: 789,
+                        module_name: 'bar',
+                        patched_versions: sentinel,
+                        severity: 'critical',
+                        title: 't',
+                        url: 'https://npmjs.com/advisories/789',
+                    },
+                },
+            })
+            expect(risks[0].patchedVersion).toBeNull()
+        }
+    })
+
     it('deduplicates by packageName:advisoryId:severity (idempotent)', () => {
         const first = parseAuditReport(MODERN_AUDIT_JSON)
         const second = parseAuditReport(MODERN_AUDIT_JSON)
@@ -258,7 +313,8 @@ describe('fetchPnpmAuditAlerts', () => {
         }
         emitSpawn(JSON.stringify(report))
         const alerts = await fetchPnpmAuditAlerts({ workDir: '/repo', repository: 'local' })
-        expect(alerts[0].recommendedVersion).toBe('>=3.14.1')
+        // fixAvailable string 形态同样剥离 range 前缀（compareSemver 无法解析 ">=x.y.z"，T801 实证）
+        expect(alerts[0].recommendedVersion).toBe('3.14.1')
     })
 
     it('parses alerts even when pnpm audit exits nonzero (vulnerabilities found = exit 1 is normal)', async () => {

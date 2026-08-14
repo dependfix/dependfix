@@ -111,6 +111,16 @@ function normalizePatchedVersionValue(value: unknown): string | null {
     if (!normalized || ['<0.0.0', 'manual review required', 'none', 'unavailable'].includes(normalized)) {
         return null
     }
+    // legacy 格式 patched_versions 为 range（如 ">=0.2.4" / ">=1.2.3 <2"）：剥离前缀取首个裸版本，
+    // 否则 compareSemver 对 ">=x.y.z" 解析退化为 [0,0,0]，当前版本被误判"已达标"而假跳过
+    // （T801 容器实证暴露：minimist 0.0.8 被日志判定 "0.0.8 >= >=0.2.4" 而跳过修复）。
+    // 已知边界（与旧行为等价，未变差）：两段版本（"1.2.x"→"1.2"）、">=0.0.0"（剥离为 0.0.0 后任何
+    // 版本判已达标）、pre-release range（compareSemver 忽略 pre-release 段）仍可能假跳过——
+    // 真实 npm advisory patched_versions 以 ">=x.y.z" / ">=x.y.z <x.y.z" 为主，残余面罕见，暂登记不处理
+    const versionMatch = /(\d+\.\d+(?:\.\d+)?(?:-[0-9a-z.]+)?)/i.exec(normalized)
+    if (versionMatch) {
+        return versionMatch[1]
+    }
     return String(value).trim()
 }
 

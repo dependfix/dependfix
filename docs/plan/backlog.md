@@ -267,8 +267,9 @@
   - **修复实现（2026-08-14，T803）**：fix/fix-and-pr 模式（本地执行 install/lint/build 脚本）启动时输出本地执行风险警告（明确指向不可信代码 + 环境变量暴露面 + 专用低权限 token 建议），可经 `DEPENDFIX_SUPPRESS_LOCAL_EXECUTION_WARNING=1` 抑制（已确认风险用户不重复刷屏）；`DependfixApp.executionEnvironment` 区分 local/container——ContainerExecutor（平台沙箱）不误报；交互确认与可选容器执行（候选②③）留待后续评估
   - 来源：2026-08-14 安全专项评估（G2）
 - **C40 执行期网络外联日志与限制**（P1）
-  - 状态：🔶 已排期（M8 T805，2026-08-14）
+  - 状态：✅ **已修复（2026-08-14，T805；网络隔离部分留 M9 C26）**
   - 内容：设计承诺"M6 记录执行期外联日志（备查）"未实现；M7 出站白名单（npm/pnpm registry + GitHub API，默认 deny）落地前，至少实现外联审计日志供事故溯源；与 C26 独立容器结合实现网络隔离
+  - **修复实现（2026-08-14，T805）**：verification-runner 执行期网络外联审计（默认开启，可 `networkAuditDisabled` 关闭）——① 本地审计代理（CONNECT 隧道 + 明文 HTTP 转发，10s 超时防挂死）注入 HTTP(S)_PROXY/ALL_PROXY 捕获尊重代理工具（curl/wget/npm/git）外联，环境已有代理时不覆盖；② 命令输出 URL 提取（去重限 100/命令）确定性捕获 pnpm/npm registry 外联（实证：pnpm 11 undici 直连不走代理 env，输出含完整 tarball URL）；③ 执行日志输出（总数 info/明细 debug，仅方法+目标无请求体）。实证：curl CONNECT registry.npmjs.org:443 捕获 + echo URL 提取双路径真实生效。覆盖边界：undici 直连/原始 socket 不在列（连接级全量捕获留 M9 C26 网络白名单）
   - 来源：2026-08-14 安全专项评估（G3）
 - **C41 验证命令单命令超时与资源上限**（P1）
   - 状态：✅ **已修复（2026-08-14，T802；cgroup 部分留 M9 C26）**

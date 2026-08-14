@@ -85,7 +85,7 @@ dependfix 批量处理仓库与依赖，若防护不足会成为恶意依赖的"
 |:--|:--|:--|:--|:--|
 | G1 | Dockerfile 无 `USER` 降权 | P0 | ✅ **已修复（2026-08-14）**：entrypoint 降权方案（dependfix 用户 + chown 数据卷 + su-exec），本地实证见 [backlog C38](../../plan/backlog.md) | [backlog C38](../../plan/backlog.md) |
 | G2 | CLI 本地模式零防护 | P0 | ✅ **已修复（2026-08-14，T803）**：fix/fix-and-pr 本地执行风险警告（可 env 抑制）；容器环境（ContainerExecutor）不误报 | [backlog C39](../../plan/backlog.md) |
-| G3 | 网络外联无限制/无日志 | P1 | M7 出站白名单前置落地；M6 期间登记外联日志 | [backlog C40](../../plan/backlog.md) |
+| G3 | 网络外联无限制/无日志 | P1 | ✅ **已修复（2026-08-14，T805）**：执行期外联审计日志（本地审计代理 + 命令输出 URL 提取，双路径）；出站白名单随 M9 C26 | [backlog C40](../../plan/backlog.md) |
 | G4 | 验证命令无单命令超时/资源上限 | P1 | ✅ **已修复（2026-08-14，T802）**：单命令超时（默认 10 分钟可配）+ 进程树终止；cgroup 随 M9 C26 | [backlog C41](../../plan/backlog.md) |
 | G5 | M7 并发共享容器交叉污染 | P1 | C26 提级为 M7 前置任务，与 T702 BullMQ worker 模型结合 | [backlog C26](../../plan/backlog.md) |
 | G6 | Action 模式凭据暴露面 | P1 | ✅ **已修复（2026-08-14，T803）**：启动时探测 token 权限面，classic repo scope 超权限启动即警告（不强制阻断） | [backlog C42](../../plan/backlog.md) |
@@ -102,6 +102,7 @@ dependfix 批量处理仓库与依赖，若防护不足会成为恶意依赖的"
 
 - **C38 验收（✅ 已达成 2026-08-14）**：容器主进程非 root（`docker exec` 实测 PID1 `Uid: 100`）；数据卷（`/app/data`）新卷与既有 root 卷均可写（entrypoint chown 自动修复）；镜像构建成功；HTTP 冒烟 `GET /` 200；su-exec 0755 非 setuid 无提权漏洞（非 root 提权尝试被拒）。**实证补充发现**：容器内 git/pnpm 缺失（M6 遗留）——**已修复（C45/T801，2026-08-14）**，并连带修复 pnpm-audit legacy range 前缀假跳过 bug。
 - **C39/C42 验收（✅ 已达成 2026-08-14，T803）**：本地 fix/fix-and-pr 启动输出本地执行风险警告（实证：`[local-exec]` warn 输出、`DEPENDFIX_SUPPRESS_LOCAL_EXECUTION_WARNING=1` 抑制生效）；token 权限面探测（实证：`GET /user` 发起、401 静默不阻断运行）；analyzeTokenScope 判定 7 测试（classic repo scope 超权限警告 / fine-grained security-events 校验 / 无头不警告）。
+- **C40 验收（✅ 已达成 2026-08-14，T805）**：执行日志含外联记录（实证：curl CONNECT `registry.npmjs.org:443` 经审计代理捕获 + 命令输出 tarball URL 提取双路径真实生效）；仅记录方法+目标无请求体（无敏感信息）；代理转发 10s 超时 + 失败 502 不挂死执行；环境已有代理时不注入覆盖。
 - **C26/C40/C41 验收**：M7 实现时逐项对照本文档第 4 节基线；网络白名单与 cgroup 限制有集成测试覆盖。C41 单命令超时已随 T802 落地（2026-08-14，进程树终止实证）。
 - **持续治理**：任何执行相关改动（Executor、验证 runner、安装参数、镜像配置）在 Review Gate 时对照本文档第 4 节基线核验；新增执行后端按 §4.4 过威胁建模评审。
 

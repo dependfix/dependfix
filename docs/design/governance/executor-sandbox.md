@@ -2,7 +2,7 @@
 
 > 状态：🔶 设计先行（T607，2026-08-08）——契约与威胁建模落盘，供 T603 实现 `ContainerExecutor`；独立沙箱容器实现留 M7。
 > 背景决策见 [todo-archive.md §M6 规划决策](../../plan/todo-archive.md#m6-最小平台-mvp已归档)（Q1 执行深度 A/B 双模式、Q4 沙箱=A、Q5 Action 触发=B）。
-> **安全评估（2026-08-14）**：评估结论、治理决议与不可简化的安全基线见 [沙箱与恶意依赖防护治理](./sandbox-security-governance.md)；本文档 §2.2 的 M6 缓解——USER 降权已修复（C38，2026-08-14）、外联日志未实现（C40），登记 [backlog C38/C40](../../plan/backlog.md)。
+> **安全评估（2026-08-14）**：评估结论、治理决议与不可简化的安全基线见 [沙箱与恶意依赖防护治理](./sandbox-security-governance.md)；本文档 §2.2 的 M6 缓解——USER 降权已修复（C38，2026-08-14）、外联日志已实现（C40/T805，2026-08-14），登记 [backlog C38/C40](../../plan/backlog.md)。
 
 ---
 

@@ -1,4 +1,5 @@
 import { spawn, spawnSync } from 'node:child_process'
+import { startNetworkAudit, extractUrlsFromOutput, type NetworkAudit, type NetworkAuditEntry } from './network-audit'
 
 /**
  * 单条命令的执行结果
@@ -34,6 +35,12 @@ export interface VerificationParams {
      * 默认 10 分钟（恶意死循环脚本超时中止，防长时间占用）。
      */
     commandTimeoutMs?: number
+    /**
+     * 关闭执行期网络外联审计（默认开启）。
+     * 审计记录命令输出中的外联 URL + 注入本地审计代理捕获尊重代理的工具外联；
+     * 仅当环境无既有代理时注入（覆盖用户代理会破坏其网络行为）。
+     */
+    networkAuditDisabled?: boolean
 }
 
 /**
@@ -48,6 +55,8 @@ export interface VerificationResult {
     failedCommand?: string
     /** 失败详情（仅 success=false 时填充） */
     failure?: string
+    /** 执行期网络外联记录（审计开启时；空数组 = 无外联或未捕获到） */
+    networkAudit?: NetworkAuditEntry[]
 }
 
 const DEFAULT_COMMANDS = [
@@ -104,36 +113,66 @@ export async function runVerification(params: VerificationParams): Promise<Verif
     const commands = params.commands ?? DEFAULT_COMMANDS
     const commandResults: CommandResult[] = []
 
-    for (const command of commands) {
-        const result = await execCommand(command, params.workDir, params.commandTimeoutMs)
-        commandResults.push(result)
+    // 执行期网络外联审计（默认开启；代理仅在环境无既有代理时注入，防覆盖用户代理）
+    let audit: NetworkAudit | undefined
+    if (!params.networkAuditDisabled) {
+        audit = await startNetworkAudit().catch(() => undefined)
+    }
+    const hasExistingProxy = Boolean(
+        process.env.HTTP_PROXY || process.env.HTTPS_PROXY || process.env.ALL_PROXY
+        || process.env.http_proxy || process.env.https_proxy || process.env.all_proxy,
+    )
+    const proxyUrl = audit && !hasExistingProxy ? audit.proxyUrl : undefined
 
-        if (result.exitCode !== 0 || result.timedOut) {
-            return {
-                success: false,
-                commandResults,
-                failedCommand: command,
-                failure: result.timedOut
-                    ? `command "${command}" timed out after ${result.durationMs}ms`
-                    : `command "${command}" exited with code ${result.exitCode}`,
+    try {
+        for (const command of commands) {
+            const result = await execCommand(command, params.workDir, params.commandTimeoutMs, proxyUrl)
+            commandResults.push(result)
+
+            // 命令输出 URL 提取（确定性捕获 pnpm/npm registry 外联）
+            if (audit) {
+                const urls = extractUrlsFromOutput(`${result.stdout}\n${result.stderr}`)
+                if (urls.length > 0) {
+                    const time = new Date().toISOString()
+                    audit.addEntries(urls.map((target) => ({ time, source: 'command-output', method: 'GET', target })))
+                }
             }
+
+            if (result.exitCode !== 0 || result.timedOut) {
+                return {
+                    success: false,
+                    commandResults,
+                    failedCommand: command,
+                    failure: result.timedOut
+                        ? `command "${command}" timed out after ${result.durationMs}ms`
+                        : `command "${command}" exited with code ${result.exitCode}`,
+                    ...(audit ? { networkAudit: audit.entries } : {}),
+                }
+            }
+        }
+    } finally {
+        if (audit) {
+            await audit.stop().catch(() => { /* 停止失败静默 */ })
         }
     }
 
     return {
         success: true,
         commandResults,
+        ...(audit ? { networkAudit: audit.entries } : {}),
     }
 }
 
 /**
  * 执行单条 shell 命令，捕获 stdout/stderr（截断到 200 行）并脱敏。
  * 超过超时时间后中止命令并终止其进程树（防死循环脚本孙进程残留）。
+ * proxyUrl 提供时注入代理环境变量（网络外联审计；仅环境无既有代理时由调用方决定注入）。
  */
 function execCommand(
     command: string,
     workDir: string,
     timeoutMs: number = DEFAULT_COMMAND_TIMEOUT_MS,
+    proxyUrl?: string,
 ): Promise<CommandResult> {
     return new Promise((resolve) => {
         const startTime = Date.now()
@@ -144,6 +183,13 @@ function execCommand(
             stdio: 'pipe',
             // POSIX 下创建独立进程组，超时时可终止整个进程树
             detached: process.platform !== 'win32',
+            env: proxyUrl
+                ? {
+                    ...process.env,
+                    HTTP_PROXY: proxyUrl, HTTPS_PROXY: proxyUrl, ALL_PROXY: proxyUrl,
+                    NO_PROXY: '', no_proxy: '',
+                }
+                : undefined,
         })
 
         const stdoutChunks: string[] = []

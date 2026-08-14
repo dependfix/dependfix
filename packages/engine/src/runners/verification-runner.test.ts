@@ -208,6 +208,86 @@ describe('runVerification', () => {
         expect(result.commandResults[0].timedOut).toBe(false)
     })
 
+    it('injects audit proxy env and records command-output urls', async () => {
+        mockSpawn.mockImplementation(() => successCp('Downloading https://registry.npmjs.org/lodash/-/lodash-4.17.21.tgz (1.1 MB)\nDone'))
+
+        const result = await runVerification({
+            workDir: '/tmp/test',
+            commands: ['pnpm install'],
+        })
+
+        // 代理 env 注入（环境无既有代理时）
+        const spawnOptions = mockSpawn.mock.calls[0][1] as { env?: NodeJS.ProcessEnv }
+        expect(spawnOptions.env?.HTTP_PROXY).toMatch(/^http:\/\/127\.0\.0\.1:\d+$/)
+        expect(spawnOptions.env?.NO_PROXY).toBe('')
+        expect(spawnOptions.env?.no_proxy).toBe('')
+        // 输出 URL 提取进审计记录
+        expect(result.networkAudit).toBeDefined()
+        expect(result.networkAudit?.some((e) => e.source === 'command-output'
+            && e.target === 'https://registry.npmjs.org/lodash/-/lodash-4.17.21.tgz')).toBe(true)
+    })
+
+    it('skips proxy injection when environment already has a proxy', async () => {
+        const original = process.env.HTTP_PROXY
+        process.env.HTTP_PROXY = 'http://corp-proxy.example:8080'
+        try {
+            mockSpawn.mockImplementation(() => successCp('ok'))
+
+            const result = await runVerification({
+                workDir: '/tmp/test',
+                commands: ['echo ok'],
+            })
+
+            const spawnOptions = mockSpawn.mock.calls[0][1] as { env?: NodeJS.ProcessEnv }
+            // 不覆盖用户既有代理：spawn 不传 env（子进程继承父环境，HTTP_PROXY 保持用户设置）
+            expect(spawnOptions.env).toBeUndefined()
+            // 输出提取仍生效
+            expect(result.networkAudit).toBeDefined()
+        } finally {
+            if (original === undefined) {
+                delete process.env.HTTP_PROXY
+            } else {
+                process.env.HTTP_PROXY = original
+            }
+        }
+    })
+
+    it('skips proxy injection when only ALL_PROXY is set', async () => {
+        const original = process.env.ALL_PROXY
+        process.env.ALL_PROXY = 'http://corp-proxy.example:8080'
+        try {
+            mockSpawn.mockImplementation(() => successCp('ok'))
+
+            const result = await runVerification({
+                workDir: '/tmp/test',
+                commands: ['echo ok'],
+            })
+
+            const spawnOptions = mockSpawn.mock.calls[0][1] as { env?: NodeJS.ProcessEnv }
+            // ALL_PROXY 单独存在时也不注入（覆盖用户 ALL_PROXY 会破坏其网络行为）
+            expect(spawnOptions.env).toBeUndefined()
+            expect(result.networkAudit).toBeDefined()
+        } finally {
+            if (original === undefined) {
+                delete process.env.ALL_PROXY
+            } else {
+                process.env.ALL_PROXY = original
+            }
+        }
+    })
+
+    it('omits network audit when disabled', async () => {
+        mockSpawn.mockImplementation(() => successCp('ok'))
+
+        const result = await runVerification({
+            workDir: '/tmp/test',
+            commands: ['echo ok'],
+            networkAuditDisabled: true,
+        })
+
+        expect(result.networkAudit).toBeUndefined()
+    })
+
     it('executes default commands and returns success', async () => {
         mockSpawn.mockImplementation(() => successCp('ok'))
         const result = await runVerification({ workDir: '/tmp/test' })
@@ -246,6 +326,18 @@ describe('runVerification', () => {
         // 第二个命令失败后不应执行第三个
         expect(result.commandResults[0].exitCode).toBe(0)
         expect(result.commandResults[1].exitCode).toBe(1)
+    })
+
+    it('failure early return still carries network audit entries', async () => {
+        mockSpawn
+            .mockImplementationOnce(() => successCp('ok https://a.example/pkg.tgz'))
+            .mockImplementationOnce(() => failedCp(1, 'bad'))
+
+        const result = await runVerification({ workDir: '/tmp/test' })
+
+        expect(result.success).toBe(false)
+        // 失败前命令的输出 URL 提取保留在失败结果的 networkAudit
+        expect(result.networkAudit?.some((e) => e.source === 'command-output' && e.target === 'https://a.example/pkg.tgz')).toBe(true)
     })
 
     it('returns failedCommand and failure on error', async () => {

@@ -1,5 +1,4 @@
-// helpers.ts（原 app-helpers.ts）
-// DependfixApp 的辅助方法集合。
+// helpers.ts（原 app-helpers.ts）：DependfixApp 的辅助方法集合。
 // 为控制 app/index.ts 文件规模（max-lines 800），将不直接参与模式编排的方法
 // 提取为模块级函数；通过 AppContext 传入所需状态，行为与原类方法一致。
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
@@ -20,6 +19,7 @@ import {
     type SupplyChainWarning,
 } from '@dependfix/core'
 import { stageAndCommit } from '../github/pr-creator'
+import { logNetworkAudit } from '../runners/network-audit'
 import {
     compareSemver,
     parseMajorVersion,
@@ -589,6 +589,9 @@ export async function verifyProject(
             workDir,
             commands: valid,
         })
+
+        // 执行期网络外联审计（备查：恶意脚本外联事故溯源；总数 info、明细 debug）
+        logNetworkAudit(logger, repo, result.networkAudit ?? [])
 
         return result.commandResults.map((cr) => {
             // 失败时附 stdout/stderr 摘要（已脱敏截断）供日志/报告定位失败原因（run 31552922137 教训：仅 "exit code 1" 无法定位）

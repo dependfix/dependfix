@@ -17,6 +17,7 @@ import {
     type RunReportConfig,
     type RunSummary,
     type AiUsageAggregate,
+    type SupplyChainWarning,
 } from '@dependfix/core'
 import { stageAndCommit } from '../github/pr-creator'
 import {
@@ -782,11 +783,9 @@ export function computeSummary(
     summary.verificationsPassed = verificationsPassed
     summary.verificationsFailed = verificationsFailed
 }
-
-/** 组装最终运行结果。 */
 export function buildRunResult(
     ctx: Pick<AppContext, 'config' | 'runId' | 'startedAt' | 'finishedAt' | 'summary' | 'repoResults' | 'allAlerts' | 'allActions' | 'allErrors'>,
-    aiUsage?: AiUsageAggregate,
+    aiUsage?: AiUsageAggregate, supplyChainWarnings?: SupplyChainWarning[],
 ): RunResult {
     const reportConfig: RunReportConfig = {
         mode: ctx.config.mode,
@@ -810,6 +809,7 @@ export function buildRunResult(
         actions: ctx.allActions,
         errors: ctx.allErrors,
         aiUsage: aiUsage && aiUsage.calls > 0 ? aiUsage : undefined,
+        supplyChainWarnings: supplyChainWarnings && supplyChainWarnings.length > 0 ? supplyChainWarnings : undefined,
     }
 }
 
@@ -863,13 +863,12 @@ export function computeExitCode(
     const hasErrors = allErrors.length > 0
     const hasFailures = allActions.some((a) => !a.success)
     // 保守判定：dry-run 下成功仓库的 verificationPassed 为 undefined、alertsCount 可能为 0，
-    // 与失败仓库并存时会被判为"无成功"（返回 2 而非 1）——fail-safe 方向，可接受
-    // 验证失败（verificationPassed === false）的仓库不算成功交付（改动已回滚）
+    // 与失败仓库并存时会被判为"无成功"（返回 2 而非 1）——fail-safe 方向可接受
+    // （验证失败 verificationPassed === false 不算成功交付，改动已回滚）
     const hasRepoSuccess = repoResults.length > 0
         && repoResults.some((r) => r.verificationPassed !== false
             && (r.alertsCount > 0 || r.fixed > 0 || r.verificationPassed === true))
-    // cleanup-branches 模式不填充 repoResults，以成功的 branch-cleanup 动作判定
-    const hasCleanupSuccess = config.mode === 'cleanup-branches'
+    const hasCleanupSuccess = config.mode === 'cleanup-branches' // 该模式不填充 repoResults，以成功 branch-cleanup 判定
         && allActions.some((a) => a.success && a.type === 'branch-cleanup')
     const hasSuccess = hasRepoSuccess || hasCleanupSuccess
 
@@ -883,4 +882,3 @@ export function computeExitCode(
 
     return 2
 }
-

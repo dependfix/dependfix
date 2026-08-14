@@ -479,6 +479,23 @@ export function generatePRBody(result: RunResult, supersededNumbers?: number[]):
         '',
     ]
 
+    // Supply Chain Warnings（路径 A 投毒合入前人工确认依据：升级包带脚本且被批准）
+    const supplyChainWarnings = result.supplyChainWarnings ?? []
+    if (supplyChainWarnings.length > 0) {
+        lines.push(
+            '### ⚠️ Supply Chain Warnings',
+            '',
+            '> 以下升级的包带 lifecycle scripts 且已被仓库 `allowBuilds` 批准——安装时脚本将真实执行。合入本 PR 前请人工确认。',
+            '',
+            '| Package | Version | Scripts | Repository |',
+            '|---------|---------|---------|------------|',
+        )
+        for (const w of supplyChainWarnings) {
+            lines.push(`| \`${escapeTableCell(w.packageName)}\` | \`${escapeTableCell(w.version)}\` | ${w.scriptTypes.map((t) => `\`${escapeTableCell(t)}\``).join(', ')} | ${escapeTableCell(w.repository)} |`)
+        }
+        lines.push('')
+    }
+
     // Upgraded dependencies（按包聚合，每包一行）
     const upgrades = aggregateUpgradeActions(actions, (a) => a.success)
     if (upgrades.length > 0) {

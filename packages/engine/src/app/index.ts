@@ -37,6 +37,7 @@ import { runWithConcurrency } from '../multirepo/scheduler'
 import { writeArchive } from '../report/archiver'
 import type { RuntimeConfig } from '../config'
 import { enforceVerificationGate } from '../runners/verification-gate'
+import { collectSupplyChainWarnings } from '../supply-chain'
 import { fetchRepoAlerts, fetchDefaultBranch, truncatedWarning } from './repo-alerts'
 import { processRepoFix, type AiUsageRef } from './repo-fix'
 import {
@@ -180,7 +181,10 @@ export class DependfixApp {
         this.finishedAt = new Date().toISOString()
         computeSummary(this.ctx)
 
-        const runResult = buildRunResult(this.ctx, this.aiUsageRef.aggregate)
+        // 供应链信号收集（路径 A 投毒合入前确认依据）：本次升级包带脚本且被目标仓库批准
+        const supplyChainWarnings = collectSupplyChainWarnings(this.workDir, this.allActions)
+
+        const runResult = buildRunResult(this.ctx, this.aiUsageRef.aggregate, supplyChainWarnings)
         const exitCode = computeExitCode(this.ctx)
 
         // 生成并写入报告
@@ -473,9 +477,10 @@ export class DependfixApp {
             // 6. Create PR (one PR covering all repos)
             const defaultBranch = await fetchDefaultBranch(client, owner, repo)
 
-            // Build RunResult for PR body
+            // Build RunResult for PR body（供应链信号：升级包带脚本且被批准 → PR 警示区）
             computeSummary(this.ctx)
-            const runResult = buildRunResult(this.ctx, this.aiUsageRef.aggregate)
+            const supplyChainWarnings = collectSupplyChainWarnings(this.workDir, this.allActions)
+            const runResult = buildRunResult(this.ctx, this.aiUsageRef.aggregate, supplyChainWarnings)
             const prBody = generatePRBody(
                 runResult,
                 plan.supersedePRs.map((pr) => pr.number),

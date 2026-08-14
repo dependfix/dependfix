@@ -925,3 +925,31 @@ function makeBodyAlert(overrides: Partial<NormalizedSecurityAlert>): NormalizedS
         ...overrides,
     }
 }
+
+// ---------------------------------------------------------------------------
+// generatePRBody supply chain warnings
+// ---------------------------------------------------------------------------
+
+describe('generatePRBody supply chain warnings', () => {
+    it('renders warning section with package and script types', () => {
+        const result = {
+            ...buildRunResult(),
+            supplyChainWarnings: [
+                { repository: 'owner/repo', packageName: 'esbuild', version: '0.25.12', scriptTypes: ['postinstall'] },
+            ],
+        }
+        const body = generatePRBody(result)
+
+        expect(body).toContain('### ⚠️ Supply Chain Warnings')
+        expect(body).toContain('`esbuild`')
+        expect(body).toContain('`0.25.12`')
+        expect(body).toContain('`postinstall`')
+        expect(body).toContain('owner/repo')
+    })
+
+    it('omits section when no warnings', () => {
+        const body = generatePRBody(buildRunResult())
+
+        expect(body).not.toContain('Supply Chain Warnings')
+    })
+})

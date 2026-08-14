@@ -1,4 +1,4 @@
-import { spawn } from 'node:child_process'
+import { spawn, spawnSync } from 'node:child_process'
 
 /**
  * 单条命令的执行结果
@@ -6,10 +6,12 @@ import { spawn } from 'node:child_process'
 export interface CommandResult {
     /** 执行的命令文本 */
     command: string
-    /** 退出码（0 = 成功） */
+    /** 退出码（0 = 成功；-1 = 启动失败或超时被杀） */
     exitCode: number
     /** 执行耗时（毫秒） */
     durationMs: number
+    /** 是否因超时被中止（默认 false） */
+    timedOut?: boolean
     /** stdout 摘要（截断到 200 行，已脱敏） */
     stdout: string
     /** stderr 摘要（截断到 200 行，已脱敏） */
@@ -27,6 +29,11 @@ export interface VerificationParams {
      * 默认: `pnpm install --frozen-lockfile` → `pnpm lint` → `pnpm build`
      */
     commands?: string[]
+    /**
+     * 单命令超时（毫秒），超时中止该命令并终止其进程树。
+     * 默认 10 分钟（恶意死循环脚本超时中止，防长时间占用）。
+     */
+    commandTimeoutMs?: number
 }
 
 /**
@@ -49,6 +56,8 @@ const DEFAULT_COMMANDS = [
     'pnpm build',
 ]
 
+const DEFAULT_COMMAND_TIMEOUT_MS = 10 * 60 * 1000
+
 const MAX_OUTPUT_LINES = 200
 
 /**
@@ -67,9 +76,13 @@ export function summarizeVerificationOutput(output: string): string {
 
 /**
  * 构造失败验证命令的 error 描述：`exit code N — <stdout/stderr 摘要>`。
- * 无输出时退化为裸 `exit code N`。stdout/stderr 已在 execCommand 中脱敏、截断 200 行。
+ * 无输出时退化为裸 `exit code N`；超时命令归类为 `timed out after Xms`。
+ * stdout/stderr 已在 execCommand 中脱敏、截断 200 行。
  */
 export function formatVerificationError(cr: CommandResult): string {
+    if (cr.timedOut) {
+        return `timed out after ${cr.durationMs}ms`
+    }
     const detail = [cr.stdout, cr.stderr].filter(Boolean).join('\n--- stderr ---\n').trim()
     return detail
         ? `exit code ${cr.exitCode} — ${summarizeVerificationOutput(detail)}`
@@ -92,15 +105,17 @@ export async function runVerification(params: VerificationParams): Promise<Verif
     const commandResults: CommandResult[] = []
 
     for (const command of commands) {
-        const result = await execCommand(command, params.workDir)
+        const result = await execCommand(command, params.workDir, params.commandTimeoutMs)
         commandResults.push(result)
 
-        if (result.exitCode !== 0) {
+        if (result.exitCode !== 0 || result.timedOut) {
             return {
                 success: false,
                 commandResults,
                 failedCommand: command,
-                failure: `command "${command}" exited with code ${result.exitCode}`,
+                failure: result.timedOut
+                    ? `command "${command}" timed out after ${result.durationMs}ms`
+                    : `command "${command}" exited with code ${result.exitCode}`,
             }
         }
     }
@@ -113,18 +128,32 @@ export async function runVerification(params: VerificationParams): Promise<Verif
 
 /**
  * 执行单条 shell 命令，捕获 stdout/stderr（截断到 200 行）并脱敏。
+ * 超过超时时间后中止命令并终止其进程树（防死循环脚本孙进程残留）。
  */
-function execCommand(command: string, workDir: string): Promise<CommandResult> {
+function execCommand(
+    command: string,
+    workDir: string,
+    timeoutMs: number = DEFAULT_COMMAND_TIMEOUT_MS,
+): Promise<CommandResult> {
     return new Promise((resolve) => {
         const startTime = Date.now()
+        let timedOut = false
         const cp = spawn(command, {
             cwd: workDir,
             shell: true,
             stdio: 'pipe',
+            // POSIX 下创建独立进程组，超时时可终止整个进程树
+            detached: process.platform !== 'win32',
         })
 
         const stdoutChunks: string[] = []
         const stderrChunks: string[] = []
+
+        const timer = setTimeout(() => {
+            timedOut = true
+            killProcessTree(cp.pid)
+            cp.kill('SIGKILL')
+        }, timeoutMs)
 
         cp.stdout.on('data', (data: Buffer) => {
             stdoutChunks.push(data.toString('utf-8'))
@@ -135,6 +164,7 @@ function execCommand(command: string, workDir: string): Promise<CommandResult> {
         })
 
         cp.on('error', (err) => {
+            clearTimeout(timer)
             resolve({
                 command,
                 exitCode: -1,
@@ -145,17 +175,42 @@ function execCommand(command: string, workDir: string): Promise<CommandResult> {
         })
 
         cp.on('close', (code) => {
+            clearTimeout(timer)
             const stdout = truncateLines(stdoutChunks.join(''), MAX_OUTPUT_LINES)
             const stderr = truncateLines(stderrChunks.join(''), MAX_OUTPUT_LINES)
             resolve({
                 command,
                 exitCode: code ?? -1,
                 durationMs: Date.now() - startTime,
+                timedOut,
                 stdout: sanitizeOutput(stdout),
                 stderr: sanitizeOutput(stderr),
             })
         })
     })
+}
+
+/**
+ * 终止进程树：POSIX 杀进程组（detached 进程组组长），Windows 用 taskkill /T /F。
+ * 失败时静默退化（主终止路径已由调用方 cp.kill 兜底）。
+ */
+function killProcessTree(pid?: number): void {
+    if (pid === undefined || pid <= 0) {
+        return
+    }
+    if (process.platform === 'win32') {
+        try {
+            spawnSync('taskkill', ['/pid', String(pid), '/T', '/F'], { stdio: 'ignore' })
+        } catch {
+            // taskkill 不可用时由调用方 cp.kill 兜底
+        }
+    } else {
+        try {
+            process.kill(-pid, 'SIGKILL')
+        } catch {
+            // 进程组不存在时由调用方 cp.kill 兜底
+        }
+    }
 }
 
 /** 截断文本到指定行数 */

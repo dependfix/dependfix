@@ -8,14 +8,17 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 interface MockChildProcess extends EventEmitter {
     stdout: EventEmitter
     stderr: EventEmitter
+    kill: ReturnType<typeof vi.fn>
 }
 
-const { mockSpawn } = vi.hoisted(() => ({
+const { mockSpawn, mockSpawnSync } = vi.hoisted(() => ({
     mockSpawn: vi.fn(),
+    mockSpawnSync: vi.fn(),
 }))
 
 vi.mock('node:child_process', () => ({
     spawn: mockSpawn,
+    spawnSync: mockSpawnSync,
 }))
 
 import {
@@ -41,6 +44,10 @@ function createMockCp(
     const cp = new EventEmitter() as MockChildProcess
     cp.stdout = new EventEmitter()
     cp.stderr = new EventEmitter()
+    // 超时中止时由 execCommand 调用 kill：mock 语义为触发 close（与真实进程被杀后 close 一致）
+    cp.kill = vi.fn(() => {
+        cp.emit('close', null)
+    })
 
     if (behavior.error) {
         // emit error immediately
@@ -57,10 +64,10 @@ function createMockCp(
                 cp.stderr.emit('data', Buffer.from(behavior.stderr, 'utf-8'))
             }
         })
-        // emit close after delay
+        // emit close after delay（unref：超时测试中该 timer 存活于 kill 触发 close 之后，不悬挂进程）
         setTimeout(() => {
             cp.emit('close', behavior.exitCode ?? 0)
-        }, behavior.delay ?? 5)
+        }, behavior.delay ?? 5).unref()
     }
 
     return cp
@@ -149,6 +156,56 @@ describe('sanitizeOutput', () => {
 describe('runVerification', () => {
     beforeEach(() => {
         mockSpawn.mockReset()
+        mockSpawnSync.mockReset()
+    })
+
+    it('aborts command on timeout with timed out classification', async () => {
+        // 永不正常 close 的 cp（仅 kill 时触发 close，模拟死循环脚本）
+        const cp = createMockCp({ exitCode: 0, delay: 10_000 })
+        mockSpawn.mockImplementation(() => cp)
+
+        const result = await runVerification({
+            workDir: '/tmp/test',
+            commands: ['while true; do :; done'],
+            commandTimeoutMs: 30,
+        })
+
+        expect(result.success).toBe(false)
+        expect(result.failedCommand).toContain('while true')
+        expect(result.failure).toContain('timed out after')
+        expect(result.commandResults[0].timedOut).toBe(true)
+        // 被 kill 后 exitCode 非 0（POSIX 信号杀为 -1、Windows 强杀可能为 1），timedOut 是主判别
+        expect(result.commandResults[0].exitCode).not.toBe(0)
+        // 超时中止时进程树终止被触发
+        expect(cp.kill).toHaveBeenCalled()
+    })
+
+    it('does not run subsequent commands after timeout', async () => {
+        mockSpawn
+            .mockImplementationOnce(() => createMockCp({ exitCode: 0, delay: 10_000 }))
+            .mockImplementationOnce(() => successCp('should not run'))
+
+        const result = await runVerification({
+            workDir: '/tmp/test',
+            commands: ['hanging', 'after'],
+            commandTimeoutMs: 30,
+        })
+
+        expect(result.commandResults).toHaveLength(1)
+        expect(result.success).toBe(false)
+    })
+
+    it('applies custom timeout without aborting normal commands', async () => {
+        mockSpawn.mockImplementation(() => successCp('ok'))
+
+        const result = await runVerification({
+            workDir: '/tmp/test',
+            commands: ['echo ok'],
+            commandTimeoutMs: 60_000,
+        })
+
+        expect(result.success).toBe(true)
+        expect(result.commandResults[0].timedOut).toBe(false)
     })
 
     it('executes default commands and returns success', async () => {
@@ -378,5 +435,18 @@ describe('formatVerificationError', () => {
         })
 
         expect(result).toBe('exit code 2')
+    })
+
+    it('classifies timeout as timed out instead of exit code', () => {
+        const result = formatVerificationError({
+            command: 'pnpm lint',
+            exitCode: -1,
+            durationMs: 30_000,
+            timedOut: true,
+            stdout: '',
+            stderr: '',
+        })
+
+        expect(result).toBe('timed out after 30000ms')
     })
 })

@@ -64,6 +64,8 @@ export class ContainerExecutor implements ScanExecutor {
                 workDir,
                 reportOutputDir: join(workDir, 'dependfix-reports'),
                 verbose: false,
+                // 容器内执行属设计内沙箱（非 root + 临时目录），不触发本地模式风险警告
+                executionEnvironment: 'container',
             })
 
             const { result, exitCode } = await withTimeout(app.run(), this.timeoutMs)

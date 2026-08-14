@@ -15,6 +15,7 @@
 | M5.5: Skill 编排（CLI 先行） | 产品 skill 分发（npx skills 主通道 + 自研兜底）与主流 agent 工具接入，MCP 为后续增强后端 | P2 | 已完成（2026-08-07 归档；T506-T508 完成，929 tests，Review Gate 每任务独立审计 PASS） |
 | M6: 最小平台 MVP | 仓库管理、凭据管理、仪表板、MCP Server、Docker 部署 | P1 | 已完成（2026-08-08 归档；T601-T605+T607 全部完成，991 tests） |
 | M7: 企业级平台增强 | M7.1 认证与用户体系（RBAC+用户管理+个人界面、OIDC SSO / GitHub·Google OAuth、邮箱域名黑白名单）；M7.2 平台能力深化（BullMQ+Redis、定时批量、i18n、生产部署、跨平台 Git、MCP 发布） | P2 | 已归档（M7.1 2026-08-10 / M7.2 2026-08-12，T702/T704/T708/T709/T710/T706 完成；T705/T703 延期 2026-08-12；后续任务 T711 覆盖率冲刺） |
+| M8: 安全加固与容器执行完备 | 兑现沙箱安全治理决议（G2-G7）：容器工具链补齐（C45）、验证命令单命令超时（C41）、凭据权限面检查（C42/C39）、供应链信号披露（C43）、外联审计日志（C40）、规范挂接 review 检查点（C44） | P0-P2 | 进行中（2026-08-14 启动，T801-T806；G1/C38 容器降权已修复） |
 
 ## M0: 基线收敛
 
@@ -38,7 +39,7 @@ Monorepo 骨架搭建、核心配置模型、工具链版本策略固定、标�
 
 将 M1 能力接入 GitHub Actions，支持 `workflow_dispatch` + `schedule` 触发，输出报告 artifact，支持创建修复分支与 PR。包含用户自定义 AI Token 支持和 Prompt 注入防护。
 
-> 详细任务见 [todo-archive.md §M2](todo-archive.md#m2-github-action-接入已归档)
+> 详细任务见 [todo-archive.md §M2](archive/todo-archive-phases-m2-m55.md#m2-github-action-接入已归档)
 >
 > **M2 已交付（2026-08-05 归档）**：消费者仓库可通过 `uses: dependfix/dependfix@v1` 一行接入安全告警自动修复（fix-and-pr 默认、PR 去重、分支清理、分组升级、pnpm audit fallback）。G2 处置闭环：Dependabot alerts 需 PAT（`security_events` / `Dependabot alerts: read`）或 GitHub App token；Code Scanning 对 GITHUB_TOKEN 可访问（T-G2-2 已验证）。
 
@@ -46,7 +47,7 @@ Monorepo 骨架搭建、核心配置模型、工具链版本策略固定、标�
 
 接入 Code Scanning alerts 标准化采集，建立 A/B/C 三级规则分层，白名单规则自动修复，不可修复问题输出建议。
 
-> 详细任务见 [todo-archive.md §M3](todo-archive.md#m3-code-scanning-扩展已归档)
+> 详细任务见 [todo-archive.md §M3](archive/todo-archive-phases-m2-m55.md#m3-code-scanning-扩展已归档)
 >
 > **M3 已交付（2026-08-05 归档）**：Code Scanning alerts 与 Dependabot 并行采集（`--code-scanning` / `DEPENDFIX_CODE_SCANNING` / action `code-scanning` input），A/B/C 三级规则分层（自动修复 / 建议修复 / 仅报告），eol-last 自动修复闭环（T303），无法自动修复问题输出报告 + PR body 建议区块（T304），G1 工具链固定（T305）。
 >
@@ -60,19 +61,19 @@ Monorepo 骨架搭建、核心配置模型、工具链版本策略固定、标�
 
 支持 owner 级仓库自动发现、并发控制与失败隔离、仓库白名单/黑名单策略、报告归档与趋势统计。
 
-> 详细任务见 [todo-archive.md §M4](todo-archive.md#m4-多仓库治理增强已归档)
+> 详细任务见 [todo-archive.md §M4](archive/todo-archive-phases-m2-m55.md#m4-多仓库治理增强已归档)
 
 ## M4.6: Monorepo 成员级修复增强
 
 workspace 成员包直接依赖告警的自动修复：成员 manifest 升级能力（T406）+ 告警分流与 app 接线（T407）。
 
-> 详细任务见 [todo-archive.md §M4.6](todo-archive.md#m46-monorepo-成员级修复增强已归档)
+> 详细任务见 [todo-archive.md §M4.6](archive/todo-archive-phases-m2-m55.md#m46-monorepo-成员级修复增强已归档)
 
 ## M5: AI Breaking Change 研判
 
 Changelog / Release Notes 采集、多 AI 提供商封装、AI 研判（问题分类 + 修复方案 + 代码 patch）、AI 输出安全校验与质量门、CLI 解耦重构（平台化前置）。
 
-> 详细任务见 [todo-archive.md §M5](todo-archive.md#m5-ai-breaking-change-研判已归档)
+> 详细任务见 [todo-archive.md §M5](archive/todo-archive-phases-m2-m55.md#m5-ai-breaking-change-研判已归档)
 >
 > **M5 已交付（2026-08-07 归档）**：T501-T506 全部完成——Changelog 双源采集（T501）、多 provider 研判引擎 + Zod 结构化输出 + prompt 注入防护（T502）、结构化 patch 应用与回滚（T503）、安全门 + 完整验证链（T504）、CLI 解耦平台化（T505）、app 触发接线 + 报告 aiUsage 聚合段（T506）。4 项规划决策（AI 提供商 / 触发时机 / Token 来源 / 成本默认值）已确认。903 tests。
 
@@ -86,13 +87,13 @@ Changelog / Release Notes 采集、多 AI 提供商封装、AI 研判（问题�
 
 > **M5.5 已交付（2026-08-07 归档）**：产品 skill（`dependfix-remediator`）权威源与 CLI 编排（T506）、npx skills 生态主通道 + 自研兜底安装器（T507，本机 3 agent 实测 + 可见性矩阵 1/11）、MCP 双后端扩展点（T508，一致性断言清单）；`@dependfix/skills` 纳入发布与 CHANGELOG 体系。已知边界：GitHub 源端到端复验依赖 CI 裁决（本地网络受限）。
 
-> 详细任务见 [todo-archive.md §M5.5](todo-archive.md#m55-skill-编排cli-先行已归档)（编号说明：M5.5 T506-T508 与已归档 M5 的 T506 重叠，以"阶段 + 编号"全称区分）
+> 详细任务见 [todo-archive.md §M5.5](archive/todo-archive-phases-m2-m55.md#m55-skill-编排cli-先行已归档)（编号说明：M5.5 T506-T508 与已归档 M5 的 T506 重叠，以"阶段 + 编号"全称区分）
 
 ## M6: 最小平台 MVP
 
 在 M5 完成后交付一个可独立部署的集中管理平台的最小可用版本：仓库管理、凭据管理、手动触发扫描、仪表板、Docker Compose 部署。
 
-> **G2 驱动**：凭据管理须支持 PAT（classic / fine-grained）与 GitHub App 双模型——GITHUB_TOKEN 无法读取 Dependabot alerts，平台扫描必须依赖显式凭据（见 [todo-archive.md G2 处置记录](todo-archive.md#g2-处置记录github_token-无法访问-dependabot-alerts) 方案矩阵）。
+> **G2 驱动**：凭据管理须支持 PAT（classic / fine-grained）与 GitHub App 双模型——GITHUB_TOKEN 无法读取 Dependabot alerts，平台扫描必须依赖显式凭据（见 [M2 分片 G2 处置记录](archive/todo-archive-phases-m2-m55.md#g2-处置记录github_token-无法访问-dependabot-alerts) 方案矩阵）。
 
 > **规划要点（2026-08-07 启动，任务定义见 [todo-archive.md §M6](todo-archive.md#m6-最小平台-mvp已归档)）**：执行深度 A（平台容器完整修复链路）为主、B（触发目标仓库 Action）为降级；同步执行先行；MCP 保留并合并（T605 四 tool 完整交付）；沙箱问题重新评估（Q4=A 设计 + 容器内执行最小实现，T607 设计先行于 T603）；Action 触发实现 + 结果回填（C25 增强实现）。
 
@@ -105,14 +106,24 @@ Changelog / Release Notes 采集、多 AI 提供商封装、AI 研判（问题�
 拆两个子阶段（2026-08-09 规划定稿，需求澄清见 [backlog.md §M7 规划决策](backlog.md#m7-企业级平台增强)）：
 
 - **M7.1 认证与用户体系**（已归档 2026-08-10，见 [todo-archive.md §M7.1](todo-archive.md#m71-认证与用户体系已归档)）：T701 RBAC + 用户管理 + 个人界面（三角色，决策 D1/D2/D3 已确认）、T707 认证扩展（`AUTH_MODE` 互斥二选一：enterprise OIDC SSO + 域名白名单 / public GitHub·Google OAuth + 域名黑名单）。设计文档：[platform-auth-users.md](../design/governance/platform-auth-users.md)（Review Gate Pass）。
-- **M7.2 平台能力深化**（已归档 2026-08-12，见 [todo-archive.md §M7.2](todo-archive.md#m72-平台能力深化已归档)）：T702 BullMQ+Redis 任务队列（✅ 2026-08-10）、T704 定时扫描与批量（✅ 2026-08-11）、T708 国际化 i18n（✅ 2026-08-11）、T709 治理规范收敛 + T710 CI lint 清理（✅ 2026-08-12）、T706 MCP 发布（✅ 2026-08-12，`@dependfix/mcp@0.1.2`）；T705 生产级部署（PostgreSQL + Helm + Sentry）、T703 跨平台 Git（GitLab/Bitbucket）**已延期 2026-08-12**（用户指示，见 [backlog.md §M7.2](backlog.md#m72-平台能力深化)）；当前任务：T711 覆盖率冲刺至 80%（[todo.md §T711](todo.md#t711-覆盖率口径修正--冲刺至-80口径已完成冲刺进行中)）。
+- **M7.2 平台能力深化**（已归档 2026-08-12，见 [todo-archive.md §M7.2](todo-archive.md#m72-平台能力深化已归档)）：T702 BullMQ+Redis 任务队列（✅ 2026-08-10）、T704 定时扫描与批量（✅ 2026-08-11）、T708 国际化 i18n（✅ 2026-08-11）、T709 治理规范收敛 + T710 CI lint 清理（✅ 2026-08-12）、T706 MCP 发布（✅ 2026-08-12，`@dependfix/mcp@0.1.2`）；T705 生产级部署（PostgreSQL + Helm + Sentry）、T703 跨平台 Git（GitLab/Bitbucket）**已延期 2026-08-12**（用户指示，见 [backlog.md §M7.2](backlog.md#m72-平台能力深化)）；T711 覆盖率冲刺已归档（✅ 2026-08-13 四维 ≥ 80%，见 [todo-archive.md §T711](todo-archive.md#t711-覆盖率口径修正--冲刺至-80已归档)）。
+
+---
+
+## M8: 安全加固与容器执行完备（进行中）
+
+> **背景（2026-08-14）**：安全专项评估确认"dependfix 自身不得成为漏洞扩散工具"为核心原则（[沙箱与恶意依赖防护治理](../design/governance/sandbox-security-governance.md)）。威胁链建模识别 4 条扩散路径（A 合法包投毒 / B 恶意仓库 owner 扫描 / C PR 合入流向下游 / D M7 并发共享容器），登记治理决议 G1-G7。G1（C38 容器执行进程非 root 降权）已修复（2026-08-14，`eb8f3c59`）；实证发现容器内 git/pnpm 工具链从未安装（C45，ContainerExecutor fix 链路实际不可用）。
+>
+> **M8 已排期（2026-08-14）**：T801 容器工具链补齐（C45，P0）→ T802 验证命令单命令超时（C41）→ T803 凭据权限面检查 + 本地模式防线（C42/C39）→ T804 供应链信号披露（C43）→ T805 外联审计日志（C40）→ T806 规范挂接 review 检查点（C44）。任务详情与验收见 [todo.md §M8](todo.md#m8-安全加固与容器执行完备2026-08-14-启动)。
+>
+> **M9 候选（backlog 保留）**：C26 独立沙箱容器（网络出站白名单 + cgroup + 每任务容器，BullMQ worker 结合）、C30 镜像构建 CI 链路裁决、C28 凭据加密存储文档章节、C29 平台 UI 暗色模式。
 
 ---
 
 ## 详细任务
 
-- 当前阶段任务：[todo.md](todo.md)（M7 已归档；T711 覆盖率冲刺 + 待人工验收项）
-- 已归档阶段：[todo-archive.md](todo-archive.md)
+- 当前阶段任务：[todo.md](todo.md)（M8 安全加固进行中；待人工验收项）
+- 已归档阶段：[todo-archive.md](todo-archive.md)（主窗口保留 M6/M7.1/M7.2/T711；早期阶段见 [archive/index.md](archive/index.md) 分片索引）
 - 后续阶段任务（延期项 + 未排期增强候选）：[backlog.md](backlog.md)
 
 ## 交付原则
@@ -120,3 +131,4 @@ Changelog / Release Notes 采集、多 AI 提供商封装、AI 研判（问题�
 - 每个里程碑必须通过 lint + typecheck + build + test 质量门
 - 里程碑交付前需经过 code-reviewer 技能审查
 - 剩余风险必须在交付说明中清晰记录
+

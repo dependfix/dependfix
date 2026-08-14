@@ -2,7 +2,7 @@
 
 > 状态: ✅ 已实现（2026-08-04）
 > 日期: 2026-08-04
-> 关联: [G2 处置记录](../../plan/todo-archive.md#g2-处置记录-github_token-无法访问-dependabot-alerts)（方案 D）、T-G2-1（fetch 硬失败）、T-G2-3（双 token 落地）
+> 关联: [G2 处置记录](../../plan/archive/todo-archive-phases-m2-m55.md#g2-处置记录-github_token-无法访问-dependabot-alerts)（方案 D）、T-G2-1（fetch 硬失败）、T-G2-3（双 token 落地）
 
 ## 1. 目标
 

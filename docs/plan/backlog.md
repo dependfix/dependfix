@@ -5,11 +5,11 @@
 
 ## M4 增强候选（未排期）
 
-> 2026-08-06 M3 归档时从阶段遗留 / 观察点整理，非 M4 本期范围（M4 核心为多仓库治理 T401-T404，见 [todo-archive.md](todo-archive.md#m4-多仓库治理增强已归档)）。按主题分组，随运行反馈再评估上收。
+> 2026-08-06 M3 归档时从阶段遗留 / 观察点整理，非 M4 本期范围（M4 核心为多仓库治理 T401-T404，见 [todo-archive.md](archive/todo-archive-phases-m2-m55.md#m4-多仓库治理增强已归档)）。按主题分组，随运行反馈再评估上收。
 
 ### 工具链与锁文件
 
-> 已闭环（2026-08-06/07 清理，记录见 [todo-archive.md §M4](todo-archive.md#m4-阶段治理记录2026-08-05--2026-08-06)）：C1 pnpm 11 overrides 假成功检测（12af197d）、C2 toolchainPnpmVersion 验证链（cf12e381）、C20 lint:md 文档门禁（47050e6e）。
+> 已闭环（2026-08-06/07 清理，记录见 [todo-archive.md §M4](archive/todo-archive-phases-m2-m55.md#m4-阶段治理记录2026-08-05--2026-08-06)）：C1 pnpm 11 overrides 假成功检测（12af197d）、C2 toolchainPnpmVersion 验证链（cf12e381）、C20 lint:md 文档门禁（47050e6e）。
 
 - **C3 漂移检测弱代理**（T305 遗留）
   - 状态：🔶 待评估
@@ -107,19 +107,19 @@
 ### M4 残余风险登记（2026-08-06，T402-T404 Review Gate 移交）
 
 > M4 交付时审计登记的 8 项残余风险。
-> **2026-08-07 清理**：R1-R7 已全部闭环（修复批次 3d19d499 / ac8ce5c7 / 965e68f3），记录见 [todo-archive.md §M4 治理记录](todo-archive.md#m4-阶段治理记录2026-08-05--2026-08-06)，本条仅保留 R8。
+> **2026-08-07 清理**：R1-R7 已全部闭环（修复批次 3d19d499 / ac8ce5c7 / 965e68f3），记录见 [todo-archive.md §M4 治理记录](archive/todo-archive-phases-m2-m55.md#m4-阶段治理记录2026-08-05--2026-08-06)，本条仅保留 R8。
 
 - **R8 多进程 index 写竞态**（**部分完成**）：原子写已落地（临时文件 + rename，无半截文件）；双进程 read-modify-write 丢失更新在单进程 CLI 语义下不可达，平台化（M6+ 数据库化）消解
 
 ### M4 已知限制（P3 观察项，非阻塞）
 
-> **2026-08-07 清理**：7 项已闭环（--history 与运行参数并存、小数截断拒绝、merge 大小写去重、repoSlug 碰撞后缀、cleanup-branches 空归档跳过、cleanup-branches maxConcurrency 拒绝、M4 参数接入 Action），记录见 [todo-archive.md §M4 治理记录](todo-archive.md#m4-阶段治理记录2026-08-05--2026-08-06)，本条仅保留观察项。
+> **2026-08-07 清理**：7 项已闭环（--history 与运行参数并存、小数截断拒绝、merge 大小写去重、repoSlug 碰撞后缀、cleanup-branches 空归档跳过、cleanup-branches maxConcurrency 拒绝、M4 参数接入 Action），记录见 [todo-archive.md §M4 治理记录](archive/todo-archive-phases-m2-m55.md#m4-阶段治理记录2026-08-05--2026-08-06)，本条仅保留观察项。
 
 - **action artifact 体积**：归档结构（summary.json + 每仓库 md/json）随上传，artifact 略增
 
 ## M5.5: Skill 编排（CLI 先行）
 
-> **已归档（2026-08-07）**：T506-T508 全部完成，见 [todo-archive.md §M5.5](todo-archive.md#m55-skill-编排cli-先行已归档)。
+> **已归档（2026-08-07）**：T506-T508 全部完成，见 [todo-archive.md §M5.5](archive/todo-archive-phases-m2-m55.md#m55-skill-编排cli-先行已归档)。
 
 ## M6: 最小平台 MVP
 
@@ -262,31 +262,31 @@
   - **修复实现（2026-08-14）**：entrypoint 降权方案（非 `USER` 指令）——`apps/platform/Dockerfile` 构建期创建 `dependfix` 用户（uid 100）+ 预建并 chown `/app/data`；`apps/platform/docker/entrypoint.sh` 以 root 启动 → chown 数据目录（兼容既有 root 所有权卷的存量升级）→ `su-exec` 降权执行。本地实证：主进程 uid 100、新命名卷可写、既有 root 卷自动修复、su-exec 0755 非 setuid 无提权漏洞、HTTP 冒烟 200
   - 来源：2026-08-14 安全专项评估（G1）
 - **C39 CLI 本地模式安全防线**（P0，威胁模型与产品形态偏差）
-  - 状态：🔶 待评估（文档警示已落盘 quick-start）
+  - 状态：🔶 已排期（M8 T803，2026-08-14）
   - 内容：威胁模型将本地执行定位"仅开发调试"，但 CLI 是产品发布形态之一——本地模式零隔离，恶意依赖脚本直接在用户机器执行、可读用户 shell 全部环境（含 `GITHUB_TOKEN`/`DEPENDFIX_AI_API_KEY`）。候选方向：① 启动时检查并提示 token 权限面（与 C42 共用）；② 可选容器执行参数（复用平台镜像）；③ 运行前交互确认"将以本地权限执行不可信代码"
   - 来源：2026-08-14 安全专项评估（G2）
 - **C40 执行期网络外联日志与限制**（P1）
-  - 状态：🔶 待评估（M7 出站白名单前置项）
+  - 状态：🔶 已排期（M8 T805，2026-08-14）
   - 内容：设计承诺"M6 记录执行期外联日志（备查）"未实现；M7 出站白名单（npm/pnpm registry + GitHub API，默认 deny）落地前，至少实现外联审计日志供事故溯源；与 C26 独立容器结合实现网络隔离
   - 来源：2026-08-14 安全专项评估（G3）
 - **C41 验证命令单命令超时与资源上限**（P1）
-  - 状态：🔶 待评估（M7 cgroup 前置项）
+  - 状态：🔶 已排期（M8 T802，2026-08-14；cgroup 部分留 M9 C26）
   - 内容：`verification-runner.execCommand` 无单命令 timeout（仅外层总超时 30 分钟兜底，恶意死循环脚本可长时间占用）；无内存/CPU/磁盘配额（设计说"磁盘配额随数据卷"未落地）。修复方向：单命令 timeout（如 10 分钟可配）+ M7 cgroup 限制
   - 来源：2026-08-14 安全专项评估（G4）
 - **C42 Action/CLI 凭据权限面启动检查**（P1）
-  - 状态：🔶 待评估
+  - 状态：🔶 已排期（M8 T803，2026-08-14）
   - 内容：action.yml `github-token`（用户 PAT，owner 模式需跨仓库权限）与 `ai-api-key` 进环境变量，恶意 install 脚本可直接读取；B 路径（恶意仓库经 owner 扫描）的最终防线是凭据权限面。候选方向：启动时调用 `/user` + 权限探测，对超出最小权限（repo 全量 scope / 非 fine-grained）的 token 输出警告（不强制，避免破坏存量用法）
   - 来源：2026-08-14 安全专项评估（G6）
 - **C43 升级研判供应链信号披露**（P2）
-  - 状态：🔶 待评估
+  - 状态：🔶 已排期（M8 T804，2026-08-14）
   - 内容：报告/PR 未披露"本次新增/升级的包是否带 lifecycle scripts 且已被目标仓库 `allowBuilds` 批准"——该信号是路径 A（合法包被投毒）合入前人工确认的关键依据。候选方向：升级后解析目标仓库 `pnpm-workspace.yaml` 批准列表与 lockfile 脚本标记，将带脚本且被批准的包列入报告/PR 警示区
   - 来源：2026-08-14 安全专项评估（G7）
 - **C44 安全规范 §5.3 挂接 review 检查点**（2026-08-14 审计登记）
-  - 状态：🔶 待评估（不阻塞）
+  - 状态：🔶 已排期（M8 T806，2026-08-14；不阻塞）
   - 内容：`standards/security.md` §5.3 新增的必须级条款（非 root 执行 / 单命令超时 / 供应链信号披露 / 新执行后端威胁建模评审等）未挂接 `code-reviewer` 的 `code-quality-checklist` 检查点，按"规范执行分层"（严格约束挂 review 检查点）需补挂；与 C34 存量规范盘点同机制，可随其排期一并落地
   - 来源：2026-08-14 沙箱安全治理 Review Gate（RG-W2）
 - **C45 平台容器工具链缺失（git/pnpm 未安装）**（2026-08-14 C38 修复实证发现）
-  - 状态：🔶 待修复（不阻塞，C38 验证时实证）
+  - 状态：🔶 已排期（M8 T801，P0，2026-08-14）
   - 内容：`ContainerExecutor` 依赖容器内 git（clone）+ pnpm（install/audit），但 runtime 阶段镜像（`caomeiyouren/alpine-nodejs-minimize`）**从未安装 git/pnpm**——已发布镜像 `caomeiyouren/dependfix:latest` 实证 `git/pnpm/corepack` 全部 MISSING（仅 node 在 `/usr/bin/node`）。executor-sandbox.md 声称"平台镜像内置 git/node/pnpm 工具链"与实际不符（M6 遗留，C30 观察项关联）；影响：容器内 fix/fix-and-pr 模式 clone 与 pnpm install 不可用，report-only（GitHub API 直拉）可用。修复方向：runtime 阶段 `apk add git` + pnpm 安装（corepack 或官方脚本，需钉版本保证可复现构建），并补容器内执行链路实证
   - 来源：2026-08-14 C38 修复本地构建实证（`docker run ... command -v pnpm`）
 
@@ -374,9 +374,14 @@
 - 背景：2026-08-09 审查体系补强（bc7eac10）新增"规范执行分层"检查项，仅约束**新增**条款；存量条款挂接状态未盘点，盘点补齐后该机制完全闭环
 - 来源：2026-08-09 审查机制评估（宽松指引 / 严格约束区分校验能力评估结论，见 [documentation.md §4 规范单点声明原则](../standards/documentation.md)）
 
-### T906 todo-archive 分片迁移（M2-M5.5 → docs/plan/archive/）
+### T906 todo-archive 分片迁移（M2-M5.5 → docs/plan/archive/）✅
 
-- 状态：🔶 待排期（2026-08-12 M7.2 归档触发）
+- 状态：✅ **已完成（2026-08-14）**
 - 内容：`todo-archive.md` 已超 500 行治理阈值（575 行，[todo-archive.md L15 强制规则](../plan/todo-archive.md)）——将早期阶段（M2 / M3 / M4 / M4.5 / M4.6 / M5 / M5.5）迁入 `docs/plan/archive/` 分片（参照 M0/M1 的 `archive/todo-archive-phases-m0-m1.md` 模式），主文档恢复近线窗口；同步更新 `archive/index.md` 健康窗口记录与深度归档索引
+- **执行记录（2026-08-14）**：新建 [todo-archive-phases-m2-m55.md](../plan/archive/todo-archive-phases-m2-m55.md)（393 行，含 2 处相对链接修正）；主文档 575 → 185 行（健康窗口）；T711 归档区块同步写入主文档；archive/index.md 分片记录更新
 - 触发条件：下次归档批次（如 T711 验收归档）时一并执行，或用户排期
 - 来源：2026-08-12 M7.2 归档审计（todo-archive.md 超 500 行注记升级为任务）
+
+
+
+

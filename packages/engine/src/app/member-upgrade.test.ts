@@ -7,6 +7,15 @@ import { resolveRuntimeConfig } from '../config'
 import { DependfixApp } from './index'
 
 // ---------------------------------------------------------------------------
+// 禁止真实外联：未匹配请求（含启动安全检查的 GET /user 权限探测）抛错，
+// 由 checkTokenPermissions 静默 catch（best-effort 设计），零真实网络调用。
+// ---------------------------------------------------------------------------
+
+beforeEach(() => {
+    nock.disableNetConnect()
+})
+
+// ---------------------------------------------------------------------------
 // 成员级升级集成测试（2.0.3 链路）：
 // mock 掉真实依赖升级（fixers/dependency 的 upgradeDependency）与验证命令执行
 // （verification-runner），验证 app/index.ts 2.0.3 成员链路语义：

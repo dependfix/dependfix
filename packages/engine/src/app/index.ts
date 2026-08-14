@@ -30,6 +30,7 @@ import {
     discoverRepositories,
     mergeRepositories,
     filterExplicitRepositories,
+    checkTokenPermissions,
     type RepoPolicy,
 } from '../github'
 import { runWithConcurrency } from '../multirepo/scheduler'
@@ -73,6 +74,12 @@ export interface DependfixAppOptions {
     verbose?: boolean
     /** 自定义验证命令（覆盖默认命令链） */
     commands?: string[]
+    /**
+     * 执行环境：`local`（CLI/MCP 等用户机器直接执行）| `container`（平台容器沙箱）。
+     * 默认 `local`。容器内执行属于设计内隔离行为（非 root + 临时目录），
+     * 不触发本地模式不可信代码风险警告。
+     */
+    executionEnvironment?: 'local' | 'container'
 }
 
 export interface DependfixRunResult {
@@ -93,6 +100,7 @@ export class DependfixApp {
     private readonly logger: Logger
     private readonly verbose: boolean
     private readonly customCommands?: string[]
+    private readonly executionEnvironment: 'local' | 'container'
     private readonly runId: string
 
     private readonly allAlerts: NormalizedSecurityAlert[] = []
@@ -113,6 +121,7 @@ export class DependfixApp {
         this.reportOutputDir = options.reportOutputDir ?? './dependfix-reports'
         this.verbose = options.verbose ?? false
         this.customCommands = options.commands
+        this.executionEnvironment = options.executionEnvironment ?? 'local'
         this.runId = `dependfix-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
 
         this.logger = createLogger({
@@ -146,6 +155,8 @@ export class DependfixApp {
     /** 执行完整的编排流程，返回结构化结果和退出码。 */
     async run(): Promise<DependfixRunResult> {
         this.startedAt = new Date().toISOString()
+        // 启动安全自检（best-effort，失败不阻断运行）
+        await this.runStartupSecurityChecks()
         // 记录运行前工作区状态（验证门禁回滚时保护用户已有未提交改动）
         this.preExistingDirty = hasGitChanges(this.workDir)
         this.logger.info(`Starting dependfix run ${this.runId}`, {
@@ -201,6 +212,43 @@ export class DependfixApp {
             )
         }
         return { result: runResult, exitCode }
+    }
+
+    // -----------------------------------------------------------------------
+    // Startup security checks
+    // -----------------------------------------------------------------------
+
+    /**
+     * 启动安全自检（best-effort，任何失败不阻断运行）：
+     * - 本地模式风险提示：fix/fix-and-pr 会在用户机器直接执行目标仓库的
+     *   依赖脚本（不可信代码）；容器环境（平台沙箱）属于设计内隔离，跳过。
+     * - token 权限面探测：超权限 token（classic repo scope）启动即警告，
+     *   Code Scanning 开启但缺 security-events 权限时提示。
+     */
+    private async runStartupSecurityChecks(): Promise<void> {
+        const isLocalFix = this.executionEnvironment === 'local'
+            && !this.config.dryRun
+            && (this.config.mode === 'fix' || this.config.mode === 'fix-and-pr')
+        if (isLocalFix && process.env.DEPENDFIX_SUPPRESS_LOCAL_EXECUTION_WARNING !== '1') {
+            this.logger.warn(
+                '[local-exec] 本地模式将直接执行目标仓库的依赖安装/验证脚本（install/lint/build 钩子，属不可信代码）'
+                + '——若仓库或依赖被恶意控制，脚本可读取本机环境变量（含 GITHUB_TOKEN）。'
+                + '建议：使用专用低权限 token，并在专用环境（容器/VM/CI runner）运行；'
+                + '已确认风险可设置 DEPENDFIX_SUPPRESS_LOCAL_EXECUTION_WARNING=1 抑制本提示'
+                + '（详见 quick-start 安全注意事项）。',
+            )
+        }
+
+        if (this.config.alertSource === 'github-dependabot' && this.config.githubToken) {
+            const result = await checkTokenPermissions(this.createClient(), {
+                codeScanningEnabled: this.config.codeScanningEnabled,
+            })
+            if (result.ok && result.warnings.length > 0) {
+                for (const warning of result.warnings) {
+                    this.logger.warn(`[token-scope] ${warning.message}`)
+                }
+            }
+        }
     }
 
     // -----------------------------------------------------------------------

@@ -8,6 +8,15 @@ import { resolveRuntimeConfig } from '../config'
 import { DependfixApp } from './index'
 
 // ---------------------------------------------------------------------------
+// 禁止真实外联：未匹配请求（含启动安全检查的 GET /user 权限探测）抛错，
+// 由 checkTokenPermissions 静默 catch（best-effort 设计），零真实网络调用。
+// ---------------------------------------------------------------------------
+
+beforeEach(() => {
+    nock.disableNetConnect()
+})
+
+// ---------------------------------------------------------------------------
 // AI 研判 app 集成（2.0.2 跨线链路 × AI）：
 // mock runAiIntegration（AI 模块已单独覆盖），验证 app 层触发时机与结果判定：
 // - 验证失败 + AI code-change 修复成功 → 升级保留（fixed）

@@ -262,13 +262,15 @@ diff 包含大范围替换（脚本/正则批量改写、多文件机械变更�
 - **行尾噪音**：`git diff --ignore-space-at-eol` 与普通 diff 行数差异大 → 说明整文件行尾被翻转（混合行尾仓库常见），要求按行保留原行尾重做
 - **代码误伤**：替换正则是否误删代码 token（空调用 `()`、方法名 `trim`/`toUpperCase` 后丢失括号、URL `https:// /` 出现空格）——注意 `typecheck` 不总能覆盖字符串/注释误伤
 - **外链破坏**：涉及 URL 文本时检查是否出现 `https:// /`、`http://` 等畸形（check-links 只查本地链接）
+- **PowerShell 转义残留（必查）**：diff 疑似经 PowerShell 批量替换（`-replace`/`Replace`/`Set-Content` 产物）时，检查：① 字面量转义残留——扫描变更文件中的字面量 `\r?\n`（反斜杠形态）与"反引号 + n"字符序列，命中即退回（PowerShell 替换文本不做转义解释、单引号完全字面）；② 既有内容误伤——`git diff` 中非预期行（如已知条目内容被拆行/截断）须逐条核验，`String.Replace` 短序列全局替换会拆坏"反引号 + n"（如代码块中的 `npm_config_registry` 变 "换行 + pm_config_registry"）；③ 修复路径必须是 `git checkout -- <file>` 恢复 + 精确 edit 重新应用，**不得**再用 PowerShell 批量替换"修复"替换造成的损坏。lint:md / check:links / docs:build 均不检测文本语义，内容级验证（Node 字节抽查）由调用方补证（教训见 [经验归档 §四十](../../../../docs/design/governance/experience-archive.md)）
 
-规范见 [ai-collaboration.md §1.2 执行原则 6](../../../../docs/standards/ai-collaboration.md)，教训见 [经验归档 §十七](../../../../docs/design/governance/experience-archive.md)。
+规范见 [ai-collaboration.md §1.2 执行原则 6](../../../../docs/standards/ai-collaboration.md)，教训见 [经验归档 §十七 / §四十](../../../../docs/design/governance/experience-archive.md)。
 
 ### 应提出的问题
 
 - "该改动是否为批量替换？若是，行尾/URL/代码 token 是否被误伤？"
 - "是否存在全文件行尾翻转（--ignore-space-at-eol 前后行数差异）？"
+- "是否经 PowerShell 批量替换？字面量转义残留与既有内容误伤是否已排除？"
 
 ### 协议/枚举全集核对（防护正则/白名单审查）
 

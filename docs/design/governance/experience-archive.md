@@ -425,3 +425,30 @@
   - **教训入档 ≠ 防御生效**：同一模式第二次复现（裸标签）后，必须把教训落成"可执行检查点"（规范条款 + A 阶段必查项），否则归档只是故事。检查点形态见 [documentation.md §2 裸 HTML 标签禁令](../../standards/documentation.md) 与 code-auditor 必查项。
   - **新增 scripts/*.mjs 必须对齐既有 main 守卫模式**：`process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href` 包裹 main()——vitest 单测 import 模块时不执行入口副作用；新脚本复制旧脚本骨架时守卫是最容易被漏掉的一行。
   - **测试不得依赖 git 忽略工作区文件的存在性**：.session/ 下的文件本地存在、CI 不存在，依赖它的测试必须模拟缺失场景（移走文件）验证，或把依赖注入为参数。
+
+## 四十、PowerShell 批量替换三连坑 + 审计字节级扫描价值 + 容器实证三层发现（2026-08-14，M8 安全治理）
+
+> 教训形态：**批量/脚本化编辑误伤族第三次复现（§十七 2026-08-07 JS 正则宽泛 → §二十一 2026-08-08 PowerShell 内联 node -e → §四十 2026-08-14 PowerShell 批量替换）**——其中两次与 PowerShell 转义体系直接相关，本次正式落成规范禁令：**非必要不使用 PowerShell 执行批量替换，优先 JS 脚本**。同时记录"验证工具不覆盖内容语义"与"文档宣称 ≠ 真实运行"两类发现。
+
+### 案例一：PowerShell 批量替换三连坑（同一次 session 内三次踩坑）
+
+- **坑 1（-replace 替换文本转义陷阱）**：`-replace 'pattern\r?\n', '替换文本\r?\n'` ——PowerShell 的 `-replace` **替换文本不做转义解释**（`\r?\n` 按字面量写入）。执行后 backlog.md C40-C45 六处状态行被写入字面 `\r?\n` 文本，列表结构损坏。**lint:md / check:links / docs:build 全部通过**（这些工具不检查文本内容语义），只有审计的字节级扫描（Node 正则匹配"反斜杠 r 反斜杠问号 反斜杠 n"字面序列）抓到。
+- **坑 2（单引号字符串字面语义）**：`'...反引号+n...'` ——PowerShell 单引号字符串**完全字面**（"反引号+n"字面序列不会解释为换行），写入字面反引号+n。
+- **坑 3（String.Replace 全局替换误伤既有内容，最严重）**：为修复坑 1/2 执行 `$raw.Replace('反引号+n', ...)`——把文件中**所有"反引号+n"字符序列**替换为换行。既有内容中被误伤：`npm_config_registry`（C35 条目，行内代码前的反引号+n 被拆成换行 + "pm_config_registry"）、`nuxt.config.ts`（C29 条目）等——**大范围内容损坏**，且损坏表面"可读"（换行破坏语义）。
+- **同族小坑**：`$_ -split ':'` 在 Windows 盘符（`D:` 后接路径）下拆出孤立 'D'；`Select-String -Recurse` 参数名错误；终端 GBK 乱码显示 ≠ 文件损坏（§二十七 已记录）。
+- **根因**：PowerShell 的转义体系（反引号）、字符串字面语义（单引号完全字面）、`-replace` 替换文本特殊语义（无转义解释、`$` 引用）与 Node/JS 的正则-字符串模型差异巨大；批量文件内容操作叠加编码/换行处理（GBK 管道 §三十八）后误伤概率显著高于 JS 脚本。
+- **修复路径（安全恢复）**：`git checkout -- <file>` 恢复 HEAD 版本（本次恢复的 HEAD 是已提交的干净版本）→ 用**精确 edit 工具**（字符串级替换）重新应用目标修改 → `git diff --stat` 核对 diff 收敛到预期行数 → Node 字节抽查关键内容完整性（如 `npm_config_registry` 存在性）。
+- **启示**：
+  - **文件内容批量修改（替换/插入/行尾转换）一律优先 JS 脚本**（`node -e` 单行或写临时 .cjs，读取→处理→写回全在 Node 语义内），PowerShell 只承担命令执行（git/docker/pnpm 等工具调用）。**非必要不使用 PowerShell 执行批量替换**。
+  - **批量文本操作后必须内容级验证**：lint/check:links/docs:build 均不检测文本语义——必须 Node 字节抽查（字面量残留扫描 + 关键内容存在性）+ `git diff` 审查（既有内容是否被意外改动，diff 应只含预期行）。
+  - **审计的字节级扫描是最后防线**：本次字面量 `\r?\n` 损坏由 Review Gate 的 Node 逐文件扫描抓到（验证矩阵三项全绿但内容已损坏），已挂 code-auditor 必查项（见治理记录）。
+
+### 案例二：文档宣称 ≠ 真实运行：容器执行链路三层缺失（T801 实证）
+
+- **案例**：executor-sandbox.md 声称"平台镜像内置 git/node/pnpm 工具链"，实际 runtime 镜像从未安装 git/pnpm（已发布镜像实证 `git/pnpm/corepack` 全部 MISSING）；进一步实证发现 cli/engine/core 的 workspace node_modules 也从未打包进镜像（`ERR_MODULE_NOT_FOUND`）——**ContainerExecutor 容器内执行链路从未真实可用**。T801 补齐后实证又暴露第三层：pnpm-audit legacy `patched_versions` range 前缀导致 `compareSemver` 解析退化 `[0,0,0]`，告警被假跳过（漏洞不修）。
+- **根因**：M6 交付以单测 + 本地 dev 验证为主，"容器内真实跑一次 fix"从未发生——文档（"平台镜像内置工具链"）写的是设计意图而非实现事实；ContainerExecutor 的集成测试 mock 了子进程，掩盖了真实环境缺失。
+- **修复**：git（apk）+ pnpm 11.18.0（构建链镜像零网络拷贝）+ node_modules 打包（pnpm 符号链接 + 根 .pnpm store，COPY 保留链接）+ engine range 剥离修复（4 测试）。容器内全链路实证：report-only → fix（minimist 0.0.8→0.2.4）→ fix --commit → 报告产物。
+- **启示**：
+  - **宣称的能力必须有真实运行实证**：容器/部署/集成类能力，验收必须包含"在真实目标环境执行一次完整链路"，单测 mock 会掩盖环境缺失（与 §三十一"真实基础设施验证"同族）。
+  - **版本解析函数对 range/前缀输入必须防御**：`compareSemver` 对 `>=x.y.z` 静默退化为 `[0,0,0]`——解析失败应显式失败或归一化，不能静默"已达标"（安全相关路径尤其危险：假跳过 = 漏洞不修）。
+  - **实证驱动的发现是排期任务的最大增量价值**：T801 名义是"装两个工具"，实证带出 node_modules 打包 + range bug 两个深层问题（C45 登记时均未预见）。

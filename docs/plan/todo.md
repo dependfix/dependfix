@@ -20,7 +20,7 @@
 | **T803 凭据权限面启动检查 + 本地模式防线** | C42+C39（G6+G2） | P0（合并 C39 P0 / C42 P1，取最高） | CLI/Action 启动时 token 权限探测（repo scope / security-events 等），超权限警告；本地模式执行不可信代码风险提示 | ✅ **已完成（2026-08-14）**：启动 `GET /user` 探测权限面（classic repo scope 超权限警告 / Code Scanning 缺 security-events 提示，失败静默）；fix/fix-and-pr 本地执行风险警告（`DEPENDFIX_SUPPRESS_LOCAL_EXECUTION_WARNING=1` 抑制，ContainerExecutor 容器环境不误报）；analyzeTokenScope 7 测试 + 网络层 4 测试；quick-start / 治理文档 / backlog 同步 |
 | **T804 供应链信号披露** | C43（G7） | P2 | 报告/PR 警示区：本次新增/升级包带 lifecycle scripts 且被目标仓库 `allowBuilds` 批准时披露 | ✅ **已完成（2026-08-14）**：supply-chain 模块解析 `pnpm-workspace.yaml` `allowBuilds`/`onlyBuiltDependencies`（行级解析无 yaml 依赖）+ 读 node_modules/.pnpm 实际包 lifecycle 脚本（peer 后缀 store 前缀匹配兜底）；run() 报告与 fix-and-pr PR body 双路径接入；报告新增 ⚠️ Supply Chain Warnings 节 + PR body 警示区（含包名/脚本类型）；17 单测 + 2 集成测试（PR body 含/不含警示区）；真实仓库实证（esbuild→postinstall / better-sqlite3→install / 未批准不披露） |
 | **T805 执行期外联审计日志** | C40（G3） | P1 | 容器执行期间网络外联记录（备查，出站白名单留 M9 C26） | ✅ **已完成（2026-08-14）**：verification-runner 执行期外联审计（默认开启）——本地审计代理（CONNECT+HTTP 转发，10s 超时防挂死）注入代理 env 捕获 curl/wget/npm 外联（环境已有代理不覆盖）+ 命令输出 URL 提取确定性捕获 pnpm registry 外联（实证 pnpm 不走代理 env）；执行日志输出（总数 info/明细 debug，仅方法+目标）；实证 curl CONNECT + echo URL 双路径真实生效；13 新测试 |
-| **T806 安全规范挂接 review 检查点** | C44 | P1 | `code-reviewer` 的 `code-quality-checklist` 补 §5.3 检查点（与 C34 存量盘点联动） | 审查清单含 §5.3 必查项 |
+| **T806 安全规范挂接 review 检查点** | C44 | P1 | `code-reviewer` 的 `code-quality-checklist` 补 §5.3 检查点（与 C34 存量盘点联动） | ✅ **已完成（2026-08-14）**：`code-quality-checklist.md` 新增"修复执行安全基线（必查项）"——§5.3 十三条必须级条款逐项核验（非 root / 工作目录隔离 / 超时兜底 / pnpm 脚本防护 / 凭据最小化 / 权限面收敛 / 研判 / 供应链披露 / 白名单回传 / 资源与网络 / 威胁建模评审）+ 链接引用（单点声明不抄条款）；Code Auditor 必查项同步薄引用；C34 存量盘点保持待评估独立排期 |
 
 - 完成定义：T801-T806 全部交付，每项独立 Review Gate Pass + 分批提交；`pnpm lint` / `typecheck` / 定向测试通过（Dockerfile 类改动附容器实证）。
 - 非目标（M9 backlog）：C26 独立沙箱容器（网络出站白名单 + cgroup + 每任务容器，BullMQ worker 结合）、C30 镜像构建 CI 链路裁决、C28 凭据加密存储文档章节、C29 平台 UI 暗色模式。
@@ -36,7 +36,7 @@
 
 ## 当前状态
 
-- **M8 安全加固进行中（2026-08-14）**：T801-T805 已完成，T806 待推进。
+- **M8 安全加固与容器执行完备已交付（2026-08-14）**：T801-T806 全部完成，每项独立 Review Gate Pass + 分批提交。
 - **T711 已归档（2026-08-14）**：覆盖率冲刺完成（四维 ≥ 80%），记录见 [todo-archive.md §T711](todo-archive.md#t711-覆盖率口径修正--冲刺至-80已归档)。
 - **M7 已归档（2026-08-12）**：M7.1/M7.2 归档（T702/T704/T708/T709/T710/T706 完成），详见 [todo-archive.md](todo-archive.md)。
 - **T705 / T703 已延期（2026-08-12 用户指示）**：移至 [backlog.md §M7.2](backlog.md#m72-平台能力深化) 待评估。

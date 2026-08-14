@@ -29,11 +29,11 @@
 | 级别 | 缺口 | 说明 |
 |:--|:--|:--|
 | **P0** | Dockerfile 无 `USER` 降权 | 设计文档承诺的"非 root 运行"未落地，恶意脚本以 root 在容器内执行（可读 `/proc` 其他进程环境、写容器文件系统） |
-| **P0** | CLI 本地模式零防护 | 威胁模型将本地执行定位为"仅开发调试"，但 CLI 是产品发布形态之一；本地模式下恶意脚本直接在用户机器执行，可读用户 shell 全部环境 |
+| **P0** | CLI 本地模式零防护 | 威胁模型将本地执行定位为"仅开发调试"，但 CLI 是产品发布形态之一；本地模式下恶意脚本直接在用户机器执行，可读用户 shell 全部环境 | **已修复（T803，2026-08-14）**：fix/fix-and-pr 启动输出本地执行风险警告（可 `DEPENDFIX_SUPPRESS_LOCAL_EXECUTION_WARNING=1` 抑制）；容器执行环境不误报 |
 | **P1** | 网络出站无限制、无外联日志 | M6 容器默认放行（registry 需要），设计承诺的"执行期外联日志（备查）"未实现；出站白名单是 M7 项 |
 | **P1** | 验证命令无单命令超时/资源上限 | `execCommand` 无 timeout（仅外层总超时兜底）、无内存/CPU/磁盘配额 |
 | **P1** | M7 队列并发共享同一容器 | BullMQ 并发后，恶意仓库 A 的脚本可读仓库 B 的工作目录与环境（交叉污染） |
-| **P1** | Action 模式凭据暴露面 | 用户 PAT（可能跨仓库大权限）与 AI key 进环境变量，恶意 install 脚本可直接读取；仅靠文档建议约束 |
+| **P1** | Action 模式凭据暴露面 | 用户 PAT（可能跨仓库大权限）与 AI key 进环境变量，恶意 install 脚本可直接读取；仅靠文档建议约束 | **已修复（T803，2026-08-14）**：启动时 `GET /user` 探测 token 权限面（`x-oauth-scopes` / `x-accepted-github-permissions`），classic `repo` scope 超权限启动即警告 |
 | **P2** | 升级研判缺供应链信号 | 报告未披露"本次新增/升级的包是否带 lifecycle scripts 且已被批准" |
 
 ## 3. 威胁链模型：dependfix 作为扩散放大器的 4 条路径
@@ -66,7 +66,7 @@ dependfix 批量处理仓库与依赖，若防护不足会成为恶意依赖的"
 
 | 条款（§5.3） | 登记 | 时间线 | 验收方式 |
 |:--|:--|:--|:--|
-| 权限面收敛（本地 / Action） | C39 / C42 | 待评估 | 启动检查对超权限 token 输出警告 |
+| 权限面收敛（本地 / Action） | C39 / C42 | ✅ 已修复（2026-08-14，T803） | 超权限 token（classic repo scope）启动即警告；fix/fix-and-pr 本地模式输出风险提示 |
 | 平台密钥隔离 / 最小注入 / 防泄露 | —（已落地） | — | 保持 `credential.service.ts` 解密注入语义不回退 |
 
 ### 4.3 供应链基线增量
@@ -84,11 +84,11 @@ dependfix 批量处理仓库与依赖，若防护不足会成为恶意依赖的"
 | 编号 | 缺口 | 级别 | 处置 | 登记 |
 |:--|:--|:--|:--|:--|
 | G1 | Dockerfile 无 `USER` 降权 | P0 | ✅ **已修复（2026-08-14）**：entrypoint 降权方案（dependfix 用户 + chown 数据卷 + su-exec），本地实证见 [backlog C38](../../plan/backlog.md) | [backlog C38](../../plan/backlog.md) |
-| G2 | CLI 本地模式零防护 | P0 | 文档警示先行（本文档第 6 节 + quick-start），排期实现（专用低权限 token 检查、可选容器执行） | [backlog C39](../../plan/backlog.md) |
+| G2 | CLI 本地模式零防护 | P0 | ✅ **已修复（2026-08-14，T803）**：fix/fix-and-pr 本地执行风险警告（可 env 抑制）；容器环境（ContainerExecutor）不误报 | [backlog C39](../../plan/backlog.md) |
 | G3 | 网络外联无限制/无日志 | P1 | M7 出站白名单前置落地；M6 期间登记外联日志 | [backlog C40](../../plan/backlog.md) |
-| G4 | 验证命令无单命令超时/资源上限 | P1 | 单命令超时随 C41 修复；cgroup 随 M7 | [backlog C41](../../plan/backlog.md) |
+| G4 | 验证命令无单命令超时/资源上限 | P1 | ✅ **已修复（2026-08-14，T802）**：单命令超时（默认 10 分钟可配）+ 进程树终止；cgroup 随 M9 C26 | [backlog C41](../../plan/backlog.md) |
 | G5 | M7 并发共享容器交叉污染 | P1 | C26 提级为 M7 前置任务，与 T702 BullMQ worker 模型结合 | [backlog C26](../../plan/backlog.md) |
-| G6 | Action 模式凭据暴露面 | P1 | 启动时检查 token 权限面并提示（不强制） | [backlog C42](../../plan/backlog.md) |
+| G6 | Action 模式凭据暴露面 | P1 | ✅ **已修复（2026-08-14，T803）**：启动时探测 token 权限面，classic repo scope 超权限启动即警告（不强制阻断） | [backlog C42](../../plan/backlog.md) |
 | G7 | 升级研判缺供应链信号 | P2 | 报告/PR 增加 lifecycle scripts 信号披露 | [backlog C43](../../plan/backlog.md) |
 
 ## 6. 使用侧安全指引（面向用户）
@@ -101,7 +101,8 @@ dependfix 批量处理仓库与依赖，若防护不足会成为恶意依赖的"
 ## 7. 验收与持续治理
 
 - **C38 验收（✅ 已达成 2026-08-14）**：容器主进程非 root（`docker exec` 实测 PID1 `Uid: 100`）；数据卷（`/app/data`）新卷与既有 root 卷均可写（entrypoint chown 自动修复）；镜像构建成功；HTTP 冒烟 `GET /` 200；su-exec 0755 非 setuid 无提权漏洞（非 root 提权尝试被拒）。**实证补充发现**：容器内 git/pnpm 缺失（M6 遗留）——**已修复（C45/T801，2026-08-14）**，并连带修复 pnpm-audit legacy range 前缀假跳过 bug。
-- **C26/C40/C41 验收**：M7 实现时逐项对照本文档第 4 节基线；网络白名单与 cgroup 限制有集成测试覆盖。
+- **C39/C42 验收（✅ 已达成 2026-08-14，T803）**：本地 fix/fix-and-pr 启动输出本地执行风险警告（实证：`[local-exec]` warn 输出、`DEPENDFIX_SUPPRESS_LOCAL_EXECUTION_WARNING=1` 抑制生效）；token 权限面探测（实证：`GET /user` 发起、401 静默不阻断运行）；analyzeTokenScope 判定 7 测试（classic repo scope 超权限警告 / fine-grained security-events 校验 / 无头不警告）。
+- **C26/C40/C41 验收**：M7 实现时逐项对照本文档第 4 节基线；网络白名单与 cgroup 限制有集成测试覆盖。C41 单命令超时已随 T802 落地（2026-08-14，进程树终止实证）。
 - **持续治理**：任何执行相关改动（Executor、验证 runner、安装参数、镜像配置）在 Review Gate 时对照本文档第 4 节基线核验；新增执行后端按 §4.4 过威胁建模评审。
 
 ## 8. 相关文档

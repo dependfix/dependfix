@@ -197,8 +197,8 @@ jobs:
 
 > dependfix 的核心动作是升级第三方依赖——**执行不可信代码**。更新依赖是为了修复漏洞，但修复过程不能引入新漏洞：dependfix 不能成为恶意依赖扩散的工具。以下为使用侧要点，完整威胁模型与治理见 [沙箱与恶意依赖防护治理](../design/governance/sandbox-security-governance.md)。
 
-- **本地 CLI 模式无隔离**：本地模式下依赖的 install/lint/build 脚本直接在**你的机器**上执行（`--commands` 自定义命令同样如此）。恶意脚本可读取你 shell 环境中的所有变量（`GITHUB_TOKEN`、`DEPENDFIX_AI_API_KEY` 等）。建议：在专用环境（容器 / VM / CI runner）运行，或确认目标仓库与依赖来源可信。
-- **Token 使用最小权限**：不要给 dependfix 使用全量 scope 的 PAT。推荐组合：`dependabot-alerts-token` 用仅 `Dependabot alerts: read` 的 fine-grained PAT；`github-token` 仅给目标仓库所需的最小权限（`security-events: read` + `contents`/`pull-requests` 写权限）。owner 模式扫描多个仓库时，token 权限面 = 所有被扫描仓库的信任边界。
+- **本地 CLI 模式无隔离**：本地模式下依赖的 install/lint/build 脚本直接在**你的机器**上执行（`--commands` 自定义命令同样如此）。恶意脚本可读取你 shell 环境中的所有变量（`GITHUB_TOKEN`、`DEPENDFIX_AI_API_KEY` 等）。建议：在专用环境（容器 / VM / CI runner）运行，或确认目标仓库与依赖来源可信。fix / fix-and-pr 启动时 CLI 会输出本地执行风险警告；已确认风险可设置 `DEPENDFIX_SUPPRESS_LOCAL_EXECUTION_WARNING=1` 抑制。
+- **Token 使用最小权限**：不要给 dependfix 使用全量 scope 的 PAT。推荐组合：`dependabot-alerts-token` 用仅 `Dependabot alerts: read` 的 fine-grained PAT；`github-token` 仅给目标仓库所需的最小权限（`security-events: read` + `contents`/`pull-requests` 写权限）。owner 模式扫描多个仓库时，token 权限面 = 所有被扫描仓库的信任边界。**启动时会对 token 做权限面检查**：检测到 classic PAT 且含 `repo`（全量仓库）权限时输出警告（不阻断运行）——该 token 一旦被恶意脚本窃取即可接管所有可见仓库。
 - **owner 模式扫描范围即信任边界**：`--owner` 发现的仓库会被 clone 并执行其依赖脚本——只扫描可信组织的仓库；对不可信来源先人工 review 再纳入名单（`--repo-include` / `--repo-exclude` 可限制范围）。
 - **PR 合入前人工检查**：跨线升级（PR body 带 ⚠️ Major 标记）以及新增/升级包带 lifecycle scripts 且被仓库批准时（供应链信号披露落地后见报告警示区），合入前应人工确认。
 - **平台部署**：平台容器执行进程已**非 root 降权**（`dependfix` 用户，entrypoint 自动修复数据卷所有权，[C38](../plan/backlog.md)）；部署时勿挂载 `docker.sock`、勿授予特权；`AUTH_SECRET` / `ENCRYPTION_KEY` 使用强随机值。

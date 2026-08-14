@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { EMPTY_RUN_RESULT, makeAction, makeAlert, makeError } from './report.test-helpers'
-import { generateMarkdownReport, type FixAction, type RepositoryResult } from './index'
+import { generateJsonReport, generateMarkdownReport, type FixAction, type RepositoryResult } from './index'
 
 describe('generateMarkdownReport', () => {
     it('renders header with runId and mode', () => {
@@ -510,5 +510,54 @@ describe('generateMarkdownReport', () => {
 
         expect(md).toContain('pnpm lint')
         expect(md).toContain('⚠️ exit code 1')
+    })
+})
+
+describe('generateMarkdownReport supply chain warnings', () => {
+    it('renders warning section with package name and script types', () => {
+        const result = {
+            ...EMPTY_RUN_RESULT,
+            supplyChainWarnings: [
+                { repository: 'owner/repo', packageName: 'esbuild', version: '0.25.12', scriptTypes: ['postinstall'] },
+            ],
+        }
+        const md = generateMarkdownReport(result)
+
+        expect(md).toContain('## ⚠️ Supply Chain Warnings')
+        expect(md).toContain('`esbuild`')
+        expect(md).toContain('`0.25.12`')
+        expect(md).toContain('`postinstall`')
+        expect(md).toContain('owner/repo')
+    })
+
+    it('renders multiple script types comma separated', () => {
+        const result = {
+            ...EMPTY_RUN_RESULT,
+            supplyChainWarnings: [
+                { repository: 'owner/repo', packageName: 'better-sqlite3', version: '12.11.1', scriptTypes: ['install', 'preinstall'] },
+            ],
+        }
+        const md = generateMarkdownReport(result)
+
+        expect(md).toContain('`install`, `preinstall`')
+    })
+
+    it('omits section when no warnings', () => {
+        const md = generateMarkdownReport(EMPTY_RUN_RESULT)
+
+        expect(md).not.toContain('Supply Chain Warnings')
+    })
+
+    it('serializes warnings into json report', () => {
+        const result = {
+            ...EMPTY_RUN_RESULT,
+            supplyChainWarnings: [
+                { repository: 'owner/repo', packageName: 'esbuild', version: '0.25.12', scriptTypes: ['postinstall'] },
+            ],
+        }
+        const json = JSON.parse(generateJsonReport(result)) as { supplyChainWarnings?: unknown[] }
+
+        expect(json.supplyChainWarnings).toHaveLength(1)
+        expect(json.supplyChainWarnings?.[0]).toMatchObject({ packageName: 'esbuild', scriptTypes: ['postinstall'] })
     })
 })

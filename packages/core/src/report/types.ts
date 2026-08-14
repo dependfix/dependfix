@@ -116,6 +116,22 @@ export interface AiUsageAggregate {
 }
 
 /**
+ * 供应链信号警示（路径 A"合法包被投毒"合入前人工确认的关键依据）：
+ * 本次新增/升级的包带 lifecycle scripts 且已被目标仓库 `allowBuilds` /
+ * `onlyBuiltDependencies` 批准——脚本会在目标仓库安装时真实执行。
+ */
+export interface SupplyChainWarning {
+    /** 目标仓库（owner/repo 或 local） */
+    repository: string
+    /** 包名 */
+    packageName: string
+    /** 升级后的版本（该版本在目标仓库将被安装并可能执行脚本） */
+    version: string
+    /** lifecycle 脚本类型（install / preinstall / postinstall 中的已存在项） */
+    scriptTypes: string[]
+}
+
+/**
  * 报告顶层容器。
  */
 export interface RunResult {
@@ -130,6 +146,8 @@ export interface RunResult {
     errors: FixError[]
     /** AI 研判用量聚合（仅 --ai 开启且实际调用时存在） */
     aiUsage?: AiUsageAggregate
+    /** 供应链信号警示区（本次升级包带脚本且被批准；空 = 不渲染） */
+    supplyChainWarnings?: SupplyChainWarning[]
 }
 
 /** 按严重级别聚合的统计。 */

@@ -262,20 +262,23 @@
   - **修复实现（2026-08-14）**：entrypoint 降权方案（非 `USER` 指令）——`apps/platform/Dockerfile` 构建期创建 `dependfix` 用户（uid 100）+ 预建并 chown `/app/data`；`apps/platform/docker/entrypoint.sh` 以 root 启动 → chown 数据目录（兼容既有 root 所有权卷的存量升级）→ `su-exec` 降权执行。本地实证：主进程 uid 100、新命名卷可写、既有 root 卷自动修复、su-exec 0755 非 setuid 无提权漏洞、HTTP 冒烟 200
   - 来源：2026-08-14 安全专项评估（G1）
 - **C39 CLI 本地模式安全防线**（P0，威胁模型与产品形态偏差）
-  - 状态：🔶 已排期（M8 T803，2026-08-14）
+  - 状态：✅ **已修复（2026-08-14，T803）**
   - 内容：威胁模型将本地执行定位"仅开发调试"，但 CLI 是产品发布形态之一——本地模式零隔离，恶意依赖脚本直接在用户机器执行、可读用户 shell 全部环境（含 `GITHUB_TOKEN`/`DEPENDFIX_AI_API_KEY`）。候选方向：① 启动时检查并提示 token 权限面（与 C42 共用）；② 可选容器执行参数（复用平台镜像）；③ 运行前交互确认"将以本地权限执行不可信代码"
+  - **修复实现（2026-08-14，T803）**：fix/fix-and-pr 模式（本地执行 install/lint/build 脚本）启动时输出本地执行风险警告（明确指向不可信代码 + 环境变量暴露面 + 专用低权限 token 建议），可经 `DEPENDFIX_SUPPRESS_LOCAL_EXECUTION_WARNING=1` 抑制（已确认风险用户不重复刷屏）；`DependfixApp.executionEnvironment` 区分 local/container——ContainerExecutor（平台沙箱）不误报；交互确认与可选容器执行（候选②③）留待后续评估
   - 来源：2026-08-14 安全专项评估（G2）
 - **C40 执行期网络外联日志与限制**（P1）
   - 状态：🔶 已排期（M8 T805，2026-08-14）
   - 内容：设计承诺"M6 记录执行期外联日志（备查）"未实现；M7 出站白名单（npm/pnpm registry + GitHub API，默认 deny）落地前，至少实现外联审计日志供事故溯源；与 C26 独立容器结合实现网络隔离
   - 来源：2026-08-14 安全专项评估（G3）
 - **C41 验证命令单命令超时与资源上限**（P1）
-  - 状态：🔶 已排期（M8 T802，2026-08-14；cgroup 部分留 M9 C26）
+  - 状态：✅ **已修复（2026-08-14，T802；cgroup 部分留 M9 C26）**
   - 内容：`verification-runner.execCommand` 无单命令 timeout（仅外层总超时 30 分钟兜底，恶意死循环脚本可长时间占用）；无内存/CPU/磁盘配额（设计说"磁盘配额随数据卷"未落地）。修复方向：单命令 timeout（如 10 分钟可配）+ M7 cgroup 限制
+  - **修复实现（2026-08-14，T802）**：`execCommand` 单命令超时（默认 10 分钟可配 `commandTimeoutMs`），超时中止并终止进程树（POSIX detached 进程组 / Windows taskkill /T /F，防孙进程残留）；超时归类 `timed out after Xms` 进 failure 与报告 error；4 新增测试 + taskkill 真实进程树终止实证
   - 来源：2026-08-14 安全专项评估（G4）
 - **C42 Action/CLI 凭据权限面启动检查**（P1）
-  - 状态：🔶 已排期（M8 T803，2026-08-14）
+  - 状态：✅ **已修复（2026-08-14，T803）**
   - 内容：action.yml `github-token`（用户 PAT，owner 模式需跨仓库权限）与 `ai-api-key` 进环境变量，恶意 install 脚本可直接读取；B 路径（恶意仓库经 owner 扫描）的最终防线是凭据权限面。候选方向：启动时调用 `/user` + 权限探测，对超出最小权限（repo 全量 scope / 非 fine-grained）的 token 输出警告（不强制，避免破坏存量用法）
+  - **修复实现（2026-08-14，T803）**：`token-scope.ts` 启动权限面探测——`GET /user` 读 `x-oauth-scopes`（classic）与 `x-accepted-github-permissions`（fine-grained/GITHUB_TOKEN）响应头；classic `repo` scope → 超权限警告（窃取即可接管所有可见仓库，建议 fine-grained 最小权限）；Code Scanning 开启但缺 `security-events: read` → 提示；无权限头/探测失败（401/网络/超时 5s）静默跳过不阻断。接入 `DependfixApp.run()` 启动自检，CLI / Action（env 通道）/ MCP 共用；analyzeTokenScope 纯函数 7 测试 + 网络层 4 测试
   - 来源：2026-08-14 安全专项评估（G6）
 - **C43 升级研判供应链信号披露**（P2）
   - 状态：🔶 已排期（M8 T804，2026-08-14）

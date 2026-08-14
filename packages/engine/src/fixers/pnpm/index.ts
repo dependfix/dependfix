@@ -13,6 +13,7 @@ export type LockfileFailureCategory =
     | 'CORRUPTED_LOCKFILE'
     | 'CREDENTIAL_ERROR'
     | 'RESOLVE_ERROR'
+    | 'MINIMUM_RELEASE_AGE'
     | 'UNKNOWN'
 
 export type RepairStrategy =
@@ -100,6 +101,9 @@ const FAILURE_PATTERNS: [LockfileFailureCategory, RegExp][] = [
     ['CREDENTIAL_ERROR', /E401|ERR_PNPM_FETCH_401|ERR_PNPM_FETCH_403|authentication failed|Authorization/i],
     ['CORRUPTED_LOCKFILE', /\b(broken|corrupted|Cannot read).*lockfile|ERR_PNPM_BROKEN_LOCKFILE/i],
     ['LOCKFILE_VERSION_MISMATCH', /lockfileVersion.*incompatible|unsupported lockfile version|lockfile had been generated with/i],
+    // 目标仓库显式配置 minimumReleaseAge（strict 模式）时，解析与 lockfile 校验均可能被
+    // 冷却期约束阻止：ERR_PNPM_NO_MATURE_MATCHING_VERSION（解析）/ ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION（frozen 校验）
+    ['MINIMUM_RELEASE_AGE', /ERR_PNPM_NO_MATURE_MATCHING_VERSION|ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION|minimumReleaseAge/i],
     ['RESOLVE_ERROR', /ERR_PNPM_NO_MATCHING_VERSION|resolution|resolve.*failed|ERR_PNPM_PEER_DEP_ISSUES/i],
 ]
 
@@ -155,6 +159,10 @@ function getStrategyChain(category: LockfileFailureCategory): RepairStrategy[] {
             return ['PIN_TOOLCHAIN', 'REGENERATE', 'REINSTALL']
         case 'RESOLVE_ERROR':
             return ['REGENERATE', 'FIX_ENTRIES', 'REINSTALL']
+        // 冷却期约束：重新解析可能选中满足 minimumReleaseAge 的旧版本（range 允许时），
+        // 写死精确版本时解析依旧失败 → 回滚并由 failureDetail 说明策略约束
+        case 'MINIMUM_RELEASE_AGE':
+            return ['REGENERATE', 'REINSTALL']
         case 'UNKNOWN':
             return ['REGENERATE', 'REINSTALL']
         case 'CREDENTIAL_ERROR':
@@ -487,10 +495,14 @@ export function repairLockfile(params: RepairLockfileParams): LockfileRepairResu
         durationMs,
     })
 
+    const categoryNote = category === 'MINIMUM_RELEASE_AGE'
+        ? 'target repo has a minimumReleaseAge policy; locked versions are too fresh. Retry after the cooldown period, or relax the policy: '
+        : ''
+
     return {
         success: false,
         failureCategory: category,
-        failureDetail: truncate(lastError, 500),
+        failureDetail: `${categoryNote}${truncate(lastError, 500)}`,
         attemptHistory: attempts,
     }
 }

@@ -207,6 +207,28 @@ describe('upgradeDependency', () => {
         cleanup(project)
     })
 
+    it('identifies minimumReleaseAge policy failure with readable hint', async () => {
+        const project = createTempProject({ lodash: '^4.17.20' })
+
+        mockExecSync.mockImplementation(() => {
+            throw Object.assign(new Error('Install failed'), {
+                stderr: '[ERR_PNPM_NO_MATURE_MATCHING_VERSION] 2 versions do not meet the minimumReleaseAge constraint',
+            })
+        })
+
+        const result = await upgradeDependency({
+            packageName: 'lodash',
+            targetVersion: '4.17.21',
+            workDir: project.dir,
+        })
+
+        expect(result.success).toBe(false)
+        expect(result.error).toContain('minimumReleaseAge policy')
+        expect(result.error).toContain('ERR_PNPM_NO_MATURE_MATCHING_VERSION')
+
+        cleanup(project)
+    })
+
     it('rolls back lockfile on pnpm install failure', async () => {
         const project = createTempProject({ lodash: '^4.17.20' })
         const originalLockfile = readFileSync(project.lockfilePath, 'utf-8')

@@ -243,3 +243,40 @@ export function getStderr(err: unknown): string {
     }
     return typeof err === 'object' && err !== null ? JSON.stringify(err) : String(err)
 }
+
+// ---------------------------------------------------------------------------
+// pnpm install 失败原因识别
+// ---------------------------------------------------------------------------
+
+/**
+ * `pnpm install` stderr 中的已知失败特征 → 可读提示。
+ * 当前覆盖：minimumReleaseAge 冷却期约束（目标仓库显式配置该策略时 strict 模式生效，
+ * 解析报 ERR_PNPM_NO_MATURE_MATCHING_VERSION、frozen 校验报 ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION）。
+ * 未识别时返回 null，调用方保留原始 stderr。
+ */
+const INSTALL_FAILURE_HINTS: [RegExp, string][] = [
+    [
+        /ERR_PNPM_NO_MATURE_MATCHING_VERSION|ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION|minimumReleaseAge/i,
+        'target repo has a minimumReleaseAge policy; the upgrade target version is too fresh (cooldown not elapsed). Retry after the cooldown period, or relax the policy',
+    ],
+]
+
+/** 识别 `pnpm install` 失败原因，未识别返回 null。 */
+export function classifyInstallFailure(stderr: string): string | null {
+    for (const [pattern, hint] of INSTALL_FAILURE_HINTS) {
+        if (pattern.test(stderr)) {
+            return hint
+        }
+    }
+    return null
+}
+
+/**
+ * 格式化 `pnpm install` 失败错误信息：识别到已知原因时附加可读提示。
+ * 供升级链路各 catch 块统一使用（upgradeDependency / overrideTransitiveDependency /
+ * applyVersionedOverrides），避免三处重复匹配逻辑。
+ */
+export function formatInstallFailure(stderr: string): string {
+    const hint = classifyInstallFailure(stderr)
+    return hint ? `pnpm install failed: ${hint}: ${stderr}` : `pnpm install failed: ${stderr}`
+}

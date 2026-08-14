@@ -7,6 +7,7 @@ import {
     cleanupBackups,
     execPnpmInstall,
     failResult,
+    formatInstallFailure,
     getStderr,
     rollback,
     rollbackOverrideWrite,
@@ -167,14 +168,13 @@ export async function upgradeDependency(
         // 回滚后清理备份
         cleanupBackups({ pkgBackup, lockBackup })
 
-        const stderr = getStderr(installErr)
         return {
             packageName,
             fromVersion,
             toVersion,
             isMajor,
             success: false,
-            error: `pnpm install failed: ${stderr}`,
+            error: formatInstallFailure(getStderr(installErr)),
         }
     }
 
@@ -309,7 +309,7 @@ export async function overrideTransitiveDependency(
             toVersion,
             isMajor,
             success: false,
-            error: `pnpm install failed: ${stderr}`,
+            error: formatInstallFailure(stderr),
         }
     }
 
@@ -508,7 +508,7 @@ export async function applyVersionedOverrides(
             toVersion: entries.map((entry) => entry[1]).join(', '),
             isMajor: false,
             success: false,
-            error: `pnpm install failed: ${stderr}`,
+            error: formatInstallFailure(stderr),
         }
     }
 

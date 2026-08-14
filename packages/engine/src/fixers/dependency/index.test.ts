@@ -14,6 +14,7 @@ vi.mock('node:child_process', () => ({
     execSync: mockExecSync,
 }))
 
+import { classifyInstallFailure, formatInstallFailure } from './overrides-io'
 import {
     applyVersionedOverrides,
     extractPrefix,
@@ -591,7 +592,7 @@ describe('applyVersionedOverrides', () => {
 
     it('rolls back versioned overrides and lockfile when pnpm install fails', async () => {
         mockExecSync.mockImplementation(() => {
-            throw new Error('pnpm install failed: ERESOLVE')
+            throw new Error('ERESOLVE')
         })
         const lockContent = 'lockfileVersion: \'9.0\'\n'
         writeFileSync(lockfilePath, lockContent)
@@ -671,5 +672,36 @@ describe('ensurePnpmOverrides', () => {
         const pkg: Record<string, unknown> = { name: 'test', pnpm: { overrides: existing } }
         const overrides = ensurePnpmOverrides(pkg as Record<string, unknown> & { pnpm?: { overrides?: Record<string, string> } })
         expect(overrides).toBe(existing)
+    })
+})
+
+// ===========================================================================
+// formatInstallFailure / classifyInstallFailure
+// ===========================================================================
+
+describe('formatInstallFailure', () => {
+    it('adds readable hint for ERR_PNPM_NO_MATURE_MATCHING_VERSION (resolution)', () => {
+        const stderr = '[ERR_PNPM_NO_MATURE_MATCHING_VERSION] is-odd@3.0.1 does not meet the minimumReleaseAge constraint'
+        const result = formatInstallFailure(stderr)
+        expect(result).toContain('pnpm install failed')
+        expect(result).toContain('minimumReleaseAge policy')
+        expect(result).toContain(stderr)
+    })
+
+    it('adds readable hint for ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION (frozen verification)', () => {
+        const stderr = '[ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION] lockfile entries failed verification'
+        const result = formatInstallFailure(stderr)
+        expect(result).toContain('minimumReleaseAge policy')
+    })
+
+    it('adds readable hint when stderr mentions minimumReleaseAge without error code', () => {
+        const stderr = 'minimumReleaseAge constraint not satisfied'
+        expect(formatInstallFailure(stderr)).toContain('minimumReleaseAge policy')
+    })
+
+    it('keeps plain message for unrecognized failures', () => {
+        const stderr = 'ERR_PNPM_OUTDATED_LOCKFILE: lockfile needs update'
+        expect(formatInstallFailure(stderr)).toBe(`pnpm install failed: ${stderr}`)
+        expect(classifyInstallFailure(stderr)).toBeNull()
     })
 })

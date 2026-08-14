@@ -156,6 +156,22 @@ describe('classifyLockfileFailure', () => {
         expect(result.category).toBe('RESOLVE_ERROR')
     })
 
+    it('MINIMUM_RELEASE_AGE via ERR_PNPM_NO_MATURE_MATCHING_VERSION (resolution)', () => {
+        mockExecSync.mockImplementation(() => {
+            throw makeExecError('ERR_PNPM_NO_MATURE_MATCHING_VERSION: 2 versions do not meet the minimumReleaseAge constraint')
+        })
+        const result = classifyLockfileFailure('/tmp/test')
+        expect(result.category).toBe('MINIMUM_RELEASE_AGE')
+    })
+
+    it('MINIMUM_RELEASE_AGE via ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION (frozen verification)', () => {
+        mockExecSync.mockImplementation(() => {
+            throw makeExecError('ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION: 2 lockfile entries failed verification')
+        })
+        const result = classifyLockfileFailure('/tmp/test')
+        expect(result.category).toBe('MINIMUM_RELEASE_AGE')
+    })
+
     it('UNKNOWN for unrecognized error', () => {
         mockExecSync.mockImplementation(() => {
             throw makeExecError('something unexpected happened')
@@ -482,6 +498,21 @@ describe('repairLockfile', () => {
         const result = repairLockfile({ workDir: proj.dir })
         expect(result.success).toBe(true)
         expect(result.strategy).toBe('REGENERATE')
+    })
+
+    it('MINIMUM_RELEASE_AGE: all strategies fail → rollback with readable hint', () => {
+        // 诊断失败（frozen 校验被冷却期阻止）→ REGENERATE/REINSTALL 重新解析仍选到太新版本 → 全失败回滚
+        commandSequence = [
+            { stderr: 'ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION: 2 lockfile entries failed verification' },
+            makeExecError('ERR_PNPM_NO_MATURE_MATCHING_VERSION: still too fresh'), // REGENERATE fails
+            makeExecError('ERR_PNPM_NO_MATURE_MATCHING_VERSION: still too fresh'), // REINSTALL fails
+        ]
+        setupExecSequence()
+        const result = repairLockfile({ workDir: proj.dir })
+        expect(result.success).toBe(false)
+        expect(result.failureCategory).toBe('MINIMUM_RELEASE_AGE')
+        expect(result.failureDetail).toContain('minimumReleaseAge policy')
+        expect(result.attemptHistory.length).toBeGreaterThanOrEqual(2)
     })
 
     it('uses corepack with pinned pnpm version for PIN_TOOLCHAIN', () => {

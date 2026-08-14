@@ -257,8 +257,9 @@
 > 来源：2026-08-14 安全专项评估（"dependfix 不能成为漏洞扩散工具"评估，结论与威胁链详见 [sandbox-security-governance.md](../design/governance/sandbox-security-governance.md)）。以下为评估登记的治理缺口，按 P0 → P2 排序；修复验收对照治理文档 §7。
 
 - **C38 平台 Dockerfile 补 `USER` 降权**（P0，设计-实现偏差）
-  - 状态：🔶 待修复（低改动，建议尽快）
+  - 状态：✅ **已修复（2026-08-14）**
   - 内容：executor-sandbox.md §2.2 明确 M6 必做"非 root 用户运行（镜像 `USER` 降权）"，但 `apps/platform/Dockerfile` 无 `USER` 指令，容器以 root 运行——恶意依赖脚本以 root 执行（可读 `/proc` 其他进程环境、写容器文件系统），削弱凭据最小化收敛效果。修复方向：基础镜像（alpine-nodejs-minimize）内置非 root 用户确认后加 `USER` 指令，`/app/data` 数据卷权限适配（`docker-compose.yml` 或镜像内目录 chown），构建与 e2e 回归验证
+  - **修复实现（2026-08-14）**：entrypoint 降权方案（非 `USER` 指令）——`apps/platform/Dockerfile` 构建期创建 `dependfix` 用户（uid 100）+ 预建并 chown `/app/data`；`apps/platform/docker/entrypoint.sh` 以 root 启动 → chown 数据目录（兼容既有 root 所有权卷的存量升级）→ `su-exec` 降权执行。本地实证：主进程 uid 100、新命名卷可写、既有 root 卷自动修复、su-exec 0755 非 setuid 无提权漏洞、HTTP 冒烟 200
   - 来源：2026-08-14 安全专项评估（G1）
 - **C39 CLI 本地模式安全防线**（P0，威胁模型与产品形态偏差）
   - 状态：🔶 待评估（文档警示已落盘 quick-start）
@@ -284,6 +285,10 @@
   - 状态：🔶 待评估（不阻塞）
   - 内容：`standards/security.md` §5.3 新增的必须级条款（非 root 执行 / 单命令超时 / 供应链信号披露 / 新执行后端威胁建模评审等）未挂接 `code-reviewer` 的 `code-quality-checklist` 检查点，按"规范执行分层"（严格约束挂 review 检查点）需补挂；与 C34 存量规范盘点同机制，可随其排期一并落地
   - 来源：2026-08-14 沙箱安全治理 Review Gate（RG-W2）
+- **C45 平台容器工具链缺失（git/pnpm 未安装）**（2026-08-14 C38 修复实证发现）
+  - 状态：🔶 待修复（不阻塞，C38 验证时实证）
+  - 内容：`ContainerExecutor` 依赖容器内 git（clone）+ pnpm（install/audit），但 runtime 阶段镜像（`caomeiyouren/alpine-nodejs-minimize`）**从未安装 git/pnpm**——已发布镜像 `caomeiyouren/dependfix:latest` 实证 `git/pnpm/corepack` 全部 MISSING（仅 node 在 `/usr/bin/node`）。executor-sandbox.md 声称"平台镜像内置 git/node/pnpm 工具链"与实际不符（M6 遗留，C30 观察项关联）；影响：容器内 fix/fix-and-pr 模式 clone 与 pnpm install 不可用，report-only（GitHub API 直拉）可用。修复方向：runtime 阶段 `apk add git` + pnpm 安装（corepack 或官方脚本，需钉版本保证可复现构建），并补容器内执行链路实证
+  - 来源：2026-08-14 C38 修复本地构建实证（`docker run ... command -v pnpm`）
 
 ---
 

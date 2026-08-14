@@ -56,5 +56,19 @@ ENV NODE_ENV=production
 RUN apk add --no-cache unzip && rm -rf /var/cache/apk/*
 WORKDIR /app
 COPY --from=docker-minifier /app /app
+# ── C38 非 root 降权（安全基线 §5.3 执行环境）：执行不可信代码的进程不得以 root 运行 ──
+# 运行用户创建（幂等，避免与基础镜像内置用户冲突）；su-exec 供 entrypoint 降权
+RUN set -eux; \
+    if ! getent passwd dependfix > /dev/null 2>&1; then \
+        addgroup -S dependfix && adduser -S -G dependfix -h /home/dependfix dependfix; \
+    fi; \
+    apk add --no-cache su-exec && rm -rf /var/cache/apk/*
+# 数据目录预建 + 授权：命名卷首次挂载继承目录所有权（entrypoint 再幂等 chown，兼容既有 root 卷）
+RUN mkdir -p /app/data && chown -R dependfix:dependfix /app/data
+# entrypoint：root 启动 → chown 数据目录 → su-exec 降权执行（恶意脚本仅能在非 root 权限下运行）
+COPY apps/platform/docker/entrypoint.sh /usr/local/bin/dependfix-entrypoint.sh
+RUN chmod +x /usr/local/bin/dependfix-entrypoint.sh
+ENV HOME=/home/dependfix
+ENTRYPOINT ["/usr/local/bin/dependfix-entrypoint.sh"]
 EXPOSE 3000
 CMD ["node", ".output/server/index.mjs"]

@@ -286,8 +286,9 @@
   - 内容：`standards/security.md` §5.3 新增的必须级条款（非 root 执行 / 单命令超时 / 供应链信号披露 / 新执行后端威胁建模评审等）未挂接 `code-reviewer` 的 `code-quality-checklist` 检查点，按"规范执行分层"（严格约束挂 review 检查点）需补挂；与 C34 存量规范盘点同机制，可随其排期一并落地
   - 来源：2026-08-14 沙箱安全治理 Review Gate（RG-W2）
 - **C45 平台容器工具链缺失（git/pnpm 未安装）**（2026-08-14 C38 修复实证发现）
-  - 状态：🔶 已排期（M8 T801，P0，2026-08-14）
+  - 状态：✅ **已修复（2026-08-14，T801）**
   - 内容：`ContainerExecutor` 依赖容器内 git（clone）+ pnpm（install/audit），但 runtime 阶段镜像（`caomeiyouren/alpine-nodejs-minimize`）**从未安装 git/pnpm**——已发布镜像 `caomeiyouren/dependfix:latest` 实证 `git/pnpm/corepack` 全部 MISSING（仅 node 在 `/usr/bin/node`）。executor-sandbox.md 声称"平台镜像内置 git/node/pnpm 工具链"与实际不符（M6 遗留，C30 观察项关联）；影响：容器内 fix/fix-and-pr 模式 clone 与 pnpm install 不可用，report-only（GitHub API 直拉）可用。修复方向：runtime 阶段 `apk add git` + pnpm 安装（corepack 或官方脚本，需钉版本保证可复现构建），并补容器内执行链路实证
+  - **修复实现（2026-08-14，T801）**：① runtime 阶段 `apk add git`（实证 2.54.0，随 alpine 滚动 index 与 unzip/su-exec 同惯例，可复现性以基础镜像 digest 为基线）；② pnpm 11.18.0 从构建链镜像（docker-minifier）零网络拷贝（与构建链版本一致，packageManager 11.17.0 差异由 toolchain 验证链处理）；③ **补齐 workspace node_modules 打包**（cli/engine/core 依赖链此前从未进镜像，`ERR_MODULE_NOT_FOUND`——C45 深化的第二缺口）；④ 实证暴露并修复 pnpm-audit legacy `patched_versions` range 前缀假跳过 bug（`>=0.2.4` 解析退化 `[0,0,0]`，minimist 0.0.8 被误判已达标，engine 层通用修复 + 4 测试）。容器内全链路实证：report-only（1 alert）→ fix（0.0.8→0.2.4，组验证通过）→ fix --commit（无身份仓库 ensureGitConfig 自动配置）→ 报告产物
   - 来源：2026-08-14 C38 修复本地构建实证（`docker run ... command -v pnpm`）
 
 ---

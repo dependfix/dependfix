@@ -100,7 +100,7 @@ dependfix 批量处理仓库与依赖，若防护不足会成为恶意依赖的"
 
 ## 7. 验收与持续治理
 
-- **C38 验收（✅ 已达成 2026-08-14）**：容器主进程非 root（`docker exec` 实测 PID1 `Uid: 100`）；数据卷（`/app/data`）新卷与既有 root 卷均可写（entrypoint chown 自动修复）；镜像构建成功；HTTP 冒烟 `GET /` 200；su-exec 0755 非 setuid 无提权漏洞（非 root 提权尝试被拒）。**实证补充发现**：容器内 git/pnpm 缺失（M6 遗留），登记 [backlog C45](../../plan/backlog.md)。
+- **C38 验收（✅ 已达成 2026-08-14）**：容器主进程非 root（`docker exec` 实测 PID1 `Uid: 100`）；数据卷（`/app/data`）新卷与既有 root 卷均可写（entrypoint chown 自动修复）；镜像构建成功；HTTP 冒烟 `GET /` 200；su-exec 0755 非 setuid 无提权漏洞（非 root 提权尝试被拒）。**实证补充发现**：容器内 git/pnpm 缺失（M6 遗留）——**已修复（C45/T801，2026-08-14）**，并连带修复 pnpm-audit legacy range 前缀假跳过 bug。
 - **C26/C40/C41 验收**：M7 实现时逐项对照本文档第 4 节基线；网络白名单与 cgroup 限制有集成测试覆盖。
 - **持续治理**：任何执行相关改动（Executor、验证 runner、安装参数、镜像配置）在 Review Gate 时对照本文档第 4 节基线核验；新增执行后端按 §4.4 过威胁建模评审。
 

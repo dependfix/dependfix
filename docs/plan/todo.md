@@ -15,7 +15,7 @@
 
 | 任务 | 治理项 | 优先级 | 内容 | 验收要点 |
 |:--|:--|:--|:--|:--|
-| **T801 容器工具链补齐** | C45 | P0 | runtime 阶段安装 git + pnpm（钉版本可复现）；容器内执行链路实证（report-only + fix 冒烟） | 容器内 `git/pnpm` 可用；ContainerExecutor fix 模式容器内真实跑通 |
+| **T801 容器工具链补齐** | C45 | P0 | runtime 阶段安装 git + pnpm（pnpm 钉定 11.18.0 零网络拷贝；git 随 alpine 滚动，可复现以基础镜像 digest 为基线）；容器内执行链路实证（report-only + fix 冒烟） | ✅ **已完成（2026-08-14）**：git 2.54.0（apk）+ pnpm 11.18.0（构建链镜像零网络拷贝）；补齐 cli/engine/core workspace node_modules 打包；实证暴露并修复 pnpm-audit legacy range 前缀假跳过 bug（engine 层 + 4 测试）；容器内全链路：report-only 1 alert → fix 0.0.8→0.2.4 → fix --commit（ensureGitConfig）→ 报告产物。记录见 [backlog C45](backlog.md) |
 | **T802 验证命令单命令超时** | C41（G4） | P1 | `verification-runner.execCommand` 增加单命令 timeout（默认 10 分钟可配），恶意死循环脚本超时中止 | 死循环脚本超时归类正确，报告无挂死 |
 | **T803 凭据权限面启动检查 + 本地模式防线** | C42+C39（G6+G2） | P0（合并 C39 P0 / C42 P1，取最高） | CLI/Action 启动时 token 权限探测（repo scope / security-events 等），超权限警告；本地模式执行不可信代码风险提示 | 超权限 token 启动即警告；文档同步 |
 | **T804 供应链信号披露** | C43（G7） | P2 | 报告/PR 警示区：本次新增/升级包带 lifecycle scripts 且被目标仓库 `allowBuilds` 批准时披露 | 报告/PR 出现警示区（含包名/脚本类型） |
@@ -47,4 +47,4 @@
 - Publish Docker 工作流 build job 在 QEMU 双平台构建中 1h19m 被同 ref 新 push 取消，镜像构建 CI 链路未裁决通过，排查项见 [backlog.md §M6](backlog.md)（C30）。
 - security.md 凭据加密存储章节未补（[backlog.md §M6](backlog.md) C28）。
 - 平台 UI 暗色模式不可用（暂缓，后续优化，[backlog.md §M6](backlog.md) C29）。
-- 容器内 git/pnpm 工具链缺失（M6 遗留，T801 排期中，[backlog.md](backlog.md) C45）。
+- 容器内 git/pnpm 工具链缺失（M6 遗留）——**已修复（T801，2026-08-14）**，见 [backlog.md](backlog.md) C45。

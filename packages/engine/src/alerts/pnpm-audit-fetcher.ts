@@ -117,7 +117,12 @@ function normalizePatchedVersionValue(value: unknown): string | null {
     // 已知边界（与旧行为等价，未变差）：两段版本（"1.2.x"→"1.2"）、">=0.0.0"（剥离为 0.0.0 后任何
     // 版本判已达标）、pre-release range（compareSemver 忽略 pre-release 段）仍可能假跳过——
     // 真实 npm advisory patched_versions 以 ">=x.y.z" / ">=x.y.z <x.y.z" 为主，残余面罕见，暂登记不处理
-    const versionMatch = /(\d+\.\d+(?:\.\d+)?(?:-[0-9a-z.]+)?)/i.exec(normalized)
+    // ReDoS（CodeQL js/polynomial-redos）：原 /(\d+\.\d+(?:\.\d+)?(?:-[0-9a-z.]+)?)/i 的 \d+ 与可选组
+    // 在长数字串（如 "000...0."）上呈二次方回溯（10 万字符实测 ~8.5s）；改为 ^ 锚定 + 有界量词 {1,2}
+    // （语义等价：major.minor 必选、patch 至多一次）后线性（实测 ~0.2ms），17 组边界用例行为一致
+    // 残余差异（审计建议登记）：畸形输入 "数字前缀 + 空格 + 合法版本"（如 "123 1.2.3"）不再
+    // 跳过前缀提取到后面的版本，而是整体回退原值——非合法 semver range 形态，保守回退不误提取
+    const versionMatch = /^[^\d]*(\d+(?:\.\d+){1,2}(?:-[0-9a-z.]+)?)/i.exec(normalized)
     if (versionMatch) {
         return versionMatch[1]
     }

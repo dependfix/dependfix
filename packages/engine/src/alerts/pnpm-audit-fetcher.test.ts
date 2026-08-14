@@ -182,6 +182,61 @@ describe('parseAuditReport', () => {
         expect(risks[0].patchedVersion).toBe('1.2.3')
     })
 
+    it('extracts pre-release versions (patched_versions ">=1.2.3-beta.1" / ">=2.0.0-rc.1+build.5")', () => {
+        // semver pre-release / build metadata 是合法形态：剥离前缀后保留 pre-release 段
+        // （build metadata 非 [0-9a-z.] 字符集，止步于 "+"，与原行为一致）
+        const risks = parseAuditReport({
+            advisories: {
+                '777': {
+                    id: 777,
+                    module_name: 'prerelease-pkg',
+                    patched_versions: '>=1.2.3-beta.1',
+                    severity: 'high',
+                    title: 't',
+                    url: 'https://npmjs.com/advisories/777',
+                },
+            },
+        })
+        expect(risks[0].patchedVersion).toBe('1.2.3-beta.1')
+        const rcRisks = parseAuditReport({
+            advisories: {
+                '778': {
+                    id: 778,
+                    module_name: 'prerelease-pkg',
+                    patched_versions: '>=2.0.0-rc.1+build.5',
+                    severity: 'high',
+                    title: 't',
+                    url: 'https://npmjs.com/advisories/778',
+                },
+            },
+        })
+        expect(rcRisks[0].patchedVersion).toBe('2.0.0-rc.1')
+    })
+
+    it('completes quickly on long digit strings (ReDoS regression)', () => {
+        // CodeQL js/polynomial-redos 告警 22：原 /(\d+\.\d+(?:\.\d+)?(?:-[0-9a-z.]+)?)/i 对
+        // "000...0." 呈二次方回溯（10 万字符实测 ~8.5s）；改 ^ 锚定 + 有界量词后线性（~0.2ms）。
+        // 回归保护：长数字串输入须在宽松阈值内完成，且失败形态行为不变（回退原值）。
+        const longDigits = `${'0'.repeat(100_000)}.`
+        const start = Date.now()
+        const risks = parseAuditReport({
+            advisories: {
+                '999': {
+                    id: 999,
+                    module_name: 'redos-regression',
+                    patched_versions: longDigits,
+                    severity: 'high',
+                    title: 't',
+                    url: 'https://npmjs.com/advisories/999',
+                },
+            },
+        })
+        const elapsed = Date.now() - start
+        // 无版本匹配 → normalizePatchedVersionValue 回退原值（与修复前行为一致）
+        expect(risks[0].patchedVersion).toBe(longDigits)
+        expect(elapsed).toBeLessThan(1000)
+    })
+
     it('treats legacy sentinel patched_versions as unfixable (no regression on sentinel interception)', () => {
         // 哨兵值（<0.0.0 / manual review required 等）必须先于 range 剥离拦截——否则会被剥离为裸版本误判可修
         // （patchedVersion 为 null 时上层 mapAuditRiskToAlert 派生 fixable=false）

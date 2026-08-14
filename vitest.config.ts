@@ -19,7 +19,9 @@ export default defineConfig({
         globals: true,
         environment: 'node',
         // Nuxt server auto-import 模拟（API handler 测试用；setup 文件只注入全局 h3 工具，无副作用）
-        setupFiles: ['apps/platform/tests/setup-nuxt-server.ts'],
+        // 必须使用绝对路径：pnpm --filter <pkg> test 在包目录运行 vitest，root=cwd=包目录，
+        // 相对路径会解析到 <pkg>/apps/platform/tests/... 导致全部测试初始化失败
+        setupFiles: [resolve(import.meta.dirname, 'apps/platform/tests/setup-nuxt-server.ts')],
         // e2e 测试由 Playwright 运行（apps/platform/tests/e2e），vitest 不扫描
         exclude: [
             '**/node_modules/**',

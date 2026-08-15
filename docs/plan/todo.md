@@ -1,13 +1,35 @@
 # 当前阶段任务
 
-> **M8 安全加固与容器执行完备（2026-08-14 启动）**：依据 [沙箱与恶意依赖防护治理](../design/governance/sandbox-security-governance.md) §5 治理决议（G2-G7）与 [backlog.md §沙箱与恶意依赖防护治理登记](backlog.md)（C39-C45）排期，封堵 dependfix 成为恶意依赖扩散工具的残余路径。任务拆解见下方 M8 区块。
+> **M9 i18n 基建同步（2026-08-15 启动）**：从 momei 同步 i18n 治理规范与审计脚本（缺失 key / 动态 key / 重复文案校验 + `@intlify/eslint-plugin-vue-i18n` 独立 lint），为下一阶段 i18n 优化（README 中英双版本 → docs 翻译 → platform 多语言扩展）做准备。任务拆解见下方 M9 区块。
+> **M8 安全加固与容器执行完备已归档（2026-08-14）**：T801-T806 全部交付（20 个提交，本地待推送）。依据 [沙箱与恶意依赖防护治理](../design/governance/sandbox-security-governance.md) §5 治理决议（G2-G7）与 [backlog.md §沙箱与恶意依赖防护治理登记](backlog.md)（C39-C45）排期，封堵 dependfix 成为恶意依赖扩散工具的残余路径。任务拆解见下方 M8 区块。
 > **T711 覆盖率冲刺已归档（2026-08-14）**：四维 ≥ 80% 达成（Stmts 85.89% / Branch 80.6% / Funcs 85.51% / Lines 85.96%，1494 tests），记录见 [todo-archive.md §T711](todo-archive.md#t711-覆盖率口径修正--冲刺至-80已归档)。
 > **T705 / T703 已延期（2026-08-12 用户指示）**：生产级部署（PostgreSQL/Helm/Sentry）与跨平台 Git（GitLab/Bitbucket）暂缓排期，见 [backlog.md §M7.2](backlog.md#m72-平台能力深化)。
 > **T706 已完成（2026-08-12）**：`@dependfix/mcp@0.1.2` 已发布 npm；skill 双后端验证与 MCP 接入文档为轻量收尾（随文档同步跟进）。
 
 ---
 
-## M8: 安全加固与容器执行完备（2026-08-14 启动）
+## M9: i18n 基建同步（2026-08-15 启动）
+
+- 优先级：`P2`（为后续 i18n 优化铺路，不阻塞安全与功能主线）
+- 背景：momei 已沉淀成熟的 i18n 治理体系（语言分级 / freshness 分层 / 缺词 blocker / 动态 key 白名单 / 重复文案审计 / vue-i18n 专项 lint）。dependfix 平台已有基础 i18n（zh-CN + en-US 双语），但缺审计门禁与治理规范。本轮同步基建（规范 + 脚本 + 门禁），翻译内容（README.en-US.md / docs 翻译 / 多语言扩展）留后续阶段。
+- 决策（2026-08-15 用户确认）：① 只同步基建，脚本适当优化不全量同步（缺失 key / 动态 key / 重复文案为核心）；② docs 翻译沿用 `docs/i18n/<locale>/` 镜像结构；③ 模块化拆分延后（脚本已兼容双形态）；④ `@intlify/eslint-plugin-vue-i18n` 引入但独立命令（执行慢）+ CI 校验。
+- 任务拆解（按依赖与优先级）：
+
+| 任务 | 内容 | 验收要点 |
+|:--|:--|:--|
+| **T901 规范同步** | momei translation-governance 适配为 `docs/standards/i18n.md`（语言分级 / freshness 分层 / 回退链 / 术语约束 / blocker 矩阵）+ standards/index.md 登记 | ✅ **已完成（2026-08-15）** |
+| **T902 脚本同步** | `scripts/shared/cli.mjs` + `scripts/i18n/{audit-locale-keys,audit-duplicate-messages,dynamic-key-allowlist}.mjs` + `scripts/docs/check-i18n-duplicates.mjs`，路径参数化（`--locale-root` / `--scan-root`）、单文件/模块化双形态兼容 | ✅ **已完成（2026-08-15）**：missing parity 0（两 locale key 一致）、unused 54 候选（warning）、duplicates 53 组候选、docs 检查通过 |
+| **T903 脚本测试** | 三个同步脚本补 vitest 单测（临时目录 fixture，覆盖双形态与边界） | ✅ **已完成（2026-08-15）**：42 测试全绿 |
+| **T904 npm scripts + eslint 接入** | 根 package.json 接线 `i18n:audit*` / `docs:check:i18n` / `lint:i18n`；安装 `@intlify/eslint-plugin-vue-i18n`；eslint.config.js 加 `ESLINT_I18N` 开关块（限 apps/platform，recommended 规则提升 error） | ✅ **已完成（2026-08-15）**：lint:i18n 零 error；常规 lint 不受影响 |
+| **T905 CI 接入** | test.yml 增加 `lint:i18n` + `i18n:audit:missing` + `docs:check:i18n` 步骤 | ✅ **已完成（2026-08-15）** |
+| **T906 文档收口** | scripts/README.md 登记新命令；todo/roadmap 排期 | ✅ **已完成（2026-08-15）** |
+
+- 完成定义：T901-T906 全部交付，每项独立 Review Gate Pass + 分批提交；`pnpm lint` / `typecheck` / 定向测试 / `lint:i18n` / `i18n:audit:missing` 通过。
+- 非目标（后续阶段）：README.en-US.md 翻译、docs/i18n/en-US 翻译、platform 多语言扩展（zh-TW/ko-KR/ja-JP）、locale 模块化拆分（split-locale-files + Locale Registry）。
+
+---
+
+## M8: 安全加固与容器执行完备（2026-08-14 启动，已归档）
 
 - 优先级：`P0-P2`（安全是本项目核心目标——更新依赖修复漏洞，但修复过程不能引入新漏洞）
 - 背景：2026-08-14 安全专项评估（[sandbox-security-governance.md](../design/governance/sandbox-security-governance.md)）完成威胁链建模与治理登记；G1（C38 容器降权）已修复。本阶段兑现剩余治理项（G2-G7 + C45），并以 C45 实证发现（容器内 git/pnpm 工具链从未安装，ContainerExecutor fix 链路实际不可用）为 P0 首项。

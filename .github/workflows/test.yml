@@ -27,6 +27,11 @@ jobs:
       # （本地开发因存在 dist 不触发；顺序与 Dockerfile 的 core → engine → cli → platform 一致）
       - run: pnpm --filter @dependfix/core build && pnpm --filter @dependfix/engine build && pnpm --filter dependfix build
       - run: pnpm run lint
+      # i18n 校验：lint:i18n 单独执行（@intlify/vue-i18n 规则较慢，不并入常规 lint）；
+      # i18n:audit:missing 缺词 parity 作为 blocker；docs:check:i18n 防旧目录回流
+      - run: pnpm run lint:i18n
+      - run: pnpm run i18n:audit:missing
+      - run: pnpm run docs:check:i18n
       - run: pnpm run lint:md:check
       - run: pnpm run check:links
       # docs 构建前置：VitePress 会把 markdown 中的裸 HTML 当作 Vue 模板编译（缺结束标签即失败），

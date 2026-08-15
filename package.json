@@ -23,6 +23,12 @@
     "distill:wisdom": "node scripts/distill-wisdom.mjs",
     "sync:skills": "node scripts/sync-skills.mjs",
     "check:links": "node scripts/check-links.mjs",
+    "i18n:audit": "node scripts/i18n/audit-locale-keys.mjs",
+    "i18n:audit:missing": "node scripts/i18n/audit-locale-keys.mjs --only=missing --fail-on-missing",
+    "i18n:audit:unused": "node scripts/i18n/audit-locale-keys.mjs --only=unused",
+    "i18n:audit:duplicates": "node scripts/i18n/audit-duplicate-messages.mjs",
+    "docs:check:i18n": "node scripts/docs/check-i18n-duplicates.mjs",
+    "lint:i18n": "cross-env NODE_ENV=production ESLINT_I18N=true eslint apps/platform --quiet",
     "lint": "cross-env NODE_ENV=production eslint . --fix --max-warnings 10",
     "lint:md": "lint-md \"*.md\" \"docs/**/*.md\" \".github/**/*.md\" \"packages/**/*.md\" \"skills/**/*.md\" --fix",
     "lint:md:check": "lint-md \"*.md\" \"docs/**/*.md\" \".github/**/*.md\" \"packages/**/*.md\" \"skills/**/*.md\"",
@@ -40,6 +46,7 @@
     "docs:preview": "pnpm --filter dependfix-docs preview"
   },
   "devDependencies": {
+    "@intlify/eslint-plugin-vue-i18n": "4.5.1",
     "@lint-md/cli": "2.2.4",
     "@types/node": "^26.1.2",
     "@vitest/coverage-v8": "^4.1.10",

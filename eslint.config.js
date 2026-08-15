@@ -2,10 +2,84 @@
 import { defineConfig } from 'eslint/config'
 import cmyr from 'eslint-config-cmyr'
 import { createLanguageOptions } from 'eslint-config-cmyr/utils'
+import vueI18n from '@intlify/eslint-plugin-vue-i18n'
 import eslintPluginVue from 'eslint-plugin-vue'
 import tseslint from 'typescript-eslint'
+import { vueI18nNoUnusedKeyIgnores } from './scripts/i18n/dynamic-key-allowlist.mjs'
 
 const testFiles = ['**/*.test.ts']
+
+// i18n lint 独立开关：@intlify/vue-i18n 规则（no-unused-keys 等）需要解析 locale 文件，
+// 执行较慢，仅通过 `pnpm lint:i18n`（ESLINT_I18N=true）启用，不并入常规 lint。
+const enableI18nLint = process.env.ESLINT_I18N === 'true'
+
+// i18n lint 配置块：仅对 apps/platform 生效（唯一使用 vue-i18n 的应用）。
+// recommended 内部含 json/yaml 专项 config（自带 files 与 vue-eslint-parser），
+// 必须保留其原始 files——统一覆盖会导致 vue parser 应用到 .ts 文件产生解析错误。
+const i18nLintConfigs = enableI18nLint
+    ? [
+        ...vueI18n.configs.recommended.map((config) => {
+            const baseConfig = { ...config }
+
+            // 全部限定到 apps/platform 范围：无 files 的通用 config（插件注册 / 规则应用）
+            // 限定平台源码；json/yaml 专项 config 保留自身扩展名但加平台前缀，
+            // 避免命中平台内 package.json / tsconfig.json / e2e 数据等非业务文件。
+            if (!config.files) {
+                baseConfig.files = ['apps/platform/**/*.{vue,ts,js,mjs}']
+            } else {
+                baseConfig.files = config.files.map((pattern) => `apps/platform/${pattern}`)
+            }
+
+            if (!config.rules) {
+                return baseConfig
+            }
+
+            // 提升为 error：i18n 规则在 lint:i18n 独立命令中按硬门禁执行
+            baseConfig.rules = Object.fromEntries(
+                Object.entries(config.rules).map(([ruleName, ruleConfig]) => {
+                    if (!ruleName.startsWith('@intlify/vue-i18n/')) {
+                        return [ruleName, ruleConfig]
+                    }
+
+                    return [ruleName, Array.isArray(ruleConfig) ? ['error', ...ruleConfig.slice(1)] : 'error']
+                }),
+            )
+            return baseConfig
+        }),
+        {
+            files: ['apps/platform/**/*.{vue,ts,js,mjs}'],
+            rules: {
+                // 平台部分 UI 文案为动态渲染（状态映射等），允许 raw text 与非静态 key 形态
+                '@intlify/vue-i18n/no-raw-text': 0,
+                '@intlify/vue-i18n/no-dynamic-keys': 0,
+                '@intlify/vue-i18n/no-unused-keys': [
+                    'error',
+                    {
+                        extensions: ['.js', '.ts', '.vue'],
+                        // 动态 key（如状态映射）无法静态分析到使用，按白名单豁免
+                        ignores: vueI18nNoUnusedKeyIgnores,
+                    },
+                ],
+            },
+            settings: {
+                'vue-i18n': {
+                    localeDir: [
+                        './apps/platform/i18n/locales/*.json',
+                        './apps/platform/i18n/locales/**/*.json',
+                    ],
+                    messageSyntaxVersion: '^10.0.0',
+                },
+            },
+        },
+        {
+            files: ['apps/platform/i18n/locales/*.json', 'apps/platform/i18n/locales/**/*.json'],
+            rules: {
+                '@intlify/vue-i18n/no-unused-keys': 0,
+                '@intlify/vue-i18n/no-html-messages': 0, // 允许在 JSON 文件中使用 HTML 标签
+            },
+        },
+    ]
+    : []
 
 // 严格化规则：仅对生产 TS 启用（no-explicit-any → no-unnecessary-type-conversion 区间），
 // 测试文件维持豁免，逐步收紧代码质量避免一次性修复过多问题
@@ -31,6 +105,7 @@ const nuxtTsconfig = './apps/platform/tsconfig.json'
 
 export default defineConfig([
     cmyr,
+    ...i18nLintConfigs,
     {
         ignores: [
             '**/dist/**',

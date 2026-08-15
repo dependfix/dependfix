@@ -46,7 +46,7 @@ export default defineConfig({
                 'packages/mcp/src/**/*.ts',
                 'apps/platform/app/**/*.ts',
                 'apps/platform/server/**/*.ts',
-                'scripts/*.mjs',
+                'scripts/**/*.mjs',
             ],
             exclude: [
                 '**/*.test.ts',

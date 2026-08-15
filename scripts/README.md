@@ -26,6 +26,19 @@
 | pnpm 命令 | 脚本 | 用途 |
 |---|---|---|
 | `pnpm check:links` | `check-links.mjs` | 校验仓库内 .md 文件的本地链接（路径存在、锚点 slug 匹配、拒绝绝对路径与目录越界） |
+| `pnpm docs:check:i18n` | `docs/check-i18n-duplicates.mjs` | 检查 docs 翻译页是否同时存在于旧目录（`docs/<locale>/`）与 `docs/i18n/<locale>/`（回流即报错；详见 [i18n 规范](../docs/standards/i18n.md)） |
+
+### i18n 审计
+
+> 平台 locale 资源位于 `apps/platform/i18n/locales/`（脚本已参数化 `--locale-root`，兼容单文件与模块化两种形态）；治理规范见 [i18n 规范](../docs/standards/i18n.md)。
+
+| pnpm 命令 | 脚本 | 用途 |
+|---|---|---|
+| `pnpm i18n:audit` | `i18n/audit-locale-keys.mjs` | locale key 全量审计（missing parity + unused 候选汇总） |
+| `pnpm i18n:audit:missing` | `i18n/audit-locale-keys.mjs --only=missing --fail-on-missing` | 缺词 parity 审计（blocker：任一 locale 缺失 base locale 的 key 即非零退出） |
+| `pnpm i18n:audit:unused` | `i18n/audit-locale-keys.mjs --only=unused` | 未使用 key 候选审计（warning，不阻断；动态 key 按 `i18n/dynamic-key-allowlist.mjs` 白名单豁免） |
+| `pnpm i18n:audit:duplicates` | `i18n/audit-duplicate-messages.mjs` | 跨语言重复文案候选审计（支持 `--format=markdown|json` 与 `--output` 导出报告） |
+| `pnpm lint:i18n` | `@intlify/eslint-plugin-vue-i18n`（根 eslint.config.js `ESLINT_I18N=true` 开关） | vue-i18n 专项规则校验（no-unused-keys 等，执行较慢故独立命令，不并入常规 lint；已接入 CI） |
 
 ### AI 治理
 

@@ -23,6 +23,7 @@
 | API 规范 | [api.md](api.md) | REST API 设计、错误码、分页规范 |
 | 性能规范 | [performance.md](performance.md) | Lighthouse 基线、资源预算（平台阶段适用） |
 | 外部 Skills | [external-skills-intake.md](external-skills-intake.md) | 外部 skill 准入清单与失效处理 |
+| i18n 规范 | [i18n.md](i18n.md) | README/docs 多语言、平台 UI 国际化、语言分级与回退链 |
 
 ## 开发指南
 

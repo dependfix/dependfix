@@ -184,7 +184,126 @@ GitHub `dispatches` API 成功返回 204 即触发受理，但不返回 run id�
 
 - [todo.md §M6 规划决策](../../plan/todo.md)：Q1/Q4/Q5 决策依据
 - [backlog.md C25 Action 触发结果回填](../../plan/backlog.md)：结果回填实现记录
-- [backlog.md C26 独立沙箱容器执行实现](../../plan/backlog.md)：独立沙箱容器 backlog 登记
+- [backlog.md C26 独立沙箱容器执行实现](../../plan/backlog.md)：独立沙箱容器 backlog 登记 + 2026-08-19 决策
+- [todo.md §M10 C26 实施规划](../../plan/todo.md#m10-独立沙箱容器-c26-实施规划2026-08-19-启动)：T1001-T1004 子任务拆解与验收要点
+- [sandbox-security-governance.md §5 治理决议 G5](./sandbox-security-governance.md#5-治理决议与登记)：并发共享容器交叉污染登记
 - [架构设计](./architecture.md)：平台分层与 Executor 定位
 - [安全设计](./security.md)：凭据加密存储与最小化
 - [github-action-workflow.md](./github-action-workflow.md)：Action 入口（M2 落地）
+
+---
+
+## 7. Sandbox 执行器设计
+
+> 状态：🔶 设计落盘（M10，2026-08-19 决策会议）——T1001-T1004 实施规划已在 [todo.md §M10](../../plan/todo.md#m10-独立沙箱容器-c26-实施规划2026-08-19-启动) 登记；本文档定义接口契约与部署形态，详细任务拆解见 todo 实施规划。
+> **决策依据**：Docker rootless mode + 应用层白名单代理 + cgroup v2 双层；Executor 抽象不与 rootless 强绑定；自托管 docker-compose 优先；与 `ContainerExecutor` 并存保留单机场景。一手调研依据见 [todo.md §M10 调研依据](../../plan/todo.md#m10-调研依据)。
+
+### 7.1 抽象边界（不强绑定 Docker rootless）
+
+`SandboxExecutor` 通过 §3 接口契约实现，**不与具体 OCI runtime 强绑定**——Runtime 形态作为配置项（`SANDBOX_RUNTIME` / Repository 字段）注入，避免今后切 Sysbox（`--runtime=sysbox-runc`）、Kata（`--runtime=kata-runtime`）等需要重写业务代码：
+
+```text
+Repository.executorKind = 'sandbox'              → SandboxExecutor 路由
+                  ↓
+      scan-orchestrator 解析 → SandboxExecutor.execute(ctx)
+                  ↓
+      SandboxRuntimeAdapter (interface, DI)
+                  ├─ runtime=DockerRootless  → docker run --user=100:100 --memory=... --cpus=... sandbox-image:tag
+                  ├─ runtime=Sysbox          → docker run --runtime=sysbox-runc ...
+                  └─ runtime=Kata            → docker run --runtime=kata-runtime ...（backlog 登记，非 M10 目标）
+```
+
+**接口预览**（T1001 实施时落定）：
+
+```typescript
+// apps/platform/server/services/executor/sandbox-runtime-adapter.ts（新建）
+export interface SandboxRuntimeAdapter {
+    /** 启动 sandbox 容器并返回 wait/stop 接口 */
+    spawn(opts: SandboxSpawnOpts): Promise<SandboxHandle>
+    /** 探测当前 runtime 可用性（启动期自检用） */
+    isAvailable(): Promise<boolean>
+}
+
+export interface SandboxSpawnOpts {
+    image: string                        // 复用平台镜像 tags（T1001-1）
+    user: string                         // '100:100'（T1001）
+    cgroupLimits?: { memoryMb: number; cpu: number }   // 透传 Repository.sandboxLimits
+    workDirBindMount: string             // /tmp/runs/{runId} → /workspace
+    networkEgressPolicy: 'allowlist'     // 白名单拦截代理对接（T1002）
+    envSubset: NodeJS.ProcessEnv          // 仅解密后的 exec token（T1002 域名校验前置）
+}
+
+export interface SandboxHandle {
+    containerId: string
+    stop(signal?: NodeJS.Signals): Promise<void>
+    waitForExit(): Promise<{ exitCode: number; stdout: string; stderr: string }>
+}
+```
+
+**RuntimeAdapter 不变量**：业务侧只依赖 `SandboxRuntimeAdapter` 接口，与 `docker run` / `podman run` / `ctr run`（containerd CLI）解耦。当前默认实现为 `DockerRootlessAdapter`，对应 `--user=100:100 --memory=2g --cpus=1.0`。切 Sysbox 路径仅替换 adapter 实现。
+
+### 7.2 镜像策略
+
+复用 `apps/platform/Dockerfile` runtime 阶段（T801 已落地 git + pnpm 11.18.0 工具链；C45 修复），**不维护双镜像**。Sandbox 容器启动命令与平台容器内执行 `DependfixApp.run()` 等价，差异仅在 UID/cgroup/网络隔离边界。镜像 tag 通过 `apps/platform/docker tag` 复用（与 C30 `Publish Docker` CI 链路解耦——CI 发布的镜像不可被 sandbox 直接拉，本场景使用平台内置镜像）。
+
+### 7.3 部署形态
+
+**自托管 docker-compose**（M10 目标，唯一交付形态）：
+
+- `apps/platform/docker-compose.yml` 增加 `sandbox-daemon` 服务（rootless Docker daemon 容器，挂载 `data/runs` 共享卷，映射 unix socket 给 platform 容器）
+- `apps/platform/Dockerfile` 不变（T801/C38 已落地，非 root + 工具链）
+- platform 容器通过 `DOCKER_HOST=unix:///var/run/docker.sock`（容器内 socket 路径，与 rootless daemon 共享）
+
+**反模式登记**（绝对不可用）：
+- 挂宿主 `docker.sock` 直连：违反 [sandbox-security-governance.md §3 路径 D](./sandbox-security-governance.md)
+- DinD `--privileged`：恶意脚本等效宿主 root（[CVE-2019-5736 runc 逃逸](https://www.wiz.io/academy/container-escape)）
+- 平台容器启动 rootless daemon 自身作为 sandbox（破坏"独立 PID/Mount namespace"目的）
+
+**K8s + Helm Chart**：仅在本节末子目登记为 backlog（不属 M10 范围）——见 §7.5。
+
+### 7.4 与 ContainerExecutor 并存
+
+按 [todo.md §M10 Q6 决策](../../plan/todo.md#m10-决策会议结论2026-08-19)：两 Executor 同时注册，**默认 `container`**（向后兼容单机场景不破坏）：
+
+| 触发条件 | 走向 | 备注 |
+|:--|:--|:--|
+| `Repository.executorKind` = `undefined`  | `ContainerExecutor` | M6 默认，单机/无 rootless 场景仍可用 |
+| `Repository.executorKind` = `'container'` | `ContainerExecutor` | 显式声明，与 M6 一致 |
+| `Repository.executorKind` = `'sandbox'` + SandboxRuntimeAdapter 可用 | `SandboxExecutor` | M10 目标 |
+| `Repository.executorKind` = `'sandbox'` + adapter 不可用（无 docker rootless） | `ContainerExecutor` + 启动 warn + 报告 `sandbox_unavailable` | 降级而非失败，单机场景可正常运行 |
+| `Repository.executorKind` = `'github-action'` | `ActionTriggerExecutor` | M6 已有 |
+
+CLI 启动时（`@dependfix/cli` entrypoint）探测 SandboxRuntimeAdapter 可用性；不可用时输出 `[sandbox]` warn 提示管理员启动 rootless daemon，但**不阻断**运行（旧路径仍可用）。
+
+### 7.5 K8s + Helm 部署预留（非 M10 范围）
+
+> 状态：🔶 backlogging，待真实 K8s 部署需求出现时评估（用户 2026-08-19 决策："仅做规划，等真有需求时再实现"）。
+>
+> **触发条件**：
+> 1. 真实多租户/企业部署需要 K8s 编排
+> 2. 至少 1 个外部用户提出 K8s 部署请求
+> 3. dependfix 1.0.0 正式发布前后纳入发行矩阵
+
+**预留接口**：`SandboxRuntimeAdapter` 抽象兼容 K8s（通过 Kubernetes RuntimeClass + Pod sandbox securityContext 实现，无需 runc/dockerd 依赖）。`Repository.executorKind='sandbox'` 在 K8s 场景下走 `KubernetesRuntimeAdapter`（未来 TBD），接口签名保持 §7.1 不变。
+
+**Helm Chart** 留 backlog：需 `values.yaml`（sandbox resource limits 默认 / RBAC 不挂 docker.sock / PodSecurityContext 非 root）/ `templates/deployment.yaml`（rootless daemon sidecar）/ `templates/servicemonitor.yaml`（[sandbox-security-governance.md §7 验收持续治理](./sandbox-security-governance.md#7-验收与持续治理)）。
+
+### 7.6 验收对照（链接权威条款）
+
+实施时按 [sandbox-security-governance.md §4 安全基线](./sandbox-security-governance.md#4-安全基线不可简化作为后续开发安全指导) 与 [安全规范 §5.3](../../standards/security.md) 逐项核验：
+
+- **非 root 执行** → SandboxRuntimeAdapter 注入 `--user=100:100`（C38 路径延续）
+- **超时兜底** → T802 单命令超时（已落地）+ SandboxHandle.waitForExit 透传外层 30 分钟超时
+- **资源与网络** → T1002 白名单拦截代理 + T1003 cgroup v2
+- **工作目录隔离** → `runs/{runId}/` 临时目录 + bind-mount + 执行后 cleanup
+- **新执行后端威胁建模评审** → [sandbox-security-governance.md §4.4](./sandbox-security-governance.md) 已要求；T1001 提交 Review Gate 时同节点触发 Code Auditor 复核
+- **规范单点声明** → 不在本节重复 [security.md §5.3](../../standards/security.md) 条款，仅挂引用
+
+### 7.7 设计反例（绝对不可行）
+
+| 反例 | 风险 | 登记 |
+|:--|:--|:--|
+| SandboxRuntimeAdapter 内部硬编码 `docker run`（而非参数化 runtime）| 强绑定 docker；切 Sysbox/Kata 需重写 | T1001 Review Gate 必查 |
+| SandboxExecutor 工作目录 bind-mount 宿主路径（非 run-scoped tmp） | 跨 run 数据残留 | T1001 Review Gate 必查 |
+| Sandbox 镜像走 `caomeiyouren/dependfix:latest`（CI 发布镜像） | sandbox 与平台二进制版本漂移风险 | T1001 镜像策略段禁止 |
+| 默认 `executorKind='sandbox'` | 单机场景破坏 | T1001 路由默认 'container' |

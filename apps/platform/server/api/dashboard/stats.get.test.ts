@@ -3,6 +3,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vites
 import { makeEvent, setupMemoryDatabase, teardownMemoryDatabase } from '../../../tests/api-helper'
 import reposIndexHandler from '../repos/index'
 import statsHandler from './stats.get'
+import { Repository } from '#server/entities/repository'
 import { ScanRun } from '#server/entities/scan-run'
 import { ScanResult } from '#server/entities/scan-result'
 import { ensureDatabaseInitialized } from '#server/database'
@@ -14,6 +15,15 @@ vi.mock('#server/utils/guard', () => ({
 
 const call = () => statsHandler(makeEvent('GET', '/api/dashboard/stats'))
 
+/** 清理 in-memory DB（每个测试独立，保证断言不被前序测试影响） */
+const clearAllTables = async (): Promise<void> => {
+    const ds = await ensureDatabaseInitialized()
+    // 反向依赖顺序：子表 → 父表（verification / session / account 暂未涉及）
+    await ds.getRepository(ScanResult).clear()
+    await ds.getRepository(ScanRun).clear()
+    await ds.getRepository(Repository).clear()
+}
+
 describe('GET /api/dashboard/stats', () => {
     beforeAll(async () => {
         setupMemoryDatabase()
@@ -23,8 +33,9 @@ describe('GET /api/dashboard/stats', () => {
         teardownMemoryDatabase()
     })
 
-    beforeEach(() => {
+    beforeEach(async () => {
         vi.clearAllMocks()
+        await clearAllTables()
     })
 
     it('returns zeroed stats on fresh database', async () => {
@@ -88,5 +99,45 @@ describe('GET /api/dashboard/stats', () => {
             repository: 'demo/app',
             status: 'completed',
         })
+    })
+
+    it('handles unknown severity values not in initial counts map (covers ?? fallback)', async () => {
+        // 分支覆盖：severityCounts[r.severity] ?? 0 —— 当 severity 不在预定义 5 类时走 ?? 0 fallback
+        const created = await reposIndexHandler(makeEvent('POST', '/api/repos', {
+            owner: 'demo',
+            name: 'app2',
+            platform: 'github',
+            packageManager: 'pnpm',
+            defaultBranch: 'main',
+            executorKind: 'container',
+        })) as { id: string }
+
+        const ds = await ensureDatabaseInitialized()
+        const run = await ds.getRepository(ScanRun).save(ds.getRepository(ScanRun).create({
+            repositoryId: created.id,
+            mode: 'report-only',
+            severityThreshold: 'low',
+            executorKind: 'container',
+            status: 'completed',
+        }))
+        // 用一个预定义 5 类之外的 severity 触发 ?? fallback 分支
+        await ds.getRepository(ScanResult).save(ds.getRepository(ScanResult).create({
+            scanRunId: run.id,
+            source: 'dependabot',
+            // 真实场景：severity 由上游数据源决定，未来扩展 'info'/'warning' 等类型
+            severity: 'info',
+            packageName: 'pkg',
+            manifestPath: 'package.json',
+            summary: 'info level',
+            fixable: false,
+            fixStatus: 'pending',
+        }))
+
+        const stats = await call() as Record<string, unknown>
+        // severityCounts 5 个预定义键保持 0；info 这类计入 alertsTotal 但不显式
+        expect((stats.severityCounts as Record<string, number>)).toMatchObject({
+            critical: 0, high: 0, medium: 0, low: 0, unknown: 0,
+        })
+        expect(stats.alertsTotal).toBe(1)
     })
 })

@@ -74,8 +74,8 @@ describe('GET /api/runs/[id]', () => {
             status: 'completed',
             summary: { alertsTotal: 1 },
         })
-        expect((detail.results as Array<Record<string, unknown>>)).toHaveLength(1)
-        expect((detail.results as Array<Record<string, unknown>>)[0]).toMatchObject({
+        expect((detail.results as Record<string, unknown>[])).toHaveLength(1)
+        expect((detail.results as Record<string, unknown>[])[0]).toMatchObject({
             packageName: 'lodash',
             severity: 'high',
             fixStatus: 'pending',

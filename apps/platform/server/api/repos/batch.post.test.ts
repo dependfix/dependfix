@@ -59,7 +59,7 @@ describe('POST /api/repos/batch', () => {
         })
 
         // 列表确认只新增 2 个
-        const list = await reposIndexHandler(makeEvent('GET', '/api/repos')) as Array<Record<string, unknown>>
+        const list = await reposIndexHandler(makeEvent('GET', '/api/repos')) as Record<string, unknown>[]
         expect(list).toHaveLength(3)
     })
 

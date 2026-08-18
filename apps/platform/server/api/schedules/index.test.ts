@@ -53,7 +53,7 @@ describe('GET/POST /api/schedules', () => {
         expect(created).toMatchObject({ name: '每日扫描', cron: '0 2 * * *', enabled: true, selectorKind: 'all' })
         expect(registerSchedule).toHaveBeenCalledOnce()
 
-        const list = await call('GET', '/api/schedules') as Array<Record<string, unknown>>
+        const list = await call('GET', '/api/schedules') as Record<string, unknown>[]
         expect(list).toHaveLength(1)
     })
 

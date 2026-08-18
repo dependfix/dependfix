@@ -80,7 +80,7 @@ describe('GET /api/repos/importable', () => {
     })
 
     it('lists accessible repositories from GitHub', async () => {
-        const result = await call(`/api/repos/importable?credentialId=${credentialId}`) as Array<Record<string, unknown>>
+        const result = await call(`/api/repos/importable?credentialId=${credentialId}`) as Record<string, unknown>[]
         expect(result).toHaveLength(2)
         expect(result[0]).toMatchObject({
             fullName: 'demo/alpha',
@@ -105,7 +105,7 @@ describe('GET /api/repos/importable', () => {
             executorKind: 'container',
         }))
 
-        const result = await call(`/api/repos/importable?credentialId=${credentialId}`) as Array<Record<string, unknown>>
+        const result = await call(`/api/repos/importable?credentialId=${credentialId}`) as Record<string, unknown>[]
         expect(result.find((r) => r.fullName === 'demo/alpha')).toMatchObject({ imported: true })
     })
 

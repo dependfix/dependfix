@@ -44,7 +44,7 @@ describe('GET /api/credentials', () => {
         expect(JSON.stringify(created)).not.toContain('ghp_1234567890abcdef')
         expect(created.encryptedToken).toBeUndefined()
 
-        const list = await call('GET', '/api/credentials') as Array<Record<string, unknown>>
+        const list = await call('GET', '/api/credentials') as Record<string, unknown>[]
         expect(list).toHaveLength(1)
         expect(list[0]).toMatchObject({ name: 'github-pat', hasToken: true })
     })

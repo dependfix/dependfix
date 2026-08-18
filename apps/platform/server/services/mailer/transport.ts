@@ -54,7 +54,7 @@ export function createMailerTransport(config: MailerTransportConfig): MailerTran
         // pool 默认关闭：单次发送不需要池化；如未来需要批量发送再启用 pool: true
     }
 
-    cachedTransport = nodemailer.createTransport(transportOptions) as Transporter<SentMessageInfo>
+    cachedTransport = nodemailer.createTransport(transportOptions) as Transporter
 
     return cachedTransport
 }

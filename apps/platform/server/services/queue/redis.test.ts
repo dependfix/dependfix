@@ -4,7 +4,7 @@ import { createRedisClient, probeRedis } from './redis'
 // class mock：`new Redis(...)` 需要可构造实现（vitest 禁止 mockReturnValue + new）
 const { RedisMock, instances } = vi.hoisted(() => ({
     RedisMock: vi.fn(),
-    instances: [] as Array<{ on: (evt: string, fn: () => void) => unknown }>,
+    instances: [] as { on: (evt: string, fn: () => void) => unknown }[],
 }))
 vi.mock('ioredis', () => ({
     default: class {

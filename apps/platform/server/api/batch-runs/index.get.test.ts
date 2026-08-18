@@ -43,7 +43,7 @@ describe('GET /api/batch-runs', () => {
             summaryJson: JSON.stringify({ alertsTotal: 3 }),
         }))
 
-        const list = await call('GET', '/api/batch-runs') as Array<Record<string, unknown>>
+        const list = await call('GET', '/api/batch-runs') as Record<string, unknown>[]
         expect(list).toHaveLength(1)
         expect(list[0]).toMatchObject({
             source: 'manual',

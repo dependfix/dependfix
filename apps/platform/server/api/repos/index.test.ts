@@ -38,7 +38,7 @@ describe('GET /api/repos', () => {
             defaultBranch: 'master',
             executorKind: 'container',
         })
-        const list = await call('GET', '/api/repos') as Array<Record<string, unknown>>
+        const list = await call('GET', '/api/repos') as Record<string, unknown>[]
         expect(list).toHaveLength(1)
         expect(list[0]).toMatchObject({
             owner: 'dependfix',
@@ -82,7 +82,7 @@ describe('GET /api/repos', () => {
             executorKind: 'container',
             tags: ['prod', 'core'],
         })
-        const list = await call('GET', '/api/repos') as Array<Record<string, unknown>>
+        const list = await call('GET', '/api/repos') as Record<string, unknown>[]
         const item = list.find((r) => r.owner === 'tags')
         expect(item?.tags).toEqual(['prod', 'core'])
     })

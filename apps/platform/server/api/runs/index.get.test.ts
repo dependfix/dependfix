@@ -56,7 +56,7 @@ describe('GET /api/runs', () => {
             summaryJson: JSON.stringify({ alertsTotal: 2 }),
         }))
 
-        const list = await call('GET', '/api/runs') as Array<Record<string, unknown>>
+        const list = await call('GET', '/api/runs') as Record<string, unknown>[]
         expect(list).toHaveLength(1)
         expect(list[0]).toMatchObject({
             owner: 'demo',
@@ -67,11 +67,11 @@ describe('GET /api/runs', () => {
     })
 
     it('filters by repositoryId query', async () => {
-        const all = await call('GET', '/api/runs') as Array<Record<string, unknown>>
-        const filtered = await call('GET', `/api/runs?repositoryId=${repositoryId}`) as Array<Record<string, unknown>>
+        const all = await call('GET', '/api/runs') as Record<string, unknown>[]
+        const filtered = await call('GET', `/api/runs?repositoryId=${repositoryId}`) as Record<string, unknown>[]
         expect(filtered).toHaveLength(all.length)
 
-        const none = await call('GET', '/api/runs?repositoryId=nonexistent') as Array<Record<string, unknown>>
+        const none = await call('GET', '/api/runs?repositoryId=nonexistent') as Record<string, unknown>[]
         expect(none).toEqual([])
     })
 })

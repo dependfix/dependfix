@@ -72,32 +72,32 @@ describe('GET /api/alerts', () => {
     })
 
     it('returns all alerts with repository context', async () => {
-        const list = await call('/api/alerts') as Array<Record<string, unknown>>
+        const list = await call('/api/alerts') as Record<string, unknown>[]
         expect(list).toHaveLength(2)
         expect(list[0]).toMatchObject({ repository: 'demo/app', severity: 'high', packageName: 'lodash' })
     })
 
     it('filters by severity', async () => {
-        const list = await call('/api/alerts?severity=low') as Array<Record<string, unknown>>
+        const list = await call('/api/alerts?severity=low') as Record<string, unknown>[]
         expect(list).toHaveLength(1)
         expect(list[0]).toMatchObject({ source: 'code-scanning' })
     })
 
     it('filters by source', async () => {
-        const list = await call('/api/alerts?source=dependabot') as Array<Record<string, unknown>>
+        const list = await call('/api/alerts?source=dependabot') as Record<string, unknown>[]
         expect(list).toHaveLength(1)
         expect(list[0]).toMatchObject({ packageName: 'lodash' })
     })
 
     it('filters by repositoryId', async () => {
-        const list = await call(`/api/alerts?repositoryId=${repositoryId}`) as Array<Record<string, unknown>>
+        const list = await call(`/api/alerts?repositoryId=${repositoryId}`) as Record<string, unknown>[]
         expect(list).toHaveLength(2)
-        const none = await call('/api/alerts?repositoryId=nonexistent') as Array<Record<string, unknown>>
+        const none = await call('/api/alerts?repositoryId=nonexistent') as Record<string, unknown>[]
         expect(none).toEqual([])
     })
 
     it('treats "all" query values as no filter', async () => {
-        const list = await call('/api/alerts?severity=all&source=all&repositoryId=all') as Array<Record<string, unknown>>
+        const list = await call('/api/alerts?severity=all&source=all&repositoryId=all') as Record<string, unknown>[]
         expect(list).toHaveLength(2)
     })
 })

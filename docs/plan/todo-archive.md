@@ -11,7 +11,7 @@
 
 ## 主窗口保留范围
 
-- 主文档保留最近阶段的近线归档块（当前保留 M6 / M7.1 / M7.2 / M9 / T711）。
+- 主文档保留最近阶段的近线归档块（当前保留 M6 / M7.1 / M7.2 / M8 / M9 / T711）。
 - 当 `todo-archive.md` 超过 500 行时，将早期阶段迁入分片归档。
 
 ---
@@ -215,6 +215,90 @@
 
 - 补测候选（审计 suggest）：typeorm-adapter createdAt 同毫秒 flaky、transaction 回滚断言、redis error 监听断言、queue close disconnect 断言——按需随后续任务补
 - 待人工验收：见 [todo.md 待人工验收](todo.md)
+
+---
+
+## M8: 安全加固与容器执行完备（已归档）
+
+> 归档日期: 2026-08-14
+> 归档方式: 从 [todo.md §M8](todo.md) 整体迁出（2026-08-19 启动 M10 时随主文档收口一并迁移至本归档主窗口）
+> 阶段摘要: 参见 [roadmap.md §M8](roadmap.md)
+> 设计文档: [sandbox-security-governance.md](../design/governance/sandbox-security-governance.md)（§5 治理决议 + §7 验收）
+
+**阶段成果**: 兑现 [sandbox-security-governance.md §5 治理决议](../design/governance/sandbox-security-governance.md) G2-G7 + C45 实证发现——容器内 git/pnpm 工具链补齐（C45，P0）、验证命令单命令超时（C41）、凭据权限面启动检查（C42/C39）、供应链信号披露（C43）、执行期外联审计（C40）、规范挂接 review 检查点（C44）；同时封堵 dependfix 成为恶意依赖扩散工具的残余路径（C39 本地模式防线）。**20 个提交本地待推送**（M8 推送时与 M9 批量合并处理）。
+
+### 规划决策（2026-08-14）
+
+- **D1 优先级与执行顺序（Q1=安全优先）**：沙箱安全治理 §5 G2-G7 兑现与 M8 任务双线推进——容器工具链（C45）P0 锁定 → 验证超时（C41）→ 凭据防线（C39+C42 合并 P0）→ 供应链信号（C43）→ 外联审计（C40）→ 规范挂接（C44）
+- **D2 entrypoint 降权 vs USER 指令（Q2=entrypoint 方案）**：C38 评估时选择 entrypoint 降权方案（dependfix 用户 + chown 数据卷 + su-exec）而非 Dockerfile USER 指令——兼容既有 root 所有权卷升级，su-exec 0755 非 setuid 无提权漏洞，避免 setuid 风险面
+- **D3 现行 USER 降权是否破坏凭据最小化收敛（Q3=否）**：USER 降权后恶意脚本读 `/proc` 其他进程 env 受限（仅本用户进程），凭据最小化（解密仅执行时内存 + 不进进程环境）保持有效
+- **D4 外联审计 vs 出站白名单（Q4=先后）**：M8 已落审计（T805），M10 C26 落白名单（出站 deny-by-default）——见 [backlog C40 / C26](backlog.md) 双轨迹
+- **D5 规范挂接粒度（Q5=逐项核验）**：T806 在 `code-quality-checklist` §5.3 必须级条款逐条核验动作（规范单点声明原则 [documentation.md §4](../standards/documentation.md)：不抄条款全文）而非做模糊合规检查
+
+### T801 容器工具链补齐 ✅（C45，P0）
+
+- **交付物**: runtime 阶段镜像装 git + pnpm + workspace node_modules 打包
+- **实现内容**: runtime 阶段 `apk add git`（实证 2.54.0，随 alpine 滚动 index 与 unzip/su-exec 同惯例，可复现性以基础镜像 digest 为基线）；pnpm 11.18.0 从构建链镜像（docker-minifier）零网络拷贝（与构建链版本一致，packageManager 11.17.0 差异由 toolchain 验证链处理）；**补齐 workspace node_modules 打包**（cli/engine/core 依赖链此前从未进镜像，`ERR_MODULE_NOT_FOUND`——C45 深化的第二缺口）；实证暴露并修复 pnpm-audit legacy range 前缀假跳过 bug（`>=0.2.4` 解析退化 `[0,0,0]`，minimist 0.0.8 被误判已达标，engine 层通用修复 + 4 测试）
+- **验收**: 容器内全链路：report-only（1 alert）→ fix（0.0.8→0.2.4，组验证通过）→ fix --commit（无身份仓库 ensureGitConfig 自动配置）→ 报告产物
+- **Review Gate**: 4 新增测试（range 解析 + abbr 包语义）+ 实证修复双路径
+
+### T802 验证命令单命令超时 ✅（C41，P1）
+
+- **交付物**: `verification-runner.execCommand` 单命令超时机制（默认 10 分钟可配）
+- **实现内容**: `execCommand` 单命令超时（默认 10 分钟可配 `commandTimeoutMs`），超时中止并终止进程树（POSIX detached 进程组 / Windows taskkill /T /F，防孙进程残留）；超时归类 `timed out after Xms` 进 failure 与报告 error，报告无挂死
+- **验收**: 4 新增测试 + taskkill 真实进程树终止实证
+- **Review Gate**: deep 审计 Pass（防护孙进程路径覆盖）
+
+### T803 凭据权限面启动检查 + 本地模式防线 ✅（C42+C39，P0 合并）
+
+- **交付物**: `token-scope.ts` 启动自检 + `DependfixApp.executionEnvironment` 区分 + 本地执行风险警告
+- **实现内容**:
+  - 启动 `GET /user` 探测权限面（classic repo scope 超权限警告 / Code Scanning 缺 security-events 提示，失败静默）
+  - fix/fix-and-pr 本地执行风险警告（`DEPENDFIX_SUPPRESS_LOCAL_EXECUTION_WARNING=1` 抑制，ContainerExecutor 容器环境不误报——`executionEnvironment: 'container'` 字段）
+  - analyzeTokenScope 7 测试 + 网络层 4 测试
+  - quick-start / 治理文档 / backlog 同步
+- **验收**: 实测 `[local-exec]` warn 输出 / `DEPENDFIX_SUPPRESS_LOCAL_EXECUTION_WARNING=1` 抑制生效 / classic repo scope 超权限警告 / fine-grained security-events 校验
+- **Review Gate**: 2 轮独立审计 Pass
+
+### T804 供应链信号披露 ✅（C43，P2）
+
+- **交付物**: supply-chain 模块 + 报告/PR 警示区
+- **实现内容**: supply-chain 模块解析 `pnpm-workspace.yaml` `allowBuilds`/`onlyBuiltDependencies`（行级解析无 yaml 依赖）+ 读 node_modules/.pnpm 实际包 lifecycle 脚本（peer 后缀 store 前缀匹配兜底）；run() 报告与 fix-and-pr PR body 双路径接入；报告新增 ⚠️ Supply Chain Warnings 节 + PR body 警示区（含包名/脚本类型）
+- **验收**: 17 单测 + 2 集成测试（PR body 含/不含警示区）+ 真实仓库实证（esbuild→postinstall / better-sqlite3→install / 未批准不披露）
+- **Review Gate**: APPROVE
+
+### T805 执行期外联审计日志 ✅（C40，P1）
+
+- **交付物**: `verification-runner` 网络外联审计代理（默认开启，可 `networkAuditDisabled` 关闭）
+- **实现内容**: ① 本地审计代理（CONNECT 隧道 + 明文 HTTP 转发，10s 超时防挂死）注入 HTTP(S)_PROXY/ALL_PROXY 捕获尊重代理工具外联（curl/wget/npm/git），环境已有代理时不覆盖；② 命令输出 URL 提取（去重限 100/命令）确定性捕获 pnpm/npm registry 外联（实证 pnpm 11 undici 直连不走代理 env，输出含完整 tarball URL）；③ 执行日志输出（总数 info/明细 debug，仅方法+目标无请求体）
+- **验收**: 实证 curl CONNECT `registry.npmjs.org:443` 捕获 + echo URL 提取双路径真实生效；13 新测试
+- **覆盖边界**: undici 直连/原始 socket 不在列（连接级全量捕获留 [M10 C26 网络白名单](todo.md#m10-独立沙箱容器-c26-实施规划2026-08-19-启动)）
+
+### T806 安全规范挂接 review 检查点 ✅（C44，P1）
+
+- **交付物**: `code-quality-checklist.md` §5.3 必须级条款核验动作
+- **实现内容**: §5.3 十三条必须级条款逐项核验动作（非 root 执行 / 工作目录隔离 / 超时兜底 / pnpm 默认脚本防护 / 凭据最小化 / 权限面收敛 / 升级前研判 / 供应链信号披露 / 结果白名单回传 / 资源与网络 / 新执行后端威胁建模评审）+ 一行链接引用（规范单点声明原则 [documentation.md §4](../standards/documentation.md)：不抄条款全文）；Code Auditor 必查项同步薄引用；C34 存量全量盘点仍为待评估，独立排期
+- **验收**: single-source-of-truth 双向校验通过（check-links 95 个 md 文件，`code-quality-checklist.md` 路径见 [code-reviewer skill SKILL.md](../../.github/skills/code-reviewer/SKILL.md) + Code Auditor 必查项同步）
+- **Review Gate**: APPROVE
+
+### M8 完成判定（全部通过）
+
+- [x] T801-T806 全部交付，每项独立 Review Gate Pass + 分批提交（20 个提交本地待推送）
+- [x] `pnpm lint` / `typecheck` / 定向测试通过（Dockerfile 类改动附容器实证）
+- [x] G2-G7 + C45 全部修复并通过 [sandbox-security-governance.md §7 验收](../design/governance/sandbox-security-governance.md#7-验收与持续治理)
+- [x] C44 闭环：规范 §5.3 必须级条款挂接 code-reviewer 检查点（[code-quality-checklist.md](../../.github/skills/code-reviewer/references/code-quality-checklist.md) + Code Auditor 必查项）
+
+### 经验沉淀（M8 阶段）
+
+- **单任务多 commit（20 个）**：T801-T806 各自独立 Review Gate 提交分批，避免单次大 diff 成本失控（沿用 M6 T601 教训，[experience-archive.md §二十四](../design/governance/experience-archive.md)）
+- **实证驱动（C38 / C45）**：C45 容器工具链缺失由 C38 修复本地构建实证发现——离线本地 docker run 实证比 CI 端到端快得多，本阶段 6 任务均含实证步骤
+
+### 已知边界 / 移交下一阶段 backlog
+
+- **C26 独立沙箱容器**：随 T702 BullMQ 并发落地威胁加重，已激活为 [todo.md §M10](todo.md#m10-独立沙箱容器-c26-实施规划2026-08-19-启动)（2026-08-19 启动 P1）
+- **C30 Publish Docker 双平台 CI 链路**：⏸️ 2026-08-18 用户决策暂缓（run 31862632207 23m 2s 成功完成证明当前 docker.yml 稳定工作，恢复条件详见 [backlog C30](backlog.md)）
+- **C28 security.md §凭据加密存储 章节**：T602 已交付实现，文档待补；触发条件 T912-3 安全与文档进行中联动
+- **C29 平台 UI 暗色模式**：暂缓（2026-08-10 用户指示），需 UI Validator 视觉验证
 
 ---
 

@@ -1,5 +1,6 @@
 # 当前阶段任务
 
+> **T912 SMTP 邮件发送器（2026-08-18 启动，P2 进行中）**：引入 `nodemailer` 统一实现 better-auth 三处邮件回调（`sendVerificationEmail` / `sendResetPassword` / `sendChangeEmailConfirmation`），原 M6 模式（SMTP 未配置降级 `console.warn`）不再静默空跑；触发条件达成（[backlog §M7.1 「邮件发送器统一实现」](backlog.md#m71-认证与用户体系)登记）。任务拆解见下方 T912 区块。
 > **M9 i18n 基建同步已归档（2026-08-15）**：T901-T906 全部交付（5 个原子 commit 覆盖 6 任务，2556 行 inserts / 2539 行净增，详见 [todo-archive.md §M9](todo-archive.md#m9-i18n-基建同步已归档)）。依据 [i18n 规范](../standards/i18n.md) 与 momei translation-governance 蓝本，落地语言分级 / freshness 分层 / 缺词 blocker / 动态 key 白名单 / 重复文案审计 / vue-i18n 专项 lint / docs 防回流门禁；为后续 i18n 内容扩展（README 中英双版本 → docs 翻译 → platform 多语言）铺路。翻译内容与多语言扩展留后续阶段排期。
 > **M8 安全加固与容器执行完备已归档（2026-08-14）**：T801-T806 全部交付（20 个提交，本地待推送）。依据 [沙箱与恶意依赖防护治理](../design/governance/sandbox-security-governance.md) §5 治理决议（G2-G7）与 [backlog.md §沙箱与恶意依赖防护治理登记](backlog.md)（C39-C45）排期，封堵 dependfix 成为恶意依赖扩散工具的残余路径。任务拆解见下方 M8 区块。
 > **T711 覆盖率冲刺已归档（2026-08-14）**：四维 ≥ 80% 达成（Stmts 85.89% / Branch 80.6% / Funcs 85.51% / Lines 85.96%，1494 tests），记录见 [todo-archive.md §T711](todo-archive.md#t711-覆盖率口径修正--冲刺至-80已归档)。
@@ -25,6 +26,63 @@
 
 - 完成定义：T801-T806 全部交付，每项独立 Review Gate Pass + 分批提交；`pnpm lint` / `typecheck` / 定向测试通过（Dockerfile 类改动附容器实证）。
 - 非目标（移交下一阶段 backlog）：C26 独立沙箱容器（网络出站白名单 + cgroup + 每任务容器，BullMQ worker 结合）、C30 镜像构建 CI 链路裁决、C28 凭据加密存储文档章节、C29 平台 UI 暗色模式。
+
+---
+
+## T912: SMTP 邮件发送器统一实现（2026-08-18 启动）
+
+- 优先级：`P2`（真实部署必需，不阻塞开发与功能主线；SMTP 未配置时降级 console.warn 不影响现有流程）
+- 背景：M7.1 T701/T707 实施后 better-auth 配置了 `sendVerificationEmail` / `sendResetPassword` / `sendChangeEmailConfirmation` 三处回调钩子，**当前均为空实现**（仅 `console.warn` 日志）。`.env.example:15-20` 提供 SMTP_* 配置项，`nuxt.config.ts:81` `smtpEnabled: !!process.env.SMTP_HOST` 已有判定，但 SMTP 配置后邮件仍不实际发送——真实部署邮箱验证 / 密码重置 / 邮箱变更链路断裂。
+- 来源：[backlog.md §M7.1 「邮件发送器统一实现」](backlog.md#m71-认证与用户体系)（2026-08-09 T701-3 审计登记），触发条件「引入邮件发送依赖（如 nodemailer）或 SMTP 配置成为真实部署需求时」已达成。
+- 决策（2026-08-18 用户指示）：引入 `nodemailer`（Node.js 生态事实标准、零网络依赖、可纯 ESM 接入、better-auth 官方示例推荐）。
+- 任务拆解（按依赖与优先级）：
+
+| 任务 | 优先级 | 内容 | 验收要点 |
+|:--|:--|:--|:--|
+| **T912-1 nodemailer 接入 + mailer service** | P2 | `apps/platform/server/services/mailer/` 新建模块；封装 `nodemailer.createTransport`（基于 `runtimeConfig.smtp*`）+ `sendMail({ to, subject, html, text })` 统一接口；SMTP 未配置时降级 `console.warn` + 返回 `{ delivered: false, mode: 'noop' }`；错误隔离（catch → AppError 上报） | ✅ 单元测试覆盖：未配置 / 配置成功 / 配置失败 / 连接超时 4 路径 |
+| **T912-2 三回调接线** | P2 | `server/utils/auth.ts` 三处 `sendVerificationEmail` / `sendResetPassword` / `sendChangeEmailConfirmation` 从空 console.warn 改为 `mailer.sendMail(...)`；模板走 i18n（zh-CN / en-US），支持最小渲染（链接 + 用户邮箱 + 过期提示）；保留 console.warn 降级但增加实测日志区分（`[mailer:noop]` / `[mailer:delivered]`） | ✅ 三回调集成测试覆盖；i18n locale 模板抽取；与现有 SMTP 配置开关兼容 |
+| **T912-3 安全与文档** | P3 | 防滥用：SMTP 凭据（`SMTP_USER` / `SMTP_PASS`）仅从 `runtimeConfig` 读取不进前端 bundle；速率限制提示（注册验证邮件防刷，留钩子待 T913）；`docs/standards/security.md` §X.3 补「邮件发送安全」（最小暴露 + 失败 fail-closed）；`docs/standards/security.md` §凭据加密存储 章节合并入 C28 修复 | ✅ security.md 双章节补齐；C28 修复同步 |
+
+- 完成定义：T912-1 ~ T912-3 全部交付，每项独立 Review Gate Pass + 分批提交；`pnpm lint` / `typecheck` / platform 单测（≥ 80% 覆盖率不破坏）/ 集成测试通过；SMTP 配置下可真实发送（开发用 MailHog / Mailtrap 实证）；SMTP 未配置降级路径不破坏既有流程。
+- 非目标（移交 backlog）：模板引擎（直接 string template 而非 MJML/Handlebars）；批量发送（newsletter 类场景）；DKIM / SPF 自动配置；队列化邮件发送（M7.2 BullMQ 集成留给真实流量需求触发）。
+
+---
+
+## 待评估候选（2026-08-18 整理，按优先级）
+
+> 上下文：T912 SMTP 邮件发送器为当前活跃任务；以下候选暂不实施，待 SMTP 完成 / 用户明确排期后再启动。所有项已在 [backlog.md](backlog.md) 独立登记，本表为执行排序 + 关联追踪视图。
+
+| 优先级 | backlog 编号 | 任务 / 内容摘要 | 依赖 | 触发条件 |
+|:--|:--|:--|:--|:--|
+| **🔴 P1** | **C30** | Publish Docker 双平台构建 CI 链路裁决（拆分平台 / 优先 amd64 / 验证 gha cache） | 无 | 阻塞"镜像构建 CI 端到端裁决"结论 |
+| **🟡 P1** | **C26** | 独立沙箱容器（每任务/每仓库容器 + 网络出站白名单 + cgroup） | T702（BullMQ worker） | M9 候选；多租户并发场景触发 |
+| **🟢 P2** | **C28** | security.md §凭据加密存储 章节补齐（T602 AES-256-GCM 文档化） | T912-3 联动 | T912 邮件发送安全章节同步补齐 |
+| **🟢 P2** | **C29** | 平台 UI 暗色模式修复（PrimeVue 组件样式异常） | 无 | 暂缓；需 UI Validator 视觉验证 |
+| **🟢 P2** | **M9 后续** | i18n 内容扩展（README.en-US / docs/i18n/en-US / platform 多语言） | M9 基建 | 翻译内容与多语言扩展 |
+| **⚪ P3** | **C36** | 服务端 API 错误消息 i18n（55 处 `createError` 中文化解） | 无 | 英文用户实际使用反馈时 |
+| **⚪ P3** | **C37** | 语言偏好多设备同步（Cookie → 服务端 user 字段） | 无 | 多设备使用成为常态 |
+| **⚪ P3** | **D1-repo_admin** | 仓库级管理角色 + RepositoryAccess 关联表 | 无 | 多租户/多组织需求出现 |
+| **⚪ P3** | **D2-username** | better-auth username 插件 | 无 | 用户明确需要用户名体系 |
+| **⚪ P3** | **D3-多租户** | better-auth organization 插件（替代单组织模型） | 无 | 多组织/多租户部署成为真实需求 |
+| **⚪ P3** | **D8** | remove-user 关联资源检查（引入 user→resource 关联时） | 无 | 引入 created_by / RepositoryAccess 触发 |
+| **⚪ P3** | **T701-e2e** | 管理端点集成测试补强（list-users 分页 / set-role 403 / ban/unban 会话失效 / remove-user 级联 / 个人界面 changePassword/changeEmail 闭环） | 无 | 引入 @nuxt/test-utils 或 e2e 基建 |
+| **⚪ P3** | **C33** | MCP P3 能力补充（pnpm-audit 本地 tool / 错误包装 helper / 完整 RunResult） | 无 | 远期登记 |
+| **⚪ P3** | **SAML 2.0** | 企业 SSO SAML 支持（better-auth 无原生支持） | 无 | 企业 IdP 仅 SAML 时 |
+| **⚪ P3** | **B1 / B2** | PR label `dependfix` + 关闭评论 / 固定分支单线 | 无 | PR 数量影响查询性能时 |
+| **⚪ P3** | **T905** | git worktree 并行开发预案 | T505（已交付） | 多 agent 并行成为常态 |
+| **⚪ P3** | **C21** | GitHub Code Quality Standard findings 接入 | 无 | 最小报告接入评估 |
+| **⚪ P3** | **C22** | GitHub App / installation token 认证（CLI 侧） | 无 | org 场景 PAT 痛点 |
+| **⚪ P3** | **C23** | 发现规模上限 `max-repos` | 无 | 大 org 全量发现场景 |
+| **⚪ P3** | **C24** | org 级 alerts API 批量拉取 | 无 | 大 org 用户痛点 |
+| **⚪ P3** | **C34** | 存量规范严格约束挂接盘点（review 检查点补齐） | 无 | 用户排期（不急） |
+| **⚪ P3** | **T705 / T703** | 生产级部署 / 跨平台 Git（已延期 2026-08-12） | T702 / M6 | 用户指示恢复 |
+
+- 完成定义：暂不实施——本表为 backlog 排序追踪视图，用户排期任一项时移入正式任务区块（参考 M8/M9 格式）。
+- 关联：
+  - **C26 + C30 + C28**：用户在 2026-08-18 明确指示「考虑解决」（C26 独立沙箱 / C30 Publish Docker CI / C28 security.md 章节补齐），排入 P1 / P2 待评估；
+  - **C29 + M9 后续**：平台能力深化，依赖用户产品方向决策；
+  - **D1-D8 + T701-e2e**：M7.1 设计决策点候选项，触发条件未达不实施；
+  - **P3 项**：远期登记，随真实需求触发。
 
 ---
 

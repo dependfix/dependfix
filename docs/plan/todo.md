@@ -2,7 +2,7 @@
 
 > **M10 独立沙箱容器 C26 实施规划（P1 进行中，2026-08-19 启动）**：依赖 T702 / T802 / T805 / C38 / C45 全部前置已落地；决策会议结论（Docker rootless runtime + 应用层白名单代理 + cgroup v2 双层；`SandboxRuntimeAdapter` 不强绑定 rootless；`SandboxExecutor` 与 `ContainerExecutor` 并存；自托管 docker-compose 优先 / K8s+Helm 仅规划）已登记。完整拆解见下方 M10 区块
 >
-> **T912 SMTP 邮件发送器（P2 进行中，2026-08-18 启动）**：[backlog §M7.1 触发条件达成](backlog.md#m71-认证与用户体系)，引入 `nodemailer` 统一实现 better-auth 三处邮件回调（T912-1 / T912-2 已 commit，T912-3 安全与文档进行中 + 与 C28 联动）。完整拆解见下方 T912 区块
+> **T912 SMTP 邮件发送器（主体完成 + T912-3 待排，2026-08-18 启动 / 2026-08-19 主体收口）**：[backlog §M7.1 触发条件达成](backlog.md#m71-认证与用户体系)，引入 `nodemailer` 统一实现 better-auth 三处邮件回调（**T912-1 mailer service 模块** commit `edc9c94` + **T912-2 三回调接线** commit `6f00937` + **T912 coverage 回归修复** commit `6e28207` 已收口；**T912-3 安全与文档 + 与 C28 联动待排期**，由下方 §待评估候选 P2 C28 / 「branches 阈值恢复 80% 冲刺」承接）。完整拆解见下方 T912 区块
 >
 > **近期归档（M6 / M7 / M8 / M9 / T711 全部完成）**：完整记录见 [todo-archive.md](todo-archive.md)（最近主窗口段：[§M8](todo-archive.md#m8-安全加固与容器执行完备已归档)、[§M9](todo-archive.md#m9-i18n-基建同步已归档)、[§T711](todo-archive.md#t711-覆盖率口径修正--冲刺至-80已归档)）
 >
@@ -121,7 +121,7 @@
 | **⚪ P3** | **C24** | org 级 alerts API 批量拉取 | 无 | 大 org 用户痛点 |
 | **⚪ P3** | **C34** | 存量规范严格约束挂接盘点（review 检查点补齐） | 无 | 用户排期（不急） |
 | **⚪ P3** | **T705 / T703** | 生产级部署 / 跨平台 Git（已延期 2026-08-12） | T702 / M6 | 用户指示恢复 |
-| **🟢 P2** | **branches 阈值恢复 80% 冲刺**（2026-08-18 登记） | `vitest.config.ts` branches 阈值临时下调 80% → 79% 的恢复任务——补测 mailer/index.ts 已 100% / app-error.ts 已 100%；剩余低分支文件：`packages/engine/src/runners/network-audit.ts`（branches 68.75%）、`scripts/changelog.mjs`（branches 60.97%）、`apps/platform/server/services/executor/container-executor.ts`（branches 39.13%）等。`vitest.config.ts` L62 注释 + `coverage-summary.json` 已可查当前快照 | 无 | CI 端到端裁决；目标：四维 ≥ 80% 后恢复阈值 |
+| **🟢 P2** | **branches 阈值恢复 80% 冲刺**（2026-08-18 登记 / 2026-08-19 neat-freak 细化启动条件） | `vitest.config.ts` branches 阈值临时下调 80% → 79% 的恢复任务——2026-08-19 mailer/index.ts / app-error.ts / stats.get.ts 已通过 commit `6e28207` 全分支补测（见上方 T912 coverage 回归修复）。**剩余低分支文件清单**（按 2026-08-19 coverage snapshot `coverage/coverage-summary.json` 排序，对整体 80% 阈值贡献从大到小）：**① `packages/engine/src/app/branch-cleanup.ts`**（branches 27.77% / 36 分支 10 覆盖 / 差 26 分支，权重最大）→ **② `apps/platform/server/database/naming-strategy.ts`**（30% / 10 分支 3 覆盖 / 差 7 分支，独立单元测试无 executor 依赖）→ **③ `scripts/distill-wisdom.mjs`**（55.05% / 89 分支 49 覆盖 / 差 7 分支）→ **④ `apps/platform/server/api/repos/batch.post.ts`**（53.33% / 15 分支 8 覆盖 / 差 7 分支，依赖 DB mock）→ **⑤ `apps/platform/server/api/batch-runs/[id].get.ts`**（55.17% / 29 分支 16 覆盖 / 差 13 分支）→ **⑥ `packages/engine/src/runners/network-audit.ts`**（68.75% / 32 分支 22 覆盖 / 差 10 分支，T1002 改造后分支结构变化需重测）。**启动条件**：M10 T1001-T1003 实施完成 + executor 抽象稳定后再启动冲刺——避免 container-executor / batch-runs 等测试随沙箱重构白费。**目标**：四维 ≥ 80% 后恢复 `vitest.config.ts` branches 阈值 79% → 80% | 无 | CI 端到端裁决；目标：四维 ≥ 80% 后恢复阈值 |
 
 - 完成定义：暂不实施——本表为 backlog 排序追踪视图，用户排期任一项时移入正式任务区块（参考 M8/M9 格式）。
 - 关联：

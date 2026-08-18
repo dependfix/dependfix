@@ -6,7 +6,7 @@ definePageMeta({
     middleware: 'auth',
 })
 
-const { t } = useI18n()
+const { t, d } = useI18n()
 
 interface RepoForm {
     owner: string
@@ -437,7 +437,7 @@ const importDialogVisible = ref(false)
                                 size="small"
                                 :aria-label="t('repos.actionScanHistory')"
                                 :title="t('repos.actionScanHistory')"
-                                @click="navigateTo(`/repos/${data.id}/runs`)"
+                                @click="navigateTo({path: '/repos', query: {history: data.id}})"
                             />
                             <Button
                                 icon="pi pi-pencil"
@@ -661,6 +661,8 @@ const importDialogVisible = ref(false)
                 </div>
             </div>
         </Dialog>
+
+        <RepoHistoryDialog />
     </div>
 </template>
 

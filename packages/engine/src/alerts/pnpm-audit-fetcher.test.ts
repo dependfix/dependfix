@@ -404,4 +404,21 @@ describe('fetchPnpmAuditAlerts', () => {
         await expect(fetchPnpmAuditAlerts({ workDir: '/repo', repository: 'local' }))
             .rejects.toThrow(/Failed to parse pnpm audit JSON/)
     })
+
+    // 修复断言：spawn 命令必须显式指定官方 registry，防止用户 .npmrc /
+    // npm_config_registry 配置的镜像站（如 npmmirror）导致 audit metadata 漏报。
+    // 对齐 changelog-fetcher.ts 默认口径（registryBaseUrl ?? 'https://registry.npmjs.org'）。
+    // 追溯见 backlog.md「pnpm audit 拉取应显式指定官方 registry」登记。
+    it('spawns pnpm audit with explicit --registry=https://registry.npmjs.org/', async () => {
+        emitSpawn(JSON.stringify(MODERN_AUDIT_JSON))
+        await fetchPnpmAuditAlerts({ workDir: '/repo', repository: 'owner/repo' })
+
+        expect(spawnMock).toHaveBeenCalledTimes(1)
+        const [command] = spawnMock.mock.calls[0]
+        // spawn('pnpm audit --json --registry=https://registry.npmjs.org/', { shell: true, ... })
+        expect(command).toContain('--registry=https://registry.npmjs.org/')
+        expect(command).toContain('--json')
+        // 防止未来误改回不带 registry 的形式
+        expect(command).not.toMatch(/^pnpm audit --json$/)
+    })
 })

@@ -48,10 +48,16 @@ export async function fetchPnpmAuditAlerts(
  * ⚠️ 发现漏洞时 pnpm audit 返回非零退出码（exit 1）是**正常行为**——JSON 输出仍然有效，
  * 不能以 exit code 判断失败（参考 security-alert-remediator 的 loadAuditReport 同款语义）。
  * 仅在空输出或 JSON 解析失败时视为硬失败。
+ *
+ * ⚠️ 显式 `--registry=https://registry.npmjs.org/`：
+ * pnpm audit 默认继承用户 `.npmrc` / `npm_config_registry` 的镜像源（如 npmmirror），
+ * 部分镜像站 advisory metadata 缺失或不同步会导致漏报安全漏洞——与 dependfix 的核心目标
+ * （修复安全告警）直接冲突。对齐 `changelog-fetcher.ts` 默认口径（`registryBaseUrl ??
+ * 'https://registry.npmjs.org'`）。追溯见 [backlog B 类登记「C35 pnpm audit 拉取应显式指定官方 registry」](../plan/backlog.md)。
  */
 function runPnpmAudit(workDir: string): Promise<unknown> {
     return new Promise((resolve, reject) => {
-        const cp = spawn('pnpm audit --json', {
+        const cp = spawn('pnpm audit --json --registry=https://registry.npmjs.org/', {
             cwd: workDir,
             shell: true,
             stdio: ['ignore', 'pipe', 'pipe'],

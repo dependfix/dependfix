@@ -147,6 +147,173 @@
   - 内容：M6 平台 UI 的暗色模式不可用（T601 任务内容含"暗色模式 `.dark` 类切换"，`nuxt.config.ts` 已配 `darkModeSelector: '.dark'` 与 PrimeVue 主题预设，但实际切换后样式异常/不生效）。修复前需先以视觉验证确认现象与范围（用 UI Validator 子 agent，视觉模型 opencode-go/qwen3.7-plus 截图审计），修复方向：`.dark` 类挂载位置与 PrimeVue 主题联动、SCSS/BEM 变量（`_variables.scss`）暗色分支、页面级硬编码颜色清查
   - 来源：2026-08-08 用户反馈（附截图，需视觉能力复核）
   - **状态说明**：2026-08-09 T701 浏览器视觉复测曾判"暗色切换正常"并一度关闭；2026-08-10 用户实测反馈"暗色模式依旧不可用"——以用户实测为准重新登记（视觉模型可能对 PrimeVue 组件内部样式误判）。暂缓修复，后续优化排期
+- **C46 批量导入仓库弹窗缺过滤 UI**（M6 平台可选项 / 2026-08-19 用户反馈登记）
+  - 状态：🔶 待评估
+  - 位置：`apps/platform/app/components/ImportReposDialog.vue` + `apps/platform/server/api/repos/importable.get.ts`
+  - 问题：当前弹窗仅有"全选 / 单项勾选"两个操作，没有按仓库属性过滤的 UI。当凭据下可访问仓库数量较多（如 org 凭据覆盖 100+ 仓库）时，用户无法快速收敛到目标集合（自己的、非 fork、公开/私有 等）
+  - 现状：
+    - 后端 `importable.get.ts:22-26` 仅透传 `affiliation`（owner / collaborator / organization_member），未实现 `visibility` / `fork` / `archived` / `disabled` 等维度
+    - 前端 `ImportReposDialog.vue` 已展示 `repo.private / repo.fullName / repo.defaultBranch / repo.imported`（第 192-194 行），数据可用，只缺过滤器（按属性 chip + 按关键字 search 至少其一）
+    - GitHub `listForAuthenticatedUser` 单次返回字段含 `private / fork / archived / disabled / description / full_name`，前端本地 filter 零成本即可实现 capability 完整的过滤
+  - 修复方向（候选）：
+    - 方案 A：**前端 filter**（推荐）—— 在 `importableRepos` 基础上加若干 `<Checkbox>`（只看非 fork / 只看私有 / 隐藏已 archived / 只看公开 + 关键字 input），全部前端 in-memory 计算。后端 API 保持现状零改动。
+    - 方案 B：后端扩展 `?visibility=&fork=&archived=` 参数下推过滤 + 前端调用。最适合 ≥1000 仓库场景（但当前 per_page:100 单次最多 100 个，前端 filter 体感差别不大；如同时上 C49 分页，100+ 场景下服务端侧 filter 才有意义）
+    - 折中：A 先落地兜底；C49 落地若实测发现仍卡再补 B
+  - 关联：C48（默认全选）/ C49（分页）—— 三者均集中在 ImportReposDialog + importable.get.ts，可同 PR 收口
+  - 来源：2026-08-19 用户反馈「批量导入的时候，允许筛选仓库列表，例如只选择自己的项目（非 fork）、公开或私有等等」
+- **C47 PrimeVue Dialog 默认可拖拽**（M6 平台可选项 / 2026-08-19 用户反馈登记）
+  - 状态：🔶 待评估
+  - 位置：全站 6 处 Dialog 均受影响
+    - `apps/platform/app/components/ImportReposDialog.vue:111`
+    - `apps/platform/app/pages/repos.vue:468`（添加/编辑仓库弹窗）
+    - `apps/platform/app/pages/repos.vue:601`（批量扫描弹窗）
+    - `apps/platform/app/pages/schedules.vue:358`
+    - `apps/platform/app/pages/credentials.vue:224`
+    - `apps/platform/app/pages/repos/[id]/runs.vue:177`
+  - 根因（已核实 PrimeVue 4.5.5 源码）：
+    - `node_modules/.pnpm/primevue@4.5.5.../primevue/dialog/BaseDialog.vue:77` 明确 `draggable: { type: Boolean, default: true }`
+    - 全站 6 处 Dialog 全部未传 `:draggable="false"`，默认拖拽行为直接生效
+    - 标题栏 mousedown + mousemove 即可拖动整个弹窗位置——容易误触（尤其是表单输入场景）
+  - 修复方向（候选）：
+    - 方案 A：每个 Dialog 加 `:draggable="false"` —— 6 处一次性改完，简单直接
+    - 方案 B：自封装 `<AppDialog>` 包装组件统一绑死 `draggable=false` —— 6 处迁移但 long-term 防遗漏（每次新增 Dialog 只需用 wrapper）
+    - 方案 C：PrimeVue 4 PT 覆盖默认 prop —— 实测 PT 主要覆盖 CSS/classes，全局 prop 默认值无官方标准通道，需要绕路（provide override 等），不推荐
+    - **推荐 A**：6 处一字不改成本最低 + 同步登记开发规范「Dialog 必须显式 `draggable`」（挂接 `code-quality-checklist.md` 必查项，类似 §5.3 C44 先例）
+  - 关联：开发规范 `docs/standards/development.md` 章节「UI 组件约定」是否已声明 Dialog 行为？需要扫描（建议同时给 §5.3 类检查点补一条「Dialog 必须显式 draggable」）
+  - 来源：2026-08-19 用户反馈「目前的弹窗（模态框）默认情况下会被鼠标拖拽，不需要这个功能」
+- **C48 批量导入默认全勾（手滑风险）**（M6 平台可选项 / 2026-08-19 用户反馈登记）
+  - 状态：🔶 待评估
+  - 位置：`apps/platform/app/components/ImportReposDialog.vue:71`
+  - 问题：当前实现
+    ```ts
+    const loadImportable = async () => {
+        ...
+        selectedRepos.value = importableRepos.value.filter((r) => !r.imported)
+    }
+    ```
+    — `loadImportable` 完成后**自动勾选所有未导入项**。一个 token 含 50+ 仓库时，点"确定"会一次性批量添加 50 个，"只选其中 3 个"的典型用例必须先**手动取消 47 个**——操作反向、反直觉、手滑风险高（用户点击"导入"按钮瞬间全量提交无法挽回）
+  - 用户期望：默认全部不勾选，由用户主动勾选目标项；保留"全选"按钮供需要时一键勾选（`ImportReposDialog.vue:165-169` 已存在 select-all checkbox，无需新增）
+  - 修复方向：
+    - 单点改动：`ImportReposDialog.vue:71` 删除自动赋值语句，使 `selectedRepos` 默认值始终为 `[]`
+    - 增量考虑（如 C46 落地后过滤交互改变）：可考虑"过滤变化时自动取消选中"以保持显式选择语义，或保留已勾选项让用户体验更顺——后者更友好，需论证
+    - 与 C46 同 PR 落地，避免分批提交造成两次刷页面体验差
+  - 关联：C46（过滤 UI）/ C49（分页）—— 三者均集中在 ImportReposDialog + importable.get.ts，可同 PR 收口
+  - 来源：2026-08-19 用户反馈「默认不应该全部选中，让用户自己选择要导入哪些，避免手滑导入太多仓库」
+- **C49 批量导入超过 100 个仓库需分页**（M6 平台可选项 / 2026-08-19 用户反馈登记）
+  - 状态：🔶 待评估
+  - 位置：`apps/platform/server/api/repos/importable.get.ts:44`（后端 limit 硬编码）+ `apps/platform/app/components/ImportReposDialog.vue`（前端 UI）
+  - 问题：后端硬编码 `per_page: 100`（GitHub `listForAuthenticatedUser` 单次上限），不翻页意味着含 org 凭据场景下仓库数 >100 时丢失 100 之后的所有候选。前端列表当前 `max-height: 360px; overflow-y: auto;`（第 257-258 行），列表本身有滚动但底层数据缺，前端无法补救
+  - GitHub API 实际容量：`listForAuthenticatedUser` 默认 30 / max 100；paginate 总数理论可达 1000/账号，但实际取决于仓库可见性与权限范围
+  - 修复方向（候选）：
+    - **方案 A（最小完整）**：后端 `octokit.paginate(..., { per_page: 100 })` 一次拉完（Octokit 原生支持自动翻页；多数账号 < 500 个仓库，内存成本可接受），前端一次性渲染 + 复用现成的 `max-height: 360px; overflow-y: auto;` 滚动；总数展示在表头
+    - **方案 B（带 UI 分页）**：A 的基础上前端加 `DataTable` 或自实现 page 切换 + 「加载更多」按钮。前端可做 virtual scroll（如 PrimeVue `DataTable virtualScroller`）保证流畅
+    - **方案 C（实时服务端分页）**：后端保留 `?page=&pageSize=` 参数，前端分页拉取。复杂度最高但流量最优；当前场景非必要
+    - **推荐 A**：简洁、一次性全量、UI 改动最小。`octokit.paginate` 不引入新依赖（Octokit 内置），后端代码净增 2-4 行；前端总数展示 + 滚动区不动
+  - 验收要点：
+    - 含 >100 个仓库的凭据实测：导入弹窗显示「N 个仓库（N=全部用户可访问）」与原始 GitHub 列表一致
+    - API 调用次数有界（防 pagination loop 失控）：可选 `octokit.paginate(..., { per_page: 100, per_page_limit_reached: true })` 或显式 `while` + max page（如 20 = 2000 仓库兜底）
+    - 前端 UI 不卡：>300 仓库实测滚动 / 自动全选体验（如 C48 默认不勾选则全选压力大幅减轻）
+  - 关联：C46（过滤）/ C48（默认不勾选）—— 三者同 PR 收口；C46/C48 落地前单独 C49 收益有限（C48 不勾选 + 缺分页 = 大量仓库在列表里，用户无 KPI 感受）
+  - 来源：2026-08-19 用户反馈「超过 100 个仓库的时候要考虑分页了」
+- **C50 批量导入仓库选择默认关联凭据**（M6 平台可选项 / 2026-08-19 用户反馈登记）
+  - 状态：🔶 待评估
+  - 位置：
+    - 前端：`apps/platform/app/components/ImportReposDialog.vue`（新增"导入默认凭据"下拉 + 提交 payload 携带 `credentialId`）
+    - 后端：`apps/platform/server/api/repos/batch.post.ts`（补写 `repoRepo.create` 的 `credentialId` 字段，可选附 `credentialId` 存在性校验）
+    - 数据层：`apps/platform/server/entities/repository.ts` `credentialId` 字段已存在（`@Column({ nullable: true })` + 索引 + `ManyToOne Credential`，第 53-61 行），schema 层 `repositorySchema` 已接受 `credentialId`（`schemas/repository.ts:10`，`nullable().optional()`），**均无需变更**
+  - 问题：当前 `ImportReposDialog.vue` 弹窗里有一个"凭据"下拉（第 119-131 行），实际是**调用 `/api/repos/importable?credentialId=...` 拉取候选仓库列表**（即"用哪个 token 看仓库"），与"导入后仓库默认关联的凭据"是两个语义。`ImportReposDialog.vue:88-96` 提交 `POST /api/repos/batch` 时 payload 完全不带 `credentialId`，导致新建仓库 `credentialId=null`；管理员**导入后必须逐个去编辑页选凭据**（repos 列表显示 `notLinked`），批量场景工作量大
+  - 现状（后端约束已具备，唯一缺口在 batch.post.ts 未写入）：
+    - `repositorySchema.credentialId` schema 层已接受（`schemas/repository.ts:10`）
+    - `batchImportSchema` 复用 `repositorySchema`，schema 无需改
+    - `Repository.credentialId` 字段已就绪（外键 + ManyToOne + 索引 + nullable），实体层无需改
+    - **缺口**：`batch.post.ts:41-51` `repoRepo.create({...})` 未传 `credentialId`，落地时一行（`credentialId: item.credentialId ?? null`）补齐
+  - 修复方向（候选）：
+    - **方案 A（推荐）**：在 `ImportReposDialog` **新增**一个「默认关联凭据」下拉，与现有「拉取用凭据」下拉并存；读 / 写语义分离（read=拉列表 / write=关联到仓库）；提交 payload 顶层带 `credentialId`，后端写入每条记录。仅顶层默认，单仓库 override 留后续 backlog
+    - **方案 B**：A 的基础上，列表内每行右侧加 inline `<Select>`，单仓库可改覆盖默认凭据（适合"大部分 tokenA、少数 tokenB"场景）
+    - **方案 C（最小改动）**：复用现有「拉取用」下拉直接作为默认关联凭据（强制同 token），改动最小但语义混用，read/write 分离场景被破坏
+    - **推荐 A**：语义清晰、覆盖 95% 用例；B 可作为 C51 后续增强；C 是 A 的退化版（只在单 token 部署场景 OK）
+  - 验收要点：
+    - 弹窗顶部多一个「默认关联凭据」`<Select>`（必填或可空——见下），placeholder 与 hint 文本 i18n 化
+    - 默认关联凭据可空（`null` 即不关联，需要管理员后续手动编辑）
+    - 非空时提交：`POST /api/repos/batch` body 顶层带 `credentialId: 'xxx'`，`batch.post.ts` 写入 `repoRepo.create({...item, credentialId: item.credentialId ?? null})`
+    - 可选：后端补 `.refine` 校验 credentialId 实际存在（避免 FK 悬空；schema 层可加也可保留 null-on-not-found 语义）
+    - i18n 增 `repos.importDefaultCredential` / `repos.importDefaultCredentialPlaceholder` / `repos.importDefaultCredentialHint`（zh-CN + en-US）
+    - 单仓库 override 不实现（移至后续 backlog）
+    - 已导入（`imported=true`）的项不应用「默认凭据」（它们已经存在，凭据编辑走单独路径）
+  - 关联：C46（过滤）/ C48（默认不勾选）/ C49（分页）—— 四个均集中 `ImportReposDialog.vue` + `batch.post.ts`，可在同一 PR 收口
+  - 来源：2026-08-19 用户反馈「导入的时候应该可以选择默认的关联凭据」
+- **C51 扫描历史子路由不可达（unrouting 0.2.x 兼容 bug + 应用层 Dialog 改造）**（M6 平台 bugfix / 2026-08-19 用户实测反馈 + super-search 调研登记）
+  - 状态：🔶 待评估
+  - 现象（用户实测）：仓库列表页 pi-history 按钮（`repos.vue:440` `@click="navigateTo(\`/repos/${data.id}/runs\`)"`）点击后 URL 跳转到`/repos/{id}/runs`，**但页面 DOM 仍显示父路由 /repos 内容**——h2 渲染为「仓库管理」而非「扫描历史」；用户感受"扫描历史按钮没用"
+  - 位置：
+    - 子页面文件：`apps/platform/app/pages/repos/[id]/runs.vue`（存在但从未被路由正确匹配）
+    - 用户入口：`apps/platform/app/pages/repos.vue:438-441` pi-history 按钮 + 各页面 `navigateTo(\`/repos/${data.id}/runs\`)`
+    - 失败链条：unrouting 0.2.x → vue-router 4 → SSR 渲染 fallback 到父路由 /repos
+  - **根因（已被脚本化诊断证实）**：
+    1. `pages/repos/[id]/runs.vue` 的 `[id]` 动态段在 unrouting 0.2.x 输出为 vue-router 字符串 `:id()`（见 `node_modules/.pnpm/unrouting@0.2.2/.../dist/index.mjs:489`  `case "dynamic": out += \`:${token.value}()\``）
+    2. vue-router 4 + path-to-regexp 8.x 在 tokenize 时将 `:name()` 解析为 **`param {name}` + `(` + `)` 三个 token**，`(`/`)` 在 SIMPLE_TOKENS 中是 reserved 但 consume() 不处理，被丢在 lexer 流中未被消费（除非源码错 throw），最终 vue-router matcher 将 `(` 与 `)` 当成 CHAR literal
+    3. 编译成的正则包含 `([^/]+\()` —— **literal 必须** `id` 紧跟 `(` 字符；URL `/repos/abc/runs` 不匹配，自动 fallback 到最接近的 `path: '/repos'` 父路由
+    4. SSR 直接 `curl /repos/{id}/runs` 返回 HTML，h2 是「仓库管理」（验证：诊断脚本 `tests/e2e/history-button-diag-ssr.e2e.test.ts` 已临时创建用于实证）
+    5. 客户端 router path 与 SSR 一致：`router.getRoutes()` dump 显示真实 path 为 `:id()/runs`（验证：诊断脚本 `tests/e2e/dump-router.e2e.test.ts` 已临时创建用于实证）
+  - **super-search 调研结论（2026-08-19）**：
+    - unrouting 仓库 `unjs/unrouting` 当前 **main 分支 / v0.2.3 最新版（2026-08-12 发布）仍输出 `:id()`**——v0.2.3 的 fix #182 仅修 static segments 编码（ufo encodePath 与 vue-router 不一致），未触及 dynamic token 输出
+    - 仓库内未检索到针对 `:id()` / vue-router-4 兼容性的同类 issue 报告（GitHub search `repo:unjs/unrouting :id()` 仅返回 reno PR 与无关结果）
+    - `path-to-regexp 8.1.0` 源码 lexer 函数（`pillarjs/path-to-regexp/src/index.ts` `lexer()`）确认 `(`,`)` 是 reserved tokens 未消费且 parse() consume 仅识别 `{`/`}`/`PARAM`/`WILDCARD`/`CHAR`/`ESCAPED`/`END`，`(`,`)` 是 literal CHAR
+    - **结论**：上游 unrouting / path-to-regexp 升级短期不会修复；下游 monkey-patch 也只能写到 nuxt local module，且与 i18n `pages:extend` hook 顺序敏感（实测 hooks: pages:extend 把我先改的 `:id?` 又被 i18n listener 二次 localizes 覆盖成 `:id()`——见 `apps/platform/modules/fix-routes.ts` 之前的失败尝试）；**应用层绕开**是最稳路径
+  - **修复方向（候选）**：
+    - **方案 A（推荐 / 用户已选）**：把 `runs.vue` 的「扫描历史」内容**嵌入到 `repos.vue` 的 Dialog**，id 通过 **`route.query.repoId`**（查询字符串）传递，例如 `navigateTo('/repos?history={id}')`，`repos.vue` 顶部监听 `route.query.history` 打开 Dialog 与对应仓库详情
+      - 优点：完全绕开 unrouting bug（顶级路由 + query 字符串不涉及 dynamic segment）；Dialog 已经跑通；符合现有 `ImportReposDialog.vue` / `BatchRunDialog` 模式
+      - 缺点：URL 不再 deep-link 扫描历史（`/repos` 同 URL 不同 state）——可接受，进入历史即做 modal 入口
+      - 实现要点：Dialog 内 `fetchRuns` 使用 `query.repositoryId = repoId` 复用现有 `/api/runs` 接口，详情 Dialog 模板与现 runs.vue 几乎一致；`runs.vue` 删除或留作未来回归
+    - **方案 B**：等 unrouting 上游修复 + 后续版本升级
+    - **方案 C**：应用层 monkey-patch unrouting（去掉 `()`）；不推荐——依赖副作用且与 i18n hook 顺序敏感，与 nuxt 升级会脱钩
+    - **方案 D**：降 nuxt-i18n 到旧版（用过 path-to-regexp 6 的版本）；不推荐——失去 i18n 新特性
+  - **验收要点（推荐 A）**：
+    - 仓库列表行的 pi-history 按钮点击后，url 变为 `/repos?history={repoId}`，`repos.vue` 自动打开「扫描历史」Dialog
+    - Dialog 内标题、状态表格、详情按钮**复用**原 `runs.vue` 逻辑（详情 fetch 仍命中 `/api/runs/{id}` 接口）
+    - 关闭 Dialog 后 `?history` query 移除，url 干净
+    - 用户直接访问 `/repos?history=<id>` 也能正确打开对应仓库 Dialog（deep-link via query）
+    - 撤销/清理：临时诊断脚本 `tests/e2e/{dump-router,history-button-diag*}.e2e.test.ts` 已在 2026-08-19 撤回（保留为未来回归候选）
+  - **顺手补项**（可不依赖 C51 主路径）：
+    - C-子项 a：`runs.vue` 内 Dialog 加 `:draggable="false"`（C47 当前 viewport 部分修复；其余 5 处 Dialog 与本任务独立，可单独 PR）
+    - C-子项 b：`runs.vue` 内 `openDetail` 错误处理加 `detailError` 解耦 + Dialog 内嵌 `<Message>` 错误占位 + 关闭 Dialog 重置 state（现行代码 `error.value` 写到列表顶部 message 被 Dialog 遮罩掩盖——降级路径下用户看不到错误）
+    - 因 C51 推荐方案 A 将 runs.vue 内容迁入 Dialog，这两条迁移到 Dialog 内同位置实现即可，不需重复
+  - 关联：**C47**（Dialog 默认 draggable，6 处待修）/ **C-子项 b**（详情 Dialog 错误占位）/ **C49**（批量导入分页无）+ **D1-D4 四种上游/应用层方案权衡**
+  - **触发重新评估的条件**：① unrouting 上游发布修复 `:id()` 输出的新版本（订阅 `unjs/unrouting` releases）；② 用户重新启用"独立子路由" 形态；③ 真实出现 deep-link 扫描历史需求（share link 等）
+  - 来源：2026-08-19 用户实测反馈"这个扫描历史按钮还是没用" + super-search 调研（GitHub API `unjs/unrouting` issues search `vue-router` `:id()` `path-to-regexp`）
+- **C52 单仓库扫描缺模式/阈值选择（不合理）**（M6 平台可选项 / 2026-08-19 用户反馈登记）
+  - 状态：🔶 待评估
+  - 位置：`apps/platform/app/pages/repos.vue` `triggerScan`（第 193-231 行），`/api/repos/[id]/scan` POST body 第 207-208 行
+  - 问题：单仓库「触发扫描」按钮**硬编码** `mode: 'report-only'` / `severityThreshold: 'high'`；而批量扫描（`openBatchScan` / `submitBatchScan`）有完整选择器（`batchModeOptions`：report-only/fix/fix-and-pr；`batchSeverityOptions`：critical/high/medium/all）。导致 **fix / fix-and-pr 模式对单仓库不可达**（只能通过批量扫描触发，或直接调 API）——功能缺口 + 交互不一致
+  - 现状：
+    - `apps/platform/app/pages/repos.vue:207-208` `mode: 'report-only'`、`severityThreshold: 'high'` 写死
+    - 第 250-261 行已有 `batchModeOptions` / `batchSeverityOptions` 可复用
+    - 后端 `scan.post.ts` 的 `scanRequestSchema` 已支持 mode/severityThreshold（校验通过即可），无后端改动
+  - 修复方向（候选）：
+    - **方案 A（推荐）**：复用批量扫描的模式/阈值选择器——单仓库触发前弹一个小配置 Dialog（mode + severity），或在行内按钮旁加 `Select`。由于 `scan.post.ts` 已透传 mode/severityThreshold，纯前端改动即可
+    - **方案 B**：合并为统一的"扫描配置"组件，批量/单仓库共用（DRY）
+    - **推荐 A**：改动最小、行为对齐；B 作为长期重构
+  - 验收要点：单仓库触发可选 report-only/fix/fix-and-pr + critical/high/medium/all；POST body 带所选 mode/threshold；后端无 schema 变更；默认 report-only/high（保持兼容现状）
+  - 关联：C53（fix 推送）+ **批量扫描配置组件复用**
+  - 来源：2026-08-19 用户反馈"为什么只有批量扫描的时候能选择扫描模式呢？不太合理"
+- **C53 平台集成模式 fix 修复结果不推送远程（无 PR）**（M6 平台可选项 / 2026-08-19 用户反馈登记）
+  - 状态：🔶 待评估
+  - 位置：`apps/platform/server/services/executor/container-executor.ts`（第 48-51 行 clone + 第 71 行 `app.run()` + 第 95 行 `rm(workDir)` 清理）
+  - 问题：平台集成模式（container executor）下 `fix` / `fix-and-pr` 模式：clone 仓库到工作目录 → 容器内 `DependfixApp.run()` 完成修复 → **第 95 行直接把 workDir 删除**。修复结果（改动的文件 / commit / branch）**只存在于本地临时目录，从未 push 到远程、未创建 PR**。用户反馈："修复结果只在本地，未推送到远程……显然没有修复并 PR 来的直观（也确实没有修复功能）"
+  - 现状：
+    - `container-executor.ts:49-51` `needsClone = mode !== 'report-only'` → clone；`app.run()` 执行修复
+    - `finally`（第 95 行）`rm(workDir)` 删除工作目录——修复产物随之消失
+    - 对比 B 模式（`action-trigger-executor.ts`）：通过 GitHub Action `workflow_dispatch` 触发，在远程 runner 上执行并 push/PR（远程有完整的 PR 闭环）
+    - 缺：容器内修复后如何 push 回远程（git remote credential 注入方式、分支命名、commit、PR 创建）——当前**完全没有该链路**
+  - 修复方向（候选）：
+    - **方案 A（最小闭环）**：容器内 `app.run()` 完成后，若 mode 为 `fix`/`fix-and-pr`，把修复后的 workDir 提交到新分支并 push 到远程（需用 `ctx.credential?.token` 经 `http.extraheader` 注入 git credential，与 `cloneRepository` 一致），`fix-and-pr` 再调 GitHub API 创建 PR
+    - **方案 B**：复用 CLI `createPullRequest` 能力（`packages/cli` 已有 PR 创建逻辑）下沉到 engine / 平台服务
+    - **方案 C**：提示用户"平台集成模式不推送"并在 UI 明示（不实现推送）—— 不符合用户期望，不推荐
+    - **推荐 A**：容器内 push + PR，复用 `http.extraheader` 凭据注入模式与 `repository` 实体的 `credentialId` 关联（C50 落地后凭据来源更明确）
+  - 验收要点：`fix` 模式在平台集成执行后远程分支包含修复 commit（可 fetch 验证）；`fix-and-pr` 模式在 GitHub 创建 PR 且 body 含报告；失败时干净回退（不残留孤儿分支/PR）；工作目录清理时序改为 push 成功后再清理
+  - 关联：C50（默认关联凭据）提供推送凭据；与 C52（单仓库模式选择）同属平台执行链路补齐
+  - 来源：2026-08-19 用户反馈"平台集成模式下，仅修复有一个直接的问题，那就是修复结果只在本地，未推送到远程……没有修复并 PR 来的直观（也确实没有修复功能）"
+
 - **C30 Publish Docker build job 被取消/失败排查**（M6 归档 CI 端到端裁决登记）
   - 状态：⏸️ **已暂缓（2026-08-18 用户决策）**——原 🔶 待评估
   - 内容：Publish Docker 工作流 build job（run 31260609196，e16aeda4 触发）在 QEMU 双平台（linux/amd64,linux/arm64）构建中运行 1h19m 后被取消（`##[error]The operation was canceled.`）。**根因已定位**：同 workflow 同 ref（master）的新 push（7cb1ad22d，15:13:11）触发 concurrency `cancel-in-progress: true` 取消旧 run；叠加 QEMU arm64 模拟构建过慢（1h+ 未完成）。缓解方向：docker.yml 拆分平台构建或减少平台、优先 amd64、验证 gha cache 命中；若采用频繁 push + 双平台模式，需评估取消旧 run 对镜像发布的影响

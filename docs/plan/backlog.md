@@ -141,10 +141,16 @@
   - 来源：2026-08-08 用户反馈（附截图，需视觉能力复核）
   - **状态说明**：2026-08-09 T701 浏览器视觉复测曾判"暗色切换正常"并一度关闭；2026-08-10 用户实测反馈"暗色模式依旧不可用"——以用户实测为准重新登记（视觉模型可能对 PrimeVue 组件内部样式误判）。暂缓修复，后续优化排期
 - **C30 Publish Docker build job 被取消/失败排查**（M6 归档 CI 端到端裁决登记）
-  - 状态：🔶 待评估（阻塞"镜像构建 CI 端到端裁决通过"结论）
+  - 状态：⏸️ **已暂缓（2026-08-18 用户决策）**——原 🔶 待评估
   - 内容：Publish Docker 工作流 build job（run 31260609196，e16aeda4 触发）在 QEMU 双平台（linux/amd64,linux/arm64）构建中运行 1h19m 后被取消（`##[error]The operation was canceled.`）。**根因已定位**：同 workflow 同 ref（master）的新 push（7cb1ad22d，15:13:11）触发 concurrency `cancel-in-progress: true` 取消旧 run；叠加 QEMU arm64 模拟构建过慢（1h+ 未完成）。缓解方向：docker.yml 拆分平台构建或减少平台、优先 amd64、验证 gha cache 命中；若采用频繁 push + 双平台模式，需评估取消旧 run 对镜像发布的影响
   - 补充（2026-08-09，run 31305727667）：同一 build job 出现第二种失败模式——arm64 builder 阶段 `pnpm --filter @dependfix/core build` 前，pnpm 11 默认 `verifyDepsBeforeRun=install` 检测到 workspace 依赖不完整（builder 阶段仅复制根 node_modules，各项目内依赖链接缺失）自动执行 `pnpm install`，该子进程在 QEMU 模拟 arm64 下被 SIGILL 杀死。**已修复**：builder 阶段改为 `COPY --from=deps /app .` 复制完整依赖布局 + `pnpm config set verify-deps-before-run=false` 禁用自动安装（仅 Docker 构建环境生效）
   - 来源：M6 归档 CI 裁决（2026-08-08，run 31260609196 被 run 31263908976 取消）+ 2026-08-09 run 31305727667 SIGILL 失败
+  - **暂缓决策（2026-08-18）**：
+    - **现状**：run 31862632207（a61becc 触发，2026-08-15）双平台构建实际耗时 **23m 2s**（QA 1m 44s + build **21m 9s**）成功完成，证明在 push 频率不高时 docker.yml 当前配置可稳定工作
+    - **评估依据**：① 双平台 QEMU 模拟在 GHA cache 命中后已能在合理时间内完成；② `cancel-in-progress: true` 仅在同 ref 频繁 push 时才构成问题（实测单次 push 间隔足够长时不触发）；③ arm64 SIGILL 失败模式已通过 Dockerfile 改造根治（`COPY --from=deps /app .` + `verifyDepsBefore-run=false`）
+    - **结论**：暂不实施 docker.yml 拆分平台 / 移除 arm64 / 调整 concurrency 等改造；保留当前配置观察
+    - **恢复条件**（任一触发时重新评估）：① master 分支 push 频率显著提升（如周均 ≥ 5 次）；② 镜像实际发布成为强需求（v1.0.0 正式发布前）；③ 用户明确恢复（review C30 时）
+    - **追踪**：todo.md §待评估候选 C30 行同步降级（🔴 P1 → ⚪ P3）
 
 ### MCP 能力补充（2026-08-09 评估登记）
 

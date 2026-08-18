@@ -25,7 +25,7 @@
 | **T806 安全规范挂接 review 检查点** | C44 | P1 | `code-reviewer` 的 `code-quality-checklist` 补 §5.3 检查点（与 C34 存量盘点联动） | ✅ **已完成（2026-08-14）**：`code-quality-checklist.md` 新增"修复执行安全基线（必查项）"——§5.3 十三条必须级条款逐项核验（非 root / 工作目录隔离 / 超时兜底 / pnpm 脚本防护 / 凭据最小化 / 权限面收敛 / 研判 / 供应链披露 / 白名单回传 / 资源与网络 / 威胁建模评审）+ 链接引用（单点声明不抄条款）；Code Auditor 必查项同步薄引用；C34 存量盘点保持待评估独立排期 |
 
 - 完成定义：T801-T806 全部交付，每项独立 Review Gate Pass + 分批提交；`pnpm lint` / `typecheck` / 定向测试通过（Dockerfile 类改动附容器实证）。
-- 非目标（移交下一阶段 backlog）：C26 独立沙箱容器（网络出站白名单 + cgroup + 每任务容器，BullMQ worker 结合）、C30 镜像构建 CI 链路裁决、C28 凭据加密存储文档章节、C29 平台 UI 暗色模式。
+- 非目标（移交下一阶段 backlog）：C26 独立沙箱容器（网络出站白名单 + cgroup + 每任务容器，BullMQ worker 结合）、C30 镜像构建 CI 链路裁决（⏸️ 2026-08-18 用户决策暂缓——见 backlog C30）、C28 凭据加密存储文档章节、C29 平台 UI 暗色模式。
 
 ---
 
@@ -54,7 +54,7 @@
 
 | 优先级 | backlog 编号 | 任务 / 内容摘要 | 依赖 | 触发条件 |
 |:--|:--|:--|:--|:--|
-| **🔴 P1** | **C30** | Publish Docker 双平台构建 CI 链路裁决（拆分平台 / 优先 amd64 / 验证 gha cache） | 无 | 阻塞"镜像构建 CI 端到端裁决"结论 |
+| **⚪ P3** | **C30** | Publish Docker 双平台构建 CI 链路裁决（⏸️ 2026-08-18 用户决策暂缓——见 backlog C30） | 无 | 恢复条件：master push 频率显著提升 / 镜像正式发布需求 / 用户明确恢复 |
 | **🟡 P1** | **C26** | 独立沙箱容器（每任务/每仓库容器 + 网络出站白名单 + cgroup） | T702（BullMQ worker） | M9 候选；多租户并发场景触发 |
 | **🟢 P2** | **C28** | security.md §凭据加密存储 章节补齐（T602 AES-256-GCM 文档化） | T912-3 联动 | T912 邮件发送安全章节同步补齐 |
 | **🟢 P2** | **C29** | 平台 UI 暗色模式修复（PrimeVue 组件样式异常） | 无 | 暂缓；需 UI Validator 视觉验证 |
@@ -81,7 +81,8 @@
 - 完成定义：暂不实施——本表为 backlog 排序追踪视图，用户排期任一项时移入正式任务区块（参考 M8/M9 格式）。
 - 关联：
   - **branches 阈值恢复 80% 冲刺**：2026-08-18 mailer/ 模块新增导致整体 branches 从 80.6%（T711 冲刺后）降到 79.6%，临时下调到 79%；恢复路径见本表 P2 行；其他 P3 项（network-audit / container-executor / scripts/*）按需补测可纳入此冲刺一并完成
-  - **C26 + C30 + C28**：用户在 2026-08-18 明确指示「考虑解决」（C26 独立沙箱 / C30 Publish Docker CI / C28 security.md 章节补齐），排入 P1 / P2 待评估；
+  - **C26 + C28**：用户 2026-08-18 明确指示「考虑解决」（C26 独立沙箱 / C28 security.md 章节补齐），排入 P1 / P2 待评估
+  - **C30**：用户 2026-08-18 明确指示「暂缓」——run 31862632207 双平台构建 23m 2s 成功完成证明当前 docker.yml 配置可稳定工作，恢复条件见 backlog C30；
   - **C29 + M9 后续**：平台能力深化，依赖用户产品方向决策；
   - **D1-D8 + T701-e2e**：M7.1 设计决策点候选项，触发条件未达不实施；
   - **P3 项**：远期登记，随真实需求触发。
@@ -106,7 +107,7 @@
 ## 已知边界
 
 - M5.5 的 npx skills GitHub 源端到端验证（主通道 + 全链质量门）依赖 CI 端到端裁决（本机 clone github.com 网络受限）。
-- Publish Docker 工作流 build job 在 QEMU 双平台构建中 1h19m 被同 ref 新 push 取消，镜像构建 CI 链路未裁决通过，排查项见 [backlog.md §M6](backlog.md)（C30）。
+- Publish Docker 工作流 build job 在 QEMU 双平台构建中 1h19m 被同 ref 新 push 取消，镜像构建 CI 链路未裁决通过——**2026-08-18 暂缓**（run 31862632207 双平台构建 23m 2s 成功完成证明当前 docker.yml 配置可稳定工作），详见 [backlog.md C30](backlog.md)（恢复条件：高频 push / 镜像正式发布需求 / 用户明确恢复）。
 - security.md 凭据加密存储章节未补（[backlog.md §M6](backlog.md) C28）。
 - 平台 UI 暗色模式不可用（暂缓，后续优化，[backlog.md §M6](backlog.md) C29）。
 - 容器内 git/pnpm 工具链缺失（M6 遗留）——**已修复（T801，2026-08-14）**，见 [backlog.md](backlog.md) C45。

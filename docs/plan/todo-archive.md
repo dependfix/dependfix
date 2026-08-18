@@ -11,7 +11,7 @@
 
 ## 主窗口保留范围
 
-- 主文档保留最近阶段的近线归档块（当前保留 M6 / M7.1 / M7.2 / T711）。
+- 主文档保留最近阶段的近线归档块（当前保留 M6 / M7.1 / M7.2 / M9 / T711）。
 - 当 `todo-archive.md` 超过 500 行时，将早期阶段迁入分片归档。
 
 ---
@@ -215,4 +215,121 @@
 
 - 补测候选（审计 suggest）：typeorm-adapter createdAt 同毫秒 flaky、transaction 回滚断言、redis error 监听断言、queue close disconnect 断言——按需随后续任务补
 - 待人工验收：见 [todo.md 待人工验收](todo.md)
+
+---
+
+## M9: i18n 基建同步（已归档）
+
+> 归档日期: 2026-08-18（代码与脚本工作 2026-08-15 完成，文档侧 M9 归档块与 todo.md M9 区块移除直至 2026-08-18 才补齐——视为 M9 收口闭环）
+> 阶段摘要: 参见 [roadmap.md §M9](roadmap.md)
+> 设计文档: [standards/i18n.md](../standards/i18n.md)（Review Gate Pass）
+
+**阶段成果**: 从 momei 同步 i18n 治理体系基建——i18n 规范（语言分级 / freshness 分层 / 回退链 / 术语约束 / blocker 矩阵）+ 4 个审计脚本（`audit-locale-keys` 缺词 parity / `audit-duplicate-messages` 重复文案 / `dynamic-key-allowlist` 动态 key 白名单 / `check-i18n-duplicates` docs 防回流）+ 4 套 vitest 测试 75 例 + `@intlify/eslint-plugin-vue-i18n` 独立 lint + 5 个 npm script（3 个 `i18n:audit:*` 维度审计 + `docs:check:i18n` + `lint:i18n`）+ CI 接入（`lint:i18n` / `i18n:audit:missing` / `docs:check:i18n` 三步入 test.yml）。5 个原子 commit 覆盖 6 任务（T906 元任务融入相邻原子提交），合计 2556 行 inserts / 2539 行净增。Translation 内容（README / docs / platform 多语言）按本期决策留待后续阶段排期。
+
+### 规划决策（2026-08-15 用户确认）
+
+- **D1 范围（Q1=A）**：只同步基建，脚本**适当优化不全量同步**（核心 3 项：缺失 key / 动态 key / 重复文案；momei 其他脚本暂缓）
+- **D2 docs 翻译结构（Q2=A）**：沿用 `docs/i18n/<locale>/` 镜像结构（README/docs 各 locale 一一对应）
+- **D3 locale 模块化（Q3=B）**：locale 文件**模块化拆分延后**——脚本已兼容单文件（现状）与模块化（未来）双目录形态，未来切换无需重写
+- **D4 vue-i18n lint（Q4=A）**：引入 `@intlify/eslint-plugin-vue-i18n` 但作为**独立命令**（`lint:i18n`）而非合并入常规 lint（插件执行慢，按需跑）；CI 必跑 + 升级 error 级别
+
+> **注**：D1-D4 决策追溯自原 todo.md M9 区块"决策（2026-08-15 用户确认）：①②③④"四项结论。Q 编号（Q1=A / Q2=A / Q3=B / Q4=A）为执行侧补充的"提问-回答"映射，非 todo.md 原文档——便于需求澄清追溯，与其他阶段（M5/M6/M7）的 Q 编号口径一致。
+
+### T901 i18n 规范同步 ✅
+
+- **交付物**: `docs/standards/i18n.md`（191 行）+ `docs/standards/index.md` 登记
+- **实现内容**: 适配自 momei `translation-governance.md`——语言发布分级（`draft` / `ui-ready` / `seo-ready`）+ docs freshness 分层（`must-sync` 30 天 / `summary-sync` 45 天 / `source-only` 不做 SLA）+ 回退链 + 术语约束 + blocker 矩阵；增补 dependfix locale 路径（`apps/platform/i18n/locales/<locale>.json` / `docs/i18n/<locale>/`）与 README 命名约定（`README.md` 中文原版 + `README.<locale>.md` 翻译版）
+- **验收**: standards 单点声明 + check-links 通过
+- **提交**: 49438f5 docs: 新增 i18n 规范并登记脚本命令
+- **Review Gate**: APPROVE
+
+### T902 脚本同步（momei 审计脚本迁移 + dependfix 适配） ✅
+
+- **交付物**: 4 个 audit 脚本 + 1 个共享 CLI helper
+  - `scripts/shared/cli.mjs`（107 行）—— 共享 CLI 参数解析（`--locale-root` / `--scan-root` / 输出格式）
+  - `scripts/i18n/audit-locale-keys.mjs`（533 行）—— 缺词 parity（missing 阻塞级）/ unused（warning 级）双维度审计
+  - `scripts/i18n/audit-duplicate-messages.mjs`（510 行）—— 跨语言重复文案候选审计（text / markdown / json 输出）
+  - `scripts/i18n/dynamic-key-allowlist.mjs`（21 行）—— 动态 key 白名单（供审计与 eslint 复用）
+  - `scripts/docs/check-i18n-duplicates.mjs`（121 行）—— docs 翻译防回流检查（posix 路径跨平台修复）
+- **实现内容**: 路径参数化（`--locale-root` / `--scan-root`），兼容单文件（现状：`apps/platform/i18n/locales/zh-CN.json` 单文件）与模块化（未来：`apps/platform/i18n/locales/zh-CN/*.json` 目录）双目录形态
+- **验收**: 全量审计结果——missing parity 0（zh-CN / en-US 两 locale key 一致）/ unused 54 候选（warning）/ duplicates 53 组候选 / docs 检查通过
+- **提交**: a4d1668 feat(scripts): 同步 momei i18n 审计脚本并适配 dependfix 结构
+- **Review Gate**: APPROVE
+
+### T903 脚本测试（75 例覆盖双形态与边界） ✅
+
+- **交付物**: 4 套 vitest 单测（覆盖双形态 + 格式化 + runAudit 集成）
+  - `scripts/shared/cli.test.mjs`（142 行）
+  - `scripts/i18n/audit-locale-keys.test.mjs`（280 行）
+  - `scripts/i18n/audit-duplicate-messages.test.mjs`（291 行）
+  - `scripts/docs/check-i18n-duplicates.test.mjs`（99 行）
+- **实现内容**: 临时目录 fixture + 双目录形态（单文件 / 模块化）参数化 + 边界用例（空 locale / 多余 key / 重复文案阈值）
+- **验收**: 75 测试全绿；包级定向测试修复（077823c fix(test): vitest setupFiles 改用绝对路径——`pnpm --filter <pkg> test` 在包目录运行 vitest，root=cwd=包目录，相对路径 setupFiles 解析失败导致全部测试初始化失败；改为 `resolve(import.meta.dirname, ...)` 与 alias 路径风格一致，与运行时 cwd 解耦；engine 830 / mcp 40 定向测试通过，根目录全量 1564 无回归）
+- **提交**: a4d1668（含测试）+ 077823c（包级测试基建）
+- **Review Gate**: APPROVE
+
+### T904 npm scripts + eslint 接入 ✅
+
+- **交付物**: 根 `package.json` 5 个新 script + `eslint.config.js` ESLINT_I18N 开关块
+- **实现内容**:
+  - `lint:i18n`：独立命令（执行慢不并入常规 lint），CI 跑 + 升级 error 级别
+  - `i18n:audit:missing`：缺词 parity（CI blocker）
+  - `i18n:audit:unused`：多余 key（warning）
+  - `i18n:audit:duplicates`：重复文案候选
+  - `docs:check:i18n`：docs 翻译防回流
+  - `eslint.config.js`：新增 `ESLINT_I18N` 开关块（仅 `apps/platform` 生效，`recommended` 规则提升 error；保留 `json/yaml` 专项 files 避免 vue parser 误伤 ts 文件）
+  - `vitest.config.ts`：coverage `include` 扩展为 `scripts/**/*.mjs`
+- **验收**: `lint:i18n` 零 error；常规 `pnpm lint` 不受影响（耗时不变）；依赖 `@intlify/eslint-plugin-vue-i18n` 装入
+- **提交**: eae70cf feat(platform): 接入 @intlify/eslint-plugin-vue-i18n 独立 lint 与 npm scripts
+- **Review Gate**: APPROVE
+
+### T905 CI 接入（test.yml） ✅
+
+- **交付物**: `.github/workflows/test.yml` 3 个新步骤
+- **实现内容**:
+  - `lint:i18n`：vue-i18n 专项 lint 阻塞级
+  - `i18n:audit:missing`：缺词 parity 阻塞级（CI 红 → 必须修复 → 防止新增翻译未同步）
+  - `docs:check:i18n`：docs 翻译防回流阻塞级
+  - `i18n:audit:unused` 与 `i18n:audit:duplicates` 不入 CI（warning 级，本地使用）
+- **验收**: test.yml YAML 语法 + GitHub Actions 解析通过；本地模拟 CI 三步全绿
+- **提交**: a61becc ci: 接入 i18n 校验步骤并排期 M9 基建任务
+- **Review Gate**: APPROVE
+
+### T906 文档收口（scripts/README + todo/roadmap） ✅
+
+- **交付物**: `scripts/README.md` i18n 审计命令速查 + todo/roadmap M9 排期登记
+- **实现内容**:
+  - `scripts/README.md`：i18n 审计命令速查（命令名 + 参数 + 用途）
+  - `docs/plan/todo.md`：新增 M9 区块（任务拆解表 + 完成定义 + 非目标）
+  - `docs/plan/roadmap.md`：M9 阶段登记（表格 + 详细章节）
+- **验收**: scripts/README 与 standards/i18n 交叉引用闭环；todo/roadmap 一致
+- **提交**: 49438f5（scripts/README）+ a61becc（todo/roadmap 排期），T906 元任务融入相邻原子提交
+- **Review Gate**: APPROVE
+
+### M9 完成判定（全部通过）
+
+- 全部 6 任务（T901-T906）交付，5 个原子 commit 覆盖 6 任务——T906 元任务融入相邻 commit（`scripts/README.md` 登记随 T901 commit `49438f5`；todo/roadmap 排期随 T905 commit `a61becc`），无独立 commit；每任务 Review Gate APPROVE
+- 5 个原子 commit（按 T901→T906 任务顺序展示，与 git 时间顺序有差异：`077823c` 时间 02:51 在 M9 主体前 9 小时，是 M9 T903 包级测试基建前置，提交时跨 M8/M9 边界被 M9 复用）：
+  - `49438f5` docs: 新增 i18n 规范并登记脚本命令（T901 + T906 部分）
+  - `a4d1668` feat(scripts): 同步 momei i18n 审计脚本并适配 dependfix 结构（T902 + T903 测试）
+  - `077823c` fix(test): vitest setupFiles 改用绝对路径修复包级定向测试（T903 包级测试基建前置）
+  - `eae70cf` feat(platform): 接入 @intlify/eslint-plugin-vue-i18n 独立 lint 与 npm scripts（T904）
+  - `a61becc` ci: 接入 i18n 校验步骤并排期 M9 基建任务（T905 + T906 部分）
+- 总变更：规范 1 个 + 脚本 5 个（含测试）+ 配置 3 个（package.json / eslint.config.js / vitest.config.ts / test.yml）+ 文档 3 个（todo / roadmap / scripts/README）
+- `pnpm lint` 零 error（常规 lint 与 lint:i18n 双向均零）
+- `pnpm typecheck` 通过
+- `pnpm test` 75 例脚本测试全绿 + 全量 1564 测试无回归
+- `pnpm i18n:audit:missing` 零缺词；`pnpm docs:check:i18n` 零回流
+
+### 遗留登记（归档时点）
+
+- **后续阶段排期候选**（M9 非目标，移交下一阶段）：
+  - `README.en-US.md` 翻译（按 i18n 规范 §2.1 `must-sync` tier，30 天 freshness）
+  - `docs/i18n/en-US/` 镜像翻译（路线图摘要 / 开发指南 `summary-sync` 45 天；设计页 / 低频 Guide `source-only`）
+  - `apps/platform` 多语言扩展（zh-TW / ko-KR / ja-JP 等第三方语言）
+  - locale 模块化拆分（`split-locale-files` + `Locale Registry`）—— 脚本已兼容双形态，触发条件：单 locale 文件超阈值或命名空间冲突
+- **C36 服务端 API 错误消息 i18n**（M7.2 T708 非目标，backlog 登记，2026-08-11）—— M9 基建补 docs 防回流与 lint 门禁，但服务端 55 处 `createError` / `statusMessage` 中文错误消息未纳入 i18n；候选方案：错误码化或服务端按 `Accept-Language` 返回本地化
+- **C37 语言偏好多设备同步**（M7.2 T708 D3 决策，backlog 登记，2026-08-11）—— M9 基建补 lint 门禁，但用户登录态语言偏好持久化到服务端未实现（当前 Cookie 方案）；触发条件：多设备使用成为常态
+- **C26 独立沙箱容器**（backlog 保留 M9 候选）—— 见 [backlog.md §沙箱与恶意依赖防护治理登记](backlog.md#沙箱与恶意依赖防护治理登记-2026-08-14-安全专项评估)，与 BullMQ worker 结合实现网络出站白名单 + 文件系统隔离
+
 

@@ -16,7 +16,7 @@
 | M6: 最小平台 MVP | 仓库管理、凭据管理、仪表板、MCP Server、Docker 部署 | P1 | 已完成（2026-08-08 归档；T601-T605+T607 全部完成，991 tests） |
 | M7: 企业级平台增强 | M7.1 认证与用户体系（RBAC+用户管理+个人界面、OIDC SSO / GitHub·Google OAuth、邮箱域名黑白名单）；M7.2 平台能力深化（BullMQ+Redis、定时批量、i18n、生产部署、跨平台 Git、MCP 发布） | P2 | 已归档（M7.1 2026-08-10 / M7.2 2026-08-12，T702/T704/T708/T709/T710/T706 完成；T705/T703 延期 2026-08-12；后续任务 T711 覆盖率冲刺） |
 | M8: 安全加固与容器执行完备 | 兑现沙箱安全治理决议（G2-G7）：容器工具链补齐（C45）、验证命令单命令超时（C41）、凭据权限面检查（C42/C39）、供应链信号披露（C43）、外联审计日志（C40）、规范挂接 review 检查点（C44） | P0-P2 | 已完成（2026-08-14 归档；T801-T806 全部完成，20 个提交本地待推送） |
-| M9: i18n 基建同步 | 从 momei 同步 i18n 治理规范与审计脚本（缺失 key / 动态 key / 重复文案 + vue-i18n 专项 lint + docs 防回流），为 i18n 优化铺路 | P2 | 进行中（2026-08-15 启动，T901-T906；翻译内容与多语言扩展留后续） |
+| M9: i18n 基建同步 | 从 momei 同步 i18n 治理规范与审计脚本（缺失 key / 动态 key / 重复文案 + vue-i18n 专项 lint + docs 防回流），为 i18n 优化铺路 | P2 | 已完成（2026-08-18 归档；T901-T906 全部完成，5 个原子提交覆盖 6 任务，2556 行 inserts / 2539 行净增；翻译内容与多语言扩展留后续阶段） |
 
 ## M0: 基线收敛
 
@@ -111,20 +111,28 @@ Changelog / Release Notes 采集、多 AI 提供商封装、AI 研判（问题�
 
 ---
 
-## M8: 安全加固与容器执行完备（进行中）
+## M8: 安全加固与容器执行完备（已归档）
 
 > **背景（2026-08-14）**：安全专项评估确认"dependfix 自身不得成为漏洞扩散工具"为核心原则（[沙箱与恶意依赖防护治理](../design/governance/sandbox-security-governance.md)）。威胁链建模识别 4 条扩散路径（A 合法包投毒 / B 恶意仓库 owner 扫描 / C PR 合入流向下游 / D M7 并发共享容器），登记治理决议 G1-G7。G1（C38 容器执行进程非 root 降权）已修复（2026-08-14，`eb8f3c59`）；实证发现容器内 git/pnpm 工具链从未安装（C45，ContainerExecutor fix 链路实际不可用）。
 >
-> **M8 已排期（2026-08-14）**：T801 容器工具链补齐（C45，P0）→ T802 验证命令单命令超时（C41）→ T803 凭据权限面检查 + 本地模式防线（C42/C39）→ T804 供应链信号披露（C43）→ T805 外联审计日志（C40）→ T806 规范挂接 review 检查点（C44）。任务详情与验收见 [todo.md §M8](todo.md#m8-安全加固与容器执行完备2026-08-14-启动已归档)。
+> **M8 已排期（2026-08-14）**：T801 容器工具链补齐（C45，P0）→ T802 验证命令单命令超时（C41）→ T803 凭据权限面检查 + 本地模式防线（C42/C39）→ T804 供应链信号披露（C43）→ T805 外联审计日志（C40）→ T806 规范挂接 review 检查点（C44）。任务详情与验收见 [todo.md §M8](todo.md#m8-安全加固与容器执行完备2026-08-14-启动已归档)；M8 区块详情保留在 todo.md 主文档（todo-archive.md 主窗口不保留 M8，迁移时机随 T906 后续批次评估）。
 >
-> **M9 候选（backlog 保留）**：C26 独立沙箱容器（网络出站白名单 + cgroup + 每任务容器，BullMQ worker 结合）、C30 镜像构建 CI 链路裁决、C28 凭据加密存储文档章节、C29 平台 UI 暗色模式。
+> **M8 移交下一阶段候选（backlog 登记）**：C26 独立沙箱容器（网络出站白名单 + cgroup + 每任务容器，BullMQ worker 结合）、C30 镜像构建 CI 链路裁决、C28 凭据加密存储文档章节、C29 平台 UI 暗色模式。
+
+## M9: i18n 基建同步（已归档）
+
+> **背景（2026-08-15）**：momei 已沉淀成熟的 i18n 治理体系（语言分级 / freshness 分层 / 缺词 blocker / 动态 key 白名单 / 重复文案审计 / vue-i18n 专项 lint），dependfix 平台（M7.2 T708）已有基础 i18n（zh-CN + en-US 双语）但缺审计门禁与治理规范。M9 同步基建铺路，翻译内容留后续阶段。
+>
+> **M9 已交付（2026-08-15 代码与脚本 / 2026-08-18 文档归档收口）**：T901 规范同步 → T902 脚本同步（4 个 audit + 1 个 shared CLI）→ T903 脚本测试（75 例）→ T904 npm scripts + `@intlify/eslint-plugin-vue-i18n` 独立 lint 接入 → T905 CI 接入（test.yml 3 个新步骤）→ T906 文档收口（scripts/README + todo/roadmap）。5 个原子 commit（按 T901→T906 任务顺序：`49438f5` → `a4d1668` → `077823c` → `eae70cf` → `a61becc`；`077823c` 时间在 M9 主体前 9 小时跨 M8/M9 边界被 M9 复用），合计 2556 行 inserts / 2539 行净增。规划决策与验收详情见 [todo-archive.md §M9](todo-archive.md#m9-i18n-基建同步已归档)。
+>
+> **M9 移交下一阶段候选（backlog 登记）**：README.en-US.md 翻译（`must-sync` tier）/ docs/i18n/en-US 镜像翻译（`summary-sync` / `source-only`）/ platform 多语言扩展（zh-TW / ko-KR / ja-JP）/ locale 模块化拆分（脚本已兼容双形态，单 locale 超阈值或命名空间冲突时触发）。
 
 ---
 
 ## 详细任务
 
-- 当前阶段任务：[todo.md](todo.md)（M8 安全加固进行中；待人工验收项）
-- 已归档阶段：[todo-archive.md](todo-archive.md)（主窗口保留 M6/M7.1/M7.2/T711；早期阶段见 [archive/index.md](archive/index.md) 分片索引）
+- 当前阶段任务：[todo.md](todo.md)（M8 / M9 已归档；待人工验收项随真实环境推进）
+- 已归档阶段：[todo-archive.md](todo-archive.md)（主窗口保留 M6 / M7.1 / M7.2 / M9 / T711；早期阶段见 [archive/index.md](archive/index.md) 分片索引）
 - 后续阶段任务（延期项 + 未排期增强候选）：[backlog.md](backlog.md)
 
 ## 交付原则

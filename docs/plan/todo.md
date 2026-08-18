@@ -1,31 +1,10 @@
 # 当前阶段任务
 
-> **M9 i18n 基建同步（2026-08-15 启动）**：从 momei 同步 i18n 治理规范与审计脚本（缺失 key / 动态 key / 重复文案校验 + `@intlify/eslint-plugin-vue-i18n` 独立 lint），为下一阶段 i18n 优化（README 中英双版本 → docs 翻译 → platform 多语言扩展）做准备。任务拆解见下方 M9 区块。
+> **M9 i18n 基建同步已归档（2026-08-15）**：T901-T906 全部交付（5 个原子 commit 覆盖 6 任务，2556 行 inserts / 2539 行净增，详见 [todo-archive.md §M9](todo-archive.md#m9-i18n-基建同步已归档)）。依据 [i18n 规范](../standards/i18n.md) 与 momei translation-governance 蓝本，落地语言分级 / freshness 分层 / 缺词 blocker / 动态 key 白名单 / 重复文案审计 / vue-i18n 专项 lint / docs 防回流门禁；为后续 i18n 内容扩展（README 中英双版本 → docs 翻译 → platform 多语言）铺路。翻译内容与多语言扩展留后续阶段排期。
 > **M8 安全加固与容器执行完备已归档（2026-08-14）**：T801-T806 全部交付（20 个提交，本地待推送）。依据 [沙箱与恶意依赖防护治理](../design/governance/sandbox-security-governance.md) §5 治理决议（G2-G7）与 [backlog.md §沙箱与恶意依赖防护治理登记](backlog.md)（C39-C45）排期，封堵 dependfix 成为恶意依赖扩散工具的残余路径。任务拆解见下方 M8 区块。
 > **T711 覆盖率冲刺已归档（2026-08-14）**：四维 ≥ 80% 达成（Stmts 85.89% / Branch 80.6% / Funcs 85.51% / Lines 85.96%，1494 tests），记录见 [todo-archive.md §T711](todo-archive.md#t711-覆盖率口径修正--冲刺至-80已归档)。
 > **T705 / T703 已延期（2026-08-12 用户指示）**：生产级部署（PostgreSQL/Helm/Sentry）与跨平台 Git（GitLab/Bitbucket）暂缓排期，见 [backlog.md §M7.2](backlog.md#m72-平台能力深化)。
 > **T706 已完成（2026-08-12）**：`@dependfix/mcp@0.1.2` 已发布 npm；skill 双后端验证与 MCP 接入文档为轻量收尾（随文档同步跟进）。
-
----
-
-## M9: i18n 基建同步（2026-08-15 启动）
-
-- 优先级：`P2`（为后续 i18n 优化铺路，不阻塞安全与功能主线）
-- 背景：momei 已沉淀成熟的 i18n 治理体系（语言分级 / freshness 分层 / 缺词 blocker / 动态 key 白名单 / 重复文案审计 / vue-i18n 专项 lint）。dependfix 平台已有基础 i18n（zh-CN + en-US 双语），但缺审计门禁与治理规范。本轮同步基建（规范 + 脚本 + 门禁），翻译内容（README.en-US.md / docs 翻译 / 多语言扩展）留后续阶段。
-- 决策（2026-08-15 用户确认）：① 只同步基建，脚本适当优化不全量同步（缺失 key / 动态 key / 重复文案为核心）；② docs 翻译沿用 `docs/i18n/<locale>/` 镜像结构；③ 模块化拆分延后（脚本已兼容双形态）；④ `@intlify/eslint-plugin-vue-i18n` 引入但独立命令（执行慢）+ CI 校验。
-- 任务拆解（按依赖与优先级）：
-
-| 任务 | 内容 | 验收要点 |
-|:--|:--|:--|
-| **T901 规范同步** | momei translation-governance 适配为 `docs/standards/i18n.md`（语言分级 / freshness 分层 / 回退链 / 术语约束 / blocker 矩阵）+ standards/index.md 登记 | ✅ **已完成（2026-08-15）** |
-| **T902 脚本同步** | `scripts/shared/cli.mjs` + `scripts/i18n/{audit-locale-keys,audit-duplicate-messages,dynamic-key-allowlist}.mjs` + `scripts/docs/check-i18n-duplicates.mjs`，路径参数化（`--locale-root` / `--scan-root`）、单文件/模块化双形态兼容 | ✅ **已完成（2026-08-15）**：missing parity 0（两 locale key 一致）、unused 54 候选（warning）、duplicates 53 组候选、docs 检查通过 |
-| **T903 脚本测试** | 三个同步脚本补 vitest 单测（临时目录 fixture，覆盖双形态与边界） | ✅ **已完成（2026-08-15）**：42 测试全绿 |
-| **T904 npm scripts + eslint 接入** | 根 package.json 接线 `i18n:audit*` / `docs:check:i18n` / `lint:i18n`；安装 `@intlify/eslint-plugin-vue-i18n`；eslint.config.js 加 `ESLINT_I18N` 开关块（限 apps/platform，recommended 规则提升 error） | ✅ **已完成（2026-08-15）**：lint:i18n 零 error；常规 lint 不受影响 |
-| **T905 CI 接入** | test.yml 增加 `lint:i18n` + `i18n:audit:missing` + `docs:check:i18n` 步骤 | ✅ **已完成（2026-08-15）** |
-| **T906 文档收口** | scripts/README.md 登记新命令；todo/roadmap 排期 | ✅ **已完成（2026-08-15）** |
-
-- 完成定义：T901-T906 全部交付，每项独立 Review Gate Pass + 分批提交；`pnpm lint` / `typecheck` / 定向测试 / `lint:i18n` / `i18n:audit:missing` 通过。
-- 非目标（后续阶段）：README.en-US.md 翻译、docs/i18n/en-US 翻译、platform 多语言扩展（zh-TW/ko-KR/ja-JP）、locale 模块化拆分（split-locale-files + Locale Registry）。
 
 ---
 
@@ -45,7 +24,7 @@
 | **T806 安全规范挂接 review 检查点** | C44 | P1 | `code-reviewer` 的 `code-quality-checklist` 补 §5.3 检查点（与 C34 存量盘点联动） | ✅ **已完成（2026-08-14）**：`code-quality-checklist.md` 新增"修复执行安全基线（必查项）"——§5.3 十三条必须级条款逐项核验（非 root / 工作目录隔离 / 超时兜底 / pnpm 脚本防护 / 凭据最小化 / 权限面收敛 / 研判 / 供应链披露 / 白名单回传 / 资源与网络 / 威胁建模评审）+ 链接引用（单点声明不抄条款）；Code Auditor 必查项同步薄引用；C34 存量盘点保持待评估独立排期 |
 
 - 完成定义：T801-T806 全部交付，每项独立 Review Gate Pass + 分批提交；`pnpm lint` / `typecheck` / 定向测试通过（Dockerfile 类改动附容器实证）。
-- 非目标（M9 backlog）：C26 独立沙箱容器（网络出站白名单 + cgroup + 每任务容器，BullMQ worker 结合）、C30 镜像构建 CI 链路裁决、C28 凭据加密存储文档章节、C29 平台 UI 暗色模式。
+- 非目标（移交下一阶段 backlog）：C26 独立沙箱容器（网络出站白名单 + cgroup + 每任务容器，BullMQ worker 结合）、C30 镜像构建 CI 链路裁决、C28 凭据加密存储文档章节、C29 平台 UI 暗色模式。
 
 ---
 
@@ -58,6 +37,7 @@
 
 ## 当前状态
 
+- **M9 i18n 基建同步已归档（2026-08-18）**：T901-T906 全部交付，详见 [todo-archive.md §M9](todo-archive.md#m9-i18n-基建同步已归档)；代码与脚本工作 2026-08-15 完成（含 todo/roadmap 排期登记），文档侧 M9 归档块直至 2026-08-18 才补齐——本次补齐视为 M9 收口闭环。
 - **M8 安全加固与容器执行完备已交付（2026-08-14）**：T801-T806 全部完成，每项独立 Review Gate Pass + 分批提交。
 - **T711 已归档（2026-08-14）**：覆盖率冲刺完成（四维 ≥ 80%），记录见 [todo-archive.md §T711](todo-archive.md#t711-覆盖率口径修正--冲刺至-80已归档)。
 - **M7 已归档（2026-08-12）**：M7.1/M7.2 归档（T702/T704/T708/T709/T710/T706 完成），详见 [todo-archive.md](todo-archive.md)。

@@ -6,6 +6,7 @@ import { ensureDatabaseInitialized } from '#server/database'
 import { ensureDefaultOrganization, migrateLegacyRoles } from '#server/utils/organization'
 import { parseDomainList, type AuthMode } from '#server/utils/email-domain'
 import { buildCreateUserBefore } from '#server/utils/registration-access'
+import { sendTemplateMail, MailerError } from '#server/services/mailer'
 
 /**
  * better-auth 实例（邮箱密码登录 + admin 用户管理插件）。
@@ -155,10 +156,22 @@ const buildAuth = (ds: Awaited<ReturnType<typeof ensureDatabaseInitialized>>, op
             // SMTP 未配置时：不支持发送密码重置邮件（用户 MVP 仅注册 + 会话）
                 if (!options.smtpEnabled) {
                     console.warn('[auth] SMTP 未配置，密码重置邮件未发送')
+                    return
                 }
-                void user
-                void url
-                await Promise.resolve()
+                try {
+                    await sendTemplateMail('en-US', 'reset-password', {
+                        email: user.email,
+                        url,
+                        appName: 'dependfix',
+                    })
+                } catch (error) {
+                    if (error instanceof MailerError) {
+                        // fail-quiet：better-auth 捕获异常不阻塞流程；日志详细便于排障
+                        console.error(`[auth] 密码重置邮件发送失败：${error.code}`, error)
+                        return
+                    }
+                    throw error
+                }
             },
         },
         // OAuth 登录（public 模式）：clientId/clientSecret 均配置才启用，未配置自动禁用不阻塞启动
@@ -187,10 +200,21 @@ const buildAuth = (ds: Awaited<ReturnType<typeof ensureDatabaseInitialized>>, op
             // SMTP 未配置时：不发验证邮件（注册自动通过）
                 if (!options.smtpEnabled) {
                     console.warn('[auth] SMTP 未配置，验证邮件未发送')
+                    return
                 }
-                void user
-                void url
-                await Promise.resolve()
+                try {
+                    await sendTemplateMail('en-US', 'verification', {
+                        email: user.email,
+                        url,
+                        appName: 'dependfix',
+                    })
+                } catch (error) {
+                    if (error instanceof MailerError) {
+                        console.error(`[auth] 验证邮件发送失败：${error.code}`, error)
+                        return
+                    }
+                    throw error
+                }
             },
         },
         session: {
@@ -226,19 +250,26 @@ const buildAuth = (ds: Awaited<ReturnType<typeof ensureDatabaseInitialized>>, op
                 // SMTP 未配置时直接改邮箱（对齐"未配置自动跳过验证"模式）；已配置时发确认邮件
                 updateEmailWithoutVerification: !options.smtpEnabled,
                 sendChangeEmailConfirmation: async ({ user, newEmail, url }) => {
-                // SMTP 未配置时：不发确认邮件（changeEmail 直接生效）
-                // SMTP 已配置但邮件发送器未实现：确认邮件不发出（既有降级模式，
-                // 与 sendVerificationEmail/sendResetPassword 一致；统一实现已登记
-                // docs/plan/backlog.md「邮件发送器统一实现」条目）
+                // SMTP 未配置时：不发确认邮件（changeEmail 直接生效，updateEmailWithoutVerification 已为 true）
+                // SMTP 已配置：经 mailer service 发送（fail-quiet：异常被 better-auth 捕获不阻塞流程）
                     if (!options.smtpEnabled) {
                         console.warn('[auth] SMTP 未配置，邮箱变更确认邮件未发送')
-                    } else {
-                        console.warn('[auth] 邮件发送器未实现，邮箱变更确认邮件未发送（变更需在 verify-email 链接确认）')
+                        return
                     }
-                    void user
-                    void newEmail
-                    void url
-                    await Promise.resolve()
+                    try {
+                        await sendTemplateMail('en-US', 'change-email', {
+                            email: user.email,
+                            newEmail,
+                            url,
+                            appName: 'dependfix',
+                        })
+                    } catch (error) {
+                        if (error instanceof MailerError) {
+                            console.error(`[auth] 邮箱变更确认邮件发送失败：${error.code}`, error)
+                            return
+                        }
+                        throw error
+                    }
                 },
             },
         },

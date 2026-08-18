@@ -1,12 +1,12 @@
 # 当前阶段任务
 
-> **M10 独立沙箱容器 C26 实施规划已就绪（2026-08-19 启动，P1 进行中）**：依赖 T702 BullMQ worker + T802 进程组隔离 + T805 网络审计 + C38/C45 容器侧降权/工具链修复均已落地，决策会议结论（Docker rootless runtime + 应用层白名单代理 + cgroup v2 双层；仓库级资源默认 + 用户可改；SandboxExecutor 与 ContainerExecutor 并存保留单机场景；自托管 docker-compose 优先，K8s+Helm 仅规划）已登记。完整拆解见下方 M10 区块。
-> **T912 SMTP 邮件发送器（2026-08-18 启动，P2 进行中）**：引入 `nodemailer` 统一实现 better-auth 三处邮件回调（`sendVerificationEmail` / `sendResetPassword` / `sendChangeEmailConfirmation`），原 M6 模式（SMTP 未配置降级 `console.warn`）不再静默空跑；触发条件达成（[backlog §M7.1 「邮件发送器统一实现」](backlog.md#m71-认证与用户体系)登记）。任务拆解见下方 T912 区块。
-> **M8 安全加固与容器执行完备已归档（2026-08-14）**：T801-T806 全部交付（20 个提交，本地待推送；M10 §C26 实施规划已激活）。详见 [todo-archive.md §M8](todo-archive.md#m8-安全加固与容器执行完备已归档)。
-> **M9 i18n 基建同步已归档（2026-08-15）**：T901-T906 全部交付（5 个原子 commit 覆盖 6 任务，2556 行 inserts / 2539 行净增，详见 [todo-archive.md §M9](todo-archive.md#m9-i18n-基建同步已归档)）。依据 [i18n 规范](../standards/i18n.md) 与 momei translation-governance 蓝本，落地语言分级 / freshness 分层 / 缺词 blocker / 动态 key 白名单 / 重复文案审计 / vue-i18n 专项 lint / docs 防回流门禁；为后续 i18n 内容扩展（README 中英双版本 → docs 翻译 → platform 多语言）铺路。翻译内容与多语言扩展留后续阶段排期。
-> **T711 覆盖率冲刺已归档（2026-08-14）**：四维 ≥ 80% 达成（Stmts 85.89% / Branch 80.6% / Funcs 85.51% / Lines 85.96%，1494 tests），记录见 [todo-archive.md §T711](todo-archive.md#t711-覆盖率口径修正--冲刺至-80已归档)。
-> **T705 / T703 已延期（2026-08-12 用户指示）**：生产级部署（PostgreSQL/Helm/Sentry）与跨平台 Git（GitLab/Bitbucket）暂缓排期，见 [backlog.md §M7.2](backlog.md#m72-平台能力深化)。
-> **T706 已完成（2026-08-12）**：`@dependfix/mcp@0.1.2` 已发布 npm；skill 双后端验证与 MCP 接入文档为轻量收尾（随文档同步跟进）。
+> **M10 独立沙箱容器 C26 实施规划（P1 进行中，2026-08-19 启动）**：依赖 T702 / T802 / T805 / C38 / C45 全部前置已落地；决策会议结论（Docker rootless runtime + 应用层白名单代理 + cgroup v2 双层；`SandboxRuntimeAdapter` 不强绑定 rootless；`SandboxExecutor` 与 `ContainerExecutor` 并存；自托管 docker-compose 优先 / K8s+Helm 仅规划）已登记。完整拆解见下方 M10 区块
+>
+> **T912 SMTP 邮件发送器（P2 进行中，2026-08-18 启动）**：[backlog §M7.1 触发条件达成](backlog.md#m71-认证与用户体系)，引入 `nodemailer` 统一实现 better-auth 三处邮件回调（T912-1 / T912-2 已 commit，T912-3 安全与文档进行中 + 与 C28 联动）。完整拆解见下方 T912 区块
+>
+> **近期归档（M6 / M7 / M8 / M9 / T711 全部完成）**：完整记录见 [todo-archive.md](todo-archive.md)（最近主窗口段：[§M8](todo-archive.md#m8-安全加固与容器执行完备已归档)、[§M9](todo-archive.md#m9-i18n-基建同步已归档)、[§T711](todo-archive.md#t711-覆盖率口径修正--冲刺至-80已归档)）
+>
+> **T705 / T703 已延期（2026-08-12 用户指示）**：生产级部署（PostgreSQL/Helm/Sentry）与跨平台 Git（GitLab/Bitbucket）暂缓排期，详见 [backlog.md §M7.2](backlog.md#m72-平台能力深化)
 
 ---
 
@@ -141,21 +141,7 @@
 - **T704 async 定时触发**：BullMQ upsertJobScheduler 短间隔 every 集成测试（需 Redis >= 5）；Schedule CRUD e2e 补覆盖（当前单测 44 例，e2e 未覆盖）
 - **发布管线收尾（P3）**：release:auto-version 完整流程待 schedule 启用后首个 cron 裁决；main 副作用路径测试观察项
 
-## 当前状态
-
-活跃任务：**M10** 独立沙箱容器 C26 实施规划（P1，2026-08-19 启动）+ **T912** SMTP 邮件发送器（P2，2026-08-18 启动）。
-
-近线归档：
-
-- **M9 i18n 基建同步已归档（2026-08-18）**：T901-T906 全部交付，详见 [todo-archive.md §M9](todo-archive.md#m9-i18n-基建同步已归档)；代码与脚本工作 2026-08-15 完成（含 todo/roadmap 排期登记），文档侧 M9 归档块直至 2026-08-18 才补齐——本次补齐视为 M9 收口闭环
-- **M8 安全加固与容器执行完备已归档（2026-08-14）**：T801-T806 全部完成（20 个提交本地待推送），详见 [todo-archive.md §M8](todo-archive.md#m8-安全加固与容器执行完备已归档)；M10 §C26 实施规划已激活承接 G5 治理项
-- **T711 覆盖率冲刺已归档（2026-08-14）**：四维 ≥ 80% 达成，记录见 [todo-archive.md §T711](todo-archive.md#t711-覆盖率口径修正--冲刺至-80已归档)
-- **M7 已归档（2026-08-12）**：M7.1 / M7.2 完整记录见 [todo-archive.md](todo-archive.md)（T702 / T704 / T708 / T709 / T710 / T706 完成）；T705 / T703 按用户指示延期至 [backlog.md §M7.2](backlog.md#m72-平台能力深化)
-
 ## 已知边界
 
 - **npx skills GitHub 源端到端验证**（M5.5 遗留，本机 clone github.com 网络受限）依赖 CI 端到端裁决
-- **C30 Publish Docker 双平台 CI 链路**：⏸️ 2026-08-18 用户决策暂缓（[backlog.md C30](backlog.md) — 恢复条件：高频 push / 镜像正式发布需求 / 用户明确恢复）
-- **C28 security.md §凭据加密存储 章节** 未补（[backlog.md §M6](backlog.md) — 与 T912-3 安全与文档联动）
-- **C29 平台 UI 暗色模式** 暂缓（[backlog.md §M6](backlog.md)，需 UI Validator 视觉验证）
-- **M8 / T711 本地 20 个提交未推送**：M8 + T711 提交累计 20 个，仍在本地待推送；归档仅文档侧闭合（todo-archive 主窗口区块就位）
+- C28 / C29 / C30 等 pending backlog 项详见下方"待评估候选"表 + [backlog.md](backlog.md)，不在此重复列出

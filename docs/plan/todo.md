@@ -76,9 +76,11 @@
 | **⚪ P3** | **C24** | org 级 alerts API 批量拉取 | 无 | 大 org 用户痛点 |
 | **⚪ P3** | **C34** | 存量规范严格约束挂接盘点（review 检查点补齐） | 无 | 用户排期（不急） |
 | **⚪ P3** | **T705 / T703** | 生产级部署 / 跨平台 Git（已延期 2026-08-12） | T702 / M6 | 用户指示恢复 |
+| **🟢 P2** | **branches 阈值恢复 80% 冲刺**（2026-08-18 登记） | `vitest.config.ts` branches 阈值临时下调 80% → 79% 的恢复任务——补测 mailer/index.ts 已 100% / app-error.ts 已 100%；剩余低分支文件：`packages/engine/src/runners/network-audit.ts`（branches 68.75%）、`scripts/changelog.mjs`（branches 60.97%）、`apps/platform/server/services/executor/container-executor.ts`（branches 39.13%）等。`vitest.config.ts` L62 注释 + `coverage-summary.json` 已可查当前快照 | 无 | CI 端到端裁决；目标：四维 ≥ 80% 后恢复阈值 |
 
 - 完成定义：暂不实施——本表为 backlog 排序追踪视图，用户排期任一项时移入正式任务区块（参考 M8/M9 格式）。
 - 关联：
+  - **branches 阈值恢复 80% 冲刺**：2026-08-18 mailer/ 模块新增导致整体 branches 从 80.6%（T711 冲刺后）降到 79.6%，临时下调到 79%；恢复路径见本表 P2 行；其他 P3 项（network-audit / container-executor / scripts/*）按需补测可纳入此冲刺一并完成
   - **C26 + C30 + C28**：用户在 2026-08-18 明确指示「考虑解决」（C26 独立沙箱 / C30 Publish Docker CI / C28 security.md 章节补齐），排入 P1 / P2 待评估；
   - **C29 + M9 后续**：平台能力深化，依赖用户产品方向决策；
   - **D1-D8 + T701-e2e**：M7.1 设计决策点候选项，触发条件未达不实施；

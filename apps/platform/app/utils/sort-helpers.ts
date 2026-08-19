@@ -65,7 +65,7 @@ export function withSeverityRank<T extends { severity: string }>(items: T[]): (T
 }
 
 /** 给数据集每个对象补 `_statusRank` 派生字段（用于运行状态：running / completed / failed）。 */
-export function withStatusRank<T extends { status: string }>(items: T[]): Array<T & { _statusRank: number }> {
+export function withStatusRank<T extends { status: string }>(items: T[]): (T & { _statusRank: number })[] {
     return items.map((item) => ({
         ...item,
         _statusRank: STATUS_RANK[item.status] ?? 0,
@@ -73,7 +73,7 @@ export function withStatusRank<T extends { status: string }>(items: T[]): Array<
 }
 
 /** 给数据集每个对象补 `_statusRank` 派生字段（用于 runs.vue 状态全集：pending/dispatched/...）。 */
-export function withRunStatusRank<T extends { status: string }>(items: T[]): Array<T & { _statusRank: number }> {
+export function withRunStatusRank<T extends { status: string }>(items: T[]): (T & { _statusRank: number })[] {
     return items.map((item) => ({
         ...item,
         _statusRank: RUN_STATUS_RANK[item.status] ?? 0,
@@ -89,7 +89,7 @@ export function withFixStatusRank<T extends { fixStatus: string }>(items: T[]): 
 }
 
 /** 给数据集每个对象补 `_roleRank` 派生字段。role 可为 null/undefined（视为 0）。 */
-export function withRoleRank<T extends { role: string | null | undefined }>(items: T[]): Array<T & { _roleRank: number }> {
+export function withRoleRank<T extends { role: string | null | undefined }>(items: T[]): (T & { _roleRank: number })[] {
     return items.map((item) => ({
         ...item,
         _roleRank: item.role ? (ROLE_RANK[item.role] ?? 0) : 0,

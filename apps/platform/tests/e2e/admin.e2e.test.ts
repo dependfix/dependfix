@@ -11,9 +11,11 @@ test.describe('仪表板', () => {
         await page.goto('/dashboard')
         await waitForHydration(page)
         await expect(page.locator('h2')).toContainText('仪表板')
-        // 统计区域：仓库数 / 告警总数 / 已修复数
+        // 统计区域：仓库数 / 告警总数 / 已修复数 / 最近扫描——C61 后图表卡（dashboard__charts）扩展到 7 张
         await expect(page.locator('.dashboard')).toBeVisible()
-        await expect(page.locator('.dashboard .p-card')).toHaveCount(4, { timeout: 15000 })
+        await expect(page.locator('.dashboard__stats .p-card')).toHaveCount(4, { timeout: 15000 })
+        // 图表区 3 张卡片（C61 新增 severity/fixRate/topPackages）
+        await expect(page.locator('.dashboard__charts .p-card')).toHaveCount(3, { timeout: 15000 })
     })
 
     test('导航栏渲染完整', async ({ page }) => {

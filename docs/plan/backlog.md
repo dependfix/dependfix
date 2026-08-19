@@ -349,6 +349,96 @@
   - 关联:C53(后置 M11 评估)+ PR1/C47(Dialog 默认不可拖动,该页 Dialog 同样受益)
   - 来源:2026-08-19 用户反馈"刷新周期增加,但是也提供一个手动刷新按钮";2026-08-19 用户决策"轮询时间改到 60 秒"
 
+- **C56 批量扫描 Dialog 关闭时序（用户感知"点了不关"）**（M6 平台可选项 / 2026-08-20 用户实测反馈）
+  - 状态:🔶 待评估
+  - 位置:`apps/platform/app/pages/repos.vue` `submitBatchScan`（293-313 行）+ `batchDialogVisible` ref
+  - 现象:用户点击"开始扫描"后,Dog 一直 spinning + 弹窗保持可见,直到 200 OK(包含 `/api/repos/batch-scan` 返回) 才关闭并跳转 `/batch-runs`。用户实操感觉"点了不关"(测试时通常 sync 模式几百毫秒,但真实 batch 任务可能 1-5s,期间弹窗看起来"卡住")
+  - 现状（代码层 `submitBatchScan` line 293-313）:
+    - `await $fetch('/api/repos/batch-scan', ...)` → `batchDialogVisible.value = false` → `await navigateTo('/batch-runs')`
+    - dialog 关闭 promise 与 navigateTo 顺序串行:fetch 完成 → dialog 关闭 → 跳转
+    - 失败路径(catch)会保留 dialog + 写 `batchError`,用户能看到错误 → 这是正确行为
+  - 根因:乐观关闭缺失。当前实现是"等数据回来才关",延迟时长 = 后端 batch 任务分流耗时。同步模式测试快所以不易察觉,异步模式(B 模式 / 队列模式) fetch 本身耗时更长,用户感知更明显
+  - 修复方向（候选）:
+    - **方案 A(推荐,最小改动)**:乐观关闭 — 提交前 `batchDialogVisible.value = false`,loading 反馈改由 toast/按钮 loading 在 /batch-runs 页面承接。失败时回滚 dialog 并显示错误(`onError` 重新打开 batchDialogVisible)
+    - **方案 B**:Dialog 内部加进度展示 — 提交后 dialog 变"已加入队列,正在跳转……"+ 进度条,关闭时机推迟到 navigateTo 完成后
+    - **方案 C**:拆解按钮为"提交 + 立即跳转"二态 — 先关 dialog + 跳转,后台执行 fetch(失去立即反馈但无延迟感知)
+  - 推荐 A:改动小(2-3 行),保留错误反馈路径;无须后端或 e2e 协议层改动
+  - 验收要点:点击"开始扫描"后 dialog 立即关闭(< 100ms 视觉反馈);失败时 dialog 重新打开 + 显示 `batchError`;成功 toast 仍存在 3s;`/batch-runs` 跳转时机同当前
+  - 关联:C47(全站 Dialog 规范统一体验)+ e2e `batch.e2e.test.ts:60-65` 需补 dialog 立即关闭的断言(目前只断 URL 跳转,未断 dialog 早于跳转关闭)
+  - 复杂度:🟢 小(单文件 2-3 行 + 1 个 e2e 断言)
+  - 来源:2026-08-20 用户实测反馈 + 截图
+
+- **C57 扫描历史 Dialog 缺面包屑/返回(单 Dialog 双 view 缺少导航)**（M6 平台可选项 / 2026-08-20 用户实测反馈）
+  - 状态:🔶 待评估
+  - 位置:`apps/platform/app/components/RepoHistoryDialog.vue`(243 行,全文件)
+  - 现象:用户点击行级 `pi-history` → URL 变为 `/repos?history={id}` → Dialog 打开显示 run 列表 → 点击某行 `pi-eye` → Dialog 内部切换为 detail view(同一个 Dialog) → 关闭 Dialog → 用户回到 /repos 页面,无任何提示;再次想看 list 需重新点击 `pi-history`
+  - 现状(C51 应用层修复产物):
+    - `apps/platform/app/pages/repos/[id]/runs.vue` 子路由已弃用,删除迁移到 Dialog(单组件内 list ↔ detail 内部状态切换)
+    - 当前 `detail.value` 状态决定显示 list 还是 detail(无 breadcrumb / 无"返回列表"按钮)
+    - 关闭时 `closeDialog` 同时清空 `repoId.value` + `runs.value` + `resetDetail()` + `route.query.history` → 完全态清理
+  - 用户体验问题:detail view 是"末端"无回溯;用户想"回到 list 看其他 run" 只能:
+    1. 点 X 关闭 → 重新点 pi-history → fetch 重新跑(浪费 HTTP)
+    2. 或浏览器后退 → 当前实现 `route.query.history` 监听会触发 fresh fetch
+  - 修复方向（候选）:
+    - **方案 A(推荐)**:detail view 加"返回列表"按钮 (icon: `pi pi-arrow-left` + i18n `runs.backToList`),置于 Dialog header 旁;点击 `resetDetail()` 即可,无须重 fetch
+    - **方案 B**:改为路由化 — `/repos?history={id}&run={rid}` 双 query,支持浏览器后退,与 list/detail 深度链接
+    - **方案 C**:detail view 内嵌 inline list(左侧 list 右侧 detail)— 改造面大,576×720 Dialog 容纳难度高
+  - 推荐 A:改动小(1 个 button + 1 个 handler),保留当前 C51 的应用层修复成果
+  - 验收要点:detail view 左上角"返回列表"按钮可见;点击后回到 list view 不重 fetch(`runs.value` 保留);长路径深度链接 `/repos?history={id}` 仍可独立打开 list
+  - 关联:C51(应用层 runs.vue 替代方案,本条目是该方案的 UX 补救)
+  - 复杂度:🟢 小(单文件 1 handler + 1 button + i18n 1 键)
+  - 来源:2026-08-20 用户实测反馈
+
+- **C58 告警视图按包聚合 + 数据可视化图表**（M6 平台 增强 / 2026-08-20 用户反馈）
+  - 状态:🔶 待评估
+  - 位置:`apps/platform/app/pages/alerts.vue`(279 行) + `apps/platform/server/api/alerts.get.ts` 数据源
+  - 现象:当前 alerts 视图是 alert 维度扁平 DataTable(`<DataTable :value="alerts">` 单行一告警),一行包一行散落;用户要看"这个包都有哪些告警" 需手动按列排序再肉眼分组;无图表,无法直观看出"严重级别分布 / 包告警数排名 / 修复成功率"
+  - 现状:
+    - 9 列扁平(仓库/严重级别/包名/来源/可修复/推荐版本/状态/链接),适合"看单条告警 + 跳 GitHub"
+    - 缺聚合口径:`countByPackage / countBySeverity / countBySource / fixRate` 均未暴露
+    - 后端已有 `/api/alerts` 端点聚合查询,加 1 个 `?groupBy=package|severity|source` 参数即可
+    - 前端缺图表组件:PrimeVue 4 内置 `<Chart>` 包装 Chart.js,但需引入 `chart.js` 依赖
+  - 修复方向（候选）:
+    - **方案 A(端到端小改)**:告警表加 group row(`rowGroup` 模式 by `packageName`),同一包多条告警物理聚合;后端查询加 `groupBy` 参数;前端依赖 PrimeVue `<DataTable rowGroupMode="subheader">` 实现
+    - **方案 B(可视化补强)**:增加统计卡片区(severity 饼图 + Top-10 alert package 柱状图 + fixRate 环形进度);PrimeVue `<Chart>` + Chart.js 引入(约 +5-10 行 + 1 依赖)
+    - **方案 C(A+B 组合,推荐)**:A 解决"按包聚合" + B 解决"图表";工期估算 +160-220 行 + 1 依赖 + 5-7 个新 i18n 键 + 1 个 e2e 聚合筛选
+  - 推荐 C:复合需求,拆 2 个子任务 C58-1(rowGroup) + C58-2(Chart 卡片),各自独立评审
+  - 验收要点:
+    - C58-1:DataTable `rowGroupMode="subheader"` by `packageName` 渲染,包名折叠后显示 N 个告警;group 计数显示在 subheader
+    - C58-2:统计卡片 3 块(severity 饼图 / Top-10 包 / fixRate);依赖 i18n 完整;Chart.js tree-shakable 引入(避免 +200KB)
+  - 关联:无直接前置;M11 阶段候选(依赖业务认可"告警是核心入口");若有 M11 排期再处理
+  - 复杂度:🟡 中(2 sub-task,后端 + 前端 + i18n + e2e)
+  - 来源:2026-08-20 用户反馈
+
+- **C59 暗色模式全局样式未生效（PrimeVue 组件响应,自定义 SCSS 不响应）**（M6 平台 bugfix / 2026-08-20 用户实测 + 截图确认）
+  - 状态:🔶 待评估（原 C29 复盘升档 — 2026-08-20 用户截图证实仍未解决）
+  - 位置:
+    - `apps/platform/app/assets/styles/_mixins.scss:4-8` → `@mixin dark-mode { :global(.dark) & { @content; } }`(主因)
+    - `apps/platform/app/assets/styles/main.scss`(全局 3 处 `@include dark-mode`:body / `.platform__header` / `.auth`)+ `apps/platform/app/components/ImportReposDialog.vue:471`(scoped 1 处 `.import-form__list`);mixin 改动 4 处自动 work
+    - `apps/platform/nuxt.config.ts:60` → `main.scss` 作为**全局 CSS** 加载(`css: ['primeicons/primeicons.css', '@/assets/styles/main.scss']`),**非 scoped**
+  - 现象(用户截图):
+    - 顶部 header `.platform__header` 在 dark mode 下保持浅色背景(应该是 `$color-surface-dark: #1e293b`)
+    - body 主背景仍 `$color-bg: #ffffff`(应该是 `$color-bg-dark: #0f172a`)
+    - PrimeVue DataTable / Dialog / Tag 切换正常(因为 PrimeVue 通过 `darkModeSelector: '.dark'` 切主题 CSS 变量,与 SCSS 无关)
+    - 视觉效果:页面"半亮半暗" — PrimeVue 组件区暗,自定义布局区亮
+  - 根因(已代码层定位):
+    - `:global(.dark)` 是 CSS Modules 语法(只在 `<style scoped>` 内有效)
+    - `main.scss` 是全局 CSS,无 scope;`:global(.dark) &` 编译后变成 `:global(.dark) .platform__header`,`:global(.dark)` 不是合法 CSS 选择器,浏览器静默忽略
+    - 正确写法(全局上下文):直接 `.dark & { @content; }` 或 `:where(.dark) & { ... }`(零特异性) 或 `@at-root .dark .parent { ... }`
+  - 修复方向（候选）:
+    - **方案 A(推荐,1 行修复)**:`_mixins.scss` 的 `@mixin dark-mode` 把 `:global(.dark) &` 改为 `.dark &`(去掉 `:global()` 包装);4 处 `@include dark-mode` 自动 work
+    - **方案 B**:把 `main.scss` 改为 `<style>` scoped 块 — 工程量较大,所有选择器需重排
+    - **方案 C**:每个选择器手写 `.dark .xxx { ... }` — 体力活,4 处 × 2-3 行 = 12-15 行
+  - 推荐 A:删 `:global()` 包装即生效,1 行 mixin 改动 + 视觉验证
+  - 验收要点:
+    - 切到 dark mode 后:**header / body / nav / auth 页 / 全部自定义 SCSS 容器** 全部跟随 `.dark` 类切色
+    - PrimeVue 组件(table / dialog / tag / select) 与自定义 SCSS 视觉一致(同步亮/暗)
+    - 截图验证:用户实测提供的"半亮半暗"截图,修复后变为"全暗"
+    - 切换动画 0.2s 仍然流畅(已有的 `transition: background-color 0.2s ease, color 0.2s ease` 保留)
+  - 关联:原 C29(T601 暗色模式 initial 实现,2026-08-10 用户反馈"暗色模式依旧不可用")兜底升档;与 C47 Dialog 规范无关
+  - 复杂度:🟢 小(1 行 mixin 修复 + 全局样式覆盖验证 + 截图回归)
+  - 来源:2026-08-20 用户截图(浅色 header + 暗色 table 反差)+ 原文代码层根因分析
+
 - **C30 Publish Docker build job 被取消/失败排查**（M6 归档 CI 端到端裁决登记）
   - 状态：⏸️ **已暂缓（2026-08-18 用户决策）**——原 🔶 待评估
   - 内容：Publish Docker 工作流 build job（run 31260609196，e16aeda4 触发）在 QEMU 双平台（linux/amd64,linux/arm64）构建中运行 1h19m 后被取消（`##[error]The operation was canceled.`）。**根因已定位**：同 workflow 同 ref（master）的新 push（7cb1ad22d，15:13:11）触发 concurrency `cancel-in-progress: true` 取消旧 run；叠加 QEMU arm64 模拟构建过慢（1h+ 未完成）。缓解方向：docker.yml 拆分平台构建或减少平台、优先 amd64、验证 gha cache 命中；若采用频繁 push + 双平台模式，需评估取消旧 run 对镜像发布的影响

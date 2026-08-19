@@ -190,7 +190,7 @@ onUnmounted(() => {
     pollCancelled = true
 })
 
-const triggerScan = async (repo: RepoView) => {
+const triggerScan = async (repo: RepoView, mode: string, severity: string) => {
     pollCancelled = false
     scanError.value = ''
     scanSuccess.value = ''
@@ -204,8 +204,8 @@ const triggerScan = async (repo: RepoView) => {
         const run = await $fetch(`/api/repos/${repo.id}/scan`, {
             method: 'POST',
             body: {
-                mode: 'report-only',
-                severityThreshold: 'high',
+                mode,
+                severityThreshold: severity,
                 executorKind: repo.executorKind === 'github-action' ? 'github-action' : undefined,
             },
         })
@@ -239,7 +239,41 @@ watch(toastMessage, (v) => {
     }
 })
 
-// ===== 批量扫描（勾选多仓库 → 一次触发 → 跳转批量运行页）=====
+// 扫描模式/严重级别选项（批量 + 单仓库 Dialog 共享，见 docs/plan/todo.md §PR2 C52）
+const modeOptions = computed(() => [
+    { label: t('common.scanMode.reportOnly'), value: 'report-only' },
+    { label: t('common.scanMode.fix'), value: 'fix' },
+    { label: t('common.scanMode.fixAndPr'), value: 'fix-and-pr' },
+])
+
+const severityOptions = computed(() => [
+    { label: 'Critical', value: 'critical' },
+    { label: 'High', value: 'high' },
+    { label: 'Medium', value: 'medium' },
+    { label: t('common.severity.all'), value: 'all' },
+])
+
+// 单仓库扫描配置 Dialog state（见 docs/plan/todo.md §PR2 C52）
+const scanConfigDialogVisible = ref(false)
+const scanConfigRepo = ref<RepoView | null>(null)
+const scanConfigMode = ref('report-only')
+const scanConfigSeverity = ref('high')
+
+const openScanConfig = (repo: RepoView) => {
+    scanConfigRepo.value = repo
+    scanConfigMode.value = 'report-only'
+    scanConfigSeverity.value = 'high'
+    scanConfigDialogVisible.value = true
+}
+
+const submitScanConfig = () => {
+    const repo = scanConfigRepo.value
+    if (!repo) return
+    scanConfigDialogVisible.value = false
+    void triggerScan(repo, scanConfigMode.value, scanConfigSeverity.value)
+}
+
+// 批量扫描（勾选多仓库 → 跳转批量运行页）
 const selectedRows = ref<RepoView[]>([])
 const batchDialogVisible = ref(false)
 const batchSubmitting = ref(false)
@@ -247,23 +281,8 @@ const batchError = ref('')
 const batchMode = ref('report-only')
 const batchSeverityThreshold = ref('high')
 
-const batchModeOptions = computed(() => [
-    { label: t('common.scanMode.reportOnly'), value: 'report-only' },
-    { label: t('common.scanMode.fix'), value: 'fix' },
-    { label: t('common.scanMode.fixAndPr'), value: 'fix-and-pr' },
-])
-
-const batchSeverityOptions = computed(() => [
-    { label: 'Critical', value: 'critical' },
-    { label: 'High', value: 'high' },
-    { label: 'Medium', value: 'medium' },
-    { label: t('common.severity.all'), value: 'all' },
-])
-
 const openBatchScan = () => {
-    if (!selectedRows.value.length) {
-        return
-    }
+    if (!selectedRows.value.length) return
     batchError.value = ''
     batchMode.value = 'report-only'
     batchSeverityThreshold.value = 'high'
@@ -428,7 +447,7 @@ const importDialogVisible = ref(false)
                                 :disabled="scanningId !== null && scanningId !== data.id"
                                 :aria-label="t('repos.actionTriggerScan')"
                                 :title="t('repos.actionTriggerScan')"
-                                @click="triggerScan(data)"
+                                @click="openScanConfig(data)"
                             />
                             <Button
                                 icon="pi pi-history"
@@ -629,7 +648,7 @@ const importDialogVisible = ref(false)
                         <Select
                             id="batchMode"
                             v-model="batchMode"
-                            :options="batchModeOptions"
+                            :options="modeOptions"
                             option-label="label"
                             option-value="value"
                             fluid
@@ -640,7 +659,7 @@ const importDialogVisible = ref(false)
                         <Select
                             id="batchSeverity"
                             v-model="batchSeverityThreshold"
-                            :options="batchSeverityOptions"
+                            :options="severityOptions"
                             option-label="label"
                             option-value="value"
                             fluid
@@ -664,6 +683,16 @@ const importDialogVisible = ref(false)
             </div>
         </Dialog>
 
+        <ScanConfigDialog
+            v-model:visible="scanConfigDialogVisible"
+            v-model:mode="scanConfigMode"
+            v-model:severity="scanConfigSeverity"
+            :repo="scanConfigRepo"
+            :mode-options="modeOptions"
+            :severity-options="severityOptions"
+            @submit="submitScanConfig"
+        />
+
         <RepoHistoryDialog />
     </div>
 </template>
@@ -675,102 +704,35 @@ const importDialogVisible = ref(false)
         align-items: center;
         justify-content: space-between;
         margin-bottom: $space-5;
+        h2 { margin: 0 0 $space-1; }
+        p { margin: 0; font-size: $font-size-sm; }
     }
-
-    &__header h2 {
-        margin: 0 0 $space-1;
-    }
-
-    &__header p {
-        margin: 0;
-        font-size: $font-size-sm;
-    }
-
-    &__header-actions {
-        display: flex;
-        align-items: center;
-        gap: $space-2;
-    }
+    &__header-actions { display: flex; align-items: center; gap: $space-2; }
 }
 
 .repo-form {
     display: flex;
     flex-direction: column;
     gap: $space-4;
-
-    &__row {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: $space-3;
+    &__row { display: grid; grid-template-columns: 1fr 1fr; gap: $space-3; }
+    &__field { display: flex; flex-direction: column; gap: $space-1;
+        label { font-size: $font-size-sm; font-weight: 500; }
     }
-
-    &__field {
-        display: flex;
-        flex-direction: column;
-        gap: $space-1;
-    }
-
-    &__field label {
-        font-size: $font-size-sm;
-        font-weight: 500;
-    }
-
-    &__actions {
-        display: flex;
-        justify-content: flex-end;
-        gap: $space-2;
-        margin-top: $space-2;
-    }
+    &__actions { display: flex; justify-content: flex-end; gap: $space-2; margin-top: $space-2; }
 }
 
-.repos__tags {
-    display: flex;
-    flex-wrap: wrap;
-    gap: $space-1;
-}
+.repos__tags { display: flex; flex-wrap: wrap; gap: $space-1; }
 
 .batch-form {
     display: flex;
     flex-direction: column;
     gap: $space-4;
-
-    &__repos {
-        display: flex;
-        flex-wrap: wrap;
-        gap: $space-1;
-        max-height: 120px;
-        overflow-y: auto;
+    &__repos { display: flex; flex-wrap: wrap; gap: $space-1; max-height: 120px; overflow-y: auto; }
+    &__repo { font-size: $font-size-sm; background-color: rgba($color-primary, 0.08); border-radius: $radius-sm; padding: $space-1 $space-2; }
+    &__row { display: grid; grid-template-columns: 1fr 1fr; gap: $space-3; }
+    &__field { display: flex; flex-direction: column; gap: $space-1;
+        label { font-size: $font-size-sm; font-weight: 500; }
     }
-
-    &__repo {
-        font-size: $font-size-sm;
-        background-color: rgba($color-primary, 0.08);
-        border-radius: $radius-sm;
-        padding: $space-1 $space-2;
-    }
-
-    &__row {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: $space-3;
-    }
-
-    &__field {
-        display: flex;
-        flex-direction: column;
-        gap: $space-1;
-    }
-
-    &__field label {
-        font-size: $font-size-sm;
-        font-weight: 500;
-    }
-
-    &__actions {
-        display: flex;
-        justify-content: flex-end;
-        gap: $space-2;
-        margin-top: $space-2;
-    }
+    &__actions { display: flex; justify-content: flex-end; gap: $space-2; margin-top: $space-2; }
 }
 </style>

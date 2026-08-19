@@ -481,9 +481,12 @@
         "colResult": "Result",
         "openRun": "Open run",
         "subEmpty": "No scan runs",
+        "forceFail": "Force Fail",
+        "forceFailConfirm": "Force fail this batch? All in-flight sub-runs will be marked as failed (cannot be undone).",
         "errors": {
             "loadFailed": "Failed to load: {message}",
-            "detailLoadFailed": "Failed to load details: {message}"
+            "detailLoadFailed": "Failed to load details: {message}",
+            "forceFailFailed": "Force fail failed: {message}"
         }
     },
     "runs": {

@@ -164,6 +164,25 @@ const onRowExpand = (event: { data: BatchRunView }) => {
     void fetchDetail(event.data.id)
 }
 
+/** 强制结束卡住的 BatchRun（应急逃生口）
+ * 仅 admin 角色可触发；后端幂等（已终态直接返回）；成功后刷新列表 */
+const forceFailing = ref<Record<string, boolean>>({})
+const forceFail = async (id: string): Promise<void> => {
+    if (forceFailing.value[id]) return
+    if (!confirm(t('batchRuns.forceFailConfirm'))) return
+    forceFailing.value[id] = true
+    try {
+        await $fetch(`/api/batch-runs/${id}/force-fail`, { method: 'POST' })
+        // 成功后立刻刷新列表 + 清掉展开详情缓存（终态后详情陈旧）
+        delete detailMap.value[id]
+        await fetchBatchRuns()
+    } catch (e: any) {
+        error.value = t('batchRuns.errors.forceFailFailed', { message: e?.data?.message ?? e?.message ?? t('common.errors.unknown') })
+    } finally {
+        forceFailing.value[id] = false
+    }
+}
+
 // 进行中批次轮询（60s 间隔；组件卸载清理）——前端轮询详情即触发后端聚合收敛
 let pollTimer: ReturnType<typeof setInterval> | null = null
 const runningIds = computed(() => batchRuns.value.filter((b) => b.status === 'running').map((b) => b.id))
@@ -270,7 +289,19 @@ onUnmounted(stopPolling)
                     </Column>
                     <Column :header="t('batchRuns.colStatus')">
                         <template #body="{data}">
-                            <Tag :value="statusTag(data.status).label" :severity="statusTag(data.status).severity" />
+                            <div class="batch-runs__status-cell">
+                                <Tag :value="statusTag(data.status).label" :severity="statusTag(data.status).severity" />
+                                <Button
+                                    v-if="data.status === 'running'"
+                                    icon="pi pi-stop-circle"
+                                    :label="t('batchRuns.forceFail')"
+                                    severity="danger"
+                                    size="small"
+                                    text
+                                    :loading="forceFailing[data.id]"
+                                    @click="forceFail(data.id)"
+                                />
+                            </div>
                         </template>
                     </Column>
                     <Column :header="t('batchRuns.colFinishedAt')">
@@ -392,6 +423,12 @@ onUnmounted(stopPolling)
         display: flex;
         flex-wrap: wrap;
         gap: $space-3;
+    }
+
+    &__status-cell {
+        display: flex;
+        align-items: center;
+        gap: $space-2;
     }
 
     &__stat {

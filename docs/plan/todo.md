@@ -13,6 +13,8 @@
 > **T705 / T703 已延期（2026-08-12 用户指示）**：生产级部署（PostgreSQL/Helm/Sentry）与跨平台 Git（GitLab/Bitbucket）暂缓排期，详见 [backlog.md §M7.2](backlog.md#m72-平台能力深化)
 >
 > **C54 batch-runs 页面刷新策略（P2 收口中，2026-08-19 启动）**：[backlog §C54](backlog.md#c54-batch-runs-页面刷新策略降低刷新周期--防抖动--手动刷新按钮m6-平台可选项--2026-08-19-用户反馈登记) 源自用户实测「batch-runs 页面刷新数据过于频繁,并且页面没有增加防抖动,会导致表格屏闪」。A 阶段第 1 轮 Reject(RG-B1 首屏卡死致命 bug / RG-B3 60s 与验收要点冲突 + W1/S2/S3/S4) → 全部修复后第 2 轮 quick Pass；V 阶段 ui-validator 7 张截图 + OCR 验证 8 重点全过(含用户真实运行中场景 momei/cmyr-skills-agents/caomei-auth)。完整拆解见下方 C54 区块
+>
+> **C55 batch-runs 孤儿运行兜底（2026-08-19 启动并收口，commit `ce523d4`）**：[backlog §C55](backlog.md) 源自用户实测「批量运行对任务超时没有兜底，会出现一直执行中的情况」（截图：caomei-auth 卡 19 小时+ 仍未到终态）。执行器有 30 分钟单次超时，但 sync 进程崩溃 / async worker SIGKILL / Action runner 永久不回执等场景导致 ScanRun 永远 running。修复方案 A+B 组合：① 自动化 `stale-cleanup` service + nitro plugin 周期清理(默认 30 分钟阈值,与 ContainerExecutor.timeoutMs 对齐) ② admin 手动 `POST /api/batch-runs/[id]/force-fail` 应急逃生口 + 前端"强制完成"按钮(仅 running 状态显示)。A 阶段 1 轮 audit-quick Pass(0 blocker + 3 warning 已修复)；V 阶段 OCR 确认按钮在 running 行旁渲染
 
 ---
 
@@ -242,13 +244,53 @@
 
 ---
 
+## C55: batch-runs 孤儿运行兜底（2026-08-19 启动并收口）
+
+- 优先级：`P1`（用户实测痛点：截图 caomei-auth ScanRun 卡 19 小时+ 仍未到终态，BatchRun 也永远聚合 running）
+- 背景：执行器（ContainerExecutor / SandboxExecutor / ActionResultFetcher）有 30 分钟单次超时，但 sync 进程崩溃 / async worker SIGKILL / GitHub Action runner 永久不回执等场景导致 ScanRun 已落库为 running 但永远无终态。当前实现 [batch-aggregate.ts](../design/governance/platform-scheduled-batch.md#52-聚合更新策略) 终态判定 `pendingCount === 0 → completed` 依赖所有 ScanRun 终态，孤儿 ScanRun 卡死导致 BatchRun 也永远聚合 running
+- 来源：[backlog §C55](backlog.md#c55-batch-runs-孤儿运行兜底自动化-stale-cleanup--手动-force-fail-应急逃生口m6-平台-bugfix--2026-08-19-用户实测反馈--commit-ce523d4)（2026-08-19 用户实测反馈）
+
+### C55 任务拆解（A+B 组合 — 用户决策后落地）
+
+| 任务 | 内容 | 验收要点 |
+|:--|:--|:--|
+| **C55-1 自动化兜底 stale-cleanup service** | `apps/platform/server/services/batch/stale-cleanup.ts` 新建 — `cleanupStaleRuns(opts)` 扫 stale ScanRun(running + startedAt < cutoff OR pending + createdAt < cutoff) + stale BatchRun(仅当下属有 stale run 才 failed,避免误杀慢批次);errorJson 标 `orphan_run`;默认阈值 30 分钟(与 ContainerExecutor.timeoutMs 对齐) | ✅ 7 个 vitest case 覆盖空库 / stale running / stale pending / mixed / 慢批次保护 / 已终态不动 / 自定义阈值 |
+| **C55-2 nitro plugin 周期清理** | `apps/platform/server/plugins/stale-cleanup.ts` 新建 — defineNitroPlugin + setTimeout 30s 首跑 + setInterval 5 分钟(STALE_CLEANUP_INTERVAL_MS env 可覆盖) + nitro close hook 清 timer;失败不抛下次重试 | ✅ 启动延迟让 DB / 队列就绪;热重载句柄不泄漏;env 覆盖便于测试 |
+| **C55-3 手动应急 API force-fail** | `apps/platform/server/api/batch-runs/[id]/force-fail.post.ts` 新建 — `POST` + requireRole(['admin']) 严格管理;幂等(已终态直接返回不重写 finishedAt)+ 仅改 running/pending 子 run + errorJson 标 `force_failed` | ✅ 5 个 vitest case 覆盖空 id 400 / 404 / running + 子 run / completed 幂等 / failed 幂等 |
+| **C55-4 前端"强制完成"按钮** | `batch-runs.vue` Status 列旁加 `<Button>`(仅 `v-if="data.status === 'running'"` 显示)+ in-flight 守卫(forceFailing[id])+ confirm 弹窗防误触 + 调用 POST `/api/batch-runs/[id]/force-fail` + 成功后清 detailMap + fetchBatchRuns | ✅ 仅 running 显示;loading 反馈;成功后状态收敛(由轮询 60s 节拍自然收敛 + 立即刷新) |
+| **C55-5 i18n 双语** | zh-CN/en-US 各加 `batchRuns.forceFail` "强制完成" / `forceFailConfirm` 确认文案 / `errors.forceFailFailed` 错误文案 | ✅ 3 key × 2 语言对齐;PrimeVue Button loading 文案复用既有 loading 反馈 |
+| **C55-6 测试 + Quality gate** | 单测净增 12(stale-cleanup 7 + force-fail 5);lint 0 error / typecheck 0 error;编号标记扫描零命中 | ✅ 449 tests passed / lint 0 error / typecheck 0 error |
+
+### C55 完成定义
+
+- BatchRun / ScanRun 不再因进程崩溃 / worker SIGKILL / Action runner 永久不回执而永远 running
+- stale-cleanup 30 分钟阈值(与 ContainerExecutor.timeoutMs 对齐)自动清理孤儿
+- admin 手动 force-fail API + 前端按钮提供 30 分钟内应急逃生口
+- 已终态 BatchRun / ScanRun 不被重复处理(幂等)
+- 慢批次不被误杀(仅当下属有 stale run 才 force-fail)
+
+### C55 非目标(移交下一阶段 / backlog)
+
+- 多实例 / 多租户 stale-cleanup 隔离:当前全局清理(单组织部署足够,多租户升级时补 organizationId 过滤)
+- force-fail 审计日志(无专门 audit_log 表,既有平台无审计基建,跨 backlog 任务)
+- PrimeVue ConfirmDialog 替换浏览器原生 confirm() 弹窗(S2 suggest,当前可工作)
+
+### C55 关联
+
+- 关联 backlog：**C55**(同时登记到 [backlog.md §C55](backlog.md) + 完整审计记录待 F 阶段补 review-gate artifact)
+- 与 C54 batch-runs 刷新策略同一页面,但解决不同问题:C54 是「轮询 + 防抖」,C55 是「孤儿兜底」;M10 独立沙箱后续 cgroup v2 资源限制(T1003)可参考此处的「30 分钟阈值」经验
+- 历史教训:C55 D 阶段踩过 ScanRun.repository FK 约束 — 测试必须先建 Repository 实体;TypeORM `BatchRun.source` 是非空字段,`create({})` 空对象会 NOT NULL 失败
+
+---
+
 ## 待评估候选（2026-08-18 整理，按优先级）
 
 > 上下文：T912 SMTP 邮件发送器为当前活跃任务；以下候选暂不实施，待 SMTP 完成 / 用户明确排期后再启动。所有项已在 [backlog.md](backlog.md) 独立登记，本表为执行排序 + 关联追踪视图。
 
 | 优先级 | backlog 编号 | 任务 / 内容摘要 | 依赖 | 触发条件 |
 |:--|:--|:--|:--|:--|
-| **🔵 已激活** | **C54** | batch-runs 页面刷新策略（轮询 2s → **60s**(2026-08-19 用户决策) + 整表 → 增量 reconcile + 三态分离(`firstLoad` / `loading` / `inflight`) + 强化手动刷新按钮，见 [backlog §C54](backlog.md#c54-batch-runs-页面刷新策略降低刷新周期--防抖动--手动刷新按钮m6-平台可选项--2026-08-19-用户反馈登记) + 实施见下方 C54 区块）| 无 | —（已激活,2026-08-19 启动;D 阶段完成,A 阶段第 1 轮 Reject,修复中）|
+| **✅ 已收口** | **C54** | batch-runs 页面刷新策略（轮询 2s → **60s**(2026-08-19 用户决策) + 整表 → 增量 reconcile + 三态分离(`firstLoad` / `loading` / `inflight`) + 强化手动刷新按钮，见 [backlog §C54](backlog.md#c54-batch-runs-页面刷新策略降低刷新周期--防抖动--手动刷新按钮m6-平台可选项--2026-08-19-用户反馈登记) + 实施见下方 C54 区块）| 无 | ✅ 已收口(2026-08-19 commit `3a2757b` + `edb066c`;2 commits 待推送)|
+| **🔵 已激活** | **C55** | batch-runs 孤儿运行兜底(自动化 stale-cleanup + admin 手动 force-fail 应急逃生口 + 前端"强制完成"按钮,见 [backlog §C55](backlog.md#c55-batch-runs-孤儿运行兜底自动化-stale-cleanup--手动-force-fail-应急逃生口m6-平台-bugfix--2026-08-19-用户实测反馈--commit-ce523d4) + 实施见下方 C55 区块）| 无 | ✅ 已收口(2026-08-19 commit `ce523d4`;1 commit 待推送)|
 | **⚪ P3** | **C30** | Publish Docker 双平台构建 CI 链路裁决（⏸️ 2026-08-18 用户决策暂缓——见 backlog C30） | 无 | 恢复条件：master push 频率显著提升 / 镜像正式发布需求 / 用户明确恢复 |
 | 🔴 已激活 | **C26 → M10** | 独立沙箱容器（已激活为 [todo.md §M10](todo.md#m10-独立沙箱容器-c26-实施规划2026-08-19-启动) 实施规划，2026-08-19 启动；Docker rootless + 应用层白名单 + cgroup v2 双层决策已落地）| 全部前置已就绪 → T1001-T1004 实施 | T912 SMTP 邮件发送器收口后启动 T1001 |
 | **🟢 P2** | **C28** | security.md §凭据加密存储 章节补齐（T602 AES-256-GCM 文档化） | T912-3 联动 | T912 邮件发送安全章节同步补齐 |

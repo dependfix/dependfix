@@ -333,6 +333,19 @@
   - 验收要点:**轮询间隔 60s**(2026-08-19 用户决策,写死 `BATCH_POLL_INTERVAL_MS = 60_000` 常量便于后续微调);运行中表格屏闪消失(增量 reconcile 避免整表重排);手动刷新按钮点击后立即 loading 反馈,请求成功后 loading 消失;连续点击不会触发并发请求(`inflight` 守卫);首屏加载不卡死(`firstLoad` 与 `loading` 解耦)
   - **跟进项**:MySQL 部署前需将 `BatchRun.@UpdateDateColumn` 显式声明为 `datetime(3)`(默认 fsp=0 在 reconcile 步骤 3 会有相邻 save 同秒 → 误判无变化的盲区;当前 SQLite/Postgres 不受影响,utils 文件注释已记录);也可选在 `reconcileBatchRuns` 步骤 3 增加内容比对兜底(纯前端方案)
   - **审计记录(RG-B1 / B3 / W1 / S2 / S3 / S4 已修复,S1 顺序漂移兜底留 backlog,W2 MySQL 精度 caveat 加注释)**:见 [artifacts/review-gate/2026-08-19-c54-batch-runs.md](#) + 复审放行结论
+
+- **C55 batch-runs 孤儿运行兜底(自动化 stale-cleanup + 手动 force-fail 应急逃生口)**（M6 平台 bugfix / 2026-08-19 用户实测反馈 + commit `ce523d4`）
+  - 状态:✅ **已修复（2026-08-19）** — 自动化兜底覆盖 30 分钟+ 孤儿 + admin 手动 force-fail 覆盖 30 分钟内卡死
+  - 位置:`apps/platform/server/services/batch/stale-cleanup.ts` + `apps/platform/server/plugins/stale-cleanup.ts` + `apps/platform/server/api/batch-runs/[id]/force-fail.post.ts` + `apps/platform/app/pages/batch-runs.vue`(Status 列旁"强制完成"按钮)
+  - 问题:`batch-runs` 页面 status='running' 但下属 ScanRun 永远 '执行中'——根因 sync 进程崩溃 / async worker SIGKILL / GitHub Action runner 永久不回执等导致 ScanRun 已落库为 running 但永远无终态
+  - 用户反馈："批量运行对任务超时没有兜底，会出现一直执行中的情况"
+  - 现状:执行器(ContainerExecutor / SandboxExecutor / ActionResultFetcher)有 30 分钟单次超时,但**没有"stale running 兜底"**——进程被 kill / 客户端断开 / 异常路径绕过后,ScanRun 永远 running,BatchRun 也永远聚合 running
+  - 修复方向(用户采纳 A+B 组合):
+    - **A 自动化**:`cleanupStaleRuns()` 扫 stale ScanRun(running/pending + startedAt/createdAt < now - 30min)+ stale BatchRun(仅当下属有 stale run 才 failed,避免误杀慢批次)+ 错误码 `orphan_run`;`server/plugins/stale-cleanup.ts` 用 defineNitroPlugin + setInterval 5 分钟(STALE_CLEANUP_INTERVAL_MS env 可覆盖)+ 30s 首跑延迟 + nitro close hook 清 timer
+    - **B 手动**:`POST /api/batch-runs/[id]/force-fail` admin 权限 + 幂等(已终态直接返回不重写 finishedAt)+ 仅改 running/pending 子 run + 错误码 `force_failed`;前端按钮 in-flight 守卫 + confirm 弹窗 + 成功后清 detailMap
+    - 阈值默认 30 分钟 = ContainerExecutor.timeoutMs 默认;多实例场景下阈值需评审(单组织部署足够)
+  - 验收要点:stale-cleanup 7 case 覆盖空库 / stale running / stale pending / mixed / 慢批次保护 / 已终态不动 / 自定义阈值;force-fail 5 case 覆盖空 id 400 / 404 / running + 子 run / completed 幂等 / failed 幂等;review-gate 1 轮 audit-quick Pass(0 blocker + 3 warning 已修复);V 阶段 OCR 确认按钮在 running 行旁渲染(i18n dev cache 未刷新,build 后正常)
+  - 关联:与 C54 batch-runs 刷新策略同一页面,但解决不同问题(C54 是"轮询 + 防抖",C55 是"孤儿兜底");backlog C53 平台 fix 推送 PR 仍待评估;M10 独立沙箱后续 cgroup v2 资源限制(T1003)可参考此处的"30 分钟阈值"经验
   - 关联:C53(后置 M11 评估)+ PR1/C47(Dialog 默认不可拖动,该页 Dialog 同样受益)
   - 来源:2026-08-19 用户反馈"刷新周期增加,但是也提供一个手动刷新按钮";2026-08-19 用户决策"轮询时间改到 60 秒"
 

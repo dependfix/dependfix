@@ -15,6 +15,10 @@
 > **C54 batch-runs 页面刷新策略（P2 收口中，2026-08-19 启动）**：[backlog §C54](backlog.md) 源自用户实测「batch-runs 页面刷新数据过于频繁,并且页面没有增加防抖动,会导致表格屏闪」。A 阶段第 1 轮 Reject(RG-B1 首屏卡死致命 bug / RG-B3 60s 与验收要点冲突 + W1/S2/S3/S4) → 全部修复后第 2 轮 quick Pass；V 阶段 ui-validator 7 张截图 + OCR 验证 8 重点全过(含用户真实运行中场景 momei/cmyr-skills-agents/caomei-auth)。完整拆解见下方 C54 区块
 >
 > **C55 batch-runs 孤儿运行兜底（2026-08-19 启动并收口，commit `ce523d4`）**：[backlog §C55](backlog.md) 源自用户实测「批量运行对任务超时没有兜底，会出现一直执行中的情况」（截图：caomei-auth 卡 19 小时+ 仍未到终态）。执行器有 30 分钟单次超时，但 sync 进程崩溃 / async worker SIGKILL / Action runner 永久不回执等场景导致 ScanRun 永远 running。修复方案 A+B 组合：① 自动化 `stale-cleanup` service + nitro plugin 周期清理(默认 30 分钟阈值,与 ContainerExecutor.timeoutMs 对齐) ② admin 手动 `POST /api/batch-runs/[id]/force-fail` 应急逃生口 + 前端"强制完成"按钮(仅 running 状态显示)。A 阶段 1 轮 audit-quick Pass(0 blocker + 3 warning 已修复)；V 阶段 OCR 确认按钮在 running 行旁渲染
+>
+> **C60 平台表格排序（2026-08-20 启动）**：[backlog §C60](backlog.md) 源自用户反馈「表格增加按排序功能（可排序的字段需进行评估）」。当前所有 DataTable 仅按后端默认排序，告警视图等高频页面"想看 critical 优先" 只能肉眼筛。决策（2026-08-20 用户确认 1A 全覆盖 + 2B + 3A）：① 全 7 个表格 sortable 接入 ② 客户端单列排序 + `removableSort` 三态（asc/desc/none） ③ 枚举字段（severity/status/role）走业务语义排序（非字典序） ④ 零后端改动（fetchData 后 map 增加 `_xxxRank` 派生字段） ⑤ v1 不持久化。完整拆解见下方 C60 区块
+>
+> **C61 仪表板告警图表（2026-08-20 启动）**：[backlog §C61](backlog.md) 源自用户实测截图反馈「仪表板页面的"告警按严重级别"下面也可以列一下告警的图表，目前页面有些空，需要优化」。当前 dashboard.vue 仪表板下方完全空白，仅有 5 个 severity Tag + 数字。决策（2026-08-20 用户确认 2B 推荐方案）：新增 3 图表卡片——severity 饼图（doughnut，复用现有 severityCounts）+ 修复率环形进度（doughnut，front-end 计算 fixedCount/alertsTotal）+ Top-10 包柱状图（bar，后端 `GROUP BY packageName LIMIT 10` 新增 `topPackages` 字段）。依赖 `chart.js@^4` tree-shakable 引入（gzip < 50KB）。完整拆解见下方 C61 区块
 
 ---
 
@@ -283,6 +287,109 @@
 
 ---
 
+## C60: 平台表格排序（2026-08-20 启动）
+
+- 优先级：`P2`（UX 改进，所有页面通用价值）
+- 背景：用户反馈「表格增加按排序功能（可排序的字段需进行评估）」。当前所有 DataTable 仅按后端默认排序（`createdAt DESC` 或无），告警视图等高频页面"想看 critical 优先" 只能肉眼筛；可排序字段需业务评估（枚举字段需业务语义而非字典序）
+- 来源：[backlog §C60](backlog.md)（2026-08-20 用户反馈登记 + 决策）
+- 总改动量预估：+180-220 行 / 8-9 文件 + 单测 sort-helpers + e2e 覆盖 alerts/repos/batch-runs sortable
+
+### C60 决策（2026-08-20 用户确认 1A + 2B + 3A）
+
+| 决策 | 选项 | 结论 |
+|:--|:--|:--|
+| **D1 覆盖范围** | A 全 7 表 / B 核心 3 表 / C 仅 alerts | **A 全覆盖**——alerts/repos/batch-runs/schedules/credentials/users/repos/[id]/runs |
+| **D2 排序策略** | A 客户端单列 / B 后端排序参数 | **A 客户端单列**——DataTable 默认行为 + `removableSort` 三态（asc/desc/none）;多列排序留 backlog |
+| **D3 持久化** | A v1 不持久化 / B localStorage | **A v1 不持久化**——刷新重置;localStorage 留 backlog |
+| **D4 枚举字段** | A 业务语义 / B 字典序 | **A 业务语义**——severityRank（critical=5 > high=4 > medium=3 > low=2 > unknown=1）/ statusRank（running=3 > completed=2 > failed=1）/ roleRank（admin=3 > org_admin=2 > viewer=1）|
+| **D5 多列排序** | v1 不实现 / 实现 | **v1 不实现**——sortMode="multiple" 留 backlog |
+
+### C60 任务拆解
+
+| 任务 | 优先级 | 内容 | 验收要点 |
+|:---|:---|:---|:---|
+| **C60-1 sort-helpers.ts + 单测** | P2 | `apps/platform/app/utils/sort-helpers.ts` 新建 — `SEVERITY_RANK` / `STATUS_RANK` / `ROLE_RANK` 三张常量表（Record<string, number>）+ `withSeverityRank<T>(items: T[])` / `withStatusRank<T>(items: T[])` / `withRoleRank<T>(items: T[])` 三个 map helper；辅助字段命名带下划线前缀（`_severityRank` / `_statusRank` / `_roleRank`）表示内部使用；`apps/platform/app/utils/sort-helpers.test.ts` 新建覆盖 5 severity × 3 status × 3 role + 边界（null/unknown/未知字符串）| ✅ vitest 至少 11 case；typecheck 0 error |
+| **C60-2 alerts.vue sortable 接入** | P2 | `fetchAlerts` 后 `alerts.value = withSeverityRank(alerts.value)`；`<DataTable removableSort>`；6 列 sortable（`repository` / `packageName` / `source` / `_severityRank` / `_fixStatusRank` / `recommendedVersion`）；`_severityRank` / `_fixStatusRank` 默认 desc 排序（业务语义优先）| ✅ e2e 点击 severity 列切换 asc/desc 验证 critical 优先于 high（业务语义）|
+| **C60-3 repos.vue sortable 接入** | P2 | 4 列 sortable（`owner` / `name` / `packageManager` / `executorKind`）；removableSort；保留批量选择 + 排序不丢 selectedRows（PR1 W10 教训：删除"自动逻辑"必须搜遍被动接收态）；`createdAt` / `lastScanAt` 不在当前表格显示列里 → 留 backlog 扩展显示列 | ✅ e2e 排序后 selectedRows 保留（不丢勾选）|
+| **C60-4 batch-runs.vue sortable 接入** | P2 | 5 列 sortable（`source` / `createdAt` / `repositoryCount` / `_statusRank` / `finishedAt`），含 `_statusRank` 派生字段，与 C54 增量 reconcile 并存；fetchDetail 用 `updateStatusRank` 同步派生 rank（RG-B07 修复）；removableSort；`_statusRank` 默认 desc；**关键约束**：C54 增量 reconcile 不替换已排序数组引用 | ✅ e2e 轮询 60s 时排序状态不重置（手动排序 → 轮询触发 → 排序仍保留）|
+| **C60-5 schedules.vue sortable 接入** | P2 | 5 列 sortable（`name` / `cron` / `selectorKind` / `mode` / `lastTriggeredAt`）；removableSort；时区 + cron 显示兼容 | ✅ |
+| **C60-6 credentials.vue sortable 接入** | P2 | 3 列 sortable（`name` / `type` / `createdAt`）；removableSort；`lastUsedAt` 不在当前表格显示列里 → 留 backlog 扩展 | ✅ |
+| **C60-7 users.vue sortable 接入** | P2 | 3 列 sortable（`email` / `name` / `_roleRank`）；fetchUsers 后 `users.value = withRoleRank(users.value)`；setRole 路径用 `updateRoleRank` 同步派生 rank（RG-B07 修复）；removableSort；`_roleRank` 默认 desc；`createdAt` 不在当前表格显示列里 → 留 backlog | ✅ |
+| **C60-8 repos/[id]/runs.vue sortable 接入** | P2 | 6 列 sortable（`_statusRank` / `mode` / `severityThreshold` / `executorKind` / `startedAt` / `finishedAt`），含 `_statusRank`；fetchRuns 用 `withRunStatusRank`（RG-W03 修复——runs 状态全集独立常量）；removableSort；保留兼容（C51 应用层修复后此页面已废弃但保留——C58 候选删除）| ✅ |
+| **C60-9 测试 + Quality gate** | P2 | e2e `apps/platform/tests/e2e/sortable.e2e.test.ts` 新建覆盖 alerts/repos/batch-runs sortable 行为（点击 column header → 验证 asc/desc/none 三态切换 + severity 排序业务正确性）；编号标记扫描 `rg -nE "T\d{3}\|P[0-3](-[0-9])?\|C\d+\|G\d\|R\d\|M\d+\|B\d"` 零命中（W1 教训 ERE 模式）；lint 0 error / typecheck 0 error | 🔄 第 1 轮 audit Reject（9 blocker + 5 warning），修复中；A 阶段 audit 复审待发起 |
+
+### C60 完成定义
+- 7 个表格 header 点击 sortable 切换 asc → desc → none（removableSort 三态）
+- 严重级别/状态/角色枚举按业务语义排序（非字典序；用户截图测 critical 必须排第一）
+- batch-runs 增量 reconcile 与排序并存——轮询时排序不重置（C54 + C60 兼容）
+- 单测 sort-helpers.ts 全过；e2e sortable 全过
+- 编号标记扫描零命中；lint 0 error / typecheck 0 error
+- A 阶段 audit 标准（depth=standard）通过；分批 commit 收口
+
+### C60 非目标（移交下一阶段 backlog）
+- localStorage 排序偏好持久化（用户跨刷新保留排序）
+- 多列排序（sortMode="multiple" + shift+click）
+- 后端排序参数透传（`?sortBy=&order=`）
+- 列宽调整（resizable columns / columnResizeMode="expand|fit"）
+- 默认排序偏好（每表格记忆用户上次选择）
+
+### C60 关联
+- 关联 backlog：**C60**（同时登记到 [backlog.md §C60](backlog.md) + 完整审计记录待 F 阶段补 review-gate artifact）
+- 与 **C54**（batch-runs 增量 reconcile）兼容并存——reconcile 不破坏排序引用
+- 与 **PR1 W10 教训**呼应——删除"自动逻辑"必须搜遍被动接收态路径（repos.vue 排序后 selectedRows 保留）
+- 与 **C61** 同批启动；独立 PR 决策（建议 C60 自身 5-7 commits + C61 自身 3 commits）
+
+---
+
+## C61: 仪表板告警图表（2026-08-20 启动）
+
+- 优先级：`P2`（UX 改进，仪表板信息密度提升）
+- 背景：用户实测截图反馈（2026-08-20）「仪表板页面的"告警按严重级别"下面也可以列一下告警的图表，目前页面有些空，需要优化」。当前 dashboard.vue 仪表板下方完全空白，仅有 5 个 severity Tag + 数字——信息密度低，视觉单调
+- 来源：[backlog §C61](backlog.md)（2026-08-20 用户反馈登记 + 决策 2B 推荐方案）
+- 总改动量预估：+120-160 行 / 5-6 文件 + 1 新依赖（chart.js@^4.5.0）+ i18n 8 键 × 2 语言
+
+### C61 决策（2026-08-20 用户确认 2B 推荐方案）
+
+| 方案 | 内容 | 后端改动 | chart.js 体积 | 结论 |
+|:--|:--|:--|:--|:--|
+| A 最小 | severity 饼图 + 修复率环形 | 0 | ~25KB | ❌ 信息密度不足 |
+| **B 推荐** | A + Top-10 包柱状图 | +1 字段（topPackages）| ~35KB | ✅ **采纳** |
+| C 完整 | B + 趋势图 | +1 字段（trend）| ~35KB | 复杂度高，trend 留 backlog |
+
+### C61 任务拆解
+
+| 任务 | 优先级 | 内容 | 验收要点 |
+|:---|:---|:---|:---|
+| **C61-1 chart.js 依赖 + ChartCanvas 组件** | P2 | `apps/platform/package.json` 新增 `chart.js@^4.5.0` 依赖；`pnpm install`；自实现 `apps/platform/app/components/ChartCanvas.vue`（tree-shakable 引入 + 仅注册 `LinearScale` / `CategoryScale` / `BarController` / `BarElement` / `DoughnutController` / `ArcElement` / `Tooltip` / `Legend` 等用到的子集，**避免 PrimeVue `<Chart>` 内部 `chart.js/auto` 全量 ~200KB**）；实测 bundle 204 KB raw / 40 KB gzip（达成 < 50 KB 目标）| ✅ `pnpm build` 通过；bundle < 50KB gzip；SSR 无 `window is not defined`（`<ClientOnly>` 包裹）|
+| **C61-2 后端 stats.get.ts 增加 topPackages 字段** | P2 | `apps/platform/server/api/dashboard/stats.get.ts` 新增 `GROUP BY packageName LIMIT 10` 查询（用 `dataSource.createQueryBuilder(ScanResult, 'r')...select('r.packageName', 'packageName')...addSelect('COUNT(*)', 'count')...groupBy('r.packageName')...orderBy('count', 'DESC')...limit(10).getRawMany()`）；返回 `topPackages: Array<{ packageName: string, count: number }>`；空库返回 `[]`；`apps/platform/server/api/dashboard/stats.get.test.ts` 扩展 case：空库 / 单包 / 多包 LIMIT 10 / 同名多 severity 聚合 | ✅ 单测 4 case 全过；typecheck 0 error |
+| **C61-3 dashboard.vue 图表区** | P2 | 在 `dashboard__severity` 区块下新增 `<div class="dashboard__charts">` grid 3 列：① severity 饼图（`<Chart type="doughnut" :data :options>`，5 段配色复用 `severityTagSeverity`） ② 修复率环形进度（`<Chart type="doughnut">` 中心文字显示百分比；`stats.fixedCount / stats.alertsTotal * 100`；空数据 0/0 显示空环 + "暂无数据"） ③ Top-10 包柱状图（`<Chart type="bar">` x 轴包名>20 字符截断 + tooltip 完整名，y 轴告警数；空数据 empty 占位）；CSS grid `align-items: stretch` 三卡片同高 | ✅ 视觉验证：3 卡片同高；空数据时显示 empty 占位（非白屏）；severity 饼图 5 色与现有 Tag 配色一致 |
+| **C61-4 i18n 双语** | P2 | zh-CN + en-US 各新增 8 键：`dashboard.chartTitle` / `dashboard.severityChartTitle` / `dashboard.fixRateChartTitle` / `dashboard.topPackagesChartTitle` / `dashboard.chartEmpty` / `dashboard.fixRateLabel` / `dashboard.fixRateValue` / `dashboard.packageTruncated` | ✅ vue-i18n audit 零告警；双语 key 对齐 |
+| **C61-5 测试 + Quality gate** | P2 | e2e `apps/platform/tests/e2e/dashboard.e2e.test.ts` 新建：3 Chart canvas 元素存在 + i18n 双语 key 验证 + empty 状态截图；编号标记扫描零命中；lint 0 error / typecheck 0 error；A 阶段 audit depth=standard 通过 | 🔄 第 1 轮 audit Reject（9 blocker + 5 warning），修复中；A 阶段 audit 复审待发起 |
+
+### C61 完成定义
+- 仪表板"告警按严重级别"下方新增 3 图表卡片（severity 饼图 / 修复率环形 / Top-10 包柱状图）
+- chart.js tree-shakable 引入，gzip < 50KB
+- 后端 stats API 新增 `topPackages` 字段，单测覆盖（空库/单包/多包/同名多 severity）
+- i18n 双语完整（zh-CN + en-US 各 8 键）
+- e2e dashboard.e2e.test.ts 视觉验证通过（3 Chart + empty）
+- 编号标记扫描零命中；lint 0 error / typecheck 0 error
+- A 阶段 audit standard 通过；分批 commit 收口（建议 3 commits：C61-1 依赖 + C61-2 后端 + C61-3/4/5 前端+i18n+e2e）
+
+### C61 非目标（移交下一阶段 backlog）
+- alerts.vue 同样图表（C58 已登记 M11 阶段评估）
+- 告警趋势图（按日/按周聚合 time series）
+- 图表导出（PNG / SVG）
+- 图表交互（下钻、tooltip 详细、点击跳转告警页）
+- 自定义时间区间（默认全部，可加 7d/30d 切换）
+
+### C61 关联
+- 关联 backlog：**C61**（同时登记到 [backlog.md §C61](backlog.md) + 完整审计记录待 F 阶段补 review-gate artifact）
+- 与 **C60**（平台表格排序）同批启动；独立 PR 决策（建议 C61 自身 3 commits）
+- 与 **C58**（alerts.vue 图表）属同类需求但页面不同——C61 是 dashboard 概览，C58 是 alerts 详细页；M11 阶段统一评估图表组件复用
+- 历史教训：W13 Nuxt e2e webServer 缓存——修改 .vue 后必须 rebuild（`rm -rf apps/platform/.nuxt apps/platform/.output && pnpm --filter @dependfix/platform build` 后再跑 e2e）
+
+---
+
 ## 待评估候选（2026-08-18 整理，按优先级）
 
 > 上下文：T912 SMTP 邮件发送器为当前活跃任务；以下候选暂不实施，待 SMTP 完成 / 用户明确排期后再启动。所有项已在 [backlog.md](backlog.md) 独立登记，本表为执行排序 + 关联追踪视图。
@@ -291,6 +398,8 @@
 |:--|:--|:--|:--|:--|
 | **✅ 已收口** | **C54** | batch-runs 页面刷新策略（轮询 2s → **60s**(2026-08-19 用户决策) + 整表 → 增量 reconcile + 三态分离(`firstLoad` / `loading` / `inflight`) + 强化手动刷新按钮，见 [backlog §C54](backlog.md) + 实施见下方 C54 区块）| 无 | ✅ 已收口(2026-08-19 commit `3a2757b` + `edb066c`;2 commits 待推送)|
 | **🔵 已激活** | **C55** | batch-runs 孤儿运行兜底(自动化 stale-cleanup + admin 手动 force-fail 应急逃生口 + 前端"强制完成"按钮,见 [backlog §C55](backlog.md) + 实施见下方 C55 区块）| 无 | ✅ 已收口(2026-08-19 commit `ce523d4`;1 commit 待推送)|
+| **🔵 已激活** | **C60** | 平台表格排序(全 7 表格 sortable + removableSort + 业务语义排序；alerts/repos/batch-runs/schedules/credentials/users/repos[id]/runs，见 [backlog §C60](backlog.md) + 实施见下方 C60 区块）| 无 | 🔵 已激活(2026-08-20;决策 1A 全覆盖 + 客户端单列 + 业务语义排序 + v1 不持久化)|
+| **🔵 已激活** | **C61** | 仪表板告警图表(severity 饼图 + 修复率环形 + Top-10 包柱状图，见 [backlog §C61](backlog.md) + 实施见下方 C61 区块）| 无 | 🔵 已激活(2026-08-20;决策 2B 推荐方案;依赖 chart.js tree-shakable 引入)|
 | **⚪ P3** | **C30** | Publish Docker 双平台构建 CI 链路裁决（⏸️ 2026-08-18 用户决策暂缓——见 backlog C30） | 无 | 恢复条件：master push 频率显著提升 / 镜像正式发布需求 / 用户明确恢复 |
 | 🔴 已激活 | **C26 → M10** | 独立沙箱容器（已激活为 [todo.md §M10](todo.md#m10-独立沙箱容器-c26-实施规划2026-08-19-启动) 实施规划，2026-08-19 启动；Docker rootless + 应用层白名单 + cgroup v2 双层决策已落地）| 全部前置已就绪 → T1001-T1004 实施 | T912 SMTP 邮件发送器收口后启动 T1001 |
 | **🟢 P2** | **C28** | security.md §凭据加密存储 章节补齐（T602 AES-256-GCM 文档化） | T912-3 联动 | T912 邮件发送安全章节同步补齐 |

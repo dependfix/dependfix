@@ -439,6 +439,76 @@
   - 复杂度:🟢 小(1 行 mixin 修复 + 全局样式覆盖验证 + 截图回归)
   - 来源:2026-08-20 用户截图(浅色 header + 暗色 table 反差)+ 原文代码层根因分析
 
+- **C60 平台表格排序(全 7 表格 sortable + removableSort + 业务语义排序)**（M6 平台 增强 / 2026-08-20 用户反馈）
+  - 状态:🔵 已规划落地（2026-08-20 todo.md C60 区块 / 启动中）
+  - 位置:
+    - `apps/platform/app/pages/alerts.vue`(9 列 → 5 可排序)
+    - `apps/platform/app/pages/repos.vue`(9 列 → 6 可排序)
+    - `apps/platform/app/pages/batch-runs.vue`(7+5 列 → 9 可排序)
+    - `apps/platform/app/pages/schedules.vue`(7 列 → 6 可排序)
+    - `apps/platform/app/pages/credentials.vue`(5 列 → 4 可排序)
+    - `apps/platform/app/pages/users.vue`(6 列 → 4 可排序)
+    - `apps/platform/app/pages/repos/[id]/runs.vue`(8 列 → 6 可排序;C51 应用层修复后此页面已废弃但保留兼容)
+    - 新建 `apps/platform/app/utils/sort-helpers.ts`(枚举排序键 + map helper)
+  - 现象:当前所有 DataTable 仅能按后端默认排序(`createdAt DESC` / 无),用户无法按严重级别/状态/包名/凭据类型等关键字段排序——告警视图等高频页面"想看 critical 优先"只能肉眼筛
+  - 修复方向(决策 2026-08-20 用户确认 D1=1A 全覆盖 + D2=客户端单列 + D3=业务语义 + D4=v1 不持久化):
+    - **D1 覆盖范围(1A)**:全 7 个表格 sortable 接入,工作量 +180-220 行
+    - **D2 排序策略**:客户端单列排序(PrimeVue DataTable 默认行为,零后端改动) + `removableSort`(允许三态 asc/desc/none) + 多列排序留 backlog
+    - **D3 枚举字段(3A 业务语义)**:fetchData 后 map 增加派生字段 `_severityRank` / `_statusRank` / `_roleRank`(下划线前缀表示内部使用),`<Column :sortable field="_xxxRank">` 指向派生字段——严重级别按 critical > high > medium > low > unknown,状态按 running > completed > failed,角色按 admin > org_admin > viewer
+    - **D4 持久化**:v1 不持久化(localStorage 排序偏好持久化留 backlog)
+    - **D5 多列排序**:v1 不实现(sortMode="multiple" 留 backlog)
+  - 推荐可排序字段(每个表格):
+    - alerts: `repository` / `packageName` / `source` / `_severityRank` / `_fixStatusRank` / `recommendedVersion`(6 列)
+    - repos: `owner` / `name` / `packageManager` / `executorKind`(4 列;`createdAt` / `lastScanAt` 不在当前表格显示列里 → 留 backlog 扩展显示列)
+    - batch-runs: `source` / `createdAt` / `repositoryCount` / `_statusRank` / `finishedAt`(5 列;`mode` / `severityThreshold` 在 Params 合并列里不可单独 sortable,`completedCount` / `failedCount` 在 Progress 列 body 里不可单独 sortable → 留 backlog 拆列)
+    - schedules: `name` / `cron` / `selectorKind` / `mode` / `lastTriggeredAt`(5 列;`createdAt` 不在当前表格显示列里 → 留 backlog)
+    - credentials: `name` / `type` / `createdAt`(3 列;`lastUsedAt` 不在当前表格显示列里 → 留 backlog)
+    - users: `email` / `name` / `_roleRank`(3 列;`createdAt` 不在当前表格显示列里 → 留 backlog)
+    - repos/[id]/runs: `_statusRank` / `mode` / `severityThreshold` / `executorKind` / `startedAt` / `finishedAt`(6 列;runs 状态全集用 `RUN_STATUS_RANK` 独立常量,见 RG-W03)
+  - 验收要点:
+    - 7 个表格 header 点击 sortable 切换 asc → desc → none(removableSort 三态)
+    - 严重级别/状态/角色枚举按业务语义排序(非字典序)
+    - batch-runs C54 增量 reconcile 与排序并存——轮询 60s 时排序状态不重置(增量 reconcile 不替换已排序数组引用)
+    - repos sortable 保留 selectedRows(PR1 W10 教训:删除"自动逻辑"必须搜遍被动接收态)
+    - 单测 sort-helpers.ts 覆盖 5 severity × 3 status × 3 role + 边界(null/unknown/未知字符串)
+    - e2e 覆盖 alerts / repos / batch-runs sortable 行为(点击 column header → 验证 asc/desc/none 三态切换 + severity 排序业务正确性)
+    - 编号标记扫描 `rg -nE "T\d{3}\|P[0-3](-[0-9])?\|C\d+\|G\d\|R\d\|M\d+\|B\d"` 零命中(W1 教训 ERE 模式)
+    - lint 0 error / typecheck 0 error / 单测全过 / 🔄 Review Gate Reject（第 1 轮 9 blocker + 5 warning，修复中；A 阶段 audit 复审待发起）
+  - 复杂度:🟡 中(7 表格 × N 列 + sort-helpers + 单测 + e2e,分批 5-7 commits)
+  - 关联:C54(batch-runs reconcile 与排序共存) / **C61**(同批启动;独立 PR 决策) / C58(告警视图图表暂不同步)
+  - 来源:2026-08-20 用户反馈"表格增加按排序功能(可排序的字段需进行评估)"
+
+- **C61 仪表板告警图表(severity 饼图 + 修复率环形 + Top-10 包柱状图)**（M6 平台 增强 / 2026-08-20 用户反馈）
+  - 状态:🔵 已规划落地（2026-08-20 todo.md C61 区块 / 启动中）
+  - 位置:
+    - 前端:`apps/platform/app/pages/dashboard.vue`(在 dashboard__severity 区块下新增 chart 区)
+    - 后端:`apps/platform/server/api/dashboard/stats.get.ts`(新增 `topPackages` 字段)
+    - 单测:`apps/platform/server/api/dashboard/stats.get.test.ts`(扩展 topPackages case)
+    - e2e:`apps/platform/tests/e2e/dashboard.e2e.test.ts`(新建)
+    - 依赖:新增 `chart.js@^4.5.0`(tree-shakable 引入);`primevue/chart` 已是 PrimeVue 4 内置包装
+  - 现象:用户实测截图(2026-08-20)仪表板下方完全空白,仅有 5 个 severity Tag + 数字——信息密度低,视觉单调
+  - 修复方向(决策 2026-08-20 用户确认 D2=2B 推荐方案:severity 饼图 + 修复率环形 + Top-10 包柱状图):
+    - **severity 饼图(doughnut)**:`stats.severityCounts` 已存在,前端直接渲染 5 段配色复用 `severityTagSeverity` 映射(critical=danger/high=warn/medium=info/low=secondary/unknown=secondary)
+    - **修复率环形进度(doughnut)**:`(fixedCount / alertsTotal) * 100`,前端计算;中心文字显示百分比;悬停 tooltip 显示具体数字
+    - **Top-10 包柱状图(bar)**:后端 `GROUP BY packageName LIMIT 10` 聚合,新增 `topPackages: Array<{ packageName: string, count: number }>` 字段;前端 Chart.js bar 渲染,x 轴包名(>20 字符截断 + tooltip 完整名),y 轴告警数
+    - **依赖策略**:`chart.js@4` 引入,**tree-shakable 仅注册用到的 controllers/elements/scales/plugins 子集**(避免 chart.js/auto 全量 ~200KB);实测 gzip < 50KB
+    - **组件封装**:自实现 `apps/platform/app/components/ChartCanvas.vue`(< 100 行 setup + Chart.register 子集),**不**复用 PrimeVue `<Chart>` —— 后者内部 `import('chart.js/auto')` 会引入 ~200KB 全量,与本项目 tree-shakable 原则冲突;ChartCanvas 接受 `type / data / options / ariaLabel` props,调用方(dashboard.vue)在 `<ClientOnly>` 内包裹避免 SSR `window is not defined` 报错
+    - **i18n**:zh-CN + en-US 各新增 9 键(`dashboard.chartTitle` / `dashboard.severityChartTitle` / `dashboard.fixRateChartTitle` / `dashboard.topPackagesChartTitle` / `dashboard.chartEmpty` / `dashboard.fixRateLabel` / `dashboard.fixRateRemaining` / `dashboard.fixRateValue` / `dashboard.packageTruncated`;`fixRateRemaining` 为 RG-W01 修复追加,替代硬编码"未修复")
+  - 验收要点:
+    - 仪表板"告警按严重级别"下方新增图表区(grid 3 列:severity 饼图 / 修复率环形 / Top-10 柱状图)
+    - 3 卡片同高(用 CSS grid `align-items: stretch`);空数据状态 empty 占位(非白屏)
+    - severity 饼图 5 色与现有 Tag 配色一致(复用 severityTagSeverity)
+    - Top-10 包柱状图横轴包名截断 20 字符 + tooltip 完整名;空数据(无告警)显示 empty
+    - 修复率环形 0% / 100% / 中间值均渲染正确(边界 case)
+    - 后端 stats.get.test.ts 扩展:空库 / 单包 / 多包 LIMIT 10 / 同名多 severity 聚合
+    - e2e dashboard.e2e.test.ts:3 个 Chart 元素存在 + i18n 双语 key 验证 + empty 状态截图
+    - chart.js 体积实测 < 50KB gzip(vs chart.js/auto 全量 ~200KB)
+    - vue-i18n audit 零告警(i18n script)
+    - 编号标记扫描零命中;lint 0 error / typecheck 0 error / 🔄 Review Gate Reject（第 1 轮 9 blocker + 5 warning，修复中；A 阶段 audit 复审待发起）
+  - 复杂度:🟡 中(后端 1 字段 + 前端 chart 区 + chart.js tree-shakable 引入 + i18n 8 键 × 2 语言 + e2e)
+  - 关联:C60(同批启动,独立 PR) / C58(alerts.vue 同类需求,backlog 已登记 M11 阶段评估)
+  - 来源:2026-08-20 用户反馈"仪表板页面的'告警按严重级别'下面也可以列一下告警的图表,目前页面有些空,需要优化"
+
 - **C30 Publish Docker build job 被取消/失败排查**（M6 归档 CI 端到端裁决登记）
   - 状态：⏸️ **已暂缓（2026-08-18 用户决策）**——原 🔶 待评估
   - 内容：Publish Docker 工作流 build job（run 31260609196，e16aeda4 触发）在 QEMU 双平台（linux/amd64,linux/arm64）构建中运行 1h19m 后被取消（`##[error]The operation was canceled.`）。**根因已定位**：同 workflow 同 ref（master）的新 push（7cb1ad22d，15:13:11）触发 concurrency `cancel-in-progress: true` 取消旧 run；叠加 QEMU arm64 模拟构建过慢（1h+ 未完成）。缓解方向：docker.yml 拆分平台构建或减少平台、优先 amd64、验证 gha cache 命中；若采用频繁 push + 双平台模式，需评估取消旧 run 对镜像发布的影响

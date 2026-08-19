@@ -296,6 +296,15 @@
         "fixedCount": "Fixed",
         "latestRun": "Latest scan",
         "severityTitle": "Alerts by severity",
+        "chartTitle": "Charts",
+        "severityChartTitle": "Alert distribution",
+        "fixRateChartTitle": "Fix rate",
+        "topPackagesChartTitle": "Top-10 alerted packages",
+        "chartEmpty": "No data yet",
+        "fixRateLabel": "Fixed",
+        "fixRateRemaining": "Not fixed",
+        "fixRateValue": "{percent}%",
+        "packageTruncated": "Full name in tooltip",
         "errors": {
             "loadFailed": "Failed to load: {message}"
         }

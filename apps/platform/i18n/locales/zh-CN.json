@@ -296,6 +296,15 @@
         "fixedCount": "已修复",
         "latestRun": "最近扫描",
         "severityTitle": "告警按严重级别",
+        "chartTitle": "图表",
+        "severityChartTitle": "告警分布",
+        "fixRateChartTitle": "修复率",
+        "topPackagesChartTitle": "Top-10 告警包",
+        "chartEmpty": "暂无数据",
+        "fixRateLabel": "已修复",
+        "fixRateRemaining": "未修复",
+        "fixRateValue": "{percent}%",
+        "packageTruncated": "完整包名见 tooltip",
         "errors": {
             "loadFailed": "加载失败：{message}"
         }

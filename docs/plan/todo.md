@@ -160,33 +160,37 @@
 ## PR3: 批量导入能力补全（C46 + C49 + C50 同 PR 收口，2026-08-19 启动，紧跟 PR2）
 
 - 优先级：`P2`（批量导入场景三条改进一次性补齐；同 PR 收口避免拆批改同一文件冲突）
-- 背景：源自 backlog [C46](backlog.md) + [C49](backlog.md) + [C50](backlog.md)；三条都集中在 `apps/platform/app/components/ImportReposDialog.vue`，集中实施避免两次刷新页面体验差
-- 总改动量预估：+140-180 行（前 1 文件 1 后端 1 行 + i18n +3 键） + e2e 2-3 条
+- 背景：源自 backlog [C46](backlog.md) + [C49](backlog.md) + [C50](backlog.md)；三条都集中在 `apps/platform/app/components/ImportReposDialog.vue` + `importable.get.ts` + `batch.post.ts`，集中实施避免两次刷页面体验差
+- 总改动量预估：+260-330 行（前端 ImportReposDialog 改 + 后端 cache 工具 + 2 个 API 改动 + i18n + 测试） + e2e 2-3 条 + 后端单测 1 条
 
-### PR3 任务拆解
+### PR3 任务拆解（修订方案，2026-08-19 用户决策后落地）
 
 | 子任务 | 内容 | 验收要点 |
 |:---|:---|:---|
-| **PR3-1 C46 批量导入过滤 UI** | ImportReposDialog 新增 `forkFilter`（默认 `source` 仅非 fork）/ `visibilityFilter`（默认 `all`）/ `searchKeyword`（默认空） ref + computed `filteredRepos`；SelectButton 或 Select 控件；过滤变更后**保留已勾选项**（已有 id 在 `selectedRepos` 仍勾选；filter 不强制 unselect）；全选/计数基于 `selectableRepos` ∩ `filteredRepos` | ✅ 三维 filter 联动生效；全选按钮对 filteredRepos 重新计数 |
-| **PR3-2 C49 >100 仓库分页（后端 octokit.paginate + 前端总数）** | `apps/platform/server/api/repos/importable.get.ts` 改为 `octokit.paginate(octokit.repos.listForAuthenticatedUser, { affiliation, per_page: 100 })` 一次拉完；前端 Dialog 标题显示「共 N 个仓库」总数；可选加 `总数 > 100 时显示分页计数提示` | ✅ 仓库数 >100 的真实凭据下能拉到完整列表；API 调用次数有界；不破坏现有归属过滤参数 |
-| **PR3-3 C50 批量导入默认关联凭据** | ImportReposDialog 新增「默认关联凭据」`<Select>`（与现有「拉取用凭据」并行）；提交 payload 顶层带 `credentialId`；`apps/platform/server/api/repos/batch.post.ts:41-51` 补 `credentialId: item.credentialId ?? null`；i18n zh-CN + en-US 各 +3 键 | ✅ 默认凭据非空时，导入的所有仓库写库带 `credentialId`；空时不携带（保持兼容）；批量后 repos 表凭据字段正确填充 |
-| **PR3-4 E2E 覆盖** | `tests/e2e/batch-import-filters.e2e.test.ts`：覆盖 C46 三维 filter 切换保留勾选 + C50 默认凭据透传；C49 由于需 >100 真实仓库，可在 e2e 中 mock 服务端或单测后端 octokit.paginate 调用 | ✅ e2e 通过；后端单测覆盖 octokit.paginate 调用（mock octokit） |
-| **PR3-5 Quality gate + 提交** | lint / typecheck / test 全过；code-reviewer 审计（Pass）；conventional-committer 提交（推荐 1 条 feature：`feat(platform): 批量导入加过滤 + 分页 + 默认凭据`） | ✅ Review Gate Pass |
+| **PR3-1 C46 批量导入过滤 UI** | ImportReposDialog 新增 `forkFilter`（默认 `source` 仅非 fork）/ `visibilityFilter`（默认 `all`）/ `searchKeyword`（默认空） ref + computed `filteredRepos`；SelectButton 或 Select 控件；过滤变更后**保留已勾选项**（已有 id 在 `selectedRepos` 仍勾选；filter 不强制 unselect）；过滤变更**重置页码到第 1**；全选/计数基于 `selectableRepos` ∩ `filteredRepos`（与分页无关） | ✅ 三维 filter 联动生效；全选按钮对 filteredRepos 重新计数；filter 切换保留 selectedRepos |
+| **PR3-2 C49 仓库列表缓存 + 前端分页（修订 D3''）** | 后端：进程内 `cachedFetch()` 工具（TTL=5min，LRU max=64，并发去重 in-flight Promise 复用）；`importable.get.ts` 用 `octokit.paginate(per_page:100, maxPages:20)` + cache 包装；响应结构 `{ repos, total, cachedAt, fromCache }`；query `?fresh=true` 强制刷新（前端"刷新仓库列表"按钮自动加）。前端：默认 pageSize=**25**（轻量，避免一次渲染 100+ 行）；PrimeVue Paginator 显示「X-Y / 共 N」；切页/切 pageSize 保留 selectedRepos；filter 切换重置页码。**未来演进参考**：[momei/server/database/storage.ts](../../../momei/server/database/storage.ts) 已用 `lru-cache` + 可选 Redis（`REDIS_URL`），后续平台部署多实例 / 上 Redis 时可借鉴其 BaseStorage 接口与 Redis 降级模式（不属 PR3 范围）。 | ✅ 后端 octokit mock 单测覆盖 hit/miss/in-flight/expiry/fresh 五路径；e2e 验证第二次请求 `fromCache=true`；前端 pageSize=25 默认 + Paginator 可见；切页保留勾选 |
+| **PR3-3 C50 批量导入默认关联凭据** | ImportReposDialog 新增「默认关联凭据」`<Select>`（与现有「拉取用凭据」并排，hint 提示语义）；提交 payload 顶层带 `defaultCredentialId`；`batch-import.ts` schema 加 `defaultCredentialId` 字段（nullable + max 36）；`batch.post.ts` 前置校验 `defaultCredentialId` 存在性 + 与当前组织匹配（防跨组织误关联），通过则写入 `repoRepo.create({...item, credentialId: defaultCredentialId ?? null})`；i18n zh-CN + en-US 各 +3 键 | ✅ 默认凭据非空时，导入的所有仓库写库带 `credentialId`；空时不携带（保持兼容）；batch.post.ts 单测覆盖跨组织 403 + 不存在 400 + 正常透传 三路径 |
+| **PR3-4 测试覆盖** | `tests/server/utils/repos-cache.test.ts`（新建）：5 路径（hit/miss/in-flight/expiry/fresh）+ 并发 10 同时请求只 1 次 loader 调用；`tests/server/api/repos/importable.get.test.ts`（如不存在新建）：mock octokit.paginate + 验证 maxPages 兜底；`tests/server/api/repos/batch.post.test.ts`（如不存在新建）：覆盖跨组织 403 + 不存在 400 + 正常透传；`tests/e2e/batch-import-filters.e2e.test.ts`（新建）：覆盖 C46 过滤保留勾选 + C50 默认凭据下拉显示 + C49 二次拉取 fromCache=true；现有 `tests/e2e/admin.e2e.test.ts:71-93` PR1 C48 默认不勾选回归不退化 | ✅ 单测全过；e2e 跑通；不触发 PR1 W11 SSR mock 陷阱（不 mock GitHub API，走真实凭据 + 后端转发） |
+| **PR3-5 Quality gate + 提交** | `pnpm --filter @dependfix/platform run lint` 0 error；`pnpm typecheck` 0 error；`pnpm test` 全过（含新增单测）；`pnpm test:e2e` 全过（**强制 rebuild**——W13 教训：`rm -rf apps/platform/.nuxt apps/platform/.output && pnpm --filter @dependfix/platform build` 后再跑 e2e）；code-reviewer audit-depth=`standard` 审计（Pass）；conventional-committer 提交（推荐 1 条 feat：`feat(platform): 批量导入加过滤 / 分页 / 默认凭据`）；编号标记扫描 `rg -nE "T\d{3}\|P[0-3](-[0-9])?\|C\d+\|G\d\|R\d\|M\d+\|B\d"` 零命中（W1 教训，必须 ERE 模式） | ✅ Review Gate Pass；单 commit 收口 |
 
 ### PR3 完成定义
 - 批量导入场景三维收敛（fork/可见性/关键字）—**收敛噪声** + 全选透明
-- 仓库数 >100 时不丢失候选（C49）
-- 批量导入后仓库默认带关联凭据（C50），免手工逐个编辑
-- 已勾选项在 filter 切换时保留（体验一致，不重新做选择）
+- 仓库数 >100 时不丢失候选（C49 后端兜底）+ 默认 pageSize=25 避免单页过载 + 5min 缓存降低 GitHub API 调用次数
+- 批量导入后仓库默认带关联凭据（C50），免手工逐个编辑；跨组织误关联被前置校验拦截
+- 已勾选项在 filter / 分页 / pageSize 切换时保留（PR1 W10 教训）
+- 缓存响应携带 `cachedAt` + `fromCache`，前端可提示用户；手动刷新按钮 bypass 缓存
 - [backlog C48](backlog.md) 已在 PR1 完成
 
 ### PR3 非目标
 - 修改 `affiliation` 字段维度（已有 owner/collaborator/organization_member）
-- 单仓库凭据 override（移至后续 backlog C51 候选——但 C51 已闭环，留 backlog 记录）
+- 单仓库凭据 inline override（移至后续 backlog 候选）
+- 引入 Redis / 跨进程缓存（参考 [momei/server/database/storage.ts](../../../momei/server/database/storage.ts) 演进路径，留后续评估）
+- 手写 LRU（当前用 `lru-cache` 库直接落地，约 30 行工具；与 momei 同库便于未来接口对齐）
 
 ### PR3 关联
 - 关联 backlog：**C46**、**C49**、**C50**
-- 依赖前置：PR1（C48 默认不勾选——批量场景下 filter/分页/凭据加在一起才有完整价值；不做 PR1 单做 PR3 也可但 PR1 的 C48 才是手滑防护的关键）
+- 依赖前置：PR1（C48 默认不勾选）+ PR2（C52 单仓库模式不影响本任务，但同批友好——保持提交节奏）
+- 未来演进登记：缓存机制可参考 [momei/server/database/storage.ts](../../../momei/server/database/storage.ts) 的 `lru-cache` + 可选 `ioredis` 双形态（BaseStorage 接口 + Redis URL 探测降级），多实例 / 高 QPS 需求时迁移
 
 ---
 

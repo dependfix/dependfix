@@ -80,7 +80,7 @@ Changelog / Release Notes 采集、多 AI 提供商封装、AI 研判（问题�
 
 ## M5.5: Skill 编排（CLI 先行）
 
-将 dependfix 的自动化修复能力封装为可分发的 Agent Skill（`dependfix-remediator`），通过 CLI 直接调用，支持主流 agent 工具（Claude Code / GitHub Copilot / Cursor / OpenCode）接入；MCP 作为后续增强执行后端（M6 T605/M7 T706，合并口径见 [todo-archive.md §M6](todo-archive.md#m6-最小平台-mvp已归档)），与 CLI 后端并存。
+将 dependfix 的自动化修复能力封装为可分发的 Agent Skill（`dependfix-remediator`），通过 CLI 直接调用，支持主流 agent 工具（Claude Code / GitHub Copilot / Cursor / OpenCode）接入；MCP 作为后续增强执行后端（M6 T605/M7 T706，合并口径见 [todo-archive.md §M6](archive/todo-archive-phases-m6-m7-t711.md#m6-最小平台-mvp已归档)），与 CLI 后端并存。
 
 **背景与决策（2026-08-07 用户确认）**：MCP Server 原规划在 M6/M7 才落地，但当前 CLI 能力面（report/fix/fix-and-pr/cleanup-branches + 多仓库 + 双源 + PR 链路）已覆盖 MCP 规划的 4 个 tool（fetch_alerts / run_scan / fix_dependency / get_last_report）。skill 编排不依赖 MCP 即可工作；MCP 的增量价值是结构化 schema、无 shell 客户端覆盖与常驻进程批处理，属增强路径而非前置条件。
 
@@ -96,18 +96,18 @@ Changelog / Release Notes 采集、多 AI 提供商封装、AI 研判（问题�
 
 > **G2 驱动**：凭据管理须支持 PAT（classic / fine-grained）与 GitHub App 双模型——GITHUB_TOKEN 无法读取 Dependabot alerts，平台扫描必须依赖显式凭据（见 [M2 分片 G2 处置记录](archive/todo-archive-phases-m2-m55.md#g2-处置记录github_token-无法访问-dependabot-alerts) 方案矩阵）。
 
-> **规划要点（2026-08-07 启动，任务定义见 [todo-archive.md §M6](todo-archive.md#m6-最小平台-mvp已归档)）**：执行深度 A（平台容器完整修复链路）为主、B（触发目标仓库 Action）为降级；同步执行先行；MCP 保留并合并（T605 四 tool 完整交付）；沙箱问题重新评估（Q4=A 设计 + 容器内执行最小实现，T607 设计先行于 T603）；Action 触发实现 + 结果回填（C25 增强实现）。
+> **规划要点（2026-08-07 启动，任务定义见 [todo-archive.md §M6](archive/todo-archive-phases-m6-m7-t711.md#m6-最小平台-mvp已归档)）**：执行深度 A（平台容器完整修复链路）为主、B（触发目标仓库 Action）为降级；同步执行先行；MCP 保留并合并（T605 四 tool 完整交付）；沙箱问题重新评估（Q4=A 设计 + 容器内执行最小实现，T607 设计先行于 T603）；Action 触发实现 + 结果回填（C25 增强实现）。
 
 > **M6 已交付（2026-08-08 归档）**：T601-T605 + T607 全部完成——Nuxt 4 平台骨架（T601）、仓库与凭据管理 AES-256-GCM 加密存储（T602）、扫描触发与结果存储（T603）、仪表板与告警视图（T604）、`@dependfix/mcp` MCP Server 4 tool（T605）、执行器设计与沙箱评估 + ActionTriggerExecutor（T607）；M6 增强：B 模式结果回填（C25）、同仓库扫描互斥锁、REGISTRATION_DISABLED。991 tests。CI Test 端到端裁决通过；Docker 镜像构建 CI 链路 **2026-08-18 暂缓裁决**（run 31862632207 双平台构建 23m 2s 成功完成证明当前 docker.yml 配置可稳定工作，恢复条件见 backlog C30）；平台 UI 暗色模式待修复（C29）。
 
-> 详细任务见 [todo-archive.md §M6](todo-archive.md#m6-最小平台-mvp已归档)
+> 详细任务见 [todo-archive.md §M6](archive/todo-archive-phases-m6-m7-t711.md#m6-最小平台-mvp已归档)
 
 ## M7: 企业级平台增强（已归档）
 
 拆两个子阶段（2026-08-09 规划定稿，需求澄清见 [backlog.md §M7 规划决策](backlog.md#m7-企业级平台增强)）：
 
-- **M7.1 认证与用户体系**（已归档 2026-08-10，见 [todo-archive.md §M7.1](todo-archive.md#m71-认证与用户体系已归档)）：T701 RBAC + 用户管理 + 个人界面（三角色，决策 D1/D2/D3 已确认）、T707 认证扩展（`AUTH_MODE` 互斥二选一：enterprise OIDC SSO + 域名白名单 / public GitHub·Google OAuth + 域名黑名单）。设计文档：[platform-auth-users.md](../design/governance/platform-auth-users.md)（Review Gate Pass）。
-- **M7.2 平台能力深化**（已归档 2026-08-12，见 [todo-archive.md §M7.2](todo-archive.md#m72-平台能力深化已归档)）：T702 BullMQ+Redis 任务队列（✅ 2026-08-10）、T704 定时扫描与批量（✅ 2026-08-11）、T708 国际化 i18n（✅ 2026-08-11）、T709 治理规范收敛 + T710 CI lint 清理（✅ 2026-08-12）、T706 MCP 发布（✅ 2026-08-12，`@dependfix/mcp@0.1.2`）；T705 生产级部署（PostgreSQL + Helm + Sentry）、T703 跨平台 Git（GitLab/Bitbucket）**已延期 2026-08-12**（用户指示，见 [backlog.md §M7.2](backlog.md#m72-平台能力深化)）；T711 覆盖率冲刺已归档（✅ 2026-08-13 四维 ≥ 80%，见 [todo-archive.md §T711](todo-archive.md#t711-覆盖率口径修正--冲刺至-80已归档)）。
+- **M7.1 认证与用户体系**（已归档 2026-08-10，见 [todo-archive.md §M7.1](archive/todo-archive-phases-m6-m7-t711.md#m71-认证与用户体系已归档)）：T701 RBAC + 用户管理 + 个人界面（三角色，决策 D1/D2/D3 已确认）、T707 认证扩展（`AUTH_MODE` 互斥二选一：enterprise OIDC SSO + 域名白名单 / public GitHub·Google OAuth + 域名黑名单）。设计文档：[platform-auth-users.md](../design/governance/platform-auth-users.md)（Review Gate Pass）。
+- **M7.2 平台能力深化**（已归档 2026-08-12，见 [todo-archive.md §M7.2](archive/todo-archive-phases-m6-m7-t711.md#m72-平台能力深化已归档)）：T702 BullMQ+Redis 任务队列（✅ 2026-08-10）、T704 定时扫描与批量（✅ 2026-08-11）、T708 国际化 i18n（✅ 2026-08-11）、T709 治理规范收敛 + T710 CI lint 清理（✅ 2026-08-12）、T706 MCP 发布（✅ 2026-08-12，`@dependfix/mcp@0.1.2`）；T705 生产级部署（PostgreSQL + Helm + Sentry）、T703 跨平台 Git（GitLab/Bitbucket）**已延期 2026-08-12**（用户指示，见 [backlog.md §M7.2](backlog.md#m72-平台能力深化)）；T711 覆盖率冲刺已归档（✅ 2026-08-13 四维 ≥ 80%，见 [todo-archive.md §T711](archive/todo-archive-phases-m6-m7-t711.md#t711-覆盖率口径修正--冲刺至-80已归档)）。
 
 ---
 

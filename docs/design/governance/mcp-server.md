@@ -166,7 +166,7 @@ Agent: 用户对话 → Skill 编排 → MCP 执行 → 报告
 
 | 阶段 | 内容 |
 |:-----|:-----|
-| **M6 T605** | MCP Server（`@dependfix/mcp`）：骨架 + `fetch_alerts` / `get_last_report` 只读 tool + `run_scan` / `fix_dependency` 写入 tool + CLI 一致性断言（2026-08-07 规划：原 T605/T606 合并，见 [todo-archive.md §M6 规划决策](../../plan/todo-archive.md#m6-最小平台-mvp已归档)） |
+| **M6 T605** | MCP Server（`@dependfix/mcp`）：骨架 + `fetch_alerts` / `get_last_report` 只读 tool + `run_scan` / `fix_dependency` 写入 tool + CLI 一致性断言（2026-08-07 规划：原 T605/T606 合并，见 [todo-archive.md §M6 规划决策](../../plan/archive/todo-archive-phases-m6-m7-t711.md#m6-最小平台-mvp已归档)） |
 | **M7 T706** | MCP Server 发布 npm + 集成到 `dependfix-remediator` skill 双后端 |
 
 ---

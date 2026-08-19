@@ -366,7 +366,7 @@ packages/core (@dependfix/core)
 - URL 策略：`prefix_and_default`（zh-CN 无前缀，en-US 加 `/en`）
 - 语言检测：Cookie + 浏览器偏好 + URL
 
-> M7.2 T708 任务定义与验收见 [todo-archive.md §M7.2](../../plan/todo-archive.md#m72-平台能力深化已归档)。
+> M7.2 T708 任务定义与验收见 [todo-archive.md §M7.2](../../plan/archive/todo-archive-phases-m6-m7-t711.md#m72-平台能力深化已归档)。
 
 ### 认证
 

@@ -2,6 +2,30 @@
 
 > 本文档存放后续阶段与未排期增强候选。当前阶段任务见 [todo.md](todo.md)；已归档阶段见 [todo-archive.md](todo-archive.md)。
 
+## 2026-08-19~20 平台 UX/可用性闭环批次汇总
+
+> **背景**：2026-08-19~20 用户实测反馈一批平台 UX / 可用性问题，原登记为 backlog C46-C61。本批次一次性收口三个 PR + 三个独立 fix 任务，全部完成。
+>
+> **收口清单（10 个 backlog 项 → 已归档至 [todo-archive.md](todo-archive.md)）**：
+>
+> | 批次 | 关联 backlog | commit 序列 | 归档位置 |
+>|:--|:--|:--|:--|
+> | **PR1 原子修复** | C47（Dialog draggable）+ C48（默认全勾） | `cb788e7` `9e26b56` | [todo-archive.md §PR1](todo-archive.md#pr1-c47--c48-原子修复-) |
+> | **PR2 单仓库扫描** | C52（mode/severity 选择） | `1a663f3` | [todo-archive.md §PR2](todo-archive.md#pr2-c52-单仓库扫描模式补全-) |
+> | **PR3 批量导入** | C46（过滤 UI）+ C49（分页）+ C50（默认凭据） | `2a7f99f` | [todo-archive.md §PR3](todo-archive.md#pr3-c46--c49--c50-批量导入能力补全-) |
+> | **C51 扫描历史子路由** | C51（unrouting 0.2.x 兼容 bug） | `b067b3a` `2102894` `0b9411b` | [todo-archive.md §C51](todo-archive.md#c51-扫描历史子路由不可达unrouting-02x-兼容-bug--应用层-dialog-改造) |
+> | **C54 batch-runs 刷新** | C54（60s 节拍 + 增量 reconcile） | `3a2757b` `edb066c` | [todo-archive.md §C54](todo-archive.md#c54-batch-runs-页面刷新策略) |
+> | **C55 batch-runs 孤儿兜底** | C55（stale-cleanup + force-fail） | `ce523d4` `4c813f8` | [todo-archive.md §C55](todo-archive.md#c55-batch-runs-孤儿运行兜底) |
+> | **C59 暗色模式 mixin** | C59（global dark mode mixin 失效） | `9949504` `03ba3b2` | [todo-archive.md §C59](todo-archive.md#c59-暗色模式全局样式未生效-) |
+> | **C60 表格排序** | C60（7 表 sortable + 业务语义） | `a1d5bd9` `532ea78` `6b994b5` `5bba3f4` `5fbad71` | [todo-archive.md §C60](todo-archive.md#c60-平台表格排序) |
+> | **C61 仪表板图表** | C61（severity 饼图 + 修复率 + Top-10） | `ffacfca` `5abd914` `402dc03` `5bba3f4` `5fbad71` | [todo-archive.md §C61](todo-archive.md#c61-仪表板告警图表) |
+>
+> **仍待评估（保留 backlog）**：C53（平台 fix 推送 PR / 后置 M11 评估）/ C56（批量扫描 Dialog 关闭时序）/ C57（扫描历史 Dialog 缺面包屑）/ C58（alerts.vue 图表 / 同类 C61）
+>
+> **触发条件未达不实施**：C29（暗色模式）已由 C59 闭环删除；M6 C25/C27（已闭环 2026-08-08）已删除。
+>
+> **本节清理（2026-08-20）**：原 backlog.md 中各 C 项长段描述（C46 / C47 / C48 / C49 / C50 / C51 / C52 / C54 / C55 / C59 / C60 / C61）已删除，详细实施记录 / 修复方向 / 验收要点 / commit hash 见 [todo-archive.md](todo-archive.md) 对应区块。
+
 
 ## M4 增强候选（未排期）
 
@@ -93,7 +117,7 @@
   - 状态：🔶 待评估（关联 M6 T602）
   - 内容：当前仅支持 PAT（`GITHUB_TOKEN` / `DEPENDFIX_GITHUB_TOKEN` / `DEPENDFIX_ALERTS_TOKEN`）；架构文档声明输入含 "GitHub App 凭证"（[architecture.md](../design/governance/architecture.md)），但 [github-client.md](../design/packages/github-client.md) 明确"不实现 GitHub App / Installation Token 认证"。org 场景 PAT 痛点：classic PAT 需 `repo` 全量 scope（权限过大）；fine-grained PAT 需逐仓库配置 + 逐个 org 启用 SSO；个人 token 离职/轮换管理困难。GitHub App 价值：按仓库授权限、短时 token、org 管理员可控可审计
   - 实现路径：`createGitHubClient` 增加 app auth（appId + privateKey → JWT → installation token），或支持直接注入 installation token（后者近零成本，当前传任意有效 token 即可用，缺的是文档化 + 生成链路）
-  - 关联：M6 T602 凭据管理已交付 GitHub App 凭据类型（app-id + private-key，见 [todo-archive.md §M6](todo-archive.md#m6-最小平台-mvp已归档)）；CLI 侧认证能力为其前置或并行增强
+  - 关联：M6 T602 凭据管理已交付 GitHub App 凭据类型（app-id + private-key，见 [todo-archive.md §M6](archive/todo-archive-phases-m6-m7-t711.md#m6-最小平台-mvp已归档)）；CLI 侧认证能力为其前置或并行增强
   - 来源：2026-08-07 GitHub Organization 支持评估
 - **C23 发现规模上限 max-repos**（架构文档已规划未实现）
   - 状态：🔶 待评估
@@ -124,8 +148,8 @@
 
 ## M6: 最小平台 MVP
 
-> **已归档（2026-08-08）**：T601-T605 + T607 全部完成，见 [todo-archive.md §M6](todo-archive.md#m6-最小平台-mvp已归档)。以下仅保留本阶段转移出的增强候选与遗留观察项。
-> **已闭环清理**：C25（B 模式结果回填，17c5082f + 60d9fd6e）、C27（runUrl 状态语义，随 C25 联动解决）——记录见 [todo-archive.md §M6 治理记录](todo-archive.md#m6-阶段治理记录2026-08-07--2026-08-08)。
+> **已归档（2026-08-08）**：T601-T605 + T607 全部完成，见 [todo-archive.md §M6](archive/todo-archive-phases-m6-m7-t711.md#m6-最小平台-mvp已归档)。以下仅保留本阶段转移出的增强候选与遗留观察项。
+> **已闭环清理**：C25（B 模式结果回填，17c5082f + 60d9fd6e）、C27（runUrl 状态语义，随 C25 联动解决）——记录见 [todo-archive.md §M6 治理记录](archive/todo-archive-phases-m6-m7-t711.md#m6-阶段治理记录2026-08-07--2026-08-08)。
 
 - **C26 独立沙箱容器执行实现**（T607 设计文档产出后的实现候选）
   - 状态：🔶 **实施规划已就绪（2026-08-19 用户决策）**——[backlog §沙箱与恶意依赖防护治理登记](backlog.md#沙箱与恶意依赖防护治理登记-2026-08-14-安全专项评估) G5 升级；M10 实施规划已登记于 [todo.md §M10](todo.md#m10-独立沙箱容器-c26-实施规划2026-08-19-启动)。**前置依赖 T702/T802/T805/C38/C45 全部已落地**（BullMQ 并发 / detached 进程组 / 网络审计代理 / 容器降权 / 工具链修复），仅 3 个外部前置未决；2026-08-19 决策会议基于 super-search 一手调研结论如下
@@ -142,160 +166,9 @@
   - 状态：🔶 待评估（不阻塞）
   - 内容：security.md 未登记 T602 凭据加密机制（ENCRYPTION_KEY / AES-256-GCM / 解密仅执行时内存 / 凭据最小化），加密设计散落 executor-sandbox.md §3 与 credential.service.ts 注释；安全设计文档应与实现同步补"凭据加密存储"一节（T602 已交付，文档待补）
   - 来源：M6 终审（2026-08-08，deep Review Gate warning 4）
-- **C29 平台 UI 暗色模式不可用**（用户反馈登记）
-  - 状态：🔶 待修复（暂缓，2026-08-10 用户指示"先记下来，暂时不修，后续优化"）
-  - 内容：M6 平台 UI 的暗色模式不可用（T601 任务内容含"暗色模式 `.dark` 类切换"，`nuxt.config.ts` 已配 `darkModeSelector: '.dark'` 与 PrimeVue 主题预设，但实际切换后样式异常/不生效）。修复前需先以视觉验证确认现象与范围（用 UI Validator 子 agent，视觉模型 opencode-go/qwen3.7-plus 截图审计），修复方向：`.dark` 类挂载位置与 PrimeVue 主题联动、SCSS/BEM 变量（`_variables.scss`）暗色分支、页面级硬编码颜色清查
-  - 来源：2026-08-08 用户反馈（附截图，需视觉能力复核）
-  - **状态说明**：2026-08-09 T701 浏览器视觉复测曾判"暗色切换正常"并一度关闭；2026-08-10 用户实测反馈"暗色模式依旧不可用"——以用户实测为准重新登记（视觉模型可能对 PrimeVue 组件内部样式误判）。暂缓修复，后续优化排期
-- **C46 批量导入仓库弹窗缺过滤 UI**（M6 平台可选项 / 2026-08-19 用户反馈登记）
-  - 状态：🔶 待评估
-  - 位置：`apps/platform/app/components/ImportReposDialog.vue` + `apps/platform/server/api/repos/importable.get.ts`
-  - 问题：当前弹窗仅有"全选 / 单项勾选"两个操作，没有按仓库属性过滤的 UI。当凭据下可访问仓库数量较多（如 org 凭据覆盖 100+ 仓库）时，用户无法快速收敛到目标集合（自己的、非 fork、公开/私有 等）
-  - 现状：
-    - 后端 `importable.get.ts:22-26` 仅透传 `affiliation`（owner / collaborator / organization_member），未实现 `visibility` / `fork` / `archived` / `disabled` 等维度
-    - 前端 `ImportReposDialog.vue` 已展示 `repo.private / repo.fullName / repo.defaultBranch / repo.imported`（第 192-194 行），数据可用，只缺过滤器（按属性 chip + 按关键字 search 至少其一）
-    - GitHub `listForAuthenticatedUser` 单次返回字段含 `private / fork / archived / disabled / description / full_name`，前端本地 filter 零成本即可实现 capability 完整的过滤
-  - 修复方向（候选）：
-    - 方案 A：**前端 filter**（推荐）—— 在 `importableRepos` 基础上加若干 `<Checkbox>`（只看非 fork / 只看私有 / 隐藏已 archived / 只看公开 + 关键字 input），全部前端 in-memory 计算。后端 API 保持现状零改动。
-    - 方案 B：后端扩展 `?visibility=&fork=&archived=` 参数下推过滤 + 前端调用。最适合 ≥1000 仓库场景（但当前 per_page:100 单次最多 100 个，前端 filter 体感差别不大；如同时上 C49 分页，100+ 场景下服务端侧 filter 才有意义）
-    - 折中：A 先落地兜底；C49 落地若实测发现仍卡再补 B
-  - 关联：C48（默认全选）/ C49（分页）—— 三者均集中在 ImportReposDialog + importable.get.ts，可同 PR 收口
-  - 来源：2026-08-19 用户反馈「批量导入的时候，允许筛选仓库列表，例如只选择自己的项目（非 fork）、公开或私有等等」
-- **C47 PrimeVue Dialog 默认可拖拽**（M6 平台可选项 / 2026-08-19 用户反馈登记）
-  - 状态：🔶 待评估
-  - 位置：全站 6 处 Dialog 均受影响
-    - `apps/platform/app/components/ImportReposDialog.vue:111`
-    - `apps/platform/app/pages/repos.vue:468`（添加/编辑仓库弹窗）
-    - `apps/platform/app/pages/repos.vue:601`（批量扫描弹窗）
-    - `apps/platform/app/pages/schedules.vue:358`
-    - `apps/platform/app/pages/credentials.vue:224`
-    - `apps/platform/app/pages/repos/[id]/runs.vue:177`
-  - 根因（已核实 PrimeVue 4.5.5 源码）：
-    - `node_modules/.pnpm/primevue@4.5.5.../primevue/dialog/BaseDialog.vue:77` 明确 `draggable: { type: Boolean, default: true }`
-    - 全站 6 处 Dialog 全部未传 `:draggable="false"`，默认拖拽行为直接生效
-    - 标题栏 mousedown + mousemove 即可拖动整个弹窗位置——容易误触（尤其是表单输入场景）
-  - 修复方向（候选）：
-    - 方案 A：每个 Dialog 加 `:draggable="false"` —— 6 处一次性改完，简单直接
-    - 方案 B：自封装 `<AppDialog>` 包装组件统一绑死 `draggable=false` —— 6 处迁移但 long-term 防遗漏（每次新增 Dialog 只需用 wrapper）
-    - 方案 C：PrimeVue 4 PT 覆盖默认 prop —— 实测 PT 主要覆盖 CSS/classes，全局 prop 默认值无官方标准通道，需要绕路（provide override 等），不推荐
-    - **推荐 A**：6 处一字不改成本最低 + 同步登记开发规范「Dialog 必须显式 `draggable`」（挂接 `code-quality-checklist.md` 必查项，类似 §5.3 C44 先例）
-  - 关联：开发规范 `docs/standards/development.md` 章节「UI 组件约定」是否已声明 Dialog 行为？需要扫描（建议同时给 §5.3 类检查点补一条「Dialog 必须显式 draggable」）
-  - 来源：2026-08-19 用户反馈「目前的弹窗（模态框）默认情况下会被鼠标拖拽，不需要这个功能」
-- **C48 批量导入默认全勾（手滑风险）**（M6 平台可选项 / 2026-08-19 用户反馈登记）
-  - 状态：🔶 待评估
-  - 位置：`apps/platform/app/components/ImportReposDialog.vue:71`
-  - 问题：当前实现
-    ```ts
-    const loadImportable = async () => {
-        ...
-        selectedRepos.value = importableRepos.value.filter((r) => !r.imported)
-    }
-    ```
-    — `loadImportable` 完成后**自动勾选所有未导入项**。一个 token 含 50+ 仓库时，点"确定"会一次性批量添加 50 个，"只选其中 3 个"的典型用例必须先**手动取消 47 个**——操作反向、反直觉、手滑风险高（用户点击"导入"按钮瞬间全量提交无法挽回）
-  - 用户期望：默认全部不勾选，由用户主动勾选目标项；保留"全选"按钮供需要时一键勾选（`ImportReposDialog.vue:165-169` 已存在 select-all checkbox，无需新增）
-  - 修复方向：
-    - 单点改动：`ImportReposDialog.vue:71` 删除自动赋值语句，使 `selectedRepos` 默认值始终为 `[]`
-    - 增量考虑（如 C46 落地后过滤交互改变）：可考虑"过滤变化时自动取消选中"以保持显式选择语义，或保留已勾选项让用户体验更顺——后者更友好，需论证
-    - 与 C46 同 PR 落地，避免分批提交造成两次刷页面体验差
-  - 关联：C46（过滤 UI）/ C49（分页）—— 三者均集中在 ImportReposDialog + importable.get.ts，可同 PR 收口
-  - 来源：2026-08-19 用户反馈「默认不应该全部选中，让用户自己选择要导入哪些，避免手滑导入太多仓库」
-- **C49 批量导入超过 100 个仓库需分页**（M6 平台可选项 / 2026-08-19 用户反馈登记）
-  - 状态：🔶 待评估
-  - 位置：`apps/platform/server/api/repos/importable.get.ts:44`（后端 limit 硬编码）+ `apps/platform/app/components/ImportReposDialog.vue`（前端 UI）
-  - 问题：后端硬编码 `per_page: 100`（GitHub `listForAuthenticatedUser` 单次上限），不翻页意味着含 org 凭据场景下仓库数 >100 时丢失 100 之后的所有候选。前端列表当前 `max-height: 360px; overflow-y: auto;`（第 257-258 行），列表本身有滚动但底层数据缺，前端无法补救
-  - GitHub API 实际容量：`listForAuthenticatedUser` 默认 30 / max 100；paginate 总数理论可达 1000/账号，但实际取决于仓库可见性与权限范围
-  - 修复方向（候选）：
-    - **方案 A（最小完整）**：后端 `octokit.paginate(..., { per_page: 100 })` 一次拉完（Octokit 原生支持自动翻页；多数账号 < 500 个仓库，内存成本可接受），前端一次性渲染 + 复用现成的 `max-height: 360px; overflow-y: auto;` 滚动；总数展示在表头
-    - **方案 B（带 UI 分页）**：A 的基础上前端加 `DataTable` 或自实现 page 切换 + 「加载更多」按钮。前端可做 virtual scroll（如 PrimeVue `DataTable virtualScroller`）保证流畅
-    - **方案 C（实时服务端分页）**：后端保留 `?page=&pageSize=` 参数，前端分页拉取。复杂度最高但流量最优；当前场景非必要
-    - **推荐 A**：简洁、一次性全量、UI 改动最小。`octokit.paginate` 不引入新依赖（Octokit 内置），后端代码净增 2-4 行；前端总数展示 + 滚动区不动
-  - 验收要点：
-    - 含 >100 个仓库的凭据实测：导入弹窗显示「N 个仓库（N=全部用户可访问）」与原始 GitHub 列表一致
-    - API 调用次数有界（防 pagination loop 失控）：可选 `octokit.paginate(..., { per_page: 100, per_page_limit_reached: true })` 或显式 `while` + max page（如 20 = 2000 仓库兜底）
-    - 前端 UI 不卡：>300 仓库实测滚动 / 自动全选体验（如 C48 默认不勾选则全选压力大幅减轻）
-  - 关联：C46（过滤）/ C48（默认不勾选）—— 三者同 PR 收口；C46/C48 落地前单独 C49 收益有限（C48 不勾选 + 缺分页 = 大量仓库在列表里，用户无 KPI 感受）
-  - 来源：2026-08-19 用户反馈「超过 100 个仓库的时候要考虑分页了」
-- **C50 批量导入仓库选择默认关联凭据**（M6 平台可选项 / 2026-08-19 用户反馈登记）
-  - 状态：🔶 待评估
-  - 位置：
-    - 前端：`apps/platform/app/components/ImportReposDialog.vue`（新增"导入默认凭据"下拉 + 提交 payload 携带 `credentialId`）
-    - 后端：`apps/platform/server/api/repos/batch.post.ts`（补写 `repoRepo.create` 的 `credentialId` 字段，可选附 `credentialId` 存在性校验）
-    - 数据层：`apps/platform/server/entities/repository.ts` `credentialId` 字段已存在（`@Column({ nullable: true })` + 索引 + `ManyToOne Credential`，第 53-61 行），schema 层 `repositorySchema` 已接受 `credentialId`（`schemas/repository.ts:10`，`nullable().optional()`），**均无需变更**
-  - 问题：当前 `ImportReposDialog.vue` 弹窗里有一个"凭据"下拉（第 119-131 行），实际是**调用 `/api/repos/importable?credentialId=...` 拉取候选仓库列表**（即"用哪个 token 看仓库"），与"导入后仓库默认关联的凭据"是两个语义。`ImportReposDialog.vue:88-96` 提交 `POST /api/repos/batch` 时 payload 完全不带 `credentialId`，导致新建仓库 `credentialId=null`；管理员**导入后必须逐个去编辑页选凭据**（repos 列表显示 `notLinked`），批量场景工作量大
-  - 现状（后端约束已具备，唯一缺口在 batch.post.ts 未写入）：
-    - `repositorySchema.credentialId` schema 层已接受（`schemas/repository.ts:10`）
-    - `batchImportSchema` 复用 `repositorySchema`，schema 无需改
-    - `Repository.credentialId` 字段已就绪（外键 + ManyToOne + 索引 + nullable），实体层无需改
-    - **缺口**：`batch.post.ts:41-51` `repoRepo.create({...})` 未传 `credentialId`，落地时一行（`credentialId: item.credentialId ?? null`）补齐
-  - 修复方向（候选）：
-    - **方案 A（推荐）**：在 `ImportReposDialog` **新增**一个「默认关联凭据」下拉，与现有「拉取用凭据」下拉并存；读 / 写语义分离（read=拉列表 / write=关联到仓库）；提交 payload 顶层带 `credentialId`，后端写入每条记录。仅顶层默认，单仓库 override 留后续 backlog
-    - **方案 B**：A 的基础上，列表内每行右侧加 inline `<Select>`，单仓库可改覆盖默认凭据（适合"大部分 tokenA、少数 tokenB"场景）
-    - **方案 C（最小改动）**：复用现有「拉取用」下拉直接作为默认关联凭据（强制同 token），改动最小但语义混用，read/write 分离场景被破坏
-    - **推荐 A**：语义清晰、覆盖 95% 用例；B 可作为 C51 后续增强；C 是 A 的退化版（只在单 token 部署场景 OK）
-  - 验收要点：
-    - 弹窗顶部多一个「默认关联凭据」`<Select>`（必填或可空——见下），placeholder 与 hint 文本 i18n 化
-    - 默认关联凭据可空（`null` 即不关联，需要管理员后续手动编辑）
-    - 非空时提交：`POST /api/repos/batch` body 顶层带 `credentialId: 'xxx'`，`batch.post.ts` 写入 `repoRepo.create({...item, credentialId: item.credentialId ?? null})`
-    - 可选：后端补 `.refine` 校验 credentialId 实际存在（避免 FK 悬空；schema 层可加也可保留 null-on-not-found 语义）
-    - i18n 增 `repos.importDefaultCredential` / `repos.importDefaultCredentialPlaceholder` / `repos.importDefaultCredentialHint`（zh-CN + en-US）
-    - 单仓库 override 不实现（移至后续 backlog）
-    - 已导入（`imported=true`）的项不应用「默认凭据」（它们已经存在，凭据编辑走单独路径）
-  - 关联：C46（过滤）/ C48（默认不勾选）/ C49（分页）—— 四个均集中 `ImportReposDialog.vue` + `batch.post.ts`，可在同一 PR 收口
-  - 来源：2026-08-19 用户反馈「导入的时候应该可以选择默认的关联凭据」
-- **C51 扫描历史子路由不可达（unrouting 0.2.x 兼容 bug + 应用层 Dialog 改造）**（M6 平台 bugfix / 2026-08-19 用户实测反馈 + super-search 调研登记）
-  - 状态：✅ **已修复（2026-08-19）** — 提交 `2102894` 应用层方案 A：pi-history 按钮改 `navigateTo({path:'/repos', query:{history:data.id}})`，新增 `RepoHistoryDialog.vue` watch query 自动打开 Dialog（list + detail 内部切换）；e2e `tests/e2e/history-dialog.e2e.test.ts` 完整覆盖；review gate Pass（warning 级 UX 建议留待后续）
-  - 现象（用户实测）：仓库列表页 pi-history 按钮（`repos.vue:440` `@click="navigateTo(\`/repos/${data.id}/runs\`)"`）点击后 URL 跳转到`/repos/{id}/runs`，**但页面 DOM 仍显示父路由 /repos 内容**——h2 渲染为「仓库管理」而非「扫描历史」；用户感受"扫描历史按钮没用"
-  - 位置：
-    - 子页面文件：`apps/platform/app/pages/repos/[id]/runs.vue`（存在但从未被路由正确匹配）
-    - 用户入口：`apps/platform/app/pages/repos.vue:438-441` pi-history 按钮 + 各页面 `navigateTo(\`/repos/${data.id}/runs\`)`
-    - 失败链条：unrouting 0.2.x → vue-router 4 → SSR 渲染 fallback 到父路由 /repos
-  - **根因（已被脚本化诊断证实）**：
-    1. `pages/repos/[id]/runs.vue` 的 `[id]` 动态段在 unrouting 0.2.x 输出为 vue-router 字符串 `:id()`（见 `node_modules/.pnpm/unrouting@0.2.2/.../dist/index.mjs:489`  `case "dynamic": out += \`:${token.value}()\``）
-    2. vue-router 4 + path-to-regexp 8.x 在 tokenize 时将 `:name()` 解析为 **`param {name}` + `(` + `)` 三个 token**，`(`/`)` 在 SIMPLE_TOKENS 中是 reserved 但 consume() 不处理，被丢在 lexer 流中未被消费（除非源码错 throw），最终 vue-router matcher 将 `(` 与 `)` 当成 CHAR literal
-    3. 编译成的正则包含 `([^/]+\()` —— **literal 必须** `id` 紧跟 `(` 字符；URL `/repos/abc/runs` 不匹配，自动 fallback 到最接近的 `path: '/repos'` 父路由
-    4. SSR 直接 `curl /repos/{id}/runs` 返回 HTML，h2 是「仓库管理」（验证：诊断脚本 `tests/e2e/history-button-diag-ssr.e2e.test.ts` 已临时创建用于实证）
-    5. 客户端 router path 与 SSR 一致：`router.getRoutes()` dump 显示真实 path 为 `:id()/runs`（验证：诊断脚本 `tests/e2e/dump-router.e2e.test.ts` 已临时创建用于实证）
-  - **super-search 调研结论（2026-08-19）**：
-    - unrouting 仓库 `unjs/unrouting` 当前 **main 分支 / v0.2.3 最新版（2026-08-12 发布）仍输出 `:id()`**——v0.2.3 的 fix #182 仅修 static segments 编码（ufo encodePath 与 vue-router 不一致），未触及 dynamic token 输出
-    - 仓库内未检索到针对 `:id()` / vue-router-4 兼容性的同类 issue 报告（GitHub search `repo:unjs/unrouting :id()` 仅返回 reno PR 与无关结果）
-    - `path-to-regexp 8.1.0` 源码 lexer 函数（`pillarjs/path-to-regexp/src/index.ts` `lexer()`）确认 `(`,`)` 是 reserved tokens 未消费且 parse() consume 仅识别 `{`/`}`/`PARAM`/`WILDCARD`/`CHAR`/`ESCAPED`/`END`，`(`,`)` 是 literal CHAR
-    - **结论**：上游 unrouting / path-to-regexp 升级短期不会修复；下游 monkey-patch 也只能写到 nuxt local module，且与 i18n `pages:extend` hook 顺序敏感（实测 hooks: pages:extend 把我先改的 `:id?` 又被 i18n listener 二次 localizes 覆盖成 `:id()`——见 `apps/platform/modules/fix-routes.ts` 之前的失败尝试）；**应用层绕开**是最稳路径
-  - **修复方向（候选）**：
-    - **方案 A（推荐 / 用户已选）**：把 `runs.vue` 的「扫描历史」内容**嵌入到 `repos.vue` 的 Dialog**，id 通过 **`route.query.repoId`**（查询字符串）传递，例如 `navigateTo('/repos?history={id}')`，`repos.vue` 顶部监听 `route.query.history` 打开 Dialog 与对应仓库详情
-      - 优点：完全绕开 unrouting bug（顶级路由 + query 字符串不涉及 dynamic segment）；Dialog 已经跑通；符合现有 `ImportReposDialog.vue` / `BatchRunDialog` 模式
-      - 缺点：URL 不再 deep-link 扫描历史（`/repos` 同 URL 不同 state）——可接受，进入历史即做 modal 入口
-      - 实现要点：Dialog 内 `fetchRuns` 使用 `query.repositoryId = repoId` 复用现有 `/api/runs` 接口，详情 Dialog 模板与现 runs.vue 几乎一致；`runs.vue` 删除或留作未来回归
-    - **方案 B**：等 unrouting 上游修复 + 后续版本升级
-    - **方案 C**：应用层 monkey-patch unrouting（去掉 `()`）；不推荐——依赖副作用且与 i18n hook 顺序敏感，与 nuxt 升级会脱钩
-    - **方案 D**：降 nuxt-i18n 到旧版（用过 path-to-regexp 6 的版本）；不推荐——失去 i18n 新特性
-  - **验收要点（推荐 A）**：
-    - 仓库列表行的 pi-history 按钮点击后，url 变为 `/repos?history={repoId}`，`repos.vue` 自动打开「扫描历史」Dialog
-    - Dialog 内标题、状态表格、详情按钮**复用**原 `runs.vue` 逻辑（详情 fetch 仍命中 `/api/runs/{id}` 接口）
-    - 关闭 Dialog 后 `?history` query 移除，url 干净
-    - 用户直接访问 `/repos?history=<id>` 也能正确打开对应仓库 Dialog（deep-link via query）
-    - 撤销/清理：临时诊断脚本 `tests/e2e/{dump-router,history-button-diag*}.e2e.test.ts` 已在 2026-08-19 撤回（保留为未来回归候选）
-  - **顺手补项**（可不依赖 C51 主路径）：
-    - C-子项 a：`runs.vue` 内 Dialog 加 `:draggable="false"`（C47 当前 viewport 部分修复；其余 5 处 Dialog 与本任务独立，可单独 PR）
-    - C-子项 b：`runs.vue` 内 `openDetail` 错误处理加 `detailError` 解耦 + Dialog 内嵌 `<Message>` 错误占位 + 关闭 Dialog 重置 state（现行代码 `error.value` 写到列表顶部 message 被 Dialog 遮罩掩盖——降级路径下用户看不到错误）
-    - 因 C51 推荐方案 A 将 runs.vue 内容迁入 Dialog，这两条迁移到 Dialog 内同位置实现即可，不需重复
-  - 关联：**C47**（Dialog 默认 draggable，6 处待修）/ **C-子项 b**（详情 Dialog 错误占位）/ **C49**（批量导入分页无）+ **D1-D4 四种上游/应用层方案权衡**
-  - **触发重新评估的条件**：① unrouting 上游发布修复 `:id()` 输出的新版本（订阅 `unjs/unrouting` releases）；② 用户重新启用"独立子路由" 形态；③ 真实出现 deep-link 扫描历史需求（share link 等）
-  - 来源：2026-08-19 用户实测反馈"这个扫描历史按钮还是没用" + super-search 调研（GitHub API `unjs/unrouting` issues search `vue-router` `:id()` `path-to-regexp`）
-- **C52 单仓库扫描缺模式/阈值选择（不合理）**（M6 平台可选项 / 2026-08-19 用户反馈登记）
-  - 状态：🔶 待评估
-  - 位置：`apps/platform/app/pages/repos.vue` `triggerScan`（第 193-231 行），`/api/repos/[id]/scan` POST body 第 207-208 行
-  - 问题：单仓库「触发扫描」按钮**硬编码** `mode: 'report-only'` / `severityThreshold: 'high'`；而批量扫描（`openBatchScan` / `submitBatchScan`）有完整选择器（`batchModeOptions`：report-only/fix/fix-and-pr；`batchSeverityOptions`：critical/high/medium/all）。导致 **fix / fix-and-pr 模式对单仓库不可达**（只能通过批量扫描触发，或直接调 API）——功能缺口 + 交互不一致
-  - 现状：
-    - `apps/platform/app/pages/repos.vue:207-208` `mode: 'report-only'`、`severityThreshold: 'high'` 写死
-    - 第 250-261 行已有 `batchModeOptions` / `batchSeverityOptions` 可复用
-    - 后端 `scan.post.ts` 的 `scanRequestSchema` 已支持 mode/severityThreshold（校验通过即可），无后端改动
-  - 修复方向（候选）：
-    - **方案 A（推荐）**：复用批量扫描的模式/阈值选择器——单仓库触发前弹一个小配置 Dialog（mode + severity），或在行内按钮旁加 `Select`。由于 `scan.post.ts` 已透传 mode/severityThreshold，纯前端改动即可
-    - **方案 B**：合并为统一的"扫描配置"组件，批量/单仓库共用（DRY）
-    - **推荐 A**：改动最小、行为对齐；B 作为长期重构
-  - 验收要点：单仓库触发可选 report-only/fix/fix-and-pr + critical/high/medium/all；POST body 带所选 mode/threshold；后端无 schema 变更；默认 report-only/high（保持兼容现状）
-  - 关联：C53（fix 推送）+ **批量扫描配置组件复用**
-  - 来源：2026-08-19 用户反馈"为什么只有批量扫描的时候能选择扫描模式呢？不太合理"
+- **C29 平台 UI 暗色模式不可用**（已闭环于 C59，2026-08-20）
+  - 状态：✅ **已修复**（commit `9949504` + `03ba3b2`，C59 应用层方案 A，1 行 mixin 修复 + 永久 e2e 回归）—— 详见 [todo-archive.md §C59](todo-archive.md#c59-暗色模式全局样式未生效-) 与本节顶部"2026-08-19~20 闭环批次汇总"表
+  - 治理登记保留：T601 暗色模式 initial 实现 + 2026-08-10 用户实测反馈"依旧不可用"历史追溯；修复路径：`_mixins.scss` `@mixin dark-mode` 把 `:global(.dark) &` 改为 `.dark &`（`:global()` 是 CSS Modules 语法，全局 `main.scss` 无 scope 时无效）
 - **C53 平台集成模式 fix 修复结果不推送远程（无 PR）**（M6 平台可选项 / 2026-08-19 用户反馈登记）
   - 状态：🔶 **后置候选（M11 评估）** —— 改动体量大（+80-120 行 / 2-3 文件），涉及 git push 副作用 + Octokit 集成 + 测试基建；需独立 Task 含方案设计（push 凭证来源、回滚机制、权限边界）+ e2e mock GitHub API；依赖 C50 提供推送凭证来源；2026-08-19 用户指示暂不入 PR1-PR3 排期
   - 位置：`apps/platform/server/services/executor/container-executor.ts`（第 48-51 行 clone + 第 71 行 `app.run()` + 第 95 行 `rm(workDir)` 清理）
@@ -313,41 +186,6 @@
   - 验收要点：`fix` 模式在平台集成执行后远程分支包含修复 commit（可 fetch 验证）；`fix-and-pr` 模式在 GitHub 创建 PR 且 body 含报告；失败时干净回退（不残留孤儿分支/PR）；工作目录清理时序改为 push 成功后再清理
   - 关联：C50（默认关联凭据）提供推送凭据；与 C52（单仓库模式选择）同属平台执行链路补齐
   - 来源：2026-08-19 用户反馈"平台集成模式下，仅修复有一个直接的问题，那就是修复结果只在本地，未推送到远程……没有修复并 PR 来的直观（也确实没有修复功能）"
-- **C54 batch-runs 页面刷新策略(降低刷新周期 + 防抖动 + 手动刷新按钮)**（M6 平台可选项 / 2026-08-19 用户反馈登记）
-  - 状态:🔵 **已规划落地（2026-08-19 todo.md C54 区块 / 进行中）**——原 🔶 待评估
-  - 位置:`apps/platform/app/pages/batch-runs.vue` 第 119-149 行 `startPolling`(setInterval 2000ms)+ `fetchBatchRuns`(line 73,整表替换 `batchRuns.value = ...`)
-  - 问题:`batch-runs` 页面对所有 `status === 'running'` 的批次做 **2 秒间隔**的 `setInterval` 全表拉取(`fetchBatchRuns` 每次整体替换 `batchRuns` 数组);同步对每个已展开行再 `fetchDetail` 一次;无防抖动。导致:
-    1. **表格屏闪**:整表替换 → PrimeVue DataTable 重新 reconcile 行节点 → 行短暂消失/重排,长列表时观感差
-    2. **网络/后端压力**:2s 全量 GET `/api/batch-runs` + N 次 `/api/batch-runs/[id]`,多个 running batch 同时存在时请求量翻倍
-    - 用户反馈:"batch-runs 页面刷新数据过于频繁,并且页面没有增加防抖动,会导致表格屏闪"
-  - 现状:
-    - 轮询触发条件:`onMounted` 拉一次列表 → 若有 `status === 'running'` → `startPolling`(2s 间隔)
-    - 终态收敛:`runningIds.value.length === 0` 时 `stopPolling`(自然停止)
-    - 已展开行在轮询中重复拉详情(line 132-136)
-    - 手动刷新按钮已存在(line 170-176 `pi-refresh` 图标),但点击只触发 `fetchBatchRuns` 不重置轮询节拍
-  - 修复方向(候选):
-    - **方案 A(用户采纳)**:① **降低刷新周期**:轮询间隔 2s → **60s**(用户决策,原建议 5s 仍嫌频繁;running 批次平均 30s+ 进度变化有限,60s 折中);② **整表替换 → 增量 reconcile**:服务端加 `updatedAt` 字段,客户端按 id 合并数组而非整表替换,避免 PrimeVue DataTable 重排;③ **保留并强化手动刷新按钮**:点击时强制立即拉一次并重置下次轮询计时(让用户感知"我点了,马上刷了");④ **防抖动**:三态分离(`firstLoad` UI 骨架 + `loading` 按钮反馈 + `inflight` 并发守卫),连续点击不会并发请求
-    - **方案 B**:保留 2s 轮询但改为"前端窗口聚合"——服务端推送(WebSocket / SSE)推送 running batch 状态变化,客户端只更新受影响的行;改动大、需 SSE/WS 基建,不推荐
-    - **方案 C**:`fetchBatchRuns` 仅在 `[...batchRuns]` 引用变化时才重渲(用 shallowRef / markRaw);改动小但治标不治本
-    - **采纳 A**:纯前端 + 后端轻量字段扩展,改动量约 +260 行 / 7 文件(后端 1 字段 + 前端重写 + utils 抽取 + 测试 8 个),UX 改善显著
-  - 验收要点:**轮询间隔 60s**(2026-08-19 用户决策,写死 `BATCH_POLL_INTERVAL_MS = 60_000` 常量便于后续微调);运行中表格屏闪消失(增量 reconcile 避免整表重排);手动刷新按钮点击后立即 loading 反馈,请求成功后 loading 消失;连续点击不会触发并发请求(`inflight` 守卫);首屏加载不卡死(`firstLoad` 与 `loading` 解耦)
-  - **跟进项**:MySQL 部署前需将 `BatchRun.@UpdateDateColumn` 显式声明为 `datetime(3)`(默认 fsp=0 在 reconcile 步骤 3 会有相邻 save 同秒 → 误判无变化的盲区;当前 SQLite/Postgres 不受影响,utils 文件注释已记录);也可选在 `reconcileBatchRuns` 步骤 3 增加内容比对兜底(纯前端方案)
-  - **审计记录(RG-B1 / B3 / W1 / S2 / S3 / S4 已修复,S1 顺序漂移兜底留 backlog,W2 MySQL 精度 caveat 加注释)**:见 [artifacts/review-gate/2026-08-19-c54-batch-runs.md](#) + 复审放行结论
-
-- **C55 batch-runs 孤儿运行兜底(自动化 stale-cleanup + 手动 force-fail 应急逃生口)**（M6 平台 bugfix / 2026-08-19 用户实测反馈 + commit `ce523d4`）
-  - 状态:✅ **已修复（2026-08-19）** — 自动化兜底覆盖 30 分钟+ 孤儿 + admin 手动 force-fail 覆盖 30 分钟内卡死
-  - 位置:`apps/platform/server/services/batch/stale-cleanup.ts` + `apps/platform/server/plugins/stale-cleanup.ts` + `apps/platform/server/api/batch-runs/[id]/force-fail.post.ts` + `apps/platform/app/pages/batch-runs.vue`(Status 列旁"强制完成"按钮)
-  - 问题:`batch-runs` 页面 status='running' 但下属 ScanRun 永远 '执行中'——根因 sync 进程崩溃 / async worker SIGKILL / GitHub Action runner 永久不回执等导致 ScanRun 已落库为 running 但永远无终态
-  - 用户反馈："批量运行对任务超时没有兜底，会出现一直执行中的情况"
-  - 现状:执行器(ContainerExecutor / SandboxExecutor / ActionResultFetcher)有 30 分钟单次超时,但**没有"stale running 兜底"**——进程被 kill / 客户端断开 / 异常路径绕过后,ScanRun 永远 running,BatchRun 也永远聚合 running
-  - 修复方向(用户采纳 A+B 组合):
-    - **A 自动化**:`cleanupStaleRuns()` 扫 stale ScanRun(running/pending + startedAt/createdAt < now - 30min)+ stale BatchRun(仅当下属有 stale run 才 failed,避免误杀慢批次)+ 错误码 `orphan_run`;`server/plugins/stale-cleanup.ts` 用 defineNitroPlugin + setInterval 5 分钟(STALE_CLEANUP_INTERVAL_MS env 可覆盖)+ 30s 首跑延迟 + nitro close hook 清 timer
-    - **B 手动**:`POST /api/batch-runs/[id]/force-fail` admin 权限 + 幂等(已终态直接返回不重写 finishedAt)+ 仅改 running/pending 子 run + 错误码 `force_failed`;前端按钮 in-flight 守卫 + confirm 弹窗 + 成功后清 detailMap
-    - 阈值默认 30 分钟 = ContainerExecutor.timeoutMs 默认;多实例场景下阈值需评审(单组织部署足够)
-  - 验收要点:stale-cleanup 7 case 覆盖空库 / stale running / stale pending / mixed / 慢批次保护 / 已终态不动 / 自定义阈值;force-fail 5 case 覆盖空 id 400 / 404 / running + 子 run / completed 幂等 / failed 幂等;review-gate 1 轮 audit-quick Pass(0 blocker + 3 warning 已修复);V 阶段 OCR 确认按钮在 running 行旁渲染(i18n dev cache 未刷新,build 后正常)
-  - 关联:与 C54 batch-runs 刷新策略同一页面,但解决不同问题(C54 是"轮询 + 防抖",C55 是"孤儿兜底");backlog C53 平台 fix 推送 PR 仍待评估;M10 独立沙箱后续 cgroup v2 资源限制(T1003)可参考此处的"30 分钟阈值"经验
-  - 关联:C53(后置 M11 评估)+ PR1/C47(Dialog 默认不可拖动,该页 Dialog 同样受益)
-  - 来源:2026-08-19 用户反馈"刷新周期增加,但是也提供一个手动刷新按钮";2026-08-19 用户决策"轮询时间改到 60 秒"
 
 - **C56 批量扫描 Dialog 关闭时序（用户感知"点了不关"）**（M6 平台可选项 / 2026-08-20 用户实测反馈）
   - 状态:🔶 待评估
@@ -410,104 +248,6 @@
   - 复杂度:🟡 中(2 sub-task,后端 + 前端 + i18n + e2e)
   - 来源:2026-08-20 用户反馈
 
-- **C59 暗色模式全局样式未生效（PrimeVue 组件响应,自定义 SCSS 不响应）**（M6 平台 bugfix / 2026-08-20 用户实测 + 截图确认）
-  - 状态:✅ **已修复（2026-08-20）** — 提交 `9949504` 应用层方案 A(1 行 mixin 修复) + 永久 e2e 回归测试 `dark-mode.e2e.test.ts`
-  - 位置:
-    - `apps/platform/app/assets/styles/_mixins.scss:4-8` → `@mixin dark-mode { :global(.dark) & { @content; } }`(主因)
-    - `apps/platform/app/assets/styles/main.scss`(全局 3 处 `@include dark-mode`:body / `.platform__header` / `.auth`)+ `apps/platform/app/components/ImportReposDialog.vue:471`(scoped 1 处 `.import-form__list`);mixin 改动 4 处自动 work
-    - `apps/platform/nuxt.config.ts:60` → `main.scss` 作为**全局 CSS** 加载(`css: ['primeicons/primeicons.css', '@/assets/styles/main.scss']`),**非 scoped**
-  - 现象(用户截图):
-    - 顶部 header `.platform__header` 在 dark mode 下保持浅色背景(应该是 `$color-surface-dark: #1e293b`)
-    - body 主背景仍 `$color-bg: #ffffff`(应该是 `$color-bg-dark: #0f172a`)
-    - PrimeVue DataTable / Dialog / Tag 切换正常(因为 PrimeVue 通过 `darkModeSelector: '.dark'` 切主题 CSS 变量,与 SCSS 无关)
-    - 视觉效果:页面"半亮半暗" — PrimeVue 组件区暗,自定义布局区亮
-  - 根因(已代码层定位):
-    - `:global(.dark)` 是 CSS Modules 语法(只在 `<style scoped>` 内有效)
-    - `main.scss` 是全局 CSS,无 scope;`:global(.dark) &` 编译后变成 `:global(.dark) .platform__header`,`:global(.dark)` 不是合法 CSS 选择器,浏览器静默忽略
-    - 正确写法(全局上下文):直接 `.dark & { @content; }` 或 `:where(.dark) & { ... }`(零特异性) 或 `@at-root .dark .parent { ... }`
-  - 修复方向（候选）:
-    - **方案 A(推荐,1 行修复)**:`_mixins.scss` 的 `@mixin dark-mode` 把 `:global(.dark) &` 改为 `.dark &`(去掉 `:global()` 包装);4 处 `@include dark-mode` 自动 work
-    - **方案 B**:把 `main.scss` 改为 `<style>` scoped 块 — 工程量较大,所有选择器需重排
-    - **方案 C**:每个选择器手写 `.dark .xxx { ... }` — 体力活,4 处 × 2-3 行 = 12-15 行
-  - 推荐 A:删 `:global()` 包装即生效,1 行 mixin 改动 + 视觉验证
-  - 验收要点:
-    - 切到 dark mode 后:**header / body / nav / auth 页 / 全部自定义 SCSS 容器** 全部跟随 `.dark` 类切色
-    - PrimeVue 组件(table / dialog / tag / select) 与自定义 SCSS 视觉一致(同步亮/暗)
-    - 截图验证:用户实测提供的"半亮半暗"截图,修复后变为"全暗"
-    - 切换动画 0.2s 仍然流畅(已有的 `transition: background-color 0.2s ease, color 0.2s ease` 保留)
-  - 关联:原 C29(T601 暗色模式 initial 实现,2026-08-10 用户反馈"暗色模式依旧不可用")兜底升档;与 C47 Dialog 规范无关
-  - 复杂度:🟢 小(1 行 mixin 修复 + 全局样式覆盖验证 + 截图回归)
-  - 来源:2026-08-20 用户截图(浅色 header + 暗色 table 反差)+ 原文代码层根因分析
-
-- **C60 平台表格排序(全 7 表格 sortable + removableSort + 业务语义排序)**（M6 平台 增强 / 2026-08-20 用户反馈）
-  - 状态:🔵 已规划落地（2026-08-20 todo.md C60 区块 / 启动中）
-  - 位置:
-    - `apps/platform/app/pages/alerts.vue`(9 列 → 5 可排序)
-    - `apps/platform/app/pages/repos.vue`(9 列 → 6 可排序)
-    - `apps/platform/app/pages/batch-runs.vue`(7+5 列 → 9 可排序)
-    - `apps/platform/app/pages/schedules.vue`(7 列 → 6 可排序)
-    - `apps/platform/app/pages/credentials.vue`(5 列 → 4 可排序)
-    - `apps/platform/app/pages/users.vue`(6 列 → 4 可排序)
-    - `apps/platform/app/pages/repos/[id]/runs.vue`(8 列 → 6 可排序;C51 应用层修复后此页面已废弃但保留兼容)
-    - 新建 `apps/platform/app/utils/sort-helpers.ts`(枚举排序键 + map helper)
-  - 现象:当前所有 DataTable 仅能按后端默认排序(`createdAt DESC` / 无),用户无法按严重级别/状态/包名/凭据类型等关键字段排序——告警视图等高频页面"想看 critical 优先"只能肉眼筛
-  - 修复方向(决策 2026-08-20 用户确认 D1=1A 全覆盖 + D2=客户端单列 + D3=业务语义 + D4=v1 不持久化):
-    - **D1 覆盖范围(1A)**:全 7 个表格 sortable 接入,工作量 +180-220 行
-    - **D2 排序策略**:客户端单列排序(PrimeVue DataTable 默认行为,零后端改动) + `removableSort`(允许三态 asc/desc/none) + 多列排序留 backlog
-    - **D3 枚举字段(3A 业务语义)**:fetchData 后 map 增加派生字段 `_severityRank` / `_statusRank` / `_roleRank`(下划线前缀表示内部使用),`<Column :sortable field="_xxxRank">` 指向派生字段——严重级别按 critical > high > medium > low > unknown,状态按 running > completed > failed,角色按 admin > org_admin > viewer
-    - **D4 持久化**:v1 不持久化(localStorage 排序偏好持久化留 backlog)
-    - **D5 多列排序**:v1 不实现(sortMode="multiple" 留 backlog)
-  - 推荐可排序字段(每个表格):
-    - alerts: `repository` / `packageName` / `source` / `_severityRank` / `_fixStatusRank` / `recommendedVersion`(6 列)
-    - repos: `owner` / `name` / `packageManager` / `executorKind`(4 列;`createdAt` / `lastScanAt` 不在当前表格显示列里 → 留 backlog 扩展显示列)
-    - batch-runs: `source` / `createdAt` / `repositoryCount` / `_statusRank` / `finishedAt`(5 列;`mode` / `severityThreshold` 在 Params 合并列里不可单独 sortable,`completedCount` / `failedCount` 在 Progress 列 body 里不可单独 sortable → 留 backlog 拆列)
-    - schedules: `name` / `cron` / `selectorKind` / `mode` / `lastTriggeredAt`(5 列;`createdAt` 不在当前表格显示列里 → 留 backlog)
-    - credentials: `name` / `type` / `createdAt`(3 列;`lastUsedAt` 不在当前表格显示列里 → 留 backlog)
-    - users: `email` / `name` / `_roleRank`(3 列;`createdAt` 不在当前表格显示列里 → 留 backlog)
-    - repos/[id]/runs: `_statusRank` / `mode` / `severityThreshold` / `executorKind` / `startedAt`(5 列;`finishedAt` 不在当前表格显示列里 → 留 backlog;runs 状态全集用 `RUN_STATUS_RANK` 独立常量,见 RG-W03)
-  - 验收要点:
-    - 7 个表格 header 点击 sortable 切换 asc → desc → none(removableSort 三态)
-    - 严重级别/状态/角色枚举按业务语义排序(非字典序)
-    - batch-runs C54 增量 reconcile 与排序并存——轮询 60s 时排序状态不重置(增量 reconcile 不替换已排序数组引用)
-    - repos sortable 保留 selectedRows(PR1 W10 教训:删除"自动逻辑"必须搜遍被动接收态)
-    - 单测 sort-helpers.ts 覆盖 5 severity × 3 status × 3 role + 边界(null/unknown/未知字符串)
-    - e2e 覆盖 alerts / repos / batch-runs sortable 行为(点击 column header → 验证 asc/desc/none 三态切换 + severity 排序业务正确性)
-    - 编号标记扫描 `rg -nE "T\d{3}\|P[0-3](-[0-9])?\|C\d+\|G\d\|R\d\|M\d+\|B\d"` 零命中(W1 教训 ERE 模式)
-    - lint 0 error / typecheck 0 error / 单测全过 / ✅ Review Gate Pass（第 1 轮 audit-standard Reject 9 blocker + 5 warning → 全部修复 → 第 2 轮 audit-quick Pass；V 阶段 ui-validator 768px 响应式 Conditional 已修复）
-  - 复杂度:🟡 中(7 表格 × N 列 + sort-helpers + 单测 + e2e,分批 5-7 commits)
-  - 关联:C54(batch-runs reconcile 与排序共存) / **C61**(同批启动;独立 PR 决策) / C58(告警视图图表暂不同步)
-  - 来源:2026-08-20 用户反馈"表格增加按排序功能(可排序的字段需进行评估)"
-
-- **C61 仪表板告警图表(severity 饼图 + 修复率环形 + Top-10 包柱状图)**（M6 平台 增强 / 2026-08-20 用户反馈）
-  - 状态:🔵 已规划落地（2026-08-20 todo.md C61 区块 / 启动中）
-  - 位置:
-    - 前端:`apps/platform/app/pages/dashboard.vue`(在 dashboard__severity 区块下新增 chart 区)
-    - 后端:`apps/platform/server/api/dashboard/stats.get.ts`(新增 `topPackages` 字段)
-    - 单测:`apps/platform/server/api/dashboard/stats.get.test.ts`(扩展 topPackages case)
-    - e2e:`apps/platform/tests/e2e/dashboard.e2e.test.ts`(新建)
-    - 依赖:新增 `chart.js@^4.5.0`(tree-shakable 引入);`primevue/chart` 已是 PrimeVue 4 内置包装
-  - 现象:用户实测截图(2026-08-20)仪表板下方完全空白,仅有 5 个 severity Tag + 数字——信息密度低,视觉单调
-  - 修复方向(决策 2026-08-20 用户确认 D2=2B 推荐方案:severity 饼图 + 修复率环形 + Top-10 包柱状图):
-    - **severity 饼图(doughnut)**:`stats.severityCounts` 已存在,前端直接渲染 5 段配色复用 `severityTagSeverity` 映射(critical=danger/high=warn/medium=info/low=secondary/unknown=secondary)
-    - **修复率环形进度(doughnut)**:`(fixedCount / alertsTotal) * 100`,前端计算;中心文字显示百分比;悬停 tooltip 显示具体数字
-    - **Top-10 包柱状图(bar)**:后端 `GROUP BY packageName LIMIT 10` 聚合,新增 `topPackages: Array<{ packageName: string, count: number }>` 字段;前端 Chart.js bar 渲染,x 轴包名(>20 字符截断 + tooltip 完整名),y 轴告警数
-    - **依赖策略**:`chart.js@4` 引入,**tree-shakable 仅注册用到的 controllers/elements/scales/plugins 子集**(避免 chart.js/auto 全量 ~200KB);实测 gzip < 50KB
-    - **组件封装**:自实现 `apps/platform/app/components/ChartCanvas.vue`(< 100 行 setup + Chart.register 子集),**不**复用 PrimeVue `<Chart>` —— 后者内部 `import('chart.js/auto')` 会引入 ~200KB 全量,与本项目 tree-shakable 原则冲突;ChartCanvas 接受 `type / data / options / ariaLabel` props,调用方(dashboard.vue)在 `<ClientOnly>` 内包裹避免 SSR `window is not defined` 报错
-    - **i18n**:zh-CN + en-US 各新增 9 键(`dashboard.chartTitle` / `dashboard.severityChartTitle` / `dashboard.fixRateChartTitle` / `dashboard.topPackagesChartTitle` / `dashboard.chartEmpty` / `dashboard.fixRateLabel` / `dashboard.fixRateRemaining` / `dashboard.fixRateValue` / `dashboard.packageTruncated`;`fixRateRemaining` 为 RG-W01 修复追加,替代硬编码"未修复")
-  - 验收要点:
-    - 仪表板"告警按严重级别"下方新增图表区(grid 3 列:severity 饼图 / 修复率环形 / Top-10 柱状图)
-    - 3 卡片同高(用 CSS grid `align-items: stretch`);空数据状态 empty 占位(非白屏)
-    - severity 饼图 5 色与现有 Tag 配色一致(复用 severityTagSeverity)
-    - Top-10 包柱状图横轴包名截断 20 字符 + tooltip 完整名;空数据(无告警)显示 empty
-    - 修复率环形 0% / 100% / 中间值均渲染正确(边界 case)
-    - 后端 stats.get.test.ts 扩展:空库 / 单包 / 多包 LIMIT 10 / 同名多 severity 聚合
-    - e2e dashboard.e2e.test.ts:3 个 Chart 元素存在 + i18n 双语 key 验证 + empty 状态截图
-    - chart.js 体积实测 < 50KB gzip(vs chart.js/auto 全量 ~200KB)
-    - vue-i18n audit 零告警(i18n script)
-    - 编号标记扫描零命中;lint 0 error / typecheck 0 error / ✅ Review Gate Pass（第 1 轮 audit-standard Reject 9 blocker + 5 warning → 全部修复 → 第 2 轮 audit-quick Pass；V 阶段 ui-validator Conditional 已修复）
-  - 复杂度:🟡 中(后端 1 字段 + 前端 chart 区 + chart.js tree-shakable 引入 + i18n 8 键 × 2 语言 + e2e)
-  - 关联:C60(同批启动,独立 PR) / C58(alerts.vue 同类需求,backlog 已登记 M11 阶段评估)
-  - 来源:2026-08-20 用户反馈"仪表板页面的'告警按严重级别'下面也可以列一下告警的图表,目前页面有些空,需要优化"
 
 - **C30 Publish Docker build job 被取消/失败排查**（M6 归档 CI 端到端裁决登记）
   - 状态：⏸️ **已暂缓（2026-08-18 用户决策）**——原 🔶 待评估
@@ -554,11 +294,11 @@
 
 ### M7.1 认证与用户体系
 
-> **已归档（2026-08-10）**：T701 / T707 完整记录见 [todo-archive.md §M7.1](todo-archive.md#m71-认证与用户体系已归档)；剩余 3 项真实凭据人工验收见 [todo.md 待人工验收](todo.md)。
+> **已归档（2026-08-10）**：T701 / T707 完整记录见 [todo-archive.md §M7.1](archive/todo-archive-phases-m6-m7-t711.md#m71-认证与用户体系已归档)；剩余 3 项真实凭据人工验收见 [todo.md 待人工验收](todo.md)。
 
 ### M7.2 平台能力深化
 
-> **M7.2 已归档（2026-08-12）**：T702（任务队列）/ T704（定时批量）/ T708（i18n）完整记录见 [todo-archive.md §M7.2](todo-archive.md#m72-平台能力深化已归档)。
+> **M7.2 已归档（2026-08-12）**：T702（任务队列）/ T704（定时批量）/ T708（i18n）完整记录见 [todo-archive.md §M7.2](archive/todo-archive-phases-m6-m7-t711.md#m72-平台能力深化已归档)。
 > **T705 / T703 已延期（2026-08-12 用户指示）**、**T706 已完成（2026-08-12，`@dependfix/mcp@0.1.2` 发布）**——见下方各任务条目。
 
 以下为未排期任务（T705 / T703 / T706，按 D3 执行顺序位于 T708 之后）：
@@ -592,7 +332,7 @@
 
 #### T706 MCP Skill 集成与发布（✅ 已完成 2026-08-12）
 
-- 状态：✅ **已完成（2026-08-12）** — `@dependfix/mcp@0.1.2` 已发布 npm（registry 实证）。详见 [todo-archive.md §M7.2](todo-archive.md#m72-平台能力深化已归档)
+- 状态：✅ **已完成（2026-08-12）** — `@dependfix/mcp@0.1.2` 已发布 npm（registry 实证）。详见 [todo-archive.md §M7.2](archive/todo-archive-phases-m6-m7-t711.md#m72-平台能力深化已归档)
 - 收口说明：npm 发布闭环；剩余 skill 双后端验证与 MCP 接入文档为轻量收尾，挂 [T904 文档同步](#t904-文档同步) 跟进（不阻塞）
 
 ### M7 已确认 backlog 登记（2026-08-09，设计决策 D1/D2/D3 用户确认）
@@ -609,7 +349,7 @@
 
 ### M7.2 i18n 非目标登记（2026-08-11，T708 规划定稿）
 
-> T708 国际化 i18n 已完成并归档（见 [todo-archive.md §M7.2](todo-archive.md#m72-平台能力深化已归档)）。以下为本期明确不做、随需求登记后续的项。
+> T708 国际化 i18n 已完成并归档（见 [todo-archive.md §M7.2](archive/todo-archive-phases-m6-m7-t711.md#m72-平台能力深化已归档)）。以下为本期明确不做、随需求登记后续的项。
 
 - **C36 服务端 API 错误消息 i18n**（T708 非目标）
   - 状态：🔶 待评估

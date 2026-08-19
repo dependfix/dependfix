@@ -1,24 +1,12 @@
 # 当前阶段任务
 
-> **M10 独立沙箱容器 C26 实施规划（P1 进行中，2026-08-19 启动）**：依赖 T702 / T802 / T805 / C38 / C45 全部前置已落地；决策会议结论（Docker rootless runtime + 应用层白名单代理 + cgroup v2 双层；`SandboxRuntimeAdapter` 不强绑定 rootless；`SandboxExecutor` 与 `ContainerExecutor` 并存；自托管 docker-compose 优先 / K8s+Helm 仅规划）已登记。完整拆解见下方 M10 区块
+> **M10 独立沙箱容器 C26 实施规划（P1 进行中，2026-08-19 启动 / T1001 B1+B2 已落地）**：依赖 T702 / T802 / T805 / C38 / C45 全部前置已落地；决策会议结论（Docker rootless runtime + 应用层白名单代理 + cgroup v2 双层；`SandboxRuntimeAdapter` 不强绑定 rootless；`SandboxExecutor` 与 `ContainerExecutor` 并存；自托管 docker-compose 优先 / K8s+Helm 仅规划）已登记。**进度**：T1001 B1 `b189aaa` + B2 `b6083a7`（Docker rootless runtime + RuntimeAdapter 抽象层）已 commit，T1002 出站白名单代理 / T1003 cgroup v2 / T1004 文档收口待排。完整拆解见下方 M10 区块
 >
 > **T912 SMTP 邮件发送器（主体完成 + T912-3 待排，2026-08-18 启动 / 2026-08-19 主体收口）**：[backlog §M7.1 触发条件达成](backlog.md#m71-认证与用户体系)，引入 `nodemailer` 统一实现 better-auth 三处邮件回调（**T912-1 mailer service 模块** commit `edc9c94` + **T912-2 三回调接线** commit `6f00937` + **T912 coverage 回归修复** commit `6e28207` 已收口；**T912-3 安全与文档 + 与 C28 联动待排期**，由下方 §待评估候选 P2 C28 / 「branches 阈值恢复 80% 冲刺」承接）。完整拆解见下方 T912 区块
 >
-> **C51 扫描历史 Dialog 应用层修复（2026-08-19 完成）**：unrouting 0.2.x 兼容 bug 改用 Dialog + query 承载，提交 `b067b3a`（chore: gitignore .env 忽略）+ `2102894`（fix(platform)...）+ `0b9411b`（docs(plan) backlog C46-C53 登记）；方案对比 e2e 跑通；review gate **Pass**（warning 级 UX 建议留待 backlog 后续）
->
-> **PR1-PR3 平台可用性修复批次（2026-08-19 排期启动，2026-08-20 之前 PR1 优先）**：源自 C46-C53 评估（[backlog §M6 平台可选项](backlog.md)）；PR1 立刻修 `C47`+`C48` 防御性小修；PR2 修 `C52` 单仓库模式；PR3 批量导入集 `C46`+`C49`+`C50` 同 PR 收口。完整拆解见下方 PR1/PR2/PR3 区块。`C53` 平台 fix 推送 PR 后置候选 M11 评估（需方案设计）
->
-> **近期归档（M6 / M7 / M8 / M9 / T711 全部完成）**：完整记录见 [todo-archive.md](todo-archive.md)（最近主窗口段：[§M8](todo-archive.md#m8-安全加固与容器执行完备已归档)、[§M9](todo-archive.md#m9-i18n-基建同步已归档)、[§T711](todo-archive.md#t711-覆盖率口径修正--冲刺至-80已归档)）
+> **近期归档（2026-08-19~20 平台 bugfix 与 UX 增强批次已全部完成）**：[todo-archive.md](todo-archive.md) 主窗口保留 5 个最近批次——**[§2026-08-19 平台可用性 PR1-PR3](todo-archive.md#2026-08-19-平台可用性批次pr1-pr3)**（C47+C48 / C52 / C46+C49+C50 + C51 子路由 Dialog 修复）+ **[§2026-08-19 batch-runs 增强 C54+C55](todo-archive.md#2026-08-19-batch-runs-增强c54c55)** + **[§2026-08-20 平台 UI 增强 C59-C61](todo-archive.md#2026-08-20-平台-ui-增强c59c60c61)**（暗色模式 / 表格排序 / 仪表板图表）+ [§M8](todo-archive.md#m8-安全加固与容器执行完备已归档) + [§M9](todo-archive.md#m9-i18n-基建同步已归档)。**更早期归档分片**：[archive/todo-archive-phases-m6-m7-t711.md](archive/todo-archive-phases-m6-m7-t711.md)（M6 / M7.1 / M7.2 / T711）+ [archive/todo-archive-phases-m0-m1.md](archive/todo-archive-phases-m0-m1.md)（M0 / M1）+ [archive/todo-archive-phases-m2-m55.md](archive/todo-archive-phases-m2-m55.md)（M2-M5.5）
 >
 > **T705 / T703 已延期（2026-08-12 用户指示）**：生产级部署（PostgreSQL/Helm/Sentry）与跨平台 Git（GitLab/Bitbucket）暂缓排期，详见 [backlog.md §M7.2](backlog.md#m72-平台能力深化)
->
-> **C54 batch-runs 页面刷新策略（P2 收口中，2026-08-19 启动）**：[backlog §C54](backlog.md) 源自用户实测「batch-runs 页面刷新数据过于频繁,并且页面没有增加防抖动,会导致表格屏闪」。A 阶段第 1 轮 Reject(RG-B1 首屏卡死致命 bug / RG-B3 60s 与验收要点冲突 + W1/S2/S3/S4) → 全部修复后第 2 轮 quick Pass；V 阶段 ui-validator 7 张截图 + OCR 验证 8 重点全过(含用户真实运行中场景 momei/cmyr-skills-agents/caomei-auth)。完整拆解见下方 C54 区块
->
-> **C55 batch-runs 孤儿运行兜底（2026-08-19 启动并收口，commit `ce523d4`）**：[backlog §C55](backlog.md) 源自用户实测「批量运行对任务超时没有兜底，会出现一直执行中的情况」（截图：caomei-auth 卡 19 小时+ 仍未到终态）。执行器有 30 分钟单次超时，但 sync 进程崩溃 / async worker SIGKILL / Action runner 永久不回执等场景导致 ScanRun 永远 running。修复方案 A+B 组合：① 自动化 `stale-cleanup` service + nitro plugin 周期清理(默认 30 分钟阈值,与 ContainerExecutor.timeoutMs 对齐) ② admin 手动 `POST /api/batch-runs/[id]/force-fail` 应急逃生口 + 前端"强制完成"按钮(仅 running 状态显示)。A 阶段 1 轮 audit-quick Pass(0 blocker + 3 warning 已修复)；V 阶段 OCR 确认按钮在 running 行旁渲染
->
-> **C60 平台表格排序（2026-08-20 启动）**：[backlog §C60](backlog.md) 源自用户反馈「表格增加按排序功能（可排序的字段需进行评估）」。当前所有 DataTable 仅按后端默认排序，告警视图等高频页面"想看 critical 优先" 只能肉眼筛。决策（2026-08-20 用户确认 1A 全覆盖 + 2B + 3A）：① 全 7 个表格 sortable 接入 ② 客户端单列排序 + `removableSort` 三态（asc/desc/none） ③ 枚举字段（severity/status/role）走业务语义排序（非字典序） ④ 零后端改动（fetchData 后 map 增加 `_xxxRank` 派生字段） ⑤ v1 不持久化。完整拆解见下方 C60 区块
->
-> **C61 仪表板告警图表（2026-08-20 启动）**：[backlog §C61](backlog.md) 源自用户实测截图反馈「仪表板页面的"告警按严重级别"下面也可以列一下告警的图表，目前页面有些空，需要优化」。当前 dashboard.vue 仪表板下方完全空白，仅有 5 个 severity Tag + 数字。决策（2026-08-20 用户确认 2B 推荐方案）：新增 3 图表卡片——severity 饼图（doughnut，复用现有 severityCounts）+ 修复率环形进度（doughnut，front-end 计算 fixedCount/alertsTotal）+ Top-10 包柱状图（bar，后端 `GROUP BY packageName LIMIT 10` 新增 `topPackages` 字段）。依赖 `chart.js@^4` tree-shakable 引入（gzip < 50KB）。完整拆解见下方 C61 区块
 
 ---
 
@@ -68,7 +56,7 @@
 
 | 任务 | 治理项 | 优先级 | 内容 | 验收要点 |
 |:--|:--|:--|:--|:--|
-| **T1001 Sandbox 执行器与 Docker rootless 适配** | G5 | P1 | `apps/platform/server/services/executor/sandbox-executor.ts` 新建；复用 [executor-sandbox.md §3 Executor 接口契约](../design/governance/executor-sandbox.md#3-executor-接口契约) — `kind: 'sandbox'`；通过 OCI runtime 配置项接 Docker rootless（当前 `--user=100:100 --memory=2g --cpus=1.0`，未来切 Sysbox 仅改 `--runtime=`）；Repository 实体新增 `executorKind` 路由字段（与现有 `container/github-action` 同构，复用 `scan-orchestrator.service.ts` 中的 `resolveExecutorKind` 决策点）；Executor 抽象新增 `RuntimeAdapter` 形态（防强绑定 Docker rootless） | ✅ 单元测试：kind 路由 / workDir bind-mount / 用户态 pid map / cgroup v2 限额透传；docker host 不可用时降级回 `ContainerExecutor` + 启动提示；与现有 `ContainerExecutor` 并存通过 `executorKind` 字段配置（默认 `container`，单实例单仓库场景不破坏）；接口不留 `--runtime=` 字面常量（用 `SANDBOX_RUNTIME` 配置项） |
+| **T1001 Sandbox 执行器与 Docker rootless 适配**（**B1+B2 已落地 2026-08-19，commit `b189aaa` + `a07f577` + `b6083a7`**） | G5 | P1 | `apps/platform/server/services/executor/sandbox-executor.ts` 新建；复用 [executor-sandbox.md §3 Executor 接口契约](../design/governance/executor-sandbox.md#3-executor-接口契约) — `kind: 'sandbox'`；通过 OCI runtime 配置项接 Docker rootless（当前 `--user=100:100 --memory=2g --cpus=1.0`，未来切 Sysbox 仅改 `--runtime=`）；Repository 实体新增 `executorKind` 路由字段（与现有 `container/github-action` 同构，复用 `scan-orchestrator.service.ts` 中的 `resolveExecutorKind` 决策点）；Executor 抽象新增 `RuntimeAdapter` 形态（防强绑定 Docker rootless） | ✅ **已落地**：B1 RuntimeAdapter 抽象层（`apps/platform/server/services/executor/runtime/`）+ B2 SandboxExecutor + DockerAdapter 实现，unit test 覆盖 kind 路由 / workDir bind-mount / 用户态 pid map / cgroup v2 限额透传；docker host 不可用时降级回 `ContainerExecutor` + 启动提示；与现有 `ContainerExecutor` 并存通过 `executorKind` 字段配置（默认 `container`，单实例单仓库场景不破坏）；接口不留 `--runtime=` 字面常量（用 `SANDBOX_RUNTIME` 配置项） |
 | **T1002 出站白名单拦截代理** | G3 收口 | P1 | `packages/engine/src/runners/network-audit.ts` 升级 — 现 T805 已实现 CONNECT 隧道审计代理，本任务扩展为白名单 deny-by-default；非白名单域名 502 + stderr 日志 + 归类 `network_violation`；保留 T805 "命令输出 URL 提取" 作为冗余（攻击者绕过 env 也被命中）；引入 `ALLOWED_DOMAINS` env 解析（默认 npm/github 范围）；新错误码 `network_violation` 进报告 error 区 | ✅ 单元测试：白名单命中放行 / 非白名单 502 / 自定义 env 生效；集成测试：恶意脚本 `curl evil.com` 时 stderr 含 violation + 报告 error 字段完整；回归：T805 原审计功能不退化 |
 | **T1003 cgroup v2 资源限制** | G4 / G5 收口 | P1 | `packages/engine/src/runners/cgroup.ts` 新建 — Linux cgroup v2 写 memory.max + cpu.max + 进程迁移到子 cgroup（`dependfix/<runId>/`）+ 退出清理；OOM 事件（`memory.events`）监听 + 报告 `oom_killed` 错误码；macOS / Windows 跨平台 fallback（warning + 仅依赖 Node 自身 V8 限制）；与 T1001 配合透传 Repository.sandboxLimits | ✅ 单元测试：mock `/sys/fs/cgroup` 文件操作；集成测试：fork 子进程超 memory.max 触发 OOM + cgroup 清理 + 报告完整；跨平台测试：darwin / win32 no-op 路径；Node 20 自动识别集成实证（沙箱 Node heap 跟踪 cgroup.max） |
 | **T1004 文档收口 + 治理决议更新** | G5 收口 | P2 | `executor-sandbox.md` 新增 §7 Sandbox 执行器设计；`sandbox-security-governance.md` §5 治理表 G5 行从 "提级 M7 前置" 升级为 "实施规划已就绪"（链接 todo M10 区块），§7 验收段补 M10 4 子任务验收方式；新部署形态追加 `quick-start.md`（docker rootless daemon 启动指引）+ `executor-sandbox.md §7` 写明 K8s+Helm 留 backlog | ✅ `pnpm run check:links` 零断链 / `pnpm run lint:md` 通过；规范单点声明：sandbox/security 基线只挂引用不抄条款（[documentation.md §4](../standards/documentation.md)）；C30 docker CI 链路不受影响 |
@@ -105,305 +93,15 @@
 
 ---
 
-## PR1: 平台可用性原子修复（C47 + C48 同 PR 提交，2026-08-19 启动）
-
-- 优先级：`P0`（C48 手滑风险最高、C47 体验一致；总改动 < 10 行）
-- 背景：源自 backlog 评估（[backlog.md §M6 平台可选项](backlog.md) C47/C48）；两条问题真实但改动极小、风险极低，合并一个原子 PR 以减少提交噪音
-- 总改动量预估：前 7 行 + 测试 2 条
-
-### PR1 任务拆解
-
-| 子任务 | 内容 | 验收要点 |
-|:---|:---|:---|
-| **PR1-1 C48 批量导入默认全勾**（backlog C48） | `apps/platform/app/components/ImportReposDialog.vue:71` 删除 `selectedRepos.value = importableRepos.value.filter((r) => !r.imported)` 自动赋值语句，`selectedRepos` 默认 `[]`；保留 `全选` checkbox（`@click="(v: boolean) => selectedRepos = v ? [...selectableRepos] : []"`），让用户主动勾选 | ✅ 单元验证：打开 Dialog 时 `selectedRepos.length === 0`；全选按钮仍可一键勾选未导入项；e2e 验证默认未勾选场景（新建 e2e 或合并到 batch-import 测试） |
-| **PR1-2 C47 Dialog 默认 draggable=false × 6 处**（backlog C47） | 6 处 PrimeVue Dialog 加 `:draggable="false"`：`ImportReposDialog.vue:111` + `repos.vue:467`（编辑）+ `repos.vue:601`（批量扫描）+ `schedules.vue:357` + `credentials.vue:224` + `runs.vue:178`（历史 Dialog 暂不可达但顺手带过） | ✅ 视觉验证：mousedown+drag 标题栏不移动；不引入新 e2e（visual-only） |
-| **PR1-3 E2E 覆盖（C48 关键路径）** | `apps/platform/tests/e2e/admin.e2e.test.ts` 或新建 `batch-import-default.e2e.test.ts`：在 repos 页点 "批量导入" 按钮，断言 Dialog 内 checkbox 初始未勾选（除非全选按钮触发） | ✅ e2e 跑通；回归已有 batch-related 测试不退化 |
-| **PR1-4 Quality gate + 提交** | `pnpm lint / typecheck / test` 通过；A 阶段 code-reviewer skill 审计（Pass）；按 conventional-committer 提交（`fix(platform): C48 默认不勾选 + chore(platform): C47 Dialog draggable=false` 一条 fix + 一条 style/PR1 整体一条） | ✅ lint 0 error / typecheck 0 error / 单测 416 passed / e2e 全部通过 / Review Gate Pass |
-
-### PR1 完成定义
-- C48 真实风险点消除（手滑不会一次导入太多仓库）
-- 全站 6 处 Dialog 默认不可拖动（unrouting 子路由 bug 解除后即使 runs.vue 也能用上）
-- 一条 PR 内合并落地（commit 拆分：1 条 fix C48 + 1 条 style chore C47，conventional-committer skill 决策）
-
-### PR1 非目标
-- 任何后端 / schema 改动
-- C47 之外的 Dialog（如扫描历史 Dialog 已在 C51 顺手实现）
-
-### PR1 关联
-- 关联 backlog：**C47**、**C48**
-- 被依赖：C48 是 PR3 C50 的依赖前提（建议同 PR 收口；但 PR1 单独已可独立价值）
-
----
-
-## PR2: 单仓库扫描模式补全（C52，2026-08-19 启动，紧跟 PR1）
-
-- 优先级：`P1`（用户原话「不太合理」；fix/fix-and-pr 模式对单仓库入口不可达——必须先有入口，PR3 / M11 候选才有效验证路径）
-- 背景：源自 backlog [C52](backlog.md)；后端 `scanRequestSchema` 已支持 mode/severityThreshold，纯前端改动
-- 总改动量预估：+60-80 行 + e2e 1 条
-
-### PR2 任务拆解
-
-| 子任务 | 内容 | 验收要点 |
-|:---|:---|:---|
-| **PR2-1 单仓库触发配置 Dialog** | `apps/platform/app/pages/repos.vue` 新增 `scanConfigDialogVisible` / `scanConfigRepo` / `scanConfigMode` / `scanConfigSeverity` 等 ref；抽取批量扫描的 `batchModeOptions` / `batchSeverityOptions` 到 `computed` 共享，或单独定义同样 options；repos 行 pi-play 按钮 onClick 改为先设 state → 打开 Dialog；Dialog 内确认按钮调 `triggerScan(repo, mode, severity)` | ✅ Dialog 列出 mode 三选 + severity 四选；Dialog 默认 mode='report-only' / severity='high'（向后兼容）；确认后 `triggerScan` body 携带所选参数 |
-| **PR2-2 triggerScan 重构** | `repos.vue` 现 `triggerScan` 第 207-208 行硬编码 → 接受 mode/severity 参数从 state 传入；保留所有现有行为（队列模式轮询、dispatched runUrl、扫到结果 toast、gh-action 状态） | ✅ body.mode/severityThreshold 出现在 POST body；3 种 mode × 4 种 severity 组合测试至少跑 1 条 e2e 路径 |
-| **PR2-3 E2E 覆盖** | `tests/e2e/scan-config.e2e.test.ts`（或合并到 history-dialog）：单仓库触发 → Dialog 可见 → 选 fix-and-pr+all → 提交 → 检查 /api/runs 列表的 mode 显示 | ✅ e2e 通过；fix-and-pr 模式可由单仓库入口触发（关键验证点） |
-| **PR2-4 Quality gate + 提交** | lint / typecheck / test 全过；code-reviewer 审计（Pass）；conventional-committer 提交（`feat(platform): 单仓库扫描支持 mode/severity 选择`） | ✅ Review Gate Pass |
-
-### PR2 完成定义
-- 单仓库触发扫描可选择 report-only / fix / fix-and-pr × critical/high/medium/all 12 种组合
-- 与批量扫描行为对齐（共享 options 数据源）
-- 为后续 [backlog C53](#) 平台 fix 推送 PR 提供单仓库入口验证路径
-
-### PR2 非目标
-- 修改 `scanRequestSchema` 后端
-- 修改批量扫描既有 API（保持兼容）
-
-### PR2 关联
-- 关联 backlog：**C52**
-- 互依：未来 M11 候选（[backlog C53](#)）依赖 PR2 提供 fix 模式单仓库入口
-
----
-
-## PR3: 批量导入能力补全（C46 + C49 + C50 同 PR 收口，2026-08-19 启动，紧跟 PR2）
-
-> **✅ PR3 已收口（2026-08-19 commit `2a7f99f`，14 文件 / +920 / -115 = +805 行净）**：
-> C46 三维过滤 + C49 进程内 lru-cache 5min TTL + PrimeVue Paginator（默认 pageSize=25）+ C50 默认关联凭据（含前置校验 跨组织 403 / 不存在 400 / 透传 三路径单测）。
-> 累计 PR1+PR2+PR3 共 5 commits 待推送（cb788e7 / 9e26b56 / 0b8088f / 1a663f3 / 2a7f99f）。
-> Reviewer standard 第 1 轮 Reject 4 处修复点 → 第 2 轮 Pass；UI validator 视觉验证 Pass。
-
-- 优先级：`P2`（批量导入场景三条改进一次性补齐；同 PR 收口避免拆批改同一文件冲突）
-- 背景：源自 backlog [C46](backlog.md) + [C49](backlog.md) + [C50](backlog.md)；三条都集中在 `apps/platform/app/components/ImportReposDialog.vue` + `importable.get.ts` + `batch.post.ts`，集中实施避免两次刷页面体验差
-- 总改动量预估：+260-330 行（前端 ImportReposDialog 改 + 后端 cache 工具 + 2 个 API 改动 + i18n + 测试） + e2e 2-3 条 + 后端单测 1 条
-
-### PR3 任务拆解（修订方案，2026-08-19 用户决策后落地）
-
-| 子任务 | 内容 | 验收要点 |
-|:---|:---|:---|
-| **PR3-1 C46 批量导入过滤 UI** | ImportReposDialog 新增 `forkFilter`（默认 `source` 仅非 fork）/ `visibilityFilter`（默认 `all`）/ `searchKeyword`（默认空） ref + computed `filteredRepos`；SelectButton 或 Select 控件；过滤变更后**保留已勾选项**（已有 id 在 `selectedRepos` 仍勾选；filter 不强制 unselect）；过滤变更**重置页码到第 1**；全选/计数基于 `selectableRepos` ∩ `filteredRepos`（与分页无关） | ✅ 三维 filter 联动生效；全选按钮对 filteredRepos 重新计数；filter 切换保留 selectedRepos |
-| **PR3-2 C49 仓库列表缓存 + 前端分页（修订 D3''）** | 后端：进程内 `cachedFetch()` 工具（TTL=5min，LRU max=64，并发去重 in-flight Promise 复用）；`importable.get.ts` 用 `octokit.paginate(per_page:100, maxPages:20)` + cache 包装；响应结构 `{ repos, total, cachedAt, fromCache }`；query `?fresh=true` 强制刷新（前端"刷新仓库列表"按钮自动加）。前端：默认 pageSize=**25**（轻量，避免一次渲染 100+ 行）；PrimeVue Paginator 显示「X-Y / 共 N」；切页/切 pageSize 保留 selectedRepos；filter 切换重置页码。**未来演进参考**：momei 项目 `server/database/storage.ts` 已用 `lru-cache` + 可选 Redis（`REDIS_URL`），后续平台部署多实例 / 上 Redis 时可借鉴其 BaseStorage 接口与 Redis 降级模式（不属 PR3 范围）。 | ✅ 后端 octokit mock 单测覆盖 hit/miss/in-flight/expiry/fresh 五路径；e2e 验证第二次请求 `fromCache=true`；前端 pageSize=25 默认 + Paginator 可见；切页保留勾选 |
-| **PR3-3 C50 批量导入默认关联凭据** | ImportReposDialog 新增「默认关联凭据」`<Select>`（与现有「拉取用凭据」并排，hint 提示语义）；提交 payload 顶层带 `defaultCredentialId`；`batch-import.ts` schema 加 `defaultCredentialId` 字段（nullable + max 36）；`batch.post.ts` 前置校验 `defaultCredentialId` 存在性 + 与当前组织匹配（防跨组织误关联），通过则写入 `repoRepo.create({...item, credentialId: defaultCredentialId ?? null})`；i18n zh-CN + en-US 各 +3 键 | ✅ 默认凭据非空时，导入的所有仓库写库带 `credentialId`；空时不携带（保持兼容）；batch.post.ts 单测覆盖跨组织 403 + 不存在 400 + 正常透传 三路径 |
-| **PR3-4 测试覆盖** | `tests/server/utils/repos-cache.test.ts`（新建）：5 路径（hit/miss/in-flight/expiry/fresh）+ 并发 10 同时请求只 1 次 loader 调用；`tests/server/api/repos/importable.get.test.ts`（如不存在新建）：mock octokit.paginate + 验证 maxPages 兜底；`tests/server/api/repos/batch.post.test.ts`（如不存在新建）：覆盖跨组织 403 + 不存在 400 + 正常透传；`tests/e2e/batch-import-filters.e2e.test.ts`（新建）：覆盖 C46 过滤保留勾选 + C50 默认凭据下拉显示 + C49 二次拉取 fromCache=true；现有 `tests/e2e/admin.e2e.test.ts:71-93` PR1 C48 默认不勾选回归不退化 | ✅ 单测全过；e2e 跑通；不触发 PR1 W11 SSR mock 陷阱（不 mock GitHub API，走真实凭据 + 后端转发） |
-| **PR3-5 Quality gate + 提交** | `pnpm --filter @dependfix/platform run lint` 0 error；`pnpm typecheck` 0 error；`pnpm test` 全过（含新增单测）；`pnpm test:e2e` 全过（**强制 rebuild**——W13 教训：`rm -rf apps/platform/.nuxt apps/platform/.output && pnpm --filter @dependfix/platform build` 后再跑 e2e）；code-reviewer audit-depth=`standard` 审计（Pass）；conventional-committer 提交（推荐 1 条 feat：`feat(platform): 批量导入加过滤 / 分页 / 默认凭据`）；编号标记扫描 `rg -nE "T\d{3}\|P[0-3](-[0-9])?\|C\d+\|G\d\|R\d\|M\d+\|B\d"` 零命中（W1 教训，必须 ERE 模式） | ✅ Review Gate Pass；单 commit 收口 |
-
-### PR3 完成定义
-- 批量导入场景三维收敛（fork/可见性/关键字）—**收敛噪声** + 全选透明
-- 仓库数 >100 时不丢失候选（C49 后端兜底）+ 默认 pageSize=25 避免单页过载 + 5min 缓存降低 GitHub API 调用次数
-- 批量导入后仓库默认带关联凭据（C50），免手工逐个编辑；跨组织误关联被前置校验拦截
-- 已勾选项在 filter / 分页 / pageSize 切换时保留（PR1 W10 教训）
-- 缓存响应携带 `cachedAt` + `fromCache`，前端可提示用户；手动刷新按钮 bypass 缓存
-- [backlog C48](backlog.md) 已在 PR1 完成
-
-### PR3 非目标
-- 修改 `affiliation` 字段维度（已有 owner/collaborator/organization_member）
-- 单仓库凭据 inline override（移至后续 backlog 候选）
-- 引入 Redis / 跨进程缓存（参考 momei 项目 `server/database/storage.ts` 演进路径，留后续评估）
-- 手写 LRU（当前用 `lru-cache` 库直接落地，约 30 行工具；与 momei 同库便于未来接口对齐）
-
-### PR3 关联
-- 关联 backlog：**C46**、**C49**、**C50**
-- 依赖前置：PR1（C48 默认不勾选）+ PR2（C52 单仓库模式不影响本任务，但同批友好——保持提交节奏）
-- 未来演进登记：缓存机制可参考 momei 项目 `server/database/storage.ts` 的 `lru-cache` + 可选 `ioredis` 双形态（BaseStorage 接口 + Redis URL 探测降级），多实例 / 高 QPS 需求时迁移
-
----
-
-## C54: batch-runs 页面刷新策略（2026-08-19 启动）
-
-- 优先级：`P2`（UX 改进，不阻塞功能主线；用户实测屏闪严重时升级）
-- 背景：用户实测反馈「batch-runs 页面刷新数据过于频繁,并且页面没有增加防抖动,会导致表格屏闪；刷新周期增加,但是也提供一个手动刷新按钮」（[backlog §C54](backlog.md)）。当前实现：`setInterval(2000ms)` 整表拉取 + PrimeVue DataTable 整表 reconcile 引发屏闪 + 无防抖 + 按钮不重置节拍
-- 总改动量预估：+260-330 行（前端 batch-runs.vue 改 + reconcile 工具 + 1 API 字段 + i18n 不变 + 测试）/ 实测 +272 行 / 9 文件
-
-### C54 任务拆解（修订方案 D3'' — 用户决策后落地）
-
-| 任务 | 内容 | 验收要点 |
-|:--|:--|:--|
-| **C54-1 轮询节拍 60s** | `apps/platform/app/pages/batch-runs.vue` `setInterval(2000)` → `setInterval(BATCH_POLL_INTERVAL_MS = 60_000)`；60s 为 2026-08-19 用户决策（原建议 5s 仍嫌频繁，running 批次平均 30s+ 进度变化有限） | ✅ 写死常量便于后续微调；only `status === 'running'` 时启用；终态自动 `stopPolling` |
-| **C54-2 后端 updatedAt 字段** | `apps/platform/server/api/batch-runs/index.get.ts` `toView` 加 `updatedAt: b.updatedAt`（BaseEntity.@UpdateDateColumn 自动维护，无需 schema 变更）；`apps/platform/app/types/platform.ts` `BatchRunView` 加 `updatedAt: string` | ✅ 单测覆盖字段返回；Nuxt JSON 序列化将 Date 转 ISO 字符串；MySQL 部署前需升级精度（follow-up 已登记 backlog） |
-| **C54-3 前端增量 reconcile** | 新建 `apps/platform/app/utils/reconcile-batch-runs.ts`（39 行）— 按 id 合并数组而非整表替换：① splice 反向删除消失 id ② splice(0, 0, ...) 批量插入新 id 保持 fresh 顺序（**D 阶段踩过 unshift 反转 bug 后修**）③ updatedAt 变化行替换引用；batch-runs.vue 引用该函数 | ✅ 7 个 vitest case 覆盖 remove/add/update/minimal-react/empty-fresh/empty-local/mixed 场景 |
-| **C54-4 三态分离（修复 RG-B1）** | batch-runs.vue 拆分 `firstLoad`(UI 骨架, 初值 true) + `loading`(按钮 loading 反馈, 初值 false) + `inflight`(并发守卫, 初值 false)；fetchBatchRuns 与 manualRefresh 均用 `inflight` 守卫（与 UI 态解耦，避免首屏请求被吞导致页面永久卡死） | ✅ 模板 `<Card v-if="!firstLoad">` 替换原 `<Card v-if="!loading">`；manualRefresh 不折叠 DataTable；连续点击不并发（e2e + typecheck + 审计逻辑审查保证） |
-| **C54-5 手动刷新按钮重置节拍 + 防抖** | 新增 `manualRefresh()` 抽离按钮 handler；抽 `refreshOpenDetails(prevRunningIds)` 让轮询体与 manualRefresh 共用（避免 reconcile 替换行引用导致聚合值退回存储值）；startPolling 内部 `clearInterval` 旧 timer 自然重置节拍 | ✅ e2e 验证 `loading 反馈` + `.p-button-loading-icon` 可见性 + 连续点击不破坏页面 |
-| **C54-6 测试覆盖** | 新建 `apps/platform/app/utils/reconcile-batch-runs.test.ts`(7 个 vitest case);`apps/platform/server/api/batch-runs/index.get.test.ts` 扩展 updatedAt test case + `clearBatchRuns`(命名准确化, 保留 Organization 表是有意为之);`apps/platform/tests/e2e/batch.e2e.test.ts` 末尾追加 1 个 e2e test | ✅ 单测全过;e2e batch.e2e.test.ts 3/3 通过(含 C54 新增 26.3s);e2e 子集整体 7 failed 为 hydration race 环境问题(sessio 已记录同类) |
-| **C54-7 Quality gate + 提交** | `pnpm --filter @dependfix/platform run lint` 0 error;`pnpm typecheck` 0 error;`pnpm test` 51 files / 437 tests passed(净增 8);`pnpm test:e2e -- tests/e2e/batch.e2e.test.ts` 3/3 通过;A 阶段 code-reviewer standard 第 1 轮 Reject(6 处修复点) → 第 2 轮 quick Pass;编号标记扫描零命中 | ✅ Review Gate Pass;V 阶段 ui-validator 7 张截图 + OCR 验证 8 重点全过(含用户真实运行中场景) |
-
-### C54 完成定义
-
-- batch-runs 页面轮询节拍 60s,无屏闪(DataTable 不再整表 reconcile)
-- 手动刷新按钮点击立即 loading 反馈 + 重置下次轮询计时 + 连续点击不并发
-- 首屏加载不卡死(firstLoad 与 loading 解耦,RG-B1 致命 bug 已修)
-- 已勾选项 + 详情缓存 + 展开行在 reconcile 后保持引用稳定(只在 updatedAt 变化时替换)
-- [backlog C54](backlog.md) 状态从 `🔶 待评估` → `🔵 已规划落地`;backlog.md 同步 60s 用户决策
-
-### C54 非目标(移交下一阶段 / backlog)
-
-- MySQL 部署精度优化:BatchRun.@UpdateDateColumn 升级 `datetime(3)` 或在 reconcile 步骤 3 增加内容比对兜底(已登记 C54 跟进项)
-- 顺序漂移兜底(reconcile 步骤 3 后按 fresh 顺序重排引用):RG-S1 suggest,当前服务端固定 `createdAt DESC` 不会出现窗口回流,留 backlog
-- 轮询节拍可配置:用户决策保留 60s 写死,`BATCH_POLL_INTERVAL_MS` 常量便于后续微调,不走 `runtimeConfig`
-- 服务端推送(WebSocket / SSE):改动大、需基建不推荐,backlog C54 方案 B 已否决
-
-### C54 关联
-
-- 关联 backlog：**C54**(同时登记到 [backlog.md §C54](backlog.md) + [artifacts/review-gate/2026-08-19-c54-batch-runs.md](../../artifacts/review-gate/2026-08-19-c54-batch-runs.md) 完整审计记录)
-- 与 PR1-PR3 关联:同批但独立提交(不影响 PR1-PR3 节奏);复用 PR3 的 i18n 命名空间与 PR 风格
-- 历史教训:踩过 unshift 反转顺序 bug 后切 splice(0, 0, ...);RG-B1 `loading` 初值 true 误吞首屏请求是经典"UI 态与并发守卫复用 ref"反模式,后续 fetch 函数应区分 `loading`(UI) 与 `inflight`(守卫)
-
----
-
-## C55: batch-runs 孤儿运行兜底（2026-08-19 启动并收口）
-
-- 优先级：`P1`（用户实测痛点：截图 caomei-auth ScanRun 卡 19 小时+ 仍未到终态，BatchRun 也永远聚合 running）
-- 背景：执行器（ContainerExecutor / SandboxExecutor / ActionResultFetcher）有 30 分钟单次超时，但 sync 进程崩溃 / async worker SIGKILL / GitHub Action runner 永久不回执等场景导致 ScanRun 已落库为 running 但永远无终态。当前实现 [batch-aggregate.ts](../design/governance/platform-scheduled-batch.md#52-聚合更新策略) 终态判定 `pendingCount === 0 → completed` 依赖所有 ScanRun 终态，孤儿 ScanRun 卡死导致 BatchRun 也永远聚合 running
-- 来源：[backlog §C55](backlog.md)（2026-08-19 用户实测反馈）
-
-### C55 任务拆解（A+B 组合 — 用户决策后落地）
-
-| 任务 | 内容 | 验收要点 |
-|:--|:--|:--|
-| **C55-1 自动化兜底 stale-cleanup service** | `apps/platform/server/services/batch/stale-cleanup.ts` 新建 — `cleanupStaleRuns(opts)` 扫 stale ScanRun(running + startedAt < cutoff OR pending + createdAt < cutoff) + stale BatchRun(仅当下属有 stale run 才 failed,避免误杀慢批次);errorJson 标 `orphan_run`;默认阈值 30 分钟(与 ContainerExecutor.timeoutMs 对齐) | ✅ 7 个 vitest case 覆盖空库 / stale running / stale pending / mixed / 慢批次保护 / 已终态不动 / 自定义阈值 |
-| **C55-2 nitro plugin 周期清理** | `apps/platform/server/plugins/stale-cleanup.ts` 新建 — defineNitroPlugin + setTimeout 30s 首跑 + setInterval 5 分钟(STALE_CLEANUP_INTERVAL_MS env 可覆盖) + nitro close hook 清 timer;失败不抛下次重试 | ✅ 启动延迟让 DB / 队列就绪;热重载句柄不泄漏;env 覆盖便于测试 |
-| **C55-3 手动应急 API force-fail** | `apps/platform/server/api/batch-runs/[id]/force-fail.post.ts` 新建 — `POST` + requireRole(['admin']) 严格管理;幂等(已终态直接返回不重写 finishedAt)+ 仅改 running/pending 子 run + errorJson 标 `force_failed` | ✅ 5 个 vitest case 覆盖空 id 400 / 404 / running + 子 run / completed 幂等 / failed 幂等 |
-| **C55-4 前端"强制完成"按钮** | `batch-runs.vue` Status 列旁加 `<Button>`(仅 `v-if="data.status === 'running'"` 显示)+ in-flight 守卫(forceFailing[id])+ confirm 弹窗防误触 + 调用 POST `/api/batch-runs/[id]/force-fail` + 成功后清 detailMap + fetchBatchRuns | ✅ 仅 running 显示;loading 反馈;成功后状态收敛(由轮询 60s 节拍自然收敛 + 立即刷新) |
-| **C55-5 i18n 双语** | zh-CN/en-US 各加 `batchRuns.forceFail` "强制完成" / `forceFailConfirm` 确认文案 / `errors.forceFailFailed` 错误文案 | ✅ 3 key × 2 语言对齐;PrimeVue Button loading 文案复用既有 loading 反馈 |
-| **C55-6 测试 + Quality gate** | 单测净增 12(stale-cleanup 7 + force-fail 5);lint 0 error / typecheck 0 error;编号标记扫描零命中 | ✅ 449 tests passed / lint 0 error / typecheck 0 error |
-
-### C55 完成定义
-
-- BatchRun / ScanRun 不再因进程崩溃 / worker SIGKILL / Action runner 永久不回执而永远 running
-- stale-cleanup 30 分钟阈值(与 ContainerExecutor.timeoutMs 对齐)自动清理孤儿
-- admin 手动 force-fail API + 前端按钮提供 30 分钟内应急逃生口
-- 已终态 BatchRun / ScanRun 不被重复处理(幂等)
-- 慢批次不被误杀(仅当下属有 stale run 才 force-fail)
-
-### C55 非目标(移交下一阶段 / backlog)
-
-- 多实例 / 多租户 stale-cleanup 隔离:当前全局清理(单组织部署足够,多租户升级时补 organizationId 过滤)
-- force-fail 审计日志(无专门 audit_log 表,既有平台无审计基建,跨 backlog 任务)
-- PrimeVue ConfirmDialog 替换浏览器原生 confirm() 弹窗(S2 suggest,当前可工作)
-
-### C55 关联
-
-- 关联 backlog：**C55**(同时登记到 [backlog.md §C55](backlog.md) + 完整审计记录待 F 阶段补 review-gate artifact)
-- 与 C54 batch-runs 刷新策略同一页面,但解决不同问题:C54 是「轮询 + 防抖」,C55 是「孤儿兜底」;M10 独立沙箱后续 cgroup v2 资源限制(T1003)可参考此处的「30 分钟阈值」经验
-- 历史教训:C55 D 阶段踩过 ScanRun.repository FK 约束 — 测试必须先建 Repository 实体;TypeORM `BatchRun.source` 是非空字段,`create({})` 空对象会 NOT NULL 失败
-
----
-
-## C60: 平台表格排序（2026-08-20 启动）
-
-- 优先级：`P2`（UX 改进，所有页面通用价值）
-- 背景：用户反馈「表格增加按排序功能（可排序的字段需进行评估）」。当前所有 DataTable 仅按后端默认排序（`createdAt DESC` 或无），告警视图等高频页面"想看 critical 优先" 只能肉眼筛；可排序字段需业务评估（枚举字段需业务语义而非字典序）
-- 来源：[backlog §C60](backlog.md)（2026-08-20 用户反馈登记 + 决策）
-- 总改动量预估：+180-220 行 / 8-9 文件 + 单测 sort-helpers + e2e 覆盖 alerts/repos/batch-runs sortable
-
-### C60 决策（2026-08-20 用户确认 1A + 2B + 3A）
-
-| 决策 | 选项 | 结论 |
-|:--|:--|:--|
-| **D1 覆盖范围** | A 全 7 表 / B 核心 3 表 / C 仅 alerts | **A 全覆盖**——alerts/repos/batch-runs/schedules/credentials/users/repos/[id]/runs |
-| **D2 排序策略** | A 客户端单列 / B 后端排序参数 | **A 客户端单列**——DataTable 默认行为 + `removableSort` 三态（asc/desc/none）;多列排序留 backlog |
-| **D3 持久化** | A v1 不持久化 / B localStorage | **A v1 不持久化**——刷新重置;localStorage 留 backlog |
-| **D4 枚举字段** | A 业务语义 / B 字典序 | **A 业务语义**——severityRank（critical=5 > high=4 > medium=3 > low=2 > unknown=1）/ statusRank（running=3 > completed=2 > failed=1）/ roleRank（admin=3 > org_admin=2 > viewer=1）|
-| **D5 多列排序** | v1 不实现 / 实现 | **v1 不实现**——sortMode="multiple" 留 backlog |
-
-### C60 任务拆解
-
-| 任务 | 优先级 | 内容 | 验收要点 |
-|:---|:---|:---|:---|
-| **C60-1 sort-helpers.ts + 单测** | P2 | `apps/platform/app/utils/sort-helpers.ts` 新建 — `SEVERITY_RANK` / `STATUS_RANK` / `ROLE_RANK` 三张常量表（Record<string, number>）+ `withSeverityRank<T>(items: T[])` / `withStatusRank<T>(items: T[])` / `withRoleRank<T>(items: T[])` 三个 map helper；辅助字段命名带下划线前缀（`_severityRank` / `_statusRank` / `_roleRank`）表示内部使用；`apps/platform/app/utils/sort-helpers.test.ts` 新建覆盖 5 severity × 3 status × 3 role + 边界（null/unknown/未知字符串）| ✅ vitest 至少 11 case；typecheck 0 error |
-| **C60-2 alerts.vue sortable 接入** | P2 | `fetchAlerts` 后 `alerts.value = withSeverityRank(alerts.value)`；`<DataTable removableSort>`；6 列 sortable（`repository` / `packageName` / `source` / `_severityRank` / `_fixStatusRank` / `recommendedVersion`）；`_severityRank` / `_fixStatusRank` 默认 desc 排序（业务语义优先）| ✅ e2e 点击 severity 列切换 asc/desc 验证 critical 优先于 high（业务语义）|
-| **C60-3 repos.vue sortable 接入** | P2 | 4 列 sortable（`owner` / `name` / `packageManager` / `executorKind`）；removableSort；保留批量选择 + 排序不丢 selectedRows（PR1 W10 教训：删除"自动逻辑"必须搜遍被动接收态）；`createdAt` / `lastScanAt` 不在当前表格显示列里 → 留 backlog 扩展显示列 | ✅ e2e 排序后 selectedRows 保留（不丢勾选）|
-| **C60-4 batch-runs.vue sortable 接入** | P2 | 5 列 sortable（`source` / `createdAt` / `repositoryCount` / `_statusRank` / `finishedAt`），含 `_statusRank` 派生字段，与 C54 增量 reconcile 并存；fetchDetail 用 `updateStatusRank` 同步派生 rank（RG-B07 修复）；removableSort；`_statusRank` 默认 desc；**关键约束**：C54 增量 reconcile 不替换已排序数组引用 | ✅ e2e 轮询 60s 时排序状态不重置（手动排序 → 轮询触发 → 排序仍保留）|
-| **C60-5 schedules.vue sortable 接入** | P2 | 5 列 sortable（`name` / `cron` / `selectorKind` / `mode` / `lastTriggeredAt`）；removableSort；时区 + cron 显示兼容 | ✅ |
-| **C60-6 credentials.vue sortable 接入** | P2 | 3 列 sortable（`name` / `type` / `createdAt`）；removableSort；`lastUsedAt` 不在当前表格显示列里 → 留 backlog 扩展 | ✅ |
-| **C60-7 users.vue sortable 接入** | P2 | 3 列 sortable（`email` / `name` / `_roleRank`）；fetchUsers 后 `users.value = withRoleRank(users.value)`；setRole 路径用 `updateRoleRank` 同步派生 rank（RG-B07 修复）；removableSort；`_roleRank` 默认 desc；`createdAt` 不在当前表格显示列里 → 留 backlog | ✅ |
-| **C60-8 repos/[id]/runs.vue sortable 接入** | P2 | 5 列 sortable（`_statusRank` / `mode` / `severityThreshold` / `executorKind` / `startedAt`），含 `_statusRank`；fetchRuns 用 `withRunStatusRank`（RG-W03 修复——runs 状态全集独立常量）；removableSort；保留兼容（C51 应用层修复后此页面已废弃但保留——C58 候选删除）；`finishedAt` 不在当前表格显示列里 → 留 backlog | ✅ |
-| **C60-9 测试 + Quality gate** | P2 | e2e `apps/platform/tests/e2e/sortable.e2e.test.ts` 新建覆盖 alerts/repos/batch-runs sortable 行为（点击 column header → 验证 asc/desc/none 三态切换 + severity 排序业务正确性）；编号标记扫描 `rg -nE "T\d{3}\|P[0-3](-[0-9])?\|C\d+\|G\d\|R\d\|M\d+\|B\d"` 零命中（W1 教训 ERE 模式）；lint 0 error / typecheck 0 error；A 阶段 audit-standard 第 1 轮 Reject（9 blocker + 5 warning）→ 全部修复 → 第 2 轮 audit-quick **Pass** | ✅ lint 0 error / typecheck 0 error / 单测 485 passed / e2e 44 passed / Review Gate Pass |
-
-### C60 完成定义
-- 7 个表格 header 点击 sortable 切换 asc → desc → none（removableSort 三态）
-- 严重级别/状态/角色枚举按业务语义排序（非字典序；用户截图测 critical 必须排第一）
-- batch-runs 增量 reconcile 与排序并存——轮询时排序不重置（C54 + C60 兼容）
-- 单测 sort-helpers.ts 全过；e2e sortable 全过
-- 编号标记扫描零命中；lint 0 error / typecheck 0 error
-- A 阶段 audit 标准（depth=standard）通过；分批 commit 收口
-
-### C60 非目标（移交下一阶段 backlog）
-- localStorage 排序偏好持久化（用户跨刷新保留排序）
-- 多列排序（sortMode="multiple" + shift+click）
-- 后端排序参数透传（`?sortBy=&order=`）
-- 列宽调整（resizable columns / columnResizeMode="expand|fit"）
-- 默认排序偏好（每表格记忆用户上次选择）
-
-### C60 关联
-- 关联 backlog：**C60**（同时登记到 [backlog.md §C60](backlog.md) + 完整审计记录待 F 阶段补 review-gate artifact）
-- 与 **C54**（batch-runs 增量 reconcile）兼容并存——reconcile 不破坏排序引用
-- 与 **PR1 W10 教训**呼应——删除"自动逻辑"必须搜遍被动接收态路径（repos.vue 排序后 selectedRows 保留）
-- 与 **C61** 同批启动；独立 PR 决策（建议 C60 自身 5-7 commits + C61 自身 3 commits）
-
----
-
-## C61: 仪表板告警图表（2026-08-20 启动）
-
-- 优先级：`P2`（UX 改进，仪表板信息密度提升）
-- 背景：用户实测截图反馈（2026-08-20）「仪表板页面的"告警按严重级别"下面也可以列一下告警的图表，目前页面有些空，需要优化」。当前 dashboard.vue 仪表板下方完全空白，仅有 5 个 severity Tag + 数字——信息密度低，视觉单调
-- 来源：[backlog §C61](backlog.md)（2026-08-20 用户反馈登记 + 决策 2B 推荐方案）
-- 总改动量预估：+120-160 行 / 5-6 文件 + 1 新依赖（chart.js@^4.5.0）+ i18n 8 键 × 2 语言
-
-### C61 决策（2026-08-20 用户确认 2B 推荐方案）
-
-| 方案 | 内容 | 后端改动 | chart.js 体积 | 结论 |
-|:--|:--|:--|:--|:--|
-| A 最小 | severity 饼图 + 修复率环形 | 0 | ~25KB | ❌ 信息密度不足 |
-| **B 推荐** | A + Top-10 包柱状图 | +1 字段（topPackages）| ~35KB | ✅ **采纳** |
-| C 完整 | B + 趋势图 | +1 字段（trend）| ~35KB | 复杂度高，trend 留 backlog |
-
-### C61 任务拆解
-
-| 任务 | 优先级 | 内容 | 验收要点 |
-|:---|:---|:---|:---|
-| **C61-1 chart.js 依赖 + ChartCanvas 组件** | P2 | `apps/platform/package.json` 新增 `chart.js@^4.5.0` 依赖；`pnpm install`；自实现 `apps/platform/app/components/ChartCanvas.vue`（tree-shakable 引入 + 仅注册 `LinearScale` / `CategoryScale` / `BarController` / `BarElement` / `DoughnutController` / `ArcElement` / `Tooltip` / `Legend` 等用到的子集，**避免 PrimeVue `<Chart>` 内部 `chart.js/auto` 全量 ~200KB**）；实测 bundle 204 KB raw / 40 KB gzip（达成 < 50 KB 目标）| ✅ `pnpm build` 通过；bundle < 50KB gzip；SSR 无 `window is not defined`（`<ClientOnly>` 包裹）|
-| **C61-2 后端 stats.get.ts 增加 topPackages 字段** | P2 | `apps/platform/server/api/dashboard/stats.get.ts` 新增 `GROUP BY packageName LIMIT 10` 查询（用 `dataSource.createQueryBuilder(ScanResult, 'r')...select('r.packageName', 'packageName')...addSelect('COUNT(*)', 'count')...groupBy('r.packageName')...orderBy('count', 'DESC')...limit(10).getRawMany()`）；返回 `topPackages: Array<{ packageName: string, count: number }>`；空库返回 `[]`；`apps/platform/server/api/dashboard/stats.get.test.ts` 扩展 case：空库 / 单包 / 多包 LIMIT 10 / 同名多 severity 聚合 | ✅ 单测 4 case 全过；typecheck 0 error |
-| **C61-3 dashboard.vue 图表区** | P2 | 在 `dashboard__severity` 区块下新增 `<div class="dashboard__charts">` grid 3 列：① severity 饼图（`<Chart type="doughnut" :data :options>`，5 段配色复用 `severityTagSeverity`） ② 修复率环形进度（`<Chart type="doughnut">` 中心文字显示百分比；`stats.fixedCount / stats.alertsTotal * 100`；空数据 0/0 显示空环 + "暂无数据"） ③ Top-10 包柱状图（`<Chart type="bar">` x 轴包名>20 字符截断 + tooltip 完整名，y 轴告警数；空数据 empty 占位）；CSS grid `align-items: stretch` 三卡片同高 | ✅ 视觉验证：3 卡片同高；空数据时显示 empty 占位（非白屏）；severity 饼图 5 色与现有 Tag 配色一致 |
-| **C61-4 i18n 双语** | P2 | zh-CN + en-US 各新增 8 键：`dashboard.chartTitle` / `dashboard.severityChartTitle` / `dashboard.fixRateChartTitle` / `dashboard.topPackagesChartTitle` / `dashboard.chartEmpty` / `dashboard.fixRateLabel` / `dashboard.fixRateValue` / `dashboard.packageTruncated` | ✅ vue-i18n audit 零告警；双语 key 对齐 |
-| **C61-5 测试 + Quality gate** | P2 | e2e `apps/platform/tests/e2e/dashboard.e2e.test.ts` 新建：3 Chart canvas 元素存在 + i18n 双语 key 验证 + 768px 响应式 + 暗色模式；编号标记扫描零命中；lint 0 error / typecheck 0 error；A 阶段 audit-standard 第 1 轮 Reject（9 blocker + 5 warning）→ 全部修复 → 第 2 轮 audit-quick **Pass** + V 阶段 ui-validator Conditional（768px 响应式已修复）| ✅ lint 0 error / typecheck 0 error / 单测 485 passed / e2e 44 passed / Review Gate Pass |
-
-### C61 完成定义
-- 仪表板"告警按严重级别"下方新增 3 图表卡片（severity 饼图 / 修复率环形 / Top-10 包柱状图）
-- chart.js tree-shakable 引入，gzip < 50KB
-- 后端 stats API 新增 `topPackages` 字段，单测覆盖（空库/单包/多包/同名多 severity）
-- i18n 双语完整（zh-CN + en-US 各 8 键）
-- e2e dashboard.e2e.test.ts 视觉验证通过（3 Chart + empty）
-- 编号标记扫描零命中；lint 0 error / typecheck 0 error
-- A 阶段 audit standard 通过；分批 commit 收口（建议 3 commits：C61-1 依赖 + C61-2 后端 + C61-3/4/5 前端+i18n+e2e）
-
-### C61 非目标（移交下一阶段 backlog）
-- alerts.vue 同样图表（C58 已登记 M11 阶段评估）
-- 告警趋势图（按日/按周聚合 time series）
-- 图表导出（PNG / SVG）
-- 图表交互（下钻、tooltip 详细、点击跳转告警页）
-- 自定义时间区间（默认全部，可加 7d/30d 切换）
-
-### C61 关联
-- 关联 backlog：**C61**（同时登记到 [backlog.md §C61](backlog.md) + 完整审计记录待 F 阶段补 review-gate artifact）
-- 与 **C60**（平台表格排序）同批启动；独立 PR 决策（建议 C61 自身 3 commits）
-- 与 **C58**（alerts.vue 图表）属同类需求但页面不同——C61 是 dashboard 概览，C58 是 alerts 详细页；M11 阶段统一评估图表组件复用
-- 历史教训：W13 Nuxt e2e webServer 缓存——修改 .vue 后必须 rebuild（`rm -rf apps/platform/.nuxt apps/platform/.output && pnpm --filter @dependfix/platform build` 后再跑 e2e）
-
----
-
 ## 待评估候选（2026-08-18 整理，按优先级）
 
 > 上下文：T912 SMTP 邮件发送器为当前活跃任务；以下候选暂不实施，待 SMTP 完成 / 用户明确排期后再启动。所有项已在 [backlog.md](backlog.md) 独立登记，本表为执行排序 + 关联追踪视图。
 
 | 优先级 | backlog 编号 | 任务 / 内容摘要 | 依赖 | 触发条件 |
 |:--|:--|:--|:--|:--|
-| **✅ 已收口** | **C54** | batch-runs 页面刷新策略（轮询 2s → **60s**(2026-08-19 用户决策) + 整表 → 增量 reconcile + 三态分离(`firstLoad` / `loading` / `inflight`) + 强化手动刷新按钮，见 [backlog §C54](backlog.md) + 实施见下方 C54 区块）| 无 | ✅ 已收口(2026-08-19 commit `3a2757b` + `edb066c`;2 commits 待推送)|
-| **🔵 已激活** | **C55** | batch-runs 孤儿运行兜底(自动化 stale-cleanup + admin 手动 force-fail 应急逃生口 + 前端"强制完成"按钮,见 [backlog §C55](backlog.md) + 实施见下方 C55 区块）| 无 | ✅ 已收口(2026-08-19 commit `ce523d4`;1 commit 待推送)|
-| **🔵 已激活** | **C60** | 平台表格排序(全 7 表格 sortable + removableSort + 业务语义排序；alerts/repos/batch-runs/schedules/credentials/users/repos[id]/runs，见 [backlog §C60](backlog.md) + 实施见下方 C60 区块）| 无 | 🔵 已激活(2026-08-20;决策 1A 全覆盖 + 客户端单列 + 业务语义排序 + v1 不持久化)|
-| **🔵 已激活** | **C61** | 仪表板告警图表(severity 饼图 + 修复率环形 + Top-10 包柱状图，见 [backlog §C61](backlog.md) + 实施见下方 C61 区块）| 无 | 🔵 已激活(2026-08-20;决策 2B 推荐方案;依赖 chart.js tree-shakable 引入)|
 | **⚪ P3** | **C30** | Publish Docker 双平台构建 CI 链路裁决（⏸️ 2026-08-18 用户决策暂缓——见 backlog C30） | 无 | 恢复条件：master push 频率显著提升 / 镜像正式发布需求 / 用户明确恢复 |
-| 🔴 已激活 | **C26 → M10** | 独立沙箱容器（已激活为 [todo.md §M10](todo.md#m10-独立沙箱容器-c26-实施规划2026-08-19-启动) 实施规划，2026-08-19 启动；Docker rootless + 应用层白名单 + cgroup v2 双层决策已落地）| 全部前置已就绪 → T1001-T1004 实施 | T912 SMTP 邮件发送器收口后启动 T1001 |
+| 🔴 已激活 | **C26 → M10** | 独立沙箱容器（已激活为 [todo.md §M10](todo.md#m10-独立沙箱容器-c26-实施规划2026-08-19-启动) 实施规划，2026-08-19 启动 / T1001 B1+B2 已落地；Docker rootless + 应用层白名单 + cgroup v2 双层决策已落地）| T1001 B1+B2 已 commit → 推进 T1002/T1003/T1004 | 用户排期或下个 session 启动推进 |
 | **🟢 P2** | **C28** | security.md §凭据加密存储 章节补齐（T602 AES-256-GCM 文档化） | T912-3 联动 | T912 邮件发送安全章节同步补齐 |
-| **🟢 P2** | **C29** | 平台 UI 暗色模式修复（PrimeVue 组件样式异常） | 无 | 暂缓；需 UI Validator 视觉验证 |
 | **🟢 P2** | **M9 后续** | i18n 内容扩展（README.en-US / docs/i18n/en-US / platform 多语言） | M9 基建 | 翻译内容与多语言扩展 |
 | **⚪ P3** | **C36** | 服务端 API 错误消息 i18n（55 处 `createError` 中文化解） | 无 | 英文用户实际使用反馈时 |
 | **⚪ P3** | **C37** | 语言偏好多设备同步（Cookie → 服务端 user 字段） | 无 | 多设备使用成为常态 |
@@ -422,22 +120,23 @@
 | **⚪ P3** | **C24** | org 级 alerts API 批量拉取 | 无 | 大 org 用户痛点 |
 | **⚪ P3** | **C34** | 存量规范严格约束挂接盘点（review 检查点补齐） | 无 | 用户排期（不急） |
 | **⚪ P3** | **T705 / T703** | 生产级部署 / 跨平台 Git（已延期 2026-08-12） | T702 / M6 | 用户指示恢复 |
-| **🟢 P2** | **branches 阈值恢复 80% 冲刺**（2026-08-18 登记 / 2026-08-19 neat-freak 细化启动条件） | `vitest.config.ts` branches 阈值临时下调 80% → 79% 的恢复任务——2026-08-19 mailer/index.ts / app-error.ts / stats.get.ts 已通过 commit `6e28207` 全分支补测（见上方 T912 coverage 回归修复）。**剩余低分支文件清单**（按 2026-08-19 coverage snapshot `coverage/coverage-summary.json` 排序，对整体 80% 阈值贡献从大到小）：**① `packages/engine/src/app/branch-cleanup.ts`**（branches 27.77% / 36 分支 10 覆盖 / 差 26 分支，权重最大）→ **② `apps/platform/server/database/naming-strategy.ts`**（30% / 10 分支 3 覆盖 / 差 7 分支，独立单元测试无 executor 依赖）→ **③ `scripts/distill-wisdom.mjs`**（55.05% / 89 分支 49 覆盖 / 差 7 分支）→ **④ `apps/platform/server/api/repos/batch.post.ts`**（53.33% / 15 分支 8 覆盖 / 差 7 分支，依赖 DB mock）→ **⑤ `apps/platform/server/api/batch-runs/[id].get.ts`**（55.17% / 29 分支 16 覆盖 / 差 13 分支）→ **⑥ `packages/engine/src/runners/network-audit.ts`**（68.75% / 32 分支 22 覆盖 / 差 10 分支，T1002 改造后分支结构变化需重测）。**启动条件**：M10 T1001-T1003 实施完成 + executor 抽象稳定后再启动冲刺——避免 container-executor / batch-runs 等测试随沙箱重构白费。**目标**：四维 ≥ 80% 后恢复 `vitest.config.ts` branches 阈值 79% → 80% | 无 | CI 端到端裁决；目标：四维 ≥ 80% 后恢复阈值 |
+| **🟢 P2** | **branches 阈值恢复 80% 冲刺**（2026-08-18 登记 / 2026-08-19 neat-freak 细化启动条件） | `vitest.config.ts` branches 阈值临时下调 80% → 79% 的恢复任务——2026-08-19 mailer/index.ts / app-error.ts / stats.get.ts 已通过 commit `6e28207` 全分支补测（见上方 T912 coverage 回归修复）。**剩余低分支文件清单**（按 2026-08-19 coverage snapshot `coverage/coverage-summary.json` 排序，对整体 80% 阈值贡献从大到小）：**① `packages/engine/src/app/branch-cleanup.ts`**（branches 27.77% / 36 分支 10 覆盖 / 差 26 分支，权重最大）→ **② `apps/platform/server/database/naming-strategy.ts`**（30% / 10 分支 3 覆盖 / 差 7 分支，独立单元测试无 executor 依赖）→ **③ `scripts/distill-wisdom.mjs`**（55.05% / 89 分支 49 覆盖 / 差 7 分支）→ **④ `apps/platform/server/api/repos/batch.post.ts`**（53.33% / 15 分支 8 覆盖 / 差 7 分支，依赖 DB mock）→ **⑤ `apps/platform/server/api/batch-runs/[id].get.ts`**（55.17% / 29 分支 16 覆盖 / 差 13 分支）→ **⑥ `packages/engine/src/runners/network-audit.ts`**（68.75% / 32 分支 22 覆盖 / 差 10 分支，T1002 改造后分支结构变化需重测）。**启动条件**：M10 T1002-T1004 实施完成 + executor 抽象稳定后再启动冲刺——避免 container-executor / batch-runs 等测试随沙箱重构白费。**目标**：四维 ≥ 80% 后恢复 `vitest.config.ts` branches 阈值 79% → 80% | 无 | CI 端到端裁决；目标：四维 ≥ 80% 后恢复阈值 |
 
 - 完成定义：暂不实施——本表为 backlog 排序追踪视图，用户排期任一项时移入正式任务区块（参考 M8/M9 格式）。
 - 关联：
   - **branches 阈值恢复 80% 冲刺**：2026-08-18 mailer/ 模块新增导致整体 branches 从 80.6%（T711 冲刺后）降到 79.6%，临时下调到 79%；恢复路径见本表 P2 行；其他 P3 项（network-audit / container-executor / scripts/*）按需补测可纳入此冲刺一并完成
   - **C26 + C28**：用户 2026-08-18 明确指示「考虑解决」（C26 独立沙箱 / C28 security.md 章节补齐），排入 P1 / P2 待评估
   - **C30**：用户 2026-08-18 明确指示「暂缓」——run 31862632207 双平台构建 23m 2s 成功完成证明当前 docker.yml 配置可稳定工作，恢复条件见 backlog C30；
-  - **C29 + M9 后续**：平台能力深化，依赖用户产品方向决策；
+  - **M9 后续**：平台能力深化，依赖用户产品方向决策；
   - **D1-D8 + T701-e2e**：M7.1 设计决策点候选项，触发条件未达不实施；
   - **P3 项**：远期登记，随真实需求触发。
+  - **已闭环（含此归档批次清理）**：C46 / C47 / C48 / C49 / C50 / C51 / C52 / C54 / C55 / C59 / C60 / C61 — 全部已通过 2026-08-19~20 PR1-PR3 + C54+C55 + C59-C61 批次收口，详见 [todo-archive.md](todo-archive.md) 对应区块
 
 ---
 
 ## 待人工验收（真实环境，随可用性推进）
 
-- **T701 真实凭据 3 项**：真实 GitHub/Google OAuth 登录闭环（需 OAuth App 凭据）、真实 IdP OIDC 登录闭环（需 RFC 9207 iss 回显支持）、构建期配置凭据后按钮显示路径实测——[todo-archive.md §M7.1](todo-archive.md#m71-认证与用户体系已归档)
+- **T701 真实凭据 3 项**：真实 GitHub/Google OAuth 登录闭环（需 OAuth App 凭据）、真实 IdP OIDC 登录闭环（需 RFC 9207 iss 回显支持）、构建期配置凭据后按钮显示路径实测——[archive/todo-archive-phases-m6-m7-t711.md §M7.1](archive/todo-archive-phases-m6-m7-t711.md#m71-认证与用户体系已归档)
 - **T702 HTTP 层状态流转**：pending→running→completed + 前端轮询体验（需后台服务/staging 或 CI redis service）
 - **T704 async 定时触发**：BullMQ upsertJobScheduler 短间隔 every 集成测试（需 Redis >= 5）；Schedule CRUD e2e 补覆盖（当前单测 44 例，e2e 未覆盖）
 - **发布管线收尾（P3）**：release:auto-version 完整流程待 schedule 启用后首个 cron 裁决；main 副作用路径测试观察项
@@ -445,4 +144,4 @@
 ## 已知边界
 
 - **npx skills GitHub 源端到端验证**（M5.5 遗留，本机 clone github.com 网络受限）依赖 CI 端到端裁决
-- C28 / C29 / C30 等 pending backlog 项详见下方"待评估候选"表 + [backlog.md](backlog.md)，不在此重复列出
+- C28 / C30 等 pending backlog 项详见下方"待评估候选"表 + [backlog.md](backlog.md)，不在此重复列出（C29 已由 2026-08-20 C59 修复闭环）

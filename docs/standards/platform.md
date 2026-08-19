@@ -164,10 +164,17 @@ export const getDateType = (dbType?: string): string => {
 - Vue 3 Composition API + `<script setup lang="ts">`
 - PrimeVue 组件按需使用（`@primevue/nuxt-module` 自动导入，无需手动注册）；模板中 PascalCase
 - 样式：SCSS + BEM；全局变量/ mixin 通过 `vite.css.preprocessorOptions.scss.additionalData` 注入，**组件内直接使用 `$space-4` / `$color-primary` 等变量**
-- 暗色模式：`use-color-mode.ts` 切换 `<html>.dark` + localStorage 持久化；PrimeVue 主题 `darkModeSelector: '.dark'`
+- 暗色模式：`use-color-mode.ts` 切换 `<html>.dark` + localStorage 持久化；PrimeVue 主题 `darkModeSelector: '.dark'`。**全局 SCSS mixin 适配**：`main.scss` 是全局 CSS 无 scope，原 `@mixin dark-mode { :global(.dark) & { @content; } }` 编译失败（`:global()` 是 CSS Modules 语法只在 `<style scoped>` 有效）；正确写法是 `.dark &`（mixin 改动 1 行，4 处 `@include dark-mode` 自动 work）—— 这是 2026-08-20 C59 mixin 修复的根因。
 - composables / utils 文件 **kebab-case**；Vue 组件 **kebab-case.vue**；样式类 BEM
 - 页面组件默认导出为空（布局/路由由 Nuxt 管理），业务状态放 composables 或组件内
 - 禁止 `any`；模板中不写复杂逻辑（抽到 computed / 函数）
+
+### 7.1 PrimeVue 4 集成实践
+
+- **sortable 用 `data-p-sortable-column` 属性**（PrimeVue 4 把 sortable class 改成 data attribute，CSS-in-JS 模式；CSS class `.p-sortable-column` 已废弃）：e2e selector 必须用 `th[data-p-sortable-column="true"]`。写 PrimeVue 4 e2e 前 grep 实际渲染产物确认 attribute vs class。
+- **业务语义排序需 `:default-sort-order="-1"`**：PrimeVue 默认 asc 排序与 critical-first 业务顺序相反；column sortable 必须加 `:default-sort-order="-1"`，否则用户首次点击得到反语义结果。`sort-helpers` 的 `_xxxRank` 是升序的 asc 顺序（0 在前），要 desc 显示业务优先级必须显式 -1。
+- **派生字段运行时修改路径必须同步**：派生字段（`_severityRank` / `_statusRank` / `_roleRank`）的首次注入（fetch 时 `withXxxRank`）不能覆盖后续运行时修改路径——必须每次同步（如 `updateStatusRank` / `updateRoleRank`）。否则 fetchDetail 修改 row.status 后没更新 _statusRank，DataTable 排序引用陈旧 rank → 业务语义错位。
+- **`<Chart>` 引入体积警告**：PrimeVue `<Chart>` 内部 `import('chart.js/auto')` 引入 ~200KB 全量依赖，与 tree-shakable 原则冲突。引入 PrimeVue wrapper 组件前先 grep 内部是否引入了全量依赖；如确实需要 Chart.js，**自实现 `ChartCanvas.vue` 包装**（仅注册用到的 controllers/elements/scales/plugins 子集，如 `LinearScale` + `CategoryScale` + `BarController` + `BarElement` + `DoughnutController` + `ArcElement` + `Tooltip` + `Legend`），实测 bundle < 50KB gzip（vs PrimeVue wrapper 200KB，节省 75%）。`<ClientOnly>` 包裹避免 SSR `window is not defined` 报错。
 
 ## 8. 测试规范
 

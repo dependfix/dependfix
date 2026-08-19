@@ -142,7 +142,39 @@ apps/platform/               # Nuxt 全栈平台
   ```
 
 - 原因：vitest 单测 `import` 模块时会执行顶层副作用——无守卫时 main() 无条件运行，若依赖工作区文件（如 `.session/wisdom.md`）会 `process.exit` 被 vitest 拦截报 `Unhandled Rejection`，且仅 CI（无该文件）暴露、本地侥幸通过（2026-08-13 distill-wisdom 案例，见 [经验归档 §三十九](../design/governance/experience-archive.md)）。
-- 新增脚本复制既有脚本骨架时，守卫是最容易被漏掉的一行——完成新脚本后 grep `process.argv[1]` 确认。
+- vitest 4 起拦截更严：`process.exit` 在 import 阶段触发会抛 `Error: process.exit unexpectedly called with "1"`，stack trace 同时指向脚本自身 + 测试 import 行（CI 在 nuxt prepare + workspace build 后文件状态变化时命中）。新增脚本复制既有脚本骨架时，守卫是最容易被漏掉的一行——完成新脚本后 grep `process.argv[1]` 确认。
+
+#### 5.1.7 容器拼装类代码注释必须准确区分 `execFile` 与 `exec`
+
+- docker 拼装类代码注释禁止写"防 argv 回显"等不准确表述。`execFile` 不经过 shell，**不会**回显 argv（与 `exec` 不同）。
+- 准确语义：`spec.env` 隔离，避免 cmd/test 日志、git URL、daemon config 可见 token（凭据走 `http.extraheader` 等带外通道，与 argv 无关）。
+- 注释必须真实反映防御机制，错把"防 argv 回显"当成威胁模型会导致后续审计按错误方向找漏洞。
+
+#### 5.1.8 JSDoc 注释必须与可见性声明一致
+
+- `private` 方法 + JSDoc 写"导出便于 snapshot 测试"自相矛盾。若实际不导出，改注释或改 `public` / `internal`。
+- 拼装类函数（如 `buildRunArgs`、`buildSpawnArgs`）应在测试中 snapshot 验证——拼装 bug 在真起容器前难暴露，靠运行时回显只能发现一半问题。
+- 注释与实现脱节会被 audit 作为 warning 处置；统一规范后减少文档维护成本。
+
+#### 5.1.9 测试 Spy 与生产实现同模块时必须 `@internal` 标注
+
+- `SpyAdapter` 与生产 `Adapter` 同模块导出时，必须在 Spy 类上加 `@internal` JSDoc + 文件级注释"生产代码禁止导入"，避免业务模块误用 spy 路径导致测试覆盖率虚高、运行时行为错位。
+- 强约束：eslint `no-restricted-imports` 规则限制生产代码 import spy 路径是最稳护栏，新写 Spy 模块时同步配置。
+- 已有项目内案例：`packages/engine/src/runners/*.ts` 中 Docker adapter 与 spy 同模块导出（commit `b189aaa` 落地）。
+
+#### 5.1.10 删除"自动状态赋值"时必须搜遍所有被动接收路径
+
+- 删除状态自动赋值逻辑（如 `selectedRepos.value = ...filter(...)`）前，必须审视所有调用路径是否依赖该自动行为收敛。
+- 被动接收态举例：成功提交后重新调用 `loadImportable()` 时，已删的自动赋值语句留下的旧 selectedRepos 会让 checkbox 呈 disabled+checked 态、计数过期、按钮仍可点——误导用户。
+- 修复范式：在 `emit('success')` 后 `await reload()` 前主动 `selectedRepos.value = []`，让"删除"与"主动重置"形成完整闭环。
+- 原则：**删"自动逻辑"必须搜遍所有"被动接收该状态的路径"**——单点删除会留下隐式不一致。
+
+#### 5.1.11 调试临时代码必须在 commit 前清理
+
+- 任何调试临时代码（`// DEBUG` 注释、`console.log('[debug]', ...)`、`// TODO` 未跟踪项、`alert(...)` 弹窗、`debugger` 语句）必须在 `conventional-committer` 提交前手动清理。
+- 不能依赖 lint（`no-console` 等规则仅限服务端日志场景，无法拦截浏览器端调试输出），code-auditor 会作为 blocker Reject。
+- 调试完成后立即清理，不要等到 commit 前——`git diff --staged` 容易遗漏单行 `console.log`，养成实时清理习惯。
+- 范围扩展：ui-validator agent 视觉验证时自建的截图脚本（如 `*-visual-verify.e2e.test.ts`）属同类——`git status` 不应有 untracked 临时文件。
 
 #### 5.1.6 测试不得依赖 git 忽略工作区文件的存在性
 
@@ -155,7 +187,9 @@ apps/platform/               # Nuxt 全栈平台
 - **SCSS 复用**: 优先使用全局变量（Variables）和混合宏（Mixins）。
 - **BEM 命名**: 组件样式遵循 `block__element--modifier` 规范。
 - **禁止 `!important`**: 破坏 CSS 层级结构。
-- **暗色模式**: 通过 `:global(.dark) .selector` 覆盖样式。
+- **暗色模式**: 通过 `:global(.dark) .selector` 覆盖样式（**注意**：`main.scss` 是全局 CSS 无 scope，原 `:global(.dark) &` 编译失败，正确写法 `.dark &`，让 mixin 自动工作；详见 [平台开发规范 §7](./platform.md)）。
+- **响应式基线（768px）**: dashboard / 列表 / 表格页都应默认支持 768px 响应式（不是 mobile-specific feature 而是响应式基线）——`@media (max-width: 768px)` 切换 `grid-template-columns: 1fr`、表格水平滚动、侧栏折叠。V 阶段 ui-validator 自动检测 768px 适配遗漏，遗漏会被列为 Blocker。
+- **跨 Dialog i18n label key 共享**: 共享选项数据（mode / severity / batch-start 等）时，i18n label key 也应共享（如 `repos.batchMode` / `repos.batchSeverity` 同时用于批量与单仓库 Dialog），避免冗余 key（如 `repos.scanConfigMode` 与批量 Dialog 相同 label 但不同 key）。仅在 Dialog 标题 / 目标信息等真正差异处新增 key。
 
 ## 7. 包命名规范
 

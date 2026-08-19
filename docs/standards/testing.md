@@ -11,6 +11,7 @@
 - **失败路径优先**: 修复 Bug、补守卫或收紧契约时，优先补会在缺陷存在时失败的断言，再补成功路径回归，而不是只测当前实现已经能通过的分支。
 - **最小充分验证**: 优先运行与改动直接相关、最能区分风险的定向用例；只有当风险外溢到跨模块链路时，才升级为更大范围测试。
 - **单用例单风险**: 每个测试块应尽量围绕一个行为风险、边界条件或回退契约命名，避免把多个不相关断言堆在同一用例里导致失败归因模糊。
+- **运行时校验 vs 类型断言**: `JSON.parse(x) as RunResult` 是类型断言，**不**做运行时校验。任何对外边界（容器 stdout / 网络响应 / 跨进程数据）必须配套 `validate*()` 函数。typecheck 通过 ≠ 数据合法，契约漂移只能靠运行时校验兜底。
 
 ## 3. 测试组织
 
@@ -94,6 +95,8 @@
 - **目录隔离**：`*.e2e.test.ts` 会被 vitest 默认扫描，vitest.config 必须 `exclude: ['**/tests/e2e/**']`。
 - **限流豁免**：better-auth 1.6.26 内置特殊规则（sign-in 10s/3 次）优先于 customRules，无代理 IP 头时回退共享桶（并行必 429）→ e2e 环境 `E2E_TEST=true` + `advanced.ipAddress.disableIpTracking: true` 完全跳过（[经验归档 §三十](../design/governance/experience-archive.md)）。
 - **浏览器 UI 验证必须使用视觉模型 agent**：V 阶段派发 `ui-validator` subagent（视觉模型 opencode-go/qwen3.7-plus）截图审查；无视觉能力的 agent 只能报告计算样式值、无法确认视觉回归（[经验归档 §三十一](../design/governance/experience-archive.md) 同源纪律）。
+- **Nuxt SSR+CSR 双层 fetch 的 mock 限制**：Playwright `page.route` 只在浏览器上下文生效，Nuxt SSR 阶段服务端 `fetchData`(onMounted SSR)直接走真实 API 不走 client mock。即使 client hydration 后 onMounted 跑 fetchData，`credentials.value` 已被 SSR 阶段服务端响应填充为 `[]`，后续 client 拉到的 mock 数据无法回写已显示的空 Select 状态。完整 mock 守卫需：(a) 关闭 SSR(spa mode)或 (b) 注入 service worker 拦截 server response 或 (c) 走 in-process 测试(Vitest + @vue/test-utils mount 组件 + mock `$fetch`)。**page.route mock 只能保证"client side 重新触发 fetch"才能命中**——SSR 已渲染的真实数据无法被覆盖。
+- **Playwright webServer 缓存必须 rebuild**：Playwright `webServer.command` 启动的 Nuxt server 用 `.output/` 产物（或 dev cache `.nuxt/`）。修改 `.vue`/`.ts` 后，直接跑 `pnpm exec playwright test` 不会自动 rebuild —— webServer 加载旧 build，新代码不生效（debug 现象：加 `console.log` 不触发、按钮 click 没反应、click handler 未绑定）。修复：**修改 `.vue`/`.ts` 后必须强制 rebuild**——`rm -rf apps/platform/.nuxt apps/platform/.output` + `pnpm --filter @dependfix/platform build` 后再跑 e2e。诊断信号：playwright 新建独立 `.auth` 状态文件（目录时间戳更新），但 webServer 日志仍引用旧 chunk hash。
 
 ### 6.2 真实基础设施集成测试（进程内，优先于后台服务冒烟）
 

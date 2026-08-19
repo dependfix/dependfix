@@ -78,6 +78,21 @@
 **正文规则**：
 
 - 以 `-` 作为列表符号；每行最长 120 字符，内容精简。
+
+### 3.2 单文件跨 type 改动需提前规划 commit 拆分
+
+- 单文件同时改 2 个不同 type 的逻辑（如 `ImportReposDialog.vue` 同时含 `fix C48` + `chore C47`）时，不能直接 `git add` 整个文件——commit 拆分需分三步：
+  1. 先 `git restore --staged <file>` 或 `git reset`，只 edit 保留其中一个逻辑的 diff
+  2. `git add <file>` + `git commit`（commit 1）
+  3. 再 edit 加回第二个逻辑 + `git add <file>` + `git commit`（commit 2）
+- 实现阶段提前识别"单文件跨 type"会节省后续 reset/re-edit 成本。
+- 替代方案：将不同 type 改动拆分到不同文件（新增组件 / helper），从源头避免单文件跨 type。
+
+### 3.3 阶段任务分批提交避免单次大 diff 成本失控
+
+- 阶段任务（T-编号 / M-编号）按依赖与职责切分为多个 atomic commit（如 B1 RuntimeAdapter 抽象层仅 2 文件 225 行 + 125 行测试已 lint auto-fix 触发 11 文件改动，独立 style commit 隔离连锁反应）。
+- 单次大 diff 成本失控的典型症状：审计耗时指数级上升、Review Gate Reject 概率增加、回滚粒度过粗、lint auto-fix 副作用传染其他文件。
+- 按"可独立验证"的顺序分批提交，每批独立过 Review Gate，锁文件（pnpm-lock.yaml）等随其所属批次提交。
 - 简单说明**做了什么**及**为什么这么做**。
 - 使用简体中文或用户指定的语言。
 - 若无必要可不写正文；条目不得太多，内容简单时应当无正文。

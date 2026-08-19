@@ -16,12 +16,14 @@
 - **防止注入**: 使用 TypeORM 参数化查询，严禁拼接 SQL 字符串。
 - **敏感信息屏蔽**: API 返回前必须脱敏（隐藏密码、Token 等字段）。
 - **Secrets 管理**: 严禁将密钥、Token 提交至 Git，必须使用 `.env`。
+- **不可信路径组件白名单校验**: `runId` 等不可信路径组件（来自 URL / 请求体 / 外部输入）必须**双重**校验：白名单正则（如 `RUN_ID_PATTERN = /^[a-zA-Z0-9_-]{1,64}$/`）+ 相对路径校验（`relative(workRoot, workDir).startsWith('..')`）。runId 不合法时 **early return 在 try 外**，跳过 mkdir / adapter.run / finally rm —— 避免对越界路径执行副作用（rm、删除等"清理逻辑"在路径不可信时同样危险）。
 
 ## 3. Web 安全防护 (Web Protection)
 
 - **XSS 防护**: 默认使用 Vue 模板转义。`v-html` 使用须严格审计。
 - **CSRF 防护**: 确保 API 使用 SameSite Cookie 策略或 CSRF Token。
 - **CORS 策略**: 生产环境严禁 `Access-Control-Allow-Origin: *`。
+- **防御纵深对称性**: 同一资源的多处 API 入口必须保持校验一致。例如：在 `batch.post.ts` 加「凭据 × 组织」校验后，`importable.get.ts` 用同一 `credentialId` 的入口必须**同步**加 `requireOrgResource(event, credential.organizationId)`；否则对称缺失会被 audit 第 1 轮拒绝（RG-W1 类问题）。任何引入"资源 × 资源"校验的 PR，D 阶段先 grep 同资源其他入口，主动补齐后再提交。
 
 ## 4. 日志与监控 (Logging & Monitoring)
 

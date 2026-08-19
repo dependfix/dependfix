@@ -469,6 +469,7 @@ const importDialogVisible = ref(false)
             v-model:visible="dialogVisible"
             :header="editingId ? t('repos.dialogEditTitle') : t('repos.dialogAddTitle')"
             modal
+            :draggable="false"
             :style="{width: '520px'}"
         >
             <form class="repo-form" @submit.prevent="submit">
@@ -602,6 +603,7 @@ const importDialogVisible = ref(false)
             v-model:visible="batchDialogVisible"
             :header="t('repos.batchHeader', {count: selectedRows.length})"
             modal
+            :draggable="false"
             :style="{width: '480px'}"
         >
             <div class="batch-form">

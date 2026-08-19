@@ -359,6 +359,7 @@ watch(toastMessage, (v) => {
             v-model:visible="dialogVisible"
             :header="editingId ? t('schedules.dialogEditTitle') : t('schedules.dialogCreateTitle')"
             modal
+            :draggable="false"
             :style="{width: '560px'}"
         >
             <form class="schedule-form" @submit.prevent="submit">

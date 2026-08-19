@@ -178,6 +178,7 @@ const openRunUrl = (url: string) => {
             v-model:visible="detailVisible"
             :header="t('runs.dialogTitle')"
             modal
+            :draggable="false"
             :style="{width: '720px'}"
         >
             <div v-if="detailLoading" class="text-muted">

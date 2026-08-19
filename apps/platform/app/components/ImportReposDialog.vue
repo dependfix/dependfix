@@ -114,6 +114,7 @@ const submitImport = async () => {
         v-model:visible="dialogVisible"
         :header="t('repos.importTitle')"
         modal
+        :draggable="false"
         :style="{width: '680px'}"
     >
         <div class="import-form">

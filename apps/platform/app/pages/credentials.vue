@@ -225,6 +225,7 @@ watch(toastMessage, (v) => {
             v-model:visible="dialogVisible"
             :header="editingId ? t('credentials.dialogEditTitle') : t('credentials.dialogAddTitle')"
             modal
+            :draggable="false"
             :style="{width: '480px'}"
         >
             <form class="credential-form" @submit.prevent="submit">

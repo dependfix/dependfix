@@ -1,8 +1,19 @@
 // 通用 SCSS mixin
 
-// 暗色模式覆盖（PrimeVue darkModeSelector 使用 .dark class）
+// 暗色模式覆盖（PrimeVue darkModeSelector 使用 `.dark` class，挂载在 <html> 上）
+//
+// 实现注意：`:global(.dark) &` 是 CSS Modules 语法（仅在 `<style scoped>` 块内有效）。
+// `main.scss` 通过 `nuxt.config.ts:60` 的 `css: [...]` 作为全局 CSS 加载，**没有 scope**，
+// 此时 `:global(.dark)` 编译后是 `:global(.dark) .parent-class` —— `:global(.dark)` 不是
+// 合法 CSS 选择器，浏览器会静默忽略整条规则，导致自定义 SCSS 容器（header / body / auth
+// 等）切到 dark mode 后保持浅色，而 PrimeVue 组件（DataTable / Dialog / Tag）通过主题
+// CSS 变量独立响应 `.dark` —— 视觉上"半亮半暗"。
+//
+// 正确写法：直接 `.dark & { @content; }`。两种上下文都成立：
+// - 全局（main.scss）：`.dark .parent-class` — 合法
+// - scoped（Vue SFC）：`.dark .parent-class[data-v-xxx]` — 合法
 @mixin dark-mode {
-    :global(.dark) & {
+    .dark & {
         @content;
     }
 }

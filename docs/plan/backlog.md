@@ -313,6 +313,26 @@
   - 验收要点：`fix` 模式在平台集成执行后远程分支包含修复 commit（可 fetch 验证）；`fix-and-pr` 模式在 GitHub 创建 PR 且 body 含报告；失败时干净回退（不残留孤儿分支/PR）；工作目录清理时序改为 push 成功后再清理
   - 关联：C50（默认关联凭据）提供推送凭据；与 C52（单仓库模式选择）同属平台执行链路补齐
   - 来源：2026-08-19 用户反馈"平台集成模式下，仅修复有一个直接的问题，那就是修复结果只在本地，未推送到远程……没有修复并 PR 来的直观（也确实没有修复功能）"
+- **C54 batch-runs 页面刷新策略(降低刷新周期 + 防抖动 + 手动刷新按钮)**（M6 平台可选项 / 2026-08-19 用户反馈登记）
+  - 状态:🔶 待评估
+  - 位置:`apps/platform/app/pages/batch-runs.vue` 第 119-149 行 `startPolling`(setInterval 2000ms)+ `fetchBatchRuns`(line 73,整表替换 `batchRuns.value = ...`)
+  - 问题:`batch-runs` 页面对所有 `status === 'running'` 的批次做 **2 秒间隔**的 `setInterval` 全表拉取(`fetchBatchRuns` 每次整体替换 `batchRuns` 数组);同步对每个已展开行再 `fetchDetail` 一次;无防抖动。导致:
+    1. **表格屏闪**:整表替换 → PrimeVue DataTable 重新 reconcile 行节点 → 行短暂消失/重排,长列表时观感差
+    2. **网络/后端压力**:2s 全量 GET `/api/batch-runs` + N 次 `/api/batch-runs/[id]`,多个 running batch 同时存在时请求量翻倍
+    - 用户反馈:"batch-runs 页面刷新数据过于频繁,并且页面没有增加防抖动,会导致表格屏闪"
+  - 现状:
+    - 轮询触发条件:`onMounted` 拉一次列表 → 若有 `status === 'running'` → `startPolling`(2s 间隔)
+    - 终态收敛:`runningIds.value.length === 0` 时 `stopPolling`(自然停止)
+    - 已展开行在轮询中重复拉详情(line 132-136)
+    - 手动刷新按钮已存在(line 170-176 `pi-refresh` 图标),但点击只触发 `fetchBatchRuns` 不重置轮询节拍
+  - 修复方向(候选):
+    - **方案 A(推荐)**:① **降低刷新周期**:轮询间隔 2s → 5s(配合 running batch 平均执行时长 30s+,5s 间隔既不丢粒度也不滥用带宽);② **整表替换 → 增量 reconcile**:服务端加 `updatedAt` 或 `version` 字段,客户端用 `Map`/id-keyed 合并而非整表替换,避免 PrimeVue DataTable 重排;③ **保留并强化手动刷新按钮**:点击时强制立即拉一次并重置下次轮询计时(让用户感知"我点了,马上刷了");④ **防抖动**:手动按钮加 loading 守卫(点击 → loading=true → fetch → loading=false),连续点击不会并发请求
+    - **方案 B**:保留 2s 轮询但改为"前端窗口聚合"——服务端推送(WebSocket / SSE)推送 running batch 状态变化,客户端只更新受影响的行;改动大、需 SSE/WS 基建,不推荐
+    - **方案 C**:`fetchBatchRuns` 仅在 `[...batchRuns]` 引用变化时才重渲(用 shallowRef / markRaw);改动小但治标不治本
+    - **推荐 A**:纯前端 + 后端轻量字段扩展,改动量小(预估 +30-50 行 / 1-2 文件),UX 改善显著
+  - 验收要点:轮询间隔可配置(`runtimeConfig.batchPollIntervalMs` 或固定 5000);运行中表格屏闪消失(可通过 Playwright 截图对比验证);手动刷新按钮点击后 < 200ms 显示 loading,请求成功后 loading 消失;连续点击不会触发并发请求
+  - 关联:C53(后置 M11 评估)+ PR1/C47(Dialog 默认不可拖动,该页 Dialog 同样受益)
+  - 来源:2026-08-19 用户反馈"刷新周期增加,但是也提供一个手动刷新按钮"
 
 - **C30 Publish Docker build job 被取消/失败排查**（M6 归档 CI 端到端裁决登记）
   - 状态：⏸️ **已暂缓（2026-08-18 用户决策）**——原 🔶 待评估

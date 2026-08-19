@@ -18,7 +18,7 @@
  */
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const repoRoot = fileURLToPath(new URL('..', import.meta.url))
 const EXCLUDED_DIRS = new Set(['node_modules', '.git', '.vitepress', 'dist', 'archive', '.agents', '.claude'])
@@ -170,13 +170,16 @@ export function checkLinks(repoRoot) {
     return { files, errors }
 }
 
-const { files, errors } = checkLinks(repoRoot)
+// CLI 入口守卫：vitest import 时不执行顶层副作用，避免 process.exit 被 vitest 4 拦截
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+    const { files, errors } = checkLinks(repoRoot)
 
-if (errors.length > 0) {
-    console.error(`[check-links] ${errors.length} 个链接问题:`)
-    for (const e of errors) {
-        console.error(`  - ${e}`)
+    if (errors.length > 0) {
+        console.error(`[check-links] ${errors.length} 个链接问题:`)
+        for (const e of errors) {
+            console.error(`  - ${e}`)
+        }
+        process.exit(1)
     }
-    process.exit(1)
+    console.log(`[check-links] OK：${files.length} 个 md 文件的本地链接全部有效`)
 }
-console.log(`[check-links] OK：${files.length} 个 md 文件的本地链接全部有效`)

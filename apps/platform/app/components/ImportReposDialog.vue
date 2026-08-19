@@ -67,8 +67,7 @@ const loadImportable = async () => {
             query: { credentialId: importCredentialId.value },
         })
         importableRepos.value = res as ImportableRepo[]
-        // 自动勾选未导入的仓库
-        selectedRepos.value = importableRepos.value.filter((r) => !r.imported)
+        // 默认不勾选任何仓库（见 docs/plan/todo.md §PR1 C48：避免手滑一次导入大量仓库）；用户需主动勾选或点全选按钮
     } catch (e: any) {
         importError.value = t('repos.errors.repoFetchFailed', { message: e?.data?.message ?? e?.message ?? t('common.errors.unknown') })
     } finally {
@@ -98,6 +97,9 @@ const submitImport = async () => {
         const data = res as { imported: number, skipped: number }
         importSuccess.value = t('repos.success.importDone', { imported: data.imported, skipped: data.skipped })
         emit('imported')
+        // 清空已导入项选择，避免下次刷新列表后 selectedRepos 残留已 disabled 的旧数据
+        // （PR1-1 C48 修复删除自动勾选后必须主动清空，否则导入按钮仍可点产生误导）
+        selectedRepos.value = []
         await loadImportable()
     } catch (e: any) {
         importError.value = t('repos.errors.importFailed', { message: e?.data?.message ?? e?.message ?? t('common.errors.unknown') })

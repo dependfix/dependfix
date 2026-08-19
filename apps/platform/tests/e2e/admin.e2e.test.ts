@@ -77,6 +77,20 @@ test.describe('仓库管理', () => {
         // 无凭据时提示先选择
         await expect(page.locator('text=请先选择 GitHub 凭据')).toBeVisible()
     })
+
+    test('批量导入对话框默认不勾选仓库（手滑防护，见 docs/plan/todo.md §PR1 C48）', async ({ page }) => {
+        await page.goto('/repos')
+        await waitForHydration(page)
+        await page.locator('button:has-text("批量导入")').click()
+        await expect(page.locator('.p-dialog-header')).toContainText('批量导入仓库', { timeout: 15000 })
+        // Dialog 内不应存在任何已勾选 checkbox（默认全空——见 docs/plan/todo.md §PR1 C48）
+        await expect(page.locator('.p-dialog input[type="checkbox"]:checked')).toHaveCount(0)
+        // 全选 checkbox 仍可见可点：勾上后才有 checked 状态
+        const selectAllCheckbox = page.locator('.p-dialog .import-form__list-actions input[type="checkbox"]')
+        if (await selectAllCheckbox.count()) {
+            await expect(selectAllCheckbox).not.toBeChecked()
+        }
+    })
 })
 
 test.describe('凭据管理', () => {

@@ -1,4 +1,4 @@
-import nodemailer, { type Transporter, type SentMessageInfo } from 'nodemailer'
+import nodemailer, { type Transporter } from 'nodemailer'
 import type SMTPTransport from 'nodemailer/lib/smtp-transport'
 
 /**

@@ -99,10 +99,11 @@ export async function startNetworkAudit(): Promise<NetworkAudit> {
             headers: req.headers,
             timeout: CONNECT_TIMEOUT_MS,
         }, (proxyRes) => {
-            // 过滤 hop-by-hop 头（Connection/Transfer-Encoding 等逐跳头不应透传给客户端）
+            // 过滤 hop-by-hop 头（Connection/Transfer-Encoding 等逐跳头不应透传给客户端）。
+            // 用 Reflect.deleteProperty 代替 delete obj[key]，规避 @typescript-eslint/no-dynamic-delete（警告级 lint 升级为 CI 失败）
             const cleanHeaders: Record<string, string | string[] | number | undefined> = { ...proxyRes.headers }
             for (const hop of ['connection', 'keep-alive', 'transfer-encoding', 'te', 'trailer', 'upgrade', 'proxy-connection']) {
-                delete cleanHeaders[hop]
+                Reflect.deleteProperty(cleanHeaders, hop)
             }
             res.writeHead(proxyRes.statusCode ?? 500, cleanHeaders)
             proxyRes.pipe(res)

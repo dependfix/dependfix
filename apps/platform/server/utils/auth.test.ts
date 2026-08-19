@@ -277,7 +277,7 @@ describe('邮件回调（sendVerificationEmail / sendResetPassword / sendChangeE
         // mailer 抛 MailerError 模拟 SMTP 投递失败
         const MailerErrorCtor = (await import('#server/services/mailer' as never)).MailerError as new (code: string, message: string) => Error
         sendTemplateMailMock.mockRejectedValue(new MailerErrorCtor('MAIL_SEND_FAILED', 'fake failure'))
-        const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+        const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => { /* swallow expected error log */ })
 
         const auth = await getAuth()
         const verifyCb = auth.options.emailVerification?.sendVerificationEmail as ((args: { user: { email: string }, url: string }) => Promise<void>)

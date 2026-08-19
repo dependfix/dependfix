@@ -114,8 +114,22 @@ describe('typeormAdapter', () => {
     })
 
     it('supports lt/gt operators on createdAt (DB round-trip values)', async () => {
-        const d1 = await adapter.create<Record<string, unknown>>({ model: 'user', data: makeUser('d1@test.dev') }) as { createdAt: Date }
-        const d2 = await adapter.create<Record<string, unknown>>({ model: 'user', data: makeUser('d2@test.dev') }) as { createdAt: Date }
+        // 显式给定 1 秒间隔的 createdAt，避免依赖连续两次 @CreateDateColumn 的时间差
+        // （CI coverage instrumentation 下同毫秒会被 SQLite datetime TEXT 截到相同字符串 → lt 返回空集）。
+        // @CreateDateColumn 尊重手动传入的 Date 值（已在 scripts/ 探针验证 ms 精度保留）。
+        const t1 = new Date('2024-01-01T10:00:00.000Z')
+        const t2 = new Date('2024-01-01T10:00:01.000Z')
+        const d1 = await adapter.create<Record<string, unknown>>({
+            model: 'user',
+            data: { ...makeUser('d1@test.dev'), createdAt: t1 },
+        }) as { createdAt: Date }
+        const d2 = await adapter.create<Record<string, unknown>>({
+            model: 'user',
+            data: { ...makeUser('d2@test.dev'), createdAt: t2 },
+        }) as { createdAt: Date }
+
+        // round-trip 后毫秒精度应保留：t2 - t1 = 1000ms（保障 lt/gt 阈值严格成立）
+        expect(d2.createdAt.getTime() - d1.createdAt.getTime()).toBe(1000)
 
         const lt = await adapter.findMany<Record<string, unknown>>({
             model: 'user',

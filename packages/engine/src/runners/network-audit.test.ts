@@ -108,7 +108,9 @@ describe('startNetworkAudit', () => {
                 headers: { host: `127.0.0.1:${upstreamPort}` },
             }, (res) => {
                 let data = ''
-                res.on('data', (chunk) => { data += chunk })
+                res.on('data', (chunk) => {
+                    data += chunk
+                })
                 res.on('end', () => resolve(data))
             })
             req.on('error', reject)

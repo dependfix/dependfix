@@ -4,6 +4,10 @@
 >
 > **T912 SMTP 邮件发送器（主体完成 + T912-3 待排，2026-08-18 启动 / 2026-08-19 主体收口）**：[backlog §M7.1 触发条件达成](backlog.md#m71-认证与用户体系)，引入 `nodemailer` 统一实现 better-auth 三处邮件回调（**T912-1 mailer service 模块** commit `edc9c94` + **T912-2 三回调接线** commit `6f00937` + **T912 coverage 回归修复** commit `6e28207` 已收口；**T912-3 安全与文档 + 与 C28 联动待排期**，由下方 §待评估候选 P2 C28 / 「branches 阈值恢复 80% 冲刺」承接）。完整拆解见下方 T912 区块
 >
+> **C51 扫描历史 Dialog 应用层修复（2026-08-19 完成）**：unrouting 0.2.x 兼容 bug 改用 Dialog + query 承载，提交 `b067b3a`（chore: gitignore .env 忽略）+ `2102894`（fix(platform)...）+ `0b9411b`（docs(plan) backlog C46-C53 登记）；方案对比 e2e 跑通；review gate **Pass**（warning 级 UX 建议留待 backlog 后续）
+>
+> **PR1-PR3 平台可用性修复批次（2026-08-19 排期启动，2026-08-20 之前 PR1 优先）**：源自 C46-C53 评估（[backlog §M6 平台可选项](backlog.md#m6-平台能力深化)）；PR1 立刻修 `C47`+`C48` 防御性小修；PR2 修 `C52` 单仓库模式；PR3 批量导入集 `C46`+`C49`+`C50` 同 PR 收口。完整拆解见下方 PR1/PR2/PR3 区块。`C53` 平台 fix 推送 PR 后置候选 M11 评估（需方案设计）
+>
 > **近期归档（M6 / M7 / M8 / M9 / T711 全部完成）**：完整记录见 [todo-archive.md](todo-archive.md)（最近主窗口段：[§M8](todo-archive.md#m8-安全加固与容器执行完备已归档)、[§M9](todo-archive.md#m9-i18n-基建同步已归档)、[§T711](todo-archive.md#t711-覆盖率口径修正--冲刺至-80已归档)）
 >
 > **T705 / T703 已延期（2026-08-12 用户指示）**：生产级部署（PostgreSQL/Helm/Sentry）与跨平台 Git（GitLab/Bitbucket）暂缓排期，详见 [backlog.md §M7.2](backlog.md#m72-平台能力深化)
@@ -90,6 +94,99 @@
 
 - 完成定义：T912-1 ~ T912-3 全部交付，每项独立 Review Gate Pass + 分批提交；`pnpm lint` / `typecheck` / platform 单测（≥ 80% 覆盖率不破坏）/ 集成测试通过；SMTP 配置下可真实发送（开发用 MailHog / Mailtrap 实证）；SMTP 未配置降级路径不破坏既有流程。
 - 非目标（移交 backlog）：模板引擎（直接 string template 而非 MJML/Handlebars）；批量发送（newsletter 类场景）；DKIM / SPF 自动配置；队列化邮件发送（M7.2 BullMQ 集成留给真实流量需求触发）。
+
+---
+
+## PR1: 平台可用性原子修复（C47 + C48 同 PR 提交，2026-08-19 启动）
+
+- 优先级：`P0`（C48 手滑风险最高、C47 体验一致；总改动 < 10 行）
+- 背景：源自 backlog 评估（[backlog.md §M6 平台可选项](backlog.md#m6-平台能力深化) C47/C48）；两条问题真实但改动极小、风险极低，合并一个原子 PR 以减少提交噪音
+- 总改动量预估：前 7 行 + 测试 2 条
+
+### PR1 任务拆解
+
+| 子任务 | 内容 | 验收要点 |
+|:---|:---|:---|
+| **PR1-1 C48 批量导入默认全勾**（backlog C48） | `apps/platform/app/components/ImportReposDialog.vue:71` 删除 `selectedRepos.value = importableRepos.value.filter((r) => !r.imported)` 自动赋值语句，`selectedRepos` 默认 `[]`；保留 `全选` checkbox（`@click="(v: boolean) => selectedRepos = v ? [...selectableRepos] : []"`），让用户主动勾选 | ✅ 单元验证：打开 Dialog 时 `selectedRepos.length === 0`；全选按钮仍可一键勾选未导入项；e2e 验证默认未勾选场景（新建 e2e 或合并到 batch-import 测试） |
+| **PR1-2 C47 Dialog 默认 draggable=false × 6 处**（backlog C47） | 6 处 PrimeVue Dialog 加 `:draggable="false"`：`ImportReposDialog.vue:111` + `repos.vue:467`（编辑）+ `repos.vue:601`（批量扫描）+ `schedules.vue:357` + `credentials.vue:224` + `runs.vue:178`（历史 Dialog 暂不可达但顺手带过） | ✅ 视觉验证：mousedown+drag 标题栏不移动；不引入新 e2e（visual-only） |
+| **PR1-3 E2E 覆盖（C48 关键路径）** | `apps/platform/tests/e2e/admin.e2e.test.ts` 或新建 `batch-import-default.e2e.test.ts`：在 repos 页点 "批量导入" 按钮，断言 Dialog 内 checkbox 初始未勾选（除非全选按钮触发） | ✅ e2e 跑通；回归已有 batch-related 测试不退化 |
+| **PR1-4 Quality gate + 提交** | `pnpm lint / typecheck / test` 通过；A 阶段 code-reviewer skill 审计（Pass）；按 conventional-committer 提交（`fix(platform): C48 默认不勾选 + chore(platform): C47 Dialog draggable=false` 一条 fix + 一条 style/PR1 整体一条） | ✅ lint 0 error / typecheck 0 error / 单测 416 passed / e2e 全部通过 / Review Gate Pass |
+
+### PR1 完成定义
+- C48 真实风险点消除（手滑不会一次导入太多仓库）
+- 全站 6 处 Dialog 默认不可拖动（unrouting 子路由 bug 解除后即使 runs.vue 也能用上）
+- 一条 PR 内合并落地（commit 拆分：1 条 fix C48 + 1 条 style chore C47，conventional-committer skill 决策）
+
+### PR1 非目标
+- 任何后端 / schema 改动
+- C47 之外的 Dialog（如扫描历史 Dialog 已在 C51 顺手实现）
+
+### PR1 关联
+- 关联 backlog：**C47**、**C48**
+- 被依赖：C48 是 PR3 C50 的依赖前提（建议同 PR 收口；但 PR1 单独已可独立价值）
+
+---
+
+## PR2: 单仓库扫描模式补全（C52，2026-08-19 启动，紧跟 PR1）
+
+- 优先级：`P1`（用户原话「不太合理」；fix/fix-and-pr 模式对单仓库入口不可达——必须先有入口，PR3 / M11 候选才有效验证路径）
+- 背景：源自 backlog [C52](backlog.md#c52-单仓库扫描缺模式阈值选择不合理m6-平台可选项--2026-08-19-用户反馈登记)；后端 `scanRequestSchema` 已支持 mode/severityThreshold，纯前端改动
+- 总改动量预估：+60-80 行 + e2e 1 条
+
+### PR2 任务拆解
+
+| 子任务 | 内容 | 验收要点 |
+|:---|:---|:---|
+| **PR2-1 单仓库触发配置 Dialog** | `apps/platform/app/pages/repos.vue` 新增 `scanConfigDialogVisible` / `scanConfigRepo` / `scanConfigMode` / `scanConfigSeverity` 等 ref；抽取批量扫描的 `batchModeOptions` / `batchSeverityOptions` 到 `computed` 共享，或单独定义同样 options；repos 行 pi-play 按钮 onClick 改为先设 state → 打开 Dialog；Dialog 内确认按钮调 `triggerScan(repo, mode, severity)` | ✅ Dialog 列出 mode 三选 + severity 四选；Dialog 默认 mode='report-only' / severity='high'（向后兼容）；确认后 `triggerScan` body 携带所选参数 |
+| **PR2-2 triggerScan 重构** | `repos.vue` 现 `triggerScan` 第 207-208 行硬编码 → 接受 mode/severity 参数从 state 传入；保留所有现有行为（队列模式轮询、dispatched runUrl、扫到结果 toast、gh-action 状态） | ✅ body.mode/severityThreshold 出现在 POST body；3 种 mode × 4 种 severity 组合测试至少跑 1 条 e2e 路径 |
+| **PR2-3 E2E 覆盖** | `tests/e2e/scan-config.e2e.test.ts`（或合并到 history-dialog）：单仓库触发 → Dialog 可见 → 选 fix-and-pr+all → 提交 → 检查 /api/runs 列表的 mode 显示 | ✅ e2e 通过；fix-and-pr 模式可由单仓库入口触发（关键验证点） |
+| **PR2-4 Quality gate + 提交** | lint / typecheck / test 全过；code-reviewer 审计（Pass）；conventional-committer 提交（`feat(platform): 单仓库扫描支持 mode/severity 选择`） | ✅ Review Gate Pass |
+
+### PR2 完成定义
+- 单仓库触发扫描可选择 report-only / fix / fix-and-pr × critical/high/medium/all 12 种组合
+- 与批量扫描行为对齐（共享 options 数据源）
+- 为后续 [backlog C53](#) 平台 fix 推送 PR 提供单仓库入口验证路径
+
+### PR2 非目标
+- 修改 `scanRequestSchema` 后端
+- 修改批量扫描既有 API（保持兼容）
+
+### PR2 关联
+- 关联 backlog：**C52**
+- 互依：未来 M11 候选（[backlog C53](#)）依赖 PR2 提供 fix 模式单仓库入口
+
+---
+
+## PR3: 批量导入能力补全（C46 + C49 + C50 同 PR 收口，2026-08-19 启动，紧跟 PR2）
+
+- 优先级：`P2`（批量导入场景三条改进一次性补齐；同 PR 收口避免拆批改同一文件冲突）
+- 背景：源自 backlog [C46](backlog.md) + [C49](backlog.md) + [C50](backlog.md)；三条都集中在 `apps/platform/app/components/ImportReposDialog.vue`，集中实施避免两次刷新页面体验差
+- 总改动量预估：+140-180 行（前 1 文件 1 后端 1 行 + i18n +3 键） + e2e 2-3 条
+
+### PR3 任务拆解
+
+| 子任务 | 内容 | 验收要点 |
+|:---|:---|:---|
+| **PR3-1 C46 批量导入过滤 UI** | ImportReposDialog 新增 `forkFilter`（默认 `source` 仅非 fork）/ `visibilityFilter`（默认 `all`）/ `searchKeyword`（默认空） ref + computed `filteredRepos`；SelectButton 或 Select 控件；过滤变更后**保留已勾选项**（已有 id 在 `selectedRepos` 仍勾选；filter 不强制 unselect）；全选/计数基于 `selectableRepos` ∩ `filteredRepos` | ✅ 三维 filter 联动生效；全选按钮对 filteredRepos 重新计数 |
+| **PR3-2 C49 >100 仓库分页（后端 octokit.paginate + 前端总数）** | `apps/platform/server/api/repos/importable.get.ts` 改为 `octokit.paginate(octokit.repos.listForAuthenticatedUser, { affiliation, per_page: 100 })` 一次拉完；前端 Dialog 标题显示「共 N 个仓库」总数；可选加 `总数 > 100 时显示分页计数提示` | ✅ 仓库数 >100 的真实凭据下能拉到完整列表；API 调用次数有界；不破坏现有归属过滤参数 |
+| **PR3-3 C50 批量导入默认关联凭据** | ImportReposDialog 新增「默认关联凭据」`<Select>`（与现有「拉取用凭据」并行）；提交 payload 顶层带 `credentialId`；`apps/platform/server/api/repos/batch.post.ts:41-51` 补 `credentialId: item.credentialId ?? null`；i18n zh-CN + en-US 各 +3 键 | ✅ 默认凭据非空时，导入的所有仓库写库带 `credentialId`；空时不携带（保持兼容）；批量后 repos 表凭据字段正确填充 |
+| **PR3-4 E2E 覆盖** | `tests/e2e/batch-import-filters.e2e.test.ts`：覆盖 C46 三维 filter 切换保留勾选 + C50 默认凭据透传；C49 由于需 >100 真实仓库，可在 e2e 中 mock 服务端或单测后端 octokit.paginate 调用 | ✅ e2e 通过；后端单测覆盖 octokit.paginate 调用（mock octokit） |
+| **PR3-5 Quality gate + 提交** | lint / typecheck / test 全过；code-reviewer 审计（Pass）；conventional-committer 提交（推荐 1 条 feature：`feat(platform): 批量导入加过滤 + 分页 + 默认凭据`） | ✅ Review Gate Pass |
+
+### PR3 完成定义
+- 批量导入场景三维收敛（fork/可见性/关键字）—**收敛噪声** + 全选透明
+- 仓库数 >100 时不丢失候选（C49）
+- 批量导入后仓库默认带关联凭据（C50），免手工逐个编辑
+- 已勾选项在 filter 切换时保留（体验一致，不重新做选择）
+- [backlog C48](backlog.md) 已在 PR1 完成
+
+### PR3 非目标
+- 修改 `affiliation` 字段维度（已有 owner/collaborator/organization_member）
+- 单仓库凭据 override（移至后续 backlog C51 候选——但 C51 已闭环，留 backlog 记录）
+
+### PR3 关联
+- 关联 backlog：**C46**、**C49**、**C50**
+- 依赖前置：PR1（C48 默认不勾选——批量场景下 filter/分页/凭据加在一起才有完整价值；不做 PR1 单做 PR3 也可但 PR1 的 C48 才是手滑防护的关键）
 
 ---
 

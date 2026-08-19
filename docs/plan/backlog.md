@@ -243,7 +243,7 @@
   - 关联：C46（过滤）/ C48（默认不勾选）/ C49（分页）—— 四个均集中 `ImportReposDialog.vue` + `batch.post.ts`，可在同一 PR 收口
   - 来源：2026-08-19 用户反馈「导入的时候应该可以选择默认的关联凭据」
 - **C51 扫描历史子路由不可达（unrouting 0.2.x 兼容 bug + 应用层 Dialog 改造）**（M6 平台 bugfix / 2026-08-19 用户实测反馈 + super-search 调研登记）
-  - 状态：🔶 待评估
+  - 状态：✅ **已修复（2026-08-19）** — 提交 `2102894` 应用层方案 A：pi-history 按钮改 `navigateTo({path:'/repos', query:{history:data.id}})`，新增 `RepoHistoryDialog.vue` watch query 自动打开 Dialog（list + detail 内部切换）；e2e `tests/e2e/history-dialog.e2e.test.ts` 完整覆盖；review gate Pass（warning 级 UX 建议留待后续）
   - 现象（用户实测）：仓库列表页 pi-history 按钮（`repos.vue:440` `@click="navigateTo(\`/repos/${data.id}/runs\`)"`）点击后 URL 跳转到`/repos/{id}/runs`，**但页面 DOM 仍显示父路由 /repos 内容**——h2 渲染为「仓库管理」而非「扫描历史」；用户感受"扫描历史按钮没用"
   - 位置：
     - 子页面文件：`apps/platform/app/pages/repos/[id]/runs.vue`（存在但从未被路由正确匹配）
@@ -297,7 +297,7 @@
   - 关联：C53（fix 推送）+ **批量扫描配置组件复用**
   - 来源：2026-08-19 用户反馈"为什么只有批量扫描的时候能选择扫描模式呢？不太合理"
 - **C53 平台集成模式 fix 修复结果不推送远程（无 PR）**（M6 平台可选项 / 2026-08-19 用户反馈登记）
-  - 状态：🔶 待评估
+  - 状态：🔶 **后置候选（M11 评估）** —— 改动体量大（+80-120 行 / 2-3 文件），涉及 git push 副作用 + Octokit 集成 + 测试基建；需独立 Task 含方案设计（push 凭证来源、回滚机制、权限边界）+ e2e mock GitHub API；依赖 C50 提供推送凭证来源；2026-08-19 用户指示暂不入 PR1-PR3 排期
   - 位置：`apps/platform/server/services/executor/container-executor.ts`（第 48-51 行 clone + 第 71 行 `app.run()` + 第 95 行 `rm(workDir)` 清理）
   - 问题：平台集成模式（container executor）下 `fix` / `fix-and-pr` 模式：clone 仓库到工作目录 → 容器内 `DependfixApp.run()` 完成修复 → **第 95 行直接把 workDir 删除**。修复结果（改动的文件 / commit / branch）**只存在于本地临时目录，从未 push 到远程、未创建 PR**。用户反馈："修复结果只在本地，未推送到远程……显然没有修复并 PR 来的直观（也确实没有修复功能）"
   - 现状：

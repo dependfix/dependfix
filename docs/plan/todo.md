@@ -159,6 +159,11 @@
 
 ## PR3: 批量导入能力补全（C46 + C49 + C50 同 PR 收口，2026-08-19 启动，紧跟 PR2）
 
+> **✅ PR3 已收口（2026-08-19 commit `2a7f99f`，14 文件 / +920 / -115 = +805 行净）**：
+> C46 三维过滤 + C49 进程内 lru-cache 5min TTL + PrimeVue Paginator（默认 pageSize=25）+ C50 默认关联凭据（含前置校验 跨组织 403 / 不存在 400 / 透传 三路径单测）。
+> 累计 PR1+PR2+PR3 共 5 commits 待推送（cb788e7 / 9e26b56 / 0b8088f / 1a663f3 / 2a7f99f）。
+> Reviewer standard 第 1 轮 Reject 4 处修复点 → 第 2 轮 Pass；UI validator 视觉验证 Pass。
+
 - 优先级：`P2`（批量导入场景三条改进一次性补齐；同 PR 收口避免拆批改同一文件冲突）
 - 背景：源自 backlog [C46](backlog.md) + [C49](backlog.md) + [C50](backlog.md)；三条都集中在 `apps/platform/app/components/ImportReposDialog.vue` + `importable.get.ts` + `batch.post.ts`，集中实施避免两次刷页面体验差
 - 总改动量预估：+260-330 行（前端 ImportReposDialog 改 + 后端 cache 工具 + 2 个 API 改动 + i18n + 测试） + e2e 2-3 条 + 后端单测 1 条

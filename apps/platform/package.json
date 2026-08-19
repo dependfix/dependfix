@@ -27,6 +27,7 @@
     "better-auth": "^1.6.25",
     "better-sqlite3": "^12.11.1",
     "bullmq": "^6.0.9",
+    "chart.js": "^4.5.1",
     "cron-parser": "^5.8.1",
     "h3": "^1.15.11",
     "ioredis": "^6.0.0",

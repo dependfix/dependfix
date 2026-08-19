@@ -45,6 +45,7 @@ describe('GET /api/dashboard/stats', () => {
             alertsTotal: 0,
             severityCounts: { critical: 0, high: 0, medium: 0, low: 0, unknown: 0 },
             fixedCount: 0,
+            topPackages: [],
             latestRun: null,
         })
     })
@@ -134,10 +135,117 @@ describe('GET /api/dashboard/stats', () => {
         }))
 
         const stats = await call() as Record<string, unknown>
-        // severityCounts 5 个预定义键保持 0；info 这类计入 alertsTotal 但不显式
+        // RG-W02 修复：未识别 severity 归入 unknown 段，避免 alertsTotal 与 severityCounts 总和不一致
         expect((stats.severityCounts as Record<string, number>)).toMatchObject({
-            critical: 0, high: 0, medium: 0, low: 0, unknown: 0,
+            critical: 0, high: 0, medium: 0, low: 0, unknown: 1,
         })
         expect(stats.alertsTotal).toBe(1)
+    })
+
+    describe('topPackages aggregation', () => {
+        /** 辅助：建一个仓库 + 一次扫描，返回 scanRunId 用于插入 ScanResult */
+        const makeScanRun = async (repoName: string): Promise<string> => {
+            const created = await reposIndexHandler(makeEvent('POST', '/api/repos', {
+                owner: 'demo',
+                name: repoName,
+                platform: 'github',
+                packageManager: 'pnpm',
+                defaultBranch: 'main',
+                executorKind: 'container',
+            })) as { id: string }
+            const ds = await ensureDatabaseInitialized()
+            const run = await ds.getRepository(ScanRun).save(ds.getRepository(ScanRun).create({
+                repositoryId: created.id,
+                mode: 'report-only',
+                severityThreshold: 'high',
+                executorKind: 'container',
+                status: 'completed',
+            }))
+            return run.id
+        }
+
+        /** 辅助：给 run 加一条 ScanResult */
+        const addResult = async (scanRunId: string, packageName: string, severity: string): Promise<void> => {
+            const ds = await ensureDatabaseInitialized()
+            await ds.getRepository(ScanResult).save(ds.getRepository(ScanResult).create({
+                scanRunId,
+                source: 'dependabot',
+                severity,
+                packageName,
+                manifestPath: 'package.json',
+                summary: 'test',
+                fixable: true,
+                fixStatus: 'pending',
+            }))
+        }
+
+        it('returns topPackages sorted by count DESC (single package multiple alerts)', async () => {
+            const runId = await makeScanRun('top-single')
+            await addResult(runId, 'lodash', 'high')
+            await addResult(runId, 'lodash', 'critical')
+            await addResult(runId, 'lodash', 'medium')
+
+            const stats = await call() as Record<string, unknown>
+            expect(stats.topPackages).toEqual([
+                { packageName: 'lodash', count: 3 },
+            ])
+        })
+
+        it('aggregates same packageName across multiple severities into one entry', async () => {
+            const runId = await makeScanRun('top-aggregate')
+            // 同包 4 条不同 severity → 应聚合为 1 个 entry count=4
+            await addResult(runId, 'axios', 'critical')
+            await addResult(runId, 'axios', 'high')
+            await addResult(runId, 'axios', 'medium')
+            await addResult(runId, 'axios', 'low')
+
+            const stats = await call() as Record<string, unknown>
+            expect(stats.topPackages).toEqual([
+                { packageName: 'axios', count: 4 },
+            ])
+        })
+
+        it('limits results to top 10 packages by count', async () => {
+            const runId = await makeScanRun('top-limit')
+            // 12 个不同包，每个包不同告警数；期望返回前 10
+            // 包名 a-l，a 有 12 条，b 有 11 条，... l 有 1 条
+            const counts: [string, number][] = [
+                ['a', 12], ['b', 11], ['c', 10], ['d', 9], ['e', 8],
+                ['f', 7], ['g', 6], ['h', 5], ['i', 4], ['j', 3],
+                ['k', 2], ['l', 1],
+            ]
+            for (const [pkg, n] of counts) {
+                for (let i = 0; i < n; i++) {
+                    await addResult(runId, pkg, 'high')
+                }
+            }
+
+            const stats = await call() as Record<string, unknown>
+            const top = stats.topPackages as { packageName: string, count: number }[]
+            expect(top).toHaveLength(10)
+            // 前 10 按 count DESC：a(12), b(11), c(10), d(9), e(8), f(7), g(6), h(5), i(4), j(3)
+            expect(top.map((p) => p.packageName)).toEqual(['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j'])
+            expect(top.map((p) => p.count)).toEqual([12, 11, 10, 9, 8, 7, 6, 5, 4, 3])
+            // k 与 l 被截断不返回
+            expect(top.find((p) => p.packageName === 'k')).toBeUndefined()
+            expect(top.find((p) => p.packageName === 'l')).toBeUndefined()
+        })
+
+        it('handles multiple packages with mixed counts (real-world shape)', async () => {
+            const runId = await makeScanRun('top-mixed')
+            await addResult(runId, 'lodash', 'high')
+            await addResult(runId, 'lodash', 'high')
+            await addResult(runId, 'axios', 'critical')
+            await addResult(runId, 'react', 'low')
+            // expected: lodash=2, axios=1, react=1
+
+            const stats = await call() as Record<string, unknown>
+            const top = stats.topPackages as { packageName: string, count: number }[]
+            expect(top).toEqual([
+                { packageName: 'lodash', count: 2 },
+                { packageName: 'axios', count: 1 },
+                { packageName: 'react', count: 1 },
+            ])
+        })
     })
 })

@@ -389,6 +389,13 @@ const hasSeverityData = computed(() => (stats.value?.alertsTotal ?? 0) > 0)
         align-items: stretch;
     }
 
+    @media (max-width: 768px) {
+        &__charts-grid {
+            // 768px 以下：severity + fixRate 单列，Top-10 单独一行
+            grid-template-columns: 1fr;
+        }
+    }
+
     &__chart-card {
         height: 100%;
 

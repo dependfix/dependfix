@@ -3,7 +3,8 @@ import { ensureDatabaseInitialized } from '#server/database'
 import { requireAuth } from '#server/utils/guard'
 import { resolveOrganizationId } from '#server/utils/organization'
 
-/** BatchRun 视图（列表/详情共用；日期经 Nuxt 序列化为 ISO 字符串） */
+/** BatchRun 视图（列表/详情共用；日期经 Nuxt 序列化为 ISO 字符串）。
+ * 列表附带 updatedAt 便于前端做增量 reconcile（避免整表替换导致 PrimeVue DataTable 屏闪）。 */
 const toView = (b: BatchRun) => ({
     id: b.id,
     source: b.source,
@@ -19,6 +20,7 @@ const toView = (b: BatchRun) => ({
     status: b.status,
     finishedAt: b.finishedAt,
     createdAt: b.createdAt,
+    updatedAt: b.updatedAt,
 })
 
 /**

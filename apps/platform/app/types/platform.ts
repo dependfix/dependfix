@@ -80,7 +80,9 @@ export interface BatchRunSummary {
     fixedCount: number
 }
 
-/** 批量运行视图（server/api/batch-runs 返回结构；列表为存储值，详情为实时聚合值） */
+/** 批量运行视图（server/api/batch-runs 返回结构；列表为存储值，详情为实时聚合值）。
+ * updatedAt 用于前端增量 reconcile：仅当服务端 updatedAt 与本地不同时替换行引用，
+ * 避免 PrimeVue DataTable 整表 reconcile 引发屏闪。 */
 export interface BatchRunView {
     id: string
     source: 'scheduled' | 'manual'
@@ -96,6 +98,7 @@ export interface BatchRunView {
     status: BatchRunStatus
     finishedAt: string | null
     createdAt: string
+    updatedAt: string
 }
 
 /** 批量运行下属 ScanRun（详情 runs 数组元素，与 /api/runs 视图同构） */

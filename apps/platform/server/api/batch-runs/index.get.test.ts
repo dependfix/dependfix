@@ -13,6 +13,13 @@ vi.mock('#server/utils/guard', () => ({
 
 const call = (method: string, url: string) => batchRunsHandler(makeEvent(method, url))
 
+/** 清理 BatchRun 表（每个测试独立，保证断言不被前序测试影响）。
+ * 注：故意保留 Organization 表——resolveOrganizationId 依赖其存在。 */
+const clearBatchRuns = async (): Promise<void> => {
+    const ds = await ensureDatabaseInitialized()
+    await ds.getRepository(BatchRun).clear()
+}
+
 describe('GET /api/batch-runs', () => {
     beforeAll(async () => {
         setupMemoryDatabase()
@@ -22,8 +29,9 @@ describe('GET /api/batch-runs', () => {
         teardownMemoryDatabase()
     })
 
-    beforeEach(() => {
+    beforeEach(async () => {
         vi.clearAllMocks()
+        await clearBatchRuns()
     })
 
     it('returns empty list on fresh database', async () => {
@@ -51,5 +59,28 @@ describe('GET /api/batch-runs', () => {
             repositoryCount: 2,
             summary: { alertsTotal: 3 },
         })
+    })
+
+    it('returns updatedAt for incremental reconcile', async () => {
+        const ds = await ensureDatabaseInitialized()
+        const organizationId = await resolveOrganizationId(ds)
+        await ds.getRepository(BatchRun).save(ds.getRepository(BatchRun).create({
+            organizationId,
+            source: 'manual',
+            mode: 'report-only',
+            severityThreshold: 'all',
+            repositoryCount: 1,
+            status: 'running',
+        }))
+
+        const list = await call('GET', '/api/batch-runs') as Record<string, unknown>[]
+        expect(list).toHaveLength(1)
+        // updatedAt 由 BaseEntity.@UpdateDateColumn 自动维护
+        // 注：测试直接调用 handler 不走 Nuxt JSON 序列化，updatedAt 仍是 Date 对象；
+        // 真实 HTTP 响应时会被序列化为 ISO 字符串（前端拿到的就是字符串）
+        const updatedAt = list[0]!.updatedAt
+        expect(updatedAt).toBeDefined()
+        const ts = updatedAt instanceof Date ? updatedAt.getTime() : new Date(updatedAt as string).getTime()
+        expect(Number.isFinite(ts) && ts > 0).toBe(true)
     })
 })

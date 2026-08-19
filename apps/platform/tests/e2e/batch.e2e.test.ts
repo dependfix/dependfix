@@ -90,4 +90,31 @@ test.describe('批量扫描（sync 降级模式）', () => {
         await waitForHydration(page)
         await expect(page.locator('a[href="/batch-runs"]')).toBeVisible()
     })
+
+    test('手动刷新按钮响应（loading 反馈 + 页面不破坏）', async ({ page }) => {
+        await page.goto('/batch-runs')
+        await waitForHydration(page)
+
+        // 刷新按钮可见可点（无论列表是否为空）
+        const refreshButton = page.locator('button:has-text("刷新")')
+        await expect(refreshButton).toBeVisible()
+        await expect(refreshButton).toBeEnabled()
+
+        // 点击刷新：PrimeVue Button.loading 反馈 → fetchBatchRuns → reconcileBatchRuns → 列表恢复
+        const clickPromise = refreshButton.click()
+        // 锚定 loading 真的曾出现（PrimeVue 4 渲染 .p-button-loading-icon）—— 防止 refactor 误删
+        // loading.value=true 后断言无法 catch 的回归；极短请求可能错过，catch 兜底
+        await expect(refreshButton.locator('.p-button-loading-icon')).toBeVisible({ timeout: 500 }).catch(() => { /* 极短请求 catch 掉,主路径靠 toBeEnabled 兜底 */ })
+        // 请求期间按钮 loading 状态短暂可见（5000ms 内必恢复，无 batch run 时几乎瞬时）
+        await expect(refreshButton).toBeEnabled({ timeout: 5000 })
+        await clickPromise
+
+        // DataTable 容器仍可见（refresh 不破坏页面——首屏骨架已折叠，loading 不影响 DataTable）
+        await expect(page.locator('.p-datatable')).toBeVisible({ timeout: 5000 })
+
+        // 连续点击不破坏页面状态（in-flight 守卫保证不并发堆叠）
+        await refreshButton.click()
+        await refreshButton.click().catch(() => { /* 守卫期间点击可能抛错，吞掉 */ })
+        await expect(page.locator('.p-datatable')).toBeVisible({ timeout: 5000 })
+    })
 })

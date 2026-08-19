@@ -315,7 +315,7 @@
 | **C60-5 schedules.vue sortable 接入** | P2 | 5 列 sortable（`name` / `cron` / `selectorKind` / `mode` / `lastTriggeredAt`）；removableSort；时区 + cron 显示兼容 | ✅ |
 | **C60-6 credentials.vue sortable 接入** | P2 | 3 列 sortable（`name` / `type` / `createdAt`）；removableSort；`lastUsedAt` 不在当前表格显示列里 → 留 backlog 扩展 | ✅ |
 | **C60-7 users.vue sortable 接入** | P2 | 3 列 sortable（`email` / `name` / `_roleRank`）；fetchUsers 后 `users.value = withRoleRank(users.value)`；setRole 路径用 `updateRoleRank` 同步派生 rank（RG-B07 修复）；removableSort；`_roleRank` 默认 desc；`createdAt` 不在当前表格显示列里 → 留 backlog | ✅ |
-| **C60-8 repos/[id]/runs.vue sortable 接入** | P2 | 6 列 sortable（`_statusRank` / `mode` / `severityThreshold` / `executorKind` / `startedAt` / `finishedAt`），含 `_statusRank`；fetchRuns 用 `withRunStatusRank`（RG-W03 修复——runs 状态全集独立常量）；removableSort；保留兼容（C51 应用层修复后此页面已废弃但保留——C58 候选删除）| ✅ |
+| **C60-8 repos/[id]/runs.vue sortable 接入** | P2 | 5 列 sortable（`_statusRank` / `mode` / `severityThreshold` / `executorKind` / `startedAt`），含 `_statusRank`；fetchRuns 用 `withRunStatusRank`（RG-W03 修复——runs 状态全集独立常量）；removableSort；保留兼容（C51 应用层修复后此页面已废弃但保留——C58 候选删除）；`finishedAt` 不在当前表格显示列里 → 留 backlog | ✅ |
 | **C60-9 测试 + Quality gate** | P2 | e2e `apps/platform/tests/e2e/sortable.e2e.test.ts` 新建覆盖 alerts/repos/batch-runs sortable 行为（点击 column header → 验证 asc/desc/none 三态切换 + severity 排序业务正确性）；编号标记扫描 `rg -nE "T\d{3}\|P[0-3](-[0-9])?\|C\d+\|G\d\|R\d\|M\d+\|B\d"` 零命中（W1 教训 ERE 模式）；lint 0 error / typecheck 0 error | 🔄 第 1 轮 audit Reject（9 blocker + 5 warning），修复中；A 阶段 audit 复审待发起 |
 
 ### C60 完成定义

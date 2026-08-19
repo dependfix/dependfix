@@ -464,7 +464,7 @@
     - schedules: `name` / `cron` / `selectorKind` / `mode` / `lastTriggeredAt`(5 列;`createdAt` 不在当前表格显示列里 → 留 backlog)
     - credentials: `name` / `type` / `createdAt`(3 列;`lastUsedAt` 不在当前表格显示列里 → 留 backlog)
     - users: `email` / `name` / `_roleRank`(3 列;`createdAt` 不在当前表格显示列里 → 留 backlog)
-    - repos/[id]/runs: `_statusRank` / `mode` / `severityThreshold` / `executorKind` / `startedAt` / `finishedAt`(6 列;runs 状态全集用 `RUN_STATUS_RANK` 独立常量,见 RG-W03)
+    - repos/[id]/runs: `_statusRank` / `mode` / `severityThreshold` / `executorKind` / `startedAt`(5 列;`finishedAt` 不在当前表格显示列里 → 留 backlog;runs 状态全集用 `RUN_STATUS_RANK` 独立常量,见 RG-W03)
   - 验收要点:
     - 7 个表格 header 点击 sortable 切换 asc → desc → none(removableSort 三态)
     - 严重级别/状态/角色枚举按业务语义排序(非字典序)

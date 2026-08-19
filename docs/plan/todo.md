@@ -11,6 +11,8 @@
 > **近期归档（M6 / M7 / M8 / M9 / T711 全部完成）**：完整记录见 [todo-archive.md](todo-archive.md)（最近主窗口段：[§M8](todo-archive.md#m8-安全加固与容器执行完备已归档)、[§M9](todo-archive.md#m9-i18n-基建同步已归档)、[§T711](todo-archive.md#t711-覆盖率口径修正--冲刺至-80已归档)）
 >
 > **T705 / T703 已延期（2026-08-12 用户指示）**：生产级部署（PostgreSQL/Helm/Sentry）与跨平台 Git（GitLab/Bitbucket）暂缓排期，详见 [backlog.md §M7.2](backlog.md#m72-平台能力深化)
+>
+> **C54 batch-runs 页面刷新策略（P2 收口中，2026-08-19 启动）**：[backlog §C54](backlog.md#c54-batch-runs-页面刷新策略降低刷新周期--防抖动--手动刷新按钮m6-平台可选项--2026-08-19-用户反馈登记) 源自用户实测「batch-runs 页面刷新数据过于频繁,并且页面没有增加防抖动,会导致表格屏闪」。A 阶段第 1 轮 Reject(RG-B1 首屏卡死致命 bug / RG-B3 60s 与验收要点冲突 + W1/S2/S3/S4) → 全部修复后第 2 轮 quick Pass；V 阶段 ui-validator 7 张截图 + OCR 验证 8 重点全过(含用户真实运行中场景 momei/cmyr-skills-agents/caomei-auth)。完整拆解见下方 C54 区块
 
 ---
 
@@ -199,13 +201,54 @@
 
 ---
 
+## C54: batch-runs 页面刷新策略（2026-08-19 启动）
+
+- 优先级：`P2`（UX 改进，不阻塞功能主线；用户实测屏闪严重时升级）
+- 背景：用户实测反馈「batch-runs 页面刷新数据过于频繁,并且页面没有增加防抖动,会导致表格屏闪；刷新周期增加,但是也提供一个手动刷新按钮」（[backlog §C54](backlog.md#c54-batch-runs-页面刷新策略降低刷新周期--防抖动--手动刷新按钮m6-平台可选项--2026-08-19-用户反馈登记)）。当前实现：`setInterval(2000ms)` 整表拉取 + PrimeVue DataTable 整表 reconcile 引发屏闪 + 无防抖 + 按钮不重置节拍
+- 总改动量预估：+260-330 行（前端 batch-runs.vue 改 + reconcile 工具 + 1 API 字段 + i18n 不变 + 测试）/ 实测 +272 行 / 9 文件
+
+### C54 任务拆解（修订方案 D3'' — 用户决策后落地）
+
+| 任务 | 内容 | 验收要点 |
+|:--|:--|:--|
+| **C54-1 轮询节拍 60s** | `apps/platform/app/pages/batch-runs.vue` `setInterval(2000)` → `setInterval(BATCH_POLL_INTERVAL_MS = 60_000)`；60s 为 2026-08-19 用户决策（原建议 5s 仍嫌频繁，running 批次平均 30s+ 进度变化有限） | ✅ 写死常量便于后续微调；only `status === 'running'` 时启用；终态自动 `stopPolling` |
+| **C54-2 后端 updatedAt 字段** | `apps/platform/server/api/batch-runs/index.get.ts` `toView` 加 `updatedAt: b.updatedAt`（BaseEntity.@UpdateDateColumn 自动维护，无需 schema 变更）；`apps/platform/app/types/platform.ts` `BatchRunView` 加 `updatedAt: string` | ✅ 单测覆盖字段返回；Nuxt JSON 序列化将 Date 转 ISO 字符串；MySQL 部署前需升级精度（follow-up 已登记 backlog） |
+| **C54-3 前端增量 reconcile** | 新建 `apps/platform/app/utils/reconcile-batch-runs.ts`（39 行）— 按 id 合并数组而非整表替换：① splice 反向删除消失 id ② splice(0, 0, ...) 批量插入新 id 保持 fresh 顺序（**D 阶段踩过 unshift 反转 bug 后修**）③ updatedAt 变化行替换引用；batch-runs.vue 引用该函数 | ✅ 7 个 vitest case 覆盖 remove/add/update/minimal-react/empty-fresh/empty-local/mixed 场景 |
+| **C54-4 三态分离（修复 RG-B1）** | batch-runs.vue 拆分 `firstLoad`(UI 骨架, 初值 true) + `loading`(按钮 loading 反馈, 初值 false) + `inflight`(并发守卫, 初值 false)；fetchBatchRuns 与 manualRefresh 均用 `inflight` 守卫（与 UI 态解耦，避免首屏请求被吞导致页面永久卡死） | ✅ 模板 `<Card v-if="!firstLoad">` 替换原 `<Card v-if="!loading">`；manualRefresh 不折叠 DataTable；连续点击不并发（e2e + typecheck + 审计逻辑审查保证） |
+| **C54-5 手动刷新按钮重置节拍 + 防抖** | 新增 `manualRefresh()` 抽离按钮 handler；抽 `refreshOpenDetails(prevRunningIds)` 让轮询体与 manualRefresh 共用（避免 reconcile 替换行引用导致聚合值退回存储值）；startPolling 内部 `clearInterval` 旧 timer 自然重置节拍 | ✅ e2e 验证 `loading 反馈` + `.p-button-loading-icon` 可见性 + 连续点击不破坏页面 |
+| **C54-6 测试覆盖** | 新建 `apps/platform/app/utils/reconcile-batch-runs.test.ts`(7 个 vitest case);`apps/platform/server/api/batch-runs/index.get.test.ts` 扩展 updatedAt test case + `clearBatchRuns`(命名准确化, 保留 Organization 表是有意为之);`apps/platform/tests/e2e/batch.e2e.test.ts` 末尾追加 1 个 e2e test | ✅ 单测全过;e2e batch.e2e.test.ts 3/3 通过(含 C54 新增 26.3s);e2e 子集整体 7 failed 为 hydration race 环境问题(sessio 已记录同类) |
+| **C54-7 Quality gate + 提交** | `pnpm --filter @dependfix/platform run lint` 0 error;`pnpm typecheck` 0 error;`pnpm test` 51 files / 437 tests passed(净增 8);`pnpm test:e2e -- tests/e2e/batch.e2e.test.ts` 3/3 通过;A 阶段 code-reviewer standard 第 1 轮 Reject(6 处修复点) → 第 2 轮 quick Pass;编号标记扫描零命中 | ✅ Review Gate Pass;V 阶段 ui-validator 7 张截图 + OCR 验证 8 重点全过(含用户真实运行中场景) |
+
+### C54 完成定义
+
+- batch-runs 页面轮询节拍 60s,无屏闪(DataTable 不再整表 reconcile)
+- 手动刷新按钮点击立即 loading 反馈 + 重置下次轮询计时 + 连续点击不并发
+- 首屏加载不卡死(firstLoad 与 loading 解耦,RG-B1 致命 bug 已修)
+- 已勾选项 + 详情缓存 + 展开行在 reconcile 后保持引用稳定(只在 updatedAt 变化时替换)
+- [backlog C54](backlog.md) 状态从 `🔶 待评估` → `🔵 已规划落地`;backlog.md 同步 60s 用户决策
+
+### C54 非目标(移交下一阶段 / backlog)
+
+- MySQL 部署精度优化:BatchRun.@UpdateDateColumn 升级 `datetime(3)` 或在 reconcile 步骤 3 增加内容比对兜底(已登记 C54 跟进项)
+- 顺序漂移兜底(reconcile 步骤 3 后按 fresh 顺序重排引用):RG-S1 suggest,当前服务端固定 `createdAt DESC` 不会出现窗口回流,留 backlog
+- 轮询节拍可配置:用户决策保留 60s 写死,`BATCH_POLL_INTERVAL_MS` 常量便于后续微调,不走 `runtimeConfig`
+- 服务端推送(WebSocket / SSE):改动大、需基建不推荐,backlog C54 方案 B 已否决
+
+### C54 关联
+
+- 关联 backlog：**C54**(同时登记到 [backlog.md §C54](backlog.md) + [artifacts/review-gate/2026-08-19-c54-batch-runs.md](../../artifacts/review-gate/2026-08-19-c54-batch-runs.md) 完整审计记录)
+- 与 PR1-PR3 关联:同批但独立提交(不影响 PR1-PR3 节奏);复用 PR3 的 i18n 命名空间与 PR 风格
+- 历史教训:踩过 unshift 反转顺序 bug 后切 splice(0, 0, ...);RG-B1 `loading` 初值 true 误吞首屏请求是经典"UI 态与并发守卫复用 ref"反模式,后续 fetch 函数应区分 `loading`(UI) 与 `inflight`(守卫)
+
+---
+
 ## 待评估候选（2026-08-18 整理，按优先级）
 
 > 上下文：T912 SMTP 邮件发送器为当前活跃任务；以下候选暂不实施，待 SMTP 完成 / 用户明确排期后再启动。所有项已在 [backlog.md](backlog.md) 独立登记，本表为执行排序 + 关联追踪视图。
 
 | 优先级 | backlog 编号 | 任务 / 内容摘要 | 依赖 | 触发条件 |
 |:--|:--|:--|:--|:--|
-| **🟢 P2** | **C54** | batch-runs 页面刷新策略（轮询 2s → 5s + 整表 → 增量 reconcile + 强化手动刷新按钮 + 防抖动，见 [backlog §C54](backlog.md#c54-batch-runs-页面刷新策略降低刷新周期--防抖动--手动刷新按钮m6-平台可选项--2026-08-19-用户反馈登记)）| 无 | 用户明确排期 / 真实运行中批次屏闪严重时 |
+| **🔵 已激活** | **C54** | batch-runs 页面刷新策略（轮询 2s → **60s**(2026-08-19 用户决策) + 整表 → 增量 reconcile + 三态分离(`firstLoad` / `loading` / `inflight`) + 强化手动刷新按钮，见 [backlog §C54](backlog.md#c54-batch-runs-页面刷新策略降低刷新周期--防抖动--手动刷新按钮m6-平台可选项--2026-08-19-用户反馈登记) + 实施见下方 C54 区块）| 无 | —（已激活,2026-08-19 启动;D 阶段完成,A 阶段第 1 轮 Reject,修复中）|
 | **⚪ P3** | **C30** | Publish Docker 双平台构建 CI 链路裁决（⏸️ 2026-08-18 用户决策暂缓——见 backlog C30） | 无 | 恢复条件：master push 频率显著提升 / 镜像正式发布需求 / 用户明确恢复 |
 | 🔴 已激活 | **C26 → M10** | 独立沙箱容器（已激活为 [todo.md §M10](todo.md#m10-独立沙箱容器-c26-实施规划2026-08-19-启动) 实施规划，2026-08-19 启动；Docker rootless + 应用层白名单 + cgroup v2 双层决策已落地）| 全部前置已就绪 → T1001-T1004 实施 | T912 SMTP 邮件发送器收口后启动 T1001 |
 | **🟢 P2** | **C28** | security.md §凭据加密存储 章节补齐（T602 AES-256-GCM 文档化） | T912-3 联动 | T912 邮件发送安全章节同步补齐 |

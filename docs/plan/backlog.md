@@ -473,7 +473,7 @@
     - 单测 sort-helpers.ts 覆盖 5 severity × 3 status × 3 role + 边界(null/unknown/未知字符串)
     - e2e 覆盖 alerts / repos / batch-runs sortable 行为(点击 column header → 验证 asc/desc/none 三态切换 + severity 排序业务正确性)
     - 编号标记扫描 `rg -nE "T\d{3}\|P[0-3](-[0-9])?\|C\d+\|G\d\|R\d\|M\d+\|B\d"` 零命中(W1 教训 ERE 模式)
-    - lint 0 error / typecheck 0 error / 单测全过 / 🔄 Review Gate Reject（第 1 轮 9 blocker + 5 warning，修复中；A 阶段 audit 复审待发起）
+    - lint 0 error / typecheck 0 error / 单测全过 / ✅ Review Gate Pass（第 1 轮 audit-standard Reject 9 blocker + 5 warning → 全部修复 → 第 2 轮 audit-quick Pass；V 阶段 ui-validator 768px 响应式 Conditional 已修复）
   - 复杂度:🟡 中(7 表格 × N 列 + sort-helpers + 单测 + e2e,分批 5-7 commits)
   - 关联:C54(batch-runs reconcile 与排序共存) / **C61**(同批启动;独立 PR 决策) / C58(告警视图图表暂不同步)
   - 来源:2026-08-20 用户反馈"表格增加按排序功能(可排序的字段需进行评估)"
@@ -504,7 +504,7 @@
     - e2e dashboard.e2e.test.ts:3 个 Chart 元素存在 + i18n 双语 key 验证 + empty 状态截图
     - chart.js 体积实测 < 50KB gzip(vs chart.js/auto 全量 ~200KB)
     - vue-i18n audit 零告警(i18n script)
-    - 编号标记扫描零命中;lint 0 error / typecheck 0 error / 🔄 Review Gate Reject（第 1 轮 9 blocker + 5 warning，修复中；A 阶段 audit 复审待发起）
+    - 编号标记扫描零命中;lint 0 error / typecheck 0 error / ✅ Review Gate Pass（第 1 轮 audit-standard Reject 9 blocker + 5 warning → 全部修复 → 第 2 轮 audit-quick Pass；V 阶段 ui-validator Conditional 已修复）
   - 复杂度:🟡 中(后端 1 字段 + 前端 chart 区 + chart.js tree-shakable 引入 + i18n 8 键 × 2 语言 + e2e)
   - 关联:C60(同批启动,独立 PR) / C58(alerts.vue 同类需求,backlog 已登记 M11 阶段评估)
   - 来源:2026-08-20 用户反馈"仪表板页面的'告警按严重级别'下面也可以列一下告警的图表,目前页面有些空,需要优化"

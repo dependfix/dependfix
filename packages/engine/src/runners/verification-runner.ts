@@ -1,5 +1,12 @@
 import { spawn, spawnSync } from 'node:child_process'
-import { startNetworkAudit, extractUrlsFromOutput, type NetworkAudit, type NetworkAuditEntry } from './network-audit'
+import {
+    startNetworkAudit,
+    extractUrlsFromOutput,
+    extractHostname,
+    isDomainAllowed,
+    type NetworkAudit,
+    type NetworkAuditEntry,
+} from './network-audit'
 
 /**
  * 单条命令的执行结果
@@ -57,6 +64,8 @@ export interface VerificationResult {
     failure?: string
     /** 执行期网络外联记录（审计开启时；空数组 = 无外联或未捕获到） */
     networkAudit?: NetworkAuditEntry[]
+    /** 非白名单外联违规（deny-by-default 拦截记录；空数组 = 无违规或审计关闭） */
+    networkViolations?: NetworkAuditEntry[]
 }
 
 const DEFAULT_COMMANDS = [
@@ -129,12 +138,20 @@ export async function runVerification(params: VerificationParams): Promise<Verif
             const result = await execCommand(command, params.workDir, params.commandTimeoutMs, proxyUrl)
             commandResults.push(result)
 
-            // 命令输出 URL 提取（确定性捕获 pnpm/npm registry 外联）
+            // 命令输出 URL 提取（确定性捕获 pnpm/npm registry 外联；deny-by-default 冗余判定：
+            // 攻击者绕过代理 env 直连（undici）时，输出 URL 命中非白名单域名同样归类违规）
             if (audit) {
                 const urls = extractUrlsFromOutput(`${result.stdout}\n${result.stderr}`)
                 if (urls.length > 0) {
                     const time = new Date().toISOString()
-                    audit.addEntries(urls.map((target) => ({ time, source: 'command-output', method: 'GET', target })))
+                    for (const target of urls) {
+                        const entry: NetworkAuditEntry = { time, source: 'command-output', method: 'GET', target }
+                        if (isDomainAllowed(extractHostname(target), audit.allowedDomains)) {
+                            audit.addEntries([entry])
+                        } else {
+                            audit.addViolation(entry)
+                        }
+                    }
                 }
             }
 
@@ -146,7 +163,7 @@ export async function runVerification(params: VerificationParams): Promise<Verif
                     failure: result.timedOut
                         ? `command "${command}" timed out after ${result.durationMs}ms`
                         : `command "${command}" exited with code ${result.exitCode}`,
-                    ...(audit ? { networkAudit: audit.entries } : {}),
+                    ...(audit ? { networkAudit: audit.entries, networkViolations: audit.violations } : {}),
                 }
             }
         }
@@ -159,7 +176,7 @@ export async function runVerification(params: VerificationParams): Promise<Verif
     return {
         success: true,
         commandResults,
-        ...(audit ? { networkAudit: audit.entries } : {}),
+        ...(audit ? { networkAudit: audit.entries, networkViolations: audit.violations } : {}),
     }
 }
 

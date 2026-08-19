@@ -276,6 +276,37 @@ describe('runVerification', () => {
         }
     })
 
+    it('flags non-allowlisted command-output urls as network violations', async () => {
+        mockSpawn.mockImplementation(() => successCp('Downloading https://evil.example.com/exfil.tgz\nDone'))
+
+        const result = await runVerification({
+            workDir: '/tmp/test',
+            commands: ['pnpm install'],
+        })
+
+        // deny-by-default：非白名单 URL 归类违规
+        expect(result.networkViolations).toHaveLength(1)
+        expect(result.networkViolations?.[0]).toMatchObject({
+            source: 'command-output',
+            target: 'https://evil.example.com/exfil.tgz',
+            violation: true,
+        })
+        // 违规同时存在于 entries（审计完整性）
+        expect(result.networkAudit?.some((e) => e.target === 'https://evil.example.com/exfil.tgz' && e.violation)).toBe(true)
+    })
+
+    it('keeps allowlisted command-output urls out of violations', async () => {
+        mockSpawn.mockImplementation(() => successCp('Downloading https://registry.npmjs.org/lodash/-/lodash-4.17.21.tgz\nDone'))
+
+        const result = await runVerification({
+            workDir: '/tmp/test',
+            commands: ['pnpm install'],
+        })
+
+        expect(result.networkViolations).toHaveLength(0)
+        expect(result.networkAudit?.some((e) => e.source === 'command-output' && e.target.startsWith('https://registry.npmjs.org'))).toBe(true)
+    })
+
     it('omits network audit when disabled', async () => {
         mockSpawn.mockImplementation(() => successCp('ok'))
 

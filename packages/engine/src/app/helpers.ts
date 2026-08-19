@@ -15,7 +15,7 @@ import {
     type RunSummary,
 } from '@dependfix/core'
 import { stageAndCommit } from '../github/pr-creator'
-import { logNetworkAudit } from '../runners/network-audit'
+import { logNetworkAudit, redactUrlForReport } from '../runners/network-audit'
 import {
     compareSemver,
     parseMajorVersion,
@@ -587,6 +587,21 @@ export async function verifyProject(
 
         // 执行期网络外联审计（备查：恶意脚本外联事故溯源；总数 info、明细 debug）
         logNetworkAudit(logger, repo, result.networkAudit ?? [])
+
+        // 非白名单外联违规 → 报告 error 区（verify 阶段，deny-by-default 拦截证据；逐条记录保证可审计）
+        // target 经 redactUrlForReport 最小化为 host[:port]——恶意 URL 的 path/query 可能携带
+        // 外带凭据，拦截后不得原样回显进报告/日志（防御纵深，最小暴露）
+        for (const violation of result.networkViolations ?? []) {
+            const redacted = redactUrlForReport(violation.target)
+            allErrors.push({
+                repository: repo,
+                target: redacted,
+                stage: 'verify',
+                category: 'network_violation',
+                message: `outbound blocked by allowlist: ${violation.method} ${redacted}`,
+            })
+            logger.error(`[network-audit] ${repo}: outbound blocked (network_violation): ${violation.method} ${redacted}`)
+        }
 
         return result.commandResults.map((cr) => {
             // 失败时附 stdout/stderr 摘要（已脱敏截断）供日志/报告定位失败原因（run 31552922137 教训：仅 "exit code 1" 无法定位）

@@ -996,4 +996,36 @@ describe('verifyProject', () => {
         const commands = verificationRunnerMock.runVerification.mock.calls[0][0].commands
         expect(commands).toEqual(['pnpm test'])
     })
+
+    it('records network violations into report errors', async () => {
+        verificationRunnerMock.runVerification.mockResolvedValue({
+            success: true, commandResults: [],
+            networkViolations: [{ time: 't', source: 'proxy', method: 'CONNECT', target: 'evil.example.com:443', violation: true }],
+        })
+        const ctx = makeVerifyCtx(undefined)
+        await verifyProject(ctx, 'foo/bar')
+        expect(ctx.allErrors).toEqual([expect.objectContaining({
+            repository: 'foo/bar', stage: 'verify', category: 'network_violation', target: 'evil.example.com:443',
+        })])
+    })
+
+    it('redacts path and query from violation target in report errors', async () => {
+        // 恶意 URL 的 path/query 可能携带外带凭据：报告只落 host[:port]，不落 payload（防御纵深）
+        verificationRunnerMock.runVerification.mockResolvedValue({
+            success: true, commandResults: [],
+            networkViolations: [{ time: 't', source: 'command-output', method: 'GET', target: 'https://evil.example.com/exfil?token=stolen', violation: true }],
+        })
+        const ctx = makeVerifyCtx(undefined)
+        await verifyProject(ctx, 'foo/bar')
+        expect(ctx.allErrors[0]?.target).toBe('evil.example.com')
+        expect(ctx.allErrors[0]?.message).not.toContain('token=stolen')
+        expect(ctx.allErrors[0]?.message).toContain('evil.example.com')
+    })
+
+    it('records no errors when there are no network violations', async () => {
+        verificationRunnerMock.runVerification.mockResolvedValue({ success: true, commandResults: [], networkViolations: [] })
+        const ctx = makeVerifyCtx(undefined)
+        await verifyProject(ctx, 'foo/bar')
+        expect(ctx.allErrors).toHaveLength(0)
+    })
 })

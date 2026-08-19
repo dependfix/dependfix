@@ -1,6 +1,148 @@
 import { createServer } from 'node:http'
+import { spawn, spawnSync } from 'node:child_process'
 import { afterEach, describe, expect, it } from 'vitest'
-import { extractUrlsFromOutput, startNetworkAudit, type NetworkAudit } from './network-audit'
+import {
+    DEFAULT_ALLOWED_DOMAINS,
+    extractHostname,
+    extractUrlsFromOutput,
+    isDomainAllowed,
+    readAllowedDomains,
+    redactUrlForReport,
+    startNetworkAudit,
+    type NetworkAudit,
+} from './network-audit'
+
+// 集成测试前置：真实 curl 可用性探测（不可用则跳过真实进程用例）
+const hasCurl = (() => {
+    try {
+        const res = spawnSync('curl', ['--version'], { stdio: 'ignore' })
+        return res.status === 0
+    } catch {
+        return false
+    }
+})()
+
+// ---------------------------------------------------------------------------
+// isDomainAllowed（白名单判定规则）
+// ---------------------------------------------------------------------------
+
+describe('isDomainAllowed', () => {
+    it('matches exact domain', () => {
+        expect(isDomainAllowed('registry.npmjs.org', DEFAULT_ALLOWED_DOMAINS)).toBe(true)
+        expect(isDomainAllowed('github.com', DEFAULT_ALLOWED_DOMAINS)).toBe(true)
+        expect(isDomainAllowed('api.github.com', DEFAULT_ALLOWED_DOMAINS)).toBe(true)
+    })
+
+    it('matches wildcard subdomains of *.npmjs.org', () => {
+        expect(isDomainAllowed('registry.npmjs.org', ['*.npmjs.org'])).toBe(true)
+        expect(isDomainAllowed('a.b.npmjs.org', ['*.npmjs.org'])).toBe(true)
+    })
+
+    it('rejects bare domain for wildcard pattern', () => {
+        // *.npmjs.org 不匹配裸域 npmjs.org（通配符只覆盖子域）
+        expect(isDomainAllowed('npmjs.org', ['*.npmjs.org'])).toBe(false)
+    })
+
+    it('rejects lookalike domains (boundary guaranteed by leading dot)', () => {
+        expect(isDomainAllowed('evilnpmjs.org', ['*.npmjs.org'])).toBe(false)
+        expect(isDomainAllowed('notnpmjs.org.evil.com', ['*.npmjs.org'])).toBe(false)
+    })
+
+    it('rejects non-allowlisted domain', () => {
+        expect(isDomainAllowed('evil.example.com', DEFAULT_ALLOWED_DOMAINS)).toBe(false)
+        expect(isDomainAllowed('registry.npmjs.com', DEFAULT_ALLOWED_DOMAINS)).toBe(false)
+    })
+
+    it('is case-insensitive', () => {
+        expect(isDomainAllowed('REGISTRY.NPMJS.ORG', ['registry.npmjs.org'])).toBe(true)
+        expect(isDomainAllowed('Registry.Npmjs.Org', ['*.npmjs.org'])).toBe(true)
+    })
+
+    it('matches ip literal exactly', () => {
+        expect(isDomainAllowed('127.0.0.1', ['127.0.0.1'])).toBe(true)
+        expect(isDomainAllowed('127.0.0.2', ['127.0.0.1'])).toBe(false)
+    })
+
+    it('trims whitespace around hostname', () => {
+        expect(isDomainAllowed('  github.com  ', ['github.com'])).toBe(true)
+    })
+})
+
+// ---------------------------------------------------------------------------
+// extractHostname
+// ---------------------------------------------------------------------------
+
+describe('extractHostname', () => {
+    it('strips port', () => {
+        expect(extractHostname('registry.npmjs.org:443')).toBe('registry.npmjs.org')
+    })
+
+    it('strips protocol and path from full url', () => {
+        expect(extractHostname('https://registry.npmjs.org/lodash/-/lodash-4.17.21.tgz')).toBe('registry.npmjs.org')
+        expect(extractHostname('http://evil.example.com/path?q=1')).toBe('evil.example.com')
+    })
+
+    it('keeps ipv6 brackets', () => {
+        expect(extractHostname('[::1]:443')).toBe('[::1]')
+    })
+
+    it('passes through bare host', () => {
+        expect(extractHostname('github.com')).toBe('github.com')
+    })
+})
+
+// ---------------------------------------------------------------------------
+// readAllowedDomains（环境变量扩展）
+// ---------------------------------------------------------------------------
+
+describe('readAllowedDomains', () => {
+    it('returns defaults when env is empty', () => {
+        expect(readAllowedDomains({})).toEqual([...DEFAULT_ALLOWED_DOMAINS])
+    })
+
+    it('appends custom domains from DEPENDFIX_ALLOWED_DOMAINS', () => {
+        const domains = readAllowedDomains({ DEPENDFIX_ALLOWED_DOMAINS: 'registry.example.com, git.example.com' })
+        expect(domains).toContain('registry.example.com')
+        expect(domains).toContain('git.example.com')
+        expect(domains).toContain('github.com') // 默认清单保留
+    })
+
+    it('falls back to bare ALLOWED_DOMAINS', () => {
+        const domains = readAllowedDomains({ ALLOWED_DOMAINS: 'mirror.example.com' })
+        expect(domains).toContain('mirror.example.com')
+    })
+
+    it('deduplicates entries and ignores blanks', () => {
+        const domains = readAllowedDomains({ DEPENDFIX_ALLOWED_DOMAINS: 'github.com, , a.example.com,, github.com' })
+        expect(domains.filter((d) => d === 'github.com')).toHaveLength(1)
+        expect(domains).not.toContain('')
+    })
+})
+
+// ---------------------------------------------------------------------------
+// redactUrlForReport（报告回显最小化）
+// ---------------------------------------------------------------------------
+
+describe('redactUrlForReport', () => {
+    it('keeps connect target host:port as-is', () => {
+        expect(redactUrlForReport('evil.example.com:443')).toBe('evil.example.com:443')
+    })
+
+    it('strips path and query from full url', () => {
+        expect(redactUrlForReport('https://evil.example.com/exfil?token=stolen&x=1')).toBe('evil.example.com')
+        expect(redactUrlForReport('http://evil.example.com/path')).toBe('evil.example.com')
+    })
+
+    it('keeps port in url and ipv6 brackets', () => {
+        expect(redactUrlForReport('http://host.example.com:8080/path')).toBe('host.example.com:8080')
+        expect(redactUrlForReport('[::1]:443')).toBe('[::1]:443')
+    })
+
+    it('falls back for empty or unparseable target', () => {
+        expect(redactUrlForReport('')).toBe('<unknown-target>')
+        expect(redactUrlForReport('   ')).toBe('<unknown-target>')
+    })
+})
 
 // ---------------------------------------------------------------------------
 // extractUrlsFromOutput
@@ -37,7 +179,7 @@ describe('extractUrlsFromOutput', () => {
 })
 
 // ---------------------------------------------------------------------------
-// startNetworkAudit（代理记录）
+// startNetworkAudit（白名单拦截代理）
 // ---------------------------------------------------------------------------
 
 describe('startNetworkAudit', () => {
@@ -53,8 +195,8 @@ describe('startNetworkAudit', () => {
         }
     })
 
-    it('records CONNECT tunnel targets (https via proxy)', async () => {
-        audit = await startNetworkAudit()
+    it('records CONNECT tunnel targets (https via proxy) when allowlisted', async () => {
+        audit = await startNetworkAudit({ allowedDomains: ['127.0.0.1'] })
 
         // 上游：本地 TCP 服务（模拟 CONNECT 隧道目标）
         const net = await import('node:net')
@@ -84,10 +226,12 @@ describe('startNetworkAudit', () => {
             .filter((e) => e.source === 'proxy' && e.method === 'CONNECT')
             .map((e) => e.target)
         expect(targets).toContain(`127.0.0.1:${upstreamPort}`)
+        // 白名单命中 → 无违规记录
+        expect(audit.violations).toHaveLength(0)
     })
 
-    it('records plain http requests and forwards them', async () => {
-        audit = await startNetworkAudit()
+    it('records plain http requests and forwards them when allowlisted', async () => {
+        audit = await startNetworkAudit({ allowedDomains: ['127.0.0.1'] })
 
         // 上游：本地 http 服务
         upstream = createServer((req, res) => {
@@ -123,10 +267,11 @@ describe('startNetworkAudit', () => {
             method: 'GET',
             target: `127.0.0.1:${upstreamPort}/hello`,
         }))
+        expect(audit.violations).toHaveLength(0)
     })
 
-    it('returns 502 when upstream forward fails', async () => {
-        audit = await startNetworkAudit()
+    it('returns 502 when upstream forward fails (allowlisted but unreachable)', async () => {
+        audit = await startNetworkAudit({ allowedDomains: ['127.0.0.1'] })
 
         const http = await import('node:http')
         const status = await new Promise<number>((resolve) => {
@@ -135,7 +280,7 @@ describe('startNetworkAudit', () => {
                 port: new URL(audit!.proxyUrl!).port,
                 method: 'GET',
                 path: '/x',
-                headers: { host: '127.0.0.1:1' }, // 无服务端口
+                headers: { host: '127.0.0.1:1' }, // 白名单内但无服务端口
             }, (res) => {
                 resolve(res.statusCode ?? 0)
                 res.resume()
@@ -147,5 +292,148 @@ describe('startNetworkAudit', () => {
         expect(status).toBe(502)
         // 失败转发不产生额外记录（无数据外联）
         expect(audit.entries.some((e) => e.target.endsWith('/x'))).toBe(true)
+        // 白名单放行后上游失败 ≠ 违规（仅 deny-by-default 拦截记 violation）
+        expect(audit.violations).toHaveLength(0)
+    })
+
+    it('blocks CONNECT to non-allowlisted host with 502 and records violation', async () => {
+        audit = await startNetworkAudit() // 默认白名单：evil.example.com 不在列
+
+        const http = await import('node:http')
+        await new Promise<void>((resolve) => {
+            const req = http.request({
+                host: '127.0.0.1',
+                port: new URL(audit!.proxyUrl!).port,
+                method: 'CONNECT',
+                path: 'evil.example.com:443',
+            })
+            req.on('connect', (res2) => {
+                // 拦截路径不应返回 200 CONNECT Established
+                expect(res2.statusCode).toBe(502)
+                res2.socket?.destroy()
+                resolve()
+            })
+            req.on('error', (err) => {
+                // 部分 HTTP 客户端实现将 502 视为 error（Connection reset）；两种都是拦截证据
+                expect(err.message).toMatch(/502|reset|ECONNRESET/i)
+                resolve()
+            })
+            req.end()
+        })
+
+        expect(audit.violations.some((v) => v.method === 'CONNECT' && v.target === 'evil.example.com:443')).toBe(true)
+        expect(audit.violations[0]?.violation).toBe(true)
+        // 违规记录同步存在于 entries（审计完整性）
+        expect(audit.entries.some((e) => e.target === 'evil.example.com:443' && e.violation)).toBe(true)
+    })
+
+    it('blocks plain http to non-allowlisted host with 502 and records violation', async () => {
+        audit = await startNetworkAudit()
+
+        const http = await import('node:http')
+        const status = await new Promise<number>((resolve) => {
+            const req = http.request({
+                host: '127.0.0.1',
+                port: new URL(audit!.proxyUrl!).port,
+                method: 'GET',
+                path: '/exfil',
+                headers: { host: 'evil.example.com' },
+            }, (res) => {
+                resolve(res.statusCode ?? 0)
+                res.resume()
+            })
+            req.on('error', () => resolve(0))
+            req.end()
+        })
+
+        expect(status).toBe(502)
+        expect(audit.violations.some((v) => v.method === 'GET' && v.target === 'evil.example.com/exfil')).toBe(true)
+    })
+
+    it('addViolation records into both entries and violations', async () => {
+        const entry = { time: '2026-08-20T00:00:00.000Z', source: 'command-output' as const, method: 'GET', target: 'https://evil.example.com/x.tgz' }
+        audit = await startNetworkAudit()
+
+        audit.addViolation(entry)
+        expect(audit.violations).toHaveLength(1)
+        expect(audit.violations[0]).toEqual({ ...entry, violation: true })
+        expect(audit.entries).toHaveLength(1)
+        expect(audit.entries[0]?.violation).toBe(true)
+    })
+
+    it('addEntries does not mark violations', async () => {
+        audit = await startNetworkAudit()
+        audit.addEntries([{ time: 't', source: 'command-output', method: 'GET', target: 'https://registry.npmjs.org/x.tgz' }])
+
+        expect(audit.entries).toHaveLength(1)
+        expect(audit.violations).toHaveLength(0)
+    })
+
+    it('respects custom allowedDomains option', async () => {
+        // 自定义白名单（不含 github.com）→ github.com 应被拦截
+        audit = await startNetworkAudit({ allowedDomains: ['registry.npmjs.org'] })
+
+        const http = await import('node:http')
+        const status = await new Promise<number>((resolve) => {
+            const req = http.request({
+                host: '127.0.0.1',
+                port: new URL(audit!.proxyUrl!).port,
+                method: 'GET',
+                path: '/',
+                headers: { host: 'github.com' },
+            }, (res) => {
+                resolve(res.statusCode ?? 0)
+                res.resume()
+            })
+            req.on('error', () => resolve(0))
+            req.end()
+        })
+
+        expect(status).toBe(502)
+        expect(audit.violations.some((v) => v.target.startsWith('github.com'))).toBe(true)
+    })
+})
+
+// ---------------------------------------------------------------------------
+// 集成测试：真实 curl 经代理访问非白名单域名（拒绝闭环）
+// ---------------------------------------------------------------------------
+
+describe.skipIf(!hasCurl)('startNetworkAudit blocks real curl to non-allowlisted host', () => {
+    let audit: NetworkAudit | undefined
+
+    afterEach(async () => {
+        if (audit) {
+            await audit.stop().catch(() => { /* 幂等 */ })
+        }
+    })
+
+    it('curl https to evil domain gets 502 with violation recorded', async () => {
+        audit = await startNetworkAudit() // 默认白名单
+
+        // 异步 spawn（spawnSync 会阻塞代理服务器事件循环导致连接无法处理）
+        // https 走 CONNECT 隧道：代理返回 502 → curl 在 stderr 报错且退出码非 0
+        const child = spawn('curl', ['-sS', '-m', '10', 'https://evil.example.com/'], {
+            env: {
+                ...process.env,
+                HTTP_PROXY: audit.proxyUrl!,
+                HTTPS_PROXY: audit.proxyUrl!,
+                ALL_PROXY: audit.proxyUrl!,
+                NO_PROXY: '',
+                no_proxy: '',
+            },
+            stdio: ['ignore', 'pipe', 'pipe'],
+        })
+        let stderr = ''
+        child.stderr.on('data', (chunk: Buffer) => {
+            stderr += chunk.toString('utf-8')
+        })
+        const exitCode = await new Promise<number | null>((resolve) => {
+            child.on('close', (code) => resolve(code))
+            child.on('error', () => resolve(-1))
+        })
+
+        expect(exitCode).not.toBe(0)
+        expect(stderr).toContain('502')
+        expect(audit.violations.some((v) => v.method === 'CONNECT' && v.target === 'evil.example.com:443')).toBe(true)
     })
 })

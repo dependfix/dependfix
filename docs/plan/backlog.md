@@ -411,7 +411,7 @@
   - 来源:2026-08-20 用户反馈
 
 - **C59 暗色模式全局样式未生效（PrimeVue 组件响应,自定义 SCSS 不响应）**（M6 平台 bugfix / 2026-08-20 用户实测 + 截图确认）
-  - 状态:🔶 待评估（原 C29 复盘升档 — 2026-08-20 用户截图证实仍未解决）
+  - 状态:✅ **已修复（2026-08-20）** — 提交 `9949504` 应用层方案 A(1 行 mixin 修复) + 永久 e2e 回归测试 `dark-mode.e2e.test.ts`
   - 位置:
     - `apps/platform/app/assets/styles/_mixins.scss:4-8` → `@mixin dark-mode { :global(.dark) & { @content; } }`(主因)
     - `apps/platform/app/assets/styles/main.scss`(全局 3 处 `@include dark-mode`:body / `.platform__header` / `.auth`)+ `apps/platform/app/components/ImportReposDialog.vue:471`(scoped 1 处 `.import-form__list`);mixin 改动 4 处自动 work

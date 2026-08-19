@@ -3,6 +3,7 @@
 // 全部走 better-auth admin 插件原生端点（/api/auth/admin/*，经 authClient.admin.* 封装）
 import type { Role, UserView } from '~/types/platform'
 import { authClient } from '~/utils/auth-client'
+import { updateRoleRank, withRoleRank } from '~/utils/sort-helpers'
 
 definePageMeta({
     middleware: 'auth',
@@ -36,7 +37,7 @@ const fetchUsers = async () => {
             error.value = t('users.errors.loadFailed', { message: listError.message ?? t('common.errors.unknown') })
             return
         }
-        users.value = (data?.users ?? []).map((u) => ({
+        users.value = withRoleRank((data?.users ?? []).map((u) => ({
             id: u.id,
             email: u.email,
             name: u.name ?? null,
@@ -47,7 +48,7 @@ const fetchUsers = async () => {
             emailVerified: u.emailVerified,
             createdAt: typeof u.createdAt === 'string' ? u.createdAt : u.createdAt.toISOString(),
             updatedAt: typeof u.updatedAt === 'string' ? u.updatedAt : u.updatedAt.toISOString(),
-        }))
+        })))
         total.value = data?.total ?? users.value.length
     } catch (e: any) {
         error.value = t('users.errors.loadFailed', { message: e?.message ?? t('common.errors.unknown') })
@@ -83,7 +84,8 @@ const setRole = async (user: UserView, role: Role) => {
             error.value = t('users.errors.roleUpdateFailed', { message: roleError.message ?? t('common.errors.unknown') })
             return
         }
-        user.role = role
+        // RG-B07 修复：setRole 成功后同步派生 _roleRank（保证 DataTable sortable 业务语义一致）
+        updateRoleRank(user, role)
         success.value = t('users.success.roleUpdated', { email: user.email })
     } catch (e: any) {
         await fetchUsers()
@@ -208,15 +210,29 @@ watch(toastMessage, (v) => {
                     :value="users"
                     striped-rows
                     size="small"
+                    removable-sort
                     :empty-message="t('users.empty')"
                 >
-                    <Column field="email" :header="t('users.email')" />
-                    <Column :header="t('users.name')">
+                    <Column
+                        field="email"
+                        :header="t('users.email')"
+                        sortable
+                    />
+                    <Column
+                        field="name"
+                        :header="t('users.name')"
+                        sortable
+                    >
                         <template #body="{data}">
                             {{ data.name || '—' }}
                         </template>
                     </Column>
-                    <Column :header="t('users.role')">
+                    <Column
+                        field="_roleRank"
+                        :header="t('users.role')"
+                        sortable
+                        :default-sort-order="-1"
+                    >
                         <template #body="{data}">
                             <Tag :value="roleLabel(data.role)" :severity="roleSeverity(data.role)" />
                         </template>

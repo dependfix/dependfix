@@ -1,5 +1,9 @@
 <script setup lang="ts">
 // 扫描历史：按仓库查看运行列表与详情
+// 注意：本页面已被 C51 应用层修复迁入 RepoHistoryDialog（见 docs/plan/todo.md §C51），但保留兼容——
+// 用户直接访问 /repos/{id}/runs 仍可使用（C58 候选删除，见 docs/plan/backlog.md §C58）。
+import { withRunStatusRank } from '~/utils/sort-helpers'
+
 definePageMeta({
     middleware: 'auth',
 })
@@ -20,6 +24,7 @@ interface RunView {
     runUrl: string | null
     summary: Record<string, unknown> | null
     error: { code: string, message: string } | null
+    _statusRank?: number
 }
 
 const route = useRoute()
@@ -56,7 +61,9 @@ const fetchRuns = async () => {
     try {
         const repoId = route.params.id as string
         const res = await $fetch('/api/runs', { query: { repositoryId: repoId } })
-        runs.value = res as RunView[]
+        // 排序键派生：status 走业务语义排序（RG-W03 修复——runs 状态全集与 batch-runs 不同）
+        const list = res as RunView[]
+        runs.value = withRunStatusRank(list)
     } catch (e: any) {
         error.value = t('runs.errors.loadFailed', { message: e?.data?.message ?? e?.message ?? t('common.errors.unknown') })
     } finally {
@@ -115,21 +122,43 @@ const openRunUrl = (url: string) => {
                     :value="runs"
                     striped-rows
                     size="small"
+                    removable-sort
                     :empty-message="t('runs.empty')"
                 >
-                    <Column :header="t('runs.colStatus')">
+                    <Column
+                        field="_statusRank"
+                        :header="t('runs.colStatus')"
+                        sortable
+                        :default-sort-order="-1"
+                    >
                         <template #body="{data}">
                             <Tag :value="statusLabel(data.status)" :severity="statusSeverity(data.status)" />
                         </template>
                     </Column>
-                    <Column field="mode" :header="t('runs.colMode')" />
-                    <Column field="severityThreshold" :header="t('runs.colThreshold')" />
-                    <Column :header="t('runs.colExecutor')">
+                    <Column
+                        field="mode"
+                        :header="t('runs.colMode')"
+                        sortable
+                    />
+                    <Column
+                        field="severityThreshold"
+                        :header="t('runs.colThreshold')"
+                        sortable
+                    />
+                    <Column
+                        field="executorKind"
+                        :header="t('runs.colExecutor')"
+                        sortable
+                    >
                         <template #body="{data}">
                             <Tag :value="data.executorKind === 'github-action' ? t('repos.githubAction') : t('repos.platformContainer')" severity="secondary" />
                         </template>
                     </Column>
-                    <Column :header="t('runs.colStartedAt')">
+                    <Column
+                        field="startedAt"
+                        :header="t('runs.colStartedAt')"
+                        sortable
+                    >
                         <template #body="{data}">
                             {{ data.startedAt ? d(new Date(data.startedAt), 'long') : '—' }}
                         </template>

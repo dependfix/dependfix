@@ -8,8 +8,11 @@
 // - 手动刷新按钮：点击立即拉取 + 重置下次轮询计时；in-flight 守卫防并发
 // - 60s 节拍为 2026-08-19 用户反馈决策（backlog 原推荐 5s 实际仍嫌频繁；
 //   running 批次平均 30s+ 进度变化有限，60s 已足够；保留 BATCH_POLL_INTERVAL_MS 常量便于后续微调）
+// - sortable 字段：sortable + removableSort 三态（asc/desc/none）；与 C54 增量 reconcile 并存（见 docs/plan/todo.md §C54 + §C60）——
+//   reconcile 只替换 updatedAt 变化行引用，不重排已排序数组；用户手动排序状态保留（C60 决策）
 import type { BatchRunRun, BatchRunSummary, BatchRunView } from '~/types/platform'
 import { reconcileBatchRuns } from '~/utils/reconcile-batch-runs'
+import { updateStatusRank, withStatusRank } from '~/utils/sort-helpers'
 
 definePageMeta({
     middleware: 'auth',
@@ -96,7 +99,9 @@ const fetchBatchRuns = async () => {
     error.value = ''
     try {
         const fresh = await $fetch<BatchRunView[]>('/api/batch-runs')
-        reconcileBatchRuns(batchRuns.value, fresh)
+        // 排序键派生：status 走业务语义排序（running 优先）；reconcile 不重排已排序数组
+        const enriched = withStatusRank(fresh)
+        reconcileBatchRuns(batchRuns.value, enriched)
         firstLoad.value = false // 首次 fetch 成功后关闭骨架；失败保留骨架允许重试
     } catch (e: any) {
         error.value = t('batchRuns.errors.loadFailed', { message: e?.data?.message ?? e?.message ?? t('common.errors.unknown') })
@@ -144,10 +149,10 @@ const fetchDetail = async (id: string) => {
             runs: BatchRunRun[]
         }>(`/api/batch-runs/${id}`)
         detailMap.value[id] = detail
-        // 同步列表行状态（详情聚合值覆盖存储值）
+        // 同步列表行状态（详情聚合值覆盖存储值；RG-B07 同步派生 _statusRank）
         const row = batchRuns.value.find((b) => b.id === id)
         if (row) {
-            row.status = detail.status as BatchRunView['status']
+            updateStatusRank(row, detail.status)
             row.finishedCount = detail.finishedCount
             row.completedCount = detail.completedCount
             row.failedCount = detail.failedCount
@@ -254,11 +259,16 @@ onUnmounted(stopPolling)
                     data-key="id"
                     striped-rows
                     size="small"
+                    removable-sort
                     :empty-message="t('batchRuns.empty')"
                     @row-expand="onRowExpand"
                 >
                     <Column expander style="width: 3rem" />
-                    <Column :header="t('batchRuns.colSource')">
+                    <Column
+                        field="source"
+                        :header="t('batchRuns.colSource')"
+                        sortable
+                    >
                         <template #body="{data}">
                             <Tag
                                 :value="data.source === 'scheduled' ? t('batchRuns.sourceScheduled') : t('batchRuns.sourceManual')"
@@ -266,7 +276,11 @@ onUnmounted(stopPolling)
                             />
                         </template>
                     </Column>
-                    <Column :header="t('batchRuns.colCreatedAt')">
+                    <Column
+                        field="createdAt"
+                        :header="t('batchRuns.colCreatedAt')"
+                        sortable
+                    >
                         <template #body="{data}">
                             {{ d(new Date(data.createdAt), 'long') }}
                         </template>
@@ -276,7 +290,11 @@ onUnmounted(stopPolling)
                             {{ modeLabel(data.mode) }} · {{ severityLabel(data.severityThreshold) }}
                         </template>
                     </Column>
-                    <Column :header="t('batchRuns.colProgress')">
+                    <Column
+                        field="repositoryCount"
+                        :header="t('batchRuns.colProgress')"
+                        sortable
+                    >
                         <template #body="{data}">
                             <span v-if="data.pendingCount > 0" class="text-muted">
                                 {{ t('batchRuns.progressPending', {done: data.completedCount + data.failedCount, total: data.repositoryCount}) }}
@@ -287,7 +305,12 @@ onUnmounted(stopPolling)
                             </span>
                         </template>
                     </Column>
-                    <Column :header="t('batchRuns.colStatus')">
+                    <Column
+                        field="_statusRank"
+                        :header="t('batchRuns.colStatus')"
+                        sortable
+                        :default-sort-order="-1"
+                    >
                         <template #body="{data}">
                             <div class="batch-runs__status-cell">
                                 <Tag :value="statusTag(data.status).label" :severity="statusTag(data.status).severity" />
@@ -304,7 +327,11 @@ onUnmounted(stopPolling)
                             </div>
                         </template>
                     </Column>
-                    <Column :header="t('batchRuns.colFinishedAt')">
+                    <Column
+                        field="finishedAt"
+                        :header="t('batchRuns.colFinishedAt')"
+                        sortable
+                    >
                         <template #body="{data}">
                             {{ data.finishedAt ? d(new Date(data.finishedAt), 'long') : '—' }}
                         </template>

@@ -275,10 +275,19 @@ watch(toastMessage, (v) => {
                     :value="schedules"
                     striped-rows
                     size="small"
+                    removable-sort
                     :empty-message="t('schedules.empty')"
                 >
-                    <Column field="name" :header="t('schedules.colName')" />
-                    <Column :header="t('schedules.colCron')">
+                    <Column
+                        field="name"
+                        :header="t('schedules.colName')"
+                        sortable
+                    />
+                    <Column
+                        field="cron"
+                        :header="t('schedules.colCron')"
+                        sortable
+                    >
                         <template #body="{data}">
                             <code>{{ data.cron }}</code>
                             <small
@@ -287,12 +296,20 @@ watch(toastMessage, (v) => {
                             >{{ t('schedules.timezoneSuffix', {timezone: data.timezone}) }}</small>
                         </template>
                     </Column>
-                    <Column :header="t('schedules.colStrategy')">
+                    <Column
+                        field="selectorKind"
+                        :header="t('schedules.colStrategy')"
+                        sortable
+                    >
                         <template #body="{data}">
                             {{ selectorLabel(data.selectorKind) }}
                         </template>
                     </Column>
-                    <Column :header="t('schedules.colMode')">
+                    <Column
+                        field="mode"
+                        :header="t('schedules.colMode')"
+                        sortable
+                    >
                         <template #body="{data}">
                             <Tag :value="modeOptions.find((m) => m.value === data.mode)?.label ?? data.mode" />
                         </template>
@@ -305,7 +322,11 @@ watch(toastMessage, (v) => {
                             />
                         </template>
                     </Column>
-                    <Column :header="t('schedules.colLastTriggered')">
+                    <Column
+                        field="lastTriggeredAt"
+                        :header="t('schedules.colLastTriggered')"
+                        sortable
+                    >
                         <template #body="{data}">
                             {{ data.lastTriggeredAt ? d(new Date(data.lastTriggeredAt), 'long') : '—' }}
                         </template>

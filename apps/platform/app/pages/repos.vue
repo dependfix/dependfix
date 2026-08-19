@@ -396,11 +396,20 @@ const importDialogVisible = ref(false)
                     data-key="id"
                     striped-rows
                     size="small"
+                    removable-sort
                     :empty-message="t('repos.empty')"
                 >
                     <Column selection-mode="multiple" header-style="{width: '3rem'}" />
-                    <Column field="owner" :header="t('repos.colOwner')" />
-                    <Column field="name" :header="t('repos.colRepo')" />
+                    <Column
+                        field="owner"
+                        :header="t('repos.colOwner')"
+                        sortable
+                    />
+                    <Column
+                        field="name"
+                        :header="t('repos.colRepo')"
+                        sortable
+                    />
                     <Column :header="t('repos.colTags')">
                         <template #body="{data}">
                             <div v-if="data.tags?.length" class="repos__tags">
@@ -420,7 +429,11 @@ const importDialogVisible = ref(false)
                             {{ data.defaultBranch }}
                         </template>
                     </Column>
-                    <Column :header="t('repos.colPackageManager')">
+                    <Column
+                        field="packageManager"
+                        :header="t('repos.colPackageManager')"
+                        sortable
+                    >
                         <template #body="{data}">
                             <Tag :value="data.packageManager" severity="secondary" />
                         </template>
@@ -431,7 +444,11 @@ const importDialogVisible = ref(false)
                             <span v-else class="text-muted">{{ t('repos.notLinked') }}</span>
                         </template>
                     </Column>
-                    <Column :header="t('repos.colExecutor')">
+                    <Column
+                        field="executorKind"
+                        :header="t('repos.colExecutor')"
+                        sortable
+                    >
                         <template #body="{data}">
                             <Tag :value="data.executorKind === 'github-action' ? t('repos.githubAction') : t('repos.platformContainer')" />
                         </template>

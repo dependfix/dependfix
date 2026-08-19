@@ -166,10 +166,19 @@ watch(toastMessage, (v) => {
                     :value="credentials"
                     striped-rows
                     size="small"
+                    removable-sort
                     :empty-message="t('credentials.empty')"
                 >
-                    <Column field="name" :header="t('credentials.colName')" />
-                    <Column :header="t('credentials.colType')">
+                    <Column
+                        field="name"
+                        :header="t('credentials.colName')"
+                        sortable
+                    />
+                    <Column
+                        field="type"
+                        :header="t('credentials.colType')"
+                        sortable
+                    >
                         <template #body="{data}">
                             <Tag :value="typeLabel(data.type)" />
                         </template>
@@ -188,7 +197,11 @@ watch(toastMessage, (v) => {
                             />
                         </template>
                     </Column>
-                    <Column :header="t('credentials.colCreatedAt')">
+                    <Column
+                        field="createdAt"
+                        :header="t('credentials.colCreatedAt')"
+                        sortable
+                    >
                         <template #body="{data}">
                             {{ d(new Date(data.createdAt), 'long') }}
                         </template>

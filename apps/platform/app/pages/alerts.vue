@@ -1,5 +1,7 @@
 <script setup lang="ts">
 // 告警视图：按仓库/严重级别/来源筛选
+import { withFixStatusRank, withSeverityRank } from '~/utils/sort-helpers'
+
 definePageMeta({
     middleware: 'auth',
 })
@@ -101,7 +103,9 @@ const fetchAlerts = async () => {
             query.source = filters.value.source
         }
         const res = await $fetch('/api/alerts', { query })
-        alerts.value = res as AlertView[]
+        // 排序键派生：severity / fixStatus 走业务语义排序（非字典序）
+        const list = res as AlertView[]
+        alerts.value = withFixStatusRank(withSeverityRank(list))
     } catch (e: any) {
         error.value = t('alerts.errors.loadFailed', { message: e?.data?.message ?? e?.message ?? t('common.errors.unknown') })
     } finally {
@@ -188,16 +192,34 @@ onMounted(async () => {
                     :value="alerts"
                     striped-rows
                     size="small"
+                    removable-sort
                     :empty-message="t('alerts.empty')"
                 >
-                    <Column field="repository" :header="t('alerts.colRepository')" />
-                    <Column :header="t('alerts.colSeverity')">
+                    <Column
+                        field="repository"
+                        :header="t('alerts.colRepository')"
+                        sortable
+                    />
+                    <Column
+                        field="_severityRank"
+                        :header="t('alerts.colSeverity')"
+                        sortable
+                        :default-sort-order="-1"
+                    >
                         <template #body="{data}">
                             <Tag :value="data.severity" :severity="severityTagSeverity(data.severity)" />
                         </template>
                     </Column>
-                    <Column field="packageName" :header="t('alerts.colPackage')" />
-                    <Column :header="t('alerts.colSource')">
+                    <Column
+                        field="packageName"
+                        :header="t('alerts.colPackage')"
+                        sortable
+                    />
+                    <Column
+                        field="source"
+                        :header="t('alerts.colSource')"
+                        sortable
+                    >
                         <template #body="{data}">
                             <Tag :value="data.source" severity="secondary" />
                         </template>
@@ -210,8 +232,17 @@ onMounted(async () => {
                             />
                         </template>
                     </Column>
-                    <Column field="recommendedVersion" :header="t('alerts.colRecommended')" />
-                    <Column :header="t('alerts.colStatus')">
+                    <Column
+                        field="recommendedVersion"
+                        :header="t('alerts.colRecommended')"
+                        sortable
+                    />
+                    <Column
+                        field="_fixStatusRank"
+                        :header="t('alerts.colStatus')"
+                        sortable
+                        :default-sort-order="-1"
+                    >
                         <template #body="{data}">
                             <Tag :value="fixStatusLabel(data.fixStatus)" severity="secondary" />
                         </template>

@@ -185,8 +185,8 @@ const V_PRE_OPEN_RE = /<span\s+v-pre(?:\s[^>]*)?>/g
 const V_PRE_CLOSE_RE = /<\/span>/g
 // fenced code block 边界
 const FENCE_RE = /^\s*```/
-// HTML 注释（行内或多行）
-const HTML_COMMENT_RE = /<!--[\s\S]*?-->/g
+// HTML 注释（行内或多行）；未配对的 `<!--` 也截到行尾，避免残留触发 Vue 插值误判
+const HTML_COMMENT_RE = /<!--[\s\S]*?(?:-->|$)/g
 
 /**
  * 扫描单个文件内容，返回错误列表。

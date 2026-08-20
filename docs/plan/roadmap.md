@@ -17,6 +17,7 @@
 | M7: 企业级平台增强 | M7.1 认证与用户体系（RBAC+用户管理+个人界面、OIDC SSO / GitHub·Google OAuth、邮箱域名黑白名单）；M7.2 平台能力深化（BullMQ+Redis、定时批量、i18n、生产部署、跨平台 Git、MCP 发布） | P2 | 已归档（M7.1 2026-08-10 / M7.2 2026-08-12，T702/T704/T708/T709/T710/T706 完成；T705/T703 延期 2026-08-12；后续任务 T711 覆盖率冲刺） |
 | M8: 安全加固与容器执行完备 | 兑现沙箱安全治理决议（G2-G7）：容器工具链补齐（C45）、验证命令单命令超时（C41）、凭据权限面检查（C42/C39）、供应链信号披露（C43）、外联审计日志（C40）、规范挂接 review 检查点（C44） | P0-P2 | 已完成（2026-08-14 归档；T801-T806 全部完成，20 个提交本地待推送） |
 | M9: i18n 基建同步 | 从 momei 同步 i18n 治理规范与审计脚本（缺失 key / 动态 key / 重复文案 + vue-i18n 专项 lint + docs 防回流），为 i18n 优化铺路 | P2 | 已完成（2026-08-18 归档；T901-T906 全部完成，5 个原子提交覆盖 6 任务，2556 行 inserts / 2539 行净增；翻译内容与多语言扩展留后续阶段） |
+| M10: 独立沙箱容器 C26 实施规划 | 兑现沙箱治理决议 G5——Docker rootless runtime + 应用层白名单代理 + cgroup v2 资源限制 + Node 20 自动识别；`SandboxExecutor` 与 `ContainerExecutor` 并存；自托管 docker-compose 优先 / K8s+Helm 仅规划 | P1 | 已完成（2026-08-20 归档；T1001 B1+B2 + T1002 + T1003 + T1004 全部 commit，13 commits 待推送；设计收口于 executor-sandbox.md §7 + sandbox-security-governance.md §5 G5 + quick-start.md §启用 rootless sandbox 执行；T912 主体同步归档，T912-3 合并入 C28） |
 
 ## M0: 基线收敛
 
@@ -115,7 +116,7 @@ Changelog / Release Notes 采集、多 AI 提供商封装、AI 研判（问题�
 
 > **背景（2026-08-14）**：安全专项评估确认"dependfix 自身不得成为漏洞扩散工具"为核心原则（[沙箱与恶意依赖防护治理](../design/governance/sandbox-security-governance.md)）。威胁链建模识别 4 条扩散路径（A 合法包投毒 / B 恶意仓库 owner 扫描 / C PR 合入流向下游 / D M7 并发共享容器），登记治理决议 G1-G7。G1（C38 容器执行进程非 root 降权）已修复（2026-08-14，`eb8f3c59`）；实证发现容器内 git/pnpm 工具链从未安装（C45，ContainerExecutor fix 链路实际不可用）。
 >
-> **M8 已归档（2026-08-14）**：T801 容器工具链补齐（C45，P0）→ T802 验证命令单命令超时（C41）→ T803 凭据权限面检查 + 本地模式防线（C42/C39）→ T804 供应链信号披露（C43）→ T805 外联审计日志（C40）→ T806 规范挂接 review 检查点（C44）。任务详情与验收见 [todo-archive.md §M8](todo-archive.md#m8-安全加固与容器执行完备已归档)（2026-08-19 归档文档从 todo.md 主文档迁出）；沙箱治理决议 G5（C26 独立沙箱容器）已激活为 [todo.md §M10](todo.md#m10-独立沙箱容器-c26-实施规划2026-08-19-启动) 实施规划
+> **M8 已归档（2026-08-14）**：T801 容器工具链补齐（C45，P0）→ T802 验证命令单命令超时（C41）→ T803 凭据权限面检查 + 本地模式防线（C42/C39）→ T804 供应链信号披露（C43）→ T805 外联审计日志（C40）→ T806 规范挂接 review 检查点（C44）。任务详情与验收见 [todo-archive.md §M8](todo-archive.md#m8-安全加固与容器执行完备已归档)（2026-08-19 归档文档从 todo.md 主文档迁出）；沙箱治理决议 G5（C26 独立沙箱容器）已激活为 [todo-archive.md §M10](todo-archive.md#m10-独立沙箱容器-c26-实施规划已归档) 实施规划（2026-08-20 收口归档）
 >
 > **M8 移交下一阶段候选（backlog 登记）**：C26 独立沙箱容器（网络出站白名单 + cgroup + 每任务容器，BullMQ worker 结合）、C30 镜像构建 CI 链路裁决（⏸️ 2026-08-18 用户决策暂缓——见 backlog C30）、C28 凭据加密存储文档章节、C29 平台 UI 暗色模式。
 
@@ -127,12 +128,26 @@ Changelog / Release Notes 采集、多 AI 提供商封装、AI 研判（问题�
 >
 > **M9 移交下一阶段候选（backlog 登记）**：README.en-US.md 翻译（`must-sync` tier）/ docs/i18n/en-US 镜像翻译（`summary-sync` / `source-only`）/ platform 多语言扩展（zh-TW / ko-KR / ja-JP）/ locale 模块化拆分（脚本已兼容双形态，单 locale 超阈值或命名空间冲突时触发）。
 
+## M10: 独立沙箱容器 C26 实施规划（已归档）
+
+> **背景（2026-08-14→19）**：M8 阶段安全专项评估确认"dependfix 自身不得成为漏洞扩散工具"（[沙箱与恶意依赖防护治理](../design/governance/sandbox-security-governance.md) §3 路径 D：BullMQ 并发后恶意仓库 A 的脚本可读仓库 B 的工作目录与环境）。G5 治理项登记 → 2026-08-19 决策会议基于 super-search 一手调研完成 6 项决策 → 启动 M10 实施规划。**前置依赖**（T702 / T802 / T805 / C38 / C45）全部已落地。
+>
+> **M10 已交付（2026-08-19 启动 / 2026-08-20 收口）**：T1001 B1+B2 Docker rootless runtime + RuntimeAdapter 抽象层（B1 commit `b189aaa` `a07f577` + B2 commit `b6083a7`）→ T1002 出站白名单拦截代理（commit `c68029a` `9da2421`，Review Gate 2 轮 Pass）→ T1003 cgroup v2 资源限制（commit `a85fb03` `32658e7`，Review Gate 1 轮 Pass）→ T1004 文档收口 + 治理决议更新（commit `5ae5165` `e48b097` `06377b2` `b289668`，Review Gate 2 轮 Pass）。共 13 commits 待推送。
+>
+> **关键决策（2026-08-19 用户确认）**：Q1 Runtime = Docker rootless（抽象预留不强绑 rootless）；Q2 镜像 = 复用平台 runtime 阶段；Q3 部署 = 自托管 docker-compose 优先 + K8s+Helm 仅规划；Q4 白名单 = 默认 npm/github + env 临时扩展；Q5 cgroup 资源 = `Repository.sandboxLimits` 仓库级 + 平台缺省；Q6 旧路径 = `SandboxExecutor` 与 `ContainerExecutor` 并存，默认 `container`。
+>
+> **同步收口（2026-08-20）**：T912 SMTP 邮件发送器主体（T912-1 mailer service + T912-2 三回调接线 + coverage 回归）已 commit 同步归档；T912-3 安全与文档剩余项合并入 backlog **C28**（凭据加密存储章节补齐）。T912-3 邮件发送安全章节与 C28 联动统一处理。
+>
+> **设计文档落盘**：[executor-sandbox.md §7](../design/governance/executor-sandbox.md#7-sandbox-执行器设计)（§7.1 RuntimeAdapter 抽象 + §7.2 镜像策略 + §7.3 部署形态 + §7.4 与 ContainerExecutor 并存 + §7.5 K8s+Helm 部署预留 + §7.6 验收对照 + §7.7 设计反例）；[sandbox-security-governance.md §5 G5 升级](../design/governance/sandbox-security-governance.md#5-治理决议与登记) 为"实施规划已就绪" + [§7 验收段补 M10 4 子任务验收方式](../design/governance/sandbox-security-governance.md#7-验收与持续治理)；[quick-start.md §启用 rootless sandbox 执行（规划中）](../guide/quick-start.md) docker rootless daemon 启动指引子段（67 行 / 5 项前置 + 5 步指引 + 3 条反模式绝对禁止）。
+>
+> **M10 移交下一阶段候选（backlog 登记）**：**T1005 sandbox 路由接线**（schema 扩展 `executorKind = 'sandbox'` + `scan-orchestrator.service.ts` `resolveExecutorKind` 分支 + `sandbox_unavailable` 降级契约落地；T1004 quick-start 显式标注待 T1005 落地后启用）；**C28 security.md §凭据加密存储章节补齐**（T912-3 联动）；**M10 收尾小修**：sandbox-security-governance.md §6 反模式 docker.sock CVE 归因与 quick-start.md 对齐（T1004 审计 R2 残留 warning 项）；**branches 阈值恢复 80% 冲刺启动条件已满足**：M10 全部 commit 已推高 cgroup.ts 81.94% + network-audit.ts 81.96%（T1002 + T1003），剩余低分支文件清单（branch-cleanup / naming-strategy / distill-wisdom / batch.post / [id].get）可启动冲刺。
+
 ---
 
 ## 详细任务
 
-- 当前阶段任务：[todo.md](todo.md)（M8 / M9 已归档；待人工验收项随真实环境推进）
-- 已归档阶段：[todo-archive.md](todo-archive.md)（主窗口保留 M6 / M7.1 / M7.2 / M9 / T711；早期阶段见 [archive/index.md](archive/index.md) 分片索引）
+- 当前阶段任务：[todo.md](todo.md)（M8 / M9 / M10 已归档；待人工验收项随真实环境推进）
+- 已归档阶段：[todo-archive.md](todo-archive.md)（主窗口保留 M10 / M9 / 2026-08-19 平台可用性 PR1-PR3 / 2026-08-19 batch-runs 增强 C54+C55 / 2026-08-20 平台 UI 增强 C59-C61；早期阶段见 [archive/index.md](archive/index.md) 分片索引）
 - 后续阶段任务（延期项 + 未排期增强候选）：[backlog.md](backlog.md)
 
 ## 交付原则

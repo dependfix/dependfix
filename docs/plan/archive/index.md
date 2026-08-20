@@ -35,21 +35,22 @@
 4. 若触发行数阈值，按阶段区间切分归档分片
 5. 更新 `archive/index.md` 索引
 
-## 4. 当前基线（2026-08-20 neat-freak 归档批次后）
+## 4. 当前基线（2026-08-20 M10 + T912 归档批次后）
 
-- `roadmap.md`: 健康窗口（143 行）。M0-M9 全部归档，无新增归档批次。
-- `todo.md`: 健康窗口（147 行）。活跃任务：M10 独立沙箱容器 P1 进行中（T1001 B1+B2 已 commit）+ T912 SMTP 邮件发送器（主体完成 + T912-3 待排）。
-- `todo-archive.md`: 健康窗口（358 行）。主窗口保留最近 5 个批次：M8 / M9 / 2026-08-19 平台可用性 PR1-PR3 / 2026-08-19 batch-runs 增强 C54+C55 / 2026-08-20 平台 UI 增强 C59-C61。符合"主窗口保留 3-5 个阶段"策略。
-- `backlog.md`: 健康窗口（494 行）。2026-08-19~20 闭环批次（12 个 C 项）已删除详细描述并归档至 `todo-archive.md`，主文档仅保留 `## 2026-08-19~20 平台 UX/可用性闭环批次汇总` 段作为索引。仍 backlog 项：C30 / C26 / C28 / M9 后续 / C36 / C37 / D1-D8 / T701-e2e / C33 / SAML / B1-B2 / T905 / C21-C24 / C34 / T705/T703 / branches 阈值冲刺。
+- `roadmap.md`: 健康窗口（155 行）。M0-M10 全部归档，Milestone 概述表 10 阶段 + 详细章节覆盖 M0-M10。
+- `todo.md`: 健康窗口（23 行）。无活跃阶段任务，全部 backlog 候选在 `backlog.md` 独立追踪。顶部 banner 标注 M10 + T912 已归档。
+- `todo-archive.md`: 健康窗口（450 行，接近 500 阈值但合规）。主窗口保留最近 5 个批次：**M10（2026-08-20）** / M9 / 2026-08-19 平台可用性 PR1-PR3 / 2026-08-19 batch-runs 增强 C54+C55 / 2026-08-20 平台 UI 增强 C59-C61。符合"主窗口保留 3-5 个阶段"策略。
+- `backlog.md`: 健康窗口（494 行，临界 500 阈值）。仍 backlog 项：C30 / C26 → T1005（sandbox 路由接线）/ C28 / M9 后续 / C36 / C37 / D1-D8 / T701-e2e / C33 / SAML / B1-B2 / T905 / C21-C24 / C34 / T705/T703 / branches 阈值冲刺（启动条件已满足）。
 - 分片记录：
   - `[todo-archive-phases-m0-m1.md](todo-archive-phases-m0-m1.md)`（M0 / M1，2026-08-07 迁出，115 行）
   - `[todo-archive-phases-m2-m55.md](todo-archive-phases-m2-m55.md)`（M2 / M3 / M4 / M4.5 / M4.6 / M5 / M5.5，2026-08-14 迁出，T906 执行，398 行）
-  - `[todo-archive-phases-m6-m7-t711.md](todo-archive-phases-m6-m7-t711.md)`（M6 / M7.1 / M7.2 / T711，**2026-08-20 neat-freak 归档批次迁出，211 行**）
+  - `[todo-archive-phases-m6-m7-t711.md](todo-archive-phases-m6-m7-t711.md)`（M6 / M7.1 / M7.2 / T711 / **M8**，2026-08-20 归档批次迁出，211 行）
 
 ## 5. 近期归档批次登记
 
 | 批次 | 归档日期 | 关联 backlog | 归档位置 |
 |:--|:--|:--|:--|
-| 2026-08-19 平台可用性（PR1-PR3） | 2026-08-19~20 | C47+C48+C52+C46+C49+C50+C51 | [todo-archive.md §2026-08-19 平台可用性批次](../todo-archive.md#2026-08-19-平台可用性批次pr1-pr3) |
-| 2026-08-19 batch-runs 增强（C54+C55） | 2026-08-19 | C54+C55 | [todo-archive.md §2026-08-19 batch-runs 增强](../todo-archive.md#2026-08-19-batch-runs-增强c54c55) |
+| M10 + T912 主体（沙箱容器 + SMTP 邮件） | 2026-08-20 | C26 + T912-3 → C28 | [todo-archive.md §M10](../todo-archive.md#m10-独立沙箱容器-c26-实施规划已归档) + [§T912](../todo-archive.md#t912-smtp-邮件发送器主体收口t912-3-待排) |
 | 2026-08-20 平台 UI 增强（C59-C61） | 2026-08-20 | C59+C60+C61 | [todo-archive.md §2026-08-20 平台 UI 增强](../todo-archive.md#2026-08-20-平台-ui-增强c59-c61) |
+| 2026-08-19 batch-runs 增强（C54+C55） | 2026-08-19 | C54+C55 | [todo-archive.md §2026-08-19 batch-runs 增强](../todo-archive.md#2026-08-19-batch-runs-增强c54c55) |
+| 2026-08-19 平台可用性（PR1-PR3） | 2026-08-19~20 | C47+C48+C52+C46+C49+C50+C51 | [todo-archive.md §2026-08-19 平台可用性批次](../todo-archive.md#2026-08-19-平台可用性批次pr1-pr3) |

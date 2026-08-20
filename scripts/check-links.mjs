@@ -30,7 +30,11 @@ import { dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const repoRoot = fileURLToPath(new URL('..', import.meta.url))
-const EXCLUDED_DIRS = new Set(['node_modules', '.git', '.vitepress', 'dist', 'archive', '.agents', '.claude'])
+// 排除标准：本地存在但 CI 不存在（gitignored）/ 不产出文档的目录（构建产物 / 缓存 / 第三方）。
+// 关键：artifacts/（review-gate 审计产物，gitignored）若不被排除，
+// 本地 check-links 会扫到审计侧文档中的 gitignored 路径引用 → 误报，
+// 与"本地通过 ≠ CI 通过"对称：本目录 CI 不在 → 本地也不该扫。
+const EXCLUDED_DIRS = new Set(['node_modules', '.git', '.vitepress', 'dist', 'archive', '.agents', '.claude', 'artifacts'])
 const LINK_RE = /\[([^\]]*)\]\(([^)]+)\)/g
 // 本地绝对路径：POSIX（/xxx）、Windows 盘符（C:/xxx / C:\xxx）、UNC（\\server）
 const ABS_PATH_RE = /^(?:[a-zA-Z]:[\\/]|\\\\|\/)/

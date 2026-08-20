@@ -47,6 +47,22 @@
 - **搜索优先**: 修复失败超过 1 次或遇到不熟悉技术时，先搜索外部信息再继续。
 - **单一主责**: 决策、写入和 Review 结论保持单一主责，避免多人同时改同一份文件。
 
+### 5.1 能力怀疑时优先实测
+
+**规则**：不确定本机能不能跑时先实测再判断（不要猜测"本机跑不了"）。AI 训练数据可能过期（环境半年前后可能完全变化）。
+
+**常见怀疑点的实测命令**：
+
+| 怀疑点 | 实测命令 |
+|:--|:--|
+| 本机 e2e 跑不了 | `cd apps/platform && pnpm exec playwright test <file>` |
+| build 失败 | `pnpm --filter @dependfix/platform build` |
+| playwright 没装 | `pnpm ls @playwright/test` + `ls ~/.cache/ms-playwright/` |
+| typecheck 失败 | `pnpm --filter @dependfix/<pkg> typecheck` |
+| 本地 lint 缺依赖 | `pnpm --filter @dependfix/<pkg> lint` |
+
+**判定准则**：除非实测报错 + 有具体错误信息，否则不放弃本地路径。背景与反模式案例：见 [docs/archive/2026-08-20-standards-revisions.md §3](../archive/2026-08-20-standards-revisions.md)。
+
 ## 6. 相关文档
 
 - [AI 资产治理规范](../standards/ai-governance.md)

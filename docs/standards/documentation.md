@@ -137,7 +137,38 @@ docs/
 - 设计文档先于大规模实现落盘
 - README 简洁入口，细节回收到 `docs/` 专题页
 
-## 7. 相关文档
+## 7. `plan/` 文档范围严格区分
+
+`docs/plan/` 下 4 个文档**不重叠**——任何条目只能出现在唯一一个文档，禁止重复登记。
+
+| 文档 | 范围 | 禁止内容 |
+|:--|:--|:--|
+| `todo.md` | 当前阶段未完成待办 | 已闭环摘要 / commit 序列 / 验证矩阵 / ahead 数 / known-issue / 延期项 / 远期登记 |
+| `todo-archive.md` | 已闭环阶段归档（主窗口保留 3-5 段） | 当前阶段待办 / 未排期增强候选 |
+| `backlog.md` | 未排期 / 延期 / 远期 + known-issue | 已闭环阶段归档 / 当前阶段待办 |
+| `roadmap.md` | 里程碑概览 | 单任务级管理 / commit / 待办 |
+
+**条目分流判定**：
+
+- 当前阶段需要推进 → `todo.md`
+- 已完成但本批归档 → `todo-archive.md`
+- 延期 / 用户指示暂缓 → `backlog.md`（延期/暂缓段）
+- 远期登记 / 触发条件未达 → `backlog.md`（远期登记段）
+- known-issue / 已知边界 → `backlog.md`（已知边界段）或对应阶段归档段
+
+**反模式（违规）**：
+
+- ❌ `todo.md` 顶部 banner 写"M11 闭环 N commits + 验证矩阵 + commit 序列"——已闭环内容归 `todo-archive.md`
+- ❌ `backlog.md` 重复登记已闭环项——避免双点维护漂移
+- ❌ `todo.md` "未完成项目"段罗列远期项——远期归 `backlog.md`
+- ❌ known-issue 写在 `todo.md`——`todo.md` 只含待办，known-issue 归 `backlog.md` 或归档段
+- ❌ 把 ahead 数 / commit 序列 / 验证矩阵当"进度信息"塞 `todo.md`——这些是归档元数据，不是待办
+
+**执行检查**：每次编辑 `docs/plan/` 任一文档前，用 §7 表自检条目归属；编辑后用 `rg` 扫描违规关键词（"ahead / commit.*[0-9a-f]{7} / 验证矩阵 / 已闭环 / M\d 闭环 / done / completed / closed"），命中即重新分类。
+
+**判定理由与背景**：见 [docs/archive/2026-08-20-standards-revisions.md §1](../archive/2026-08-20-standards-revisions.md)。
+
+## 8. 相关文档
 
 - [开发规范](./development.md)
 - [项目规划规范](./planning.md)

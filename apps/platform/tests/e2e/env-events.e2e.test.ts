@@ -16,10 +16,15 @@ test.use({ storageState: 'tests/e2e/.auth/admin.json' })
 
 test.describe('C-ENV env-events UI', () => {
     test('admin 可访问 /env-events + 列表渲染', async ({ page }) => {
+        // 必须在 goto 前注册：env-events.vue 在 onMounted 立即调用 fetchEvents()
+        // 不 mock 时 API 401/403 → events 为空但页面仍渲染过滤器（不依赖数据）
+        await page.route('**/api/audit-events*', (route) => route.fulfill({
+            status: 200, contentType: 'application/json', body: JSON.stringify([]),
+        }))
         await page.goto('/env-events')
         await waitForHydration(page)
         await expect(page.locator('h2')).toContainText('环境事件')
-        // 过滤器渲染（type/severity/notified/from/to 5 个字段）
+        // 过滤器渲染（type/severity/notified/from/to 5 个字段 + 筛选按钮独立 class）
         const filters = page.locator('.env-events__filter-field')
         await expect(filters).toHaveCount(5)
     })
@@ -34,9 +39,7 @@ test.describe('C-ENV env-events UI', () => {
     })
 
     test('过滤器交互：选 type = sandbox_degraded 触发 fetch', async ({ page }) => {
-        await page.goto('/env-events')
-        await waitForHydration(page)
-        // mock /api/audit-events 响应
+        // 必须在 goto 前注册：env-events.vue 在 onMounted 立即调用 fetchEvents()
         await page.route('**/api/audit-events*', (route) => route.fulfill({
             status: 200,
             contentType: 'application/json',
@@ -44,6 +47,8 @@ test.describe('C-ENV env-events UI', () => {
                 { id: 'evt-1', type: 'sandbox_degraded', severity: 'warn', repository: 'demo/app', scanRunId: null, payloadJson: '{"degradedReason":{"code":"sandbox_unavailable","message":"降级"}}', notified: false, notifiedVia: null, createdAt: new Date().toISOString() },
             ]),
         }))
+        await page.goto('/env-events')
+        await waitForHydration(page)
         // 选择 type
         await page.locator('#type').click()
         await page.locator('li:has-text("沙箱降级")').click()
@@ -56,8 +61,8 @@ test.describe('C-ENV env-events UI', () => {
     })
 
     test('详情展开：点击展开按钮显示完整 payloadJson', async ({ page }) => {
-        await page.goto('/env-events')
-        await waitForHydration(page)
+        // 必须在 goto 前注册：env-events.vue 在 onMounted 立即调用 fetchEvents()，
+        // 若在 goto 后注册 mock，onMounted 走真实 API → events 空 → 详情按钮不渲染
         await page.route('**/api/audit-events*', (route) => route.fulfill({
             status: 200,
             contentType: 'application/json',
@@ -65,7 +70,9 @@ test.describe('C-ENV env-events UI', () => {
                 { id: 'evt-1', type: 'sandbox_unavailable', severity: 'error', repository: 'demo/app', scanRunId: 'run-1', payloadJson: JSON.stringify({ errno: 'ENOENT', code: 'sandbox_unavailable', message: 'docker daemon stopped' }), notified: true, notifiedVia: 'email', createdAt: new Date().toISOString() },
             ]),
         }))
-        await page.locator('button:has-text("筛选")').click()
+        await page.goto('/env-events')
+        await waitForHydration(page)
+        // 等待 table 行出现（mock 已在 onMounted 生效）
         await page.waitForSelector('.env-events__expand-btn', { timeout: 10000 })
         await page.locator('.env-events__expand-btn').first().click()
         const full = page.locator('.env-events__message-full')
@@ -74,6 +81,9 @@ test.describe('C-ENV env-events UI', () => {
     })
 
     test('768px 响应式：filter-row 换行', async ({ page }) => {
+        await page.route('**/api/audit-events*', (route) => route.fulfill({
+            status: 200, contentType: 'application/json', body: JSON.stringify([]),
+        }))
         await page.setViewportSize({ width: 768, height: 1024 })
         await page.goto('/env-events')
         await waitForHydration(page)
@@ -84,6 +94,10 @@ test.describe('C-ENV env-events UI', () => {
     })
 
     test('DataTable scrollable：60vh 滚动容器存在', async ({ page }) => {
+        // 必须 mock 返回空数组（[]），否则 events 为空 + loading=false → DataTable 不渲染 wrapper
+        await page.route('**/api/audit-events*', (route) => route.fulfill({
+            status: 200, contentType: 'application/json', body: JSON.stringify([]),
+        }))
         await page.goto('/env-events')
         await waitForHydration(page)
         await page.waitForSelector('.env-events__table', { timeout: 10000 })
@@ -107,7 +121,7 @@ test.describe('C-ENV viewer 权限', () => {
     })
 
     test('viewer 直访 /env-events 触发 API 403', async ({ page }) => {
-        // mock API 返回 403
+        // mock API 返回 403（必须在 goto 前注册）
         await page.route('**/api/audit-events*', (route) => route.fulfill({
             status: 403,
             contentType: 'application/json',

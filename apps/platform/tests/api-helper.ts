@@ -43,11 +43,15 @@ export const expectError = async (promise: Promise<unknown>, statusCode: number)
     }
 }
 
-/** 内存 SQLite 隔离（每个测试文件独立 worker，DataSource 单例各自初始化） */
+/** 内存 SQLite 隔离（每个测试文件独立 worker，DataSource 单例各自初始化）
+ * 测试环境关掉 migrations（dev/test 用 synchronize 直接建表；migration 仅生产路径）
+ */
 export const setupMemoryDatabase = (): void => {
     process.env.DATABASE_PATH = ':memory:'
+    process.env.DATABASE_MIGRATIONS_RUN = 'false'
 }
 
 export const teardownMemoryDatabase = (): void => {
     delete process.env.DATABASE_PATH
+    delete process.env.DATABASE_MIGRATIONS_RUN
 }

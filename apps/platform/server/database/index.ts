@@ -8,6 +8,7 @@ import mysql2 from 'mysql2'
 import pg from 'pg'
 import { SnakeCaseNamingStrategy } from './naming-strategy'
 import { resolveDatabaseType, type DatabaseType } from './type'
+import { CreateAuditEventTable1700000000000 } from './migrations/1700000000000-CreateAuditEventTable'
 import { Account } from '#server/entities/account'
 import { Session } from '#server/entities/session'
 import { User } from '#server/entities/user'
@@ -19,6 +20,7 @@ import { ScanRun } from '#server/entities/scan-run'
 import { ScanResult } from '#server/entities/scan-result'
 import { Schedule } from '#server/entities/schedule'
 import { BatchRun } from '#server/entities/batch-run'
+import { AuditEvent } from '#server/entities/audit-event'
 
 /**
  * TypeORM DataSource 单例（多后端：SQLite 默认 / MySQL / PostgreSQL）。
@@ -52,7 +54,10 @@ export const createDataSourceOptions = (): DataSourceOptions => {
             ScanResult,
             Schedule,
             BatchRun,
+            AuditEvent,
         ],
+        migrations: [CreateAuditEventTable1700000000000],
+        migrationsRun: process.env.DATABASE_MIGRATIONS_RUN !== 'false', // 默认 true；CI/测试环境可关闭
         synchronize,
         entityPrefix,
         namingStrategy: new SnakeCaseNamingStrategy(),

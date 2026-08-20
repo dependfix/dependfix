@@ -2,22 +2,110 @@
 
 > **范围约定**：本文件**仅**登记当前阶段活跃待办——已闭环项归档于 [todo-archive.md](todo-archive.md)；未排期/延期/远期登记于 [backlog.md](backlog.md)；已知边界与 known-issue 登记于对应阶段归档段或 backlog（**不在此处复述**）。
 
-## 2026-08-21 平台 UX 反馈评估
+## 当前阶段：M12 平台 UX 一致性 + i18n 治理
 
-> 用户 2026-08-21 实测反馈 10 项（环境事件表格排序 / schedules cron 预览 + 时区选择 / alerts 双箭头 + 视图切换 + 图表去重 / admin 防自降级 + 角色 i18n + i18n 单点声明）。已按规划规范 §3 逐条评估影响面 + 优先级 + 决策，**全部归档 backlog**，未启动即未上 todo。详见 [backlog.md §2026-08-21 平台 UX 反馈批次评估（C65 待启动）](backlog.md#2026-08-21-平台-ux-反馈批次评估c65-待启动)。
+> **阶段背景**：M11 已闭环（2026-08-20，22 commits + branches 80.49%）+ 承接 2026-08-21 用户实测反馈 10 项平台 UX / 安全 / i18n 问题。完整规划（阶段目标 / 启动顺序 / 风险登记）见 [backlog.md §M12](backlog.md#m12-平台-ux-一致性--i18n-治理待启动)。
 >
-> **拆分方案**（4 个子批次，按 §1.1 ≤ 5-6 项硬上限）：
+> **启动顺序**：C65-A（P1 立即）→ C65-D / C65-C 并行 → C65-B 依赖 C65-A 落地。
 >
-> - **C65-A 用户管理安全 + 角色 i18n**（P1，含 #7 admin 防自降级 + #9 角色 i18n）—— 可立即启动
-> - **C65-B i18n 单点声明治理**（P2，#10）—— 启动条件待用户确认
-> - **C65-C schedules 增强**（P2，含 #2 cron 预览 + #3 时区选择框）—— 启动条件待用户确认
-> - **C65-D 平台表格 / 视图增强**（P2，含 #1 env-events sortable + #4 alerts 双箭头 + #5 alerts 视图切换 + #6 alerts 图表去重）—— 启动条件待用户确认
->
-> 单 admin 不得降级（#8）登记为 backlog 远期，与 #7 同主题但需后端事务级校验，独立批次。
->
-> **下一步**：用户确认启动某子批次 → 该子批次单独上 todo.md 活跃段，按 §1.1 任务粒度约束保持原子提交。
+> **阶段验收**：4 子批次全部独立闭环（每个 ≥ 1 Review Gate Pass）+ `pnpm lint` / `typecheck` / `test` 全绿 + branches ≥ 80% + `pnpm check:docs` 全过 + CI 端到端通过。
+
+### C65-A 用户管理安全 + 角色 i18n（**P1，可立即启动**）
+
+- [ ] **C65-A1** admin 禁止对自己修改权限（防降级）
+  - 优先级：**P1（安全）**
+  - 依赖：无
+  - 交付物：`apps/platform/app/pages/users.vue` —— `setRole()` 函数首行增加 self-check（`user.id === session.user.id` → 拒绝 + toast）+ 当前登录 user 的 role `<Select>` 加 `:disabled="user.id === session?.user?.id"`
+  - 验收：当前登录 admin 看自己 row 时 role Select 含 `disabled` 属性；切他人 row 仍可改；devtools 强制触发 `setRole(self)` → 拒绝（不修改服务端状态）+ toast 错误
+  - 测试：vitest `setRole` 拦截逻辑 ≥ 2 case；playwright admin e2e 看自己 row role Select 含 disabled
+  - 预估 diff：~1 文件 +50 行（含 e2e）
+  - 关联：`#7 admin 禁止对自己修改权限`（backlog.md §2026-08-21 平台 UX 反馈批次评估）
+
+- [ ] **C65-A2** 角色名称国际化
+  - 优先级：P2（i18n 一致性）
+  - 依赖：无（可与 C65-A1 同批次实施）
+  - 交付物：`apps/platform/i18n/locales/zh-CN.json` + `en-US.json` 新增 `common.role.admin/orgAdmin/viewer` 键（中英双语）+ `users.vue:15-19` `ROLES` 数组硬编码英文标签改为 `t('common.role.admin')` 等 + `roleLabel()` 函数同步切换
+  - 验收：切换 zh-CN 时 role Select 显示"管理员 / 组织管理员 / 观察者"；en 显示"Admin / Org Admin / Viewer"；`roleLabel()` 与 Select 选项统一数据源
+  - 测试：i18n 切换断言（playwright）
+  - 预估 diff：~3 文件 +70 行
+  - 关联：`#9 角色名称国际化`（backlog.md §2026-08-21 平台 UX 反馈批次评估）
+
+### C65-B i18n 单点声明治理（P2，**待 C65-A 落地后启动**）
+
+- [ ] **C65-B1** i18n 配置统一来源
+  - 优先级：P2（治理）
+  - 依赖：**C65-A2**（角色 i18n 键落地后才能展示治理效果）
+  - 交付物：`apps/platform/i18n/i18n.config.ts` 扩展为 i18n 配置中心（含 locales 列表 + datetimeFormats + numberFormats + detector 路径常量）+ `apps/platform/nuxt.config.ts` i18n 块简化为只引用 i18n.config.ts（≤ 10 行）+ [docs/standards/platform.md §7](../standards/platform.md) 新增"i18n 配置单点声明"条款
+  - 验收：`nuxt.config.ts` i18n 块 ≤ 10 行（仅 i18n.config.ts 引用 + 必要 override）；新增语言演示：仅改 1 个文件即可
+  - 测试：构建期 `pnpm docs:build` / `pnpm build` 不破坏；i18n 切换 e2e 不回归
+  - 预估 diff：~3 文件 +50/-30 行
+  - 关联：`#10 i18n 单点声明`（backlog.md §2026-08-21 平台 UX 反馈批次评估）
+
+### C65-C schedules 增强（P2，**与 C65-A / C65-D 并行启动**）
+
+- [ ] **C65-C1** cron 表达式预览
+  - 优先级：P2
+  - 依赖：无
+  - 交付物：`apps/platform/app/pages/schedules.vue` Dialog 表单 cron `<InputText>` 旁加预览（实时显示"下次触发：2026-08-25 02:00（每周一 凌晨 2 点）"）；可选新增 `apps/platform/app/utils/cron-preview.ts` helper
+  - **技术决策**（先决策再实施）：方案 A 引入 `cronstrue`（~10KB gzip + `cron-parser`）—— 成熟，文档全；方案 B 自实现（仅 next 3 次触发时间 + 人类可读描述）—— 0 依赖
+  - 验收：cron 输入实时显示"下次触发：..."；非法 cron 显示错误；时区切换正确
+  - 测试：vitest cron 解析 + 预览 ≥ 4 case（含合法 / 非法 / 时区切换）；playwright cron 字段变更触发预览更新
+  - 预估 diff：~1-2 文件 +100 行
+  - 关联：`#2 cron 预览`（backlog.md §2026-08-21 平台 UX 反馈批次评估）
+
+- [ ] **C65-C2** 时区选择框
+  - 优先级：P2
+  - 依赖：无（与 C65-C1 共享时区状态）
+  - 交付物：`schedules.vue:410-418` 时区 `<InputText>` 改为 `<Select>` 含 `filter`（数据源 `Intl.supportedValuesOf('timeZone')`）+ 默认值 `Intl.DateTimeFormat().resolvedOptions().timeZone`（浏览器时区）
+  - 验收：时区字段为 Select 含 filter，可搜索/选择；默认时区跟随浏览器；i18n locale 切换不影响时区列表（IANA 是稳定的）
+  - 测试：playwright 时区 Select 含 IANA 时区列表（如 `Asia/Shanghai` / `Asia/Tokyo` 等）
+  - 预估 diff：~1 文件 +80 行
+  - 关联：`#3 时区选择框`（backlog.md §2026-08-21 平台 UX 反馈批次评估）
+
+### C65-D 平台表格 / 视图增强（P2，**与 C65-A / C65-C 并行启动**）
+
+- [ ] **C65-D1** env-events 表格 sortable（补全 C60）
+  - 优先级：P2（UX 一致性）
+  - 依赖：无
+  - 交付物：`apps/platform/app/pages/env-events.vue:243-292` —— 6 列（type / severity / repository / message / notified / createdAt）全部加 `sortable`，含 `removable-sort` 三态；`e2e sortable.spec.ts` 加 env-events 用例
+  - 验收：6 列均 sortable，含三态（asc / desc / none）；playwright 覆盖
+  - 测试：playwright sortable.spec 扩展 env-events 用例
+  - 预估 diff：~1 文件 +30 行
+  - 关联：`#1 env-events sortable`（backlog.md §2026-08-21 平台 UX 反馈批次评估）
+
+- [ ] **C65-D2** alerts 双 chevron 修复
+  - 优先级：P2（视觉缺陷）
+  - 依赖：无
+  - 交付物：`apps/platform/app/pages/alerts.vue:323-342` —— 移除 `#groupheader` slot 内冗余 chevron icon（保留 PrimeVue 4 `expandable-row-groups` 默认渲染的 chevron）；整个 `<span>` 仍可点击 + 键盘 enter/space 触发
+  - 验收：单箭头（PrimeVue 默认）；groupheader 点击区域保持一致（视觉无变化，仅去除重复图标）
+  - 测试：playwright alerts-rowgroup.e2e 加 chevron 数量断言（恰好 1 个）
+  - 预估 diff：~1 文件 +5/-3 行
+  - 关联：`#4 alerts 双箭头`（backlog.md §2026-08-21 平台 UX 反馈批次评估）
+
+- [ ] **C65-D3** alerts 视图切换（按包 / 按项目 / 原始列表）
+  - 优先级：P2
+  - 依赖：无（与 D2 / D4 共享 alerts.vue）
+  - 交付物：`apps/platform/server/api/alerts/index.get.ts:42` —— 扩展 `groupBy='package' | 'repository' | none`（不传等价 none）；`apps/platform/app/pages/alerts.vue` —— 顶部新增 SwitchButton / TabView 三选一视图切换，动态切换 `row-group-mode` / `group-rows-by` / `multiSortMeta`
+  - 验收：三视图切换正常（按包 / 按项目 / 原始）；切换后 `fetchAlerts` 携带 `groupBy` 参数；按项目时 group header 显示 `repository` 字段 + 该项目告警数
+  - 测试：vitest `alerts/index.get.ts` `groupBy` 参数 ≥ 3 case；playwright alerts 三视图切换 e2e
+  - 预估 diff：~2 文件 +150 行
+  - 风险：C64 PrimeVue hydration known-issue 可能在新视图切换时触发；保持 alerts-rowgroup `.fixme` 状态直到 PrimeVue 修复版本或迁移 `useAsyncData`
+  - 关联：`#5 alerts 视图切换`（backlog.md §2026-08-21 平台 UX 反馈批次评估）
+
+- [ ] **C65-D4** alerts 图表与仪表盘去重
+  - 优先级：P2
+  - 依赖：无（与 D3 共享 alerts.vue）
+  - 交付物：`apps/platform/app/pages/alerts.vue:179-247` —— 顶部 3 图差异化或删除（保留按 alerts 当前过滤器的聚合图；去除与 dashboard 完全重复的全量聚合图）；alerts 页面聚焦"更详细的内容"（payload 详情 / 修复历史 / 关联扫描 run 链接等）
+  - 验收：alerts 顶部 3 图差异化（按当前过滤器）或删除；不动 `dashboard.vue`；alerts 页面提供更多表格细节（如消息详情展开已存在）
+  - 测试：playwright alerts 顶部图表 aria-label 变更或缺失断言
+  - 预估 diff：~1 文件 +50/-100 行
+  - 关联：`#6 alerts 图表去重`（backlog.md §2026-08-21 平台 UX 反馈批次评估）
+
+---
 
 ## 待人工验收（真实环境，随可用性推进）
+
+> 以下条目属 M7.1 / M7.2 / 发布管线阶段遗留的真实环境验证任务，**不在 M12 范围内**，保留随真实环境可用性推进。
 
 ### T701 真实凭据 3 项
 
@@ -62,6 +150,6 @@
 |:--|:--|
 | 已完成阶段归档 | [todo-archive.md](todo-archive.md)（主窗口保留 4 段） |
 | 早期阶段分片 | [archive/](archive/)（M0-M11 详细） |
-| 未排期 / 延期 / 远期 | [backlog.md](backlog.md)（T705/T703/C30 延期 + C33/C36/C37/D1-D8/SAML/B1-B2/T905/C21-C24/C34/T701-e2e 远期） |
-| 里程碑与阶段交付 | [roadmap.md](roadmap.md)（M0-M11 全部归档） |
+| 未排期 / 延期 / 远期 + M12 详细规划 | [backlog.md](backlog.md)（[§M12 阶段规划](backlog.md#m12-平台-ux-一致性--i18n-治理待启动) 完整段） |
+| 里程碑与阶段交付 | [roadmap.md](roadmap.md)（M0-M12 全部 / M12 规划中） |
 | 已知边界 / known-issue | 各阶段归档段（如 [todo-archive.md §2026-08-20 e2e 修复批次 / C64-3](todo-archive.md#2026-08-20-e2e-修复批次c62--c63--c64--chore) PrimeVue hydration）或 backlog 顶部"未完成项目（backlog 仍活跃）" |

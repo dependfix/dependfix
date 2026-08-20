@@ -407,14 +407,14 @@
 
 > 来源：2026-08-14 安全专项评估（"dependfix 不能成为漏洞扩散工具"评估，结论与威胁链详见 [sandbox-security-governance.md](../design/governance/sandbox-security-governance.md)）。以下为评估登记的治理缺口，按 P0 → P2 排序；修复验收对照治理文档 §7。
 >
-> **治理完成情况（2026-08-20 盘点）**：本节 8 项治理缺口（C38-C45 + G1-G7）截至 2026-08-14 全部已修复（M8 T801-T806 落地）——详见 [todo-archive.md §M8](todo-archive.md#m8-安全加固与容器执行完备已归档)。下表保留治理登记与精简修复记录，详细实现指向 todo-archive §M8。**G5 治理项已闭环（2026-08-20 M10 收口）**：见 **C26 独立沙箱容器执行实现**（同上，实施规划落地，T1005 路由接线移交 backlog）。
+> **治理完成情况（2026-08-20 盘点）**：本节 8 项治理缺口（C38-C45 + G1-G7）截至 2026-08-14 全部已修复（M8 T801-T806 落地）——详见 [todo-archive.md §M8](archive/todo-archive-phases-m6-m7-t711.md#m8-安全加固与容器执行完备已归档)。下表保留治理登记与精简修复记录，详细实现指向 todo-archive §M8。**G5 治理项已闭环（2026-08-20 M10 收口）**：见 **C26 独立沙箱容器执行实现**（同上，实施规划落地，T1005 路由接线移交 backlog）。
 
 - **C38 平台 Dockerfile 补 `USER` 降权**（P0，设计-实现偏差）
-  - 状态：✅ **已修复（2026-08-14）** — entrypoint 降权方案（dependfix 用户 uid 100 + chown 数据卷 + su-exec）实证通过。详见 [todo-archive §M8 / T-C38](todo-archive.md#m8-安全加固与容器执行完备已归档)（原实现细节已迁移）
+  - 状态：✅ **已修复（2026-08-14）** — entrypoint 降权方案（dependfix 用户 uid 100 + chown 数据卷 + su-exec）实证通过。详见 [todo-archive §M8 / T-C38](archive/todo-archive-phases-m6-m7-t711.md#m8-安全加固与容器执行完备已归档)（原实现细节已迁移）
   - 内容：`executor-sandbox.md §2.2` 明确 M6 必做"非 root 用户运行（镜像 `USER` 降权）"，但 `apps/platform/Dockerfile` 无 `USER` 指令，容器以 root 运行——恶意依赖脚本以 root 执行削弱凭据最小化收敛效果
   - 来源：2026-08-14 安全专项评估（G1）
 - **C39 CLI 本地模式安全防线**（P0，威胁模型与产品形态偏差）
-  - 状态：✅ **已修复（2026-08-14，T803）** — fix/fix-and-pr 启动输出本地执行风险警告（可 `DEPENDFIX_SUPPRESS_LOCAL_EXECUTION_WARNING=1` 抑制）；`executionEnvironment: 'container'` 区分不误报。详见 [todo-archive §M8 / T-C42](todo-archive.md#m8-安全加固与容器执行完备已归档)（原 C39 + C42 合并修复于 T803）
+  - 状态：✅ **已修复（2026-08-14，T803）** — fix/fix-and-pr 启动输出本地执行风险警告（可 `DEPENDFIX_SUPPRESS_LOCAL_EXECUTION_WARNING=1` 抑制）；`executionEnvironment: 'container'` 区分不误报。详见 [todo-archive §M8 / T-C42](archive/todo-archive-phases-m6-m7-t711.md#m8-安全加固与容器执行完备已归档)（原 C39 + C42 合并修复于 T803）
   - 内容：威胁模型将本地执行定位"仅开发调试"，但 CLI 是产品发布形态之一——本地模式零隔离，恶意依赖脚本直接在用户机器执行、可读用户 shell 全部环境
   - 来源：2026-08-14 安全专项评估（G2）
 - **C40 执行期网络外联日志与限制**（P1）
@@ -434,11 +434,11 @@
   - 内容：报告/PR 警示区补充"本次新增/升级的包是否带 lifecycle scripts 且已被目标仓库 `allowBuilds`/`onlyBuiltDependencies` 批准"信号
   - 来源：2026-08-14 安全专项评估（G7）
 - **C44 安全规范 §5.3 挂接 review 检查点**（2026-08-14 审计登记）
-  - 状态：✅ **已修复（M8 T806，2026-08-14）** — `code-quality-checklist.md` §5.3 必须级条款逐项核验动作 + Code Auditor 必查项同步。详见 [todo-archive §M8 / T-C44](todo-archive.md#m8-安全加固与容器执行完备已归档)
+  - 状态：✅ **已修复（M8 T806，2026-08-14）** — `code-quality-checklist.md` §5.3 必须级条款逐项核验动作 + Code Auditor 必查项同步。详见 [todo-archive §M8 / T-C44](archive/todo-archive-phases-m6-m7-t711.md#m8-安全加固与容器执行完备已归档)
   - 内容：`standards/security.md` §5.3 必须级条款挂接 `code-reviewer` 检查点
   - 来源：2026-08-14 沙箱安全治理 Review Gate（RG-W2）
 - **C45 平台容器工具链缺失（git/pnpm 未安装）**（2026-08-14 C38 修复实证发现）
-  - 状态：✅ **已修复（M8 T801，2026-08-14）** — git + pnpm 11.18.0 + workspace node_modules 补齐 + pnpm-audit legacy range 前缀假跳过 bug 修复。详见 [todo-archive §M8 / T-C45](todo-archive.md#m8-安全加固与容器执行完备已归档)
+  - 状态：✅ **已修复（M8 T801，2026-08-14）** — git + pnpm 11.18.0 + workspace node_modules 补齐 + pnpm-audit legacy range 前缀假跳过 bug 修复。详见 [todo-archive §M8 / T-C45](archive/todo-archive-phases-m6-m7-t711.md#m8-安全加固与容器执行完备已归档)
   - 内容：runtime 阶段镜像（`caomeiyouren/alpine-nodejs-minimize`）从未安装 git/pnpm——已发布镜像实证 `git/pnpm/corepack` 全部 MISSING（仅 node 存在）；executor-sandbox.md 声明与实际不符（M6 遗留）
   - 来源：2026-08-14 C38 修复本地构建实证
 

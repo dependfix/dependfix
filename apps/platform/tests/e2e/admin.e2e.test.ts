@@ -145,6 +145,24 @@ test.describe('用户管理（admin）', () => {
         const roleSelects = page.locator('.p-datatable .p-select')
         await expect(roleSelects.first()).toBeVisible({ timeout: 15000 })
     })
+
+    test('C65-A1：自己 row 的 role Select 含 disabled（防止自我降级）', async ({ page }) => {
+        await page.goto('/users')
+        await waitForHydration(page)
+        // 自己 row（当前登录 admin = e2e-admin@dependfix.test）role Select 应禁用
+        const selfRow = page.locator('.p-datatable-tbody tr', { hasText: 'e2e-admin@dependfix.test' })
+        await expect(selfRow).toBeVisible({ timeout: 15000 })
+        // PrimeVue 4 Select（非 editable 形态）把 disabled 写到内部 combobox span 的 aria-disabled，
+        // root 不渲染 p-disabled class；定位 role="combobox" 的 span 断言 aria-disabled="true"
+        const selfCombobox = selfRow.locator('.p-select span[role="combobox"]')
+        await expect(selfCombobox).toHaveAttribute('aria-disabled', 'true')
+
+        // 他人 row（viewer）的 role Select 仍可用
+        const otherRow = page.locator('.p-datatable-tbody tr', { hasText: 'e2e-viewer@dependfix.test' })
+        await expect(otherRow).toBeVisible({ timeout: 15000 })
+        const otherCombobox = otherRow.locator('.p-select span[role="combobox"]')
+        await expect(otherCombobox).toHaveAttribute('aria-disabled', 'false')
+    })
 })
 
 test.describe('个人设置', () => {

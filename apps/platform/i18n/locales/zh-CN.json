@@ -379,6 +379,7 @@
         "errors": {
             "loadFailed": "加载失败：{message}",
             "roleUpdateFailed": "角色更新失败：{message}",
+            "cannotSelfModify": "不能修改自己的角色，请联系其他管理员操作",
             "enableFailed": "启用失败：{message}",
             "disableFailed": "禁用失败：{message}",
             "statusUpdateFailed": "状态更新失败：{message}",

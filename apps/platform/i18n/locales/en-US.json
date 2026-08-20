@@ -379,6 +379,7 @@
         "errors": {
             "loadFailed": "Failed to load: {message}",
             "roleUpdateFailed": "Failed to update role: {message}",
+            "cannotSelfModify": "Cannot change your own role; contact another administrator",
             "enableFailed": "Failed to enable: {message}",
             "disableFailed": "Failed to disable: {message}",
             "statusUpdateFailed": "Failed to update status: {message}",

@@ -4,6 +4,7 @@
 import type { Role, UserView } from '~/types/platform'
 import { authClient } from '~/utils/auth-client'
 import { updateRoleRank, withRoleRank } from '~/utils/sort-helpers'
+import { isSelfTarget } from '~/utils/user-protection'
 
 definePageMeta({
     middleware: 'auth',
@@ -11,6 +12,7 @@ definePageMeta({
 })
 
 const { t } = useI18n()
+const { session } = useSession()
 
 const ROLES: { label: string, value: Role }[] = [
     { label: 'Admin', value: 'admin' },
@@ -68,6 +70,14 @@ const onSearch = () => {
 }
 
 const setRole = async (user: UserView, role: Role) => {
+    // 禁止 admin 对自己修改角色（防止自我降级锁死唯一管理员；见 todo.md §C65-A1）。
+    // isSelfTarget null-safe 兜底由 auth middleware 保证 session 就绪。
+    if (isSelfTarget(user.id, session.value?.user?.id)) {
+        // Select v-model 已先写入新值，刷新列表恢复真实状态后再提示
+        await fetchUsers()
+        error.value = t('users.errors.cannotSelfModify')
+        return
+    }
     saving.value = true
     error.value = ''
     try {
@@ -261,7 +271,7 @@ watch(toastMessage, (v) => {
                                 option-label="label"
                                 option-value="value"
                                 size="small"
-                                :disabled="saving"
+                                :disabled="saving || isSelfTarget(data.id, session?.user?.id)"
                                 :aria-label="t('users.assignRole')"
                                 @change="setRole(data, data.role)"
                             />

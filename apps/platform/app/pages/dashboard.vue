@@ -1,9 +1,7 @@
 <script setup lang="ts">
 // 仪表板：仓库数/告警数（按严重级别）/已修复数/最近扫描
-// C61 新增图表区（见 docs/plan/todo.md §C61）：severity 饼图 / 修复率环形 / Top-10 包柱状图
-// 图表用自实现 ChartCanvas（apps/platform/app/components/ChartCanvas.vue），
-// 避免 PrimeVue `<Chart>` 内部 chart.js/auto 全量（~200KB）—— tree-shakable 仅注册用到的子集
-import { computed } from 'vue'
+// 图表配置抽取为 useDashboardStats composable（apps/platform/app/composables/use-dashboard-stats.ts），
+// 供 alerts.vue 复用，消除代码重复（Nuxt auto-import）
 
 const { session } = useSession()
 const { t } = useI18n()
@@ -12,42 +10,22 @@ definePageMeta({
     middleware: 'auth',
 })
 
-interface TopPackage {
-    packageName: string
-    count: number
-}
-
-interface DashboardStats {
-    repositoryCount: number
-    alertsTotal: number
-    severityCounts: Record<string, number>
-    fixedCount: number
-    topPackages: TopPackage[]
-    latestRun: {
-        id: string
-        repository: string | null
-        status: string
-        startedAt: string | null
-        finishedAt: string | null
-    } | null
-}
-
-const loading = ref(true)
-const error = ref('')
-const stats = ref<DashboardStats | null>(null)
-
-const fetchStats = async () => {
-    loading.value = true
-    error.value = ''
-    try {
-        const res = await $fetch('/api/dashboard/stats')
-        stats.value = res as DashboardStats
-    } catch (e: any) {
-        error.value = t('dashboard.errors.loadFailed', { message: e?.data?.message ?? e?.message ?? t('common.errors.unknown') })
-    } finally {
-        loading.value = false
-    }
-}
+const {
+    stats,
+    loading,
+    error,
+    fetchStats,
+    severityChartData,
+    severityChartOptions,
+    hasSeverityData,
+    fixRateChartData,
+    fixRateChartOptions,
+    fixRatePercent,
+    fixRateIsEmpty,
+    topPackagesChartData,
+    topPackagesChartOptions,
+    hasTopPackages,
+} = useDashboardStats()
 
 onMounted(fetchStats)
 
@@ -63,122 +41,6 @@ const severityTagSeverity = (severity: string) => {
             return 'secondary'
     }
 }
-
-// severity 饼图 5 色映射：复用 PrimeVue Tag 配色映射（与现有 severityTagSeverity 视觉一致）
-const SEVERITY_COLORS: Record<string, string> = {
-    critical: '#e11d48', // danger
-    high: '#f59e0b', // warn
-    medium: '#3b82f6', // info
-    low: '#64748b', // secondary
-    unknown: '#94a3b8', // secondary (lighter)
-}
-
-const severityChartData = computed(() => {
-    const counts = stats.value?.severityCounts ?? {}
-    const labels = ['critical', 'high', 'medium', 'low', 'unknown']
-    return {
-        labels: labels.map((k) => k),
-        datasets: [
-            {
-                data: labels.map((k) => counts[k] ?? 0),
-                backgroundColor: labels.map((k) => SEVERITY_COLORS[k]),
-                borderWidth: 2,
-                borderColor: '#ffffff',
-            },
-        ],
-    }
-})
-
-const severityChartOptions = computed(() => ({
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-        legend: {
-            position: 'bottom' as const,
-            labels: { boxWidth: 12, padding: 12 },
-        },
-    },
-}))
-
-// 修复率环形：fixedCount / alertsTotal
-const fixRateChartData = computed(() => {
-    const total = stats.value?.alertsTotal ?? 0
-    const fixed = stats.value?.fixedCount ?? 0
-    // 边界：fixedCount > alertsTotal 时 remaining 截为 0；中心百分比同步 clamp 到 100%
-    const clampedFixed = Math.min(fixed, total)
-    const remaining = total - clampedFixed
-    return {
-        labels: [t('dashboard.fixRateLabel'), t('dashboard.fixRateRemaining')],
-        datasets: [
-            {
-                // 0 告警时显示纯灰环（remaining 占满 100%），与"暂无数据"语义对齐
-                data: total > 0 ? [clampedFixed, remaining] : [0, 1],
-                backgroundColor: ['#14b8a6', '#e2e8f0'], // primary / slate-200
-                borderWidth: 0,
-            },
-        ],
-    }
-})
-
-const fixRatePercent = computed(() => {
-    const total = stats.value?.alertsTotal ?? 0
-    if (total === 0) return 0
-    // clamp 防止 fixedCount 异常 > alertsTotal 时中心百分比超过 100%
-    const clampedFixed = Math.min(stats.value!.fixedCount, total)
-    return Math.round((clampedFixed / total) * 100)
-})
-
-const fixRateIsEmpty = computed(() => (stats.value?.alertsTotal ?? 0) === 0)
-
-const fixRateChartOptions = computed(() => ({
-    responsive: true,
-    maintainAspectRatio: false,
-    cutout: '70%',
-    plugins: {
-        legend: { display: false },
-        tooltip: { enabled: (stats.value?.alertsTotal ?? 0) > 0 },
-    },
-}))
-
-// Top-10 包柱状图：x 轴包名截断 20 字符 + tooltip 完整名
-const TOP_PACKAGES_LIMIT = 10
-const topPackagesChartData = computed(() => {
-    const top = (stats.value?.topPackages ?? []).slice(0, TOP_PACKAGES_LIMIT)
-    return {
-        labels: top.map((p) => (p.packageName.length > 20 ? `${p.packageName.slice(0, 18)}…` : p.packageName)),
-        datasets: [
-            {
-                label: t('dashboard.topPackagesChartTitle'),
-                data: top.map((p) => p.count),
-                backgroundColor: '#14b8a6',
-                borderRadius: 4,
-            },
-        ],
-    }
-})
-
-const topPackagesChartOptions = computed(() => ({
-    indexAxis: 'y' as const, // horizontal bar
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-        legend: { display: false },
-        tooltip: {
-            callbacks: {
-                title: (items: Array<{ dataIndex: number }>) => {
-                    const idx = items[0]?.dataIndex ?? 0
-                    return stats.value?.topPackages?.[idx]?.packageName ?? ''
-                },
-            },
-        },
-    },
-    scales: {
-        x: { beginAtZero: true, ticks: { precision: 0 } },
-    },
-}))
-
-const hasTopPackages = computed(() => (stats.value?.topPackages?.length ?? 0) > 0)
-const hasSeverityData = computed(() => (stats.value?.alertsTotal ?? 0) > 0)
 </script>
 
 <template>

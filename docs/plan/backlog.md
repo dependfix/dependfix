@@ -152,20 +152,22 @@
 > **已闭环清理**：C25（B 模式结果回填，17c5082f + 60d9fd6e）、C27（runUrl 状态语义，随 C25 联动解决）——记录见 [todo-archive.md §M6 治理记录](archive/todo-archive-phases-m6-m7-t711.md#m6-阶段治理记录2026-08-07--2026-08-08)。
 
 - **C26 独立沙箱容器执行实现**（T607 设计文档产出后的实现候选）
-  - 状态：🔶 **实施规划已就绪（2026-08-19 用户决策）**——[backlog §沙箱与恶意依赖防护治理登记](backlog.md#沙箱与恶意依赖防护治理登记-2026-08-14-安全专项评估) G5 升级；M10 实施规划已登记于 [todo.md §M10](todo.md#m10-独立沙箱容器-c26-实施规划2026-08-19-启动)。**前置依赖 T702/T802/T805/C38/C45 全部已落地**（BullMQ 并发 / detached 进程组 / 网络审计代理 / 容器降权 / 工具链修复），仅 3 个外部前置未决；2026-08-19 决策会议基于 super-search 一手调研结论如下
-  - 内容（三选项已决定）：
-    - **Runtime** = Docker rootless mode（[Docker 官方文档](https://docs.docker.com/engine/security/rootless/)）。**Executor 抽象不与 rootless 强绑定**——接口按 OCI runtime 兼容设计，未来切 Sysbox 仅改 `--runtime=` 配置（[executor-sandbox.md §7](../design/governance/executor-sandbox.md#7-sandbox-执行器设计) 设计预留）。Kata/gVisor/Firecracker 因宿主 KVM 依赖 + 性能损耗被否决
-    - **网络白名单** = 应用层 HTTP 代理（升级 T805 现成 `network-audit.ts` 为 deny-by-default 白名单拦截代理，见 [todo.md §M10 T1002](./todo.md#m10-独立沙箱容器-c26-实施规划2026-08-19-启动)）。iptables 需 `NET_ADMIN` 破坏安全基线被否决；CNI 需 K8s 形态与自托管不匹配被否决
-    - **资源限制** = cgroup v2 写 `memory.max` + `cpu.max`（见 [todo.md §M10 T1003](./todo.md#m10-独立沙箱容器-c26-实施规划2026-08-19-启动)）+ 保留 Node.js 20 自动识别（[Kubernetes docs](https://kubernetes.io/docs/concepts/architecture/cgroups/) + [Red Hat 2025-10](https://developers.redhat.com/articles/2025/10/10/nodejs-20-memory-management-containers)）作为 V8 堆自适应层；仓库级 `Repository.sandboxLimits` JSON 字段可配置，缺省值由平台配置提供
-    - **镜像策略** = 复用平台镜像 runtime 阶段（T801 已落地的 git/pnpm 工具链）
-    - **部署形态** = 自托管 docker-compose（`apps/platform/docker-compose.yml` 加 rootless daemon 容器）优先；K8s+Helm 仅在 [executor-sandbox.md §7](../design/governance/executor-sandbox.md#7-sandbox-执行器设计) 登记为 backlog（C26 子条目）
-    - **旧路径并存** = `ContainerExecutor`（in-process）与 `SandboxExecutor`（rootless 容器）按 `executorKind` 配置并存，默认 `container`（不破坏单机场景）
-  - **反模式已登记**（绝对不可用）：[DinD with `--privileged`](https://blog.nestybox.com/2019/09/14/dind.html) + [挂 `/var/run/docker.sock`（DoD）](https://www.wiz.io/academy/container-security/container-escape)—— CVE-2019-5736 runc 逃逸实证，违反 [sandbox-security-governance.md §3 路径 D](../design/governance/sandbox-security-governance.md)
-  - 来源：M6 规划（2026-08-07，Q4=A 设计+最小实现，完整沙箱留后续） → 2026-08-14 安全专项评估提级 → **2026-08-19 决策会议 + 调研落地**
-- **C28 security.md 补凭据加密存储章节**（M6 终审 W4 登记）
-  - 状态：🔶 待评估（不阻塞）
+  - 状态：✅ **M10 实施规划已闭环（2026-08-19 决策会议 + 2026-08-20 收口归档）**——T1001 B1+B2 Docker rootless + RuntimeAdapter 抽象层 / T1002 出站白名单拦截代理 / T1003 cgroup v2 资源限制 / T1004 文档收口 全部 commit + Review Gate Pass；13 commits 待推送（`b189aaa` `a07f577` `b6083a7` `c68029a` `9da2421` `a85fb03` `32658e7` `5ae5165` `e48b097` `06377b2` `b289668`）。G5 治理项收口，[sandbox-security-governance.md §5 G5 行](../design/governance/sandbox-security-governance.md#5-治理决议与登记) 升级为"实施规划已就绪"。**前置依赖 T702/T802/T805/C38/C45 全部已落地**（BullMQ 并发 / detached 进程组 / 网络审计代理 / 容器降权 / 工具链修复）。**剩余项 T1005**（sandbox 路由接线）见下。
+  - 详细归档与实施记录：[todo-archive.md §M10](todo-archive.md#m10-独立沙箱容器-c26-实施规划已归档)
+  - 设计文档：[executor-sandbox.md §7](../design/governance/executor-sandbox.md#7-sandbox-执行器设计)（§7.1 RuntimeAdapter 抽象 / §7.2 镜像策略 / §7.3 部署形态 / §7.4 与 ContainerExecutor 并存 / §7.5 K8s+Helm 部署预留 / §7.6 验收对照 / §7.7 设计反例）
+  - 反模式已登记（绝对不可用）：[DinD with `--privileged`](https://blog.nestybox.com/2019/09/14/dind.html) + [挂 `/var/run/docker.sock`（DoD）](https://www.wiz.io/academy/container-escape)—— CVE-2019-5736 runc 逃逸实证，违反 [sandbox-security-governance.md §3 路径 D](../design/governance/sandbox-security-governance.md)
+  - 来源：M6 规划（2026-08-07，Q4=A 设计+最小实现，完整沙箱留后续） → 2026-08-14 安全专项评估提级 → 2026-08-19 决策会议 + 调研落地 → 2026-08-20 M10 收口归档
+- **T1005 sandbox 路由接线**（2026-08-20 M10 移交 backlog）
+  - 状态：🔶 待排期（**M10 实施规划遗留项**）
+  - 内容：schema 扩展 `Repository.executorKind: z.enum(['container', 'github-action', 'sandbox'])`（当前 [apps/platform/server/schemas/repository.ts:12](https://github.com/dependfix/dependfix/blob/master/apps/platform/server/schemas/repository.ts) 仅含前两项）+ [apps/platform/server/services/scan-orchestrator.service.ts:48](https://github.com/dependfix/dependfix/blob/master/apps/platform/server/services/scan-orchestrator.service.ts) `resolveExecutorKind` 返回类型增加 `'sandbox'` 分支 + `sandbox_unavailable` 降级契约落地（errcode 已在 `apps/platform/server/services/executor/sandbox-executor.ts` 实现，scan-orchestrator 据此降级回 `ContainerExecutor`）
+  - 前置：M10 全部 commit 已落地（含 executor 抽象 + 降级契约）；T1004 已在 [quick-start.md §启用 rootless sandbox 执行（规划中）](../guide/quick-start.md) 显式标注「待 T1005 路由接线后启用」
+  - 复杂度：🟡 中（schema 扩展 + orchestrator 分支 + e2e 验证 docker daemon 不可用时降级）+ 文档同步（README / quick-start「待 T1005 落地后」标注移除）
+  - 来源：M10 收口移交（2026-08-20）；[todo-archive.md §M10 已知边界](todo-archive.md#m10-独立沙箱容器-c26-实施规划已归档)
+- **C28 security.md 补凭据加密存储章节**（M6 终审 W4 登记 + T912-3 联动）
+  - 状态：🔶 待评估（不阻塞；T912-3 安全与文档与本项合并处理）
   - 内容：security.md 未登记 T602 凭据加密机制（ENCRYPTION_KEY / AES-256-GCM / 解密仅执行时内存 / 凭据最小化），加密设计散落 executor-sandbox.md §3 与 credential.service.ts 注释；安全设计文档应与实现同步补"凭据加密存储"一节（T602 已交付，文档待补）
-  - 来源：M6 终审（2026-08-08，deep Review Gate warning 4）
+  - **T912-3 联动**：邮件发送安全章节（SMTP 凭据仅从 runtimeConfig 读取不进前端 bundle + 速率限制防刷 + 失败 fail-closed）与本项合并为单一文档同步任务——[todo-archive.md §T912](todo-archive.md#t912-smtp-邮件发送器主体收口t912-3-待排) 已标注 T912-3 移交本项
+  - 来源：M6 终审（2026-08-08，deep Review Gate warning 4）+ T912-3 移交（2026-08-20 M10 归档批次）
 - **C29 平台 UI 暗色模式不可用**（已闭环于 C59，2026-08-20）
   - 状态：✅ **已修复**（commit `9949504` + `03ba3b2`，C59 应用层方案 A，1 行 mixin 修复 + 永久 e2e 回归）—— 详见 [todo-archive.md §C59](todo-archive.md#c59-暗色模式全局样式未生效-) 与本节顶部"2026-08-19~20 闭环批次汇总"表
   - 治理登记保留：T601 暗色模式 initial 实现 + 2026-08-10 用户实测反馈"依旧不可用"历史追溯；修复路径：`_mixins.scss` `@mixin dark-mode` 把 `:global(.dark) &` 改为 `.dark &`（`:global()` 是 CSS Modules 语法，全局 `main.scss` 无 scope 时无效）
@@ -344,7 +346,7 @@
 - **D3-多租户组织体系**：better-auth `organization` 插件（Organization/Member/Invitation/Team + 成员角色 API），替代 M7.1 的自建单组织模型。触发条件：多组织/多租户部署成为真实需求（当前 AUTH_MODE 企业/公开均为单实例单组织场景）。
 - **D8-remove-user 关联资源检查**（2026-08-09 T701-2 审计登记）：设计决策点 8"用户名下存在仓库/凭据关联时拒绝删除（409）"未实施——当前 Repository/Credential 不直接引用 User（仅 organization_id/credential_id，均 SET NULL），"名下资源"无数据模型载体，删除用户不产生业务数据悬空。触发条件：引入 user→resource 关联（如创建者 created_by 或 D1 的 RepositoryAccess）时随模型落地。
 - **T701 管理端点集成测试补强**（2026-08-09 T701-2 审计登记，2026-08-09 实施后修订）：设计 §9 矩阵的"list-users 分页/搜索、set-role 非 admin 403、ban/unban 会话失效、remove-user 级联、个人界面 changePassword/changeEmail 闭环"未落地（当前 guard 层 11 例覆盖函数语义；用户管理/个人界面已改为 better-auth 原生端点链路，authClient 直连 `/api/auth/*`）。触发条件：引入 @nuxt/test-utils 或 e2e 基建时统一落地（T701 验收/浏览器验证阶段评估）。
-- **邮件发送器统一实现**（2026-08-09 T701-3 审计登记，2026-08-18 实施完成）：sendVerificationEmail / sendResetPassword / sendChangeEmailConfirmation 三处回调均为空实现（SMTP 未配置降级为 console.warn）；SMTP_HOST 配置后注册验证/密码重置/邮箱变更确认邮件均不实际发送（M6 既有模式）。**已实施**为 [todo.md §T912 SMTP 邮件发送器](todo.md#t912-smtp-邮件发送器统一实现2026-08-18-启动)（commit a030de9 mailer service 模块 + commit dba8b62 三回调接线），用户 2026-08-18 明确指示「引入 nodemailer 实现」。**剩余项**：T912-3 安全与文档（security.md §邮件发送安全 章节与 C28 合并）待排期。
+- **邮件发送器统一实现**（2026-08-09 T701-3 审计登记，2026-08-18 实施完成，2026-08-20 T912 主体归档）：sendVerificationEmail / sendResetPassword / sendChangeEmailConfirmation 三处回调均为空实现（SMTP 未配置降级为 console.warn）；SMTP_HOST 配置后注册验证/密码重置/邮箱变更确认邮件均不实际发送（M6 既有模式）。**主体已闭环**：[todo-archive.md §T912](todo-archive.md#t912-smtp-邮件发送器主体收口t912-3-待排)（commit `edc9c94` mailer service 模块 + `6f00937` 三回调接线 + `6e28207` coverage 回归修复），用户 2026-08-18 明确指示「引入 nodemailer 实现」。**剩余项 T912-3**：安全与文档（security.md §邮件发送安全 章节）已合并入 **C28 security.md 补凭据加密存储章节**（见上）。
 - **SAML 2.0 SSO**：企业 SSO 仅 OIDC（better-auth `genericOAuth` 原生支持，覆盖 Azure AD / Okta / Keycloak / Google Workspace）；SAML 需额外集成层（better-auth 无原生支持，成本高），登记 backlog。触发条件：企业 IdP 仅提供 SAML（如部分传统 IdP）时评估。
 
 ### M7.2 i18n 非目标登记（2026-08-11，T708 规划定稿）
@@ -364,7 +366,7 @@
 
 > 来源：2026-08-14 安全专项评估（"dependfix 不能成为漏洞扩散工具"评估，结论与威胁链详见 [sandbox-security-governance.md](../design/governance/sandbox-security-governance.md)）。以下为评估登记的治理缺口，按 P0 → P2 排序；修复验收对照治理文档 §7。
 >
-> **治理完成情况（2026-08-19 盘点）**：本节 8 项治理缺口（C38-C45 + G1-G7）截至 2026-08-14 全部已修复（M8 T801-T806 落地）——详见 [todo-archive.md §M8](todo-archive.md#m8-安全加固与容器执行完备已归档)。下表保留治理登记与精简修复记录，详细实现指向 todo-archive §M8。**唯一仍 backlog 治理项为 C26 独立沙箱容器**（已激活为 [todo.md §M10](todo.md#m10-独立沙箱容器-c26-实施规划2026-08-19-启动) 实施规划 P1 进行中，承接 G5 治理项）。
+> **治理完成情况（2026-08-20 盘点）**：本节 8 项治理缺口（C38-C45 + G1-G7）截至 2026-08-14 全部已修复（M8 T801-T806 落地）——详见 [todo-archive.md §M8](todo-archive.md#m8-安全加固与容器执行完备已归档)。下表保留治理登记与精简修复记录，详细实现指向 todo-archive §M8。**G5 治理项已闭环（2026-08-20 M10 收口）**：见 **C26 独立沙箱容器执行实现**（同上，实施规划落地，T1005 路由接线移交 backlog）。
 
 - **C38 平台 Dockerfile 补 `USER` 降权**（P0，设计-实现偏差）
   - 状态：✅ **已修复（2026-08-14）** — entrypoint 降权方案（dependfix 用户 uid 100 + chown 数据卷 + su-exec）实证通过。详见 [todo-archive §M8 / T-C38](todo-archive.md#m8-安全加固与容器执行完备已归档)（原实现细节已迁移）
@@ -375,11 +377,11 @@
   - 内容：威胁模型将本地执行定位"仅开发调试"，但 CLI 是产品发布形态之一——本地模式零隔离，恶意依赖脚本直接在用户机器执行、可读用户 shell 全部环境
   - 来源：2026-08-14 安全专项评估（G2）
 - **C40 执行期网络外联日志与限制**（P1）
-  - 状态：✅ **已修复（M8 T805，2026-08-14，外联审计部分）**；**网络隔离（白名单 deny-by-default）留 [M10 C26 / T1002](todo.md#m10-独立沙箱容器-c26-实施规划2026-08-19-启动)**
+  - 状态：✅ **M10 T1002 已闭环（2026-08-20）**：M8 T805 外联审计 + M10 T1002 出站白名单 deny-by-default 拦截（[todo-archive.md §M10 T1002](todo-archive.md#m10-独立沙箱容器-c26-实施规划已归档)）
   - 内容：M8 阶段先实现外联审计日志供事故溯源；M10 阶段升级为应用层白名单拦截代理实现网络隔离
   - 来源：2026-08-14 安全专项评估（G3）
 - **C41 验证命令单命令超时与资源上限**（P1）
-  - 状态：✅ **已修复（M8 T802，2026-08-14，单命令超时部分）**；**cgroup 资源限制留 [M10 C26 / T1003](todo.md#m10-独立沙箱容器-c26-实施规划2026-08-19-启动)**
+  - 状态：✅ **M10 T1003 已闭环（2026-08-20）**：M8 T802 单命令超时 + M10 T1003 cgroup v2 资源限制（[todo-archive.md §M10 T1003](todo-archive.md#m10-独立沙箱容器-c26-实施规划已归档)）
   - 内容：M8 阶段先实现单命令超时（默认 10 分钟可配 + 进程树终止）；M10 阶段实现 cgroup v2 写 memory.max + cpu.max 双层
   - 来源：2026-08-14 安全专项评估（G4）
 - **C42 Action/CLI 凭据权限面启动检查**（P1）

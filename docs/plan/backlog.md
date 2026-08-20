@@ -23,16 +23,16 @@
 
 - **CI 失败分析必看 trace page-snapshot**（C62/C63/C64 批次教训）
   - 内容：CI log 的 `test-results/<spec>/error-context.md` 包含 playwright accessibility tree，能直接看到实际 DOM 状态（row class / cell text / role attribute）—— 比堆栈更快定位 DOM-based 测试失败，特别对 PrimeVue DataTable wrapper / rowGroup 渲染类问题
-  - 候选规范：扩展 [docs/standards/development.md](../../standards/development.md) CI 失败分析章节，明确"看 error-context.md 优先于 trace.zip"
+  - 候选规范：扩展 [docs/standards/development.md](../standards/development.md) CI 失败分析章节，明确"看 error-context.md 优先于 trace.zip"
 - **page.route 注册顺序铁律**（C63/C64 批次教训）
   - 内容：必须在 `page.goto` 之前注册，Vue/Nuxt 应用 `onMounted` 在 hydration 后立即触发 fetch，先 mock 后 goto 才能保证 mock 生效；后注册 mock 会被 onMounted 抢跑的真实 fetch 绕过（hydration 后值再变不再触发已注册的 mock）
-  - 候选规范：扩展 [docs/standards/testing.md](../../standards/testing.md) Playwright e2e mock 时序条款
+  - 候选规范：扩展 [docs/standards/testing.md](../standards/testing.md) Playwright e2e mock 时序条款
 - **PrimeVue 类型 vs 运行时不一致**（C64-1 批次教训 + 生产 latent bug 修复）
   - 内容：TypeScript 类型允许 `DataTableExpandedRows = Record<string, boolean>`，但运行时 v-model:expanded-row-groups 内部用 `.indexOf()` 期望数组——编写 v-model 绑定时需直接看 PrimeVue index.mjs 内部实现，不能信类型定义；本批次 `alerts.vue:150` expandedPackages Record → string[] 修复闭环了 rowGroup 数据流必现 TypeError
-  - 候选规范：扩展 [docs/standards/platform.md §7.1 PrimeVue 集成实践](../../standards/platform.md) v-model 数据形态契约清单
+  - 候选规范：扩展 [docs/standards/platform.md §7.1 PrimeVue 集成实践](../standards/platform.md) v-model 数据形态契约清单
 - **本机 e2e 实际可跑**（C63/C64 批次教训 + 错误判断订正）
   - 内容：playwright + chromium + build 产物 + e2e sqlite 全部就绪，本机 `pnpm exec playwright test` 完全可行（54 passed / 2 skipped / 0 failed in 2.9min）；之前 CI-only 判断是误判
-  - 候选规范：扩展 [docs/guide/ai-development.md](../../guide/ai-development.md) e2e 调试章节，明确"本机 e2e 可跑，本地调试优先于依赖 CI"
+  - 候选规范：扩展 [docs/guide/ai-development.md](../guide/ai-development.md) e2e 调试章节，明确"本机 e2e 可跑，本地调试优先于依赖 CI"
 
 ### 延期 / 暂缓项（2026-08-12 用户指示）
 

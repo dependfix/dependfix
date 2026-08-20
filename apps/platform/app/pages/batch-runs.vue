@@ -407,6 +407,13 @@ onUnmounted(stopPolling)
                                             </a>
                                         </span>
                                         <span v-else>—</span>
+                                        <!-- C53-后-C：A 模式 PR 创建失败 → dispatched + branch URL 兜底，提示手动开 PR -->
+                                        <small
+                                            v-if="run.status === 'dispatched' && run.error?.code === 'pr_creation_failed'"
+                                            class="text-warning d-block mt-1"
+                                        >
+                                            {{ t('batchRuns.colResult.openRunPrFailedHint') }}
+                                        </small>
                                     </template>
                                 </Column>
                             </DataTable>

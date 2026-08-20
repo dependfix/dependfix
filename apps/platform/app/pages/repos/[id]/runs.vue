@@ -55,6 +55,9 @@ const statusLabel = (status: string) => ({
     running: t('runs.statusRunning'),
 })[status] ?? status
 
+/** C53-后-C：A 模式 PR 创建失败时 dispatched 状态 Tag 用专门文案（区别于 B 模式「已触发等待结果」） */
+const isPrFailedDispatched = (run: RunView) => run.status === 'dispatched' && run.error?.code === 'pr_creation_failed'
+
 const fetchRuns = async () => {
     loading.value = true
     error.value = ''
@@ -132,7 +135,18 @@ const openRunUrl = (url: string) => {
                         :default-sort-order="-1"
                     >
                         <template #body="{data}">
-                            <Tag :value="statusLabel(data.status)" :severity="statusSeverity(data.status)" />
+                            <Tag
+                                :value="isPrFailedDispatched(data as RunView)
+                                    ? t('runs.runStatus.dispatchedPrFailed')
+                                    : statusLabel(data.status)"
+                                :severity="statusSeverity(data.status)"
+                            />
+                            <small
+                                v-if="isPrFailedDispatched(data as RunView)"
+                                class="text-warning d-block mt-1"
+                            >
+                                {{ t('runs.colResult.openRunPrFailedHint') }}
+                            </small>
                         </template>
                     </Column>
                     <Column

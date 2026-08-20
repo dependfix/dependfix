@@ -212,11 +212,11 @@
 | T1005-B | Repository `sandboxLimits` JSON 字段 + orchestrator 透传（API 透传，UI 不暴露限额覆盖表单） | P2 | ✅ **已闭环（2026-08-20）** | 拆 2 commit：B1 实体 + schema + zod 校验 + 11 个测试 `5542e33` / B2 orchestrator 透传 + repos API 序列化 + 16 个测试 `b6bce6c`；end-to-end 数据流打通 |
 | T1005-C | 状态机扩展 `degraded` 状态（sandbox 启动时降级 → degraded + info UI；运行时失败 → failed + warn UI） | P1 | ✅ **已闭环（2026-08-20）** | 函数体 degraded 分支实现 + orchestrator 降级信号透传 + batch-aggregate degradedCount + 14 个新断言；branches 80.32% ≥ 80%；3 核心文件 stmts 100% |
 | T1005-D | quick-start.md 同步（移除「待 T1005 路由接线」过时警告 + G5 行更新 + 文档批次收口） | P2 | ✅ **已闭环（2026-08-20）** | commit `809aa3b` |
-| C-ENV-CHANGE-ALERT | 环境容器变化告警（sandbox 运行时不可用 → audit log + 通知渠道） | P3 | 📋 待评估 | T1005-C §7.8.5 登记；依赖平台 audit log 设计 + 通知渠道选型（邮件 / Slack / Webhook） |
+| C-ENV-CHANGE-ALERT | 环境容器变化告警（sandbox 运行时不可用 → audit log + 通知渠道） | P3 | 🔧 **实施中（2026-08-20 用户决策）** | Q3 决策：仅邮件实现，其他渠道留接口；audit_event 表 + NotificationChannel 接口 + EmailNotificationChannel + 触发点 scan-orchestrator degradedReason / sandbox_unavailable；接收方 admin 全局邮箱；UI 入口 env-events 视图。详见下方"决策记录 (2026-08-20)" |
 | C28 | security.md §凭据加密存储章节补齐（T602 AES-256-GCM 文档化） | P2 | ✅ **已闭环（2026-08-20）** | §5.5 补算法契约（AES-256-GCM/IV/authTag/密文格式）+ 密钥派生 + fail-closed + 凭据 CRUD 生命周期 + 审计必查项扩展 + 密钥轮换边界；顺手修 platform.md 密文格式误写 |
 | C56 | 批量扫描 Dialog 关闭时序（乐观关闭） | P3 | ✅ **已闭环（2026-08-20）** —— submitBatchScan 提交前 batchDialogVisible = false；失败时回滚 dialog + 显示错误。commit `cda5b90` |
 | C57 | 扫描历史 Dialog 缺面包屑（"返回列表"按钮） | P3 | ✅ **已闭环（2026-08-20）** —— RepoHistoryDialog DataTable header slot 加 icon pi pi-arrow-left + i18n runs.backToList；点击 resetDetail() 回到 list view。commit `cda5b90` |
-| C58 | 告警视图按包聚合 + 图表（独立评估） | P3 | 待评估 | C58 backlog |
+| C58 | 告警视图按包聚合 + 图表 | P3 | 🔧 **实施中（2026-08-20 用户决策）** | Q1=A 完整（拆 C58-1 rowGroup + C58-2 Chart 卡片 2 sub-task）；Q2 复用 C61 ChartCanvas + dashboard.vue 图表组件（避免 PrimeVue `<Chart>` 200KB 包袱，tree-shakable 引入已落地）；详见下方"决策记录 (2026-08-20)" |
 
 ### M11 验收标准（暂拟）
 
@@ -275,25 +275,53 @@
   - 来源:2026-08-20 用户实测反馈
 
 - **C58 告警视图按包聚合 + 数据可视化图表**（M6 平台 增强 / 2026-08-20 用户反馈）
-  - 状态:🔶 待评估
-  - 位置:`apps/platform/app/pages/alerts.vue`(279 行) + `apps/platform/server/api/alerts.get.ts` 数据源
+  - 状态:🔧 实施中（2026-08-20 用户决策 Q1=A / Q2=复用 C61）
+  - 位置:`apps/platform/app/pages/alerts.vue`(279 行) + `apps/platform/server/api/alerts/index.get.ts` 数据源
   - 现象:当前 alerts 视图是 alert 维度扁平 DataTable(`<DataTable :value="alerts">` 单行一告警),一行包一行散落;用户要看"这个包都有哪些告警" 需手动按列排序再肉眼分组;无图表,无法直观看出"严重级别分布 / 包告警数排名 / 修复成功率"
   - 现状:
     - 9 列扁平(仓库/严重级别/包名/来源/可修复/推荐版本/状态/链接),适合"看单条告警 + 跳 GitHub"
     - 缺聚合口径:`countByPackage / countBySeverity / countBySource / fixRate` 均未暴露
-    - 后端已有 `/api/alerts` 端点聚合查询,加 1 个 `?groupBy=package|severity|source` 参数即可
-    - 前端缺图表组件:PrimeVue 4 内置 `<Chart>` 包装 Chart.js,但需引入 `chart.js` 依赖
-  - 修复方向（候选）:
-    - **方案 A(端到端小改)**:告警表加 group row(`rowGroup` 模式 by `packageName`),同一包多条告警物理聚合;后端查询加 `groupBy` 参数;前端依赖 PrimeVue `<DataTable rowGroupMode="subheader">` 实现
-    - **方案 B(可视化补强)**:增加统计卡片区(severity 饼图 + Top-10 alert package 柱状图 + fixRate 环形进度);PrimeVue `<Chart>` + Chart.js 引入(约 +5-10 行 + 1 依赖)
-    - **方案 C(A+B 组合,推荐)**:A 解决"按包聚合" + B 解决"图表";工期估算 +160-220 行 + 1 依赖 + 5-7 个新 i18n 键 + 1 个 e2e 聚合筛选
-  - 推荐 C:复合需求,拆 2 个子任务 C58-1(rowGroup) + C58-2(Chart 卡片),各自独立评审
-  - 验收要点:
+    - 后端 `/api/dashboard/stats` 已包含 `severityCounts / fixedCount / topPackages / alertsTotal`（C61 已交付）—— C58-2 复用该端点
+    - 前端 `apps/platform/app/components/ChartCanvas.vue`（C61 自实现，tree-shakable 注册 ArcElement/BarController/CategoryScale/DoughnutController/LinearScale/Legend/Tooltip，约 40KB gzip）+ `apps/platform/app/pages/dashboard.vue` 已实现完整 3 块图表（severity 饼图 + fixRate 环形 + Top-10 包柱状图）+ 768px 响应式断点 —— C58-2 直接复用
+  - **决策记录 (2026-08-20 用户)**:
+    - **Q1=A 完整实施**：同时做 C58-1 rowGroup + C58-2 Chart 卡片，拆 2 sub-task 独立评审
+    - **Q2 复用 C61 ChartCanvas**：不自研新图表组件，复用 dashboard.vue 已实现的 3 块图表卡片（severity 饼图 / fixRate 环形 / Top-10 包柱状图），把图表卡片区块搬到 alerts.vue 顶部；数据源复用 `/api/dashboard/stats`（无需新增后端端点）
+  - **方案拆解**:
+    - **C58-1（rowGroup 聚合）**：DataTable `rowGroupMode="subheader"` by `packageName` + 后端 `/api/alerts` 加 `?groupBy=package` 参数；group 计数显示在 subheader；同一包多条告警物理聚合；i18n 新增 `alerts.groupHeaderCount` 键
+    - **C58-2（Chart 卡片）**：从 dashboard.vue 抽取图表卡片区块（或 composable 化），搬到 alerts.vue 顶部；统计口径复用 `/api/dashboard/stats`；i18n 复用 dashboard.chartTitle/severityChartTitle/fixRateChartTitle/topPackagesChartTitle/chartEmpty；768px 响应式断点复用 dashboard.scss §charts-grid
+  - **验收要点**:
     - C58-1:DataTable `rowGroupMode="subheader"` by `packageName` 渲染,包名折叠后显示 N 个告警;group 计数显示在 subheader
-    - C58-2:统计卡片 3 块(severity 饼图 / Top-10 包 / fixRate);依赖 i18n 完整;Chart.js tree-shakable 引入(避免 +200KB)
-  - 关联:无直接前置;M11 阶段候选(依赖业务认可"告警是核心入口");若有 M11 排期再处理
-  - 复杂度:🟡 中(2 sub-task,后端 + 前端 + i18n + e2e)
-  - 来源:2026-08-20 用户反馈
+    - C58-2:统计卡片 3 块(severity 饼图 / Top-10 包 / fixRate);复用 dashboard.vue 实现,确保 768px 响应式断点工作
+    - 共用:branches 80% 维持;lint/typecheck 0 error;vitest 全绿;e2e alerts 视图断言 group 折叠 + 图表渲染
+  - **关联**:无直接前置;复用 C61 成果(ChartCanvas + dashboard.vue + /api/dashboard/stats);M11 阶段闭环
+  - **复杂度**:� 中(2 sub-task,后端 groupBy 参数 + 前端 rowGroup + 图表复用 + i18n + e2e)
+  - 来源:2026-08-20 用户反馈 + 2026-08-20 用户决策 Q1/Q2
+
+
+- **C-ENV-CHANGE-ALERT 环境容器变化告警**（M11 业务可见性 / T1005-C §7.8.5 登记）
+  - 状态：🔧 实施中（2026-08-20 用户决策 Q3）
+  - 位置：`apps/platform/server/services/scan-orchestrator.service.ts`（degradedReason 信号源 / sandbox_unavailable 错误码产出点）+ `apps/platform/server/entities/`（新建 `audit-event.ts`）+ `apps/platform/server/services/notification/`（新建 `channel.ts` 接口 + `email-channel.ts` 实现）+ `apps/platform/app/pages/env-events.vue`（新建事件列表 UI 入口）
+  - 现象：T1005-C 已闭环 `sandbox_unavailable` 错误码（A 场景 → degraded + degradedReason；B 场景 → failed），但环境容器变化信号未持久化、未通知管理员；用户痛点："docker daemon 停了导致 sandbox 不可用，但管理员不知情，要等用户报障才查"
+  - 现状：
+    - `scan-orchestrator.service.ts` 已产出 `degradedReason` / `error.code === 'sandbox_unavailable'` 信号（`sandbox_executor.ts:300`）
+    - 平台 audit log 表：**不存在**（M8 T805 外联审计日志在 packages/engine 层不入平台 DB；server/entities 无 audit_event 表）
+    - 通知渠道基建：邮件（T912 已闭环 `apps/platform/server/services/mailer/` 含 transport/templates/index.ts）；Slack / Webhook：**无现成基建**
+  - **决策记录 (2026-08-20 用户 Q3)**：
+    - **仅邮件实现**：复用 T912 mailer service（已闭环 SMTP 凭据 + nodemailer + fail-closed），其他渠道留接口
+    - **接口预留**：定义 `NotificationChannel` 接口（`name / send(event) / isAvailable()`）+ 注册表 `notificationChannels`；当前仅 `EmailNotificationChannel` 实现 + 注册；Slack/Webhook 等占位 `register('slack', new SlackStubChannel())` 不实际发送（`isAvailable()=false`），后续接入时新建实现类即可
+  - **方案拆解**：
+    - **C-ENV-CHANGE-ALERT-1（audit_event 表 + 持久化）**：新建 `AuditEvent` 实体（`id / type / severity / payloadJson / repositoryId? / scanRunId? / createdAt` + 索引 `[type, createdAt]` / `[repositoryId, createdAt]`） + migration；scan-orchestrator 在产出 degradedReason / sandbox_unavailable 错误码时同步落库
+    - **C-ENV-CHANGE-ALERT-2（NotificationChannel 接口 + Email 实现）**：`channel.ts` 定义接口 + `email-channel.ts` 实现（复用 mailer sendMail）；`notification.ts` 注册表（仅 email 实现注册，slack/webhook 占位不实现）；scan-orchestrator 在落库后异步触发通知（fire-and-forget，不阻塞扫描流程）
+    - **C-ENV-CHANGE-ALERT-3（admin 接收方配置）**：新增 `apps/platform/server/utils/notification-recipients.ts` 解析管理员邮箱（默认 organization admin 全员，env `DEPENDFIX_ENV_ALERT_RECIPIENTS` 覆盖）；i18n 邮件模板（zh-CN + en-US 双语）
+    - **C-ENV-CHANGE-ALERT-4（UI 入口）**：新建 `apps/platform/app/pages/env-events.vue`（事件列表 + 过滤 type/severity/时间范围）；与 alerts 视图并列；i18n 双语；导航菜单加入口；768px 响应式
+  - **验收要点**：
+    - audit_event 表：type 覆盖 `sandbox_unavailable` / `sandbox_degraded` / `docker_daemon_down`（预扩展）；索引支持时间范围 + repo 维度查询
+    - 通知：邮件发送 fail-closed（mailer service 已闭环），失败时 audit_event 标记 `notified=false` 便于后续重试（不在本批次范围）
+    - 接口预留：`notificationChannels` 注册表可扩展；slack/webhook 注册入口在 `notification.ts` 显式标注"待实现"
+    - UI：env-events 列表 + 详情（payload 展开/折叠）；与 alerts 共享 SCSS 样式
+  - **关联**：T1005-C（已闭环，提供 degradedReason / sandbox_unavailable 信号源）；T912（已闭环，提供 mailer service）；M8 T805（外联审计，与平台 audit_event 是不同维度，不重叠）
+  - **复杂度**：🟡 中-大（新表 + 接口 + 邮件实现 + UI 入口 + 触发点改造）
+  - 来源：2026-08-20 用户决策 Q3 + T1005-C §7.8.5 登记
 
 
 - **C30 Publish Docker build job 被取消/失败排查**（M6 归档 CI 端到端裁决登记）

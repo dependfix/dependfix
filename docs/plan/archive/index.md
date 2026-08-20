@@ -37,14 +37,14 @@
 
 ## 4. 当前基线（2026-08-20 M10 + T912 归档批次后）
 
-- `roadmap.md`: 健康窗口（155 行）。M0-M10 全部归档，Milestone 概述表 10 阶段 + 详细章节覆盖 M0-M10。
+- `roadmap.md`: 健康窗口（158 行）。M0-M10 全部归档，Milestone 概述表 10 阶段 + 详细章节覆盖 M0-M10。
 - `todo.md`: 健康窗口（23 行）。无活跃阶段任务，全部 backlog 候选在 `backlog.md` 独立追踪。顶部 banner 标注 M10 + T912 已归档。
-- `todo-archive.md`: 健康窗口（450 行，接近 500 阈值但合规）。主窗口保留最近 5 个批次：**M10（2026-08-20）** / M9 / 2026-08-19 平台可用性 PR1-PR3 / 2026-08-19 batch-runs 增强 C54+C55 / 2026-08-20 平台 UI 增强 C59-C61。符合"主窗口保留 3-5 个阶段"策略。
-- `backlog.md`: 健康窗口（494 行，临界 500 阈值）。仍 backlog 项：C30 / C26 → T1005（sandbox 路由接线）/ C28 / M9 后续 / C36 / C37 / D1-D8 / T701-e2e / C33 / SAML / B1-B2 / T905 / C21-C24 / C34 / T705/T703 / branches 阈值冲刺（启动条件已满足）。
+- `todo-archive.md`: 健康窗口（504 行，超过 500 warning 阈值，下个归档批次达到 700 阈值时触发分片迁出）。主窗口保留最近 5 个批次：**M10（2026-08-20）** / M9 / 2026-08-19 平台可用性 PR1-PR3 / 2026-08-19 batch-runs 增强 C54+C55 / 2026-08-20 平台 UI 增强 C59-C61。符合"主窗口保留 3-5 个阶段"策略。
+- `backlog.md`: 健康窗口（496 行，临界 500 阈值）。仍 backlog 项：C30 / C26 → T1005（sandbox 路由接线）/ C28 / M9 后续 / C36 / C37 / D1-D8 / T701-e2e / C33 / SAML / B1-B2 / T905 / C21-C24 / C34 / T705/T703 / branches 阈值冲刺（启动条件已满足）。
 - 分片记录：
   - `[todo-archive-phases-m0-m1.md](todo-archive-phases-m0-m1.md)`（M0 / M1，2026-08-07 迁出，115 行）
   - `[todo-archive-phases-m2-m55.md](todo-archive-phases-m2-m55.md)`（M2 / M3 / M4 / M4.5 / M4.6 / M5 / M5.5，2026-08-14 迁出，T906 执行，398 行）
-  - `[todo-archive-phases-m6-m7-t711.md](todo-archive-phases-m6-m7-t711.md)`（M6 / M7.1 / M7.2 / T711 / **M8**，2026-08-20 归档批次迁出，211 行）
+  - `[todo-archive-phases-m6-m7-t711.md](todo-archive-phases-m6-m7-t711.md)`（M6 / M7.1 / M7.2 / T711，2026-08-20 neat-freak 批次迁出，211 行；**M8 仍在主窗口未迁出**——下次归档批次达到 700 阈值时再触发分片）
 
 ## 5. 近期归档批次登记
 

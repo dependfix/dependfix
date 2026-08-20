@@ -18,7 +18,7 @@ metadata:
 - [ ] Step 2: 审视变更范围 ⚠️ REQUIRED
     - [ ] 2.1 `git status` + `git diff` 识别本次应入提交的文件。
     - [ ] 2.2 排除临时文件、生成物（`coverage/`、`artifacts/`、`*.log` 等）与无关改动。
-    - [ ] 2.3 改动跨多 type / 多职责域时按 [docs/standards/git.md §3.2](../../docs/standards/git.md) 拆分；`pnpm-lock.yaml` 必须随其所属批次一起提交，不得单独提交。
+    - [ ] 2.3 改动跨多 type / 多职责域时按 [docs/standards/git.md §3.2](../../../docs/standards/git.md) 拆分；`pnpm-lock.yaml` 必须随其所属批次一起提交，不得单独提交。
 - [ ] Step 3: 生成提交消息 ⚠️ REQUIRED
     - [ ] 3.1 先评估改动规模：单次 vs 分批（默认单类型，多类型仅用于互相关联、不宜拆分）。
     - [ ] 3.2 按「type 决策规则」与「scope 命名约定」确定 type / scope。
@@ -45,7 +45,7 @@ metadata:
 - 撤销某次提交 → `revert`，主题写明原 commit hash。
 - 仍无法确定 → `chore`。
 
-> 完整规则与特例分类见 [docs/standards/git.md §3.1](../../docs/standards/git.md)。
+> 完整规则与特例分类见 [docs/standards/git.md §3.1](../../../docs/standards/git.md)。
 
 ## scope 命名约定
 
@@ -85,7 +85,7 @@ scope 反映改动所在的目录或职责，必须英文、小写、kebab-case�
 - **特例**：`.md` / README / API 类文件改动一律 `docs`；测试文件改动一律 `test`；无法归类一律 `chore`。
 - **多类型变更**：按 `feat > refactor/perf > fix > 其他` 选主类型，其余改动放正文；只在改动互相关联、不宜拆分时使用。
 
-> 完整规则、示例与 commitlint 配置见 [docs/standards/git.md §3.1](../../docs/standards/git.md) —— git.md 为权威声明，两处不一致时以 git.md 为准。
+> 完整规则、示例与 commitlint 配置见 [docs/standards/git.md §3.1](../../../docs/standards/git.md) —— git.md 为权威声明，两处不一致时以 git.md 为准。
 
 ## 反模式
 
@@ -97,7 +97,7 @@ scope 反映改动所在的目录或职责，必须英文、小写、kebab-case�
 - 主题中塞括号备注（如 `feat(api): 新增支付接口（兼容老逻辑）`），备注应沉到正文。
 - 多类型变更没收敛主类型，导致 type 难以反映主体意图。
 - 把 `pnpm-lock.yaml` 单独提交，或锁文件与依赖声明分属不同 commit。
-- 单文件跨多 type 改动直接 `git add` 整文件（必须按 [git.md §3.2](../../docs/standards/git.md) 拆分）。
+- 单文件跨多 type 改动直接 `git add` 整文件（必须按 [git.md §3.2](../../../docs/standards/git.md) 拆分）。
 - 提交后自动 `git push`，违反推送禁令。
 - 提交超过 todo.md 原子条目粒度，把多个任务硬塞进一个 commit。
 - 撤销提交时不写明原 commit hash 或省略 `This reverts commit <hash>.` 引用。

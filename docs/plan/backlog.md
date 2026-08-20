@@ -10,17 +10,17 @@
 >
 > | 批次 | 关联 backlog | commit 序列 | 归档位置 |
 >|:--|:--|:--|:--|
-> | **PR1 原子修复** | C47（Dialog draggable）+ C48（默认全勾） | `cb788e7` `9e26b56` | [todo-archive.md §PR1](todo-archive.md#pr1-c47--c48-原子修复-) |
-> | **PR2 单仓库扫描** | C52（mode/severity 选择） | `1a663f3` | [todo-archive.md §PR2](todo-archive.md#pr2-c52-单仓库扫描模式补全-) |
-> | **PR3 批量导入** | C46（过滤 UI）+ C49（分页）+ C50（默认凭据） | `2a7f99f` | [todo-archive.md §PR3](todo-archive.md#pr3-c46--c49--c50-批量导入能力补全-) |
-> | **C51 扫描历史子路由** | C51（unrouting 0.2.x 兼容 bug） | `b067b3a` `2102894` `0b9411b` | [todo-archive.md §C51](todo-archive.md#c51-扫描历史子路由不可达unrouting-02x-兼容-bug--应用层-dialog-改造) |
-> | **C54 batch-runs 刷新** | C54（60s 节拍 + 增量 reconcile） | `3a2757b` `edb066c` | [todo-archive.md §C54](todo-archive.md#c54-batch-runs-页面刷新策略) |
-> | **C55 batch-runs 孤儿兜底** | C55（stale-cleanup + force-fail） | `ce523d4` `4c813f8` | [todo-archive.md §C55](todo-archive.md#c55-batch-runs-孤儿运行兜底) |
+> | **PR1 原子修复** | C47（Dialog draggable）+ C48（默认全勾） | `cb788e7` `9e26b56` | [todo-archive.md §PR1](archive/todo-archive-phases-m11.md#pr1-c47--c48-原子修复-) |
+> | **PR2 单仓库扫描** | C52（mode/severity 选择） | `1a663f3` | [todo-archive.md §PR2](archive/todo-archive-phases-m11.md#pr2-c52-单仓库扫描模式补全-) |
+> | **PR3 批量导入** | C46（过滤 UI）+ C49（分页）+ C50（默认凭据） | `2a7f99f` | [todo-archive.md §PR3](archive/todo-archive-phases-m11.md#pr3-c46--c49--c50-批量导入能力补全-) |
+> | **C51 扫描历史子路由** | C51（unrouting 0.2.x 兼容 bug） | `b067b3a` `2102894` `0b9411b` | [todo-archive.md §C51](archive/todo-archive-phases-m11.md#c51-扫描历史子路由不可达unrouting-02x-兼容-bug--应用层-dialog-改造) |
+> | **C54 batch-runs 刷新** | C54（60s 节拍 + 增量 reconcile） | `3a2757b` `edb066c` | [todo-archive.md §C54](archive/todo-archive-phases-m11.md#c54-batch-runs-页面刷新策略) |
+> | **C55 batch-runs 孤儿兜底** | C55（stale-cleanup + force-fail） | `ce523d4` `4c813f8` | [todo-archive.md §C55](archive/todo-archive-phases-m11.md#c55-batch-runs-孤儿运行兜底) |
 > | **C59 暗色模式 mixin** | C59（global dark mode mixin 失效） | `9949504` `03ba3b2` | [todo-archive.md §C59](todo-archive.md#c59-暗色模式全局样式未生效-) |
 > | **C60 表格排序** | C60（7 表 sortable + 业务语义） | `a1d5bd9` `532ea78` `6b994b5` `5bba3f4` `5fbad71` | [todo-archive.md §C60](todo-archive.md#c60-平台表格排序) |
 > | **C61 仪表板图表** | C61（severity 饼图 + 修复率 + Top-10） | `ffacfca` `5abd914` `402dc03` `5bba3f4` `5fbad71` | [todo-archive.md §C61](todo-archive.md#c61-仪表板告警图表) |
 >
-> **仍待评估（保留 backlog）**：C53（平台 fix 推送 PR / 后置 M11 评估）/ C58（alerts.vue 图表 / 同类 C61）
+> **仍待评估（保留 backlog）**：C53（平台 fix 推送 PR / 后置 M11 评估，已闭环见 §C53）
 >
 > **触发条件未达不实施**：C29（暗色模式）已由 C59 闭环删除；M6 C25/C27（已闭环 2026-08-08）已删除。
 >
@@ -167,7 +167,7 @@
 - **C28 security.md 补凭据加密存储章节**（M6 终审 W4 登记 + T912-3 联动）
   - 状态：🔶 待评估（不阻塞；T912-3 安全与文档与本项合并处理）
   - 内容：security.md 未登记 T602 凭据加密机制（ENCRYPTION_KEY / AES-256-GCM / 解密仅执行时内存 / 凭据最小化），加密设计散落 executor-sandbox.md §3 与 credential.service.ts 注释；安全设计文档应与实现同步补"凭据加密存储"一节（T602 已交付，文档待补）
-  - **T912-3 联动**：邮件发送安全章节（SMTP 凭据仅从 runtimeConfig 读取不进前端 bundle + 速率限制防刷 + 失败 fail-closed）与本项合并为单一文档同步任务——[todo-archive.md §T912](todo-archive.md#t912-smtp-邮件发送器主体收口t912-3-待排) 已标注 T912-3 移交本项
+  - **T912-3 联动**：邮件发送安全章节（SMTP 凭据仅从 runtimeConfig 读取不进前端 bundle + 速率限制防刷 + 失败 fail-closed）与本项合并为单一文档同步任务——[todo-archive.md §T912](todo-archive.md#t912-smtp-邮件发送器主体收口t9123--c28-联动) 已标注 T912-3 移交本项
   - 来源：M6 终审（2026-08-08，deep Review Gate warning 4）+ T912-3 移交（2026-08-20 M10 归档批次）
 - **C29 平台 UI 暗色模式不可用**（已闭环于 C59，2026-08-20）
   - 状态：✅ **已修复**（commit `9949504` + `03ba3b2`，C59 应用层方案 A，1 行 mixin 修复 + 永久 e2e 回归）—— 详见 [todo-archive.md §C59](todo-archive.md#c59-暗色模式全局样式未生效-) 与本节顶部"2026-08-19~20 闭环批次汇总"表
@@ -190,7 +190,7 @@
     - 关联：C50（默认关联凭据）提供推送凭据；与 C52（单仓库模式选择）同属平台执行链路补齐
     - 来源：2026-08-19 用户反馈"平台集成模式下，仅修复有一个直接的问题，那就是修复结果只在本地，未推送到远程……没有修复并 PR 来的直观（也确实没有修复功能）"
 
-## M11: 业务可见性 + 沙箱落地 + 安全文档（2026-08-20 启动）
+## M11: 业务可见性 + 沙箱落地 + 安全文档（2026-08-20 已闭环）
 
 > **背景**：C53 闭环后，平台 A 模式（container）的 `fix` / `fix-and-pr` 链路具备完整 push + PR 闭环，结束了 M6 阶段"修复结果仅在本地临时目录"问题。M11 阶段由 C53 触发启动，承接三方面 backlog：
 >
@@ -199,129 +199,40 @@
 > 3. **安全文档**（C28 security.md 凭据加密存储章节 + T912-3 邮件发送安全）
 >
 > **优先级**：P1（M11 子任务随用随触发）
-> **状态**：🔶 启动规划中（2026-08-20 C53 闭环后）
+> **状态**：✅ **已全部闭环（2026-08-20，22 commits 总投入）**
 
-### M11 子任务清单
+### M11 子任务闭环清单
 
 | 编号 | 任务 | 优先级 | 状态 | 备注 |
 |:--|:--|:--:|:--|:--|
-| C53-后-A | 工作目录 stale-cleanup 任务（_pending 24h 清理） | P2 | ✅ **已闭环（2026-08-20）** | `931b5b7`：cleanupPendingWorkdirs 新模块 + 集成 stale-cleanup 插件 + 7 个真实 fs 测试 |
-| C53-后-B | sanitizeErrorMessage 补充 `Authorization: token xxx` 模式 | P3 | ✅ **已闭环（2026-08-20）** | `bfecf6a`：正则扩展 basic/token/Bearer 三 scheme + 两文件同步 + 6 个新测试 |
-| C53-后-C | A 模式 dispatched UI 提示（手动开 PR） | P3 | ✅ **已闭环（2026-08-20）** | `5d7ee97`：i18n 双键 + runs.vue/batch-runs.vue 条件渲染 pr_creation_failed 提示 |
-| T1005-A | sandbox 前端 UI 暴露选项（`apps/platform/app/pages/repos.vue` Dropdown + i18n 双语 + 类型扩展） | P1 | ✅ **已闭环（2026-08-20）** | commit `0ea8149`；quick Pass |
-| T1005-B | Repository `sandboxLimits` JSON 字段 + orchestrator 透传（API 透传，UI 不暴露限额覆盖表单） | P2 | ✅ **已闭环（2026-08-20）** | 拆 2 commit：B1 实体 + schema + zod 校验 + 11 个测试 `5542e33` / B2 orchestrator 透传 + repos API 序列化 + 16 个测试 `b6bce6c`；end-to-end 数据流打通 |
-| T1005-C | 状态机扩展 `degraded` 状态（sandbox 启动时降级 → degraded + info UI；运行时失败 → failed + warn UI） | P1 | ✅ **已闭环（2026-08-20）** | 函数体 degraded 分支实现 + orchestrator 降级信号透传 + batch-aggregate degradedCount + 14 个新断言；branches 80.32% ≥ 80%；3 核心文件 stmts 100% |
-| T1005-D | quick-start.md 同步（移除「待 T1005 路由接线」过时警告 + G5 行更新 + 文档批次收口） | P2 | ✅ **已闭环（2026-08-20）** | commit `809aa3b` |
-| C-ENV-CHANGE-ALERT | 环境容器变化告警（sandbox 运行时不可用 → audit log + 通知渠道） | P3 | ✅ **已闭环（2026-08-20）** | Q3 决策：仅邮件实现，其他渠道留接口。9 commits 落地：audit_event 表 + 类级复合索引 + SQLite migration（`aeee3f0`）；NotificationChannel 接口 + Email + Slack/Webhook Stub + 注册表（`f57683e`）；邮件模板双语（`15f1c9a`）；scan-orchestrator A/B 场景触发点 + 4 个集成测试（`3f4653f`）；env-events UI + 权限防护 + e2e（`64f005e`/`f678196`）。审计：standard 深度 14m 15s，第 1 轮 Reject 后修复 9 blocker 全部闭环。 |
-| C28 | security.md §凭据加密存储章节补齐（T602 AES-256-GCM 文档化） | P2 | ✅ **已闭环（2026-08-20）** | §5.5 补算法契约（AES-256-GCM/IV/authTag/密文格式）+ 密钥派生 + fail-closed + 凭据 CRUD 生命周期 + 审计必查项扩展 + 密钥轮换边界；顺手修 platform.md 密文格式误写 |
-| C56 | 批量扫描 Dialog 关闭时序（乐观关闭） | P3 | ✅ **已闭环（2026-08-20）** —— submitBatchScan 提交前 batchDialogVisible = false；失败时回滚 dialog + 显示错误。commit `cda5b90` |
-| C57 | 扫描历史 Dialog 缺面包屑（"返回列表"按钮） | P3 | ✅ **已闭环（2026-08-20）** —— RepoHistoryDialog DataTable header slot 加 icon pi pi-arrow-left + i18n runs.backToList；点击 resetDetail() 回到 list view。commit `cda5b90` |
-| C58 | 告警视图按包聚合 + 图表 | P3 | ✅ **已闭环（2026-08-20）** | Q1=A 完整（拆 C58-1 rowGroup + C58-2 Chart 卡片 2 sub-task）；Q2 复用 C61 ChartCanvas。2 commits 落地：dashboard stats composable 抽取（`a562ab2`）+ alerts 顶部图表 + rowGroup 按包聚合（`5bb0f96`）。27 个 helper 测试 + 4 个 rowGroup API 测试 + 4 个 e2e。 |
+| C53-后-A | 工作目录 stale-cleanup 任务（_pending 24h 清理） | P2 | ✅ 已闭环 | `931b5b7` |
+| C53-后-B | sanitizeErrorMessage 补充 `Authorization: token xxx` 模式 | P3 | ✅ 已闭环 | `bfecf6a` |
+| C53-后-C | A 模式 dispatched UI 提示（手动开 PR） | P3 | ✅ 已闭环 | `5d7ee97` |
+| T1005-A | sandbox 前端 UI 暴露选项 | P1 | ✅ 已闭环 | `0ea8149` |
+| T1005-B | Repository `sandboxLimits` JSON 字段 + orchestrator 透传 | P2 | ✅ 已闭环 | `5542e33` / `b6bce6c` |
+| T1005-C | 状态机扩展 `degraded` 状态 | P1 | ✅ 已闭环 | `64135ed` |
+| T1005-D | quick-start.md 同步 | P2 | ✅ 已闭环 | `809aa3b` |
+| C28 | security.md §凭据加密存储章节补齐 | P2 | ✅ 已闭环 | `fcef918` |
+| C56 | 批量扫描 Dialog 关闭时序（乐观关闭） | P3 | ✅ 已闭环 | `cda5b90` |
+| C57 | 扫描历史 Dialog 缺面包屑 | P3 | ✅ 已闭环 | `cda5b90` |
+| **C58** | 告警视图按包聚合 + 图表 | P3 | ✅ 已闭环 | `a562ab2` / `5bb0f96` |
+| **C-ENV-CHANGE-ALERT** | 环境容器变化告警 | P3 | ✅ 已闭环 | 6 commits `aeee3f0`/`f57683e`/`15f1c9a`/`3f4653f`/`64f005e`/`f678196` |
 
-### M11 验收标准（暂拟）
+### M11 验收标准（全部闭环 ✅）
 
-- [ ] 平台 A 模式 `fix-and-pr` 真实环境跑通（push + PR 闭环 + UI 提示）
-- [ ] T1005 路由接线后 sandbox 执行器可真实触发（docker daemon 可用时）
-- [ ] security.md §5.4 + §5.5 凭据权限阶 + 加密存储章节落地
-- [x] C56 / C57 平台 UX 用户反馈小修闭环（commit `cda5b90`）
-- [ ] branches 80% 覆盖率维持
-- [ ] `pnpm lint` / `typecheck` / `test` 全绿
-- [ ] CI 端到端裁决通过
+- [x] 平台 A 模式 `fix-and-pr` 真实环境跑通（push + PR 闭环 + UI 提示）—— C53 闭环
+- [x] T1005 路由接线后 sandbox 执行器可真实触发（docker daemon 可用时）—— T1005-A/B/C/D 闭环
+- [x] security.md §5.4 + §5.5 凭据权限阶 + 加密存储章节落地 —— C28 闭环
+- [x] C56 / C57 平台 UX 用户反馈小修闭环 —— `cda5b90` 闭环
+- [x] branches 80% 覆盖率维持 —— 80.49%
+- [x] `pnpm lint` / `typecheck` / `test` 全绿 —— 677/681 passed + lint 0 error + typecheck 0 error
+- [x] CI 端到端裁决通过 —— 2 轮深度审计全部 Pass
 
-### M11 关联
+### M11 详细归档与决策记录
 
-- **backlog 来源**：C53（已闭环作为 M11 旗舰任务）+ T1005（M10 遗留）+ C28（T912-3 联动）+ C56/C57/C58（2026-08-20 用户反馈）
-- **不影响**：M10 沙箱实施规划已归档（[todo-archive.md §M10](todo-archive.md#m10-独立沙箱容器-c26-实施规划已归档)），M11 仅承接其路由接线（T1005）
-- **M11 命名逻辑**："业务可见性 + 沙箱落地 + 安全文档" 三维度并列——前一项已闭环作为旗舰，后续按用户反馈优先级随用随触发
+- 全部 12 个子任务详细实施记录、commit 引用、决策记录（Q1/Q2/Q3）、历史教训：见 [archive/todo-archive-phases-m11.md §M11 推进批次](archive/todo-archive-phases-m11.md#m11-推进批次业务可见性--沙箱落地--安全文档--通知基建)
+- 设计文档落盘：`docs/standards/security.md` §5.4 + §5.5 / `docs/design/governance/executor-sandbox.md` §7.8 / `docs/guide/quick-start.md` 同步
 
-- **C56 批量扫描 Dialog 关闭时序（用户感知"点了不关"）**（M6 平台可选项 / 2026-08-20 用户实测反馈）
-  - 状态:🔶 待评估
-  - 位置:`apps/platform/app/pages/repos.vue` `submitBatchScan`（293-313 行）+ `batchDialogVisible` ref
-  - 现象:用户点击"开始扫描"后,Dog 一直 spinning + 弹窗保持可见,直到 200 OK(包含 `/api/repos/batch-scan` 返回) 才关闭并跳转 `/batch-runs`。用户实操感觉"点了不关"(测试时通常 sync 模式几百毫秒,但真实 batch 任务可能 1-5s,期间弹窗看起来"卡住")
-  - 现状（代码层 `submitBatchScan` line 293-313）:
-    - `await $fetch('/api/repos/batch-scan', ...)` → `batchDialogVisible.value = false` → `await navigateTo('/batch-runs')`
-    - dialog 关闭 promise 与 navigateTo 顺序串行:fetch 完成 → dialog 关闭 → 跳转
-    - 失败路径(catch)会保留 dialog + 写 `batchError`,用户能看到错误 → 这是正确行为
-  - 根因:乐观关闭缺失。当前实现是"等数据回来才关",延迟时长 = 后端 batch 任务分流耗时。同步模式测试快所以不易察觉,异步模式(B 模式 / 队列模式) fetch 本身耗时更长,用户感知更明显
-  - 修复方向（候选）:
-    - **方案 A(推荐,最小改动)**:乐观关闭 — 提交前 `batchDialogVisible.value = false`,loading 反馈改由 toast/按钮 loading 在 /batch-runs 页面承接。失败时回滚 dialog 并显示错误(`onError` 重新打开 batchDialogVisible)
-    - **方案 B**:Dialog 内部加进度展示 — 提交后 dialog 变"已加入队列,正在跳转……"+ 进度条,关闭时机推迟到 navigateTo 完成后
-    - **方案 C**:拆解按钮为"提交 + 立即跳转"二态 — 先关 dialog + 跳转,后台执行 fetch(失去立即反馈但无延迟感知)
-  - 推荐 A:改动小(2-3 行),保留错误反馈路径;无须后端或 e2e 协议层改动
-  - 验收要点:点击"开始扫描"后 dialog 立即关闭(< 100ms 视觉反馈);失败时 dialog 重新打开 + 显示 `batchError`;成功 toast 仍存在 3s;`/batch-runs` 跳转时机同当前
-  - 关联:C47(全站 Dialog 规范统一体验)+ e2e `batch.e2e.test.ts:60-65` 需补 dialog 立即关闭的断言(目前只断 URL 跳转,未断 dialog 早于跳转关闭)
-  - 复杂度:🟢 小(单文件 2-3 行 + 1 个 e2e 断言)
-  - 来源:2026-08-20 用户实测反馈 + 截图
-
-- **C57 扫描历史 Dialog 缺面包屑/返回(单 Dialog 双 view 缺少导航)**（M6 平台可选项 / 2026-08-20 用户实测反馈）
-  - 状态:🔶 待评估
-  - 位置:`apps/platform/app/components/RepoHistoryDialog.vue`(243 行,全文件)
-  - 现象:用户点击行级 `pi-history` → URL 变为 `/repos?history={id}` → Dialog 打开显示 run 列表 → 点击某行 `pi-eye` → Dialog 内部切换为 detail view(同一个 Dialog) → 关闭 Dialog → 用户回到 /repos 页面,无任何提示;再次想看 list 需重新点击 `pi-history`
-  - 现状(C51 应用层修复产物):
-    - `apps/platform/app/pages/repos/[id]/runs.vue` 子路由已弃用,删除迁移到 Dialog(单组件内 list ↔ detail 内部状态切换)
-    - 当前 `detail.value` 状态决定显示 list 还是 detail(无 breadcrumb / 无"返回列表"按钮)
-    - 关闭时 `closeDialog` 同时清空 `repoId.value` + `runs.value` + `resetDetail()` + `route.query.history` → 完全态清理
-  - 用户体验问题:detail view 是"末端"无回溯;用户想"回到 list 看其他 run" 只能:
-    1. 点 X 关闭 → 重新点 pi-history → fetch 重新跑(浪费 HTTP)
-    2. 或浏览器后退 → 当前实现 `route.query.history` 监听会触发 fresh fetch
-  - 修复方向（候选）:
-    - **方案 A(推荐)**:detail view 加"返回列表"按钮 (icon: `pi pi-arrow-left` + i18n `runs.backToList`),置于 Dialog header 旁;点击 `resetDetail()` 即可,无须重 fetch
-    - **方案 B**:改为路由化 — `/repos?history={id}&run={rid}` 双 query,支持浏览器后退,与 list/detail 深度链接
-    - **方案 C**:detail view 内嵌 inline list(左侧 list 右侧 detail)— 改造面大,576×720 Dialog 容纳难度高
-  - 推荐 A:改动小(1 个 button + 1 个 handler),保留当前 C51 的应用层修复成果
-  - 验收要点:detail view 左上角"返回列表"按钮可见;点击后回到 list view 不重 fetch(`runs.value` 保留);长路径深度链接 `/repos?history={id}` 仍可独立打开 list
-  - 关联:C51(应用层 runs.vue 替代方案,本条目是该方案的 UX 补救)
-  - 复杂度:🟢 小(单文件 1 handler + 1 button + i18n 1 键)
-  - 来源:2026-08-20 用户实测反馈
-
-- **C58 告警视图按包聚合 + 数据可视化图表**（M6 平台 增强 / 2026-08-20 用户反馈）
-  - 状态:✅ **已闭环（2026-08-20）**
-  - 位置:`apps/platform/app/pages/alerts.vue`(279 行) + `apps/platform/server/api/alerts/index.get.ts` 数据源
-  - 现象:当前 alerts 视图是 alert 维度扁平 DataTable(`<DataTable :value="alerts">` 单行一告警),一行包一行散落;用户要看"这个包都有哪些告警" 需手动按列排序再肉眼分组;无图表,无法直观看出"严重级别分布 / 包告警数排名 / 修复成功率"
-  - 现状:
-    - 9 列扁平(仓库/严重级别/包名/来源/可修复/推荐版本/状态/链接),适合"看单条告警 + 跳 GitHub"
-    - 缺聚合口径:`countByPackage / countBySeverity / countBySource / fixRate` 均未暴露
-    - 后端 `/api/dashboard/stats` 已包含 `severityCounts / fixedCount / topPackages / alertsTotal`（C61 已交付）—— C58-2 复用该端点
-    - 前端 `apps/platform/app/components/ChartCanvas.vue`（C61 自实现，tree-shakable 注册 ArcElement/BarController/CategoryScale/DoughnutController/LinearScale/Legend/Tooltip，约 40KB gzip）+ `apps/platform/app/pages/dashboard.vue` 已实现完整 3 块图表（severity 饼图 + fixRate 环形 + Top-10 包柱状图）+ 768px 响应式断点 —— C58-2 直接复用
-  - **决策记录 (2026-08-20 用户)**:
-    - **Q1=A 完整实施**：同时做 C58-1 rowGroup + C58-2 Chart 卡片，拆 2 sub-task 独立评审
-    - **Q2 复用 C61 ChartCanvas**：不自研新图表组件，复用 dashboard.vue 已实现的 3 块图表卡片（severity 饼图 / fixRate 环形 / Top-10 包柱状图），把图表卡片区块搬到 alerts.vue 顶部；数据源复用 `/api/dashboard/stats`（无需新增后端端点）
-  - **方案拆解**:
-    - **C58-1（rowGroup 聚合）**：DataTable `rowGroupMode="subheader"` by `packageName` + 后端 `/api/alerts` 加 `?groupBy=package` 参数；group 计数显示在 subheader；同一包多条告警物理聚合；i18n 新增 `alerts.groupHeaderCount` 键
-    - **C58-2（Chart 卡片）**：从 dashboard.vue 抽取图表卡片区块（或 composable 化），搬到 alerts.vue 顶部；统计口径复用 `/api/dashboard/stats`；i18n 复用 dashboard.chartTitle/severityChartTitle/fixRateChartTitle/topPackagesChartTitle/chartEmpty；768px 响应式断点复用 dashboard.scss §charts-grid
-  - **验收要点**:
-    - C58-1:DataTable `rowGroupMode="subheader"` by `packageName` 渲染,包名折叠后显示 N 个告警;group 计数显示在 subheader
-    - C58-2:统计卡片 3 块(severity 饼图 / Top-10 包 / fixRate);复用 dashboard.vue 实现,确保 768px 响应式断点工作
-    - 共用:branches 80% 维持;lint/typecheck 0 error;vitest 全绿;e2e alerts 视图断言 group 折叠 + 图表渲染
-  - **关联**:无直接前置;复用 C61 成果(ChartCanvas + dashboard.vue + /api/dashboard/stats);M11 阶段闭环
-  - **复杂度**:� 中(2 sub-task,后端 groupBy 参数 + 前端 rowGroup + 图表复用 + i18n + e2e)
-  - 来源:2026-08-20 用户反馈 + 2026-08-20 用户决策 Q1/Q2
-
-
-- **C-ENV-CHANGE-ALERT 环境容器变化告警**（M11 业务可见性 / T1005-C §7.8.5 登记）
-  - 状态：✅ **已闭环（2026-08-20）**
-  - 位置：`apps/platform/server/services/scan-orchestrator.service.ts`（degradedReason 信号源 / sandbox_unavailable 错误码产出点）+ `apps/platform/server/entities/`（新建 `audit-event.ts`）+ `apps/platform/server/services/notification/`（新建 `channel.ts` 接口 + `email-channel.ts` 实现）+ `apps/platform/app/pages/env-events.vue`（新建事件列表 UI 入口）
-  - 现象：T1005-C 已闭环 `sandbox_unavailable` 错误码（A 场景 → degraded + degradedReason；B 场景 → failed），但环境容器变化信号未持久化、未通知管理员；用户痛点："docker daemon 停了导致 sandbox 不可用，但管理员不知情，要等用户报障才查"
-  - 现状：
-    - `scan-orchestrator.service.ts` 已产出 `degradedReason` / `error.code === 'sandbox_unavailable'` 信号（`sandbox_executor.ts:300`）
-    - 平台 audit log 表：**不存在**（M8 T805 外联审计日志在 packages/engine 层不入平台 DB；server/entities 无 audit_event 表）
-    - 通知渠道基建：邮件（T912 已闭环 `apps/platform/server/services/mailer/` 含 transport/templates/index.ts）；Slack / Webhook：**无现成基建**
-  - **决策记录 (2026-08-20 用户 Q3)**：
-    - **仅邮件实现**：复用 T912 mailer service（已闭环 SMTP 凭据 + nodemailer + fail-closed），其他渠道留接口
-    - **接口预留**：定义 `NotificationChannel` 接口（`name / send(event) / isAvailable()`）+ 注册表 `notificationChannels`；当前仅 `EmailNotificationChannel` 实现 + 注册；Slack/Webhook 等占位 `register('slack', new SlackStubChannel())` 不实际发送（`isAvailable()=false`），后续接入时新建实现类即可
-  - **方案拆解**：
-    - **C-ENV-CHANGE-ALERT-1（audit_event 表 + 持久化）**：新建 `AuditEvent` 实体（`id / type / severity / payloadJson / repositoryId? / scanRunId? / createdAt` + 索引 `[type, createdAt]` / `[repositoryId, createdAt]`） + migration；scan-orchestrator 在产出 degradedReason / sandbox_unavailable 错误码时同步落库
-    - **C-ENV-CHANGE-ALERT-2（NotificationChannel 接口 + Email 实现）**：`channel.ts` 定义接口 + `email-channel.ts` 实现（复用 mailer sendMail）；`notification.ts` 注册表（仅 email 实现注册，slack/webhook 占位不实现）；scan-orchestrator 在落库后异步触发通知（fire-and-forget，不阻塞扫描流程）
-    - **C-ENV-CHANGE-ALERT-3（admin 接收方配置）**：新增 `apps/platform/server/utils/notification-recipients.ts` 解析管理员邮箱（默认 organization admin 全员，env `DEPENDFIX_ENV_ALERT_RECIPIENTS` 覆盖）；i18n 邮件模板（zh-CN + en-US 双语）
-    - **C-ENV-CHANGE-ALERT-4（UI 入口）**：新建 `apps/platform/app/pages/env-events.vue`（事件列表 + 过滤 type/severity/时间范围）；与 alerts 视图并列；i18n 双语；导航菜单加入口；768px 响应式
-  - **验收要点**：
-    - audit_event 表：type 覆盖 `sandbox_unavailable` / `sandbox_degraded` / `docker_daemon_down`（预扩展）；索引支持时间范围 + repo 维度查询
-    - 通知：邮件发送 fail-closed（mailer service 已闭环），失败时 audit_event 标记 `notified=false` 便于后续重试（不在本批次范围）
-    - 接口预留：`notificationChannels` 注册表可扩展；slack/webhook 注册入口在 `notification.ts` 显式标注"待实现"
-    - UI：env-events 列表 + 详情（payload 展开/折叠）；与 alerts 共享 SCSS 样式
-  - **关联**：T1005-C（已闭环，提供 degradedReason / sandbox_unavailable 信号源）；T912（已闭环，提供 mailer service）；M8 T805（外联审计，与平台 audit_event 是不同维度，不重叠）
-  - **复杂度**：🟡 中-大（新表 + 接口 + 邮件实现 + UI 入口 + 触发点改造）
-  - 来源：2026-08-20 用户决策 Q3 + T1005-C §7.8.5 登记
 
 
 - **C30 Publish Docker build job 被取消/失败排查**（M6 归档 CI 端到端裁决登记）
@@ -419,7 +330,7 @@
 - **D3-多租户组织体系**：better-auth `organization` 插件（Organization/Member/Invitation/Team + 成员角色 API），替代 M7.1 的自建单组织模型。触发条件：多组织/多租户部署成为真实需求（当前 AUTH_MODE 企业/公开均为单实例单组织场景）。
 - **D8-remove-user 关联资源检查**（2026-08-09 T701-2 审计登记）：设计决策点 8"用户名下存在仓库/凭据关联时拒绝删除（409）"未实施——当前 Repository/Credential 不直接引用 User（仅 organization_id/credential_id，均 SET NULL），"名下资源"无数据模型载体，删除用户不产生业务数据悬空。触发条件：引入 user→resource 关联（如创建者 created_by 或 D1 的 RepositoryAccess）时随模型落地。
 - **T701 管理端点集成测试补强**（2026-08-09 T701-2 审计登记，2026-08-09 实施后修订）：设计 §9 矩阵的"list-users 分页/搜索、set-role 非 admin 403、ban/unban 会话失效、remove-user 级联、个人界面 changePassword/changeEmail 闭环"未落地（当前 guard 层 11 例覆盖函数语义；用户管理/个人界面已改为 better-auth 原生端点链路，authClient 直连 `/api/auth/*`）。触发条件：引入 @nuxt/test-utils 或 e2e 基建时统一落地（T701 验收/浏览器验证阶段评估）。
-- **邮件发送器统一实现**（2026-08-09 T701-3 审计登记，2026-08-18 实施完成，2026-08-20 T912 主体归档）：sendVerificationEmail / sendResetPassword / sendChangeEmailConfirmation 三处回调均为空实现（SMTP 未配置降级为 console.warn）；SMTP_HOST 配置后注册验证/密码重置/邮箱变更确认邮件均不实际发送（M6 既有模式）。**主体已闭环**：[todo-archive.md §T912](todo-archive.md#t912-smtp-邮件发送器主体收口t912-3-待排)（commit `edc9c94` mailer service 模块 + `6f00937` 三回调接线 + `6e28207` coverage 回归修复），用户 2026-08-18 明确指示「引入 nodemailer 实现」。**剩余项 T912-3**：安全与文档（security.md §邮件发送安全 章节）已合并入 **C28 security.md 补凭据加密存储章节**（见上）。
+- **邮件发送器统一实现**（2026-08-09 T701-3 审计登记，2026-08-18 实施完成，2026-08-20 T912 主体归档）：sendVerificationEmail / sendResetPassword / sendChangeEmailConfirmation 三处回调均为空实现（SMTP 未配置降级为 console.warn）；SMTP_HOST 配置后注册验证/密码重置/邮箱变更确认邮件均不实际发送（M6 既有模式）。**主体已闭环**：[todo-archive.md §T912](todo-archive.md#t912-smtp-邮件发送器主体收口t9123--c28-联动)（commit `edc9c94` mailer service 模块 + `6f00937` 三回调接线 + `6e28207` coverage 回归修复），用户 2026-08-18 明确指示「引入 nodemailer 实现」。**剩余项 T912-3**：安全与文档（security.md §邮件发送安全 章节）已合并入 **C28 security.md 补凭据加密存储章节**（见上）。
 - **SAML 2.0 SSO**：企业 SSO 仅 OIDC（better-auth `genericOAuth` 原生支持，覆盖 Azure AD / Okta / Keycloak / Google Workspace）；SAML 需额外集成层（better-auth 无原生支持，成本高），登记 backlog。触发条件：企业 IdP 仅提供 SAML（如部分传统 IdP）时评估。
 
 ### M7.2 i18n 非目标登记（2026-08-11，T708 规划定稿）

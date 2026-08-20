@@ -18,7 +18,7 @@
 | M8: 安全加固与容器执行完备 | 兑现沙箱安全治理决议（G2-G7）：容器工具链补齐（C45）、验证命令单命令超时（C41）、凭据权限面检查（C42/C39）、供应链信号披露（C43）、外联审计日志（C40）、规范挂接 review 检查点（C44） | P0-P2 | 已完成（2026-08-14 归档；T801-T806 全部完成，20 个提交本地待推送） |
 | M9: i18n 基建同步 | 从 momei 同步 i18n 治理规范与审计脚本（缺失 key / 动态 key / 重复文案 + vue-i18n 专项 lint + docs 防回流），为 i18n 优化铺路 | P2 | 已完成（2026-08-18 归档；T901-T906 全部完成，5 个原子提交覆盖 6 任务，2556 行 inserts / 2539 行净增；翻译内容与多语言扩展留后续阶段） |
 | M10: 独立沙箱容器 C26 实施规划 | 兑现沙箱治理决议 G5——Docker rootless runtime + 应用层白名单代理 + cgroup v2 资源限制 + Node 20 自动识别；`SandboxExecutor` 与 `ContainerExecutor` 并存；自托管 docker-compose 优先 / K8s+Helm 仅规划 | P1 | 已完成（2026-08-20 归档；T1001 B1+B2 + T1002 + T1003 + T1004 全部 commit，13 commits 待推送；设计收口于 executor-sandbox.md §7 + sandbox-security-governance.md §5 G5 + quick-start.md §启用 rootless sandbox 执行；T912 主体同步归档，T912-3 合并入 C28） |
-| M11: 业务可见性 + 沙箱落地 + 安全文档 | 由 C53 闭环触发启动 ① 业务可见性：C53 已闭环（push + PR 闭环 + runUrl 兜底）+ C56/C57/C58 平台 UX 用户反馈；② 沙箱落地：T1005 sandbox 路由接线（M10 实施规划遗留）；③ 安全文档：C28 security.md §凭据加密存储章节 + T912-3 邮件发送安全 + 凭据权限阶（§5.4） | P1 | 启动中（2026-08-20 C53 闭环作为旗舰任务；详细子任务清单与验收标准见 [backlog.md §M11](backlog.md#m11-业务可见性--沙箱落地--安全文档2026-08-20-启动)） |
+| M11: 业务可见性 + 沙箱落地 + 安全文档 | 由 C53 闭环触发启动 ① 业务可见性：C53 已闭环（push + PR 闭环 + runUrl 兜底）+ C56/C57/C58 平台 UX 用户反馈；② 沙箱落地：T1005 sandbox 路由接线（M10 实施规划遗留）；③ 安全文档：C28 security.md §凭据加密存储章节 + T912-3 邮件发送安全 + 凭据权限阶（§5.4）；④ 通知基建：C-ENV-CHANGE-ALERT（环境容器变化告警） | P1 | 已完成（2026-08-20 归档，22 commits：M11 启动批次 10 commits + M11 推进批次 12 commits；C58 + C-ENV-CHANGE-ALERT 两轮深度 standard Pass；详见 [backlog.md §M11](backlog.md#m11-业务可见性--沙箱落地--安全文档2026-08-20-已闭环) 摘要表 + [archive/todo-archive-phases-m11.md](archive/todo-archive-phases-m11.md) 详细归档） |
 
 ## M0: 基线收敛
 
@@ -125,7 +125,7 @@ Changelog / Release Notes 采集、多 AI 提供商封装、AI 研判（问题�
 
 > **背景（2026-08-15）**：momei 已沉淀成熟的 i18n 治理体系（语言分级 / freshness 分层 / 缺词 blocker / 动态 key 白名单 / 重复文案审计 / vue-i18n 专项 lint），dependfix 平台（M7.2 T708）已有基础 i18n（zh-CN + en-US 双语）但缺审计门禁与治理规范。M9 同步基建铺路，翻译内容留后续阶段。
 >
-> **M9 已交付（2026-08-15 代码与脚本 / 2026-08-18 文档归档收口）**：T901 规范同步 → T902 脚本同步（4 个 audit + 1 个 shared CLI）→ T903 脚本测试（75 例）→ T904 npm scripts + `@intlify/eslint-plugin-vue-i18n` 独立 lint 接入 → T905 CI 接入（test.yml 3 个新步骤）→ T906 文档收口（scripts/README + todo/roadmap）。5 个原子 commit（按 T901→T906 任务顺序：`49438f5` → `a4d1668` → `077823c` → `eae70cf` → `a61becc`；`077823c` 时间在 M9 主体前 9 小时跨 M8/M9 边界被 M9 复用），合计 2556 行 inserts / 2539 行净增。规划决策与验收详情见 [todo-archive.md §M9](todo-archive.md#m9-i18n-基建同步已归档)。
+> **M9 已交付（2026-08-15 代码与脚本 / 2026-08-18 文档归档收口）**：T901 规范同步 → T902 脚本同步（4 个 audit + 1 个 shared CLI）→ T903 脚本测试（75 例）→ T904 npm scripts + `@intlify/eslint-plugin-vue-i18n` 独立 lint 接入 → T905 CI 接入（test.yml 3 个新步骤）→ T906 文档收口（scripts/README + todo/roadmap）。5 个原子 commit（按 T901→T906 任务顺序：`49438f5` → `a4d1668` → `077823c` → `eae70cf` → `a61becc`；`077823c` 时间在 M9 主体前 9 小时跨 M8/M9 边界被 M9 复用），合计 2556 行 inserts / 2539 行净增。规划决策与验收详情见 [todo-archive.md §M9](archive/todo-archive-phases-m11.md#m9-i18n-基建同步已归档)。
 >
 > **M9 移交下一阶段候选（backlog 登记）**：README.en-US.md 翻译（`must-sync` tier）/ docs/i18n/en-US 镜像翻译（`summary-sync` / `source-only`）/ platform 多语言扩展（zh-TW / ko-KR / ja-JP）/ locale 模块化拆分（脚本已兼容双形态，单 locale 超阈值或命名空间冲突时触发）。
 
@@ -145,30 +145,35 @@ Changelog / Release Notes 采集、多 AI 提供商封装、AI 研判（问题�
 
 ---
 
-## M11: 业务可见性 + 沙箱落地 + 安全文档（启动中）
+## M11: 业务可见性 + 沙箱落地 + 安全文档（已闭环）
 
-> **背景（2026-08-20）**：C53 闭环后，平台 A 模式（container）的 `fix` / `fix-and-pr` 链路具备完整 push + PR 闭环，结束了 M6 阶段"修复结果仅在本地临时目录"问题。M11 阶段由 C53 触发启动，承接三方面 backlog：
+> **背景（2026-08-20）**：C53 闭环后，平台 A 模式（container）的 `fix` / `fix-and-pr` 链路具备完整 push + PR 闭环，结束了 M6 阶段"修复结果仅在本地临时目录"问题。M11 阶段由 C53 触发启动，承接四方面 backlog：
 >
 > 1. **业务可见性**：C53（已闭环作为旗舰任务）+ C56/C57/C58 平台 UX 用户反馈
 > 2. **沙箱落地**：T1005 sandbox 路由接线（M10 实施规划遗留）
 > 3. **安全文档**：C28 security.md §凭据加密存储章节 + T912-3 邮件发送安全 + 凭据权限阶（§5.4）
+> 4. **通知基建（本批次追加）**：C-ENV-CHANGE-ALERT 环境容器变化告警（audit_event + NotificationChannel 接口 + Email 实现 + env-events UI）
 
-**阶段目标**：
+**阶段目标（全部闭环 ✅）**：
 
-- 平台 A 模式 `fix-and-pr` 真实环境跑通（push + PR 闭环 + UI 提示）
-- T1005 路由接线后 sandbox 执行器可真实触发（docker daemon 可用时）
-- security.md §5.4 / §5.5 凭据权限阶 + 加密存储章节落地
-- C56 / C57 平台 UX 用户反馈小修闭环
-- branches 80% 覆盖率维持
+- [x] 平台 A 模式 `fix-and-pr` 真实环境跑通（push + PR 闭环 + UI 提示）—— C53 闭环
+- [x] T1005 路由接线后 sandbox 执行器可真实触发（docker daemon 可用时）—— T1005-A/B/C/D 闭环
+- [x] security.md §5.4 / §5.5 凭据权限阶 + 加密存储章节落地 —— C28 闭环
+- [x] C56 / C57 平台 UX 用户反馈小修闭环 —— `cda5b90` 闭环
+- [x] C58 告警视图按包聚合 + 图表 —— 2 commits + 35 测试
+- [x] C-ENV-CHANGE-ALERT 环境容器变化告警 —— 6 commits + 41 测试 + UI + 权限防护
+- [x] branches 80% 覆盖率维持 —— 80.49%
+- [x] `pnpm lint` / `typecheck` / `test` 全绿 —— 677/681 passed + 0 error
+- [x] CI 端到端裁决通过 —— 2 轮深度审计全部 Pass
 
-> **详细子任务清单与验收标准**：见 [backlog.md §M11](backlog.md#m11-业务可见性--沙箱落地--安全文档2026-08-20-启动)。C53 收口记录与 3 commits 引用见 [todo-archive.md §C53](todo-archive.md#c53-平台集成模式-fix-修复结果推送远程已归档)。
+> **详细子任务清单 + 验收标准 + 决策记录 + 历史教训**：见 [backlog.md §M11](backlog.md#m11-业务可见性--沙箱落地--安全文档2026-08-20-已闭环) 摘要表 + [archive/todo-archive-phases-m11.md](archive/todo-archive-phases-m11.md) 详细归档。
 
 ---
 
 ## 详细任务
 
-- 当前阶段任务：[todo.md](todo.md)（M10 + C53 已归档；M11 启动中；待人工验收项随真实环境推进）
-- 已归档阶段：[todo-archive.md](todo-archive.md)（主窗口保留 C53 / M10 / M9 / 2026-08-19 平台可用性 PR1-PR3 / 2026-08-19 batch-runs 增强 C54+C55 / 2026-08-20 平台 UI 增强 C59-C61；早期阶段见 [archive/index.md](archive/index.md) 分片索引）
+- 当前阶段任务：[todo.md](todo.md)（M11 已全部闭环归档；待人工验收项随真实环境推进）
+- 已归档阶段：[todo-archive.md](todo-archive.md)（主窗口保留 C53 / 2026-08-20 平台 UI 增强 C59-C61 / 2026-08-20 M11 推进批次；早期阶段见 [archive/index.md](archive/index.md) 分片索引）
 - 后续阶段任务（延期项 + 未排期增强候选）：[backlog.md](backlog.md)
 
 ## 交付原则

@@ -390,7 +390,7 @@ describe('startNetworkAudit', () => {
         })
 
         expect(status).toBe(502)
-        expect(audit.violations.some((v) => v.target.startsWith('github.com'))).toBe(true)
+        expect(audit.violations.some((v) => extractHostname(v.target) === 'github.com')).toBe(true)
     })
 })
 

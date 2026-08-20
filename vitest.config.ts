@@ -57,13 +57,12 @@ export default defineConfig({
             ],
             reporter: ['text', 'json-summary', 'lcov'],
             // 覆盖率目标：整体 80%（口径 = packages + apps + scripts 全部源码）
-            // 2026-08-18 mailer/ 模块新增后整体 branches 从 80.6% 降到 ~79.6%；
-            // 临时下调 branches 阈值到 79% 避免 CI 红；
-            // mailer 子模块自身 100%（见 coverage-summary.json）；其他低分支文件（network-audit / container-executor
-            // / scripts/*）按需补测恢复 80%；恢复路径见 docs/plan/todo.md §待评估候选「branches 阈值恢复 80% 冲刺」
+            // 2026-08-20 branches 80% 冲刺完成：runs/[id].get.ts / batch.post.ts / naming-strategy.ts /
+            // distill-wisdom.mjs 分支补测后整体 branches 79.38% → 80.32%，临时下调的 79% 阈值恢复 80%。
+            // 详见 docs/plan/todo.md §M11 P2「branches 阈值恢复 80% 冲刺」收口记录。
             thresholds: {
                 statements: 80,
-                branches: 79,
+                branches: 80,
                 functions: 80,
                 lines: 80,
             },

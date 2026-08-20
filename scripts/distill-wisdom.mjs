@@ -193,7 +193,7 @@ export function parseWisdom(content) {
     return entries
 }
 
-async function main() {
+export async function main() {
     const args = process.argv.slice(2)
     const flags = {
         check: args.includes('--check'),
@@ -212,6 +212,8 @@ async function main() {
         if (err.code === 'ENOENT') {
             console.error('[distill-wisdom] .session/wisdom.md 不存在，跳过')
             process.exit(0)
+            // 测试环境 process.exit 被 mock 时不会真的终止；用 return 避免 fall-through 到 throw err
+            return
         }
         throw err
     }
@@ -310,7 +312,7 @@ async function main() {
     console.log(report)
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (process.argv[1] && !process.env.VITEST && import.meta.url === pathToFileURL(process.argv[1]).href) {
     main().catch((err) => {
         console.error('[distill-wisdom] 错误:', err)
         process.exit(1)

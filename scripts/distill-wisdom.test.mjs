@@ -1,5 +1,21 @@
-import { describe, expect, it } from 'vitest'
-import { classifySection, inferType, parseWisdom } from './distill-wisdom.mjs'
+import { readFile } from 'node:fs/promises'
+import path from 'node:path'
+import { fileURLToPath, pathToFileURL } from 'node:url'
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
+import { classifySection, inferType, main, parseWisdom } from './distill-wisdom.mjs'
+
+vi.mock('node:fs/promises', () => ({
+    readFile: vi.fn(),
+}))
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const SCRIPT_PATH = path.join(__dirname, 'distill-wisdom.mjs')
+const SCRIPT_URL = pathToFileURL(SCRIPT_PATH).href
+
+// 关键：distill-wisdom.mjs 在模块顶层用 process.argv[1] 守卫触发 main()，
+// 测试环境用 VITEST=1 sentinel 阻断顶层触发（vitest 自动设置 VITEST env），
+// 测试体内显式 await main() 控制单次执行。
+process.env.VITEST = '1'
 
 describe('inferType', () => {
     it('infers env from Windows/行尾/环境关键词', () => {
@@ -195,5 +211,171 @@ describe('parseWisdom', () => {
         ].join('\n')
         const entries = parseWisdom(content)
         expect(entries[0].type).toBe('decision')
+    })
+})
+
+/**
+ * main() 集成测试：通过 vi.mock('node:fs/promises') 控制 readFile 返回，
+ * 验证 CLI 参数解析（--check / --threshold=N）、错误处理（ENOENT）、
+ * 报告生成各分支（typeCounts / hasKnownType / entry 输出 / distilled 输出）。
+ *
+ * 关键：distill-wisdom.mjs 在模块顶层用 process.argv[1] 守卫触发 main()，
+ * 测试用 vi.resetModules + 动态 import 在每个测试体内设置 argv 后重新加载，
+ * 避免顶层 main() 用上一次 argv 提前运行污染测试。
+ */
+describe('main()', () => {
+    const originalArgv = process.argv
+
+    /** 设置 argv + readFile mock，返回准备就绪的 main()（顶层守卫已被 VITEST 阻断） */
+    const setupCall = (argv, readFileResult) => {
+        process.argv = ['node', SCRIPT_URL, ...argv]
+        if (readFileResult.ok) {
+            vi.mocked(readFile).mockResolvedValueOnce(readFileResult.value)
+        } else {
+            const err = new Error(`mock-${readFileResult.value}`)
+            err.code = readFileResult.value
+            vi.mocked(readFile).mockRejectedValueOnce(err)
+        }
+    }
+
+    let logSpy
+    let errorSpy
+    let exitSpy
+
+    beforeEach(() => {
+        // 每个测试独立建 spy（避免跨测试状态污染）
+        logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined)
+        errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+        exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => undefined)
+        vi.mocked(readFile).mockReset()
+    })
+
+    afterEach(() => {
+        process.argv = originalArgv
+        exitSpy?.mockRestore()
+        logSpy?.mockRestore()
+        errorSpy?.mockRestore()
+    })
+
+    it('--check mode: under threshold → WISDOM_OK', async () => {
+        setupCall(['--check'], {
+            ok: true,
+            value: '## 当前条目 (Active)\n\n- [2026-08-10] [bug] 测试条目 → 详见 x.md\n',
+        })
+        await main()
+        expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('WISDOM_OK'))
+        expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('1 active entries'))
+    })
+
+    it('--check mode: at/over threshold → WISDOM_NEEDS_DISTILL', async () => {
+        const lines = ['## 当前条目 (Active)']
+        for (let i = 0; i < 20; i++) {
+            lines.push(`- [2026-08-${(i + 1).toString().padStart(2, '0')}] [bug] 条目 ${i} → 详见 x.md`)
+        }
+        setupCall(['--check'], { ok: true, value: lines.join('\n') })
+        await main()
+        expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('WISDOM_NEEDS_DISTILL'))
+    })
+
+    it('--threshold=N custom value overrides default', async () => {
+        const lines = ['## 当前条目 (Active)']
+        for (let i = 0; i < 4; i++) {
+            lines.push(`- [2026-08-${(i + 1).toString().padStart(2, '0')}] [bug] 条目 ${i} → 详见 x.md`)
+        }
+        setupCall(['--check', '--threshold=3'], { ok: true, value: lines.join('\n') })
+        await main()
+        expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('WISDOM_NEEDS_DISTILL'))
+        expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('threshold=3'))
+    })
+
+    it('--threshold with invalid value falls back to default 20', async () => {
+        setupCall(['--check', '--threshold=invalid'], {
+            ok: true, value: '## 当前条目 (Active)\n',
+        })
+        await main()
+        expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('threshold=20'))
+    })
+
+    it('ENOENT on readFile → exits 0 with skip message', async () => {
+        process.argv = ['node', SCRIPT_URL]
+        const mockErr = new Error('mock-ENOENT')
+        mockErr.code = 'ENOENT'
+        vi.mocked(readFile).mockRejectedValueOnce(mockErr)
+        await main()
+        expect(exitSpy).toHaveBeenCalledWith(0)
+        expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('wisdom.md 不存在'))
+    })
+
+    it('non-ENOENT readFile error → re-thrown', async () => {
+        vi.mocked(readFile).mockRejectedValueOnce(new Error('disk read failed'))
+        await expect(main()).rejects.toThrow('disk read failed')
+    })
+
+    it('generates full report with all sections (active + historical + type counts)', async () => {
+        const content = [
+            '## 当前条目 (Active)',
+            '',
+            '## 2026-08-10',
+            '',
+            '### 1. 测试断言要精确到链路身份',
+            '- **场景**: 集成测试',
+            '',
+            '---',
+            '',
+            '## 已蒸馏条目 (Historical)',
+            '',
+            '- [2026-08-09] [pattern] 任务粒度分批提交 → 已迁移至 docs/standards/planning.md',
+            '',
+        ].join('\n')
+        setupCall([], { ok: true, value: content })
+        await main()
+
+        const report = logSpy.mock.calls.map((c) => String(c[0])).join('\n')
+        expect(report).toContain('# Session Wisdom 蒸馏分析报告')
+        expect(report).toContain('## 统计')
+        expect(report).toContain('总条目:')
+        expect(report).toContain('活跃条目')
+        expect(report).toContain('已蒸馏条目')
+        expect(report).toContain('日期跨度:')
+        expect(report).toContain('## 按类型分布')
+        // 注意：active 区只有 test 类型（来自 "测试"），pattern 来自 historical 区
+        expect(report).toContain('**test**')
+        expect(report).toContain('## 活跃条目详情')
+        expect(report).toContain('## 已蒸馏条目')
+        expect(report).toContain('## 阈值提示')
+        expect(report).toContain('距离下次蒸馏阈值还有')
+    })
+
+    it('reports unknown type section when entries have no inferred type', async () => {
+        const content = [
+            '## 当前条目 (Active)',
+            '',
+            '### 1. 完全无关的标题内容',
+            '- **内容**: x',
+            '',
+        ].join('\n')
+        setupCall([], { ok: true, value: content })
+        await main()
+
+        const report = logSpy.mock.calls.map((c) => String(c[0])).join('\n')
+        expect(report).toContain('**unknown**')
+        expect(report).toContain('人工判断')
+    })
+
+    it('reports _无活跃条目_ when no active entries', async () => {
+        const content = [
+            '## 当前条目 (Active)',
+            '',
+            '## 已蒸馏条目 (Historical)',
+            '',
+            '- [2026-08-09] [bug] 仅已蒸馏 → 已迁移至 docs/x.md',
+            '',
+        ].join('\n')
+        setupCall([], { ok: true, value: content })
+        await main()
+
+        const report = logSpy.mock.calls.map((c) => String(c[0])).join('\n')
+        const noActiveCount = (report.match(/_无活跃条目_/g) ?? []).length
+        expect(noActiveCount).toBeGreaterThanOrEqual(2)
     })
 })

@@ -205,15 +205,15 @@
 
 | 编号 | 任务 | 优先级 | 状态 | 备注 |
 |:--|:--|:--:|:--|:--|
-| C53-后-A | 工作目录 stale-cleanup 任务（_pending 24h 清理） | P2 | 待评估 | C53-3 RG-W2 登记 |
-| C53-后-B | sanitizeErrorMessage 补充 `Authorization: token xxx` 模式 | P3 | 待评估 | C53-2 RG-W2 登记 |
-| C53-后-C | A 模式 dispatched UI 提示（手动开 PR） | P3 | 待评估 | 当前 UI 通用 dispatched 提示 |
-| T1005-A | sandbox 前端 UI 暴露选项（`apps/platform/app/pages/repos.vue` Dropdown + i18n 双语 + 类型扩展） | P1 | 🔶 进行中（2026-08-20） | 文档批次完成；实现批次待跑 |
+| C53-后-A | 工作目录 stale-cleanup 任务（_pending 24h 清理） | P2 | ✅ **已闭环（2026-08-20）** | `931b5b7`：cleanupPendingWorkdirs 新模块 + 集成 stale-cleanup 插件 + 7 个真实 fs 测试 |
+| C53-后-B | sanitizeErrorMessage 补充 `Authorization: token xxx` 模式 | P3 | ✅ **已闭环（2026-08-20）** | `bfecf6a`：正则扩展 basic/token/Bearer 三 scheme + 两文件同步 + 6 个新测试 |
+| C53-后-C | A 模式 dispatched UI 提示（手动开 PR） | P3 | ✅ **已闭环（2026-08-20）** | `5d7ee97`：i18n 双键 + runs.vue/batch-runs.vue 条件渲染 pr_creation_failed 提示 |
+| T1005-A | sandbox 前端 UI 暴露选项（`apps/platform/app/pages/repos.vue` Dropdown + i18n 双语 + 类型扩展） | P1 | ✅ **已闭环（2026-08-20）** | commit `0ea8149`；quick Pass |
 | T1005-B | Repository `sandboxLimits` JSON 字段 + orchestrator 透传（API 透传，UI 不暴露限额覆盖表单） | P2 | ✅ **已闭环（2026-08-20）** | 拆 2 commit：B1 实体 + schema + zod 校验 + 11 个测试 `5542e33` / B2 orchestrator 透传 + repos API 序列化 + 16 个测试 `b6bce6c`；end-to-end 数据流打通 |
 | T1005-C | 状态机扩展 `degraded` 状态（sandbox 启动时降级 → degraded + info UI；运行时失败 → failed + warn UI） | P1 | ✅ **已闭环（2026-08-20）** | 函数体 degraded 分支实现 + orchestrator 降级信号透传 + batch-aggregate degradedCount + 14 个新断言；branches 80.32% ≥ 80%；3 核心文件 stmts 100% |
-| T1005-D | quick-start.md 同步（移除「待 T1005 路由接线」过时警告 + G5 行更新 + 文档批次收口） | P2 | 📋 待启动（实现批次同步） | 本批次未触及 quick-start.md；实现批次落地后做 |
+| T1005-D | quick-start.md 同步（移除「待 T1005 路由接线」过时警告 + G5 行更新 + 文档批次收口） | P2 | ✅ **已闭环（2026-08-20）** | commit `809aa3b` |
 | C-ENV-CHANGE-ALERT | 环境容器变化告警（sandbox 运行时不可用 → audit log + 通知渠道） | P3 | 📋 待评估 | T1005-C §7.8.5 登记；依赖平台 audit log 设计 + 通知渠道选型（邮件 / Slack / Webhook） |
-| C28 | security.md §凭据加密存储章节补齐（T602 AES-256-GCM 文档化） | P2 | 待评估 | T912-3 合并处理 |
+| C28 | security.md §凭据加密存储章节补齐（T602 AES-256-GCM 文档化） | P2 | ✅ **已闭环（2026-08-20）** | §5.5 补算法契约（AES-256-GCM/IV/authTag/密文格式）+ 密钥派生 + fail-closed + 凭据 CRUD 生命周期 + 审计必查项扩展 + 密钥轮换边界；顺手修 platform.md 密文格式误写 |
 | C56 | 批量扫描 Dialog 关闭时序（乐观关闭） | P3 | ✅ **已闭环（2026-08-20）** —— submitBatchScan 提交前 batchDialogVisible = false；失败时回滚 dialog + 显示错误。commit `cda5b90` |
 | C57 | 扫描历史 Dialog 缺面包屑（"返回列表"按钮） | P3 | ✅ **已闭环（2026-08-20）** —— RepoHistoryDialog DataTable header slot 加 icon pi pi-arrow-left + i18n runs.backToList；点击 resetDetail() 回到 list view。commit `cda5b90` |
 | C58 | 告警视图按包聚合 + 图表（独立评估） | P3 | 待评估 | C58 backlog |

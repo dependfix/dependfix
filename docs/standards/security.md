@@ -93,20 +93,46 @@ dependfix 的核心动作是升级第三方依赖——**拉取并执行不可�
 - **B 模式优先**：当目标仓库已配置 action 且凭据具备 `actions: read + write` 时，平台自动选择 B 模式；B 模式的 PR 创建在目标仓库 runner 上完成（使用 runner 内置 `GITHUB_TOKEN`），平台 token 不需要 `contents` / `pull-requests` 写权限——**这是 B 模式核心安全价值**
 - **A 模式 fix-and-pr 必须 wide-scope**：使用平台 token 直接调 GitHub API（push + 创建 PR），需要 classic PAT 勾选 `repo` 或 fine-grained PAT 显式授权 `Contents: write` + `Pull requests: write`；不推荐在多租户 SaaS 场景使用
 - **凭据权限最小化**：扫描不可信仓库（owner 模式 / 平台仓库管理）必须使用专用低权限 token（与 §5.3 凭据基线"权限面收敛"条目一致）
-- **UI 显式提示**：执行触发时（如 report-only / fix / fix-and-pr 切换），UI 应显示当前所选凭据的权限范围（待 C28 设计落地）
+- **UI 显式提示**：执行触发时（如 report-only / fix / fix-and-pr 切换），UI 应显示当前所选凭据的权限范围（C28 设计已落地 §5.5；UI 增强项登记 [backlog.md §M11 C53-后-C](../plan/backlog.md) 待触发）
 
-### 5.5 凭据加密存储（C28 backlog 登记 + T912-3 联动，2026-08-20）
+### 5.5 凭据加密存储（C28 已闭环，2026-08-20）
 
-平台 Credential 实体存储采用 **AES-256-GCM 对称加密**（T602 已交付实现），设计要点：
+平台 Credential 实体存储采用 **AES-256-GCM 对称加密**（T602 已交付实现，实现见 `apps/platform/server/services/credential.service.ts`），设计要点：
 
-- **密钥隔离**：`ENCRYPTION_KEY`（32 字节）由平台运维配置（K8s Secret / docker `.env`），**永不**进入执行进程环境，与 §5.3 "平台密钥隔离" 条款一致
+**算法契约（与实现逐项对齐）**：
+
+- **算法**：AES-256-GCM（authenticated encryption）——GCM 模式自带完整性校验，解密时自动验证密文是否被篡改；篡改会抛错，不会返回错误明文
+- **密钥**：`ENCRYPTION_KEY` 平台级密钥（任意长度输入）→ `sha256` 派生 32 字节密钥（`deriveKey`）；未配置时**抛错禁用凭据功能**（fail-closed，不静默降级为明文——与 [platform.md §5 凭据安全规范](./platform.md) 一致）
+- **IV**：12 字节随机（96 bit，NIST SP 800-38D 推荐；每次加密重新生成，`randomBytes(12)`）
+- **authTag**：16 字节（128 bit，GCM 认证标签）
+- **密文格式**：`{iv}.{authTag}.{ciphertext}`（三段 base64 以点号拼接；注意是点号 `.` 分隔——历史文档 platform.md 曾误写为冒号 `iv:tag:ciphertext`，C28 已修正）
+- **格式校验**：`decryptToken` 先 `split('.')` 校验恰好 3 段；非法格式抛错（不静默返回空 token，防 fail-open）
+
+**凭据生命周期（CRUD 的加密时机）**：
+
+- **创建**：`encryptToken(plaintext, ENCRYPTION_KEY)` → 存 `Credential.encryptedToken`；`hasToken` 布尔字段标记（API 永不返回明文）
+- **读取**：`decryptToken(encryptedToken, ENCRYPTION_KEY)` → 内存 token → 注入 `ScanExecutorContext.credential`；用后即弃（执行结束随闭包释放）
+- **更新**：更新 token 即重新 encrypt 覆盖 `encryptedToken`；非 token 字段（name/note）直写
+- **删除**：`DELETE /api/credentials/[id]` 直接删行；关联 Repository 的 `credentialId` 置空（ON DELETE SET NULL 语义）
+
+**设计要点（保留原 4 条）**：
+
+- **密钥隔离**：`ENCRYPTION_KEY` 由平台运维配置（K8s Secret / docker `.env`），**永不**进入执行进程环境，与 §5.3 "平台密钥隔离" 条款一致
 - **解密仅执行时内存**：每次扫描任务从 `Credential.encryptedToken` 解密为内存 token，**用后即弃**（执行结束随闭包释放）
 - **来源单一**：平台 `Repository.credentialId` → `Credential.encryptedToken` → AES-256-GCM `decryptToken` → `RuntimeConfig.githubToken` / `alertsToken`，禁止从平台存储二次读取
 - **凭据邮件安全**：SMTP 凭据（`smtpHost` / `smtpUser` / `smtpPassword`）仅从 `runtimeConfig` 读取，**不进入前端 bundle**；速率限制防刷；失败时 fail-closed（不静默吞错）
-- **审计必查项**（Code Auditor 必查）：
-  - 任何新增 Credential 字段必须走加密存储（禁止明文 token 类字段）
-  - 任意外部 HTTP 客户端必须确认 baseUrl 是 GitHub 官方 API（防 typo squatting / SSRF）
-  - 错误消息 / 日志 / 报告禁止打印明文 token（与 §5.3 "防泄露通道" 一致）
+
+**密钥轮换（边界说明）**：
+
+- 当前实现无 key version——`ENCRYPTION_KEY` 变更会使存量密文不可解密（解密抛错）。轮换需先批量解密旧密文 → 用新密钥重加密 → 更新全部 Credential 行。**此操作不在本规范强制范围内**（单机自托管场景密钥变更频率极低），登记为未来增强项（若引入多租户 SaaS 多租户密钥隔离再实现）
+
+**审计必查项（Code Auditor 必查）**：
+
+- 任何新增 Credential 字段必须走加密存储（禁止明文 token 类字段）
+- 任意外部 HTTP 客户端必须确认 baseUrl 是 GitHub 官方 API（防 typo squatting / SSRF）
+- 错误消息 / 日志 / 报告禁止打印明文 token（与 §5.3 "防泄露通道" 一致；`sanitizeErrorMessage` 覆盖 URL 内嵌 + Authorization basic/token/Bearer 三 scheme）
+- `decryptToken` 解密失败必须抛错（防 fail-open）；禁止 catch 后静默返回空 token
+- 密文格式校验（split 3 段）不可删除（防构造畸形密文绕过）
 
 ## 6. 终端命令与自动化安全 (CLI & Automation)
 

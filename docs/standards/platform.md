@@ -145,7 +145,7 @@ export const getDateType = (dbType?: string): string => {
 
 - 平台级密钥：环境变量 `ENCRYPTION_KEY`（AES-256-GCM 密钥，32 字节 base64 或 hex）；未配置时**禁用凭据功能并明确报错**（不静默降级为明文）
 - Credential 实体：`type`（classic-pat / fine-grained-pat / github-app）、`encryptedToken`、`name`、`repoId` 关联
-- 加解密工具（`server/utils/credential-crypto.ts`）：AES-256-GCM + 随机 IV，密文格式 `iv:tag:ciphertext`（base64）；解密仅在执行时 worker 内存中，用完即弃
+- 加解密工具（`server/services/credential.service.ts`）：AES-256-GCM + 随机 IV（12 字节），密文格式 `{iv}.{authTag}.{ciphertext}`（三段 base64 点号拼接，GCM 自带完整性校验）；解密仅在执行时 worker 内存中，用完即弃。算法细节与审计必查项见 [security.md §5.5](./security.md#55-凭据加密存储c28-已闭环2026-08-20)
 - **禁止**：token 明文落库、token 进日志、token 进前端响应（API 返回 `hasToken` 布尔即可）
 - Dependabot alerts 读取必须显式凭据（`GITHUB_TOKEN` 不可用，见 [G2 处置记录](../plan/todo-archive.md)）
 - 测试用独立随机密钥（不读生产 env）

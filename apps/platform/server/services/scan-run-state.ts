@@ -17,8 +17,10 @@ export interface ScanRunStateDecision {
  * - 结果已拉取 → completed
  *
  * A 模式（container）：
- * - 执行级失败（超时/环境缺失）→ failed（不写半截结果）
- * - 成功 → completed
+ * - push 成功 + PR 失败（`pr_creation_failed`，分支已推）→ dispatched
+ *   （与 B 模式 `dispatched` 语义对齐：副作用已落库，runUrl 仍可访问，便于用户手动重试）
+ * - 其他执行级失败（push_failed / execution_failed / execution_timeout）→ failed（不写半截结果）
+ * - 成功（push + PR 都成功）→ completed
  */
 export const resolveScanRunState = (
     executorKind: 'container' | 'github-action',
@@ -38,6 +40,12 @@ export const resolveScanRunState = (
         }
         return { status: 'dispatched' }
     }
+    // A 模式（container）
+    // PR 创建失败（分支已推）→ dispatched（runUrl 兜底为 branch URL）
+    if (error?.code === 'pr_creation_failed') {
+        return { status: 'dispatched', errorJson: error ?? null }
+    }
+    // 其他错误（push_failed / execution_failed / execution_timeout）→ failed
     if (error && !result) {
         return { status: 'failed' }
     }

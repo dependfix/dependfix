@@ -42,5 +42,25 @@ describe('resolveScanRunState（状态机纯函数）', () => {
         it('failed on execution error without result (no half-written results)', () => {
             expect(resolveScanRunState('container', { code: 'execution_failed', message: 'x' }, undefined).status).toBe('failed')
         })
+
+        it('failed on push_failed (no branch pushed, no PR)', () => {
+            expect(resolveScanRunState('container', { code: 'push_failed', message: 'x' }, undefined).status).toBe('failed')
+        })
+
+        it('failed on execution_timeout (no push attempted)', () => {
+            expect(resolveScanRunState('container', { code: 'execution_timeout', message: 'x' }, undefined).status).toBe('failed')
+        })
+
+        it('dispatched when pr_creation_failed (branch pushed, PR failed)', () => {
+            const decision = resolveScanRunState('container', { code: 'pr_creation_failed', message: 'x' }, undefined)
+            expect(decision.status).toBe('dispatched')
+            expect(decision.errorJson?.code).toBe('pr_creation_failed')
+        })
+
+        it('dispatched prioritized pr_creation_failed even with result (caller returns early on error)', () => {
+            // 关键：与 B 模式 run_url_not_resolved 语义对齐——error 优先于 result
+            const decision = resolveScanRunState('container', { code: 'pr_creation_failed', message: 'x' }, minimalResult)
+            expect(decision.status).toBe('dispatched')
+        })
     })
 })

@@ -60,6 +60,10 @@ import {
     type AppContext,
 } from './helpers'
 
+// 仅 re-export 平台直接调用的辅助函数（PR 创建在平台 A 模式复用）
+export { buildPrTitle } from './helpers'
+export { fetchDefaultBranch } from './repo-alerts'
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------

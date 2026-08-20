@@ -2,7 +2,16 @@ import { mkdir, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
-import { DependfixApp, type RuntimeConfig } from '@dependfix/engine'
+import type { RunResult } from '@dependfix/core'
+import {
+    DependfixApp,
+    type RuntimeConfig,
+    buildPrTitle,
+    createGitHubClient,
+    createPullRequest,
+    fetchDefaultBranch,
+    generatePRBody,
+} from '@dependfix/engine'
 import type { ScanExecutor, ScanExecutorContext, ScanExecutorResult } from './types'
 
 const execFileAsync = promisify(execFile)
@@ -53,6 +62,42 @@ export async function pushFixBranch(branchName: string, workDir: string, token?:
 }
 
 /**
+ * 创建修复 PR（fix-and-pr 模式）：通过 GitHub API 调用引擎层 createPullRequest。
+ * 复用引擎的 createGitHubClient + fetchDefaultBranch + buildPrTitle + generatePRBody。
+ *
+ * 失败原样抛错，由 execute() 归类为 pr_creation_failed（与 B 模式命名一致）。
+ *
+ * 设计要点：
+ * - Octokit 实例由 createGitHubClient 构造（自带限流 hook：GET/HEAD 限流重试，POST 写请求豁免）
+ * - 默认分支从 GitHub API 获取；失败回退 'unknown'（与 engine 端 fetchDefaultBranch 行为一致）
+ * - PR body 模板引擎端已实现供应链信号披露 / 升级明细 / 截断保护（60KB 上限）
+ */
+export async function createPrForFix(
+    result: RunResult,
+    owner: string,
+    name: string,
+    branchName: string,
+    token: string,
+): Promise<{ htmlUrl: string, number: number }> {
+    const client = createGitHubClient({
+        token,
+        retry: { maxRetries: 3, maxBackoffMs: 30_000 },
+    })
+    const baseBranch = await fetchDefaultBranch(client, owner, name)
+    const title = buildPrTitle(result.summary, result.actions)
+    const body = generatePRBody(result)
+    return createPullRequest({
+        octokit: client,
+        owner,
+        repo: name,
+        headBranch: branchName,
+        baseBranch,
+        title,
+        body,
+    })
+}
+
+/**
  * A 模式执行器（默认）：平台容器内执行。
  *
  * 设计要点（见 executor-sandbox.md §2.2 / §5.1）：
@@ -61,7 +106,8 @@ export async function pushFixBranch(branchName: string, workDir: string, token?:
  * - 凭据来源单一：credential 由 credential service 解密传入，填充 RuntimeConfig.githubToken/alertsToken
  * - 执行结果直接复用 DependfixApp 的 RunResult（扫描结果落库数据源）
  * - A 模式 fix / fix-and-pr 完成后推送修复分支到远程；push 失败归类 `push_failed`
- *   （与 `execution_failed` / `execution_timeout` 语义区分），便于上层状态机决策 dispatched
+ * - A 模式 fix-and-pr 进一步创建 PR 拉取请求；PR 失败归类 `pr_creation_failed`（分支已推，状态机 dispatched）
+ * - runUrl 兜底为 branch URL（PR 失败时仍可显示，用户可手动开 PR）
  */
 export class ContainerExecutor implements ScanExecutor {
     readonly kind = 'container' as const
@@ -90,6 +136,8 @@ export class ContainerExecutor implements ScanExecutor {
         const workDir = join(this.workRoot, ctx.runId)
         // fix / fix-and-pr 模式：app.run() 成功后需推送修复分支到远程
         const needsPush = ctx.config.mode === 'fix' || ctx.config.mode === 'fix-and-pr'
+        // fix-and-pr 模式：push 成功后再创建 PR
+        const needsPr = ctx.config.mode === 'fix-and-pr'
 
         try {
             await mkdir(workDir, { recursive: true })
@@ -126,7 +174,28 @@ export class ContainerExecutor implements ScanExecutor {
                 try {
                     const branchName = await extractBranchName(workDir)
                     await pushFixBranch(branchName, workDir, ctx.credential?.token)
+                    // runUrl 兜底为 branch URL（PR 失败时仍可显示供用户手动开 PR）
                     runUrl = `https://github.com/${owner}/${name}/tree/${branchName}`
+
+                    // fix-and-pr 模式：push 成功后再创建 PR
+                    if (needsPr && ctx.credential?.token) {
+                        try {
+                            const pr = await createPrForFix(result, owner, name, branchName, ctx.credential.token)
+                            runUrl = pr.htmlUrl
+                        } catch (prError) {
+                            const raw = prError instanceof Error ? prError.message : String(prError)
+                            return {
+                                exitCode: 2,
+                                error: {
+                                    code: 'pr_creation_failed',
+                                    message: `创建 PR 失败（分支已推送）：${sanitizeErrorMessage(raw)}`,
+                                },
+                                startedAt,
+                                finishedAt: new Date().toISOString(),
+                                runUrl,
+                            }
+                        }
+                    }
                 } catch (pushError) {
                     const raw = pushError instanceof Error ? pushError.message : String(pushError)
                     return {
@@ -164,7 +233,8 @@ export class ContainerExecutor implements ScanExecutor {
             }
         } finally {
             // 临时工作目录清理（执行后不留存）；清理失败不影响执行结果
-            // 后续阶段：push 失败前立即清理；push 成功 + PR 失败时保留 24h
+            // 失败路径（push_failed / pr_creation_failed / execution_failed）已在外层提前 return，
+            // 此 finally 统一兜底清理，避免工作目录残留
             await rm(workDir, { recursive: true, force: true }).catch(() => { /* 清理失败静默 */ })
         }
     }

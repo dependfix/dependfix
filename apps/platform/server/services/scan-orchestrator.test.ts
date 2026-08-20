@@ -203,6 +203,20 @@ describe('scan-orchestrator.service', () => {
             expect(run.runUrl).toBeNull()
         })
 
+        it('marks dispatched when container pr_creation_failed (branch pushed, PR failed)', async () => {
+            // A 模式 push 成功 + PR 失败 → dispatched + runUrl 兜底为 branch URL
+            containerExecute.mockResolvedValue({
+                result: undefined,
+                error: { code: 'pr_creation_failed', message: '创建 PR 失败（分支已推送）：Validation Failed' },
+                runUrl: 'https://github.com/demo/app/tree/dependfix/auto-fix-abc12345',
+            })
+
+            const run = await runScanForRepository(repositoryId, { mode: 'fix-and-pr', severityThreshold: 'high' })
+            expect(run.status).toBe('dispatched')
+            expect(run.runUrl).toBe('https://github.com/demo/app/tree/dependfix/auto-fix-abc12345')
+            expect(run.errorJson).toContain('pr_creation_failed')
+        })
+
         it('marks run failed with orchestration error when executor throws', async () => {
             containerExecute.mockRejectedValue(new Error('disk full'))
 

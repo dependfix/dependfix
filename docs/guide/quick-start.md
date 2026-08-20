@@ -203,9 +203,9 @@ jobs:
 - **PR 合入前人工检查**：跨线升级（PR body 带 ⚠️ Major 标记）以及新增/升级包带 lifecycle scripts 且被仓库批准时（供应链信号披露落地后见报告警示区），合入前应人工确认。
 - **平台部署**：平台容器执行进程已**非 root 降权**（`dependfix` 用户，entrypoint 自动修复数据卷所有权，[C38](../plan/backlog.md)）；部署时勿挂载 `docker.sock`、勿授予特权；`AUTH_SECRET` / `ENCRYPTION_KEY` 使用强随机值。
 
-#### 启用 rootless sandbox 执行（规划中，多租户/owner 模式推荐）
+#### 启用 rootless sandbox 执行（推荐用于多租户/owner 模式）
 
-> **⚠️ 状态：M10 路由接线未完成**——`SandboxExecutor` 已实现（[apps/platform/server/services/executor/sandbox-executor.ts](../design/governance/executor-sandbox.md)），但 `Repository.executorKind` 当前 schema 仅接受 `container` / `github-action`（[apps/platform/server/schemas/repository.ts](https://github.com/dependfix/dependfix/blob/master/apps/platform/server/schemas/repository.ts)），scan-orchestrator 路由尚未接入 `sandbox`。本节为**部署形态前置指引**——可先在宿主机完成 rootless daemon 启动并验证可连接，但 dependfix 侧的启用步骤需等路由接线后（backlog T1005）才能使用；当前阶段保持默认 `ContainerExecutor`，本节不会生效。
+> **✅ 状态：M11 T1005 路由接线已就位（2026-08-20）**——`Repository.executorKind` 已接受 `container` / `github-action` / `sandbox` 三值；scan-orchestrator 已接入 sandbox 路由与降级状态机契约（[executor-sandbox.md §7.8 降级状态机契约](../design/governance/executor-sandbox.md)）。平台 Web UI 仓库表单已暴露 sandbox 选项（仓库管理 → 添加/编辑 → 执行方式下拉），管理员可直接在 UI 选择；或经 API 显式指定。
 >
 > **适用范围**：owner/org 多仓库扫描、`--allow-major-upgrade` 跨线升级、对不可信仓库 owner 模式修复——这些场景下恶意依赖脚本在容器内执行的风险显著高于单可信仓库场景，sandbox 执行把执行隔离在独立 rootless 容器内（与平台容器解耦），详见 [executor-sandbox.md §7](../design/governance/executor-sandbox.md#7-sandbox-执行器设计)。
 >
@@ -243,10 +243,10 @@ docker --context rootless info --format '{{.SecurityOptions}}'
 # 输出含 `rootless` 字样 → 真正连到 rootless daemon
 ```
 
-**待 T1005 路由接线后在 dependfix 启用 sandbox 执行**：
+**在 dependfix 启用 sandbox 执行**：
 
 ```bash
-# 仓库级覆盖：仅对指定仓库启用 sandbox（schema 扩展 + 路由落地后可用）
+# 仓库级覆盖：仅对指定仓库启用 sandbox
 curl -X PUT /api/repos/{id} \
   -H 'Content-Type: application/json' \
   -d '{"executorKind": "sandbox"}'
@@ -260,7 +260,12 @@ export DEPENDFIX_ALLOWED_DOMAINS="registry.internal.example.com,artifacts.exampl
 export SANDBOX_RUNTIME=sysbox-runc
 ```
 
-daemon 不可用时（开发机无 Docker / 未启用 rootless / user namespace 受限）`sandbox-executor.ts` 通过 errno 分类返回 `sandbox_unavailable` 错误码，scan-orchestrator 据此降级回 `ContainerExecutor`（详见 [sandbox-executor.ts 错误分类契约](../design/governance/executor-sandbox.md#3-executor-接口契约)）。
+**降级行为**（依据 [executor-sandbox.md §7.8 降级状态机契约](../design/governance/executor-sandbox.md)）：
+
+- **启动时不可用**（开发机无 Docker / 未启用 rootless / user namespace 受限）→ `sandbox.isAvailable()` 返回 false → 自动降级回 `ContainerExecutor` + `degradedReason` 记录 → **run 标 `degraded`**（业务结果完整，UI info 蓝色提示「未启用 rootless，已自动使用平台容器」）
+- **运行时失败**（daemon 中途挂掉）→ `sandbox.execute()` 抛 errno → **不静默降级**（避免掩盖环境中途变化）→ **run 标 `failed`**（`error.code = 'sandbox_unavailable'`，UI warn 黄色告警「沙箱执行器运行时不可用，环境配置可能已变化，请联系管理员」）
+
+A/B 场景差异化见 [executor-sandbox.md §7.8.1](../design/governance/executor-sandbox.md)；治理登记见 [sandbox-security-governance.md §5 G5](../design/governance/sandbox-security-governance.md#5-治理决议与登记) + [§7.1 验收段](../design/governance/sandbox-security-governance.md)。
 
 **反模式（绝对禁止）**：
 

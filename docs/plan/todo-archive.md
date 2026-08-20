@@ -265,12 +265,12 @@
 - **提交序列**: C51 修复 (`b067b3a` → `2102894` → `0b9411b`) → PR1 (`cb788e7` → `9e26b56`) → PR2 (`1a663f3`) → PR3 (`2a7f99f`) → docs 同步 (`0b8088f` → `9ae1767`)
 - **累计 commits**: PR1+PR2+PR3 共 5 commits 待推送 + C51 相关 3 commits 待推送
 - **审计覆盖**: 每个 PR reviewer standard 第 1 轮 + 第 2 轮 Pass；UI validator 视觉验证 Pass
-- **历史教训**（沉淀至 [wisdom.md](../../.session/wisdom.md)）:
-  - W10 删除"自动逻辑"必须搜遍被动接收态路径
-  - W11 Nuxt SSR+CSR e2e `page.route` 拦截局限
-  - W12 单文件跨 type 改动需提前规划 commit 拆分
-  - W15 跨 Dialog 共享选项 i18n label key 同步共享
-  - W17 防御纵深对称性 — 同一资源多入口校验一致
+- **历史教训**（已迁移至 docs/standards/，对应 8d02cce wisdom 蒸馏批次）:
+  - W10 删除"自动逻辑"必须搜遍被动接收态路径 → [开发规范 §5.1.10](../standards/development.md)
+  - W11 Nuxt SSR+CSR e2e `page.route` 拦截局限 → [测试规范 §6.1](../standards/testing.md)
+  - W12 单文件跨 type 改动需提前规划 commit 拆分 → [Git 规范 §3.2](../standards/git.md)
+  - W15 跨 Dialog 共享选项 i18n label key 同步共享 → [开发规范 §6](../standards/development.md)
+  - W17 防御纵深对称性 — 同一资源多入口校验一致 → [安全规范 §3](../standards/security.md)
 
 ---
 
@@ -333,7 +333,7 @@
 - **关键 commit**: `a1d5bd9` sort-helpers 工具 + `532ea78` 全平台 7 表 sortable 接入 + `6b994b5` runs.vue 列数对齐（audit warning 修复） + `5bba3f4` e2e sortable + admin 断言拆分 + `5fbad71` docs Pass 状态同步
 - **完成定义**: 7 表 header 点击切换 asc → desc → none；枚举按业务语义（critical 必须排第一）；batch-runs 增量 reconcile 与排序并存（reconcile 不替换已排序数组引用 — C54 + C60 兼容）；repos 排序后 selectedRows 保留（W10 教训）；单测 32 case 全过；e2e sortable 全过
 - **审计**: A 阶段 audit-standard 第 1 轮 Reject（9 blocker + 5 warning）→ 全部修复 → 第 2 轮 audit-quick **Pass**；V 阶段 ui-validator 768px 响应式 Conditional 已修复
-- **历史教训**（沉淀至 [wisdom.md](../../.session/wisdom.md)）:
+- **历史教训**（已迁移至 [平台规范 §7.1](../standards/platform.md)，对应 8d02cce wisdom 蒸馏批次）:
   - C60-1 PrimeVue 4 sortable 用 `data-p-sortable-column` 属性（CSS class 已废弃）
   - C60-2 PrimeVue 4 `<Chart>` 内部用 `chart.js/auto` ~200KB 全量（vs 自实现 ChartCanvas 40 KB gzip）
   - C60-3 业务语义排序需 `default-sort-order="-1"`（PrimeVue 默认 asc 与业务顺序相反）

@@ -23,13 +23,16 @@ export interface BatchAggregation {
     finishedCount: number
     completedCount: number
     failedCount: number
+    degradedCount: number
     pendingCount: number
     status: BatchRunStatus
     summary: BatchSummary
 }
 
-/** 终态状态集合（聚合计数口径：completed + failed + dispatched 均计终态） */
-const TERMINAL_STATUSES = new Set(['completed', 'failed', 'dispatched'])
+/** 终态状态集合（聚合计数口径：completed + failed + dispatched + degraded 均计终态）。
+ * degraded 是 sandbox 启动时降级的终态——业务结果完整（与 completed 等价口径计入 alertsTotal/fixedCount），
+ * 但因路径偏离不计入 completedCount；详见 executor-sandbox.md §7.8.4 */
+const TERMINAL_STATUSES = new Set(['completed', 'failed', 'dispatched', 'degraded'])
 
 /** 解析 ScanRun.summaryJson（core RunSummary 形状），非法/缺失返回零值（防御：落库路径已控制） */
 const parseRunSummary = (raw: string | null | undefined): { alertsFound: number, alertsFixed: number } => {
@@ -61,6 +64,7 @@ export const aggregateScanRuns = (runs: ScanRun[], results: ScanResult[] = []): 
     let finishedCount = 0
     let completedCount = 0
     let failedCount = 0
+    let degradedCount = 0
     let pendingCount = 0
     let alertsTotal = 0
     let fixedCount = 0
@@ -72,6 +76,14 @@ export const aggregateScanRuns = (runs: ScanRun[], results: ScanResult[] = []): 
         }
         if (run.status === 'completed') {
             completedCount++
+            completedRunIds.add(run.id)
+            const summary = parseRunSummary(run.summaryJson)
+            alertsTotal += summary.alertsFound
+            fixedCount += summary.alertsFixed
+        } else if (run.status === 'degraded') {
+            // degraded 是业务结果完整的路径偏离终态——summaryJson 存在则计入 alertsTotal/fixedCount
+            // 但独立计 degradedCount（不混入 completedCount）；ScanResult 参与 severityCounts（业务完整）
+            degradedCount++
             completedRunIds.add(run.id)
             const summary = parseRunSummary(run.summaryJson)
             alertsTotal += summary.alertsFound
@@ -96,6 +108,7 @@ export const aggregateScanRuns = (runs: ScanRun[], results: ScanResult[] = []): 
         finishedCount,
         completedCount,
         failedCount,
+        degradedCount,
         pendingCount,
         status: pendingCount === 0 ? 'completed' : 'running',
         summary: { alertsTotal, severityCounts, fixedCount },

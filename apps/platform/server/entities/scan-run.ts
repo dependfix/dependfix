@@ -9,7 +9,7 @@ import { BaseEntity } from './base-entity'
 import { Repository } from './repository'
 
 /** 扫描运行状态 */
-export type ScanRunStatus = 'pending' | 'running' | 'completed' | 'failed' | 'dispatched'
+export type ScanRunStatus = 'pending' | 'running' | 'completed' | 'failed' | 'dispatched' | 'degraded'
 
 /** 扫描运行状态枚举（API 校验用） */
 export const SCAN_RUN_STATUSES: readonly ScanRunStatus[] = [
@@ -18,6 +18,7 @@ export const SCAN_RUN_STATUSES: readonly ScanRunStatus[] = [
     'completed',
     'failed',
     'dispatched',
+    'degraded',
 ] as const
 
 /** 扫描运行记录：一次扫描请求（同步执行模型 Q2，请求内完成） */

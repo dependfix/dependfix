@@ -126,7 +126,7 @@ const runScanInternal = async (
         }
         // 终态校验（竞态防护）：入队半成功 + failover 双执行时，job 续用不得回滚已终态的 run
         // （worker 侧抛错走 BullMQ 重试/失败，不触碰 run 记录）；pending/running 允许续用（保留崩溃重试）
-        if (existing.status === 'completed' || existing.status === 'failed' || existing.status === 'dispatched') {
+        if (existing.status === 'completed' || existing.status === 'failed' || existing.status === 'dispatched' || existing.status === 'degraded') {
             throw new Error(`[scan] run ${existing.id} 已处于终态 ${existing.status}，跳过重复执行`)
         }
         existing.status = 'running'
@@ -190,6 +190,9 @@ const runScanInternal = async (
         let result: RunResult | undefined
         let error: { code: string, message: string } | undefined
         let runUrl: string | null = null
+        // 降级信号（M11 T1005-C）：sandbox 启动时不可用 → 自动降级 ContainerExecutor → degradedReason 记录原 sandbox_unavailable
+        // 范围：try 块顶层，确保 decision 处理块可见（degraded 状态机决策的输入）
+        let degradedReason: { code: string, message: string } | undefined
 
         if (executorKind === 'github-action') {
             const executor = new ActionTriggerExecutor(token ?? '')
@@ -216,18 +219,27 @@ const runScanInternal = async (
                 }
             }
         } else if (executorKind === 'sandbox') {
-            // sandbox 路由：先探测 RuntimeAdapter 可用性（docker daemon 可用性），
-            // 不可用立即降级回 ContainerExecutor（避免 30s sandbox 启动失败耗时）。
-            // 运行时偶发故障仍走 sandbox_unavailable 错误码 → 当前标记 failed（不静默降级）。
+            // sandbox 路由：先探测 RuntimeAdapter 可用性（docker daemon 可用性）。
+            // **降级信号契约**（M11 T1005-C，2026-08-20）：
+            // - 启动时不可用（isAvailable() false）→ 自动降级回 ContainerExecutor + degradedReason 记录 → degraded 状态
+            //   （业务结果完整，UI info 提示，不静默降级）
+            // - 运行时偶发故障（execute() 抛 errno）→ 不静默降级，sandbox_unavailable 错误码 → failed 状态
+            //   （环境中途变化，UI warn 告警，避免掩盖真实错误）
+            // 详见 executor-sandbox.md §7.8
             const sandbox = new SandboxExecutor({
                 workRoot: process.env.RUN_WORK_ROOT ?? 'data/runs',
             })
             if (await sandbox.isAvailable()) {
+                // 启动可用 → 走 sandbox（可能 B 场景：execute 抛 errno → sandbox_unavailable）
                 const execResult = await sandbox.execute(ctx)
                 result = execResult.result
                 error = execResult.error
             } else {
-                // 降级回 ContainerExecutor + stderr warn（单机场景不破坏向后兼容）
+                // A 场景：启动时不可用 → 记录降级原因 + 走 ContainerExecutor
+                degradedReason = {
+                    code: 'sandbox_unavailable',
+                    message: `沙箱执行器启动时不可用（无 rootless daemon / user namespace 受限），已自动降级到平台容器（${repository.owner}/${repository.name}）`,
+                }
                 console.warn(`[sandbox] Repository ${repository.owner}/${repository.name} executorKind='sandbox' but daemon unavailable; falling back to container`)
                 const executor = new ContainerExecutor({
                     workRoot: process.env.RUN_WORK_ROOT ?? 'data/runs',
@@ -254,7 +266,9 @@ const runScanInternal = async (
         // - B 模式（github-action）：结果已拉取 → completed + results；触发已受理但结果未就绪
         //   （result_fetch_failed / run_url_not_resolved：action 已在目标仓库运行）→ dispatched + runUrl + 提示；
         //   仅触发级失败（workflow 未配置/不存在/无权限等，action 未运行）→ failed
-        const decision = resolveScanRunState(executorKind, error, result)
+        // - sandbox 启动时降级（A 场景，详见 executor-sandbox.md §7.8）：degraded + summaryJson + runUrl + errorJson
+        //   （业务结果完整，路径偏离；errorJson 保留 sandbox_unavailable 错误码便于审计）
+        const decision = resolveScanRunState(executorKind, error, result, degradedReason)
         if (decision.status === 'dispatched') {
             savedRun.status = 'dispatched'
             savedRun.runUrl = runUrl
@@ -263,6 +277,32 @@ const runScanInternal = async (
             savedRun.status = 'failed'
             savedRun.finishedAt = new Date()
             savedRun.errorJson = error ? JSON.stringify(error) : null
+        } else if (decision.status === 'degraded') {
+            // degraded：业务结果完整 + 路径偏离（与 completed 等价写 summaryJson + runUrl）
+            savedRun.status = 'degraded'
+            savedRun.finishedAt = new Date()
+            savedRun.errorJson = decision.errorJson ? JSON.stringify(decision.errorJson) : null
+            if (result) {
+                savedRun.summaryJson = JSON.stringify(result.summary)
+                savedRun.runUrl = runUrl
+                // 原子写结果明细（与 RunResult.alerts 一一对应；degraded 的 ScanResult 参与 severityCounts 统计——业务完整）
+                const results = (result as RunResult).alerts.map((alert) => ({
+                    scanRunId: savedRun.id,
+                    source: alert.source,
+                    severity: alert.severity,
+                    packageName: alert.packageName,
+                    manifestPath: alert.manifestPath,
+                    ruleId: alert.ruleId,
+                    summary: alert.summary,
+                    fixable: alert.fixable,
+                    fixStrategy: alert.fixStrategy,
+                    recommendedVersion: alert.recommendedVersion,
+                    htmlUrl: alert.htmlUrl,
+                }))
+                if (results.length > 0) {
+                    await resultRepo.save(resultRepo.create(results))
+                }
+            }
         } else if (result) {
             savedRun.status = 'completed'
             savedRun.finishedAt = new Date()

@@ -10,13 +10,6 @@ export interface ScanRunStateDecision {
 /**
  * 扫描状态机决策（纯函数，可单测）。
  *
- * > **⚠️ 实现进度（2026-08-20）**：本注释描述的 `degraded` 状态机扩展与 `degradedReason` 参数契约
- * > 是 [backlog T1005-C](../../../../../docs/plan/backlog.md)（状态机扩展 `degraded` 状态）实施阶段的预期契约，
- * > 详细设计已落盘到 [executor-sandbox.md §7.8](../../../../../docs/design/governance/executor-sandbox.md) 降级状态机契约章节。
- * > 函数体当前仅返回 `'completed' | 'failed' | 'dispatched'`，degraded 分支与 degradedReason 参数处理
- * > 待 T1005-C 实现批次落地。当前调用方（scan-orchestrator.service.ts）暂未传递 degradedReason，
- * > 也不消费 `decision.status === 'degraded'` 分支。
- *
  * **降级场景边界（M11 T1005-C 引入，2026-08-20）**：sandbox 路由的 `sandbox_unavailable` 错误码
  * 在两种场景下产生，但语义边界不同——状态机根据「是否拿到 result + 是否记录降级原因」分流：
  *
@@ -65,6 +58,13 @@ export const resolveScanRunState = (
     // PR 创建失败（分支已推）→ dispatched（runUrl 兜底为 branch URL）
     if (error?.code === 'pr_creation_failed') {
         return { status: 'dispatched', errorJson: error ?? null }
+    }
+    // 启动时降级（A 场景：sandbox 启动时不可用 → 自动降级 ContainerExecutor 跑成功）
+    // 必须放在 error && !result 分支之前：degraded 场景 result 存在 + degradedReason 有值
+    // 语义：「你让我做的事，做成了，但走的路不是你想要的那条」（业务结果完整，路径偏离）
+    // 详见 executor-sandbox.md §7.8.1 A 场景
+    if (result && degradedReason) {
+        return { status: 'degraded', errorJson: degradedReason }
     }
     // 其他错误（push_failed / execution_failed / execution_timeout / sandbox_unavailable 运行时失败）→ failed
     if (error && !result) {

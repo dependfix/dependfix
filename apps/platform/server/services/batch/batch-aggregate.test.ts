@@ -35,6 +35,7 @@ describe('aggregateScanRuns（BatchRun 聚合纯函数）', () => {
             finishedCount: 0,
             completedCount: 0,
             failedCount: 0,
+            degradedCount: 0,
             pendingCount: 0,
         })
         expect(agg.summary).toEqual(EMPTY_BATCH_SUMMARY)
@@ -71,6 +72,7 @@ describe('aggregateScanRuns（BatchRun 聚合纯函数）', () => {
             finishedCount: 2,
             completedCount: 1,
             failedCount: 1,
+            degradedCount: 0,
             pendingCount: 0,
         })
     })
@@ -86,6 +88,7 @@ describe('aggregateScanRuns（BatchRun 聚合纯函数）', () => {
             finishedCount: 2,
             completedCount: 1,
             failedCount: 0,
+            degradedCount: 0,
             pendingCount: 0,
         })
     })
@@ -102,6 +105,7 @@ describe('aggregateScanRuns（BatchRun 聚合纯函数）', () => {
             finishedCount: 1,
             completedCount: 1,
             failedCount: 0,
+            degradedCount: 0,
             pendingCount: 2,
         })
     })
@@ -154,11 +158,80 @@ describe('aggregateScanRuns（BatchRun 聚合纯函数）', () => {
             finishedCount: 0,
             completedCount: 0,
             failedCount: 0,
+            degradedCount: 0,
             pendingCount: 0,
             status: 'completed',
             summary: EMPTY_BATCH_SUMMARY,
         }
         expect(agg).toEqual(expected)
+    })
+
+    it('含 degraded：独立计 degradedCount + alertsTotal/fixedCount 参与（业务结果完整）+ severityCounts 参与', () => {
+        // M11 T1005-C：sandbox 启动时降级 → degraded 状态终态，summaryJson 等价 completed 口径
+        const runs = [
+            completedRun('run-1', 5, 2),
+            makeRun({ id: 'run-2', status: 'degraded', summaryJson: JSON.stringify({ alertsFound: 3, alertsFixed: 1 }) }),
+            makeRun({ id: 'run-3', status: 'failed' }),
+        ]
+        const results = [
+            makeResult({ scanRunId: 'run-1', severity: 'high' }),
+            // degraded run 的 ScanResult 参与 severityCounts（业务完整）
+            makeResult({ scanRunId: 'run-2', severity: 'critical' }),
+            // failed run 的 ScanResult 不参与（业务未完成）
+            makeResult({ scanRunId: 'run-3', severity: 'low' }),
+        ]
+        const agg = aggregateScanRuns(runs, results)
+        expect(agg.status).toBe('completed')
+        expect(agg).toMatchObject({
+            finishedCount: 3,
+            completedCount: 1,
+            failedCount: 1,
+            degradedCount: 1,
+            pendingCount: 0,
+        })
+        // degraded 的 summaryJson 计入 alertsTotal（5+3=8）与 fixedCount（2+1=3）
+        expect(agg.summary).toEqual({
+            alertsTotal: 8,
+            severityCounts: { high: 1, critical: 1 },
+            fixedCount: 3,
+        })
+    })
+
+    it('纯 degraded run（无 completed/failed）：degradedCount 计入 finishedCount', () => {
+        const runs = [
+            makeRun({ id: 'run-1', status: 'degraded', summaryJson: JSON.stringify({ alertsFound: 2, alertsFixed: 0 }) }),
+            makeRun({ id: 'run-2', status: 'degraded', summaryJson: null }),
+        ]
+        const agg = aggregateScanRuns(runs)
+        expect(agg).toMatchObject({
+            finishedCount: 2,
+            completedCount: 0,
+            failedCount: 0,
+            degradedCount: 2,
+            pendingCount: 0,
+        })
+        // 第二个 run summaryJson=null → parseRunSummary 容错为零值
+        expect(agg.summary).toEqual({
+            alertsTotal: 2,
+            severityCounts: {},
+            fixedCount: 0,
+        })
+    })
+
+    it('degraded + pending：整体 running（degraded 是终态，但 pending 阻塞整批）', () => {
+        const runs = [
+            makeRun({ id: 'run-1', status: 'degraded', summaryJson: JSON.stringify({ alertsFound: 1, alertsFixed: 0 }) }),
+            makeRun({ id: 'run-2', status: 'pending' }),
+        ]
+        const agg = aggregateScanRuns(runs)
+        expect(agg.status).toBe('running')
+        expect(agg).toMatchObject({
+            finishedCount: 1,
+            completedCount: 0,
+            failedCount: 0,
+            degradedCount: 1,
+            pendingCount: 1,
+        })
     })
 })
 

@@ -210,7 +210,7 @@
 | C53-后-C | A 模式 dispatched UI 提示（手动开 PR） | P3 | 待评估 | 当前 UI 通用 dispatched 提示 |
 | T1005-A | sandbox 前端 UI 暴露选项（`apps/platform/app/pages/repos.vue` Dropdown + i18n 双语 + 类型扩展） | P1 | 🔶 进行中（2026-08-20） | 文档批次完成；实现批次待跑 |
 | T1005-B | Repository `sandboxLimits` JSON 字段 + orchestrator 透传（API 透传，UI 不暴露限额覆盖表单） | P2 | 📋 待启动 | D5 决策预期；与 A 并行无依赖 |
-| T1005-C | 状态机扩展 `degraded` 状态（sandbox 启动时降级 → degraded + info UI；运行时失败 → failed + warn UI） | P1 | 🔶 进行中（2026-08-20） | 文档批次完成（含 [executor-sandbox.md §7.8 契约](../design/governance/executor-sandbox.md) + scan-run-state.ts JSDoc）；实现批次待跑 |
+| T1005-C | 状态机扩展 `degraded` 状态（sandbox 启动时降级 → degraded + info UI；运行时失败 → failed + warn UI） | P1 | ✅ **已闭环（2026-08-20）** | 函数体 degraded 分支实现 + orchestrator 降级信号透传 + batch-aggregate degradedCount + 14 个新断言；branches 80.32% ≥ 80%；3 核心文件 stmts 100% |
 | T1005-D | quick-start.md 同步（移除「待 T1005 路由接线」过时警告 + G5 行更新 + 文档批次收口） | P2 | 📋 待启动（实现批次同步） | 本批次未触及 quick-start.md；实现批次落地后做 |
 | C-ENV-CHANGE-ALERT | 环境容器变化告警（sandbox 运行时不可用 → audit log + 通知渠道） | P3 | 📋 待评估 | T1005-C §7.8.5 登记；依赖平台 audit log 设计 + 通知渠道选型（邮件 / Slack / Webhook） |
 | C28 | security.md §凭据加密存储章节补齐（T602 AES-256-GCM 文档化） | P2 | 待评估 | T912-3 合并处理 |

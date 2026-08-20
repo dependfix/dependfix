@@ -301,7 +301,7 @@ describe('scan-orchestrator.service', () => {
             expect(containerExecute).not.toHaveBeenCalled()
         })
 
-        it('falls back to ContainerExecutor when sandbox isAvailable() returns false', async () => {
+        it('marks degraded when sandbox isAvailable() returns false and ContainerExecutor fallback succeeds (A 场景)', async () => {
             const repoId = await sandboxRepo()
             sandboxIsAvailable.mockResolvedValue(false)
             containerExecute.mockResolvedValue({ result: makeResult(), error: undefined })
@@ -310,7 +310,11 @@ describe('scan-orchestrator.service', () => {
             const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => { /* 静默降级 warn */ })
 
             const run = await runScanForRepository(repoId, { mode: 'fix', severityThreshold: 'high' })
-            expect(run.status).toBe('completed')
+            // T1005-C：启动时降级 → degraded（业务完整 + 路径偏离；区别于 B 场景运行时失败→failed）
+            expect(run.status).toBe('degraded')
+            expect(run.errorJson).toContain('sandbox_unavailable')
+            expect(run.summaryJson).toContain('alertsTotal')
+            expect(run.finishedAt).toBeTruthy()
             expect(sandboxIsAvailable).toHaveBeenCalledTimes(1)
             expect(sandboxExecute).not.toHaveBeenCalled()
             expect(containerExecute).toHaveBeenCalledTimes(1)
@@ -321,7 +325,7 @@ describe('scan-orchestrator.service', () => {
             warnSpy.mockRestore()
         })
 
-        it('preserves runUrl from ContainerExecutor fallback (fix mode push succeed)', async () => {
+        it('preserves runUrl from ContainerExecutor fallback in degraded state (fix mode push succeed)', async () => {
             const repoId = await sandboxRepo()
             sandboxIsAvailable.mockResolvedValue(false)
             containerExecute.mockResolvedValue({
@@ -333,8 +337,9 @@ describe('scan-orchestrator.service', () => {
             vi.spyOn(console, 'warn').mockImplementation(() => { /* 静默 */ })
 
             const run = await runScanForRepository(repoId, { mode: 'fix-and-pr', severityThreshold: 'high' })
-            expect(run.status).toBe('completed')
+            expect(run.status).toBe('degraded')
             expect(run.runUrl).toBe('https://github.com/demo/app/tree/dependfix/auto-fix-abc12345')
+            expect(run.errorJson).toContain('sandbox_unavailable')
         })
 
         it('propagates sandbox_unavailable error from sandbox.execute (runtime failure, no fallback)', async () => {

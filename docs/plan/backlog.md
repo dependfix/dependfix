@@ -1,6 +1,60 @@
 # 待办积压 (Backlog)
 
 > 本文档存放后续阶段与未排期增强候选。当前阶段任务见 [todo.md](todo.md)；已归档阶段见 [todo-archive.md](todo-archive.md)。
+>
+> **范围约定**：本文件登记延期 / 远期 / 未排期增强候选 + 已知边界 + known-issue。已闭环项归档于 [todo-archive.md](todo-archive.md)；当前阶段活跃待办见 [todo.md](todo.md)。
+
+## 已知边界与 known-issue（2026-08-20 e2e 修复批次遗留）
+
+> 本节登记 e2e 修复批次（[todo-archive.md §2026-08-20 e2e 修复批次](todo-archive.md#2026-08-20-e2e-修复批次c62--c63--c64--chore)）产生的 known-issue 与待迁移经验。所有条目均为**未完成**——CI 触发再次失败或下次 neat-freak 批次需重新评估。
+
+- **PrimeVue 4 + Nuxt hydration 兼容性 bug**（CI run 32383730911 alerts-rowgroup rowGroup 测试遗留）
+  - 状态：🔶 **未完成（2 个 rowGroup 测试 `.fixme` 标记，等修复）**
+  - 内容：PrimeVue 4 DataTable + Nuxt SSR hydration 状态机分歧——onMounted 异步赋值 `alerts.value` 后 PrimeVue 不重新计算 `processedData`，rowGroup subheader 永不渲染（`page.reload()` 后能渲染可佐证非业务逻辑问题）。2 个 alerts-rowgroup.e2e.test.ts 测试以 `test.fixme()` 标记并加 known-issue 注释（命名空间 `known-issue/primevue-hydration-rowgroup`）
+  - 修复路径（候选）：
+    1. 迁移 alerts 加载到 `useAsyncData` 让 SSR 阶段就有数据
+    2. 升级 PrimeVue 到修复版本（监控 PrimeVue 4 changelog）
+  - 验收：alerts-rowgroup.e2e rowGroup 2 个测试取消 `.fixme` 恢复真跑；本机实测 + CI run 双绿
+  - 来源：2026-08-20 e2e 修复批次 C64-3（commit `6f6fe5b`）
+
+### 待迁移经验（next neat-freak 候选）
+
+> 本节登记本批次发现的"项目级规范候选"经验——需在下次 neat-freak 批次中评估是否提升为 `docs/standards/*` 强制条款。未登记迁移任务前易遗漏。
+
+- **CI 失败分析必看 trace page-snapshot**（C62/C63/C64 批次教训）
+  - 内容：CI log 的 `test-results/<spec>/error-context.md` 包含 playwright accessibility tree，能直接看到实际 DOM 状态（row class / cell text / role attribute）—— 比堆栈更快定位 DOM-based 测试失败，特别对 PrimeVue DataTable wrapper / rowGroup 渲染类问题
+  - 候选规范：扩展 [docs/standards/development.md](../../standards/development.md) CI 失败分析章节，明确"看 error-context.md 优先于 trace.zip"
+- **page.route 注册顺序铁律**（C63/C64 批次教训）
+  - 内容：必须在 `page.goto` 之前注册，Vue/Nuxt 应用 `onMounted` 在 hydration 后立即触发 fetch，先 mock 后 goto 才能保证 mock 生效；后注册 mock 会被 onMounted 抢跑的真实 fetch 绕过（hydration 后值再变不再触发已注册的 mock）
+  - 候选规范：扩展 [docs/standards/testing.md](../../standards/testing.md) Playwright e2e mock 时序条款
+- **PrimeVue 类型 vs 运行时不一致**（C64-1 批次教训 + 生产 latent bug 修复）
+  - 内容：TypeScript 类型允许 `DataTableExpandedRows = Record<string, boolean>`，但运行时 v-model:expanded-row-groups 内部用 `.indexOf()` 期望数组——编写 v-model 绑定时需直接看 PrimeVue index.mjs 内部实现，不能信类型定义；本批次 `alerts.vue:150` expandedPackages Record → string[] 修复闭环了 rowGroup 数据流必现 TypeError
+  - 候选规范：扩展 [docs/standards/platform.md §7.1 PrimeVue 集成实践](../../standards/platform.md) v-model 数据形态契约清单
+- **本机 e2e 实际可跑**（C63/C64 批次教训 + 错误判断订正）
+  - 内容：playwright + chromium + build 产物 + e2e sqlite 全部就绪，本机 `pnpm exec playwright test` 完全可行（54 passed / 2 skipped / 0 failed in 2.9min）；之前 CI-only 判断是误判
+  - 候选规范：扩展 [docs/guide/ai-development.md](../../guide/ai-development.md) e2e 调试章节，明确"本机 e2e 可跑，本地调试优先于依赖 CI"
+
+### 延期 / 暂缓项（2026-08-12 用户指示）
+
+- **T705 生产级部署**（PostgreSQL + Helm + Sentry）—— 2026-08-12 用户指示暂缓排期
+- **T703 跨平台 Git**（GitLab + Bitbucket）—— 2026-08-12 用户指示暂缓排期
+- **C30 Publish Docker build job 失败排查** —— 2026-08-18 用户决策暂缓（双平台构建 23m 2s 成功证明当前 docker.yml 可稳定工作）
+
+### 远期登记 / 未排期增强候选
+
+- **MCP**：C33 MCP P3（pnpm-audit 本地 tool / 统一错误包装 / 返回结构对齐完整 RunResult）
+- **i18n**：C36 服务端 API 错误消息 i18n / C37 语言偏好多设备同步
+- **多组织**：D1 repo_admin + RepositoryAccess / D3 多租户组织体系 / SAML 2.0 SSO（D2 username 等待评估）
+- **用户管理**：D8 remove-user 关联资源检查（无 user→resource 关联时暂不需要）
+- **PR 管理**：B1 PR 关闭评论 + label / B2 固定分支单线
+- **Code Scanning**：C15 B 类规则真实仓库样本核对 / C16 规则分类配置化
+- **Code Quality**：C21 接入 Code Quality Standard findings（待 M5 后评估）
+- **org 增强**：C22 GitHub App / installation token / C23 发现规模上限 max-repos / C24 org 级 alerts API 批量拉取
+- **治理**：C34 存量规范严格约束挂接盘点
+- **worktree**：T905 git worktree 并行开发预案（触发条件：多 agent 并行成为常态）
+- **集成测试**：T701-e2e 管理端点集成测试补强
+
+---
 
 ## 2026-08-19~20 平台 UX/可用性闭环批次汇总
 
@@ -9,7 +63,7 @@
 > **收口清单（10 个 backlog 项 → 已归档至 [todo-archive.md](todo-archive.md)）**：
 >
 > | 批次 | 关联 backlog | commit 序列 | 归档位置 |
->|:--|:--|:--|:--|
+> |:--|:--|:--|:--|
 > | **PR1 原子修复** | C47（Dialog draggable）+ C48（默认全勾） | `cb788e7` `9e26b56` | [todo-archive.md §PR1](archive/todo-archive-phases-m11.md#pr1-c47--c48-原子修复-) |
 > | **PR2 单仓库扫描** | C52（mode/severity 选择） | `1a663f3` | [todo-archive.md §PR2](archive/todo-archive-phases-m11.md#pr2-c52-单仓库扫描模式补全-) |
 > | **PR3 批量导入** | C46（过滤 UI）+ C49（分页）+ C50（默认凭据） | `2a7f99f` | [todo-archive.md §PR3](archive/todo-archive-phases-m11.md#pr3-c46--c49--c50-批量导入能力补全-) |
@@ -25,7 +79,6 @@
 > **触发条件未达不实施**：C29（暗色模式）已由 C59 闭环删除；M6 C25/C27（已闭环 2026-08-08）已删除。
 >
 > **本节清理（2026-08-20）**：原 backlog.md 中各 C 项长段描述（C46 / C47 / C48 / C49 / C50 / C51 / C52 / C54 / C55 / C59 / C60 / C61）已删除，详细实施记录 / 修复方向 / 验收要点 / commit hash 见 [todo-archive.md](todo-archive.md) 对应区块。
-
 
 ## M4 增强候选（未排期）
 

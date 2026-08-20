@@ -289,10 +289,14 @@ const openBatchScan = () => {
     batchDialogVisible.value = true
 }
 
-/** 批量触发：POST /api/repos/batch-scan → 跳转批量运行页查看进度与聚合结果 */
+/** 批量触发：POST /api/repos/batch-scan → 跳转批量运行页查看进度与聚合结果
+ * 乐观关闭：提交前立即关闭 dialog，避免用户感知"点了不关"——同步模式下几百毫秒用户不易察觉，
+ * 异步模式下 /api/repos/batch-scan 返回前用户看到的是 dialog 持续 spinning + 滞留期间；
+ * 失败时回滚 dialog + 显示错误 */
 const submitBatchScan = async () => {
     batchSubmitting.value = true
     batchError.value = ''
+    batchDialogVisible.value = false
     try {
         const result = await $fetch<{ batchRunId: string, repositoryCount: number }>('/api/repos/batch-scan', {
             method: 'POST',
@@ -302,10 +306,11 @@ const submitBatchScan = async () => {
                 severityThreshold: batchSeverityThreshold.value,
             },
         })
-        batchDialogVisible.value = false
         success.value = t('repos.success.batchTriggered', { count: result.repositoryCount })
         await navigateTo('/batch-runs')
     } catch (e: any) {
+        // 失败时回滚 dialog + 显示错误（用户可重试或修改后再次提交）
+        batchDialogVisible.value = true
         batchError.value = t('repos.errors.batchFailed', { message: e?.data?.message ?? e?.message ?? t('common.errors.unknown') })
     } finally {
         batchSubmitting.value = false

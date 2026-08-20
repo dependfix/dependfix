@@ -61,6 +61,14 @@ test.describe('扫描历史 Dialog（应用层修复）', () => {
         // 详情加载（可空 results，但不能 error 占位）
         await expect(page.locator('.p-dialog-error, .p-message-error')).toHaveCount(0, { timeout: 15000 })
 
+        // C57：详情视图加"返回列表"按钮（顶导）— 断言按钮可见 + 点击回到列表（不重 fetch）
+        const backToListBtn = page.locator('.p-dialog button[aria-label="返回列表"]')
+        await expect(backToListBtn).toBeVisible({ timeout: 5000 })
+        await backToListBtn.click()
+
+        // 列表再次可见（runs 表格恢复，无重新 fetch 视觉迹象——runs value 在组件状态中保留）
+        await expect(page.locator('.p-dialog .p-datatable tbody tr').first()).toBeVisible({ timeout: 5000 })
+
         // 关闭 Dialog（点 X）
         await page.locator('.p-dialog-close-button').click()
 

@@ -516,6 +516,7 @@
         "statusRunning": "执行中",
         "actionViewActionRun": "查看 Action 运行",
         "actionViewDetail": "查看详情",
+        "backToList": "返回列表",
         "dialogTitle": "扫描详情",
         "detailEmpty": "本次扫描无告警明细",
         "colPackage": "包",

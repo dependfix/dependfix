@@ -516,6 +516,7 @@
         "statusRunning": "Running",
         "actionViewActionRun": "View Action run",
         "actionViewDetail": "View details",
+        "backToList": "Back to list",
         "dialogTitle": "Scan details",
         "detailEmpty": "No alert details in this scan",
         "colPackage": "Package",

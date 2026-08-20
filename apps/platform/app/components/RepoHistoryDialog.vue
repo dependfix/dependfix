@@ -150,6 +150,15 @@ watch(() => route.query.history, async (newVal) => {
             size="small"
             :empty-message="t('runs.detailEmpty')"
         >
+            <template #header>
+                <Button
+                    icon="pi pi-arrow-left"
+                    :label="t('runs.backToList')"
+                    text
+                    size="small"
+                    @click="resetDetail"
+                />
+            </template>
             <Column :header="t('runs.colPackage')" field="packageName" />
             <Column :header="t('runs.colSeverity')">
                 <template #body="{data}">

@@ -451,7 +451,7 @@ describe('scan-orchestrator.service', () => {
         })
     })
 
-    // RG-B09：跨模块集成测试——scan A/B 场景 → audit_event 落库 + notify 触发
+    // 跨模块集成测试——scan A/B 场景 → audit_event 落库 + notify 触发
     describe('scan → audit_event + notify 集成', () => {
         // sandboxRepo 每次返回新 name（避免 Repository 列级复合 unique 索引 bug 导致第二次 insert 冲突）
         let sandboxCounter = 0

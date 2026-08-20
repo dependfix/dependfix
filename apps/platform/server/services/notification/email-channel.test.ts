@@ -112,7 +112,7 @@ describe('EmailNotificationChannel', () => {
         expect(callArgs?.html).toContain('2026-08-20T10:00:00.000Z')
     })
 
-    // RG-B07：locale 注入（默认 zh-CN + event.locale + DEPENDFIX_LOCALE env）
+    // locale 注入（默认 zh-CN + event.locale + DEPENDFIX_LOCALE env）
     it('send() 默认 locale 是 zh-CN（subject 含 [错误]）', async () => {
         vi.mocked(sendMail).mockResolvedValue({ delivered: true, mode: 'smtp' })
         vi.stubGlobal('useRuntimeConfig', () => ({ smtpHost: 'smtp.example.com' }))

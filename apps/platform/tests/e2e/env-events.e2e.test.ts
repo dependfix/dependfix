@@ -5,7 +5,7 @@ import { waitForHydration } from './helpers/hydration.helper'
  * env-events 视图冒烟测试（docs/plan/todo.md §C-ENV-CHANGE-ALERT）。
  *
  * 覆盖：
- * - viewer 角色访问 /env-events 跳转（RG-B05：导航隐藏但 URL 直访必须 403 重定向）
+ * - viewer 角色访问 /env-events 跳转（导航隐藏但 URL 直访必须 403 重定向）
  * - admin 角色可见 + 列表渲染
  * - 过滤器（type / severity / notified / from / to）
  * - 详情展开 payloadJson
@@ -93,10 +93,10 @@ test.describe('C-ENV env-events UI', () => {
 })
 
 /**
- * RG-B05：viewer 角色访问 /env-events 必须被拒绝。
+ * viewer 角色访问 /env-events 必须被拒绝。
  * 通过 viewer auth storage state 验证：UI 隐藏链接 + 直接访问 URL 应跳转到 dashboard 或显示 403。
  */
-test.describe('C-ENV viewer 权限（RG-B05）', () => {
+test.describe('C-ENV viewer 权限', () => {
     test.use({ storageState: 'tests/e2e/.auth/viewer.json' })
 
     test('viewer 导航菜单不显示 env-events 链接', async ({ page }) => {

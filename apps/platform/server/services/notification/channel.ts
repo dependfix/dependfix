@@ -20,7 +20,7 @@ export type SupportedLocale = 'zh-CN' | 'en-US'
 const SUPPORTED_LOCALES: readonly SupportedLocale[] = ['zh-CN', 'en-US'] as const
 
 /**
- * 从字符串解析 locale；不在白名单内回退 zh-CN（RG-B07：避免任意 locale 字符串导致模板 fallback 失败）。
+ * 从字符串解析 locale；不在白名单内回退 zh-CN（避免任意 locale 字符串导致模板 fallback 失败）。
  */
 export function parseSupportedLocale(value: string | undefined): SupportedLocale {
     if (value && (SUPPORTED_LOCALES as readonly string[]).includes(value)) {
@@ -47,7 +47,7 @@ export interface NotificationEvent {
     payload?: Record<string, unknown>
     /** 事件发生时间 */
     createdAt: Date
-    /** 通知 locale（RG-B07：双语邮件按收件人偏好；缺省 zh-CN） */
+    /** 通知 locale（双语邮件按收件人偏好；缺省 zh-CN） */
     locale?: SupportedLocale
 }
 

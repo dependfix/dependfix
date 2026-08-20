@@ -143,7 +143,7 @@ const packageCounts = computed(() => {
     return counts
 })
 
-// RG-B02：rowGroup 多列排序持久 + expandableRowGroups 折叠状态
+// rowGroup 多列排序持久 + expandableRowGroups 折叠状态
 // - 排序模式 multiple：用户点其他列时 PrimeVue 自动把 packageName 保留为第一排序键
 // - 默认 sortField='packageName' + sortOrder=1（升序）保证 group 顺序
 // - 折叠状态按 packageName 跟踪（PrimeVue DataTableExpandedRows 期望 Record<string, boolean>）

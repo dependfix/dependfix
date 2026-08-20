@@ -31,7 +31,7 @@ const filters = ref({
     type: 'all',
     severity: 'all',
     notified: 'all',
-    /** 时间范围过滤（RG-B06：ISO 字符串；空 = 不限） */
+    /** 时间范围过滤（ISO 字符串；空 = 不限） */
     from: '',
     to: '',
 })

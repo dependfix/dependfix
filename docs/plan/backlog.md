@@ -20,7 +20,7 @@
 > | **C60 表格排序** | C60（7 表 sortable + 业务语义） | `a1d5bd9` `532ea78` `6b994b5` `5bba3f4` `5fbad71` | [todo-archive.md §C60](todo-archive.md#c60-平台表格排序) |
 > | **C61 仪表板图表** | C61（severity 饼图 + 修复率 + Top-10） | `ffacfca` `5abd914` `402dc03` `5bba3f4` `5fbad71` | [todo-archive.md §C61](todo-archive.md#c61-仪表板告警图表) |
 >
-> **仍待评估（保留 backlog）**：C53（平台 fix 推送 PR / 后置 M11 评估）/ C56（批量扫描 Dialog 关闭时序）/ C57（扫描历史 Dialog 缺面包屑）/ C58（alerts.vue 图表 / 同类 C61）
+> **仍待评估（保留 backlog）**：C53（平台 fix 推送 PR / 后置 M11 评估）/ C58（alerts.vue 图表 / 同类 C61）
 >
 > **触发条件未达不实施**：C29（暗色模式）已由 C59 闭环删除；M6 C25/C27（已闭环 2026-08-08）已删除。
 >
@@ -210,8 +210,8 @@
 | C53-后-C | A 模式 dispatched UI 提示（手动开 PR） | P3 | 待评估 | 当前 UI 通用 dispatched 提示 |
 | T1005 | sandbox 路由接线（schema 扩展 executorKind = 'sandbox' + orchestrator 分支 + 降级契约） | P1 | 待排期 | M10 实施规划遗留 |
 | C28 | security.md §凭据加密存储章节补齐（T602 AES-256-GCM 文档化） | P2 | 待评估 | T912-3 合并处理 |
-| C56 | 批量扫描 Dialog 关闭时序（乐观关闭） | P3 | 待评估 | C56 backlog |
-| C57 | 扫描历史 Dialog 缺面包屑（"返回列表"按钮） | P3 | 待评估 | C57 backlog |
+| C56 | 批量扫描 Dialog 关闭时序（乐观关闭） | P3 | ✅ **已闭环（2026-08-20）** —— submitBatchScan 提交前 batchDialogVisible = false；失败时回滚 dialog + 显示错误。commit `cda5b90` |
+| C57 | 扫描历史 Dialog 缺面包屑（"返回列表"按钮） | P3 | ✅ **已闭环（2026-08-20）** —— RepoHistoryDialog DataTable header slot 加 icon pi pi-arrow-left + i18n runs.backToList；点击 resetDetail() 回到 list view。commit `cda5b90` |
 | C58 | 告警视图按包聚合 + 图表（独立评估） | P3 | 待评估 | C58 backlog |
 
 ### M11 验收标准（暂拟）
@@ -219,7 +219,7 @@
 - [ ] 平台 A 模式 `fix-and-pr` 真实环境跑通（push + PR 闭环 + UI 提示）
 - [ ] T1005 路由接线后 sandbox 执行器可真实触发（docker daemon 可用时）
 - [ ] security.md §5.4 + §5.5 凭据权限阶 + 加密存储章节落地
-- [ ] C56 / C57 平台 UX 用户反馈小修闭环
+- [x] C56 / C57 平台 UX 用户反馈小修闭环（commit `cda5b90`）
 - [ ] branches 80% 覆盖率维持
 - [ ] `pnpm lint` / `typecheck` / `test` 全绿
 - [ ] CI 端到端裁决通过

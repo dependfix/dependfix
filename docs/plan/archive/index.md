@@ -35,12 +35,12 @@
 4. 若触发行数阈值，按阶段区间切分归档分片
 5. 更新 `archive/index.md` 索引
 
-## 4. 当前基线（2026-08-20 M11 归档批次后）
+## 4. 当前基线（2026-08-20 e2e 修复批次归档后）
 
-- `roadmap.md`: 健康窗口（185 行）。M0-M11 全部归档，Milestone 概述表 11 阶段 + 详细章节覆盖 M0-M11（M11 已闭环）。
-- `todo.md`: 健康窗口（54 行）。M11 全部闭环归档；顶部 banner 标注 12 commits ahead + 完整 commit 序列 + 2 轮审计闭环 + 验证矩阵。
-- `todo-archive.md`: **健康窗口（< 300 行，< 500 阈值）**。主窗口保留最近 3 个批次（回到 3-5 策略）：**C53 收口（2026-08-20）** / 2026-08-20 平台 UI 增强 C59-C61 / 2026-08-20 M11 推进批次摘要。详细子任务实施记录已迁至分片。
-- `backlog.md`: 健康窗口（480 行，< 500 阈值）。M11 段已简化（精简指针 + 子任务闭环清单表格 + 归档指针）；其他阶段（M2/M4/M5.5/M6/M7/MCP）段保持原样。后续仍 backlog 项：C30 / C33 / C36 / C37 / D1-D8 / T701-e2e / SAML / B1-B2 / T905 / C21-C24 / C34 / T705/T703。
+- `roadmap.md`: 健康窗口（184 行）。M0-M11 全部归档，Milestone 概述表 11 阶段 + 详细章节覆盖 M0-M11（M11 已闭环）；e2e 修复批次为 M11 后续 fix 批，未引入新里程碑。
+- `todo.md`: 健康窗口（55 行）。M11 全部闭环 + 2026-08-20 e2e 修复批次（C62/C63/C64 + chore）已归档；顶部 banner 标注 8 commits ahead（C63/C64 + chore）+ C62 三 commits 已随 M11 推送清单 + 3 轮审计闭环 + 验证矩阵（platform e2e 54 passed / 2 skipped / 0 failed）+ 1 项 known-issue 残留登记（PrimeVue 4 + Nuxt hydration）。
+- `todo-archive.md`: **健康窗口（313 行，< 500 阈值）**。主窗口保留最近 4 个批次（3-5 策略范围）：**2026-08-20 e2e 修复批次（C62+C63+C64+chore）** / **C53 收口（2026-08-20）** / 2026-08-20 平台 UI 增强 C59-C61 / 2026-08-20 M11 推进批次摘要。
+- `backlog.md`: 健康窗口（480 行，< 500 阈值）。本批次未新增 backlog 项（修复批，非新功能）；M11 段保持已闭环；其他阶段（M2/M4/M5.5/M6/M7/MCP）段保持原样。后续仍 backlog 项：C30 / C33 / C36 / C37 / D1-D8 / T701-e2e / SAML / B1-B2 / T905 / C21-C24 / C34 / T705/T703。
 - 分片记录：
   - `[todo-archive-phases-m0-m1.md](todo-archive-phases-m0-m1.md)`（M0 / M1，2026-08-07 迁出，115 行）
   - `[todo-archive-phases-m2-m55.md](todo-archive-phases-m2-m55.md)`（M2 / M3 / M4 / M4.5 / M4.6 / M5 / M5.5，2026-08-14 迁出，T906 执行，398 行）
@@ -51,6 +51,7 @@
 
 | 批次 | 归档日期 | 关联 backlog | 归档位置 |
 |:--|:--|:--|:--|
+| 2026-08-20 e2e 修复批次（C62 + C63 + C64 + chore） | 2026-08-20 | 修复批（非新功能）：CI 32382730911 code-scanning #23/#24/#25 + CI 32383730911 6 e2e 失败 + PrimeVue 4 + Nuxt hydration 兼容性 | [todo-archive.md §2026-08-20 e2e 修复批次](../../plan/todo-archive.md#2026-08-20-e2e-修复批次-c62-c63-c64-chore) |
 | 2026-08-20 M11 推进批次（C58 + C-ENV + T1005 + C28 + C56/C57 + C53-后） | 2026-08-20 | M11 全部子任务 | [todo-archive.md §M11 推进批次](../../plan/todo-archive.md#2026-08-20-m11-推进批次业务可见性--沙箱落地--安全文档--通知基建) + [archive/todo-archive-phases-m11.md](todo-archive-phases-m11.md) |
 | C53 + M11 启动（A 模式 push + PR 闭环） | 2026-08-20 | C53（已闭环）+ M11 启动 | [todo-archive.md §C53](../../plan/todo-archive.md#c53-平台集成模式-fix-修复结果推送远程已归档) + [backlog.md §M11](../../plan/backlog.md#m11-业务可见性--沙箱落地--安全文档2026-08-20-已闭环) |
 | M8 迁入分片 + T1005 落地（sandbox 路由接线） | 2026-08-20 | M8 段 + T1005（sandbox 路由接线） | [todo-archive.md §C53 顶部 banner](../../plan/todo-archive.md) + [archive/todo-archive-phases-m6-m7-t711.md §M8](todo-archive-phases-m6-m7-t711.md#m8-安全加固与容器执行完备已归档) |

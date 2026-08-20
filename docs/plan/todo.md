@@ -12,14 +12,14 @@
 
 ### C65-A 用户管理安全 + 角色 i18n（**P1，可立即启动**）
 
-- [x] **C65-A1** admin 禁止对自己修改权限（防降级）
+- [x] **C65-A1** admin 禁止对自己修改权限（防降级，前端 UI 层）
   - 优先级：**P1（安全）**
   - 依赖：无
   - 交付物：`apps/platform/app/pages/users.vue` —— `setRole()` 函数首行增加 self-check（`user.id === session.user.id` → 拒绝 + toast）+ 当前登录 user 的 role `<Select>` 加 `:disabled="user.id === session?.user?.id"`
   - 验收：当前登录 admin 看自己 row 时 role Select 含 `disabled` 属性；切他人 row 仍可改；devtools 强制触发 `setRole(self)` → 拒绝（不修改服务端状态）+ toast 错误
   - 测试：vitest `setRole` 拦截逻辑 ≥ 2 case；playwright admin e2e 看自己 row role Select 含 disabled
   - 预估 diff：~1 文件 +50 行（含 e2e）
-  - **闭环**（commit `1d7c5c8` 2026-08-21）：6 文件 / +81/-1 行；`isSelfTarget` 独立可测函数 + 6 vitest 用例；admin e2e 断言 self row `aria-disabled="true"` / other row `aria-disabled="false"`（PrimeVue 4 disabled 落到内部 `span[role=combobox]` 的 aria-disabled 而非 root class）；服务端强制拦截属后续加固（backlog）
+  - **闭环**（commit `1d7c5c8` 2026-08-21）：6 文件 / +81/-1 行；`isSelfTarget` 独立可测函数 + 6 vitest 用例；admin e2e 断言 self row `aria-disabled="true"` / other row `aria-disabled="false"`（PrimeVue 4 disabled 落到内部 `span[role=combobox]` 的 aria-disabled 而非 root class）
   - 关联：`#7 admin 禁止对自己修改权限`（backlog.md §2026-08-21 平台 UX 反馈批次评估）
 
 - [x] **C65-A2** 角色名称国际化
@@ -31,6 +31,26 @@
   - 预估 diff：~3 文件 +70 行
   - **闭环**（commit `2076fda` 2026-08-21）：4 文件 / +37/-6 行；ROLES computed 化 + roleLabel 同源切换；i18n e2e 断言 zh-CN 含"管理员"/"观察者"、en 含"Admin"/"Viewer" + en 页面无中文残留（"组织管理员"未断言——仅 Select option，未实际分配给 e2e 测试用户，不进入 DataTable）
   - 关联：`#9 角色名称国际化`（backlog.md §2026-08-21 平台 UX 反馈批次评估）
+
+- [x] **C65-A3** 服务端强制拦截 admin 自修改（纵深防御补齐）
+  - 优先级：**P1（安全）**
+  - 依赖：C65-A1（明确"前端拦截等于没有拦截"后追加）
+  - 交付物：`apps/platform/server/middleware/auth-self-guard.ts` —— Nuxt server middleware 拦截 better-auth admin 插件 5 个写端点（set-role / ban-user / remove-user / impersonate-user / **update-user**）+ 双层防护（self-target 拦截 + 最后 admin 兜底）
+  - 验收：devtools/直接 fetch 调 admin API 自修改返回 403；其他 admin demote/ban/remove 唯一 active admin 也返回 403；服务端 session 不依赖前端校验
+  - 测试：playwright admin e2e 直接调 API 验证 5 端点 × 403 + state 未变断言
+  - 预估 diff：~1 新文件 +150 行 + 1 e2e +110 行
+  - **闭环**（commit `b10e270` 2026-08-21）：2 文件 / +331 行；拦截 5 端点（初版 4 端点 + audit W-1 修复 update-user）；错误码 SELF_MUTATION_FORBIDDEN / LAST_ADMIN_GUARD / NO_SESSION 提取为常量
+  - 关联：`#7 admin 禁止对自己修改权限`（C65-A1 已闭环前端层，本任务补服务端层）
+
+- [x] **C65-A4** update-user 端点覆盖（防 W-1 绕过）
+  - 优先级：**P1（安全）**
+  - 依赖：C65-A3（audit W-1 检出 update-user 端点绕过 LAST_ADMIN_GUARD）
+  - 交付物：auth-self-guard.ts 白名单追加 `/api/auth/admin/update-user`；update-user 字段在 body.data 下而非平铺，data.role 非 admin 或 data.banned === true 触发 demote/ban 检查
+  - 验收：devtools 调 update-user 自修改 role/banned 返回 403
+  - 测试：playwright admin e2e 直接调 update-user 验证 self-target + role demote / banned=true 双路径 403
+  - 预估 diff：~1 文件 +30 行（已合入 C65-A3 commit）
+  - **闭环**：合入 commit `b10e270`（同批次提交）
+  - 关联：`#7 admin 禁止对自己修改权限`（audit S-1 补强）
 
 ### C65-B i18n 单点声明治理（P2，**待 C65-A 落地后启动**）
 

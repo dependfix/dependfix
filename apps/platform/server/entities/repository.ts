@@ -87,6 +87,16 @@ export class Repository extends BaseEntity {
      */
     @Column({ type: 'text', nullable: true })
     tags!: string | null
+
+    /**
+     * 沙箱资源限额覆盖（JSON 字符串，可选；与 sandbox-executor.ts SandboxExecutorOptions.sandboxLimits 对齐）：
+     * `{ memoryMb?: number, cpu?: number }` —— 缺省走平台 SANDBOX_DEFAULTS（2048MB/1.0）。
+     * 限额优先级：仓库级 > 沙箱级 > 平台默认（见 sandbox-executor.ts:107 注释）。
+     * UI 暂不暴露该字段（M11 T1005-B 决策：UI 仅做执行方式选择，限额覆盖走 API 层；与 M10 决策 D5「仓库级可选」一致）。
+     * 演进路径：未来若需要批量仓库限额 UI（如 monorepo 大仓库统一调高 memoryMb），可在执行方式 Dropdown 旁加折叠面板。
+     */
+    @Column({ type: 'text', nullable: true })
+    sandboxLimits!: string | null
 }
 
 /** 解析 tags JSON 字符串 → 字符串数组（非法/缺失返回空数组，容错不抛错） */
@@ -101,5 +111,37 @@ export const parseTags = (raw: string | null | undefined): string[] => {
             : []
     } catch {
         return []
+    }
+}
+
+/**
+ * 解析 sandboxLimits JSON 字符串 → 限额对象 `{ memoryMb?, cpu? }`。
+ * 防御策略与 parseTags 一致：非法 JSON / 非对象 / 字段类型异常 → 返回 undefined，
+ * SandboxExecutor 拿到 undefined 后走平台 SANDBOX_DEFAULTS（避免单条脏数据阻塞 list 渲染）。
+ * 字段裁剪：仅保留有效字段（多出字段被丢弃；NaN/Infinity 等非有限数字被丢弃），
+ * 保证下游 SandboxExecutor 收到的对象完全满足 Zod 校验契约（min/max 边界在 schema 层把关）。
+ */
+export const parseSandboxLimits = (
+    raw: string | null | undefined,
+): { memoryMb?: number, cpu?: number } | undefined => {
+    if (!raw) {
+        return undefined
+    }
+    try {
+        const parsed: unknown = JSON.parse(raw)
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+            return undefined
+        }
+        const result: { memoryMb?: number, cpu?: number } = {}
+        const obj = parsed as Record<string, unknown>
+        if (typeof obj.memoryMb === 'number' && Number.isFinite(obj.memoryMb)) {
+            result.memoryMb = obj.memoryMb
+        }
+        if (typeof obj.cpu === 'number' && Number.isFinite(obj.cpu)) {
+            result.cpu = obj.cpu
+        }
+        return Object.keys(result).length > 0 ? result : undefined
+    } catch {
+        return undefined
     }
 }

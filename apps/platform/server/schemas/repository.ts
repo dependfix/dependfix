@@ -13,6 +13,16 @@ export const repositoryBase = z.object({
     note: z.string().max(500).nullable().optional(),
     /** 仓库标签（数组形式输入；空数组在 API 层转 null 存储；更新语义：undefined=不修改 / null 或 [] = 清空） */
     tags: z.array(z.string().trim().min(1, '标签不能为空').max(50)).max(20, '最多 20 个标签').nullable().optional(),
+    /**
+     * 沙箱资源限额覆盖（可选；缺省走平台 SANDBOX_DEFAULTS：2048MB / 1.0 CPU）。
+     * 字段范围：memoryMb [64, 32768] 整数 MB / cpu [0.1, 16]。
+     * 限额优先级（sandbox-executor.ts:107 注释）：仓库级 sandboxLimits > 沙箱级 > SANDBOX_DEFAULTS。
+     * UI 不暴露该字段（M11 T1005-B 决策），仅 API 层透传；演进路径：未来可加折叠面板批量配置。
+     */
+    sandboxLimits: z.object({
+        memoryMb: z.number().int().min(64, 'memoryMb 至少 64MB').max(32768, 'memoryMb 至多 32768MB (32GB)').optional(),
+        cpu: z.number().min(0.1, 'cpu 至少 0.1').max(16, 'cpu 至多 16').optional(),
+    }).nullable().optional(),
 })
 
 /**

@@ -31,6 +31,12 @@ jobs:
         uses: actions/configure-pages@v6
       - name: Install dependencies
         run: pnpm i --frozen-lockfile
+      - name: Lint VitePress Vue interpolation
+        # 拦截 inline code 内 Vue 插值（{{...}} / }}），VitePress 编译会失败；
+        # 修法见 [经验归档 §二十三](../design/governance/experience-archive.md)
+        # 与 docs.yml 自身亦可能含 ${{ }}（GitHub Actions 表达式）——本 step
+        # 仅扫 docs/，workflow 文件本身不进 VitePress 编译管道，安全。
+        run: pnpm check:md-vue-interp
       - name: Build with VitePress
         run: pnpm run docs:build
       - name: Upload artifact

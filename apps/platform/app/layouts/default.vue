@@ -53,6 +53,14 @@ const logout = async () => {
                 </NuxtLink>
                 <NuxtLink
                     v-if="session?.user?.role !== 'viewer'"
+                    to="/env-events"
+                    class="platform__nav-link"
+                    active-class="platform__nav-link--active"
+                >
+                    {{ t('common.nav.envEvents') }}
+                </NuxtLink>
+                <NuxtLink
+                    v-if="session?.user?.role !== 'viewer'"
                     to="/schedules"
                     class="platform__nav-link"
                     active-class="platform__nav-link--active"

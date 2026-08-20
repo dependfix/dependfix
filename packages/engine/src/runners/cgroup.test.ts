@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs'
+import { existsSync, mkdirSync, rmSync } from 'node:fs'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import {
     CGROUP_ROOT,
@@ -458,9 +458,45 @@ describe('observeOom', () => {
 // 集成测试：真实 cgroup v2 + fork 子进程 OOM（仅在真实环境跑）
 // ---------------------------------------------------------------------------
 
-const realCgroupV2 = isCgroupV2()
+/**
+ * 探测当前进程能否写入 cgroup v2 子目录。
+ *
+ * GitHub-hosted runner 默认用户无 cgroup 写权限——标记文件 `cgroup.controllers` 存在，
+ * 但 `applyCgroupLimits` 返回 `applied:false reason:'permission_denied'`，断言会硬挂。
+ * 这里加一层 mkdir/rm 探针：可写才视为真正的集成环境，否则 describe 整体 skip。
+ *
+ * 自托管 runner（含本地 WSL2 v2 + 提权）可写，集成测试照常跑；CI runner 优雅 skip。
+ *
+ * 副作用：可写环境下会真实创建并删除一个子目录节点 `dependfix-probe-<pid>-<ts>`——
+ * rm 用 `force:true` 容忍 ENOENT，finally 兜底处理 mkdir 成功但 rm 失败的边角情况。
+ * 已知盲点：本探针仅验证父目录写权限，不验证 `cgroup.subtree_control` 启用与
+ * `memory.max` / `cpu.max` 写权限（特殊 cgroup 策略 runner 可能仍硬挂，属演进项）。
+ */
+function isCgroupV2Writable(): boolean {
+    if (!isCgroupV2()) {
+        return false
+    }
+    const probe = `${CGROUP_ROOT}/dependfix-probe-${process.pid}-${Date.now()}`
+    try {
+        mkdirSync(probe, { recursive: true })
+        rmSync(probe, { recursive: true, force: true })
+        return true
+    } catch {
+        // EACCES / EPERM：CI runner 典型情况
+        return false
+    } finally {
+        // 兜底：rm 抛错时再清理一次，避免空目录残留（低概率）
+        try {
+            rmSync(probe, { recursive: true, force: true })
+        } catch {
+            // ignore — 已尽力清理
+        }
+    }
+}
 
-describe.skipIf(!realCgroupV2)('integration: real cgroup v2 OOM behavior', () => {
+const realCgroupV2Writable = isCgroupV2Writable()
+
+describe.skipIf(!realCgroupV2Writable)('integration: real cgroup v2 OOM behavior', () => {
     let sliceName: string
 
     beforeEach(() => {

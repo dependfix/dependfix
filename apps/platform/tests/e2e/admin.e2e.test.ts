@@ -163,6 +163,165 @@ test.describe('用户管理（admin）', () => {
         const otherCombobox = otherRow.locator('.p-select span[role="combobox"]')
         await expect(otherCombobox).toHaveAttribute('aria-disabled', 'false')
     })
+
+    test('C65-A3：服务端强制拦截（绕过前端 UI 直接调 API）', async ({ page }) => {
+        // 用 page navigation 让 SSR 走完（auth middleware + useSession 填充 session）
+        await page.goto('/dashboard')
+        await waitForHydration(page)
+        // 从 Nuxt 4 payload（__NUXT_DATA__ 脚本）解析 session.userId
+        // Nuxt 4 用 devalue 编码：payload 是稀疏数组，每个元素就是 value（不再嵌套 array）
+        // user 对象在 payload[15] = {"name":16,"email":17,...,"role":21,"id":12}
+        // 其中 role=21 → payload[21] = "admin"；id=12 → payload[12] = "68058d7f7156e1fb"
+        const selfUserId = await page.evaluate((): string | null => {
+            const el = document.getElementById('__NUXT_DATA__')
+            if (!el?.textContent) {
+                return null
+            }
+            const payload: unknown[] = JSON.parse(el.textContent)
+            const deref = (v: unknown): unknown => {
+                if (typeof v === 'number' && v < payload.length) {
+                    return payload[v]
+                }
+                return v
+            }
+            for (const item of payload) {
+                const isObj = item && typeof item === 'object' && !Array.isArray(item)
+                if (!isObj) {
+                    continue
+                }
+                const obj = item as Record<string, unknown>
+                if (!('role' in obj) || !('id' in obj)) {
+                    continue
+                }
+                if (deref(obj.role) === 'admin') {
+                    const idVal = deref(obj.id)
+                    if (typeof idVal === 'string') {
+                        return idVal
+                    }
+                }
+            }
+            return null
+        })
+        expect(selfUserId, 'session.userId 应在 Nuxt payload 中').toBeTruthy()
+        if (!selfUserId) {
+            return
+        }
+
+        // 用 page.context().request（继承 storageState cookies）替代 page.request
+        const apiReq = page.context().request
+
+        // === 检查 1：self-target set-role → 403 ===
+        const setRoleResp = await apiReq.post('/api/auth/admin/set-role', {
+            data: { userId: selfUserId, role: 'viewer' },
+        })
+        expect(setRoleResp.status()).toBe(403)
+
+        // === 检查 2：self-target ban-user → 403 ===
+        const banResp = await apiReq.post('/api/auth/admin/ban-user', {
+            data: { userId: selfUserId, banReason: 'self-test' },
+        })
+        expect(banResp.status()).toBe(403)
+
+        // === 检查 3：self-target remove-user → 403 ===
+        const removeResp = await apiReq.post('/api/auth/admin/remove-user', {
+            data: { userId: selfUserId },
+        })
+        expect(removeResp.status()).toBe(403)
+
+        // === 检查 4：self-target impersonate-user → 403 ===
+        const impersonateResp = await apiReq.post('/api/auth/admin/impersonate-user', {
+            data: { userId: selfUserId },
+        })
+        expect(impersonateResp.status()).toBe(403)
+
+        // === 验证：服务端拒绝后用户角色未变（admin 仍是 admin，未被 ban/删除）===
+        // 重新通过 page navigation 触发 SSR middleware 重读 session
+        await page.goto('/dashboard')
+        await waitForHydration(page)
+        const afterUserId = await page.evaluate((): string | null => {
+            const el = document.getElementById('__NUXT_DATA__')
+            if (!el?.textContent) {
+                return null
+            }
+            const payload: unknown[] = JSON.parse(el.textContent)
+            const deref = (v: unknown): unknown => {
+                if (typeof v === 'number' && v < payload.length) {
+                    return payload[v]
+                }
+                return v
+            }
+            for (const item of payload) {
+                const isObj = item && typeof item === 'object' && !Array.isArray(item)
+                if (!isObj) {
+                    continue
+                }
+                const obj = item as Record<string, unknown>
+                if (!('role' in obj) || !('id' in obj)) {
+                    continue
+                }
+                if (deref(obj.role) === 'admin') {
+                    const idVal = deref(obj.id)
+                    if (typeof idVal === 'string') {
+                        return idVal
+                    }
+                }
+            }
+            return null
+        })
+        expect(afterUserId).toBe(selfUserId)
+    })
+
+    test('C65-A4：update-user self-target 同样被拦截（防 update-user 绕过）', async ({ page }) => {
+        await page.goto('/dashboard')
+        await waitForHydration(page)
+        const selfUserId = await page.evaluate((): string | null => {
+            const el = document.getElementById('__NUXT_DATA__')
+            if (!el?.textContent) {
+                return null
+            }
+            const payload: unknown[] = JSON.parse(el.textContent)
+            const deref = (v: unknown): unknown => {
+                if (typeof v === 'number' && v < payload.length) {
+                    return payload[v]
+                }
+                return v
+            }
+            for (const item of payload) {
+                const isObj = item && typeof item === 'object' && !Array.isArray(item)
+                if (!isObj) {
+                    continue
+                }
+                const obj = item as Record<string, unknown>
+                if (!('role' in obj) || !('id' in obj)) {
+                    continue
+                }
+                if (deref(obj.role) === 'admin') {
+                    const idVal = deref(obj.id)
+                    if (typeof idVal === 'string') {
+                        return idVal
+                    }
+                }
+            }
+            return null
+        })
+        expect(selfUserId).toBeTruthy()
+        if (!selfUserId) {
+            return
+        }
+        const apiReq = page.context().request
+
+        // update-user 自我 target + role demote → 403
+        const demoteResp = await apiReq.post('/api/auth/admin/update-user', {
+            data: { userId: selfUserId, data: { role: 'viewer' } },
+        })
+        expect(demoteResp.status()).toBe(403)
+
+        // update-user 自我 target + banned=true → 403
+        const banResp = await apiReq.post('/api/auth/admin/update-user', {
+            data: { userId: selfUserId, data: { banned: true } },
+        })
+        expect(banResp.status()).toBe(403)
+    })
 })
 
 test.describe('个人设置', () => {

@@ -94,14 +94,19 @@ test.describe('C-ENV env-events UI', () => {
     })
 
     test('DataTable scrollable：60vh 滚动容器存在', async ({ page }) => {
-        // 必须 mock 返回空数组（[]），否则 events 为空 + loading=false → DataTable 不渲染 wrapper
+        // PrimeVue 4 DataTable scrollable 包裹层 class 名为 .p-datatable-table-container
+        // （PrimeVue 3 叫 .p-datatable-wrapper，4 已重命名）—— 返回 1 条最小数据确保包裹层出现
         await page.route('**/api/audit-events*', (route) => route.fulfill({
-            status: 200, contentType: 'application/json', body: JSON.stringify([]),
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify([
+                { id: 'evt-min', type: 'sandbox_unavailable', severity: 'error', repository: 'demo/app', scanRunId: null, payloadJson: null, notified: false, notifiedVia: null, createdAt: new Date().toISOString() },
+            ]),
         }))
         await page.goto('/env-events')
         await waitForHydration(page)
         await page.waitForSelector('.env-events__table', { timeout: 10000 })
-        const scrollWrapper = page.locator('.env-events__table .p-datatable-wrapper')
+        const scrollWrapper = page.locator('.env-events__table .p-datatable-table-container')
         await expect(scrollWrapper).toBeVisible()
     })
 })

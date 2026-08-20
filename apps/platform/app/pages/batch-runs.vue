@@ -368,27 +368,27 @@ onUnmounted(stopPolling)
                                 size="small"
                                 :empty-message="t('batchRuns.subEmpty')"
                             >
-                                <Column :header="t('batchRuns.colRepo')">
+                                <Column :header="t('runs.colRepo')">
                                     <template #body="{data: run}">
                                         {{ run.owner }}/{{ run.name }}
                                     </template>
                                 </Column>
-                                <Column :header="t('batchRuns.colStatus')">
+                                <Column :header="t('runs.colStatus')">
                                     <template #body="{data: run}">
                                         <Tag :value="runStatusLabel(run.status)" :severity="runStatusSeverity(run.status)" />
                                     </template>
                                 </Column>
-                                <Column :header="t('batchRuns.colExecutor')">
+                                <Column :header="t('runs.colExecutor')">
                                     <template #body="{data: run}">
                                         {{ run.executorKind === 'github-action' ? t('repos.githubAction') : run.executorKind === 'sandbox' ? t('repos.sandboxContainer') : t('repos.platformContainer') }}
                                     </template>
                                 </Column>
-                                <Column :header="t('batchRuns.colAlerts')">
+                                <Column :header="t('runs.colAlerts')">
                                     <template #body="{data: run}">
                                         {{ (run.summary as {alertsFound?: number} | null)?.alertsFound ?? '—' }}
                                     </template>
                                 </Column>
-                                <Column :header="t('batchRuns.colResult')">
+                                <Column :header="t('runs.colResult')">
                                     <template #body="{data: run}">
                                         <span
                                             v-if="run.error"
@@ -410,7 +410,7 @@ onUnmounted(stopPolling)
                                         <!-- C53-后-C：A 模式 PR 创建失败 → dispatched + branch URL 兜底，提示手动开 PR -->
                                         <small
                                             v-if="run.status === 'dispatched' && run.error?.code === 'pr_creation_failed'"
-                                            class="text-warning d-block mt-1"
+                                            class="d-block mt-1 text-warning"
                                         >
                                             {{ t('batchRuns.openRunPrFailedHint') }}
                                         </small>

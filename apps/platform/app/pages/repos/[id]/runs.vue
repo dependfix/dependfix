@@ -143,7 +143,7 @@ const openRunUrl = (url: string) => {
                             />
                             <small
                                 v-if="isPrFailedDispatched(data as RunView)"
-                                class="text-warning d-block mt-1"
+                                class="d-block mt-1 text-warning"
                             >
                                 {{ t('batchRuns.openRunPrFailedHint') }}
                             </small>

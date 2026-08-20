@@ -391,6 +391,30 @@ describe('sanitizeErrorMessage', () => {
         expect(output).toContain('Authorization: basic ***')
     })
 
+    it('masks Authorization: token scheme (legacy GitHub PAT)', () => {
+        // C53-后-B：GitHub REST API 兼容 `Authorization: token ghp_xxx`（legacy 形式）
+        const input = 'fatal: Authentication failed: Authorization: token ghp_TOP_SECRET_PAT_12345'
+        const output = sanitizeErrorMessage(input)
+        expect(output).not.toContain('ghp_TOP_SECRET_PAT_12345')
+        expect(output).toContain('Authorization: token ***')
+    })
+
+    it('masks Authorization: Bearer scheme (GitHub REST API v3+)', () => {
+        // C53-后-B：GitHub REST API v3+ 推荐 `Authorization: Bearer ghp_xxx`
+        const input = 'fatal: 401 Unauthorized: Authorization: Bearer ghp_TOP_SECRET_BEARER_99999'
+        const output = sanitizeErrorMessage(input)
+        expect(output).not.toContain('ghp_TOP_SECRET_BEARER_99999')
+        expect(output).toContain('Authorization: Bearer ***')
+    })
+
+    it('masks Authorization header case-insensitively', () => {
+        // 防御：调用方 / git CLI 可能输出小写 authorization 或大写 TOKEN/BEARER
+        const input = 'error: authorization: TOKEN ghp_case_insensitive_secret'
+        const output = sanitizeErrorMessage(input)
+        expect(output).not.toContain('ghp_case_insensitive_secret')
+        expect(output).toContain('authorization: TOKEN ***')
+    })
+
     it('leaves clean messages unchanged', () => {
         const input = 'fatal: repository not found'
         expect(sanitizeErrorMessage(input)).toBe(input)

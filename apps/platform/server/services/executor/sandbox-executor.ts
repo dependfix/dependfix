@@ -374,9 +374,17 @@ async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
     }
 }
 
-/** 错误消息脱敏:抹除 URL 中可能内联的凭据(纵深防御,与 container-executor.ts 对齐) */
+/**
+ * 错误消息脱敏：抹除 URL 中可能内联的凭据（纵深防御，与 container-executor.ts 对齐）。
+ *
+ * 覆盖模式：URL 内嵌凭据 / Authorization 头（basic / token / Bearer 三种 scheme）。
+ * GitHub REST API v3+ 推荐 `Bearer`，但 legacy `token` 仍兼容——`Authorization: token ghp_xxx`
+ * 与 `Authorization: Bearer ghp_xxx` 均需脱敏（C53-后-B + security.md §5.5）。
+ *
+ * 与 container-executor.ts:340 同步实现；如有调整需同步两处。
+ */
 export function sanitizeErrorMessage(message: string): string {
     return message
         .replace(/https?:\/\/[^/@\s]+@/g, 'https://***@')
-        .replace(/(Authorization: basic )\S+/gi, '$1***')
+        .replace(/(Authorization:\s+(?:basic|token|bearer)\s+)\S+/gi, '$1***')
 }

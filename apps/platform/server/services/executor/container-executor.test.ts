@@ -73,6 +73,29 @@ describe('sanitizeErrorMessage', () => {
         expect(output).toContain('Authorization: basic ***')
     })
 
+    it('masks Authorization: token scheme (legacy GitHub PAT)', () => {
+        // C53-后-B：GitHub REST API 兼容 `Authorization: token ghp_xxx`
+        const input = 'fatal: Authentication failed: Authorization: token ghp_CONTAINER_SECRET_PAT_7777'
+        const output = sanitizeErrorMessage(input)
+        expect(output).not.toContain('ghp_CONTAINER_SECRET_PAT_7777')
+        expect(output).toContain('Authorization: token ***')
+    })
+
+    it('masks Authorization: Bearer scheme (GitHub REST API v3+)', () => {
+        // C53-后-B：GitHub REST API v3+ 推荐 `Authorization: Bearer ghp_xxx`
+        const input = 'fatal: 401 Unauthorized: Authorization: Bearer ghp_CONTAINER_SECRET_BEARER_8888'
+        const output = sanitizeErrorMessage(input)
+        expect(output).not.toContain('ghp_CONTAINER_SECRET_BEARER_8888')
+        expect(output).toContain('Authorization: Bearer ***')
+    })
+
+    it('masks Authorization header case-insensitively', () => {
+        const input = 'error: authorization: BEARER ghp_container_case_secret'
+        const output = sanitizeErrorMessage(input)
+        expect(output).not.toContain('ghp_container_case_secret')
+        expect(output).toContain('authorization: BEARER ***')
+    })
+
     it('leaves clean messages unchanged', () => {
         const input = 'fatal: repository not found'
         expect(sanitizeErrorMessage(input)).toBe(input)

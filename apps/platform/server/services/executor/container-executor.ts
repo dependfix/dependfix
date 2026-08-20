@@ -336,9 +336,21 @@ async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
     }
 }
 
-/** 错误消息脱敏：抹除 URL 中可能内联的凭据（纵深防御，防 execFile argv 回显） */
+/**
+ * 错误消息脱敏：抹除 URL 中可能内联的凭据（纵深防御，防 execFile argv 回显）。
+ *
+ * 覆盖模式：
+ * - URL 内嵌：`https://x-access-token:TOKEN@github.com/...` → `https://***@...`
+ * - Authorization 头：`Authorization: <scheme> <token>`，scheme 支持 `basic` / `token` / `Bearer`
+ *   （GitHub REST API v3+ 推荐 `Bearer`，但 legacy `token` 仍兼容；详见 C53-后-B + security.md §5.5）
+ *
+ * 不覆盖：未匹配到上述模式的明文 token（如 `ghp_xxx` 单独出现）；调用方应避免把明文 token
+ * 拼到错误消息中（防御纵深依赖调用纪律，本工具仅兜底 sanitize）。
+ *
+ * 与 sandbox-executor.ts:378 同步实现；如有调整需同步两处（C53-后-B 登记）。
+ */
 export function sanitizeErrorMessage(message: string): string {
     return message
         .replace(/https?:\/\/[^/@\s]+@/g, 'https://***@')
-        .replace(/(Authorization: basic )\S+/gi, '$1***')
+        .replace(/(Authorization:\s+(?:basic|token|bearer)\s+)\S+/gi, '$1***')
 }

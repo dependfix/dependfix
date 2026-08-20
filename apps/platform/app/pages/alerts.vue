@@ -146,14 +146,14 @@ const packageCounts = computed(() => {
 // rowGroup 多列排序持久 + expandableRowGroups 折叠状态
 // - 排序模式 multiple：用户点其他列时 PrimeVue 自动把 packageName 保留为第一排序键
 // - 默认 sortField='packageName' + sortOrder=1（升序）保证 group 顺序
-// - 折叠状态按 packageName 跟踪（PrimeVue DataTableExpandedRows 期望 Record<string, boolean>）
-const expandedPackages = ref<Record<string, boolean>>({})
-const isPackageExpanded = (packageName: string) => expandedPackages.value[packageName] === true
+// - 折叠状态以 packageName 数组跟踪：PrimeVue v-model:expanded-row-groups 内部用 .indexOf() 判断 group 是否展开，
+//   传 Record<string, boolean> 会触发 TypeError: this.expandedRowGroups.indexOf is not a function（RowGroup 数据流必现）
+const expandedPackages = ref<string[]>([])
+const isPackageExpanded = (packageName: string) => expandedPackages.value.includes(packageName)
 const togglePackage = (packageName: string) => {
-    expandedPackages.value = {
-        ...expandedPackages.value,
-        [packageName]: !isPackageExpanded(packageName),
-    }
+    expandedPackages.value = isPackageExpanded(packageName)
+        ? expandedPackages.value.filter((p) => p !== packageName)
+        : [...expandedPackages.value, packageName]
 }
 
 onMounted(async () => {

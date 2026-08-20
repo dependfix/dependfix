@@ -273,7 +273,7 @@ export function checkVueInterp(repoRoot) {
 // ============================================================
 
 const RULES = {
-    'links': { run: checkLinks, label: 'links' },
+    links: { run: checkLinks, label: 'links' },
     'vue-interp': { run: checkVueInterp, label: 'vue-interp' },
 }
 

@@ -185,7 +185,7 @@ describe('scanVueInterp - 正例', () => {
     it('fenced code block 内含 mustache：天然安全，不报错', () => {
         const content = [
             '```bash',
-            "docker info --format '{{.ServerVersion}}'",
+            'docker info --format \'{{.ServerVersion}}\'',
             '```',
             '上面是合法示例',
         ].join('\n')
@@ -195,9 +195,9 @@ describe('scanVueInterp - 正例', () => {
     it('fenced code block 紧邻正文含 mustache inline code：仍报错', () => {
         const content = [
             '```bash',
-            "echo '{{.x}}'",
+            'echo \'{{.x}}\'',
             '```',
-            "正文里 `{{.y}}'`  仍然违规",
+            '正文里 `{{.y}}\'`  仍然违规',
         ].join('\n')
         const errors = scanVueInterp(content, 'x.md')
         expect(errors).toHaveLength(1)
@@ -218,9 +218,9 @@ describe('scanVueInterp - 正例', () => {
     it('v-pre span 跨多行：span 内 inline code 豁免，span 外仍报错', () => {
         const content = [
             '<span v-pre>',
-            "这里是豁免区 `{{.ServerVersion}}`",
+            '这里是豁免区 `{{.ServerVersion}}`',
             '</span>',
-            "这里是普通区 `{{.OtherField}}`",
+            '这里是普通区 `{{.OtherField}}`',
         ].join('\n')
         const errors = scanVueInterp(content, 'x.md')
         expect(errors).toHaveLength(1)
@@ -242,7 +242,7 @@ describe('scanVueInterp - 正例', () => {
     it('HTML 注释 + 正文中行内代码混合：仅正文报错', () => {
         const content = [
             '<!-- 注释 `{{.x}}` -->',
-            "正文里 `{{.y}}`",
+            '正文里 `{{.y}}`',
         ].join('\n')
         const errors = scanVueInterp(content, 'x.md')
         expect(errors).toHaveLength(1)

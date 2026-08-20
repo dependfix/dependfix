@@ -15,7 +15,7 @@ interface RepoForm {
     packageManager: 'pnpm' | 'npm' | 'yarn'
     credentialId: string | null
     actionWorkflowFile: string
-    executorKind: 'container' | 'github-action'
+    executorKind: 'container' | 'github-action' | 'sandbox'
     note: string
     tags: string[]
 }
@@ -455,7 +455,7 @@ const importDialogVisible = ref(false)
                         sortable
                     >
                         <template #body="{data}">
-                            <Tag :value="data.executorKind === 'github-action' ? t('repos.githubAction') : t('repos.platformContainer')" />
+                            <Tag :value="data.executorKind === 'github-action' ? t('repos.githubAction') : data.executorKind === 'sandbox' ? t('repos.sandboxContainer') : t('repos.platformContainer')" />
                         </template>
                     </Column>
                     <Column :header="t('repos.colActions')" :style="{width: '230px'}">
@@ -576,7 +576,8 @@ const importDialogVisible = ref(false)
                             v-model="form.executorKind"
                             :options="[
                                 {label: t('repos.platformContainer'), value: 'container'},
-                                {label: t('repos.githubAction'), value: 'github-action'}
+                                {label: t('repos.githubAction'), value: 'github-action'},
+                                {label: t('repos.sandboxContainer'), value: 'sandbox'}
                             ]"
                             option-label="label"
                             option-value="value"

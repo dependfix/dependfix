@@ -151,7 +151,7 @@ const openRunUrl = (url: string) => {
                         sortable
                     >
                         <template #body="{data}">
-                            <Tag :value="data.executorKind === 'github-action' ? t('repos.githubAction') : t('repos.platformContainer')" severity="secondary" />
+                            <Tag :value="data.executorKind === 'github-action' ? t('repos.githubAction') : data.executorKind === 'sandbox' ? t('repos.sandboxContainer') : t('repos.platformContainer')" severity="secondary" />
                         </template>
                     </Column>
                     <Column

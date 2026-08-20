@@ -96,6 +96,7 @@
         "colActions": "操作",
         "notLinked": "未关联",
         "platformContainer": "平台容器",
+        "sandboxContainer": "独立沙箱容器",
         "githubAction": "GitHub Action",
         "privateRepo": "私有",
         "publicRepo": "公开",

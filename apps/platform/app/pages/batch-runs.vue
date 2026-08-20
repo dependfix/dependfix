@@ -380,7 +380,7 @@ onUnmounted(stopPolling)
                                 </Column>
                                 <Column :header="t('batchRuns.colExecutor')">
                                     <template #body="{data: run}">
-                                        {{ run.executorKind === 'github-action' ? t('repos.githubAction') : t('repos.platformContainer') }}
+                                        {{ run.executorKind === 'github-action' ? t('repos.githubAction') : run.executorKind === 'sandbox' ? t('repos.sandboxContainer') : t('repos.platformContainer') }}
                                     </template>
                                 </Column>
                                 <Column :header="t('batchRuns.colAlerts')">

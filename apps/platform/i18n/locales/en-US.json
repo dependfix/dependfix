@@ -96,6 +96,7 @@
         "colActions": "Actions",
         "notLinked": "Not linked",
         "platformContainer": "Platform container",
+        "sandboxContainer": "Isolated Sandbox Container",
         "githubAction": "GitHub Action",
         "privateRepo": "Private",
         "publicRepo": "Public",

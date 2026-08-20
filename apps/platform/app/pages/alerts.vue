@@ -3,6 +3,7 @@
 // 顶部加图表区块（severity 饼图 + fixRate 环形 + Top-10 包柱状图），
 // 复用 dashboard.vue 的图表配置（通过 useDashboardStats composable 共享，Nuxt auto-import）
 import { withFixStatusRank, withSeverityRank } from '~/utils/sort-helpers'
+import type { DataTableSortMeta } from 'primevue/datatable'
 
 definePageMeta({
     middleware: 'auth',
@@ -145,9 +146,12 @@ const packageCounts = computed(() => {
 
 // rowGroup 多列排序持久 + expandableRowGroups 折叠状态
 // - 排序模式 multiple：用户点其他列时 PrimeVue 自动把 packageName 保留为第一排序键
-// - 默认 sortField='packageName' + sortOrder=1（升序）保证 group 顺序
+// - 默认排序必须用 multiSortMeta（v-model），不能用 sortField/sortOrder——后者只在 sortMode='single' 生效，
+//   多列模式下 d_multiSortMeta 不会被自动填充，会保持空数组；但 d_sortField 被赋值后 `sorted` 仍为 true，
+//   触发 sortMultiple → multisortField(data, data, 0) → d_multiSortMeta[0].field → TypeError
 // - 折叠状态以 packageName 数组跟踪：PrimeVue v-model:expanded-row-groups 内部用 .indexOf() 判断 group 是否展开，
 //   传 Record<string, boolean> 会触发 TypeError: this.expandedRowGroups.indexOf is not a function（RowGroup 数据流必现）
+const multiSortMeta = ref<DataTableSortMeta[]>([{ field: 'packageName', order: 1 }])
 const expandedPackages = ref<string[]>([])
 const isPackageExpanded = (packageName: string) => expandedPackages.value.includes(packageName)
 const togglePackage = (packageName: string) => {
@@ -305,13 +309,12 @@ onMounted(async () => {
             <template #content>
                 <DataTable
                     v-model:expanded-row-groups="expandedPackages"
+                    v-model:multi-sort-meta="multiSortMeta"
                     :value="alerts"
                     striped-rows
                     size="small"
                     removable-sort
                     sort-mode="multiple"
-                    sort-field="packageName"
-                    :sort-order="1"
                     row-group-mode="subheader"
                     group-rows-by="packageName"
                     expandable-row-groups

@@ -30,6 +30,13 @@
 - **PrimeVue 类型 vs 运行时不一致**（C64-1 批次教训 + 生产 latent bug 修复）
   - 内容：TypeScript 类型允许 `DataTableExpandedRows = Record<string, boolean>`，但运行时 v-model:expanded-row-groups 内部用 `.indexOf()` 期望数组——编写 v-model 绑定时需直接看 PrimeVue index.mjs 内部实现，不能信类型定义；本批次 `alerts.vue:150` expandedPackages Record → string[] 修复闭环了 rowGroup 数据流必现 TypeError
   - 候选规范：扩展 [docs/standards/platform.md §7.1 PrimeVue 集成实践](../standards/platform.md) v-model 数据形态契约清单
+- **PrimeVue 4 DataTable sort-mode="multiple" + sortable 列 stale 注释订正 + default-sort-order 列级无效**（2026-08-21 修复批次 RG-S02/N1 遗留）
+  - 内容：(a) `alerts.vue:148` 注释"PrimeVue 自动保留 packageName 为第一排序键"不准确——PrimeVue 4.5.5 源码 `index.mjs:4626-4632` 显示未按 meta/ctrl 点击时 `d_multiSortMeta = filter(meta => meta.field === columnField)`，packageName 会被清掉，rowGroup 第一排序键丢失可能致 subheader 错乱（C64 hydration fixme 掩盖中）；(b) `<Column :default-sort-order="-1">` 被 PrimeVue 4 Column 静默忽略（无 `defaultSortOrder` prop + `inheritAttrs: false`，alerts.vue:353/390 两处），业务语义排序未真正生效
+  - 候选规范：扩展 [docs/standards/platform.md §7.1](../standards/platform.md) —— (a) rowGroup 多列排序语义明确"groupRowsBy 字段需永久作为第一排序键"；(b) PrimeVue 4 Column 不支持 per-column `defaultSortOrder`，业务语义排序只能靠 DataTable 顶层 `defaultSortOrder` + 派生 `_xxxRank` 字段
+  - 候选实现：(a) `alerts.vue` rowGroup 排序锁死（监听 multiSortMeta 变化把 groupRowsBy 字段 re-prepend，类似 PrimeVue 内部 `d_groupRowsSortMeta` 机制）；(b) 移除 alerts.vue Column 上的 `:default-sort-order="-1"` 或评估改为 DataTable 顶层 `default-sort-order="-1"`（与 `_severityRank` 升序语义冲突需谨慎）
+- **PrimeVue 4 DataTable multisortMeta 教训挂接 review 检查点**（2026-08-21 修复批次 RG-S03 遗留）
+  - 内容：本次修复在 [docs/standards/platform.md §7.1](../standards/platform.md) 新增严格约束（"sort-mode='multiple' 必须用 v-model:multi-sort-meta"），但 `.github/skills/code-reviewer/references/code-quality-checklist.md` 无对应小节，新规则目前只能靠人工翻 standards.md 才避免复发
+  - 候选实现：在 `code-quality-checklist.md` §规范一致性 下加"PrimeVue 4 DataTable v-model 形态契约"小节并一行链接引用 §7.1（单点声明原则）；或登记 neat-freak 批次统一处理
 - **本机 e2e 实际可跑**（C63/C64 批次教训 + 错误判断订正）
   - 内容：playwright + chromium + build 产物 + e2e sqlite 全部就绪，本机 `pnpm exec playwright test` 完全可行（54 passed / 2 skipped / 0 failed in 2.9min）；之前 CI-only 判断是误判
   - 候选规范：扩展 [docs/guide/ai-development.md](../guide/ai-development.md) e2e 调试章节，明确"本机 e2e 可跑，本地调试优先于依赖 CI"

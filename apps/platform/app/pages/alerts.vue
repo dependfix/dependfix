@@ -1,5 +1,7 @@
 <script setup lang="ts">
 // 告警视图：按仓库/严重级别/来源筛选
+// 顶部加图表区块（severity 饼图 + fixRate 环形 + Top-10 包柱状图），
+// 复用 dashboard.vue 的图表配置（通过 useDashboardStats composable 共享，Nuxt auto-import）
 import { withFixStatusRank, withSeverityRank } from '~/utils/sort-helpers'
 
 definePageMeta({
@@ -92,7 +94,7 @@ const fetchAlerts = async () => {
     loading.value = true
     error.value = ''
     try {
-        const query: Record<string, string> = {}
+        const query: Record<string, string> = { groupBy: 'package' }
         if (filters.value.repositoryId !== 'all') {
             query.repositoryId = filters.value.repositoryId
         }
@@ -106,15 +108,56 @@ const fetchAlerts = async () => {
         // 排序键派生：severity / fixStatus 走业务语义排序（非字典序）
         const list = res as AlertView[]
         alerts.value = withFixStatusRank(withSeverityRank(list))
-    } catch (e: any) {
-        error.value = t('alerts.errors.loadFailed', { message: e?.data?.message ?? e?.message ?? t('common.errors.unknown') })
+    } catch (e: unknown) {
+        const err = e as { data?: { message?: string }, message?: string }
+        error.value = t('alerts.errors.loadFailed', {
+            message: err.data?.message ?? err.message ?? t('common.errors.unknown'),
+        })
     } finally {
         loading.value = false
     }
 }
 
+// 复用 dashboard.vue 的图表数据 composable（Nuxt auto-import）
+const {
+    stats,
+    fetchStats,
+    severityChartData,
+    severityChartOptions,
+    hasSeverityData,
+    fixRateChartData,
+    fixRateChartOptions,
+    fixRatePercent,
+    fixRateIsEmpty,
+    topPackagesChartData,
+    topPackagesChartOptions,
+    hasTopPackages,
+} = useDashboardStats()
+
+// rowGroup 模式：按 packageName 聚合计数（subheader 显示该包告警数）
+const packageCounts = computed(() => {
+    const counts = new Map<string, number>()
+    for (const a of alerts.value) {
+        counts.set(a.packageName, (counts.get(a.packageName) ?? 0) + 1)
+    }
+    return counts
+})
+
+// RG-B02：rowGroup 多列排序持久 + expandableRowGroups 折叠状态
+// - 排序模式 multiple：用户点其他列时 PrimeVue 自动把 packageName 保留为第一排序键
+// - 默认 sortField='packageName' + sortOrder=1（升序）保证 group 顺序
+// - 折叠状态按 packageName 跟踪（PrimeVue DataTableExpandedRows 期望 Record<string, boolean>）
+const expandedPackages = ref<Record<string, boolean>>({})
+const isPackageExpanded = (packageName: string) => expandedPackages.value[packageName] === true
+const togglePackage = (packageName: string) => {
+    expandedPackages.value = {
+        ...expandedPackages.value,
+        [packageName]: !isPackageExpanded(packageName),
+    }
+}
+
 onMounted(async () => {
-    await fetchRepositories()
+    await Promise.all([fetchRepositories(), fetchStats()])
     await fetchAlerts()
 })
 </script>
@@ -127,6 +170,78 @@ onMounted(async () => {
                 <p class="text-muted">
                     {{ t('alerts.subtitle') }}
                 </p>
+            </div>
+        </div>
+
+        <!-- 图表统计区块（severity 饼图 + fixRate 环形 + Top-10 包柱状图）—— 复用 dashboard.vue 图表配置 -->
+        <div class="alerts__charts">
+            <h3>{{ t('dashboard.chartTitle') }}</h3>
+            <div class="alerts__charts-grid">
+                <Card class="alerts__chart-card">
+                    <template #content>
+                        <h4 class="alerts__chart-title">
+                            {{ t('dashboard.severityChartTitle') }}
+                        </h4>
+                        <ClientOnly>
+                            <div class="alerts__chart-canvas">
+                                <ChartCanvas
+                                    type="doughnut"
+                                    :data="severityChartData"
+                                    :options="severityChartOptions"
+                                    :aria-label="`${t('dashboard.severityChartTitle')}: ${Object.entries(stats?.severityCounts ?? {}).map(([k, v]) => `${k} ${v}`).join(', ')}`"
+                                />
+                                <p v-if="!hasSeverityData" class="alerts__chart-overlay-empty text-muted">
+                                    {{ t('dashboard.chartEmpty') }}
+                                </p>
+                            </div>
+                        </ClientOnly>
+                    </template>
+                </Card>
+                <Card class="alerts__chart-card">
+                    <template #content>
+                        <h4 class="alerts__chart-title">
+                            {{ t('dashboard.fixRateChartTitle') }}
+                        </h4>
+                        <ClientOnly>
+                            <div class="alerts__chart-canvas alerts__chart-canvas--with-center">
+                                <ChartCanvas
+                                    type="doughnut"
+                                    :data="fixRateChartData"
+                                    :options="fixRateChartOptions"
+                                    :aria-label="`${t('dashboard.fixRateChartTitle')}: ${t('dashboard.fixRateValue', {percent: fixRatePercent})}`"
+                                />
+                                <div class="alerts__chart-center">
+                                    <span v-if="fixRateIsEmpty" class="alerts__chart-center-value alerts__chart-center-value--muted">—</span>
+                                    <span v-else class="alerts__chart-center-value">{{ t('dashboard.fixRateValue', {percent: fixRatePercent}) }}</span>
+                                </div>
+                                <p v-if="fixRateIsEmpty" class="alerts__chart-overlay-empty text-muted">
+                                    {{ t('dashboard.chartEmpty') }}
+                                </p>
+                            </div>
+                        </ClientOnly>
+                    </template>
+                </Card>
+                <Card class="alerts__chart-card alerts__chart-card--wide">
+                    <template #content>
+                        <h4 class="alerts__chart-title">
+                            {{ t('dashboard.topPackagesChartTitle') }}
+                            <span class="alerts__chart-hint text-muted">{{ t('dashboard.packageTruncated') }}</span>
+                        </h4>
+                        <ClientOnly>
+                            <div class="alerts__chart-canvas alerts__chart-canvas--bar">
+                                <ChartCanvas
+                                    type="bar"
+                                    :data="topPackagesChartData"
+                                    :options="topPackagesChartOptions"
+                                    :aria-label="`${t('dashboard.topPackagesChartTitle')}: ${(stats?.topPackages ?? []).map((p) => `${p.packageName} ${p.count}`).join(', ')}`"
+                                />
+                                <p v-if="!hasTopPackages" class="alerts__chart-overlay-empty text-muted">
+                                    {{ t('dashboard.chartEmpty') }}
+                                </p>
+                            </div>
+                        </ClientOnly>
+                    </template>
+                </Card>
             </div>
         </div>
 
@@ -189,12 +304,40 @@ onMounted(async () => {
         <Card v-if="!loading" class="alerts__table">
             <template #content>
                 <DataTable
+                    v-model:expanded-row-groups="expandedPackages"
                     :value="alerts"
                     striped-rows
                     size="small"
                     removable-sort
+                    sort-mode="multiple"
+                    sort-field="packageName"
+                    :sort-order="1"
+                    row-group-mode="subheader"
+                    group-rows-by="packageName"
+                    expandable-row-groups
                     :empty-message="t('alerts.empty')"
                 >
+                    <template #groupheader="{data}">
+                        <span
+                            class="alerts__group-header"
+                            role="button"
+                            tabindex="0"
+                            :aria-expanded="isPackageExpanded(data.packageName)"
+                            @click="togglePackage(data.packageName)"
+                            @keydown.enter.prevent="togglePackage(data.packageName)"
+                            @keydown.space.prevent="togglePackage(data.packageName)"
+                        >
+                            <i
+                                :class="isPackageExpanded(data.packageName) ? 'pi pi-chevron-down' : 'pi pi-chevron-right'"
+                                class="alerts__group-toggle"
+                                aria-hidden="true"
+                            />
+                            <strong>{{ data.packageName }}</strong>
+                            <span class="alerts__group-count text-muted">
+                                {{ t('alerts.groupHeaderCount', {count: packageCounts.get(data.packageName) ?? 0}) }}
+                            </span>
+                        </span>
+                    </template>
                     <Column
                         field="repository"
                         :header="t('alerts.colRepository')"
@@ -284,6 +427,91 @@ onMounted(async () => {
         font-size: $font-size-sm;
     }
 
+    // 图表区块样式（与 dashboard.vue charts-grid 一致，含 768px 响应式断点）
+    &__charts {
+        margin-bottom: $space-6;
+    }
+
+    &__charts-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: $space-4;
+        margin-top: $space-3;
+        align-items: stretch;
+    }
+
+    @media (max-width: 768px) {
+        &__charts-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    &__chart-card {
+        height: 100%;
+
+        &--wide {
+            grid-column: 1 / -1;
+        }
+    }
+
+    &__chart-title {
+        margin: 0 0 $space-3;
+        font-size: $font-size-base;
+        font-weight: 600;
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: $space-3;
+    }
+
+    &__chart-hint {
+        font-size: $font-size-sm;
+        font-weight: 400;
+    }
+
+    &__chart-canvas {
+        position: relative;
+        height: 280px;
+
+        &--bar {
+            height: 360px;
+        }
+
+        &--with-center {
+            position: relative;
+        }
+    }
+
+    &__chart-overlay-empty {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0;
+        pointer-events: none;
+        font-size: $font-size-sm;
+    }
+
+    &__chart-center {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        pointer-events: none;
+    }
+
+    &__chart-center-value {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: $color-text;
+
+        &--muted {
+            color: $color-text-muted;
+        }
+    }
+
     &__filters {
         margin-bottom: $space-4;
     }
@@ -305,6 +533,41 @@ onMounted(async () => {
     &__filter-field label {
         font-size: $font-size-sm;
         font-weight: 500;
+    }
+
+    // rowGroup 模式：subheader 显示包名 + 该包告警数
+    &__group-header {
+        display: inline-flex;
+        align-items: baseline;
+        gap: $space-2;
+        cursor: pointer;
+        user-select: none;
+
+        &:focus-visible {
+            outline: 2px solid $color-primary;
+            outline-offset: 2px;
+        }
+    }
+
+    &__group-toggle {
+        font-size: $font-size-sm;
+        width: 1rem;
+        text-align: center;
+    }
+
+    &__group-count {
+        font-size: $font-size-sm;
+        font-weight: 400;
+    }
+}
+
+@include dark-mode {
+    .alerts__chart-center-value {
+        color: $color-text-dark;
+
+        &--muted {
+            color: $color-text-muted;
+        }
     }
 }
 </style>

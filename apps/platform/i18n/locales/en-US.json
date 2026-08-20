@@ -76,6 +76,11 @@
         },
         "severity": {
             "all": "All"
+        },
+        "role": {
+            "admin": "Admin",
+            "orgAdmin": "Org Admin",
+            "viewer": "Viewer"
         }
     },
     "repos": {

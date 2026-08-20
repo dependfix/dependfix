@@ -14,11 +14,11 @@ definePageMeta({
 const { t } = useI18n()
 const { session } = useSession()
 
-const ROLES: { label: string, value: Role }[] = [
-    { label: 'Admin', value: 'admin' },
-    { label: 'Org Admin', value: 'org_admin' },
-    { label: 'Viewer', value: 'viewer' },
-]
+const ROLES = computed<{ label: string, value: Role }[]>(() => [
+    { label: t('common.role.admin'), value: 'admin' },
+    { label: t('common.role.orgAdmin'), value: 'org_admin' },
+    { label: t('common.role.viewer'), value: 'viewer' },
+])
 
 const loading = ref(true)
 const saving = ref(false)
@@ -160,7 +160,7 @@ const remove = async (user: UserView) => {
     }
 }
 
-const roleLabel = (role: Role | null) => ROLES.find((r) => r.value === role)?.label ?? t('users.unknownRole')
+const roleLabel = (role: Role | null) => ROLES.value.find((r) => r.value === role)?.label ?? t('users.unknownRole')
 const roleSeverity = (role: Role | null) => {
     if (role === 'admin') {
         return 'danger'

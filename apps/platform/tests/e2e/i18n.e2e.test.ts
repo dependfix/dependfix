@@ -86,4 +86,25 @@ test.describe('国际化（i18n 语言切换）', () => {
         await expect(dialog).toBeVisible({ timeout: 15000 })
         await expect(dialog.locator('.p-dialog-header-actions button')).toHaveAttribute('aria-label', '关闭')
     })
+
+    test('C65-A2：用户管理角色标签随语言切换（zh-CN 管理员 / 观察者；en Admin / Viewer）', async ({ page }) => {
+        // 默认 zh-CN → 角色 Tag 应为中文（实际用户 admin / viewer，对应"管理员" / "观察者"；
+        // "组织管理员"仅出现在 Select option，未实际分配给任何用户时不进入 DataTable）
+        await page.goto('/users')
+        await waitForHydration(page)
+        await expect(page.locator('.p-datatable')).toContainText('管理员', { timeout: 15000 })
+        await expect(page.locator('.p-datatable')).toContainText('观察者')
+
+        // 切 en → 角色 Tag 应为英文
+        await page.goto('/dashboard')
+        await waitForHydration(page)
+        await switchLocale(page, 'English')
+        await expect(page.locator('.platform__nav')).toContainText('Dashboard', { timeout: 15000 })
+        await page.goto('/en/users')
+        await waitForHydration(page)
+        await expect(page.locator('.p-datatable')).toContainText('Admin', { timeout: 15000 })
+        await expect(page.locator('.p-datatable')).toContainText('Viewer')
+        // 无中文残留
+        await expect(page.locator('.p-datatable')).not.toContainText('管理员')
+    })
 })

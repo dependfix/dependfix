@@ -76,6 +76,11 @@
         },
         "severity": {
             "all": "全部"
+        },
+        "role": {
+            "admin": "管理员",
+            "orgAdmin": "组织管理员",
+            "viewer": "观察者"
         }
     },
     "repos": {

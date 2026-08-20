@@ -210,7 +210,7 @@ onMounted(fetchEvents)
                             fluid
                         />
                     </div>
-                    <div class="env-events__filter-field">
+                    <div class="env-events__filter-action">
                         <Button
                             :label="t('envEvents.filterApply')"
                             icon="pi pi-filter"
@@ -335,6 +335,11 @@ onMounted(fetchEvents)
     &__filter-field label {
         font-size: $font-size-sm;
         font-weight: 500;
+    }
+
+    &__filter-action {
+        display: flex;
+        align-items: flex-end;
     }
 
     &__message-preview {

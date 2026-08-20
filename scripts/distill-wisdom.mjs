@@ -102,8 +102,8 @@ export function parseWisdom(content) {
             }
         }
 
-        // 日期分组标题（旧格式/历史格式）：## YYYY-MM-DD ...
-        const dateMatch = trimmed.match(/^##\s+(\d{4}-\d{2}-\d{2})/u)
+        // 日期分组标题（旧格式/历史格式）：## YYYY-MM-DD ... 或 ### YYYY-MM-DD ...
+        const dateMatch = trimmed.match(/^#{2,3}\s+(\d{4}-\d{2}-\d{2})/u)
         if (dateMatch) {
             flushEntry()
             currentSection = currentSection ?? 'active'
@@ -116,8 +116,8 @@ export function parseWisdom(content) {
             currentSection = 'active'
         }
 
-        // Active 小节中 keep 条目（`### N.` 行）与摘要行（`- [date]` 列表前缀）需可达
-        if (currentDate === null && !trimmed.startsWith('### ') && !/^[-*]?\s*\[/u.test(trimmed)) {
+        // Active 小节中 keep 条目（`### N.` 行）与摘要行（`- [date]` 列表前缀 / `- **[type-N]**` 新格式）需可达
+        if (currentDate === null && !trimmed.startsWith('### ') && !/^[-*]?\s*\[/u.test(trimmed) && !/^[-*]\s+\*\*\[/u.test(trimmed)) {
             continue
         }
 
@@ -135,6 +135,26 @@ export function parseWisdom(content) {
                 isDistilled: currentSection === 'historical',
                 lines: [],
             })
+            continue
+        }
+
+        // 当前条目摘要行（新格式）：- **[type-id]** 标题 → 详见/已迁移至 docs/...
+        // 例：- **[pattern-W6]** `JSON.parse(x) as RunResult` 不做运行时校验 → 详见 [docs/standards/testing.md §2](../docs/standards/testing.md#2-测试设计原则)
+        // type-id 允许含 `/`（如 `practice-B1 实战`/`pattern-FsAdapter mock`/`flow-audit 阈值`/`pattern-文档事实校验` 等）
+        // type 部分（取首段 - 之前）作为分类键
+        const newFormatMatch = trimmed.match(/^[-*]\s+\*\*\[([^\]]+)\]\*\*\s+(.+?)(?:→\s*(?:详见|已迁移至)\s*(.+?))?$/u)
+        if (newFormatMatch) {
+            flushEntry()
+            const typePart = newFormatMatch[1].split(/[-\s]/)[0]
+            currentEntry = {
+                date: currentDate ?? 'unknown',
+                type: typePart,
+                title: newFormatMatch[2],
+                target: newFormatMatch[3] ?? null,
+                isDistilled: currentSection === 'historical',
+                lines: [],
+                source: newFormatMatch[1], // 完整 type-id 用于追溯
+            }
             continue
         }
 

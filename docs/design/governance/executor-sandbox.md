@@ -183,7 +183,7 @@ GitHub `dispatches` API 成功返回 204 即触发受理，但不返回 run id�
 
 ## 6. 相关文档
 
-- [todo.md §M6 规划决策](../../plan/todo.md)：Q1/Q4/Q5 决策依据
+- [todo-archive.md §M6 规划决策](../../plan/archive/todo-archive-phases-m6-m7-t711.md)：Q1/Q4/Q5 决策依据
 - [backlog.md C25 Action 触发结果回填](../../plan/backlog.md)：结果回填实现记录
 - [backlog.md C26 独立沙箱容器执行实现](../../plan/backlog.md)：独立沙箱容器 backlog 登记 + 2026-08-19 决策
 - [todo-archive.md §M10 C26 实施规划](../../plan/todo-archive.md#m10-独立沙箱容器-c26-实施规划已归档)：T1001-T1004 子任务拆解与验收要点（2026-08-20 收口归档）

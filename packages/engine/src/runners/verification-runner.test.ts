@@ -27,6 +27,7 @@ import {
     sanitizeOutput,
     summarizeVerificationOutput,
 } from './verification-runner'
+import { extractHostname } from './network-audit'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -304,7 +305,7 @@ describe('runVerification', () => {
         })
 
         expect(result.networkViolations).toHaveLength(0)
-        expect(result.networkAudit?.some((e) => e.source === 'command-output' && e.target.startsWith('https://registry.npmjs.org'))).toBe(true)
+        expect(result.networkAudit?.some((e) => e.source === 'command-output' && extractHostname(e.target) === 'registry.npmjs.org')).toBe(true)
     })
 
     it('omits network audit when disabled', async () => {

@@ -4,6 +4,7 @@ import { expectError, makeEvent, setupMemoryDatabase, teardownMemoryDatabase } f
 import credentialsIndexHandler from '../credentials/index'
 import batchImportHandler from './batch.post'
 import reposIndexHandler from './index'
+import { Repository } from '#server/entities/repository'
 import { Credential } from '#server/entities/credential'
 import { Organization } from '#server/entities/organization'
 import { ensureDatabaseInitialized } from '#server/database'
@@ -71,6 +72,72 @@ describe('POST /api/repos/batch', () => {
 
     it('rejects empty repos array with 400 (at least one repository required)', async () => {
         await expectError(call({ repos: [] }), 400)
+    })
+
+    it('persists actionWorkflowFile/note when provided (?? null truthy 路径)', async () => {
+        const result = await call({
+            repos: [{
+                owner: 'demo',
+                name: 'with-extras',
+                platform: 'github',
+                defaultBranch: 'main',
+                packageManager: 'pnpm',
+                executorKind: 'github-action',
+                actionWorkflowFile: '.github/workflows/scan.yml',
+                note: 'primary repo',
+            }],
+        }) as Record<string, unknown>
+        expect(result.imported).toBe(1)
+
+        const list = await reposIndexHandler(makeEvent('GET', '/api/repos')) as {
+            name: string
+            actionWorkflowFile: string | null
+            note: string | null
+        }[]
+        const withExtras = list.find((r) => r.name === 'with-extras')
+        expect(withExtras?.actionWorkflowFile).toBe('.github/workflows/scan.yml')
+        expect(withExtras?.note).toBe('primary repo')
+    })
+
+    it('并发重复导入（UNIQUE constraint failed）→ 视为跳过，整体不失败', async () => {
+        // 模拟并发场景：findOne 未命中但 save 撞唯一索引。
+        // 真实生产中两个并发请求同时通过 findOne 检查后，第二个 save() 触发约束。
+        const ds = await ensureDatabaseInitialized()
+        const repoRepo = ds.getRepository(Repository)
+        const saveSpy = vi.spyOn(repoRepo, 'save').mockRejectedValueOnce(
+            new Error('SQLiteError: UNIQUE constraint failed: repository.owner, repository.name, repository.platform'),
+        )
+
+        try {
+            const result = await call({
+                repos: [repoItem('demo', 'concurrent-dup')],
+            }) as Record<string, unknown>
+
+            expect(result.results).toEqual([
+                { owner: 'demo', name: 'concurrent-dup', imported: false, skipped: true },
+            ])
+            expect(result.imported).toBe(0)
+            expect(result.skipped).toBe(1)
+            expect(saveSpy).toHaveBeenCalledOnce()
+        } finally {
+            saveSpy.mockRestore()
+        }
+    })
+
+    it('非唯一约束错误（磁盘满 / 网络断）→ 重新抛出，不静默吞掉', async () => {
+        // 防御：handler 必须把非并发错误透传，避免掩盖真问题。
+        const ds = await ensureDatabaseInitialized()
+        const repoRepo = ds.getRepository(Repository)
+        const saveSpy = vi.spyOn(repoRepo, 'save').mockRejectedValueOnce(new Error('disk full'))
+
+        try {
+            await expect(call({
+                repos: [repoItem('demo', 'disk-error')],
+            })).rejects.toThrow('disk full')
+            expect(saveSpy).toHaveBeenCalledOnce()
+        } finally {
+            saveSpy.mockRestore()
+        }
     })
 
     // docs/plan/todo.md §PR3-3 C50：defaultCredentialId 三路径校验

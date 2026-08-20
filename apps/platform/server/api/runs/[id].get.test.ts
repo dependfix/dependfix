@@ -85,4 +85,25 @@ describe('GET /api/runs/[id]', () => {
     it('returns 404 for unknown run id', async () => {
         await expectError(call('GET', '/api/runs/nonexistent', { id: 'nonexistent' }), 404)
     })
+
+    it('returns 400 when id param is missing', async () => {
+        await expectError(call('GET', '/api/runs/'), 400)
+    })
+
+    it('returns null summary/error when summaryJson/errorJson are not set', async () => {
+        const ds = await ensureDatabaseInitialized()
+        const noMeta = await ds.getRepository(ScanRun).save(ds.getRepository(ScanRun).create({
+            repositoryId,
+            mode: 'report-only',
+            severityThreshold: 'low',
+            executorKind: 'container',
+            status: 'failed',
+            summaryJson: null,
+            errorJson: null,
+        }))
+
+        const detail = await call('GET', `/api/runs/${noMeta.id}`, { id: noMeta.id }) as Record<string, unknown>
+        expect(detail.summary).toBeNull()
+        expect(detail.error).toBeNull()
+    })
 })

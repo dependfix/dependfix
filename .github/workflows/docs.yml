@@ -36,7 +36,7 @@ jobs:
         # 修法见 [经验归档 §二十三](../design/governance/experience-archive.md)
         # 与 docs.yml 自身亦可能含 ${{ }}（GitHub Actions 表达式）——本 step
         # 仅扫 docs/，workflow 文件本身不进 VitePress 编译管道，安全。
-        run: pnpm check:md-vue-interp
+        run: pnpm check:docs --only=vue-interp
       - name: Build with VitePress
         run: pnpm run docs:build
       - name: Upload artifact

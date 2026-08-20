@@ -43,6 +43,7 @@ export const MD_EXCLUDED_DIRS = new Set([
     'archive',
     '.agents',
     '.claude',
+    '.session',
     'artifacts',
 ])
 

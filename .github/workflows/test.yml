@@ -33,9 +33,9 @@ jobs:
       - run: pnpm run i18n:audit:missing
       - run: pnpm run docs:check:i18n
       - run: pnpm run lint:md:check
-      - run: pnpm run check:links
+      - run: pnpm run check:docs
       # docs 构建前置：VitePress 会把 markdown 中的裸 HTML 当作 Vue 模板编译（缺结束标签即失败），
-      # lint-md/check-links 均不检查标签配对——docs 构建失败必须尽早暴露，不等 typecheck/test/build 跑完
+      # lint-md/check-docs 均不检查标签配对——docs 构建失败必须尽早暴露，不等 typecheck/test/build 跑完
       # （教训见经验归档 §三十三：release.md 裸 <path> 导致 Test/Pages 双 workflow 在末尾构建才失败）
       - run: pnpm run docs:build
       - run: pnpm run typecheck

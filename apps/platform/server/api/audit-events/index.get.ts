@@ -10,12 +10,12 @@ import { requireRole } from '#server/utils/guard'
  * 排序：createdAt DESC（最新事件优先）。
  * 上限：take 500（与 alerts.get.ts 一致，避免一次性返回过多数据）。
  *
- * 权限：admin / org_admin 角色（RG-B05：环境事件涉及系统信号，不对 viewer 开放）。
+ * 权限：admin / org_admin 角色（环境事件涉及系统信号，不对 viewer 开放）。
  *
- * Zod 输入校验（RG-B08）：
+ * Zod 输入边界：
  * - type / severity 仅允许枚举值（含 'all'）；非法值抛 ZodError → handler 转 400
  * - notified 仅允许 'true' / 'false' / 'all'；非法值抛 400
- * - from / to 可选 ISO 时间字符串；非法格式抛 400
+ * - from / to 可选 ISO 时间字符串；非法格式抛 400；反向时间范围（from > to）拒绝 400
  * - repositoryId 自由字符串（UUID 格式由下游 Entity 校验；空串视为 'all'）
  */
 const TYPE_VALUES = ['all', ...AUDIT_EVENT_TYPES] as const

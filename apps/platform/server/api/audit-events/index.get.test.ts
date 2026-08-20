@@ -142,7 +142,7 @@ describe('GET /api/audit-events', () => {
         expect(onlyFuture).toHaveLength(0)
     })
 
-    // RG-B08：非法值必须 400（不再"忽略"）
+    // 非法值必须 400（不再"忽略"）
     it('rejects invalid type with 400', async () => {
         await expectError(call('/api/audit-events?type=invalid'), 400)
     })
@@ -163,7 +163,7 @@ describe('GET /api/audit-events', () => {
         await expectError(call('/api/audit-events?from=2099-01-01T00:00:00Z&to=2020-01-01T00:00:00Z'), 400)
     })
 
-    // RG-B05：viewer 必须 403
+    // viewer 必须 403
     it('rejects viewer role with 403', async () => {
         vi.mocked((await import('#server/utils/guard')).requireRole).mockImplementationOnce(
             async () => {

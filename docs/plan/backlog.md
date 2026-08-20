@@ -63,6 +63,147 @@
 
 ---
 
+## 2026-08-21 平台 UX 反馈批次评估（C65 待启动）
+
+> **背景**：2026-08-21 用户实测反馈 10 项平台 UX / 安全 / i18n 问题，本节按规划规范 §3 迭代中途新增事项分流，逐条评估影响面 + 优先级 + 决策。10 条全部归档 backlog，**未启动即未上 todo**；用户启动某子批次时按 §1.1 任务粒度约束单独上 todo.md。
+
+### C65 拆分方案（4 个子批次，按 §1.1 ≤ 5-6 项硬上限）
+
+| 子批次 | 任务 | 预估 diff | 优先级 | 启动条件 |
+|:--|:--|:--|:--|:--|
+| **C65-A 用户管理安全 + 角色 i18n** | C65-A1 admin 禁止对自己 setRole + C65-A2 角色名称国际化 | ~3 文件 +120 行 | **P1**（A1 安全） | 用户确认立即启动（C65-A1 半天 / A2 半小可合并） |
+| **C65-B i18n 单点声明治理** | 扫描所有 i18n 配置点统一到 `apps/platform/i18n/i18n.config.ts`（含 `nuxt.config.ts` langs + localeDetector + datetimeFormats + 角色枚举等），明确"未来新增翻译仅改一个文件" | ~3 文件 +50/-30 行 | P2 | 用户确认 |
+| **C65-C schedules 增强** | C65-C1 cron 表达式预览（cronstrue 评估或自实现）+ C65-C2 时区选择框（Intl.supportedValuesOf('timeZone')） | ~1 文件 +180 行 | P2 | 用户确认 |
+| **C65-D 平台表格 / 视图增强** | C65-D1 env-events 表格 sortable（复用 C60）+ C65-D2 alerts 双 chevron 修复（`expandable-row-groups` 已渲染 chevron，移除 slot 内冗余 icon）+ C65-D3 alerts 视图切换（按包/按项目/原始列表，扩展 `groupBy='package'/'repository'/none`）+ C65-D4 alerts 图表去重（保留按当前过滤器的差异聚合图） | ~4 文件 +300 行 | P2 | 用户确认 |
+
+### 逐条评估详情
+
+#### #1 env-events 表格 sortable（→ C65-D1）
+
+- **现状**：`apps/platform/app/pages/env-events.vue:234-293` DataTable 6 列均无 `sortable`；其他 7 表已通过 C60 全平台 sortable 接入，唯独 env-events 遗漏
+- **影响面**：`apps/platform/app/pages/env-events.vue` + `apps/platform/i18n/locales/{zh-CN,en-US}.json`（无需新增键，header i18n 已有）
+- **优先级**：P2（UX 一致性补全）
+- **验收**：6 列均 sortable，含 removable-sort 三态；e2e sortable.spec 加 env-events 用例
+- **关联**：C60 全平台 7 表 sortable 接入遗漏，本质是补丁；不阻塞其他事
+
+#### #2 schedules cron 表达式预览（→ C65-C1）
+
+- **现状**：`apps/platform/app/pages/schedules.vue:397-409` cron 输入是 `<InputText>` free-form，无预览；用户改 cron 后才知道下次触发时间，UX 反馈差
+- **影响面**：`apps/platform/app/pages/schedules.vue`（Dialog 表单）+ 可能新增 `apps/platform/app/utils/cron-preview.ts` helper
+- **技术评估**：
+  - 方案 A：引入 `cronstrue` 包（~10KB gzip，依赖 `cron-parser`）—— 成熟，文档全
+  - 方案 B：自实现简单预览（仅 next 3 次触发时间）—— 0 依赖，但需处理时区
+- **优先级**：P2（UX，但 cron 是定时计划核心字段，反馈价值高）
+- **验收**：cron 输入实时显示"下次触发：2026-08-25 02:00（每周一 凌晨 2 点）"等；非法 cron 显示错误；时区切换正确
+- **依赖**：与 #3（时区选择框）共享时区状态
+
+#### #3 时区选择框（→ C65-C2）
+
+- **现状**：`apps/platform/app/pages/schedules.vue:410-418` 时区是 `<InputText>` free-form，需用户输入 IANA 名（如 `Asia/Shanghai`）；用户期望选择框
+- **影响面**：`apps/platform/app/pages/schedules.vue`（Dialog form）
+- **技术评估**：`Intl.supportedValuesOf('timeZone')` 浏览器原生 API，返回完整 IANA 时区列表（如 `["Asia/Shanghai", "Asia/Tokyo", ...]`）；PrimeVue `<Select>` 带 `filter` 即可
+- **优先级**：P2（UX，与 #2 紧邻）
+- **验收**：时区字段为 `<Select>` 含 filter；默认值改为浏览器时区（`Intl.DateTimeFormat().resolvedOptions().timeZone`）
+
+#### #4 alerts 双 >> 符号（→ C65-D2）
+
+- **现状**：`apps/platform/app/pages/alerts.vue:323-342` `#groupheader` slot 已渲染 chevron icon（`pi pi-chevron-down`/`pi pi-chevron-right`）；同时 PrimeVue 4 `expandable-row-groups` 在 group row 默认渲染一个展开/折叠 chevron → 双箭头
+- **影响面**：`apps/platform/app/pages/alerts.vue`
+- **修复方向**：二选一 —— (a) 移除 slot 内 chevron icon（保留 PrimeVue 默认）；(b) 禁用 PrimeVue 默认 chevron（设 `expansionToken` 等）只保留自定义（需调研 PrimeVue API）
+- **优先级**：P2（视觉缺陷，明确反馈）
+- **验收**：单箭头（PrimeVue 默认）；groupheader 点击区域保持一致（整个 `<span>` 可点击，含键盘 enter/space）
+
+#### #5 alerts 视图切换（按包/按项目/原始列表）（→ C65-D3）
+
+- **现状**：`apps/platform/server/api/alerts/index.get.ts:42` server 仅支持 `groupBy='package'`；alerts.vue 固定按包聚合；用户期望"按项目聚合 / 原始列表"切换
+- **影响面**：
+  - `apps/platform/server/api/alerts/index.get.ts` —— 扩展 `groupBy='package'/'repository'/none`
+  - `apps/platform/app/pages/alerts.vue` —— SwitchButton / TabView 三选一；`rowGroupMode` / `group-rows-by` / `multiSortMeta` 动态切换
+- **优先级**：P2（用户明确期望）
+- **验收**：
+  - "按包聚合"：现状（packageName group）
+  - "按项目聚合"：repository group（需 repository 字段，已有）
+  - "原始列表"：无 rowGroup，按 createdAt DESC
+  - 三选一 UI 切换 + 默认"按包"；切回时刷新 fetchAlerts 携带 groupBy 参数
+- **关联**：#6（图表去重）+ #4（双 chevron）—— 同一文件，合并子批次 D
+
+#### #6 alerts 图表与仪表盘去重（→ C65-D4）
+
+- **现状**：`apps/platform/app/pages/alerts.vue:179-247` 与 `apps/platform/app/pages/dashboard.vue:122-189` 顶部 3 张图（severity 饼图 + fixRate 环形 + Top-10 柱状图）几乎完全相同，仅 class 前缀不同（`dashboard__` vs `alerts__`）；`useDashboardStats` composable 共享数据源
+- **影响面**：`apps/platform/app/pages/alerts.vue`
+- **修复方向**：
+  - 方案 A（用户建议）：alerts.vue 删除顶部 3 图，alerts 页面专注于表格 + 筛选 + 详情（更详细的告警视图）
+  - 方案 B：alerts.vue 保留差异图（基于 alerts 当前过滤器的聚合图）—— 仪表盘显示全量，alerts 显示当前过滤后的子集
+- **优先级**：P2（用户明确建议）
+- **验收**：alerts 顶部 3 图删除/差异化；alerts 页面聚焦"更详细的内容"（如 payload 详情、修复历史、关联扫描 run 链接等）
+- **非目标**：不动 dashboard.vue
+- **关联**：与 #5 同文件，合并子批次 D
+
+#### #7 admin 禁止对自己修改权限（→ C65-A1，**P1**）
+
+- **现状**：`apps/platform/app/pages/users.vue:70-96` `setRole()` 函数无 self-check；admin 用户可对自己 setRole 导致降级
+- **影响面**：`apps/platform/app/pages/users.vue`（前端拦截 + 错误提示）
+- **优先级**：**P1（安全）**
+- **验收**：
+  - 当前登录 admin 在 user 列表看自己的 row 时，role `<Select>` 设为 `disabled`（不可修改）
+  - 即使通过 devtools 强制触发 `setRole`，前端 `setRole()` 函数首行判断 `user.id === session.user.id` 则拒绝 + toast 错误
+  - e2e: admin 看自己 row 时 role Select 含 `disabled` 属性
+- **非目标**：后端强制校验属 #8 远期（前端兜底足够防误操作，恶意调用方需要绕过鉴权——已有 auth middleware 兜底）
+
+#### #8 单 admin 时不得降级（→ backlog 远期）
+
+- **现状**：服务端 better-auth admin 插件 `set-role` action 默认无 admin 计数保护；用户标记"后续的优化点为：当只有一个管理员时，不得降级"
+- **影响面**：`apps/platform/server/utils/auth.ts`（better-auth plugins `setRole` hook）+ `apps/platform/server/api/auth/admin/set-role.post.ts`（如独立路由）
+- **优先级**：P3（远期 / 边界保护）
+- **难度**：中（需服务端 admin 计数 + 事务原子校验 + 友好错误码）
+- **验收**：
+  - set-role handler 查询当前 admin 用户数
+  - 若 admin 数 ≤ 1 且被修改用户当前是 admin 且目标角色非 admin → 拒绝 + 错误码 `last_admin_protected`
+  - e2e: 仅 1 admin 时降级请求 → 400 + 错误消息；2 admin 时其中一个降级允许
+- **依赖**：需独立批次；与 #7 同主题但不同阶段
+- **决策**：backlog 远期登记（本批次不实施）
+
+#### #9 角色名称国际化（→ C65-A2）
+
+- **现状**：`apps/platform/app/pages/users.vue:15-19` `ROLES` 数组硬编码 `{ label: 'Admin', value: 'admin' }` 等英文标签；切换到中文 locale 时 role Select 仍显示英文
+- **影响面**：
+  - `apps/platform/app/pages/users.vue`（用 `t('common.role.admin')` 等代替硬编码）
+  - `apps/platform/i18n/locales/zh-CN.json`（新增 `common.role.admin/orgAdmin/viewer` 键）
+  - `apps/platform/i18n/locales/en-US.json`（同上）
+- **优先级**：P2（i18n 一致性）
+- **验收**：切换 zh-CN 时 role Select 显示"管理员 / 组织管理员 / 观察者"；切换 en 时显示"Admin / Org Admin / Viewer"；`roleLabel()` 与 Select 选项统一数据源
+
+#### #10 i18n 单点声明（→ C65-B）
+
+- **现状**：用户反馈明确指向 `apps/platform/i18n/i18n.config.ts` 重复；扫描现状：
+  - `apps/platform/i18n/i18n.config.ts` —— datetimeFormats / numberFormats（构建期配置）
+  - `apps/platform/nuxt.config.ts` —— `i18n.locales`（语言列表 + 路径 + file）+ `vueI18n: './i18n.config.ts'` + `experimental.localeDetector`
+  - `apps/platform/i18n/localeDetector.ts` —— 浏览器检测逻辑
+  - `apps/platform/app/i18n/`（可能存在？未扫描确认）
+  - 各页面 `useI18n()` 调用 + locale 文件 zh-CN.json / en-US.json
+- **影响面**：
+  - `apps/platform/i18n/i18n.config.ts` —— 扩展为 i18n 配置中心（locales 列表 + datetimeFormats + numberFormats + detector 路径）
+  - `apps/platform/nuxt.config.ts` —— `i18n` 块简化为只引用 `i18n.config.ts` 单点
+- **优先级**：P2（治理 / 可维护性）
+- **验收**：
+  - 新增语言 / 调整 datetime 格式 / 修改 detector 仅需改 1 个文件
+  - `nuxt.config.ts` `i18n` 块 ≤ 10 行（仅 i18n.config.ts 引用 + 必要的 override）
+  - 文档同步：[docs/standards/platform.md](../standards/platform.md) §7 加"i18n 配置单点声明"条款
+
+### 跨条目绑定
+
+- **C65-A1 + C65-A2**：同一文件 `users.vue` 同批次合并实施，估 3 文件 +120 行
+- **C65-C1 + C65-C2**：共享时区状态 + 同一 Dialog，估 1 文件 +180 行
+- **C65-D1 + C65-D2 + C65-D3 + C65-D4**：4 条均涉及 alerts.vue / env-events.vue + server `alerts.get.ts`，估 4 文件 +300 行
+
+### 不在本批次范围
+
+- **T1005 sandbox 路由接线**：backlog 已有独立条目
+- **T912-3 安全与文档**：已合并入 C28 闭环
+- **M11 推进剩余子任务**：见 [archive/todo-archive-phases-m11.md](archive/todo-archive-phases-m11.md)
+
+---
+
 ## 2026-08-19~20 平台 UX/可用性闭环批次汇总
 
 > **背景**：2026-08-19~20 用户实测反馈一批平台 UX / 可用性问题，原登记为 backlog C46-C61。本批次一次性收口三个 PR + 三个独立 fix 任务，全部完成。

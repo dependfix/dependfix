@@ -1,8 +1,9 @@
+import { execFileSync } from 'node:child_process'
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { checkLinks, collectTitles, looseNorm, normAnchor } from './check-links.mjs'
+import { checkLinks, collectTitles, isGitIgnored, isInsideGitWorkTree, looseNorm, normAnchor } from './check-links.mjs'
 
 let root
 
@@ -143,6 +144,84 @@ describe('checkLinks', () => {
         write('docs/real.md', '正常内容')
         const { files, errors } = checkLinks(root)
         expect(files).toEqual([join(root, 'docs', 'real.md')])
+        expect(errors).toEqual([])
+    })
+})
+
+describe('isInsideGitWorkTree / isGitIgnored', () => {
+    it('detects tmpdir as non-git work tree', () => {
+        // mkdtempSync 创建的是非 git 仓库
+        expect(isInsideGitWorkTree(root)).toBe(false)
+        expect(isGitIgnored(join(root, 'any.md'))).toBe(false)
+    })
+
+    it('returns true for files matched by .gitignore in a real git repo', () => {
+        // 用当前项目自身做真实 git 仓库探针：避免在 tmpdir 跑 git init 引入测试侧副作用
+        // （git init 会创建 .git/ 目录，可能与本测试套件的并发执行冲突）
+        // 当前项目 .gitignore 含 `.session`，因此该路径应被识别为 ignored
+        const realProjectRoot = join(import.meta.dirname, '..')
+        if (!isInsideGitWorkTree(realProjectRoot)) {
+            // 极端兜底：若测试环境不在 git 项目内，跳过本测试
+            return
+        }
+        const sessionPath = join(realProjectRoot, '.session', 'wisdom.md')
+        expect(isGitIgnored(sessionPath, realProjectRoot)).toBe(true)
+        // 已提交的 docs/standards 不在 .gitignore 内
+        const standardsPath = join(realProjectRoot, 'docs', 'standards', 'development.md')
+        expect(isGitIgnored(standardsPath, realProjectRoot)).toBe(false)
+    })
+})
+
+describe('checkLinks with gitignored targets', () => {
+    let gitRoot
+
+    beforeEach(() => {
+        // 临时为该 describe 套件跑 git init：tmpdir 自身不在 git work tree，
+        // checkLinks 会跳过 git 忽略检查，无法验证"本地有、CI 无"场景
+        gitRoot = mkdtempSync(join(tmpdir(), 'check-links-git-test-'))
+        try {
+            execFileSync('git', ['init', '--quiet'], { cwd: gitRoot, stdio: 'ignore' })
+            execFileSync('git', ['config', 'user.email', 'test@example.com'], { cwd: gitRoot, stdio: 'ignore' })
+            execFileSync('git', ['config', 'user.name', 'test'], { cwd: gitRoot, stdio: 'ignore' })
+        } catch (e) {
+            // git 不可用时跳过（CI minimal 环境兜底）
+            gitRoot = null
+        }
+    })
+
+    afterEach(() => {
+        if (gitRoot) {
+            rmSync(gitRoot, { recursive: true, force: true })
+        }
+    })
+
+    it('rejects links to gitignored files (local has / CI missing scenario)', () => {
+        if (!gitRoot) {
+            return // 跳过：git 不可用
+        }
+        // 模拟 §三十 复现：.session/wisdom.md 在 .gitignore 中 → git 排除
+        // 本地 mkdtempSync 落地的文件"存在"，但被 .gitignore 标记为不入仓库
+        writeFileSync(join(gitRoot, '.gitignore'), '.session/\n')
+        mkdirSync(join(gitRoot, '.session'), { recursive: true })
+        writeFileSync(join(gitRoot, '.session', 'wisdom.md'), '# local wisdom')
+        // 不用外层 write() helper：它绑定了外层 root；这里需要写到 gitRoot
+        mkdirSync(join(gitRoot, 'docs'), { recursive: true })
+        writeFileSync(join(gitRoot, 'docs', 'note.md'), '教训沉淀至 [wisdom.md](../.session/wisdom.md)')
+        const { errors } = checkLinks(gitRoot)
+        expect(errors).toHaveLength(1)
+        expect(errors[0]).toContain('.gitignore')
+        expect(errors[0]).toContain('../.session/wisdom.md')
+    })
+
+    it('passes links to committed files (sanity check after git init)', () => {
+        if (!gitRoot) {
+            return
+        }
+        writeFileSync(join(gitRoot, '.gitignore'), '.session/\n')
+        mkdirSync(join(gitRoot, 'docs'), { recursive: true })
+        writeFileSync(join(gitRoot, 'docs', 'a.md'), '[b](b.md)')
+        writeFileSync(join(gitRoot, 'docs', 'b.md'), '# ok')
+        const { errors } = checkLinks(gitRoot)
         expect(errors).toEqual([])
     })
 })

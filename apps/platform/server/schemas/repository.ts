@@ -9,7 +9,7 @@ export const repositoryBase = z.object({
     packageManager: z.enum(['pnpm', 'npm', 'yarn']).default('pnpm'),
     credentialId: z.string().trim().max(36).nullable().optional(),
     actionWorkflowFile: z.string().trim().max(255).nullable().optional(),
-    executorKind: z.enum(['container', 'github-action']).default('container'),
+    executorKind: z.enum(['container', 'github-action', 'sandbox']).default('container'),
     note: z.string().max(500).nullable().optional(),
     /** 仓库标签（数组形式输入；空数组在 API 层转 null 存储；更新语义：undefined=不修改 / null 或 [] = 清空） */
     tags: z.array(z.string().trim().min(1, '标签不能为空').max(50)).max(20, '最多 20 个标签').nullable().optional(),

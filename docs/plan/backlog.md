@@ -158,10 +158,11 @@
   - 反模式已登记（绝对不可用）：[DinD with `--privileged`](https://blog.nestybox.com/2019/09/14/dind.html) + [挂 `/var/run/docker.sock`（DoD）](https://www.wiz.io/academy/container-escape)—— CVE-2019-5736 runc 逃逸实证，违反 [sandbox-security-governance.md §3 路径 D](../design/governance/sandbox-security-governance.md)
   - 来源：M6 规划（2026-08-07，Q4=A 设计+最小实现，完整沙箱留后续） → 2026-08-14 安全专项评估提级 → 2026-08-19 决策会议 + 调研落地 → 2026-08-20 M10 收口归档
 - **T1005 sandbox 路由接线**（2026-08-20 M10 移交 backlog）
-  - 状态：🔶 待排期（**M10 实施规划遗留项**）
-  - 内容：schema 扩展 `Repository.executorKind: z.enum(['container', 'github-action', 'sandbox'])`（当前 [apps/platform/server/schemas/repository.ts:12](https://github.com/dependfix/dependfix/blob/master/apps/platform/server/schemas/repository.ts) 仅含前两项）+ [apps/platform/server/services/scan-orchestrator.service.ts:48](https://github.com/dependfix/dependfix/blob/master/apps/platform/server/services/scan-orchestrator.service.ts) `resolveExecutorKind` 返回类型增加 `'sandbox'` 分支 + `sandbox_unavailable` 降级契约落地（errcode 已在 `apps/platform/server/services/executor/sandbox-executor.ts` 实现，scan-orchestrator 据此降级回 `ContainerExecutor`）
-  - 前置：M10 全部 commit 已落地（含 executor 抽象 + 降级契约）；T1004 已在 [quick-start.md §启用 rootless sandbox 执行（规划中）](../guide/quick-start.md) 显式标注「待 T1005 路由接线后启用」
-  - 复杂度：🟡 中（schema 扩展 + orchestrator 分支 + e2e 验证 docker daemon 不可用时降级）+ 文档同步（README / quick-start「待 T1005 落地后」标注移除）
+  - 状态：✅ **已闭环（2026-08-20）** —— schema 扩展（`schemas/repository.ts` + `schemas/scan.ts` zod enum 含 'sandbox'）+ scan-orchestrator sandbox 分支 + resolveExecutorKind 优先级（request > repository.executorKind > actionWorkflowFile 自动 > container 默认）+ `isAvailable()` 启动期探测 + 不可用立即降级 ContainerExecutor + stderr warn；runtime 偶发故障仍走 sandbox_unavailable → 标记 failed（不静默降级）
+  - 实现细节：[scan-orchestrator.service.ts](../../apps/platform/server/services/scan-orchestrator.service.ts) sandbox 分支 + [scan-run-state.ts](../../apps/platform/server/services/scan-run-state.ts) executorKind 类型扩展（含 sandbox）
+  - 测试覆盖：5 个新 case（1 resolve + 4 runScanForRepository sandbox 路由：可用时执行 / 不可用降级 ContainerExecutor / runUrl 兜底 / 运行时 sandbox_unavailable 不静默降级）
+  - Review Gate：standard 1 轮 Pass with Warning（RG-W02 时间戳 bugfix 合并提交 / RG-W03 backlog 状态同步已修复 / RG-W04 sandboxLimits 字段留 M11 后段）
+  - 关联：归档于 todo-archive.md（当前 M10 已知边界已含 T1005 移交记录，T1005 单独归档段待文档批次落地）
   - 来源：M10 收口移交（2026-08-20）；[todo-archive.md §M10 已知边界](todo-archive.md#m10-独立沙箱容器-c26-实施规划已归档)
 - **C28 security.md 补凭据加密存储章节**（M6 终审 W4 登记 + T912-3 联动）
   - 状态：🔶 待评估（不阻塞；T912-3 安全与文档与本项合并处理）

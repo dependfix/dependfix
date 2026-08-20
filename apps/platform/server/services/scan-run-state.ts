@@ -23,7 +23,7 @@ export interface ScanRunStateDecision {
  * - 成功（push + PR 都成功）→ completed
  */
 export const resolveScanRunState = (
-    executorKind: 'container' | 'github-action',
+    executorKind: 'container' | 'github-action' | 'sandbox',
     error: { code: string, message: string } | undefined,
     result: RunResult | undefined,
 ): ScanRunStateDecision => {
@@ -40,12 +40,12 @@ export const resolveScanRunState = (
         }
         return { status: 'dispatched' }
     }
-    // A 模式（container）
+    // A 模式（container / sandbox 路由等价：sandbox 当前复用 A 模式 push + PR 链路）
     // PR 创建失败（分支已推）→ dispatched（runUrl 兜底为 branch URL）
     if (error?.code === 'pr_creation_failed') {
         return { status: 'dispatched', errorJson: error ?? null }
     }
-    // 其他错误（push_failed / execution_failed / execution_timeout）→ failed
+    // 其他错误（push_failed / execution_failed / execution_timeout / sandbox_unavailable）→ failed
     if (error && !result) {
         return { status: 'failed' }
     }

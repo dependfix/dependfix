@@ -13,11 +13,14 @@ import { Credential } from '#server/entities/credential'
 // 外部执行器 mock（真实执行会跑引擎/触发 GitHub Action）
 // class 实例的 execute/fetch 字段指向共享 mock（实例在 runScanForRepository 执行时才创建，
 // 测试须在调用前即可设置行为）
-const { ContainerExecutorMock, ActionTriggerExecutorMock, ActionResultFetcherMock, containerExecute, actionExecute, fetcherFetch } = vi.hoisted(() => ({
+const { ContainerExecutorMock, SandboxExecutorMock, ActionTriggerExecutorMock, ActionResultFetcherMock, containerExecute, sandboxExecute, sandboxIsAvailable, actionExecute, fetcherFetch } = vi.hoisted(() => ({
     ContainerExecutorMock: vi.fn(),
+    SandboxExecutorMock: vi.fn(),
     ActionTriggerExecutorMock: vi.fn(),
     ActionResultFetcherMock: vi.fn(),
     containerExecute: vi.fn(),
+    sandboxExecute: vi.fn(),
+    sandboxIsAvailable: vi.fn(),
     actionExecute: vi.fn(),
     fetcherFetch: vi.fn(),
 }))
@@ -28,6 +31,16 @@ vi.mock('./executor/container-executor', () => ({
         }
 
         execute = containerExecute
+    },
+}))
+vi.mock('./executor/sandbox-executor', () => ({
+    SandboxExecutor: class {
+        constructor(...args: unknown[]) {
+            SandboxExecutorMock(...args)
+        }
+
+        isAvailable = sandboxIsAvailable
+        execute = sandboxExecute
     },
 }))
 vi.mock('./executor/action-trigger-executor', () => ({
@@ -114,9 +127,12 @@ describe('scan-orchestrator.service', () => {
         vi.clearAllMocks()
         // 共享 mock 需重置实现，防止新用例漏设时静默复用上一用例行为
         containerExecute.mockReset()
+        sandboxExecute.mockReset()
+        sandboxIsAvailable.mockReset()
         actionExecute.mockReset()
         fetcherFetch.mockReset()
         ContainerExecutorMock.mockReset()
+        SandboxExecutorMock.mockReset()
         ActionTriggerExecutorMock.mockReset()
         ActionResultFetcherMock.mockReset()
     })
@@ -141,6 +157,11 @@ describe('scan-orchestrator.service', () => {
             const withAction = await createRepo({ actionWorkflowFile: '.github/workflows/fix.yml' })
             const run = await createPendingScanRun(withAction, { mode: 'report-only', severityThreshold: 'all' })
             expect(run.executorKind).toBe('github-action')
+        })
+
+        it('resolves sandbox executor from explicit request', async () => {
+            const run = await createPendingScanRun(repositoryId, { mode: 'fix', severityThreshold: 'high', executorKind: 'sandbox' })
+            expect(run.executorKind).toBe('sandbox')
         })
     })
 
@@ -262,6 +283,74 @@ describe('scan-orchestrator.service', () => {
             const run = await runScanForRepository(repositoryId, { mode: 'fix', severityThreshold: 'high' }, { runId: pending.id })
             expect(run.id).toBe(pending.id)
             expect(run.status).toBe('completed')
+        })
+    })
+
+    describe('runScanForRepository (sandbox executor)', () => {
+        const sandboxRepo = async () => createRepo({ executorKind: 'sandbox' })
+
+        it('runs sandbox executor when isAvailable() returns true', async () => {
+            const repoId = await sandboxRepo()
+            sandboxIsAvailable.mockResolvedValue(true)
+            sandboxExecute.mockResolvedValue({ result: makeResult(), error: undefined })
+
+            const run = await runScanForRepository(repoId, { mode: 'fix', severityThreshold: 'high' })
+            expect(run.status).toBe('completed')
+            expect(sandboxIsAvailable).toHaveBeenCalledTimes(1)
+            expect(sandboxExecute).toHaveBeenCalledTimes(1)
+            expect(containerExecute).not.toHaveBeenCalled()
+        })
+
+        it('falls back to ContainerExecutor when sandbox isAvailable() returns false', async () => {
+            const repoId = await sandboxRepo()
+            sandboxIsAvailable.mockResolvedValue(false)
+            containerExecute.mockResolvedValue({ result: makeResult(), error: undefined })
+
+            // 避免降级路径上 sandbox 真实 isAvailable 探测抛错
+            const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => { /* 静默降级 warn */ })
+
+            const run = await runScanForRepository(repoId, { mode: 'fix', severityThreshold: 'high' })
+            expect(run.status).toBe('completed')
+            expect(sandboxIsAvailable).toHaveBeenCalledTimes(1)
+            expect(sandboxExecute).not.toHaveBeenCalled()
+            expect(containerExecute).toHaveBeenCalledTimes(1)
+            expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('[sandbox]'))
+            expect(warnSpy.mock.calls[0]?.[0]).toContain('daemon unavailable')
+            expect(warnSpy.mock.calls[0]?.[0]).toContain('falling back to container')
+
+            warnSpy.mockRestore()
+        })
+
+        it('preserves runUrl from ContainerExecutor fallback (fix mode push succeed)', async () => {
+            const repoId = await sandboxRepo()
+            sandboxIsAvailable.mockResolvedValue(false)
+            containerExecute.mockResolvedValue({
+                result: makeResult(),
+                error: undefined,
+                runUrl: 'https://github.com/demo/app/tree/dependfix/auto-fix-abc12345',
+            })
+
+            vi.spyOn(console, 'warn').mockImplementation(() => { /* 静默 */ })
+
+            const run = await runScanForRepository(repoId, { mode: 'fix-and-pr', severityThreshold: 'high' })
+            expect(run.status).toBe('completed')
+            expect(run.runUrl).toBe('https://github.com/demo/app/tree/dependfix/auto-fix-abc12345')
+        })
+
+        it('propagates sandbox_unavailable error from sandbox.execute (runtime failure, no fallback)', async () => {
+            // 运行时偶发故障：isAvailable() 通过 → sandbox.execute() 失败（sandbox_unavailable）
+            // 此场景不静默降级（避免掩盖真实错误）—— 标记 failed
+            const repoId = await sandboxRepo()
+            sandboxIsAvailable.mockResolvedValue(true)
+            sandboxExecute.mockResolvedValue({
+                result: undefined,
+                error: { code: 'sandbox_unavailable', message: 'docker daemon stopped during scan' },
+            })
+
+            const run = await runScanForRepository(repoId, { mode: 'fix', severityThreshold: 'high' })
+            expect(run.status).toBe('failed')
+            expect(run.errorJson).toContain('sandbox_unavailable')
+            expect(containerExecute).not.toHaveBeenCalled()
         })
     })
 

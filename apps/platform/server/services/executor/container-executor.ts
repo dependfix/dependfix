@@ -106,11 +106,12 @@ export async function moveToPending(
     const targetDir = join(pendingRoot, runId)
     await mkdir(pendingRoot, { recursive: true })
     await rename(workDir, targetDir)
+    const now = new Date()
     const meta = {
         runId,
-        writtenAt: new Date().toISOString(),
+        writtenAt: now.toISOString(),
         retentionMs,
-        expiresAt: new Date(Date.now() + retentionMs).toISOString(),
+        expiresAt: new Date(now.getTime() + retentionMs).toISOString(),
         reason: 'pr_creation_failed',
     }
     await writeFile(join(targetDir, '.meta.json'), JSON.stringify(meta, null, 2), 'utf-8')

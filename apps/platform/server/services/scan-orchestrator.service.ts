@@ -3,6 +3,7 @@ import { resolveScanRunState } from './scan-run-state'
 import { withRepoLock } from './repo-lock'
 import { decryptToken, getEncryptionKey } from './credential.service'
 import { ContainerExecutor } from './executor/container-executor'
+import { SandboxExecutor } from './executor/sandbox-executor'
 import { ActionTriggerExecutor } from './executor/action-trigger-executor'
 import { ActionResultFetcher } from './executor/action-result-fetcher'
 import type { ScanExecutorContext } from './executor/types'
@@ -30,8 +31,8 @@ export interface ScanRequest {
     mode: 'report-only' | 'fix' | 'fix-and-pr'
     /** 严重级别阈值（critical / high / medium / all） */
     severityThreshold: string
-    /** 执行后端（默认 container） */
-    executorKind?: 'container' | 'github-action'
+    /** 执行后端（默认 container；sandbox 启动时不可用自动降级） */
+    executorKind?: 'container' | 'github-action' | 'sandbox'
 }
 
 export interface ScanRunOptions {
@@ -41,11 +42,20 @@ export interface ScanRunOptions {
     batchRunId?: string
 }
 
-/** 执行器选择：显式指定优先，其次按 actionWorkflowFile 自动（B 模式） */
+/** 执行器选择：请求显式指定优先 > 仓库 executorKind 字段 > actionWorkflowFile 自动（B 模式） > 默认 container */
 const resolveExecutorKind = (
     repository: Repository,
     request: ScanRequest,
-): 'container' | 'github-action' => request.executorKind ?? (repository.actionWorkflowFile ? 'github-action' : 'container')
+): 'container' | 'github-action' | 'sandbox' => {
+    if (request.executorKind) {
+        return request.executorKind
+    }
+    const repoKind = repository.executorKind as 'container' | 'github-action' | 'sandbox' | undefined
+    if (repoKind === 'sandbox' || repoKind === 'github-action') {
+        return repoKind
+    }
+    return repository.actionWorkflowFile ? 'github-action' : 'container'
+}
 
 /**
  * 队列模式：预创建 pending run（API 入队时调用，立即返回；worker 消费时经
@@ -204,6 +214,28 @@ const runScanInternal = async (
                         message: fetchError instanceof Error ? fetchError.message : String(fetchError),
                     }
                 }
+            }
+        } else if (executorKind === 'sandbox') {
+            // sandbox 路由：先探测 RuntimeAdapter 可用性（docker daemon 可用性），
+            // 不可用立即降级回 ContainerExecutor（避免 30s sandbox 启动失败耗时）。
+            // 运行时偶发故障仍走 sandbox_unavailable 错误码 → 当前标记 failed（不静默降级）。
+            const sandbox = new SandboxExecutor({
+                workRoot: process.env.RUN_WORK_ROOT ?? 'data/runs',
+            })
+            if (await sandbox.isAvailable()) {
+                const execResult = await sandbox.execute(ctx)
+                result = execResult.result
+                error = execResult.error
+            } else {
+                // 降级回 ContainerExecutor + stderr warn（单机场景不破坏向后兼容）
+                console.warn(`[sandbox] Repository ${repository.owner}/${repository.name} executorKind='sandbox' but daemon unavailable; falling back to container`)
+                const executor = new ContainerExecutor({
+                    workRoot: process.env.RUN_WORK_ROOT ?? 'data/runs',
+                })
+                const execResult = await executor.execute(ctx)
+                result = execResult.result
+                error = execResult.error
+                runUrl = execResult.runUrl ?? null
             }
         } else {
             const executor = new ContainerExecutor({

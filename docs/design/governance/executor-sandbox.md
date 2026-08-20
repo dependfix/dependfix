@@ -271,10 +271,13 @@ export interface SandboxHandle {
 | `Repository.executorKind` = `undefined`  | `ContainerExecutor` | M6 默认，单机/无 rootless 场景仍可用 |
 | `Repository.executorKind` = `'container'` | `ContainerExecutor` | 显式声明，与 M6 一致 |
 | `Repository.executorKind` = `'sandbox'` + SandboxRuntimeAdapter 可用 | `SandboxExecutor` | M10 目标 |
-| `Repository.executorKind` = `'sandbox'` + adapter 不可用（无 docker rootless） | `ContainerExecutor` + 启动 warn + 报告 `sandbox_unavailable` | 降级而非失败，单机场景可正常运行 |
+| `Repository.executorKind` = `'sandbox'` + adapter **启动时**不可用（`isAvailable()` 返回 false） | `ContainerExecutor` 降级执行 → **`degraded` 状态** | **A 场景**（配置层降级）：业务结果完整，UI info 提示「未启用 rootless，已自动使用平台容器」 |
+| `Repository.executorKind` = `'sandbox'` + adapter **启动可用**但 `execute()` 抛 errno（ENOENT/ENOTCONN/EACCES/ECONNREFUSED） | 不静默降级 → `error.code = 'sandbox_unavailable'` → **`failed` 状态** | **B 场景**（环境中途变化）：业务未完成，UI warn 告警「沙箱运行时不可用，环境配置可能已变化」 |
 | `Repository.executorKind` = `'github-action'` | `ActionTriggerExecutor` | M6 已有 |
 
 CLI 启动时（`@dependfix/cli` entrypoint）探测 SandboxRuntimeAdapter 可用性；不可用时输出 `[sandbox]` warn 提示管理员启动 rootless daemon，但**不阻断**运行（旧路径仍可用）。
+
+> **A/B 场景语义差异详见下文 §7.8 降级状态机契约**——核心是「启动时降级（配置偏离）→ degraded + info」与「运行时降级（环境异常）→ failed + warn」的边界区分。
 
 ### 7.5 K8s + Helm 部署预留（非 M10 范围）
 
@@ -308,6 +311,112 @@ CLI 启动时（`@dependfix/cli` entrypoint）探测 SandboxRuntimeAdapter 可�
 | SandboxExecutor 工作目录 bind-mount 宿主路径（非 run-scoped tmp） | 跨 run 数据残留 | T1001 Review Gate 必查 |
 | Sandbox 镜像走 `caomeiyouren/dependfix:latest`（CI 发布镜像） | sandbox 与平台二进制版本漂移风险 | T1001 镜像策略段禁止 |
 | 默认 `executorKind='sandbox'` | 单机场景破坏 | T1001 路由默认 'container' |
+
+### 7.8 降级状态机契约（degraded vs failed）
+
+> **状态**：🔶 M11 阶段登记（2026-08-20），T1005-C 实施中。**背景**：sandbox 路由在「启动时不可用」与「运行时不可用」两种场景下的语义边界——前者是**配置偏离**（业务完整），后者是**真实异常**（业务未完成）。统一归为 `failed` 会丢失降级路径的成功信息，统一归为 `degraded` 会掩盖运行时异常，故引入独立状态分流。
+
+#### 7.8.1 两种降级场景的语义边界
+
+| 场景 | 触发条件 | 业务结果 | 状态 | UI 严重度 |
+|:--|:--|:--|:--|:--|
+| **A. 启动时降级**（配置偏离） | `executorKind === 'sandbox'` + `sandbox.isAvailable() === false` | ✅ ContainerExecutor 跑成功，summaryJson / runUrl 完整 | **`degraded`** | **info**（蓝色提示） |
+| **B. 运行时降级**（环境异常） | `executorKind === 'sandbox'` + `sandbox.isAvailable() === true` + `sandbox.execute()` 内部抛 errno | ❌ 不降级避免掩盖真实错误，result 为 undefined | **`failed`**（`error.code = 'sandbox_unavailable'`） | **warn**（黄色告警） |
+
+**核心区别**：
+
+- `failed` = 「你让我做的事，没做成」（业务结果为空）
+- `degraded` = 「你让我做的事，做成了，但走的路不是你想要的那条」（业务结果完整，仅路径偏离）
+
+**为什么 B 场景不静默降级回 ContainerExecutor？** ——避免掩盖「环境容器中途变化」的真实异常。降级会让管理员错过 docker daemon / cgroup / user namespace 状态变化的告警信号，违背 sandbox 治理的「环境异常必须可观测」原则。
+
+#### 7.8.2 状态机决策函数契约
+
+`scan-run-state.ts` 的 `resolveScanRunState` 在原签名基础上新增 `degradedReason?` 参数：
+
+```typescript
+export const resolveScanRunState = (
+    executorKind: 'container' | 'github-action' | 'sandbox',
+    error: { code: string, message: string } | undefined,
+    result: RunResult | undefined,
+    /** A 场景降级信号（仅 sandbox 路由启动时不可用触发） */
+    degradedReason?: { code: string, message: string },
+): ScanRunStateDecision
+```
+
+`ScanRunStateDecision.status` union 新增 `'degraded'`：
+
+```typescript
+export interface ScanRunStateDecision {
+    status: 'completed' | 'failed' | 'dispatched' | 'degraded'
+    errorJson?: { code: string, message: string } | null
+}
+```
+
+A 模式块新增分支（必须在 `pr_creation_failed` 分支之后、其他错误分支之前）：
+
+```typescript
+// A 模式块：启动时降级 → degraded（业务完整 + 路径偏离）
+if (result && degradedReason) {
+    return { status: 'degraded', errorJson: degradedReason }
+}
+// 其他错误（含 sandbox_unavailable 运行时失败）→ failed
+if (error && !result) {
+    return { status: 'failed' }
+}
+```
+
+#### 7.8.3 orchestrator 降级信号传递
+
+`scan-orchestrator.service.ts` 在 sandbox 路由块维护 `degradedReason` 内部变量：
+
+```typescript
+if (executorKind === 'sandbox') {
+    let degradedReason: { code: string, message: string } | undefined
+    const sandbox = new SandboxExecutor({ ... })
+    if (await sandbox.isAvailable()) {
+        // 启动可用 → 走 sandbox（可能 B 场景：execute 抛 errno → catch → sandbox_unavailable）
+        const execResult = await sandbox.execute(ctx)
+        result = execResult.result
+        error = execResult.error
+    } else {
+        // A 场景：启动时降级 → 记录降级原因 + 走 ContainerExecutor
+        degradedReason = {
+            code: 'sandbox_unavailable',
+            message: '沙箱执行器启动时不可用（无 rootless daemon / user namespace 受限），已自动降级到平台容器',
+        }
+        const executor = new ContainerExecutor({ ... })
+        const execResult = await executor.execute(ctx)
+        result = execResult.result
+        error = execResult.error
+        runUrl = execResult.runUrl ?? null
+    }
+    // 状态机决策透传 degradedReason
+    const decision = resolveScanRunState(executorKind, error, result, degradedReason)
+    // 新增 degraded 分支写 errorJson + summaryJson + runUrl
+}
+```
+
+#### 7.8.4 ScanRun 状态机扩展
+
+`ScanRunStatus` enum 新增 `'degraded'` 终态（与 `completed` / `failed` / `dispatched` 并列）：
+
+| 状态 | 业务结果 | 落库字段 | UI 严重度 | 聚合计入 |
+|:--|:--|:--|:--|:--|
+| `completed` | 完整 | summaryJson + runUrl | success | completedCount + alertsTotal + fixedCount |
+| `dispatched` | 主要副作用已落库 | runUrl + errorJson | info | finishedCount |
+| **`degraded`** | 完整（路径偏离） | summaryJson + runUrl + errorJson（sandbox_unavailable 降级原因） | **info**（蓝色） | **degradedCount**（独立计）+ alertsTotal + fixedCount |
+| `failed` | 空 | errorJson | danger（红） | failedCount |
+
+**关键设计决策**：
+
+- `degraded` 的 ScanResult 参与 severityCounts 统计（业务结果完整，与 `completed` 等价口径）
+- `batch-aggregate.ts` 新增 `degradedCount` 字段，与 `failedCount` 独立计数
+- `TERMINAL_STATUSES` 加入 `'degraded'`（聚合判定「终态」）
+
+#### 7.8.5 已知 backlog
+
+- **环境容器变化告警**（已登记 backlog，未实施）：B 场景（运行时失败）当前仅 UI warn 提示 + 平台日志 stderr；未来若引入 audit log 设计 + 通知渠道（邮件 / Slack / Webhook），可推送「沙箱执行器运行时不可用」告警给管理员。当前阶段仅 stderr + UI 提示，登记 backlog 详见 [backlog.md §C-ENV-CHANGE-ALERT](../../plan/backlog.md)。
 
 ---
 

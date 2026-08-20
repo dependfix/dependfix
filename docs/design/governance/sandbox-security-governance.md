@@ -87,7 +87,7 @@ dependfix 批量处理仓库与依赖，若防护不足会成为恶意依赖的"
 | G2 | CLI 本地模式零防护 | P0 | ✅ **已修复（2026-08-14，T803）**：fix/fix-and-pr 本地执行风险警告（可 env 抑制）；容器环境（ContainerExecutor）不误报 | [backlog C39](../../plan/backlog.md) |
 | G3 | 网络外联无限制/无日志 | P1 | ✅ **已修复（2026-08-14，T805）**：执行期外联审计日志（本地审计代理 + 命令输出 URL 提取，双路径）；出站白名单随 M9 C26 | [backlog C40](../../plan/backlog.md) |
 | G4 | 验证命令无单命令超时/资源上限 | P1 | ✅ **已修复（2026-08-14，T802）**：单命令超时（默认 10 分钟可配）+ 进程树终止；cgroup 随 M9 C26 | [backlog C41](../../plan/backlog.md) |
-| G5 | M7 并发共享容器交叉污染 | P1 | ✅ **M10 已闭环（2026-08-20 归档）**——基于一手调研决策为 Docker rootless mode（runtime）+ 应用层白名单代理（网络）+ cgroup v2 + Node 20 自动识别（资源）。T1001-T1004 子任务已在 [todo-archive.md §M10](../../plan/todo-archive.md#m10-独立沙箱容器-c26-实施规划已归档) 拆解并落地（13 commits 待推送），设计在 [executor-sandbox.md §7](./executor-sandbox.md#7-sandbox-执行器设计) 落盘。`SandboxExecutor` 与 `ContainerExecutor` 并存（默认 `container`），K8s + Helm 仅规划登记；剩余 **T1005 路由接线**见 [backlog C26 / T1005](../../plan/backlog.md) |
+| G5 | M7 并发共享容器交叉污染 | P1 | ✅ **M10 已闭环（2026-08-20 归档）**——基于一手调研决策为 Docker rootless mode（runtime）+ 应用层白名单代理（网络）+ cgroup v2 + Node 20 自动识别（资源）。T1001-T1004 子任务已在 [todo-archive.md §M10](../../plan/todo-archive.md#m10-独立沙箱容器-c26-实施规划已归档) 拆解并落地（13 commits 待推送），设计在 [executor-sandbox.md §7](./executor-sandbox.md#7-sandbox-执行器设计) 落盘。`SandboxExecutor` 与 `ContainerExecutor` 并存（默认 `container`），K8s + Helm 仅规划登记；**T1005 路由接线 4 子任务（A 前端 UI 暴露 / B 仓库级 sandboxLimits / C 状态机扩 degraded / D 文档同步）落地中**——见 [executor-sandbox.md §7.8](./executor-sandbox.md) 降级状态机契约 + [backlog T1005](../../plan/backlog.md) |
 | G6 | Action 模式凭据暴露面 | P1 | ✅ **已修复（2026-08-14，T803）**：启动时探测 token 权限面，classic repo scope 超权限启动即警告（不强制阻断） | [backlog C42](../../plan/backlog.md) |
 | G7 | 升级研判缺供应链信号 | P2 | 报告/PR 增加 lifecycle scripts 信号披露 | [backlog C43](../../plan/backlog.md) |
 
@@ -103,7 +103,32 @@ dependfix 批量处理仓库与依赖，若防护不足会成为恶意依赖的"
 - **C38 验收（✅ 已达成 2026-08-14）**：容器主进程非 root（`docker exec` 实测 PID1 `Uid: 100`）；数据卷（`/app/data`）新卷与既有 root 卷均可写（entrypoint chown 自动修复）；镜像构建成功；HTTP 冒烟 `GET /` 200；su-exec 0755 非 setuid 无提权漏洞（非 root 提权尝试被拒）。**实证补充发现**：容器内 git/pnpm 缺失（M6 遗留）——**已修复（C45/T801，2026-08-14）**，并连带修复 pnpm-audit legacy range 前缀假跳过 bug。
 - **C39/C42 验收（✅ 已达成 2026-08-14，T803）**：本地 fix/fix-and-pr 启动输出本地执行风险警告（实证：`[local-exec]` warn 输出、`DEPENDFIX_SUPPRESS_LOCAL_EXECUTION_WARNING=1` 抑制生效）；token 权限面探测（实证：`GET /user` 发起、401 静默不阻断运行）；analyzeTokenScope 判定 7 测试（classic repo scope 超权限警告 / fine-grained security-events 校验 / 无头不警告）。
 - **C40 验收（✅ 已达成 2026-08-14，T805）**：执行日志含外联记录（实证：curl CONNECT `registry.npmjs.org:443` 经审计代理捕获 + 命令输出 tarball URL 提取双路径真实生效）；仅记录方法+目标无请求体（无敏感信息）；代理转发 10s 超时 + 失败 502 不挂死执行；环境已有代理时不注入覆盖。
-- **C26/C40/C41 验收（✅ 已达成 2026-08-20 M10 收口）**：T1001 SandboxExecutor + DockerAdapter / T1002 出站白名单 deny-by-default 拦截代理 / T1003 cgroup v2 资源限制 / T1004 文档收口全部 commit + Review Gate Pass；详见 [todo-archive.md §M10](../../plan/todo-archive.md#m10-独立沙箱容器-c26-实施规划已归档)。T1002 与 T1003 单元 + 集成测试覆盖（含 docker rootless daemon 真实起容器实证，本机 WSL2 cgroup v1 环境 `describe.skipIf(!isCgroupV2)` 集成 stub）。C41 单命令超时已随 T802 落地（2026-08-14，进程树终止实证）。**剩余项**：T1005 sandbox 路由接线（schema 扩展 + orchestrator 分支）见 [backlog.md T1005](../../plan/backlog.md)。
+- **C26/C40/C41 验收（✅ 已达成 2026-08-20 M10 收口）**：T1001 SandboxExecutor + DockerAdapter / T1002 出站白名单 deny-by-default 拦截代理 / T1003 cgroup v2 资源限制 / T1004 文档收口全部 commit + Review Gate Pass；详见 [todo-archive.md §M10](../../plan/todo-archive.md#m10-独立沙箱容器-c26-实施规划已归档)。T1002 与 T1003 单元 + 集成测试覆盖（含 docker rootless daemon 真实起容器实证，本机 WSL2 cgroup v1 环境 `describe.skipIf(!isCgroupV2)` 集成 stub）。C41 单命令超时已随 T802 落地（2026-08-14，进程树终止实证）。**剩余项**：T1005 sandbox 路由接线 4 子任务落地中（2026-08-20 文档批次完成 + 实现批次待跑）——A 前端 UI 暴露 sandbox 选项 / B Repository.sandboxLimits JSON 字段 / C 状态机扩 degraded（[§7.8 契约](./executor-sandbox.md)）/ D 文档同步；详见 [backlog.md T1005](../../plan/backlog.md)。
+
+### 7.1 降级场景验收（T1005-C，2026-08-20 文档落地，实现待跑）
+
+**A 场景（启动时降级）验收**：
+
+- [ ] `executorKind === 'sandbox'` + `sandbox.isAvailable() === false` → 走 ContainerExecutor + 记录 `degradedReason`
+- [ ] `resolveScanRunState(executorKind, undefined, result, degradedReason)` 返回 `{ status: 'degraded', errorJson: degradedReason }`
+- [ ] `ScanRun.status === 'degraded'` 写入数据库；summaryJson + runUrl 全字段保留（与 completed 等价）
+- [ ] `batch-aggregate.ts` 把 `degraded` 计入 `degradedCount`（独立计）+ `finishedCount`；ScanResult 参与 severityCounts
+- [ ] UI：扫描历史显示 info severity（蓝色），文案「未启用 rootless，已自动使用平台容器」——而非 danger（红）
+
+**B 场景（运行时降级）验收**：
+
+- [ ] `executorKind === 'sandbox'` + `sandbox.isAvailable() === true` + `execute()` 抛 errno → 不静默降级
+- [ ] `resolveScanRunState(executorKind, error, undefined, undefined)` 返回 `{ status: 'failed' }`（error.code = 'sandbox_unavailable'）
+- [ ] `ScanRun.status === 'failed'`；summaryJson 为空；errorJson 含 sandbox_unavailable + errno 上下文
+- [ ] UI：扫描历史显示 warn severity（黄色）而非 danger（红），文案「沙箱执行器运行时不可用，环境配置可能已变化，请联系管理员」
+- [ ] **不静默降级**的强制约束：拒绝任何在运行时失败路径上自动回退 ContainerExecutor 的改动——避免掩盖「环境容器中途变化」的真实异常
+
+**降级信号契约（orchestrator ↔ 状态机）**：
+
+- [ ] `scan-orchestrator.service.ts` 在 sandbox 路由块维护 `degradedReason?: { code, message }` 内部变量
+- [ ] 启动时不可用分支：`degradedReason = { code: 'sandbox_unavailable', message: '...' }`
+- [ ] 运行时失败分支：`degradedReason = undefined`（不静默降级；错误码由 sandbox-executor.classifyError 返回）
+- [ ] `resolveScanRunState(...)` 调用透传 `degradedReason` 作为第 4 参数
 - **C26 实施关键决策（2026-08-19）**：
   - **Runtime** = Docker rootless（[Docker 官方文档](https://docs.docker.com/engine/security/rootless/)）；`SandboxRuntimeAdapter` 抽象不与 rootless 强绑定，未来切 Sysbox 仅替换 adapter——见 [executor-sandbox.md §7.1](./executor-sandbox.md#71-抽象边界不强绑定-docker-rootless)
   - **网络白名单** = 应用层 HTTP 代理（升级 T805 现有 `network-audit.ts` 为 deny-by-default 白名单拦截代理）——见 [executor-sandbox.md 决策背景](./executor-sandbox.md#7-sandbox-执行器设计)

@@ -178,6 +178,31 @@ describe('scan-orchestrator.service', () => {
             expect(run.errorJson).toContain('exec_failed')
         })
 
+        it('captures runUrl from container executor (fix mode push succeed)', async () => {
+            containerExecute.mockResolvedValue({
+                result: makeResult(),
+                error: undefined,
+                runUrl: 'https://github.com/demo/app/tree/dependfix/auto-fix-abc12345',
+            })
+
+            const run = await runScanForRepository(repositoryId, { mode: 'fix', severityThreshold: 'high' })
+            expect(run.status).toBe('completed')
+            expect(run.runUrl).toBe('https://github.com/demo/app/tree/dependfix/auto-fix-abc12345')
+        })
+
+        it('captures push_failed error from container executor (no runUrl)', async () => {
+            containerExecute.mockResolvedValue({
+                result: undefined,
+                error: { code: 'push_failed', message: '推送修复分支失败：Authentication failed' },
+                runUrl: undefined,
+            })
+
+            const run = await runScanForRepository(repositoryId, { mode: 'fix-and-pr', severityThreshold: 'high' })
+            expect(run.status).toBe('failed')
+            expect(run.errorJson).toContain('push_failed')
+            expect(run.runUrl).toBeNull()
+        })
+
         it('marks run failed with orchestration error when executor throws', async () => {
             containerExecute.mockRejectedValue(new Error('disk full'))
 

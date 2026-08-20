@@ -8,6 +8,51 @@ import type { ScanExecutor, ScanExecutorContext, ScanExecutorResult } from './ty
 const execFileAsync = promisify(execFile)
 
 /**
+ * 从 git 工作目录读取当前分支名（用于 push 后填 runUrl）。
+ *
+ * 选用 `git rev-parse --abbrev-ref HEAD`：
+ * - 正常分支返回分支名（trim 后）
+ * - 跨平台一致（Git 1.7.10+）
+ * - 不依赖 git porcelain 命令（symbolic-ref 已 deprecated）
+ *
+ * detached HEAD 时输出 "HEAD"——此时无法 push，调用方应作失败处理。
+ */
+export async function extractBranchName(workDir: string): Promise<string> {
+    const { stdout } = await execFileAsync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], {
+        cwd: workDir,
+        timeout: 5_000,
+    })
+    const branch = stdout.trim()
+    if (!branch || branch === 'HEAD') {
+        throw new Error(`git 工作目录 ${workDir} 处于 detached HEAD，无法识别分支`)
+    }
+    return branch
+}
+
+/**
+ * 推送修复分支到远程 origin（与 cloneRepository 同模式：http.extraheader 注入凭据）。
+ * 失败原样抛错，由 execute() 统一归类为 push_failed。
+ *
+ * 设计要点：
+ * - 凭据走 http.extraheader（base64 basic auth），不进 argv/URL（防 execFile 错误回显泄露）
+ * - git push 成功时 stderr 含 "To https://..." 行；任何其他 stderr 视为失败
+ * - 与 pushBranch（packages/engine/src/github/pr-creator.ts:200）的语义差异：
+ *   本函数为 async + 走 http.extraheader 凭据注入（平台 A 模式需要把 token 重新注入到
+ *   平台工作目录的 git config，而 engine 端 pushBranch 依赖该 workDir 已有 origin 凭据）
+ */
+export async function pushFixBranch(branchName: string, workDir: string, token?: string): Promise<void> {
+    const args = ['push', 'origin', branchName]
+    if (token) {
+        const basic = Buffer.from(`x-access-token:${token}`).toString('base64')
+        args.unshift('-c', `http.extraheader=Authorization: basic ${basic}`)
+    }
+    const { stderr } = await execFileAsync('git', args, { cwd: workDir, timeout: 60_000 })
+    if (stderr && !/^To /m.test(stderr)) {
+        throw new Error(`git push 失败：${stderr.trim()}`)
+    }
+}
+
+/**
  * A 模式执行器（默认）：平台容器内执行。
  *
  * 设计要点（见 executor-sandbox.md §2.2 / §5.1）：
@@ -15,6 +60,8 @@ const execFileAsync = promisify(execFile)
  * - report-only：不 clone（GitHub API 拉取告警，快）；fix/fix-and-pr：先 clone 到 workDir（fix 需操作仓库文件）
  * - 凭据来源单一：credential 由 credential service 解密传入，填充 RuntimeConfig.githubToken/alertsToken
  * - 执行结果直接复用 DependfixApp 的 RunResult（扫描结果落库数据源）
+ * - A 模式 fix / fix-and-pr 完成后推送修复分支到远程；push 失败归类 `push_failed`
+ *   （与 `execution_failed` / `execution_timeout` 语义区分），便于上层状态机决策 dispatched
  */
 export class ContainerExecutor implements ScanExecutor {
     readonly kind = 'container' as const
@@ -41,6 +88,8 @@ export class ContainerExecutor implements ScanExecutor {
         const startedAt = new Date().toISOString()
         const { owner, name, defaultBranch } = ctx.repository
         const workDir = join(this.workRoot, ctx.runId)
+        // fix / fix-and-pr 模式：app.run() 成功后需推送修复分支到远程
+        const needsPush = ctx.config.mode === 'fix' || ctx.config.mode === 'fix-and-pr'
 
         try {
             await mkdir(workDir, { recursive: true })
@@ -70,11 +119,34 @@ export class ContainerExecutor implements ScanExecutor {
 
             const { result, exitCode } = await withTimeout(app.run(), this.timeoutMs)
 
+            // 推送修复分支到远程（仅 fix / fix-and-pr 模式且 app.run() 成功）
+            // push 失败单独归类 push_failed（与执行超时/失败语义区分），便于上层状态机决策
+            let runUrl: string | undefined
+            if (needsPush && exitCode === 0) {
+                try {
+                    const branchName = await extractBranchName(workDir)
+                    await pushFixBranch(branchName, workDir, ctx.credential?.token)
+                    runUrl = `https://github.com/${owner}/${name}/tree/${branchName}`
+                } catch (pushError) {
+                    const raw = pushError instanceof Error ? pushError.message : String(pushError)
+                    return {
+                        exitCode: 2,
+                        error: {
+                            code: 'push_failed',
+                            message: `推送修复分支失败：${sanitizeErrorMessage(raw)}`,
+                        },
+                        startedAt,
+                        finishedAt: new Date().toISOString(),
+                    }
+                }
+            }
+
             return {
                 exitCode,
                 result,
                 startedAt,
                 finishedAt: new Date().toISOString(),
+                runUrl,
             }
         } catch (error) {
             // 纵深防御：错误消息脱敏（防未来任何路径把凭据带进错误文本）
@@ -92,6 +164,7 @@ export class ContainerExecutor implements ScanExecutor {
             }
         } finally {
             // 临时工作目录清理（执行后不留存）；清理失败不影响执行结果
+            // 后续阶段：push 失败前立即清理；push 成功 + PR 失败时保留 24h
             await rm(workDir, { recursive: true, force: true }).catch(() => { /* 清理失败静默 */ })
         }
     }

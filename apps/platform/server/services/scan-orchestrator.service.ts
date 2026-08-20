@@ -212,6 +212,9 @@ const runScanInternal = async (
             const execResult = await executor.execute(ctx)
             result = execResult.result
             error = execResult.error
+            // A 模式（container）：fix / fix-and-pr 完成后 executor 端推送修复分支，
+            // runUrl 指向 GitHub branch tree 页（参见 container-executor.pushFixBranch 后置）
+            runUrl = execResult.runUrl ?? null
         }
 
         // 落库（状态机决策见 scan-run-state.ts 纯函数）：

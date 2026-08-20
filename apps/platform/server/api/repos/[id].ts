@@ -1,5 +1,5 @@
 import type { H3Event } from 'h3'
-import { parseTags, Repository } from '#server/entities/repository'
+import { parseSandboxLimits, parseTags, Repository } from '#server/entities/repository'
 import { ensureDatabaseInitialized } from '#server/database'
 import { repositoryUpdateSchema } from '#server/schemas/repository'
 import { requireAuth, requireOrgResource, requireRole } from '#server/utils/guard'
@@ -30,6 +30,7 @@ const getRepository = async (event: H3Event, id: string) => {
         executorKind: found.executorKind,
         note: found.note,
         tags: parseTags(found.tags),
+        sandboxLimits: parseSandboxLimits(found.sandboxLimits),
         lastScanAt: found.lastScanAt,
         createdAt: found.createdAt,
         updatedAt: found.updatedAt,
@@ -78,6 +79,15 @@ const updateRepository = async (event: H3Event, id: string) => {
         tagsValue = parsed.data.tags && parsed.data.tags.length > 0 ? JSON.stringify(parsed.data.tags) : null
     }
 
+    // sandboxLimits 对象 → JSON 字符串列（与 tags 同模式）
+    // 空对象 `{}` 归一为 null（与 createRepository 一致；语义对齐 parseSandboxLimits 字段裁剪）
+    let sandboxLimitsValue: string | null = found.sandboxLimits
+    if (parsed.data.sandboxLimits !== undefined) {
+        sandboxLimitsValue = parsed.data.sandboxLimits && Object.keys(parsed.data.sandboxLimits).length > 0
+            ? JSON.stringify(parsed.data.sandboxLimits)
+            : null
+    }
+
     Object.assign(found, {
         owner: parsed.data.owner ?? found.owner,
         name: parsed.data.name ?? found.name,
@@ -89,6 +99,7 @@ const updateRepository = async (event: H3Event, id: string) => {
         executorKind: parsed.data.executorKind ?? found.executorKind,
         note: parsed.data.note !== undefined ? parsed.data.note : found.note,
         tags: tagsValue,
+        sandboxLimits: sandboxLimitsValue,
     })
     const saved = await repo.save(found)
     return { id: saved.id, updated: true }

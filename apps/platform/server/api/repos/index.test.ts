@@ -87,6 +87,36 @@ describe('GET /api/repos', () => {
         expect(item?.tags).toEqual(['prod', 'core'])
     })
 
+    it('persists sandboxLimits object as JSON column and reads back (M11 T1005-B)', async () => {
+        // M11 T1005-B：POST 路径序列化 sandboxLimits → toView 反序列化读取
+        await call('POST', '/api/repos', {
+            owner: 'sb-limits',
+            name: 'repo',
+            platform: 'github',
+            packageManager: 'pnpm',
+            defaultBranch: 'main',
+            executorKind: 'sandbox',
+            sandboxLimits: { memoryMb: 8192, cpu: 1.5 },
+        })
+        const list = await call('GET', '/api/repos') as Record<string, unknown>[]
+        const item = list.find((r) => r.owner === 'sb-limits')
+        expect(item?.sandboxLimits).toEqual({ memoryMb: 8192, cpu: 1.5 })
+    })
+
+    it('omits sandboxLimits when not provided (走平台 SANDBOX_DEFAULTS)', async () => {
+        await call('POST', '/api/repos', {
+            owner: 'no-limits',
+            name: 'repo',
+            platform: 'github',
+            packageManager: 'pnpm',
+            defaultBranch: 'main',
+            executorKind: 'container',
+        })
+        const list = await call('GET', '/api/repos') as Record<string, unknown>[]
+        const item = list.find((r) => r.owner === 'no-limits')
+        expect(item?.sandboxLimits).toBeUndefined()
+    })
+
     it('rejects unsupported method with 405', async () => {
         await expect(call('PUT', '/api/repos')).rejects.toMatchObject({ statusCode: 405 })
     })

@@ -43,6 +43,7 @@ describe('GET /api/repos/[id]', () => {
     it('returns repository detail', async () => {
         const detail = await callId('GET', `/api/repos/${id}`, undefined, { id }) as Record<string, unknown>
         expect(detail).toMatchObject({ id, owner: 'demo', name: 'app', packageManager: 'pnpm', tags: [] })
+        expect(detail.sandboxLimits).toBeUndefined()
     })
 
     it('returns 404 for unknown repository', async () => {
@@ -68,6 +69,32 @@ describe('GET /api/repos/[id]', () => {
 
     it('rejects invalid body with 400', async () => {
         await expectError(callId('PUT', `/api/repos/${id}`, { executorKind: 'nope' }, { id }), 400)
+    })
+
+    it('persists sandboxLimits JSON via PUT (M11 T1005-B)', async () => {
+        // M11 T1005-B：仓库级 sandboxLimits 序列化 + 更新语义（undefined=不修改 / null 或 object=更新）
+        const result = await callId('PUT', `/api/repos/${id}`, { sandboxLimits: { memoryMb: 4096, cpu: 2.0 } }, { id }) as { updated: boolean }
+        expect(result).toEqual({ id, updated: true })
+
+        const detail = await callId('GET', `/api/repos/${id}`, undefined, { id }) as Record<string, unknown>
+        expect(detail.sandboxLimits).toEqual({ memoryMb: 4096, cpu: 2.0 })
+    })
+
+    it('clears sandboxLimits via PUT (null)', async () => {
+        // 先设置 → 再清空 → 走平台 SANDBOX_DEFAULTS（detail.sandboxLimits === undefined）
+        await callId('PUT', `/api/repos/${id}`, { sandboxLimits: { memoryMb: 1024 } }, { id })
+        const cleared = await callId('PUT', `/api/repos/${id}`, { sandboxLimits: null }, { id }) as { updated: boolean }
+        expect(cleared).toEqual({ id, updated: true })
+
+        const detail = await callId('GET', `/api/repos/${id}`, undefined, { id }) as Record<string, unknown>
+        expect(detail.sandboxLimits).toBeUndefined()
+    })
+
+    it('rejects PUT with sandboxLimits out of range (400)', async () => {
+        await expectError(
+            callId('PUT', `/api/repos/${id}`, { sandboxLimits: { memoryMb: 100000 } }, { id }),
+            400,
+        )
     })
 
     it('deletes repository via DELETE', async () => {

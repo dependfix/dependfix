@@ -1,5 +1,5 @@
 import type { H3Event } from 'h3'
-import { parseTags, Repository } from '#server/entities/repository'
+import { parseSandboxLimits, parseTags, Repository } from '#server/entities/repository'
 import { ensureDatabaseInitialized } from '#server/database'
 import { repositorySchema } from '#server/schemas/repository'
 import { requireAuth, requireRole } from '#server/utils/guard'
@@ -18,6 +18,7 @@ const toView = (r: Repository) => ({
     executorKind: r.executorKind,
     note: r.note,
     tags: parseTags(r.tags),
+    sandboxLimits: parseSandboxLimits(r.sandboxLimits),
     lastScanAt: r.lastScanAt,
     createdAt: r.createdAt,
     updatedAt: r.updatedAt,
@@ -77,6 +78,12 @@ const createRepository = async (event: H3Event) => {
         tags = parsed.data.tags.length > 0 ? JSON.stringify(parsed.data.tags) : null
     }
 
+    // sandboxLimits 对象 → JSON 字符串列（与 tags 同模式；null → 走平台 SANDBOX_DEFAULTS）
+    // 空对象 `{}` 归一为 null：避免 POST `{}` → GET 拿到 undefined 的语义不对称（与 parseSandboxLimits 的字段裁剪对齐）
+    const sandboxLimits: string | null = parsed.data.sandboxLimits && Object.keys(parsed.data.sandboxLimits).length > 0
+        ? JSON.stringify(parsed.data.sandboxLimits)
+        : null
+
     const entity = repo.create({
         organizationId,
         owner: parsed.data.owner,
@@ -89,6 +96,7 @@ const createRepository = async (event: H3Event) => {
         executorKind: parsed.data.executorKind,
         note: parsed.data.note ?? null,
         tags,
+        sandboxLimits,
     })
     const saved = await repo.save(entity)
     // 保存后重查以加载 relations（创建响应与 GET 语义一致，credentialName 不恒为 null）

@@ -357,6 +357,56 @@ describe('scan-orchestrator.service', () => {
             expect(run.errorJson).toContain('sandbox_unavailable')
             expect(containerExecute).not.toHaveBeenCalled()
         })
+
+        it('passes repository.sandboxLimits to SandboxExecutor (M11 T1005-B 透传)', async () => {
+            // M11 T1005-B：仓库级 sandboxLimits 透传到 SandboxExecutor 实例化选项
+            // 限额优先级：仓库级 > 沙箱级 > 平台默认（sandbox-executor.ts:107）
+            const repoId = await createRepo({
+                executorKind: 'sandbox',
+                sandboxLimits: { memoryMb: 4096, cpu: 2.0 },
+            })
+            sandboxIsAvailable.mockResolvedValue(true)
+            sandboxExecute.mockResolvedValue({ result: makeResult(), error: undefined })
+
+            await runScanForRepository(repoId, { mode: 'fix', severityThreshold: 'high' })
+            // SandboxExecutor 构造函数收到的第二参数应包含 sandboxLimits
+            expect(SandboxExecutorMock).toHaveBeenCalledTimes(1)
+            const options = SandboxExecutorMock.mock.calls[0]?.[0] as { workRoot?: string, sandboxLimits?: { memoryMb?: number, cpu?: number } }
+            expect(options.sandboxLimits).toEqual({ memoryMb: 4096, cpu: 2.0 })
+        })
+
+        it('passes undefined sandboxLimits when repository has none (走平台 SANDBOX_DEFAULTS)', async () => {
+            // M11 T1005-B：仓库级 sandboxLimits 缺省 → parseSandboxLimits 返回 undefined
+            // SandboxExecutor 收到 undefined → 走 sandbox-executor.ts:61 `?? {}` → 内部 spec 不带限额
+            // runtime-adapter.ts:180 走 `?? SANDBOX_DEFAULTS.memoryMb` 平台默认
+            const repoId = await createRepo({
+                executorKind: 'sandbox',
+                // 不带 sandboxLimits 字段
+            })
+            sandboxIsAvailable.mockResolvedValue(true)
+            sandboxExecute.mockResolvedValue({ result: makeResult(), error: undefined })
+
+            await runScanForRepository(repoId, { mode: 'fix', severityThreshold: 'high' })
+            expect(SandboxExecutorMock).toHaveBeenCalledTimes(1)
+            const options = SandboxExecutorMock.mock.calls[0]?.[0] as { sandboxLimits?: unknown }
+            expect(options.sandboxLimits).toBeUndefined()
+        })
+
+        it('passes partial sandboxLimits (only memoryMb)', async () => {
+            // 部分字段：cpu 缺省 → parseSandboxLimits 返回 { memoryMb: 4096 }（仅 memoryMb）
+            // SandboxExecutor 收到 options 后 buildSpec 时 cpu=undefined → runtime-adapter 走 SANDBOX_DEFAULTS.cpu
+            const repoId = await createRepo({
+                executorKind: 'sandbox',
+                sandboxLimits: { memoryMb: 8192 },
+            })
+            sandboxIsAvailable.mockResolvedValue(true)
+            sandboxExecute.mockResolvedValue({ result: makeResult(), error: undefined })
+
+            await runScanForRepository(repoId, { mode: 'fix', severityThreshold: 'high' })
+            const options = SandboxExecutorMock.mock.calls[0]?.[0] as { sandboxLimits?: { memoryMb?: number, cpu?: number } }
+            expect(options.sandboxLimits).toEqual({ memoryMb: 8192 })
+            expect(options.sandboxLimits?.cpu).toBeUndefined()
+        })
     })
 
     describe('runScanForRepository (github-action executor)', () => {

@@ -7,7 +7,7 @@ import { SandboxExecutor } from './executor/sandbox-executor'
 import { ActionTriggerExecutor } from './executor/action-trigger-executor'
 import { ActionResultFetcher } from './executor/action-result-fetcher'
 import type { ScanExecutorContext } from './executor/types'
-import { Repository } from '#server/entities/repository'
+import { Repository, parseSandboxLimits } from '#server/entities/repository'
 import { Credential } from '#server/entities/credential'
 import { ScanRun } from '#server/entities/scan-run'
 import { ScanResult } from '#server/entities/scan-result'
@@ -228,6 +228,9 @@ const runScanInternal = async (
             // 详见 executor-sandbox.md §7.8
             const sandbox = new SandboxExecutor({
                 workRoot: process.env.RUN_WORK_ROOT ?? 'data/runs',
+                // M11 T1005-B：仓库级 sandboxLimits 透传（可选；undefined 时走平台 SANDBOX_DEFAULTS）。
+                // 限额优先级：仓库级 > 沙箱级 > SANDBOX_DEFAULTS（见 sandbox-executor.ts:107 注释）。
+                sandboxLimits: parseSandboxLimits(repository.sandboxLimits),
             })
             if (await sandbox.isAvailable()) {
                 // 启动可用 → 走 sandbox（可能 B 场景：execute 抛 errno → sandbox_unavailable）

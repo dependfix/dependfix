@@ -203,6 +203,73 @@ jobs:
 - **PR 合入前人工检查**：跨线升级（PR body 带 ⚠️ Major 标记）以及新增/升级包带 lifecycle scripts 且被仓库批准时（供应链信号披露落地后见报告警示区），合入前应人工确认。
 - **平台部署**：平台容器执行进程已**非 root 降权**（`dependfix` 用户，entrypoint 自动修复数据卷所有权，[C38](../plan/backlog.md)）；部署时勿挂载 `docker.sock`、勿授予特权；`AUTH_SECRET` / `ENCRYPTION_KEY` 使用强随机值。
 
+#### 启用 rootless sandbox 执行（规划中，多租户/owner 模式推荐）
+
+> **⚠️ 状态：M10 路由接线未完成**——`SandboxExecutor` 已实现（[apps/platform/server/services/executor/sandbox-executor.ts](../design/governance/executor-sandbox.md)），但 `Repository.executorKind` 当前 schema 仅接受 `container` / `github-action`（[apps/platform/server/schemas/repository.ts](https://github.com/dependfix/dependfix/blob/master/apps/platform/server/schemas/repository.ts)），scan-orchestrator 路由尚未接入 `sandbox`。本节为**部署形态前置指引**——可先在宿主机完成 rootless daemon 启动并验证可连接，但 dependfix 侧的启用步骤需等路由接线后（backlog T1005）才能使用；当前阶段保持默认 `ContainerExecutor`，本节不会生效。
+>
+> **适用范围**：owner/org 多仓库扫描、`--allow-major-upgrade` 跨线升级、对不可信仓库 owner 模式修复——这些场景下恶意依赖脚本在容器内执行的风险显著高于单可信仓库场景，sandbox 执行把执行隔离在独立 rootless 容器内（与平台容器解耦），详见 [executor-sandbox.md §7](../design/governance/executor-sandbox.md#7-sandbox-执行器设计)。
+>
+> **不启用**：单可信仓库 + 本地开发场景下默认 `ContainerExecutor` 即可，无 rootless daemon 启动成本。
+
+**前置条件**：
+
+- Linux 内核（cgroup v2 推荐 ≥ 5.8；旧内核降级为 Node V8 软限制）
+- 已安装 Docker（≥ 20.10）
+- 已安装 `uidmap` 包（提供 `newuidmap` / `newgidmap`）
+- `/etc/subuid` 与 `/etc/subgid` 中当前用户有 ≥ 65,536 个从属 UID/GID（`grep ^$(whoami): /etc/subuid` 应返回非空）
+- 系统已启用 user namespace（多数发行版默认开启；WSL2 / 容器内运行需额外配置）
+
+**启动 rootless Docker daemon**（参考 [Docker 官方 rootless 文档](https://docs.docker.com/engine/security/rootless/)）：
+
+```bash
+# 1. 安装 rootless 工具（Ubuntu/Debian 需 docker-ce-rootless-extras；20.10+ 通常已自带）
+sudo apt-get install -y docker-ce-rootless-extras
+
+# 2. 以非 root 用户初始化（生成 systemd user service + 环境变量）
+dockerd-rootless-setuptool.sh check     # 前置检查（user namespace / 端口范围）
+dockerd-rootless-setuptool.sh install   # 安装 systemd user service
+
+# 3. 启动 + 设置开机自启 + linger（无活动 session 时 systemd user service 不被回收）
+systemctl --user start docker.service
+systemctl --user enable docker.service
+sudo loginctl enable-linger "$USER"      # 关键：logout/重启后 user service 仍存活
+
+# 4. 验证 daemon 可用性（与 platform DockerAdapter.isAvailable() 实现一致）
+docker --context rootless info --format '{{.ServerVersion}}'
+# 输出如 `24.0.7` 即启动成功
+
+# 5. 确认连接的是 rootless 而非 rootful daemon
+docker --context rootless info --format '{{.SecurityOptions}}'
+# 输出含 `rootless` 字样 → 真正连到 rootless daemon
+```
+
+**待 T1005 路由接线后在 dependfix 启用 sandbox 执行**：
+
+```bash
+# 仓库级覆盖：仅对指定仓库启用 sandbox（schema 扩展 + 路由落地后可用）
+curl -X PUT /api/repos/{id} \
+  -H 'Content-Type: application/json' \
+  -d '{"executorKind": "sandbox"}'
+
+# 环境变量扩展白名单（按需添加私有 registry / GitHub Enterprise）
+# 生效进程：平台 Node 进程内的拦截代理判定（packages/engine/src/runners/network-audit.ts）；
+# sandbox 容器走 Docker bridge 直出网（本 env 不透传给 sandbox 容器内部）
+export DEPENDFIX_ALLOWED_DOMAINS="registry.internal.example.com,artifacts.example.com"
+
+# 自定义运行时（默认 runc；如部署了 Sysbox 可切换）——模块级读取，须在平台启动前设置
+export SANDBOX_RUNTIME=sysbox-runc
+```
+
+daemon 不可用时（开发机无 Docker / 未启用 rootless / user namespace 受限）`sandbox-executor.ts` 通过 errno 分类返回 `sandbox_unavailable` 错误码，scan-orchestrator 据此降级回 `ContainerExecutor`（详见 [sandbox-executor.ts 错误分类契约](../design/governance/executor-sandbox.md#3-executor-接口契约)）。
+
+**反模式（绝对禁止）**：
+
+- **挂宿主 `/var/run/docker.sock`**：等价于授予宿主 root 权限（任意用户可起特权容器接管宿主）——违反 [sandbox-security-governance.md §3 路径 D](../design/governance/sandbox-security-governance.md)，属设计使然的等价提权（**不依赖具体漏洞**）
+- **DinD `--privileged` 启动 sandbox**：[CVE-2019-5736](https://unit42.paloaltonetworks.com/cve-2019-5736/) runc 覆写 `/proc/self/exe` 逃逸 + [CVE-2024-21626](https://github.com/advisories/GHSA-xfj7-4fh9-h89v) runc `WORKDIR` 文件描述符泄漏——这两条 CVE 与 `--privileged` 强绑定，rootless mode 默认关闭
+- **平台容器启动 rootless daemon 自身作为 sandbox**：破坏"独立 PID/Mount namespace"目的，平台漏洞直接蔓延到 sandbox
+
+完整设计、RuntimeAdapter 抽象、K8s+Helm 部署预留见 [executor-sandbox.md §7](../design/governance/executor-sandbox.md#7-sandbox-执行器设计)；威胁模型与治理登记见 [sandbox-security-governance.md §5 G5](../design/governance/sandbox-security-governance.md#5-治理决议与登记)。
+
 ### Action 输出
 
 | 输出 | 说明 |

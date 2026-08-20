@@ -12,22 +12,24 @@
 
 ### C65-A 用户管理安全 + 角色 i18n（**P1，可立即启动**）
 
-- [ ] **C65-A1** admin 禁止对自己修改权限（防降级）
+- [x] **C65-A1** admin 禁止对自己修改权限（防降级）
   - 优先级：**P1（安全）**
   - 依赖：无
   - 交付物：`apps/platform/app/pages/users.vue` —— `setRole()` 函数首行增加 self-check（`user.id === session.user.id` → 拒绝 + toast）+ 当前登录 user 的 role `<Select>` 加 `:disabled="user.id === session?.user?.id"`
   - 验收：当前登录 admin 看自己 row 时 role Select 含 `disabled` 属性；切他人 row 仍可改；devtools 强制触发 `setRole(self)` → 拒绝（不修改服务端状态）+ toast 错误
   - 测试：vitest `setRole` 拦截逻辑 ≥ 2 case；playwright admin e2e 看自己 row role Select 含 disabled
   - 预估 diff：~1 文件 +50 行（含 e2e）
+  - **闭环**（commit `1d7c5c8` 2026-08-21）：6 文件 / +81/-1 行；`isSelfTarget` 独立可测函数 + 6 vitest 用例；admin e2e 断言 self row `aria-disabled="true"` / other row `aria-disabled="false"`（PrimeVue 4 disabled 落到内部 `span[role=combobox]` 的 aria-disabled 而非 root class）；服务端强制拦截属后续加固（backlog）
   - 关联：`#7 admin 禁止对自己修改权限`（backlog.md §2026-08-21 平台 UX 反馈批次评估）
 
-- [ ] **C65-A2** 角色名称国际化
+- [x] **C65-A2** 角色名称国际化
   - 优先级：P2（i18n 一致性）
   - 依赖：无（可与 C65-A1 同批次实施）
   - 交付物：`apps/platform/i18n/locales/zh-CN.json` + `en-US.json` 新增 `common.role.admin/orgAdmin/viewer` 键（中英双语）+ `users.vue:15-19` `ROLES` 数组硬编码英文标签改为 `t('common.role.admin')` 等 + `roleLabel()` 函数同步切换
   - 验收：切换 zh-CN 时 role Select 显示"管理员 / 组织管理员 / 观察者"；en 显示"Admin / Org Admin / Viewer"；`roleLabel()` 与 Select 选项统一数据源
   - 测试：i18n 切换断言（playwright）
   - 预估 diff：~3 文件 +70 行
+  - **闭环**（commit `2076fda` 2026-08-21）：4 文件 / +37/-6 行；ROLES computed 化 + roleLabel 同源切换；i18n e2e 断言 zh-CN 含"管理员"/"观察者"、en 含"Admin"/"Viewer" + en 页面无中文残留（"组织管理员"未断言——仅 Select option，未实际分配给 e2e 测试用户，不进入 DataTable）
   - 关联：`#9 角色名称国际化`（backlog.md §2026-08-21 平台 UX 反馈批次评估）
 
 ### C65-B i18n 单点声明治理（P2，**待 C65-A 落地后启动**）

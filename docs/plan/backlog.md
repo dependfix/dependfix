@@ -588,6 +588,171 @@
 
 ---
 
+## M12: 平台 UX 一致性 + i18n 治理（待启动）
+
+> **背景**：2026-08-21 用户实测反馈 10 项平台 UX / 安全 / i18n 问题（[backlog.md §2026-08-21 平台 UX 反馈批次评估](#2026-08-21-平台-ux-反馈批次评估c65-待启动) 完整评估），按规划规范 §3 分流后全部归档 backlog 等待批次启动。本节作为 **M12 阶段总体规划**，把 C65 4 子批次收口为 M12 单一里程碑骨架。
+>
+> **状态**：🔶 **规划已就绪 / 未启动**（待用户确认启动顺序后，从 backlog 上移到 todo.md 活跃段，按 §1.1 ≤ 5-6 项硬上限分批实施）
+>
+> **前置依赖**：M11 已闭环（2026-08-20，22 commits + branches 80.49%）+ C62/C63/C64 e2e 修复批次（11 commits）已合入 origin/master
+
+### M12 阶段目标
+
+1. **用户管理安全 + 角色国际化**（C65-A，P1）—— admin 禁止对自己 setRole（防止误降级）+ 角色标签 i18n
+2. **i18n 单点声明治理**（C65-B，P2）—— 所有 i18n 配置（locales / datetimeFormats / numberFormats / detector）统一来源，新增翻译仅改 1 个文件
+3. **schedules 增强**（C65-C，P2）—— cron 表达式预览 + 时区选择框
+4. **平台表格 / 视图增强**（C65-D，P2）—— env-events sortable + alerts 双 chevron 修复 + alerts 视图切换（按包/项目/原始）+ alerts 图表去重
+
+### 启动顺序与依赖图
+
+```
+        ┌──────────────┐
+        │  C65-A 启动  │ (P1 安全，立即)
+        │ users.vue    │
+        │ + i18n 角色  │
+        └──────┬───────┘
+               │ 角色 i18n 落地
+               ▼
+        ┌──────────────┐
+        │  C65-B 启动  │ (依赖 A 的角色 i18n)
+        │ i18n 单点治理 │
+        └──────────────┘
+
+   并行轨道（无依赖，可同步启动）：
+
+        ┌──────────────┐    ┌──────────────┐
+        │  C65-C 启动  │    │  C65-D 启动  │
+        │ schedules    │    │ 表格 / 视图  │
+        │ cron + 时区  │    │ 4 项增强     │
+        └──────────────┘    └──────────────┘
+```
+
+**推荐启动顺序**（基于 P1 优先 + 依赖关系 + 风险分散）：
+
+1. **C65-A** —— P1 安全，最小闭环（半天），立即启动
+2. **C65-D** —— 视觉缺陷修复 + UX 一致性，与 C65-A 并行（不同文件，无冲突）
+3. **C65-C** —— cron 预览需 cronstrue 评估（中等决策），与 A/D 并行
+4. **C65-B** —— 依赖 C65-A 的角色 i18n 落地（需先有 `common.role.*` 键才能迁移 i18n 配置）
+
+### 子批次规划详情
+
+#### C65-A 用户管理安全 + 角色 i18n（P1，可立即启动）
+
+- **执行范围**：
+  - `apps/platform/app/pages/users.vue:15-19` —— `ROLES` 数组硬编码英文标签改为 `t('common.role.admin')` 等
+  - `apps/platform/i18n/locales/zh-CN.json` + `en-US.json` —— 新增 `common.role.admin/orgAdmin/viewer` 键（中英双语）
+  - `users.vue:236` role Column 改用 `t('users.roleLabel')` 复用现有键
+  - `users.vue:70-96 setRole()` 函数 —— 首行增加 `if (user.id === session.user.id) return error`，并把当前登录 user 的 role `<Select>` 加 `:disabled="user.id === session.user?.id"`
+- **非目标**：
+  - 单 admin 不得降级（#8 远期，需后端事务级校验，独立批次）
+  - users 列表搜索 / 排序已有，不在本批次范围
+- **验收标准**：
+  - 切换 zh-CN 时 role Select 显示"管理员 / 组织管理员 / 观察者"；en 显示"Admin / Org Admin / Viewer"
+  - 当前登录 admin 看自己 row 时，role `<Select>` 含 `disabled` 属性
+  - devtools 强制触发 `setRole(self)` → 拒绝 + toast 错误（不修改服务端状态）
+  - e2e: admin 看自己 row role Select 含 disabled；切他人 row 仍可改
+  - 单测：setRole 拦截逻辑 ≥ 2 case
+- **预估 diff**：~3 文件 +120 行（users.vue + 2 个 locale）
+- **风险**：低（前端拦截为主，无后端变更）
+- **依赖**：无
+- **来源**：[#7 + #9](#逐条评估详情)
+
+#### C65-B i18n 单点声明治理（P2，待 C65-A 落地后启动）
+
+- **执行范围**：
+  - 扫描所有 i18n 配置点：nuxt.config.ts (locales/vueI18n) + `apps/platform/i18n/i18n.config.ts` (datetimeFormats/numberFormats) + `apps/platform/i18n/localeDetector.ts` + 各页面 `useI18n()` 调用
+  - 扩展 `apps/platform/i18n/i18n.config.ts` 为 i18n 配置中心（含 locales 列表 + datetimeFormats + numberFormats + detector 路径常量）
+  - `nuxt.config.ts` `i18n` 块简化为只引用 `i18n.config.ts` 单点（≤ 10 行）
+  - 新增语言 / 调整格式仅需改 1 个文件
+  - 文档同步：[docs/standards/platform.md](../standards/platform.md) §7 加"i18n 配置单点声明"条款
+- **非目标**：
+  - 不改 i18n.locales 数据结构（保持 `@nuxtjs/i18n` 配置契约）
+  - 不引入新翻译键（属 C65-A 范围）
+- **验收标准**：
+  - `nuxt.config.ts` `i18n` 块 ≤ 10 行（仅 `i18n.config.ts` 引用 + 必要 override）
+  - 新增语言（如 ja-JP）演示：仅改 1 个文件即可
+  - 文档明确"未来新增翻译仅改 1 个文件"
+- **预估 diff**：~3 文件 +50/-30 行
+- **风险**：低（纯配置重构，无业务逻辑变更）
+- **依赖**：C65-A（角色 i18n 键落地后才能展示治理效果）
+- **来源**：[#10](#逐条评估详情)
+
+#### C65-C schedules 增强（P2，可与 C65-A/D 并行启动）
+
+- **执行范围**：
+  - `apps/platform/app/pages/schedules.vue:397-409` cron `<InputText>` 旁加预览（实时显示"下次触发：2026-08-25 02:00（每周一 凌晨 2 点）"）
+  - 技术评估（先决策再实施）：
+    - 方案 A：引入 `cronstrue`（~10KB gzip + `cron-parser`）—— 成熟，文档全
+    - 方案 B：自实现简单预览（仅 next 3 次触发时间 + 人类可读描述）—— 0 依赖
+  - `schedules.vue:410-418` 时区 `<InputText>` 改为 `<Select>` 含 `filter`（数据源 `Intl.supportedValuesOf('timeZone')`）
+  - 默认时区改为 `Intl.DateTimeFormat().resolvedOptions().timeZone`（浏览器时区）
+  - 新增 `apps/platform/app/utils/cron-preview.ts` helper（如选方案 B 自实现）
+- **非目标**：
+  - 不引入 cron 编辑 UI（仅预览）
+  - 不实现时区转换（依赖 cron 库 / Intl API）
+- **验收标准**：
+  - cron 输入实时显示"下次触发：..."，非法 cron 显示错误
+  - 时区字段为 `<Select>` 含 filter，可搜索/选择
+  - 默认时区跟随浏览器
+  - e2e: cron 字段变更触发预览更新；时区 Select 含 IANA 时区列表
+  - 单测：cron 解析 + 预览 ≥ 4 case（含合法 / 非法 / 时区切换）
+- **预估 diff**：~2 文件 +180 行（schedules.vue + 可选 cron-preview.ts helper）
+- **风险**：中（cronstrue 引入需评估依赖 + 体积；自实现需边界测试）
+- **依赖**：无（与 C65-A/D 并行）
+- **来源**：[#2 + #3](#逐条评估详情)
+
+#### C65-D 平台表格 / 视图增强（P2，可与 C65-A/C 并行启动）
+
+- **执行范围**：
+  - `apps/platform/app/pages/env-events.vue:243-292` —— 6 列全部加 `sortable`，含 `removable-sort` 三态（复用 C60 模式）
+  - `apps/platform/app/pages/alerts.vue:323-342` —— 移除 `#groupheader` slot 内冗余 chevron icon（保留 PrimeVue 默认）+ 整个 `<span>` 仍可点击 + 键盘 enter/space
+  - `apps/platform/server/api/alerts/index.get.ts:42` —— 扩展 `groupBy='package'|'repository'|none`，不传等价 none
+  - `apps/platform/app/pages/alerts.vue` —— 顶部新增 SwitchButton / TabView 三选一视图切换：
+    - 按包聚合（现状，packageName group）
+    - 按项目聚合（repository group，需 repository 字段已有）
+    - 原始列表（无 rowGroup，按 createdAt DESC）
+  - `apps/platform/app/pages/alerts.vue:179-247` —— 顶部 3 图删除/差异化（保留按当前过滤器的聚合图，去除与 dashboard 完全重复的图）
+- **非目标**：
+  - 不动 `apps/platform/app/pages/dashboard.vue`（仪表盘全量聚合职责保留）
+  - 不引入新图表库（复用 useDashboardStats composable）
+  - 不改 alerts API 分页（take: 500 已够）
+- **验收标准**：
+  - env-events 6 列均 sortable，含三态
+  - alerts 单 chevron（PrimeVue 默认），groupheader 点击区域一致
+  - alerts 三视图切换正常，切换后 fetchAlerts 携带 `groupBy` 参数
+  - alerts 顶部 3 图差异化（按当前过滤器）或删除
+  - e2e：env-events sortable + alerts 视图切换 + 单 chevron 视觉断言
+  - 单测：alerts API groupBy 参数 ≥ 3 case
+- **预估 diff**：~4 文件 +300 行（env-events.vue + alerts.vue + alerts.get.ts + e2e）
+- **风险**：中（alerts rowGroup 渲染目前因 C64 PrimeVue hydration known-issue `.fixme`，需谨慎处理 SSR/CSR 一致性；新视图切换可能触发新 hydration 问题）
+- **依赖**：无（与 C65-A/C 并行）
+- **来源**：[#1 + #4 + #5 + #6](#逐条评估详情)
+
+### M12 阶段验收标准
+
+- [ ] 4 个子批次全部独立闭环（每个含 ≥ 1 个 Review Gate Pass）
+- [ ] `pnpm lint` / `typecheck` 全绿
+- [ ] vitest 单测覆盖 + playwright e2e 覆盖（含新增视图切换 / cron 预览 / sortable / i18n 单点断言）
+- [ ] branches 覆盖率维持 ≥ 80%（与 M11 持平）
+- [ ] `pnpm check:docs` 全过（含 standards/platform.md 新增 i18n 单点声明条款）
+- [ ] 用户实测反馈 10 项全部闭环
+- [ ] CI 端到端裁决通过
+
+### M12 非目标
+
+- **#8 单 admin 不得降级**（远期，需后端事务级 admin 计数校验）—— 独立批次登记于 backlog 远期
+- **T1005 sandbox 路由接线** —— 已闭环（M11 T1005-A/B/C/D）
+- **M11 推进剩余子任务** —— 已闭环（M11 22 commits）
+- **M10 / M9 / M8 / M7 已闭环里程碑** —— 不在 M12 范围
+
+### M12 风险登记
+
+- **C65-D alerts rowGroup hydration** —— C64 known-issue 未闭环，新视图切换可能触发新 hydration 问题。建议先在 alerts 加载迁移 `useAsyncData` 后再实施 C65-D，或保持 fixme 状态直到 PrimeVue 修复版本
+- **C65-C cronstrue 依赖评估** —— 引入前必须做 bundle size 影响评估；备选自实现需充分测试边界
+- **C65-B i18n 配置重构** —— 涉及 nuxt.config.ts 改动，构建期失败会阻塞 CI，必须谨慎验证
+
+---
+
 ## M2 增强候选（未排期）
 
 > 2026-08-02 T208-T211 设计评审中确定的"未来评估项"，当前不做。

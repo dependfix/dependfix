@@ -485,14 +485,12 @@
             "dispatched": "Dispatched",
             "dispatchedPrFailed": "PR creation failed (branch pushed)"
         },
-        "colResult": {
-            "openRunPrFailedHint": "PR creation failed; branch pushed. Click the link above to open PR manually."
-        },
         "colRepo": "Repository",
         "colStatus": "Status",
         "colExecutor": "Executor",
         "colAlerts": "Alerts",
         "colResult": "Result",
+        "openRunPrFailedHint": "PR creation failed; branch pushed. Click the link above to open PR manually.",
         "openRun": "Open run",
         "subEmpty": "No scan runs",
         "forceFail": "Force Fail",

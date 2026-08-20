@@ -137,7 +137,7 @@ const openRunUrl = (url: string) => {
                         <template #body="{data}">
                             <Tag
                                 :value="isPrFailedDispatched(data as RunView)
-                                    ? t('runs.runStatus.dispatchedPrFailed')
+                                    ? t('batchRuns.runStatus.dispatchedPrFailed')
                                     : statusLabel(data.status)"
                                 :severity="statusSeverity(data.status)"
                             />
@@ -145,7 +145,7 @@ const openRunUrl = (url: string) => {
                                 v-if="isPrFailedDispatched(data as RunView)"
                                 class="text-warning d-block mt-1"
                             >
-                                {{ t('runs.colResult.openRunPrFailedHint') }}
+                                {{ t('batchRuns.openRunPrFailedHint') }}
                             </small>
                         </template>
                     </Column>

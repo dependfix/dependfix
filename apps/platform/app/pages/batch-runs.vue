@@ -412,7 +412,7 @@ onUnmounted(stopPolling)
                                             v-if="run.status === 'dispatched' && run.error?.code === 'pr_creation_failed'"
                                             class="text-warning d-block mt-1"
                                         >
-                                            {{ t('batchRuns.colResult.openRunPrFailedHint') }}
+                                            {{ t('batchRuns.openRunPrFailedHint') }}
                                         </small>
                                     </template>
                                 </Column>

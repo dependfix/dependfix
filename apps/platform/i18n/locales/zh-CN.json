@@ -485,14 +485,12 @@
             "dispatched": "已触发",
             "dispatchedPrFailed": "PR 创建失败（分支已推）"
         },
-        "colResult": {
-            "openRunPrFailedHint": "PR 创建失败，分支已推；点击上方链接手动开 PR"
-        },
         "colRepo": "仓库",
         "colStatus": "状态",
         "colExecutor": "执行方式",
         "colAlerts": "告警数",
         "colResult": "结果",
+        "openRunPrFailedHint": "PR 创建失败，分支已推；点击上方链接手动开 PR",
         "openRun": "打开运行",
         "subEmpty": "暂无下属扫描记录",
         "forceFail": "强制完成",

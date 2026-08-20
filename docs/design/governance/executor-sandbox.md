@@ -3,6 +3,7 @@
 > 状态：🔶 设计先行（T607，2026-08-08）——契约与威胁建模落盘，供 T603 实现 `ContainerExecutor`；独立沙箱容器实现留 M7。
 > 背景决策见 [todo-archive.md §M6 规划决策](../../plan/archive/todo-archive-phases-m6-m7-t711.md#m6-最小平台-mvp已归档)（Q1 执行深度 A/B 双模式、Q4 沙箱=A、Q5 Action 触发=B）。
 > **安全评估（2026-08-14）**：评估结论、治理决议与不可简化的安全基线见 [沙箱与恶意依赖防护治理](./sandbox-security-governance.md)；本文档 §2.2 的 M6 缓解——USER 降权已修复（C38，2026-08-14）、外联日志已实现（C40/T805，2026-08-14），登记 [backlog C38/C40](../../plan/backlog.md)。
+> **A 模式 push + PR 闭环（2026-08-20，C53 实施）**：A 模式 fix / fix-and-pr 完成后新增推送修复分支到远程 + 创建 PR 两条链路，结束了 M6 阶段"修复结果仅在本地临时目录"问题；新的状态机 dispatched 语义（PR 失败但分支已推）、runUrl 兜底为 branch URL、workDir 保留 24h 供诊断 由本文档 §8 记录。
 
 ---
 
@@ -307,3 +308,90 @@ CLI 启动时（`@dependfix/cli` entrypoint）探测 SandboxRuntimeAdapter 可�
 | SandboxExecutor 工作目录 bind-mount 宿主路径（非 run-scoped tmp） | 跨 run 数据残留 | T1001 Review Gate 必查 |
 | Sandbox 镜像走 `caomeiyouren/dependfix:latest`（CI 发布镜像） | sandbox 与平台二进制版本漂移风险 | T1001 镜像策略段禁止 |
 | 默认 `executorKind='sandbox'` | 单机场景破坏 | T1001 路由默认 'container' |
+
+---
+
+## 8. A 模式 push + PR 推送机制
+
+> 状态：✅ 设计落盘（C53，2026-08-20 实施）——A 模式（`ContainerExecutor`）fix / fix-and-pr 完成后新增推送修复分支到远程 + 创建 PR 两条链路，落盘 commit `83ec736` / `46b7c15` / `3ed8303`。详细任务验收与 Review Gate 记录见 [todo-archive.md §C53](../../plan/todo-archive.md#c53-平台集成模式-fix-修复结果推送远程已归档)。
+
+### 8.1 流程变更（M6 → C53 后的差异）
+
+**M6 阶段（修复前）**：`ContainerExecutor.execute()` 流程为 `clone → DependfixApp.run() 内部 commit → finally 立即 rm workDir`，修复结果仅存在于临时目录，**从未推送到远程**，用户原反馈"显然没有修复功能"。
+
+**C53 阶段（修复后）**：
+
+```
+ContainerExecutor.execute()
+  ↓
+  fix / fix-and-pr 模式 + app.run() 成功（exitCode === 0）
+  ↓
+  extractBranchName(workDir)        // git rev-parse --abbrev-ref HEAD
+  ↓
+  pushFixBranch(branch, workDir, token)  // git push origin <branch>，token 走 http.extraheader
+  ↓
+  runUrl 兜底 = https://github.com/{owner}/{name}/tree/{branchName}
+  ↓
+  fix-and-pr 模式：
+    ├─ createPrForFix(result, owner, name, branch, token)  // 复用 createGitHubClient + createPullRequest
+    │    ↓
+    │    runUrl = PR.htmlUrl  （覆盖 branch URL）
+    │
+    └─ PR 失败（权限 / 422 / 网络）：
+         ↓
+         moveToPending(workDir, runId, _pending/)  // 保留 24h 供诊断
+         ↓
+         return pr_creation_failed（status: dispatched）
+```
+
+### 8.2 状态机扩展（与 B 模式 `dispatched` 语义对齐）
+
+C53 引入 A 模式 `dispatched` 三分支（`scan-run-state.ts`）：
+
+| 场景 | error.code | status | runUrl | workDir 处理 |
+|:--|:--|:--|:--|:--|
+| 修复成功 + push 成功 + PR 成功 | — | `completed` | PR URL | finally 立即清理 |
+| 修复成功 + push 成功 + PR 失败 | `pr_creation_failed` | `dispatched` | branch URL（兜底） | moveToPending 保留 24h |
+| 修复成功 + push 失败 | `push_failed` | `failed` | null | finally 立即清理 |
+| 修复成功 + 修复动作执行失败 | `execution_failed` | `failed` | null | finally 立即清理 |
+| 执行超时 | `execution_timeout` | `failed` | null | finally 立即清理 |
+| report-only | — | `completed` | null | finally 立即清理 |
+
+错误码 `pr_creation_failed` 命名与 B 模式已有的 `result_fetch_failed` / `run_url_not_resolved` 对齐——表达"副作用已落库（分支已推）+ 最终操作未完成"。
+
+### 8.3 关键代码点
+
+| 函数 | 位置 | 职责 |
+|:--|:--|:--|
+| `extractBranchName(workDir)` | `container-executor.ts` | 读 `git rev-parse --abbrev-ref HEAD`；detached HEAD 抛错 |
+| `pushFixBranch(branch, workDir, token?)` | `container-executor.ts` | `git push origin <branch>`，token 走 `http.extraheader`（base64 basic auth），避免进 argv/URL |
+| `createPrForFix(result, owner, name, branch, token)` | `container-executor.ts` | 复用引擎 `createGitHubClient` + `createPullRequest` + `generatePRBody` + `buildPrTitle` + `fetchDefaultBranch`（5 个函数） |
+| `moveToPending(workDir, runId, pendingRoot, retentionMs)` | `container-executor.ts` | 移动 workDir 到 `_pending/{runId}/` + 写 `.meta.json`（含 `expiresAt`） |
+| `cleanupRemoteBranch(branch, workDir, token?)` | `container-executor.ts` | best-effort 远程分支清理；当前 **不主动调用**（保留远程分支供用户手动开 PR） |
+
+### 8.4 凭据权限阶（重要安全考量）
+
+C53 引入 A 模式 `fix-and-pr` 链路完成的关键代价是 **凭据权限面扩大**：
+
+| 模式 | 所需 Token 权限 |
+|:--|:--|
+| A 模式 report-only | `security-events: read`（拉告警） |
+| A 模式 fix（仅 commit） | `contents: write`（push 到默认分支 / 修复分支） |
+| A 模式 fix-and-pr | `contents: write` + `pull-requests: write`（开 PR） |
+| **B 模式**（GitHub Action） | **`actions: read + write`**（仅触发 workflow + 拉结果） |
+
+**A 模式 fix-and-pr 要求 wide-scope PAT**（classic PAT 勾选 `repo` 或 fine-grained PAT 显式授权 `Contents: write` + `Pull requests: write`），与 B 模式的窄权限形成鲜明对比。
+
+**安全建议**：
+- **默认推荐 B 模式**（目标仓库已配置 action 时，自动降级为 `actions: read + write`，权限面最窄）
+- A 模式 fix-and-pr 适用于"自托管平台 + 强可控 PAT"场景（如专用 CI 账户）
+- 平台 UI 触发时显式提示当前所选凭据的权限范围（待 C28 设计落地）
+
+完整凭据安全条款见 [security.md §5.3 修复执行安全](../../standards/security.md#5-依赖与供应链安全-dependency--supply-chain-security)（凭据基线 + 权限阶）。
+
+### 8.5 后续 backlog（依赖追踪）
+
+- **stale-cleanup 任务**：moveToPending 写入的 `_pending/{runId}/` 当前无定时清理机制；登记后续阶段（M11 后段或 M12），按 `.meta.json` 的 `expiresAt` 字段扫描删除
+- **`sanitizeErrorMessage` 补充 `Authorization: token xxx` 模式**：当前实现不覆盖 GitHub REST API 实际形态；C53-2 RG-W2 登记后续 patch
+- **A 模式 dispatched UI 提示**：用户看到 dispatched 状态需明确"PR 创建失败，分支已推，可手动开 PR"——当前 UI 通用 dispatched 提示，需后续优化
+- **录入 M11 阶段**：C53 + T1005 sandbox 路由 + C28 security.md 凭据设计 共同组成 M11（业务可见性 + 沙箱落地 + 安全文档）阶段

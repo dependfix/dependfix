@@ -172,22 +172,62 @@
   - 状态：✅ **已修复**（commit `9949504` + `03ba3b2`，C59 应用层方案 A，1 行 mixin 修复 + 永久 e2e 回归）—— 详见 [todo-archive.md §C59](todo-archive.md#c59-暗色模式全局样式未生效-) 与本节顶部"2026-08-19~20 闭环批次汇总"表
   - 治理登记保留：T601 暗色模式 initial 实现 + 2026-08-10 用户实测反馈"依旧不可用"历史追溯；修复路径：`_mixins.scss` `@mixin dark-mode` 把 `:global(.dark) &` 改为 `.dark &`（`:global()` 是 CSS Modules 语法，全局 `main.scss` 无 scope 时无效）
 - **C53 平台集成模式 fix 修复结果不推送远程（无 PR）**（M6 平台可选项 / 2026-08-19 用户反馈登记）
-  - 状态：🔶 **后置候选（M11 评估）** —— 改动体量大（+80-120 行 / 2-3 文件），涉及 git push 副作用 + Octokit 集成 + 测试基建；需独立 Task 含方案设计（push 凭证来源、回滚机制、权限边界）+ e2e mock GitHub API；依赖 C50 提供推送凭证来源；2026-08-19 用户指示暂不入 PR1-PR3 排期
-  - 位置：`apps/platform/server/services/executor/container-executor.ts`（第 48-51 行 clone + 第 71 行 `app.run()` + 第 95 行 `rm(workDir)` 清理）
-  - 问题：平台集成模式（container executor）下 `fix` / `fix-and-pr` 模式：clone 仓库到工作目录 → 容器内 `DependfixApp.run()` 完成修复 → **第 95 行直接把 workDir 删除**。修复结果（改动的文件 / commit / branch）**只存在于本地临时目录，从未 push 到远程、未创建 PR**。用户反馈："修复结果只在本地，未推送到远程……显然没有修复并 PR 来的直观（也确实没有修复功能）"
-  - 现状：
-    - `container-executor.ts:49-51` `needsClone = mode !== 'report-only'` → clone；`app.run()` 执行修复
-    - `finally`（第 95 行）`rm(workDir)` 删除工作目录——修复产物随之消失
-    - 对比 B 模式（`action-trigger-executor.ts`）：通过 GitHub Action `workflow_dispatch` 触发，在远程 runner 上执行并 push/PR（远程有完整的 PR 闭环）
-    - 缺：容器内修复后如何 push 回远程（git remote credential 注入方式、分支命名、commit、PR 创建）——当前**完全没有该链路**
-  - 修复方向（候选）：
-    - **方案 A（最小闭环）**：容器内 `app.run()` 完成后，若 mode 为 `fix`/`fix-and-pr`，把修复后的 workDir 提交到新分支并 push 到远程（需用 `ctx.credential?.token` 经 `http.extraheader` 注入 git credential，与 `cloneRepository` 一致），`fix-and-pr` 再调 GitHub API 创建 PR
-    - **方案 B**：复用 CLI `createPullRequest` 能力（`packages/cli` 已有 PR 创建逻辑）下沉到 engine / 平台服务
-    - **方案 C**：提示用户"平台集成模式不推送"并在 UI 明示（不实现推送）—— 不符合用户期望，不推荐
-    - **推荐 A**：容器内 push + PR，复用 `http.extraheader` 凭据注入模式与 `repository` 实体的 `credentialId` 关联（C50 落地后凭据来源更明确）
-  - 验收要点：`fix` 模式在平台集成执行后远程分支包含修复 commit（可 fetch 验证）；`fix-and-pr` 模式在 GitHub 创建 PR 且 body 含报告；失败时干净回退（不残留孤儿分支/PR）；工作目录清理时序改为 push 成功后再清理
-  - 关联：C50（默认关联凭据）提供推送凭据；与 C52（单仓库模式选择）同属平台执行链路补齐
-  - 来源：2026-08-19 用户反馈"平台集成模式下，仅修复有一个直接的问题，那就是修复结果只在本地，未推送到远程……没有修复并 PR 来的直观（也确实没有修复功能）"
+  - 状态：✅ **已闭环（2026-08-20，M11 阶段启动任务）** —— 实施 3 commits（`83ec736` / `46b7c15` / `3ed8303`）+ Review Gate 全部 Pass：
+    - C53-1 容器内 push 链路（pushFixBranch + extractBranchName + execute 接入）—— commit `83ec736`
+    - C53-2 PR 创建 + 状态机扩展（createPrForFix + pr_creation_failed → dispatched）—— commit `46b7c15`
+    - C53-3 清理时序（workDir 保留 24h + 远程分支清理工具）—— commit `3ed8303`
+  - 完整 Review Gate 记录（3 round Pass）和 3 commits 引用见 [todo-archive.md §C53](todo-archive.md#c53-平台集成模式-fix-修复结果推送远程已归档)
+  - 设计文档：[executor-sandbox.md §8](../design/governance/executor-sandbox.md#8-a-模式-push--pr-推送机制)（§8.1 流程变更 / §8.2 状态机扩展 / §8.4 凭据权限阶）
+  - 后续 backlog（P3 阶段）：
+    - **[C53-后-A]** stale-cleanup 任务：moveToPending 写入 `_pending/{runId}/` 当前无定时清理机制；按 `.meta.json` 的 `expiresAt` 字段扫描删除（C53-3 RG-W2）
+    - **[C53-后-B]** `sanitizeErrorMessage` 补充 `Authorization: token xxx` 模式：C53-2 RG-W2 登记后续 patch
+    - **[C53-后-C]** A 模式 dispatched UI 提示：用户看到 dispatched 状态需明确"PR 创建失败，分支已推，可手动开 PR"（当前 UI 通用 dispatched 提示）
+  - 决策记录（保留用于审计追溯）：
+    - 位置：`apps/platform/server/services/executor/container-executor.ts`（原 M6 阶段第 48-51 行 clone + 第 71 行 `app.run()` + 第 95 行 `rm(workDir)` 清理）
+    - 问题：平台集成模式（container executor）下 `fix` / `fix-and-pr` 模式：clone 仓库到工作目录 → 容器内 `DependfixApp.run()` 完成修复 → **第 95 行直接把 workDir 删除**。修复结果（改动的文件 / commit / branch）**只存在于本地临时目录，从未 push 到远程、未创建 PR**。用户反馈："修复结果只在本地，未推送到远程……显然没有修复并 PR 来的直观（也确实没有修复功能）"
+    - 修复方向（已采纳 A）：容器内 push + PR，复用 `http.extraheader` 凭据注入模式与 `repository` 实体的 `credentialId` 关联
+    - 关联：C50（默认关联凭据）提供推送凭据；与 C52（单仓库模式选择）同属平台执行链路补齐
+    - 来源：2026-08-19 用户反馈"平台集成模式下，仅修复有一个直接的问题，那就是修复结果只在本地，未推送到远程……没有修复并 PR 来的直观（也确实没有修复功能）"
+
+## M11: 业务可见性 + 沙箱落地 + 安全文档（2026-08-20 启动）
+
+> **背景**：C53 闭环后，平台 A 模式（container）的 `fix` / `fix-and-pr` 链路具备完整 push + PR 闭环，结束了 M6 阶段"修复结果仅在本地临时目录"问题。M11 阶段由 C53 触发启动，承接三方面 backlog：
+>
+> 1. **业务可见性**（C53 已闭环作为 flagship）+ C56 / C57 / C58 平台 UX 用户反馈
+> 2. **沙箱落地**（T1005 sandbox 路由接线 + 后续 M10 收尾）
+> 3. **安全文档**（C28 security.md 凭据加密存储章节 + T912-3 邮件发送安全）
+>
+> **优先级**：P1（M11 子任务随用随触发）
+> **状态**：🔶 启动规划中（2026-08-20 C53 闭环后）
+
+### M11 子任务清单
+
+| 编号 | 任务 | 优先级 | 状态 | 备注 |
+|:--|:--|:--:|:--|:--|
+| C53-后-A | 工作目录 stale-cleanup 任务（_pending 24h 清理） | P2 | 待评估 | C53-3 RG-W2 登记 |
+| C53-后-B | sanitizeErrorMessage 补充 `Authorization: token xxx` 模式 | P3 | 待评估 | C53-2 RG-W2 登记 |
+| C53-后-C | A 模式 dispatched UI 提示（手动开 PR） | P3 | 待评估 | 当前 UI 通用 dispatched 提示 |
+| T1005 | sandbox 路由接线（schema 扩展 executorKind = 'sandbox' + orchestrator 分支 + 降级契约） | P1 | 待排期 | M10 实施规划遗留 |
+| C28 | security.md §凭据加密存储章节补齐（T602 AES-256-GCM 文档化） | P2 | 待评估 | T912-3 合并处理 |
+| C56 | 批量扫描 Dialog 关闭时序（乐观关闭） | P3 | 待评估 | C56 backlog |
+| C57 | 扫描历史 Dialog 缺面包屑（"返回列表"按钮） | P3 | 待评估 | C57 backlog |
+| C58 | 告警视图按包聚合 + 图表（独立评估） | P3 | 待评估 | C58 backlog |
+
+### M11 验收标准（暂拟）
+
+- [ ] 平台 A 模式 `fix-and-pr` 真实环境跑通（push + PR 闭环 + UI 提示）
+- [ ] T1005 路由接线后 sandbox 执行器可真实触发（docker daemon 可用时）
+- [ ] security.md §5.4 + §5.5 凭据权限阶 + 加密存储章节落地
+- [ ] C56 / C57 平台 UX 用户反馈小修闭环
+- [ ] branches 80% 覆盖率维持
+- [ ] `pnpm lint` / `typecheck` / `test` 全绿
+- [ ] CI 端到端裁决通过
+
+### M11 关联
+
+- **backlog 来源**：C53（已闭环作为 M11 旗舰任务）+ T1005（M10 遗留）+ C28（T912-3 联动）+ C56/C57/C58（2026-08-20 用户反馈）
+- **不影响**：M10 沙箱实施规划已归档（[todo-archive.md §M10](todo-archive.md#m10-独立沙箱容器-c26-实施规划已归档)），M11 仅承接其路由接线（T1005）
+- **M11 命名逻辑**："业务可见性 + 沙箱落地 + 安全文档" 三维度并列——前一项已闭环作为旗舰，后续按用户反馈优先级随用随触发
 
 - **C56 批量扫描 Dialog 关闭时序（用户感知"点了不关"）**（M6 平台可选项 / 2026-08-20 用户实测反馈）
   - 状态:🔶 待评估

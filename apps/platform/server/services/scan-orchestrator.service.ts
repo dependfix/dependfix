@@ -7,10 +7,13 @@ import { SandboxExecutor } from './executor/sandbox-executor'
 import { ActionTriggerExecutor } from './executor/action-trigger-executor'
 import { ActionResultFetcher } from './executor/action-result-fetcher'
 import type { ScanExecutorContext } from './executor/types'
+import { notifyEnvEvent } from './notification'
+import type { NotificationEvent } from './notification/channel'
 import { Repository, parseSandboxLimits } from '#server/entities/repository'
 import { Credential } from '#server/entities/credential'
 import { ScanRun } from '#server/entities/scan-run'
 import { ScanResult } from '#server/entities/scan-result'
+import { AuditEvent } from '#server/entities/audit-event'
 import { ensureDatabaseInitialized } from '#server/database'
 
 /**
@@ -334,7 +337,15 @@ const runScanInternal = async (
         repository.lastScanAt = new Date()
         await repoRepo.save(repository)
 
-        return await runRepo.save(savedRun)
+        const persistedRun = await runRepo.save(savedRun)
+
+        // 环境事件审计（fire-and-forget）：
+        // - A 场景 sandbox 启动降级 → sandbox_degraded 事件
+        // - B 场景 sandbox 运行时失败 → sandbox_unavailable 事件
+        // 不阻塞扫描主流程：失败仅日志 + audit_event 落库
+        await recordEnvAuditEvent(persistedRun, decision, degradedReason, error)
+
+        return persistedRun
     } catch (error) {
         savedRun.status = 'failed'
         savedRun.finishedAt = new Date()
@@ -343,5 +354,83 @@ const runScanInternal = async (
             message: error instanceof Error ? error.message : String(error),
         })
         return await runRepo.save(savedRun)
+    }
+}
+
+/**
+ * 环境事件审计：sandbox 启动降级（A 场景）或运行时失败（B 场景）
+ * 时落 AuditEvent + fire-and-forget 通知。
+ *
+ * 设计要点：
+ * - 不抛错（fail-closed）：审计失败仅日志，不影响扫描主流程
+ * - 通知 fire-and-forget：notifyEnvEvent 内部已捕获 channel 异常
+ * - A 场景与 B 场景的事件类型与 severity 区分：
+ *   - A 场景 sandbox_degraded / warn（业务结果完整，UI info 提示）
+ *   - B 场景 sandbox_unavailable / error（环境变化但 UI warn 提示）
+ */
+async function recordEnvAuditEvent(
+    persistedRun: ScanRun,
+    decision: ReturnType<typeof resolveScanRunState>,
+    degradedReason: { code: string, message: string } | undefined,
+    error: { code: string, message: string } | undefined,
+): Promise<void> {
+    let eventType: 'sandbox_unavailable' | 'sandbox_degraded' | null = null
+    let severity: 'info' | 'warn' | 'error' | 'critical' = 'warn'
+    let payload: Record<string, unknown> = {}
+
+    if (decision.status === 'degraded' && degradedReason?.code === 'sandbox_unavailable') {
+        // A 场景：sandbox 启动时不可用，已自动降级 ContainerExecutor（业务完整）
+        eventType = 'sandbox_degraded'
+        severity = 'warn'
+        payload = { degradedReason, fallback: 'container' }
+    } else if (decision.status === 'failed' && error?.code === 'sandbox_unavailable') {
+        // B 场景：sandbox 运行时偶发故障，不静默降级（避免掩盖真实错误）
+        eventType = 'sandbox_unavailable'
+        severity = 'error'
+        // payload 包含 errno + code + adapter + message 便于事故溯源
+        // adapter 当前固定 docker（唯一已实现的 RuntimeAdapter；未来加 sysbox/kata 时按 executor 注入）
+        payload = {
+            errno: error.code,
+            code: error.code,
+            adapter: 'docker',
+            message: error.message,
+        }
+    }
+
+    if (!eventType) {
+        return
+    }
+
+    try {
+        const ds = await ensureDatabaseInitialized()
+        const eventRepo = ds.getRepository(AuditEvent)
+        const audit = await eventRepo.save(eventRepo.create({
+            type: eventType,
+            severity,
+            repositoryId: persistedRun.repositoryId,
+            scanRunId: persistedRun.id,
+            payloadJson: JSON.stringify(payload),
+            notified: false,
+            notifiedVia: null,
+        }))
+
+        // 触发通知（fire-and-forget，不 await，避免阻塞扫描主流程）
+        const notificationEvent: NotificationEvent = {
+            id: audit.id,
+            type: eventType,
+            severity,
+            message: (payload.degradedReason as { message?: string } | undefined)?.message
+                ?? (payload.message as string | undefined)
+                ?? `${eventType} for ${persistedRun.repositoryId}`,
+            scanRunId: persistedRun.id,
+            payload,
+            createdAt: audit.createdAt,
+        }
+        // 异步触发：失败由 notifyEnvEvent 内部捕获（fail-closed）
+        notifyEnvEvent(notificationEvent).catch((e) => {
+            console.error(`[scan-orchestrator] notifyEnvEvent fire-and-forget failed for audit ${audit.id}:`, e)
+        })
+    } catch (e) {
+        console.error('[scan-orchestrator] failed to record env audit event:', e)
     }
 }

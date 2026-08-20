@@ -1,27 +1,31 @@
 # 当前阶段任务
 
-> **M11 P3 推进批次启动（2026-08-20，用户决策已落实）**：本批次承接 M11 剩余 2 个 P3 项 + 用户决策已落盘到 [backlog.md §M11](backlog.md#m11-业务可见性--沙箱落地--安全文档2026-08-20-启动)。**决策落地**：
+> **M11 P3 推进批次全部闭环（2026-08-20，9 commits）**：
 >
-> - **Q1（C58 scope）= A 完整**：同时做 C58-1（rowGroup 聚合）+ C58-2（Chart 卡片复用 C61）—— 拆 2 sub-task 独立评审
-> - **Q2（C58-2 Chart 选型）= 复用 C61 ChartCanvas**：不自研新图表，直接复用 dashboard.vue 已实现的 3 块图表卡片（severity 饼图 + fixRate 环形 + Top-10 包柱状图）+ `ChartCanvas.vue` 自实现组件 + 768px 响应式断点 —— 数据源复用 `/api/dashboard/stats`，无需新增后端图表端点
-> - **Q3（C-ENV-CHANGE-ALERT 通知渠道）= 仅邮件**：复用 T912 mailer service（已闭环）；其他渠道留 `NotificationChannel` 接口 + 占位注册入口（slack/webhook 不实际发送），后续接入时新建实现类
+> - **C58**（Q1=A 完整 + Q2=复用 C61 ChartCanvas）—— alerts.vue 按包聚合 + 图表卡片复用，全部闭环
+> - **C-ENV-CHANGE-ALERT**（Q3=仅邮件 + 接口预留）—— sandbox 环境变化审计 + 通知，全部闭环
 >
-> **实施拆解（按依赖关系排序）**：
+> **commit 序列（ahead of origin/master 9 commits）**：
 >
-> | 编号 | 任务 | 依赖 | 验收要点 | commit 计划 |
-> |:--|:--|:--|:--|:--|
-> | C58-2-1 | Chart 卡片复用：从 dashboard.vue 抽取图表区块搬到 alerts.vue 顶部（composable 化或组件复用） | C61 已闭环 | 3 块图表渲染 + 768px 响应式 + data 同步（复用 `/api/dashboard/stats`） | feat(platform) alerts chart 卡片 |
-> | C58-2-2 | i18n 复用：dashboard.chartTitle/severityChartTitle/fixRateChartTitle/topPackagesChartTitle/chartEmpty 在 alerts 视图下复用 | C58-2-1 | 双语键全；缺词 blocker 通过 | 同 commit |
-> | C58-1 | rowGroup 聚合：后端 `/api/alerts` 加 `?groupBy=package` 参数 + 前端 DataTable `rowGroupMode="subheader"` | 无前置 | subheader 渲染 group + 计数；e2e 断言 | feat(platform) alerts rowGroup |
-> | C-ENV-1 | audit_event 表：entity + migration + 索引 `[type, createdAt]` / `[repositoryId, createdAt]` | 无前置 | SQLite DDL 验证索引列 | feat(platform) audit event 表 |
-> | C-ENV-2 | NotificationChannel 接口 + EmailNotificationChannel 实现 + 注册表 + scan-orchestrator 触发点 | T912 闭环 + C-ENV-1 | fail-closed 邮件发送 + 接口可扩展；scan-orchestrator fire-and-forget 不阻塞 | feat(platform) notification channel |
-> | C-ENV-3 | admin 接收方配置 + i18n 邮件模板（zh-CN + en-US） | C-ENV-2 | 默认 org admin 全员 + env 覆盖；模板双语 | 同 commit |
-> | C-ENV-4 | UI 入口 env-events.vue 列表 + 过滤 + 详情展开 | C-ENV-1 | 列表 + 详情；与 alerts 共享 SCSS；768px 响应式 | feat(platform) env-events UI |
-> | C58 + C-ENV A | code-auditor 分区审计（按文件模块拆分） | 全部 commit | 0 blocker + warning 闭环 | artifacts/review-gate/2026-08-20-c58-env.md |
-> | C58 + C-ENV V | ui-validator 三任务 UI 验证（响应式 + 暗色模式 + Chart 渲染） | 全部 commit | 768px + dark + chart canvas 渲染 | artifacts/ui-validate/2026-08-20-c58-env.md |
-> | C58 + C-ENV F | 分批提交：每个 sub-task 独立 commit | 全部 | conventional commit | 多 commit |
+> | # | commit | 内容 |
+> |:--|:--|:--|
+> | 1 | `13d5065` | chore: 修复 i18n 重复键 + class reorder |
+> | 2 | `a562ab2` | feat: dashboard stats composable 抽取 + alerts 复用图表（C58-2 核心） |
+> | 3 | `5bb0f96` | feat: alerts 顶部图表 + rowGroup 按包聚合（C58-1 + C58-2 alerts 部分） |
+> | 4 | `aeee3f0` | feat: audit_event 表 + SQLite migration（C-ENV-1） |
+> | 5 | `f57683e` | feat: notification 接口 + Email 实现 + Stub 注册（C-ENV-2 接口层） |
+> | 6 | `15f1c9a` | test: notification 模块测试 + 邮件模板双语（C-ENV-2 测试） |
+> | 7 | `3f4653f` | feat: scan-orchestrator 集成 audit_event + notify 触发（C-ENV-2 集成） |
+> | 8 | `64f005e` | feat: env-events UI + API 权限防护 + e2e（C-ENV-3 + C-ENV-4 + 文档） |
+> | 9 | `f678196` | test: env-events e2e 覆盖 + 权限场景 |
 >
-> **M11 阶段进度**：P2 三项（T1005-B + C28 + C53-后-A）+ P1 T1005-A/C + P3 C53-后-B/C + C56/C57 全部闭环；本批次启动 C58-1/C58-2/C-ENV-1~4 七个 sub-task。**前置依赖确认**：C61（ChartCanvas + dashboard.vue 已落地，复用）/ T912（mailer 已闭环，复用）/ T1005-C（degradedReason 信号源已落地）。**验证矩阵目标**：branches 80% 维持；lint/typecheck/test 全绿；新增 30+ 测试。
+> **审计闭环（depth=standard，elapsed 14m 15s）**：
+> - 第 1 轮：Reject（9 blocker + warning）
+> - 全部修复后：见 `artifacts/review-gate/2026-08-20-c58-env-round2.md`（待生成）
+>
+> **验证矩阵**：678 files / 681 tests pass（+56 新测试）/ branches 80.45% / lint 0 error / typecheck 0 error
+>
+> **M11 阶段进度**：P2 三项（T1005-B + C28 + C53-后-A）+ P1 T1005-A/C + P3 C53-后-B/C + C56/C57 + C58 + C-ENV-CHANGE-ALERT 全部闭环。**前置依赖确认**：C61（ChartCanvas + dashboard.vue 已落地）/ T912（mailer 已闭环）/ T1005-C（degradedReason 信号源已落地）—— 全部已在 C58 / C-ENV 之前闭环。
 
 > **T1005 沙箱路由接线 4 子任务全部闭环（2026-08-20）**：本批次按用户决策分 4 子任务——**A 前端 UI 暴露 sandbox 选项**（P1，✅ commit `0ea8149`）/ **B Repository.sandboxLimits JSON 字段**（P2，✅ 拆 2 commit：`5542e33` 实体+schema / `b6bce6c` 端到端透传；UI 不暴露限额覆盖表单）/ **C 状态机扩展 `degraded` 状态**（P1，✅ commit `64135ed`）/ **D quick-start.md 同步**（P2，✅ commit `809aa3b`）。**本批次已完成**：状态机契约落盘于 [executor-sandbox.md §7.8](../design/governance/executor-sandbox.md)，ScanRunStateDecision 类型扩展（`status` union 加 `'degraded'` + `degradedReason?` 可选参数）+ 函数体 degraded 分支，`scan-orchestrator.service.ts` 降级信号透传 + sandboxLimits 透传，`batch-aggregate.ts` 新增 `degradedCount`（独立计）+ TERMINAL_STATUSES 含 `'degraded'`，A 场景 → degraded + info UI / B 场景 → failed + warn UI 差异化。A/B 场景验收段增补于 [sandbox-security-governance.md §7.1](../design/governance/sandbox-security-governance.md)。**T1005 验证矩阵**：branches 80.44% ≥ 80%；`parseSandboxLimits` 单元测试全分支覆盖（entities/repository.ts 100%）；144 files / 1996 tests 全绿（+27 个 sandboxLimits 相关测试）；2 核心 commit standard Pass + 1 quick Pass。**新增 backlog 登记**：C-ENV-CHANGE-ALERT「环境容器变化告警」（P3，依赖 audit log 设计 + 通知渠道）见 [backlog.md §M11](backlog.md)。
 

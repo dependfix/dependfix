@@ -212,11 +212,11 @@
 | T1005-B | Repository `sandboxLimits` JSON 字段 + orchestrator 透传（API 透传，UI 不暴露限额覆盖表单） | P2 | ✅ **已闭环（2026-08-20）** | 拆 2 commit：B1 实体 + schema + zod 校验 + 11 个测试 `5542e33` / B2 orchestrator 透传 + repos API 序列化 + 16 个测试 `b6bce6c`；end-to-end 数据流打通 |
 | T1005-C | 状态机扩展 `degraded` 状态（sandbox 启动时降级 → degraded + info UI；运行时失败 → failed + warn UI） | P1 | ✅ **已闭环（2026-08-20）** | 函数体 degraded 分支实现 + orchestrator 降级信号透传 + batch-aggregate degradedCount + 14 个新断言；branches 80.32% ≥ 80%；3 核心文件 stmts 100% |
 | T1005-D | quick-start.md 同步（移除「待 T1005 路由接线」过时警告 + G5 行更新 + 文档批次收口） | P2 | ✅ **已闭环（2026-08-20）** | commit `809aa3b` |
-| C-ENV-CHANGE-ALERT | 环境容器变化告警（sandbox 运行时不可用 → audit log + 通知渠道） | P3 | 🔧 **实施中（2026-08-20 用户决策）** | Q3 决策：仅邮件实现，其他渠道留接口；audit_event 表 + NotificationChannel 接口 + EmailNotificationChannel + 触发点 scan-orchestrator degradedReason / sandbox_unavailable；接收方 admin 全局邮箱；UI 入口 env-events 视图。详见下方"决策记录 (2026-08-20)" |
+| C-ENV-CHANGE-ALERT | 环境容器变化告警（sandbox 运行时不可用 → audit log + 通知渠道） | P3 | ✅ **已闭环（2026-08-20）** | Q3 决策：仅邮件实现，其他渠道留接口。9 commits 落地：audit_event 表 + 类级复合索引 + SQLite migration（`aeee3f0`）；NotificationChannel 接口 + Email + Slack/Webhook Stub + 注册表（`f57683e`）；邮件模板双语（`15f1c9a`）；scan-orchestrator A/B 场景触发点 + 4 个集成测试（`3f4653f`）；env-events UI + 权限防护 + e2e（`64f005e`/`f678196`）。审计：standard 深度 14m 15s，第 1 轮 Reject 后修复 9 blocker 全部闭环。 |
 | C28 | security.md §凭据加密存储章节补齐（T602 AES-256-GCM 文档化） | P2 | ✅ **已闭环（2026-08-20）** | §5.5 补算法契约（AES-256-GCM/IV/authTag/密文格式）+ 密钥派生 + fail-closed + 凭据 CRUD 生命周期 + 审计必查项扩展 + 密钥轮换边界；顺手修 platform.md 密文格式误写 |
 | C56 | 批量扫描 Dialog 关闭时序（乐观关闭） | P3 | ✅ **已闭环（2026-08-20）** —— submitBatchScan 提交前 batchDialogVisible = false；失败时回滚 dialog + 显示错误。commit `cda5b90` |
 | C57 | 扫描历史 Dialog 缺面包屑（"返回列表"按钮） | P3 | ✅ **已闭环（2026-08-20）** —— RepoHistoryDialog DataTable header slot 加 icon pi pi-arrow-left + i18n runs.backToList；点击 resetDetail() 回到 list view。commit `cda5b90` |
-| C58 | 告警视图按包聚合 + 图表 | P3 | 🔧 **实施中（2026-08-20 用户决策）** | Q1=A 完整（拆 C58-1 rowGroup + C58-2 Chart 卡片 2 sub-task）；Q2 复用 C61 ChartCanvas + dashboard.vue 图表组件（避免 PrimeVue `<Chart>` 200KB 包袱，tree-shakable 引入已落地）；详见下方"决策记录 (2026-08-20)" |
+| C58 | 告警视图按包聚合 + 图表 | P3 | ✅ **已闭环（2026-08-20）** | Q1=A 完整（拆 C58-1 rowGroup + C58-2 Chart 卡片 2 sub-task）；Q2 复用 C61 ChartCanvas。2 commits 落地：dashboard stats composable 抽取（`a562ab2`）+ alerts 顶部图表 + rowGroup 按包聚合（`5bb0f96`）。27 个 helper 测试 + 4 个 rowGroup API 测试 + 4 个 e2e。 |
 
 ### M11 验收标准（暂拟）
 
@@ -275,7 +275,7 @@
   - 来源:2026-08-20 用户实测反馈
 
 - **C58 告警视图按包聚合 + 数据可视化图表**（M6 平台 增强 / 2026-08-20 用户反馈）
-  - 状态:🔧 实施中（2026-08-20 用户决策 Q1=A / Q2=复用 C61）
+  - 状态:✅ **已闭环（2026-08-20）**
   - 位置:`apps/platform/app/pages/alerts.vue`(279 行) + `apps/platform/server/api/alerts/index.get.ts` 数据源
   - 现象:当前 alerts 视图是 alert 维度扁平 DataTable(`<DataTable :value="alerts">` 单行一告警),一行包一行散落;用户要看"这个包都有哪些告警" 需手动按列排序再肉眼分组;无图表,无法直观看出"严重级别分布 / 包告警数排名 / 修复成功率"
   - 现状:
@@ -299,7 +299,7 @@
 
 
 - **C-ENV-CHANGE-ALERT 环境容器变化告警**（M11 业务可见性 / T1005-C §7.8.5 登记）
-  - 状态：🔧 实施中（2026-08-20 用户决策 Q3）
+  - 状态：✅ **已闭环（2026-08-20）**
   - 位置：`apps/platform/server/services/scan-orchestrator.service.ts`（degradedReason 信号源 / sandbox_unavailable 错误码产出点）+ `apps/platform/server/entities/`（新建 `audit-event.ts`）+ `apps/platform/server/services/notification/`（新建 `channel.ts` 接口 + `email-channel.ts` 实现）+ `apps/platform/app/pages/env-events.vue`（新建事件列表 UI 入口）
   - 现象：T1005-C 已闭环 `sandbox_unavailable` 错误码（A 场景 → degraded + degradedReason；B 场景 → failed），但环境容器变化信号未持久化、未通知管理员；用户痛点："docker daemon 停了导致 sandbox 不可用，但管理员不知情，要等用户报障才查"
   - 现状：

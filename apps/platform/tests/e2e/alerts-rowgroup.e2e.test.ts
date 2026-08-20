@@ -15,7 +15,45 @@ import { waitForHydration } from './helpers/hydration.helper'
 
 test.use({ storageState: 'tests/e2e/.auth/admin.json' })
 
+/**
+ * rowGroup 测试依赖 /api/alerts 返回非空数据。
+ * PrimeVue rowGroupMode="subheader" 须按 groupRowsBy 字段预排序才会渲染 subheader。
+ * mock 两个不同 packageName 的告警 → 渲染 2 个 group header。
+ */
+const MOCK_ALERTS = [
+    {
+        id: 'alert-1', runId: 'run-1', repository: 'foo/bar',
+        source: 'dependabot', severity: 'high',
+        packageName: 'lodash', manifestPath: 'package.json', ruleId: null,
+        summary: 'prototype pollution', fixable: true, fixStrategy: null,
+        recommendedVersion: '4.18.0', htmlUrl: null, fixStatus: 'pending', errorMessage: null,
+    },
+    {
+        id: 'alert-2', runId: 'run-2', repository: 'foo/bar',
+        source: 'code-scanning', severity: 'medium',
+        packageName: 'lodash', manifestPath: 'src/utils/x.ts', ruleId: 'js/incomplete-sanitization',
+        summary: 'incomplete sanitization', fixable: false, fixStrategy: null,
+        recommendedVersion: null, htmlUrl: null, fixStatus: 'pending', errorMessage: null,
+    },
+    {
+        id: 'alert-3', runId: 'run-3', repository: 'foo/baz',
+        source: 'pnpm-audit', severity: 'low',
+        packageName: 'axios', manifestPath: 'package.json', ruleId: null,
+        summary: 'CVE-2026-xxxxx', fixable: true, fixStrategy: null,
+        recommendedVersion: '1.7.5', htmlUrl: null, fixStatus: 'pending', errorMessage: null,
+    },
+]
+
 test.describe('C58 alerts rowGroup + chart 复用', () => {
+    test.beforeEach(async ({ page }) => {
+        // 必须在 goto 之前注册：alerts.vue 在 onMounted 立即调用 fetchAlerts()
+        await page.route('**/api/alerts*', (route) => route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify(MOCK_ALERTS),
+        }))
+    })
+
     test('alerts 顶部 3 块图表渲染（aria-label 含图表标题）', async ({ page }) => {
         await page.goto('/alerts')
         await waitForHydration(page)

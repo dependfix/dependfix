@@ -1,4 +1,4 @@
-import { mkdir, rm } from 'node:fs/promises'
+import { mkdir, rename, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
@@ -62,6 +62,62 @@ export async function pushFixBranch(branchName: string, workDir: string, token?:
 }
 
 /**
+ * 删除远程分支（best-effort，PR 失败时清理副作用）。
+ * 失败静默——失败路径已通过 pr_creation_failed 错误码上报，远程分支清理是 bonus hygiene。
+ *
+ * 调用场景：fix-and-pr 模式下，pr_creation_failed 时主动清理已推的远程分支。
+ * 但本仓库设计选择是「PR 失败保留远程分支供用户手动开 PR」，因此当前不主动调用本函数；
+ * 保留为工具函数以备未来需要"严格清理"语义时启用。
+ */
+export async function cleanupRemoteBranch(branchName: string, workDir: string, token?: string): Promise<boolean> {
+    const args = ['push', 'origin', '--delete', branchName]
+    if (token) {
+        const basic = Buffer.from(`x-access-token:${token}`).toString('base64')
+        args.unshift('-c', `http.extraheader=Authorization: basic ${basic}`)
+    }
+    try {
+        await execFileAsync('git', args, { cwd: workDir, timeout: 30_000 })
+        return true
+    } catch {
+        // 失败静默：分支不存在 / 权限不足 / 网络错误——不阻塞主流程
+        return false
+    }
+}
+
+/**
+ * 移动 workDir 到 _pending 子目录 + 写 metadata 文件（保留 24h 用于失败诊断）。
+ *
+ * 设计要点：
+ * - 仅在 push 成功 + PR 失败时调用（其他路径 finally 立即清理）
+ * - 保留窗口通过 .meta.json 记录（writtenAt + retentionMs），便于后续 stale-cleanup 任务扫描
+ * - 失败静默（move 可能因 fs 错误失败，但不影响 pr_creation_failed 错误回传）
+ * - 当前阶段：保留语义落地，后续 stale-cleanup 任务按 metadata 清理
+ */
+export async function moveToPending(
+    workDir: string,
+    runId: string,
+    pendingRoot: string,
+    retentionMs = 24 * 60 * 60 * 1000,
+): Promise<string> {
+    const runIdPattern = /^[A-Za-z0-9_-]+$/
+    if (!runIdPattern.test(runId)) {
+        throw new Error(`非法 runId: ${runId}`)
+    }
+    const targetDir = join(pendingRoot, runId)
+    await mkdir(pendingRoot, { recursive: true })
+    await rename(workDir, targetDir)
+    const meta = {
+        runId,
+        writtenAt: new Date().toISOString(),
+        retentionMs,
+        expiresAt: new Date(Date.now() + retentionMs).toISOString(),
+        reason: 'pr_creation_failed',
+    }
+    await writeFile(join(targetDir, '.meta.json'), JSON.stringify(meta, null, 2), 'utf-8')
+    return targetDir
+}
+
+/**
  * 创建修复 PR（fix-and-pr 模式）：通过 GitHub API 调用引擎层 createPullRequest。
  * 复用引擎的 createGitHubClient + fetchDefaultBranch + buildPrTitle + generatePRBody。
  *
@@ -107,7 +163,8 @@ export async function createPrForFix(
  * - 执行结果直接复用 DependfixApp 的 RunResult（扫描结果落库数据源）
  * - A 模式 fix / fix-and-pr 完成后推送修复分支到远程；push 失败归类 `push_failed`
  * - A 模式 fix-and-pr 进一步创建 PR 拉取请求；PR 失败归类 `pr_creation_failed`（分支已推，状态机 dispatched）
- * - runUrl 兜底为 branch URL（PR 失败时仍可显示，用户可手动开 PR）
+ *   - 该路径下 workDir 保留 24h 供诊断（moveToPending）+ runUrl 兜底为 branch URL
+ * - runUrl 兜底为 branch URL（PR 失败时仍可显示供用户手动开 PR）
  */
 export class ContainerExecutor implements ScanExecutor {
     readonly kind = 'container' as const
@@ -138,6 +195,8 @@ export class ContainerExecutor implements ScanExecutor {
         const needsPush = ctx.config.mode === 'fix' || ctx.config.mode === 'fix-and-pr'
         // fix-and-pr 模式：push 成功后再创建 PR
         const needsPr = ctx.config.mode === 'fix-and-pr'
+        // push 成功 + PR 失败时保留 workDir 24h 供诊断（pendingRoot = workRoot/_pending）
+        const pendingRoot = join(this.workRoot, '_pending')
 
         try {
             await mkdir(workDir, { recursive: true })
@@ -184,11 +243,13 @@ export class ContainerExecutor implements ScanExecutor {
                             runUrl = pr.htmlUrl
                         } catch (prError) {
                             const raw = prError instanceof Error ? prError.message : String(prError)
+                            // 保留 workDir 24h 供诊断（moveToPending 失败静默，不影响错误回传）
+                            await moveToPending(workDir, ctx.runId, pendingRoot).catch(() => { /* 保留失败静默 */ })
                             return {
                                 exitCode: 2,
                                 error: {
                                     code: 'pr_creation_failed',
-                                    message: `创建 PR 失败（分支已推送）：${sanitizeErrorMessage(raw)}`,
+                                    message: `创建 PR 失败（分支已推送，workDir 已保留 24h 供诊断）：${sanitizeErrorMessage(raw)}`,
                                 },
                                 startedAt,
                                 finishedAt: new Date().toISOString(),
@@ -233,8 +294,7 @@ export class ContainerExecutor implements ScanExecutor {
             }
         } finally {
             // 临时工作目录清理（执行后不留存）；清理失败不影响执行结果
-            // 失败路径（push_failed / pr_creation_failed / execution_failed）已在外层提前 return，
-            // 此 finally 统一兜底清理，避免工作目录残留
+            // 这里已是"未走 pr_creation_failed 保留路径"的所有场景（completed / push_failed / execution_failed / execution_timeout）
             await rm(workDir, { recursive: true, force: true }).catch(() => { /* 清理失败静默 */ })
         }
     }

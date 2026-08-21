@@ -213,8 +213,16 @@
         "fieldNamePlaceholder": "如 每周一凌晨扫描",
         "fieldCron": "cron 表达式 *",
         "fieldCronHint": "5 段（分 时 日 月 周）或 6 段（含秒），如 0 2 * * 1 = 每周一 02:00；建议间隔不小于 1 小时",
+        "cronPreviewTitle": "下次触发（按当前时区，next 3）",
+        "cronInvalid": {
+            "empty": "请输入 cron 表达式",
+            "invalidFieldCount": "cron 表达式必须为 5 段或 6 段（分 时 日 月 周 / 秒 分 时 日 月 周）",
+            "parseError": "cron 表达式语法非法"
+        },
         "fieldTimezone": "时区（可选）",
-        "fieldTimezonePlaceholder": "Asia/Shanghai，留空用服务器本地时区",
+        "fieldTimezonePlaceholder": "搜索 IANA 时区（如 Asia/Shanghai）",
+        "timezoneHint": "默认跟随浏览器（{default}）；留空使用服务器本地时区",
+        "timezoneEmpty": "未找到匹配项",
         "fieldSelector": "仓库选择策略",
         "fieldTag": "标签",
         "fieldTagPlaceholder": "如 frontend（命中仓库的 tags 包含该标签）",

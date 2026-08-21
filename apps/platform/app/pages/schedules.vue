@@ -1,6 +1,7 @@
 <script setup lang="ts">
 // 定时计划管理：新建/编辑/删除/启用禁用/手动触发（cron 到点自动触发批量扫描）
 import type { RepoView, ScheduleSelectorKind, ScheduleView } from '~/types/platform'
+import { previewCron } from '~/utils/cron-preview'
 
 definePageMeta({
     middleware: 'auth',
@@ -29,6 +30,8 @@ const dialogVisible = ref(false)
 const editingId = ref<string | null>(null)
 const error = ref('')
 const success = ref('')
+/** 浏览器解析的 IANA 时区（todo.md §M12 C65-C2 时区选择框默认选项 + C65-C1 cron 预览 fallback） */
+const browserTimezone = ref('')
 
 const emptyForm = (): ScheduleForm => ({
     name: '',
@@ -88,8 +91,62 @@ const fetchRepos = async () => {
 }
 
 onMounted(async () => {
+    browserTimezone.value = Intl.DateTimeFormat().resolvedOptions().timeZone
     await Promise.all([fetchSchedules(), fetchRepos()])
 })
+
+/** Intl.supportedValuesOf('timeZone') 时区列表（运行时探测，旧 Node 不可用时兜底） */
+const timezoneOptions = computed<string[]>(() => {
+    let list: string[]
+    try {
+        list = Intl.supportedValuesOf('timeZone')
+    } catch {
+        // 兜底：旧 Node 不支持 supportedValuesOf 时仅给常用 UTC + 服务器常见时区
+        list = ['UTC', 'Asia/Shanghai', 'Asia/Tokyo', 'Asia/Singapore', 'Europe/London', 'America/New_York']
+    }
+    // 浏览器时区插到首位（用户易识别）；仅当浏览器时区存在且不在首位时重排
+    const browser = browserTimezone.value
+    if (!browser) {
+        return list
+    }
+    const idx = list.indexOf(browser)
+    if (idx <= 0) {
+        return idx === -1 ? [browser, ...list] : list
+    }
+    return [browser, ...list.slice(0, idx), ...list.slice(idx + 1)]
+})
+
+/** cron 实时预览（todo.md §M12 C65-C1）：随 form.cron / form.timezone 变更重算，复用 server 已依赖的 cron-parser 5.x */
+const cronPreview = computed(() => previewCron(form.value.cron, {
+    timezone: form.value.timezone.trim() || null,
+    count: 3,
+}))
+
+/** 按 IANA 时区格式化 cron 触发时间（不跟随 i18n locale —— cron 时区是独立的时序维度） */
+function formatCronPreviewDate(date: Date): string {
+    const tz = form.value.timezone.trim() || browserTimezone.value || undefined
+    try {
+        return new Intl.DateTimeFormat(undefined, {
+            timeZone: tz,
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false,
+        }).format(date)
+    } catch {
+        // 兜底：IANA 时区非法时退回浏览器本地
+        return new Intl.DateTimeFormat(undefined, {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false,
+        }).format(date)
+    }
+}
 
 const parseSelectorData = (schedule: ScheduleView): { tag?: string, repositoryIds?: string[] } => {
     if (!schedule.selectorJson) {
@@ -400,21 +457,51 @@ watch(toastMessage, (v) => {
                         id="cron"
                         v-model="form.cron"
                         placeholder="0 2 * * 1"
+                        :invalid="!!cronPreview.errorKey"
                         fluid
                         required
                     />
                     <small class="text-muted">
                         {{ t('schedules.fieldCronHint') }}
                     </small>
+                    <!-- todo.md §M12 C65-C1: cron 实时预览（合法=next 3 次触发时间；非法=错误提示；空=无显示） -->
+                    <section
+                        v-if="cronPreview.isValid && cronPreview.nextRuns"
+                        :aria-label="t('schedules.cronPreviewTitle')"
+                    >
+                        <ul class="schedule-form__cron-preview">
+                            <li
+                                v-for="(date, idx) in cronPreview.nextRuns"
+                                :key="idx"
+                                class="text-success"
+                            >
+                                {{ formatCronPreviewDate(date) }}
+                            </li>
+                        </ul>
+                    </section>
+                    <small
+                        v-else-if="cronPreview.errorKey && cronPreview.errorKey !== 'empty'"
+                        class="text-danger"
+                    >
+                        {{ t(`schedules.cronInvalid.${cronPreview.errorKey}`) }}
+                    </small>
                 </div>
                 <div class="schedule-form__field">
                     <label for="timezone">{{ t('schedules.fieldTimezone') }}</label>
-                    <InputText
+                    <!-- todo.md §M12 C65-C2: 时区 InputText 改 PrimeVue Select（含 filter，IANA 列表 Intl.supportedValuesOf） -->
+                    <Select
                         id="timezone"
                         v-model="form.timezone"
+                        :options="timezoneOptions"
                         :placeholder="t('schedules.fieldTimezonePlaceholder')"
+                        :filter="true"
+                        filter-match-mode="contains"
+                        :empty-filter-message="t('schedules.timezoneEmpty')"
                         fluid
                     />
+                    <small class="text-muted">
+                        {{ t('schedules.timezoneHint', {default: browserTimezone}) }}
+                    </small>
                 </div>
                 <div class="schedule-form__field">
                     <label for="selectorKind">{{ t('schedules.fieldSelector') }}</label>
@@ -573,6 +660,14 @@ watch(toastMessage, (v) => {
         justify-content: flex-end;
         gap: $space-2;
         margin-top: $space-2;
+    }
+
+    // cron 预览列表重置（避免浏览器默认 list-style / margin 干扰布局）
+    &__cron-preview {
+        list-style: none;
+        padding-left: 0;
+        margin: $space-1 0 0;
+        font-size: $font-size-sm;
     }
 }
 </style>

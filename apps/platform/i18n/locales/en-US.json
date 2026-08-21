@@ -213,8 +213,16 @@
         "fieldNamePlaceholder": "e.g. Weekly Monday scan",
         "fieldCron": "cron expression *",
         "fieldCronHint": "5 fields (min hour day month weekday) or 6 fields (with seconds), e.g. 0 2 * * 1 = every Monday 02:00; keep interval at least 1 hour",
+        "cronPreviewTitle": "Next triggers (current timezone, next 3)",
+        "cronInvalid": {
+            "empty": "Please enter a cron expression",
+            "invalidFieldCount": "cron expression must have 5 or 6 fields (min hour day month weekday / sec min hour day month weekday)",
+            "parseError": "Invalid cron expression syntax"
+        },
         "fieldTimezone": "Timezone (optional)",
-        "fieldTimezonePlaceholder": "Asia/Shanghai, empty uses server local timezone",
+        "fieldTimezonePlaceholder": "Search IANA timezone (e.g. Asia/Shanghai)",
+        "timezoneHint": "Default follows browser ({default}); empty uses server local timezone",
+        "timezoneEmpty": "No matches found",
         "fieldSelector": "Repository selection",
         "fieldTag": "Tag",
         "fieldTagPlaceholder": "e.g. frontend (matches repositories whose tags include it)",

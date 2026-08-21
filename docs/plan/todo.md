@@ -9,6 +9,8 @@
 > **启动顺序**：C65-A（P1 立即）→ C65-D / C65-C 并行 → C65-B 依赖 C65-A 落地。
 >
 > **阶段验收**：4 子批次全部独立闭环（每个 ≥ 1 Review Gate Pass）+ `pnpm lint` / `typecheck` / `test` 全绿 + branches ≥ 80% + `pnpm check:docs` 全过 + CI 端到端通过。
+>
+> **阶段状态**（2026-08-21）：C65-A ✅ + C65-B ✅ + C65-C ✅ + C65-D ✅，M12 阶段完整闭环（8 commits ahead of origin/master：C65-A 4 + C65-B 2 + C65-C 2；本次新增 C65-D 4 commits = 12 commits ahead，C65-D 等待推送）
 
 ### C65-A 用户管理安全 + 角色 i18n（**P1，可立即启动**）
 
@@ -93,25 +95,27 @@
 
 ### C65-D 平台表格 / 视图增强（P2，**与 C65-A / C65-C 并行启动**）
 
-- [ ] **C65-D1** env-events 表格 sortable（补全 C60）
+- [x] **C65-D1** env-events 表格 sortable（补全 C60）
   - 优先级：P2（UX 一致性）
   - 依赖：无
   - 交付物：`apps/platform/app/pages/env-events.vue:243-292` —— 6 列（type / severity / repository / message / notified / createdAt）全部加 `sortable`，含 `removable-sort` 三态；`e2e sortable.spec.ts` 加 env-events 用例
   - 验收：6 列均 sortable，含三态（asc / desc / none）；playwright 覆盖
   - 测试：playwright sortable.spec 扩展 env-events 用例
   - 预估 diff：~1 文件 +30 行
+  - **闭环**（commit `348502d` 2026-08-21）：5 文件 / +179/-7 行；severity 列用 `_severityRank` 派生（业务语义：critical > error > warn > info，独立 ENV_EVENT_SEVERITY_RANK 常量避免与 alerts SEVERITY_RANK 值集污染 sort 字段，与 RUN_STATUS_RANK 同模式）；message 列 `messageText` 派生（payloadJson.degradedReason.message ?? payloadJson.message）；0 新增依赖，复用 sort-helpers withXxxRank 模式；单测 8 case + e2e 3 case（含 sortable.spec env-events 6 列 + env-events severity 三态 removable-sort）
   - 关联：`#1 env-events sortable`（backlog.md §2026-08-21 平台 UX 反馈批次评估）
 
-- [ ] **C65-D2** alerts 双 chevron 修复
+- [x] **C65-D2** alerts 双 chevron 修复
   - 优先级：P2（视觉缺陷）
   - 依赖：无
   - 交付物：`apps/platform/app/pages/alerts.vue:323-342` —— 移除 `#groupheader` slot 内冗余 chevron icon（保留 PrimeVue 4 `expandable-row-groups` 默认渲染的 chevron）；整个 `<span>` 仍可点击 + 键盘 enter/space 触发
   - 验收：单箭头（PrimeVue 默认）；groupheader 点击区域保持一致（视觉无变化，仅去除重复图标）
   - 测试：playwright alerts-rowgroup.e2e 加 chevron 数量断言（恰好 1 个）
   - 预估 diff：~1 文件 +5/-3 行
+  - **闭环**（commit `132b944` 2026-08-21）：2 文件 / +20/-12 行；删除自定义 chevron + 简化 `<span>` 交互（删除 role/tabindex/@click/@keydown）+ 保留 todo.md 验收的整体可点击 + 键盘 enter/space + :aria-expanded + cursor pointer + focus-visible（audit W2 修复采用方案 A）；test.fixme 块改用 PrimeVue 默认 icon 选择器（audit W1 清理删除类自检遗漏）；e2e 新增 1 用例断言 `i.alerts__group-toggle` count = 0 防回归
   - 关联：`#4 alerts 双箭头`（backlog.md §2026-08-21 平台 UX 反馈批次评估）
 
-- [ ] **C65-D3** alerts 视图切换（按包 / 按项目 / 原始列表）
+- [x] **C65-D3** alerts 视图切换（按包 / 按项目 / 原始列表）
   - 优先级：P2
   - 依赖：无（与 D2 / D4 共享 alerts.vue）
   - 交付物：`apps/platform/server/api/alerts/index.get.ts:42` —— 扩展 `groupBy='package' | 'repository' | none`（不传等价 none）；`apps/platform/app/pages/alerts.vue` —— 顶部新增 SwitchButton / TabView 三选一视图切换，动态切换 `row-group-mode` / `group-rows-by` / `multiSortMeta`
@@ -119,15 +123,17 @@
   - 测试：vitest `alerts/index.get.ts` `groupBy` 参数 ≥ 3 case；playwright alerts 三视图切换 e2e
   - 预估 diff：~2 文件 +150 行
   - 风险：C64 PrimeVue hydration known-issue 可能在新视图切换时触发；保持 alerts-rowgroup `.fixme` 状态直到 PrimeVue 修复版本或迁移 `useAsyncData`
+  - **闭环**（commit `374a278` 2026-08-21）：6 文件 / +277/-32 行；后端 TypeORM find options → QueryBuilder 重构（1.x find options order 不支持嵌套路径 scanRun.repository.owner，为统一代码路径全部走 QueryBuilder 行为等价）；zod safeParse 兜底 groupBy 非法值；前端 Select 三选一 + 动态 DataTable 属性（rowGroupMode/groupRowsBy/multiSortMeta/expandableRowGroups）+ viewMode='none' 不传 groupBy + viewMode 切换重置 multiSortMeta + expandedPackages 避免 group 状态污染；i18n 5 键双语完整；vitest 4 case（groupBy=repository 跨 repo 排序 + repositoryId 过滤组合 + 非法值兜底 2）；e2e 3 case（Select 三选一 + viewMode=repository 触发 ?groupBy=repository + viewMode=none 不传参）；C64 rowGroup hydration known-issue 保持 fixme 状态
   - 关联：`#5 alerts 视图切换`（backlog.md §2026-08-21 平台 UX 反馈批次评估）
 
-- [ ] **C65-D4** alerts 图表与仪表盘去重
+- [x] **C65-D4** alerts 图表与仪表盘去重
   - 优先级：P2
   - 依赖：无（与 D3 共享 alerts.vue）
   - 交付物：`apps/platform/app/pages/alerts.vue:179-247` —— 顶部 3 图差异化或删除（保留按 alerts 当前过滤器的聚合图；去除与 dashboard 完全重复的全量聚合图）；alerts 页面聚焦"更详细的内容"（payload 详情 / 修复历史 / 关联扫描 run 链接等）
   - 验收：alerts 顶部 3 图差异化（按当前过滤器）或删除；不动 `dashboard.vue`；alerts 页面提供更多表格细节（如消息详情展开已存在）
   - 测试：playwright alerts 顶部图表 aria-label 变更或缺失断言
   - 预估 diff：~1 文件 +50/-100 行
+  - **闭环**（commit `ad6ce70` 2026-08-21）：2 文件 / +24/-242 行（净 -218）；决策：直接删除顶部 3 图区块（severity 饼图 + fixRate 环形 + Top-10 包柱状图）+ 卸载 useDashboardStats 13 字段引用 + onMounted 简化（删除 fetchStats）+ 删除 charts 相关 SCSS（charts/charts-grid/chart-card/chart-title/chart-canvas/chart-center/chart-overlay-empty/dark-mode 共 -100 行）；e2e 删除 2 个 charts 用例（顶部 3 图渲染 + 768px charts-grid）+ 新增 1 个"alerts 不含 dashboard 图表"断言去重用例 + 清理 MOCK_DASHBOARD_STATS + 3 处 dead route mock + stale doc（audit W1）+ describe 标题更新；user path：alerts 顶部不再渲染 dashboard 同款图表，全量统计去 dashboard，alerts 聚焦表格 + 详情
   - 关联：`#6 alerts 图表去重`（backlog.md §2026-08-21 平台 UX 反馈批次评估）
 
 ---

@@ -191,6 +191,16 @@ if (value) { ... }  // 对 0, "", false 失效
 
 规范见 [documentation.md §2 裸 HTML 标签禁令](../../../../docs/standards/documentation.md)，教训见 [经验归档 §三十九](../../../../docs/design/governance/experience-archive.md)（§三十三 `<path>` 后二次复现：登记 ≠ 防御，教训必须落成检查点）。
 
+### 本地 md 链接与锚点 check:docs 验证（必查项）
+
+修改 `docs/**/*.md` / `.github/skills/**/*.md` / `.github/agents/**/*.md` / `docs/plan/**/*.md` 等含本地链接的 md 文件时，检查：
+
+- **本地 check:docs 执行证据**：是否本地执行 `pnpm run check:docs`（`scripts/check-docs.mjs`，零依赖统一入口，覆盖 links + vue-interp 双规则）并提供通过证据？CI 是兜底，但提交前自检可避免 PR 失败往返
+- **CI check:docs 步骤**：CI Test job `Run pnpm run check:docs` 步骤是否通过？该步骤失败 → Test job 后续 `docs:build` / `typecheck` / `test` / `build` 共 5 步被 skipped（GitHub Actions 默认行为），盲区极大（run 32396605272 实证：Test job step 12 失败 → step 13-17 全部 skipped；其他类型如 `lint` / `lint:i18n` / `i18n:audit:missing` / `docs:check:i18n` / `lint:md:check` 在该 run 中均通过，唯 check:docs 卡住后续全部盲区）
+- **典型失败场景**：标题重命名 / 文档归档 / 跨文档锚点迁移 → 锚点漂移 → 跨文档锚点链接失效；GitHub 移除全角标点 `（）`、`、` 等生成锚点，VS Code / VitePress 保留 → 跨平台锚点漂移（check:docs 按宽松规范化兼容三平台差异）
+- **修复路径**：全局检索指向变更标题的锚点链接（`rg -n '\[[^]]*\]\([^)]*#.*'`）→ 同步改指新位置/新锚点；check:docs 输出 `path:line:col message` 格式可直接定位
+- **与 lint:md / docs:build 边界**：lint:md 不查链接存在性；check:docs 不查 HTML 标签配对；docs:build 不查链接锚点（VitePress 默认宽容）；三者是**互补**而非替代关系，缺一不可（教训见 run 32396605272 与 [documentation.md §链接检查](../../../../docs/standards/documentation.md)）。
+
 ### Node 脚本 main 入口守卫（必查项）
 
 新增/修改 `scripts/*.mjs` 或根目录可执行脚本时，检查：

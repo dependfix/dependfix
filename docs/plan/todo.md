@@ -67,23 +67,28 @@
 
 ### C65-C schedules 增强（P2，**与 C65-A / C65-D 并行启动**）
 
-- [ ] **C65-C1** cron 表达式预览
+- [x] **C65-C1** cron 表达式预览
   - 优先级：P2
   - 依赖：无
-  - 交付物：`apps/platform/app/pages/schedules.vue` Dialog 表单 cron `<InputText>` 旁加预览（实时显示"下次触发：2026-08-25 02:00（每周一 凌晨 2 点）"）；可选新增 `apps/platform/app/utils/cron-preview.ts` helper
-  - **技术决策**（先决策再实施）：方案 A 引入 `cronstrue`（~10KB gzip + `cron-parser`）—— 成熟，文档全；方案 B 自实现（仅 next 3 次触发时间 + 人类可读描述）—— 0 依赖
-  - 验收：cron 输入实时显示"下次触发：..."；非法 cron 显示错误；时区切换正确
-  - 测试：vitest cron 解析 + 预览 ≥ 4 case（含合法 / 非法 / 时区切换）；playwright cron 字段变更触发预览更新
+  - 交付物：`apps/platform/app/utils/cron-preview.ts` 新增（previewCron 函数复用 cron-parser 5.x，0 新增依赖）+ `apps/platform/app/pages/schedules.vue` Dialog cron `<InputText>` 下方加实时预览（三状态：合法=next 3 次触发时间 / 非法=错误提示 / 空=无显示）
+  - **技术决策**（用户拍板）：方案 B 自实现（0 新增依赖，复用 cron-parser 已装的成熟 next() 实现）；原因：cronstrue 实测 unpackedSize 1.23MB（todo.md 估 ~10KB gzip 严重偏差）+ cronstrue-i18n 不存在于 npm registry（todo.md 误引）
+  - 验收：cron 输入实时显示"下次触发：2026-08-25 02:00"（按 cron 时区格式化）；非法 cron 显示错误（cronInvalid.{empty/invalidFieldCount/parseError}）；时区切换正确（cron-parser tz + Intl.DateTimeFormat timeZone 双通道）
+  - 测试：vitest cron-preview.test.ts 10 case（校验口径 4 + 合法 cron 4 + 时区切换 2）；playwright schedules.e2e.test.ts cron 预览 + 非法反馈 2 用例
   - 预估 diff：~1-2 文件 +100 行
+  - **闭环**（commit `5dff002` 2026-08-21）：3 文件新增（utils + test + e2e）+ 4 文件修改 +377/-3 行；cron-preview.ts 75 行（previewCron + 校验 + 类型）+ cron-preview.test.ts 99 行（10 case 含 vitest firstRun helper + 上海/UTC 时区偏移断言）；schedules.vue 改造 97 行（browserTimezone ref + timezoneOptions 重排简化 + cronPreview computed + formatCronPreviewDate helper + 模板三状态 + ul reset scoped style + section 包裹 aria-label）
+  - A 阶段 2 轮 audit：round 1 Reject（W1 text-success/error 工具类未声明 + W2 cron-preview.ts 孤立编号）→ 修复 + S1/S3/S4/S5 suggest 采纳 → round 2 复审只审修复点触发 §3 同模式扫描 → 发现 W3 4 处 C65-C 编号引用（1 style 注释 + 3 test 名）→ 全部清理（保留解释正文）
+  - 验证：`pnpm lint` 0 error / `nuxt typecheck` EXIT 0 / `tsc -p tsconfig.i18n.json` EXIT 0 / `vitest` 693 passed + 4 skipped / `playwright admin+i18n+schedules` 25 passed（22 baseline 无回归）
   - 关联：`#2 cron 预览`（backlog.md §2026-08-21 平台 UX 反馈批次评估）
 
-- [ ] **C65-C2** 时区选择框
+- [x] **C65-C2** 时区选择框
   - 优先级：P2
   - 依赖：无（与 C65-C1 共享时区状态）
-  - 交付物：`schedules.vue:410-418` 时区 `<InputText>` 改为 `<Select>` 含 `filter`（数据源 `Intl.supportedValuesOf('timeZone')`）+ 默认值 `Intl.DateTimeFormat().resolvedOptions().timeZone`（浏览器时区）
-  - 验收：时区字段为 Select 含 filter，可搜索/选择；默认时区跟随浏览器；i18n locale 切换不影响时区列表（IANA 是稳定的）
-  - 测试：playwright 时区 Select 含 IANA 时区列表（如 `Asia/Shanghai` / `Asia/Tokyo` 等）
+  - 交付物：`schedules.vue:410-418` 时区 `<InputText>` 改为 `<Select>` 含 `filter`（数据源 `Intl.supportedValuesOf('timeZone')` ~600 项）+ 默认值 `Intl.DateTimeFormat().resolvedOptions().timeZone`（浏览器时区插首位）+ 旧 Node 不可用时兜底常用 UTC/Asia/Shanghai 等 6 项
+  - 验收：时区字段为 Select 含 filter，可搜索/选择；默认时区跟随浏览器；i18n locale 切换不影响时区列表（IANA 是稳定的，与 ECMA-402 规范保证一致）
+  - 测试：playwright schedules.e2e.test.ts 时区 Select 用例（含 IANA 列表 + filter 验证 + 默认浏览器时区首位）
   - 预估 diff：~1 文件 +80 行
+  - **闭环**（commit `5dff002` 2026-08-21）：合并入 C65-C1 同 commit（共享 timezoneOptions + browserTimezone 等 reactive state 与 cron-preview 共用时区通道）；playwright schedules.e2e.test.ts 第 3 用例覆盖 C65-C2 验收
+  - 验证：playwright 时区 Select overlay 包含 ≥10 项 IANA 时区 + filter 输入 Shanghai 后 Tokyo 消失 + 浏览器时区 Asia/Shanghai 首位显示
   - 关联：`#3 时区选择框`（backlog.md §2026-08-21 平台 UX 反馈批次评估）
 
 ### C65-D 平台表格 / 视图增强（P2，**与 C65-A / C65-C 并行启动**）

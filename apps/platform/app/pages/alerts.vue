@@ -151,8 +151,14 @@ const packageCounts = computed(() => {
 //   触发 sortMultiple → multisortField(data, data, 0) → d_multiSortMeta[0].field → TypeError
 // - 折叠状态以 packageName 数组跟踪：PrimeVue v-model:expanded-row-groups 内部用 .indexOf() 判断 group 是否展开，
 //   传 Record<string, boolean> 会触发 TypeError: this.expandedRowGroups.indexOf is not a function（RowGroup 数据流必现）
+//   PrimeVue 4 在 expandable-row-groups 模式下会在 #groupheader slot 之前自动渲染 rowToggleButton
+//   （含 ChevronDown/RightIcon），slot 内不应再叠加自定义 chevron，否则双 chevron 视觉缺陷
+//   （node_modules/primevue/datatable/index.mjs:1776-1800 rowToggleButton 渲染分支）
 const multiSortMeta = ref<DataTableSortMeta[]>([{ field: 'packageName', order: 1 }])
 const expandedPackages = ref<string[]>([])
+// 自定义 span 整体可点击 + 键盘 enter/space 触发（todo.md §C65-D2 验收）。
+// PrimeVue 4 rowToggleButton 在 groupheader 之前渲染（已验证 datatable/index.mjs:1776-1800），
+// 自定义 toggle 与 PrimeVue 内部 toggle 走不同路径但修改同一 ref，不会重复 toggle。
 const isPackageExpanded = (packageName: string) => expandedPackages.value.includes(packageName)
 const togglePackage = (packageName: string) => {
     expandedPackages.value = isPackageExpanded(packageName)
@@ -330,11 +336,6 @@ onMounted(async () => {
                             @keydown.enter.prevent="togglePackage(data.packageName)"
                             @keydown.space.prevent="togglePackage(data.packageName)"
                         >
-                            <i
-                                :class="isPackageExpanded(data.packageName) ? 'pi pi-chevron-down' : 'pi pi-chevron-right'"
-                                class="alerts__group-toggle"
-                                aria-hidden="true"
-                            />
                             <strong>{{ data.packageName }}</strong>
                             <span class="alerts__group-count text-muted">
                                 {{ t('alerts.groupHeaderCount', {count: packageCounts.get(data.packageName) ?? 0}) }}
@@ -550,12 +551,6 @@ onMounted(async () => {
             outline: 2px solid $color-primary;
             outline-offset: 2px;
         }
-    }
-
-    &__group-toggle {
-        font-size: $font-size-sm;
-        width: 1rem;
-        text-align: center;
     }
 
     &__group-count {

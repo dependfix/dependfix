@@ -124,8 +124,10 @@ test.describe('C58 alerts rowGroup + chart 复用', () => {
         await waitForHydration(page)
         await page.waitForSelector('.alerts__group-header', { timeout: 15000 })
         const firstGroup = page.locator('.alerts__group-header').first()
+        // PrimeVue 4 默认在 groupheader 前渲染 rowToggleButton（含 ChevronDown/RightIcon）；
+        // D2 修复后自定义 chevron 已移除，断言目标改为 PrimeVue 默认 icon。
+        const toggleIcon = page.locator('.p-datatable-row-toggle-button .p-datatable-row-toggle-icon').first()
         // 点击前：toggle icon 是 chevron-right
-        const toggleIcon = firstGroup.locator('.alerts__group-toggle')
         await expect(toggleIcon).toHaveClass(/pi-chevron-right/)
         // 点击展开
         await firstGroup.click()
@@ -146,5 +148,16 @@ test.describe('C58 alerts rowGroup + chart 复用', () => {
         // 单列时只有 1 个宽度值（如 "768px" 或 "720px"）
         const columnCount = columns.split(/\s+/).filter(Boolean).length
         expect(columnCount).toBe(1)
+    })
+
+    test('#groupheader slot 内无自定义 chevron（修复 D2 双 chevron 视觉缺陷）', async ({ page }) => {
+        await page.goto('/alerts')
+        await waitForHydration(page)
+        // PrimeVue 4 expandable-row-groups + #groupheader slot 模式下，PrimeVue 默认渲染
+        // rowToggleButton（含 ChevronDownIcon/RightIcon），slot 内不应再叠加自定义 chevron
+        // （参见 node_modules/primevue/datatable/index.mjs:1776-1800）
+        // 断言：DOM 中不存在 alerts__group-toggle 类名的 <i> 元素（修复前是 font-awesome pi-chevron-*）
+        const customChevron = page.locator('i.alerts__group-toggle')
+        await expect(customChevron).toHaveCount(0)
     })
 })

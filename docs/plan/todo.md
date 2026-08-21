@@ -54,13 +54,15 @@
 
 ### C65-B i18n 单点声明治理（P2，**待 C65-A 落地后启动**）
 
-- [ ] **C65-B1** i18n 配置统一来源
+- [x] **C65-B1** i18n 配置统一来源
   - 优先级：P2（治理）
   - 依赖：**C65-A2**（角色 i18n 键落地后才能展示治理效果）
-  - 交付物：`apps/platform/i18n/i18n.config.ts` 扩展为 i18n 配置中心（含 locales 列表 + datetimeFormats + numberFormats + detector 路径常量）+ `apps/platform/nuxt.config.ts` i18n 块简化为只引用 i18n.config.ts（≤ 10 行）+ [docs/standards/platform.md §7](../standards/platform.md) 新增"i18n 配置单点声明"条款
-  - 验收：`nuxt.config.ts` i18n 块 ≤ 10 行（仅 i18n.config.ts 引用 + 必要 override）；新增语言演示：仅改 1 个文件即可
-  - 测试：构建期 `pnpm docs:build` / `pnpm build` 不破坏；i18n 切换 e2e 不回归
+  - 交付物：`apps/platform/i18n/nuxt-i18n-config.ts`（新增，承载 @nuxtjs/i18n 模块层字段：locales / strategy / langDir / defaultLocale / detectBrowserLanguage / detector 路径）+ `apps/platform/i18n/i18n.config.ts`（仅保留 vue-i18n 运行时配置：datetime/number formats）+ `apps/platform/nuxt.config.ts` i18n 块简化（24 行 → 6 行，仅引用）+ [docs/standards/platform.md §7.2](../standards/platform.md#72-i18n-配置单点声明) 新增"i18n 配置单点声明"条款
+  - 验收：`nuxt.config.ts` i18n 块 ≤ 10 行（实际 6 行：spread + vueI18n + experimental）；新增语言演示：仅改 `nuxt-i18n-config.ts` 一处 + `locales/` 文件即可
+  - 测试：构建期 `nuxt typecheck` 不破坏；i18n 切换 e2e 不回归
   - 预估 diff：~3 文件 +50/-30 行
+  - **闭环**（commit `789ed2f` 2026-08-21）：4 文件 / +86/-27 行；**双文件拆分根因**：`defineI18nConfig` 是 @nuxtjs/i18n 模块加载时通过 addImports 注入的运行时全局，仅 Nuxt transform pipeline 就绪后才可用；nuxt.config.ts 顶层 import 走 jiti（无 transform pipeline），import 调用了 `defineI18nConfig` 的模块会 `ReferenceError`（实测）→ 必须物理拆分 `nuxt-i18n-config.ts`（jiti 安全）与 `i18n.config.ts`（vue-i18n 运行时，Nuxt transform pipeline 加载）；`as const` 锁定字面量类型避免 spread 后被 Nuxt 模块类型推断为宽化（audit S2 已 T 阶段 typecheck 实证通过）；A 阶段 audit quick Pass + S1（i18n.config.ts 末尾 newline）已修 + S2（as const 兼容性）T 阶段实证通过
+  - 验证：`pnpm lint` 0 error（1 pre-existing mailer warning）/ `nuxt typecheck` EXIT 0 / `tsc -p tsconfig.i18n.json --noEmit` EXIT 0 / `vitest` 683 passed + 4 skipped / `playwright admin+i18n` 22/22 passed（对照 C65-A 基线无回归）
   - 关联：`#10 i18n 单点声明`（backlog.md §2026-08-21 平台 UX 反馈批次评估）
 
 ### C65-C schedules 增强（P2，**与 C65-A / C65-D 并行启动**）

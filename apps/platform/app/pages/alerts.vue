@@ -1,7 +1,7 @@
 <script setup lang="ts">
-// 告警视图：按仓库/严重级别/来源筛选
-// 顶部加图表区块（severity 饼图 + fixRate 环形 + Top-10 包柱状图），
-// 复用 dashboard.vue 的图表配置（通过 useDashboardStats composable 共享，Nuxt auto-import）
+// 告警视图：按仓库/严重级别/来源/视图模式筛选
+// 顶部不渲染 dashboard 同款图表（todo.md §C65-D4：与 dashboard.vue 完全去重），
+// 用户需要全局统计去 dashboard；alerts 聚焦表格 + 详情
 import { withFixStatusRank, withSeverityRank } from '~/utils/sort-helpers'
 import type { DataTableSortMeta } from 'primevue/datatable'
 
@@ -148,22 +148,6 @@ const onViewModeChange = () => {
     void fetchAlerts()
 }
 
-// 复用 dashboard.vue 的图表数据 composable（Nuxt auto-import）
-const {
-    stats,
-    fetchStats,
-    severityChartData,
-    severityChartOptions,
-    hasSeverityData,
-    fixRateChartData,
-    fixRateChartOptions,
-    fixRatePercent,
-    fixRateIsEmpty,
-    topPackagesChartData,
-    topPackagesChartOptions,
-    hasTopPackages,
-} = useDashboardStats()
-
 // rowGroup 模式：按 viewMode 聚合计数（subheader 显示该组告警数）
 // viewMode='none' 时不渲染 subheader，该 computed 仅用于 package/repository 模式。
 const groupKeyOf = (a: AlertView): string => {
@@ -227,7 +211,7 @@ const dataTableAttrs = computed(() => {
 })
 
 onMounted(async () => {
-    await Promise.all([fetchRepositories(), fetchStats()])
+    await fetchRepositories()
     await fetchAlerts()
 })
 </script>
@@ -243,77 +227,8 @@ onMounted(async () => {
             </div>
         </div>
 
-        <!-- 图表统计区块（severity 饼图 + fixRate 环形 + Top-10 包柱状图）—— 复用 dashboard.vue 图表配置 -->
-        <div class="alerts__charts">
-            <h3>{{ t('dashboard.chartTitle') }}</h3>
-            <div class="alerts__charts-grid">
-                <Card class="alerts__chart-card">
-                    <template #content>
-                        <h4 class="alerts__chart-title">
-                            {{ t('dashboard.severityChartTitle') }}
-                        </h4>
-                        <ClientOnly>
-                            <div class="alerts__chart-canvas">
-                                <ChartCanvas
-                                    type="doughnut"
-                                    :data="severityChartData"
-                                    :options="severityChartOptions"
-                                    :aria-label="`${t('dashboard.severityChartTitle')}: ${Object.entries(stats?.severityCounts ?? {}).map(([k, v]) => `${k} ${v}`).join(', ')}`"
-                                />
-                                <p v-if="!hasSeverityData" class="alerts__chart-overlay-empty text-muted">
-                                    {{ t('dashboard.chartEmpty') }}
-                                </p>
-                            </div>
-                        </ClientOnly>
-                    </template>
-                </Card>
-                <Card class="alerts__chart-card">
-                    <template #content>
-                        <h4 class="alerts__chart-title">
-                            {{ t('dashboard.fixRateChartTitle') }}
-                        </h4>
-                        <ClientOnly>
-                            <div class="alerts__chart-canvas alerts__chart-canvas--with-center">
-                                <ChartCanvas
-                                    type="doughnut"
-                                    :data="fixRateChartData"
-                                    :options="fixRateChartOptions"
-                                    :aria-label="`${t('dashboard.fixRateChartTitle')}: ${t('dashboard.fixRateValue', {percent: fixRatePercent})}`"
-                                />
-                                <div class="alerts__chart-center">
-                                    <span v-if="fixRateIsEmpty" class="alerts__chart-center-value alerts__chart-center-value--muted">—</span>
-                                    <span v-else class="alerts__chart-center-value">{{ t('dashboard.fixRateValue', {percent: fixRatePercent}) }}</span>
-                                </div>
-                                <p v-if="fixRateIsEmpty" class="alerts__chart-overlay-empty text-muted">
-                                    {{ t('dashboard.chartEmpty') }}
-                                </p>
-                            </div>
-                        </ClientOnly>
-                    </template>
-                </Card>
-                <Card class="alerts__chart-card alerts__chart-card--wide">
-                    <template #content>
-                        <h4 class="alerts__chart-title">
-                            {{ t('dashboard.topPackagesChartTitle') }}
-                            <span class="alerts__chart-hint text-muted">{{ t('dashboard.packageTruncated') }}</span>
-                        </h4>
-                        <ClientOnly>
-                            <div class="alerts__chart-canvas alerts__chart-canvas--bar">
-                                <ChartCanvas
-                                    type="bar"
-                                    :data="topPackagesChartData"
-                                    :options="topPackagesChartOptions"
-                                    :aria-label="`${t('dashboard.topPackagesChartTitle')}: ${(stats?.topPackages ?? []).map((p) => `${p.packageName} ${p.count}`).join(', ')}`"
-                                />
-                                <p v-if="!hasTopPackages" class="alerts__chart-overlay-empty text-muted">
-                                    {{ t('dashboard.chartEmpty') }}
-                                </p>
-                            </div>
-                        </ClientOnly>
-                    </template>
-                </Card>
-            </div>
-        </div>
+        <!-- 顶部图表区块已删除（todo.md §C65-D4）：与 dashboard.vue 完全重复，全量聚合与 alerts 过滤无关，
+             用户需要全局统计去 dashboard；alerts 聚焦表格 + 详情 -->
 
         <Card class="alerts__filters">
             <template #content>
@@ -503,91 +418,6 @@ onMounted(async () => {
         font-size: $font-size-sm;
     }
 
-    // 图表区块样式（与 dashboard.vue charts-grid 一致，含 768px 响应式断点）
-    &__charts {
-        margin-bottom: $space-6;
-    }
-
-    &__charts-grid {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: $space-4;
-        margin-top: $space-3;
-        align-items: stretch;
-    }
-
-    @media (max-width: 768px) {
-        &__charts-grid {
-            grid-template-columns: 1fr;
-        }
-    }
-
-    &__chart-card {
-        height: 100%;
-
-        &--wide {
-            grid-column: 1 / -1;
-        }
-    }
-
-    &__chart-title {
-        margin: 0 0 $space-3;
-        font-size: $font-size-base;
-        font-weight: 600;
-        display: flex;
-        justify-content: space-between;
-        align-items: baseline;
-        gap: $space-3;
-    }
-
-    &__chart-hint {
-        font-size: $font-size-sm;
-        font-weight: 400;
-    }
-
-    &__chart-canvas {
-        position: relative;
-        height: 280px;
-
-        &--bar {
-            height: 360px;
-        }
-
-        &--with-center {
-            position: relative;
-        }
-    }
-
-    &__chart-overlay-empty {
-        position: absolute;
-        inset: 0;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        margin: 0;
-        pointer-events: none;
-        font-size: $font-size-sm;
-    }
-
-    &__chart-center {
-        position: absolute;
-        inset: 0;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        pointer-events: none;
-    }
-
-    &__chart-center-value {
-        font-size: 1.5rem;
-        font-weight: 700;
-        color: $color-text;
-
-        &--muted {
-            color: $color-text-muted;
-        }
-    }
-
     &__filters {
         margin-bottom: $space-4;
     }
@@ -628,16 +458,6 @@ onMounted(async () => {
     &__group-count {
         font-size: $font-size-sm;
         font-weight: 400;
-    }
-}
-
-@include dark-mode {
-    .alerts__chart-center-value {
-        color: $color-text-dark;
-
-        &--muted {
-            color: $color-text-muted;
-        }
     }
 }
 </style>

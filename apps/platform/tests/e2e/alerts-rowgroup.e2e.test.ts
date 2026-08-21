@@ -2,23 +2,23 @@ import { test, expect } from '@playwright/test'
 import { waitForHydration } from './helpers/hydration.helper'
 
 /**
- * alerts 视图 rowGroup + 图表复用冒烟（docs/plan/todo.md §C58）。
+ * alerts 视图 rowGroup + 视图切换冒烟（docs/plan/todo.md §C58 + §C65-D2/D3/D4）。
  *
  * 覆盖：
- * - alerts 顶部 charts 渲染（severity 饼图 + fixRate 环形 + Top-10 包柱状图，复用 dashboard.vue 图表组件）
+ * - 顶部图表去重（alerts 不再渲染 dashboard 同款图表，与 dashboard.vue 完全去重）
  * - DataTable rowGroup by packageName（subheader 显示包名 + 告警数）
- * - subheader 点击折叠/展开
- * - 768px 响应式（filter-row 换行 + charts-grid 单列）
+ * - subheader 点击折叠/展开（PrimeVue 默认 rowToggleButton + 自定义 span 整体交互）
+ * - 视图切换：按包 / 按项目 / 原始列表三选一，groupBy 参数 + 动态 DataTable 属性
  *
- * 测试数据：依赖后端 /api/alerts（e2e setup 通过 admin auth + 历史 alert fixtures）
+ * 测试数据：依赖后端 /api/alerts + /api/repos（e2e setup 通过 admin auth + 历史 alert fixtures）
  */
 
 test.use({ storageState: 'tests/e2e/.auth/admin.json' })
 
 /**
- * rowGroup 测试依赖 /api/alerts 返回非空数据 + /api/dashboard/stats + /api/repos
- * （alerts.vue onMounted: await Promise.all([fetchRepositories(), fetchStats()]); await fetchAlerts()
- *  —— 任一前置卡住则 fetchAlerts 永不执行，DataTable 不渲染，rowGroup subheader 永远找不到）
+ * rowGroup 测试依赖 /api/alerts 返回非空数据 + /api/repos
+ * （alerts.vue onMounted: await fetchRepositories(); await fetchAlerts()—— 任一前置卡住
+ *  则 fetchAlerts 永不执行，DataTable 不渲染，rowGroup subheader 永远找不到）
  *
  * PrimeVue rowGroupMode="subheader" 须按 groupRowsBy 字段预排序才会渲染 subheader。
  * mock 两个不同 packageName 的告警 → 渲染 2 个 group header。
@@ -47,38 +47,19 @@ const MOCK_ALERTS = [
     },
 ]
 
-/** Dashboard stats：覆盖 severityCounts + fixedCount + topPackages + latestRun，
- *  让 alerts 顶部 3 块图表（aria-label 断言）拿到非空数据 */
-const MOCK_DASHBOARD_STATS = {
-    repositoryCount: 2,
-    alertsTotal: 3,
-    severityCounts: { critical: 0, high: 1, medium: 1, low: 1, unknown: 0 },
-    fixedCount: 0,
-    topPackages: [
-        { packageName: 'axios', count: 1 },
-        { packageName: 'lodash', count: 2 },
-    ],
-    latestRun: null,
-}
-
 const MOCK_REPOS = [
     { id: 'repo-1', owner: 'foo', name: 'bar' },
     { id: 'repo-2', owner: 'foo', name: 'baz' },
 ]
 
-test.describe('C58 alerts rowGroup + chart 复用', () => {
+test.describe('C58 alerts rowGroup + 视图切换', () => {
     test.beforeEach(async ({ page }) => {
         // 必须在 goto 之前注册：alerts.vue 在 onMounted 立即调用 fetchAlerts()
-        // 且前置 fetchStats / fetchRepositories 必须先成功完成
+        // 且前置 fetchRepositories 必须先成功完成
         await page.route('**/api/alerts*', (route) => route.fulfill({
             status: 200,
             contentType: 'application/json',
             body: JSON.stringify(MOCK_ALERTS),
-        }))
-        await page.route('**/api/dashboard/stats*', (route) => route.fulfill({
-            status: 200,
-            contentType: 'application/json',
-            body: JSON.stringify(MOCK_DASHBOARD_STATS),
         }))
         await page.route('**/api/repos*', (route) => route.fulfill({
             status: 200,
@@ -87,17 +68,17 @@ test.describe('C58 alerts rowGroup + chart 复用', () => {
         }))
     })
 
-    test('alerts 顶部 3 块图表渲染（aria-label 含图表标题）', async ({ page }) => {
+    test('alerts 页面不包含 dashboard 同款图表（去重 todo.md §C65-D4）', async ({ page }) => {
+        // todo.md §C65-D4：alerts 顶部 3 图与 dashboard.vue 完全重复（全量聚合与 alerts 过滤无关），
+        // 删除后用户需要全局统计去 dashboard；alerts 聚焦表格 + 详情
         await page.goto('/alerts')
         await waitForHydration(page)
+        // 断言：alerts 页面不存在 dashboard 图表 DOM
         const chartCanvases = page.locator('.alerts__chart-canvas canvas[role="img"]')
-        await expect(chartCanvases).toHaveCount(3, { timeout: 20000 })
-        const severityCanvas = page.locator('.alerts__chart-card:has-text("告警分布") canvas')
-        const fixRateCanvas = page.locator('.alerts__chart-card:has-text("修复率") canvas')
-        const topPackagesCanvas = page.locator('.alerts__chart-card:has-text("Top-10") canvas')
-        await expect(severityCanvas).toHaveAttribute('aria-label', /告警分布/)
-        await expect(fixRateCanvas).toHaveAttribute('aria-label', /修复率/)
-        await expect(topPackagesCanvas).toHaveAttribute('aria-label', /Top-10/)
+        await expect(chartCanvases).toHaveCount(0)
+        // charts-grid 容器也应不存在
+        const chartsGrid = page.locator('.alerts__charts-grid')
+        await expect(chartsGrid).toHaveCount(0)
     })
 
     // FIXME(known-issue/primevue-hydration-rowgroup):
@@ -137,19 +118,6 @@ test.describe('C58 alerts rowGroup + chart 复用', () => {
         await expect(toggleIcon).toHaveClass(/pi-chevron-right/)
     })
 
-    test('768px 响应式：charts-grid 单列', async ({ page }) => {
-        await page.setViewportSize({ width: 768, height: 1024 })
-        await page.goto('/alerts')
-        await waitForHydration(page)
-        await page.waitForSelector('.alerts__charts-grid', { timeout: 10000 })
-        // 768px 以下 charts-grid 应为单列（grid-template-columns: 1fr）
-        const grid = page.locator('.alerts__charts-grid')
-        const columns = await grid.evaluate((el) => window.getComputedStyle(el).gridTemplateColumns)
-        // 单列时只有 1 个宽度值（如 "768px" 或 "720px"）
-        const columnCount = columns.split(/\s+/).filter(Boolean).length
-        expect(columnCount).toBe(1)
-    })
-
     test('#groupheader slot 内无自定义 chevron（双 chevron 视觉缺陷修复）', async ({ page }) => {
         await page.goto('/alerts')
         await waitForHydration(page)
@@ -187,9 +155,6 @@ test.describe('C58 alerts rowGroup + chart 复用', () => {
                 status: 200, contentType: 'application/json', body: JSON.stringify(MOCK_ALERTS),
             })
         })
-        await page.route('**/api/dashboard/stats*', (route) => route.fulfill({
-            status: 200, contentType: 'application/json', body: JSON.stringify(MOCK_DASHBOARD_STATS),
-        }))
         await page.route('**/api/repos*', (route) => route.fulfill({
             status: 200, contentType: 'application/json', body: JSON.stringify(MOCK_REPOS),
         }))
@@ -219,9 +184,6 @@ test.describe('C58 alerts rowGroup + chart 复用', () => {
                 status: 200, contentType: 'application/json', body: JSON.stringify(MOCK_ALERTS),
             })
         })
-        await page.route('**/api/dashboard/stats*', (route) => route.fulfill({
-            status: 200, contentType: 'application/json', body: JSON.stringify(MOCK_DASHBOARD_STATS),
-        }))
         await page.route('**/api/repos*', (route) => route.fulfill({
             status: 200, contentType: 'application/json', body: JSON.stringify(MOCK_REPOS),
         }))

@@ -178,6 +178,24 @@ export const getDateType = (dbType?: string): string => {
 - **类型 vs 运行时契约核验**：编写 PrimeVue v-model 绑定、ref 形态、callback 契约时**必须直接看 `node_modules/primevue/<comp>/index.mjs` 内部实现**（如 `this.expandedRowGroups.indexOf(...)` 调用），不能信 TypeScript 类型声明（已知 type bug 案例：`DataTableExpandedRows = Record<string, boolean>` 类型允许，但 PrimeVue 4 `v-model:expanded-row-groups` 内部要求 `string[]`，传 Record 触发 `TypeError: ...indexOf is not a function`）。核验流程与具体案例：见 [docs/archive/2026-08-20-standards-revisions.md §6](../archive/2026-08-20-standards-revisions.md)。
 - **`sort-mode="multiple"` 必须用 `v-model:multi-sort-meta` 传初始排序**：PrimeVue 4 `sort-field` + `sort-order` 仅在 `sort-mode="single"` 下生效；切到 `multiple` 后 `d_multiSortMeta` 不会被自动填充（保持空数组 `[]`），但 `d_sortField` 被赋值后 `sorted` 仍为 `true`（`node_modules/primevue/datatable/index.mjs:6091-6093` `sorted = d_sortField || ...`），进入 `processedData` 走 `sortMultiple(data)` → `multisortField(d, d, 0)` → `d_multiSortMeta[0].field` → 空数组 `TypeError: Cannot read properties of undefined (reading 'field')`。正确写法：`v-model:multi-sort-meta="ref<DataTableSortMeta[]>([{field: 'packageName', order: 1}])"`（PrimeVue Volt UI 官方文档明确："In multiple sort mode, `multiSortMeta` should be used"）。
 
+### 7.2 i18n 配置单点声明
+
+- **配置中心位置**：`apps/platform/i18n/` 目录下两个文件协作承载全部 i18n 配置：
+  - `apps/platform/nuxt-i18n-config.ts` —— @nuxtjs/i18n 模块层配置（locales / strategy / langDir / defaultLocale / detectBrowserLanguage / detector 路径），被 `nuxt.config.ts` 顶层 import 后 spread 到 `i18n` 字段；**jiti 安全**（无 `defineI18nConfig` 顶层调用）。
+  - `apps/platform/i18n/i18n.config.ts` —— vue-i18n 构建期配置（datetime/number formats 本地化），通过 `nuxt.config.ts` 的 `i18n.vueI18n` 字段按文件路径加载，**仅可由 Nuxt transform pipeline 加载**（注入了 `defineI18nConfig` 全局）。
+  - `apps/platform/i18n/localeDetector.ts` —— 浏览器语言检测器（`resolveLocale` 纯函数，便于单测）；`nuxt-i18n-config.ts` 仅以路径常量引用。
+  - `apps/platform/nuxt.config.ts` 的 `i18n` 块仅做引用（spread `nuxtI18n` + `vueI18n` 路径 + `experimental.localeDetector`），不再重复 locales / strategy / langDir / detectBrowserLanguage 等字段；当前 i18n 块 6 行（含括号）。
+- **jiti 加载边界（关键约束）**：`nuxt.config.ts` 顶层 import 走 jiti（轻量 TS 转换器，无 Nuxt transform pipeline），而 `defineI18nConfig` 是 @nuxtjs/i18n 模块加载时通过 addImports 注入的运行时全局。因此 `nuxt.config.ts` 顶层 **只能 import 拆出的 `nuxt-i18n-config.ts`**（仅 named export const 定义，无模块顶层副作用），**不能 import `i18n.config.ts`**（其 default export 会触发 jiti 顶层 evaluate `defineI18nConfig(...)` → `is not defined` 报错）。这是双文件拆分的唯一根因，不接受合并尝试（合并会在 typecheck 时暴露）。
+- **`as const` 锁定字面量类型**：`nuxtI18n = { ... } as const` 是必需的，避免 spread 后被 Nuxt 模块类型推断为宽化（`string` 而非字面量），引发 `@nuxtjs/i18n` 字段契约检查报错。
+- **nuxt.config.ts i18n 块行数上限**：≤ 10 行（仅引用 + 必要 override）。超出即视为散落配置点回归，应回收到 `nuxt-i18n-config.ts`。
+- **新增语言流程**：仅改 `nuxt-i18n-config.ts` 一处（`nuxtI18n.locales` 追加 1 项 `{ code, name, file, language }`）+ 在 `apps/platform/i18n/locales/` 下复制对应 `.json` 并补翻译。`nuxt.config.ts` 与 `i18n.config.ts` 不需任何 i18n 字段调整。
+- **职责边界**：本节聚焦 i18n **配置实现层**（字段归属与单点声明）；语言标识规范 / fallback 链 / 文案归属层级 / 翻译流程见 [i18n.md §3](./i18n.md#3-平台-ui-国际化)。
+- **禁止反模式**：
+  - 在 `nuxt.config.ts` i18n 块内重复声明 `locales` / `strategy` / `langDir`（散落点回归）
+  - 把 `vueI18n` 字段写成内联对象而非文件路径（无法承载 `locales` 等模块层字段，也丢失 i18n.config.ts 作为运行时配置中心的边界）
+  - 把 `i18n.config.ts` 的 named export（含 vue-i18n 配置以外的代码）放到会被 jiti 顶层 import 的位置（必须物理拆分）
+  - 在 detector 文件里直接 hard-code `defaultLocale` 或 locale 列表（应通过 `nuxtI18n` 配置中心维护）
+
 ## 8. 测试规范
 
 - server 层纯逻辑（加密、adapter、服务）用 Vitest node 环境，位于 `server/**/*.test.ts`

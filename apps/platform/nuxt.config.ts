@@ -1,6 +1,7 @@
 import Aura from '@primeuix/themes/aura'
 import { definePreset } from '@primeuix/themes'
 import { parseDomainList } from './server/utils/email-domain'
+import { localeDetectorFile, nuxtI18n } from './i18n/nuxt-i18n-config'
 
 // 自定义 PrimeVue 主题预设：语义主色（青灰）跟随明暗模式
 const DependfixPreset = definePreset(Aura, {
@@ -29,31 +30,11 @@ export default defineNuxtConfig({
         '@primevue/nuxt-module',
         '@nuxtjs/i18n',
     ],
-    // 国际化：zh-CN 默认无前缀 / en 加 /en 前缀；语言检测见 i18n/localeDetector.ts
+    // 国际化：单点声明见 i18n/i18n.config.ts（locales / strategy / detectBrowserLanguage / detector 路径）
     i18n: {
-        strategy: 'prefix_and_default',
-        defaultLocale: 'zh-CN',
-        locales: [
-            { code: 'zh-CN', name: '简体中文', file: 'zh-CN.json', language: 'zh-CN' },
-            // code 决定 URL 前缀（/en）；language 保留完整语言标识用于 Accept-Language 匹配
-            { code: 'en', name: 'English', file: 'en-US.json', language: 'en-US' },
-        ],
-        langDir: 'locales',
-        lazy: true,
-        // 语言偏好持久化：useCookie 启用 setLocale 写 i18n_locale（切换器/设置页）；
-        // redirectOn 'root' 仅根路径做浏览器检测（首页立即跳转无影响），其余路径 locale 由
-        // URL 前缀决定（无前缀 = zh-CN / en 前缀 = en），避免客户端检测重置前缀页 locale
-        detectBrowserLanguage: {
-            useCookie: true,
-            cookieKey: 'i18n_locale',
-            redirectOn: 'root',
-            alwaysRedirect: false,
-        },
-        // Vue I18n 构建期配置（datetime/number 格式本地化），相对 app/i18n/ 解析
+        ...nuxtI18n,
         vueI18n: './i18n.config.ts',
-        experimental: {
-            localeDetector: 'localeDetector.ts',
-        },
+        experimental: { localeDetector: localeDetectorFile },
     },
     css: [
         'primeicons/primeicons.css',

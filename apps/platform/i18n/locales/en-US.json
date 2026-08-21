@@ -429,6 +429,11 @@
         "colLink": "Link",
         "view": "View",
         "groupHeaderCount": "({count} alerts)",
+        "viewMode": "View",
+        "viewModePackage": "By Package",
+        "viewModeRepository": "By Repository",
+        "viewModeNone": "Flat List",
+        "repositoryUnknown": "Unknown repository",
         "errors": {
             "loadFailed": "Failed to load: {message}"
         }

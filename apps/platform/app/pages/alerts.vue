@@ -40,6 +40,21 @@ const filters = ref({
     source: 'all',
 })
 
+/**
+ * 视图模式（todo.md §C65-D3）：按包 / 按项目 / 原始列表三选一。
+ * - 'package'：rowGroupMode='subheader'，按 packageName 分组（默认）
+ * - 'repository'：rowGroupMode='subheader'，按 repository 分组
+ * - 'none'：原始列表，无分组
+ * 切换视图会重置 expandedPackages / multiSortMeta 以避免 group 状态污染。
+ */
+type ViewMode = 'package' | 'repository' | 'none'
+const viewMode = ref<ViewMode>('package')
+const viewModeOptions = computed(() => [
+    { label: t('alerts.viewModePackage'), value: 'package' as const },
+    { label: t('alerts.viewModeRepository'), value: 'repository' as const },
+    { label: t('alerts.viewModeNone'), value: 'none' as const },
+])
+
 const severityOptions = computed(() => [
     { label: t('alerts.severityAll'), value: 'all' },
     { label: 'Critical', value: 'critical' },
@@ -95,7 +110,9 @@ const fetchAlerts = async () => {
     loading.value = true
     error.value = ''
     try {
-        const query: Record<string, string> = { groupBy: 'package' }
+        // viewMode='none' 不传 groupBy（后端等价于原始顺序）；
+        // 'package'/'repository' 携带 groupBy 让后端预排序以满足 PrimeVue rowGroup subheader 要求。
+        const query: Record<string, string> = viewMode.value === 'none' ? {} : { groupBy: viewMode.value }
         if (filters.value.repositoryId !== 'all') {
             query.repositoryId = filters.value.repositoryId
         }
@@ -119,6 +136,18 @@ const fetchAlerts = async () => {
     }
 }
 
+/**
+ * 切换视图模式：重置 multiSortMeta + expandedPackages 避免 group 状态污染 + 触发 fetchAlerts。
+ * multiSortMeta 必须用 v-model 形式（不能用 sortField/sortOrder，参见 PrimeVue 4 rowGroup 数据流必现 TypeError）。
+ */
+const onViewModeChange = () => {
+    multiSortMeta.value = viewMode.value === 'none'
+        ? [{ field: '_severityRank', order: -1 }]
+        : [{ field: viewMode.value === 'package' ? 'packageName' : 'repository', order: 1 }]
+    expandedPackages.value = []
+    void fetchAlerts()
+}
+
 // 复用 dashboard.vue 的图表数据 composable（Nuxt auto-import）
 const {
     stats,
@@ -135,14 +164,29 @@ const {
     hasTopPackages,
 } = useDashboardStats()
 
-// rowGroup 模式：按 packageName 聚合计数（subheader 显示该包告警数）
-const packageCounts = computed(() => {
+// rowGroup 模式：按 viewMode 聚合计数（subheader 显示该组告警数）
+// viewMode='none' 时不渲染 subheader，该 computed 仅用于 package/repository 模式。
+const groupKeyOf = (a: AlertView): string => {
+    if (viewMode.value === 'repository') {
+        return a.repository ?? t('alerts.repositoryUnknown')
+    }
+    return a.packageName
+}
+const groupCounts = computed(() => {
     const counts = new Map<string, number>()
     for (const a of alerts.value) {
-        counts.set(a.packageName, (counts.get(a.packageName) ?? 0) + 1)
+        const key = groupKeyOf(a)
+        counts.set(key, (counts.get(key) ?? 0) + 1)
     }
     return counts
 })
+// groupHeader 显示的标签：package 模式显示 packageName，repository 模式显示 repository 字段
+const groupHeaderLabel = (data: Record<string, unknown>): string => {
+    if (viewMode.value === 'repository') {
+        return (data.repository as string | null) ?? t('alerts.repositoryUnknown')
+    }
+    return data.packageName as string
+}
 
 // rowGroup 多列排序持久 + expandableRowGroups 折叠状态
 // - 排序模式 multiple：用户点其他列时 PrimeVue 自动把 packageName 保留为第一排序键
@@ -165,6 +209,22 @@ const togglePackage = (packageName: string) => {
         ? expandedPackages.value.filter((p) => p !== packageName)
         : [...expandedPackages.value, packageName]
 }
+
+// DataTable 动态属性：rowGroupMode / groupRowsBy / expandableRowGroups 按 viewMode 切换
+const dataTableAttrs = computed(() => {
+    if (viewMode.value === 'none') {
+        return {
+            rowGroupMode: undefined,
+            groupRowsBy: undefined,
+            expandableRowGroups: false,
+        }
+    }
+    return {
+        rowGroupMode: 'subheader' as const,
+        groupRowsBy: viewMode.value === 'package' ? 'packageName' : 'repository',
+        expandableRowGroups: true,
+    }
+})
 
 onMounted(async () => {
     await Promise.all([fetchRepositories(), fetchStats()])
@@ -259,6 +319,18 @@ onMounted(async () => {
             <template #content>
                 <div class="alerts__filter-row">
                     <div class="alerts__filter-field">
+                        <label for="view-mode">{{ t('alerts.viewMode') }}</label>
+                        <Select
+                            id="view-mode"
+                            v-model="viewMode"
+                            :options="viewModeOptions"
+                            option-label="label"
+                            option-value="value"
+                            fluid
+                            @change="onViewModeChange"
+                        />
+                    </div>
+                    <div class="alerts__filter-field">
                         <label for="repo">{{ t('alerts.filterRepository') }}</label>
                         <Select
                             id="repo"
@@ -321,24 +393,24 @@ onMounted(async () => {
                     size="small"
                     removable-sort
                     sort-mode="multiple"
-                    row-group-mode="subheader"
-                    group-rows-by="packageName"
-                    expandable-row-groups
+                    :row-group-mode="dataTableAttrs.rowGroupMode"
+                    :group-rows-by="dataTableAttrs.groupRowsBy"
+                    :expandable-row-groups="dataTableAttrs.expandableRowGroups"
                     :empty-message="t('alerts.empty')"
                 >
-                    <template #groupheader="{data}">
+                    <template v-if="viewMode !== 'none'" #groupheader="{data}">
                         <span
                             class="alerts__group-header"
                             role="button"
                             tabindex="0"
-                            :aria-expanded="isPackageExpanded(data.packageName)"
-                            @click="togglePackage(data.packageName)"
-                            @keydown.enter.prevent="togglePackage(data.packageName)"
-                            @keydown.space.prevent="togglePackage(data.packageName)"
+                            :aria-expanded="isPackageExpanded(groupHeaderLabel(data))"
+                            @click="togglePackage(groupHeaderLabel(data))"
+                            @keydown.enter.prevent="togglePackage(groupHeaderLabel(data))"
+                            @keydown.space.prevent="togglePackage(groupHeaderLabel(data))"
                         >
-                            <strong>{{ data.packageName }}</strong>
+                            <strong>{{ groupHeaderLabel(data) }}</strong>
                             <span class="alerts__group-count text-muted">
-                                {{ t('alerts.groupHeaderCount', {count: packageCounts.get(data.packageName) ?? 0}) }}
+                                {{ t('alerts.groupHeaderCount', {count: groupCounts.get(groupHeaderLabel(data)) ?? 0}) }}
                             </span>
                         </span>
                     </template>

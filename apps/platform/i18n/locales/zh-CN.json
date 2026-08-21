@@ -429,6 +429,11 @@
         "colLink": "链接",
         "view": "查看",
         "groupHeaderCount": "（{count} 条告警）",
+        "viewMode": "视图",
+        "viewModePackage": "按包",
+        "viewModeRepository": "按项目",
+        "viewModeNone": "原始列表",
+        "repositoryUnknown": "未知仓库",
         "errors": {
             "loadFailed": "加载失败：{message}"
         }

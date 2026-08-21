@@ -125,7 +125,7 @@ test.describe('C58 alerts rowGroup + chart 复用', () => {
         await page.waitForSelector('.alerts__group-header', { timeout: 15000 })
         const firstGroup = page.locator('.alerts__group-header').first()
         // PrimeVue 4 默认在 groupheader 前渲染 rowToggleButton（含 ChevronDown/RightIcon）；
-        // D2 修复后自定义 chevron 已移除，断言目标改为 PrimeVue 默认 icon。
+        // 修复后自定义 chevron 已移除，断言目标改为 PrimeVue 默认 icon（todo.md §C65-D2）
         const toggleIcon = page.locator('.p-datatable-row-toggle-button .p-datatable-row-toggle-icon').first()
         // 点击前：toggle icon 是 chevron-right
         await expect(toggleIcon).toHaveClass(/pi-chevron-right/)
@@ -150,7 +150,7 @@ test.describe('C58 alerts rowGroup + chart 复用', () => {
         expect(columnCount).toBe(1)
     })
 
-    test('#groupheader slot 内无自定义 chevron（修复 D2 双 chevron 视觉缺陷）', async ({ page }) => {
+    test('#groupheader slot 内无自定义 chevron（双 chevron 视觉缺陷修复）', async ({ page }) => {
         await page.goto('/alerts')
         await waitForHydration(page)
         // PrimeVue 4 expandable-row-groups + #groupheader slot 模式下，PrimeVue 默认渲染
@@ -159,5 +159,81 @@ test.describe('C58 alerts rowGroup + chart 复用', () => {
         // 断言：DOM 中不存在 alerts__group-toggle 类名的 <i> 元素（修复前是 font-awesome pi-chevron-*）
         const customChevron = page.locator('i.alerts__group-toggle')
         await expect(customChevron).toHaveCount(0)
+    })
+
+    test('视图切换：顶部 Select 三选一（按包 / 按项目 / 原始列表）', async ({ page }) => {
+        await page.goto('/alerts')
+        await waitForHydration(page)
+        // 视图切换 Select 存在，含 3 个选项
+        const viewSelect = page.locator('#view-mode')
+        await expect(viewSelect).toBeVisible()
+        await viewSelect.click()
+        const overlay = page.locator('.p-select-overlay')
+        await expect(overlay).toBeVisible({ timeout: 5000 })
+        const options = overlay.locator('li[role="option"]')
+        await expect(options).toHaveCount(3, { timeout: 5000 })
+        // 选项 label 文本（i18n 默认 zh-CN）
+        await expect(options.nth(0)).toContainText('按包')
+        await expect(options.nth(1)).toContainText('按项目')
+        await expect(options.nth(2)).toContainText('原始列表')
+    })
+
+    test('视图切换：按项目触发 /api/alerts?groupBy=repository', async ({ page }) => {
+        // 跟踪 /api/alerts 请求，验证 groupBy 参数
+        const requests: URL[] = []
+        await page.route('**/api/alerts*', (route, request) => {
+            requests.push(new URL(request.url()))
+            return route.fulfill({
+                status: 200, contentType: 'application/json', body: JSON.stringify(MOCK_ALERTS),
+            })
+        })
+        await page.route('**/api/dashboard/stats*', (route) => route.fulfill({
+            status: 200, contentType: 'application/json', body: JSON.stringify(MOCK_DASHBOARD_STATS),
+        }))
+        await page.route('**/api/repos*', (route) => route.fulfill({
+            status: 200, contentType: 'application/json', body: JSON.stringify(MOCK_REPOS),
+        }))
+        // 等待默认 viewMode=package 的初始 fetchAlerts 请求
+        const initialResponsePromise = page.waitForResponse('**/api/alerts?groupBy=package*')
+        await page.goto('/alerts')
+        await initialResponsePromise
+        await waitForHydration(page)
+        // 默认 viewMode=package 请求应包含 groupBy=package
+        const initial = requests.find((u) => u.searchParams.get('groupBy') === 'package')
+        expect(initial).toBeDefined()
+        // 切换到按项目
+        const repoResponsePromise = page.waitForResponse('**/api/alerts?groupBy=repository*')
+        await page.locator('#view-mode').click()
+        await page.locator('.p-select-overlay li:has-text("按项目")').click()
+        await repoResponsePromise
+        // 切换后应触发新请求 groupBy=repository
+        const repoReq = requests.find((u) => u.searchParams.get('groupBy') === 'repository')
+        expect(repoReq).toBeDefined()
+    })
+
+    test('视图切换：原始列表不传 groupBy 参数', async ({ page }) => {
+        const requests: URL[] = []
+        await page.route('**/api/alerts*', (route, request) => {
+            requests.push(new URL(request.url()))
+            return route.fulfill({
+                status: 200, contentType: 'application/json', body: JSON.stringify(MOCK_ALERTS),
+            })
+        })
+        await page.route('**/api/dashboard/stats*', (route) => route.fulfill({
+            status: 200, contentType: 'application/json', body: JSON.stringify(MOCK_DASHBOARD_STATS),
+        }))
+        await page.route('**/api/repos*', (route) => route.fulfill({
+            status: 200, contentType: 'application/json', body: JSON.stringify(MOCK_REPOS),
+        }))
+        await page.goto('/alerts')
+        await waitForHydration(page)
+        // 切换到原始列表
+        const noneResponsePromise = page.waitForResponse((resp) => resp.url().includes('/api/alerts') && !resp.url().includes('groupBy'))
+        await page.locator('#view-mode').click()
+        await page.locator('.p-select-overlay li:has-text("原始列表")').click()
+        await noneResponsePromise
+        // 切换后请求不应包含 groupBy 参数
+        const noneReq = requests.find((u) => !u.searchParams.has('groupBy'))
+        expect(noneReq).toBeDefined()
     })
 })

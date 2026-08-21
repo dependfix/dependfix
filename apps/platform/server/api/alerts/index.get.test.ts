@@ -154,4 +154,78 @@ describe('GET /api/alerts', () => {
             expect(names).toContain('express')
         })
     })
+
+    describe('groupBy=repository (rowGroup 按项目)', () => {
+        beforeAll(async () => {
+            // 追加一个不同 repo 的告警，验证 groupBy=repository 跨 repo 排序
+            const ds = await ensureDatabaseInitialized()
+            const otherRepo = await reposIndexHandler(makeEvent('POST', '/api/repos', {
+                owner: 'other',
+                name: 'lib',
+                platform: 'github',
+                packageManager: 'pnpm',
+                defaultBranch: 'main',
+                executorKind: 'container',
+            })) as { id: string }
+            const otherRun = await ds.getRepository(ScanRun).save(ds.getRepository(ScanRun).create({
+                repositoryId: otherRepo.id,
+                mode: 'fix',
+                severityThreshold: 'high',
+                executorKind: 'container',
+                status: 'completed',
+            }))
+            await ds.getRepository(ScanResult).save(ds.getRepository(ScanResult).create({
+                scanRunId: otherRun.id,
+                source: 'dependabot',
+                severity: 'medium',
+                packageName: 'axios',
+                manifestPath: 'package.json',
+                summary: '跨 repo 测试',
+                fixable: true,
+                fixStrategy: 'upgrade',
+                fixStatus: 'pending',
+            }))
+        })
+
+        it('returns alerts sorted by repository owner + name ASC when groupBy=repository', async () => {
+            const list = await call('/api/alerts?groupBy=repository') as { repository: string | null }[]
+            const repos = list.map((a) => a.repository)
+            // 验证跨 repo 排序：demo/app 全部在 other/lib 之前（owner ASC）
+            const demoIdx = repos.findIndex((r) => r === 'demo/app')
+            const otherIdx = repos.findIndex((r) => r === 'other/lib')
+            expect(demoIdx).toBeGreaterThanOrEqual(0)
+            expect(otherIdx).toBeGreaterThanOrEqual(0)
+            expect(demoIdx).toBeLessThan(otherIdx)
+        })
+
+        it('groupBy=repository 与 repositoryId 过滤组合仍工作', async () => {
+            const list = await call(`/api/alerts?groupBy=repository&repositoryId=${repositoryId}`) as { packageName: string }[]
+            // 过滤到 demo/app 后应只返回该 repo 的告警（3 条）
+            expect(list).toHaveLength(3)
+            const names = list.map((a) => a.packageName)
+            // 同一 repo 内按 packageName ASC：'' < express < lodash
+            expect(names).toEqual([...names].sort())
+        })
+    })
+
+    describe('groupBy 非法值兜底', () => {
+        it('未知 groupBy 值（如 "foo"）回退到默认 createdAt DESC 顺序', async () => {
+            const list = await call('/api/alerts?groupBy=foo') as { packageName: string }[]
+            expect(list.length).toBeGreaterThanOrEqual(3)
+            // 兜底顺序不影响数据完整性，全部数据应返回
+            const names = list.map((a) => a.packageName)
+            expect(names).toContain('lodash')
+            expect(names).toContain('express')
+            expect(names).toContain('axios')
+        })
+
+        it('groupBy=none（保留字：前端原始列表模式）等价于缺省', async () => {
+            // 前端 viewMode='none' 表示原始列表模式（不分组），后端等价于未传 groupBy（todo.md §C65-D3）
+            const list = await call('/api/alerts?groupBy=none') as { packageName: string }[]
+            expect(list.length).toBeGreaterThanOrEqual(3)
+            const names = list.map((a) => a.packageName)
+            expect(names).toContain('lodash')
+            expect(names).toContain('express')
+        })
+    })
 })

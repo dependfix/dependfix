@@ -3,6 +3,7 @@
 // 数据源：GET /api/audit-events（sandbox 启动降级 / 运行时失败事件 + 通知状态）
 // 过滤维度：type / severity / notified / repositoryId
 import { computed } from 'vue'
+import { withEnvEventSeverityRank } from '~/utils/sort-helpers'
 
 definePageMeta({
     middleware: 'auth',
@@ -20,6 +21,11 @@ interface EnvEventView {
     notified: boolean
     notifiedVia: string | null
     createdAt: string
+    /** 派生：severity 业务语义排序键（critical > error > warn > info）。 */
+    _severityRank?: number
+    /** 派生：message 预览文本（payloadJson.degradedReason.message ?? payloadJson.message），
+     *  用作 message 列 sortable 排序键。 */
+    messageText?: string
 }
 
 const loading = ref(true)
@@ -131,7 +137,12 @@ const fetchEvents = async () => {
             if (!Number.isNaN(d.getTime())) query.to = d.toISOString()
         }
         const res = await $fetch('/api/audit-events', { query })
-        events.value = res as EnvEventView[]
+        // 排序键派生：severity 走业务语义排序（非字典序）；messageText 取 payloadJson 摘要文本用于 message 列排序
+        const list = res as EnvEventView[]
+        events.value = withEnvEventSeverityRank(list).map((e) => ({
+            ...e,
+            messageText: extractMessagePreview(e.payloadJson),
+        }))
     } catch (e: unknown) {
         const err = e as { data?: { message?: string }, message?: string }
         error.value = t('envEvents.errors.loadFailed', {
@@ -140,6 +151,14 @@ const fetchEvents = async () => {
     } finally {
         loading.value = false
     }
+}
+
+/** 从 payloadJson 派生 message 列排序文本（payloadJson.degradedReason.message ?? payloadJson.message）。 */
+const extractMessagePreview = (json: string | null): string => {
+    const p = parsePayload(json)
+    if (!p) return ''
+    const degraded = (p.degradedReason as { message?: string } | undefined)?.message
+    return degraded ?? (p.message as string | undefined) ?? ''
 }
 
 onMounted(fetchEvents)
@@ -238,20 +257,38 @@ onMounted(fetchEvents)
                     data-key="id"
                     scrollable
                     scroll-height="60vh"
+                    removable-sort
                     :empty-message="t('envEvents.empty')"
                 >
-                    <Column :header="t('envEvents.colType')">
+                    <Column
+                        field="type"
+                        :header="t('envEvents.colType')"
+                        sortable
+                    >
                         <template #body="{data}">
                             <Tag :value="typeLabel(data.type)" severity="secondary" />
                         </template>
                     </Column>
-                    <Column :header="t('envEvents.colSeverity')">
+                    <Column
+                        field="_severityRank"
+                        :header="t('envEvents.colSeverity')"
+                        sortable
+                        :default-sort-order="-1"
+                    >
                         <template #body="{data}">
                             <Tag :value="data.severity" :severity="severityTagSeverity(data.severity)" />
                         </template>
                     </Column>
-                    <Column field="repository" :header="t('envEvents.colRepository')" />
-                    <Column :header="t('envEvents.colMessage')">
+                    <Column
+                        field="repository"
+                        :header="t('envEvents.colRepository')"
+                        sortable
+                    />
+                    <Column
+                        field="messageText"
+                        :header="t('envEvents.colMessage')"
+                        sortable
+                    >
                         <template #body="{data}">
                             <span v-if="!isExpanded(data.id)" class="env-events__message-preview">
                                 {{ (() => {
@@ -274,7 +311,11 @@ onMounted(fetchEvents)
                             />
                         </template>
                     </Column>
-                    <Column :header="t('envEvents.colNotified')">
+                    <Column
+                        field="notified"
+                        :header="t('envEvents.colNotified')"
+                        sortable
+                    >
                         <template #body="{data}">
                             <Tag
                                 :value="data.notified ? t('envEvents.notifiedYes') : t('envEvents.notifiedNo')"
@@ -285,7 +326,11 @@ onMounted(fetchEvents)
                             </small>
                         </template>
                     </Column>
-                    <Column field="createdAt" :header="t('envEvents.colTime')">
+                    <Column
+                        field="createdAt"
+                        :header="t('envEvents.colTime')"
+                        sortable
+                    >
                         <template #body="{data}">
                             {{ formatTime(data.createdAt) }}
                         </template>

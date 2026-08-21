@@ -56,6 +56,17 @@ export const ROLE_RANK: Record<string, number> = {
     viewer: 1,
 }
 
+/** 环境/容器审计事件严重级别排序键（env-events 专用）：
+ * critical > error > warn > info。与 alerts SEVERITY_RANK 值集不同
+ * （alerts: critical/high/medium/low/unknown；env-events: critical/error/warn/info），
+ * 共享会污染 sort 字段，独立常量确保业务语义（与 RUN_STATUS_RANK 同模式）。 */
+export const ENV_EVENT_SEVERITY_RANK: Record<string, number> = {
+    critical: 4,
+    error: 3,
+    warn: 2,
+    info: 1,
+}
+
 /** 给数据集每个对象补 `_severityRank` 派生字段。 */
 export function withSeverityRank<T extends { severity: string }>(items: T[]): (T & { _severityRank: number })[] {
     return items.map((item) => ({
@@ -93,6 +104,14 @@ export function withRoleRank<T extends { role: string | null | undefined }>(item
     return items.map((item) => ({
         ...item,
         _roleRank: item.role ? (ROLE_RANK[item.role] ?? 0) : 0,
+    }))
+}
+
+/** 给数据集每个对象补 `_severityRank` 派生字段（env-events 专用 severity 值集）。 */
+export function withEnvEventSeverityRank<T extends { severity: string }>(items: T[]): (T & { _severityRank: number })[] {
+    return items.map((item) => ({
+        ...item,
+        _severityRank: ENV_EVENT_SEVERITY_RANK[item.severity] ?? 0,
     }))
 }
 

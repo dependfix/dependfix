@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+    ENV_EVENT_SEVERITY_RANK,
     FIX_STATUS_RANK,
     ROLE_RANK,
     RUN_STATUS_RANK,
@@ -7,6 +8,7 @@ import {
     STATUS_RANK,
     updateRoleRank,
     updateStatusRank,
+    withEnvEventSeverityRank,
     withFixStatusRank,
     withRoleRank,
     withRunStatusRank,
@@ -51,6 +53,72 @@ describe('ROLE_RANK', () => {
     it('ranks admin > org_admin > viewer (管理员优先)', () => {
         expect(ROLE_RANK.admin).toBeGreaterThan(ROLE_RANK.org_admin ?? 0)
         expect(ROLE_RANK.org_admin).toBeGreaterThan(ROLE_RANK.viewer ?? 0)
+    })
+})
+
+describe('ENV_EVENT_SEVERITY_RANK (env-events 专用)', () => {
+    it('ranks critical > error > warn > info (严重优先)', () => {
+        expect(ENV_EVENT_SEVERITY_RANK.critical).toBeGreaterThan(ENV_EVENT_SEVERITY_RANK.error ?? 0)
+        expect(ENV_EVENT_SEVERITY_RANK.error).toBeGreaterThan(ENV_EVENT_SEVERITY_RANK.warn ?? 0)
+        expect(ENV_EVENT_SEVERITY_RANK.warn).toBeGreaterThan(ENV_EVENT_SEVERITY_RANK.info ?? 0)
+    })
+
+    it('所有 4 个预定义严重级别都有排序键', () => {
+        expect(Object.keys(ENV_EVENT_SEVERITY_RANK).sort()).toEqual(['critical', 'error', 'info', 'warn'])
+    })
+
+    it('与 alerts SEVERITY_RANK 值集不重叠（值集独立）', () => {
+        // env-events 值集：critical/error/warn/info；alerts 值集：critical/high/medium/low/unknown
+        // 仅共享 critical，避免 key 冲突导致 sort 字段污染
+        const alertsKeys = new Set(Object.keys(SEVERITY_RANK))
+        const envKeys = new Set(Object.keys(ENV_EVENT_SEVERITY_RANK))
+        const overlap = [...envKeys].filter((k) => alertsKeys.has(k))
+        expect(overlap).toEqual(['critical'])
+    })
+})
+
+describe('withEnvEventSeverityRank', () => {
+    it('为每个对象添加 _severityRank 派生字段（使用 ENV_EVENT_SEVERITY_RANK）', () => {
+        const items = [
+            { id: '1', severity: 'critical' },
+            { id: '2', severity: 'error' },
+            { id: '3', severity: 'warn' },
+            { id: '4', severity: 'info' },
+        ]
+        const result = withEnvEventSeverityRank(items)
+        expect(result[0]!._severityRank).toBe(4)
+        expect(result[1]!._severityRank).toBe(3)
+        expect(result[2]!._severityRank).toBe(2)
+        expect(result[3]!._severityRank).toBe(1)
+    })
+
+    it('未知 severity 落到 0（最低）', () => {
+        const items = [{ id: '1', severity: 'unspecified' }]
+        expect(withEnvEventSeverityRank(items)[0]!._severityRank).toBe(0)
+    })
+
+    it('保留原对象的所有字段（泛型 + 派生扩展）', () => {
+        const items = [{ id: '1', severity: 'critical', type: 'sandbox_unavailable' }]
+        const result = withEnvEventSeverityRank(items)
+        expect(result[0]!.id).toBe('1')
+        expect(result[0]!.severity).toBe('critical')
+        expect(result[0]!.type).toBe('sandbox_unavailable')
+    })
+
+    it('空数组返回空数组', () => {
+        expect(withEnvEventSeverityRank([])).toEqual([])
+    })
+
+    it('env-events desc 排序得到 critical → error → warn → info (业务语义)', () => {
+        const items = [
+            { id: '1', severity: 'warn' },
+            { id: '2', severity: 'critical' },
+            { id: '3', severity: 'info' },
+            { id: '4', severity: 'error' },
+        ]
+        const enriched = withEnvEventSeverityRank(items)
+        const sorted = [...enriched].sort((a, b) => b._severityRank - a._severityRank)
+        expect(sorted.map((x) => x.severity)).toEqual(['critical', 'error', 'warn', 'info'])
     })
 })
 

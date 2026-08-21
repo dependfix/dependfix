@@ -48,4 +48,16 @@ test.describe('C60 平台表格 sortable', () => {
             await expect(sortableHeaders.first()).toBeVisible()
         }
     })
+
+    test('env-events 页面 6 列均 sortable（type/severity/repository/message/notified/createdAt）', async ({ page }) => {
+        await page.route('**/api/audit-events*', (route) => route.fulfill({
+            status: 200, contentType: 'application/json', body: JSON.stringify([]),
+        }))
+        await page.goto('/env-events')
+        await waitForHydration(page)
+        await expect(page.locator('.p-datatable')).toBeVisible({ timeout: 15000 })
+        // 6 列均含 sortable 标记（PrimeVue 4 data-p-sortable-column 属性）
+        const sortableHeaders = page.locator('.p-datatable th[data-p-sortable-column="true"]')
+        await expect(sortableHeaders).toHaveCount(6, { timeout: 5000 })
+    })
 })

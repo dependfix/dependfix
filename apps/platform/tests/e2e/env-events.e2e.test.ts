@@ -109,6 +109,34 @@ test.describe('C-ENV env-events UI', () => {
         const scrollWrapper = page.locator('.env-events__table .p-datatable-table-container')
         await expect(scrollWrapper).toBeVisible()
     })
+
+    test('severity 列 sortable 三态：点击切换 unsorted → asc → desc → unsorted（removable-sort）', async ({ page }) => {
+        await page.route('**/api/audit-events*', (route) => route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify([
+                { id: 'evt-1', type: 'sandbox_unavailable', severity: 'critical', repository: 'demo/app', scanRunId: null, payloadJson: null, notified: false, notifiedVia: null, createdAt: new Date().toISOString() },
+                { id: 'evt-2', type: 'sandbox_degraded', severity: 'warn', repository: 'demo/app', scanRunId: null, payloadJson: null, notified: false, notifiedVia: null, createdAt: new Date().toISOString() },
+            ]),
+        }))
+        await page.goto('/env-events')
+        await waitForHydration(page)
+        await page.waitForSelector('.env-events__table tbody tr', { timeout: 10000 })
+        const severityHeader = page.locator('.env-events__table .p-datatable th:has-text("级别")')
+        // 列 header 含 sortable 标记（PrimeVue 4 data-p-sortable-column 属性）
+        await expect(severityHeader).toHaveAttribute('data-p-sortable-column', 'true')
+        // 初始未排序：aria-sort="none"
+        await expect(severityHeader).toHaveAttribute('aria-sort', 'none')
+        // 第一击：unsorted → asc（PrimeVue 4 默认 sort-order=1）
+        await severityHeader.click()
+        await expect(severityHeader).toHaveAttribute('aria-sort', 'ascending', { timeout: 5000 })
+        // 第二击：asc → desc 翻转（:default-sort-order=-1 决定再次点击进入 desc）
+        await severityHeader.click()
+        await expect(severityHeader).toHaveAttribute('aria-sort', 'descending', { timeout: 5000 })
+        // 第三击：desc → unsorted（removable-sort 三态）
+        await severityHeader.click()
+        await expect(severityHeader).toHaveAttribute('aria-sort', 'none', { timeout: 5000 })
+    })
 })
 
 /**

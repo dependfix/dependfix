@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { cleanupUnreleasedSections, mergeUnreleased, versionLt } from './changelog.mjs'
+import { cleanupUnreleasedSections, computeDependencyChanges, compareSemverDesc, findPrevTag, mergeUnreleased, renderDependencySection, versionLt } from './changelog.mjs'
 
 describe('versionLt', () => {
     it('compares numeric segments (0.9.0 < 0.10.0)', () => {
@@ -149,5 +149,172 @@ describe('mergeUnreleased', () => {
         const existing = `# dependfix\n\n${historySection}`
         const out = mergeUnreleased(existing, '0.2.1', unreleased)
         expect(out).toBe(`# dependfix\n\n${unreleased}\n${historySection}`)
+    })
+})
+
+describe('compareSemverDesc', () => {
+    it('returns positive when a < b (a is "later" in descending order semantics)', () => {
+        expect(compareSemverDesc('0.1.0', '0.2.0')).toBe(1)
+        expect(compareSemverDesc('0.2.1', '0.3.0')).toBe(1)
+    })
+    it('returns negative when a > b', () => {
+        expect(compareSemverDesc('0.2.0', '0.1.0')).toBe(-1)
+        expect(compareSemverDesc('0.10.0', '0.9.0')).toBe(-1)
+    })
+    it('returns zero when equal', () => {
+        expect(compareSemverDesc('0.3.2', '0.3.2')).toBe(0)
+    })
+})
+
+describe('findPrevTag', () => {
+    const prefix = '@dependfix/mcp@'
+    it('returns the largest tag under prefix excluding currentVersion', () => {
+        const tags = ['@dependfix/mcp@0.1.0', '@dependfix/mcp@0.1.2', '@dependfix/mcp@0.1.1']
+        expect(findPrevTag(prefix, '0.1.3', () => tags)).toBe('@dependfix/mcp@0.1.2')
+    })
+    it('skips non-prefix tags', () => {
+        const tags = ['other@0.9.9', '@dependfix/mcp@0.1.2', '@dependfix/core@0.3.0']
+        expect(findPrevTag(prefix, '0.1.3', () => tags)).toBe('@dependfix/mcp@0.1.2')
+    })
+    it('skips non-semver suffixes', () => {
+        const tags = ['@dependfix/mcp@latest', '@dependfix/mcp@0.1.2']
+        expect(findPrevTag(prefix, '0.1.3', () => tags)).toBe('@dependfix/mcp@0.1.2')
+    })
+    it('returns null when no historical tag exists', () => {
+        expect(findPrevTag(prefix, '0.1.0', () => [`${prefix}0.1.0`])).toBe(null)
+        expect(findPrevTag(prefix, '0.1.0', () => [])).toBe(null)
+    })
+    it('handles tag list out of order correctly', () => {
+        const tags = ['@dependfix/mcp@0.3.2', '@dependfix/mcp@0.1.0', '@dependfix/mcp@0.2.0', '@dependfix/mcp@0.3.1']
+        expect(findPrevTag(prefix, '0.3.3', () => tags)).toBe('@dependfix/mcp@0.3.2')
+    })
+})
+
+describe('computeDependencyChanges', () => {
+    const wsCur = '@dependfix/core'
+    const wsEng = '@dependfix/engine'
+
+    it('returns single change when one workspace dep version differs', () => {
+        const cur = { [wsCur]: 'workspace:*', [wsEng]: 'workspace:*' }
+        const prev = { [wsCur]: 'workspace:*', [wsEng]: 'workspace:*' }
+        const curV = { [wsCur]: '0.3.0', [wsEng]: '0.2.0' }
+        const prevV = { [wsCur]: '0.2.1', [wsEng]: '0.2.0' }
+        expect(computeDependencyChanges(cur, prev, curV, prevV)).toEqual([{ name: wsCur, from: '0.2.1', to: '0.3.0' }])
+    })
+
+    it('returns multiple changes sorted by name (Set iteration order)', () => {
+        const cur = { [wsCur]: 'workspace:*', [wsEng]: 'workspace:*' }
+        const prev = { [wsCur]: 'workspace:*', [wsEng]: 'workspace:*' }
+        const curV = { [wsCur]: '0.3.0', [wsEng]: '0.2.0' }
+        const prevV = { [wsCur]: '0.2.1', [wsEng]: '0.1.3' }
+        const changes = computeDependencyChanges(cur, prev, curV, prevV)
+        expect(changes).toHaveLength(2)
+        expect(changes).toContainEqual({ name: wsCur, from: '0.2.1', to: '0.3.0' })
+        expect(changes).toContainEqual({ name: wsEng, from: '0.1.3', to: '0.2.0' })
+    })
+
+    it('returns empty when all workspace dep versions are unchanged', () => {
+        const cur = { [wsCur]: 'workspace:*' }
+        const prev = { [wsCur]: 'workspace:*' }
+        const curV = { [wsCur]: '0.2.1' }
+        const prevV = { [wsCur]: '0.2.1' }
+        expect(computeDependencyChanges(cur, prev, curV, prevV)).toEqual([])
+    })
+
+    it('skips non-workspace dependencies (external range unchanged case)', () => {
+        const cur = { zod: '^4.4.3' }
+        const prev = { zod: '^4.4.3' }
+        expect(computeDependencyChanges(cur, prev, {}, {})).toEqual([])
+    })
+
+    it('skips when current or prev version missing (non-publishable workspace pkg)', () => {
+        const cur = { [wsCur]: 'workspace:*' }
+        const prev = { [wsCur]: 'workspace:*' }
+        // curV 缺失（不是 PUBLISHABLE 包）：静默跳过
+        expect(computeDependencyChanges(cur, prev, {}, { [wsCur]: '0.2.1' })).toEqual([])
+        // prevV 缺失（首次发布）：也跳过，避免误报
+        expect(computeDependencyChanges(cur, prev, { [wsCur]: '0.3.0' }, {})).toEqual([])
+    })
+
+    it('treats newly-added workspace deps as no change (single-side declared)', () => {
+        const cur = { [wsCur]: 'workspace:*' }
+        const prev = {}
+        const curV = { [wsCur]: '0.3.0' }
+        const prevV = {}
+        expect(computeDependencyChanges(cur, prev, curV, prevV)).toEqual([])
+    })
+
+    it('treats removed workspace deps as no change (single-side declared)', () => {
+        const cur = {}
+        const prev = { [wsCur]: 'workspace:*' }
+        const curV = {}
+        const prevV = { [wsCur]: '0.2.1' }
+        expect(computeDependencyChanges(cur, prev, curV, prevV)).toEqual([])
+    })
+
+    it('handles undefined inputs gracefully (no crash)', () => {
+        expect(computeDependencyChanges(undefined, undefined, undefined, undefined)).toEqual([])
+        expect(computeDependencyChanges({}, {}, {}, {})).toEqual([])
+    })
+})
+
+describe('renderDependencySection', () => {
+    it('returns empty string when changes is empty (preserves rerun idempotency)', () => {
+        expect(renderDependencySection({
+            version: '0.3.3',
+            prevVersion: '0.3.2',
+            prefix: 'dependfix@',
+            repo: 'dependfix/dependfix',
+            headDate: '2026-08-25',
+            changes: [],
+        })).toBe('')
+    })
+
+    it('renders complete section with header and bullet list', () => {
+        const out = renderDependencySection({
+            version: '0.3.3',
+            prevVersion: '0.3.2',
+            prefix: 'dependfix@',
+            repo: 'dependfix/dependfix',
+            headDate: '2026-08-25',
+            changes: [{ name: '@dependfix/core', from: '0.2.1', to: '0.3.0' }],
+        })
+        // 标题格式与 cmyr-config patch 段对齐（verify-changelog 的 sectionRegex 同款可识别）
+        expect(out).toMatch(/^## \[0\.3\.3\]\(https:\/\/github\.com\/dependfix\/dependfix\/compare\/dependfix@0\.3\.2\.\.\.dependfix@0\.3\.3\) \(2026-08-25\)/)
+        expect(out).toContain('### ⚙️ 依赖更新')
+        expect(out).toContain('* bump `@dependfix/core` to 0.3.0 (was 0.2.1)')
+        expect(out.endsWith('\n')).toBe(true)
+    })
+
+    it('renders multiple changes in single section', () => {
+        const out = renderDependencySection({
+            version: '0.1.3',
+            prevVersion: '0.1.2',
+            prefix: '@dependfix/mcp@',
+            repo: 'dependfix/dependfix',
+            headDate: '2026-08-25',
+            changes: [
+                { name: '@dependfix/core', from: '0.2.1', to: '0.3.0' },
+                { name: '@dependfix/engine', from: '0.1.3', to: '0.2.0' },
+            ],
+        })
+        const bullets = out.split('\n').filter((l) => l.startsWith('* '))
+        expect(bullets).toHaveLength(2)
+        expect(bullets[0]).toContain('`@dependfix/core`')
+        expect(bullets[1]).toContain('`@dependfix/engine`')
+    })
+
+    it('produces a section that verifyChangelog can detect', () => {
+        // 端到端契约：renderDependencySection 输出能被 verify-changelog 识别
+        const out = renderDependencySection({
+            version: '0.3.3',
+            prevVersion: '0.3.2',
+            prefix: 'dependfix@',
+            repo: 'dependfix/dependfix',
+            headDate: '2026-08-25',
+            changes: [{ name: '@dependfix/core', from: '0.2.1', to: '0.3.0' }],
+        })
+        // 直接复用 sectionRegex 的识别口径（verify-changelog 通过 extractSection 同款正则）
+        expect(out).toMatch(/^#{1,2} \[?0\.3\.3\]?(?:\([^)]*\))?\s/m)
     })
 })

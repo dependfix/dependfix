@@ -466,7 +466,6 @@ const importDialogVisible = ref(false)
                                 rounded
                                 size="small"
                                 :loading="scanningId === data.id"
-                                :disabled="scanningId !== null && scanningId !== data.id"
                                 :aria-label="t('repos.actionTriggerScan')"
                                 :title="t('repos.actionTriggerScan')"
                                 @click="openScanConfig(data)"

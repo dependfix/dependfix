@@ -3,6 +3,7 @@
 // 双层 re-export 造成同名符号冲突与类型来源歧义）。
 export * from './github'
 export * from './code-scanning/rule-classifier'
+export * from './code-scanning/rule-config'
 export * from './code-scanning/templates'
 export * from './fixers/dependency'
 export * from './fixers/pnpm'

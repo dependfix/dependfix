@@ -38,6 +38,7 @@ import { writeArchive } from '../report/archiver'
 import type { RuntimeConfig } from '../config'
 import { enforceVerificationGate } from '../runners/verification-gate'
 import { collectSupplyChainWarnings } from '../supply-chain'
+import { loadRulesConfigFromEnv, resetActiveRulesConfig, setActiveRulesConfig } from '../code-scanning/rule-config'
 import { fetchRepoAlerts, fetchDefaultBranch, truncatedWarning } from './repo-alerts'
 import { processRepoFix, type AiUsageRef } from './repo-fix'
 import {
@@ -133,6 +134,24 @@ export class DependfixApp {
             name: 'dependfix',
             minLevel: this.verbose ? 'debug' : 'info',
         })
+
+        // Code Scanning 规则分类配置：env `CODE_SCANNING_RULES_CONFIG_PATH`
+        // 指向的 JSON 文件加载并替换默认分类表；env 未设 / 文件缺失 / 解析失败
+        // 均降级默认（向后兼容）。错误信息已由 loadRulesConfigFromEnv 写入 stderr，
+        // 此处不重复（避免双写）。
+        //
+        // 进程级状态生命周期：active config 是模块级单例，每次构造 DependfixApp
+        // 先 reset 再按需 set，避免前一个 app 残留配置污染当前 run
+        // （同一进程多次 new DependfixApp 场景，如 cli 测试 / 多 batch 调度）。
+        resetActiveRulesConfig()
+        const ruleConfig = loadRulesConfigFromEnv(process.env)
+        if (ruleConfig) {
+            setActiveRulesConfig(ruleConfig)
+            this.logger.debug('Loaded custom code-scanning rules config from env', {
+                autoFixableCount: ruleConfig.autoFixable.size,
+                suggestedCount: ruleConfig.suggested.size,
+            })
+        }
     }
 
     /** 供辅助方法使用的状态切片。 */

@@ -155,14 +155,50 @@
 - **C66 告警视图增强（GHSA/CVE 关联 + 跨次扫描去重 + fix 复用）** —— 2026-08-25 用户实测反馈触发；候选评估完成待上收；用户决策：Q1 去重粒度 = **B1 数据层去重（upsert 唯一索引）** / Q2 GHSA/CVE 展示 = **C3 单列智能**（优先 GHSA，fallback CVE）。5 原子子任务：
   - **C66-A1 ScanResult 数据模型扩展** —— 加 `ghsaId` / `cveIds` 列 + TypeORM migration；保留 `ruleId` 兼容 code-scanning 源（[apps/platform/server/entities/scan-result.ts](../../apps/platform/server/entities/scan-result.ts)）
   - **C66-A2 fetcher 提取 GHSA + CVE** —— Dependabot API `cve_id` + `identifiers[]` 透传 / pnpm-audit `cves[]` 透传（[packages/engine/src/github/dependabot-fetcher.ts](../../packages/engine/src/github/dependabot-fetcher.ts) + [__fixtures__/dependabot-alerts.json](../../packages/engine/src/github/__fixtures__/dependabot-alerts.json) / [packages/engine/src/alerts/pnpm-audit-fetcher.ts](../../packages/engine/src/alerts/pnpm-audit-fetcher.ts)）；`NormalizedSecurityAlert` 接口加字段（[packages/core/src/alerts/index.ts](../../packages/core/src/alerts/index.ts)）
-  - **C66-B ScanResult 跨次扫描去重** —— upsert 唯一索引 `(repositoryId, source, packageName, advisoryKey)` + 历史 `fixStatus` 保留（[scan-orchestrator.service.ts](../../apps/platform/server/services/scan-orchestrator.service.ts) 替换纯插入）；`GET /api/alerts` 自动去重（[apps/platform/server/api/alerts/index.get.ts](../../apps/platform/server/api/alerts/index.get.ts)）
-  - **C66-C alerts UI 增加 GHSA / CVE 列** —— 单列智能（`Identifiers` 列） + 多 CVE 显示首个 + 展开全部（[apps/platform/app/pages/alerts.vue](../../apps/platform/app/pages/alerts.vue) + i18n keys）
-  - **C66-D fix 模式复用 scanRunId** —— `POST /api/repos/[id]/scan` 接受 `reuseScanRunId` 跳过重拉 + alerts 视图加 "立即修复此仓库" 入口（[scan.post.ts](../../apps/platform/server/api/repos/[id]/scan.post.ts) + [schemas/scan.ts](../../apps/platform/server/schemas/scan.ts) + alerts.vue）
+  - **C66-B ScanResult 跨次扫描去重** —— ~~upsert 唯一索引 `(repositoryId, source, packageName, advisoryKey)` + 历史 `fixStatus` 保留~~ **2026-08-26 状态：已被 [todo.md §T1306](todo.md) 应用层去重覆盖**（fingerprint = `${repositoryId}|${packageName}|${ruleId ?? ''}` + 应用层 Map 聚合 + occurrenceCount / firstSeenAt / lastSeenAt / affectedRunIds 字段）。C66-B 数据层 upsert 路径因 T1306 已达成相同业务目标（跨次扫描去重），**不再实施**；如未来需"fix 复用复用同一 scan_run_id 跨次刷新"语义时再考虑迁移到数据层 upsert（关联 C66-D）。
+  - **C66-C alerts UI 增加 GHSA / CVE 列** —— ~~单列智能（`Identifiers` 列） + 多 CVE 显示首个 + 展开全部~~ **2026-08-26 状态：部分由 [todo.md §M13.4 T1402](todo.md) 轻量方案覆盖**（先复用现有 `ruleId` 字段展示，不改 schema：Dependabot 显示 GHSA 编号 / pnpm-audit 显示 CVE 编号或 advisory URL / code-scanning 显示 CodeQL rule id）。C66-C 完整 schema 扩展（A1+A2 后做"独立 `Identifiers` 列"）保留为后续增强候选，触发条件：用户要求按 GHSA 单独搜索/过滤 / 多 CVE 展开视图。
+  - **C66-D fix 模式复用 scanRunId** —— `POST /api/repos/[id]/scan` 接受 `reuseScanRunId` 跳过重拉 + alerts 视图加 "立即修复此仓库" 入口（[scan.post.ts](../../apps/platform/server/api/repos/[id]/scan.post.ts) + alerts.vue）
   - 不做什么：不重写 Dependabot 详情页（详情在 dependabot 那边有，UI 只展示关键标识 + 跳链）/ 不立即支持自定义 advisory 来源（GitLab Advisory Database 等）/ 不破坏现有 fixStatus / 修复链路
   - 上收触发条件（任一）：用户实测反馈升级（重复告警问题再次出现 / 用户明确要求上收）/ fix 复用被 B 模式（GitHub Action）性能瓶颈触发
   - 关键决策回顾（2026-08-25 用户确认）：
-    - **B1 数据层去重** vs B2 UI 层 GROUP BY / B3 每次清空：选 B1 —— 彻底解决重复 + 自然支持 fix 复用 + 不破坏审计（fixStatus + scanRunId 仍可追溯）；B2 实现简单但数据膨胀 + fix 复用难做；B3 最简单但破坏"何时发现"审计信号
+    - **B1 数据层去重** vs B2 UI 层 GROUP BY / B3 每次清空：选 B1 —— 彻底解决重复 + 自然支持 fix 复用 + 不破坏审计（fixStatus + scanRunId 仍可追溯）；B2 实现简单但数据膨胀 + fix 复用难做；B3 最简单但破坏"何时发现"审计信号。**2026-08-26 备注：T1306 应用层去重（方案 B2 等价）已实施且满足当前业务需求，B1 数据层去重暂缓；如未来需要 fix 复用 / 历史 fixStatus 跨次保留再迁移到 B1**
     - **C3 单列智能** vs C1 两列分开 / C2 单列合并：选 C3 —— 用户原话"GHSA ID ... 这才是能真正跨平台追溯漏洞的关键信息"（GHSA 在 GitHub Advisory Database 统一收录多个 CVE，反向追溯更强）；C1 多列占空间但实际查看价值有限；C2 简单但 GHSA / CVE 视觉权重平等，跨平台追溯信号被稀释
+
+#### 扫描历史与详情 UX（2026-08-26 实测反馈）
+
+> 本段为 2026-08-26 用户实测截图反馈触发的扫描历史/详情视图 UX 增强候选；与 C66 平级。3 项按依赖排序（UX-R1 → UX-R2 → UX-R3），低风险低优先级，按上收时机依次推进。
+
+- **UX-R1 扫描历史分页** —— [apps/platform/server/api/runs/index.get.ts](../../apps/platform/server/api/runs/index.get.ts) 写死 `take: 100`；[RepoHistoryDialog.vue](../../apps/platform/app/components/RepoHistoryDialog.vue) 一次性赋值无 Paginator；用户截图：单仓库累积 30+ 次扫描后触顶，多仓库聚合必然超出 100 上限。
+  - **执行范围**：后端 `/api/runs` 加 `page` / `pageSize` 参数（zod safeParse，pageSize 上限 200）+ 返回结构 `{items, total, page, pageSize}`；前端 PrimeVue `Paginator` 或 LazyDataTable
+  - **影响范围**：3 个前端调用方（`RepoHistoryDialog.vue` + `batch-runs.vue` + `alerts.vue` 侧栏 `openRunSidebar`），API 返回结构变更需保证向后兼容
+  - **不做什么**：不改 Schema / 不改聚合逻辑 / 不改 e2e 既有断言
+  - **上收触发条件**：单仓库扫描次数 > 50 / 跨仓库聚合 > 200 / 用户反馈"看不到更早历史"
+  - **风险**：中（API 返回结构变更跨多个调用方）
+  - **关联**：T1310 platform release 通道已闭环后启动，避免与 release 通道混合 commit
+
+- **UX-R2 dedupe 详情侧栏增强** —— [alerts.vue §openRunSidebar](../../apps/platform/app/pages/alerts.vue) 当前侧栏只展示 `status` + `startedAt` + `runUrl` 外链；用户截图痛点：缺 run 短 ID（36 位 UUID 无意义）/ 缺跳转 run 详情按钮 / 缺 executorKind 与告警数（与 batch-runs 展开区区分度不足）/ 缺与"本次扫描告警明细"的关联入口
+  - **执行范围**：侧栏 DataTable 新增 run 短 ID（前 8 位）+ mode/severityThreshold/executorKind + summary.alertsFound + 持续时长（finishedAt - startedAt）；新增"详情"按钮复用 `RepoHistoryDialog` 的 detail dialog；runUrl 仅在 `executorKind === 'github-action'` 时显示（container 内部 run URL 暂未实现）
+  - **不做什么**：不改后端 API / 不改路由 / 不动 batch-runs 展开区
+  - **上收触发条件**：用户实测反馈"侧栏看不出不同 run 的差异"
+  - **风险**：低（纯前端扩展）
+  - **关联**：与 UX-R3 部分耦合 —— UX-R3 引入独立页面后，侧栏可改为"跳转到该 run 在 /scans 页的 detail dialog"，但两者解耦可独立上收
+
+- **UX-R3 `/scans` 独立页面 + 替代 `RepoHistoryDialog`** —— 当前 `RepoHistoryDialog` 是 modal + 720px 固定宽度弹窗，内部 list/detail view 切换在狭窄空间内拥挤；用户痛点：6 列 DataTable 在 720px 内严重挤压 + 详情切换操作密集。**关键决策（2026-08-26 用户指示）**：用 query 形式而非 path segment，避免 i18n 路由前缀问题。
+  - **路由设计**（3 种 query 组合 + 单一页面）：
+    - `/scans` — 全局扫描汇总（聚合统计 + 全仓库运行列表 + 按仓库聚合）
+    - `/scans?repository={repoId}` — 单仓库扫描历史（替代 `RepoHistoryDialog` 主列表视图）
+    - `/scans?run={runId}` — 单 run 详情（替代 `RepoHistoryDialog` 详情 dialog，可与上一条 query 共存 `?repository=&run=`）
+  - **页面结构**：
+    - 顶部聚合卡片（4 块）：总运行数 / 成功数 / 失败数 / 24h 失败率 + 平均耗时 + 按来源分布（dependabot / code-scanning / code-quality / pnpm-audit）
+    - 中部按仓库聚合表格（默认视图）：行 = 仓库（owner/name），列 = 最近一次运行状态 + 24h 失败次数 + 7d 平均告警数 + 累计告警数；点击行 → 跳 `/scans?repository={repoId}`
+    - 底部"所有运行"列表（承接 UX-R1 分页）：列 = 仓库 / 状态 / 时间 / 告警数 / 修复数 / executorKind / error；行点击 → 跳 `/scans?run={runId}`
+  - **后端新增**：`/api/scan-history/summary.get.ts`（聚合统计 — 纯 SQL 应用层聚合 + N+1 防御）+ 复用 `/api/runs`（带 UX-R1 分页参数）
+  - **迁移**：[repos.vue](../../apps/platform/app/pages/repos.vue) 的 pi-history 按钮从打开 dialog 改为 `router.push('/scans?repository=' + id)`；`RepoHistoryDialog` 组件保留为 `/scans?run=` 的内部 detail dialog 复用
+  - **导航集成**：[apps/platform/app/layouts/default.vue](../../apps/platform/app/layouts/default.vue) `NuxtLink` 列表（导航项源）增加"扫描"菜单项
+  - **不做什么**：不动 batch-runs 页面（BatchRun 维度，跨仓库聚合，与单仓库 ScanRun 维度正交）/ 不改 dashboard 的 latestRun 卡片（汇总页独立提供更详细视图）
+  - **上收触发条件**：用户实测反馈弹窗体验差升级 / 单仓库历史数量 > 30 后 dialog 滚动操作痛苦
+  - **风险**：高（新增整页 + nav + 后端聚合 API + e2e；跨 5+ 文件）
+  - **关联**：依赖 UX-R1（汇总页底部"所有运行"列表使用分页 API）；可与 UX-R1 合并为同一子阶段 M14.x 推进
 
 ### 已评估不实现（决策保留于归档段）
 

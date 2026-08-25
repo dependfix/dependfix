@@ -4,17 +4,18 @@
 
 ## 当前阶段：M13 治理 + UX 反馈 + 网络治理 + Code Scanning
 
-> **阶段背景（2026-08-25 启动）**：M12 已闭环归档 + 上批次 5 commits（c47b5fb/6ea5b2b/5f69a27/0981096/228f7a7/c811659）已全部推送至 `origin/master`（ahead=0）。本阶段承接：① backlog 治理前置（C1+C2 强制要求）；② 2026-08-21 后用户实测反馈 2 项 UX 问题；③ 网络治理长期主线（network-audit G1）；④ Code Scanning 规则化 + code-quality-findings 接入。
+> **阶段背景（2026-08-25 启动，2026-08-26 追加 M13.4）**：M12 已闭环归档 + 上批次 5 commits（c47b5fb/6ea5b2b/5f69a27/0981096/228f7a7/c811659）已全部推送至 `origin/master`（ahead=0）。本阶段承接：① backlog 治理前置（C1+C2 强制要求）；② 2026-08-21 后用户实测反馈 2 项 UX 问题；③ 网络治理长期主线（network-audit G1）；④ Code Scanning 规则化 + code-quality-findings 接入；⑤ 2026-08-26 用户实测截图反馈 6 项 UX 问题（**3 项低风险立刻做 → M13.4**，**3 项进 backlog 暂缓 → UX-R1~R3**）。
 >
-> **拆分方案**：按 [规划规范 §1.1 任务粒度约束](../../docs/standards/planning.md)（≤5-6 项硬上限 + A3 跨 packages+apps > 10 文件需拆分）拆分为 **3 子阶段独立闭环**：
+> **拆分方案**：按 [规划规范 §1.1 任务粒度约束](../../docs/standards/planning.md)（≤5-6 项硬上限 + A3 跨 packages+apps > 10 文件需拆分）拆分为 **4 子阶段独立闭环**：
 >
 > | 子阶段 | 任务 | 预计 commits | 风险梯度 |
 > |:---|:---|:---:|:---:|
 > | M13.1 治理前置 + 平台 UX 反馈 | T1301 + T1302 + T1303 + T1304 | 4 | 低 |
 > | M13.2 网络治理 + 告警去重 + changelog 机制治本 | T1305 + T1306 + T1309 | 3-5 | 中 |
 > | M13.3 Code Scanning 规则化 + CQL | T1307 + T1308 | 2-4 | 高 |
+> | **M13.4 UX 反馈批次立刻做（低风险）** | **T1401 + T1402 + T1403** | **3** | **低** |
 >
-> **状态约定**：子阶段串行实施，每子阶段独立 PDTFC+ 循环；上一子阶段 F 阶段闭环（commit 推送）后方可启动下一子阶段。
+> **状态约定**：子阶段串行实施，每子阶段独立 PDTFC+ 循环；上一子阶段 F 阶段闭环（commit 推送）后方可启动下一子阶段。M13.4 与 T1310 (M14 platform release 通道) 计划并行：M13.4 仅前端 + i18n，零后端 schema 改动；T1310 是 release 基础设施。两者无文件冲突。
 
 ### M13.1 治理前置 + 平台 UX 反馈（UX 修复批次已闭环 2026-08-25，治理批次待启动）
 
@@ -268,6 +269,104 @@
 - **follow-up（登记 backlog）**：
   - Code Quality rule.category（maintainability / reliability 等）当前未注入 NormalizedSecurityAlert；报告 markdown 暂不展示 category 列；后续 fetcher 注入后可补展示
   - 平台扫描请求 schema 当前未含 `codeQualityEnabled` 字段（仅展示用，未启用生产扫描）；backlog C21 后续如需平台发起 Code Quality 扫描，再扩展 ScanRequest schema + orchestrator + queue payload
+
+### M13.4 UX 反馈批次立刻做（低风险 UX 修复，2026-08-26 实测反馈 6 项中选 3 项）
+
+> **本批次背景（2026-08-26）**：用户实测截图反馈 6 项 UX 问题（扫描失败原因 / 扫描历史分页 / 弹窗不便 / GHSA/CVE ID 与去重默认值 / 详情侧栏无区分度 / 扫描历史汇总页）。按 [规划规范 §1.1](../../docs/standards/planning.md) ≤5-6 项硬上限 + 与 T1310 (M14 platform release 通道) 互不干扰原则，**3 项低风险立刻做（M13.4）** + **3 项进 backlog 暂缓（[UX-R1~R3](backlog.md) §扫描历史与详情 UX 段）**。
+>
+> **M13.4 与 T1310 关系**：M13.4 仅前端 + i18n，零后端 schema 改动；T1310 是 release 基础设施（apps/platform 进 release 通道）。两者无文件冲突，**可并行**——M13.4 子任务执行期间 T1310 也可同步推进。M13.4 计划 2026-08-26 启动。
+>
+> **拆分方案**：
+>
+> | 子任务 | 改动范围 | commits | 风险 |
+> |:---|:---|:---:|:---:|
+> | T1401 失败原因展示 | `RepoHistoryDialog.vue` + i18n 双语 | 1 | 极低 |
+> | T1402 alerts UI 增加 ruleId 列 | `alerts.vue` + i18n 双语 + e2e | 1 | 低 |
+> | T1403 dedupe 默认值改为 across | `alerts.vue` 单行 ref | 1 | 极低 |
+
+#### T1401 扫描失败原因展示（实测反馈 1）—— 待启动
+
+- **优先级**：P1（用户截图痛点直接：6/8 failed 但看不到原因）
+- **依赖**：—
+- **执行范围**：`apps/platform/app/components/RepoHistoryDialog.vue` + `apps/platform/i18n/locales/{zh-CN,en-US}.json` + e2e
+- **非目标**：不动后端 API（[HistoryRunView.error](../../apps/platform/app/components/RepoHistoryDialog.vue) 字段已存在，后端 `runs/index.get.ts:18` `toView()` 已返回） / 不改 alerts 视图侧栏 / 不改 batch-runs 展开区
+- **根因分析**：
+  - 当前 [RepoHistoryDialog.vue:148-251](../../apps/platform/app/components/RepoHistoryDialog.vue) 列表只渲染 `status Tag`（failed=danger），无 error.message 显示
+  - `HistoryRunView.error: { code, message } | null` 接口已定义；后端 `runs/index.get.ts:18` 的 `toView()` 已返回 error 字段
+  - 用户痛点：截图显示 6/8 failed 但悬浮 / 点击 / 详情都看不到失败原因（Auth 失败、quota 超限、network 等）
+- **修复方案**：
+  - **列表行**：状态 `Tag` 加 `:title="data.error?.message"` 鼠标悬浮展示 error.message（最低成本；Tab 键可访问）
+  - **详情面板**（`openDetail` 的 `results` 表格上方）加 Error Banner：`status === 'failed' && run.error` → 红色 Alert 展示 `error.code` + `error.message`
+- **交付物**：`RepoHistoryDialog.vue` 单文件改动（+15-25 行）+ i18n locale 双语 +2 键（`runs.errorTitle` / `runs.errorMessage`）
+- **验收标准**：
+  - 列表行：status='failed' 时鼠标悬浮 status Tag 显示 error.message（title 属性） ✅
+  - 详情视图：status='failed' 时 results 表格上方显示 Error Banner（code + message） ✅
+  - i18n 双语新增（zh-CN + en-US 各 2 键） ✅
+- **最小验证矩阵**：
+  - `pnpm lint` 0 error
+  - `pnpm --filter @dependfix/platform typecheck` 0 error
+  - `pnpm lint:i18n` 0 error
+  - playwright e2e 新增 1 case：mock `/api/runs` 返回 `status='failed' + error.code='AUTH_FAILED' + error.message='Invalid token'` → 详情面板可见 Error Banner
+- **风险**：极低（纯前端，无 schema/数据改动）
+
+#### T1402 alerts UI 增加 ruleId 列（GHSA/CVE/rule 智能显示，实测反馈 4a）—— 待启动
+
+- **优先级**：P1
+- **依赖**：—
+- **执行范围**：`apps/platform/app/pages/alerts.vue` + `apps/platform/i18n/locales/{zh-CN,en-US}.json` + e2e
+- **非目标**：不动 `ScanResult` schema / 不改 fetcher（与 [backlog.md §C66-A1/A2](backlog.md) 数据层 GHSA/CVE 列扩展解耦；**T1402 仅前端轻量展示已有 `ruleId` 字段**）/ 不动 [backlog.md §C66-C 完整 schema 路径](backlog.md) 独立 `Identifiers` 列增强
+- **根因分析**：
+  - `ScanResult.ruleId` 是混用字段（Dependabot 存 GHSA 编号如 `GHSA-aaaa-bbbb-cccc` / pnpm-audit 存 CVE 编号或 advisory URL / Code Scanning 存 CodeQL rule id）
+  - 后端 alerts API 已返回 ruleId（[alerts/index.get.ts:96/L168](../../apps/platform/server/api/alerts/index.get.ts)）
+  - 前端 `alerts.vue` 无 ruleId 列 → 用户看不到 GHSA/CVE/rule 关键标识（实测反馈 4a）
+- **修复方案**：
+  - 新增 `ruleId` 列（标签形态展示，source 不同用不同 Tag 颜色）：
+    - `source === 'dependabot'` → GHSA 编号（绿色 Tag，severity=success）→ 可点击跳 `htmlUrl`（GitHub Advisory 详情）
+    - `source === 'pnpm-audit'` → CVE 编号（黄色 Tag，severity=warn）或 advisory URL（灰色 Tag，severity=secondary）
+    - `source === 'code-scanning'` → CodeQL rule id（蓝色 Tag，severity=info）
+    - `source === 'code-quality'` → Code Quality finding id（紫色 Tag，severity=contrast）
+  - **dedupe=across 模式**：ruleId 列保留（representative 行 ruleId；该 fingerprint 跨次扫描规则相同）
+  - 列宽固定（避免长 advisory URL 撑列宽）：`:style="{width: '180px'}"`，超长 `text-overflow: ellipsis` + `:title="data.ruleId"` 悬浮展示
+- **交付物**：`alerts.vue` 单文件改动（+25-40 行：1 个 Column + 1 个 Tag 颜色映射函数）+ i18n locale 双语 +1 键（`alerts.colRuleId`）+ playwright e2e 新增 1 case
+- **验收标准**：
+  - alerts 表格新增 `ruleId` 列（4 列 source 不同 Tag 颜色） ✅
+  - Dependabot GHSA 编号点击跳 htmlUrl（如有） ✅
+  - 长 advisory URL 不撑列宽（`width: 180px` + ellipsis） ✅
+  - dedupe=across 模式 ruleId 列正常显示（representative 行） ✅
+  - i18n 双语新增 ✅
+- **最小验证矩阵**：
+  - `pnpm lint` 0 error
+  - `pnpm --filter @dependfix/platform typecheck` 0 error
+  - `pnpm lint:i18n` 0 error
+  - playwright e2e 1 case：mock `/api/alerts` 返回 4 个不同 source 的 alert → ruleId 列渲染对应 Tag 颜色
+- **风险**：低
+- **与 [backlog.md §C66-C](backlog.md) 关系**：T1402 是"轻量前端列展示 ruleId"，不依赖 ScanResult 新增 ghsaId/cveIds 列；C66-C 完整版（独立 Identifiers 列 + 多 CVE 展开）保留为后续增强候选，触发条件：用户要求按 GHSA 单独搜索/过滤 / 多 CVE 展开视图
+
+#### T1403 dedupe 默认值改为跨次去重（实测反馈 4b）—— 待启动
+
+- **优先级**：P1
+- **依赖**：—
+- **执行范围**：`apps/platform/app/pages/alerts.vue` 单行 ref 初始化改动 + e2e 1 case
+- **非目标**：不动后端 `/api/alerts` API（`dedupe=false` 默认值保持向后兼容） / 不动 T1306 已闭环的 dedupe 实现（同文档 §T1306）
+- **根因分析**：
+  - 当前 [apps/platform/app/pages/alerts.vue:55](../../apps/platform/app/pages/alerts.vue) `const dedupeMode = ref<DedupeMode>('off')`
+  - 后端 `/api/alerts/index.get.ts:43` `dedupe = dedupeParsed.success ? dedupeParsed.data === 'true' : false`（默认 false）
+  - 用户原话："去重的默认值应该改成跨次去重"——首次进入 alerts 视图即可看到跨次扫描聚合视图，避免被相同告警重复刷屏
+- **修复方案**：
+  - 前端 `dedupeMode` ref 初始值改为 `'across'`
+  - i18n 标签调整避免歧义（`dedupeOff` / `dedupeAcross` 当前命名 OK，无需改）
+- **交付物**：`alerts.vue` 单行 ref 初始化改动 + playwright e2e 1 case
+- **验收标准**：
+  - alerts 页首次进入默认 `dedupeMode='across'` ✅
+  - 默认请求携带 `?dedupe=true` ✅
+  - 用户主动切换到 `'off'` 后刷新页面恢复 `'across'` 默认值 ✅
+- **最小验证矩阵**：
+  - `pnpm lint` 0 error
+  - `pnpm --filter @dependfix/platform typecheck` 0 error
+  - playwright e2e 1 case：访问 `/alerts` 默认 dedupe=across → URL 含 `?dedupe=true` 或 select 默认 across
+- **风险**：极低（1 行代码 + 1 个 e2e case）
+- **关键决策回顾（2026-08-26）**：
+  - **前端默认 vs 后端默认**：**仅改前端默认**（不动后端默认 false）—— 后端默认 false 保持向后兼容（第三方调用方 / 单元测试假设），仅用户主动选择跨次去重时通过显式 `?dedupe=true` 触发
 
 ---
 

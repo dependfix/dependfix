@@ -4,10 +4,10 @@
 
 ## 发布包清单
 
-> **包清单单点声明**：发布包列表定义在 [scripts/packages.config.mjs](../../scripts/packages.config.mjs)（`publishable: true` 的包进入发布链路）。
+> **包清单单点声明**：发布包列表定义在 [scripts/packages.config.mjs](../../scripts/packages.config.mjs)（`publishable: true` 的包进入发布链路，`npmPublishable !== false` 的包进入 npm 发布）。
 > 新增发布包时：① 在该文件登记；② 补充包 README；其余（changelog 生成、release 计划映射、CI 校验）自动生效。
 
-当前 Monorepo 对外发布的 npm 包：
+当前 Monorepo 的发布单元：
 
 | 包 | 说明 | npm 地址 |
 |----|------|----------|
@@ -16,8 +16,20 @@
 | `@dependfix/engine` | 执行引擎（编排/采集/修复/研判，cli/mcp/platform 共享） | https://www.npmjs.com/package/@dependfix/engine |
 | `@dependfix/skills` | 产品 Agent Skill 权威源（`dependfix-remediator`，纯内容包） | https://www.npmjs.com/package/@dependfix/skills |
 | `@dependfix/mcp` | MCP Server（stdio 传输，7 个 tool 暴露扫描/修复能力） | https://www.npmjs.com/package/@dependfix/mcp |
+| `@dependfix/platform` | Nuxt 管理平台（控制面：仓库/凭据管理、扫描触发、结果展示）—— **不发布到 npm，仅 docker 通道** | — |
 
-> 依赖关系：`dependfix` 依赖 `@dependfix/core`、`@dependfix/engine` 与 `@dependfix/skills`（运行时解析 skill 内容）；`@dependfix/engine` 依赖 `@dependfix/core`；`@dependfix/mcp` 依赖 `@dependfix/core` 与 `@dependfix/engine`。发布顺序：被依赖方先行（`@dependfix/core` → `@dependfix/engine` → `@dependfix/skills` → `dependfix` → `@dependfix/mcp`）。
+> 依赖关系：`dependfix` 依赖 `@dependfix/core`、`@dependfix/engine` 与 `@dependfix/skills`（运行时解析 skill 内容）；`@dependfix/engine` 依赖 `@dependfix/core`；`@dependfix/mcp` 依赖 `@dependfix/core` 与 `@dependfix/engine`；`apps/platform` 依赖 `@dependfix/core`、`@dependfix/engine` 与 `dependfix`（仅 build 期，不进入发布图）。npm 发布顺序：被依赖方先行（`@dependfix/core` → `@dependfix/engine` → `@dependfix/skills` → `dependfix` → `@dependfix/mcp`）。`@dependfix/platform` 走 `npmPublishable: false` 的 tag-only 分支：跳过 `pnpm publish` 但仍创建 annotated tag，与 docker publish 通道协作（详见"platform 发布通道"）。
+
+### platform 发布通道（独立于 npm）
+
+`apps/platform` 是 Nuxt 应用而非 npm 库，参与 release 链路的目的是"版本号 + CHANGELOG + git tag"三件套，与 docker 镜像协作：
+
+- **版本号**：`apps/platform/package.json:version` 独立递增，semver 由 `release:version` 维护（dependency backflow：core/engine/cli 升级时 platform 至少 patch 跟随）
+- **CHANGELOG**：`apps/platform/CHANGELOG.md` 由 `pnpm changelog` 按 `path: 'apps/platform'` 过滤生成（与其他 5 个 npm 包走同套 `scripts/changelog.mjs` 流水线）
+- **Git tag**：`release:publish` 检测 `npmPublishable === false` → action `tag-only`：跳过 `pnpm publish`、仍创建 `@dependfix/platform@<x.y.z>` annotated tag（保证 changelog 历史可比）
+- **Docker tag**：`release.yml` 完成后主动 `workflow_dispatch docker.yml`，传 `platform_version` 入参；docker.yml 仅在 inputs 非空时打 `platform-<x.y.z>` tag（与 `latest` + `YYYY-MM-DD` + `sha-<short>` 三元组并列；master push 触发时 inputs 为空，仅打原三元组）
+- **版本号治理**：`apps/platform` 加入 `packages.config.mjs` 的 `PACKAGES` 列表（`publishable: true / rootChangelog: false / publishOrder: 6 / npmPublishable: false`）；依赖 `dependabot` 的 `apps/platform/package.json` 排除（避免 dependabot 接管平台版本）
+- **历史背景**：platform 改动历史已聚合进根 CHANGELOG 的 `dependfix@x.y.z` 段（如 `dependfix@0.3.3` 段内 `**platform:**` scope 多条），T1310 后改为独立 `apps/platform/CHANGELOG.md`，根段不再以 platform 内容为主。
 
 ## 版本策略
 

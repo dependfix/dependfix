@@ -7,6 +7,11 @@ updates:
       interval: weekly
       time: "04:00"
       timezone: Asia/Shanghai
+    # §T1310 apps/platform/package.json 的 version 字段由 release 脚本管理
+    # （release:version 依赖传导 + 手动版本提升）；dependabot 默认不动顶层 version，
+    # 但 apps/platform 的内部依赖（better-sqlite3 / bullmq / h3 / ioredis / mysql2
+    # / pg / typeorm / nuxt / primevue / zod 等）若需要升级走 dependabot 无碍，
+    # 不在此处加 ignore 以免误拦截其他 5 个 npm 包的依赖管理
   - package-ecosystem: github-actions
     directory: /
     open-pull-requests-limit: 20

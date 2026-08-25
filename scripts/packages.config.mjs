@@ -19,6 +19,10 @@
  *   PKG_PATH_MAP 为全量映射，未就绪包条目由 release:version 的 KNOWN_PKGS 硬校验拦截）。
  *   就绪时置 true 并启用 changelog（先例：@dependfix/mcp，2026-08-09 就绪，
  *   见 docs/plan/backlog.md §T706）。
+ * - npmPublishable：是否发布到 npm。缺省 true（已有 5 个 npm 包行为不变）；
+ *   显式 false 时 release:publish 跳过 pnpm publish 但仍创建 git tag（用于
+ *   "版本号 + CHANGELOG + git tag"三件套而 docker-only 的发布单元，如
+ *   apps/platform，见 docs/plan/todo.md §T1310）
  * - changelog：包级 CHANGELOG.md 相对路径（null = 不生成包级日志；未就绪包先置 null，
  *   待发布链路就绪后再启用，避免为未发布包生成与已发布段混排的日志）
  */
@@ -71,6 +75,21 @@ export const PACKAGES = [
         rootChangelog: false,
         publishable: true,
     },
+    {
+        // docker-only 发布单元：纳入 release 链路驱动版本号 + CHANGELOG + git tag，
+        // 但不发布到 npm（见 §T1310）。npmPublishable: false → release:publish
+        // 跳过 pnpm publish 但仍创建 @dependfix/platform@<version> annotated tag，
+        // release.yml 完成后主动 workflow_dispatch docker.yml 传 platform_version
+        // 打 platform-x.y.z docker tag
+        path: 'apps/platform',
+        pkg: '@dependfix/platform',
+        changelog: 'apps/platform/CHANGELOG.md',
+        tags: { prefix: '@dependfix/platform@' },
+        publishOrder: 6,
+        rootChangelog: false,
+        publishable: true,
+        npmPublishable: false,
+    },
 ]
 
 /** 按发布顺序排序的包列表（供 release 流程遍历） */
@@ -78,6 +97,9 @@ export const PACKAGES_BY_ORDER = [...PACKAGES].sort((a, b) => a.publishOrder - b
 
 /** 已就绪发布包（publishable: true） */
 export const PUBLISHABLE_PACKAGES = PACKAGES.filter((p) => p.publishable)
+
+/** 进入 npm 发布链路（npmPublishable !== false）的包：subset of PUBLISHABLE_PACKAGES */
+export const NPM_PUBLISHABLE_PACKAGES = PUBLISHABLE_PACKAGES.filter((p) => p.npmPublishable !== false)
 
 /** commit 路径 → 包名映射（create-release-plan pathToPkg 用） */
 export const PKG_PATH_MAP = Object.fromEntries(PACKAGES.map((p) => [p.path, p.pkg]))

@@ -9,7 +9,7 @@ definePageMeta({
     middleware: 'auth',
 })
 
-const { t } = useI18n()
+const { t, d } = useI18n()
 
 interface AlertView {
     id: string
@@ -27,6 +27,12 @@ interface AlertView {
     htmlUrl: string | null
     fixStatus: string
     errorMessage: string | null
+    // dedupe=true 聚合字段（todo.md §T1306）：occurrenceCount / firstSeenAt / lastSeenAt / affectedRunIds
+    // dedupe=false 时不存在（undefined）
+    occurrenceCount?: number
+    firstSeenAt?: string
+    lastSeenAt?: string
+    affectedRunIds?: string[]
 }
 
 const loading = ref(true)
@@ -38,7 +44,19 @@ const filters = ref({
     repositoryId: 'all',
     severity: 'all',
     source: 'all',
+    dedupe: 'off',
 })
+
+/** dedupe 模式（todo.md §T1306）：
+ * - off：返回全量 ScanResult（默认，向后兼容）
+ * - across：跨次扫描去重，按 fingerprint (repositoryId + packageName + ruleId) 聚合
+ */
+type DedupeMode = 'off' | 'across'
+const dedupeMode = ref<DedupeMode>('off')
+const dedupeOptions = computed(() => [
+    { label: t('alerts.dedupeOff'), value: 'off' as const },
+    { label: t('alerts.dedupeAcross'), value: 'across' as const },
+])
 
 /**
  * 视图模式（todo.md §C65-D3）：按包 / 按项目 / 原始列表三选一。
@@ -84,6 +102,20 @@ const severityTagSeverity = (severity: string) => {
     }
 }
 
+// dedupe 详情侧栏 RunDetailView status → Tag severity 映射
+const fixStatusSeverity = (status: string) => {
+    switch (status) {
+        case 'completed':
+            return 'success'
+        case 'failed':
+            return 'danger'
+        case 'dispatched':
+            return 'info'
+        default:
+            return 'warn'
+    }
+}
+
 const fixStatusLabel = (status: string) => ({
     success: t('common.fixStatus.success'),
     failed: t('common.fixStatus.failed'),
@@ -122,6 +154,10 @@ const fetchAlerts = async () => {
         if (filters.value.source !== 'all') {
             query.source = filters.value.source
         }
+        // dedupe=across 时携带 dedupe=true 触发后端跨次扫描去重聚合（todo.md §T1306）
+        if (filters.value.dedupe === 'across') {
+            query.dedupe = 'true'
+        }
         const res = await $fetch('/api/alerts', { query })
         // 排序键派生：severity / fixStatus 走业务语义排序（非字典序）
         const list = res as AlertView[]
@@ -146,6 +182,54 @@ const onViewModeChange = () => {
         : [{ field: viewMode.value === 'package' ? 'packageName' : 'repository', order: 1 }]
     expandedPackages.value = []
     void fetchAlerts()
+}
+
+/** dedupe 切换：触发 fetchAlerts 重新查询（无需重置排序状态） */
+const onDedupeChange = () => {
+    void fetchAlerts()
+}
+
+// dedupe=true 时详情侧栏（PrimeVue Sidebar 右侧滑出，显示该告警 affected runIds 详情）
+interface RunDetailView {
+    id: string
+    repositoryId: string
+    mode: string
+    severityThreshold: string
+    status: string
+    startedAt: string | null
+    finishedAt: string | null
+    runUrl: string | null
+}
+const sidebarVisible = ref(false)
+const sidebarAlert = ref<AlertView | null>(null)
+const sidebarRuns = ref<RunDetailView[]>([])
+const sidebarLoading = ref(false)
+
+const openRunSidebar = async (alert: AlertView) => {
+    sidebarAlert.value = alert
+    sidebarVisible.value = true
+    sidebarLoading.value = true
+    try {
+        // 按 affectedRunIds 批量拉取 run 详情（todo.md §T1306：详情侧栏查询 /api/runs）
+        if (alert.affectedRunIds && alert.affectedRunIds.length > 0) {
+            const res = await $fetch('/api/runs', {
+                query: { ids: alert.affectedRunIds.join(',') },
+            })
+            sidebarRuns.value = res as RunDetailView[]
+        } else {
+            sidebarRuns.value = []
+        }
+    } catch {
+        sidebarRuns.value = []
+    } finally {
+        sidebarLoading.value = false
+    }
+}
+
+const closeSidebar = () => {
+    sidebarVisible.value = false
+    sidebarAlert.value = null
+    sidebarRuns.value = []
 }
 
 // rowGroup 模式：按 viewMode 聚合计数（subheader 显示该组告警数）
@@ -280,6 +364,18 @@ onMounted(async () => {
                         />
                     </div>
                     <div class="alerts__filter-field">
+                        <label for="dedupe">{{ t('alerts.dedupe') }}</label>
+                        <Select
+                            id="dedupe"
+                            v-model="filters.dedupe"
+                            :options="dedupeOptions"
+                            option-label="label"
+                            option-value="value"
+                            fluid
+                            @change="onDedupeChange"
+                        />
+                    </div>
+                    <div class="alerts__filter-field">
                         <Button
                             :label="t('alerts.filterApply')"
                             icon="pi pi-filter"
@@ -381,6 +477,30 @@ onMounted(async () => {
                             <Tag :value="fixStatusLabel(data.fixStatus)" severity="secondary" />
                         </template>
                     </Column>
+                    <!-- dedupe=true 时显示聚合列（todo.md §T1306） -->
+                    <Column
+                        v-if="filters.dedupe === 'across'"
+                        field="occurrenceCount"
+                        :header="t('alerts.colOccurrenceCount')"
+                        sortable
+                    >
+                        <template #body="{data}">
+                            <Tag :value="String(data.occurrenceCount ?? 1)" severity="warn" />
+                        </template>
+                    </Column>
+                    <Column
+                        v-if="filters.dedupe === 'across'"
+                        field="lastSeenAt"
+                        :header="t('alerts.colLastSeenAt')"
+                        sortable
+                    >
+                        <template #body="{data}">
+                            <span v-if="data.lastSeenAt" class="text-muted">
+                                {{ d(new Date(data.lastSeenAt), 'long') }}
+                            </span>
+                            <span v-else class="text-muted">—</span>
+                        </template>
+                    </Column>
                     <Column :header="t('alerts.colLink')">
                         <template #body="{data}">
                             <a
@@ -394,12 +514,90 @@ onMounted(async () => {
                             <span v-else class="text-muted">—</span>
                         </template>
                     </Column>
+                    <Column
+                        v-if="filters.dedupe === 'across'"
+                        :header="t('common.actions.details')"
+                        :style="{width: '100px'}"
+                    >
+                        <template #body="{data}">
+                            <Button
+                                icon="pi pi-list"
+                                text
+                                rounded
+                                size="small"
+                                :disabled="!data.affectedRunIds || data.affectedRunIds.length === 0"
+                                :aria-label="t('common.actions.details')"
+                                @click="openRunSidebar(data)"
+                            />
+                        </template>
+                    </Column>
                 </DataTable>
             </template>
         </Card>
         <p v-else class="text-muted">
             {{ t('common.empty.loading') }}
         </p>
+
+        <!-- dedupe=true 详情侧栏（PrimeVue Sidebar 右侧滑出）：显示该告警 affected runs 列表 -->
+        <Sidebar
+            v-model:visible="sidebarVisible"
+            position="right"
+            :style="{width: '560px'}"
+            @hide="closeSidebar"
+        >
+            <template v-if="sidebarAlert" #header>
+                <div class="alerts__sidebar-header">
+                    <strong>{{ sidebarAlert.packageName }}</strong>
+                    <span v-if="sidebarAlert.ruleId" class="text-muted">
+                        · {{ sidebarAlert.ruleId }}
+                    </span>
+                </div>
+            </template>
+            <div v-if="sidebarAlert" class="alerts__sidebar">
+                <p class="alerts__sidebar-meta text-muted">
+                    {{ t('alerts.detailRunsTitle', {
+                        max: sidebarAlert.affectedRunIds?.length ?? 0,
+                        total: sidebarAlert.occurrenceCount ?? 1
+                    }) }}
+                </p>
+                <div v-if="sidebarLoading" class="text-muted">
+                    {{ t('common.empty.loading') }}
+                </div>
+                <DataTable
+                    v-else-if="sidebarRuns.length > 0"
+                    :value="sidebarRuns"
+                    striped-rows
+                    size="small"
+                >
+                    <Column :header="t('alerts.detailRunStatus')" field="status">
+                        <template #body="{data}">
+                            <Tag :value="data.status" :severity="fixStatusSeverity(data.status)" />
+                        </template>
+                    </Column>
+                    <Column :header="t('alerts.detailRunStartedAt')" field="startedAt">
+                        <template #body="{data}">
+                            {{ data.startedAt ? d(new Date(data.startedAt), 'long') : '—' }}
+                        </template>
+                    </Column>
+                    <Column :header="t('common.actions.actions')" :style="{width: '100px'}">
+                        <template #body="{data}">
+                            <a
+                                v-if="data.runUrl"
+                                :href="data.runUrl"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                            >
+                                {{ t('alerts.detailRunOpen') }}
+                            </a>
+                            <span v-else class="text-muted">—</span>
+                        </template>
+                    </Column>
+                </DataTable>
+                <p v-else class="text-muted">
+                    {{ t('alerts.detailRunEmpty') }}
+                </p>
+            </div>
+        </Sidebar>
     </div>
 </template>
 
@@ -458,6 +656,25 @@ onMounted(async () => {
     &__group-count {
         font-size: $font-size-sm;
         font-weight: 400;
+    }
+
+    // dedupe 详情侧栏样式
+    &__sidebar-header {
+        display: flex;
+        align-items: baseline;
+        gap: $space-2;
+    }
+
+    &__sidebar {
+        padding: $space-4;
+        display: flex;
+        flex-direction: column;
+        gap: $space-3;
+    }
+
+    &__sidebar-meta {
+        margin: 0;
+        font-size: $font-size-sm;
     }
 }
 </style>

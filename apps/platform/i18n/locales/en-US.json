@@ -27,7 +27,9 @@
             "refresh": "Refresh",
             "back": "Back",
             "submit": "Submit",
-            "search": "Search"
+            "search": "Search",
+            "details": "Details",
+            "actions": "Actions"
         },
         "dialog": {
             "confirmTitle": "Confirm",
@@ -434,6 +436,18 @@
         "viewModeRepository": "By Repository",
         "viewModeNone": "Flat List",
         "repositoryUnknown": "Unknown repository",
+        "dedupe": "Dedupe",
+        "dedupeOff": "Off",
+        "dedupeAcross": "Across scans",
+        "colOccurrenceCount": "Occurrences",
+        "colLastSeenAt": "Last seen",
+        "colFirstSeenAt": "First seen",
+        "detailRunsTitle": "Affected scan runs (first {max} of {total})",
+        "detailRunId": "Run ID",
+        "detailRunStatus": "Status",
+        "detailRunStartedAt": "Started at",
+        "detailRunOpen": "Open run",
+        "detailRunEmpty": "No related scan runs",
         "errors": {
             "loadFailed": "Failed to load: {message}"
         }

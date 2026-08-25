@@ -27,7 +27,9 @@
             "refresh": "刷新",
             "back": "返回",
             "submit": "提交",
-            "search": "搜索"
+            "search": "搜索",
+            "details": "详情",
+            "actions": "操作"
         },
         "dialog": {
             "confirmTitle": "确认操作",
@@ -434,6 +436,18 @@
         "viewModeRepository": "按项目",
         "viewModeNone": "原始列表",
         "repositoryUnknown": "未知仓库",
+        "dedupe": "去重",
+        "dedupeOff": "关闭",
+        "dedupeAcross": "跨次去重",
+        "colOccurrenceCount": "出现次数",
+        "colLastSeenAt": "最近发现",
+        "colFirstSeenAt": "首次发现",
+        "detailRunsTitle": "影响该告警的扫描运行（前 {max} 个 / 共 {total} 次）",
+        "detailRunId": "运行 ID",
+        "detailRunStatus": "状态",
+        "detailRunStartedAt": "开始时间",
+        "detailRunOpen": "查看运行",
+        "detailRunEmpty": "无关联扫描运行",
         "errors": {
             "loadFailed": "加载失败：{message}"
         }

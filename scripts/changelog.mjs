@@ -27,7 +27,7 @@ import { readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { ConventionalChangelog, defaultCommitTransform } from 'conventional-changelog'
-import { PACKAGES, ROOT_PACKAGE } from './packages.config.mjs'
+import { PACKAGES, PUBLISHABLE_PACKAGES, ROOT_PACKAGE } from './packages.config.mjs'
 import { isPublishedOnRegistry } from './tag-released-versions.mjs'
 
 const repoRoot = fileURLToPath(new URL('..', import.meta.url))
@@ -112,6 +112,82 @@ export function versionLt(a, b) {
         }
     }
     return false
+}
+
+/** semver 降序比较（a > b → 返回正数；用于 findPrevTag 排序） */
+export function compareSemverDesc(a, b) {
+    if (versionLt(a, b)) {
+        return 1
+    }
+    if (versionLt(b, a)) {
+        return -1
+    }
+    return 0
+}
+
+/**
+ * 纯函数：对比两套依赖列表中的 workspace 发布包依赖版本，返回变化项列表。
+ *
+ * 背景：workspace:* range 不含实际版本号（实际版本号在被依赖方的 package.json），
+ * 单纯对比 range 字符串无法判断"被依赖方是否升级"。本函数把"当前 vs prev 时点"
+ * 的 workspace 发布包实际版本号预解析后注入，靠版本号对比识别被动升级。
+ *
+ * 边界：
+ * - 仅参与"两端都声明了 workspace:* 范围"的依赖；新增 / 删除的依赖忽略（不在本机制语义内）
+ * - 任一端缺版本号（非发布包或 prev tag 缺失对应文件）→ 跳过，不强写
+ * - 仅在两端都解析到版本号且不同时输出
+ *
+ * @returns Array<{ name: string, from: string, to: string }>
+ */
+export function computeDependencyChanges(currentDeps, prevDeps, currentDepVersions, prevDepVersions) {
+    const names = new Set([...Object.keys(currentDeps ?? {}), ...Object.keys(prevDeps ?? {})])
+    const changes = []
+    for (const name of names) {
+        const curRange = currentDeps?.[name]
+        const prevRange = prevDeps?.[name]
+        const isWorkspaceNow = curRange?.startsWith?.('workspace:')
+        const isWorkspaceBefore = prevRange?.startsWith?.('workspace:')
+        if (!isWorkspaceNow && !isWorkspaceBefore) {
+            continue
+        }
+        const curVer = currentDepVersions?.[name]
+        const prevVer = prevDepVersions?.[name]
+        if (!curVer || !prevVer) {
+            continue
+        }
+        if (curVer === prevVer) {
+            continue
+        }
+        changes.push({ name, from: prevVer, to: curVer })
+    }
+    return changes
+}
+
+/**
+ * 纯函数：渲染完整 Dependencies 段（标题 + 内容），格式与 cmyr-config patch 段对齐。
+ *
+ * 触发场景：path-filter 后某发布包路径下无 commit，但版本被提升（典型场景：依赖传导
+ * 触发的 patch 升级，如 c811659 提升 cli 0.3.2 → 0.3.3 但 cli 路径下 0 commit）。
+ * 该段既能让 verify-changelog 通过（有版本标题行），又保留"为何升级"的可审计语义。
+ *
+ * - 标题：`## [version](compare_url) (date)`，与既有 CHANGELOG patch 段同款格式
+ * - 内容：`### ⚙️ 依赖更新\n\n* bump <name> to <to> (was <from>)\n`
+ * - changes 为空 → 返回空串（保持既有"重跑幂等"语义：版本 == 最新 tag 时不写空段）
+ */
+export function renderDependencySection({ version, prevVersion, prefix, repo, headDate, changes }) {
+    if (!changes || changes.length === 0) {
+        return ''
+    }
+    const compareUrl = `https://github.com/${repo}/compare/${prefix}${prevVersion}...${prefix}${version}`
+    const lines = [
+        `## [${version}](${compareUrl}) (${headDate})`,
+        '',
+        '### ⚙️ 依赖更新',
+        '',
+        ...changes.map((c) => `* bump \`${c.name}\` to ${c.to} (was ${c.from})`),
+        '',
+    ]
+    return lines.join('\n')
 }
 
 /**
@@ -220,9 +296,116 @@ function isVersionTagged(prefix, version, pkgName) {
     }
 }
 
+/**
+ * 从 git remote origin URL 解析 owner/repo（compare URL 拼接用）。
+ * 解析失败 → null（fallback 段 URL 渲染降级，但脚本仍可继续；段依然能写，只是 URL 是占位）。
+ */
+function resolveRepoFromOrigin() {
+    try {
+        const url = execSync('git remote get-url origin', { cwd: repoRoot, stdio: 'pipe' })
+            .toString()
+            .trim()
+        const m = /github\.com[:/]([^/]+\/[^/]+?)(?:\.git)?$/.exec(url)
+        return m ? m[1] : null
+    } catch {
+        return null
+    }
+}
+
+const repo = resolveRepoFromOrigin()
+
+/**
+ * 找某包当前版本之前的最新发布 tag（`<prefix><prevVersion>` 完整形式）。
+ * - 输入 prefix = `@dependfix/mcp@`，currentVersion = `0.1.3` → 返回如 `@dependfix/mcp@0.1.2`
+ * - 仅在 prefix 列表中、不是当前 version 对应的 tag、版本号最大的那一个
+ * - 历史 tag 为空 → 返回 null（首次发布走不到 fallback，由 release 流程兜底）
+ */
+export function findPrevTag(prefix, currentVersion, execList) {
+    const tags = execList()
+    const candidates = []
+    for (const tag of tags) {
+        if (!tag.startsWith(prefix)) {
+            continue
+        }
+        const ver = tag.slice(prefix.length)
+        if (!/^\d+\.\d+\.\d+$/.test(ver)) {
+            continue
+        }
+        if (ver === currentVersion) {
+            continue
+        }
+        candidates.push({ tag, ver })
+    }
+    // 降序取最大：compareSemverDesc 给 sort comparator 用，>0 表示 a 排在 b 后
+    candidates.sort((a, b) => compareSemverDesc(a.ver, b.ver))
+    return candidates[0]?.tag ?? null
+}
+
+/**
+ * 副作用封装：fallback 主流程。读 prev tag 时该包 + 所有相关 workspace 发布包的版本，
+ * 喂给纯函数 computeDependencyChanges / renderDependencySection。无变化或缺 tag → 返回空串。
+ * 注意：依赖失败（git show 失败 / package.json 解析失败）一律保守返回空串而非抛错——
+ * fallback 是"补充输出"机制，不该阻断主 changelog 流程。
+ */
+async function buildDependencyFallback({ pkgPath, currentPkgJson, prefix, version, repo, headDate }) {
+    const listTags = () => {
+        try {
+            return execSync(`git tag --list "${prefix}*"`, { cwd: repoRoot })
+                .toString()
+                .split('\n')
+                .filter(Boolean)
+        } catch {
+            return []
+        }
+    }
+    const prevTag = findPrevTag(prefix, version, listTags)
+    if (!prevTag) {
+        return ''
+    }
+    const prevVersion = prevTag.slice(prefix.length)
+
+    const readPkgJsonAtRef = (ref, path) => {
+        try {
+            const out = execSync(`git show "${ref}:${path}/package.json"`, { cwd: repoRoot, stdio: ['pipe', 'pipe', 'pipe'] })
+                .toString()
+                .trim()
+            return out ? JSON.parse(out) : null
+        } catch {
+            return null
+        }
+    }
+
+    // 当前 package.json 的依赖列表（已由 caller 读出）
+    const currentDeps = currentPkgJson.dependencies ?? {}
+    // prev tag 时该包的依赖列表
+    const prevPkgJson = readPkgJsonAtRef(prevTag, pkgPath)
+    const prevDeps = prevPkgJson?.dependencies ?? {}
+
+    // 解析两个时点所有相关 workspace 发布包的版本（仅看 PUBLISHABLE，避免私有包噪声）
+    const currentDepVersions = {}
+    const prevDepVersions = {}
+    for (const p of PUBLISHABLE_PACKAGES) {
+        try {
+            const curPkg = JSON.parse(await readFile(join(repoRoot, p.path, 'package.json'), 'utf8'))
+            currentDepVersions[p.pkg] = curPkg.version
+        } catch {
+            // 跳过：当前版本无法解析时让纯函数自然忽略
+        }
+        const prevPkg = readPkgJsonAtRef(prevTag, p.path)
+        if (prevPkg?.version) {
+            prevDepVersions[p.pkg] = prevPkg.version
+        }
+    }
+
+    const changes = computeDependencyChanges(currentDeps, prevDeps, currentDepVersions, prevDepVersions)
+    return renderDependencySection({ version, prevVersion, prefix, repo, headDate, changes })
+}
+
 for (const target of targets) {
     const dest = join(repoRoot, target.file)
-    const { version } = JSON.parse(await readFile(join(repoRoot, target.pkg), 'utf8'))
+    const pkgJsonPath = join(repoRoot, target.pkg)
+    const currentPkgJson = JSON.parse(await readFile(pkgJsonPath, 'utf8'))
+    const version = currentPkgJson.version
     let existing = null
     try {
         existing = await readFile(dest, 'utf8')
@@ -269,10 +452,23 @@ for (const target of targets) {
         continue
     }
     // 增量追加：仅重算未发布版本段（releaseCount: 1 = 最新 tag 之后）
-    const unreleased = await generate({ ...target, releaseCount: 1 })
+    let unreleased = await generate({ ...target, releaseCount: 1 })
     if (!unreleased) {
-        console.log(`unchanged ${target.file}`)
-        continue
+        // fallback：path-filter 空 + 版本未发布 → 可能是"被动依赖升级"（依赖传导触发的 patch 跟随，
+        // 该包路径下从上次 tag 后无自身 commit）。构造 Dependencies 段填充空段，让 verify-changelog 通过。
+        // 边界：仅在历史 tag 存在且 workspace 依赖确实有版本变化时输出空串以外的内容（重跑幂等语义保留）。
+        unreleased = await buildDependencyFallback({
+            pkgPath: target.path,
+            currentPkgJson,
+            prefix: target.tags.prefix,
+            version,
+            repo,
+            headDate,
+        })
+        if (!unreleased) {
+            console.log(`unchanged ${target.file}`)
+            continue
+        }
     }
     const merged = mergeUnreleased(existing, version, unreleased)
     if (merged === existing) {

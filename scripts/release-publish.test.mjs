@@ -1,7 +1,7 @@
 import { execSync } from 'node:child_process'
 import { writeFileSync } from 'node:fs'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { buildFinalizePlan, buildPublishPlan, main, resolveAnchorVersion, tagRecovered } from './release-publish.mjs'
+import { buildFinalizePlan, buildPublishPlan, main, resolveAnchorVersion, tagOnly, tagRecovered } from './release-publish.mjs'
 import { readPackageVersion } from './tag-released-versions.mjs'
 
 // main()/publishOne/finalizeRelease 依赖真实 git 命令与文件写入，统一 mock
@@ -24,6 +24,19 @@ const packages = [
     { path: 'packages/skills', pkg: '@dependfix/skills', tags: { prefix: '@dependfix/skills@' }, publishOrder: 3, rootChangelog: false },
     { path: 'packages/cli', pkg: 'dependfix', tags: { prefix: 'dependfix@' }, publishOrder: 4, rootChangelog: true },
     { path: 'packages/mcp', pkg: '@dependfix/mcp', tags: { prefix: '@dependfix/mcp@' }, publishOrder: 5, rootChangelog: false },
+]
+
+// 含 platform 第 6 包：用于测 tag-only 分支（§T1310）
+const packagesWithPlatform = [
+    ...packages,
+    {
+        path: 'apps/platform',
+        pkg: '@dependfix/platform',
+        tags: { prefix: '@dependfix/platform@' },
+        publishOrder: 6,
+        rootChangelog: false,
+        npmPublishable: false,
+    },
 ]
 
 const baseDeps = {
@@ -132,6 +145,62 @@ describe('tagRecovered', () => {
     })
 })
 
+// §T1310 tag-only 路径：npmPublishable=false（docker-only 发布单元）跳过 pnpm publish
+// 但仍打 annotated git tag，保证 changelog 历史可比 + docker 触发 platform-x.y.z tag
+describe('buildPublishPlan with platform (npmPublishable=false)', () => {
+    it('routes npmPublishable=false packages to tag-only action', () => {
+        const plan = buildPublishPlan(packagesWithPlatform, baseDeps)
+        const platform = plan.find((p) => p.pkg === '@dependfix/platform')
+        expect(platform?.action).toBe('tag-only')
+        expect(platform?.version).toBe('0.3.0')
+        expect(platform?.tagName).toBe('@dependfix/platform@0.3.0')
+        // 5 个 npm 包路径不变（仍走 publish）
+        expect(plan.filter((p) => p.action === 'publish')).toHaveLength(5)
+        expect(plan.filter((p) => p.action === 'tag-only')).toHaveLength(1)
+    })
+
+    it('npmPublishable=false 短路优先于 isPublished 判定（即使 registry 误判命中也不发 npm）', () => {
+        const plan = buildPublishPlan(packagesWithPlatform, {
+            ...baseDeps,
+            isPublished: (pkg) => pkg === '@dependfix/platform',
+        })
+        const platform = plan.find((p) => p.pkg === '@dependfix/platform')
+        expect(platform?.action).toBe('tag-only')
+    })
+
+    it('local-tag-exists 短路优先于 tag-only（已打 tag 不重复）', () => {
+        const plan = buildPublishPlan(packagesWithPlatform, {
+            ...baseDeps,
+            hasTag: (tagName) => tagName === '@dependfix/platform@0.3.0',
+        })
+        const platform = plan.find((p) => p.pkg === '@dependfix/platform')
+        expect(platform?.action).toBe('skip-tag-exists')
+    })
+})
+
+describe('tagOnly', () => {
+    const planItem = {
+        pkg: '@dependfix/platform',
+        path: 'apps/platform',
+        version: '0.1.0',
+        tagName: '@dependfix/platform@0.1.0',
+    }
+
+    it('creates annotated tag when HEAD touches the path', () => {
+        const tag = vi.fn()
+        expect(() => tagOnly(planItem, { headTouches: () => true, tag })).not.toThrow()
+        expect(tag).toHaveBeenCalledExactlyOnceWith('@dependfix/platform@0.1.0')
+    })
+
+    it('refuses to tag when HEAD does not touch the path (anchor guard)', () => {
+        const tag = vi.fn()
+        expect(() =>
+            tagOnly(planItem, { headTouches: () => false, tag, headHash: () => 'abc1234' }),
+        ).toThrow(/HEAD 不是 touch/)
+        expect(tag).not.toHaveBeenCalled()
+    })
+})
+
 describe('buildFinalizePlan', () => {
     it('creates v tag plan with result content for anchored round', () => {
         const plan = buildFinalizePlan(
@@ -220,15 +289,23 @@ describe('main', () => {
         expect(calls.filter((c) => c.includes('pnpm --filter'))).toHaveLength(0)
     })
 
-    it('publishes unpublished packages, creates tags and finalizes v tag', async () => {
+    it('publishes 5 npm packages + tag-only platform, creates tags and finalizes v tag', async () => {
+        // §T1310：自 platform 加入后 main() 真实读取 PUBLISHABLE_PACKAGES（来自
+        // packages.config.mjs，6 个包）。5 个 npm 包走 publish；platform 走
+        // tag-only（不打 pnpm publish 但打 annotated tag）。
         stubRegistryUnpublished()
         process.argv = ['node', 'release-publish.mjs']
         await main()
 
         const calls = vi.mocked(execSync).mock.calls.map((c) => String(c[0]))
-        // 5 包全部发布
+        // 5 包 pnpm publish（platform 跳过 pnpm）
         expect(calls.filter((c) => c.includes('pnpm --filter'))).toHaveLength(5)
-        expect(calls.filter((c) => c.includes('git tag -a'))).toHaveLength(6) // 5 包 tag + 1 个 v tag
+        // 5 包 npm tag + 1 platform tag + 1 v tag = 7
+        expect(calls.filter((c) => c.includes('git tag -a'))).toHaveLength(7)
+        expect(console.log).toHaveBeenCalledWith(
+            expect.stringContaining('tagged @dependfix/platform@'),
+        )
+        expect(console.log).toHaveBeenCalledWith(expect.stringContaining('npmPublishable=false'))
         expect(console.log).toHaveBeenCalledWith(expect.stringContaining('created v'))
         expect(console.log).toHaveBeenCalledWith(expect.stringContaining('聚合 Release tag'))
         // result.json 写入（mock fs，不落盘）
@@ -236,19 +313,29 @@ describe('main', () => {
         expect(console.log).toHaveBeenCalledWith(expect.stringContaining('written'))
     })
 
-    it('tags half-published packages when HEAD touches the path (self-heal)', async () => {
+    it('tags half-published npm packages + tag-only platform (self-heal mix)', async () => {
+        // registry 已发布当前真实版本 → 5 npm 包走 skip-published → tagRecovered 补 tag
+        // platform 走 tag-only（不受 isPublished 影响）。
         stubRegistryPublished()
         process.argv = ['node', 'release-publish.mjs']
         await main()
 
         expect(console.log).toHaveBeenCalledWith(expect.stringContaining('npm 已发布，补 annotated tag'))
-        // 无 pnpm publish（全部 skip-published），但有 5 包补 tag + 1 个 v tag
+        expect(console.log).toHaveBeenCalledWith(
+            expect.stringContaining('tagged @dependfix/platform@'),
+        )
+        expect(console.log).toHaveBeenCalledWith(expect.stringContaining('npmPublishable=false'))
+        // 无 pnpm publish（5 npm 包 skip-published + platform tag-only），但有
+        // 5 包补 tag + 1 platform tag + 1 v tag = 7
         const calls = vi.mocked(execSync).mock.calls.map((c) => String(c[0]))
         expect(calls.filter((c) => c.includes('pnpm --filter'))).toHaveLength(0)
-        expect(calls.filter((c) => c.includes('git tag -a'))).toHaveLength(6)
+        expect(calls.filter((c) => c.includes('git tag -a'))).toHaveLength(7)
     })
 
-    it('skips tag recovery when HEAD does not touch the path', async () => {
+    it('skips tag recovery for npm packages when HEAD does not touch the path (platform throws on anchor guard)', async () => {
+        // HEAD 不 touch 任何包路径（mock 让 log -1 返回 ≠ HEAD）→ 5 个 npm 包
+        // self-heal 跳过（HEAD 不 touch） + platform tag-only 锚点校验失败抛错。
+        // tagOnly 与 publishOne 锚点守卫对称硬抛错，停止 main 流程（保证不污染 tag 锚点）。
         vi.mocked(execSync).mockReset()
         vi.mocked(execSync).mockImplementation((cmd) => {
             const c = String(cmd)
@@ -268,11 +355,14 @@ describe('main', () => {
         })
         stubRegistryPublished()
         process.argv = ['node', 'release-publish.mjs']
-        await main()
-
+        // 锚点失败预期抛错（与 publishOne 对称硬抛错语义）
+        await expect(main()).rejects.toThrow(/HEAD 不是 touch apps\/platform/)
+        // 5 npm 包 self-heal 跳过（HEAD 不 touch）
         expect(console.log).toHaveBeenCalledWith(expect.stringContaining('不补 tag'))
+        // tag 与 publish 都未执行
         const calls = vi.mocked(execSync).mock.calls.map((c) => String(c[0]))
-        expect(calls.filter((c) => c.includes('git tag -a'))).toHaveLength(0) // 无补 tag（v tag 也不打：无锚包）
+        expect(calls.filter((c) => c.includes('git tag -a'))).toHaveLength(0)
+        expect(calls.filter((c) => c.includes('pnpm --filter'))).toHaveLength(0)
     })
 
     it('no-op round writes empty result and skips v tag', async () => {

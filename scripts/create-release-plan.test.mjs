@@ -71,13 +71,15 @@ describe('pathToPkg', () => {
         expect(pathToPkg('packages/cli/package.json')).toBe('dependfix')
         expect(pathToPkg('packages/skills/dependfix-remediator/SKILL.md')).toBe('@dependfix/skills')
         expect(pathToPkg('packages/mcp/src/index.ts')).toBe('@dependfix/mcp')
+        // §T1310：apps/platform 也进入发布清单 path-to-pkg 映射
+        expect(pathToPkg('apps/platform/src/index.ts')).toBe('@dependfix/platform')
+        expect(pathToPkg('apps/platform')).toBe('@dependfix/platform')
     })
 
     it('returns null for non-package paths', () => {
         expect(pathToPkg('docs/guide/release.md')).toBeNull()
         expect(pathToPkg('package.json')).toBeNull()
         expect(pathToPkg('scripts/changelog.mjs')).toBeNull()
-        expect(pathToPkg('apps/platform/src/index.ts')).toBeNull()
     })
 })
 

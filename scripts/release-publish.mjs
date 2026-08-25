@@ -40,7 +40,12 @@ function git(args) {
 /**
  * 构建发布计划（纯函数，依赖注入便于测试）。
  * 返回每包计划：{ pkg, path, version, tagName, action }
- * action：publish / skip-tag-exists / skip-published / skip-registry-error
+ * action：publish / skip-tag-exists / skip-published / skip-registry-error / tag-only
+ *
+ * tag-only 分支：npmPublishable === false 包（如 apps/platform）跳过 npm publish
+ * 但仍打 annotated tag，保证 changelog 历史可比 + docker 触发 platform-x.y.z tag。
+ * 短路顺序：local tag 存在 → skip-tag-exists（任何 publishable 字段无关）；
+ * 否则 npmPublishable=false → tag-only；否则走 isPublished 判定。
  */
 export function buildPublishPlan(packages, deps) {
     const { versionOf, hasTag, isPublished } = deps
@@ -49,6 +54,9 @@ export function buildPublishPlan(packages, deps) {
         const tagName = `${p.tags.prefix}${version}`
         if (hasTag(tagName)) {
             return { pkg: p.pkg, path: p.path, version, tagName, action: 'skip-tag-exists' }
+        }
+        if (p.npmPublishable === false) {
+            return { pkg: p.pkg, path: p.path, version, tagName, action: 'tag-only' }
         }
         const published = isPublished(p.pkg, version)
         if (published !== false) {
@@ -82,6 +90,23 @@ export function publishOne(planItem) {
     })
     git(`tag -a "${planItem.tagName}" -m "release ${planItem.tagName}"`)
     console.log(`published ${planItem.pkg}@${planItem.version}，tag ${planItem.tagName} 已创建`)
+}
+
+/**
+ * 仅打 tag 不发 npm（npmPublishable === false 包专用，见 §T1310）。
+ * 锚点约束与 publishOne 一致：HEAD 必须 touch 该包路径，否则拒绝打 tag。
+ * deps 注入便于单测（headTouches / tag）。
+ */
+export function tagOnly(planItem, deps = {}) {
+    const headTouches = deps.headTouches ?? headTouchesPath
+    const tag = deps.tag ?? ((name) => git(`tag -a "${name}" -m "release ${name}"`))
+    const headHashFn = deps.headHash ?? headHash
+    if (!headTouches(planItem.path)) {
+        throw new Error(
+            `HEAD 不是 touch ${planItem.path} 的提交（${headHashFn()}），请确认已执行 release:version 并提交发布变更（package.json 版本 + CHANGELOG）后再打 tag`,
+        )
+    }
+    tag(planItem.tagName)
 }
 
 /**
@@ -201,7 +226,8 @@ export async function main() {
     if (publishes.length === 0) {
         console.log('没有需要发布的版本（全部已发布 / 查询失败保守跳过）')
     }
-    // 本轮实际打 tag 的包（发布 + 半发布状态补 tag），v tag 锚点解析与 result.json 均以此为准
+    // 本轮实际打 tag 的包（发布 + tag-only + 半发布状态补 tag），
+    // v tag 锚点解析与 result.json 均以此为准
     const tagged = []
     for (const p of plan) {
         switch (p.action) {
@@ -211,6 +237,15 @@ export async function main() {
                 } else {
                     publishOne(p)
                     tagged.push(p)
+                }
+                break
+            case 'tag-only':
+                if (dryRun) {
+                    console.log(`[dry-run] would tag-only ${p.pkg}@${p.version}（skip npm publish）+ tag ${p.tagName}`)
+                } else {
+                    tagOnly(p)
+                    tagged.push(p)
+                    console.log(`tagged ${p.pkg}@${p.version}（npmPublishable=false，skip npm publish）+ ${p.tagName}`)
                 }
                 break
             case 'skip-tag-exists':

@@ -1,4 +1,5 @@
 export * from './client'
+export * from './code-quality-fetcher'
 export * from './code-scanning-fetcher'
 export * from './dependabot-fetcher'
 export * from './errors'

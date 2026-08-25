@@ -2,8 +2,17 @@ import type { Octokit } from '@octokit/rest'
 import { toErrorMessage, type FixError, type Logger, type NormalizedSecurityAlert } from '@dependfix/core'
 import { fetchPnpmAuditAlerts } from '../alerts'
 import type { RuntimeConfig } from '../config'
-import { createGitHubClient, fetchCodeScanningAlerts, fetchDependabotAlerts } from '../github'
-import { codeScanningAlertsTokenHint, dependabotAlertsTokenHint } from './helpers'
+import {
+    createGitHubClient,
+    fetchCodeQualityFindings,
+    fetchCodeScanningAlerts,
+    fetchDependabotAlerts,
+} from '../github'
+import {
+    codeQualityAlertsTokenHint,
+    codeScanningAlertsTokenHint,
+    dependabotAlertsTokenHint,
+} from './helpers'
 
 /** fetchRepoAlerts 所需的最小上下文切片（AppContext 满足此结构）。 */
 export interface FetchAlertsDeps {
@@ -16,7 +25,9 @@ export interface FetchAlertsDeps {
 /**
  * 告警数据源统一入口：
  * - `github-dependabot`：Octokit 拉取 Dependabot alerts（alertsToken 优先）；
- *   `codeScanningEnabled` 时**并行**拉取 Code Scanning alerts（互不覆盖、互不回退）
+ *   `codeScanningEnabled` 时**并行**拉取 Code Scanning alerts（互不覆盖、互不回退）；
+ *   `codeQualityEnabled` 时**并行**拉取 Code Quality findings（与 Code Scanning 同源独立开启）。
+ *   三个 GitHub 源完全独立（可单独开启任意组合）。
  * - `pnpm-audit`：本地 `pnpm audit --json` 回退（无 token；repository 已由 resolveAlertRepositories 解析）
  *
  * per-source 错误隔离：并行源任一失败 → 记录该源 FETCH_FAILED 错误
@@ -31,10 +42,13 @@ export async function fetchRepoAlerts(deps: FetchAlertsDeps, repo: string): Prom
     const alertsClient = createAlertsClientFromConfig(config)
     const [owner, name] = repo.split('/')
 
-    const [dependabotResult, codeScanningResult] = await Promise.allSettled([
+    const [dependabotResult, codeScanningResult, codeQualityResult] = await Promise.allSettled([
         fetchDependabotAlerts(alertsClient, { owner, repo: name }),
         config.codeScanningEnabled
             ? fetchCodeScanningAlerts(alertsClient, { owner, repo: name })
+            : Promise.resolve([] as NormalizedSecurityAlert[]),
+        config.codeQualityEnabled
+            ? fetchCodeQualityFindings(alertsClient, { owner, repo: name })
             : Promise.resolve([] as NormalizedSecurityAlert[]),
     ])
 
@@ -58,14 +72,32 @@ export async function fetchRepoAlerts(deps: FetchAlertsDeps, repo: string): Prom
         }
     }
 
+    if (config.codeQualityEnabled) {
+        if (codeQualityResult.status === 'fulfilled') {
+            alerts.push(...codeQualityResult.value)
+            deps.logger.info(`Fetched ${codeQualityResult.value.length} code quality findings for ${repo}`)
+        } else {
+            failedSources.push('code-quality')
+            recordAlertSourceError(deps, repo, 'code-quality', codeQualityResult.reason)
+        }
+    }
+
     // 全部源失败 → 抛第一个失败（调用方 catch 保持仓库失败语义 + token hint）
-    const totalSources = config.codeScanningEnabled ? 2 : 1
+    let totalSources = 1
+    if (config.codeScanningEnabled) {
+        totalSources++
+    }
+    if (config.codeQualityEnabled) {
+        totalSources++
+    }
     if (failedSources.length === totalSources) {
         let firstReason: unknown
         if (dependabotResult.status === 'rejected') {
             firstReason = dependabotResult.reason
         } else if (codeScanningResult.status === 'rejected') {
             firstReason = codeScanningResult.reason
+        } else if (codeQualityResult.status === 'rejected') {
+            firstReason = codeQualityResult.reason
         } else {
             firstReason = new Error(`failed to fetch alerts for ${repo}`)
         }
@@ -95,7 +127,9 @@ function createAlertsClientFromConfig(config: RuntimeConfig): Octokit {
 /** 记录单个告警源的拉取失败（不中断另一源的处理）。 */
 function recordAlertSourceError(deps: FetchAlertsDeps, repo: string, source: string, error: unknown): void {
     const message = toErrorMessage(error)
-    const hint = dependabotAlertsTokenHint(error) ?? codeScanningAlertsTokenHint(error)
+    const hint = dependabotAlertsTokenHint(error)
+        ?? codeScanningAlertsTokenHint(error)
+        ?? codeQualityAlertsTokenHint(error)
     deps.logger.error(`Failed to fetch ${source} alerts for ${repo}: ${message}${hint ? ` — ${hint}` : ''}`)
     deps.allErrors.push({
         repository: repo,

@@ -421,6 +421,7 @@
         "filterApply": "筛选",
         "severityAll": "全部级别",
         "sourceAll": "全部来源",
+        "sourceCodeQuality": "Code Quality",
         "colRepository": "仓库",
         "colSeverity": "严重级别",
         "colPackage": "包/规则",

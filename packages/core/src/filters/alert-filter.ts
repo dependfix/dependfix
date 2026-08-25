@@ -65,7 +65,7 @@ function thresholdOrdinal(threshold: SeverityThreshold): number {
  * - `>= high`：保留 critical + high
  * - `>= medium`：保留 critical + high + medium
  * - `all`：全部保留
- * - Code Scanning 源的 `unknown` 恒透传（SARIF 上传等场景无严重级数据，
+ * - Code Scanning / Code Quality 源的 `unknown` 恒透传（静态分析场景无严重级数据，
  *   不得静默丢弃——收尾审查遗留修复；报告 §4 明细与建议区块可见）。
  *   Dependabot / pnpm-audit 的 unknown 视为异常数据，维持过滤语义。
  */
@@ -78,8 +78,10 @@ export function filterAlerts(
     const skipped: SkippedAlert[] = []
 
     for (const alert of alerts) {
-        const keepUnknownCs = alert.severity === 'unknown' && alert.source === 'code-scanning'
-        if (keepUnknownCs || severityOrdinal(alert.severity) >= minSeverity) {
+        // 静态分析类（code-scanning / code-quality）的 unknown severity 透传
+        const keepUnknownStatic = alert.severity === 'unknown'
+            && (alert.source === 'code-scanning' || alert.source === 'code-quality')
+        if (keepUnknownStatic || severityOrdinal(alert.severity) >= minSeverity) {
             filtered.push(alert)
         } else {
             skipped.push({

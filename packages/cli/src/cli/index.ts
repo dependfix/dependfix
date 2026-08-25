@@ -110,6 +110,11 @@ export const argsDef = {
         description: '同时拉取 Code Scanning alerts（与 Dependabot 并行，默认关闭；需要 token 具备 security-events: read，GITHUB_TOKEN 默认具备）',
         negativeDescription: '不拉取 Code Scanning alerts（默认）',
     },
+    'code-quality': {
+        type: 'boolean' as const,
+        description: '同时拉取 Code Quality findings（与 Dependabot 并行，默认关闭；需要 fine-grained PAT 具备 Code quality: read，或 classic PAT 具备 repo/public_repo scope）',
+        negativeDescription: '不拉取 Code Quality findings（默认）',
+    },
     'allow-major-upgrade': {
         type: 'boolean' as const,
         description: '跨线告警（推荐版本跨大版本，当前线内无修复版本）显式授权自动升级：仅根 package.json 直接依赖（workspace 成员独占声明维持人工）且 lockfile 单版本的告警自动跨线升级，升级后复核脆弱实例、强制完整验证（install+lint+build），失败自动回滚；间接依赖 / 多版本共存跨线告警维持人工处理。仅 CLI 可用，Action 不支持',
@@ -367,6 +372,11 @@ function parsedArgsToCliOverrides(parsed: ParsedArgs<typeof argsDef>): CliConfig
     // code-scanning (three-state: true / false / undefined)
     if (parsed['code-scanning'] !== undefined) {
         overrides.codeScanningEnabled = parsed['code-scanning']
+    }
+
+    // code-quality (three-state: true / false / undefined)
+    if (parsed['code-quality'] !== undefined) {
+        overrides.codeQualityEnabled = parsed['code-quality']
     }
 
     // allow-major-upgrade (three-state: true / false / undefined; 无 env 通道，仅 CLI)

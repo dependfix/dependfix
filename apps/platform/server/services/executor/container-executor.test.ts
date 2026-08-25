@@ -21,6 +21,7 @@ const makeCtx = (overrides: Partial<ScanExecutorContext> = {}): ScanExecutorCont
         githubToken: 'ghp_test',
         alertSource: 'github-dependabot',
         codeScanningEnabled: false,
+        codeQualityEnabled: false,
         allowMajorUpgrade: false,
         maxAlertsPerRepository: 20,
         maxConcurrency: 1,

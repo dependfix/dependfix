@@ -20,6 +20,7 @@ import {
     parseRangeTargets,
     statusIcon,
     collectCodeScanningSuggestions,
+    collectCodeQualityFindings,
     createEmptyRunSummary,
 } from './index'
 
@@ -183,6 +184,27 @@ describe('isAlertFixedByActions', () => {
         expect(isAlertFixedByActions(csAlert, [csAction])).toBe(true)
         expect(isAlertFixedByActions(csAlert, [{ ...csAction, filePath: 'src/other.ts' }])).toBe(false)
         expect(isAlertFixedByActions(csAlert, [{ ...csAction, noOp: true }])).toBe(false)
+    })
+
+    it('never marks code-quality alerts as fixed by dependency upgrades (package-name overlap)', () => {
+        // Code Quality 不可自动修复；同名 packageName 与 Dependabot 重叠时不走依赖升级路径
+        const cqAlert = makeAlert({
+            source: 'code-quality',
+            packageName: 'lodash', // 与某 Dependabot 告警同名
+            ruleId: 'js/complex-method',
+            recommendedVersion: '',
+        })
+        const upgradeAction: FixAction = {
+            type: 'dependency-upgrade',
+            repository: 'owner/repo',
+            target: 'lodash',
+            toVersion: '^4.17.21',
+            success: true,
+        }
+        expect(isAlertFixedByActions(cqAlert, [upgradeAction])).toBe(false)
+        // 即便多源 action 并存，code-quality 仍 false
+        expect(isAlertFixedByActions(cqAlert, [upgradeAction, { ...upgradeAction, type: 'code-scanning-fix' }])).toBe(false)
+        expect(isAlertFixedByActions(cqAlert, [])).toBe(false)
     })
 
     it('ignores unparseable toVersion values', () => {
@@ -498,6 +520,96 @@ describe('collectCodeScanningSuggestions', () => {
     it('omits suggestions section when no unfixed code-scanning alerts exist', () => {
         const md = generateMarkdownReport(EMPTY_RUN_RESULT)
         expect(md).not.toContain('Code Scanning Suggestions')
+    })
+})
+
+// ---------------------------------------------------------------------------
+// collectCodeQualityFindings（Code Quality 报告段）
+// ---------------------------------------------------------------------------
+
+describe('collectCodeQualityFindings', () => {
+    it('returns empty for results without code-quality alerts', () => {
+        const result: RunResult = {
+            ...EMPTY_RUN_RESULT,
+            alerts: [
+                makeAlert({ id: 1, source: 'dependabot', packageName: 'lodash' }),
+            ],
+        }
+        expect(collectCodeQualityFindings(result)).toEqual([])
+    })
+
+    it('extracts rule/title/location/summary/suggestion from code-quality alerts', () => {
+        const result: RunResult = {
+            ...EMPTY_RUN_RESULT,
+            alerts: [
+                {
+                    id: 42,
+                    source: 'code-quality',
+                    repository: 'owner/repo',
+                    defaultBranch: 'main',
+                    severity: 'medium',
+                    packageEcosystem: 'code-quality',
+                    packageName: 'Useless null check',
+                    manifestPath: 'src/UselessNullCheck.java',
+                    ruleId: 'java/useless-null-check',
+                    summary: 'This check is useless.',
+                    htmlUrl: 'https://github.com/owner/repo/code-quality/findings/42',
+                    fixable: false,
+                    fixStrategy: null,
+                    recommendedVersion: '',
+                    startLine: 9,
+                    endLine: 18,
+                    suggestion: 'Checking whether an expression is null...',
+                },
+            ],
+        }
+
+        const rows = collectCodeQualityFindings(result)
+
+        expect(rows).toHaveLength(1)
+        expect(rows[0]).toMatchObject({
+            repository: 'owner/repo',
+            ruleId: 'java/useless-null-check',
+            ruleTitle: 'Useless null check',
+            location: 'src/UselessNullCheck.java:9',
+            severity: 'medium',
+            summary: 'This check is useless.',
+            suggestion: 'Checking whether an expression is null...',
+        })
+    })
+
+    it('omits location line suffix when startLine is absent', () => {
+        const result: RunResult = {
+            ...EMPTY_RUN_RESULT,
+            alerts: [
+                makeAlert({
+                    id: 1,
+                    source: 'code-quality',
+                    packageName: 'NoLine',
+                    manifestPath: 'src/x.ts',
+                    ruleId: 'rule/x',
+                }),
+            ],
+        }
+
+        const rows = collectCodeQualityFindings(result)
+
+        expect(rows[0].location).toBe('src/x.ts')
+    })
+
+    it('falls back to generic suggestion when alert.suggestion is missing', () => {
+        const cqAlert: NormalizedSecurityAlert = {
+            ...makeAlert({ id: 1, source: 'code-quality', packageName: 'X', ruleId: 'rule/x' }),
+            suggestion: undefined,
+        }
+        const result: RunResult = {
+            ...EMPTY_RUN_RESULT,
+            alerts: [cqAlert],
+        }
+
+        const rows = collectCodeQualityFindings(result)
+
+        expect(rows[0].suggestion).toContain('人工审查')
     })
 })
 

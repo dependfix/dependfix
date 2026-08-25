@@ -421,6 +421,7 @@
         "filterApply": "Filter",
         "severityAll": "All levels",
         "sourceAll": "All sources",
+        "sourceCodeQuality": "Code Quality",
         "colRepository": "Repository",
         "colSeverity": "Severity",
         "colPackage": "Package / rule",

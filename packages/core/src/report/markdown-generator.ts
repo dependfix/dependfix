@@ -10,6 +10,7 @@ import {
     statusIcon,
 } from './types'
 import { collectCodeScanningSuggestions } from './suggestions'
+import { collectCodeQualityFindings } from './code-quality-suggestions'
 
 /**
  * 生成 Markdown 格式报告字符串。
@@ -198,6 +199,27 @@ export function generateMarkdownReport(result: RunResult): string {
         sections.push('')
     }
 
+    // ---- 5.6 Code Quality Findings（静态分析类 findings 报告段）----
+    // 独立于 Code Scanning 段：cq 全部归 C 类，无修复动作、无 fixedKeys 关联；
+    // 报告仅展示 + 给人工审查建议（fetcher 注入的 rule.description）
+    const cqFindings = collectCodeQualityFindings(result)
+    if (cqFindings.length > 0) {
+        sections.push(
+            '## Code Quality Findings',
+            '',
+            '> Code Quality findings 由 GitHub CodeQL maintainability / reliability 规则生成；本工具首版仅做报告接入（不可自动修复）。',
+            '',
+            '| Repository | Rule | Location | Severity | Summary | Suggestion |',
+            '|------------|------|----------|----------|---------|------------|',
+        )
+        for (const f of cqFindings) {
+            sections.push(
+                `| ${escapeMd(f.repository)} | \`${escapeMd(f.ruleId)}\` | \`${escapeMd(f.location)}\` | ${f.severity.toUpperCase()} | ${escapeMd(f.summary)} | ${escapeMd(f.suggestion)} |`,
+            )
+        }
+        sections.push('')
+    }
+
     // ---- 6. Fix Actions ----
     sections.push('## Fix Actions', '')
     if (actions.length > 0) {
@@ -243,12 +265,22 @@ function severityRow(label: string, row: { found: number, fixable: number, fixed
     return `| ${label} | ${row.found} | ${row.fixable} | ${row.fixed} | ${row.failed} |`
 }
 
-/** 报告 Header 的 Alert Source 标签（code-scanning 开启时标注并行源）。 */
+/** 报告 Header 的 Alert Source 标签（多源并行时组合展示）。 */
 function alertSourceLabel(config: RunResult['config']): string {
     if (config.alertSource === 'pnpm-audit') {
         return 'pnpm-audit (local workspace)'
     }
-    return config.codeScanningEnabled ? 'GitHub Dependabot + Code Scanning API' : 'GitHub Dependabot API'
+    const extras: string[] = []
+    if (config.codeScanningEnabled) {
+        extras.push('Code Scanning API')
+    }
+    if (config.codeQualityEnabled) {
+        extras.push('Code Quality API')
+    }
+    if (extras.length === 0) {
+        return 'GitHub Dependabot API'
+    }
+    return `GitHub Dependabot + ${extras.join(' + ')}`
 }
 
 /** Code Scanning 规则分层标签（A/B/C）；非 Code Scanning 源显示 —。 */

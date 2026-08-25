@@ -64,6 +64,7 @@ describe('parseCliArgs', () => {
             githubToken: 'token-from-cli',
             alertSource: 'github-dependabot',
             codeScanningEnabled: false,
+            codeQualityEnabled: false,
             allowMajorUpgrade: false,
             maxAlertsPerRepository: 3,
             maxConcurrency: 1,
@@ -176,6 +177,13 @@ describe('parseCliArgs', () => {
             .configOverrides.codeScanningEnabled).toBe(true)
         expect(parseCliArgs(['report-only', '--repo', 'foo/bar', '--no-code-scanning'])
             .configOverrides.codeScanningEnabled).toBe(false)
+    })
+
+    it('enables code quality via CLI flag (three-state)', () => {
+        expect(parseCliArgs(['report-only', '--repo', 'foo/bar', '--code-quality'])
+            .configOverrides.codeQualityEnabled).toBe(true)
+        expect(parseCliArgs(['report-only', '--repo', 'foo/bar', '--no-code-quality'])
+            .configOverrides.codeQualityEnabled).toBe(false)
     })
 
     it('enables major upgrade via CLI flag (three-state)', () => {

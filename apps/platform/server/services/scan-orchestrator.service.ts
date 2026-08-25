@@ -178,6 +178,7 @@ const runScanInternal = async (
             githubToken: token ?? '',
             alertSource: 'github-dependabot',
             codeScanningEnabled: false,
+            codeQualityEnabled: false,
             allowMajorUpgrade: false,
             maxAlertsPerRepository: 20,
             maxConcurrency: 1,

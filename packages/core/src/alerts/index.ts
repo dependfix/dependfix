@@ -1,4 +1,4 @@
-export type AlertSource = 'dependabot' | 'code-scanning' | 'pnpm-audit'
+export type AlertSource = 'dependabot' | 'code-scanning' | 'code-quality' | 'pnpm-audit'
 
 export type AlertSeverity = 'critical' | 'high' | 'medium' | 'low' | 'unknown'
 

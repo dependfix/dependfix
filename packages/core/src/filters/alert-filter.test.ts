@@ -98,6 +98,17 @@ describe('filterAlerts', () => {
         expect(result.filtered).toHaveLength(2) // critical + cs-unknown
         expect(result.skipped.some((s) => s.alert.id === 5)).toBe(true) // dependabot unknown 仍过滤
     })
+
+    it('keeps code-quality unknown alerts regardless of threshold (static analysis passthrough)', () => {
+        // 静态分析类（code-scanning / code-quality）unknown severity 透传
+        const result = filterAlerts([
+            alert({ id: 10, severity: 'unknown', source: 'code-quality', packageName: 'rule-x' }),
+            alert({ id: 11, severity: 'unknown', source: 'dependabot', packageName: 'pkg-y' }),
+        ], { severityThreshold: 'high' })
+
+        expect(result.filtered.map((a) => a.id)).toContain(10) // code-quality unknown 透传
+        expect(result.skipped.some((s) => s.alert.id === 11)).toBe(true) // dependabot unknown 仍过滤
+    })
 })
 
 // ---------------------------------------------------------------------------

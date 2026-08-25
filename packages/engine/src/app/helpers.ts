@@ -179,6 +179,28 @@ export function codeScanningAlertsTokenHint(error: unknown): string | null {
     return null
 }
 
+/**
+ * Code Quality findings fetch 错误用户指引（token 需 fine-grained `Code quality: read`
+ * 或 classic PAT `repo`/`public_repo` scope）。
+ * 仅用于 Code Quality fetch 错误路径；按精确 context 匹配（`fetch code quality findings for`），
+ * 不依赖裸关键字。
+ */
+export function codeQualityAlertsTokenHint(error: unknown): string | null {
+    if (!(error instanceof AppError)) {
+        return null
+    }
+    if (!error.message.includes('fetch code quality findings for')) {
+        return null
+    }
+    if (error.code === 'PERMISSION_DENIED') {
+        return '请检查 token 是否具备 Code Quality findings 读取权限（fine-grained PAT 需 Code quality: read；classic PAT 需 repo / public_repo scope；GitHub App 需对应仓库权限）'
+    }
+    if (error.code === 'AUTHENTICATION_FAILED') {
+        return 'token 无效或已过期，请检查 GITHUB_TOKEN / alertsToken 配置'
+    }
+    return null
+}
+
 // ---------------------------------------------------------------------------
 // Context
 // ---------------------------------------------------------------------------

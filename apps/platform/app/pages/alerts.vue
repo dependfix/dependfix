@@ -86,6 +86,7 @@ const sourceOptions = computed(() => [
     { label: t('alerts.sourceAll'), value: 'all' },
     { label: 'Dependabot', value: 'dependabot' },
     { label: 'Code Scanning', value: 'code-scanning' },
+    { label: t('alerts.sourceCodeQuality'), value: 'code-quality' },
     { label: 'pnpm audit', value: 'pnpm-audit' },
 ])
 

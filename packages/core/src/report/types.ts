@@ -20,6 +20,8 @@ export interface RunReportConfig {
     alertSource: AlertSourceKind
     /** 是否同时拉取 Code Scanning alerts（与 Dependabot 并行源） */
     codeScanningEnabled?: boolean
+    /** 是否同时拉取 Code Quality findings（与 Dependabot 并行源） */
+    codeQualityEnabled?: boolean
 }
 
 /**
@@ -236,6 +238,13 @@ export function isAlertFixedByActions(
             && a.type === 'code-scanning-fix'
             && `${a.repository}/${a.target}@${a.filePath ?? ''}` === csKey
         ))
+    }
+
+    // Code Quality：所有 findings 均 `fixable: false`、`recommendedVersion: ''`；
+    // 不可被 dependency-upgrade action 误标为 fixed（同名 packageName 与 Dependabot 重叠时
+    // 走包级匹配兜底会错误返回 true）。首版统一不可修复。
+    if (alert.source === 'code-quality') {
+        return false
     }
 
     // 依赖升级：版本满足判定

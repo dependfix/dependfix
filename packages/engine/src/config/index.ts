@@ -79,6 +79,14 @@ export interface RuntimeConfig {
      */
     codeScanningEnabled: boolean
     /**
+     * 是否同时拉取 Code Quality findings（与 Dependabot 并行源；可与 codeScanningEnabled 同开）。
+     * 默认关闭（opt-in，向后兼容）；开启后 GitHub 源下 Dependabot + Code Quality
+     * 并行拉取、互不覆盖。Code Quality findings 不可自动修复（首版统一 C 类），
+     * 仅做最小报告接入（不实现 CodeQL 完整语义解析）。
+     * 需要 token 具备 fine-grained `Code quality: read`（classic PAT 需 `repo`/`public_repo`）。
+     */
+    codeQualityEnabled: boolean
+    /**
      * 跨线告警（推荐版本跨大版本）显式授权自动升级（`--allow-major-upgrade`）。
      *
      * 仅 CLI 参数入口，**刻意不提供 env 通道**（action 结构性禁用：
@@ -199,6 +207,8 @@ export interface CliConfigOverrides {
     alertSource?: AlertSourceKind
     /** 是否同时拉取 Code Scanning alerts（默认 false） */
     codeScanningEnabled?: boolean
+    /** 是否同时拉取 Code Quality findings（默认 false） */
+    codeQualityEnabled?: boolean
     /**
      * 跨线告警显式授权自动升级（仅 CLI `--allow-major-upgrade` 入口，
      * 无 env 通道；Action 不支持）。详见 RuntimeConfig.allowMajorUpgrade。
@@ -254,6 +264,7 @@ export const DEFAULT_RUNTIME_CONFIG: Omit<RuntimeConfig, 'githubToken' | 'reposi
     severityThreshold: 'high',
     alertSource: 'github-dependabot',
     codeScanningEnabled: false,
+    codeQualityEnabled: false,
     allowMajorUpgrade: false,
     maxAlertsPerRepository: 20,
     maxConcurrency: 1,
@@ -466,6 +477,7 @@ export function readEnvConfig(env: NodeJS.ProcessEnv = process.env): CliConfigOv
         alertsToken: readEnv(env, 'ALERTS_TOKEN')?.trim() || undefined,
         alertSource: readAlertSource(readEnv(env, 'ALERTS_SOURCE'), `${ENV_PREFIX}ALERTS_SOURCE`),
         codeScanningEnabled: normalizeBoolean(readEnv(env, 'CODE_SCANNING'), `${ENV_PREFIX}CODE_SCANNING`),
+        codeQualityEnabled: normalizeBoolean(readEnv(env, 'CODE_QUALITY'), `${ENV_PREFIX}CODE_QUALITY`),
         maxAlertsPerRepository: normalizeInteger(readEnv(env, 'MAX_ALERTS_PER_REPOSITORY'), `${ENV_PREFIX}MAX_ALERTS_PER_REPOSITORY`),
         maxConcurrency: normalizeInteger(readEnv(env, 'MAX_CONCURRENCY'), `${ENV_PREFIX}MAX_CONCURRENCY`),
         maxRetries: normalizeNonNegativeInteger(readEnv(env, 'MAX_RETRIES'), `${ENV_PREFIX}MAX_RETRIES`),
@@ -632,6 +644,14 @@ function validateRuntimeConfig(config: RuntimeConfig): RuntimeConfig {
         )
     }
 
+    // Code Quality 与 Code Scanning 同源：pnpm-audit 本地场景无对应 GitHub 仓库
+    if (isAuditSource && config.codeQualityEnabled) {
+        throw new AppError(
+            'CONFIG_VALIDATION_ERROR',
+            'code-quality requires the github-dependabot alert source (Code Quality findings are fetched from the GitHub API).',
+        )
+    }
+
     // PR 必须 GitHub，audit 数据无对应仓库
     if (isAuditSource && config.mode === 'fix-and-pr') {
         throw new AppError(
@@ -758,6 +778,7 @@ export function resolveRuntimeConfig(options: ResolveRuntimeConfigOptions = {}):
         alertsToken: cliOverrides.alertsToken ?? envConfig.alertsToken,
         alertSource: cliOverrides.alertSource ?? envConfig.alertSource ?? DEFAULT_RUNTIME_CONFIG.alertSource,
         codeScanningEnabled: cliOverrides.codeScanningEnabled ?? envConfig.codeScanningEnabled ?? DEFAULT_RUNTIME_CONFIG.codeScanningEnabled,
+        codeQualityEnabled: cliOverrides.codeQualityEnabled ?? envConfig.codeQualityEnabled ?? DEFAULT_RUNTIME_CONFIG.codeQualityEnabled,
         allowMajorUpgrade: cliOverrides.allowMajorUpgrade ?? DEFAULT_RUNTIME_CONFIG.allowMajorUpgrade,
         maxAlertsPerRepository: cliOverrides.maxAlertsPerRepository ?? envConfig.maxAlertsPerRepository ?? DEFAULT_RUNTIME_CONFIG.maxAlertsPerRepository,
         maxConcurrency: cliOverrides.maxConcurrency ?? envConfig.maxConcurrency ?? DEFAULT_RUNTIME_CONFIG.maxConcurrency,

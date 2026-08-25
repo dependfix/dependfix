@@ -82,6 +82,7 @@ export function buildRunResult(
         maxAlertsPerRepository: ctx.config.maxAlertsPerRepository,
         alertSource: ctx.config.alertSource,
         codeScanningEnabled: ctx.config.codeScanningEnabled,
+        codeQualityEnabled: ctx.config.codeQualityEnabled,
     }
 
     return {

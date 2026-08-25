@@ -80,6 +80,20 @@
 - **Session Wisdom 蒸馏检查**：若 `.session/wisdom.md` 活跃条目 >= 20（`pnpm distill:wisdom --check`），执行一次蒸馏（详见 [Session Wisdom 蒸馏机制](../design/governance/session-wisdom-distillation.md)）
 - **用户可见文档同步**：里程碑收口时除 todo/roadmap 外，还需同步 `docs/index.md` 当前状态、guide 文档与设计文档中的"规划中"标记
 
+### 4.4 大批量归档批次操作规范
+
+涉及跨文件 markdown 链接修改 / 段标题重命名 / 段删除时，必须遵守以下操作规范（避免 wisdom §2026-08-25 已实证的 6 类问题）：
+
+1. **anchor 实证**：写 markdown 链接前必须 `rg -n "^## " <目标文件>` 确认锚点真实形式，避免凭印象写错锚点（括号转 anchor 规则不是直觉）；check:docs 是兜底而非首选。
+2. **跨文件外链主动追踪**：段删除 / 段重命名前必须 `rg -n "<删除段标题>"` 全仓库扫描所有外链（不仅是删除段所在文件），列出每个外链文件 + 位置 + 目标，逐个修复为新的归档位置（`todo-archive.md` 主窗口或 `archive/todo-archive-phases-*.md` 分片）。
+3. **跨目录相对路径精确**：从 `docs/<dir1>/xxx.md` 引用 `docs/<dir2>/yyy.md` 需 `../<dir2>/yyy.md`，多级目录按 `../../` 累加；写之前主动计算，check:docs 兜底。
+4. **commit 分组追踪**：归档文案中分组 commit 时必须**先列每个 commit 归属**，避免子批次 commit 与"todo.md 收口 commit" 重复计数（todo.md 收口 commits 通常已含在子批次计数内，独立列出 = 重复 +1）。M12 归档实证：todo.md 收口 5 commits 已含在 C65-A/B/C/D 子批次计数内，"独立列出 +5"导致累加 24 ≠ 实际 19。
+5. **ahead commits 实证**：归档文案 "ahead of origin/master N commits" 必须用 `git rev-list` 双向核验（已推送 commits 不计入 ahead），不能凭印象估算——跨批次归档时用户可能已推送过。具体命令与 ahead 计数语义详见 [Git 规范 §3 提交规范](./git.md)（一行引用，不重复抄写命令）。
+6. **段结构引用原则**：已删除段不在外链保留（避免读者点击 404），外链改为指向新归档位置 + 段标题对齐（避免 VitePress / GitHub 渲染降级到文件顶部）。
+7. **死链验证**：归档后必须 `pnpm run check:docs` 实证 0 error；CI Test job 跳过盲区（wis #43）需在归档批次前主动跑通。
+
+> 本节为大批量文档归档批次（multi-file edit + 段结构变更）的统一操作规范；其他文档归档 / 小批量编辑仅执行相关条目。M12 归档 + backlog 重排 2 个批次实证：anchor 实证命中 1 次 / 跨文件外链追踪命中 10 次 / 相对路径精确命中 2 次 / commit 分组追踪命中 2 次 / ahead 实证命中 0 次（但作为常态化检查）。
+
 ## 5. 需求采访与意图抽离
 
 针对模糊需求，必须先通过"采访"方式反问用户：

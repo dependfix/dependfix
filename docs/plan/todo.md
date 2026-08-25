@@ -39,22 +39,36 @@
   - `.session/wisdom.md` 不入库（被 .gitignore 排除），commit 仅含 docs/standards/*.md 同步
   - T1302 neat-freak 批次将进一步挂接剩余 6+ pattern（TDZ 调试陷阱 + OR 链触发条件 + 已测试文件补测胜于新建 + F 阶段本地验证口径差异 + Code Auditor quick depth 时长校准 + reset 重做 atomic commit）+ agent 文档 + README/Guide 同步
 
-#### T1302 C2 neat-freak 批次
+#### [x] T1302 C2 neat-freak 批次 —— 闭环 2026-08-25
 
 - **优先级**：P1
 - **依赖**：T1301（蒸馏后挂接 standards）
-- **执行范围**：`docs/standards/development.md` / `testing.md` / `security.md` / `ai-development.md` / `git.md` / `planning.md` + `README.md` / `docs/guide/*.md` + `.github/agents/full-stack-master.agent.md`
-- **非目标**：不动 `.session/wisdom.md`（已在 T1301 收敛）
+- **执行范围**：`docs/standards/development.md` / `ai-collaboration.md` / `git.md` / `testing.md` + `.github/agents/full-stack-master.agent.md`
+- **非目标**：不动 `.session/wisdom.md`（已在 T1301 收敛）/ 不动 README/Guide（本期聚焦 standards + agent 文档）
 - **交付物**：
-  - 6+ 新 wisdom pattern/principle 挂接到 standards 对应章节
-  - 经验归档段（如 `docs/design/governance/experience-archive.md`）更新引用
-  - agent 文档同步（M12 归档 / 大批量文档操作规范 / 同模式扫描第 2 轮验证等）
-- **验收标准**：
-  - standards/*.md 新增章节引用 wisdom 条目（双向链接）
-  - agent 文档新增 PDTFC+ 自检条目
-  - `pnpm lint:md` + `pnpm check:docs` 全过
-- **最小验证矩阵**：`pnpm check:docs` 0 error / `pnpm lint:md` 0 error
-- **风险**：低
+  - 9 条新 wisdom pattern/principle 挂接到 standards 对应章节（超过 todo.md 验收「6+」阈值）✅
+  - agent 文档新增 PDTFC+ 自检条目（D 阶段编号标记扫描 + TypeORM 实体索引声明指针引用）✅
+  - 清理 3 个 warning（testing.md §6.1 重复内容 + agent 文档与 §3/§3b 重复 + ai-collaboration.md 断链）+ 3 个 suggest（数据来源口径 + commit hash 加日期 + §3.4 cross-reference）✅
+- **闭环记录**：
+  - 实施 commit：`docs(standards): neat-freak 批次 — 9 条 wisdom pattern 挂接 + agent 文档同步 + 重复/断链清理`（待推送）
+  - 9 条挂接清单：
+    1. **TDZ 调试陷阱** → `docs/standards/development.md §5.1.12`
+    2. **已测试文件补测胜于新建** → `docs/standards/development.md §5.1.13`
+    3. **OR 链触发条件精确追踪** → `docs/standards/development.md §5.1.14`
+    4. **F 阶段本地验证口径差异** → `docs/standards/ai-collaboration.md §4.4`
+    5. **Code Auditor quick depth 时长校准** → `docs/standards/ai-collaboration.md §4.5`
+    6. **audit warning 修复决策协议** → `docs/standards/ai-collaboration.md §4.6`
+    7. **reset 重做 atomic commit** → `docs/standards/git.md §3.4`
+    8. **Nuxt 4 payload 解析** → `docs/standards/testing.md §6.1`
+    9. **Playwright webServer 用 build 产物（合并入既有 L99 条目）** → `docs/standards/testing.md §6.1`
+  - agent 文档新增：`full-stack-master.agent.md §87` 末尾补指针引用 + `§91` 新增 D 阶段 TypeORM 实体索引声明硬要求
+  - Round 1 警告 + Round 2 复审结果：
+    - Round 1 Reject：3 warning（RG-W01 testing.md 重复 + RG-W02 agent 文档重复 + RG-W03 ai-collaboration.md 断链）+ 3 suggest（RG-S01-S03）
+    - Round 2 Pass：6 个警告全部验证修复正确 + 1 个新发现 RG-S04-NEW（git.md L107-108 后双空行格式问题）登记 follow-up
+  - 完整验证：`pnpm run check:docs` 99 links + 55 vue-interp OK / `pnpm lint:md` 0 error
+- **follow-up（登记 backlog 或下个 neat-freak 批次）**：
+  - RG-S04-NEW：git.md §3.4 后双空行格式问题（warning 级，留待下个 neat-freak 批次清理）
+  - 本期未涉及 `README.md` / `docs/guide/*.md` / `docs/standards/development.md §3 注释规范` 中 wisdom 蒸馏产物的进一步挂接（待 M14 或后续 neat-freak 批次评估）
 
 #### [x] T1303 单仓库扫描互斥修复（实测反馈 5.1）—— 闭环 2026-08-25
 

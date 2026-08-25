@@ -181,6 +181,26 @@ apps/platform/               # Nuxt 全栈平台
 - 测试/脚本不得隐式依赖 `.session/`、`temp/` 等 git 忽略目录下文件的存在性（本地有、CI 无 → 行为分叉，CI 挂、本地过）。
 - 必须依赖时：把路径/内容作为参数注入，或模拟缺失场景（临时移走文件）验证两分支。
 
+#### 5.1.12 调试临时代码触发 TDZ（Temporal Dead Zone）陷阱
+
+- `script setup` 顶部加临时调试 `console.log` 引用**尚未声明的 ref/computed** 会触发 TDZ `Cannot access 'X' before initialization` SSR 500 错误——即使 `console.log` 只是 debug 也会让整个 SSR 阶段失败（不是 hydration warning 而是真错误）。
+- 教训：临时调试代码引用变量前必须确认其在执行前已声明，或放在 `watchEffect` / `onMounted` 里。
+- 调试完成后立刻清理不留痕（与 §5.1.11 调试临时代码清理规则配合）。
+- 实证：某批次 `users.vue` 调试时 `console.log(users[0])` 引用了下面才声明的 `const users = ref(...)` 导致 SSR 500，移除 console.log 即修复。
+
+#### 5.1.13 已测试文件补测胜于新建（CI 覆盖率阈值回归修复模式）
+
+- CI Coverage 阈值回归（差 7 分支）时，**优先在已有测试文件加 case**，而不是新建 test 文件或临时修改 vitest 阈值。
+- 判断标准：diff 文件数 = 1 / 风险扩散 = 0 / 价值密度 = 高（覆盖核心聚合更新策略 / 失败终态保护 / 多状态流转等业务关键路径）。
+- 实证：某次 CI Coverage 阈值回归（79.88% < 80%）时，目标文件 `apps/platform/server/api/batch-runs/[id].get.test.ts` 已有 2 case（success + 404），文件本身有测试基础设施（mock + beforeAll 创建 batchRun/scanRun）+ 目标文件 branches 55.17%（13 未覆盖）+ 1 文件 3 case 即可覆盖 line 36/45-49/50/58/65 全部未命中分支 → branches 55.17% → 82.75%（+27.58%），全 workspace 79.88% → 80.02%（+8 分支）。
+
+#### 5.1.14 OR 链触发条件精确追踪（`if (a || b || c || d || e)` 写回决策测试模式）
+
+- `if (a || b || c || d || e)` 写回决策的 OR 链必须**逐项追踪每个条件真假**才能准确断言测试用例。
+- 常见错误：以为 "statusWriteBack=false 就完全不写回"，但 counts 差异仍会触发 OR 链进入写回块（只跳过 status 赋值，counts/summaryJson 仍更新）。
+- 修复模式：调试 case 时打开真实 SQL 数据看 `batchRepo.save` 后的状态字段；不要"想当然"按 statusWriteBack 反推。
+- 实证：Case 3（running + 1 running）的 `pendingCount=0 → 1` 实际写回后不是 0，断言 `toBe(0)` 失败即源于此错误假设（CI Coverage 修复批次 commit `0c57211`）。
+
 ## 6. 样式规范（平台阶段适用）
 
 - **纯 SCSS**: 禁止 CSS-in-JS、Tailwind。所有样式以纯 SCSS 编写。

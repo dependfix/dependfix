@@ -94,8 +94,17 @@
 - 单次大 diff 成本失控的典型症状：审计耗时指数级上升、Review Gate Reject 概率增加、回滚粒度过粗、lint auto-fix 副作用传染其他文件。
 - 按"可独立验证"的顺序分批提交，每批独立过 Review Gate，锁文件（pnpm-lock.yaml）等随其所属批次提交。
 - 简单说明**做了什么**及**为什么这么做**。
-- 使用简体中文或用户指定的语言。
+- 使用中文或用户指定的语言。
 - 若无必要可不写正文；条目不得太多，内容简单时应当无正文。
+
+### 3.4 reset 重做 atomic commit（仅在 commit 未推送时适用）
+
+- 当 commit 误把跨子批次改动纳入（如 commit 1 含 commit 2 应有的 i18n key）时，可 `git reset --soft HEAD~1` 回滚到 commit 前状态、重新分两次提交——比 `git commit --amend` 更彻底地保持原子粒度。
+- **仅在 commit 未推送（ahead of remote）时适用**；已推送的 commit 必须靠后续 commit 修复或 revert，不能 reset（会与其他开发者历史冲突）。
+- stage 前先 `git diff --staged` 确认本次 commit 内容边界——避免误把跨子批次改动纳入同一 commit。
+- 与 [§3.2 单文件跨 type 改动需提前规划 commit 拆分](#32-单文件跨-type-改动需提前规划-commit-拆分) 配套——§3.2 处理 staged diff 误纳（`git restore --staged`），§3.4 处理已 commit 但未推送的误纳（`git reset --soft`）。
+- 教训：某次 admin self-protection 调试时 commit 1 误含 `common.role` i18n key（A2 内容）→ reset 后仅保留 errors.cannotSelfModify（A1 内容）→ commit 2 再加 common.role，保持原子粒度（详见 commit `1d7c5c8` / `2076fda` 系列 + [经验归档 §二十四](../design/governance/experience-archive.md)）。
+
 
 **type 选择校准**：修复现有功能缺陷 → `fix`；新增能力 → `feat`。凡是"让原本坏的东西变好"都是 `fix`。
 

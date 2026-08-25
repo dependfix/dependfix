@@ -223,6 +223,31 @@ CI 失败后不得回退到全量重试，应分析具体失败点针对性修�
 - 配置文件显式写"空默认值"（如 `excludeFiles: []`）会覆盖工具内置保护，修改前先确认工具默认值。
 - composite action（action.yml）中 <span v-pre>`${{ }}`</span> 只允许出现在合法上下文（runs 步、outputs 表达式、with 表达式值）；description / 纯文本 / 注释内嵌表达式会被 manifest 模板校验求值并可能引用不可用上下文。action.yml 变更后应跑一次真实 action（本仓库 `security-auto-fix.yml` dogfood workflow）验证。
 
+### 4.4 F 阶段本地验证口径差异（`pnpm --filter <pkg> test` ≠ `pnpm test` 全 workspace）
+
+- F 阶段本地验证用 `pnpm --filter <pkg> test`（仅跑特定包，例：platform → 705+4skip）≠ CI 跑 `pnpm test` 全 workspace（2128+5skip）+ coverage 4 维度（stmts/branch/funcs/lines）。
+- **陷阱**：本地 F 阶段验证全过、vitest 全绿、无回归——**完全漏掉 apps/platform/server / packages/cli / packages/engine / scripts 等非 platform 包引起的分支回归**。CI Coverage job 失败（branches 79.88% < 80%）时常因此发生。
+- **修复协议**：F 阶段"完整验证"必须含 `pnpm run test:coverage`（全 workspace）+ 检查 4 维度是否 ≥ 阈值，而非仅 `pnpm --filter @dependfix/platform test`。CI 通过 = 最终裁决，本地通过 ≠ 完成。
+- 实证：某次 platform UX 治理阶段 12 commits 推送后 CI Coverage job 失败，但本地 F 阶段验证显示全过，**回归 +8 分支**才发现（详见 commit `0c57211`，2026-08-21 推送；背景见 [经验归档 §二十八](../design/governance/experience-archive.md)）。
+
+### 4.5 Code Auditor quick depth 时长校准（≤ 5min 时间盒，实测 ~79s）
+
+- quick depth 时间盒 ≤ 5min，实测常见 ~60-100s（含完整 SUT 行号核对 + case 路径推演 + 验证证据矩阵 + 未覆盖边界列表），远低于阈值。
+- **校准结论**：quick 适用于 (1) 测试补强 (2) 文档措辞 (3) 简单配置 (4) 重命名——核心是改动不引入新逻辑、diff < 800 行、不涉及鉴权/外部调用/数据写入。
+- **复审只审修复点（第 2+ 轮）**，不重发全量 diff（提升效率且符合 reviewer 边界）。
+- 与 §1.3 分级审计协议对照：`audit-depth: quick` 必须**主动声明**，未声明默认按 `deep` 防御执行（实测用时显著拖长）。
+- 数据来源口径：上述 `~60-100s` 数值来自 caller 宿主系统时钟事后实测的多次 quick depth 历史调用 elapsed 数据，**不含审计方自报**（审计方不自报时长、不检查时间，按 §1.3 防御方向）。time-box ≤ 5min 是否超时由 caller 事后判定，不在本节展开。
+
+### 4.6 audit warning 修复决策协议（修复 vs 登记 backlog）
+
+- audit warning 必须明确决策，禁止跳过：(1) **修复**（低成本且对齐验收/正确性，例：清理 test.fixme 残留 / 保留 span 整体可点击 + 删 chevron 方案 A / 缩写注释清理 / 清理 dead mock + stale doc + describe 标题）；(2) **登记 backlog**（实现成本过高或与已知问题耦合，例：PrimeVue 4 rowToggleButton 默认无 aria-expanded——Pass-through 不传 context，低成本 dynamic 实现不可行，登记待 PrimeVue 升级 / viewMode 快速切换请求竞态——低概率 UI 闪一下旧数据，可加 lastRequestId 守卫但本次 PR 范围外）。
+- 判断标准（三选一独立评估，命中任一"修复"维度则选修复）：
+  - **是否影响用户行为**：用户可见问题 / 影响数据正确性 → 修复；仅 UI 闪烁 / 边缘场景 → 登记
+  - **是否与 todo.md 验收条款一致**：验收标准明确 → 修复；偏离验收 → 登记或调整验收
+  - **实现成本**：< 30min + 不引入新依赖 → 修复；> 30min 或需新依赖 → 登记
+- 三维度全为"登记"则统一登记 backlog；任一为"修复"则必须在本次 commit 内处理。warning 不允许"跳过"决策。
+- 跨领域补充：本节与 [§4.5](#45-code-auditor-quick-depth-时长校准5min-时间盒实测-79s) + [code-reviewer SKILL.md §2.5 分级审计协议](../../.github/skills/code-reviewer/SKILL.md) 配合使用——`audit-depth: quick` + 实测时间 + warning 决策框架三件套决定 F 阶段放行。
+
 ## 5. 相关文档
 
 - [AI 资产治理规范](./ai-governance.md)

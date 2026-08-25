@@ -2,6 +2,15 @@ name: Publish Docker Image
 
 on:
   workflow_dispatch:
+    inputs:
+      # §T1310: release.yml 完成后主动 workflow_dispatch docker.yml，传 platform_version
+      # 触发条件 = 仅 build job（push:master 触发时 inputs.platform_version 为空，跳过
+      # platform-x.y.z tag，保持 latest+date+sha 三元组）
+      platform_version:
+        description: '依赖 platform 包版本号（仅 release.yml 主动触发时填）'
+        type: string
+        required: false
+        default: ''
   push:
     branches:
       - master
@@ -54,6 +63,18 @@ jobs:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
+      # ── §T1310 platform version 提取 ───────────────────────
+      # release.yml 主动触发时（workflow_dispatch inputs.platform_version 非空），
+      # 直接把入参当作 platform_version 输出；push:master 触发时入参为空，输出空，
+      # 下游 metadata-action tag 的 enable=false → 不打 platform-x.y.z tag。
+      - name: Extract platform version
+        id: platform-version
+        run: |
+          if [ -n "${{ inputs.platform_version }}" ]; then
+            echo "platform_version=${{ inputs.platform_version }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "platform_version=" >> "$GITHUB_OUTPUT"
+          fi
       # ── 原生多架构构建 ─────────────────────────────────────
       # 直接使用原始 Dockerfile，让 Buildx + QEMU 在各目标平台上
       # 完整执行 pnpm install → build，确保原生模块（better-sqlite3）
@@ -95,6 +116,7 @@ jobs:
             type=raw,value=latest,enable=true
             type=raw,value={{date 'YYYY-MM-DD' tz='Asia/Shanghai'}},enable=true
             type=sha,format=short,prefix=sha-,enable=true
+            type=raw,value=platform-${{ steps.platform-version.outputs.platform_version }},enable=${{ steps.platform-version.outputs.platform_version != '' }}
           flavor: latest=false
       - name: Extract Docker metadata (Alibaba Cloud ACR)
         id: metadata-acr
@@ -106,6 +128,7 @@ jobs:
             type=raw,value=latest,enable=true
             type=raw,value={{date 'YYYY-MM-DD' tz='Asia/Shanghai'}},enable=true
             type=sha,format=short,prefix=sha-,enable=true
+            type=raw,value=platform-${{ steps.platform-version.outputs.platform_version }},enable=${{ steps.platform-version.outputs.platform_version != '' }}
           flavor: latest=false
       # 镜像分两批推送：Docker Hub / GHCR 保留 provenance attestation（build-push-action@v7
       # 默认 --attest type=provenance,mode=max）；阿里云 ACR 个人版不支持 OCI attestation

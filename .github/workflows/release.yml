@@ -23,6 +23,8 @@ jobs:
       id-token: write
       # 推送 release:publish 创建的 <pkg>@<version> git tag
       contents: write
+      # §T1310：触发 docker.yml workflow_dispatch 需要 actions 写入权限
+      actions: write
     steps:
       - uses: actions/checkout@v7
         with:
@@ -111,3 +113,21 @@ jobs:
       # 幂等：Release 已存在跳过；创建失败 ::warning:: 不阻断（npm 已发布完成）。
       - name: Create GitHub Release
         run: pnpm release:github
+
+      # §T1310 platform version → docker tag 协作：release.yml 完成后主动
+      # workflow_dispatch docker.yml 传 platform_version 入参，docker 在 build
+      # 阶段打 platform-x.y.z tag。触发条件 = release.yml 手动/定时触发；仅当
+      # apps/platform 的 version 不为空时执行（防御 platform 未登记空 string）。
+      - name: Read platform version for docker tag
+        if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
+        id: read-platform-version
+        run: |
+          VERSION=$(node -p "require('./apps/platform/package.json').version")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Trigger Docker build with platform-x.y.z tag
+        if: steps.read-platform-version.outputs.version != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PLATFORM_VERSION: ${{ steps.read-platform-version.outputs.version }}
+        run: gh workflow run docker.yml --ref master -f platform_version="$PLATFORM_VERSION"

@@ -31,7 +31,7 @@
 - 状态流转时间序列正确性（pending → running → completed 端到端）
 - 前端轮询体验与 stale state 处理（需后台服务 / staging 或 CI redis service）
 
-实施记录：[todo-archive.md §T912](todo-archive.md#t912-smtp-邮件发送器主体收口t9123--c28-联动)；[backlog.md §M7.2](backlog.md#m72-平台能力深化)
+实施记录：[todo-archive.md §T912](todo-archive.md#t912-smtp-邮件发送器主体收口t9123--c28-联动)；[archive/todo-archive-phases-m6-m7-t711.md §M7.2](archive/todo-archive-phases-m6-m7-t711.md#m72-平台能力深化已归档)
 
 ### T704 async 定时触发
 
@@ -40,14 +40,14 @@
 - BullMQ upsertJobScheduler 短间隔 every 集成测试（需 Redis >= 5）
 - Schedule CRUD e2e 补覆盖（当前单测 44 例，e2e 未覆盖）
 
-实施记录：[backlog.md §M7.2](backlog.md#m72-平台能力深化)
+实施记录：[archive/todo-archive-phases-m6-m7-t711.md §M7.2](archive/todo-archive-phases-m6-m7-t711.md#m72-平台能力深化已归档)
 
 ### 发布管线收尾（P3）
 
 - `release:auto-version` 完整流程待 schedule 启用后首个 cron 裁决
 - main 副作用路径测试观察项
 
-实施记录：[backlog.md §M7.2](backlog.md#m72-平台能力深化)
+实施记录：[archive/todo-archive-phases-m6-m7-t711.md §M7.2](archive/todo-archive-phases-m6-m7-t711.md#m72-平台能力深化已归档)
 
 ---
 

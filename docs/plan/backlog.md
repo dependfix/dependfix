@@ -1,539 +1,238 @@
 # 待办积压 (Backlog)
 
-> 本文档存放后续阶段与未排期增强候选。当前阶段任务见 [todo.md](todo.md)；已归档阶段见 [todo-archive.md](todo-archive.md)。
+> 本文档维护尚未进入正式阶段执行面的统一候选池，按 **长期主线任务** / **周期性回归验证层** / **短期与一次性候选任务** / **已知边界与 known-issue** 四象限区分。当前阶段任务见 [todo.md](todo.md)；已闭环归档见 [todo-archive.md](todo-archive.md)。
 >
-> **范围约定**：本文件登记延期 / 远期 / 未排期增强候选 + 已知边界 + known-issue。已闭环项归档于 [todo-archive.md](todo-archive.md)；当前阶段活跃待办见 [todo.md](todo.md)。
+> **维护规则**：
+> 1. 新功能需求、非阻塞优化与长期治理事项优先写入本文件，而不是直接写入 `todo.md`；已闭环条目必须从 backlog 迁出至 [todo-archive.md](todo-archive.md)。
+> 2. backlog 必须区分四类：长期主线（可跨阶段保留）/ 周期性回归验证层（健康检查层）/ 短期与一次性候选（评估后上收或关闭）/ 已知边界与 known-issue（CI / 浏览器兼容性等持续观察项）。
+> 3. 长期主线被某阶段抽取后，不删除主线卡片，只补记最近一次上收阶段、当前状态与下一次可切片方向。
+> 4. 周期性回归验证层不是"一个任务"，而是所有长期主线的健康检查层；它按固定节奏运行，不参与阶段切片容量竞争。
+> 5. 短期候选正式上收阶段后从 backlog 移除；评估为"暂不实现"的候选直接关闭并在归档中保留决策记录。
+> 6. 当前仓库的 backlog 以中文为唯一事实源。
 
-## 已知边界与 known-issue（2026-08-20 e2e 修复批次遗留）
+## 长期主线任务（可跨阶段保留）
 
-> 本节登记 e2e 修复批次（[todo-archive.md §2026-08-20 e2e 修复批次](todo-archive.md#2026-08-20-e2e-修复批次c62--c63--c64--chore)）产生的 known-issue 与待迁移经验。所有条目均为**未完成**——CI 触发再次失败或下次 neat-freak 批次需重新评估。
+> **状态口径**：进行中 / 观察中 / 暂停 / 已关闭。
+> 共 2 条（2026-08-25 neat-freak 归档批次整理：原 §M11 子任务闭环清单 / §M4 增强候选中"已闭环"段全部迁出 backlog；§M2 / §M5.5 / §M6 / §MCP / §M7 阶段分段已闭环，已迁出 backlog 仅保留历史归档指针）。
 
-- **PrimeVue 4 + Nuxt hydration 兼容性 bug**（CI run 32383730911 alerts-rowgroup rowGroup 测试遗留）
-  - 状态：🔶 **未完成（2 个 rowGroup 测试 `.fixme` 标记，等修复）**
-  - 内容：PrimeVue 4 DataTable + Nuxt SSR hydration 状态机分歧——onMounted 异步赋值 `alerts.value` 后 PrimeVue 不重新计算 `processedData`，rowGroup subheader 永不渲染（`page.reload()` 后能渲染可佐证非业务逻辑问题）。2 个 alerts-rowgroup.e2e.test.ts 测试以 `test.fixme()` 标记并加 known-issue 注释（命名空间 `known-issue/primevue-hydration-rowgroup`）
-  - 修复路径（候选）：
-    1. 迁移 alerts 加载到 `useAsyncData` 让 SSR 阶段就有数据
-    2. 升级 PrimeVue 到修复版本（监控 PrimeVue 4 changelog）
-  - 验收：alerts-rowgroup.e2e rowGroup 2 个测试取消 `.fixme` 恢复真跑；本机实测 + CI run 双绿
-  - 来源：2026-08-20 e2e 修复批次 C64-3（commit `6f6fe5b`）
+### 主线 #1：PrimeVue 4 + Nuxt hydration rowGroup known-issue
+
+- **目标**：闭环 PrimeVue 4 DataTable + Nuxt SSR hydration 状态机分歧导致的 2 个 alerts-rowgroup.e2e `.fixme` 标记，恢复 rowGroup 真实环境跑通（不依赖 `page.reload()`）。
+- **状态**：暂停。
+- **当前状态**：
+  - PrimeVue 4 DataTable + Nuxt SSR hydration 状态机分歧——onMounted 异步赋值 `alerts.value` 后 PrimeVue 不重新计算 `processedData`，rowGroup subheader 永不渲染；`page.reload()` 后能渲染可佐证非业务逻辑问题。
+  - 2 个 alerts-rowgroup.e2e.test.ts 测试以 `test.fixme()` 标记并加 known-issue 注释（命名空间 `known-issue/primevue-hydration-rowgroup`）。
+  - 来源：[todo-archive.md §2026-08-20 e2e 修复批次 C64-3](todo-archive.md#2026-08-20-e2e-修复批次c62--c63--c64--chore)（commit `6f6fe5b`）。
+- **最近一次上收**：C64 修复批次（2026-08-20）已修复 rowGroup 数据流必现 TypeError（`expandedPackages` Record → string[]），但 hydration 状态机分歧为 PrimeVue 上游问题，未修复。
+- **下一次可切片方向**（任一触发时重新评估）：
+  1. 迁移 alerts 加载到 `useAsyncData` 让 SSR 阶段就有数据（最低成本）
+  2. 升级 PrimeVue 到修复版本（监控 PrimeVue 4 changelog）
+
+### 主线 #2：network-audit 默认白名单持续扩展问题（G1）
+
+- **目标**：把 network-audit 默认白名单从"按次新增"演进为"按域名 / SRI 哈希 / 输出区分"的可持续治理方案，避免每次构建工具跨 major 升级都需补白名单。
+- **状态**：进行中。
+- **当前状态**：
+  - 临时修复：`rolldown.rs` 默认白名单（commit `2104b9f`）；症状 = vite 6/7 跨 major 升级 verification 命令输出 URL 被 deny-by-default 拦截为 `network_violation` → run exitCode=1。
+  - 触发事件：2026-08-25 [Security Auto Fix #41 run 32795032475](https://github.com/dependfix/dependfix/actions/runs/32795032475)。
+- **最近一次上收**：2026-08-25 neat-freak 批次新登记为长期主线（自 backlog §G1 行升级）。
+- **下一次可切片方向**（任一触发时重新评估）：
+  1. 构建工具生态文档站类目预置白名单（rolldown.rs / swc.rs / rust-lang.org 等）
+  2. 按 SRI 哈希钉资源（推荐域动态发现）
+  3. 命令输出 URL 与真实外联区分（stdout/stderr 字符串不应判为 violation，当前 `verification-runner` 命令输出 URL 提取可能误判）
+- **验收**：默认白名单不再按次新增；verification 阶段合法外联不被误判；`docs/plan/backlog.md` G1 条目关闭
+
+## 周期性回归验证层
+
+> **定位**：本层不是"一个任务"，而是所有长期主线的健康检查层。它不产生直接改进，只验证"没有回退"。按固定节奏执行，不参与阶段切片容量竞争。
+
+### 固定执行入口（当前）
+
+| 节奏 | 入口 | 最小固定组合 | 触发条件 |
+|:---|:---|:---|:---|
+| 阶段收口前 | `pnpm check:docs` + `pnpm run test:coverage` + `pnpm lint` + `pnpm typecheck` + `pnpm --filter @dependfix/platform exec playwright test` | 检查归档批次合入未引入回归 | 每次阶段归档前 |
+| CI 端到端 | 上述 5 项 + `pnpm build` | 裁决合并 | PR 合并前 / commit 推送后 |
+
+> **扩面候选**（待评估）：周级 `pnpm regression:weekly` 与发版前 `pnpm regression:pre-release` 入口未建立；当前依赖 CI 端到端裁决。
+
+### 覆盖矩阵（每条长期主线的回归覆盖状态）
+
+| 长期主线 | 阶段收口覆盖 | CI 端到端覆盖 |
+|:---|:---|:---|
+| #1 PrimeVue hydration | ✅ `playwright` e2e | ✅ `playwright` e2e |
+| #2 network-audit 默认白名单 | — | ✅ `pnpm run` verification job |
+
+> 标注 `—` 的条目表示当前缺少自动化回归覆盖，是后续回归层扩面的候选方向。
+
+### 漂移路由规则
+
+回归验证发现的问题不自行修复，而是按以下规则路由到对应长期主线或短期候选：
+
+| 回归发现问题 | 路由目标 |
+|:---|:---|
+| e2e rowGroup `.fixme` 触发 | → 长期主线 #1（PrimeVue hydration） |
+| network-audit 白名单新增 | → 长期主线 #2（network-audit 默认白名单） |
+| CI 失败 | → 当前阶段批次（无活跃阶段时登记 backlog 远期） |
+
+## 短期 / 一次性候选任务（上收后去重）
+
+> 共享说明：本区块条目当前均处于"候选评估中"或"延期暂缓"状态；正式上收阶段后从 backlog 移除并归档至 [todo-archive.md](todo-archive.md)。评估为"暂不实现"的候选直接关闭。
+
+### 延期 / 暂缓项
+
+- **T705 生产级部署**（PostgreSQL + Helm + Sentry）—— 2026-08-12 用户指示暂缓排期
+- **T703 跨平台 Git**（GitLab + Bitbucket）—— 2026-08-12 用户指示暂缓排期
+- **C30 Publish Docker build job 失败排查** —— 2026-08-18 用户决策暂缓（双平台构建 23m 2s 成功证明当前 docker.yml 可稳定工作）；恢复条件：① master 分支 push 频率显著提升；② 镜像实际发布成为强需求（v1.0.0 正式发布前）；③ 用户明确恢复
+
+### 远期登记 / 未排期增强候选
+
+按主题分组（不重复 M2/M4/M5.5/M6/M7/MCP 已闭环段的具体细节，详细评估见对应归档段）：
+
+#### MCP 能力
+
+- **C33 MCP P3**：pnpm-audit 本地 tool（需 workDir 语义，等本地场景真实需求）/ 统一错误包装 helper（token 检查 + try/catch → ok:false 模板代码收口）/ 返回结构对齐完整 `RunResult`（当前 run_scan 只映射 8 字段，保持简化 + 文档声明）
+
+#### i18n 治理
+
+- **C36** 服务端 API 错误消息 i18n
+- **C37** 语言偏好多设备同步
+
+#### 多组织 / 多租户
+
+- **D1** repo_admin + RepositoryAccess
+- **D3** 多租户组织体系
+- **SAML 2.0 SSO**（D2 username 等待评估后启动）
+
+#### 用户管理
+
+- **D8** remove-user 关联资源检查（无 user→resource 关联时暂不需要）
+
+#### PR 管理
+
+- **B1** PR 关闭评论 + label（需 `issues: write` 权限，比当前 `pull-requests: write` 宽）
+- **B2** 固定分支单线设计（独立平台部署后修复频率上升时评估）
+
+#### Code Scanning 规则体系
+
+- **C15** B 类规则真实仓库样本核对（B 类列表覆盖 js/py/java 精选集，其余语言落 C 兜底）
+- **C16** 规则分类配置化（从常量表升级为可配置）
+
+#### Code Quality（Standard findings）
+
+- **C21** 接入 `GET /repos/{owner}/{repo}/code-quality/findings` 数据源（确定性 CodeQL 质量规则：maintainability / reliability）；不阻塞 M5/M6；M5 后评估完整支持，最小报告接入可提前
+
+#### org 增强
+
+- **C22** GitHub App / installation token 认证（CLI 侧增强）
+- **C23** 发现规模上限 max-repos（架构文档已规划未实现）
+- **C24** org 级 alerts API 批量拉取（等真实大 org 用户痛点再动）
+
+#### 报告与统计口径
+
+- **C8** per-source 错误隔离（T301 遗留，并行源任一失败目前整体硬失败，演进为 warn + 仅弃该源）
+- **C9** summary 字段未渲染（T304 遗留，告警 summary 已收集未渲染）
+
+#### 架构与性能
+
+- **C13** app/helpers ↔ cli/helpers 值级循环依赖（M3 收尾引入反向边）
+- **C14** 多 cs 告警逐告警全项目 lint 性能（T303 遗留）
+
+#### 治理
+
+- **C34** 存量规范严格约束挂接盘点（审查治理候选）
+- **G1** network-audit 默认白名单持续扩展问题 —— 详见长期主线 #2
+
+#### 工作流
+
+- **T905** git worktree 并行开发预案（触发条件：多 agent 并行成为常态）
+- **T701-e2e** 管理端点集成测试补强
+
+### 已评估不实现（决策保留于归档段）
+
+下列条目已在历史评估中明确"暂不实现"或"非本阶段范围"，从 backlog 主条目迁出，决策记录保留于对应归档段：
+
+- **C1 / C2 / C6 / C7 / C10 / C11 / C12 / C17 / C18 / C19 / C20** —— 详见 [todo-archive.md §M4 治理记录](archive/todo-archive-phases-m2-m55.md#m4-阶段治理记录2026-08-05--2026-08-06) + [§T405 跨线升级显式授权](archive/todo-archive-phases-m2-m55.md)
+- **C22 GitHub App 认证** —— 当前仅 PAT（classic / fine-grained），org 场景痛点由用户触发再评估；详见 [todo-archive.md §M6 / T602 凭据管理](archive/todo-archive-phases-m6-m7-t711.md#m6-最小平台-mvp已归档)
+- **C26 / T1005 / C28 / C29 / C53** —— M10 沙箱 / C26 / T1005 / C28 / C29 / C53 已全部闭环；详见 [todo-archive.md §M10](todo-archive.md#m10-独立沙箱容器-c26-实施规划已归档) + [§C53](todo-archive.md#c53-平台集成模式-fix-修复结果推送远程已归档)
+- **C25 / C27 / C31 / C32** —— M6 B 模式结果回填 + MCP 能力补充 P1/P2 已闭环；详见 [todo-archive.md §M6](archive/todo-archive-phases-m6-m7-t711.md#m6-最小平台-mvp已归档) + [§MCP 能力补充](todo-archive.md)
+- **C46-C61** —— 2026-08-19~20 平台 UX/可用性闭环批次汇总 10 项 + 3 个 PR + 3 个独立 fix 全部归档；详见 [archive/todo-archive-phases-m11.md](archive/todo-archive-phases-m11.md)
+
+## 已知边界与 known-issue
+
+### PrimeVue 4 + Nuxt hydration（持续观察）
+
+- **PrimeVue 4 DataTable + Nuxt SSR hydration 兼容性 bug**（主线 #1 暂停；本节作为持续观察指针）
+  - 内容：见主线 #1（[跳转](#主线-1primevue-4--nuxt-hydration-rowgroup-known-issue)）
+  - 已知状态：2 个 alerts-rowgroup.e2e.test.ts 测试 `.fixme` 标记；监控 PrimeVue 4 changelog 与 alerts 是否迁移到 `useAsyncData`
 
 ### 待迁移经验（next neat-freak 候选）
 
-> 本节登记本批次发现的"项目级规范候选"经验——需在下次 neat-freak 批次中评估是否提升为 `docs/standards/*` 强制条款。未登记迁移任务前易遗漏。
+> 本节登记项目级规范候选经验——下次 neat-freak 批次评估是否提升为 `docs/standards/*` 强制条款。未登记迁移任务前易遗漏。
 
 - **CI 失败分析必看 trace page-snapshot**（C62/C63/C64 批次教训）
   - 内容：CI log 的 `test-results/<spec>/error-context.md` 包含 playwright accessibility tree，能直接看到实际 DOM 状态（row class / cell text / role attribute）—— 比堆栈更快定位 DOM-based 测试失败，特别对 PrimeVue DataTable wrapper / rowGroup 渲染类问题
   - 候选规范：扩展 [docs/standards/development.md](../standards/development.md) CI 失败分析章节，明确"看 error-context.md 优先于 trace.zip"
+
 - **page.route 注册顺序铁律**（C63/C64 批次教训）
   - 内容：必须在 `page.goto` 之前注册，Vue/Nuxt 应用 `onMounted` 在 hydration 后立即触发 fetch，先 mock 后 goto 才能保证 mock 生效；后注册 mock 会被 onMounted 抢跑的真实 fetch 绕过（hydration 后值再变不再触发已注册的 mock）
   - 候选规范：扩展 [docs/standards/testing.md](../standards/testing.md) Playwright e2e mock 时序条款
+
 - **PrimeVue 类型 vs 运行时不一致**（C64-1 批次教训 + 生产 latent bug 修复）
   - 内容：TypeScript 类型允许 `DataTableExpandedRows = Record<string, boolean>`，但运行时 v-model:expanded-row-groups 内部用 `.indexOf()` 期望数组——编写 v-model 绑定时需直接看 PrimeVue index.mjs 内部实现，不能信类型定义；本批次 `alerts.vue:150` expandedPackages Record → string[] 修复闭环了 rowGroup 数据流必现 TypeError
   - 候选规范：扩展 [docs/standards/platform.md §7.1 PrimeVue 集成实践](../standards/platform.md) v-model 数据形态契约清单
+
 - **PrimeVue 4 DataTable sort-mode="multiple" + sortable 列 stale 注释订正 + default-sort-order 列级无效**（2026-08-21 修复批次 RG-S02/N1 遗留）
   - 内容：(a) `alerts.vue:148` 注释"PrimeVue 自动保留 packageName 为第一排序键"不准确——PrimeVue 4.5.5 源码 `index.mjs:4626-4632` 显示未按 meta/ctrl 点击时 `d_multiSortMeta = filter(meta => meta.field === columnField)`，packageName 会被清掉，rowGroup 第一排序键丢失可能致 subheader 错乱（C64 hydration fixme 掩盖中）；(b) `<Column :default-sort-order="-1">` 被 PrimeVue 4 Column 静默忽略（无 `defaultSortOrder` prop + `inheritAttrs: false`，alerts.vue:353/390 两处），业务语义排序未真正生效
   - 候选规范：扩展 [docs/standards/platform.md §7.1](../standards/platform.md) —— (a) rowGroup 多列排序语义明确"groupRowsBy 字段需永久作为第一排序键"；(b) PrimeVue 4 Column 不支持 per-column `defaultSortOrder`，业务语义排序只能靠 DataTable 顶层 `defaultSortOrder` + 派生 `_xxxRank` 字段
-  - 候选实现：(a) `alerts.vue` rowGroup 排序锁死（监听 multiSortMeta 变化把 groupRowsBy 字段 re-prepend，类似 PrimeVue 内部 `d_groupRowsSortMeta` 机制）；(b) 移除 alerts.vue Column 上的 `:default-sort-order="-1"` 或评估改为 DataTable 顶层 `default-sort-order="-1"`（与 `_severityRank` 升序语义冲突需谨慎）
+
 - **PrimeVue 4 DataTable multisortMeta 教训挂接 review 检查点**（2026-08-21 修复批次 RG-S03 遗留）
   - 内容：本次修复在 [docs/standards/platform.md §7.1](../standards/platform.md) 新增严格约束（"sort-mode='multiple' 必须用 v-model:multi-sort-meta"），但 `.github/skills/code-reviewer/references/code-quality-checklist.md` 无对应小节，新规则目前只能靠人工翻 standards.md 才避免复发
   - 候选实现：在 `code-quality-checklist.md` §规范一致性 下加"PrimeVue 4 DataTable v-model 形态契约"小节并一行链接引用 §7.1（单点声明原则）；或登记 neat-freak 批次统一处理
+
 - **本机 e2e 实际可跑**（C63/C64 批次教训 + 错误判断订正）
   - 内容：playwright + chromium + build 产物 + e2e sqlite 全部就绪，本机 `pnpm exec playwright test` 完全可行（54 passed / 2 skipped / 0 failed in 2.9min）；之前 CI-only 判断是误判
   - 候选规范：扩展 [docs/guide/ai-development.md](../guide/ai-development.md) e2e 调试章节，明确"本机 e2e 可跑，本地调试优先于依赖 CI"
 
-### 延期 / 暂缓项（2026-08-12 用户指示）
+---
 
-- **T705 生产级部署**（PostgreSQL + Helm + Sentry）—— 2026-08-12 用户指示暂缓排期
-- **T703 跨平台 Git**（GitLab + Bitbucket）—— 2026-08-12 用户指示暂缓排期
-- **C30 Publish Docker build job 失败排查** —— 2026-08-18 用户决策暂缓（双平台构建 23m 2s 成功证明当前 docker.yml 可稳定工作）
+## 历史归档指针（不在 backlog 重复登记）
 
-### 远期登记 / 未排期增强候选
+> 本节仅作归档指针，所有"已闭环"内容详见 [todo-archive.md](todo-archive.md) 对应区块。已闭环条目不应再出现在 backlog 主条目，避免读者误判为活跃任务。
 
-- **MCP**：C33 MCP P3（pnpm-audit 本地 tool / 统一错误包装 / 返回结构对齐完整 RunResult）
-- **i18n**：C36 服务端 API 错误消息 i18n / C37 语言偏好多设备同步
-- **多组织**：D1 repo_admin + RepositoryAccess / D3 多租户组织体系 / SAML 2.0 SSO（D2 username 等待评估）
-- **用户管理**：D8 remove-user 关联资源检查（无 user→resource 关联时暂不需要）
-- **PR 管理**：B1 PR 关闭评论 + label / B2 固定分支单线
-- **Code Scanning**：C15 B 类规则真实仓库样本核对 / C16 规则分类配置化
-- **Code Quality**：C21 接入 Code Quality Standard findings（待 M5 后评估）
-- **org 增强**：C22 GitHub App / installation token / C23 发现规模上限 max-repos / C24 org 级 alerts API 批量拉取
-- **治理**：C34 存量规范严格约束挂接盘点
-- **治理**：G1 network-audit 默认白名单持续扩展问题（2026-08-25, [Security Auto Fix #41 run 32795032475](https://github.com/dependfix/dependfix/actions/runs/32795032475) 触发）—— 治本方案设计待启动
-  - 临时修复：`rolldown.rs` 默认白名单（commit `2104b9f`）；症状 = vite 6/7 跨 major 升级 verification 命令输出 URL 被 deny-by-default 拦截为 `network_violation` → run exitCode=1
-  - 候选方向：(1) 构建工具生态文档站类目预置白名单（rolldown.rs / swc.rs / rust-lang.org 等）；(2) 按 SRI 哈希钉资源（推荐域动态发现）；(3) 命令输出 URL 与真实外联区分（stdout/stderr 字符串不应判为 violation，当前 `verification-runner` 命令输出 URL 提取可能误判）
-  - 验收：默认白名单不再按次新增；verification 阶段合法外联不被误判；`docs/plan/backlog.md` G1 条目关闭
-- **worktree**：T905 git worktree 并行开发预案（触发条件：多 agent 并行成为常态）
-- **集成测试**：T701-e2e 管理端点集成测试补强
+### 已闭环阶段（M0-M12）
+
+- **M0-M11**：全部归档，详见 [todo-archive.md 主窗口](todo-archive.md) + [archive/todo-archive-phases-*.md 分片](archive/)
+- **M12 平台 UX 一致性 + i18n 治理**（2026-08-25 归档）：详见 [todo-archive.md §M12](todo-archive.md#m12-平台-ux-一致性--i18n-治理已闭环)
+- **2026-08-20 e2e 修复批次**（C62 + C63 + C64 + chore）：详见 [todo-archive.md §2026-08-20 e2e 修复批次](todo-archive.md#2026-08-20-e2e-修复批次c62--c63--c64--chore)
+- **2026-08-19~20 平台 UX/可用性闭环批次**（C46-C61 + 3 个 PR + 3 个独立 fix）：详见 [archive/todo-archive-phases-m11.md](archive/todo-archive-phases-m11.md)
+- **M11 业务可见性 + 沙箱落地 + 安全文档**（2026-08-20，22 commits）：详见 [todo-archive.md §M11 推进批次](todo-archive.md#2026-08-20-m11-推进批次业务可见性--沙箱落地--安全文档--通知基建) + [archive/todo-archive-phases-m11.md §M11 推进批次](archive/todo-archive-phases-m11.md#m11-推进批次业务可见性--沙箱落地--安全文档--通知基建)
+- **M10 独立沙箱容器**（C26 + T1001-T1004 + T912 + C28）：详见 [todo-archive.md §M10](todo-archive.md#m10-独立沙箱容器-c26-实施规划已归档) + [§T912](todo-archive.md#t912-smtp-邮件发送器主体收口t9123--c28-联动)
+- **M9 i18n 基建同步**（2026-08-18）：详见 [archive/todo-archive-phases-m11.md §M9](archive/todo-archive-phases-m11.md#m9-i18n-基建同步已归档)
+- **M8 安全加固与容器执行完备**（2026-08-14）：详见 [archive/todo-archive-phases-m6-m7-t711.md §M8](archive/todo-archive-phases-m6-m7-t711.md#m8-安全加固与容器执行完备已归档)
+- **M7.1 认证与用户体系**（2026-08-10）：详见 [archive/todo-archive-phases-m6-m7-t711.md §M7.1](archive/todo-archive-phases-m6-m7-t711.md#m71-认证与用户体系已归档)
+- **M7.2 平台能力深化**（2026-08-12）：详见 [archive/todo-archive-phases-m6-m7-t711.md §M7.2](archive/todo-archive-phases-m6-m7-t711.md#m72-平台能力深化已归档)
+- **M6 最小平台 MVP**（2026-08-08）：详见 [archive/todo-archive-phases-m6-m7-t711.md §M6](archive/todo-archive-phases-m6-m7-t711.md#m6-最小平台-mvp已归档)
+- **M5.5 Skill 编排（CLI 先行）**（2026-08-07）：详见 [archive/todo-archive-phases-m2-m55.md §M5.5](archive/todo-archive-phases-m2-m55.md#m55-skill-编排cli-先行已归档)
+- **M5 AI Breaking Change 研判**（2026-08-07）：详见 [archive/todo-archive-phases-m2-m55.md §M5](archive/todo-archive-phases-m2-m55.md#m5-ai-breaking-change-研判已归档)
+- **M4.6 / M4.5 / M4 多仓库治理增强**（2026-08-06）：详见 [archive/todo-archive-phases-m2-m55.md §M4](archive/todo-archive-phases-m2-m55.md#m4-多仓库治理增强已归档)
+- **M3 Code Scanning 扩展**（2026-08-06）：详见 [archive/todo-archive-phases-m2-m55.md §M3](archive/todo-archive-phases-m2-m55.md#m3-code-scanning-扩展已归档)
+- **M2 GitHub Action 接入**（2026-08-05）：详见 [archive/todo-archive-phases-m2-m55.md §M2](archive/todo-archive-phases-m2-m55.md#m2-github-action-接入已归档)
+- **M1 MVP 单仓库自动修复** / **M0 基线收敛**：详见 [archive/todo-archive-phases-m0-m1.md](archive/todo-archive-phases-m0-m1.md)
+
+### 已闭环特定批次
+
+- **C53 平台集成模式 fix 修复结果推送远程**：详见 [todo-archive.md §C53](todo-archive.md#c53-平台集成模式-fix-修复结果推送远程已归档)
+- **MCP 能力补充 C31 / C32**：详见 [archive/todo-archive-phases-m2-m55.md §M5.5 / T508](archive/todo-archive-phases-m2-m55.md#m55-skill-编排cli-先行已归档)
+- **M2 增强候选 B1 / B2 / B3**：详见 [archive/todo-archive-phases-m2-m55.md §M2](archive/todo-archive-phases-m2-m55.md#m2-github-action-接入已归档)
 
 ---
 
-## 2026-08-19~20 平台 UX/可用性闭环批次汇总
-
-> **背景**：2026-08-19~20 用户实测反馈一批平台 UX / 可用性问题，原登记为 backlog C46-C61。本批次一次性收口三个 PR + 三个独立 fix 任务，全部完成。
->
-> **收口清单（10 个 backlog 项 → 已归档至 [todo-archive.md](todo-archive.md)）**：
->
-> | 批次 | 关联 backlog | commit 序列 | 归档位置 |
-> |:--|:--|:--|:--|
-> | **PR1 原子修复** | C47（Dialog draggable）+ C48（默认全勾） | `cb788e7` `9e26b56` | [todo-archive.md §PR1](archive/todo-archive-phases-m11.md#pr1-c47--c48-原子修复-) |
-> | **PR2 单仓库扫描** | C52（mode/severity 选择） | `1a663f3` | [todo-archive.md §PR2](archive/todo-archive-phases-m11.md#pr2-c52-单仓库扫描模式补全-) |
-> | **PR3 批量导入** | C46（过滤 UI）+ C49（分页）+ C50（默认凭据） | `2a7f99f` | [todo-archive.md §PR3](archive/todo-archive-phases-m11.md#pr3-c46--c49--c50-批量导入能力补全-) |
-> | **C51 扫描历史子路由** | C51（unrouting 0.2.x 兼容 bug） | `b067b3a` `2102894` `0b9411b` | [todo-archive.md §C51](archive/todo-archive-phases-m11.md#c51-扫描历史子路由不可达unrouting-02x-兼容-bug--应用层-dialog-改造) |
-> | **C54 batch-runs 刷新** | C54（60s 节拍 + 增量 reconcile） | `3a2757b` `edb066c` | [todo-archive.md §C54](archive/todo-archive-phases-m11.md#c54-batch-runs-页面刷新策略) |
-> | **C55 batch-runs 孤儿兜底** | C55（stale-cleanup + force-fail） | `ce523d4` `4c813f8` | [todo-archive.md §C55](archive/todo-archive-phases-m11.md#c55-batch-runs-孤儿运行兜底) |
-> | **C59 暗色模式 mixin** | C59（global dark mode mixin 失效） | `9949504` `03ba3b2` | [todo-archive.md §C59](todo-archive.md#c59-暗色模式全局样式未生效-) |
-> | **C60 表格排序** | C60（7 表 sortable + 业务语义） | `a1d5bd9` `532ea78` `6b994b5` `5bba3f4` `5fbad71` | [todo-archive.md §C60](todo-archive.md#c60-平台表格排序) |
-> | **C61 仪表板图表** | C61（severity 饼图 + 修复率 + Top-10） | `ffacfca` `5abd914` `402dc03` `5bba3f4` `5fbad71` | [todo-archive.md §C61](todo-archive.md#c61-仪表板告警图表) |
->
-> **仍待评估（保留 backlog）**：C53（平台 fix 推送 PR / 后置 M11 评估，已闭环见 §C53）
->
-> **触发条件未达不实施**：C29（暗色模式）已由 C59 闭环删除；M6 C25/C27（已闭环 2026-08-08）已删除。
->
-> **本节清理（2026-08-20）**：原 backlog.md 中各 C 项长段描述（C46 / C47 / C48 / C49 / C50 / C51 / C52 / C54 / C55 / C59 / C60 / C61）已删除，详细实施记录 / 修复方向 / 验收要点 / commit hash 见 [todo-archive.md](todo-archive.md) 对应区块。
-
-## M4 增强候选（未排期）
-
-> 2026-08-06 M3 归档时从阶段遗留 / 观察点整理，非 M4 本期范围（M4 核心为多仓库治理 T401-T404，见 [todo-archive.md](archive/todo-archive-phases-m2-m55.md#m4-多仓库治理增强已归档)）。按主题分组，随运行反馈再评估上收。
-
-### 工具链与锁文件
-
-> 已闭环（2026-08-06/07 清理，记录见 [todo-archive.md §M4](archive/todo-archive-phases-m2-m55.md#m4-阶段治理记录2026-08-05--2026-08-06)）：C1 pnpm 11 overrides 假成功检测（12af197d）、C2 toolchainPnpmVersion 验证链（cf12e381）、C20 lint:md 文档门禁（47050e6e）。
-
-- **C3 漂移检测弱代理**（T305 遗留）
-  - 状态：🔶 待评估
-  - 内容：lockfileVersion 漂移检测为相对对比（before/after），非严格"声明版本一致性"校验
-  - 来源：T305 Review Gate（2026-08-05）
-- **C4 pnpm catalog 依赖的 override 行为未实测**（G3 遗留）
-  - 状态：🔶 待评估
-  - 内容：使用 pnpm catalog 声明的依赖，版本化 overrides 是否生效未实测
-  - 来源：G3 处理记录（2026-08-05）
-
-### 报告与统计口径
-
-> 已闭环（2026-08-06 清理，cf12e381）：C6 PR body 64KB 截断、C7 alertsConverged 口径拆分。
-
-- **C8 per-source 错误隔离**（T301 遗留）
-  - 状态：🔶 待评估
-  - 内容：并行源任一失败目前整体硬失败（已拉取的 Dependabot 结果丢失）；演进为 warn + 仅弃该源（需确认语义）
-  - 来源：T301 Review Gate（2026-08-05）
-- **C9 summary 字段未渲染**（T304 遗留）
-  - 状态：🔶 待评估
-  - 内容：告警 summary 已收集未渲染（JSON 可见；报告/PR body 如需摘要列可加）
-  - 来源：T304 Review Gate（2026-08-05）
-
-### 覆盖策略
-
-> 已闭环（2026-08-06 清理，10927851）：C10 lockfile 告警版本关系细化、C11 workspace 成员直接依赖识别。
-- **C12 major overrides 确认机制**（G3 遗留）
-  - 状态：🔶 已评估，暂不实现（2026-08-05）
-  - 内容：major overrides 自动拦截不实现（逐包验证 + 回滚已兜底）
-  - 来源：G3 处理记录
-  - 关联：**T405（2026-08-07）已实现 `--allow-major-upgrade` 跨线显式授权通道**，但语义不同——T405 针对"当前线内无修复版本"的跨线告警（仅直接依赖单版本自动升级，强制完整验证）；C12 指常规链路的 major overrides 自动拦截确认机制，仍不实现
-
-### 架构与性能
-
-- **C13 app/helpers ↔ cli/helpers 值级循环依赖**（M3 收尾引入反向边）
-  - 状态：🔶 待评估（与 M5 T505 CLI 解耦关联）
-  - 内容：quickVerifyProject ↔ validateVerifyCommands 运行时安全；建议下沉公共层或回调注入
-  - 来源：M3 收尾审查登记（2026-08-05）
-- **C14 多 cs 告警逐告警全项目 lint 性能**（T303 遗留）
-  - 状态：🔶 待评估
-  - 内容：多 code-scanning 告警时逐个跑全项目 lint；可合并验证
-  - 来源：T303 Review Gate（2026-08-05）
-
-### Code Scanning 规则体系
-
-- **C15 B 类规则真实仓库样本核对**（T302 遗留）
-  - 状态：🔶 待评估
-  - 内容：B 类列表覆盖 js/py/java 精选集，其余语言（go/ruby/csharp/cpp）落 C 兜底；需真实仓库 API 样本核对规则 id 格式与变体分布
-  - 来源：T302 Review Gate（2026-08-05）
-- **C16 规则分类配置化**（T302 声明扩展点）
-  - 状态：🔶 待评估
-  - 内容：规则分类从常量表升级为可配置（文件 / env / 平台界面）
-  - 来源：T302 设计（2026-08-05）
-
-### GitHub Code Quality（Standard findings）
-
-- **C21 接入 Code Quality Standard findings 数据源**（2026-08-07 评估登记）
-  - 状态：🔶 已评估，登记 backlog（用户决策：不阻塞 M5/M6；M5 后评估完整支持，最小报告接入可提前）
-  - 内容：接入 `GET /repos/{owner}/{repo}/code-quality/findings`（确定性 CodeQL 质量规则：maintainability / reliability），新增 `source: 'code-quality'` 复用 `NormalizedSecurityAlert` 模型与 A/B/C 规则分层；首版 report-only（C 类默认），机械性规则白名单自动修复为演进项；规则分类器扩展（质量规则 id 为 `js/useless-assignment-to-local` 斜杠格式，与 CodeQL 安全规则同族，可复用 `classifyRule`）
-  - **定价澄清（用户确认 2026-08-07）**：Standard findings（确定性 CodeQL 扫描）**免费跑**，仅消耗 Actions minutes；付费面为 **AI findings / Copilot Autofix**（消耗 AI credits）。公开报道口径（2026-07-20 GA，$10/active committer/月）与实际计费需实测校准
-  - 与 Code Scanning 差异：目的（质量债 vs 安全漏洞）；severity（`error/warning/recommendation` + `category` vs `security_severity_level`）；UI（`/security/quality` vs `/security/code-scanning`）；权限（**`Code quality: read`** vs `security-events: read`——GitHub App UAT/IAT 均支持但需显式配置权限，GITHUB_TOKEN 可达性需实测）；分页（cursor `before/after` vs octokit.paginate Link header）
-  - 前置（实测项）：IAT / GITHUB_TOKEN 对 `code-quality/findings` 的权限可达性；`state` 枚举值域；cursor 分页语义；action.yml 是否新增 `code-quality: read` 权限键
-  - 来源：2026-08-07 评估（用户提问：Standard findings 与 Code Scanning 差异、是否支持）
-
-### M4 非目标演进项
-
-- **C17 内容嗅探判断技术栈**：T401 非目标（首版 topic/dependabot.yml 探测）；内容扫描成本与 token 面需评估
-- **C18 名单正则引擎**：T403 非目标（首版 glob 通配）
-- **C19 报告保留策略**：T404 非目标（容量治理：归档上限 / 清理策略）
-
-### GitHub Organization 增强候选（2026-08-07 评估登记）
-
-> 评估结论：M4 已交付 org 基础支持（`--owner` 发现走 `GET /orgs/{org}/repos`、过滤链、per-repo 告警拉取、直接推送分支建 PR、测试覆盖），基础可用。以下为评估后登记的增强项，按价值排序；README 已补 org 用法与权限说明。
-
-- **C22 GitHub App / installation token 认证**（CLI 侧增强，org 场景安全性关键项）
-  - 状态：🔶 待评估（关联 M6 T602）
-  - 内容：当前仅支持 PAT（`GITHUB_TOKEN` / `DEPENDFIX_GITHUB_TOKEN` / `DEPENDFIX_ALERTS_TOKEN`）；架构文档声明输入含 "GitHub App 凭证"（[architecture.md](../design/governance/architecture.md)），但 [github-client.md](../design/packages/github-client.md) 明确"不实现 GitHub App / Installation Token 认证"。org 场景 PAT 痛点：classic PAT 需 `repo` 全量 scope（权限过大）；fine-grained PAT 需逐仓库配置 + 逐个 org 启用 SSO；个人 token 离职/轮换管理困难。GitHub App 价值：按仓库授权限、短时 token、org 管理员可控可审计
-  - 实现路径：`createGitHubClient` 增加 app auth（appId + privateKey → JWT → installation token），或支持直接注入 installation token（后者近零成本，当前传任意有效 token 即可用，缺的是文档化 + 生成链路）
-  - 关联：M6 T602 凭据管理已交付 GitHub App 凭据类型（app-id + private-key，见 [todo-archive.md §M6](archive/todo-archive-phases-m6-m7-t711.md#m6-最小平台-mvp已归档)）；CLI 侧认证能力为其前置或并行增强
-  - 来源：2026-08-07 GitHub Organization 支持评估
-- **C23 发现规模上限 max-repos**（架构文档已规划未实现）
-  - 状态：🔶 待评估
-  - 内容：[architecture.md](../design/governance/architecture.md) 规划 `max-repos` 输入参数，代码未实现（grep 零命中）。大 org（数百仓库）一次性全量发现 + 逐仓库探测 `.github/dependabot.yml`（N 次 contents API），配额消耗与总耗时不可控；现有防护仅 concurrency（report-only 16）+ 限流重试 + probe 并发 5，无总量上限
-  - 建议：发现层按配置上限截断（排序后截断保证确定性），或拆为分批处理
-  - 来源：2026-08-07 GitHub Organization 支持评估
-- **C24 org 级 alerts API 批量拉取**（优化项）
-  - 状态：🔶 待评估（等真实大 org 用户痛点再动）
-  - 内容：GitHub 提供 org 级 `GET /orgs/{org}/dependabot/alerts` 与 `GET /orgs/{org}/code-scanning/alerts`，当前按仓库逐仓拉取（listAlertsForRepo）。大 org 场景可显著减少 API 调用，但需按仓库重组结果 + defaultBranch 注入（org 级响应可能缺省分支上下文），复杂度上升
-  - 来源：2026-08-07 GitHub Organization 支持评估
-
-### M4 残余风险登记（2026-08-06，T402-T404 Review Gate 移交）
-
-> M4 交付时审计登记的 8 项残余风险。
-> **2026-08-07 清理**：R1-R7 已全部闭环（修复批次 3d19d499 / ac8ce5c7 / 965e68f3），记录见 [todo-archive.md §M4 治理记录](archive/todo-archive-phases-m2-m55.md#m4-阶段治理记录2026-08-05--2026-08-06)，本条仅保留 R8。
-
-- **R8 多进程 index 写竞态**（**部分完成**）：原子写已落地（临时文件 + rename，无半截文件）；双进程 read-modify-write 丢失更新在单进程 CLI 语义下不可达，平台化（M6+ 数据库化）消解
-
-### M4 已知限制（P3 观察项，非阻塞）
-
-> **2026-08-07 清理**：7 项已闭环（--history 与运行参数并存、小数截断拒绝、merge 大小写去重、repoSlug 碰撞后缀、cleanup-branches 空归档跳过、cleanup-branches maxConcurrency 拒绝、M4 参数接入 Action），记录见 [todo-archive.md §M4 治理记录](archive/todo-archive-phases-m2-m55.md#m4-阶段治理记录2026-08-05--2026-08-06)，本条仅保留观察项。
-
-- **action artifact 体积**：归档结构（summary.json + 每仓库 md/json）随上传，artifact 略增
-
-## M5.5: Skill 编排（CLI 先行）
-
-> **已归档（2026-08-07）**：T506-T508 全部完成，见 [todo-archive.md §M5.5](archive/todo-archive-phases-m2-m55.md#m55-skill-编排cli-先行已归档)。
-
-## M6: 最小平台 MVP
-
-> **已归档（2026-08-08）**：T601-T605 + T607 全部完成，见 [todo-archive.md §M6](archive/todo-archive-phases-m6-m7-t711.md#m6-最小平台-mvp已归档)。以下仅保留本阶段转移出的增强候选与遗留观察项。
-> **已闭环清理**：C25（B 模式结果回填，17c5082f + 60d9fd6e）、C27（runUrl 状态语义，随 C25 联动解决）——记录见 [todo-archive.md §M6 治理记录](archive/todo-archive-phases-m6-m7-t711.md#m6-阶段治理记录2026-08-07--2026-08-08)。
-
-- **C26 独立沙箱容器执行实现**（T607 设计文档产出后的实现候选）
-  - 状态：✅ **M10 实施规划已闭环（2026-08-19 决策会议 + 2026-08-20 收口归档）**——T1001 B1+B2 Docker rootless + RuntimeAdapter 抽象层 / T1002 出站白名单拦截代理 / T1003 cgroup v2 资源限制 / T1004 文档收口 全部 commit + Review Gate Pass；13 commits 待推送（`b189aaa` `a07f577` `b6083a7` `c68029a` `9da2421` `a85fb03` `32658e7` `5ae5165` `e48b097` `06377b2` `b289668`）。G5 治理项收口，[sandbox-security-governance.md §5 G5 行](../design/governance/sandbox-security-governance.md#5-治理决议与登记) 升级为"实施规划已就绪"。**前置依赖 T702/T802/T805/C38/C45 全部已落地**（BullMQ 并发 / detached 进程组 / 网络审计代理 / 容器降权 / 工具链修复）。**剩余项 T1005**（sandbox 路由接线）见下。
-  - 详细归档与实施记录：[todo-archive.md §M10](todo-archive.md#m10-独立沙箱容器-c26-实施规划已归档)
-  - 设计文档：[executor-sandbox.md §7](../design/governance/executor-sandbox.md#7-sandbox-执行器设计)（§7.1 RuntimeAdapter 抽象 / §7.2 镜像策略 / §7.3 部署形态 / §7.4 与 ContainerExecutor 并存 / §7.5 K8s+Helm 部署预留 / §7.6 验收对照 / §7.7 设计反例）
-  - 反模式已登记（绝对不可用）：[DinD with `--privileged`](https://blog.nestybox.com/2019/09/14/dind.html) + [挂 `/var/run/docker.sock`（DoD）](https://www.wiz.io/academy/container-escape)—— CVE-2019-5736 runc 逃逸实证，违反 [sandbox-security-governance.md §3 路径 D](../design/governance/sandbox-security-governance.md)
-  - 来源：M6 规划（2026-08-07，Q4=A 设计+最小实现，完整沙箱留后续） → 2026-08-14 安全专项评估提级 → 2026-08-19 决策会议 + 调研落地 → 2026-08-20 M10 收口归档
-- **T1005 sandbox 路由接线**（2026-08-20 M10 移交 backlog）
-  - 状态：✅ **已闭环（2026-08-20）** —— schema 扩展（`schemas/repository.ts` + `schemas/scan.ts` zod enum 含 'sandbox'）+ scan-orchestrator sandbox 分支 + resolveExecutorKind 优先级（request > repository.executorKind > actionWorkflowFile 自动 > container 默认）+ `isAvailable()` 启动期探测 + 不可用立即降级 ContainerExecutor + stderr warn；runtime 偶发故障仍走 sandbox_unavailable → 标记 failed（不静默降级）
-  - 实现细节：[scan-orchestrator.service.ts](../../apps/platform/server/services/scan-orchestrator.service.ts) sandbox 分支 + [scan-run-state.ts](../../apps/platform/server/services/scan-run-state.ts) executorKind 类型扩展（含 sandbox）
-  - 测试覆盖：5 个新 case（1 resolve + 4 runScanForRepository sandbox 路由：可用时执行 / 不可用降级 ContainerExecutor / runUrl 兜底 / 运行时 sandbox_unavailable 不静默降级）
-  - Review Gate：standard 1 轮 Pass with Warning（RG-W02 时间戳 bugfix 合并提交 / RG-W03 backlog 状态同步已修复 / RG-W04 sandboxLimits 字段留 M11 后段）
-  - 关联：归档于 todo-archive.md（当前 M10 已知边界已含 T1005 移交记录，T1005 单独归档段待文档批次落地）
-  - 来源：M10 收口移交（2026-08-20）；[todo-archive.md §M10 已知边界](todo-archive.md#m10-独立沙箱容器-c26-实施规划已归档)
-- **C28 security.md 补凭据加密存储章节**（M6 终审 W4 登记 + T912-3 联动）
-  - 状态：🔶 待评估（不阻塞；T912-3 安全与文档与本项合并处理）
-  - 内容：security.md 未登记 T602 凭据加密机制（ENCRYPTION_KEY / AES-256-GCM / 解密仅执行时内存 / 凭据最小化），加密设计散落 executor-sandbox.md §3 与 credential.service.ts 注释；安全设计文档应与实现同步补"凭据加密存储"一节（T602 已交付，文档待补）
-  - **T912-3 联动**：邮件发送安全章节（SMTP 凭据仅从 runtimeConfig 读取不进前端 bundle + 速率限制防刷 + 失败 fail-closed）与本项合并为单一文档同步任务——[todo-archive.md §T912](todo-archive.md#t912-smtp-邮件发送器主体收口t9123--c28-联动) 已标注 T912-3 移交本项
-  - 来源：M6 终审（2026-08-08，deep Review Gate warning 4）+ T912-3 移交（2026-08-20 M10 归档批次）
-- **C29 平台 UI 暗色模式不可用**（已闭环于 C59，2026-08-20）
-  - 状态：✅ **已修复**（commit `9949504` + `03ba3b2`，C59 应用层方案 A，1 行 mixin 修复 + 永久 e2e 回归）—— 详见 [todo-archive.md §C59](todo-archive.md#c59-暗色模式全局样式未生效-) 与本节顶部"2026-08-19~20 闭环批次汇总"表
-  - 治理登记保留：T601 暗色模式 initial 实现 + 2026-08-10 用户实测反馈"依旧不可用"历史追溯；修复路径：`_mixins.scss` `@mixin dark-mode` 把 `:global(.dark) &` 改为 `.dark &`（`:global()` 是 CSS Modules 语法，全局 `main.scss` 无 scope 时无效）
-- **C53 平台集成模式 fix 修复结果不推送远程（无 PR）**（M6 平台可选项 / 2026-08-19 用户反馈登记）
-  - 状态：✅ **已闭环（2026-08-20，M11 阶段启动任务）** —— 实施 3 commits（`83ec736` / `46b7c15` / `3ed8303`）+ Review Gate 全部 Pass：
-    - C53-1 容器内 push 链路（pushFixBranch + extractBranchName + execute 接入）—— commit `83ec736`
-    - C53-2 PR 创建 + 状态机扩展（createPrForFix + pr_creation_failed → dispatched）—— commit `46b7c15`
-    - C53-3 清理时序（workDir 保留 24h + 远程分支清理工具）—— commit `3ed8303`
-  - 完整 Review Gate 记录（3 round Pass）和 3 commits 引用见 [todo-archive.md §C53](todo-archive.md#c53-平台集成模式-fix-修复结果推送远程已归档)
-  - 设计文档：[executor-sandbox.md §8](../design/governance/executor-sandbox.md#8-a-模式-push--pr-推送机制)（§8.1 流程变更 / §8.2 状态机扩展 / §8.4 凭据权限阶）
-  - 后续 backlog（P3 阶段）：
-    - **[C53-后-A]** stale-cleanup 任务：moveToPending 写入 `_pending/{runId}/` 当前无定时清理机制；按 `.meta.json` 的 `expiresAt` 字段扫描删除（C53-3 RG-W2）
-    - **[C53-后-B]** `sanitizeErrorMessage` 补充 `Authorization: token xxx` 模式：C53-2 RG-W2 登记后续 patch
-    - **[C53-后-C]** A 模式 dispatched UI 提示：用户看到 dispatched 状态需明确"PR 创建失败，分支已推，可手动开 PR"（当前 UI 通用 dispatched 提示）
-  - 决策记录（保留用于审计追溯）：
-    - 位置：`apps/platform/server/services/executor/container-executor.ts`（原 M6 阶段第 48-51 行 clone + 第 71 行 `app.run()` + 第 95 行 `rm(workDir)` 清理）
-    - 问题：平台集成模式（container executor）下 `fix` / `fix-and-pr` 模式：clone 仓库到工作目录 → 容器内 `DependfixApp.run()` 完成修复 → **第 95 行直接把 workDir 删除**。修复结果（改动的文件 / commit / branch）**只存在于本地临时目录，从未 push 到远程、未创建 PR**。用户反馈："修复结果只在本地，未推送到远程……显然没有修复并 PR 来的直观（也确实没有修复功能）"
-    - 修复方向（已采纳 A）：容器内 push + PR，复用 `http.extraheader` 凭据注入模式与 `repository` 实体的 `credentialId` 关联
-    - 关联：C50（默认关联凭据）提供推送凭据；与 C52（单仓库模式选择）同属平台执行链路补齐
-    - 来源：2026-08-19 用户反馈"平台集成模式下，仅修复有一个直接的问题，那就是修复结果只在本地，未推送到远程……没有修复并 PR 来的直观（也确实没有修复功能）"
-
-## M11: 业务可见性 + 沙箱落地 + 安全文档（2026-08-20 已闭环）
-
-> **背景**：C53 闭环后，平台 A 模式（container）的 `fix` / `fix-and-pr` 链路具备完整 push + PR 闭环，结束了 M6 阶段"修复结果仅在本地临时目录"问题。M11 阶段由 C53 触发启动，承接三方面 backlog：
->
-> 1. **业务可见性**（C53 已闭环作为 flagship）+ C56 / C57 / C58 平台 UX 用户反馈
-> 2. **沙箱落地**（T1005 sandbox 路由接线 + 后续 M10 收尾）
-> 3. **安全文档**（C28 security.md 凭据加密存储章节 + T912-3 邮件发送安全）
->
-> **优先级**：P1（M11 子任务随用随触发）
-> **状态**：✅ **已全部闭环（2026-08-20，22 commits 总投入）**
-
-### M11 子任务闭环清单
-
-| 编号 | 任务 | 优先级 | 状态 | 备注 |
-|:--|:--|:--:|:--|:--|
-| C53-后-A | 工作目录 stale-cleanup 任务（_pending 24h 清理） | P2 | ✅ 已闭环 | `931b5b7` |
-| C53-后-B | sanitizeErrorMessage 补充 `Authorization: token xxx` 模式 | P3 | ✅ 已闭环 | `bfecf6a` |
-| C53-后-C | A 模式 dispatched UI 提示（手动开 PR） | P3 | ✅ 已闭环 | `5d7ee97` |
-| T1005-A | sandbox 前端 UI 暴露选项 | P1 | ✅ 已闭环 | `0ea8149` |
-| T1005-B | Repository `sandboxLimits` JSON 字段 + orchestrator 透传 | P2 | ✅ 已闭环 | `5542e33` / `b6bce6c` |
-| T1005-C | 状态机扩展 `degraded` 状态 | P1 | ✅ 已闭环 | `64135ed` |
-| T1005-D | quick-start.md 同步 | P2 | ✅ 已闭环 | `809aa3b` |
-| C28 | security.md §凭据加密存储章节补齐 | P2 | ✅ 已闭环 | `fcef918` |
-| C56 | 批量扫描 Dialog 关闭时序（乐观关闭） | P3 | ✅ 已闭环 | `cda5b90` |
-| C57 | 扫描历史 Dialog 缺面包屑 | P3 | ✅ 已闭环 | `cda5b90` |
-| **C58** | 告警视图按包聚合 + 图表 | P3 | ✅ 已闭环 | `a562ab2` / `5bb0f96` |
-| **C-ENV-CHANGE-ALERT** | 环境容器变化告警 | P3 | ✅ 已闭环 | 6 commits `aeee3f0`/`f57683e`/`15f1c9a`/`3f4653f`/`64f005e`/`f678196` |
-
-### M11 验收标准（全部闭环 ✅）
-
-- [x] 平台 A 模式 `fix-and-pr` 真实环境跑通（push + PR 闭环 + UI 提示）—— C53 闭环
-- [x] T1005 路由接线后 sandbox 执行器可真实触发（docker daemon 可用时）—— T1005-A/B/C/D 闭环
-- [x] security.md §5.4 + §5.5 凭据权限阶 + 加密存储章节落地 —— C28 闭环
-- [x] C56 / C57 平台 UX 用户反馈小修闭环 —— `cda5b90` 闭环
-- [x] branches 80% 覆盖率维持 —— 80.49%
-- [x] `pnpm lint` / `typecheck` / `test` 全绿 —— 677/681 passed + lint 0 error + typecheck 0 error
-- [x] CI 端到端裁决通过 —— 2 轮深度审计全部 Pass
-
-### M11 详细归档与决策记录
-
-- 全部 12 个子任务详细实施记录、commit 引用、决策记录（Q1/Q2/Q3）、历史教训：见 [archive/todo-archive-phases-m11.md §M11 推进批次](archive/todo-archive-phases-m11.md#m11-推进批次业务可见性--沙箱落地--安全文档--通知基建)
-- 设计文档落盘：`docs/standards/security.md` §5.4 + §5.5 / `docs/design/governance/executor-sandbox.md` §7.8 / `docs/guide/quick-start.md` 同步
-
-
-
-- **C30 Publish Docker build job 被取消/失败排查**（M6 归档 CI 端到端裁决登记）
-  - 状态：⏸️ **已暂缓（2026-08-18 用户决策）**——原 🔶 待评估
-  - 内容：Publish Docker 工作流 build job（run 31260609196，e16aeda4 触发）在 QEMU 双平台（linux/amd64,linux/arm64）构建中运行 1h19m 后被取消（`##[error]The operation was canceled.`）。**根因已定位**：同 workflow 同 ref（master）的新 push（7cb1ad22d，15:13:11）触发 concurrency `cancel-in-progress: true` 取消旧 run；叠加 QEMU arm64 模拟构建过慢（1h+ 未完成）。缓解方向：docker.yml 拆分平台构建或减少平台、优先 amd64、验证 gha cache 命中；若采用频繁 push + 双平台模式，需评估取消旧 run 对镜像发布的影响
-  - 补充（2026-08-09，run 31305727667）：同一 build job 出现第二种失败模式——arm64 builder 阶段 `pnpm --filter @dependfix/core build` 前，pnpm 11 默认 `verifyDepsBeforeRun=install` 检测到 workspace 依赖不完整（builder 阶段仅复制根 node_modules，各项目内依赖链接缺失）自动执行 `pnpm install`，该子进程在 QEMU 模拟 arm64 下被 SIGILL 杀死。**已修复**：builder 阶段改为 `COPY --from=deps /app .` 复制完整依赖布局 + `pnpm config set verify-deps-before-run=false` 禁用自动安装（仅 Docker 构建环境生效）
-  - 来源：M6 归档 CI 裁决（2026-08-08，run 31260609196 被 run 31263908976 取消）+ 2026-08-09 run 31305727667 SIGILL 失败
-  - **暂缓决策（2026-08-18）**：
-    - **现状**：run 31862632207（a61becc 触发，2026-08-15）双平台构建实际耗时 **23m 2s**（QA 1m 44s + build **21m 9s**）成功完成，证明在 push 频率不高时 docker.yml 当前配置可稳定工作
-    - **评估依据**：① 双平台 QEMU 模拟在 GHA cache 命中后已能在合理时间内完成；② `cancel-in-progress: true` 仅在同 ref 频繁 push 时才构成问题（实测单次 push 间隔足够长时不触发）；③ arm64 SIGILL 失败模式已通过 Dockerfile 改造根治（`COPY --from=deps /app .` + `verifyDepsBefore-run=false`）
-    - **结论**：暂不实施 docker.yml 拆分平台 / 移除 arm64 / 调整 concurrency 等改造；保留当前配置观察
-    - **恢复条件**（任一触发时重新评估）：① master 分支 push 频率显著提升（如周均 ≥ 5 次）；② 镜像实际发布成为强需求（v1.0.0 正式发布前）；③ 用户明确恢复（review C30 时）
-    - **追踪**：todo.md §待评估候选 C30 行同步降级（🔴 P1 → ⚪ P3）
-
-### MCP 能力补充（2026-08-09 评估登记）
-
-> 来源：2026-08-09 mcp 复用率与能力差距评估（core/cli/mcp 复用分析 + 与 CLI 能力面对比）。设计详见 [mcp-server.md §8 能力差距与演进路线](../design/governance/mcp-server.md#8-能力差距与演进路线)。
-> **约束**：MCP tool schema 变更对客户端是 breaking，P1 项一次性批量升级；AI apiKey 只走 env（`DEPENDFIX_AI_API_KEY`），禁止进 tool 参数；新能力优先复用 cli/core 已导出 API，缺导出先补 1 行导出而非在 mcp 层重写。
-> **已闭环清理（2026-08-11）**：C31（P1 能力补充，627f3b0d 后批次交付）、C32（P2 能力补充，62a655e3 后批次交付）均已交付，代码实施在 T706 发布 npm 前完成（前置已满足）；完整能力登记与演进路线见 [mcp-server.md §8 能力差距与演进路线](../design/governance/mcp-server.md#8-能力差距与演进路线)。
-
-- **C33 MCP 能力补充 P3**（远期目标，不实施）
-  - 状态：🔶 远期登记
-  - 内容：pnpm-audit 本地扫描 tool（需 workDir 语义，等本地场景真实需求）；统一错误包装 helper（token 检查 + try/catch → ok:false 模板代码收口）；返回结构对齐完整 `RunResult`（当前 run_scan 只映射 8 字段，完整契约会扩大 MCP 响应体积，保持简化 + 文档声明）
-  - 来源：2026-08-09 评估
-
----
-
-## M7: 企业级平台增强
-
-目标：补齐多租户、高可用与跨平台能力。
-
-> **M7 规划定稿（2026-08-09）**：按需求澄清（Q1/Q2/Q3 用户确认）拆分两个子阶段：
-> - **M7.1 认证与用户体系**：T701（RBAC + 用户管理 + 个人界面）、T707（认证扩展：OIDC SSO / GitHub·Google OAuth / 邮箱域名黑白名单）
-> - **M7.2 平台能力深化**：T702 BullMQ、T704 定时批量、T708 i18n、T705 生产部署、T703 跨平台 Git、T706 MCP 发布
->
-> 新增需求背景（2026-08-09 用户提出）：平台缺少用户管理、个人界面等基础功能；第三方登录需支持企业 SSO 与公开平台 OAuth 双场景；国际化列入规划。
-
-### 规划决策（2026-08-09 用户确认）
-
-- **D1 部署形态（Q1=A0）**：部署模式**互斥二选一**，两种场景不兼容、不可混合，由部署配置 `AUTH_MODE` 决定：
-  - `enterprise`（企业内部使用）：OIDC SSO 登录 + 邮箱域名**白名单**注册准入
-  - `public`（公开平台使用）：GitHub / Google OAuth 登录 + 邮箱域名**黑名单**注册准入
-- **D2 SSO 协议（Q2=OIDC）**：企业 SSO 采用 **OIDC**（better-auth `genericOAuth` 插件原生支持，覆盖 Azure AD / Okta / Keycloak / Google Workspace 等标准 IdP）；**SAML 2.0 不实现**（better-auth 无原生支持，成本高），登记 backlog
-- **D3 执行顺序（Q3=按序）**：M7.1（认证与用户体系）先行 → M7.2（平台能力深化）按 T702 → T704 → T708 → T705 → T703 → T706 顺序执行；T706 代码前置（C31/C32）已完成，仅剩发布与文档收口
-
-### M7.1 认证与用户体系
-
-> **已归档（2026-08-10）**：T701 / T707 完整记录见 [todo-archive.md §M7.1](archive/todo-archive-phases-m6-m7-t711.md#m71-认证与用户体系已归档)；剩余 3 项真实凭据人工验收见 [todo.md 待人工验收](todo.md)。
-
-### M7.2 平台能力深化
-
-> **M7.2 已归档（2026-08-12）**：T702（任务队列）/ T704（定时批量）/ T708（i18n）完整记录见 [todo-archive.md §M7.2](archive/todo-archive-phases-m6-m7-t711.md#m72-平台能力深化已归档)。
-> **T705 / T703 已延期（2026-08-12 用户指示）**、**T706 已完成（2026-08-12，`@dependfix/mcp@0.1.2` 发布）**——见下方各任务条目。
-
-以下为未排期任务（T705 / T703 / T706，按 D3 执行顺序位于 T708 之后）：
-
-#### T705 生产级部署（⏸ 已延期 2026-08-12，用户指示暂缓排期）
-
-- 优先级：`P2`
-- 依赖：T702, T703
-- 交付物：生产环境部署方案。
-- 任务内容：
-  - [ ] PostgreSQL 数据库迁移与适配。
-  - [ ] Kubernetes + Helm Chart 部署方案。
-  - [ ] 监控与告警集成（Sentry）。
-- 完成定义：
-  - [ ] 可通过 Helm Chart 部署到 Kubernetes 集群。
-- **延期登记（2026-08-12 用户指示）**：T711 覆盖率冲刺优先，T705 移至 backlog 待评估；恢复排期时注意 PostgreSQL 迁移对 T702 独立 worker 形态的解锁价值。
-
-#### T703 跨平台 Git 支持（⏸ 已延期 2026-08-12，用户指示暂缓排期）
-
-- 优先级：`P2`
-- 依赖：M6
-- 交付物：支持 GitLab / Bitbucket 仓库连接。
-- 任务内容：
-  - [ ] GitLab PAT 认证与 API 集成。
-  - [ ] Bitbucket PAT 认证与 API 集成。
-  - [ ] 仓库级别配置（包管理器、忽略列表、自定义命令）。
-  - [ ] 仓库连接状态监控。
-- 完成定义：
-  - [ ] 能通过 Web UI 添加 GitLab / Bitbucket 仓库。
-- **延期登记（2026-08-12 用户指示）**：同 T705，移至 backlog 待评估。
-
-#### T706 MCP Skill 集成与发布（✅ 已完成 2026-08-12）
-
-- 状态：✅ **已完成（2026-08-12）** — `@dependfix/mcp@0.1.2` 已发布 npm（registry 实证）。详见 [todo-archive.md §M7.2](archive/todo-archive-phases-m6-m7-t711.md#m72-平台能力深化已归档)
-- 收口说明：npm 发布闭环；剩余 skill 双后端验证与 MCP 接入文档为轻量收尾，挂 [T904 文档同步](#t904-文档同步) 跟进（不阻塞）
-
-### M7 已确认 backlog 登记（2026-08-09，设计决策 D1/D2/D3 用户确认）
-
-> M7.1 设计文档（[platform-auth-users.md](../design/governance/platform-auth-users.md) §11）决策点 1/2/3 确认后登记的候选项，均为 M7.1 非目标。
-
-- **D1-repo_admin 角色 + RepositoryAccess**：仓库级管理角色（管理特定仓库修复策略）需 `RepositoryAccess` 关联表；M7.1 单组织下与 org_admin 权限面重复，未实现。触发条件：多租户/多组织需求出现，或单实例出现"仓库级管理员"真实诉求。
-- **D2-username 用户名字段**：better-auth `username` 插件（user.username 字段 + 用户名设置 API）；M7.1 用户管理按 email/name 展示足够。触发条件：用户明确需要用户名体系（公开平台展示名等）。
-- **D3-多租户组织体系**：better-auth `organization` 插件（Organization/Member/Invitation/Team + 成员角色 API），替代 M7.1 的自建单组织模型。触发条件：多组织/多租户部署成为真实需求（当前 AUTH_MODE 企业/公开均为单实例单组织场景）。
-- **D8-remove-user 关联资源检查**（2026-08-09 T701-2 审计登记）：设计决策点 8"用户名下存在仓库/凭据关联时拒绝删除（409）"未实施——当前 Repository/Credential 不直接引用 User（仅 organization_id/credential_id，均 SET NULL），"名下资源"无数据模型载体，删除用户不产生业务数据悬空。触发条件：引入 user→resource 关联（如创建者 created_by 或 D1 的 RepositoryAccess）时随模型落地。
-- **T701 管理端点集成测试补强**（2026-08-09 T701-2 审计登记，2026-08-09 实施后修订）：设计 §9 矩阵的"list-users 分页/搜索、set-role 非 admin 403、ban/unban 会话失效、remove-user 级联、个人界面 changePassword/changeEmail 闭环"未落地（当前 guard 层 11 例覆盖函数语义；用户管理/个人界面已改为 better-auth 原生端点链路，authClient 直连 `/api/auth/*`）。触发条件：引入 @nuxt/test-utils 或 e2e 基建时统一落地（T701 验收/浏览器验证阶段评估）。
-- **邮件发送器统一实现**（2026-08-09 T701-3 审计登记，2026-08-18 实施完成，2026-08-20 T912 主体归档）：sendVerificationEmail / sendResetPassword / sendChangeEmailConfirmation 三处回调均为空实现（SMTP 未配置降级为 console.warn）；SMTP_HOST 配置后注册验证/密码重置/邮箱变更确认邮件均不实际发送（M6 既有模式）。**主体已闭环**：[todo-archive.md §T912](todo-archive.md#t912-smtp-邮件发送器主体收口t9123--c28-联动)（commit `edc9c94` mailer service 模块 + `6f00937` 三回调接线 + `6e28207` coverage 回归修复），用户 2026-08-18 明确指示「引入 nodemailer 实现」。**剩余项 T912-3**：安全与文档（security.md §邮件发送安全 章节）已合并入 **C28 security.md 补凭据加密存储章节**（见上）。
-- **SAML 2.0 SSO**：企业 SSO 仅 OIDC（better-auth `genericOAuth` 原生支持，覆盖 Azure AD / Okta / Keycloak / Google Workspace）；SAML 需额外集成层（better-auth 无原生支持，成本高），登记 backlog。触发条件：企业 IdP 仅提供 SAML（如部分传统 IdP）时评估。
-
-### M7.2 i18n 非目标登记（2026-08-11，T708 规划定稿）
-
-> T708 国际化 i18n 已完成并归档（见 [todo-archive.md §M7.2](archive/todo-archive-phases-m6-m7-t711.md#m72-平台能力深化已归档)）。以下为本期明确不做、随需求登记后续的项。
-
-- **C36 服务端 API 错误消息 i18n**（T708 非目标）
-  - 状态：🔶 待评估
-  - 内容：服务端 API `createError` / `statusMessage` 共 55 处中文错误消息未纳入 i18n（前端页面文案先行）；接入方式候选：错误码化（客户端按 code 查语言包）或服务端按 Accept-Language 返回本地化消息。触发条件：英文用户实际使用平台并反馈错误提示语言混杂
-  - 来源：2026-08-11 T708 规划（apps/platform/server/api 统计 55 处）
-- **C37 语言偏好多设备同步**（T708 非目标）
-  - 状态：🔶 待评估
-  - 内容：T708 D3 决策语言偏好存 Cookie（登录/未登录一致、简单可靠）；登录用户语言偏好持久化到服务端（better-auth user 字段或独立偏好表，多设备同步）未实现。触发条件：多设备使用成为常态或用户反馈语言偏好不同步
-  - 来源：2026-08-11 T708 规划（D3 决策登记）
-
-### 沙箱与恶意依赖防护治理登记（2026-08-14 安全专项评估）
-
-> 来源：2026-08-14 安全专项评估（"dependfix 不能成为漏洞扩散工具"评估，结论与威胁链详见 [sandbox-security-governance.md](../design/governance/sandbox-security-governance.md)）。以下为评估登记的治理缺口，按 P0 → P2 排序；修复验收对照治理文档 §7。
->
-> **治理完成情况（2026-08-20 盘点）**：本节 8 项治理缺口（C38-C45 + G1-G7）截至 2026-08-14 全部已修复（M8 T801-T806 落地）——详见 [todo-archive.md §M8](archive/todo-archive-phases-m6-m7-t711.md#m8-安全加固与容器执行完备已归档)。下表保留治理登记与精简修复记录，详细实现指向 todo-archive §M8。**G5 治理项已闭环（2026-08-20 M10 收口）**：见 **C26 独立沙箱容器执行实现**（同上，实施规划落地，T1005 路由接线移交 backlog）。
-
-- **C38 平台 Dockerfile 补 `USER` 降权**（P0，设计-实现偏差）
-  - 状态：✅ **已修复（2026-08-14）** — entrypoint 降权方案（dependfix 用户 uid 100 + chown 数据卷 + su-exec）实证通过。详见 [todo-archive §M8 / T-C38](archive/todo-archive-phases-m6-m7-t711.md#m8-安全加固与容器执行完备已归档)（原实现细节已迁移）
-  - 内容：`executor-sandbox.md §2.2` 明确 M6 必做"非 root 用户运行（镜像 `USER` 降权）"，但 `apps/platform/Dockerfile` 无 `USER` 指令，容器以 root 运行——恶意依赖脚本以 root 执行削弱凭据最小化收敛效果
-  - 来源：2026-08-14 安全专项评估（G1）
-- **C39 CLI 本地模式安全防线**（P0，威胁模型与产品形态偏差）
-  - 状态：✅ **已修复（2026-08-14，T803）** — fix/fix-and-pr 启动输出本地执行风险警告（可 `DEPENDFIX_SUPPRESS_LOCAL_EXECUTION_WARNING=1` 抑制）；`executionEnvironment: 'container'` 区分不误报。详见 [todo-archive §M8 / T-C42](archive/todo-archive-phases-m6-m7-t711.md#m8-安全加固与容器执行完备已归档)（原 C39 + C42 合并修复于 T803）
-  - 内容：威胁模型将本地执行定位"仅开发调试"，但 CLI 是产品发布形态之一——本地模式零隔离，恶意依赖脚本直接在用户机器执行、可读用户 shell 全部环境
-  - 来源：2026-08-14 安全专项评估（G2）
-- **C40 执行期网络外联日志与限制**（P1）
-  - 状态：✅ **M10 T1002 已闭环（2026-08-20）**：M8 T805 外联审计 + M10 T1002 出站白名单 deny-by-default 拦截（[todo-archive.md §M10 T1002](todo-archive.md#m10-独立沙箱容器-c26-实施规划已归档)）
-  - 内容：M8 阶段先实现外联审计日志供事故溯源；M10 阶段升级为应用层白名单拦截代理实现网络隔离
-  - 来源：2026-08-14 安全专项评估（G3）
-- **C41 验证命令单命令超时与资源上限**（P1）
-  - 状态：✅ **M10 T1003 已闭环（2026-08-20）**：M8 T802 单命令超时 + M10 T1003 cgroup v2 资源限制（[todo-archive.md §M10 T1003](todo-archive.md#m10-独立沙箱容器-c26-实施规划已归档)）
-  - 内容：M8 阶段先实现单命令超时（默认 10 分钟可配 + 进程树终止）；M10 阶段实现 cgroup v2 写 memory.max + cpu.max 双层
-  - 来源：2026-08-14 安全专项评估（G4）
-- **C42 Action/CLI 凭据权限面启动检查**（P1）
-  - 状态：✅ **已修复（2026-08-14，T803）** — `token-scope.ts` 启动 `GET /user` 探测权限面，classic `repo` scope 超权限警告（不强制阻断，兼容存量用法）
-  - 内容：action.yml `github-token`（用户 PAT）与 `ai-api-key` 进环境变量，恶意 install 脚本可直接读取；B 路径的最终防线是凭据权限面
-  - 来源：2026-08-14 安全专项评估（G6）
-- **C43 升级研判供应链信号披露**（P2）
-  - 状态：✅ **已修复（M8 T804，2026-08-14）** — supply-chain 模块 + 报告 ⚠️ Supply Chain Warnings 节 + PR body 警示区（17 单测 + 2 集成测试）
-  - 内容：报告/PR 警示区补充"本次新增/升级的包是否带 lifecycle scripts 且已被目标仓库 `allowBuilds`/`onlyBuiltDependencies` 批准"信号
-  - 来源：2026-08-14 安全专项评估（G7）
-- **C44 安全规范 §5.3 挂接 review 检查点**（2026-08-14 审计登记）
-  - 状态：✅ **已修复（M8 T806，2026-08-14）** — `code-quality-checklist.md` §5.3 必须级条款逐项核验动作 + Code Auditor 必查项同步。详见 [todo-archive §M8 / T-C44](archive/todo-archive-phases-m6-m7-t711.md#m8-安全加固与容器执行完备已归档)
-  - 内容：`standards/security.md` §5.3 必须级条款挂接 `code-reviewer` 检查点
-  - 来源：2026-08-14 沙箱安全治理 Review Gate（RG-W2）
-- **C45 平台容器工具链缺失（git/pnpm 未安装）**（2026-08-14 C38 修复实证发现）
-  - 状态：✅ **已修复（M8 T801，2026-08-14）** — git + pnpm 11.18.0 + workspace node_modules 补齐 + pnpm-audit legacy range 前缀假跳过 bug 修复。详见 [todo-archive §M8 / T-C45](archive/todo-archive-phases-m6-m7-t711.md#m8-安全加固与容器执行完备已归档)
-  - 内容：runtime 阶段镜像（`caomeiyouren/alpine-nodejs-minimize`）从未安装 git/pnpm——已发布镜像实证 `git/pnpm/corepack` 全部 MISSING（仅 node 存在）；executor-sandbox.md 声明与实际不符（M6 遗留）
-  - 来源：2026-08-14 C38 修复本地构建实证
-
----
-
-## M2 增强候选（未排期）
-
-> 2026-08-02 T208-T211 设计评审中确定的"未来评估项"，当前不做。
-
-### B1 PR 关闭评论与 label 标记
-
-- 状态：🔶 待评估
-- 内容：关闭旧 PR 时发 comment 说明取代关系；创建 PR 时加 label `dependfix`（两者均需 `issues: write` 权限，比当前 `pull-requests: write` 权限面宽）
-- 触发条件：PR 数量增长影响 `pulls.list` 查重性能，或用户需要 PR 列表可过滤/可检索时评估
-- 来源：T210 设计评审（2026-08-02），用户确认"未来可以考虑增强，目前不做"
-
-### B2 固定分支单线设计
-
-- 状态：🔶 待评估（M6 平台部署时）
-- 内容：独立平台部署后修复频率上升，需要一个固定修复分支（如 `dependfix/auto-fix`）避免频繁向 master 提交 PR；届时需与 T210 指纹方案整合（分支复用/重建策略、force push 语义）
-- 来源：T210 设计评审（2026-08-02），用户明确"有这个需求但不是现在"
-
-### B3 Dependabot 式分支命名（包名入分支名）
-
-- 状态：✅ 已评估，暂不采用
-- 结论：Dependabot 为单包单 PR（`dependfix/npm_and_yarn/<pkg>-<from>-<to>`），包名可作分支名；dependfix 为聚合 PR（一次修多个依赖），包名列表入分支名会超长（GitHub 分支名限 256 字符）且内容一变名就换，可读性收益有限。包名与版本已在 PR 标题（升级数）与 body（完整表格）中完整呈现，符合用户直觉
-- 触发条件：未来出现"单包单 PR"模式需求时重新评估
-- 来源：T210 设计评审（2026-08-02）
-
----
-
-## 横切任务（后续阶段）
-
-### 并行开发工作流：git worktree 预案（2026-08-07 评估落盘）
-
-> **背景**：本轮尝试并行开发，同目录/同分支下多任务改动存在冲突风险；考虑引入 git worktree。momei 项目曾尝试 worktree 但效果一般（多目录互相同步成本、未提交的本地 env 在另一分支缺失导致启动失败）。
->
-> **调研结论**（2026-08-07，pnpm 官方 worktree 文档 / trigger.dev 弃用复盘 / termdock 6 种故障模式）：
-> - **CLI 阶段 worktree 可行但收益有限**：无端口/数据库/服务冲突，pnpm 全局 store 已启用（store 目录为自定义位置，如 `<drive>:\.pnpm-store\v11`），加 `enableGlobalVirtualStore: true` 后新 worktree 的 `pnpm install` 近瞬时、磁盘近零增量（npm 场景 2 worktree 烧 9.82GB 的反例在 pnpm 模式下不成立）
-> - **M6 平台阶段将撞上"基础设施税"**（trigger.dev 弃用根因）：数据库/Redis/端口每 worktree 复制是噩梦；正确做法是单共享 DB + 每 worktree 独立 database + 独立端口（env 模板 `DB_NAME=<branch-slug>`、`PORT=<base+index>`）
-> - **worktree 隔离文件系统层而非语义层**：热点文件冲突依然存在，且冲突发生在"没写过的代码"上；T505 解耦（app/pipeline.ts 独立文件）天然降低冲突面
-> - **本项目特有坑**：`.agents/skills` / `.claude/skills` / `.claude/agents` / `.opencode/agents` 是绝对路径 symlink（指向 `.github/skills` / `.github/agents`，被 .gitignore 忽略）——worktree 新目录下链接缺失，agent 工具加载不到 skill / agent 定义。解法照搬 pnpm 官方：worktree 创建脚本从 common dir 重建 symlink
-> - **故障模式映射**（termdock 6 类 → 本项目）：lockfile 分歧（高风险，约定依赖变更单侧发生）、index.lock（低）、branch 已 checkout（低）、merge 冲突（中，热点文件 `config/index.ts` / `app/index.ts` / `cli/index.ts`）、过期 worktree（低，禁止 rm -rf）、build cache 污染（低，tsdown dist 天然隔离）
->
-> **方案矩阵**：
-> | 选项 | 适用 | 成本 |
-> |:--|:--|:--|
-> | A. 维持现状（单目录顺序执行） | 当前单人单 agent 为主 | 零 |
-> | B. pnpm 官方 worktree 模式（裸仓库 + enableGlobalVirtualStore + 初始化脚本） | 多 agent 并行成为常态 | 低，纯脚本无新依赖 |
-> | C. GitButler 虚拟分支 | 多分支但少同文件冲突 | 中，新工具 + skill 改造，同文件冲突更危险 |
-> | D. 每任务克隆 + 容器化 | 最大隔离 | 高 |
->
-> **决策**：现阶段不引入（保持 A）；B 预案化——并行需求成为常态时按脚本启用，不临时踩坑。M6 的 env 隔离设计约束（独立 database/端口）在 T601/T602 设计时生效。
-
-### T904 文档同步
-
-- 优先级：`P0`
-- 依赖：随功能推进持续进行
-- 交付物：README、方案文档、使用说明同步更新。
-- 任务内容：
-  - [ ] 当 CLI 参数稳定后补使用文档。
-  - [ ] 当 GitHub Action 落地后补 workflow 使用说明。
-  - [ ] 当平台功能交付后补平台部署与使用文档。
-- 完成定义：
-  - [ ] 文档与实现保持同步，没有明显失真。
-
-### T905 git worktree 并行开发预案（条件启用）
-
-- 优先级：`P3`（触发条件：多 agent 并行开发成为常态，当前不执行）
-- 依赖：T505（解耦降低冲突面）、M6 T601/T602（env 隔离约束）
-- 交付物：worktree 初始化脚本 + 使用文档。
-- 任务内容：
-  - [ ] `pnpm-workspace.yaml` 启用 `enableGlobalVirtualStore: true`，验证新 worktree 安装近瞬时
-  - [ ] `worktree:new` 脚本：`git worktree add` + env 模板复制（`.env.example` 提交 git，真实 env 不入库）+ skills/agents symlink 重建（`.agents/skills` / `.claude/skills` / `.claude/agents` / `.opencode/agents` → `.github/` 对应目录）+ `pnpm install`
-  - [ ] M6 平台 env 隔离设计约束：单共享 DB 实例 + 每 worktree 独立 database + 端口基址偏移（`PORT=<base+index>`），随 T601/T602 落地；口径映射——T601 当前为 SQLite（单文件库）时即每 worktree 独立 db 文件，独立 database 约束随 T705 PostgreSQL 迁移生效
-  - [ ] 冲突预防规范：lockfile 依赖变更单侧发生（merge 后 `pnpm install` 重生成）；热点文件单写者规则；新代码优先走新文件（配合 T505）；一律 `git worktree remove` 清理（禁 `rm -rf`）
-- 完成定义：
-  - [ ] 一条命令创建可用的 worktree（env + symlink + node_modules 就绪），agent 工具在新目录行为与主目录一致
-  - [ ] 多 worktree 并行运行互不干扰（端口/DB/构建产物隔离）
-
-### C34 存量规范严格约束挂接盘点（审查治理候选）
-
-- 状态：🔶 待评估（2026-08-09 用户确认不着急处理存量，排期即可）
-- 内容：对 `docs/standards/*.md` 存量规范做"严格约束（必须 / 禁止 / 不得 / 阈值）→ review 检查点"全量映射盘点——grep 提取各规范严格条款，逐一核对是否已实际挂接（code-reviewer SKILL.md / code-quality-checklist.md / Code Auditor 必查项），未挂接的登记补挂或标记为待评估
-- 背景：2026-08-09 审查体系补强（bc7eac10）新增"规范执行分层"检查项，仅约束**新增**条款；存量条款挂接状态未盘点，盘点补齐后该机制完全闭环
-- 来源：2026-08-09 审查机制评估（宽松指引 / 严格约束区分校验能力评估结论，见 [documentation.md §4 规范单点声明原则](../standards/documentation.md)）
-
-### T906 todo-archive 分片迁移 ✅（已闭环 2026-08-14）
-
-- 状态：✅ **已完成（2026-08-14）** — 任务已闭环，元任务融入相邻 M9 commit（无独立提交）
-- 执行记录：新建 `archive/todo-archive-phases-m2-m55.md`（393 行）；主文档 575 → 185 行；archive/index.md 分片记录更新
-- 后续归档：M8（本次 2026-08-19 归档）、未来归档批次按 500 行阈值触发分片迁移
-
-
-
-
+## 文档位置速查
+
+| 内容类型 | 位置 |
+|:--|:--|
+| 当前阶段活跃任务 | [todo.md](todo.md) 顶部"当前阶段"段 |
+| 已闭环阶段归档 | [todo-archive.md](todo-archive.md)（主窗口保留 3-5 阶段）+ [archive/](archive/)（M0-M11 详细分片） |
+| 里程碑与阶段交付 | [roadmap.md](roadmap.md) |
+| 长期主线 / 远期 / 已知边界 | 本文档（按四象限结构） |
+| 历史归档索引 | [archive/index.md](archive/index.md) |

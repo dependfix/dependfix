@@ -158,7 +158,7 @@ Skill: dependfix-remediator
 Agent: 用户对话 → Skill 编排 → MCP 执行 → 报告
 ```
 
-产品 skill `dependfix-remediator`（规划见 [backlog.md §M5.5](../../plan/backlog.md#m55-skill-编排cli-先行)）以 **CLI 为先行执行后端**（M5.5 T506/T507），MCP 为增强后端：配置了 MCP 的环境走 tool 调用（T605 验证一致性、T706 发布），未配置的环境回退 CLI 命令。
+产品 skill `dependfix-remediator`（规划见 [archive/todo-archive-phases-m2-m55.md §M5.5](../../plan/archive/todo-archive-phases-m2-m55.md#m55-skill-编排cli-先行已归档)）以 **CLI 为先行执行后端**（M5.5 T506/T507），MCP 为增强后端：配置了 MCP 的环境走 tool 调用（T605 验证一致性、T706 发布），未配置的环境回退 CLI 命令。
 
 ---
 

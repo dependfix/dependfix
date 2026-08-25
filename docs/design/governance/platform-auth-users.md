@@ -2,7 +2,7 @@
 
 > 状态：✅ 设计定稿（2026-08-09，待 Review Gate 审计）
 > 任务归属：[todo.md §M7.1](../../plan/todo.md) T701（RBAC + 用户管理 + 个人界面）与 T707（认证扩展）
-> 关联文档：[architecture.md 认证/国际化节](architecture.md)、[security.md](security.md)、[M7 规划决策（backlog.md §M7）](../../plan/backlog.md#m7-企业级平台增强)
+> 关联文档：[architecture.md 认证/国际化节](architecture.md)、[security.md](security.md)、[M7 规划定稿（2026-08-09，详见 archive/todo-archive-phases-m6-m7-t711.md §M6 规划决策）](../../plan/archive/todo-archive-phases-m6-m7-t711.md#m6-最小平台-mvp已归档)
 
 ## 1. 背景与目标
 

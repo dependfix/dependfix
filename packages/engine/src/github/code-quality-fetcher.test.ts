@@ -267,6 +267,62 @@ describe('fetchCodeQualityFindings', () => {
         await expect(fetchCodeQualityFindings(client, { owner: 'foo', repo: 'bar' }))
             .rejects.toMatchObject({ code: 'REPO_NOT_FOUND' })
     })
+
+    // -----------------------------------------------------------------------
+    // Defensive termination: 重复 cursor / 异常长分页 / 非法 Link URL
+    // -----------------------------------------------------------------------
+
+    it('terminates pagination when Link header contains duplicate cursor (API anomaly)', async () => {
+        const sameCursor = 'CURSOR_LOOP'
+        nock(API_BASE)
+            .get(FINDINGS_PATH)
+            .query({ state: 'open', per_page: 100 })
+            .reply(200, [makeRawFinding({ number: 1 })], {
+                Link: `<https://api.github.com/repos/foo/bar/code-quality/findings?after=${sameCursor}&per_page=100>; rel="next"`,
+            })
+            .get(FINDINGS_PATH)
+            .query({ state: 'open', per_page: 100, after: sameCursor })
+            .reply(200, [makeRawFinding({ number: 2 })], {
+                // 同一 cursor 再发一次（API 异常 / Link header 异常）：触发 seenCursors 防御
+                Link: `<https://api.github.com/repos/foo/bar/code-quality/findings?after=${sameCursor}&per_page=100>; rel="next"`,
+            })
+
+        const client = setupClient()
+        const findings = await fetchCodeQualityFindings(client, { owner: 'foo', repo: 'bar' })
+
+        // 第二页之后检测到 cursor 重复 → 中止（不会无限循环），只取到 2 条
+        expect(findings).toHaveLength(2)
+    })
+
+    it('falls back to undefined when Link header URL is malformed (parseNextCursor catch branch)', async () => {
+        nock(API_BASE)
+            .get(FINDINGS_PATH)
+            .query({ state: 'open', per_page: 100 })
+            .reply(200, [makeRawFinding({ number: 1 })], {
+                // 非法 URL：new URL() 抛 TypeError，parseNextCursor 返回 undefined → 自然终止
+                Link: '<not a valid url>; rel="next"',
+            })
+
+        const client = setupClient()
+        const findings = await fetchCodeQualityFindings(client, { owner: 'foo', repo: 'bar' })
+
+        expect(findings).toHaveLength(1)
+    })
+
+    it('returns undefined when Link header has rel="next" but no after parameter', async () => {
+        nock(API_BASE)
+            .get(FINDINGS_PATH)
+            .query({ state: 'open', per_page: 100 })
+            .reply(200, [makeRawFinding({ number: 1 })], {
+                // rel=next 但 URL 无 after 参数（异常）；searchParams.get 返回 null ?? undefined
+                Link: '<https://api.github.com/repos/foo/bar/code-quality/findings?per_page=100>; rel="next"',
+            })
+
+        const client = setupClient()
+        const findings = await fetchCodeQualityFindings(client, { owner: 'foo', repo: 'bar' })
+
+        expect(findings).toHaveLength(1)
+    })
 })
 
 describe('mapCodeQualitySeverity', () => {

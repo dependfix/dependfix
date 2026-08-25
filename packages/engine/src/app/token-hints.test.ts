@@ -3,6 +3,7 @@
 import { describe, expect, it } from 'vitest'
 import { AppError } from '@dependfix/core'
 import {
+    codeQualityAlertsTokenHint,
     codeScanningAlertsTokenHint,
     dependabotAlertsTokenHint,
     pullRequestCreationHint,
@@ -104,5 +105,47 @@ describe('codeScanningAlertsTokenHint', () => {
         expect(codeScanningAlertsTokenHint(new AppError('REPO_NOT_FOUND', 'fetch code scanning alerts for foo/bar: not found'))).toBeNull()
         expect(codeScanningAlertsTokenHint(new Error('boom'))).toBeNull()
         expect(codeScanningAlertsTokenHint('string error')).toBeNull()
+    })
+})
+
+describe('codeQualityAlertsTokenHint', () => {
+    it('returns a hint for PERMISSION_DENIED (Code quality: read missing)', () => {
+        const hint = codeQualityAlertsTokenHint(new AppError(
+            'PERMISSION_DENIED',
+            'fetch code quality findings for foo/bar: Resource not accessible by integration',
+        ))
+        expect(hint).toContain('Code quality')
+        expect(hint).toContain('fine-grained PAT')
+    })
+
+    it('returns a hint for AUTHENTICATION_FAILED', () => {
+        const hint = codeQualityAlertsTokenHint(new AppError(
+            'AUTHENTICATION_FAILED',
+            'fetch code quality findings for foo/bar: Bad credentials',
+        ))
+        expect(hint).toContain('token 无效')
+    })
+
+    it('returns null for RATE_LIMITED (other AppError codes)', () => {
+        // RATE_LIMITED 等不在 PERMISSION_DENIED / AUTHENTICATION_FAILED 分支内 → 兜底 null
+        const hint = codeQualityAlertsTokenHint(new AppError(
+            'RATE_LIMITED',
+            'fetch code quality findings for foo/bar: API rate limit exceeded',
+        ))
+        expect(hint).toBeNull()
+    })
+
+    it('returns null for non-Code-Quality fetch errors (context-based routing)', () => {
+        // 仓库名含 'code' 时不得误判：仅 `fetch code quality findings for` 前缀才命中
+        const hint = codeQualityAlertsTokenHint(new AppError(
+            'PERMISSION_DENIED',
+            'fetch code scanning alerts for code-quality/foo: Resource not accessible by integration',
+        ))
+        expect(hint).toBeNull()
+    })
+
+    it('returns null for non-AppError values', () => {
+        expect(codeQualityAlertsTokenHint(new Error('boom'))).toBeNull()
+        expect(codeQualityAlertsTokenHint('string error')).toBeNull()
     })
 })

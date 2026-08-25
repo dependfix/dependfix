@@ -64,9 +64,10 @@ test.describe('定时计划增强（docs/plan/todo.md §M12 C65-C1 + C65-C2）',
         const overlay = page.locator('.p-select-overlay')
         await expect(overlay).toBeVisible({ timeout: 5000 })
 
-        // 默认浏览器时区（Asia/Shanghai）排在首位
+        // 默认浏览器时区排在首位（运行时探测，跨时区可移植；不硬编码开发机假设）
+        const browserTz = await page.evaluate(() => Intl.DateTimeFormat().resolvedOptions().timeZone)
         const firstOption = overlay.locator('li, [role="option"]').first()
-        await expect(firstOption).toContainText('Asia/Shanghai', { timeout: 5000 })
+        await expect(firstOption).toContainText(browserTz, { timeout: 5000 })
 
         // overlay 选项数 ≥ 10（IANA 时区列表远大于此，验证 Intl.supportedValuesOf 数据源已加载）
         const optionCount = await overlay.locator('li, [role="option"]').count()

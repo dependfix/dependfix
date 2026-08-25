@@ -74,7 +74,11 @@ describe('GET /api/alerts', () => {
     it('returns all alerts with repository context', async () => {
         const list = await call('/api/alerts') as Record<string, unknown>[]
         expect(list).toHaveLength(2)
-        expect(list[0]).toMatchObject({ repository: 'demo/app', severity: 'high', packageName: 'lodash' })
+        // 不依赖 list[0] 顺序：handler 不传 groupBy 时按 createdAt DESC（后插入排前），
+        // 但 SQLite rowid 排序在 createdAt 同毫秒时不稳定（CI 与本机表现不一致），
+        // 改用 toContainEqual 做集合包含断言（与同 describe 下其他非顺序断言风格一致）
+        expect(list).toContainEqual(expect.objectContaining({ repository: 'demo/app', severity: 'high', packageName: 'lodash' }))
+        expect(list).toContainEqual(expect.objectContaining({ repository: 'demo/app', severity: 'low', packageName: '' }))
     })
 
     it('filters by severity', async () => {

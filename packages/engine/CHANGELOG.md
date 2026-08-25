@@ -21,6 +21,7 @@
 * **engine:** pnpm-audit legacy patched_versions range 前缀剥离（假跳过修复） ([ff9c66d](https://github.com/dependfix/dependfix/commit/ff9c66d))
 * **engine:** 修复 pnpm audit 版本提取正则 ReDoS（CodeQL 告警 22） ([e62a1c3](https://github.com/dependfix/dependfix/commit/e62a1c3))
 * **engine:** 显式指定 pnpm audit 官方 registry 防止镜像站漏报 ([0dccfa6](https://github.com/dependfix/dependfix/commit/0dccfa6))
+* **engine:** 治本 network-audit 命令输出 URL 误判与 telemetry 默认禁用 ([0f08c40](https://github.com/dependfix/dependfix/commit/0f08c40))
 * **engine:** 验证命令单命令超时中止并归类（T802） ([af30313](https://github.com/dependfix/dependfix/commit/af30313))
 
 

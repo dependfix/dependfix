@@ -165,33 +165,11 @@
   - 内容：见主线 #1（[跳转](#主线-1primevue-4--nuxt-hydration-rowgroup-known-issue)）
   - 已知状态：2 个 alerts-rowgroup.e2e.test.ts 测试 `.fixme` 标记；监控 PrimeVue 4 changelog 与 alerts 是否迁移到 `useAsyncData`
 
-### 待迁移经验（next neat-freak 候选）
+### 已沉淀经验（历史教训，已迁移至 docs/standards）
 
-> 本节登记项目级规范候选经验——下次 neat-freak 批次评估是否提升为 `docs/standards/*` 强制条款。未登记迁移任务前易遗漏。
-
-- **CI 失败分析必看 trace page-snapshot**（C62/C63/C64 批次教训）
-  - 内容：CI log 的 `test-results/<spec>/error-context.md` 包含 playwright accessibility tree，能直接看到实际 DOM 状态（row class / cell text / role attribute）—— 比堆栈更快定位 DOM-based 测试失败，特别对 PrimeVue DataTable wrapper / rowGroup 渲染类问题
-  - 候选规范：扩展 [docs/standards/development.md](../standards/development.md) CI 失败分析章节，明确"看 error-context.md 优先于 trace.zip"
-
-- **page.route 注册顺序铁律**（C63/C64 批次教训）
-  - 内容：必须在 `page.goto` 之前注册，Vue/Nuxt 应用 `onMounted` 在 hydration 后立即触发 fetch，先 mock 后 goto 才能保证 mock 生效；后注册 mock 会被 onMounted 抢跑的真实 fetch 绕过（hydration 后值再变不再触发已注册的 mock）
-  - 候选规范：扩展 [docs/standards/testing.md](../standards/testing.md) Playwright e2e mock 时序条款
-
-- **PrimeVue 类型 vs 运行时不一致**（C64-1 批次教训 + 生产 latent bug 修复）
-  - 内容：TypeScript 类型允许 `DataTableExpandedRows = Record<string, boolean>`，但运行时 v-model:expanded-row-groups 内部用 `.indexOf()` 期望数组——编写 v-model 绑定时需直接看 PrimeVue index.mjs 内部实现，不能信类型定义；本批次 `alerts.vue:150` expandedPackages Record → string[] 修复闭环了 rowGroup 数据流必现 TypeError
-  - 候选规范：扩展 [docs/standards/platform.md §7.1 PrimeVue 集成实践](../standards/platform.md) v-model 数据形态契约清单
-
-- **PrimeVue 4 DataTable sort-mode="multiple" + sortable 列 stale 注释订正 + default-sort-order 列级无效**（2026-08-21 修复批次 RG-S02/N1 遗留）
-  - 内容：(a) `alerts.vue:148` 注释"PrimeVue 自动保留 packageName 为第一排序键"不准确——PrimeVue 4.5.5 源码 `index.mjs:4626-4632` 显示未按 meta/ctrl 点击时 `d_multiSortMeta = filter(meta => meta.field === columnField)`，packageName 会被清掉，rowGroup 第一排序键丢失可能致 subheader 错乱（C64 hydration fixme 掩盖中）；(b) `<Column :default-sort-order="-1">` 被 PrimeVue 4 Column 静默忽略（无 `defaultSortOrder` prop + `inheritAttrs: false`，alerts.vue:353/390 两处），业务语义排序未真正生效
-  - 候选规范：扩展 [docs/standards/platform.md §7.1](../standards/platform.md) —— (a) rowGroup 多列排序语义明确"groupRowsBy 字段需永久作为第一排序键"；(b) PrimeVue 4 Column 不支持 per-column `defaultSortOrder`，业务语义排序只能靠 DataTable 顶层 `defaultSortOrder` + 派生 `_xxxRank` 字段
-
-- **PrimeVue 4 DataTable multisortMeta 教训挂接 review 检查点**（2026-08-21 修复批次 RG-S03 遗留）
-  - 内容：本次修复在 [docs/standards/platform.md §7.1](../standards/platform.md) 新增严格约束（"sort-mode='multiple' 必须用 v-model:multi-sort-meta"），但 `.github/skills/code-reviewer/references/code-quality-checklist.md` 无对应小节，新规则目前只能靠人工翻 standards.md 才避免复发
-  - 候选实现：在 `code-quality-checklist.md` §规范一致性 下加"PrimeVue 4 DataTable v-model 形态契约"小节并一行链接引用 §7.1（单点声明原则）；或登记 neat-freak 批次统一处理
-
-- **本机 e2e 实际可跑**（C63/C64 批次教训 + 错误判断订正）
-  - 内容：playwright + chromium + build 产物 + e2e sqlite 全部就绪，本机 `pnpm exec playwright test` 完全可行（54 passed / 2 skipped / 0 failed in 2.9min）；之前 CI-only 判断是误判
-  - 候选规范：扩展 [docs/guide/ai-development.md](../guide/ai-development.md) e2e 调试章节，明确"本机 e2e 可跑，本地调试优先于依赖 CI"
+> 本节历史上登记的 6 条经验教训（CI 失败分析必看 trace page-snapshot / page.route 注册顺序铁律 / PrimeVue 类型 vs 运行时不一致 / 本机 e2e 实际可跑）已通过 2026-08-20 neat-freak 蒸馏批次迁移至 docs/standards/*.md（development.md §CI 失败分析 / testing.md §6.1 E2E 实践经验 / platform.md §7.1 PrimeVue 集成实践 / ai-development.md §4 能力怀疑时优先实测）；backlog 不再保留指针（避免与 standards 重复登记导致漂移）。
+>
+> 仍持续观察未迁移的 PrimeVue 4 DataTable sort-mode / multisortMeta 教训登记于 session 跨 session 沉淀区，下次 neat-freak 批次统一挂接 code-reviewer code-quality-checklist.md §规范一致性。
 
 ---
 

@@ -20,13 +20,15 @@
 - **目标**：闭环 PrimeVue 4 DataTable + Nuxt SSR hydration 状态机分歧导致的 2 个 alerts-rowgroup.e2e `.fixme` 标记，恢复 rowGroup 真实环境跑通（不依赖 `page.reload()`）。
 - **状态**：暂停。
 - **当前状态**：
-  - PrimeVue 4 DataTable + Nuxt SSR hydration 状态机分歧——onMounted 异步赋值 `alerts.value` 后 PrimeVue 不重新计算 `processedData`，rowGroup subheader 永不渲染；`page.reload()` 后能渲染可佐证非业务逻辑问题。
+  - PrimeVue 4 DataTable + Nuxt SSR hydration 状态机分歧——onMounted 异步赋值 `alerts.value` 后 PrimeVue 不重新计算 `processedData`，rowGroup subheader 永不渲染；`page.reload()` 后能渲染可佐证非业务逻辑问题（CI run 32383730911 alerts-rowgroup rowGroup 测试遗留）。
   - 2 个 alerts-rowgroup.e2e.test.ts 测试以 `test.fixme()` 标记并加 known-issue 注释（命名空间 `known-issue/primevue-hydration-rowgroup`）。
   - 来源：[todo-archive.md §2026-08-20 e2e 修复批次 C64-3](todo-archive.md#2026-08-20-e2e-修复批次c62--c63--c64--chore)（commit `6f6fe5b`）。
 - **最近一次上收**：C64 修复批次（2026-08-20）已修复 rowGroup 数据流必现 TypeError（`expandedPackages` Record → string[]），但 hydration 状态机分歧为 PrimeVue 上游问题，未修复。
-- **下一次可切片方向**（任一触发时重新评估）：
+- **修复路径（候选）**（历史已评估或低成本方案）：
   1. 迁移 alerts 加载到 `useAsyncData` 让 SSR 阶段就有数据（最低成本）
   2. 升级 PrimeVue 到修复版本（监控 PrimeVue 4 changelog）
+- **下一次可切片方向**（任一触发时重新评估）：同修复路径（候选）；若上游修复版本迟迟未发布且 useAsyncData 迁移遇阻（如 SSR fetch 与 client fetch 数据一致性、CSRF token 刷新等），可考虑降级方案——把 alerts 列表改为非 rowGroup 视图（避免 hydration 状态机分歧）
+- **验收**：alerts-rowgroup.e2e rowGroup 2 个测试取消 `.fixme` 恢复真跑；本机实测 + CI run 双绿（具体判定：本机 `pnpm --filter @dependfix/platform exec playwright test alerts-rowgroup.spec.ts` 2 个 rowGroup 测试连续 3 次通过 + CI `Test` job alerts-rowgroup.spec.ts 0 failed + 已知 issue `known-issue/primevue-hydration-rowgroup` 命名空间搜索结果为空）
 
 ### 主线 #2：network-audit 默认白名单持续扩展问题（G1）
 

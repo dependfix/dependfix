@@ -52,6 +52,7 @@
 
 ### 🐛 Bug 修复
 
+* **changelog:** 补全 cli 0.3.3 / mcp 0.1.3 被动升级 Dependencies 段（c811659 回归治本） ([e9197c1](https://github.com/dependfix/dependfix/commit/e9197c1))
 * **docs:** archive/index.md 数字漂移与 M8 分片归属混淆（RG-W1/RG-W2 闭环） ([afc3ee7](https://github.com/dependfix/dependfix/commit/afc3ee7))
 * **docs:** executor-sandbox.md M6 引用漂移 + distill-wisdom 兼容新格式 ([880bcf1](https://github.com/dependfix/dependfix/commit/880bcf1))
 * **docs:** todo-archive.md 行内代码 {{}} 触发 VitePress 编译失败（CI run 32326228954 修复） ([f483473](https://github.com/dependfix/dependfix/commit/f483473))

@@ -31,6 +31,9 @@ describe('isDomainAllowed', () => {
         expect(isDomainAllowed('registry.npmjs.org', DEFAULT_ALLOWED_DOMAINS)).toBe(true)
         expect(isDomainAllowed('github.com', DEFAULT_ALLOWED_DOMAINS)).toBe(true)
         expect(isDomainAllowed('api.github.com', DEFAULT_ALLOWED_DOMAINS)).toBe(true)
+        // rolldown.rs = vite 6/7 Rust 实现官方文档站；vite 跨 major 升级 verification
+        // 命令输出会出现该 URL，verification-runner 提取后需放行避免误判 network_violation
+        expect(isDomainAllowed('rolldown.rs', DEFAULT_ALLOWED_DOMAINS)).toBe(true)
     })
 
     it('matches wildcard subdomains of *.npmjs.org', () => {

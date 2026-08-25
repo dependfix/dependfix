@@ -3,6 +3,11 @@
 ## [0.3.3](https://github.com/dependfix/dependfix/compare/dependfix@0.3.2...dependfix@0.3.3) (2026-08-25)
 
 
+### ✨ 新功能
+
+* **engine:** 接入 GitHub Code Quality findings 数据源 ([b0f6e84](https://github.com/dependfix/dependfix/commit/b0f6e84))
+
+
 ### 🐛 Bug 修复
 
 * **changelog:** 补全 cli 0.3.3 / mcp 0.1.3 被动升级 Dependencies 段（c811659 回归治本） ([e9197c1](https://github.com/dependfix/dependfix/commit/e9197c1))

@@ -6,6 +6,7 @@
 ### ✨ 新功能
 
 * **core:** 报告供应链信号警示区渲染（T804） ([28c189e](https://github.com/dependfix/dependfix/commit/28c189e))
+* **engine:** 接入 GitHub Code Quality findings 数据源 ([b0f6e84](https://github.com/dependfix/dependfix/commit/b0f6e84))
 
 
 ### 🐛 Bug 修复

@@ -6,9 +6,11 @@
 ### ✨ 新功能
 
 * **engine:** cgroup v2 资源限制（执行期宿主侧硬性 OOM/CPU 上限） ([a85fb03](https://github.com/dependfix/dependfix/commit/a85fb03))
+* **engine:** Code Scanning 规则分类支持配置文件覆盖 ([792e8c8](https://github.com/dependfix/dependfix/commit/792e8c8))
 * **engine:** 供应链信号披露收集与 PR 警示区（T804） ([ed2f239](https://github.com/dependfix/dependfix/commit/ed2f239))
 * **engine:** 凭据权限面启动检查与本地模式执行风险提示（T803） ([ad3fbb1](https://github.com/dependfix/dependfix/commit/ad3fbb1))
 * **engine:** 执行期网络外联审计（T805） ([2d4b253](https://github.com/dependfix/dependfix/commit/2d4b253))
+* **engine:** 接入 GitHub Code Quality findings 数据源 ([b0f6e84](https://github.com/dependfix/dependfix/commit/b0f6e84))
 * **engine:** 网络审计代理升级为出站白名单拦截（deny-by-default） ([c68029a](https://github.com/dependfix/dependfix/commit/c68029a))
 * **engine:** 识别 pnpm minimumReleaseAge 错误码并输出可读失败提示 ([aa75415](https://github.com/dependfix/dependfix/commit/aa75415))
 * **platform:** A 模式 ContainerExecutor 创建 PR + 状态机 dispatched ([46b7c15](https://github.com/dependfix/dependfix/commit/46b7c15))

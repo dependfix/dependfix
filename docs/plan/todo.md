@@ -219,44 +219,55 @@
 
 ### M13.3 Code Scanning 规则化 + CQL（待 M13.2 闭环启动）
 
-#### T1307 C16 Code Scanning 规则分类配置化
+#### T1307 C16 Code Scanning 规则分类配置化 —— 闭环 2026-08-26
 
 - **优先级**：P2
 - **依赖**：M13.2 F 阶段闭环
-- **执行范围**：`packages/engine/src/fixers/code-scanning/rules.ts`（或类似）+ `packages/core` 数据模型 + `packages/engine/tests` + docs
-- **非目标**：不动 rules 自身的判定逻辑
+- **执行范围**：`packages/engine/src/code-scanning/rule-config.ts`（新模块）+ `packages/engine/src/code-scanning/rule-classifier.ts`（重构）+ `packages/engine/src/app/index.ts`（env 加载钩子）+ `packages/engine/src/index.ts`（re-export）+ tests
+- **非目标**：不动 rules 自身的判定逻辑（classifyRule 行为契约保持稳定）
 - **交付物**：
-  - 规则分类（A/B/C 三级）从常量表升级为可配置（YAML/JSON 加载）
-  - 默认配置 = 当前常量表（向后兼容）
-  - 新增 `CODE_SCANNING_RULES_CONFIG_PATH` env 覆盖
-- **验收标准**：
-  - 默认配置加载行为等价当前实现
-  - 自定义配置加载生效
-  - 非法配置降级到默认 + 警告
-- **最小验证矩阵**：
-  - `pnpm lint` 0 error / `pnpm typecheck` 0 error
-  - vitest 单测：默认配置加载 + 自定义配置加载 + 非法配置降级
-- **风险**：中（公共 API 行为兼容）
+  - 规则分类（A/B/C 三级）从硬编码常量表升级为 JSON 可配置加载 ✅
+  - 默认配置 = 当前常量表（向后兼容，AUTO_FIXABLE_RULES / SUGGESTED_RULES 仍导出为默认常量）✅
+  - 新增 `CODE_SCANNING_RULES_CONFIG_PATH` env 覆盖 + `setActiveRulesConfig` 运行时注入接口 ✅
+  - 非法配置（schema 校验失败 / 文件不存在 / 路径非法）→ stderr 警告 + 降级默认 ✅
+- **闭环记录**：
+  - 实施 commit：`792e8c8 feat(engine): Code Scanning 规则分类支持配置文件覆盖`
+  - 新增 `rule-config.ts` (208 行) + `rule-config.test.ts` (146 行)
+  - `classifyRule` / `suggestionFor` 重构为从 `getActiveRulesConfig()` 读取 module-level active config；测试通过 `afterEach(resetActiveRulesConfig)` 防止互相污染
+  - `DependfixApp` 构造时按 env 加载并先 reset 后 set（避免跨 app 残留）
+  - A 阶段 Code Auditor Round 1 quick depth 评估为 standard 深度（跨包 API 契约稳定 / 公共 API 不变 / 配置加载降级语义完整）→ Pass，无 blocker
+  - 完整验证：`pnpm vitest run` 925 passed（含 21 个新增 rule-config / 自定义 A/B 类 test case）/ `pnpm --filter @dependfix/engine typecheck` 0 error / `pnpm --filter @dependfix/engine lint` 0 error / `pnpm --filter @dependfix/engine build` 0 error
+- **follow-up（登记 backlog）**：
+  - 模块级 active config 是单例；多个 DependfixApp 共存场景（cli 测试 / 多 batch 调度）已通过 reset 防御，未来如引入 worker pool 需考虑 per-worker config 隔离
+  - 当前 JSON 格式未支持正则 / 范围匹配（如 `js/*-injection`），后续可扩展 wildcard；现状手工列举足够（CodeQL 规则 id 稳定）
 
-#### T1308 C21 code-quality-findings 接入
+#### T1308 C21 code-quality-findings 接入 —— 闭环 2026-08-26
 
 - **优先级**：P2
 - **依赖**：M13.2 F 阶段闭环
-- **执行范围**：`packages/core` 数据模型（新增 `CodeQualityFinding`）+ `packages/engine` 数据采集 + `packages/cli` 报告输出 + `apps/platform` UI 展示
-- **非目标**：不实现 CodeQL 完整语义解析（最小报告接入）
+- **执行范围**：`packages/core/src/alerts/index.ts`（AlertSource 扩展）+ `packages/core/src/filters/alert-filter.ts`（unknown severity 透传扩展）+ `packages/core/src/report/{types,index,markdown-generator,code-quality-suggestions}.ts`（报告段）+ `packages/engine/src/github/code-quality-fetcher.ts`（新 fetcher）+ `packages/engine/src/app/{repo-alerts,helpers,result-assembly}.ts`（集成 + token hint + buildRunResult 透传）+ `packages/engine/src/config/index.ts`（codeQualityEnabled 配置）+ `packages/cli/src/cli/index.ts`（--code-quality flag）+ `apps/platform`（scan-orchestrator 默认值 / alerts UI option / i18n 双语 labels）+ tests
+- **非目标**：不实现 CodeQL 完整语义解析（最小报告接入）；不做 Code Quality 模板化修复（首版统一 C 类 report-only）
 - **交付物**：
-  - 新增 `GET /repos/{owner}/{repo}/code-quality/findings` 数据源接入
-  - 报告输出新增 `codeQualityFindings` 段
-  - 平台 UI alerts 视图（或新 dashboard 段）展示
+  - 新增 `GET /repos/{owner}/{repo}/code-quality/findings` 数据源接入（cursor-based 分页 + 三层防御：MAX_CURSOR_PAGES=1000 / seenCursors / Link header 自然终止）✅
+  - 报告输出新增 `## Code Quality Findings` 段（独立于 Code Scanning 段）；header 多源组合标签 ✅
+  - 平台 UI alerts 页 source filter 新增 Code Quality 选项 ✅
 - **验收标准**：
-  - 数据源接入层支持 code-quality-findings API（含认证 / 分页 / 错误处理）
-  - 报告输出包含 codeQualityFindings 段
-  - 平台 UI 正确展示（mock 数据可演示）
-- **最小验证矩阵**：
-  - `pnpm lint` 0 error / `pnpm typecheck` 0 error
-  - vitest 单测：数据源接入层 + 报告输出格式
-  - e2e：平台 UI 展示（mock 数据）
-- **风险**：高（跨 3 个 packages + apps + 外部 GitHub API）
+  - 数据源接入层支持 code-quality-findings API（含认证 / 分页 / 错误处理）✅
+  - 报告输出包含 codeQualityFindings 段 ✅
+  - 平台 UI 正确展示（alerts.vue sourceOptions 渲染 code-quality）✅
+- **关键决策**：
+  - **复用 NormalizedSecurityAlert 模型**（与 code-scanning 同源形态）：`source='code-quality'` / `packageEcosystem='code-quality'` / 复用 severity 映射 / `fixable=false` / `recommendedVersion=''`（防 isAlertFixedByActions 同名 packageName 误标 fixed）
+  - **Octokit v17 类型未含**该端点：使用 `client.request('GET ...', ...)` raw 端点；响应类型本地声明 `CodeQualityFindingRaw`（GitHub Docs 2026-03-10 抓取核对）
+  - **per-source 错误隔离**：与 code-scanning 同模式，三源（Dependabot + Code Scanning + Code Quality）任一失败 → 记录 FETCH_FAILED + 保留成功源；**全部源失败**才抛错
+  - **静态分析 unknown severity 透传**：扩展 `keepUnknownStatic` 谓词至 code-quality（与 code-scanning 同源语义）
+- **闭环记录**：
+  - 实施 commit：`b0f6e84 feat(engine): 接入 GitHub Code Quality findings 数据源`
+  - 新增 fetcher + 报告 collector + 9 个相关文件修改
+  - A 阶段 Code Auditor Round 1 standard depth 4 blocker + 5 warning → Round 2 全闭环：filterAlerts 静态分析透传 / isAlertFixedByActions 显式 source 分支 / RunReportConfig + 报告段 / 模块级 state 生命周期 / CRLF 行尾清理
+  - 完整验证：`pnpm vitest run` 2211 passed / `pnpm --filter @dependfix/{core,engine,cli} typecheck` 0 error / `pnpm --filter @dependfix/{core,engine,cli,platform} lint` 0 error / `pnpm --filter @dependfix/{core,engine,cli} build` 0 error / `pnpm --filter @dependfix/platform exec playwright test alerts-rowgroup` 6 passed / 编号标记扫描 0 命中 / git diff --check 0 error
+- **follow-up（登记 backlog）**：
+  - Code Quality rule.category（maintainability / reliability 等）当前未注入 NormalizedSecurityAlert；报告 markdown 暂不展示 category 列；后续 fetcher 注入后可补展示
+  - 平台扫描请求 schema 当前未含 `codeQualityEnabled` 字段（仅展示用，未启用生产扫描）；backlog C21 后续如需平台发起 Code Quality 扫描，再扩展 ScanRequest schema + orchestrator + queue payload
 
 ---
 

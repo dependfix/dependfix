@@ -38,6 +38,134 @@
 | `commands` | — | `string[]` | — | 自定义验证命令（仅 CLI `--commands`） |
 | `history` | —（仅 CLI `--history`） | `string` | — | 查询仓库历史运行摘要（读 `dependfix-reports/index.json`，倒序时间，计数为仓库级口径），**不执行扫描**、不要求 token/仓库配置；与运行参数并存时 history 优先、其余参数忽略 |
 
+## GitHub 认证 Token 权限映射
+
+> **推荐使用 [Fine-grained personal access tokens](https://github.com/settings/personal-access-tokens/new)**（classic PAT 仍兼容但缺少细粒度权限控制）。本节按依赖模式列出 **Fine-grained PAT 最小权限**，帮助按场景授予最小必要权限。
+
+### 各模式最小权限矩阵
+
+| 模式 | 触发的 GitHub API / 操作 | **Classic PAT scopes** | **Fine-grained PAT permissions**（Repository 维度） | Token 范围 |
+|:---|:---|:---|:---|:---|
+| **`report-only`**（Dependabot alerts） | `repos.get` + `dependabot.listAlertsForRepo` | `security_events`（Dependabot alerts 在此 scope 下，**非 `repo`**）+ `repo`（repos.get 需要） | Contents: **Read-only** + Dependabot alerts: **Read-only** | Classic：自己的全部 + 加入的协作；Fine-grained：目标仓库 |
+| **`report-only`** + Code Scanning | + `code-scanning.listAlertsForRepo` | `security_events`（Dependabot + Code Scanning 都用此 scope）+ `repo` | + Code scanning alerts: **Read-only** | 同上 |
+| **`fix`**（仅本地 commit，不 push） | 同 `report-only` | 同 `report-only` | 同 `report-only` | 同 `report-only` |
+| **`fix-and-pr`**（git push + 创建 PR） | + `git push`（HTTPS credential）+ `pulls.create` + `pulls.list` + `pulls.update` | `repo`（git push / pulls / deleteRef / 分支管理）+ `security_events`（**必需**：Dependabot + Code Scanning alerts 读取） | Contents: **Read and write** + Pull requests: **Read and write** + Dependabot alerts: **Read-only** + Code scanning alerts: **Read-only**（仅 Code Scanning 时） | 同上 |
+| **`cleanup-branches`** | + `git.listMatchingRefs` + `git.deleteRef` + `pulls.update` | `repo` + `security_events`（清理分支前需读 alert 状态） | Contents: **Read and write** + Pull requests: **Read and write** + Dependabot alerts: **Read-only** | 同上 |
+
+> **核心差异**：
+> - **Classic PAT**：`repo` scope 覆盖 git push / pulls / 分支管理 / 协作权限；**`security_events` scope 单独覆盖 Dependabot + Code Scanning alerts 读取**。`fix-and-pr` 模式 **2 个 scope 都必需**（不要以为 `repo` 是"万能 scope"——Dependabot alerts 不在 `repo` 内）。
+> - **Fine-grained PAT**：必须 **逐项勾选** 4 个 permissions（Contents:Write + Pull requests:Write + Dependabot alerts:Read + Code scanning alerts:Read，Code Scanning 数据源时）。两者都是必需的。
+>
+> 上述 Fine-grained PAT 中所有 `Metadata: Read-only` 权限（baseline）由 Fine-grained PAT 自动启用，无需手动勾选。
+
+### Fine-grained PAT 创建步骤（以 `fix-and-pr` 为例）
+
+1. 打开 `https://github.com/settings/personal-access-tokens/new`（**Personal access tokens → Fine-grained tokens**）
+2. **Token name**：例如 `dependfix-fix-and-pr-<env>`（env 区分 dev / staging / prod）
+3. **Expiration**：建议 **90 天**（避免永久 token；依赖 GitHub 提醒机制 + 自家 secret rotation 流程）
+4. **Resource owner**：选择目标 owner / org。**私有 org 需组织管理员在 org 设置中预先授权该 token**（SAML SSO 组织需额外 SSO 授权，详见 [quick-start.md](../guide/quick-start.md) §安全注意事项）
+5. **Repository access**：选择 **Only select repositories** → 列出目标仓库（**Fine-grained PAT 一次只能覆盖一个 org 内的指定仓库，不能跨 org**；多 org 扫描需 multiple tokens 或迁移到 GitHub App）
+6. **Repository permissions** 勾选：
+   - Contents: **Read and write**（git push 创建 fix branch 必需）
+   - Pull requests: **Read and write**（`pulls.create` + `pulls.update` 必需）
+   - Dependabot alerts: **Read-only**（`dependabot.listAlertsForRepo` 必需）
+   - Code scanning alerts: **Read-only**（如启用 `--code-scanning` 数据源时）
+   - Metadata: **Read-only**（自动启用，baseline）
+7. **Account permissions**：通常无需调整（默认 read-only）
+8. 生成 → 复制 token（**仅显示一次**）→ 设置为环境变量：
+   ```bash
+   export GITHUB_TOKEN=github_pat_xxxxxxxxxxxxxxxxxxxx
+   ```
+
+### Classic PAT 创建步骤（以 `fix-and-pr` 为例）
+
+1. 打开 `https://github.com/settings/tokens/new`（**Personal access tokens → Tokens (classic)**）
+2. **Note**：例如 `dependfix-fix-and-pr-<env>`
+3. **Expiration**：建议 **90 天**（**可设更短**，但 classic PAT 不强制过期）
+4. **Select scopes**（勾选最少的必需 scope）：
+   - ☑️ `repo` — **必需**（覆盖 git push / pulls / deleteRef / 分支管理 / Contents 读写 / 协作权限；**不覆盖 Dependabot alerts**）
+   - ☑️ `security_events` — **必需**（只要使用 Dependabot alerts 或 Code Scanning 数据源；覆盖 Dependabot + Code Scanning alerts 读取）
+   - ❌ `public_repo` — **不要勾选**（除非显式需要访问公开仓库；`repo` 已覆盖）
+   - ❌ `workflow` — **不要勾选**（dependfix 不管理 Actions workflow）
+   - ❌ `read:packages` / `write:packages` — **不要勾选**（dependfix 不下载/发布私有 npm 包）
+   - ❌ `admin:org` — **不要勾选**（最小权限原则，绝不授权组织管理权限）
+5. **Generate token** → 复制 token（**仅显示一次**）→ 设置为环境变量：
+   ```bash
+   export GITHUB_TOKEN=ghp_xxxxxxxxxxxxxxxxxxxx
+   ```
+
+### Classic PAT vs Fine-grained PAT 对比
+
+| 维度 | Classic PAT | Fine-grained PAT（推荐） |
+|:---|:---|:---|
+| 权限粒度 | coarse（`repo` / `security_events` 等 OAuth scope，每个 scope 内部为 bundle） | 细粒度（Contents / Pull requests / Dependabot alerts / Code scanning alerts 各自独立勾选） |
+| `fix-and-pr` 必需 scope/permission 数 | **2 个 scope**（`repo` + `security_events`，两者都是必需的——`repo` 不覆盖 Dependabot alerts） | **4 个 permissions**（Contents:Write + Pull requests:Write + Dependabot alerts:Read + Code scanning alerts:Read） |
+| 仓库范围 | 公开仓库 + 自己的私有 + 加入协作的私有 | **必须显式选择**目标仓库（无 broad access） |
+| 过期时间 | 可选（不强制） | **必须设置**过期时间 |
+| OAuth scope 推荐 | `repo` + `security_events` | 等价细粒度权限组合（见上表） |
+| 私有 org 仓库 | 需 `repo` + `security_events` + 组织管理员预授权 | 需组织管理员预授权 |
+| Audit log 显示 | token owner（粗粒度） | token owner + repository-level（细粒度） |
+| 推荐场景 | 简单一次性脚本 + 已有 classic token 复用 | **生产环境 + 最小权限原则 + 安全审计** |
+
+### 特殊场景
+
+- **GitHub Actions 内运行**：默认 `secrets.GITHUB_TOKEN` 自带 Contents:Write + Pull requests:Write，但**无 Dependabot alerts:Read**（详见 [roadmap.md M2 段](../plan/roadmap.md)，或 [archive/todo-archive-phases-m2-m55.md G2 处置记录](../plan/archive/todo-archive-phases-m2-m55.md#g2-处置记录github_token-无法访问-dependabot-alerts)）。两种方案：
+  1. 额外配置 `DEPENDFIX_ALERTS_TOKEN` 使用 Fine-grained PAT（仅 Dependabot alerts:Read，最小权限）
+  2. 切换到 `pnpm-audit` 数据源（`DEPENDFIX_ALERTS_SOURCE=pnpm-audit`，不依赖 token 读 alerts）
+- **SAML SSO 组织**：classic PAT 需在 GitHub 网页对组织逐个 **Enable SSO**；Fine-grained PAT 需组织管理员在 org 设置中预授权仓库范围。私有 org 仓库仅返回 token 可见范围内的仓库——`--owner` 发现不保证覆盖全部私有仓库，需按仓库授权
+- **跨组织扫描**：Fine-grained PAT 一次只能授权一个 org 内的仓库。多 org 场景方案：
+  1. 多个 PAT（CLI 多 pass，每个 org 一次）
+  2. 迁移到 GitHub App（推荐：跨 org + 细粒度权限 + 短期 token 自动轮换）
+- **git push 认证细节**：`git push` 走 HTTPS credential（用户名 = token owner，密码 = PAT），**不依赖** Fine-grained PAT 本身的 specific scopes（只要 Contents:Read+write 授权 HTTPS 推送）。SSH key 走另一条路径（需 `git remote set-url origin git@github.com:...`）
+
+### 验证 Token 权限
+
+最小验证脚本（确认 Dependabot alerts 可读）：
+
+```bash
+# Fine-grained PAT 应能列 alerts：
+curl -H "Authorization: Bearer $GITHUB_TOKEN" \
+  -H "Accept: application/vnd.github+json" \
+  "https://api.github.com/repos/{owner}/{repo}/dependabot/alerts?state=open"
+# 期望：200 + JSON 数组
+# 失败：403 / "Resource not accessible by integration" → 缺 Dependabot alerts:Read 或仓库不在 token 范围
+```
+
+```bash
+# Code Scanning 数据源验证（如启用）：
+curl -H "Authorization: Bearer $GITHUB_TOKEN" \
+  -H "Accept: application/vnd.github+json" \
+  "https://api.github.com/repos/{owner}/{repo}/code-scanning/alerts?state=open"
+# 期望：200 + JSON 数组
+```
+
+```bash
+# PR 创建权限验证（如启用 fix-and-pr）：
+curl -X POST -H "Authorization: Bearer $GITHUB_TOKEN" \
+  -H "Accept: application/vnd.github+json" \
+  "https://api.github.com/repos/{owner}/{repo}/pulls" \
+  -d '{"title":"[verify] token scope check","head":"<some-branch>","base":"main","body":"verification only"}'
+# 期望：201（成功后建议删除该 PR）；422 / 403 → 权限不足或仓库未授权
+```
+
+### 常见问题
+
+| 症状 | 根因 | 解决 |
+|:---|:---|:---|
+| `403 / Resource not accessible by integration` | Token 缺 `Dependabot alerts: Read` 或仓库不在 token 范围 | 重新创建 PAT，确认勾选 Dependabot alerts:Read + 仓库授权 |
+| `401 / Bad credentials` | Token 过期 / 撤销 / 拼写错误 | 重新生成 + 核对 `ghp_xxx` / `github_pat_xxx` 前缀 |
+| `git push` 卡在 `Username for 'https://github.com':` | 缺 HTTPS credential；dependfix 用 `stdio: 'pipe'`（详见 [engine/src/github/pr-creator.ts:201](../../packages/engine/src/github/pr-creator.ts)）导致 stdin 不可达 → 永久挂起 | 设置 `GITHUB_TOKEN` 环境变量或配置 git credential helper（不推荐交互式输入） |
+| `pulls.create` 报 `422 Validation Failed: head` | token 缺 Contents:Write 或分支已存在 | 升级 Contents:Read+write 或换不同分支名 |
+| `secondary rate limit` 403/429 | 短时间内高频 API 调用 | 调整 `DEPENDFIX_MAX_CONCURRENCY`（默认 1 保守串行）+ `DEPENDFIX_MAX_RETRIES`（默认 3 次指数退避）|
+
+### 相关资源
+
+- [GitHub Docs · Managing personal access tokens](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens)
+- [GitHub Docs · Dependabot alerts API](https://docs.github.com/en/rest/dependabot/alerts)
+- [GitHub Docs · Code Scanning API](https://docs.github.com/en/rest/code-scanning)
+- [quick-start.md](../guide/quick-start.md) — 完整 CLI 命令清单 + SAML SSO 注意
+- [security.md §5.2 供应链信任边界](../standards/security.md) — AI 推荐包 / MCP / skill 来源验证 + Token 信任级别
+
 ### M4 名单策略优先级语义（T403）
 
 | 来源 | include 白名单 | exclude 黑名单 | topicsExclude |

@@ -1,5 +1,18 @@
 # @dependfix/core
 
+# [0.3.0](https://github.com/dependfix/dependfix/compare/@dependfix/core@0.2.0...@dependfix/core@0.3.0) (2026-08-25)
+
+
+### ✨ 新功能
+
+* **core:** 报告供应链信号警示区渲染（T804） ([28c189e](https://github.com/dependfix/dependfix/commit/28c189e))
+
+
+### 🐛 Bug 修复
+
+* **platform:** 修复 T912 coverage 回归（mailer String(error) fallback 真覆盖 + app-error 全分支补测） ([6e28207](https://github.com/dependfix/dependfix/commit/6e28207))
+* **security:** 修复 CodeQL 告警（Actions 权限 / shell 参数化 / ReDoS / 表格转义） ([34e5575](https://github.com/dependfix/dependfix/commit/34e5575))
+
 ## [0.2.1](https://github.com/dependfix/dependfix/compare/@dependfix/core@0.2.0...@dependfix/core@0.2.1) (2026-08-12)
 
 

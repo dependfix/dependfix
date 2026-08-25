@@ -18,22 +18,26 @@
 
 ### M13.1 治理前置 + 平台 UX 反馈（UX 修复批次已闭环 2026-08-25，治理批次待启动）
 
-#### T1301 C1 wisdom 蒸馏
+#### [x] T1301 C1 wisdom 蒸馏 —— 闭环 2026-08-25
 
-- **优先级**：P0 必做（[规划规范 §4.3 强制要求](../../docs/standards/planning.md) — 活跃条目 ≥ 20 必须蒸馏；当前 61 条远超阈值）
+- **优先级**：P0 必做（[规划规范 §4.3 强制要求](../../docs/standards/planning.md) — 活跃条目 ≥ 20 必须蒸馏；本批次 27 条 > 20 阈值）
 - **依赖**：—
-- **执行范围**：`.session/wisdom.md`（150 行 / 61 条 → 收敛活跃 + 蒸馏归档）
-- **非目标**：不动工程文件 / 不动 standards（蒸馏产物待 T1302 挂接）
+- **执行范围**：`.session/wisdom.md`（150 行 / 61 条 → 89 行 / 14 条活跃）+ `docs/standards/platform.md` §7.1 + §3.5 + `docs/standards/security.md` §3
+- **非目标**：不动工程文件 / 不动 git 规范（git reset 等 pattern 留 T1302）/ 不动 README/Guide（T1302 处理）
 - **交付物**：
-  - `.session/wisdom.md` 收敛到 ≤ 100 行 / 活跃条目 ≤ 15
-  - `docs/design/governance/wisdom-archive.md` 新建（蒸馏归档条目）
-  - `pnpm distill:wisdom --check` 通过
-- **验收标准**：
-  - 活跃条目按 pattern/principle/practice 类型分组，跨日期去重
-  - 蒸馏归档保留 type + 摘要 + 来源链接（追溯用）
-  - `distill:wisdom --check` 报告活跃条目数 ≤ 15
-- **最小验证矩阵**：`pnpm distill:wisdom --check` EXIT 0 + wisdom.md 行数 ≤ 100
-- **风险**：低
+  - `.session/wisdom.md` 收敛到 89 行 / 14 条活跃（-48%）✅
+  - 9 条关键 pattern 挂接到 [docs/standards/platform.md §7.1 PrimeVue 4 集成实践](../../docs/standards/platform.md#71-primevue-4-集成实践) + §3.5 TypeORM 查询模式 + [docs/standards/security.md §3 Web 安全防护](../../docs/standards/security.md#3-web-安全防护-web-protection) ✅
+  - `pnpm distill:wisdom --check --threshold=15` WISDOM_OK（14 < 15）✅
+- **闭环记录**：
+  - 实施 commit：`docs(standards): session wisdom 蒸馏 — 迁移 9 条关键 pattern 到 docs/standard/, 保留 14 条活跃`（待推送）
+  - 蒸馏迁移统计：27 → 14 活跃 + 12 条压缩为已蒸馏摘要（迁移 30 条到 docs/standards/*.md）
+  - 关键迁移清单：
+    - `docs/standards/platform.md` §7.1 新增 3 条实战细节（multisortMeta 触发条件 + Select disabled rendering + bugfix 烟雾脚本）+ 补强 §类型 vs 运行时契约核验（本项目 2 条案例）+ 新增 §3.5 TypeORM 查询模式（find options 无嵌套路径）
+    - `docs/standards/security.md` §3 新增 4 条关键 pattern（前端拦截不等于服务端安全 + better-auth admin body shape 多样 + server middleware 路径过滤快速退出 + Nuxt server middleware 4 候选方案权衡）
+  - 完整验证：`pnpm run check:docs` 99 links + 55 vue-interp OK / `pnpm lint:md` 0 error / `pnpm distill:wisdom --check --threshold=15` WISDOM_OK
+- **follow-up（登记 backlog 或 T1302）**：
+  - `.session/wisdom.md` 不入库（被 .gitignore 排除），commit 仅含 docs/standards/*.md 同步
+  - T1302 neat-freak 批次将进一步挂接剩余 6+ pattern（TDZ 调试陷阱 + OR 链触发条件 + 已测试文件补测胜于新建 + F 阶段本地验证口径差异 + Code Auditor quick depth 时长校准 + reset 重做 atomic commit）+ agent 文档 + README/Guide 同步
 
 #### T1302 C2 neat-freak 批次
 

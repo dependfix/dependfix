@@ -24,6 +24,16 @@
 - **CSRF 防护**: 确保 API 使用 SameSite Cookie 策略或 CSRF Token。
 - **CORS 策略**: 生产环境严禁 `Access-Control-Allow-Origin: *`。
 - **防御纵深对称性**: 同一资源的多处 API 入口必须保持校验一致。例如：在 `batch.post.ts` 加「凭据 × 组织」校验后，`importable.get.ts` 用同一 `credentialId` 的入口必须**同步**加 `requireOrgResource(event, credential.organizationId)`；否则对称缺失会被 audit 第 1 轮拒绝（RG-W1 类问题）。任何引入"资源 × 资源"校验的 PR，D 阶段先 grep 同资源其他入口，主动补齐后再提交。
+- **前端拦截 ≠ 服务端安全**：前端 UI 拦截（`isSelfTarget` + `<Select disabled>` + `confirm`）只是 UX 层——devtools / 恶意客户端可直接调用 `authClient.admin.*` API 绕过。任何"防自修改 / 防越权 / 防 XSS / 防 CSRF"逻辑必须服务端兜底（better-auth adminMiddleware 仅校验权限不校验 self-target，是已知 gap），前端拦截仅作 UX 优化。纵深防御模型 = 前端拦截 + 服务端强制（Nuxt server middleware 实现 5 端点拦截 + 双层防护）。C65-A3 闭环：commit `b10e270`（`apps/platform/server/middleware/auth-self-guard.ts`）。
+- **better-auth admin 端点 body shape 多样**：better-auth 1.6.26 admin 插件各端点 body shape 不一致——`set-role` / `ban-user` / `remove-user` / `impersonate-user` 字段平铺（`userId, role` 等直接平铺），但 `update-user` 字段嵌套在 `body.data` 下（`userId, data: <嵌套对象>`）。Nuxt server middleware 拦截逻辑必须分别处理（看 endpoint 路径分发到不同 parser），否则 `update-user` 路径完全绕过。本批次 audit W-1 即抓出此绕过漏洞（已修复）。详见 `node_modules/better-auth/dist/plugins/admin/routes.mjs`。
+- **Nuxt server middleware 路径过滤快速退出**：Nuxt server middleware 在 `server/middleware/` 目录自动加载，对每个请求都执行；白名单过滤必须**前置**（path / method 检查 → return 早退），否则 admin / users / repos 等路由都跑一遍 `auth.api.getSession` + 数据库查询，性能浪费且增加 attack surface。三层快速过滤模板（`path.startsWith` → `method === POST` → `SELF_MUTATION_ENDPOINTS.has`）确保仅拦截必要请求。`apps/platform/server/middleware/auth-self-guard.ts:58-67` 参考实现。
+- **Nuxt server middleware vs plugin hook 选型权衡**：拦截 better-auth admin 端点的 4 候选方案对比——
+  1. `databaseHooks.user.update.before`：仅收 `(data, ctx)`，无 target userId + 无 body 上下文
+  2. plugin hook（admin plugin）：admin 插件仅暴露 `after` hooks，无 `before` hooks
+  3. **Nuxt server middleware（采用）**：路径拦截 + cookie 转发 better-auth `getSession` + `readBody` 拿 target —— 完整上下文，跨端点通用
+  4. Nitro plugin：在更低层级执行但路径过滤逻辑重复
+
+  选 Nuxt server middleware 因其路径/方法快速过滤 + cookie/session/body 三类上下文一次拿到，符合"端点拦截"语义。代价：每个 admin 操作多一次 `getSession`（admin 操作非热路径，可接受）。
 
 ## 4. 日志与监控 (Logging & Monitoring)
 

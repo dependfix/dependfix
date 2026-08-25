@@ -31,16 +31,17 @@
 ### 主线 #2：network-audit 默认白名单持续扩展问题（G1）
 
 - **目标**：把 network-audit 默认白名单从"按次新增"演进为"按域名 / SRI 哈希 / 输出区分"的可持续治理方案，避免每次构建工具跨 major 升级都需补白名单。
-- **状态**：进行中。
+- **状态**：观察中（候选方向 3 已落地 2026-08-25，治本阶段）。
 - **当前状态**：
+  - **候选方向 3 已落地**（2026-08-25 G1-治本批次）：verification 子进程默认注入 `NUXT_TELEMETRY_DISABLED=1` 等 telemetry 禁用变量（Nuxt CLI 默认 telemetry 上报不再真实外联）；verification-runner 命令输出 URL 提取**不再 addViolation**，仅入 `networkAudit` entries 备查——stdout/stderr 字符串是文本而非真实网络连接（实证 run `dependfix-mt8nasq2-0iiiry` 2026-08-25：pnpm 11.x warnings 的 `pnpm.io`、Nuxt CLI 输出中的 `telemetry.nuxt.com` 不再触发 verification fail）。详见 [docs/standards/security.md §5.3.1 网络外联审计](../standards/security.md#531-网络外联审计执行期网络行为可观测)。
   - 临时修复：`rolldown.rs` 默认白名单（commit `2104b9f`）；症状 = vite 6/7 跨 major 升级 verification 命令输出 URL 被 deny-by-default 拦截为 `network_violation` → run exitCode=1。
   - 触发事件：2026-08-25 [Security Auto Fix #41 run 32795032475](https://github.com/dependfix/dependfix/actions/runs/32795032475)。
-- **最近一次上收**：2026-08-25 neat-freak 批次新登记为长期主线（自 backlog §G1 行升级）。
+- **最近一次上收**：2026-08-25 G1-治本批次落地候选方向 3 + telemetry 默认禁用；回归层覆盖矩阵补 2 条 case（`verification-runner.test.ts` 命令输出 URL 不阻断 + `network-audit.test.ts` addEntries pnpm.io/telemetry.nuxt.com）。
 - **下一次可切片方向**（任一触发时重新评估）：
-  1. 构建工具生态文档站类目预置白名单（rolldown.rs / swc.rs / rust-lang.org 等）
+  1. 构建工具生态文档站类目预置白名单（rolldown.rs / swc.rs / rust-lang.org 等）—— **候选方向 3 落地后优先级降低**：合法外联不会再被误判，新增白名单诉求应转为"真实注册表域"申请而非"构建工具文档站"
   2. 按 SRI 哈希钉资源（推荐域动态发现）
-  3. 命令输出 URL 与真实外联区分（stdout/stderr 字符串不应判为 violation，当前 `verification-runner` 命令输出 URL 提取可能误判）
-- **验收**：默认白名单不再按次新增；verification 阶段合法外联不被误判；`docs/plan/backlog.md` G1 条目关闭
+  3. ~~命令输出 URL 与真实外联区分~~（✅ 2026-08-25 落地）
+- **验收**：默认白名单不再按次新增；verification 阶段合法外联不被误判（已达成）；主线 1+2 候选方向任一实施或主线整体评估为长期保留后关闭 `docs/plan/backlog.md` G1 条目
 
 ## 周期性回归验证层
 
@@ -60,7 +61,7 @@
 | 长期主线 | 阶段收口覆盖 | CI 端到端覆盖 |
 |:---|:---|:---|
 | #1 PrimeVue hydration | ✅ `playwright` e2e | ✅ `playwright` e2e |
-| #2 network-audit 默认白名单 | — | ✅ `pnpm run` verification job |
+| #2 network-audit 默认白名单 | ✅ `packages/engine/src/runners/verification-runner.test.ts` + `network-audit.test.ts`（2026-08-25 G1-治本：命令输出 URL 不阻断 + addEntries pnpm.io/telemetry.nuxt.com + telemetry 默认禁用） | ✅ `pnpm run` verification job |
 
 > 标注 `—` 的条目表示当前缺少自动化回归覆盖，是后续回归层扩面的候选方向。
 
@@ -71,7 +72,7 @@
 | 回归发现问题 | 路由目标 |
 |:---|:---|
 | e2e rowGroup `.fixme` 触发 | → 长期主线 #1（PrimeVue hydration） |
-| network-audit 白名单新增 | → 长期主线 #2（network-audit 默认白名单） |
+| network-audit 真实注册表域新增诉求 / 命令输出 URL 阻断 regression | → 长期主线 #2（network-audit 默认白名单；候选方向 3 已落地，2026-08-25 后不应再出） |
 | CI 失败 | → 当前阶段批次（无活跃阶段时登记 backlog 远期） |
 
 ## 短期 / 一次性候选任务（上收后去重）

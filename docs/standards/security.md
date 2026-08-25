@@ -60,6 +60,14 @@ dependfix 的核心动作是升级第三方依赖——**拉取并执行不可�
 - **保持 pnpm 默认脚本防护**: 不得扩大依赖 lifecycle scripts 执行面（保持 pnpm 10+ 默认仅执行 `allowBuilds`/`onlyBuiltDependencies` 批准包）；批准列表属于目标仓库信任边界，dependfix 不得代目标仓库追加批准。
 - **资源与网络**: 执行环境应具备资源上限（M7 阶段落地 cgroup）；执行期网络出站应受限（M7 阶段默认 deny + registry/GitHub API 白名单），M6 阶段保留外联日志。
 
+#### 5.3.1 网络外联审计（执行期网络行为可观测）
+
+verification 阶段（依赖修复后的 `pnpm install --frozen-lockfile` / `pnpm lint` / `pnpm build`）执行期网络外联审计按以下规则落地，捕获面见 [`packages/engine/src/runners/network-audit.ts`](../../packages/engine/src/runners/network-audit.ts)：
+
+- **真实外联 = deny-by-default 阻断**：本地拦截代理对非白名单域名返回 502 不建立上游连接，命中记录 `network_violations`（deny-by-default）。白名单默认含 `*.npmjs.org` / GitHub API 域 / `rolldown.rs`，可经 `DEPENDFIX_ALLOWED_DOMAINS` 扩展。
+- **命令输出 URL = 仅 audit 记录，不阻断**（治本候选方向 3，2026-08-25 落地）：stdout/stderr 中出现的 URL 是文本而非真实网络连接；旧逻辑误判 `pnpm.io` / `rolldown.rs` 等合法链接为 `network_violation` 触发 verification fail。新逻辑统一入 `networkAudit` entries 备查，**不再作为 verification fail 依据**。run `dependfix-mt8nasq2-0iiiry` 实证：pnpm 11.x warnings 把 `https://pnpm.io/catalogs` 写进 stderr，Nuxt CLI 把 `https://telemetry.nuxt.com` 写进 stdout，这些链接不应阻断 verification。
+- **工具链 telemetry 默认禁用**（治本 D2，2026-08-25 落地）：verification 子进程默认注入 `NUXT_TELEMETRY_DISABLED=1` / `NEXT_TELEMETRY_DISABLED=1` / `DO_NOT_TRACK=1`，禁止 Nuxt CLI 默认 telemetry 上报外联 telemetry.nuxt.com:443。父进程已设置时不覆盖（保留用户显式选择）。
+
 **凭据基线（必须）**：
 
 - **平台密钥隔离**: `ENCRYPTION_KEY` / `AUTH_SECRET` 等平台密钥永不传入执行进程环境。

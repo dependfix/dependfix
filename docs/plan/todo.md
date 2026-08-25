@@ -428,7 +428,7 @@
   - `scripts/release-publish.mjs`：新增 action `tag-only` —— 当 `npmPublishable === false` 时跳过 `pnpm publish` 但仍创建 annotated git tag（保证 changelog 历史可比）
   - `scripts/release-publish.test.mjs`：新增 case 覆盖 platform tag-only 路径；fixture 扩展含 platform 条目
   - `scripts/changelog.mjs`：现有 `PACKAGES.filter(p=>p.changelog)` 已能扫到新条目，无需新增代码；沿用 fallback Dependencies 段机制（platform 首次 changelog 走 fallback）
-  - `.github/workflows/docker.yml`：新增前置 job `extract-platform-version` 读 `apps/platform/package.json:version`；metadata-action `tags` 增加 `type=raw,value=platform-<version>,enable=${{ github.event.inputs.platform_version != '' }}` 行（仅在 `workflow_dispatch` 由 release.yml 主动传参时打）
+  - `.github/workflows/docker.yml`：新增前置 job `extract-platform-version` 读 `apps/platform/package.json:version`；metadata-action `tags` 增加 <span v-pre>`type=raw,value=platform-<version>,enable=${{ github.event.inputs.platform_version != '' }}`</span> 行（仅在 `workflow_dispatch` 由 release.yml 主动传参时打）
   - `.github/workflows/release.yml`：在 `Release Publish` + `Push release tags` 之后新增"触发 docker workflow_dispatch"步骤，传 `platform_version` 入参
   - `docs/guide/release.md`：发布包清单表格加 platform 行 + 单独段说明"版本号 + CHANGELOG 通道 + docker 发布三件套，与 npm publish 解耦"
   - `.github/dependabot.yml`：把 `apps/platform/package.json` 加入 ignore（避免 dependabot 接管 platform version 号）

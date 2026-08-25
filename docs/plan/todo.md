@@ -312,6 +312,63 @@
 
 ---
 
+### M14 platform 进入 release 通道（版本号 + CHANGELOG + docker 协作）
+
+#### T1310 platform 进入 release 通道 —— 计划 2026-08-26（执行中）
+
+- **优先级**：P1
+- **依赖**：现有发布管线（`scripts/release-publish.mjs` / `release-version.mjs` / `changelog.mjs` / `packages.config.mjs`）与 docker workflow（`.github/workflows/docker.yml`）
+- **背景**：
+  - `apps/platform` 是 Nuxt 应用，发布通道 = docker 镜像（`docker.yml` 在 `push:master` / `workflow_dispatch` 时自动打 `latest + YYYY-MM-DD + sha-<short>` 三种 tag，三大 registry）
+  - `apps/platform/package.json` `private: true`，从未进 npm 发包链路；历史 platform 改动被聚合进根 CHANGELOG 的 `dependfix@x.y.z` 段（如 0.3.3 段 `platform:` scope 多条）
+  - 缺少独立的 platform 版本号 → 镜像版本与 commit sha 二元组无法回答"用户在跑哪个 platform 版本"；缺少独立 CHANGELOG → 平台自身改动无法独立追溯
+- **目标**：仿 momei 单包"独立 version + 独立 CHANGELOG"的精神，适配 dependfix monorepo + docker-only 平台，让 `apps/platform` 作为第 6 个发布单元参与 release 链路但**不发 npm**
+- **非目标**：不动 5 个 npm 包（`dependfix` / `@dependfix/{core,engine,skills,mcp}`）的 OIDC 发布路径；不动 `push:master` 自动 docker 发布的 `latest+date+sha` 三元组；不抢跑 T705（生产级部署 PG+Helm+Sentry 仍按延期项处理，本任务仅做"版本号基础设施"，生产部署能力不在范围）
+- **执行范围**：
+  - `scripts/packages.config.mjs`：新增 apps/platform 条目（`publishable:true`、`rootChangelog:false`、`publishOrder:6`、`npmPublishable:false` 新字段）+ 头部 JSDoc 补充新字段语义
+  - `scripts/release-publish.mjs`：新增 action `tag-only` —— 当 `npmPublishable === false` 时跳过 `pnpm publish` 但仍创建 annotated git tag（保证 changelog 历史可比）
+  - `scripts/release-publish.test.mjs`：新增 case 覆盖 platform tag-only 路径；fixture 扩展含 platform 条目
+  - `scripts/changelog.mjs`：现有 `PACKAGES.filter(p=>p.changelog)` 已能扫到新条目，无需新增代码；沿用 fallback Dependencies 段机制（platform 首次 changelog 走 fallback）
+  - `.github/workflows/docker.yml`：新增前置 job `extract-platform-version` 读 `apps/platform/package.json:version`；metadata-action `tags` 增加 `type=raw,value=platform-<version>,enable=${{ github.event.inputs.platform_version != '' }}` 行（仅在 `workflow_dispatch` 由 release.yml 主动传参时打）
+  - `.github/workflows/release.yml`：在 `Release Publish` + `Push release tags` 之后新增"触发 docker workflow_dispatch"步骤，传 `platform_version` 入参
+  - `docs/guide/release.md`：发布包清单表格加 platform 行 + 单独段说明"版本号 + CHANGELOG 通道 + docker 发布三件套，与 npm publish 解耦"
+  - `.github/dependabot.yml`：把 `apps/platform/package.json` 加入 ignore（避免 dependabot 接管 platform version 号）
+  - `apps/platform/package.json`：version 保持 0.1.0（用户确认从 0.1.0 起）；private 保持 true；description 加一句"独立版本号 + changelog 锚定，不发 npm"
+  - `apps/platform/CHANGELOG.md`：首次跑 `pnpm changelog` 自动产出（含 0.1.0 初始段）
+- **关键设计决策**：
+  - **`PUBLISHABLE_PACKAGES` 过滤语义不改**：当前过滤 = `publishable && ...`；release-version 与 changelog 需要它包含 platform 以驱动 dep 图与 fallback 计算；release-publish 内部加 `npmPublishable` 判定即可
+  - **新增字段 `npmPublishable`**：缺省 `true`（保留 5 个现有 npm 包行为 0 改动）；仅 platform 显式置 `false`
+  - **tag 仍打**（`@dependfix/platform@x.y.z`）：changelog 历史比较需 prev tag 锚点；不打 tag → 永远孤立首段，history diff 不可用
+  - **docker 与 release 触发闭环**：`release.yml` 完成后主动 `workflow_dispatch docker.yml` 传 `platform_version` 入参；`docker.yml` master 自动 push 仍走 `latest+date+sha`，不挂 version tag（保持简洁时序模型：version tag = release 完成事件 = 一次性产物）
+  - **dependency backflow 预期**：`apps/platform` 依赖 `@dependfix/core/engine/cli`（`workspace:*`），release:version 提升 core/engine 时 `buildDepGraph` 会让 platform 至少 patch 跟随。这是符合预期的——platform 跟着依赖方走 patch，发布节奏与引擎同步
+- **验收标准**：
+  - `pnpm lint` / `pnpm typecheck` 0 error
+  - `pnpm test`（含新增 tag-only case）全绿
+  - `pnpm verify:changelog` exit 0（含 5 包段 + 新生 apps/platform 段）
+  - `pnpm changelog` 一次性重跑 → `apps/platform/CHANGELOG.md` 首次生成（含 0.1.0 段，按 path-filter 收敛 `feat(platform): / fix(platform): / refactor(platform):` 等 commits）
+  - `apps/platform/package.json:version` 保持 `0.1.0`（用户确认首次版本号）
+  - `pnpm --filter dependfix release:publish --dry-run` 在 platform 加入后：plan 包含 platform 条目 action=`tag-only`，**不**调用 `pnpm publish`（mock 验证），仍创建 `@dependfix/platform@0.1.0` annotated tag
+  - `git log -- apps/platform/ | head` 验证 path-filter 范围与 CHANGELOG 条目数大致对应
+- **风险**：
+  - **release-publish.mjs action 分支穷尽性**（low→medium）：新增 `tag-only` action 后需确保 `finalizeRelease` 的 `published` 字段包含 platform（即使它未真发 npm）；测试覆盖
+  - **fallback 段在 platform 首次 changelog 的可用性**（low）：platform 首次无 prev tag，需走 fallback Dependencies 段，但 platform 依赖 core/engine/cli —— 若核心段未发 tag，fallback 链解析可能缺数据；测试覆盖
+  - **release.yml → docker.yml 的 workflow_dispatch**（medium）：入参 `platform_version` 必须非空才打 version tag；不带入参时 docker.yml 行为兜底为仅 latest+date+sha
+  - **dependency-backflow**（low）：platform 跟着 core/engine 升 patch → 每次 dependfix 升级时 platform version 跳 patch。预期行为，无需防御
+- **follow-up（登记 backlog）**：
+  - T705（生产级部署 PG+Helm+Sentry）落地后，platform 1.0 节奏评估
+  - T703（跨平台 GitLab/Bitbucket）落地后，platform release 触发的版本文档是否需要补"跨平台适配"段
+  - docker `platform-<x.y.z>` tag 是否需要补镜像 SBOM / provenance attestation 配合（当前 ACR 个人版不支持，参考 docker.yml:111-113）
+- **原子提交切分**（commit 类型按 AGENTS.md）：
+  1. `chore(scripts): packages.config.mjs 注册 apps/platform 条目 + 头部注释`
+  2. `chore(release): publish 跳过 npmPublishable=false 包的 pnpm publish 但仍打 git tag`（含单测）
+  3. `ci(docker): docker.yml 支持从 workflow inputs 读 platform_version 并打 platform-x.y.z tag`
+  4. `ci(release): release.yml 完成后触发 docker workflow_dispatch 传 platform_version`
+  5. `docs(release): platform 进入版本号+CHANGELOG 通道，与 npm publish 解耦`
+  6. `ci(deps): dependabot 排除 apps/platform/package.json version 字段`
+  7. `docs(plan): T1310 闭环登记 + apps/platform/CHANGELOG.md 首次生成`
+
+---
+
 ## 文档位置速查
 
 | 内容类型 | 位置 |

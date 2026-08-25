@@ -19,6 +19,7 @@
 | M9: i18n 基建同步 | 从 momei 同步 i18n 治理规范与审计脚本（缺失 key / 动态 key / 重复文案 + vue-i18n 专项 lint + docs 防回流），为 i18n 优化铺路 | P2 | 已完成（2026-08-18 归档；T901-T906 全部完成，5 个原子提交覆盖 6 任务，2556 行 inserts / 2539 行净增；翻译内容与多语言扩展留后续阶段） |
 | M10: 独立沙箱容器 C26 实施规划 | 兑现沙箱治理决议 G5——Docker rootless runtime + 应用层白名单代理 + cgroup v2 资源限制 + Node 20 自动识别；`SandboxExecutor` 与 `ContainerExecutor` 并存；自托管 docker-compose 优先 / K8s+Helm 仅规划 | P1 | 已完成（2026-08-20 归档；T1001 B1+B2 + T1002 + T1003 + T1004 全部 commit，13 commits 待推送；设计收口于 executor-sandbox.md §7 + sandbox-security-governance.md §5 G5 + quick-start.md §启用 rootless sandbox 执行；T912 主体同步归档，T912-3 合并入 C28） |
 | M11: 业务可见性 + 沙箱落地 + 安全文档 | 由 C53 闭环触发启动 ① 业务可见性：C53 已闭环（push + PR 闭环 + runUrl 兜底）+ C56/C57/C58 平台 UX 用户反馈；② 沙箱落地：T1005 sandbox 路由接线（M10 实施规划遗留）；③ 安全文档：C28 security.md §凭据加密存储章节 + T912-3 邮件发送安全 + 凭据权限阶（§5.4）；④ 通知基建：C-ENV-CHANGE-ALERT（环境容器变化告警） | P1 | 已完成（2026-08-20 归档，22 commits：M11 启动批次 10 commits + M11 推进批次 12 commits；C58 + C-ENV-CHANGE-ALERT 两轮深度 standard Pass；详见 [backlog.md §M11](backlog.md#m11-业务可见性--沙箱落地--安全文档2026-08-20-已闭环) 摘要表 + [archive/todo-archive-phases-m11.md](archive/todo-archive-phases-m11.md) 详细归档） |
+| M12: 平台 UX 一致性 + i18n 治理 | 承接 2026-08-21 用户实测反馈 10 项平台 UX / 安全 / i18n 问题：① 用户管理安全 + 角色 i18n（C65-A，P1：admin self-protection 前端/服务端强制拦截 + 角色标签 i18n）；② i18n 单点声明治理（C65-B，P2：jiti vs Nuxt transform pipeline 双文件拆分）；③ schedules 增强（C65-C，P2：cron 表达式预览 + 时区选择框）；④ 平台表格 / 视图增强（C65-D，P2：env-events sortable + alerts 双 chevron 修复 + alerts 视图切换 + alerts 图表去重） | P1-P2 | 已完成（2026-08-21 归档，19 commits（C65-A 5 + C65-B 2 + standards check:docs 1 + C65-C 2 + C65-D 5 + CI 修复 1 + CI 稳定性 1 + network-audit 2）；全部推送至 origin/master / ahead=0 / branches 80.02%；详见 [todo-archive.md §M12](todo-archive.md#m12-平台-ux-一致性--i18n-治理已闭环)） |
 
 ## M0: 基线收敛
 
@@ -145,55 +146,41 @@ Changelog / Release Notes 采集、多 AI 提供商封装、AI 研判（问题�
 
 ---
 
-## M12: 平台 UX 一致性 + i18n 治理（**规划中 / 未启动**）
+## M12: 平台 UX 一致性 + i18n 治理（**已完成 2026-08-21 归档**）
 
-> **背景（2026-08-21）**：M11 闭环后，承接 2026-08-21 用户实测反馈 10 项平台 UX / 安全 / i18n 问题（[backlog.md §2026-08-21 平台 UX 反馈批次评估](backlog.md#2026-08-21-平台-ux-反馈批次评估c65-待启动) + [backlog.md §M12](backlog.md#m12-平台-ux-一致性--i18n-治理待启动)）。M12 阶段目标聚焦四大方向：
->
-> 1. **用户管理安全 + 角色国际化**（C65-A，P1）—— admin 禁止对自己 setRole（防止误降级）+ 角色标签 i18n
-> 2. **i18n 单点声明治理**（C65-B，P2）—— 所有 i18n 配置统一来源，新增翻译仅改 1 个文件
-> 3. **schedules 增强**（C65-C，P2）—— cron 表达式预览 + 时区选择框
-> 4. **平台表格 / 视图增强**（C65-D，P2）—— env-events sortable + alerts 双 chevron 修复 + alerts 视图切换（按包/项目/原始）+ alerts 图表去重
-
-**阶段状态**：🔶 **规划已就绪 / 未启动**
-
-- [ ] C65-A 用户管理安全 + 角色 i18n（**P1 可立即启动**）
-- [ ] C65-B i18n 单点声明治理（依赖 C65-A 角色 i18n 落地）
-- [ ] C65-C schedules 增强（与 C65-A/D 并行）
-- [ ] C65-D 平台表格 / 视图增强（与 C65-A/C 并行；alerts rowGroup hydration C64 known-issue 风险已登记）
-
-**详细规划 + 子批次启动顺序 + 验收标准 + 风险登记**：见 [backlog.md §M12](backlog.md#m12-平台-ux-一致性--i18n-治理待启动) 完整段。
-
----
-
-## M11: 业务可见性 + 沙箱落地 + 安全文档（已闭环）
-
-> **背景（2026-08-20）**：C53 闭环后，平台 A 模式（container）的 `fix` / `fix-and-pr` 链路具备完整 push + PR 闭环，结束了 M6 阶段"修复结果仅在本地临时目录"问题。M11 阶段由 C53 触发启动，承接四方面 backlog：
->
-> 1. **业务可见性**：C53（已闭环作为旗舰任务）+ C56/C57/C58 平台 UX 用户反馈
-> 2. **沙箱落地**：T1005 sandbox 路由接线（M10 实施规划遗留）
-> 3. **安全文档**：C28 security.md §凭据加密存储章节 + T912-3 邮件发送安全 + 凭据权限阶（§5.4）
-> 4. **通知基建（本批次追加）**：C-ENV-CHANGE-ALERT 环境容器变化告警（audit_event + NotificationChannel 接口 + Email 实现 + env-events UI）
+> **背景（2026-08-21）**：M11 闭环后承接 2026-08-21 用户实测反馈 10 项平台 UX / 安全 / i18n 问题，按 §1.1 ≤ 5-6 项硬上限拆 4 子批次独立实施。**所有 19 commits 已推送至 origin/master**（ahead=0，git rev-list HEAD ^origin/master --count 核验）。
 
 **阶段目标（全部闭环 ✅）**：
 
-- [x] 平台 A 模式 `fix-and-pr` 真实环境跑通（push + PR 闭环 + UI 提示）—— C53 闭环
-- [x] T1005 路由接线后 sandbox 执行器可真实触发（docker daemon 可用时）—— T1005-A/B/C/D 闭环
-- [x] security.md §5.4 / §5.5 凭据权限阶 + 加密存储章节落地 —— C28 闭环
-- [x] C56 / C57 平台 UX 用户反馈小修闭环 —— `cda5b90` 闭环
-- [x] C58 告警视图按包聚合 + 图表 —— 2 commits + 35 测试
-- [x] C-ENV-CHANGE-ALERT 环境容器变化告警 —— 6 commits + 41 测试 + UI + 权限防护
-- [x] branches 80% 覆盖率维持 —— 80.49%
-- [x] `pnpm lint` / `typecheck` / `test` 全绿 —— 677/681 passed + 0 error
-- [x] CI 端到端裁决通过 —— 2 轮深度审计全部 Pass
+- [x] **C65-A 用户管理安全 + 角色 i18n** —— admin self-protection 纵深防御（C65-A1 前端层 + C65-A3 服务端强制拦截 5 端点）+ 角色标签 i18n（C65-A2）；commit `1d7c5c8` + `2076fda` + `b10e270` + `84bc83e` + `4de796b`
+- [x] **C65-B i18n 单点声明治理** —— jiti vs Nuxt transform pipeline 双文件拆分（`nuxt-i18n-config.ts` jiti 安全 + `i18n.config.ts` Nuxt transform pipeline 加载）+ `as const` 字面量锁定 + standards §7.2 同步；commit `789ed2f` + `4d8f164`
+- [x] standards check:docs 列入 review 必查项 —— `pnpm run check:docs` 触发条件 diff 含 `docs/**/*.md`；commit `781cbc6`
+- [x] **C65-C schedules 增强** —— cron 表达式预览（方案 B 自实现，0 新增依赖，复用 cron-parser next()）+ 时区选择框（`Intl.supportedValuesOf('timeZone')` ~600 项 + 浏览器时区首位）；commit `5dff002` + `9100bac`
+- [x] **C65-D 平台表格 / 视图增强** —— env-events 6 列 sortable（D1）+ alerts 双 chevron 修复（D2）+ alerts 视图切换（按包/项目/原始，D3 TypeORM QueryBuilder 重构）+ alerts 图表去重（D4 净 -218 行）；commit `348502d` + `132b944` + `374a278` + `ad6ce70` + `8601c15`
+- [x] **CI 修复** —— branches 79.88% → 80.02%（batch-runs/[id].get.ts +3 case）/ CI test/e2e 不稳定断言修复；commit `0c57211` + `4043918`
+- [x] **engine network-audit 默认白名单追加 rolldown.rs** —— 临时修复 vite 6/7 跨 major 升级 verification 输出 URL 被 deny-by-default 拦截；commit `2104b9f` + `0eb8704`
+- [x] **用户实测反馈 10 项全部闭环** —— #1-#10 全部转 C65-A/B/C/D 4 子批次闭环（#8 单 admin 不得降级登记 backlog 远期，需后端事务级 admin 计数校验，独立批次）
+- [x] `pnpm lint` / `typecheck` 全绿 —— 0 error
+- [x] vitest 单测覆盖 + playwright e2e 覆盖 —— vitest 705 passed + 4 skipped / playwright 22 baseline + C65-D 7 new case
+- [x] branches 覆盖率 ≥ 80% —— 80.02%（CI 阈值回归修复后）；目标文件 [id].get.ts 82.75%
+- [x] `pnpm check:docs` 全过 —— 95 md links + 55 md vue-interp OK
+- [x] CI 端到端裁决通过 —— 9 轮独立 Review Gate Pass（C65-A1 quick / C65-A3 standard / C65-B1 quick / C65-C standard 2 轮 / C65-D1 quick / C65-D2 quick / C65-D3 standard / C65-D4 quick + CI 修复 quick）
 
-> **详细子任务清单 + 验收标准 + 决策记录 + 历史教训**：见 [backlog.md §M11](backlog.md#m11-业务可见性--沙箱落地--安全文档2026-08-20-已闭环) 摘要表 + [archive/todo-archive-phases-m11.md](archive/todo-archive-phases-m11.md) 详细归档。
+**关键决策**：
+- **C65-A3** → 纵深防御模型 = 前端拦截 + 服务端强制（前端拦截 ≠ 服务端安全，devtools / 恶意客户端可绕过）；Nuxt server middleware 实现 5 端点拦截 + 双层防护
+- **C65-B1** → 双文件拆分根因（jiti vs Nuxt transform pipeline 运行时全局可见性差异，物理拆分承载运行时全局调用的配置与纯字面量导出配置）
+- **C65-C1** → 自实现预览（0 新增依赖，复用 cron-parser 已装的成熟 next()）；cronstrue 实测 unpackedSize 1.23MB（todo.md 估 ~10KB gzip 严重偏差）+ cronstrue-i18n 不存在于 npm registry，拒绝引入
+- **C65-D3** → TypeORM 1.x find options order 不支持嵌套路径 → 全部走 QueryBuilder（统一代码路径 + 行为等价）
+- **C65-D4** → 删除 vs 差异化决策：选删除（最简 + 与 dashboard 完全去重 + alerts 聚焦表格）
+
+**详细子任务清单 + commit 引用 + 实施记录 + 关键经验 + 待迁移经验**：见 [todo-archive.md §M12](todo-archive.md#m12-平台-ux-一致性--i18n-治理已闭环)。
 
 ---
 
 ## 详细任务
 
-- 当前阶段任务：[todo.md](todo.md)（M11 已全部闭环归档；待人工验收项随真实环境推进）
-- 已归档阶段：[todo-archive.md](todo-archive.md)（主窗口保留 C53 / 2026-08-20 平台 UI 增强 C59-C61 / 2026-08-20 M11 推进批次；早期阶段见 [archive/index.md](archive/index.md) 分片索引）
+- 当前阶段任务：[todo.md](todo.md)（M12 已全部闭环归档，**当前无活跃阶段任务**；待人工验收 T701/T702/T704 项随真实环境推进）
+- 已归档阶段：[todo-archive.md](todo-archive.md)（主窗口保留 5 段：2026-08-21 M12 / 2026-08-20 e2e 修复批次 C62+C63+C64+chore / C53 / 2026-08-20 平台 UI 增强 C59-C61 / 2026-08-20 M11 推进批次；早期阶段见 [archive/index.md](archive/index.md) 分片索引）
 - 后续阶段任务（延期项 + 未排期增强候选）：[backlog.md](backlog.md)
 
 ## 交付原则

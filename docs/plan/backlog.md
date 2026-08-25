@@ -97,58 +97,58 @@
 
 #### i18n 治理
 
-- **C36** 服务端 API 错误消息 i18n
-- **C37** 语言偏好多设备同步
+- **C36** 服务端 API 错误消息 i18n（当前 API 错误消息硬编码英文如 `error.code.field_required`；用户体验：中文用户看不懂；触发：M8 国际化后未覆盖服务端；验收：所有 `apps/platform/server/api/**` 端点错误响应 `code` 键维持英文 + `message` 键按请求 locale 返回）
+- **C37** 语言偏好多设备同步（当前仅单一设备语言偏好；多设备切换需重新设置；触发：用户实测反馈多设备用户；前置：先有 C36 服务端 API i18n 基础）
 
 #### 多组织 / 多租户
 
-- **D1** repo_admin + RepositoryAccess
-- **D3** 多租户组织体系
-- **SAML 2.0 SSO**（D2 username 等待评估后启动）
+- **D1** repo_admin + RepositoryAccess（实现仓库级 admin 角色区别于全局 admin；当前 owner 角色对仓库控制粒度不足；关联：C22 GitHub App 验证身份）
+- **D3** 多租户组织体系（支持多个组织/org 共存；当前 single-org 模型限制 org 切换；前置：D1 仓库级权限；触发：org 场景用户痛点）
+- **SAML 2.0 SSO**（D2 username 等待 SAML SSO 上后再决定 username 模型；当前 better-auth OIDC 优先）
 
 #### 用户管理
 
-- **D8** remove-user 关联资源检查（无 user→resource 关联时暂不需要）
+- **D8** remove-user 关联资源检查（无 user→resource 关联时暂不需要；前置：先有 D1 资源关联表）
 
 #### PR 管理
 
-- **B1** PR 关闭评论 + label（需 `issues: write` 权限，比当前 `pull-requests: write` 宽）
-- **B2** 固定分支单线设计（独立平台部署后修复频率上升时评估）
+- **B1** PR 关闭评论 + label（需 `issues: write` 权限，比当前 `pull-requests: write` 宽；触发：PR 数量增长影响 `pulls.list` 查重性能或用户需要 PR 列表可过滤时）
+- **B2** 固定分支单线设计（独立平台部署后修复频率上升，需要固定修复分支如 `dependfix/auto-fix` 避免频繁向 master 提交 PR；触发：v1.0.0 后 M12 平台 UX 修复链路上线；关联：T210 指纹方案整合复用/重建策略 + force push 语义）
 
 #### Code Scanning 规则体系
 
-- **C15** B 类规则真实仓库样本核对（B 类列表覆盖 js/py/java 精选集，其余语言落 C 兜底）
-- **C16** 规则分类配置化（从常量表升级为可配置）
+- **C15** B 类规则真实仓库样本核对（B 类列表覆盖 js/py/java 精选集，其余语言 go/ruby/csharp/cpp 落 C 兜底；需真实仓库 API 样本核对规则 id 格式与变体分布；来源：T302 Review Gate 2026-08-05）
+- **C16** 规则分类配置化（从硬编码常量表升级为配置文件 / env / 平台界面可配置；触发：M3 治理扩展 + 用户实测反馈规则分类需求；来源：T302 设计 2026-08-05）
 
 #### Code Quality（Standard findings）
 
-- **C21** 接入 `GET /repos/{owner}/{repo}/code-quality/findings` 数据源（确定性 CodeQL 质量规则：maintainability / reliability）；不阻塞 M5/M6；M5 后评估完整支持，最小报告接入可提前
+- **C21** 接入 `GET /repos/{owner}/{repo}/code-quality/findings` 数据源（确定性 CodeQL 质量规则：maintainability / reliability；新增 `source: 'code-quality'` 复用 `NormalizedSecurityAlert` 模型 + A/B/C 规则分层；首版 report-only C 类默认；不阻塞 M5/M6；M5 后评估完整支持，最小报告接入可提前；**定价澄清**：Standard findings 免费跑仅 Actions minutes，付费面为 AI findings/Copilot Autofix；前置：IAT/GITHUB_TOKEN 对 `code-quality/findings` 权限可达性实测）
 
 #### org 增强
 
-- **C22** GitHub App / installation token 认证（CLI 侧增强）
-- **C23** 发现规模上限 max-repos（架构文档已规划未实现）
-- **C24** org 级 alerts API 批量拉取（等真实大 org 用户痛点再动）
+- **C22** GitHub App / installation token 认证（CLI 侧增强；org 场景 PAT 痛点：classic PAT 需 `repo` 全量 scope 权限过大 / fine-grained PAT 需逐仓库配置 + 逐个 org 启用 SSO / 个人 token 离职轮换管理困难；GitHub App 价值：按仓库授权限 + 短时 token + org 管理员可控可审计；关联：M6 T602 凭据管理已交付 GitHub App 凭据类型 app-id + private-key）
+- **C23** 发现规模上限 max-repos（[architecture.md](../design/governance/architecture.md) 规划 `max-repos` 输入参数代码未实现 grep 零命中；大 org 数百仓库一次性全量发现 + 逐仓库探测 `.github/dependabot.yml` N 次 contents API 配额消耗与总耗时不可控；当前防护仅 concurrency 16 + 限流重试 + probe 并发 5 无总量上限；建议：发现层按配置上限截断排序后截断保证确定性或拆为分批处理）
+- **C24** org 级 alerts API 批量拉取（GitHub 提供 org 级 `GET /orgs/{org}/dependabot/alerts` 与 `GET /orgs/{org}/code-scanning/alerts`；当前按仓库逐仓拉取 `listAlertsForRepo`；大 org 场景可显著减少 API 调用但需按仓库重组结果 + defaultBranch 注入 org 级响应可能缺省分支上下文复杂度上升；触发：等真实大 org 用户痛点再动）
 
 #### 报告与统计口径
 
-- **C8** per-source 错误隔离（T301 遗留，并行源任一失败目前整体硬失败，演进为 warn + 仅弃该源）
-- **C9** summary 字段未渲染（T304 遗留，告警 summary 已收集未渲染）
+- **C8** per-source 错误隔离（T301 遗留；并行源任一失败目前整体硬失败已拉取的 Dependabot 结果丢失；演进为 warn + 仅弃该源需确认语义；来源：T301 Review Gate 2026-08-05）
+- **C9** summary 字段未渲染（T304 遗留；告警 summary 已收集未渲染 JSON 可见；报告/PR body 如需摘要列可加；来源：T304 Review Gate 2026-08-05）
 
 #### 架构与性能
 
-- **C13** app/helpers ↔ cli/helpers 值级循环依赖（M3 收尾引入反向边）
-- **C14** 多 cs 告警逐告警全项目 lint 性能（T303 遗留）
+- **C13** app/helpers ↔ cli/helpers 值级循环依赖（M3 收尾引入反向边；`quickVerifyProject` ↔ `validateVerifyCommands` 运行时安全；建议下沉公共层或回调注入；关联：M5 T505 CLI 解耦；来源：M3 收尾审查登记 2026-08-05）
+- **C14** 多 cs 告警逐告警全项目 lint 性能（T303 遗留；多 code-scanning 告警时逐个跑全项目 lint 性能瓶颈；可合并验证；来源：T303 Review Gate 2026-08-05）
 
 #### 治理
 
-- **C34** 存量规范严格约束挂接盘点（审查治理候选）
+- **C34** 存量规范严格约束挂接盘点（审查治理候选；审查现有 `docs/standards/*.md` 中"必须级"条款是否已在 code-quality-checklist.md / code-reviewer skill 双层对称挂接；现状：部分已挂接 development/testing/security/git/ai-collaboration，部分仅 standards 有 platform.md §7.1/§7.2；触发：下次 neat-freak 批次统一盘点）
 - **G1** network-audit 默认白名单持续扩展问题 —— 详见长期主线 #2
 
 #### 工作流
 
-- **T905** git worktree 并行开发预案（触发条件：多 agent 并行成为常态）
-- **T701-e2e** 管理端点集成测试补强
+- **T905** git worktree 并行开发预案（触发条件：多 agent 并行开发成为常态；当前单 agent 工作流无需启用）
+- **T701-e2e** 管理端点集成测试补强（用户管理 / 凭据管理 / 仓库管理的 API 端点集成测试覆盖；当前主要靠 vitest 单测，playwright e2e 仅 admin.vue；触发：M7 闭环后定期演练；前置：先评估 T701-e2e 是否纳入 M13 阶段）
 
 #### 平台告警视图增强
 

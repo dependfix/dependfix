@@ -372,6 +372,23 @@ describe('startNetworkAudit', () => {
         expect(audit.violations).toHaveLength(0)
     })
 
+    it('addEntries for non-allowlisted command-output urls (pnpm.io) stays as audit only', async () => {
+        // 治本（候选方向 3）实证 2026-08-25 —— pnpm.io 不在默认白名单，但命令输出 URL
+        // 仅入 audit entries；违规外联仍由代理拦截捕获。验证 addEntries 不论白名单/非白名单
+        // 都不打 violation 标记。
+        audit = await startNetworkAudit()
+        audit.addEntries([
+            { time: 't1', source: 'command-output', method: 'GET', target: 'https://pnpm.io/catalogs' },
+            { time: 't2', source: 'command-output', method: 'GET', target: 'https://telemetry.nuxt.com/v1/track' },
+        ])
+
+        expect(audit.entries).toHaveLength(2)
+        expect(audit.violations).toHaveLength(0)
+        // 验证 entry 内容完整保留（hostname 提取待调用方做；这里只验 entries 内容）
+        expect(audit.entries.find((e) => extractHostname(e.target) === 'pnpm.io')).toBeDefined()
+        expect(audit.entries.find((e) => extractHostname(e.target) === 'telemetry.nuxt.com')).toBeDefined()
+    })
+
     it('respects custom allowedDomains option', async () => {
         // 自定义白名单（不含 github.com）→ github.com 应被拦截
         audit = await startNetworkAudit({ allowedDomains: ['registry.npmjs.org'] })

@@ -120,6 +120,8 @@ watch(() => route.query.history, async (newVal) => {
         :header="t('runs.title')"
         modal
         :draggable="false"
+        :closable="!detail"
+        :close-on-escape="!detail"
         :style="{width: '720px'}"
         @hide="closeDialog"
     >

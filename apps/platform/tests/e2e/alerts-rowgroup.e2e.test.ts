@@ -198,4 +198,37 @@ test.describe('C58 alerts rowGroup + 视图切换', () => {
         const noneReq = requests.find((u) => !u.searchParams.has('groupBy'))
         expect(noneReq).toBeDefined()
     })
+
+    // todo.md §T1306：dedupe 模式切换触发 /api/alerts?dedupe=true + 表格列扩展
+    test('视图切换：dedupe 模式触发 /api/alerts?dedupe=true + 显示聚合列', async ({ page }) => {
+        const requests: URL[] = []
+        await page.route('**/api/alerts*', (route, request) => {
+            requests.push(new URL(request.url()))
+            return route.fulfill({
+                status: 200, contentType: 'application/json', body: JSON.stringify(MOCK_ALERTS),
+            })
+        })
+        await page.route('**/api/repos*', (route) => route.fulfill({
+            status: 200, contentType: 'application/json', body: JSON.stringify(MOCK_REPOS),
+        }))
+        // 等待初始 fetchAlerts 请求
+        const initialResponsePromise = page.waitForResponse('**/api/alerts*')
+        await page.goto('/alerts')
+        await initialResponsePromise
+        await waitForHydration(page)
+        // 切换 dedupe 到「跨次去重」
+        const dedupeAcrossResponsePromise = page.waitForResponse((resp) =>
+            resp.url().includes('/api/alerts') && resp.url().includes('dedupe=true'),
+        )
+        await page.locator('#dedupe').click()
+        await page.locator('.p-select-overlay li:has-text("跨次去重")').click()
+        await dedupeAcrossResponsePromise
+        // 验证请求包含 dedupe=true
+        const dedupeReq = requests.find((u) => u.searchParams.get('dedupe') === 'true')
+        expect(dedupeReq).toBeDefined()
+        // 表格额外显示「出现次数」列（dedupe=across 时 v-if 显示）
+        await expect(page.locator('th:has-text("出现次数")')).toBeVisible()
+        // 表格额外显示「最近发现」列
+        await expect(page.locator('th:has-text("最近发现")')).toBeVisible()
+    })
 })

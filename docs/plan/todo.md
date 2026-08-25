@@ -153,31 +153,33 @@
   - e2e：verification job 实测不误判（依赖真实 CI 环境，单元测试为主）
 - **风险**：中（跨前后端 + 公共 API 变更需兼容性考虑）
 
-#### T1306 告警跨次扫描去重（实测反馈 6）
+#### [x] T1306 告警跨次扫描去重（实测反馈 6）—— 闭环 2026-08-25
 
 - **优先级**：P1（实测反馈）
 - **依赖**：M13.1 F 阶段闭环
-- **执行范围**：`apps/platform/server/api/alerts/index.get.ts` + `apps/platform/app/pages/alerts.vue` + entities（如新增聚合视图字段）+ i18n + tests
+- **执行范围**：`apps/platform/server/api/alerts/index.get.ts` + `apps/platform/app/pages/alerts.vue` + `apps/platform/i18n/locales/{zh-CN,en-US}.json` + tests
 - **非目标**：不动 `ScanResult` 实体表结构（仅读取 + 聚合）；不改底层数据采集逻辑
 - **根因分析**：
   - 当前 `/api/alerts` 返回全量 `ScanResult` 记录，多次扫描产生的相同 CVE-alert 重复展示
   - 用户痛点：相同告警在历史多次扫描中出现 N 次，无法聚合查看影响范围
 - **修复方案**：
-  - 新增 query 参数 `dedupe=true`（默认 `false` 保后向兼容）
-  - 去重维度：fingerprint = sha1(`${repositoryId}|${packageName}|${ruleId}`) 或类似组合
-  - 聚合字段：`occurrenceCount`（出现次数）/ `firstSeenAt` / `lastSeenAt` / `affectedRunIds`（数组）
-  - 前端 DataTable 列扩展：显示次数 + 最后扫描时间
-  - 详情侧栏展开：可查看每次扫描的独立记录（Drawer / Sidebar 嵌套）
-- **验收标准**：
-  - `dedupe=true` 时按 fingerprint 聚合，相同 CVE+pkg+repo 合并为 1 行
-  - `dedupe=false` 时行为等价当前实现（向后兼容）
-  - 前端 DataTable 列扩展正确展示聚合字段
-- **最小验证矩阵**：
-  - `pnpm lint` 0 error / `pnpm typecheck` 0 error
-  - vitest 单测：去重逻辑覆盖（同一 fingerprint 多次扫描聚合 / 不同 repo 独立 / dedupe=false 行为等价）
-  - playwright e2e：alerts 页面切到去重视图，确认数据正确聚合
-  - i18n 双语 keys 新增
-- **风险**：中（数据模型扩展 + 前端表格列变化）
+  - 后端：新增 query 参数 `dedupe=true`（zod safeParse 兜底，默认 `false` 保后向兼容）
+  - 去重维度：fingerprint = `${repositoryId}|${packageName}|${ruleId ?? ''}`（用 repositoryId 而非 scanRunId 才是"跨次扫描去重"）
+  - 聚合字段：`occurrenceCount`（出现次数）/ `firstSeenAt` / `lastSeenAt` / `affectedRunIds`（distinct run id 列表，前 5 个 + 集合全量跟踪）
+  - 排序按 occurrenceCount DESC（业务语义：高频 = 重要）
+  - 聚合实现：原计划 SQL `GROUP_CONCAT` 子查询聚合 `affectedRunIds`，但 better-sqlite3 `:memory:` 子查询表名解析失败（"no such table: scan_result"）；改用应用层 JS 聚合（去 SQL dialect 依赖 + 测试稳定），N+1 风险可控（`.take(500)` 上限 + 应用层去重 O(n)）
+  - 前端 DataTable 列扩展（dedupe=across 时显示）：出现次数 Tag + 最近发现时间 + 详情按钮
+  - 详情侧栏（PrimeVue Sidebar 右侧滑出）：显示该告警 affected runs 详情（按 affectedRunIds 批量查询 `/api/runs`）
+- **闭环记录**：
+  - 实施 commit：
+    - `feat(platform): /api/alerts 新增 dedupe=true 跨次扫描去重聚合`（后端）
+    - `feat(platform): alerts 页面新增 dedupe 模式 + 详情侧栏（PrimeVue Sidebar）`（前端 + i18n）
+    - `docs(plan): todo.md 收口 M13.2 T1306 闭环（alert 跨次扫描去重）`（todo 收口 + e2e case）
+  - 聚合实现细节：原 SQL 方案在 better-sqlite3 `:memory:` 测试环境子查询表名解析失败，改用应用层 JS 聚合（`tests/e2e/alerts-rowgroup.e2e.test.ts` 新增 1 case 验证前端 UI 集成 + 请求参数）
+  - 完整验证：`pnpm run check:docs` 99 links + 55 vue-interp OK / `pnpm lint` 0 error / `pnpm --filter @dependfix/platform typecheck` 0 error / `pnpm --filter @dependfix/platform exec vitest run server/api/alerts/index.get.test.ts` 19/19 passed（13 既有 + 6 新增 dedupe case）/ `pnpm --filter @dependfix/platform exec playwright test alerts-rowgroup` 6 passed（5 既有 + 1 新增 dedupe）/ `pnpm --filter @dependfix/platform build` 0 error
+- **follow-up（登记 backlog 或下个 neat-freak）**：
+  - affectedRunIds 当前仅取前 5 个（去重后），完整列表靠集合 size 跟踪但未暴露给前端；如需显示"全部 N 个 run"按钮，下次迭代
+  - 应用层聚合性能：500 行 O(n) 聚合对当前规模足够，万级规模可考虑 SQL GROUP_CONCAT 子查询（需 PG/MySQL，SQLite 兼容性需进一步验证）
 
 #### T1309 changelog 机制治本：被动依赖升级 Dependencies 段 fallback（c811659 回归）
 

@@ -58,6 +58,10 @@
 - **Code Quality**：C21 接入 Code Quality Standard findings（待 M5 后评估）
 - **org 增强**：C22 GitHub App / installation token / C23 发现规模上限 max-repos / C24 org 级 alerts API 批量拉取
 - **治理**：C34 存量规范严格约束挂接盘点
+- **治理**：G1 network-audit 默认白名单持续扩展问题（2026-08-25, [Security Auto Fix #41 run 32795032475](https://github.com/dependfix/dependfix/actions/runs/32795032475) 触发）—— 治本方案设计待启动
+  - 临时修复：`rolldown.rs` 默认白名单（commit `2104b9f`）；症状 = vite 6/7 跨 major 升级 verification 命令输出 URL 被 deny-by-default 拦截为 `network_violation` → run exitCode=1
+  - 候选方向：(1) 构建工具生态文档站类目预置白名单（rolldown.rs / swc.rs / rust-lang.org 等）；(2) 按 SRI 哈希钉资源（推荐域动态发现）；(3) 命令输出 URL 与真实外联区分（stdout/stderr 字符串不应判为 violation，当前 `verification-runner` 命令输出 URL 提取可能误判）
+  - 验收：默认白名单不再按次新增；verification 阶段合法外联不被误判；`docs/plan/backlog.md` G1 条目关闭
 - **worktree**：T905 git worktree 并行开发预案（触发条件：多 agent 并行成为常态）
 - **集成测试**：T701-e2e 管理端点集成测试补强
 

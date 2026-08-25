@@ -11,7 +11,7 @@
 > | 子阶段 | 任务 | 预计 commits | 风险梯度 |
 > |:---|:---|:---:|:---:|
 > | M13.1 治理前置 + 平台 UX 反馈 | T1301 + T1302 + T1303 + T1304 | 4 | 低 |
-> | M13.2 网络治理 + 告警去重 | T1305 + T1306 | 2-4 | 中 |
+> | M13.2 网络治理 + 告警去重 + changelog 机制治本 | T1305 + T1306 + T1309 | 3-5 | 中 |
 > | M13.3 Code Scanning 规则化 + CQL | T1307 + T1308 | 2-4 | 高 |
 >
 > **状态约定**：子阶段串行实施，每子阶段独立 PDTFC+ 循环；上一子阶段 F 阶段闭环（commit 推送）后方可启动下一子阶段。
@@ -119,7 +119,7 @@
   - playwright e2e 新增 1 case：打开历史 → 进入详情 → 确认 X 按钮不渲染 + "返回列表"按钮可点击回退
 - **风险**：低
 
-### M13.2 网络治理 + 告警去重（T1305 已闭环 2026-08-25，T1306 待启动）
+### M13.2 网络治理 + 告警去重（T1305 已闭环 2026-08-25，T1306 + T1309 待启动）
 
 #### [x] T1305 B2 network-audit G1 治理（长期主线 #2 切片）—— 闭环 2026-08-25
 
@@ -178,6 +178,42 @@
   - playwright e2e：alerts 页面切到去重视图，确认数据正确聚合
   - i18n 双语 keys 新增
 - **风险**：中（数据模型扩展 + 前端表格列变化）
+
+#### T1309 changelog 机制治本：被动依赖升级 Dependencies 段 fallback（c811659 回归）
+
+- **优先级**：P1（验证链路阻断性回归，CI verify-changelog 当前失败阻断 release）
+- **依赖**：M13.1 F 阶段闭环
+- **执行范围**：`scripts/changelog.mjs` + `scripts/changelog.test.mjs` + `docs/standards/git.md` CHANGELOG 策略章节（如有）
+- **非目标**：不动 verify-changelog.mjs（fallback 段已含版本标题行，自动通过现有契约）；不动 release-publish.mjs / release-version.mjs（不修改发布语义）；不动 cmyr-config 模板（直接手写 fallback 段）
+- **根因分析**：
+  - 现状：commit `c811659 docs(changelog): 更新版本信息并添加新功能与修复记录`（已在 origin/master）提升了 cli 0.3.2 → 0.3.3、mcp 0.1.2 → 0.1.3，但这两个包的路径下从上次 tag 后无任何 commit（仅被 core/engine 的 0.3.0/0.2.0 升级传导 patch 跟随）
+  - 机制：`scripts/changelog.mjs` 的 `generate()` 用 path-filter 过滤 commit → cli/mcp 路径下 0 commit → 输出空段；86-94 行的"跳过空段"逻辑把空段过滤掉（保护重跑幂等），但也吃掉了"被动升级"场景
+  - 后果：`packages/cli/CHANGELOG.md` 缺 0.3.3 段、`packages/mcp/CHANGELOG.md` 缺 0.1.3 段；`pnpm verify:changelog` 当前直接 ::error:: + exit 1；CI release job 会被阻断
+  - 教训参考：conventional-changelog-monorepo / lerna 标准实践 = 当 release 仅由传递依赖变更触发时，输出 `### Dependencies` 段列出依赖版本变化（社区标准答案，方案 B 选此）
+- **修复方案**：在 `changelog.mjs` 主流程 `for (const target of targets)` 循环中，当 `generate({ releaseCount: 1 })` 输出空且当前版本未被 tag 标记时，新增 fallback 路径：
+  1. **新增 `computeDependencyChanges(currentDeps, prevDeps)` 纯函数**：对比两套依赖，输出 `Array<{ name, from, to }>`（仅含变化的项）；纯函数便于单测
+  2. **新增 `loadDepsAtTag(ref, pkgPath, execShow)` 纯函数**：通过 `git show <ref>:<pkg_path>/package.json` 取出 prev tag 时该包依赖列表；execShow 依赖注入便于单测
+  3. **新增 `renderDependencySection(opts)` 纯函数**：根据 `computeDependencyChanges` 结果输出完整版本段，格式与 cmyr-config 标题对齐（`## [x.y.z](compare_url) (date)\n\n### ⚙️ 依赖更新\n\n* bump <name> to <to>\n`）；无变化时返回空串（保持重跑幂等）
+  4. **主流程集成**：`generate()` 输出空 → 调用 fallback 三件套 → 若有变化则用 fallback 段替换（保留既有 `mergeUnreleased` 流程）
+- **交付物**：
+  - `scripts/changelog.mjs`：新增 `computeDependencyChanges` + `loadDepsAtTag` + `renderDependencySection` 三个纯函数 + 主流程集成（估计 +50-80 行）
+  - `scripts/changelog.test.mjs`：新增 6-8 个 test case（覆盖基础 fallback / 无变化 / 无 workspace 依赖 / 多 dep / 单 dep / prevTag 缺失 / 段格式对齐）
+  - 验证 commit：`56de1a1 docs(engine): 更新日志` 后 + 本批次 changelog 修复后，`pnpm verify:changelog` 通过；`pnpm changelog` 一次性重跑为 cli/mcp 生成 0.3.3/0.1.3 Dependencies 段
+- **验收标准**：
+  - `pnpm verify:changelog` exit 0 ✅
+  - `packages/cli/CHANGELOG.md` 含 `## [0.3.3](...) (date)` + `### ⚙️ 依赖更新` 段 ✅
+  - `packages/mcp/CHANGELOG.md` 含 `## [0.1.3](...) (date)` + `### ⚙️ 依赖更新` 段 ✅
+  - `pnpm --filter ... test`（含新单测）通过 ✅
+  - "重跑幂等"语义保持：版本 == 最新 tag 时不写出空段（既有 86-94 行逻辑保留）✅
+- **最小验证矩阵**：
+  - `pnpm verify:changelog` exit 0（验证缺段问题修复）
+  - `pnpm --filter dependfix test` 或 `vitest run scripts/changelog.test.mjs` 全绿（含新 fallback case）
+  - `pnpm changelog` 一次性重跑产出预期段（验证 fallback 集成路径生效）
+  - `pnpm lint` / `pnpm typecheck` 0 error（scripts 是纯 Node，无 typecheck 强制项，但 lint 必须过）
+- **follow-up**：
+  - 根级 CHANGELOG.md 同样走 path-filter 全集（changelog.mjs:46 `commits: {}`），自身不会触发 fallback——但如果某次 core-only 发布的 commit 没 touch 根级路径，根级也需 fallback？现状未观察到该 case，登记 backlog 观察
+  - 文档同步：本文档已登记实现记录；CHANGELOG 机制策略文档（如 `docs/guide/release.md`）是否需要更新"被动升级会输出 Dependencies 段"说明——视 changelog.test.mjs 注释是否足够决定
+- **风险**：低（纯函数 + 既有脚本扩点，不改发布语义；既有"跳过空段"重跑幂等保护保留）
 
 ### M13.3 Code Scanning 规则化 + CQL（待 M13.2 闭环启动）
 

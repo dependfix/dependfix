@@ -48,6 +48,14 @@ description: 全局一体化开发与协作工作流技能，覆盖需求评估�
 2. 代码实现阶段只保留一个主责执行者，避免多角色重做同一事项。
 3. **D 阶段自检须含规范一致性（编号标记必查）**：实现收尾时除 lint/typecheck/定向测试外，**必须对新增/修改的源文件执行编号标记扫描**（`rg -n "T\d{3}|P[0-3](?:-[0-9])?|C\d+|G\d|R\d|M\d+|B\d" packages/cli/src packages/core/src`，覆盖注释与测试名），命中即清理——删除编号、保留解释正文。禁止形态与例外两类见 [开发规范 §3 注释规范](../../docs/standards/development.md) 与 `Code Auditor (代码审计员)` 主责边界必查项（[code-auditor.agent.md](./code-auditor.agent.md)），教训见 [经验归档 §十六/§十七/§十八](../../docs/design/governance/experience-archive.md)。该检查点已三次复现（T405 → T501 回归），**无 grep 零命中证据不得视为完成**。
 3b. **D 阶段自检须含 TypeORM 实体索引声明（platform 实体改动时）**：新增/修改 `apps/platform/server/entities/*.ts` 时，复合索引必须声明在类级——TypeORM 1.x 列级复合 `@Index([...])` 生成单列索引（e2e 二次运行暴露，第二个仓库 500）。排查方法：跑 e2e 二次运行（`pnpm --filter @dependfix/platform test:e2e` 连跑两遍）验证幂等，或查 SQLite DDL（`SELECT sql FROM sqlite_master WHERE type='index' AND tbl_name='...'`）确认索引列。教训见 [经验归档 §三十](../../docs/design/governance/experience-archive.md)。
+3c. **D 阶段自检须含文档归档批次规范（涉及段删除 / 重命名时）**：大批量文档归档批次（multi-file edit + 段结构变更）除 lint + typecheck + check:docs 外，**必须执行**（注：§4.4 第 6 条"段结构引用原则"是规范声明已固化于 [规划规范 §4.4](../../docs/standards/planning.md#44-大批量归档批次操作规范)，无需 D 阶段运行时自检）：
+   - **anchor 实证**：写 markdown 链接前 `rg -n "^## " <目标文件>` 确认锚点真实形式，避免凭印象写错锚点（括号转 anchor 规则不是直觉）；check:docs 是兜底而非首选
+   - **跨文件外链主动追踪**：段删除前 `rg -n "<删除段标题>"` 全仓库扫描所有外链（不仅是删除段所在文件），列出每个外链文件 + 位置 + 目标，逐个修复为新归档位置
+   - **跨目录相对路径精确**：从 `docs/<dir1>/` 引用 `docs/<dir2>/` 需 `../<dir2>/`，多级目录按 `../../` 累加；写之前主动计算
+   - **commit 分组追踪**：归档文案分组前先列每个 commit 归属，避免子批次 commit 与"收口 commit" 重复计数（todo.md 收口 commits 通常已含在子批次计数内）
+   - **ahead commits 实证**：归档文案 "ahead N commits" 必须 `git rev-list` 双向核验（具体命令详见 [Git 规范 §3 提交规范](../../docs/standards/git.md)）；M12 归档 + backlog 重排 2 个批次命中 0 次违规但作为常态化检查
+   - **死链验证**：`pnpm run check:docs` 实证 0 error；CI Test job 跳过盲区需在归档批次前主动跑通
+   教训见 [规划规范 §4.4 大批量归档批次操作规范](../../docs/standards/planning.md#44-大批量归档批次操作规范)。M12 归档 + backlog 重排 2 个批次实证：anchor 实证命中 1 次 / 跨文件外链追踪命中 10 次 / 相对路径精确命中 2 次 / commit 分组追踪命中 2 次 / ahead 实证命中 0 次但作为常态化检查。
 4. **强制审计**：D 阶段完成后，必须立即加载本项目 [code-reviewer](../../.github/skills/code-reviewer/SKILL.md) skill 并移交 `Code Auditor (代码审计员)` agent 执行 Review Gate。此步骤不可跳过、不可自我审查替代。A 阶段放行后方可进入 V / T / F。
    - **审计调用协议**：审计 prompt 必须携带 `audit-depth` 声明（`quick` / `standard` / `deep` + 理由，分级定义见 [AI 协作规范 §1.3 分级审计执行协议](../../docs/standards/ai-collaboration.md)）、变更文件清单、已验证证据摘要（lint/typecheck/test 结果 + 关键断言行号）、是否为复审（复审附上轮问题编号清单）。未声明 depth 时审计默认按 `deep` 执行（防御方向），但会显著拖长用时——小改动必须主动声明 `quick`。
    - **真实用时实测（事后校准）**：发起审计 task 前用宿主系统时钟记录启动时间戳（PowerShell `Get-Date -Format o`），审计返回后实测 elapsed，将"实际用时 / 是否超时间盒"回填审计结论与证据记录——agent 自报用时为 LLM 估算，不得作为时间盒核验依据；审计过程中不要求审计方感知时间，实测超时仅作分级校准数据（见 [AI 协作规范 §1.3 真实用时实测](../../docs/standards/ai-collaboration.md)）。

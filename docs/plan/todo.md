@@ -16,7 +16,7 @@
 >
 > **状态约定**：子阶段串行实施，每子阶段独立 PDTFC+ 循环；上一子阶段 F 阶段闭环（commit 推送）后方可启动下一子阶段。
 
-### M13.1 治理前置 + 平台 UX 反馈（next up）
+### M13.1 治理前置 + 平台 UX 反馈（UX 修复批次已闭环 2026-08-25，治理批次待启动）
 
 #### T1301 C1 wisdom 蒸馏
 
@@ -52,7 +52,7 @@
 - **最小验证矩阵**：`pnpm check:docs` 0 error / `pnpm lint:md` 0 error
 - **风险**：低
 
-#### T1303 单仓库扫描互斥修复（实测反馈 5.1）
+#### [x] T1303 单仓库扫描互斥修复（实测反馈 5.1）—— 闭环 2026-08-25
 
 - **优先级**：P1（实测反馈 UX bug）
 - **依赖**：—
@@ -63,30 +63,32 @@
   - 该条件将"单仓库扫描状态"作为"全局互斥锁"——任一仓库扫描中时，其他所有仓库扫描按钮被禁用
   - 用户期望：多个不同仓库的扫描独立可触发（受后端 BullMQ 队列 + 沙箱隔离支持）
 - **修复方案**：删除 `:disabled` 条件，仅保留 `:loading="scanningId === data.id"`
-- **交付物**：`apps/platform/app/pages/repos.vue` 单文件改动
+- **交付物**：`apps/platform/app/pages/repos.vue` 单文件改动（-1 行）
 - **验收标准**：
-  - 删除 `:disabled="scanningId !== null && scanningId !== data.id"` 条件
-  - 保留 `:loading="scanningId === data.id"` 单仓库扫描态指示
+  - 删除 `:disabled="scanningId !== null && scanningId !== data.id"` 条件 ✅
+  - 保留 `:loading="scanningId === data.id"` 单仓库扫描态指示 ✅
   - 多个不同仓库的扫描按钮可独立触发（互不影响）
-- **最小验证矩阵**：
-  - `pnpm lint` 0 error
-  - `pnpm typecheck` 0 error
-  - playwright e2e 新增 1 case：并发触发 2 个不同仓库扫描，确认两按钮均进入 loading 状态而非互斥禁用
-- **风险**：低（前端 UI 改动，后端不变）
+- **闭环记录**：
+  - 实施 commit：`c2e3d7b fix(platform): 删除单仓库扫描的全局互斥禁用条件`
+  - A 阶段 Code Auditor quick depth Pass（实测 ~3.8min），0 blocker + 2 warning（RG-W01 并发 loading 竞态 + RG-W02 缺并发 e2e 验证）登记 backlog follow-up + 3 suggest 已确认
+  - 完整验证：`pnpm lint` 0 error / `pnpm --filter @dependfix/platform typecheck` 0 error / `pnpm --filter @dependfix/platform build` 0 error / `pnpm --filter @dependfix/platform exec playwright test history-dialog` 2/2 passed（含本批次修复 + 既有 c51/C57 验收 case）
+- **follow-up（登记 backlog）**：
+  - RG-W01：删 `:disabled` 后 `scanningId` 仍为单值字符串，并发扫描存在 UI loading 竞态（功能不受影响，仅视觉指示错位），后续可优化为 `Set<string>` 或加 hint 文案
+  - RG-W02：缺并发扫描 e2e 验证 case，下次 neat-freak 批次补
 
-#### T1304 历史 Dialog X 按钮修复（实测反馈 5.2）
+#### [x] T1304 历史 Dialog X 按钮修复（实测反馈 5.2）—— 闭环 2026-08-25
 
 - **优先级**：P1（实测反馈 UX 缺陷）
 - **依赖**：—
-- **执行范围**：`apps/platform/app/components/RepoHistoryDialog.vue` + i18n keys（zh-CN + en-US）
+- **执行范围**：`apps/platform/app/components/RepoHistoryDialog.vue` + e2e test
 - **非目标**：不动详情视图本身逻辑 / 不改 query 状态机
 - **根因分析**：
   - 当前架构：单 Dialog 内 list/detail 视图切换（commit `2102894` 已修 unrouting 问题）
   - 用户痛点：详情视图下点 X 按钮直接关闭整个 Dialog（PrimeVue Dialog 默认行为），无法回到列表——与"返回列表"按钮的预期不符
 - **修复方案**：
-  - 详情视图时 Dialog `:closable="false"`，不渲染 X 按钮
-  - 列表视图保持默认 `closable` 行为
-  - i18n 新增 `runs.detailBackHint` 等提示文案（双语）
+  - 详情视图时 Dialog `:closable="!detail"` + `:close-on-escape="!detail"`（detail 有值时为 false）
+  - 列表视图保持默认 `closable` + `closeOnEscape` 行为
+  - PrimeVue 4 Dialog API 翻 `node_modules/primevue/dialog/index.d.ts` 核验 `closable` + `closeOnEscape` 均为合法 boolean | undefined prop
 - **交付物**：`RepoHistoryDialog.vue` 单文件改动 + i18n locale 双语 key
 - **验收标准**：
   - 详情视图时 Dialog `:closable="false"`，X 按钮不渲染

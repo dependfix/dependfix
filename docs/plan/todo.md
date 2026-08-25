@@ -101,31 +101,36 @@
   - playwright e2e 新增 1 case：打开历史 → 进入详情 → 确认 X 按钮不渲染 + "返回列表"按钮可点击回退
 - **风险**：低
 
-### M13.2 网络治理 + 告警去重（待 M13.1 闭环启动）
+### M13.2 网络治理 + 告警去重（T1305 已闭环 2026-08-25，T1306 待启动）
 
-#### T1305 B2 network-audit G1 治理（长期主线 #2 切片）
+#### [x] T1305 B2 network-audit G1 治理（长期主线 #2 切片）—— 闭环 2026-08-25
 
 - **优先级**：P1（backlog 长期主线 #2 进行中）
-- **依赖**：M13.1 F 阶段闭环
-- **执行范围**：`packages/engine/src/runtime/network-audit.ts` + `packages/engine/tests/network-audit.test.ts` + `docs/design/governance/network-audit.md` + 相关 docs
-- **非目标**：不动 `runtime-adapters/*`（已独立闭环）；不动 verify-runner 主体逻辑
+- **依赖**：M13.1 F 阶段闭环（**注**：本任务在我工作期间由其他流程提前闭环，独立于 M13 阶段编排）
+- **执行范围**：`packages/engine/src/runners/verification-runner.ts` + `packages/engine/src/runners/network-audit.test.ts` + `packages/engine/src/runners/verification-runner.test.ts` + `docs/standards/security.md` + `docs/plan/backlog.md`
+- **非目标**：不动 `runtime-adapters/*`（已独立闭环）；不改 `network-audit.ts` 顶层接口
 - **根因分析**：
   - 临时修复：`rolldown.rs` 默认白名单（commit `2104b9f`）；症状 = vite 6/7 跨 major 升级 verification 命令输出 URL 被 deny-by-default 拦截为 `network_violation` → run exitCode=1
   - 每次构建工具跨 major 升级都需补白名单（按次新增模式不可持续）
-- **修复方案**（三路径可选，详见 backlog §主线 #2）：
-  - 路径 1：构建工具生态文档站类目预置白名单（rolldown.rs / swc.rs / rust-lang.org 等）
-  - 路径 2：按 SRI 哈希钉资源（推荐域动态发现）
-  - 路径 3：命令输出 URL 与真实外联区分（stdout/stderr 字符串不应判 violation）
+- **修复方案**：采用 backlog §主线 #2 候选方向 3（命令输出 URL 与真实外联区分）
+  - 命令输出 URL 提取改为仅入 entries 备查，不再归类 `network_violation`（stdout/stderr 文本不等于真实网络连接）
+  - verification 子进程默认注入 `NUXT_TELEMETRY_DISABLED` / `NEXT_TELEMETRY_DISABLED` / `DO_NOT_TRACK`（Nuxt CLI 默认 telemetry 上报被 deny-by-default 命中；verification 是离线构建验证必须禁用）
+  - 新增 `buildSpawnEnv` 集中处理 telemetry 与代理注入；不覆盖父进程已设 telemetry
+  - 4 个回归 case 锁定边界
 - **交付物**：
-  - `network-audit.ts` 默认白名单从"按 hostname 字符串"演进为"按 hostname + SRI hash + 输出区分"三维匹配
-  - 新增 `auditNetworkRequest({ url, contentType?, isStdout? })` 接口
-  - stdout/stderr 字符串不判 violation
-- **验收标准**：
-  - 默认白名单支持上述三维匹配
-  - stdout/stderr URL 误判修复（vitest 单测覆盖）
-  - 构建工具生态文档站类目预置白名单生效
-- **最小验证矩阵**：
-  - `pnpm lint` 0 error / `pnpm typecheck` 0 error
+  - `verification-runner.ts` 命令输出 URL 提取改仅入 entries + `buildSpawnEnv` 集中环境注入（净 +201 行 / -57 行 = +144 行净增）
+  - `verification-runner.test.ts` +215 行新增（覆盖 stdout/stderr/telemetry/buildSpawnEnv 等回归 case）
+  - `network-audit.test.ts` +17 行新增
+  - `security.md` §5.3.1 网络外联审计子标题（W3 锚点精确化）
+  - `backlog.md` 长期主线 #2 状态置为观察中，候选方向 3 标记已落地
+- **闭环记录**：
+  - 实施 commit：`0f08c40 fix(engine): 治本 network-audit 命令输出 URL 误判与 telemetry 默认禁用`
+  - 文档收口 commit：`5269d0a docs(standards+plan): 网络外联审计语义更新与 G1 长期主线切片登记`
+  - 实证：run dependfix-mt8nasq2-0iiiry 2026-08-25 pnpm 11.x warnings 的 pnpm.io 不再触发 verification fail
+  - 关键决策：选候选方向 3 而非方向 1/2（治本根因而非逐次新增白名单；stdout/stderr 文本语义上不是真实外联）
+- **follow-up（候选方向 1/2 优先级降低，登记 backlog）**：
+  - 候选方向 1（构建工具生态文档站类目预置白名单）：现状已用方向 3 治本，方向 1 优先级降低
+  - 候选方向 2（SRI 哈希钉资源）：同方向 1，优先级降低
   - vitest 单测 +5 case（stdout/stderr 误判修复 + SRI 哈希匹配 + 预置白名单覆盖）
   - e2e：verification job 实测不误判（依赖真实 CI 环境，单元测试为主）
 - **风险**：中（跨前后端 + 公共 API 变更需兼容性考虑）

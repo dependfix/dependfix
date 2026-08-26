@@ -20,7 +20,8 @@
 | M10: 独立沙箱容器 C26 实施规划 | 兑现沙箱治理决议 G5——Docker rootless runtime + 应用层白名单代理 + cgroup v2 资源限制 + Node 20 自动识别；`SandboxExecutor` 与 `ContainerExecutor` 并存；自托管 docker-compose 优先 / K8s+Helm 仅规划 | P1 | 已完成（2026-08-20 归档；T1001 B1+B2 + T1002 + T1003 + T1004 全部 commit，13 commits 待推送；设计收口于 executor-sandbox.md §7 + sandbox-security-governance.md §5 G5 + quick-start.md §启用 rootless sandbox 执行；T912 主体同步归档，T912-3 合并入 C28） |
 | M11: 业务可见性 + 沙箱落地 + 安全文档 | 由 C53 闭环触发启动 ① 业务可见性：C53 已闭环（push + PR 闭环 + runUrl 兜底）+ C56/C57/C58 平台 UX 用户反馈；② 沙箱落地：T1005 sandbox 路由接线（M10 实施规划遗留）；③ 安全文档：C28 security.md §凭据加密存储章节 + T912-3 邮件发送安全 + 凭据权限阶（§5.4）；④ 通知基建：C-ENV-CHANGE-ALERT（环境容器变化告警） | P1 | 已完成（2026-08-20 归档，22 commits：M11 启动批次 10 commits + M11 推进批次 12 commits；C58 + C-ENV-CHANGE-ALERT 两轮深度 standard Pass；详见 [todo-archive.md §M11 推进批次](todo-archive.md#2026-08-20-m11-推进批次业务可见性--沙箱落地--安全文档--通知基建) + [archive/todo-archive-phases-m11.md](archive/todo-archive-phases-m11.md) 详细归档） |
 | M12: 平台 UX 一致性 + i18n 治理 | 承接 2026-08-21 用户实测反馈 10 项平台 UX / 安全 / i18n 问题：① 用户管理安全 + 角色 i18n（C65-A，P1：admin self-protection 前端/服务端强制拦截 + 角色标签 i18n）；② i18n 单点声明治理（C65-B，P2：jiti vs Nuxt transform pipeline 双文件拆分）；③ schedules 增强（C65-C，P2：cron 表达式预览 + 时区选择框）；④ 平台表格 / 视图增强（C65-D，P2：env-events sortable + alerts 双 chevron 修复 + alerts 视图切换 + alerts 图表去重） | P1-P2 | 已完成（2026-08-21 归档，19 commits（C65-A 5 + C65-B 2 + standards check:docs 1 + C65-C 2 + C65-D 5 + CI 修复 1 + CI 稳定性 1 + network-audit 2）；全部推送至 origin/master / ahead=0 / branches 80.02%；详见 [todo-archive.md §M12](todo-archive.md#m12-平台-ux-一致性--i18n-治理已闭环)） |
-| M13: 治理 + UX 反馈 + 网络治理 + Code Scanning | 承接 M12 闭环后 backlog 治理前置 + 2026-08-25 用户实测反馈 2 项 UX 问题：① 治理前置（M13.1，P0+C1+C2：wisdom 蒸馏 61 条→≤15 + neat-freak 批次挂接 standards；实测反馈 UX bug 5.1 单仓库扫描互斥修复 + 5.2 历史 Dialog X 按钮误触修复）；② 网络治理 + 告警去重（M13.2，P1+B2：network-audit 默认白名单可持续治理 G1 + 告警跨次扫描去重实测反馈 6）；③ Code Scanning 规则化 + CQL（M13.3，P2：C16 规则分类配置化 + C21 code-quality-findings 接入） | P0-P2 | 进行中（2026-08-25 启动；拆 3 子阶段独立闭环：M13.1 4 commits / M13.2 2-4 commits / M13.3 2-4 commits；详见 [todo.md §M13](todo.md#当前阶段m13-治理--ux-反馈--网络治理--code-scanning)） |
+| M13: 治理 + UX 反馈 + 网络治理 + Code Scanning | 承接 M12 闭环后 backlog 治理前置 + 2026-08-25~26 用户实测反馈 5 项 UX 问题：① 治理前置（M13.1，P0+C1+C2：wisdom 蒸馏 27→14 + neat-freak 批次挂接 standards；实测反馈 UX bug 5.1 单仓库扫描互斥修复 + 5.2 历史 Dialog X 按钮误触修复）；② 网络治理 + 告警去重（M13.2，P1+B2：network-audit 默认白名单可持续治理 G1 + 告警跨次扫描去重实测反馈 6 + changelog 机制治本 c811659 回归）；③ Code Scanning 规则化 + CQL（M13.3，P2：C16 规则分类配置化 + C21 code-quality-findings 接入）；④ UX 反馈批次立刻做（M13.4，P1：T1401 失败原因展示 + T1402 alerts UI ruleId 列 + T1403 dedupe 默认跨次去重，2026-08-26 实测截图 6 项中选 3 项低风险；其余 3 项进 backlog 暂缓 UX-R1~R3） | P0-P2 | 已完成（2026-08-26 归档，26 commits（M13.1 5 + M13.2 11 + M13.3 5 + M13.4 5）；ahead=3 仅 M13.4 三 commits 待用户推送（T1401+T1402+T1403+todo.md 收口）；全部 commit 含 12 子任务闭环 + CI 阈值回归修复 e63cdb9 + 9 轮独立 Review Gate Pass；详见 [todo-archive.md §M13](todo-archive.md#m13-治理--ux-反馈--网络治理--code-scanning已闭环)） |
+| M14: platform 进入 release 通道 | 让 `apps/platform` 作为第 6 个发布单元参与 release 链路但**不发 npm**——仿 momei 单包"独立 version + 独立 CHANGELOG"的精神，适配 dependfix monorepo + docker-only 平台：① `scripts/packages.config.mjs` 注册 apps/platform 条目（`npmPublishable:false`）；② `scripts/release-publish.mjs` 新增 tag-only action；③ `docker.yml` 支持 workflow inputs 读 platform_version；④ `release.yml` 完成后触发 docker workflow_dispatch；⑤ `docs/guide/release.md` 平台独立通道文档；⑥ dependabot 排除 `apps/platform/package.json` | P1 | 进行中（2026-08-26 启动；T1310 5 commits 已 ahead 提交并已推送至 origin/master（`300b318` 登记 / `1819b59` 注册 / `733e198` publish tag-only / `7b40a2c` docker 协作 / `a74d07d` 文档），本阶段承接其 F 阶段闭环（CI 裁决 + verify:changelog + 首次 CHANGELOG 0.1.0 段生成）；详见 [todo.md §M14](todo.md#当前阶段m14-platform-进入-release-通道t1310-执行中)） |
 
 ## M0: 基线收敛
 
@@ -178,48 +179,69 @@ Changelog / Release Notes 采集、多 AI 提供商封装、AI 研判（问题�
 
 ---
 
-## M13: 治理 + UX 反馈 + 网络治理 + Code Scanning（**进行中 2026-08-25 启动**）
+## M13: 治理 + UX 反馈 + 网络治理 + Code Scanning（**已完成 2026-08-26 归档**）
 
-> **背景（2026-08-25）**：M12 完整闭环归档 + 上批次 5 commits（c47b5fb M12 归档 / 6ea5b2b backlog 重排 / 5f69a27 standards §4.4 / 0981096 agent §3c / 228f7a7 backlog 待迁移段清理 / c811659 CHANGELOG）已全部推送至 origin/master（ahead=0）。本阶段承接：① backlog 治理前置（C1 wisdom 蒸馏强制要求 + C2 neat-freak 批次）；② 2026-08-25 用户实测反馈 2 项 UX 问题（5.1 单仓库扫描互斥 + 5.2 历史 Dialog X 按钮误触）；③ 网络治理长期主线 #2（network-audit G1 持续扩展）；④ Code Scanning 规则化 + code-quality-findings 接入。
+> **背景（2026-08-25 启动 → 2026-08-26 归档）**：M12 完整闭环归档 + 上批次 6 commits（c47b5fb M12 归档 / 6ea5b2b backlog 重排 / 5f69a27 standards §4.4 / 0981096 agent §3c / 228f7a7 backlog 待迁移段清理 / c811659 CHANGELOG）已全部推送至 origin/master（ahead=0）。本阶段承接：① backlog 治理前置（C1 wisdom 蒸馏强制要求 + C2 neat-freak 批次）；② 2026-08-25 用户实测反馈 2 项 UX 问题（5.1 单仓库扫描互斥 + 5.2 历史 Dialog X 按钮误触）；③ 网络治理长期主线 #2（network-audit G1 持续扩展）；④ Code Scanning 规则化 + code-quality-findings 接入；⑤ 2026-08-26 用户实测截图 6 项 UX 问题（3 项低风险 → M13.4，3 项进 backlog UX-R1~R3）。
 
-**拆分方案**：按 [规划规范 §1.1 任务粒度约束](../standards/planning.md)（≤5-6 项硬上限 + A3 跨 packages+apps > 10 文件超阈值需拆分）拆 3 子阶段独立闭环：
+**拆分方案**：按 [规划规范 §1.1 任务粒度约束](../standards/planning.md)（≤5-6 项硬上限 + A3 跨 packages+apps > 10 文件超阈值需拆分）拆 **4 子阶段独立闭环 + T1310 同步推进**：
 
-### M13.1 治理前置 + 平台 UX 反馈（next up）
+### M13.1 治理前置 + 平台 UX 反馈 ✅
 
-- [ ] **T1301 C1 wisdom 蒸馏** —— `.session/wisdom.md` 61 条 → 收敛活跃 ≤15 条 + `docs/design/governance/wisdom-archive.md` 蒸馏归档 + `pnpm distill:wisdom --check` 通过；[规划规范 §4.3](../../docs/standards/planning.md) 强制要求（活跃 ≥ 20 必须蒸馏）
-- [ ] **T1302 C2 neat-freak 批次** —— T1301 蒸馏产物挂接 `standards/development.md` / `testing.md` / `security.md` / `ai-development.md` / `git.md` / `planning.md` + agent 文档 + README/Guide
-- [ ] **T1303 单仓库扫描互斥修复**（实测反馈 5.1）—— `repos.vue:468-469` 删除全局 `:disabled="scanningId !== null && scanningId !== data.id"` 条件，保留 `:loading` 单仓库指示；playwright e2e +1 case 验证并发触发
-- [ ] **T1304 历史 Dialog X 按钮修复**（实测反馈 5.2）—— `RepoHistoryDialog.vue` 详情视图 `:closable="false"`（不渲染 X 按钮）+ i18n 双语新增；playwright e2e +1 case 验证
+- [x] **T1301 C1 wisdom 蒸馏** —— `.session/wisdom.md` 27 条 → 14 条活跃 + 12 条压缩为已蒸馏摘要（迁移 30 条到 `docs/standards/*.md`）；`pnpm distill:wisdom --check --threshold=15` WISDOM_OK（14 < 15）；[规划规范 §4.3](../../docs/standards/planning.md) 强制要求达成
+- [x] **T1302 C2 neat-freak 批次** —— T1301 蒸馏产物挂接 `standards/development.md` / `testing.md` / `security.md` / `ai-collaboration.md` / `git.md` + agent 文档；9 条挂接清单（TDZ 调试陷阱 + 已测试文件补测胜于新建 + OR 链触发条件精确追踪 + F 阶段本地验证口径差异 + Code Auditor quick depth 时长校准 + audit warning 修复决策协议 + reset 重做 atomic commit + Nuxt 4 payload 解析 + Playwright webServer 用 build 产物）
+- [x] **T1303 单仓库扫描互斥修复**（实测反馈 5.1）—— `repos.vue:468-469` 删除全局 `:disabled="scanningId !== null && scanningId !== data.id"` 条件，保留 `:loading="scanningId === data.id"` 单仓库指示
+- [x] **T1304 历史 Dialog X 按钮修复**（实测反馈 5.2）—— `RepoHistoryDialog.vue` 详情视图 `:closable="false"` + `:close-on-escape="false"`（PrimeVue 4 Dialog API 核验）
 
-### M13.2 网络治理 + 告警去重（待 M13.1 闭环启动）
+### M13.2 网络治理 + 告警去重 ✅
 
-- [ ] **T1305 B2 network-audit G1 治理** —— `packages/engine/src/runtime/network-audit.ts` 默认白名单从"按 hostname 字符串"演进为"hostname + SRI hash + 输出区分"三维匹配；新增 `auditNetworkRequest({ url, contentType?, isStdout? })` 接口；stdout/stderr 字符串不判 violation；vitest +5 case
-- [ ] **T1306 告警跨次扫描去重**（实测反馈 6）—— `alerts/index.get.ts` 新增 `dedupe=true` query 参数（默认 false 保后向兼容）+ fingerprint 维度去重（sha1(`repositoryId|packageName|ruleId`)）+ 聚合字段（occurrenceCount/firstSeenAt/lastSeenAt/affectedRunIds）；前端 DataTable 列扩展 + 详情侧栏 Drawer
+- [x] **T1305 B2 network-audit G1 治理**（长期主线 #2 切片）—— `packages/engine/src/runners/verification-runner.ts` 命令输出 URL 提取**仅入 entries 备查不再 addViolation**（stdout/stderr 文本语义上不是真实网络连接）；verification 子进程默认注入 `NUXT_TELEMETRY_DISABLED` 等 telemetry 禁用变量；`buildSpawnEnv` 集中环境注入；治本方案治本根因而非逐次新增白名单
+- [x] **T1306 告警跨次扫描去重**（实测反馈 6）—— `alerts/index.get.ts` 新增 `dedupe=true` query 参数（默认 false 保后向兼容）+ fingerprint = `${repositoryId}|${packageName}|${ruleId ?? ''}` + 聚合字段（occurrenceCount/firstSeenAt/lastSeenAt/affectedRunIds）；SQL GROUP_CONCAT 子查询在 better-sqlite3 `:memory:` 失败改用应用层 JS 聚合
+- [x] **T1309 changelog 机制治本**（c811659 回归）—— `scripts/changelog.mjs` 主流程 fallback：`computeDependencyChanges` + `loadDepsAtTag` + `renderDependencySection` 三个纯函数；保留既有 `mergeUnreleased` 流程；社区标准答案（conventional-changelog-monorepo / lerna 实践）
 
-### M13.3 Code Scanning 规则化 + CQL（待 M13.2 闭环启动）
+### M13.3 Code Scanning 规则化 + CQL ✅
 
-- [ ] **T1307 C16 Code Scanning 规则分类配置化** —— `packages/engine/src/fixers/code-scanning/rules.ts` 从常量表升级为可配置（YAML/JSON 加载，默认 = 当前常量表）+ `CODE_SCANNING_RULES_CONFIG_PATH` env 覆盖 + 非法配置降级
-- [ ] **T1308 C21 code-quality-findings 接入** —— `packages/core` 新增 `CodeQualityFinding` 数据模型 + `packages/engine` 数据源接入 `GET /repos/{owner}/{repo}/code-quality/findings` + 报告输出新增 `codeQualityFindings` 段 + 平台 UI 展示（最小报告接入，不实现 CodeQL 完整语义解析）
+- [x] **T1307 C16 Code Scanning 规则分类配置化** —— `packages/engine/src/code-scanning/rule-config.ts` 新模块（208 行）；规则分类从硬编码常量表升级为 JSON 可配置加载；`CODE_SCANNING_RULES_CONFIG_PATH` env 覆盖 + `setActiveRulesConfig` 运行时注入；非法配置 → stderr 警告 + 降级默认
+- [x] **T1308 C21 code-quality-findings 接入** —— 新增 `GET /repos/{owner}/{repo}/code-quality/findings` 数据源接入（cursor-based 分页 + 三层防御：MAX_CURSOR_PAGES=1000 / seenCursors / Link header 自然终止）；复用 `NormalizedSecurityAlert` 模型（source='code-quality'）；报告输出新增 `## Code Quality Findings` 段；平台 UI alerts 页 source filter 新增 Code Quality 选项
+
+### M13.4 UX 反馈批次立刻做（低风险 UX 修复）✅
+
+- [x] **T1401 失败原因展示**（实测反馈 1）—— `RepoHistoryDialog.vue` 列表行 status Tag `:title="data.error?.message"` 悬浮展示 + 详情面板 Error Banner；i18n 双语 +2 键
+- [x] **T1402 alerts UI 增加 ruleId 列**（实测反馈 4a）—— `alerts.vue` 新增 ruleId 列（4 列 source 不同 Tag 颜色：dependabot=success / pnpm-audit=warn-secondary / code-scanning=info / code-quality=contrast）；Dependabot GHSA 编号点击跳 htmlUrl；长 advisory URL 列宽固定 180px + ellipsis
+- [x] **T1403 dedupe 默认值改为跨次去重**（实测反馈 4b）—— `alerts.vue` filters.dedupe 默认值改为 'across'；Code Auditor RG-B1 修复：清理 dead ref `dedupeMode`/`DedupeMode`（自 T1306 commit `4447ff84` 引入以来从未被消费）+ JSDoc 迁移到 filters ref 上方
+
+### 同步推进 T1310（部分 ahead 已提交）🔄
+
+> 本阶段 M13 闭环期间同步推进 T1310 platform 进入 release 通道子任务（5 commits 已 ahead 提交并已推送至 origin/master，归档时仅做引用登记，详细实施记录待 T1310 F 阶段闭环后单独归档）：
+>
+> - [ ] T1310 平台进入 release 通道（执行中） —— 5 commits 已 ahead（`300b318` 登记 / `1819b59` 注册 apps/platform 发布单元 / `733e198` publish tag-only / `7b40a2c` docker 协作 / `a74d07d` 文档 + dependabot 防御 + CHANGELOG 初始段）
 
 **子阶段编排规则**：
 - 子阶段串行实施：M13.1 F 阶段闭环（commit 推送）后启动 M13.2
 - 每子阶段独立 PDTFC+ 循环：P 细化 → D 实施 → A 审计（按 [AI 协作规范 §1.3 分级审计协议](../../docs/standards/ai-collaboration.md) 选 quick/standard/deep）→ V 验证 → T 测试 → F 收口
 - 每子阶段独立归档至 [todo-archive.md](todo-archive.md) 独立段
 
-**风险评估**：
-- **M13.1**：低风险（治理 + 单文件 UX 修复，无跨模块依赖）
-- **M13.2**：中风险（network-audit 公共 API 兼容性 + alerts 数据模型扩展）
-- **M13.3**：高风险（跨 3 packages + apps + 外部 GitHub API；code-quality-findings 受限于真实 GitHub API 调用）
+**风险评估**（实际风险）：
+- **M13.1**：低风险（治理 + 单文件 UX 修复，无跨模块依赖）✅
+- **M13.2**：中风险（network-audit 公共 API 兼容性 + alerts 数据模型扩展）✅
+- **M13.3**：高风险（跨 3 packages + apps + 外部 GitHub API）✅ + CI Coverage 79.98% → 80.17% 阈值回归修复（`e63cdb9` 补测 14 case）
+- **M13.4**：低风险（仅前端 + i18n，零后端 schema 改动）✅
 
-**详细任务清单 + 验收标准 + 验证矩阵 + 实施记录**：见 [todo.md §M13](todo.md#当前阶段m13-治理--ux-反馈--网络治理--code-scanning)。
+**关键决策**：
+- **T1301**：wisdom 蒸馏条目选择标准——保留高频复用 / 实战类 pattern / 项目 SOP，其余迁移至 standards
+- **T1305**：候选方向 3（命令输出 URL 与真实外联区分）治本根因而非逐次新增白名单；候选方向 1/2 优先级降低
+- **T1306**：聚合实现——SQL `GROUP_CONCAT` 子查询在 better-sqlite3 `:memory:` 失败，改用应用层 JS 聚合（去 SQL dialect 依赖 + 测试稳定）
+- **T1308**：复用 `NormalizedSecurityAlert` 模型；Octokit v17 类型未含 code-quality/findings 端点，使用 `client.request('GET ...', ...)` raw 端点；per-source 错误隔离（与 code-scanning 同模式）
+- **T1403**：仅改前端默认，不改后端默认 false（保持向后兼容）
+
+**详细子任务清单 + commit 引用 + 实施记录 + 关键经验 + 待迁移经验**：见 [todo-archive.md §M13](todo-archive.md#m13-治理--ux-反馈--网络治理--code-scanning已闭环)。
 
 
 ---
 
 ## 详细任务
 
-- 当前阶段任务：[todo.md](todo.md)（**M13 治理 + UX 反馈 + 网络治理 + Code Scanning 进行中**，2026-08-25 启动；3 子阶段串行：M13.1 治理+UX / M13.2 网络+告警 / M13.3 Code Scanning；待人工验收 T701/T702/T704 项随真实环境推进）
-- 已归档阶段：[todo-archive.md](todo-archive.md)（主窗口保留 5 段：2026-08-21 M12 / 2026-08-20 e2e 修复批次 C62+C63+C64+chore / C53 / 2026-08-20 平台 UI 增强 C59-C61 / 2026-08-20 M11 推进批次；早期阶段见 [archive/index.md](archive/index.md) 分片索引）
+- 当前阶段任务：[todo.md](todo.md)（**M14 platform 进入 release 通道 T1310 执行中**，2026-08-26 启动；T1310 5 commits 已 ahead 提交并已推送至 origin/master，本阶段承接 F 阶段闭环（CI 裁决 + verify:changelog + 首次 CHANGELOG 0.1.0 段生成）；待人工验收 T701/T702/T704 项随真实环境推进）
+- 已归档阶段：[todo-archive.md](todo-archive.md)（主窗口保留 6 段：2026-08-26 M13 / 2026-08-21 M12 / 2026-08-20 e2e 修复批次 C62+C63+C64+chore / C53 / 2026-08-20 平台 UI 增强 C59-C61 / 2026-08-20 M11 推进批次；早期阶段见 [archive/index.md](archive/index.md) 分片索引）
 - 后续阶段任务（延期项 + 未排期增强候选）：[backlog.md](backlog.md)
 
 ## 交付原则

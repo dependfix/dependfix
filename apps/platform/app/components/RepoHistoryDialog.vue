@@ -2,7 +2,10 @@
 // 扫描历史 Dialog（应用层修复：替代 unrouting 0.2.x 子路由 /repos/[id]/runs，
 // 用 query ?history={id} 传仓库 id，绕开 `:id()` dynamic segment 与 path-to-regexp 8.x
 // 不兼容的根因 —— 用户点击 pi-history 按钮后 url 跳到 /repos?history={id}，本组件 watch
-// 识别并自动打开 Dialog。单 Dialog 内部 list/detail view 切换，关闭时清空 query）
+// 识别并自动打开 Dialog。单 Dialog 内部 list/detail view 切换，关闭时清空 query）。
+//
+// 分页（todo.md §M14.2 UX-R1）：服务端分页（lazy DataTable + Paginator）。
+// 默认 pageSize=10，rows-per-page-options=[10, 25, 50]，最大 200 由 server 钳制。
 const { t, d } = useI18n()
 const route = useRoute()
 const router = useRouter()
@@ -25,6 +28,9 @@ interface HistoryRunView {
 const dialogVisible = ref(false)
 const repoId = ref<string | null>(null)
 const runs = ref<HistoryRunView[]>([])
+const total = ref(0)
+const pageSize = ref(10)
+const first = ref(0)
 const loading = ref(false)
 const error = ref('')
 // detail 含 status + error（用于 Error Banner 展示失败原因）+ results；扩展自 { results: unknown[] }
@@ -32,6 +38,8 @@ const error = ref('')
 const detail = ref<{ status: string, error: { code: string, message: string } | null, results: unknown[] } | null>(null)
 const detailLoading = ref(false)
 const detailError = ref('')
+
+const PAGE_SIZE_OPTIONS = [10, 25, 50] as const
 
 const resetDetail = () => {
     detail.value = null
@@ -55,16 +63,29 @@ const statusLabel = (status: string) => ({
     running: t('runs.statusRunning'),
 })[status] ?? status
 
-const fetchRuns = async (id: string) => {
+const fetchRuns = async (id: string, page = 1, rows = pageSize.value) => {
     loading.value = true
     error.value = ''
     try {
-        const res = await $fetch('/api/runs', { query: { repositoryId: id } })
-        runs.value = res as HistoryRunView[]
+        const res = await $fetch('/api/runs', {
+            query: { repositoryId: id, page, pageSize: rows },
+        })
+        const data = res as { items: HistoryRunView[], total: number }
+        runs.value = data.items
+        total.value = data.total
     } catch (e: any) {
         error.value = t('runs.errors.loadFailed', { message: e?.data?.message ?? e?.message ?? t('common.errors.unknown') })
     } finally {
         loading.value = false
+    }
+}
+
+// PrimeVue DataTable @page 事件：page 0-indexed，first 是首行索引（rows × page）
+const onPage = async (event: { page: number, first: number, rows: number }) => {
+    pageSize.value = event.rows
+    first.value = event.first
+    if (repoId.value) {
+        await fetchRuns(repoId.value, event.page + 1, event.rows)
     }
 }
 
@@ -90,6 +111,9 @@ const closeDialog = async () => {
     dialogVisible.value = false
     repoId.value = null
     runs.value = []
+    total.value = 0
+    pageSize.value = 10
+    first.value = 0
     error.value = ''
     resetDetail()
     if (route.query.history !== undefined) {
@@ -106,8 +130,11 @@ watch(() => route.query.history, async (newVal) => {
     if (id) {
         if (repoId.value !== id) {
             repoId.value = id
+            // 切换仓库：重置 first 与 pageSize（保留首次进入默认；避免切换后 UI 高亮页与 server 数据不一致）
+            first.value = 0
+            pageSize.value = 10
             resetDetail()
-            await fetchRuns(id)
+            await fetchRuns(id, 1, pageSize.value)
         }
         dialogVisible.value = true
     } else if (dialogVisible.value) {
@@ -128,7 +155,7 @@ watch(() => route.query.history, async (newVal) => {
         :style="{width: '720px'}"
         @hide="closeDialog"
     >
-        <div v-if="loading" class="text-muted">
+        <div v-if="loading && runs.length === 0" class="text-muted">
             {{ t('common.empty.loading') }}
         </div>
         <Message
@@ -173,7 +200,7 @@ watch(() => route.query.history, async (newVal) => {
                         :closable="false"
                         class="repo-history__error-banner"
                     >
-                        <strong>{{ t('runs.errorTitle', { code: detail.error?.code ?? 'UNKNOWN' }) }}</strong>
+                        <strong>{{ t('runs.errorTitle', {code: detail.error?.code ?? 'UNKNOWN'}) }}</strong>
                         <p v-if="detail.error" class="repo-history__error-message">
                             {{ detail.error.message }}
                         </p>
@@ -216,11 +243,24 @@ watch(() => route.query.history, async (newVal) => {
             </Column>
         </DataTable>
         <template v-else>
+            <!-- todo.md §M14.2 UX-R1：服务端分页（lazy DataTable + 内置 paginator）
+                 —— pageSize 由 pageSize.value 驱动，total 由后端返回的 total 驱动，
+                 翻页触发 onPage → 重新请求 /api/runs 带 page + pageSize -->
             <DataTable
                 :value="runs"
+                lazy
+                paginator
+                paginator-template="PrevPageLink CurrentPageReport NextPageLink RowsPerPageDropdown"
+                :current-page-report-template="t('runs.paginatorInfo', {first: '{first}', last: '{last}', total: '{totalRecords}'})"
+                :rows="pageSize"
+                :total-records="total"
+                :first="first"
+                :rows-per-page-options="[...PAGE_SIZE_OPTIONS]"
+                :loading="loading"
                 striped-rows
                 size="small"
                 :empty-message="t('runs.empty')"
+                @page="onPage"
             >
                 <Column :header="t('runs.colStatus')">
                     <template #body="{data}">

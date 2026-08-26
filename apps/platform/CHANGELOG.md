@@ -11,6 +11,7 @@
 * **platform:** A 模式 ContainerExecutor 创建 PR + 状态机 dispatched ([46b7c15](https://github.com/dependfix/dependfix/commit/46b7c15))
 * **platform:** A 模式 ContainerExecutor 推送修复分支到远程 ([83ec736](https://github.com/dependfix/dependfix/commit/83ec736))
 * **platform:** A 模式 PR 失败时保留 workDir 24h + 远程分支清理工具 ([3ed8303](https://github.com/dependfix/dependfix/commit/3ed8303))
+* **platform:** Account 实体增加 issuer 字段 — 适配 better-auth 1.7 ([41017ce](https://github.com/dependfix/dependfix/commit/41017ce)), closes [#10403](https://github.com/dependfix/dependfix/issues/10403)
 * **platform:** alerts UI 增加 ruleId 列 + dedupe 默认跨次去重 ([bb3b49a](https://github.com/dependfix/dependfix/commit/bb3b49a))
 * **platform:** alerts 侧栏 + repos/[id]/runs 适配分页 API + ids 修复 + i18n 双语 ([1a9eddf](https://github.com/dependfix/dependfix/commit/1a9eddf))
 * **platform:** alerts 视图切换支持按包 / 按项目 / 原始列表三选一 ([374a278](https://github.com/dependfix/dependfix/commit/374a278))
@@ -113,6 +114,9 @@
 * **platform:** 暗色模式 mixin 全局上下文失效（C59 修复） ([9949504](https://github.com/dependfix/dependfix/commit/9949504))
 * **platform:** 服务端强制拦截 admin 自修改（C65-A3/A4 纵深防御补齐） ([b10e270](https://github.com/dependfix/dependfix/commit/b10e270))
 * **platform:** 结果回填 artifact 选取显式前缀过滤 + B 模式同步等待边界说明 ([60d9fd6](https://github.com/dependfix/dependfix/commit/60d9fd6))
+* **platform:** 适配 better-auth 1.7 generic OAuth 重写 ([b3b9c7f](https://github.com/dependfix/dependfix/commit/b3b9c7f))
+* **platform:** 适配 better-auth 1.7 origin-check（PR [#9973](https://github.com/dependfix/dependfix/issues/9973)）+ trustedOrigins 兜底 ([7a6693b](https://github.com/dependfix/dependfix/commit/7a6693b))
+* **platform:** 适配 better-auth 1.7 unlinkAccount API ([b89e289](https://github.com/dependfix/dependfix/commit/b89e289))
 
 
 ### 📦 代码重构

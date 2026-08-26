@@ -13,3 +13,33 @@ g.readBody = readBody
 g.createError = createError
 g.getQuery = getQuery
 g.getRouterParam = getRouterParam
+
+/**
+ * better-auth 1.7 generic-oauth plugin 在 init 阶段会 fetch OIDC discovery URL，
+ * 真实测试环境无网络，fetch 失败后因缺少 accountIssuer 兜底会抛错停止 provider 初始化
+ * （"discovery returned no valid data. Provider initialization stopped to keep its account issuer stable"）。
+ * 测试用例中使用的 https://idp.example.com/.well-known/openid-configuration 也属真实 fetch，
+ * 这里 mock 该域名的 discovery 响应，让 better-auth 完成 provider 注册（避免引入 msw 等重依赖）：
+ * - endpoint 字段从测试中设置的 oidcAuthorizationUrl / oidcTokenUrl / oidcUserInfoUrl 兜底，
+ *   但 mock 响应里直接给出合法 placeholder，让 better-auth 内部不再触发后续网络请求
+ */
+if (typeof g.fetch === 'function' && !g.__oidcDiscoveryMocked) {
+    const originalFetch = g.fetch.bind(g)
+    g.fetch = async function mockedFetch(input: any, init?: any) {
+        const url = typeof input === 'string' ? input : input?.url ?? ''
+        if (url.startsWith('https://idp.example.com/.well-known/openid-configuration')) {
+            return new Response(JSON.stringify({
+                issuer: 'https://idp.example.com',
+                authorization_endpoint: 'https://idp.example.com/authorize',
+                token_endpoint: 'https://idp.example.com/token',
+                userinfo_endpoint: 'https://idp.example.com/userinfo',
+                jwks_uri: 'https://idp.example.com/.well-known/jwks.json',
+            }), {
+                status: 200,
+                headers: { 'content-type': 'application/json' },
+            })
+        }
+        return originalFetch(input, init)
+    }
+    g.__oidcDiscoveryMocked = true
+}

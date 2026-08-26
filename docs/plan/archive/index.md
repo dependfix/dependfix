@@ -35,12 +35,12 @@
 4. 若触发行数阈值，按阶段区间切分归档分片
 5. 更新 `archive/index.md` 索引
 
-## 4. 当前基线（2026-08-26 M13 阶段归档后）
+## 4. 当前基线（2026-08-26 M14 阶段归档后）
 
-- `roadmap.md`: 健康窗口（252 行，< 800 阈值）。M0-M13 全部归档 + M14 进行中；Milestone 概述表 14 阶段；M13 段从"进行中"改为"已完成 2026-08-26 归档"含完整 4 子阶段（M13.1+M13.2+M13.3+M13.4）子任务清单 + 关键决策 + 风险评估；M14 段新增到 Milestone 概述表。
-- `todo.md`: 健康窗口（134 行，< 500 阈值）。M13 阶段完整闭环，顶部 banner 标注"当前阶段：M14 platform 进入 release 通道（T1310 执行中）"；仅保留 T1310（执行中）+ 待人工验收 3 项真实环境验证（T701/T702/T704 + 发布管线收尾）随可用性推进；ahead=3（M13.4 三 commits 待用户推送：T1401 `2dce01d` + T1402+T1403 `bb3b49a` + todo.md 收口 `8762a4b`）。
-- `todo-archive.md`: **warning 窗口（507 行，501-700 阈值）**。主窗口保留最近 6 个批次（3-5 策略略超但仍合规）：**2026-08-26 M13 治理 + UX 反馈 + 网络治理 + Code Scanning（M13.1+M13.2+M13.3+M13.4）/ 2026-08-21 M12 平台 UX 一致性 + i18n 治理 / 2026-08-20 e2e 修复批次（C62+C63+C64+chore）/ C53 / 2026-08-20 平台 UI 增强 C59-C61 / 2026-08-20 M11 推进批次**。M13 段含 12 子任务闭环清单 + 治理记录 + 关键经验 + 待迁移经验。
-- `backlog.md`: 健康窗口（271 行，< 500 阈值）。本批次清理 2 个已闭环条目：① **C16 规则分类配置化**（已由 M13.3 T1307 闭环落地）—— 主条目替换为状态更新 + 增强候选 follow-up；② **C21 code-quality-findings 接入**（已由 M13.3 T1308 闭环落地）—— 主条目替换为状态更新 + 增强候选 follow-up。**历史归档指针段补 M13**：已闭环阶段（M0-M12 → M0-M13）+ 已闭环特定批次补 C16 + C21。**未删**：已知边界 / 长期主线 / 周期性回归验证层 / C33 / C36 / C37 / D1-D8 / T701-e2e / SAML / B1-B2 / T905 / C22-C24 / C34 / G1 / UX-R1~R3 等。
+- `roadmap.md`: 健康窗口（252 行，< 800 阈值）。M0-M14 全部归档；Milestone 概述表 15 阶段；M14 段从"进行中"改为"全部完成 2026-08-26 闭环"含完整 4 子阶段（M14.1+M14.2+M14.3+M14.x + M14.y 依赖批量治理）子任务清单 + 关键决策 + 风险评估。
+- `todo.md`: 健康窗口（73 行，< 500 阈值）。M14 全部已闭环，顶部 banner 标注"当前阶段：M14 全部已闭环，待下一阶段（M15）启动"；保留待人工验收 3 项真实环境验证（T701/T702/T704）+ 发布管线收尾随可用性推进；ahead=0（`git rev-list HEAD ^origin/master --count` 实证）。本批次清理 M14 子阶段重复段（todo-archive.md §M14 完整记录保留）。
+- `todo-archive.md`: **warning 窗口（623 行，501-700 阈值）**。主窗口保留最近 7 个批次（3-5 策略略超但仍合规）：**2026-08-26 M14 platform release 通道闭环 + UX 反馈跟进（M14.1+M14.2+M14.3+M14.x）/ 2026-08-26 M13 治理 + UX 反馈 + 网络治理 + Code Scanning（M13.1+M13.2+M13.3+M13.4）/ 2026-08-21 M12 平台 UX 一致性 + i18n 治理 / 2026-08-20 e2e 修复批次（C62+C63+C64+chore）/ C53 / 2026-08-20 平台 UI 增强 C59-C61 / 2026-08-20 M11 推进批次**。M14 段含 4 子阶段闭环清单 + 治理记录 + 关键经验 + 待迁移经验（19 commits 全部落地）。
+- `backlog.md`: 健康窗口（266 行，< 500 阈值）。本批次清理 1 个已闭环条目：**UX-R1 扫描历史分页**（已由 M14.2 闭环落地）—— 主条目从 §扫描历史与详情 UX 段迁出至历史归档指针段（已闭环阶段 M0-M13 → M0-M14）。**未删**：已知边界 / 长期主线 / 周期性回归验证层 / C33 / C36 / C37 / D1-D8 / T701-e2e / SAML / B1-B2 / T905 / C22-C24 / C34 / G1 / UX-R2 / UX-R3 等。
 - 分片记录：
   - `[todo-archive-phases-m0-m1.md](todo-archive-phases-m0-m1.md)`（M0 / M1，2026-08-07 迁出，115 行）
   - `[todo-archive-phases-m2-m55.md](todo-archive-phases-m2-m55.md)`（M2 / M3 / M4 / M4.5 / M4.6 / M5 / M5.5，2026-08-14 迁出，T906 执行，398 行）
@@ -51,6 +51,7 @@
 
 | 批次 | 归档日期 | 关联 backlog | 归档位置 |
 |:--|:--|:--|:--|
+| **2026-08-26 M14 阶段归档（platform release 通道闭环 + UX 反馈跟进）** | **2026-08-26** | **M14 4 子阶段全部闭环（M14.1 T1310 F 阶段闭环 + M14.2 UX-R1 扫描历史分页 + M14.3 M13.4 T1403 follow-up + M14.x neat-freak 批次）+ M14.y 依赖批量治理（4 个 dependabot major PR）**；19 commits 已全部落地（ahead=0 实证 `git rev-list HEAD ^origin/master --count`）；本批次清理 backlog UX-R1 主条目（迁至历史归档指针段） | **[todo-archive.md §M14](../../plan/todo-archive.md#m14-platform-release-通道闭环--ux-反馈跟进m14123x-全部已闭环) + [roadmap.md §M14](../../plan/roadmap.md)** |
 | **2026-08-26 M13 阶段归档（治理 + UX 反馈 + 网络治理 + Code Scanning）** | **2026-08-26** | **M13 4 子阶段全部闭环（M13.1+T1301+T1302+T1303+T1304 / M13.2+T1305+T1306+T1309 / M13.3+T1307+T1308 / M13.4+T1401+T1402+T1403）+ T1310 部分 ahead 已提交**；26 commits 已推送至 origin/master（ahead=3 仅 M13.4 三 commits 待用户推送） | **[todo-archive.md §M13](../../plan/todo-archive.md#m13-治理--ux-反馈--网络治理--code-scanning已闭环) + [roadmap.md §M13](../../plan/roadmap.md#m13-治理--ux-反馈--网络治理--code-scanning已完成-2026-08-26-归档)** |
 | **2026-08-21 M12 阶段归档（平台 UX + i18n 治理）** | **2026-08-25** | **M12 4 子批次全部闭环（C65-A/B/C/D 9 子任务） + CI 修复 + 网络审计白名单追加**；19 commits 全部推送至 origin/master（ahead=0） | **[todo-archive.md §M12](../../plan/todo-archive.md#m12-平台-ux-一致性--i18n-治理已归档) + [roadmap.md §M12](../../plan/roadmap.md#m12-平台-ux-一致性--i18n-治理已完成-2026-08-21-归档)** |
 | 2026-08-20 e2e 修复批次（C62 + C63 + C64 + chore） | 2026-08-20 | 修复批（非新功能）：CI 32382730911 code-scanning #23/#24/#25 + CI 32383730911 6 e2e 失败 + PrimeVue 4 + Nuxt hydration 兼容性 | [todo-archive.md §2026-08-20 e2e 修复批次](../../plan/todo-archive.md#2026-08-20-e2e-修复批次-c62-c63-c64-chore) |

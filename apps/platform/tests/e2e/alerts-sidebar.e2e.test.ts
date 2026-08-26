@@ -71,7 +71,7 @@ const installRoutes = async (
         contentType: 'application/json',
         body: JSON.stringify(MOCK_REPOS),
     }))
-    await page.route('**/api/runs*', async (route) => {
+    await page.route(/\/api\/runs(\/|\?|$)/, async (route) => {
         const url = new URL(route.request().url())
         if (url.pathname === '/api/runs' && url.searchParams.has('ids')) {
             await route.fulfill({
@@ -107,7 +107,7 @@ test.describe('alerts 去重视图受影响运行 Sidebar', () => {
         await expect(row).toBeVisible()
 
         await row.locator('button[aria-label="详情"]').click()
-        const sidebar = page.locator('.p-sidebar')
+        const sidebar = page.locator('.p-drawer')
         await expect(sidebar).toContainText('12345678')
         await expect(sidebar).toContainText('仅报告')
         await expect(sidebar).toContainText('high')
@@ -115,7 +115,7 @@ test.describe('alerts 去重视图受影响运行 Sidebar', () => {
         await expect(sidebar).toContainText('2')
 
         await sidebar.locator('button[aria-label="详情"]').click()
-        const detail = page.locator('.run-detail__meta')
+        const detail = page.locator('.p-dialog')
         await expect(detail).toContainText('扫描详情')
         await expect(detail).toContainText('仅报告')
         await expect(detail).toContainText('12.3 秒')
@@ -139,7 +139,7 @@ test.describe('alerts 去重视图受影响运行 Sidebar', () => {
         await expect(row).toBeVisible()
         await row.locator('button[aria-label="详情"]').click()
 
-        const sidebar = page.locator('.p-sidebar')
+        const sidebar = page.locator('.p-drawer')
         await expect(sidebar.locator('button[aria-label="详情"]')).toHaveCount(2)
         await expect(sidebar.locator('a')).toHaveCount(1)
         await expect(sidebar.locator('a')).toHaveAttribute('href', String(actionRun.runUrl))

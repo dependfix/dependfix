@@ -21,7 +21,7 @@ jobs:
     permissions:
       # OIDC trusted publishing：pnpm publish 通过 OIDC token 交换获得临时发布凭据，无需 NPM_TOKEN
       id-token: write
-      # 推送 release:publish 创建的 <pkg>@<version> git tag
+      # 推送 release:publish 创建的 <pkg>@<version> git tag + 创建 GitHub Release（gh release create 通过 GH_TOKEN 调用 GitHub API）
       contents: write
       # §T1310：触发 docker.yml workflow_dispatch 需要 actions 写入权限
       actions: write
@@ -111,7 +111,13 @@ jobs:
       # 注意：v<锚版本> tag 已由 release:publish 创建并随上方 Push release tags 全量
       # 推送核验，本步骤只创建 Release 对象（gh release create 不改仓库文件）。
       # 幂等：Release 已存在跳过；创建失败 ::warning:: 不阻断（npm 已发布完成）。
+      # gh CLI 在 GITHUB_ACTIONS=true 时优先要求 GH_TOKEN env（虽 GITHUB_TOKEN
+      # 也会被自动识别，但 gh authHelp 优先提示 GH_TOKEN 且默认 read-only 权限可能
+      # 不足；用 GH_TOKEN 显式映射 secrets.GITHUB_TOKEN 是官方推荐；教训：v0.4.0
+      # 实证漏配导致 gh release create 失败、CI 不红——2026-08-26）。
       - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: pnpm release:github
 
       # §T1310 platform version → docker tag 协作：release.yml 完成后主动

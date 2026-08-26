@@ -14,7 +14,7 @@
 
 > **状态口径**：进行中 / 观察中 / 暂停 / 已关闭。
 > 共 2 条（2026-08-25 neat-freak 归档批次整理：原 §M11 子任务闭环清单 / §M4 增强候选中"已闭环"段全部迁出 backlog；§M2 / §M5.5 / §M6 / §MCP / §M7 阶段分段已闭环，已迁出 backlog 仅保留历史归档指针）。
-> **2026-08-26 闭环整理**：UX-R1 扫描历史分页 已由 M14.2 闭环，从 §扫描历史与详情 UX 主条目迁出至历史归档指针段 + [todo-archive.md §M14.2](todo-archive.md#m14-platform-release-通道闭环--ux-反馈跟进m14123x-全部已闭环)；C66-B 数据层去重 / C66-C alerts UI Identifiers 列已在 M13 阶段由 T1306 / T1402 应用层方案覆盖，不再实施（保留决策记录）。
+> **2026-08-26 闭环整理**：UX-R1 扫描历史分页 已由 M14.2 闭环，从 §扫描历史与详情 UX 主条目迁出至历史归档指针段 + [todo-archive.md §M14.2](todo-archive.md#m14-platform-release-通道闭环--ux-反馈跟进m14123xy-全部已闭环)；C66-B 数据层去重 / C66-C alerts UI Identifiers 列已在 M13 阶段由 T1306 / T1402 应用层方案覆盖，不再实施（保留决策记录）。
 
 ### 主线 #1：PrimeVue 4 + Nuxt hydration rowGroup known-issue
 
@@ -168,7 +168,7 @@
 
 #### 扫描历史与详情 UX（2026-08-26 实测反馈）
 
-> 本段为 2026-08-26 用户实测截图反馈触发的扫描历史/详情视图 UX 增强候选；与 C66 平级。原 3 项 UX-R1→R2→R3 中 **UX-R1 已由 M14.2 闭环**（2026-08-26，详见 [todo-archive.md §M14.2](todo-archive.md#m14-platform-release-通道闭环--ux-反馈跟进m14123x-全部已闭环) + 历史归档指针段），剩余 2 项按依赖排序（UX-R2 → UX-R3），低风险低优先级，按上收时机依次推进。
+> 本段为 2026-08-26 用户实测截图反馈触发的扫描历史/详情视图 UX 增强候选；与 C66 平级。原 3 项 UX-R1→R2→R3 中 **UX-R1 已由 M14.2 闭环**（2026-08-26，详见 [todo-archive.md §M14.2](todo-archive.md#m14-platform-release-通道闭环--ux-反馈跟进m14123xy-全部已闭环) + 历史归档指针段），剩余 2 项按依赖排序（UX-R2 → UX-R3），低风险低优先级，按上收时机依次推进。
 
 - **UX-R2 dedupe 详情侧栏增强** —— [alerts.vue §openRunSidebar](../../apps/platform/app/pages/alerts.vue) 当前侧栏只展示 `status` + `startedAt` + `runUrl` 外链；用户截图痛点：缺 run 短 ID（36 位 UUID 无意义）/ 缺跳转 run 详情按钮 / 缺 executorKind 与告警数（与 batch-runs 展开区区分度不足）/ 缺与"本次扫描告警明细"的关联入口
   - **执行范围**：侧栏 DataTable 新增 run 短 ID（前 8 位）+ mode/severityThreshold/executorKind + summary.alertsFound + 持续时长（finishedAt - startedAt）；新增"详情"按钮复用 `RepoHistoryDialog` 的 detail dialog；runUrl 仅在 `executorKind === 'github-action'` 时显示（container 内部 run URL 暂未实现）
@@ -227,7 +227,7 @@
 ### 已闭环阶段（M0-M14）
 
 - **M0-M11**：全部归档，详见 [todo-archive.md 主窗口](todo-archive.md) + [archive/todo-archive-phases-*.md 分片](archive/)
-- **M14 platform release 通道闭环 + UX 反馈跟进**（2026-08-26 闭环，19 commits 全部落地 / ahead=0）：详见 [todo-archive.md §M14](todo-archive.md#m14-platform-release-通道闭环--ux-反馈跟进m14123x-全部已闭环)。包含 4 子阶段：M14.1 T1310 F 阶段闭环（7 commits）/ M14.2 UX-R1 扫描历史分页（5 commits）/ M14.3 M13.4 T1403 follow-up（1 commit）/ M14.x neat-freak 批次（5 commits）+ M14.y 依赖批量治理（4 个 dependabot major PR）
+- **M14 platform release 通道闭环 + UX 反馈跟进**（2026-08-26 闭环，19 commits 全部落地 / ahead=0）：详见 [todo-archive.md §M14](todo-archive.md#m14-platform-release-通道闭环--ux-反馈跟进m14123xy-全部已闭环)。包含 4 子阶段：M14.1 T1310 F 阶段闭环（7 commits）/ M14.2 UX-R1 扫描历史分页（5 commits）/ M14.3 M13.4 T1403 follow-up（1 commit）/ M14.x neat-freak 批次（5 commits）+ M14.y 依赖批量治理（4 个 dependabot major PR）
 - **M13 治理 + UX 反馈 + 网络治理 + Code Scanning**（2026-08-26 归档，12 子任务 / 26 commits / ahead=3）：详见 [todo-archive.md §M13](todo-archive.md#m13-治理--ux-反馈--网络治理--code-scanning已闭环)。包含 4 子阶段：M13.1 治理 + UX（T1301+T1302+T1303+T1304）/ M13.2 网络治理 + 告警去重（T1305+T1306+T1309）/ M13.3 Code Scanning 规则化 + CQL（T1307+T1308）/ M13.4 UX 反馈批次立刻做（T1401+T1402+T1403）
 - **M12 平台 UX 一致性 + i18n 治理**（2026-08-25 归档）：详见 [todo-archive.md §M12](todo-archive.md#m12-平台-ux-一致性--i18n-治理已闭环)
 - **2026-08-20 e2e 修复批次**（C62 + C63 + C64 + chore）：详见 [todo-archive.md §2026-08-20 e2e 修复批次](todo-archive.md#2026-08-20-e2e-修复批次c62--c63--c64--chore)

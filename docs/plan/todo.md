@@ -4,18 +4,6 @@
 
 ## 当前阶段：M14 全部已闭环，待下一阶段（M15）启动
 
-> **阶段背景（2026-08-26 启动 → 2026-08-26 闭环）**：M13 治理 + UX 反馈 + 网络治理 + Code Scanning 全部闭环（12 子任务 / 26 commits）后承接：
->
-> - **M14.1 T1310 F 阶段闭环** ✅ —— T1310 platform 进入 release 通道 7 commits（T1310 ahead 5 `300b318`/`1819b59`/`733e198`/`7b40a2c`/`a74d07d` + P 阶段规划 `1fd38c1` + M14.1 收口 `e7103f6`）
-> - **M14.2 UX-R1 扫描历史分页** ✅ —— 5 commits（`81bd8d2` 后端分页 + `581e1a9` RepoHistoryDialog Paginator + `1a9eddf` 次级调用方 + i18n + `b7c9226` e2e + 收口登记 + `17b5643` changelog 钩子自动 stage 落档）
-> - **M14.3 M13.4 T1403 follow-up** ✅ —— 1 commit（`5ccaaf4` e2e 补首屏默认 `dedupe=across` 请求 URL 断言 + 收口登记）
-> - **M14.x neat-freak 批次** ✅ —— 5 commits（`92cc348` wisdom 蒸馏 + `ea0e24f` C34 规范挂接 + `84b4e1a` test 名清理 + `b45f55e` git.md 格式修复 + `dd577cd` 收口登记）
-> - **M14.y 依赖批量治理** ✅ —— 4 个 dependabot major PR 收口（`@octokit/request-error` 5→7 rebase 后自动合；`better-auth` 1.6→1.7 + generic OAuth 重写适配已闭 + 新 PR #53；`conventional-changelog` 7→8 已闭，加 dependabot major ignore；`PrimeVue` 4→5 暂缓已闭，登记 [backlog.md §延期 / 暂缓项](backlog.md#延期--暂缓项)）
->
-> **完整闭环记录**：详细 commit 列表 + 验收标准 + 关键决策 + 风险评估见 [todo-archive.md §M14](todo-archive.md#m14-platform-release-通道闭环--ux-反馈跟进m14123x-全部已闭环)。
->
-> **ahead 状态**：ahead=0（`git rev-list HEAD ^origin/master --count` 实证，所有 M14 commits 已推送至 origin/master）。
->
 > **下一阶段触发**：M15 待用户主动启动；backlog 候选见 [backlog.md](backlog.md) §短期 / 一次性候选任务。
 
 ---

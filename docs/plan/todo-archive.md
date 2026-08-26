@@ -134,11 +134,11 @@
 
 ---
 
-## M14: platform release 通道闭环 + UX 反馈跟进（M14.1/2/3/x 全部已闭环）
+## M14: platform release 通道闭环 + UX 反馈跟进（M14.1/2/3/x/y 全部已闭环）
 
 > **归档日期**：2026-08-26
-> **阶段摘要**：M13 闭环后承接 T1310 F 阶段闭环 + backlog UX-R1 扫描历史分页（用户实测反馈痛点）+ M13.4 T1403 follow-up（轻量收尾）+ neat-freak 批次治理。按 [规划规范 §1.1 任务粒度约束](../../docs/standards/planning.md)（≤5-6 项硬上限 + A3 跨 packages+apps > 10 文件需拆分）拆为 **4 子阶段独立闭环**：M14.1 T1310 F 阶段闭环 / M14.2 UX-R1 扫描历史分页 / M14.3 M13.4 T1403 follow-up / M14.x neat-freak 批次（wisdom 蒸馏 17>15 阈值 + C34 挂接盘点 + test 名清理 + git.md 格式修复）。
-> **状态**：✅ M14.1 全部完成（1 子任务 / 7 commits：T1310 ahead 5 + P 阶段规划 1 + M14.1 收口 1；待用户推送 M14.1 ahead 2 commits `1fd38c1` + `e7103f6`）/ ✅ M14.2 全部完成（5 commits：4 atomic commits 后端分页 + RepoHistoryDialog Paginator + 次级调用方适配 + i18n + e2e + 收口登记 + M14.2 changelog 钩子 stage 落档 1；待用户推送 M14.2 ahead 5 commits `81bd8d2` + `581e1a9` + `1a9eddf` + `b7c9226` + `17b5643`）/ ✅ M14.3 全部完成（1 子任务 / 2 commits：`17b5643` M14.2 changelog 钩子 stage 落档 + `5ccaaf4` M14.3 e2e + 收口登记；待用户推送 M14.3 ahead 2 commits）/ ✅ M14.x neat-freak 批次全部完成（4 atomic commits：wisdom 蒸馏 + C34 规范挂接 + test 名清理 + git.md 格式修复；待用户推送 M14.x ahead 4 commits `92cc348` + `ea0e24f` + `84b4e1a` + `b45f55e`）
+> **阶段摘要**：M13 闭环后承接 T1310 F 阶段闭环 + backlog UX-R1 扫描历史分页（用户实测反馈痛点）+ M13.4 T1403 follow-up（轻量收尾）+ neat-freak 批次治理 + 依赖批量治理。按 [规划规范 §1.1 任务粒度约束](../../docs/standards/planning.md)（≤5-6 项硬上限 + A3 跨 packages+apps > 10 文件需拆分）拆为 **4 子阶段独立闭环 + M14.y 依赖批量治理同步推进**：M14.1 T1310 F 阶段闭环 / M14.2 UX-R1 扫描历史分页 / M14.3 M13.4 T1403 follow-up / M14.x neat-freak 批次（wisdom 蒸馏 17>15 阈值 + C34 挂接盘点 + test 名清理 + git.md 格式修复）/ M14.y 依赖批量治理（4 个 dependabot major PR：#31 octokit/request-error 5→7 / #32 better-auth 1.6→1.7 + 新 PR #53 / #39 conventional-changelog 7→8 加 dependabot ignore / #49 PrimeVue 4→5 暂缓登记 backlog）。
+> **状态**：✅ M14.1 全部完成（1 子任务 / 7 commits：T1310 ahead 5 + P 阶段规划 1 + M14.1 收口 1；ahead=0 已推送）/ ✅ M14.2 全部完成（5 commits：4 atomic commits 后端分页 + RepoHistoryDialog Paginator + 次级调用方适配 + i18n + e2e + 收口登记 + M14.2 changelog 钩子 stage 落档 1；ahead=0 已推送）/ ✅ M14.3 全部完成（1 子任务 / 2 commits：`17b5643` M14.2 changelog 钩子 stage 落档 + `5ccaaf4` M14.3 e2e + 收口登记；ahead=0 已推送）/ ✅ M14.x neat-freak 批次全部完成（4 atomic commits：wisdom 蒸馏 + C34 规范挂接 + test 名清理 + git.md 格式修复；ahead=0 已推送）/ ✅ M14.y 依赖批量治理（4 个 dependabot major PR；ahead=0 已推送）
 
 ### 阶段闭环清单
 
@@ -169,15 +169,16 @@
 | **admin/i18n e2e C65-A1/A2/A3/A4 test 名孤立编号清理** | `84b4e1a` | admin.e2e.test.ts 3 处 + i18n.e2e.test.ts 1 处 = 共 4 处 test name 重命名（仅改 test name 字符串，断言 + mock + 测试逻辑零改动）；22 e2e passed（1.3m）行为不变；编号标记扫描 0 命中 |
 | **git.md §3.4 后双空行格式修复** | `b45f55e` | git.md line 107-108 连续 2 空行 → 1 空行（markdownlint MD012 no-multiple-blanks 友好）；其他 standards 段（development / testing / security / ai-collaboration / platform / planning / documentation）扫描 0 处残留 |
 
-### 阶段验收标准（M14.1/2/3/x 全部闭环 ✅）
+### 阶段验收标准（M14.1/2/3/x/y 全部闭环 ✅）
 
 - [x] M14.1 T1310 F 阶段闭环 —— 完整本地验证全绿（lint/typecheck 0 error / test 2230 passed + 5 skipped / test:coverage 4 维度全 ≥80% / verify:changelog exit 0 / changelog 7 段幂等 unchanged / release:publish --dry-run platform tag-only 路径确认 / @dependfix/platform build 成功 23.1 MB）
 - [x] M14.2 UX-R1 扫描历史分页 —— 完整本地验证全绿（lint/typecheck 0 error / test 2236 passed + 5 skipped / coverage 4 维度 ≥80% / @dependfix/platform exec playwright test history-dialog 3/3 passed / @dependfix/platform build 成功 23.1 MB）
 - [x] M14.3 M13.4 T1403 follow-up —— 完整本地验证全绿（lint/typecheck 0 error / @dependfix/platform exec playwright test alerts-rowgroup 7/7 passed 第 1 次 32.0s + 第 2 次 31.0s 幂等通过 / @dependfix/platform build 成功）
 - [x] M14.x neat-freak 批次 —— 完整本地验证全绿（check:docs 99 links + 55 vue-interp OK / lint:md 0 error / typecheck 0 error / lint 0 error / @dependfix/platform exec playwright test admin i18n 22/22 passed / @dependfix/platform build 成功 23.1 MB / distill:wisdom WISDOM_OK 14 ≤ 15 阈值 / 编号标记扫描 0 命中）
+- [x] M14.y 依赖批量治理（4 个 dependabot major PR）—— #31 octokit/request-error 5→7 rebase 后自动合 / #32 better-auth 1.6→1.7 + generic OAuth 重写适配已闭 + 新 PR #53 / #39 conventional-changelog 7→8 加 dependabot major ignore / #49 PrimeVue 4→5 暂缓已闭登记 [backlog.md §延期 / 暂缓项](backlog.md#延期--暂缓项)；commit `bcafa71` M14.y 依赖批量治理进度登记 + 多个 dependabot PR commits
 - [x] `pnpm check:docs` 全过（实测验证 OK）
 
-### 阶段治理记录（M14.1/2/3/x）
+### 阶段治理记录（M14.1/2/3/x/y）
 
 - **M14.1 总投入**：7 commits（T1310 ahead 5 commits + P 阶段规划 1 commit + M14.1 收口 1 commit）/ 1 子任务
   - 注：T1310 5 commits（`300b318` / `1819b59` / `733e198` / `7b40a2c` / `a74d07d`）属于 T1310 子阶段（与 M13 同步推进），ahead 计数不计入 M13 ahead=3；M14.1 ahead=1 仅 P 阶段规划 commit `1fd38c1`（`git rev-list HEAD ^origin/master --count` 实证）

@@ -123,17 +123,20 @@ const buildAuth = (ds: Awaited<ReturnType<typeof ensureDatabaseInitialized>>, op
             }),
             // OIDC SSO（enterprise 模式）：oidcEnabled 时才启用（clientId 等在条件内保证非空）；
             // 未配置自动禁用不阻塞启动。
-            // requireIssuerValidation: true 防 issuer 混淆（platform-auth-users.md §11 安全注意）
+            // better-auth 1.7：issuer validation 自动通过 OIDC discovery 完成（1.6 中的
+            // `issuer` / `requireIssuerValidation` 字段已删除；无 discovery 的 IdP 可用
+            // `accountIssuer` 覆盖；see release notes "Rewrite the generic OAuth plugin"）。
             ...(oidcEnabled
                 ? [genericOAuth({
                     config: [{
                         providerId: 'oidc',
                         discoveryUrl: options.oidcDiscoveryUrl || undefined,
-                        issuer: options.oidcIssuer || undefined,
+                        // 无 discovery 时手动声明 issuer（accountIssuer 替代旧 issuer 字段）；
+                        // 有 discovery 时 issuer 自动从 discovery 文档获取，accountIssuer 不传
+                        ...(options.oidcIssuer ? { accountIssuer: options.oidcIssuer } : {}),
                         clientId: options.oidcClientId!,
                         clientSecret: options.oidcClientSecret!,
                         scopes: (options.oidcScopes || 'openid,profile,email').split(',').map((s) => s.trim()).filter(Boolean),
-                        requireIssuerValidation: true,
                         // 无 discovery 的 IdP 手动声明端点（OIDC_AUTHORIZATION_URL 等覆盖）
                         ...(options.oidcAuthorizationUrl ? { authorizationUrl: options.oidcAuthorizationUrl } : {}),
                         ...(options.oidcTokenUrl ? { tokenUrl: options.oidcTokenUrl } : {}),

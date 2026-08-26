@@ -255,6 +255,66 @@ if (value) { ... }  // 对 0, "", false 失效
 
 规范见 [documentation.md §4 规范单点声明原则](../../../../docs/standards/documentation.md)。
 
+### 分级审计协议（audit-depth）必查项
+
+审查调用方是否按改动风险等级声明 `audit-depth`（quick / standard / deep），审查输出是否在选档时间内收敛：
+
+- **必查场景**：A 阶段审计 prompt 是否携带 `audit-depth` 声明 + 理由（变更文件清单 / 已验证证据摘要 / 复审问题编号清单）？
+- **选档映射**：quick ≤ 5min（测试补强 / 文档措辞 / 简单配置 / 重命名）/ standard ≤ 10min（常规业务逻辑 / 模块内改动）/ deep ≤ 20min（发布流程 / 安全鉴权 / 外部调用 / 数据写入 / 配置与依赖变更 / agent 与 skill 定义）
+- **未声明按 deep 防御**：调用方未声明时按 deep 执行（防御方向），但**小改动必须主动声明 quick**避免拖长用时
+- **复审只审修复点**：第 2+ 轮只复查上轮问题编号对应的修复点 diff 与受影响断言，不得重读全量
+- **并发分区**：diff 文件数 > 8 或涉及 ≥ 2 个独立模块时按模块分区并行发起多个审查任务；小改动不得并发
+- **真实用时实测**：发起审计 task 前用宿主系统时钟记录启动时间戳，审计返回后实测 elapsed，超时仅作分级校准信号（agent 自报用时为 LLM 估算，不得作为时间盒核验依据）
+- **未声明防御**：缺失 audit-depth 声明 → 提示执行角色补声明；理由缺失 → 退回补理由
+
+规范见 [ai-collaboration.md §1.3 分级审计执行协议](../../../../docs/standards/ai-collaboration.md) + [code-reviewer SKILL.md §2.5](../SKILL.md)。
+
+### 单次提交审计阈值（10 文件 / 800 行）必查项
+
+审查 diff 规模是否触发拆分要求：
+
+- **必查场景**：A 阶段审计输入的 `git diff --stat` 新增文件数 > 10 或新增行数 > 800 → 必须要求调用方说明批次拆分依据；未拆分且无正当理由 → Reject
+- **阈值例外**：重构清理 / 单包小步迁移等场景可声明"既有阈值不适合"并提供新阈值（如 `5 files / 400 lines`），但需在 commit message 与 todo.md 阶段治理记录中固化
+- **C65-A batch 上限实证**：某次 C65-A1/A2/A3/A4 共 4 sub-batch × 4-6 commits ≈ 20+ commits 推送被 CI Coverage 验证分割至 4 维度阈值——分批已隐含执行，不强制按本阈值拆分（避免与"PDTFC+ 多 sub-batch 子阶段独立闭环"惯例冲突）
+- **反模式**：单次提交 50+ 文件 / 数千行 diff，审计耗时指数级上升、Review Gate Reject 概率增加、回滚粒度过粗
+
+规范见 [ai-collaboration.md §1.4 单次提交审计阈值](../../../../docs/standards/ai-collaboration.md) + [规划规范 §1.1 任务粒度约束](../../../../docs/standards/planning.md) + [code-reviewer SKILL.md §2.5](../SKILL.md)。
+
+### 验证分级矩阵（最低验证要求）必查项
+
+审查 F 阶段本地验证是否覆盖改动类型的最低验证矩阵：
+
+- **必查场景**：执行角色声明"F 阶段完整验证通过"时，是否覆盖 [ai-collaboration.md §2.2 验证分级矩阵](../../../../docs/standards/ai-collaboration.md) 列出的最低验证项？
+- **分级映射**：文档 / 规划 → lint:md + RG；纯逻辑 / 工具函数 / 服务层 → lint + typecheck + 定向测试 + RG；API / 鉴权 / 数据模型 → lint + typecheck + 定向测试 + RG（关键写路径升级到流程验证）；UI 组件 / 页面交互 → lint + typecheck + 测试 + 浏览器验证 + RG；修复型 Hotfix → lint + typecheck + 复现与修复后结果 + RG；配置 / 依赖 / CI / 技能与 agent 定义 → lint + typecheck + 定向验证 + RG
+- **执行验证 vs 声称验证**：执行角色可声明"已跑 lint / typecheck"但**未跑 build / test / coverage**，但 commit message / todo.md 验证证据段声称"完整验证全绿"——必查此类口径不一致
+- **测试覆盖增量**：含测试改动的批次是否含 `pnpm test` 全 workspace 而非仅 `pnpm --filter <pkg> test`（避免非改动包引起的回归漏掉）
+
+规范见 [ai-collaboration.md §2.2 验证分级矩阵](../../../../docs/standards/ai-collaboration.md) + §2.2 不同改动类型的最低验证要求子节。
+
+### F 阶段本地验证必须含 coverage 必查项（hard requirement）
+
+审查 F 阶段"完整验证"是否含 `pnpm run test:coverage`（全 workspace）+ 检查 4 维度（statements / branches / functions / lines）是否 ≥ 80% 阈值：
+
+- **必查场景**：跨多包 / 含新增文件 / 含数据库 / 含 IO 的批次，声称 F 阶段验证"全绿"但**未跑 `pnpm run test:coverage`** → 退回补验证
+- **二次复发警告**：M13.3 T1308 新增 code-quality-fetcher.ts 等 4 个新文件未被既有测试覆盖（防御分支 cursor 重复死循环 / URL parse catch / RATE_LIMITED 兜底 / 三源错误隔离），CI Coverage 79.98% < 80% 二次失败（run 32880889750）
+- **"基线已通过"陷阱**：当 4 维度整体 ≥ 80% 阈值但新增文件分支未被覆盖时，默认 80% 阈值即通过但漏了多包增量回归——必须**逐新增文件检查分支覆盖**
+- **CI 通过 = 最终裁决**：本地通过 ≠ 完成；本地全绿 + lint 0 error + typecheck 0 error 不等于 CI 全绿（CI 含 coverage / lint:md / check:docs / docs:build 多步骤，盲区极大）
+- **实证 commit**：`0c57211`（C65-D 12 commits 推送后 branches 79.88% < 80% 失败，补测 commit）+ `e63cdb9`（M13.3 T1308 补测 14 case，branches 79.98% → 80.17%）
+
+规范见 [ai-collaboration.md §4.4 F 阶段本地验证口径差异 + coverage 强制（hard requirement）](../../../../docs/standards/ai-collaboration.md)。
+
+### audit warning 修复决策协议（修复 vs 登记 backlog）必查项
+
+审查 audit warning 必须明确决策路径，不得"已记录但未行动"或"修复 vs 登记"含糊：
+
+- **必查场景**：Code Auditor 输出 warning（建议修复）或 suggest（优化建议）时，执行角色是否明确决策（修复 / 登记 backlog）+ 提供理由？
+- **修复判定标准**：低成本（通常 < 1 行 + 注释）+ 对齐验收 / 正确性 + 不扩大 scope → 修复（如 C65-D2 W1 清理 test.fixme 残留 + C65-D3 suggest-1 D3 缩写注释清理 + C65-D4 W1+S1 清理 MOCK_DASHBOARD_STATS + dead mock + stale doc + describe 标题）
+- **登记 backlog 判定标准**：实现成本过高（与已知问题耦合 / 依赖外部升级）/ 不在本次 PR 范围 → 登记（如 C65-D2 S1 PrimeVue 4 rowToggleButton 默认无 aria-expanded——Pass-through 不传 context，低成本 dynamic 实现不可行，登记待 PrimeVue 升级 / C65-D3 suggest-2 viewMode 快速切换请求竞态——低概率 UI 闪一下旧数据，可加 lastRequestId 守卫但本次 PR 范围外）
+- **决策三问**：是否影响用户行为？是否与 todo.md 验收条款一致？实现成本？三问中任一不满足"低成本可修复"→ 登记 backlog
+- **必查决策痕迹**：commit message / diff / follow-up 段是否含决策理由（避免后续 agent 重新判断）
+
+规范见 [ai-collaboration.md §4.6 audit warning 修复决策协议](../../../../docs/standards/ai-collaboration.md) + [code-reviewer SKILL.md §2.5 决策框架](../SKILL.md)。
+
 ### 应提出的问题
 
 - "diff 中新增的注释/测试名是否含孤立编号标记？"

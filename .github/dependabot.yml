@@ -12,6 +12,11 @@ updates:
     # 但 apps/platform 的内部依赖（better-sqlite3 / bullmq / h3 / ioredis / mysql2
     # / pg / typeorm / nuxt / primevue / zod 等）若需要升级走 dependabot 无碍，
     # 不在此处加 ignore 以免误拦截其他 5 个 npm 包的依赖管理
+    # §M14.2 conventional-changelog@8.x 模板引擎与 cmyr-config 3.x 不兼容
+    # （scripts/changelog.mjs:23 已锁 ^7），忽略 major 升级直到 cmyr-config 适配 8.x
+    ignore:
+      - dependency-name: conventional-changelog
+        update-types: [version-update:semver-major]
   - package-ecosystem: github-actions
     directory: /
     open-pull-requests-limit: 20

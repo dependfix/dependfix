@@ -596,6 +596,8 @@
         "colRecommended": "Recommended",
         "colLink": "Link",
         "view": "View",
+        "errorTitle": "Scan execution failed ({code})",
+        "errorNoDetail": "The scan failed but no error details were recorded. Check the system logs.",
         "errors": {
             "loadFailed": "Failed to load: {message}",
             "detailLoadFailed": "Failed to load details: {message}"

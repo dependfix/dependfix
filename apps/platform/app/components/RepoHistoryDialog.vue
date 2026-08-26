@@ -27,7 +27,9 @@ const repoId = ref<string | null>(null)
 const runs = ref<HistoryRunView[]>([])
 const loading = ref(false)
 const error = ref('')
-const detail = ref<{ results: unknown[] } | null>(null)
+// detail 含 status + error（用于 Error Banner 展示失败原因）+ results；扩展自 { results: unknown[] }
+// 实测反馈：详情面板需展示执行级错误，否则失败 run 详情仅能看到空 alerts 表
+const detail = ref<{ status: string, error: { code: string, message: string } | null, results: unknown[] } | null>(null)
 const detailLoading = ref(false)
 const detailError = ref('')
 
@@ -71,7 +73,8 @@ const openDetail = async (run: HistoryRunView) => {
     detailLoading.value = true
     try {
         const res = await $fetch(`/api/runs/${run.id}`)
-        detail.value = res as { results: unknown[] }
+        // 实测反馈：detail 类型扩展为含 status + error 以支持失败 Error Banner
+        detail.value = res as { status: string, error: { code: string, message: string } | null, results: unknown[] }
     } catch (e: any) {
         detailError.value = t('runs.errors.detailLoadFailed', { message: e?.data?.message ?? e?.message ?? t('common.errors.unknown') })
     } finally {
@@ -145,6 +148,9 @@ watch(() => route.query.history, async (newVal) => {
         >
             {{ detailError }}
         </Message>
+        <!-- 实测反馈：detail.status === 'failed' 时在 results 表格 header 内展示执行级 Error Banner，
+             即使 detail.error 为空（数据损坏 / 旧数据迁移 / 后端 errorJson 缺失）也显示降级提示（RG-W02）。
+             放在 DataTable #header slot 内避免与外面 v-else-if="detail" 链冲突 -->
         <DataTable
             v-else-if="detail"
             :value="(detail as {results: Array<{id: string; packageName: string; severity: string; source: string; fixable: boolean; fixStrategy: string | null; recommendedVersion: string | null; htmlUrl: string | null}>}).results"
@@ -153,13 +159,29 @@ watch(() => route.query.history, async (newVal) => {
             :empty-message="t('runs.detailEmpty')"
         >
             <template #header>
-                <Button
-                    icon="pi pi-arrow-left"
-                    :label="t('runs.backToList')"
-                    text
-                    size="small"
-                    @click="resetDetail"
-                />
+                <div class="repo-history__detail-header">
+                    <Button
+                        icon="pi pi-arrow-left"
+                        :label="t('runs.backToList')"
+                        text
+                        size="small"
+                        @click="resetDetail"
+                    />
+                    <Message
+                        v-if="detail.status === 'failed'"
+                        severity="error"
+                        :closable="false"
+                        class="repo-history__error-banner"
+                    >
+                        <strong>{{ t('runs.errorTitle', { code: detail.error?.code ?? 'UNKNOWN' }) }}</strong>
+                        <p v-if="detail.error" class="repo-history__error-message">
+                            {{ detail.error.message }}
+                        </p>
+                        <p v-else class="repo-history__error-message text-muted">
+                            {{ t('runs.errorNoDetail') }}
+                        </p>
+                    </Message>
+                </div>
             </template>
             <Column :header="t('runs.colPackage')" field="packageName" />
             <Column :header="t('runs.colSeverity')">
@@ -202,7 +224,20 @@ watch(() => route.query.history, async (newVal) => {
             >
                 <Column :header="t('runs.colStatus')">
                     <template #body="{data}">
+                        <!-- 实测反馈：failed 状态 Tag 包一层 span :title 显示 error.message
+                             （PrimeVue Tag inheritAttrs:false，:title 不会自动 fallthrough 到 root） -->
+                        <span
+                            v-if="data.error"
+                            class="repo-history__status-wrap"
+                            :title="data.error.message"
+                        >
+                            <Tag
+                                :value="statusLabel(data.status)"
+                                :severity="statusSeverity(data.status)"
+                            />
+                        </span>
                         <Tag
+                            v-else
                             :value="statusLabel(data.status)"
                             :severity="statusSeverity(data.status)"
                         />
@@ -252,3 +287,23 @@ watch(() => route.query.history, async (newVal) => {
         </template>
     </Dialog>
 </template>
+
+<style lang="scss" scoped>
+// 实测反馈：失败执行级错误展示样式（detail Error Banner + 列表 status Tag 包裹）
+.repo-history {
+    &__error-banner {
+        margin-bottom: $space-3;
+    }
+
+    &__error-message {
+        margin: $space-2 0 0;
+        word-break: break-word;
+    }
+
+    &__status-wrap {
+        // inline-flex 让 span 紧贴 Tag 内部尺寸，title 命中区域 = Tag 渲染范围
+        display: inline-flex;
+        cursor: help;
+    }
+}
+</style>

@@ -202,6 +202,14 @@ export const getDateType = (dbType?: string): string => {
   - 把 `i18n.config.ts` 的 named export（含 vue-i18n 配置以外的代码）放到会被 jiti 顶层 import 的位置（必须物理拆分）
   - 在 detector 文件里直接 hard-code `defaultLocale` 或 locale 列表（应通过 `nuxtI18n` 配置中心维护）
 
+### 7.3 Utility 抽取与跨组件共享
+
+- **抽取时机**：D 阶段实现收尾时若发现同一格式化函数在 ≥ 2 个 SFC 中重复出现（如 `modeLabel` / `executorLabel` / `formatDuration`），立即抽到 `apps/platform/app/utils/<feature>.ts` 单文件集中维护；同时接受 Review Gate `suggest` 触发的反向抽取（先实现后抽取）。
+- **utility 签名**：仅接受纯函数（无副作用、依赖参数化）；i18n 相关函数应接收 `t: (key, params?) => string` 翻译函数作为参数，而非在 utility 内部 `useI18n()`——避免 utility 与 Vue 实例耦合，提高单测覆盖度（无需 mock i18n）。
+- **utility 单测一次性覆盖所有分支**：抽取后立即补单测覆盖所有分支（含 NaN / Infinity / 缺失字段 / 负时长 / 非法日期等边界）；不接受"先实现后补测"的两段式——utility 函数纯度高，单测零成本，理应一次到位（M15.1 run-view.test.ts 16 case 单批覆盖 6 函数所有分支）。
+- **函数签名变更必须同步所有调用方**：utility 函数签名变更后必须 grep 全仓所有调用方同步更新；`pnpm typecheck` 不捕捉 vitest mock 下的类型错误（mock 路径可能跳过部分类型检查），Review Gate `audit-depth: quick` 仍能命中此类 blocker（M15.1 第 1 轮 Reject B1 `alertsFound` 误用——调用方传整个 run 对象，签名已变）。
+- **跨组件复用边界**：utility 一旦抽到 `utils/<feature>.ts`，所有 SFC（含 dialog 组件）通过 import 复用；禁止在第二个 SFC 中复制定义（即使仅微调）。
+
 ## 8. 测试规范
 
 - server 层纯逻辑（加密、adapter、服务）用 Vitest node 环境，位于 `server/**/*.test.ts`

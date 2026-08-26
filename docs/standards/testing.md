@@ -82,6 +82,8 @@
 - **Mock 原则**: mock 不掩盖真正的集成风险。优先真实调用，mock 仅在外部依赖不可控时使用。
 - **Mock 上限对执行速度敏感（跨平台 flaky）**: 循环/轮询类测试的固定次数 mock（如 nock `times(100)`）在更快环境（CI Linux vs 本地 Windows）可能被突破 → 第 N+1 次请求 No match。优先用 `persist()`（无上限）或放大 10 倍并注明原因；此类测试本地连跑多次验证后仍需 CI 实证（[经验归档 §二十七](../design/governance/experience-archive.md)）。
 - **失败处理**: 测试失败时先解释根因，再决定改代码还是改测试。严禁直接改断言让它绿掉。
+- **函数签名变更必须同步所有调用方验证**：utility 函数签名变更（如 `alertsFound(summary)` → `alertsFound(view)`）后必须 grep 全仓调用方同步更新；`pnpm typecheck` **不**捕捉 vitest `vi.mock` 下的类型错误（mock 路径可能跳过部分类型检查）——F 阶段本地验证 `typecheck 0 error` **不是** audit 替代。修复协议：F 阶段本地 typecheck 后必须补 A 阶段 Review Gate（`audit-depth: quick` 起步）独立核验调用方一致性；utility 抽取后单测一次性覆盖所有分支并包含"调用方误用"回归 case。M15.1 第 1 轮 Reject B1 实证：实现已通过单测 + typecheck，但调用方未对齐签名 → 审计快速 depth 仍能捕获。
+- **utility 单测一次性覆盖所有分支**：抽取后立即补单测覆盖所有分支（含 NaN / Infinity / 缺失字段 / 负时长 / 非法日期等边界）；不接受"先实现后补测"的两段式。`pnpm --filter @dependfix/platform test <utility>.test.ts` 在 D 阶段收尾时必须全过。
 - **CI 最终裁决**: 修复的验收标准是 CI 全部通过，不是本地通过。
 - **测试输入用真实形态**: 测试 fixture 应使用真实格式的输入（如带固定前缀的 ID），合成数据会漏掉真实格式才触发的缺陷。
 - **lint 门禁**: `--max-warnings N` 让存量 warning 变成 CI 硬门禁倒逼清理；测试名应与真实断言一致（误导性测试名会掩盖缺口）。

@@ -147,6 +147,14 @@ P 阶段规划写入 `todo.md` 顶部 banner / M 段 banner 时，ahead 状态�
 - **分批提交（长任务强制）**：每个原子条目独立提交，长任务先回 P 阶段拆分（规模约束见 [规划规范 §1.1 任务粒度约束](./planning.md)）。每批提交前加载 `conventional-committer` skill，生成符合 Conventional Commits 格式的消息，执行 `git commit`。
 - **推送禁令**：commit 后不得自动 `git push`，仅限用户明确要求时执行。
 
+## 1.4 P 阶段规划暂停协议（user-driven）
+
+- **P 阶段仅文档改动**：规划阶段只允许改动 `docs/plan/*` + `docs/index.md` + 相关规范/技能/智能体文件；**不**写实现代码、不改 `apps/platform/` / `packages/` 等运行时代码。
+- **提交后暂停**：P 阶段规划 commit 后必须立即暂停，等待用户指令进入 D 阶段；不得自行提前启动实现。
+- **用户驱动工作流**：用户在 "确认方案" / "提交本次改动" / "开始规划" 等明确指令出现前，执行角色只交付 P 阶段产出 + 收口摘要 + 下一步建议；任何后续动作（commit / push / D 阶段实现）须用户显式触发。
+- **会话沉淀**：P 阶段规划落地后必须同步更新 `.session/current-task.yaml` 与 `.session/runtime-state.json`，标注 `phase = "P 阶段文档已落地，待用户指令进入 D 阶段"` + `blocked_on = "用户发布"`。
+- **经验闭环**：P 阶段收口时同步更新 `docs/standards/*` 与 `.github/skills/*`，把本次 P 阶段的字段切分 / 标题层级 / 锚点规则等决定固化进规范（避免经验仅留会话）。
+
 ## 2.1 迭代中途发现事项处理
 
 1. **先暂停扩写**：停止直接继续实现，先判断是否已在当前待办或验收范围内。

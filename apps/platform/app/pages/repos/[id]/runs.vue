@@ -65,8 +65,10 @@ const fetchRuns = async () => {
         const repoId = route.params.id as string
         const res = await $fetch('/api/runs', { query: { repositoryId: repoId } })
         // 排序键派生：status 走业务语义排序（RG-W03 修复——runs 状态全集与 batch-runs 不同）
-        const list = res as RunView[]
-        runs.value = withRunStatusRank(list)
+        // todo.md §M14.2 适配：/api/runs 返回结构变更为 {items, total, page, pageSize}（向后兼容：pageSize 缺省 100）
+        // 本页面无分页控件（保留 backlog.md §C58 候选删除兼容路径），仍取全部 items
+        const data = res as { items: RunView[] }
+        runs.value = withRunStatusRank(data.items)
     } catch (e: any) {
         error.value = t('runs.errors.loadFailed', { message: e?.data?.message ?? e?.message ?? t('common.errors.unknown') })
     } finally {

@@ -232,11 +232,14 @@ const openRunSidebar = async (alert: AlertView) => {
     sidebarLoading.value = true
     try {
         // 按 affectedRunIds 批量拉取 run 详情（todo.md §T1306：详情侧栏查询 /api/runs）
+        // todo.md §M14.2 修复 silent bug：/api/runs 新增 ids 参数后，sidebar 真正只返回该告警 affected runs，
+        // 不再是全量 run（修复前 server 忽略 ids，返回所有 run）
         if (alert.affectedRunIds && alert.affectedRunIds.length > 0) {
             const res = await $fetch('/api/runs', {
                 query: { ids: alert.affectedRunIds.join(',') },
             })
-            sidebarRuns.value = res as RunDetailView[]
+            const data = res as { items: RunDetailView[], total: number }
+            sidebarRuns.value = data.items
         } else {
             sidebarRuns.value = []
         }

@@ -599,6 +599,7 @@
         "view": "View",
         "errorTitle": "Scan execution failed ({code})",
         "errorNoDetail": "The scan failed but no error details were recorded. Check the system logs.",
+        "paginatorInfo": "Showing {first} to {last} of {total}",
         "errors": {
             "loadFailed": "Failed to load: {message}",
             "detailLoadFailed": "Failed to load details: {message}"

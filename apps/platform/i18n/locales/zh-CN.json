@@ -599,6 +599,7 @@
         "view": "查看",
         "errorTitle": "扫描执行失败（{code}）",
         "errorNoDetail": "本次扫描执行失败，但未记录错误详情，请查看系统日志。",
+        "paginatorInfo": "第 {first} - {last} 条 / 共 {total} 条",
         "errors": {
             "loadFailed": "加载失败：{message}",
             "detailLoadFailed": "详情加载失败：{message}"

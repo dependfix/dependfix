@@ -21,7 +21,7 @@
     "@dependfix/core": "workspace:*",
     "@dependfix/engine": "workspace:*",
     "@nuxtjs/i18n": "^10.6.0",
-    "@octokit/rest": "^21.1.1",
+    "@octokit/rest": "^22.0.1",
     "@primeuix/themes": "^2.0.3",
     "@primevue/nuxt-module": "^4.5.5",
     "better-auth": "^1.6.25",

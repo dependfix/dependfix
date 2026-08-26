@@ -109,6 +109,16 @@ Agent-First 的完整项目级定义以 `AGENTS.md` 为准。Agent 是默认任�
 - **任务定义**：更新 `todo.md`，将任务标记为 `进行中`。
 - **方案设计**：输出受影响文件清单及技术实现路径。
 
+#### P.1 ahead 状态动态描述原则（避免 staleness）
+
+P 阶段规划写入 `todo.md` 顶部 banner / M 段 banner 时，ahead 状态描述必须**用 commits 列表 + `git rev-list HEAD ^origin/master --count` 实证命令替代具体 ahead 数字**：
+
+- **禁止**：`ahead=N 待推送` / `ahead=3 仅 X 三 commits 待推送` / `M13 归档批次已落地 5 atomic commits ... ahead=8 待用户推送`（ahead 是动态变化，写具体数字极易过时——用户可能在 banner 写后已推送 commits）
+- **正确**：`ahead commits 实证命令` + commits 列表（如 `M13.4 三 commits 2dce01d + bb3b49a + 8762a4b 推送至 origin/master`）—— 即便部分已推送也只损失"哪些未推"信息，不损失准确性
+- **附议**：sub-task ID 跨 commit 引用时（如 "T1310 ahead 5 commits + T1401 + T1402 + T1403"）typo 风险显著，建议 `rg -n "T\d{4}" docs/plan/*.md` 校对
+
+教训：M14 P 阶段规划 commit `1fd38c1` 写错 2 处（① sub-task ID typo `T1402+T1303` 应为 `T1402+T1403`；② banner ahead 描述写"ahead=3 仅 M13.4 三 commits 待用户推送" + "ahead=8"——实际 M13.4 三 commits + M13 归档批次 5 commits 均已被用户推送至 origin/master，ahead=0；M14.1 P 阶段规划 commit 落地后 ahead=1）。M14.1 收口 commit `e7103f6` 修正（ahead 改用 commits 列表 + 实证命令；typo 修正）。详见 [规划规范 §4.4 §5 ahead commits 实证 + 动态描述](./planning.md#44-大批量归档批次操作规范) + [session wisdom 蒸馏机制](../design/governance/session-wisdom-distillation.md)。
+
 ### D (Do) — 业务执行
 
 - **实现准则**：遵循 TypeScript 架构，禁止使用 `any`。
@@ -169,6 +179,7 @@ Agent-First 的完整项目级定义以 `AGENTS.md` 为准。Agent 是默认任�
 | API / 鉴权 / 数据模型 | V0 + V1 + V2 + RG（若影响关键写路径则升级到 V3） |
 | UI 组件 / 页面交互 | V0 + V1 + V2 + V3 + RG |
 | 修复型 Hotfix | V0 + V1 + (对应层级 V2/V3) + RG（必须补复现+修复后结果） |
+| 配置 / 依赖 / CI / 技能与 agent 定义 | V0 + V1 + RG（定向验证：手工跑对应脚本 / workflow / skill 调用）+ skill/agent 定义补 LLM 单测或契约测试 |
 
 ### 测试升级口径
 
@@ -223,12 +234,13 @@ CI 失败后不得回退到全量重试，应分析具体失败点针对性修�
 - 配置文件显式写"空默认值"（如 `excludeFiles: []`）会覆盖工具内置保护，修改前先确认工具默认值。
 - composite action（action.yml）中 <span v-pre>`${{ }}`</span> 只允许出现在合法上下文（runs 步、outputs 表达式、with 表达式值）；description / 纯文本 / 注释内嵌表达式会被 manifest 模板校验求值并可能引用不可用上下文。action.yml 变更后应跑一次真实 action（本仓库 `security-auto-fix.yml` dogfood workflow）验证。
 
-### 4.4 F 阶段本地验证口径差异（`pnpm --filter <pkg> test` ≠ `pnpm test` 全 workspace）
+### 4.4 F 阶段本地验证口径差异（`pnpm --filter <pkg> test` ≠ `pnpm test` 全 workspace）+ coverage 强制（hard requirement）
 
 - F 阶段本地验证用 `pnpm --filter <pkg> test`（仅跑特定包，例：platform → 705+4skip）≠ CI 跑 `pnpm test` 全 workspace（2128+5skip）+ coverage 4 维度（stmts/branch/funcs/lines）。
 - **陷阱**：本地 F 阶段验证全过、vitest 全绿、无回归——**完全漏掉 apps/platform/server / packages/cli / packages/engine / scripts 等非 platform 包引起的分支回归**。CI Coverage job 失败（branches 79.88% < 80%）时常因此发生。
-- **修复协议**：F 阶段"完整验证"必须含 `pnpm run test:coverage`（全 workspace）+ 检查 4 维度是否 ≥ 阈值，而非仅 `pnpm --filter @dependfix/platform test`。CI 通过 = 最终裁决，本地通过 ≠ 完成。
-- 实证：某次 platform UX 治理阶段 12 commits 推送后 CI Coverage job 失败，但本地 F 阶段验证显示全过，**回归 +8 分支**才发现（详见 commit `0c57211`，2026-08-21 推送；背景见 [经验归档 §二十八](../design/governance/experience-archive.md)）。
+- **修复协议（hard requirement）**：F 阶段"完整验证"必须含 `pnpm run test:coverage`（全 workspace）+ 检查 4 维度（statements / branches / functions / lines）是否 ≥ 80% 阈值 + 定位新增文件未覆盖分支 + 补测至 ≥ 阈值，而非仅 `pnpm --filter <pkg> test`。CI 通过 = 最终裁决，本地通过 ≠ 完成。
+- **二次固化警告**：本节规则曾在 [CI run 32880889750](https://github.com/dependfix/dependfix/actions/runs/32880889750) 二次复发——branches 79.98% < 80% 失败，根因是 M13.3 T1308 新增 `code-quality-fetcher.ts` 等 4 个新文件未被既有测试覆盖（防御分支 cursor 重复死循环 / URL parse catch / RATE_LIMITED 兜底 / 三源错误隔离）。**默认 80% 阈值即通过但漏了多包增量回归**。F 阶段验证清单须把 `pnpm run test:coverage` 列入 hard requirement，不得用"基线已通过"做理由省略。
+- 实证：某次 platform UX 治理阶段 12 commits 推送后 CI Coverage job 失败，但本地 F 阶段验证显示全过，**回归 +8 分支**才发现（详见 commit `0c57211`，2026-08-21 推送；背景见 [经验归档 §二十八](../design/governance/experience-archive.md)）+ M13.3 补测 commit `e63cdb9`（branches 79.98% → 80.17%，14 case）。
 
 ### 4.5 Code Auditor quick depth 时长校准（≤ 5min 时间盒，实测 ~79s）
 

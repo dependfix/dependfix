@@ -88,9 +88,13 @@
 2. **跨文件外链主动追踪**：段删除 / 段重命名前必须 `rg -n "<删除段标题>"` 全仓库扫描所有外链（不仅是删除段所在文件），列出每个外链文件 + 位置 + 目标，逐个修复为新的归档位置（`todo-archive.md` 主窗口或 `archive/todo-archive-phases-*.md` 分片）。
 3. **跨目录相对路径精确**：从 `docs/<dir1>/xxx.md` 引用 `docs/<dir2>/yyy.md` 需 `../<dir2>/yyy.md`，多级目录按 `../../` 累加；写之前主动计算，check:docs 兜底。
 4. **commit 分组追踪**：归档文案中分组 commit 时必须**先列每个 commit 归属**，避免子批次 commit 与"todo.md 收口 commit" 重复计数（todo.md 收口 commits 通常已含在子批次计数内，独立列出 = 重复 +1）。M12 归档实证：todo.md 收口 5 commits 已含在 C65-A/B/C/D 子批次计数内，"独立列出 +5"导致累加 24 ≠ 实际 19。
-5. **ahead commits 实证**：归档文案 "ahead of origin/master N commits" 必须用 `git rev-list` 双向核验（已推送 commits 不计入 ahead），不能凭印象估算——跨批次归档时用户可能已推送过。具体命令与 ahead 计数语义详见 [Git 规范 §3 提交规范](./git.md)（一行引用，不重复抄写命令）。
+5. **ahead commits 实证 + 动态描述**：归档文案 "ahead of origin/master N commits" 必须用 `git rev-list HEAD ^origin/master --count` 双向核验（已推送 commits 不计入 ahead），不能凭印象估算——跨批次归档时用户可能已推送过。具体命令与 ahead 计数语义详见 [Git 规范 §3 提交规范](./git.md)（一行引用，不重复抄写命令）。**额外约束**：ahead 数字写具体值极易过时（用户可在 banner 写后立即推送），改用 commits 列表 + 实证命令替代具体数字（与 [AI 协作规范 §2.P.1](./ai-collaboration.md#p1-ahead-状态动态描述原则避免-staleness) 配套）。
 6. **段结构引用原则**：已删除段不在外链保留（避免读者点击 404），外链改为指向新归档位置 + 段标题对齐（避免 VitePress / GitHub 渲染降级到文件顶部）。
 7. **死链验证**：归档后必须 `pnpm run check:docs` 实证 0 error；CI Test job 跳过盲区（wis #43）需在归档批次前主动跑通。
+8. **算式校对（commit 数量 + 子任务数量去重统计）**：归档文案中"X 子任务 / Y commits"等算式信息**必须从 git log first-parent 列表去重统计，不依赖估算**：
+   - commit 数量：`git log master --first-parent --since=<起始日期> --until=<结束日期> --oneline | grep -E "<子任务前缀>" | sort -u | wc -l`
+   - 子任务数量：子任务编号列表一一对应（`T1301+T1302+...+T1403 = 12 子任务`），不留估算空间
+   - 教训：M13 阶段归档批次审计实证：执行角色归档文案估算"M13.2 10 commits / M13.3 4 commits / 合计 24 commits / 合计 11 子任务" → Code Auditor quick depth 检出 RG-W1 + RG-W2 两处算式错误（实际 M13.2 11 / M13.3 5 / 合计 26 commits / 合计 12 子任务）。修复 commit `3621982` → `e9987f9` 5 atomic commits 中 5 文件 6 处统一算式校对（todo-archive.md 4 处 + todo.md 1 处 + roadmap.md 1 处 + backlog.md 1 处 + archive/index.md 2 处）。
 
 > 本节为大批量文档归档批次（multi-file edit + 段结构变更）的统一操作规范；其他文档归档 / 小批量编辑仅执行相关条目。M12 归档 + backlog 重排 2 个批次实证：anchor 实证命中 1 次 / 跨文件外链追踪命中 10 次 / 相对路径精确命中 2 次 / commit 分组追踪命中 2 次 / ahead 实证命中 0 次（但作为常态化检查）。
 

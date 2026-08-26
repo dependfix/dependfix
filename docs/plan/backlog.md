@@ -168,14 +168,7 @@
 
 #### 扫描历史与详情 UX（2026-08-26 实测反馈）
 
-> 本段为 2026-08-26 用户实测截图反馈触发的扫描历史/详情视图 UX 增强候选；与 C66 平级。原 3 项 UX-R1→R2→R3 中 **UX-R1 已由 M14.2 闭环**（2026-08-26，详见 [todo-archive.md §M14.2](todo-archive.md#m14-platform-release-通道闭环--ux-反馈跟进m14123xy-全部已闭环) + 历史归档指针段），剩余 2 项按依赖排序（UX-R2 → UX-R3），低风险低优先级，按上收时机依次推进。
-
-- **UX-R2 dedupe 详情侧栏增强** —— [alerts.vue §openRunSidebar](../../apps/platform/app/pages/alerts.vue) 当前侧栏只展示 `status` + `startedAt` + `runUrl` 外链；用户截图痛点：缺 run 短 ID（36 位 UUID 无意义）/ 缺跳转 run 详情按钮 / 缺 executorKind 与告警数（与 batch-runs 展开区区分度不足）/ 缺与"本次扫描告警明细"的关联入口
-  - **执行范围**：侧栏 DataTable 新增 run 短 ID（前 8 位）+ mode/severityThreshold/executorKind + summary.alertsFound + 持续时长（finishedAt - startedAt）；新增"详情"按钮复用 `RepoHistoryDialog` 的 detail dialog；runUrl 仅在 `executorKind === 'github-action'` 时显示（container 内部 run URL 暂未实现）
-  - **不做什么**：不改后端 API / 不改路由 / 不动 batch-runs 展开区
-  - **上收触发条件**：用户实测反馈"侧栏看不出不同 run 的差异"
-  - **风险**：低（纯前端扩展）
-  - **关联**：与 UX-R3 部分耦合 —— UX-R3 引入独立页面后，侧栏可改为"跳转到该 run 在 /scans 页的 detail dialog"，但两者解耦可独立上收
+> 本段为 2026-08-26 用户实测截图反馈触发的扫描历史/详情视图 UX 增强候选；与 C66 平级。原 3 项 UX-R1→R2→R3 中 **UX-R1 已由 M14.2 闭环**（2026-08-26，详见 [todo-archive.md §M14.2](todo-archive.md#m14-platform-release-通道闭环--ux-反馈跟进m14123xy-全部已闭环) + 历史归档指针段），**UX-R2 已由 M15 规划并上收至当前阶段**；剩余 UX-R3 顺延至 M16，按依赖排序推进。
 
 - **UX-R3 `/scans` 独立页面 + 替代 `RepoHistoryDialog`** —— 当前 `RepoHistoryDialog` 是 modal + 720px 固定宽度弹窗，内部 list/detail view 切换在狭窄空间内拥挤；用户痛点：6 列 DataTable 在 720px 内严重挤压 + 详情切换操作密集。**关键决策（2026-08-26 用户指示）**：用 query 形式而非 path segment，避免 i18n 路由前缀问题。
   - **路由设计**（3 种 query 组合 + 单一页面）：

@@ -1,6 +1,6 @@
 # @dependfix/mcp
 
-## [0.1.3](https://github.com/dependfix/dependfix/compare/@dependfix/mcp@0.1.2...@dependfix/mcp@0.1.3) (2026-08-25)
+## [0.1.3](https://github.com/dependfix/dependfix/compare/@dependfix/mcp@0.1.2...@dependfix/mcp@0.1.3) (2026-08-26)
 
 
 ### 🐛 Bug 修复

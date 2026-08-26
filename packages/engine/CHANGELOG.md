@@ -1,6 +1,6 @@
 # @dependfix/engine
 
-# [0.2.0](https://github.com/dependfix/dependfix/compare/@dependfix/engine@0.1.3...@dependfix/engine@0.2.0) (2026-08-25)
+# [0.2.0](https://github.com/dependfix/dependfix/compare/@dependfix/engine@0.1.3...@dependfix/engine@0.2.0) (2026-08-26)
 
 
 ### ✨ 新功能

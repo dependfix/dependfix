@@ -1,6 +1,6 @@
 # @dependfix/core
 
-# [0.3.0](https://github.com/dependfix/dependfix/compare/@dependfix/core@0.2.0...@dependfix/core@0.3.0) (2026-08-25)
+# [0.3.0](https://github.com/dependfix/dependfix/compare/@dependfix/core@0.2.0...@dependfix/core@0.3.0) (2026-08-26)
 
 
 ### ✨ 新功能

@@ -4,7 +4,7 @@
 
 ## 当前阶段：M14 platform release 通道闭环 + UX 反馈跟进
 
-> **阶段背景（2026-08-26 启动）**：M13 治理 + UX 反馈 + 网络治理 + Code Scanning 全部闭环（12 子任务 / 26 commits 已推送至 origin/master，ahead=3 仅 M13.4 三 commits 待用户推送：T1401 `2dce01d` + T1402+T1303 `bb3b49a` + todo.md 收口 `8762a4b`）。M13 归档批次已落地（5 atomic commits `3621982`/`01f01de`/`0f46b99`/`3ff3f83`/`e9987f9`，ahead=8 待用户推送）。本阶段承接：① T1310 platform 进入 release 通道 F 阶段闭环（CI 裁决 + 收口）；② backlog UX-R1 扫描历史分页（用户实测反馈痛点，关联：T1310 闭环后启动）；③ M13.4 T1403 follow-up（轻量收尾，补 1 case 覆盖首屏默认 dedupe=across）。
+> **阶段背景（2026-08-26 启动）**：M13 治理 + UX 反馈 + 网络治理 + Code Scanning 全部闭环（12 子任务 / 26 commits）。M13 归档批次已落地（5 atomic commits `3621982`/`01f01de`/`0f46b99`/`3ff3f83`/`e9987f9`），M13.4 三 commits `2dce01d` + `bb3b49a` + `8762a4b`（T1401 + T1402 + T1403）均已推送至 origin/master。本阶段承接：① T1310 platform 进入 release 通道 F 阶段闭环（CI 裁决 + 收口）；② backlog UX-R1 扫描历史分页（用户实测反馈痛点，关联：T1310 闭环后启动）；③ M13.4 T1403 follow-up（轻量收尾，补 1 case 覆盖首屏默认 dedupe=across）。
 >
 > **前置依赖**：M13 阶段 T1310 5 commits 已 ahead 提交并已推送至 origin/master（`300b318` 登记 / `1819b59` 注册 apps/platform 发布单元 / `733e198` publish tag-only / `7b40a2c` docker 协作 / `a74d07d` 文档 + dependabot 防御 + CHANGELOG 初始段），**实施已落地，仅缺 F 阶段完整验证**（本地验证 + CI 端到端裁决 + todo.md 收口）。
 >
@@ -12,7 +12,7 @@
 >
 > | 子阶段 | 任务 | 预计 commits | 风险梯度 |
 > |:---|:---|:---:|:---:|
-> | M14.1 T1310 F 阶段闭环 | T1310 完整验证 + 收口 | 1 | 低 |
+> | M14.1 T1310 F 阶段闭环 ✅ | T1310 完整验证 + 收口 | 1 | 低 |
 > | M14.2 UX-R1 扫描历史分页 | `/api/runs` 分页参数 + 3 个前端调用方适配 + e2e | 3-4 | 中 |
 > | M14.3 M13.4 T1403 follow-up | 补 1 case 覆盖首屏默认 `dedupe=across` | 1 | 极低 |
 > | **M14.x neat-freak 批次** | **wisdom 蒸馏（活跃 16 > 15 阈值）+ C34 规范挂接盘点 + test 名孤立编号清理 + git.md 格式修复** | **3-4** | **极低** |
@@ -64,45 +64,15 @@
 
 ### M14 platform release 通道闭环 + UX 反馈跟进（计划 2026-08-26）
 
-#### M14.1 T1310 F 阶段闭环 —— 计划 2026-08-26（实施已 ahead 完成）
+#### M14.1 T1310 F 阶段闭环 [x] —— 已闭环 2026-08-26
 
-- **优先级**：P0 必做（M14 阶段 F 阶段闭环必走 + 5 commits 已 ahead 但缺完整本地验证 + CI 端到端裁决）
-- **依赖**：T1310 5 ahead commits 已推送至 origin/master（`300b318` 登记 / `1819b59` 注册 / `733e198` publish tag-only / `7b40a2c` docker 协作 / `a74d07d` 文档 + dependabot + CHANGELOG 初始段），实施已落地，仅缺 F 阶段验证
-- **背景**：详见下方 T1310 完整规划段
-- **目标**：跑完整本地验证 + CI 端到端裁决 + todo.md 收口登记 + todo-archive.md 新增 M14.1 归档段 + roadmap.md 更新 M14 状态
-- **非目标**：不动 T1310 已 ahead 5 commits 的代码（已通过 A 阶段标准 + 评审）；不动 release 管线其他环节
-- **执行范围**：
-  - 完整本地验证：`pnpm lint` / `pnpm typecheck` / `pnpm test` / `pnpm run test:coverage` / `pnpm verify:changelog` exit 0 / `pnpm changelog` 一次性重跑
-  - dry-run 验证：`pnpm --filter dependfix release:publish --dry-run` 验证 platform tag-only 路径（plan 含 platform 条目 action=`tag-only`，**不**调用 `pnpm publish`，仍创建 annotated tag）
-  - apps/platform docker 上下文构建：`pnpm --filter @dependfix/platform build` 验证 docker 镜像可生成
-  - CI 端到端裁决：推送至 origin/master 后 5 jobs（lint / typecheck / test / docs / build）全部通过 + docker workflow 触发 platform-x.y.z tag 验证
-  - todo.md 收口 T1310 闭环：`[x]` 标记 + 闭环记录（commit 引用 + 验证矩阵 + 实施记录）
-  - todo-archive.md 新增 §M14.1 段（含阶段闭环清单 + 验收标准 + 治理记录 + 关键决策 + 关键经验）
-  - roadmap.md 更新 M14 状态（M14 整体 → 已完成 / 进行中下一阶段）
-- **验收标准**：
-  - `pnpm lint` / `pnpm typecheck` 0 error
-- `pnpm test`（含新增 tag-only case）全绿
-  - `pnpm run test:coverage` 4 维度（statements/branches/functions/lines）≥ 阈值（按 [AI 协作规范](../../docs/standards/ai-collaboration.md) §4.4 F 阶段本地验证口径差异 hard requirement）
-  - `pnpm verify:changelog` exit 0（含 5 包段 + 新生 apps/platform 段）
-  - `pnpm changelog` 一次性重跑 → `apps/platform/CHANGELOG.md` 0.1.0 段生成（已 `a74d07d` 中预生成，本批次确认幂等）
-  - `pnpm --filter dependfix release:publish --dry-run` plan 含 platform 条目 action=`tag-only`，不调用 `pnpm publish`
-  - `pnpm --filter @dependfix/platform build` exit 0（验证 docker 镜像可生成）
-  - CI 端到端裁决通过（5 jobs + docker workflow 全部 0 error）
-  - todo.md 收口 T1310 [x] + todo-archive.md §M14.1 段落地
-- **风险**：
-  - **CI 端到端裁决失败**（low）：5 jobs 触发可能因 apps/platform 首次构建 / docker registry 推送权限等问题失败；若失败按 [AI 协作规范 §4 修复工作流原则](../../docs/standards/ai-collaboration.md) 分析具体失败点针对性补修，不全量重试
-  - **dry-run 平台 tag-only 路径 mock 不完整**（low）：release-publish.test.mjs fixture 已扩展含 platform 条目；若 dry-run 暴露新 case 按 follow-up 处理
-- **follow-up**：
-  - CI 端到端裁决通过后的剩余 commit 等待用户推送
-  - T705（生产级部署 PG+Helm+Sentry）落地后，platform 1.0 节奏评估（已在 T1310 规划段登记）
-  - T703（跨平台 GitLab/Bitbucket）落地后，platform release 触发的版本文档是否需要补"跨平台适配"段
-  - docker `platform-<x.y.z>` tag 是否需要补镜像 SBOM / provenance attestation 配合（当前 ACR 个人版不支持）
-- **原子提交切分**：
-  1. `docs(plan): M14.1 T1310 F 阶段闭环登记 + todo-archive.md 新增 §M14.1 段 + roadmap.md 更新 M14 状态`
+> **闭环记录**：7 commits（T1310 ahead 5 `300b318`/`1819b59`/`733e198`/`7b40a2c`/`a74d07d` + P 阶段规划 1 `1fd38c1` + M14.1 收口 1）；`git rev-list HEAD ^origin/master --count` ahead=1（待用户推送 `1fd38c1` P 阶段规划 commit）；完整本地验证全绿（lint/typecheck 0 error / test 2230 passed + 5 skipped / test:coverage 4 维度全 ≥80% / verify:changelog exit 0 / changelog 7 段幂等 unchanged / release:publish --dry-run platform tag-only 路径确认 / @dependfix/platform build 成功 23.1 MB）。
+>
+> 详细闭环清单 + 验收标准 + 治理记录 + 关键决策 + 关键经验见 [todo-archive.md §M14.1](todo-archive.md#m14-platform-release-通道闭环--ux-反馈跟进m141-已闭环--m1423x-计划中)。
 
 ---
 
-#### T1310 platform 进入 release 通道 —— 计划 2026-08-26（M14.1 实施已 ahead 完成）
+#### T1310 platform 进入 release 通道 [x] —— 已闭环 2026-08-26（M14.1 阶段下实施 + F 阶段闭环）
 
 - **优先级**：P1
 - **依赖**：现有发布管线（`scripts/release-publish.mjs` / `release-version.mjs` / `changelog.mjs` / `packages.config.mjs`）与 docker workflow（`.github/workflows/docker.yml`）

@@ -1,6 +1,6 @@
 # dependfix
 
-## [0.3.3](https://github.com/dependfix/dependfix/compare/dependfix@0.3.2...dependfix@0.3.3) (2026-08-25)
+## [0.3.3](https://github.com/dependfix/dependfix/compare/dependfix@0.3.2...dependfix@0.3.3) (2026-08-26)
 
 
 ### ✨ 新功能
@@ -18,6 +18,7 @@
 * **platform:** A 模式 ContainerExecutor 创建 PR + 状态机 dispatched ([46b7c15](https://github.com/dependfix/dependfix/commit/46b7c15))
 * **platform:** A 模式 ContainerExecutor 推送修复分支到远程 ([83ec736](https://github.com/dependfix/dependfix/commit/83ec736))
 * **platform:** A 模式 PR 失败时保留 workDir 24h + 远程分支清理工具 ([3ed8303](https://github.com/dependfix/dependfix/commit/3ed8303))
+* **platform:** alerts UI 增加 ruleId 列 + dedupe 默认跨次去重 ([bb3b49a](https://github.com/dependfix/dependfix/commit/bb3b49a))
 * **platform:** alerts 视图切换支持按包 / 按项目 / 原始列表三选一 ([374a278](https://github.com/dependfix/dependfix/commit/374a278))
 * **platform:** alerts 页面新增 dedupe 模式 + 详情侧栏（PrimeVue Sidebar） ([4447ff8](https://github.com/dependfix/dependfix/commit/4447ff8))
 * **platform:** alerts 顶部图表 + rowGroup 按包聚合 ([5bb0f96](https://github.com/dependfix/dependfix/commit/5bb0f96))
@@ -43,6 +44,7 @@
 * **platform:** T1005-B2 sandboxLimits 端到端透传（orchestrator + repos API） ([b6bce6c](https://github.com/dependfix/dependfix/commit/b6bce6c))
 * **platform:** T1005-C 状态机扩展 degraded 终态（A 场景降级 / B 场景差异化） ([64135ed](https://github.com/dependfix/dependfix/commit/64135ed))
 * **platform:** 单仓库扫描支持 mode/severity 选择 ([1a663f3](https://github.com/dependfix/dependfix/commit/1a663f3))
+* **platform:** 历史 dialog 展示扫描失败原因 ([2dce01d](https://github.com/dependfix/dependfix/commit/2dce01d))
 * **platform:** 容器执行器声明容器环境跳过本地模式警告（T803） ([a8cc366](https://github.com/dependfix/dependfix/commit/a8cc366))
 * **platform:** 批量导入加过滤 / 分页缓存 / 默认凭据 ([2a7f99f](https://github.com/dependfix/dependfix/commit/2a7f99f))
 * **platform:** 接入 @intlify/eslint-plugin-vue-i18n 独立 lint 与 npm scripts ([eae70cf](https://github.com/dependfix/dependfix/commit/eae70cf))

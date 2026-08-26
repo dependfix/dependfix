@@ -1,6 +1,6 @@
 # @dependfix/platform
 
-# 0.1.0 (2026-08-25)
+# 0.1.0 (2026-08-26)
 
 
 ### ✨ 新功能
@@ -10,6 +10,7 @@
 * **platform:** A 模式 ContainerExecutor 创建 PR + 状态机 dispatched ([46b7c15](https://github.com/dependfix/dependfix/commit/46b7c15))
 * **platform:** A 模式 ContainerExecutor 推送修复分支到远程 ([83ec736](https://github.com/dependfix/dependfix/commit/83ec736))
 * **platform:** A 模式 PR 失败时保留 workDir 24h + 远程分支清理工具 ([3ed8303](https://github.com/dependfix/dependfix/commit/3ed8303))
+* **platform:** alerts UI 增加 ruleId 列 + dedupe 默认跨次去重 ([bb3b49a](https://github.com/dependfix/dependfix/commit/bb3b49a))
 * **platform:** alerts 视图切换支持按包 / 按项目 / 原始列表三选一 ([374a278](https://github.com/dependfix/dependfix/commit/374a278))
 * **platform:** alerts 页面新增 dedupe 模式 + 详情侧栏（PrimeVue Sidebar） ([4447ff8](https://github.com/dependfix/dependfix/commit/4447ff8))
 * **platform:** alerts 顶部图表 + rowGroup 按包聚合 ([5bb0f96](https://github.com/dependfix/dependfix/commit/5bb0f96))
@@ -45,6 +46,7 @@
 * **platform:** 仓库批量导入（GitHub 仓库列表多选 + 幂等批量创建，校验复用 repositorySchema） ([85c6988](https://github.com/dependfix/dependfix/commit/85c6988))
 * **platform:** 写操作权限收紧为 admin/org_admin 并新增组织资源校验（requireRole/requireOrgResource + 权限矩阵测试） ([8d515aa](https://github.com/dependfix/dependfix/commit/8d515aa))
 * **platform:** 单仓库扫描支持 mode/severity 选择 ([1a663f3](https://github.com/dependfix/dependfix/commit/1a663f3))
+* **platform:** 历史 dialog 展示扫描失败原因 ([2dce01d](https://github.com/dependfix/dependfix/commit/2dce01d))
 * **platform:** 同仓库扫描互斥锁（并发防护，M6 轻量版） ([e1ef2a9](https://github.com/dependfix/dependfix/commit/e1ef2a9))
 * **platform:** 告警/凭据/批量运行/扫描历史文案抽取 + 日期格式本地化 + 语言偏好持久化修复 ([90c392d](https://github.com/dependfix/dependfix/commit/90c392d))
 * **platform:** 定时扫描与批量处理数据模型（Schedule/BatchRun 实体 + 仓库标签 + 批量扫描校验） ([9f13aa0](https://github.com/dependfix/dependfix/commit/9f13aa0))

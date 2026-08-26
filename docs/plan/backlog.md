@@ -171,23 +171,7 @@
 
 > 本段为 2026-08-26 用户实测截图反馈触发的扫描历史/详情视图 UX 增强候选；与 C66 平级。原 3 项 UX-R1→R2→R3 中 **UX-R1 已由 M14.2 闭环**（2026-08-26，详见 [todo-archive.md §M14.2](todo-archive.md#m14-platform-release-通道闭环--ux-反馈跟进m14123xy-全部已闭环) + 历史归档指针段）+ **UX-R2 已由 M15 闭环**（2026-08-26，ahead 3 commits 待用户推送，详见 [todo-archive.md §M15](todo-archive.md#m15-扫描历史详情侧栏增强ux-r2已闭环) + 历史归档指针段）；剩余 UX-R3 顺延至 M16（待 P 阶段规划：M16.1 summary API + M16.2 页面骨架 + M16.3 RepoHistoryDialog 迁移），按依赖排序推进。**UX-R2 已从本段主条目迁出**，仅保留 UX-R3 当前候选 + 上文 UX-R1/UX-R2 历史归档指针说明。
 
-- **UX-R3 `/scans` 独立页面 + 替代 `RepoHistoryDialog`** —— 当前 `RepoHistoryDialog` 是 modal + 720px 固定宽度弹窗，内部 list/detail view 切换在狭窄空间内拥挤；用户痛点：6 列 DataTable 在 720px 内严重挤压 + 详情切换操作密集。**关键决策（2026-08-26 用户指示）**：用 query 形式而非 path segment，避免 i18n 路由前缀问题。
-  - **路由设计**（3 种 query 组合 + 单一页面）：
-    - `/scans` — 全局扫描汇总（聚合统计 + 全仓库运行列表 + 按仓库聚合）
-    - `/scans?repository={repoId}` — 单仓库扫描历史（替代 `RepoHistoryDialog` 主列表视图）
-    - `/scans?run={runId}` — 单 run 详情（替代 `RepoHistoryDialog` 详情 dialog，可与上一条 query 共存 `?repository=&run=`）
-  - **页面结构**：
-    - 顶部聚合卡片（4 块）：总运行数 / 成功数 / 失败数 / 24h 失败率 + 平均耗时 + 按来源分布（dependabot / code-scanning / code-quality / pnpm-audit）
-    - 中部按仓库聚合表格（默认视图）：行 = 仓库（owner/name），列 = 最近一次运行状态 + 24h 失败次数 + 7d 平均告警数 + 累计告警数；点击行 → 跳 `/scans?repository={repoId}`
-    - 底部"所有运行"列表（承接 UX-R1 分页）：列 = 仓库 / 状态 / 时间 / 告警数 / 修复数 / executorKind / error；行点击 → 跳 `/scans?run={runId}`
-  - **后端新增**：`/api/scan-history/summary.get.ts`（聚合统计 — 纯 SQL 应用层聚合 + N+1 防御）+ 复用 `/api/runs`（带 UX-R1 分页参数）
-  - **迁移**：[repos.vue](../../apps/platform/app/pages/repos.vue) 的 pi-history 按钮从打开 dialog 改为 `router.push('/scans?repository=' + id)`；`RepoHistoryDialog` 组件保留为 `/scans?run=` 的内部 detail dialog 复用
-  - **导航集成**：[apps/platform/app/layouts/default.vue](../../apps/platform/app/layouts/default.vue) `NuxtLink` 列表（导航项源）增加"扫描"菜单项
-  - **不做什么**：不动 batch-runs 页面（BatchRun 维度，跨仓库聚合，与单仓库 ScanRun 维度正交）/ 不改 dashboard 的 latestRun 卡片（汇总页独立提供更详细视图）
-  - **上收触发条件**：用户实测反馈弹窗体验差升级 / 单仓库历史数量 > 30 后 dialog 滚动操作痛苦
-  - **风险**：高（新增整页 + nav + 后端聚合 API + e2e；跨 5+ 文件）
-  - **关联**：依赖 UX-R1（汇总页底部"所有运行"列表使用分页 API）；可与 UX-R1 合并为同一子阶段 M14.x 推进
-  - **子阶段拆分建议**（M16 启动前 P 阶段规划）：M16.1 summary API + M16.2 页面骨架 + M16.3 RepoHistoryDialog 迁移 —— 详见 [todo.md §M16 候选](todo.md#当前阶段m15-已闭环--m16ux-r3-候选待启动)
+- **UX-R3 已上收 M16.1**：候选已迁入 [todo.md §M16 任务清单](todo.md#m16-任务清单) 与 [roadmap.md §M16 详细任务](roadmap.md#m16-平台可用性深化规划中p-阶段文档已落地)；按 backlog 维护规则已闭环条目从本段主条目迁出，仅保留历史指针；下一阶段 M16 P 阶段规划已确认（含 /scans 页面 + /api/runs 组织隔离）。
 
 ### 已评估不实现（决策保留于归档段）
 
@@ -219,28 +203,15 @@
 
 > 本节仅作归档指针，所有"已闭环"内容详见 [todo-archive.md](todo-archive.md) 对应区块。已闭环条目不应再出现在 backlog 主条目，避免读者误判为活跃任务。
 
-### 已闭环阶段（M0-M15）
+### 已闭环阶段
 
-- **M0-M11**：全部归档，详见 [todo-archive.md 主窗口](todo-archive.md) + [archive/todo-archive-phases-*.md 分片](archive/)
-- **M15 扫描历史详情侧栏增强（UX-R2）**（2026-08-26 闭环，3 commits ahead 待用户推送：`5c65177` P 阶段 docs + `1112017` feat 实施（5 文件 / +425/-12：utility 抽取 + i18n + `runs.statusDegraded`）+ `0a60e3d` test 覆盖（2 文件 / +251：16 case 单测 + 2 case e2e）；2 轮 code-auditor quick depth Pass）：详见 [todo-archive.md §M15](todo-archive.md#m15-扫描历史详情侧栏增强ux-r2已闭环)。包含 4 子任务：M15.1 UX-R2-A（`1112017` 实施：Sidebar 5 列运行元数据 + RunDetailDialog 新增 + utility 抽取 + i18n 7 键 + `runs.statusDegraded`）/ UX-R2-B（按执行器条件渲染 Run URL）/ UX-R2-C（`1112017` 一并交付 RunDetailDialog 复用 `GET /api/runs/:id`）/ UX-R2-D（`0a60e3d` 实施：16 case 单测覆盖 6 utility 所有分支 + 2 case e2e 覆盖 Sidebar 元数据 + URL 条件渲染）
-- **M14 platform release 通道闭环 + UX 反馈跟进**（2026-08-26 闭环，19 commits 全部落地 / ahead=0）：详见 [todo-archive.md §M14](todo-archive.md#m14-platform-release-通道闭环--ux-反馈跟进m14123xy-全部已闭环)。包含 4 子阶段：M14.1 T1310 F 阶段闭环（7 commits）/ M14.2 UX-R1 扫描历史分页（5 commits）/ M14.3 M13.4 T1403 follow-up（1 commit）/ M14.x neat-freak 批次（5 commits）+ M14.y 依赖批量治理（4 个 dependabot major PR）
-- **M13 治理 + UX 反馈 + 网络治理 + Code Scanning**（2026-08-26 归档，12 子任务 / 26 commits / ahead=3）：详见 [todo-archive.md §M13](todo-archive.md#m13-治理--ux-反馈--网络治理--code-scanning已闭环)。包含 4 子阶段：M13.1 治理 + UX（T1301+T1302+T1303+T1304）/ M13.2 网络治理 + 告警去重（T1305+T1306+T1309）/ M13.3 Code Scanning 规则化 + CQL（T1307+T1308）/ M13.4 UX 反馈批次立刻做（T1401+T1402+T1403）
-- **M12 平台 UX 一致性 + i18n 治理**（2026-08-25 归档）：详见 [todo-archive.md §M12](todo-archive.md#m12-平台-ux-一致性--i18n-治理已闭环)
-- **2026-08-20 e2e 修复批次**（C62 + C63 + C64 + chore）：详见 [archive/todo-archive-phases-m11.md §2026-08-20 e2e 修复批次](archive/todo-archive-phases-m11.md#2026-08-20-e2e-修复批次c62--c63--c64--chore)（2026-08-26 M15 归档批次从 todo-archive.md 主窗口迁出至分片）
-- **2026-08-19~20 平台 UX/可用性闭环批次**（C46-C61 + 3 个 PR + 3 个独立 fix）：详见 [archive/todo-archive-phases-m11.md](archive/todo-archive-phases-m11.md)
-- **M11 业务可见性 + 沙箱落地 + 安全文档**（2026-08-20，22 commits）：详见 [todo-archive.md §M11 推进批次](todo-archive.md#2026-08-20-m11-推进批次业务可见性--沙箱落地--安全文档--通知基建) + [archive/todo-archive-phases-m11.md §M11 推进批次](archive/todo-archive-phases-m11.md#m11-推进批次业务可见性--沙箱落地--安全文档--通知基建)
-- **M10 独立沙箱容器**（C26 + T1001-T1004 + T912 + C28）：详见 [todo-archive.md §M10](todo-archive.md#m10-独立沙箱容器-c26-实施规划已归档) + [§T912](todo-archive.md#t912-smtp-邮件发送器主体收口t9123--c28-联动)
-- **M9 i18n 基建同步**（2026-08-18）：详见 [archive/todo-archive-phases-m11.md §M9](archive/todo-archive-phases-m11.md#m9-i18n-基建同步已归档)
-- **M8 安全加固与容器执行完备**（2026-08-14）：详见 [archive/todo-archive-phases-m6-m7-t711.md §M8](archive/todo-archive-phases-m6-m7-t711.md#m8-安全加固与容器执行完备已归档)
-- **M7.1 认证与用户体系**（2026-08-10）：详见 [archive/todo-archive-phases-m6-m7-t711.md §M7.1](archive/todo-archive-phases-m6-m7-t711.md#m71-认证与用户体系已归档)
-- **M7.2 平台能力深化**（2026-08-12）：详见 [archive/todo-archive-phases-m6-m7-t711.md §M7.2](archive/todo-archive-phases-m6-m7-t711.md#m72-平台能力深化已归档)
-- **M6 最小平台 MVP**（2026-08-08）：详见 [archive/todo-archive-phases-m6-m7-t711.md §M6](archive/todo-archive-phases-m6-m7-t711.md#m6-最小平台-mvp已归档)
-- **M5.5 Skill 编排（CLI 先行）**（2026-08-07）：详见 [archive/todo-archive-phases-m2-m55.md §M5.5](archive/todo-archive-phases-m2-m55.md#m55-skill-编排cli-先行已归档)
-- **M5 AI Breaking Change 研判**（2026-08-07）：详见 [archive/todo-archive-phases-m2-m55.md §M5](archive/todo-archive-phases-m2-m55.md#m5-ai-breaking-change-研判已归档)
-- **M4.6 / M4.5 / M4 多仓库治理增强**（2026-08-06）：详见 [archive/todo-archive-phases-m2-m55.md §M4](archive/todo-archive-phases-m2-m55.md#m4-多仓库治理增强已归档)
-- **M3 Code Scanning 扩展**（2026-08-06）：详见 [archive/todo-archive-phases-m2-m55.md §M3](archive/todo-archive-phases-m2-m55.md#m3-code-scanning-扩展已归档)
-- **M2 GitHub Action 接入**（2026-08-05）：详见 [archive/todo-archive-phases-m2-m55.md §M2](archive/todo-archive-phases-m2-m55.md#m2-github-action-接入已归档)
-- **M1 MVP 单仓库自动修复** / **M0 基线收敛**：详见 [archive/todo-archive-phases-m0-m1.md](archive/todo-archive-phases-m0-m1.md)
+- **M15**（2026-08-26，UX-R2）：[todo-archive.md §M15](todo-archive.md#m15-扫描历史详情侧栏增强ux-r2已闭环)
+- **M14**（2026-08-26，T1310 + UX-R1 + neat-freak + 依赖批量治理）：[todo-archive.md §M14](todo-archive.md#m14-platform-release-通道闭环--ux-反馈跟进m14123xy-全部已闭环)
+- **M13**（2026-08-26，治理 + UX 反馈 + 网络治理 + Code Scanning）：[todo-archive.md §M13](todo-archive.md#m13-治理--ux-反馈--网络治理--code-scanning已闭环)
+- **M12**（2026-08-25，平台 UX + i18n）：[todo-archive.md §M12](todo-archive.md#m12-平台-ux-一致性--i18n-治理已闭环)
+- **M0-M11**：详见 [todo-archive.md](todo-archive.md) + [archive/todo-archive-phases-*.md](archive/)
+
+> 已闭环条目不应再在 backlog 主条目重复登记；详见各阶段归档文档。
 
 ### 已闭环特定批次
 

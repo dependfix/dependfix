@@ -4,9 +4,9 @@
 
 ## 当前状态
 
-**M6（最小平台 MVP）已完成（2026-08-08），M7.1（认证与用户体系）规划定稿 + 设计先行完成（2026-08-09，待实施）。** M0（基线收敛）/ M1（MVP 单仓库修复）/ M2（GitHub Action 接入）/ M3（Code Scanning 扩展）/ M4（多仓库治理）/ M4.5（跨线升级显式授权）/ M4.6（Monorepo 成员级修复）/ M5（AI Breaking Change 研判）/ M5.5（Skill 编排）/ M6（最小平台 MVP）已完成并归档。
+**M0-M15 已全部闭环归档（2026-08-26）；当前 M16 平台可用性深化 5 项候选 P 阶段规划已落地（仅文档改动），待用户指令进入 D 阶段。** M16 涵盖：M16.1 UX-R3 `/scans` 页面（含 `/api/runs` 组织隔离）/ M16.2 C66-D alerts 一键修复入口 / M16.3 C36 服务端 API 错误消息 i18n / M16.4 PrimeVue hydration 缓解（alerts 迁移 `useAsyncData`）/ M16.5 T701-e2e 管理端点集成测试补强。详见 [todo.md §M16 任务清单](plan/todo.md#m16-任务清单) 与 [roadmap.md §M16](plan/roadmap.md#m16-平台可用性深化规划中p-阶段文档已落地)。
 
-`dependfix` CLI 支持四类命令（`report-only` / `fix` / `fix-and-pr` / `cleanup-branches`），可通过 GitHub Composite Action（`uses: dependfix/dependfix@v1`）提供零配置的自动化安全修复能力；独立管理平台（仓库/凭据管理、扫描触发、仪表板）与 MCP Server 已随 M6 落地。
+`dependfix` CLI 支持四类命令（`report-only` / `fix` / `fix-and-pr` / `cleanup-branches`），可通过 GitHub Composite Action（`uses: dependfix/dependfix@v1`）提供零配置的自动化安全修复能力；独立管理平台（仓库/凭据管理、扫描触发、仪表板、UX-R2 Sidebar、RunDetailDialog）与 MCP Server 已随 M6-M15 落地。
 
 ## 定位
 

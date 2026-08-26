@@ -118,11 +118,11 @@
 #### Code Scanning 规则体系
 
 - **C15** B 类规则真实仓库样本核对（B 类列表覆盖 js/py/java 精选集，其余语言 go/ruby/csharp/cpp 落 C 兜底；需真实仓库 API 样本核对规则 id 格式与变体分布；来源：T302 Review Gate 2026-08-05）
-- **C16** 规则分类配置化（从硬编码常量表升级为配置文件 / env / 平台界面可配置；触发：M3 治理扩展 + 用户实测反馈规则分类需求；来源：T302 设计 2026-08-05）
+- ~~**C16** 规则分类配置化（从硬编码常量表升级为配置文件 / env / 平台界面可配置；触发：M3 治理扩展 + 用户实测反馈规则分类需求；来源：T302 设计 2026-08-05）~~ **2026-08-26 状态：已由 M13.3 T1307 闭环落地**（详见 [todo-archive.md §M13](todo-archive.md#m13-治理--ux-反馈--网络治理--code-scanning已闭环)），条目从 backlog 主条目迁出；C16 后续增强候选（模块级 active config 单例 → 多 worker pool 场景需 per-worker config 隔离 / JSON 配置格式后续支持 wildcard 如 `js/*-injection`）登记于 todo-archive.md §M13.3 T1307 follow-up
 
 #### Code Quality（Standard findings）
 
-- **C21** 接入 `GET /repos/{owner}/{repo}/code-quality/findings` 数据源（确定性 CodeQL 质量规则：maintainability / reliability；新增 `source: 'code-quality'` 复用 `NormalizedSecurityAlert` 模型 + A/B/C 规则分层；首版 report-only C 类默认；不阻塞 M5/M6；M5 后评估完整支持，最小报告接入可提前；**定价澄清**：Standard findings 免费跑仅 Actions minutes，付费面为 AI findings/Copilot Autofix；前置：IAT/GITHUB_TOKEN 对 `code-quality/findings` 权限可达性实测）
+> **2026-08-26 状态更新**：C21（code-quality/findings 数据源接入）已由 M13.3 T1308 闭环落地（详见 [todo-archive.md §M13](todo-archive.md#m13-治理--ux-反馈--网络治理--code-scanning已闭环)），条目从 backlog 主条目迁出；C21 后续增强候选（rule.category 注入 NormalizedSecurityAlert / 平台 ScanRequest schema 扩展 codeQualityEnabled / 报告 markdown 展示 category 列）登记于 todo-archive.md §M13.3 T1308 follow-up。
 
 #### org 增强
 
@@ -230,9 +230,10 @@
 
 > 本节仅作归档指针，所有"已闭环"内容详见 [todo-archive.md](todo-archive.md) 对应区块。已闭环条目不应再出现在 backlog 主条目，避免读者误判为活跃任务。
 
-### 已闭环阶段（M0-M12）
+### 已闭环阶段（M0-M13）
 
 - **M0-M11**：全部归档，详见 [todo-archive.md 主窗口](todo-archive.md) + [archive/todo-archive-phases-*.md 分片](archive/)
+- **M13 治理 + UX 反馈 + 网络治理 + Code Scanning**（2026-08-26 归档，12 子任务 / 26 commits / ahead=3）：详见 [todo-archive.md §M13](todo-archive.md#m13-治理--ux-反馈--网络治理--code-scanning已闭环)。包含 4 子阶段：M13.1 治理 + UX（T1301+T1302+T1303+T1304）/ M13.2 网络治理 + 告警去重（T1305+T1306+T1309）/ M13.3 Code Scanning 规则化 + CQL（T1307+T1308）/ M13.4 UX 反馈批次立刻做（T1401+T1402+T1403）
 - **M12 平台 UX 一致性 + i18n 治理**（2026-08-25 归档）：详见 [todo-archive.md §M12](todo-archive.md#m12-平台-ux-一致性--i18n-治理已闭环)
 - **2026-08-20 e2e 修复批次**（C62 + C63 + C64 + chore）：详见 [todo-archive.md §2026-08-20 e2e 修复批次](todo-archive.md#2026-08-20-e2e-修复批次c62--c63--c64--chore)
 - **2026-08-19~20 平台 UX/可用性闭环批次**（C46-C61 + 3 个 PR + 3 个独立 fix）：详见 [archive/todo-archive-phases-m11.md](archive/todo-archive-phases-m11.md)
@@ -253,6 +254,8 @@
 ### 已闭环特定批次
 
 - **C53 平台集成模式 fix 修复结果推送远程**：详见 [todo-archive.md §C53](todo-archive.md#c53-平台集成模式-fix-修复结果推送远程已归档)
+- **C16 规则分类配置化**（2026-08-26 闭环于 M13.3 T1307）：详见 [todo-archive.md §M13.3 T1307](todo-archive.md#m13-治理--ux-反馈--网络治理--code-scanning已闭环)
+- **C21 code-quality-findings 接入**（2026-08-26 闭环于 M13.3 T1308）：详见 [todo-archive.md §M13.3 T1308](todo-archive.md#m13-治理--ux-反馈--网络治理--code-scanning已闭环)
 - **MCP 能力补充 C31 / C32**：详见 [archive/todo-archive-phases-m2-m55.md §M5.5 / T508](archive/todo-archive-phases-m2-m55.md#m55-skill-编排cli-先行已归档)
 - **M2 增强候选 B1 / B2 / B3**：详见 [archive/todo-archive-phases-m2-m55.md §M2](archive/todo-archive-phases-m2-m55.md#m2-github-action-接入已归档)
 

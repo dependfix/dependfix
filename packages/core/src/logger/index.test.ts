@@ -76,6 +76,45 @@ describe('createLogger', () => {
         expect(parsed.context).toEqual({ repo: 'foo/bar', count: 3 })
     })
 
+    it('does not double-escape object values in JSON message when passed via context', () => {
+        // 回归测试：若把 JSON.stringify(obj) 嵌进 message 字符串，外层
+        // JSON.stringify(payload) 会把内层 \" 再转义成 \\\"，日志里出现
+        // `applying overrides {\"k\":\"v\"}` 这种难以阅读的输出。
+        // 正确做法是把对象作为结构化 context 传入。
+        const captured = captureConsole()
+        const logger = createLogger({ name: 'ctx-obj-logger', forceJson: true })
+
+        const overrides = { '@nuxt/devtools': '^3.3.1', 'brace-expansion@1': '^1.1.18' }
+        logger.info('[multi-version] @nuxt/devtools: applying versioned overrides', { overrides })
+
+        const parsed = JSON.parse(captured[0].line) as Record<string, unknown>
+        expect(parsed.message).toBe('[multi-version] @nuxt/devtools: applying versioned overrides')
+        expect(parsed.message).not.toContain('\\"')
+        expect(parsed.context).toEqual({ overrides })
+        // 外层 JSON 可被标准解析器正确还原结构化字段（无转义污染）
+        expect(typeof (parsed.context as Record<string, unknown>).overrides).toBe('object')
+    })
+
+    it('pretty mode renders object context without escaping pollution', () => {
+        vi.stubGlobal('process', {
+            ...process,
+            stdout: { ...process.stdout, isTTY: true },
+        })
+
+        const captured = captureConsole()
+        const logger = createLogger({ name: 'ctx-obj-pretty' })
+
+        const overrides = { '@nuxt/devtools': '^3.3.1' }
+        logger.info('[multi-version] @nuxt/devtools: applying versioned overrides', { overrides })
+
+        const line = captured[0].line
+        expect(line).toContain('[multi-version] @nuxt/devtools: applying versioned overrides')
+        // 关键回归断言：pretty 模式下也不应出现双层 \" 转义
+        expect(line).not.toContain('\\"')
+        // overrides 字段应作为单一值渲染（key=value 形式）
+        expect(line).toContain('overrides=')
+    })
+
     it('omits context field in JSON when context is absent', () => {
         const captured = captureConsole()
         const logger = createLogger({ name: 'no-ctx', forceJson: true })

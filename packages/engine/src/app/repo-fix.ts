@@ -282,7 +282,7 @@ async function applyLockfileFixes(
         const targetSummary = targets.length > 0 ? targets.join(', ') : alert.recommendedVersion
         if (ctx.config.dryRun) {
             // dry-run 不写盘：仅记录计划动作（与 upgradeAlert 的 dry-run 语义一致）
-            ctx.logger.info(`[dry-run] Would apply versioned overrides for ${alert.packageName}: ${JSON.stringify(versionedOverrides)}`)
+            ctx.logger.info(`[dry-run] Would apply versioned overrides for ${alert.packageName}`, { overrides: versionedOverrides })
             ctx.allActions.push({
                 type: 'dependency-upgrade',
                 repository: alert.repository,
@@ -303,9 +303,7 @@ async function applyLockfileFixes(
             continue
         }
         const snapshot = snapshotTrackedFiles(ctx.workDir)
-        ctx.logger.info(
-            `[multi-version] ${alert.packageName}: applying versioned overrides ${JSON.stringify(versionedOverrides)}`,
-        )
+        ctx.logger.info(`[multi-version] ${alert.packageName}: applying versioned overrides`, { overrides: versionedOverrides })
         const result = await applyVersionedOverrides({
             packageName: alert.packageName,
             versionedOverrides,

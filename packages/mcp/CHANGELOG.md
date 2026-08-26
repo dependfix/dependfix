@@ -1,6 +1,6 @@
 # @dependfix/mcp
 
-## [0.1.3](https://github.com/dependfix/dependfix/compare/@dependfix/mcp@0.1.2...@dependfix/mcp@0.1.3) (2026-08-26)
+## [0.1.4](https://github.com/dependfix/dependfix/compare/@dependfix/mcp@0.1.2...@dependfix/mcp@0.1.4) (2026-08-26)
 
 
 ### 🐛 Bug 修复
@@ -9,19 +9,16 @@
 
 ## 0.1.2 (2026-08-12)
 
-
 ### ✨ 新功能
 
 * **mcp:** 实施 P1 能力补充（run_scan 参数化 / fetch_alerts 双源 / fix_dependency 多类型） ([62a655e](https://github.com/dependfix/dependfix/commit/62a655e))
 * **mcp:** 实施 P2 能力补充（discover_repos / cleanup_branches / AI 透传 / history） ([d312570](https://github.com/dependfix/dependfix/commit/d312570))
 * **mcp:** 新增 @dependfix/mcp MCP Server（T605） ([014f6d2](https://github.com/dependfix/dependfix/commit/014f6d2))
 
-
 ### 🐛 Bug 修复
 
 * **mcp:** 修正 fetch_alerts severity 阈值语义并复用 core 过滤校验 API ([4fc22fb](https://github.com/dependfix/dependfix/commit/4fc22fb))
 * **types:** strict 迁移修复（null/undefined 收窄与类型对齐） ([50c9dac](https://github.com/dependfix/dependfix/commit/50c9dac))
-
 
 ### 📦 代码重构
 

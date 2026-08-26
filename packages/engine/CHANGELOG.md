@@ -1,6 +1,6 @@
 # @dependfix/engine
 
-# [0.2.0](https://github.com/dependfix/dependfix/compare/@dependfix/engine@0.1.3...@dependfix/engine@0.2.0) (2026-08-26)
+# [0.3.0](https://github.com/dependfix/dependfix/compare/@dependfix/engine@0.1.3...@dependfix/engine@0.3.0) (2026-08-26)
 
 
 ### ✨ 新功能
@@ -33,7 +33,6 @@
 
 ## 0.1.3 (2026-08-12)
 
-
 ### 🐛 Bug 修复
 
 * **engine:** 清理 lint 警告（未使用参数、动态删除与 IO 组拆分） ([8f95a2e](https://github.com/dependfix/dependfix/commit/8f95a2e))
@@ -41,7 +40,6 @@
 * **engine:** overrides 生成先判定大版本冲突并与已有条目取 max 合并 ([2d5cc0c](https://github.com/dependfix/dependfix/commit/2d5cc0c))
 * **security:** 修复 CodeQL 告警（Actions 权限 / shell 参数化 / ReDoS / 表格转义） ([34e5575](https://github.com/dependfix/dependfix/commit/34e5575))
 * **types:** strict 迁移修复（null/undefined 收窄与类型对齐） ([50c9dac](https://github.com/dependfix/dependfix/commit/50c9dac))
-
 
 ### 📦 代码重构
 

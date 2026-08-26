@@ -1,6 +1,6 @@
 # @dependfix/core
 
-# [0.3.0](https://github.com/dependfix/dependfix/compare/@dependfix/core@0.2.0...@dependfix/core@0.3.0) (2026-08-26)
+# [0.4.0](https://github.com/dependfix/dependfix/compare/@dependfix/core@0.2.0...@dependfix/core@0.4.0) (2026-08-26)
 
 
 ### ✨ 新功能
@@ -16,13 +16,11 @@
 
 ## [0.2.1](https://github.com/dependfix/dependfix/compare/@dependfix/core@0.2.0...@dependfix/core@0.2.1) (2026-08-12)
 
-
 ### 🐛 Bug 修复
 
 * **security:** 修复 CodeQL 告警（Actions 权限 / shell 参数化 / ReDoS / 表格转义） ([34e5575](https://github.com/dependfix/dependfix/commit/34e5575))
 
 # [0.2.0](https://github.com/dependfix/dependfix/compare/@dependfix/core@0.1.0...@dependfix/core@0.2.0) (2026-08-07)
-
 
 ### ✨ 新功能
 
@@ -36,13 +34,11 @@
 * PR body 新增 ✅ Fixed Alerts 告警级明细（用户反馈 PR [#27](https://github.com/dependfix/dependfix/issues/27)） ([a82f658](https://github.com/dependfix/dependfix/commit/a82f658))
 * **report:** AI 用量聚合段（aiUsage 进报告/JSON/摘要）+ 修复 CI lint-md 穿透 node_modules ([a753029](https://github.com/dependfix/dependfix/commit/a753029))
 
-
 ### 🐛 Bug 修复
 
 * **cli:** 跨线告警不自动修复且不误标 fixed/converged（PR [#28](https://github.com/dependfix/dependfix/issues/28) 复盘） ([220df7b](https://github.com/dependfix/dependfix/commit/220df7b))
 * **cli:** verify 工具链同版本 + PR body 截断 + 统计口径拆分（C2/C6/C7） ([cf12e38](https://github.com/dependfix/dependfix/commit/cf12e38))
 * M3 收尾遗留修复（用户确认批次） ([e1aad1e](https://github.com/dependfix/dependfix/commit/e1aad1e))
-
 
 ### 📦 代码重构
 
@@ -51,7 +47,6 @@
 * src 目录结构收敛——根目录仅保留入口文件 ([bb24ef0](https://github.com/dependfix/dependfix/commit/bb24ef0))
 
 # 0.1.0 (2026-08-03)
-
 
 ### ✨ 新功能
 
@@ -64,12 +59,10 @@
 * **core:** 日志输出支持 TTY 格式化彩色文本，非 TTY 保持 JSON ([45bbfa6](https://github.com/dependfix/dependfix/commit/45bbfa6))
 * **report:** 实现 Markdown / JSON 报告生成器 ([a0556d9](https://github.com/dependfix/dependfix/commit/a0556d9))
 
-
 ### 🐛 Bug 修复
 
 * 报告文件名与分支名改用 runId 尾段，修复固定前缀截断导致相互覆盖 ([60a0e8d](https://github.com/dependfix/dependfix/commit/60a0e8d))
 * **package:** 修复 exports 中 types 条件排序警告, 更新 T105 状态 ([cae3202](https://github.com/dependfix/dependfix/commit/cae3202))
-
 
 ### 📦 代码重构
 

@@ -1,6 +1,6 @@
 # @dependfix/platform
 
-# 0.1.0 (2026-08-26)
+# 0.2.0 (2026-08-26)
 
 
 ### ✨ 新功能
@@ -127,4 +127,3 @@
 * **platform:** repos 页批量导入 Dialog 拆分为 ImportReposDialog 子组件 ([4ee9cf5](https://github.com/dependfix/dependfix/commit/4ee9cf5))
 * **platform:** server 代码统一改用 #server/ 别名引入 ([fb62e25](https://github.com/dependfix/dependfix/commit/fb62e25))
 * **platform:** 用户管理与个人设置改用 better-auth 原生端点（移除自建 /api/me 与 /api/users 代理） ([a115e35](https://github.com/dependfix/dependfix/commit/a115e35))
-

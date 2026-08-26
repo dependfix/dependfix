@@ -1,6 +1,6 @@
 # dependfix
 
-## [0.3.3](https://github.com/dependfix/dependfix/compare/dependfix@0.3.2...dependfix@0.3.3) (2026-08-26)
+# [0.4.0](https://github.com/dependfix/dependfix/compare/dependfix@0.3.2...dependfix@0.4.0) (2026-08-26)
 
 
 ### ✨ 新功能
@@ -116,7 +116,6 @@
 
 ## [0.3.2](https://github.com/dependfix/dependfix/compare/dependfix@0.2.0...dependfix@0.3.2) (2026-08-12)
 
-
 ### ✨ 新功能
 
 * **action:** 新增 commands 输入支持自定义验证链（Nuxt prepare 修复验证失败） ([2612e1a](https://github.com/dependfix/dependfix/commit/2612e1a))
@@ -160,7 +159,6 @@
 * **scripts:** release-publish 发布执行器（替代 changeset publish） ([3b51126](https://github.com/dependfix/dependfix/commit/3b51126))
 * **scripts:** release-version 版本提升执行器（替代 changeset version） ([40b6478](https://github.com/dependfix/dependfix/commit/40b6478))
 
-
 ### 🐛 Bug 修复
 
 * **action:** 构建链补齐 @dependfix/engine（cli 运行时 imports engine dist，漏构建导致 Security Auto Fix 首跑 ERR_MODULE_NOT_FOUND） ([288ff36](https://github.com/dependfix/dependfix/commit/288ff36))
@@ -185,7 +183,6 @@
 * **security:** 修复 CodeQL 告警（Actions 权限 / shell 参数化 / ReDoS / 表格转义） ([34e5575](https://github.com/dependfix/dependfix/commit/34e5575))
 * **test:** 修复全量并发时 cli git/子进程测试超时 flaky ([db4d8e6](https://github.com/dependfix/dependfix/commit/db4d8e6))
 * **types:** strict 迁移修复（null/undefined 收窄与类型对齐） ([50c9dac](https://github.com/dependfix/dependfix/commit/50c9dac))
-
 
 ### 📦 代码重构
 

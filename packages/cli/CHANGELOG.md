@@ -1,6 +1,6 @@
 # dependfix
 
-## [0.3.3](https://github.com/dependfix/dependfix/compare/dependfix@0.3.2...dependfix@0.3.3) (2026-08-26)
+# [0.4.0](https://github.com/dependfix/dependfix/compare/dependfix@0.3.2...dependfix@0.4.0) (2026-08-26)
 
 
 ### ✨ 新功能
@@ -14,17 +14,14 @@
 
 ## [0.3.2](https://github.com/dependfix/dependfix/compare/dependfix@0.2.0...dependfix@0.3.2) (2026-08-12)
 
-
 ### ✨ 新功能
 
 * **mcp:** 实施 P1 能力补充（run_scan 参数化 / fetch_alerts 双源 / fix_dependency 多类型） ([62a655e](https://github.com/dependfix/dependfix/commit/62a655e))
 * **mcp:** 实施 P2 能力补充（discover_repos / cleanup_branches / AI 透传 / history） ([d312570](https://github.com/dependfix/dependfix/commit/d312570))
 
-
 ### 🐛 Bug 修复
 
 * **test:** 修复全量并发时 cli git/子进程测试超时 flaky ([db4d8e6](https://github.com/dependfix/dependfix/commit/db4d8e6))
-
 
 ### 📦 代码重构
 

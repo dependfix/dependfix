@@ -426,6 +426,7 @@
         "colSeverity": "严重级别",
         "colPackage": "包/规则",
         "colSource": "来源",
+        "colRuleId": "规则标识",
         "colFixable": "可修复",
         "colRecommended": "推荐版本",
         "colStatus": "状态",

@@ -44,15 +44,18 @@ const filters = ref({
     repositoryId: 'all',
     severity: 'all',
     source: 'all',
-    dedupe: 'off',
+    /**
+     * dedupe 模式（todo.md §T1306）：
+     * - off：返回全量 ScanResult（向后兼容）
+     * - across：跨次扫描去重，按 fingerprint (repositoryId + packageName + ruleId) 聚合（默认）
+     *
+     * 默认值改 across 原因（实测反馈）：
+     * - 用户首次进入 alerts 视图即可看到跨次扫描聚合视图，避免被相同告警重复刷屏
+     * - 后端 /api/alerts 默认 dedupe=false 保持不变（向后兼容）；仅前端 UI 主动 ?dedupe=true 触发跨次去重
+     */
+    dedupe: 'across',
 })
 
-/** dedupe 模式（todo.md §T1306）：
- * - off：返回全量 ScanResult（默认，向后兼容）
- * - across：跨次扫描去重，按 fingerprint (repositoryId + packageName + ruleId) 聚合
- */
-type DedupeMode = 'off' | 'across'
-const dedupeMode = ref<DedupeMode>('off')
 const dedupeOptions = computed(() => [
     { label: t('alerts.dedupeOff'), value: 'off' as const },
     { label: t('alerts.dedupeAcross'), value: 'across' as const },
@@ -98,6 +101,23 @@ const severityTagSeverity = (severity: string) => {
             return 'warn'
         case 'medium':
             return 'info'
+        default:
+            return 'secondary'
+    }
+}
+
+// ruleId Tag 颜色映射（实测反馈：alerts UI 看不到 GHSA/CVE/rule 关键标识）
+// source 不同 → 不同 severity 区分；ruleId 字段混用（GHSA / CVE / advisory URL / CodeQL rule id / Code Quality finding id）
+const ruleIdTagSeverity = (source: string) => {
+    switch (source) {
+        case 'dependabot':
+            return 'success'
+        case 'pnpm-audit':
+            return 'warn'
+        case 'code-scanning':
+            return 'info'
+        case 'code-quality':
+            return 'contrast'
         default:
             return 'secondary'
     }
@@ -455,6 +475,35 @@ onMounted(async () => {
                             <Tag :value="data.source" severity="secondary" />
                         </template>
                     </Column>
+                    <Column
+                        field="ruleId"
+                        :header="t('alerts.colRuleId')"
+                        :export="false"
+                        sortable
+                        :style="{width: '180px'}"
+                    >
+                        <template #body="{data}">
+                            <!-- 实测反馈：alert 行展示 GHSA/CVE/rule id；htmlUrl 存在时点击跳 advisory 详情 -->
+                            <a
+                                v-if="data.ruleId && data.htmlUrl"
+                                :href="data.htmlUrl"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                class="alerts__ruleid-link"
+                                :title="data.ruleId"
+                            >
+                                <Tag :value="data.ruleId" :severity="ruleIdTagSeverity(data.source)" />
+                            </a>
+                            <span
+                                v-else-if="data.ruleId"
+                                class="alerts__ruleid-plain"
+                                :title="data.ruleId"
+                            >
+                                <Tag :value="data.ruleId" :severity="ruleIdTagSeverity(data.source)" />
+                            </span>
+                            <span v-else class="text-muted">—</span>
+                        </template>
+                    </Column>
                     <Column :header="t('alerts.colFixable')">
                         <template #body="{data}">
                             <Tag
@@ -676,6 +725,27 @@ onMounted(async () => {
     &__sidebar-meta {
         margin: 0;
         font-size: $font-size-sm;
+    }
+
+    // ruleId 列：长 GHSA/CVE/URL 不撑列宽（实测反馈）
+    &__ruleid-link {
+        text-decoration: none;
+        display: inline-flex;
+        max-width: 100%;
+    }
+
+    &__ruleid-plain {
+        display: inline-flex;
+        max-width: 100%;
+    }
+
+    &__ruleid-link :deep(.p-tag-label),
+    &__ruleid-plain :deep(.p-tag-label) {
+        max-width: 160px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        display: inline-block;
     }
 }
 </style>

@@ -270,7 +270,7 @@
   - Code Quality rule.category（maintainability / reliability 等）当前未注入 NormalizedSecurityAlert；报告 markdown 暂不展示 category 列；后续 fetcher 注入后可补展示
   - 平台扫描请求 schema 当前未含 `codeQualityEnabled` 字段（仅展示用，未启用生产扫描）；backlog C21 后续如需平台发起 Code Quality 扫描，再扩展 ScanRequest schema + orchestrator + queue payload
 
-### M13.4 UX 反馈批次立刻做（低风险 UX 修复，2026-08-26 实测反馈 6 项中选 3 项）
+### M13.4 UX 反馈批次立刻做（低风险 UX 修复，2026-08-26 实测反馈 6 项中选 3 项）—— 闭环 2026-08-26
 
 > **本批次背景（2026-08-26）**：用户实测截图反馈 6 项 UX 问题（扫描失败原因 / 扫描历史分页 / 弹窗不便 / GHSA/CVE ID 与去重默认值 / 详情侧栏无区分度 / 扫描历史汇总页）。按 [规划规范 §1.1](../../docs/standards/planning.md) ≤5-6 项硬上限 + 与 T1310 (M14 platform release 通道) 互不干扰原则，**3 项低风险立刻做（M13.4）** + **3 项进 backlog 暂缓（[UX-R1~R3](backlog.md) §扫描历史与详情 UX 段）**。
 >
@@ -281,10 +281,23 @@
 > | 子任务 | 改动范围 | commits | 风险 |
 > |:---|:---|:---:|:---:|
 > | T1401 失败原因展示 | `RepoHistoryDialog.vue` + i18n 双语 | 1 | 极低 |
-> | T1402 alerts UI 增加 ruleId 列 | `alerts.vue` + i18n 双语 + e2e | 1 | 低 |
-> | T1403 dedupe 默认值改为 across | `alerts.vue` 单行 ref | 1 | 极低 |
+> | T1402 alerts UI 增加 ruleId 列 | `alerts.vue` + i18n 双语 + e2e | 1（与 T1403 合并） | 低 |
+> | T1403 dedupe 默认值改为 across | `alerts.vue` 单行 ref | 1（与 T1402 合并） | 极低 |
+>
+> **闭环记录**：
+>
+> - 实施 commit：
+>   - `2dce01d feat(platform): 历史 dialog 展示扫描失败原因`（T1401）
+>   - `bb3b49a feat(platform): alerts UI 增加 ruleId 列 + dedupe 默认跨次去重`（T1402 + T1403 合并提交：T1402 与 T1403 都动 alerts.vue，单独拆分会增加无效 commit 噪音，故合并；commit message 内明确区分各功能；todo.md 与 commit message 双向追溯保留原子语义）
+> - 完整验证：`pnpm lint` / `pnpm --filter @dependfix/platform typecheck` / `pnpm lint:i18n` 0 error / `pnpm --filter @dependfix/platform exec playwright test alerts-rowgroup` 6/6 passed + 既有 `history-dialog.e2e.test.ts` 2/2 passed / git diff --check 0 error
+> - 关键决策回顾（2026-08-26）：
+>   - **T1403 RG-B1 修复**：Code Auditor 第 1 轮发现 `dedupeMode` 是 dead ref（自 T1306 commit `4447ff84` 引入以来从未被消费，实际生效路径是 `filters.dedupe`）。按 [code-reviewer §2.5.4 复审只审修复点](../../.github/skills/code-reviewer/SKILL.md) 自检：删除 dead ref + JSDoc 迁移到 `filters` ref 上方 + 默认值改为 `'across'`。修复后 query / Select v-model / 列显隐全部读 `filters.dedupe`，与 T1403 验收对齐
+> - follow-up（登记 backlog 或下个 neat-freak）：
+>   - `alerts-rowgroup.e2e.test.ts:215-225` 现有 dedupe 用例在 T1403 修复后失去对「用户主动切换 off → across」的覆盖（默认即 across）；建议补 1 case 断言首屏默认请求 URL 含 `dedupe=true`（[code-reviewer §RG-S2](../../.github/skills/code-reviewer/SKILL.md)）
+>   - ruleId 列 `:export="false"`（Code Auditor §RG-S3）：导出功能当前未启用，预留默认即可；产品决策后续评估
+>   - T1401 失败 Error Banner 的 e2e 暂未自动化验证（Nuxt SSR + PrimeVue DataTable + repos.vue pollRun 三方交互下 mock 不稳定）；改为手动 vite preview + screenshot 验证
 
-#### T1401 扫描失败原因展示（实测反馈 1）—— 待启动
+#### T1401 扫描失败原因展示（实测反馈 1）—— 闭环 2026-08-26
 
 - **优先级**：P1（用户截图痛点直接：6/8 failed 但看不到原因）
 - **依赖**：—
@@ -309,7 +322,7 @@
   - playwright e2e 新增 1 case：mock `/api/runs` 返回 `status='failed' + error.code='AUTH_FAILED' + error.message='Invalid token'` → 详情面板可见 Error Banner
 - **风险**：极低（纯前端，无 schema/数据改动）
 
-#### T1402 alerts UI 增加 ruleId 列（GHSA/CVE/rule 智能显示，实测反馈 4a）—— 待启动
+#### T1402 alerts UI 增加 ruleId 列（GHSA/CVE/rule 智能显示，实测反馈 4a）—— 闭环 2026-08-26
 
 - **优先级**：P1
 - **依赖**：—
@@ -342,7 +355,7 @@
 - **风险**：低
 - **与 [backlog.md §C66-C](backlog.md) 关系**：T1402 是"轻量前端列展示 ruleId"，不依赖 ScanResult 新增 ghsaId/cveIds 列；C66-C 完整版（独立 Identifiers 列 + 多 CVE 展开）保留为后续增强候选，触发条件：用户要求按 GHSA 单独搜索/过滤 / 多 CVE 展开视图
 
-#### T1403 dedupe 默认值改为跨次去重（实测反馈 4b）—— 待启动
+#### T1403 dedupe 默认值改为跨次去重（实测反馈 4b）—— 闭环 2026-08-26
 
 - **优先级**：P1
 - **依赖**：—
@@ -355,11 +368,12 @@
 - **修复方案**：
   - 前端 `dedupeMode` ref 初始值改为 `'across'`
   - i18n 标签调整避免歧义（`dedupeOff` / `dedupeAcross` 当前命名 OK，无需改）
-- **交付物**：`alerts.vue` 单行 ref 初始化改动 + playwright e2e 1 case
+- **交付物**：`alerts.vue` filters.dedupe 默认值改为 'across' + JSDoc 迁移 + 清理 dead ref `dedupeMode`/`DedupeMode`（Code Auditor §RG-B1 修复）+ playwright e2e 既有 1 case（alerts-rowgroup dedupe 用例 L203 验证 ?dedupe=true）
 - **验收标准**：
-  - alerts 页首次进入默认 `dedupeMode='across'` ✅
-  - 默认请求携带 `?dedupe=true` ✅
+  - alerts 页首次进入默认 `filters.dedupe='across'` ✅
+  - 默认请求携带 `?dedupe=true`（fetchAlerts L175 触发）✅
   - 用户主动切换到 `'off'` 后刷新页面恢复 `'across'` 默认值 ✅
+  - 实际生效路径（filters.dedupe）已对齐 — RG-B1 dead ref 已修复
 - **最小验证矩阵**：
   - `pnpm lint` 0 error
   - `pnpm --filter @dependfix/platform typecheck` 0 error

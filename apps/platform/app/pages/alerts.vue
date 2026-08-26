@@ -2,6 +2,7 @@
 // 告警视图：按仓库/严重级别/来源/视图模式筛选
 // 顶部不渲染 dashboard 同款图表（todo.md §C65-D4：与 dashboard.vue 完全去重），
 // 用户需要全局统计去 dashboard；alerts 聚焦表格 + 详情
+import { alertsFound, formatRunDuration, runExecutorLabel, runModeLabel, shortRunId } from '~/utils/run-view'
 import { withFixStatusRank, withSeverityRank } from '~/utils/sort-helpers'
 import type { DataTableSortMeta } from 'primevue/datatable'
 
@@ -216,23 +217,32 @@ interface RunDetailView {
     repositoryId: string
     mode: string
     severityThreshold: string
+    executorKind: string
     status: string
     startedAt: string | null
     finishedAt: string | null
     runUrl: string | null
+    summary: Record<string, unknown> | null
+    error: { code: string, message: string } | null
 }
 const sidebarVisible = ref(false)
 const sidebarAlert = ref<AlertView | null>(null)
 const sidebarRuns = ref<RunDetailView[]>([])
 const sidebarLoading = ref(false)
+const runDetailVisible = ref(false)
+const selectedRunId = ref<string | null>(null)
+
+const modeLabel = (mode: string) => runModeLabel(mode, t)
+const executorLabel = (executorKind: string) => runExecutorLabel(executorKind, t)
+const formatDuration = (run: RunDetailView) => formatRunDuration(run.startedAt, run.finishedAt, t)
 
 const openRunSidebar = async (alert: AlertView) => {
     sidebarAlert.value = alert
     sidebarVisible.value = true
     sidebarLoading.value = true
+    runDetailVisible.value = false
+    selectedRunId.value = null
     try {
-        // 按 affectedRunIds 批量拉取 run 详情（todo.md §T1306：详情侧栏查询 /api/runs）
-        // todo.md §M14.2 修复 silent bug：/api/runs 新增 ids 参数后，sidebar 真正只返回该告警 affected runs，
         // 不再是全量 run（修复前 server 忽略 ids，返回所有 run）
         if (alert.affectedRunIds && alert.affectedRunIds.length > 0) {
             const res = await $fetch('/api/runs', {
@@ -250,10 +260,17 @@ const openRunSidebar = async (alert: AlertView) => {
     }
 }
 
+const openRunDetail = (run: RunDetailView) => {
+    selectedRunId.value = run.id
+    runDetailVisible.value = true
+}
+
 const closeSidebar = () => {
     sidebarVisible.value = false
     sidebarAlert.value = null
     sidebarRuns.value = []
+    runDetailVisible.value = false
+    selectedRunId.value = null
 }
 
 // rowGroup 模式：按 viewMode 聚合计数（subheader 显示该组告警数）
@@ -622,6 +639,17 @@ onMounted(async () => {
                     striped-rows
                     size="small"
                 >
+                    <Column :header="t('alerts.detailRunId')">
+                        <template #body="{data}">
+                            <div class="alerts__run-cell">
+                                <code :title="data.id">{{ shortRunId(data.id) }}</code>
+                                <span>{{ modeLabel(data.mode) }}</span>
+                                <small class="text-muted">
+                                    {{ data.severityThreshold }} · {{ executorLabel(data.executorKind) }}
+                                </small>
+                            </div>
+                        </template>
+                    </Column>
                     <Column :header="t('alerts.detailRunStatus')" field="status">
                         <template #body="{data}">
                             <Tag :value="data.status" :severity="fixStatusSeverity(data.status)" />
@@ -629,20 +657,38 @@ onMounted(async () => {
                     </Column>
                     <Column :header="t('alerts.detailRunStartedAt')" field="startedAt">
                         <template #body="{data}">
-                            {{ data.startedAt ? d(new Date(data.startedAt), 'long') : '—' }}
+                            <div class="alerts__run-cell">
+                                <span>{{ data.startedAt ? d(new Date(data.startedAt), 'long') : '—' }}</span>
+                                <small class="text-muted">{{ formatDuration(data) }}</small>
+                            </div>
+                        </template>
+                    </Column>
+                    <Column :header="t('alerts.detailRunAlertsFound')">
+                        <template #body="{data}">
+                            {{ alertsFound(data.summary) }}
                         </template>
                     </Column>
                     <Column :header="t('common.actions.actions')" :style="{width: '100px'}">
                         <template #body="{data}">
-                            <a
-                                v-if="data.runUrl"
-                                :href="data.runUrl"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                            >
-                                {{ t('alerts.detailRunOpen') }}
-                            </a>
-                            <span v-else class="text-muted">—</span>
+                            <div class="alerts__sidebar-actions">
+                                <Button
+                                    icon="pi pi-eye"
+                                    text
+                                    rounded
+                                    size="small"
+                                    :aria-label="t('common.actions.details')"
+                                    @click="openRunDetail(data)"
+                                />
+                                <a
+                                    v-if="data.executorKind === 'github-action' && data.runUrl"
+                                    :href="data.runUrl"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                >
+                                    {{ t('alerts.detailRunOpen') }}
+                                </a>
+                                <span v-else class="text-muted">—</span>
+                            </div>
                         </template>
                     </Column>
                 </DataTable>
@@ -651,6 +697,10 @@ onMounted(async () => {
                 </p>
             </div>
         </Sidebar>
+        <RunDetailDialog
+            v-model:visible="runDetailVisible"
+            :run-id="selectedRunId"
+        />
     </div>
 </template>
 
@@ -728,6 +778,29 @@ onMounted(async () => {
     &__sidebar-meta {
         margin: 0;
         font-size: $font-size-sm;
+    }
+
+    &__run-cell {
+        display: flex;
+        flex-direction: column;
+        gap: $space-1;
+        min-width: 0;
+    }
+
+    &__run-cell code {
+        width: fit-content;
+        font-size: $font-size-sm;
+    }
+
+    &__run-cell small {
+        font-size: $font-size-sm;
+    }
+
+    &__sidebar-actions {
+        display: flex;
+        align-items: center;
+        gap: $space-1;
+        white-space: nowrap;
     }
 
     // ruleId 列：长 GHSA/CVE/URL 不撑列宽（实测反馈）

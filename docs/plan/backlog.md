@@ -15,6 +15,7 @@
 > **状态口径**：进行中 / 观察中 / 暂停 / 已关闭。
 > 共 2 条（2026-08-25 neat-freak 归档批次整理：原 §M11 子任务闭环清单 / §M4 增强候选中"已闭环"段全部迁出 backlog；§M2 / §M5.5 / §M6 / §MCP / §M7 阶段分段已闭环，已迁出 backlog 仅保留历史归档指针）。
 > **2026-08-26 闭环整理**：UX-R1 扫描历史分页 已由 M14.2 闭环，从 §扫描历史与详情 UX 主条目迁出至历史归档指针段 + [todo-archive.md §M14.2](todo-archive.md#m14-platform-release-通道闭环--ux-反馈跟进m14123xy-全部已闭环)；C66-B 数据层去重 / C66-C alerts UI Identifiers 列已在 M13 阶段由 T1306 / T1402 应用层方案覆盖，不再实施（保留决策记录）。
+> **2026-08-26 闭环整理（M15 归档批次）**：UX-R2 扫描历史详情 Sidebar 增强 已由 M15.1 闭环（4 子任务：A + B + C + D 全部闭环；ahead 3 commits 待用户推送：`5c65177` P 阶段 docs + `1112017` feat 实施 + `0a60e3d` test 覆盖）；从 §扫描历史与详情 UX 主条目段迁出至历史归档指针段 + [todo-archive.md §M15](todo-archive.md#m15-扫描历史详情侧栏增强ux-r2已闭环)。§2026-08-20 e2e 修复批次（C62+C63+C64+chore）同时从 todo-archive.md 主窗口迁出至 [archive/todo-archive-phases-m11.md §2026-08-20 e2e 修复批次](archive/todo-archive-phases-m11.md#2026-08-20-e2e-修复批次c62--c63--c64--chore)——主窗口 700 行分片阈值前的预防性迁出。
 
 ### 主线 #1：PrimeVue 4 + Nuxt hydration rowGroup known-issue
 
@@ -23,7 +24,7 @@
 - **当前状态**：
   - PrimeVue 4 DataTable + Nuxt SSR hydration 状态机分歧——onMounted 异步赋值 `alerts.value` 后 PrimeVue 不重新计算 `processedData`，rowGroup subheader 永不渲染；`page.reload()` 后能渲染可佐证非业务逻辑问题（CI run 32383730911 alerts-rowgroup rowGroup 测试遗留）。
   - 2 个 alerts-rowgroup.e2e.test.ts 测试以 `test.fixme()` 标记并加 known-issue 注释（命名空间 `known-issue/primevue-hydration-rowgroup`）。
-  - 来源：[todo-archive.md §2026-08-20 e2e 修复批次 C64-3](todo-archive.md#2026-08-20-e2e-修复批次c62--c63--c64--chore)（commit `6f6fe5b`）。
+  - 来源：[archive/todo-archive-phases-m11.md §2026-08-20 e2e 修复批次 C64-3](archive/todo-archive-phases-m11.md#2026-08-20-e2e-修复批次c62--c63--c64--chore)（commit `6f6fe5b`；2026-08-26 M15 归档批次从 todo-archive.md 主窗口迁出至分片）。
 - **最近一次上收**：C64 修复批次（2026-08-20）已修复 rowGroup 数据流必现 TypeError（`expandedPackages` Record → string[]），但 hydration 状态机分歧为 PrimeVue 上游问题，未修复。
 - **修复路径（候选）**（历史已评估或低成本方案）：
   1. 迁移 alerts 加载到 `useAsyncData` 让 SSR 阶段就有数据（最低成本）
@@ -168,7 +169,7 @@
 
 #### 扫描历史与详情 UX（2026-08-26 实测反馈）
 
-> 本段为 2026-08-26 用户实测截图反馈触发的扫描历史/详情视图 UX 增强候选；与 C66 平级。原 3 项 UX-R1→R2→R3 中 **UX-R1 已由 M14.2 闭环**（2026-08-26，详见 [todo-archive.md §M14.2](todo-archive.md#m14-platform-release-通道闭环--ux-反馈跟进m14123xy-全部已闭环) + 历史归档指针段），**UX-R2 已由 M15 规划并上收至当前阶段**；剩余 UX-R3 顺延至 M16，按依赖排序推进。
+> 本段为 2026-08-26 用户实测截图反馈触发的扫描历史/详情视图 UX 增强候选；与 C66 平级。原 3 项 UX-R1→R2→R3 中 **UX-R1 已由 M14.2 闭环**（2026-08-26，详见 [todo-archive.md §M14.2](todo-archive.md#m14-platform-release-通道闭环--ux-反馈跟进m14123xy-全部已闭环) + 历史归档指针段）+ **UX-R2 已由 M15 闭环**（2026-08-26，ahead 3 commits 待用户推送，详见 [todo-archive.md §M15](todo-archive.md#m15-扫描历史详情侧栏增强ux-r2已闭环) + 历史归档指针段）；剩余 UX-R3 顺延至 M16（待 P 阶段规划：M16.1 summary API + M16.2 页面骨架 + M16.3 RepoHistoryDialog 迁移），按依赖排序推进。**UX-R2 已从本段主条目迁出**，仅保留 UX-R3 当前候选 + 上文 UX-R1/UX-R2 历史归档指针说明。
 
 - **UX-R3 `/scans` 独立页面 + 替代 `RepoHistoryDialog`** —— 当前 `RepoHistoryDialog` 是 modal + 720px 固定宽度弹窗，内部 list/detail view 切换在狭窄空间内拥挤；用户痛点：6 列 DataTable 在 720px 内严重挤压 + 详情切换操作密集。**关键决策（2026-08-26 用户指示）**：用 query 形式而非 path segment，避免 i18n 路由前缀问题。
   - **路由设计**（3 种 query 组合 + 单一页面）：
@@ -186,6 +187,7 @@
   - **上收触发条件**：用户实测反馈弹窗体验差升级 / 单仓库历史数量 > 30 后 dialog 滚动操作痛苦
   - **风险**：高（新增整页 + nav + 后端聚合 API + e2e；跨 5+ 文件）
   - **关联**：依赖 UX-R1（汇总页底部"所有运行"列表使用分页 API）；可与 UX-R1 合并为同一子阶段 M14.x 推进
+  - **子阶段拆分建议**（M16 启动前 P 阶段规划）：M16.1 summary API + M16.2 页面骨架 + M16.3 RepoHistoryDialog 迁移 —— 详见 [todo.md §M16 候选](todo.md#当前阶段m15-已闭环--m16ux-r3-候选待启动)
 
 ### 已评估不实现（决策保留于归档段）
 
@@ -217,13 +219,14 @@
 
 > 本节仅作归档指针，所有"已闭环"内容详见 [todo-archive.md](todo-archive.md) 对应区块。已闭环条目不应再出现在 backlog 主条目，避免读者误判为活跃任务。
 
-### 已闭环阶段（M0-M14）
+### 已闭环阶段（M0-M15）
 
 - **M0-M11**：全部归档，详见 [todo-archive.md 主窗口](todo-archive.md) + [archive/todo-archive-phases-*.md 分片](archive/)
+- **M15 扫描历史详情侧栏增强（UX-R2）**（2026-08-26 闭环，3 commits ahead 待用户推送：`5c65177` P 阶段 docs + `1112017` feat 实施（5 文件 / +425/-12：utility 抽取 + i18n + `runs.statusDegraded`）+ `0a60e3d` test 覆盖（2 文件 / +251：16 case 单测 + 2 case e2e）；2 轮 code-auditor quick depth Pass）：详见 [todo-archive.md §M15](todo-archive.md#m15-扫描历史详情侧栏增强ux-r2已闭环)。包含 4 子任务：M15.1 UX-R2-A（`1112017` 实施：Sidebar 5 列运行元数据 + RunDetailDialog 新增 + utility 抽取 + i18n 7 键 + `runs.statusDegraded`）/ UX-R2-B（按执行器条件渲染 Run URL）/ UX-R2-C（`1112017` 一并交付 RunDetailDialog 复用 `GET /api/runs/:id`）/ UX-R2-D（`0a60e3d` 实施：16 case 单测覆盖 6 utility 所有分支 + 2 case e2e 覆盖 Sidebar 元数据 + URL 条件渲染）
 - **M14 platform release 通道闭环 + UX 反馈跟进**（2026-08-26 闭环，19 commits 全部落地 / ahead=0）：详见 [todo-archive.md §M14](todo-archive.md#m14-platform-release-通道闭环--ux-反馈跟进m14123xy-全部已闭环)。包含 4 子阶段：M14.1 T1310 F 阶段闭环（7 commits）/ M14.2 UX-R1 扫描历史分页（5 commits）/ M14.3 M13.4 T1403 follow-up（1 commit）/ M14.x neat-freak 批次（5 commits）+ M14.y 依赖批量治理（4 个 dependabot major PR）
 - **M13 治理 + UX 反馈 + 网络治理 + Code Scanning**（2026-08-26 归档，12 子任务 / 26 commits / ahead=3）：详见 [todo-archive.md §M13](todo-archive.md#m13-治理--ux-反馈--网络治理--code-scanning已闭环)。包含 4 子阶段：M13.1 治理 + UX（T1301+T1302+T1303+T1304）/ M13.2 网络治理 + 告警去重（T1305+T1306+T1309）/ M13.3 Code Scanning 规则化 + CQL（T1307+T1308）/ M13.4 UX 反馈批次立刻做（T1401+T1402+T1403）
 - **M12 平台 UX 一致性 + i18n 治理**（2026-08-25 归档）：详见 [todo-archive.md §M12](todo-archive.md#m12-平台-ux-一致性--i18n-治理已闭环)
-- **2026-08-20 e2e 修复批次**（C62 + C63 + C64 + chore）：详见 [todo-archive.md §2026-08-20 e2e 修复批次](todo-archive.md#2026-08-20-e2e-修复批次c62--c63--c64--chore)
+- **2026-08-20 e2e 修复批次**（C62 + C63 + C64 + chore）：详见 [archive/todo-archive-phases-m11.md §2026-08-20 e2e 修复批次](archive/todo-archive-phases-m11.md#2026-08-20-e2e-修复批次c62--c63--c64--chore)（2026-08-26 M15 归档批次从 todo-archive.md 主窗口迁出至分片）
 - **2026-08-19~20 平台 UX/可用性闭环批次**（C46-C61 + 3 个 PR + 3 个独立 fix）：详见 [archive/todo-archive-phases-m11.md](archive/todo-archive-phases-m11.md)
 - **M11 业务可见性 + 沙箱落地 + 安全文档**（2026-08-20，22 commits）：详见 [todo-archive.md §M11 推进批次](todo-archive.md#2026-08-20-m11-推进批次业务可见性--沙箱落地--安全文档--通知基建) + [archive/todo-archive-phases-m11.md §M11 推进批次](archive/todo-archive-phases-m11.md#m11-推进批次业务可见性--沙箱落地--安全文档--通知基建)
 - **M10 独立沙箱容器**（C26 + T1001-T1004 + T912 + C28）：详见 [todo-archive.md §M10](todo-archive.md#m10-独立沙箱容器-c26-实施规划已归档) + [§T912](todo-archive.md#t912-smtp-邮件发送器主体收口t9123--c28-联动)

@@ -4,7 +4,6 @@
 
 | 阶段 | 目标 | 优先级 | 状态 |
 |------|------|--------|:----:|
-| M15: 扫描历史详情侧栏增强 | 承接 M14.2 UX-R1 后的 UX-R2：让去重告警 Sidebar 展示运行短 ID、模式、阈值、执行器、告警数与耗时，并按执行器显示 GitHub Action 外链；不实现 UX-R3 `/scans` 页面 | P1 | 进行中（M15.1） |
 | M0: 基线收敛 | Monorepo 骨架、配置模型、工具链策略、告警模型 | P0 | 已完成 |
 | M1: MVP 单仓库修复 | 告警拉取→过滤→修复→验证→报告闭环 | P0 | 已完成 |
 | M2: GitHub Action 接入 | workflow_dispatch + 定时 + PR + AI Token + Prompt 防护 | P1 | 已完成（2026-08-05 归档；G2 处置闭环） |
@@ -23,19 +22,22 @@
 | M12: 平台 UX 一致性 + i18n 治理 | 承接 2026-08-21 用户实测反馈 10 项平台 UX / 安全 / i18n 问题：① 用户管理安全 + 角色 i18n（C65-A，P1：admin self-protection 前端/服务端强制拦截 + 角色标签 i18n）；② i18n 单点声明治理（C65-B，P2：jiti vs Nuxt transform pipeline 双文件拆分）；③ schedules 增强（C65-C，P2：cron 表达式预览 + 时区选择框）；④ 平台表格 / 视图增强（C65-D，P2：env-events sortable + alerts 双 chevron 修复 + alerts 视图切换 + alerts 图表去重） | P1-P2 | 已完成（2026-08-21 归档，19 commits（C65-A 5 + C65-B 2 + standards check:docs 1 + C65-C 2 + C65-D 5 + CI 修复 1 + CI 稳定性 1 + network-audit 2）；全部推送至 origin/master / ahead=0 / branches 80.02%；详见 [todo-archive.md §M12](todo-archive.md#m12-平台-ux-一致性--i18n-治理已闭环)） |
 | M13: 治理 + UX 反馈 + 网络治理 + Code Scanning | 承接 M12 闭环后 backlog 治理前置 + 2026-08-25~26 用户实测反馈 5 项 UX 问题：① 治理前置（M13.1，P0+C1+C2：wisdom 蒸馏 27→14 + neat-freak 批次挂接 standards；实测反馈 UX bug 5.1 单仓库扫描互斥修复 + 5.2 历史 Dialog X 按钮误触修复）；② 网络治理 + 告警去重（M13.2，P1+B2：network-audit 默认白名单可持续治理 G1 + 告警跨次扫描去重实测反馈 6 + changelog 机制治本 c811659 回归）；③ Code Scanning 规则化 + CQL（M13.3，P2：C16 规则分类配置化 + C21 code-quality-findings 接入）；④ UX 反馈批次立刻做（M13.4，P1：T1401 失败原因展示 + T1402 alerts UI ruleId 列 + T1403 dedupe 默认跨次去重，2026-08-26 实测截图 6 项中选 3 项低风险；其余 3 项进 backlog 暂缓 UX-R1~R3） | P0-P2 | 已完成（2026-08-26 归档，26 commits（M13.1 5 + M13.2 11 + M13.3 5 + M13.4 5）；ahead=3 仅 M13.4 三 commits 待用户推送（T1401+T1402+T1403+todo.md 收口）；全部 commit 含 12 子任务闭环 + CI 阈值回归修复 e63cdb9 + 9 轮独立 Review Gate Pass；详见 [todo-archive.md §M13](todo-archive.md#m13-治理--ux-反馈--网络治理--code-scanning已闭环)） |
 | M14: platform 进入 release 通道 + UX 反馈跟进 | 让 `apps/platform` 作为第 6 个发布单元参与 release 链路但**不发 npm**——仿 momei 单包"独立 version + 独立 CHANGELOG"的精神，适配 dependfix monorepo + docker-only 平台 + 承接 backlog UX-R1 扫描历史分页（用户实测反馈痛点）+ M13.4 T1403 follow-up + neat-freak 治理批次：① `scripts/packages.config.mjs` 注册 apps/platform 条目（`npmPublishable:false`）；② `scripts/release-publish.mjs` 新增 tag-only action；③ `docker.yml` 支持 workflow inputs 读 platform_version；④ `release.yml` 完成后触发 docker workflow_dispatch；⑤ `docs/guide/release.md` 平台独立通道文档；⑥ dependabot 排除 `apps/platform/package.json`；⑦ `/api/runs` 新增 `page`/`pageSize`/`ids` 分页参数 + `{items, total, page, pageSize}` 返回结构；09 4 个前端调用方适配（RepoHistoryDialog PrimeVue Paginator + alerts.vue + repos/[id]/runs.vue + i18n）+ silent bug 修复（alerts sidebar ids 参数）；⑩ alerts-rowgroup.e2e 新增首屏默认 `dedupe=across` 请求 URL 断言；⑪ wisdom 蒸馏挂接 3 条 M14.x pattern；⑫ C34 存量规范必级条款挂接盘点 + code-quality-checklist.md 双层对称补挂接 5 个必查项；⑬ admin/i18n e2e C65-A1/A2/A3/A4 test 名孤立编号清理；⑭ git.md §3.4 后双空行格式修复；⑮ M14.y 依赖批量治理（4 个 dependabot major PR）| P1 | 全部完成（M14.1 T1310 F 阶段闭环 ✅ 2026-08-26 落地 7 commits / M14.2 UX-R1 扫描历史分页 ✅ 2026-08-26 落地 5 commits / M14.3 M13.4 T1403 follow-up ✅ 2026-08-26 落地 1 commit / M14.x neat-freak 批次 ✅ 2026-08-26 落地 5 commits / M14.y 依赖批量治理 ✅ 2026-08-26 闭环 4 个 dependabot major PR；M14 阶段 19 commits 全部落地，ahead=0，`git rev-list HEAD ^origin/master --count` 实证核验；详见[todo-archive.md §M14](todo-archive.md#m14-platform-release-通道闭环--ux-反馈跟进m14123xy-全部已闭环)） |
+| M15: 扫描历史详情侧栏增强（UX-R2） | 承接 M14.2 UX-R1 后的 UX-R2：让去重告警 Sidebar 展示运行短 ID、模式、严重级别阈值、执行器、告警数、开始时间与持续时间，按执行器显示 GitHub Action 外链；新增独立 `RunDetailDialog` 复用 `GET /api/runs/:id`；**不**实现 UX-R3 `/scans` 页面 / **不**修改 `/api/runs` 后端契约（M14.2 已闭环 / 仅消费既有契约）/ **不**动 `RepoHistoryDialog.vue` / **不**做数据层去重 / **不**升 PrimeVue。4 子任务（M15.1 UX-R2-A / -B / -C / -D）全部独立闭环 | P1 | 已完成（2026-08-26 归档；3 commits ahead 待用户推送：`5c65177` P 阶段 docs 切换 + `1112017` feat 实施（5 文件 / +425/-12：A/B/C + utility 抽取 + i18n 7 键 + `runs.statusDegraded`，实证 `git show --stat`）+ `0a60e3d` test 覆盖 D（2 文件 / +251：16 case 单测 + 2 case e2e，不含 utility/i18n）；2 轮 code-auditor quick depth Pass；不进 M16 / UX-R3 顺延 M16 待 P 阶段规划；详见 [todo-archive.md §M15](todo-archive.md#m15-扫描历史详情侧栏增强ux-r2已闭环)） |
 
-## M15: 扫描历史详情侧栏增强（进行中）
+## M15: 扫描历史详情侧栏增强（UX-R2）（**已完成 2026-08-26 归档**）
 
-承接 M14.2 UX-R1 已交付的 `/api/runs` 分页与 `ids` 过滤契约，本阶段只增强 alerts 去重视图 Sidebar 的运行可辨识度。
+> **背景（2026-08-26）**：M14.2 UX-R1 已闭环 `/api/runs` 分页 + `ids` 过滤契约，承接 backlog UX-R2（[backlog.md §扫描历史与详情 UX](backlog.md#扫描历史与详情-ux2026-08-26-实测反馈)）—— 增强 alerts 去重视图 Sidebar 的运行可辨识度。**已闭环全部 4 子任务**：M15.1 UX-R2-A（Sidebar 5 列运行元数据）/ -B（按执行器条件渲染 Run URL）/ -C（新增 RunDetailDialog 复用 `GET /api/runs/:id`）/ -D（i18n + 单测 + e2e）。**不**触碰后端契约 / **不**动 `RepoHistoryDialog.vue` / **不**做数据层迁移 / PrimeVue 升级 / C36/C37 i18n。UX-R3 顺延 M16（待 P 阶段规划）。
 
-**原子任务**：
+**原子任务（全部已闭环 ✅）**：
 
-- **M15.1 UX-R2-A（P1）**：在 `alerts.vue` 展示 Run 短 ID、模式、严重级别阈值、执行器、告警数、开始时间与持续时间；不修改后端契约。
-- **M15.1 UX-R2-B（P1）**：仅当 `executorKind === 'github-action'` 且 `runUrl` 存在时显示外链，容器与 sandbox 继续隐藏内部 URL。
-- **M15.1 UX-R2-C（P1）**：增加运行详情入口，复用 `GET /api/runs/:id`，不在 Sidebar 内复制结果表格。
-- **M15.1 UX-R2-D（P1）**：补齐中英文 i18n、Playwright、docs/plan 状态与质量证据。
+- **M15.1 UX-R2-A（P1）✅**：在 `alerts.vue` §RunDetailView 展示 Run 短 ID、模式、严重级别阈值、执行器、告警数、开始时间与持续时间；**不**修改后端契约（M14.2 既有 `/api/runs` 契约即够）。`1112017` 实际（实证 `git show --stat`：5 文件 / +425/-12）一并交付：① `apps/platform/app/components/RunDetailDialog.vue` 新增 279 行；② 抽出 `apps/platform/app/utils/run-view.ts` 6 utility（`shortRunId` / `alertsFound` / `runModeLabel` / `runExecutorLabel` / `runThresholdLabel` / `formatRunDuration`）47 行统一 alerts 与 RunDetailDialog 调用；③ i18n 中英文各新增 7 个 alerts 键 + `runs.statusDegraded` 退化文案。
+- **M15.1 UX-R2-B（P1）✅**：仅当 `executorKind === 'github-action'` 且 `runUrl` 存在时显示外链，容器与 sandbox 继续隐藏内部 URL；**不**伪造内部 Run URL。
+- **M15.1 UX-R2-C（P1）✅**：新增 `apps/platform/app/components/RunDetailDialog.vue` 复用 `GET /api/runs/:id` + `requestSequence` 守卫防 stale 覆盖；失败 Error Banner + GitHub Action 外链独立展示；加载失败与空结果不阻塞 Sidebar 列表。
+- **M15.1 UX-R2-D（P1）✅**：`0a60e3d` 实际仅含测试文件（实证 `git show --stat`：2 文件 / +251 行），**不**含 utility / i18n / `runs.statusDegraded`。本 D 段交付物：① `apps/platform/tests/unit/run-view.test.ts` 16 case 单测——覆盖 6 工具函数所有分支（含 NaN / Infinity / 缺失字段 / 负时长 / 非法日期边界）；② `apps/platform/tests/e2e/alerts-sidebar.e2e.test.ts` 2 case e2e——覆盖 Sidebar 元数据展示 + GitHub Action / 容器 URL 条件渲染；既有 alerts-rowgroup 5 active + 2 fixme 行为不变。
 
-**验收**：Sidebar 可区分同一告警关联的不同运行；GitHub Action 外链按条件展示；空值和请求失败稳定降级；既有 rowGroup、history dialog、alerts 分页契约不回归。详细任务与验证矩阵见 [todo.md §M15 任务清单](todo.md#m15-任务清单)。
+**验收（全部闭环 ✅）**：Sidebar 可区分同一告警关联的不同运行；GitHub Action 外链按条件展示；空值和请求失败稳定降级；既有 rowGroup、history dialog、alerts 分页契约不回归；`pnpm lint` / `typecheck` 0 error / vitest 单测全过（含 16 新 case）/ coverage branches 80.12% / `@dependfix/platform exec playwright test alerts-sidebar` 2/2 / `pnpm check:docs` OK / `pnpm i18n:audit:missing` 0 missing / 编号标记扫描 0 命中。A 阶段 2 轮 code-auditor quick depth Pass（Round 1 Reject 1 blocker `alertsFound` 误用 → Round 2 Pass + 4 suggest 顺手处理）。
+
+详细实施记录 / commit 引用 / 治理记录 / 关键决策 / 关键经验 / 待迁移经验：见 [todo-archive.md §M15](todo-archive.md#m15-扫描历史详情侧栏增强ux-r2已闭环)。
 
 ## M0: 基线收敛
 
@@ -252,8 +254,8 @@ Changelog / Release Notes 采集、多 AI 提供商封装、AI 研判（问题�
 
 ## 详细任务
 
-- 当前阶段任务：[todo.md](todo.md)（**M14 全部已闭环** 2026-08-26；M14.1 T1310 F 阶段闭环 + M14.2 UX-R1 扫描历史分页 + M14.3 M13.4 T1403 follow-up + M14.x neat-freak 批次 + M14.y 依赖批量治理 4 子阶段共 19 commits 全部落地；ahead=0，`git rev-list HEAD ^origin/master --count` 实证核验；待下一阶段 M15 启动；待人工验收 T701/T702/T704 项随真实环境推进）
-- 已归档阶段：[todo-archive.md](todo-archive.md)（主窗口保留最近 7 段：2026-08-26 M14 / 2026-08-26 M13 / 2026-08-21 M12 / 2026-08-20 e2e 修复批次 C62+C63+C64+chore / C53 / 2026-08-20 平台 UI 增强 C59-C61 / 2026-08-20 M11 推进批次；早期阶段见 [archive/index.md](archive/index.md) 分片索引）
+- 当前阶段任务：[todo.md](todo.md)（**M15 全部已闭环** 2026-08-26；M15.1 UX-R2-A + UX-R2-B + UX-R2-C + UX-R2-D 4 子阶段共 3 commits ahead 待用户推送：`5c65177` P 阶段 docs 切换 + `1112017` feat 实施（A/B/C + utility 抽取）+ `0a60e3d` test 覆盖 D（i18n + 16 case 单测 + 2 case e2e）；ahead commits 数按 [规划规范 §4.4 §5 ahead 实证](../../docs/standards/planning.md#44-大批量归档批次操作规范) `git rev-list HEAD ^origin/master --count` 动态核验（不写死具体数字以免 staleness）；M16 候选 UX-R3 待 P 阶段规划（详见 [backlog.md §扫描历史与详情 UX](backlog.md#扫描历史与详情-ux2026-08-26-实测反馈)）；待人工验收 T701/T702/T704 项随真实环境推进）
+- 已归档阶段：[todo-archive.md](todo-archive.md)（主窗口保留最近 7 段：2026-08-26 M15 / 2026-08-26 M14 / 2026-08-26 M13 / 2026-08-21 M12 / C53 / 2026-08-20 平台 UI 增强 C59-C61 / 2026-08-20 M11 推进批次；2026-08-20 e2e 修复批次 C62+C63+C64+chore 已于 2026-08-26 M15 归档批次同步迁出至 [archive/todo-archive-phases-m11.md §2026-08-20 e2e 修复批次](archive/todo-archive-phases-m11.md#2026-08-20-e2e-修复批次c62--c63--c64--chore) 主窗口 700 行分片阈值前的预防性迁出；早期阶段见 [archive/index.md](archive/index.md) 分片索引）
 - 后续阶段任务（延期项 + 未排期增强候选）：[backlog.md](backlog.md)
 
 ## 交付原则

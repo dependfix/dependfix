@@ -16,12 +16,14 @@
 
 ## 主窗口保留范围
 
-- 主文档保留最近阶段的近线归档块（当前保留 **2026-08-26 M14.1 platform release 通道闭环（T1310 F 阶段）/ 2026-08-25~26 M13 治理 + UX 反馈 + 网络治理 + Code Scanning（M13.1+M13.2+M13.3+M13.4）/ 2026-08-21 M12 平台 UX 一致性 + i18n 治理 / 2026-08-20 e2e 修复批次（C62+C63+C64+chore）/ C53 / 2026-08-20 平台 UI 增强 C59-C61 / 2026-08-20 M11 推进批次** 共 7 个批次，超出"主窗口保留 3-5 个阶段"策略但仍在 700 行分片阈值内）。
-- 当 `todo-archive.md` 超过 700 行时，将早期阶段迁入分片归档（最近一次迁出于 2026-08-20）。
+- 主文档保留最近阶段的近线归档块（当前保留 **2026-08-26 M15 扫描历史详情侧栏增强（UX-R2）/ 2026-08-26 M14 platform release 通道闭环 + UX 反馈跟进（M14.1+M14.2+M14.3+M14.x+M14.y）/ 2026-08-26 M13 治理 + UX 反馈 + 网络治理 + Code Scanning（M13.1+M13.2+M13.3+M13.4）/ 2026-08-21 M12 平台 UX 一致性 + i18n 治理 / C53 / 2026-08-20 平台 UI 增强 C59-C61 / 2026-08-20 M11 推进批次** 共 7 个批次，超出"主窗口保留 3-5 个阶段"策略但仍在 700 行分片阈值内）。
+- 当 `todo-archive.md` 超过 700 行时，将早期阶段迁入分片归档（最近一次迁出于 2026-08-26）。
 - **2026-08-20 归档批次**：M9 / 2026-08-19 PR1-PR3 / 2026-08-19 C54+C55 / M11 推进批次迁入分片 [archive/todo-archive-phases-m11.md](archive/todo-archive-phases-m11.md)。
 - **2026-08-25 归档批次**：M12 9 子任务完整闭环，**所有 19 commits 已推送至 `origin/master`**（ahead=0，git rev-list HEAD ^origin/master --count 核验）。详见下方 §M12 段。
 - **2026-08-26 归档批次（M13）**：M13.1+M13.2+M13.3+M13.4 全部 12 子任务完整闭环，**26 commits 已推送至 `origin/master`**（含 T1310 部分 ahead commit；git rev-list HEAD ^origin/master --count 实证：ahead=3，仅 M13.4 三 commits 待推送：T1401 `2dce01d` + T1402+T1403 `bb3b49a` + todo.md 收口 `8762a4b`）。详见下方 §M13 段。
 - **2026-08-26 归档批次（M14.1）**：M14.1 T1310 F 阶段闭环 1 子任务完整闭环，**7 commits 已推送至 `origin/master`**（含 T1310 ahead 5 commits + P 阶段规划 1 + M14.1 收口 1；`git rev-list HEAD ^origin/master --count` 实证：ahead=1，仅 `1fd38c1` P 阶段规划 commit 待推送；T1310 5 commits 已 ahead 提交并已推送至 origin/master）。详见下方 §M14 段。
+- **2026-08-26 归档批次（M15）**：M15.1 UX-R2 4 子任务完整闭环；ahead commits 按 [规划规范 §4.4 §5 ahead 实证](../../docs/standards/planning.md) 动态核验（`git rev-list HEAD ^origin/master --count` 当前值含 3 commits 属于 M15 实施——`5c65177` docs 切换 + `1112017` feat 实现 + `0a60e3d` test 覆盖——加 1 commit 属于 release.yml CI 修复 `d517a7f` 不计入 M15 总投入）。详见下方 §M15 段。
+- **2026-08-26 同期动作**：§2026-08-20 e2e 修复批次（C62+C63+C64+chore）从 todo-archive.md 主窗口迁出至 [archive/todo-archive-phases-m11.md §2026-08-20 e2e 修复批次](archive/todo-archive-phases-m11.md#2026-08-20-e2e-修复批次c62--c63--c64--chore)（M15 归档批次顺带的 700 行分片阈值预防性迁出，与 §2026-08-20 平台 UI 增强 C59-C61 同源——属 M11 关联批次）。
 
 ---
 
@@ -247,6 +249,72 @@
 - **T1310 follow-up**：T705（生产级部署 PG+Helm+Sentry）落地后，platform 1.0 节奏评估（已在 todo.md §M14.1 follow-up 登记）
 - **T1310 follow-up**：T703（跨平台 GitLab/Bitbucket）落地后，platform release 触发的版本文档是否需要补"跨平台适配"段
 - **docker `platform-<x.y.z>` tag 镜像 SBOM / provenance attestation 配合**：当前 ACR 个人版不支持，待官方支持后补
+
+---
+
+## M15: 扫描历史详情侧栏增强（UX-R2）（已闭环）
+
+> **归档日期**: 2026-08-26
+> **阶段摘要**: M14.2 UX-R1 闭环后承接 [backlog.md §扫描历史与详情 UX](backlog.md#扫描历史与详情-ux2026-08-26-实测反馈) UX-R2，在 alerts 去重视图中增强受影响运行 Sidebar 可辨识度——展示运行短 ID / 模式 / 严重级别阈值 / 执行器 / 告警数 / 开始时间与持续时间，按执行器显示 GitHub Action 外链；新增独立 RunDetailDialog 复用 `GET /api/runs/:id` 与 `requestSequence` 守卫。**不**触碰 `/api/runs` 后端契约、**不**动 `RepoHistoryDialog.vue`、**不**做数据层迁移 / PrimeVue 升级 / C36/C37 i18n。UX-R3（`/scans` 独立页面 + 替代 RepoHistoryDialog）属 backlog 候选（高风险，跨 5+ 文件），顺延 M16。
+> **阶段边界**: M15 只实现 UX-R2，scope 严格收敛以避免阶段膨胀。
+> **状态**: ✅ 全部完成（M15 1 子阶段 / 4 子任务全部闭环 / 2 轮 code-auditor quick depth Pass / ahead 部分待用户推送）
+
+### 阶段闭环清单
+
+#### M15.1 UX-R2 扫描历史详情侧栏增强 ✅（2026-08-26 闭环）
+
+| 子任务 | 关键 commit | 完成要点 |
+|:--|:--|:--|
+| **UX-R2-A 扩展 Sidebar 运行视图**（5 列运行元数据 + utility 抽取 + i18n） | `1112017` | `alerts.vue` §RunDetailView 新增运行短 ID / 模式 / 严重级别阈值 / 执行器 / 告警数 / 开始时间与持续时间；复用既有 `/api/runs` 数据 + `requestSequence` 守卫防过期响应；空字段与缺失时间稳定降级。**`1112017` 实际包含（实证 `git show --stat`）**：① `apps/platform/app/components/RunDetailDialog.vue` 新增 279 行 + `apps/platform/app/pages/alerts.vue` 增改 97 行 + `apps/platform/app/utils/run-view.ts` 新增 47 行（5 文件 / +425/-12）；② 抽取 6 工具函数（`shortRunId` / `alertsFound` / `runModeLabel` / `runExecutorLabel` / `runThresholdLabel` / `formatRunDuration`）统一 alerts 与 RunDetailDialog 调用；③ i18n 中英文各新增 7 个 alerts 键（运行 ID / 模式 / 阈值 / 执行器 / 告警数 / 耗时 / 时长格式）+ `runs.statusDegraded` 退化文案 |
+| **UX-R2-B 按执行器控制 Run URL**（条件渲染） | `1112017` | Sidebar 运行外链仅 `executorKind === 'github-action'` 且存在 `runUrl` 时显示；容器 + sandbox 隐藏内部 URL；**不**伪造内部 Run URL；既有 GitHub Action 链接保持可点击 |
+| **UX-R2-C 补充详情入口**（RunDetailDialog 复用现有详情接口） | `1112017` | 同 A 段：`apps/platform/app/components/RunDetailDialog.vue`（279 行）+ 复用 `GET /api/runs/:id` 与 `requestSequence` 守卫防 stale 覆盖；失败 Error Banner 与 GitHub Action 外链独立展示；**不**在 Sidebar 内重复结果表格；加载失败与空结果不阻塞 Sidebar 列表 |
+| **UX-R2-D 回归与收口**（单测 + e2e 覆盖） | `0a60e3d` | `0a60e3d` 实际仅含测试文件（实证 `git show --stat`：2 文件 / +251 行），**不**含 utility / i18n / `runs.statusDegraded`（这些均在 `1112017`）。本 D 段交付物：① `apps/platform/tests/unit/run-view.test.ts` 新增 104 行 / 16 case 单测——覆盖 6 工具函数所有分支（含 NaN / Infinity / 缺失字段 / 负时长 / 非法日期边界）；② `apps/platform/tests/e2e/alerts-sidebar.e2e.test.ts` 新增 147 行 / 2 case e2e——覆盖 Sidebar 元数据展示 + GitHub Action / 容器 URL 条件渲染 |
+| **M15 P 阶段规划 + docs 切换** | `5c65177` | `todo.md` 顶部切换 M15 + `backlog.md` §扫描历史与详情 UX UX-R2 主条目状态切换 + `roadmap.md` M15 段新增 + `archive/index.md` 基线更新（M15 仅承接 UX-R2，UX-R3 顺延 M16） |
+
+### 阶段验收标准（M15 全部闭环 ✅）
+
+- [x] 4 子任务（UX-R2-A / -B / -C / -D）全部闭环 —— Sidebar 5 列运行元数据 + Run 外链按执行器条件渲染 + RunDetailDialog 详情入口 + i18n + 单测 + e2e
+- [x] A 阶段 2 轮 code-auditor quick depth Pass（[code-auditor.agent.md §3 quick depth 协议](../../.github/agents/code-auditor.agent.md)）—— Round 1 Reject 1 blocker（B1 `alertsFound` 误用——函数签名变更未同步调用方；详 Pattern §3 同模式扫描）+ Round 2 Pass（B1 修复 + utility 抽取 + 16 case 覆盖所有分支 + 4 suggest 顺手处理：S1 `runModeLabel` 分支补测 + S2 阈值展示一致性 + S3 alerts.vue 行数 827 未触发 max-lines 规则 + S4 e2e 中文硬编码暂保留与既有 alerts-rowgroup 风格一致）
+- [x] `pnpm lint` 0 error / `pnpm typecheck` 0 error
+- [x] vitest 单测全过（run-view.test.ts 16 case + 既有 2128+5skip）+ coverage branches 80.12% ≥ 80% 阈值
+- [x] `@dependfix/platform exec playwright test alerts-sidebar` 2/2 通过；既有 alerts-rowgroup 5 active + 2 fixme 行为不变
+- [x] `pnpm run check:docs` OK（99 md links + 55 vue-interp 全过）
+- [x] `pnpm i18n:audit:missing` 0 missing（中英文双语键齐全）
+- [x] 编号标记扫描 0 命中（无孤立 `C\d+` / `T\d+` / `M\d+` / `B\d` / `R\d` 等编号——按 [开发规范 §3 注释规范](../../docs/standards/development.md) 与 [code-auditor.agent.md 主责边界必查项](../../.github/agents/code-auditor.agent.md) 防御）
+- [x] **不**修改 `/api/runs` 契约（M14.2 已闭环分页 + `ids` 过滤契约，M15 仅消费既有 contract）；**不**动 `RepoHistoryDialog.vue`；**不**扩数据层；**不**升 PrimeVue；**不**做 C36/C37 i18n
+
+### 阶段治理记录
+
+- **总投入**: 3 commits ahead（M15 实施：`5c65177` M15 P 阶段 docs 切换 + `1112017` M15.1 UX-R2 实施 + `0a60e3d` M15.1 回归覆盖） + 本批次归档 1 个 atomic commit（跨 5 文件）。注：`d517a7f ci: release.yml Create GitHub Release 步骤补 GH_TOKEN env` 属于 release.yml CI 修复，**不**计入 M15 总投入
+- **测试覆盖**: +18 case（`run-view.test.ts` 16 case + `alerts-sidebar.e2e.test.ts` 2 case）；既有 alerts-rowgroup 7 case（5 active + 2 fixme）行为不变
+- **branches coverage**: 80.12% ≥ 80% 阈值（M15 仅前端 + i18n + utility 抽取 + 单测 + e2e 改动，未触发后端 schema → 不致 Coverage 回归）
+- **审计覆盖**: 2 轮独立 Review Gate quick depth Pass（Round 1 1 blocker + Round 2 0 blocker / 0 warning 新增 / 4 suggest）；按 [AI 协作规范 §1.3 分级审计执行协议](../../docs/standards/ai-collaboration.md) 选 quick depth（理由：M15 不涉及架构 / 不跨模块 / 不涉及安全敏感代码，但涉及 utility 抽取 + 跨文件调用方类型契约 → 审计不可降级到最低 depth）
+- **ahead commits 实证**: `git rev-list HEAD ^origin/master --count` 当前值为 M15 实施 3 commits + release.yml CI 修复 1 commit 共 4 commits ahead；按 [规划规范 §4.4 §5 ahead 实证](../../docs/standards/planning.md#44-大批量归档批次操作规范) ahead 数字动态核验（不写死具体数字以免 staleness）
+- **文档落盘**: `docs/plan/todo-archive.md` §M15 段（本段）+ `docs/plan/todo.md` 顶部 M15 任务清单 → M15 已闭环切换 + `docs/plan/roadmap.md` M15 行/段状态更新（M15 已闭环）+ `docs/plan/backlog.md` §扫描历史与详情 UX UX-R2 闭环迁出至历史归档指针段 + 文档位置速查同步 + `docs/plan/archive/index.md` 基线更新 + M15 归档批次登记
+- **本次归档批次附加动作**: §2026-08-20 e2e 修复批次（C62+C63+C64+chore）从 todo-archive.md 主窗口迁出至 [archive/todo-archive-phases-m11.md §2026-08-20 e2e 修复批次](archive/todo-archive-phases-m11.md#2026-08-20-e2e-修复批次c62--c63--c64--chore)（主窗口 700 行分片阈值前的预防性迁出，与 §2026-08-20 平台 UI 增强 C59-C61 同源——属 M11 关联批次）
+
+### 关键决策（M15）
+
+- **A 阶段 Quick depth 第 1 轮 Reject B1 root cause 实证**: `alertsFound` 函数签名变更未同步调用方 —— `Code Auditor quick depth` Pass 模式在 M15 小范围改动下命中 1 blocker；本批次 F 阶段本地验证虽通过，**但**审计仍捕获"实现已通过单测但调用方未对齐签名"的盲点（`pnpm typecheck` 0 error **不**捕捉 vitest mock 下的类型错误）—— 审计 depth 选择以"改动是否涉及架构 / 跨模块 / 类型契约"为准，**不**以"改动小"为降级标准
+- **不修改后端契约降低风险**: M15 严格限定"消费既有 `/api/runs` 契约"不修改后端 schema —— 既有的 `alerts.vue §openRunSidebar` 调用 `/api/runs?ids=...` + `RepoHistoryDialog` Paginator + `repos/[id]/runs.vue` 等 4 调用方不破坏；M14.2 已有分页 + `ids` 过滤契约即够 UX-R2 消费
+- **utility 抽取降低重复**: 实现收尾时 audit suggest 顺手抽出 6 个纯函数到 `run-view.ts`，单测 16 case 一次性覆盖所有分支；后续 M16/M17 如遇类似格式化需求可复用本 pattern（"先实现再看是否需要抽取"的反向顺序在 audit suggest 触发后采纳）
+- **Sidebar 字段优先级**: 5 列选运行短 ID / 模式 / 严重级别阈值 / 执行器 / 告警数 / 开始时间 / 持续时间 —— 用户痛点：同一告警关联多次运行时 Sidebar 仅显示仓库名 + 状态，无法区分运行实例；新增字段复用既有 `/api/runs` 数据，零额外请求
+- **不实现 UX-R3 scope 严格收敛**: UX-R3（`/scans` 独立页面 + 替代 RepoHistoryDialog）属 backlog 候选（高风险，跨 5+ 文件）—— M15 严格限定 UX-R2 scope 以避免阶段膨胀；UX-R3 顺延 M16 启动前需先做 §M16 P 阶段规划（按 [规划规范 §1.1 任务粒度约束](../../docs/standards/planning.md) 拆分子阶段）
+
+### 阶段关键经验（已沉淀至项目知识库）
+
+- **A 阶段 quick depth 在小改动下仍命中 blocker**: M15 改动范围小（alerts.vue + RunDetailDialog + run-view.ts + tests）但 audit quick depth Round 1 Reject 1 blocker（B1 `alertsFound`）—— 审计 depth 选择**不**以改动大小为降级标准，改以"是否涉及架构 / 跨模块 / 类型契约"为准。本批次改动虽小但涉及 utility 抽取 + 跨文件调用方，audit depth 不可降级
+- **utility 抽取 vs 实现优先 reverse pattern**: 本批次 audit suggest 顺手抽出 run-view.ts 6 函数（原计划仅实现）—— 说明"先实现再看是否需要抽取"在 audit suggest 触发后可采纳，与 M14.x `test 名孤立编号清理` 同模式（audit suggest 触发顺手处理）
+- **`pnpm typecheck` 不捕捉 vitest mock 下类型错误**: A 阶段 B1 命中根因 —— vitest `vi.mock` 可能跳过部分类型检查路径，F 阶段本地验证 `typecheck 0 error` **不**是 audit 替代；audit depth 选择仍需 standard 或 quick + audit agent 独立核验
+- **退化 / 边界稳定 design pattern**: 空字段降级（`run.shortId` 缺失不显示 ID cell 而非 `undefined`）+ 加载失败 / 空结果不阻塞 Sidebar 列表 —— 长尾运行数据缺失场景用户体验稳定；建议沉淀到 `docs/standards/platform.md`（待 neat-freak 批次）
+- **新增 utility 单测一次性覆盖所有分支**: 抽取 6 函数后单测 16 case 一次到位（不依赖"先测一两个 case 再补"）—— audit S1 suggest 顺手补 `runModeLabel` 分支覆盖即是审计+开发的近距离协作案例
+
+### 待迁移经验（next neat-freak 候选）
+
+- **运行元数据展示一致性**: Sidebar 5 列 + RowGroup 显示的 run 状态/告警数应在 dashboard / batch-runs 也保持一致格式 —— 当前 `alerts.vue` Sidebar 字段格式若与 `batch-runs.vue` 不一致会触发 UX 反馈；建议下次 neat-freak 批次统一抽出 `run-view.ts` 共用（batch-runs 同步抽取）
+- **e2e 中文硬编码 vs i18n 决策**: A 阶段 audit S4 暂保留 `alerts-sidebar.e2e.test.ts` 中文硬编码（与既有 alerts-rowgroup 风格一致）—— 项目级 e2e 中文 vs i18n 决策待下次 neat-freak 统一（i18n e2e 维护成本 vs 稳定性收益评估）
+- **run-view.ts 抽取 spread 到其他页面**: 当前 utility 仅供 `alerts.vue` 使用 —— `batch-runs.vue` / `repos/[id]/runs.vue` / `RunDetailDialog.vue` 未来如有类似格式化需求可参考本批次抽取模式；建议作为"action: 观察下次相关需求出现"
+- **UX-R3 上收时机**: backlog UX-R3（`/scans` 独立页面 + 替代 RepoHistoryDialog）属候选（高风险 / 5+ 文件）—— M16 启动时建议先做 P 阶段规划拆分子阶段（M16.1 summary API + M16.2 页面骨架 + M16.3 RepoHistoryDialog 迁移）
 
 ---
 
@@ -548,77 +616,3 @@
 
 ---
 
-## 2026-08-20 e2e 修复批次（C62 + C63 + C64 + chore）
-
-> **归档日期**: 2026-08-20
-> **归档方式**: 闭环 CI run 32382730911 code-scanning 告警（#23/#24/#25）+ CI run 32383730911 6 个 e2e 失败 + 本机 e2e 实测发现的 PrimeVue 4 + Nuxt hydration 兼容性 bug → 全量 platform e2e **54 passed / 2 skipped / 0 failed**（本批次 ahead 8 commits；C62 三 commits 已随 M11 收口批次推送至 origin/master）
-> **状态**: ✅ 全部完成（C62 + C63 + C64 + 1 chore 闭环）
-
-**批次成果**:
-- 闭环 CI run 32382730911 code-scanning 3 个告警（CodeQL `js/incomplete-multi-character-sanitization #25` + `js/incomplete-url-substring-sanitization #23/#24`）
-- 闭环 CI run 32383730911 6 个 e2e 失败（env-events 5 个 + alerts-rowgroup 1 个 + viewer.json 缺失）
-- 本机 e2e 实测（本机 playwright + chromium + build 产物 + e2e sqlite 实际可跑，纠正"本机跑不了"误判）发现 PrimeVue 4 + Nuxt hydration 兼容性 bug → 3 处修复 + 2 个 rowGroup 测试 `.fixme` 标记
-
-### C62: CodeQL 告警修复（CI run 32382730911） ✅
-
-- **关联告警**: CodeQL `#25` (js/incomplete-multi-character-sanitization, scripts/check-docs.mjs:219) + `#24` (js/incomplete-url-substring-sanitization, packages/engine/src/runners/verification-runner.test.ts:307) + `#23` (js/incomplete-url-substring-sanitization, packages/engine/src/runners/network-audit.test.ts:393)
-- **根因链**: 3 个 CodeQL 警告模式（多字符 sanitize 不完整 / URL 前缀 sanitize 不完整）；生产代码 check-docs.mjs 真实存在多字符 sanitize 不完整（未配对 `<!--` 残留 → vue-interp 误判风险），engine 测试代码用 `startsWith` 做 URL 前缀断言属于测试断言侧警告
-- **修复**:
-  - `0b5a1b5` fix(scripts): check-docs.mjs HTML_COMMENT_RE 加 `(?:-->|$)` 让未配对 `<!--` 也截到行尾（生产代码真实漏洞修复）
-  - `2e9d9a8` test(engine): verification-runner URL 断言改用 `extractHostname(e.target) === 'registry.npmjs.org'`（精确主机名匹配，绕过 `evil.com` 等前缀混淆）
-  - `f457a9a` test(engine): network-audit URL 断言同样改用 `extractHostname(v.target) === 'github.com'`
-- **完成定义**: 定向单测 74 pass（verification-runner + network-audit）；lint 0 / typecheck 0 / 编号扫描零新增
-- **审计**: code-reviewer quick Pass（0 blocker / 3 warning / 4 suggest）
-
-### C63: e2e 6 失败修复（CI run 32383730911） ✅
-
-- **关联失败**: env-events.e2e:18 (filter 5 vs 6) + :86 (wrapper 找不到) + :58 (flaky 详情展开) + :102 + :109 (viewer.json ENOENT) + alerts-rowgroup.e2e:32 (group-header 找不到)
-- **根因链**: 4 类
-  1. **生产 UI class 误用**: env-events.vue L213 Button 套用 `.env-events__filter-field` class → 测试期望 5 个实际 6 个（Button 不属于"filter 字段"语义）
-  2. **e2e 基础设施缺失**: global-setup 只保存 admin.json，viewer.json 不存在 → viewer 测试 `Error: ENOENT: no such file or directory, open 'tests/e2e/.auth/viewer.json'`
-  3. **mock 缺失**: env-events / alerts-rowgroup 不 mock `/api/*` → onMounted 抢跑走真实 API（401/403）→ 渲染空状态 → DataTable 不渲染 / rowGroup subheader 不出现
-  4. **mock 时序错误**: page.route 在 `page.goto` 后注册 → onMounted 抢跑走真实 API（mock 不生效）
-- **修复**:
-  - `384dec8` fix(platform): env-events.vue Button class `__filter-field` → `__filter-action` + SCSS 新增 `&__filter-action` 块（display: flex; align-items: flex-end）
-  - `f41c794` test(platform): global-setup.ts 重构为三段式（setupCtx 注册 → adminCtx admin 登录 → viewerCtx viewer 登录）；复用 `pageSignIn` helper 替代内联实现；移除未使用的 `waitWaitForHydration` import
-  - `646b256` test(platform): alerts-rowgroup.e2e 加 MOCK_ALERTS（2 lodash + 1 axios，packageName ASC 与 alerts.vue sortField 契约一致）+ `test.beforeEach` 注册 `/api/alerts` mock
-  - `8ea7b12` test(platform): env-events.e2e 6 处 `page.route` 全部前移到 `page.goto` 之前（根治 onMounted 抢跑）；2 处新增空数组 mock（L18/L86/L76/L58/L121/L123）
-- **完成定义**: env-events.e2e 8 个测试从 6 failed → 8 passed；alerts-rowgroup 4 个测试从 3 failed → 1 passed（charts）+ 2 failed（rowGroup，待 C64 修复）
-- **审计**: code-reviewer standard Pass（0 blocker / 3 warning / 4 suggest）
-
-### C64: PrimeVue 4 + Nuxt hydration 兼容性修复（本机 e2e 实测） ✅
-
-- **根因链**: 本机 `pnpm exec playwright test` 实测暴露 alerts-rowgroup rowGroup 仍不渲染，跟踪发现 3 个层叠 bug：
-  1. **PrimeVue v-model:expanded-row-groups 类型错误（生产 latent bug）**: alerts.vue `expandedPackages = ref<Record<string, boolean>>({})` —— PrimeVue 4 内部 `this.expandedRowGroups.indexOf(groupFieldValue) > -1` 期望数组，传 Record 触发 `TypeError: this.expandedRowGroups.indexOf is not a function`（**rowGroup 数据流首次渲染即抛错** —— 当前 e2e 因 mock 缺失未触发，真用户使用 rowGroup 时必现）
-  2. **PrimeVue 4 DataTable + Nuxt hydration 状态机分歧**: onMounted 异步赋值 `alerts.value` 后 PrimeVue 不重新计算 `processedData`，rowGroup subheader 永不渲染（`page.reload()` 后能渲染可佐证非业务逻辑问题）
-  3. **PrimeVue 4 wrapper class 重命名**: `scrollable` 包裹层从 PrimeVue 3 的 `.p-datatable-wrapper` 改为 `.p-datatable-table-container`（env-events DataTable scrollable 测试用过时断言）
-- **修复**:
-  - `de28ae4` fix(platform): alerts.vue `expandedPackages: Record<string, boolean>` → `string[]`；`isPackageExpanded` 用 `.includes()`；`togglePackage` 用 `.filter()` + spread（语义与 PrimeVue 内部 `.indexOf` / `.filter` / `.push` 等价）
-  - `1ab7155` test(platform): env-events.e2e wrapper class 订正 `.p-datatable-table-container`
-  - `6f6fe5b` test(platform): alerts-rowgroup.e2e 加 `/api/dashboard/stats` + `/api/repos` mock（闭合 alerts.vue `Promise.all([fetchRepositories(), fetchStats()]) → fetchAlerts()` 等待链）+ 2 个 rowGroup 测试 `.fixme` 标记（命名空间 `known-issue/primevue-hydration-rowgroup`）+ 修复路径注释（迁移 useAsyncData / 升级 PrimeVue）
-- **完成定义**: 全量 platform e2e **54 passed / 2 skipped / 0 failed**（2.9min 本机实测）
-- **审计**: code-reviewer standard Pass（0 blocker / 0 warning / 1 suggest）
-- **Known-issue 残留**: 2 个 alerts-rowgroup rowGroup 测试 `.fixme` 标记（PrimeVue 4 + Nuxt hydration 兼容性 bug），等 PrimeVue 修复版本或 alerts 加载迁移到 `useAsyncData` 后取消 `.fixme`
-
-### Chore: 根 .gitignore 补 test-results/ + playwright-report/ ✅
-
-- **根因**: 根 `.gitignore` 未包含 `test-results/` 与 `playwright-report/`，playwright 跑后根目录生成未被忽略的临时目录（`apps/platform/.gitignore` 已管子目录）
-- **修复**: `3290ee5` chore: 根 `.gitignore` 第 77-79 行加 `test-results/` + `playwright-report/`（子目录由 `apps/platform/.gitignore` 单独管）
-- **审计**: 文档自检（commit lint hook 通过；无需 code-reviewer）
-
-### 阶段治理记录
-
-- **提交序列**: C62 (`0b5a1b5` / `2e9d9a8` / `f457a9a`) → C63 (`384dec8` / `f41c794` / `646b256` / `8ea7b12`) → C64 (`de28ae4` / `1ab7155` / `6f6fe5b`) + chore (`3290ee5`) 共 11 commits（ahead 8 commits：C63/C64+chore；C62 三 commits 已随 M11 收口推送）
-- **审计覆盖**: C62 quick Pass / C63 standard Pass / C64 standard Pass；3 轮全部 Pass
-- **总变更**: 3 文件代码 (alerts.vue + 2 个 e2e 测试) + 1 文件配置 (.gitignore) = 4 文件 + 1 .vue 修复 + e2e mock 闭环 + PrimeVue 4 兼容性
-- **测试覆盖**: platform e2e 从 49 passed / 6 failed / 1 flaky (CI run 32383730911) → **54 passed / 2 skipped / 0 failed**（本批次修复 + 2 个 PrimeVue hydration known-issue 标记）
-- **关联**: 本批次 C62/C63/C64 是 M11 阶段（已闭环）的事后修复 + 本机 e2e 能力确认（纠正"本机跑不了"误判）+ PrimeVue 4 类型契约 latent bug 修复
-
-### 本批次关键经验（已沉淀至项目知识库，待迁移至 docs/standards/）
-
-- **CI 失败分析必看 trace page-snapshot**: CI log 的 `error-context.md` 包含 playwright accessibility tree，能直接看到实际 DOM 状态（row class / cell text）—— 比堆栈更有用，特别对 DOM-based 测试
-- **page.route 注册顺序铁律**: 必须在 `page.goto` 之前注册，Vue/Nuxt 应用 `onMounted` 在 hydration 后立即触发 fetch，先 mock 后 goto 才能保证 mock 生效（项目级规范候选：standards/testing.md 加 e2e mock 时序条款）
-- **PrimeVue 4 类型 vs 运行时不一致**: TypeScript 类型允许 `DataTableExpandedRows = Record<string, boolean>`，但运行时 v-model:expanded-row-groups 内部用 `.indexOf()` 期望数组 —— 编写 v-model 绑定时需直接看 PrimeVue index.mjs 内部实现，不能信类型定义（项目级规范候选：standards/platform.md §PrimeVue 集成实践 加 v-model 数据形态契约清单）
-- **本机 e2e 实际可跑**: playwright + chromium + build 产物 + e2e sqlite 全部就绪，本机 `pnpm exec playwright test` 完全可行（之前 CI-only 判断是误判，浪费一批审计用时）
-
-> **分片文件** 2026-08-20 由归档批次迁出：`docs/plan/archive/todo-archive-phases-m11.md`（M9 / 2026-08-19 PR1-PR3 / 2026-08-19 C54+C55 / M11 推进批次详细归档）。

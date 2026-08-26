@@ -11,6 +11,7 @@
 > - M14.2 UX-R1 扫描历史分页 ✅ —— 4 commits 落地（`81bd8d2` 后端分页 + `581e1a9` RepoHistoryDialog Paginator + `1a9eddf` 次级调用方 + i18n + `b7c9226` e2e + 收口登记）+ `17b5643` changelog 钩子自动 stage 落档
 > - M14.3 M13.4 T1403 follow-up 🔄 —— 计划中（补 alerts-rowgroup.e2e 1 case 覆盖首屏默认 dedupe=across 请求 URL 断言）
 > - **M14.x neat-freak 批次** ✅ —— 2026-08-26 闭环 4 atomic commits（`92cc348` wisdom 蒸馏 + `ea0e24f` C34 规范挂接 + `84b4e1a` test 名清理 + `b45f55e` git.md 格式修复）+ M14.x 收口登记 commit 待落地
+> - **M14.y 依赖批量治理（major 升级处理）** ✅ —— 2026-08-26 闭环（4 个 dependabot major PR）：#31 @octokit/request-error 5→7 rebase 后自动合；#32 better-auth 1.6→1.7 + generic OAuth 重写适配（已闭 + 新 PR #53）；#39 conventional-changelog 7→8 已闭（项目锁 ^7，dependabot.yml 加 major ignore）；#49 PrimeVue 4→5 暂缓已闭（backlog §M14.2 登记）
 >
 > **前置依赖**：M13 阶段 T1310 5 commits 已 ahead 提交并已推送至 origin/master（`300b318` 登记 / `1819b59` 注册 apps/platform 发布单元 / `733e198` publish tag-only / `7b40a2c` docker 协作 / `a74d07d` 文档 + dependabot 防御 + CHANGELOG 初始段），**实施已落地，仅缺 F 阶段完整验证**（本地验证 + CI 端到端裁决 + todo.md 收口）。
 >

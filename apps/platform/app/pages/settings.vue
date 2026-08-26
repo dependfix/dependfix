@@ -160,7 +160,6 @@ const unlink = async (account: BoundAccount) => {
     unlinkSaving.value = { id: account.id }
     try {
         const { error: unlinkError } = await authClient.unlinkAccount({
-            providerId: account.providerId,
             accountId: account.accountId,
         })
         if (unlinkError) {

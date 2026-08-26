@@ -47,7 +47,13 @@ describe('getAuthInstance', () => {
         const auth = await getAuthInstance({
             ...baseOptions,
             authMode: 'enterprise',
+            // better-auth 1.7 generic-oauth init 阶段会 fetch discovery URL，
+            // 测试环境无网络 fetch 失败 + 缺少 accountIssuer 兜底会抛错停止 provider 初始化
+            // （"discovery returned no valid data. Provider initialization stopped..."）。
+            // 这里显式声明 oidcIssuer 让 buildAuth 转 accountIssuer 注入 genericOAuth 配置，
+            // 作为"discovery 失败时的稳定 account namespace"，让 provider 在无 fetch 时也能注册
             oidcDiscoveryUrl: 'https://idp.example.com/.well-known/openid-configuration',
+            oidcIssuer: 'https://idp.example.com',
             oidcClientId: 'client-1',
             oidcClientSecret: 'secret-1',
             oidcScopes: 'openid,profile,email',

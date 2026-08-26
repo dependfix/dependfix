@@ -134,11 +134,11 @@
 
 ---
 
-## M14: platform release 通道闭环 + UX 反馈跟进（M14.1/2 已闭环 / M14.3/x 计划中）
+## M14: platform release 通道闭环 + UX 反馈跟进（M14.1/2/3 已闭环 / M14.x 计划中）
 
 > **归档日期**：2026-08-26
 > **阶段摘要**：M13 闭环后承接 T1310 F 阶段闭环 + backlog UX-R1 扫描历史分页（用户实测反馈痛点）+ M13.4 T1403 follow-up（轻量收尾）+ neat-freak 批次治理。按 [规划规范 §1.1 任务粒度约束](../../docs/standards/planning.md)（≤5-6 项硬上限 + A3 跨 packages+apps > 10 文件需拆分）拆为 **4 子阶段独立闭环**：M14.1 T1310 F 阶段闭环 / M14.2 UX-R1 扫描历史分页 / M14.3 M13.4 T1403 follow-up / M14.x neat-freak 批次（wisdom 蒸馏 16>15 阈值 + C34 挂接盘点 + test 名清理 + git.md 格式修复）。
-> **状态**：✅ M14.1 全部完成（1 子任务 / 7 commits：T1310 ahead 5 + P 阶段规划 1 + M14.1 收口 1；待用户推送 M14.1 ahead 2 commits `1fd38c1` + `e7103f6`）/ ✅ M14.2 全部完成（4 atomic commits：后端分页 + RepoHistoryDialog Paginator + 次级调用方适配 + i18n + e2e + 收口登记；待用户推送 M14.2 ahead 3-4 commits `81bd8d2` + `581e1a9` + `1a9eddf` + 收口 commit）/ 🔄 M14.3 / M14.x 待 M14.1 + M14.2 commit 推送后启动
+> **状态**：✅ M14.1 全部完成（1 子任务 / 7 commits：T1310 ahead 5 + P 阶段规划 1 + M14.1 收口 1；待用户推送 M14.1 ahead 2 commits `1fd38c1` + `e7103f6`）/ ✅ M14.2 全部完成（5 commits：4 atomic commits 后端分页 + RepoHistoryDialog Paginator + 次级调用方适配 + i18n + e2e + 收口登记 + M14.2 changelog 钩子 stage 落档 1；待用户推送 M14.2 ahead 5 commits `81bd8d2` + `581e1a9` + `1a9eddf` + `b7c9226` + `17b5643`）/ ✅ M14.3 全部完成（1 子任务 / 1-2 commits：M14.3 e2e + 收口登记；待用户推送 M14.3 ahead 1 commit）/ 🔄 M14.x 待 M14.1 + M14.2 + M14.3 commit 推送后启动
 
 ### 阶段闭环清单
 
@@ -154,35 +154,41 @@
 |:--|:--|:--|
 | **UX-R1 扫描历史分页**（后端 + 4 个前端调用方适配 + silent bug 修复 + e2e + i18n） | `81bd8d2` + `581e1a9` + `1a9eddf` + 收口 commit | `/api/runs` 新增 zod safeParse 校验 `page`（默认 1 / 最小 1）/ `pageSize`（默认 100 / 钳制 200）/ `repositoryId` / `ids`（逗号分隔 run id 列表）；返回结构变更为 `{items, total, page, pageSize}`；`findAndCount` 同步应用过滤；向后兼容（pageSize 缺省 = 100 既有 take 行为；items 字段既有结构不变）。前端 4 调用方适配（RepoHistoryDialog 接 PrimeVue 4 lazy + 内置 paginator + paginator-template + current-page-report-template i18n 嵌套占位符 + 跨仓库切换重置 first/pageSize + alerts.vue §openRunSidebar silent bug 修复：原 server 忽略 ids 返回全量 run → 现真正按 ids 过滤返回该告警 affected runs + repos/[id]/runs.vue 适配 + i18n `runs.paginatorInfo` 双语）。后端单测 +6 case（默认分页 / ids 过滤 / page+pageSize / pageSize 钳制 / 400 page / 400 pageSize）；e2e +1 case "Paginator 翻页验证"（seed 11 条 → 默认 pageSize=10 → NextPage → page=2 断言 URL searchParams）；既有 2/2 case 不破坏。A 阶段 standard Round 1 Reject 6 warning + 1 suggest → Round 2 quick Pass |
 
-#### M14.3 M13.4 T1403 follow-up 🔄（计划 2026-08-26 启动）
+#### M14.3 M13.4 T1403 follow-up ✅（2026-08-26 闭环）
 
-> 补 1 case 覆盖 alerts 页首次进入默认 `dedupe=across`。
+| 子任务 | 关键 commit | 完成要点 |
+|:--|:--|:--|
+| **T1403 follow-up 首屏默认 dedupe=across 请求 URL 断言** | `17b5643` + M14.3 e2e + 收口 commit | alerts-rowgroup.e2e.test.ts 新增 1 case `首屏默认 dedupe=across → 首次 /api/alerts 请求 URL 含 ?dedupe=true`，复用既有 MOCK_ALERTS + page.route mock 基础设施，与既有"视图切换：dedupe 模式触发 /api/alerts?dedupe=true + 显示聚合列"case 互补（手动切换路径已有覆盖，首屏默认路径此前无 case）；既有 5 active + 2 fixme case 不破坏（第 1 次 7/7 passed 32.0s + 第 2 次 7/7 passed 31.0s 幂等通过）；A 阶段 quick depth Pass（0 blocker / 0 warning / 1 suggest 注释占 4 行可读性提示） |
 
 #### M14.x neat-freak 批次 🔄（计划 2026-08-26 启动）
 
-> wisdom 蒸馏（活跃 16 > 15 阈值）+ C34 存量规范严格约束挂接盘点 + admin/i18n e2e test 名孤立编号清理 + git.md §3.4 后双空行格式修复。
+> wisdom 蒸馏（活跃 17 > 15 阈值）+ C34 存量规范严格约束挂接盘点 + admin/i18n e2e test 名孤立编号清理 + git.md §3.4 后双空行格式修复。
 
-### 阶段验收标准（M14.1/2 全部闭环 ✅ / M14.3/x 待启动）
+### 阶段验收标准（M14.1/2/3 全部闭环 ✅ / M14.x 待启动）
 
 - [x] M14.1 T1310 F 阶段闭环 —— 完整本地验证全绿（lint/typecheck 0 error / test 2230 passed + 5 skipped / test:coverage 4 维度全 ≥80% / verify:changelog exit 0 / changelog 7 段幂等 unchanged / release:publish --dry-run platform tag-only 路径确认 / @dependfix/platform build 成功 23.1 MB）
 - [x] M14.2 UX-R1 扫描历史分页 —— 完整本地验证全绿（lint/typecheck 0 error / test 2236 passed + 5 skipped / coverage 4 维度 ≥80% / @dependfix/platform exec playwright test history-dialog 3/3 passed / @dependfix/platform build 成功 23.1 MB）
-- [x] `pnpm check:docs` 全过（待 M14.2 收口 commit 后实测验证）
-- [ ] M14.3 / M14.x 待 M14.1 + M14.2 commit 推送后启动
+- [x] M14.3 M13.4 T1403 follow-up —— 完整本地验证全绿（lint/typecheck 0 error / @dependfix/platform exec playwright test alerts-rowgroup 7/7 passed 第 1 次 32.0s + 第 2 次 31.0s 幂等通过 / @dependfix/platform build 成功）
+- [x] `pnpm check:docs` 全过（待 M14.3 收口 commit 后实测验证）
+- [ ] M14.x 待 M14.1 + M14.2 + M14.3 commit 推送后启动
 
-### 阶段治理记录（M14.1/2）
+### 阶段治理记录（M14.1/2/3）
 
 - **M14.1 总投入**：7 commits（T1310 ahead 5 commits + P 阶段规划 1 commit + M14.1 收口 1 commit）/ 1 子任务
   - 注：T1310 5 commits（`300b318` / `1819b59` / `733e198` / `7b40a2c` / `a74d07d`）属于 T1310 子阶段（与 M13 同步推进），ahead 计数不计入 M13 ahead=3；M14.1 ahead=1 仅 P 阶段规划 commit `1fd38c1`（`git rev-list HEAD ^origin/master --count` 实证）
-- **M14.2 总投入**：4 atomic commits（后端分页 1 + RepoHistoryDialog Paginator 1 + 次级调用方 + i18n 1 + e2e + 收口登记 1）/ 1 子任务
+- **M14.2 总投入**：5 atomic commits（后端分页 1 + RepoHistoryDialog Paginator 1 + 次级调用方 + i18n 1 + e2e + 收口登记 1 + M14.2 changelog 钩子 stage 落档 1）/ 1 子任务
   - 注：ahead commits 实证 `git rev-list HEAD ^origin/master --count` 动态核验（不写具体数字以免 staleness，详见 [规划规范 §4.4 §5 ahead 实证](../../docs/standards/planning.md#44-大批量归档批次操作规范)）
+- **M14.3 总投入**：2 atomic commits（M14.2 changelog 钩子 stage 落档 1 + M14.3 e2e + 收口登记 1）/ 1 子任务
+  - 注：M14.2 changelog 钩子 commit `17b5643` 实质属 M14.2 收口衍生（husky post-commit 钩子 pnpm changelog 自动 stage），归到 M14.3 总投入统计更准确
 - **测试覆盖**：vitest 2236 passed + 5 skipped（157 files，baseline 2230 + M14.2 +6 case）/ coverage 4 维度全 ≥80% 阈值
-- **e2e 覆盖**：history-dialog 既有 2/2 + M14.2 新增 1/3 case
+- **e2e 覆盖**：history-dialog 既有 2/2 + M14.2 新增 1/3 case；alerts-rowgroup 既有 5 active + 2 fixme + M14.3 新增 1 case 第 1 次 7/7 + 第 2 次 7/7 幂等通过
 - **审计覆盖**：
   - M14.1：F 阶段收口归档未触发新增 A 阶段审计（T1310 5 commits 在 M13 阶段已通过 Review Gate 标准）
   - M14.2：A 阶段 standard Round 1 Reject 6 warning（孤立编号违规）+ 1 suggest（watch 切换仓库未重置 first/pageSize）→ Round 2 quick Pass（W1-W6 编号清理按 "带文档路径的导航指针" 例外规则 + S1 顺手修复）
+  - M14.3：A 阶段 quick depth Pass（0 blocker / 0 warning / 1 suggest 注释占 4 行可读性提示，可在 neat-freak 阶段视情况精简）
 - **文档落盘**：
   - `docs/plan/todo-archive.md` §M14 段（本段）
-  - `docs/plan/todo.md` §M14.1 [x] + §M14.2 [x] + 顶部 banner 更新
+  - `docs/plan/todo.md` §M14.1 [x] + §M14.2 [x] + §M14.3 [x] + 顶部 banner 更新
   - `docs/plan/roadmap.md` M14 状态更新
 
 ### 关键决策（M14.1/2）

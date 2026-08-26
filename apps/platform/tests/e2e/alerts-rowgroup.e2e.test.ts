@@ -199,6 +199,35 @@ test.describe('C58 alerts rowGroup + 视图切换', () => {
         expect(noneReq).toBeDefined()
     })
 
+    // todo.md §M14.3 M13.4 T1403 follow-up：T1403 修复后 filters.dedupe 默认值改为 'across'
+    // （见 apps/platform/app/pages/alerts.vue:56），首屏首次 fetchAlerts 请求 URL 应含 dedupe=true。
+    // 本 case 与下方「切换 dedupe off → across」case 互补：手动切换路径已有覆盖，首屏默认
+    // 路径此前无 case 覆盖（T1403 follow-up 登记项）。
+    test('首屏默认 dedupe=across → 首次 /api/alerts 请求 URL 含 ?dedupe=true', async ({ page }) => {
+        const requests: URL[] = []
+        await page.route('**/api/alerts*', (route, request) => {
+            requests.push(new URL(request.url()))
+            return route.fulfill({
+                status: 200,
+                contentType: 'application/json',
+                body: JSON.stringify(MOCK_ALERTS),
+            })
+        })
+        await page.route('**/api/repos*', (route) => route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify(MOCK_REPOS),
+        }))
+        // 首屏 fetchAlerts 由 onMounted 触发，等待首个 /api/alerts 请求
+        const initialResponsePromise = page.waitForResponse('**/api/alerts*')
+        await page.goto('/alerts')
+        await initialResponsePromise
+        await waitForHydration(page)
+        // 验证首个 /api/alerts 请求 URL 含 dedupe=true
+        const initial = requests.find((u) => u.searchParams.get('dedupe') === 'true')
+        expect(initial).toBeDefined()
+    })
+
     // todo.md §T1306：dedupe 模式切换触发 /api/alerts?dedupe=true + 表格列扩展
     test('视图切换：dedupe 模式触发 /api/alerts?dedupe=true + 显示聚合列', async ({ page }) => {
         const requests: URL[] = []

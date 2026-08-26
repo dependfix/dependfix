@@ -8,8 +8,8 @@
 >
 > **当前进度**：
 > - M14.1 T1310 F 阶段闭环 ✅ —— 7 commits（M14.1 收口 commit `e7103f6` + P 阶段规划 `1fd38c1` + T1310 ahead 5 `300b318`/`1819b59`/`733e198`/`7b40a2c`/`a74d07d` 落地）
-> - M14.2 UX-R1 扫描历史分页 ✅ —— 3 commits 已落地（`81bd8d2` 后端分页 + `581e1a9` RepoHistoryDialog Paginator + `1a9eddf` 次级调用方 + i18n）；M14.2 收口 commit（e2e 新增 + 收口登记）待落地
-> - M14.3 M13.4 T1403 follow-up 🔄 —— 计划中
+> - M14.2 UX-R1 扫描历史分页 ✅ —— 4 commits 落地（`81bd8d2` 后端分页 + `581e1a9` RepoHistoryDialog Paginator + `1a9eddf` 次级调用方 + i18n + `b7c9226` e2e + 收口登记）+ `17b5643` changelog 钩子自动 stage 落档
+> - M14.3 M13.4 T1403 follow-up 🔄 —— 计划中（补 alerts-rowgroup.e2e 1 case 覆盖首屏默认 dedupe=across 请求 URL 断言）
 > - **M14.x neat-freak 批次** 🔄 —— 计划中（wisdom 蒸馏活跃 17 > 15 阈值 + C34 挂接盘点 + test 名孤立编号清理 + git.md 格式修复）
 >
 > **前置依赖**：M13 阶段 T1310 5 commits 已 ahead 提交并已推送至 origin/master（`300b318` 登记 / `1819b59` 注册 apps/platform 发布单元 / `733e198` publish tag-only / `7b40a2c` docker 协作 / `a74d07d` 文档 + dependabot 防御 + CHANGELOG 初始段），**实施已落地，仅缺 F 阶段完整验证**（本地验证 + CI 端到端裁决 + todo.md 收口）。
@@ -76,7 +76,7 @@
 
 > **闭环记录**：7 commits（T1310 ahead 5 `300b318`/`1819b59`/`733e198`/`7b40a2c`/`a74d07d` + P 阶段规划 1 `1fd38c1` + M14.1 收口 1）；`git rev-list HEAD ^origin/master --count` ahead=1（待用户推送 `1fd38c1` P 阶段规划 commit）；完整本地验证全绿（lint/typecheck 0 error / test 2230 passed + 5 skipped / test:coverage 4 维度全 ≥80% / verify:changelog exit 0 / changelog 7 段幂等 unchanged / release:publish --dry-run platform tag-only 路径确认 / @dependfix/platform build 成功 23.1 MB）。
 >
-> 详细闭环清单 + 验收标准 + 治理记录 + 关键决策 + 关键经验见 [todo-archive.md §M14.1/2](todo-archive.md#m14-platform-release-通道闭环--ux-反馈跟进m1412-已闭环--m143x-计划中)。
+> 详细闭环清单 + 验收标准 + 治理记录 + 关键决策 + 关键经验见 [todo-archive.md §M14.1/2/3](todo-archive.md#m14-platform-release-通道闭环--ux-反馈跟进m14123-已闭环--m14x-计划中)。
 
 ---
 
@@ -212,7 +212,7 @@
 
 ---
 
-#### M14.3 M13.4 T1403 follow-up（轻量收尾）—— 计划 2026-08-26
+#### M14.3 M13.4 T1403 follow-up（轻量收尾）[x] —— 已闭环 2026-08-26
 
 - **优先级**：P2（[todo-archive.md §M13.4 T1403 follow-up](../../docs/plan/todo-archive.md#m13-治理--ux-反馈--网络治理--code-scanning已闭环) 登记项，无用户实测反馈直接痛点）
 - **依赖**：—（独立轻量收尾，与 M14.1 / M14.2 无文件冲突）
@@ -239,6 +239,20 @@
   - 未来若 T1403 默认值再次变更（如用户改为 `off`），需同步更新此 e2e case
 - **原子提交切分**：
   1. `test(platform): 补测覆盖首屏默认 dedupe=across + M14.3 收口登记`
+- **实际提交落地**：
+  - `17b5643` `docs(plan): M14.2 落地后 changelog 钩子自动 stage 落档`（2 files +6/-0）—— CHANGELOG.md × 2 husky post-commit 钩子 pnpm changelog 自动 stage 落档（M14.2 衍生）
+  - M14.3 e2e + 收口 commit 待落地（含 alerts-rowgroup.e2e 新增 1 case "首屏默认 dedupe=across → 首次 /api/alerts 请求 URL 含 ?dedupe=true" + todo/todo-archive/roadmap M14.3 收口登记）；ahead commits 实证：`git rev-list HEAD ^origin/master --count` 动态核验（commit `1fd38c1` + `e7103f6` M14.1 ahead 2 + M14.2 4 commits + M14.2 changelog 钩子 1 commit ahead；本批 ahead=7 待用户推送）
+- **审计记录**：A 阶段 quick depth Pass —— 0 blocker / 0 warning / 1 suggest（注释占 4 行信息量大但合规，可读性提示，可在 neat-freak 阶段视情况精简）
+- **测试覆盖**：
+  - e2e：+1 case（`首屏默认 dedupe=across → 首次 /api/alerts 请求 URL 含 ?dedupe=true`，复用既有 `MOCK_ALERTS` + `page.route` mock 基础设施，与既有"视图切换：dedupe 模式触发 /api/alerts?dedupe=true + 显示聚合列"case 互补：手动切换路径已有覆盖，首屏默认路径此前无 case）
+  - 既有 alerts-rowgroup 5 active + 2 fixme case 不破坏（第 1 次 7/7 passed 32.0s + 第 2 次 7/7 passed 31.0s 幂等通过）
+- **验证证据**：
+  - `pnpm typecheck` → 0 error
+  - `pnpm --filter @dependfix/platform lint` → 0 error / 1 unrelated warning（mailer.test.ts baseline）
+  - `pnpm --filter @dependfix/platform exec playwright test alerts-rowgroup` 第 1 次 → 7/7 passed (32.0s)
+  - `pnpm --filter @dependfix/platform exec playwright test alerts-rowgroup` 第 2 次 → 7/7 passed (31.0s) 幂等通过
+  - 编号标记扫描：`grep -n "T1403\|M14.3\|M13.4"` e2e → 2 处命中全部带 `todo.md §` 文档路径前缀，符合 [code-reviewer skill §5.6](../../.github/skills/code-reviewer/SKILL.md) 例外规则
+- **风险闭环**："极低"风险——仅 e2e 新增 1 case，无功能代码改动；新 case 不依赖 DataTable rowGroup 渲染，不受既有 PrimeVue 4 + Nuxt hydration rowGroup bug 影响
 
 ---
 

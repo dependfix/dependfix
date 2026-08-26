@@ -6,6 +6,12 @@
 
 > **阶段背景（2026-08-26 启动）**：M13 治理 + UX 反馈 + 网络治理 + Code Scanning 全部闭环（12 子任务 / 26 commits）。M13 归档批次已落地（5 atomic commits `3621982`/`01f01de`/`0f46b99`/`3ff3f83`/`e9987f9`），M13.4 三 commits `2dce01d` + `bb3b49a` + `8762a4b`（T1401 + T1402 + T1403）均已推送至 origin/master。本阶段承接：① T1310 platform 进入 release 通道 F 阶段闭环（CI 裁决 + 收口）；② backlog UX-R1 扫描历史分页（用户实测反馈痛点，关联：T1310 闭环后启动）；③ M13.4 T1403 follow-up（轻量收尾，补 1 case 覆盖首屏默认 dedupe=across）。
 >
+> **当前进度**：
+> - M14.1 T1310 F 阶段闭环 ✅ —— 7 commits（M14.1 收口 commit `e7103f6` + P 阶段规划 `1fd38c1` + T1310 ahead 5 `300b318`/`1819b59`/`733e198`/`7b40a2c`/`a74d07d` 落地）
+> - M14.2 UX-R1 扫描历史分页 ✅ —— 3 commits 已落地（`81bd8d2` 后端分页 + `581e1a9` RepoHistoryDialog Paginator + `1a9eddf` 次级调用方 + i18n）；M14.2 收口 commit（e2e 新增 + 收口登记）待落地
+> - M14.3 M13.4 T1403 follow-up 🔄 —— 计划中
+> - **M14.x neat-freak 批次** 🔄 —— 计划中（wisdom 蒸馏活跃 17 > 15 阈值 + C34 挂接盘点 + test 名孤立编号清理 + git.md 格式修复）
+>
 > **前置依赖**：M13 阶段 T1310 5 commits 已 ahead 提交并已推送至 origin/master（`300b318` 登记 / `1819b59` 注册 apps/platform 发布单元 / `733e198` publish tag-only / `7b40a2c` docker 协作 / `a74d07d` 文档 + dependabot 防御 + CHANGELOG 初始段），**实施已落地，仅缺 F 阶段完整验证**（本地验证 + CI 端到端裁决 + todo.md 收口）。
 >
 > **拆分方案**：按 [规划规范 §1.1 任务粒度约束](../../docs/standards/planning.md)（≤5-6 项硬上限 + A3 跨 packages+apps > 10 文件需拆分）拆为 **4 子阶段独立闭环**：
@@ -13,11 +19,13 @@
 > | 子阶段 | 任务 | 预计 commits | 风险梯度 |
 > |:---|:---|:---:|:---:|
 > | M14.1 T1310 F 阶段闭环 ✅ | T1310 完整验证 + 收口 | 1 | 低 |
-> | M14.2 UX-R1 扫描历史分页 | `/api/runs` 分页参数 + 3 个前端调用方适配 + e2e | 3-4 | 中 |
+> | M14.2 UX-R1 扫描历史分页 ✅ | `/api/runs` 分页参数 + 4 个前端调用方适配 + e2e | 4 | 中 |
 > | M14.3 M13.4 T1403 follow-up | 补 1 case 覆盖首屏默认 `dedupe=across` | 1 | 极低 |
-> | **M14.x neat-freak 批次** | **wisdom 蒸馏（活跃 16 > 15 阈值）+ C34 规范挂接盘点 + test 名孤立编号清理 + git.md 格式修复** | **3-4** | **极低** |
+> | **M14.x neat-freak 批次** | **wisdom 蒸馏（活跃 17 > 15 阈值）+ C34 规范挂接盘点 + test 名孤立编号清理 + git.md 格式修复** | **3-4** | **极低** |
 >
 > **状态约定**：子阶段串行实施，每子阶段独立 PDTFC+ 循环；上一子阶段 F 阶段闭环（commit 推送）后方可启动下一子阶段。M14.2 与 M14.3 / M14.x 无文件冲突（前者后端 + 前端，后者仅 e2e + 文档/standards），可与 M14.3 + M14.x 推送并行进行。本阶段与 M13.4 UX 反馈批次无文件冲突。
+>
+> **ahead 状态**：ahead commits 实证命令 `git rev-list HEAD ^origin/master --count`（动态核验，不写具体数字以免 staleness）。M14.1 ahead commits（`1fd38c1` P 阶段规划 + `e7103f6` M14.1 收口）+ M14.2 ahead commits（`81bd8d2` + `581e1a9` + `1a9eddf`）待用户推送。
 
 ---
 
@@ -68,7 +76,7 @@
 
 > **闭环记录**：7 commits（T1310 ahead 5 `300b318`/`1819b59`/`733e198`/`7b40a2c`/`a74d07d` + P 阶段规划 1 `1fd38c1` + M14.1 收口 1）；`git rev-list HEAD ^origin/master --count` ahead=1（待用户推送 `1fd38c1` P 阶段规划 commit）；完整本地验证全绿（lint/typecheck 0 error / test 2230 passed + 5 skipped / test:coverage 4 维度全 ≥80% / verify:changelog exit 0 / changelog 7 段幂等 unchanged / release:publish --dry-run platform tag-only 路径确认 / @dependfix/platform build 成功 23.1 MB）。
 >
-> 详细闭环清单 + 验收标准 + 治理记录 + 关键决策 + 关键经验见 [todo-archive.md §M14.1](todo-archive.md#m14-platform-release-通道闭环--ux-反馈跟进m141-已闭环--m1423x-计划中)。
+> 详细闭环清单 + 验收标准 + 治理记录 + 关键决策 + 关键经验见 [todo-archive.md §M14.1/2](todo-archive.md#m14-platform-release-通道闭环--ux-反馈跟进m1412-已闭环--m143x-计划中)。
 
 ---
 
@@ -111,7 +119,7 @@
 
 ---
 
-#### M14.2 UX-R1 扫描历史分页（用户实测反馈，实测反馈 6）—— 计划 2026-08-26
+#### M14.2 UX-R1 扫描历史分页（用户实测反馈，实测反馈 6）[x] —— 已闭环 2026-08-26
 
 - **优先级**：P1（用户实测截图痛点直接：单仓库累积 30+ 次扫描后触顶，多仓库聚合必然超出 100 上限）
 - **依赖**：M14.1 F 阶段闭环（T1310 platform release 通道已闭环后启动，避免与 release 通道混合 commit）
@@ -170,6 +178,37 @@
   2. `feat(platform): RepoHistoryDialog 接入 PrimeVue Paginator + 切换 LazyDataTable 模式`
   3. `feat(platform): batch-runs.vue + alerts.vue 侧栏适配分页 API + i18n 双语`
   4. `test(platform): history-dialog.e2e 新增 Paginator 翻页验证 + M14.2 收口登记`
+- **实际提交落地**：
+  - `81bd8d2` `feat(platform): /api/runs 新增 page/pageSize/ids 分页参数 + 返回结构 + 单测`（2 files +156/-27）—— zod safeParse 校验 page/pageSize/ids/repositoryId + findAndCount + `{items,total,page,pageSize}` 返回 + 单测 9/9 passed
+  - `581e1a9` `feat(platform): RepoHistoryDialog 接入 PrimeVue Paginator + 切换 LazyDataTable 模式`（1 file +47/-7）—— PrimeVue 4 lazy + 内置 paginator + pageSize=10/25/50 + onPage 0→1-indexed 转换 + 跨仓库切换重置 first/pageSize
+  - `1a9eddf` `feat(platform): alerts 侧栏 + repos/[id]/runs 适配分页 API + ids 修复 + i18n 双语`（4 files +10/-3）—— alerts sidebar 适配新返回结构 + silent bug 修复生效（server 真正按 ids 过滤）+ repos/[id]/runs.vue 适配（保留 backlog.md §C58 候选删除兼容路径）+ runs.paginatorInfo i18n 双语
+  - M14.2 收口 commit 待落地（含 e2e 新增 + todo/todo-archive/roadmap 收口登记）；ahead commits 实证：`git rev-list HEAD ^origin/master --count` 动态核验（commit `1fd38c1` + `e7103f6` M14.1 ahead 2 + M14.2 3 commits 已 ahead；本批 ahead=5 待用户推送；详见 M14.2 commit 4 收口登记段）
+- **关键决策回顾**：
+  - **额外发现第 4 个调用方**：规划文档列 3 个前端调用方（RepoHistoryDialog / batch-runs.vue / alerts.vue），实施中发现 `apps/platform/app/pages/repos/[id]/runs.vue`（保留 C58 候选删除兼容路径）也调用 `/api/runs?repositoryId=...`，已纳入 commit 3 一并适配 —— **规划盲区警示**：todo.md §M14.2 "3 个前端调用方"实际应为 4 个，batch-runs.vue 不调用 `/api/runs`（与 ScanRun 维度正交）
+  - **silent bug 一并修复**：实施中实证 alerts.vue §openRunSidebar 此前用 `ids` 参数调用 `/api/runs`，但原 server 忽略 `ids` 返回全量 run —— M14.2 commit 1 server 加 `ids` 支持后，sidebar 真正只返回该告警 affected runs（修复 + 影响范围扩大，但低风险，scope 仍属 UX-R1）
+  - **pageSize 默认 10 而非 100**：RepoHistoryDialog 在 720px 宽 Dialog 内显示 7 列 DataTable，默认 pageSize=100 会出现 99 行空占位；改用 pageSize=10（DataTable 内部默认）+ options `[10, 25, 50]` + server 钳制 200 上限，三层一致
+  - **跨仓库切换重置 first/pageSize**：A 阶段审计 suggest#1 —— 用户从 repo A 翻到 page=3 后切换到 repo B，原实现 `first.value` 残留 30 导致 UI 高亮页与 server 数据不一致；在 watch 分支加 `first.value = 0` + `pageSize.value = 10` 重置，与 closeDialog() 对齐
+  - **i18n 嵌套占位符**：PrimeVue CurrentPageReport 模板用 `{first}` / `{last}` / `{totalRecords}` 占位符，vue-i18n 先把 i18n 字符串中的 `{first}` / `{last}` / `{total}` 字面替换为 PrimeVue 占位符（嵌套转义）；实测通过 e2e Paginator 翻页 + 中文 / 英文文案渲染验证
+- **审计记录**：
+  - Round 1（standard depth）：Reject —— 6 处 warning（孤立任务/阶段/backlog 编号违反 [code-reviewer skill §5.6](../../.github/skills/code-reviewer/SKILL.md) 必查项）+ 1 处 suggest（watch 切换仓库未重置 first/pageSize）
+  - Round 2（quick depth）：Pass —— W1-W6 编号清理按"带文档路径的导航指针"例外规则保留（`todo.md §` / `backlog.md §` 前缀）+ S1 顺手修复 + lint/typecheck/vitest/e2e/build 全绿
+- **测试覆盖增量**：
+  - vitest：+6 case（既有 3 case 适配返回结构 + 新增默认分页 / ids 过滤 / page+pageSize / pageSize 钳制 / 400 page / 400 pageSize）；全 workspace 2236 passed + 5 skipped（baseline 2230 → +6）
+  - e2e：+1 case（`Paginator 翻页验证`，seed 11 条 → 翻 page=2 → 断言 URL searchParams）；既有 2/2 不破坏
+  - coverage：4 维度 ≥80% 阈值（本次未触发 CI 回归风险，increment +6 case 已纳入 baseline）
+- **验证证据**：
+  - `pnpm typecheck` → 8 包全通过
+  - `pnpm lint` → 0 error / 1 unrelated warning（mailer.test.ts baseline）
+  - `pnpm test` → 2236 passed + 5 skipped（156 files）
+  - `pnpm --filter @dependfix/platform exec playwright test history-dialog` → 3/3 passed (49.7s)
+  - `pnpm --filter @dependfix/platform build` → 成功 23.1 MB / 6.08 MB gzip
+- **风险闭环**：
+  - "API 返回结构变更跨多个调用方"（中）→ 已通过 4 调用方逐一适配 + e2e 翻页验证 + 单测覆盖过滤一致性闭环
+  - "pageSize 过大性能风险"（低→中）→ zod safeParse 静默钳制 200 + 单测验证 pageSize=300/500 → 200
+  - "Paginator 接入影响 e2e 既有断言"（低）→ 既有 2/2 case 不破坏（e2e 12s/13.8s → 翻页 case 12s 实测一致）
+- **新增经验**（待沉淀至 docs/standards）：
+  - **silence-bug-fix-during-feature-implementation**：M14.2 实施中实证 alerts.vue §openRunSidebar 此前传 `ids` 但 server 不支持（silent bug），建议所有"前端用某个参数但 server 不识别"的代码路径在 feature 实施时主动 grep 实证，避免无声回归 —— 建议沉淀到 [docs/standards/platform.md §3.5 TypeORM 查询模式](../../docs/standards/platform.md#35-typeorm-查询模式) 或独立段
+  - **paginator-template-i18n-nesting**：PrimeVue 4 CurrentPageReport 模板与 vue-i18n 嵌套占位符机制（vue-i18n 先做字面替换，PrimeVue 再做数值替换）—— 已可沉淀至 [docs/standards/platform.md §7.1 PrimeVue 4 集成实践](../../docs/standards/platform.md#71-primevue-4-集成实践)
 
 ---
 

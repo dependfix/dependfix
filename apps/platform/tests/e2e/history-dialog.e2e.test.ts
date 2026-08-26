@@ -133,4 +133,73 @@ test.describe('扫描历史 Dialog（应用层修复）', () => {
         await page.waitForURL((u) => !u.searchParams.has('history'), { timeout: 15000 })
         await expect(page.locator('.p-dialog')).not.toBeVisible({ timeout: 15000 })
     })
+
+    /**
+     * todo.md §M14.2 UX-R1：Paginator 翻页验证
+     * - seed 11 条 ScanRun（默认 pageSize=10 → 2 页）
+     * - 打开 Dialog 后首次请求应带 page=1 + pageSize=10
+     * - 点击 NextPage → 请求带 page=2 + pageSize=10
+     */
+    test('Paginator 翻页验证', async ({ page }) => {
+        await page.goto('/repos')
+        await waitForHydration(page)
+        const cookieHeader = (await page.context().cookies()).map((c) => `${c.name}=${c.value}`).join('; ')
+
+        const stamp = Date.now()
+        const owner = `e2e-history-paginator-${stamp}`
+        const name = `e2e-history-paginator-repo-${stamp}`
+
+        // 创建仓库
+        const created = await page.request.post('/api/repos', {
+            headers: { cookie: cookieHeader },
+            data: { owner, name, defaultBranch: 'main', packageManager: 'pnpm', executorKind: 'container' },
+        })
+        expect(created.status()).toBe(200)
+        const { id: repoId } = (await created.json()) as { id: string }
+
+        // 触发 11 次 sync 扫描（无 token → 快速失败 + 每条创建 ScanRun record）
+        for (let i = 0; i < 11; i++) {
+            const resp = await page.request.post(`/api/repos/${repoId}/scan`, {
+                headers: { cookie: cookieHeader },
+                data: { mode: 'report-only', severityThreshold: 'high' },
+            })
+            expect(resp.status()).toBe(200)
+        }
+
+        // 监听 /api/runs 请求用于翻页参数断言
+        const runsRequests: URL[] = []
+        page.on('request', (req) => {
+            const url = req.url()
+            if (url.includes('/api/runs') && !(/\/api\/runs\/[^?]/.exec(url))) {
+                runsRequests.push(new URL(url))
+            }
+        })
+
+        // 重新进入仓库页（确保新仓库可见）
+        await page.goto(`/repos?r=${stamp}`)
+        await waitForHydration(page)
+        const targetRow = page.locator('.p-datatable tbody tr').filter({ hasText: owner }).first()
+        await expect(targetRow).toBeVisible({ timeout: 15000 })
+
+        // 打开历史 Dialog
+        await targetRow.locator('button[aria-label="扫描历史"]').click()
+        await page.waitForURL(new RegExp(`/repos\\?history=${repoId}`), { timeout: 15000 })
+        await expect(page.locator('.p-dialog')).toBeVisible({ timeout: 15000 })
+
+        // 初始请求应带 page=1 + pageSize=10（与后端 default 一致）
+        await expect.poll(() => runsRequests.some((u) =>
+            u.searchParams.get('page') === '1' && u.searchParams.get('pageSize') === '10'
+            && u.searchParams.get('repositoryId') === repoId), { timeout: 15000 }).toBe(true)
+
+        // Paginator 可见（PrimeVue 4 默认 .p-paginator class）
+        await expect(page.locator('.p-dialog .p-paginator')).toBeVisible({ timeout: 5000 })
+
+        // 点击 NextPage（PrimeVue 4 默认 .p-paginator-next）
+        await page.locator('.p-dialog .p-paginator-next').click()
+
+        // 验证翻页请求触发：page=2 + pageSize=10
+        await expect.poll(() => runsRequests.some((u) =>
+            u.searchParams.get('page') === '2' && u.searchParams.get('pageSize') === '10'
+            && u.searchParams.get('repositoryId') === repoId), { timeout: 15000 }).toBe(true)
+    })
 })

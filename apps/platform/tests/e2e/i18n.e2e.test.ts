@@ -87,7 +87,7 @@ test.describe('国际化（i18n 语言切换）', () => {
         await expect(dialog.locator('.p-dialog-header-actions button')).toHaveAttribute('aria-label', '关闭')
     })
 
-    test('C65-A2：用户管理角色标签随语言切换（zh-CN 管理员 / 观察者；en Admin / Viewer）', async ({ page }) => {
+    test('用户管理角色标签随语言切换（zh-CN 管理员 / 观察者；en Admin / Viewer）', async ({ page }) => {
         // 默认 zh-CN → 角色 Tag 应为中文（实际用户 admin / viewer，对应"管理员" / "观察者"；
         // "组织管理员"仅出现在 Select option，未实际分配给任何用户时不进入 DataTable）
         await page.goto('/users')

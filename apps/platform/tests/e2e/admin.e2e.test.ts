@@ -146,7 +146,7 @@ test.describe('用户管理（admin）', () => {
         await expect(roleSelects.first()).toBeVisible({ timeout: 15000 })
     })
 
-    test('C65-A1：自己 row 的 role Select 含 disabled（防止自我降级）', async ({ page }) => {
+    test('自己 row 的 role Select 含 disabled（防止自我降级）', async ({ page }) => {
         await page.goto('/users')
         await waitForHydration(page)
         // 自己 row（当前登录 admin = e2e-admin@dependfix.test）role Select 应禁用
@@ -164,7 +164,7 @@ test.describe('用户管理（admin）', () => {
         await expect(otherCombobox).toHaveAttribute('aria-disabled', 'false')
     })
 
-    test('C65-A3：服务端强制拦截（绕过前端 UI 直接调 API）', async ({ page }) => {
+    test('服务端强制拦截（绕过前端 UI 直接调 API）', async ({ page }) => {
         // 用 page navigation 让 SSR 走完（auth middleware + useSession 填充 session）
         await page.goto('/dashboard')
         await waitForHydration(page)
@@ -271,7 +271,7 @@ test.describe('用户管理（admin）', () => {
         expect(afterUserId).toBe(selfUserId)
     })
 
-    test('C65-A4：update-user self-target 同样被拦截（防 update-user 绕过）', async ({ page }) => {
+    test('update-user self-target 同样被拦截（防 update-user 绕过）', async ({ page }) => {
         await page.goto('/dashboard')
         await waitForHydration(page)
         const selfUserId = await page.evaluate((): string | null => {

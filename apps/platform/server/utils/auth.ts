@@ -109,8 +109,10 @@ const buildTrustedOrigins = (_options: { authSecret: string }): string[] => {
         }
     }
     const extra = process.env.BETTER_AUTH_TRUSTED_ORIGINS
-    if (extra) for (const o of extra.split(',').map((s) => s.trim()).filter(Boolean)) {
-        origins.add(o)
+    if (extra) {
+        for (const o of extra.split(',').map((s) => s.trim()).filter(Boolean)) {
+            origins.add(o)
+        }
     }
     // 兜底：未配置 env 时，覆盖所有 http(s) origin（与 1.6 默认行为对齐）
     if (origins.size === 0) {

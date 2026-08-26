@@ -105,7 +105,6 @@
 - 与 [§3.2 单文件跨 type 改动需提前规划 commit 拆分](#32-单文件跨-type-改动需提前规划-commit-拆分) 配套——§3.2 处理 staged diff 误纳（`git restore --staged`），§3.4 处理已 commit 但未推送的误纳（`git reset --soft`）。
 - 教训：某次 admin self-protection 调试时 commit 1 误含 `common.role` i18n key（A2 内容）→ reset 后仅保留 errors.cannotSelfModify（A1 内容）→ commit 2 再加 common.role，保持原子粒度（详见 commit `1d7c5c8` / `2076fda` 系列 + [经验归档 §二十四](../design/governance/experience-archive.md)）。
 
-
 **type 选择校准**：修复现有功能缺陷 → `fix`；新增能力 → `feat`。凡是"让原本坏的东西变好"都是 `fix`。
 
 ## 4. AI 行为准则

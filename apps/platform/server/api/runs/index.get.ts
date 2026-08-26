@@ -1,6 +1,28 @@
+import { z } from 'zod'
+import { In, type FindOptionsWhere } from 'typeorm'
 import { ScanRun } from '#server/entities/scan-run'
 import { ensureDatabaseInitialized } from '#server/database'
 import { requireAuth } from '#server/utils/guard'
+
+const PAGE_SIZE_DEFAULT = 100
+const PAGE_SIZE_MAX = 200
+
+/**
+ * 查询参数 schema（todo.md §M14.2 UX-R1）：
+ * - repositoryId：可选，按仓库过滤（既有，RepoHistoryDialog.vue 主调用方）
+ * - ids：可选，逗号分隔 run id 列表（alerts.vue §openRunSidebar 复用，todo.md §T1306）
+ *   —— 修复 silent bug：原 server 不识别 `ids`，alerts sidebar 实际拿到全量 run 而非该告警 affected runs
+ * - page：默认 1，最小 1
+ * - pageSize：默认 100，上限 200（超出自动钳制，不抛错；防止单次拉取过大影响性能）
+ */
+const querySchema = z.object({
+    repositoryId: z.string().min(1).optional(),
+    ids: z.string().optional()
+        .transform((v) => (v && v.length > 0 ? v : undefined)),
+    page: z.coerce.number().int().min(1).default(1),
+    pageSize: z.coerce.number().int().min(1).default(PAGE_SIZE_DEFAULT)
+        .transform((v) => Math.min(v, PAGE_SIZE_MAX)),
+})
 
 const toView = (r: ScanRun) => ({
     id: r.id,
@@ -15,25 +37,56 @@ const toView = (r: ScanRun) => ({
     finishedAt: r.finishedAt,
     runUrl: r.runUrl,
     summary: r.summaryJson ? JSON.parse(r.summaryJson) as Record<string, unknown> : null,
-    error: r.errorJson ? JSON.parse(r.errorJson) as { code: string, message: string } : null,
+    error: r.errorJson ? JSON.parse(r.errorJson) as { code: string, message: string } | null : null,
 })
 
-/** GET /api/runs：扫描历史列表（可按仓库过滤） */
+/**
+ * GET /api/runs：扫描历史列表（按仓库过滤 + 分页）。
+ *
+ * 返回 `{items, total, page, pageSize}` —— 与 alerts handler 既有风格一致（todo.md §M14.2 决策）。
+ * 向后兼容：pageSize 缺省 = 100（既有 take 行为）；items 字段既有结构不变。
+ */
 export default defineEventHandler(async (event) => {
     await requireAuth(event)
 
     const query = getQuery(event)
-    const repositoryId = query.repositoryId as string | undefined
+    const parsed = querySchema.safeParse(query)
+    if (!parsed.success) {
+        throw createError({
+            statusCode: 400,
+            statusMessage: 'Invalid query parameters',
+            data: { issues: parsed.error.issues },
+        })
+    }
+    const { repositoryId, ids, page, pageSize } = parsed.data
 
     const ds = await ensureDatabaseInitialized()
     const runRepo = ds.getRepository(ScanRun)
 
-    const where = repositoryId ? { repositoryId } : {}
-    const runs = await runRepo.find({
+    const where: FindOptionsWhere<ScanRun> = {}
+    if (repositoryId) {
+        where.repositoryId = repositoryId
+    }
+    if (ids) {
+        const idList = ids.split(',').map((s) => s.trim()).filter(Boolean)
+        if (idList.length > 0) {
+            where.id = In(idList)
+        }
+    }
+    // repositoryId + ids 同传：TypeORM AND 合并 → 既属于该仓库又是 ids 子集（AND 而非 OR）
+
+    const [runs, total] = await runRepo.findAndCount({
         where,
         order: { createdAt: 'DESC' },
-        take: 100,
+        skip: (page - 1) * pageSize,
+        take: pageSize,
         relations: { repository: true },
     })
-    return runs.map(toView)
+
+    return {
+        items: runs.map(toView),
+        total,
+        page,
+        pageSize,
+    }
 })

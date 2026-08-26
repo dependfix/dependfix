@@ -10,7 +10,7 @@
 > - M14.1 T1310 F 阶段闭环 ✅ —— 7 commits（M14.1 收口 commit `e7103f6` + P 阶段规划 `1fd38c1` + T1310 ahead 5 `300b318`/`1819b59`/`733e198`/`7b40a2c`/`a74d07d` 落地）
 > - M14.2 UX-R1 扫描历史分页 ✅ —— 4 commits 落地（`81bd8d2` 后端分页 + `581e1a9` RepoHistoryDialog Paginator + `1a9eddf` 次级调用方 + i18n + `b7c9226` e2e + 收口登记）+ `17b5643` changelog 钩子自动 stage 落档
 > - M14.3 M13.4 T1403 follow-up 🔄 —— 计划中（补 alerts-rowgroup.e2e 1 case 覆盖首屏默认 dedupe=across 请求 URL 断言）
-> - **M14.x neat-freak 批次** 🔄 —— 计划中（wisdom 蒸馏活跃 17 > 15 阈值 + C34 挂接盘点 + test 名孤立编号清理 + git.md 格式修复）
+> - **M14.x neat-freak 批次** ✅ —— 2026-08-26 闭环 4 atomic commits（`92cc348` wisdom 蒸馏 + `ea0e24f` C34 规范挂接 + `84b4e1a` test 名清理 + `b45f55e` git.md 格式修复）+ M14.x 收口登记 commit 待落地
 >
 > **前置依赖**：M13 阶段 T1310 5 commits 已 ahead 提交并已推送至 origin/master（`300b318` 登记 / `1819b59` 注册 apps/platform 发布单元 / `733e198` publish tag-only / `7b40a2c` docker 协作 / `a74d07d` 文档 + dependabot 防御 + CHANGELOG 初始段），**实施已落地，仅缺 F 阶段完整验证**（本地验证 + CI 端到端裁决 + todo.md 收口）。
 >
@@ -21,7 +21,7 @@
 > | M14.1 T1310 F 阶段闭环 ✅ | T1310 完整验证 + 收口 | 1 | 低 |
 > | M14.2 UX-R1 扫描历史分页 ✅ | `/api/runs` 分页参数 + 4 个前端调用方适配 + e2e | 4 | 中 |
 > | M14.3 M13.4 T1403 follow-up | 补 1 case 覆盖首屏默认 `dedupe=across` | 1 | 极低 |
-> | **M14.x neat-freak 批次** | **wisdom 蒸馏（活跃 17 > 15 阈值）+ C34 规范挂接盘点 + test 名孤立编号清理 + git.md 格式修复** | **3-4** | **极低** |
+> | **M14.x neat-freak 批次** ✅ | **wisdom 蒸馏（活跃 17 → 14 ≤15 阈值，挂接 3 条 M14.x pattern）+ C34 规范挂接盘点（5 个 checklist 必查项）+ test 名孤立编号清理（4 处 C65-A1/A2/A3/A4）+ git.md 格式修复** | **4 + 收口** | **极低** |
 >
 > **状态约定**：子阶段串行实施，每子阶段独立 PDTFC+ 循环；上一子阶段 F 阶段闭环（commit 推送）后方可启动下一子阶段。M14.2 与 M14.3 / M14.x 无文件冲突（前者后端 + 前端，后者仅 e2e + 文档/standards），可与 M14.3 + M14.x 推送并行进行。本阶段与 M13.4 UX 反馈批次无文件冲突。
 >
@@ -76,7 +76,7 @@
 
 > **闭环记录**：7 commits（T1310 ahead 5 `300b318`/`1819b59`/`733e198`/`7b40a2c`/`a74d07d` + P 阶段规划 1 `1fd38c1` + M14.1 收口 1）；`git rev-list HEAD ^origin/master --count` ahead=1（待用户推送 `1fd38c1` P 阶段规划 commit）；完整本地验证全绿（lint/typecheck 0 error / test 2230 passed + 5 skipped / test:coverage 4 维度全 ≥80% / verify:changelog exit 0 / changelog 7 段幂等 unchanged / release:publish --dry-run platform tag-only 路径确认 / @dependfix/platform build 成功 23.1 MB）。
 >
-> 详细闭环清单 + 验收标准 + 治理记录 + 关键决策 + 关键经验见 [todo-archive.md §M14.1/2/3](todo-archive.md#m14-platform-release-通道闭环--ux-反馈跟进m14123-已闭环--m14x-计划中)。
+> 详细闭环清单 + 验收标准 + 治理记录 + 关键决策 + 关键经验见 [todo-archive.md §M14.1/2/3/x](todo-archive.md#m14-platform-release-通道闭环--ux-反馈跟进m14123x-全部已闭环)。
 
 ---
 
@@ -256,9 +256,7 @@
 
 ---
 
-#### M14.x neat-freak 批次（治理 + 文档收尾）—— 计划 2026-08-26
-
-- **优先级**：P2（治理 + 文档类轻量收尾，无用户实测反馈痛点；wisdom 蒸馏触发：活跃 16 条 > 15 阈值）
+#### M14.x neat-freak 批次（治理 + 文档收尾）[x] —— 已闭环 2026-08-26
 - **依赖**：M14.1 闭环后启动（避免与 release 通道混合 commit）；M14.3 + M14.x 无文件冲突可与 M14.3 推送并行
 - **背景**：
   - **wisdom 蒸馏**：[规划规范 §4.3](../../docs/standards/planning.md) 强制要求活跃条目 ≥ 20 必须蒸馏；本批次 16 条 > 15 阈值，下次启动 `pnpm distill:wisdom --check` 会提示 WISDOM_OVER
@@ -266,7 +264,7 @@
   - **history-C65-test-name-cleanup**：[M12 归档段 §待迁移经验](../../docs/plan/todo-archive.md) 登记项 —— audit W3 同模式扫描发现 `admin/i18n e2e` C65-A1/A2/A3/A4 test 名孤立编号违规（不在 C65-D diff 范围）
   - **RG-S04-NEW git.md 格式问题**：[M12 归档段 §T1302 闭环记录](../../docs/plan/todo-archive.md) 登记项 —— git.md §3.4 后双空行格式问题（warning 级，留待 neat-freak 批次清理）
 - **目标**：
-  1. wisdom 蒸馏：把新增 2 条 pattern（F 阶段 coverage 强制 / 算式校对-archive-批次）挂接到 standards + 压缩过期条目
+  1. wisdom 蒸馏：把新增 3 条 pattern（F 阶段 coverage 强制 / 算式校对-archive-批次 / P 阶段规划-ahead-动态描述）挂接到 standards + 压缩过期条目（scope 扩展理由：M14.1 P 阶段规划 commit `1fd38c1` ahead 数字写死 + T1402+T1303 typo 是真实教训，由 M14.1 收口 commit `e7103f6` 修正——已超出原计划 2 条，需补登记 scope 扩展）
   2. C34 规范挂接盘点：审查现有 standards 必级条款，识别未双层对称挂接的项并补挂
   3. admin/i18n e2e test 名孤立编号清理
   4. git.md §3.4 后双空行格式修复
@@ -313,10 +311,32 @@
   - history-C65-test-name-cleanup 完成后，R3 RG-S04-NEW（git.md §3.4 格式）状态从 "登记 follow-up" 转为 "已闭环"
   - 下次 wisdom 蒸馏（活跃 ≥ 20 时）按同模式实施
 - **原子提交切分**：
-  1. `docs(standards): wisdom 蒸馏 — F 阶段 coverage 强制 + 算式校对 pattern 挂接到 standards + 过期条目压缩为已蒸馏摘要`
+  1. `docs(standards): wisdom 蒸馏 — 3 条 M14.x pattern 挂接到 standards（ai-collaboration §2.P.1 + §4.4 + planning §4.4 §5/§8）`
   2. `docs(standards): C34 存量规范严格约束挂接盘点 + 双层对称补挂接（如 §3 注释规范 / §1.3 分级审计协议）`
   3. `test(platform): admin/i18n e2e C65-A1/A2/A3/A4 test 名孤立编号清理 + D 阶段自检 §3 编号标记扫描 0 命中验证`
   4. `docs(standards): git.md §3.4 后双空行格式修复 + 其他 standards 段类似格式问题同步清理`
+- **实际提交落地**：
+  - `92cc348` `docs(standards): wisdom 蒸馏 — 3 条 M14.x pattern 挂接到 standards`（2 files +20/-4）—— ai-collaboration §2.P.1 ahead 子节 + §4.4 coverage 强化 + planning §4.4 §5 ahead 强化 + §8 算式校对新增；wisdom.md 17 → 14 ≤ 15 阈值
+  - `ea0e24f` `docs(standards): C34 存量规范必级条款挂接盘点 + code-quality-checklist.md 双层对称补挂接 5 个必查项`（1 file +60/-0）—— 分级审计协议 / 单次提交审计阈值 / 验证分级矩阵 / F 阶段 coverage 强制 / audit warning 修复决策
+  - `84b4e1a` `test(platform): admin/i18n e2e C65-A1/A2/A3/A4 test 名孤立编号清理`（2 files +4/-4）—— 4 处 test name 字符串清理；22 e2e passed（1.3m）；编号扫描 0 命中
+  - `b45f55e` `docs(standards): git.md §3.4 后双空行格式修复`（1 file +0/-1）—— line 107-108 双空行 → 单空行；其他 standards 段扫描 0 处残留
+- **审计记录**：A 阶段 standard depth Pass（0 blocker / 2 warning + 1 suggest 闭环）：
+  - W1 `[code-quality-checklist.md:281](.github/skills/code-reviewer/references/code-quality-checklist.md) §1.1 1.4 文本歧义` → 已修复（拆分为 ai-collaboration §1.4 + planning §1.1 + code-reviewer SKILL.md §2.5 三链接）
+  - W2 `[code-quality-checklist.md:288](.github/skills/code-reviewer/references/code-quality-checklist.md) §2.2 第 6 类扩展` → 已修复（同步规范 [ai-collaboration.md §2.2 第 6 行](../../docs/standards/ai-collaboration.md)）
+  - S1 todo.md 计划段"2 条 pattern"差异 → 已闭环（line 269/281/316 同步更新为 3 条 pattern + scope 扩展理由登记）
+- **验证证据**：
+  - `pnpm run check:docs` → 99 links + 55 vue-interp OK
+  - `pnpm lint:md` → 0 error
+  - `pnpm typecheck` → 0 error
+  - `pnpm --filter@dependfix/platform lint` → 0 error / 1 unrelated warning（mailer.test.ts baseline）
+  - `pnpm --filter@dependfix/platform exec playwright test admin i18n` → 22 passed (1.3m)
+  - `pnpm --filter@dependfix/platform build` → 成功 23.1 MB
+  - 编号标记扫描：`rg "C65-A[1-4]"` admin/i18n → 0 命中
+  - wisdom 蒸馏：`pnpm distill:wisdom --check --threshold=15` → WISDOM_OK（14 ≤ 15）
+- **风险闭环**：
+  - "wisdom 蒸馏挂接不规范"（极低）→ 3 条 pattern 全部挂接到 standards 权威章节，附教训 commit 实证（`1fd38c1` / `e7103f6` / `3621982` / `e9987f9` / `0c57211` / `e63cdb9`）
+  - "C34 规范挂接盘点工作量大"（低→中）→ 按"必须级"范围控制原则补挂 5 条，未扩展到"建议级"，避免 checklist 膨胀
+  - "test 名清理破坏 e2e 行为"（极低）→ 仅改 test name 字符串，22 e2e passed 实证行为不变
 
 ---
 

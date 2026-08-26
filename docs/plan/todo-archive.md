@@ -134,11 +134,11 @@
 
 ---
 
-## M14: platform release 通道闭环 + UX 反馈跟进（M14.1/2/3 已闭环 / M14.x 计划中）
+## M14: platform release 通道闭环 + UX 反馈跟进（M14.1/2/3/x 全部已闭环）
 
 > **归档日期**：2026-08-26
-> **阶段摘要**：M13 闭环后承接 T1310 F 阶段闭环 + backlog UX-R1 扫描历史分页（用户实测反馈痛点）+ M13.4 T1403 follow-up（轻量收尾）+ neat-freak 批次治理。按 [规划规范 §1.1 任务粒度约束](../../docs/standards/planning.md)（≤5-6 项硬上限 + A3 跨 packages+apps > 10 文件需拆分）拆为 **4 子阶段独立闭环**：M14.1 T1310 F 阶段闭环 / M14.2 UX-R1 扫描历史分页 / M14.3 M13.4 T1403 follow-up / M14.x neat-freak 批次（wisdom 蒸馏 16>15 阈值 + C34 挂接盘点 + test 名清理 + git.md 格式修复）。
-> **状态**：✅ M14.1 全部完成（1 子任务 / 7 commits：T1310 ahead 5 + P 阶段规划 1 + M14.1 收口 1；待用户推送 M14.1 ahead 2 commits `1fd38c1` + `e7103f6`）/ ✅ M14.2 全部完成（5 commits：4 atomic commits 后端分页 + RepoHistoryDialog Paginator + 次级调用方适配 + i18n + e2e + 收口登记 + M14.2 changelog 钩子 stage 落档 1；待用户推送 M14.2 ahead 5 commits `81bd8d2` + `581e1a9` + `1a9eddf` + `b7c9226` + `17b5643`）/ ✅ M14.3 全部完成（1 子任务 / 1-2 commits：M14.3 e2e + 收口登记；待用户推送 M14.3 ahead 1 commit）/ 🔄 M14.x 待 M14.1 + M14.2 + M14.3 commit 推送后启动
+> **阶段摘要**：M13 闭环后承接 T1310 F 阶段闭环 + backlog UX-R1 扫描历史分页（用户实测反馈痛点）+ M13.4 T1403 follow-up（轻量收尾）+ neat-freak 批次治理。按 [规划规范 §1.1 任务粒度约束](../../docs/standards/planning.md)（≤5-6 项硬上限 + A3 跨 packages+apps > 10 文件需拆分）拆为 **4 子阶段独立闭环**：M14.1 T1310 F 阶段闭环 / M14.2 UX-R1 扫描历史分页 / M14.3 M13.4 T1403 follow-up / M14.x neat-freak 批次（wisdom 蒸馏 17>15 阈值 + C34 挂接盘点 + test 名清理 + git.md 格式修复）。
+> **状态**：✅ M14.1 全部完成（1 子任务 / 7 commits：T1310 ahead 5 + P 阶段规划 1 + M14.1 收口 1；待用户推送 M14.1 ahead 2 commits `1fd38c1` + `e7103f6`）/ ✅ M14.2 全部完成（5 commits：4 atomic commits 后端分页 + RepoHistoryDialog Paginator + 次级调用方适配 + i18n + e2e + 收口登记 + M14.2 changelog 钩子 stage 落档 1；待用户推送 M14.2 ahead 5 commits `81bd8d2` + `581e1a9` + `1a9eddf` + `b7c9226` + `17b5643`）/ ✅ M14.3 全部完成（1 子任务 / 2 commits：`17b5643` M14.2 changelog 钩子 stage 落档 + `5ccaaf4` M14.3 e2e + 收口登记；待用户推送 M14.3 ahead 2 commits）/ ✅ M14.x neat-freak 批次全部完成（4 atomic commits：wisdom 蒸馏 + C34 规范挂接 + test 名清理 + git.md 格式修复；待用户推送 M14.x ahead 4 commits `92cc348` + `ea0e24f` + `84b4e1a` + `b45f55e`）
 
 ### 阶段闭环清单
 
@@ -160,19 +160,24 @@
 |:--|:--|:--|
 | **T1403 follow-up 首屏默认 dedupe=across 请求 URL 断言** | `17b5643` + M14.3 e2e + 收口 commit | alerts-rowgroup.e2e.test.ts 新增 1 case `首屏默认 dedupe=across → 首次 /api/alerts 请求 URL 含 ?dedupe=true`，复用既有 MOCK_ALERTS + page.route mock 基础设施，与既有"视图切换：dedupe 模式触发 /api/alerts?dedupe=true + 显示聚合列"case 互补（手动切换路径已有覆盖，首屏默认路径此前无 case）；既有 5 active + 2 fixme case 不破坏（第 1 次 7/7 passed 32.0s + 第 2 次 7/7 passed 31.0s 幂等通过）；A 阶段 quick depth Pass（0 blocker / 0 warning / 1 suggest 注释占 4 行可读性提示） |
 
-#### M14.x neat-freak 批次 🔄（计划 2026-08-26 启动）
+#### M14.x neat-freak 批次 ✅（2026-08-26 闭环）
 
-> wisdom 蒸馏（活跃 17 > 15 阈值）+ C34 存量规范严格约束挂接盘点 + admin/i18n e2e test 名孤立编号清理 + git.md §3.4 后双空行格式修复。
+| 子任务 | 关键 commit | 完成要点 |
+|:--|:--|:--|
+| **wisdom 蒸馏**（活跃 17 → 14 ≤ 15 阈值，挂接 3 条 M14.x pattern） | `92cc348` | ai-collaboration.md §2.P.1 ahead 状态动态描述原则新增子节 + §4.4 coverage 强制（hard requirement）强化 + planning.md §4.4 §5 ahead commits 实证 + 动态描述强化 + §4.4 §8 算式校对新增子节；3 条 pattern：pattern-F 阶段-coverage-强制（M13.3 CI Coverage 79.98% < 80% 教训）/ pattern-算式校对-archive-批次（M13 归档批次 24 → 26 commits 算式校对教训）/ pattern-P 阶段规划-ahead-动态描述（M14.1 P 阶段规划 commit `1fd38c1` ahead 数字写死 + T1402+T1303 typo 教训）；教训 commit 引用 `1fd38c1` / `e7103f6` / `3621982` / `e9987f9` / `0c57211` / `e63cdb9` |
+| **C34 存量规范必级条款挂接盘点 + code-quality-checklist.md 双层对称补挂接** | `ea0e24f` | 5 个新必查项：分级审计协议（audit-depth）/ 单次提交审计阈值（10 文件 / 800 行）/ 验证分级矩阵（最低验证要求）/ F 阶段本地验证必须含 coverage 必查项（hard requirement）/ audit warning 修复决策协议（修复 vs 登记 backlog）；每个必查项含必查场景 + 规范参考链接 + 教训 commit 实证；按 documentation.md §4 规范单点声明原则双层对称 |
+| **admin/i18n e2e C65-A1/A2/A3/A4 test 名孤立编号清理** | `84b4e1a` | admin.e2e.test.ts 3 处 + i18n.e2e.test.ts 1 处 = 共 4 处 test name 重命名（仅改 test name 字符串，断言 + mock + 测试逻辑零改动）；22 e2e passed（1.3m）行为不变；编号标记扫描 0 命中 |
+| **git.md §3.4 后双空行格式修复** | `b45f55e` | git.md line 107-108 连续 2 空行 → 1 空行（markdownlint MD012 no-multiple-blanks 友好）；其他 standards 段（development / testing / security / ai-collaboration / platform / planning / documentation）扫描 0 处残留 |
 
-### 阶段验收标准（M14.1/2/3 全部闭环 ✅ / M14.x 待启动）
+### 阶段验收标准（M14.1/2/3/x 全部闭环 ✅）
 
 - [x] M14.1 T1310 F 阶段闭环 —— 完整本地验证全绿（lint/typecheck 0 error / test 2230 passed + 5 skipped / test:coverage 4 维度全 ≥80% / verify:changelog exit 0 / changelog 7 段幂等 unchanged / release:publish --dry-run platform tag-only 路径确认 / @dependfix/platform build 成功 23.1 MB）
 - [x] M14.2 UX-R1 扫描历史分页 —— 完整本地验证全绿（lint/typecheck 0 error / test 2236 passed + 5 skipped / coverage 4 维度 ≥80% / @dependfix/platform exec playwright test history-dialog 3/3 passed / @dependfix/platform build 成功 23.1 MB）
 - [x] M14.3 M13.4 T1403 follow-up —— 完整本地验证全绿（lint/typecheck 0 error / @dependfix/platform exec playwright test alerts-rowgroup 7/7 passed 第 1 次 32.0s + 第 2 次 31.0s 幂等通过 / @dependfix/platform build 成功）
-- [x] `pnpm check:docs` 全过（待 M14.3 收口 commit 后实测验证）
-- [ ] M14.x 待 M14.1 + M14.2 + M14.3 commit 推送后启动
+- [x] M14.x neat-freak 批次 —— 完整本地验证全绿（check:docs 99 links + 55 vue-interp OK / lint:md 0 error / typecheck 0 error / lint 0 error / @dependfix/platform exec playwright test admin i18n 22/22 passed / @dependfix/platform build 成功 23.1 MB / distill:wisdom WISDOM_OK 14 ≤ 15 阈值 / 编号标记扫描 0 命中）
+- [x] `pnpm check:docs` 全过（实测验证 OK）
 
-### 阶段治理记录（M14.1/2/3）
+### 阶段治理记录（M14.1/2/3/x）
 
 - **M14.1 总投入**：7 commits（T1310 ahead 5 commits + P 阶段规划 1 commit + M14.1 收口 1 commit）/ 1 子任务
   - 注：T1310 5 commits（`300b318` / `1819b59` / `733e198` / `7b40a2c` / `a74d07d`）属于 T1310 子阶段（与 M13 同步推进），ahead 计数不计入 M13 ahead=3；M14.1 ahead=1 仅 P 阶段规划 commit `1fd38c1`（`git rev-list HEAD ^origin/master --count` 实证）
@@ -185,13 +190,19 @@
 - **审计覆盖**：
   - M14.1：F 阶段收口归档未触发新增 A 阶段审计（T1310 5 commits 在 M13 阶段已通过 Review Gate 标准）
   - M14.2：A 阶段 standard Round 1 Reject 6 warning（孤立编号违规）+ 1 suggest（watch 切换仓库未重置 first/pageSize）→ Round 2 quick Pass（W1-W6 编号清理按 "带文档路径的导航指针" 例外规则 + S1 顺手修复）
-  - M14.3：A 阶段 quick depth Pass（0 blocker / 0 warning / 1 suggest 注释占 4 行可读性提示，可在 neat-freak 阶段视情况精简）
+  - M14.3：A 阶段 quick depth Pass（0 blocker / 0 warning / 1 suggest 注释占 4 行可读性提示）
+  - M14.x：A 阶段 standard depth Pass（0 blocker / 2 warning + 1 suggest 闭环 —— W1 §1.1 1.4 文本歧义已修复为三链接分开 + W2 §2.2 第 6 类改动类型已同步规范 + S1 todo.md 计划段"2 条 pattern"差异已在收口 commit 同步更新为 3 条 + scope 扩展理由登记）
+- **M14.x 总投入**：4 atomic commits（wisdom 蒸馏 1 + C34 规范挂接 1 + test 名清理 1 + git.md 格式修复 1）+ 收口 commit 1 / 1 子任务
+  - 注：ahead commits 实证 `git rev-list HEAD ^origin/master --count` 动态核验（不写具体数字以免 staleness）
+- **wisdom 蒸馏统计**：活跃条目 17 → 14（-18%，≤ 15 阈值达标）。3 条 M14.x 新增 pattern 挂接到 standards 权威章节，wisdom 文件本身 gitignored（不入仓库）
 - **文档落盘**：
   - `docs/plan/todo-archive.md` §M14 段（本段）
-  - `docs/plan/todo.md` §M14.1 [x] + §M14.2 [x] + §M14.3 [x] + 顶部 banner 更新
+  - `docs/plan/todo.md` §M14.1 [x] + §M14.2 [x] + §M14.3 [x] + §M14.x [x] + 顶部 banner 更新
   - `docs/plan/roadmap.md` M14 状态更新
 
-### 关键决策（M14.1/2）
+### 关键决策（M14.1/2/x）
+
+**M14.1：**
 
 **M14.1：**
 - **apps/platform 独立通道**：仿 momei 单包"独立 version + 独立 CHANGELOG"精神，适配 dependfix monorepo + docker-only 平台；`scripts/packages.config.mjs` 新增 `npmPublishable:false` 字段（缺省 true 保 5 个现有 npm 包行为 0 改动）
@@ -208,6 +219,13 @@
 - **pageSize 默认 10 而非 100**：RepoHistoryDialog 在 720px 宽 Dialog 内显示 7 列 DataTable，默认 pageSize=100 会出现 99 行空占位；改用 pageSize=10（DataTable 内部默认）+ options `[10, 25, 50]` + server 钳制 200 上限，三层一致
 - **跨仓库切换重置 first/pageSize**：A 阶段审计 suggest#1 —— 用户从 repo A 翻到 page=3 后切换到 repo B，原实现 `first.value` 残留 30 导致 UI 高亮页与 server 数据不一致；在 watch 分支加 `first.value = 0` + `pageSize.value = 10` 重置，与 closeDialog() 对齐
 
+**M14.x：**
+- **wisdom 蒸馏阈值预警线策略**：[规划规范 §4.3](../../docs/standards/planning.md) 强制要求活跃 ≥ 20 必须蒸馏；本批次 17 条采用"预警线"策略提前蒸馏避免频繁中断（与 M13.1 T1301 / T1302 蒸馏批次参照模式一致）
+- **wisdom 蒸馏 scope 扩展**（3 条 vs 计划 2 条）：原计划仅含 pattern-F 阶段-coverage-强制 + pattern-算式校对-archive-批次；实施中发现 M14.1 P 阶段规划 commit `1fd38c1` ahead 数字写死 + T1402+T1303 typo 是真实教训，由 M14.1 收口 commit `e7103f6` 修正——已超出原计划 2 条需补登记 scope 扩展（todo.md §M14.x line 269 已同步更新）
+- **C34 范围控制**：仅补挂"必须级"条款（5 个新必查项），不补"建议级"——避免 checklist 膨胀
+- **test 名孤立编号清理策略**：保留功能语义，重命名为业务描述（如 `test('C65-A1：自己 row 的 role Select 含 disabled（防止自我降级）')` → `test('自己 row 的 role Select 含 disabled（防止自我降级）')`）；不删除测试用例
+- **git.md 双空行 vs markdownlint MD012**：git.md §3.4 后 line 107-108 连续 2 空行违反 markdownlint MD012 no-multiple-blanks；保留"§3.4 type 选择校准"作为 §3.4 子内容（不单独成节）—— 修复为 1 空行保留与 §4 章节的视觉分隔
+
 ### 阶段关键经验（已沉淀至项目知识库）
 
 - **apps/platform docker-only 平台独立通道模式**：依赖 docker workflow 而非 npm publish 的发布单元，独立 version + 独立 CHANGELOG + tag-only action 3 件套，可被其他 monorepo 项目复用
@@ -215,12 +233,16 @@
 - **F 阶段本地验证强制 coverage**（二次固化）：本次 M14.1 F 阶段验证包含完整 test:coverage 4 维度 + ahead=1 待用户推送（与 M13.3 CI Coverage 79.98% 实证教训 + [规划规范 §4.4 大批量归档批次操作规范 §算式校对](../../docs/standards/planning.md#44-大批量归档批次操作规范) 一致）
 - **M14.2 silent bug fix during feature implementation**：实施中实证 alerts.vue §openRunSidebar 此前传 `ids` 但 server 不支持（silent bug），建议所有"前端用某个参数但 server 不识别"的代码路径在 feature 实施时主动 grep 实证，避免无声回归
 - **M14.2 PrimeVue 4 Paginator + vue-i18n 嵌套占位符**：PrimeVue CurrentPageReport 模板用 `{first}` / `{last}` / `{totalRecords}` 占位符，vue-i18n 先做字面替换（i18n 字符串中 `{first}` → `{first}` 字面），PrimeVue 再做数值替换 —— 嵌套转义机制需保持 i18n 字符串占位符与 PrimeVue 占位符同名同结构
+- **M14.x wisdom 蒸馏 scope 扩展协议**：wisdom 蒸馏批次实施时可主动扩展 scope（如 M14.x 从 2 条扩到 3 条），条件是真实 commit 教训触发（M14.1 P 阶段规划 commit `1fd38c1` ahead 数字 + typo 实证），且 todo.md 计划段同步登记 scope 扩展理由；不允许静默扩展
+- **M14.x code-quality-checklist 双向同步**：checklist 必查项与 standards 条款**双层对称**（checklist 详版章节 + standards 权威声明）—— 任一方扩展另一方必须同步（如 M14.x audit 实证 §2.2 第 6 类扩展需同步 ai-collaboration.md §2.2 表 + checklist §验证分级矩阵）
+- **M14.x audit warning 修复 vs 登记决策**：W1/W2 修复（低成本 + 文本歧义 + 规范扩展——属于"修复"判定）+ S1 登记 todo.md 收口 commit 处理（属于"登记 backlog"判定）。详见 [ai-collaboration.md §4.6 audit warning 修复决策协议](../../docs/standards/ai-collaboration.md) 实证
 
 ### 待迁移经验（next neat-freak 候选）
 
-- **M14.x wisdom 蒸馏**：本次 M14.x 子阶段将完成 wisdom 蒸馏（活跃 17 → ≤15）+ C34 挂接盘点 + test 名清理 + git.md 格式修复，4 子项治理完成后再更新 wisdom 当前条目数
+- **M14.x 已闭环**：wisdom 蒸馏（17 → 14）+ C34 挂接盘点（5 个 checklist 必查项）+ test 名清理（4 处 C65-A1/A2/A3/A4）+ git.md 格式修复（双空行）—— M14 阶段全部 4 子阶段闭环完成，下次 neat-freak 批次触发条件为 wisdom 活跃 ≥ 20 阈值（按 [规划规范 §4.3](../../docs/standards/planning.md)）
 - **M14.2 silent bug fix 经验沉淀**：本次新增 1 条 M14.2 silent bug fix during feature implementation pattern 经验，建议沉淀到 `docs/standards/platform.md §3.5 TypeORM 查询模式` 或独立段
 - **M14.2 PrimeVue Paginator + i18n 嵌套占位符经验**：建议沉淀到 `docs/standards/platform.md §7.1 PrimeVue 4 集成实践`
+- **M14.x §3.4 type 选择校准 vs §4 章节边界**：git.md 修复双空行时保留 §3.4 子内容（type 选择校准）作为该 section 子内容，不单独成节——若未来增长可独立成 §3.5
 - **T1310 follow-up**：T705（生产级部署 PG+Helm+Sentry）落地后，platform 1.0 节奏评估（已在 todo.md §M14.1 follow-up 登记）
 - **T1310 follow-up**：T703（跨平台 GitLab/Bitbucket）落地后，platform release 触发的版本文档是否需要补"跨平台适配"段
 - **docker `platform-<x.y.z>` tag 镜像 SBOM / provenance attestation 配合**：当前 ACR 个人版不支持，待官方支持后补

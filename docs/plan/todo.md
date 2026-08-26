@@ -51,57 +51,6 @@
 
 ---
 
-## M15 任务清单（已闭环 ✅）
-
-### M15.1 UX-R2-A：扩展 Sidebar 运行视图 ✅
-
-- **优先级**：P1
-- **交付物**：`alerts.vue` §RunDetailView 运行元数据 + `apps/platform/app/utils/run-view.ts` utility
-- **范围**：显示 Run 短 ID、模式、严重级别阈值、执行器、告警数、开始时间与持续时间
-- **验收**：中英文文案齐全；空字段与缺失时间有稳定降级；复用既有 `/api/runs` 数据 + `requestSequence` 守卫
-- **依赖**：✅ M14.2 UX-R1（已闭环）
-- **关键 commit**：`1112017`（与 B/C 同 commit；实施段）
-- **完成定义**：5 列元数据 + utility 抽取 + 空字段降级
-- **完成日期**：2026-08-26
-
-### M15.1 UX-R2-B：按执行器控制 Run URL ✅
-
-- **优先级**：P1
-- **交付物**：Sidebar 的运行外链条件渲染
-- **范围**：仅 `executorKind === 'github-action'` 且存在 `runUrl` 时显示外链；容器与 sandbox 隐藏
-- **验收**：不能伪造内部 Run URL；已有 GitHub Action 链接保持可点击
-- **关键 commit**：`1112017`（含入 A 同 commit）
-- **完成日期**：2026-08-26
-
-### M15.1 UX-R2-C：补充详情入口 ✅
-
-- **优先级**：P1
-- **交付物**：`apps/platform/app/components/RunDetailDialog.vue`（新增）+ 现有 `GET /api/runs/:id` 复用
-- **范围**：复用 `GET /api/runs/:id` 与 `requestSequence` 守卫，不在 Sidebar 内复制完整结果表格
-- **验收**：点击详情可加载结果；加载失败与空结果不阻塞 Sidebar 列表
-- **关键 commit**：`1112017`（含入 A/B 同 commit）
-- **完成日期**：2026-08-26
-
-### M15.1 UX-R2-D：回归与收口 ✅
-
-- **优先级**：P1
-- **交付物**：`apps/platform/tests/unit/run-view.test.ts` 16 case + `apps/platform/tests/e2e/alerts-sidebar.e2e.test.ts` 2 case（i18n 双语 / utility 抽取 / `runs.statusDegraded` 均为 A 段 `1112017` 交付，**不**在本 D 段交付物内——见 UX-R2-A 关键 commit 段）
-- **范围**：覆盖 GitHub Action URL、容器 URL 隐藏、运行字段与既有 rowGroup 基线（验证 `1112017` 实施的 A 段 + 验证回归）
-- **验收**：lint / typecheck / platform test / coverage / build / check:docs / i18n 检查与定向 E2E 全绿
-- **关键 commit**：`0a60e3d`（独立 commit，**实证 `git show --stat`：2 文件 / +251 行**）：① `apps/platform/tests/unit/run-view.test.ts` 16 case 单测——覆盖 6 工具函数所有分支；② `apps/platform/tests/e2e/alerts-sidebar.e2e.test.ts` 2 case e2e——覆盖 Sidebar 元数据 + URL 条件渲染。**不**含 utility 抽取 / i18n 键 / `runs.statusDegraded`（这些均在 `1112017`，见 UX-R2-A 关键 commit 段）
-- **A 阶段审计**：2 轮 code-auditor quick depth Pass（第 1 轮 Reject 1 blocker B1 `alertsFound` 函数签名变更未同步调用方 → 修复后第 2 轮 Pass + 4 suggest 顺手处理：S1 `runModeLabel` 分支补测 + S2 阈值展示一致性 + S3 alerts.vue 行数 827 未触发 max-lines + S4 e2e 中文硬编码暂保留与既有 alerts-rowgroup 风格一致）
-- **完成日期**：2026-08-26
-
-### M15 归档指针
-
-**总投入**：3 commits ahead（M15 实施：`5c65177` P 阶段 docs + `1112017` feat 实施含 A/B/C + `0a60e3d` test 覆盖 D）；本批次归档 atomic commit 跨 5 文件。
-
-**ahead commits 实证**：按 [规划规范 §4.4 §5 ahead 实证](../standards/planning.md#44-大批量归档批次操作规范) `git rev-list HEAD ^origin/master --count` 动态核验（不写死具体数字以免 staleness；当前值含 M15 实施 3 + release.yml CI 修复 1 共 4）。
-
-**详细实施记录 / commit 引用 / 关键经验 / 待迁移经验**：见 [todo-archive.md §M15](todo-archive.md#m15-扫描历史详情侧栏增强ux-r2已闭环)。
-
----
-
 ## 待人工验收（真实环境，随可用性推进）
 
 > 以下条目属 M7.1 / M7.2 / 发布管线阶段遗留的真实环境验证任务，**不在 M12 范围内**，保留随真实环境可用性推进。

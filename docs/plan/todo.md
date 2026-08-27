@@ -2,7 +2,7 @@
 
 > **范围约定**：本文件**仅**登记当前阶段活跃待办——已闭环项归档于 [todo-archive.md](todo-archive.md)；未排期/延期/远期登记于 [backlog.md](backlog.md)；已知边界与 known-issue 登记于对应阶段归档段或 backlog（**不在此处复述**）。
 
-## 当前阶段：M16 平台可用性深化（5 项候选上收）P 阶段规划完成；M16.1 已实施
+## 当前阶段：M16 平台可用性深化（5 项候选上收）P 阶段规划完成；M16.1 + M16.2 已实施
 
 > **目标**：把 `apps/platform` 从 demo 落地为实际可用项目，覆盖 5 项用户痛点、技术债和能力扩展，形成开发/修复闭环。
 >
@@ -12,7 +12,7 @@
 >
 > **非目标**：不引入多组织；不重写后端聚合；不动 `dashboard.vue` latestRun 卡片；不动 `batch-runs` 跨仓库视图；不升级 PrimeVue 5；不破坏既有 `alerts-rowgroup` / `history-dialog` / 视图切换 / dedupe 行为。
 >
-> **状态**：M16.1 UX-R3 `/scans` 独立页面 D 阶段已实施 + A 阶段 code-auditor standard depth Pass；本批次待提交；M16.2-16.5 待用户指令进入下一阶段 D 阶段。
+> **状态**：M16.1 UX-R3 `/scans` + M16.2 C66-D "立即修复此仓库" D 阶段均已实施 + A 阶段 code-auditor Pass；本批次待提交；M16.3-16.5 待用户指令进入下一阶段 D 阶段。
 
 ---
 
@@ -31,6 +31,7 @@
 - **优先级**：P1
 - **范围**：`apps/platform/server/api/repos/[id]/scan.post.ts` 新增 `reuseScanRunId` 参数跳过重拉；`apps/platform/app/pages/alerts.vue` 新增 "立即修复此仓库" 按钮（存在 `affectedRunIds[0]` 时启用）；i18n 双语 + 单测 + e2e。
 - **验收**：可一键复用受影响运行直接进入修复链路；空 / 不存在 runId 时按钮降级到常规触发；不破坏 fixStatus 修复链路与 batch-runs 跨仓库触发。
+- **状态**（2026-08-27）：D 阶段已实施。`vitest` 750 passed + 4 skipped（新增 7 case：scan.post reuse sync/async/404/400/409/pendingScanRun 回归 + orchestrator reuse=true 真实集成）；`e2e` 77 passed + 2 skipped（新建 3 case：reuse 调用 / fix 模式不展示按钮 / 4xx 错误处理）；A 阶段 code-auditor 2 轮 Pass（RG-B1 终态校验契约冲突修复：ScanRunOptions reuse 区分 queue-mode continuation / user-reuse + reset summaryJson 等字段 + 清空 ScanResult 子表；RG-B2 真实集成测试补强；warning 4 项 + RG-W3 ScanResult cleanup 全部修复）；`build` 成功；i18n JSON.parse 双语对称 545 键。Orchestrator `reuse: true` 时清空 `ScanResult` 子表避免 JOIN 数据不一致；scan-worker 透传 `reuse` 参数支持 async 队列路径同步语义；`useFixNow` composable 内部 `useI18n()` + auto-import `navigateTo` 保持 codebase 现有 pattern；`AlertRunSidebar.vue` 组件抽取解 alerts.vue > 800 行 lint warning。
 
 ### M16.3 C36 服务端 API 错误消息 i18n
 

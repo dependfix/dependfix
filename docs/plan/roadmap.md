@@ -24,7 +24,7 @@
 | M14: platform 进入 release 通道 + UX 反馈跟进 | 让 `apps/platform` 作为第 6 个发布单元参与 release 链路但**不发 npm**——仿 momei 单包"独立 version + 独立 CHANGELOG"的精神，适配 dependfix monorepo + docker-only 平台 + 承接 backlog UX-R1 扫描历史分页（用户实测反馈痛点）+ M13.4 T1403 follow-up + neat-freak 治理批次：① `scripts/packages.config.mjs` 注册 apps/platform 条目（`npmPublishable:false`）；② `scripts/release-publish.mjs` 新增 tag-only action；③ `docker.yml` 支持 workflow inputs 读 platform_version；④ `release.yml` 完成后触发 docker workflow_dispatch；⑤ `docs/guide/release.md` 平台独立通道文档；⑥ dependabot 排除 `apps/platform/package.json`；⑦ `/api/runs` 新增 `page`/`pageSize`/`ids` 分页参数 + `{items, total, page, pageSize}` 返回结构；09 4 个前端调用方适配（RepoHistoryDialog PrimeVue Paginator + alerts.vue + repos/[id]/runs.vue + i18n）+ silent bug 修复（alerts sidebar ids 参数）；⑩ alerts-rowgroup.e2e 新增首屏默认 `dedupe=across` 请求 URL 断言；⑪ wisdom 蒸馏挂接 3 条 M14.x pattern；⑫ C34 存量规范必级条款挂接盘点 + code-quality-checklist.md 双层对称补挂接 5 个必查项；⑬ admin/i18n e2e C65-A1/A2/A3/A4 test 名孤立编号清理；⑭ git.md §3.4 后双空行格式修复；⑮ M14.y 依赖批量治理（4 个 dependabot major PR）| P1 | 全部完成（M14.1 T1310 F 阶段闭环 ✅ 2026-08-26 落地 7 commits / M14.2 UX-R1 扫描历史分页 ✅ 2026-08-26 落地 5 commits / M14.3 M13.4 T1403 follow-up ✅ 2026-08-26 落地 1 commit / M14.x neat-freak 批次 ✅ 2026-08-26 落地 5 commits / M14.y 依赖批量治理 ✅ 2026-08-26 闭环 4 个 dependabot major PR；M14 阶段 19 commits 全部落地，ahead=0，`git rev-list HEAD ^origin/master --count` 实证核验；详见[todo-archive.md §M14](todo-archive.md#m14-platform-release-通道闭环--ux-反馈跟进m14123xy-全部已闭环)） |
 | M15: 扫描历史详情侧栏增强（UX-R2） | 承接 M14.2 UX-R1 后的 UX-R2：让去重告警 Sidebar 展示运行短 ID、模式、严重级别阈值、执行器、告警数、开始时间与持续时间，按执行器显示 GitHub Action 外链；新增独立 `RunDetailDialog` 复用 `GET /api/runs/:id`；**不**实现 UX-R3 `/scans` 页面 / **不**修改 `/api/runs` 后端契约（M14.2 已闭环 / 仅消费既有契约）/ **不**动 `RepoHistoryDialog.vue` / **不**做数据层去重 / **不**升 PrimeVue。4 子任务（M15.1 UX-R2-A / -B / -C / -D）全部独立闭环 | P1 | 已完成（2026-08-26 归档；3 commits ahead 待用户推送：`5c65177` P 阶段 docs 切换 + `1112017` feat 实施（5 文件 / +425/-12：A/B/C + utility 抽取 + i18n 7 键 + `runs.statusDegraded`，实证 `git show --stat`）+ `0a60e3d` test 覆盖 D（2 文件 / +251：16 case 单测 + 2 case e2e，不含 utility/i18n）；2 轮 code-auditor quick depth Pass；不进 M16 / UX-R3 顺延 M16 待 P 阶段规划；详见 [todo-archive.md §M15](todo-archive.md#m15-扫描历史详情侧栏增强ux-r2已闭环)） |
 
-## M16: 平台可用性深化（M16.1 已实施，M16.2-16.5 待 D 阶段）
+## M16: 平台可用性深化（M16.1 + M16.2 已实施，M16.3-16.5 待 D 阶段）
 
 把 apps/platform 从 demo 落地为实际可用项目；5 项 UI/API/技术债痛点收敛——M16.1 UX-R3 /scans 页面（含 /api/runs 组织隔离）/ M16.2 C66-D alerts 一键修复入口（reuseScanRunId）/ M16.3 C36 服务端 API 错误消息 i18n / M16.4 PrimeVue hydration 缓解（alerts 迁移 useAsyncData）/ M16.5 T701-e2e 管理端点集成测试补强。
 
@@ -34,6 +34,12 @@
 - RepoHistoryDialog 改造：新增 `queryKey` prop（'history' \| 'run' 默认 'history'）支持 M16.1 + 兼容
 - E2E：5 case（3 query 组合 + viewer × 2）；`history-dialog.e2e.test.ts` 删除并迁移至 `scans.e2e.test.ts`
 - 验收：vitest 743 passed + 4 skipped；e2e 74 passed + 2 skipped；build 成功；i18n JSON.parse 双语对称 542 键
+
+**M16.2 实施状态**（2026-08-27）：D 阶段已落地 + A 阶段 2 轮 Pass（blocker 2 项 + warning 4 项 + suggest 2 项全部修复）。
+- 后端：`scanRequestSchema` 新增 `reuseScanRunId?: string`；handler 三态校验（404/400/409）；`ScanRunOptions.reuse?: boolean` 区分 queue-mode continuation 与 user-reuse；orchestrator 在 reuse=true 时绕过终态校验并 reset finishedAt / errorJson / summaryJson / runUrl + 更新 mode / severityThreshold / executorKind + 清空 ScanResult 子表避免 JOIN 数据不一致；scan-worker 透传 reuse 参数支持 async 队列路径同步语义
+- 前端：alerts.vue 详情 Sidebar 抽出为 `components/AlertRunSidebar.vue`（audit max-lines 触发）；新增 `composables/use-fix-now.ts` 一键修复状态机（fixingRunId / fixError / fixSuccess）；新增 `utils/alerts-view.ts` 抽取 alertsSeverityTagSeverity / alertsRuleIdTagSeverity / alertsRunStatusSeverity / alertsFixStatusLabel；alerts.vue 受影响运行 DataTable 加 "立即修复此仓库" 按钮（report-only 模式才显示）；i18n 双语新增 `alerts.fixNow.{action,success,failed}`
+- E2E：3 case（reuse 调用验证 / fix 模式不展示按钮 / 4xx 错误处理）
+- 验收：vitest 750 passed + 4 skipped（新增 7 case）；e2e 77 passed + 2 skipped（新增 3 case）；build 成功；i18n JSON.parse 双语对称 545 键
 
 **原子任务**：
 
@@ -61,7 +67,7 @@
 
 详细实施记录 / commit 引用 / 治理记录 / 关键决策 / 关键经验 / 待迁移经验：见 [todo-archive.md §M15](todo-archive.md#m15-扫描历史详情侧栏增强ux-r2已闭环)。
 
-| M16: 平台可用性深化 | 把 apps/platform 从 demo 落地为实际可用项目；覆盖 5 项 UI/API/技术债痛点——M16.1 UX-R3 /scans 页面（含 /api/runs 组织隔离）/ M16.2 C66-D alerts 一键修复入口（reuseScanRunId）/ M16.3 C36 服务端 API 错误消息 i18n / M16.4 PrimeVue hydration 缓解（alerts 迁移 useAsyncData）/ M16.5 T701-e2e 管理端点集成测试补强 | P1 | 进行中（M16.1 D 阶段已实施 + A 阶段 standard depth Pass；M16.2-16.5 待 D 阶段） |
+| M16: 平台可用性深化 | 把 apps/platform 从 demo 落地为实际可用项目；覆盖 5 项 UI/API/技术债痛点——M16.1 UX-R3 /scans 页面（含 /api/runs 组织隔离）/ M16.2 C66-D alerts 一键修复入口（reuseScanRunId）/ M16.3 C36 服务端 API 错误消息 i18n / M16.4 PrimeVue hydration 缓解（alerts 迁移 useAsyncData）/ M16.5 T701-e2e 管理端点集成测试补强 | P1 | 进行中（M16.1 + M16.2 D 阶段已实施 + A 阶段 Pass；M16.3-16.5 待 D 阶段） |
 ## M0: 基线收敛
 
 Monorepo 骨架搭建、核心配置模型、工具链版本策略固定、标准化告警模型定义。已完成。

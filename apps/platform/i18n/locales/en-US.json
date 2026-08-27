@@ -457,6 +457,11 @@
         "detailRunAlertsFound": "Alerts found",
         "detailRunOpen": "Open run",
         "detailRunEmpty": "No related scan runs",
+        "fixNow": {
+            "action": "Fix this repository now",
+            "success": "Triggered fix on run {runId}; redirecting to scan history",
+            "failed": "Failed to trigger fix: {message}"
+        },
         "errors": {
             "loadFailed": "Failed to load: {message}"
         }

@@ -2,8 +2,15 @@
 // 告警视图：按仓库/严重级别/来源/视图模式筛选
 // 顶部不渲染 dashboard 同款图表（todo.md §C65-D4：与 dashboard.vue 完全去重），
 // 用户需要全局统计去 dashboard；alerts 聚焦表格 + 详情
-import { alertsFound, formatRunDuration, runExecutorLabel, runModeLabel, shortRunId } from '~/utils/run-view'
+//
+// 详情侧栏已抽出为 components/AlertRunSidebar.vue（todo.md §M16.2 audit 触发的 max-lines 抽取）
+// 一键修复状态机抽出为 composables/use-fix-now.ts
 import { withFixStatusRank, withSeverityRank } from '~/utils/sort-helpers'
+import {
+    alertsFixStatusLabel,
+    alertsRuleIdTagSeverity,
+    alertsSeverityTagSeverity,
+} from '~/utils/alerts-view'
 import type { DataTableSortMeta } from 'primevue/datatable'
 
 definePageMeta({
@@ -94,56 +101,7 @@ const sourceOptions = computed(() => [
     { label: 'pnpm audit', value: 'pnpm-audit' },
 ])
 
-const severityTagSeverity = (severity: string) => {
-    switch (severity) {
-        case 'critical':
-            return 'danger'
-        case 'high':
-            return 'warn'
-        case 'medium':
-            return 'info'
-        default:
-            return 'secondary'
-    }
-}
-
-// ruleId Tag 颜色映射（实测反馈：alerts UI 看不到 GHSA/CVE/rule 关键标识）
-// source 不同 → 不同 severity 区分；ruleId 字段混用（GHSA / CVE / advisory URL / CodeQL rule id / Code Quality finding id）
-const ruleIdTagSeverity = (source: string) => {
-    switch (source) {
-        case 'dependabot':
-            return 'success'
-        case 'pnpm-audit':
-            return 'warn'
-        case 'code-scanning':
-            return 'info'
-        case 'code-quality':
-            return 'contrast'
-        default:
-            return 'secondary'
-    }
-}
-
-// dedupe 详情侧栏 RunDetailView status → Tag severity 映射
-const fixStatusSeverity = (status: string) => {
-    switch (status) {
-        case 'completed':
-            return 'success'
-        case 'failed':
-            return 'danger'
-        case 'dispatched':
-            return 'info'
-        default:
-            return 'warn'
-    }
-}
-
-const fixStatusLabel = (status: string) => ({
-    success: t('common.fixStatus.success'),
-    failed: t('common.fixStatus.failed'),
-    skipped: t('common.fixStatus.skipped'),
-    converged: t('common.fixStatus.converged'),
-})[status] ?? t('common.fixStatus.pending')
+const fixStatusLabel = (status: string) => alertsFixStatusLabel(status, t)
 
 const fetchRepositories = async () => {
     try {
@@ -232,9 +190,14 @@ const sidebarLoading = ref(false)
 const runDetailVisible = ref(false)
 const selectedRunId = ref<string | null>(null)
 
-const modeLabel = (mode: string) => runModeLabel(mode, t)
-const executorLabel = (executorKind: string) => runExecutorLabel(executorKind, t)
-const formatDuration = (run: RunDetailView) => formatRunDuration(run.startedAt, run.finishedAt, t)
+/**
+ * 一键修复（todo.md §M16.2 C66-D）：
+ * - 复用既有 run_id：服务端 skip createPendingScanRun，直接以复用 run 进入 fix 流程
+ * - 状态机（fixingRunId / fixError / fixSuccess）抽出到 composables/use-fix-now.ts
+ *   （参考 todo.md §M15.1 utility 抽取的反向时机 —— audit warning 触发的单向提前抽取）
+ * - 成功后 toast 提示并跳转到扫描历史（/scans?repository=）查看 fix 进度
+ */
+const { fixingRunId, fixError, fixSuccess, triggerFix } = useFixNow()
 
 const openRunSidebar = async (alert: AlertView) => {
     sidebarAlert.value = alert
@@ -478,7 +441,7 @@ onMounted(async () => {
                         :default-sort-order="-1"
                     >
                         <template #body="{data}">
-                            <Tag :value="data.severity" :severity="severityTagSeverity(data.severity)" />
+                            <Tag :value="data.severity" :severity="alertsSeverityTagSeverity(data.severity)" />
                         </template>
                     </Column>
                     <Column
@@ -512,14 +475,14 @@ onMounted(async () => {
                                 class="alerts__ruleid-link"
                                 :title="data.ruleId"
                             >
-                                <Tag :value="data.ruleId" :severity="ruleIdTagSeverity(data.source)" />
+                                <Tag :value="data.ruleId" :severity="alertsRuleIdTagSeverity(data.source)" />
                             </a>
                             <span
                                 v-else-if="data.ruleId"
                                 class="alerts__ruleid-plain"
                                 :title="data.ruleId"
                             >
-                                <Tag :value="data.ruleId" :severity="ruleIdTagSeverity(data.source)" />
+                                <Tag :value="data.ruleId" :severity="alertsRuleIdTagSeverity(data.source)" />
                             </span>
                             <span v-else class="text-muted">—</span>
                         </template>
@@ -608,95 +571,15 @@ onMounted(async () => {
             {{ t('common.empty.loading') }}
         </p>
 
-        <!-- dedupe=true 详情侧栏（PrimeVue Sidebar 右侧滑出）：显示该告警 affected runs 列表 -->
-        <Sidebar
+        <!-- dedupe=true 详情侧栏（抽出为 components/AlertRunSidebar.vue，todo.md §M16.2 audit max-lines 触发） -->
+        <AlertRunSidebar
             v-model:visible="sidebarVisible"
-            position="right"
-            :style="{width: '560px'}"
+            :alert="sidebarAlert"
+            :runs="sidebarRuns"
+            :loading="sidebarLoading"
             @hide="closeSidebar"
-        >
-            <template v-if="sidebarAlert" #header>
-                <div class="alerts__sidebar-header">
-                    <strong>{{ sidebarAlert.packageName }}</strong>
-                    <span v-if="sidebarAlert.ruleId" class="text-muted">
-                        · {{ sidebarAlert.ruleId }}
-                    </span>
-                </div>
-            </template>
-            <div v-if="sidebarAlert" class="alerts__sidebar">
-                <p class="alerts__sidebar-meta text-muted">
-                    {{ t('alerts.detailRunsTitle', {
-                        max: sidebarAlert.affectedRunIds?.length ?? 0,
-                        total: sidebarAlert.occurrenceCount ?? 1
-                    }) }}
-                </p>
-                <div v-if="sidebarLoading" class="text-muted">
-                    {{ t('common.empty.loading') }}
-                </div>
-                <DataTable
-                    v-else-if="sidebarRuns.length > 0"
-                    :value="sidebarRuns"
-                    striped-rows
-                    size="small"
-                >
-                    <Column :header="t('alerts.detailRunId')">
-                        <template #body="{data}">
-                            <div class="alerts__run-cell">
-                                <code :title="data.id">{{ shortRunId(data.id) }}</code>
-                                <span>{{ modeLabel(data.mode) }}</span>
-                                <small class="text-muted">
-                                    {{ data.severityThreshold }} · {{ executorLabel(data.executorKind) }}
-                                </small>
-                            </div>
-                        </template>
-                    </Column>
-                    <Column :header="t('alerts.detailRunStatus')" field="status">
-                        <template #body="{data}">
-                            <Tag :value="data.status" :severity="fixStatusSeverity(data.status)" />
-                        </template>
-                    </Column>
-                    <Column :header="t('alerts.detailRunStartedAt')" field="startedAt">
-                        <template #body="{data}">
-                            <div class="alerts__run-cell">
-                                <span>{{ data.startedAt ? d(new Date(data.startedAt), 'long') : '—' }}</span>
-                                <small class="text-muted">{{ formatDuration(data) }}</small>
-                            </div>
-                        </template>
-                    </Column>
-                    <Column :header="t('alerts.detailRunAlertsFound')">
-                        <template #body="{data}">
-                            {{ alertsFound(data.summary) }}
-                        </template>
-                    </Column>
-                    <Column :header="t('common.actions.actions')" :style="{width: '100px'}">
-                        <template #body="{data}">
-                            <div class="alerts__sidebar-actions">
-                                <Button
-                                    icon="pi pi-eye"
-                                    text
-                                    rounded
-                                    size="small"
-                                    :aria-label="t('common.actions.details')"
-                                    @click="openRunDetail(data)"
-                                />
-                                <a
-                                    v-if="data.executorKind === 'github-action' && data.runUrl"
-                                    :href="data.runUrl"
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                >
-                                    {{ t('alerts.detailRunOpen') }}
-                                </a>
-                                <span v-else class="text-muted">—</span>
-                            </div>
-                        </template>
-                    </Column>
-                </DataTable>
-                <p v-else class="text-muted">
-                    {{ t('alerts.detailRunEmpty') }}
-                </p>
-            </div>
-        </Sidebar>
+            @view-detail="openRunDetail"
+        />
         <RunDetailDialog
             v-model:visible="runDetailVisible"
             :run-id="selectedRunId"
@@ -759,48 +642,6 @@ onMounted(async () => {
     &__group-count {
         font-size: $font-size-sm;
         font-weight: 400;
-    }
-
-    // dedupe 详情侧栏样式
-    &__sidebar-header {
-        display: flex;
-        align-items: baseline;
-        gap: $space-2;
-    }
-
-    &__sidebar {
-        padding: $space-4;
-        display: flex;
-        flex-direction: column;
-        gap: $space-3;
-    }
-
-    &__sidebar-meta {
-        margin: 0;
-        font-size: $font-size-sm;
-    }
-
-    &__run-cell {
-        display: flex;
-        flex-direction: column;
-        gap: $space-1;
-        min-width: 0;
-    }
-
-    &__run-cell code {
-        width: fit-content;
-        font-size: $font-size-sm;
-    }
-
-    &__run-cell small {
-        font-size: $font-size-sm;
-    }
-
-    &__sidebar-actions {
-        display: flex;
-        align-items: center;
-        gap: $space-1;
-        white-space: nowrap;
     }
 
     // ruleId 列：长 GHSA/CVE/URL 不撑列宽（实测反馈）

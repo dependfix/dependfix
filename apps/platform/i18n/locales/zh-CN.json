@@ -457,6 +457,11 @@
         "detailRunAlertsFound": "告警数",
         "detailRunOpen": "查看运行",
         "detailRunEmpty": "无关联扫描运行",
+        "fixNow": {
+            "action": "立即修复此仓库",
+            "success": "已对运行 {runId} 触发修复；跳转扫描历史查看进度",
+            "failed": "触发修复失败：{message}"
+        },
         "errors": {
             "loadFailed": "加载失败：{message}"
         }

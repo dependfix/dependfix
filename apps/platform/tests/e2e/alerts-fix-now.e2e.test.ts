@@ -7,7 +7,7 @@ import { waitForHydration } from './helpers/hydration.helper'
  * 2. 点击按钮 → POST /api/repos/[id]/scan 携带 reuseScanRunId → 跳转 /scans?repository=xxx&run=xxx
  * 3. 成功消息 toast 显示 + 5s 自动清除
  *
- * 依赖：todo.md §M14.2 /api/runs 分页契约 + §M16.2 reuseScanRunId API + AlertRunSidebar 组件 + useFixNow composable
+ * 依赖：todo.md §M14.2 /api/runs 分页契约 + §M16.2 reuseScanRunId API + `alert-run-sidebar` 组件 + useFixNow composable
  * 共享：e2e 测试账号（global-setup 注册首用户 admin）
  */
 test.use({ storageState: 'tests/e2e/.auth/admin.json' })

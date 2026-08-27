@@ -3,8 +3,8 @@ import { waitForHydration } from './helpers/hydration.helper'
 
 /**
  * C61 仪表板图表 e2e 冒烟测试（docs/plan/todo.md §C61）。
- * 验证 ChartCanvas 渲染（3 个 canvas）+ aria-label 可访问性 + 暗色模式切换不破图表。
- * 不深入校验数据正确性（chart.js 内部行为由 ChartCanvas.vue 单测覆盖）。
+ * 验证 `chart-canvas` 组件渲染（3 个 canvas）+ aria-label 可访问性 + 暗色模式切换不破图表。
+ * 不深入校验数据正确性（chart.js 内部行为由 `chart-canvas.vue` 单测覆盖）。
  * 跳过 mock 注入（W11 SSR+CSR 陷阱）。
  */
 test.use({ storageState: 'tests/e2e/.auth/admin.json' })

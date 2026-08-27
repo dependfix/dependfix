@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * ChartCanvas: 极简 Chart.js Vue 包装组件。
+ * `chart-canvas`: 极简 Chart.js Vue 包装组件。
  *
  * 动机：PrimeVue `<Chart>` 内部用 `import('chart.js/auto')`（200KB 全量），
  * 与本项目"tree-shakable 引入"原则冲突（dashboard 图表实际只用 doughnut + bar），

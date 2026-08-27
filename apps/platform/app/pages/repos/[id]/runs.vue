@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // 扫描历史：按仓库查看运行列表与详情
-// 注意：本页面已被 C51 应用层修复迁入 RepoHistoryDialog（见 docs/plan/todo.md §C51），但保留兼容——
+// 注意：本页面已被 C51 应用层修复迁入 `repo-history-dialog`（见 docs/plan/todo.md §C51），但保留兼容——
 // 用户直接访问 /repos/{id}/runs 仍可使用（C58 候选删除，见 docs/plan/backlog.md §C58）。
 import { withRunStatusRank } from '~/utils/sort-helpers'
 

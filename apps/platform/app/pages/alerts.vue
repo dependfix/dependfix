@@ -3,7 +3,7 @@
 // 顶部不渲染 dashboard 同款图表（todo.md §C65-D4：与 dashboard.vue 完全去重），
 // 用户需要全局统计去 dashboard；alerts 聚焦表格 + 详情
 //
-// 详情侧栏已抽出为 components/AlertRunSidebar.vue（todo.md §M16.2 audit 触发的 max-lines 抽取）
+// 详情侧栏已抽出为 components/alert-run-sidebar.vue（todo.md §M16.2 audit 触发的 max-lines 抽取）
 // 一键修复状态机抽出为 composables/use-fix-now.ts
 import { withFixStatusRank, withSeverityRank } from '~/utils/sort-helpers'
 import {
@@ -571,8 +571,8 @@ onMounted(async () => {
             {{ t('common.empty.loading') }}
         </p>
 
-        <!-- dedupe=true 详情侧栏（抽出为 components/AlertRunSidebar.vue，todo.md §M16.2 audit max-lines 触发） -->
-        <AlertRunSidebar
+        <!-- dedupe=true 详情侧栏（抽出为 components/alert-run-sidebar.vue，todo.md §M16.2 audit max-lines 触发） -->
+        <alert-run-sidebar
             v-model:visible="sidebarVisible"
             :alert="sidebarAlert"
             :runs="sidebarRuns"
@@ -580,7 +580,7 @@ onMounted(async () => {
             @hide="closeSidebar"
             @view-detail="openRunDetail"
         />
-        <RunDetailDialog
+        <run-detail-dialog
             v-model:visible="runDetailVisible"
             :run-id="selectedRunId"
         />

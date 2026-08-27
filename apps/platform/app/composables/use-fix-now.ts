@@ -59,7 +59,7 @@ export const useFixNow = (): UseFixNowReturn => {
      *   直接以复用 run.id 进入 fix 流程；scan_result 数据复用 report-only run 的输出
      *   （无需重拉 Dependabot / pnpm audit 等外部告警源）
      * - 成功后跳转 /scans?repository=xxx&run=xxx，触发 scans.vue 内 mount 的
-     *   RepoHistoryDialog query-key="run" 直接打开详情
+     *   `repo-history-dialog` query-key="run" 直接打开详情
      * - 失败：toast 错误信息（5s 自动清除）；不跳转
      */
     const triggerFix = async (run: FixableRunView) => {

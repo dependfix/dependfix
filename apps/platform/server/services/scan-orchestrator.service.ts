@@ -148,7 +148,7 @@ const runScanInternal = async (
         // summaryJson 来自上一次执行，重置以避免新执行的 summaryJson 与旧 finishedAt 时间戳错位）
         if (options.reuse) {
             // 清空旧 ScanResult（与 ScanRun 字段重置同步）：避免按 scanRunId JOIN 查询
-            // （alerts dedupe / /api/runs/[id] / RunDetailDialog 渲染）出现"旧 report-only
+            // （alerts dedupe / /api/runs/[id] / `run-detail-dialog` 渲染）出现"旧 report-only
             // 告警 + 新 fix 告警"并存的数据不一致
             await resultRepo.delete({ scanRunId: existing.id })
             existing.finishedAt = null

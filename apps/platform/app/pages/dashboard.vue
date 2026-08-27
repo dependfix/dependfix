@@ -128,7 +128,7 @@ const severityTagSeverity = (severity: string) => {
                             </h4>
                             <ClientOnly>
                                 <div class="dashboard__chart-canvas">
-                                    <ChartCanvas
+                                    <chart-canvas
                                         type="doughnut"
                                         :data="severityChartData"
                                         :options="severityChartOptions"
@@ -148,7 +148,7 @@ const severityTagSeverity = (severity: string) => {
                             </h4>
                             <ClientOnly>
                                 <div class="dashboard__chart-canvas dashboard__chart-canvas--with-center">
-                                    <ChartCanvas
+                                    <chart-canvas
                                         type="doughnut"
                                         :data="fixRateChartData"
                                         :options="fixRateChartOptions"
@@ -173,7 +173,7 @@ const severityTagSeverity = (severity: string) => {
                             </h4>
                             <ClientOnly>
                                 <div class="dashboard__chart-canvas dashboard__chart-canvas--bar">
-                                    <ChartCanvas
+                                    <chart-canvas
                                         type="bar"
                                         :data="topPackagesChartData"
                                         :options="topPackagesChartOptions"

@@ -5,9 +5,9 @@ import { waitForHydration } from './helpers/hydration.helper'
  * /scans 独立页面（todo.md §M16.1）端到端测试：
  * 1. /scans（无 query）— 顶部汇总卡片 + 全运行列表渲染
  * 2. /scans?repository=xxx — 按仓库过滤 + 仓库面包屑
- * 3. /scans?run=xxx — RepoHistoryDialog query-key='run' 直接打开单 run 详情
+ * 3. /scans?run=xxx — `repo-history-dialog` query-key='run' 直接打开单 run 详情
  *
- * 依赖：todo.md §M14.2 /api/runs 分页契约 + §M16.1 organizationId 隔离 + RepoHistoryDialog query-key 支持
+ * 依赖：todo.md §M14.2 /api/runs 分页契约 + §M16.1 organizationId 隔离 + `repo-history-dialog` query-key 支持
  * 共享：e2e 测试账号（global-setup 注册首用户 admin + viewer；admin 走 storageState）
  */
 test.use({ storageState: 'tests/e2e/.auth/admin.json' })
@@ -59,7 +59,7 @@ test.describe('/scans 独立页面', () => {
         await expect(page.getByRole('button', { name: '清除过滤' })).toBeVisible()
     })
 
-    test('case 3: /scans?run=xxx — RepoHistoryDialog query-key="run" 直接打开详情', async ({ page }) => {
+    test('case 3: /scans?run=xxx — `repo-history-dialog` query-key="run" 直接打开详情', async ({ page }) => {
         const stamp = Date.now()
         const owner = `e2e-scans-run-${stamp}`
         const name = `e2e-scans-run-name-${stamp}`
@@ -75,7 +75,7 @@ test.describe('/scans 独立页面', () => {
 
         await page.goto(`/scans?run=${runId}`)
         await waitForHydration(page)
-        // Dialog 应自动打开（RepoHistoryDialog watch ?run= query）
+        // Dialog 应自动打开（`repo-history-dialog` watch ?run= query）
         await expect(page.locator('.p-dialog')).toBeVisible({ timeout: 15000 })
         await expect(page.locator('.p-dialog-header')).toContainText('扫描历史')
     })

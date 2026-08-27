@@ -317,7 +317,7 @@ const submitBatchScan = async () => {
     }
 }
 
-// ===== 批量导入（子组件 ImportReposDialog 承载；visible 由本页控制）=====
+// ===== 批量导入（子组件 `import-repos-dialog` 承载；visible 由本页控制）=====
 const importDialogVisible = ref(false)
 
 </script>
@@ -634,7 +634,7 @@ const importDialogVisible = ref(false)
             </form>
         </Dialog>
 
-        <ImportReposDialog
+        <import-repos-dialog
             v-model:visible="importDialogVisible"
             :credentials="credentials"
             @imported="fetchData"
@@ -705,7 +705,7 @@ const importDialogVisible = ref(false)
             </div>
         </Dialog>
 
-        <ScanConfigDialog
+        <scan-config-dialog
             v-model:visible="scanConfigDialogVisible"
             v-model:mode="scanConfigMode"
             v-model:severity="scanConfigSeverity"
@@ -714,8 +714,8 @@ const importDialogVisible = ref(false)
             :severity-options="severityOptions"
             @submit="submitScanConfig"
         />
-        <!-- RepoHistoryDialog 不再在此挂载：pi-history 跳转改到 /scans?repository=xxx（todo.md §M16.1），
-             详情 dialog 由 scans.vue 内 mount 的 <RepoHistoryDialog query-key="run" /> 兜底 -->
+        <!-- `repo-history-dialog` 不再在此挂载：pi-history 跳转改到 /scans?repository=xxx（todo.md §M16.1），
+             详情 dialog 由 scans.vue 内 mount 的 `<repo-history-dialog query-key="run" />` 兜底 -->
     </div>
 </template>
 

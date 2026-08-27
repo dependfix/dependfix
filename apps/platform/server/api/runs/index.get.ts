@@ -10,7 +10,7 @@ const PAGE_SIZE_MAX = 200
 
 /**
  * 查询参数 schema（todo.md §M14.2 UX-R1 + §M16.1）：
- * - repositoryId：可选，按仓库过滤（既有，RepoHistoryDialog.vue 主调用方）
+ * - repositoryId：可选，按仓库过滤（既有，`repo-history-dialog.vue` 主调用方）
  * - ids：可选，逗号分隔 run id 列表（alerts.vue §openRunSidebar 复用，todo.md §T1306）
  *   —— 修复 silent bug：原 server 不识别 `ids`，alerts sidebar 实际拿到全量 run 而非该告警 affected runs
  * - page：默认 1，最小 1

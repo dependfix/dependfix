@@ -7,11 +7,11 @@
 // 三种 query 组合：
 // - /scans：全量展示
 // - /scans?repository=xxx：按仓库过滤（来自 repos.vue pi-history 跳转）
-// - /scans?run=xxx：直接打开单 run 详情（RepoHistoryDialog query-key='run'）
+// - /scans?run=xxx：直接打开单 run 详情（`repo-history-dialog` query-key='run'）
 //
 // 依赖：/api/runs（todo.md §M14.2 已闭环分页 + ids 过滤 + §M16.1 加 organizationId 隔离）
 //      /api/scan-history/summary（todo.md §M16.1 新增聚合端点）
-//      RepoHistoryDialog 组件（queryKey='run' mode 直接打开 detail）
+//      `repo-history-dialog` 组件（queryKey='run' mode 直接打开 detail）
 //
 // 非目标（todo.md §M16 阶段边界）：
 // - 不引入多组织；不重写后端聚合；不动 dashboard.vue；不动 batch-runs 跨仓库视图
@@ -170,7 +170,7 @@ const onPage = async (event: { page: number, first: number, rows: number }) => {
     await fetchRuns(event.page + 1, event.rows)
 }
 
-/** 状态 Tag 颜色 + 文案（与 RepoHistoryDialog 风格一致） */
+/** 状态 Tag 颜色 + 文案（与 `repo-history-dialog` 风格一致） */
 const statusSeverity = (status: string) => {
     switch (status) {
         case 'completed':
@@ -480,7 +480,7 @@ onMounted(refresh)
         </p>
 
         <!-- 详情 dialog 兜底（/scans?run=xxx 触发；queryKey='run' 直接打开 detail） -->
-        <RepoHistoryDialog query-key="run" />
+        <repo-history-dialog query-key="run" />
     </div>
 </template>
 

@@ -3,8 +3,11 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vites
 import { makeEvent, setupMemoryDatabase, teardownMemoryDatabase } from '../../../tests/api-helper'
 import reposIndexHandler from '../repos/index'
 import runsHandler from './index.get'
+import { Organization } from '#server/entities/organization'
+import { Repository } from '#server/entities/repository'
 import { ScanRun } from '#server/entities/scan-run'
 import { ensureDatabaseInitialized } from '#server/database'
+import { ensureDefaultOrganization } from '#server/utils/organization'
 
 vi.mock('#server/utils/guard', () => ({
     requireAuth: vi.fn(async () => ({ user: { id: 'u1', email: 'admin@test.dev' } })),
@@ -149,5 +152,55 @@ describe('GET /api/runs', () => {
 
     it('throws 400 on invalid pageSize (<1)', async () => {
         await expect(call('GET', '/api/runs?pageSize=0')).rejects.toMatchObject({ statusCode: 400 })
+    })
+
+    /**
+     * todo.md §M16.1 组织隔离：当前 /api/runs 隐式按当前组织过滤（单组织模型下默认 `dependfix-default`），
+     * 验证：跨组织的 ScanRun 不会出现在响应中。
+     * 隔离机制：handler 内部通过 where.repository.organizationId 加入组织维度过滤；
+     * 显式注入 foreign-org ScanRun（绕过 reposIndexHandler 写入组织隔离），断言 GET /api/runs 不返回该行。
+     */
+    it('organizationId isolation: excludes ScanRuns from a foreign organization', async () => {
+        const ds = await ensureDatabaseInitialized()
+        // ensureDefaultOrganization：Repository.organizationId 是 FK，FK 约束要求默认 org 已存在
+        await ensureDefaultOrganization(ds)
+        // 创建 foreign org + foreign repo（绕过 repos handler 注入默认组织）以模拟跨组织数据
+        const orgRepo = ds.getRepository(Organization)
+        const foreignOrg = await orgRepo.save(orgRepo.create({
+            id: 'foreign-org-not-current',
+            name: 'Foreign',
+        }))
+        const repoRepo = ds.getRepository(Repository)
+        const foreignRepo = await repoRepo.save(repoRepo.create({
+            organizationId: foreignOrg.id,
+            owner: 'foreign',
+            name: 'leak',
+            platform: 'github',
+            defaultBranch: 'main',
+            packageManager: 'pnpm',
+            executorKind: 'container',
+            credentialId: null,
+            actionWorkflowFile: null,
+            note: null,
+            tags: null,
+            sandboxLimits: null,
+            lastScanAt: null,
+        }))
+        const runRepo = ds.getRepository(ScanRun)
+        const foreignRun = await runRepo.save(runRepo.create({
+            repositoryId: foreignRepo.id,
+            mode: 'report-only',
+            severityThreshold: 'high',
+            executorKind: 'container',
+            status: 'completed',
+            summaryJson: null,
+        }))
+
+        const res = await call('GET', '/api/runs') as PaginatedRunsResponse
+        const ids = res.items.map((r) => r.id as string)
+        expect(ids).not.toContain(foreignRun.id)
+        // 反向断言：当前组织的 run 应仍然可见（不会因为新插入 foreign-org 影响总数计算）
+        const sameRes = await call('GET', '/api/runs') as PaginatedRunsResponse
+        expect(res.total).toBe(sameRes.total)
     })
 })

@@ -3,17 +3,21 @@ import { In, type FindOptionsWhere } from 'typeorm'
 import { ScanRun } from '#server/entities/scan-run'
 import { ensureDatabaseInitialized } from '#server/database'
 import { requireAuth } from '#server/utils/guard'
+import { resolveOrganizationId } from '#server/utils/organization'
 
 const PAGE_SIZE_DEFAULT = 100
 const PAGE_SIZE_MAX = 200
 
 /**
- * 查询参数 schema（todo.md §M14.2 UX-R1）：
+ * 查询参数 schema（todo.md §M14.2 UX-R1 + §M16.1）：
  * - repositoryId：可选，按仓库过滤（既有，RepoHistoryDialog.vue 主调用方）
  * - ids：可选，逗号分隔 run id 列表（alerts.vue §openRunSidebar 复用，todo.md §T1306）
  *   —— 修复 silent bug：原 server 不识别 `ids`，alerts sidebar 实际拿到全量 run 而非该告警 affected runs
  * - page：默认 1，最小 1
  * - pageSize：默认 100，上限 200（超出自动钳制，不抛错；防止单次拉取过大影响性能）
+ *
+ * organizationId 不暴露为 query 参数：服务端隐式从默认组织注入（单组织模型），
+ * 与 batch-runs/schedules/repos 列表 handler 风格一致（todo.md §M16.1 组织隔离）。
  */
 const querySchema = z.object({
     repositoryId: z.string().min(1).optional(),
@@ -61,9 +65,10 @@ export default defineEventHandler(async (event) => {
     const { repositoryId, ids, page, pageSize } = parsed.data
 
     const ds = await ensureDatabaseInitialized()
+    const organizationId = await resolveOrganizationId(ds)
     const runRepo = ds.getRepository(ScanRun)
 
-    const where: FindOptionsWhere<ScanRun> = {}
+    const where: FindOptionsWhere<ScanRun> = { repository: { organizationId } }
     if (repositoryId) {
         where.repositoryId = repositoryId
     }
@@ -74,6 +79,7 @@ export default defineEventHandler(async (event) => {
         }
     }
     // repositoryId + ids 同传：TypeORM AND 合并 → 既属于该仓库又是 ids 子集（AND 而非 OR）
+    // repository relation 加入组织隔离：跨组织 run 永远不可见（todo.md §M16.1 组织隔离）
 
     const [runs, total] = await runRepo.findAndCount({
         where,

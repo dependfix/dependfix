@@ -1,11 +1,25 @@
 <script setup lang="ts">
 // 扫描历史 Dialog（应用层修复：替代 unrouting 0.2.x 子路由 /repos/[id]/runs，
-// 用 query ?history={id} 传仓库 id，绕开 `:id()` dynamic segment 与 path-to-regexp 8.x
-// 不兼容的根因 —— 用户点击 pi-history 按钮后 url 跳到 /repos?history={id}，本组件 watch
-// 识别并自动打开 Dialog。单 Dialog 内部 list/detail view 切换，关闭时清空 query）。
+// 用 query 传仓库 id，绕开 `:id()` dynamic segment 与 path-to-regexp 8.x 不兼容的根因）。
+//
+// 当前由两种调用方消费（todo.md §M16.1）：
+// - repos.vue 老路径 `/repos?history={id}`：保留 queryKey='history' 默认值兼容
+// - scans.vue 新路径 `/scans?run={id}`：通过 :query-key="'run'" 注入
 //
 // 分页（todo.md §M14.2 UX-R1）：服务端分页（lazy DataTable + Paginator）。
 // 默认 pageSize=10，rows-per-page-options=[10, 25, 50]，最大 200 由 server 钳制。
+const props = withDefaults(defineProps<{
+    /**
+     * 触发 Dialog 的 query 键：
+     * - 'history'：兼容老路径 /repos?history={id}（按仓库过滤）
+     * - 'run'：新路径 /scans?run={id}（直接打开单 run 详情）
+     *
+     * 注意：queryKey 决定触发方式与关闭时清理行为，但不影响内部 list/detail 视图；
+     * list 视图仍按 repositoryId 过滤（从 /api/runs/{id} 详情推断），detail 视图无需仓库上下文。
+     */
+    queryKey?: 'history' | 'run'
+}>(), { queryKey: 'history' })
+
 const { t, d } = useI18n()
 const route = useRoute()
 const router = useRouter()
@@ -26,6 +40,8 @@ interface HistoryRunView {
 }
 
 const dialogVisible = ref(false)
+// run mode 时直接打开 detail，不进入 list
+const detailMode = ref(props.queryKey === 'run')
 const repoId = ref<string | null>(null)
 const runs = ref<HistoryRunView[]>([])
 const total = ref(0)
@@ -103,6 +119,26 @@ const openDetail = async (run: HistoryRunView) => {
     }
 }
 
+/**
+ * 直接打开单 run 详情（queryKey='run' 模式）：
+ * - 跳过 list 视图，直接展示 detail
+ * - 无需 repositoryId 过滤
+ * - 关闭时由 closeDialog 一并清理 query
+ */
+const openRunDetail = async (runId: string) => {
+    resetDetail()
+    detailLoading.value = true
+    detailMode.value = true
+    try {
+        const res = await $fetch(`/api/runs/${runId}`)
+        detail.value = res as { status: string, error: { code: string, message: string } | null, results: unknown[] }
+    } catch (e: any) {
+        detailError.value = t('runs.errors.detailLoadFailed', { message: e?.data?.message ?? e?.message ?? t('common.errors.unknown') })
+    } finally {
+        detailLoading.value = false
+    }
+}
+
 const openRunUrl = (url: string) => {
     window.open(url, '_blank')
 }
@@ -115,28 +151,39 @@ const closeDialog = async () => {
     pageSize.value = 10
     first.value = 0
     error.value = ''
+    detailMode.value = props.queryKey === 'run'
     resetDetail()
-    if (route.query.history !== undefined) {
-        const { history: _h, ...rest } = route.query
+    if (route.query[props.queryKey] !== undefined) {
+        const { [props.queryKey]: _drop, ...rest } = route.query
         await router.replace({ query: rest })
     }
 }
 
-// 监听 URL ?history={id} → 自动打开 Dialog
-watch(() => route.query.history, async (newVal) => {
+// 监听 URL ?<queryKey>={id} → 自动打开 Dialog
+// - queryKey='history'：按仓库过滤列表（向后兼容）
+// - queryKey='run'：直接打开单 run 详情（todo.md §M16.1）
+watch(() => route.query[props.queryKey], async (newVal) => {
     const id = typeof newVal === 'string'
         ? newVal
         : Array.isArray(newVal) ? newVal[0] : null
     if (id) {
-        if (repoId.value !== id) {
-            repoId.value = id
-            // 切换仓库：重置 first 与 pageSize（保留首次进入默认；避免切换后 UI 高亮页与 server 数据不一致）
-            first.value = 0
-            pageSize.value = 10
-            resetDetail()
-            await fetchRuns(id, 1, pageSize.value)
+        if (props.queryKey === 'run') {
+            // run 模式：直接打开 detail，不进入 list
+            dialogVisible.value = true
+            await openRunDetail(id)
+        } else {
+            // history 模式：按仓库过滤 list（向后兼容）
+            if (repoId.value !== id) {
+                repoId.value = id
+                // 切换仓库：重置 first 与 pageSize（保留首次进入默认；避免切换后 UI 高亮页与 server 数据不一致）
+                first.value = 0
+                pageSize.value = 10
+                detailMode.value = false
+                resetDetail()
+                await fetchRuns(id, 1, pageSize.value)
+            }
+            dialogVisible.value = true
         }
-        dialogVisible.value = true
     } else if (dialogVisible.value) {
         // query 被外部清空（如浏览器后退），同步关闭
         await closeDialog()
@@ -150,16 +197,16 @@ watch(() => route.query.history, async (newVal) => {
         :header="t('runs.title')"
         modal
         :draggable="false"
-        :closable="!detail"
-        :close-on-escape="!detail"
+        :closable="!detail || queryKey === 'run'"
+        :close-on-escape="!detail || queryKey === 'run'"
         :style="{width: '720px'}"
         @hide="closeDialog"
     >
-        <div v-if="loading && runs.length === 0" class="text-muted">
+        <div v-if="loading && runs.length === 0 && !detailMode" class="text-muted">
             {{ t('common.empty.loading') }}
         </div>
         <Message
-            v-else-if="error"
+            v-else-if="error && !detailMode"
             severity="error"
             :closable="false"
         >
@@ -187,12 +234,23 @@ watch(() => route.query.history, async (newVal) => {
         >
             <template #header>
                 <div class="repo-history__detail-header">
+                    <!-- list mode：返回列表按钮 -->
                     <Button
+                        v-if="!detailMode"
                         icon="pi pi-arrow-left"
                         :label="t('runs.backToList')"
                         text
                         size="small"
                         @click="resetDetail"
+                    />
+                    <!-- run mode（queryKey='run'）：列表不可用，提供关闭按钮；history mode 但已无列表上下文时也降级到关闭 -->
+                    <Button
+                        v-else-if="queryKey === 'run'"
+                        icon="pi pi-times"
+                        :label="t('common.actions.close')"
+                        text
+                        size="small"
+                        @click="closeDialog"
                     />
                     <Message
                         v-if="detail.status === 'failed'"
@@ -242,7 +300,7 @@ watch(() => route.query.history, async (newVal) => {
                 </template>
             </Column>
         </DataTable>
-        <template v-else>
+        <template v-else-if="!detailMode">
             <!-- todo.md §M14.2 UX-R1：服务端分页（lazy DataTable + 内置 paginator）
                  —— pageSize 由 pageSize.value 驱动，total 由后端返回的 total 驱动，
                  翻页触发 onPage → 重新请求 /api/runs 带 page + pageSize -->

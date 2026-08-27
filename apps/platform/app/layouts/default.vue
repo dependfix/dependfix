@@ -45,6 +45,13 @@ const logout = async () => {
                     {{ t('common.nav.repos') }}
                 </NuxtLink>
                 <NuxtLink
+                    to="/scans"
+                    class="platform__nav-link"
+                    active-class="platform__nav-link--active"
+                >
+                    {{ t('common.nav.scans') }}
+                </NuxtLink>
+                <NuxtLink
                     to="/alerts"
                     class="platform__nav-link"
                     active-class="platform__nav-link--active"

@@ -4,6 +4,7 @@
         "nav": {
             "dashboard": "Dashboard",
             "repos": "Repositories",
+            "scans": "Scans",
             "alerts": "Alerts",
             "envEvents": "Env Events",
             "schedules": "Schedules",
@@ -610,6 +611,42 @@
         "errors": {
             "loadFailed": "Failed to load: {message}",
             "detailLoadFailed": "Failed to load details: {message}"
+        }
+    },
+    "scans": {
+        "title": "Scans",
+        "subtitle": "Cross-repository scan history with summary cards, per-repository breakdown, and full run list",
+        "repoFilterActive": "Filtered by repository: {owner}/{name}",
+        "clearFilter": "Clear filter",
+        "summary": {
+            "totalRuns": "Total runs",
+            "totalAlerts": "Total alerts",
+            "totalFixed": "Total fixed",
+            "lastRunAt": "Last scan"
+        },
+        "byRepo": {
+            "title": "By repository",
+            "empty": "No repository activity yet",
+            "colOwner": "Owner",
+            "colName": "Name",
+            "colRuns": "Runs",
+            "colAlerts": "Alerts",
+            "colFixed": "Fixed",
+            "colLastRun": "Last run",
+            "colLastStatus": "Last status",
+            "colActions": "Actions",
+            "actionFilterThis": "Filter this repository"
+        },
+        "runList": {
+            "title": "All runs",
+            "empty": "No scan runs in this scope",
+            "errors": {
+                "loadFailed": "Failed to load: {message}",
+                "summaryFailed": "Failed to load summary: {message}"
+            }
+        },
+        "errors": {
+            "loadFailed": "Failed to load: {message}"
         }
     }
 }

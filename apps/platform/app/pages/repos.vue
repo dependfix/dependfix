@@ -477,7 +477,7 @@ const importDialogVisible = ref(false)
                                 size="small"
                                 :aria-label="t('repos.actionScanHistory')"
                                 :title="t('repos.actionScanHistory')"
-                                @click="navigateTo({path: '/repos', query: {history: data.id}})"
+                                @click="navigateTo(`/scans?repository=${data.id}`)"
                             />
                             <Button
                                 icon="pi pi-pencil"
@@ -714,8 +714,8 @@ const importDialogVisible = ref(false)
             :severity-options="severityOptions"
             @submit="submitScanConfig"
         />
-
-        <RepoHistoryDialog />
+        <!-- RepoHistoryDialog 不再在此挂载：pi-history 跳转改到 /scans?repository=xxx（todo.md §M16.1），
+             详情 dialog 由 scans.vue 内 mount 的 <RepoHistoryDialog query-key="run" /> 兜底 -->
     </div>
 </template>
 

@@ -4,6 +4,7 @@
         "nav": {
             "dashboard": "仪表板",
             "repos": "仓库",
+            "scans": "扫描",
             "alerts": "告警",
             "envEvents": "环境事件",
             "schedules": "定时计划",
@@ -610,6 +611,42 @@
         "errors": {
             "loadFailed": "加载失败：{message}",
             "detailLoadFailed": "详情加载失败：{message}"
+        }
+    },
+    "scans": {
+        "title": "扫描",
+        "subtitle": "跨仓库扫描历史：汇总卡片、按仓库聚合、全运行分页列表",
+        "repoFilterActive": "已按仓库过滤：{owner}/{name}",
+        "clearFilter": "清除过滤",
+        "summary": {
+            "totalRuns": "总运行数",
+            "totalAlerts": "告警总数",
+            "totalFixed": "已修复总数",
+            "lastRunAt": "最近扫描"
+        },
+        "byRepo": {
+            "title": "按仓库",
+            "empty": "暂无仓库活动",
+            "colOwner": "所有者",
+            "colName": "仓库",
+            "colRuns": "运行数",
+            "colAlerts": "告警",
+            "colFixed": "已修复",
+            "colLastRun": "最近运行",
+            "colLastStatus": "最近状态",
+            "colActions": "操作",
+            "actionFilterThis": "仅查看此仓库"
+        },
+        "runList": {
+            "title": "全部运行",
+            "empty": "该范围内暂无扫描运行",
+            "errors": {
+                "loadFailed": "加载失败：{message}",
+                "summaryFailed": "汇总加载失败：{message}"
+            }
+        },
+        "errors": {
+            "loadFailed": "加载失败：{message}"
         }
     }
 }

@@ -272,4 +272,37 @@ describe('POST /api/repos/[id]/scan', () => {
         expect(result).toMatchObject({ id: 'pending-fresh', status: 'pending' })
         expect(createPendingScanRun).toHaveBeenCalled()
     })
+
+    /**
+     * 入队失败 + 终态冲突（行 102-103 branches）：
+     * queue.add 抛错且 message 包含"已处于终态"→ handler 抛 409（不暴露 500 裸错误）。
+     * 测试场景：mock queue.add 抛出带"已处于终态"语义的错误，验证 handler 转换为 409 Conflict。
+     *
+     * 这是 reuse 路径的边界处理：worker 已抢先完成时，再次入队会触发"已处于终态"。
+     * 背景见 todo.md §M16.2「reuseScanRunId 入队终态冲突处理」。
+     */
+    it('queue.add 抛"已处于终态"错误 → 抛 409 Conflict（行 102-103 message.includes 分支）', async () => {
+        const queue = {
+            add: vi.fn().mockRejectedValue(new Error('该 run 已处于终态 completed，跳过重复执行')),
+        }
+        getQueueService.mockResolvedValue({ mode: 'async', queue })
+        createPendingScanRun.mockResolvedValue(mockRun({ id: 'pending-x', status: 'pending' }))
+
+        await expectError(call({
+            mode: 'fix',
+            severityThreshold: 'high',
+        }, { id: repositoryId }), 409)
+    })
+
+    /**
+     * 缺 id 参数（行 27 if (!id) 防御分支）：
+     * router 不传 id（罕见但需防御，例如动态路由解析失败）→ handler 抛 400 Bad Request。
+     * 由于路由通常必带 id，触发方式是显式构造空 id 调用。
+     */
+    it('缺 id 参数 → 抛 400 Bad Request（行 27 if (!id) 分支）', async () => {
+        await expectError(call({
+            mode: 'fix',
+            severityThreshold: 'high',
+        }, { id: '' }), 400)
+    })
 })

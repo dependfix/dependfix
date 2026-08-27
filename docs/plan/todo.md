@@ -12,7 +12,7 @@
 >
 > **非目标**：不引入多组织；不重写后端聚合；不动 `dashboard.vue` latestRun 卡片；不动 `batch-runs` 跨仓库视图；不升级 PrimeVue 5；不破坏既有 `alerts-rowgroup` / `history-dialog` / 视图切换 / dedupe 行为。
 >
-> **状态**：M16.1 UX-R3 `/scans` + M16.2 C66-D "立即修复此仓库" D 阶段均已实施 + A 阶段 code-auditor Pass；本批次待提交；M16.3-16.5 待用户指令进入下一阶段 D 阶段。
+> **状态**：M16.1 UX-R3 `/scans` + M16.2 C66-D "立即修复此仓库" D 阶段均已实施 + A 阶段 code-auditor Pass + 已提交 master（末尾含 kebab-case rename refactor `acfdc8d8`）；CI run #33068271005 Coverage job 触发 80% 阈值失败，已通过 M16 新代码补测批次恢复至 80.27%（详见各任务 "状态（后续补测）" 段）；M16.3-16.5 待用户指令进入下一阶段 D 阶段。
 
 ---
 
@@ -25,6 +25,7 @@
 - **验收**：三种 query 组合可访问、汇总卡片 4 块 + 按仓库聚合 + 全运行分页列表渲染、viewer 可见、PrimeVue hydration fixme 不新增；既有 `alerts-rowgroup` / `history-dialog` / `batch-runs` / `dashboard` 不回归。
 - **关联**：依赖 M14.2 UX-R1 分页 + M15.1 RunDetailDialog + M15 utility 抽取。
 - **状态**（2026-08-27）：D 阶段已实施。`vitest` 743 passed + 4 skipped（新增 10 case：runs organizationId 隔离 1 + summary 6 + 既有 e2e 迁移）；`e2e` 74 passed + 2 skipped（新建 5 case：3 query 组合 + viewer × 2）；A 阶段 code-auditor standard depth Pass（warning 7 项 + suggest 4 项已分级 backlog）；`build` 成功；i18n JSON.parse 双语对称（542 键）。`history-dialog.e2e.test.ts` 删除并迁移至 `scans.e2e.test.ts`（避免 `/repos?history=` 路径成为孤儿）。`RepoHistoryDialog.vue` 新增 `queryKey` prop（'history' | 'run' 默认 'history'）支持 M16.1 + 兼容性。
+- **状态**（2026-08-27 后续补测）：CI run #33068271005 Coverage job 失败（branches 79.93% < 80% 阈值）→ 根因为 M16.1 新代码（`summary.get.ts` 81.8% branches + 缺 `apps/platform/app/utils/alerts-view.ts` 配套测试）+ M16.2 新代码（`scan.post.ts` / `runs/index.get.ts` 防御分支未覆盖）累计效应。`runBranchCleanupForRepo` 之外的 M16 新文件测试已补齐（`alerts-view.test.ts` 100% + `summary.get.test.ts` 88.9% + `runs/index.get.test.ts` 100% + `scan.post.test.ts` 96.9%），整体 branches 80.27% / statements 84.91% 通过 80% 阈值。教训：详见 [经验归档 §四十二](../design/governance/experience-archive.md)。
 
 ### M16.2 C66-D alerts "立即修复此仓库" 入口 + `reuseScanRunId`
 
@@ -32,6 +33,7 @@
 - **范围**：`apps/platform/server/api/repos/[id]/scan.post.ts` 新增 `reuseScanRunId` 参数跳过重拉；`apps/platform/app/pages/alerts.vue` 新增 "立即修复此仓库" 按钮（存在 `affectedRunIds[0]` 时启用）；i18n 双语 + 单测 + e2e。
 - **验收**：可一键复用受影响运行直接进入修复链路；空 / 不存在 runId 时按钮降级到常规触发；不破坏 fixStatus 修复链路与 batch-runs 跨仓库触发。
 - **状态**（2026-08-27）：D 阶段已实施。`vitest` 750 passed + 4 skipped（新增 7 case：scan.post reuse sync/async/404/400/409/pendingScanRun 回归 + orchestrator reuse=true 真实集成）；`e2e` 77 passed + 2 skipped（新建 3 case：reuse 调用 / fix 模式不展示按钮 / 4xx 错误处理）；A 阶段 code-auditor 2 轮 Pass（RG-B1 终态校验契约冲突修复：ScanRunOptions reuse 区分 queue-mode continuation / user-reuse + reset summaryJson 等字段 + 清空 ScanResult 子表；RG-B2 真实集成测试补强；warning 4 项 + RG-W3 ScanResult cleanup 全部修复）；`build` 成功；i18n JSON.parse 双语对称 545 键。Orchestrator `reuse: true` 时清空 `ScanResult` 子表避免 JOIN 数据不一致；scan-worker 透传 `reuse` 参数支持 async 队列路径同步语义；`useFixNow` composable 内部 `useI18n()` + auto-import `navigateTo` 保持 codebase 现有 pattern；`AlertRunSidebar.vue` 组件抽取解 alerts.vue > 800 行 lint warning。
+- **状态**（2026-08-27 后续补测）：同 M16.1 补测批次（commit `acfdc8d8` 是 M16.2 末尾的 kebab-case rename refactor，其 CI 触发了 Coverage 失败），`scan.post.test.ts` 增 `queue.add 抛"已处于终态"→409` 与 `缺 id→400` 两个边界用例（`runs/index.get.test.ts` 与 `verification-gate.test.ts` 同批补测），整体覆盖率恢复至 80.27%。
 
 ### M16.3 C36 服务端 API 错误消息 i18n
 

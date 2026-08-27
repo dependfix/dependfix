@@ -473,3 +473,29 @@
   - **测试文件超 lint:max-lines 必须按"被测域"主动拆分**：`max-lines` 是软门禁，超过时不应"扩容阈值"（生产代码 800 是设计意图，测试 1000 是合理上限），应按被测函数域拆分。规则：每个拆出文件对应一个或一组"被测函数域"（业务内聚而非机械切分），mocks 按需下沉避免跨文件依赖，imports 收敛到 `from '../<feature>'` 或 `from './<feature>'`。`helpers.test.ts` 类"中心化测试文件"是拆分高发地——多个 helpers 函数汇聚到一个 super-test 是历史债务，函数域分片化是更可持续的模式。**挂接治理检查点**：建议在 engine 包 vitest 配置加 pre-commit 自检（`find packages -name "*.test.ts" -size +40k` 报警），把"测试文件膨胀"转成主动信号。
   - **refactor 触发的 master CI 重跑会同时暴露多个无关预存隐患**：本次 commit 自身验证全过，但 push master 后 CI 暴露了 refactor 范围之外的两类问题。这印证 §二十二"CI 链式暴露"和 §二十八"CI 修复是剥洋葱"——任何 push master 的 refactor 都必须**显式声明已跑全量 lint/test 验证矩阵**（不仅是改动点），并对覆盖的"全链路"做断言（lint 绿 → typecheck 全绿 → vitest 全绿 → coverage 一绿）。本次 commit message 写了 `pnpm vitest run: 132 files / 1899 tests` 是全量验证，但 `pnpm run lint` 在 refactor commit 里**未明确列出**，导致 lint:max-lines 失败只在 CI 端暴露——验证矩阵描述应包含每个质量门（lint / typecheck / test / build），缺一项就可能漏检。**强化守则**：refactor / fix 类 commit message 的"验证矩阵"段落必须**逐条列出每个质量门的实际命令与结果**（`pnpm run lint` 0 error / `pnpm run typecheck` 0 error / `pnpm vitest run X files / Y passed`），禁止用"全过"等笼统描述。
   - **跨包级 lint 失败定位修复**：CI 报 `File has too many lines (1031). Maximum allowed is 1000` 时，先 `wc -l` + `git log --oneline <file>` 确认历史长度变化（确认是渐进积累 vs 一次性大改动），再决定拆分粒度。本次 14 个被测域 → 9 个文件是经验阈值：单文件 < 200 行（含 mock/header）能保证未来 6-12 个月仍有扩展余量，又避免过度碎片化（> 15 个 test 文件会显著增加 `pnpm vitest run` 启动开销）。
+
+## 四十二、Coverage 阈值对 refactor 顺序敏感：纯 rename commit 可触发无关覆盖债务清算（2026-08-27，CI run #33068271005 修复）
+
+> 教训形态：**覆盖率阈值的"挂账累积 + 一次性清算"**——M16.1 / M16.2 期间引入的新文件与改造既有文件覆盖不充分（部分新文件无对应测试），单次 feature commit 的覆盖下降被后续 commit 的测试增量抵消一部分但未完全恢复，整体 branches 从 80.30% 缓慢滑向 79.79%；M16.2 末尾的纯 rename refactor（commit `acfdc8d8`，组件 PascalCase → kebab-case，零源码逻辑变更）不产生新测试也不消耗覆盖，但作为 push master 的触发器暴露了此前累计的覆盖缺口。
+
+- **案例**：CI run #33068271005（master, run #471，commit `acfdc8d8 refactor(platform): 组件命名统一改为小写连字符风格`）失败于 Coverage job 的 `pnpm run test:coverage` 步骤：
+  - 错误：`ERROR: Coverage for branches (79.93%) does not meet global threshold (80%)` —— 全量 2268 tests passed + 5 skipped，lint/typecheck/build/e2e 全部 ✅，唯独 coverage 阈值门禁挂。
+  - 失败诊断：`acfdc8d8` commit 自身未修改任何 `.ts` 源码（仅 6 个 `.vue` 文件 git mv + 模板标签 case 改写 + 注释引用更新），按"最小改动 + 零逻辑变更"原则不应改变分支覆盖率。**真凶**是 M16.1 + M16.2 阶段（commit `8c3ee84 → acfdc8d8` 11 个 commit）累积引入的新增/改造源文件覆盖不足：
+    - `apps/platform/app/utils/alerts-view.ts`（M16.2 新增 +67 行）→ **0%** 覆盖（同目录其他 util 全部有 `.test.ts`，本文件遗漏）
+    - `apps/platform/server/api/scan-history/summary.get.ts`（M16.1 新增 +208 行）→ 72.72% branches（safeParseSummary 防御分支 + aggregateByRepository 孤儿 run + lastRunAt 替换路径未覆盖）
+    - `apps/platform/server/api/runs/index.get.ts`（M16.1 organizationId 隔离改造 +12 行）→ 75% branches（toView 防御序列化 + ids query 边界）
+    - `apps/platform/server/api/repos/[id]/scan.post.ts`（M16.2 reuseScanRunId 改造 +44 行）→ 90.62% branches（终态冲突 409 分支 + 缺 id 400 分支）
+  - 上次成功覆盖 run（#32998951372, commit `8c3ee84`）branches 80.30%，本次 79.79% —— 11 个 M16 commit 累计 -0.51%，刚好跌破 80% 阈值。
+- **修复**：单次提交 5 个文件 / +415 行测试（不含 untracked `alerts-view.test.ts`），覆盖 M16 新代码的未触达防御分支：
+  - 新增 `apps/platform/app/utils/alerts-view.test.ts`（108 行 / 18 测试 / 4 switch 函数全分支 → 文件覆盖 100%）
+  - `summary.get.test.ts` +6 测试：safeParseSummary 防御（null / 非对象 JSON / 非法 JSON）+ aggregateByRepository 孤儿 run（PRAGMA FK OFF 制造孤儿）+ lastRunAt 替换（new→old / old→new 双向）+ readNumber 非有限数字（null / 字符串 / 对象 / 数组）
+  - `runs/index.get.test.ts` +4 测试：toView 孤儿 run（PRAGMA FK OFF）/ summaryJson=null / errorJson 非空 / ids query 仅含逗号
+  - `scan.post.test.ts` +2 测试：缺 id → 400 / queue.add 抛"已处于终态" → 409
+  - `verification-gate.test.ts` +6 测试：enforceVerificationGate 主函数（行 47/52/61/64/71/74 branches）
+  - 修复后本地三连跑 branches 80.27% / statements 84.91% / lines 85.01%（buffer +0.27% ≈ 16 branches），lint 0 error / typecheck 0 error / vitest 2305 passed + 5 skipped（159 files）。**M16 加权覆盖率达 98.9% statements / 88.8% branches**（远超整体均值，证明修复聚焦于 M16 引入的覆盖缺口而非广撒网）。
+- **启示**：
+  - **覆盖率阈值对"commit 顺序"敏感**：refactor 类的零逻辑变更 commit 也会触发全量 CI 重跑（包括 coverage job），因此 refactor commit 实际承担了"清算此前累计覆盖债务"的功能。**守则**：(1) 禁止把"refactor + feature"合并提交——refactor 必须独立、纯改名/纯结构调整，feature 单独提交带测试。(2) 阶段性 feature merge 后（每个 M 阶段收口时）**主动跑一次 `pnpm run test:coverage`** 验证阈值未越线，不要等下次 refactor 才暴露；建议在 `vitest.config.ts` 注释里加"阶段性阈值体检"提醒（或在 release pipeline 加 coverage drift check）。
+  - **新文件必须有配套测试是硬纪律**：M16.2 抽出 `alerts-view.ts` 工具函数时仅按"单调用方 utility 由 audit suggest 触发（避免过早抽象）"的设计意图抽出，**未同步补 `.test.ts`**（同目录其他 util 全部有测试，本文件成为唯一例外）。`vitest.config.ts` 的 include 模式包含所有 `apps/platform/app/utils/*.ts`，所以覆盖率数据会即时反映——"未配测试 = 0%"是机械规则，不是设计意图。**挂接治理检查点**：建议在 apps/platform 加 lint 自检（`find apps/platform/app/utils -name "*.ts" ! -name "*.test.ts" | while read f; do test -f "${f%.ts}.test.ts" || echo "MISSING TEST: $f"; done`）或 vitest 配置 `coverage.includeAfter` 显式排除未测文件（让 0% 文件显眼化）。教训登记对象：所有 `apps/platform/app/utils/`、`apps/platform/server/utils/`、`packages/cli/src/skills/` 等"工具/服务/技能"目录新增文件。
+  - **阈值守门不是"恢复 80%"就结束**：当前 80.27% 的 buffer（+0.27% / ~16 branches）极薄——任何新代码或测试执行抖动都可能再次跌破 80%（本次也是）。需要分批推到 ~81%（buffer +0.7%）才能有效避免反复触发，但**不建议**一次性跳到 82%（触及 executor/runtime-adapter 等复杂模块，flakiness 风险与工作量不成正比）。渐进阈值（80% → 81% → 82%）配合"阶段性体检"才能形成正循环，而非"跌破 → 紧急修复 → 再跌破"的被动循环。
+  - **commit message 验证矩阵要含 coverage**：本次修复 commit 描述应明确列出 `pnpm run test:coverage` 的 branches/statements/lines/functions 四项百分比 + 与阈值的 buffer，避免后续读者误判"仅补测试"→ 实际还顺带做了一次完整 CI 验证矩阵。印证 §四十一末条"refactor / fix 类 commit message 的验证矩阵段落必须逐条列出每个质量门"——本条扩展到"coverage 也要列入"，且需明确 buffer 数字（如 `branches 80.27% (+0.27% / ~16 branches buffer)`）。
+  - **教训入档触发条件确认**：本案例符合准入标准第 4 条"工具/环境陷阱（CI/coverage 阈值对 commit 顺序敏感）"，且与 §四十一 / §二十二 / §二十八"refactor 触发 CI 链式暴露"形成连续案例链——证明此模式 ≥ 3 次复现，**挂接治理检查点**：(a) 阶段性 coverage drift check（release pipeline / todo 阶段收口 checklist）；(b) apps/platform/app/utils 等"工具目录"新增文件必须配测试（lint 自检或 coverage 显眼化）；(c) refactor commit 验证矩阵强制含 coverage buffer 数字。

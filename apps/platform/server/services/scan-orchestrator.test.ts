@@ -273,6 +273,82 @@ describe('scan-orchestrator.service', () => {
             ).rejects.toThrow(/已处于终态/)
         })
 
+        /**
+         * todo.md §M16.2 C66-D：reuse=true 时允许复用终态 run（用户主动复用，例如 report-only → fix）
+         * 复用语义：reset finishedAt / errorJson / summaryJson / runUrl + 更新 mode / severityThreshold
+         */
+        it('reuses terminal run when reuse=true (report-only → fix)', async () => {
+            const ds = await ensureDatabaseInitialized()
+            const terminal = await ds.getRepository(ScanRun).save(ds.getRepository(ScanRun).create({
+                repositoryId,
+                mode: 'report-only',
+                severityThreshold: 'medium',
+                executorKind: 'container',
+                status: 'completed',
+                finishedAt: new Date('2026-08-12T00:01:00Z'),
+                summaryJson: JSON.stringify({ alertsFound: 3 }),
+                errorJson: null,
+                runUrl: null,
+            }))
+            // seed 旧 ScanResult 模拟 report-only 模式留下的告警
+            await ds.getRepository(ScanResult).save([
+                ds.getRepository(ScanResult).create({
+                    scanRunId: terminal.id,
+                    source: 'dependabot',
+                    severity: 'high',
+                    packageName: 'lodash',
+                    manifestPath: 'package.json',
+                    ruleId: null,
+                    summary: 'old report-only alert',
+                    fixable: true,
+                    fixStrategy: 'upgrade',
+                    recommendedVersion: '4.18.0',
+                    htmlUrl: null,
+                    fixStatus: 'pending',
+                }),
+                ds.getRepository(ScanResult).create({
+                    scanRunId: terminal.id,
+                    source: 'dependabot',
+                    severity: 'critical',
+                    packageName: 'axios',
+                    manifestPath: 'package.json',
+                    ruleId: null,
+                    summary: 'old report-only alert 2',
+                    fixable: true,
+                    fixStrategy: 'upgrade',
+                    recommendedVersion: '1.0.0',
+                    htmlUrl: null,
+                    fixStatus: 'pending',
+                }),
+            ])
+            // reuse 前旧 ScanResult 行数 = 2
+            const beforeCount = await ds.getRepository(ScanResult).count({ where: { scanRunId: terminal.id } })
+            expect(beforeCount).toBe(2)
+
+            containerExecute.mockResolvedValue({ result: makeResult(), error: undefined })
+            const result = await runScanForRepository(
+                repositoryId,
+                { mode: 'fix', severityThreshold: 'high' },
+                { runId: terminal.id, reuse: true },
+            )
+            // 既有 record 续用，id 不变；status 升级为 completed（mock executor）；finishedAt 重置
+            expect(result.id).toBe(terminal.id)
+            expect(result.status).toBe('completed')
+            expect(result.finishedAt).not.toEqual(terminal.finishedAt)
+            // mode / severityThreshold 更新为本次请求
+            expect(result.mode).toBe('fix')
+            expect(result.severityThreshold).toBe('high')
+            // summaryJson 由 executor 重写（已有 alertsFound=3 被覆盖为 mock 输出的 alertsTotal=1）
+            const summary = JSON.parse(String(result.summaryJson ?? '{}')) as Record<string, unknown>
+            expect(summary.alertsTotal).toBe(1)
+            // errorJson 重置为 null
+            expect(result.errorJson).toBeNull()
+            // 旧 ScanResult 行应清空，避免按 scanRunId JOIN 出现旧 + 新并存的数据不一致
+            // 修复后只剩本次 mock executor 输出的 1 条新结果（与 run 续用语义对齐）
+            const afterCount = await ds.getRepository(ScanResult).count({ where: { scanRunId: terminal.id } })
+            expect(afterCount).toBe(1)
+        })
+
         it('resumes pending run by marking it running', async () => {
             const ds = await ensureDatabaseInitialized()
             const pending = await ds.getRepository(ScanRun).save(ds.getRepository(ScanRun).create({

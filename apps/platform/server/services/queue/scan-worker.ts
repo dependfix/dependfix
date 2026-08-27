@@ -35,9 +35,13 @@ export const defaultProcessor: ScanJobProcessor = async (data, jobName) => {
         return triggerSchedule(scheduleId)
     }
     if (jobName === SCAN_QUEUE_NAME) {
-        const { repositoryId, request, runId } = data as ScanJobData
+        const { repositoryId, request, runId, reuse } = data as ScanJobData
         // 续用 API 预创建的 pending run（runId 非空时）；同步降级路径不经过 worker
-        return runScanForRepository(repositoryId, request, runId ? { runId } : undefined)
+        if (!runId) {
+            return runScanForRepository(repositoryId, request)
+        }
+        const options = reuse ? { runId, reuse: true } : { runId }
+        return runScanForRepository(repositoryId, request, options)
     }
     // 未知 job name：显式抛错（而不是静默按 scan 解构——repositoryId 可能为 undefined，
     // TypeORM where 会跳过 undefined 条件，存在对错误仓库执行扫描的风险）

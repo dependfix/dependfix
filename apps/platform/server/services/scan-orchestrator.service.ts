@@ -43,6 +43,14 @@ export interface ScanRunOptions {
     runId?: string
     /** 所属批量运行 id（定时/批量触发时关联；单独手动触发不传为 null） */
     batchRunId?: string
+    /**
+     * 用户主动复用既有 ScanRun（todo.md §M16.2 C66-D）：绕过"终态不可续用"校验，
+     * 并重置 status / finishedAt / errorJson / summaryJson（让既有 record 复用为新执行的载体）。
+     * 与 queue-mode continuation（runId 单传）区分：
+     * - queue-mode：仅 pending / running 可续用；terminal 不允许（崩溃重试场景）
+     * - reuse=true：terminal 也允许（用户主动复用，例如 report-only → fix）
+     */
+    reuse?: boolean
 }
 
 /** 执行器选择：请求显式指定优先 > 仓库 executorKind 字段 > actionWorkflowFile 自动（B 模式） > 默认 container */
@@ -129,11 +137,29 @@ const runScanInternal = async (
         }
         // 终态校验（竞态防护）：入队半成功 + failover 双执行时，job 续用不得回滚已终态的 run
         // （worker 侧抛错走 BullMQ 重试/失败，不触碰 run 记录）；pending/running 允许续用（保留崩溃重试）
-        if (existing.status === 'completed' || existing.status === 'failed' || existing.status === 'dispatched' || existing.status === 'degraded') {
+        // —— reuse=true 时绕过（用户主动复用，例如 report-only run → fix 复用为 fix 模式 run）
+        if (!options.reuse
+            && (existing.status === 'completed' || existing.status === 'failed' || existing.status === 'dispatched' || existing.status === 'degraded')) {
             throw new Error(`[scan] run ${existing.id} 已处于终态 ${existing.status}，跳过重复执行`)
         }
         existing.status = 'running'
         existing.startedAt = existing.startedAt ?? new Date()
+        // reuse=true 时重置终态字段：让既有 record 复用为新执行的载体（finishedAt / errorJson /
+        // summaryJson 来自上一次执行，重置以避免新执行的 summaryJson 与旧 finishedAt 时间戳错位）
+        if (options.reuse) {
+            // 清空旧 ScanResult（与 ScanRun 字段重置同步）：避免按 scanRunId JOIN 查询
+            // （alerts dedupe / /api/runs/[id] / RunDetailDialog 渲染）出现"旧 report-only
+            // 告警 + 新 fix 告警"并存的数据不一致
+            await resultRepo.delete({ scanRunId: existing.id })
+            existing.finishedAt = null
+            existing.errorJson = null
+            existing.summaryJson = null
+            existing.runUrl = null
+            // 同时更新 mode / severityThreshold 以匹配本次请求（用户从 report-only 切到 fix）
+            existing.mode = request.mode
+            existing.severityThreshold = request.severityThreshold
+            existing.executorKind = executorKind
+        }
         savedRun = await runRepo.save(existing)
     } else {
         const run = runRepo.create({
@@ -194,7 +220,7 @@ const runScanInternal = async (
         let result: RunResult | undefined
         let error: { code: string, message: string } | undefined
         let runUrl: string | null = null
-        // 降级信号（M11 T1005-C）：sandbox 启动时不可用 → 自动降级 ContainerExecutor → degradedReason 记录原 sandbox_unavailable
+        // 降级信号（todo.md §M11 T1005-C）：sandbox 启动时不可用 → 自动降级 ContainerExecutor → degradedReason 记录原 sandbox_unavailable
         // 范围：try 块顶层，确保 decision 处理块可见（degraded 状态机决策的输入）
         let degradedReason: { code: string, message: string } | undefined
 
@@ -224,7 +250,7 @@ const runScanInternal = async (
             }
         } else if (executorKind === 'sandbox') {
             // sandbox 路由：先探测 RuntimeAdapter 可用性（docker daemon 可用性）。
-            // **降级信号契约**（M11 T1005-C，2026-08-20）：
+            // **降级信号契约**（todo.md §M11 T1005-C，2026-08-20）：
             // - 启动时不可用（isAvailable() false）→ 自动降级回 ContainerExecutor + degradedReason 记录 → degraded 状态
             //   （业务结果完整，UI info 提示，不静默降级）
             // - 运行时偶发故障（execute() 抛 errno）→ 不静默降级，sandbox_unavailable 错误码 → failed 状态
@@ -232,7 +258,7 @@ const runScanInternal = async (
             // 详见 executor-sandbox.md §7.8
             const sandbox = new SandboxExecutor({
                 workRoot: process.env.RUN_WORK_ROOT ?? 'data/runs',
-                // M11 T1005-B：仓库级 sandboxLimits 透传（可选；undefined 时走平台 SANDBOX_DEFAULTS）。
+                // todo.md §M11 T1005-B：仓库级 sandboxLimits 透传（可选；undefined 时走平台 SANDBOX_DEFAULTS）。
                 // 限额优先级：仓库级 > 沙箱级 > SANDBOX_DEFAULTS（见 sandbox-executor.ts:107 注释）。
                 sandboxLimits: parseSandboxLimits(repository.sandboxLimits),
             })

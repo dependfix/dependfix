@@ -20,6 +20,12 @@ export interface ScanJobData {
     request: ScanRequest
     /** 队列模式：API 预创建的 pending run（worker 续用）；同步降级不产生 job */
     runId: string
+    /**
+     * 用户主动复用既有 ScanRun（todo.md §M16.2 C66-D）：异步队列路径下传递 reuse 选项
+     * 到 worker，worker 调 runScanForRepository 时透传，绕过"终态不可续用"校验。
+     * 默认 false（向后兼容既有 queue-mode continuation）。
+     */
+    reuse?: boolean
 }
 
 /** 队列默认选项（纯函数便于单测：重试/backoff/清理策略） */
@@ -49,7 +55,7 @@ export interface ScheduledJobTemplate {
 
 export interface ScanQueue {
     /** 入队结果：jobId 供状态关联；reused=true 表示命中同仓库进行中任务（去重合并，未新建 job） */
-    add: (repositoryId: string, request: ScanRequest, options?: { priority?: number, runId?: string }) => Promise<{ jobId: string, reused: boolean }>
+    add: (repositoryId: string, request: ScanRequest, options?: { priority?: number, runId?: string, reuse?: boolean }) => Promise<{ jobId: string, reused: boolean }>
     /** BullMQ job scheduler 透传：注册/更新定时调度（定时扫描能力） */
     upsertJobScheduler: (
         schedulerId: string,
@@ -82,7 +88,12 @@ export const createScanQueue = (connection: Redis, options: { retriesRaw?: strin
                     return { jobId, reused: true }
                 }
             }
-            await queue.add(SCAN_QUEUE_NAME, { repositoryId, request, runId: opts?.runId ?? '' }, {
+            await queue.add(SCAN_QUEUE_NAME, {
+                repositoryId,
+                request,
+                runId: opts?.runId ?? '',
+                reuse: opts?.reuse,
+            }, {
                 jobId,
                 priority: opts?.priority ?? SCAN_JOB_PRIORITY.manual,
             })

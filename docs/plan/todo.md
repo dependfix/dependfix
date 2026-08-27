@@ -2,7 +2,7 @@
 
 > **范围约定**：本文件**仅**登记当前阶段活跃待办——已闭环项归档于 [todo-archive.md](todo-archive.md)；未排期/延期/远期登记于 [backlog.md](backlog.md)；已知边界与 known-issue 登记于对应阶段归档段或 backlog（**不在此处复述**）。
 
-## 当前阶段：M16 平台可用性深化（5 项候选上收）P 阶段规划完成
+## 当前阶段：M16 平台可用性深化（5 项候选上收）P 阶段规划完成；M16.1 已实施
 
 > **目标**：把 `apps/platform` 从 demo 落地为实际可用项目，覆盖 5 项用户痛点、技术债和能力扩展，形成开发/修复闭环。
 >
@@ -12,7 +12,7 @@
 >
 > **非目标**：不引入多组织；不重写后端聚合；不动 `dashboard.vue` latestRun 卡片；不动 `batch-runs` 跨仓库视图；不升级 PrimeVue 5；不破坏既有 `alerts-rowgroup` / `history-dialog` / 视图切换 / dedupe 行为。
 >
-> **状态**：方案已确认；本批次仅 P 阶段文档改动（待用户指令后落地）；**待用户指令进入 D 阶段**。
+> **状态**：M16.1 UX-R3 `/scans` 独立页面 D 阶段已实施 + A 阶段 code-auditor standard depth Pass；本批次待提交；M16.2-16.5 待用户指令进入下一阶段 D 阶段。
 
 ---
 
@@ -21,9 +21,10 @@
 ### M16.1 UX-R3 `/scans` 独立页面 + RepoHistoryDialog 迁移
 
 - **优先级**：P1
-- **范围**：新增 `apps/platform/app/pages/scans.vue`；`apps/platform/app/layouts/default.vue` 增加 "扫描" 菜单项（viewer 可见）；`apps/platform/app/pages/repos.vue` 的 pi-history 按钮 `navigateTo` 改为 `'/scans?repository=' + id`；`apps/platform/server/api/runs/index.get.ts` 补 `organizationId` 过滤；新增 `apps/platform/server/api/scan-history/summary.get.ts` + 同名测试；i18n 双语新增 `scans` 段；新建 `apps/platform/tests/e2e/scans.e2e.test.ts` 覆盖三种 query 组合；`RepoHistoryDialog.vue` 保留为 `/scans?run=` 内部 detail dialog 兜底。
+- **范围**：新增 `apps/platform/app/pages/scans.vue`；`apps/platform/app/layouts/default.vue` 增加 "扫描"菜单项（viewer 可见）；`apps/platform/app/pages/repos.vue` 的 pi-history 按钮 `navigateTo` 改为 `'/scans?repository=' + id`；`apps/platform/server/api/runs/index.get.ts` 补 `organizationId` 过滤；新增 `apps/platform/server/api/scan-history/summary.get.ts` + 同名测试；i18n 双语新增 `scans` 段；新建 `apps/platform/tests/e2e/scans.e2e.test.ts` 覆盖三种 query 组合；`RepoHistoryDialog.vue` 保留为 `/scans?run=` 内部 detail dialog 兜底。
 - **验收**：三种 query 组合可访问、汇总卡片 4 块 + 按仓库聚合 + 全运行分页列表渲染、viewer 可见、PrimeVue hydration fixme 不新增；既有 `alerts-rowgroup` / `history-dialog` / `batch-runs` / `dashboard` 不回归。
 - **关联**：依赖 M14.2 UX-R1 分页 + M15.1 RunDetailDialog + M15 utility 抽取。
+- **状态**（2026-08-27）：D 阶段已实施。`vitest` 743 passed + 4 skipped（新增 10 case：runs organizationId 隔离 1 + summary 6 + 既有 e2e 迁移）；`e2e` 74 passed + 2 skipped（新建 5 case：3 query 组合 + viewer × 2）；A 阶段 code-auditor standard depth Pass（warning 7 项 + suggest 4 项已分级 backlog）；`build` 成功；i18n JSON.parse 双语对称（542 键）。`history-dialog.e2e.test.ts` 删除并迁移至 `scans.e2e.test.ts`（避免 `/repos?history=` 路径成为孤儿）。`RepoHistoryDialog.vue` 新增 `queryKey` prop（'history' | 'run' 默认 'history'）支持 M16.1 + 兼容性。
 
 ### M16.2 C66-D alerts "立即修复此仓库" 入口 + `reuseScanRunId`
 

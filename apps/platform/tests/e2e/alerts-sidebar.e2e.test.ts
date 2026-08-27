@@ -59,7 +59,7 @@ const makeRun = (overrides: Record<string, unknown> = {}) => ({
 
 const installRoutes = async (
     page: Page,
-    runs: Array<Record<string, unknown>>,
+    runs: Record<string, unknown>[],
 ) => {
     await page.route('**/api/alerts*', (route) => route.fulfill({
         status: 200,

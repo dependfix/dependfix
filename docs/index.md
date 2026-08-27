@@ -4,7 +4,7 @@
 
 ## 当前状态
 
-**M0-M15 已全部闭环归档（2026-08-26）；当前 M16 平台可用性深化 5 项候选 P 阶段规划已落地（仅文档改动），待用户指令进入 D 阶段。** M16 涵盖：M16.1 UX-R3 `/scans` 页面（含 `/api/runs` 组织隔离）/ M16.2 C66-D alerts 一键修复入口 / M16.3 C36 服务端 API 错误消息 i18n / M16.4 PrimeVue hydration 缓解（alerts 迁移 `useAsyncData`）/ M16.5 T701-e2e 管理端点集成测试补强。详见 [todo.md §M16 任务清单](plan/todo.md#m16-任务清单) 与 [roadmap.md §M16](plan/roadmap.md#m16-平台可用性深化规划中p-阶段文档已落地)。
+**M0-M15 已全部闭环归档（2026-08-26）；当前 M16 平台可用性深化（M16.1 已实施 + A 阶段 Pass，M16.2-16.5 待 D 阶段）。** M16 涵盖：M16.1 UX-R3 `/scans` 页面（含 `/api/runs` 组织隔离）/ M16.2 C66-D alerts 一键修复入口 / M16.3 C36 服务端 API 错误消息 i18n / M16.4 PrimeVue hydration 缓解（alerts 迁移 `useAsyncData`）/ M16.5 T701-e2e 管理端点集成测试补强。详见 [todo.md §M16 任务清单](plan/todo.md#m16-任务清单) 与 [roadmap.md §M16](plan/roadmap.md#m16-平台可用性深化m161-已实施m162-165-待-d-阶段)。
 
 `dependfix` CLI 支持四类命令（`report-only` / `fix` / `fix-and-pr` / `cleanup-branches`），可通过 GitHub Composite Action（`uses: dependfix/dependfix@v1`）提供零配置的自动化安全修复能力；独立管理平台（仓库/凭据管理、扫描触发、仪表板、UX-R2 Sidebar、RunDetailDialog）与 MCP Server 已随 M6-M15 落地。
 

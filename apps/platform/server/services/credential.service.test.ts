@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
     decryptToken,
     encryptToken,
@@ -51,29 +51,23 @@ describe('credential.service', () => {
         })
 
         it('throws when encryption key is empty', () => {
-            expect(() => encryptToken('secret', '')).toThrow('ENCRYPTION_KEY 未配置')
+            expect(() => encryptToken('secret', '')).toThrow('NUXT_ENCRYPTION_KEY 未配置')
         })
     })
 
     describe('getEncryptionKey', () => {
+        afterEach(() => {
+            vi.unstubAllGlobals()
+        })
+
         it('returns configured key', () => {
-            const original = process.env.ENCRYPTION_KEY
-            process.env.ENCRYPTION_KEY = 'env-key'
-            try {
-                expect(getEncryptionKey()).toBe('env-key')
-            } finally {
-                process.env.ENCRYPTION_KEY = original
-            }
+            vi.stubGlobal('useRuntimeConfig', () => ({ encryptionKey: 'env-key' }))
+            expect(getEncryptionKey()).toBe('env-key')
         })
 
         it('throws when not configured', () => {
-            const original = process.env.ENCRYPTION_KEY
-            delete process.env.ENCRYPTION_KEY
-            try {
-                expect(() => getEncryptionKey()).toThrow('ENCRYPTION_KEY 未配置')
-            } finally {
-                process.env.ENCRYPTION_KEY = original
-            }
+            vi.stubGlobal('useRuntimeConfig', () => ({ encryptionKey: '' }))
+            expect(() => getEncryptionKey()).toThrow('NUXT_ENCRYPTION_KEY 未配置')
         })
     })
 })

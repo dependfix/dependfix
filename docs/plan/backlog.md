@@ -124,6 +124,17 @@
 #### 测试基础设施清理
 
 - **S-2 已上收 M17.5（2026-08-28 P 阶段落地，详情见 [todo.md §M17.5](todo.md#m175-t1705-s-2-authedcookieheader-抽取-p3) + 历史归档指针段）**：M16.5 audit suggest 的 `authedCookieHeader` 抽取到 `tests/e2e/helpers/` 已由 M17.5 T1705 上收（M16.3 / M16.5 三批次遗留重复，与 S-4 同批次）；按 backlog 维护规则 5 从主条目迁出。
+- **S-5 调用方测试 `process.env.ENCRYPTION_KEY` 死代码清理**（M17.1 audit warning #2 登记）
+  - 当前状态：6 处调用方测试仍写 `process.env.ENCRYPTION_KEY = 'test-encryption-key-32-bytes!!'`：
+    - `apps/platform/server/services/scan-orchestrator.test.ts:115,120,128`
+    - `apps/platform/server/api/credentials/index.test.ts:28,33,71,73`
+    - `apps/platform/server/api/credentials/[id].test.ts:28,39,92-94`
+    - `apps/platform/server/api/repos/importable.get.test.ts:80,91`
+    - `apps/platform/server/api/repos/batch.post.test.ts:31,36`
+  - 现状：service 不再读 `process.env.ENCRYPTION_KEY`，实际密钥来自 `tests/setup-nuxt-server.ts:26` 全局 stub `useRuntimeConfig = () => ({ encryptionKey: 'test-encryption-key-32-bytes!!' })`；调用方测试之所以还能通过，纯属 **两边恰好都用同一字符串 `'test-encryption-key-32-bytes!!'` 的偶然一致性**（encryptToken 是纯函数，参数由测试显式传入，所以 env 设不设都不影响加解密路径）
+  - 风险：若后续修改 setup-nuxt-server.ts 默认 stub 字符串，调用方测试会突然全挂且报错信息晦涩（"密文无法解密"）；或反向若有人误以为"删掉 setup-nuxt-server.ts 默认 stub 应该没事，反正测试设了 process.env.ENCRYPTION_KEY"，会引发 ReferenceError 回归
+  - 修复方向：① 短期 — 5 文件删除 `process.env.ENCRYPTION_KEY` 赋值/清理对，改为显式 `vi.stubGlobal('useRuntimeConfig', () => ({ encryptionKey: 'test-encryption-key-32-bytes!!' }))` 或统一 helper；② 长期 — 抽 `setTestEncryptionKey(key)` helper（与 `setupMemoryDatabase` 同模式），与 M17.5 S-2 `authedCookieHeader` 抽取同源策略
+  - 优先级：P3（不阻塞 M17.1 合并；建议与 M17.5 同批次合并实施）
 
 #### 测试覆盖补强
 
@@ -162,6 +173,19 @@
 #### 治理
 
 - **C34** 存量规范严格约束挂接盘点（审查治理候选；审查现有 `docs/standards/*.md` 中"必须级"条款是否已在 code-quality-checklist.md / code-reviewer skill 双层对称挂接；现状：部分已挂接 development/testing/security/git/ai-collaboration，部分仅 standards 有 platform.md §7.1/§7.2；触发：下次 neat-freak 批次统一盘点）
+- **C39 standards 文档 ENCRYPTION_KEY → NUXT_ENCRYPTION_KEY 同步**（M17.1 audit warning #1 登记）
+  - 当前状态：M17.1 实施后 `process.env.ENCRYPTION_KEY` 不再被代码读取（credential.service.ts:78 改读 `useRuntimeConfig().encryptionKey`，单源在 nuxt.config.ts:61 读 `NUXT_ENCRYPTION_KEY`）；但权威规范层仍有 8 处仍用旧 env 名 `ENCRYPTION_KEY`：
+    - `docs/standards/platform.md:150` "平台级密钥：环境变量 `ENCRYPTION_KEY`"
+    - `docs/standards/platform.md:240` 环境变量总表行 `| ENCRYPTION_KEY | 凭据功能必需 | 空 | ... |`
+    - `docs/standards/security.md:83` "平台密钥隔离: `ENCRYPTION_KEY` / `AUTH_SECRET`..."
+    - `docs/standards/security.md:123` "`ENCRYPTION_KEY` 平台级密钥"
+    - `docs/standards/security.md:131` "`encryptToken(plaintext, ENCRYPTION_KEY)`"
+    - `docs/standards/security.md:132` "`decryptToken(encryptedToken, ENCRYPTION_KEY)`"
+    - `docs/standards/security.md:138` "`ENCRYPTION_KEY` 由平台运维配置"
+    - `docs/standards/security.md:145` "`ENCRYPTION_KEY` 变更会使存量密文不可解密"`
+  - 风险：按规范部署的新运维若只设 `ENCRYPTION_KEY`，凭据加密将抛 `'NUXT_ENCRYPTION_KEY 未配置'` 500 —— **这正是 M17.1 P1 想修的根因，从代码层转移到规范层**；todo.md §M17.1 验收点 4 仅明文写"同步更新 docker-compose.yml / .env.example 文档"，**未含 standards**（本次未实施）
+  - 修复方向：8 处全部 `ENCRYPTION_KEY` → `NUXT_ENCRYPTION_KEY`（platform.md §5 + §10 + security.md §5.5/§5.2/§5.3 联动更新）；可与 C34 存量规范挂接盘点同批次治理
+  - 优先级：P3（不阻塞 M17.1 合并，但强烈建议下批次闭环，避免重新引入运维误配 500）
 - **G1** network-audit 默认白名单持续扩展问题 —— 详见长期主线 #2
 
 #### 工作流
@@ -238,6 +262,7 @@
 - **MCP 能力补充 C31 / C32**：详见 [archive/todo-archive-phases-m2-m55.md §M5.5 / T508](archive/todo-archive-phases-m2-m55.md#m55-skill-编排cli-先行已归档)
 - **M2 增强候选 B1 / B2 / B3**：详见 [archive/todo-archive-phases-m2-m55.md §M2](archive/todo-archive-phases-m2-m55.md#m2-github-action-接入已归档)
 - **C38 encryptionKey 标准化**（2026-08-28 P 阶段落地于 M17.1，详情见 [todo.md §M17.1 T1701](todo.md#m171-t1701-c38-encryptionkey-标准化-p1)；M17.1 闭环后归档至 todo-archive.md §M17.1）
+- **M17.1 C38 encryptionKey 标准化实施**（2026-08-28 audit standard depth Pass + W-3 修正 + W-1/W-2 登记 backlog，详见 [artifacts/review-gate/2026-08-28-m17-1-t1701-c38-encryptionkey.md](artifacts/review-gate/2026-08-28-m17-1-t1701-c38-encryptionkey.md)；实施 7 文件 / +33/-29 行 / 21 个调用方测试从 ReferenceError 修复后 853 passed；M17.1 闭环后归档至 todo-archive.md §M17.1）
 - **S-2 authedCookieHeader 抽取**（2026-08-28 P 阶段落地于 M17.5，详情见 [todo.md §M17.5 T1705](todo.md#m175-t1705-s-2-authedcookieheader-抽取-p3)；M17.5 闭环后归档至 todo-archive.md §M17.5）
 - **S-4 better-auth admin viewer role check 单测补强**（2026-08-28 P 阶段落地于 M17.6，详情见 [todo.md §M17.6 T1706](todo.md#m176-t1706-s-4-better-auth-admin-viewer-role-check-单测补强-p3)；M17.6 闭环后归档至 todo-archive.md §M17.6）
 - **服务端 API i18n 范围外扩展**（2026-08-28 P 阶段落地于 M17.2-4，10 文件分 3 子阶段 credentials / schedules / batch-runs + repos batch，详情见 [todo.md §M17 任务清单](todo.md#m17-任务清单)；M17.2-4 闭环后归档至 todo-archive.md §M17.x）

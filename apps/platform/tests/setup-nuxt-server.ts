@@ -19,6 +19,11 @@ g.getRouterParam = getRouterParam
 // 但 ReferenceError 风险在于 module 引用 — 把 getRequestURL 注入 globalThis 让 middleware 模块
 // 加载时能解析该标识符（vitest 默认无 nitro auto-import）。
 g.getRequestURL = getRequestURL
+// useRuntimeConfig：Nuxt auto-import 提供的 runtimeConfig 访问入口。
+// credential.service.ts 的 getEncryptionKey() 走 useRuntimeConfig().encryptionKey 读取凭据加密密钥，
+// 测试环境需预 stub 防止 ReferenceError；默认返回 test 密钥保证 encryptToken/decryptToken 可工作，
+// 特定测试需要不同值时在测试内 vi.stubGlobal('useRuntimeConfig', ...) 覆盖（沿用 mailer/queue/notification 测试模式）
+g.useRuntimeConfig = () => ({ encryptionKey: 'test-encryption-key-32-bytes!!' })
 
 /**
  * better-auth 1.7 generic-oauth plugin 在 init 阶段会 fetch OIDC discovery URL，

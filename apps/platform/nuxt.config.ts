@@ -58,7 +58,7 @@ export default defineNuxtConfig({
         // 服务端私有配置（NUXT_ 前缀环境变量可覆盖）
         // 构建期默认值仅用于开发；生产必须通过 NUXT_AUTH_SECRET 注入（getAuth 启动校验强制）
         authSecret: process.env.AUTH_SECRET || 'dev-secret-change-me',
-        encryptionKey: process.env.ENCRYPTION_KEY || '',
+        encryptionKey: process.env.NUXT_ENCRYPTION_KEY || '',
         // SMTP 配置（私有，运行时 NUXT_ 前缀可覆盖；不进 public bundle）。
         // smtpEnabled 派生自 smtpHost 存在性，向后兼容旧 env-only 行为。
         // 端口默认 587（STARTTLS 明文升级）；SMTP_PORT=465 走 TLS；user/pass 可选（匿名 relay 场景）。

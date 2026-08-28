@@ -8,17 +8,18 @@ import {
 /**
  * 凭据加密服务：AES-256-GCM。
  * 设计要点：
- * - 平台级密钥 ENCRYPTION_KEY 派生 32 字节密钥（sha256），长度兼容 16/24/32 字节输入
+ * - 平台级密钥经 Nuxt runtimeConfig 读取（`encryptionKey` 字段；runtime 覆盖走 `NUXT_ENCRYPTION_KEY` 前缀）；
+ *   派生 32 字节密钥（sha256），长度兼容 16/24/32 字节输入
  * - 密文格式 `{iv}.{authTag}.{ciphertext}`（均为 base64，GCM 自带完整性校验）
  * - 解密仅在执行时 worker 内存中进行（credential service 解密后传 Executor，用后即弃）
  */
 
 const IV_LENGTH = 12
 
-/** 派生 32 字节密钥（ENCRYPTION_KEY 可为任意长度，sha256 定长） */
+/** 派生 32 字节密钥（encryptionKey 可为任意长度，sha256 定长） */
 const deriveKey = (encryptionKey: string): Buffer => {
     if (!encryptionKey) {
-        throw new Error('[credential] ENCRYPTION_KEY 未配置，无法加解密凭据。请设置平台级密钥（ENCRYPTION_KEY）')
+        throw new Error('[credential] NUXT_ENCRYPTION_KEY 未配置，无法加解密凭据。请设置平台级密钥（NUXT_ENCRYPTION_KEY）')
     }
     return createHash('sha256').update(encryptionKey).digest()
 }
@@ -26,7 +27,7 @@ const deriveKey = (encryptionKey: string): Buffer => {
 /**
  * AES-256-GCM 加密。
  * @param plaintext 明文 token
- * @param encryptionKey 平台级密钥（ENCRYPTION_KEY）
+ * @param encryptionKey 平台级密钥（NUXT_ENCRYPTION_KEY）
  * @returns `{iv}.{authTag}.{ciphertext}`（base64 拼接，可安全存 DB）
  */
 export const encryptToken = (plaintext: string, encryptionKey: string): string => {
@@ -68,12 +69,15 @@ export const decryptToken = (payload: string, encryptionKey: string): string => 
 
 /**
  * 运行时获取平台级加密密钥（供服务端使用，缺失时抛错）。
- * 注意：该密钥永不进入 Executor 执行进程（见 executor-sandbox.md §3 契约要点 1）。
+ * 走 Nuxt runtimeConfig 读取 `encryptionKey` 字段（runtime 覆盖走 `NUXT_ENCRYPTION_KEY` 前缀，
+ * 与 [docs/standards/platform.md](../../docs/standards/platform.md) NUXT_ 前缀约定一致）；
+ * 该密钥永不进入 Executor 执行进程（见 executor-sandbox.md §3 契约要点 1）。
  */
 export const getEncryptionKey = (): string => {
-    const key = process.env.ENCRYPTION_KEY ?? ''
+    const config = useRuntimeConfig()
+    const key = config.encryptionKey
     if (!key) {
-        throw new Error('[credential] ENCRYPTION_KEY 未配置，无法加解密凭据')
+        throw new Error('[credential] NUXT_ENCRYPTION_KEY 未配置，无法加解密凭据')
     }
     return key
 }

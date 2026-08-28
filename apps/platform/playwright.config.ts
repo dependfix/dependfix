@@ -28,10 +28,9 @@ const e2eServerEnv = [
     `PORT=${e2ePort}`,
     `NUXT_AUTH_SECRET=${e2eAuthSecret}`,
     `NUXT_ENCRYPTION_KEY=e2e-encryption-key-32-bytes!!!`,
-    // credential.service.ts 的 getEncryptionKey() 直接读 process.env.ENCRYPTION_KEY（历史 bug，
-    // 未走 useRuntimeConfig().encryptionKey）；e2e 需要在 server 进程环境直接提供该变量
+    // credential.service.ts 的 getEncryptionKey() 通过 Nuxt runtimeConfig().encryptionKey 读取密钥；
+    // e2e 需要在 server 进程环境直接提供 NUXT_ENCRYPTION_KEY（runtimeConfig 默认从该前缀读取）
     // 否则任何凭据加密/解密请求会抛 500
-    `ENCRYPTION_KEY=e2e-encryption-key-32-bytes!!!`,
     `DATABASE_PATH=data/e2e.sqlite`,
     'DATABASE_SYNCHRONIZE=true',
     'NUXT_QUEUE_ENABLED=false',

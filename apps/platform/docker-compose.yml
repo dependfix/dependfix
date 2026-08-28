@@ -19,7 +19,7 @@ services:
       # Nuxt runtimeConfig 运行时覆盖只认 NUXT_ 前缀（AUTH_SECRET 在构建期已烘焙，运行时无效）
       NUXT_AUTH_SECRET: ${AUTH_SECRET:-change-me-to-a-random-secret}
       DATABASE_PATH: /app/data/dependfix.sqlite
-      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-}
+      NUXT_ENCRYPTION_KEY: ${NUXT_ENCRYPTION_KEY:-}
       # 关闭注册（保留登录）：公开部署时设 REGISTRATION_DISABLED=true。
       # 注意：首次部署需保持 false 注册首个管理员后再关闭，否则平台无管理员。
       NUXT_REGISTRATION_DISABLED: ${REGISTRATION_DISABLED:-false}
@@ -49,7 +49,7 @@ services:
   #     NUXT_REDIS_URL: redis://redis:6379
   #     NUXT_IN_PROCESS_WORKER: "true"
   #     DATABASE_PATH: /app/data/dependfix.sqlite
-  #     ENCRYPTION_KEY: ${ENCRYPTION_KEY:-}
+  #     NUXT_ENCRYPTION_KEY: ${NUXT_ENCRYPTION_KEY:-}
   #   depends_on:
   #     - redis
   #     - platform

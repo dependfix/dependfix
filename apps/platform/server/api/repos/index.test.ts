@@ -3,10 +3,16 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vites
 import { makeEvent, setupMemoryDatabase, teardownMemoryDatabase } from '../../../tests/api-helper'
 import reposHandler from './index'
 
-// 鉴权由 guard.test.ts 单独覆盖：API handler 测试 mock guard 层，聚焦业务逻辑
+// 鉴权由 guard.test.ts 单独覆盖：API handler 测试 mock guard 层，聚焦业务逻辑；
+// 但 todo.md §M16.5 T701-e2e 补强要求 API handler 测试也覆盖三角色鉴权——
+// 这里把 mock 改为可重写（默认 admin），三角色相关 case 用 mockRequireRole.mockResolvedValueOnce 切换
+const { mockRequireAuth, mockRequireRole } = vi.hoisted(() => ({
+    mockRequireAuth: vi.fn(async () => ({ user: { id: 'user-1', email: 'admin@test.dev' } })),
+    mockRequireRole: vi.fn(async () => ({ user: { id: 'user-1', email: 'admin@test.dev' } })),
+}))
 vi.mock('#server/utils/guard', () => ({
-    requireAuth: vi.fn(async () => ({ user: { id: 'user-1', email: 'admin@test.dev' } })),
-    requireRole: vi.fn(async () => ({ user: { id: 'user-1', email: 'admin@test.dev' } })),
+    requireAuth: mockRequireAuth,
+    requireRole: mockRequireRole,
 }))
 
 const call = (method: string, url: string, body?: unknown) => reposHandler(makeEvent(method, url, body))
@@ -129,5 +135,67 @@ describe('GET /api/repos', () => {
 
     it('rejects unsupported method with 405', async () => {
         await expect(call('PUT', '/api/repos')).rejects.toMatchObject({ statusCode: 405 })
+    })
+})
+
+/**
+ * 三角色鉴权验证（todo.md §M16.5 T701-e2e）：
+ * viewer 只读 / admin + org_admin 写操作 / 未登录 401
+ *
+ * 默认 mock 为 admin 通过；以下 case 用 mockRequireRole.mockImplementationOnce / mockRequireAuth.mockImplementationOnce
+ * 让 guard 抛 401/403 模拟角色权限拦截。
+ *
+ * 角色语义：
+ * - viewer：只能 GET（只读）；POST / PUT / DELETE 应被 403 拦截
+ * - org_admin：可写（与 admin 同等权限），POST / PUT / DELETE 通过
+ * - admin：默认全权限
+ * - 未登录：GET 也应被 401 拦截
+ */
+describe('/api/repos 三角色鉴权（todo.md §M16.5）', () => {
+    beforeEach(() => {
+        vi.clearAllMocks()
+    })
+
+    it('viewer 调 POST /api/repos → 403 (requireRole 拒绝)', async () => {
+        mockRequireRole.mockImplementationOnce(async () => {
+            const { createError } = await import('h3')
+            throw createError({ statusCode: 403, statusMessage: 'Forbidden', message: 'Forbidden' })
+        })
+        await expect(call('POST', '/api/repos', {
+            owner: 'viewer-blocked',
+            name: 'repo',
+            platform: 'github',
+            packageManager: 'pnpm',
+            defaultBranch: 'main',
+            executorKind: 'container',
+        })).rejects.toMatchObject({ statusCode: 403 })
+    })
+
+    it('org_admin 调 POST /api/repos → 200 (write 权限放行)', async () => {
+        mockRequireRole.mockResolvedValueOnce({ user: { id: 'orgadmin-1', email: 'orgadmin@test.dev' } })
+        const created = await call('POST', '/api/repos', {
+            owner: 'orgadmin-success',
+            name: 'repo',
+            platform: 'github',
+            packageManager: 'pnpm',
+            defaultBranch: 'main',
+            executorKind: 'container',
+        }) as { id: string, owner: string }
+        expect(created.owner).toBe('orgadmin-success')
+        expect(created.id).toBeTruthy()
+    })
+
+    it('viewer 调 GET /api/repos → 200 (只读放行)', async () => {
+        mockRequireAuth.mockResolvedValueOnce({ user: { id: 'viewer-1', email: 'viewer@test.dev' } })
+        const list = await call('GET', '/api/repos')
+        expect(Array.isArray(list)).toBe(true)
+    })
+
+    it('未登录调 GET /api/repos → 401 (requireAuth 拒绝)', async () => {
+        mockRequireAuth.mockImplementationOnce(async () => {
+            const { createError } = await import('h3')
+            throw createError({ statusCode: 401, statusMessage: 'Unauthorized', message: 'Unauthorized' })
+        })
+        await expect(call('GET', '/api/repos')).rejects.toMatchObject({ statusCode: 401 })
     })
 })

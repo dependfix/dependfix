@@ -313,7 +313,7 @@ Changelog / Release Notes 采集、多 AI 提供商封装、AI 研判（问题�
 
 ## 详细任务
 
-- 当前阶段任务：[todo.md](todo.md)（**M16 全部已闭环** 2026-08-28 归档；M16.1 UX-R3 `/scans` + M16.2 C66-D alerts "立即修复此仓库" + M16.3 C36 服务端 API 错误消息 i18n + M16.4 PrimeVue hydration 主线 #1 缓解 + M16.5 T701-e2e 管理端点集成测试补强 5 子阶段共 19 commits 已全部推送至 origin/master，ahead=0 `git rev-list HEAD ^origin/master --count` 2026-08-28 实测；ahead commits 数按 [规划规范 §4.4 §5 ahead 实证](../../docs/standards/planning.md#44-大批量归档批次操作规范) 动态核验）；当前无活跃实施阶段，等待 M17+ 候选启动；待人工验收 T701/T702/T704 项随真实环境推进）
+- 当前阶段任务：[todo.md](todo.md)（**M17 安全与可用性收口 已启动 2026-08-28 P 阶段落地 6 子阶段**：M17.1 T1701 C38 encryptionKey 标准化 [P1] + M17.2-4 T1702-T1704 服务端 API i18n 范围外扩展 [P2] + M17.5 T1705 S-2 authedCookieHeader 抽取 [P3] + M17.6 T1706 S-4 better-auth admin viewer role check 单测补强 [P3]；M16.5 audit W-1 + audit suggest 4 条上收 + M16.3 audit suggest 范围外 10 文件分 3 子阶段；预估总投入 12-16 commits；M17.1 为下一实施条目）；前序 M16 全部已闭环（2026-08-28 归档 19 commits 已全部推送至 origin/master；M16 归档批次 commit `b1bf1af` ahead=1 待用户推送；`git rev-list HEAD ^origin/master --count` 2026-08-28 实测 ahead=1）；待人工验收 T701/T702/T704 项随真实环境推进）
 - 已归档阶段：[todo-archive.md](todo-archive.md)（主窗口保留最近 5 段：2026-08-28 M16 / 2026-08-26 M15 / 2026-08-26 M14 / 2026-08-26 M13 / 2026-08-21 M12；2026-08-28 M16 归档批次预防性迁出 M10 / T912 / C53 / 2026-08-20 平台 UI 增强 C59-C61 至新分片 [archive/todo-archive-phases-m10-c53-c59c61.md](archive/todo-archive-phases-m10-c53-c59c61.md)，主窗口回到"保留 3-5 个阶段"健康策略；2026-08-20 e2e 修复批次 C62+C63+C64+chore 已于 2026-08-26 M15 归档批次同步迁出至 [archive/todo-archive-phases-m11.md §2026-08-20 e2e 修复批次](archive/todo-archive-phases-m11.md#2026-08-20-e2e-修复批次c62--c63--c64--chore)；早期阶段见 [archive/index.md](archive/index.md) 分片索引）
 - 后续阶段任务（延期项 + 未排期增强候选）：[backlog.md](backlog.md)
 

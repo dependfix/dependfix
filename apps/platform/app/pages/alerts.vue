@@ -10,6 +10,9 @@ import {
     alertsFixStatusLabel,
     alertsRuleIdTagSeverity,
     alertsSeverityTagSeverity,
+    buildAlertsQuery,
+    type AlertsFilters,
+    type AlertsViewMode,
 } from '~/utils/alerts-view'
 import type { DataTableSortMeta } from 'primevue/datatable'
 
@@ -43,12 +46,23 @@ interface AlertView {
     affectedRunIds?: string[]
 }
 
-const loading = ref(true)
-const error = ref('')
-const alerts = ref<AlertView[]>([])
-const repositories = ref<{ id: string, name: string }[]>([])
+/**
+ * SSR-aware 数据获取（todo.md §M16.4 PrimeVue hydration 缓解）：
+ *
+ * 历史：alerts 加载走 onMounted(fetchRepositories + fetchAlerts)，SSR 阶段 alerts.value 初值为
+ * []，hydration 后从 [] 突变到 mock 数据，PrimeVue 4 DataTable 不重新计算 processedData，
+ * rowGroup subheader 永不渲染（docs/plan/backlog.md §主线 #1 PrimeVue 4 + Nuxt hydration
+ * rowGroup known-issue）。page.reload() 后能渲染佐证非业务逻辑问题。
+ *
+ * 修复路径：迁移到 useAsyncData，SSR 阶段 handler 就执行 fetch 并塞进 payload，hydration 时
+ * data.value 已有完整数据 → PrimeVue DataTable processedData 在 hydration 阶段就有数据 →
+ * rowGroup subheader 渲染。viewMode / filters 变化通过 watch: [...] 自动 refetch。
+ *
+ * useRequestFetch：SSR 阶段自动转发 cookie（Nuxt 4 官方 SSR 转发方案），否则 alerts 页有
+ * auth middleware 鉴权，SSR 拿不到 session 会 401。
+ */
 
-const filters = ref({
+const filters = ref<AlertsFilters>({
     repositoryId: 'all',
     severity: 'all',
     source: 'all',
@@ -76,8 +90,7 @@ const dedupeOptions = computed(() => [
  * - 'none'：原始列表，无分组
  * 切换视图会重置 expandedPackages / multiSortMeta 以避免 group 状态污染。
  */
-type ViewMode = 'package' | 'repository' | 'none'
-const viewMode = ref<ViewMode>('package')
+const viewMode = ref<AlertsViewMode>('package')
 const viewModeOptions = computed(() => [
     { label: t('alerts.viewModePackage'), value: 'package' as const },
     { label: t('alerts.viewModeRepository'), value: 'repository' as const },
@@ -103,70 +116,77 @@ const sourceOptions = computed(() => [
 
 const fixStatusLabel = (status: string) => alertsFixStatusLabel(status, t)
 
-const fetchRepositories = async () => {
-    try {
-        const res = await $fetch('/api/repos')
-        repositories.value = [
-            { id: 'all', name: t('alerts.allRepositories') },
-            ...(res as Array<{ id: string, owner: string, name: string }>).map((r) => ({
-                id: r.id,
-                name: `${r.owner}/${r.name}`,
-            })),
-        ]
-    } catch {
-        repositories.value = [{ id: 'all', name: t('alerts.allRepositories') }]
-    }
-}
+// useRequestFetch：SSR 阶段自动转发 cookie（Nuxt 4 官方 SSR 转发方案），
+// 否则 alerts 页有 auth middleware 鉴权，SSR 拿不到 session 会 401
+const requestFetch = useRequestFetch()
 
-const fetchAlerts = async () => {
-    loading.value = true
-    error.value = ''
-    try {
-        // viewMode='none' 不传 groupBy（后端等价于原始顺序）；
-        // 'package'/'repository' 携带 groupBy 让后端预排序以满足 PrimeVue rowGroup subheader 要求。
-        const query: Record<string, string> = viewMode.value === 'none' ? {} : { groupBy: viewMode.value }
-        if (filters.value.repositoryId !== 'all') {
-            query.repositoryId = filters.value.repositoryId
-        }
-        if (filters.value.severity !== 'all') {
-            query.severity = filters.value.severity
-        }
-        if (filters.value.source !== 'all') {
-            query.source = filters.value.source
-        }
-        // dedupe=across 时携带 dedupe=true 触发后端跨次扫描去重聚合（todo.md §T1306）
-        if (filters.value.dedupe === 'across') {
-            query.dedupe = 'true'
-        }
-        const res = await $fetch('/api/alerts', { query })
-        // 排序键派生：severity / fixStatus 走业务语义排序（非字典序）
-        const list = res as AlertView[]
-        alerts.value = withFixStatusRank(withSeverityRank(list))
-    } catch (e: unknown) {
-        const err = e as { data?: { message?: string }, message?: string }
-        error.value = t('alerts.errors.loadFailed', {
-            message: err.data?.message ?? err.message ?? t('common.errors.unknown'),
-        })
-    } finally {
-        loading.value = false
-    }
-}
+/** /api/repos 用于仓库 Select 选项；SSR 阶段就拉取，无 hydration 闪烁 */
+const { data: reposData } = await useAsyncData<Array<{ id: string, owner: string, name: string }>>(
+    'alerts-repositories',
+    // 显式 generic 标注规避 TS 5.x 对 $fetch overload 路径推断的栈深度限制（Nuxt 4 已知问题）
+    () => requestFetch<Array<{ id: string, owner: string, name: string }>>('/api/repos'),
+    { default: () => [] },
+)
 
 /**
- * 切换视图模式：重置 multiSortMeta + expandedPackages 避免 group 状态污染 + 触发 fetchAlerts。
+ * /api/alerts 列表（todo.md §M16.4 SSR-aware data fetching）
+ *
+ * watch: [viewMode, filters] 自动 refetch：viewMode 切换 / filters 任意字段变更都触发
+ * useAsyncData 重跑 handler，避免 onViewModeChange / onDedupeChange / filterApply Button
+ * 三处手动调用 fetchAlerts 的散落模式。
+ *
+ * handler 内用 buildAlertsQuery utility 派生 query（viewMode + filters → Record<string, string>），
+ * 与 utils/alerts-view.test.ts 10 case 单测共用，避免 viewMode 无效值 / dedupe 漏加等
+ * silent fallback 类 bug。
+ */
+const {
+    data: alertsData,
+    error: alertsError,
+    refresh: refreshAlerts,
+    pending: alertsPending,
+} = await useAsyncData<AlertView[]>(
+    'alerts-list',
+    () => requestFetch<AlertView[]>('/api/alerts', {
+        query: buildAlertsQuery(viewMode.value, filters.value),
+    }),
+    {
+        watch: [viewMode, filters],
+        default: () => [],
+    },
+)
+
+/** repositories 派生：注入 allRepositories 选项 + 防御性空值 fallback */
+const repositories = computed<{ id: string, name: string }[]>(() => [
+    { id: 'all', name: t('alerts.allRepositories') },
+    ...((reposData.value ?? []).map((r) => ({ id: r.id, name: `${r.owner}/${r.name}` }))),
+])
+
+/** alerts 派生：排序键派生（severity / fixStatus 走业务语义排序，非字典序） */
+const alerts = computed<AlertView[]>(() => withFixStatusRank(withSeverityRank(alertsData.value ?? [])))
+
+/** loading / error 派生自 useAsyncData 状态（保持现有模板契约） */
+const loading = computed(() => alertsPending.value)
+const error = computed(() => {
+    if (!alertsError.value) {
+        return ''
+    }
+    // useAsyncData error 形状：{ statusCode, statusMessage, data, message }（来自 h3 createError 序列化）
+    const err = alertsError.value as { data?: { message?: string }, message?: string }
+    return t('alerts.errors.loadFailed', {
+        message: err.data?.message ?? err.message ?? t('common.errors.unknown'),
+    })
+})
+
+/**
+ * 切换视图模式：仅重置 multiSortMeta + expandedPackages 避免 group 状态污染。
  * multiSortMeta 必须用 v-model 形式（不能用 sortField/sortOrder，参见 PrimeVue 4 rowGroup 数据流必现 TypeError）。
+ * 数据 refetch 由 useAsyncData 的 watch: [viewMode] 自动触发，无需手动调用。
  */
 const onViewModeChange = () => {
     multiSortMeta.value = viewMode.value === 'none'
         ? [{ field: '_severityRank', order: -1 }]
         : [{ field: viewMode.value === 'package' ? 'packageName' : 'repository', order: 1 }]
     expandedPackages.value = []
-    void fetchAlerts()
-}
-
-/** dedupe 切换：触发 fetchAlerts 重新查询（无需重置排序状态） */
-const onDedupeChange = () => {
-    void fetchAlerts()
 }
 
 // dedupe=true 时详情侧栏（PrimeVue Sidebar 右侧滑出，显示该告警 affected runIds 详情）
@@ -297,11 +317,6 @@ const dataTableAttrs = computed(() => {
         expandableRowGroups: true,
     }
 })
-
-onMounted(async () => {
-    await fetchRepositories()
-    await fetchAlerts()
-})
 </script>
 
 <template>
@@ -376,14 +391,15 @@ onMounted(async () => {
                             option-label="label"
                             option-value="value"
                             fluid
-                            @change="onDedupeChange"
                         />
                     </div>
                     <div class="alerts__filter-field">
                         <Button
                             :label="t('alerts.filterApply')"
                             icon="pi pi-filter"
-                            @click="fetchAlerts"
+                            @click="() => {
+                                void refreshAlerts()
+                            }"
                         />
                     </div>
                 </div>

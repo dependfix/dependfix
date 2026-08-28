@@ -1,6 +1,7 @@
 import { Schedule } from '#server/entities/schedule'
 import { ensureDatabaseInitialized } from '#server/database'
 import { requireOrgResource, requireRole } from '#server/utils/guard'
+import { createLocalizedError } from '#server/utils/localized-error'
 import { triggerSchedule } from '#server/services/scheduler/scheduler.service'
 
 /**
@@ -12,13 +13,13 @@ export default defineEventHandler(async (event) => {
     await requireRole(event, ['admin', 'org_admin'])
     const id = getRouterParam(event, 'id') as string
     if (!id) {
-        throw createError({ statusCode: 400, statusMessage: 'Bad Request', message: '缺少计划 id' })
+        throw createLocalizedError(event, { statusCode: 400, code: 'SCHEDULE_ID_MISSING' })
     }
 
     const ds = await ensureDatabaseInitialized()
     const schedule = await ds.getRepository(Schedule).findOne({ where: { id } })
     if (!schedule) {
-        throw createError({ statusCode: 404, statusMessage: 'Not Found', message: '定时计划不存在' })
+        throw createLocalizedError(event, { statusCode: 404, code: 'SCHEDULE_NOT_FOUND' })
     }
     await requireOrgResource(event, schedule.organizationId)
 

@@ -3,6 +3,7 @@ import { Schedule } from '#server/entities/schedule'
 import { ensureDatabaseInitialized } from '#server/database'
 import { scheduleSchema } from '#server/schemas/schedule'
 import { requireRole } from '#server/utils/guard'
+import { createLocalizedError } from '#server/utils/localized-error'
 import { resolveOrganizationId } from '#server/utils/organization'
 import { registerSchedule } from '#server/services/scheduler/scheduler.service'
 
@@ -42,10 +43,10 @@ const createSchedule = async (event: H3Event) => {
     const parsed = scheduleSchema.safeParse(body)
 
     if (!parsed.success) {
-        throw createError({
+        throw createLocalizedError(event, {
             statusCode: 400,
-            statusMessage: 'Bad Request',
-            message: parsed.error.issues.map((i) => i.message).join('；'),
+            code: 'SCHEDULE_VALIDATION_FAILED',
+            data: { issues: parsed.error.issues },
         })
     }
 
@@ -79,6 +80,6 @@ export default defineEventHandler(async (event) => {
         case 'POST':
             return createSchedule(event)
         default:
-            throw createError({ statusCode: 405, statusMessage: 'Method Not Allowed' })
+            throw createLocalizedError(event, { statusCode: 405, code: 'METHOD_NOT_ALLOWED' })
     }
 })

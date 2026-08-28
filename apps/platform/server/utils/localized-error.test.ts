@@ -98,6 +98,9 @@ describe('createLocalizedError', () => {
         'CREDENTIAL_NOT_FOUND',
         'CREDENTIAL_ID_MISSING',
         'CREDENTIAL_VALIDATION_FAILED',
+        'SCHEDULE_NOT_FOUND',
+        'SCHEDULE_ID_MISSING',
+        'SCHEDULE_VALIDATION_FAILED',
         'METHOD_NOT_ALLOWED',
         'UNKNOWN',
     ]

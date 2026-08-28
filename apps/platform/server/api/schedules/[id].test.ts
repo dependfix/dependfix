@@ -24,10 +24,10 @@ vi.mock('#server/services/scheduler/scheduler.service', () => ({
 }))
 
 const callIndex = (method: string, url: string, body?: unknown) => schedulesHandler(makeEvent(method, url, body))
-const callId = (method: string, url: string, body?: unknown, params: Record<string, string> = {}) =>
-    schedulesIdHandler(makeEvent(method, url, body, {}, params))
-const callTrigger = (params: Record<string, string> = {}) =>
-    schedulesTriggerHandler(makeEvent('POST', '/api/schedules/x/trigger', undefined, {}, params))
+const callId = (method: string, url: string, body?: unknown, params: Record<string, string> = {}, headers: Record<string, string> = {}) =>
+    schedulesIdHandler(makeEvent(method, url, body, headers, params))
+const callTrigger = (params: Record<string, string> = {}, headers: Record<string, string> = {}) =>
+    schedulesTriggerHandler(makeEvent('POST', '/api/schedules/x/trigger', undefined, headers, params))
 
 const validBody = {
     name: '每日扫描',
@@ -109,5 +109,47 @@ describe('GET/PATCH/DELETE /api/schedules/[id] + POST /trigger', () => {
 
     it('trigger returns 404 for unknown schedule', async () => {
         await expectError(callTrigger({ id: 'nonexistent' }), 404)
+    })
+})
+
+/**
+ * 错误响应 i18n（todo.md §M17.3）：throw 改造使用 createLocalizedError，
+ * message 按事件 locale 返回（cookie > Accept-Language > 默认 zh-CN），
+ * 验证 SCHEDULE_NOT_FOUND 双语对称（覆盖 [id].ts GET + trigger.post.ts 404 路径）。
+ */
+describe('/api/schedules/[id] 错误响应 i18n（todo.md §M17.3）', () => {
+    beforeAll(() => {
+        setupMemoryDatabase()
+    })
+
+    afterAll(() => {
+        teardownMemoryDatabase()
+    })
+
+    beforeEach(() => {
+        vi.clearAllMocks()
+    })
+
+    it('SCHEDULE_NOT_FOUND 默认 zh-CN → 中文 message', async () => {
+        await expect(callId('GET', '/api/schedules/nonexistent', undefined, { id: 'nonexistent' }))
+            .rejects.toMatchObject({
+                statusCode: 404,
+                message: '定时计划不存在',
+                data: { code: 'SCHEDULE_NOT_FOUND' },
+            })
+    })
+
+    it('SCHEDULE_NOT_FOUND Accept-Language=en-US → 英文 message（locale 切换验证）', async () => {
+        await expect(callId(
+            'GET',
+            '/api/schedules/nonexistent',
+            undefined,
+            { id: 'nonexistent' },
+            { 'accept-language': 'en-US,en;q=0.9' },
+        )).rejects.toMatchObject({
+            statusCode: 404,
+            message: 'Schedule not found',
+            data: { code: 'SCHEDULE_NOT_FOUND' },
+        })
     })
 })

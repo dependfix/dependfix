@@ -3,6 +3,7 @@ import { Schedule } from '#server/entities/schedule'
 import { ensureDatabaseInitialized } from '#server/database'
 import { scheduleUpdateSchema } from '#server/schemas/schedule'
 import { requireOrgResource, requireRole } from '#server/utils/guard'
+import { createLocalizedError } from '#server/utils/localized-error'
 import { registerSchedule, unregisterSchedule } from '#server/services/scheduler/scheduler.service'
 
 /** Schedule 视图（与 /api/schedules 列表同构） */
@@ -28,7 +29,7 @@ const getSchedule = async (event: H3Event, id: string) => {
     const ds = await ensureDatabaseInitialized()
     const found = await ds.getRepository(Schedule).findOne({ where: { id } })
     if (!found) {
-        throw createError({ statusCode: 404, statusMessage: 'Not Found', message: '定时计划不存在' })
+        throw createLocalizedError(event, { statusCode: 404, code: 'SCHEDULE_NOT_FOUND' })
     }
     await requireOrgResource(event, found.organizationId)
     return toView(found)
@@ -44,10 +45,10 @@ const updateSchedule = async (event: H3Event, id: string) => {
     const parsed = scheduleUpdateSchema.safeParse(body)
 
     if (!parsed.success) {
-        throw createError({
+        throw createLocalizedError(event, {
             statusCode: 400,
-            statusMessage: 'Bad Request',
-            message: parsed.error.issues.map((i) => i.message).join('；'),
+            code: 'SCHEDULE_VALIDATION_FAILED',
+            data: { issues: parsed.error.issues },
         })
     }
 
@@ -55,7 +56,7 @@ const updateSchedule = async (event: H3Event, id: string) => {
     const repo = ds.getRepository(Schedule)
     const found = await repo.findOne({ where: { id } })
     if (!found) {
-        throw createError({ statusCode: 404, statusMessage: 'Not Found', message: '定时计划不存在' })
+        throw createLocalizedError(event, { statusCode: 404, code: 'SCHEDULE_NOT_FOUND' })
     }
     await requireOrgResource(event, found.organizationId)
 
@@ -87,7 +88,7 @@ const deleteSchedule = async (event: H3Event, id: string) => {
     const repo = ds.getRepository(Schedule)
     const found = await repo.findOne({ where: { id } })
     if (!found) {
-        throw createError({ statusCode: 404, statusMessage: 'Not Found', message: '定时计划不存在' })
+        throw createLocalizedError(event, { statusCode: 404, code: 'SCHEDULE_NOT_FOUND' })
     }
     await requireOrgResource(event, found.organizationId)
 
@@ -99,7 +100,7 @@ const deleteSchedule = async (event: H3Event, id: string) => {
 export default defineEventHandler(async (event) => {
     const id = getRouterParam(event, 'id') as string
     if (!id) {
-        throw createError({ statusCode: 400, statusMessage: 'Bad Request', message: '缺少计划 id' })
+        throw createLocalizedError(event, { statusCode: 400, code: 'SCHEDULE_ID_MISSING' })
     }
     switch (event.method) {
         case 'GET':
@@ -109,6 +110,6 @@ export default defineEventHandler(async (event) => {
         case 'DELETE':
             return deleteSchedule(event, id)
         default:
-            throw createError({ statusCode: 405, statusMessage: 'Method Not Allowed' })
+            throw createLocalizedError(event, { statusCode: 405, code: 'METHOD_NOT_ALLOWED' })
     }
 })

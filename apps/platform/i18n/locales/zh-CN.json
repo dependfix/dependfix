@@ -723,6 +723,18 @@
             "zh-CN": "参数校验失败",
             "en": "Request validation failed"
         },
+        "SCHEDULE_NOT_FOUND": {
+            "zh-CN": "定时计划不存在",
+            "en": "Schedule not found"
+        },
+        "SCHEDULE_ID_MISSING": {
+            "zh-CN": "缺少计划 id",
+            "en": "Schedule id is required"
+        },
+        "SCHEDULE_VALIDATION_FAILED": {
+            "zh-CN": "参数校验失败",
+            "en": "Request validation failed"
+        },
         "METHOD_NOT_ALLOWED": {
             "zh-CN": "请求方法不被允许",
             "en": "Method not allowed"

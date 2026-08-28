@@ -2,6 +2,7 @@ import { ScanRun } from '#server/entities/scan-run'
 import { ScanResult } from '#server/entities/scan-result'
 import { ensureDatabaseInitialized } from '#server/database'
 import { requireAuth } from '#server/utils/guard'
+import { createLocalizedError } from '#server/utils/localized-error'
 
 /** GET /api/runs/[id]：扫描详情（含结果明细） */
 export default defineEventHandler(async (event) => {
@@ -9,7 +10,7 @@ export default defineEventHandler(async (event) => {
 
     const id = getRouterParam(event, 'id') as string
     if (!id) {
-        throw createError({ statusCode: 400, statusMessage: 'Bad Request', message: '缺少运行 id' })
+        throw createLocalizedError(event, { statusCode: 400, code: 'RUN_ID_MISSING' })
     }
 
     const ds = await ensureDatabaseInitialized()
@@ -21,7 +22,7 @@ export default defineEventHandler(async (event) => {
         relations: { repository: true },
     })
     if (!run) {
-        throw createError({ statusCode: 404, statusMessage: 'Not Found', message: '扫描记录不存在' })
+        throw createLocalizedError(event, { statusCode: 404, code: 'SCAN_RUN_NOT_FOUND' })
     }
 
     const results = await resultRepo.find({

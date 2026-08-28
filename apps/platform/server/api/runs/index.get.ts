@@ -3,6 +3,7 @@ import { In, type FindOptionsWhere } from 'typeorm'
 import { ScanRun } from '#server/entities/scan-run'
 import { ensureDatabaseInitialized } from '#server/database'
 import { requireAuth } from '#server/utils/guard'
+import { createLocalizedError } from '#server/utils/localized-error'
 import { resolveOrganizationId } from '#server/utils/organization'
 
 const PAGE_SIZE_DEFAULT = 100
@@ -56,9 +57,9 @@ export default defineEventHandler(async (event) => {
     const query = getQuery(event)
     const parsed = querySchema.safeParse(query)
     if (!parsed.success) {
-        throw createError({
+        throw createLocalizedError(event, {
             statusCode: 400,
-            statusMessage: 'Invalid query parameters',
+            code: 'RUNS_VALIDATION_FAILED',
             data: { issues: parsed.error.issues },
         })
     }

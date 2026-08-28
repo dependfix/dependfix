@@ -147,7 +147,37 @@
 
 #### org 增强
 
-- **C22** GitHub App / installation token 认证（CLI 侧增强；org 场景 PAT 痛点：classic PAT 需 `repo` 全量 scope 权限过大 / fine-grained PAT 需逐仓库配置 + 逐个 org 启用 SSO / 个人 token 离职轮换管理困难；GitHub App 价值：按仓库授权限 + 短时 token + org 管理员可控可审计；关联：M6 T602 凭据管理已交付 GitHub App 凭据类型 app-id + private-key）
+- **C22 GitHub App / installation token 认证（自部署平台 BYO App 模式 / PAT 默认保留）** —— 2026-08-28 用户实测触达：自部署平台管理员视角 classic PAT `repo` scope 权限过大、可直接推送代码超出"自动修复"预期风险；fine-grained PAT 需逐仓库勾选 + SSO 流程繁琐、离职轮换管理困难。GitHub App 价值：installation 范围限定（按仓库授权限）+ 短时 installation token（1h 自动轮换）+ 真实 `[bot]` 身份 + per-installation 审计日志。
+  - **定位决策**：PAT（classic / fine-grained）保留为默认/快速上手路径（CLI quickstart / Action input / 单仓调试场景）；GitHub App 作为自部署平台进阶选项（推荐 org / 多仓场景）；两条路径**并存**而非替代。
+  - **改造内容（10 原子子任务）**：
+    - **C22-A1** Credential 实体扩展 —— 在现有 `type='github-app'` 基础上新增 `appId` / `encryptedPrivateKey` / `installationId` / `botLogin` 字段；PEM 密文长度上限调高（[apps/platform/server/entities/credential.ts](../../apps/platform/server/entities/credential.ts)）
+    - **C22-A2** AuthProvider 抽象层 —— 新增 `AuthProvider` 接口（`getOctokit()` / `getGitCredential()` / `getCommitAuthor()`），PAT 与 App 各实现一份；执行器侧不感知差异（`packages/engine/src/auth/` 新建目录）+ `createGitHubClient` 重构为 AuthProvider 注入
+    - **C22-A3** installation token 缓存层 —— worker 内存 1h 滑窗 + 提前 5min 刷新；失败重试 + 报警；扩展 [packages/engine/src/github/token-scope.ts](../../packages/engine/src/github/token-scope.ts) 增加 App installation token 探测
+    - **C22-A4** git push 复用 `pushFixBranch` —— token 字段动态切换为 installation token，URL 不变（[apps/platform/server/services/executor/container-executor.ts](../../apps/platform/server/services/executor/container-executor.ts)）
+    - **C22-A5** commit author 动态化 —— 现有 [packages/engine/src/github/pr-creator.ts](../../packages/engine/src/github/pr-creator.ts) 硬编码 `BOT_NAME='dependfix[bot]'` + `BOT_EMAIL='dependfix[bot]@users.noreply.github.com'` → 按 credential.botLogin 动态生成 `{app_id}+{bot_login}[bot]@users.noreply.github.com`（GitHub App 协议要求）；PAT 路径保留硬编码以兼容
+    - **C22-A6** UI 凭据创建新增 GitHub App tab —— 字段 = App ID + 安装 ID + PEM 私钥（file upload 优先）+ Bot 用户名；PEM 客户端解析 + 公钥指纹校验
+- **C22-A7** 安装引导 —— 提供 GitHub App Manifest flow URL（一键创建 + 自动回调）+ setup 文档含权限勾选截图（[docs/guide/quick-start.md](../guide/quick-start.md) `GitHub App 配置`章节 + `docs/guide/self-hosted-deployment.md` 待 C22-A8 创建）；Enterprise Server 不支持 manifest 时降级到手动配置 + 文档兜底
+- **C22-A8** 文档同步 —— `quick-start` 加 "GitHub App 配置" 章节；[docs/design/governance/security.md](../design/governance/security.md) §5 凭据模型从"PAT 三件套"扩到"PAT + App"；[docs/design/governance/architecture.md](../design/governance/architecture.md) §认证更新
+    - **C22-A9** 审计字段 —— `AuditEvent.payload` 增加 `authProvider: 'pat' | 'github-app'` + `installationId`（事故溯源 + 合规审计）
+    - **C22-A10** 测试 —— 单测：`github-app-credential.test.ts` + `auth-provider.test.ts` + `pr-creator.test.ts` 增加 App bot email 路径回归；e2e：mock JWT signing + `getInstallationOctokit` 拦截，跑通"App 创建 → installation token → push → PR 全链路"
+  - **不做什么**：
+    - **不发布 dependfix 自身为官方 GitHub App** —— 单独战略候选（C22-future，见末段）；当前不具备团队运营能力（marketplace listing / 持续安全响应 / 计费 / 支持 SLA）
+    - **不立即做 App 多 installation 编排自动化** —— 每 App 一个 credential，手动管理即可
+    - **B 模式（`github-action` executor）App 适配非阻塞** —— 复用同一 AuthProvider 即可，推迟到 C22 主线后单独批次
+    - **不破坏现有 PAT 路径** —— 用户无感升级；classic / fine-grained PAT 继续可用且行为不变
+  - **现状落地先决条件**（已具备，无需新工作）：
+    1. `Credential.type` 已枚举 `'github-app'`（[apps/platform/server/entities/credential.ts:17](../../apps/platform/server/entities/credential.ts)）
+    2. `credentialSchema` 已允许 `type='github-app'`（[apps/platform/server/schemas/credential.ts:6](../../apps/platform/server/schemas/credential.ts)）
+    3. `pr-creator.ts:60-61` 已硬编码 `BOT_EMAIL='dependfix[bot]@users.noreply.github.com'` —— 格式恰好是 GitHub App bot noreply 标准格式，A5 改造仅需"硬编码 → 动态"，无需改动协议格式
+    4. `token-scope.ts` 已有 best-effort scope 警告（A3 实施时扩展 App installation token 探测即可）
+    5. `@octokit/rest` 已就位（A2 实施时新增 `@octokit/auth-app`）
+  - **关联**：M6 T602 凭据管理已交付 GitHub App 凭据类型 app-id + private-key 字段预留（credential.ts:15 注释行）；本条 C22 是该预留的完整实施。
+  - **关键决策回顾（2026-08-28 用户确认）**：
+    - **BYO App 模式** vs 官方 dependfix App：选 BYO App —— 自部署场景下用户本就必须自带凭据（PAT 本质就是自带），"自带 App"是同一约束的自然延伸；官方 App 需团队运营能力（marketplace listing / 持续安全响应 / 计费 / 支持 SLA），当前不具备，单独登记 C22-future。**2026-08-28 备注**：用户原话"暂时没有能力像其他机器人那样支撑一个官方的后台"——明确决策依据。
+    - **PAT 与 App 并存** vs 完全替换 PAT：选并存 —— PAT 是 CLI quickstart / Action input / 单仓调试的最低摩擦路径，移除会破坏现有体验；BYO App 只对自部署平台多仓 org 场景提供增量价值（更细粒度的 installation 授权 + 短时 token 轮换）。**2026-08-28 备注**：C22 主条目范围限定为"新增 BYO App 路径"，**不触碰**现有 PAT 实现。
+    - **commit author 动态化** vs 保留硬编码 `dependfix[bot]`：选动态化 —— 用户自带 App 的 bot login 各异（不一定叫 `dependfix`），硬编码会让 commit 无法被 GitHub 归因为真实 bot；动态生成 `{app_id}+{bot_login}[bot]@users.noreply.github.com` 是 GitHub App 协议要求。**2026-08-28 备注**：PAT 路径保留硬编码以保持现有 commit 归属格式不变（虽然该格式当前是字符串约定而非真实 bot 身份，已知缺陷不在 C22 范围内修复）。
+    - **Manifest flow 一键创建** vs 仅文档引导：选 Manifest flow —— manifest URL 让用户点一下就能创建 App + 自动回调回 dependfix 设置页，UX 显著优于纯文档引导；GitHub Enterprise Server 不支持 manifest 时降级到手动配置 + 文档兜底（A7 实施时确认目标 GHES 版本范围）。
+  - **C22-future 官方 dependfix GitHub App 发布候选（远期战略，不在本条范围）** —— 与 C22 平行独立的战略线。阻塞项：① 团队运营能力（marketplace listing / 持续安全响应 / 计费 / 支持 SLA）；② 单租户/自部署仍要求用户自带 App，官方 App 主要服务 SaaS 场景，与 open-core 定位有张力；③ 与现有开源许可 + 商业模式联动未决。触发上收条件：用户实测出现 SaaS 化诉求 / 团队到位 / 商业化路径定稿。**不在 C22 主线内实施**。
 - **C23** 发现规模上限 max-repos（[architecture.md](../design/governance/architecture.md) 规划 `max-repos` 输入参数代码未实现 grep 零命中；大 org 数百仓库一次性全量发现 + 逐仓库探测 `.github/dependabot.yml` N 次 contents API 配额消耗与总耗时不可控；当前防护仅 concurrency 16 + 限流重试 + probe 并发 5 无总量上限；建议：发现层按配置上限截断排序后截断保证确定性或拆为分批处理）
 - **C24** org 级 alerts API 批量拉取（GitHub 提供 org 级 `GET /orgs/{org}/dependabot/alerts` 与 `GET /orgs/{org}/code-scanning/alerts`；当前按仓库逐仓拉取 `listAlertsForRepo`；大 org 场景可显著减少 API 调用但需按仓库重组结果 + defaultBranch 注入 org 级响应可能缺省分支上下文复杂度上升；触发：等真实大 org 用户痛点再动）
 
@@ -209,7 +239,7 @@
 下列条目已在历史评估中明确"暂不实现"或"非本阶段范围"，从 backlog 主条目迁出，决策记录保留于对应归档段：
 
 - **C1 / C2 / C6 / C7 / C10 / C11 / C12 / C17 / C18 / C19 / C20** —— 详见 [todo-archive.md §M4 治理记录](archive/todo-archive-phases-m2-m55.md#m4-阶段治理记录2026-08-05--2026-08-06) + [§T405 跨线升级显式授权](archive/todo-archive-phases-m2-m55.md)
-- **C22 GitHub App 认证** —— 当前仅 PAT（classic / fine-grained），org 场景痛点由用户触发再评估；详见 [todo-archive.md §M6 / T602 凭据管理](archive/todo-archive-phases-m6-m7-t711.md#m6-最小平台-mvp已归档)
+- **C22 GitHub App 认证** —— 2026-08-28 状态：**从"已评估不实现"上收为待实施主条目**（用户实测触达：自部署平台管理员自述 classic PAT `repo` scope 权限过大、超预期推送风险）→ 详见本文件 §org 增强 §C22 主条目（含 10 原子子任务 C22-A1~A10 + 关键决策回顾 + C22-future 战略候选登记）；原"待用户触发再评估"的本段决策已被新决策覆盖，本行仅作为历史指针保留。
 - **C26 / T1005 / C28 / C29 / C53** —— M10 沙箱 / C26 / T1005 / C28 / C29 / C53 已全部闭环；详见 [archive/todo-archive-phases-m10-c53-c59c61.md §M10](archive/todo-archive-phases-m10-c53-c59c61.md#m10-独立沙箱容器-c26-实施规划已归档) + [§C53](archive/todo-archive-phases-m10-c53-c59c61.md#c53-平台集成模式-fix-修复结果推送远程已归档)
 - **C25 / C27 / C31 / C32** —— M6 B 模式结果回填 + MCP 能力补充 P1/P2 已闭环；详见 [todo-archive.md §M6](archive/todo-archive-phases-m6-m7-t711.md#m6-最小平台-mvp已归档) + [§MCP 能力补充](todo-archive.md)
 - **C46-C61** —— 2026-08-19~20 平台 UX/可用性闭环批次汇总 10 项 + 3 个 PR + 3 个独立 fix 全部归档；详见 [archive/todo-archive-phases-m11.md](archive/todo-archive-phases-m11.md)

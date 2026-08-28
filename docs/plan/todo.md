@@ -11,8 +11,8 @@
 > **详细实施记录 / commit 引用 / 治理记录 / 关键决策 / 关键经验 / 待迁移经验**：见 [todo-archive.md §M17](todo-archive.md#m17-安全与可用性收口m171--m172--m173--m174--m175--m176-全部已闭环--2026-08-28-归档)。
 >
 > **下一步候选**：
-> - **启动 M18**：用户决策下一阶段方向
-> - **backlog 主条目候选池**：C39（standards 文档 ENCRYPTION_KEY → NUXT_ENCRYPTION_KEY 同步）/ S-5（调用方测试 `process.env.ENCRYPTION_KEY` 死代码清理）/ C34（存量规范严格约束挂接盘点，下批次与 C39 联动）/ S1（`SCAN_PENDING_MERGED` 死代码）/ S2（`detectServerLocale` 缺 `?locale=` URL query 支持）/ M16.3 audit suggest 范围外扩展 4 条目（credentials / schedules / batch-runs + repos batch 等）
+> - **启动 M18**：候选方向 = **C22 GitHub App BYO App 模式**（2026-08-28 用户实测触达：自部署平台管理员视角 classic PAT `repo` scope 权限过大、可直接推送代码超出"自动修复"预期风险；定位 PAT 保留为默认/快速上手路径 + GitHub App 作为自部署平台进阶选项，二者并存不替代；10 原子子任务 C22-A1~A10 + 关键决策回顾 + C22-future 战略候选登记均已沉淀至 [backlog.md §org 增强 §C22](backlog.md#org-增强)）
+> - **backlog 主条目候选池（M19+ 可拣选）**：C39（standards 文档 ENCRYPTION_KEY → NUXT_ENCRYPTION_KEY 同步）/ S-5（调用方测试 `process.env.ENCRYPTION_KEY` 死代码清理）/ C34（存量规范严格约束挂接盘点，下批次与 C39 联动）/ S1（`SCAN_PENDING_MERGED` 死代码）/ S2（`detectServerLocale` 缺 `?locale=` URL query 支持）/ M16.3 audit suggest 范围外扩展 4 条目（credentials / schedules / batch-runs + repos batch 等）
 
 ---
 

@@ -653,5 +653,71 @@
         "errors": {
             "loadFailed": "加载失败：{message}"
         }
+    },
+    "serverErrors": {
+        "UNAUTHORIZED": {
+            "zh-CN": "未登录或会话已过期",
+            "en": "Not signed in or session expired"
+        },
+        "FORBIDDEN": {
+            "zh-CN": "没有权限执行该操作",
+            "en": "You do not have permission to perform this action"
+        },
+        "RESOURCE_NOT_IN_ORG": {
+            "zh-CN": "资源不属于当前组织",
+            "en": "Resource does not belong to current organization"
+        },
+        "REPO_NOT_FOUND": {
+            "zh-CN": "仓库不存在",
+            "en": "Repository not found"
+        },
+        "REPO_DUPLICATE": {
+            "zh-CN": "该仓库已存在",
+            "en": "Repository already exists"
+        },
+        "REPO_ID_MISSING": {
+            "zh-CN": "缺少仓库 id",
+            "en": "Repository id is required"
+        },
+        "REPO_VALIDATION_FAILED": {
+            "zh-CN": "参数校验失败",
+            "en": "Request validation failed"
+        },
+        "SCAN_RUN_NOT_FOUND": {
+            "zh-CN": "扫描记录不存在",
+            "en": "Scan run not found"
+        },
+        "RUN_ID_MISSING": {
+            "zh-CN": "缺少运行 id",
+            "en": "Run id is required"
+        },
+        "RUNS_VALIDATION_FAILED": {
+            "zh-CN": "查询参数校验失败",
+            "en": "Invalid query parameters"
+        },
+        "REUSE_RUN_NOT_IN_REPO": {
+            "zh-CN": "复用的扫描记录不属于当前仓库",
+            "en": "Reused scan run does not belong to this repository"
+        },
+        "REUSE_RUN_RUNNING": {
+            "zh-CN": "该扫描正在执行中，请等待完成后复用",
+            "en": "Scan is currently running, please wait for completion before reusing"
+        },
+        "SCAN_PENDING_MERGED": {
+            "zh-CN": "该仓库已有进行中的扫描任务，本次触发已合并",
+            "en": "A scan is already in progress for this repository; this trigger has been merged"
+        },
+        "SCAN_ALREADY_COMPLETED": {
+            "zh-CN": "扫描已完成，请在扫描历史中查看",
+            "en": "Scan already completed, please check scan history"
+        },
+        "METHOD_NOT_ALLOWED": {
+            "zh-CN": "请求方法不被允许",
+            "en": "Method not allowed"
+        },
+        "UNKNOWN": {
+            "zh-CN": "未知错误",
+            "en": "Unknown error"
+        }
     }
 }

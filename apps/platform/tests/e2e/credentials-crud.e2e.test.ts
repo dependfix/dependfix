@@ -1,4 +1,5 @@
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test } from '@playwright/test'
+import { authedCookieHeader } from './helpers/auth-cookie.helper'
 import { waitForHydration } from './helpers/hydration.helper'
 
 /**
@@ -14,13 +15,8 @@ test.use({ storageState: 'tests/e2e/.auth/admin.json' })
 
 /**
  * 通过 page.context().cookies() 取 __Secure- cookie 手工拼接 Cookie header
- * （参考 batch/scans/api-i18n e2e 模式，HTTP webServer 下 secure cookie 不自动发送）
+ * （参考 batch/scans/api-i18n e2e 模式，HTTP webServer 下 secure cookie 不自动发送；authedCookieHeader 已抽取至 helpers/auth-cookie.helper）
  */
-async function authedCookieHeader(page: Page): Promise<string> {
-    const cookies = (await page.context().cookies()).map((c) => `${c.name}=${c.value}`).join('; ')
-    return cookies
-}
-
 test.describe('凭据管理 CRUD（todo.md §M16.5）', () => {
     test('列表渲染 + 脱敏：hasToken Tag 显示"已配置"，token 不在 DOM', async ({ page }) => {
         const stamp = Date.now()

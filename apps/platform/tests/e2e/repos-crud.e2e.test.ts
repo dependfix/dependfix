@@ -1,4 +1,5 @@
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test } from '@playwright/test'
+import { authedCookieHeader } from './helpers/auth-cookie.helper'
 import { waitForHydration } from './helpers/hydration.helper'
 
 /**
@@ -11,11 +12,6 @@ import { waitForHydration } from './helpers/hydration.helper'
  */
 
 test.use({ storageState: 'tests/e2e/.auth/admin.json' })
-
-async function authedCookieHeader(page: Page): Promise<string> {
-    const cookies = (await page.context().cookies()).map((c) => `${c.name}=${c.value}`).join('; ')
-    return cookies
-}
 
 test.describe('仓库管理 CRUD（todo.md §M16.5）', () => {
     test('列表渲染：seed 后列表展示 + 关联 credential 显示', async ({ page }) => {

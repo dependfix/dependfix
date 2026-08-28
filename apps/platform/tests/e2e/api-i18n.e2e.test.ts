@@ -1,4 +1,5 @@
 import { type Page, expect, test } from '@playwright/test'
+import { authedCookieHeader } from './helpers/auth-cookie.helper'
 
 /**
  * 服务端 API 错误响应 i18n 闭环 e2e（todo.md §M16.3 C36）：
@@ -23,12 +24,6 @@ import { type Page, expect, test } from '@playwright/test'
  */
 
 test.use({ storageState: 'tests/e2e/.auth/admin.json' })
-
-/** 构造含 admin session 的 Cookie header（让 APIRequestContext 在 HTTP 下也能携带 __Secure- cookie） */
-async function authedCookieHeader(page: Page): Promise<string> {
-    const cookies = (await page.context().cookies()).map((c) => `${c.name}=${c.value}`).join('; ')
-    return cookies
-}
 
 /** 移除 admin storageState 默认带上的 i18n_locale cookie，让 Accept-Language 起作用 */
 async function clearI18nCookie(page: Page): Promise<void> {

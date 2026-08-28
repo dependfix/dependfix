@@ -24,7 +24,7 @@
 | M14: platform 进入 release 通道 + UX 反馈跟进 | 让 `apps/platform` 作为第 6 个发布单元参与 release 链路但**不发 npm**——仿 momei 单包"独立 version + 独立 CHANGELOG"的精神，适配 dependfix monorepo + docker-only 平台 + 承接 backlog UX-R1 扫描历史分页（用户实测反馈痛点）+ M13.4 T1403 follow-up + neat-freak 治理批次：① `scripts/packages.config.mjs` 注册 apps/platform 条目（`npmPublishable:false`）；② `scripts/release-publish.mjs` 新增 tag-only action；③ `docker.yml` 支持 workflow inputs 读 platform_version；④ `release.yml` 完成后触发 docker workflow_dispatch；⑤ `docs/guide/release.md` 平台独立通道文档；⑥ dependabot 排除 `apps/platform/package.json`；⑦ `/api/runs` 新增 `page`/`pageSize`/`ids` 分页参数 + `{items, total, page, pageSize}` 返回结构；09 4 个前端调用方适配（RepoHistoryDialog PrimeVue Paginator + alerts.vue + repos/[id]/runs.vue + i18n）+ silent bug 修复（alerts sidebar ids 参数）；⑩ alerts-rowgroup.e2e 新增首屏默认 `dedupe=across` 请求 URL 断言；⑪ wisdom 蒸馏挂接 3 条 M14.x pattern；⑫ C34 存量规范必级条款挂接盘点 + code-quality-checklist.md 双层对称补挂接 5 个必查项；⑬ admin/i18n e2e C65-A1/A2/A3/A4 test 名孤立编号清理；⑭ git.md §3.4 后双空行格式修复；⑮ M14.y 依赖批量治理（4 个 dependabot major PR）| P1 | 全部完成（M14.1 T1310 F 阶段闭环 ✅ 2026-08-26 落地 7 commits / M14.2 UX-R1 扫描历史分页 ✅ 2026-08-26 落地 5 commits / M14.3 M13.4 T1403 follow-up ✅ 2026-08-26 落地 1 commit / M14.x neat-freak 批次 ✅ 2026-08-26 落地 5 commits / M14.y 依赖批量治理 ✅ 2026-08-26 闭环 4 个 dependabot major PR；M14 阶段 19 commits 全部落地，ahead=0，`git rev-list HEAD ^origin/master --count` 实证核验；详见[todo-archive.md §M14](todo-archive.md#m14-platform-release-通道闭环--ux-反馈跟进m14123xy-全部已闭环)） |
 | M15: 扫描历史详情侧栏增强（UX-R2） | 承接 M14.2 UX-R1 后的 UX-R2：让去重告警 Sidebar 展示运行短 ID、模式、严重级别阈值、执行器、告警数、开始时间与持续时间，按执行器显示 GitHub Action 外链；新增独立 `RunDetailDialog` 复用 `GET /api/runs/:id`；**不**实现 UX-R3 `/scans` 页面 / **不**修改 `/api/runs` 后端契约（M14.2 已闭环 / 仅消费既有契约）/ **不**动 `RepoHistoryDialog.vue` / **不**做数据层去重 / **不**升 PrimeVue。4 子任务（M15.1 UX-R2-A / -B / -C / -D）全部独立闭环 | P1 | 已完成（2026-08-26 归档；3 commits ahead 待用户推送：`5c65177` P 阶段 docs 切换 + `1112017` feat 实施（5 文件 / +425/-12：A/B/C + utility 抽取 + i18n 7 键 + `runs.statusDegraded`，实证 `git show --stat`）+ `0a60e3d` test 覆盖 D（2 文件 / +251：16 case 单测 + 2 case e2e，不含 utility/i18n）；2 轮 code-auditor quick depth Pass；不进 M16 / UX-R3 顺延 M16 待 P 阶段规划；详见 [todo-archive.md §M15](todo-archive.md#m15-扫描历史详情侧栏增强ux-r2已闭环)） |
 
-## M16: 平台可用性深化（M16.1 + M16.2 + M16.3 + M16.4 已实施，M16.5 待 D 阶段）
+## M16: 平台可用性深化（M16.1 + M16.2 + M16.3 + M16.4 + M16.5 已实施 / M16 全部闭环）
 
 把 apps/platform 从 demo 落地为实际可用项目；5 项 UI/API/技术债痛点收敛——M16.1 UX-R3 /scans 页面（含 /api/runs 组织隔离）/ M16.2 C66-D alerts 一键修复入口（reuseScanRunId）/ M16.3 C36 服务端 API 错误消息 i18n / M16.4 PrimeVue hydration 缓解（alerts 迁移 useAsyncData）/ M16.5 T701-e2e 管理端点集成测试补强。
 
@@ -57,6 +57,21 @@
 - e2e：`tests/e2e/alerts-rowgroup.e2e.test.ts` **2 fixme 全取消**（行 132 DataTable rowGroup + 行 145 subheader 折叠展开）；新增 SSR 锁定 test（行 70-98：hydration 后 `.alerts__group-header` 立即可见 + `/api/alerts` 请求 ≤ 2 次典型为 SSR 1 次完成，反向锁定未来不回退 onMounted 异步赋值模式）；PrimeVue 4.5.5 toggle icon 改用 SVG path 旋转实现（行 162-168 断言展开/折叠 path 不一致）
 - 验收：vitest 814 passed + 4 skipped（新增 9 case）；e2e alerts-rowgroup 10 passed + 0 skipped（M16.3 baseline 7/2 → M16.4 10/0）；e2e alerts-fix-now + alerts-sidebar 5/5 passed（既有 utility 复用不破）；build 成功（38.3 MB total）；branches coverage 85.44%（远超 80% 阈值）
 
+**M16.5 实施状态**（2026-08-28）：D 阶段已落地 + A 阶段 standard depth Pass（2 分 14 秒 / 0 blocker / 2 warning / 4 suggest）。
+- 三角色鉴权 / 自修改防御 单测加固：
+  - `server/middleware/auth-self-guard.test.ts` 新增 23 case 覆盖 5 better-auth admin 端点（set-role / ban-user / remove-user / impersonate-user / update-user）× {self-target 403 / non-self last-admin 403 / non-self multi-admin 200} 矩阵 + 快速过滤 + no session + body 防御
+  - `server/api/{repos,credentials}/{index,[id]}.test.ts` 各增三角色鉴权 describe 块（共 16 case）：viewer GET 通过 / write 403 / admin + org_admin 全通过 + 未登录 401
+  - 共用模式：`vi.hoisted` 创建 `mockRequireAuth / mockRequireRole / mockRequireOrgResource`，默认 mock 通过 admin，三角色 case 用 `mockImplementationOnce` 切换
+- Playwright e2e 三页面闭环：
+  - `tests/e2e/admin-roles.e2e.test.ts` 3 case：admin 访问 /users 正常 / viewer 重定向到 /dashboard / viewer 调 admin API 403
+  - `tests/e2e/credentials-crud.e2e.test.ts` 6 case：列表脱敏验证（token 不在 DOM + hasToken Tag）/ 创建 / 编辑（token 留空不修改）/ 删除 / 列表分页 / viewer 拒绝
+  - `tests/e2e/repos-crud.e2e.test.ts` 7 case：列表 / 创建 / 编辑 / 删除 / 列表分页 / viewer POST 403 / viewer 访问列表页
+- 顺手修复（M16.5 e2e 测试发现）：`playwright.config.ts:34` 加 `ENCRYPTION_KEY=e2e-encryption-key-32-bytes!!!` e2eServerEnv 项——根因 `credential.service.ts:73-76` `getEncryptionKey` 直接读 `process.env.ENCRYPTION_KEY`(不走 runtimeConfig),与 `nuxt.config.ts:61` runtimeConfig `encryptionKey` 错配；已登记 backlog [C38 credential.service 标准化 NUXT_ENCRYPTION_KEY 路径](backlog.md#服务端凭据加密路径)
+- viewer storageState 复用：`global-setup.ts` 已注册 viewer → `tests/e2e/.auth/viewer.json`，3 个 e2e 用 `browser.newContext({ storageState })` 隔离 context + `__Secure-` cookie 在 HTTP webServer 下手工拼接
+- 测试基础设施：`tests/setup-nuxt-server.ts` 加 `getRequestURL` 注入 globalThis（middleware 测试需要）
+- e2e DOM 适配：PrimeVue Password id 透传到外层 div（选择器 `div#token input`）/ repos.vue owner-name 两列独立渲染无 `/` 拼接 / DataTable 0 数据不渲染 paginator
+- 验收：vitest 853 passed + 4 skipped（新增 39 case：auth-self-guard 23 + repos 三角色 8 + credentials 三角色 8）；e2e 16 passed；build 成功（38.3 MB total）；branches coverage 85.67%（远超 80% 阈值）；typecheck 0 error；lint 0 error
+
 **原子任务**：
 
 - **M16.1 UX-R3 /scans 独立页面 + RepoHistoryDialog 迁移** — 新增 apps/platform/app/pages/scans.vue；layout 新增“扫描”菜单项；repos pi-history 改跳 /scans?repository=；/api/runs 补 organizationId 过滤；新增 /api/scan-history/summary.get.ts + 同目录测试；i18n 双语 scans 段；新建 scans.e2e.test.ts 覆盖三种 query 组合；RepoHistoryDialog 保留为 /scans?run= 内部 detail dialog 兜底。验收：三种 query 可访问、viewer 可见、PrimeVue hydration fixme 不新增、既有 alerts-rowgroup / history-dialog / batch-runs / dashboard 不回归。依赖：M14.2 UX-R1 + M15.1 RunDetailDialog + M15 utility 抽取。
@@ -83,7 +98,7 @@
 
 详细实施记录 / commit 引用 / 治理记录 / 关键决策 / 关键经验 / 待迁移经验：见 [todo-archive.md §M15](todo-archive.md#m15-扫描历史详情侧栏增强ux-r2已闭环)。
 
-| M16: 平台可用性深化 | 把 apps/platform 从 demo 落地为实际可用项目；覆盖 5 项 UI/API/技术债痛点——M16.1 UX-R3 /scans 页面（含 /api/runs 组织隔离）/ M16.2 C66-D alerts 一键修复入口（reuseScanRunId）/ M16.3 C36 服务端 API 错误消息 i18n / M16.4 PrimeVue hydration 缓解（alerts 迁移 useAsyncData）/ M16.5 T701-e2e 管理端点集成测试补强 | P1 | 进行中（M16.1 + M16.2 + M16.3 + M16.4 D 阶段已实施 + A 阶段 Pass；M16.5 待 D 阶段） |
+| M16: 平台可用性深化 | 把 apps/platform 从 demo 落地为实际可用项目；覆盖 5 项 UI/API/技术债痛点——M16.1 UX-R3 /scans 页面（含 /api/runs 组织隔离）/ M16.2 C66-D alerts 一键修复入口（reuseScanRunId）/ M16.3 C36 服务端 API 错误消息 i18n / M16.4 PrimeVue hydration 缓解（alerts 迁移 useAsyncData）/ M16.5 T701-e2e 管理端点集成测试补强 | P1 | 已完成（M16.1 + M16.2 + M16.3 + M16.4 + M16.5 D 阶段均已实施 + A 阶段 Pass；M16 全部 5 项闭环；详见 [todo.md §M16 任务清单](todo.md#m16-任务清单)） |
 ## M0: 基线收敛
 
 Monorepo 骨架搭建、核心配置模型、工具链版本策略固定、标准化告警模型定义。已完成。

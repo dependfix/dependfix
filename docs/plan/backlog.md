@@ -113,6 +113,15 @@
 
 - **D8** remove-user 关联资源检查（无 user→resource 关联时暂不需要；前置：先有 D1 资源关联表）
 
+#### 服务端凭据加密路径
+
+- **C38** credential.service.ts 改走 `useRuntimeConfig().encryptionKey` + `NUXT_ENCRYPTION_KEY` 标准化（M16.5 audit W-1 登记）
+  - 当前实现：`apps/platform/server/services/credential.service.ts:73-76` 的 `getEncryptionKey` 直接读 `process.env.ENCRYPTION_KEY`(无 NUXT_ 前缀)
+  - 隐患：`apps/platform/nuxt.config.ts:61` runtimeConfig 字段 `encryptionKey` 期望 `NUXT_ENCRYPTION_KEY`(标准 Nuxt 部署习惯);两者不同源 → 典型部署只设 `NUXT_ENCRYPTION_KEY` 时凭据加密抛 500
+  - 触发：M16.5 e2e 测试时实测(`playwright.config.ts:34` 临时加 `ENCRYPTION_KEY` 兜底);`runtimeConfig.encryptionKey` 在代码库**零消费**(除 playwright 注释)
+  - 验收：① service 改读 `useRuntimeConfig().encryptionKey` ② nuxt.config 移除 inline fallback 让 `NUXT_ENCRYPTION_KEY` 成为唯一入口 ③ 删 playwright.config 中 `ENCRYPTION_KEY=...` 兜底 ④ 同步更新 docker-compose.yml / .env.example 文档
+  - 优先级：P1(凭据加密是平台核心安全路径,误配置致生产 500)
+
 #### PR 管理
 
 - **B1** PR 关闭评论 + label（需 `issues: write` 权限，比当前 `pull-requests: write` 宽；触发：PR 数量增长影响 `pulls.list` 查重性能或用户需要 PR 列表可过滤时）
@@ -171,7 +180,7 @@
 
 > 本段为 2026-08-26 用户实测截图反馈触发的扫描历史/详情视图 UX 增强候选；与 C66 平级。原 3 项 UX-R1→R2→R3 中 **UX-R1 已由 M14.2 闭环**（2026-08-26，详见 [todo-archive.md §M14.2](todo-archive.md#m14-platform-release-通道闭环--ux-反馈跟进m14123xy-全部已闭环) + 历史归档指针段）+ **UX-R2 已由 M15 闭环**（2026-08-26，ahead 3 commits 待用户推送，详见 [todo-archive.md §M15](todo-archive.md#m15-扫描历史详情侧栏增强ux-r2已闭环) + 历史归档指针段）；剩余 UX-R3 顺延至 M16（待 P 阶段规划：M16.1 summary API + M16.2 页面骨架 + M16.3 RepoHistoryDialog 迁移），按依赖排序推进。**UX-R2 已从本段主条目迁出**，仅保留 UX-R3 当前候选 + 上文 UX-R1/UX-R2 历史归档指针说明。
 
-- **UX-R3 已上收 M16.1**：候选已迁入 [todo.md §M16 任务清单](todo.md#m16-任务清单) 与 [roadmap.md §M16 详细任务](roadmap.md#m16-平台可用性深化m161--m162--m163--m164-已实施m165-待-d-阶段)；按 backlog 维护规则已闭环条目从本段主条目迁出，仅保留历史指针；下一阶段 M16 P 阶段规划已确认（含 /scans 页面 + /api/runs 组织隔离）。
+- **UX-R3 已上收 M16.1**：候选已迁入 [todo.md §M16 任务清单](todo.md#m16-任务清单) 与 [roadmap.md §M16 详细任务](roadmap.md#m16-平台可用性深化m161--m162--m163--m164--m165-已实施-m16-全部闭环)；按 backlog 维护规则已闭环条目从本段主条目迁出，仅保留历史指针；下一阶段 M16 P 阶段规划已确认（含 /scans 页面 + /api/runs 组织隔离）。
 
 ### 已评估不实现（决策保留于归档段）
 

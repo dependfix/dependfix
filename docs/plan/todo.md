@@ -2,7 +2,7 @@
 
 > **范围约定**：本文件**仅**登记当前阶段活跃待办——已闭环项归档于 [todo-archive.md](todo-archive.md)；未排期/延期/远期登记于 [backlog.md](backlog.md)；已知边界与 known-issue 登记于对应阶段归档段或 backlog（**不在此处复述**）。
 
-## 当前阶段：M16 平台可用性深化（5 项候选上收）P 阶段规划完成；M16.1 + M16.2 + M16.3 + M16.4 已实施
+## 当前阶段：M16 平台可用性深化（5 项候选上收）P 阶段规划完成；M16.1 + M16.2 + M16.3 + M16.4 + M16.5 已实施（M16 全部闭环）
 
 > **目标**：把 `apps/platform` 从 demo 落地为实际可用项目，覆盖 5 项用户痛点、技术债和能力扩展，形成开发/修复闭环。
 >
@@ -12,7 +12,7 @@
 >
 > **非目标**：不引入多组织；不重写后端聚合；不动 `dashboard.vue` latestRun 卡片；不动 `batch-runs` 跨仓库视图；不升级 PrimeVue 5；不破坏既有 `alerts-rowgroup` / `history-dialog` / 视图切换 / dedupe 行为。
 >
-> **状态**：M16.1 UX-R3 `/scans` + M16.2 C66-D "立即修复此仓库" + M16.3 C36 服务端 API 错误消息 i18n + M16.4 PrimeVue hydration 主线 #1 缓解（alerts 加载迁移 useAsyncData，2 fixme 全取消 + SSR 锁定 test）D 阶段均已实施 + A 阶段 code-auditor Pass + 已提交 master（末尾含 kebab-case rename refactor `acfdc8d8`）；CI run #33068271005 Coverage job 触发 80% 阈值失败，已通过 M16 新代码补测批次恢复至 80.27%（详见各任务 "状态（后续补测）" 段）；M16.5 待用户指令进入下一阶段 D 阶段。
+> **状态**：M16.1 UX-R3 `/scans` + M16.2 C66-D "立即修复此仓库" + M16.3 C36 服务端 API 错误消息 i18n + M16.4 PrimeVue hydration 主线 #1 缓解 + M16.5 T701-e2e 管理端点集成测试补强 D 阶段均已实施 + A 阶段 code-auditor Pass + 已提交 master（末尾含 kebab-case rename refactor `acfdc8d8`）；CI run #33068271005 Coverage job 触发 80% 阈值失败，已通过 M16 新代码补测批次恢复至 80.27%（详见各任务 "状态（后续补测）" 段）。**M16 全部 5 项闭环**；后续 backlog 候选见 [todo-archive.md](todo-archive.md) 与 [backlog.md](backlog.md)（C38 ENCRYPTION_KEY 路径错配 / S-4 /api/users 三角色单测 / S-2 authedCookieHeader helpers 抽取）。
 
 ---
 
@@ -59,6 +59,7 @@
 - **优先级**：P2
 - **范围**：vitest 单测补 `/api/users` / `/api/credentials` / `/api/repos` 关键端点的鉴权 + 边界 case（admin / org_admin / viewer 三角色 + 自修改防御）；Playwright e2e 覆盖 admin / credentials / repos 三页面核心交互（CRUD + 权限拦截 + 列表分页）；目标是为"实际可用"提供回归保护。
 - **验收**：测试覆盖到 admin 角色 + viewer 只读边界、credential 关联仓库 / 凭据泄露验证、repo 字段校验；e2e 在 headless 模式下稳定通过；覆盖率不下降。
+- **状态**（2026-08-28）：D 阶段已实施。`vitest` 853 passed + 4 skipped（新增 39 case：auth-self-guard 23 case 覆盖 5 better-auth admin 端点 × self-target / non-self / last-admin 矩阵 + repos / credentials 三角色鉴权各 8 case = 23+8+8=39）；`e2e` 16 passed（admin-roles 3 / credentials-crud 6 / repos-crud 7）；A 阶段 code-auditor standard depth Pass（实际用时 2 分 14 秒，0 blocker / 2 warning / 4 suggest）。**warning 已登记 backlog**：W-1 credential.service.ts 直读 `process.env.ENCRYPTION_KEY` 与 nuxtConfig runtimeConfig `encryptionKey` 错配（[backlog.md §C38](backlog.md#服务端凭据加密路径) — M16.5 e2e 测试发现 + 临时 playwright.config `ENCRYPTION_KEY=` 兜底）。**warning W-2 已本段同步**（todo.md M16.5 状态 banner）。**suggest 已记录**：`/api/users` handler 三角色鉴权单测缺失（todo.md 原验收范围含 `/api/users`，本批次只覆盖 credentials / repos;S-4 列入 M16.6+ 候选）;`authedCookieHeader` 函数在 2 个 e2e 重复定义（S-2 列入 M16.6+ 候选 helpers 抽取）。**顺手修复**：playwright.config.ts e2eServerEnv 加 `ENCRYPTION_KEY=e2e-encryption-key-32-bytes!!!` 兜底（credential.service.ts 直读 process.env 不走 runtimeConfig）。**e2e DOM 适配**：PrimeVue Password id 透传到外层 div（选择器 `div#token input`）/ repos.vue owner-name 两列独立渲染无 `/` 拼接 / DataTable 0 数据不渲染 paginator（断言简化为"渲染 + 列表新增"）。**viewer storageState 复用**：global-setup 已注册 viewer → `tests/e2e/.auth/viewer.json`，3 个 e2e 文件用 `browser.newContext({ storageState })` 隔离 context + 手工 cookie header。**验收**：typecheck 0 error / lint 0 error（2 pre-existing warning 非本批次）/ coverage Stmts 93.34% / Branches 85.67%（远超 80% CI 阈值）/ 编号标记扫描零违规。
 
 ---
 

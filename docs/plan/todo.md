@@ -2,7 +2,7 @@
 
 > **范围约定**：本文件**仅**登记当前阶段活跃待办——已闭环项归档于 [todo-archive.md](todo-archive.md)；未排期/延期/远期登记于 [backlog.md](backlog.md)；已知边界与 known-issue 登记于对应阶段归档段或 backlog（**不在此处复述**）。
 
-## 当前阶段：M16 平台可用性深化（5 项候选上收）P 阶段规划完成；M16.1 + M16.2 已实施
+## 当前阶段：M16 平台可用性深化（5 项候选上收）P 阶段规划完成；M16.1 + M16.2 + M16.3 已实施
 
 > **目标**：把 `apps/platform` 从 demo 落地为实际可用项目，覆盖 5 项用户痛点、技术债和能力扩展，形成开发/修复闭环。
 >
@@ -12,7 +12,7 @@
 >
 > **非目标**：不引入多组织；不重写后端聚合；不动 `dashboard.vue` latestRun 卡片；不动 `batch-runs` 跨仓库视图；不升级 PrimeVue 5；不破坏既有 `alerts-rowgroup` / `history-dialog` / 视图切换 / dedupe 行为。
 >
-> **状态**：M16.1 UX-R3 `/scans` + M16.2 C66-D "立即修复此仓库" D 阶段均已实施 + A 阶段 code-auditor Pass + 已提交 master（末尾含 kebab-case rename refactor `acfdc8d8`）；CI run #33068271005 Coverage job 触发 80% 阈值失败，已通过 M16 新代码补测批次恢复至 80.27%（详见各任务 "状态（后续补测）" 段）；M16.3-16.5 待用户指令进入下一阶段 D 阶段。
+> **状态**：M16.1 UX-R3 `/scans` + M16.2 C66-D "立即修复此仓库" + M16.3 C36 服务端 API 错误消息 i18n D 阶段均已实施 + A 阶段 code-auditor Pass + 已提交 master（末尾含 kebab-case rename refactor `acfdc8d8`）；CI run #33068271005 Coverage job 触发 80% 阈值失败，已通过 M16 新代码补测批次恢复至 80.27%（详见各任务 "状态（后续补测）" 段）；M16.4-16.5 待用户指令进入下一阶段 D 阶段。
 
 ---
 
@@ -40,6 +40,12 @@
 - **优先级**：P2
 - **范围**：在 `apps/platform/server/utils/` 引入 `createLocalizedError` helper（`code` 维持英文 + `message` 按 `Accept-Language` 翻译）；覆盖 `/api/repos` / `/api/alerts` / `/api/runs` / `/api/scan-history/summary` 关键错误；i18n `serverErrors.<code>` 双语 + 单测验证错误响应含 `message` 键 + e2e 验证 locale 切换。
 - **验收**：中文用户接口下错误响应 `message` 字段为中文；code 保持英文供客户端判断；不影响 type=Error 业务路径；老客户端忽略未知键保持向后兼容。
+- **状态**（2026-08-28）：D 阶段已实施。`vitest` 805 passed + 4 skipped（新增 31 case：helper 24 + repos/index 验证 zod issues 透传 1 + 既有 e2e 迁移）；`e2e` 新增 `api-i18n.e2e.test.ts` 7 case 全过（Accept-Language: zh-CN / en-US + cookie 优先级 + 未知 locale 兜底 + 404/405 双语对称 + zod validation data.issues 透传）；A 阶段 code-auditor standard depth Pass（实际用时 4.3 分钟；0 blocker / 0 warning / 2 suggest 已登记 backlog）；`build` 成功；locales JSON.parse 双语对称（顶层段 15/15 + serverErrors 16 code × zh-CN/en 双语完整）。`code` 强契约位置：`data.code`（h3 1.15 `createError` 不透传任意顶层字段，`sendError` 响应体仅含 `statusCode/statusMessage/data/stack`——实证 `apps/platform/node_modules/h3/dist/index.mjs:64-139`）；helper `detectServerLocale` 优先级 `cookie(i18n_locale) > Accept-Language > 默认 zh-CN`，防御性降级 `event.node?.req?.headers` 缺失（guard.test.ts mock event 形态）；`repos/[id]/scan.post.ts` 是 M16.2 刚改过的文件再动，本地化 7 处 throw 行为不变（reuseScanRunId 复用路径 throw 翻译成对应 code + data.code 不变）；`scan.post.ts:95` 的 `ScanRun.errorJson.message` 是 **type=Error 业务字段**（前端从 ScanRun 读取时按前端 i18n 翻译），按 C36 验收"不影响 type=Error"约束**不**本地化；范围外扩展登记 backlog（`S1` `SCAN_PENDING_MERGED` 死代码 / `S2` helper 缺 `?locale=` URL query 支持 / 其他端点 `credentials/schedules/batch-runs/repos-{batch,batch-scan,importable}` 未覆盖）。
+- **backlog（audit suggest + 范围外扩展）**：
+  - `S1`：`SCAN_PENDING_MERGED` 当前在字典 + 联合类型 + 测试数据中定义但无 throw 消费（`scan.post.ts:95` 仍写死 `'duplicate_scan'` 与字面中文 message）——移除或与前端 ScanRun 错误处理对齐另立独立 code
+  - `S2`：`detectServerLocale` 缺 `?locale=` URL query 支持——与 `localeDetector.ts:15` 现有 `tryQueryLocale` 行为对齐（99% 场景无影响）
+  - 范围外：扩展至 `/api/credentials/*` `/api/schedules/*` `/api/batch-runs/*` `/api/repos/{batch,batch-scan,importable}`——M16.6+ 候选
+  - zod issue.message 暂未本地化——第三方 zod schema message 翻译需单独迭代
 
 ### M16.4 PrimeVue hydration 主线 #1 缓解：alerts 加载迁移 useAsyncData
 

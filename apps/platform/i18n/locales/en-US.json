@@ -735,6 +735,42 @@
             "zh-CN": "参数校验失败",
             "en": "Request validation failed"
         },
+        "BATCH_RUN_ID_MISSING": {
+            "zh-CN": "缺少批量运行 id",
+            "en": "Batch run id is required"
+        },
+        "BATCH_RUN_NOT_FOUND": {
+            "zh-CN": "批量运行不存在",
+            "en": "Batch run not found"
+        },
+        "REPOS_BATCH_VALIDATION_FAILED": {
+            "zh-CN": "参数校验失败",
+            "en": "Request validation failed"
+        },
+        "REPOS_BATCH_SCAN_VALIDATION_FAILED": {
+            "zh-CN": "参数校验失败",
+            "en": "Request validation failed"
+        },
+        "REPOS_BATCH_SCAN_NO_REPO": {
+            "zh-CN": "所选仓库不存在或不属于当前组织",
+            "en": "Selected repositories do not exist or do not belong to current organization"
+        },
+        "IMPORTABLE_CREDENTIAL_ID_MISSING": {
+            "zh-CN": "缺少 credentialId",
+            "en": "credentialId is required"
+        },
+        "IMPORTABLE_AFFILIATION_INVALID": {
+            "zh-CN": "affiliation 仅支持 owner / collaborator / organization_member",
+            "en": "affiliation must be one of owner, collaborator, organization_member"
+        },
+        "GITHUB_API_AUTH_FAILED": {
+            "zh-CN": "GitHub Token 无权访问仓库列表（请检查凭据权限）",
+            "en": "GitHub token does not have permission to access repository list"
+        },
+        "GITHUB_API_FETCH_FAILED": {
+            "zh-CN": "拉取 GitHub 仓库失败：{message}",
+            "en": "Failed to fetch GitHub repositories: {message}"
+        },
         "METHOD_NOT_ALLOWED": {
             "zh-CN": "请求方法不被允许",
             "en": "Method not allowed"

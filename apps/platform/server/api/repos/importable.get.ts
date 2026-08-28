@@ -4,6 +4,7 @@ import { Repository } from '#server/entities/repository'
 import { ensureDatabaseInitialized } from '#server/database'
 import { decryptToken, getEncryptionKey } from '#server/services/credential.service'
 import { requireRole, requireOrgResource } from '#server/utils/guard'
+import { createLocalizedError } from '#server/utils/localized-error'
 import { cachedFetch } from '#server/utils/repos-cache'
 
 /**
@@ -28,12 +29,12 @@ export default defineEventHandler(async (event) => {
     const query = getQuery(event)
     const credentialId = query.credentialId as string | undefined
     if (!credentialId) {
-        throw createError({ statusCode: 400, statusMessage: 'Bad Request', message: '缺少 credentialId' })
+        throw createLocalizedError(event, { statusCode: 400, code: 'IMPORTABLE_CREDENTIAL_ID_MISSING' })
     }
     const affiliation = (query.affiliation as string | undefined) || 'owner'
     // 白名单校验（依赖 Octokit 422 兜底不够友好）
     if (!['owner', 'collaborator', 'organization_member'].includes(affiliation)) {
-        throw createError({ statusCode: 400, statusMessage: 'Bad Request', message: 'affiliation 仅支持 owner / collaborator / organization_member' })
+        throw createLocalizedError(event, { statusCode: 400, code: 'IMPORTABLE_AFFILIATION_INVALID' })
     }
     const fresh = query.fresh === 'true' || query.fresh === true
 
@@ -43,7 +44,7 @@ export default defineEventHandler(async (event) => {
 
     const credential = await credentialRepo.findOne({ where: { id: credentialId } })
     if (!credential) {
-        throw createError({ statusCode: 404, statusMessage: 'Not Found', message: '凭据不存在' })
+        throw createLocalizedError(event, { statusCode: 404, code: 'CREDENTIAL_NOT_FOUND' })
     }
     // 防御纵深：与 batch.post.ts C50 校验保持一致——凭据必须归属当前组织，
     // 否则跨组织访问 GitHub API 会泄露（与 docs/plan/todo.md §PR3-3 C50 同步）。
@@ -105,12 +106,16 @@ export default defineEventHandler(async (event) => {
     } catch (error: any) {
         // GitHub API 错误（如 token 权限不足）透传为 4xx
         const status = error?.status as number | undefined
-        throw createError({
+        if (status === 401 || status === 403) {
+            throw createLocalizedError(event, {
+                statusCode: status,
+                code: 'GITHUB_API_AUTH_FAILED',
+            })
+        }
+        throw createLocalizedError(event, {
             statusCode: status && status >= 400 && status < 500 ? status : 502,
-            statusMessage: 'Bad Gateway',
-            message: status === 401 || status === 403
-                ? 'GitHub Token 无权访问仓库列表（请检查凭据权限）'
-                : `拉取 GitHub 仓库失败：${error?.message ?? '未知错误'}`,
+            code: 'GITHUB_API_FETCH_FAILED',
+            params: { message: error?.message ?? '未知错误' },
         })
     }
 })

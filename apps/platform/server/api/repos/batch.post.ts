@@ -2,6 +2,7 @@ import { Repository } from '#server/entities/repository'
 import { Credential } from '#server/entities/credential'
 import { ensureDatabaseInitialized } from '#server/database'
 import { requireRole } from '#server/utils/guard'
+import { createLocalizedError } from '#server/utils/localized-error'
 import { resolveOrganizationId } from '#server/utils/organization'
 import { batchImportSchema } from '#server/schemas/batch-import'
 
@@ -22,10 +23,10 @@ export default defineEventHandler(async (event) => {
     const body = await readBody<Record<string, unknown>>(event).catch(() => ({}))
     const parsed = batchImportSchema.safeParse(body)
     if (!parsed.success) {
-        throw createError({
+        throw createLocalizedError(event, {
             statusCode: 400,
-            statusMessage: 'Bad Request',
-            message: parsed.error.issues.map((i) => i.message).join('；'),
+            code: 'REPOS_BATCH_VALIDATION_FAILED',
+            data: { issues: parsed.error.issues },
         })
     }
 
@@ -39,17 +40,17 @@ export default defineEventHandler(async (event) => {
     if (parsed.data.defaultCredentialId) {
         const credential = await credentialRepo.findOne({ where: { id: parsed.data.defaultCredentialId } })
         if (!credential) {
-            throw createError({
+            throw createLocalizedError(event, {
                 statusCode: 400,
-                statusMessage: 'Bad Request',
-                message: 'defaultCredentialId 不存在',
+                code: 'CREDENTIAL_NOT_FOUND',
+                data: { field: 'defaultCredentialId' },
             })
         }
         if (credential.organizationId !== organizationId) {
-            throw createError({
+            throw createLocalizedError(event, {
                 statusCode: 403,
-                statusMessage: 'Forbidden',
-                message: '默认凭据不属于当前组织',
+                code: 'RESOURCE_NOT_IN_ORG',
+                data: { resource: 'credential', field: 'defaultCredentialId' },
             })
         }
         defaultCredentialId = credential.id

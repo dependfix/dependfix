@@ -2,6 +2,7 @@ import { In } from 'typeorm'
 import { batchScanSchema } from '#server/schemas/schedule'
 import { executeBatchRun } from '#server/services/batch/batch-executor'
 import { requireRole } from '#server/utils/guard'
+import { createLocalizedError } from '#server/utils/localized-error'
 import { resolveOrganizationId } from '#server/utils/organization'
 import { Repository } from '#server/entities/repository'
 import { ensureDatabaseInitialized } from '#server/database'
@@ -21,10 +22,10 @@ export default defineEventHandler(async (event) => {
     const parsed = batchScanSchema.safeParse(body)
 
     if (!parsed.success) {
-        throw createError({
+        throw createLocalizedError(event, {
             statusCode: 400,
-            statusMessage: 'Bad Request',
-            message: parsed.error.issues.map((i) => i.message).join('；'),
+            code: 'REPOS_BATCH_SCAN_VALIDATION_FAILED',
+            data: { issues: parsed.error.issues },
         })
     }
 
@@ -37,10 +38,9 @@ export default defineEventHandler(async (event) => {
     })
     const repositoryIds = repos.map((r) => r.id)
     if (repositoryIds.length === 0) {
-        throw createError({
+        throw createLocalizedError(event, {
             statusCode: 400,
-            statusMessage: 'Bad Request',
-            message: '所选仓库不存在或不属于当前组织',
+            code: 'REPOS_BATCH_SCAN_NO_REPO',
         })
     }
 

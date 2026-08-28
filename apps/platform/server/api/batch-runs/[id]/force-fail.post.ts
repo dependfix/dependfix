@@ -3,6 +3,7 @@ import { BatchRun } from '#server/entities/batch-run'
 import { ScanRun } from '#server/entities/scan-run'
 import { ensureDatabaseInitialized } from '#server/database'
 import { requireAuth, requireRole, requireOrgResource } from '#server/utils/guard'
+import { createLocalizedError } from '#server/utils/localized-error'
 import { EMPTY_BATCH_SUMMARY } from '#server/services/batch/batch-aggregate'
 
 /**
@@ -22,7 +23,7 @@ export default defineEventHandler(async (event) => {
 
     const id = getRouterParam(event, 'id') as string
     if (!id) {
-        throw createError({ statusCode: 400, statusMessage: 'Bad Request', message: '缺少批量运行 id' })
+        throw createLocalizedError(event, { statusCode: 400, code: 'BATCH_RUN_ID_MISSING' })
     }
 
     const ds = await ensureDatabaseInitialized()
@@ -31,7 +32,7 @@ export default defineEventHandler(async (event) => {
 
     const batchRun = await batchRepo.findOne({ where: { id } })
     if (!batchRun) {
-        throw createError({ statusCode: 404, statusMessage: 'Not Found', message: '批量运行不存在' })
+        throw createLocalizedError(event, { statusCode: 404, code: 'BATCH_RUN_NOT_FOUND' })
     }
     await requireOrgResource(event, batchRun.organizationId)
 

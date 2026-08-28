@@ -1,4 +1,4 @@
-import { createError, eventHandler, getQuery, getRouterParam, readBody } from 'h3'
+import { createError, eventHandler, getQuery, getRequestURL, getRouterParam, readBody } from 'h3'
 
 /**
  * Nuxt server auto-import 模拟（vitest 环境）：
@@ -6,13 +6,19 @@ import { createError, eventHandler, getQuery, getRouterParam, readBody } from 'h
  * vitest 无 Nuxt 插件故需在 setupFiles 中显式注入，否则 API handler 模块加载即报 ReferenceError。
  * 与 Nuxt 实际注入面保持一致：新增 auto-import 标识符时在此补全。
  */
- 
+  
 const g = globalThis as any
 g.defineEventHandler = eventHandler
 g.readBody = readBody
 g.createError = createError
 g.getQuery = getQuery
 g.getRouterParam = getRouterParam
+// getRequestURL：vitest 环境 getRequestURL 用于 middleware（如 auth-self-guard.ts），
+// 创建 event 后 createEvent 会自动从 req.url 推断 event.path（getter-only，不可外部赋值），
+// getRequestURL 内部走 event.node.req.originalUrl || event.path，无需额外 stub 即可工作。
+// 但 ReferenceError 风险在于 module 引用 — 把 getRequestURL 注入 globalThis 让 middleware 模块
+// 加载时能解析该标识符（vitest 默认无 nitro auto-import）。
+g.getRequestURL = getRequestURL
 
 /**
  * better-auth 1.7 generic-oauth plugin 在 init 阶段会 fetch OIDC discovery URL，

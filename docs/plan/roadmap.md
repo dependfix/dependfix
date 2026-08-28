@@ -19,11 +19,79 @@
 | M9: i18n 基建同步 | 从 momei 同步 i18n 治理规范与审计脚本（缺失 key / 动态 key / 重复文案 + vue-i18n 专项 lint + docs 防回流），为 i18n 优化铺路 | P2 | 已完成（2026-08-18 归档；T901-T906 全部完成，5 个原子提交覆盖 6 任务，2556 行 inserts / 2539 行净增；翻译内容与多语言扩展留后续阶段） |
 | M10: 独立沙箱容器 C26 实施规划 | 兑现沙箱治理决议 G5——Docker rootless runtime + 应用层白名单代理 + cgroup v2 资源限制 + Node 20 自动识别；`SandboxExecutor` 与 `ContainerExecutor` 并存；自托管 docker-compose 优先 / K8s+Helm 仅规划 | P1 | 已完成（2026-08-20 归档；T1001 B1+B2 + T1002 + T1003 + T1004 全部 commit，13 commits 待推送；设计收口于 executor-sandbox.md §7 + sandbox-security-governance.md §5 G5 + quick-start.md §启用 rootless sandbox 执行；T912 主体同步归档，T912-3 合并入 C28） |
 | M11: 业务可见性 + 沙箱落地 + 安全文档 | 由 C53 闭环触发启动 ① 业务可见性：C53 已闭环（push + PR 闭环 + runUrl 兜底）+ C56/C57/C58 平台 UX 用户反馈；② 沙箱落地：T1005 sandbox 路由接线（M10 实施规划遗留）；③ 安全文档：C28 security.md §凭据加密存储章节 + T912-3 邮件发送安全 + 凭据权限阶（§5.4）；④ 通知基建：C-ENV-CHANGE-ALERT（环境容器变化告警） | P1 | 已完成（2026-08-20 归档，22 commits：M11 启动批次 10 commits + M11 推进批次 12 commits；C58 + C-ENV-CHANGE-ALERT 两轮深度 standard Pass；详见 [archive/todo-archive-phases-m11.md §M11 推进批次](archive/todo-archive-phases-m11.md#m11-推进批次业务可见性--沙箱落地--安全文档--通知基建) 详细归档） |
-| M12: 平台 UX 一致性 + i18n 治理 | 承接 2026-08-21 用户实测反馈 10 项平台 UX / 安全 / i18n 问题：① 用户管理安全 + 角色 i18n（C65-A，P1：admin self-protection 前端/服务端强制拦截 + 角色标签 i18n）；② i18n 单点声明治理（C65-B，P2：jiti vs Nuxt transform pipeline 双文件拆分）；③ schedules 增强（C65-C，P2：cron 表达式预览 + 时区选择框）；④ 平台表格 / 视图增强（C65-D，P2：env-events sortable + alerts 双 chevron 修复 + alerts 视图切换 + alerts 图表去重） | P1-P2 | 已完成（2026-08-21 归档，19 commits（C65-A 5 + C65-B 2 + standards check:docs 1 + C65-C 2 + C65-D 5 + CI 修复 1 + CI 稳定性 1 + network-audit 2）；全部推送至 origin/master / ahead=0 / branches 80.02%；详见 [todo-archive.md §M12](todo-archive.md#m12-平台-ux-一致性--i18n-治理已闭环)） |
+| M12: 平台 UX 一致性 + i18n 治理 | 承接 2026-08-21 用户实测反馈 10 项平台 UX / 安全 / i18n 问题：① 用户管理安全 + 角色 i18n（C65-A，P1：admin self-protection 前端/服务端强制拦截 + 角色标签 i18n）；② i18n 单点声明治理（C65-B，P2：jiti vs Nuxt transform pipeline 双文件拆分）；③ schedules 增强（C65-C，P2：cron 表达式预览 + 时区选择框）；④ 平台表格 / 视图增强（C65-D，P2：env-events sortable + alerts 双 chevron 修复 + alerts 视图切换 + alerts 图表去重） | P1-P2 | 已完成（2026-08-21 归档，19 commits（C65-A 5 + C65-B 2 + standards check:docs 1 + C65-C 2 + C65-D 5 + CI 修复 1 + CI 稳定性 1 + network-audit 2）；全部推送至 origin/master / ahead=0 / branches 80.02%；详见 [archive/todo-archive-phases-m12.md](archive/todo-archive-phases-m12.md)，2026-08-28 M17 归档批次预防性分片迁出） |
 | M13: 治理 + UX 反馈 + 网络治理 + Code Scanning | 承接 M12 闭环后 backlog 治理前置 + 2026-08-25~26 用户实测反馈 5 项 UX 问题：① 治理前置（M13.1，P0+C1+C2：wisdom 蒸馏 27→14 + neat-freak 批次挂接 standards；实测反馈 UX bug 5.1 单仓库扫描互斥修复 + 5.2 历史 Dialog X 按钮误触修复）；② 网络治理 + 告警去重（M13.2，P1+B2：network-audit 默认白名单可持续治理 G1 + 告警跨次扫描去重实测反馈 6 + changelog 机制治本 c811659 回归）；③ Code Scanning 规则化 + CQL（M13.3，P2：C16 规则分类配置化 + C21 code-quality-findings 接入）；④ UX 反馈批次立刻做（M13.4，P1：T1401 失败原因展示 + T1402 alerts UI ruleId 列 + T1403 dedupe 默认跨次去重，2026-08-26 实测截图 6 项中选 3 项低风险；其余 3 项进 backlog 暂缓 UX-R1~R3） | P0-P2 | 已完成（2026-08-26 归档，26 commits（M13.1 5 + M13.2 11 + M13.3 5 + M13.4 5）；ahead=3 仅 M13.4 三 commits 待用户推送（T1401+T1402+T1403+todo.md 收口）；全部 commit 含 12 子任务闭环 + CI 阈值回归修复 e63cdb9 + 9 轮独立 Review Gate Pass；详见 [todo-archive.md §M13](todo-archive.md#m13-治理--ux-反馈--网络治理--code-scanning已闭环)） |
 | M14: platform 进入 release 通道 + UX 反馈跟进 | 让 `apps/platform` 作为第 6 个发布单元参与 release 链路但**不发 npm**——仿 momei 单包"独立 version + 独立 CHANGELOG"的精神，适配 dependfix monorepo + docker-only 平台 + 承接 backlog UX-R1 扫描历史分页（用户实测反馈痛点）+ M13.4 T1403 follow-up + neat-freak 治理批次：① `scripts/packages.config.mjs` 注册 apps/platform 条目（`npmPublishable:false`）；② `scripts/release-publish.mjs` 新增 tag-only action；③ `docker.yml` 支持 workflow inputs 读 platform_version；④ `release.yml` 完成后触发 docker workflow_dispatch；⑤ `docs/guide/release.md` 平台独立通道文档；⑥ dependabot 排除 `apps/platform/package.json`；⑦ `/api/runs` 新增 `page`/`pageSize`/`ids` 分页参数 + `{items, total, page, pageSize}` 返回结构；09 4 个前端调用方适配（RepoHistoryDialog PrimeVue Paginator + alerts.vue + repos/[id]/runs.vue + i18n）+ silent bug 修复（alerts sidebar ids 参数）；⑩ alerts-rowgroup.e2e 新增首屏默认 `dedupe=across` 请求 URL 断言；⑪ wisdom 蒸馏挂接 3 条 M14.x pattern；⑫ C34 存量规范必级条款挂接盘点 + code-quality-checklist.md 双层对称补挂接 5 个必查项；⑬ admin/i18n e2e C65-A1/A2/A3/A4 test 名孤立编号清理；⑭ git.md §3.4 后双空行格式修复；⑮ M14.y 依赖批量治理（4 个 dependabot major PR）| P1 | 全部完成（M14.1 T1310 F 阶段闭环 ✅ 2026-08-26 落地 7 commits / M14.2 UX-R1 扫描历史分页 ✅ 2026-08-26 落地 5 commits / M14.3 M13.4 T1403 follow-up ✅ 2026-08-26 落地 1 commit / M14.x neat-freak 批次 ✅ 2026-08-26 落地 5 commits / M14.y 依赖批量治理 ✅ 2026-08-26 闭环 4 个 dependabot major PR；M14 阶段 19 commits 全部落地，ahead=0，`git rev-list HEAD ^origin/master --count` 实证核验；详见[todo-archive.md §M14](todo-archive.md#m14-platform-release-通道闭环--ux-反馈跟进m14123xy-全部已闭环)） |
 | M15: 扫描历史详情侧栏增强（UX-R2） | 承接 M14.2 UX-R1 后的 UX-R2：让去重告警 Sidebar 展示运行短 ID、模式、严重级别阈值、执行器、告警数、开始时间与持续时间，按执行器显示 GitHub Action 外链；新增独立 `RunDetailDialog` 复用 `GET /api/runs/:id`；**不**实现 UX-R3 `/scans` 页面 / **不**修改 `/api/runs` 后端契约（M14.2 已闭环 / 仅消费既有契约）/ **不**动 `RepoHistoryDialog.vue` / **不**做数据层去重 / **不**升 PrimeVue。4 子任务（M15.1 UX-R2-A / -B / -C / -D）全部独立闭环 | P1 | 已完成（2026-08-26 归档；3 commits ahead 待用户推送：`5c65177` P 阶段 docs 切换 + `1112017` feat 实施（5 文件 / +425/-12：A/B/C + utility 抽取 + i18n 7 键 + `runs.statusDegraded`，实证 `git show --stat`）+ `0a60e3d` test 覆盖 D（2 文件 / +251：16 case 单测 + 2 case e2e，不含 utility/i18n）；2 轮 code-auditor quick depth Pass；不进 M16 / UX-R3 顺延 M16 待 P 阶段规划；详见 [todo-archive.md §M15](todo-archive.md#m15-扫描历史详情侧栏增强ux-r2已闭环)） |
 | M16: 平台可用性深化 | 把 `apps/platform` 从 demo 落地为实际可用项目；覆盖 5 项 UI/API/技术债痛点——M16.1 UX-R3 `/scans` 页面（含 `/api/runs` 组织隔离）/ M16.2 C66-D alerts "立即修复此仓库" 入口（reuseScanRunId）/ M16.3 C36 服务端 API 错误消息 i18n / M16.4 PrimeVue hydration 主线 #1 缓解（alerts 迁移 useAsyncData）/ M16.5 T701-e2e 管理端点集成测试补强 | P1 | 已完成（2026-08-28 归档；M16.1 + M16.2 + M16.3 + M16.4 + M16.5 D 阶段均已实施 + A 阶段 standard depth Pass；M16 全部 5 项闭环；**ahead=0 已全部推送至 origin/master**（M16.1 1 + M16.2 4 + M16.3 5 + M16.4 4 + M16.5 5 = 19 commits，含 kebab-case rename refactor `acfdc8d8` 触发的 CI Coverage 修复批次；`git rev-list HEAD ^origin/master --count` 2026-08-28 实测 ahead=0）；branches coverage 80.27% → 85.67%（远超 80% CI 阈值）；5 轮独立 Review Gate Pass；详见 [todo-archive.md §M16](todo-archive.md#m16-平台可用性深化m161--m162--m163--m164--m165-全部已闭环--2026-08-28-归档)） |
+| M17: 安全与可用性收口 | 承接 M16 闭环后 backlog 4 条目（安全性 + i18n + 测试基建）：M17.1 C38 encryptionKey 标准化统一 `NUXT_ENCRYPTION_KEY` 路径（service 直读 env → runtimeConfig + nuxt.config 移除 inline fallback + 同步更新 docker-compose / .env.example + playwright 临时兜底删除；P1 安全硬缺口）/ M17.2-4 服务端 API i18n 范围外扩展（沿用 M16.3 C36 已沉淀 `createLocalizedError` 模式，10 文件分 3 子阶段 credentials / schedules / batch-runs + repos batch；P2 沿用）/ M17.5 S-2 `authedCookieHeader` 抽取至 `tests/e2e/helpers/`（纯重构 + 用户指令 lint auto-fix 接受；P3 测试基建清理）/ M17.6 S-4 better-auth admin viewer role check 单测补强（`ban-user` / `remove-user` / `impersonate-user` / `unban-user` / `list-users` 5 端点 viewer 403 单测；P3 测试完整性）| P1-P3 | 已完成（2026-08-28 归档；M17.1 + M17.2 + M17.3 + M17.4 + M17.5 + M17.6 D 阶段均已实施 + A 阶段 6 轮独立 Review Gate Pass 含 M17.4 commit 2 standard depth Reject 后补修闭环；M17 全部 6 子阶段闭环；**ahead=0 已全部推送至 origin/master**（M17.1 1 + M17.2 1 + M17.3 1 + M17.4 2 + M17.5 2 + M17.6 1 + session 收尾 1 = 9 commits；`git rev-list HEAD ^origin/master --count` 2026-08-28 实测 ahead=0——校正 session 文件 stale `ahead=8` 描述）；含 M17.4 commit 2 audit Reject 7 个 typecheck error 后针对性补修闭环（M17 session 关键教训：nuxt typecheck 不实测不能信 Done 输出）+ M17.5 lint-fix 独立 chore commit + session 收尾治理 commit `9bdb2dc`（8 条 pattern/principle 沉淀至 standards/testing.md §6 + standards/git.md §3.5 + standards/ai-collaboration.md §1.4/§4.4/§4.6 + code-auditor.agent.md）；详见 [todo-archive.md §M17](todo-archive.md#m17-安全与可用性收口m171--m172--m173--m174--m175--m176-全部已闭环--2026-08-28-归档)） |
+
+## M17: 安全与可用性收口（**已完成 2026-08-28 归档**）
+
+承接 M16 闭环后 backlog 4 条目（安全性 + i18n + 测试基建），按"安全性 P1 优先 + i18n 范围外扩展按模块化分组 + 测试基建顺手做"原则拆 6 子阶段独立闭环。M17.1 C38 encryptionKey 标准化统一 `NUXT_ENCRYPTION_KEY` 路径（service 直读 env → runtimeConfig + nuxt.config 移除 inline fallback + 同步更新 docker-compose / .env.example + playwright 临时兜底删除）/ M17.2-4 服务端 API i18n 范围外扩展（沿用 M16.3 C36 已沉淀 `createLocalizedError` 模式，10 文件分 3 子阶段 credentials / schedules / batch-runs + repos batch）/ M17.5 S-2 `authedCookieHeader` 抽取至 `tests/e2e/helpers/`（纯重构 + 用户指令 lint auto-fix 接受）/ M17.6 S-4 better-auth admin viewer role check 单测补强（5 端点 viewer 403 矩阵）。
+
+**M17.1 实施状态**（2026-08-28）：D 阶段已落地 + A 阶段 standard depth Pass（实测 ≈ 8 分钟；0 blocker / 3 warning 已分级 backlog：W-1 C39 standards 文档 ENCRYPTION_KEY → NUXT_ENCRYPTION_KEY 同步 / W-2 S-5 调用方测试 `process.env.ENCRYPTION_KEY` 死代码清理 / W-3 inline fallback 顺手修复）。
+- service 改读 `useRuntimeConfig().encryptionKey`（不再直读 `process.env.ENCRYPTION_KEY`）
+- `apps/platform/nuxt.config.ts:61` runtimeConfig `encryptionKey` 移除 inline fallback 让 `NUXT_ENCRYPTION_KEY` 成为唯一入口
+- 删除 `playwright.config.ts:34` 临时 `ENCRYPTION_KEY=e2e-encryption-key-32-bytes!!!` 兜底（保留 L30 标准 `NUXT_ENCRYPTION_KEY=...` 部署凭据）
+- 同步更新 `apps/platform/docker-compose.yml` + `apps/platform/.env.example` 文档
+- 21 个调用方测试从 ReferenceError 修复后 853 passed（实施 7 文件 / +33/-29 行）
+- 关键 commit `b0d3ac0 fix(platform)`
+
+**M17.2 实施状态**（2026-08-28）：D 阶段已落地 + A 阶段 quick depth Pass（实测 187 秒；0 blocker / 1 suggest S-1 `ServerErrorCode` 字母序跨 batch 累积跟踪登记 backlog）。
+- `apps/platform/server/api/credentials/{index,[id]}.ts` 2 文件 throw 改造使用 `createLocalizedError`（沿用 M16.3 C36 模式）
+- 既有测试调整（message→code 断言）+ 1 case 验证 locale 切换
+- message 按请求 locale 返回；既有测试调整（call helper 签名扩展接受 headers 模式）
+- 7 文件 / +90/-14 行
+- 关键 commit `5f66a08 refactor(api)`
+
+**M17.3 实施状态**（2026-08-28）：D 阶段已落地 + A 阶段 quick depth Pass（实测 314 秒略超 5 分钟时间盒；0 blocker / 2 suggest 登记 backlog）。
+- `apps/platform/server/api/schedules/{index,[id],[id]/trigger.post}.ts` 3 文件 throw 改造使用 `createLocalizedError`
+- 既有测试调整（call helper 签名扩展接受 headers 模式）
+- message 按请求 locale 返回
+- 8 文件 / +93/-18 行
+- 关键 commit `90549a0 refactor(api)`
+
+**M17.4 实施状态**（2026-08-28）：D 阶段已落地 + A 阶段 standard depth 2 轮 Pass（commit 1 Pass / commit 2 Reject 后补修 Pass；实测 commit 2 audit Reject ≈ 7 分钟；commit 2 Reject 后补修 quick Pass ≈ 4 分钟）。
+- commit 1 `98fd47d refactor(api)`（9 文件 / +125/-27）：`apps/platform/server/api/batch-runs/{[id].get,[id]/force-fail.post}.ts` + `apps/platform/server/api/repos/{batch.post,batch-scan.post,importable.get}.ts` 共 5 文件 throw 改造使用 `createLocalizedError`（沿用 M17.2 模式 + 字典扩展 `REPO_*` / `BATCH_RUN_*` 段 + codeSet 测试覆盖新 code）
+- commit 2 `a1c7c4e test(platform)`（4 文件 / +68/-14）：既有测试 message→code 断言调整；audit standard depth Round 1 Reject 7 个 typecheck error（`batch.post.test.ts:2` 缺 `afterEach` import + 6 处 `err.data?.code/field/resource` 属性访问 TS2339）→ 针对性补修闭环（`apps/platform/tests/api-helper.ts:32` 返回类型放宽 `Record<string, any>` + `batch.post.test.ts:2` 加 `afterEach` import + `afterEach` 测试隔离兜底模式）→ Round 2 standard Pass
+- 避开"4 端口合 1 批"反模式：M17.4 总 13 文件按"基础设施层（字典 + helper）+ 业务 throw 改造（5 API）+ 测试调整（4 case）"拆 2 commits（commit 1 独立可测 / commit 2 依赖 commit 1 新 code）
+- 验收：`pnpm --filter @dependfix/platform typecheck` 0 error（实测！audit Reject 前宣称 typecheck Done 是错的——nuxt typecheck 不实测不能信 Done 输出——M17 session 关键教训）+ `lint` 0 error + `vitest` 859 passed + 4 skipped
+
+**M17.5 实施状态**（2026-08-28）：D 阶段已落地 + A 阶段 quick depth Pass × 2（实测 169 秒；0 blocker）。
+- commit 1 `466b142 refactor(e2e)`（4 文件 / +19/-19）：`apps/platform/tests/e2e/helpers/auth-cookie.helper.ts` 新建（沿用 `hydration.helper.ts` 极简风格 10 行）+ `apps/platform/tests/e2e/{api-i18n,credentials-crud,repos-crud}.e2e.test.ts` 3 e2e 文件删本地一字不差的 `authedCookieHeader` 函数 + 改 import；JSDoc 注释聚合 3 文件原始注释；零行为变更（rg 字节级比对实证）
+- commit 2 `fc0b175 chore(platform)`（1 文件 / +1/-1）：`apps/platform/tests/e2e/alerts-sidebar.e2e.test.ts:1` ESLint array-type 自动修复接受；按用户指令"应该检查并提交修复"独立 chore commit（不混入 M17.5 主逻辑 commit；历史 commit `64bc1a5` 曾因误带 docs 提交回滚，本次按用户指令反向处理）
+- `@dependfix/platform exec playwright test` 全过
+
+**M17.6 实施状态**（2026-08-28）：D 阶段已落地 + A 阶段 quick depth Pass（实测 119 秒；0 blocker / 0 warning / 2 suggest 登记 backlog：S-3 `update-user` 端点 viewer 403 矩阵延后 / S-4 admin 200 双向断言延后）。
+- `apps/platform/tests/e2e/admin-roles-extra.e2e.test.ts` 新建（沿用 M16.5 admin-roles.e2e.test.ts 模式 + `vi.hoisted` + `mockImplementationOnce`）
+- 覆盖 `ban-user` / `remove-user` / `impersonate-user` / `unban-user` / `list-users` 5 端点 viewer 403 矩阵
+- 锁定 better-auth admin 当前版本 role 行为，防升级回归
+- 1 文件 / +98 行
+- 关键 commit `56df374 test(e2e)`
+
+**M17 session 收尾治理**（2026-08-28）：6 子阶段闭环状态登记 + 8 条经验教训沉淀 + backlog 锚点修复；关键 commit `9bdb2dc chore(plan+standards)`。
+- `docs/plan/todo.md` L5 banner 切换 + 6 子阶段标题加 ✅ commit 标记；`docs/plan/roadmap.md` 当前阶段任务指针更新；`docs/plan/backlog.md` 8 处旧锚点 hash 修复 + L265 artifacts/ 链接描述化
+- `docs/standards/testing.md` §6 末尾新增 2 条 pattern：测试隔离 afterEach 模式（M17.4 commit 1 后 `repos/batch.post.test.ts:165` 实测教训）+ test helper 强契约类型契约（M17.4 commit 2 audit Reject `api-helper.ts:32` 教训）
+- `docs/standards/git.md` §3.5 新增"lint auto-fix 接受策略"段（M17.5 `fc0b175` 教训：commit `64bc1a5` 曾因误带 docs 提交回滚，本次按用户指令反向处理）
+- `docs/standards/ai-collaboration.md` §1.4 commit 拆分增加"依赖关系处理"子节（M17.4 总 13 文件拆 2 commits 实证）+ §4.4 增加"nuxt typecheck 输出 Done ≠ TS 0 error"实测纪律（M17.4 commit 2 Reject 教训）+ §4.6 增加"audit suggest 跨 batch 累积跟踪 + audit Reject 后针对性补修"2 条 pattern
+- `.github/agents/code-auditor.agent.md`「证据获取与审查深度」段增加"typecheck 必须实测（不能信执行方 Done 输出）"子节
+- A 阶段 code-auditor quick depth Pass（实测 184 秒 ≈ 3 分 4 秒 ≤ 5 分钟时间盒；0 blocker / 1 warning W-1 M17.x 归档批次修复 / 2 suggest neat-freak 批次处理）
+- 质量门禁：lint:md 0 error / check:docs OK（99 md links + 55 vue-interp 全部通过；backlog.md 8 处锚点全部命中 todo.md M17.x 新 hash）
+- 7 文件 / +41/-26 行
+
+**验收（M17 全部 6 子阶段闭环 ✅）**：`pnpm lint` / `typecheck` 全绿 0 error；vitest 859 passed + 4 skipped（baseline 853 + M17.4 commit 2 测试调整 0 新增 + M17.6 单测补强）；playwright e2e 新增 M17.6 viewer 403 矩阵 1 file；`pnpm check:docs` 全过 99 md links + 55 vue-interp OK；`pnpm i18n:audit:missing` 0 missing（中英文双语键齐全）；编号标记扫描 0 命中（无孤立 `C\d+` / `T\d+` / `M\d+` / `B\d` / `R\d` 等编号——按 [开发规范 §3 注释规范](../standards/development.md) 与 [code-auditor.agent.md 主责边界必查项](../../.github/agents/code-auditor.agent.md) 防御）；CI 端到端裁决通过（6 轮独立 Review Gate Pass + CI run 端到端验证通过）；不升级 better-auth 1.x 库；不动 h3 `createError` 行为；不引入新 i18n 工具；不改既有 `e2e helpers/` 目录约定；不扩展 C36 业务字段（`ScanRun.errorJson.message` 等 type=Error 业务字段按 C36 验收"不影响 type=Error"约束**不**本地化）。
+
+**关键决策**：
+- **M17.1**：服务路径单一权威来源 `useRuntimeConfig().encryptionKey`（统一入口 + 避免双入口漂移）+ 删除 L34 临时兜底保留 L30 标准部署凭据（两条 env line 独立配置项）
+- **M17.2-4**：i18n 改造模式严格沿用 M16.3 `createLocalizedError`（0 新设计成本）+ 避开"4 端口合 1 批"反模式（M17.4 总 13 文件拆 2 commits 实证）+ `ServerErrorCode` 字母序跨 batch 累积跟踪登记 backlog
+- **M17.4 commit 2 audit Reject**：nuxt typecheck 输出 "Done" ≠ TS 0 error（nuxt typecheck 走 `vue-tsc` pipeline 在某些情况下容忍 TS error；执行方"typecheck 7 包全 Done"宣称**不可信**——必须实测确认 0 error）+ audit Reject 后针对性补修 + 重验证三件套（不回退到全量重试模式）
+- **M17.5**：重构 vs 实现优先 reverse pattern（audit suggest 触发采纳）+ JSDoc 注释聚合 3 文件原始注释 + 零行为变更 + rg 字节级比对实证 + lint auto-fix 接受策略（独立 chore commit；与历史 commit `64bc1a5` 因误带 docs 提交回滚形成对比）
+- **M17.6**：vitest 风格 + playwright 真实 better-auth 端点（不 mock better-auth 库内部逻辑——mock 后测的不是 better-auth 真实行为，违反"防升级回归"目的）+ `vi.hoisted` + `mockImplementationOnce` 模式统一 mock + 5 端点 viewer 403 矩阵 + 锁定 better-auth admin 当前版本 role 行为
+
+详细实施记录 / commit 引用 / 治理记录 / 关键经验 / 待迁移经验：见 [todo-archive.md §M17](todo-archive.md#m17-安全与可用性收口m171--m172--m173--m174--m175--m176-全部已闭环--2026-08-28-归档)。
+
+---
 
 ## M16: 平台可用性深化（**已完成 2026-08-28 归档**）
 
@@ -67,7 +135,7 @@
   - `tests/e2e/admin-roles.e2e.test.ts` 3 case：admin 访问 /users 正常 / viewer 重定向到 /dashboard / viewer 调 admin API 403
   - `tests/e2e/credentials-crud.e2e.test.ts` 6 case：列表脱敏验证（token 不在 DOM + hasToken Tag）/ 创建 / 编辑（token 留空不修改）/ 删除 / 列表分页 / viewer 拒绝
   - `tests/e2e/repos-crud.e2e.test.ts` 7 case：列表 / 创建 / 编辑 / 删除 / 列表分页 / viewer POST 403 / viewer 访问列表页
-- 顺手修复（M16.5 e2e 测试发现）：`playwright.config.ts:34` 加 `ENCRYPTION_KEY=e2e-encryption-key-32-bytes!!!` e2eServerEnv 项——根因 `credential.service.ts:73-76` `getEncryptionKey` 直接读 `process.env.ENCRYPTION_KEY`(不走 runtimeConfig),与 `nuxt.config.ts:61` runtimeConfig `encryptionKey` 错配；已登记 backlog [C38 credential.service 标准化 NUXT_ENCRYPTION_KEY 路径](backlog.md#服务端凭据加密路径)
+- 顺手修复（M16.5 e2e 测试发现）：`playwright.config.ts:34` 加 `ENCRYPTION_KEY=e2e-encryption-key-32-bytes!!!` e2eServerEnv 项——根因 `credential.service.ts:73-76` `getEncryptionKey` 直接读 `process.env.ENCRYPTION_KEY`(不走 runtimeConfig),与 `nuxt.config.ts:61` runtimeConfig `encryptionKey` 错配；已登记 backlog C38 credential.service 标准化 NUXT_ENCRYPTION_KEY 路径（2026-08-28 已由 M17.1 T1701 闭环落地 — 详见 [todo-archive.md §M17.1](todo-archive.md#m17-安全与可用性收口m171--m172--m173--m174--m175--m176-全部已闭环--2026-08-28-归档)）
 - viewer storageState 复用：`global-setup.ts` 已注册 viewer → `tests/e2e/.auth/viewer.json`，3 个 e2e 用 `browser.newContext({ storageState })` 隔离 context + `__Secure-` cookie 在 HTTP webServer 下手工拼接
 - 测试基础设施：`tests/setup-nuxt-server.ts` 加 `getRequestURL` 注入 globalThis（middleware 测试需要）
 - e2e DOM 适配：PrimeVue Password id 透传到外层 div（选择器 `div#token input`）/ repos.vue owner-name 两列独立渲染无 `/` 拼接 / DataTable 0 数据不渲染 paginator
@@ -250,7 +318,7 @@ Changelog / Release Notes 采集、多 AI 提供商封装、AI 研判（问题�
 - **C65-D3** → TypeORM 1.x find options order 不支持嵌套路径 → 全部走 QueryBuilder（统一代码路径 + 行为等价）
 - **C65-D4** → 删除 vs 差异化决策：选删除（最简 + 与 dashboard 完全去重 + alerts 聚焦表格）
 
-**详细子任务清单 + commit 引用 + 实施记录 + 关键经验 + 待迁移经验**：见 [todo-archive.md §M12](todo-archive.md#m12-平台-ux-一致性--i18n-治理已闭环)。
+**详细子任务清单 + commit 引用 + 实施记录 / 关键经验 / 待迁移经验**：见 [archive/todo-archive-phases-m12.md](archive/todo-archive-phases-m12.md)（2026-08-28 M17 归档批次预防性分片迁出）。
 
 ---
 
@@ -313,8 +381,8 @@ Changelog / Release Notes 采集、多 AI 提供商封装、AI 研判（问题�
 
 ## 详细任务
 
-- 当前阶段任务：[todo.md](todo.md)（**M17 安全与可用性收口 全部 6 子阶段已闭环归档 2026-08-28 8 commits**：M17.1 T1701 C38 encryptionKey 标准化 [P1 ✅ commit b0d3ac0] + M17.2 T1702 credentials 服务端 API i18n [P2 ✅ commit 5f66a08] + M17.3 T1703 schedules 服务端 API i18n [P2 ✅ commit 90549a0] + M17.4 T1704 batch-runs + repos batch 服务端 API i18n [P2 ✅ commit 98fd47d + a1c7c4e] + M17.5 T1705 S-2 authedCookieHeader 抽取 [P3 ✅ commit 466b142 + fc0b175] + M17.6 T1706 S-4 better-auth admin viewer 403 矩阵补强 [P3 ✅ commit 56df374]；含 M17.4 commit 2 audit Reject 后针对性补修闭环 + M17.5 lint-fix 独立 chore commit；ahead=8 待用户推送；`git rev-list HEAD ^origin/master --count` 2026-08-28 实测 ahead=8）；待人工验收 T701/T702/T704 项随真实环境推进）
-- 已归档阶段：[todo-archive.md](todo-archive.md)（主窗口保留最近 5 段：2026-08-28 M16 / 2026-08-26 M15 / 2026-08-26 M14 / 2026-08-26 M13 / 2026-08-21 M12；2026-08-28 M16 归档批次预防性迁出 M10 / T912 / C53 / 2026-08-20 平台 UI 增强 C59-C61 至新分片 [archive/todo-archive-phases-m10-c53-c59c61.md](archive/todo-archive-phases-m10-c53-c59c61.md)，主窗口回到"保留 3-5 个阶段"健康策略；2026-08-20 e2e 修复批次 C62+C63+C64+chore 已于 2026-08-26 M15 归档批次同步迁出至 [archive/todo-archive-phases-m11.md §2026-08-20 e2e 修复批次](archive/todo-archive-phases-m11.md#2026-08-20-e2e-修复批次c62--c63--c64--chore)；早期阶段见 [archive/index.md](archive/index.md) 分片索引）
+- 当前阶段任务：[todo.md](todo.md)（**当前无活跃实施阶段**：M17 安全与可用性收口 全部 6 子阶段已闭环归档 2026-08-28 9 commits 含 session 收尾——M17.1 T1701 C38 encryptionKey 标准化 [P1 ✅ commit b0d3ac0] + M17.2 T1702 credentials 服务端 API i18n [P2 ✅ commit 5f66a08] + M17.3 T1703 schedules 服务端 API i18n [P2 ✅ commit 90549a0] + M17.4 T1704 batch-runs + repos batch 服务端 API i18n [P2 ✅ commit 98fd47d + a1c7c4e] + M17.5 T1705 S-2 authedCookieHeader 抽取 [P3 ✅ commit 466b142 + fc0b175] + M17.6 T1706 S-4 better-auth admin viewer 403 矩阵补强 [P3 ✅ commit 56df374] + session 收尾治理 [P1 ✅ commit 9bdb2dc]；含 M17.4 commit 2 audit Reject 后针对性补修闭环 + M17.5 lint-fix 独立 chore commit；**已全部推送至 origin/master，ahead=0**（校正 session 文件 stale `ahead=8` 描述；`git rev-list HEAD ^origin/master --count` 2026-08-28 实测 ahead=0）；等待用户启动 M18）；待人工验收 T701/T702/T704 项随真实环境推进）
+- 已归档阶段：[todo-archive.md](todo-archive.md)（主窗口保留最近 5 段：2026-08-28 M17 / 2026-08-28 M16 / 2026-08-26 M15 / 2026-08-26 M14 / 2026-08-26 M13；2026-08-28 M17 归档批次预防性迁出 M12 至新分片 [archive/todo-archive-phases-m12.md](archive/todo-archive-phases-m12.md)；2026-08-28 M16 归档批次预防性迁出 M10 / T912 / C53 / 2026-08-20 平台 UI 增强 C59-C61 至新分片 [archive/todo-archive-phases-m10-c53-c59c61.md](archive/todo-archive-phases-m10-c53-c59c61.md)，主窗口回到"保留 3-5 个阶段"健康策略；2026-08-20 e2e 修复批次 C62+C63+C64+chore 已于 2026-08-26 M15 归档批次同步迁出至 [archive/todo-archive-phases-m11.md §2026-08-20 e2e 修复批次](archive/todo-archive-phases-m11.md#2026-08-20-e2e-修复批次c62--c63--c64--chore)；早期阶段见 [archive/index.md](archive/index.md) 分片索引）
 - 后续阶段任务（延期项 + 未排期增强候选）：[backlog.md](backlog.md)
 
 ## 交付原则

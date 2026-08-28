@@ -65,3 +65,45 @@ export const alertsFixStatusLabel = (status: string, t: Translator): string => (
     skipped: t('common.fixStatus.skipped'),
     converged: t('common.fixStatus.converged'),
 })[status] ?? t('common.fixStatus.pending')
+
+/** alerts 视图模式（todo.md §C65-D3）：按包 / 按项目 / 原始列表 */
+export type AlertsViewMode = 'package' | 'repository' | 'none'
+
+/** alerts 筛选器（与 alerts.vue `filters` ref 形状对齐；不含 viewMode，viewMode 独立） */
+export interface AlertsFilters {
+    repositoryId: string
+    severity: string
+    source: string
+    dedupe: 'off' | 'across'
+}
+
+/**
+ * 按 viewMode + filters 构造 /api/alerts query（todo.md §M16.4）。
+ *
+ * 抽取动机：alerts.vue 迁移到 useAsyncData 后，watch 自动触发 refetch 时 handler
+ * 需要无副作用地派生 query；纯函数 utility 便于单测覆盖 viewMode + filters 各组合，
+ * 避免在 .vue 文件内嵌实现导致 viewMode 无效值（后端 zod safeParse 静默 fallback）、
+ * dedupe='across' 漏加 / repositoryId='all' 误传 等 case 漏测。
+ *
+ * 行为契约：
+ * - viewMode='none' 不传 groupBy（后端等价于原始顺序）
+ * - 'package' / 'repository' 携带 groupBy 让后端预排序以满足 PrimeVue rowGroup subheader 要求
+ * - filters 中 == 'all' 的字段不携带（与现有 fetchAlerts 行为一致；后端空字符串视为全量）
+ * - dedupe='across' 携带 dedupe=true 触发后端跨次扫描去重聚合（todo.md §T1306）
+ */
+export const buildAlertsQuery = (viewMode: AlertsViewMode, filters: AlertsFilters): Record<string, string> => {
+    const query: Record<string, string> = viewMode === 'none' ? {} : { groupBy: viewMode }
+    if (filters.repositoryId !== 'all') {
+        query.repositoryId = filters.repositoryId
+    }
+    if (filters.severity !== 'all') {
+        query.severity = filters.severity
+    }
+    if (filters.source !== 'all') {
+        query.source = filters.source
+    }
+    if (filters.dedupe === 'across') {
+        query.dedupe = 'true'
+    }
+    return query
+}

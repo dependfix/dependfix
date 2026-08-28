@@ -4,6 +4,8 @@ import {
     alertsRuleIdTagSeverity,
     alertsRunStatusSeverity,
     alertsSeverityTagSeverity,
+    buildAlertsQuery,
+    type AlertsFilters,
 } from './alerts-view'
 
 /**
@@ -103,6 +105,85 @@ describe('alerts-view 纯函数', () => {
         it('未知 status → common.fixStatus.pending（?? fallback 分支）', () => {
             expect(alertsFixStatusLabel('unknown-status', t)).toBe('t(common.fixStatus.pending)')
             expect(alertsFixStatusLabel('', t)).toBe('t(common.fixStatus.pending)')
+        })
+    })
+
+    describe('buildAlertsQuery（todo.md §M16.4 useAsyncData handler 共用）', () => {
+        // 默认筛选：所有字段为 'all' / dedupe='off'，用于验证各 viewMode 行为
+        const defaultFilters: AlertsFilters = {
+            repositoryId: 'all',
+            severity: 'all',
+            source: 'all',
+            dedupe: 'off',
+        }
+
+        it('viewMode="none" 不携带 groupBy（后端等价于原始顺序）', () => {
+            const query = buildAlertsQuery('none', defaultFilters)
+            expect(query).not.toHaveProperty('groupBy')
+        })
+
+        it('viewMode="package" 携带 groupBy=package（PrimeVue rowGroup subheader 预排序）', () => {
+            const query = buildAlertsQuery('package', defaultFilters)
+            expect(query.groupBy).toBe('package')
+        })
+
+        it('viewMode="repository" 携带 groupBy=repository', () => {
+            const query = buildAlertsQuery('repository', defaultFilters)
+            expect(query.groupBy).toBe('repository')
+        })
+
+        it('filters 字段为 "all" 时不携带（与既有 fetchAlerts 行为一致）', () => {
+            const query = buildAlertsQuery('package', defaultFilters)
+            expect(query).not.toHaveProperty('repositoryId')
+            expect(query).not.toHaveProperty('severity')
+            expect(query).not.toHaveProperty('source')
+        })
+
+        it('filters 各字段非 "all" 时携带（repositoryId / severity / source）', () => {
+            const query = buildAlertsQuery('package', {
+                repositoryId: 'repo-1',
+                severity: 'high',
+                source: 'dependabot',
+                dedupe: 'off',
+            })
+            expect(query).toEqual({
+                groupBy: 'package',
+                repositoryId: 'repo-1',
+                severity: 'high',
+                source: 'dependabot',
+            })
+        })
+
+        it('dedupe="across" 携带 dedupe=true 触发后端跨次扫描去重聚合', () => {
+            const query = buildAlertsQuery('package', { ...defaultFilters, dedupe: 'across' })
+            expect(query.dedupe).toBe('true')
+        })
+
+        it('dedupe="off" 不携带 dedupe 参数（与既有行为一致）', () => {
+            const query = buildAlertsQuery('package', { ...defaultFilters, dedupe: 'off' })
+            expect(query).not.toHaveProperty('dedupe')
+        })
+
+        it('全部组合：viewMode="none" + 所有 filters 都过滤 + dedupe="across"', () => {
+            // 综合场景：用户切到原始列表 + 选定具体仓库 + 高危 + dependabot + 跨次去重
+            const query = buildAlertsQuery('none', {
+                repositoryId: 'repo-xyz',
+                severity: 'high',
+                source: 'dependabot',
+                dedupe: 'across',
+            })
+            expect(query).toEqual({
+                repositoryId: 'repo-xyz',
+                severity: 'high',
+                source: 'dependabot',
+                dedupe: 'true',
+            })
+        })
+
+        it('viewMode 与 dedupe 正交：组合独立生效', () => {
+            // 验证 viewMode='none' + dedupe='across' 也可同时生效（跨次去重不需要按组预排序）
+            const query = buildAlertsQuery('none', { ...defaultFilters, dedupe: 'across' })
+            expect(query).toEqual({ dedupe: 'true' })
         })
     })
 })

@@ -171,7 +171,7 @@
 
 > 本段为 2026-08-26 用户实测截图反馈触发的扫描历史/详情视图 UX 增强候选；与 C66 平级。原 3 项 UX-R1→R2→R3 中 **UX-R1 已由 M14.2 闭环**（2026-08-26，详见 [todo-archive.md §M14.2](todo-archive.md#m14-platform-release-通道闭环--ux-反馈跟进m14123xy-全部已闭环) + 历史归档指针段）+ **UX-R2 已由 M15 闭环**（2026-08-26，ahead 3 commits 待用户推送，详见 [todo-archive.md §M15](todo-archive.md#m15-扫描历史详情侧栏增强ux-r2已闭环) + 历史归档指针段）；剩余 UX-R3 顺延至 M16（待 P 阶段规划：M16.1 summary API + M16.2 页面骨架 + M16.3 RepoHistoryDialog 迁移），按依赖排序推进。**UX-R2 已从本段主条目迁出**，仅保留 UX-R3 当前候选 + 上文 UX-R1/UX-R2 历史归档指针说明。
 
-- **UX-R3 已上收 M16.1**：候选已迁入 [todo.md §M16 任务清单](todo.md#m16-任务清单) 与 [roadmap.md §M16 详细任务](roadmap.md#m16-平台可用性深化m161--m162--m163-已实施m164-165-待-d-阶段)；按 backlog 维护规则已闭环条目从本段主条目迁出，仅保留历史指针；下一阶段 M16 P 阶段规划已确认（含 /scans 页面 + /api/runs 组织隔离）。
+- **UX-R3 已上收 M16.1**：候选已迁入 [todo.md §M16 任务清单](todo.md#m16-任务清单) 与 [roadmap.md §M16 详细任务](roadmap.md#m16-平台可用性深化m161--m162--m163--m164-已实施m165-待-d-阶段)；按 backlog 维护规则已闭环条目从本段主条目迁出，仅保留历史指针；下一阶段 M16 P 阶段规划已确认（含 /scans 页面 + /api/runs 组织隔离）。
 
 ### 已评估不实现（决策保留于归档段）
 

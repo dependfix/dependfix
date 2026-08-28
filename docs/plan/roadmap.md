@@ -24,7 +24,7 @@
 | M14: platform 进入 release 通道 + UX 反馈跟进 | 让 `apps/platform` 作为第 6 个发布单元参与 release 链路但**不发 npm**——仿 momei 单包"独立 version + 独立 CHANGELOG"的精神，适配 dependfix monorepo + docker-only 平台 + 承接 backlog UX-R1 扫描历史分页（用户实测反馈痛点）+ M13.4 T1403 follow-up + neat-freak 治理批次：① `scripts/packages.config.mjs` 注册 apps/platform 条目（`npmPublishable:false`）；② `scripts/release-publish.mjs` 新增 tag-only action；③ `docker.yml` 支持 workflow inputs 读 platform_version；④ `release.yml` 完成后触发 docker workflow_dispatch；⑤ `docs/guide/release.md` 平台独立通道文档；⑥ dependabot 排除 `apps/platform/package.json`；⑦ `/api/runs` 新增 `page`/`pageSize`/`ids` 分页参数 + `{items, total, page, pageSize}` 返回结构；09 4 个前端调用方适配（RepoHistoryDialog PrimeVue Paginator + alerts.vue + repos/[id]/runs.vue + i18n）+ silent bug 修复（alerts sidebar ids 参数）；⑩ alerts-rowgroup.e2e 新增首屏默认 `dedupe=across` 请求 URL 断言；⑪ wisdom 蒸馏挂接 3 条 M14.x pattern；⑫ C34 存量规范必级条款挂接盘点 + code-quality-checklist.md 双层对称补挂接 5 个必查项；⑬ admin/i18n e2e C65-A1/A2/A3/A4 test 名孤立编号清理；⑭ git.md §3.4 后双空行格式修复；⑮ M14.y 依赖批量治理（4 个 dependabot major PR）| P1 | 全部完成（M14.1 T1310 F 阶段闭环 ✅ 2026-08-26 落地 7 commits / M14.2 UX-R1 扫描历史分页 ✅ 2026-08-26 落地 5 commits / M14.3 M13.4 T1403 follow-up ✅ 2026-08-26 落地 1 commit / M14.x neat-freak 批次 ✅ 2026-08-26 落地 5 commits / M14.y 依赖批量治理 ✅ 2026-08-26 闭环 4 个 dependabot major PR；M14 阶段 19 commits 全部落地，ahead=0，`git rev-list HEAD ^origin/master --count` 实证核验；详见[todo-archive.md §M14](todo-archive.md#m14-platform-release-通道闭环--ux-反馈跟进m14123xy-全部已闭环)） |
 | M15: 扫描历史详情侧栏增强（UX-R2） | 承接 M14.2 UX-R1 后的 UX-R2：让去重告警 Sidebar 展示运行短 ID、模式、严重级别阈值、执行器、告警数、开始时间与持续时间，按执行器显示 GitHub Action 外链；新增独立 `RunDetailDialog` 复用 `GET /api/runs/:id`；**不**实现 UX-R3 `/scans` 页面 / **不**修改 `/api/runs` 后端契约（M14.2 已闭环 / 仅消费既有契约）/ **不**动 `RepoHistoryDialog.vue` / **不**做数据层去重 / **不**升 PrimeVue。4 子任务（M15.1 UX-R2-A / -B / -C / -D）全部独立闭环 | P1 | 已完成（2026-08-26 归档；3 commits ahead 待用户推送：`5c65177` P 阶段 docs 切换 + `1112017` feat 实施（5 文件 / +425/-12：A/B/C + utility 抽取 + i18n 7 键 + `runs.statusDegraded`，实证 `git show --stat`）+ `0a60e3d` test 覆盖 D（2 文件 / +251：16 case 单测 + 2 case e2e，不含 utility/i18n）；2 轮 code-auditor quick depth Pass；不进 M16 / UX-R3 顺延 M16 待 P 阶段规划；详见 [todo-archive.md §M15](todo-archive.md#m15-扫描历史详情侧栏增强ux-r2已闭环)） |
 
-## M16: 平台可用性深化（M16.1 + M16.2 + M16.3 已实施，M16.4-16.5 待 D 阶段）
+## M16: 平台可用性深化（M16.1 + M16.2 + M16.3 + M16.4 已实施，M16.5 待 D 阶段）
 
 把 apps/platform 从 demo 落地为实际可用项目；5 项 UI/API/技术债痛点收敛——M16.1 UX-R3 /scans 页面（含 /api/runs 组织隔离）/ M16.2 C66-D alerts 一键修复入口（reuseScanRunId）/ M16.3 C36 服务端 API 错误消息 i18n / M16.4 PrimeVue hydration 缓解（alerts 迁移 useAsyncData）/ M16.5 T701-e2e 管理端点集成测试补强。
 
@@ -47,6 +47,15 @@
 - `repos/[id]/scan.post.ts` 是 M16.2 刚改过的文件再动，本地化 7 处 throw 行为不变；`scan.post.ts:95` 的 `ScanRun.errorJson.message` 是 **type=Error 业务字段**，按 C36 验收"不影响 type=Error"约束**不**本地化
 - 单测：helper 24 case（locale 检测 / 字典 / 兜底 / 双语 / locales 契约）+ repos/index 增强 zod validation 1 case；E2E：`tests/e2e/api-i18n.e2e.test.ts` 7 case 全过（Accept-Language × cookie × 未知 locale × 双语对称 × zod data.issues 透传）
 - 验收：vitest 805 passed + 4 skipped（新增 31 case）；e2e 84 passed + 2 skipped（新增 7 case）；build 成功（38.2 MB total）；branches coverage 85.35%（远超 80% 阈值）；locales JSON.parse 顶层段 15/15 + serverErrors 16 code 双语完整
+
+**M16.4 实施状态**（2026-08-28）：D 阶段已落地 + A 阶段 standard depth Pass（8-10 分钟 / 0 blocker / 0 warning / 2 suggest 已登记 todo.md 状态 banner 同步本段补 + Button @click 包裹形式属成熟约定无需新抽象）。
+- 根因：PrimeVue 4 DataTable rowGroup subheader 在 hydration 后未重新计算 processedData（onMounted 异步赋值时 data.value=[] → mutation 时 PrimeVue 不响应），SSR HTML 已含数据但 PrimeVue JS 渲染依赖响应式 source data
+- 修复：alerts.vue 迁移到 `useAsyncData(key, handler, { watch: [viewMode, filters], default })` + `useRequestFetch()`（Nuxt 4 官方 SSR cookie 转发方案，避免 `$fetch` 在 SSR 不转发 cookie 致 auth middleware 401）；`repositories` / `alerts` 改 computed 派生（`useAsyncData data ?? []` + `withFixStatusRank`/`withSeverityRank` 后处理保留 M15 utility 复用）；`loading`/`error` 派生自 useAsyncData `pending`/`error`；`onMounted(fetchRepositories + fetchAlerts)` 全删
+- watch 自动 refetch 替代原 3 处手动 `fetchAlerts()` 调用：`onViewModeChange` 删 `void fetchAlerts()` 保留 multiSortMeta + expandedPackages 重置；`onDedupeChange` 整个函数删除；filterApply Button `@click` 改 `refreshAlerts()`
+- utility 抽取：apps/platform/app/utils/alerts-view.ts 新增 `buildAlertsQuery(viewMode, filters)` + `AlertsViewMode` / `AlertsFilters` 类型导出 + 9 case 单测（viewMode 3 态 × filters 字段 × dedupe on/off × 正交组合）；alerts.vue 单调用方但 audit suggest 触发的抽取（M16.2 alerts-view 已有基础扩展）
+- 类型适配：useRequestFetch 调用点显式 generic 标注规避 TS 5.x $fetch overload 路径推断栈深度限制（Nuxt 4 已知问题）；refreshAlerts 类型不兼容 PrimeVue Button @click PointerEvent 用 `() => { void refreshAlerts() }` 包裹（codebase 同类 pattern 多处存在）
+- e2e：`tests/e2e/alerts-rowgroup.e2e.test.ts` **2 fixme 全取消**（行 132 DataTable rowGroup + 行 145 subheader 折叠展开）；新增 SSR 锁定 test（行 70-98：hydration 后 `.alerts__group-header` 立即可见 + `/api/alerts` 请求 ≤ 2 次典型为 SSR 1 次完成，反向锁定未来不回退 onMounted 异步赋值模式）；PrimeVue 4.5.5 toggle icon 改用 SVG path 旋转实现（行 162-168 断言展开/折叠 path 不一致）
+- 验收：vitest 814 passed + 4 skipped（新增 9 case）；e2e alerts-rowgroup 10 passed + 0 skipped（M16.3 baseline 7/2 → M16.4 10/0）；e2e alerts-fix-now + alerts-sidebar 5/5 passed（既有 utility 复用不破）；build 成功（38.3 MB total）；branches coverage 85.44%（远超 80% 阈值）
 
 **原子任务**：
 
@@ -74,7 +83,7 @@
 
 详细实施记录 / commit 引用 / 治理记录 / 关键决策 / 关键经验 / 待迁移经验：见 [todo-archive.md §M15](todo-archive.md#m15-扫描历史详情侧栏增强ux-r2已闭环)。
 
-| M16: 平台可用性深化 | 把 apps/platform 从 demo 落地为实际可用项目；覆盖 5 项 UI/API/技术债痛点——M16.1 UX-R3 /scans 页面（含 /api/runs 组织隔离）/ M16.2 C66-D alerts 一键修复入口（reuseScanRunId）/ M16.3 C36 服务端 API 错误消息 i18n / M16.4 PrimeVue hydration 缓解（alerts 迁移 useAsyncData）/ M16.5 T701-e2e 管理端点集成测试补强 | P1 | 进行中（M16.1 + M16.2 + M16.3 D 阶段已实施 + A 阶段 Pass；M16.4-16.5 待 D 阶段） |
+| M16: 平台可用性深化 | 把 apps/platform 从 demo 落地为实际可用项目；覆盖 5 项 UI/API/技术债痛点——M16.1 UX-R3 /scans 页面（含 /api/runs 组织隔离）/ M16.2 C66-D alerts 一键修复入口（reuseScanRunId）/ M16.3 C36 服务端 API 错误消息 i18n / M16.4 PrimeVue hydration 缓解（alerts 迁移 useAsyncData）/ M16.5 T701-e2e 管理端点集成测试补强 | P1 | 进行中（M16.1 + M16.2 + M16.3 + M16.4 D 阶段已实施 + A 阶段 Pass；M16.5 待 D 阶段） |
 ## M0: 基线收敛
 
 Monorepo 骨架搭建、核心配置模型、工具链版本策略固定、标准化告警模型定义。已完成。

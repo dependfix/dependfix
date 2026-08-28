@@ -2,7 +2,7 @@
 
 > **范围约定**：本文件**仅**登记当前阶段活跃待办——已闭环项归档于 [todo-archive.md](todo-archive.md)；未排期/延期/远期登记于 [backlog.md](backlog.md)；已知边界与 known-issue 登记于对应阶段归档段或 backlog（**不在此处复述**）。
 
-## 当前阶段：M16 平台可用性深化（5 项候选上收）P 阶段规划完成；M16.1 + M16.2 + M16.3 已实施
+## 当前阶段：M16 平台可用性深化（5 项候选上收）P 阶段规划完成；M16.1 + M16.2 + M16.3 + M16.4 已实施
 
 > **目标**：把 `apps/platform` 从 demo 落地为实际可用项目，覆盖 5 项用户痛点、技术债和能力扩展，形成开发/修复闭环。
 >
@@ -12,7 +12,7 @@
 >
 > **非目标**：不引入多组织；不重写后端聚合；不动 `dashboard.vue` latestRun 卡片；不动 `batch-runs` 跨仓库视图；不升级 PrimeVue 5；不破坏既有 `alerts-rowgroup` / `history-dialog` / 视图切换 / dedupe 行为。
 >
-> **状态**：M16.1 UX-R3 `/scans` + M16.2 C66-D "立即修复此仓库" + M16.3 C36 服务端 API 错误消息 i18n D 阶段均已实施 + A 阶段 code-auditor Pass + 已提交 master（末尾含 kebab-case rename refactor `acfdc8d8`）；CI run #33068271005 Coverage job 触发 80% 阈值失败，已通过 M16 新代码补测批次恢复至 80.27%（详见各任务 "状态（后续补测）" 段）；M16.4-16.5 待用户指令进入下一阶段 D 阶段。
+> **状态**：M16.1 UX-R3 `/scans` + M16.2 C66-D "立即修复此仓库" + M16.3 C36 服务端 API 错误消息 i18n + M16.4 PrimeVue hydration 主线 #1 缓解（alerts 加载迁移 useAsyncData，2 fixme 全取消 + SSR 锁定 test）D 阶段均已实施 + A 阶段 code-auditor Pass + 已提交 master（末尾含 kebab-case rename refactor `acfdc8d8`）；CI run #33068271005 Coverage job 触发 80% 阈值失败，已通过 M16 新代码补测批次恢复至 80.27%（详见各任务 "状态（后续补测）" 段）；M16.5 待用户指令进入下一阶段 D 阶段。
 
 ---
 
@@ -52,6 +52,7 @@
 - **优先级**：P1
 - **范围**：把 `apps/platform/app/pages/alerts.vue` 的 `onMounted(fetchRepositories/fetchAlerts)` 迁移到 `useAsyncData`（SSR 阶段具备数据，hydration 后 PrimeVue 不再出现 rowGroup subheader 不渲染问题）；保留 viewMode / dedupe / filters 等交互逻辑；解除 `apps/platform/tests/e2e/alerts-rowgroup.e2e.test.ts` 两个 `.fixme`；新增 Playwright / vitest 锁定 hydration 行为。
 - **验收**：两个 fixme 取消；`alerts-rowgroup` e2e 全过（首屏默认数据驱动）；既有 dedupe / 视图切换 / 跨次去重 case 不破；M15 utility 仍可复用。
+- **状态**（2026-08-28）：D 阶段已实施。`vitest` 814 passed + 4 skipped（新增 9 case：alerts-view `buildAlertsQuery` 全分支覆盖）；`e2e alerts-rowgroup` 10 passed + 0 skipped（M16.3 baseline 7 passed + 2 skipped → M16.4 10 passed + 0 skipped；**2 fixme 全取消** + 新增 SSR 锁定 test）；`e2e alerts-fix-now + alerts-sidebar` 5/5 passed（M15/M16.2 utility 复用不破）；A 阶段 code-auditor standard depth Pass（实际用时 8-10 分钟，0 blocker / 0 warning / 2 suggest 已登记：`S-1` todo.md 状态 banner 同步本段补 / `S-2` Button @click 包裹形式属成熟约定无需新抽象）；`build` 成功；branches coverage 85.44%（远超 80% 阈值）。**PrimeVue hydration 修复实证**：useAsyncData SSR 1 次 fetch + payload 复用 + hydration 后 PrimeVue 立即计算 processedData → rowGroup subheader 即时可见（debug 脚本实证 `Group headers after load: 2`）。**alerts-rowgroup.e2e.ts 新增 SSR 锁定 test**：反向锁定未来不再回退 onMounted 异步赋值模式（hydration 后 `.alerts__group-header` 立即可见 + `/api/alerts` 请求 ≤ 2 次典型为 SSR 1 次完成）。**useRequestFetch**：Nuxt 4 官方 SSR cookie 转发方案（避免 `$fetch` 在 SSR 不转发 cookie 致 auth middleware 401；alerts 页有 auth middleware 必需 session cookie）。**watch: [viewMode, filters] 自动 refetch**：替代原 `onViewModeChange` / `onDedupeChange` / `filterApply Button @click` 三处手动 fetchAlerts 散落调用，`onDedupeChange` 整个函数删除（Select v-model 自动响应式 + watch 触发）。**buildAlertsQuery 抽取到 utils/alerts-view.ts**：单一调用方但 audit suggest 触发的 utility 抽取（M16.2 alerts-view 已有基础扩展 9 case 单测覆盖 viewMode 3 态 × filters 字段 × 正交组合）。**M15/M16.2 utility 保留**：`withFixStatusRank` / `withSeverityRank` / `alertsFixStatusLabel` / `alertsRuleIdTagSeverity` / `alertsSeverityTagSeverity` 全部继续复用不受迁移影响。
 
 ### M16.5 T701-e2e 管理端点集成测试补强
 

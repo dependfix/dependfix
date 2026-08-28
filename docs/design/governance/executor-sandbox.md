@@ -186,7 +186,7 @@ GitHub `dispatches` API 成功返回 204 即触发受理，但不返回 run id�
 - [todo-archive.md §M6 规划决策](../../plan/archive/todo-archive-phases-m6-m7-t711.md)：Q1/Q4/Q5 决策依据
 - [backlog.md C25 Action 触发结果回填](../../plan/backlog.md)：结果回填实现记录
 - [backlog.md C26 独立沙箱容器执行实现](../../plan/backlog.md)：独立沙箱容器 backlog 登记 + 2026-08-19 决策
-- [todo-archive.md §M10 C26 实施规划](../../plan/todo-archive.md#m10-独立沙箱容器-c26-实施规划已归档)：T1001-T1004 子任务拆解与验收要点（2026-08-20 收口归档）
+- [todo-archive-phases-m10-c53-c59c61.md §M10 C26 实施规划](../../plan/archive/todo-archive-phases-m10-c53-c59c61.md#m10-独立沙箱容器-c26-实施规划已归档)：T1001-T1004 子任务拆解与验收要点（2026-08-20 收口归档）
 - [sandbox-security-governance.md §5 治理决议 G5](./sandbox-security-governance.md#5-治理决议与登记)：并发共享容器交叉污染登记
 - [架构设计](./architecture.md)：平台分层与 Executor 定位
 - [安全设计](./security.md)：凭据加密存储与最小化
@@ -196,8 +196,8 @@ GitHub `dispatches` API 成功返回 204 即触发受理，但不返回 run id�
 
 ## 7. Sandbox 执行器设计
 
-> 状态：🔶 设计落盘（M10，2026-08-19 决策会议 / 2026-08-20 收口归档）——T1001-T1004 实施规划已在 [todo-archive.md §M10](../../plan/todo-archive.md#m10-独立沙箱容器-c26-实施规划已归档) 落地；本文档定义接口契约与部署形态，详细任务拆解见 todo-archive 实施规划。
-> **决策依据**：Docker rootless mode + 应用层白名单代理 + cgroup v2 双层；Executor 抽象不与 rootless 强绑定；自托管 docker-compose 优先；与 `ContainerExecutor` 并存保留单机场景。一手调研依据见 [todo-archive.md §M10 决策依据](../../plan/todo-archive.md#m10-独立沙箱容器-c26-实施规划已归档)。
+> 状态：🔶 设计落盘（M10，2026-08-19 决策会议 / 2026-08-20 收口归档）——T1001-T1004 实施规划已在 [todo-archive-phases-m10-c53-c59c61.md §M10](../../plan/archive/todo-archive-phases-m10-c53-c59c61.md#m10-独立沙箱容器-c26-实施规划已归档) 落地；本文档定义接口契约与部署形态，详细任务拆解见 todo-archive 实施规划。
+> **决策依据**：Docker rootless mode + 应用层白名单代理 + cgroup v2 双层；Executor 抽象不与 rootless 强绑定；自托管 docker-compose 优先；与 `ContainerExecutor` 并存保留单机场景。一手调研依据见 [todo-archive-phases-m10-c53-c59c61.md §M10 决策依据](../../plan/archive/todo-archive-phases-m10-c53-c59c61.md#m10-独立沙箱容器-c26-实施规划已归档)。
 
 ### 7.1 抽象边界（不强绑定 Docker rootless）
 
@@ -264,7 +264,7 @@ export interface SandboxHandle {
 
 ### 7.4 与 ContainerExecutor 并存
 
-按 [todo-archive.md §M10 D6 决策（Q6 并存）](../../plan/todo-archive.md#m10-独立沙箱容器-c26-实施规划已归档)：两 Executor 同时注册，**默认 `container`**（向后兼容单机场景不破坏）：
+按 [todo-archive-phases-m10-c53-c59c61.md §M10 D6 决策（Q6 并存）](../../plan/archive/todo-archive-phases-m10-c53-c59c61.md#m10-独立沙箱容器-c26-实施规划已归档)：两 Executor 同时注册，**默认 `container`**（向后兼容单机场景不破坏）：
 
 | 触发条件 | 走向 | 备注 |
 |:--|:--|:--|
@@ -422,7 +422,7 @@ if (executorKind === 'sandbox') {
 
 ## 8. A 模式 push + PR 推送机制
 
-> 状态：✅ 设计落盘（C53，2026-08-20 实施）——A 模式（`ContainerExecutor`）fix / fix-and-pr 完成后新增推送修复分支到远程 + 创建 PR 两条链路，落盘 commit `83ec736` / `46b7c15` / `3ed8303`。详细任务验收与 Review Gate 记录见 [todo-archive.md §C53](../../plan/todo-archive.md#c53-平台集成模式-fix-修复结果推送远程已归档)。
+> 状态：✅ 设计落盘（C53，2026-08-20 实施）——A 模式（`ContainerExecutor`）fix / fix-and-pr 完成后新增推送修复分支到远程 + 创建 PR 两条链路，落盘 commit `83ec736` / `46b7c15` / `3ed8303`。详细任务验收与 Review Gate 记录见 [todo-archive-phases-m10-c53-c59c61.md §C53](../../plan/archive/todo-archive-phases-m10-c53-c59c61.md#c53-平台集成模式-fix-修复结果推送远程已归档)。
 
 ### 8.1 流程变更（M6 → C53 后的差异）
 

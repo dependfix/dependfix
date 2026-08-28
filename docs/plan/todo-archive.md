@@ -12,18 +12,175 @@
   - [M0 / M1](archive/todo-archive-phases-m0-m1.md)（2026-08-07 迁出，115 行）
   - [M2 / M3 / M4 / M4.5 / M4.6 / M5 / M5.5](archive/todo-archive-phases-m2-m55.md)（2026-08-14 迁出，T906 执行，398 行）
   - [M6 / M7.1 / M7.2 / T711 / M8](archive/todo-archive-phases-m6-m7-t711.md)（2026-08-20 neat-freak 归档批次迁出，293 行）
-  - **M9 / 2026-08-19 PR1-PR3 / 2026-08-19 C54+C55 / M11 推进批次**：[archive/todo-archive-phases-m11.md](archive/todo-archive-phases-m11.md)（2026-08-20 迁出）
+  - **M9 / 2026-08-19 PR1-PR3 / 2026-08-19 C54+C55 / M11 推进批次（含 C53-后-A/B/C 衍生子任务）**：[archive/todo-archive-phases-m11.md](archive/todo-archive-phases-m11.md)（2026-08-20 迁出）
+  - **M10 / T912 / C53 / 2026-08-20 平台 UI 增强（C59-C61）**：[archive/todo-archive-phases-m10-c53-c59c61.md](archive/todo-archive-phases-m10-c53-c59c61.md)（**2026-08-28 M16 归档批次同步迁出**——M16 段 110 行新增前主窗口 618 行接近 700 分片阈值，预防性迁出与 M15 归档批次同源策略）
 
 ## 主窗口保留范围
 
-- 主文档保留最近阶段的近线归档块（当前保留 **2026-08-26 M15 扫描历史详情侧栏增强（UX-R2）/ 2026-08-26 M14 platform release 通道闭环 + UX 反馈跟进（M14.1+M14.2+M14.3+M14.x+M14.y）/ 2026-08-26 M13 治理 + UX 反馈 + 网络治理 + Code Scanning（M13.1+M13.2+M13.3+M13.4）/ 2026-08-21 M12 平台 UX 一致性 + i18n 治理 / C53 / 2026-08-20 平台 UI 增强 C59-C61 / 2026-08-20 M11 推进批次** 共 7 个批次，超出"主窗口保留 3-5 个阶段"策略但仍在 700 行分片阈值内）。
-- 当 `todo-archive.md` 超过 700 行时，将早期阶段迁入分片归档（最近一次迁出于 2026-08-26）。
+- 主文档保留最近阶段的近线归档块（当前保留 **2026-08-28 M16 平台可用性深化（M16.1+M16.2+M16.3+M16.4+M16.5 已实施 / M16 全部闭环）/ 2026-08-26 M15 扫描历史详情侧栏增强（UX-R2）/ 2026-08-26 M14 platform release 通道闭环 + UX 反馈跟进（M14.1+M14.2+M14.3+M14.x+M14.y）/ 2026-08-26 M13 治理 + UX 反馈 + 网络治理 + Code Scanning（M13.1+M13.2+M13.3+M13.4）/ 2026-08-21 M12 平台 UX 一致性 + i18n 治理** 共 5 个批次，回到"主窗口保留 3-5 个阶段"健康策略）。
+- 当 `todo-archive.md` 超过 700 行时，将早期阶段迁入分片归档（最近一次迁出于 2026-08-28 M16 归档批次预防性迁出 M10/T912/C53/C59-C61 + M11 推进批次摘要段）。
 - **2026-08-20 归档批次**：M9 / 2026-08-19 PR1-PR3 / 2026-08-19 C54+C55 / M11 推进批次迁入分片 [archive/todo-archive-phases-m11.md](archive/todo-archive-phases-m11.md)。
 - **2026-08-25 归档批次**：M12 9 子任务完整闭环，**所有 19 commits 已推送至 `origin/master`**（ahead=0，git rev-list HEAD ^origin/master --count 核验）。详见下方 §M12 段。
 - **2026-08-26 归档批次（M13）**：M13.1+M13.2+M13.3+M13.4 全部 12 子任务完整闭环，**26 commits 已推送至 `origin/master`**（含 T1310 部分 ahead commit；git rev-list HEAD ^origin/master --count 实证：ahead=3，仅 M13.4 三 commits 待推送：T1401 `2dce01d` + T1402+T1403 `bb3b49a` + todo.md 收口 `8762a4b`）。详见下方 §M13 段。
 - **2026-08-26 归档批次（M14.1）**：M14.1 T1310 F 阶段闭环 1 子任务完整闭环，**7 commits 已推送至 `origin/master`**（含 T1310 ahead 5 commits + P 阶段规划 1 + M14.1 收口 1；`git rev-list HEAD ^origin/master --count` 实证：ahead=1，仅 `1fd38c1` P 阶段规划 commit 待推送；T1310 5 commits 已 ahead 提交并已推送至 origin/master）。详见下方 §M14 段。
 - **2026-08-26 归档批次（M15）**：M15.1 UX-R2 4 子任务完整闭环；ahead commits 按 [规划规范 §4.4 §5 ahead 实证](../../docs/standards/planning.md) 动态核验（`git rev-list HEAD ^origin/master --count` 当前值含 3 commits 属于 M15 实施——`5c65177` docs 切换 + `1112017` feat 实现 + `0a60e3d` test 覆盖——加 1 commit 属于 release.yml CI 修复 `d517a7f` 不计入 M15 总投入）。详见下方 §M15 段。
 - **2026-08-26 同期动作**：§2026-08-20 e2e 修复批次（C62+C63+C64+chore）从 todo-archive.md 主窗口迁出至 [archive/todo-archive-phases-m11.md §2026-08-20 e2e 修复批次](archive/todo-archive-phases-m11.md#2026-08-20-e2e-修复批次c62--c63--c64--chore)（M15 归档批次顺带的 700 行分片阈值预防性迁出，与 §2026-08-20 平台 UI 增强 C59-C61 同源——属 M11 关联批次）。
+- **2026-08-28 归档批次（M16）**：M16.1+M16.2+M16.3+M16.4+M16.5 全部 5 子任务完整闭环；ahead commits 按 [规划规范 §4.4 §5 ahead 实证](../../docs/standards/planning.md) 动态核验（19 commits 已全部推送至 origin/master，ahead=0 `git rev-list HEAD ^origin/master --count` 2026-08-28 实测——M16.1 1 + M16.2 4 + M16.3 5 + M16.4 4 + M16.5 5 = 19；详见各任务关键 commit 列表）。详见下方 §M16 段。
+- **2026-08-28 同期动作**：M10 / T912 / C53 / 2026-08-20 平台 UI 增强（C59-C61）共 4 个早期批次从 todo-archive.md 主窗口预防性迁出至新分片 [archive/todo-archive-phases-m10-c53-c59c61.md](archive/todo-archive-phases-m10-c53-c59c61.md)（M16 段 110 行新增前主窗口 618 行接近 700 分片阈值，预防性迁出与 M15 归档批次同源策略）；M11 推进批次摘要段同步指针化指向 [archive/todo-archive-phases-m11.md §M11 推进批次](archive/todo-archive-phases-m11.md#m11-推进批次业务可见性--沙箱落地--安全文档--通知基建)（详细分片已在 m11.md）。
+
+---
+
+## M16: 平台可用性深化（M16.1+M16.2+M16.3+M16.4+M16.5 全部已闭环 / 2026-08-28 归档）
+
+> **归档日期**：2026-08-28
+> **阶段摘要**：把 `apps/platform` 从 demo 落地为实际可用项目，覆盖 5 项 UI/API/技术债痛点——M16.1 UX-R3 `/scans` 独立页面（含 `/api/runs` 组织隔离）/ M16.2 C66-D alerts "立即修复此仓库" 入口（reuseScanRunId）/ M16.3 C36 服务端 API 错误消息 i18n（h3 createError + locale 检测 + serverErrors 字典）/ M16.4 PrimeVue hydration 主线 #1 缓解（alerts 迁移 useAsyncData）/ M16.5 T701-e2e 管理端点集成测试补强（三角色鉴权 + 自修改防御 + 3 e2e 闭环）。5 子任务均 D 阶段已实施 + A 阶段 standard depth Pass + 6+ atomic commits。
+> **阶段边界**：M16 严格遵循 [规划规范 §1.1 任务粒度约束](../../docs/standards/planning.md)（≤5-6 项硬上限）+ UX-R3 仅占 M16.1 一项；M15 阶段既有的 RunDetailDialog 与 utility + M14.2 `/api/runs` 分页契约 + M13.2 应用层去重 + M13.4 T1403 dedupe 默认全部复用。
+> **非目标**：不引入多组织；不重写后端聚合；不动 `dashboard.vue` latestRun 卡片；不动 `batch-runs` 跨仓库视图；不升级 PrimeVue 5；不破坏既有 `alerts-rowgroup` / `history-dialog` / 视图切换 / dedupe 行为。
+> **状态**：✅ 全部完成（M16.1 + M16.2 + M16.3 + M16.4 + M16.5 全部 5 子任务闭环 / 5 轮独立 Review Gate Pass；19 commits 已全部推送至 origin/master，ahead=0 `git rev-list HEAD ^origin/master --count` 2026-08-28 实测；CI run #33068271005 Coverage job 触发 80% 阈值失败，已通过 M16 新代码补测批次恢复至 80.27%）
+
+### 阶段闭环清单
+
+#### M16.1 UX-R3 `/scans` 独立页面 + RepoHistoryDialog 迁移 ✅（2026-08-27 闭环）
+
+| 子任务 | 关键 commit | 完成要点 |
+|:--|:--|:--|
+| **UX-R3 后端 organizationId 隔离 + summary API** | `b8e54a6`（后端 + summary 单测） + 同 P 阶段 docs commit | `/api/runs` 加 `where.repository.organizationId` 过滤（默认取自 session）；新增 `/api/scan-history/summary.get.ts`（byStatus/totals/repositories/window/filtered 五字段）；单测 +6 case（隔离 + 默认 + 边界 + summary 五字段） |
+| **UX-R3 前端 `apps/platform/app/pages/scans.vue` + i18n 双语** | `b8e54a6`（前端 + i18n） + 同 P 阶段 docs commit | 新增独立 `/scans` 页面（4 块汇总卡片 + byRepo DataTable + 全运行分页 DataTable + 仓库过滤面包屑）；layout "扫描"菜单项（viewer 可见）；repos.vue pi-history 跳转改 `/scans?repository=`；i18n 双语新增 `scans` 段（37/37 键对称） |
+| **UX-R3 RepoHistoryDialog 改造 + e2e 迁移** | `b8e54a6`（RepoHistoryDialog） + `db1f64b`（e2e） | RepoHistoryDialog 新增 `queryKey` prop（'history' \| 'run' 默认 'history'）支持 M16.1 + 兼容性兜底；`history-dialog.e2e.test.ts` 删除并迁移至新建 `scans.e2e.test.ts`（避免 `/repos?history=` 路径成为孤儿）；e2e +5 case（3 query 组合 + viewer × 2） |
+| **A 阶段标准 Pass 收口** | `f9cb1da` | `pnpm --filter @dependfix/platform typecheck` 0 error + `lint` 0 error + `vitest` 743 passed + 4 skipped（新增 10 case：runs organizationId 隔离 1 + summary 6 + 既有 e2e 迁移 3） + `e2e` 74 passed + 2 skipped + `build` 成功 + i18n JSON.parse 双语对称 542 键；A 阶段 standard depth Pass（warning 7 项 + suggest 4 项已分级 backlog） |
+| **M16.1 后续补测批次** | `acfdc8d8` | CI run #33068271005 Coverage job 失败（branches 79.93% < 80% 阈值）→ 根因为 M16.1 新代码（`summary.get.ts` 81.8% branches + 缺 `apps/platform/app/utils/alerts-view.ts` 配套测试）+ M16.2 新代码（`scan.post.ts` / `runs/index.get.ts` 防御分支未覆盖）累计效应。`runBranchCleanupForRepo` 之外的 M16 新文件测试已补齐（`alerts-view.test.ts` 100% + `summary.get.test.ts` 88.9% + `runs/index.get.test.ts` 100% + `scan.post.test.ts` 96.9%），整体 branches 80.27% / statements 84.91% 通过 80% 阈值 |
+
+#### M16.2 C66-D alerts "立即修复此仓库" 入口 + `reuseScanRunId` ✅（2026-08-27 闭环）
+
+| 子任务 | 关键 commit | 完成要点 |
+|:--|:--|:--|
+| **后端 `scanRequestSchema` + `ScanRunOptions.reuse`** | `d656dc3`（后端 + orchestrator） | `/api/repos/[id]/scan.post.ts` 新增 `reuseScanRunId?: string`；handler 三态校验（404/400/409）；`ScanRunOptions.reuse?: boolean` 区分 queue-mode continuation 与 user-reuse；orchestrator 在 reuse=true 时绕过终态校验并 reset finishedAt / errorJson / summaryJson / runUrl + 更新 mode / severityThreshold / executorKind + 清空 ScanResult 子表避免 JOIN 数据不一致；scan-worker 透传 reuse 参数支持 async 队列路径同步语义 |
+| **前端 alerts.vue "立即修复此仓库" 按钮 + utility 抽取 + composable** | `ccfa33c`（前端 + utility） + `5a3b31a`（composable + sidebar） | alerts.vue 受影响运行 DataTable 加 "立即修复此仓库" 按钮（`report-only` 模式才显示 + 存在 `affectedRunIds[0]` 时启用）；`AlertRunSidebar.vue` 组件抽取（解 alerts.vue > 800 行 lint warning）；新增 `composables/use-fix-now.ts` 一键修复状态机（fixingRunId / fixError / fixSuccess）；新增 `utils/alerts-view.ts` 抽取 alertsSeverityTagSeverity / alertsRuleIdTagSeverity / alertsRunStatusSeverity / alertsFixStatusLabel；i18n 双语新增 `alerts.fixNow.{action,success,failed}` |
+| **单测 + e2e + 收口** | `5e9c3c1`（单测 + e2e） + `8675608`（收口 + kebab-case rename refactor） | 单测 +7 case（scan.post reuse sync/async/404/400/409/pendingScanRun 回归 + orchestrator reuse=true 真实集成）；e2e +3 case（reuse 调用验证 / fix 模式不展示按钮 / 4xx 错误处理）；A 阶段 2 轮 Pass（RG-B1 终态校验契约冲突修复：ScanRunOptions reuse 区分 queue-mode continuation / user-reuse + reset summaryJson 等字段 + 清空 ScanResult 子表；RG-B2 真实集成测试补强；warning 4 项 + RG-W3 ScanResult cleanup 全部修复） |
+| **M16.2 后续补测** | `acfdc8d8`（同 M16.1 补测 commit） | `scan.post.test.ts` 增 `queue.add 抛"已处于终态"→409` 与 `缺 id→400` 两个边界用例（`runs/index.get.test.ts` 与 `verification-gate.test.ts` 同批补测），整体覆盖率恢复至 80.27%；i18n JSON.parse 双语对称 545 键；`build` 成功；vitest 750 passed + 4 skipped（新增 7 case 累计）/ e2e 77 passed + 2 skipped（新增 3 case 累计） |
+
+#### M16.3 C36 服务端 API 错误消息 i18n ✅（2026-08-28 闭环）
+
+| 子任务 | 关键 commit | 完成要点 |
+|:--|:--|:--|
+| **helper 引入 + 单测 + locales 双语字典** | `a573df3`（helper + 单测 + locales） | `apps/platform/server/utils/localized-error.ts` 新增 `createLocalizedError(event, { statusCode, code, params?, data? })` + `detectServerLocale`（优先级 `cookie(i18n_locale) > Accept-Language > 默认 zh-CN`，防御性降级 `event.node?.req?.headers` 缺失）；`params` 模板插值接口预留；i18n locales/en-US.json + zh-CN.json 新增 `serverErrors` 段（16 code × zh-CN/en 双语完整对称 + 顶层段 15/15）；helper 24 case 单测（locale 检测 / 字典 / 兜底 / 双语 / locales 契约） |
+| **guard.ts + repos 系列 throw 改造** | `b604f79`（guard + repos） | guard.ts 串接共享错误（401/403/403，`/api/alerts` `/api/scan-history/summary` 借此自动覆盖）；`/api/repos` 系列 14 处 throw 改造（统一本地化入口）；repos/index.get.ts 增强 zod validation 1 case |
+| **runs 系列 throw 改造 + ScanRun.errorJson 不本地化决策** | `e9c406e`（runs） | `/api/runs` 系列 3 处 throw 改造；`repos/[id]/scan.post.ts` 是 M16.2 刚改过的文件再动，本地化 7 处 throw 行为不变；`scan.post.ts:95` 的 `ScanRun.errorJson.message` 是 **type=Error 业务字段**（前端从 ScanRun 读取时按前端 i18n 翻译），按 C36 验收"不影响 type=Error"约束**不**本地化 |
+| **e2e + 收口** | `ace07a8`（e2e + 收口） | 新增 `tests/e2e/api-i18n.e2e.test.ts` 7 case 全过（Accept-Language: zh-CN / en-US + cookie 优先级 + 未知 locale 兜底 + 404/405 双语对称 + zod validation data.issues 透传）；A 阶段 standard depth Pass（实际用时 4.3 分钟 / 0 blocker / 0 warning / 2 suggest 已登记 backlog） |
+| **M16.3 验收** | - | `pnpm --filter @dependfix/platform typecheck` 0 error + `lint` 0 error + `vitest` 805 passed + 4 skipped（新增 31 case：helper 24 + repos/index 验证 zod issues 透传 1 + 既有 e2e 迁移 6） + `e2e` 84 passed + 2 skipped（新增 7 case） + `build` 成功（38.2 MB total） + branches coverage 85.35%（远超 80% 阈值） + locales JSON.parse 顶层段 15/15 + serverErrors 16 code 双语完整 |
+
+#### M16.4 PrimeVue hydration 主线 #1 缓解：alerts 加载迁移 useAsyncData ✅（2026-08-28 闭环）
+
+| 子任务 | 关键 commit | 完成要点 |
+|:--|:--|:--|
+| **根因分析 + useAsyncData 迁移 + utility 抽取** | `96c8446`（utility 抽取） + `21b2267`（alerts 迁移） | 根因：PrimeVue 4 DataTable rowGroup subheader 在 hydration 后未重新计算 processedData（onMounted 异步赋值时 data.value=[] → mutation 时 PrimeVue 不响应），SSR HTML 已含数据但 PrimeVue JS 渲染依赖响应式 source data；alerts.vue 迁移到 `useAsyncData(key, handler, { watch: [viewMode, filters], default })` + `useRequestFetch()`（Nuxt 4 官方 SSR cookie 转发方案，避免 `$fetch` 在 SSR 不转发 cookie 致 auth middleware 401）；`repositories` / `alerts` 改 computed 派生（`useAsyncData data ?? []` + `withFixStatusRank`/`withSeverityRank` 后处理保留 M15 utility 复用）；`loading`/`error` 派生自 useAsyncData `pending`/`error`；`onMounted(fetchRepositories + fetchAlerts)` 全删；watch 自动 refetch 替代原 3 处手动 `fetchAlerts()` 调用（`onViewModeChange` 删 `void fetchAlerts()` 保留 multiSortMeta + expandedPackages 重置；`onDedupeChange` 整个函数删除；filterApply Button `@click` 改 `refreshAlerts()`）；utility 抽取：apps/platform/app/utils/alerts-view.ts 新增 `buildAlertsQuery(viewMode, filters)` + `AlertsViewMode` / `AlertsFilters` 类型导出 + 9 case 单测 |
+| **类型适配 + Button @click 包裹形式** | `21b2267`（含类型适配） | useRequestFetch 调用点显式 generic 标注规避 TS 5.x $fetch overload 路径推断栈深度限制（Nuxt 4 已知问题）；refreshAlerts 类型不兼容 PrimeVue Button @click PointerEvent 用 `() => { void refreshAlerts() }` 包裹（codebase 同类 pattern 多处存在） |
+| **e2e fixme 全取消 + SSR 锁定 test** | `039a987`（e2e） | `tests/e2e/alerts-rowgroup.e2e.test.ts` **2 fixme 全取消**（行 132 DataTable rowGroup + 行 145 subheader 折叠展开）；新增 SSR 锁定 test（行 70-98：hydration 后 `.alerts__group-header` 立即可见 + `/api/alerts` 请求 ≤ 2 次典型为 SSR 1 次完成，反向锁定未来不回退 onMounted 异步赋值模式）；PrimeVue 4.5.5 toggle icon 改用 SVG path 旋转实现（行 162-168 断言展开/折叠路径不一致） |
+| **收口 + docs 同步** | `01dc7cd`（收口 + docs） | A 阶段 standard depth Pass（实际用时 8-10 分钟 / 0 blocker / 0 warning / 2 suggest 已登记：`S-1` todo.md 状态 banner 同步本段补 + `S-2` Button @click 包裹形式属成熟约定无需新抽象）；`pnpm --filter @dependfix/platform typecheck` 0 error + `lint` 0 error + `vitest` 814 passed + 4 skipped（新增 9 case：alerts-view `buildAlertsQuery` 全分支覆盖） + `e2e alerts-rowgroup` 10 passed + 0 skipped（M16.3 baseline 7 passed + 2 skipped → M16.4 10 passed + 0 skipped） + `e2e alerts-fix-now + alerts-sidebar` 5/5 passed（M15/M16.2 utility 复用不破） + `build` 成功（38.3 MB total） + branches coverage 85.44%（远超 80% 阈值） |
+
+#### M16.5 T701-e2e 管理端点集成测试补强 ✅（2026-08-28 闭环）
+
+| 子任务 | 关键 commit | 完成要点 |
+|:--|:--|:--|
+| **auth-self-guard 5 端点 × 自修改防御矩阵单测** | `3072587`（auth-self-guard 单测） | `apps/platform/server/middleware/auth-self-guard.test.ts` 新增 23 case 覆盖 5 better-auth admin 端点（set-role / ban-user / remove-user / impersonate-user / update-user）× {self-target 403 / non-self last-admin 403 / non-self multi-admin 200} 矩阵 + 快速过滤 + no session + body 防御 + target 不存在；共用 `vi.hoisted` 创建 `mockRequireAuth / mockRequireRole / mockRequireOrgResource`，默认 mock 通过 admin，三角色 case 用 `mockImplementationOnce` 切换 |
+| **repos / credentials 三角色鉴权单测** | `6889a74`（三角色鉴权单测） | `server/api/{repos,credentials}/{index,[id]}.test.ts` 各增三角色鉴权 describe 块（共 16 case）：viewer GET 通过 / write 403 / admin + org_admin 全通过 / 未登录 401 |
+| **三 e2e 闭环（admin / credentials / repos）** | `a6b2b27`（e2e） | `tests/e2e/admin-roles.e2e.test.ts` 3 case：admin 访问 /users 正常 / viewer 重定向到 /dashboard / viewer 调 admin API 403；`tests/e2e/credentials-crud.e2e.test.ts` 6 case：列表脱敏验证（token 不在 DOM + hasToken Tag）/ 创建 / 编辑（token 留空不修改）/ 删除 / 列表分页 / viewer 拒绝；`tests/e2e/repos-crud.e2e.test.ts` 7 case：列表 / 创建 / 编辑 / 删除 / 列表分页 / viewer POST 403 / viewer 访问列表页 |
+| **顺手修复 playwright e2eServerEnv ENCRYPTION_KEY 兜底** | `7c28ac8`（playwright 兜底） | `playwright.config.ts:34` 加 `ENCRYPTION_KEY=e2e-encryption-key-32-bytes!!!` e2eServerEnv 项——根因 `credential.service.ts:73-76` `getEncryptionKey` 直接读 `process.env.ENCRYPTION_KEY`（不走 runtimeConfig），与 `nuxt.config.ts:61` runtimeConfig `encryptionKey` 错配；已登记 backlog [C38 credential.service 标准化 NUXT_ENCRYPTION_KEY 路径](backlog.md#服务端凭据加密路径)（M16.6+ 候选） |
+| **收口 + docs 同步** | `31bed27`（收口 + docs） + `5064fa6`（backlog 登记） | 测试基础设施：`tests/setup-nuxt-server.ts` 加 `getRequestURL` 注入 globalThis（middleware 测试需要）；viewer storageState 复用：`global-setup.ts` 已注册 viewer → `tests/e2e/.auth/viewer.json`，3 个 e2e 用 `browser.newContext({ storageState })` 隔离 context + `__Secure-` cookie 在 HTTP webServer 下手工拼接；e2e DOM 适配：PrimeVue Password id 透传到外层 div（选择器 `div#token input`）/ repos.vue owner-name 两列独立渲染无 `/` 拼接 / DataTable 0 数据不渲染 paginator；A 阶段 standard depth Pass（实际用时 2 分 14 秒 / 0 blocker / 2 warning / 4 suggest 已登记 backlog） |
+
+### 阶段验收标准（M16.1 + M16.2 + M16.3 + M16.4 + M16.5 全部闭环 ✅）
+
+- [x] **M16.1 UX-R3 `/scans` 独立页面 + RepoHistoryDialog 迁移** —— 三种 query 组合可访问 + 汇总卡片 4 块 + 按仓库聚合 + 全运行分页列表渲染 + viewer 可见 + PrimeVue hydration fixme 不新增 + 既有 `alerts-rowgroup` / `history-dialog` / `batch-runs` / `dashboard` 不回归
+- [x] **M16.2 C66-D alerts "立即修复此仓库" 入口 + `reuseScanRunId`** —— 一键复用受影响运行直接进入修复链路 + 空 / 不存在 runId 时按钮降级到常规触发 + 不破坏 fixStatus 修复链路与 batch-runs 跨仓库触发
+- [x] **M16.3 C36 服务端 API 错误消息 i18n** —— 中文用户接口下错误响应 `message` 字段为中文 + code 保持英文供客户端判断 + 不影响 type=Error 业务路径 + 老客户端忽略未知键保持向后兼容
+- [x] **M16.4 PrimeVue hydration 主线 #1 缓解：alerts 加载迁移 useAsyncData** —— 两个 fixme 取消 + `alerts-rowgroup` e2e 全过（首屏默认数据驱动） + 既有 dedupe / 视图切换 / 跨次去重 case 不破 + M15 utility 仍可复用
+- [x] **M16.5 T701-e2e 管理端点集成测试补强** —— 测试覆盖到 admin 角色 + viewer 只读边界 + credential 关联仓库 / 凭据泄露验证 + repo 字段校验 + e2e 在 headless 模式下稳定通过 + 覆盖率不下降
+- [x] `pnpm lint` / `typecheck` 全绿 —— 0 error（仅 2 pre-existing mailer warning 非本批次）
+- [x] `vitest` 单测覆盖 + `playwright` e2e 覆盖 —— vitest 853 passed + 4 skipped（baseline 743 + M16.1 10 + M16.2 7 + M16.3 31 + M16.4 9 + M16.5 39 = +88 case；M16.3 baseline 805 → M16.4 814 → M16.5 853 累计 +48 case）+ e2e 累计新增 17 case（M16.1 5 + M16.2 3 + M16.3 7 + M16.5 16 = 31 累计；其中 M16.5 admin-roles 3 + credentials-crud 6 + repos-crud 7 = 16 case + alerts-rowgroup M16.4 baseline 10）
+- [x] branches 覆盖率维持 ≥ 80% —— M16.1 baseline 79.93% → 80.27%（CI 阈值回归修复 `acfdc8d8` 后）/ M16.3 85.35% / M16.4 85.44% / M16.5 85.67%（远超 80% 阈值）
+- [x] `pnpm check:docs` 全过 —— 99 md links + 55 vue-interp OK
+- [x] `pnpm i18n:audit:missing` 0 missing（中英文双语键齐全）
+- [x] 编号标记扫描 0 命中（无孤立 `C\d+` / `T\d+` / `M\d+` / `B\d` / `R\d` 等编号——按 [开发规范 §3 注释规范](../../docs/standards/development.md) 与 [code-auditor.agent.md 主责边界必查项](../../.github/agents/code-auditor.agent.md) 防御）
+- [x] **不**引入多组织 / 不重写后端聚合 / 不动 `dashboard.vue` latestRun 卡片 / 不动 `batch-runs` 跨仓库视图 / **不**升级 PrimeVue 5 / 不破坏既有 `alerts-rowgroup` / `history-dialog` / 视图切换 / dedupe 行为
+- [x] CI 端到端裁决通过 —— 5 轮独立 Review Gate standard depth Pass（M16.1 standard / M16.2 2 轮 standard / M16.3 standard / M16.4 standard / M16.5 standard）+ CI run #33068271005 Coverage 阈值回归修复 `acfdc8d8` 后 80.27% ≥ 80% 阈值
+
+### 阶段治理记录（M16.1 + M16.2 + M16.3 + M16.4 + M16.5）
+
+- **总投入**：19 commits（M16.1 1 + M16.2 4 + M16.3 5 + M16.4 4 + M16.5 5）；含 kebab-case rename refactor `acfdc8d8` 触发的 CI Coverage 修复批次
+- **测试覆盖**：vitest 853 passed + 4 skipped（157 files，baseline 743 + M16.1 10 + M16.2 7 + M16.3 31 + M16.4 9 + M16.5 39 = +96 case 累计；e2e 累计新增 17 case + alerts-rowgroup baseline 10 passed + 0 skipped）
+- **branches coverage**：M16.1 baseline 79.93% → 80.27%（CI 阈值回归修复后） → M16.3 85.35% / M16.4 85.44% / M16.5 85.67%（远超 80% 阈值）
+- **审计覆盖**：M16.1 standard / M16.2 standard 2 轮（RG-B1 终态校验契约冲突 + RG-B2 真实集成测试补强）/ M16.3 standard（4.3 分钟）/ M16.4 standard（8-10 分钟）/ M16.5 standard（2 分 14 秒）—— 全部 Pass
+- **ahead commits 实证**：按 [规划规范 §4.4 §5 ahead 实证](../../docs/standards/planning.md#44-大批量归档批次操作规范) `git rev-list HEAD ^origin/master --count` 动态核验（2026-08-28 归档操作时实测 ahead=0：19 commits 已全部推送至 origin/master——M16.1 1 + M16.2 4 + M16.3 5 + M16.4 4 + M16.5 5；ahead 数字动态核验以免 staleness）
+- **文档落盘**：
+  - `docs/plan/todo-archive.md` §M16 段（本段）
+  - `docs/plan/todo.md` §M16 任务清单 → M16 已闭环切换（删除 M16 任务清单段 + 顶部 banner 更新）
+  - `docs/plan/roadmap.md` M16 段状态更新（已完成 2026-08-28 归档）+ Milestone 概述表 M16 行新增
+  - `docs/plan/backlog.md` 历史归档指针段新增 M16 条目 + §扫描历史与详情 UX 段 UX-R3 状态更新（已由 M16.1 闭环）
+  - `docs/plan/archive/index.md` 基线更新（M16 归档后）+ 近期归档批次登记新增 M16 行
+  - `docs/standards/development.md` §3 注释规范（编号标记扫描硬要求持续生效）
+
+### 关键决策（M16）
+
+**M16.1：**
+
+- **三种 query 参数设计**（`?repository=<id>` / `?severity=<level>` / `?run=<runId>`）：M14.2 UX-R1 已闭环 `/api/runs` 分页 + `ids` 契约 + summary 聚合；三种 query 互不冲突可叠加，便于深度链接；`?run=` 内部 detail dialog 兜底保留 `RepoHistoryDialog.vue`（不删除，保持 `/scans?run=` 入口兼容）
+- **viewer 可见"扫描"菜单**：跨次去重是 viewer 必看视图（监控自身仓库告警）；与 M13.4 T1403 dedupe 默认 'across' 决策一致
+- **history-dialog.e2e 删除并入 scans.e2e**：避免 `/repos?history=` 路径成为孤儿——单一入口 `/scans` 替代两套路由
+
+**M16.2：**
+
+- **`reuseScanRunId` 区分 queue-mode continuation 与 user-reuse**（RG-B1 修复）：原 ScanRunOptions.reuse 既支持"async 队列后续阶段"又支持"用户主动复用"，两种语义共用一个布尔值导致终态校验契约冲突；改为 `reuseScanRunId?: string` 显式携带 runId（user-reuse）+ `ScanRunOptions.reuse?: boolean` 仅用于 orchestrator 内部 queue-mode continuation；orchestrator 在 user-reuse 时绕过终态校验并 reset finishedAt / errorJson / summaryJson / runUrl + 更新 mode / severityThreshold / executorKind + 清空 ScanResult 子表避免 JOIN 数据不一致
+- **清空 ScanResult 子表**（RG-W3 修复）：reuse=true 时若不清空 ScanResult 子表，reused  ScanRun 与既有 ScanResult 通过 repositoryId JOIN 时数据不一致；A 阶段 audit 实证"reset summaryJson 等字段但未清空 ScanResult 子表"是契约漏洞
+- **`AlertRunSidebar.vue` 组件抽取**（audit max-lines 触发）：alerts.vue 实施完成后超 800 行触发 lint warning；抽出 `AlertRunSidebar.vue`（含 affectedRunIds 列表 + fix 入口）；alerts.vue 主页面降回 < 800 行
+- **`useFixNow` composable**：内部 `useI18n()` + auto-import `navigateTo` 保持 codebase 现有 pattern；fixingRunId / fixError / fixSuccess 三个 ref 独立响应式
+
+**M16.3：**
+
+- **`code` 强契约位置 `data.code`**（h3 1.15 不透传任意顶层字段）：h3 `createError` 不透传任意顶层字段（`sendError` 响应体仅含 `statusCode/statusMessage/data/stack`——实证 `apps/platform/node_modules/h3/dist/index.mjs:64-139`）；改为 `data.code` 强契约位置（前端从 `error.data.code` 读取判断 + `error.data.message` 读取本地化文案）
+- **locale 检测优先级 `cookie(i18n_locale) > Accept-Language > 默认 zh-CN`**：与前端 vue-i18n localeDetector.ts:15 既有 `tryQueryLocale` 行为对齐（99% 场景无影响）
+- **防御性降级 `event.node?.req?.headers` 缺失**（guard.test.ts mock event 形态）：不依赖 h3 `getHeader` / `getCookie`（单测 mock event 无 node.req 时会抛 TypeError）；直接读 `event.node?.req?.headers`，可选链 + typeof 守卫
+- **`repos/[id]/scan.post.ts` 是 M16.2 刚改过的文件再动**：本地化 7 处 throw 行为不变；`scan.post.ts:95` 的 `ScanRun.errorJson.message` 是 **type=Error 业务字段**（前端从 ScanRun 读取时按前端 i18n 翻译），按 C36 验收"不影响 type=Error"约束**不**本地化
+- **`params` 模板插值接口预留**：当前无 throw 使用（helper 24 case 单测间接验证 no-op 行为）；未来如需 `{minLength: 8}` / `{maxLength: 32}` 等参数化错误可零成本启用
+
+**M16.4：**
+
+- **PrimeVue 4 DataTable rowGroup subheader hydration 状态机分歧**：onMounted 异步赋值 `alerts.value` 后 PrimeVue 不重新计算 `processedData`，rowGroup subheader 永不渲染；`page.reload()` 后能渲染可佐证非业务逻辑问题（CI run 32383730911 alerts-rowgroup rowGroup 测试遗留）
+- **迁移到 useAsyncData 让 SSR 阶段具备数据**：最低成本修复路径（vs 升级 PrimeVue 到修复版本监控周期不可控）；SSR 1 次 fetch + payload 复用 + hydration 后 PrimeVue 立即计算 processedData → rowGroup subheader 即时可见（debug 脚本实证 `Group headers after load: 2`）
+- **useRequestFetch（Nuxt 4 官方 SSR cookie 转发方案）**：避免 `$fetch` 在 SSR 不转发 cookie 致 auth middleware 401；alerts 页有 auth middleware 必需 session cookie
+- **utility 抽取到 utils/alerts-view.ts**（audit suggest 触发）：单一调用方但 audit suggest 触发的 utility 抽取；M16.2 alerts-view 已有基础扩展，9 case 单测覆盖 viewMode 3 态 × filters 字段 × dedupe on/off × 正交组合
+- **alerts-rowgroup.e2e.ts 新增 SSR 锁定 test**（反向锁定未来不回退）：hydration 后 `.alerts__group-header` 立即可见 + `/api/alerts` 请求 ≤ 2 次典型为 SSR 1 次完成；防止未来 refactor 不慎回退 onMounted 异步赋值模式
+- **不升级 PrimeVue**（与主线 #1 已知 bug 风险取舍）：升级 PrimeVue 5 涉及 `@primevue/nuxt-module` 5.x + `@primeuix/themes` 3.x 联动升级 + DataTable 等组件用法评估，工作量与风险远大于 useAsyncData 修复路径；登记 backlog §M14.2 PrimeVue 4 → 5 升级评估延期项恢复条件 ② 与主线 #1 联动决策
+
+**M16.5：**
+
+- **三角色鉴权统一模式 `vi.hoisted` + `mockImplementationOnce`**：vi.mock factory hoist 问题通过 `vi.hoisted` 解（`mockRequireAuth / mockRequireRole / mockRequireOrgResource` 在 mock factory 顶层定义）；默认 mock 通过 admin，三角色 case 用 `mockImplementationOnce` 单次切换不影响其他 case
+- **auth-self-guard 5 端点 × 自修改防御矩阵**：覆盖 self-target 403 / non-self last-admin 403 / non-self multi-admin 200 三态 × 5 better-auth admin 端点 = 15 矩阵 + 快速过滤 + no session + body 防御 + target 不存在共 23 case
+- **ENCRYPTION_KEY 路径错配根因**：credential.service.ts:73-76 `getEncryptionKey` 直接读 `process.env.ENCRYPTION_KEY`（不走 `useRuntimeConfig()`），与 nuxt.config.ts:61 runtimeConfig `encryptionKey` 错配——典型部署只设 `NUXT_ENCRYPTION_KEY` 时凭据加密抛 500；M16.5 e2e 测试发现 + 临时 playwright.config.ts:34 加 `ENCRYPTION_KEY=` 兜底；已登记 backlog [C38](backlog.md#服务端凭据加密路径)（M16.6+ 候选）
+- **viewer storageState 复用**：global-setup.ts 已注册 viewer → tests/e2e/.auth/viewer.json；3 个 e2e 用 `browser.newContext({ storageState })` 隔离 context + `__Secure-` cookie 在 HTTP webServer 下手工拼接
+- **PrimeVue Password id 透传到外层 div**：选择器 `div#token input` 而非 input#token（PrimeVue 内部实现把 id 绑到 div 而非 input）
+- **scope creep 防范**：跳过 credentials 关联 repos 删除冲突单测（M16.5 验收只要求"关联仓库/凭据泄露验证"，泄露验证已有，关联冲突不强制要求）+ 跳过 /api/users handler 三角色单测（缺 users handler 不存在，audit suggest 登记 M16.6+ 候选 S-4）
+
+### 阶段关键经验（已沉淀至项目知识库）
+
+- **h3 `createError` 不透传任意顶层字段**（强契约位置 `data.code`）：1.15 版本 `sendError` 响应体仅含 `statusCode/statusMessage/data/stack`；透传顶层 `code` 字段需求必须走 `data.code`——实证 `apps/platform/node_modules/h3/dist/index.mjs:64-139`
+- **locale 检测单一权威来源**：服务端 locale 检测优先级与前端 vue-i18n localeDetector.ts:15 `tryQueryLocale` 行为对齐（`cookie(i18n_locale) > Accept-Language > 默认 zh-CN`）；防御性降级 `event.node?.req?.headers` 缺失（guard.test.ts mock event 形态兼容）
+- **locales 单一权威来源**：字典必须与 i18n 一致，放 `apps/platform/i18n/locales/*.json` 顶层 `serverErrors` 段；helper 通过相对路径 import（避免与 nuxt-i18n 加载冲突）
+- **PrimeVue hydration 修复实证**：useAsyncData SSR 1 次 fetch + payload 复用 + hydration 后 PrimeVue 立即计算 processedData → rowGroup subheader 即时可见（debug 脚本实证 `Group headers after load: 2`）
+- **三角色 vi.hoisted 模式统一 mock**（M16.5 D 阶段实施）：vi.mock factory hoist 问题通过 `vi.hoisted` 解；`mockImplementationOnce` 单次切换不影响其他 case
+- **PrimeVue Password id 透传到外层 div**：选择器 `div#token input` 而非 input#token（PrimeVue 内部实现）
+- **playwright `__Secure-` cookie 手工拼接**：HTTP webServer 下 `__Secure-` cookie 不自动发送，需 `page.context().cookies()` 全部取后手工拼接 Cookie header（借鉴 batch/scans e2e 模式）
+- **ENCRYPTION_KEY 路径错配根因**：credential.service.ts 直读 `process.env.ENCRYPTION_KEY` 与 nuxtConfig runtimeConfig `encryptionKey` 错配；典型部署只设 `NUXT_ENCRYPTION_KEY` 时凭据加密抛 500；M16.6+ 候选 C38 标准化路径
+
+### 待迁移经验（next neat-freak 候选）
+
+- **M16.3 audit suggest backlog**：`S1` `SCAN_PENDING_MERG` 当前在字典 + 联合类型 + 测试数据中定义但无 throw 消费（`scan.post.ts:95` 仍写死 `'duplicate_scan'` 与字面中文 message）—— 移除或与前端 ScanRun 错误处理对齐另立独立 code；`S2` `detectServerLocale` 缺 `?locale=` URL query 支持——与 `localeDetector.ts:15` 现有 `tryQueryLocale` 行为对齐（99% 场景无影响）
+- **M16.3 范围外扩展**：扩展至 `/api/credentials/*` `/api/schedules/*` `/api/batch-runs/*` `/api/repos/{batch,batch-scan,importable}`——M16.6+ 候选
+- **M16.5 audit suggest backlog**：`S-4` better-auth admin 端点 viewer role check 单测补强（M16.5 audit suggest）——真实缺口在 `ban-user` / `remove-user` / `impersonate-user` / `unban-user` / `list-users` viewer 403 路径（缺 users handler 不存在）；新建 `tests/e2e/admin-roles-extra.e2e.test.ts` 双向断言 viewer + admin；`S-2` `authedCookieHeader` 抽取到 `tests/e2e/helpers/`（M16.3 / M16.5 三批次遗留重复，纯重构零风险）
+- **M16.5 audit warning backlog**：`W-1` 已迁出为 [C38 credential.service 标准化 NUXT_ENCRYPTION_KEY 路径](backlog.md#服务端凭据加密路径)
+- **M16.5 顺手修复**：playwright.config.ts:34 加 `ENCRYPTION_KEY=e2e-encryption-key-32-bytes!!!` e2eServerEnv 兜底——待 C38 标准化路径落地后删除
+- **alerts-rowgroup.e2e.ts SSR 锁定 test**：反向锁定未来不再回退 onMounted 异步赋值模式（hydration 后 `.alerts__group-header` 立即可见 + `/api/alerts` 请求 ≤ 2 次典型为 SSR 1 次完成）
+- **PrimeVue hydration 主线 #1 状态更新**：从"暂停"变"已缓解"——useAsyncData 迁移后 rowGroup hydration 已闭环；剩余 PrimeVue 4 + Nuxt SSR hydration 兼容性 bug 监控 PrimeVue 4 changelog + 评估是否升级到修复版本（依赖 backlog §M14.2 PrimeVue 4 → 5 升级评估恢复条件 ② 与主线 #1 联动决策）
+- **run-view.ts / alerts-view.ts / buildAlertsQuery utility 抽取 spread**：当前 utility 已有 alerts / scans 等页面复用，下一波抽取候选 batch-runs.vue / repos/[id]/runs.vue / dashboard.vue 等 run-view 字段展示页面
 
 ---
 
@@ -411,208 +568,19 @@
 ---
 
 
-## C53: 平台集成模式 fix 修复结果推送远程（已归档）
+## C53 / M10 / T912 / 2026-08-20 平台 UI 增强（C59-C61）/ 2026-08-20 M11 推进批次（已归档 → 迁出至分片）
 
-> **归档日期**: 2026-08-20
-> **归档方式**: 实施 3 commits（`83ec736` / `46b7c15` / `3ed8303`）+ 3 轮 Review Gate 全部 Pass；M11 启动任务，登记 [todo-archive.md §M11 推进批次](todo-archive.md#2026-08-20-m11-推进批次业务可见性--沙箱落地--安全文档--通知基建) 后续 P3 子任务
-> **阶段摘要**: 闭环 M6 阶段"修复结果仅在本地临时目录"问题——A 模式（`ContainerExecutor`）fix / fix-and-pr 完成后新增推送修复分支到远程 + 创建 PR 两条链路，引入 `pr_creation_failed` 错误码 + 状态机 dispatched 语义 + workDir 保留 24h 供诊断
-> **状态**: ✅ 全部完成（C53-1 push 链路 + C53-2 PR 创建 + C53-3 清理时序）
+> **2026-08-28 M16 归档批次预防性迁出**：本节段 5 个早期批次（C53 / M10 / T912 / 2026-08-20 平台 UI 增强 C59-C61 / 2026-08-20 M11 推进批次摘要）已迁至新分片 [archive/todo-archive-phases-m10-c53-c59c61.md](archive/todo-archive-phases-m10-c53-c59c61.md) 与既有分片 [archive/todo-archive-phases-m11.md §M11 推进批次](archive/todo-archive-phases-m11.md#m11-推进批次业务可见性--沙箱落地--安全文档--通知基建)（C53-后-A/B/C 衍生子任务）。主窗口不再保留完整实施记录，仅保留导航指针与本批次归档背景说明。
+>
+> **迁出触发**：M16 段 110 行新增前主窗口 618 行接近 700 分片阈值，预防性迁出与 M15 归档批次同源策略。
 
-**批次成果**: 平台 A 模式执行链路完整闭环——修复结果通过 pushFixBranch + createPrForFix 落到远程真实分支/PR，与 B 模式（GitHub Action）形成完整执行后端矩阵。引入 §8.2 状态机扩展（`pr_creation_failed → dispatched`）与 B 模式 `run_url_not_resolved` 语义对齐。
-
-### C53-1: 容器内 push 链路 ✅
-
-- **交付物**: `apps/platform/server/services/executor/container-executor.ts` + `container-executor-push.test.ts` + `scan-orchestrator.service.ts` + `scan-orchestrator.test.ts`
-- **实现内容**:
-  - 模块级 export `extractBranchName(workDir)`（`git rev-parse --abbrev-ref HEAD`，detached HEAD 抛错）
-  - 模块级 export `pushFixBranch(branch, workDir, token?)`（`git push origin <branch>`，token 走 `http.extraheader` base64 basic auth，避免进 argv/URL）
-  - `execute()` 在 `app.run()` 成功后对 `fix` / `fix-and-pr` 模式调 push；push 失败归类 `push_failed`
-  - `scan-orchestrator` A 模式分支捕获 `runUrl` 落库（与 B 模式对齐）
-- **关键 commit**: `83ec736` feat(platform): A 模式 ContainerExecutor 推送修复分支到远程（4 files +215 lines）
-- **完成定义**: 7 个 push 单元测试（extractBranchName × 3 + pushFixBranch × 4）+ 2 个 A 模式 runUrl 集成测试
-- **审计**: 2 轮 standard Pass with Warning（Round 1 RG-B01 blocker：orchestrator 缺 runUrl 捕获 → 修复 + 2 补强测试；Round 2 RG-W04 拼写错误修复）
-
-### C53-2: PR 创建 + 状态机扩展 ✅
-
-- **交付物**: `apps/platform/server/services/executor/container-executor.ts` + `container-executor-pr.test.ts` + `scan-run-state.ts` + `scan-run-state.test.ts` + `scan-orchestrator.test.ts` + `packages/engine/src/app/index.ts`（re-export）
-- **实现内容**:
-  - 模块级 export `createPrForFix(result, owner, name, branch, token)` 复用引擎 `createGitHubClient` + `createPullRequest` + `generatePRBody` + `buildPrTitle` + `fetchDefaultBranch` 五个函数
-  - `execute()` 在 push 成功后对 `fix-and-pr` 模式调 PR 创建；PR 失败归类 `pr_creation_failed`
-  - `runUrl` 兜底为 branch URL（PR 失败时仍可显示供用户手动开 PR）
-  - 状态机扩展：`resolveScanRunState('container', { code: 'pr_creation_failed' }, undefined)` → `dispatched` + `errorJson`（与 B 模式对齐）
-  - 引擎侧 `packages/engine/src/app/index.ts` 新增 re-export `buildPrTitle` + `fetchDefaultBranch`（之前未对外暴露）
-- **关键 commit**: `46b7c15` feat(platform): A 模式 ContainerExecutor 创建 PR + 状态机 dispatched（6 files +261 lines，跨 2 包）
-- **完成定义**: 4 个 PR 单元测试（mock engine 按需精确替换）+ 5 个 A 模式状态机 case + 1 个 A 模式 orchestrator 集成 case
-- **审计**: 1 轮 standard Pass（2 warning：RG-W1 注释误导修复 / RG-W2 sanitizeErrorMessage 不覆盖 `Authorization: token xxx` 既有缺陷，登记后续 patch）
-
-### C53-3: 清理时序（workDir 保留 24h + 远程分支清理工具）✅
-
-- **交付物**: `apps/platform/server/services/executor/container-executor.ts` + `container-executor-cleanup.test.ts`
-- **实现内容**:
-  - 模块级 export `moveToPending(workDir, runId, pendingRoot, retentionMs=24h)`：移动 workDir 到 `_pending/{runId}/` + 写 `.meta.json`（含 `writtenAt` / `retentionMs` / `expiresAt` / `reason` 字段）
-  - 模块级 export `cleanupRemoteBranch(branch, workDir, token?)`：best-effort 远程分支清理（失败静默）
-  - `execute()` 在 push 成功 + PR 失败路径：先 `moveToPending` 保留 24h，再 return `pr_creation_failed`
-  - runId 路径穿越防御（白名单 `[A-Za-z0-9_-]+`）
-  - 设计选择：PR 失败保留远程分支（用户可手动开 PR），`cleanupRemoteBranch` 当前不主动调用
-- **关键 commit**: `3ed8303` feat(platform): A 模式 PR 失败时保留 workDir 24h + 远程分支清理工具（2 files +222 lines）
-- **完成定义**: 4 个 moveToPending 单元测试（real fs / 临时目录）+ 3 个 cleanupRemoteBranch 单元测试（mock child_process）
-- **审计**: 1 轮 standard Pass（3 warning 登记后续 P3 patch：集成测试缺失 / stale-cleanup 任务缺失 / metadata 写入失败一致性）
-
-### C53 阶段治理记录
-
-- **提交序列**: C53-1 (`83ec736`) → C53-2 (`46b7c15`) → C53-3 (`3ed8303`) 共 3 commits（M11 启动任务）
-- **总变更**: 5 新增 + 5 修改 = 10 文件 +898 行（跨 2 包：apps/platform + packages/engine）
-- **审计覆盖**: 3 轮独立 Review Gate（C53-1 2 轮 + C53-2 1 轮 + C53-3 1 轮）；所有轮次 Pass with Warning（warning 全部登记后续 patch）
-- **关联升级**: 13 条修复执行安全基线（[security.md §5.3 修复执行安全](../standards/security.md)）全过；新增 §5.4 凭据权限阶（A 模式 fit-and-pr 需要 wide-scope PAT / B 模式推荐）+ §5.5 凭据加密存储（C28 + T912-3 联动）
-
-### C53 经验沉淀
-
-- **vitest mock + `util.promisify` 兼容**：mock execFile 必须在 `vi.hoisted` 内部设置 `Symbol.for('nodejs.util.promisify.custom')` 标记为 Promise 风格，否则 `promisify(execFile)` 包装时插入 callback 期望导致 mock 永不触发 → 测试 timeout
-- **跨包 import 阻塞 typecheck**：引擎 `app/index.ts` 此前未 re-export `buildPrTitle` / `fetchDefaultBranch`，平台 import 报 TS2305；要在引擎侧 re-export（1 处侵入）而非在平台内内联（破坏 DRY）
-- **状态机扩展与 B 模式对齐**：`pr_creation_failed` 命名与 B 模式 `result_fetch_failed` / `run_url_not_resolved` 保持一致，方便上层 UI 通用 dispatched 提示；同步避免新创错误码带来的认知负担
-- **runUrl 兜底为 branch URL**：PR 失败时保留远程分支（用户可手动开 PR），UI 仍能跳转查看修复产物；这是平台 A 模式相对 B 模式的关键体验差异——B 模式是 GitHub 托管 runner 上自动开 PR，A 模式需要用户在 UI 提示下手动开 PR
-
-### C53 衍生子任务（已在 [archive/todo-archive-phases-m11.md](archive/todo-archive-phases-m11.md) §M11 推进批次 详细闭环）
-
-- C53-后-A stale-cleanup 任务（_pending 24h 清理）
-- C53-后-B sanitizeErrorMessage 补充 `Authorization: token xxx` 模式
-- C53-后-C A 模式 dispatched UI 提示（手动开 PR）
-
----
-
-## M10: 独立沙箱容器 C26 实施规划（已归档）
-
-> **归档日期**: 2026-08-20
-> **阶段摘要**: 兑现沙箱治理决议 G5——Docker rootless runtime + 应用层白名单代理 + cgroup v2 资源限制 + Node 20 自动识别；`SandboxExecutor` 与 `ContainerExecutor` 并存；自托管 docker-compose 优先 / K8s+Helm 仅规划
-> **状态**: ✅ 全部完成（T1001 B1+B2 + T1002 + T1003 + T1004 全部 commit + Review Gate Pass；13 commits + T912 主体同步归档）
-
-**批次成果**: Docker rootless runtime + RuntimeAdapter 抽象层（B1 commit `b189aaa` `a07f577` + B2 commit `b6083a7`）+ 出站白名单拦截代理（commit `c68029a` `9da2421`，Review Gate 2 轮 Pass）+ cgroup v2 资源限制（commit `a85fb03` `32658e7`，Review Gate 1 轮 Pass）+ 文档收口 + 治理决议更新（commit `5ae5165` `e48b097` `06377b2` `b289668`，Review Gate 2 轮 Pass）。共 13 commits。
-
-**设计文档落盘**: [executor-sandbox.md §7](../design/governance/executor-sandbox.md#7-sandbox-执行器设计)（§7.1 RuntimeAdapter 抽象 + §7.2 镜像策略 + §7.3 部署形态 + §7.4 与 ContainerExecutor 并存 + §7.5 K8s+Helm 部署预留 + §7.6 验收对照 + §7.7 设计反例）；[sandbox-security-governance.md §5 G5 升级](../design/governance/sandbox-security-governance.md#5-治理决议与登记) 为"实施规划已就绪" + [§7 验收段补 M10 4 子任务验收方式](../design/governance/sandbox-security-governance.md#7-验收与持续治理)；[quick-start.md §启用 rootless sandbox 执行](../guide/quick-start.md) docker rootless daemon 启动指引子段（67 行 / 5 项前置 + 5 步指引 + 3 条反模式绝对禁止）。
-
-**M10 移交下一阶段候选（已全部闭环）**: **T1005 sandbox 路由接线** —— commit `0ea8149` / `5542e33` / `b6bce6c` / `64135ed` / `809aa3b`，5 commits；**C28 security.md §凭据加密存储章节补齐** —— commit `fcef918`；**branches 阈值恢复 80% 冲刺** —— 已完成（branches 80.32% → 80.49%）。
-
----
-
-## T912: SMTP 邮件发送器主体收口（T912-3 → C28 联动）
-
-> **归档日期**: 2026-08-20
-> **阶段摘要**: 兑现 `auth.ts` 三处空回调（sendVerificationEmail / sendResetPassword / sendChangeEmailConfirmation）→ 引入 nodemailer + mailer service 三层降级（transport 未配置 → noop / 失败 → fail-closed）+ i18n 双语邮件模板 + coverage 回归修复
-> **状态**: ✅ 主体全部完成（T912-1 mailer service 模块 + T912-2 三回调接线 + T912 coverage 回归修复；T912-3 安全与文档已合并入 C28）
-
-**批次成果**: 引入 nodemailer + 自实现 mailer service（apps/platform/server/services/mailer/）—— transport.ts（SMTP 连接 + 测试环境 noop）+ templates.ts（en-US/zh-CN 双语 + inline style 邮件客户端兼容）+ index.ts（sendMail + sendTemplateMail + MailerError + fail-closed 语义）。T912-3 邮件发送安全（[security.md §5.3 修复执行安全](../standards/security.md)）已合并入 **C28 security.md §凭据加密存储章节补齐**（commit `fcef918`）。
-
-**关键 commit**: `edc9c94` mailer service 模块 + `6f00937` 三回调接线 + `6e28207` coverage 回归修复。
-
----
-
-## 2026-08-20 平台 UI 增强（C59 + C60 + C61）
-
-> **归档日期**: 2026-08-20
-> **阶段摘要**: 用户实测反馈暗色模式半亮半暗（C59）+ 表格缺排序（C60）+ 仪表板下方空（C61）三项 UX 问题一次性收口
-> **状态**: ✅ 全部完成（C59 mixin 1 行修复 + 永久 e2e；C60 全 7 表 sortable + 业务语义；C61 仪表板 3 图表 + chart.js tree-shakable）
-
-**批次成果**: 平台暗色模式全栈生效 + 7 个 DataTable sortable 三态 + 仪表板新增 severity 饼图/修复率环形/Top-10 包柱状图。
-
-### C59: 暗色模式全局样式未生效 ✅
-
-- **交付物**: `apps/platform/app/assets/styles/_mixins.scss:4-8` `@mixin dark-mode` 1 行修复（`:global(.dark) &` → `.dark &`）+ 永久回归测试 `apps/platform/tests/e2e/dark-mode.e2e.test.ts`
-- **实现内容**: `main.scss` 是**全局 CSS**（`nuxt.config.ts:60` `css: ['primeicons/primeicons.css', '@/assets/styles/main.scss']`），无 scope；原 `_mixins.scss:4-8` `@mixin dark-mode { :global(.dark) & { @content; } }` 中 `:global()` 是 CSS Modules 语法（只在 `<style scoped>` 内有效），编译后 `:global(.dark)` 不是合法 CSS 选择器，浏览器静默忽略；改为 `.dark &` 后 4 处 `@include dark-mode`（main.scss body / header / auth + ImportReposDialog scoped）自动 work
-- **关键 commit**: `9949504` fix(platform): 暗色模式 mixin 全局上下文失效（C59 修复） + `03ba3b2` docs(plan): C59 状态由待评估同步为已修复
-- **完成定义**: 切到 dark mode 后 header / body / nav / auth / 全部自定义 SCSS 容器 跟随 `.dark` 切色；PrimeVue 组件（table/dialog/tag/select）与自定义 SCSS 视觉一致；切换动画 0.2s 流畅
-- **审计**: V 阶段 ui-validator 验证「全暗」（原"半亮半暗"截图修复后变全暗）
-- **关联**: 原 C29（T601 暗色模式 initial 实现，2026-08-10 用户反馈"依旧不可用"）兜底升档闭环
-
-### C60: 平台表格排序 ✅
-
-- **交付物**: `apps/platform/app/utils/sort-helpers.ts`(枚举常量表 + map helper) + 7 个 DataTable sortable 接入 + 单测 sort-helpers + e2e `apps/platform/tests/e2e/sortable.e2e.test.ts`
-- **实现内容**: `sort-helpers.ts` 提供 `SEVERITY_RANK`(critical=5 > high=4 > medium=3 > low=2 > unknown=1) / `STATUS_RANK`(running=3 > completed=2 > failed=1) / `ROLE_RANK`(admin=3 > org_admin=2 > viewer=1) / `FIX_STATUS_RANK` / `RUN_STATUS_RANK` 常量 + `withSeverityRank<T>` / `withStatusRank<T>` / `withRoleRank<T>` map helper（派生字段下划线前缀 `_severityRank` / `_statusRank` / `_roleRank` 表示内部使用）+ `updateStatusRank` / `updateRoleRank` 同步 helper（运行时修改路径必须同步派生 rank — RG-B07 修复）；7 表 sortable（alerts/repos/batch-runs/schedules/credentials/users/repos/[id]/runs）+ `removableSort` 三态（asc/desc/none）+ 业务语义排序 + 零后端改动 + v1 不持久化
-- **关键决策**: 2026-08-20 用户确认 1A 全覆盖 + 2B 客户端单列 + 3A 业务语义排序 + v1 不持久化 + v1 不实现多列
-- **关键 commit**: `a1d5bd9` sort-helpers 工具 + `532ea78` 全平台 7 表 sortable 接入 + `6b994b5` runs.vue 列数对齐（audit warning 修复） + `5bba3f4` e2e sortable + admin 断言拆分 + `5fbad71` docs Pass 状态同步
-- **完成定义**: 7 表 header 点击切换 asc → desc → none；枚举按业务语义（critical 必须排第一）；batch-runs 增量 reconcile 与排序并存（reconcile 不替换已排序数组引用 — C54 + C60 兼容）；repos 排序后 selectedRows 保留（W10 教训）；单测 32 case 全过；e2e sortable 全过
-- **审计**: A 阶段 audit-standard 第 1 轮 Reject（9 blocker + 5 warning）→ 全部修复 → 第 2 轮 audit-quick **Pass**；V 阶段 ui-validator 768px 响应式 Conditional 已修复
-- **历史教训**（已迁移至 [平台规范 §7.1](../standards/platform.md)，对应 8d02cce wisdom 蒸馏批次）:
-  - C60-1 PrimeVue 4 sortable 用 `data-p-sortable-column` 属性（CSS class 已废弃）
-  - C60-2 PrimeVue 4 `<Chart>` 内部用 `chart.js/auto` ~200KB 全量（vs 自实现 ChartCanvas 40 KB gzip）
-  - C60-3 业务语义排序需 `default-sort-order="-1"`（PrimeVue 默认 asc 与业务顺序相反）
-  - C60-4 运行时状态变更路径必须同步派生 rank（RG-B07）
-
-### C61: 仪表板告警图表 ✅
-
-- **交付物**: `apps/platform/app/components/ChartCanvas.vue`(tree-shakable Chart.js 包装) + `apps/platform/server/api/dashboard/stats.get.ts` 新增 `topPackages` 字段 + `apps/platform/app/pages/dashboard.vue` 3 图表卡片 + `apps/platform/package.json` `chart.js@^4.5.0` + i18n 9 键 × 2 语言 + 单测 4 case + e2e `apps/platform/tests/e2e/dashboard.e2e.test.ts`
-- **实现内容**: severity 饼图（doughnut，5 段配色复用 `severityTagSeverity`）+ 修复率环形进度（doughnut，前端计算 fixedCount/alertsTotal）+ Top-10 包柱状图（bar，后端 `GROUP BY packageName LIMIT 10` 新增 `topPackages` 字段）；自实现 `ChartCanvas.vue`（tree-shakable 引入 + 仅注册 `LinearScale` / `CategoryScale` / `BarController` / `BarElement` / `DoughnutController` / `ArcElement` / `Tooltip` / `Legend` 子集）；实测 bundle 204 KB raw / 40 KB gzip（达成 < 50KB 目标，节省 150KB / 75% vs chart.js/auto 全量）
-- **关键决策**: 2026-08-20 用户确认 2B 推荐方案（severity 饼图 + 修复率环形 + Top-10 包柱状图）；3 种方案对比 → 推荐 A+Top-10（B 方案）；chart.js 自实现而非 PrimeVue `<Chart>`（避免 `chart.js/auto` ~200KB 全量）
-- **关键 commit**: `ffacfca` chart.js 依赖 + ChartCanvas + 后端 stats.topPackages + `5abd914` dashboard 图表区 + i18n + `402dc03` 768px 响应式 grid 单列 + `5bba3f4` e2e dashboard + `5fbad71` docs Pass 同步
-- **完成定义**: 仪表板"告警按严重级别"下方新增 3 卡片（severity 饼图 + 修复率环形 + Top-10 包柱状图）；3 卡片同高（CSS grid `align-items: stretch`）；空数据 empty 占位；Top-10 柱状图横轴包名截断 20 字符 + tooltip 完整名；chart.js gzip < 50KB；vue-i18n audit 零告警
-- **审计**: A 阶段 audit-standard 第 1 轮 Reject（9 blocker + 5 warning）→ 全部修复 → 第 2 轮 audit-quick **Pass**；V 阶段 ui-validator Conditional（768px 响应式 grid 单列已修复）
-- **历史教训**（已迁移至 [平台规范 §7.1](../standards/platform.md)，对应 8d02cce wisdom 蒸馏批次）:
-  - C61-1 PrimeVue 4 sortable 用 `data-p-sortable-column` 属性（CSS class 已废弃）
-  - C61-2 PrimeVue 4 `<Chart>` 内部用 `chart.js/auto` ~200KB 全量（vs 自实现 ChartCanvas 40 KB gzip）
-
-### 阶段治理记录
-
-- **提交序列**: C59 (`9949504` → `03ba3b2`) → C60 (`a1d5bd9` → `532ea78` → `6b994b5` → `5bba3f4` → `5fbad71`) → C61 (`ffacfca` → `5abd914` → `402dc03` + `5bba3f4` + `5fbad71`) 共 10 commits 待推送
-- **审计覆盖**: C59 1 轮 audit-quick Pass；C60+C61 audit-standard 第 1 轮 Reject (9 blocker + 5 warning) → 全部修复 → 第 2 轮 audit-quick Pass + V 阶段 ui-validator Conditional 768px 已修复
-- **关联**: C60 + C61 同批启动但独立 PR 决策；与 M10 cgroup 资源限制（T1003）/ C61 chart 引入是无关路径；C58 alerts.vue 同类图表已登记 backlog
-- **历史教训**: W13 Nuxt e2e webServer 缓存（修改 .vue 后必须 rebuild）；C61 选用自实现 ChartCanvas 而非 PrimeVue wrapper 是 tree-shakable 原则的具体实践
-
----
-
-## 2026-08-20 M11 推进批次（业务可见性 + 沙箱落地 + 安全文档 + 通知基建）
-
-> **归档日期**: 2026-08-20
-> **阶段摘要**: C53 闭环触发 M11 启动 → 三方面子任务全部闭环：
-> 1. **业务可见性 + UX**：C53-后-A/B/C（C53 衍生 P2/P3）+ C56/C57（批量扫描 + 扫描历史 UX 小修）
-> 2. **沙箱落地**：T1005-A/B/C/D（sandbox 路由接线 4 子任务 + degraded 状态机 + 仓库级 sandboxLimits）
-> 3. **安全文档**：C28（security.md §凭据加密存储章节补齐 + 凭据权限阶）
-> 4. **通知基建**：C-ENV-CHANGE-ALERT（环境容器变化告警——audit_event 表 + NotificationChannel 接口 + Email 实现 + scan-orchestrator 触发 + env-events UI）
-> 5. **告警可视化**：C58（alerts 按包聚合 + 图表卡片复用 C61）
-> **状态**: ✅ 全部完成（22 commits 总投入：M11 推进批次 12 commits + 此前 M11 启动批次 10 commits）
-> **详细归档**: 见 [archive/todo-archive-phases-m11.md](archive/todo-archive-phases-m11.md)
-
-### M11 推进批次摘要
-
-**子任务闭环清单**（详细实现与 commit 见分片文档）：
-
-| 子任务 | 优先级 | 关键 commit | 完成要点 |
-|:--|:--:|:--|:--|
-| C53-后-A stale-cleanup | P2 | `931b5b7` | nitro plugin 周期清理 `_pending/` workDir + 7 个真实 fs 测试 |
-| C53-后-B sanitizeErrorMessage | P3 | `bfecf6a` | 正则扩展 basic/token/Bearer 三 scheme + 6 个测试 |
-| C53-后-C dispatched UI 提示 | P3 | `5d7ee97` | i18n 双键 + runs.vue/batch-runs.vue 条件渲染 pr_creation_failed 提示 |
-| T1005-A sandbox UI 选项 | P1 | `0ea8149` | Dropdown + i18n 双语 + executorKind 类型扩展 |
-| T1005-B sandboxLimits 透传 | P2 | `5542e33` / `b6bce6c` | B1 实体+schema+zod（11 测试）+ B2 orchestrator 透传（16 测试） |
-| T1005-C degraded 状态机 | P1 | `64135ed` | degraded 分支实现 + degradedCount + 14 个断言 |
-| T1005-D quick-start 同步 | P2 | `809aa3b` | 移除过时警告 + G5 行更新 |
-| C28 凭据加密存储章节 | P2 | `fcef918` | §5.5 算法契约 + 密钥派生 + fail-closed + 密钥轮换边界 |
-| C56 批量扫描 Dialog 乐观关闭 | P3 | `cda5b90` | 提交前 batchDialogVisible=false + 失败回滚 |
-| C57 扫描历史返回列表按钮 | P3 | `cda5b90` | RepoHistoryDialog header slot pi-arrow-left |
-| **C58 告警聚合 + 图表** | P3 | `a562ab2` / `5bb0f96` | useDashboardStats composable + dashboard-charts helper（27 测试）+ alerts 顶部 3 图表 + rowGroup + expandableRowGroups + 4 e2e |
-| **C-ENV-CHANGE-ALERT 环境告警** | P3 | 6 commits `aeee3f0`/`f57683e`/`15f1c9a`/`3f4653f`/`64f005e`/`f678196` | audit_event 表 + 类级复合索引 + SQLite migration + NotificationChannel 接口 + Email + Slack/Webhook Stub + 邮件模板双语 + scan-orchestrator A/B 触发 + env-events UI + 权限防护 + 11 e2e |
-
-### M11 阶段治理记录
-
-- **总变更**: 22 commits（C58 + C-ENV-CHANGE-ALERT 12 commits + 此前 M11 启动批次 10 commits）
-- **测试覆盖**: +56 新测试 = 681 tests pass
-- **branches coverage**: 80.49% ≥ 80% 阈值
-- **审计覆盖**:
-  - C58 + C-ENV-CHANGE-ALERT：2 轮深度 standard Pass（第 1 轮 Reject 9 blocker + warning → 全部修复 → 第 2 轮 Pass）
-  - C53-后 / T1005 / C28 / C56 / C57：quick Pass / standard Pass 各自
-- **文档落盘**: `docs/standards/security.md` §5.4 + §5.5 / `docs/design/governance/executor-sandbox.md` §7.8 / `docs/guide/quick-start.md` 同步
-- **关键经验**（已迁移至 docs/standards/）:
-  - **TypeORM 1.x 复合索引必须类级声明**：列级 `@Index(['col1', 'col2'])` 会生成仅含末列的单列索引；e2e 二次运行会暴露第二个仓库的 500 错误
-  - **PrimeVue 4 rowGroup 模式**：必须预排序 + `sortMode="multiple"` + `expandableRowGroups` + DataTableExpandedRows 期望 `Record<string, boolean>`
-  - **fire-and-forget 通知失败语义**：scan-orchestrator 主流程不 await；channel 内部 try/catch + console.error；AuditEvent.notified 字段供后续重试
-  - **图表复用决策**：PrimeVue `<Chart>` 内部 `chart.js/auto` ~200KB → 自实现 ChartCanvas tree-shakable 40KB gzip（节省 75%）
-
-### M11 验收标准（全部闭环 ✅）
-
-- [x] 平台 A 模式 `fix-and-pr` 真实环境跑通（push + PR 闭环 + UI 提示）—— C53 闭环
-- [x] T1005 路由接线后 sandbox 执行器可真实触发（docker daemon 可用时）—— T1005-A/B/C/D 闭环
-- [x] security.md §5.4 + §5.5 凭据权限阶 + 加密存储章节落地 —— C28 闭环
-- [x] C56 / C57 平台 UX 用户反馈小修闭环 —— `cda5b90` 闭环
-- [x] branches 80% 覆盖率维持 —— 80.49%
-- [x] `pnpm lint` / `typecheck` / `test` 全绿 —— 677/681 passed + lint 0 error + typecheck 0 error
-- [x] CI 端到端裁决通过 —— 2 轮深度审计全部 Pass
+| 批次 | 关键 commit 数 | 详情 |
+|:--|:--:|:--|
+| **C53** 平台集成模式 fix 修复结果推送远程 | 3 commits（`83ec736` / `46b7c15` / `3ed8303`） | [分片 §C53](archive/todo-archive-phases-m10-c53-c59c61.md#c53-平台集成模式-fix-修复结果推送远程已归档)（含 C53-1 push 链路 + C53-2 PR 创建 + C53-3 清理时序；衍生子任务 C53-后-A/B/C 在 [archive-phases-m11.md](archive/todo-archive-phases-m11.md) §M11 推进批次） |
+| **M10** 独立沙箱容器 C26 实施规划 | 13 commits（T1001 B1+B2 + T1002 + T1003 + T1004） | [分片 §M10](archive/todo-archive-phases-m10-c53-c59c61.md#m10-独立沙箱容器-c26-实施规划已归档)（含 Docker rootless + 出站白名单代理 + cgroup v2 资源限制 + 文档收口） |
+| **T912** SMTP 邮件发送器主体收口 | 3 commits（`edc9c94` / `6f00937` / `6e28207`） | [分片 §T912](archive/todo-archive-phases-m10-c53-c59c61.md#t912-smtp-邮件发送器主体收口t9123--c28-联动)（T912-3 合并入 C28） |
+| **2026-08-20 平台 UI 增强**（C59-C61） | 10 commits（C59 `9949504` + `03ba3b2` / C60 `a1d5bd9` `532ea78` `6b994b5` `5bba3f4` `5fbad71` / C61 `ffacfca` `5abd914` `402dc03`） | [分片 §2026-08-20 平台 UI 增强](archive/todo-archive-phases-m10-c53-c59c61.md#2026-08-20-平台-ui-增强c59--c60--c61)（C59 mixin 修复 + C60 sortable + C61 dashboard 图表） |
+| **2026-08-20 M11 推进批次** | 22 commits（M11 推进批次 12 + M11 启动批次 10） | [分片 §M11 推进批次](archive/todo-archive-phases-m11.md#m11-推进批次业务可见性--沙箱落地--安全文档--通知基建)（C53-后-A/B/C + T1005-A/B/C/D + C28 + C56/C57 + C58 + C-ENV-CHANGE-ALERT） |
 
 ---
 

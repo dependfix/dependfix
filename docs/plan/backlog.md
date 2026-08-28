@@ -16,6 +16,8 @@
 > 共 2 条（2026-08-25 neat-freak 归档批次整理：原 §M11 子任务闭环清单 / §M4 增强候选中"已闭环"段全部迁出 backlog；§M2 / §M5.5 / §M6 / §MCP / §M7 阶段分段已闭环，已迁出 backlog 仅保留历史归档指针）。
 > **2026-08-26 闭环整理**：UX-R1 扫描历史分页 已由 M14.2 闭环，从 §扫描历史与详情 UX 主条目迁出至历史归档指针段 + [todo-archive.md §M14.2](todo-archive.md#m14-platform-release-通道闭环--ux-反馈跟进m14123xy-全部已闭环)；C66-B 数据层去重 / C66-C alerts UI Identifiers 列已在 M13 阶段由 T1306 / T1402 应用层方案覆盖，不再实施（保留决策记录）。
 > **2026-08-26 闭环整理（M15 归档批次）**：UX-R2 扫描历史详情 Sidebar 增强 已由 M15.1 闭环（4 子任务：A + B + C + D 全部闭环；ahead 3 commits 待用户推送：`5c65177` P 阶段 docs + `1112017` feat 实施 + `0a60e3d` test 覆盖）；从 §扫描历史与详情 UX 主条目段迁出至历史归档指针段 + [todo-archive.md §M15](todo-archive.md#m15-扫描历史详情侧栏增强ux-r2已闭环)。§2026-08-20 e2e 修复批次（C62+C63+C64+chore）同时从 todo-archive.md 主窗口迁出至 [archive/todo-archive-phases-m11.md §2026-08-20 e2e 修复批次](archive/todo-archive-phases-m11.md#2026-08-20-e2e-修复批次c62--c63--c64--chore)——主窗口 700 行分片阈值前的预防性迁出。
+>
+> **2026-08-28 闭环整理（M16 归档批次）**：UX-R3 扫描历史独立页面 `/scans` 已由 M16.1 闭环（apps/platform/app/pages/scans.vue + `/api/runs` organizationId 隔离 + `/api/scan-history/summary` + 5 case e2e + 4 块汇总卡片 + viewer 可见）；从 §扫描历史与详情 UX 主条目段 UX-R3 子段迁出至历史归档指针段 + [todo-archive.md §M16](todo-archive.md#m16-平台可用性深化m161--m162--m163--m164--m165-全部已闭环--2026-08-28-归档)。**M16 全部 5 项闭环**：M16.1 UX-R3 `/scans` + M16.2 C66-D alerts "立即修复此仓库" + M16.3 C36 服务端 API 错误消息 i18n + M16.4 PrimeVue hydration 主线 #1 缓解 + M16.5 T701-e2e 管理端点集成测试补强；**19 commits 已全部推送至 origin/master，ahead=0**（M16.1 1 + M16.2 4 + M16.3 5 + M16.4 4 + M16.5 5；含 kebab-case rename refactor `acfdc8d8` 触发的 CI Coverage 修复批次；`git rev-list HEAD ^origin/master --count` 2026-08-28 实测 ahead=0）。**主线 #1 状态更新**：PrimeVue hydration 从"暂停"变"已缓解"——M16.4 useAsyncData 迁移后 rowGroup hydration 已闭环；剩余 PrimeVue 4 + Nuxt SSR hydration 兼容性 bug 监控 PrimeVue 4 changelog + 评估是否升级到修复版本。**M16.5 audit backlog 已登记**：[C38](backlog.md#服务端凭据加密路径) credential.service.ts 改走 `useRuntimeConfig().encryptionKey` + `NUXT_ENCRYPTION_KEY` 标准化（M16.5 W-1）+ [S-2](backlog.md#测试基础设施清理) `authedCookieHeader` 抽取到 `tests/e2e/helpers/`（M16.5 audit suggest）+ [S-4](backlog.md#测试覆盖补强) better-auth admin 端点 viewer role check 单测补强（M16.5 audit suggest）+ M16.3 audit suggest 范围外扩展（`/api/credentials/*` `/api/schedules/*` `/api/batch-runs/*` `/api/repos/{batch,batch-scan,importable}`）——M16.6+ 候选。**同期动作**：M10 / T912 / C53 / 2026-08-20 平台 UI 增强 C59-C61 共 4 个早期批次从 todo-archive.md 主窗口预防性迁出至新分片 [archive/todo-archive-phases-m10-c53-c59c61.md](archive/todo-archive-phases-m10-c53-c59c61.md)——M16 段 110 行新增前主窗口 618 行接近 700 分片阈值，预防性迁出与 M15 归档批次同源策略。
 
 ### 主线 #1：PrimeVue 4 + Nuxt hydration rowGroup known-issue
 
@@ -203,7 +205,7 @@
 
 > 本段为 2026-08-26 用户实测截图反馈触发的扫描历史/详情视图 UX 增强候选；与 C66 平级。原 3 项 UX-R1→R2→R3 中 **UX-R1 已由 M14.2 闭环**（2026-08-26，详见 [todo-archive.md §M14.2](todo-archive.md#m14-platform-release-通道闭环--ux-反馈跟进m14123xy-全部已闭环) + 历史归档指针段）+ **UX-R2 已由 M15 闭环**（2026-08-26，ahead 3 commits 待用户推送，详见 [todo-archive.md §M15](todo-archive.md#m15-扫描历史详情侧栏增强ux-r2已闭环) + 历史归档指针段）；剩余 UX-R3 顺延至 M16（待 P 阶段规划：M16.1 summary API + M16.2 页面骨架 + M16.3 RepoHistoryDialog 迁移），按依赖排序推进。**UX-R2 已从本段主条目迁出**，仅保留 UX-R3 当前候选 + 上文 UX-R1/UX-R2 历史归档指针说明。
 
-- **UX-R3 已上收 M16.1**：候选已迁入 [todo.md §M16 任务清单](todo.md#m16-任务清单) 与 [roadmap.md §M16 详细任务](roadmap.md#m16-平台可用性深化m161--m162--m163--m164--m165-已实施-m16-全部闭环)；按 backlog 维护规则已闭环条目从本段主条目迁出，仅保留历史指针；下一阶段 M16 P 阶段规划已确认（含 /scans 页面 + /api/runs 组织隔离）。
+- **UX-R3 已上收 M16.1（2026-08-28 已闭环）**：候选已由 M16.1 落地（apps/platform/app/pages/scans.vue + `/api/runs` organizationId 隔离 + `/api/scan-history/summary` + 5 case e2e）；详细记录见 [todo-archive.md §M16.1](todo-archive.md#m16-平台可用性深化m161--m162--m163--m164--m165-全部已闭环--2026-08-28-归档) + 历史归档指针段；按 backlog 维护规则已闭环条目从本段主条目迁出，仅保留历史指针；下一阶段 M17+ 候选待启动。
 
 ### 已评估不实现（决策保留于归档段）
 
@@ -211,7 +213,7 @@
 
 - **C1 / C2 / C6 / C7 / C10 / C11 / C12 / C17 / C18 / C19 / C20** —— 详见 [todo-archive.md §M4 治理记录](archive/todo-archive-phases-m2-m55.md#m4-阶段治理记录2026-08-05--2026-08-06) + [§T405 跨线升级显式授权](archive/todo-archive-phases-m2-m55.md)
 - **C22 GitHub App 认证** —— 当前仅 PAT（classic / fine-grained），org 场景痛点由用户触发再评估；详见 [todo-archive.md §M6 / T602 凭据管理](archive/todo-archive-phases-m6-m7-t711.md#m6-最小平台-mvp已归档)
-- **C26 / T1005 / C28 / C29 / C53** —— M10 沙箱 / C26 / T1005 / C28 / C29 / C53 已全部闭环；详见 [todo-archive.md §M10](todo-archive.md#m10-独立沙箱容器-c26-实施规划已归档) + [§C53](todo-archive.md#c53-平台集成模式-fix-修复结果推送远程已归档)
+- **C26 / T1005 / C28 / C29 / C53** —— M10 沙箱 / C26 / T1005 / C28 / C29 / C53 已全部闭环；详见 [archive/todo-archive-phases-m10-c53-c59c61.md §M10](archive/todo-archive-phases-m10-c53-c59c61.md#m10-独立沙箱容器-c26-实施规划已归档) + [§C53](archive/todo-archive-phases-m10-c53-c59c61.md#c53-平台集成模式-fix-修复结果推送远程已归档)
 - **C25 / C27 / C31 / C32** —— M6 B 模式结果回填 + MCP 能力补充 P1/P2 已闭环；详见 [todo-archive.md §M6](archive/todo-archive-phases-m6-m7-t711.md#m6-最小平台-mvp已归档) + [§MCP 能力补充](todo-archive.md)
 - **C46-C61** —— 2026-08-19~20 平台 UX/可用性闭环批次汇总 10 项 + 3 个 PR + 3 个独立 fix 全部归档；详见 [archive/todo-archive-phases-m11.md](archive/todo-archive-phases-m11.md)
 
@@ -237,6 +239,7 @@
 
 ### 已闭环阶段
 
+- **M16**（2026-08-28，平台可用性深化 M16.1+M16.2+M16.3+M16.4+M16.5）：[todo-archive.md §M16](todo-archive.md#m16-平台可用性深化m161--m162--m163--m164--m165-全部已闭环--2026-08-28-归档)
 - **M15**（2026-08-26，UX-R2）：[todo-archive.md §M15](todo-archive.md#m15-扫描历史详情侧栏增强ux-r2已闭环)
 - **M14**（2026-08-26，T1310 + UX-R1 + neat-freak + 依赖批量治理）：[todo-archive.md §M14](todo-archive.md#m14-platform-release-通道闭环--ux-反馈跟进m14123xy-全部已闭环)
 - **M13**（2026-08-26，治理 + UX 反馈 + 网络治理 + Code Scanning）：[todo-archive.md §M13](todo-archive.md#m13-治理--ux-反馈--网络治理--code-scanning已闭环)
@@ -247,7 +250,7 @@
 
 ### 已闭环特定批次
 
-- **C53 平台集成模式 fix 修复结果推送远程**：详见 [todo-archive.md §C53](todo-archive.md#c53-平台集成模式-fix-修复结果推送远程已归档)
+- **C53 平台集成模式 fix 修复结果推送远程**：详见 [archive/todo-archive-phases-m10-c53-c59c61.md §C53](archive/todo-archive-phases-m10-c53-c59c61.md#c53-平台集成模式-fix-修复结果推送远程已归档)
 - **C16 规则分类配置化**（2026-08-26 闭环于 M13.3 T1307）：详见 [todo-archive.md §M13.3 T1307](todo-archive.md#m13-治理--ux-反馈--网络治理--code-scanning已闭环)
 - **C21 code-quality-findings 接入**（2026-08-26 闭环于 M13.3 T1308）：详见 [todo-archive.md §M13.3 T1308](todo-archive.md#m13-治理--ux-反馈--网络治理--code-scanning已闭环)
 - **MCP 能力补充 C31 / C32**：详见 [archive/todo-archive-phases-m2-m55.md §M5.5 / T508](archive/todo-archive-phases-m2-m55.md#m55-skill-编排cli-先行已归档)

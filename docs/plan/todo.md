@@ -2,64 +2,20 @@
 
 > **范围约定**：本文件**仅**登记当前阶段活跃待办——已闭环项归档于 [todo-archive.md](todo-archive.md)；未排期/延期/远期登记于 [backlog.md](backlog.md)；已知边界与 known-issue 登记于对应阶段归档段或 backlog（**不在此处复述**）。
 
-## 当前阶段：M16 平台可用性深化（5 项候选上收）P 阶段规划完成；M16.1 + M16.2 + M16.3 + M16.4 + M16.5 已实施（M16 全部闭环）
+## 当前阶段：M16 已闭环归档（2026-08-28）— 当前无活跃实施阶段，等待用户启动 M17+ 候选
 
-> **目标**：把 `apps/platform` 从 demo 落地为实际可用项目，覆盖 5 项用户痛点、技术债和能力扩展，形成开发/修复闭环。
+> **状态**：M16 平台可用性深化（M16.1 UX-R3 `/scans` + M16.2 C66-D alerts "立即修复此仓库" + M16.3 C36 服务端 API 错误消息 i18n + M16.4 PrimeVue hydration 主线 #1 缓解 + M16.5 T701-e2e 管理端点集成测试补强）已全部闭环归档。
 >
-> **阶段边界**：M16 由 5 项原子任务组成，按 [规划规范 §1.1 任务粒度约束](../standards/planning.md)（≤5-6 项硬上限）收敛；UX-R3 只占其中一项（M16.1）。
+> **详细实施记录 / commit 引用 / 治理记录 / 关键决策 / 关键经验 / 待迁移经验**：见 [todo-archive.md §M16](todo-archive.md#m16-平台可用性深化m161--m162--m163--m164--m165-全部已闭环--2026-08-28-归档)。
 >
-> **依赖**：M15.1（已闭环）的 `RunDetailDialog` 与 utility；M14.2（已闭环）的 `/api/runs` 分页 + `ids` 契约；M13.2（已闭环）的应用层去重。
+> **M16.1-M16.5 总投入**：19 commits（M16.1 1 + M16.2 4 + M16.3 5 + M16.4 4 + M16.5 5），含 kebab-case rename refactor `acfdc8d8` 触发的 CI Coverage 修复批次；**ahead=0 已全部推送至 origin/master**（`git rev-list HEAD ^origin/master --count` 2026-08-28 归档操作时实测 ahead=0）。ahead commits 按 [规划规范 §4.4 §5 ahead 实证](../standards/planning.md#44-大批量归档批次操作规范) 动态核验。
 >
-> **非目标**：不引入多组织；不重写后端聚合；不动 `dashboard.vue` latestRun 卡片；不动 `batch-runs` 跨仓库视图；不升级 PrimeVue 5；不破坏既有 `alerts-rowgroup` / `history-dialog` / 视图切换 / dedupe 行为。
->
-> **状态**：M16.1 UX-R3 `/scans` + M16.2 C66-D "立即修复此仓库" + M16.3 C36 服务端 API 错误消息 i18n + M16.4 PrimeVue hydration 主线 #1 缓解 + M16.5 T701-e2e 管理端点集成测试补强 D 阶段均已实施 + A 阶段 code-auditor Pass + 已提交 master（末尾含 kebab-case rename refactor `acfdc8d8`）；CI run #33068271005 Coverage job 触发 80% 阈值失败，已通过 M16 新代码补测批次恢复至 80.27%（详见各任务 "状态（后续补测）" 段）。**M16 全部 5 项闭环**；后续 backlog 候选见 [todo-archive.md](todo-archive.md) 与 [backlog.md](backlog.md)（C38 ENCRYPTION_KEY 路径错配 / S-4 /api/users 三角色单测 / S-2 authedCookieHeader helpers 抽取）。
-
----
-
-## M16 任务清单
-
-### M16.1 UX-R3 `/scans` 独立页面 + RepoHistoryDialog 迁移
-
-- **优先级**：P1
-- **范围**：新增 `apps/platform/app/pages/scans.vue`；`apps/platform/app/layouts/default.vue` 增加 "扫描"菜单项（viewer 可见）；`apps/platform/app/pages/repos.vue` 的 pi-history 按钮 `navigateTo` 改为 `'/scans?repository=' + id`；`apps/platform/server/api/runs/index.get.ts` 补 `organizationId` 过滤；新增 `apps/platform/server/api/scan-history/summary.get.ts` + 同名测试；i18n 双语新增 `scans` 段；新建 `apps/platform/tests/e2e/scans.e2e.test.ts` 覆盖三种 query 组合；`RepoHistoryDialog.vue` 保留为 `/scans?run=` 内部 detail dialog 兜底。
-- **验收**：三种 query 组合可访问、汇总卡片 4 块 + 按仓库聚合 + 全运行分页列表渲染、viewer 可见、PrimeVue hydration fixme 不新增；既有 `alerts-rowgroup` / `history-dialog` / `batch-runs` / `dashboard` 不回归。
-- **关联**：依赖 M14.2 UX-R1 分页 + M15.1 RunDetailDialog + M15 utility 抽取。
-- **状态**（2026-08-27）：D 阶段已实施。`vitest` 743 passed + 4 skipped（新增 10 case：runs organizationId 隔离 1 + summary 6 + 既有 e2e 迁移）；`e2e` 74 passed + 2 skipped（新建 5 case：3 query 组合 + viewer × 2）；A 阶段 code-auditor standard depth Pass（warning 7 项 + suggest 4 项已分级 backlog）；`build` 成功；i18n JSON.parse 双语对称（542 键）。`history-dialog.e2e.test.ts` 删除并迁移至 `scans.e2e.test.ts`（避免 `/repos?history=` 路径成为孤儿）。`RepoHistoryDialog.vue` 新增 `queryKey` prop（'history' | 'run' 默认 'history'）支持 M16.1 + 兼容性。
-- **状态**（2026-08-27 后续补测）：CI run #33068271005 Coverage job 失败（branches 79.93% < 80% 阈值）→ 根因为 M16.1 新代码（`summary.get.ts` 81.8% branches + 缺 `apps/platform/app/utils/alerts-view.ts` 配套测试）+ M16.2 新代码（`scan.post.ts` / `runs/index.get.ts` 防御分支未覆盖）累计效应。`runBranchCleanupForRepo` 之外的 M16 新文件测试已补齐（`alerts-view.test.ts` 100% + `summary.get.test.ts` 88.9% + `runs/index.get.test.ts` 100% + `scan.post.test.ts` 96.9%），整体 branches 80.27% / statements 84.91% 通过 80% 阈值。教训：详见 [经验归档 §四十二](../design/governance/experience-archive.md)。
-
-### M16.2 C66-D alerts "立即修复此仓库" 入口 + `reuseScanRunId`
-
-- **优先级**：P1
-- **范围**：`apps/platform/server/api/repos/[id]/scan.post.ts` 新增 `reuseScanRunId` 参数跳过重拉；`apps/platform/app/pages/alerts.vue` 新增 "立即修复此仓库" 按钮（存在 `affectedRunIds[0]` 时启用）；i18n 双语 + 单测 + e2e。
-- **验收**：可一键复用受影响运行直接进入修复链路；空 / 不存在 runId 时按钮降级到常规触发；不破坏 fixStatus 修复链路与 batch-runs 跨仓库触发。
-- **状态**（2026-08-27）：D 阶段已实施。`vitest` 750 passed + 4 skipped（新增 7 case：scan.post reuse sync/async/404/400/409/pendingScanRun 回归 + orchestrator reuse=true 真实集成）；`e2e` 77 passed + 2 skipped（新建 3 case：reuse 调用 / fix 模式不展示按钮 / 4xx 错误处理）；A 阶段 code-auditor 2 轮 Pass（RG-B1 终态校验契约冲突修复：ScanRunOptions reuse 区分 queue-mode continuation / user-reuse + reset summaryJson 等字段 + 清空 ScanResult 子表；RG-B2 真实集成测试补强；warning 4 项 + RG-W3 ScanResult cleanup 全部修复）；`build` 成功；i18n JSON.parse 双语对称 545 键。Orchestrator `reuse: true` 时清空 `ScanResult` 子表避免 JOIN 数据不一致；scan-worker 透传 `reuse` 参数支持 async 队列路径同步语义；`useFixNow` composable 内部 `useI18n()` + auto-import `navigateTo` 保持 codebase 现有 pattern；`AlertRunSidebar.vue` 组件抽取解 alerts.vue > 800 行 lint warning。
-- **状态**（2026-08-27 后续补测）：同 M16.1 补测批次（commit `acfdc8d8` 是 M16.2 末尾的 kebab-case rename refactor，其 CI 触发了 Coverage 失败），`scan.post.test.ts` 增 `queue.add 抛"已处于终态"→409` 与 `缺 id→400` 两个边界用例（`runs/index.get.test.ts` 与 `verification-gate.test.ts` 同批补测），整体覆盖率恢复至 80.27%。
-
-### M16.3 C36 服务端 API 错误消息 i18n
-
-- **优先级**：P2
-- **范围**：在 `apps/platform/server/utils/` 引入 `createLocalizedError` helper（`code` 维持英文 + `message` 按 `Accept-Language` 翻译）；覆盖 `/api/repos` / `/api/alerts` / `/api/runs` / `/api/scan-history/summary` 关键错误；i18n `serverErrors.<code>` 双语 + 单测验证错误响应含 `message` 键 + e2e 验证 locale 切换。
-- **验收**：中文用户接口下错误响应 `message` 字段为中文；code 保持英文供客户端判断；不影响 type=Error 业务路径；老客户端忽略未知键保持向后兼容。
-- **状态**（2026-08-28）：D 阶段已实施。`vitest` 805 passed + 4 skipped（新增 31 case：helper 24 + repos/index 验证 zod issues 透传 1 + 既有 e2e 迁移）；`e2e` 新增 `api-i18n.e2e.test.ts` 7 case 全过（Accept-Language: zh-CN / en-US + cookie 优先级 + 未知 locale 兜底 + 404/405 双语对称 + zod validation data.issues 透传）；A 阶段 code-auditor standard depth Pass（实际用时 4.3 分钟；0 blocker / 0 warning / 2 suggest 已登记 backlog）；`build` 成功；locales JSON.parse 双语对称（顶层段 15/15 + serverErrors 16 code × zh-CN/en 双语完整）。`code` 强契约位置：`data.code`（h3 1.15 `createError` 不透传任意顶层字段，`sendError` 响应体仅含 `statusCode/statusMessage/data/stack`——实证 `apps/platform/node_modules/h3/dist/index.mjs:64-139`）；helper `detectServerLocale` 优先级 `cookie(i18n_locale) > Accept-Language > 默认 zh-CN`，防御性降级 `event.node?.req?.headers` 缺失（guard.test.ts mock event 形态）；`repos/[id]/scan.post.ts` 是 M16.2 刚改过的文件再动，本地化 7 处 throw 行为不变（reuseScanRunId 复用路径 throw 翻译成对应 code + data.code 不变）；`scan.post.ts:95` 的 `ScanRun.errorJson.message` 是 **type=Error 业务字段**（前端从 ScanRun 读取时按前端 i18n 翻译），按 C36 验收"不影响 type=Error"约束**不**本地化；范围外扩展登记 backlog（`S1` `SCAN_PENDING_MERGED` 死代码 / `S2` helper 缺 `?locale=` URL query 支持 / 其他端点 `credentials/schedules/batch-runs/repos-{batch,batch-scan,importable}` 未覆盖）。
-- **backlog（audit suggest + 范围外扩展）**：
-  - `S1`：`SCAN_PENDING_MERGED` 当前在字典 + 联合类型 + 测试数据中定义但无 throw 消费（`scan.post.ts:95` 仍写死 `'duplicate_scan'` 与字面中文 message）——移除或与前端 ScanRun 错误处理对齐另立独立 code
-  - `S2`：`detectServerLocale` 缺 `?locale=` URL query 支持——与 `localeDetector.ts:15` 现有 `tryQueryLocale` 行为对齐（99% 场景无影响）
-  - 范围外：扩展至 `/api/credentials/*` `/api/schedules/*` `/api/batch-runs/*` `/api/repos/{batch,batch-scan,importable}`——M16.6+ 候选
-  - zod issue.message 暂未本地化——第三方 zod schema message 翻译需单独迭代
-
-### M16.4 PrimeVue hydration 主线 #1 缓解：alerts 加载迁移 useAsyncData
-
-- **优先级**：P1
-- **范围**：把 `apps/platform/app/pages/alerts.vue` 的 `onMounted(fetchRepositories/fetchAlerts)` 迁移到 `useAsyncData`（SSR 阶段具备数据，hydration 后 PrimeVue 不再出现 rowGroup subheader 不渲染问题）；保留 viewMode / dedupe / filters 等交互逻辑；解除 `apps/platform/tests/e2e/alerts-rowgroup.e2e.test.ts` 两个 `.fixme`；新增 Playwright / vitest 锁定 hydration 行为。
-- **验收**：两个 fixme 取消；`alerts-rowgroup` e2e 全过（首屏默认数据驱动）；既有 dedupe / 视图切换 / 跨次去重 case 不破；M15 utility 仍可复用。
-- **状态**（2026-08-28）：D 阶段已实施。`vitest` 814 passed + 4 skipped（新增 9 case：alerts-view `buildAlertsQuery` 全分支覆盖）；`e2e alerts-rowgroup` 10 passed + 0 skipped（M16.3 baseline 7 passed + 2 skipped → M16.4 10 passed + 0 skipped；**2 fixme 全取消** + 新增 SSR 锁定 test）；`e2e alerts-fix-now + alerts-sidebar` 5/5 passed（M15/M16.2 utility 复用不破）；A 阶段 code-auditor standard depth Pass（实际用时 8-10 分钟，0 blocker / 0 warning / 2 suggest 已登记：`S-1` todo.md 状态 banner 同步本段补 / `S-2` Button @click 包裹形式属成熟约定无需新抽象）；`build` 成功；branches coverage 85.44%（远超 80% 阈值）。**PrimeVue hydration 修复实证**：useAsyncData SSR 1 次 fetch + payload 复用 + hydration 后 PrimeVue 立即计算 processedData → rowGroup subheader 即时可见（debug 脚本实证 `Group headers after load: 2`）。**alerts-rowgroup.e2e.ts 新增 SSR 锁定 test**：反向锁定未来不再回退 onMounted 异步赋值模式（hydration 后 `.alerts__group-header` 立即可见 + `/api/alerts` 请求 ≤ 2 次典型为 SSR 1 次完成）。**useRequestFetch**：Nuxt 4 官方 SSR cookie 转发方案（避免 `$fetch` 在 SSR 不转发 cookie 致 auth middleware 401；alerts 页有 auth middleware 必需 session cookie）。**watch: [viewMode, filters] 自动 refetch**：替代原 `onViewModeChange` / `onDedupeChange` / `filterApply Button @click` 三处手动 fetchAlerts 散落调用，`onDedupeChange` 整个函数删除（Select v-model 自动响应式 + watch 触发）。**buildAlertsQuery 抽取到 utils/alerts-view.ts**：单一调用方但 audit suggest 触发的 utility 抽取（M16.2 alerts-view 已有基础扩展 9 case 单测覆盖 viewMode 3 态 × filters 字段 × 正交组合）。**M15/M16.2 utility 保留**：`withFixStatusRank` / `withSeverityRank` / `alertsFixStatusLabel` / `alertsRuleIdTagSeverity` / `alertsSeverityTagSeverity` 全部继续复用不受迁移影响。
-
-### M16.5 T701-e2e 管理端点集成测试补强
-
-- **优先级**：P2
-- **范围**：vitest 单测补 `/api/users` / `/api/credentials` / `/api/repos` 关键端点的鉴权 + 边界 case（admin / org_admin / viewer 三角色 + 自修改防御）；Playwright e2e 覆盖 admin / credentials / repos 三页面核心交互（CRUD + 权限拦截 + 列表分页）；目标是为"实际可用"提供回归保护。
-- **验收**：测试覆盖到 admin 角色 + viewer 只读边界、credential 关联仓库 / 凭据泄露验证、repo 字段校验；e2e 在 headless 模式下稳定通过；覆盖率不下降。
-- **状态**（2026-08-28）：D 阶段已实施。`vitest` 853 passed + 4 skipped（新增 39 case：auth-self-guard 23 case 覆盖 5 better-auth admin 端点 × self-target / non-self / last-admin 矩阵 + repos / credentials 三角色鉴权各 8 case = 23+8+8=39）；`e2e` 16 passed（admin-roles 3 / credentials-crud 6 / repos-crud 7）；A 阶段 code-auditor standard depth Pass（实际用时 2 分 14 秒，0 blocker / 2 warning / 4 suggest）。**warning 已登记 backlog**：W-1 credential.service.ts 直读 `process.env.ENCRYPTION_KEY` 与 nuxtConfig runtimeConfig `encryptionKey` 错配（[backlog.md §C38](backlog.md#服务端凭据加密路径) — M16.5 e2e 测试发现 + 临时 playwright.config `ENCRYPTION_KEY=` 兜底）。**warning W-2 已本段同步**（todo.md M16.5 状态 banner）。**suggest 已记录**：`/api/users` handler 三角色鉴权单测缺失（todo.md 原验收范围含 `/api/users`，本批次只覆盖 credentials / repos;S-4 列入 M16.6+ 候选）;`authedCookieHeader` 函数在 2 个 e2e 重复定义（S-2 列入 M16.6+ 候选 helpers 抽取）。**顺手修复**：playwright.config.ts e2eServerEnv 加 `ENCRYPTION_KEY=e2e-encryption-key-32-bytes!!!` 兜底（credential.service.ts 直读 process.env 不走 runtimeConfig）。**e2e DOM 适配**：PrimeVue Password id 透传到外层 div（选择器 `div#token input`）/ repos.vue owner-name 两列独立渲染无 `/` 拼接 / DataTable 0 数据不渲染 paginator（断言简化为"渲染 + 列表新增"）。**viewer storageState 复用**：global-setup 已注册 viewer → `tests/e2e/.auth/viewer.json`，3 个 e2e 文件用 `browser.newContext({ storageState })` 隔离 context + 手工 cookie header。**验收**：typecheck 0 error / lint 0 error（2 pre-existing warning 非本批次）/ coverage Stmts 93.34% / Branches 85.67%（远超 80% CI 阈值）/ 编号标记扫描零违规。
+> **后续候选 backlog**：M16 阶段 audit suggest 已登记到 [backlog.md](backlog.md) 待迁移经验——
+> - **C38** credential.service.ts 改走 `useRuntimeConfig().encryptionKey` + `NUXT_ENCRYPTION_KEY` 标准化（M16.5 audit W-1 登记）
+> - **S-2** `authedCookieHeader` 抽取到 `tests/e2e/helpers/`（M16.5 audit suggest，M16.3 / M16.5 三批次遗留重复，可与 S-4 同批次）
+> - **S-4** better-auth admin 端点 viewer role check 单测补强（M16.5 audit suggest）
+> - M16.3 audit suggest：`S1` `SCAN_PENDING_MERGED` 死代码 / `S2` `detectServerLocale` 缺 `?locale=` URL query 支持 / 范围外扩展至 `/api/credentials/*` `/api/schedules/*` `/api/batch-runs/*` `/api/repos/{batch,batch-scan,importable}`——M16.6+ 候选
+> - PrimeVue hydration 主线 #1 状态更新：从"暂停"变"已缓解"——useAsyncData 迁移后 rowGroup hydration 已闭环；剩余 PrimeVue 4 + Nuxt SSR hydration 兼容性 bug 监控 PrimeVue 4 changelog + 评估是否升级到修复版本（依赖 backlog §M14.2 PrimeVue 4 → 5 升级评估恢复条件 ② 与主线 #1 联动决策）
 
 ---
 
@@ -84,7 +40,7 @@
 - 状态流转时间序列正确性（pending → running → completed 端到端）
 - 前端轮询体验与 stale state 处理（需后台服务 / staging 或 CI redis service）
 
-实施记录：[todo-archive.md §T912](todo-archive.md#t912-smtp-邮件发送器主体收口t9123--c28-联动)；[archive/todo-archive-phases-m6-m7-t711.md §M7.2](archive/todo-archive-phases-m6-m7-t711.md#m72-平台能力深化已归档)
+实施记录：[archive/todo-archive-phases-m10-c53-c59c61.md §T912](archive/todo-archive-phases-m10-c53-c59c61.md#t912-smtp-邮件发送器主体收口t9123--c28-联动)；[archive/todo-archive-phases-m6-m7-t711.md §M7.2](archive/todo-archive-phases-m6-m7-t711.md#m72-平台能力深化已归档)
 
 ### T704 async 定时触发
 
@@ -108,9 +64,9 @@
 
 | 内容类型 | 位置 |
 |:--|:--|
-| 已完成阶段归档 | [todo-archive.md](todo-archive.md)（主窗口保留最近 7 阶段近线 + M15 / M14 增量；M0-M11 详细见 [archive/](archive/)） |
-| 早期阶段分片 | [archive/](archive/)（M0-M11 详细分片） |
-| 未排期 / 延期 / 远期 + 已知边界 / known-issue | [backlog.md](backlog.md)（已闭环条目已清理：C16 / C21 已由 M13 闭环迁出 / UX-R1 已由 M14.2 闭环迁出 / UX-R2 已由 M15 闭环迁出；UX-R3 顺延 M16） |
-| 里程碑与阶段交付 | [roadmap.md](roadmap.md)（M0-M15；M15 已闭环 / M16 候选待启动） |
-| 当前阶段活跃任务 | [todo.md](todo.md) 顶部"当前阶段"段（M15 已闭环 / M16 候选待启动） |
-| 已知边界 / known-issue | backlog 顶部"已知边界与 known-issue"段（PrimeVue hydration 持续观察项登记在 [backlog.md §主线 #1](backlog.md#主线-1primevue-4--nuxt-hydration-rowgroup-known-issue)） |
+| 已完成阶段归档 | [todo-archive.md](todo-archive.md)（主窗口保留最近 5 个已归档阶段：M16 / M15 / M14 / M13 / M12；早期阶段分片见 [archive/](archive/)） |
+| 早期阶段分片 | [archive/](archive/)（M0-M11 + 2026-08-28 M16 归档批次新增的 [todo-archive-phases-m10-c53-c59c61.md](archive/todo-archive-phases-m10-c53-c59c61.md)） |
+| 未排期 / 延期 / 远期 + 已知边界 / known-issue | [backlog.md](backlog.md)（已闭环条目已清理：C16 / C21 已由 M13 闭环迁出 / UX-R1 已由 M14.2 闭环迁出 / UX-R2 已由 M15 闭环迁出 / UX-R3 已由 M16.1 闭环迁出；C38 / S-2 / S-4 已由 M16.5 audit 登记） |
+| 里程碑与阶段交付 | [roadmap.md](roadmap.md)（M0-M16；M16 已闭环 2026-08-28 归档 / M17 候选待启动） |
+| 当前阶段活跃任务 | [todo.md](todo.md) 顶部"当前阶段"段（M16 已闭环归档 / 当前无活跃阶段，等待 M17 候选启动） |
+| 已知边界 / known-issue | backlog 顶部"已知边界与 known-issue"段（PrimeVue hydration 主线 #1 状态从"暂停"变"已缓解"——M16.4 useAsyncData 迁移后 rowGroup hydration 已闭环；剩余 PrimeVue 4 + Nuxt SSR hydration 兼容性 bug 监控 PrimeVue 4 changelog） |

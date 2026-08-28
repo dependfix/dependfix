@@ -14,7 +14,8 @@ vi.mock('#server/utils/guard', () => ({
     requireOrgResource: vi.fn(async () => undefined),
 }))
 
-const call = (method: string, url: string, params: Record<string, string> = {}) => batchRunsIdHandler(makeEvent(method, url, undefined, {}, params))
+const call = (method: string, url: string, params: Record<string, string> = {}, headers: Record<string, string> = {}) =>
+    batchRunsIdHandler(makeEvent(method, url, undefined, headers, params))
 
 describe('GET /api/batch-runs/[id]', () => {
     let batchRunId: string
@@ -193,5 +194,42 @@ describe('GET /api/batch-runs/[id]', () => {
         expect(persisted?.status).toBe('running')
         expect(persisted?.pendingCount).toBe(1)
         expect(persisted?.finishedAt).toBeNull()
+    })
+})
+
+/**
+ * 错误响应 i18n（todo.md §M17.4）：throw 改造使用 createLocalizedError，
+ * message 按事件 locale 返回（cookie > Accept-Language > 默认 zh-CN），
+ * 验证 BATCH_RUN_NOT_FOUND 双语对称。
+ */
+describe('GET /api/batch-runs/[id] 错误响应 i18n（todo.md §M17.4）', () => {
+    beforeAll(() => {
+        setupMemoryDatabase()
+    })
+
+    afterAll(() => {
+        teardownMemoryDatabase()
+    })
+
+    it('BATCH_RUN_NOT_FOUND 默认 zh-CN → 中文 message', async () => {
+        await expect(call('GET', '/api/batch-runs/nonexistent', { id: 'nonexistent' }))
+            .rejects.toMatchObject({
+                statusCode: 404,
+                message: '批量运行不存在',
+                data: { code: 'BATCH_RUN_NOT_FOUND' },
+            })
+    })
+
+    it('BATCH_RUN_NOT_FOUND Accept-Language=en-US → 英文 message（locale 切换验证）', async () => {
+        await expect(call(
+            'GET',
+            '/api/batch-runs/nonexistent',
+            { id: 'nonexistent' },
+            { 'accept-language': 'en-US,en;q=0.9' },
+        )).rejects.toMatchObject({
+            statusCode: 404,
+            message: 'Batch run not found',
+            data: { code: 'BATCH_RUN_NOT_FOUND' },
+        })
     })
 })

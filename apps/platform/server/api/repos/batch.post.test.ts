@@ -1,5 +1,5 @@
 import 'reflect-metadata'
-import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { expectError, makeEvent, setupMemoryDatabase, teardownMemoryDatabase } from '../../../tests/api-helper'
 import credentialsIndexHandler from '../credentials/index'
 import batchImportHandler from './batch.post'
@@ -154,12 +154,23 @@ describe('POST /api/repos/batch', () => {
             credentialId = created.id
         })
 
+        // 测试隔离（todo.md §M17.4 commit 2）：L165 用例改 credential.organizationId 后 cleanup 须在 afterEach 兜底，
+        // 否则 L190 等后续用例读到外组织凭据导致 RESOURCE_NOT_IN_ORG 误抛。
+        afterEach(async () => {
+            const ds = await ensureDatabaseInitialized()
+            await ds.getRepository(Credential).update(
+                { id: credentialId },
+                { organizationId: 'dependfix-default' },
+            )
+        })
+
         it('defaultCredentialId 不存在 → 400', async () => {
             const err = await expectError(call({
                 repos: [repoItem('demo', 'nonexistent-cred')],
                 defaultCredentialId: '00000000-0000-0000-0000-000000000000',
             }), 400)
-            expect(err.message).toContain('defaultCredentialId 不存在')
+            expect(err.data?.code).toBe('CREDENTIAL_NOT_FOUND')
+            expect(err.data?.field).toBe('defaultCredentialId')
         })
 
         it('defaultCredentialId 跨组织 → 403（防误关联 FK 悬空）', async () => {
@@ -178,13 +189,10 @@ describe('POST /api/repos/batch', () => {
                 repos: [repoItem('demo', 'cross-org-test')],
                 defaultCredentialId: credentialId,
             }), 403)
-            expect(err.message).toContain('默认凭据不属于当前组织')
+            expect(err.data?.code).toBe('RESOURCE_NOT_IN_ORG')
+            expect(err.data?.resource).toBe('credential')
 
-            // 清理：恢复组织避免影响后续测试
-            await ds.getRepository(Credential).update(
-                { id: credentialId },
-                { organizationId: 'dependfix-default' },
-            )
+            // cleanup 由 afterEach 兜底（见上）
         })
 
         it('defaultCredentialId 正常透传 → 所有新建仓库写库带 credentialId', async () => {

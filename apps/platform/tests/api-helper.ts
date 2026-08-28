@@ -28,13 +28,21 @@ export const makeEvent = (
     return event
 }
 
-/** 调用 handler 并断言抛出的 h3 错误（{ statusCode, statusMessage, message }） */
-export const expectError = async (promise: Promise<unknown>, statusCode: number): Promise<Record<string, unknown>> => {
+/**
+ * 调用 handler 并断言抛出的 h3 错误（{ statusCode, statusMessage, message, data }）。
+ *
+ * 返回类型放宽为 `Record<string, any>`（test helper 上下文，any 风险可控）：
+ * - 支持 `err.data?.code` / `err.data?.field` 等强契约字段断言（todo.md §M17.4 commit 2 audit Reject 根因 —
+ *   原 `Record<string, unknown>` 在 strict 模式下索引访问得到 `{}` 导致 TS2339 × 6）
+ * - h3 1.15 createError 序列化保证 `data` 字段透传，`data.code` 由 localized-error.ts createLocalizedError 强契约写入
+ * - 测试环境而非生产代码，any 风险圈定在 vitest 单测范围
+ */
+export const expectError = async (promise: Promise<unknown>, statusCode: number): Promise<Record<string, any>> => {
     try {
         await promise
         throw new Error(`expected handler to throw ${statusCode}`)
     } catch (e) {
-        const err = e as Record<string, unknown>
+        const err = e as Record<string, any>
         if (err.statusCode !== statusCode) {
             // 非 h3 错误原样抛出（保持测试可读）
             throw e

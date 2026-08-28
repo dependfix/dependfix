@@ -179,12 +179,12 @@ describe('GET /api/repos/importable', () => {
     it('propagates GitHub 401 as token permission error', async () => {
         listForAuthenticatedUser.mockRejectedValue({ status: 401, message: 'Bad credentials' })
         const err = await expectError(call(`/api/repos/importable?credentialId=${credentialId}`), 401)
-        expect(err.message).toContain('GitHub Token 无权访问仓库列表')
+        expect(err.data?.code).toBe('GITHUB_API_AUTH_FAILED')
     })
 
     it('wraps unknown GitHub errors as 502', async () => {
         listForAuthenticatedUser.mockRejectedValue({ status: 503, message: 'unavailable' })
         const err = await expectError(call(`/api/repos/importable?credentialId=${credentialId}`), 502)
-        expect(err.message).toContain('拉取 GitHub 仓库失败')
+        expect(err.data?.code).toBe('GITHUB_API_FETCH_FAILED')
     })
 })

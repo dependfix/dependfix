@@ -3,6 +3,7 @@ import { parseSandboxLimits, parseTags, Repository } from '#server/entities/repo
 import { ensureDatabaseInitialized } from '#server/database'
 import { repositoryUpdateSchema } from '#server/schemas/repository'
 import { requireAuth, requireOrgResource, requireRole } from '#server/utils/guard'
+import { createLocalizedError } from '#server/utils/localized-error'
 
 /** GET /api/repos/[id]：仓库详情 */
 const getRepository = async (event: H3Event, id: string) => {
@@ -15,7 +16,7 @@ const getRepository = async (event: H3Event, id: string) => {
         relations: { credential: true },
     })
     if (!found) {
-        throw createError({ statusCode: 404, statusMessage: 'Not Found', message: '仓库不存在' })
+        throw createLocalizedError(event, { statusCode: 404, code: 'REPO_NOT_FOUND' })
     }
     return {
         id: found.id,
@@ -44,10 +45,10 @@ const updateRepository = async (event: H3Event, id: string) => {
     const parsed = repositoryUpdateSchema.safeParse(body)
 
     if (!parsed.success) {
-        throw createError({
+        throw createLocalizedError(event, {
             statusCode: 400,
-            statusMessage: 'Bad Request',
-            message: parsed.error.issues.map((i) => i.message).join('；'),
+            code: 'REPO_VALIDATION_FAILED',
+            data: { issues: parsed.error.issues },
         })
     }
 
@@ -56,7 +57,7 @@ const updateRepository = async (event: H3Event, id: string) => {
 
     const found = await repo.findOne({ where: { id } })
     if (!found) {
-        throw createError({ statusCode: 404, statusMessage: 'Not Found', message: '仓库不存在' })
+        throw createLocalizedError(event, { statusCode: 404, code: 'REPO_NOT_FOUND' })
     }
     await requireOrgResource(event, found.organizationId)
 
@@ -68,7 +69,7 @@ const updateRepository = async (event: H3Event, id: string) => {
             where: { owner: nextOwner, name: nextName, platform: parsed.data.platform ?? found.platform },
         })
         if (conflict && conflict.id !== id) {
-            throw createError({ statusCode: 409, statusMessage: 'Conflict', message: '该仓库已存在' })
+            throw createLocalizedError(event, { statusCode: 409, code: 'REPO_DUPLICATE' })
         }
     }
 
@@ -113,7 +114,7 @@ const deleteRepository = async (event: H3Event, id: string) => {
 
     const found = await repo.findOne({ where: { id } })
     if (!found) {
-        throw createError({ statusCode: 404, statusMessage: 'Not Found', message: '仓库不存在' })
+        throw createLocalizedError(event, { statusCode: 404, code: 'REPO_NOT_FOUND' })
     }
     await requireOrgResource(event, found.organizationId)
     await repo.remove(found)
@@ -123,7 +124,7 @@ const deleteRepository = async (event: H3Event, id: string) => {
 export default defineEventHandler(async (event) => {
     const id = getRouterParam(event, 'id') as string
     if (!id) {
-        throw createError({ statusCode: 400, statusMessage: 'Bad Request', message: '缺少仓库 id' })
+        throw createLocalizedError(event, { statusCode: 400, code: 'REPO_ID_MISSING' })
     }
     switch (event.method) {
         case 'GET':
@@ -133,6 +134,6 @@ export default defineEventHandler(async (event) => {
         case 'DELETE':
             return deleteRepository(event, id)
         default:
-            throw createError({ statusCode: 405, statusMessage: 'Method Not Allowed' })
+            throw createLocalizedError(event, { statusCode: 405, code: 'METHOD_NOT_ALLOWED' })
     }
 })

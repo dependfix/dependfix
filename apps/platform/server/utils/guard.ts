@@ -1,5 +1,6 @@
-import { createError, type H3Event } from 'h3'
+import type { H3Event } from 'h3'
 import { getAuth, type AuthInstance } from '#server/utils/auth'
+import { createLocalizedError } from '#server/utils/localized-error'
 import { ensureDatabaseInitialized } from '#server/database'
 import { resolveOrganizationId } from '#server/utils/organization'
 
@@ -20,10 +21,9 @@ export const requireAuth = async (event: H3Event): Promise<{
     const session = await auth.api.getSession({ headers: event.headers })
 
     if (!session?.user) {
-        throw createError({
+        throw createLocalizedError(event, {
             statusCode: 401,
-            statusMessage: 'Unauthorized',
-            message: '未登录或会话已过期',
+            code: 'UNAUTHORIZED',
         })
     }
 
@@ -45,10 +45,9 @@ export const requireRole = async (event: H3Event, roles: Role[]): Promise<{ user
 
     const userRole = session?.user?.role
     if (!userRole || !roles.includes(userRole as Role)) {
-        throw createError({
+        throw createLocalizedError(event, {
             statusCode: 403,
-            statusMessage: 'Forbidden',
-            message: '没有权限执行该操作',
+            code: 'FORBIDDEN',
         })
     }
 
@@ -74,10 +73,9 @@ export const requireOrgResource = async (event: H3Event, resourceOrganizationId:
     const currentOrganizationId = await resolveOrganizationId(ds)
 
     if (resourceOrganizationId !== currentOrganizationId) {
-        throw createError({
+        throw createLocalizedError(event, {
             statusCode: 403,
-            statusMessage: 'Forbidden',
-            message: '资源不属于当前组织',
+            code: 'RESOURCE_NOT_IN_ORG',
         })
     }
 }

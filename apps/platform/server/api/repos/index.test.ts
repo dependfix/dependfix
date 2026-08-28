@@ -52,11 +52,7 @@ describe('GET /api/repos', () => {
         expect(list[0]!.id).toBeTruthy()
     })
 
-    it('rejects invalid body with 400 (Zod validation)', async () => {
-        await expect(call('POST', '/api/repos', { owner: 'x' })).rejects.toMatchObject({ statusCode: 400 })
-    })
-
-    it('rejects duplicate repository with 409', async () => {
+    it('rejects duplicate repository with 409 (localized message + data.code, todo.md §M16.3)', async () => {
         const payload = {
             owner: 'dup',
             name: 'repo',
@@ -68,7 +64,21 @@ describe('GET /api/repos', () => {
         await call('POST', '/api/repos', payload)
         await expect(call('POST', '/api/repos', payload)).rejects.toMatchObject({
             statusCode: 409,
+            // 默认 zh-CN locale（无 cookie / Accept-Language）→ 中文 message
             message: '该仓库已存在',
+            // 错误码强契约位置：客户端通过 data.code 路由分支判断（h3 序列化保留 data）
+            data: { code: 'REPO_DUPLICATE' },
+        })
+    })
+
+    it('rejects invalid body with 400 + data.code: REPO_VALIDATION_FAILED + data.issues 透传', async () => {
+        await expect(call('POST', '/api/repos', { owner: 'x' })).rejects.toMatchObject({
+            statusCode: 400,
+            message: '参数校验失败',
+            data: {
+                code: 'REPO_VALIDATION_FAILED',
+                issues: expect.any(Array),
+            },
         })
     })
 

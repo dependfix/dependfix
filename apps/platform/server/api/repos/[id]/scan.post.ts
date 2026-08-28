@@ -3,6 +3,7 @@ import { createPendingScanRun, runScanForRepository } from '#server/services/sca
 import { getQueueService } from '#server/services/queue/queue.service'
 import { SCAN_JOB_PRIORITY } from '#server/services/queue/queue-mode'
 import { requireOrgResource, requireRole } from '#server/utils/guard'
+import { createLocalizedError } from '#server/utils/localized-error'
 import { Repository } from '#server/entities/repository'
 import { ScanRun } from '#server/entities/scan-run'
 import { ensureDatabaseInitialized } from '#server/database'
@@ -25,7 +26,7 @@ export default defineEventHandler(async (event) => {
 
     const id = getRouterParam(event, 'id') as string
     if (!id) {
-        throw createError({ statusCode: 400, statusMessage: 'Bad Request', message: '缺少仓库 id' })
+        throw createLocalizedError(event, { statusCode: 400, code: 'REPO_ID_MISSING' })
     }
 
     // 扫描目标仓库必须存在且归属当前组织
@@ -33,7 +34,7 @@ export default defineEventHandler(async (event) => {
     const repo = ds.getRepository(Repository)
     const found = await repo.findOne({ where: { id } })
     if (!found) {
-        throw createError({ statusCode: 404, statusMessage: 'Not Found', message: '仓库不存在' })
+        throw createLocalizedError(event, { statusCode: 404, code: 'REPO_NOT_FOUND' })
     }
     await requireOrgResource(event, found.organizationId)
 
@@ -41,10 +42,10 @@ export default defineEventHandler(async (event) => {
     const parsed = scanRequestSchema.safeParse(body)
 
     if (!parsed.success) {
-        throw createError({
+        throw createLocalizedError(event, {
             statusCode: 400,
-            statusMessage: 'Bad Request',
-            message: parsed.error.issues.map((i) => i.message).join('；'),
+            code: 'REPO_VALIDATION_FAILED',
+            data: { issues: parsed.error.issues },
         })
     }
 
@@ -55,20 +56,18 @@ export default defineEventHandler(async (event) => {
         const runRepo = ds.getRepository(ScanRun)
         const existing = await runRepo.findOne({ where: { id: parsed.data.reuseScanRunId } })
         if (!existing) {
-            throw createError({ statusCode: 404, statusMessage: 'Not Found', message: '复用的扫描记录不存在' })
+            throw createLocalizedError(event, { statusCode: 404, code: 'SCAN_RUN_NOT_FOUND' })
         }
         if (existing.repositoryId !== id) {
-            throw createError({
+            throw createLocalizedError(event, {
                 statusCode: 400,
-                statusMessage: 'Bad Request',
-                message: '复用的扫描记录不属于当前仓库',
+                code: 'REUSE_RUN_NOT_IN_REPO',
             })
         }
         if (existing.status === 'running') {
-            throw createError({
+            throw createLocalizedError(event, {
                 statusCode: 409,
-                statusMessage: 'Conflict',
-                message: '该扫描正在执行中，请等待完成后复用',
+                code: 'REUSE_RUN_RUNNING',
             })
         }
         reuseExisting = existing
@@ -102,7 +101,7 @@ export default defineEventHandler(async (event) => {
             const message = error instanceof Error ? error.message : String(error)
             if (message.includes('已处于终态')) {
                 // 终态冲突（入队半成功且 worker 已抢先完成）：409 提示而非 500 裸错误
-                throw createError({ statusCode: 409, statusMessage: 'Conflict', message: '扫描已完成，请在扫描历史中查看' })
+                throw createLocalizedError(event, { statusCode: 409, code: 'SCAN_ALREADY_COMPLETED' })
             }
             console.warn(`[scan] 入队失败，降级同步执行：${message}`)
             const run = await runScanForRepository(id, parsed.data, { runId: pendingRun.id })

@@ -3,6 +3,7 @@ import { parseSandboxLimits, parseTags, Repository } from '#server/entities/repo
 import { ensureDatabaseInitialized } from '#server/database'
 import { repositorySchema } from '#server/schemas/repository'
 import { requireAuth, requireRole } from '#server/utils/guard'
+import { createLocalizedError } from '#server/utils/localized-error'
 import { resolveOrganizationId } from '#server/utils/organization'
 
 const toView = (r: Repository) => ({
@@ -44,10 +45,11 @@ const createRepository = async (event: H3Event) => {
     const parsed = repositorySchema.safeParse(body)
 
     if (!parsed.success) {
-        throw createError({
+        // 顶层 message 用 code 翻译的静态文本，data.issues 保留 zod 原 issue 数组供客户端细化展示
+        throw createLocalizedError(event, {
             statusCode: 400,
-            statusMessage: 'Bad Request',
-            message: parsed.error.issues.map((i) => i.message).join('；'),
+            code: 'REPO_VALIDATION_FAILED',
+            data: { issues: parsed.error.issues },
         })
     }
 
@@ -62,10 +64,9 @@ const createRepository = async (event: H3Event) => {
         },
     })
     if (existing) {
-        throw createError({
+        throw createLocalizedError(event, {
             statusCode: 409,
-            statusMessage: 'Conflict',
-            message: '该仓库已存在',
+            code: 'REPO_DUPLICATE',
         })
     }
 
@@ -114,5 +115,5 @@ export default defineEventHandler(async (event) => {
     if (event.method === 'GET') {
         return listRepositories(event)
     }
-    throw createError({ statusCode: 405, statusMessage: 'Method Not Allowed' })
+    throw createLocalizedError(event, { statusCode: 405, code: 'METHOD_NOT_ALLOWED' })
 })

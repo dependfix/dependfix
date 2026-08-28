@@ -17,8 +17,8 @@ vi.mock('#server/utils/guard', () => ({
 }))
 
 const callIndex = (method: string, url: string, body?: unknown) => credentialsHandler(makeEvent(method, url, body))
-const callId = (method: string, url: string, body?: unknown, params: Record<string, string> = {}) =>
-    credentialsIdHandler(makeEvent(method, url, body, {}, params))
+const callId = (method: string, url: string, body?: unknown, params: Record<string, string> = {}, headers: Record<string, string> = {}) =>
+    credentialsIdHandler(makeEvent(method, url, body, headers, params))
 
 describe('GET /api/credentials/[id]', () => {
     let id: string
@@ -133,5 +133,49 @@ describe('/api/credentials/[id] 三角色鉴权（todo.md §M16.5）', () => {
         mockRequireRole.mockResolvedValue({ user: { id: 'orgadmin-1', email: 'orgadmin@test.dev' } })
         const result = await callId('DELETE', `/api/credentials/${created.id}`, undefined, { id: created.id })
         expect(result).toEqual({ id: created.id, deleted: true })
+    })
+})
+
+/**
+ * 错误响应 i18n（todo.md §M17.2）：throw 改造使用 createLocalizedError，
+ * message 按事件 locale 返回（cookie > Accept-Language > 默认 zh-CN），
+ * 验证 CREDENTIAL_NOT_FOUND 双语对称。
+ */
+describe('/api/credentials/[id] 错误响应 i18n（todo.md §M17.2）', () => {
+    beforeAll(() => {
+        setupMemoryDatabase()
+        process.env.ENCRYPTION_KEY = 'test-encryption-key-32-bytes!!'
+    })
+
+    afterAll(() => {
+        teardownMemoryDatabase()
+        delete process.env.ENCRYPTION_KEY
+    })
+
+    beforeEach(() => {
+        vi.clearAllMocks()
+    })
+
+    it('CREDENTIAL_NOT_FOUND 默认 zh-CN → 中文 message', async () => {
+        await expect(callId('GET', '/api/credentials/nonexistent', undefined, { id: 'nonexistent' }))
+            .rejects.toMatchObject({
+                statusCode: 404,
+                message: '凭据不存在',
+                data: { code: 'CREDENTIAL_NOT_FOUND' },
+            })
+    })
+
+    it('CREDENTIAL_NOT_FOUND Accept-Language=en-US → 英文 message（locale 切换验证）', async () => {
+        await expect(callId(
+            'GET',
+            '/api/credentials/nonexistent',
+            undefined,
+            { id: 'nonexistent' },
+            { 'accept-language': 'en-US,en;q=0.9' },
+        )).rejects.toMatchObject({
+            statusCode: 404,
+            message: 'Credential not found',
+            data: { code: 'CREDENTIAL_NOT_FOUND' },
+        })
     })
 })

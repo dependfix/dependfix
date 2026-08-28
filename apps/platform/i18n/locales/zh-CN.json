@@ -711,6 +711,18 @@
             "zh-CN": "扫描已完成，请在扫描历史中查看",
             "en": "Scan already completed, please check scan history"
         },
+        "CREDENTIAL_NOT_FOUND": {
+            "zh-CN": "凭据不存在",
+            "en": "Credential not found"
+        },
+        "CREDENTIAL_ID_MISSING": {
+            "zh-CN": "缺少凭据 id",
+            "en": "Credential id is required"
+        },
+        "CREDENTIAL_VALIDATION_FAILED": {
+            "zh-CN": "参数校验失败",
+            "en": "Request validation failed"
+        },
         "METHOD_NOT_ALLOWED": {
             "zh-CN": "请求方法不被允许",
             "en": "Method not allowed"

@@ -95,6 +95,9 @@ describe('createLocalizedError', () => {
         'REUSE_RUN_RUNNING',
         'SCAN_PENDING_MERGED',
         'SCAN_ALREADY_COMPLETED',
+        'CREDENTIAL_NOT_FOUND',
+        'CREDENTIAL_ID_MISSING',
+        'CREDENTIAL_VALIDATION_FAILED',
         'METHOD_NOT_ALLOWED',
         'UNKNOWN',
     ]

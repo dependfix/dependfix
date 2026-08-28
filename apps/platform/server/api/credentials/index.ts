@@ -4,6 +4,7 @@ import { ensureDatabaseInitialized } from '#server/database'
 import { credentialSchema } from '#server/schemas/credential'
 import { encryptToken, getEncryptionKey } from '#server/services/credential.service'
 import { requireAuth, requireRole } from '#server/utils/guard'
+import { createLocalizedError } from '#server/utils/localized-error'
 import { resolveOrganizationId } from '#server/utils/organization'
 
 /** 脱敏视图：永不返回 encryptedToken / 明文 token */
@@ -36,10 +37,10 @@ const createCredential = async (event: H3Event) => {
     const parsed = credentialSchema.safeParse(body)
 
     if (!parsed.success) {
-        throw createError({
+        throw createLocalizedError(event, {
             statusCode: 400,
-            statusMessage: 'Bad Request',
-            message: parsed.error.issues.map((i) => i.message).join('；'),
+            code: 'CREDENTIAL_VALIDATION_FAILED',
+            data: { issues: parsed.error.issues },
         })
     }
 
@@ -69,5 +70,5 @@ export default defineEventHandler(async (event) => {
     if (event.method === 'GET') {
         return listCredentials(event)
     }
-    throw createError({ statusCode: 405, statusMessage: 'Method Not Allowed' })
+    throw createLocalizedError(event, { statusCode: 405, code: 'METHOD_NOT_ALLOWED' })
 })

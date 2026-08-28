@@ -19,7 +19,7 @@
 >
 > **2026-08-28 闭环整理（M16 归档批次）**：UX-R3 扫描历史独立页面 `/scans` 已由 M16.1 闭环（apps/platform/app/pages/scans.vue + `/api/runs` organizationId 隔离 + `/api/scan-history/summary` + 5 case e2e + 4 块汇总卡片 + viewer 可见）；从 §扫描历史与详情 UX 主条目段 UX-R3 子段迁出至历史归档指针段 + [todo-archive.md §M16](todo-archive.md#m16-平台可用性深化m161--m162--m163--m164--m165-全部已闭环--2026-08-28-归档)。**M16 全部 5 项闭环**：M16.1 UX-R3 `/scans` + M16.2 C66-D alerts "立即修复此仓库" + M16.3 C36 服务端 API 错误消息 i18n + M16.4 PrimeVue hydration 主线 #1 缓解 + M16.5 T701-e2e 管理端点集成测试补强；**19 commits 已全部推送至 origin/master，ahead=0**（M16.1 1 + M16.2 4 + M16.3 5 + M16.4 4 + M16.5 5；含 kebab-case rename refactor `acfdc8d8` 触发的 CI Coverage 修复批次；`git rev-list HEAD ^origin/master --count` 2026-08-28 实测 ahead=0）。**主线 #1 状态更新**：PrimeVue hydration 从"暂停"变"已缓解"——M16.4 useAsyncData 迁移后 rowGroup hydration 已闭环；剩余 PrimeVue 4 + Nuxt SSR hydration 兼容性 bug 监控 PrimeVue 4 changelog + 评估是否升级到修复版本。**M16.5 audit backlog 已登记**：[C38](backlog.md#服务端凭据加密路径) credential.service.ts 改走 `useRuntimeConfig().encryptionKey` + `NUXT_ENCRYPTION_KEY` 标准化（M16.5 W-1）+ [S-2](backlog.md#测试基础设施清理) `authedCookieHeader` 抽取到 `tests/e2e/helpers/`（M16.5 audit suggest）+ [S-4](backlog.md#测试覆盖补强) better-auth admin 端点 viewer role check 单测补强（M16.5 audit suggest）+ M16.3 audit suggest 范围外扩展（`/api/credentials/*` `/api/schedules/*` `/api/batch-runs/*` `/api/repos/{batch,batch-scan,importable}`）——M16.6+ 候选。**同期动作**：M10 / T912 / C53 / 2026-08-20 平台 UI 增强 C59-C61 共 4 个早期批次从 todo-archive.md 主窗口预防性迁出至新分片 [archive/todo-archive-phases-m10-c53-c59c61.md](archive/todo-archive-phases-m10-c53-c59c61.md)——M16 段 110 行新增前主窗口 618 行接近 700 分片阈值，预防性迁出与 M15 归档批次同源策略。
 >
-> **2026-08-28 闭环整理（M17 启动批次）**：**C38 / S-2 / S-4 / 服务端 API i18n 范围外扩展** 已由 M17 启动批次 P 阶段落地并上收——分别上收为 [M17.1 T1701 C38 encryptionKey 标准化](todo.md#m171-t1701-c38-encryptionkey-标准化-p1)（P1 安全硬缺口，5 文件）/ [M17.5 T1705 S-2 authedCookieHeader 抽取](todo.md#m175-t1705-s-2-authedcookieheader-抽取-p3)（P3 测试基建清理，4 文件）/ [M17.6 T1706 S-4 better-auth admin viewer role check 单测补强](todo.md#m176-t1706-s-4-better-auth-admin-viewer-role-check-单测补强-p3)（P3 测试完整性，1-2 文件）/ [M17.2-4 T1702-T1704 服务端 API i18n 范围外扩展](todo.md#m17-任务清单)（P2 沿用 M16.3 C36 已沉淀 `createLocalizedError` 模式，10 文件分 3 子阶段 credentials / schedules / batch-runs + repos batch）。**M17 拆分方案 / 实施路径 / 关键决策**：见 [todo.md §M17 拆分依据与实施路径](todo.md#m17-拆分依据与实施路径)。**预估总投入**：12-16 commits（每子阶段 2-3 commits），M17.1 为下一实施条目（安全性 P1 优先闭环）；M16.3 audit suggest 范围外扩展 4 条目（`S1` `SCAN_PENDING_MERGED` 死代码 / `S2` `detectServerLocale` 缺 `?locale=` URL query 支持）维持 backlog 候选状态，**未上收 M17**（本次拆分按"安全性优先 + audit suggest 范围外扩展中 i18n 部分优先"原则取舍）。主线 #1 PrimeVue hydration 维持"已缓解"状态不变（详见长期主线 #1 段）。
+> **2026-08-28 闭环整理（M17 启动批次）**：**C38 / S-2 / S-4 / 服务端 API i18n 范围外扩展** 已由 M17 启动批次 P 阶段落地并上收——分别上收为 [M17.1 T1701 C38 encryptionKey 标准化](todo.md#m171-t1701-c38-encryptionkey-标准化-p1--commit-b0d3ac0)（P1 安全硬缺口，5 文件）/ [M17.5 T1705 S-2 authedCookieHeader 抽取](todo.md#m175-t1705-s-2-authedcookieheader-抽取-p3--commit-466b142--fc0b175)（P3 测试基建清理，4 文件）/ [M17.6 T1706 S-4 better-auth admin viewer role check 单测补强](todo.md#m176-t1706-s-4-better-auth-admin-viewer-role-check-单测补强-p3--commit-56df374)（P3 测试完整性，1-2 文件）/ [M17.2-4 T1702-T1704 服务端 API i18n 范围外扩展](todo.md#m17-任务清单)（P2 沿用 M16.3 C36 已沉淀 `createLocalizedError` 模式，10 文件分 3 子阶段 credentials / schedules / batch-runs + repos batch）。**M17 拆分方案 / 实施路径 / 关键决策**：见 [todo.md §M17 拆分依据与实施路径](todo.md#m17-拆分依据与实施路径)。**预估总投入**：12-16 commits（每子阶段 2-3 commits），M17.1 为下一实施条目（安全性 P1 优先闭环）；M16.3 audit suggest 范围外扩展 4 条目（`S1` `SCAN_PENDING_MERGED` 死代码 / `S2` `detectServerLocale` 缺 `?locale=` URL query 支持）维持 backlog 候选状态，**未上收 M17**（本次拆分按"安全性优先 + audit suggest 范围外扩展中 i18n 部分优先"原则取舍）。主线 #1 PrimeVue hydration 维持"已缓解"状态不变（详见长期主线 #1 段）。
 
 ### 主线 #1：PrimeVue 4 + Nuxt hydration rowGroup known-issue
 
@@ -119,11 +119,11 @@
 
 #### 服务端凭据加密路径
 
-- **C38 已上收 M17.1（2026-08-28 P 阶段落地，详情见 [todo.md §M17.1](todo.md#m171-t1701-c38-encryptionkey-标准化-p1) + 历史归档指针段）**：M16.5 audit W-1 登记的 credential.service.ts 改走 `useRuntimeConfig().encryptionKey` + `NUXT_ENCRYPTION_KEY` 标准化已由 M17.1 T1701 上收（M17 启动批次 P1 优先条目）；按 backlog 维护规则 5 短期候选正式上收后从主条目迁出。
+- **C38 已上收 M17.1（2026-08-28 P 阶段落地，详情见 [todo.md §M17.1](todo.md#m171-t1701-c38-encryptionkey-标准化-p1--commit-b0d3ac0) + 历史归档指针段）**：M16.5 audit W-1 登记的 credential.service.ts 改走 `useRuntimeConfig().encryptionKey` + `NUXT_ENCRYPTION_KEY` 标准化已由 M17.1 T1701 上收（M17 启动批次 P1 优先条目）；按 backlog 维护规则 5 短期候选正式上收后从主条目迁出。
 
 #### 测试基础设施清理
 
-- **S-2 已上收 M17.5（2026-08-28 P 阶段落地，详情见 [todo.md §M17.5](todo.md#m175-t1705-s-2-authedcookieheader-抽取-p3) + 历史归档指针段）**：M16.5 audit suggest 的 `authedCookieHeader` 抽取到 `tests/e2e/helpers/` 已由 M17.5 T1705 上收（M16.3 / M16.5 三批次遗留重复，与 S-4 同批次）；按 backlog 维护规则 5 从主条目迁出。
+- **S-2 已上收 M17.5（2026-08-28 P 阶段落地，详情见 [todo.md §M17.5](todo.md#m175-t1705-s-2-authedcookieheader-抽取-p3--commit-466b142--fc0b175) + 历史归档指针段）**：M16.5 audit suggest 的 `authedCookieHeader` 抽取到 `tests/e2e/helpers/` 已由 M17.5 T1705 上收（M16.3 / M16.5 三批次遗留重复，与 S-4 同批次）；按 backlog 维护规则 5 从主条目迁出。
 - **S-5 调用方测试 `process.env.ENCRYPTION_KEY` 死代码清理**（M17.1 audit warning #2 登记）
   - 当前状态：6 处调用方测试仍写 `process.env.ENCRYPTION_KEY = 'test-encryption-key-32-bytes!!'`：
     - `apps/platform/server/services/scan-orchestrator.test.ts:115,120,128`
@@ -138,7 +138,7 @@
 
 #### 测试覆盖补强
 
-- **S-4 已上收 M17.6（2026-08-28 P 阶段落地，详情见 [todo.md §M17.6](todo.md#m176-t1706-s-4-better-auth-admin-viewer-role-check-单测补强-p3) + 历史归档指针段）**：M16.5 audit suggest 的 better-auth admin 端点 viewer role check 单测补强（`ban-user` / `remove-user` / `impersonate-user` / `unban-user` / `list-users` 5 端点 viewer 403 矩阵）已由 M17.6 T1706 上收；按 backlog 维护规则 5 从主条目迁出。
+- **S-4 已上收 M17.6（2026-08-28 P 阶段落地，详情见 [todo.md §M17.6](todo.md#m176-t1706-s-4-better-auth-admin-viewer-role-check-单测补强-p3--commit-56df374) + 历史归档指针段）**：M16.5 audit suggest 的 better-auth admin 端点 viewer role check 单测补强（`ban-user` / `remove-user` / `impersonate-user` / `unban-user` / `list-users` 5 端点 viewer 403 矩阵）已由 M17.6 T1706 上收；按 backlog 维护规则 5 从主条目迁出。
 
 #### PR 管理
 
@@ -261,10 +261,10 @@
 - **C21 code-quality-findings 接入**（2026-08-26 闭环于 M13.3 T1308）：详见 [todo-archive.md §M13.3 T1308](todo-archive.md#m13-治理--ux-反馈--网络治理--code-scanning已闭环)
 - **MCP 能力补充 C31 / C32**：详见 [archive/todo-archive-phases-m2-m55.md §M5.5 / T508](archive/todo-archive-phases-m2-m55.md#m55-skill-编排cli-先行已归档)
 - **M2 增强候选 B1 / B2 / B3**：详见 [archive/todo-archive-phases-m2-m55.md §M2](archive/todo-archive-phases-m2-m55.md#m2-github-action-接入已归档)
-- **C38 encryptionKey 标准化**（2026-08-28 P 阶段落地于 M17.1，详情见 [todo.md §M17.1 T1701](todo.md#m171-t1701-c38-encryptionkey-标准化-p1)；M17.1 闭环后归档至 todo-archive.md §M17.1）
-- **M17.1 C38 encryptionKey 标准化实施**（2026-08-28 audit standard depth Pass + W-3 修正 + W-1/W-2 登记 backlog，详见 [artifacts/review-gate/2026-08-28-m17-1-t1701-c38-encryptionkey.md](artifacts/review-gate/2026-08-28-m17-1-t1701-c38-encryptionkey.md)；实施 7 文件 / +33/-29 行 / 21 个调用方测试从 ReferenceError 修复后 853 passed；M17.1 闭环后归档至 todo-archive.md §M17.1）
-- **S-2 authedCookieHeader 抽取**（2026-08-28 P 阶段落地于 M17.5，详情见 [todo.md §M17.5 T1705](todo.md#m175-t1705-s-2-authedcookieheader-抽取-p3)；M17.5 闭环后归档至 todo-archive.md §M17.5）
-- **S-4 better-auth admin viewer role check 单测补强**（2026-08-28 P 阶段落地于 M17.6，详情见 [todo.md §M17.6 T1706](todo.md#m176-t1706-s-4-better-auth-admin-viewer-role-check-单测补强-p3)；M17.6 闭环后归档至 todo-archive.md §M17.6）
+- **C38 encryptionKey 标准化**（2026-08-28 P 阶段落地于 M17.1，详情见 [todo.md §M17.1 T1701](todo.md#m171-t1701-c38-encryptionkey-标准化-p1--commit-b0d3ac0)；M17.1 闭环后归档至 todo-archive.md §M17.1）
+- **M17.1 C38 encryptionKey 标准化实施**（2026-08-28 audit standard depth Pass + W-3 修正 + W-1/W-2 登记 backlog；review-gate evidence 在本地 `artifacts/review-gate/2026-08-28-m17-1-t1701-c38-encryptionkey.md`（artifacts/ 在 .gitignore 中不入仓库，仅供本地查阅，CI 中不存在）；实施 7 文件 / +33/-29 行 / 21 个调用方测试从 ReferenceError 修复后 853 passed；M17.1 闭环后归档至 todo-archive.md §M17.1）
+- **S-2 authedCookieHeader 抽取**（2026-08-28 P 阶段落地于 M17.5，详情见 [todo.md §M17.5 T1705](todo.md#m175-t1705-s-2-authedcookieheader-抽取-p3--commit-466b142--fc0b175)；M17.5 闭环后归档至 todo-archive.md §M17.5）
+- **S-4 better-auth admin viewer role check 单测补强**（2026-08-28 P 阶段落地于 M17.6，详情见 [todo.md §M17.6 T1706](todo.md#m176-t1706-s-4-better-auth-admin-viewer-role-check-单测补强-p3--commit-56df374)；M17.6 闭环后归档至 todo-archive.md §M17.6）
 - **服务端 API i18n 范围外扩展**（2026-08-28 P 阶段落地于 M17.2-4，10 文件分 3 子阶段 credentials / schedules / batch-runs + repos batch，详情见 [todo.md §M17 任务清单](todo.md#m17-任务清单)；M17.2-4 闭环后归档至 todo-archive.md §M17.x）
 
 ---

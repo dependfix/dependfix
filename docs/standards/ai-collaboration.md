@@ -88,6 +88,7 @@ Agent-First 的完整项目级定义以 `AGENTS.md` 为准。Agent 是默认任�
 
 - 单次 commit/diff 超出 **10 文件** 或 **800 行新增** → 必须拆分 multiple atomic commits，否则第 1 轮 audit Reject。
 - 拆分依据：按职责切分（utils / 表格 / 后端 / 前端 / docs），每个批次 ≤ 5 文件 / ≤ 350 行。
+- **依赖关系处理（拆分时必填）**：拆分后确保 commit 1 独立可测（基础设施层如字典 + helper 同步落地，codeSet 测试覆盖新 code）；commit 2 业务 throw 改造依赖 commit 1（引用新 code）；commit 3 测试调整依赖 commit 2（验证 throw 改造行为）。任何 commit 不可被独立运行验证即拆分错位。M17.4 总 13 文件拆 2 commits 实证：commit 1 字典 + helper + API throw 改造（9 文件 / 独立可测——codeSet 测试通过）；commit 2 既有测试 message→code 断言调整（4 文件 / 依赖 commit 1 新 code——commit 2 时 typecheck / test 必须实测确认 commit 1 已落地）。
 - 例外：纯新增文件（如新建测试文件或工具模块）单文件超过 800 行（如生成的 d.ts）不强制拆分——但需在 audit prompt 中声明"超出阈值但属单文件生成产物"理由。
 
 ### 1.5 风险分级 vs blocker 区分（依赖审计 vs 依赖风险）
@@ -242,13 +243,16 @@ CI 失败后不得回退到全量重试，应分析具体失败点针对性修�
 - 配置文件显式写"空默认值"（如 `excludeFiles: []`）会覆盖工具内置保护，修改前先确认工具默认值。
 - composite action（action.yml）中 <span v-pre>`${{ }}`</span> 只允许出现在合法上下文（runs 步、outputs 表达式、with 表达式值）；description / 纯文本 / 注释内嵌表达式会被 manifest 模板校验求值并可能引用不可用上下文。action.yml 变更后应跑一次真实 action（本仓库 `security-auto-fix.yml` dogfood workflow）验证。
 
-### 4.4 F 阶段本地验证口径差异（`pnpm --filter <pkg> test` ≠ `pnpm test` 全 workspace）+ coverage 强制（hard requirement）
+### 4.4 F 阶段本地验证口径差异（`pnpm --filter <pkg> test` ≠ `pnpm test` 全 workspace）+ coverage 强制（hard requirement）+ **typecheck 实测必须（nuxt typecheck 不等于 TS 0 error）**
 
 - F 阶段本地验证用 `pnpm --filter <pkg> test`（仅跑特定包，例：platform → 705+4skip）≠ CI 跑 `pnpm test` 全 workspace（2128+5skip）+ coverage 4 维度（stmts/branch/funcs/lines）。
 - **陷阱**：本地 F 阶段验证全过、vitest 全绿、无回归——**完全漏掉 apps/platform/server / packages/cli / packages/engine / scripts 等非 platform 包引起的分支回归**。CI Coverage job 失败（branches 79.88% < 80%）时常因此发生。
 - **修复协议（hard requirement）**：F 阶段"完整验证"必须含 `pnpm run test:coverage`（全 workspace）+ 检查 4 维度（statements / branches / functions / lines）是否 ≥ 80% 阈值 + 定位新增文件未覆盖分支 + 补测至 ≥ 阈值，而非仅 `pnpm --filter <pkg> test`。CI 通过 = 最终裁决，本地通过 ≠ 完成。
 - **二次固化警告**：本节规则曾在 [CI run 32880889750](https://github.com/dependfix/dependfix/actions/runs/32880889750) 二次复发——branches 79.98% < 80% 失败，根因是 M13.3 T1308 新增 `code-quality-fetcher.ts` 等 4 个新文件未被既有测试覆盖（防御分支 cursor 重复死循环 / URL parse catch / RATE_LIMITED 兜底 / 三源错误隔离）。**默认 80% 阈值即通过但漏了多包增量回归**。F 阶段验证清单须把 `pnpm run test:coverage` 列入 hard requirement，不得用"基线已通过"做理由省略。
 - 实证：某次 platform UX 治理阶段 12 commits 推送后 CI Coverage job 失败，但本地 F 阶段验证显示全过，**回归 +8 分支**才发现（详见 commit `0c57211`，2026-08-21 推送；背景见 [经验归档 §二十八](../design/governance/experience-archive.md)）+ M13.3 补测 commit `e63cdb9`（branches 79.98% → 80.17%，14 case）。
+
+- **`pnpm --filter @dependfix/platform typecheck` 输出 "Done" ≠ TS 0 error（nuxt typecheck 容忍部分 TS error）**：nuxt typecheck 走 `vue-tsc` pipeline，在某些情况下容忍 TS error（如 `Record<string, unknown>` 索引访问得到 `{}` 时不报错；strict 模式下访问 `err.data?.code` 仍会 TS2339 但 build 不阻断）。执行方"typecheck 7 包全 Done"宣称**不可信**——必须实测确认 0 error。M17.4 commit 2 audit Reject 实测 7 个 TS2304 + TS2339 error（`batch.post.test.ts:2` 缺 `afterEach` import + 6 处 `err.data?.code/field/resource` 属性访问失败）此前未触发实测；Reject 后针对性补修闭环。F 阶段验证必须实测 typecheck 0 error，不能仅看 "Done" 输出。其他文档（git.md、testing.md、skill/agent 定义）仅作一行引用。
+  - 实操：执行 `pnpm --filter @dependfix/platform typecheck 2>&1 | grep -E "error TS|Done"` 看完整输出；或跑 audit 时让 code-auditor agent 实测 typecheck（不能信执行方证据）。
 
 ### 4.5 Code Auditor quick depth 时长校准（≤ 5min 时间盒，实测 ~79s）
 
@@ -258,9 +262,11 @@ CI 失败后不得回退到全量重试，应分析具体失败点针对性修�
 - 与 §1.3 分级审计协议对照：`audit-depth: quick` 必须**主动声明**，未声明默认按 `deep` 防御执行（实测用时显著拖长）。
 - 数据来源口径：上述 `~60-100s` 数值来自 caller 宿主系统时钟事后实测的多次 quick depth 历史调用 elapsed 数据，**不含审计方自报**（审计方不自报时长、不检查时间，按 §1.3 防御方向）。time-box ≤ 5min 是否超时由 caller 事后判定，不在本节展开。
 
-### 4.6 audit warning 修复决策协议（修复 vs 登记 backlog）
+### 4.6 audit warning 修复决策协议（修复 vs 登记 backlog）+ **audit suggest 跨 batch 累积跟踪 + audit Reject 后针对性补修**
 
 - audit warning 必须明确决策，禁止跳过：(1) **修复**（低成本且对齐验收/正确性，例：清理 test.fixme 残留 / 保留 span 整体可点击 + 删 chevron 方案 A / 缩写注释清理 / 清理 dead mock + stale doc + describe 标题）；(2) **登记 backlog**（实现成本过高或与已知问题耦合，例：PrimeVue 4 rowToggleButton 默认无 aria-expanded——Pass-through 不传 context，低成本 dynamic 实现不可行，登记待 PrimeVue 升级 / viewMode 快速切换请求竞态——低概率 UI 闪一下旧数据，可加 lastRequestId 守卫但本次 PR 范围外）。
+- **audit suggest 跨 batch 累积跟踪**：当 suggest 跨多个 commit 延后处理时（例：M17.2 audit suggest S-1 ServerErrorCode 字母序跨 M17.2/M17.3/M17.4 多次延后；M17.6 audit suggest S-1 update-user 端点 + S-2 admin 200 双向断言），必须在每个 commit message 中显式登记 backlog 跟踪项（"延后到 M.x 合并处理 / admin 200 双向断言延后到 viewer 403 矩阵稳定后追加"），便于后续追踪 + 跨 session 蒸馏累积。统一 backlog 跟踪条目（如 audit suggest #2 累积跟踪）优于单次登记——后者容易在多次 commit 中重复登记或遗漏。
+- **audit Reject 后针对性补修 + 重验证三件套**：audit Reject 后必须针对性补修 blocker + 重验证 typecheck + lint + test 三件套确认 0 error 才能重新 commit；不回退到全量重试模式（PDTFC+ 修复工作流"不回退到全量重试模式"）。M17.4 commit 2 audit Reject 后实测：补修 2 个 blocker（`batch.post.test.ts:2` 加 afterEach import + `api-helper.ts:32` 返回类型放宽 `Record<string, any>`）→ 重跑 typecheck 0 error + test 859 passed → 重新 commit `a1c7c4e` 通过。
 - 判断标准（三选一独立评估，命中任一"修复"维度则选修复）：
   - **是否影响用户行为**：用户可见问题 / 影响数据正确性 → 修复；仅 UI 闪烁 / 边缘场景 → 登记
   - **是否与 todo.md 验收条款一致**：验收标准明确 → 修复；偏离验收 → 登记或调整验收

@@ -2,23 +2,24 @@
 
 > **范围约定**：本文件**仅**登记当前阶段活跃待办——已闭环项归档于 [todo-archive.md](todo-archive.md)；未排期/延期/远期登记于 [backlog.md](backlog.md)；已知边界与 known-issue 登记于对应阶段归档段或 backlog（**不在此处复述**）。
 
-## 当前阶段：M17 安全与可用性收口（2026-08-28 P 阶段落地 6 子阶段）
+## 当前阶段：M17 全部 6 子阶段已闭环归档（2026-08-28 8 commits）
 
-> **状态**：M17 已启动 P 阶段，6 子阶段全部串行实施（每子阶段独立 PDTFC+ + Review Gate）。**M17.1 T1701 C38 encryptionKey 标准化** 为下一实施条目（安全性 P1 硬缺口，优先闭环）。
+> **状态**：M17 安全与可用性收口阶段（M17.1 C38 encryptionKey 标准化 + M17.2 credentials 服务端 API i18n + M17.3 schedules 服务端 API i18n + M17.4 batch-runs + repos batch 服务端 API i18n + M17.5 S-2 authedCookieHeader 抽取 + M17.6 S-4 better-auth admin viewer 403 矩阵补强）全部 6 子阶段已闭环归档。ahead=8 待用户主动推送。
 >
-> **拆分方案 / 实施路径 / 关键决策**：见下方"## M17 拆分依据与实施路径"段。
+> **总投入**：8 commits（M17.1 1 + M17.2 1 + M17.3 1 + M17.4 2 + M17.5 2 + M17.6 1；含 M17.4 commit 2 audit Reject 后针对性补修闭环 + M17.5 lint-fix 独立 chore commit）。
 >
-> **总投入预估**：12-16 commits；每子阶段独立 PDTFC+ 循环 + Review Gate（quick / standard 按规模）+ 独立归档至 [todo-archive.md §M17.x](todo-archive.md)。
+> **详细实施记录 / commit 引用 / 治理记录 / 关键决策 / 关键经验 / 待迁移经验**：待 M17.x 归档批次启动时整段迁移至 [todo-archive.md §M17](todo-archive.md)（按 [规划规范 §4.4 大批量归档批次操作规范](../standards/planning.md#44-大批量归档批次操作规范) + M16 归档批次同源模式）。
 >
-> **前序 M16 闭环**：见 [todo-archive.md §M16](todo-archive.md#m16-平台可用性深化m161--m162--m163--m164--m165-全部已闭环--2026-08-28-归档)（M16.1-M16.5 共 19 commits 已全部推送至 origin/master；M16 归档批次 commit `b1bf1af` ahead=1 待用户推送；`git rev-list HEAD ^origin/master --count` 2026-08-28 实测 ahead=1）。
->
-> **backlog 上收记录**：C38 / S-2 / S-4 / 服务端 API i18n 范围外扩展——分别上收为 M17.1 / M17.5 / M17.6 / M17.2-4，详见 [backlog.md §历史归档指针](backlog.md#已闭环特定批次)。
+> **下一步候选**：
+> - **M17.x 归档批次**：按 M16 归档批次同源模式整段迁移至 todo-archive.md 主窗口 + 早期批次预防性分片 + M17 banner 切换为"等待 M18"
+> - **启动 M18**：用户决策下一阶段方向
+> - **推送 ahead=8**：按 [AGENTS.md §5 推送禁令](../../AGENTS.md) 等用户主动推送
 
 ---
 
 ## M17 任务清单
 
-### M17.1 T1701 C38 encryptionKey 标准化 [P1]
+### M17.1 T1701 C38 encryptionKey 标准化 [P1 ✅ commit b0d3ac0]
 
 - **来源**：M16.5 audit W-1 登记
 - **文件范围**：5 文件（`apps/platform/server/services/credential.service.ts` + `apps/platform/nuxt.config.ts` + `apps/platform/playwright.config.ts` + `apps/platform/docker-compose.yml` + `apps/platform/.env.example`）
@@ -34,7 +35,7 @@
   4. 同步更新 `docker-compose.yml` / `.env.example` 文档
 - **风险**：中（凭据加密是平台核心安全路径，误配置致生产 500）
 
-### M17.2 T1702 服务端 API i18n：credentials [P2]
+### M17.2 T1702 服务端 API i18n：credentials [P2 ✅ commit 5f66a08]
 
 - **来源**：M16.3 audit suggest 范围外扩展
 - **文件范围**：2 文件（`apps/platform/server/api/credentials/{index,[id]}.ts`）+ 既有测试
@@ -42,7 +43,7 @@
 - **验收**：throw 改造使用 `createLocalizedError`（沿用 M16.3 C36 已落地模式）；message 按请求 locale 返回；既有测试调整 + 1 case 验证 locale 切换
 - **风险**：低（沿用 M16.3 沉淀模式，0 新设计成本）
 
-### M17.3 T1703 服务端 API i18n：schedules [P2]
+### M17.3 T1703 服务端 API i18n：schedules [P2 ✅ commit 90549a0]
 
 - **来源**：M16.3 audit suggest 范围外扩展
 - **文件范围**：3 文件（`apps/platform/server/api/schedules/{index,[id],[id]/trigger.post}.ts`）+ 既有测试
@@ -50,7 +51,7 @@
 - **验收**：同 M17.2 模式（沿用 `createLocalizedError`）
 - **风险**：低
 
-### M17.4 T1704 服务端 API i18n：batch-runs + repos batch [P2]
+### M17.4 T1704 服务端 API i18n：batch-runs + repos batch [P2 ✅ commit 98fd47d + a1c7c4e]
 
 - **来源**：M16.3 audit suggest 范围外扩展
 - **文件范围**：5 文件（`apps/platform/server/api/batch-runs/{[id].get,[id]/force-fail.post}.ts` + `apps/platform/server/api/repos/{batch.post,batch-scan.post,importable.get}.ts`）+ 既有测试
@@ -58,7 +59,7 @@
 - **验收**：同 M17.2 模式（沿用 `createLocalizedError`）
 - **风险**：低
 
-### M17.5 T1705 S-2 authedCookieHeader 抽取 [P3]
+### M17.5 T1705 S-2 authedCookieHeader 抽取 [P3 ✅ commit 466b142 + fc0b175]
 
 - **来源**：M16.5 audit suggest（M16.3 / M16.5 三批次遗留重复）
 - **文件范围**：4 文件（新建 `apps/platform/tests/e2e/helpers/auth-cookie.helper.ts` + 3 e2e 文件 `api-i18n.e2e.test.ts:28` / `credentials-crud.e2e.test.ts:19` / `repos-crud.e2e.test.ts:15` 删本地函数 + 改 import）
@@ -66,7 +67,7 @@
 - **验收**：3 e2e 文件一字不差的 `authedCookieHeader` 函数抽取至 `apps/platform/tests/e2e/helpers/auth-cookie.helper.ts`（**helpers/ 目录已存在**，含 `hydration.helper.ts` + `auth.helper.ts`——已 `find apps/platform/tests/e2e/helpers -type f` 实证；import path 建议 `import { authedCookieHeader } from './helpers/auth-cookie.helper'`，与既有 `helpers/` 目录约定一致）；零行为变更；e2e 全绿
 - **风险**：零（纯重构）
 
-### M17.6 T1706 S-4 better-auth admin viewer role check 单测补强 [P3]
+### M17.6 T1706 S-4 better-auth admin viewer role check 单测补强 [P3 ✅ commit 56df374]
 
 - **来源**：M16.5 audit suggest
 - **文件范围**：1-2 文件（新建 e2e 或 vitest 单测 + 可能的辅助函数）

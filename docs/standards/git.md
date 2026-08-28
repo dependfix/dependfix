@@ -105,7 +105,12 @@
 - 与 [§3.2 单文件跨 type 改动需提前规划 commit 拆分](#32-单文件跨-type-改动需提前规划-commit-拆分) 配套——§3.2 处理 staged diff 误纳（`git restore --staged`），§3.4 处理已 commit 但未推送的误纳（`git reset --soft`）。
 - 教训：某次 admin self-protection 调试时 commit 1 误含 `common.role` i18n key（A2 内容）→ reset 后仅保留 errors.cannotSelfModify（A1 内容）→ commit 2 再加 common.role，保持原子粒度（详见 commit `1d7c5c8` / `2076fda` 系列 + [经验归档 §二十四](../design/governance/experience-archive.md)）。
 
-**type 选择校准**：修复现有功能缺陷 → `fix`；新增能力 → `feat`。凡是"让原本坏的东西变好"都是 `fix`。
+### 3.5 lint auto-fix 接受策略（不要回滚，独立 chore commit 接受）
+
+- ESLint `--fix` 自动修改（如 `@typescript-eslint/array-type` 规则偏好 `T[]` 写法替换 `Array<T>`、`@typescript-eslint/consistent-type-imports` 加 `type` 关键字等）是合规修改——两种写法 TypeScript 等价，规则要求即合规。**应该接受 + 独立 `chore` commit**——不要回滚。
+- 历史教训：某次 alerts-sidebar.e2e.test.ts 1 行 `Array<Record<string, unknown>>` → `Record<string, unknown>[]` lint auto-fix 修改在 docs 提交（commit `722f459`）中被纳入，被后续 commit `64bc1a5 chore(platform): 还原误带 lint auto-fix` 回滚（commit msg 明确："还原 alerts-sidebar.e2e 误带 lint auto-fix……该行格式变更与 M16.1 docs 状态登记无关，由 commit 链路中间环节引入"）。回滚后该修改重新进入 uncommitted 状态。
+- 修正：lint auto-fix 是合规修改，**不要回滚**。如不希望与 docs 提交混杂，应在 commit 前 `git restore --staged <file>` 排除；如已 uncommitted，作为 standalone chore commit 独立接受（如 `fc0b175 chore(platform): 接受 ESLint array-type lint 自动修复（alerts-sidebar.e2e）`）。commit message 显式说明"历史曾因误带 docs 提交回滚，本次作为 standalone chore commit 独立接受"。
+- 实操：在每次 commit 前过一遍 lint（`pnpm lint` / `pnpm run lint:md` / `pnpm typecheck`）确认 0 error；如发现 working tree 有未提交 lint auto-fix 改动，按本节策略处理（接受并独立 commit）。
 
 ## 4. AI 行为准则
 

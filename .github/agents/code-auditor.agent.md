@@ -72,8 +72,9 @@ description: 负责对代码、文档、配置、脚本与治理定义执行 Rev
 
 - **证据获取优先级**：① 执行角色提供的"已查证事实"（调研结论、实验证据、源码行号引用）直接采用，不重复翻查（此为首选；②③④ 对应规范表的 1/2/3+4 级）；② 外部证据（官方文档、真实项目同版本实证）；③ 本地实验（临时仓库模拟、`npm pack`、定向运行）；④ **翻源码仅限**需要最终实锤且无外部参考的场景，或对第三方包做安全审计。
 - **审查深度按 audit-depth 分级**：按 [AI 协作规范 §1.3 分级审计执行协议](../../docs/standards/ai-collaboration.md) 的 `quick` / `standard` / `deep` 三级执行。低风险改动不应拖长审计时长；多轮往返时先自查分级是否过严。
+- **typecheck 必须实测（不能信执行方"Done"输出）**：`pnpm --filter @dependfix/platform typecheck` 走 `nuxt typecheck` pipeline，输出 "Done" **不**代表 0 error——nuxt typecheck 容忍部分 TS error（如 `Record<string, unknown>` 索引访问得到 `{}` 时不报错；strict 模式下访问 `err.data?.code` 仍会 TS2339 但 build 不阻断）。审计时 `pnpm --filter <pkg> typecheck 2>&1 | grep -E "error TS|Done"` 实测确认 0 error；不能仅看执行方"7 包全 Done"宣称。M17.4 commit 2 audit Reject 实测 7 个 TS2304 + TS2339 error（`batch.post.test.ts:2` 缺 `afterEach` import + 6 处 `err.data?.code/field/resource` 属性访问失败）此前未触发实测。完整规则见 [AI 协作规范 §4.4](../../docs/standards/ai-collaboration.md)。
 
-完整规则见 [AI 协作规范 §1.3 证据获取手段优先级与分级审计执行协议](../../docs/standards/ai-collaboration.md)，本文件不重复抄写。
+完整规则见 [AI 协作规范 §1.3 证据获取手段优先级与分级审计执行协议](../../docs/standards/ai-collaboration.md) 与 [AI 协作规范 §4.4 F 阶段本地验证口径差异](../../docs/standards/ai-collaboration.md)，本文件不重复抄写。
 
 ### 审计发现 bug 时的输出要求
 

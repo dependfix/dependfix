@@ -122,6 +122,29 @@
   - 验收：① service 改读 `useRuntimeConfig().encryptionKey` ② nuxt.config 移除 inline fallback 让 `NUXT_ENCRYPTION_KEY` 成为唯一入口 ③ 删 playwright.config 中 `ENCRYPTION_KEY=...` 兜底 ④ 同步更新 docker-compose.yml / .env.example 文档
   - 优先级：P1(凭据加密是平台核心安全路径,误配置致生产 500)
 
+#### 测试基础设施清理
+
+- **S-2** `authedCookieHeader` 抽取到 `tests/e2e/helpers/`（M16.5 audit suggest）
+  - 当前重复：`tests/e2e/api-i18n.e2e.test.ts:28` + `tests/e2e/credentials-crud.e2e.test.ts:19` + `tests/e2e/repos-crud.e2e.test.ts:15` 三个文件定义**完全一致**的 `authedCookieHeader(page: Page): Promise<string>` 函数（`page.context().cookies().map((c) => ${c.name}=${c.value}).join('; ')` 拼接 `__Secure-` cookie 字符串，因 HTTP webServer 不自动发送 secure cookie）
+  - 抽取：新建 `tests/e2e/helpers/auth-cookie.helper.ts`，3 个 e2e 删本地函数 + 改 import
+  - 风险：零（纯重构，函数体一字不差）
+  - 优先级：P3（可读性 + 防未来再重复，非阻塞）
+  - 关联：M16.3（api-i18n）/ M16.5（credentials-crud / repos-crud）三批次遗留重复，可与 S-4 同批次
+
+#### 测试覆盖补强
+
+- **S-4** better-auth admin 端点 viewer role check 单测补强（M16.5 audit suggest）
+  - audit 原描述 "`/api/users` handler 三角色单测" 实际缺口不准确——平台无独立 `/api/users` handler，用户管理走 `apps/platform/app/pages/users.vue` → `authClient.admin.*` → better-auth admin 插件 `/api/auth/admin/*` 端点（`set-role` / `ban-user` / `remove-user` / `unban-user` / `impersonate-user` / `list-users`）
+  - 真实缺口：better-auth admin 端点的 **viewer role check** 单测
+    - `set-role` viewer 403：已有（admin.e2e.ts + admin-roles.e2e.ts）
+    - `ban-user` / `remove-user` / `impersonate-user` / `unban-user` viewer 403：**未覆盖**
+    - `list-users` viewer 403：**未覆盖**
+  - 当前覆盖：auth-self-guard 单测（self-target / last-admin）+ admin.e2e + admin-roles.e2e
+  - 价值：锁定 better-auth admin 当前版本的 role 行为；不能改 better-auth 内部 bug，但能防版本升级回归
+  - 实施：新建 `apps/platform/tests/e2e/admin-roles-extra.e2e.test.ts`（或扩展 admin-roles.e2e.ts），用 `authClient.admin.{banUser,removeUser,impersonateUser,unbanUser,listUsers}` 调 viewer 角色 + admin 角色双向断言；或 vitest 单测 mock `auth.api.{ban,remove,impersonate,unban,list}Users` handler
+  - 风险：低（仅加测，不改功能）
+  - 优先级：P3（测试完整性，无业务功能缺失；better-auth 内部 role check 是库行为）
+
 #### PR 管理
 
 - **B1** PR 关闭评论 + label（需 `issues: write` 权限，比当前 `pull-requests: write` 宽；触发：PR 数量增长影响 `pulls.list` 查重性能或用户需要 PR 列表可过滤时）

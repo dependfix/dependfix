@@ -66,4 +66,102 @@ test.describe('管理后台角色权限（todo.md §M16.5）', () => {
         expect([401, 403]).toContain(response.status())
         await context.close()
     })
+
+    /**
+     * better-auth admin 端点 viewer 403 矩阵（todo.md §M17.6 S-4）：
+     * 锁定 better-auth admin 当前版本的 role 行为，防升级回归。覆盖 5 端点
+     * （ban-user / remove-user / impersonate-user / unban-user / list-users），
+     * set-role 端点已在上面 it case 覆盖。
+     * 注：端点由 better-auth admin 插件原生提供（项目不持有 handler 代码），
+     * 升级 better-auth 时若 adminMiddleware 行为变化，此测试可立即捕获。
+     */
+    test('viewer 直接调 API：/api/auth/admin/ban-user → 403', async ({ browser }) => {
+        const context = await browser.newContext({ storageState: 'tests/e2e/.auth/viewer.json' })
+        const page = await context.newPage()
+        const cookies = (await page.context().cookies()).map((c) => `${c.name}=${c.value}`).join('; ')
+
+        const response = await page.request.post('/api/auth/admin/ban-user', {
+            headers: {
+                origin: 'http://127.0.0.1:3101',
+                cookie: cookies,
+            },
+            data: {
+                userId: 'any-target-user-id',
+                banReason: 'test-ban-reason',
+                banExpiresIn: 86400,
+            },
+        })
+        expect([401, 403]).toContain(response.status())
+        await context.close()
+    })
+
+    test('viewer 直接调 API：/api/auth/admin/remove-user → 403', async ({ browser }) => {
+        const context = await browser.newContext({ storageState: 'tests/e2e/.auth/viewer.json' })
+        const page = await context.newPage()
+        const cookies = (await page.context().cookies()).map((c) => `${c.name}=${c.value}`).join('; ')
+
+        const response = await page.request.post('/api/auth/admin/remove-user', {
+            headers: {
+                origin: 'http://127.0.0.1:3101',
+                cookie: cookies,
+            },
+            data: {
+                userId: 'any-target-user-id',
+            },
+        })
+        expect([401, 403]).toContain(response.status())
+        await context.close()
+    })
+
+    test('viewer 直接调 API：/api/auth/admin/impersonate-user → 403', async ({ browser }) => {
+        const context = await browser.newContext({ storageState: 'tests/e2e/.auth/viewer.json' })
+        const page = await context.newPage()
+        const cookies = (await page.context().cookies()).map((c) => `${c.name}=${c.value}`).join('; ')
+
+        const response = await page.request.post('/api/auth/admin/impersonate-user', {
+            headers: {
+                origin: 'http://127.0.0.1:3101',
+                cookie: cookies,
+            },
+            data: {
+                userId: 'any-target-user-id',
+            },
+        })
+        expect([401, 403]).toContain(response.status())
+        await context.close()
+    })
+
+    test('viewer 直接调 API：/api/auth/admin/unban-user → 403', async ({ browser }) => {
+        const context = await browser.newContext({ storageState: 'tests/e2e/.auth/viewer.json' })
+        const page = await context.newPage()
+        const cookies = (await page.context().cookies()).map((c) => `${c.name}=${c.value}`).join('; ')
+
+        const response = await page.request.post('/api/auth/admin/unban-user', {
+            headers: {
+                origin: 'http://127.0.0.1:3101',
+                cookie: cookies,
+            },
+            data: {
+                userId: 'any-target-user-id',
+            },
+        })
+        expect([401, 403]).toContain(response.status())
+        await context.close()
+    })
+
+    test('viewer 直接调 API：GET /api/auth/admin/list-users → 403', async ({ browser }) => {
+        const context = await browser.newContext({ storageState: 'tests/e2e/.auth/viewer.json' })
+        const page = await context.newPage()
+        const cookies = (await page.context().cookies()).map((c) => `${c.name}=${c.value}`).join('; ')
+
+        // list-users 是 GET 请求（无 request body）；其他 4 端点是 POST
+        const response = await page.request.get('/api/auth/admin/list-users', {
+            headers: {
+                origin: 'http://127.0.0.1:3101',
+                cookie: cookies,
+            },
+        })
+        expect([401, 403]).toContain(response.status())
+        await context.close()
+    })
 })

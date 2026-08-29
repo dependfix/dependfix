@@ -499,3 +499,59 @@
   - **阈值守门不是"恢复 80%"就结束**：当前 80.27% 的 buffer（+0.27% / ~16 branches）极薄——任何新代码或测试执行抖动都可能再次跌破 80%（本次也是）。需要分批推到 ~81%（buffer +0.7%）才能有效避免反复触发，但**不建议**一次性跳到 82%（触及 executor/runtime-adapter 等复杂模块，flakiness 风险与工作量不成正比）。渐进阈值（80% → 81% → 82%）配合"阶段性体检"才能形成正循环，而非"跌破 → 紧急修复 → 再跌破"的被动循环。
   - **commit message 验证矩阵要含 coverage**：本次修复 commit 描述应明确列出 `pnpm run test:coverage` 的 branches/statements/lines/functions 四项百分比 + 与阈值的 buffer，避免后续读者误判"仅补测试"→ 实际还顺带做了一次完整 CI 验证矩阵。印证 §四十一末条"refactor / fix 类 commit message 的验证矩阵段落必须逐条列出每个质量门"——本条扩展到"coverage 也要列入"，且需明确 buffer 数字（如 `branches 80.27% (+0.27% / ~16 branches buffer)`）。
   - **教训入档触发条件确认**：本案例符合准入标准第 4 条"工具/环境陷阱（CI/coverage 阈值对 commit 顺序敏感）"，且与 §四十一 / §二十二 / §二十八"refactor 触发 CI 链式暴露"形成连续案例链——证明此模式 ≥ 3 次复现，**挂接治理检查点**：(a) 阶段性 coverage drift check（release pipeline / todo 阶段收口 checklist）；(b) apps/platform/app/utils 等"工具目录"新增文件必须配测试（lint 自检或 coverage 显眼化）；(c) refactor commit 验证矩阵强制含 coverage buffer 数字。
+
+## 四十三、集成外部库必须读 README 标准用法 + e2e 真实路径冒烟测试（2026-08-29，M18.4 audit round 1 Reject 后补修）
+
+### 案例
+
+M18.1 commit 4（`adf370a feat(engine): AppAuthProvider + InstallationTokenCache 完整实施 + 单测补强`）实施 `AppAuthProvider.getOctokit()` 时，按直觉写：
+
+```ts
+new Octokit({
+    auth: createAppAuth({ appId, privateKey, installationId }),  // ← 错误：auth 字段仅接受字符串 token
+    baseUrl: 'https://api.github.com',
+})
+```
+
+实际 `@octokit/auth-app@8.3.0` README 标准用法是：
+
+```ts
+new Octokit({
+    authStrategy: createAppAuth,  // 函数本体（未调用）
+    auth: { appId, privateKey, installationId },  // 配置对象
+})
+```
+
+**真实路径测试结果**（M18.4 e2e 实施时）：
+- 修复前（`auth: createAppAuth(...)`）：`@octokit/core` 走 `createTokenAuth(options.auth)` 路径 → 抛 `Token passed to createTokenAuth is not a string`
+- round 1 修复（`authStrategy: createAppAuth(...)` —— 仍然错误，把 `createAppAuth` 调用结果当作策略传）：`@octokit/core` 走 authStrategy 路径调用 strategy 时 `authOptions.type = undefined`，命中 `default` 分支抛 `Invalid auth type: undefined`
+- round 2 修复（`authStrategy: createAppAuth, auth: {...}` —— README 标准）：✅ 真实 JWT signing + installation token 注入 + API 调用全链路通过
+
+**为什么此前所有测试都通过**：
+- `app-provider.test.ts` 用 `vi.mock('@octokit/rest')` + `FakeOctokit`——**完全跳过 `@octokit/core` 真实构造路径**
+- `app-provider.test.ts` 的 `createAppAuthMock.mockReturnValue({})`——**mock 的 `authCallable` 同步返回空对象，绕开真实 `auth(state, authOptions)` 异步拒绝分支**
+- **mock 测试如果不能对齐真实行为，反而会掩盖 bug**
+
+### 教训
+
+1. **集成外部库前必须读 README 标准用法 + 真实路径冒烟**：凭直觉或训练数据写法可能错，README 是最权威的真实契约。`@octokit/auth-app` README §installation authentication 明确给出 `authStrategy: createAppAuth, auth: {...}` 双字段组合——这是契约基线，不是建议。
+2. **mock 测试如果不能对齐真实行为，反而会掩盖 bug**：`vi.mock('@octokit/rest')` 让 `new Octokit(...)` 整个被替换，**mock 边界之外的 `@octokit/core` 真实代码路径永远走不到**——任何 `@octokit/core` 与 `@octokit/auth-app` 之间的集成 bug 都被掩盖。**单测 mock 边界必须刻意保持最小**（如 `vi.mock('@octokit/auth-app')` 而不 mock `@octokit/rest`，让 `@octokit/core` 真实代码路径可执行）。
+3. **实施完成不算 Done，必须有"真实路径调用 + 断言关键行为"的可执行验证**：M18.1 commit 4 当时 "typecheck 通过 + 单测全过" 就 close 了，但实际生产调用是 `Cannot read properties of undefined (reading 'bind')` / `Invalid auth type: undefined`。**真实 e2e 冒烟测试（nock 拦截 + 真实 Octokit + 真实 RSA privateKey JWT signing）必须在集成外部库时落地**，不能仅依赖 mock 单元测试。
+4. **mock 形态对齐声明必须实测，不能信**：即使测试代码注释声称"mock 形态与 README `Object.assign(auth.bind(null, state), { hook: hook.bind(null, state) })` 对齐"，**也必须用一个不 mock 的真实路径测试验证对齐声明是真的**——本次 round 1 注释声称对齐但实际 dispatch 行为完全错位。
+
+### 与既有教训的关联
+
+- **§四十二**（coverage 阈值对 refactor 顺序敏感）：同样是"看似测试通过实际未生效"的反模式——§四十二是 coverage 阈值被 refactor commit 误触发清零；本条是 mock 测试因 mock 边界过宽掩盖集成 bug。两者同源：**测试不能只看"绿"，必须验证"绿"的语义对应真实生产行为**。
+- **§三十九 / §四十一**（CI 双 run 失败）：强调"验证工具不覆盖内容语义"——单测/lint/coverage 都是验证工具，但都不覆盖"集成层真实行为"。本条扩展这条 pattern 到"集成外部库"场景。
+- **§M17.4**（nuxt typecheck 不实测不能信 Done 输出）：同类教训——"Done 输出"是 LLM 自报，不是真实结果。`typecheck Done` / `test passed` / `lint 0 error` 都是输出，**必须实测 typecheck 0 error + test 真正绿 + lint 真无 error**。本条扩展到"`mock` 声称对齐 README 但实际未对齐"。
+
+### 挂接治理检查点
+
+1. **`docs/standards/development.md` §编码规范**：新增 pattern **"集成外部库前必须读 README 标准用法 + 落地真实路径 e2e 冒烟测试（mock 边界保持最小）"**——避免训练数据 / 直觉写法引入契约偏差。
+2. **`docs/standards/testing.md` §测试隔离**：新增 pattern **"集成层测试不 mock 真实被集成库（保留真实代码路径可执行）；mock 仅替换被测单元的边界"**——避免 mock 边界过宽掩盖集成 bug。
+3. **`.github/agents/code-auditor.agent.md` 审计协议**：新增必查项 **"集成外部库时验证 README 标准用法引用 + e2e 真实路径测试存在 + mock 边界刻意保持最小"**——audit reject 案例（M18.4 round 1 B1）作为佐证。
+4. **`docs/standards/ai-collaboration.md` §PDTFC+ 修复工作流**：扩展到"集成外部库实施完成不算 Done，必须有真实路径调用 + 断言关键行为"——与 §M17.4 nuxt typecheck 实测必须原则一致。
+
+### 准入标准复核
+
+本案例符合准入标准第 1 条"架构性陷阱（mock 边界过宽掩盖集成 bug）" + 第 3 条"反模式 / 教训重复触发（M18.1 commit 4 实施不完整 → M18.4 audit round 1 Reject → round 2 修复）"。挂接治理检查点 4 项可显著降低未来同类 bug 概率。

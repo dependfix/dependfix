@@ -179,7 +179,7 @@
     - **Manifest flow 一键创建** vs 仅文档引导：选 Manifest flow（先文档引导 + 评估 Manifest flow 可行性，**2026-08-29 决策调整**）—— manifest URL 让用户点一下就能创建 App + 自动回调回 dependfix 设置页，UX 显著优于纯文档引导；GitHub Enterprise Server 不支持 manifest 时降级到手动配置 + 文档兜底。**2026-08-29 用户决策**：M18 阶段暂不实施 Manifest flow 一键创建，先以 A7a 文档引导落地（A7b 单独评估 Manifest flow 可行性，输出评估报告至 `docs/design/governance/c22-manifest-flow-feasibility.md`）；触发再评估条件：评估报告结论 + 用户实测反馈。
   - **C22-future 官方 dependfix GitHub App 发布候选（远期战略，不在本条范围）** —— 与 C22 平行独立的战略线。阻塞项：① 团队运营能力（marketplace listing / 持续安全响应 / 计费 / 支持 SLA）；② 单租户/自部署仍要求用户自带 App，官方 App 主要服务 SaaS 场景，与 open-core 定位有张力；③ 与现有开源许可 + 商业模式联动未决。触发上收条件：用户实测出现 SaaS 化诉求 / 团队到位 / 商业化路径定稿。**不在 C22 主线内实施**。
   - **M18 实施状态（2026-08-29 P 阶段已启动）** —— 详见 [todo.md §M18](todo.md#当前阶段：m18-平台-github-app-byo-app-模式--p-阶段启动-2026-08-29) 完整任务清单与决策固化。摘要：
-    - **5 子阶段拆分**：M18.0（P0 docs only，PAT 无感升级评估）+ M18.1（M18.1 C22.1 基础层，P1）+ M18.2（C22.2 集成层，P1）+ M18.3（C22.3 表现层，P2）+ M18.4（C22.4 测试层，P1）
+    - **5 子阶段拆分**：M18.0（P0 docs only，PAT 无感升级评估）+ M18.1（C22.1 基础层，P1）+ M18.2（C22.2 集成层，P1）+ M18.3（C22.3 表现层，P2）+ M18.4（C22.4 测试层，P1）
     - **3 用户决策固化**（2026-08-29）：① M18.0 评估子阶段独立（A 决策）② fixtures 仅 mock 无真实 App（C 决策；用户接受风险）③ M18.x 治理批次合并入 C22 子阶段顺手做（B 决策）
     - **PAT 无感升级方案**：推荐 B（AuthProvider 注入统一入口）；`createGitHubClient` 改为 `{ auth: AuthProvider }`；老 `{ token }` 签名保留为 deprecated 包装；9 个测试 + 2 个 app 调用点改造；PAT 路径 commit author 保留硬编码兼容
     - **关键风险承担**：决策 C fixtures 仅 mock 违反"防升级回归"目的（e2e 不能验证真实 GitHub App 行为如 installation token 失效 / rate limit / JWT 签名边界），用户已接受；缓解措施 = 单测聚焦 `@octokit/auth-app` 库 mock 输出契约

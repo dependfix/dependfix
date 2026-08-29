@@ -57,8 +57,19 @@ export interface DependfixOpenPR {
 // Constants
 // ---------------------------------------------------------------------------
 
-const BOT_NAME = 'dependfix[bot]'
-const BOT_EMAIL = 'dependfix[bot]@users.noreply.github.com'
+/**
+ * PAT 路径默认 commit author（保持现有 PAT 路径用户行为零变化）。
+ *
+ * 注：此常量仅作为 PAT 路径的默认值；GitHub App 路径（M18.2 之后接入）走动态 commit author。
+ * 现有 PAT 路径仍硬编码 `dependfix[bot]@users.noreply.github.com`，虽非真实 bot 身份（字符串约定），
+ * 但保持行为不变以确保 PAT 用户无感升级。已知缺陷由 C22 范围之外的后续阶段修复。
+ *
+ * @see [C22 PAT 无感升级评估 §5.1 兼容性](../../../../docs/design/governance/c22-pat-backward-compat.md)
+ */
+const PAT_DEFAULT_COMMIT_AUTHOR = {
+    name: 'dependfix[bot]',
+    email: 'dependfix[bot]@users.noreply.github.com',
+} as const
 
 /** 自动修复分支统一前缀（分支名 = 前缀 + 内容指纹 8 位） */
 const BRANCH_PREFIX = 'dependfix/auto-fix-'
@@ -187,9 +198,14 @@ export function createFixBranch(branchName: string, workDir: string): FixBranchR
  * 自动设置 git user.name / user.email（如未设置）。
  * 使用 `execFileSync` 参数数组形式（不经 shell），保证多行 commit message
  * 与 UTF-8 字符（如 →）在 Windows/Linux 双平台传递一致。
+ *
+ * @param author - 可选 commit author 信息；不传时使用 PAT 默认值（保持现有 PAT 路径行为零变化）。
+ *   M18.2 之后 GitHub App 路径会传入动态生成的 `{app_id}+{bot_login}[bot]` author。
+ *
+ * @see [C22 PAT 无感升级评估 §5.1 兼容性](../../../../docs/design/governance/c22-pat-backward-compat.md)
  */
-export function stageAndCommit(message: string, workDir: string): void {
-    ensureGitConfig(workDir)
+export function stageAndCommit(message: string, workDir: string, author?: { name: string, email: string }): void {
+    ensureGitConfig(workDir, author)
     execSync('git add .', { cwd: workDir, stdio: 'pipe' })
     execFileSync('git', ['commit', '-m', message], { cwd: workDir, stdio: 'pipe' })
 }
@@ -656,15 +672,16 @@ function branchExists(branchName: string, workDir: string): boolean {
     }
 }
 
-function ensureGitConfig(workDir: string): void {
+function ensureGitConfig(workDir: string, author?: { name: string, email: string }): void {
+    const effectiveAuthor = author ?? PAT_DEFAULT_COMMIT_AUTHOR
     const hasName = gitConfigExists('user.name', workDir)
     const hasEmail = gitConfigExists('user.email', workDir)
 
     if (!hasName) {
-        execSync(`git config user.name "${BOT_NAME}"`, { cwd: workDir, stdio: 'pipe' })
+        execSync(`git config user.name "${effectiveAuthor.name}"`, { cwd: workDir, stdio: 'pipe' })
     }
     if (!hasEmail) {
-        execSync(`git config user.email "${BOT_EMAIL}"`, { cwd: workDir, stdio: 'pipe' })
+        execSync(`git config user.email "${effectiveAuthor.email}"`, { cwd: workDir, stdio: 'pipe' })
     }
 }
 

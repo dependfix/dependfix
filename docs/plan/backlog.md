@@ -202,7 +202,7 @@
 - **C39 standards 文档 ENCRYPTION_KEY → NUXT_ENCRYPTION_KEY 同步**（M17.1 audit warning #1 登记）**—— 2026-08-29 已由 M18.3 commit `7ef0d73 docs(guide+design+standards): GitHub App 配置章节 + C39 standards 同步` 顺带闭环**（`platform.md:150` / `platform.md:240` / `security.md:83` / `security.md:123` / `security.md:131` / `security.md:132` / `security.md:138` / `security.md:145` 共 8 处均已 `NUXT_ENCRYPTION_KEY`，与代码层 `useRuntimeConfig().encryptionKey` 单源一致）；条目可从 backlog 主条目迁出至历史归档指针段；唯一未改的 `docs/design/governance/sandbox-security-governance.md:22 + :98` 是 M8 阶段设计意图的历史快照（不应改）
 - **C34 存量规范严格约束挂接盘点**（审查治理候选）
   - 2026-08-26 M14.x neat-freak 批次部分完成（roadmap.md L24 描述："⑫ C34 存量规范必级条款挂接盘点 + code-quality-checklist.md 双层对称补挂接 5 个必查项"）：补 5 个必查项到 code-quality-checklist.md（README/release 链路 / workspace 依赖包预构建 / 复合索引必须类级 / 裸 HTML 标签禁令 / 文档归档 anchor）
-  - 2026-08-29 M18.x 治理批次批次1 增量：`code-auditor.agent.md` 主责边界新增「集成外部库 README 标准用法 + e2e 真实路径冒烟测试存在」必查项（1 条）；详见 [experience-archive.md §四十三](../../docs/design/governance/experience-archive.md) 与 [development.md §5.1.15](../../docs/standards/development.md) + [testing.md §6.3](../../docs/standards/testing.md) 配套规范
+  - 2026-08-29 M18.x 治理批次批次 1 增量：`code-auditor.agent.md` 主责边界新增「集成外部库 README 标准用法 + e2e 真实路径冒烟测试存在」必查项（1 条）；详见 [experience-archive.md §四十三](../../docs/design/governance/experience-archive.md) 与 [development.md §5.1.15](../../docs/standards/development.md) + [testing.md §6.3](../../docs/standards/testing.md) 配套规范
   - 剩余盘点：standards 中其他"必须级"条款（开发规范 §3 注释规范 / §4 依赖约束 / §5.1.x 系列工程经验 / 测试规范 §6 测试原则 / 安全规范 §5 凭据安全 / git 规范 §3 提交消息 / AI 协作规范 §1/§4）双层对称挂接完整盘点属于 neat-freak 批次工作，本次 M18.x 治理批次仅做 experience-archive §四十三 4 条新教训挂接；候选下批次会话处理
 - **G1** network-audit 默认白名单持续扩展问题 —— 详见长期主线 #2
 

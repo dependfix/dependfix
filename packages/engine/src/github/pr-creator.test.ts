@@ -363,19 +363,19 @@ describe('closePullRequest', () => {
  */
 describe('stageAndCommit (author 路径回归)', () => {
     const tempDirs: string[] = []
-    const ISOLATED_GIT_ENV = {
-        GIT_CONFIG_GLOBAL: '/dev/null',
-        GIT_CONFIG_NOSYSTEM: '1',
-    }
 
-    /** 隔离 host 全局 git config 的 execSync helper（避免 host 全局 user.name 干扰） */
+    /** execSync helper for git command in test tempDir（不屏蔽 host global，避免 `git init` 抛 `bad config line 1 in file /dev/null`） */
     function git(cmd: string, cwd: string): string {
-        return execSync(`git ${cmd}`, {
-            cwd,
-            stdio: 'pipe',
-            encoding: 'utf-8',
-            env: { ...process.env, ...ISOLATED_GIT_ENV },
-        }).trim()
+        try {
+            return execSync(`git ${cmd}`, {
+                cwd,
+                stdio: 'pipe',
+                encoding: 'utf-8',
+            }).trim()
+        } catch {
+            // `git config --local --get <key>` 在 local 没设时 exit 1（抛错）—— 返回空字符串便于测试断言
+            return ''
+        }
     }
 
     /**
@@ -416,17 +416,13 @@ describe('stageAndCommit (author 路径回归)', () => {
     }
 
     beforeEach(() => {
-        // 在 process.env 层面设置，让 stageAndCommit 内部的 execSync 调用也走隔离 env
-        // （ESM 下 vi.spyOn 模块导入不可靠；用 process.env 注入更稳）
-        for (const [key, value] of Object.entries(ISOLATED_GIT_ENV)) {
-            process.env[key] = value
-        }
+        // 注：原 M18.4 测试曾用 ISOLATED_GIT_ENV (GIT_CONFIG_GLOBAL=/dev/null) 屏蔽 host 全局，
+        // 但 `/dev/null` 不是合法 git config 文件 → `git init` 抛 `bad config line 1 in file /dev/null`。
+        // W3 修复改用 stageAndCommit 内部 `-c user.name=X -c user.email=Y` 显式传，
+        // 强制 commit author 用传入值（lookup order 中最高优先），无需屏蔽 host 全局。
     })
 
     afterEach(() => {
-        for (const key of Object.keys(ISOLATED_GIT_ENV)) {
-            delete process.env[key]
-        }
         for (const dir of tempDirs.splice(0)) {
             try {
                 rmSync(dir, { recursive: true, force: true })
@@ -505,6 +501,69 @@ describe('stageAndCommit (author 路径回归)', () => {
         const author = readCommitAuthor(dir)
         expect(author.name).toBe('dependfix[bot]')
         expect(author.email).toBe('dependfix[bot]@users.noreply.github.com')
+    }, 15_000)
+
+    /**
+     * W3 回归：stageAndCommit 显式传 `-c user.name=X -c user.email=Y` 保证 commit author
+     * 用传入值，不受 host 全局 user.name 污染。
+     *
+     * 修复前：`git config user.name` 查询会查到 host 全局 `CaoMeiYouRen`，
+     * `ensureGitConfig.hasName=true` → 不 set local config → `git commit` 用 host 全局 author
+     * → 破坏 PAT 路径"commit author 硬编码 dependfix[bot]"承诺 + App 路径
+     * `{app_id}+{bot_login}[bot]` 协议。
+     *
+     * 修复后：`stageAndCommit` 显式传 `-c user.name=X -c user.email=Y`，在 `git commit` lookup
+     * order（env → `-c` config → local → global → system）中最高优先，**强制** commit author
+     * 用传入值，与 host 全局 config 无关。
+     */
+    it('W3 回归：stageAndCommit 显式 -c user.name -c user.email 覆盖 host 全局 user.name', () => {
+        // 场景：worker 创建 tempDir + git init，host 全局有 user.name=CaoMeiYouRen（不屏蔽）
+        const dir = createGitRepoWithoutGitConfig()
+        // 模拟 host 全局有 user.name（在 local 写入等效——git commit lookup order：local 优先）
+        git('config user.name host-global-user', dir)
+        git('config user.email host-global@example.com', dir)
+        writeFileSync(join(dir, 'change.txt'), 'fixed\n')
+
+        stageAndCommit('fix: dependabot', dir, {
+            name: '123456[bot]',
+            email: '123456+dependfix-bot[bot]@users.noreply.github.com',
+        })
+
+        // 验证 commit author 用传入值（不被 host-global-user 覆盖）
+        const author = readCommitAuthor(dir)
+        expect(author.name).toBe('123456[bot]')
+        expect(author.email).toBe('123456+dependfix-bot[bot]@users.noreply.github.com')
+    }, 15_000)
+
+    /**
+     * M18.4 audit round 2 W3：host 全局有 user.name + 传入 author → author 必须生效（不覆盖）
+     *
+     * 修复前：`git config user.name` 查询会查到 host 全局 `CaoMeiYouRen`，
+     * `ensureGitConfig.hasName=true` → 不 set local config → `git commit` 用 host 全局 author
+     * → 破坏 PAT 路径"commit author 硬编码 dependfix[bot]"承诺 + App 路径
+     * `{app_id}+{bot_login}[bot]` 协议。
+     *
+     * 修复后：`stageAndCommit` 显式传 `-c user.name=X -c user.email=Y`，在 `git commit` lookup
+     * order（env → `-c` config → local → global → system）中最高优先，**强制** commit author
+     * 用传入值，与 host 全局 config 无关。
+     */
+    it('W3 回归：stageAndCommit 显式 -c user.name -c user.email 覆盖 host 全局 user.name', () => {
+        // 场景：worker 创建 tempDir + git init，host 全局有 user.name=CaoMeiYouRen（不屏蔽）
+        const dir = createGitRepoWithoutGitConfig()
+        // 模拟 host 全局有 user.name（在 local 写入等效——git commit lookup order：local 优先）
+        git('config user.name host-global-user', dir)
+        git('config user.email host-global@example.com', dir)
+        writeFileSync(join(dir, 'change.txt'), 'fixed\n')
+
+        stageAndCommit('fix: dependabot', dir, {
+            name: '123456[bot]',
+            email: '123456+dependfix-bot[bot]@users.noreply.github.com',
+        })
+
+        // 验证 commit author 用传入值（不被 host-global-user 覆盖）
+        const author = readCommitAuthor(dir)
+        expect(author.name).toBe('123456[bot]')
+        expect(author.email).toBe('123456+dependfix-bot[bot]@users.noreply.github.com')
     }, 15_000)
 })
 

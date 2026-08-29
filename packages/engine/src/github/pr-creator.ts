@@ -199,6 +199,10 @@ export function createFixBranch(branchName: string, workDir: string): FixBranchR
  * 使用 `execFileSync` 参数数组形式（不经 shell），保证多行 commit message
  * 与 UTF-8 字符（如 →）在 Windows/Linux 双平台传递一致。
  *
+ * W3 修复（M18.4 audit round 2）：显式传 `-c user.name=X -c user.email=Y` 强制 commit author
+ * 使用传入值，不受 host 全局 `user.name`（如 CaoMeiYouRen）污染——`git commit` 走 lookup order
+ * (env → `-c` config → local → global → system)，显式 `-c` 在 lookup order 中最高优先。
+ *
  * @param author - 可选 commit author 信息；不传时使用 PAT 默认值（保持现有 PAT 路径行为零变化）。
  *   M18.2 之后 GitHub App 路径会传入动态生成的 `{app_id}+{bot_login}[bot]` author。
  *
@@ -206,13 +210,15 @@ export function createFixBranch(branchName: string, workDir: string): FixBranchR
  */
 export function stageAndCommit(message: string, workDir: string, author?: { name: string, email: string }): void {
     ensureGitConfig(workDir, author)
+    const effectiveAuthor = author ?? PAT_DEFAULT_COMMIT_AUTHOR
     execSync('git add .', { cwd: workDir, stdio: 'pipe' })
-    execFileSync('git', ['commit', '-m', message], { cwd: workDir, stdio: 'pipe' })
+    execFileSync('git', [
+        '-c', `user.name=${effectiveAuthor.name}`,
+        '-c', `user.email=${effectiveAuthor.email}`,
+        'commit',
+        '-m', message,
+    ], { cwd: workDir, stdio: 'pipe' })
 }
-
-/**
- * 推送分支到远程 origin。
- */
 export function pushBranch(branchName: string, workDir: string): void {
     execFileSync('git', ['push', 'origin', branchName], { cwd: workDir, stdio: 'pipe' })
 }
@@ -686,8 +692,12 @@ function ensureGitConfig(workDir: string, author?: { name: string, email: string
 }
 
 function gitConfigExists(key: string, workDir: string): boolean {
+    // 必须用 `--local` 限定 local config 查询——否则 `git config user.name`（无 flag）
+    // 走 lookup order (local → global → system)，会返回 host 全局 user.name（如
+    // CaoMeiYouRen）误判"已配置"，让 ensureGitConfig 跳过 set local config。
+    // W3 修复（M18.4 audit round 2）：见 stageAndCommit 内 `-c user.name=X` 注释。
     try {
-        execSync(`git config ${key}`, { cwd: workDir, stdio: 'pipe' })
+        execSync(`git config --local --get ${key}`, { cwd: workDir, stdio: 'pipe' })
         return true
     } catch {
         return false

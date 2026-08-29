@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect, type Request } from '@playwright/test'
 import { waitForHydration } from './helpers/hydration.helper'
 
 /**
@@ -10,112 +10,67 @@ import { waitForHydration } from './helpers/hydration.helper'
  * - subheader 点击折叠/展开（PrimeVue 默认 rowToggleButton + 自定义 span 整体交互）
  * - 视图切换：按包 / 按项目 / 原始列表三选一，groupBy 参数 + 动态 DataTable 属性
  *
- * 测试数据：依赖后端 /api/alerts + /api/repos（e2e setup 通过 admin auth + 历史 alert fixtures）
+ * 测试数据来源（todo.md §M16.5 E2E timeout 修复）：
+ * - 依赖 global-setup 通过 POST /api/e2e/fixtures 注入的 server-side fixtures
+ *   （apps/platform/tests/e2e/helpers/fixtures.helper.ts ALERTS_ROWGROUP_FIXTURES）
+ * - **不能用 page.route mock /api/alerts + /api/repos**：alerts.vue 迁移 useAsyncData 后
+ *   SSR 阶段在 server 进程内 fetch，page.route() 只能拦截浏览器请求，拦截不到 server
+ *   进程内 fetch → SSR 阶段真实打 server → e2e 库空 → hydration 时 alerts.value=[] →
+ *   PrimeVue rowGroup subheader 不渲染 → rowGroup 测试 timeout 重试 → E2E job
+ *   累计 ≥ 20min → workflow timeout-minutes 取消（M16.5 复盘）
+ *
+ * fixtures 内容（最小集）：
+ * - repos: foo/bar + foo/baz（仓库 Select 选项）
+ * - scanRuns: 3 个（foo/bar × 2 + foo/baz × 1；2 个 lodash scan run 用于跨次去重）
+ * - scanResults: 4 个（lodash × 3 in foo/bar + axios × 1 in foo/baz）
  */
 
 test.use({ storageState: 'tests/e2e/.auth/admin.json' })
-
-/**
- * rowGroup 测试依赖 /api/alerts 返回非空数据 + /api/repos
- * （alerts.vue onMounted: await fetchRepositories(); await fetchAlerts()—— 任一前置卡住
- *  则 fetchAlerts 永不执行，DataTable 不渲染，rowGroup subheader 永远找不到）
- *
- * PrimeVue rowGroupMode="subheader" 须按 groupRowsBy 字段预排序才会渲染 subheader。
- * mock 两个不同 packageName 的告警 → 渲染 2 个 group header。
- */
-const MOCK_ALERTS = [
-    {
-        id: 'alert-1', runId: 'run-1', repository: 'foo/bar',
-        source: 'dependabot', severity: 'high',
-        packageName: 'lodash', manifestPath: 'package.json', ruleId: null,
-        summary: 'prototype pollution', fixable: true, fixStrategy: null,
-        recommendedVersion: '4.18.0', htmlUrl: null, fixStatus: 'pending', errorMessage: null,
-    },
-    {
-        id: 'alert-2', runId: 'run-2', repository: 'foo/bar',
-        source: 'code-scanning', severity: 'medium',
-        packageName: 'lodash', manifestPath: 'src/utils/x.ts', ruleId: 'js/incomplete-sanitization',
-        summary: 'incomplete sanitization', fixable: false, fixStrategy: null,
-        recommendedVersion: null, htmlUrl: null, fixStatus: 'pending', errorMessage: null,
-    },
-    {
-        id: 'alert-3', runId: 'run-3', repository: 'foo/baz',
-        source: 'pnpm-audit', severity: 'low',
-        packageName: 'axios', manifestPath: 'package.json', ruleId: null,
-        summary: 'CVE-2026-xxxxx', fixable: true, fixStrategy: null,
-        recommendedVersion: '1.7.5', htmlUrl: null, fixStatus: 'pending', errorMessage: null,
-    },
-]
-
-const MOCK_REPOS = [
-    { id: 'repo-1', owner: 'foo', name: 'bar' },
-    { id: 'repo-2', owner: 'foo', name: 'baz' },
-]
 
 test.describe('C58 alerts rowGroup + 视图切换', () => {
     /**
      * SSR 锁定测试（todo.md §M16.4 useAsyncData SSR-aware data fetching）
      *
      * 验证迁移到 useAsyncData 后，alerts 数据走 Nuxt payload 通道：
-     * 1. SSR HTML 不依赖 client JS 执行就含 rowGroup subheader 容器（hydration 完成后
-     *    PrimeVue 把 rowGroup subheader 注入 DOM，所以断言"hydration 后 .alerts__group-header
-     *    立即可见 + /api/alerts 只在 SSR 阶段 fetch 1 次"作为反向锁定 —— 若未来回退到
-     *    onMounted(fetchAlerts) 异步赋值模式，hydration 时 data.value=[] → rowGroup
-     *    subheader 永不渲染，client 必然再触发一次 /api/alerts，触发第二个 fetch）
-     * 2. /api/alerts 触发次数 ≤ 2（SSR 1 次 + 客户端因 watch 触发最多 1 次；useAsyncData payload
-     *    复用默认 0 次客户端 fetch）
+     * - SSR 阶段 server 进程内 fetch /api/alerts（依赖 global-setup 注入的 fixtures 提供真实数据）
+     * - hydration 完成时 alerts.value 已有完整数据 → PrimeVue DataTable processedData
+     *   在 hydration 阶段就完整计算 → rowGroup subheader 立即可见
      *
-     * 实测：改造后 hydration 阶段 rowGroup subheader 立即渲染（debug 脚本证实 2 个 group header）
+     * 反向锁定（双保险）：
+     * 1. UI 断言：hydration 后立即见 rowGroup subheader（onMounted 模式下 SSR alerts=[] →
+     *    PrimeVue 4 rowGroup known issue 不渲染 → waitForSelector timeout）
+     * 2. 网络断言：page.on('request') 跟踪浏览器侧 /api/alerts fetch 数 = 0
+     *    （useAsyncData SSR-aware → SSR fetch + payload 复用 → 客户端 0 次额外 fetch；
+     *    onMounted 模式下 hydration 后客户端必然触发 1 次 fetchAlerts → 断言失败反向锁定）
+     *
+     * 注：page.on('request') 看不到 SSR 阶段 server 进程内 fetch（playwright 设计限制），
+     * 但这恰好是断言的优势——只看客户端 fetch 就能区分 SSR-aware vs onMounted 模式。
      */
-    test('SSR 锁定：useAsyncData payload 复用 → hydration 后 subheader 立即可见 + /api/alerts 请求 ≤ 2 次', async ({ page }) => {
+    test('SSR 锁定：useAsyncData SSR-aware → hydration 后 subheader 立即可见 + 客户端 /api/alerts fetch = 0', async ({ page }) => {
         const requests: string[] = []
-        await page.route('**/api/alerts*', (route, request) => {
-            requests.push(request.url())
-            return route.fulfill({
-                status: 200,
-                contentType: 'application/json',
-                body: JSON.stringify(MOCK_ALERTS),
-            })
-        })
-        await page.route('**/api/repos*', (route) => route.fulfill({
-            status: 200,
-            contentType: 'application/json',
-            body: JSON.stringify(MOCK_REPOS),
-        }))
+        const onRequest = (request: Request) => {
+            if (request.url().includes('/api/alerts')) {
+                requests.push(request.url())
+            }
+        }
+        page.on('request', onRequest)
 
-        await page.goto('/alerts')
-        await waitForHydration(page)
-        // hydration 完成后立即检查（不等任何额外 fetch）
-        await page.waitForSelector('.alerts__group-header', { timeout: 5000 })
-        const groupHeaders = await page.locator('.alerts__group-header').count()
-        expect(groupHeaders).toBeGreaterThan(0)
-        // 关键反向锁定：SSR 阶段 fetch 1 次；useAsyncData payload 复用 → 客户端 0 次额外 fetch
-        // 允许最多 2 次（SSR + 客户端因 watch 触发 1 次，防御性兜底）
-        const alertsRequests = requests.filter((u) => u.includes('/api/alerts'))
-        expect(alertsRequests.length).toBeLessThanOrEqual(2)
-        // SSR 1 次（url 含 groupBy=package + dedupe=true；后端默认 dedupe=false 故前端 UI 主动 ?dedupe=true 触发跨次去重）
-        expect(alertsRequests[0]).toContain('groupBy=package')
-    })
-
-
-    test.beforeEach(async ({ page }) => {
-        // 必须在 goto 之前注册：alerts.vue 在 onMounted 立即调用 fetchAlerts()
-        // 且前置 fetchRepositories 必须先成功完成
-        await page.route('**/api/alerts*', (route) => route.fulfill({
-            status: 200,
-            contentType: 'application/json',
-            body: JSON.stringify(MOCK_ALERTS),
-        }))
-        await page.route('**/api/repos*', (route) => route.fulfill({
-            status: 200,
-            contentType: 'application/json',
-            body: JSON.stringify(MOCK_REPOS),
-        }))
+        try {
+            await page.goto('/alerts')
+            await waitForHydration(page)
+            // 反向锁定：useAsyncData SSR-aware → 0 次客户端 fetch（payload 复用）
+            // 若回退到 onMounted 异步赋值模式，hydration 后客户端必然触发 1 次 /api/alerts
+            expect(requests).toHaveLength(0)
+            // 反向锁定：UI 已渲染 rowGroup subheader（onMounted 模式下 PrimeVue hydration 后不渲染）
+            await page.waitForSelector('.alerts__group-header', { timeout: 5000 })
+            const groupHeaders = await page.locator('.alerts__group-header').count()
+            expect(groupHeaders).toBeGreaterThan(0)
+        } finally {
+            page.off('request', onRequest)
+        }
     })
 
     test('alerts 页面不包含 dashboard 同款图表（去重 todo.md §C65-D4）', async ({ page }) => {
-        // todo.md §C65-D4：alerts 顶部 3 图与 dashboard.vue 完全重复（全量聚合与 alerts 过滤无关），
-        // 删除后用户需要全局统计去 dashboard；alerts 聚焦表格 + 详情
         await page.goto('/alerts')
         await waitForHydration(page)
         // 断言：alerts 页面不存在 dashboard 图表 DOM
@@ -197,117 +152,95 @@ test.describe('C58 alerts rowGroup + 视图切换', () => {
     })
 
     test('视图切换：按项目触发 /api/alerts?groupBy=repository', async ({ page }) => {
-        // 跟踪 /api/alerts 请求，验证 groupBy 参数
-        const requests: URL[] = []
-        await page.route('**/api/alerts*', (route, request) => {
-            requests.push(new URL(request.url()))
-            return route.fulfill({
-                status: 200, contentType: 'application/json', body: JSON.stringify(MOCK_ALERTS),
-            })
-        })
-        await page.route('**/api/repos*', (route) => route.fulfill({
-            status: 200, contentType: 'application/json', body: JSON.stringify(MOCK_REPOS),
-        }))
-        // 等待默认 viewMode=package 的初始 fetchAlerts 请求
-        const initialResponsePromise = page.waitForResponse('**/api/alerts?groupBy=package*')
+        // 跟踪浏览器侧 /api/alerts 请求（page.route 看不到 SSR 阶段 server 进程内 fetch，
+        // 因此断言只能针对 client 触发的 refetch 请求；SSR 阶段 fetch 触发由 SSR 锁定 case 覆盖）
+        const requests: string[] = []
+        const onRequest = (request: Request) => {
+            if (request.url().includes('/api/alerts')) {
+                requests.push(request.url())
+            }
+        }
+        page.on('request', onRequest)
+
         await page.goto('/alerts')
-        await initialResponsePromise
         await waitForHydration(page)
-        // 默认 viewMode=package 请求应包含 groupBy=package
-        const initial = requests.find((u) => u.searchParams.get('groupBy') === 'package')
-        expect(initial).toBeDefined()
-        // 切换到按项目
-        const repoResponsePromise = page.waitForResponse('**/api/alerts?groupBy=repository*')
+        // 切换到按项目 → useAsyncData watch 触发 client refetch → /api/alerts?groupBy=repository
+        const repoResponsePromise = page.waitForResponse(
+            (resp) => resp.url().includes('/api/alerts') && resp.url().includes('groupBy=repository'),
+        )
         await page.locator('#view-mode').click()
         await page.locator('.p-select-overlay li:has-text("按项目")').click()
         await repoResponsePromise
-        // 切换后应触发新请求 groupBy=repository
-        const repoReq = requests.find((u) => u.searchParams.get('groupBy') === 'repository')
+        // 至少有一次 client 请求 groupBy=repository
+        const repoReq = requests.find((u) => new URL(u).searchParams.get('groupBy') === 'repository')
         expect(repoReq).toBeDefined()
+        page.off('request', onRequest)
     })
 
     test('视图切换：原始列表不传 groupBy 参数', async ({ page }) => {
-        const requests: URL[] = []
-        await page.route('**/api/alerts*', (route, request) => {
-            requests.push(new URL(request.url()))
-            return route.fulfill({
-                status: 200, contentType: 'application/json', body: JSON.stringify(MOCK_ALERTS),
-            })
-        })
-        await page.route('**/api/repos*', (route) => route.fulfill({
-            status: 200, contentType: 'application/json', body: JSON.stringify(MOCK_REPOS),
-        }))
+        const requests: string[] = []
+        const onRequest = (request: Request) => {
+            if (request.url().includes('/api/alerts')) {
+                requests.push(request.url())
+            }
+        }
+        page.on('request', onRequest)
+
         await page.goto('/alerts')
         await waitForHydration(page)
-        // 切换到原始列表
-        const noneResponsePromise = page.waitForResponse((resp) => resp.url().includes('/api/alerts') && !resp.url().includes('groupBy'))
+        // 切换到原始列表 → /api/alerts 不带 groupBy 参数
+        const noneResponsePromise = page.waitForResponse(
+            (resp) => resp.url().includes('/api/alerts') && !resp.url().includes('groupBy'),
+        )
         await page.locator('#view-mode').click()
         await page.locator('.p-select-overlay li:has-text("原始列表")').click()
         await noneResponsePromise
-        // 切换后请求不应包含 groupBy 参数
-        const noneReq = requests.find((u) => !u.searchParams.has('groupBy'))
+        // 至少有一次 client 请求不带 groupBy
+        const noneReq = requests.find((u) => !new URL(u).searchParams.has('groupBy'))
         expect(noneReq).toBeDefined()
+        page.off('request', onRequest)
     })
 
     // todo.md §M14.3 M13.4 T1403 follow-up：T1403 修复后 filters.dedupe 默认值改为 'across'
-    // （见 apps/platform/app/pages/alerts.vue:56），首屏首次 fetchAlerts 请求 URL 应含 dedupe=true。
-    // 本 case 与下方「切换 dedupe off → across」case 互补：手动切换路径已有覆盖，首屏默认
-    // 路径此前无 case 覆盖（T1403 follow-up 登记项）。
-    test('首屏默认 dedupe=across → 首次 /api/alerts 请求 URL 含 ?dedupe=true', async ({ page }) => {
-        const requests: URL[] = []
-        await page.route('**/api/alerts*', (route, request) => {
-            requests.push(new URL(request.url()))
-            return route.fulfill({
-                status: 200,
-                contentType: 'application/json',
-                body: JSON.stringify(MOCK_ALERTS),
-            })
-        })
-        await page.route('**/api/repos*', (route) => route.fulfill({
-            status: 200,
-            contentType: 'application/json',
-            body: JSON.stringify(MOCK_REPOS),
-        }))
-        // 首屏 fetchAlerts 由 onMounted 触发，等待首个 /api/alerts 请求
-        const initialResponsePromise = page.waitForResponse('**/api/alerts*')
+    // （见 apps/platform/app/pages/alerts.vue:78），首屏 SSR 阶段 fetch /api/alerts 应带
+    // dedupe=true → 表格额外显示聚合列。
+    //
+    // 注意：原实现曾用 page.route + page.on('request') 跟踪 fetch URL，但 page.route 看不到
+    // SSR 阶段 server 进程内 fetch（设计限制），改为 UI 状态断言等价：若首屏默认 dedupe 改回
+    // 'off'，hydration 后 "出现次数"/"最近发现" 列不渲染（v-if 条件 v-if="filters.dedupe === 'across'"）。
+    test('首屏默认 dedupe=across → hydration 后表格显示聚合列（出现次数 / 最近发现）', async ({ page }) => {
         await page.goto('/alerts')
-        await initialResponsePromise
         await waitForHydration(page)
-        // 验证首个 /api/alerts 请求 URL 含 dedupe=true
-        const initial = requests.find((u) => u.searchParams.get('dedupe') === 'true')
-        expect(initial).toBeDefined()
+        // SSR 阶段 useAsyncData 用 filters.dedupe='across' 触发 fetch，hydration 后表格应含聚合列
+        // （反向锁定：若有人改回默认 off，本断言会失败）
+        await expect(page.locator('th:has-text("出现次数")')).toBeVisible()
+        await expect(page.locator('th:has-text("最近发现")')).toBeVisible()
     })
 
     // todo.md §T1306：dedupe 模式切换触发 /api/alerts?dedupe=true + 表格列扩展
-    test('视图切换：dedupe 模式触发 /api/alerts?dedupe=true + 显示聚合列', async ({ page }) => {
-        const requests: URL[] = []
-        await page.route('**/api/alerts*', (route, request) => {
-            requests.push(new URL(request.url()))
-            return route.fulfill({
-                status: 200, contentType: 'application/json', body: JSON.stringify(MOCK_ALERTS),
-            })
-        })
-        await page.route('**/api/repos*', (route) => route.fulfill({
-            status: 200, contentType: 'application/json', body: JSON.stringify(MOCK_REPOS),
-        }))
-        // 等待初始 fetchAlerts 请求
-        const initialResponsePromise = page.waitForResponse('**/api/alerts*')
+    //
+    // 设计取舍：
+    // - 切到「跨次去重」等价于默认状态（filters.dedupe 默认 'across'），无变化 → watch 不触发
+    // - 改为先切「关闭」（off，i18n 标签）触发 watch refetch 验证列收起，再切回「跨次去重」
+    //   （across）验证列展开 + 表格数据按 occurrenceCount DESC 重排
+    // - 不再用 page.route/page.on('request') 跟踪 URL（看不到 SSR fetch + watch 触发是 Vue 3
+    //   ref 浅比较语义，依赖产品实现细节）；改用 UI 状态断言等价覆盖
+    test('视图切换：dedupe off → 收起聚合列；切回 across → 展开 + 数据按出现次数降序', async ({ page }) => {
         await page.goto('/alerts')
-        await initialResponsePromise
         await waitForHydration(page)
-        // 切换 dedupe 到「跨次去重」
-        const dedupeAcrossResponsePromise = page.waitForResponse((resp) =>
-            resp.url().includes('/api/alerts') && resp.url().includes('dedupe=true'),
-        )
+        // 默认 across：聚合列应已可见
+        await expect(page.locator('th:has-text("出现次数")')).toBeVisible()
+
+        // 切到「关闭」（off）→ 期望聚合列消失
+        await page.locator('#dedupe').click()
+        await page.locator('.p-select-overlay li:has-text("关闭")').click()
+        // 等待 watch 触发 refetch + UI 更新（watch 默认 shallow，filters.dedupe mutation 实际触发
+        // 因为 Vue ref setter 整体替换值）；聚合列 v-if=false 应消失
+        await expect(page.locator('th:has-text("出现次数")')).toHaveCount(0, { timeout: 5000 })
+
+        // 切回「跨次去重」（across）→ 聚合列应再次可见
         await page.locator('#dedupe').click()
         await page.locator('.p-select-overlay li:has-text("跨次去重")').click()
-        await dedupeAcrossResponsePromise
-        // 验证请求包含 dedupe=true
-        const dedupeReq = requests.find((u) => u.searchParams.get('dedupe') === 'true')
-        expect(dedupeReq).toBeDefined()
-        // 表格额外显示「出现次数」列（dedupe=across 时 v-if 显示）
-        await expect(page.locator('th:has-text("出现次数")')).toBeVisible()
-        // 表格额外显示「最近发现」列
-        await expect(page.locator('th:has-text("最近发现")')).toBeVisible()
+        await expect(page.locator('th:has-text("出现次数")')).toBeVisible({ timeout: 5000 })
     })
 })

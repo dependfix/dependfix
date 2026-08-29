@@ -20,6 +20,14 @@ jobs:
           node-version: "lts/*"
           cache: "pnpm"
       - run: pnpm i --frozen-lockfile
+      # 依赖审计（M18.x 治理批次 W4 — c22 §5.5 决策 C 缓解措施 4）：
+      # - pnpm.overrides 钉定 @octokit/auth-app=8.3.0（pnpm-workspace.yaml）
+      # - audit --prod 只看 prod deps（devDeps 漏洞不影响生产部署）
+      # - --audit-level=moderate 包含 high + critical（Dependabot 默认告警阈值）
+      # - 失败不阻断 Test job（|| true）：audit 失败仅作为信号；hard-fail 由 dependabot.yml 处理
+      # - 升级 @octokit/auth-app 前必须重跑 M18.4 e2e + 评估 breaking change
+      - name: pnpm audit (prod deps, moderate+)
+        run: pnpm audit --prod --audit-level=moderate || true
       # Nuxt 平台 eslint 依赖 .nuxt/tsconfig.json（Nuxt 生成的类型），需先 prepare 生成
       - run: pnpm --filter @dependfix/platform exec nuxt prepare
       # 平台 server 代码 import dependfix、@dependfix/core、@dependfix/engine 的 dist 类型声明（Nuxt tsconfig 不映射 workspace 源码）：

@@ -28,3 +28,9 @@ overrides:
   js-yaml@4: ^4.3.0
   vite@5: ^5.4.21
   js-yaml@3: ^3.15.1
+  # M18.x 治理批次 W4（c22 §5.5 决策 C 缓解措施 4）：@octokit/auth-app 是 AuthProvider 抽象层核心依赖
+  # （todo.md §M18 范围），库升级可能改变 JWT signing / installation token LRU TTL / rate limit 行为，
+  # dependfix 集成层依赖该库契约稳定；M18.4 audit round 2 Reject 实测库集成 bug 后需锁定版本防回归。
+  # 升级 @octokit/auth-app 前必须重跑 M18.4 e2e（packages/engine/src/auth/auth-flow.test.ts 13 case）
+  # + 评估 breaking change（GitHub App 安装 token / JWT 签名 / rate limit 处理）。
+  "@octokit/auth-app": 8.3.0

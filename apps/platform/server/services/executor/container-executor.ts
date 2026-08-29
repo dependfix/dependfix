@@ -12,7 +12,7 @@ import {
     fetchDefaultBranch,
     generatePRBody,
 } from '@dependfix/engine'
-import { fromPat } from '@dependfix/engine/auth'
+import { fromPat, type AuthProvider } from '@dependfix/engine/auth'
 import type { ScanExecutor, ScanExecutorContext, ScanExecutorResult } from './types'
 
 const execFileAsync = promisify(execFile)
@@ -49,11 +49,40 @@ export async function extractBranchName(workDir: string): Promise<string> {
  * - 与 pushBranch（packages/engine/src/github/pr-creator.ts:200）的语义差异：
  *   本函数为 async + 走 http.extraheader 凭据注入（平台 A 模式需要把 token 重新注入到
  *   平台工作目录的 git config，而 engine 端 pushBranch 依赖该 workDir 已有 origin 凭据）
+ *
+ * @param credential - 凭据；接受 token 字符串（向后兼容）或 AuthProvider（M18.2 接入 GitHub App）
+ *   - `string` → PAT 路径（username 固定为 `'x-access-token'`）
+ *   - `AuthProvider` → 通过 `getGitCredential()` 获取 username + token（PAT / GitHub App 路径统一接口）
+ *   - `undefined` → 不注入 Authorization header（依赖 workDir 已有 origin 凭据）
+ *
+ * @see [C22 PAT 无感升级评估 §4.5 调用点改造](../../../../docs/design/governance/c22-pat-backward-compat.md)
  */
-export async function pushFixBranch(branchName: string, workDir: string, token?: string): Promise<void> {
+export async function pushFixBranch(
+    branchName: string,
+    workDir: string,
+    credential?: string | AuthProvider,
+): Promise<void> {
+    let username: string
+    let token: string
+
+    if (typeof credential === 'string') {
+        // 向后兼容：token 字符串 → PAT 路径（固定 username = 'x-access-token'）
+        username = 'x-access-token'
+        token = credential
+    } else if (credential) {
+        // AuthProvider 路径：通过 getGitCredential() 获取 username + token（PAT + GitHub App 统一接口）
+        const gitCred = credential.getGitCredential()
+        username = gitCred.username
+        token = gitCred.token
+    } else {
+        // 无凭据：不注入 Authorization header
+        username = ''
+        token = ''
+    }
+
     const args = ['push', 'origin', branchName]
     if (token) {
-        const basic = Buffer.from(`x-access-token:${token}`).toString('base64')
+        const basic = Buffer.from(`${username}:${token}`).toString('base64')
         args.unshift('-c', `http.extraheader=Authorization: basic ${basic}`)
     }
     const { stderr } = await execFileAsync('git', args, { cwd: workDir, timeout: 60_000 })

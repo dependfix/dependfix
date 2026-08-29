@@ -45,8 +45,13 @@ type DependabotAlertItem =
  *
  * @example
  * ```typescript
- * const octokit = createGitHubClient({ token: 'ghp_xxxx' })
+ * // 推荐：使用 auth 抽象层（M18.1 实施后）
+ * import { fromPat } from '@dependfix/engine/auth'
+ * const octokit = createGitHubClient({ auth: fromPat('ghp_xxxx') })
  * const alerts = await fetchDependabotAlerts(octokit, { owner: 'foo', repo: 'bar' })
+ *
+ * // 向后兼容：使用 token 字段（deprecated）
+ * const octokit = createGitHubClient({ token: 'ghp_xxxx' })
  * ```
  */
 export async function fetchDependabotAlerts(

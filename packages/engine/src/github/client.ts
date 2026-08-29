@@ -1,5 +1,6 @@
 import { Octokit } from '@octokit/rest'
 import { RequestError } from '@octokit/request-error'
+import type { AuthProvider } from '../auth/auth-provider'
 
 export interface RetryPolicyOptions {
     /** 最大重试次数（默认 3；0 = 不重试） */
@@ -14,19 +15,39 @@ export interface RetryPolicyOptions {
 }
 
 export interface OctokitClientOptions {
-    /** GitHub Personal Access Token */
-    token: string
+    /**
+     * 认证抽象层（M18.1 实施后唯一推荐入口）。
+     *
+     * 调用方应通过 `fromPat(token)` 或 `fromApp(params)` 构造；
+     * 优先使用此字段，新代码不得使用 deprecated 的 `token` 字段。
+     *
+     * @see {@link ../auth/auth-provider} AuthProvider 接口定义
+     * @see [C22 PAT 无感升级评估 §4.2 AuthProvider 接口设计](../../../../docs/design/governance/c22-pat-backward-compat.md)
+     */
+    auth?: AuthProvider
+
+    /**
+     * @deprecated 使用 `auth` 替代。
+     *
+     * 保留作为向后兼容包装输入；若提供则内部委托给 `fromPat(token)`。
+     * 计划在 M19+ 评估移除。
+     */
+    token?: string
+
     /**
      * API 基地址。
      * 默认 `https://api.github.com`。
      * 测试时指向 nock 拦截的同一地址。
      */
     baseUrl?: string
+
     /**
      * API 限流 / 次要限流（secondary rate limit）指数退避重试策略。
      * 默认 maxRetries=3。对 429、primary rate limit（403 + x-ratelimit-remaining: 0）、
      * secondary rate limit（403/429 带 secondary/abuse/retry 特征）自动退避重试；
      * 权限类 403 不重试。
+     *
+     * 仅对 `token` 路径生效；`auth` 路径的 retry 由 AuthProvider 自身管理。
      */
     retry?: RetryPolicyOptions
 }
@@ -42,6 +63,11 @@ export interface OctokitClientOptions {
  *
  * @example
  * ```typescript
+ * // 推荐：使用 auth 抽象层（M18.1 实施后）
+ * import { fromPat } from '@dependfix/engine/auth'
+ * const octokit = createGitHubClient({ auth: fromPat('ghp_xxxx') })
+ *
+ * // 向后兼容：使用 token 字段（deprecated）
  * const octokit = createGitHubClient({ token: 'ghp_xxxx' })
  *
  * // 仓库信息
@@ -55,6 +81,16 @@ export interface OctokitClientOptions {
  * ```
  */
 export function createGitHubClient(options: OctokitClientOptions): Octokit {
+    // 优先使用 auth 抽象层
+    if (options.auth) {
+        return options.auth.getOctokit()
+    }
+
+    // 向后兼容：token 路径保留原实现（限流重试 + Octokit 构造）
+    if (!options.token) {
+        throw new Error('createGitHubClient: must provide either `auth` (AuthProvider) or `token` (deprecated)')
+    }
+
     const client = new Octokit({
         auth: options.token,
         baseUrl: options.baseUrl ?? 'https://api.github.com',

@@ -28,6 +28,11 @@
       "import": "./dist/index.mjs",
       "default": "./dist/index.mjs"
     },
+    "./auth": {
+      "types": "./dist/auth/index.d.mts",
+      "import": "./dist/auth/index.mjs",
+      "default": "./dist/auth/index.mjs"
+    },
     "./package.json": "./package.json"
   },
   "files": [

@@ -21,21 +21,18 @@ GitHub App Manifest flow 是 GitHub 提供的"manifest URL"机制，允许用户
 ### 1.2 评估目标
 
 1. 确认 Manifest flow 在 dependfix 平台的实施可行性
-2. 识别阻塞项（GHES 版本支持 / OAuth callback 路径 / CSRF 防护等）
+2. 识别阻塞项（OAuth callback 路径 / CSRF 防护等）
 3. 推荐是否启动 M19+ 实施，或维持文档引导
+4. 列出**触发再评估条件**（任一条件满足时重新审视本报告）
+5. 标注**关联文档与决策依据**
 
 ## 2. 技术评估
 
 ### 2.1 GHES 版本支持
 
-**GitHub.com Manifest flow 支持**：所有公开 GitHub App 可用（无版本限制）。
+**GitHub.com + GHES 3.0+ 均支持 Manifest flow**（[GitHub Docs 跨版本确认](https://docs.github.com/en/enterprise-server@3.0/developers/apps/building-github-apps/creating-a-github-app-from-a-manifest) —— GHES 3.0 / 3.1 / 3.2 / 3.3 / 3.4+ 文档均提供此页面且结构一致）。
 
-**GitHub Enterprise Server (GHES) Manifest flow 支持**：
-- GHES 3.4+ 支持（[官方文档](https://docs.github.com/en/enterprise-server@3.10/developers/apps/creating-a-github-app-from-a-manifest)）
-- GHES 3.3 及以下不支持 Manifest flow
-- 自部署场景下需确认目标 GHES 版本范围
-
-**影响**：自部署平台用户若使用 GHES 3.3 及以下，Manifest flow 入口不可用，需 fallback 到文档引导路径。
+**影响**：Manifest flow 不存在 GHES 版本兼容性问题；自部署用户均可使用。
 
 ### 2.2 Manifest URL 构造
 
@@ -75,8 +72,7 @@ GitHub 跳转 https://platform.example.com/oauth/github-app/callback?code=ABC&st
 dependfix 后端接收 code + state
    ↓
 POST https://api.github.com/app-manifests/{code}/conversions
-   ↓ Header: Authorization: Basic <base64(CLIENT_ID:CLIENT_SECRET)>
-   ↓ Body: 无（code 在 URL path）
+   ↓ （公开 endpoint，无需认证；code 在 URL path 中 1 小时内有效）
    ↓ 响应: { id, name, html_url, pem, webhook_secret, ... }
    ↓
 dependfix 后端用 pem 自动创建 Credential 记录（type='github-app'）
@@ -84,7 +80,7 @@ dependfix 后端用 pem 自动创建 Credential 记录（type='github-app'）
 重定向到平台 UI 显示成功提示
 ```
 
-**实现复杂度**：高（需要 OAuth state CSRF 防护 + 客户端凭据管理 + 后端轮询 GitHub API）。
+**实现复杂度**：高（需要 OAuth state CSRF 防护 + 后端调用 GitHub API）。
 
 ### 2.4 CSRF 防护（state 参数）
 
@@ -95,14 +91,21 @@ Manifest flow 的 callback URL 必须包含 `state` 参数防止 CSRF：
 
 **依赖**：session 中间件（平台已有 better-auth session）
 
-### 2.5 凭据管理（Client ID / Client Secret）
+### 2.5 凭据管理（Manifest conversion 公开 endpoint）
 
-Manifest flow 转换 API 需 Basic Auth：
-- `Authorization: Basic base64(client_id:client_secret)`
-- 但 Manifest flow 创建的 GitHub App 没有 client_id/client_secret（只有 private_key）
-- **替代方案**：使用 GitHub App 的 private key（RSA）+ JWT signing 调 `POST /app-manifests/{code}/conversions`（[GitHub 官方文档](https://docs.github.com/en/apps/creating-github-apps/creating-github-apps-from-a-manifest)）
+Manifest conversion API 是**公开 endpoint**，无需任何认证：
 
-**影响**：无需存储 client_id/client_secret，但仍需管理 GitHub App private key（在 manifest 转换前无法获取，需 callback 后用 code 换取）。
+- `POST /app-manifests/{code}/conversions` 不要求 `Authorization` 头
+- `code` 本身即是授权凭据（临时 1 小时内有效）
+- 响应中的 `pem`（GitHub App 私钥）随后可用于 GitHub API 访问（需 JWT signing + installation token exchange，由 M18.1 `AppAuthProvider` 处理）
+
+**影响**：manifest conversion 阶段无需 OAuth 客户端凭据管理；后续 GitHub API 访问由 M18.1 `AuthProvider` 抽象层统一处理（PAT 路径 / GitHub App 路径）。
+
+### 2.6 私钥管理（callback 后）
+
+`POST /app-manifests/{code}/conversions` 响应包含 `pem` 字段（RSA private key）：
+- 凭据 service 解密后立即加密存储到 `Credential.encryptedPrivateKey`（AES-256-GCM，与 M18.1 一致）
+- 永不返回明文到前端
 
 ### 2.6 私钥管理（callback 后）
 
@@ -114,9 +117,7 @@ Manifest flow 转换 API 需 Basic Auth：
 
 | 阻塞项 | 严重度 | 说明 |
 |:---|:---:|:---|
-| **GHES 3.3 及以下不支持** | 中 | 自部署用户需 fallback 到文档引导；可在 UI 检测 target GHES 版本后切换入口 |
 | **OAuth callback 路由** | 中 | 需新增 `/api/oauth/github-app/callback` endpoint + state CSRF 防护 + session 中间件 |
-| **依赖 GitHub.com + GHES 3.4+** | 低 | 大多数自部署用户满足；不满足的用户文档引导 fallback |
 | **平台路由与 webhook** | 中 | manifest 配置需 hook_attributes.url（webhook 端点）；M19+ 设计 |
 | **OAuth-style redirect 用户体验** | 低 | 用户需在 GitHub 确认页 → dependfix 后端凭据预填；UX 流畅但首次配置略复杂 |
 
@@ -125,14 +126,14 @@ Manifest flow 转换 API 需 Basic Auth：
 ### 4.1 推荐：M19+ 启动 Manifest flow 实施（条件触发）
 
 **触发条件**：
-1. dependfix 平台用户中 ≥ 5% 自部署 GHES 3.4+ 用户（Manifest flow 才有意义）
+1. dependfix 平台用户中 ≥ 5% 自部署多仓 org 用户（Manifest flow 增量价值才有意义）
 2. 文档引导的"5 步配置"反馈支持工单 ≥ 3 起 / 季度（用户配置成本成为痛点）
 3. 用户明确反馈"希望一键创建 App"
 
 **实施范围**：
-- 后端：新增 `/api/oauth/github-app/callback` endpoint + Manifest 生成 service + GHES 版本探测
-- 前端：Credentials 新增 "Create via Manifest" 按钮（GHES 3.4+ 显示）
-- 测试：mock GitHub manifest flow 端到端；state CSRF 单元测试；GHES 版本探测集成测试
+- 后端：新增 `/api/oauth/github-app/callback` endpoint + Manifest 生成 service
+- 前端：Credentials 新增 "Create via Manifest" 按钮
+- 测试：mock GitHub manifest flow 端到端；state CSRF 单元测试；e2e 流程测试
 
 **预估工作量**：2-3 工作日（1 commit 范围）
 
@@ -140,8 +141,7 @@ Manifest flow 转换 API 需 Basic Auth：
 
 **理由**：
 1. **用户优先级**：PAT 仍为 80%+ 用户的首选（CLI quickstart / Action input / 单仓调试），Manifest flow 仅对自部署多仓 org 用户有增量价值
-2. **GHES 兼容性**：自部署用户若 GHES 版本 ≤ 3.3，Manifest flow 入口无效；需 fallback 增加 UX 复杂度
-3. **测试覆盖**：e2e 测试需要真实 GitHub 环境或 mock GitHub manifest flow；M18.4 e2e 阶段未涵盖 Manifest flow 专项测试
+2. **测试覆盖**：e2e 测试需要真实 GitHub 环境或 mock GitHub manifest flow；M18.4 e2e 阶段未涵盖 Manifest flow 专项测试
 
 ### 4.3 当前阶段建议（M18.3）
 
@@ -153,10 +153,10 @@ Manifest flow 转换 API 需 Basic Auth：
 
 任一条件满足时，本评估报告需要重新审视：
 
-1. **GHES 版本分布变化**：自部署用户中 GHES 3.4+ 比例 ≥ 30%
-2. **用户反馈升级**：≥ 5 起用户工单抱怨 GitHub App 配置步骤繁琐
-3. **GitHub 平台变更**：GitHub 调整 Manifest flow 政策或限制
-4. **第三方依赖**：dependfix 增加其他 OAuth 流程（如 GitLab App）需要统一 OAuth 框架
+1. **用户反馈升级**：≥ 5 起用户工单抱怨 GitHub App 配置步骤繁琐
+2. **GitHub 平台变更**：GitHub 调整 Manifest flow 政策或限制
+3. **第三方依赖**：dependfix 增加其他 OAuth 流程（如 GitLab App）需要统一 OAuth 框架
+4. **依赖变更**：M19+ 实施时若 `@octokit/manifest-callback` 或类似官方库发布，影响实现复杂度
 
 ## 6. 关联文档
 

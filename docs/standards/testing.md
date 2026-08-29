@@ -115,6 +115,10 @@
 - **幂等设计**：测试用 `Date.now()` 随机 id（如 `integration-${Date.now()}`），避免重复运行命中上次残留（等待中的 job、未清理的数据）。
 - **依赖注入可测性**：被测模块的处理器/回调支持注入（如 worker 的 `processor` 参数），测试传 mock 断言"收到正确数据"，不依赖真实业务执行。
 - **资源清理**：测试尾部显式 `close()` + `disconnect()`，避免连接泄漏与句柄堆积。
+
+### 6.3 集成外部库测试模式（薄引用 — 完整规范见 development.md §5.1.15）
+
+集成 `@octokit/auth-app` / Vue 插件 / TypeORM / better-auth 等外部库时，**集成层测试不 mock 真实被集成库**（保留真实代码路径可执行）；mock 仅替换被测单元边界。完整规范 + 教训 + mock 边界示例见 [development.md §5.1.15](./development.md) + [经验归档 §四十三](../../docs/design/governance/experience-archive.md#四十三集成外部库必须读-readme-标准用法--e2e-真实路径冒烟测试2026-08-29m18.4-audit-round-1-reject-后补修)。
 - **职责边界**：进程内集成测试覆盖"基础设施层行为"（入队/消费/去重/终态重建）；HTTP 层状态流转（pending→running→completed + 轮询）才需要后台服务验证（staging 或 CI service container）。
 
 ## 7. 测试代码质量

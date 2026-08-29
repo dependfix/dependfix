@@ -201,6 +201,16 @@ apps/platform/               # Nuxt 全栈平台
 - 修复模式：调试 case 时打开真实 SQL 数据看 `batchRepo.save` 后的状态字段；不要"想当然"按 statusWriteBack 反推。
 - 实证：Case 3（running + 1 running）的 `pendingCount=0 → 1` 实际写回后不是 0，断言 `toBe(0)` 失败即源于此错误假设（CI Coverage 修复批次 commit `0c57211`）。
 
+#### 5.1.15 集成外部库前必须读 README 标准用法 + 落地真实路径 e2e 冒烟测试（hard requirement）
+
+集成任何外部库（`@octokit/*`、Vue 插件、TypeORM、Playwright、better-auth 等）前**必须**先查 README 官方示例（installation / authentication / getting started 章节的契约代码）——训练数据 / 直觉写法可能与最新库契约不符（如 `@octokit/auth-app` v8.x README 要求 `authStrategy: createAppAuth, auth: {...}` 双字段，凭直觉写 `auth: createAppAuth(...)` 必抛 `Token passed to createTokenAuth is not a string`）。
+
+**集成层测试不 mock 真实被集成库**：mock 仅替换被测单元边界（如 mock `@octokit/auth-app` 时**不** mock `@octokit/rest`，让 `@octokit/core` 真实构造路径可执行）；mock 形态永远无法完整模拟真实 dispatch 行为（@octokit/auth-app 内部 `auth(state, authOptions)` 走 `switch (authOptions.type)` 异步拒绝分支；mock 让 `authCallable` 同步返回 `{hook}` 绕开真实 type dispatch）。**真实路径冒烟测试必须用真实 RSA / 真实私钥 / 真实 nock 拦截**（fixture 字符串无法 JWT signing），不能仅凭单测通过即认为集成完成。详见 [testing.md §6.2](./testing.md) + [经验归档 §四十三](../../docs/design/governance/experience-archive.md#四十三集成外部库必须读-readme-标准用法--e2e-真实路径冒烟测试2026-08-29m18.4-audit-round-1-reject-后补修)。
+
+**「单测全过 + typecheck 0 error」≠ 集成 Done**：必须有「真实路径调用 + 断言关键行为」的可执行验证；A 阶段 code-auditor 主责边界已挂「集成外部库时验证 README 标准用法引用 + e2e 真实路径测试存在」必查项（[code-auditor.agent.md 主责边界](../../.github/agents/code-auditor.agent.md)）。
+
+教训（M18.4 audit round 1 Reject 实证）：M18.1 commit 4 凭直觉写 `auth: createAppAuth(...)`（错误用法）+ `app-provider.test.ts` `vi.mock('@octokit/rest')` + `vi.mock('@octokit/auth-app')` 完全跳过 `@octokit/core` 真实构造路径 → 所有单测通过但生产必抛 `Invalid auth type: undefined` / `Cannot read properties of undefined (reading 'bind')`，直到 M18.4 e2e 真实路径冒烟测试才暴露。
+
 ## 6. 样式规范（平台阶段适用）
 
 - **纯 SCSS**: 禁止 CSS-in-JS、Tailwind。所有样式以纯 SCSS 编写。

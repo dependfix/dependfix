@@ -199,19 +199,11 @@
 #### 治理
 
 - **C34** 存量规范严格约束挂接盘点（审查治理候选；审查现有 `docs/standards/*.md` 中"必须级"条款是否已在 code-quality-checklist.md / code-reviewer skill 双层对称挂接；现状：部分已挂接 development/testing/security/git/ai-collaboration，部分仅 standards 有 platform.md §7.1/§7.2；触发：下次 neat-freak 批次统一盘点）
-- **C39 standards 文档 ENCRYPTION_KEY → NUXT_ENCRYPTION_KEY 同步**（M17.1 audit warning #1 登记）
-  - 当前状态：M17.1 实施后 `process.env.ENCRYPTION_KEY` 不再被代码读取（credential.service.ts:78 改读 `useRuntimeConfig().encryptionKey`，单源在 nuxt.config.ts:61 读 `NUXT_ENCRYPTION_KEY`）；但权威规范层仍有 8 处仍用旧 env 名 `ENCRYPTION_KEY`：
-    - `docs/standards/platform.md:150` "平台级密钥：环境变量 `ENCRYPTION_KEY`"
-    - `docs/standards/platform.md:240` 环境变量总表行 `| ENCRYPTION_KEY | 凭据功能必需 | 空 | ... |`
-    - `docs/standards/security.md:83` "平台密钥隔离: `ENCRYPTION_KEY` / `AUTH_SECRET`..."
-    - `docs/standards/security.md:123` "`ENCRYPTION_KEY` 平台级密钥"
-    - `docs/standards/security.md:131` "`encryptToken(plaintext, ENCRYPTION_KEY)`"
-    - `docs/standards/security.md:132` "`decryptToken(encryptedToken, ENCRYPTION_KEY)`"
-    - `docs/standards/security.md:138` "`ENCRYPTION_KEY` 由平台运维配置"
-    - `docs/standards/security.md:145` "`ENCRYPTION_KEY` 变更会使存量密文不可解密"`
-  - 风险：按规范部署的新运维若只设 `ENCRYPTION_KEY`，凭据加密将抛 `'NUXT_ENCRYPTION_KEY 未配置'` 500 —— **这正是 M17.1 P1 想修的根因，从代码层转移到规范层**；todo.md §M17.1 验收点 4 仅明文写"同步更新 docker-compose.yml / .env.example 文档"，**未含 standards**（本次未实施）
-  - 修复方向：8 处全部 `ENCRYPTION_KEY` → `NUXT_ENCRYPTION_KEY`（platform.md §5 + §10 + security.md §5.5/§5.2/§5.3 联动更新）；可与 C34 存量规范挂接盘点同批次治理
-  - 优先级：P3（不阻塞 M17.1 合并，但强烈建议下批次闭环，避免重新引入运维误配 500）
+- **C39 standards 文档 ENCRYPTION_KEY → NUXT_ENCRYPTION_KEY 同步**（M17.1 audit warning #1 登记）**—— 2026-08-29 已由 M18.3 commit `7ef0d73 docs(guide+design+standards): GitHub App 配置章节 + C39 standards 同步` 顺带闭环**（`platform.md:150` / `platform.md:240` / `security.md:83` / `security.md:123` / `security.md:131` / `security.md:132` / `security.md:138` / `security.md:145` 共 8 处均已 `NUXT_ENCRYPTION_KEY`，与代码层 `useRuntimeConfig().encryptionKey` 单源一致）；条目可从 backlog 主条目迁出至历史归档指针段；唯一未改的 `docs/design/governance/sandbox-security-governance.md:22 + :98` 是 M8 阶段设计意图的历史快照（不应改）
+- **C34 存量规范严格约束挂接盘点**（审查治理候选）
+  - 2026-08-26 M14.x neat-freak 批次部分完成（roadmap.md L24 描述："⑫ C34 存量规范必级条款挂接盘点 + code-quality-checklist.md 双层对称补挂接 5 个必查项"）：补 5 个必查项到 code-quality-checklist.md（README/release 链路 / workspace 依赖包预构建 / 复合索引必须类级 / 裸 HTML 标签禁令 / 文档归档 anchor）
+  - 2026-08-29 M18.x 治理批次批次1 增量：`code-auditor.agent.md` 主责边界新增「集成外部库 README 标准用法 + e2e 真实路径冒烟测试存在」必查项（1 条）；详见 [experience-archive.md §四十三](../../docs/design/governance/experience-archive.md) 与 [development.md §5.1.15](../../docs/standards/development.md) + [testing.md §6.3](../../docs/standards/testing.md) 配套规范
+  - 剩余盘点：standards 中其他"必须级"条款（开发规范 §3 注释规范 / §4 依赖约束 / §5.1.x 系列工程经验 / 测试规范 §6 测试原则 / 安全规范 §5 凭据安全 / git 规范 §3 提交消息 / AI 协作规范 §1/§4）双层对称挂接完整盘点属于 neat-freak 批次工作，本次 M18.x 治理批次仅做 experience-archive §四十三 4 条新教训挂接；候选下批次会话处理
 - **G1** network-audit 默认白名单持续扩展问题 —— 详见长期主线 #2
 
 #### 工作流

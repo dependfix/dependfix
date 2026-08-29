@@ -126,6 +126,7 @@ P 阶段规划写入 `todo.md` 顶部 banner / M 段 banner 时，ahead 状态�
 - **最小实现**：默认先做满足当前验收标准的最小切片。
 - **范围稳定**：开发过程中发现的额外问题不得直接扩写，必须回到 P 阶段判断。
 - **自检**：开发完成必须通过本地质量校验（lint + typecheck）。
+- **集成外部库实施完成 ≠ Done**：D 阶段「单测全过 + typecheck 0 error」仅证明本地可跑，**不**等于集成 Done——必须有「真实路径调用 + 断言关键行为」的可执行验证。详细规范 + 教训见 [development.md §5.1.15](./development.md) + [testing.md §6.3](./testing.md) + [经验归档 §四十三](../../docs/design/governance/experience-archive.md#四十三集成外部库必须读-readme-标准用法--e2e-真实路径冒烟测试2026-08-29m18.4-audit-round-1-reject-后补修)；A 阶段 code-auditor 主责边界已挂「集成外部库 README 标准用法 + e2e 真实路径冒烟测试存在」必查项（[code-auditor.agent.md 主责边界](../../.github/agents/code-auditor.agent.md)）。
 
 ### A (Audit) — 代码审计（强制 Review Gate）
 

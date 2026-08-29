@@ -2,6 +2,7 @@ import { describe, expect, it, afterEach } from 'vitest'
 import nock from 'nock'
 import { RequestError } from '@octokit/request-error'
 import { AppError } from '@dependfix/core'
+import { fromPat } from '../auth'
 import { createGitHubClient, computeRetryDelayMs } from './client'
 import { mapGitHubError } from './errors'
 
@@ -17,7 +18,7 @@ describe('createGitHubClient', () => {
             .get('/repos/foo/bar')
             .reply(200, { id: 1, full_name: 'foo/bar', default_branch: 'main' })
 
-        const octokit = createGitHubClient({ token: 'test-token' })
+        const octokit = createGitHubClient({ auth: fromPat('test-token') })
         const { data } = await octokit.rest.repos.get({ owner: 'foo', repo: 'bar' })
 
         expect(data.id).toBe(1)
@@ -31,7 +32,7 @@ describe('createGitHubClient', () => {
             .matchHeader('authorization', /^token /)
             .reply(200, { id: 1, full_name: 'foo/bar' })
 
-        const octokit = createGitHubClient({ token: 'test-token' })
+        const octokit = createGitHubClient({ auth: fromPat('test-token') })
         await octokit.rest.repos.get({ owner: 'foo', repo: 'bar' })
 
         expect(scope.isDone()).toBe(true)
@@ -50,7 +51,7 @@ describe('createGitHubClient', () => {
             .query({ state: 'open', per_page: 100, page: 2 })
             .reply(200, [{ number: 2, state: 'open' }])
 
-        const octokit = createGitHubClient({ token: 'test-token' })
+        const octokit = createGitHubClient({ auth: fromPat('test-token') })
         const alerts = await octokit.paginate(
             octokit.rest.dependabot.listAlertsForRepo,
             { owner: 'foo', repo: 'bar', state: 'open', per_page: 100 },
@@ -79,8 +80,7 @@ describe('createGitHubClient rate-limit retry', () => {
             .reply(200, { id: 1, full_name: 'foo/bar' })
 
         const octokit = createGitHubClient({
-            token: 'test-token',
-            retry: { maxRetries: 3, baseDelayMs: 1 },
+            auth: fromPat('test-token', { retry: { maxRetries: 3, baseDelayMs: 1 } }),
         })
         const { data } = await octokit.rest.repos.get({ owner: 'foo', repo: 'bar' })
 
@@ -100,8 +100,7 @@ describe('createGitHubClient rate-limit retry', () => {
             .reply(200, { id: 1, full_name: 'foo/bar' })
 
         const octokit = createGitHubClient({
-            token: 'test-token',
-            retry: { maxRetries: 3, baseDelayMs: 1 },
+            auth: fromPat('test-token', { retry: { maxRetries: 3, baseDelayMs: 1 } }),
         })
         const { data } = await octokit.rest.repos.get({ owner: 'foo', repo: 'bar' })
 
@@ -117,8 +116,7 @@ describe('createGitHubClient rate-limit retry', () => {
             .reply(200, { id: 1, full_name: 'foo/bar' })
 
         const octokit = createGitHubClient({
-            token: 'test-token',
-            retry: { maxRetries: 3, baseDelayMs: 1 },
+            auth: fromPat('test-token', { retry: { maxRetries: 3, baseDelayMs: 1 } }),
         })
         const { data } = await octokit.rest.repos.get({ owner: 'foo', repo: 'bar' })
 
@@ -132,8 +130,7 @@ describe('createGitHubClient rate-limit retry', () => {
             .reply(429, { message: 'Too Many Requests' })
 
         const octokit = createGitHubClient({
-            token: 'test-token',
-            retry: { maxRetries: 1, baseDelayMs: 1 },
+            auth: fromPat('test-token', { retry: { maxRetries: 1, baseDelayMs: 1 } }),
         })
 
         try {
@@ -151,8 +148,7 @@ describe('createGitHubClient rate-limit retry', () => {
             .reply(403, { message: 'Resource not accessible by integration' })
 
         const octokit = createGitHubClient({
-            token: 'test-token',
-            retry: { maxRetries: 3, baseDelayMs: 1 },
+            auth: fromPat('test-token', { retry: { maxRetries: 3, baseDelayMs: 1 } }),
         })
 
         try {
@@ -171,8 +167,7 @@ describe('createGitHubClient rate-limit retry', () => {
             .reply(429, { message: 'Too Many Requests' })
 
         const octokit = createGitHubClient({
-            token: 'test-token',
-            retry: { maxRetries: 0 },
+            auth: fromPat('test-token', { retry: { maxRetries: 0 } }),
         })
 
         try {
@@ -191,8 +186,7 @@ describe('createGitHubClient rate-limit retry', () => {
             .reply(429, { message: 'You have exceeded a secondary rate limit' })
 
         const octokit = createGitHubClient({
-            token: 'test-token',
-            retry: { maxRetries: 3, baseDelayMs: 1 },
+            auth: fromPat('test-token', { retry: { maxRetries: 3, baseDelayMs: 1 } }),
         })
 
         try {
@@ -221,8 +215,7 @@ describe('createGitHubClient rate-limit retry', () => {
             .reply(200, { id: 1, full_name: 'foo/bar' })
 
         const octokit = createGitHubClient({
-            token: 'test-token',
-            retry: { maxRetries: 3, baseDelayMs: 1 },
+            auth: fromPat('test-token', { retry: { maxRetries: 3, baseDelayMs: 1 } }),
         })
         const { data } = await octokit.rest.repos.get({ owner: 'foo', repo: 'bar' })
 

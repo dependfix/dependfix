@@ -1,13 +1,14 @@
 import { describe, expect, it, afterEach, beforeEach } from 'vitest'
 import nock from 'nock'
 import { AppError } from '@dependfix/core'
+import { fromPat } from '../auth'
 import { createGitHubClient } from './client'
 import { discoverRepositories, mergeRepositories } from './repository-discovery'
 
 const API_BASE = 'https://api.github.com'
 
 function setupClient(token = 'test-token') {
-    return createGitHubClient({ token })
+    return createGitHubClient({ auth: fromPat(token) })
 }
 
 /** 构造仓库列表项（默认全部通过基础过滤） */

@@ -2,6 +2,7 @@ import type { Octokit } from '@octokit/rest'
 import { toErrorMessage, type FixError, type Logger, type NormalizedSecurityAlert } from '@dependfix/core'
 import { fetchPnpmAuditAlerts } from '../alerts'
 import type { RuntimeConfig } from '../config'
+import { fromPat } from '../auth'
 import {
     createGitHubClient,
     fetchCodeQualityFindings,
@@ -115,12 +116,13 @@ export async function fetchRepoAlerts(deps: FetchAlertsDeps, repo: string): Prom
  */
 function createAlertsClientFromConfig(config: RuntimeConfig): Octokit {
     return createGitHubClient({
-        token: config.alertsToken || config.githubToken,
-        // 429 / rate limit 指数退避重试（0 可关闭；退避上限可配）
-        retry: {
-            maxRetries: config.maxRetries,
-            maxBackoffMs: config.maxBackoffMs,
-        },
+        auth: fromPat(config.alertsToken || config.githubToken, {
+            // 429 / rate limit 指数退避重试（0 可关闭；退避上限可配）
+            retry: {
+                maxRetries: config.maxRetries,
+                maxBackoffMs: config.maxBackoffMs,
+            },
+        }),
     })
 }
 

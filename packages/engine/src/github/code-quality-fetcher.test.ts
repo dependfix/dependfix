@@ -1,6 +1,7 @@
 import { describe, expect, it, afterEach } from 'vitest'
 import nock from 'nock'
 import { AppError } from '@dependfix/core'
+import { fromPat } from '../auth'
 import { createGitHubClient } from './client'
 import { fetchCodeQualityFindings, mapCodeQualitySeverity } from './code-quality-fetcher'
 
@@ -8,7 +9,7 @@ const API_BASE = 'https://api.github.com'
 const FINDINGS_PATH = '/repos/foo/bar/code-quality/findings'
 
 function setupClient(token = 'test-token') {
-    return createGitHubClient({ token })
+    return createGitHubClient({ auth: fromPat(token) })
 }
 
 function makeRawFinding(overrides: Record<string, unknown> = {}): Record<string, unknown> {

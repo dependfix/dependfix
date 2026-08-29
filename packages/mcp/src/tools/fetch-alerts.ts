@@ -1,4 +1,5 @@
 import { createGitHubClient, fetchCodeScanningAlerts, fetchDependabotAlerts, type FetchDependabotAlertsParams } from '@dependfix/engine'
+import { fromPat } from '@dependfix/engine/auth'
 import { filterAlerts, isValidRepoIdentifier, type SeverityThreshold } from '@dependfix/core'
 import { requireToken, toToolError } from './errors'
 
@@ -37,7 +38,7 @@ export const fetchAlerts = async (input: { repo: string, severity: SeverityThres
     const [owner, repo] = input.repo.split('/')
 
     try {
-        const client = createGitHubClient({ token })
+        const client = createGitHubClient({ auth: fromPat(token) })
         const params: FetchDependabotAlertsParams = {
             owner,
             repo,

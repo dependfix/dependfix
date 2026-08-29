@@ -1,4 +1,5 @@
 import { createGitHubClient, deleteRemoteBranch, getBranchPrStatus, listDependfixBranches } from '@dependfix/engine'
+import { fromPat } from '@dependfix/engine/auth'
 import { isValidRepoIdentifier } from '@dependfix/core'
 import { requireToken, toToolError } from './errors'
 
@@ -41,7 +42,7 @@ export const cleanupBranches = async (input: { repo: string, dry_run?: boolean }
     const dryRun = input.dry_run ?? false
 
     try {
-        const client = createGitHubClient({ token })
+        const client = createGitHubClient({ auth: fromPat(token) })
         const branches = await listDependfixBranches(client, owner, repo)
         const statuses = await Promise.all(
             branches.map((branch) => getBranchPrStatus(client, owner, repo, branch)),

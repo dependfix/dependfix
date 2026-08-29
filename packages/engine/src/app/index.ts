@@ -17,6 +17,7 @@ import {
     type FixAction,
     type FixError,
 } from '@dependfix/core'
+import { fromPat } from '../auth'
 import {
     createFixBranch,
     stageAndCommit,
@@ -694,12 +695,13 @@ export class DependfixApp {
 
     private createClient(token: string = this.config.githubToken): Octokit {
         return createGitHubClient({
-            token,
-            // 429 / rate limit 指数退避重试（0 可关闭；退避上限可配）
-            retry: {
-                maxRetries: this.config.maxRetries,
-                maxBackoffMs: this.config.maxBackoffMs,
-            },
+            auth: fromPat(token, {
+                // 429 / rate limit 指数退避重试（0 可关闭；退避上限可配）
+                retry: {
+                    maxRetries: this.config.maxRetries,
+                    maxBackoffMs: this.config.maxBackoffMs,
+                },
+            }),
         })
     }
 }

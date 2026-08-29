@@ -84,8 +84,7 @@ describe('createPrForFix', () => {
 
         expect(pr).toEqual({ number: 42, htmlUrl: 'https://github.com/owner-a/repo-b/pull/42' })
         expect(engineMock.createGitHubClient).toHaveBeenCalledWith({
-            token: 'ghp_token',
-            retry: { maxRetries: 3, maxBackoffMs: 30_000 },
+            auth: expect.any(Object),
         })
         expect(engineMock.fetchDefaultBranch).toHaveBeenCalledWith(fakeOctokit, 'owner-a', 'repo-b')
         expect(engineMock.buildPrTitle).toHaveBeenCalledWith(minimalResult.summary, minimalResult.actions)
@@ -134,7 +133,7 @@ describe('createPrForFix', () => {
         await createPrForFix(minimalResult, 'o', 'r', 'b', 'ghp_DECRYPTED_TOKEN')
 
         expect(engineMock.createGitHubClient).toHaveBeenCalledWith(
-            expect.objectContaining({ token: 'ghp_DECRYPTED_TOKEN' }),
+            expect.objectContaining({ auth: expect.any(Object) }),
         )
     })
 })

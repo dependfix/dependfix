@@ -12,6 +12,7 @@ import {
     fetchDefaultBranch,
     generatePRBody,
 } from '@dependfix/engine'
+import { fromPat } from '@dependfix/engine/auth'
 import type { ScanExecutor, ScanExecutorContext, ScanExecutorResult } from './types'
 
 const execFileAsync = promisify(execFile)
@@ -137,8 +138,7 @@ export async function createPrForFix(
     token: string,
 ): Promise<{ htmlUrl: string, number: number }> {
     const client = createGitHubClient({
-        token,
-        retry: { maxRetries: 3, maxBackoffMs: 30_000 },
+        auth: fromPat(token, { retry: { maxRetries: 3, maxBackoffMs: 30_000 } }),
     })
     const baseBranch = await fetchDefaultBranch(client, owner, name)
     const title = buildPrTitle(result.summary, result.actions)

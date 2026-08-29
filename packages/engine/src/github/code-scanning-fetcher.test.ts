@@ -1,6 +1,7 @@
 import { describe, expect, it, afterEach } from 'vitest'
 import nock from 'nock'
 import { AppError } from '@dependfix/core'
+import { fromPat } from '../auth'
 import { createGitHubClient } from './client'
 import { fetchCodeScanningAlerts } from './code-scanning-fetcher'
 
@@ -8,7 +9,7 @@ const API_BASE = 'https://api.github.com'
 const GET_ALERTS_PATH = '/repos/foo/bar/code-scanning/alerts'
 
 function setupClient(token = 'test-token') {
-    return createGitHubClient({ token })
+    return createGitHubClient({ auth: fromPat(token) })
 }
 
 function makeRawAlert(overrides: Record<string, unknown> = {}): Record<string, unknown> {

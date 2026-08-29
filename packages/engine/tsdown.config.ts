@@ -2,7 +2,10 @@ import { defineConfig } from 'tsdown'
 
 export default defineConfig({
     platform: 'node',
-    entry: ['src/index.ts'],
+    entry: {
+        index: 'src/index.ts',
+        auth: 'src/auth/index.ts',
+    },
     outDir: 'dist',
     format: ['esm'],
     fixedExtension: true,

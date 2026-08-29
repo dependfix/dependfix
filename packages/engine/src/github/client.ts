@@ -29,7 +29,8 @@ export interface OctokitClientOptions {
     /**
      * @deprecated 使用 `auth` 替代。
      *
-     * 保留作为向后兼容包装输入；若提供则内部委托给 `fromPat(token)`。
+     * 保留作为低层入口；`token` 路径与 `auth: fromPat(token)` 行为等价
+     * （共享同一 retry policy 与限流重试 hook）。
      * 计划在 M19+ 评估移除。
      */
     token?: string
@@ -47,7 +48,9 @@ export interface OctokitClientOptions {
      * secondary rate limit（403/429 带 secondary/abuse/retry 特征）自动退避重试；
      * 权限类 403 不重试。
      *
-     * 仅对 `token` 路径生效；`auth` 路径的 retry 由 AuthProvider 自身管理。
+     * 行为由具体 AuthProvider 实现决定：
+     * - `PatAuthProvider` 委托给本函数（`createGitHubClient({ token, retry })`）—— retry 字段透传生效
+     * - `AppAuthProvider` 自管 retry（commit 4 实施）
      */
     retry?: RetryPolicyOptions
 }

@@ -29,9 +29,9 @@
       "default": "./dist/index.mjs"
     },
     "./auth": {
-      "types": "./dist/auth/index.d.mts",
-      "import": "./dist/auth/index.mjs",
-      "default": "./dist/auth/index.mjs"
+      "types": "./dist/auth.d.mts",
+      "import": "./dist/auth.mjs",
+      "default": "./dist/auth.mjs"
     },
     "./package.json": "./package.json"
   },

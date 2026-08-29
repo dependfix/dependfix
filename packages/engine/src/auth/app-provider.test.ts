@@ -1,13 +1,15 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 
 // 使用 vi.hoisted 确保 mock 变量在 vi.mock hoisting 之前初始化
-const { createAppAuthMock, octokitInstanceMock, FakeOctokit } = vi.hoisted(() => {
+const { createAppAuthMock, octokitInstanceMock, FakeOctokit, fakeOctokitConstructorSpy } = vi.hoisted(() => {
     const innerCreateAppAuthMock = vi.fn()
     const innerOctokitInstanceMock = { hook: { wrap: vi.fn() }, rest: {} }
+    const innerFakeOctokitConstructorSpy = vi.fn()
 
     // 注意：vi.fn + mockReturnValue 不能与 `new` 配合使用；需用 class 模拟
     class InnerFakeOctokit {
-        constructor() {
+        constructor(...args: unknown[]) {
+            innerFakeOctokitConstructorSpy(...args)
             return innerOctokitInstanceMock as unknown as InnerFakeOctokit
         }
     }
@@ -16,6 +18,7 @@ const { createAppAuthMock, octokitInstanceMock, FakeOctokit } = vi.hoisted(() =>
         createAppAuthMock: innerCreateAppAuthMock,
         octokitInstanceMock: innerOctokitInstanceMock,
         FakeOctokit: InnerFakeOctokit,
+        fakeOctokitConstructorSpy: innerFakeOctokitConstructorSpy,
     }
 })
 
@@ -57,7 +60,7 @@ describe('AppAuthProvider', () => {
 
     beforeEach(() => {
         createAppAuthMock.mockReset()
-        createAppAuthMock.mockReturnValue({}) // 占位 auth strategy
+        fakeOctokitConstructorSpy.mockClear()
     })
 
     describe('factory fromApp', () => {
@@ -77,15 +80,20 @@ describe('AppAuthProvider', () => {
             expect(octokit).toBe(octokitInstanceMock)
         })
 
-        it('passes correct params to createAppAuth', () => {
+        it('passes createAppAuth (函数本体) + auth 配置 (appId/privateKey/installationId) 给 Octokit', () => {
             const auth = new AppAuthProvider(sampleParams)
             auth.getOctokit()
 
-            expect(createAppAuthMock).toHaveBeenCalledWith({
-                appId: sampleParams.appId,
-                privateKey: sampleParams.privateKey,
-                installationId: sampleParams.installationId,
-            })
+            // 修复后：createAppAuth 作为函数本体传入 authStrategy（不再被 app-provider 直接调用）
+            // 参数通过 Octokit 构造选项传递（authStrategy + auth 字段）
+            expect(fakeOctokitConstructorSpy).toHaveBeenCalledTimes(1)
+            const octokitOptions = fakeOctokitConstructorSpy.mock.calls[0]?.[0] as Record<string, unknown> | undefined
+            expect(octokitOptions?.authStrategy).toBeDefined()
+            const authConfig = octokitOptions?.auth as Record<string, unknown> | undefined
+            expect(authConfig?.appId).toBe(sampleParams.appId)
+            expect(authConfig?.privateKey).toBe(sampleParams.privateKey)
+            expect(authConfig?.installationId).toBe(sampleParams.installationId)
+            expect(octokitOptions?.baseUrl).toBe('https://api.github.com')
         })
 
         it('caches the Octokit instance across calls (同一引用)', () => {
@@ -94,8 +102,8 @@ describe('AppAuthProvider', () => {
             const octokit2 = auth.getOctokit()
 
             expect(octokit1).toBe(octokit2)
-            // createAppAuth 只应被调用一次
-            expect(createAppAuthMock).toHaveBeenCalledTimes(1)
+            // FakeOctokit 构造函数只应被调用一次（cachedOctokit 缓存）
+            expect(fakeOctokitConstructorSpy).toHaveBeenCalledTimes(1)
         })
     })
 

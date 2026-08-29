@@ -1,8 +1,9 @@
+/* eslint-disable max-lines -- M18.4（todo.md §M18.4 范围）测试层补强 stageAndCommit author 路径回归 + 既有 955 行；按职责不拆分 */
 import { execSync } from 'node:child_process'
 import { mkdtempSync, writeFileSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { describe, expect, it, afterEach, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Octokit } from '@octokit/rest'
 import { createEmptyRunSummary, type FixAction, type NormalizedSecurityAlert, type RunResult } from '@dependfix/core'
 import {
@@ -17,6 +18,7 @@ import {
     getBranchPrStatus,
     deleteRemoteBranch,
     isConfirmAnswer,
+    stageAndCommit,
     type DependfixOpenPR,
 } from './pr-creator'
 
@@ -337,6 +339,173 @@ describe('closePullRequest', () => {
             state: 'closed',
         })
     })
+})
+
+// ---------------------------------------------------------------------------
+// stageAndCommit / ensureGitConfig (author 路径回归)
+// ---------------------------------------------------------------------------
+
+/**
+ * `stageAndCommit` / `ensureGitConfig` 可选 `author` 参数回归覆盖。
+ *
+ * - PAT 路径（author 不传）→ 使用 `PAT_DEFAULT_COMMIT_AUTHOR`（保持 PAT 路径行为零变化）
+ * - GitHub App 路径（author 传入 `{app_id}+{bot_login}[bot]`）→ 使用传入 author
+ *
+ * 关键回归约束（与 todo.md §M18.0 决策 2 PAT 用户行为零变化一致）：
+ * - 已有 `user.name` / `user.email` 时**不**覆盖（用户/CI 上游可能预设 git config）
+ *
+ * **测试隔离**：本测试通过 `GIT_CONFIG_GLOBAL=/dev/null` + `GIT_CONFIG_NOSYSTEM=1` 隔离
+ * host 全局 git config（避免 host 全局 `user.name = CaoMeiYouRen` 等干扰导致
+ * `git config user.name` 误判"已配置"而不设 local）。所有 execSync 都通过 `git` helper 走隔离 env。
+ *
+ * @see [C22 PAT 无感升级评估 §5.1 兼容性](../../../../docs/design/governance/c22-pat-backward-compat.md)
+ * @see [todo.md §M18.4（测试层）](../../../../docs/plan/todo.md)
+ */
+describe('stageAndCommit (author 路径回归)', () => {
+    const tempDirs: string[] = []
+    const ISOLATED_GIT_ENV = {
+        GIT_CONFIG_GLOBAL: '/dev/null',
+        GIT_CONFIG_NOSYSTEM: '1',
+    }
+
+    /** 隔离 host 全局 git config 的 execSync helper（避免 host 全局 user.name 干扰） */
+    function git(cmd: string, cwd: string): string {
+        return execSync(`git ${cmd}`, {
+            cwd,
+            stdio: 'pipe',
+            encoding: 'utf-8',
+            env: { ...process.env, ...ISOLATED_GIT_ENV },
+        }).trim()
+    }
+
+    /**
+     * 创建 git repo 但**不**预设 user.name / user.email（用于测 ensureGitConfig 自动设置路径）。
+     * 注意：第一次 init commit 也需要 author，必须通过 `git -c user.name= -c user.email=` 注入。
+     */
+    function createGitRepoWithoutGitConfig(): string {
+        const dir = mkdtempSync(join(tmpdir(), 'dependfix-test-stage-'))
+        tempDirs.push(dir)
+        git('init -b main', dir)
+        // 第一次 init commit：注入临时 user.name/email（不会写入 repo config）
+        writeFileSync(join(dir, 'README.md'), '# test\n')
+        git('add .', dir)
+        git('-c user.name=test -c user.email=test@example.com commit -m init', dir)
+        return dir
+    }
+
+    /**
+     * 创建 git repo 且**预设** user.name / user.email（用于测 ensureGitConfig 不覆盖回归）。
+     */
+    function createGitRepoWithGitConfig(): string {
+        const dir = mkdtempSync(join(tmpdir(), 'dependfix-test-stage-'))
+        tempDirs.push(dir)
+        git('init -b main', dir)
+        git('config user.email test@example.com', dir)
+        git('config user.name test', dir)
+        writeFileSync(join(dir, 'README.md'), '# test\n')
+        git('add .', dir)
+        git('commit -m init', dir)
+        return dir
+    }
+
+    /** 读取当前 commit 的 author 字段（git log -1 第一个 commit） */
+    function readCommitAuthor(workDir: string): { name: string, email: string } {
+        const formatted = git('log -1 --format=%an%n%ae', workDir)
+        const lines = formatted.split('\n')
+        return { name: lines[0] ?? '', email: lines[1] ?? '' }
+    }
+
+    beforeEach(() => {
+        // 在 process.env 层面设置，让 stageAndCommit 内部的 execSync 调用也走隔离 env
+        // （ESM 下 vi.spyOn 模块导入不可靠；用 process.env 注入更稳）
+        for (const [key, value] of Object.entries(ISOLATED_GIT_ENV)) {
+            process.env[key] = value
+        }
+    })
+
+    afterEach(() => {
+        for (const key of Object.keys(ISOLATED_GIT_ENV)) {
+            delete process.env[key]
+        }
+        for (const dir of tempDirs.splice(0)) {
+            try {
+                rmSync(dir, { recursive: true, force: true })
+            } catch {
+                /* ignore */
+            }
+        }
+    })
+
+    it('PAT 路径（author 不传）+ repo 无 config → local git config 设置成 PAT_DEFAULT_COMMIT_AUTHOR', () => {
+        const dir = createGitRepoWithoutGitConfig()
+        writeFileSync(join(dir, 'change.txt'), 'fixed\n')
+
+        stageAndCommit('fix: dependabot', dir) // PAT 路径
+
+        // 用 --local 验证 ensureGitConfig 设置的是 local 级别（不被 host 全局 config 干扰）
+        const userName = git('config --local --get user.name', dir)
+        const userEmail = git('config --local --get user.email', dir)
+        expect(userName).toBe('dependfix[bot]')
+        expect(userEmail).toBe('dependfix[bot]@users.noreply.github.com')
+    }, 15_000)
+
+    it('App 路径（author 传入）+ repo 无 config → local git config 设置成传入 author', () => {
+        const dir = createGitRepoWithoutGitConfig()
+        writeFileSync(join(dir, 'change.txt'), 'fixed\n')
+
+        // 模拟 todo.md §M18.2（集成层）调用：传入 AppAuthProvider.getCommitAuthor() 动态生成的 author
+        stageAndCommit('fix: dependabot', dir, {
+            name: '123456[bot]',
+            email: '123456+dependfix-bot[bot]@users.noreply.github.com',
+        })
+
+        const userName = git('config --local --get user.name', dir)
+        const userEmail = git('config --local --get user.email', dir)
+        expect(userName).toBe('123456[bot]')
+        expect(userEmail).toBe('123456+dependfix-bot[bot]@users.noreply.github.com')
+    }, 15_000)
+
+    it('已有 user.name / user.email + 传入 author → 不覆盖（关键回归：传入 author 不破坏既有 config）', () => {
+        const dir = createGitRepoWithGitConfig()
+        writeFileSync(join(dir, 'change.txt'), 'fixed\n')
+
+        // 即使传入 App author，已有 git config 不被覆盖
+        stageAndCommit('fix: dependabot', dir, {
+            name: '123456[bot]',
+            email: '123456+dependfix-bot[bot]@users.noreply.github.com',
+        })
+
+        const userName = git('config --local --get user.name', dir)
+        const userEmail = git('config --local --get user.email', dir)
+        expect(userName).toBe('test')
+        expect(userEmail).toBe('test@example.com')
+    }, 15_000)
+
+    it('完整 stageAndCommit 端到端：App author 实际生效（git log -1 看到正确 author）', () => {
+        const dir = createGitRepoWithoutGitConfig()
+        writeFileSync(join(dir, 'change.txt'), 'fixed\n')
+
+        stageAndCommit('fix: dependabot', dir, {
+            name: '123456[bot]',
+            email: '123456+dependfix-bot[bot]@users.noreply.github.com',
+        })
+
+        // 验证 git commit 实际使用传入 author（不只是 git config 设置）
+        const author = readCommitAuthor(dir)
+        expect(author.name).toBe('123456[bot]')
+        expect(author.email).toBe('123456+dependfix-bot[bot]@users.noreply.github.com')
+    }, 15_000)
+
+    it('完整 stageAndCommit 端到端：PAT 默认 author 实际生效（git log -1 看到 dependfix[bot]）', () => {
+        const dir = createGitRepoWithoutGitConfig()
+        writeFileSync(join(dir, 'change.txt'), 'fixed\n')
+
+        stageAndCommit('fix: dependabot', dir) // PAT 路径
+
+        const author = readCommitAuthor(dir)
+        expect(author.name).toBe('dependfix[bot]')
+        expect(author.email).toBe('dependfix[bot]@users.noreply.github.com')
+    }, 15_000)
 })
 
 // ---------------------------------------------------------------------------

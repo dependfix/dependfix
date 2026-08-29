@@ -68,17 +68,24 @@ export class AppAuthProvider implements AuthProvider {
      *
      * 首次调用时构造并缓存；后续调用复用同一实例。
      * installation token 由 `@octokit/auth-app` 内部管理（59 分钟 LRU TTL 缓存）。
+     *
+     * **构造方式**：使用 `authStrategy: createAppAuth` + `auth: {appId, privateKey, installationId}`
+     * 双字段组合（`@octokit/auth-app` v8.x README 标准用法），**而非** `auth: createAppAuth(...)`
+     * 单字段调用——后者被 `@octokit/core` 视作字符串 token 路径抛 `Token passed to createTokenAuth is not a string`，
+     * 或被 `authStrategy` 字段调用后命中 `auth(state, authOptions)` 的 `default` 分支抛 `Invalid auth type: undefined`
+     * （todo.md §M18.4 e2e 验证 + audit quick depth Reject 后补修发现）。
+     *
+     * @see [@octokit/auth-app README §installation authentication](https://github.com/octokit/auth-app.js#installation-authentication)
      */
     getOctokit(): Octokit {
         if (!this.cachedOctokit) {
-            const auth = createAppAuth({
-                appId: this.params.appId,
-                privateKey: this.params.privateKey,
-                installationId: this.params.installationId,
-            })
-
             this.cachedOctokit = new Octokit({
-                auth,
+                authStrategy: createAppAuth,
+                auth: {
+                    appId: this.params.appId,
+                    privateKey: this.params.privateKey,
+                    installationId: this.params.installationId,
+                },
                 baseUrl: 'https://api.github.com',
             })
         }

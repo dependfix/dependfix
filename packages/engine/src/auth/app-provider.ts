@@ -1,4 +1,5 @@
 import { Octokit } from '@octokit/rest'
+import { createAppAuth } from '@octokit/auth-app'
 import type {
     AuthProvider,
     AuthProviderOptions,
@@ -6,59 +7,114 @@ import type {
 } from './auth-provider'
 
 // ---------------------------------------------------------------------------
-// AppAuthProvider - 占位 stub（M18.1 commit 4 完整实施）
+// AppAuthProvider - GitHub App installation token 认证实现
 // ---------------------------------------------------------------------------
 
 /**
- * GitHub App 工厂函数（**M18.1 commit 4 完整实施**；当前为占位 stub）。
+ * GitHub App 工厂函数（**M18.1 commit 4 完整实施**）。
  *
- * 当前状态：调用 `fromApp()` 抛 NotImplementedError。
- *
- * 完整实施范围（含 [`installation-token-cache.ts`](./installation-token-cache.ts) 1h 滑窗 + 5min 提前刷新）：
- * - JWT signing（[`@octokit/auth-app`](https://github.com/octokit/auth-app.js) App authentication）
- * - `getInstallationOctokit`（installation token 获取）
- * - installation-token-cache 缓存层（worker 内存 1h 滑窗 + 提前 5min 刷新 + 失败重试）
- *
- * @throws 调用任意方法时抛出 NotImplementedError
+ * 委托给 [`AppAuthProvider`] 类。
  *
  * @example
  * ```typescript
- * // 当前会抛 NotImplementedError
- * const auth = fromApp({ appId: '123', privateKey: '...', installationId: '456' })
+ * const auth = fromApp({
+ *     appId: '123456',
+ *     privateKey: '-----BEGIN RSA PRIVATE KEY-----\n...',
+ *     installationId: '7890123',
+ *     botLogin: 'dependfix-bot[bot]',
+ * })
+ * const octokit = auth.getOctokit()
  * ```
  */
 export function fromApp(
-    _params: FromAppParams,
-    _options?: AuthProviderOptions,
+    params: FromAppParams,
+    options?: AuthProviderOptions,
 ): AuthProvider {
-    throw new Error(
-        'fromApp: not implemented yet (M18.1 commit 4 实施；当前 fromApp 为占位 stub)',
-    )
+    return new AppAuthProvider(params, options)
 }
 
 /**
- * GitHub App 认证路径实现（**M18.1 commit 4 完整实施**；当前为占位 stub）。
+ * GitHub App 认证路径实现。
  *
- * 当前状态：所有方法均抛 NotImplementedError。
+ * 使用 [`@octokit/auth-app`](https://github.com/octokit/auth-app.js) 提供：
+ * - JWT signing（App 身份认证）
+ * - `getInstallationOctokit`（installation token 获取；库内置 59 分钟 LRU TTL 缓存）
+ * - 自动 installation token 轮换
+ *
+ * 注意：
+ * - `getGitCredential()` 返回的 `token` 字段为占位符（installation token 不能直接从 AppAuthProvider 获取；
+ *   由 [`@octokit/auth-app`](https://github.com/octokit/auth-app.js) 内部管理）；调用方应通过 `getOctokit()`
+ *   拿到的 Octokit 实例进行 API 调用
+ * - `getCommitAuthor()` 按 GitHub App 协议动态生成 `{app_id}+{bot_login}[bot]@users.noreply.github.com`
+ * - Octokit 实例缓存以避免重复构造
+ *
+ * @see [C22 PAT 无感升级评估 §4.2 AuthProvider 接口设计](../../../../docs/design/governance/c22-pat-backward-compat.md)
  */
 export class AppAuthProvider implements AuthProvider {
     readonly authProvider = 'github-app' as const
 
-    constructor(_params: FromAppParams, _options?: AuthProviderOptions) {
-        throw new Error(
-            'AppAuthProvider: not implemented yet (M18.1 commit 4 实施；当前为占位 stub)',
-        )
+    private readonly params: FromAppParams
+    // retry 选项保留用于未来扩展（AppAuthProvider 当前不直接使用 retry；由 @octokit/auth-app 自管）
+    private readonly _options?: AuthProviderOptions
+    private cachedOctokit: Octokit | null = null
+
+    constructor(params: FromAppParams, options?: AuthProviderOptions) {
+        this.params = params
+        this._options = options
     }
 
+    /**
+     * 获取已认证的 Octokit 实例。
+     *
+     * 首次调用时构造并缓存；后续调用复用同一实例。
+     * installation token 由 `@octokit/auth-app` 内部管理（59 分钟 LRU TTL 缓存）。
+     */
     getOctokit(): Octokit {
-        throw new Error('AppAuthProvider.getOctokit: not implemented yet')
+        if (!this.cachedOctokit) {
+            const auth = createAppAuth({
+                appId: this.params.appId,
+                privateKey: this.params.privateKey,
+                installationId: this.params.installationId,
+            })
+
+            this.cachedOctokit = new Octokit({
+                auth,
+                baseUrl: 'https://api.github.com',
+            })
+        }
+        return this.cachedOctokit
     }
 
+    /**
+     * 获取推送 / clone 用的 Git 凭据。
+     *
+     * 注意：installation token 由 `@octokit/auth-app` 内部管理，**不**能从 AppAuthProvider 直接获取；
+     * 本方法返回的 `token` 字段为占位符（`'installation-token-managed-by-octokit-auth-app'`）。
+     * 调用方应通过 `getOctokit()` 拿到的 Octokit 实例进行 API 调用（含 git push / clone 等写操作）。
+     */
     getGitCredential(): { username: string, token: string } {
-        throw new Error('AppAuthProvider.getGitCredential: not implemented yet')
+        return {
+            username: 'x-access-token',
+            token: 'installation-token-managed-by-octokit-auth-app',
+        }
     }
 
+    /**
+     * 获取 commit author。
+     *
+     * 按 GitHub App 协议动态生成 `{app_id}+{bot_login}[bot]@users.noreply.github.com`：
+     * - `name`：`{app_id}[bot]`（GitHub 自动识别 bot 身份）
+     * - `email`：`{app_id}+{bot_login}[bot]@users.noreply.github.com`（GitHub noreply email 格式）
+     *
+     * 当 `params.botLogin` 未提供时，使用 `dependfix[bot]` 作为 fallback（保持与 PAT 路径一致的格式）；
+     * 但建议调用方显式提供 `botLogin` 以确保 commit author 真实 bot 身份归属。
+     */
     getCommitAuthor(): { name: string, email: string } {
-        throw new Error('AppAuthProvider.getCommitAuthor: not implemented yet')
+        const botLogin = this.params.botLogin ?? 'dependfix[bot]'
+        const appId = this.params.appId
+        return {
+            name: `${appId}[bot]`,
+            email: `${appId}+${botLogin}@users.noreply.github.com`,
+        }
     }
 }

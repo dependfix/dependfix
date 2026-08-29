@@ -66,6 +66,8 @@ export interface FromAppParams {
     privateKey: string
     /** Installation ID */
     installationId: string
+    /** Bot 用户名（用于 commit author 动态生成；M18.1 commit 4 实施） */
+    botLogin?: string
 }
 
 // ---------------------------------------------------------------------------

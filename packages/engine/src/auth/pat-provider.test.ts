@@ -1,6 +1,12 @@
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { Octokit } from '@octokit/rest'
 import { PatAuthProvider, fromPat } from './pat-provider'
+
+// Mock createGitHubClient 以验证 retry 选项透传（避免依赖 client.ts 的 applyRetryPolicy 内部实现）
+const mockCreateGitHubClient = vi.fn()
+vi.mock('../github/client', () => ({
+    createGitHubClient: (...args: unknown[]) => mockCreateGitHubClient(...args),
+}))
 
 /**
  * PatAuthProvider 单测。
@@ -28,6 +34,11 @@ describe('PatAuthProvider', () => {
     })
 
     describe('getOctokit', () => {
+        beforeEach(() => {
+            mockCreateGitHubClient.mockReset()
+            mockCreateGitHubClient.mockReturnValue(new Octokit({ auth: 'token' }))
+        })
+
         it('returns Octokit instance', () => {
             const auth = new PatAuthProvider('ghp_test')
             const octokit = auth.getOctokit()
@@ -40,23 +51,42 @@ describe('PatAuthProvider', () => {
             const octokit2 = auth.getOctokit()
 
             expect(octokit1).toBe(octokit2)
+            // createGitHubClient 只应被调用一次（缓存命中）
+            expect(mockCreateGitHubClient).toHaveBeenCalledTimes(1)
         })
 
-        it('applies retry hook when maxRetries > 0 (default)', () => {
-            // 默认 maxRetries=3：应注册 retry hook；通过访问 octokit.hook 间接验证
+        it('delegates to createGitHubClient with token + retry 选项透传', () => {
+            const auth = new PatAuthProvider('ghp_test', {
+                retry: { maxRetries: 5, baseDelayMs: 100, maxBackoffMs: 60_000 },
+            })
+            auth.getOctokit()
+
+            expect(mockCreateGitHubClient).toHaveBeenCalledWith({
+                token: 'ghp_test',
+                retry: { maxRetries: 5, baseDelayMs: 100, maxBackoffMs: 60_000 },
+            })
+        })
+
+        it('默认不传 retry（createGitHubClient 内部默认 maxRetries=3）', () => {
             const auth = new PatAuthProvider('ghp_test')
-            const octokit = auth.getOctokit()
+            auth.getOctokit()
 
-            // octokit.hook.wrap 应已被 register（PatAuthProvider 内部委托 createGitHubClient 走 token 路径）
-            expect(typeof octokit.hook.wrap).toBe('function')
+            // PatAuthProvider 默认透传 undefined；createGitHubClient 内部走 options.retry?.maxRetries ?? 3 默认值
+            // 测试 PatAuthProvider 委托行为而非 createGitHubClient 默认值（后者由 client.test.ts 覆盖）
+            expect(mockCreateGitHubClient).toHaveBeenCalledWith({
+                token: 'ghp_test',
+                retry: undefined,
+            })
         })
 
-        it('skips retry hook when maxRetries=0', () => {
+        it('maxRetries=0 透传（client.ts:applyRetryPolicy 据此跳过 hook 注册）', () => {
             const auth = new PatAuthProvider('ghp_test', { retry: { maxRetries: 0 } })
-            const octokit = auth.getOctokit()
+            auth.getOctokit()
 
-            // maxRetries=0 时 createGitHubClient 走 applyRetryPolicy 分支
-            expect(octokit).toBeInstanceOf(Octokit)
+            expect(mockCreateGitHubClient).toHaveBeenCalledWith({
+                token: 'ghp_test',
+                retry: { maxRetries: 0 },
+            })
         })
     })
 

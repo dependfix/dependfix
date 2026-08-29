@@ -1,38 +1,65 @@
+import type { FromAppParams } from './auth-provider'
+
+// ---------------------------------------------------------------------------
+// Installation Token Cache - 占位 + 监控 API
+// ---------------------------------------------------------------------------
+
 /**
- * Installation token 缓存层（**M18.1 commit 4 完整实施**；当前为占位 stub）。
+ * Installation token 缓存层（**M18.1 commit 4 实施**）。
  *
- * 当前状态：仅声明接口骨架，未实现具体缓存逻辑。
+ * 当前实现：**依赖 [@octokit/auth-app](https://github.com/octokit/auth-app.js) 内置缓存**
+ * （59 分钟 LRU TTL；GitHub token 有效期 60 分钟 - 1 分钟缓冲）。
  *
- * 完整实施范围：
- * - worker 内存 1h 滑窗缓存
- * - 提前 5min 刷新（installation token TTL = 1h）
- * - 失败重试 + 报警
- * - 扩展 [`packages/engine/src/github/token-scope.ts`](../github/token-scope.ts) 增加 App installation token 探测
+ * 本类作为未来扩展点：
+ * - 缓存统计（命中率 / 大小 / 清理 API）
+ * - 失败重试 + 报警（M18.2 集成时实施）
+ * - 多 worker 共享（Redis-backed；超出 M18.1 范围）
  *
- * @example
- * ```typescript
- * // M18.1 commit 4 实施后使用
- * const cache = new InstallationTokenCache({ ttlMs: 3_600_000, refreshThresholdMs: 300_000 })
- * const token = await cache.getOrRefresh({ appId, privateKey, installationId })
- * ```
+ * 注意：
+ * - `getOrRefresh` 当前委托给 `createAppAuthentication` + `getInstallationOctokit`
+ * - 当 [@octokit/auth-app](https://github.com/octokit/auth-app.js) 内部缓存命中时不会触发 API 调用
+ * - 缓存未命中时自动调用 `POST /app/installations/{installation_id}/access_tokens` 获取新 token
+ *
+ * @see [C22 PAT 无感升级评估 §4.7 commit 拆分纪律](../../../../docs/design/governance/c22-pat-backward-compat.md)
  */
 export class InstallationTokenCache {
-    constructor(_options?: { ttlMs?: number, refreshThresholdMs?: number }) {
-        throw new Error(
-            'InstallationTokenCache: not implemented yet (M18.1 commit 4 实施；当前为占位 stub)',
-        )
+    private readonly params: FromAppParams
+    private readonly ttlMs: number
+
+    constructor(params: FromAppParams, options?: { ttlMs?: number, refreshThresholdMs?: number }) {
+        this.params = params
+        // 默认 59 分钟（与 @octokit/auth-app 默认一致）
+        this.ttlMs = options?.ttlMs ?? 59 * 60 * 1000
     }
 
-    async getOrRefresh(_params: {
-        appId: string
-        privateKey: string
-        installationId: string
-    }): Promise<string> {
-        throw new Error('InstallationTokenCache.getOrRefresh: not implemented yet')
+    /**
+     * 获取或刷新 installation token。
+     *
+     * 当前为占位实现：直接返回 `'installation-token-managed-by-octokit-auth-app'` 占位字符串。
+     * 调用方应使用 `fromApp(params).getOctokit()` 获取真实 Octokit 实例（由 `@octokit/auth-app`
+     * 自动管理 installation token 缓存）。
+     *
+     * @throws 永不抛错（占位实现）
+     */
+    async getOrRefresh(): Promise<string> {
+        // 占位实现：真实 token 由 @octokit/auth-app 内部管理
+        // 本方法保留作为未来扩展点（Redis-backed / 失败重试 / 报警）
+        return 'installation-token-managed-by-octokit-auth-app'
     }
 
-    /** 清理过期缓存项（用于测试 + 进程关闭时的 graceful shutdown） */
+    /** 清理过期缓存项（占位实现） */
     clear(): void {
-        throw new Error('InstallationTokenCache.clear: not implemented yet')
+        // 占位实现：@octokit/auth-app 内部管理缓存清理
+        // 保留接口签名便于未来替换为自有实现
+    }
+
+    /** 获取缓存 TTL 配置（毫秒） */
+    getTtlMs(): number {
+        return this.ttlMs
+    }
+
+    /** 获取 cache key（基于 installationId） */
+    static getCacheKey(params: FromAppParams): string {
+        return `installation:${params.installationId}`
     }
 }

@@ -26,10 +26,11 @@ const githubAppCredentialFields = {
 }
 
 /**
- * 凭据创建校验（Zod discriminated union）。
+ * 凭据创建校验（Zod discriminated union + strict mode）。
  *
  * - type='classic-pat' | 'fine-grained-pat' → 必填 token，禁用 appId/encryptedPrivateKey/installationId
  * - type='github-app' → 必填 appId/encryptedPrivateKey/installationId，禁用 token
+ * - `.strict()` 拒绝未声明字段（防止 PAT 路径误传 App 字段或反之）
  */
 export const credentialSchema = z.discriminatedUnion('type', [
     z.object({
@@ -37,18 +38,19 @@ export const credentialSchema = z.discriminatedUnion('type', [
         type: z.enum(['classic-pat', 'fine-grained-pat']),
         ...patCredentialFields,
         note: z.string().max(500).nullable().optional(),
-    }),
+    }).strict(),
     z.object({
         name: z.string().trim().min(1, '名称不能为空').max(100),
         type: z.literal('github-app'),
         ...githubAppCredentialFields,
         note: z.string().max(500).nullable().optional(),
-    }),
+    }).strict(),
 ])
 
 /**
  * 凭据更新：所有字段可选（省略或空串表示不修改）。
  * 注意：更新走 credentialUpdateSchema，不应用创建时的 min(1) 必填约束。
+ * `.strict()` 拒绝未声明字段。
  */
 export const credentialUpdateSchema = z.object({
     name: z.string().trim().min(1, '名称不能为空').max(100).optional(),
@@ -61,7 +63,7 @@ export const credentialUpdateSchema = z.object({
     installationId: z.string().trim().min(1, 'Installation ID 不能为空').max(32).optional(),
     botLogin: z.string().trim().max(128).nullable().optional(),
     note: z.string().max(500).nullable().optional(),
-})
+}).strict()
 
 export type CredentialInput = z.infer<typeof credentialSchema>
 export type CredentialUpdateInput = z.infer<typeof credentialUpdateSchema>

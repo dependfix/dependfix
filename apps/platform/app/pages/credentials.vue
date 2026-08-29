@@ -106,30 +106,32 @@ const closeDialog = () => {
 /**
   * GitHub App 路径：监听 PEM 输入变化 → 实时解析 + 指纹校验
   */
-const handlePemInput = async () => {
+const handlePemInput = () => {
     if (form.value.type !== 'github-app' || !form.value.privateKey) {
         pemParseResult.value = null
         return
     }
-    const sizeCheck = validatePemSize(form.value.privateKey)
-    if (!sizeCheck.valid) {
-        pemParseResult.value = { valid: false, error: sizeCheck.error }
-        return
-    }
-    pemParseResult.value = await computePemFingerprint(form.value.privateKey)
+    pemParseResult.value = computePemFingerprint(form.value.privateKey)
 }
 
 /**
-  * GitHub App 路径：监听 .pem 文件上传
-  */
+ * GitHub App 路径：监听 .pem 文件上传
+ */
 const handlePemFileUpload = async (event: Event) => {
     const target = event.target as HTMLInputElement
     const file = target.files?.[0]
     if (!file) return
-    form.value.privateKey = await file.text()
-    await handlePemInput()
+    try {
+        form.value.privateKey = await file.text()
+        handlePemInput()
+    } catch (e) {
+        pemParseResult.value = {
+            valid: false,
+            error: `文件读取失败：${e instanceof Error ? e.message : String(e)}`,
+        }
+        form.value.privateKey = ''
+    }
 }
-
 /**
   * GitHub App 路径：App ID / Installation ID 实时校验
   */
@@ -432,19 +434,17 @@ watch(toastMessage, (v) => {
                             />
                             <span v-if="pemParseResult?.valid" class="text-success">
                                 <i class="pi pi-check-circle" /> {{ t('credentials.pemValid') }}
+                                <small v-if="pemParseResult.keyType" class="text-muted">
+                                    ({{ pemParseResult.keyType }})
+                                </small>
                             </span>
                             <span v-else-if="pemParseResult && !pemParseResult.valid" class="text-error">
                                 <i class="pi pi-times-circle" /> {{ t('credentials.pemInvalid') }}: {{ pemParseResult.error }}
                             </span>
                         </div>
-                        <div v-if="pemParseResult?.valid && pemParseResult.fingerprint" class="credential-form__pem-fingerprint">
-                            <small class="text-muted">
-                                {{ t('credentials.pemFingerprint') }}: <code>SHA256:{{ pemParseResult.fingerprint }}</code>
-                            </small>
-                            <small class="text-muted">
-                                {{ t('credentials.pemFingerprintHint') }}
-                            </small>
-                        </div>
+                        <small v-if="pemParseResult?.valid" class="text-muted">
+                            {{ t('credentials.pemFingerprintHint') }}
+                        </small>
                     </div>
                     <div class="credential-form__field">
                         <label for="botLogin">{{ t('credentials.fieldBotLogin') }}</label>

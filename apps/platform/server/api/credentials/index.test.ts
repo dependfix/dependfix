@@ -113,3 +113,87 @@ describe('/api/credentials 三角色鉴权（todo.md §M16.5）', () => {
         await expect(call('GET', '/api/credentials')).rejects.toMatchObject({ statusCode: 401 })
     })
 })
+
+/**
+ * GitHub App 路径（M18.3 commit 1 audit 反馈 W2）：覆盖 createCredential 的 github-app 分支。
+ *
+ * 验证：
+ * - 创建 github-app 凭据：appId/installationId/botLogin 明文 + encryptedPrivateKey 加密
+ * - 列表 / 详情 hasToken 检查 encryptedPrivateKey（不是 encryptedToken）
+ * - 跨路径字段保护（PAT 路径不应带 appId / 反之）
+ */
+describe('POST /api/credentials GitHub App 路径', () => {
+    const githubAppBody = {
+        name: 'dependfix-app',
+        type: 'github-app',
+        appId: '123456',
+        installationId: '7890123',
+        encryptedPrivateKey: `-----BEGIN RSA PRIVATE KEY-----
+MIIEpAIBAAKCAQEAxZxZ7BqHKJ9QsWbX8bFqHsK3p4QyjQJYxJ0gQjQJYxJ0gQjQJ
+YxJ0gQjQJYxJ0gQjQJYxJ0gQjQJYxJ0gQjQJYxJ0gQjQJYxJ0gQjQJYxJ0gQjQJ
+YxJ0gQjQJYxJ0gQjQJYxJ0gQjQJYxJ0gQjQJYxJ0gQjQJYxJ0gQjQJYxJ0gQjQJ
+-----END RSA PRIVATE KEY-----`,
+        botLogin: 'dependfix-bot[bot]',
+        note: 'GitHub App 凭据',
+    }
+
+    beforeAll(() => {
+        process.env.ENCRYPTION_KEY = 'test-encryption-key-32-bytes!!'
+    })
+
+    beforeEach(() => {
+        vi.clearAllMocks()
+    })
+
+    it('创建 GitHub App 凭据 → hasToken 来自 encryptedPrivateKey（非 encryptedToken）', async () => {
+        const created = await call('POST', '/api/credentials', githubAppBody) as Record<string, unknown>
+        expect(created).toMatchObject({
+            name: 'dependfix-app',
+            type: 'github-app',
+            hasToken: true,
+            appId: '123456',
+            installationId: '7890123',
+            botLogin: 'dependfix-bot[bot]',
+        })
+        // 明文 PEM 不应返回
+        expect(JSON.stringify(created)).not.toContain('BEGIN RSA PRIVATE KEY')
+        expect(created.encryptedPrivateKey).toBeUndefined()
+    })
+
+    it('GitHub App 凭据列表 → 附加 appId/installationId/botLogin 公开信息', async () => {
+        await call('POST', '/api/credentials', githubAppBody)
+        const list = await call('GET', '/api/credentials') as Record<string, unknown>[]
+        const found = list.find((c) => c.type === 'github-app')
+        expect(found).toBeDefined()
+        expect(found).toMatchObject({
+            appId: '123456',
+            installationId: '7890123',
+            botLogin: 'dependfix-bot[bot]',
+        })
+    })
+
+    it('strict mode 拒绝跨路径字段（PAT 路径不应带 appId）', async () => {
+        const invalidBody = {
+            name: 'invalid-pat',
+            type: 'classic-pat',
+            token: 'ghp_xxx',
+            appId: '123456', // 跨路径字段
+        }
+        await expectError(call('POST', '/api/credentials', invalidBody), 400)
+    })
+
+    it('strict mode 拒绝跨路径字段（App 路径不应带 token）', async () => {
+        const invalidBody = {
+            ...githubAppBody,
+            token: 'ghp_xxx', // 跨路径字段
+        }
+        await expectError(call('POST', '/api/credentials', invalidBody), 400)
+    })
+
+    it('GitHub App 路径必填字段缺失 → 400', async () => {
+        await expectError(
+            call('POST', '/api/credentials', { name: 'incomplete-app', type: 'github-app' }),
+            400,
+        )
+    })
+})

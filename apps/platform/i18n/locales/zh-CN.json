@@ -536,7 +536,7 @@
         "fieldBotLogin": "Bot 用户名（可选）",
         "fieldBotLoginPlaceholder": "如 dependfix-bot[bot]",
         "pemFingerprint": "公钥指纹",
-        "pemFingerprintHint": "请与 GitHub App 设置页面指纹对照",
+        "pemFingerprintHint": "如需与 GitHub App 设置页面对照，请运行：openssl rsa -in <pem> -pubout -outform DER | openssl sha256 -binary | openssl base64",
         "pemUpload": "上传 .pem 文件",
         "pemValid": "PEM 合法",
         "pemInvalid": "PEM 非法",

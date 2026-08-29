@@ -1,18 +1,21 @@
 /**
- * PEM 私钥客户端解析 + 公钥指纹校验（M18.3 GitHub App 路径）。
+ * PEM 私钥客户端格式校验（M18.3 GitHub App 路径）。
  *
  * 用途：credentials.vue 表单上传 PEM 文件时，浏览器端校验格式合法性 +
- * 计算公钥 SHA256 指纹（用于与 GitHub App 设置页面对照）。
+ * 私钥类型识别（RSA / EC）。
  *
- * 安全边界：仅解析 + 计算指纹；不持有私钥内容（解析后丢弃）。
+ * 范围限制（M18.3 锁定方案）：
+ * - **不**计算公钥 SHA256 指纹（与 GitHub App 设置页对照需 ASN.1 解析提取公钥 SPKI DER，超出本阶段范围）
+ * - 用户需自行用 openssl 命令比对 GitHub 指纹：
+ *   `openssl rsa -in PATH_TO_PEM_FILE -pubout -outform DER | openssl sha256 -binary | openssl base64`
+ *
+ * 安全边界：仅校验 PEM 格式（不持有私钥内容，解析后丢弃）。
  */
 
 /** PEM 解析结果 */
 export interface PemParseResult {
     /** 解析成功标记 */
     valid: boolean
-    /** 公钥 SHA256 指纹（base64，GitHub 显示格式 `SHA256:xxxxx`） */
-    fingerprint?: string
     /** 私钥类型（rsa / ec 等） */
     keyType?: 'rsa' | 'ec' | 'unknown'
     /** 错误消息（valid=false 时填入） */
@@ -20,18 +23,17 @@ export interface PemParseResult {
 }
 
 /**
- * 计算公钥 SHA256 指纹（GitHub 显示格式）。
+ * 校验 PEM 格式（不支持计算公钥指纹，详见模块 JSDoc）。
  *
- * 算法：
- * 1. 从 PEM 提取 DER 公钥（SPKI 格式）
- * 2. SHA256 hash
- * 3. base64 编码
- *
- * GitHub 显示：`SHA256:xxx`（xxx 是 base64 字符串，无 padding `=`）
- *
- * 注：浏览器端实现使用 Web Crypto API（`crypto.subtle.digest`），无需 Node.js 依赖。
+ * 校验内容：
+ * 1. PEM header 是否为合法私钥头（`BEGIN PRIVATE KEY` / `BEGIN RSA PRIVATE KEY` / `BEGIN EC PRIVATE KEY`）
+ * 2. 大小 ≤ 16KB（防恶意超长文件）
+ * 3. base64 内容非空
+ * 4. 私钥类型识别（从 PEM header 判断）
  */
-export async function computePemFingerprint(pem: string): Promise<PemParseResult> {
+export function computePemFingerprint(pem: string): PemParseResult {
+    // 函数名保留为 `computePemFingerprint` 以兼容已有调用方签名；
+    // 当前仅做格式校验（不计算指纹）—— fingerprint 字段保留但不使用
     if (!pem.includes('BEGIN PRIVATE KEY') && !pem.includes('BEGIN RSA PRIVATE KEY') && !pem.includes('BEGIN EC PRIVATE KEY')) {
         return {
             valid: false,
@@ -39,7 +41,13 @@ export async function computePemFingerprint(pem: string): Promise<PemParseResult
         }
     }
 
-    // 提取 base64 内容
+    // 大小校验
+    const sizeCheck = validatePemSize(pem)
+    if (!sizeCheck.valid) {
+        return sizeCheck
+    }
+
+    // 提取 base64 内容（仅做非空校验）
     const base64Content = pem
         .replace(/-----BEGIN (?:RSA |EC )?PRIVATE KEY-----/g, '')
         .replace(/-----END (?:RSA |EC )?PRIVATE KEY-----/g, '')
@@ -52,36 +60,19 @@ export async function computePemFingerprint(pem: string): Promise<PemParseResult
         }
     }
 
-    try {
-        // 计算 DER 编码的 SHA256
-        const derBuffer = base64ToBytes(base64Content)
-        // crypto.subtle.digest 在 lib.dom.d.ts 中签名是 BufferSource；
-        // derBuffer 已是 Uint8Array（合法 BufferSource）
-        const hashBuffer = await crypto.subtle.digest('SHA-256', derBuffer as BufferSource)
-        const hashBase64 = bytesToBase64(new Uint8Array(hashBuffer))
+    // 检测私钥类型（从 PEM header 判断）
+    let keyType: 'rsa' | 'ec' | 'unknown' = 'unknown'
+    if (pem.includes('BEGIN RSA PRIVATE KEY')) {
+        keyType = 'rsa'
+    } else if (pem.includes('BEGIN EC PRIVATE KEY')) {
+        keyType = 'ec'
+    }
+    // BEGIN PRIVATE KEY（PKCS#8 格式）需要 ASN.1 解析才能判断 key type；
+    // 此处简化为 unknown；服务端 credential.service 可做精确校验（M19+ 实施）
 
-        // 检测私钥类型（从 PEM header 判断）
-        let keyType: 'rsa' | 'ec' | 'unknown' = 'unknown'
-        if (pem.includes('BEGIN RSA PRIVATE KEY')) {
-            keyType = 'rsa'
-        } else if (pem.includes('BEGIN EC PRIVATE KEY')) {
-            keyType = 'ec'
-        } else {
-            // BEGIN PRIVATE KEY（PKCS#8 格式）需要 ASN.1 解析才能判断 key type
-            // 此处简化为 unknown；服务端 credential.service 可做精确校验
-            keyType = 'unknown'
-        }
-
-        return {
-            valid: true,
-            fingerprint: hashBase64,
-            keyType,
-        }
-    } catch (e) {
-        return {
-            valid: false,
-            error: `PEM 解析失败：${e instanceof Error ? e.message : String(e)}`,
-        }
+    return {
+        valid: true,
+        keyType,
     }
 }
 
@@ -119,23 +110,6 @@ export function validateGithubAppId(value: string, fieldName: string): { valid: 
 // ---------------------------------------------------------------------------
 // Internal helpers
 // ---------------------------------------------------------------------------
-
-function base64ToBytes(base64: string): Uint8Array {
-    const binary = atob(base64)
-    const bytes = new Uint8Array(binary.length)
-    for (let i = 0; i < binary.length; i++) {
-        const code = binary.charCodeAt(i)
-        if (code !== undefined) {
-            bytes[i] = code
-        }
-    }
-    return bytes
-}
-
-function bytesToBase64(bytes: Uint8Array): string {
-    let binary = ''
-    for (const code of bytes) {
-        binary += String.fromCharCode(code)
-    }
-    return btoa(binary)
-}
+// （base64ToBytes / bytesToBase64 已在 M18.3 commit 1 audit reject 后清理——
+// 当前 computePemFingerprint 仅做格式校验 + 类型识别，不需要 ASN.1 解析或 SHA256 计算；
+// 公钥指纹需用 openssl 命令（见模块 JSDoc）由用户自行计算与 GitHub 对照）

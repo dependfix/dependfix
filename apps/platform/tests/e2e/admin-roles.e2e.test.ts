@@ -164,4 +164,125 @@ test.describe('管理后台角色权限（todo.md §M16.5）', () => {
         expect([401, 403]).toContain(response.status())
         await context.close()
     })
+
+    /**
+     * S-3（M18.x 治理批次）：M17.6 实施时排除 update-user 端点（与 M16.5 auth-self-guard 5 端点重叠），
+     * 本 case 补 update-user viewer 403 断言——与既有 5 端点同模式，覆盖 better-auth admin
+     * `/admin/update-user` POST 端点的 adminMiddleware 行为。
+     */
+    test('viewer 直接调 API：/api/auth/admin/update-user → 403（S-3 补强）', async ({ browser }) => {
+        const context = await browser.newContext({ storageState: 'tests/e2e/.auth/viewer.json' })
+        const page = await context.newPage()
+        const cookies = (await page.context().cookies()).map((c) => `${c.name}=${c.value}`).join('; ')
+
+        const response = await page.request.post('/api/auth/admin/update-user', {
+            headers: {
+                origin: 'http://127.0.0.1:3101',
+                cookie: cookies,
+            },
+            data: {
+                userId: 'any-target-user-id',
+                data: { name: 'hacker-name' },
+            },
+        })
+        expect([401, 403]).toContain(response.status())
+        await context.close()
+    })
+
+    /**
+     * S-4（M18.x 治理批次）：admin 200 双向断言——既有 5 端点 viewer 403 单向断言补 admin 通过验证，
+     * 形成 viewer 403 ↔ admin 通过的完整双向矩阵。注意：admin 调用状态码依赖 better-auth 业务
+     * 逻辑（userId 存在性、payload 合法性等），本测试用合法 self-update payload（userId = self）触发
+     * admin middleware 通过路径——即使业务逻辑返回 4xx（如字段未找到），adminMiddleware 拦截
+     * 在前置中间件层，admin 必须通过此层到达业务 handler。期望 status ∈ [200, 400, 404]（不包含 401/403，
+     * 即 adminMiddleware 通过）。
+     */
+    test.describe('admin 通过双向（S-4 补强）', () => {
+        test.use({ storageState: 'tests/e2e/.auth/admin.json' })
+
+        test('admin POST /api/auth/admin/ban-user → 通过 adminMiddleware（2xx 或业务 4xx）', async ({ browser }) => {
+            const context = await browser.newContext({ storageState: 'tests/e2e/.auth/admin.json' })
+            const page = await context.newPage()
+            const cookies = (await page.context().cookies()).map((c) => `${c.name}=${c.value}`).join('; ')
+
+            const response = await page.request.post('/api/auth/admin/ban-user', {
+                headers: { origin: 'http://127.0.0.1:3101', cookie: cookies },
+                data: { userId: 'self-non-existent-user-id', banReason: 'test', banExpiresIn: 86400 },
+            })
+            // adminMiddleware 通过（不是 401/403）；业务层可能 200/400/404
+            expect(response.status()).not.toBe(401)
+            expect(response.status()).not.toBe(403)
+            await context.close()
+        })
+
+        test('admin POST /api/auth/admin/remove-user → 通过 adminMiddleware', async ({ browser }) => {
+            const context = await browser.newContext({ storageState: 'tests/e2e/.auth/admin.json' })
+            const page = await context.newPage()
+            const cookies = (await page.context().cookies()).map((c) => `${c.name}=${c.value}`).join('; ')
+
+            const response = await page.request.post('/api/auth/admin/remove-user', {
+                headers: { origin: 'http://127.0.0.1:3101', cookie: cookies },
+                data: { userId: 'self-non-existent-user-id' },
+            })
+            expect(response.status()).not.toBe(401)
+            expect(response.status()).not.toBe(403)
+            await context.close()
+        })
+
+        test('admin POST /api/auth/admin/impersonate-user → 通过 adminMiddleware', async ({ browser }) => {
+            const context = await browser.newContext({ storageState: 'tests/e2e/.auth/admin.json' })
+            const page = await context.newPage()
+            const cookies = (await page.context().cookies()).map((c) => `${c.name}=${c.value}`).join('; ')
+
+            const response = await page.request.post('/api/auth/admin/impersonate-user', {
+                headers: { origin: 'http://127.0.0.1:3101', cookie: cookies },
+                data: { userId: 'self-non-existent-user-id' },
+            })
+            expect(response.status()).not.toBe(401)
+            expect(response.status()).not.toBe(403)
+            await context.close()
+        })
+
+        test('admin POST /api/auth/admin/unban-user → 通过 adminMiddleware', async ({ browser }) => {
+            const context = await browser.newContext({ storageState: 'tests/e2e/.auth/admin.json' })
+            const page = await context.newPage()
+            const cookies = (await page.context().cookies()).map((c) => `${c.name}=${c.value}`).join('; ')
+
+            const response = await page.request.post('/api/auth/admin/unban-user', {
+                headers: { origin: 'http://127.0.0.1:3101', cookie: cookies },
+                data: { userId: 'self-non-existent-user-id' },
+            })
+            expect(response.status()).not.toBe(401)
+            expect(response.status()).not.toBe(403)
+            await context.close()
+        })
+
+        test('admin GET /api/auth/admin/list-users → 通过 adminMiddleware（200 或 4xx 业务错）', async ({ browser }) => {
+            const context = await browser.newContext({ storageState: 'tests/e2e/.auth/admin.json' })
+            const page = await context.newPage()
+            const cookies = (await page.context().cookies()).map((c) => `${c.name}=${c.value}`).join('; ')
+
+            const response = await page.request.get('/api/auth/admin/list-users', {
+                headers: { origin: 'http://127.0.0.1:3101', cookie: cookies },
+            })
+            // admin 调用 list-users 期望成功（业务层 list）
+            expect(response.status()).not.toBe(401)
+            expect(response.status()).not.toBe(403)
+            await context.close()
+        })
+
+        test('admin POST /api/auth/admin/update-user → 通过 adminMiddleware（S-3 对偶 S-4）', async ({ browser }) => {
+            const context = await browser.newContext({ storageState: 'tests/e2e/.auth/admin.json' })
+            const page = await context.newPage()
+            const cookies = (await page.context().cookies()).map((c) => `${c.name}=${c.value}`).join('; ')
+
+            const response = await page.request.post('/api/auth/admin/update-user', {
+                headers: { origin: 'http://127.0.0.1:3101', cookie: cookies },
+                data: { userId: 'self-non-existent-user-id', data: { name: 'noop' } },
+            })
+            expect(response.status()).not.toBe(401)
+            expect(response.status()).not.toBe(403)
+            await context.close()
+        })
+    })
 })

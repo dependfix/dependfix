@@ -176,8 +176,13 @@
     - **BYO App 模式** vs 官方 dependfix App：选 BYO App —— 自部署场景下用户本就必须自带凭据（PAT 本质就是自带），"自带 App"是同一约束的自然延伸；官方 App 需团队运营能力（marketplace listing / 持续安全响应 / 计费 / 支持 SLA），当前不具备，单独登记 C22-future。**2026-08-28 备注**：用户原话"暂时没有能力像其他机器人那样支撑一个官方的后台"——明确决策依据。
     - **PAT 与 App 并存** vs 完全替换 PAT：选并存 —— PAT 是 CLI quickstart / Action input / 单仓调试的最低摩擦路径，移除会破坏现有体验；BYO App 只对自部署平台多仓 org 场景提供增量价值（更细粒度的 installation 授权 + 短时 token 轮换）。**2026-08-28 备注**：C22 主条目范围限定为"新增 BYO App 路径"，**不触碰**现有 PAT 实现。
     - **commit author 动态化** vs 保留硬编码 `dependfix[bot]`：选动态化 —— 用户自带 App 的 bot login 各异（不一定叫 `dependfix`），硬编码会让 commit 无法被 GitHub 归因为真实 bot；动态生成 `{app_id}+{bot_login}[bot]@users.noreply.github.com` 是 GitHub App 协议要求。**2026-08-28 备注**：PAT 路径保留硬编码以保持现有 commit 归属格式不变（虽然该格式当前是字符串约定而非真实 bot 身份，已知缺陷不在 C22 范围内修复）。
-    - **Manifest flow 一键创建** vs 仅文档引导：选 Manifest flow —— manifest URL 让用户点一下就能创建 App + 自动回调回 dependfix 设置页，UX 显著优于纯文档引导；GitHub Enterprise Server 不支持 manifest 时降级到手动配置 + 文档兜底（A7 实施时确认目标 GHES 版本范围）。
+    - **Manifest flow 一键创建** vs 仅文档引导：选 Manifest flow（先文档引导 + 评估 Manifest flow 可行性，**2026-08-29 决策调整**）—— manifest URL 让用户点一下就能创建 App + 自动回调回 dependfix 设置页，UX 显著优于纯文档引导；GitHub Enterprise Server 不支持 manifest 时降级到手动配置 + 文档兜底。**2026-08-29 用户决策**：M18 阶段暂不实施 Manifest flow 一键创建，先以 A7a 文档引导落地（A7b 单独评估 Manifest flow 可行性，输出评估报告至 `docs/design/governance/c22-manifest-flow-feasibility.md`）；触发再评估条件：评估报告结论 + 用户实测反馈。
   - **C22-future 官方 dependfix GitHub App 发布候选（远期战略，不在本条范围）** —— 与 C22 平行独立的战略线。阻塞项：① 团队运营能力（marketplace listing / 持续安全响应 / 计费 / 支持 SLA）；② 单租户/自部署仍要求用户自带 App，官方 App 主要服务 SaaS 场景，与 open-core 定位有张力；③ 与现有开源许可 + 商业模式联动未决。触发上收条件：用户实测出现 SaaS 化诉求 / 团队到位 / 商业化路径定稿。**不在 C22 主线内实施**。
+  - **M18 实施状态（2026-08-29 P 阶段已启动）** —— 详见 [todo.md §M18](todo.md#当前阶段：m18-平台-github-app-byo-app-模式--p-阶段启动-2026-08-29) 完整任务清单与决策固化。摘要：
+    - **5 子阶段拆分**：M18.0（P0 docs only，PAT 无感升级评估）+ M18.1（M18.1 C22.1 基础层，P1）+ M18.2（C22.2 集成层，P1）+ M18.3（C22.3 表现层，P2）+ M18.4（C22.4 测试层，P1）
+    - **3 用户决策固化**（2026-08-29）：① M18.0 评估子阶段独立（A 决策）② fixtures 仅 mock 无真实 App（C 决策；用户接受风险）③ M18.x 治理批次合并入 C22 子阶段顺手做（B 决策）
+    - **PAT 无感升级方案**：推荐 B（AuthProvider 注入统一入口）；`createGitHubClient` 改为 `{ auth: AuthProvider }`；老 `{ token }` 签名保留为 deprecated 包装；9 个测试 + 2 个 app 调用点改造；PAT 路径 commit author 保留硬编码兼容
+    - **关键风险承担**：决策 C fixtures 仅 mock 违反"防升级回归"目的（e2e 不能验证真实 GitHub App 行为如 installation token 失效 / rate limit / JWT 签名边界），用户已接受；缓解措施 = 单测聚焦 `@octokit/auth-app` 库 mock 输出契约
 - **C23** 发现规模上限 max-repos（[architecture.md](../design/governance/architecture.md) 规划 `max-repos` 输入参数代码未实现 grep 零命中；大 org 数百仓库一次性全量发现 + 逐仓库探测 `.github/dependabot.yml` N 次 contents API 配额消耗与总耗时不可控；当前防护仅 concurrency 16 + 限流重试 + probe 并发 5 无总量上限；建议：发现层按配置上限截断排序后截断保证确定性或拆为分批处理）
 - **C24** org 级 alerts API 批量拉取（GitHub 提供 org 级 `GET /orgs/{org}/dependabot/alerts` 与 `GET /orgs/{org}/code-scanning/alerts`；当前按仓库逐仓拉取 `listAlertsForRepo`；大 org 场景可显著减少 API 调用但需按仓库重组结果 + defaultBranch 注入 org 级响应可能缺省分支上下文复杂度上升；触发：等真实大 org 用户痛点再动）
 
@@ -239,7 +244,7 @@
 下列条目已在历史评估中明确"暂不实现"或"非本阶段范围"，从 backlog 主条目迁出，决策记录保留于对应归档段：
 
 - **C1 / C2 / C6 / C7 / C10 / C11 / C12 / C17 / C18 / C19 / C20** —— 详见 [todo-archive.md §M4 治理记录](archive/todo-archive-phases-m2-m55.md#m4-阶段治理记录2026-08-05--2026-08-06) + [§T405 跨线升级显式授权](archive/todo-archive-phases-m2-m55.md)
-- **C22 GitHub App 认证** —— 2026-08-28 状态：**从"已评估不实现"上收为待实施主条目**（用户实测触达：自部署平台管理员自述 classic PAT `repo` scope 权限过大、超预期推送风险）→ 详见本文件 §org 增强 §C22 主条目（含 10 原子子任务 C22-A1~A10 + 关键决策回顾 + C22-future 战略候选登记）；原"待用户触发再评估"的本段决策已被新决策覆盖，本行仅作为历史指针保留。
+- **C22 GitHub App 认证** —— 2026-08-29 状态：**M18 P 阶段已启动**（承接 2026-08-28 上收主条目 + 2026-08-29 用户 3 决策固化）；M18 范围 = 5 子阶段拆分（M18.0 PAT 无感升级评估 + M18.1 C22.1 基础层 + M18.2 C22.2 集成层 + M18.3 C22.3 表现层 + M18.4 C22.4 测试层）+ M18.x 治理批次合并入 C22 子阶段；详见本文件 §org 增强 §C22 主条目 + [todo.md §M18](todo.md#当前阶段：m18-平台-github-app-byo-app-模式--p-阶段启动-2026-08-29)。原"待用户触发再评估"的本段决策已被新决策覆盖，本行仅作为历史指针保留。
 - **C26 / T1005 / C28 / C29 / C53** —— M10 沙箱 / C26 / T1005 / C28 / C29 / C53 已全部闭环；详见 [archive/todo-archive-phases-m10-c53-c59c61.md §M10](archive/todo-archive-phases-m10-c53-c59c61.md#m10-独立沙箱容器-c26-实施规划已归档) + [§C53](archive/todo-archive-phases-m10-c53-c59c61.md#c53-平台集成模式-fix-修复结果推送远程已归档)
 - **C25 / C27 / C31 / C32** —— M6 B 模式结果回填 + MCP 能力补充 P1/P2 已闭环；详见 [todo-archive.md §M6](archive/todo-archive-phases-m6-m7-t711.md#m6-最小平台-mvp已归档) + [§MCP 能力补充](todo-archive.md)
 - **C46-C61** —— 2026-08-19~20 平台 UX/可用性闭环批次汇总 10 项 + 3 个 PR + 3 个独立 fix 全部归档；详见 [archive/todo-archive-phases-m11.md](archive/todo-archive-phases-m11.md)

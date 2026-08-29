@@ -2,17 +2,38 @@
 
 > **范围约定**：本文件**仅**登记当前阶段活跃待办——已闭环项归档于 [todo-archive.md](todo-archive.md)；未排期/延期/远期登记于 [backlog.md](backlog.md)；已知边界与 known-issue 登记于对应阶段归档段或 backlog（**不在此处复述**）。
 
-## 当前阶段：M17 全部 6 子阶段已闭环归档（2026-08-28）— 等待 M18
+## 当前阶段：M18 平台 GitHub App BYO App 模式 — P 阶段启动（2026-08-29）
 
-> **状态**：M17 安全与可用性收口阶段（M17.1 C38 encryptionKey 标准化 + M17.2 credentials 服务端 API i18n + M17.3 schedules 服务端 API i18n + M17.4 batch-runs + repos batch 服务端 API i18n + M17.5 S-2 authedCookieHeader 抽取 + M17.6 S-4 better-auth admin viewer 403 矩阵补强）全部 6 子阶段已闭环归档（2026-08-28 8 commits + 1 session 收尾 commit = 9 commits 全部已推送至 `origin/master`，ahead=0 `git rev-list HEAD ^origin/master --count` 2026-08-28 实测）。
+> **状态**：M18 P 阶段已落地（2026-08-29 docs(plan) commit），承接 M17 全部 6 子阶段已闭环归档（2026-08-28 9 commits 全部已推送至 `origin/master`，ahead=0 `git rev-list HEAD ^origin/master --count` 2026-08-28 实测）。M18 P 阶段包含 5 子阶段拆分 + 3 用户决策固化 + 关键风险记录。
 >
-> **总投入**：9 commits（M17.1 1 + M17.2 1 + M17.3 1 + M17.4 2 + M17.5 2 + M17.6 1 + session 收尾治理 1；含 M17.4 commit 2 audit Reject 后针对性补修闭环 + M17.5 lint-fix 独立 chore commit）。
+> **范围**：C22 GitHub App BYO App 模式（自部署平台 GitHub App 进阶选项；PAT 保留为默认快速上手路径，二者并存不替代）+ M18.0 PAT 无感升级评估（独立 docs only P0 子阶段）。
 >
-> **详细实施记录 / commit 引用 / 治理记录 / 关键决策 / 关键经验 / 待迁移经验**：见 [todo-archive.md §M17](todo-archive.md#m17-安全与可用性收口m171--m172--m173--m174--m175--m176-全部已闭环--2026-08-28-归档)。
+> **5 子阶段 + 1 治理批次**：
+> - **M18.0**（P0 docs only）：PAT 无感升级评估报告（3 方案对比 + 推荐 B AuthProvider 注入 + 9 测试 + 2 app 改动清单 + 风险矩阵）
+> - **M18.1**（P1）：C22.1 基础层 — credential 扩展（`appId` / `encryptedPrivateKey` / `installationId` / `botLogin` 4 字段）+ AuthProvider 抽象层（`packages/engine/src/auth/` 新建）+ installation token 缓存层（1h 滑窗 + 5min 提前刷新）
+> - **M18.2**（P1）：C22.2 集成层 — `pushFixBranch` token 切换 + commit author 动态化（PAT 路径保留硬编码兼容）+ 审计字段扩展（`authProvider` + `installationId`）
+> - **M18.3**（P2）：C22.3 表现层 — UI 凭据创建新增 GitHub App tab + 文档引导（`quick-start` + `security.md` §5 + `architecture.md` §认证）+ Manifest flow 可行性评估（A7b 仅评估，A7a 文档引导先落地）
+> - **M18.4**（P1）：C22.4 测试层 — 单测补强（`auth-provider.test.ts` + `installation-token-cache.test.ts` + `pr-creator.test.ts` App bot email 路径回归）+ e2e mock JWT signing + `getInstallationOctokit` 拦截全链路验证
+> - **M18.x 治理批次**（P3，合并入 C22.x 子阶段顺手做，不单独排子阶段）：S-5 / C39 / C34 / S1 / S2 / S-3 / S-4 audit suggest 延后候选
+>
+> **3 用户决策固化**（2026-08-29）：
+> 1. **M18.0 评估子阶段独立** — 决策 A：严格分离"评估"与"实施"，M18.0 仅输出 docs only commit（`docs/design/governance/c22-pat-backward-compat.md`）
+> 2. **GitHub App fixture 管理** — 决策 C：仅 mock，无真实 App fixture；**风险承担方：用户已接受**（违反"防升级回归"目的部分由 mock 替代真实行为；e2e 不能验证真实 GitHub App 行为如 installation token 失效 / rate limit / JWT 签名边界）
+> 3. **M18.x 治理批次时机** — 决策 B：合并入 C22.x 子阶段顺手做（按关联性分组：S-5 → M18.1 / C39+C34 → M18.3 / S1+S2 → M18.4 / S-3+S-4 → M18.4 e2e）
+>
+> **总投入预估**：~11 commits（M18.0 docs×1 + M18.1 refactor×1 + feat×2 + M18.2 refactor×1 + feat×1 + M18.3 feat×1 + docs×2 + M18.4 test×2）
+>
+> **关键决策记录**：
+> - **PAT 保留 + App 并存** vs 完全替换 PAT：选并存 —— PAT 是 CLI quickstart / Action input / 单仓调试的最低摩擦路径；BYO App 只对自部署平台多仓 org 场景提供增量价值（installation 范围限定 + 1h 短时 token 轮换 + 真实 bot 身份）
+> - **PAT commit author 保留硬编码** `dependfix[bot]@users.noreply.github.com` —— PAT 路径用户行为零变化；仅 App 路径走动态 bot identity（`{app_id}+{bot_login}[bot]@users.noreply.github.com`）
+> - **fixtures 仅 mock**（决策 C 风险承担）：mock 必须严格对齐 `@octokit/auth-app` 库契约输出；单测聚焦库 mock 输出契约作为缓解措施
+> - **Manifest flow 一键创建暂不实施**：A7b 仅评估可行性（GHES 版本支持范围 / manifest URL 构造 / OAuth callback 路径 / CSRF 防护）；A7a 文档引导先落地
+>
+> **依赖关系**：M18.0（评估） → M18.1（基础层） → M18.2 + M18.4 并行 → M18.3（表现层） → M18.4 e2e 闭环
 >
 > **下一步候选**：
-> - **启动 M18**：候选方向 = **C22 GitHub App BYO App 模式**（2026-08-28 用户实测触达：自部署平台管理员视角 classic PAT `repo` scope 权限过大、可直接推送代码超出"自动修复"预期风险；定位 PAT 保留为默认/快速上手路径 + GitHub App 作为自部署平台进阶选项，二者并存不替代；10 原子子任务 C22-A1~A10 + 关键决策回顾 + C22-future 战略候选登记均已沉淀至 [backlog.md §org 增强 §C22](backlog.md#org-增强)）
-> - **backlog 主条目候选池（M19+ 可拣选）**：C39（standards 文档 ENCRYPTION_KEY → NUXT_ENCRYPTION_KEY 同步）/ S-5（调用方测试 `process.env.ENCRYPTION_KEY` 死代码清理）/ C34（存量规范严格约束挂接盘点，下批次与 C39 联动）/ S1（`SCAN_PENDING_MERGED` 死代码）/ S2（`detectServerLocale` 缺 `?locale=` URL query 支持）/ M16.3 audit suggest 范围外扩展 4 条目（credentials / schedules / batch-runs + repos batch 等）
+> - **M18.0 D 阶段**：输出 PAT 无感升级评估报告（`docs/design/governance/c22-pat-backward-compat.md`，1 个 docs only commit）
+> - **backlog 主条目候选池（M19+ 可拣选）**：C23（max-repos 总量上限）/ C24（org 级 alerts 批量拉取）/ B1（PR 关闭评论 + label）/ B2（固定分支单线）/ T701-T704 真实环境验证（OAuth/OIDC/SMTP/BullMQ）
 
 ---
 

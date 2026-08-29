@@ -21,7 +21,10 @@ export interface RepoView {
     updatedAt: string
 }
 
-/** 凭据视图（server/api/credentials 返回结构，token 永不返回） */
+/** 凭据视图（server/api/credentials 返回结构，token 永不返回）
+ *
+ * GitHub App 路径（type='github-app'）下额外包含 appId / installationId / botLogin 公开信息。
+ */
 export interface CredentialView {
     id: string
     name: string
@@ -31,6 +34,12 @@ export interface CredentialView {
     createdAt: string
     updatedAt: string
     hasToken: boolean
+    /** GitHub App 路径：公开信息（明文） */
+    appId?: string
+    /** GitHub App 路径：公开信息 */
+    installationId?: string
+    /** GitHub App 路径：bot 用户名（可选） */
+    botLogin?: string | null
 }
 
 /** 全局角色（与 server guard.ts Role 对齐；前端只读消费） */

@@ -24,11 +24,18 @@ const getCredential = async (event: H3Event, id: string) => {
         lastUsedAt: found.lastUsedAt,
         createdAt: found.createdAt,
         updatedAt: found.updatedAt,
-        hasToken: Boolean(found.encryptedToken),
+        hasToken: found.type === 'github-app'
+            ? Boolean(found.encryptedPrivateKey)
+            : Boolean(found.encryptedToken),
+        ...(found.type === 'github-app' && {
+            appId: found.appId,
+            installationId: found.installationId,
+            botLogin: found.botLogin,
+        }),
     }
 }
 
-/** PUT /api/credentials/[id]：更新凭据（token 为空表示不修改；写操作限 admin/org_admin） */
+/** PUT /api/credentials/[id]：更新凭据（token / privateKey 为空表示不修改；写操作限 admin/org_admin） */
 const updateCredential = async (event: H3Event, id: string) => {
     await requireRole(event, ['admin', 'org_admin'])
     const body = await readBody<Record<string, unknown>>(event)
@@ -51,14 +58,30 @@ const updateCredential = async (event: H3Event, id: string) => {
     }
     await requireOrgResource(event, found.organizationId)
 
+    const encryptionKey = getEncryptionKey()
+
     if (parsed.data.name !== undefined) {
         found.name = parsed.data.name
     }
     if (parsed.data.type !== undefined) {
         found.type = parsed.data.type
     }
+    // PAT 路径 token 更新
     if (parsed.data.token !== undefined && parsed.data.token !== '') {
-        found.encryptedToken = encryptToken(parsed.data.token, getEncryptionKey())
+        found.encryptedToken = encryptToken(parsed.data.token, encryptionKey)
+    }
+    // GitHub App 路径字段更新
+    if (parsed.data.appId !== undefined) {
+        found.appId = parsed.data.appId
+    }
+    if (parsed.data.encryptedPrivateKey !== undefined && parsed.data.encryptedPrivateKey !== '') {
+        found.encryptedPrivateKey = encryptToken(parsed.data.encryptedPrivateKey, encryptionKey)
+    }
+    if (parsed.data.installationId !== undefined) {
+        found.installationId = parsed.data.installationId
+    }
+    if (parsed.data.botLogin !== undefined) {
+        found.botLogin = parsed.data.botLogin
     }
     if (parsed.data.note !== undefined) {
         found.note = parsed.data.note

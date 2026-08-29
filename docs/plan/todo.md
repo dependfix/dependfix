@@ -69,6 +69,33 @@
 > ### M18.x 治理批次（合并入 C22.x 顺手做）
 >
 > 仍按 P3 延期处理——S-5 / C39 / C34 / S1 / S2 / S-3 / S-4 audit suggest 延后候选维持 backlog 状态。
+>
+> ### M18.x 治理批次实施状态（2026-08-29 全部闭环，8 commits ahead=8）
+>
+> **决策**：`M18.x 治理批次` 不单独排子阶段，按关联性分组合并实施（todo.md §M18 决策 B）；M18 全部 5 子阶段落地后集中处理 audit suggest 延后候选 + M18.4 audit W3/W4 + experience-archive §四十三 4 条治理检查点挂 standards。
+>
+> **6 批次落地清单**（ahead=8）：
+>
+> | 批次 | commit | 范围 | 验证 |
+> |---|---|---|---|
+> | 1 | `19c0cd8` docs(standards+plan) + `9da26e3` docs(testing) | C39 standards 同步（已由 M18.3 顺带闭环）+ C34 部分盘点（M14.x 5 条 + M18.x 1 条）+ experience-archive §四十三 4 条挂 standards（development.md §5.1.15 + testing.md §6.3 + ai-collaboration.md §D 第 5 条 + code-auditor.agent.md 主责边界必查项） | audit quick Pass + W1 trivial fix |
+> | 2 | `6866eb7` fix(engine) | **W3** stageAndCommit host 全局 git config 干扰 bug 修复（`stageAndCommit` 显式 `-c user.name=X -c user.email=Y` + `gitConfigExists` 用 `--local` flag）+ 1 个 W3 回归测试 | audit quick Reject + B1 trivial fix（删除重复 it 块） |
+> | 2 | `fd2a29e` fix(platform) | **S1** `scan.post.ts` + `batch-executor.ts` 字面 `'duplicate_scan'` → 联合类型 `'SCAN_PENDING_MERGED'`（C36 一致性）+ 前端 `repos.vue` 同步 + **S2** `detectServerLocale` 加 `?locale=` URL query 支持（与 `localeDetector.ts:15` `tryQueryLocale` 对齐）+ 3 个 S2 回归测试 | 验证矩阵齐备 |
+> | 3 | `21f1a9f` test(engine) | audit B1 fix（删除 pr-creator.test.ts 重复 W3 it 块 31 行） | 验证：63 tests passed |
+> | 4 | `878ae1a` test(platform) | **S-5** 5 文件 14 处 `process.env.ENCRYPTION_KEY` 死代码清理（保留 `setup-nuxt-server.ts:26` `useRuntimeConfig` stub 默认值） | platform vitest 888 passed |
+> | 5 | `933e578` build(workspace+ci) | **W4** `pnpm.overrides` 钉定 `@octokit/auth-app: 8.3.0`（c22 §5.5 决策 C 缓解措施 4）+ `test.yml` 新增 `pnpm audit --prod --audit-level=moderate` 步骤（不阻断 Test job） | pnpm audit 0 vulnerabilities + lockfile 同步 |
+> | 6 | `45cae13` test(platform) | **S-3** update-user viewer 403 端点 + **S-4** 6 端点 admin 通过双向断言（补 better-auth admin 插件完整 viewer 403 ↔ admin 通过矩阵） | lint 0 error（e2e 测试需 Playwright build 产物，本地不跑 CI 验证） |
+>
+> ### M18.x 治理批次剩余风险（不阻塞，登记 M19+ / 下一批次会话处理）
+>
+> - **W1（M18.4 audit round 2）**：stageAndCommit host 全局 config 隔离未覆盖 `--local` flag 路径——仅覆盖 `-c` 显式传。需补 1 个 case 用 `process.env.GIT_CONFIG_GLOBAL=/tmp/synthetic-global-with-user.name` 模拟 host global + 不预设 local config，验证 `ensureGitConfig` 会写入 local config
+> - **W2（M18.4 audit round 2）**：`detectServerLocale` 不接受 `?locale=EN`（大小写敏感），`tryQueryLocale` 由 `@nuxtjs/i18n` 实现可能归一化为 `en`（BCP 47 lowercasing）。建议下一批次加 `.toLowerCase()` 兼容，或在 todo 登记
+> - **C34 完整盘点**：standards 中其他"必须级"条款（开发规范 §3 / §4 / §5.1.x / 测试规范 §6 / 安全规范 §5 / git 规范 §3 / AI 协作规范 §1/§4）双层对称挂接完整盘点属于 neat-freak 批次工作，本次 M18.x 治理批次仅做 experience-archive §四十三 4 条新教训挂接；候选下批次会话处理
+>
+> ### M18.x 治理批次经验沉淀（experience-archive §四十三 + S-5 延伸）
+>
+> - **集成外部库前必须读 README 标准用法**（development.md §5.1.15）：M18.1 commit 4 凭直觉写 `auth: createAppAuth(...)` 错误用法 + `vi.mock('@octokit/rest')` 跳真实路径 → M18.4 audit round 1 Reject → round 2 README 标准用法 + 去 mock 化真实路径 e2e 修复
+> - **测试 stub 命名一致性**（S-5 延伸教训）：调用方测试 `process.env.ENCRYPTION_KEY` 与生产 `NUXT_ENCRYPTION_KEY` 命名不一致，偶然一致性维持能跑但 setup-nuxt-server.ts stub 字符串变更会导致测试突然全挂——单一来源 + 字面量直接引用优于 env 透传
 
 ---
 

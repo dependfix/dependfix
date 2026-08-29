@@ -107,12 +107,6 @@ Manifest conversion API 是**公开 endpoint**，无需任何认证：
 - 凭据 service 解密后立即加密存储到 `Credential.encryptedPrivateKey`（AES-256-GCM，与 M18.1 一致）
 - 永不返回明文到前端
 
-### 2.6 私钥管理（callback 后）
-
-`POST /app-manifests/{code}/conversions` 响应包含 `pem` 字段（RSA private key）：
-- 凭据 service 解密后立即加密存储到 `Credential.encryptedPrivateKey`（AES-256-GCM，与 M18.1 一致）
-- 永不返回明文到前端
-
 ## 3. 阻塞项识别
 
 | 阻塞项 | 严重度 | 说明 |

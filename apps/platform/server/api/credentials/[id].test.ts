@@ -25,7 +25,8 @@ describe('GET /api/credentials/[id]', () => {
 
     beforeAll(async () => {
         setupMemoryDatabase()
-        process.env.ENCRYPTION_KEY = 'test-encryption-key-32-bytes!!'
+        // 注：M18.x 治理批次 S-5 — 删除 `process.env.ENCRYPTION_KEY` 死代码；
+        // stub 默认值由 `apps/platform/tests/setup-nuxt-server.ts:26` 全局 useRuntimeConfig 提供
         const created = await callIndex('POST', '/api/credentials', {
             name: 'github-pat',
             type: 'classic-pat',
@@ -36,7 +37,7 @@ describe('GET /api/credentials/[id]', () => {
 
     afterAll(() => {
         teardownMemoryDatabase()
-        delete process.env.ENCRYPTION_KEY
+        // 注：M18.x 治理批次 S-5 — 删除 `delete process.env.ENCRYPTION_KEY` 死代码
     })
 
     beforeEach(() => {
@@ -89,9 +90,8 @@ describe('GET /api/credentials/[id]', () => {
  */
 describe('/api/credentials/[id] 三角色鉴权（todo.md §M16.5）', () => {
     beforeAll(() => {
-        // 同父 describe（setupMemoryDatabase + ENCRYPTION_KEY 已在 beforeAll 设置）；
-        // 这里 ensure mock reset 不影响 env
-        process.env.ENCRYPTION_KEY = 'test-encryption-key-32-bytes!!'
+        // 注：M18.x 治理批次 S-5 — 删除 `process.env.ENCRYPTION_KEY` 死代码；
+        // stub 默认值由 `apps/platform/tests/setup-nuxt-server.ts:26` 全局 useRuntimeConfig 提供
     })
 
     beforeEach(() => {
@@ -144,12 +144,12 @@ describe('/api/credentials/[id] 三角色鉴权（todo.md §M16.5）', () => {
 describe('/api/credentials/[id] 错误响应 i18n（todo.md §M17.2）', () => {
     beforeAll(() => {
         setupMemoryDatabase()
-        process.env.ENCRYPTION_KEY = 'test-encryption-key-32-bytes!!'
+        // 注：M18.x 治理批次 S-5 — 删除 `process.env.ENCRYPTION_KEY` 死代码；
+        // stub 默认值由 `apps/platform/tests/setup-nuxt-server.ts:26` 全局 useRuntimeConfig 提供
     })
 
     afterAll(() => {
         teardownMemoryDatabase()
-        delete process.env.ENCRYPTION_KEY
     })
 
     beforeEach(() => {

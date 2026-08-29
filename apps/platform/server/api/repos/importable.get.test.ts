@@ -77,7 +77,8 @@ describe('GET /api/repos/importable', () => {
 
     beforeAll(async () => {
         setupMemoryDatabase()
-        process.env.ENCRYPTION_KEY = 'test-encryption-key-32-bytes!!'
+        // 注：M18.x 治理批次 S-5 — 删除 `process.env.ENCRYPTION_KEY` 死代码；
+        // stub 默认值由 `apps/platform/tests/setup-nuxt-server.ts:26` 全局 useRuntimeConfig 提供
         const created = await credentialsIndexHandler(makeEvent('POST', '/api/credentials', {
             name: 'github-pat',
             type: 'classic-pat',
@@ -88,7 +89,7 @@ describe('GET /api/repos/importable', () => {
 
     afterAll(() => {
         teardownMemoryDatabase()
-        delete process.env.ENCRYPTION_KEY
+        // 注：M18.x 治理批次 S-5 — 删除 `delete process.env.ENCRYPTION_KEY` 死代码
     })
 
     beforeEach(() => {

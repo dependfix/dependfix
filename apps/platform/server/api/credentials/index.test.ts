@@ -25,12 +25,12 @@ const validBody = {
 describe('GET /api/credentials', () => {
     beforeAll(() => {
         setupMemoryDatabase()
-        process.env.ENCRYPTION_KEY = 'test-encryption-key-32-bytes!!'
+        // 注：M18.x 治理批次 S-5 — 删除 `process.env.ENCRYPTION_KEY` 死代码；
+        // stub 默认值由 `apps/platform/tests/setup-nuxt-server.ts:26` `useRuntimeConfig = () => ({ encryptionKey: 'test-encryption-key-32-bytes!!' })` 提供
     })
 
     afterAll(() => {
         teardownMemoryDatabase()
-        delete process.env.ENCRYPTION_KEY
     })
 
     beforeEach(() => {
@@ -68,9 +68,8 @@ describe('GET /api/credentials', () => {
  */
 describe('/api/credentials 三角色鉴权（todo.md §M16.5）', () => {
     beforeAll(() => {
-        // encryptToken 需要 ENCRYPTION_KEY；父 describe beforeAll 已设置但 vi.clearAllMocks 会重置 mock state，
-        // 这里补一遍 ensure key 设置
-        process.env.ENCRYPTION_KEY = 'test-encryption-key-32-bytes!!'
+        // 注：M18.x 治理批次 S-5 — 删除 `process.env.ENCRYPTION_KEY` 死代码；
+        // stub 默认值由 `apps/platform/tests/setup-nuxt-server.ts:26` 全局 useRuntimeConfig 提供
     })
 
     beforeEach(() => {
@@ -138,7 +137,8 @@ YxJ0gQjQJYxJ0gQjQJYxJ0gQjQJYxJ0gQjQJYxJ0gQjQJYxJ0gQjQJYxJ0gQjQJ
     }
 
     beforeAll(() => {
-        process.env.ENCRYPTION_KEY = 'test-encryption-key-32-bytes!!'
+        // 注：M18.x 治理批次 S-5 — 删除 `process.env.ENCRYPTION_KEY` 死代码；
+        // stub 默认值由 `apps/platform/tests/setup-nuxt-server.ts:26` 全局 useRuntimeConfig 提供
     })
 
     beforeEach(() => {

@@ -34,6 +34,41 @@
 > **下一步候选**：
 > - **M18.0 D 阶段**：输出 PAT 无感升级评估报告（`docs/design/governance/c22-pat-backward-compat.md`，1 个 docs only commit）
 > - **backlog 主条目候选池（M19+ 可拣选）**：C23（max-repos 总量上限）/ C24（org 级 alerts 批量拉取）/ B1（PR 关闭评论 + label）/ B2（固定分支单线）/ T701-T704 真实环境验证（OAuth/OIDC/SMTP/BullMQ）
+>
+> ---
+>
+> ## M18 阶段实施状态（ahead=10，已落地 + 推送待用户）
+>
+> **M18.0**（P0 docs only）：✅ `690cc73 docs(design): 落地 C22 PAT 无感升级评估报告（M18.0 评估子阶段）`——2026-08-29
+>
+> **M18.1**（P1 基础层）：✅ 5 commits（`026078a` AuthProvider + PatAuthProvider / `0866830` audit Reject 修复 / `67a1a2f` 调用点改造 / `e9b9c0a` 接口契约 + PatAuthProvider 单测 / `adf370a` AppAuthProvider + InstallationTokenCache + 单测）——2026-08-29
+>
+> **M18.2**（P1 集成层）：✅ 2 commits（`e84ff58` commit author 动态化 / `a6a1695` pushFixBranch 接受 AuthProvider）——2026-08-29
+>
+> **M18.3**（P2 表现层）：✅ 6 commits（`b3a2cfb` GitHub App 凭据管理接入实体 + schema + UI tab + PEM 校验 / `c6534fe` PEM 指纹算法修正 / `7ef0d73` GitHub App 配置章节 + C39 standards 同步 / `25d8682` C22 Manifest flow 可行性评估 / `700ab28` Manifest flow 评估修正 / `ac21f6f` 删除 §2.6 重复小节标题）——2026-08-29
+>
+> **M18.4**（P1 测试层）：✅ 2 commits（`b5c23a0 fix(engine): M18.4 测试层补强 + app-provider auth 字段 bug 修复` / `bc2ee06 docs(design): 登记 M18.4 audit 教训（集成外部库必须 e2e 真实路径冒烟测试））——2026-08-29
+>
+> ### M18.4 实施关键事件
+>
+> - **audit quick depth round 1 Reject**（B1 blocker）：原计划仅 `auth → authStrategy` 字段修复，实际不成立——真实 `@octokit/auth-app@8.3.0` 要求 `authStrategy: createAppAuth, auth: {appId, privateKey, installationId}` 双字段（README 标准用法）。
+> - **round 2 修复**：按 [@octokit/auth-app README](https://github.com/octokit/auth-app.js#installation-authentication) 双字段标准用法修复 + 去 mock 化 `auth-flow.test.ts` 真实路径 e2e（不 mock `@octokit/auth-app` / `@octokit/rest`，用 `node:crypto.generateKeyPairSync('rsa', {modulusLength: 2048})` 生成真实 PKCS8 PEM 私钥 + nock 拦截真实 HTTP）
+> - **app-provider.test.ts 调整**：mock 形态验证改 `FakeOctokit` 构造参数（`options.authStrategy + options.auth`）+ 缓存逻辑
+> - **pr-creator.test.ts 新增** 5 case：stageAndCommit author 路径回归（PAT 默认 / App 路径 / 已有 config 不覆盖 / 端到端 commit author 实际生效 × 2）+ `process.env.GIT_CONFIG_GLOBAL=/dev/null` 测试隔离
+> - **audit round 2 Pass**（13:30:00Z 启动，约 5 分钟 quick depth）
+>
+> ### M18.4 剩余风险（不阻塞，登记 M19+ / M18.2 治理批次）
+>
+> - **W3（audit）**：`stageAndCommit` host 全局 git config 干扰 bug——`ensureGitConfig` 用 `gitConfigExists('user.name')` 未隔离 host 全局 config；M18.2 集成前修复（注入 `env: { ...process.env, GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1' }` 到 execSync）
+> - **W4（audit）**：`@octokit/auth-app` 版本钉定未实施——`packages/engine/package.json:54` 仍 `^8.3.0` caret range；按 [c22 §5.5 决策 C 缓解措施 4](../../docs/design/governance/c22-pat-backward-compat.md#55-决策-c-fixture-仅-mock-风险承担方)，M19+ 治理批次处理：`pnpm.overrides` 钉定 + CI `pnpm audit` 步骤
+>
+> ### M18.4 经验沉淀（experience-archive §四十三）
+>
+> 集成外部库必须读 README 标准用法 + e2e 真实路径冒烟测试——B1 教训根因：M18.1 commit 4 实施时**未读 README 标准用法**（凭直觉写 `auth: createAppAuth(...)` 而非 `authStrategy: createAppAuth, auth: {...}`），且 `app-provider.test.ts` mock 边界过宽（`vi.mock('@octokit/rest')` 完全跳过 `@octokit/core` 真实代码路径）掩盖集成 bug。挂接治理检查点 4 项登记至 [experience-archive.md §四十三](../../docs/design/governance/experience-archive.md#四十三集成外部库必须读-readme-标准用法--e2e-真实路径冒烟测试2026-08-29m18.4-audit-round-1-reject-后补修)。
+>
+> ### M18.x 治理批次（合并入 C22.x 顺手做）
+>
+> 仍按 P3 延期处理——S-5 / C39 / C34 / S1 / S2 / S-3 / S-4 audit suggest 延后候选维持 backlog 状态。
 
 ---
 

@@ -168,8 +168,8 @@ const pollRun = async (runId: string, executorKind: string) => {
             return
         }
         if (run.status === 'failed') {
-            // duplicate_scan（去重合并）：非执行失败，提示合并语义而非"扫描失败"
-            scanError.value = run.error?.code === 'duplicate_scan'
+            // SCAN_PENDING_MERGED（去重合并，M18.x 治理批次 S1 与 ServerErrorCode 对齐）：非执行失败，提示合并语义而非"扫描失败"
+            scanError.value = run.error?.code === 'SCAN_PENDING_MERGED'
                 ? (run.error.message ?? t('repos.scanDuplicate'))
                 : t('repos.scanFailed', { message: run.error?.message ?? t('common.errors.unknown') })
             return

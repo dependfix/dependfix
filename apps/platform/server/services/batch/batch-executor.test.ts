@@ -161,7 +161,7 @@ describe('executeBatchRun（批量执行服务）', () => {
         expect(failedRun.status).toBe('failed')
         expect(failedRun.finishedAt).not.toBeNull()
         const errorJson = JSON.parse(failedRun.errorJson ?? '{}') as { code: string }
-        expect(errorJson.code).toBe('duplicate_scan')
+        expect(errorJson.code).toBe('SCAN_PENDING_MERGED')
     })
 
     it('async 单仓库入队失败：跳过继续（其余仓库正常入队，批次不中断）', async () => {

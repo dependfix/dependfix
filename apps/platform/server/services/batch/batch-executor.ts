@@ -75,7 +75,7 @@ export const executeBatchRun = async (input: ExecuteBatchInput): Promise<Execute
                     run.status = 'failed'
                     run.finishedAt = new Date()
                     run.errorJson = JSON.stringify({
-                        code: 'duplicate_scan',
+                        code: 'SCAN_PENDING_MERGED', // M18.x 治理批次 S1：与 ServerErrorCode 联合类型对齐
                         message: '该仓库已有进行中的扫描任务，本次触发已合并',
                     })
                     await ds.getRepository(ScanRun).save(run)

@@ -63,11 +63,11 @@ const DEFAULT_LOCALE: ServerLocale = 'zh-CN'
 
 /**
  * 检测事件 locale（与 apps/platform/i18n/localeDetector.ts 同源简化版）：
- * 优先级 cookie(i18n_locale) > Accept-Language > 默认 zh-CN。
+ * 优先级 URL query (?locale=en/zh-CN) > cookie(i18n_locale) > Accept-Language > 默认 zh-CN。
  *
  * @nuxtjs/i18n URL 前缀(/en)由路由层在 server 端通过 setLocale 注入到 event.context.locale，
  * 本 helper 不依赖路由层注入（保持独立性，避免 server/api 直接访问 #imports 内部状态），
- * 走 cookie + Accept-Language 兜底；浏览器侧 i18n_locale cookie 与切换器同步写入，足够覆盖 99% 场景。
+ * 走 query + cookie + Accept-Language 兜底；浏览器侧 i18n_locale cookie 与切换器同步写入，足够覆盖 99% 场景。
  *
  * 简化版采用 tag 前缀匹配（zh* → zh-CN / en* → en），与 i18n-detect.resolveLocale 行为一致；
  * 不引入完整 BCP 47 解析库（over-engineering），未知 locale 走默认 zh-CN。
@@ -75,12 +75,34 @@ const DEFAULT_LOCALE: ServerLocale = 'zh-CN'
  * 防御：单测场景（guard.test.ts）的 mock event 可能没有 event.node.req（仅构造 { headers }），
  * getHeader/getCookie 访问 event.node.req.headers 时会抛 TypeError；此处降级到默认 zh-CN，
  * 不影响单测断言 statusCode（locale 仅影响 message 字段）。
+ *
+ * @see [todo-archive.md §M16.3 audit suggest backlog S2](../../docs/plan/todo-archive.md#m16-平台可用性深化m161--m162--m163--m164--m165-全部已闭环--2026-08-28-归档) — 与 [localeDetector.ts:15]({@link ../i18n/localeDetector.ts}) `tryQueryLocale` 对齐
  */
 export function detectServerLocale(event: H3Event): ServerLocale {
     // 防御：单测 mock event 可能不含 node.req（guard.test.ts 走最小 H3Event shape）
     const reqHeaders = event.node?.req?.headers as Record<string, string | string[] | undefined> | undefined
+    const reqUrl = event.node?.req?.url as string | undefined
     if (!reqHeaders) {
         return DEFAULT_LOCALE
+    }
+    // 优先级：URL query (?locale=en/zh-CN) > cookie > Accept-Language > 默认（M18.x 治理批次 S2 — 与 localeDetector.ts:15 tryQueryLocale 对齐）
+    // 注意：URL 前缀路由（/en/...）由 @nuxtjs/i18n 路由层处理，本 helper 只补 query 形式；
+    // query 解析用 URLSearchParams（Node 22+ 内置，零依赖）
+    if (reqUrl) {
+        try {
+            // reqUrl 可能含 query string，提取 search 部分解析
+            const queryStart = reqUrl.indexOf('?')
+            if (queryStart !== -1) {
+                const queryString = reqUrl.slice(queryStart + 1)
+                const params = new URLSearchParams(queryString)
+                const queryLocale = params.get('locale')?.trim()
+                if (queryLocale === 'en' || queryLocale === 'zh-CN') {
+                    return queryLocale
+                }
+            }
+        } catch {
+            // 防御：URLSearchParams 解析失败（如 query 含不合法编码）→ 降级到下一优先级
+        }
     }
     // 优先级 cookie > Accept-Language > 默认；与现有 i18n-detect 行为对齐
     const cookieHeader = reqHeaders.cookie

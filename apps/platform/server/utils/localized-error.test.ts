@@ -77,6 +77,28 @@ describe('detectServerLocale', () => {
     it('Accept-Language: 空字符串 → 默认 zh-CN', () => {
         expect(callWith('GET', '/api/test', { 'accept-language': '' })).toBe('zh-CN')
     })
+
+    // S2 回归（M18.x 治理批次）：URL query ?locale= 优先级最高，与 apps/platform/i18n/localeDetector.ts:15 tryQueryLocale 对齐
+    it('S2 回归：URL query ?locale=en 优先于 cookie 与 Accept-Language', () => {
+        // 故意制造冲突：query=en vs cookie=fr-FR + Accept-Language: zh-CN → query 胜
+        const locale = detectServerLocale(makeEvent('GET', '/api/test?locale=en', undefined, {
+            cookie: 'i18n_locale=fr-FR',
+            'accept-language': 'zh-CN,zh;q=0.9',
+        }))
+        expect(locale).toBe('en')
+    })
+
+    it('S2 回归：URL query ?locale=zh-CN 命中', () => {
+        const locale = detectServerLocale(makeEvent('GET', '/api/repos?locale=zh-CN', undefined, {}))
+        expect(locale).toBe('zh-CN')
+    })
+
+    it('S2 回归：URL query ?locale=fr-FR(非受支持值) → 降级到下一优先级', () => {
+        const locale = detectServerLocale(makeEvent('GET', '/api/test?locale=fr-FR', undefined, {
+            'accept-language': 'en-US,en;q=0.9',
+        }))
+        expect(locale).toBe('en')
+    })
 })
 
 describe('createLocalizedError', () => {

@@ -124,7 +124,7 @@ describe('POST /api/repos/[id]/scan', () => {
 
         const result = await call({ mode: 'fix', severityThreshold: 'high' }, { id: repositoryId }) as Record<string, unknown>
         expect(result).toMatchObject({ id: 'pending-2', status: 'failed' })
-        expect(result.error).toMatchObject({ code: 'duplicate_scan' })
+        expect(result.error).toMatchObject({ code: 'SCAN_PENDING_MERGED' })
     })
 
     it('fails over to synchronous execution when queue add throws', async () => {

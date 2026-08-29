@@ -201,7 +201,7 @@ jobs:
 - **Token 使用最小权限**：不要给 dependfix 使用全量 scope 的 PAT。推荐组合：`dependabot-alerts-token` 用仅 `Dependabot alerts: read` 的 fine-grained PAT；`github-token` 仅给目标仓库所需的最小权限（`security-events: read` + `contents`/`pull-requests` 写权限）。owner 模式扫描多个仓库时，token 权限面 = 所有被扫描仓库的信任边界。**启动时会对 token 做权限面检查**：检测到 classic PAT 且含 `repo`（全量仓库）权限时输出警告（不阻断运行）——该 token 一旦被恶意脚本窃取即可接管所有可见仓库。
 - **owner 模式扫描范围即信任边界**：`--owner` 发现的仓库会被 clone 并执行其依赖脚本——只扫描可信组织的仓库；对不可信来源先人工 review 再纳入名单（`--repo-include` / `--repo-exclude` 可限制范围）。
 - **PR 合入前人工检查**：跨线升级（PR body 带 ⚠️ Major 标记）以及新增/升级包带 lifecycle scripts 且被仓库批准时（供应链信号披露落地后见报告警示区），合入前应人工确认。
-- **平台部署**：平台容器执行进程已**非 root 降权**（`dependfix` 用户，entrypoint 自动修复数据卷所有权，[C38](../plan/backlog.md)）；部署时勿挂载 `docker.sock`、勿授予特权；`AUTH_SECRET` / `ENCRYPTION_KEY` 使用强随机值。
+- **平台部署**：平台容器执行进程已**非 root 降权**（`dependfix` 用户，entrypoint 自动修复数据卷所有权，[C38](../plan/backlog.md)）；部署时勿挂载 `docker.sock`、勿授予特权；`AUTH_SECRET` / `NUXT_ENCRYPTION_KEY` 使用强随机值。
 
 #### 启用 rootless sandbox 执行（推荐用于多租户/owner 模式）
 
@@ -356,3 +356,48 @@ dependfix --history your-org/app
 ```
 
 报告文件位于 `./dependfix-reports/` 目录。
+
+## GitHub App 配置（M18.3 接入）
+
+> 自部署平台支持 GitHub App 凭据类型，作为 PAT 的进阶替代方案。PAT 保留为默认快速上手路径（CLI quickstart / Action input / 单仓调试）；GitHub App 推荐用于自部署平台多仓 org 场景（installation 范围限定 + 1h 短时 token 轮换 + 真实 `[bot]` 身份 + per-installation 审计日志）。
+
+### 创建 GitHub App
+
+1. 访问 GitHub 用户或 org 设置 → **Developer settings** → **GitHub Apps** → **New GitHub App**
+2. 填写基本信息（App name / Homepage URL / Callback URL 可留空）
+3. **Repository permissions** 推荐配置：
+   - `Contents: Read & write`（自动修复 commit + push 分支）
+   - `Pull requests: Read & write`（创建 PR）
+   - `Metadata: Read-only`（必选，访问仓库元数据）
+4. **Where can this GitHub App be installed?**：选择 `Only on this account`（自部署推荐）或 `Any account`（若做 SaaS）
+5. 创建后下载私钥（.pem 文件）—— **仅显示一次**，妥善保管
+
+> 公钥指纹校验：本地运行 `openssl rsa -in <your-app.pem> -pubout -outform DER | openssl sha256 -binary | openssl base64`，输出应与 GitHub App 设置页面"Public clients" 部分指纹一致（SHA256:xxx）
+
+### 在 dependfix 平台登记凭据
+
+1. 平台登录 → **Credentials** → **Add credential**
+2. **Type** 选择 **GitHub App**
+3. 填写：
+   - **App ID**（必填，GitHub App 设置页 General → About → App ID）
+   - **Installation ID**（必填，仓库 → Settings → Integrations → GitHub Apps → Configure → Installation ID，URL 末尾数字）
+   - **Private Key (PEM)**（必填，粘贴 .pem 文件内容；客户端自动校验格式）
+   - **Bot Login**（可选，如 `your-app-name[bot]`；不填则默认 `dependfix[bot]`，影响 commit author 真实 bot 归属）
+4. 保存 → 私钥经平台密钥（`NUXT_ENCRYPTION_KEY`）加密存储（AES-256-GCM），永不返回明文
+
+### 选择 PAT 还是 GitHub App？
+
+| 场景 | 推荐 |
+|------|------|
+| CLI quickstart（`npx dependfix`）| PAT |
+| GitHub Action（`uses: dependfix/dependfix@v1`）| PAT |
+| 单仓调试 | PAT（最低摩擦） |
+| 自部署平台多仓 org 巡检 | GitHub App（installation 范围限定） |
+| 自部署平台需要短时 token 轮换 + 真实 `[bot]` 身份 | GitHub App |
+| 自部署平台 per-installation 审计日志 | GitHub App |
+
+> **PAT 与 App 并存**：当前 dependfix 同时支持两种凭据类型，互不替代；同一平台可并存多 PAT 凭据 + 多 GitHub App 凭据（按仓库选择）。
+
+### 安装引导（暂未实施 Manifest flow）
+
+当前文档引导（见上文）+ `.pem` 文件下载 + 手动登记为唯一入口。**Manifest flow**（manifest URL 一键创建 App + 自动回调）**未实施**——M18.3 commit 3 评估报告待落地（M19+ 可行性评估候选）。

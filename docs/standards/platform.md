@@ -147,10 +147,10 @@ export const getDateType = (dbType?: string): string => {
 
 ## 5. 凭据安全规范（T602 起生效）
 
-- 平台级密钥：环境变量 `ENCRYPTION_KEY`（AES-256-GCM 密钥，32 字节 base64 或 hex）；未配置时**禁用凭据功能并明确报错**（不静默降级为明文）
-- Credential 实体：`type`（classic-pat / fine-grained-pat / github-app）、`encryptedToken`、`name`、`repoId` 关联
-- 加解密工具（`server/services/credential.service.ts`）：AES-256-GCM + 随机 IV（12 字节），密文格式 `{iv}.{authTag}.{ciphertext}`（三段 base64 点号拼接，GCM 自带完整性校验）；解密仅在执行时 worker 内存中，用完即弃。算法细节与审计必查项见 [security.md §5.5](./security.md#55-凭据加密存储c28-已闭环2026-08-20)
-- **禁止**：token 明文落库、token 进日志、token 进前端响应（API 返回 `hasToken` 布尔即可）
+- 平台级密钥：环境变量 `NUXT_ENCRYPTION_KEY`（AES-256-GCM 密钥，32 字节 base64 或 hex；Nuxt `NUXT_` 前缀约定）；未配置时**禁用凭据功能并明确报错**（不静默降级为明文）—— M17.1 标准化（C38 治理：service 直读 env → `useRuntimeConfig().encryptionKey` + 移除 inline fallback；详见 M17 闭环记录 [todo-archive.md §M17.1](../plan/todo-archive.md)）
+- Credential 实体：`type`（classic-pat / fine-grained-pat / github-app）、`encryptedToken` / `encryptedPrivateKey`（GitHub App 路径）、`appId` / `installationId` / `botLogin`（GitHub App 路径公开信息）、`name`、`repoId` 关联——M18.3 接入 GitHub App 路径扩展
+- 加解密工具（`server/services/credential.service.ts`）：AES-256-GCM + 随机 IV（12 字节），密文格式 `{iv}.{authTag}.{ciphertext}`（三段 base64 点号拼接，GCM 自带完整性校验）；PAT 路径加密 `token`，GitHub App 路径加密 `privateKey`（PEM）；解密仅在执行时 worker 内存中，用完即弃。算法细节与审计必查项见 [security.md §5.5](./security.md#55-凭据加密存储c28-已闭环2026-08-20)
+- **禁止**：token / privateKey 明文落库、token 进日志、token 进前端响应（API 返回 `hasToken` 布尔即可）
 - Dependabot alerts 读取必须显式凭据（`GITHUB_TOKEN` 不可用，见 [G2 处置记录](../plan/todo-archive.md)）
 - 测试用独立随机密钥（不读生产 env）
 
@@ -237,7 +237,7 @@ export const getDateType = (dbType?: string): string => {
 | `DATABASE_SSL` | 否 | `false` | MySQL/PG 启用 SSL（多后端时生效） |
 | `DATABASE_ENTITY_PREFIX` | 否 | `dependfix_` | 表前缀 |
 | `DATABASE_SYNCHRONIZE` | 否 | `false` | 生产环境显式开启才同步 schema |
-| `ENCRYPTION_KEY` | 凭据功能必需 | 空 | AES-256-GCM 平台密钥 |
+| `NUXT_ENCRYPTION_KEY` | 凭据功能必需 | 空 | AES-256-GCM 平台密钥（PAT token + GitHub App PEM 私钥共用同一密钥派生） |
 | `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASS` / `SMTP_FROM` | 否 | 空 | 配置后启用邮件验证 |
 | `NUXT_PUBLIC_BETTER_AUTH_URL` | 反向代理时 | 自动推断 | 认证基础 URL |
 | `MACHINE_ID` | 否 | `pid % 1024` | 雪花机器位 |

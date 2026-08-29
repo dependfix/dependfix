@@ -77,7 +77,7 @@ dependfix 的修复执行本质是"拉取并执行不可信代码"，执行隔�
 - **权威基线**：[安全规范 §5.3 修复执行安全](../../standards/security.md)（必须级条款，单点声明）
 - **专项治理**：[沙箱与恶意依赖防护治理](./sandbox-security-governance.md)（2026-08-14 评估结论、威胁链、治理登记 C26/C38-C43）
 - **执行器设计与威胁建模**：[executor-sandbox.md](./executor-sandbox.md)（Executor 契约与风险表）
-- **凭据加密存储**：T602 已交付（AES-256-GCM，解密仅执行时内存、凭据最小化），实现见 `apps/platform/server/services/credential.service.ts`（C28 完整章节补登记见 [backlog](../../plan/backlog.md)）
+- **凭据加密存储**：T602 已交付（AES-256-GCM，解密仅执行时内存、凭据最小化），实现见 `apps/platform/server/services/credential.service.ts`（C28 完整章节补登记见 [backlog](../../plan/backlog.md)）—— M18.3 接入 GitHub App 凭据类型扩展（PEM 私钥同样经 `NUXT_ENCRYPTION_KEY` 加密存储，详见 §凭据模型）
 
 ## Prompt 注入防护
 

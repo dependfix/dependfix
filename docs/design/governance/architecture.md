@@ -61,7 +61,7 @@ flowchart TD
 
 ### GitHub 集成层
 
-- 认证与 API 客户端
+- 认证与 API 客户端（PAT 路径 + GitHub App installation token 路径双轨；详见 [C22 PAT 无感升级评估](./c22-pat-backward-compat.md)）
 - 告警拉取
 - 仓库发现
 - 分支、提交、PR、评论操作
@@ -348,8 +348,12 @@ packages/core (@dependfix/core)
 
 ### 凭据安全
 
-- GitHub PAT 使用平台级密钥（环境变量 `ENCRYPTION_KEY`）做 AES-256-GCM 加密后存储
-- 解密仅在任务执行时、在 worker 内存中进行，用完即丢弃
+- GitHub 凭据（PAT 或 GitHub App PEM 私钥）使用平台级密钥（环境变量 `NUXT_ENCRYPTION_KEY`）做 AES-256-GCM 加密后存储——M17.1 C38 标准化 + M18.3 接入 GitHub App 路径
+- 凭据类型双轨并存：
+  - **PAT 路径**（默认）：`type='classic-pat' | 'fine-grained-pat'`，加密字段 `encryptedToken`，commit author 固定 `dependfix[bot]`
+  - **GitHub App 路径**（自部署多仓 org 推荐）：`type='github-app'`，加密字段 `encryptedPrivateKey`（PEM 私钥），commit author 动态生成 `{app_id}+{bot_login}[bot]@users.noreply.github.com`（GitHub App 协议要求）
+- 解密仅在任务执行时、在 worker 内存中进行，用完即丢弃；token / privateKey 明文永不落库、永不进日志、永不进前端响应（API 返回 `hasToken` 布尔）
+- 完整设计与落地步骤见 [C22 PAT 无感升级评估](./c22-pat-backward-compat.md)
 - M6 单用户模式下凭据管理简化；M7 多用户模式下按组织隔离
 
 ### 暗色模式

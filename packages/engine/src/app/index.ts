@@ -27,6 +27,9 @@ import {
     computeFixFingerprint,
     computeFixAndPrPlan,
     findDependfixOpenPR,
+    commentOnPullRequest,
+    addLabelToPullRequest,
+    type DependfixOpenPR,
     createGitHubClient,
     discoverRepositories,
     mergeRepositories,
@@ -536,6 +539,11 @@ export class DependfixApp {
                 durationMs: 0,
             })
 
+            // 6.5 Duplicate PR handling: comment + label on the new PR
+            // pointing to the superseded PRs (avoid manual dedup by users).
+            // Requires `issues: write` token scope; failure is logged but not fatal.
+            await this.handleDuplicatePRs(client, owner, repo, pr.number, plan.supersedePRs)
+
             // 7. Close superseded PRs only after new PR created successfully
             await closeSupersededPRs(this.ctx, client, owner, repo, plan.supersedePRs)
         } catch (error: unknown) {
@@ -567,6 +575,63 @@ export class DependfixApp {
         const client = this.createClient()
         for (const repo of this.config.repositories) {
             await runBranchCleanupForRepo(this.ctx, client, repo)
+        }
+    }
+
+    /**
+     * 重复 PR 处理：在新 PR 上添加评论指向被取代的旧 PR + 添加 `duplicate` label。
+     *
+     * 失败仅记录 warning（家务活 best-effort），不阻断主流程：
+     * - 新 PR 已创建成功，用户已可访问
+     * - 评论失败不影响 PR 本身的可用性
+     * - 但需要 `issues: write` token scope（比 `pull-requests: write` 宽）；
+     *   若 token 权限不足，error 会被记录但不阻塞
+     */
+    private async handleDuplicatePRs(
+        client: Octokit,
+        owner: string,
+        repo: string,
+        newPRNumber: number,
+        supersededPRs: DependfixOpenPR[],
+    ): Promise<void> {
+        if (supersededPRs.length === 0) {
+            return
+        }
+
+        const supersededLinks = supersededPRs
+            .map((pr) => `- [#${pr.number}](${pr.htmlUrl})`)
+            .join('\n')
+
+        const commentBody = [
+            '## ⚠️ Duplicate PR Notice',
+            '',
+            'This PR supersedes the following dependfix PR(s) with different content:',
+            '',
+            supersededLinks,
+            '',
+            'The superseded PR(s) have been closed. Please review this PR as the new canonical fix.',
+        ].join('\n')
+
+        try {
+            await commentOnPullRequest(client, owner, repo, newPRNumber, commentBody)
+            this.logger.info(`Added duplicate notice comment to PR #${newPRNumber}`)
+        } catch (error: unknown) {
+            const message = toErrorMessage(error)
+            this.logger.warn(
+                `Failed to add duplicate notice comment to PR #${newPRNumber}: ${message}`
+                + '（token may lack `issues: write` scope）',
+            )
+        }
+
+        try {
+            await addLabelToPullRequest(client, owner, repo, newPRNumber, ['duplicate'])
+            this.logger.info(`Added 'duplicate' label to PR #${newPRNumber}`)
+        } catch (error: unknown) {
+            const message = toErrorMessage(error)
+            this.logger.warn(
+                `Failed to add 'duplicate' label to PR #${newPRNumber}: ${message}`
+                + '（token may lack `issues: write` scope）',
+            )
         }
     }
 

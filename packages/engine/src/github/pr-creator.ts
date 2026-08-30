@@ -273,6 +273,52 @@ export async function closePullRequest(
 }
 
 /**
+ * 在 Pull Request 上添加评论。
+ *
+ * 使用 `issues.createComment` 端点（GitHub PR 评论复用 issue comment API），
+ * 需要 token 具备 `issues: write` 权限（比 `pull-requests: write` 宽）。
+ *
+ * 用于在新 PR 上评论指向被取代的旧 PR，避免用户手动排查重复 PR。
+ */
+export async function commentOnPullRequest(
+    octokit: Octokit,
+    owner: string,
+    repo: string,
+    pullNumber: number,
+    body: string,
+): Promise<void> {
+    await octokit.rest.issues.createComment({
+        owner,
+        repo,
+        issue_number: pullNumber,
+        body,
+    })
+}
+
+/**
+ * 在 Pull Request 上添加 label。
+ *
+ * 使用 `issues.addLabels` 端点（GitHub PR label 复用 issue label API），
+ * 需要 token 具备 `issues: write` 权限。
+ *
+ * 用于标记重复 PR（如 `duplicate` label），便于用户过滤和管理。
+ */
+export async function addLabelToPullRequest(
+    octokit: Octokit,
+    owner: string,
+    repo: string,
+    pullNumber: number,
+    labels: string[],
+): Promise<void> {
+    await octokit.rest.issues.addLabels({
+        owner,
+        repo,
+        issue_number: pullNumber,
+        labels,
+    })
+}
+
+/**
  * 通过 GitHub API 创建 Pull Request。
  */
 export async function createPullRequest(params: CreatePullRequestParams): Promise<PullRequestResult> {

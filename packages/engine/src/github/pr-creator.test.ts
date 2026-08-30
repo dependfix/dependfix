@@ -13,6 +13,8 @@ import {
     createFixBranch,
     findDependfixOpenPR,
     closePullRequest,
+    commentOnPullRequest,
+    addLabelToPullRequest,
     generatePRBody,
     listDependfixBranches,
     getBranchPrStatus,
@@ -84,6 +86,10 @@ function mockOctokit(options?: {
             git: {
                 listMatchingRefs: vi.fn().mockResolvedValue({ data: options?.matchingRefs ?? [] }),
                 deleteRef: vi.fn().mockResolvedValue({ data: {} }),
+            },
+            issues: {
+                createComment: vi.fn().mockResolvedValue({ data: {} }),
+                addLabels: vi.fn().mockResolvedValue({ data: {} }),
             },
         },
     } as unknown as Octokit
@@ -338,6 +344,68 @@ describe('closePullRequest', () => {
             pull_number: 42,
             state: 'closed',
         })
+    })
+})
+
+// ---------------------------------------------------------------------------
+// commentOnPullRequest / addLabelToPullRequest（M19.3 重复 PR 评论 + label）
+// ---------------------------------------------------------------------------
+
+describe('commentOnPullRequest', () => {
+    it('calls issues.createComment with the provided body', async () => {
+        const octokit = mockOctokit()
+        await commentOnPullRequest(octokit, 'owner', 'repo', 42, 'duplicate notice body')
+
+        expect(octokit.rest.issues.createComment).toHaveBeenCalledWith({
+            owner: 'owner',
+            repo: 'repo',
+            issue_number: 42,
+            body: 'duplicate notice body',
+        })
+    })
+
+    it('propagates errors from the API', async () => {
+        const octokit = mockOctokit()
+        vi.mocked(octokit.rest.issues.createComment).mockRejectedValueOnce(new Error('403 Forbidden'))
+
+        await expect(
+            commentOnPullRequest(octokit, 'owner', 'repo', 42, 'body'),
+        ).rejects.toThrow('403 Forbidden')
+    })
+})
+
+describe('addLabelToPullRequest', () => {
+    it('calls issues.addLabels with the provided labels', async () => {
+        const octokit = mockOctokit()
+        await addLabelToPullRequest(octokit, 'owner', 'repo', 42, ['duplicate'])
+
+        expect(octokit.rest.issues.addLabels).toHaveBeenCalledWith({
+            owner: 'owner',
+            repo: 'repo',
+            issue_number: 42,
+            labels: ['duplicate'],
+        })
+    })
+
+    it('supports multiple labels', async () => {
+        const octokit = mockOctokit()
+        await addLabelToPullRequest(octokit, 'owner', 'repo', 42, ['duplicate', 'auto-fix'])
+
+        expect(octokit.rest.issues.addLabels).toHaveBeenCalledWith({
+            owner: 'owner',
+            repo: 'repo',
+            issue_number: 42,
+            labels: ['duplicate', 'auto-fix'],
+        })
+    })
+
+    it('propagates errors from the API', async () => {
+        const octokit = mockOctokit()
+        vi.mocked(octokit.rest.issues.addLabels).mockRejectedValueOnce(new Error('403 Forbidden'))
+
+        await expect(
+            addLabelToPullRequest(octokit, 'owner', 'repo', 42, ['duplicate']),
+        ).rejects.toThrow('403 Forbidden')
     })
 })
 

@@ -71,7 +71,7 @@ inputs:
     required: false
     default: "false"
   github-token:
-    description: "GitHub Token（需 security-events 权限；fix-and-pr 模式需 contents + pull-requests 写权限）"
+    description: "GitHub Token（需 security-events 权限；fix-and-pr 模式需 contents + pull-requests 写权限；M19.3 起重复 PR 自动评论 + duplicate label 额外需 issues: write）"
     required: true
   dependabot-alerts-token:
     description: "Dependabot alerts 专用 token（可选，最小权限 fine-grained PAT，仅需 Dependabot alerts: read；缺省回退 github-token。GITHUB_TOKEN 无法读取 Dependabot alerts API，仅给 GITHUB_TOKEN 会拉取失败）"

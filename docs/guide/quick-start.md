@@ -136,6 +136,7 @@ on:
 permissions:
   contents: write          # fix-and-pr 模式需要
   pull-requests: write     # fix-and-pr 模式需要
+  issues: write            # M19.3 起：重复 PR 自动评论 + duplicate label 需要（比 pull-requests: write 宽）
   security-events: read
 
 jobs:

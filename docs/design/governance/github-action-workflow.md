@@ -154,6 +154,7 @@ steps:
 permissions:
   contents: write          # fix-and-pr 模式需要（创建分支 + 推送 commits）
   pull-requests: write     # fix-and-pr 模式需要（创建 PR）
+  issues: write            # M19.3 起：重复 PR 自动评论 + duplicate label 需要（比 pull-requests: write 宽）
   security-events: read    # 读取 Dependabot alerts
 ```
 

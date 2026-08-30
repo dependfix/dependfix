@@ -103,7 +103,7 @@ verification 阶段（依赖修复后的 `pnpm install --frozen-lockfile` / `pnp
 |:--|:--|:--|
 | report-only | `security-events: read`（拉告警） | 全部用户 |
 | A 模式 fix（仅 commit） | `contents: write` | 自托管 + 强可控 PAT |
-| A 模式 fix-and-pr | `contents: write` + `pull-requests: write` | 自托管 + 强可控 PAT |
+| A 模式 fix-and-pr | `contents: write` + `pull-requests: write`（+ `issues: write` 当启用重复 PR 评论/label，M19.3 起） | 自托管 + 强可控 PAT |
 | B 模式（GitHub Action） | `actions: read + write` | **默认推荐**——目标仓库已配置 action 时权限面最窄 |
 
 **核心原则**：

@@ -30,6 +30,12 @@ export interface RepositoryDiscoveryOptions {
     probeDependabot?: boolean
     /** dependabot.yml 探测并发上限（默认 5，避免一次性打爆 API） */
     probeConcurrency?: number
+    /**
+     * 发现规模上限：最多保留的仓库数（按 fullName 字典序排序后截断）。
+     * 默认 100；设为 0 或负数表示不限制。
+     * 大 org 场景下防止一次性全量发现导致 API 配额不可控消耗和超时。
+     */
+    maxRepos?: number
 }
 
 export interface DiscoveredRepository {
@@ -57,6 +63,7 @@ const DEPENDABOT_CONFIG_PATH = '.github/dependabot.yml'
  * 2. topic 过滤（`--repo-topics`，AND 语义）
  * 3. 名单策略过滤（include / exclude / topicsExclude，探测前应用）
  * 4. dependabot.yml 探测（仅候选仓库触达 contents API；404 视为不支持，不剔除）
+ * 5. 规模上限截断（`maxRepos`，按 fullName 字典序排序后截断）
  *
  * 结果按 `fullName` 字典序排序，保证同输入多次运行结果一致
  * （runId / 指纹稳定性前提）。
@@ -66,7 +73,7 @@ const DEPENDABOT_CONFIG_PATH = '.github/dependabot.yml'
 export async function discoverRepositories(
     options: RepositoryDiscoveryOptions,
 ): Promise<DiscoveredRepository[]> {
-    const { client, owners, topics = [], policy, probeDependabot = true, probeConcurrency = 5 } = options
+    const { client, owners, topics = [], policy, probeDependabot = true, probeConcurrency = 5, maxRepos } = options
 
     const discovered: DiscoveredRepository[] = []
 
@@ -130,6 +137,12 @@ export async function discoverRepositories(
 
     // 排序确定性：字典序（同输入多次运行结果一致）
     discovered.sort((a, b) => a.fullName.localeCompare(b.fullName))
+
+    // 5. 规模上限截断（按 fullName 字典序排序后截断，保证确定性）
+    const effectiveMaxRepos = maxRepos ?? 100
+    if (effectiveMaxRepos > 0 && discovered.length > effectiveMaxRepos) {
+        return discovered.slice(0, effectiveMaxRepos)
+    }
 
     return discovered
 }

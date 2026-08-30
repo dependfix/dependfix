@@ -32,6 +32,7 @@ describe('resolveRuntimeConfig', () => {
             maxConcurrency: 1,
             maxRetries: 3,
             maxBackoffMs: 30000,
+            maxRepos: 100,
             ai: {
                 enabled: false,
                 provider: 'openai-compatible',

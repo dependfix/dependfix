@@ -263,6 +263,100 @@ describe('discoverRepositories', () => {
 
         expect(repos).toEqual([])
     })
+
+    it('truncates results to maxRepos after sorting (deterministic)', async () => {
+        nock(API_BASE)
+            .get('/users/foo')
+            .reply(200, { login: 'foo', type: 'User' })
+        nock(API_BASE)
+            .get('/users/foo/repos')
+            .query(true)
+            .reply(200, [
+                makeRepo({ full_name: 'foo/zeta' }),
+                makeRepo({ full_name: 'foo/alpha' }),
+                makeRepo({ full_name: 'foo/beta' }),
+                makeRepo({ full_name: 'foo/gamma' }),
+                makeRepo({ full_name: 'foo/delta' }),
+            ])
+        // 探测发生在截断之前，所有候选仓库都会触发探测
+        for (const repo of ['foo/alpha', 'foo/beta', 'foo/delta', 'foo/gamma', 'foo/zeta']) {
+            nock(API_BASE)
+                .get(new RegExp(`/repos/${repo}/contents/`))
+                .reply(200, { type: 'file' })
+        }
+
+        const repos = await discoverRepositories({
+            client: setupClient(),
+            owners: ['foo'],
+            maxRepos: 3,
+        })
+
+        // 排序后：alpha, beta, delta, gamma, zeta → 截断为 alpha, beta, delta
+        expect(repos.map((r) => r.fullName)).toEqual(['foo/alpha', 'foo/beta', 'foo/delta'])
+        expect(repos).toHaveLength(3)
+        expect(nock.pendingMocks()).toEqual([])
+    })
+
+    it('does not truncate when maxRepos is 0 (unlimited)', async () => {
+        nock(API_BASE)
+            .get('/users/foo')
+            .reply(200, { login: 'foo', type: 'User' })
+        nock(API_BASE)
+            .get('/users/foo/repos')
+            .query(true)
+            .reply(200, [
+                makeRepo({ full_name: 'foo/zeta' }),
+                makeRepo({ full_name: 'foo/alpha' }),
+                makeRepo({ full_name: 'foo/beta' }),
+            ])
+        for (const repo of ['foo/alpha', 'foo/beta', 'foo/zeta']) {
+            nock(API_BASE)
+                .get(new RegExp(`/repos/${repo}/contents/`))
+                .reply(200, { type: 'file' })
+        }
+
+        const repos = await discoverRepositories({
+            client: setupClient(),
+            owners: ['foo'],
+            maxRepos: 0,
+        })
+
+        expect(repos).toHaveLength(3)
+        expect(repos.map((r) => r.fullName)).toEqual(['foo/alpha', 'foo/beta', 'foo/zeta'])
+        expect(nock.pendingMocks()).toEqual([])
+    })
+
+    it('uses default maxRepos of 100 when not specified', async () => {
+        // 创建 5 个仓库来测试默认上限（避免 mock 过多）
+        nock(API_BASE)
+            .get('/users/foo')
+            .reply(200, { login: 'foo', type: 'User' })
+        nock(API_BASE)
+            .get('/users/foo/repos')
+            .query(true)
+            .reply(200, [
+                makeRepo({ full_name: 'foo/zeta' }),
+                makeRepo({ full_name: 'foo/alpha' }),
+                makeRepo({ full_name: 'foo/beta' }),
+                makeRepo({ full_name: 'foo/gamma' }),
+                makeRepo({ full_name: 'foo/delta' }),
+            ])
+        for (const repo of ['foo/alpha', 'foo/beta', 'foo/delta', 'foo/gamma', 'foo/zeta']) {
+            nock(API_BASE)
+                .get(new RegExp(`/repos/${repo}/contents/`))
+                .reply(200, { type: 'file' })
+        }
+
+        const repos = await discoverRepositories({
+            client: setupClient(),
+            owners: ['foo'],
+        })
+
+        // 默认 maxRepos = 100，5 个仓库不需要截断
+        expect(repos).toHaveLength(5)
+        expect(repos.map((r) => r.fullName)).toEqual(['foo/alpha', 'foo/beta', 'foo/delta', 'foo/gamma', 'foo/zeta'])
+        expect(nock.pendingMocks()).toEqual([])
+    })
 })
 
 describe('mergeRepositories', () => {

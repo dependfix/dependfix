@@ -52,6 +52,7 @@ export const discoverReposSchema = z.object({
     include: z.array(z.string()).optional().describe('仓库白名单 glob（如 owner/*、owner/pkg-*）'),
     exclude: z.array(z.string()).optional().describe('仓库黑名单 glob（与 include 冲突时胜出）'),
     probe_dependabot: z.boolean().optional().describe('探测 .github/dependabot.yml 存在性（默认 true；会额外触达 contents API）'),
+    max_repos: z.number().int().min(0).optional().describe('发现规模上限：最多保留的仓库数（默认 100；0 表示不限制）'),
 })
 
 /** `cleanup_branches` 输入：清理已合并/已关闭的 dependfix 分支 */

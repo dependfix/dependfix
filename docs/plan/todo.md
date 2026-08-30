@@ -36,7 +36,7 @@
 
 ---
 
-### M19.2 C23 发现规模上限 max-repos
+### [x] M19.2 C23 发现规模上限 max-repos ✅ 已完成（2026-08-31）
 
 | 维度 | 内容 |
 |:---|:---|
@@ -49,6 +49,9 @@
 | **交付物** | 发现层代码变更 + CLI/Action/Platform 入口参数 + 单测 + 文档更新 |
 | **依赖** | 无（可与 M19.3-M19.5 并行） |
 | **预估** | 2-3 commits |
+| **实际** | 1 commit（`3b816f4`），15 文件 +149/-1 行 |
+| **验证** | `pnpm typecheck` 7 包全 Done / `pnpm lint` 0 error / `pnpm test` 2495 passed / `pnpm run check:docs` 通过 |
+| **审计** | Code Auditor standard depth：1 blocker（MCP schema）+ 3 warning（env normalizer / Action input / Platform UI）已全部修复 |
 
 ---
 

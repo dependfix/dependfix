@@ -37,6 +37,7 @@ function makeDep(overrides: Partial<{
             maxConcurrency: 1,
             maxRetries: 3,
             maxBackoffMs: 30_000,
+            maxRepos: 100,
         },
         workDir: '/tmp',
         logger: logger as never,

@@ -137,6 +137,11 @@ export interface RuntimeConfig {
      */
     toolchainPnpmVersion?: string
     /**
+     * 发现规模上限（`--max-repos` / `DEPENDFIX_MAX_REPOS`）：最多保留的仓库数。
+     * 默认 100；设为 0 或负数表示不限制。大 org 场景下防止一次性全量发现。
+     */
+    maxRepos: number
+    /**
      * AI 研判配置（`--ai` 系列参数 / `DEPENDFIX_AI_*` env）。
      * 默认关闭（opt-in）；开启后依赖升级验证失败或 major 升级时触发
      * breaking change 研判（触发范围由 `trigger` 控制）。
@@ -227,6 +232,11 @@ export interface CliConfigOverrides {
     upgradeGroups?: Record<string, string[]>
     /** lockfile 修复用的 pnpm 版本（工具链固定；缺省从 packageManager 解析） */
     toolchainPnpmVersion?: string
+    /**
+     * 发现规模上限（`--max-repos` / `DEPENDFIX_MAX_REPOS`）：最多保留的仓库数。
+     * 默认 100；设为 0 或负数表示不限制。大 org 场景下防止一次性全量发现。
+     */
+    maxRepos?: number
     /** AI 研判总开关（`--ai`） */
     aiEnabled?: boolean
     /** AI 提供商（`--ai-provider`：openai-compatible / anthropic） */
@@ -270,6 +280,7 @@ export const DEFAULT_RUNTIME_CONFIG: Omit<RuntimeConfig, 'githubToken' | 'reposi
     maxConcurrency: 1,
     maxRetries: 3,
     maxBackoffMs: 30_000,
+    maxRepos: 100,
     ai: {
         enabled: false,
         provider: 'openai-compatible',
@@ -482,6 +493,7 @@ export function readEnvConfig(env: NodeJS.ProcessEnv = process.env): CliConfigOv
         maxConcurrency: normalizeInteger(readEnv(env, 'MAX_CONCURRENCY'), `${ENV_PREFIX}MAX_CONCURRENCY`),
         maxRetries: normalizeNonNegativeInteger(readEnv(env, 'MAX_RETRIES'), `${ENV_PREFIX}MAX_RETRIES`),
         maxBackoffMs: normalizeInteger(readEnv(env, 'MAX_BACKOFF_MS'), `${ENV_PREFIX}MAX_BACKOFF_MS`),
+        maxRepos: normalizeNonNegativeInteger(readEnv(env, 'MAX_REPOS'), `${ENV_PREFIX}MAX_REPOS`),
         upgradeGroups: normalizeUpgradeGroups(readEnv(env, 'UPGRADE_GROUPS')),
         toolchainPnpmVersion: readEnv(env, 'TOOLCHAIN_PNPM_VERSION')?.trim() || undefined,
         aiEnabled: normalizeBoolean(readEnv(env, 'AI'), `${ENV_PREFIX}AI`),
@@ -784,6 +796,7 @@ export function resolveRuntimeConfig(options: ResolveRuntimeConfigOptions = {}):
         maxConcurrency: cliOverrides.maxConcurrency ?? envConfig.maxConcurrency ?? DEFAULT_RUNTIME_CONFIG.maxConcurrency,
         maxRetries: cliOverrides.maxRetries ?? envConfig.maxRetries ?? DEFAULT_RUNTIME_CONFIG.maxRetries,
         maxBackoffMs: cliOverrides.maxBackoffMs ?? envConfig.maxBackoffMs ?? DEFAULT_RUNTIME_CONFIG.maxBackoffMs,
+        maxRepos: cliOverrides.maxRepos ?? envConfig.maxRepos ?? DEFAULT_RUNTIME_CONFIG.maxRepos,
         upgradeGroups: cliOverrides.upgradeGroups ?? envConfig.upgradeGroups,
         toolchainPnpmVersion: cliOverrides.toolchainPnpmVersion ?? envConfig.toolchainPnpmVersion,
         ai: resolveAiOptions(cliOverrides, envConfig),

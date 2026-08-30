@@ -27,6 +27,7 @@ export const discoverRepos = async (input: {
     include?: string[]
     exclude?: string[]
     probe_dependabot?: boolean
+    max_repos?: number
 }): Promise<DiscoverReposResult> => {
     const token = requireToken()
     if (typeof token !== 'string') {
@@ -48,6 +49,7 @@ export const discoverRepos = async (input: {
             topics: input.topics,
             policy,
             probeDependabot: input.probe_dependabot ?? true,
+            maxRepos: input.max_repos,
         })
         return {
             ok: true,

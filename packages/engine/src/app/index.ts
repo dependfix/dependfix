@@ -656,6 +656,7 @@ export class DependfixApp {
                 topics: this.config.repoTopics,
                 // 策略在发现探测前应用（被排除仓库不触达 contents API）
                 policy,
+                maxRepos: this.config.maxRepos,
             })
             // 显式列表：仅 exclude 约束（include 不适用于显式，显式优先）
             const explicitFiltered = filterExplicitRepositories(policy, this.config.repositories)

@@ -210,6 +210,7 @@ const runScanInternal = async (
             maxConcurrency: 1,
             maxRetries: 3,
             maxBackoffMs: 30_000,
+            maxRepos: 100,
         },
         credential: token ? { token } : undefined,
         workDir: savedRun.id,

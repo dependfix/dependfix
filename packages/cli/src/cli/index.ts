@@ -140,6 +140,11 @@ export const argsDef = {
         description: '限流退避单次等待上限毫秒（100-120000，默认 30000；Retry-After / reset / 指数退避均受此约束）',
         default: '30000' as const,
     },
+    'max-repos': {
+        type: 'string' as const,
+        description: '发现规模上限：最多保留的仓库数（默认 100；0 或负数表示不限制；大 org 场景下防止一次性全量发现）',
+        default: '100' as const,
+    },
     history: {
         type: 'string' as const,
         description: '查询仓库历史运行摘要（读 dependfix-reports/index.json，倒序时间；不执行扫描）',
@@ -406,6 +411,12 @@ function parsedArgsToCliOverrides(parsed: ParsedArgs<typeof argsDef>): CliConfig
     const maxBackoffMs = parsed['max-backoff-ms']
     if (maxBackoffMs) {
         overrides.maxBackoffMs = parseIntegerFlag(maxBackoffMs, '--max-backoff-ms', 'Expected an integer between 100 and 120000.')
+    }
+
+    // max-repos（发现规模上限，config 校验兜底）
+    const maxRepos = parsed['max-repos']
+    if (maxRepos) {
+        overrides.maxRepos = parseIntegerFlag(maxRepos, '--max-repos', 'Expected a non-negative integer (0 = unlimited).')
     }
 
     // history（独立查询命令，不进入运行配置）

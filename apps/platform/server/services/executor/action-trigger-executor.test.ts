@@ -31,6 +31,7 @@ const makeCtx = (overrides: Partial<ScanExecutorContext> = {}): ScanExecutorCont
         maxConcurrency: 1,
         maxRetries: 3,
         maxBackoffMs: 30000,
+        maxRepos: 100,
     },
     credential: { token: 'ghp_test' },
     workDir: '/tmp/runs/run-1',

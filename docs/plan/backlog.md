@@ -112,6 +112,12 @@
 
 #### 测试基础设施清理
 
+- **cron-preview 时区测试 wall-clock 依赖消除**（2026-08-31 cron-preview flaky test fix audit suggest 登记；commit `3597dcf`）
+  - 当前状态：`apps/platform/app/utils/cron-preview.test.ts:89` 已接受 `diffHours % 24 ∈ {8, 16}` 两个值（消除跨日边界 flaky），但仍依赖真实 wall clock（`cron-preview.ts:65` `CronExpressionParser.parse` 未传 `currentDate`）
+  - 仍存在的风险：① 16h 窗口仅占每周 ~8h（约 9.5% 概率），cron-parser 后续若行为退化（如永远不再触发 16h 分支），新断言会 silently pass；② 8h 断言改成 `expect(diffHours === 8 || diffHours === 160).toBe(true)` 可读性更强（直接表达"绝对差是 8h 或 160h"），不必 mod 24
+  - 修复方向：① **S1** 用 `vi.setSystemTime(new Date('2026-08-30T18:56:00Z'))` 写一个固定-now 用例断言 `diffHours === 16`，再加一个对照用例固定到 8h 窗口断言 `diffHours === 8`，强制两个分支都被覆盖；② **S2** 把当前 L89 断言改为 `expect(diffHours === 8 || diffHours === 160).toBe(true)`；③ 与 M17.5 `authedCookieHeader` / S-5 `setTestEncryptionKey` helper 抽取同源策略——评估是否能复用 `setupMemoryDatabase` 等测试 helper 模式
+  - 优先级：P3（不阻塞 db79d5f / 3597dcf CI；建议与未来 cron-preview 增强批次合并实施，或单独 1 commit 闭环）
+
 - **S-5 调用方测试 `process.env.ENCRYPTION_KEY` 死代码清理**（M17.1 audit warning #2 登记）
   - 当前状态：6 处调用方测试仍写 `process.env.ENCRYPTION_KEY = 'test-encryption-key-32-bytes!!'`：
     - `apps/platform/server/services/scan-orchestrator.test.ts:115,120,128`

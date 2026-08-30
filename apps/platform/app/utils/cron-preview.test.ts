@@ -86,7 +86,7 @@ describe('previewCron', () => {
             expect(firstRun(shResult).getTime()).not.toBe(firstRun(utcResult).getTime())
             // 至少差 8 小时（UTC+8 偏移）；实际可能差 8 或 16 小时（跨日边界）
             const diffHours = Math.abs(firstRun(shResult).getTime() - firstRun(utcResult).getTime()) / 1000 / 60 / 60
-            expect(diffHours % 24).toBe(8)
+            expect([8, 16]).toContain(diffHours % 24)
         })
 
         it('空 timezone 用浏览器本地（不传 timezone）→ 与显式 null 等价', () => {

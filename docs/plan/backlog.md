@@ -14,13 +14,6 @@
 
 > **状态口径**：进行中 / 观察中 / 暂停 / 已关闭。
 > 共 2 条（2026-08-25 neat-freak 归档批次整理：原 §M11 子任务闭环清单 / §M4 增强候选中"已闭环"段全部迁出 backlog；§M2 / §M5.5 / §M6 / §MCP / §M7 阶段分段已闭环，已迁出 backlog 仅保留历史归档指针）。
-> **2026-08-26 闭环整理**：UX-R1 扫描历史分页 已由 M14.2 闭环，从 §扫描历史与详情 UX 主条目迁出至历史归档指针段 + [todo-archive.md §M14.2](todo-archive.md#m14-platform-release-通道闭环--ux-反馈跟进m14123xy-全部已闭环)；C66-B 数据层去重 / C66-C alerts UI Identifiers 列已在 M13 阶段由 T1306 / T1402 应用层方案覆盖，不再实施（保留决策记录）。
-> **2026-08-26 闭环整理（M15 归档批次）**：UX-R2 扫描历史详情 Sidebar 增强 已由 M15.1 闭环（4 子任务：A + B + C + D 全部闭环；ahead 3 commits 待用户推送：`5c65177` P 阶段 docs + `1112017` feat 实施 + `0a60e3d` test 覆盖）；从 §扫描历史与详情 UX 主条目段迁出至历史归档指针段 + [todo-archive.md §M15](todo-archive.md#m15-扫描历史详情侧栏增强ux-r2已闭环)。§2026-08-20 e2e 修复批次（C62+C63+C64+chore）同时从 todo-archive.md 主窗口迁出至 [archive/todo-archive-phases-m11.md §2026-08-20 e2e 修复批次](archive/todo-archive-phases-m11.md#2026-08-20-e2e-修复批次c62--c63--c64--chore)——主窗口 700 行分片阈值前的预防性迁出。
->
-> **2026-08-28 闭环整理（M16 归档批次）**：UX-R3 扫描历史独立页面 `/scans` 已由 M16.1 闭环（apps/platform/app/pages/scans.vue + `/api/runs` organizationId 隔离 + `/api/scan-history/summary` + 5 case e2e + 4 块汇总卡片 + viewer 可见）；从 §扫描历史与详情 UX 主条目段 UX-R3 子段迁出至历史归档指针段 + [todo-archive.md §M16](todo-archive.md#m16-平台可用性深化m161--m162--m163--m164--m165-全部已闭环--2026-08-28-归档)。**M16 全部 5 项闭环**：M16.1 UX-R3 `/scans` + M16.2 C66-D alerts "立即修复此仓库" + M16.3 C36 服务端 API 错误消息 i18n + M16.4 PrimeVue hydration 主线 #1 缓解 + M16.5 T701-e2e 管理端点集成测试补强；**19 commits 已全部推送至 origin/master，ahead=0**（M16.1 1 + M16.2 4 + M16.3 5 + M16.4 4 + M16.5 5；含 kebab-case rename refactor `acfdc8d8` 触发的 CI Coverage 修复批次；`git rev-list HEAD ^origin/master --count` 2026-08-28 实测 ahead=0）。**主线 #1 状态更新**：PrimeVue hydration 从"暂停"变"已缓解"——M16.4 useAsyncData 迁移后 rowGroup hydration 已闭环；剩余 PrimeVue 4 + Nuxt SSR hydration 兼容性 bug 监控 PrimeVue 4 changelog + 评估是否升级到修复版本。**M16.5 audit backlog 已登记**：C38 credential.service.ts 改走 `useRuntimeConfig().encryptionKey` + `NUXT_ENCRYPTION_KEY` 标准化（M16.5 W-1）+ S-2 `authedCookieHeader` 抽取到 `tests/e2e/helpers/`（M16.5 audit suggest）+ S-4 better-auth admin 端点 viewer role check 单测补强（M16.5 audit suggest）+ M16.3 audit suggest 范围外扩展（`/api/credentials/*` `/api/schedules/*` `/api/batch-runs/*` `/api/repos/{batch,batch-scan,importable}`）——M16.6+ 候选。**注**：C38 / S-2 / S-4 / M16.3 audit suggest 范围外扩展 4 条目已由 M17 全部 6 子阶段闭环落地，已从 backlog 主条目迁出至历史归档指针段（详见下方 §2026-08-28 闭环整理（M17 归档批次）段）。**同期动作**：M10 / T912 / C53 / 2026-08-20 平台 UI 增强 C59-C61 共 4 个早期批次从 todo-archive.md 主窗口预防性迁出至新分片 [archive/todo-archive-phases-m10-c53-c59c61.md](archive/todo-archive-phases-m10-c53-c59c61.md)——M16 段 110 行新增前主窗口 618 行接近 700 分片阈值，预防性迁出与 M15 归档批次同源策略。
->
-> **2026-08-28 闭环整理（M17 归档批次）**：**C38 / S-2 / S-4 / 服务端 API i18n 范围外扩展** 已由 M17 全部 6 子阶段闭环落地（M17.1 T1701 C38 encryptionKey 标准化 / M17.2-4 T1702-T1704 服务端 API i18n 范围外扩展 / M17.5 T1705 S-2 authedCookieHeader 抽取 / M17.6 T1706 S-4 better-auth admin viewer role check 单测补强）——分别上收为 [todo-archive.md §M17.1](todo-archive.md#m17-安全与可用性收口m171--m172--m173--m174--m175--m176-全部已闭环--2026-08-28-归档)（P1 安全硬缺口）/ [todo-archive.md §M17.2-4](todo-archive.md#m17-安全与可用性收口m171--m172--m173--m174--m175--m176-全部已闭环--2026-08-28-归档)（P2 沿用 M16.3 C36 已沉淀 `createLocalizedError` 模式，10 文件分 3 子阶段 credentials / schedules / batch-runs + repos batch）/ [todo-archive.md §M17.5](todo-archive.md#m17-安全与可用性收口m171--m172--m173--m174--m175--m176-全部已闭环--2026-08-28-归档)（P3 测试基建清理）/ [todo-archive.md §M17.6](todo-archive.md#m17-安全与可用性收口m171--m172--m173--m174--m175--m176-全部已闭环--2026-08-28-归档)（P3 测试完整性）。**按 backlog 维护规则 5 短期候选正式上收后从 backlog 主条目迁出**：C38 / S-2 / S-4 / 服务端 API i18n 范围外扩展 4 条目从 §服务端凭据加密路径 / §测试基础设施清理 / §测试覆盖补强 三段主条目迁出至历史归档指针段；M17 audit suggest 延后候选 S-5（调用方测试 `process.env.ENCRYPTION_KEY` 死代码清理）/ C39（standards 文档 ENCRYPTION_KEY → NUXT_ENCRYPTION_KEY 同步）/ C34（存量规范严格约束挂接盘点）/ S1（`SCAN_PENDING_MERGED` 死代码）/ S2（`detectServerLocale` 缺 `?locale=` URL query 支持）/ S3（S-4 `update-user` 端点 viewer 403 矩阵延后）/ S4（S-4 admin 200 双向断言延后）维持 backlog 候选状态——未上收 M17 实施（本次 M17 阶段按"安全性优先 + 测试基建顺手做"取舍，audit suggest 延后候选建议下批次 neat-freak 批次合并实施）。主线 #1 PrimeVue hydration 维持"已缓解"状态不变（详见长期主线 #1 段）。**M17 总投入**：9 commits（M17.1 1 + M17.2 1 + M17.3 1 + M17.4 2 + M17.5 2 + M17.6 1 + session 收尾 1）已全部推送至 origin/master（ahead=0 `git rev-list HEAD ^origin/master --count` 2026-08-28 实测——校正 session 文件 stale `ahead=8` 描述）；含 M17.4 commit 2 audit standard depth Reject 1 次后针对性补修闭环（M17 session 关键教训——nuxt typecheck 不实测不能信 Done 输出）。**M17 归档批次同期动作**：M12（19 commits / C65-A/B/C/D 4 子批次 + CI 修复 + network-audit + 收口）从 todo-archive.md 主窗口预防性迁出至新分片 [archive/todo-archive-phases-m12.md](archive/todo-archive-phases-m12.md)（M17 段 152 行新增后主窗口 738 行超 700 分片阈值，预防性迁出与 M16 批次预防性迁出 M10/T912/C53/C59-C61 同源策略）。
-
 ### 主线 #1：PrimeVue 4 + Nuxt hydration rowGroup known-issue
 
 - **目标**：闭环 PrimeVue 4 DataTable + Nuxt SSR hydration 状态机分歧导致的 2 个 alerts-rowgroup.e2e `.fixme` 标记，恢复 rowGroup 真实环境跑通（不依赖 `page.reload()`）。
@@ -139,11 +132,11 @@
 #### Code Scanning 规则体系
 
 - **C15** B 类规则真实仓库样本核对（B 类列表覆盖 js/py/java 精选集，其余语言 go/ruby/csharp/cpp 落 C 兜底；需真实仓库 API 样本核对规则 id 格式与变体分布；来源：T302 Review Gate 2026-08-05）
-- ~~**C16** 规则分类配置化（从硬编码常量表升级为配置文件 / env / 平台界面可配置；触发：M3 治理扩展 + 用户实测反馈规则分类需求；来源：T302 设计 2026-08-05）~~ **2026-08-26 状态：已由 M13.3 T1307 闭环落地**（详见 [todo-archive.md §M13](todo-archive.md#m13-治理--ux-反馈--网络治理--code-scanning已闭环)），条目从 backlog 主条目迁出；C16 后续增强候选（模块级 active config 单例 → 多 worker pool 场景需 per-worker config 隔离 / JSON 配置格式后续支持 wildcard 如 `js/*-injection`）登记于 todo-archive.md §M13.3 T1307 follow-up
+- ~~**C16** 规则分类配置化（从硬编码常量表升级为配置文件 / env / 平台界面可配置；触发：M3 治理扩展 + 用户实测反馈规则分类需求；来源：T302 设计 2026-08-05）~~ **2026-08-26 状态：已由 M13.3 T1307 闭环落地**（详见 [todo-archive.md §M13](archive/todo-archive-phases-m13.md)），条目从 backlog 主条目迁出；C16 后续增强候选（模块级 active config 单例 → 多 worker pool 场景需 per-worker config 隔离 / JSON 配置格式后续支持 wildcard 如 `js/*-injection`）登记于 todo-archive.md §M13.3 T1307 follow-up
 
 #### Code Quality（Standard findings）
 
-> **2026-08-26 状态更新**：C21（code-quality/findings 数据源接入）已由 M13.3 T1308 闭环落地（详见 [todo-archive.md §M13](todo-archive.md#m13-治理--ux-反馈--网络治理--code-scanning已闭环)），条目从 backlog 主条目迁出；C21 后续增强候选（rule.category 注入 NormalizedSecurityAlert / 平台 ScanRequest schema 扩展 codeQualityEnabled / 报告 markdown 展示 category 列）登记于 todo-archive.md §M13.3 T1308 follow-up。
+> **2026-08-26 状态更新**：C21（code-quality/findings 数据源接入）已由 M13.3 T1308 闭环落地（详见 [todo-archive.md §M13](archive/todo-archive-phases-m13.md)），条目从 backlog 主条目迁出；C21 后续增强候选（rule.category 注入 NormalizedSecurityAlert / 平台 ScanRequest schema 扩展 codeQualityEnabled / 报告 markdown 展示 category 列）登记于 todo-archive.md §M13.3 T1308 follow-up。
 
 #### org 增强
 
@@ -178,7 +171,7 @@
     - **commit author 动态化** vs 保留硬编码 `dependfix[bot]`：选动态化 —— 用户自带 App 的 bot login 各异（不一定叫 `dependfix`），硬编码会让 commit 无法被 GitHub 归因为真实 bot；动态生成 `{app_id}+{bot_login}[bot]@users.noreply.github.com` 是 GitHub App 协议要求。**2026-08-28 备注**：PAT 路径保留硬编码以保持现有 commit 归属格式不变（虽然该格式当前是字符串约定而非真实 bot 身份，已知缺陷不在 C22 范围内修复）。
     - **Manifest flow 一键创建** vs 仅文档引导：选 Manifest flow（先文档引导 + 评估 Manifest flow 可行性，**2026-08-29 决策调整**）—— manifest URL 让用户点一下就能创建 App + 自动回调回 dependfix 设置页，UX 显著优于纯文档引导；GitHub Enterprise Server 不支持 manifest 时降级到手动配置 + 文档兜底。**2026-08-29 用户决策**：M18 阶段暂不实施 Manifest flow 一键创建，先以 A7a 文档引导落地（A7b 单独评估 Manifest flow 可行性，输出评估报告至 `docs/design/governance/c22-manifest-flow-feasibility.md`）；触发再评估条件：评估报告结论 + 用户实测反馈。
   - **C22-future 官方 dependfix GitHub App 发布候选（远期战略，不在本条范围）** —— 与 C22 平行独立的战略线。阻塞项：① 团队运营能力（marketplace listing / 持续安全响应 / 计费 / 支持 SLA）；② 单租户/自部署仍要求用户自带 App，官方 App 主要服务 SaaS 场景，与 open-core 定位有张力；③ 与现有开源许可 + 商业模式联动未决。触发上收条件：用户实测出现 SaaS 化诉求 / 团队到位 / 商业化路径定稿。**不在 C22 主线内实施**。
-  - **M18 实施状态（2026-08-29 P 阶段已启动）** —— 详见 [todo.md §M18](todo.md#当前阶段：m18-平台-github-app-byo-app-模式--p-阶段启动-2026-08-29) 完整任务清单与决策固化。摘要：
+  - **M18 实施状态（2026-08-29 P 阶段已启动）** —— 详见 [todo.md §M18](todo-archive.md#m18-平台-github-app-byo-app-模式m180m181m182m183m184m18x-全部已闭环--2026-08-30-归档) 完整任务清单与决策固化。摘要：
     - **5 子阶段拆分**：M18.0（P0 docs only，PAT 无感升级评估）+ M18.1（C22.1 基础层，P1）+ M18.2（C22.2 集成层，P1）+ M18.3（C22.3 表现层，P2）+ M18.4（C22.4 测试层，P1）
     - **3 用户决策固化**（2026-08-29）：① M18.0 评估子阶段独立（A 决策）② fixtures 仅 mock 无真实 App（C 决策；用户接受风险）③ M18.x 治理批次合并入 C22 子阶段顺手做（B 决策）
     - **PAT 无感升级方案**：推荐 B（AuthProvider 注入统一入口）；`createGitHubClient` 改为 `{ auth: AuthProvider }`；老 `{ token }` 签名保留为 deprecated 包装；9 个测试 + 2 个 app 调用点改造；PAT 路径 commit author 保留硬编码兼容
@@ -236,10 +229,49 @@
 下列条目已在历史评估中明确"暂不实现"或"非本阶段范围"，从 backlog 主条目迁出，决策记录保留于对应归档段：
 
 - **C1 / C2 / C6 / C7 / C10 / C11 / C12 / C17 / C18 / C19 / C20** —— 详见 [todo-archive.md §M4 治理记录](archive/todo-archive-phases-m2-m55.md#m4-阶段治理记录2026-08-05--2026-08-06) + [§T405 跨线升级显式授权](archive/todo-archive-phases-m2-m55.md)
-- **C22 GitHub App 认证** —— 2026-08-29 状态：**M18 P 阶段已启动**（承接 2026-08-28 上收主条目 + 2026-08-29 用户 3 决策固化）；M18 范围 = 5 子阶段拆分（M18.0 PAT 无感升级评估 + M18.1 C22.1 基础层 + M18.2 C22.2 集成层 + M18.3 C22.3 表现层 + M18.4 C22.4 测试层）+ M18.x 治理批次合并入 C22 子阶段；详见本文件 §org 增强 §C22 主条目 + [todo.md §M18](todo.md#当前阶段：m18-平台-github-app-byo-app-模式--p-阶段启动-2026-08-29)。原"待用户触发再评估"的本段决策已被新决策覆盖，本行仅作为历史指针保留。
+- **C22 GitHub App 认证** —— 2026-08-29 状态：**M18 P 阶段已启动**（承接 2026-08-28 上收主条目 + 2026-08-29 用户 3 决策固化）；M18 范围 = 5 子阶段拆分（M18.0 PAT 无感升级评估 + M18.1 C22.1 基础层 + M18.2 C22.2 集成层 + M18.3 C22.3 表现层 + M18.4 C22.4 测试层）+ M18.x 治理批次合并入 C22 子阶段；详见本文件 §org 增强 §C22 主条目 + [todo.md §M18](todo-archive.md#m18-平台-github-app-byo-app-模式m180m181m182m183m184m18x-全部已闭环--2026-08-30-归档)。原"待用户触发再评估"的本段决策已被新决策覆盖，本行仅作为历史指针保留。
 - **C26 / T1005 / C28 / C29 / C53** —— M10 沙箱 / C26 / T1005 / C28 / C29 / C53 已全部闭环；详见 [archive/todo-archive-phases-m10-c53-c59c61.md §M10](archive/todo-archive-phases-m10-c53-c59c61.md#m10-独立沙箱容器-c26-实施规划已归档) + [§C53](archive/todo-archive-phases-m10-c53-c59c61.md#c53-平台集成模式-fix-修复结果推送远程已归档)
 - **C25 / C27 / C31 / C32** —— M6 B 模式结果回填 + MCP 能力补充 P1/P2 已闭环；详见 [todo-archive.md §M6](archive/todo-archive-phases-m6-m7-t711.md#m6-最小平台-mvp已归档) + [§MCP 能力补充](todo-archive.md)
 - **C46-C61** —— 2026-08-19~20 平台 UX/可用性闭环批次汇总 10 项 + 3 个 PR + 3 个独立 fix 全部归档；详见 [archive/todo-archive-phases-m11.md](archive/todo-archive-phases-m11.md)
+
+## 待人工验收（真实环境，随可用性推进）
+
+> 以下条目属 M7.1 / M7.2 / 发布管线阶段遗留的真实环境验证任务，**不在 M12 范围内**，保留随真实环境可用性推进。
+
+### T701 真实凭据 3 项
+
+平台 OAuth / OIDC / 凭据配置相关真实环境验证：
+
+- 真实 GitHub / Google OAuth 登录闭环（需 OAuth App 凭据）
+- 真实 IdP OIDC 登录闭环（需 RFC 9207 iss 回显支持）
+- 构建期配置凭据后按钮显示路径实测
+
+实施记录与背景：[archive/todo-archive-phases-m6-m7-t711.md §M7.1](archive/todo-archive-phases-m6-m7-t711.md#m71-认证与用户体系已归档)
+
+### T702 HTTP 层状态流转
+
+扫描 run 状态对外接口（pending → running → completed）真实环境验证：
+
+- 状态流转时间序列正确性（pending → running → completed 端到端）
+- 前端轮询体验与 stale state 处理（需后台服务 / staging 或 CI redis service）
+
+实施记录：[archive/todo-archive-phases-m10-c53-c59c61.md §T912](archive/todo-archive-phases-m10-c53-c59c61.md#t912-smtp-邮件发送器主体收口t9123--c28-联动)；[archive/todo-archive-phases-m6-m7-t711.md §M7.2](archive/todo-archive-phases-m6-m7-t711.md#m72-平台能力深化已归档)
+
+### T704 async 定时触发
+
+定时任务真实环境验证：
+
+- BullMQ upsertJobScheduler 短间隔 every 集成测试（需 Redis >= 5）
+- Schedule CRUD e2e 补覆盖（当前单测 44 例，e2e 未覆盖）
+
+实施记录：[archive/todo-archive-phases-m6-m7-t711.md §M7.2](archive/todo-archive-phases-m6-m7-t711.md#m72-平台能力深化已归档)
+
+### 发布管线收尾（P3）
+
+- `release:auto-version` 完整流程待 schedule 启用后首个 cron 裁决
+- main 副作用路径测试观察项
+
+实施记录：[archive/todo-archive-phases-m6-m7-t711.md §M7.2](archive/todo-archive-phases-m6-m7-t711.md#m72-平台能力深化已归档)
 
 ## 已知边界与 known-issue
 
@@ -267,7 +299,7 @@
 - **M16**（2026-08-28，平台可用性深化 M16.1+M16.2+M16.3+M16.4+M16.5）：[todo-archive.md §M16](todo-archive.md#m16-平台可用性深化m161--m162--m163--m164--m165-全部已闭环--2026-08-28-归档)
 - **M15**（2026-08-26，UX-R2）：[todo-archive.md §M15](todo-archive.md#m15-扫描历史详情侧栏增强ux-r2已闭环)
 - **M14**（2026-08-26，T1310 + UX-R1 + neat-freak + 依赖批量治理）：[todo-archive.md §M14](todo-archive.md#m14-platform-release-通道闭环--ux-反馈跟进m14123xy-全部已闭环)
-- **M13**（2026-08-26，治理 + UX 反馈 + 网络治理 + Code Scanning）：[todo-archive.md §M13](todo-archive.md#m13-治理--ux-反馈--网络治理--code-scanning已闭环)
+- **M13**（2026-08-26，治理 + UX 反馈 + 网络治理 + Code Scanning）：[todo-archive.md §M13](archive/todo-archive-phases-m13.md)
 - **M12**（2026-08-25，平台 UX + i18n）：[archive/todo-archive-phases-m12.md](archive/todo-archive-phases-m12.md)（2026-08-28 M17 归档批次预防性分片迁出）
 - **M0-M11**：详见 [todo-archive.md](todo-archive.md) + [archive/todo-archive-phases-*.md](archive/)
 
@@ -276,8 +308,8 @@
 ### 已闭环特定批次
 
 - **C53 平台集成模式 fix 修复结果推送远程**：详见 [archive/todo-archive-phases-m10-c53-c59c61.md §C53](archive/todo-archive-phases-m10-c53-c59c61.md#c53-平台集成模式-fix-修复结果推送远程已归档)
-- **C16 规则分类配置化**（2026-08-26 闭环于 M13.3 T1307）：详见 [todo-archive.md §M13.3 T1307](todo-archive.md#m13-治理--ux-反馈--网络治理--code-scanning已闭环)
-- **C21 code-quality-findings 接入**（2026-08-26 闭环于 M13.3 T1308）：详见 [todo-archive.md §M13.3 T1308](todo-archive.md#m13-治理--ux-反馈--网络治理--code-scanning已闭环)
+- **C16 规则分类配置化**（2026-08-26 闭环于 M13.3 T1307）：详见 [todo-archive.md §M13.3 T1307](archive/todo-archive-phases-m13.md)
+- **C21 code-quality-findings 接入**（2026-08-26 闭环于 M13.3 T1308）：详见 [todo-archive.md §M13.3 T1308](archive/todo-archive-phases-m13.md)
 - **MCP 能力补充 C31 / C32**：详见 [archive/todo-archive-phases-m2-m55.md §M5.5 / T508](archive/todo-archive-phases-m2-m55.md#m55-skill-编排cli-先行已归档)
 - **M2 增强候选 B1 / B2 / B3**：详见 [archive/todo-archive-phases-m2-m55.md §M2](archive/todo-archive-phases-m2-m55.md#m2-github-action-接入已归档)
 - **M17.1 C38 encryptionKey 标准化实施**（2026-08-28 audit standard depth Pass + W-3 修正 + W-1/W-2 登记 backlog；review-gate evidence 在本地 `artifacts/review-gate/2026-08-28-m17-1-t1701-c38-encryptionkey.md`（artifacts/ 在 .gitignore 中不入仓库，仅供本地查阅，CI 中不存在）；实施 7 文件 / +33/-29 行 / 21 个调用方测试从 ReferenceError 修复后 853 passed；M17 全部 6 子阶段 2026-08-28 全部闭环归档至 [todo-archive.md §M17](todo-archive.md#m17-安全与可用性收口m171--m172--m173--m174--m175--m176-全部已闭环--2026-08-28-归档)）

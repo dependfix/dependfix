@@ -74,7 +74,7 @@
 
 ---
 
-### M19.4 T701-e2e 管理端点集成测试补强
+### [x] M19.4 T701-e2e 管理端点集成测试补强 ✅ 已完成（2026-08-31）
 
 | 维度 | 内容 |
 |:---|:---|
@@ -87,6 +87,9 @@
 | **交付物** | 新增 e2e 测试文件 + 测试 fixtures + CI 验证 |
 | **依赖** | 无（可与 M19.2/M19.3/M19.5 并行） |
 | **预估** | 2-3 commits |
+| **实际** | 1 commit（`8db2fd4`），3 文件 +841 行 |
+| **验证** | `pnpm typecheck` 7 包全 Done / `pnpm lint` 0 error / `pnpm test` 2504 passed / playwright test 50 passed（users 6 + credentials 19 + repos 25）/ `pnpm run check:docs` 通过 |
+| **审计** | Code Auditor quick depth：1 blocker（users-api 与 admin-roles 重复）+ 3 warning（repos 缺扫描/导入 / users 缺 impersonate/unban / credentials data.code 一致性）已全部修复 |
 
 ---
 

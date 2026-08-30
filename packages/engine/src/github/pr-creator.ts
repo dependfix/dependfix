@@ -684,10 +684,10 @@ function ensureGitConfig(workDir: string, author?: { name: string, email: string
     const hasEmail = gitConfigExists('user.email', workDir)
 
     if (!hasName) {
-        execSync(`git config user.name "${effectiveAuthor.name}"`, { cwd: workDir, stdio: 'pipe' })
+        execFileSync('git', ['config', 'user.name', effectiveAuthor.name], { cwd: workDir, stdio: 'pipe' })
     }
     if (!hasEmail) {
-        execSync(`git config user.email "${effectiveAuthor.email}"`, { cwd: workDir, stdio: 'pipe' })
+        execFileSync('git', ['config', 'user.email', effectiveAuthor.email], { cwd: workDir, stdio: 'pipe' })
     }
 }
 
@@ -697,7 +697,7 @@ function gitConfigExists(key: string, workDir: string): boolean {
     // CaoMeiYouRen）误判"已配置"，让 ensureGitConfig 跳过 set local config。
     // W3 修复（M18.4 audit round 2）：见 stageAndCommit 内 `-c user.name=X` 注释。
     try {
-        execSync(`git config --local --get ${key}`, { cwd: workDir, stdio: 'pipe' })
+        execFileSync('git', ['config', '--local', '--get', key], { cwd: workDir, stdio: 'pipe' })
         return true
     } catch {
         return false

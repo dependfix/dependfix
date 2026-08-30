@@ -315,6 +315,87 @@ if (value) { ... }  // 对 0, "", false 失效
 
 规范见 [ai-collaboration.md §4.6 audit warning 修复决策协议](../../../../docs/standards/ai-collaboration.md) + [code-reviewer SKILL.md §2.5 决策框架](../SKILL.md)。
 
+### 运行时校验 vs 类型断言（必查项）
+
+审查涉及数据解析、外部输入、跨进程通信的代码是否正确区分类型断言与运行时校验：
+
+- **类型断言 ≠ 运行时校验**：`JSON.parse(x) as RunResult` 是类型断言，不做运行时校验。typecheck 通过 ≠ 数据合法，契约漂移只能靠运行时校验兜底
+- **对外边界必须配套 validate 函数**：容器 stdout / 网络响应 / 跨进程数据等对外边界必须配套 `validate*()` 函数
+- **典型风险**：外部 API 返回格式变更、容器输出异常、跨版本兼容性问题——类型断言无法捕获
+
+规范见 [testing.md §2 测试设计原则](../../../../docs/standards/testing.md)。
+
+### 容器拼装类代码注释准确性（必查项）
+
+审查涉及 Docker 容器拼装、execFile / exec 调用的代码注释是否准确：
+
+- **禁止不准确表述**：`execFile` 不经过 shell，不会回显 argv（与 `exec` 不同）；注释禁止写"防 argv 回显"等不准确表述
+- **准确语义**：`spec.env` 隔离，避免 cmd/test 日志、git URL、daemon config 可见 token（凭据走 `http.extraheader` 等带外通道，与 argv 无关）
+- **注释必须真实反映防御机制**：错把"防 argv 回显"当成威胁模型会导致后续审计按错误方向找漏洞
+
+规范见 [development.md §5.1.7](../../../../docs/standards/development.md)。
+
+### JSDoc 注释与可见性声明一致性（必查项）
+
+审查新增/修改的 JSDoc 注释是否与可见性声明一致：
+
+- **禁止自相矛盾**：`private` 方法 + JSDoc 写"导出便于 snapshot 测试"自相矛盾；若实际不导出，改注释或改 `public` / `internal`
+- **拼装类函数应在测试中 snapshot 验证**：拼装 bug 在真起容器前难暴露，靠运行时回显只能发现一半问题
+- **注释与实现脱节会被 audit 作为 warning 处置**
+
+规范见 [development.md §5.1.8](../../../../docs/standards/development.md)。
+
+### 测试 Spy 与生产实现同模块时 @internal 标注（必查项）
+
+审查测试 Spy 模块是否正确标注 `@internal`：
+
+- **必须 @internal 标注**：`SpyAdapter` 与生产 `Adapter` 同模块导出时，必须在 Spy 类上加 `@internal` JSDoc + 文件级注释"生产代码禁止导入"
+- **避免业务模块误用 spy 路径**：会导致测试覆盖率虚高、运行时行为错位
+- **强约束**：eslint `no-restricted-imports` 规则限制生产代码 import spy 路径是最稳护栏
+
+规范见 [development.md §5.1.9](../../../../docs/standards/development.md)。
+
+### 删除"自动状态赋值"时被动接收路径审查（必查项）
+
+审查删除状态自动赋值逻辑时是否已审视所有被动接收路径：
+
+- **必须搜遍所有被动接收路径**：删除状态自动赋值逻辑（如 `selectedRepos.value = ...filter(...)`）前，必须审视所有调用路径是否依赖该自动行为收敛
+- **被动接收态风险**：成功提交后重新调用 `loadImportable()` 时，已删的自动赋值语句留下的旧状态会导致 UI 状态不一致
+- **修复范式**：在 `emit('success')` 后 `await reload()` 前主动重置状态，让"删除"与"主动重置"形成完整闭环
+
+规范见 [development.md §5.1.10](../../../../docs/standards/development.md)。
+
+### 调试临时代码清理（必查项）
+
+审查提交前是否已清理所有调试临时代码：
+
+- **必须清理**：任何调试临时代码（`// DEBUG` 注释、`console.log('[debug]', ...)`、`// TODO` 未跟踪项、`alert(...)` 弹窗、`debugger` 语句）必须在 `conventional-committer` 提交前手动清理
+- **不能依赖 lint**：`no-console` 等规则仅限服务端日志场景，无法拦截浏览器端调试输出
+- **调试完成后立即清理不留痕**：`git diff --staged` 容易遗漏单行 `console.log`，养成实时清理习惯
+- **范围扩展**：ui-validator agent 视觉验证时自建的截图脚本也属同类
+
+规范见 [development.md §5.1.11](../../../../docs/standards/development.md)。
+
+### TypeORM 实体时间列类型（必查项）
+
+审查 TypeORM 实体中时间列是否正确使用 `getDateType()`：
+
+- **必须通过 getDateType() 获取列类型**：实体中 `CreateDateColumn` / `UpdateDateColumn` / 日期字段统一 `{ type: getDateType() }`
+- **禁止硬编码**：禁止在实体中硬编码 `'datetime'` / `'timestamp'` 字面量（PostgreSQL 部署会静默出现时区偏移，且单测难以覆盖）
+- **跨库类型归一**：SQLite 下 `datetime` / MySQL 下 `datetime` / PG 下 `timestamp with time zone`——由 `getDateType()` 统一处理
+
+规范见 [platform.md §3.2 时区与列类型](../../../../docs/standards/platform.md)。
+
+### better-auth 四表字段对齐（必查项）
+
+审查 TypeORM 实体中 better-auth 四表字段是否与默认 schema 对齐：
+
+- **不得增删字段**：`user` / `session` / `account` / `verification` 四表字段对齐 better-auth 默认 schema，不得增删字段
+- **平台自有字段通过 additionalFields 配置**：如 `role` 字段通过 `user.additionalFields` 配置并同步实体
+- **违反后果**：字段不一致会导致 better-auth 插件功能异常或数据迁移问题
+
+规范见 [platform.md §3.4 实体规范](../../../../docs/standards/platform.md)。
+
 ### 应提出的问题
 
 - "diff 中新增的注释/测试名是否含孤立编号标记？"
@@ -324,6 +405,14 @@ if (value) { ... }  // 对 0, "", false 失效
 - "本次内部包依赖改动是否符合依赖方向（core ← engine ← {cli, mcp, platform}）？应用层（cli/mcp/platform）是否互相依赖？"
 - "本次新增/修改的条款是否与权威文档重复抄写？应改为一行链接引用（治理定义改动必查）？"
 - "新增的严格约束（必须/阈值/禁令）是否已声明并挂接 review 检查点？宽松指引是否留在执行层？"
+- "涉及数据解析/外部输入/跨进程通信的代码，是否区分了类型断言与运行时校验？"
+- "Docker 容器拼装代码的注释是否准确反映了防御机制（execFile vs exec）？"
+- "JSDoc 注释是否与可见性声明一致？private 方法是否误写为'导出便于测试'？"
+- "测试 Spy 模块是否已标注 @internal？生产代码是否可能误用 spy 路径？"
+- "删除自动状态赋值逻辑前，是否已审视所有被动接收该状态的路径？"
+- "提交前是否已清理所有调试临时代码（console.log / debugger / alert）？"
+- "TypeORM 实体中时间列是否通过 getDateType() 获取列类型？是否硬编码了 'datetime' / 'timestamp'？"
+- "better-auth 四表（user/session/account/verification）字段是否与默认 schema 对齐？是否误增删了字段？"
 
 ### 批量替换与行尾完整性（批量替换/行尾审查）
 

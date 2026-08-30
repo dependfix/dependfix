@@ -128,6 +128,7 @@
 
 - **B1** PR 关闭评论 + label（需 `issues: write` 权限，比当前 `pull-requests: write` 宽；触发：PR 数量增长影响 `pulls.list` 查重性能或用户需要 PR 列表可过滤时）
 - **B2** 固定分支单线设计（独立平台部署后修复频率上升，需要固定修复分支如 `dependfix/auto-fix` 避免频繁向 master 提交 PR；触发：v1.0.0 后 M12 平台 UX 修复链路上线；关联：T210 指纹方案整合复用/重建策略 + force push 语义）
+- **B3** PR 自动合并闭环（当前 dependfix 只解决自动提 PR 的问题，但没有后续自动合并的闭环；批准 PR 不应由本项目来做，否则失去单独提 PR 的意义；**推荐用户使用 mergify（`.github/mergify.yml`）或 GitHub Action（类似 [fastify/github-action-merge-dependabot](https://github.com/fastify/github-action-merge-dependabot)）来自动合并**；本项目只提供参考模板 + 文档引导；交付物：`docs/guide/auto-merge.md` 指南 + 模板配置文件；触发：用户实测反馈 PR 积压 / 手动合并繁琐时上收）
 
 #### Code Scanning 规则体系
 

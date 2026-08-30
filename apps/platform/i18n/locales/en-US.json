@@ -536,7 +536,7 @@
         "fieldBotLogin": "Bot Login (optional)",
         "fieldBotLoginPlaceholder": "e.g. dependfix-bot[bot]",
         "pemFingerprint": "Fingerprint",
-        "pemFingerprintHint": "To verify against GitHub App settings page fingerprint, run: openssl rsa -in <pem> -pubout -outform DER | openssl sha256 -binary | openssl base64",
+        "pemFingerprintHint": "To verify against GitHub App settings page fingerprint, run: openssl rsa -in {pem} -pubout -outform DER \\| openssl sha256 -binary \\| openssl base64",
         "pemUpload": "Upload .pem file",
         "pemValid": "Valid PEM",
         "pemInvalid": "Invalid PEM",

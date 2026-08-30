@@ -443,7 +443,7 @@ watch(toastMessage, (v) => {
                             </span>
                         </div>
                         <small v-if="pemParseResult?.valid" class="text-muted">
-                            {{ t('credentials.pemFingerprintHint') }}
+                            {{ t('credentials.pemFingerprintHint', {pem: '<pem>'}) }}
                         </small>
                     </div>
                     <div class="credential-form__field">

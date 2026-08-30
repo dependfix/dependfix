@@ -35,7 +35,7 @@
     "lru-cache": "^11.5.2",
     "mysql2": "^3.23.2",
     "node-cron": "^4.6.0",
-    "nodemailer": "^9.0.5",
+    "nodemailer": "^9.0.6",
     "nuxt": "^4.5.1",
     "pg": "^8.23.0",
     "primeicons": "^8.0.0",

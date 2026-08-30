@@ -44,6 +44,7 @@ function makeAlert(overrides: Partial<NormalizedSecurityAlert> = {}): Normalized
         fixStrategy: null,
         recommendedVersion: '',
         alertClass: 'auto-fixable',
+        upstreamId: 'code-scanning:1',
         ...overrides,
     }
 }

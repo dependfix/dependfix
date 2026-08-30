@@ -49,6 +49,7 @@ describe('fetchDependabotAlerts', () => {
 
         expect(alert.id).toBe(1)
         expect(alert.source).toBe('dependabot')
+        expect(alert.upstreamId).toBe('dependabot:1')
         expect(alert.repository).toBe('foo/bar')
         expect(alert.defaultBranch).toBe('')
         expect(alert.severity).toBe('critical')
@@ -126,6 +127,8 @@ describe('fetchDependabotAlerts', () => {
         expect(alerts).toHaveLength(2)
         expect(alerts[0].id).toBe(1)
         expect(alerts[1].id).toBe(2)
+        expect(alerts[0].upstreamId).toBe('dependabot:1')
+        expect(alerts[1].upstreamId).toBe('dependabot:2')
     })
 
     it('handles scoped package names correctly', async () => {

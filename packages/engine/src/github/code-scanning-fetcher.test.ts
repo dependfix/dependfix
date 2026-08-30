@@ -69,6 +69,7 @@ describe('fetchCodeScanningAlerts', () => {
 
         expect(alert.id).toBe(1)
         expect(alert.source).toBe('code-scanning')
+        expect(alert.upstreamId).toBe('code-scanning:1')
         expect(alert.repository).toBe('foo/bar')
         expect(alert.defaultBranch).toBe('')
         expect(alert.severity).toBe('high')

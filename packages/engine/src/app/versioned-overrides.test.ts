@@ -70,6 +70,7 @@ describe('buildVersionedOverrides', () => {
         fixable: true,
         fixStrategy: 'upgrade' as const,
         recommendedVersion,
+        upstreamId: 'dependabot:1',
         ...overrides,
     })
 

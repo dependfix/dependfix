@@ -339,6 +339,7 @@ describe('fetchPnpmAuditAlerts', () => {
         expect(alerts).toHaveLength(2)
         expect(alerts[0].source).toBe('pnpm-audit')
         expect(alerts[0].repository).toBe('owner/repo')
+        expect(alerts[0].upstreamId).toMatch(/^pnpm-audit:fast-uri:[a-f0-9]{16}$/)
         expect(alerts[0].packageName).toBe('fast-uri')
         expect(alerts[0].ruleId).toBe('https://github.com/advisories/GHSA-f8p3-7c7w-h6x4')
         expect(alerts[0].severity).toBe('high')

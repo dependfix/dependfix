@@ -32,6 +32,7 @@ function alert(packageName: string): NormalizedSecurityAlert {
         fixStrategy: 'upgrade',
         recommendedVersion: '9.9.9',
         dependencyType: 'direct',
+        upstreamId: 'dependabot:1',
     }
 }
 

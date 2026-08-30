@@ -58,6 +58,7 @@ export function makeAlert(overrides: Partial<NormalizedSecurityAlert> = {}): Nor
         fixable: true,
         fixStrategy: 'upgrade',
         recommendedVersion: '4.17.21',
+        upstreamId: 'dependabot:1',
         ...overrides,
     }
 }

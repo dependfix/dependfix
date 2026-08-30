@@ -43,6 +43,7 @@ function makeAuditAlert(overrides: Partial<NormalizedSecurityAlert> = {}): Norma
         fixable: true,
         fixStrategy: 'upgrade',
         recommendedVersion: '3.1.5',
+        upstreamId: 'pnpm-audit:fast-uri:a1b2c3d4e5f6a7b8',
         ...overrides,
     }
 }

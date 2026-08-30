@@ -44,7 +44,21 @@ export interface NormalizedSecurityAlert {
      * 报告/PR body 建议区块展示。
      */
     suggestion?: string
+    /**
+     * 上游告警唯一 ID（M20 新增）。
+     * 平台 ScanResult 用此作为去重键（unique index `(repositoryId, upstreamId)`）。
+     * 格式：`${source}:${identifier}`，详见 [`./upstream-id.ts`](./upstream-id.ts)。
+     * - dependabot / code-scanning / code-quality：`${source}:${alertNumber|findingNumber}`
+     * - pnpm-audit：`${source}:${packageName-sha256Prefix}:${advisoryId-sha256Prefix}`
+     */
+    upstreamId: string
 }
+
+/**
+ * M20 新增：上游告警 ID 规范化。
+ * 见 [./upstream-id.ts](./upstream-id.ts)。
+ */
+export { normalizeUpstreamId } from './upstream-id'
 
 export const SEVERITY_MAP = {
     dependabot: {

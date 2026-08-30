@@ -74,6 +74,7 @@ describe('fetchCodeQualityFindings', () => {
 
         expect(finding.id).toBe(1)
         expect(finding.source).toBe('code-quality')
+        expect(finding.upstreamId).toBe('code-quality:1')
         expect(finding.repository).toBe('foo/bar')
         expect(finding.defaultBranch).toBe('')
         expect(finding.severity).toBe('medium') // warning → medium

@@ -233,6 +233,7 @@ describe('isCrossMajorFixRequired', () => {
             fixable: true,
             fixStrategy: 'upgrade',
             recommendedVersion: '6.4.3',
+            upstreamId: 'dependabot:1',
             ...overrides,
         }
     }

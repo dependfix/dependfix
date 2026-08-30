@@ -1,5 +1,5 @@
 import type { Octokit, RestEndpointMethodTypes } from '@octokit/rest'
-import type { NormalizedSecurityAlert, DependencyType } from '@dependfix/core'
+import { normalizeUpstreamId, type NormalizedSecurityAlert, type DependencyType } from '@dependfix/core'
 import { mapGitHubError } from './errors'
 
 // ---------------------------------------------------------------------------
@@ -111,6 +111,7 @@ function normalizeAlert(
         fixStrategy: fixable ? 'upgrade' : null,
         recommendedVersion: firstPatched?.identifier ?? '',
         dependencyType: normalizeDependencyRelationship(alert.dependency.relationship),
+        upstreamId: normalizeUpstreamId('dependabot', { alertNumber: alert.number }),
     }
 }
 

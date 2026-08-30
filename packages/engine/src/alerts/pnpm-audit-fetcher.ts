@@ -1,6 +1,6 @@
 import { spawn } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { AppError, normalizeAuditSeverity, type NormalizedSecurityAlert } from '@dependfix/core'
+import { AppError, normalizeAuditSeverity, normalizeUpstreamId, type NormalizedSecurityAlert } from '@dependfix/core'
 
 /**
  * pnpm audit 本地回退数据源（无 GitHub token 场景）。
@@ -300,9 +300,13 @@ export function parseAuditReport(report: unknown): RiskRecord[] {
 // ---------------------------------------------------------------------------
 
 /**
- * advisoryId 的稳定数字哈希（`NormalizedSecurityAlert.id` 为 number）。
+ * advisoryId 的稳定数字哈希（M20 之前使用，M20 后保留以维持向后兼容 `NormalizedSecurityAlert.id: number`）。
+ *
  * 取 sha256 前 4 字节完整 uint32（非设计稿的 `% 2^31`：uint32 语义更自然，
  * 碰撞概率 ~2^-32/对，12 条告警场景生日界 ~1.6e-8，可忽略）。
+ *
+ * M20 弃用：唯一去重键改为 `upstreamId`，详见 [`normalizeUpstreamId`](../../../core/src/alerts/upstream-id.ts)。
+ * 本函数保留仅为兼容现有 `NormalizedSecurityAlert.id: number` 字段，**不是**平台去重键。
  */
 export function hashAdvisoryId(packageName: string, advisoryId: string): number {
     const digest = createHash('sha256').update(`${packageName}:${advisoryId}`).digest()
@@ -329,5 +333,9 @@ function mapAuditRiskToAlert(risk: RiskRecord, repository: string): NormalizedSe
         recommendedVersion: risk.patchedVersion ?? '',
         // audit 输出的依赖链路径无法可靠区分 direct/transitive，留空
         dependencyType: undefined,
+        upstreamId: normalizeUpstreamId('pnpm-audit', {
+            packageName: risk.packageName,
+            advisoryId: risk.advisoryId,
+        }),
     }
 }

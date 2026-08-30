@@ -42,6 +42,7 @@ describe('dedupeFixableAlerts', () => {
         fixStrategy: 'upgrade',
         recommendedVersion,
         dependencyType: 'direct',
+        upstreamId: 'dependabot:1',
     })
 
     it('keeps a single alert per package with the highest recommendedVersion', () => {
@@ -230,6 +231,7 @@ describe('partitionSubmanifestAlerts', () => {
         fixable: true,
         fixStrategy: 'upgrade',
         recommendedVersion: '6.4.3',
+        upstreamId: 'dependabot:1',
         ...overrides,
     })
 

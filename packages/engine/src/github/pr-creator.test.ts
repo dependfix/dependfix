@@ -1145,6 +1145,7 @@ describe('generatePRBody', () => {
             alertClass: 'suggested',
             startLine: 42,
             suggestion: '使用参数化查询',
+            upstreamId: 'code-scanning:2',
         }]
         const body = generatePRBody(result)
 
@@ -1187,6 +1188,7 @@ function makeBodyAlert(overrides: Partial<NormalizedSecurityAlert>): NormalizedS
         fixable: true,
         fixStrategy: 'upgrade',
         recommendedVersion: '3.1.5',
+        upstreamId: 'dependabot:1',
         ...overrides,
     }
 }

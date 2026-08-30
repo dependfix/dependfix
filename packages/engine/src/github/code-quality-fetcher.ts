@@ -1,5 +1,5 @@
 import type { Octokit } from '@octokit/rest'
-import type { AlertSeverity, NormalizedSecurityAlert } from '@dependfix/core'
+import { normalizeUpstreamId, type AlertSeverity, type NormalizedSecurityAlert } from '@dependfix/core'
 import { mapGitHubError } from './errors'
 
 // ---------------------------------------------------------------------------
@@ -200,6 +200,7 @@ function normalizeFinding(
         // 用 rule.description 作为 Code Quality 报告建议（fetcher 注入；
         // 报告 collectCodeQualityFindings 直接使用 alert.suggestion）
         suggestion: description || '人工审查该 Code Quality finding',
+        upstreamId: normalizeUpstreamId('code-quality', { alertNumber: finding.number }),
     }
 }
 

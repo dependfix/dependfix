@@ -93,7 +93,7 @@
 
 ---
 
-### M19.5 C8 per-source 错误隔离
+### [x] M19.5 C8 per-source 错误隔离 ✅ 已完成（2026-08-31）
 
 | 维度 | 内容 |
 |:---|:---|
@@ -106,6 +106,10 @@
 | **交付物** | 引擎层错误隔离逻辑 + 返回结构扩展 + CLI/UI 警告展示 + 单测 |
 | **依赖** | 无（可与 M19.2/M19.3/M19.4 并行） |
 | **预估** | 1-2 commits |
+| **实际** | 1 commit（`a20ea02`），5 文件 +159/-2 行 |
+| **验证** | `pnpm typecheck` 7 包全 Done / `pnpm lint` 0 error / `pnpm test` 2510 passed |
+| **审计** | Code Auditor standard depth：2 warning（throw 路径语义对齐 + pnpm-audit 单源文案）已修复 1 项 + 1 项登记 P3 |
+| **备注** | 核心错误隔离机制（Promise.allSettled）此前已存在，本次主要补强 CLI 汇总警告可见性（FixError.source 字段 + logPartialSourceFailureSummary 函数）。Throw 路径重复提示问题已修复（仅在部分源失败时输出）。 |
 
 ---
 

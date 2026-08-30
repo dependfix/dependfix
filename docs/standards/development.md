@@ -256,7 +256,18 @@ apps/platform/               # Nuxt 全栈平台
 4. **测试**: 定向测试通过；命中全量测试条件时执行 `pnpm test`。
 5. **提交执行**: 必须通过 `conventional-committer` skill 提交（禁止裸 `git commit -m`），详见 [Git 规范](./git.md) 与 [AGENTS.md 提交规范](../../AGENTS.md#提交规范-commit-convention)。
 
-## 10. 相关文档
+## 10. Code Scanning 告警处理流程
+
+当 GitHub Code Scanning 报告安全告警时，按以下流程处理：
+
+1. **获取告警详情**：使用 `gh api repos/owner/repo/code-scanning/alerts` 获取告警类型、位置和描述
+2. **根因分析 + 搜索优先**：使用搜索优先模式确认是否为误报，避免不必要的修复
+3. **制定修复方案**：根据告警类型制定针对性修复方案（如命令注入 → 使用 `execFileSync` 替代 `execSync`）
+4. **质量门验证**：运行 lint + typecheck + test 确保修复不引入回归
+5. **深度审计**：安全修复应使用 `deep` 级别审计，确保全面覆盖
+6. **提交**：使用 `conventional-committer` skill 提交，消息格式为 `fix(scope): 描述`
+
+## 11. 相关文档
 
 - [测试规范](./testing.md)
 - [API 规范](./api.md)

@@ -156,6 +156,13 @@ verification 阶段（依赖修复后的 `pnpm install --frozen-lockfile` / `pnp
 
 - **空路径规避**: 严禁将空字符串或未定义变量作为路径参数传给删除命令。
 - **路径校验**: 文件/目录删除操作前必须验证目标路径有效性。
+- **命令注入防护**: 涉及用户输入的 shell 命令必须使用 `execFileSync` 替代 `execSync`，参数作为数组传递，避免 shell 解释导致的命令注入漏洞。例如：```typescript
+// 不安全（存在命令注入风险）
+execSync(`git config user.name "${name}"`, { cwd: workDir })
+
+// 安全（参数作为数组传递，不经过 shell 解释）
+execFileSync('git', ['config', 'user.name', name], { cwd: workDir })
+```
 
 ## 7. AI 输出安全
 

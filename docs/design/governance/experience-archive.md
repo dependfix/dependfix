@@ -555,3 +555,66 @@ new Octokit({
 ### 准入标准复核
 
 本案例符合准入标准第 1 条"架构性陷阱（mock 边界过宽掩盖集成 bug）" + 第 3 条"反模式 / 教训重复触发（M18.1 commit 4 实施不完整 → M18.4 audit round 1 Reject → round 2 修复）"。挂接治理检查点 4 项可显著降低未来同类 bug 概率。
+
+## 四十四、Code Scanning 命令注入漏洞修复 — execFileSync 替代 execSync（2026-08-30）
+
+### 案例
+
+GitHub Code Scanning 告警 #26 和 #27（`js/shell-command-constructed-from-input`，Medium 级别）：`packages/engine/src/github/pr-creator.ts` 中 `ensureGitConfig` 和 `gitConfigExists` 函数使用不安全的 `execSync` 和模板字符串拼接构造 shell 命令，存在命令注入风险。
+
+**问题代码**：
+```typescript
+// 第 687行（告警 #26）
+execSync(`git config user.name "${effectiveAuthor.name}"`, { cwd: workDir, stdio: 'pipe' })
+// 第 690行（告警 #27）
+execSync(`git config user.email "${effectiveAuthor.email}"`, { cwd: workDir, stdio: 'pipe' })
+// 第 700行（同类问题）
+execSync(`git config --local --get ${key}`, { cwd: workDir, stdio: 'pipe' })
+```
+
+**风险**：如果 `effectiveAuthor.name` 或 `effectiveAuthor.email` 包含双引号或其他特殊字符，可能导致命令注入。例如，如果 `name` 是 `"; rm -rf /; echo "`，则执行的命令变成：
+```bash
+git config user.name ""; rm -rf /; echo ""
+```
+
+**修复方案**：使用 `execFileSync` 替代 `execSync`，通过数组传递参数避免 shell 解释：
+```typescript
+// 修复后（安全）
+execFileSync('git', ['config', 'user.name', effectiveAuthor.name], { cwd: workDir, stdio: 'pipe' })
+execFileSync('git', ['config', 'user.email', effectiveAuthor.email], { cwd: workDir, stdio: 'pipe' })
+execFileSync('git', ['config', '--local', '--get', key], { cwd: workDir, stdio: 'pipe' })
+```
+
+**验证**：lint + typecheck + test 全部通过（2492 passed, 5 skipped）
+
+**commit**：`2d3419b fix(engine): 修复 pr-creator 中的命令注入漏洞`
+
+### 教训
+
+1. **execFileSync vs execSync**：涉及用户输入的 shell 命令必须使用 `execFileSync` 替代 `execSync`，避免命令注入。`execSync` 会将字符串传递给 shell 解释，而 `execFileSync` 直接执行文件，参数作为数组传递，不经过 shell 解释。
+
+2. **根因分析 + 搜索优先**：本次修复前，先使用搜索优先模式确认 vite 依赖告警已是误报（8.2.2 已包含修复），避免不必要的升级。对于 Code Scanning 告警，应先分析根因，再制定修复方案。
+
+3. **安全修复审计深度**：安全修复应使用 `deep` 级别审计，确保全面覆盖。本次修复使用 deep depth audit，确认无 blocker、warning 或 suggest。
+
+4. **Code Scanning 告警处理流程**：
+   - 使用 `gh api repos/owner/repo/code-scanning/alerts` 获取告警详情
+   - 分析告警类型和位置
+   - 使用搜索优先模式确认是否为误报
+   - 制定修复方案并实施
+   - 运行质量门验证
+   - 使用 conventional-committer 提交
+
+### 与既有教训的关联
+
+- **§四十三**（集成外部库必须读 README 标准用法）：同样是"看似安全实际存在漏洞"的反模式——§四十三是 mock 测试掩盖集成 bug；本条是字符串拼接导致命令注入。两者同源：**安全不能只看"能跑"，必须验证"能跑"的语义对应真实安全行为**。
+
+### 挂接治理检查点
+
+1. **`docs/standards/security.md` §注入防护**：新增 pattern **"涉及用户输入的 shell 命令必须使用 execFileSync 替代 execSync，参数作为数组传递"**——避免命令注入漏洞。
+2. **`docs/standards/development.md` §编码规范**：新增 pattern **"Code Scanning 告警处理流程：gh api 获取详情 → 搜索优先确认误报 → 制定修复方案 → 质量门验证 → conventional-committer 提交"**——标准化安全修复流程。
+3. **`.github/agents/code-auditor.agent.md` 审计协议**：新增必查项 **"涉及 shell 命令的代码必须使用 execFileSync 替代 execSync，参数作为数组传递"**——Code Scanning 告警 #26/#27 作为佐证。
+
+### 准入标准复核
+
+本案例符合准入标准第 1 条"安全漏洞（命令注入）" + 第 4 条"工具/环境陷阱（shell 命令构造）"。挂接治理检查点 3 项可显著降低未来同类漏洞概率。

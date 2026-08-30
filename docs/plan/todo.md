@@ -2,7 +2,26 @@
 
 > **范围约定**：本文件**仅**登记当前阶段活跃待办——已闭环项归档于 [todo-archive.md](todo-archive.md)；未排期/延期/远期登记于 [backlog.md](backlog.md)；已知边界与 known-issue 登记于对应阶段归档段或 backlog（**不在此处复述**）。
 
-## 当前阶段：
+## 当前阶段：M19 治理 + 能力扩展 + 测试补强（2026-08-30 启动）
+
+> **状态**：P 阶段规划完成，等待用户确认启动。
+>
+> **范围**：承接 M18 闭环后 backlog 候选池，按"类型平衡"原则选取 5 项任务：技术债 1 项 + 能力扩展 1 项 + 用户体验 2 项 + 测试覆盖 1 项。
+>
+> **5 子任务**：
+> - **M19.1**（P3，技术债）：C34 存量规范严格约束挂接盘点 —— 审查 `docs/standards/*.md` 中"必须级"条款是否已在 code-quality-checklist.md / code-reviewer skill 双层对称挂接
+> - **M19.2**（P2，能力扩展）：C23 发现规模上限 max-repos —— 大 org 数百仓库一次性全量发现 + 逐仓库探测配额消耗不可控；发现层按配置上限截断排序后截断保证确定性或拆为分批处理
+> - **M19.3**（P2，用户体验）：B1 PR 关闭评论 + label —— 需 `issues: write` 权限，比当前 `pull-requests: write` 宽；PR 数量增长影响 `pulls.list` 查重性能或用户需要 PR 列表可过滤时
+> - **M19.4**（P2，测试覆盖）：T701-e2e 管理端点集成测试补强 —— 用户管理 / 凭据管理 / 仓库管理的 API 端点集成测试覆盖；当前主要靠 vitest 单测，playwright e2e 仅 admin.vue
+> - **M19.5**（P2，用户体验）：C8 per-source 错误隔离 —— 并行源任一失败目前整体硬失败已拉取的 Dependabot 结果丢失；演进为 warn + 仅弃该源需确认语义
+>
+> **依赖关系**：M19.1 独立（治理前置）→ M19.2 / M19.3 / M19.4 / M19.5 可并行
+>
+> **总投入预估**：~10 commits（M19.1 1-2 + M19.2 2-3 + M19.3 1-2 + M19.4 2-3 + M19.5 1-2）
+>
+> **下一步候选**：
+> - **M19.1 D 阶段**：执行 C34 存量规范挂接盘点（docs only）
+> - **backlog 主条目候选池（M20+ 可拣选）**：B2（固定分支单线）/ B3（PR 自动合并闭环）/ C24（org 级 alerts 批量拉取）/ C33（MCP P3）/ C9（summary 字段未渲染）/ C13（循环依赖）/ C14（多 cs 告警性能）
 
 ---
 
@@ -10,9 +29,6 @@
 
 | 内容类型 | 位置 |
 |:--|:--|
-| 已完成阶段归档 | [todo-archive.md](todo-archive.md)（主窗口保留最近 5 个已归档阶段：M17 / M16 / M15 / M14 / M13 + M12/M8/C53 等指针段；M12 已分片至 [archive/todo-archive-phases-m12.md](archive/todo-archive-phases-m12.md) / 早期阶段分片见 [archive/](archive/)） |
-| 早期阶段分片 | [archive/](archive/)（M0-M11 + 2026-08-28 M16 归档批次新增的 [todo-archive-phases-m10-c53-c59c61.md](archive/todo-archive-phases-m10-c53-c59c61.md)） |
-| 未排期 / 延期 / 远期 + 已知边界 / known-issue | [backlog.md](backlog.md)（已闭环条目已清理：C16 / C21 已由 M13 闭环迁出 / UX-R1 已由 M14.2 闭环迁出 / UX-R2 已由 M15 闭环迁出 / UX-R3 已由 M16.1 闭环迁出 / **C38 / S-2 / S-4 / 服务端 API i18n 范围外扩展 已由 M17 归档批次闭环迁出**） |
-| 里程碑与阶段交付 | [roadmap.md](roadmap.md)（**M0-M17 已闭环归档**；M17 安全与可用性收口 6 子阶段 2026-08-28 9 commits 已全部推送至 origin/master ahead=0） |
-| 当前阶段活跃任务 | [todo.md](todo.md) 顶部"当前阶段"段（**当前无活跃实施阶段**：M17 全部 6 子阶段已闭环归档 2026-08-28 9 commits（含 session 收尾）已全部推送至 `origin/master` ahead=0；等待用户启动 M18） |
-| 已知边界 / known-issue | backlog 顶部"已知边界与 known-issue"段（PrimeVue hydration 主线 #1 状态从"暂停"变"已缓解"——M16.4 useAsyncData 迁移后 rowGroup hydration 已闭环；剩余 PrimeVue 4 + Nuxt SSR hydration 兼容性 bug 监控 PrimeVue 4 changelog） |
+| 已完成阶段归档 | [todo-archive.md](todo-archive.md) |
+| 未排期 / 延期 / 远期 | [backlog.md](backlog.md) |
+| 里程碑与阶段交付 | [roadmap.md](roadmap.md) |

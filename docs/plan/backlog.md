@@ -126,7 +126,7 @@
 
 #### PR 管理
 
-- **B1** PR 关闭评论 + label（需 `issues: write` 权限，比当前 `pull-requests: write` 宽；触发：PR 数量增长影响 `pulls.list` 查重性能或用户需要 PR 列表可过滤时）
+- **B1** PR 关闭评论 + label（需 `issues: write` 权限，比当前 `pull-requests: write` 宽；触发：PR 数量增长影响 `pulls.list` 查重性能或用户需要 PR 列表可过滤时）**—— 2026-08-30 已上收 M19.3**
 - **B2** 固定分支单线设计（独立平台部署后修复频率上升，需要固定修复分支如 `dependfix/auto-fix` 避免频繁向 master 提交 PR；触发：v1.0.0 后 M12 平台 UX 修复链路上线；关联：T210 指纹方案整合复用/重建策略 + force push 语义）
 - **B3** PR 自动合并闭环（当前 dependfix 只解决自动提 PR 的问题，但没有后续自动合并的闭环；批准 PR 不应由本项目来做，否则失去单独提 PR 的意义；**推荐用户使用 mergify（`.github/mergify.yml`）或 GitHub Action（类似 [fastify/github-action-merge-dependabot](https://github.com/fastify/github-action-merge-dependabot)）来自动合并**；本项目只提供参考模板 + 文档引导；交付物：`docs/guide/auto-merge.md` 指南 + 模板配置文件；触发：用户实测反馈 PR 积压 / 手动合并繁琐时上收）
 
@@ -177,12 +177,12 @@
     - **3 用户决策固化**（2026-08-29）：① M18.0 评估子阶段独立（A 决策）② fixtures 仅 mock 无真实 App（C 决策；用户接受风险）③ M18.x 治理批次合并入 C22 子阶段顺手做（B 决策）
     - **PAT 无感升级方案**：推荐 B（AuthProvider 注入统一入口）；`createGitHubClient` 改为 `{ auth: AuthProvider }`；老 `{ token }` 签名保留为 deprecated 包装；9 个测试 + 2 个 app 调用点改造；PAT 路径 commit author 保留硬编码兼容
     - **关键风险承担**：决策 C fixtures 仅 mock 违反"防升级回归"目的（e2e 不能验证真实 GitHub App 行为如 installation token 失效 / rate limit / JWT 签名边界），用户已接受；缓解措施 = 单测聚焦 `@octokit/auth-app` 库 mock 输出契约
-- **C23** 发现规模上限 max-repos（[architecture.md](../design/governance/architecture.md) 规划 `max-repos` 输入参数代码未实现 grep 零命中；大 org 数百仓库一次性全量发现 + 逐仓库探测 `.github/dependabot.yml` N 次 contents API 配额消耗与总耗时不可控；当前防护仅 concurrency 16 + 限流重试 + probe 并发 5 无总量上限；建议：发现层按配置上限截断排序后截断保证确定性或拆为分批处理）
+- **C23** 发现规模上限 max-repos（[architecture.md](../design/governance/architecture.md) 规划 `max-repos` 输入参数代码未实现 grep 零命中；大 org 数百仓库一次性全量发现 + 逐仓库探测 `.github/dependabot.yml` N 次 contents API 配额消耗与总耗时不可控；当前防护仅 concurrency 16 + 限流重试 + probe 并发 5 无总量上限；建议：发现层按配置上限截断排序后截断保证确定性或拆为分批处理）**—— 2026-08-30 已上收 M19.2**
 - **C24** org 级 alerts API 批量拉取（GitHub 提供 org 级 `GET /orgs/{org}/dependabot/alerts` 与 `GET /orgs/{org}/code-scanning/alerts`；当前按仓库逐仓拉取 `listAlertsForRepo`；大 org 场景可显著减少 API 调用但需按仓库重组结果 + defaultBranch 注入 org 级响应可能缺省分支上下文复杂度上升；触发：等真实大 org 用户痛点再动）
 
 #### 报告与统计口径
 
-- **C8** per-source 错误隔离（T301 遗留；并行源任一失败目前整体硬失败已拉取的 Dependabot 结果丢失；演进为 warn + 仅弃该源需确认语义；来源：T301 Review Gate 2026-08-05）
+- **C8** per-source 错误隔离（T301 遗留；并行源任一失败目前整体硬失败已拉取的 Dependabot 结果丢失；演进为 warn + 仅弃该源需确认语义；来源：T301 Review Gate 2026-08-05）**—— 2026-08-30 已上收 M19.5**
 - **C9** summary 字段未渲染（T304 遗留；告警 summary 已收集未渲染 JSON 可见；报告/PR body 如需摘要列可加；来源：T304 Review Gate 2026-08-05）
 
 #### 架构与性能
@@ -192,7 +192,7 @@
 
 #### 治理
 
-- **C34** 存量规范严格约束挂接盘点（审查治理候选；审查现有 `docs/standards/*.md` 中"必须级"条款是否已在 code-quality-checklist.md / code-reviewer skill 双层对称挂接；现状：部分已挂接 development/testing/security/git/ai-collaboration，部分仅 standards 有 platform.md §7.1/§7.2；触发：下次 neat-freak 批次统一盘点）
+- **C34** 存量规范严格约束挂接盘点（审查治理候选；审查现有 `docs/standards/*.md` 中"必须级"条款是否已在 code-quality-checklist.md / code-reviewer skill 双层对称挂接；现状：部分已挂接 development/testing/security/git/ai-collaboration，部分仅 standards 有 platform.md §7.1/§7.2；触发：下次 neat-freak 批次统一盘点）**—— 2026-08-30 已上收 M19.1**
 - **C39 standards 文档 ENCRYPTION_KEY → NUXT_ENCRYPTION_KEY 同步**（M17.1 audit warning #1 登记）**—— 2026-08-29 已由 M18.3 commit `7ef0d73 docs(guide+design+standards): GitHub App 配置章节 + C39 standards 同步` 顺带闭环**（`platform.md:150` / `platform.md:240` / `security.md:83` / `security.md:123` / `security.md:131` / `security.md:132` / `security.md:138` / `security.md:145` 共 8 处均已 `NUXT_ENCRYPTION_KEY`，与代码层 `useRuntimeConfig().encryptionKey` 单源一致）；条目可从 backlog 主条目迁出至历史归档指针段；唯一未改的 `docs/design/governance/sandbox-security-governance.md:22 + :98` 是 M8 阶段设计意图的历史快照（不应改）
 - **C34 存量规范严格约束挂接盘点**（审查治理候选）
   - 2026-08-26 M14.x neat-freak 批次部分完成（roadmap.md L24 描述："⑫ C34 存量规范必级条款挂接盘点 + code-quality-checklist.md 双层对称补挂接 5 个必查项"）：补 5 个必查项到 code-quality-checklist.md（README/release 链路 / workspace 依赖包预构建 / 复合索引必须类级 / 裸 HTML 标签禁令 / 文档归档 anchor）
@@ -203,7 +203,7 @@
 #### 工作流
 
 - **T905** git worktree 并行开发预案（触发条件：多 agent 并行开发成为常态；当前单 agent 工作流无需启用）
-- **T701-e2e** 管理端点集成测试补强（用户管理 / 凭据管理 / 仓库管理的 API 端点集成测试覆盖；当前主要靠 vitest 单测，playwright e2e 仅 admin.vue；触发：M7 闭环后定期演练；前置：先评估 T701-e2e 是否纳入 M13 阶段）
+- **T701-e2e** 管理端点集成测试补强（用户管理 / 凭据管理 / 仓库管理的 API 端点集成测试覆盖；当前主要靠 vitest 单测，playwright e2e 仅 admin.vue；触发：M7 闭环后定期演练；前置：先评估 T701-e2e 是否纳入 M13 阶段）**—— 2026-08-30 已上收 M19.4**
 
 #### 平台告警视图增强
 

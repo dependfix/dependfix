@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test'
 import { authedCookieHeader } from './helpers/auth-cookie.helper'
 
 /**
- * 仓库管理 API 集成测试（M19.4 T701-e2e）：
+ * 仓库管理 API 集成测试（todo.md §M19.4 T701-e2e）：
  * 1. POST /api/repos — admin 创建仓库，参数验证
  * 2. GET /api/repos — admin/viewer 列表
  * 3. GET /api/repos/[id] — admin/viewer 详情
@@ -13,7 +13,7 @@ import { authedCookieHeader } from './helpers/auth-cookie.helper'
  * 8. 资源不存在 → 404
  */
 
-test.describe('仓库管理 API 集成（M19.4 T701-e2e）', () => {
+test.describe('仓库管理 API 集成（todo.md §M19.4 T701-e2e）', () => {
     test.use({ storageState: 'tests/e2e/.auth/admin.json' })
 
     function uniqueStamp(): string {
@@ -354,7 +354,7 @@ test.describe('仓库管理 API 集成（M19.4 T701-e2e）', () => {
     })
 })
 
-test.describe('仓库管理 API 鉴权边界（M19.4 T701-e2e）', () => {
+test.describe('仓库管理 API 鉴权边界（todo.md §M19.4 T701-e2e）', () => {
     test.use({ storageState: 'tests/e2e/.auth/viewer.json' })
 
     test('viewer GET /api/repos → 200（列表只读）', async ({ browser }) => {

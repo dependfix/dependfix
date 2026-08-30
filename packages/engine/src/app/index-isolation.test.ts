@@ -391,7 +391,7 @@ describe('DependfixApp cross-major alert handling (PR #28)', () => {
 })
 
 // ---------------------------------------------------------------------------
-// M19.5 C8 logPartialSourceFailureSummary（CLI run 结束的部分源拉取失败汇总）
+// logPartialSourceFailureSummary（todo.md §M19.5 C8：CLI run 结束的部分源拉取失败汇总）
 // ---------------------------------------------------------------------------
 
 describe('logPartialSourceFailureSummary', () => {
@@ -419,7 +419,7 @@ describe('logPartialSourceFailureSummary', () => {
         logPartialSourceFailureSummary(errors, logger, true)
         expect(logger.warn).toHaveBeenCalledTimes(1)
         const msg = (logger.warn as ReturnType<typeof vi.fn>).mock.calls[0][0] as string
-        expect(msg).toContain('M19.5 per-source 错误隔离')
+        expect(msg).toContain('per-source 错误隔离')
         expect(msg).toContain('dependabot')
         expect(msg).toContain('2 个仓库')
         expect(msg).toContain('foo/a')
@@ -454,7 +454,7 @@ describe('logPartialSourceFailureSummary', () => {
     it('handles missing source field (backward compat)', () => {
         const logger = makeLogger()
         const errors: FixError[] = [
-            // 旧代码路径可能产生无 source 字段的 FETCH_FAILED（M19.5 之前的错误记录）
+            // 旧代码路径可能产生无 source 字段的 FETCH_FAILED（兼容性回归）
             { repository: 'foo/a', stage: 'fetch', category: 'FETCH_FAILED', message: 'legacy-error' },
         ]
         logPartialSourceFailureSummary(errors, logger, true)

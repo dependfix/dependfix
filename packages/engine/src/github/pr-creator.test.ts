@@ -348,7 +348,7 @@ describe('closePullRequest', () => {
 })
 
 // ---------------------------------------------------------------------------
-// commentOnPullRequest / addLabelToPullRequest（M19.3 重复 PR 评论 + label）
+// commentOnPullRequest / addLabelToPullRequest（todo.md §M19.3 重复 PR 评论 + label）
 // ---------------------------------------------------------------------------
 
 describe('commentOnPullRequest', () => {

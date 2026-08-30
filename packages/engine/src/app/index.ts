@@ -100,11 +100,11 @@ export interface DependfixRunResult {
 }
 
 // ---------------------------------------------------------------------------
-// Per-source 错误隔离汇总（M19.5 C8）
+// Per-source 错误隔离汇总（todo.md §M19.5 C8）
 // ---------------------------------------------------------------------------
 
 /**
- * 输出"部分源拉取失败"汇总（M19.5 C8 per-source 错误隔离）。
+ * 输出"部分源拉取失败"汇总（todo.md §M19.5 C8 per-source 错误隔离）。
  *
  * 触发条件（必须全部满足，避免与"全部源失败"语义重叠）：
  * 1. allErrors 至少包含一个 `stage='fetch' + category='FETCH_FAILED'` 错误（per-source 失败）
@@ -296,7 +296,7 @@ export class DependfixApp {
                 `[ai] run 总计: ${u.calls} 次调用, ${u.inputTokens} in / ${u.outputTokens} out tokens${costText}`,
             )
         }
-        // 部分源拉取失败汇总（M19.5 C8 per-source 错误隔离）：
+        // 部分源拉取失败汇总（todo.md §M19.5 C8）：
         // 仅当至少 1 个源成功 + 至少 1 个源失败时输出（避免与"全部源失败"语义重叠）。
         const isAnyRepoSuccessful = this.repoResults.some((r) =>
             r.alertsCount > 0 || r.fixed > 0 || r.verificationPassed === true,

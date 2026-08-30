@@ -2,10 +2,10 @@ import { expect, test } from '@playwright/test'
 import { authedCookieHeader } from './helpers/auth-cookie.helper'
 
 /**
- * 用户管理 API 服务端契约测试（M19.4 T701-e2e）：
+ * 用户管理 API 服务端契约测试（todo.md §M19.4 T701-e2e）：
  *
  * 本文件专注于**业务参数契约**测试（happy path + 参数校验），不重复 admin-roles.e2e.test.ts 已覆盖的
- * viewer→403 + admin 通过 adminMiddleware 矩阵（避免与既有测试重复，违反 M19.4 范围"不重写已有单测"）。
+ * viewer→403 + admin 通过 adminMiddleware 矩阵（避免与既有测试重复）。
  *
  * self-target 防御由 admin.e2e.test.ts Line 213-226 覆盖；adminMiddleware 鉴权由
  * admin-roles.e2e.test.ts 覆盖。
@@ -19,7 +19,7 @@ import { authedCookieHeader } from './helpers/auth-cookie.helper'
  * 6. admin POST /api/auth/admin/unban-user → 业务返回（admin-roles 缺 happy path）
  */
 
-test.describe('用户管理 API 服务端契约（M19.4 T701-e2e）', () => {
+test.describe('用户管理 API 服务端契约（todo.md §M19.4 T701-e2e）', () => {
     test.use({ storageState: 'tests/e2e/.auth/admin.json' })
 
     test('admin GET /api/auth/admin/list-users → 200 + 含已注册 admin 账号', async ({ page }) => {

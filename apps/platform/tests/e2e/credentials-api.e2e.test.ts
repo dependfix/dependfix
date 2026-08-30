@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test'
 import { authedCookieHeader } from './helpers/auth-cookie.helper'
 
 /**
- * 凭据管理 API 集成测试（M19.4 T701-e2e）：
+ * 凭据管理 API 集成测试（todo.md §M19.4 T701-e2e）：
  * 1. POST /api/credentials — admin 创建凭据，参数验证
  * 2. GET /api/credentials — admin/viewer 列表（脱敏视图）
  * 3. GET /api/credentials/[id] — admin/viewer 详情（脱敏）
@@ -11,7 +11,7 @@ import { authedCookieHeader } from './helpers/auth-cookie.helper'
  * 6. 类型验证：type=classic-pat / fine-grained-pat / github-app
  */
 
-test.describe('凭据管理 API 集成（M19.4 T701-e2e）', () => {
+test.describe('凭据管理 API 集成（todo.md §M19.4 T701-e2e）', () => {
     test.use({ storageState: 'tests/e2e/.auth/admin.json' })
 
     function uniqueStamp(): string {
@@ -231,7 +231,7 @@ test.describe('凭据管理 API 集成（M19.4 T701-e2e）', () => {
     })
 })
 
-test.describe('凭据管理 API 鉴权边界（M19.4 T701-e2e）', () => {
+test.describe('凭据管理 API 鉴权边界（todo.md §M19.4 T701-e2e）', () => {
     test.use({ storageState: 'tests/e2e/.auth/viewer.json' })
 
     test('viewer GET /api/credentials → 200（列表只读）', async ({ browser }) => {

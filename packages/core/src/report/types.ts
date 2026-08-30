@@ -104,7 +104,7 @@ export interface FixError {
     /**
      * 告警源标识（仅 stage='fetch' + category='FETCH_FAILED' 时存在）：
      * 标识本次失败的具体源（'dependabot' | 'code-scanning' | 'code-quality' | 'pnpm-audit'），
-     * 便于 CLI / 平台 UI 输出部分源失败的分组汇总（M19.5 C8 per-source 错误隔离）。
+     * 便于 CLI / 平台 UI 输出部分源失败的分组汇总（per-source 错误隔离）。
      */
     source?: string
 }

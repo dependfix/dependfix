@@ -8,7 +8,7 @@ import { resolveRuntimeConfig } from '../config'
 import { DependfixApp } from './index'
 
 // ---------------------------------------------------------------------------
-// M19.3 B1：重复 PR 评论 + label 集成测试
+// 重复 PR 评论 + label 集成测试（todo.md §M19.3 B1）
 // 验证 handleDuplicatePRs 在 PR 创建流程中的集成行为：
 // - 正常路径：supersedePRs 非空 → comment + addLabels 均被调用
 // - 失败路径：comment 或 label 失败 → warn 不阻断主流程
@@ -128,7 +128,7 @@ function verificationOk(): ReturnType<typeof mockRunVerification> extends Promis
     }
 }
 
-describe('DependfixApp handleDuplicatePRs (M19.3 B1)', () => {
+describe('DependfixApp handleDuplicatePRs', () => {
     let workDir: string
 
     beforeEach(() => {

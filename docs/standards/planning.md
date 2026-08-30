@@ -101,6 +101,12 @@
    - commit 数量：`git log master --first-parent --since=<起始日期> --until=<结束日期> --oneline | grep -E "<子任务前缀>" | sort -u | wc -l`
    - 子任务数量：子任务编号列表一一对应（`T1301+T1302+...+T1403 = 12 子任务`），不留估算空间
    - 教训：M13 阶段归档批次审计实证：执行角色归档文案估算"M13.2 10 commits / M13.3 4 commits / 合计 24 commits / 合计 11 子任务" → Code Auditor quick depth 检出 RG-W1 + RG-W2 两处算式错误（实际 M13.2 11 / M13.3 5 / 合计 26 commits / 合计 12 子任务）。修复 commit `3621982` → `e9987f9` 5 atomic commits 中 5 文件 6 处统一算式校对（todo-archive.md 4 处 + todo.md 1 处 + roadmap.md 1 处 + backlog.md 1 处 + archive/index.md 2 处）。
+9. **区分已归档内容与必要信息**：清理 `backlog.md` / `todo.md` 时必须区分"已归档内容"和"必要信息"：
+   - **可删除**：`闭环整理` 这类已归档内容（如 M16/M17/M18 归档批次的详细记录）
+   - **必须保留**：`维护规则`（backlog 的治理依据）、`长期主线任务详细描述`（后续阶段理解任务背景）、`未上收待办项`（活跃任务）、`待人工验收条目`（真实环境验证任务）
+   - **归档后验证链接**：`pnpm run check:docs` 检查断链
+   - **判断标准**：删除前问"这个信息在下一阶段启动时是否需要？"——如果需要，就保留
+   - 教训：M18 归档批次两次"删过头"实证——第一次删除了 todo.md 中的"维护规则"和待人工验收条目 + backlog.md 中的未上收待办项；第二次 backlog.md 被简化过度，删除了长期主线任务的详细描述和周期性回归验证层。详见 [经验归档 §四十五](../design/governance/experience-archive.md#四十五归档时区分已归档内容与必要信息2026-08-30m18-归档批次)
 
 > 本节为大批量文档归档批次（multi-file edit + 段结构变更）的统一操作规范；其他文档归档 / 小批量编辑仅执行相关条目。M12 归档 + backlog 重排 2 个批次实证：anchor 实证命中 1 次 / 跨文件外链追踪命中 10 次 / 相对路径精确命中 2 次 / commit 分组追踪命中 2 次 / ahead 实证命中 0 次（但作为常态化检查）。
 

@@ -2,9 +2,10 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import nock from 'nock'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { FixError, Logger } from '@dependfix/core'
 import { resolveRuntimeConfig } from '../config'
-import { DependfixApp } from './index'
+import { DependfixApp, logPartialSourceFailureSummary } from './index'
 
 // ---------------------------------------------------------------------------
 // 禁止真实外联：未匹配请求（含启动安全检查的 GET /user 权限探测）抛错，
@@ -386,5 +387,90 @@ describe('DependfixApp cross-major alert handling (PR #28)', () => {
         // 跨线告警仍在告警列表（报告可见），且未被标记 fixed（版本满足判定）
         const crossAlert = result.alerts.find((a) => a.ruleId === 'GHSA-1')
         expect(crossAlert).toBeDefined()
+    })
+})
+
+// ---------------------------------------------------------------------------
+// M19.5 C8 logPartialSourceFailureSummary（CLI run 结束的部分源拉取失败汇总）
+// ---------------------------------------------------------------------------
+
+describe('logPartialSourceFailureSummary', () => {
+    function makeLogger(): Logger & { warn: ReturnType<typeof vi.fn> } {
+        return {
+            info: vi.fn(),
+            warn: vi.fn(),
+            error: vi.fn(),
+            debug: vi.fn(),
+        } as never
+    }
+
+    it('no-op when no fetch errors', () => {
+        const logger = makeLogger()
+        logPartialSourceFailureSummary([], logger, true)
+        expect(logger.warn).not.toHaveBeenCalled()
+    })
+
+    it('emits grouped warn when only dependabot source fails', () => {
+        const logger = makeLogger()
+        const errors: FixError[] = [
+            { repository: 'foo/a', stage: 'fetch', category: 'FETCH_FAILED', source: 'dependabot', message: 'timeout' },
+            { repository: 'foo/b', stage: 'fetch', category: 'FETCH_FAILED', source: 'dependabot', message: 'timeout' },
+        ]
+        logPartialSourceFailureSummary(errors, logger, true)
+        expect(logger.warn).toHaveBeenCalledTimes(1)
+        const msg = (logger.warn as ReturnType<typeof vi.fn>).mock.calls[0][0] as string
+        expect(msg).toContain('M19.5 per-source 错误隔离')
+        expect(msg).toContain('dependabot')
+        expect(msg).toContain('2 个仓库')
+        expect(msg).toContain('foo/a')
+        expect(msg).toContain('foo/b')
+    })
+
+    it('groups failures by source across multiple sources', () => {
+        const logger = makeLogger()
+        const errors: FixError[] = [
+            { repository: 'foo/a', stage: 'fetch', category: 'FETCH_FAILED', source: 'dependabot', message: 'd-err' },
+            { repository: 'foo/a', stage: 'fetch', category: 'FETCH_FAILED', source: 'code-scanning', message: 'cs-err' },
+            { repository: 'foo/b', stage: 'fetch', category: 'FETCH_FAILED', source: 'code-scanning', message: 'cs-err' },
+        ]
+        logPartialSourceFailureSummary(errors, logger, true)
+        const msg = (logger.warn as ReturnType<typeof vi.fn>).mock.calls[0][0] as string
+        expect(msg).toContain('dependabot')
+        expect(msg).toContain('code-scanning')
+        expect(msg).toContain('foo/a')
+        expect(msg).toContain('foo/b')
+    })
+
+    it('ignores non-fetch errors', () => {
+        const logger = makeLogger()
+        const errors: FixError[] = [
+            { repository: 'foo/a', stage: 'fix', category: 'VERIFICATION_FAILED', message: 'lint fail' },
+            { repository: 'foo/a', stage: 'report', category: 'ARCHIVE_FAILED', message: 'disk full' },
+        ]
+        logPartialSourceFailureSummary(errors, logger, true)
+        expect(logger.warn).not.toHaveBeenCalled()
+    })
+
+    it('handles missing source field (backward compat)', () => {
+        const logger = makeLogger()
+        const errors: FixError[] = [
+            // 旧代码路径可能产生无 source 字段的 FETCH_FAILED（M19.5 之前的错误记录）
+            { repository: 'foo/a', stage: 'fetch', category: 'FETCH_FAILED', message: 'legacy-error' },
+        ]
+        logPartialSourceFailureSummary(errors, logger, true)
+        const msg = (logger.warn as ReturnType<typeof vi.fn>).mock.calls[0][0] as string
+        expect(msg).toContain('unknown')
+        expect(msg).toContain('legacy-error')
+    })
+
+    it('skips summary when no repository succeeded (throw 路径已单独报错)', () => {
+        const logger = makeLogger()
+        const errors: FixError[] = [
+            { repository: 'foo/a', stage: 'fetch', category: 'FETCH_FAILED', source: 'dependabot', message: 'd-err' },
+            { repository: 'foo/a', stage: 'fetch', category: 'FETCH_FAILED', source: 'code-scanning', message: 'cs-err' },
+        ]
+        // isAnyRepoSuccessful = false → 不输出（避免与 throw 路径 logger.error 重复）
+        logPartialSourceFailureSummary(errors, logger, false)
+        expect(logger.warn).not.toHaveBeenCalled()
     })
 })

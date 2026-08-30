@@ -123,6 +123,8 @@ describe('fetchRepoAlerts (three-source parallel + per-source error isolation)',
         expect(deps.allErrors).toHaveLength(1)
         expect(deps.allErrors[0].category).toBe('FETCH_FAILED')
         expect(deps.allErrors[0].repository).toBe(REPO)
+        // M19.5 C8：source 字段记录失败源，便于 CLI 汇总警告
+        expect(deps.allErrors[0].source).toBe('code-quality')
     })
 
     it('isolates code-scanning failure: dependabot still returned, error recorded', async () => {
@@ -141,6 +143,8 @@ describe('fetchRepoAlerts (three-source parallel + per-source error isolation)',
         expect(alerts).toHaveLength(1)
         expect(alerts[0].source).toBe('dependabot')
         expect(deps.allErrors).toHaveLength(1)
+        // M19.5 C8：source 字段记录失败源
+        expect(deps.allErrors[0].source).toBe('code-scanning')
     })
 
     it('throws when all enabled sources fail (dependabot + code-quality both 403)', async () => {

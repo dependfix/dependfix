@@ -137,6 +137,7 @@ function recordAlertSourceError(deps: FetchAlertsDeps, repo: string, source: str
         repository: repo,
         stage: 'fetch',
         category: 'FETCH_FAILED',
+        source,
         message: hint ? `${message}（${hint}）` : message,
     })
 }

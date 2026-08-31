@@ -36,6 +36,34 @@ metadata:
 3. **方案设计**：输出受影响文件清单、验证矩阵和阶段交接顺序。
 4. **任务落点**：仅对允许执行的事项进入 Do。
 
+#### P 阶段开工前归档检查（hard requirement）
+
+启动下一阶段 P 阶段前必须执行**强制归档检查**（PDTFC+ 闭环后下一阶段开始前的衔接工作流），避免数据漂移：
+
+```bash
+# 1. 检查 todo.md 数据漂移信号
+rg "^- ### \[ \]" docs/plan/todo.md  # 找出 [ ] 未闭环条目
+
+# 2. 检查 session Wisdom 活跃条目数
+cd /root/projects/dependfix && pnpm distill:wisdom --check
+
+# 3. 检查 experience-archive.md 最新§号连续性
+wc -l docs/design/governance/experience-archive.md
+```
+
+**强制提醒**：当 todo.md 仍有 `[ ]` 条目（数据漂移信号）时，执行角色必须**主动询问**"是否需要先归档上一阶段？"——不得直接添加下一阶段待办。这是 [ai-collaboration.md §1.5 阶段归档检查 + 沉淀工作流](../../../docs/standards/ai-collaboration.md) + §1.4 P 阶段规划暂停协议的延伸。
+
+**完整衔接工作流**：
+```
+阶段闭环 F → 归档批次 → 沉淀工作流 → 下一阶段 P 阶段
+       ↓           ↓             ↓
+  todo-archive    experience    docs/standards/*
+  backlog.md     -archive.md    .github/agents/*
+  roadmap.md
+```
+
+详见 [ai-collaboration.md §1.5 阶段归档检查 + 沉淀工作流](../../../docs/standards/ai-collaboration.md)。
+
 - **技能**：`requirement-analyst`、`context-analyzer`
 
 ### D (Do) — 开发实现

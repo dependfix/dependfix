@@ -157,6 +157,78 @@ P 阶段规划写入 `todo.md` 顶部 banner / M 段 banner 时，ahead 状态�
 - **会话沉淀**：P 阶段规划落地后必须同步更新 `.session/current-task.yaml` 与 `.session/runtime-state.json`，标注 `phase = "P 阶段文档已落地，待用户指令进入 D 阶段"` + `blocked_on = "用户发布"`。
 - **经验闭环**：P 阶段收口时同步更新 `docs/standards/*` 与 `.github/skills/*`，把本次 P 阶段的字段切分 / 标题层级 / 锚点规则等决定固化进规范（避免经验仅留会话）。
 
+## 1.5 阶段归档检查 + 沉淀工作流（PDTFC+ 闭环后必经）
+
+PDTFC+ 闭环（F 阶段提交后）的下一阶段启动前，必须执行"阶段归档检查 + 沉淀"独立流程——**不**是归档阶段本身，是阶段之间的衔接工作：
+
+### 1. 阶段开工前归档检查（hard requirement）
+
+启动下一阶段 P 阶段前必须执行**强制归档检查**，避免数据漂移：
+
+```bash
+# 1. 检查 todo.md 是否有未 [x] 条目（数据漂移信号）
+rg "^- ### \[" docs/plan/todo.md  # 找出所有 ### [...] 条目
+rg "^- ### \[ \]" docs/plan/todo.md  # 找出 [ ] 未闭环条目（数据漂移）
+
+# 2. 检查 wisdom.md 活跃条目数（接近 20 阈值需蒸馏）
+cd /root/projects/dependfix && pnpm distill:wisdom --check
+
+# 3. 检查 experience-archive.md 健康窗口
+wc -l docs/design/governance/experience-archive.md  # 当前最新§号连续性
+```
+
+**强制提醒**：当**上一阶段 todo.md 仍有 `[ ]` 条目时**，执行角色必须**主动询问**"是否需要先归档上一阶段？"——不得直接添加下一阶段待办。这是 §1.4 "P 阶段规划暂停协议"的延伸：阶段间的衔接也是用户驱动工作流。
+
+### 2. 阶段闭环后沉淀工作流（PDTFC+ 闭环必经）
+
+阶段归档（PDTFC+ F 阶段提交后）→下一阶段 P 阶段规划前，必须执行沉淀工作流（**与归档同源**但更细粒度）：
+
+```
+阶段闭环 F → 归档批次 → 沉淀工作流 → 下一阶段 P 阶段
+        ↓
+   [规划规范 §4.4]  [经验归档沉淀]      [PDTFC+ 启动]
+   todo-archive       experience-archive  docs/plan/*
+   backlog.md         docs/standards/*    roadmap.md
+   roadmap.md         docs/index.md       (M21+ 候选)
+```
+
+沉淀工作流步骤：
+
+1. **经验提炼**：本阶段是否有值得沉淀的教训/决策？判断标准（[experience-archive.md §准入标准](../design/governance/experience-archive.md)）：
+   - 教训未落入规范（可执行方法论尚未迁移到 `docs/standards/` 或 skill/agent 定义）
+   - 决策需要溯源（产品/技术方向的关键决策，未来需回答"为什么当时这么做"）
+   - 重复违规预警（同一模式已违规 ≥ 2 次）
+   - 工具/环境陷阱（本地不可测、跨平台差异、工具默认值覆盖等）
+
+2. **经验归档**：在 `experience-archive.md` 末尾追加新§（编号连续），结构含：案例 / 教训 / 与既有教训的关联 / 挂接治理检查点 / 准入标准复核。
+
+3. **规范迁移**：把案例抽象出的可执行方法论挂接到 `docs/standards/*.md` 或 `.github/skills/*/SKILL.md` 或 `.github/agents/*.agent.md`——单点声明原则（[documentation.md §4](./documentation.md)），不重复抄写完整条款。
+
+4. **session Wisdom 沉淀**：活跃条目 ≥ 20 阈值时执行 `pnpm distill:wisdom`；新 pattern 按 `pattern-*` / `principle-*` / `practice-*` 格式追加到 `.session/wisdom.md` 当前条目段。
+
+### 3. 归档/沉淀 commits 必须经过 A 阶段 code-auditor 深度审计（hard requirement）
+
+归档/沉淀 commits 涉及的 `docs/standards/*.md` / `docs/design/governance/*.md` / `.github/agents/*.agent.md` 等治理定义修改，**必须**经过 A 阶段 code-auditor 深度审计（与 D 阶段 feature commits 同等标准），不得因为"仅文档改动"或"非业务代码"就跳过审计。
+
+**审计必查项**（新增 code-auditor 必查项）：
+- **跨文件 cross-reference 完整性**：新增 / 修改 / 迁出章节标题时，必须 `rg -n "<标题>"` 全仓库扫描引用并同步更新（参考 [规划规范 §4.4 第 10 条](./planning.md) 预防性迁出后 cross-reference 更新）
+- **锚点格式正确性**：用 `pnpm run check:docs` 验证 0 error；commit message 必须包含 "check:docs 全过" 证据
+- **规范单点声明**：新规则仅在权威文档完整声明一次，其他文档/skill/agent 仅一行链接引用（[documentation.md §4](./documentation.md)）
+- **活跃 Wisdom 条目数**：本批次新增 pattern 累计后是否触达 20 阈值（若是必须先蒸馏）
+
+**实证教训**：
+- M20 经验教训沉淀 commits（`7a3d746`/`b23251c`/`5e81b19`/`f56e9a1`）提交后 `pnpm run check:docs` 发现 2 处断链（experience-archive.md:781 路径错误 + development.md:237 锚点格式错误），返工 commit `edef93b` 修复——若沉淀前 A 阶段审计检查 cross-reference + check:docs 可避免返工。
+- M18 / M19 归档批次同样有"删过头"教训（§四十五 经验沉淀）——沉淀/归档操作不是无风险，D 阶段标准必须套用。
+
+### 4. 与既有规范的关联
+
+- **§1.4 P 阶段规划暂停协议**：本节是其在阶段间的延伸——阶段内 P → D → A → F → 下一阶段 P 之间的衔接也是用户驱动工作流。
+- **§2.1 迭代中途发现事项处理**：阶段间检查可能发现"上一阶段未完成事项需插队处理"——按 §2.1 决策（插队 vs 延期）。
+- **§规划规范 §4.4 第 10 条**：本节是其在沉淀工作流的具体执行——预防性迁出后 cross-reference 更新。
+- **§开发规范 §3 注释规范**：本节文档涉及"PDTFC+ 闭环"、"A 阶段"等术语引用——不得孤立编号标记（如 "1.5"），必须带文档路径或章节名引用。
+
+---
+
 ## 2.1 迭代中途发现事项处理
 
 1. **先暂停扩写**：停止直接继续实现，先判断是否已在当前待办或验收范围内。

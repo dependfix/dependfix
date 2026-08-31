@@ -9,10 +9,10 @@ import { ActionResultFetcher } from './executor/action-result-fetcher'
 import type { ScanExecutorContext } from './executor/types'
 import { notifyEnvEvent } from './notification'
 import type { NotificationEvent } from './notification/channel'
+import { reconcileAlerts } from './scan-reconcile'
 import { Repository, parseSandboxLimits } from '#server/entities/repository'
 import { Credential } from '#server/entities/credential'
 import { ScanRun } from '#server/entities/scan-run'
-import { ScanResult } from '#server/entities/scan-result'
 import { AuditEvent } from '#server/entities/audit-event'
 import { ensureDatabaseInitialized } from '#server/database'
 
@@ -115,7 +115,8 @@ const runScanInternal = async (
     const ds = await ensureDatabaseInitialized()
     const repoRepo = ds.getRepository(Repository)
     const runRepo = ds.getRepository(ScanRun)
-    const resultRepo = ds.getRepository(ScanResult)
+    // M20.3 per-alert 模型下不再需要 resultRepo 直接 INSERT；
+    // reconcileAlerts 内部管理 ScanResult 写入（INSERT / UPDATE 活跃 / supersede）
 
     const repository = await repoRepo.findOne({
         where: { id: repositoryId },
@@ -147,10 +148,13 @@ const runScanInternal = async (
         // reuse=true 时重置终态字段：让既有 record 复用为新执行的载体（finishedAt / errorJson /
         // summaryJson 来自上一次执行，重置以避免新执行的 summaryJson 与旧 finishedAt 时间戳错位）
         if (options.reuse) {
-            // 清空旧 ScanResult（与 ScanRun 字段重置同步）：避免按 scanRunId JOIN 查询
-            // （alerts dedupe / /api/runs/[id] / `run-detail-dialog` 渲染）出现"旧 report-only
-            // 告警 + 新 fix 告警"并存的数据不一致
-            await resultRepo.delete({ scanRunId: existing.id })
+            // M20.3 per-alert 模型下不再需要清空该 run 的 ScanResult：reconcile 函数
+            // 会按 upstreamId 复用现有行（保留 fixStatus='success' 的修复记录，决策 1）；
+            // 而新出现的告警会 INSERT；上游消失的告警会 supersede。
+            // 旧 ScanResult 行无需删除 —— 让 reconcile 自然处理。
+            // 注意：M20.3 之前 `resultRepo.delete({ scanRunId })` 是为避免"按 scanRunId JOIN
+            // 出现旧 + 新并存"——但 M20.3 后 ScanResult 不再按 scanRunId JOIN（每行是独立告警），
+            // 此删除逻辑已无意义。
             existing.finishedAt = null
             existing.errorJson = null
             existing.summaryJson = null
@@ -319,46 +323,26 @@ const runScanInternal = async (
             if (result) {
                 savedRun.summaryJson = JSON.stringify(result.summary)
                 savedRun.runUrl = runUrl
-                // 原子写结果明细（与 RunResult.alerts 一一对应；degraded 的 ScanResult 参与 severityCounts 统计——业务完整）
-                const results = (result as RunResult).alerts.map((alert) => ({
-                    scanRunId: savedRun.id,
-                    source: alert.source,
-                    severity: alert.severity,
-                    packageName: alert.packageName,
-                    manifestPath: alert.manifestPath,
-                    ruleId: alert.ruleId,
-                    summary: alert.summary,
-                    fixable: alert.fixable,
-                    fixStrategy: alert.fixStrategy,
-                    recommendedVersion: alert.recommendedVersion,
-                    htmlUrl: alert.htmlUrl,
-                }))
-                if (results.length > 0) {
-                    await resultRepo.save(resultRepo.create(results))
-                }
+                // reconcile 写结果明细（todo.md §M20.3 决策 1-4）：
+                // 新告警 → INSERT；已存在 + 上游还有 → UPDATE 活跃；上游消失 + fixStatus≠success → supersede
+                await reconcileAlerts({
+                    repositoryId: repository.id,
+                    newRunId: savedRun.id,
+                    newAlerts: (result as RunResult).alerts,
+                })
             }
         } else if (result) {
             savedRun.status = 'completed'
             savedRun.finishedAt = new Date()
             savedRun.summaryJson = JSON.stringify(result.summary)
             savedRun.runUrl = runUrl
-            // 原子写结果明细（与 RunResult.alerts 一一对应）
-            const results = (result as RunResult).alerts.map((alert) => ({
-                scanRunId: savedRun.id,
-                source: alert.source,
-                severity: alert.severity,
-                packageName: alert.packageName,
-                manifestPath: alert.manifestPath,
-                ruleId: alert.ruleId,
-                summary: alert.summary,
-                fixable: alert.fixable,
-                fixStrategy: alert.fixStrategy,
-                recommendedVersion: alert.recommendedVersion,
-                htmlUrl: alert.htmlUrl,
-            }))
-            if (results.length > 0) {
-                await resultRepo.save(resultRepo.create(results))
-            }
+            // reconcile 写结果明细（todo.md §M20.3 决策 1-4）：
+            // 新告警 → INSERT；已存在 + 上游还有 → UPDATE 活跃；上游消失 + fixStatus≠success → supersede
+            await reconcileAlerts({
+                repositoryId: repository.id,
+                newRunId: savedRun.id,
+                newAlerts: (result as RunResult).alerts,
+            })
         }
 
         // 回填仓库最近扫描时间

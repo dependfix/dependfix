@@ -74,8 +74,16 @@ const seedRun = async (repositoryId: string, overrides: {
 const seedResults = async (runId: string, count: number, fixable: boolean) => {
     const ds = await ensureDatabaseInitialized()
     const repo = ds.getRepository(ScanResult)
+    const run = await ds.getRepository(ScanRun).findOne({ where: { id: runId } })
+    if (!run) {
+        throw new Error(`missing run ${runId}`)
+    }
     const items = Array.from({ length: count }, (_, i) => repo.create({
         scanRunId: runId,
+        repositoryId: run.repositoryId,
+        // M20.3 unique index (repositoryId, upstreamId) 强制不同 upstreamId：
+        // 用 pkg-${i} + runId 后缀保证唯一（同 run 下不同 upstreamId）
+        upstreamId: `dependabot:${runId.slice(-4)}-${i}`,
         source: 'dependabot',
         severity: i === 0 ? 'critical' : 'high',
         packageName: `pkg-${i}`,
@@ -87,6 +95,10 @@ const seedResults = async (runId: string, count: number, fixable: boolean) => {
         recommendedVersion: fixable ? '1.0.0' : null,
         htmlUrl: null,
         fixStatus: fixable ? 'pending' : 'pending',
+        firstSeenAt: new Date('2026-08-01T00:00:00Z'),
+        lastSeenAt: new Date('2026-08-01T00:00:00Z'),
+        occurrenceCount: 1,
+        supersededAt: null,
     }))
     await repo.save(items)
 }

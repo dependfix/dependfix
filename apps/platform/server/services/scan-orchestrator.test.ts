@@ -74,22 +74,30 @@ vi.mock('./notification', () => ({
     notifyEnvEvent: (...args: unknown[]) => notifyEnvEvent(...args),
 }))
 
-const makeResult = (overrides: Record<string, unknown> = {}) => ({
-    summary: { alertsTotal: 1, severityCounts: { critical: 0, high: 1 } },
-    alerts: [{
-        source: 'dependabot',
-        severity: 'high',
-        packageName: 'lodash',
-        manifestPath: 'package.json',
-        ruleId: null,
-        summary: '原型污染',
-        fixable: true,
-        fixStrategy: 'upgrade',
-        recommendedVersion: '4.17.21',
-        htmlUrl: 'https://github.com/demo/app/security',
-    }],
-    ...overrides,
-})
+// M20.1 引擎侧注入 upstreamId 字段；测试 fixtures 必须同步（否则 reconcileAlerts 防御性 TypeError）
+// M20.3 reconcile 模型下，upstreamId 跨测试持久化（in-memory DB 共享 beforeAll/afterAll），
+// 使用 random 唯一化避免 occurrenceCount 跨测试污染（前面测试 INSERT 后本测试 reconcile 会 UPDATE）
+let upstreamCounter = 0
+const makeResult = (overrides: Record<string, unknown> = {}) => {
+    upstreamCounter++
+    return {
+        summary: { alertsTotal: 1, severityCounts: { critical: 0, high: 1 } },
+        alerts: [{
+            source: 'dependabot',
+            severity: 'high',
+            packageName: 'lodash',
+            manifestPath: 'package.json',
+            ruleId: null,
+            summary: '原型污染',
+            fixable: true,
+            fixStrategy: 'upgrade',
+            recommendedVersion: '4.17.21',
+            htmlUrl: 'https://github.com/demo/app/security',
+            upstreamId: `dependabot:${42 + upstreamCounter}`,
+        }],
+        ...overrides,
+    }
+}
 
 describe('scan-orchestrator.service', () => {
     let repositoryId: string
@@ -292,10 +300,14 @@ describe('scan-orchestrator.service', () => {
                 errorJson: null,
                 runUrl: null,
             }))
-            // seed 旧 ScanResult 模拟 report-only 模式留下的告警
+            // seed 旧 ScanResult 模拟 report-only 模式留下的告警（M20.3 per-alert 模型：
+            // repositoryId / upstreamId / firstSeenAt / lastSeenAt / occurrenceCount 必填）
+            const seededNow = new Date('2026-08-12T00:01:00Z')
             await ds.getRepository(ScanResult).save([
                 ds.getRepository(ScanResult).create({
                     scanRunId: terminal.id,
+                    repositoryId: terminal.repositoryId,
+                    upstreamId: 'dependabot:1001',
                     source: 'dependabot',
                     severity: 'high',
                     packageName: 'lodash',
@@ -307,9 +319,15 @@ describe('scan-orchestrator.service', () => {
                     recommendedVersion: '4.18.0',
                     htmlUrl: null,
                     fixStatus: 'pending',
+                    firstSeenAt: seededNow,
+                    lastSeenAt: seededNow,
+                    occurrenceCount: 1,
+                    supersededAt: null,
                 }),
                 ds.getRepository(ScanResult).create({
                     scanRunId: terminal.id,
+                    repositoryId: terminal.repositoryId,
+                    upstreamId: 'dependabot:1002',
                     source: 'dependabot',
                     severity: 'critical',
                     packageName: 'axios',
@@ -321,6 +339,10 @@ describe('scan-orchestrator.service', () => {
                     recommendedVersion: '1.0.0',
                     htmlUrl: null,
                     fixStatus: 'pending',
+                    firstSeenAt: seededNow,
+                    lastSeenAt: seededNow,
+                    occurrenceCount: 1,
+                    supersededAt: null,
                 }),
             ])
             // reuse 前旧 ScanResult 行数 = 2
@@ -345,10 +367,22 @@ describe('scan-orchestrator.service', () => {
             expect(summary.alertsTotal).toBe(1)
             // errorJson 重置为 null
             expect(result.errorJson).toBeNull()
-            // 旧 ScanResult 行应清空，避免按 scanRunId JOIN 出现旧 + 新并存的数据不一致
-            // 修复后只剩本次 mock executor 输出的 1 条新结果（与 run 续用语义对齐）
-            const afterCount = await ds.getRepository(ScanResult).count({ where: { scanRunId: terminal.id } })
-            expect(afterCount).toBe(1)
+            // M20.3 reconcile 行为（todo.md §M20.3 决策 1-4）：
+            // - 新 alert（mock executor 输出 dependabot:<counter>）→ INSERT（scanRunId=terminal.id, occurrenceCount=1）
+            // - 旧 2 条 alert（fixStatus=pending，未在新告警列表中）→ supersededAt=NOW()（仍保留行，scanRunId 仍指向 terminal）
+            // 因此 scanRunId=terminal.id 的 ScanResult = 1 新 INSERT + 2 旧 superseded = 3 行
+            const afterRows = await ds.getRepository(ScanResult).find({ where: { scanRunId: terminal.id } })
+            expect(afterRows).toHaveLength(3)
+            // 旧 alert "dependabot:1001" / "dependabot:1002" 已被 supersede（fixStatus=pending ≠ success，符合决策 1 语义）
+            const supersededRows = afterRows.filter((r) => r.supersededAt !== null)
+            expect(supersededRows.map((r) => r.upstreamId).sort()).toEqual(['dependabot:1001', 'dependabot:1002'])
+            // 新 alert "dependabot:<counter>" 已 INSERT 且未被 supersede
+            const expectedUpstreamId = `dependabot:${42 + upstreamCounter}`
+            const newRow = afterRows.find((r) => r.upstreamId === expectedUpstreamId)
+            expect(newRow).toBeDefined()
+            expect(newRow?.fixStatus).toBe('not-tried')
+            expect(newRow?.occurrenceCount).toBe(1)
+            expect(newRow?.supersededAt).toBeNull()
         })
 
         it('resumes pending run by marking it running', async () => {

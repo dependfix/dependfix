@@ -70,6 +70,8 @@ describe('GET /api/dashboard/stats', () => {
         }))
         await ds.getRepository(ScanResult).save(ds.getRepository(ScanResult).create({
             scanRunId: run.id,
+            repositoryId: run.repositoryId,
+            upstreamId: 'dependabot:1',
             source: 'dependabot',
             severity: 'high',
             packageName: 'lodash',
@@ -77,9 +79,15 @@ describe('GET /api/dashboard/stats', () => {
             summary: '原型污染',
             fixable: true,
             fixStatus: 'success',
+            firstSeenAt: new Date('2026-08-01T00:00:00Z'),
+            lastSeenAt: new Date('2026-08-01T00:00:00Z'),
+            occurrenceCount: 1,
+            supersededAt: null,
         }))
         await ds.getRepository(ScanResult).save(ds.getRepository(ScanResult).create({
             scanRunId: run.id,
+            repositoryId: run.repositoryId,
+            upstreamId: 'dependabot:2',
             source: 'dependabot',
             severity: 'critical',
             packageName: 'axios',
@@ -87,6 +95,10 @@ describe('GET /api/dashboard/stats', () => {
             summary: 'SSRF',
             fixable: false,
             fixStatus: 'pending',
+            firstSeenAt: new Date('2026-08-01T00:00:00Z'),
+            lastSeenAt: new Date('2026-08-01T00:00:00Z'),
+            occurrenceCount: 1,
+            supersededAt: null,
         }))
 
         const stats = await call() as Record<string, unknown>
@@ -124,6 +136,8 @@ describe('GET /api/dashboard/stats', () => {
         // 用一个预定义 5 类之外的 severity 触发 ?? fallback 分支
         await ds.getRepository(ScanResult).save(ds.getRepository(ScanResult).create({
             scanRunId: run.id,
+            repositoryId: run.repositoryId,
+            upstreamId: 'dependabot:1',
             source: 'dependabot',
             // 真实场景：severity 由上游数据源决定，未来扩展 'info'/'warning' 等类型
             severity: 'info',
@@ -132,6 +146,10 @@ describe('GET /api/dashboard/stats', () => {
             summary: 'info level',
             fixable: false,
             fixStatus: 'pending',
+            firstSeenAt: new Date('2026-08-01T00:00:00Z'),
+            lastSeenAt: new Date('2026-08-01T00:00:00Z'),
+            occurrenceCount: 1,
+            supersededAt: null,
         }))
 
         const stats = await call() as Record<string, unknown>
@@ -164,11 +182,15 @@ describe('GET /api/dashboard/stats', () => {
             return run.id
         }
 
-        /** 辅助：给 run 加一条 ScanResult */
+        /** 辅助：给 run 加一条 ScanResult（M20.3 unique index 强制不同 upstreamId → counter 单调递增） */
+        let addResultCounter = 0
         const addResult = async (scanRunId: string, packageName: string, severity: string): Promise<void> => {
+            addResultCounter++
             const ds = await ensureDatabaseInitialized()
             await ds.getRepository(ScanResult).save(ds.getRepository(ScanResult).create({
                 scanRunId,
+                repositoryId: (await ds.getRepository(ScanRun).findOne({ where: { id: scanRunId } }))?.repositoryId ?? '',
+                upstreamId: `dependabot:${addResultCounter}`,
                 source: 'dependabot',
                 severity,
                 packageName,
@@ -176,6 +198,10 @@ describe('GET /api/dashboard/stats', () => {
                 summary: 'test',
                 fixable: true,
                 fixStatus: 'pending',
+                firstSeenAt: new Date('2026-08-01T00:00:00Z'),
+                lastSeenAt: new Date('2026-08-01T00:00:00Z'),
+                occurrenceCount: 1,
+                supersededAt: null,
             }))
         }
 

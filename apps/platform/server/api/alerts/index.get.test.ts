@@ -39,6 +39,8 @@ describe('GET /api/alerts', () => {
         }))
         await ds.getRepository(ScanResult).save(ds.getRepository(ScanResult).create({
             scanRunId: run.id,
+            repositoryId: run.repositoryId,
+            upstreamId: 'dependabot:1',
             source: 'dependabot',
             severity: 'high',
             packageName: 'lodash',
@@ -48,9 +50,15 @@ describe('GET /api/alerts', () => {
             fixStrategy: 'upgrade',
             recommendedVersion: '4.17.21',
             fixStatus: 'pending',
+            firstSeenAt: new Date('2026-08-01T00:00:00Z'),
+            lastSeenAt: new Date('2026-08-01T00:00:00Z'),
+            occurrenceCount: 1,
+            supersededAt: null,
         }))
         await ds.getRepository(ScanResult).save(ds.getRepository(ScanResult).create({
             scanRunId: run.id,
+            repositoryId: run.repositoryId,
+            upstreamId: 'code-scanning:1',
             source: 'code-scanning',
             severity: 'low',
             packageName: '',
@@ -60,6 +68,10 @@ describe('GET /api/alerts', () => {
             fixable: true,
             fixStrategy: 'template',
             fixStatus: 'success',
+            firstSeenAt: new Date('2026-08-01T00:00:00Z'),
+            lastSeenAt: new Date('2026-08-01T00:00:00Z'),
+            occurrenceCount: 1,
+            supersededAt: null,
         }))
     })
 
@@ -115,6 +127,8 @@ describe('GET /api/alerts', () => {
             }
             await ds.getRepository(ScanResult).save(ds.getRepository(ScanResult).create({
                 scanRunId: run.id,
+                repositoryId: run.repositoryId,
+                upstreamId: 'pnpm-audit:1',
                 source: 'pnpm-audit',
                 severity: 'critical',
                 packageName: 'express',
@@ -124,6 +138,10 @@ describe('GET /api/alerts', () => {
                 fixStrategy: 'upgrade',
                 recommendedVersion: '4.21.0',
                 fixStatus: 'pending',
+                firstSeenAt: new Date('2026-08-01T00:00:00Z'),
+                lastSeenAt: new Date('2026-08-01T00:00:00Z'),
+                occurrenceCount: 1,
+                supersededAt: null,
             }))
         })
 
@@ -180,6 +198,8 @@ describe('GET /api/alerts', () => {
             }))
             await ds.getRepository(ScanResult).save(ds.getRepository(ScanResult).create({
                 scanRunId: otherRun.id,
+                repositoryId: otherRun.repositoryId,
+                upstreamId: 'dependabot:101',
                 source: 'dependabot',
                 severity: 'medium',
                 packageName: 'axios',
@@ -188,6 +208,10 @@ describe('GET /api/alerts', () => {
                 fixable: true,
                 fixStrategy: 'upgrade',
                 fixStatus: 'pending',
+                firstSeenAt: new Date('2026-08-01T00:00:00Z'),
+                lastSeenAt: new Date('2026-08-01T00:00:00Z'),
+                occurrenceCount: 1,
+                supersededAt: null,
             }))
         })
 
@@ -244,6 +268,11 @@ describe('GET /api/alerts', () => {
             }
             await ds.getRepository(ScanResult).save(ds.getRepository(ScanResult).create({
                 scanRunId: run.id,
+                repositoryId: run.repositoryId,
+                // M20.3 unique index (repositoryId, upstreamId) 强制不同 upstreamId：
+                // 旧 M13.2 T1006 dedupe 模拟同 packageName + ruleId 重复手工 INSERT 在 M20.3 模型下不再代表真实业务
+                // （M20.5 会移除 alerts API dedupe 参数）；此处用 dependabot:2 模拟"另一个独立上游告警"
+                upstreamId: 'dependabot:2',
                 source: 'dependabot',
                 severity: 'high',
                 packageName: 'lodash',
@@ -254,6 +283,10 @@ describe('GET /api/alerts', () => {
                 fixStrategy: 'upgrade',
                 recommendedVersion: '4.17.21',
                 fixStatus: 'pending',
+                firstSeenAt: new Date('2026-08-02T00:00:00Z'),
+                lastSeenAt: new Date('2026-08-02T00:00:00Z'),
+                occurrenceCount: 1,
+                supersededAt: null,
             }))
         })
 

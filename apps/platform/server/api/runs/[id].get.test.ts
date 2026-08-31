@@ -43,6 +43,8 @@ describe('GET /api/runs/[id]', () => {
 
         await ds.getRepository(ScanResult).save(ds.getRepository(ScanResult).create({
             scanRunId: runId,
+            repositoryId: run.repositoryId,
+            upstreamId: 'dependabot:1',
             source: 'dependabot',
             severity: 'high',
             packageName: 'lodash',
@@ -54,6 +56,10 @@ describe('GET /api/runs/[id]', () => {
             recommendedVersion: '4.17.21',
             htmlUrl: 'https://github.com/demo/app/security',
             fixStatus: 'pending',
+            firstSeenAt: new Date('2026-08-01T00:00:00Z'),
+            lastSeenAt: new Date('2026-08-01T00:00:00Z'),
+            occurrenceCount: 1,
+            supersededAt: null,
         }))
     })
 

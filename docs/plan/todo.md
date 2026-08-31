@@ -66,6 +66,7 @@
 | **验收标准** | ① `/api/alerts?includeSuperseded=false`（默认）只返回 supersededAt IS NULL 行；② `/api/alerts?includeSuperseded=true` 返回全量；③ dashboard alertsTotal = 数活跃行；fixedCount = 数 success 行（不变）；④ 单元 + e2e 覆盖 |
 | **依赖** | M20.3（reconcile 必须先实现才能验证默认过滤） |
 | **预估** | 1 commit |
+| **备注** | **M20.3 reconcile 不重新激活已 supersede 告警的业务 gap（M20.3 audit 2026-08-31 W2）**：M20.5 实施时必须补齐"reconcile 重新激活语义"——当已 supersede 告警上游再次出现，应清除 supersededAt + 写 audit_event `suspicious_reactivation`。M20.3 本批次决策仅 supersede（不重新打开）属 audit suggest backlog，详见 `scan-result.ts` JSDoc 与 `scan-reconcile.ts:135-144` 注释。 |
 
 ### [ ] M20.6 UI 调整 + i18n
 

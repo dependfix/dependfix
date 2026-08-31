@@ -602,6 +602,43 @@ describe('stageAndCommit (author 路径回归)', () => {
         expect(author.name).toBe('123456[bot]')
         expect(author.email).toBe('123456+dependfix-bot[bot]@users.noreply.github.com')
     }, 15_000)
+
+    // W1 回归：host 全局 git config 含 user.name 但 repo 无 local config → ensureGitConfig
+    // 写入 local config（不被 host 全局污染）—— 验证 gitConfigExists 用 --local flag 路径
+    it('W1 回归：host 全局 git config 存在 user.name 但 repo 无 local config → ensureGitConfig 写入 local config（不被 host 污染）', () => {
+        // 模拟开发者机器的 host 全局 git config（不应被 dependfix 错误读取）
+        const globalDir = mkdtempSync(join(tmpdir(), 'dependfix-global-'))
+        const globalConfig = join(globalDir, 'gitconfig')
+        writeFileSync(globalConfig, '[user]\n\tname = GlobalHost\n\temail = host@example.com\n')
+        vi.stubEnv('GIT_CONFIG_GLOBAL', globalConfig)
+        vi.stubEnv('GIT_CONFIG_NOSYSTEM', '1')
+
+        try {
+            const dir = createGitRepoWithoutGitConfig()
+            writeFileSync(join(dir, 'change.txt'), 'fixed\n')
+
+            // 验证前置状态：local config 无 user.name / user.email（用 --local 查询应返回空）
+            // 关键：如果 gitConfigExists 不带 --local flag，会错误读到 host global 的 GlobalHost，
+            // 误判"已配置" → ensureGitConfig 跳过 set → commit author 失败
+            expect(git('config --local --get user.name', dir)).toBe('')
+            expect(git('config --local --get user.email', dir)).toBe('')
+
+            stageAndCommit('fix: dependabot', dir) // PAT 路径
+
+            // 验证：local config 是 PAT author（不是 host global 的 GlobalHost）
+            const userName = git('config --local --get user.name', dir)
+            const userEmail = git('config --local --get user.email', dir)
+            expect(userName).toBe('dependfix[bot]')
+            expect(userEmail).toBe('dependfix[bot]@users.noreply.github.com')
+        } finally {
+            vi.unstubAllEnvs()
+            try {
+                rmSync(globalDir, { recursive: true, force: true })
+            } catch {
+                /* ignore */
+            }
+        }
+    }, 15_000)
 })
 
 // ---------------------------------------------------------------------------

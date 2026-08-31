@@ -211,6 +211,69 @@ apps/platform/               # Nuxt 全栈平台
 
 教训（M18.4 audit round 1 Reject 实证）：M18.1 commit 4 凭直觉写 `auth: createAppAuth(...)`（错误用法）+ `app-provider.test.ts` `vi.mock('@octokit/rest')` + `vi.mock('@octokit/auth-app')` 完全跳过 `@octokit/core` 真实构造路径 → 所有单测通过但生产必抛 `Invalid auth type: undefined` / `Cannot read properties of undefined (reading 'bind')`，直到 M18.4 e2e 真实路径冒烟测试才暴露。
 
+#### 5.1.16 v-model 修改嵌套字段必须用 reactive + deep watch（hard requirement）
+
+Nuxt `useAsyncData` 内置 `watch` 默认浅监听（reference equality），对 nested field mutation（如 v-model 改 `filters.includeSuperseded = true`）不响应——任何 v-model 嵌套字段修改需要用 `reactive` 而非 `ref`，配合 `deep: true` watch。
+
+**错误模式**：
+```ts
+const filters = ref<Filters>({...})  // ref + watch 浅监听不响应 nested field mutation
+watch: [viewMode, filters], // 对 ref 浅比较
+```
+
+**正确模式**：
+```ts
+const filters = reactive<Filters>({...})  // reactive 字段级修改
+watch: [viewMode, () => filters, { deep: true }],  // getter source + deep watch
+
+// 或显式兜底
+watch(filters, () => { void refreshAlerts() }, { deep: true })
+```
+
+**依赖 Nuxt useAsyncData 默认 `dedupe: 'cancel'` 抑制双触发**：内置 watch + 显式 watch 都可能触发 refresh，但 abortController 会取消旧 execute；改 dedupe 策略前需重新评估。
+
+**调试技巧**：用 `page.on('request')` 跟踪浏览器侧 `/api/alerts` 请求数（而不是 Vue devtools），直接判断 refetch 是否触发。
+
+教训（M20.6 alerts-rowe 6 + ToggleSwitch v-model 嵌套字段触发实证）：e2e test 10（"视图切换：includeSuperseded 关闭 → 隐藏已关闭告警；打开 → 显示已关闭告警"）失败——点击 `#include-superseded` 开关后 `aria-checked=true` 但 `/api/alerts?includeSuperseded=true` 请求数 = 0（refetch 未触发）。修复：`filters` 改 `reactive` + `watch(filters, () => refreshAlerts(), { deep: true })`。详见 [经验归档 §四十六](../design/governance/experience-archive.md#四十六primvue-toggleswitch-v-model-嵌套字段触发-useasyncdata-watch-浅监听失效2026-08-31m20.6)。
+
+#### 5.1.17 一次性脚本 TypeScript 价值评估（避免 over-engineering）
+
+不要为了"项目完整性"添加不必要的 dev 依赖：一次性脚本 + 永久 devDep 代价不匹配价值；评估价值 / 成本比。
+
+**Node 运行时支持矩阵**（影响 .ts 脚本运行）：
+- Node 20 LTS：不支持 .ts 直接运行；需 tsx / ts-node / esbuild-register 等中间层
+- Node 22.6+ `--experimental-strip-types`：**只剥离类型注解**，不处理装饰器
+- Node 23.6+ / 24 `--experimental-transform-types`：转换 enum / namespace，**仍不处理装饰器**
+- 装饰器依赖 `emitDecoratorMetadata`（TS 编译器专属能力），Node 内置 TS 支持均无法替代
+
+**TypeORM 装饰器需要 emitDecoratorMetadata**：`@Entity('table_name')` + `@Column({...})` 装饰器运行后必须 emit 元数据到 `reflect-metadata`，否则 DataSource 构造时找不到 entity metadata → `EntityMetadataNotFoundError`。
+
+**何时必须 TypeScript**（一次性脚本场景）：
+- ✅ TypeORM / Prisma / Drizzle 等装饰器密集型 ORM
+- ✅ 类型安全严格（DB schema → API 契约同步）
+- ❌ 纯 SQL / 简单业务逻辑（改 JavaScript 即可）
+
+**CLI 端 entity metadata 必须显式 import 触发装饰器**：tsx / vitest CLI 路径不走 Nitro auto-load，需在脚本入口处显式 import 触发 `@Entity` / `@Column` 装饰器注册。
+
+**helper 文件模式**（避免 ESLint unused-vars warning）：
+```ts
+// register-entities.ts 文件级 eslint-disable
+/* eslint-disable @typescript-eslint/no-unused-vars -- TypeORM 装饰器注册用 side-effect import */
+import { ScanResult } from '../../entities/scan-result'
+import { Repository } from '../../entities/repository'
+// ... 其他 entity imports
+void ScanResult
+void Repository
+// ...
+/* eslint-enable @typescript-eslint/no-unused-vars */
+```
+
+**engines 应该与 Node LTS 实际部署版本对齐**：Node 20 已 EOL（2026-04-30），engines `>=20` 是历史遗留，实际部署是 Node 22+ 或 Node 24+。建议升级到 `>=22`（兼容 Node 22 LTS）+ 注释说明 Node 22.6+ 内置 strip-types 仍不处理装饰器（tsx 仍必须）。
+
+教训（M20.7 backfill 一次性脚本反思实证）：用户质疑"添加 tsx 是为什么？这个脚本为什么要 TypeScript？"→诚实分析：tsdown / tsx 不可替代（装饰器约束），但 register-entities.ts 单独文件可整合到主脚本顶部 inline 块（净 -21 行），engines 升级 `>=20` → `>=22`（Node 20 EOL）。详见 [经验归档 §四十七](../design/governance/experience-archive.md#四十七一次性脚本不应-over-engineeringtsx-cli-装饰器依赖-vs-node-22-strip-types2026-08-31m20.7)。
+
+---
+
 ## 6. 样式规范（平台阶段适用）
 
 - **纯 SCSS**: 禁止 CSS-in-JS、Tailwind。所有样式以纯 SCSS 编写。

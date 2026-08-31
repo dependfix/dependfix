@@ -778,7 +778,7 @@ M20.7 backfill 一次性脚本最初设计为 TypeScript + tsx CLI 入口：
 
 M20 归档批次执行时：
 1. 当前 todo-archive.md 主窗口 638 行 + M20 段预估 100-130 行 ≈ 738-768 行
-2. 超 [archive/index.md §1 `todo-archive.md` 健康窗口 700 行强制分片阈值]（[docs/plan/archive/index.md](archive/index.md)）
+2. 超 [archive/index.md §1 `todo-archive.md` 健康窗口 700 行强制分片阈值]（[docs/plan/archive/index.md](../../plan/archive/index.md)）
 3. 预防性迁出 M16 + M17（306 行）至新分片 `archive/todo-archive-phases-m16-m17.md`
 4. 主窗口保留 3 个阶段（M20 / M19 / M18），符合"主窗口保留 3-5 个阶段"健康策略
 

@@ -234,7 +234,7 @@ watch(filters, () => { void refreshAlerts() }, { deep: true })
 
 **调试技巧**：用 `page.on('request')` 跟踪浏览器侧 `/api/alerts` 请求数（而不是 Vue devtools），直接判断 refetch 是否触发。
 
-教训（M20.6 alerts-rowe 6 + ToggleSwitch v-model 嵌套字段触发实证）：e2e test 10（"视图切换：includeSuperseded 关闭 → 隐藏已关闭告警；打开 → 显示已关闭告警"）失败——点击 `#include-superseded` 开关后 `aria-checked=true` 但 `/api/alerts?includeSuperseded=true` 请求数 = 0（refetch 未触发）。修复：`filters` 改 `reactive` + `watch(filters, () => refreshAlerts(), { deep: true })`。详见 [经验归档 §四十六](../design/governance/experience-archive.md#四十六primvue-toggleswitch-v-model-嵌套字段触发-useasyncdata-watch-浅监听失效2026-08-31m20.6)。
+教训（M20.6 alerts-rowgroup + ToggleSwitch v-model 嵌套字段触发实证）：e2e test 10（"视图切换：includeSuperseded 关闭 → 隐藏已关闭告警；打开 → 显示已关闭告警"）失败——点击 `#include-superseded` 开关后 `aria-checked=true` 但 `/api/alerts?includeSuperseded=true` 请求数 = 0（refetch 未触发）。修复：`filters` 改 `reactive` + `watch(filters, () => refreshAlerts(), { deep: true })`。详见 [经验归档 §四十六](../design/governance/experience-archive.md#四十六primevuetoggleswitchvmodel嵌套字段触发useasyncdatawatch浅监听失效20260831m206)。
 
 #### 5.1.17 一次性脚本 TypeScript 价值评估（避免 over-engineering）
 

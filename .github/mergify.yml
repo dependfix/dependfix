@@ -7,3 +7,16 @@ pull_request_rules:
     actions:
       merge:
         method: rebase
+
+  # dependfix 自身创建的 PR（M19.2 起 dependfix 用 `dependfix[bot]` 身份提交 commit；
+  # PAT 路径走 `dependfix[bot]`，GitHub App 路径走动态生成的 `{app_id}+{bot_login}[bot]`
+  # —— 见 M18.2 commit author 动态化）。不加 label 条件是因为 dependfix 创建 PR 时
+  # 不打固定 label（依赖下游 labels.addLabels 手动加 `duplicate` 等）；author 正则
+  # 足够约束范围 + 防止误合并外部贡献者 PR。
+  - name: automatic merge for dependfix bot pull requests
+    conditions:
+      - check-success=Test
+      - author~=^(.+?\+)?dependfix\[bot\]$
+    actions:
+      merge:
+        method: rebase

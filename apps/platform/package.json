@@ -5,7 +5,7 @@
   "type": "module",
   "description": "dependfix 管理平台（控制面）：仓库/凭据管理、扫描触发与结果展示。version 字段用于 release 链路的独立版本号与 CHANGELOG 锚定，不发布到 npm（private+npmPublishable=false），发布通道为 docker 镜像",
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "scripts": {
     "dev": "nuxt dev -o",

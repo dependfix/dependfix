@@ -33,8 +33,31 @@ import { ensureDatabaseInitialized } from '../index'
 import { ScanResult } from '../../entities/scan-result'
 import { Repository } from '../../entities/repository'
 // 注册所有 entities 到 TypeORM metadata（tsx CLI 不走 Nitro auto-load；必须显式 import 触发装饰器）
-// side-effect import 集中到 register-entities.ts（该文件已用文件级 eslint-disable 豁免 unused-vars）
-import './register-entities'
+// side-effect import（仅用于触发 @Entity/@Column 装饰器注册，运行时无副作用）
+ 
+import { ScanRun } from '../../entities/scan-run'
+import { User } from '../../entities/user'
+import { Session } from '../../entities/session'
+import { Account } from '../../entities/account'
+import { Verification } from '../../entities/verification'
+import { Credential } from '../../entities/credential'
+import { Organization } from '../../entities/organization'
+import { Schedule } from '../../entities/schedule'
+import { BatchRun } from '../../entities/batch-run'
+import { AuditEvent } from '../../entities/audit-event'
+void ScanResult
+void Repository
+void ScanRun
+void User
+void Session
+void Account
+void Verification
+void Credential
+void Organization
+void Schedule
+void BatchRun
+void AuditEvent
+ 
 
 /**
  * backfill 统计结果（dry-run 与 apply 共用输出格式）

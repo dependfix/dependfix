@@ -85,6 +85,7 @@ pnpm test
 
 - [快速开始](docs/guide/quick-start.md)
 - [配置说明](docs/guide/configuration.md)
+- [PR 自动合并配置](docs/guide/auto-merge.md)
 - [技术栈详解](docs/guide/tech-stack.md)
 - [系统架构](docs/design/governance/architecture.md)
 - [路线图](docs/plan/roadmap.md)

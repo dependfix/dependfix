@@ -15,6 +15,12 @@ vi.mock('#server/utils/guard', () => ({
 
 const call = () => statsHandler(makeEvent('GET', '/api/dashboard/stats'))
 
+/** 测试 fixture：仓储 repositoryId 缓存（用于 M20.5 describe 内复用） */
+let testRepositoryId = ''
+
+/** 仓库 ID 辅助：m20.5 describe 内的 repositoryId 获取（直接查询数据库） */
+const repositoryIdForTest = (): string => testRepositoryId
+
 /** 清理 in-memory DB（每个测试独立，保证断言不被前序测试影响） */
 const clearAllTables = async (): Promise<void> => {
     const ds = await ensureDatabaseInitialized()
@@ -22,6 +28,7 @@ const clearAllTables = async (): Promise<void> => {
     await ds.getRepository(ScanResult).clear()
     await ds.getRepository(ScanRun).clear()
     await ds.getRepository(Repository).clear()
+    testRepositoryId = ''
 }
 
 describe('GET /api/dashboard/stats', () => {
@@ -171,6 +178,8 @@ describe('GET /api/dashboard/stats', () => {
                 defaultBranch: 'main',
                 executorKind: 'container',
             })) as { id: string }
+            // 缓存 repositoryId（供 M20.5 describe 复用）
+            testRepositoryId = created.id
             const ds = await ensureDatabaseInitialized()
             const run = await ds.getRepository(ScanRun).save(ds.getRepository(ScanRun).create({
                 repositoryId: created.id,
@@ -272,6 +281,102 @@ describe('GET /api/dashboard/stats', () => {
                 { packageName: 'axios', count: 1 },
                 { packageName: 'react', count: 1 },
             ])
+        })
+
+        describe('M20.5 supersededAt 过滤（alertsTotal 数活跃告警）', () => {
+        // 验证 M20.5 dashboard 调整：
+        // 1. alertsTotal 仅数 supersededAt IS NULL 的活跃告警
+        // 2. severityCounts 仅数活跃告警的严重级别
+        // 3. fixedCount 数 fixStatus='success'（决策 1：success 永不被 supersede，等价数活跃 success）
+        // 4. topPackages 仍统计全量（含 superseded）—— 历史语义保留
+
+            /** 辅助：直接插入一条 ScanResult（支持自定义 supersededAt） */
+            const insertResult = async (
+                runId: string,
+                repositoryId: string,
+                packageName: string,
+                severity: string,
+                options: { supersededAt?: Date | null, fixStatus?: string, upstreamId?: string } = {},
+            ): Promise<void> => {
+                const ds = await ensureDatabaseInitialized()
+                const upstreamId = options.upstreamId ?? `${packageName}:${severity}:${runId.slice(-4)}:${Math.random().toString(36).slice(2, 8)}`
+                await ds.getRepository(ScanResult).save(ds.getRepository(ScanResult).create({
+                    scanRunId: runId,
+                    repositoryId,
+                    upstreamId,
+                    source: 'dependabot',
+                    severity,
+                    packageName,
+                    manifestPath: 'package.json',
+                    summary: 'm20.5 dashboard filter test',
+                    fixable: true,
+                    fixStatus: options.fixStatus ?? 'pending',
+                    firstSeenAt: new Date('2026-08-01T00:00:00Z'),
+                    lastSeenAt: new Date('2026-08-01T00:00:00Z'),
+                    occurrenceCount: 1,
+                    supersededAt: options.supersededAt ?? null,
+                }))
+            }
+
+            it('supersededAt 非 NULL 行不计入 alertsTotal（数活跃告警）', async () => {
+                const runId = await makeScanRun('m20.5-superseded')
+
+                // 3 条活跃告警
+                await insertResult(runId, repositoryIdForTest(), 'lodash-active', 'high', { fixStatus: 'pending' })
+                await insertResult(runId, repositoryIdForTest(), 'axios-active', 'critical', { fixStatus: 'pending' })
+                await insertResult(runId, repositoryIdForTest(), 'react-active', 'low', { fixStatus: 'pending' })
+                // 2 条已 supersede 告警（不应计入）
+                await insertResult(runId, repositoryIdForTest(), 'lodash-superseded', 'high', {
+                    fixStatus: 'pending',
+                    supersededAt: new Date('2026-08-15T00:00:00Z'),
+                })
+                await insertResult(runId, repositoryIdForTest(), 'axios-superseded', 'critical', {
+                    fixStatus: 'pending',
+                    supersededAt: new Date('2026-08-15T00:00:00Z'),
+                })
+
+                const stats = await call() as Record<string, unknown>
+                // alertsTotal = 3（仅活跃）；severityCounts 仅数活跃
+                expect(stats.alertsTotal).toBe(3)
+                expect((stats.severityCounts as Record<string, number>)).toMatchObject({
+                    critical: 1, // axios-active
+                    high: 1, // lodash-active
+                    medium: 0,
+                    low: 1, // react-active
+                    unknown: 0,
+                })
+            })
+
+            it('fixStatus=success 计入 fixedCount（决策 1：永不被 supersede 等价于活跃 success）', async () => {
+                const runId = await makeScanRun('m20.5-fixed')
+                await insertResult(runId, repositoryIdForTest(), 'fixed-1', 'high', { fixStatus: 'success' })
+                await insertResult(runId, repositoryIdForTest(), 'fixed-2', 'critical', { fixStatus: 'success' })
+                await insertResult(runId, repositoryIdForTest(), 'pending-1', 'high', { fixStatus: 'pending' })
+
+                const stats = await call() as Record<string, unknown>
+                // alertsTotal = 3（全数活跃：2 success + 1 pending）；fixedCount = 2
+                expect(stats.alertsTotal).toBe(3)
+                expect(stats.fixedCount).toBe(2)
+            })
+
+            it('topPackages 仍统计全量（含 superseded，反映仓库历史风险）', async () => {
+                const runId = await makeScanRun('m20.5-toppackages')
+                // 2 条活跃 lodash + 1 条 superseded lodash
+                await insertResult(runId, repositoryIdForTest(), 'lodash-top', 'high', { fixStatus: 'pending' })
+                await insertResult(runId, repositoryIdForTest(), 'lodash-top', 'high', { fixStatus: 'pending' })
+                await insertResult(runId, repositoryIdForTest(), 'lodash-top', 'high', {
+                    fixStatus: 'pending',
+                    supersededAt: new Date('2026-08-15T00:00:00Z'),
+                })
+
+                const stats = await call() as Record<string, unknown>
+                // topPackages 数全量 3（不区分活跃）
+                const top = stats.topPackages as { packageName: string, count: number }[]
+                const lodashTop = top.find((p) => p.packageName === 'lodash-top')
+                expect(lodashTop?.count).toBe(3)
+                // alertsTotal 仅数活跃 2
+                expect(stats.alertsTotal).toBe(2)
+            })
         })
     })
 })

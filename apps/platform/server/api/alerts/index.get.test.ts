@@ -257,10 +257,126 @@ describe('GET /api/alerts', () => {
         })
     })
 
-    describe('dedupe=true（跨次扫描去重，todo.md §T1306）', () => {
+    describe('M20.5 supersede 过滤（todo.md §M20.5 默认 supersededAt IS NULL）', () => {
         beforeAll(async () => {
-            // 在 demo/app 已有 3 条不同 packageName 告警（lodash / '' / express）的基础上，
-            // 再追加 1 条 lodash（同 fingerprint）触发 occurrenceCount=2 聚合。
+            // 在 demo/app 已有 3 条活跃告警的基础上，
+            // 再追加 1 条已 supersede 告警（m20.5 默认过滤场景）+ 1 条已修复告警（决策 1：永不被 supersede）
+            const ds = await ensureDatabaseInitialized()
+            const run = await ds.getRepository(ScanRun).findOne({ where: { repositoryId } })
+            if (!run) {
+                throw new Error('missing run')
+            }
+            // 已 supersede 告警（m20.5 默认过滤应排除）
+            await ds.getRepository(ScanResult).save(ds.getRepository(ScanResult).create({
+                scanRunId: run.id,
+                repositoryId: run.repositoryId,
+                upstreamId: 'pnpm-audit:superseded-1',
+                source: 'pnpm-audit',
+                severity: 'low',
+                packageName: 'superseded-pkg',
+                manifestPath: 'package.json',
+                ruleId: null,
+                summary: '上游已关闭的告警',
+                fixable: false,
+                fixStrategy: null,
+                recommendedVersion: null,
+                htmlUrl: null,
+                fixStatus: 'pending',
+                firstSeenAt: new Date('2026-08-01T00:00:00Z'),
+                lastSeenAt: new Date('2026-08-01T00:00:00Z'),
+                occurrenceCount: 1,
+                // 关键：supersededAt 非 NULL 标记上游已关闭
+                supersededAt: new Date('2026-08-15T00:00:00Z'),
+            }))
+            // 已修复告警（决策 1：永不被 supersede，supersededAt 必须为 NULL）
+            await ds.getRepository(ScanResult).save(ds.getRepository(ScanResult).create({
+                scanRunId: run.id,
+                repositoryId: run.repositoryId,
+                upstreamId: 'code-scanning:fixed-1',
+                source: 'code-scanning',
+                severity: 'medium',
+                packageName: 'fixed-pkg',
+                manifestPath: 'src/utils/y.ts',
+                ruleId: 'js/incomplete-sanitization',
+                summary: '已修复的告警',
+                fixable: true,
+                fixStrategy: 'template',
+                recommendedVersion: null,
+                htmlUrl: null,
+                // 关键：fixStatus='success' 的告警 supersededAt 永远为 NULL（决策 1）
+                fixStatus: 'success',
+                firstSeenAt: new Date('2026-08-01T00:00:00Z'),
+                lastSeenAt: new Date('2026-08-01T00:00:00Z'),
+                occurrenceCount: 1,
+                supersededAt: null,
+            }))
+        })
+
+        it('默认 ? 无参数：只返回 supersededAt IS NULL 行（活跃告警）', async () => {
+            const list = await call('/api/alerts') as Record<string, unknown>[]
+            // 5 条活跃告警（原有 3 + 已修复 1 + 既有重复 lodash 1）
+            // 注意：dedupe=true 测试已注释，但 lodash 第二次 INSERT（dependabot:2）仍保留在数据库
+            // 总活跃数：demo/app 原有 lodash(1) + code-scanning eol-last(1) + pnpm-audit express(1) + dedupe-test lodash 二次(1) + fixed-pkg(1) = 5
+            // other/lib axios(1) = 1 → 总共 6 条活跃
+            expect(list.length).toBeGreaterThanOrEqual(5)
+            // 验证 superseded-pkg 不在结果中
+            const superseded = list.find((a) => a.packageName === 'superseded-pkg')
+            expect(superseded).toBeUndefined()
+            // 验证 fixed-pkg 在结果中（fixStatus=success 不被 supersede）
+            const fixed = list.find((a) => a.packageName === 'fixed-pkg')
+            expect(fixed).toBeDefined()
+            // 验证 supersededAt 字段在活跃告警上为 null
+            for (const row of list) {
+                expect(row.supersededAt).toBeNull()
+            }
+        })
+
+        it('includeSuperseded=false：等价缺省（suppressed 行为）', async () => {
+            const list = await call('/api/alerts?includeSuperseded=false') as Record<string, unknown>[]
+            const superseded = list.find((a) => a.packageName === 'superseded-pkg')
+            expect(superseded).toBeUndefined()
+        })
+
+        it('includeSuperseded=true：返回全量（含已关闭告警，前端"显示已解决"开关）', async () => {
+            const list = await call('/api/alerts?includeSuperseded=true') as Record<string, unknown>[]
+            const superseded = list.find((a) => a.packageName === 'superseded-pkg')
+            expect(superseded).toBeDefined()
+            // 验证 supersededAt 字段返回 ISO 字符串（非 null）
+            expect(typeof superseded?.supersededAt).toBe('string')
+            // 验证 fixed-pkg 仍存在
+            const fixed = list.find((a) => a.packageName === 'fixed-pkg')
+            expect(fixed).toBeDefined()
+        })
+
+        it('includeSuperseded 非法值兜底为 false（zod safeParse）', async () => {
+            const list = await call('/api/alerts?includeSuperseded=foo') as Record<string, unknown>[]
+            const superseded = list.find((a) => a.packageName === 'superseded-pkg')
+            expect(superseded).toBeUndefined()
+        })
+
+        it('默认响应包含 M20.3 新增字段（upstreamId / occurrenceCount / firstSeenAt / lastSeenAt / supersededAt）', async () => {
+            const list = await call('/api/alerts') as Record<string, unknown>[]
+            expect(list.length).toBeGreaterThan(0)
+            for (const row of list) {
+                expect(row).toHaveProperty('upstreamId')
+                expect(row).toHaveProperty('occurrenceCount')
+                expect(row).toHaveProperty('firstSeenAt')
+                expect(row).toHaveProperty('lastSeenAt')
+                expect(row).toHaveProperty('supersededAt')
+                expect(row.supersededAt).toBeNull()
+            }
+        })
+    })
+
+    describe('M20.5 dedupe 参数移除（向后兼容：dedupe=true 静默忽略）', () => {
+        // M20.5 移除 dedupe 参数的处理：
+        // - 后端不再处理 dedupe query（应用层指纹聚合已无意义——M20.3 per-alert 模型）
+        // - dedupe=true 静默忽略（旧前端的兼容请求，不会 400）
+        // - 返回全量活跃告警（不再按 fingerprint 聚合）
+
+        beforeAll(async () => {
+            // 在已有的 lodash (dependabot:1) 基础上追加 lodash 第二次插入
+            // （M20.3 unique index 强制不同 upstreamId；模拟同 packageName 跨次扫描的"实际业务"）
             const ds = await ensureDatabaseInitialized()
             const run = await ds.getRepository(ScanRun).findOne({ where: { repositoryId } })
             if (!run) {
@@ -269,16 +385,13 @@ describe('GET /api/alerts', () => {
             await ds.getRepository(ScanResult).save(ds.getRepository(ScanResult).create({
                 scanRunId: run.id,
                 repositoryId: run.repositoryId,
-                // M20.3 unique index (repositoryId, upstreamId) 强制不同 upstreamId：
-                // 旧 M13.2 T1006 dedupe 模拟同 packageName + ruleId 重复手工 INSERT 在 M20.3 模型下不再代表真实业务
-                // （M20.5 会移除 alerts API dedupe 参数）；此处用 dependabot:2 模拟"另一个独立上游告警"
-                upstreamId: 'dependabot:2',
+                upstreamId: 'dependabot:dedupe-backward-compat-2',
                 source: 'dependabot',
                 severity: 'high',
                 packageName: 'lodash',
                 manifestPath: 'package.json',
                 ruleId: null,
-                summary: '第二次扫描 lodash 仍告警（跨次聚合测试）',
+                summary: 'M20.5 dedupe=true 静默忽略测试 — 第二次 lodash（依赖 occurrenceCount 区分）',
                 fixable: true,
                 fixStrategy: 'upgrade',
                 recommendedVersion: '4.17.21',
@@ -290,64 +403,17 @@ describe('GET /api/alerts', () => {
             }))
         })
 
-        it('dedupe=true 合并同 fingerprint 的多次扫描为 1 行', async () => {
+        it('dedupe=true 静默忽略，返回全量活跃告警（含重复 lodash）', async () => {
             const list = await call('/api/alerts?dedupe=true') as Record<string, unknown>[]
-            // 4 个不同 fingerprint：demo/app|lodash| (ruleId=null) + demo/app||eol-last + demo/app|express| + other/lib|axios|
-            // lodash 出现 2 次（聚合为 1 行），其他各 1 次
-            expect(list.length).toBe(4)
-            // 验证 lodash 行包含 occurrenceCount=2
-            const lodashRow = list.find((a) => a.packageName === 'lodash')
-            expect(lodashRow).toBeDefined()
-            expect(lodashRow?.occurrenceCount).toBe(2)
-        })
-
-        it('dedupe=true 聚合字段正确（occurrenceCount / firstSeenAt / lastSeenAt / affectedRunIds）', async () => {
-            const list = await call('/api/alerts?dedupe=true') as Record<string, unknown>[]
-            for (const row of list) {
-                expect(row.occurrenceCount).toBeGreaterThanOrEqual(1)
-                expect(typeof row.firstSeenAt).toBe('string')
-                expect(typeof row.lastSeenAt).toBe('string')
-                expect(Array.isArray(row.affectedRunIds)).toBe(true)
-                expect((row.affectedRunIds as string[]).length).toBeGreaterThanOrEqual(1)
+            // M20.3 后每行独立告警：活跃告警中含 lodash 两次（demo/app run 下的不同 upstreamId）
+            expect(list.length).toBeGreaterThanOrEqual(5)
+            // 验证 lodash 出现 2 次（不同 upstreamId，依赖 occurrenceCount 区分）
+            const lodashRows = list.filter((a) => a.packageName === 'lodash')
+            expect(lodashRows.length).toBe(2)
+            // occurrenceCount 字段存在（来自 ScanResult，不应用层聚合）
+            for (const row of lodashRows) {
+                expect(row.occurrenceCount).toBe(1)
             }
-            // lodash 行的 affectedRunIds 应只包含 1 个 runId（两次 lodash 都在同一 run 下）
-            // 实际行为：dedupe 按 fingerprint 聚合 + 同一 run 下只算 1 次出现 + occurrenceCount=2
-            const lodashRow = list.find((r) => r.packageName === 'lodash')
-            expect((lodashRow?.affectedRunIds as string[]).length).toBe(1)
-            expect(lodashRow?.occurrenceCount).toBe(2)
-        })
-
-        it('dedupe=true 排序按 occurrenceCount DESC（高频告警优先）', async () => {
-            const list = await call('/api/alerts?dedupe=true') as Record<string, unknown>[]
-            const counts = list.map((r) => r.occurrenceCount as number)
-            // 验证序列非递增（count 高的在前）
-            for (let i = 1; i < counts.length; i++) {
-                expect(counts[i]).toBeLessThanOrEqual(counts[i - 1] ?? 0)
-            }
-            // lodash 应排第一
-            expect(list[0]?.occurrenceCount).toBe(2)
-        })
-
-        it('dedupe=false（默认）行为等价缺省：返回全量 ScanResult', async () => {
-            const list = await call('/api/alerts?dedupe=false') as Record<string, unknown>[]
-            // lodash 出现 2 次 + 其他 packageName 各 1 次 = 5 条
-            expect(list.length).toBeGreaterThanOrEqual(4)
-            // 验证无聚合字段（保持原 AlertView 形态）
-            expect(list[0]).not.toHaveProperty('occurrenceCount')
-        })
-
-        it('dedupe=true 与 severity 过滤组合仍工作', async () => {
-            const list = await call('/api/alerts?dedupe=true&severity=critical') as Record<string, unknown>[]
-            expect(list.length).toBe(1)
-            expect(list[0]?.severity).toBe('critical')
-            expect(list[0]?.packageName).toBe('express')
-        })
-
-        it('dedupe=true 非法值兜底为 false（zod safeParse）', async () => {
-            const list = await call('/api/alerts?dedupe=foo') as Record<string, unknown>[]
-            // 兜底为 dedupe=false，返回全量
-            expect(list.length).toBeGreaterThanOrEqual(4)
-            expect(list[0]).not.toHaveProperty('occurrenceCount')
         })
     })
 })

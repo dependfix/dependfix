@@ -57,13 +57,13 @@
   - `docs/guide/auto-merge.md` 指南（启用步骤 + mergify 配置说明 + 安全注意事项 + 危险场景示例）
   - README 简短提及（保持简短，详细看 guide）
 - **验收标准**：
-  - [ ] mergify.yml 通过 mergify schema 验证（`mergify config validate` 或本地 yaml lint）
-  - [ ] auto-merge.md 涵盖 mergify 安装 / 配置 / 启用条件 / 危险情况（如依赖 PR 自动合并不当）
-  - [ ] `pnpm --filter dependfix-docs build` 通过（docs 结构正确）
-  - [ ] `pnpm run check:docs` 0 error + `pnpm run lint:md` 0 error
+  - [x] mergify.yml 通过 mergify schema 验证（实测 python `yaml.safe_load` 语法 OK；author 正则实测覆盖 `dependfix[bot]` / `123+dependfix[bot]`；`CaoMeiYouRen` 不命中）
+  - [x] auto-merge.md 涵盖 mergify 安装 / 配置 / 启用条件 / 危险情况（依赖大版本升级 / breaking change / CI 覆盖不足 / 重复 PR / author 劫持 等 6 项）
+  - [x] `pnpm --filter dependfix-docs build` 通过（实测 vitepress build 9.75s 成功）
+  - [x] `pnpm run check:docs` 0 error（103 md + 58 vue-interp）+ `pnpm run lint:md` 0 error
 - **不做什么**：不内置自动合并（用户自己启用 mergify 后即可生效）；不发布 mergify action；不修改 dependfix 自身 PR 提交流程
 - **依赖**：无（独立交付物）
-- **交付物**：2 commits（`docs(guide): 新增 .github/mergify.yml 模板` + `docs(guide): 新增 docs/guide/auto-merge.md 启用指南`）
+- **交付物**：✅ 已闭环 — 3 atomic commits `f1dd5df` (mergify 模板扩展) + `beea5b9` (auto-merge.md + README) + `c9939cb` (audit W1 vitepress sidebar 注册修复)；ahead=9 待推送
 - **风险与缓解措施**：mergify 误启用可能导致依赖 PR 自动合并不当；缓解：明确告知用户"先在 fork 仓库试运行" + mergify 配置加 `author` 限制（仅 dependabot / dependfix bot）+ auto-merge.md 列出"危险场景 checklist"（依赖大版本升级 / 涉及 breaking change / 测试覆盖不足）
 
 #### M21.5（P3，🧪 测试覆盖）T704 async 定时触发 + Schedule CRUD e2e 补强

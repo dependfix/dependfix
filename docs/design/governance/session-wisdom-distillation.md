@@ -23,7 +23,29 @@
 | **条目数阈值** | `wisdom.md` 活跃条目 >= 20 条 | 活跃条目指未蒸馏、仍在本文件中的条目 |
 | **时间阈值** | 距上次蒸馏超过 30 天 | 即使条目少也定期审视 |
 | **阶段归档** | 当前阶段（M 里程碑）完成归档时 | 伴随阶段收口检查一次 |
+| **阶段开工前归档检查** | 启动下一阶段 P 阶段规划前 | 强制归档检查流程（见 §5.1 增强） |
 | **用户主动触发** | 用户说"蒸馏 wisdom""整理 wisdom""distill wisdom" | 按需执行 |
+
+### 2.1 阶段开工前归档检查（PDTFC+ 衔接工作流）
+
+启动下一阶段 P 阶段规划前，必须执行**强制归档检查**（PDTFC+ 闭环后下一阶段开始前的衔接工作流），避免数据漂移。详细规范见 [ai-collaboration.md §1.5 阶段归档检查 + 沉淀工作流](../../../docs/standards/ai-collaboration.md) + [规划规范 §4.4 第 10 条预防性迁出后 cross-reference 更新](../../../docs/standards/planning.md)：
+
+```bash
+# 1. 检查 todo.md 数据漂移信号（数据漂移 = [ ] 但实际已闭环）
+rg "^- ### \[ \]" docs/plan/todo.md
+
+# 2. 检查 session Wisdom 活跃条目数（接近 20 阈值需蒸馏）
+pnpm distill:wisdom --check
+
+# 3. 检查 experience-archive.md 最新§号连续性
+wc -l docs/design/governance/experience-archive.md
+
+# 4. 沉淀本阶段新 pattern 到 docs/standards/ + experience-archive.md（PDTFC+ 闭环必经）
+
+# 5. pnpm run check:docs 验证 0 error（预防归档/沉淀 commits 引入断链）
+```
+
+**强制提醒**：当 todo.md 仍有 `[ ]` 条目时，执行角色必须**主动询问**"是否需要先归档上一阶段？"——不得直接添加下一阶段待办。
 
 ## 3. 条目分类标准
 
@@ -128,7 +150,10 @@ pnpm distill:wisdom                      # package.json script 别名
 | 触发点 | 集成方式 |
 |:---|:---|
 | **Session 收尾**（Full Stack Master (全栈大师) agent） | 当 wisdom 条目数 >= 20 时，附加一句提醒："wisdom 条目数已达 N，建议执行蒸馏" |
+| **Session 开局**（Full Stack Master (全栈大师) agent） | 启动下一阶段 P 阶段前必须执行**强制归档检查**（见 §2.1）；当 todo.md `[ ]` 数据漂移信号时主动询问用户"是否需要先归档上一阶段？"——不得直接添加下一阶段待办。详见 [ai-collaboration.md §1.5 阶段归档检查 + 沉淀工作流](../../../docs/standards/ai-collaboration.md) |
 | **阶段归档**（planning.md §4.3） | 在阶段归档最低验证中增加蒸馏检查项（已落地 2026-08-06） |
+| **阶段闭环 F → 下一阶段 P** | PDTFC+ 闭环后下一阶段开始前的衔接工作流（见 §2.1）：归档批次 → 沉淀工作流 → 下一阶段 P 阶段规划——**不**是归档阶段本身，是阶段间的衔接工作 |
+| **归档/沉淀 commits 治理审计**（code-auditor.agent.md 必查项） | 归档/沉淀 commits 涉及的 `docs/standards/*.md` / `docs/design/governance/*.md` / `.github/agents/*.agent.md` 等治理定义修改必须 A 阶段深度审计（与 D 阶段 feature commits 同等标准），不得因为"仅文档改动"就跳过审计 |
 | **用户主动要求** | 直接执行完整蒸馏工作流 |
 
 ### 5.2 与 `documentation-specialist` 的协作

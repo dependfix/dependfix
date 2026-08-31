@@ -107,8 +107,14 @@
    - **归档后验证链接**：`pnpm run check:docs` 检查断链
    - **判断标准**：删除前问"这个信息在下一阶段启动时是否需要？"——如果需要，就保留
    - 教训：M18 归档批次两次"删过头"实证——第一次删除了 todo.md 中的"维护规则"和待人工验收条目 + backlog.md 中的未上收待办项；第二次 backlog.md 被简化过度，删除了长期主线任务的详细描述和周期性回归验证层。详见 [经验归档 §四十五](../design/governance/experience-archive.md#四十五归档时区分已归档内容与必要信息2026-08-30m18-归档批次)
+10. **预防性迁出后 cross-reference 更新**：todo-archive.md 预防性迁出主窗口内的§至 `archive/todo-archive-phases-*.md` 分片后，其他文档（`roadmap.md` / `backlog.md` / `data-model.md` / `docs/index.md` 等）中所有引用已迁出§的锚点全部失效，必须统一更新：
+    - **扫描范围**：用 `rg -n "todo-archive.md#m\d+-|<被迁出§标题>"` 全仓库检索锚点引用
+    - **锚点格式**：`--`（双连字符）在 check-docs.mjs 中自动转换为单词连续（如 `m161--m162` → `m161m162`），不要手动拼接
+    - **跨文件更新**：统一指向分片文件路径（如 `archive/todo-archive-phases-m16-m17.md`），不要保留主窗口引用
+    - **验证**：更新后必须 `pnpm run check:docs` 实证 0 error
+    - 教训：M20 归档批次 10 处断链实证（roadmap.md 4 处 + backlog.md 4 处 + data-model.md 1 处 + docs/index.md 1 处），全部由本规范预防；详见 [经验归档 §四十八](../design/governance/experience-archive.md#四十八归档批次预防性分片--cross-reference-断链修复2026-08-31m20-归档批次)
 
-> 本节为大批量文档归档批次（multi-file edit + 段结构变更）的统一操作规范；其他文档归档 / 小批量编辑仅执行相关条目。M12 归档 + backlog 重排 2 个批次实证：anchor 实证命中 1 次 / 跨文件外链追踪命中 10 次 / 相对路径精确命中 2 次 / commit 分组追踪命中 2 次 / ahead 实证命中 0 次（但作为常态化检查）。
+> 本节为大批量文档归档批次（multi-file edit + 段结构变更）的统一操作规范；其他文档归档 / 小批量编辑仅执行相关条目。M12 归档 + backlog 重排 2 个批次实证：anchor 实证命中 1 次 / 跨文件外链追踪命中 10 次 / 相对路径精确命中 2 次 / commit 分组追踪命中 2 次 / ahead 实证命中 0 次（但作为常态化检查）。M20 归档批次实证：第 10 条新加——预防性迁出后 cross-reference 更新命中 10 处断链，全部修复。
 
 ## 5. 需求采访与意图抽离
 

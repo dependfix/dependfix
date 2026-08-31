@@ -132,7 +132,6 @@
 
 #### PR 管理
 
-- **B1** PR 关闭评论 + label（需 `issues: write` 权限，比当前 `pull-requests: write` 宽；触发：PR 数量增长影响 `pulls.list` 查重性能或用户需要 PR 列表可过滤时）**—— 2026-08-30 已上收 M19.3**
 - **B2** 固定分支单线设计（独立平台部署后修复频率上升，需要固定修复分支如 `dependfix/auto-fix` 避免频繁向 master 提交 PR；触发：v1.0.0 后 M12 平台 UX 修复链路上线；关联：T210 指纹方案整合复用/重建策略 + force push 语义）
 - **B3** PR 自动合并闭环（当前 dependfix 只解决自动提 PR 的问题，但没有后续自动合并的闭环；批准 PR 不应由本项目来做，否则失去单独提 PR 的意义；**推荐用户使用 mergify（`.github/mergify.yml`）或 GitHub Action（类似 [fastify/github-action-merge-dependabot](https://github.com/fastify/github-action-merge-dependabot)）来自动合并**；本项目只提供参考模板 + 文档引导；交付物：`docs/guide/auto-merge.md` 指南 + 模板配置文件；触发：用户实测反馈 PR 积压 / 手动合并繁琐时上收）
 
@@ -183,12 +182,11 @@
     - **3 用户决策固化**（2026-08-29）：① M18.0 评估子阶段独立（A 决策）② fixtures 仅 mock 无真实 App（C 决策；用户接受风险）③ M18.x 治理批次合并入 C22 子阶段顺手做（B 决策）
     - **PAT 无感升级方案**：推荐 B（AuthProvider 注入统一入口）；`createGitHubClient` 改为 `{ auth: AuthProvider }`；老 `{ token }` 签名保留为 deprecated 包装；9 个测试 + 2 个 app 调用点改造；PAT 路径 commit author 保留硬编码兼容
     - **关键风险承担**：决策 C fixtures 仅 mock 违反"防升级回归"目的（e2e 不能验证真实 GitHub App 行为如 installation token 失效 / rate limit / JWT 签名边界），用户已接受；缓解措施 = 单测聚焦 `@octokit/auth-app` 库 mock 输出契约
-- **C23** 发现规模上限 max-repos（[architecture.md](../design/governance/architecture.md) 规划 `max-repos` 输入参数代码未实现 grep 零命中；大 org 数百仓库一次性全量发现 + 逐仓库探测 `.github/dependabot.yml` N 次 contents API 配额消耗与总耗时不可控；当前防护仅 concurrency 16 + 限流重试 + probe 并发 5 无总量上限；建议：发现层按配置上限截断排序后截断保证确定性或拆为分批处理）**—— 2026-08-30 已上收 M19.2**
+
 - **C24** org 级 alerts API 批量拉取（GitHub 提供 org 级 `GET /orgs/{org}/dependabot/alerts` 与 `GET /orgs/{org}/code-scanning/alerts`；当前按仓库逐仓拉取 `listAlertsForRepo`；大 org 场景可显著减少 API 调用但需按仓库重组结果 + defaultBranch 注入 org 级响应可能缺省分支上下文复杂度上升；触发：等真实大 org 用户痛点再动）
 
 #### 报告与统计口径
 
-- **C8** per-source 错误隔离（T301 遗留；并行源任一失败目前整体硬失败已拉取的 Dependabot 结果丢失；演进为 warn + 仅弃该源需确认语义；来源：T301 Review Gate 2026-08-05）**—— 2026-08-30 已上收 M19.5**
 - **C9** summary 字段未渲染（T304 遗留；告警 summary 已收集未渲染 JSON 可见；报告/PR body 如需摘要列可加；来源：T304 Review Gate 2026-08-05）
 
 #### 架构与性能
@@ -198,18 +196,16 @@
 
 #### 治理
 
-- **C34** 存量规范严格约束挂接盘点（审查治理候选；审查现有 `docs/standards/*.md` 中"必须级"条款是否已在 code-quality-checklist.md / code-reviewer skill 双层对称挂接；现状：部分已挂接 development/testing/security/git/ai-collaboration，部分仅 standards 有 platform.md §7.1/§7.2；触发：下次 neat-freak 批次统一盘点）**—— 2026-08-30 已上收 M19.1**
 - **C39 standards 文档 ENCRYPTION_KEY → NUXT_ENCRYPTION_KEY 同步**（M17.1 audit warning #1 登记）**—— 2026-08-29 已由 M18.3 commit `7ef0d73 docs(guide+design+standards): GitHub App 配置章节 + C39 standards 同步` 顺带闭环**（`platform.md:150` / `platform.md:240` / `security.md:83` / `security.md:123` / `security.md:131` / `security.md:132` / `security.md:138` / `security.md:145` 共 8 处均已 `NUXT_ENCRYPTION_KEY`，与代码层 `useRuntimeConfig().encryptionKey` 单源一致）；条目可从 backlog 主条目迁出至历史归档指针段；唯一未改的 `docs/design/governance/sandbox-security-governance.md:22 + :98` 是 M8 阶段设计意图的历史快照（不应改）
-- **C34 存量规范严格约束挂接盘点**（审查治理候选）
+- **C34 存量规范严格约束挂接盘点（历史闭环记录保留）**：
   - 2026-08-26 M14.x neat-freak 批次部分完成（roadmap.md L24 描述："⑫ C34 存量规范必级条款挂接盘点 + code-quality-checklist.md 双层对称补挂接 5 个必查项"）：补 5 个必查项到 code-quality-checklist.md（README/release 链路 / workspace 依赖包预构建 / 复合索引必须类级 / 裸 HTML 标签禁令 / 文档归档 anchor）
   - 2026-08-29 M18.x 治理批次批次 1 增量：`code-auditor.agent.md` 主责边界新增「集成外部库 README 标准用法 + e2e 真实路径冒烟测试存在」必查项（1 条）；详见 [experience-archive.md §四十三](../../docs/design/governance/experience-archive.md) 与 [development.md §5.1.15](../../docs/standards/development.md) + [testing.md §6.3](../../docs/standards/testing.md) 配套规范
-  - 剩余盘点：standards 中其他"必须级"条款（开发规范 §3 注释规范 / §4 依赖约束 / §5.1.x 系列工程经验 / 测试规范 §6 测试原则 / 安全规范 §5 凭据安全 / git 规范 §3 提交消息 / AI 协作规范 §1/§4）双层对称挂接完整盘点属于 neat-freak 批次工作，本次 M18.x 治理批次仅做 experience-archive §四十三 4 条新教训挂接；候选下批次会话处理
+  - 2026-08-31 M19.1 完整闭环（commit `0c536c1 docs(review): 补充 8 个强制性条款检查点`）：补充 8 个必查项到 [code-reviewer](../../.github/skills/code-reviewer/SKILL.md) skill + [code-quality-checklist](../../.github/skills/code-reviewer/references/code-quality-checklist.md)（audit-depth / commit 拆分 / F 阶段 coverage 强制 / M14.x code-quality-checklist 双向同步 / M17.6 better-auth 锁定 / M18.x 集成外部库 README 标准用法 / 治理规范 audit warning 修复 vs 登记决策 / M18.x audit Reject 后针对性补修）；A 阶段 quick depth Pass；详见 [todo-archive.md §M19.1](todo-archive.md#m19-治理-能力扩展-测试补强m191m192m193m194m195-全部已闭环-2026-08-31-归档)
 - **G1** network-audit 默认白名单持续扩展问题 —— 详见长期主线 #2
 
 #### 工作流
 
 - **T905** git worktree 并行开发预案（触发条件：多 agent 并行开发成为常态；当前单 agent 工作流无需启用）
-- **T701-e2e** 管理端点集成测试补强（用户管理 / 凭据管理 / 仓库管理的 API 端点集成测试覆盖；当前主要靠 vitest 单测，playwright e2e 仅 admin.vue；触发：M7 闭环后定期演练；前置：先评估 T701-e2e 是否纳入 M13 阶段）**—— 2026-08-30 已上收 M19.4**
 
 #### 平台告警视图增强
 
@@ -227,7 +223,7 @@
 
 #### 扫描历史与详情 UX（2026-08-26 实测反馈）
 
-> 本段为 2026-08-26 用户实测截图反馈触发的扫描历史/详情视图 UX 增强候选；与 C66 平级。原 3 项 UX-R1→R2→R3 中 **UX-R1 已由 M14.2 闭环**（2026-08-26，详见 [todo-archive.md §M14.2](todo-archive.md#m14-platform-release-通道闭环--ux-反馈跟进m14123xy-全部已闭环) + 历史归档指针段）+ **UX-R2 已由 M15 闭环**（2026-08-26，ahead 3 commits 待用户推送，详见 [todo-archive.md §M15](todo-archive.md#m15-扫描历史详情侧栏增强ux-r2已闭环) + 历史归档指针段）；剩余 UX-R3 顺延至 M16（待 P 阶段规划：M16.1 summary API + M16.2 页面骨架 + M16.3 RepoHistoryDialog 迁移），按依赖排序推进。**UX-R2 已从本段主条目迁出**，仅保留 UX-R3 当前候选 + 上文 UX-R1/UX-R2 历史归档指针说明。
+> 本段为 2026-08-26 用户实测截图反馈触发的扫描历史/详情视图 UX 增强候选；与 C66 平级。原 3 项 UX-R1→R2→R3 中 **UX-R1 已由 M14.2 闭环**（2026-08-26，详见 [archive/todo-archive-phases-m14-m15.md §M14.2](archive/todo-archive-phases-m14-m15.md#m14-platform-release-通道闭环--ux-反馈跟进m14123xy-全部已闭环) + 历史归档指针段）+ **UX-R2 已由 M15 闭环**（2026-08-26，ahead 3 commits 待用户推送，详见 [archive/todo-archive-phases-m14-m15.md §M15](archive/todo-archive-phases-m14-m15.md#m15-扫描历史详情侧栏增强ux-r2已闭环) + 历史归档指针段；2026-08-31 M19 归档批次预防性分片迁出至分片）；剩余 UX-R3 顺延至 M16（待 P 阶段规划：M16.1 summary API + M16.2 页面骨架 + M16.3 RepoHistoryDialog 迁移），按依赖排序推进。**UX-R2 已从本段主条目迁出**，仅保留 UX-R3 当前候选 + 上文 UX-R1/UX-R2 历史归档指针说明。
 
 - **UX-R3 已上收 M16.1（2026-08-28 已闭环）**：候选已由 M16.1 落地（apps/platform/app/pages/scans.vue + `/api/runs` organizationId 隔离 + `/api/scan-history/summary` + 5 case e2e）；详细记录见 [todo-archive.md §M16.1](todo-archive.md#m16-平台可用性深化m161--m162--m163--m164--m165-全部已闭环--2026-08-28-归档) + 历史归档指针段；按 backlog 维护规则已闭环条目从本段主条目迁出，仅保留历史指针；下一阶段 M17+ 候选待启动。
 
@@ -302,10 +298,11 @@
 
 ### 已闭环阶段
 
+- **M19**（2026-08-31，治理 + 能力扩展 + 测试补强 M19.1+M19.2+M19.3+M19.4+M19.5，5 atomic commits 已全部推送至 origin/master ahead=0 —— M19.1 `0c536c1` + M19.2 `c998d58` + M19.3 `5839771` + M19.4 `8db2fd4` + M19.5 `a20ea02` + M19.x 收口 `ae33671`）：[todo-archive.md §M19](todo-archive.md#m19-治理-能力扩展-测试补强m191m192m193m194m195-全部已闭环-2026-08-31-归档)；**本批次清理 backlog 5 个已上收主条目**：B1 PR 关闭评论 + label（M19.3 闭环 / `5839771`）/ C23 发现规模上限 max-repos（M19.2 闭环 / `c998d58`）/ C8 per-source 错误隔离（M19.5 闭环 / `a20ea02`）/ T701-e2e 管理端点集成测试补强（M19.4 闭环 / `8db2fd4`）/ C34 存量规范严格约束挂接盘点（M19.1 闭环 / `0c536c1`）
 - **M17**（2026-08-28，安全与可用性收口 M17.1+M17.2+M17.3+M17.4+M17.5+M17.6，9 commits 含 session 收尾已全部推送至 origin/master ahead=0）：[todo-archive.md §M17](todo-archive.md#m17-安全与可用性收口m171--m172--m173--m174--m175--m176-全部已闭环--2026-08-28-归档)
 - **M16**（2026-08-28，平台可用性深化 M16.1+M16.2+M16.3+M16.4+M16.5）：[todo-archive.md §M16](todo-archive.md#m16-平台可用性深化m161--m162--m163--m164--m165-全部已闭环--2026-08-28-归档)
-- **M15**（2026-08-26，UX-R2）：[todo-archive.md §M15](todo-archive.md#m15-扫描历史详情侧栏增强ux-r2已闭环)
-- **M14**（2026-08-26，T1310 + UX-R1 + neat-freak + 依赖批量治理）：[todo-archive.md §M14](todo-archive.md#m14-platform-release-通道闭环--ux-反馈跟进m14123xy-全部已闭环)
+- **M15**（2026-08-26，UX-R2）：[archive/todo-archive-phases-m14-m15.md §M15](archive/todo-archive-phases-m14-m15.md#m15-扫描历史详情侧栏增强ux-r2已闭环)（2026-08-31 M19 归档批次预防性分片迁出至分片）
+- **M14**（2026-08-26，T1310 + UX-R1 + neat-freak + 依赖批量治理）：[archive/todo-archive-phases-m14-m15.md §M14](archive/todo-archive-phases-m14-m15.md#m14-platform-release-通道闭环--ux-反馈跟进m14123xy-全部已闭环)（2026-08-31 M19 归档批次预防性分片迁出至分片）
 - **M13**（2026-08-26，治理 + UX 反馈 + 网络治理 + Code Scanning）：[todo-archive.md §M13](archive/todo-archive-phases-m13.md)
 - **M12**（2026-08-25，平台 UX + i18n）：[archive/todo-archive-phases-m12.md](archive/todo-archive-phases-m12.md)（2026-08-28 M17 归档批次预防性分片迁出）
 - **M0-M11**：详见 [todo-archive.md](todo-archive.md) + [archive/todo-archive-phases-*.md](archive/)
@@ -332,7 +329,7 @@
 | 内容类型 | 位置 |
 |:--|:--|
 | 当前阶段活跃任务 | [todo.md](todo.md) 顶部"当前阶段"段 |
-| 已闭环阶段归档 | [todo-archive.md](todo-archive.md)（主窗口保留最近 5 阶段：M17 / M16 / M15 / M14 / M13）+ [archive/](archive/)（M0-M12 详细分片，含 [archive/todo-archive-phases-m12.md](archive/todo-archive-phases-m12.md)） |
+| 已闭环阶段归档 | [todo-archive.md](todo-archive.md)（主窗口保留最近 4 阶段：M19 / M18 / M17 / M16）+ [archive/](archive/)（M0-M15 详细分片，含 [archive/todo-archive-phases-m14-m15.md](archive/todo-archive-phases-m14-m15.md) + [archive/todo-archive-phases-m13.md](archive/todo-archive-phases-m13.md) + [archive/todo-archive-phases-m12.md](archive/todo-archive-phases-m12.md)） |
 | 里程碑与阶段交付 | [roadmap.md](roadmap.md) |
 | 长期主线 / 远期 / 已知边界 | 本文档（按四象限结构） |
 | 历史归档索引 | [archive/index.md](archive/index.md) |

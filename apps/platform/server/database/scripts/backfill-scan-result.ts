@@ -298,8 +298,17 @@ export const formatStats = (stats: BackfillStats): string => {
  *   tsx backfill-scan-result.ts --dry-run      # 默认 dry-run
  *   tsx backfill-scan-result.ts --apply        # 实跑（需 y/N 确认）
  */
-const isMainModule = Boolean(process.argv[1])
-    && import.meta.url === pathToFileURL(process.argv[1]).href
+function isExecutedAsEntryPoint(): boolean {
+    const entry = process.argv[1]
+
+    if (!entry) {
+        return false
+    }
+
+    return import.meta.url === pathToFileURL(entry).href
+}
+
+const isMainModule = isExecutedAsEntryPoint()
 
 if (isMainModule) {
     const args = process.argv.slice(2)

@@ -1,4 +1,4 @@
-import { execFileSync, execSync } from 'node:child_process'
+import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import type { Octokit } from '@octokit/rest'
 import {
@@ -211,7 +211,7 @@ export function createFixBranch(branchName: string, workDir: string): FixBranchR
 export function stageAndCommit(message: string, workDir: string, author?: { name: string, email: string }): void {
     ensureGitConfig(workDir, author)
     const effectiveAuthor = author ?? PAT_DEFAULT_COMMIT_AUTHOR
-    execSync('git add .', { cwd: workDir, stdio: 'pipe' })
+    execFileSync('git', ['add', '.'], { cwd: workDir, stdio: 'pipe' })
     execFileSync('git', [
         '-c', `user.name=${effectiveAuthor.name}`,
         '-c', `user.email=${effectiveAuthor.email}`,

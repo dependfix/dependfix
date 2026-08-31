@@ -3,13 +3,15 @@ import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { describe, expect, it, afterEach, beforeEach, vi } from 'vitest'
 
-// Mock execSync to avoid needing pnpm in test environment.
-const { mockExecSync } = vi.hoisted(() => ({
-    mockExecSync: vi.fn(),
+// Mock execSync + execFileSync to avoid needing pnpm in test environment.
+const { mockExecFileSync } = vi.hoisted(() => ({
+    mockExecFileSync: vi.fn(),
 }))
 
 vi.mock('node:child_process', () => ({
-    execSync: mockExecSync,
+    // mock execSync + execFileSync 共两个函数（前者用于 classifyLockfileFailure + verifyFrozenLockfile；后者用于 execRepair 修复命令调用）
+    execSync: mockExecFileSync,
+    execFileSync: mockExecFileSync,
 }))
 
 import {
@@ -77,7 +79,7 @@ function cleanupTemp(dir: string): void {
 }
 
 beforeEach(() => {
-    mockExecSync.mockReset()
+    mockExecFileSync.mockReset()
 })
 
 // ---------------------------------------------------------------------------
@@ -86,13 +88,13 @@ beforeEach(() => {
 
 describe('classifyLockfileFailure', () => {
     it('ok when frozen-lockfile passes', () => {
-        mockExecSync.mockReturnValue(undefined)
+        mockExecFileSync.mockReturnValue(undefined)
         const result = classifyLockfileFailure('/tmp/test')
         expect(result).toEqual({ ok: true })
     })
 
     it('LOCKFILE_NOT_FOUND', () => {
-        mockExecSync.mockImplementation(() => {
+        mockExecFileSync.mockImplementation(() => {
             throw makeExecError('Cannot find pnpm-lock.yaml')
         })
         const result = classifyLockfileFailure('/tmp/test')
@@ -100,7 +102,7 @@ describe('classifyLockfileFailure', () => {
     })
 
     it('MANIFEST_MISMATCH via ERR_PNPM_OUTDATED_LOCKFILE', () => {
-        mockExecSync.mockImplementation(() => {
+        mockExecFileSync.mockImplementation(() => {
             throw makeExecError('ERR_PNPM_OUTDATED_LOCKFILE')
         })
         const result = classifyLockfileFailure('/tmp/test')
@@ -109,7 +111,7 @@ describe('classifyLockfileFailure', () => {
     })
 
     it('MANIFEST_MISMATCH via "out of sync"', () => {
-        mockExecSync.mockImplementation(() => {
+        mockExecFileSync.mockImplementation(() => {
             throw makeExecError('lockfile is out of sync')
         })
         const result = classifyLockfileFailure('/tmp/test')
@@ -117,7 +119,7 @@ describe('classifyLockfileFailure', () => {
     })
 
     it('LOCKFILE_VERSION_MISMATCH', () => {
-        mockExecSync.mockImplementation(() => {
+        mockExecFileSync.mockImplementation(() => {
             throw makeExecError('lockfileVersion incompatible: lockfile had been generated with pnpm v10')
         })
         const result = classifyLockfileFailure('/tmp/test')
@@ -125,7 +127,7 @@ describe('classifyLockfileFailure', () => {
     })
 
     it('CORRUPTED_LOCKFILE', () => {
-        mockExecSync.mockImplementation(() => {
+        mockExecFileSync.mockImplementation(() => {
             throw makeExecError('ERR_PNPM_BROKEN_LOCKFILE: broken lockfile')
         })
         const result = classifyLockfileFailure('/tmp/test')
@@ -133,7 +135,7 @@ describe('classifyLockfileFailure', () => {
     })
 
     it('CREDENTIAL_ERROR via E401', () => {
-        mockExecSync.mockImplementation(() => {
+        mockExecFileSync.mockImplementation(() => {
             throw makeExecError('E401 Unable to authenticate')
         })
         const result = classifyLockfileFailure('/tmp/test')
@@ -141,7 +143,7 @@ describe('classifyLockfileFailure', () => {
     })
 
     it('CREDENTIAL_ERROR via authentication failed', () => {
-        mockExecSync.mockImplementation(() => {
+        mockExecFileSync.mockImplementation(() => {
             throw makeExecError('authentication failed')
         })
         const result = classifyLockfileFailure('/tmp/test')
@@ -149,7 +151,7 @@ describe('classifyLockfileFailure', () => {
     })
 
     it('RESOLVE_ERROR via ERR_PNPM_NO_MATCHING_VERSION', () => {
-        mockExecSync.mockImplementation(() => {
+        mockExecFileSync.mockImplementation(() => {
             throw makeExecError('ERR_PNPM_NO_MATCHING_VERSION')
         })
         const result = classifyLockfileFailure('/tmp/test')
@@ -157,7 +159,7 @@ describe('classifyLockfileFailure', () => {
     })
 
     it('MINIMUM_RELEASE_AGE via ERR_PNPM_NO_MATURE_MATCHING_VERSION (resolution)', () => {
-        mockExecSync.mockImplementation(() => {
+        mockExecFileSync.mockImplementation(() => {
             throw makeExecError('ERR_PNPM_NO_MATURE_MATCHING_VERSION: 2 versions do not meet the minimumReleaseAge constraint')
         })
         const result = classifyLockfileFailure('/tmp/test')
@@ -165,7 +167,7 @@ describe('classifyLockfileFailure', () => {
     })
 
     it('MINIMUM_RELEASE_AGE via ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION (frozen verification)', () => {
-        mockExecSync.mockImplementation(() => {
+        mockExecFileSync.mockImplementation(() => {
             throw makeExecError('ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION: 2 lockfile entries failed verification')
         })
         const result = classifyLockfileFailure('/tmp/test')
@@ -173,7 +175,7 @@ describe('classifyLockfileFailure', () => {
     })
 
     it('UNKNOWN for unrecognized error', () => {
-        mockExecSync.mockImplementation(() => {
+        mockExecFileSync.mockImplementation(() => {
             throw makeExecError('something unexpected happened')
         })
         const result = classifyLockfileFailure('/tmp/test')
@@ -181,7 +183,7 @@ describe('classifyLockfileFailure', () => {
     })
 
     it('UNKNOWN for empty stderr', () => {
-        mockExecSync.mockImplementation(() => {
+        mockExecFileSync.mockImplementation(() => {
             const err = new Error('failed') as Error & { stderr?: Buffer }
             err.stderr = undefined
             throw err
@@ -309,11 +311,11 @@ describe('repairLockfile', () => {
     let commandSequence: ('success' | { stderr: string } | Error)[]
 
     /**
-     * 设置 execSync 按调用次数返回不同结果。
+     * 设置 execFileSync 按调用次数返回不同结果。
      * 每次调用取 commandSequence.shift()。
      */
     function setupExecSequence(): void {
-        mockExecSync.mockImplementation(() => {
+        mockExecFileSync.mockImplementation(() => {
             const action = commandSequence.shift()
             if (!action) {
                 return

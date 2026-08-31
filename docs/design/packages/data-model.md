@@ -1,6 +1,6 @@
 # 数据模型
 
-> 状态: 🚧 M20 重构中（2026-08-31 启动）——ScanResult 从"per-scan×per-alert"改为"per-alert"，新增 upstreamId / firstSeenAt / lastSeenAt / occurrenceCount / supersededAt 字段；详见 [todo.md §M20](../../plan/todo.md#当前阶段m20-scanresult-数据模型重构2026-08-31-启动)
+> 状态: ✅ M20 已完成（2026-08-31）——ScanResult 已从"per-scan×per-alert"改为"per-alert"，新增 upstreamId / firstSeenAt / lastSeenAt / occurrenceCount / supersededAt 字段；详见 [todo-archive.md §M20](../../plan/todo-archive.md#m20-scanresult-数据模型重构m201m203m205m206m207-全部已闭环--2026-08-31-归档)
 >
 > 历史：✅ 2026-08-05 修正——`AlertSource` 扩展 `'pnpm-audit'`、`FixStrategy` 增加 `override`，对齐当前实现
 

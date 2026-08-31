@@ -225,7 +225,7 @@
 
 > 本段为 2026-08-26 用户实测截图反馈触发的扫描历史/详情视图 UX 增强候选；与 C66 平级。原 3 项 UX-R1→R2→R3 中 **UX-R1 已由 M14.2 闭环**（2026-08-26，详见 [archive/todo-archive-phases-m14-m15.md §M14.2](archive/todo-archive-phases-m14-m15.md#m14-platform-release-通道闭环--ux-反馈跟进m14123xy-全部已闭环) + 历史归档指针段）+ **UX-R2 已由 M15 闭环**（2026-08-26，ahead 3 commits 待用户推送，详见 [archive/todo-archive-phases-m14-m15.md §M15](archive/todo-archive-phases-m14-m15.md#m15-扫描历史详情侧栏增强ux-r2已闭环) + 历史归档指针段；2026-08-31 M19 归档批次预防性分片迁出至分片）；剩余 UX-R3 顺延至 M16（待 P 阶段规划：M16.1 summary API + M16.2 页面骨架 + M16.3 RepoHistoryDialog 迁移），按依赖排序推进。**UX-R2 已从本段主条目迁出**，仅保留 UX-R3 当前候选 + 上文 UX-R1/UX-R2 历史归档指针说明。
 
-- **UX-R3 已上收 M16.1（2026-08-28 已闭环）**：候选已由 M16.1 落地（apps/platform/app/pages/scans.vue + `/api/runs` organizationId 隔离 + `/api/scan-history/summary` + 5 case e2e）；详细记录见 [todo-archive.md §M16.1](todo-archive.md#m16-平台可用性深化m161--m162--m163--m164--m165-全部已闭环--2026-08-28-归档) + 历史归档指针段；按 backlog 维护规则已闭环条目从本段主条目迁出，仅保留历史指针；下一阶段 M17+ 候选待启动。
+- **UX-R3 已上收 M16.1（2026-08-28 已闭环）**：候选已由 M16.1 落地（apps/platform/app/pages/scans.vue + `/api/runs` organizationId 隔离 + `/api/scan-history/summary` + 5 case e2e）；详细记录见 [todo-archive.md §M16.1](archive/todo-archive-phases-m16-m17.md#m16-平台可用性深化m161m162m163m164m165-全部已闭环--2026-08-28-归档) + 历史归档指针段；按 backlog 维护规则已闭环条目从本段主条目迁出，仅保留历史指针；下一阶段 M17+ 候选待启动。
 
 ### 已评估不实现（决策保留于归档段）
 
@@ -299,8 +299,9 @@
 ### 已闭环阶段
 
 - **M19**（2026-08-31，治理 + 能力扩展 + 测试补强 M19.1+M19.2+M19.3+M19.4+M19.5，5 atomic commits 已全部推送至 origin/master ahead=0 —— M19.1 `0c536c1` + M19.2 `c998d58` + M19.3 `5839771` + M19.4 `8db2fd4` + M19.5 `a20ea02` + M19.x 收口 `ae33671`）：[todo-archive.md §M19](todo-archive.md#m19-治理-能力扩展-测试补强m191m192m193m194m195-全部已闭环-2026-08-31-归档)；**本批次清理 backlog 5 个已上收主条目**：B1 PR 关闭评论 + label（M19.3 闭环 / `5839771`）/ C23 发现规模上限 max-repos（M19.2 闭环 / `c998d58`）/ C8 per-source 错误隔离（M19.5 闭环 / `a20ea02`）/ T701-e2e 管理端点集成测试补强（M19.4 闭环 / `8db2fd4`）/ C34 存量规范严格约束挂接盘点（M19.1 闭环 / `0c536c1`）
-- **M17**（2026-08-28，安全与可用性收口 M17.1+M17.2+M17.3+M17.4+M17.5+M17.6，9 commits 含 session 收尾已全部推送至 origin/master ahead=0）：[todo-archive.md §M17](todo-archive.md#m17-安全与可用性收口m171--m172--m173--m174--m175--m176-全部已闭环--2026-08-28-归档)
-- **M16**（2026-08-28，平台可用性深化 M16.1+M16.2+M16.3+M16.4+M16.5）：[todo-archive.md §M16](todo-archive.md#m16-平台可用性深化m161--m162--m163--m164--m165-全部已闭环--2026-08-28-归档)
+- **M20**（2026-08-31，ScanResult 数据模型重构 M20.1+M20.3+M20.5+M20.6+M20.7，8 commits 已落地）：[todo-archive.md §M20](todo-archive.md#m20-scanresult-数据模型重构m201m203m205m206m207-全部已闭环--2026-08-31-归档)
+- **M17**（2026-08-28，安全与可用性收口 M17.1+M17.2+M17.3+M17.4+M17.5+M17.6，9 commits 含 session 收尾已全部推送至 origin/master ahead=0）：[todo-archive.md §M17](archive/todo-archive-phases-m16-m17.md#m17-安全与可用性收口m171m172m173m174m175m176-全部已闭环--2026-08-28-归档)
+- **M16**（2026-08-28，平台可用性深化 M16.1+M16.2+M16.3+M16.4+M16.5）：[todo-archive.md §M16](archive/todo-archive-phases-m16-m17.md#m16-平台可用性深化m161m162m163m164m165-全部已闭环--2026-08-28-归档)
 - **M15**（2026-08-26，UX-R2）：[archive/todo-archive-phases-m14-m15.md §M15](archive/todo-archive-phases-m14-m15.md#m15-扫描历史详情侧栏增强ux-r2已闭环)（2026-08-31 M19 归档批次预防性分片迁出至分片）
 - **M14**（2026-08-26，T1310 + UX-R1 + neat-freak + 依赖批量治理）：[archive/todo-archive-phases-m14-m15.md §M14](archive/todo-archive-phases-m14-m15.md#m14-platform-release-通道闭环--ux-反馈跟进m14123xy-全部已闭环)（2026-08-31 M19 归档批次预防性分片迁出至分片）
 - **M13**（2026-08-26，治理 + UX 反馈 + 网络治理 + Code Scanning）：[todo-archive.md §M13](archive/todo-archive-phases-m13.md)
@@ -316,11 +317,11 @@
 - **C21 code-quality-findings 接入**（2026-08-26 闭环于 M13.3 T1308）：详见 [todo-archive.md §M13.3 T1308](archive/todo-archive-phases-m13.md)
 - **MCP 能力补充 C31 / C32**：详见 [archive/todo-archive-phases-m2-m55.md §M5.5 / T508](archive/todo-archive-phases-m2-m55.md#m55-skill-编排cli-先行已归档)
 - **M2 增强候选 B1 / B2 / B3**：详见 [archive/todo-archive-phases-m2-m55.md §M2](archive/todo-archive-phases-m2-m55.md#m2-github-action-接入已归档)
-- **M17.1 C38 encryptionKey 标准化实施**（2026-08-28 audit standard depth Pass + W-3 修正 + W-1/W-2 登记 backlog；review-gate evidence 在本地 `artifacts/review-gate/2026-08-28-m17-1-t1701-c38-encryptionkey.md`（artifacts/ 在 .gitignore 中不入仓库，仅供本地查阅，CI 中不存在）；实施 7 文件 / +33/-29 行 / 21 个调用方测试从 ReferenceError 修复后 853 passed；M17 全部 6 子阶段 2026-08-28 全部闭环归档至 [todo-archive.md §M17](todo-archive.md#m17-安全与可用性收口m171--m172--m173--m174--m175--m176-全部已闭环--2026-08-28-归档)）
-- **C38 encryptionKey 标准化**（2026-08-28 已闭环归档至 [todo-archive.md §M17.1](todo-archive.md#m17-安全与可用性收口m171--m172--m173--m174--m175--m176-全部已闭环--2026-08-28-归档)；关键 commit `b0d3ac0 fix(platform)`；原 M17.1 实施细节见上方"已闭环阶段 M17"段）
-- **S-2 authedCookieHeader 抽取**（2026-08-28 已闭环归档至 [todo-archive.md §M17.5](todo-archive.md#m17-安全与可用性收口m171--m172--m173--m174--m175--m176-全部已闭环--2026-08-28-归档)；关键 commit `466b142 refactor(e2e)` + `fc0b175 chore(platform)`；原 M17.5 实施细节见上方"已闭环阶段 M17"段）
-- **S-4 better-auth admin viewer role check 单测补强**（2026-08-28 已闭环归档至 [todo-archive.md §M17.6](todo-archive.md#m17-安全与可用性收口m171--m172--m173--m174--m175--m176-全部已闭环--2026-08-28-归档)；关键 commit `56df374 test(e2e)`；原 M17.6 实施细节见上方"已闭环阶段 M17"段）
-- **服务端 API i18n 范围外扩展**（2026-08-28 已闭环归档至 [todo-archive.md §M17.2-4](todo-archive.md#m17-安全与可用性收口m171--m172--m173--m174--m175--m176-全部已闭环--2026-08-28-归档)；10 文件分 3 子阶段 credentials / schedules / batch-runs + repos batch；关键 commit `5f66a08` / `90549a0` / `98fd47d` / `a1c7c4e` 4 commits；原 M17.2-4 实施细节见上方"已闭环阶段 M17"段）
+- **M17.1 C38 encryptionKey 标准化实施**（2026-08-28 audit standard depth Pass + W-3 修正 + W-1/W-2 登记 backlog；review-gate evidence 在本地 `artifacts/review-gate/2026-08-28-m17-1-t1701-c38-encryptionkey.md`（artifacts/ 在 .gitignore 中不入仓库，仅供本地查阅，CI 中不存在）；实施 7 文件 / +33/-29 行 / 21 个调用方测试从 ReferenceError 修复后 853 passed；M17 全部 6 子阶段 2026-08-28 全部闭环归档至 [todo-archive.md §M17](archive/todo-archive-phases-m16-m17.md#m17-安全与可用性收口m171m172m173m174m175m176-全部已闭环--2026-08-28-归档)）
+- **C38 encryptionKey 标准化**（2026-08-28 已闭环归档至 [todo-archive.md §M17.1](archive/todo-archive-phases-m16-m17.md#m17-安全与可用性收口m171m172m173m174m175m176-全部已闭环--2026-08-28-归档)；关键 commit `b0d3ac0 fix(platform)`；原 M17.1 实施细节见上方"已闭环阶段 M17"段）
+- **S-2 authedCookieHeader 抽取**（2026-08-28 已闭环归档至 [todo-archive.md §M17.5](archive/todo-archive-phases-m16-m17.md#m17-安全与可用性收口m171m172m173m174m175m176-全部已闭环--2026-08-28-归档)；关键 commit `466b142 refactor(e2e)` + `fc0b175 chore(platform)`；原 M17.5 实施细节见上方"已闭环阶段 M17"段）
+- **S-4 better-auth admin viewer role check 单测补强**（2026-08-28 已闭环归档至 [todo-archive.md §M17.6](archive/todo-archive-phases-m16-m17.md#m17-安全与可用性收口m171m172m173m174m175m176-全部已闭环--2026-08-28-归档)；关键 commit `56df374 test(e2e)`；原 M17.6 实施细节见上方"已闭环阶段 M17"段）
+- **服务端 API i18n 范围外扩展**（2026-08-28 已闭环归档至 [todo-archive.md §M17.2-4](archive/todo-archive-phases-m16-m17.md#m17-安全与可用性收口m171m172m173m174m175m176-全部已闭环--2026-08-28-归档)；10 文件分 3 子阶段 credentials / schedules / batch-runs + repos batch；关键 commit `5f66a08` / `90549a0` / `98fd47d` / `a1c7c4e` 4 commits；原 M17.2-4 实施细节见上方"已闭环阶段 M17"段）
 
 ---
 

@@ -21,13 +21,13 @@
   - RG-W01：`packages/engine/src/github/pr-creator.ts:214` `execSync('git add .')`
   - RG-W02：`packages/engine/src/fixers/pnpm/index.ts:144` `execSync(command)` 含模板拼接
 - **验收标准**：
-  - [ ] 2 处 `execSync` 替换为 `execFileSync` + 参数数组（避免 shell 解释）
-  - [ ] `pnpm --filter @dependfix/engine test` 全过（既有 `pr-creator.test.ts` + `fixers-pnpm.test.ts` 测试覆盖）
-  - [ ] `pnpm lint` + `pnpm typecheck` 0 error
-  - [ ] 本地 grep 实证 0 处 execSync 模板拼接（命令：`rg -n "execSync.*插值" packages/engine/src`）
+  - [x] 2 处 `execSync` 替换为 `execFileSync` + 参数数组（避免 shell 解释）
+  - [x] `pnpm --filter @dependfix/engine test` 全过（既有 `pr-creator.test.ts` + `fixers-pnpm.test.ts` 测试覆盖）
+  - [x] `pnpm lint` + `pnpm typecheck` 0 error
+  - [x] 本地 grep 实证 0 处 execSync 模板拼接（命令：`rg -n "execSync.*插值" packages/engine/src`）
 - **不做什么**：不重构其他 execSync 调用（如 `git config` 静态命令无注入风险）；不升级 pnpm / git 版本；不引入新依赖
 - **依赖**：M18.4 已闭环（pr-creator.ts 上下文已具备）；Code Scanning audit #26/#27 已记录（[经验归档 §四十四](../../docs/design/governance/experience-archive.md)）
-- **交付物**：2 atomic commits（`fix(engine) execFileSync 替换 pr-creator.ts` + `fix(engine) execFileSync 替换 fixers-pnpm/index.ts`）+ 既有测试不回归
+- **交付物**：✅ 已闭环 — 2 atomic commits `0a83c74` + `a77e557`（ahead=2 / engine vitest 1060 passed + 1 skipped / lint 0 error / typecheck 0 error / audit standard depth Pass）+ audit W1 注释漂移修复 + L281 注释修正同步合入
 - **风险与缓解措施**：参数化命令数组需正确转义特殊字符（如 git URL 含空格等）；缓解：复用既有测试覆盖（pr-creator.test.ts 已覆盖 PR 创建全链路）+ 新增 1 case 验证带空格路径
 
 #### M21.2（P3，🛡️ 治理）M18.x 剩余风险 W1 + W2 + audit suggest 1+2（4 项集中清理）
@@ -39,14 +39,14 @@
   - **audit suggest 1**：`test.describe` 嵌套冗余 `test.use` 清理（`apps/platform/tests/e2e/*.e2e.test.ts`）
   - **audit suggest 2**：空 `beforeAll` 钩子清理（vitest 钩子无操作直接删除）
 - **验收标准**：
-  - [ ] 4 项均完成（commit message 引用编号 W1/W2/S1/S2 实证）
-  - [ ] `pnpm --filter @dependfix/engine test` 全部通过（含新加 W1 回归 case）
-  - [ ] `pnpm --filter @dependfix/platform test` locale 检测单测覆盖大小写（`?locale=EN` / `?locale=en-US` 都接受）
-  - [ ] `pnpm lint` 0 error + `pnpm typecheck` 0 error
-  - [ ] A 阶段 code-auditor quick depth Pass（建议 `audit-depth: quick`）
+  - [x] 4 项均完成（commit message 引用编号 W1/W2/S1/S2 实证）
+  - [x] `pnpm --filter @dependfix/engine test` 全部通过（含新加 W1 回归 case）
+  - [x] `pnpm --filter @dependfix/platform test` locale 检测单测覆盖大小写（`?locale=EN` / `?locale=en-US` 都接受）
+  - [x] `pnpm lint` 0 error + `pnpm typecheck` 0 error
+  - [x] A 阶段 code-auditor quick depth Pass（`audit-depth: quick`）
 - **不做什么**：不重构 stageAndCommit 主流程；不引入新依赖；不破坏 better-auth / Nuxt i18n 集成
 - **依赖**：M18.4 已闭环；M16.3 `detectServerLocale` 已落地（W2 是其延伸）；BullMQ 队列无需本批次涉及
-- **交付物**：3-4 commits（每个子项 1 fix + 1 test 或合并；建议 4 commits 拆分明细便于 review）
+- **交付物**：✅ 已闭环 — 4 atomic commits `fe7cc0f` (W1) + `ad376c8` (W2) + `0903f06` (S1) + `b6d8539` (S2)（engine vitest 1061 passed + 1 skipped / platform vitest 919 passed + 4 skipped / playwright admin-roles 15 passed / lint 0 error / typecheck 0 error / audit quick depth Pass 0 blocker / 0 warning / 2 suggest 不纳入本批次）
 - **风险与缓解措施**：W1 回归测试涉及 `process.env.GIT_CONFIG_GLOBAL` 副作用，可能影响其他测试并行；缓解：用 `vi.stubEnv` 隔离 + 测试结束 `vi.unstubAllEnvs`
 
 #### M21.3（P3，🔧 技术债）S-5 `process.env.ENCRYPTION_KEY` 死代码清理（6 处 → helper 抽取）

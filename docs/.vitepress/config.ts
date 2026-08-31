@@ -27,6 +27,7 @@ export default defineConfig({
                         { text: '快速开始', link: '/guide/quick-start' },
                         { text: '技术栈详解', link: '/guide/tech-stack' },
                         { text: '配置说明', link: '/guide/configuration' },
+                        { text: 'PR 自动合并配置', link: '/guide/auto-merge' },
                         { text: '发布指南', link: '/guide/release' },
                         { text: 'AI 协同开发', link: '/guide/ai-development' },
                     ],

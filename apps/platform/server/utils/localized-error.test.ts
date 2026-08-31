@@ -99,6 +99,36 @@ describe('detectServerLocale', () => {
         }))
         expect(locale).toBe('en')
     })
+
+    // W2 大小写兼容：BCP 47 language tag 规范本身大小写不敏感（@nuxtjs/i18n tryQueryLocale
+    // 内部归一化），helper 之前直接 === 'en' / 'zh-CN' 字面量比较 → ?locale=EN 不接受；
+    // 本批次加 toLowerCase() 兼容 ?locale=EN / ?locale=en-US / cookie i18n_locale=EN
+    it('W2 大小写兼容：URL query ?locale=EN 大写 → en', () => {
+        const locale = detectServerLocale(makeEvent('GET', '/api/test?locale=EN', undefined, {}))
+        expect(locale).toBe('en')
+    })
+
+    it('W2 大小写兼容：URL query ?locale=en-US 复合 locale → en', () => {
+        const locale = detectServerLocale(makeEvent('GET', '/api/test?locale=en-US', undefined, {}))
+        expect(locale).toBe('en')
+    })
+
+    it('W2 大小写兼容：URL query ?locale=ZH-CN 全大写 → zh-CN', () => {
+        const locale = detectServerLocale(makeEvent('GET', '/api/test?locale=ZH-CN', undefined, {}))
+        expect(locale).toBe('zh-CN')
+    })
+
+    it('W2 大小写兼容：URL query ?locale=zh → zh-CN', () => {
+        const locale = detectServerLocale(makeEvent('GET', '/api/test?locale=zh', undefined, {}))
+        expect(locale).toBe('zh-CN')
+    })
+
+    it('W2 大小写兼容：cookie i18n_locale=EN 大写 → en', () => {
+        const locale = detectServerLocale(makeEvent('GET', '/api/test', undefined, {
+            cookie: 'i18n_locale=EN',
+        }))
+        expect(locale).toBe('en')
+    })
 })
 
 describe('createLocalizedError', () => {

@@ -95,9 +95,16 @@ export function detectServerLocale(event: H3Event): ServerLocale {
             if (queryStart !== -1) {
                 const queryString = reqUrl.slice(queryStart + 1)
                 const params = new URLSearchParams(queryString)
-                const queryLocale = params.get('locale')?.trim()
-                if (queryLocale === 'en' || queryLocale === 'zh-CN') {
-                    return queryLocale
+                const rawQueryLocale = params.get('locale')?.trim()
+                if (rawQueryLocale) {
+                    // 大小写不敏感（BCP 47 language tag 规范）；归一化到 ServerLocale 枚举值
+                    const normalized = rawQueryLocale.toLowerCase()
+                    if (normalized === 'en' || normalized === 'en-us') {
+                        return 'en'
+                    }
+                    if (normalized === 'zh-cn' || normalized === 'zh') {
+                        return 'zh-CN'
+                    }
                 }
             }
         } catch {
@@ -109,9 +116,16 @@ export function detectServerLocale(event: H3Event): ServerLocale {
     if (typeof cookieHeader === 'string') {
         // 仅解析 i18n_locale（避免引入 cookie 解析库；regex 简化版覆盖单值/多值两种格式）
         const match = /(?:^|;\s*)i18n_locale=([^;]+)/.exec(cookieHeader)
-        const value = match?.[1]?.trim()
-        if (value === 'en' || value === 'zh-CN') {
-            return value
+        const rawValue = match?.[1]?.trim()
+        if (rawValue) {
+            // 大小写不敏感（与 query 路径一致）
+            const normalized = rawValue.toLowerCase()
+            if (normalized === 'en' || normalized === 'en-us') {
+                return 'en'
+            }
+            if (normalized === 'zh-cn' || normalized === 'zh') {
+                return 'zh-CN'
+            }
         }
     }
     const acceptLanguageRaw = reqHeaders['accept-language']

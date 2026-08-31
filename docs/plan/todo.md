@@ -4,7 +4,7 @@
 
 ## 当前阶段：M20 ScanResult 数据模型重构（2026-08-31 启动）
 
-> **状态**：D 阶段 M20.1 / M20.3 / M20.5 / M20.6 已落地（commit `acb2d35` / `2e4ab1b` / `170fee1` / `c7ba014`），M20.7 待启动。
+> **状态**：D 阶段 M20.1 / M20.3 / M20.5 / M20.6 / M20.7 全部已落地（commit `acb2d35` / `2e4ab1b` / `170fee1` / `c7ba014` / `a399323`）。M20 阶段实施完成，待 M20 + next-phase 触发人工验收。
 >
 > **背景**：M19 闭环后实测反馈——`nuxt-latest-template` 在最近一次扫描 0 告警，但 alerts 视图仍显示 7 条历史"未处理"告警（出现次数 7）。根因：ScanResult 当前是"每次扫描 × 每个告警"存一行（91 行 vs 13 个独立告警），无 reconcile 逻辑，导致上游已关闭的告警永远残留。
 >
@@ -83,7 +83,7 @@
 | **实际** | 1 commit（`c7ba014`），`feat(platform): alerts 视图移除 dedupe 切换 + 改为 includeSuperseded 开关（M20.6）` |
 | **验证** | T 阶段全过：vitest 903 passed + 4 skipped；vitest --typecheck Type Errors: no errors；pnpm lint 0 error；lint:md Done；playwright alerts-rowgroup 10 passed + alerts-sidebar 2 + alerts-fix-now 3 passed；build 38.5 MB；check:docs 101 md + 57 vue-interp 全过。A 阶段 Code Auditor deep depth Pass（0 blocker / 2 warning + 5 suggest；W1 W2 留 e2e 重构下批次清理） |
 
-### [ ] M20.7 一次性 backfill 脚本 + 数据迁移
+### [x] M20.7 一次性 backfill 脚本 + 数据迁移 ✅ 已完成（2026-08-31）
 
 | 维度 | 内容 |
 |:---|:---|
@@ -95,6 +95,8 @@
 | **验收标准** | ① 脚本可在 dry-run 模式只输出统计不写库；② 实跑后 alerts 视图显示数量显著下降（如 91 → 13）；③ 已修复告警（fixStatus=success）仍可见且数字不变；④ 幂等执行无副作用；⑤ 文档说明运行步骤（apps/platform/server/database/scripts/README.md） |
 | **依赖** | M20.3 + M20.5 + M20.6（必须先上线代码才能跑迁移） |
 | **预估** | 1 commit |
+| **实际** | 1 commit（`a399323`），`feat(platform): ScanResult backfill 一次性数据迁移脚本（M20.7）` |
+| **验证** | T 阶段全过：vitest 914 passed + 4 skipped（11 backfill 单测）；vitest --typecheck Type Errors: no errors；pnpm lint 0 error / 4 历史 baseline；lint:md Done；playwright alerts-rowgroup 10 passed；build 38.5 MB；check:docs 102 md + 57 vue-interp 全过；CLI dry-run 端到端 OK；`echo y \| pnpm db:backfill` apply 端到端 OK（y/N 二次确认 + APPLY stats）；CLI apply + seed data 5→3 行 ALL ASSERTIONS PASSED（含 success 保护 + 幂等 + upstreamId backfill- 前缀）。A 阶段 Code Auditor deep depth Reject → 修复全部 blocker + 关键 warning 后 Pass |
 
 ---
 

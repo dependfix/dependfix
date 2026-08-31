@@ -824,3 +824,220 @@ M20 归档批次执行时：
 ### 准入标准复核
 
 本案例符合准入标准第 1 条"教训未落入规范"（planning.md §4.4 缺少"预防性迁出后 cross-reference 更新"规范）+ 第 3 条"重复违规预警"（M18 归档批次预防性迁出 M13/M12/M10 / M19 归档批次预防性迁出 M14/M15 均有类似断链风险）。挂接治理检查点 2 项可显著降低未来同类问题概率。
+
+## 五十、SQLite 数据库业务数据被清空：开发环境不可恢复事故（2026-09-01）
+
+### 案例
+
+`apps/platform/data/dependfix.sqlite` 启动后被清空，用户登录管理员账号失败、仓库/凭据/扫描结果全部丢失。事故排查与根因分析：
+
+#### 现场证据（采集自 dependfix.sqlite readonly 模式）
+
+| 指标 | 实际值 | 含义 |
+|:--|:--|:--|
+| 文件大小 | 233,472 bytes (57 pages × 4096) | 与 page_count 完全吻合，无浪费 |
+| `freelist_count` | **0** | **没有任何被删除数据的痕迹**（SQLite DELETE 后页面进 freelist，VACUUM 才回收） |
+| `auto_vacuum` | 0 | 默认关闭 |
+| `journal_mode` | delete | 默认 rollback journal |
+| `schema_version` | **95** | **经历过 95 次 schema 变更**——非"首次启动创建的新库" |
+| `sqlite_sequence` | `[{"name":"migrations","seq":1}]` | 只跑过 1 个 migration |
+| 各表行数 | 仅 `dependfix_organization` 1 行 | 其他 12 个业务表全部 0 行 |
+| schema 完整性 | 14 张表 + 38 索引完整 | TypeORM synchronize 已成功建表 |
+| 文件 Birth time | 2026-08-31 14:23:25 +0800 | 文件 inode 创建时刻 |
+| 文件 mtime | 2026-09-01 02:57:59 +0800 | 最近访问时刻 |
+| organization.created_at | 2026-08-31 18:57:59 UTC = 02:57:59 +0800 | 本次启动时自动初始化 |
+
+#### 启动日志关键点（用户提供的 dev 启动日志）
+
+```
+2:57:46 AM  Nuxt 4.5.2 启动
+2:57:49 AM  Vite client/server built
+2:57:53 AM  Nuxt Nitro server built
+2:57:59 AM  [database] create new DataSource (pid=21967, global=false)
+2:57:59 AM  WARN [better-auth] Base URL is not set
+2:58:06 AM  WARN [Better Auth]: User not found
+2:58:18 AM  WARN [Better Auth]: User not found
+```
+
+- `[database] create new DataSource (pid=21967, global=false)` 表明**新进程 + globalThis 无残留 DataSource**（每次新进程都是 global=false，正常）
+- `[Better Auth]: User not found` 警告证明 better-auth 查询数据库时**找不到用户**——业务表已空
+
+### 根因分析（多角度穷举）
+
+#### 假设 A：TypeORM 1.x synchronize 清空数据 → **排除**
+
+**实测** `repro.cjs` / `repro2.cjs` / `sv-test3.cjs`：
+- TypeORM 1.x synchronize 在 SQLite + 已有数据 + 新增 NOT NULL 列无 default 时会抛 `SqliteError: NOT NULL constraint failed`
+- `RdbmsSchemaBuilder.build()` 包裹在事务里（`startTransaction → executeSchemaSyncOperationsInProperOrder → commitTransaction / rollbackTransaction`）
+- **失败时事务回滚，原表数据保留**
+- 复现日志：`after FAILED sync schema_version=3 page_count=7 scan_result_rows=1`（schema_version 与 rows 保持不变）
+
+→ **synchronize 失败不会清空数据**
+
+#### 假设 B：应用代码路径主动 DELETE → **排除**
+
+穷举所有可能的清空路径：
+- `cleanupStaleRuns`（`apps/platform/server/services/batch/stale-cleanup.ts`）：只清理 `ScanRun` / `BatchRun` 中 stale 行（status=running/pending 且超 30 分钟），**不会清空** user/repo/credential/session 等
+- `e2e/fixtures.delete.ts`：受 `process.env.E2E_TEST !== 'true'` 门控保护，且按精确 owner/name 删除，**不会全表清空**
+- `backfill-scan-result.ts`：只处理 ScanResult 表的 per-alert 模型聚合，**不会动**其他表
+- `process.exit` 前的 cleanup：所有 `process.exit` 都不带清空逻辑
+- `fs.unlinkSync` / `fs.rmSync`：仅清理 workDir/_pending/ 内过期 worktree，**不针对 SQLite 文件**
+
+→ **代码内没有任何清空业务表的路径**
+
+#### 假设 C：TypeORM `dropSchema` 选项触发 → **排除**
+
+`createDataSourceOptions()` 未传 `dropSchema: true`：
+```ts
+const common: Partial<DataSourceOptions> = {
+    entities: [...],
+    migrations: [CreateAuditEventTable1700000000000],
+    migrationsRun: process.env.DATABASE_MIGRATIONS_RUN !== 'false',
+    synchronize,
+    entityPrefix,
+    namingStrategy: new SnakeCaseNamingStrategy(),
+    cache: false,
+}
+```
+DataSource.js 第 148-149 行确认：`if (this.options.dropSchema) await this.dropDatabase()`——**dropSchema 未启用，不调用 dropDatabase**
+
+→ **TypeORM dropSchema 路径未触发**
+
+#### 假设 D：外部 shell / 运维脚本清空 → **最可能**
+
+代码内找不到清空路径，结合：
+- `freelist_count=0` + `page_count × page_size == file_size`（freelist 全回收 = VACUUM 后或新建后）
+- `schema_version=95`（说明文件经历过 schema 演进，不是全新创建）
+- organization.created_at = 02:57:59（本次启动才创建，说明之前**没有** organization）
+- 用户陈述"数据全被清空" + "数据库创建时间和修改时间一致"
+
+最可能的事故链：
+1. 用户在某个时间点（14:23 之前或之后）通过 shell / sqlite 客户端 / CI 脚本执行了 `DELETE FROM` 清空所有业务表 + `VACUUM`（回收 freelist），或直接 `rm` 文件
+2. 应用启动时**未自动备份**（**风险 1**），无法回滚
+3. 启动后 TypeORM synchronize 检测到 schema 不变（已与 entity 匹配），不重建 schema
+4. `ensureDefaultOrganization()` 创建 organization 行（这是本次启动唯一的数据写入）
+5. 用户登录 → better-auth 查 user 表为空 → 失败
+
+### 已识别的 5 条设计风险
+
+虽然本次事故根因不在代码，但暴露了**至少 5 条可加固的设计风险**：
+
+#### 风险 1：dev 模式 `synchronize=true` 硬编码开启
+
+`apps/platform/server/database/index.ts:42`：
+```ts
+const isDev = process.env.NODE_ENV !== 'production'
+const synchronize = process.env.DATABASE_SYNCHRONIZE === 'true' || isDev
+```
+
+`.nuxt/dev/index.mjs:10482` 烘焙 `isDev=true` → **`pnpm dev` 启动时 synchronize 永远为 true**。任何 schema 升级（如未来再次出现 M20.3 这类 NOT NULL 列无 default 改动）会**同步失败并阻塞启动**。同步失败本身不会清空数据（实测），但启动期错误会让人误以为是"数据库坏了"。
+
+#### 风险 2：`synchronize=true + migrationsRun=true` 同时启用（TypeORM 反模式）
+
+`apps/platform/server/database/index.ts:60`：
+```ts
+migrationsRun: process.env.DATABASE_MIGRATIONS_RUN !== 'false', // 默认 true
+```
+
+TypeORM 1.x 文档明确警告 `synchronize` + `migrationsRun` 同开是反模式：
+- 启动顺序：buildMetadatas → afterConnect → dropSchema? → runMigrations? → synchronize?
+- 两者同时启用可能导致 schema 状态不一致（migration 创建 + synchronize 重建）
+
+#### 风险 3：e2e/fixtures.delete 双重防御缺失
+
+`apps/platform/server/api/e2e/fixtures.delete.ts:39`：
+```ts
+if (process.env.E2E_TEST !== 'true') {
+    throw createError({ statusCode: 404, statusMessage: 'Not Found' })
+}
+```
+
+- 只有 `E2E_TEST !== 'true'` 门控
+- **缺 `NODE_ENV === 'production' → 404` 兜底**（即使生产环境误设 `E2E_TEST=true` 也会暴露端点）
+- 这是 fixtures.post.ts:24-26 已记录的 RG-S3 follow-up，**未落地**
+
+#### 风险 4：缺 SQLite 数据备份机制
+
+- 没有任何 SQLite 备份脚本
+- 没有 `.gitignore` 保护下的本地快照
+- 一旦发生清空事故**完全无法回滚**
+- 本次事故直接暴露
+
+#### 风险 5：缺数据库自检工具
+
+- 启动期没有打印数据库状态（表行数、freelist、schema_version、最近 mtime）
+- 用户无法快速判断"数据是被清空"还是"从未注入"
+- 故障定位耗时高（本次事故 30 分钟排查）
+
+### 修复方案（待用户决策后落地）
+
+#### 方案 1：SQLite 启动期自动备份（风险 4 兜底）
+
+新增 `apps/platform/server/database/backup.ts`：
+- 启动 `ensureDatabaseInitialized()` 前自动备份：`data/dependfix.sqlite → data/backups/dependfix.sqlite.YYYY-MM-DDTHH-mm-ss.bak`
+- 仅在文件存在且非空时备份
+- 保留最近 10 份（可配置），自动清理老备份
+- 提供 `pnpm db:restore --from=<backup-file>` 还原命令
+- **未来发生同类事故时**：可立即 `pnpm db:restore --from=data/backups/dependfix.sqlite.2026-09-01.bak` 恢复
+
+#### 方案 2：synchronize 显式 opt-in + 启动日志（风险 1）
+
+修改 `apps/platform/server/database/index.ts:42`：
+- 移除 `|| isDev` 自动开启
+- 改 `DATABASE_SYNCHRONIZE=true` 才开
+- 启动期显式日志：`[database] synchronize=true (DATABASE_SYNCHRONIZE=true, isDev=...)` 便于排查
+- **降低意外同步触发的概率**
+
+#### 方案 3：migrationsRun 默认改为 false（风险 2）
+
+修改 `apps/platform/server/database/index.ts:60`：
+- `migrationsRun` 默认改为 `false`
+- 仅在显式 `DATABASE_MIGRATIONS_RUN=true` 时开启
+- 配合 `DATABASE_SYNCHRONIZE=true` 单独使用
+
+#### 方案 4：e2e/fixtures.delete 双重防御（风险 3）
+
+修改 `apps/platform/server/api/e2e/fixtures.delete.ts:39`：
+```ts
+if (process.env.E2E_TEST !== 'true' || process.env.NODE_ENV === 'production') {
+    throw createError({ statusCode: 404, statusMessage: 'Not Found' })
+}
+```
+- 双门控：缺一不可
+- 同样应用到 fixtures.post.ts（对称防御）
+
+#### 方案 5：数据库自检脚本（风险 5）
+
+新增 `apps/platform/scripts/db-doctor.ts`：
+- 打印各表行数、freelist、page_count、schema_version、journal_mode
+- 提供 `pnpm db:doctor` 命令
+- 用户可立即判断数据库状态（是被清空 vs 从未注入 vs schema 升级中）
+- **降低未来同类故障的定位时间**
+
+### 教训
+
+1. **数据库启动期自动备份是 SQLite 单写者应用的最后防线**：一旦发生清空事故（任何来源），没有备份即无法回滚。better-sqlite3 单文件 SQLite 极简但脆弱，备份机制必须前置（启动期自动 + 用户命令式）。
+
+2. **TypeORM 1.x synchronize 失败不会清空数据**（实测验证 `RdbmsSchemaBuilder` 事务回滚有效），但启动期错误让人误以为"数据库坏了"——区分"schema 同步失败"和"数据被清空"必须看 schema_version + freelist_count + 各表行数。
+
+3. **`synchronize + migrationsRun` 是 TypeORM 反模式**：两者同开会导致 schema 状态不一致，迁移/重建逻辑相互干扰。规范做法是：开发用 synchronize（手动改 entity）+ migrations 准备生产部署；生产用 migrations + `migrationsRun=true`，**关闭 synchronize**。
+
+4. **e2e/测试端点必须叠加 NODE_ENV 防御**：`E2E_TEST=true` 这种环境变量是单点失败防御，生产环境误设即暴露端点。`NODE_ENV === 'production'` 是兜底——任何破坏性端点都应该双门控。
+
+5. **开发环境数据丢失也是事故**：即使不影响生产，但用户投入的种子数据、测试场景会被全部抹除，浪费排查时间 + 重置工作。启动期自动备份是低成本高价值的防御措施。
+
+6. **不要用 `freelist_count=0` 推断"数据库从没数据"**：freelist=0 仅说明没有"删除后未 VACUUM"的页面。如果用户先 DELETE 再 VACUUM 或先 rm 再新建，freelist 也是 0。判断数据库历史需要看 `schema_version`（schema 演进计数）+ `journal_mode` + `user_version` + 各表行数 + `integrity_check` 综合判断。
+
+7. **代码内找不到根因 ≠ 不存在根因**：本次事故穷举代码内所有可能的清空路径（synchronize / cleanupStaleRuns / fixtures.delete / backfill / dropSchema），均未发现清空逻辑。代码层面无法找到根因时，事故根因在代码外部（shell、CI、运维、人工误操作）的概率极高——但仍需通过防御加固（自动备份 + 显式 opt-in + 启动日志）来降低未来同类事故的恢复成本。
+
+### 挂接治理检查点（规范吸收）
+
+1. **`docs/standards/development.md` §5.1.18**：SQLite 数据库启动期自动备份强制项（仅在 production-like 环境下，dev 环境可选但建议开启）
+2. **`docs/standards/development.md` §5.1.19**：synchronize 与 migrationsRun 反模式禁止（不能同时启用；开发用 synchronize，生产用 migrations）
+3. **`docs/standards/platform.md` §3.6**：e2e 端点双门控规范（`E2E_TEST` + `NODE_ENV` 双重校验）
+4. **`docs/standards/security.md` §2.1 SQLite 数据库防护（不可恢复数据事故防线）**：SQLite 数据备份与恢复规范（启动期自动备份 + 命令式恢复 + 自检工具）
+5. **`docs/plan/todo.md`**：登记 M22 阶段任务（启动期备份 + synchronize opt-in + 双重防御 + 自检脚本）
+
+### 准入标准复核
+
+本案例符合准入标准第 1 条"教训未落入规范"（development.md / platform.md / security.md 均无 SQLite 备份 + synchronize opt-in + e2e 双门控规范）+ 第 4 条"工具/环境陷阱"（SQLite 单文件脆弱性 + TypeORM 1.x 默认反模式 + 启动期 backup 缺失是真实运行才能暴露的陷阱）。挂接治理检查点 5 项可显著降低未来同类事故的恢复成本 + 误操作概率。

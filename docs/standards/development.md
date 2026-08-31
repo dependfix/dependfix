@@ -272,6 +272,64 @@ void Repository
 
 教训（M20.7 backfill 一次性脚本反思实证）：用户质疑"添加 tsx 是为什么？这个脚本为什么要 TypeScript？"→诚实分析：tsdown / tsx 不可替代（装饰器约束），但 register-entities.ts 单独文件可整合到主脚本顶部 inline 块（净 -21 行），engines 升级 `>=20` → `>=22`（Node 20 EOL）。详见 [经验归档 §四十七](../design/governance/experience-archive.md#四十七一次性脚本不应-over-engineeringtsx-cli-装饰器依赖-vs-node-22-strip-types2026-08-31m20.7)。
 
+#### 5.1.18 SQLite 数据库启动期自动备份强制项（hard requirement）
+
+依赖 better-sqlite3 单文件的 Nuxt 全栈应用（`apps/platform`）**必须**在每次 `ensureDatabaseInitialized()` 之前对 SQLite 数据库做时间戳备份，避免任何形式的清空 / 误删 / schema 重建导致业务数据永久丢失。
+
+**触发条件**：
+- SQLite 文件存在 + 文件 size > 0 + 不是 `.bak` 后缀文件
+- 应用启动前自动备份（无需用户介入）
+- 备份目录：`data/backups/dependfix.sqlite.YYYY-MM-DDTHH-mm-ss.bak`
+- 保留策略：最近 10 份（`BACKUP_RETENTION_COUNT` env 可覆盖），超出按 mtime 排序清理老备份
+
+**强制要求**：
+1. 备份文件写入前必须 `fsync`（`fs.fsyncSync(fd)`）+ 重命名（`fs.renameSync(tmp, target)`）——确保断电时不会留下半成品
+2. 备份过程失败不能阻塞应用启动（catch + console.error 即可，应用照常运行）
+3. 必须提供 `pnpm db:restore --from=<backup-file>` 还原命令（CLI 入口守卫必备，见 §5.1.5）
+4. 必须提供 `pnpm db:doctor` 自检命令（打印各表行数 + freelist + page_count + schema_version + journal_mode + integrity_check）
+5. D 阶段自检（Full Stack Master (全栈大师) agent）必须验证：apps/platform/server/database/backup.ts 存在 + 含 backup-on-startup 调用 + 含 fsync + 含保留策略清理逻辑
+6. A 阶段 Review Gate 必查项：apps/platform/server/database/backup.ts 文件存在 + 含 fsync 证据 + 含保留策略
+
+**禁止**：
+- 禁用 `--no-verify-backup` 跳过备份（无备份时应用启动期打印醒目 WARN 但仍允许启动——这是 fail-open 而非 fail-closed；恢复依赖用户的本地副本或外部备份）
+- 禁用备份目录走 `.gitignore` 之外的位置（避免误提交）
+- 禁用备份过程阻塞启动超过 5 秒（超过视为备份实现有问题，需审计）
+
+**应用范围**：所有 better-sqlite3 部署形态（dev / e2e / prod / Docker 容器）。e2e.sqlite 与 dependfix.sqlite 各自独立（不交叉备份）。
+
+**实证**（2026-09-01 dependfix.sqlite 数据清空事故）：用户报告 dependfix.sqlite 启动后业务表全空，事后无法回滚。根因排查发现代码内无清空路径（synchronize 失败会回滚、fixtures 端点受门控保护、cleanupStaleRuns 只清理 ScanRun/BatchRun、backfill 只处理 ScanResult），最可能清空来源在代码外部（shell / CI / 运维）。但项目无任何备份机制，事故无法回滚。详见 [经验归档 §五十](../design/governance/experience-archive.md#五十sqlite-数据库业务数据被清空开发环境不可恢复事故2026-09-01)。
+
+#### 5.1.19 TypeORM 1.x synchronize 与 migrationsRun 反模式禁止（hard requirement）
+
+`apps/platform/server/database/index.ts` 配置必须遵守以下约束：
+
+**禁止组合**：
+- ❌ `synchronize: true` **同时** `migrationsRun: true`（TypeORM 1.x 文档明文警告的反模式）
+- ❌ dev 模式下 `synchronize` 硬编码自动开启（如 `|| isDev`）
+
+**强制组合**：
+- ✅ **dev 模式**：`synchronize: DATABASE_SYNCHRONIZE === 'true'`（显式 opt-in，不自动开启）+ `migrationsRun: false`
+- ✅ **prod 构建**：`synchronize: DATABASE_SYNCHRONIZE === 'true'`（默认关闭）+ `migrationsRun: DATABASE_MIGRATIONS_RUN === 'true' || false`
+- ✅ **e2e 测试**：`synchronize: true`（独立数据库，schema 同步可接受）+ `migrationsRun: false`
+
+**启动期日志强制项**：
+- 必须打印当前生效的 `synchronize` 值 + `migrationsRun` 值 + 触发来源（环境变量或默认）
+- 例：`[database] synchronize=false (DATABASE_SYNCHRONIZE unset, NODE_ENV=production), migrationsRun=false`
+- 便于排查"为什么数据库 schema 没更新"或"为什么数据库被自动改写"
+
+**NOT NULL 列无 default 时同步失败的恢复路径**：
+- 当 schema 升级需要给已有数据的表新增 NOT NULL 列且无 default value，TypeORM 1.x synchronize 在 SQLite 上会失败（`SqliteError: NOT NULL constraint failed`）
+- 事务回滚保证数据不丢（`RdbmsSchemaBuilder.build()` 内嵌 startTransaction / commitTransaction / rollbackTransaction）
+- 启动期需打印明确错误：`[database] synchronize FAILED: ...请写 migration 而非改 entity`
+- D 阶段自检必须验证：涉及 NOT NULL 列无 default 的 schema 变更必须走 migration 路径，不可仅靠 synchronize
+
+**实证**（repro.cjs / sv-test3.cjs）：
+- TypeORM 1.x 在 SQLite + 已有数据 + 新增 NOT NULL 列无 default 时实测：`Init FAILED: SqliteError: NOT NULL constraint failed`，事务回滚后 `schema_version` 不变 + 数据保留
+- **synchronize 失败不会清空数据**（事务回滚保证），但启动失败需用户明确知道是 schema 同步失败而非数据库损坏
+- dev 模式硬编码 `synchronize=true` 会让 schema 升级每次都触发同步逻辑，频繁启动期失败
+
+教训（2026-09-01 dependfix.sqlite 事故关联风险）：dev 模式 `synchronize: true || isDev` 硬编码导致任何 schema 变更都会触发同步，未来再次出现 NOT NULL 列无 default 改动时启动期失败。详见 [经验归档 §五十](../design/governance/experience-archive.md#五十sqlite-数据库业务数据被清空开发环境不可恢复事故2026-09-01) + §二十七（M20.3 ScanResult NOT NULL 列加列风险首次复现）。
+
 ---
 
 ## 6. 样式规范（平台阶段适用）

@@ -77,6 +77,7 @@
 - **T703 跨平台 Git**（GitLab + Bitbucket）—— 2026-08-12 用户指示暂缓排期
 - **C30 Publish Docker build job 失败排查** —— 2026-08-18 用户决策暂缓（双平台构建 23m 2s 成功证明当前 docker.yml 可稳定工作）；恢复条件：① master 分支 push 频率显著提升；② 镜像实际发布成为强需求（v1.0.0 正式发布前）；③ 用户明确恢复
 - **§M14.2 PrimeVue 4 → 5 升级评估** —— 2026-08-26 dependabot #49 触发评估，Nuxt build 报 `Rolldown failed to resolve import "primevue/inputcolor"`（v5 改组件导入约定）。`@primevue/nuxt-module` 5.x + `@primeuix/themes` 3.x 需联动升级，影响 `apps/platform/nuxt.config.ts` 及可能的 DataTable 等组件用法。PR 已关闭，恢复条件：① 评估 PrimeVue 5 migration guide 工作量；② 与主线 #1（PrimeVue 4 hydration 已知 bug）联动决策——若主线已迁移到 v5 修复版本，则直接评估；否则需先评估"独立升级 PrimeVue 5 vs 等主线修复"的取舍；③ 用户明确恢复
+- **M22 规范单点声明收敛（neat-freak 批次）** —— 2026-09-01 M22 沉淀批次审计 W-2/W-3/W-4 标记：SQLite 启动期备份 / db-restore / db-doctor 三条规则在 `development.md §5.1.18` / `platform.md §3.7` / `security.md §2.1` 三处完整声明，违反 [documentation.md §4 规范单点声明原则](https://github.com/.../blob/main/docs/standards/documentation.md)（"每条规则只在其职责归属的权威文档中完整声明一次"）。恢复条件（neat-freak 批次统一收敛）：① 选定 `security.md §2.1` 为 SQLite 防护规则权威完整声明（安全防线定位最贴切）；② `development.md §5.1.18` 收敛为引用 + 仅保留开发角度差异化信息（"禁止"段 / "应用范围" / "实证"）；③ `platform.md §3.7` 第 1/2/3 条收敛为引用 + 仅保留平台角度差异化信息（调用时机 / 协同关系）。**注意**：本批次 commit 不阻塞，M22.1-M22.6 实施时手动同步更新所有声明位置；下次 neat-freak 启动时优先处理
 
 ### 远期登记 / 未排期增强候选
 
@@ -186,6 +187,17 @@
 ### PrimeVue 4 DataTable sort-mode / multisortMeta（持续观察）
 
 - **PrimeVue 类型 vs 运行时不一致** —— `sortMode='multiple'` + `multiSortMeta` 在 PrimeVue 4 类型声明与实际运行时存在不一致（类型允许多键但运行时单字段响应）；具体影响 + 修复方向待下次 neat-freak 批次统一挂接 [code-reviewer code-quality-checklist.md §规范一致性](../../.github/skills/code-reviewer/references/code-quality-checklist.md)。
+
+### SQLite 单文件脆弱性 + TypeORM synchronize 风险（持续观察）
+
+- **背景**：2026-09-01 `apps/platform/data/dependfix.sqlite` 业务数据被清空事故（详见 [经验归档 §五十](../design/governance/experience-archive.md#五十sqlite-数据库业务数据被清空开发环境不可恢复事故2026-09-01)）。代码内无清空路径，最可能清空来源在代码外部（shell / CI / 运维）。
+- **当前状态**：M22 阶段已制定修复方案（todo.md §M22.1 - §M22.6），等待落地
+- **持续观察项**：
+  - TypeORM 1.x 升级 / 替换为 0.3.x（1.x 已停止维护）—— 见 M23 候选
+  - PostgreSQL 多写者迁移 —— 见 M23 候选
+  - better-sqlite3 WAL 模式启用 + auto-checkpoint 调整（减少断电时数据丢失风险）
+  - SQLite 文件 inode 监控（`fs.watch` 检测 .sqlite 文件被外部 rm / rename 触发紧急备份）
+- **规范挂接**：[development.md §5.1.18](./../standards/development.md) + [§5.1.19](./../standards/development.md) + [platform.md §3.6](./../standards/platform.md) + [§3.7](./../standards/platform.md) + [security.md §2.1](./../standards/security.md)
 
 ---
 

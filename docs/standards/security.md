@@ -18,6 +18,46 @@
 - **Secrets 管理**: 严禁将密钥、Token 提交至 Git，必须使用 `.env`。
 - **不可信路径组件白名单校验**: `runId` 等不可信路径组件（来自 URL / 请求体 / 外部输入）必须**双重**校验：白名单正则（如 `RUN_ID_PATTERN = /^[a-zA-Z0-9_-]{1,64}$/`）+ 相对路径校验（`relative(workRoot, workDir).startsWith('..')`）。runId 不合法时 **early return 在 try 外**，跳过 mkdir / adapter.run / finally rm —— 避免对越界路径执行副作用（rm、删除等"清理逻辑"在路径不可信时同样危险）。
 
+### 2.1 SQLite 数据库防护（不可恢复数据事故防线）
+
+依赖 better-sqlite3 单文件 SQLite 的应用（`apps/platform`）必须实施以下防护，避免任何形式的清空 / 误删 / schema 重建导致业务数据永久丢失。
+
+#### 2.1.1 启动期自动备份（hard requirement）
+
+- **强制项**：`apps/platform/server/database/backup.ts` 存在并在 `ensureDatabaseInitialized()` 之前同步调用
+- **备份路径**：`data/backups/${basename}.${YYYY-MM-DDTHH-mm-ss}.bak`（时间戳格式 ISO 8601 紧凑型）
+- **触发条件**：源文件存在 + size > 0 + 后缀不是 `.bak`
+- **写入安全**：`fsync` + `rename`（`fs.openSync` + `fs.writeSync` + `fs.fsyncSync` + `fs.renameSync`）——确保断电时不会留下半成品
+- **保留策略**：最近 N 份（默认 10，`BACKUP_RETENTION_COUNT` env 可覆盖），按 mtime 升序清理超出部分
+- **失败处理**：catch + `console.error('[database] backup failed:', error)`，**不阻塞启动**（fail-open）
+
+#### 2.1.2 命令式恢复
+
+- **强制项**：`apps/platform/scripts/db-restore.ts` 存在，含 CLI 入口守卫（`process.argv[1]` 校验，见 [development.md §5.1.5](./development.md)）
+- **用法**：`pnpm db:restore --from=<backup-file>`
+- **二次确认**：必须 `--yes` flag 才执行（避免误操作覆盖当前数据库）
+- **覆盖前自动备份**：恢复前先把当前数据库备份到 `data/backups/auto-${timestamp}.bak`，确保恢复失败可回滚
+
+#### 2.1.3 数据库自检工具
+
+- **强制项**：`apps/platform/scripts/db-doctor.ts` 存在，含 CLI 入口守卫
+- **用法**：`pnpm db:doctor`
+- **输出**：各表行数 + `freelist_count` + `page_count` + `schema_version` + `journal_mode` + `integrity_check` + `sqlite_sequence` + 文件大小 + mtime/atime/birth time
+- **判定逻辑**（输出末尾给出结论）：
+  - `schema_version = 0` + 各表空 → **全新数据库**（首次启动）
+  - `schema_version > 0` + 各表空 → **数据被清空** 或 **从未注入**（结合 history 区分）
+  - `freelist_count > 0` → **有数据被删除但未 VACUUM**
+  - `integrity_check != 'ok'` → **数据库损坏**
+
+#### 2.1.4 与 e2e / fixtures 端点的关系
+
+- `apps/platform/server/api/e2e/*` 端点双门控（`E2E_TEST` + `NODE_ENV=production` 兜底）也是 SQLite 数据保护的一环——防止生产环境误暴露清空端点
+- 详见 [platform.md §3.6](./platform.md)
+
+#### 2.1.5 实证
+
+2026-09-01 `dependfix.sqlite` 数据清空事故：用户报告数据库启动后业务表全空，事后无法回滚。根因排查发现代码内无清空路径（synchronize 失败会回滚、cleanupStaleRuns 只清理 ScanRun/BatchRun、e2e fixtures 受门控保护、backfill 只处理 ScanResult），最可能清空来源在代码外部（shell / CI / 运维 / 误操作）。但项目无任何备份机制，事故无法回滚。本规范作为防御措施挂接。详见 [经验归档 §五十](../design/governance/experience-archive.md#五十sqlite-数据库业务数据被清空开发环境不可恢复事故2026-09-01) + [development.md §5.1.18](./development.md) + [platform.md §3.7](./platform.md)。
+
 ## 3. Web 安全防护 (Web Protection)
 
 - **XSS 防护**: 默认使用 Vue 模板转义。`v-html` 使用须严格审计。

@@ -125,6 +125,68 @@ export const getDateType = (dbType?: string): string => {
 
 - **`find()` 不支持嵌套路径 order by**：TypeORM 1.x `find({ order: { 'scanRun.repository.owner': 'ASC' } })` **不支持嵌套路径 order by**（仅支持 entity 顶层字段），会抛 `EntityPropertyNotFoundError: Property "scanRun.repository.owner" was not found in "ScanResult". Make sure your query is correct.`（`node_modules/typeorm/query-builder/SelectQueryBuilder.js:2371` 等抛出位置）。任何"按关联实体字段排序"的需求必须用 QueryBuilder：`createQueryBuilder('result').leftJoinAndSelect('result.scanRun', 'scanRun').leftJoinAndSelect('scanRun.repository', 'repository').orderBy('repository.owner', 'ASC').addOrderBy('repository.name', 'ASC')`。统一代码路径优先（全部走 QueryBuilder 而非 find + QueryBuilder 两条路径），简化维护 + 行为等价。修复 commit `374a278`（alerts 视图切换按包 / 按项目）。
 
+### 3.6 e2e / fixtures 端点双门控规范
+
+`apps/platform/server/api/e2e/*` 下的所有端点（fixtures.post.ts / fixtures.delete.ts 等）**必须**叠加两道门控，防止生产环境误暴露。
+
+**强制门控**（两条件同时满足才放行）：
+```typescript
+if (process.env.E2E_TEST !== 'true' || process.env.NODE_ENV === 'production') {
+    throw createError({ statusCode: 404, statusMessage: 'Not Found' })
+}
+```
+
+**为什么需要双门控**：
+- 单门控 `E2E_TEST === 'true'` 风险：生产环境误设 `E2E_TEST=true`（运维误操作、docker-compose 复制粘贴、CI 环境变量泄漏）即暴露端点
+- 叠加 `NODE_ENV === 'production'` 兜底：即使 `E2E_TEST=true`，生产环境永远返回 404
+
+**应用范围**：
+- `apps/platform/server/api/e2e/fixtures.post.ts` — POST /api/e2e/fixtures
+- `apps/platform/server/api/e2e/fixtures.delete.ts` — DELETE /api/e2e/fixtures
+- 未来新增的 `apps/platform/server/api/e2e/*.ts` 文件全部适用
+
+**禁止**：
+- ❌ 单 `E2E_TEST` 门控（缺 NODE_ENV 兜底）
+- ❌ `NODE_ENV !== 'development'` 门控（dev/test/staging 区分不清晰）
+- ❌ `import.meta.dev` 门控（仅 Nuxt 内置 dev/prod 区分，部署到 staging 仍误暴露）
+
+**D 阶段自检**：Full Stack Master (全栈大师) agent 检查所有 `apps/platform/server/api/e2e/*.ts` 文件，确认含双门控代码
+
+**A 阶段 Review Gate**：code-auditor 主责边界新增"e2e 端点双门控"必查项
+
+**实证**（2026-09-01 dependfix.sqlite 数据清空事故关联风险）：事故排查发现 `apps/platform/server/api/e2e/fixtures.delete.ts:39` 只有 `E2E_TEST !== 'true'` 单门控，与 fixtures.post.ts 同模式（post.ts:24-26 已记录 RG-S3 follow-up 未落地）。详见 [经验归档 §五十](../design/governance/experience-archive.md#五十sqlite-数据库业务数据被清空开发环境不可恢复事故2026-09-01)。
+
+### 3.7 SQLite 启动期备份 + 自检工具
+
+依赖 better-sqlite3 的 `apps/platform` 应用必须提供：
+
+1. **`apps/platform/server/database/backup.ts`**（hard requirement）：启动期自动备份
+   - 调用时机：`ensureDatabaseInitialized()` 之前同步调用
+   - 备份路径：`data/backups/${basename}.${YYYY-MM-DDTHH-mm-ss}.bak`
+   - 触发条件：源文件存在 + size > 0 + 后缀不是 `.bak`
+   - 写入安全：`fsync` + `rename`（避免断电留半成品）
+   - 保留策略：最近 N 份（默认 10，`BACKUP_RETENTION_COUNT` env 可覆盖），按 mtime 升序清理
+   - 失败处理：catch + console.error，**不阻塞启动**
+
+2. **`apps/platform/scripts/db-restore.ts`**（CLI 入口守卫必备，见 development.md §5.1.5）：
+   - 用法：`pnpm db:restore --from=<backup-file>`
+   - 安全门控：必须 `--yes` flag 二次确认（避免误操作覆盖当前数据库）
+   - 实现：先备份当前数据库到 `data/backups/auto-${timestamp}.bak`（覆盖前再留一份），再 `cp` 目标备份到 `data/dependfix.sqlite`
+
+3. **`apps/platform/scripts/db-doctor.ts`**（自检工具）：
+   - 打印：各表行数、`freelist_count`、`page_count`、`schema_version`、`journal_mode`、`integrity_check`、`sqlite_sequence`
+   - 判断"数据是被清空 vs 从未注入 vs schema 升级中"：
+     - schema_version > 0 + 各表全空 → 数据被清空或从未注入
+     - schema_version = 0 → 全新数据库
+     - freelist_count > 0 → 有数据被删除但未 VACUUM
+   - 输出可读报告（人读 + 机读双模，见 §5.1.2 development.md）
+
+**D 阶段自检**：必须验证上述 3 个文件存在且含核心实现（fsync / retention / `--yes` 门控 / 报告格式）
+
+**A 阶段 Review Gate**：backup.ts 必须含 fsync + retention 清理逻辑；db-restore.ts 必须含 `--yes` 二次确认；db-doctor.ts 必须打印 schema_version + freelist_count
+
+详见 [development.md §5.1.18](./development.md) 与 [经验归档 §五十](../design/governance/experience-archive.md#五十sqlite-数据库业务数据被清空开发环境不可恢复事故2026-09-01)。
+
 ## 4. 认证规范（better-auth）
 
 ### 4.1 实例配置（`server/utils/auth.ts`）

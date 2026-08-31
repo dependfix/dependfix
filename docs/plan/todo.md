@@ -4,7 +4,7 @@
 
 ## 当前阶段：M20 ScanResult 数据模型重构（2026-08-31 启动）
 
-> **状态**：D 阶段 M20.1 已落地（commit `acb2d35`），M20.3-M20.7 待启动。
+> **状态**：D 阶段 M20.1 / M20.3 / M20.5 / M20.6 已落地（commit `acb2d35` / `2e4ab1b` / `170fee1` / `c7ba014`），M20.7 待启动。
 >
 > **背景**：M19 闭环后实测反馈——`nuxt-latest-template` 在最近一次扫描 0 告警，但 alerts 视图仍显示 7 条历史"未处理"告警（出现次数 7）。根因：ScanResult 当前是"每次扫描 × 每个告警"存一行（91 行 vs 13 个独立告警），无 reconcile 逻辑，导致上游已关闭的告警永远残留。
 >
@@ -68,7 +68,7 @@
 | **预估** | 1 commit |
 | **备注** | **M20.3 reconcile 不重新激活已 supersede 告警的业务 gap（M20.3 audit 2026-08-31 W2）**：M20.5 实施时必须补齐"reconcile 重新激活语义"——当已 supersede 告警上游再次出现，应清除 supersededAt + 写 audit_event `suspicious_reactivation`。M20.3 本批次决策仅 supersede（不重新打开）属 audit suggest backlog，详见 `scan-result.ts` JSDoc 与 `scan-reconcile.ts:135-144` 注释。 |
 
-### [ ] M20.6 UI 调整 + i18n
+### [x] M20.6 UI 调整 + i18n ✅ 已完成（2026-08-31）
 
 | 维度 | 内容 |
 |:---|:---|
@@ -80,6 +80,8 @@
 | **验收标准** | ① "跨次去重 / 关闭" UI 元素消失；② "显示已解决"开关默认 false，开启后看到 supersededAt IS NOT NULL 行；③ "已修复"状态不受 supersededAt 影响；④ 中英文 i18n 完整 + lint:md 通过 |
 | **依赖** | M20.5（API 行为先确定） |
 | **预估** | 1 commit |
+| **实际** | 1 commit（`c7ba014`），`feat(platform): alerts 视图移除 dedupe 切换 + 改为 includeSuperseded 开关（M20.6）` |
+| **验证** | T 阶段全过：vitest 903 passed + 4 skipped；vitest --typecheck Type Errors: no errors；pnpm lint 0 error；lint:md Done；playwright alerts-rowgroup 10 passed + alerts-sidebar 2 + alerts-fix-now 3 passed；build 38.5 MB；check:docs 101 md + 57 vue-interp 全过。A 阶段 Code Auditor deep depth Pass（0 blocker / 2 warning + 5 suggest；W1 W2 留 e2e 重构下批次清理） |
 
 ### [ ] M20.7 一次性 backfill 脚本 + 数据迁移
 

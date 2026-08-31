@@ -53,6 +53,7 @@
             "converged": "已收敛",
             "pending": "未处理"
         },
+        "superseded": "已关闭",
         "status": {
             "enabled": "已启用",
             "disabled": "已禁用",
@@ -420,6 +421,9 @@
         "filterSeverity": "严重级别",
         "filterSource": "来源",
         "filterApply": "筛选",
+        "filter": {
+            "includeSuperseded": "显示已解决"
+        },
         "severityAll": "全部级别",
         "sourceAll": "全部来源",
         "sourceCodeQuality": "Code Quality",
@@ -439,13 +443,10 @@
         "viewModeRepository": "按项目",
         "viewModeNone": "原始列表",
         "repositoryUnknown": "未知仓库",
-        "dedupe": "去重",
-        "dedupeOff": "关闭",
-        "dedupeAcross": "跨次去重",
         "colOccurrenceCount": "出现次数",
         "colLastSeenAt": "最近发现",
         "colFirstSeenAt": "首次发现",
-        "detailRunsTitle": "影响该告警的扫描运行（前 {max} 个 / 共 {total} 次）",
+        "detailRunsTitle": "该告警关联的扫描运行（共 {total} 个）",
         "detailRunId": "运行 ID",
         "detailRunStatus": "状态",
         "detailRunStartedAt": "开始时间",

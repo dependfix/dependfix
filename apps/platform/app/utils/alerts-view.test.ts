@@ -4,6 +4,7 @@ import {
     alertsRuleIdTagSeverity,
     alertsRunStatusSeverity,
     alertsSeverityTagSeverity,
+    alertsStatusLabel,
     buildAlertsQuery,
     type AlertsFilters,
 } from './alerts-view'
@@ -109,12 +110,12 @@ describe('alerts-view 纯函数', () => {
     })
 
     describe('buildAlertsQuery（todo.md §M16.4 useAsyncData handler 共用）', () => {
-        // 默认筛选：所有字段为 'all' / dedupe='off'，用于验证各 viewMode 行为
+        // 默认筛选：所有字段为 'all' / includeSuperseded=false，用于验证各 viewMode 行为
         const defaultFilters: AlertsFilters = {
             repositoryId: 'all',
             severity: 'all',
             source: 'all',
-            dedupe: 'off',
+            includeSuperseded: false,
         }
 
         it('viewMode="none" 不携带 groupBy（后端等价于原始顺序）', () => {
@@ -144,7 +145,7 @@ describe('alerts-view 纯函数', () => {
                 repositoryId: 'repo-1',
                 severity: 'high',
                 source: 'dependabot',
-                dedupe: 'off',
+                includeSuperseded: false,
             })
             expect(query).toEqual({
                 groupBy: 'package',
@@ -154,36 +155,68 @@ describe('alerts-view 纯函数', () => {
             })
         })
 
-        it('dedupe="across" 携带 dedupe=true 触发后端跨次扫描去重聚合', () => {
-            const query = buildAlertsQuery('package', { ...defaultFilters, dedupe: 'across' })
-            expect(query.dedupe).toBe('true')
+        it('includeSuperseded=false 不携带参数（后端默认 result.supersededAt IS NULL 过滤）', () => {
+            const query = buildAlertsQuery('package', { ...defaultFilters, includeSuperseded: false })
+            expect(query).not.toHaveProperty('includeSuperseded')
         })
 
-        it('dedupe="off" 不携带 dedupe 参数（与既有行为一致）', () => {
-            const query = buildAlertsQuery('package', { ...defaultFilters, dedupe: 'off' })
-            expect(query).not.toHaveProperty('dedupe')
+        it('includeSuperseded=true 携带 includeSuperseded=true（前端"显示已解决"开关）', () => {
+            const query = buildAlertsQuery('package', { ...defaultFilters, includeSuperseded: true })
+            expect(query.includeSuperseded).toBe('true')
         })
 
-        it('全部组合：viewMode="none" + 所有 filters 都过滤 + dedupe="across"', () => {
-            // 综合场景：用户切到原始列表 + 选定具体仓库 + 高危 + dependabot + 跨次去重
+        it('全部组合：viewMode="none" + 所有 filters 都过滤 + includeSuperseded=true', () => {
+            // 综合场景：用户切到原始列表 + 选定具体仓库 + 高危 + dependabot + 显示已解决
             const query = buildAlertsQuery('none', {
                 repositoryId: 'repo-xyz',
                 severity: 'high',
                 source: 'dependabot',
-                dedupe: 'across',
+                includeSuperseded: true,
             })
             expect(query).toEqual({
                 repositoryId: 'repo-xyz',
                 severity: 'high',
                 source: 'dependabot',
-                dedupe: 'true',
+                includeSuperseded: 'true',
             })
         })
 
-        it('viewMode 与 dedupe 正交：组合独立生效', () => {
-            // 验证 viewMode='none' + dedupe='across' 也可同时生效（跨次去重不需要按组预排序）
-            const query = buildAlertsQuery('none', { ...defaultFilters, dedupe: 'across' })
-            expect(query).toEqual({ dedupe: 'true' })
+        it('viewMode 与 includeSuperseded 正交：组合独立生效', () => {
+            // 验证 viewMode='none' + includeSuperseded=true 也可同时生效（显示已解决不需要按组预排序）
+            const query = buildAlertsQuery('none', { ...defaultFilters, includeSuperseded: true })
+            expect(query).toEqual({ includeSuperseded: 'true' })
+        })
+    })
+
+    describe('alertsStatusLabel（todo.md §M20.6 状态列：fixStatus + supersededAt → 文案）', () => {
+        // 简化的 translator mock：直接返回 key，便于断言 i18n key 调用正确性
+        // 真实 i18n 文案在 apps/platform/i18n/locales/*.json 维护，本测试只验证映射
+        const t = vi.fn((key: string) => `t(${key})`) as unknown as (key: string) => string
+
+        it('fixStatus=success 始终显示"已修复"（不受 supersededAt 影响，决策 1）', () => {
+            expect(alertsStatusLabel({ fixStatus: 'success' }, t)).toBe('t(common.fixStatus.success)')
+            expect(alertsStatusLabel({ fixStatus: 'success', supersededAt: '2026-08-26T00:00:00Z' }, t))
+                .toBe('t(common.fixStatus.success)')
+        })
+
+        it('fixStatus≠success + supersededAt 非空 → "已关闭"（上游已消失，本地未修复）', () => {
+            expect(alertsStatusLabel({ fixStatus: 'pending', supersededAt: '2026-08-26T00:00:00Z' }, t))
+                .toBe('t(common.superseded)')
+            expect(alertsStatusLabel({ fixStatus: 'failed', supersededAt: '2026-08-26T00:00:00Z' }, t))
+                .toBe('t(common.superseded)')
+        })
+
+        it('fixStatus≠success + supersededAt=null → 原 fixStatus 文案（活跃告警）', () => {
+            expect(alertsStatusLabel({ fixStatus: 'pending', supersededAt: null }, t))
+                .toBe('t(common.fixStatus.pending)')
+            expect(alertsStatusLabel({ fixStatus: 'failed' }, t))
+                .toBe('t(common.fixStatus.failed)')
+        })
+
+        it('fixStatus≠success + supersededAt 缺失字段 → 视为 null，按活跃告警走原 fixStatus 文案', () => {
+            // 防御：API 老数据可能不带 supersededAt 字段（undefined）
+            expect(alertsStatusLabel({ fixStatus: 'skipped' }, t))
+                .toBe('t(common.fixStatus.skipped)')
         })
     })
 })

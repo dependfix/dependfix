@@ -1,11 +1,13 @@
 <script setup lang="ts">
-// alerts 视图受影响运行 Sidebar（todo.md §M15.1 UX-R2 + §M16.2 C66-D "立即修复此仓库"）。
+// alerts 视图运行详情 Sidebar（todo.md §M15.1 UX-R2 + §M16.2 C66-D "立即修复此仓库"）。
 //
 // 设计要点：
 // - 详情侧栏从 alerts.vue 抽出（todo.md §M16.2 audit lint warning：alerts.vue > 800 行触发 max-lines）
 // - 三态：fixingRunId 跟踪当前行修复进度，并发守卫防重复点击
 // - "立即修复此仓库" 按钮（pi-bolt）：仅 report-only 模式的运行可触发 fix（fix 模式已是终态）
 // - 复用既有 run_id：useFixNow composable 携带 reuseScanRunId，服务端 skip createPendingScanRun
+// - per-alert 模型下每个 alert 关联 1 个 run（todo.md §M20.3，runs.length 通常为 1）；
+//   旧 todo.md §M13.2 §T1306 affectedRunIds 聚合字段已无意义，移除依赖
 import { alertsFound, formatRunDuration, runExecutorLabel, runModeLabel, shortRunId } from '~/utils/run-view'
 import { useFixNow } from '~/composables/use-fix-now'
 import { alertsRunStatusSeverity } from '~/utils/alerts-view'
@@ -31,8 +33,6 @@ defineProps<{
     alert: {
         packageName: string
         ruleId?: string | null
-        affectedRunIds?: string[]
-        occurrenceCount?: number
     } | null
     runs: AlertSidebarRun[]
     loading: boolean
@@ -88,8 +88,7 @@ const onHide = () => {
             </Message>
             <p class="alerts-sidebar-meta text-muted">
                 {{ t('alerts.detailRunsTitle', {
-                    max: alert.affectedRunIds?.length ?? 0,
-                    total: alert.occurrenceCount ?? 1
+                    total: runs.length
                 }) }}
             </p>
             <div v-if="loading" class="text-muted">

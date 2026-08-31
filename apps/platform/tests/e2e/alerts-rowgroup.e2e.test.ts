@@ -17,7 +17,7 @@ import { waitForHydration } from './helpers/hydration.helper'
  *   SSR 阶段在 server 进程内 fetch，page.route() 只能拦截浏览器请求，拦截不到 server
  *   进程内 fetch → SSR 阶段真实打 server → e2e 库空 → hydration 时 alerts.value=[] →
  *   PrimeVue rowGroup subheader 不渲染 → rowGroup 测试 timeout 重试 → E2E job
- *   累计 ≥ 20min → workflow timeout-minutes 取消（M16.5 复盘）
+ *   累计 ≥ 20min → workflow timeout-minutes 取消（todo.md §M16.5 复盘）
  *
  * fixtures 内容（最小集）：
  * - repos: foo/bar + foo/baz（仓库 Select 选项）
@@ -27,7 +27,7 @@ import { waitForHydration } from './helpers/hydration.helper'
 
 test.use({ storageState: 'tests/e2e/.auth/admin.json' })
 
-test.describe('C58 alerts rowGroup + 视图切换', () => {
+test.describe('alerts rowGroup + 视图切换', () => {
     /**
      * SSR 锁定测试（todo.md §M16.4 useAsyncData SSR-aware data fetching）
      *
@@ -201,46 +201,48 @@ test.describe('C58 alerts rowGroup + 视图切换', () => {
         page.off('request', onRequest)
     })
 
-    // todo.md §M14.3 M13.4 T1403 follow-up：T1403 修复后 filters.dedupe 默认值改为 'across'
-    // （见 apps/platform/app/pages/alerts.vue:78），首屏 SSR 阶段 fetch /api/alerts 应带
-    // dedupe=true → 表格额外显示聚合列。
+    // todo.md §M20.6：M20.3 per-alert 模型下 ScanResult 字段（occurrenceCount / firstSeenAt /
+    // lastSeenAt）默认显示；includeSuperseded 开关控制"已关闭"告警显示。
     //
-    // 注意：原实现曾用 page.route + page.on('request') 跟踪 fetch URL，但 page.route 看不到
-    // SSR 阶段 server 进程内 fetch（设计限制），改为 UI 状态断言等价：若首屏默认 dedupe 改回
-    // 'off'，hydration 后 "出现次数"/"最近发现" 列不渲染（v-if 条件 v-if="filters.dedupe === 'across'"）。
-    test('首屏默认 dedupe=across → hydration 后表格显示聚合列（出现次数 / 最近发现）', async ({ page }) => {
+    // 反向锁定（替代旧 todo.md §M14.3 §T1403 dedupe=across 锁定）：
+    // - 旧测试验证默认 dedupe=across → 聚合列展开；todo.md §M20.6 移除 dedupe UI 后改为验证
+    //   默认 includeSuperseded=false → 已关闭告警行不渲染（minimist 行不在首屏表格中）
+    test('首屏默认 includeSuperseded=false → hydration 后已关闭告警行不渲染', async ({ page }) => {
         await page.goto('/alerts')
         await waitForHydration(page)
-        // SSR 阶段 useAsyncData 用 filters.dedupe='across' 触发 fetch，hydration 后表格应含聚合列
-        // （反向锁定：若有人改回默认 off，本断言会失败）
+        // 默认 includeSuperseded=false → 后端 result.supersededAt IS NULL 过滤
+        // → minimist（supersededAt 非空）行不在首屏表格中
+        // 断言活跃告警可见
+        await expect(page.locator('tbody tr:has-text("lodash")').first()).toBeVisible()
+        await expect(page.locator('tbody tr:has-text("node-fetch")').first()).toBeVisible()
+        // 断言已关闭告警不可见
+        await expect(page.locator('tbody tr:has-text("minimist")')).toHaveCount(0)
+        // 出现次数 / 最近发现 / 首次发现 列默认显示（todo.md §M20.6 移除 v-if 控制）
         await expect(page.locator('th:has-text("出现次数")')).toBeVisible()
         await expect(page.locator('th:has-text("最近发现")')).toBeVisible()
+        await expect(page.locator('th:has-text("首次发现")')).toBeVisible()
     })
 
-    // todo.md §T1306：dedupe 模式切换触发 /api/alerts?dedupe=true + 表格列扩展
-    //
+    // todo.md §M20.6：includeSuperseded 开关切换验证。
+    // PrimeVue 4 ToggleSwitch 是 checkbox 形式（无 overlay），点击切换布尔值。
     // 设计取舍：
-    // - 切到「跨次去重」等价于默认状态（filters.dedupe 默认 'across'），无变化 → watch 不触发
-    // - 改为先切「关闭」（off，i18n 标签）触发 watch refetch 验证列收起，再切回「跨次去重」
-    //   （across）验证列展开 + 表格数据按 occurrenceCount DESC 重排
-    // - 不再用 page.route/page.on('request') 跟踪 URL（看不到 SSR fetch + watch 触发是 Vue 3
-    //   ref 浅比较语义，依赖产品实现细节）；改用 UI 状态断言等价覆盖
-    test('视图切换：dedupe off → 收起聚合列；切回 across → 展开 + 数据按出现次数降序', async ({ page }) => {
+    // - 默认 includeSuperseded=false → minimist 行不渲染（已关闭告警被过滤）
+    // - 点击开关 → true → useAsyncData watch 触发 refetch → /api/alerts?includeSuperseded=true
+    //   → minimist 行出现
+    // - 再点击 → false → 再次 refetch → minimist 行消失
+    test('视图切换：includeSuperseded 关闭 → 隐藏已关闭告警；打开 → 显示已关闭告警', async ({ page }) => {
         await page.goto('/alerts')
         await waitForHydration(page)
-        // 默认 across：聚合列应已可见
-        await expect(page.locator('th:has-text("出现次数")')).toBeVisible()
+        // 默认 false：minimist 行不渲染
+        await expect(page.locator('tbody tr:has-text("minimist")')).toHaveCount(0)
 
-        // 切到「关闭」（off）→ 期望聚合列消失
-        await page.locator('#dedupe').click()
-        await page.locator('.p-select-overlay li:has-text("关闭")').click()
-        // 等待 watch 触发 refetch + UI 更新（watch 默认 shallow，filters.dedupe mutation 实际触发
-        // 因为 Vue ref setter 整体替换值）；聚合列 v-if=false 应消失
-        await expect(page.locator('th:has-text("出现次数")')).toHaveCount(0, { timeout: 5000 })
+        // 点击开关切换为 true
+        await page.locator('#include-superseded').click()
+        // 等待 watch 触发 refetch + UI 更新
+        await expect(page.locator('tbody tr:has-text("minimist")')).toBeVisible({ timeout: 5000 })
 
-        // 切回「跨次去重」（across）→ 聚合列应再次可见
-        await page.locator('#dedupe').click()
-        await page.locator('.p-select-overlay li:has-text("跨次去重")').click()
-        await expect(page.locator('th:has-text("出现次数")')).toBeVisible({ timeout: 5000 })
+        // 再点击切换为 false
+        await page.locator('#include-superseded').click()
+        await expect(page.locator('tbody tr:has-text("minimist")')).toHaveCount(0, { timeout: 5000 })
     })
 })

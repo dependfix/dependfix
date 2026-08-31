@@ -7,9 +7,9 @@
 // 一键修复状态机抽出为 composables/use-fix-now.ts
 import { withFixStatusRank, withSeverityRank } from '~/utils/sort-helpers'
 import {
-    alertsFixStatusLabel,
     alertsRuleIdTagSeverity,
     alertsSeverityTagSeverity,
+    alertsStatusLabel,
     buildAlertsQuery,
     type AlertsFilters,
     type AlertsViewMode,
@@ -38,12 +38,14 @@ interface AlertView {
     htmlUrl: string | null
     fixStatus: string
     errorMessage: string | null
-    // dedupe=true 聚合字段（todo.md §T1306）：occurrenceCount / firstSeenAt / lastSeenAt / affectedRunIds
-    // dedupe=false 时不存在（undefined）
+    // per-alert 模型下 ScanResult 字段直接绑定（不再 v-if 控制，见 todo.md §M20.3 + §M20.6）：
+    // occurrenceCount 累加跨次扫描出现次数（业务语义："曾出现 N 次"）
+    // firstSeenAt / lastSeenAt 分离首次发现 vs 最近见到时间
+    // supersededAt 上游已关闭时由 reconcile 函数写入（决策 1：fixStatus=success 永不被 supersede）
     occurrenceCount?: number
     firstSeenAt?: string
     lastSeenAt?: string
-    affectedRunIds?: string[]
+    supersededAt?: string | null
 }
 
 /**
@@ -62,26 +64,23 @@ interface AlertView {
  * auth middleware 鉴权，SSR 拿不到 session 会 401。
  */
 
-const filters = ref<AlertsFilters>({
+const filters = reactive<AlertsFilters>({
     repositoryId: 'all',
     severity: 'all',
     source: 'all',
     /**
-     * dedupe 模式（todo.md §T1306）：
-     * - off：返回全量 ScanResult（向后兼容）
-     * - across：跨次扫描去重，按 fingerprint (repositoryId + packageName + ruleId) 聚合（默认）
+     * includeSuperseded 开关（todo.md §M20.6）：
+     * - false（默认）：后端 result.supersededAt IS NULL 过滤，仅显示活跃告警
+     * - true：返回全量（含已 superseded 上游已消失的告警）
      *
-     * 默认值改 across 原因（实测反馈）：
-     * - 用户首次进入 alerts 视图即可看到跨次扫描聚合视图，避免被相同告警重复刷屏
-     * - 后端 /api/alerts 默认 dedupe=false 保持不变（向后兼容）；仅前端 UI 主动 ?dedupe=true 触发跨次去重
+     * 替代旧 todo.md §M13.2 §T1306 的 dedupe 跨次去重 UI（per-alert 模型下 ScanResult 已天然 deduped，
+     * occurrenceCount 字段直接来自 ScanResult，无需应用层 fingerprint 聚合）。
+     *
+     * 使用 reactive 而非 ref：useAsyncData watch 默认浅监听 ref 引用变化；
+     * reactive 配合 getter source + deep watch 触发 includeSuperseded 字段变更 refetch。
      */
-    dedupe: 'across',
+    includeSuperseded: false,
 })
-
-const dedupeOptions = computed(() => [
-    { label: t('alerts.dedupeOff'), value: 'off' as const },
-    { label: t('alerts.dedupeAcross'), value: 'across' as const },
-])
 
 /**
  * 视图模式（todo.md §C65-D3）：按包 / 按项目 / 原始列表三选一。
@@ -114,7 +113,7 @@ const sourceOptions = computed(() => [
     { label: 'pnpm audit', value: 'pnpm-audit' },
 ])
 
-const fixStatusLabel = (status: string) => alertsFixStatusLabel(status, t)
+const statusLabel = (alert: AlertView) => alertsStatusLabel(alert, t)
 
 // useRequestFetch：SSR 阶段自动转发 cookie（Nuxt 4 官方 SSR 转发方案），
 // 否则 alerts 页有 auth middleware 鉴权，SSR 拿不到 session 会 401
@@ -132,11 +131,11 @@ const { data: reposData } = await useAsyncData<Array<{ id: string, owner: string
  * /api/alerts 列表（todo.md §M16.4 SSR-aware data fetching）
  *
  * watch: [viewMode, filters] 自动 refetch：viewMode 切换 / filters 任意字段变更都触发
- * useAsyncData 重跑 handler，避免 onViewModeChange / onDedupeChange / filterApply Button
- * 三处手动调用 fetchAlerts 的散落模式。
+ * useAsyncData 重跑 handler，避免 onViewModeChange / filterApply Button
+ * 两处手动调用 fetchAlerts 的散落模式。
  *
  * handler 内用 buildAlertsQuery utility 派生 query（viewMode + filters → Record<string, string>），
- * 与 utils/alerts-view.test.ts 10 case 单测共用，避免 viewMode 无效值 / dedupe 漏加等
+ * 与 utils/alerts-view.test.ts 单测共用，避免 viewMode 无效值 / includeSuperseded 漏加等
  * silent fallback 类 bug。
  */
 const {
@@ -147,13 +146,23 @@ const {
 } = await useAsyncData<AlertView[]>(
     'alerts-list',
     () => requestFetch<AlertView[]>('/api/alerts', {
-        query: buildAlertsQuery(viewMode.value, filters.value),
+        query: buildAlertsQuery(viewMode.value, filters),
     }),
     {
-        watch: [viewMode, filters],
+        // 单独监听 viewMode（ref 引用变化）；filters reactive 字段变化通过下方显式 watch 触发 refetch
+        // （Vue 3 + Nuxt useAsyncData watch 默认浅监听，对 nested field 修改不触发；M20.6 新增
+        // includeSuperseded 开关 toggle 后必须显式 deep watch —— 测试已实证默认 watch 不触发）
+        watch: [viewMode],
         default: () => [],
     },
 )
+
+// 显式监听 filters reactive 字段变化触发 refetch（深 watch；M20.6 引入 includeSuperseded 开关后必须）
+// 注：依赖 Nuxt 4.x useAsyncData 默认 `dedupe: 'cancel'` 抑制双触发（useAsyncData 内置 watch + 此显式 watch
+// 都可能触发 refresh，但 abortController 会取消旧 execute）；改 dedupe 策略前需重新评估
+watch(filters, () => {
+    void refreshAlerts()
+}, { deep: true })
 
 /** repositories 派生：注入 allRepositories 选项 + 防御性空值 fallback */
 const repositories = computed<{ id: string, name: string }[]>(() => [
@@ -189,7 +198,8 @@ const onViewModeChange = () => {
     expandedPackages.value = []
 }
 
-// dedupe=true 时详情侧栏（PrimeVue Sidebar 右侧滑出，显示该告警 affected runIds 详情）
+// per-alert 模型下每行 1 个 runId（todo.md §M20.3）；详情侧栏（PrimeVue Sidebar 右侧滑出，
+// 显示该告警关联 run 列表 + 立即修复此仓库按钮）
 interface RunDetailView {
     id: string
     repositoryId: string
@@ -226,13 +236,11 @@ const openRunSidebar = async (alert: AlertView) => {
     runDetailVisible.value = false
     selectedRunId.value = null
     try {
-        // 不再是全量 run（修复前 server 忽略 ids，返回所有 run）
-        if (alert.affectedRunIds && alert.affectedRunIds.length > 0) {
-            const res = await $fetch('/api/runs', {
-                query: { ids: alert.affectedRunIds.join(',') },
-            })
-            const data = res as { items: RunDetailView[], total: number }
-            sidebarRuns.value = data.items
+        // per-alert 模型下每行 1 个 runId（todo.md §M20.3）；直接拉取该 run 详情显示 sidebar
+        // （旧 todo.md §M13.2 §T1306 实现从 affectedRunIds 拉取多个 runs 已无意义）
+        if (alert.runId) {
+            const res = await $fetch<RunDetailView>(`/api/runs/${alert.runId}`)
+            sidebarRuns.value = [res]
         } else {
             sidebarRuns.value = []
         }
@@ -383,14 +391,10 @@ const dataTableAttrs = computed(() => {
                         />
                     </div>
                     <div class="alerts__filter-field">
-                        <label for="dedupe">{{ t('alerts.dedupe') }}</label>
-                        <Select
-                            id="dedupe"
-                            v-model="filters.dedupe"
-                            :options="dedupeOptions"
-                            option-label="label"
-                            option-value="value"
-                            fluid
+                        <label for="include-superseded">{{ t('alerts.filter.includeSuperseded') }}</label>
+                        <ToggleSwitch
+                            id="include-superseded"
+                            v-model="filters.includeSuperseded"
                         />
                     </div>
                     <div class="alerts__filter-field">
@@ -523,12 +527,11 @@ const dataTableAttrs = computed(() => {
                         :default-sort-order="-1"
                     >
                         <template #body="{data}">
-                            <Tag :value="fixStatusLabel(data.fixStatus)" severity="secondary" />
+                            <Tag :value="statusLabel(data)" severity="secondary" />
                         </template>
                     </Column>
-                    <!-- dedupe=true 时显示聚合列（todo.md §T1306） -->
+                    <!-- per-alert 模型下 ScanResult 字段直接绑定为默认列（不再 v-if 控制，见 todo.md §M20.3 + §M20.6） -->
                     <Column
-                        v-if="filters.dedupe === 'across'"
                         field="occurrenceCount"
                         :header="t('alerts.colOccurrenceCount')"
                         sortable
@@ -538,7 +541,18 @@ const dataTableAttrs = computed(() => {
                         </template>
                     </Column>
                     <Column
-                        v-if="filters.dedupe === 'across'"
+                        field="firstSeenAt"
+                        :header="t('alerts.colFirstSeenAt')"
+                        sortable
+                    >
+                        <template #body="{data}">
+                            <span v-if="data.firstSeenAt" class="text-muted">
+                                {{ d(new Date(data.firstSeenAt), 'long') }}
+                            </span>
+                            <span v-else class="text-muted">—</span>
+                        </template>
+                    </Column>
+                    <Column
                         field="lastSeenAt"
                         :header="t('alerts.colLastSeenAt')"
                         sortable
@@ -564,7 +578,6 @@ const dataTableAttrs = computed(() => {
                         </template>
                     </Column>
                     <Column
-                        v-if="filters.dedupe === 'across'"
                         :header="t('common.actions.details')"
                         :style="{width: '100px'}"
                     >
@@ -574,7 +587,6 @@ const dataTableAttrs = computed(() => {
                                 text
                                 rounded
                                 size="small"
-                                :disabled="!data.affectedRunIds || data.affectedRunIds.length === 0"
                                 :aria-label="t('common.actions.details')"
                                 @click="openRunSidebar(data)"
                             />
@@ -587,7 +599,7 @@ const dataTableAttrs = computed(() => {
             {{ t('common.empty.loading') }}
         </p>
 
-        <!-- dedupe=true 详情侧栏（抽出为 components/alert-run-sidebar.vue，todo.md §M16.2 audit max-lines 触发） -->
+        <!-- 详情侧栏（抽出为 components/alert-run-sidebar.vue，todo.md §M16.2 audit max-lines 触发） -->
         <alert-run-sidebar
             v-model:visible="sidebarVisible"
             :alert="sidebarAlert"

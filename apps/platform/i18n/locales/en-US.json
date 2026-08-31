@@ -53,6 +53,7 @@
             "converged": "Converged",
             "pending": "Pending"
         },
+        "superseded": "Closed",
         "status": {
             "enabled": "Enabled",
             "disabled": "Disabled",
@@ -420,6 +421,9 @@
         "filterSeverity": "Severity",
         "filterSource": "Source",
         "filterApply": "Filter",
+        "filter": {
+            "includeSuperseded": "Show resolved"
+        },
         "severityAll": "All levels",
         "sourceAll": "All sources",
         "sourceCodeQuality": "Code Quality",
@@ -439,13 +443,10 @@
         "viewModeRepository": "By Repository",
         "viewModeNone": "Flat List",
         "repositoryUnknown": "Unknown repository",
-        "dedupe": "Dedupe",
-        "dedupeOff": "Off",
-        "dedupeAcross": "Across scans",
         "colOccurrenceCount": "Occurrences",
         "colLastSeenAt": "Last seen",
         "colFirstSeenAt": "First seen",
-        "detailRunsTitle": "Affected scan runs (first {max} of {total})",
+        "detailRunsTitle": "Scan runs for this alert ({total} total)",
         "detailRunId": "Run ID",
         "detailRunStatus": "Status",
         "detailRunStartedAt": "Started at",

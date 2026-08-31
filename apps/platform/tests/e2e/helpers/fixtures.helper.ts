@@ -44,6 +44,31 @@ export interface ScanResultFixture {
     htmlUrl?: string | null
     fixStatus?: 'success' | 'failed' | 'skipped' | 'converged' | 'not-tried' | 'pending'
     errorMessage?: string | null
+    /**
+     * 上游已关闭时间戳（todo.md §M20.3 reconcile 字段，§M20.6 扩展到 fixtures 用例）。
+     * ISO 字符串或 null（默认 null = 活跃）。
+     * 提供后 fixtures.post.ts 写入 ScanResult.supersededAt 字段，
+     * 用于验证"显示已解决"开关切换行为 + 状态列"已关闭"显示。
+     */
+    supersededAt?: string | null
+    /**
+     * 规范化上游 ID（todo.md §M20.3 实体升级）。
+     * per-alert 模型下 (repositoryId, upstreamId) 复合唯一索引要求必填。
+     * 不提供时 fixtures.post.ts 自动按 `${source}:auto-${counter}` 生成（保证唯一）。
+     */
+    upstreamId?: string
+    /**
+     * 首次发现时间（todo.md §M20.3）。不提供时 fixtures.post.ts 自动填 now()。
+     */
+    firstSeenAt?: string
+    /**
+     * 最近见到时间（todo.md §M20.3）。不提供时 fixtures.post.ts 自动填 now()。
+     */
+    lastSeenAt?: string
+    /**
+     * 跨次扫描累计出现次数（todo.md §M20.3）。默认 1。
+     */
+    occurrenceCount?: number
 }
 
 export interface AlertsRowgroupFixtures {
@@ -57,13 +82,15 @@ export interface AlertsRowgroupFixtures {
  *
  * - repos: 2 个（foo/bar + foo/baz）
  * - scanRuns: 3 个（foo/bar × 2 + foo/baz × 1）
- * - scanResults: 4 个
+ * - scanResults: 6 个（todo.md §M20.6 增加 2 条用于验证"显示已解决"开关 + 状态列 superseded 显示）
  *   - lodash × 2 in foo/bar run 0（high dependabot + medium code-scanning）
- *   - lodash × 1 in foo/bar run 1（high dependabot，跨 run 用于 dedupe 聚合断言）
+ *   - lodash × 1 in foo/bar run 1（high dependabot，跨 run 用于 occurrenceCount 断言）
  *   - axios × 1 in foo/baz run 2（low pnpm-audit）
+ *   - minimist × 1 in foo/bar run 1（high dependabot，supersededAt 非空 → 测试"显示已解决"开关）
+ *   - node-fetch × 1 in foo/bar run 0（high dependabot，fixStatus=success → 测试"已修复"始终显示）
  *
- * 覆盖 rowGroup by packageName（2 个 packageName） + repository（2 个 repo） +
- * 视图切换 + dedupe 跨次去重（occurrenceCount）+ 展开/折叠
+ * 覆盖 rowGroup by packageName（4 个 packageName） + repository（2 个 repo） +
+ * 视图切换 + occurrenceCount + 展开/折叠 + includeSuperseded 开关 + 状态列 superseded 显示
  *
  * 不要扩展这个集合除非新测试需要；保持 minimum fixture 避免污染其他 e2e 文件
  */
@@ -80,7 +107,7 @@ export const ALERTS_ROWGROUP_FIXTURES: AlertsRowgroupFixtures = {
             severityThreshold: 'high',
             executorKind: 'github-action',
             status: 'completed',
-            summary: { alertsFound: 2, alertsFixed: 0 },
+            summary: { alertsFound: 3, alertsFixed: 1 },
         },
         {
             repositoryOwner: 'foo',
@@ -105,6 +132,7 @@ export const ALERTS_ROWGROUP_FIXTURES: AlertsRowgroupFixtures = {
         // lodash alerts in foo/bar run 0（2 条不同 source/severity）
         {
             scanRunIndex: 0,
+            upstreamId: 'dependabot:lodash-001',
             source: 'dependabot',
             severity: 'high',
             packageName: 'lodash',
@@ -119,6 +147,7 @@ export const ALERTS_ROWGROUP_FIXTURES: AlertsRowgroupFixtures = {
         },
         {
             scanRunIndex: 0,
+            upstreamId: 'code-scanning:lodash-001',
             source: 'code-scanning',
             severity: 'medium',
             packageName: 'lodash',
@@ -131,9 +160,26 @@ export const ALERTS_ROWGROUP_FIXTURES: AlertsRowgroupFixtures = {
             htmlUrl: null,
             fixStatus: 'pending',
         },
-        // lodash alerts in foo/bar run 1（跨 run dedupe 聚合用）
+        // node-fetch in foo/bar run 0（fixStatus=success，验证"已修复"始终显示，不受 supersededAt 影响）
+        {
+            scanRunIndex: 0,
+            upstreamId: 'dependabot:node-fetch-001',
+            source: 'dependabot',
+            severity: 'high',
+            packageName: 'node-fetch',
+            manifestPath: 'package.json',
+            ruleId: null,
+            summary: 'SSRF',
+            fixable: true,
+            fixStrategy: 'upgrade',
+            recommendedVersion: '2.7.0',
+            htmlUrl: null,
+            fixStatus: 'success',
+        },
+        // lodash alerts in foo/bar run 1（跨 run occurrenceCount 断言用）
         {
             scanRunIndex: 1,
+            upstreamId: 'dependabot:lodash-002',
             source: 'dependabot',
             severity: 'high',
             packageName: 'lodash',
@@ -146,9 +192,27 @@ export const ALERTS_ROWGROUP_FIXTURES: AlertsRowgroupFixtures = {
             htmlUrl: null,
             fixStatus: 'pending',
         },
+        // minimist in foo/bar run 1（supersededAt 非空，验证"显示已解决"开关）
+        {
+            scanRunIndex: 1,
+            upstreamId: 'dependabot:minimist-001',
+            source: 'dependabot',
+            severity: 'high',
+            packageName: 'minimist',
+            manifestPath: 'package.json',
+            ruleId: null,
+            summary: 'prototype pollution',
+            fixable: true,
+            fixStrategy: 'upgrade',
+            recommendedVersion: '1.2.8',
+            htmlUrl: null,
+            fixStatus: 'pending',
+            supersededAt: '2026-08-26T10:00:00.000Z',
+        },
         // axios alerts in foo/baz run 2
         {
             scanRunIndex: 2,
+            upstreamId: 'pnpm-audit:axios-001',
             source: 'pnpm-audit',
             severity: 'low',
             packageName: 'axios',

@@ -129,7 +129,9 @@ test.describe('alerts 去重视图受影响运行 Sidebar', () => {
             executorKind: 'container',
             runUrl: null,
         })
-        await installRoutes(page, [containerRun, actionRun])
+        // M20.6 per-alert 模型：sidebar 只显示 alert.runId 关联的 1 个 run（affectedRunIds 移除）；
+        // 构造 alert.runId 指向 actionRun 验证 sidebar 拉取单个 run 详情
+        await installRoutes(page, [actionRun, containerRun])
 
         await page.goto('/alerts')
         await waitForHydration(page)
@@ -140,7 +142,9 @@ test.describe('alerts 去重视图受影响运行 Sidebar', () => {
         await row.locator('button[aria-label="详情"]').click()
 
         const sidebar = page.locator('.p-drawer')
-        await expect(sidebar.locator('button[aria-label="详情"]')).toHaveCount(2)
+        // M20.6 后 sidebar 仅显示 alert.runId 单 run 详情（每行 1 run）
+        await expect(sidebar.locator('button[aria-label="详情"]')).toHaveCount(1)
+        // 链接指向 actionRun.runUrl（mock alert.runId = affectedRunIds[0] = actionRun.id）
         await expect(sidebar.locator('a')).toHaveCount(1)
         await expect(sidebar.locator('a')).toHaveAttribute('href', String(actionRun.runUrl))
     })

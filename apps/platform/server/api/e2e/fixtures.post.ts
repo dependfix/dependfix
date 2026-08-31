@@ -60,6 +60,8 @@ const scanRunSchema = z.object({
 const scanResultSchema = z.object({
     /** 引用 scanRuns 数组中已创建的 index（0-based） */
     scanRunIndex: z.number().int().min(0),
+    /** per-alert 模型唯一索引第二段（todo.md §M20.3 实体升级）；不传则自动生成（避免跨 fixture 冲突） */
+    upstreamId: z.string().max(255).optional(),
     source: z.enum(['dependabot', 'code-scanning', 'code-quality', 'pnpm-audit']),
     severity: z.enum(['low', 'medium', 'high', 'critical', 'unknown']),
     packageName: z.string().max(255),
@@ -72,6 +74,14 @@ const scanResultSchema = z.object({
     htmlUrl: z.string().max(500).nullable().optional(),
     fixStatus: z.enum(['success', 'failed', 'skipped', 'converged', 'not-tried', 'pending']).default('pending'),
     errorMessage: z.string().nullable().optional(),
+    /** 跨次扫描累计出现次数（todo.md §M20.3）；默认 1 */
+    occurrenceCount: z.number().int().min(0).default(1),
+    /** 首次发现时间（todo.md §M20.3）；不传则自动 now() */
+    firstSeenAt: z.string().nullable().optional(),
+    /** 最近见到时间（todo.md §M20.3）；不传则自动 now() */
+    lastSeenAt: z.string().nullable().optional(),
+    /** 上游已关闭时间（todo.md §M20.3 reconcile 函数写入，§M20.6 扩展到 fixtures 用例）；不传则 null（活跃） */
+    supersededAt: z.string().nullable().optional(),
 })
 
 const fixturesBodySchema = z.object({
@@ -175,6 +185,8 @@ export default defineEventHandler(async (event) => {
     // scanResults：通过 scanRunIndex 反查已创建的 scan run id
     const resultResults: { scanRunId: string, id: string, created: boolean }[] = []
     if (parsed.data.scanResults) {
+        // counter 保证未显式传 upstreamId 时生成唯一值（per-alert 模型 (repositoryId, upstreamId) 复合唯一索引，见 todo.md §M20.3）
+        let autoUpstreamIdCounter = 0
         for (const result of parsed.data.scanResults) {
             const run = runResults[result.scanRunIndex]
             if (!run) {
@@ -183,8 +195,15 @@ export default defineEventHandler(async (event) => {
                     statusMessage: `scanResults: scanRunIndex ${result.scanRunIndex} not found in scanRuns payload`,
                 })
             }
+            const now = new Date()
+            const upstreamId = result.upstreamId ?? `${result.source}:auto-${++autoUpstreamIdCounter}`
+            const firstSeenAt = result.firstSeenAt ? new Date(result.firstSeenAt) : now
+            const lastSeenAt = result.lastSeenAt ? new Date(result.lastSeenAt) : now
+            const supersededAt = result.supersededAt ? new Date(result.supersededAt) : null
             const saved = await resultRepo.save(resultRepo.create({
                 scanRunId: run.id,
+                repositoryId: run.repositoryId,
+                upstreamId,
                 source: result.source,
                 severity: result.severity,
                 packageName: result.packageName,
@@ -197,6 +216,10 @@ export default defineEventHandler(async (event) => {
                 htmlUrl: result.htmlUrl ?? null,
                 fixStatus: result.fixStatus,
                 errorMessage: result.errorMessage ?? null,
+                occurrenceCount: result.occurrenceCount,
+                firstSeenAt,
+                lastSeenAt,
+                supersededAt,
             }))
             resultResults.push({
                 scanRunId: run.id,

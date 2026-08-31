@@ -66,15 +66,40 @@ export const alertsFixStatusLabel = (status: string, t: Translator): string => (
     converged: t('common.fixStatus.converged'),
 })[status] ?? t('common.fixStatus.pending')
 
+/**
+ * alerts 列表"状态"列文案（todo.md §M20.6）：
+ * - 优先级 superseded > success：fixStatus=success 仍显示"已修复"，不受 supersededAt 影响
+ *   （todo.md §M20.3 决策 1：success 永不被 supersede，所以 success 行 supersededAt 必然为 NULL；但 UI 防御性判断）
+ * - fixStatus≠success + supersededAt 非空 → "已关闭"（上游已消失，本地未修复）
+ * - 其他走原 fixStatus 文案
+ */
+export const alertsStatusLabel = (alert: { fixStatus: string, supersededAt?: string | null }, t: Translator): string => {
+    if (alert.fixStatus === 'success') {
+        return t('common.fixStatus.success')
+    }
+    if (alert.supersededAt) {
+        return t('common.superseded')
+    }
+    return alertsFixStatusLabel(alert.fixStatus, t)
+}
+
 /** alerts 视图模式（todo.md §C65-D3）：按包 / 按项目 / 原始列表 */
 export type AlertsViewMode = 'package' | 'repository' | 'none'
 
-/** alerts 筛选器（与 alerts.vue `filters` ref 形状对齐；不含 viewMode，viewMode 独立） */
+/**
+ * alerts 筛选器（与 alerts.vue `filters` ref 形状对齐；不含 viewMode，viewMode 独立）。
+ *
+ * includeSuperseded（M20.6 todo.md §M20.6）：
+ * - false（默认）：后端 result.supersededAt IS NULL 过滤，仅显示活跃告警
+ * - true：返回全量（含已 superseded 上游已消失的告警），用于"显示已解决"开关
+ * - 替代旧 todo.md §M13.2 §T1306 的 dedupe 跨次去重 UI（per-alert 模型下 ScanResult 已天然 deduped，
+ *   occurrenceCount 字段直接来自 ScanResult，无需应用层 fingerprint 聚合）
+ */
 export interface AlertsFilters {
     repositoryId: string
     severity: string
     source: string
-    dedupe: 'off' | 'across'
+    includeSuperseded: boolean
 }
 
 /**
@@ -83,13 +108,13 @@ export interface AlertsFilters {
  * 抽取动机：alerts.vue 迁移到 useAsyncData 后，watch 自动触发 refetch 时 handler
  * 需要无副作用地派生 query；纯函数 utility 便于单测覆盖 viewMode + filters 各组合，
  * 避免在 .vue 文件内嵌实现导致 viewMode 无效值（后端 zod safeParse 静默 fallback）、
- * dedupe='across' 漏加 / repositoryId='all' 误传 等 case 漏测。
+ * includeSuperseded 漏加 / repositoryId='all' 误传 等 case 漏测。
  *
  * 行为契约：
  * - viewMode='none' 不传 groupBy（后端等价于原始顺序）
  * - 'package' / 'repository' 携带 groupBy 让后端预排序以满足 PrimeVue rowGroup subheader 要求
  * - filters 中 == 'all' 的字段不携带（与现有 fetchAlerts 行为一致；后端空字符串视为全量）
- * - dedupe='across' 携带 dedupe=true 触发后端跨次扫描去重聚合（todo.md §T1306）
+ * - filters.includeSuperseded=true 携带 includeSuperseded=true（后端默认 false 时已过滤 superseded）
  */
 export const buildAlertsQuery = (viewMode: AlertsViewMode, filters: AlertsFilters): Record<string, string> => {
     const query: Record<string, string> = viewMode === 'none' ? {} : { groupBy: viewMode }
@@ -102,8 +127,8 @@ export const buildAlertsQuery = (viewMode: AlertsViewMode, filters: AlertsFilter
     if (filters.source !== 'all') {
         query.source = filters.source
     }
-    if (filters.dedupe === 'across') {
-        query.dedupe = 'true'
+    if (filters.includeSuperseded) {
+        query.includeSuperseded = 'true'
     }
     return query
 }

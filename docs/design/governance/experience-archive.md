@@ -662,3 +662,165 @@ M18 归档批次清理 `backlog.md` / `todo.md` 时两次"删过头"：删除了
 ### 准入标准复核
 
 本案例符合准入标准第 1 条"教训未落入规范"（归档操作规范中缺少"区分已归档内容与必要信息"的指导）+ 第 3 条"重复违规预警"（两次"删过头"证明需要明确规范）。挂接治理检查点 1 项可显著降低未来同类问题概率。
+
+---
+
+## 四十六、PrimeVue ToggleSwitch v-model 嵌套字段触发 useAsyncData watch 浅监听失效（2026-08-31，M20.6）
+
+### 案例
+
+M20.6 alerts.vue 把 `dedupeOptions` Select 替换为 ToggleSwitch "显示已解决" 开关后，e2e 实证点击开关后 `/api/alerts` 请求数为 0（默认 includeSuperseded=false，过滤正确），但开关切换为 true 后 `/api/alerts?includeSuperseded=true` 请求未触发，表格数据不更新。
+
+调试脚本 `_debug3.spec.ts` 实证：
+- `aria-checked` 属性从 `false` 变为 `true`（ToggleSwitch 状态正确）
+- 浏览器侧 `/api/alerts` 请求数为 0（refetch 未触发）
+
+### 根因
+
+Vue 3 + Nuxt useAsyncData watch 浅监听对 nested field mutation 不响应：
+- `watch: [viewMode, filters]` 中 `filters` 是 `ref<AlertsFilters>`——Vue 3 watch 对 ref 浅比较（reference equality）
+- ToggleSwitch v-model 修改 `filters.includeSuperseded = true` 是 reactive 字段修改（不替换 ref.value 整体）
+- reactive 字段修改触发 ref.value 的 reactive trigger，但 watch 浅监听不看 ref.value 的字段变化
+
+### 修复路径
+
+```ts
+// 错误：ref + watch 浅监听
+const filters = ref<AlertsFilters>({...})
+watch: [viewMode, filters],
+
+// 正确：reactive + getter + deep watch
+const filters = reactive<AlertsFilters>({...})
+watch: [viewMode, () => filters, { deep: true }],]
+
+// 显式 watch 兜底（保险）
+watch(filters, () => { void refreshAlerts() }, { deep: true })
+```
+
+### 教训
+
+1. **v-model 修改嵌套字段需要 `reactive` 而非 `ref`**：`ref` 适合整体替换的对象；`reactive` 适合字段级修改的对象。
+2. **useAsyncData watch 默认浅监听**：默认对 source ref 浅比较，不监听 nested field mutation；需要 `deep: true` 或 getter source。
+3. **调试 useAsyncData 行为用 `pageon-request`**：浏览器侧请求数可直接判断 refetch 是否触发，比 Vue devtools 更可靠。
+4. **依赖 Nuxt useAsyncData 默认 `dedupe: 'cancel'` 抑制双触发**：内置 watch + 显式 watch 都可能触发 refresh，但 abortController 会取消旧 execute；改 dedupe 策略前需重新评估。
+
+### 与既有教训的关联
+
+- **§三十一、PR #26/#27 命令注入漏洞（fix(engine) execFileSync 替代 execSync）**：同模式——外部库/框架的默认行为不可信，必须实测。
+- **§三十六、CI 双 run 失败：锚点漂移 + dependfix 验证链缺 nuxt prepare**：同模式——Nuxt 框架在 `pnpm typecheck` 通过但 build 失败，验证矩阵必须含 build。
+
+### 挂接治理检查点
+
+1. **`docs/standards/development.md` §Vue/Nuxt 响应式模式**：新增"V-model 修改嵌套字段 + useAsyncData watch 模式"——明确 v-model 嵌套字段必须用 `reactive` + `deep: true`，禁止 `ref` + 默认 watch。
+2. **`.github/agents/code-auditor.agent.md` 必查项**：新增"useAsyncData watch 模式"——A 阶段 audit 检查 useAsyncData 调用点 watch 配置（必须含 deep 或 getter source + reactive fields）。
+
+### 准入标准复核
+
+本案例符合准入标准第 1 条"教训未落入规范"（Vue/Nuxt 响应式模式规范中缺少 v-model + useAsyncData watch 模式指导）+ 第 3 条"重复违规预警"（PrimeVue 4 + Nuxt SSR hydration rowGroup 已知 bug §三十一 / §三十二 同源根因：框架默认行为不可信）。挂接治理检查点 2 项可显著降低未来同类问题概率。
+
+---
+
+## 四十七、一次性脚本不应 over-engineering：tsx CLI 装饰器依赖 vs Node 22+ strip-types（2026-08-31，M20.7）
+
+### 案例
+
+M20.7 backfill 一次性脚本最初设计为 TypeScript + tsx CLI 入口：
+1. 添加 `tsx ^4.23.1` 到 devDependencies
+2. 新建 `register-entities.ts` helper 文件集中管理 entity metadata side-effect imports
+3. scripts：`<script>` 加 `tsx server/database/scripts/backfill-scan-result.ts --dry-run` + `--apply`
+
+用户质疑"添加 tsx 是为什么？这个脚本为什么要 TypeScript？"——触发反思：
+- Node 20 LTS（engines `>=20`）不支持 .ts 直接运行
+- Node 22.6+ `--experimental-strip-types` 只剥离类型注解，不处理装饰器
+- TypeORM 装饰器依赖 `emitDecoratorMetadata`，是 TS 编译器专属能力
+
+### 根因链
+
+1. **Node 内置 TS 支持能力有限**：`--experimental-strip-types`（22.6+）只剥离 `:` 类型注解语法，不处理 `experimentalDecorators + emitDecoratorMetadata`（TS 编译器专属）
+2. **TypeORM 装饰器依赖 TS emitDecoratorMetadata**：`@Entity('table_name')` + `@Column({...})` 装饰器运行后必须 emit 元数据到 `reflect-metadata`，否则 DataSource 构造时找不到 entity metadata → `EntityMetadataNotFoundError`
+3. **一次性脚本的工程价值 vs 永久代价**：
+   - 价值：迁移一次就完事，没有动态业务逻辑
+   - 代价：tsx devDep 永久（每次 install 都下载）+ scripts 目录永久维护
+
+### 诚实分析结果
+
+**保留 tsx 的不可替代技术约束**：
+- Node `--experimental-strip-types` 不支持装饰器（实测确认）
+- TypeORM entity 装饰器依赖 emitDecoratorMetadata，tsx / ts-node / 自建 build 产物是唯一路径
+- engines 升级到 `>=22`（Node 20 EOL 2026-04-30）—— 仍需 tsx（Node 22.6+ strip-types 仍不处理装饰器）
+
+**可简化的工程优化**：
+- 删 `register-entities.ts` 单独文件，整合到主脚本顶部 inline `eslint-disable` 块（净 -21 行）
+- engines 升级 `>=20` → `>=22`（Node 20 EOL）
+
+### 教训
+
+1. **不要为了"项目完整性"添加不必要的 dev 依赖**：一次性脚本 + 永久 devDep 代价不匹配价值；评估价值 / 成本比。
+2. **engines 应该与 Node LTS 实际部署版本对齐**：Node 20 已 EOL（2026-04-30），engines `>=20` 是历史遗留，实际部署是 Node 22+ 或 Node 24+。
+3. **技术约束要说清楚"不可替代"vs"工程偏好"**：TypeORM 装饰器需要 emitDecoratorMetadata（技术约束，不可替代） vs 项目惯例（工程偏好，可改）。
+4. **CLI 端 entity metadata 必须显式 import 触发装饰器**：tsx / vitest CLI 路径不走 Nitro auto-load，需在脚本入口处显式 import 触发 `@Entity` / `@Column` 装饰器注册。
+5. **`--experimental-strip-types` 不支持装饰器**：实测验证——`@Entity('scan_result')` 行报 `SyntaxError: Invalid or unexpected token`；需要 `--experimental-transform-types`（23.6+，24 默认关闭）但仍不处理装饰器。
+
+### 挂接治理检查点
+
+1. **`docs/standards/development.md` §TypeScript 运行时依赖评估**：新增"一次性脚本 TypeScript 价值评估"——明确哪些场景必须 TypeScript（装饰器 / 类型严格安全）vs 哪些可以改 JavaScript（纯 SQL / 简单业务逻辑）。
+2. **`apps/platform/package.json` `engines` 字段**：升级到 `>=22`（Node 20 EOL）；注释说明 Node 22.6+ 内置 strip-types 仍不处理装饰器。
+
+### 准入标准复核
+
+本案例符合准入标准第 1 条"教训未落入规范"（development.md §TypeScript 运行时依赖评估缺失）+ 第 4 条"工具/环境陷阱（Node strip-types 边界）"。挂接治理检查点 2 项可显著降低未来同类 over-engineering 风险。
+
+---
+
+## 四十八、归档批次预防性分片 + cross-reference 断链修复（2026-08-31，M20 归档批次）
+
+### 案例
+
+M20 归档批次执行时：
+1. 当前 todo-archive.md 主窗口 638 行 + M20 段预估 100-130 行 ≈ 738-768 行
+2. 超 [archive/index.md §1 `todo-archive.md` 健康窗口 700 行强制分片阈值]（[docs/plan/archive/index.md](archive/index.md)）
+3. 预防性迁出 M16 + M17（306 行）至新分片 `archive/todo-archive-phases-m16-m17.md`
+4. 主窗口保留 3 个阶段（M20 / M19 / M18），符合"主窗口保留 3-5 个阶段"健康策略
+
+执行后断链问题：
+- `docs/plan/roadmap.md` 4 处 `todo-archive.md#m16-...` / `m17-...` 锚点失效（M16/M17 段已迁出，主窗口无对应标题）
+- `docs/plan/backlog.md` 4 处同类锚点失效
+- `docs/design/packages/data-model.md` 引用 `todo.md#当前阶段m20-...`（todo.md 已清空 M20 内容）
+- `docs/index.md` 引用 `todo-archive.md#m16-...`（已迁出）
+
+### 根因
+
+预防性迁出阶段后，文档 cross-reference 指向已不存在的锚点：
+- todo-archive.md 中 §M16 / §M17 段被替换为指针段落（"详见 archive/todo-archive-phases-m16-m17.md"），原锚点失效
+- 其他文档（roadmap.md / backlog.md / data-model.md / docs/index.md）引用的是 todo-archive.md 内的锚点
+
+### 修复路径
+
+1. **roadmap.md 锚点转换**：
+   ```md
+   # 前
+   [todo-archive.md §M16](todo-archive.md#m16-平台可用性深化m161--m162--m163--m164--m165-全部已闭环--2026-08-28-归档)
+   # 后
+   [archive/todo-archive-phases-m16-m17.md §M16](archive/todo-archive-phases-m16-m17.md#m16-平台可用性深化m161m162m163m164m165-全部已闭环--2026-08-28-归档)
+   ```
+
+2. **锚点格式转换**：`--`（双连字符）→ 单词连续（如 `m161m162m163`），由 check-docs.mjs 自动生成
+
+3. **`pnpm run check:docs` 验证**：find link 错误并全部修复（roadmap.md 4 处 + backlog.md 4 处 + data-model.md 1 处 + docs/index.md 1 处 = 10 处断链）
+
+### 教训
+
+1. **预防性迁出阶段后必须 `pnpm run check:docs` 验证所有锚点**：迁出主窗口内的§后，其他文档中引用该§的锚点全部失效。
+2. **跨文件 cross-reference 必须统一更新**：roadmap.md / backlog.md / data-model.md / docs/index.md 中所有 M16/M17 引用都要同步更新到分片文件。
+3. **锚点格式约定**：`--`（双连字符）在 check-docs.mjs 中转换为单词连续（如 `m161--m162` → `m161m162`），不要手动拼接。
+4. **todo.md 状态变化后及时更新 cross-reference**：M20 完成后 todo.md 已清空 M20 内容，但 data-model.md 仍引用 `todo.md#当前阶段m20-...` 锚点。
+5. **docs/index.md 状态描述也要同步**：M0-M16 已闭环 → M0-M20 已闭环。
+
+### 挂接治理检查点
+
+1. **`docs/standards/planning.md` §4.4 大批量归档批次操作规范**：新增第 10 条"预防性迁出后 cross-reference 更新"——明确迁出主窗口内的§后，必须更新所有文档中的锚点引用，并 `pnpm run check:docs` 验证。
+2. **`scripts/check-docs.mjs`**：新增"跨文件锚点引用"报告——列出所有引用了已迁出§的文档路径和行号，便于预防性迁出后批量修复。
+
+### 准入标准复核
+
+本案例符合准入标准第 1 条"教训未落入规范"（planning.md §4.4 缺少"预防性迁出后 cross-reference 更新"规范）+ 第 3 条"重复违规预警"（M18 归档批次预防性迁出 M13/M12/M10 / M19 归档批次预防性迁出 M14/M15 均有类似断链风险）。挂接治理检查点 2 项可显著降低未来同类问题概率。

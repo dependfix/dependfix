@@ -20,7 +20,7 @@
 
 ## 主窗口保留范围
 
-- 主文档保留最近阶段的近线归档块（当前保留 **2026-08-31 M20 ScanResult 数据模型重构（M20.1+M20.3+M20.5+M20.6+M20.7 全部已闭环 / 8 commits 已全部落地）/ 2026-08-31 M19 治理 + 能力扩展 + 测试补强（M19.1+M19.2+M19.3+M19.4+M19.5 全部已闭环 / 5 commits 全部推送 ahead=0）/ 2026-08-30 M18 平台 GitHub App BYO App 模式（M18.0+M18.1+M18.2+M18.3+M18.4+M18.x 全部已闭环 / ~24 commits 全部推送 ahead=0）** 共 3 个批次，符合"主窗口保留 3-5 个阶段"健康策略）。**预防性分片**：M14 + M15 已于 2026-08-31 迁出至 [archive/todo-archive-phases-m14-m15.md](archive/todo-archive-phases-m14-m15.md)；M16 + M17 已于 2026-08-31 迁出至 [archive/todo-archive-phases-m16-m17.md](archive/todo-archive-phases-m16-m17.md)，保持主窗口行数在 700 强制分片阈值内。
+- 主文档保留最近阶段的近线归档块（当前保留 **2026-08-31 M21 治理收口 + 能力扩展 + 测试补强（M21.1+M21.2+M21.4+M21.5 全部已闭环 / 11 atomic commits 实施 + 4 docs 收口 = 15 commits 已全部推送 ahead=0）/ 2026-08-31 M20 ScanResult 数据模型重构（M20.1+M20.3+M20.5+M20.6+M20.7 全部已闭环 / 8 commits 已全部落地）/ 2026-08-31 M19 治理 + 能力扩展 + 测试补强（M19.1+M19.2+M19.3+M19.4+M19.5 全部已闭环 / 5 commits 全部推送 ahead=0）/ 2026-08-30 M18 平台 GitHub App BYO App 模式（M18.0+M18.1+M18.2+M18.3+M18.4+M18.x 全部已闭环 / ~24 commits 全部推送 ahead=0）** 共 4 个批次，符合"主窗口保留 3-5 个阶段"健康策略）。**预防性分片**：M14 + M15 已于 2026-08-31 迁出至 [archive/todo-archive-phases-m14-m15.md](archive/todo-archive-phases-m14-m15.md)；M16 + M17 已于 2026-08-31 迁出至 [archive/todo-archive-phases-m16-m17.md](archive/todo-archive-phases-m16-m17.md)，保持主窗口行数在 700 强制分片阈值内。
 - 当 `todo-archive.md` 超过 700 行时，将早期阶段迁入分片归档（最近一次迁出于 2026-08-31 M19 归档批次预防性迁出 M14 + M15 至新分片 `todo-archive-phases-m14-m15.md`）。
 - **2026-08-20 归档批次**：M9 / 2026-08-19 PR1-PR3 / 2026-08-19 C54+C55 / M11 推进批次迁入分片 [archive/todo-archive-phases-m11.md](archive/todo-archive-phases-m11.md)。
 - **2026-08-25 归档批次**：M12 9 子任务完整闭环，**所有 19 commits 已推送至 `origin/master`**（ahead=0，git rev-list HEAD ^origin/master --count 核验）。详见 [archive/todo-archive-phases-m12.md](archive/todo-archive-phases-m12.md)（**2026-08-28 M17 归档批次预防性分片迁出**）。
@@ -29,6 +29,98 @@
 - **2026-08-31 归档批次（M19）**：M19.1+M19.2+M19.3+M19.4+M19.5 全部 5 子任务完整闭环，**5 commits 已全部推送至 `origin/master`**（ahead=0 `git rev-list HEAD ^origin/master --count` 2026-08-31 实测；M19.1 `0c536c1` + M19.2 `c998d58` + M19.3 `5839771` + M19.4 `8db2fd4` + M19.5 `a20ea02` + M19.x 收口 `ae33671` + 配套 commits `2f9eb38` / `bee5c3f` / `61b3ddc` / `4231ffb` 共 11 commits 落地）。详见下方 §M19 段。
 - **2026-08-31 同期动作**：M14 + M15 共 2 个早期批次从 todo-archive.md 主窗口预防性迁出至新分片 [archive/todo-archive-phases-m14-m15.md](archive/todo-archive-phases-m14-m15.md)（M19 段新增前主窗口 699 行 + M19 段预估 80-100 行将超 700 强制分片阈值，预防性迁出与 M18/M17/M16 归档批次预防性迁出 M13/M12/M10 同源策略）；主窗口保留范围相应调整为 M19/M18/M17/M16 共 4 个完整段。
 - **2026-08-26 同期动作（已迁出）**：M14.1 / M14.2 / M14.3 / M14.x / M14.y + M15.1 详见 [archive/todo-archive-phases-m14-m15.md](archive/todo-archive-phases-m14-m15.md)（2026-08-31 M19 归档批次预防性迁出）。M14.1 / M14.2 / M14.x / M14.y 阶段 commits 已全部推送至 `origin/master`（ahead=0 `git rev-list HEAD ^origin/master --count` 2026-08-26 实测）；M15.1 3 commits 落地 + release.yml CI 修复 1 commit 同期 ahead 部分待用户推送（ahead commits 按 [规划规范 §4.4 §5 ahead 实证](../../docs/standards/planning.md) 动态核验）。
+
+---
+
+## M21: 治理收口 + 能力扩展 + 测试补强（M21.1+M21.2+M21.4+M21.5 全部已闭环 / 2026-08-31 归档）
+
+> **归档日期**：2026-08-31
+> **阶段摘要**：M20 闭环后承接 backlog 候选池 + M18.x 治理剩余风险；按"类型平衡"原则（🛡️ 治理 2 项 + 🚀 能力扩展 1 项 + 🧪 测试覆盖 1 项）选取 **4 项任务**独立闭环（M21.3 段为重复登记——S-5 已由 M18.x commit `878ae1a` 闭环，本批次 P 阶段规划删除并迁 backlog 历史归档指针段）。M21.1（P3，🛡️ 治理）Code Scanning RG-W01 + RG-W02 `execFileSync` 替换 `execSync` 2 处命令注入修复 / M21.2（P3，🛡️ 治理）M18.x 剩余风险 W1 + W2 + audit suggest 1+2 集中清理 / M21.4（P3，🚀 能力扩展）B3 PR 自动合并闭环（mergify 模板 + auto-merge guide + audit W1 vitepress sidebar 修复）/ M21.5（P3，🧪 测试覆盖）T704 async 定时触发 + Schedule CRUD e2e 补强（playwright e2e 6 case + BullMQ upsertJobScheduler 短间隔集成测试）。
+>
+> **阶段边界**：M21 严格遵循 [规划规范 §1.1 任务粒度约束](../../docs/standards/planning.md)（≤5-6 项硬上限）+ 类型平衡；不涉及架构变更；不引入新依赖；不升级 better-auth / PrimeVue；fixtures 仍 mock（真实凭据验证属 T701 真实环境验证任务保留于 backlog）。
+>
+> **非目标**：不发布 mergify action（仅提供模板 + 文档引导）；不修改 dependfix 自身 PR 提交流程；不立即引入 GitHub Actions API `issues: write` 之外的其他权限面扩展（保留与 M19.3 一致的边界）。
+>
+> **状态**：✅ 全部完成（M21.1 + M21.2 + M21.4 + M21.5 全部 4 子阶段闭环 / **11 atomic commits 实施 + 4 docs 收口 commits = 15 commits 已全部推送至 origin/master ahead=0**；`git rev-list HEAD ^origin/master --count` 2026-08-31 实测；含 M21.4 audit round 1 W1 vitepress sidebar 注册修复闭环）
+
+### 阶段闭环清单
+
+#### M21.1 Code Scanning RG-W01 + RG-W02（execFileSync 替换 execSync 2 处）✅（2026-08-31 闭环）
+
+| 子任务 | 关键 commit | 完成要点 |
+|:--|:--|:--|
+| **RG-W01** `packages/engine/src/github/pr-creator.ts:214` execSync 替换 | `0a83c74`（fix(engine)） | `git add .` 替换为 `execFileSync('git', ['add', '.'])`；参数化数组避免 shell 解释；既有 `pr-creator.test.ts` 覆盖 PR 创建全链路 |
+| **RG-W02** `packages/engine/src/fixers/pnpm/index.ts:144` execSync 替换 | `a77e557`（fix(engine)） | `execSync(command)` 含模板拼接 → `execFileSync('pnpm', [...args])` 参数化；既有 `fixers-pnpm.test.ts` 覆盖 |
+
+#### M21.2 M18.x 剩余风险 W1 + W2 + audit suggest 1+2（4 项集中清理）✅（2026-08-31 闭环）
+
+| 子任务 | 关键 commit | 完成要点 |
+|:--|:--|:--|
+| **W1** stageAndCommit `--local` flag 路径回归测试 | `fe7cc0f`（test(engine)） | `packages/engine/src/git/stage-and-commit.test.ts` 新增 case 用 `process.env.GIT_CONFIG_GLOBAL=/tmp/synthetic-global-with-user.name` 模拟 host global + 不预设 local config；vi.stubEnv 隔离 + vi.unstubAllEnvs |
+| **W2** detectServerLocale 大小写兼容 | `ad376c8`（fix(platform)） | `apps/platform/server/utils/localized-error.ts:tryQueryLocale` 加 `.toLowerCase()` 让 `?locale=EN` / `?locale=en-US` 都接受；与 `@nuxtjs/i18n` BCP 47 lowercasing 对齐 |
+| **audit suggest 1** test.describe 嵌套 test.use 冗余清理 | `0903f06`（refactor(platform)） | `apps/platform/tests/e2e/admin-roles.e2e.test.ts` 嵌套 test.use 删除（父级已声明）；0 行为变更 |
+| **audit suggest 2** 空 beforeAll 钩子清理 | `b6d8539`（refactor(platform)） | `apps/platform/tests/e2e/credentials/[id].test.ts` 空 beforeAll 直接删除；0 行为变更 |
+
+#### M21.4 B3 PR 自动合并闭环（mergify 模板 + auto-merge guide）✅（2026-08-31 闭环）
+
+| 子任务 | 关键 commit | 完成要点 |
+|:--|:--|:--|
+| **mergify 模板扩展** | `f1dd5df`（docs(guide)） | `.github/mergify.yml` 模板按 dependabot / dependfix PR 规则配置 auto-merge 条件 + author 限制（仅 `dependabot[bot]` / `dependfix[bot]` / `123+dependfix[bot]` 命中；`CaoMeiYouRen` 不命中） |
+| **auto-merge.md + README** | `beea5b9`（docs(guide)） | `docs/guide/auto-merge.md` 指南（启用步骤 + mergify 配置说明 + 安全注意事项 + 危险场景示例：依赖大版本升级 / breaking change / CI 覆盖不足 / 重复 PR / author 劫持） |
+| **audit W1 vitepress sidebar 注册修复** | `c9939cb`（fix(docs)） | audit round 1 Reject 后修复：`docs/.vitepress/config.ts` sidebar 注册 `docs/guide/auto-merge.md`（之前漏注册） |
+
+#### M21.5 T704 async 定时触发 + Schedule CRUD e2e 补强 ✅（2026-08-31 闭环）
+
+| 子任务 | 关键 commit | 完成要点 |
+|:--|:--|:--|
+| **schedules CRUD e2e 6 case** | `9850e24`（test(platform)） | `apps/platform/tests/e2e/schedules.e2e.test.ts` 新建（创建 / 列表 / 详情 / 更新 / 删除 / 触发 / 重复创建同名 / 并发触发 / 失败 schedule 状态流转）；e2e 强制 sync 降级（playwright.config.ts:36 NUXT_QUEUE_ENABLED=false）走 sync 路径 |
+| **BullMQ upsertJobScheduler 短间隔集成测试** | `b9e35f7`（test(platform)） | `apps/platform/server/services/scheduler/scheduler.integration.test.ts` 新增（describe.skipIf(!enabled) 门控 + TEMP_REDIS_INTEGRATION=true 启用 + 进程内集成模式 + 随机 id 幂等） |
+
+### 阶段验收标准（M21 全部 4 子阶段闭环 ✅）
+
+- [x] **M21.1 RG-W01 + RG-W02** —— 2 处 execSync 替换为 execFileSync + 参数数组；既有测试不回归；本地 grep 实证 0 处 execSync 模板拼接
+- [x] **M21.2 W1 + W2 + S1 + S2** —— W1 stageAndCommit `--local` flag 路径回归；W2 `?locale=EN` 大小写兼容；S1 test.describe 嵌套 test.use 冗余清理；S2 空 beforeAll 钩子清理；engine vitest 1061 passed + platform vitest 919 passed + playwright admin-roles 15 passed
+- [x] **M21.4 mergify + guide + audit W1** —— mergify 模板通过 yaml.safe_load 语法 OK + author 正则覆盖实测；auto-merge.md 涵盖 mergify 安装 / 配置 / 启用条件 / 危险情况 6 项；vitepress sidebar 注册修复
+- [x] **M21.5 schedules e2e + BullMQ** —— playwright e2e 6 case × 2 次连跑无 flaky；BullMQ 集成测试 describe.skipIf 门控 + 进程内模式
+- [x] `pnpm lint` / `pnpm typecheck` 全绿 —— 0 error
+- [x] vitest 单测覆盖 + playwright e2e 覆盖 —— engine 1061 passed + platform 919 passed + playwright 6 passed × 2 连跑
+- [x] `pnpm check:docs` 全过 —— 103 md + 58 vue-interp OK
+- [x] 编号标记扫描 0 命中（无孤立 `T\d+` / `M\d+` / `C\d+` 等编号——按 [开发规范 §3 注释规范](../../docs/standards/development.md) 与 [code-auditor.agent.md 主责边界必查项](../../.github/agents/code-auditor.agent.md) 防御）
+- [x] CI 端到端裁决通过 —— 15 commits 已全部推送至 origin/master，ahead=0
+
+### 阶段治理记录
+
+- **总投入**：**15 commits**（M21.1 2 + M21.2 4 + M21.4 3 + M21.5 2 = **11 atomic commits 实施** + M21 文档收口 4：`a8604c6` M21.1+M21.2 标记 / `d66b11d` M21.3 重复登记清理 + backlog §S-5 闭环迁移 / `6516e34` M21.4 标记 / `cbcb15d` M21.5 标记）
+- **测试覆盖**：engine vitest 1061 passed + 1 skipped（M21.1 + M21.2 W1 回归）+ platform vitest 919 passed + 4 skipped（M21.2 W2 大小写兼容 + S2）+ playwright admin-roles 15 passed（M21.2 S1）+ playwright schedules 6 case（M21.5）+ BullMQ 集成测试（M21.5）
+- **审计覆盖**：M21.1 + M21.2 standard depth Pass / M21.4 standard depth 1 轮（含 1 个 W1 vitepress sidebar 注册修复）/ M21.5 standard depth Pass（2 warning 已修：W1 todo 同步勾选 + W2 removeJobScheduler finally 化 + 2 suggest 登记 backlog：S1 trigger happy path / S2 pattern 覆盖断言）
+- **ahead commits 实证**：`git rev-list HEAD ^origin/master --count` 2026-08-31 实测 ahead=0（15 commits 已全部推送至 origin/master）
+- **文档落盘**：
+  - `docs/plan/todo-archive.md` §M21 段（本段；2026-08-31 M21 归档批次新增）
+  - `docs/plan/todo.md` M21 任务清单 → 顶部 banner 更新（M21 → 待确定 active）
+  - `docs/plan/roadmap.md` Milestone 概述表 M21 行状态更新（计划中 → 已完成 2026-08-31 归档）+ §M21 详细实施状态段新增
+  - `docs/plan/backlog.md` 清理 B3 主条目（已上收 M21.4 闭环）+ §已闭环特定批次 段新增 B3 条目 + T704 待人工验收更新（实施部分已 M21.5 闭环）+ §已闭环阶段 段新增 M21 行
+  - `docs/plan/archive/index.md` §4 当前基线更新（M21 归档后）+ §5 近期归档批次登记新增 M21 行
+  - `.github/mergify.yml` mergify 模板（M21.4 实施）
+  - `docs/guide/auto-merge.md` PR 自动合并启用指南（M21.4 实施）
+
+### 关键决策
+
+- **M21.3 重复登记删除**：M21.3 段原计划抽取 `setTestEncryptionKey(key)` helper 部分**无真实用例需求**（grep `vi.stubGlobal.*encryptionKey` / `useRuntimeConfig.*encryptionKey` 自定义调用 = 0 命中），属 over-engineering；S-5 已由 M18.x commit `878ae1a` 闭环；M21 P 阶段规划批次删除 M21.3 段并迁 backlog 历史归档指针段（backlog 维护规则 5 追溯执行）
+- **M21.4 mergify 模板扩展而非全新**：复用既有 `.github/mergify.yml` 模板按 dependabot / dependfix PR 规则扩展 author 正则覆盖——不发布 mergify action，不修改 dependfix 自身 PR 提交流程
+- **M21.5 e2e 同步降级**：playwright.config.ts:36 `NUXT_QUEUE_ENABLED=false` 强制 sync 路径（避免 CI 环境 BullMQ 等待不稳定；真实 async 测试由 BullMQ 集成测试 `describe.skipIf` 门控覆盖）
+- **M21.1 命令注入修复路径**：execSync → execFileSync + 参数数组（标准 npm:child_process 安全用法）；不引入新依赖；既有测试不回归
+
+### 阶段关键经验（已沉淀至项目知识库）
+
+- **命令注入修复模式（M21.1 实证）**：execSync 模板拼接 → execFileSync + 参数数组（标准 npm:child_process 安全用法）；既有测试不回归 + grep 实证 0 处剩余 execSync 模板拼接
+- **vitest stubEnv 隔离模式（M21.2 W1 实证）**：`vi.stubEnv` + `vi.unstubAllEnvs` 隔离 process.env 副作用；避免影响其他并行测试
+- **vitepress sidebar 注册完整性（M21.4 audit W1 实证）**：新增 `docs/guide/*.md` 必须同步注册到 `docs/.vitepress/config.ts` sidebar；audit 阶段独立核验避免漏注册导致 vitepress build 隐式失败
+- **playwright e2e sync 降级 + BullMQ 集成测试分离（M21.5 实证）**：CI 环境稳定性优先——e2e 走 sync 路径（避免 BullMQ 等待），BullMQ async 测试走 `describe.skipIf(!redisAvailable)` 集成测试模式；与 M16.5 / M19.4 模式一致
+
+### 待迁移经验（next neat-freak 候选）
+
+- **M21.5 2 suggest 登记 backlog**：S1 trigger happy path（playwright schedules 触发后状态流转断言可加强）/ S2 pattern 覆盖断言（BullMQ 集成测试可加更细粒度的 cron pattern 覆盖）—— 后续批次治理
+- **M21.4 mergify 模板作者归属校验**：当前 author 正则覆盖 `dependfix[bot]` / `123+dependfix[bot]`；未来 dependfix bot 改名 / 增加其他自动修复工具时需同步更新正则——候选下批次会话处理
 
 ---
 

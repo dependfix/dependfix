@@ -28,7 +28,7 @@
 | M18: 平台 GitHub App BYO App 模式 | 承接 M17 闭环后 backlog §org 增强 §C22 上收为待实施主条目（2026-08-28 用户实测触达：自部署平台管理员视角 classic PAT `repo` scope 权限过大、可直接推送代码超出"自动修复"预期风险；fine-grained PAT 需逐仓库勾选 + SSO 流程繁琐、离职轮换管理困难）；定位 PAT 保留为默认快速上手路径 + GitHub App 作为自部署平台进阶选项，二者并存不替代。GitHub App 增量价值：installation 范围限定（按仓库授权限）+ 1h 短时 installation token 自动轮换 + 真实 `[bot]` 身份 + per-installation 审计日志。5 子阶段拆分 + 1 治理批次：M18.0（P0 docs only，PAT 无感升级评估）+ M18.1（P1，C22.1 基础层：credential 扩展 4 字段 + AuthProvider 抽象层 + installation token 缓存）+ M18.2（P1，C22.2 集成层：pushFixBranch token 切换 + commit author 动态化 + 审计字段）+ M18.3（P2，C22.3 表现层：UI GitHub App tab + 文档引导 + Manifest flow 可行性评估）+ M18.4（P1，C22.4 测试层：单测补强 + e2e mock JWT signing 全链路）+ M18.x 治理批次（P3 合并入 C22 子阶段顺手做：S-5/C39/C34/S1/S2/S-3/S-4） | P0-P3 | 已完成（2026-08-30 归档；M18.0 1 + M18.1 5 + M18.2 2 + M18.3 6 + M18.4 2 + M18.x 8 = ~24 commits 已全部推送至 origin/master ahead=0；含 M18.4 audit round 1 Reject 后针对性补修闭环；详见 [todo-archive.md §M18](todo-archive.md#m18-平台-github-app-byo-app-模式m180m181m182m183m184m18x-全部已闭环--2026-08-30-归档)） |
 | M19: 治理 + 能力扩展 + 测试补强 | 承接 M18 闭环后 backlog 候选池，按"类型平衡"原则选取 5 项任务：技术债 1 项 + 能力扩展 1 项 + 用户体验 2 项 + 测试覆盖 1 项。M19.1（P3，技术债）C34 存量规范严格约束挂接盘点 / M19.2（P2，能力扩展）C23 发现规模上限 max-repos / M19.3（P2，用户体验）B1 PR 关闭评论 + label / M19.4（P2，测试覆盖）T701-e2e 管理端点集成测试补强 / M19.5（P2，用户体验）C8 per-source 错误隔离 | P2-P3 | 已完成（2026-08-31 归档；5 atomic commits 已全部推送至 origin/master ahead=0 —— M19.1 `0c536c1` + M19.2 `c998d58` + M19.3 `5839771` + M19.4 `8db2fd4` + M19.5 `a20ea02` + M19.x 收口 `ae33671`；5 轮独立 Review Gate Pass —— M19.1 quick / M19.2 standard / M19.3 standard / M19.4 quick / M19.5 standard；本批次清理 backlog 5 个已上收主条目：B1 / C23 / C8 / T701-e2e / C34；详见 [todo-archive.md §M19](todo-archive.md#m19-治理-能力扩展-测试补强m191m192m193m194m195-全部已闭环-2026-08-31-归档)） |
 | M20: ScanResult 数据模型重构 | per-alert 模型 + reconcile + API 简化 + UI 调整 + backfill 脚本 | P2 | 已完成（2026-08-31 归档；M20.1/M20.3/M20.5/M20.6/M20.7 全部闭环，8 commits） |
-| M21: 治理收口 + 能力扩展 + 测试补强 | 承接 M20 闭环后 backlog 候选池 + M18.x 治理剩余风险；4 项任务按类型平衡原则：M21.1（P3，🛡️ 治理）Code Scanning RG-W01 + RG-W02 `execFileSync` 替换 `execSync` 2 处 / M21.2（P3，🛡️ 治理）M18.x 剩余风险 W1 + W2 + audit suggest 1+2 集中清理 / M21.4（P3，🚀 能力扩展）B3 PR 自动合并闭环 / M21.5（P3，🧪 测试覆盖）T704 async 定时触发 + Schedule CRUD e2e 补强（M21.3 重复登记——S-5 已由 M18.x commit `878ae1a` 闭环，本批次删除） | P3 | 计划中（M21 P 阶段规划完成 2026-08-31；M21.1 + M21.2 已闭环；剩余 M21.4 + M21.5 待推进；详见 [todo.md §M21](todo.md#当前阶段m21)） |
+| M21: 治理收口 + 能力扩展 + 测试补强 | 承接 M20 闭环后 backlog 候选池 + M18.x 治理剩余风险；4 项任务按类型平衡原则：M21.1（P3，🛡️ 治理）Code Scanning RG-W01 + RG-W02 `execFileSync` 替换 `execSync` 2 处 / M21.2（P3，🛡️ 治理）M18.x 剩余风险 W1 + W2 + audit suggest 1+2 集中清理 / M21.4（P3，🚀 能力扩展）B3 PR 自动合并闭环 / M21.5（P3，🧪 测试覆盖）T704 async 定时触发 + Schedule CRUD e2e 补强（M21.3 重复登记——S-5 已由 M18.x commit `878ae1a` 闭环，本批次删除） | P3 | 已完成（2026-08-31 归档；M21.1 + M21.2 + M21.4 + M21.5 全部 4 子阶段闭环；11 atomic commits 实施 + 4 docs 收口 = 15 commits 已全部推送至 origin/master ahead=0；详见 [todo-archive.md §M21](todo-archive.md#m21-治理收口--能力扩展--测试补强m211m212m214m215-全部已闭环--2026-08-31-归档)） |
 
 > **本路线图定位**：按 [规划规范 §2.1](../standards/planning.md) 仅维护阶段概览（目标 / 优先级 / 状态）。详细实施记录 / commit 引用 / 关键决策 / 经验教训见对应归档段（详见下方"## 详细任务"索引）。
 
@@ -241,14 +241,29 @@ Changelog / Release Notes 采集、多 AI 提供商封装、AI 研判（问题�
 
 per-alert 模型 + reconcile + API 简化 + UI 调整 + backfill 脚本。5 子阶段（M20.1 引擎侧 upstreamId 注入 / M20.3 ScanResult 实体升级 + reconcile 函数 / M20.5 API 简化 + dashboard 调整 / M20.6 UI 调整 + i18n / M20.7 一次性 backfill 脚本）全部闭环，8 commits 已落地。
 
-> 详细实施记录 / commit 引用 / 治理记录 / 关键决策 / 关键经验 / 待迁移经验：见 [todo-archive.md §M20](todo-archive.md#m20-scanresult-数据模型重构m201m203m205m206m207-全部已闭环--2026-08-31-归档)
+> 详细实施记录 / commit 引用 / 治理记录 / 关键决策 / 经验教训：见 [todo-archive.md §M20](todo-archive.md#m20-scanresult-数据模型重构m201m203m205m206m207-全部已闭环--2026-08-31-归档)
+
+---
+
+## M21: 治理收口 + 能力扩展 + 测试补强（已完成 2026-08-31 归档）
+
+承接 M20 闭环后 backlog 候选池 + M18.x 治理剩余风险；按"类型平衡"原则（🛡️ 治理 2 项 + 🚀 能力扩展 1 项 + 🧪 测试覆盖 1 项）选取 4 项任务独立闭环（M21.3 段为重复登记——S-5 已由 M18.x commit `878ae1a` 闭环，本批次 P 阶段规划删除并迁 backlog 历史归档指针段）。4 子阶段（M21.1 Code Scanning RG-W01 + RG-W02 execFileSync 替换 execSync 2 处命令注入修复 / M21.2 M18.x 剩余风险 W1 + W2 + audit suggest 1+2 集中清理 / M21.4 B3 PR 自动合并闭环（mergify 模板 + auto-merge guide + audit W1 vitepress sidebar 修复）/ M21.5 T704 async 定时触发 + Schedule CRUD e2e 补强（playwright e2e 6 case + BullMQ upsertJobScheduler 短间隔集成测试））。**11 atomic commits 实施 + 4 docs 收口 = 15 commits 已全部推送至 origin/master ahead=0**（`git rev-list HEAD ^origin/master --count` 2026-08-31 实测）。
+
+**关键决策**：
+
+- **M21.1** execSync → execFileSync + 参数数组（标准 npm:child_process 安全用法）；既有测试不回归
+- **M21.3** M21.3 段原计划抽取 `setTestEncryptionKey(key)` helper 部分无真实用例需求（grep 自定义调用 = 0 命中），属 over-engineering；S-5 已由 M18.x commit `878ae1a` 闭环；M21 P 阶段规划批次删除 M21.3 段并迁 backlog 历史归档指针段（backlog 维护规则 5 追溯执行）
+- **M21.4** mergify 模板扩展而非全新——复用既有 `.github/mergify.yml` 模板按 dependabot / dependfix PR 规则扩展 author 正则覆盖；不发布 mergify action，不修改 dependfix 自身 PR 提交流程
+- **M21.5** e2e 同步降级（playwright.config.ts:36 NUXT_QUEUE_ENABLED=false 强制 sync 路径）+ BullMQ async 测试分离（describe.skipIf 门控）
+
+> 详细实施记录 / commit 引用 / 治理记录 / 关键决策 / 关键经验 / 待迁移经验：见 [todo-archive.md §M21](todo-archive.md#m21-治理收口--能力扩展--测试补强m211m212m214m215-全部已闭环--2026-08-31-归档)
 
 ---
 
 ## 详细任务
 
-- 当前阶段任务：[todo.md](todo.md)（**M21 治理收口 + 能力扩展 + 技术债 + 测试补强**：P 阶段规划完成 2026-08-31 + 5 项任务类型平衡（🛡️ 治理 2 + 🔧 技术债 1 + 🚀 能力 1 + 🧪 测试 1）；下一步 D 阶段实施，待用户触发）；待人工验收 T701/T702/T704 项随真实环境推进
-- 已归档阶段：[todo-archive.md](todo-archive.md)（主窗口保留最近 4 段：2026-08-31 M19 / 2026-08-30 M18 / 2026-08-28 M17 / 2026-08-28 M16；**2026-08-31 M19 归档批次预防性迁出 M14 + M15 至新分片 [archive/todo-archive-phases-m14-m15.md](archive/todo-archive-phases-m14-m15.md)**（M19 段新增前主窗口 699 行 + M19 段预估 80-100 行将超 700 强制分片阈值，M14 + M15 同源批次同期迁出）；2026-08-30 M18 归档批次预防性迁出 M13 至新分片 [archive/todo-archive-phases-m13.md](archive/todo-archive-phases-m13.md)；2026-08-28 M17 归档批次预防性迁出 M12 至新分片 [archive/todo-archive-phases-m12.md](archive/todo-archive-phases-m12.md)；2026-08-28 M16 归档批次预防性迁出 M10 / T912 / C53 / 2026-08-20 平台 UI 增强 C59-C61 至新分片 [archive/todo-archive-phases-m10-c53-c59c61.md](archive/todo-archive-phases-m10-c53-c59c61.md)，主窗口回到"保留 3-5 个阶段"健康策略；2026-08-20 e2e 修复批次 C62+C63+C64+chore 已于 2026-08-26 M15 归档批次同步迁出至 [archive/todo-archive-phases-m11.md §2026-08-20 e2e 修复批次](archive/todo-archive-phases-m11.md#2026-08-20-e2e-修复批次c62--c63--c64--chore)；早期阶段见 [archive/index.md](archive/index.md) 分片索引）
+- 当前阶段任务：[todo.md](todo.md)（**M21 治理收口 + 能力扩展 + 测试补强**：已完成 2026-08-31 归档——M21.1 + M21.2（🛡️ 治理 2 项）+ M21.4（🚀 能力 1 项）+ M21.5（🧪 测试 1 项）= 4 项；11 atomic commits 实施 + 4 docs 收口 = 15 commits 已全部推送 ahead=0；M21.3 重复登记删除并迁 backlog 历史归档指针段）；下一阶段（M22）规划待用户触发后启动，候选池从 [backlog.md](backlog.md) §短期 / 一次性候选任务 按"类型平衡"原则选取；待人工验收 T701/T702/T704 项随真实环境推进（T704 实施部分已由 M21.5 闭环）
+- 已归档阶段：[todo-archive.md](todo-archive.md)（主窗口保留最近 4 段：2026-08-31 M21 / 2026-08-31 M20 / 2026-08-31 M19 / 2026-08-30 M18；**2026-08-31 M19 归档批次预防性迁出 M14 + M15 至新分片 [archive/todo-archive-phases-m14-m15.md](archive/todo-archive-phases-m14-m15.md)**（M19 段新增前主窗口 699 行 + M19 段预估 80-100 行将超 700 强制分片阈值，M14 + M15 同源批次同期迁出）；2026-08-30 M18 归档批次预防性迁出 M13 至新分片 [archive/todo-archive-phases-m13.md](archive/todo-archive-phases-m13.md)；2026-08-28 M17 归档批次预防性迁出 M12 至新分片 [archive/todo-archive-phases-m12.md](archive/todo-archive-phases-m12.md)；2026-08-28 M16 归档批次预防性迁出 M10 / T912 / C53 / 2026-08-20 平台 UI 增强 C59-C61 至新分片 [archive/todo-archive-phases-m10-c53-c59c61.md](archive/todo-archive-phases-m10-c53-c59c61.md)，主窗口回到"保留 3-5 个阶段"健康策略；2026-08-20 e2e 修复批次 C62+C63+C64+chore 已于 2026-08-26 M15 归档批次同步迁出至 [archive/todo-archive-phases-m11.md §2026-08-20 e2e 修复批次](archive/todo-archive-phases-m11.md#2026-08-20-e2e-修复批次c62--c63--c64--chore)；早期阶段见 [archive/index.md](archive/index.md) 分片索引）
 - 后续阶段任务（延期项 + 未排期增强候选）：[backlog.md](backlog.md)
 
 ## 交付原则

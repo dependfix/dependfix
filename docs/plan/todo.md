@@ -2,92 +2,17 @@
 
 > **范围约定**：本文件**仅**登记当前阶段活跃待办——已闭环项归档于 [todo-archive.md](todo-archive.md)；未排期/延期/远期登记于 [backlog.md](backlog.md)；已知边界与 known-issue 登记于对应阶段归档段或 backlog（**不在此处复述**）。
 
-## 当前阶段：M21
+## 当前阶段：待确定（M21 已全部完成，等待下一阶段规划）
 
-> **状态**：M21 P 阶段规划完成（2026-08-31）。M21.1 + M21.2 + M21.4 + M21.5 已闭环；M21.3 段为重复登记（S-5 已由 M18.x commit `878ae1a` 闭环），已从本批次删除并迁 backlog 历史归档指针。M21 阶段全部 4 项闭环。
+> **状态**：M21 阶段全部 4 项闭环（2026-08-31 归档）。M21.1 + M21.2（🛡️ 治理 2 项，已闭环）+ M21.4（🚀 能力扩展 1 项，已闭环）+ M21.5（🧪 测试 1 项，已闭环）= 4 项，符合 [planning.md §1.1 ≤5-6 项硬上限](../standards/planning.md)。M21.3 段为重复登记（S-5 已由 M18.x commit `878ae1a` 闭环），已从 M21 P 阶段规划批次删除并迁 backlog 历史归档指针段。
 >
-> **范围限定**：M21.1 + M21.2（🛡️ 治理 2 项，已闭环）+ M21.4（🚀 能力 1 项，已闭环）+ M21.5（🧪 测试 1 项，已闭环）= 4 项，符合 [planning.md §1.1 ≤5-6 项硬上限](../standards/planning.md)。
+> **M21 完成摘要**：4 子阶段 11 atomic commits 实施 + 4 docs 收口 commits = **15 commits** 已全部落地；ahead=0（`git rev-list HEAD ^origin/master --count` 2026-08-31 实测）。详见 [todo-archive.md §M21](todo-archive.md#m21-治理收口--能力扩展--测试补强m211m212m214m215-全部已闭环--2026-08-31-归档)。
 >
 > **M20 完成摘要**：5 子阶段（M20.1/M20.3/M20.5/M20.6/M20.7）全部闭环，8 commits 已落地。详见 [todo-archive.md §M20](todo-archive.md#m20-scanresult-数据模型重构m201m203m205m206m207-全部已闭环--2026-08-31-归档)。
 >
-> **待人工验收**：T701/T702/T704 真实环境验证（backlog.md §待人工验收）随可用性推进。
-
-### M21 任务清单（P 阶段规划中 / 2026-08-31）
-
-#### M21.1（P3，🛡️ 治理）Code Scanning RG-W01 + RG-W02（`execFileSync` 替换 `execSync` 2 处）
-
-- **目标**：消除 2 处 Code Scanning `js/shell-command-constructed-from-input` 告警（命令注入隐患）
-- **范围**：
-  - RG-W01：`packages/engine/src/github/pr-creator.ts:214` `execSync('git add .')`
-  - RG-W02：`packages/engine/src/fixers/pnpm/index.ts:144` `execSync(command)` 含模板拼接
-- **验收标准**：
-  - [x] 2 处 `execSync` 替换为 `execFileSync` + 参数数组（避免 shell 解释）
-  - [x] `pnpm --filter @dependfix/engine test` 全过（既有 `pr-creator.test.ts` + `fixers-pnpm.test.ts` 测试覆盖）
-  - [x] `pnpm lint` + `pnpm typecheck` 0 error
-  - [x] 本地 grep 实证 0 处 execSync 模板拼接（命令：`rg -n "execSync.*插值" packages/engine/src`）
-- **不做什么**：不重构其他 execSync 调用（如 `git config` 静态命令无注入风险）；不升级 pnpm / git 版本；不引入新依赖
-- **依赖**：M18.4 已闭环（pr-creator.ts 上下文已具备）；Code Scanning audit #26/#27 已记录（[经验归档 §四十四](../../docs/design/governance/experience-archive.md)）
-- **交付物**：✅ 已闭环 — 2 atomic commits `0a83c74` + `a77e557`（ahead=2 / engine vitest 1060 passed + 1 skipped / lint 0 error / typecheck 0 error / audit standard depth Pass）+ audit W1 注释漂移修复 + L281 注释修正同步合入
-- **风险与缓解措施**：参数化命令数组需正确转义特殊字符（如 git URL 含空格等）；缓解：复用既有测试覆盖（pr-creator.test.ts 已覆盖 PR 创建全链路）+ 新增 1 case 验证带空格路径
-
-#### M21.2（P3，🛡️ 治理）M18.x 剩余风险 W1 + W2 + audit suggest 1+2（4 项集中清理）
-
-- **目标**：闭环 M18.x 治理批次遗留的 4 项非阻塞 warning + suggest 清理
-- **范围**：
-  - **W1**：`stageAndCommit --local` flag 路径回归测试（`packages/engine/src/git/stage-and-commit.test.ts` 新增 case 用 `process.env.GIT_CONFIG_GLOBAL=/tmp/synthetic-global-with-user.name` 模拟 host global + 不预设 local config）
-  - **W2**：`detectServerLocale` 大小写兼容（`apps/platform/server/utils/localized-error.ts:tryQueryLocale` 加 `.toLowerCase()` 让 `?locale=EN` 接受）
-  - **audit suggest 1**：`test.describe` 嵌套冗余 `test.use` 清理（`apps/platform/tests/e2e/*.e2e.test.ts`）
-  - **audit suggest 2**：空 `beforeAll` 钩子清理（vitest 钩子无操作直接删除）
-- **验收标准**：
-  - [x] 4 项均完成（commit message 引用编号 W1/W2/S1/S2 实证）
-  - [x] `pnpm --filter @dependfix/engine test` 全部通过（含新加 W1 回归 case）
-  - [x] `pnpm --filter @dependfix/platform test` locale 检测单测覆盖大小写（`?locale=EN` / `?locale=en-US` 都接受）
-  - [x] `pnpm lint` 0 error + `pnpm typecheck` 0 error
-  - [x] A 阶段 code-auditor quick depth Pass（`audit-depth: quick`）
-- **不做什么**：不重构 stageAndCommit 主流程；不引入新依赖；不破坏 better-auth / Nuxt i18n 集成
-- **依赖**：M18.4 已闭环；M16.3 `detectServerLocale` 已落地（W2 是其延伸）；BullMQ 队列无需本批次涉及
-- **交付物**：✅ 已闭环 — 4 atomic commits `fe7cc0f` (W1) + `ad376c8` (W2) + `0903f06` (S1) + `b6d8539` (S2)（engine vitest 1061 passed + 1 skipped / platform vitest 919 passed + 4 skipped / playwright admin-roles 15 passed / lint 0 error / typecheck 0 error / audit quick depth Pass 0 blocker / 0 warning / 2 suggest 不纳入本批次）
-- **风险与缓解措施**：W1 回归测试涉及 `process.env.GIT_CONFIG_GLOBAL` 副作用，可能影响其他测试并行；缓解：用 `vi.stubEnv` 隔离 + 测试结束 `vi.unstubAllEnvs`
-
-#### M21.4（P3，🚀 能力扩展）B3 PR 自动合并闭环（mergify 模板 + auto-merge guide）
-
-- **目标**：提供 mergify 配置模板 + auto-merge guide 文档，让用户可一键启用 PR 自动合并
-- **范围**：
-  - `.github/mergify.yml` 模板（按 dependabot / dependfix PR 规则配置 auto-merge 条件 + author 限制）
-  - `docs/guide/auto-merge.md` 指南（启用步骤 + mergify 配置说明 + 安全注意事项 + 危险场景示例）
-  - README 简短提及（保持简短，详细看 guide）
-- **验收标准**：
-  - [x] mergify.yml 通过 mergify schema 验证（实测 python `yaml.safe_load` 语法 OK；author 正则实测覆盖 `dependfix[bot]` / `123+dependfix[bot]`；`CaoMeiYouRen` 不命中）
-  - [x] auto-merge.md 涵盖 mergify 安装 / 配置 / 启用条件 / 危险情况（依赖大版本升级 / breaking change / CI 覆盖不足 / 重复 PR / author 劫持 等 6 项）
-  - [x] `pnpm --filter dependfix-docs build` 通过（实测 vitepress build 9.75s 成功）
-  - [x] `pnpm run check:docs` 0 error（103 md + 58 vue-interp）+ `pnpm run lint:md` 0 error
-- **不做什么**：不内置自动合并（用户自己启用 mergify 后即可生效）；不发布 mergify action；不修改 dependfix 自身 PR 提交流程
-- **依赖**：无（独立交付物）
-- **交付物**：✅ 已闭环 — 3 atomic commits `f1dd5df` (mergify 模板扩展) + `beea5b9` (auto-merge.md + README) + `c9939cb` (audit W1 vitepress sidebar 注册修复)；ahead=9 待推送
-- **风险与缓解措施**：mergify 误启用可能导致依赖 PR 自动合并不当；缓解：明确告知用户"先在 fork 仓库试运行" + mergify 配置加 `author` 限制（仅 dependabot / dependfix bot）+ auto-merge.md 列出"危险场景 checklist"（依赖大版本升级 / 涉及 breaking change / 测试覆盖不足）
-
-#### M21.5（P3，🧪 测试覆盖）T704 async 定时触发 + Schedule CRUD e2e 补强
-
-- **目标**：补强 T704 async 定时触发的端到端测试覆盖，从单测扩展到 e2e 闭环
-- **范围**：
-  - `apps/platform/tests/e2e/schedules.e2e.test.ts` 新建（或扩展现有）
-  - 覆盖场景：创建 schedule / 列表 schedule / 编辑 schedule / 删除 schedule / 触发 schedule（async） / BullMQ upsertJobScheduler 短间隔（every < 1min）
-  - 边界 case：重复创建同名 schedule / 并发触发 / 失败 schedule 状态流转
-- **验收标准**：
-  - [x] playwright e2e ≥ 6 case 全过（含 async 等待）—— 实测 6 case 全过；e2e 强制 sync 降级（playwright.config.ts:36 NUXT_QUEUE_ENABLED=false）走 sync 路径，无 async 等待
-  - [x] BullMQ 短间隔集成测试通过（需 Redis ≥ 5 或降级路径 + 进程内集成测试模式）—— apps/platform/server/services/scheduler/scheduler.integration.test.ts 新增（describe.skipIf(!enabled) 门控 + TEMP_REDIS_INTEGRATION=true 启用 + 进程内集成模式 + 随机 id 幂等）
-  - [x] `pnpm lint` 0 error + `pnpm --filter @dependfix/platform typecheck` 0 error（实测）
-  - [x] headless 稳定通过（不依赖真实 GitHub API；CI 环境 ≥ 3 次连跑无 flaky）—— 实测 6 passed × 2 次连跑（14.3s + 12.7s，无 flaky；CI 环境 ≥ 3 次连跑建议合并后跑 CI 复测）
-- **不做什么**：不重构 schedule CRUD 后端；不动 BullMQ 配置；不引入新依赖
-- **依赖**：M7.2 T704 已交付（schedule CRUD 后端已实现）；BullMQ 队列基础设施已落地（M7.2 T702）
-- **交付物**：✅ 已闭环 — 2 atomic commits `9850e24` (schedules CRUD e2e 6 case) + `d815f98` (BullMQ upsertJobScheduler 短间隔集成测试 3 case)；audit standard depth Pass（2 warning 已修：W1 todo 同步勾选 + W2 removeJobScheduler finally 化）+ 2 suggest 登记 backlog（S1 trigger happy path / S2 pattern 覆盖断言）
-- **风险与缓解措施**：async 测试可能 flaky（CI 环境等待时间不稳定）；缓解：使用 `pollUntil` / `waitFor` 稳定等待策略 + 进程内集成测试模式（`describe.skipIf(!redisAvailable)`）+ 随机 id 幂等（参考 [经验归档 §三十一](../../docs/design/governance/experience-archive.md) BullMQ 队列集成教训）
-
-**范围限定（M21 阶段整体）**：不涉及架构变更；不引入新依赖；不升级 better-auth / PrimeVue；fixtures 仍 mock（真实凭据验证属 T701 真实环境验证任务保留于 backlog）。
-
-**预期清理 backlog 已上收主条目**（M21 全部 4 子阶段闭环后）：B3 / T704 两个有独立主条目的；S-5 已由 M18.x commit `878ae1a` 闭环但 backlog 维护规则 5 未及时执行（已在本批次删除 backlog §S-5 主条目并迁历史归档指针段）；W1/W2/RG-W01/RG-W02/audit suggest 1+2 在 backlog 中无独立主条目（仅 session file `still_active_tasks` 跟踪），实施后通过 session 收口登记。
-
-**子任务详细度遵循** [planning.md §2.5 任务详细度要求](../standards/planning.md#25-任务详细度要求)（8 要素 + 禁止模糊口径 + A 阶段 code-auditor 必查项审计）。
+> **下一阶段规划**：M22 P 阶段规划待用户触发后启动；候选池从 [backlog.md](backlog.md) §短期 / 一次性候选任务 按"类型平衡"原则（技术债 ≥ 1 + 能力扩展 ≥ 1 + 用户体验 ≥ 2 + 测试覆盖 ≥ 1）选取 5 项左右。
+>
+> **待人工验收**：T701/T702/T704 真实环境验证（backlog.md §待人工验收）随可用性推进；T704 实施部分已由 M21.5 闭环（schedules CRUD e2e + BullMQ upsertJobScheduler 集成测试），真实环境验证保留待真实 GitHub API / staging 环境推进。
 
 ---
 

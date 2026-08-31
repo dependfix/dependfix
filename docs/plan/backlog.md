@@ -121,7 +121,6 @@
 #### PR 管理
 
 - **B2** 固定分支单线设计（独立平台部署后修复频率上升，需要固定修复分支如 `dependfix/auto-fix` 避免频繁向 master 提交 PR；触发：v1.0.0 后 M12 平台 UX 修复链路上线；关联：T210 指纹方案整合复用/重建策略 + force push 语义）
-- **B3** PR 自动合并闭环（当前 dependfix 只解决自动提 PR 的问题，但没有后续自动合并的闭环；批准 PR 不应由本项目来做，否则失去单独提 PR 的意义；**推荐用户使用 mergify（`.github/mergify.yml`）或 GitHub Action（类似 [fastify/github-action-merge-dependabot](https://github.com/fastify/github-action-merge-dependabot)）来自动合并**；本项目只提供参考模板 + 文档引导；交付物：`docs/guide/auto-merge.md` 指南 + 模板配置文件；触发：用户实测反馈 PR 积压 / 手动合并繁琐时上收）
 
 #### Code Scanning 规则体系
 
@@ -255,6 +254,8 @@
 - BullMQ upsertJobScheduler 短间隔 every 集成测试（需 Redis >= 5）
 - Schedule CRUD e2e 补覆盖（当前单测 44 例，e2e 未覆盖）
 
+> **2026-08-31 状态**：T704 实施部分已由 **M21.5** 闭环（[todo-archive.md §M21.5](todo-archive.md#m21-治理收口--能力扩展--测试补强m211m212m214m215-全部已闭环--2026-08-31-归档) —— schedules CRUD e2e 6 case + BullMQ upsertJobScheduler 短间隔集成测试（describe.skipIf 门控 + TEMP_REDIS_INTEGRATION=true 启用））。**真实环境验证（需真实 GitHub API / staging / Redis 服务）保留本段随可用性推进**；playwright e2e 在 CI 环境默认走 sync 路径（NUXT_QUEUE_ENABLED=false）。
+
 实施记录：[archive/todo-archive-phases-m6-m7-t711.md §M7.2](archive/todo-archive-phases-m6-m7-t711.md#m72-平台能力深化已归档)
 
 ### 发布管线收尾（P3）
@@ -288,6 +289,7 @@
 
 - **M19**（2026-08-31，治理 + 能力扩展 + 测试补强 M19.1+M19.2+M19.3+M19.4+M19.5，5 atomic commits 已全部推送至 origin/master ahead=0 —— M19.1 `0c536c1` + M19.2 `c998d58` + M19.3 `5839771` + M19.4 `8db2fd4` + M19.5 `a20ea02` + M19.x 收口 `ae33671`）：[todo-archive.md §M19](todo-archive.md#m19-治理-能力扩展-测试补强m191m192m193m194m195-全部已闭环-2026-08-31-归档)；**本批次清理 backlog 5 个已上收主条目**：B1 PR 关闭评论 + label（M19.3 闭环 / `5839771`）/ C23 发现规模上限 max-repos（M19.2 闭环 / `c998d58`）/ C8 per-source 错误隔离（M19.5 闭环 / `a20ea02`）/ T701-e2e 管理端点集成测试补强（M19.4 闭环 / `8db2fd4`）/ C34 存量规范严格约束挂接盘点（M19.1 闭环 / `0c536c1`）
 - **M20**（2026-08-31，ScanResult 数据模型重构 M20.1+M20.3+M20.5+M20.6+M20.7，8 commits 已落地）：[todo-archive.md §M20](todo-archive.md#m20-scanresult-数据模型重构m201m203m205m206m207-全部已闭环--2026-08-31-归档)
+- **M21**（2026-08-31，治理收口 + 能力扩展 + 测试补强 M21.1+M21.2+M21.4+M21.5 全部 4 子阶段闭环 —— M21.1 Code Scanning RG-W01 + RG-W02 execFileSync 替换 execSync 2 处命令注入修复（M21.1 RG-W01 `0a83c74` + RG-W02 `a77e557`）/ M21.2 M18.x 剩余风险 W1 + W2 + audit suggest 1+2 集中清理（W1 stageAndCommit `--local` flag 回归 `fe7cc0f` + W2 detectServerLocale 大小写兼容 `ad376c8` + S1 test.describe 嵌套 test.use 冗余清理 `0903f06` + S2 空 beforeAll 钩子清理 `b6d8539`）/ M21.4 B3 PR 自动合并闭环 mergify 模板 + auto-merge guide + audit W1 vitepress sidebar 修复（mergify 模板 `f1dd5df` + auto-merge.md `beea5b9` + audit W1 修复 `c9939cb`）/ M21.5 T704 async 定时触发 + Schedule CRUD e2e 补强（schedules e2e 6 case `9850e24` + BullMQ upsertJobScheduler 集成测试 `b9e35f7`）；11 atomic commits 实施 + 4 docs 收口 commits = 15 commits 已全部推送至 origin/master ahead=0）：[todo-archive.md §M21](todo-archive.md#m21-治理收口--能力扩展--测试补强m211m212m214m215-全部已闭环--2026-08-31-归档)；**本批次清理 backlog 1 个已上收主条目**：B3 PR 自动合并闭环（M21.4 闭环 / mergify 模板 `f1dd5df` + auto-merge.md `beea5b9` + audit W1 修复 `c9939cb`）；**T704 待人工验收更新**：T704 实施部分已由 M21.5 闭环（schedules CRUD e2e + BullMQ upsertJobScheduler 集成测试），真实环境验证保留本段随可用性推进
 - **M17**（2026-08-28，安全与可用性收口 M17.1+M17.2+M17.3+M17.4+M17.5+M17.6，9 commits 含 session 收尾已全部推送至 origin/master ahead=0）：[todo-archive.md §M17](archive/todo-archive-phases-m16-m17.md#m17-安全与可用性收口m171m172m173m174m175m176-全部已闭环--2026-08-28-归档)
 - **M16**（2026-08-28，平台可用性深化 M16.1+M16.2+M16.3+M16.4+M16.5）：[todo-archive.md §M16](archive/todo-archive-phases-m16-m17.md#m16-平台可用性深化m161m162m163m164m165-全部已闭环--2026-08-28-归档)
 - **M15**（2026-08-26，UX-R2）：[archive/todo-archive-phases-m14-m15.md §M15](archive/todo-archive-phases-m14-m15.md#m15-扫描历史详情侧栏增强ux-r2已闭环)（2026-08-31 M19 归档批次预防性分片迁出至分片）
@@ -300,6 +302,7 @@
 
 ### 已闭环特定批次
 
+- **B3 PR 自动合并闭环**（2026-08-31 已闭环于 M21.4，关键 commit `f1dd5df`（mergify 模板扩展 `.github/mergify.yml` 覆盖 dependabot / dependfix bot PR）+ `beea5b9`（`docs/guide/auto-merge.md` PR 自动合并启用指南 + README 提及）+ `c9939cb`（audit W1 vitepress sidebar 注册修复）；author 正则实测覆盖 `dependfix[bot]` / `123+dependfix[bot]`；`CaoMeiYouRen` 不命中）：详见 [todo-archive.md §M21.4](todo-archive.md#m21-治理收口--能力扩展--测试补强m211m212m214m215-全部已闭环--2026-08-31-归档)
 - **C53 平台集成模式 fix 修复结果推送远程**：详见 [archive/todo-archive-phases-m10-c53-c59c61.md §C53](archive/todo-archive-phases-m10-c53-c59c61.md#c53-平台集成模式-fix-修复结果推送远程已归档)
 - **C16 规则分类配置化**（2026-08-26 闭环于 M13.3 T1307）：详见 [todo-archive.md §M13.3 T1307](archive/todo-archive-phases-m13.md)
 - **C21 code-quality-findings 接入**（2026-08-26 闭环于 M13.3 T1308）：详见 [todo-archive.md §M13.3 T1308](archive/todo-archive-phases-m13.md)
@@ -319,7 +322,7 @@
 | 内容类型 | 位置 |
 |:--|:--|
 | 当前阶段活跃任务 | [todo.md](todo.md) 顶部"当前阶段"段 |
-| 已闭环阶段归档 | [todo-archive.md](todo-archive.md)（主窗口保留最近 4 阶段：M19 / M18 / M17 / M16）+ [archive/](archive/)（M0-M15 详细分片，含 [archive/todo-archive-phases-m14-m15.md](archive/todo-archive-phases-m14-m15.md) + [archive/todo-archive-phases-m13.md](archive/todo-archive-phases-m13.md) + [archive/todo-archive-phases-m12.md](archive/todo-archive-phases-m12.md)） |
+| 已闭环阶段归档 | [todo-archive.md](todo-archive.md)（主窗口保留最近 4 阶段：M21 / M20 / M19 / M18）+ [archive/](archive/)（M0-M17 详细分片，含 [archive/todo-archive-phases-m16-m17.md](archive/todo-archive-phases-m16-m17.md) + [archive/todo-archive-phases-m14-m15.md](archive/todo-archive-phases-m14-m15.md) + [archive/todo-archive-phases-m13.md](archive/todo-archive-phases-m13.md) + [archive/todo-archive-phases-m12.md](archive/todo-archive-phases-m12.md)） |
 | 里程碑与阶段交付 | [roadmap.md](roadmap.md) |
 | 长期主线 / 远期 / 已知边界 | 本文档（按四象限结构） |
 | 历史归档索引 | [archive/index.md](archive/index.md) |

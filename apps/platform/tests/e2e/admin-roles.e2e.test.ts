@@ -198,8 +198,6 @@ test.describe('管理后台角色权限（todo.md §M16.5）', () => {
      * 即 adminMiddleware 通过）。
      */
     test.describe('admin 通过双向（S-4 补强）', () => {
-        test.use({ storageState: 'tests/e2e/.auth/admin.json' })
-
         test('admin POST /api/auth/admin/ban-user → 通过 adminMiddleware（2xx 或业务 4xx）', async ({ browser }) => {
             const context = await browser.newContext({ storageState: 'tests/e2e/.auth/admin.json' })
             const page = await context.newPage()

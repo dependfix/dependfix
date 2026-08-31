@@ -38,7 +38,7 @@
 
 - `docs/plan/todo.md` 仅包含当前阶段的具体实施任务
 - 任务状态：`[ ]` 待办 / `[x]` 已完成 / `[-]` 已取消
-- 任务描述至少包含：优先级、依赖、交付物、验收标准
+- **任务详细度要求**：每条子任务（子阶段条目）必须含 8 要素（目标 / 范围 / 验收标准 / 不做什么 / 依赖 / 交付物 / 风险与缓解措施 + 必含优先级），缺一项视为"模糊口径"，必须退回补齐——完整要素清单见 [§2.5](#25-任务详细度要求)
 - 任务按里程碑分组
 
 ### 2.3 待办积压
@@ -52,6 +52,53 @@
 
 - 阶段完成后，详细内容从 `todo.md` 移入 `docs/plan/todo-archive.md`
 - 归档保留原始层级结构、状态与验收标准，确保历史可追溯
+
+### 2.5 任务详细度要求
+
+`docs/plan/todo.md` 与 `docs/plan/todo-archive.md` 的每条子任务（子阶段条目）**必须**包含以下 8 要素，缺一项视为"模糊口径"，必须退回补齐：
+
+1. **目标**：要达成什么（一句话可证伪，避免"提升 XX 能力"等口号式描述）
+2. **优先级**：P1 / P2 / P3（与 backlog 主条目 P 编号一致）
+3. **范围**：包含什么（具体文件 / 模块 / 子模块路径，避免"引擎相关"等抽象范围）
+4. **验收标准**：可证伪的具体条款（checklist 形式，≥ 3 条；含命令 / 阈值 / 期望输出，避免"通过测试"等口径）
+5. **不做什么**：边界（明确排除项，避免 scope creep；含相关但本次不动的功能）
+6. **依赖**：前置任务 / 触发条件 / 关联 backlog 条目（引用具体 commit / PR / 文档段）
+7. **交付物**：commits 数量 + files 清单 + 文档（每条预期 commit 的文件级 impact）
+8. **风险与缓解措施**：潜在风险点 + 缓解方案（≥ 1 条，避免"小风险"等空洞描述）
+
+**禁止模糊口径**（按 [§1.1 L10 验收标准具体化](#11-硬性约束) 扩展）：
+- "优化一下" / "清理一下" / "增强一下"
+- "先做最小版本" / "做个基础版" / "做个简化版"
+- "顺手做" / "一起处理" / "顺便改"
+- "后续完善" / "持续优化" / "视情况"
+- 仅 1-2 行描述的子任务清单（信息密度不足以指导实施）
+
+**反模式示例**（禁止）：
+```markdown
+## ❌ 反例（信息密度不足）
+- **M.x.1**（P2）Code Scanning RG-W01 修复 —— 来源：audit
+```
+
+**正确示例**：
+```markdown
+## ✅ 正例（8 要素齐全）
+- **M.x.1**（P3，🛡️ 治理）Code Scanning RG-W01 + RG-W02（execFileSync 替换 execSync 2 处）
+  - **目标**：消除 2 处 Code Scanning 命令注入告警
+  - **范围**：`packages/engine/src/github/pr-creator.ts:214` + `packages/engine/src/fixers/pnpm/index.ts:144`
+  - **验收标准**：
+    - [ ] 2 处 execSync 替换为 execFileSync + 参数数组
+    - [ ] `pnpm --filter @dependfix/engine test` 全过（既有 pr-creator.test.ts / fixers-pnpm.test.ts）
+    - [ ] `pnpm lint` + `pnpm typecheck` 0 error
+    - [ ] Code Scanning 告警 #26/#27 在本地重现路径已消除（grep 实证 0 处 execSync 模板拼接）
+  - **不做什么**：不重构其他 execSync 调用 / 不升级 pnpm / git 版本
+  - **依赖**：M18.4 完成（pr-creator.ts 上下文） + Code Scanning audit #26/#27 已记录
+  - **交付物**：2 atomic commits（fix(engine) execFileSync 替换）+ 既有测试不回归
+  - **风险**：参数化命令数组需正确转义特殊字符（git URL 含空格等边界）；缓解：复用既有测试覆盖 + 新增 1 case 验证带空格路径
+```
+
+**合规核验**：本条由 review 阶段执行，详见 [code-reviewer skill §5.6 流程编号标记必查项](../../.github/skills/code-reviewer/SKILL.md) + [code-quality-checklist §todo.md 子任务详细度审计](../../.github/skills/code-reviewer/references/code-quality-checklist.md) + Code Auditor「主责边界必查项 - todo.md 子任务详细度审计」。
+
+**变更历史**：本条由 M21 P 阶段规划新增（2026-08-31）—— 用户反馈"M19 / M20 P 阶段规划 commit 子任务描述过简（仅 1-2 行）"触发强化；之前 §1.1 L10 + §2.2 L41 已有"验收标准具体化" + "任务描述至少包含：优先级、依赖、交付物、验收标准"基础要求，但分散且缺要素清单，本节集中强化为 8 要素硬性约束。
 
 ## 3. 迭代中途新增事项分流
 

@@ -4,9 +4,9 @@
 
 ## 当前阶段：M21
 
-> **状态**：M21 P 阶段规划完成（2026-08-31），等待 D 阶段实施触发。
+> **状态**：M21 P 阶段规划完成（2026-08-31）。M21.1 + M21.2 已闭环；M21.3 段为重复登记（S-5 已由 M18.x commit `878ae1a` 闭环），已从本批次删除并迁 backlog 历史归档指针；剩余 M21.4 + M21.5 待推进。
 >
-> **范围限定（5 项任务，类型平衡）**：🛡️ 治理 2 + 🔧 技术债 1 + 🚀 能力 1 + 🧪 测试 1 = 5 项，符合 [planning.md §1.1 ≤5-6 项硬上限](../standards/planning.md)。
+> **范围限定**：M21.1 + M21.2（🛡️ 治理 2 项，已闭环）+ M21.4（🚀 能力 1 项，待推进）+ M21.5（🧪 测试 1 项，待推进）= 4 项，符合 [planning.md §1.1 ≤5-6 项硬上限](../standards/planning.md)。
 >
 > **M20 完成摘要**：5 子阶段（M20.1/M20.3/M20.5/M20.6/M20.7）全部闭环，8 commits 已落地。详见 [todo-archive.md §M20](todo-archive.md#m20-scanresult-数据模型重构m201m203m205m206m207-全部已闭环--2026-08-31-归档)。
 >
@@ -49,27 +49,6 @@
 - **交付物**：✅ 已闭环 — 4 atomic commits `fe7cc0f` (W1) + `ad376c8` (W2) + `0903f06` (S1) + `b6d8539` (S2)（engine vitest 1061 passed + 1 skipped / platform vitest 919 passed + 4 skipped / playwright admin-roles 15 passed / lint 0 error / typecheck 0 error / audit quick depth Pass 0 blocker / 0 warning / 2 suggest 不纳入本批次）
 - **风险与缓解措施**：W1 回归测试涉及 `process.env.GIT_CONFIG_GLOBAL` 副作用，可能影响其他测试并行；缓解：用 `vi.stubEnv` 隔离 + 测试结束 `vi.unstubAllEnvs`
 
-#### M21.3（P3，🔧 技术债）S-5 `process.env.ENCRYPTION_KEY` 死代码清理（6 处 → helper 抽取）
-
-- **目标**：消除 6 处测试 stub 偶然一致性风险，抽取统一 helper（与 M17.5 `authedCookieHeader` 抽取同源策略）
-- **范围**：
-  - 5 文件删除 `process.env.ENCRYPTION_KEY` 赋值/清理对：
-    - `apps/platform/server/services/scan-orchestrator.test.ts:115,120,128`
-    - `apps/platform/server/api/credentials/index.test.ts:28,33,71,73`
-    - `apps/platform/server/api/credentials/[id].test.ts:28,39,92-94`
-    - `apps/platform/server/api/repos/importable.get.test.ts:80,91`
-    - `apps/platform/server/api/repos/batch.post.test.ts:31,36`
-  - 抽取 `setTestEncryptionKey(key)` helper 到 `tests/setup-nuxt-server.ts`（与 `setupMemoryDatabase` 同模式）
-- **验收标准**：
-  - [ ] 5 文件 14 处 `process.env.ENCRYPTION_KEY` 赋值/清理对全部清除（grep 实证 0 命中）
-  - [ ] 新增 `setTestEncryptionKey` helper 单测覆盖（默认 stub 行为 / 自定义 key 行为 / cleanup 验证）
-  - [ ] 调用方测试全部通过（既有 `853 passed` 不回归 + helper 单测新增 ≥ 4 case）
-  - [ ] `pnpm lint` 0 error + `pnpm --filter @dependfix/platform typecheck` 0 error
-- **不做什么**：不动 `tests/setup-nuxt-server.ts:26` 默认 stub 字符串；不修改 `NUXT_ENCRYPTION_KEY` 路径；不引入新依赖
-- **依赖**：M17.1 已闭环（service 改读 `useRuntimeConfig().encryptionKey`，`process.env.ENCRYPTION_KEY` 不再是密钥源）
-- **交付物**：2 commits（`refactor(platform): 抽取 setTestEncryptionKey helper` + `refactor(platform): 调用方测试替换 process.env.ENCRYPTION_KEY 死代码`）
-- **风险与缓解措施**：helper 签名设计需确保调用方语义不变；缓解：与 M17.5 `authedCookieHeader` 抽取同源策略（vitest 单测 + 调用方既有测试双重验证）+ helper 默认参数与 `useRuntimeConfig` stub 字符串保持一致
-
 #### M21.4（P3，🚀 能力扩展）B3 PR 自动合并闭环（mergify 模板 + auto-merge guide）
 
 - **目标**：提供 mergify 配置模板 + auto-merge guide 文档，让用户可一键启用 PR 自动合并
@@ -106,7 +85,7 @@
 
 **范围限定（M21 阶段整体）**：不涉及架构变更；不引入新依赖；不升级 better-auth / PrimeVue；fixtures 仍 mock（真实凭据验证属 T701 真实环境验证任务保留于 backlog）。
 
-**预期清理 backlog 已上收主条目**（M21 全部 5 子阶段闭环后）：S-5 / B3 / T704 三个有独立主条目的；W1/W2/RG-W01/RG-W02/audit suggest 1+2 在 backlog 中无独立主条目（仅 session file `still_active_tasks` 跟踪），实施后通过 session 收口登记。
+**预期清理 backlog 已上收主条目**（M21 全部 4 子阶段闭环后）：B3 / T704 两个有独立主条目的；S-5 已由 M18.x commit `878ae1a` 闭环但 backlog 维护规则 5 未及时执行（已在本批次删除 backlog §S-5 主条目并迁历史归档指针段）；W1/W2/RG-W01/RG-W02/audit suggest 1+2 在 backlog 中无独立主条目（仅 session file `still_active_tasks` 跟踪），实施后通过 session 收口登记。
 
 **子任务详细度遵循** [planning.md §2.5 任务详细度要求](../standards/planning.md#25-任务详细度要求)（8 要素 + 禁止模糊口径 + A 阶段 code-auditor 必查项审计）。
 

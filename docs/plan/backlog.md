@@ -115,20 +115,8 @@
 - **cron-preview 时区测试 wall-clock 依赖消除**（2026-08-31 cron-preview flaky test fix audit suggest 登记；commit `3597dcf`）
   - 当前状态：`apps/platform/app/utils/cron-preview.test.ts:89` 已接受 `diffHours % 24 ∈ {8, 16}` 两个值（消除跨日边界 flaky），但仍依赖真实 wall clock（`cron-preview.ts:65` `CronExpressionParser.parse` 未传 `currentDate`）
   - 仍存在的风险：① 16h 窗口仅占每周 ~8h（约 9.5% 概率），cron-parser 后续若行为退化（如永远不再触发 16h 分支），新断言会 silently pass；② 8h 断言改成 `expect(diffHours === 8 || diffHours === 160).toBe(true)` 可读性更强（直接表达"绝对差是 8h 或 160h"），不必 mod 24
-  - 修复方向：① **S1** 用 `vi.setSystemTime(new Date('2026-08-30T18:56:00Z'))` 写一个固定-now 用例断言 `diffHours === 16`，再加一个对照用例固定到 8h 窗口断言 `diffHours === 8`，强制两个分支都被覆盖；② **S2** 把当前 L89 断言改为 `expect(diffHours === 8 || diffHours === 160).toBe(true)`；③ 与 M17.5 `authedCookieHeader` / S-5 `setTestEncryptionKey` helper 抽取同源策略——评估是否能复用 `setupMemoryDatabase` 等测试 helper 模式
+  - 修复方向：① **S1** 用 `vi.setSystemTime(new Date('2026-08-30T18:56:00Z'))` 写一个固定-now 用例断言 `diffHours === 16`，再加一个对照用例固定到 8h 窗口断言 `diffHours === 8`，强制两个分支都被覆盖；② **S2** 把当前 L89 断言改为 `expect(diffHours === 8 || diffHours === 160).toBe(true)`；③ 与 M17.5 `authedCookieHeader` helper 抽取同源策略——评估是否能复用 `setupMemoryDatabase` 等测试 helper 模式
   - 优先级：P3（不阻塞 db79d5f / 3597dcf CI；建议与未来 cron-preview 增强批次合并实施，或单独 1 commit 闭环）
-
-- **S-5 调用方测试 `process.env.ENCRYPTION_KEY` 死代码清理**（M17.1 audit warning #2 登记）
-  - 当前状态：6 处调用方测试仍写 `process.env.ENCRYPTION_KEY = 'test-encryption-key-32-bytes!!'`：
-    - `apps/platform/server/services/scan-orchestrator.test.ts:115,120,128`
-    - `apps/platform/server/api/credentials/index.test.ts:28,33,71,73`
-    - `apps/platform/server/api/credentials/[id].test.ts:28,39,92-94`
-    - `apps/platform/server/api/repos/importable.get.test.ts:80,91`
-    - `apps/platform/server/api/repos/batch.post.test.ts:31,36`
-  - 现状：service 不再读 `process.env.ENCRYPTION_KEY`，实际密钥来自 `tests/setup-nuxt-server.ts:26` 全局 stub `useRuntimeConfig = () => ({ encryptionKey: 'test-encryption-key-32-bytes!!' })`；调用方测试之所以还能通过，纯属 **两边恰好都用同一字符串 `'test-encryption-key-32-bytes!!'` 的偶然一致性**（encryptToken 是纯函数，参数由测试显式传入，所以 env 设不设都不影响加解密路径）
-  - 风险：若后续修改 setup-nuxt-server.ts 默认 stub 字符串，调用方测试会突然全挂且报错信息晦涩（"密文无法解密"）；或反向若有人误以为"删掉 setup-nuxt-server.ts 默认 stub 应该没事，反正测试设了 process.env.ENCRYPTION_KEY"，会引发 ReferenceError 回归
-  - 修复方向：① 短期 — 5 文件删除 `process.env.ENCRYPTION_KEY` 赋值/清理对，改为显式 `vi.stubGlobal('useRuntimeConfig', () => ({ encryptionKey: 'test-encryption-key-32-bytes!!' }))` 或统一 helper；② 长期 — 抽 `setTestEncryptionKey(key)` helper（与 `setupMemoryDatabase` 同模式），与 M17.5 S-2 `authedCookieHeader` 抽取同源策略
-  - 优先级：P3（不阻塞 M17.1 合并；建议与 M17.5 同批次合并实施）
 
 #### PR 管理
 
@@ -322,6 +310,7 @@
 - **S-2 authedCookieHeader 抽取**（2026-08-28 已闭环归档至 [todo-archive.md §M17.5](archive/todo-archive-phases-m16-m17.md#m17-安全与可用性收口m171m172m173m174m175m176-全部已闭环--2026-08-28-归档)；关键 commit `466b142 refactor(e2e)` + `fc0b175 chore(platform)`；原 M17.5 实施细节见上方"已闭环阶段 M17"段）
 - **S-4 better-auth admin viewer role check 单测补强**（2026-08-28 已闭环归档至 [todo-archive.md §M17.6](archive/todo-archive-phases-m16-m17.md#m17-安全与可用性收口m171m172m173m174m175m176-全部已闭环--2026-08-28-归档)；关键 commit `56df374 test(e2e)`；原 M17.6 实施细节见上方"已闭环阶段 M17"段）
 - **服务端 API i18n 范围外扩展**（2026-08-28 已闭环归档至 [todo-archive.md §M17.2-4](archive/todo-archive-phases-m16-m17.md#m17-安全与可用性收口m171m172m173m174m175m176-全部已闭环--2026-08-28-归档)；10 文件分 3 子阶段 credentials / schedules / batch-runs + repos batch；关键 commit `5f66a08` / `90549a0` / `98fd47d` / `a1c7c4e` 4 commits；原 M17.2-4 实施细节见上方"已闭环阶段 M17"段）
+- **S-5 调用方测试 `process.env.ENCRYPTION_KEY` 死代码清理**（2026-08-30 已闭环归档至 [todo-archive.md §M18.x](todo-archive.md#m18-平台-github-app-byo-app-模式m180m181m182m183m184m18x-全部已闭环--2026-08-30-归档)）；关键 commit `878ae1a test(platform): M18.x 治理批次 — S-5 调用方测试 process.env.ENCRYPTION_KEY 死代码清理`（5 文件 14 处删除 + scan-orchestrator.test.ts encryptToken 参数从 process.env.ENCRYPTION_KEY 改为字面量 + setup-nuxt-server.ts:26 全局 stub 替代）；apps/platform vitest 888 tests passed（baseline 859 → M18.x +29 = 888）；todo.md M21.3 段原计划抽取 `setTestEncryptionKey(key)` helper 部分**无真实用例需求**（grep `vi.stubGlobal.*encryptionKey` / `useRuntimeConfig.*encryptionKey` 自定义调用 = 0 命中），属 over-engineering，已从 todo.md M21.3 段删除；backlog 维护规则 5（短期候选上收后从 backlog 移除）追溯执行：M18.x 闭环后 backlog §S-5 主条目遗漏删除，本批次（2026-08-31）随 M21.3 重复登记清理时一并迁历史归档指针段
 
 ---
 

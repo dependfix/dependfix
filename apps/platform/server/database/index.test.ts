@@ -46,6 +46,18 @@ describe('createDataSourceOptions', () => {
         expect(options.synchronize).toBe(false)
     })
 
+    it('defaults migrationsRun to false (opt-in via DATABASE_MIGRATIONS_RUN)', () => {
+        const options = createDataSourceOptions() as unknown as Record<string, unknown>
+        // dev/test 模式不再自动执行 pending migration（hard requirement：development.md §5.1.19）
+        expect(options.migrationsRun).toBe(false)
+    })
+
+    it('enables migrationsRun when DATABASE_MIGRATIONS_RUN=true', () => {
+        vi.stubEnv('DATABASE_MIGRATIONS_RUN', 'true')
+        const options = createDataSourceOptions() as unknown as Record<string, unknown>
+        expect(options.migrationsRun).toBe(true)
+    })
+
     it('honors DATABASE_PATH and DATABASE_ENTITY_PREFIX overrides', () => {
         setEnv({ DATABASE_PATH: 'custom/db.sqlite', DATABASE_ENTITY_PREFIX: 'dfx_' })
         const options = createDataSourceOptions() as unknown as Record<string, unknown>

@@ -41,9 +41,9 @@ export const createDataSourceOptions = (): DataSourceOptions => {
     const entityPrefix = process.env.DATABASE_ENTITY_PREFIX || 'dependfix_'
     // 显式 opt-in（hard requirement：development.md §5.1.19）：
     // - synchronize 必须 DATABASE_SYNCHRONIZE=true 才开；dev 模式也不再自动开启
-    // - migrationsRun 默认 true（CI/测试环境可关闭）；todo.md §M22.5 将进一步改为显式 opt-in
+    // - migrationsRun 必须 DATABASE_MIGRATIONS_RUN=true 才开；默认 false（不再自动执行 pending migration）
     const synchronize = process.env.DATABASE_SYNCHRONIZE === 'true'
-    const migrationsRun = process.env.DATABASE_MIGRATIONS_RUN !== 'false' // 默认 true；CI/测试环境可关闭
+    const migrationsRun = process.env.DATABASE_MIGRATIONS_RUN === 'true' // 默认 false；显式开启
 
     // 启动期日志（hard requirement：development.md §5.1.19）：打印 synchronize + migrationsRun +
     // 触发来源 + NODE_ENV 上下文，便于排查「为什么数据库 schema 没更新」或「为什么数据库被自动改写」

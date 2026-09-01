@@ -1041,3 +1041,79 @@ if (process.env.E2E_TEST !== 'true' || process.env.NODE_ENV === 'production') {
 ### 准入标准复核
 
 本案例符合准入标准第 1 条"教训未落入规范"（development.md / platform.md / security.md 均无 SQLite 备份 + synchronize opt-in + e2e 双门控规范）+ 第 4 条"工具/环境陷阱"（SQLite 单文件脆弱性 + TypeORM 1.x 默认反模式 + 启动期 backup 缺失是真实运行才能暴露的陷阱）。挂接治理检查点 5 项可显著降低未来同类事故的恢复成本 + 误操作概率。
+
+---
+
+## 五十一、E2E global-setup 串行多次 setupPage 后首请求 ECONNRESET（2026-09-01，CI run 33525721103）
+
+### 案例
+
+- **CI run**：[33525721103](https://github.com/dependfix/dependfix/actions/runs/33525721103)（`docs(plan): M22 阶段归档 + 预防性迁出 M18 到分片 + 跨文件同步`，2e590f0 / f617b56 之后修复 commit）
+- **症状**：Test / Coverage job 均 success，**E2E job 失败**。失败点固定在 global-setup 末尾的 `cleanAlertsRowgroupFixtures` —— `request.delete('/api/e2e/fixtures', { data: { repos: ... } })` 返回 `ECONNRESET`（TCP RST，100ms 内），global-setup 未跑完即失败 → 所有 e2e 用例 0 跑。
+- **CI 时序实测**：
+  - 15:27:58 playwright test 启动
+  - 15:28:01 server up（Better Auth 启动警告 — 全程唯一 server 日志，stdout 数据库 init 等未捕获）
+  - 15:28:03-04 setupPage.goto（首次 SSR 触发 `getAuth()` + DB init）
+  - 15:28:04-07 admin sign-in（page sign-in via chromium，3s）
+  - 15:28:07-10 viewer sign-in（3s）
+  - **15:28:10.87 → 15:28:10.98 DELETE /api/e2e/fixtures → ECONNRESET**（106ms）
+
+### 根因排查（穷举）
+
+#### 假设 A：handler 逻辑 bug → **排除**
+- 复现脚本 `node /tmp/opencode/repro-e2e-fixtures.mjs`（Playwright API + 本地 `.output/server/index.mjs` + 相同 env）：DELETE 返回 HTTP 200，body `{"deleted":{"repos":0,...}}`，server 进程稳定存活
+- vitest 单测 `fixtures.post.test.ts` + `fixtures.delete.test.ts` 6/6 通过
+- 构建产物 grep 实证（详见 [五十一根因排查产物]）：`useRuntimeConfig().e2eFixturesAllowed` 正确读取 `NUXT_E2E_FIXTURES_ALLOWED`（runtimeConfig `applyEnv` 走 `NUXT_` altPrefix），未被 esbuild define 折叠
+
+#### 假设 B：服务侧 OOM / 进程崩溃 → **低概率**
+- ECONNRESET（TCP RST）确实由 server 主动 close socket 触发，但 server 处理前 5+ 个请求全部成功（含两次 page sign-in 串行 3s × 2 = 6s），未出现 OOM 警告或内存异常
+- GH Actions runner 默认 7GB RAM，单纯 fixtures 清理不可能触发 OOM
+
+#### 假设 C：Chromium headless DELETE + body 行为差异 → **可能但无法复现**
+- Playwright 1.62.1 `request.delete(url, options)` → `fetch(url, { ...options, method: 'DELETE' })`，与 POST 共用同一底层网络栈
+- 本地复现脚本用 Playwright request API（同一路径）DELETE 成功 → 排除 Chromium 通用 DELETE bug
+- 但 CI 环境 headless chromium 151.0.7922.34 + Ubuntu 24.04 + chromium 新连接（fixturesCtx 是新建 browser context）组合，未本地稳定复现
+
+#### 假设 D：better-auth session 写入后 SQLite 连接释放时序 → **最可能根因**
+- admin / viewer page sign-in 都走 `getAuth()` 初始化 + `dataSource.transaction(...)` 写 session，事务结束后 connection 释放
+- 紧接的 fixtures DELETE 经 `ensureDatabaseInitialized()` → `getDataSource()` 走同一 singleton，但 better-auth 内部 session 表操作可能持有 Node.js EventLoop 微任务队列残留
+- ECONNRESET 在 TCP 层表现为 server 主动 RST，可能是 Nitro 在 better-auth 异步清理未完全收敛前过早释放请求 socket
+- **无法 100% 实证**：better-auth 1.7 内部 transaction 关闭路径不在本仓库，无法加日志；本地复现脚本同时间窗但未触发
+
+### 修复方案（最小变动 + 兜底 + 根因追踪分离）
+
+#### 已落地：e2e/fixtures helper 加 `maxRetries: 2` 兜底（commit f617b56）
+
+- 实证 Playwright 1.62.1 `_sendRequestWithRetries` 源码（`playwright-core@1.62.1/lib/coreBundle.js:25870-25895`）：
+  ```js
+  if (e.code !== "ECONNRESET")
+    throw e; // 其他错误码（ECONNREFUSED / ETIMEDOUT）不重试
+  ```
+- maxRetries=2 走 250ms → 500ms → 1000ms 指数 backoff，正好覆盖"首次请求 ECONNRESET + 异步资源清理收敛后第二次成功"的窗口
+- **不触动 server handler**：本地 / CI 行为等价；handler 单元测试 + 真实路由测试均通过
+
+#### 未落地：根因排查（登记 M23 阶段规划 backlog）
+
+- 候选排查路径（按 ROI 排序）：
+  1. **better-auth 1.7 transaction 关闭时序**：在 `getAuth()` 加 `[auth] transaction close trace` 日志 + `ds.transaction` 包装打印 begin/commit 时间戳，CI 复现一次
+  2. **Nitro h3 `defineEventHandler` async generator 行为**：检查 fixtures.delete handler 是否被识别为 generator（`async function*`）导致提前 close socket
+  3. **SQLite WAL 模式 + `journalMode=delete`**：当前 default rollback journal，并发事务可能短暂持锁；切 WAL + `busy_timeout` 可能消解
+  4. **增加 fixtures API 请求间 `await new Promise(r => setTimeout(r, 100))` 节流**：经验性方案，避免作为唯一修复
+
+### 教训
+
+1. **CI 偶发网络错误兜底模式**：test helper 涉及网络调用且 CI 偶发 ECONNRESET / ECONNREFUSED / ETIMEDOUT 时，**优先复用 Playwright `maxRetries` 选项**（内置 250ms 指数 backoff）；handler 不动、本地 / CI 行为等价。
+2. **Playwright `maxRetries` 仅重试 `e.code === 'ECONNRESET'`**：JSDoc 注释必须精确描述（不要笼统写"重试网络层错误"），否则后续维护者误判覆盖范围。
+3. **ECONNRESET 根因排查边界**：handler 逻辑 / 单元测试 / 本地复现均通过 → 根因必在 CI 独有环境组合（chromium 版本 × OS × 网络栈 × 异步时序窗口），无法本地稳定复现时**接受兜底修复 + 根因 backlog 分离**而非无限深挖。
+4. **e2e fixtures helper 是测试代码，但仍是正式代码**：maxRetries 这种运行时行为改动仍需走 lint + typecheck + vitest + A 阶段 audit（quick depth）+ commit 完整流程。
+
+### 挂接治理检查点（待下批次会话处理）
+
+1. **wisdom.md**：新增 1 条 pattern —— `pattern-playwright-maxRetries-econnreset` —— Playwright 1.62 `_sendRequestWithRetries` 仅重试 ECONNRESET 的源码实证 + test helper 兜底模式
+2. **ai-collaboration.md §4 PDTFC+**：补充"CI 偶发错误三阶段协议" —— ① handler / 单测 / 本地复现穷举 → ② 兜底修复（helper 层而非 handler 层）→ ③ 根因 backlog 分离 + M 阶段规划时优先排查
+3. **testing.md**：补充"e2e global-setup 串行场景网络抗性最佳实践" —— 多 ctx + 多 request 后首请求 ECONNRESET 风险 + maxRetries 兜底推荐值
+4. **backlog.md**：登记 M23 阶段候选 — better-auth transaction close 时序 + Nitro h3 async generator + SQLite WAL 模式 + fixtures 节流
+
+### 准入标准复核
+
+本案例符合准入标准第 1 条"教训未落入规范"（wisdom.md / ai-collaboration.md / testing.md 均无 Playwright maxRetries 网络兜底模式说明）+ 第 4 条"工具/环境陷阱"（better-auth transaction close + Nitro h3 socket 释放 + chromium headless DELETE 行为是 CI 真实运行才能暴露的陷阱）。挂接治理检查点 4 项可降低未来同类 CI 偶发失败的修复成本 + 避免"无限本地复现"陷阱。

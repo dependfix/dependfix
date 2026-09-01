@@ -150,6 +150,33 @@
   - §延期/暂缓项 db-restore 审计未采纳项（M22.2 S-1 第 2/3/4 项 + S-2）—— 本地管理员工具攻击面极低，远期登记
   - §已知边界 SQLite 单文件脆弱性 + TypeORM synchronize 风险（持续观察）—— M22 闭环后更新为 "已闭环 M22 全部 6 原子条目 + M23 候选 PostgreSQL 多写者迁移 + TypeORM 0.3.x 升级保留"
 
+#### M22.7 e2e/fixtures helper 网络兜底（hotfix / CI run 33525721103）✅（2026-09-01 闭环）
+
+> **触发**：M22 归档批次 `2e590f0` 推送后 CI run 33525721103 触发，Test / Coverage success，**E2E job 失败**于 global-setup 末尾 `cleanAlertsRowgroupFixtures` → `DELETE /api/e2e/fixtures` → `ECONNRESET`（TCP RST，100ms 内）。时序实测：server up 15:28:01 → setupPage.goto → admin sign-in 3s → viewer sign-in 3s → DELETE fail 15:28:10.98 → ahead=1 commit。
+
+> **根因排查穷举**：
+> 1. handler 逻辑 bug → 排除（vitest 单测 6/6 + 本地复现脚本 + .output grep 实证 `useRuntimeConfig().e2eFixturesAllowed` 正确读取 `NUXT_` altPrefix，未被 esbuild define 折叠）
+> 2. 服务侧 OOM → 低概率（5+ 请求成功且 ECONNRESET 距上次请求仅 100ms）
+> 3. Chromium headless DELETE + body 行为差异 → 可能但无法本地复现（容器沙箱 chromium 限制）
+> 4. **better-auth session 写入后 SQLite 连接释放时序 → 最可能根因**（admin / viewer sign-in 走 `dataSource.transaction(...)` 写 session，紧接 fixtures DELETE 经 `ensureDatabaseInitialized()` 走同一 singleton，better-auth 异步清理未完全收敛前过早释放 socket；better-auth 1.7 内部 transaction 关闭路径不在本仓库，无法加日志实证）
+
+> **修复方案（最小变动 + 兜底 + 根因追踪分离）**：
+> - 已落地：e2e/fixtures helper 加 `maxRetries: 2`（commit `f617b56` test(platform)）。实证 Playwright 1.62.1 `_sendRequestWithRetries` 源码（`playwright-core@1.62.1/lib/coreBundle.js:25870-25895`）仅对 `e.code === 'ECONNRESET'` 触发 250ms 指数 backoff 重试（其他网络错误码如 ECONNREFUSED / ETIMEDOUT 不重试）；maxRetries=2 走 250ms → 500ms → 1000ms，正好覆盖"首请求 ECONNRESET + 异步资源清理收敛后第二次成功"窗口
+> - 不触动 server handler：本地 / CI 行为等价；handler 单元测试 + 真实路由测试均通过
+> - **未落地（根因排查）**：登记 M23 阶段规划 backlog 候选（按 ROI 排序）：① better-auth 1.7 transaction 关闭时序 → `getAuth()` 加 trace 日志 + `ds.transaction` 包装打印 begin/commit 时间戳；② Nitro h3 `defineEventHandler` async generator 行为；③ SQLite WAL 模式 + `journalMode=delete` 切 WAL + `busy_timeout` 消解并发事务持锁；④ fixtures API 请求间 100ms 节流（经验性方案，不作为唯一修复）
+
+> **验证**：
+> - lint / typecheck exit 0
+> - vitest 6/6 fixtures 单测 + 全量 1001/1008 passed
+> - A 阶段 review quick depth Round 1 Pass（0 blocker，1 warning JSDoc 精度 + 1 suggest 经验沉淀，已 Round 2 修订 JSDoc 描述"仅对 ECONNRESET 重试"，suggest 跨轮次追溯由经验归档 §五十一承接）
+> - 本地复现脚本 `repro-e2e-fixtures.mjs`：auth + DELETE + POST fixtures 串行通过；server 进程稳定存活
+
+> **关键决策**：
+> - **helper 层而非 handler 层**：maxRetries 是客户端行为，server 不感知；保持 handler 单元测试 0 改动；本地 / CI 行为等价
+> - **兜底修复 + 根因 backlog 分离**：避免"无限本地复现"陷阱（CI 独有环境组合无法本地稳定复现），接受兜底修复 + 根因登记 M23 候选
+
+> **关键经验（已挂 wisdom.md）**：新增 `pattern-playwright-maxRetries-econnreset` —— Playwright 1.62 `_sendRequestWithRetries` 仅对 `e.code === 'ECONNRESET'` 触发 250ms 指数 backoff 重试（其他网络错误码不重试）+ test helper 兜底模式。详见 [经验归档 §五十一](../design/governance/experience-archive.md#五十一e2e-global-setup-串行多次-setuppage-后首请求-econnreset2026-09-01ci-run-33525721103)（含完整 4 假设穷举 + 修复方案 + 4 项治理检查点登记）
+
 ---
 
 ## M21: 治理收口 + 能力扩展 + 测试补强（M21.1+M21.2+M21.4+M21.5 全部已闭环 / 2026-08-31 归档）

@@ -4,7 +4,7 @@
 
 ## 当前阶段
 
-> 当前阶段：M22 — SQLite 数据保护防御加固（待启动，依赖用户决策）
+> 当前阶段：M22 — SQLite 数据保护防御加固（进行中：M22.1 / M22.2 已闭环，M22.3 - M22.6 待推进）
 >
 > **阶段背景**：2026-09-01 `apps/platform/data/dependfix.sqlite` 启动后业务表数据被清空事故（用户管理账号/仓库/凭据/扫描结果全部丢失）。代码内未找到清空路径（TypeORM synchronize 失败会回滚、e2e fixtures 受门控保护、cleanupStaleRuns 只清理 ScanRun/BatchRun、backfill 只处理 ScanResult），最可能清空来源在代码外部（shell/CI/运维）。事故暴露出 5 条可加固的设计风险，详见 [经验归档 §五十](../design/governance/experience-archive.md#五十sqlite-数据库业务数据被清空开发环境不可恢复事故2026-09-01)。
 >
@@ -13,6 +13,8 @@
 ---
 
 ### M22.1 SQLite 启动期自动备份（apps/platform/server/database/backup.ts 新增）
+
+- **状态**：✅ 已完成（commit `2a31597`）
 
 - **范围**：`apps/platform/server/database/backup.ts` 新增 + `apps/platform/server/database/index.ts:ensureDatabaseInitialized` 之前同步调用 `backupDatabaseIfNeeded()`
 - **实现要点**：
@@ -29,18 +31,21 @@
 - **A 阶段 Review Gate**：code-auditor 必须验证 backup.ts 含 fsync + retention 清理逻辑 + fail-open 兜底
 - **优先级**：P0（必须最先落地，未来同类事故的最后防线）
 
-### M22.2 db-restore 命令式恢复（apps/platform/scripts/db-restore.ts 新增）
+### M22.2 db-restore 命令式恢复（apps/platform/server/database/scripts/db-restore.ts 新增）
 
-- **范围**：`apps/platform/scripts/db-restore.ts` 新增 + `package.json` 新增 `"db:restore": "tsx scripts/db-restore.ts"`
+- **状态**：✅ 已完成
+- **范围**：`apps/platform/server/database/scripts/db-restore.ts` 新增 + `package.json` 新增 `"db:restore": "tsx server/database/scripts/db-restore.ts"`
+- **落地偏差**：脚本目录由原计划 `apps/platform/scripts/` 改为 `apps/platform/server/database/scripts/`，与既有 `backfill-scan-result.ts` 同目录复用同一份 README 与 `tsx` 运行约定（避免同类数据库运维脚本分散在两处）
 - **实现要点**：
   - CLI 入口守卫必备（[development.md §5.1.5](./../standards/development.md)）：`process.argv[1] === pathToFileURL(process.argv[1]).href` 才执行 `main()`
   - 参数：`--from=<backup-file>` 必填 + `--yes` 必填（双门控，避免误操作覆盖）
-  - 覆盖前自动备份：先把当前数据库备份到 `data/backups/auto-${timestamp}.bak`
+  - 覆盖前自动备份：先把当前数据库备份到 `data/backups/auto.${timestamp}-${ms}.bak`（落地追加毫秒防同秒碰撞；`auto.` 前缀让这批文件纳入 `cleanupOldBackups` 保留策略，与启动期备份 `${basename}.` 前缀命名空间隔离）
   - 恢复：`fs.copyFileSync(from, to)`（原子操作，无需 fsync）
-  - 校验：恢复后自动跑 `integrity_check` + 打印新 schema_version
+  - 校验：恢复前对备份文件 + 恢复后对目标库各跑一次 `integrity_check`，并打印新 schema_version
+  - 落地追加：恢复后清理属于旧数据库的 `-wal` / `-shm` / `-journal` 旁文件（陈旧日志会被当作新库的崩溃恢复数据回放）
 - **测试要求**：
   - 集成测试：创建测试数据库 → 写入数据 → 备份 → 删数据 → 恢复 → 验证数据回来
-  - 二次确认测试：`--from` 缺 / `--yes` 缺 / 用户输入非 `yes` → 报错并退出
+  - 二次确认测试：`--from` 缺 / `--yes` 缺 → 报错并退出（落地实现用 `--yes` 非交互式 flag 双门控，未采用交互式 `yes/no` 输入：运维脚本需可在无 TTY 的容器 / CI 中执行）
 - **规范挂接**：[security.md §2.1.2](./../standards/security.md)
 - **优先级**：P0（与 M22.1 同步落地）
 

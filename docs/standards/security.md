@@ -33,14 +33,15 @@
 
 #### 2.1.2 命令式恢复
 
-- **强制项**：`apps/platform/scripts/db-restore.ts` 存在，含 CLI 入口守卫（`process.argv[1]` 校验，见 [development.md §5.1.5](./development.md)）
+- **强制项**：`apps/platform/server/database/scripts/db-restore.ts` 存在，含 CLI 入口守卫（`process.argv[1]` 校验，见 [development.md §5.1.5](./development.md)）
 - **用法**：`pnpm db:restore --from=<backup-file>`
 - **二次确认**：必须 `--yes` flag 才执行（避免误操作覆盖当前数据库）
-- **覆盖前自动备份**：恢复前先把当前数据库备份到 `data/backups/auto-${timestamp}.bak`，确保恢复失败可回滚
+- **覆盖前自动备份**：恢复前先把当前数据库备份到 `data/backups/auto.${timestamp}-${ms}.bak`，确保恢复失败可回滚；`auto.` 前缀使其纳入备份保留策略，与启动期备份命名空间隔离
+- **旁文件清理**：恢复后删除属于旧数据库的 `-wal` / `-shm` / `-journal` 文件，避免陈旧日志被当作新库的崩溃恢复数据回放
 
 #### 2.1.3 数据库自检工具
 
-- **强制项**：`apps/platform/scripts/db-doctor.ts` 存在，含 CLI 入口守卫
+- **强制项**：`apps/platform/server/database/scripts/db-doctor.ts` 存在，含 CLI 入口守卫
 - **用法**：`pnpm db:doctor`
 - **输出**：各表行数 + `freelist_count` + `page_count` + `schema_version` + `journal_mode` + `integrity_check` + `sqlite_sequence` + 文件大小 + mtime/atime/birth time
 - **判定逻辑**（输出末尾给出结论）：

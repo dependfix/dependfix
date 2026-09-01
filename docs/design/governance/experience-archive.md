@@ -1008,7 +1008,7 @@ if (process.env.E2E_TEST !== 'true' || process.env.NODE_ENV === 'production') {
 
 #### 方案 5：数据库自检脚本（风险 5）
 
-新增 `apps/platform/scripts/db-doctor.ts`：
+新增 `apps/platform/server/database/scripts/db-doctor.ts`（原方案写 `apps/platform/scripts/`，落地时与既有数据库脚本同目录收敛，见 [todo.md §M22.3](../../plan/todo.md)）：
 - 打印各表行数、freelist、page_count、schema_version、journal_mode
 - 提供 `pnpm db:doctor` 命令
 - 用户可立即判断数据库状态（是被清空 vs 从未注入 vs schema 升级中）

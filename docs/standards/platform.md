@@ -168,12 +168,12 @@ if (process.env.E2E_TEST !== 'true' || process.env.NODE_ENV === 'production') {
    - 保留策略：最近 N 份（默认 10，`BACKUP_RETENTION_COUNT` env 可覆盖），按 mtime 升序清理
    - 失败处理：catch + console.error，**不阻塞启动**
 
-2. **`apps/platform/scripts/db-restore.ts`**（CLI 入口守卫必备，见 development.md §5.1.5）：
+2. **`apps/platform/server/database/scripts/db-restore.ts`**（CLI 入口守卫必备，见 development.md §5.1.5）：
    - 用法：`pnpm db:restore --from=<backup-file>`
    - 安全门控：必须 `--yes` flag 二次确认（避免误操作覆盖当前数据库）
-   - 实现：先备份当前数据库到 `data/backups/auto-${timestamp}.bak`（覆盖前再留一份），再 `cp` 目标备份到 `data/dependfix.sqlite`
+   - 实现：先备份当前数据库到 `data/backups/auto.${timestamp}-${ms}.bak`（覆盖前再留一份），再 `cp` 目标备份到 `data/dependfix.sqlite`，最后清理旧库的 `-wal` / `-shm` / `-journal` 旁文件
 
-3. **`apps/platform/scripts/db-doctor.ts`**（自检工具）：
+3. **`apps/platform/server/database/scripts/db-doctor.ts`**（自检工具）：
    - 打印：各表行数、`freelist_count`、`page_count`、`schema_version`、`journal_mode`、`integrity_check`、`sqlite_sequence`
    - 判断"数据是被清空 vs 从未注入 vs schema 升级中"：
      - schema_version > 0 + 各表全空 → 数据被清空或从未注入

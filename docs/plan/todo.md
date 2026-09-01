@@ -4,7 +4,7 @@
 
 ## 当前阶段
 
-> 当前阶段：M22 — SQLite 数据保护防御加固（进行中：M22.1 / M22.2 已闭环，M22.3 - M22.6 待推进）
+> 当前阶段：M22 — SQLite 数据保护防御加固（进行中：M22.1 / M22.2 / M22.3 已闭环，M22.4 - M22.6 待推进）
 >
 > **阶段背景**：2026-09-01 `apps/platform/data/dependfix.sqlite` 启动后业务表数据被清空事故（用户管理账号/仓库/凭据/扫描结果全部丢失）。代码内未找到清空路径（TypeORM synchronize 失败会回滚、e2e fixtures 受门控保护、cleanupStaleRuns 只清理 ScanRun/BatchRun、backfill 只处理 ScanResult），最可能清空来源在代码外部（shell/CI/运维）。事故暴露出 5 条可加固的设计风险，详见 [经验归档 §五十](../design/governance/experience-archive.md#五十sqlite-数据库业务数据被清空开发环境不可恢复事故2026-09-01)。
 >
@@ -49,9 +49,11 @@
 - **规范挂接**：[security.md §2.1.2](./../standards/security.md)
 - **优先级**：P0（与 M22.1 同步落地）
 
-### M22.3 db-doctor 自检工具（apps/platform/scripts/db-doctor.ts 新增）
+### M22.3 db-doctor 自检工具（apps/platform/server/database/scripts/db-doctor.ts 新增）
 
-- **范围**：`apps/platform/scripts/db-doctor.ts` 新增 + `package.json` 新增 `"db:doctor": "tsx scripts/db-doctor.ts"`
+- **状态**：✅ 已完成
+- **范围**：`apps/platform/server/database/scripts/db-doctor.ts` 新增 + `package.json` 新增 `"db:doctor": "tsx server/database/scripts/db-doctor.ts"`
+- **落地偏差**：脚本目录同 M22.2（与既有 `backfill-scan-result.ts` / `db-restore.ts` 同目录）；`security.md §2.1.2` / `§2.1.3` 与 `platform.md §3.7` 中的路径已同步为实际落地位置
 - **实现要点**：
   - CLI 入口守卫必备（[development.md §5.1.5](./../standards/development.md)）
   - 输出（人读 + 机读双模，参考 [development.md §5.1.2](./../standards/development.md)）：

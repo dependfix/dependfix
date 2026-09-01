@@ -79,6 +79,19 @@ momei 仅作为 1.0.0 前的参考蓝本，1.0.0 后按本项目自身实践演�
 - `build` 和 `test` 按改动影响按需执行，而不是每次编辑都盲目运行。
 - 如果相关检查没有运行，最终交付说明中必须明确解释原因。
 
+## 新需求处理原则（hard requirement）
+
+按 [规划规范 §3.1 新需求默认走"评估 → backlog"原则](docs/standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) + [AI 协作规范 §2.1.1 新需求总原则](docs/standards/ai-collaboration.md#211新需求总原则跨工作流适用)：
+
+1. **默认路径**：新需求（功能 / 模块 / 集成 / 监控 / 重构 / 体验优化等）的处理路径是 **先评估 → 进入 backlog.md → 等待用户明确决策阶段**。
+2. **不自动升级**：未经用户明确授权，backlog 候选**不得**进入 todo.md §当前阶段；候选条目**不包含** `M\d+` 阶段编号（如 `M23.1`、`M24` 等）。
+3. **不默认最高优先级**：候选池按"类型平衡"原则选取是用户决策行为；AI 不得推断"X 应作为本批次最高优先级"并默认启动 X。
+4. **插队例外清单（仅 3 类可走 todo.md 当前阶段 + 阶段编号）**：
+   - **安全问题**：已确认的安全漏洞（Code Scanning 告警、Snyk/Dependabot critical、有 PoC 的安全 issue）
+   - **漏洞问题**：依赖链中高危漏洞（critical CVE、GHSA 标识 critical/high 且影响 dependfix 自身或被 dependfix 管理的仓库）
+   - **直接影响可用性的任务**：生产环境故障、P0/P1 事故恢复、CI 主链路阻塞、用户报告的 blocker 级功能缺失
+5. **合规核验**：本原则由 [code-auditor 主责边界「新需求未默认升级为下一阶段 todo」必查项](.github/agents/code-auditor.agent.md) 强制检查，违规即 Reject 退回。
+
 ## 审查要求
 
 所有改动在最终交付前都必须经过 `code-reviewer` 技能审查。

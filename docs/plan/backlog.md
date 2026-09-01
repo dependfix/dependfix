@@ -115,6 +115,88 @@
 
 - **B2** 固定分支单线设计（独立平台部署后修复频率上升，需要固定修复分支如 `dependfix/auto-fix` 避免频繁向 master 提交 PR；触发：v1.0.0 后 M12 平台 UX 修复链路上线；关联：T210 指纹方案整合复用/重建策略 + force push 语义）
 
+- **PR Check 状态监测**（候选名；2026-09-02 完成 P 阶段规划，候选登记待用户决策阶段）
+
+  > **问题定义**：dependfix 已"发起"依赖更新链路（创建 PR、触发 workflow_dispatch、回填扫描结果），但缺反向通道——**这些 PR 上跑的 GitHub Action 失败没人主动知道**。失败后果：dependfix 升级修复 PR 跑挂 → 升级状态停滞 + 用户不知情；dependabot PR 跑挂 → mergify 不合并（依赖 `check-success=Test`）+ 用户不知情。两条链路的 CI 失败都属于"沉默失败"，破坏 dependfix 的自动化承诺。**业务价值**：补全"发出去"与"反馈回来"的闭环，让依赖治理失败信号可见、可追溯、可告警。
+
+  > **P 阶段决策纪要**（5 项用户决策已落地，剩余 D1/D2/D5/D6/D7 为执行细节，进入 D 阶段时确认）：
+  > - D1：PRCheck 实体位于 `apps/platform/server/entities/pr-check.ts` ✅（独立于 ScanResult，状态语义不同）
+  > - D2：Polling 间隔默认 5min/仓 ✅（实测后调；GitHub `actions: read` 不计入主限流）
+  > - **D3：失败 PR firing alert + ack UI** ✅（用户决策 2026-09-02；失败时 firing，UI 提供 ack 按钮；回归 success 时自动 ack）
+  > - **D4：用户手动创建 schedule 启用** ✅（用户决策 2026-09-02；不创建默认 schedule，避免无 App installation 用户报错；用户在 Schedule UI 创建 `pr-check` 类型 schedule 启用）
+  > - D5：webhook MVP 仅接口预留（`PRCheckSyncSource` interface + PollingSource implements + WebhookSource 留位），webhook handler 文件不挂路由 ✅
+  > - D6：仅 per-org scope（per-org 监测；跨组织聚合留作后续） ✅
+  > - D7：env 开关 `ACTION_STATUS_MONITOR_ENABLED` 默认 false（schedule 启用后启动时检查） ✅
+  > - **D8：必须在文档中明确 mergify 仍是主控** ✅（用户决策 2026-09-02；规划在 dependfix README + `.github/mergify.yml` 注释 + PRCheck 设计文档中说明："mergify 负责通过即合（按 `check-success=Test`）；PRCheck 负责失败即显（监测 + alert）。互不干扰。")
+
+  > **MVP 验收标准**：
+  > - [ ] dependfix 自身 PR（author 含 `dependfix[bot]`）+ dependabot PR（author=`dependabot[bot]`）的最新 `Test` check 状态可被定时抓取并落库
+  > - [ ] 状态变化时（pending → success / failure）落 `PRCheck` 行（复合唯一索引 `(repositoryId, prNumber, headSha)` 幂等）
+  > - [ ] 失败 PR 通过 alerts 系统 firing（**D3**）；UI 提供 ack 按钮；回归 success 时自动 ack
+  > - [ ] polling 任务可关闭（schedule 启停 + env 开关 `ACTION_STATUS_MONITOR_ENABLED`）；关闭时保留历史 PRCheck 但停止新轮询
+  > - [ ] 用户手动在 Schedule UI 创建 `pr-check` 类型 schedule 启用（**D4**）；默认未启用
+  > - [ ] UI 提供 `/api/pr-checks` 列表（支持 `repositoryId` / `conclusion` / `alertFiring` 过滤）+ 单 PR 时间线
+  > - [ ] mergify 不受影响（监测失败不阻止 mergify 决策；**D8** 在文档中明确说明）
+  > - [ ] webhook 接口预留（`PRCheckSyncSource` abstract + PollingSource implements）但 MVP 不实现
+  > - [ ] 编号标记扫描 0 命中（按 [开发规范 §3 注释规范](../standards/development.md) + [code-auditor 主责边界必查项](../../.github/agents/code-auditor.agent.md) 防御）
+
+  > **核心架构（Polling + 接口预留 Webhook）**：
+  > - **数据层**：新建 `apps/platform/server/entities/pr-check.ts`（PRCheck 实体）；类级复合唯一索引 `(repositoryId, prNumber, headSha)`；类级复合索引 `(repositoryId, conclusion)`（dashboard 活跃失败查询）；类级复合索引 `(repositoryId, createdAt)`（仓库详情时间线）
+  > - **service 层**：新建 `apps/platform/server/services/monitor/`（独立目录）
+  >   - `types.ts`：`PRCheckSyncSource` interface（PollingSource + WebhookSource 互换点）
+  >   - `polling-source.ts`：实现 PRCheckSyncSource；复用 `packages/engine/src/github/client.ts` Octokit（retry/rate-limit 已实现）+ AuthProvider（M18+） + `actions: read` scope
+  >   - `action-status-monitor.ts`：核心 service；调用 `PRCheckSyncSource` + 落库 + alert 状态机（失败 firing / 回归 success 自动 ack）
+  > - **调度层**：复用 `apps/platform/server/services/scheduler/scheduler.service.ts`（M22.5 既有 node-cron + BullMQ 双模式）；新增 schedule type='pr-check'；用户在 Schedule UI 创建 + 启停
+  > - **API 层**：新建 `apps/platform/server/api/pr-checks/`（4 端点：`index.get.ts` 列表 + `[id].get.ts` 单 PR 时间线 + `summary.get.ts` dashboard 概览 + `../webhooks/github-check-run.post.ts` 接口预留，MVP 不挂路由）
+  > - **UI 层**：新建 `apps/platform/pages/pr-checks/index.vue`（复用 alerts-rowgroup 视觉模式 + 单独标签区分；不复用 ScanResult alerts）；ack 按钮在 PRCheck 行内
+  > - **alert 联动**：复用 alerts-rowgroup 视觉（PRCheck 单独 API + 单独 UI 标签避免与 ScanResult alerts 混淆）；ack 操作通过 `PATCH /api/pr-checks/[id]` `{ alertFiring: false }`
+
+  > **文件清单（预计 ~1100 行新建 + ~70 行修改）**：
+  > | 类型 | 路径 | 行数预估 |
+  > |---|---|---|
+  > | 新建 | `apps/platform/server/entities/pr-check.ts` | ~80 |
+  > | 新建 | `apps/platform/server/entities/pr-check.test.ts` | ~120 |
+  > | 新建 | `apps/platform/server/services/monitor/types.ts` | ~40 |
+  > | 新建 | `apps/platform/server/services/monitor/polling-source.ts` | ~150 |
+  > | 新建 | `apps/platform/server/services/monitor/action-status-monitor.ts` | ~200 |
+  > | 新建 | `apps/platform/server/services/monitor/action-status-monitor.test.ts` | ~250 |
+  > | 新建 | `apps/platform/server/api/pr-checks/index.get.ts` + `.test.ts` | ~80 + ~100 |
+  > | 新建 | `apps/platform/server/api/pr-checks/[id].get.ts` + `.test.ts` | ~60 + ~80 |
+  > | 新建 | `apps/platform/server/api/pr-checks/[id].patch.ts`（ack 操作） | ~60 |
+  > | 新建 | `apps/platform/server/api/pr-checks/summary.get.ts` | ~50 |
+  > | 新建 | `apps/platform/server/api/webhooks/github-check-run.post.ts`（接口预留，MVP 不挂路由） | ~80 |
+  > | 新建 | `apps/platform/pages/pr-checks/index.vue` | ~150 |
+  > | 新建 | `apps/platform/server/database/migrations/{ts}-PRCheck.ts`（TypeORM 1.x 复合索引迁移） | ~30 |
+  > | 修改 | `apps/platform/server/services/scheduler/scheduler.service.ts` | +30 |
+  > | 修改 | `apps/platform/server/services/scheduler/selector.ts` | +20 |
+  > | 修改 | `apps/platform/server/entities/schedule.ts`（type enum） | +5 |
+  > | 修改 | `apps/platform/server/database/index.ts`（注册 PRCheck entity） | +1 |
+  > | 修改 | `apps/platform/.env.example`（`ACTION_STATUS_MONITOR_ENABLED` 说明） | +10 |
+  > | 修改 | `apps/platform/README.md`（D8 mergify 主控说明） | +20 |
+  > | 修改 | `.github/mergify.yml`（注释 D8 角色分工） | +5 |
+  > | 修改 | `docs/standards/development.md` 或 `docs/standards/platform.md`（新增 PRCheck 设计规范） | +50 |
+
+  > **执行顺序（严格串行）**：
+  > 1. **Phase 1**：实体 + 索引（PRCheck entity + migration + 二轮 e2e 验证复合索引）
+  > 2. **Phase 2**：service + scheduler 接入（ActionStatusMonitor + PollingSource + Schedule type='pr-check'）
+  > 3. **Phase 3**：API 层（4 端点 + ack PATCH + 测试）
+  > 4. **Phase 4**：UI 层（页面 + ack 按钮 + 复用 alerts-rowgroup 视觉）
+  > 5. **Phase 5**：docs 收口（experience-archive + wisdom.md 新增 2 条 pattern + 依赖更新 PR 监测最佳实践章节）
+
+  > **关键风险与缓解**：
+  > - PRCheck 实体初次 e2e 二跑暴露复合索引声明错误（§3b 教训）→ Phase 1 必跑 `pnpm --filter @dependfix/platform test:e2e` 二轮验证；声明类级复合唯一索引
+  > - Polling 间隔过短触发 GitHub API 限流 → MVP 默认 5min/仓；429 response 自动 backoff（复用 `packages/engine/src/github/client.ts` 既有 retry）
+  > - 用户未注册 App 时 Octokit 调用 401 → service 启动时 sanity-check（拉一次 user repo 列表）；失败时降级 skip + log warn（不影响其他 polling 任务）
+  > - dependfix 自身 PR 的 head_sha 与 dependabot PR 字段不一致 → 抽象 `DependencyPR` interface + 统一规范化
+  > - Scheduler 与 queue 启动顺序（sync 模式直接 node-cron / async 模式需 BullMQ ready）→ 复用 M22.5 scheduler init 顺序；失败时 log error + 后续 retry
+  > - ack 操作被绕过（用户 ack 后实际 CI 仍失败）→ ack 仅关闭 alert firing，不修改 `conclusion`；alert 状态机严格基于 polling 结果
+
+  > **范围 / 非目标**：
+  > - **MVP 不做**：① 监测所有 check-runs（仅 Test job）；② 监测所有 PR 作者（仅 dependfix + dependabot）；③ 自动 retry / 关闭失败 PR（仅监测 + 告警 + ack UI）；④ 实时 webhook（仅 polling + 接口预留）；⑤ 跨组织聚合视图（仅 per-org）
+  > - **未来扩展候选**（评估时点视 backlog 演化而定）：① webhook 实现替换 polling（MVP 接口已预留）；② 监测其他 check（lint / e2e / coverage）；③ 跨组织聚合 dashboard；④ Slack/邮件通知集成；⑤ 自动 retry 失败的 PR 关联工作流
+
+  > **进入 D 阶段决策点**：本候选保持 backlog 状态，**不自动升级为下一阶段 todo**。决策依据——① backlog 仍积压 12+ 项治理类候选（M22 neat-freak / wisdom 蒸馏 / standards 挂接 / 根因 7 候选 / C66 告警视图增强），启动下一阶段前应先评估整体候选池优先级排序；② 本候选规模较大（~1100 行新建），不宜在 backlog 评估未完成前默认作为本批次最高优先级；③ 类型平衡角度，M20 数据治理 + M21 治理 2 能力 1 测试 1 + M22 治理 6 之后，下一阶段应优先消化 M22 治理债而非新增大功能。具体启动条件需用户明确决策（参考上文 §四 综合评估候选组合方案 A-E）。
+
 #### Code Scanning 规则体系
 
 - **C15** B 类规则真实仓库样本核对（B 类列表覆盖 js/py/java 精选集，其余语言 go/ruby/csharp/cpp 落 C 兜底；需真实仓库 API 样本核对规则 id 格式与变体分布；来源：T302 Review Gate 2026-08-05）

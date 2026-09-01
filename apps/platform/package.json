@@ -17,7 +17,8 @@
     "test:e2e": "playwright test",
     "test:e2e:install": "playwright install chromium",
     "db:backfill:dry-run": "tsx server/database/scripts/backfill-scan-result.ts --dry-run",
-    "db:backfill": "tsx server/database/scripts/backfill-scan-result.ts --apply"
+    "db:backfill": "tsx server/database/scripts/backfill-scan-result.ts --apply",
+    "db:restore": "tsx server/database/scripts/db-restore.ts"
   },
   "dependencies": {
     "@dependfix/core": "workspace:*",

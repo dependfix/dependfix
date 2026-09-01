@@ -33,13 +33,13 @@ import { dirname, join } from 'node:path'
  */
 
 /** 默认保留备份份数 */
-const DEFAULT_RETENTION_COUNT = 10
+export const DEFAULT_RETENTION_COUNT = 10
 
 /** 备份目录名（与 SQLite 文件同级，e.g. `data/backups/`） */
-const BACKUP_DIR_NAME = 'backups'
+export const BACKUP_DIR_NAME = 'backups'
 
 /** 备份文件后缀 */
-const BACKUP_FILE_EXTENSION = '.bak'
+export const BACKUP_FILE_EXTENSION = '.bak'
 
 /** 临时文件后缀（rename 前写入目标文件） */
 const TEM_FILE_EXTENSION = '.tmp'
@@ -98,7 +98,6 @@ export const backupDatabaseIfNeeded = (
     const baseFileName = dbPath.split(/[\\/]/).pop() ?? 'database.sqlite'
     const backupName = `${baseFileName}.${timestamp}${BACKUP_FILE_EXTENSION}`
     const backupPath = join(backupDir, backupName)
-    const tempPath = `${backupPath}${TEM_FILE_EXTENSION}`
 
     // 4. 写入临时文件 + fsync + rename（原子操作）
     let sourceData: Buffer
@@ -109,29 +108,10 @@ export const backupDatabaseIfNeeded = (
         return { error: error as Error }
     }
 
-    let fd: number | undefined
     try {
-        fd = openSync(tempPath, 'w')
-        writeSync(fd, sourceData)
-        fsyncSync(fd) // 强制刷盘，确保断电时不会留下半成品
-        closeSync(fd)
-        fd = undefined
-        renameSync(tempPath, backupPath)
+        writeFileAtomicSync(backupPath, sourceData)
     } catch (error) {
         // 写入失败（权限不足 / 磁盘满 / 路径冲突）→ fail-open
-        if (fd !== undefined) {
-            try {
-                closeSync(fd)
-            } catch {
-                // close 失败不阻断主流程
-            }
-        }
-        // 清理残留的临时文件
-        try {
-            unlinkSync(tempPath)
-        } catch {
-            // 临时文件清理失败不阻断
-        }
         return { error: error as Error }
     }
 
@@ -148,12 +128,50 @@ export const backupDatabaseIfNeeded = (
 }
 
 /**
+ * 原子写入文件：写临时文件 → fsync 刷盘 → rename 到目标路径。
+ * 断电 / 进程被杀时不会在目标路径留下半成品（rename 是文件系统原子操作）。
+ * 失败时清理残留临时文件并向上抛出，由调用方决定 fail-open 还是 fail-closed。
+ *
+ * 单独 export 供 db-restore 脚本复用（覆盖前自动备份走同一原子写入路径）。
+ *
+ * @param destPath 目标文件路径（父目录必须已存在）
+ * @param data 待写入内容
+ */
+export const writeFileAtomicSync = (destPath: string, data: Buffer): void => {
+    const tempPath = `${destPath}${TEM_FILE_EXTENSION}`
+    let fd: number | undefined
+    try {
+        fd = openSync(tempPath, 'w')
+        writeSync(fd, data)
+        fsyncSync(fd) // 强制刷盘，确保断电时不会留下半成品
+        closeSync(fd)
+        fd = undefined
+        renameSync(tempPath, destPath)
+    } catch (error) {
+        if (fd !== undefined) {
+            try {
+                closeSync(fd)
+            } catch {
+                // close 失败不阻断主流程
+            }
+        }
+        // 清理残留的临时文件
+        try {
+            unlinkSync(tempPath)
+        } catch {
+            // 临时文件清理失败不阻断
+        }
+        throw error
+    }
+}
+
+/**
  * 格式化时间戳为 ISO 8601 紧凑型 `YYYY-MM-DDTHH-mm-ss`（UTC）。
  * 文件名安全（无冒号 / 无空格 / 无特殊字符），按字典序即按时间排序。
  * 使用 UTC 而非本地时间，确保容器 / 服务器时区变化时跨环境一致 + 多服务器场景下
  * 文件名时序可比。
  */
-const formatTimestamp = (date: Date): string => {
+export const formatTimestamp = (date: Date): string => {
     const pad = (n: number): string => n.toString().padStart(2, '0')
     const yyyy = date.getUTCFullYear()
     const mm = pad(date.getUTCMonth() + 1)

@@ -70,3 +70,57 @@ pnpm db:backfill
   保留修复记录:     5  (fixStatus='success' 永不被 supersede)
   标记已关闭:       8
 ```
+## db-restore（运维脚本）
+
+### 背景
+
+启动期自动备份（`server/database/backup.ts`）会在每次应用启动前把当前 SQLite 数据库快照到
+`data/backups/`，但备份只有在能被恢复时才有意义。本脚本提供命令式恢复入口，是数据误删 /
+误覆盖场景下的唯一回滚手段（背景见 [经验归档 §五十](../../../../../docs/design/governance/experience-archive.md)）。
+
+### 用法
+
+```bash
+# 从指定备份恢复（--from 与 --yes 均为必填）
+pnpm db:restore --from=data/backups/dependfix.sqlite.2026-09-01T12-00-00.bak --yes
+
+# 恢复到非默认路径
+pnpm db:restore --from=<backup> --to=data/other.sqlite --yes
+
+# 查看帮助
+pnpm db:restore --help
+```
+
+参数：
+
+- `--from=<path>`：必填。备份文件路径。
+- `--yes`：必填。显式确认覆盖当前数据库。
+- `--to=<path>`：可选。恢复目标，默认取 `DATABASE_PATH` 环境变量，回退 `data/dependfix.sqlite`。
+
+### 安全门
+
+1. **双门控**：`--from` 与 `--yes` 缺任一个即拒绝执行，不猜测"最新备份"。
+2. **源备份预校验**：恢复前对备份文件跑 `PRAGMA integrity_check`，文件缺失 / 为空 / 非 SQLite /
+   校验未通过时直接拒绝，当前数据库不被触碰。
+3. **覆盖前自动备份**：当前数据库先原子备份到 `data/backups/auto.<timestamp>-<ms>.bak`（复用
+   `backup.ts` 的 `writeFileAtomicSync`），这份文件是"撤销恢复"的唯一凭据。文件名带毫秒，
+   同一秒内二次恢复不会互相覆盖；这批文件同样受保留策略约束（默认最近 10 份，
+   `BACKUP_RETENTION_COUNT` 环境变量可覆盖）。
+4. **旁文件清理**：恢复后删除属于旧数据库的 `-wal` / `-shm` / `-journal` 文件，避免陈旧 WAL 或
+   回滚日志被当作新库的崩溃恢复数据回放。
+5. **恢复后自检**：再跑一次 `integrity_check` + 打印 `schema_version`，未通过则报错。
+
+与启动期备份的 fail-open 策略相反，本脚本 fail-closed：任何一步失败都退出码 1，绝不留下
+"半恢复"的数据库。
+
+### 输出示例
+
+```text
+[RESTORE] 数据库恢复完成
+  来源备份:       data/backups/dependfix.sqlite.2026-09-01T12-00-00.bak
+  恢复目标:       data/dependfix.sqlite
+  覆盖前备份:     data/backups/auto.2026-09-01T13-20-05-417.bak
+  清理旁文件:     data/dependfix.sqlite-wal, data/dependfix.sqlite-shm
+  integrity_check: ok
+  schema_version:  42
+```

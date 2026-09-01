@@ -177,6 +177,44 @@
 
 > **关键经验（已挂 wisdom.md）**：新增 `pattern-playwright-maxRetries-econnreset` —— Playwright 1.62 `_sendRequestWithRetries` 仅对 `e.code === 'ECONNRESET'` 触发 250ms 指数 backoff 重试（其他网络错误码不重试）+ test helper 兜底模式。详见 [经验归档 §五十一](../design/governance/experience-archive.md#五十一e2e-global-setup-串行多次-setuppage-后首请求-econnreset2026-09-01ci-run-33525721103)（含完整 4 假设穷举 + 修复方案 + 4 项治理检查点登记）
 
+#### M22.8 未认证 API 测试显式空 storageState 隔离 cookie 注入（hotfix / CI run 33533376712）✅（2026-09-02 闭环）
+
+> **触发**：M22.7 hotfix commit `51e8c13` 推送后 CI run 33533376712 触发，Test / Coverage success，**E2E job 失败**于 2 个用例（retry #1 / retry #2 均复现）：
+> - `tests/e2e/credentials-api.e2e.test.ts:283 › 凭据管理 API 鉴权边界 › 未认证 GET /api/credentials → 401` —— `Expected: 401, Received: 200`
+> - `tests/e2e/repos-api.e2e.test.ts:447 › 仓库管理 API 鉴权边界 › 未认证 GET /api/repos → 401` —— `Expected: 401, Received: 200`
+>
+> CI 时序实测：global-setup 成功（M22.7 兜底生效）+ fixtures seeded + 171 tests 运行到 #89（credentials-api 未认证）首次失败 #140（repos-api 未认证）二次失败 + 全局 E2E 失败。
+
+> **根因排查**：
+> 1. handler 逻辑 bug → 排除（本地 curl + Playwright fresh context 空 cookies → 401 ✓；vitest 单测全过）
+> 2. 服务侧 OOM / 进程崩溃 → 排除（其他 80+ 测试正常 200/403；E2E 跑满 6 分钟到失败）
+> 3. `test.use({ storageState })` 配置传播到 `browser.newContext()` → **最可能根因**（Playwright 1.62 fixture pool 行为：describe 块内 test.use 选项通过 fixture pool 注入到所有 browser.newContext() 调用，包括未指定 storageState 的手动创建；trace 实证 context-options 中 baseURL + storageState 都被注入）
+> 4. 上游 test session refresh 残留到新 context → 可能（token 值 `LhAh2mxu...` ≠ admin.json `aKoIPeL...` / viewer.json `Uev1leUL...`，且 token 在 describe 块之间共享，可能 better-auth 中间件对某些请求刷新 session 后通过 fixture pool 传递）
+>
+> 网络追踪关键证据：两个失败用例的 context-options 携带**完全相同**的 cookie 值：
+> ```
+> cookies: [
+>   { name: 'i18n_locale', value: 'zh-CN', domain: '127.0.0.1' },
+>   { name: 'better-auth.session_token', value: 'LhAh2mxu4rTjo27Wc8wLyeDpspBq4MnE...', domain: '127.0.0.1', expires: 1790873050.509821 }
+> ]
+> ```
+> session token expires 1790873050 ≈ 2026-09-30（CI run 2026-09-01 + 29 天 = better-auth session 配置 expiresIn 30 天一致）
+
+> **修复方案**（最小变动 + 标准化兜底）：
+> - 已落地：2 个测试在 `browser.newContext()` 调用中**显式传** `storageState: { cookies: [], origins: [] }`（commit `bdcd900` test(e2e)）—— Playwright 1.62 文档推荐的"unauthenticated API call"模式，与 `test.use({ storageState })` 完全脱钩，强制清空 cookies/origins
+> - 不触动 handler：测试期望值不变（仍期望 401）
+> - **未落地（根因排查）**：登记 M23 阶段规划排查（按 ROI 排序）：① Playwright 1.62 fixture pool `test.use → browser.newContext` 注入路径源码实证；② better-auth 中间件对非 /api/auth/* 端点返回 Set-Cookie 路径扫描
+
+> **验证**：
+> - `pnpm exec eslint tests/e2e/{credentials-api,repos-api}.e2e.test.ts` exit 0
+> - `pnpm exec tsc --noEmit` exit 0
+> - `pnpm test` exit 0（1001 passed / 7 skipped）
+> - A 阶段 quick depth Round 1 Pass（0 blocker / 1 warning hotfix 任务编号登记 / 2 suggest 注释长度 + helper 抽取）
+> - 本地复现脚本：fresh context + 空 cookies → 401 ✓
+> - CI run 33533376712 修复待用户推送后下次 CI 验证
+
+> **关键经验（已挂 wisdom.md）**：新增 `pattern-playwright-browser-newContext-cookie-injection` —— Playwright 1.62 `test.use({ storageState })` 在 describe 块内可能通过 fixture pool 传播到所有 `browser.newContext()` 调用（即使新 context 未指定 storageState）；"未认证 API 调用"测试必须显式传 `storageState: { cookies: [], origins: [] }` 强制隔离。详见 [经验归档 §五十二](../design/governance/experience-archive.md#五十二playwrighttestuse存储状态传染导致未认证api测试收到20020260902cirun33533376712)。
+
 ---
 
 ## M21: 治理收口 + 能力扩展 + 测试补强（M21.1+M21.2+M21.4+M21.5 全部已闭环 / 2026-08-31 归档）

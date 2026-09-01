@@ -124,3 +124,72 @@ pnpm db:restore --help
   integrity_check: ok
   schema_version:  42
 ```
+
+## db-doctor（运维脚本）
+
+### 背景
+
+2026-09-01 数据清空事故排查时最耗时的一步是"判断数据是被清空、还是从未注入、还是 schema 升级中"，
+当时靠手敲一串 PRAGMA 与 `COUNT(*)` 拼线索。本脚本把那次排查动作固化成一条命令
+（背景见 [经验归档 §五十](../../../../../docs/design/governance/experience-archive.md)）。
+
+脚本**只读**打开数据库（`readonly: true` + `fileMustExist: true`），不写入、不创建 WAL，
+不会改变事故现场。
+
+### 用法
+
+```bash
+# 自检默认数据库（DATABASE_PATH 环境变量，回退 data/dependfix.sqlite）
+pnpm db:doctor
+
+# 强制 JSON 输出（机读；非 TTY 环境自动启用，便于管道与 CI 断言）
+pnpm db:doctor --json
+
+# 自检指定文件（如 e2e 库或某个备份）
+pnpm db:doctor --path=data/backups/dependfix.sqlite.2026-09-01T12-00-00.bak
+```
+
+### 输出内容
+
+- **文件元信息**：path / size / mtime / atime / birth time
+- **PRAGMA 全套**：`page_count`、`page_size`、`freelist_count`、`journal_mode`、`auto_vacuum`、
+  `user_version`、`schema_version`、`application_id`、`wal_autocheckpoint`、`integrity_check`
+- **各表行数**：扫描 `sqlite_master` 全部 table，逐表 `COUNT(*)`，非业务表（`sqlite_*` 与 `migrations`）单独标记
+- **索引分类计数**：`sqlite_autoindex_*`（UNIQUE 隐式）/ `IDX_*`（TypeORM）/ `idx_*`（手工声明）/ 其他
+
+### 结论判定
+
+报告末尾直接给出结论，不需要读者自己解释数字：
+
+| 条件 | 结论 |
+| --- | --- |
+| `integrity_check != 'ok'` | 数据库损坏（应立即 `pnpm db:restore` 恢复） |
+| 无业务表 | schema 从未建立 |
+| `schema_version = 0` + 业务表全空 | 全新数据库（首次启动的正常状态） |
+| `schema_version > 0` + 业务表全空 | 数据被清空或从未注入 |
+| 业务表有行 | 数据正常 |
+| `freelist_count > 0` | 有数据被删除但未回收（`VACUUM` 可回收） |
+
+"业务表全空"只统计业务表，排除 `sqlite_*` 内部表与 TypeORM `migrations` 记录表 —— 这些表在业务
+数据被清空后依然有行，计入会把"数据被清空"误判成"数据正常"（事故现场实测踩到）。
+
+### 输出示例
+
+```text
+[DOCTOR] SQLite 数据库自检
+
+文件
+  路径:           data/dependfix.sqlite
+  大小:           176128 bytes
+  最后修改:       2026-09-01T13:20:05.417Z
+  ...
+
+PRAGMA
+  freelist_count      0
+  schema_version      42
+  integrity_check     ok
+  ...
+
+结论
+  - 数据正常：12 张业务表共 87 行
+```

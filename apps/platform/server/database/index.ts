@@ -9,6 +9,7 @@ import pg from 'pg'
 import { SnakeCaseNamingStrategy } from './naming-strategy'
 import { resolveDatabaseType, type DatabaseType } from './type'
 import { CreateAuditEventTable1700000000000 } from './migrations/1700000000000-CreateAuditEventTable'
+import { runStartupBackup } from './backup'
 import { Account } from '#server/entities/account'
 import { Session } from '#server/entities/session'
 import { User } from '#server/entities/user'
@@ -136,8 +137,22 @@ export const getDataSource = (): DataSource => {
 /**
  * 幂等初始化（带并发锁）。初始化失败时销毁 DataSource 并重置单例，
  * 允许下次调用完整重建（TypeORM synchronize 失败后实例状态不可信）。
+ *
+ * 启动期自动备份（hard requirement，规范见 docs/standards/security.md §2.1.1 + todo.md §M22.1）：
+ * - 仅 SQLite 数据库生效（其他数据库类型由 runStartupBackup 内部跳过）
+ * - fail-open：备份失败不阻塞启动（恢复依赖用户的本地副本或外部备份）
+ * - 仅应用启动时执行一次（once 保护）：ensureDatabaseInitialized 是 hot path idempotent 函数
+ *   （60+ 处 API endpoint / service 引用），备份必须在 schema 同步 / 数据写入前完成但不能在每次调用时执行
  */
+let startupBackupRan = false
 export const ensureDatabaseInitialized = async (): Promise<DataSource> => {
+    // 启动期备份（once 保护；详见 docs/standards/development.md §5.1.18）
+    // 注：ensureDatabaseInitialized 是 hot path，每次调用都会执行；备份仅在首次调用时执行一次
+    if (!startupBackupRan) {
+        runStartupBackup()
+        startupBackupRan = true
+    }
+
     const ds = getDataSource()
     if (ds.isInitialized) {
         return ds

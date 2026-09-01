@@ -22,14 +22,28 @@ describe('createDataSourceOptions', () => {
         vi.unstubAllEnvs()
     })
 
-    it('defaults to sqlite with dev synchronize enabled', () => {
+    it('defaults to sqlite with synchronize disabled (opt-in via DATABASE_SYNCHRONIZE)', () => {
         const options = createDataSourceOptions() as unknown as Record<string, unknown>
         expect(options.type).toBe('better-sqlite3')
         expect(options.database).toBe('data/dependfix.sqlite')
-        expect(options.synchronize).toBe(true)
+        // dev 模式不再自动开启 synchronize（hard requirement：development.md §5.1.19）
+        expect(options.synchronize).toBe(false)
         expect(options.entityPrefix).toBe('dependfix_')
         // 实体清单齐备
         expect((options.entities as unknown[]).length).toBeGreaterThanOrEqual(10)
+    })
+
+    it('enables synchronize when DATABASE_SYNCHRONIZE=true', () => {
+        vi.stubEnv('DATABASE_SYNCHRONIZE', 'true')
+        const options = createDataSourceOptions() as unknown as Record<string, unknown>
+        expect(options.synchronize).toBe(true)
+    })
+
+    it('keeps synchronize=false under NODE_ENV=development (regression: isDev no longer applies)', () => {
+        // 防御未来误加回 `|| isDev` 的回归网：即使 NODE_ENV=development，synchronize 也必须 opt-in
+        vi.stubEnv('NODE_ENV', 'development')
+        const options = createDataSourceOptions() as unknown as Record<string, unknown>
+        expect(options.synchronize).toBe(false)
     })
 
     it('honors DATABASE_PATH and DATABASE_ENTITY_PREFIX overrides', () => {

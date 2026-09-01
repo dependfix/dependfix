@@ -79,7 +79,7 @@ apps/platform/
 | `DATABASE_PATH` | `data/dependfix.sqlite` | SQLite 文件路径（必须可配，容器内指向数据卷） |
 | `DATABASE_SSL` | `false` | 多后端时启用 SSL |
 | `DATABASE_ENTITY_PREFIX` | `dependfix_` | 表前缀 |
-| `DATABASE_SYNCHRONIZE` | `false` | 生产环境显式开启才同步 schema |
+| `DATABASE_SYNCHRONIZE` | `false` | 全场景显式 opt-in 才同步 schema（详见 [development.md §5.1.19](./development.md)） |
 | `MACHINE_ID` | `process.pid % 1024` | 雪花 ID 机器位 |
 
 ### 3.2 时区与列类型（关键约束）
@@ -110,7 +110,8 @@ export const getDateType = (dbType?: string): string => {
 
 - 支持三后端，**显式传入 driver 实例**（`better-sqlite3` / `mysql2` / `pg`），绕过 TypeORM 1.x 动态 require（Docker/Vercel 已知坑）
 - 顶层 `import` 驱动模块，供 Nitro Rolldown 静态分析
-- `synchronize`：开发/测试自动同步；生产仅 `DATABASE_SYNCHRONIZE=true` 时开启
+- `synchronize` / `migrationsRun` 全场景显式 opt-in（dev/test 也不再自动开启 synchronize）；详见 [development.md §5.1.19 TypeORM 1.x synchronize 与 migrationsRun 反模式禁止](./development.md)
+- 启动期日志打印 `synchronize` + `migrationsRun` + 各自 env（development.md §5.1.19 hard requirement）
 - 初始化失败不抛致命错误：日志告警 + 功能降级（对齐 momei `reportDatabaseInitializationFailure` 语义）
 - 幂等单例 + 并发初始化锁（`ensureDatabaseInitialized`）
 
@@ -298,7 +299,7 @@ if (process.env.E2E_TEST !== 'true' || process.env.NODE_ENV === 'production') {
 | `DATABASE_TYPE` / `DATABASE_URL` | 否 | `sqlite` | 多后端切换 |
 | `DATABASE_SSL` | 否 | `false` | MySQL/PG 启用 SSL（多后端时生效） |
 | `DATABASE_ENTITY_PREFIX` | 否 | `dependfix_` | 表前缀 |
-| `DATABASE_SYNCHRONIZE` | 否 | `false` | 生产环境显式开启才同步 schema |
+| `DATABASE_SYNCHRONIZE` | 否 | `false` | 全场景显式 opt-in 才同步 schema（详见 [development.md §5.1.19](./development.md)） |
 | `NUXT_ENCRYPTION_KEY` | 凭据功能必需 | 空 | AES-256-GCM 平台密钥（PAT token + GitHub App PEM 私钥共用同一密钥派生） |
 | `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASS` / `SMTP_FROM` | 否 | 空 | 配置后启用邮件验证 |
 | `NUXT_PUBLIC_BETTER_AUTH_URL` | 反向代理时 | 自动推断 | 认证基础 URL |
@@ -308,7 +309,7 @@ if (process.env.E2E_TEST !== 'true' || process.env.NODE_ENV === 'production') {
 
 1. **多后端时机**：M6 默认 SQLite 交付，`getDateType()` + driver 注入 + `DATABASE_URL` 推断一次性做对（避免 T601 后返工）；MySQL/PG 真实部署验证延后到 M7 —— ✅ 确认
 2. **表前缀**：默认 `dependfix_`（`DATABASE_ENTITY_PREFIX` 可配）—— ✅ 确认（需要前缀）
-3. **synchronize 策略**：M6 开发/测试自动同步 + 生产显式开启（`DATABASE_SYNCHRONIZE=true`）；正式迁移链排期 M7 —— ✅ 确认
+3. **synchronize 策略**：M6 开发/测试自动同步 + 生产显式开启（`DATABASE_SYNCHRONIZE=true`）；正式迁移链排期 M7 —— ✅ 确认（2026-09-01 演进：synchronize / migrationsRun 均显式 opt-in，详见 [development.md §5.1.19](./development.md)）
 4. **雪花 ID**：沿用 momei 方案（48 位时间戳 + 10 位机器 + 12 位序列，hex 输出）；与 better-auth 默认 UUID 不同，全局统一 —— ✅ 确认
 5. **首用户 admin**：首个注册用户自动 `role=admin`（`databaseHooks.user.create.before`）—— ✅ 确认
 6. **文件命名**：文件与 Vue 组件统一 **kebab-case**（Nuxt 自动导入 `use-session.ts` → `useSession`）—— ✅ 确认；全局 [开发规范 §2](./development.md) 已同步修订（Vue 组件由 PascalCase 改为 kebab-case）

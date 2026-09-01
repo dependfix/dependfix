@@ -28,11 +28,10 @@ import { AuditEvent } from '#server/entities/audit-event'
  * 设计要点（对齐 momei 已验证方案）：
  * - 显式传入 driver 实例，绕过 TypeORM 1.x PlatformTools 动态 require（Docker 已知坑）
  * - 数据库路径 / 连接串通过 DATABASE_* 环境变量隔离
- * - 开发环境自动同步 schema；生产需 DATABASE_SYNCHRONIZE=true 显式开启
+ * - synchronize + migrationsRun 均显式 opt-in（dev 模式不再自动开 synchronize）；
+ *   详见 development.md §5.1.19 TypeORM 1.x synchronize 与 migrationsRun 反模式禁止
  * - 初始化失败不抛致命错误：日志告警 + 功能降级
  */
-
-const isDev = process.env.NODE_ENV !== 'production'
 
 export const createDataSourceOptions = (): DataSourceOptions => {
     const dbType = resolveDatabaseType()
@@ -40,7 +39,18 @@ export const createDataSourceOptions = (): DataSourceOptions => {
     const databaseUrl = process.env.DATABASE_URL ?? ''
     const ssl = process.env.DATABASE_SSL === 'true'
     const entityPrefix = process.env.DATABASE_ENTITY_PREFIX || 'dependfix_'
-    const synchronize = process.env.DATABASE_SYNCHRONIZE === 'true' || isDev
+    // 显式 opt-in（hard requirement：development.md §5.1.19）：
+    // - synchronize 必须 DATABASE_SYNCHRONIZE=true 才开；dev 模式也不再自动开启
+    // - migrationsRun 默认 true（CI/测试环境可关闭）；todo.md §M22.5 将进一步改为显式 opt-in
+    const synchronize = process.env.DATABASE_SYNCHRONIZE === 'true'
+    const migrationsRun = process.env.DATABASE_MIGRATIONS_RUN !== 'false' // 默认 true；CI/测试环境可关闭
+
+    // 启动期日志（hard requirement：development.md §5.1.19）：打印 synchronize + migrationsRun +
+    // 触发来源 + NODE_ENV 上下文，便于排查「为什么数据库 schema 没更新」或「为什么数据库被自动改写」
+    console.log(
+        `[database] synchronize=${synchronize} (DATABASE_SYNCHRONIZE=${process.env.DATABASE_SYNCHRONIZE ?? 'unset'}, NODE_ENV=${process.env.NODE_ENV ?? 'unset'}), `
+        + `migrationsRun=${migrationsRun} (DATABASE_MIGRATIONS_RUN=${process.env.DATABASE_MIGRATIONS_RUN ?? 'unset'})`,
+    )
 
     const common: Partial<DataSourceOptions> = {
         entities: [
@@ -58,7 +68,7 @@ export const createDataSourceOptions = (): DataSourceOptions => {
             AuditEvent,
         ],
         migrations: [CreateAuditEventTable1700000000000],
-        migrationsRun: process.env.DATABASE_MIGRATIONS_RUN !== 'false', // 默认 true；CI/测试环境可关闭
+        migrationsRun,
         synchronize,
         entityPrefix,
         namingStrategy: new SnakeCaseNamingStrategy(),

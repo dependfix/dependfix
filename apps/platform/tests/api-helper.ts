@@ -52,14 +52,19 @@ export const expectError = async (promise: Promise<unknown>, statusCode: number)
 }
 
 /** 内存 SQLite 隔离（每个测试文件独立 worker，DataSource 单例各自初始化）
- * 测试环境关掉 migrations（dev/test 用 synchronize 直接建表；migration 仅生产路径）
+ * 测试环境关掉 migrations（dev/test 用 synchronize 直接建表；migration 仅生产路径）；
+ * opt-in synchronize 自动建表（schema 与 entity 对齐走 synchronize，测试不需要 migration）。
+ * 测试环境需要 synchronize=true 才能让 DataSource 初始化时自动建表（详见
+ * docs/standards/development.md §5.1.19 反模式禁止；helper 单点声明避免每个 test 重复 stub）。
  */
 export const setupMemoryDatabase = (): void => {
     process.env.DATABASE_PATH = ':memory:'
     process.env.DATABASE_MIGRATIONS_RUN = 'false'
+    process.env.DATABASE_SYNCHRONIZE = 'true'
 }
 
 export const teardownMemoryDatabase = (): void => {
     delete process.env.DATABASE_PATH
     delete process.env.DATABASE_MIGRATIONS_RUN
+    delete process.env.DATABASE_SYNCHRONIZE
 }

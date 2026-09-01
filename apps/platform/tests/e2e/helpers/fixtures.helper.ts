@@ -244,12 +244,22 @@ export async function seedAlertsRowgroupFixtures(
 /**
  * 注入自定义 fixtures（type-safe wrapper；生产构建 E2E_TEST != true 时端点返回 404，
  * 这里捕获后给出可读错误便于排查）
+ *
+ * maxRetries：CI 环境首请求偶现 ECONNRESET（global-setup 串行 5+ 次 setupPage.request /
+ * pageSignIn 后立即发请求；可能与服务端 better-auth session 写入后 SQLite 连接释放
+ * 存在窗口竞争，详见 CI run 33525721103 复盘）。Playwright 1.62 `_sendRequestWithRetries`
+ * 仅对 `e.code === 'ECONNRESET'` 触发 250ms 指数 backoff 重试（其他网络错误码如
+ * ECONNREFUSED / ETIMEDOUT 不重试），maxRetries=2 覆盖本次失败模式；服务端 handler 不动，
+ * 本地/CI 行为等价。
  */
 export async function seedCustomFixtures(
     request: APIRequestContext,
     fixtures: AlertsRowgroupFixtures,
 ): Promise<void> {
-    const response = await request.post('/api/e2e/fixtures', { data: fixtures })
+    const response = await request.post('/api/e2e/fixtures', {
+        data: fixtures,
+        maxRetries: 2,
+    })
     if (!response.ok()) {
         const body = await response.text().catch(() => '')
         throw new Error(
@@ -267,13 +277,19 @@ export async function seedCustomFixtures(
  * 3. Repository：按 owner/name 清空
  *
  * 在 global-setup 调用 `seedAlertsRowgroupFixtures` 之前调用，确保每次 e2e run 库状态干净。
- * 幂等：依赖 entity 内置删除 + CASCADE，重复调用安全（删除已不存在的记录无副作用）。
+ * 幂等：依赖 entity 内置删除 + CASCADE，重复调用安全（删除不存在记录返回 0）。
+ *
+ * maxRetries：与 `seedCustomFixtures` 同因——CI 环境首请求偶现 ECONNRESET（global-setup
+ * 串行 5+ 次 setupPage.request / pageSignIn 后立即发请求；详见 CI run 33525721103 复盘）。
+ * Playwright 1.62 `_sendRequestWithRetries` 仅对 `e.code === 'ECONNRESET'` 触发 250ms
+ * 指数 backoff 重试，maxRetries=2 覆盖本次失败模式；服务端 handler 不动，本地/CI 行为等价。
  */
 export async function cleanAlertsRowgroupFixtures(
     request: APIRequestContext,
 ): Promise<void> {
     const response = await request.delete('/api/e2e/fixtures', {
         data: { repos: ALERTS_ROWGROUP_FIXTURES.repos },
+        maxRetries: 2,
     })
     if (!response.ok()) {
         const body = await response.text().catch(() => '')

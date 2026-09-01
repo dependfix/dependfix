@@ -130,16 +130,34 @@ export const getDateType = (dbType?: string): string => {
 
 `apps/platform/server/api/e2e/*` 下的所有端点（fixtures.post.ts / fixtures.delete.ts 等）**必须**叠加两道门控，防止生产环境误暴露。
 
-**强制门控**（两条件同时满足才放行）：
+**强制门控**（两条件同时满足才放行；`useRuntimeConfig()` 来自 Nuxt auto-import，server/api/ 路由可直接调用，**无需显式 import**）：
 ```typescript
-if (process.env.E2E_TEST !== 'true' || process.env.NODE_ENV === 'production') {
+import { createError, defineEventHandler } from 'h3'
+
+const config = useRuntimeConfig() // Nuxt auto-import，无需 import；h3 不导出 useRuntimeConfig
+if (process.env.E2E_TEST !== 'true' || !config.e2eFixturesAllowed) {
     throw createError({ statusCode: 404, statusMessage: 'Not Found' })
+}
+```
+
+**`e2eFixturesAllowed` 在 `nuxt.config.ts` 的 runtimeConfig 注册**：
+```typescript
+// nuxt.config.ts
+runtimeConfig: {
+    // 生产构建默认 false（NUXT_E2E_FIXTURES_ALLOWED 未设）；仅 e2e webServer 启动时显式开启
+    e2eFixturesAllowed: process.env.NUXT_E2E_FIXTURES_ALLOWED === 'true' || process.env.E2E_TEST === 'true',
 }
 ```
 
 **为什么需要双门控**：
 - 单门控 `E2E_TEST === 'true'` 风险：生产环境误设 `E2E_TEST=true`（运维误操作、docker-compose 复制粘贴、CI 环境变量泄漏）即暴露端点
-- 叠加 `NODE_ENV === 'production'` 兜底：即使 `E2E_TEST=true`，生产环境永远返回 404
+- 叠加 `runtimeConfig.e2eFixturesAllowed` 兜底：仅当显式 `NUXT_E2E_FIXTURES_ALLOWED=true` 时才放行；prod build 默认 false
+
+**为什么不用 `process.env.NODE_ENV === 'production'` 作第二门控（陷阱）**：
+- ⚠️ **Nitro / esbuild 构建期会把 `process.env.NODE_ENV` 静态替换为构建时值**（prod build 时折叠为 `"production"`，dev build 时折叠为 `"development"`）
+- 表达式 `process.env.E2E_TEST !== 'true' || process.env.NODE_ENV === 'production'` 在产物中被折叠为 `... || true`，**永远 404**，e2e 套件必然破裂
+- **runtimeConfig 是 Nuxt 官方运行时覆盖通道**（`NUXT_` 前缀），运行时由 `NUXT_E2E_FIXTURES_ALLOWED` 注入，可绕开 esbuild define；prod build 时 `e2eFixturesAllowed` 默认 false，端点 404，e2e webServer 启动时设 `NUXT_E2E_FIXTURES_ALLOWED=true` 覆盖为 true
+- 教训：M22 阶段 fixtures 双门控首次落地时使用 `process.env.NODE_ENV === 'production'`（详见 todo.md §M22.6 风险与缓解），build 产物实测 `... || true` 折叠，code-auditor quick depth + 构建产物 grep 兜底发现并强制修订
 
 **应用范围**：
 - `apps/platform/server/api/e2e/fixtures.post.ts` — POST /api/e2e/fixtures
@@ -147,15 +165,18 @@ if (process.env.E2E_TEST !== 'true' || process.env.NODE_ENV === 'production') {
 - 未来新增的 `apps/platform/server/api/e2e/*.ts` 文件全部适用
 
 **禁止**：
-- ❌ 单 `E2E_TEST` 门控（缺 NODE_ENV 兜底）
+- ❌ 单 `E2E_TEST` 门控（缺 `runtimeConfig.e2eFixturesAllowed` 兜底）
+- ❌ `process.env.NODE_ENV === 'production'` 门控（**esbuild define 折叠陷阱**，prod build 永远 404；M22 阶段实证）
 - ❌ `NODE_ENV !== 'development'` 门控（dev/test/staging 区分不清晰）
 - ❌ `import.meta.dev` 门控（仅 Nuxt 内置 dev/prod 区分，部署到 staging 仍误暴露）
 
-**D 阶段自检**：Full Stack Master (全栈大师) agent 检查所有 `apps/platform/server/api/e2e/*.ts` 文件，确认含双门控代码
+**D 阶段自检**：
+- Full Stack Master (全栈大师) agent 检查所有 `apps/platform/server/api/e2e/*.ts` 文件，确认含双门控代码（`useRuntimeConfig().e2eFixturesAllowed` 第二门控）
+- **构建产物 grep 兜底**：`pnpm --filter @dependfix/platform build` 后 `rg -n "E2E_TEST\|e2eFixturesAllowed" apps/platform/.output/server/chunks/routes/api/e2e/*.mjs`，确认产物未折叠表达式（不应出现 `|| true`）
 
-**A 阶段 Review Gate**：code-auditor 主责边界新增"e2e 端点双门控"必查项
+**A 阶段 Review Gate**：code-auditor 主责边界新增"e2e 端点双门控 + runtimeConfig 兜底 + 构建产物 grep"必查项
 
-**实证**（2026-09-01 dependfix.sqlite 数据清空事故关联风险）：事故排查发现 `apps/platform/server/api/e2e/fixtures.delete.ts:39` 只有 `E2E_TEST !== 'true'` 单门控，与 fixtures.post.ts 同模式（post.ts:24-26 已记录 RG-S3 follow-up 未落地）。详见 [经验归档 §五十](../design/governance/experience-archive.md#五十sqlite-数据库业务数据被清空开发环境不可恢复事故2026-09-01)。
+**实证**（2026-09-01 dependfix.sqlite 数据清空事故关联风险 + M22.6 修订教训）：事故排查发现 `apps/platform/server/api/e2e/fixtures.delete.ts:39` 只有 `E2E_TEST !== 'true'` 单门控，与 fixtures.post.ts 同模式（post.ts:24-26 已记录 RG-S3 follow-up 未落地）。M22.6 commit 首次落地使用 `process.env.NODE_ENV === 'production'` 兜底，因 Nitro/esbuild 静态替换导致 prod build 折叠为 `... || true`，code-auditor quick depth + 构建产物实测发现并强制修订为 `runtimeConfig.e2eFixturesAllowed`（NUXT_E2E_FIXTURES_ALLOWED 运行时覆盖通道）。详见 [经验归档 §五十](../design/governance/experience-archive.md#五十sqlite-数据库业务数据被清空开发环境不可恢复事故2026-09-01) + todo.md §M22.6。
 
 ### 3.7 SQLite 启动期备份 + 自检工具
 

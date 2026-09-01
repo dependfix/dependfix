@@ -6,6 +6,9 @@ import { ScanRun, SCAN_RUN_STATUSES } from '#server/entities/scan-run'
 import { ScanResult } from '#server/entities/scan-result'
 import { resolveOrganizationId } from '#server/utils/organization'
 
+// useRuntimeConfig 由 Nuxt/Nitro auto-import 提供（vitest 环境由 tests/setup-nuxt-server.ts stub）
+// 不在 h3 中显式 import，避免被 h3 解析为 undefined（h3 不导出 useRuntimeConfig）
+
 /**
  * POST /api/e2e/fixtures：e2e fixtures 注入端点。
  *
@@ -19,11 +22,13 @@ import { resolveOrganizationId } from '#server/utils/organization'
  *   tests/e2e/alerts-rowgroup.e2e.test.ts 去掉 page.route mock alerts/repos，依赖
  *   server 真实返回 fixtures 数据，验证 useAsyncData SSR-aware 行为。
  *
- * 安全门控：`process.env.E2E_TEST !== 'true'` 时 handler 返回 404。Nitro 无条件注册
- * server/api/* → 生产构建 .output/server/chunks/routes/api/e2e/fixtures.post.mjs 存在，
- * 但生产环境 E2E_TEST 缺省不可达；**严禁生产环境设置 E2E_TEST=true**（CI 部署硬约束，
- * docs/standards/security.md "测试环境隔离" 章节明示）。当前实现未叠加 requireAuth：
- * 测试场景可接受，prod 双重防御建议叠加 `NODE_ENV === 'production' → 404`（RG-S3 follow-up）。
+ * 安全门控：双门控 `E2E_TEST === 'true'` + `runtimeConfig.e2eFixturesAllowed`（hard requirement：
+ * docs/standards/platform.md §3.6 + security.md §2.1.4）。Nitro 无条件注册 server/api/* →
+ * 生产构建 .output/server/chunks/routes/api/e2e/fixtures.post.mjs 存在，但生产构建
+ * `runtimeConfig.e2eFixturesAllowed` 默认 false，仅 e2e webServer 启动时通过
+ * `NUXT_E2E_FIXTURES_ALLOWED=true` 显式覆盖为 true 才能调通；runtimeConfig 是 Nuxt
+ * 官方运行时覆盖通道，绕开 Nitro/esbuild `process.env.NODE_ENV` 静态替换陷阱。
+ * 当前实现未叠加 requireAuth：测试场景可接受（playwright e2e 用例独立角色鉴权）。
  *
  * 幂等策略：
  * - repos 按 owner+name+platform 查重（与 POST /api/repos 唯一性约束一致），已存在则复用 id
@@ -91,9 +96,13 @@ const fixturesBodySchema = z.object({
 })
 
 export default defineEventHandler(async (event) => {
-    // E2E_TEST 门控：非 e2e 环境返回 404 防止生产泄漏（与 global-setup.ts 的角色 + 全局速率
-    // 放宽同模式，E2E_TEST=true 时此端点才注册到路由表）
-    if (process.env.E2E_TEST !== 'true') {
+    // 双门控（hard requirement：platform.md §3.6 + security.md §2.1.4）：
+    // E2E_TEST !== 'true' || !runtimeConfig.e2eFixturesAllowed → 404
+    // 不能直接用 process.env.NODE_ENV 作第二门控——Nitro/esbuild 构建期会把
+    // process.env.NODE_ENV 静态替换为构建时值，导致 prod build 表达式折叠后永远 404。
+    // runtimeConfig.e2eFixturesAllowed 通过 NUXT_E2E_FIXTURES_ALLOWED 运行时覆盖，绕开 esbuild define。
+    const config = useRuntimeConfig()
+    if (process.env.E2E_TEST !== 'true' || !config.e2eFixturesAllowed) {
         throw createError({ statusCode: 404, statusMessage: 'Not Found' })
     }
 

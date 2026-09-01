@@ -22,8 +22,11 @@ g.getRequestURL = getRequestURL
 // useRuntimeConfig：Nuxt auto-import 提供的 runtimeConfig 访问入口。
 // credential.service.ts 的 getEncryptionKey() 走 useRuntimeConfig().encryptionKey 读取凭据加密密钥，
 // 测试环境需预 stub 防止 ReferenceError；默认返回 test 密钥保证 encryptToken/decryptToken 可工作，
-// 特定测试需要不同值时在测试内 vi.stubGlobal('useRuntimeConfig', ...) 覆盖（沿用 mailer/queue/notification 测试模式）
-g.useRuntimeConfig = () => ({ encryptionKey: 'test-encryption-key-32-bytes!!' })
+// 特定测试需要不同值时在测试内 vi.stubGlobal('useRuntimeConfig', ...) 覆盖（沿用 mailer/queue/notification 测试模式）。
+// e2eFixturesAllowed（M22 阶段 fixtures 双门控第二门控；详见 todo.md §M22.6）：
+// 默认 false 表示 fixtures 端点禁止访问，需在测试内 stub 为 true 才能让
+// fixtures.post/delete.test.ts 的 200 路径通过。
+g.useRuntimeConfig = () => ({ encryptionKey: 'test-encryption-key-32-bytes!!', e2eFixturesAllowed: false })
 
 /**
  * better-auth 1.7 generic-oauth plugin 在 init 阶段会 fetch OIDC discovery URL，

@@ -52,7 +52,8 @@
 
 #### 2.1.4 与 e2e / fixtures 端点的关系
 
-- `apps/platform/server/api/e2e/*` 端点双门控（`E2E_TEST` + `NODE_ENV=production` 兜底）也是 SQLite 数据保护的一环——防止生产环境误暴露清空端点
+- `apps/platform/server/api/e2e/*` 端点双门控（`E2E_TEST` + `runtimeConfig.e2eFixturesAllowed` 兜底）也是 SQLite 数据保护的一环——防止生产环境误暴露清空端点
+- **不能用 `process.env.NODE_ENV === 'production'` 作第二门控**（Nitro/esbuild 构建期把 `process.env.NODE_ENV` 静态替换为构建时值，prod build 表达式折叠后永远 404；详见 [platform.md §3.6](./platform.md)「为什么不用 `process.env.NODE_ENV`」陷阱段）
 - 详见 [platform.md §3.6](./platform.md)
 
 #### 2.1.5 实证

@@ -16,14 +16,22 @@ const e2eBaseURL = `http://${e2eHost}:${e2ePort}`
 const e2eAuthSecret = 'e2e-test-secret-0123456789abcdef'
 
 /** 测试环境变量：独立数据库 + 固定密钥 + 允许注册（globalSetup 需注册首用户）
+ *  NODE_ENV=test：标注当前是测试场景（M22 阶段；M22.4 后 synchronize 默认 opt-in
+ *  不再依赖 NODE_ENV；M22 阶段改用 runtimeConfig.e2eFixturesAllowed 作第二门控而非
+ *  NODE_ENV=Nitro/esbuild 静态替换 process.env.NODE_ENV 导致表达式折叠失效；
+ *  详见 todo.md §M22.6 风险与缓解与 platform.md §3.6 实证）。
+ *  NUXT_E2E_FIXTURES_ALLOWED=true：放行 e2e/fixtures 端点（hard requirement：
+ *  platform.md §3.6 + security.md §2.1.4；runtimeConfig 绕开 esbuild define）；
+ *  不设该 env 时即使 E2E_TEST=true 端点也返回 404
  *  DATABASE_SYNCHRONIZE=true：生产构建默认关闭自动建表，e2e 独立库需显式开启
  *  NUXT_QUEUE_ENABLED=false：强制同步降级——Nuxt runtimeConfig 运行时覆盖只认 NUXT_ 前缀
- *  （无前缀 QUEUE_ENABLED 只在构建时烘焙，运行时设置无效——本地 Redis 可达时 auto 会走
- *  async 且无 worker 消费导致扫描挂起；该问题在批量扫描首次触发真实执行后才暴露）；
- *  CI 无 Redis 时 auto 探测也降级同步；显式 false 保证本地/CI 一致 */
+ * （无前缀 QUEUE_ENABLED 只在构建时烘焙，运行时设置无效——本地 Redis 可达时 auto 会走
+ * async 且无 worker 消费导致扫描挂起；该问题在批量扫描首次触发真实执行后才暴露）；
+ * CI 无 Redis 时 auto 探测也降级同步；显式 false 保证本地/CI 一致 */
 const e2eServerEnv = [
-    'NODE_ENV=production',
+    'NODE_ENV=test',
     'E2E_TEST=true',
+    'NUXT_E2E_FIXTURES_ALLOWED=true',
     `HOST=${e2eHost}`,
     `PORT=${e2ePort}`,
     `NUXT_AUTH_SECRET=${e2eAuthSecret}`,

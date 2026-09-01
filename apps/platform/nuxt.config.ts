@@ -101,6 +101,12 @@ export default defineNuxtConfig({
         queueBackoffMs: process.env.QUEUE_BACKOFF_MS || '',
         // 单容器部署：Nuxt 进程内消费队列（无需独立 worker 进程）
         inProcessWorker: process.env.IN_PROCESS_WORKER === 'true',
+        // e2e/fixtures 端点放行开关（hard requirement：platform.md §3.6 + security.md §2.1.4）：
+        // 生产构建默认 false（NUXT_E2E_FIXTURES_ALLOWED 未设）；仅 e2e webServer 启动时显式开启。
+        // 注意：不能直接用 process.env.NODE_ENV 作第二门控——Nitro/esbuild 构建期会把
+        // process.env.NODE_ENV 静态替换为构建时值，折叠表达式导致 prod build 永远 404。
+        // runtimeConfig 是 Nuxt 官方运行时覆盖通道（NUXT_ 前缀），可绕开 esbuild define。
+        e2eFixturesAllowed: process.env.NUXT_E2E_FIXTURES_ALLOWED === 'true' || process.env.E2E_TEST === 'true',
         public: {
             // 客户端可见配置（前端可见 env 一律 NUXT_PUBLIC_* 优先，普通 env 兜底：
             // 构建时内联 + 运行时 NUXT_PUBLIC_* 覆盖双通道，对齐 momei 写法）

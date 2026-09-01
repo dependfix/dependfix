@@ -6,6 +6,9 @@ import { Repository } from '#server/entities/repository'
 import { ScanRun } from '#server/entities/scan-run'
 import { ScanResult } from '#server/entities/scan-result'
 
+// useRuntimeConfig 由 Nuxt/Nitro auto-import 提供（vitest 环境由 tests/setup-nuxt-server.ts stub）
+// 不在 h3 中显式 import，避免被 h3 解析为 undefined（h3 不导出 useRuntimeConfig）
+
 /**
  * DELETE /api/e2e/fixtures：清理指定 repos 的关联 scanRuns + scanResults + repos。
  *
@@ -15,9 +18,10 @@ import { ScanResult } from '#server/entities/scan-result'
  *   或复用 SQLite 实例场景会导致 alerts-rowgroup 测试看到的 fixture 数量/状态不可控
  * - global-setup 在 seed 之前调用本端点，按 repos key 删除级联数据，保证 e2e 库状态干净
  *
- * 安全门控：与 POST /api/e2e/fixtures 同模式 —— `process.env.E2E_TEST !== 'true'` 时
- * handler 返回 404（Nitro 无条件注册 server/api/*，生产构建含本文件，但生产环境
- * E2E_TEST 缺省不可达；严禁生产环境设置 E2E_TEST=true）。
+ * 安全门控：与 POST /api/e2e/fixtures 同模式 —— 双门控 `E2E_TEST === 'true'` +
+ * `runtimeConfig.e2eFixturesAllowed`（hard requirement：platform.md §3.6 + security.md §2.1.4）；
+ * runtimeConfig 通过 `NUXT_E2E_FIXTURES_ALLOWED` 运行时覆盖，绕开 Nitro/esbuild
+ * `process.env.NODE_ENV` 静态替换陷阱（详见 platform.md §3.6 实证段）。
  *
  * 清理顺序（应用层显式级联，不依赖 SQLite FK CASCADE 默认行为）：
  * 1. ScanResult：按 scanRunId IN (...) 批量删除
@@ -36,7 +40,10 @@ const deleteBodySchema = z.object({
 })
 
 export default defineEventHandler(async (event) => {
-    if (process.env.E2E_TEST !== 'true') {
+    // 双门控（hard requirement：platform.md §3.6 + security.md §2.1.4）：同 fixtures.post.ts
+    // runtimeConfig.e2eFixturesAllowed 通过 NUXT_E2E_FIXTURES_ALLOWED 运行时覆盖，绕开 esbuild define
+    const config = useRuntimeConfig()
+    if (process.env.E2E_TEST !== 'true' || !config.e2eFixturesAllowed) {
         throw createError({ statusCode: 404, statusMessage: 'Not Found' })
     }
 

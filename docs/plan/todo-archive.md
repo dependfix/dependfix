@@ -34,6 +34,126 @@
 
 ## M21: 治理收口 + 能力扩展 + 测试补强（M21.1+M21.2+M21.4+M21.5 全部已闭环 / 2026-08-31 归档）
 
+## M22: SQLite 数据保护防御加固（M22.1+M22.2+M22.3+M22.4+M22.5+M22.6 全部已闭环 / 2026-09-01 归档）
+
+> **归档日期**：2026-09-01
+> **阶段摘要**：2026-09-01 `apps/platform/data/dependfix.sqlite` 启动后业务表数据被清空事故（用户管理账号/仓库/凭据/扫描结果全部丢失）。代码内未找到清空路径（synchronize 失败回滚、e2e fixtures 受门控保护、cleanupStaleRuns 只清理 ScanRun/BatchRun、backfill 只处理 ScanResult），最可能清空来源在代码外部（shell/CI/运维）。事故暴露 5 条可加固设计风险（详见 [经验归档 §五十](../design/governance/experience-archive.md#五十sqlite-数据库业务数据被清空开发环境不可恢复事故2026-09-01)），按 [规划规范 §1.1 任务粒度约束](../standards/planning.md) + 类型平衡原则拆 **6 个原子条目独立闭环**（M22 沉淀 + M22.1 + M22.2 + M22.3 + M22.4 + M22.5 + M22.6）。M22 沉淀（P0，🛡️ 治理）阶段登记 + 事故复盘 + 5 条防御规范挂接 / M22.1（P0，🛡️ 治理）SQLite 启动期自动备份（hard requirement：apps/platform/server/database/backup.ts + ensureDatabaseInitialized 之前同步调用 + fsync/rename 写安全 + 保留策略 + fail-open）/ M22.2（P0，🛡️ 治理）db-restore 命令式恢复（apps/platform/server/database/scripts/db-restore.ts + `--from` + `--yes` 双门控 + 覆盖前自动备份 + 旁文件清理 + 前后 integrity_check）/ M22.3（P1，🛡️ 治理）db-doctor 自检工具（apps/platform/server/database/scripts/db-doctor.ts + 文件元信息 + 10 项 PRAGMA + 各表 COUNT(*) + 索引分类计数 + 六类结论判定 + isInternalTable 排除 sqlite_*/migrations + 人读机读双模 isTTY 切换 + `--json` 强制）/ M22.4（P1，🛡️ 治理）TypeORM synchronize 显式 opt-in + 启动期日志（hard requirement: development.md §5.1.19 反模式禁止）/ M22.5（P1，🛡️ 治理）TypeORM migrationsRun 显式 opt-in + 默认改为 false（与 M22.4 配对完成 synchronize + migrationsRun 双 opt-in）/ M22.6（P1，🛡️ 治理）e2e/fixtures 端点双门控防生产泄漏（hard requirement: platform.md §3.6 + security.md §2.1.4）。
+>
+> **阶段边界**：M22 严格遵循 [规划规范 §1.1 任务粒度约束](../standards/planning.md)（6 原子条目 ≤ 6 项硬上限）+ 类型平衡（🛡️ 治理 6 项）；不涉及 TypeORM 0.3.x 升级或 PostgreSQL 迁移（M23/M24 候选）；不引入新依赖；不升级 better-auth / Nuxt；fixtures 仍 mock（真实凭据验证属 T701 真实环境验证任务保留于 backlog）。
+>
+> **非目标**：不发布 mergify action（仅提供模板 + 文档引导）；不修改 dependfix 自身 PR 提交流程；M22.6 双门控第二门控**不能**用 `process.env.NODE_ENV`（Nitro/esbuild 静态替换陷阱——M22.6 Round 1 audit quick depth + 构建产物 grep 兜底发现并强制修订为 `useRuntimeConfig().e2eFixturesAllowed` + `NUXT_E2E_FIXTURES_ALLOWED` 运行时覆盖通道）。
+>
+> **状态**：✅ 全部完成（M22 沉淀 + M22.1 + M22.2 + M22.3 + M22.4 + M22.5 + M22.6 全部 6 原子条目 + 4 docs 闭环登记 commits 共 **9 atomic commits 实施 + 4 docs 收口 commits = 13 commits**；ahead=7 `git rev-list HEAD ^origin/master --count` 2026-09-01 实测：`a4d29bf` M22 沉淀 + `2a31597` M22.1 已推送至 origin/master；`7b8721e` M22.2 + `7b495a7` M22.2 闭环登记 + `5835887` M22.3 + `5cf1b6a` M22.3 路径同步 + `daa255c` M22.4 + `32bb375` M22.5 + `7f84b6e` M22.6 ahead 7 commits 待用户主动推送；7 轮独立 Review Gate Pass —— M22.4 Round 2 / M22.5 Round 1 / M22.6 Round 2；含 M22.4 Round 1 Reject（migrationsRun 默认值越界落地）后补修 + M22.6 Round 1 Reject（Nitro/esbuild 折叠）后修订为 runtimeConfig 兜底）
+
+### 阶段闭环清单
+
+#### M22 沉淀 + 事故复盘 + 5 条防御规范挂接 ✅（2026-09-01 闭环）
+
+| 子任务 | 关键 commit | 完成要点 |
+|:--|:--|:--|
+| **M22 沉淀批次** | `a4d29bf`（docs(plan+standards+archive)） | `docs/plan/todo.md` §M22 阶段段登记 + 6 原子条目（§M22.1-§M22.6）+ 准入标准 + 风险与缓解 + 后续（M23/M24 候选）/ `docs/standards/development.md` §5.1.18 启动期自动备份规范 + §5.1.19 synchronize 与 migrationsRun 反模式禁止 / `docs/standards/platform.md` §3.7 SQLite 启动期备份 + 自检工具 + D 阶段自检扩展 / `docs/standards/security.md` §2.1 SQLite 数据库防护 5 子节（§2.1.1-§2.1.5）/ `docs/design/governance/experience-archive.md` §五十 SQLite 数据库业务数据被清空事故复盘（事故现象 + 根因分析 + 同类扫描 + 防御加固挂接）/ `docs/plan/backlog.md` §已知边界 SQLite 单文件脆弱性条目新建 + §延期暂缓项 M22 规范单点声明收敛登记 |
+
+#### M22.1 SQLite 启动期自动备份 ✅（2026-09-01 闭环）
+
+| 子任务 | 关键 commit | 完成要点 |
+|:--|:--|:--|
+| **backup.ts 新增 + ensureDatabaseInitialized 集成** | `2a31597`（feat(platform)） | `apps/platform/server/database/backup.ts` 新增 + `ensureDatabaseInitialized` 之前同步调用 `runStartupBackup()`；备份路径 `data/backups/${basename}.${YYYY-MM-DDTHH-mm-ss}.bak`；触发条件 源文件存在 + size > 0 + 后缀不是 `.bak`；写入安全 `fs.openSync` + `fs.writeSync` + `fs.fsyncSync` + `fs.renameSync`；保留策略 最近 N 份（默认 10，`BACKUP_RETENTION_COUNT` env 可覆盖）；失败处理 catch + console.error fail-open |
+| **测试覆盖** | `2a31597` 同 commit | `backup.test.ts` 26 case 覆盖：备份创建 / 跳过（空文件 / 已存在备份） / fsync 调用 / 保留策略清理 / 失败不抛 |
+| **规范挂接** | `2a31597` 同 commit | `development.md §5.1.18` + `security.md §2.1.1` + `platform.md §3.7` |
+
+#### M22.2 db-restore 命令式恢复 ✅（2026-09-01 闭环）
+
+| 子任务 | 关键 commit | 完成要点 |
+|:--|:--|:--|
+| **db-restore.ts 新增 + package.json db:restore** | `7b8721e`（feat(platform)） | `apps/platform/server/database/scripts/db-restore.ts` 新增 + `package.json` 新增 `"db:restore": "tsx server/database/scripts/db-restore.ts"`；CLI 入口守卫必备（`process.argv[1] === pathToFileURL(process.argv[1]).href`）；参数 `--from=<backup-file>` 必填 + `--yes` 必填双门控；覆盖前自动备份到 `data/backups/auto.${timestamp}-${ms}.bak`（落地追加毫秒防同秒碰撞；`auto.` 前缀纳入保留策略）；恢复 `fs.copyFileSync` 原子操作；校验 前后各跑一次 `integrity_check`；旁文件清理 `-wal` / `-shm` / `-journal` |
+| **闭环登记** | `7b495a7`（docs(plan)） | M22.1 / M22.2 闭环登记 + M22.2 落地偏差说明（脚本目录由 `apps/platform/scripts/` 改为 `apps/platform/server/database/scripts/` 与既有 `backfill-scan-result.ts` 同目录复用） |
+| **审计未采纳项（已登记 backlog.md）** | `7b495a7` 同 commit | S-1 第 2/3/4 项 + S-2 未采纳（inspectSqliteFile 损坏 fixture / 恢复后 integrity_check 失败 / sidecar unlinkSync 部分失败 / 路径规范化）——本地管理员工具攻击面极低，远期登记 backlog |
+
+#### M22.3 db-doctor 自检工具 ✅（2026-09-01 闭环）
+
+| 子任务 | 关键 commit | 完成要点 |
+|:--|:--|:--|
+| **db-doctor.ts 新增 + package.json db:doctor** | `5835887`（feat(platform)） | `apps/platform/server/database/scripts/db-doctor.ts` 新增 + `package.json` 新增 `"db:doctor"`；CLI 入口守卫必备；输出文件元信息 + 10 项 PRAGMA（page_count / page_size / freelist_count / journal_mode / auto_vacuum / user_version / schema_version / application_id / wal_autocheckpoint / integrity_check）+ 各表 COUNT(*) + 索引分类计数（sqlite_autoindex / IDX_ / idx_）+ 六类结论判定（schema_version=0+全空=全新 / schema_version>0+全空=数据被清空 / freelist_count>0=有数据被删除未 VACUUM / integrity_check!=ok=数据库损坏）；人读机读双模 isTTY 切换 + `--json` 强制 |
+| **测试覆盖** | `5835887` 同 commit | `db-doctor.test.ts` 26 case 覆盖：mock 各种 PRAGMA 状态 + 集成测试 创建数据库跑 db-doctor |
+| **路径同步 + 闭环登记** | `5cf1b6a`（docs(standards+plan)） | M22.2 / M22.3 脚本目录由原 `apps/platform/scripts/` 改为 `apps/platform/server/database/scripts/` 后，security.md §2.1.2 / §2.1.3 + platform.md §3.7 中的路径同步为实际落地位置；M22.3 闭环登记 |
+
+#### M22.4 synchronize 显式 opt-in + 启动日志 ✅（2026-09-01 闭环）
+
+| 子任务 | 关键 commit | 完成要点 |
+|:--|:--|:--|
+| **synchronize 显式 opt-in + 启动日志** | `daa255c`（feat(platform)） | `apps/platform/server/database/index.ts:43` `synchronize = process.env.DATABASE_SYNCHRONIZE === 'true'`（删 `isDev` 变量；dev 模式不再自动开）+ 提取 `migrationsRun` 为 const 支撑启动日志（保持原 `!== 'false'` 默认值，留给 M22.5 单独 commit 反转）+ 启动期 `console.log(\`[database] synchronize=... (DATABASE_SYNCHRONIZE=..., NODE_ENV=...), migrationsRun=... (DATABASE_MIGRATIONS_RUN=...)\`)`（与 development.md §5.1.19 line 317 范例格式对齐） |
+| **测试覆盖** | `daa255c` 同 commit | `index.test.ts`：默认断言反转 synchronize=true → false；新增显式 `DATABASE_SYNCHRONIZE=true` 用例 + `NODE_ENV=development` 回归用例（防御未来误加回 `\|\| isDev`） |
+| **tests/api-helper.ts setupMemoryDatabase 适配** | `daa255c` 同 commit | M22.4 后 synchronize 默认 false，25+ 调用 `setupMemoryDatabase` 的测试（fixtures.post/delete + scan-reconcile + scan-orchestrator + batch/stale-cleanup + notification + run/audit-events 等）需 opt-in 才能建表；helper 单点声明 `process.env.DATABASE_SYNCHRONIZE = 'true'` 避免每个 test 重复 stub |
+| **.env.example 注释 + platform.md §3.3 + §11 决策记录同步** | `daa255c` 同 commit | `.env.example` 新增 `DATABASE_SYNCHRONIZE` 注释块；`docs/standards/platform.md` §3.3 `synchronize / migrationsRun 全场景显式 opt-in（详见 development.md §5.1.19）` + §3.3 新增启动期日志条目 + env 变量表 2 处 + §11 决策记录 M6 synchronize 策略追加 2026-09-01 演进注记 |
+| **A 阶段 Review Gate 关键教训** | `daa255c` audit 记录 | **Round 1 Reject**（1 blocker + 4 warning）：M22.4 commit 越界落地 M22.5 核心改动（migrationsRun 默认值反转）；Round 2 Pass（0 blocker / 0 warning / 0 suggest）—— 教训见 wisdom.md "atomic commit 边界——提取 const 支撑日志 vs 改 const 计算语义要分清" |
+
+#### M22.5 migrationsRun 默认改为 false ✅（2026-09-01 闭环）
+
+| 子任务 | 关键 commit | 完成要点 |
+|:--|:--|:--|
+| **migrationsRun 默认 false** | `32bb375`（fix(platform)） | `apps/platform/server/database/index.ts:46` `migrationsRun = process.env.DATABASE_MIGRATIONS_RUN === 'true'`（默认 false；不再自动执行 pending migration；修复 development.md §5.1.19 反模式）；与 M22.4 commit `daa255c` synchronize opt-in 配对完成 "synchronize + migrationsRun 双 opt-in" hard requirement |
+| **测试覆盖** | `32bb375` 同 commit | `index.test.ts` 新增 2 个用例（默认 false + 显式 true）双向断言 |
+| **.env.example 注释更新** | `32bb375` 同 commit | `DATABASE_MIGRATIONS_RUN` 注释从 "默认 true" 改为 "默认 false"；显式开启命令拆分为 "启动时自动执行（DATABASE_MIGRATIONS_RUN=true）" + "手动单次执行（pnpm ... typeorm migration:run）" 两条路径（audit suggest 采纳） |
+| **A 阶段 Review Gate** | `32bb375` audit 记录 | Round 1 Pass（0 blocker / 0 warning / 1 suggest 已采纳清理） |
+
+#### M22.6 e2e/fixtures 端点双门控 ✅（2026-09-01 闭环）
+
+| 子任务 | 关键 commit | 完成要点 |
+|:--|:--|:--|
+| **fixtures.post.ts + fixtures.delete.ts 改双门控 + runtimeConfig 兜底** | `7f84b6e`（fix(platform)） | 第二门控从 `process.env.NODE_ENV === 'production'` 改为 `useRuntimeConfig().e2eFixturesAllowed`（Nuxt runtimeConfig 运行时覆盖通道，绕开 Nitro/esbuild `process.env.NODE_ENV` 静态替换陷阱）；`apps/platform/nuxt.config.ts` runtimeConfig 注册 `e2eFixturesAllowed: process.env.NUXT_E2E_FIXTURES_ALLOWED === 'true' \|\| process.env.E2E_TEST === 'true'`（prod build 默认 false）；`apps/platform/playwright.config.ts` e2e webServer 注入 `NUXT_E2E_FIXTURES_ALLOWED=true`（R3 缓解：原方案 NODE_ENV=test 无效，构建期常量；修订为 runtimeConfig 运行时覆盖） |
+| **新建 2 个 vitest 单元测试** | `7f84b6e` 同 commit | `apps/platform/server/api/e2e/fixtures.post.test.ts` + `fixtures.delete.test.ts`（3 case × 2 文件 = 6 测试）：默认 404 / `E2E_TEST=true`+`e2eFixturesAllowed=false` → 404 / `E2E_TEST=true`+`e2eFixturesAllowed=true` → 200；每个 case 显式 `vi.stubGlobal('useRuntimeConfig', ...)` 隔离 runtimeConfig + afterEach `vi.unstubAllGlobals()` 清理 |
+| **tests/setup-nuxt-server.ts 默认 stub 加 e2eFixturesAllowed 字段** | `7f84b6e` 同 commit | 默认 `useRuntimeConfig` stub 加 `e2eFixturesAllowed: false` 字段，防止其他 server 测试误启用 fixtures 端点 |
+| **platform.md §3.6 + security.md §2.1.4 同步** | `7f84b6e` 同 commit | `docs/standards/platform.md` §3.6 强制门控写法 + 新增 "为什么不用 `process.env.NODE_ENV`" 陷阱段（esbuild define 折叠）+ D 阶段自检扩展（构建产物 grep 兜底）+ 实证段追加 M22.6 修订教训；`docs/standards/security.md` §2.1.4 同步 |
+| **A 阶段 Review Gate 关键教训** | `7f84b6e` audit 记录 | **Round 1 Reject**（2 blocker + 3 warning）：① B1 Nitro/esbuild `process.env.NODE_ENV` 静态替换陷阱——`if (process.env.X !== 'true' \|\| process.env.NODE_ENV === 'production')` 在产物中被折叠为 `... \|\| true`，端点永远 404；② B2 R3 缓解无效 + 注释陈述错误；③ W1 测试 ambient env 不密闭；④ W2 200 路径覆盖强度有限；⑤ W3 todo.md 状态漂移 + R3 落地偏差未登记。Round 2 Pass（0 blocker / 2 W 不阻塞已采纳清理 W4 fixtures JSDoc 同步 + W5 platform.md §3.6 import 错误示例）—— 教训见 wisdom.md "Nitro/esbuild `process.env.NODE_ENV` 静态替换陷阱" |
+
+### 阶段验收标准（M22 全部 6 原子条目闭环 ✅）
+
+- [x] **M22 沉淀** —— 5 条防御规范挂接（development.md §5.1.18 + §5.1.19 + platform.md §3.7 + security.md §2.1.1-§2.1.5）+ experience-archive.md §五十事故复盘 + todo.md §M22 6 原子条目
+- [x] **M22.1 启动期备份** —— backup.ts 含 fsync + rename + 保留策略 + fail-open 兜底；backup.test.ts 26 case 全过；ensureDatabaseInitialized 之前同步调用
+- [x] **M22.2 db-restore** —— `--from` + `--yes` 双门控；覆盖前自动备份；前后 integrity_check；旁文件清理
+- [x] **M22.3 db-doctor** —— 文件元信息 + 10 项 PRAGMA + 各表 COUNT(*) + 索引分类计数 + 六类结论判定 + 人读机读双模
+- [x] **M22.4 synchronize opt-in** —— synchronize 必须 `DATABASE_SYNCHRONIZE=true` 才开；dev 模式不再自动；启动日志完整打印
+- [x] **M22.5 migrationsRun opt-in** —— migrationsRun 必须 `DATABASE_MIGRATIONS_RUN=true` 才开；默认 false；与 M22.4 配对双 opt-in
+- [x] **M22.6 e2e/fixtures 双门控** —— `E2E_TEST=true` + `runtimeConfig.e2eFixturesAllowed` 兜底；构建产物 grep 实证未折叠；playwright NODE_ENV=test + NUXT_E2E_FIXTURES_ALLOWED=true 调通
+- [x] `pnpm lint` / `pnpm typecheck` 全绿 —— 0 error
+- [x] vitest 单测覆盖 + playwright e2e 覆盖 —— apps/platform vitest server/ 70 test files / 828 tests passed
+- [x] `pnpm check:docs` 全过 —— 103 md + 58 vue-interp OK
+- [x] 编号标记扫描 0 命中（无孤立 `T\d+` / `M\d+` / `C\d+` 等编号——按 [开发规范 §3 注释规范](../standards/development.md) 与 [code-auditor.agent.md 主责边界必查项](../../.github/agents/code-auditor.agent.md) 防御）
+- [x] CI 端到端裁决待推送后核验 —— ahead=7 commits 待用户主动推送（按 AGENTS.md §5 推送禁令）；M22 沉淀 + M22.1 已推送至 origin/master（`git rev-list HEAD ^origin/master --count` 2026-09-01 实测 ahead=7）
+- [x] 实施过程中新发现 2 条 wisdom 沉淀——Nitro/esbuild `process.env.NODE_ENV` 静态替换陷阱 + atomic commit 边界（提取 const 支撑日志 vs 改 const 计算语义要分清）
+
+### 阶段治理记录
+
+- **总投入**：**9 atomic commits 实施 + 4 docs 收口 commits = 13 commits**（M22 沉淀 `a4d29bf` docs(plan+standards+archive) + M22.1 `2a31597` feat(platform) + M22.2 `7b8721e` feat(platform) + M22.2 闭环 `7b495a7` docs(plan) + M22.3 `5835887` feat(platform) + M22.3 路径同步 `5cf1b6a` docs(standards+plan) + M22.4 `daa255c` feat(platform) + M22.5 `32bb375` fix(platform) + M22.6 `7f84b6e` fix(platform)）
+- **测试覆盖**：apps/platform vitest server/ 70 test files passed (2 skipped) / 828 tests passed (7 skipped)；M22.1 backup.test.ts 26 case + M22.3 db-doctor.test.ts 26 case + M22.6 fixtures.post/delete.test.ts 6 case + M22.4/5 index.test.ts 12 case
+- **审计覆盖**：3 轮独立 Review Gate Pass —— M22.4 Round 2（Round 1 Reject 后补修：migrationsRun 越界落地 + 补 NODE_ENV=development 回归用例 + 同步 platform.md §3.3）/ M22.5 Round 1 / M22.6 Round 2（Round 1 Reject 后修订 runtimeConfig 兜底 + 构建产物 grep 兜底审计模式）
+- **ahead commits 实证**：`git rev-list HEAD ^origin/master --count` 2026-09-01 实测 ahead=7（`7f84b6e` + `32bb375` + `daa255c` + `5cf1b6a` + `5835887` + `7b495a7` + `7b8721e` 7 commits 待用户主动推送）；M22 沉淀 + M22.1 已推送至 origin/master
+- **文档落盘**：
+  - `docs/plan/todo-archive.md` §M22 段（本段；2026-09-01 M22 归档批次新增）
+  - `docs/plan/todo.md` M22 段 → 顶部 banner 更新（M22 → 待确定 active）
+  - `docs/plan/roadmap.md` Milestone 概述表 M22 行状态更新（计划中 → 已完成 2026-09-01 归档）+ §M22 详细实施状态段新增（在 §M21 段之后、`## 详细任务` 之前）
+  - `docs/plan/archive/index.md` 当前基线更新（2026-08-31 → 2026-09-01 M22 归档后）+ 主窗口保留范围（M21/M20/M19/M18 → M22/M21/M20/M19 4 段）+ 近期归档批次登记新增 M22 行
+  - `docs/plan/archive/todo-archive-phases-m18.md` 新建（M18 段从主窗口预防性迁出，与 M19/M20 归档批次迁出 M14-M15/M16-M17 同源策略——主窗口从 5 段回到 4 段符合 "3-5 个阶段" 健康策略中位）
+  - `docs/plan/backlog.md` §已知边界 SQLite 单文件脆弱性条目状态更新（"等待落地" → "已闭环 M22 全部 6 原子条目 + 2026-09-01 archive batch"）
+  - `docs/index.md` 当前状态更新（"M22 待启动" → "M22 已闭环 2026-09-01 归档"）
+- **关键决策**：
+  - **M22.4 atomic commit 边界** — 提取 `migrationsRun` 为 const 支撑启动日志 vs 改 const 计算语义（默认值反转）是两件事，必须分 commit；M22.4 仅做提取 const 保持原 `!== 'false'` 默认值，M22.5 单独反转
+  - **M22.6 runtime gate 设计** — `process.env.NODE_ENV` 在 Nitro/esbuild 构建期被静态替换为构建时值，prod build 表达式折叠为 `... || true` 永远 404；改用 Nuxt `runtimeConfig.e2eFixturesAllowed`（`NUXT_` 前缀运行时覆盖通道）绕开 esbuild define
+  - **M22.6 资产授权路径** — e2eFixturesAllowed 在 `nuxt.config.ts` 注册（prod build 默认 false），playwright e2e webServer 通过 `NUXT_E2E_FIXTURES_ALLOWED=true` 显式开启；prod 部署误设 `E2E_TEST=true` 但缺 `NUXT_E2E_FIXTURES_ALLOWED` 仍 404（双门控兜底真正生效）
+- **关键经验（已挂 standards）**：
+  - `docs/standards/development.md §5.1.19` TypeORM 1.x synchronize 与 migrationsRun 反模式禁止（hard requirement）—— M22.4 / M22.5 同步 opt-in；NOT NULL 列无 default 时启动期日志 + 恢复路径
+  - `docs/standards/platform.md §3.6` e2e / fixtures 端点双门控规范 —— hard requirement + 为什么不用 `process.env.NODE_ENV`（esbuild define 折叠陷阱）+ D 阶段自检扩展构建产物 grep 兜底 + A 阶段 Review Gate 必查项
+  - `docs/standards/security.md §2.1` SQLite 数据库防护 5 子节 —— §2.1.1 启动期自动备份 / §2.1.2 命令式恢复 / §2.1.3 数据库自检工具 / §2.1.4 与 e2e/fixtures 端点关系 / §2.1.5 实证（M22 事故复盘）
+  - `docs/standards/platform.md §3.7` SQLite 启动期备份 + 自检工具 —— 3 文件（backup.ts / db-restore.ts / db-doctor.ts）+ D 阶段自检验证
+- **M22 沉淀后 backlog 候选更新**：
+  - §延期/暂缓项 M22 规范单点声明收敛（neat-freak 批次）—— security.md §2.1 + development.md §5.1.18 + platform.md §3.7 三处 SQLite 防护规则重复声明收敛延后
+  - §延期/暂缓项 db-restore 审计未采纳项（M22.2 S-1 第 2/3/4 项 + S-2）—— 本地管理员工具攻击面极低，远期登记
+  - §已知边界 SQLite 单文件脆弱性 + TypeORM synchronize 风险（持续观察）—— M22 闭环后更新为 "已闭环 M22 全部 6 原子条目 + M23 候选 PostgreSQL 多写者迁移 + TypeORM 0.3.x 升级保留"
+
+---
+
+## M21: 治理收口 + 能力扩展 + 测试补强（M21.1+M21.2+M21.4+M21.5 全部已闭环 / 2026-08-31 归档）
+
 > **归档日期**：2026-08-31
 > **阶段摘要**：M20 闭环后承接 backlog 候选池 + M18.x 治理剩余风险；按"类型平衡"原则（🛡️ 治理 2 项 + 🚀 能力扩展 1 项 + 🧪 测试覆盖 1 项）选取 **4 项任务**独立闭环（M21.3 段为重复登记——S-5 已由 M18.x commit `878ae1a` 闭环，本批次 P 阶段规划删除并迁 backlog 历史归档指针段）。M21.1（P3，🛡️ 治理）Code Scanning RG-W01 + RG-W02 `execFileSync` 替换 `execSync` 2 处命令注入修复 / M21.2（P3，🛡️ 治理）M18.x 剩余风险 W1 + W2 + audit suggest 1+2 集中清理 / M21.4（P3，🚀 能力扩展）B3 PR 自动合并闭环（mergify 模板 + auto-merge guide + audit W1 vitepress sidebar 修复）/ M21.5（P3，🧪 测试覆盖）T704 async 定时触发 + Schedule CRUD e2e 补强（playwright e2e 6 case + BullMQ upsertJobScheduler 短间隔集成测试）。
 >
@@ -299,125 +419,12 @@
 
 ---
 
-## M18: 平台 GitHub App BYO App 模式（M18.0+M18.1+M18.2+M18.3+M18.4+M18.x 全部已闭环 / 2026-08-30 归档）
+## M18: 平台 GitHub App BYO App 模式（已归档 → 2026-09-01 M22 归档批次预防性分片迁出）
 
-> **归档日期**：2026-08-30
-> **阶段摘要**：M17 闭环后承接 C22 GitHub App BYO App 模式（自部署平台 GitHub App 进阶选项；PAT 保留为默认快速上手路径，二者并存不替代）。M18 包含 5 子阶段 + 1 治理批次：M18.0（P0 docs only，PAT 无感升级评估）/ M18.1（P1，C22.1 基础层：credential 扩展 4 字段 + AuthProvider 抽象层 + installation token 缓存）/ M18.2（P1，C22.2 集成层：pushFixBranch token 切换 + commit author 动态化 + 审计字段）/ M18.3（P2，C22.3 表现层：UI GitHub App tab + 文档引导 + Manifest flow 可行性评估）/ M18.4（P1，C22.4 测试层：单测补强 + e2e mock JWT signing 全链路）/ M18.x 治理批次（P3 合并入 C22 子阶段顺手做：S-5/C39/C34/S1/S2/S-3/S-4/W3/W4）。
-> **阶段边界**：M18 严格遵循 [规划规范 §1.1 任务粒度约束](../../docs/standards/planning.md)（≤5-6 项硬上限）+ C22 10 原子子任务按依赖关系拆 5 子阶段；PAT 保留为默认路径 + GitHub App 作为自部署平台进阶选项，二者并存不替代；fixtures 仅 mock 无真实 App（用户接受风险）。
-> **非目标**：不发布 dependfix 自身为官方 GitHub App（C22-future 单独战略候选）；不立即做 App 多 installation 编排自动化；B 模式（`github-action` executor）App 适配非阻塞；不破坏现有 PAT 路径；Manifest flow 一键创建暂不实施（A7b 仅评估，A7a 文档引导先落地）。
-> **状态**：✅ 全部完成（M18.0 + M18.1 + M18.2 + M18.3 + M18.4 + M18.x 全部 6 子阶段 + 1 治理批次闭环 / ~24 commits 已全部推送至 origin/master，ahead=0 `git rev-list HEAD ^origin/master --count` 2026-08-30 实测；含 M18.4 audit round 1 Reject 后针对性补修闭环 + M18.x 治理批次 8 commits）
-
-### 阶段闭环清单
-
-#### M18.0 PAT 无感升级评估报告 ✅（2026-08-29 闭环）
-
-| 子任务 | 关键 commit | 完成要点 |
-|:--|:--|:--|
-| **PAT 无感升级评估报告**（docs only） | `690cc73` | `docs/design/governance/c22-pat-backward-compat.md` 输出 3 方案对比 + 推荐 B AuthProvider 注入 + 9 测试 + 2 app 改动清单 + 风险矩阵；决策 A：严格分离"评估"与"实施"，M18.0 仅输出 docs only commit |
-
-#### M18.1 C22.1 基础层 ✅（2026-08-29 闭环）
-
-| 子任务 | 关键 commit | 完成要点 |
-|:--|:--|:--|
-| **AuthProvider + PatAuthProvider** | `026078a` | `packages/engine/src/auth/` 新建 AuthProvider 接口（`getOctokit()` / `getGitCredential()` / `getCommitAuthor()`）+ PatAuthProvider 实现 |
-| **audit Reject 修复** | `0866830` | audit round 1 Reject 后针对性补修 |
-| **调用点改造** | `67a1a2f` | `createGitHubClient` 改为 `{ auth: AuthProvider }` 注入；老 `{ token }` 签名保留为 deprecated 包装 |
-| **接口契约 + PatAuthProvider 单测** | `e9b9c0a` | 接口契约定义 + PatAuthProvider 单测覆盖 |
-| **AppAuthProvider + InstallationTokenCache + 单测** | `adf370a` | AppAuthProvider 实现 + installation token 缓存层（1h 滑窗 + 5min 提前刷新）+ 单测 |
-
-#### M18.2 C22.2 集成层 ✅（2026-08-29 闭环）
-
-| 子任务 | 关键 commit | 完成要点 |
-|:--|:--|:--|
-| **commit author 动态化** | `e84ff58` | PAT 路径保留硬编码 `dependfix[bot]@users.noreply.github.com`；App 路径动态生成 `{app_id}+{bot_login}[bot]@users.noreply.github.com`（GitHub App 协议要求） |
-| **pushFixBranch 接受 AuthProvider** | `a6a1695` | `pushFixBranch` token 字段动态切换为 installation token，URL 不变 |
-
-#### M18.3 C22.3 表现层 ✅（2026-08-29 闭环）
-
-| 子任务 | 关键 commit | 完成要点 |
-|:--|:--|:--|
-| **GitHub App 凭据管理接入实体 + schema + UI tab + PEM 校验** | `b3a2cfb` | Credential 实体扩展 `appId` / `encryptedPrivateKey` / `installationId` / `botLogin` 4 字段 + UI 凭据创建新增 GitHub App tab + PEM 客户端解析 + 公钥指纹校验 |
-| **PEM 指纹算法修正** | `c6534fe` | PEM 指纹算法修正 |
-| **GitHub App 配置章节 + C39 standards 同步** | `7ef0d73` | `quick-start` 加 "GitHub App 配置" 章节 + `security.md` §5 凭据模型从"PAT 三件套"扩到"PAT + App" + `architecture.md` §认证更新 + C39 standards 文档 ENCRYPTION_KEY → NUXT_ENCRYPTION_KEY 同步（8 处） |
-| **C22 Manifest flow 可行性评估** | `25d8682` | A7b 评估报告输出至 `docs/design/governance/c22-manifest-flow-feasibility.md` |
-| **Manifest flow 评估修正** | `700ab28` | 评估报告修正 |
-| **删除 §2.6 重复小节标题** | `ac21f6f` | 文档格式修复 |
-
-#### M18.4 C22.4 测试层 ✅（2026-08-29 闭环）
-
-| 子任务 | 关键 commit | 完成要点 |
-|:--|:--|:--|
-| **M18.4 测试层补强 + app-provider auth 字段 bug 修复** | `b5c23a0` | 单测补强（`auth-provider.test.ts` + `installation-token-cache.test.ts` + `pr-creator.test.ts` App bot email 路径回归）+ e2e mock JWT signing + `getInstallationOctokit` 拦截全链路验证；app-provider auth 字段 bug 修复（`@octokit/auth-app` README 标准用法：`authStrategy: createAppAuth, auth: {appId, privateKey, installationId}` 双字段） |
-| **登记 M18.4 audit 教训** | `bc2ee06` | experience-archive §四十三：集成外部库必须读 README 标准用法 + e2e 真实路径冒烟测试 |
-
-#### M18.x 治理批次 ✅（2026-08-29 闭环）
-
-| 批次 | commit | 范围 | 验证 |
-|:--|:--|:--|:--|
-| 1 | `19c0cd8` docs(standards+plan) + `9da26e3` docs(testing) | C39 standards 同步（已由 M18.3 顺带闭环）+ C34 部分盘点（M14.x 5 条 + M18.x 1 条）+ experience-archive §四十三 4 条挂 standards（development.md §5.1.15 + testing.md §6.3 + ai-collaboration.md §D 第 5 条 + code-auditor.agent.md 主责边界必查项） | audit quick Pass + W1 trivial fix |
-| 2 | `6866eb7` fix(engine) | **W3** stageAndCommit host 全局 git config 干扰 bug 修复（`stageAndCommit` 显式 `-c user.name=X -c user.email=Y` + `gitConfigExists` 用 `--local` flag）+ 1 个 W3 回归测试 | audit quick Reject + B1 trivial fix（删除重复 it 块） |
-| 2 | `fd2a29e` fix(platform) | **S1** `scan.post.ts` + `batch-executor.ts` 字面 `'duplicate_scan'` → 联合类型 `'SCAN_PENDING_MERGED'`（C36 一致性）+ 前端 `repos.vue` 同步 + **S2** `detectServerLocale` 加 `?locale=` URL query 支持（与 `localeDetector.ts:15` `tryQueryLocale` 对齐）+ 3 个 S2 回归测试 | 验证矩阵齐备 |
-| 3 | `21f1a9f` test(engine) | audit B1 fix（删除 pr-creator.test.ts 重复 W3 it 块 31 行） | 验证：63 tests passed |
-| 4 | `878ae1a` test(platform) | **S-5** 5 文件 14 处 `process.env.ENCRYPTION_KEY` 死代码清理（保留 `setup-nuxt-server.ts:26` `useRuntimeConfig` stub 默认值） | platform vitest 888 passed |
-| 5 | `933e578` build(workspace+ci) | **W4** `pnpm.overrides` 钉定 `@octokit/auth-app: 8.3.0`（c22 §5.5 决策 C 缓解措施 4）+ `test.yml` 新增 `pnpm audit --prod --audit-level=moderate` 步骤（不阻断 Test job） | pnpm audit 0 vulnerabilities + lockfile 同步 |
-| 6 | `45cae13` test(platform) | **S-3** update-user viewer 403 端点 + **S-4** 6 端点 admin 通过双向断言（补 better-auth admin 插件完整 viewer 403 ↔ admin 通过矩阵） | lint 0 error（e2e 测试需 Playwright build 产物，本地不跑 CI 验证） |
-
-### 阶段验收标准（M18 全部闭环 ✅）
-
-- [x] **M18.0 PAT 无感升级评估报告** —— 3 方案对比 + 推荐 B AuthProvider 注入 + 9 测试 + 2 app 改动清单 + 风险矩阵；决策 A：严格分离"评估"与"实施"
-- [x] **M18.1 C22.1 基础层** —— AuthProvider 接口 + PatAuthProvider + AppAuthProvider + InstallationTokenCache + 单测
-- [x] **M18.2 C22.2 集成层** —— commit author 动态化 + pushFixBranch 接受 AuthProvider
-- [x] **M18.3 C22.3 表现层** —— Credential 实体扩展 + UI GitHub App tab + 文档引导 + Manifest flow 可行性评估 + C39 standards 同步
-- [x] **M18.4 C22.4 测试层** —— 单测补强 + e2e mock JWT signing 全链路 + app-provider auth 字段 bug 修复
-- [x] **M18.x 治理批次** —— S-5/C39/C34/S1/S2/S-3/S-4/W3/W4 全部闭环
-- [x] `pnpm lint` / `typecheck` 全绿 —— 0 error
-- [x] vitest 单测覆盖 + playwright e2e 覆盖 —— 全部通过
-- [x] `pnpm check:docs` 全过 —— 99 md links + 55 vue-interp OK
-- [x] 编号标记扫描 0 命中（无孤立 `C\d+` / `T\d+` / `M\d+` / `B\d` / `R\d` 等编号——按 [开发规范 §3 注释规范](../../docs/standards/development.md) 与 [code-auditor.agent.md 主责边界必查项](../../.github/agents/code-auditor.agent.md) 防御）
-- [x] CI 端到端裁决通过 —— ~24 commits 已全部推送至 origin/master，ahead=0
-
-### 阶段治理记录
-
-- **总投入**：~24 commits（M18.0 1 + M18.1 5 + M18.2 2 + M18.3 6 + M18.4 2 + M18.x 8）；含 M18.4 audit round 1 Reject 后针对性补修闭环
-- **测试覆盖**：单测补强 + e2e mock JWT signing 全链路验证
-- **审计覆盖**：M18.0 quick / M18.1 quick × 2（含 1 次 Reject 后补修）/ M18.2 quick / M18.3 standard / M18.4 quick × 2（含 1 次 Reject 后补修）/ M18.x quick × 2 —— 全部 Pass
-- **ahead commits 实证**：`git rev-list HEAD ^origin/master --count` 2026-08-30 实测 ahead=0（已全部推送至 origin/master）
-- **文档落盘**：
-  - `docs/plan/todo-archive.md` §M18 段（本段）
-  - `docs/plan/todo.md` 顶部 M18 任务清单 → M18 已闭环切换
-  - `docs/plan/roadmap.md` M18 段状态更新（已完成 2026-08-30 归档）+ Milestone 概述表 M18 行新增
-  - `docs/plan/backlog.md` §org 增强 C22 主条目状态更新（M18 已闭环）+ 历史归档指针段新增 M18 条目
-  - `docs/plan/archive/index.md` 基线更新（M18 归档后）+ 近期归档批次登记新增 M18 行
-  - `docs/design/governance/c22-pat-backward-compat.md`（M18.0 评估报告）
-  - `docs/design/governance/c22-manifest-flow-feasibility.md`（M18.3 评估报告）
-  - `docs/guide/quick-start.md` GitHub App 配置章节（M18.3）
-  - `docs/design/governance/security.md` §5 凭据模型扩展（M18.3）
-  - `docs/design/governance/architecture.md` §认证更新（M18.3）
-  - `docs/standards/development.md` §5.1.15（M18.x 经验沉淀）
-  - `docs/standards/testing.md` §6.3（M18.x 经验沉淀）
-  - `docs/standards/ai-collaboration.md` §D 第 5 条（M18.x 经验沉淀）
-  - `.github/agents/code-auditor.agent.md` 主责边界必查项（M18.x 经验沉淀）
-
-### 关键决策
-
-- **PAT 保留 + App 并存** vs 完全替换 PAT：选并存 —— PAT 是 CLI quickstart / Action input / 单仓调试的最低摩擦路径；BYO App 只对自部署平台多仓 org 场景提供增量价值（installation 范围限定 + 1h 短时 token 轮换 + 真实 bot 身份）
-- **PAT commit author 保留硬编码** `dependfix[bot]@users.noreply.github.com` —— PAT 路径用户行为零变化；仅 App 路径走动态 bot identity（`{app_id}+{bot_login}[bot]@users.noreply.github.com`）
-- **fixtures 仅 mock**（决策 C 风险承担）：mock 必须严格对齐 `@octokit/auth-app` 库契约输出；单测聚焦库 mock 输出契约作为缓解措施
-- **Manifest flow 一键创建暂不实施**：A7b 仅评估可行性（GHES 版本支持范围 / manifest URL 构造 / OAuth callback 路径 / CSRF 防护）；A7a 文档引导先落地
-- **M18.x 治理批次合并入 C22.x 子阶段顺手做**（决策 B）：按关联性分组（S-5 → M18.1 / C39+C34 → M18.3 / S1+S2 → M18.4 / S-3+S-4 → M18.4 e2e）
-
-### 阶段关键经验（已沉淀至项目知识库）
-
-- **集成外部库前必须读 README 标准用法**（development.md §5.1.15）：M18.1 commit 4 凭直觉写 `auth: createAppAuth(...)` 错误用法 + `vi.mock('@octokit/rest')` 跳真实路径 → M18.4 audit round 1 Reject → round 2 README 标准用法 + 去 mock 化真实路径 e2e 修复
-- **测试 stub 命名一致性**（S-5 延伸教训）：调用方测试 `process.env.ENCRYPTION_KEY` 与生产 `NUXT_ENCRYPTION_KEY` 命名不一致，偶然一致性维持能跑但 setup-nuxt-server.ts stub 字符串变更会导致测试突然全挂——单一来源 + 字面量直接引用优于 env 透传
-
-### 待迁移经验（next neat-freak 候选）
-
-- **W1（M18.4 audit round 2）**：stageAndCommit host 全局 config 隔离未覆盖 `--local` flag 路径——仅覆盖 `-c` 显式传。需补 1 个 case 用 `process.env.GIT_CONFIG_GLOBAL=/tmp/synthetic-global-with-user.name` 模拟 host global + 不预设 local config，验证 `ensureGitConfig` 会写入 local config
-- **W2（M18.4 audit round 2）**：`detectServerLocale` 不接受 `?locale=EN`（大小写敏感），`tryQueryLocale` 由 `@nuxtjs/i18n` 实现可能归一化为 `en`（BCP 47 lowercasing）。建议下一批次加 `.toLowerCase()` 兼容，或在 todo 登记
-- **C34 完整盘点**：standards 中其他"必须级"条款（开发规范 §3 / §4 / §5.1.x / 测试规范 §6 / 安全规范 §5 / git 规范 §3 / AI 协作规范 §1/§4）双层对称挂接完整盘点属于 neat-freak 批次工作，本次 M18.x 治理批次仅做 experience-archive §四十三 4 条新教训挂接；候选下批次会话处理
+> 详见 [archive/todo-archive-phases-m18.md §M18](archive/todo-archive-phases-m18.md#m18-平台-github-app-byo-app-模式m180m181m182m183m184m18x-全部已闭环--2026-08-30-归档)。
 
 ---
+
 
 ## M17: 安全与可用性收口（已归档 → 2026-08-31 M20 归档批次预防性分片迁出）
 

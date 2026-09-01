@@ -4,7 +4,7 @@
 
 ## 当前状态
 
-**M0-M20 已全部闭环归档（2026-08-31）；M22 待启动（SQLite 数据保护防御加固，2026-09-01 dependfix.sqlite 数据清空事故复盘）。** M20 涵盖：M20.1 引擎侧 upstreamId 注入 / M20.3 ScanResult 实体升级 + reconcile 函数 / M20.5 API 简化 + dashboard 调整 / M20.6 UI 调整 + i18n / M20.7 一次性 backfill 脚本。详见 [todo-archive.md §M20](plan/todo-archive.md#m20-scanresult-数据模型重构m201m203m205m206m207-全部已闭环--2026-08-31-归档) + [todo.md §M22](plan/todo.md) + [roadmap.md §M20](plan/roadmap.md#m20-scanresult-数据模型重构已完成-2026-08-31-归档) + [经验归档 §五十](design/governance/experience-archive.md#五十sqlite-数据库业务数据被清空开发环境不可恢复事故2026-09-01)。
+**M0-M22 已全部闭环归档（2026-09-01）；下一阶段规划待用户触发。** M22 涵盖：M22 沉淀（事故复盘 + 5 防御规范挂接）+ M22.1 启动期自动备份 + M22.2 db-restore 命令式恢复 + M22.3 db-doctor 自检工具 + M22.4 synchronize opt-in + M22.5 migrationsRun opt-in + M22.6 e2e/fixtures 双门控。详见 [todo-archive.md §M22](plan/todo-archive.md#m22-sqlite-数据保护防御加固m221m222m223m224m225m226-全部已闭环--2026-09-01-归档) + [roadmap.md §M22](plan/roadmap.md#m22-sqlite-数据保护防御加固已完成-2026-09-01-归档) + [经验归档 §五十](design/governance/experience-archive.md#五十sqlite-数据库业务数据被清空开发环境不可恢复事故2026-09-01)。
 
 `dependfix` CLI 支持四类命令（`report-only` / `fix` / `fix-and-pr` / `cleanup-branches`），可通过 GitHub Composite Action（`uses: dependfix/dependfix@v1`）提供零配置的自动化安全修复能力；独立管理平台（仓库/凭据管理、扫描触发、仪表板、UX-R2 Sidebar、RunDetailDialog）与 MCP Server 已随 M6-M15 落地。
 

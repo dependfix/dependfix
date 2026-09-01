@@ -192,7 +192,7 @@
 ### SQLite 单文件脆弱性 + TypeORM synchronize 风险（持续观察）
 
 - **背景**：2026-09-01 `apps/platform/data/dependfix.sqlite` 业务数据被清空事故（详见 [经验归档 §五十](../design/governance/experience-archive.md#五十sqlite-数据库业务数据被清空开发环境不可恢复事故2026-09-01)）。代码内无清空路径，最可能清空来源在代码外部（shell / CI / 运维）。
-- **当前状态**：M22 阶段已制定修复方案（todo.md §M22.1 - §M22.6），等待落地
+- **当前状态**：✅ M22 全部 6 原子条目已闭环 + 2026-09-01 archive batch（M22.1 启动期自动备份 + M22.2 db-restore 命令式恢复 + M22.3 db-doctor 自检工具 + M22.4 synchronize opt-in + M22.5 migrationsRun opt-in + M22.6 e2e/fixtures 双门控；详见 [todo-archive.md §M22](todo-archive.md#m22-sqlite-数据保护防御加固m221m222m223m224m225m226-全部已闭环--2026-09-01-归档)）。事故防御加固完成；后续"双门控兜底 / 备份保留 / 自检工具"可独立评估升级。
 - **持续观察项**：
   - TypeORM 1.x 升级 / 替换为 0.3.x（1.x 已停止维护）—— 见 M23 候选
   - PostgreSQL 多写者迁移 —— 见 M23 候选
@@ -207,7 +207,7 @@
 | 内容类型 | 位置 |
 |:--|:--|
 | 当前阶段活跃任务 | [todo.md](todo.md) 顶部"当前阶段"段 |
-| 已完成阶段归档 | [todo-archive.md](todo-archive.md)（主窗口保留最近 4 阶段：M21 / M20 / M19 / M18）+ [archive/](archive/)（M0-M17 详细分片） |
+| 已完成阶段归档 | [todo-archive.md](todo-archive.md)（主窗口保留最近 4 阶段：M22 / M21 / M20 / M19）+ [archive/](archive/)（M0-M18 详细分片） |
 | 里程碑与阶段交付 | [roadmap.md](roadmap.md) |
 | 长期主线 / 候选 / 待人工验收 / 已知边界 | 本文档（按四象限结构） |
 | 历史归档索引 | [archive/index.md](archive/index.md) |

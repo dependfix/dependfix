@@ -47,13 +47,13 @@
 ### M23.2 M22.8 根因排查（🛡️ 治理 / 治本）
 
 - **目标**：找到 M22.8 未认证 API 测试 cookie 注入真实根因 + 落地治本修复（如 Playwright fixture isolation helper / 平台级 setup pattern）
-- **范围**：从 [backlog.md §Playwright 1.62 fixture pool 注入 cookie 根因（M22.8 hotfix 衍生）](backlog.md#playwright-1.62-fixture-pool-注入-cookie-根因m228-hotfix-衍生) 3 候选按 ROI 排查 1 项（**推荐 P0 = ① Playwright 1.62 fixture pool `test.use → browser.newContext` 注入路径源码实证**：直接验证 fixture pool 行为假设 + 可产出测试层防御加固）；如 P0 排查失败降级 P1 = ② better-auth 中间件对非 /api/auth/* 端点 Set-Cookie 路径扫描
+- **范围**：从 [backlog.md §Playwright 1.62 fixture pool 注入 cookie 根因（M22.8 hotfix 衍生 + M23.2 部分闭环）](backlog.md#playwright-162-fixture-pool-注入-cookie-根因m228-hotfix-衍生--m232-部分闭环) 3 候选按 ROI 排查 1 项（**推荐 P0 = ① Playwright 1.62 fixture pool `test.use → browser.newContext` 注入路径源码实证**：直接验证 fixture pool 行为假设 + 可产出测试层防御加固）；如 P0 排查失败降级 P1 = ② better-auth 中间件对非 /api/auth/* 端点 Set-Cookie 路径扫描
 - **优先级**：P1（治理 / 治本）
 - **验收**：
-  - [ ] 选定根因结论（源码追溯证据 + 测试复现脚本）登记到 backlog.md + experience-archive.md
-  - [ ] 若产生修复代码（如 Playwright fixture 隔离 helper / 平台级 setup pattern），按 [PDTFC+ 修复工作流] 落地 atomic commit
-  - [ ] 关闭 [backlog.md §Playwright 1.62 fixture pool 注入 cookie 根因 候选根因排查 M23 优先](backlog.md#playwright-1.62-fixture-pool-注入-cookie-根因m228-hotfix-衍生) 段
-  - [ ] wisdom.md 新增 pattern 沉淀（如 Playwright fixture pool 隐式传播 / fixture isolation helper）
+  - [x] 选定根因结论（源码追溯证据 + 测试复现脚本）登记到 backlog.md + experience-archive.md —— 2026-09-02 commit `e0f9b29` 闭环（experience-archive.md §五十四）
+  - [x] 若产生修复代码（如 Playwright fixture 隔离 helper / 平台级 setup pattern），按 [PDTFC+ 修复工作流] 落地 atomic commit —— 2026-09-02 commit `09c3dee` 闭环（apps/platform/tests/e2e/helpers/unauthenticated-api.helper.ts 抽取 + 2 处调用方重构）
+  - [ ] 关闭 [backlog.md §Playwright 1.62 fixture pool 注入 cookie 根因](backlog.md#playwright-162-fixture-pool-注入-cookie-根因m228-hotfix-衍生--m232-部分闭环) 段 —— 待本批次 commit 落地（docs(plan) todo.md + backlog.md 修订）
+  - [ ] wisdom.md 新增 pattern 沉淀（如 Playwright fixture pool 隐式传播 / fixture isolation helper）—— 登记 follow-up（本批次未触及 gitignored 的 wisdom.md；按 §五十四 挂接治理检查点 3，追加现有 `pattern-playwright-browser-newContext-cookie-injection` 而非新增 pattern，留待 wisdom 蒸馏批次统一处理）
 - **依赖**：M23.0 G1/G2/G3 治理批次完成；M22.8 commit `bdcd900 + 2472b05` 已推送；testing.md e2e 未认证 API 调用标准模式（commit `43f40b5` §3.6 + §1.6 配套规范）已落地
 - **交付物**：根因结论登记 backlog.md §Playwright 1.62 fixture pool 注入 cookie 根因 + experience-archive.md 新增§ + wisdom.md 新增 pattern + fixture isolation helper commit（若产生）
 - **风险与缓解措施**：Playwright fixture isolation helper 抽取需兼容既有 6+ e2e 测试描述块 → 改造前先做 1 个代表性用例验证；better-auth 中间件 Set-Cookie 路径扫描可能引入新测试面 → 风险登记 backlog

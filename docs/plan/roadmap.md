@@ -324,7 +324,7 @@ per-alert 模型 + reconcile + API 简化 + UI 调整 + backfill 脚本。5 子�
 
 ### M23.2 M22.8 根因排查（🛡️ 治理 / 治本）
 
-> **范围**：从 [backlog.md §Playwright 1.62 fixture pool 注入 cookie 根因（M22.8 hotfix 衍生）](backlog.md#playwright-1.62-fixture-pool-注入-cookie-根因m228-hotfix-衍生) 3 候选按 ROI 排查 1 项。
+> **范围**：从 [backlog.md §Playwright 1.62 fixture pool 注入 cookie 根因（M22.8 hotfix 衍生 + M23.2 部分闭环）](backlog.md#playwright-162-fixture-pool-注入-cookie-根因m228-hotfix-衍生--m232-部分闭环) 3 候选按 ROI 排查 1 项。
 >
 > **优先级**：P1（治理 / 治本）
 >
@@ -336,7 +336,7 @@ per-alert 模型 + reconcile + API 简化 + UI 调整 + backfill 脚本。5 子�
 >
 > - 选定根因结论（源码追溯证据 + 测试复现脚本）登记到 backlog.md + experience-archive.md
 > - 若产生修复代码（如 Playwright fixture 隔离 helper / 平台级 setup pattern），按 [PDTFC+ 修复工作流](../standards/ai-collaboration.md#4-修复工作流原则) 落地 atomic commit
-> - 关闭 [backlog.md §Playwright 1.62 fixture pool 注入 cookie 根因 候选根因排查 M23 优先](backlog.md#playwright-1.62-fixture-pool-注入-cookie-根因m228-hotfix-衍生) 段
+> - 关闭 [backlog.md §Playwright 1.62 fixture pool 注入 cookie 根因（M22.8 hotfix 衍生 + M23.2 部分闭环） 候选根因排查 M23 优先](backlog.md#playwright-162-fixture-pool-注入-cookie-根因m228-hotfix-衍生--m232-部分闭环) 段
 > - wisdom.md 新增 pattern 沉淀（如 Playwright fixture pool 隐式传播 / fixture isolation helper）
 
 ### M23.3 C66 告警视图增强（🚀 能力扩展 / UX）

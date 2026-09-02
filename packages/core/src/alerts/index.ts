@@ -52,6 +52,20 @@ export interface NormalizedSecurityAlert {
      * - pnpm-audit：`${source}:${packageName-sha256Prefix}:${advisoryId-sha256Prefix}`
      */
     upstreamId: string
+    /**
+     * GitHub Security Advisory ID（M23.3 C66-A2 新增）。
+     * - dependabot：`security_advisory.ghsa_id`
+     * - pnpm-audit：`advisory.github_advisory_id`（GitHub Advisory Database 收录时）
+     * - code-scanning / code-quality：无此概念（缺省 undefined）
+     */
+    ghsaId?: string
+    /**
+     * CVE ID 列表（M23.3 C66-A2 新增）。
+     * - dependabot：从 `security_advisory.identifiers[]` 提取 type === 'CVE' 列表
+     * - pnpm-audit：从 `advisory.cves[]` 字符串数组
+     * - code-scanning / code-quality：无此概念（缺省空数组）
+     */
+    cveIds?: string[]
 }
 
 /**

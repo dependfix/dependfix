@@ -109,6 +109,10 @@ interface RiskRecord {
     title: string
     htmlUrl: string
     patchedVersion: string | null
+    /** GitHub Advisory ID（pnpm audit `advisory.github_advisory_id`，GitHub Advisory Database 收录时） */
+    ghsaId?: string
+    /** CVE ID 列表（pnpm audit `advisory.cves[]` 字符串数组） */
+    cveIds?: string[]
 }
 
 /** pnpm audit 修复版本的空值哨兵（无可用修复） */
@@ -167,6 +171,18 @@ function parseLegacyAuditReport(report: Record<string, unknown>): RiskRecord[] {
 
     // actions 提供修复版本（action.target）
     const actionMap = new Map<string, string | undefined>()
+    // M23.3 C66-A2：提取 GHSA + CVE 列表（按 advisory id 索引）
+    const advisoryExtrasMap = new Map<string, { ghsaId?: string, cveIds?: string[] }>()
+    for (const [id, rawAdvisory] of Object.entries(advisories as Record<string, unknown>)) {
+        if (!rawAdvisory || typeof rawAdvisory !== 'object') {
+            continue
+        }
+        const advisory = rawAdvisory as Record<string, unknown>
+        const extras = extractIdentifiers(advisory)
+        if (extras.ghsaId || (extras.cveIds && extras.cveIds.length > 0)) {
+            advisoryExtrasMap.set(id, extras)
+        }
+    }
     for (const action of toArray(report.actions)) {
         if (!action || typeof action !== 'object') {
             continue
@@ -189,6 +205,7 @@ function parseLegacyAuditReport(report: Record<string, unknown>): RiskRecord[] {
         const patched = normalizePatchedVersionValue(
             actionMap.get(id) ?? (typeof advisory.patched_versions === 'string' ? advisory.patched_versions : undefined),
         )
+        const extras = advisoryExtrasMap.get(id)
         risks.push({
             advisoryId: resolveAdvisoryId(advisory),
             packageName: typeof advisory.module_name === 'string' ? advisory.module_name : 'unknown-package',
@@ -196,6 +213,7 @@ function parseLegacyAuditReport(report: Record<string, unknown>): RiskRecord[] {
             title: typeof advisory.title === 'string' ? advisory.title : 'Untitled advisory',
             htmlUrl: typeof advisory.url === 'string' ? advisory.url : '',
             patchedVersion: patched,
+            ...(extras ?? {}),
         })
     }
     return risks
@@ -232,6 +250,7 @@ function parseModernAuditReport(report: Record<string, unknown>): RiskRecord[] {
         const viaItems = toArray(vulnerability.via).filter((item): item is Record<string, unknown> => item !== null && typeof item === 'object')
 
         if (viaItems.length === 0) {
+            const extras = extractIdentifiers(vulnerability)
             risks.push({
                 advisoryId: resolveAdvisoryId(vulnerability),
                 packageName,
@@ -239,6 +258,7 @@ function parseModernAuditReport(report: Record<string, unknown>): RiskRecord[] {
                 title: typeof vulnerability.title === 'string' ? vulnerability.title : `${packageName} vulnerability`,
                 htmlUrl: typeof vulnerability.url === 'string' ? vulnerability.url : '',
                 patchedVersion: patchedFromFixAvailable,
+                ...(extras ?? {}),
             })
             continue
         }
@@ -248,6 +268,7 @@ function parseModernAuditReport(report: Record<string, unknown>): RiskRecord[] {
             if (typeof advisory.severity === 'string' && advisory.severity) {
                 severity = advisory.severity
             }
+            const extras = extractIdentifiers(advisory)
             risks.push({
                 advisoryId: resolveAdvisoryId(advisory),
                 packageName: typeof advisory.name === 'string' && advisory.name ? advisory.name : packageName,
@@ -255,6 +276,7 @@ function parseModernAuditReport(report: Record<string, unknown>): RiskRecord[] {
                 title: typeof advisory.title === 'string' ? advisory.title : `${packageName} vulnerability`,
                 htmlUrl: typeof advisory.url === 'string' ? advisory.url : '',
                 patchedVersion: patchedFromFixAvailable,
+                ...(extras ?? {}),
             })
         }
     }
@@ -313,6 +335,32 @@ export function hashAdvisoryId(packageName: string, advisoryId: string): number 
     return digest.readUInt32BE(0)
 }
 
+/**
+** M23.3 C66-A2：从 pnpm audit advisory 提取 GHSA ID + CVE 列表。
+** 兼容 legacy `github_advisory_id` + modern `advisory.github_advisory_id` 与 `cves[]`。
+*/
+function extractIdentifiers(candidate: Record<string, unknown>): { ghsaId?: string, cveIds?: string[] } {
+    const ghsaId = typeof candidate.github_advisory_id === 'string' && candidate.github_advisory_id
+        ? candidate.github_advisory_id
+        : undefined
+    const cves = candidate.cves
+    let cveIds: string[] | undefined
+    if (Array.isArray(cves)) {
+        const valid = cves.filter((c): c is string => typeof c === 'string' && Boolean(c))
+        if (valid.length > 0) {
+            cveIds = valid
+        }
+    }
+    const result: { ghsaId?: string, cveIds?: string[] } = {}
+    if (ghsaId) {
+        result.ghsaId = ghsaId
+    }
+    if (cveIds) {
+        result.cveIds = cveIds
+    }
+    return result
+}
+
 /** audit 风险 → 标准化告警（source='pnpm-audit'，repository 由调用方注入） */
 function mapAuditRiskToAlert(risk: RiskRecord, repository: string): NormalizedSecurityAlert {
     const fixable = risk.patchedVersion !== null
@@ -337,5 +385,8 @@ function mapAuditRiskToAlert(risk: RiskRecord, repository: string): NormalizedSe
             packageName: risk.packageName,
             advisoryId: risk.advisoryId,
         }),
+        // M23.3 C66-A2：透传 GitHub Advisory ID + CVE 列表
+        ghsaId: risk.ghsaId,
+        cveIds: risk.cveIds,
     }
 }

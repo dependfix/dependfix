@@ -64,6 +64,9 @@ const MODERN_AUDIT_JSON = {
                     cwe: ['CWE-1333'],
                     cvss: { score: 7.5, vectorString: 'CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H' },
                     range: '<=3.1.4',
+                    // M23.3 C66-A2：GitHub Advisory ID + CVE 列表透传
+                    github_advisory_id: 'GHSA-f8p3-7c7w-h6x4',
+                    cves: ['CVE-2023-36661'],
                 },
             ],
             effects: [],
@@ -124,15 +127,22 @@ describe('parseAuditReport', () => {
         const risks = parseAuditReport(MODERN_AUDIT_JSON)
         const fastUri = risks.find((r) => r.packageName === 'fast-uri')
         expect(fastUri).toBeDefined()
-        // pnpm audit via 项无 github_advisory_id/cves，advisoryId 取 url（与参考实现 resolveAdvisoryId 一致）
-        expect(fastUri?.advisoryId).toBe('https://github.com/advisories/GHSA-f8p3-7c7w-h6x4')
+        // fast-uri via 项含 github_advisory_id（优先级最高）→ advisoryId 取 GHSA ID
+        expect(fastUri?.advisoryId).toBe('GHSA-f8p3-7c7w-h6x4')
         expect(fastUri?.severity).toBe('high')
         expect(fastUri?.patchedVersion).toBe('3.1.5')
         expect(fastUri?.htmlUrl).toContain('GHSA-f8p3-7c7w-h6x4')
+        // M23.3 C66-A2：透传 GitHub Advisory ID + CVE 列表（fixture 含 github_advisory_id + cves）
+        expect(fastUri?.ghsaId).toBe('GHSA-f8p3-7c7w-h6x4')
+        expect(fastUri?.cveIds).toEqual(['CVE-2023-36661'])
 
         const lodash = risks.find((r) => r.packageName === 'lodash')
         expect(lodash?.patchedVersion).toBeNull()
+        // lodash via 项无 github_advisory_id/cves → advisoryId 降级取 url
         expect(lodash?.advisoryId).toBe('https://github.com/advisories/GHSA-jf85-cpcp-j695')
+        // lodash fixture 无 github_advisory_id/cves 字段 → 透传 undefined
+        expect(lodash?.ghsaId).toBeUndefined()
+        expect(lodash?.cveIds).toBeUndefined()
     })
 
     it('parses legacy format (advisories/actions) with action target', () => {
@@ -341,13 +351,16 @@ describe('fetchPnpmAuditAlerts', () => {
         expect(alerts[0].repository).toBe('owner/repo')
         expect(alerts[0].upstreamId).toMatch(/^pnpm-audit:fast-uri:[a-f0-9]{16}$/)
         expect(alerts[0].packageName).toBe('fast-uri')
-        expect(alerts[0].ruleId).toBe('https://github.com/advisories/GHSA-f8p3-7c7w-h6x4')
+        expect(alerts[0].ruleId).toBe('GHSA-f8p3-7c7w-h6x4')
         expect(alerts[0].severity).toBe('high')
         expect(alerts[0].fixable).toBe(true)
         expect(alerts[0].fixStrategy).toBe('upgrade')
         expect(alerts[0].recommendedVersion).toBe('3.1.5')
         expect(alerts[0].packageEcosystem).toBe('npm')
         expect(alerts[0].dependencyType).toBeUndefined()
+        // M23.3 C66-A2：透传 GitHub Advisory ID + CVE 列表
+        expect(alerts[0].ghsaId).toBe('GHSA-f8p3-7c7w-h6x4')
+        expect(alerts[0].cveIds).toEqual(['CVE-2023-36661'])
 
         const lodash = alerts.find((a) => a.packageName === 'lodash')
         expect(lodash?.fixable).toBe(false)

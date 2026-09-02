@@ -313,6 +313,20 @@ void Repository
 - 启动期需打印明确错误：`[database] synchronize FAILED: ...请写 migration 而非改 entity`
 - D 阶段自检必须验证：涉及 NOT NULL 列无 default 的 schema 变更必须走 migration 路径，不可仅靠 synchronize
 
+#### 5.1.20 atomic commit 边界（重构支撑 vs 业务行为变更必须分 commit）
+
+> 教训来源：M22.4 commit `daa255c` 实施 "TypeORM synchronize 显式 opt-in + 启动日志" 时将 3 类改动打包到 1 个 commit ——（1）**业务行为变更** synchronize 默认值反转（`DATABASE_SYNCHRONIZE === 'true' || isDev` → `DATABASE_SYNCHRONIZE === 'true'`）+ （2）**重构支撑** 提取 migrationsRun 为 const + （3）**重构支撑** 删除 isDev 分支。3 类打包越界落地 M22.5 核心改动（默认值反转属 M22.5 范围），audit Round 1 quick depth Reject（0 B / 2 B + 4 W），强制回退整个 commit + M22.5 commit `32bb375` 重新只做重构支撑 + 后续单独 commit 反转默认值。详见 [经验归档 §四十九（M22.4 教训沉淀）](../design/governance/experience-archive.md)。
+
+**核心规则**：
+- 重构支撑 = 不改变行为，只改善代码结构（提取 const / 改命名 / 删除冗余分支）
+- 业务行为变更 = 改变默认行为（默认值反转 / 逻辑反转 / 新增功能）——两者必须分 commit
+
+**安全做法**：
+- 启动日志要打印某变量时，**临时用内联表达式**（`console.log(\`migrationsRun=${process.env.DATABASE_MIGRATIONS_RUN !== 'false'}\`)`），不提取 const
+- 业务行为变更的 commit（如默认值反转）时再统一提取 + 改计算
+
+**规范支撑**：[AGENTS.md §提交规范](../../AGENTS.md) 第 4 条"原子粒度——一个提交对应一个逻辑变更" + [规划规范 §1.1 任务粒度约束](./planning.md)
+
 **实证**（repro.cjs / sv-test3.cjs）：
 - TypeORM 1.x 在 SQLite + 已有数据 + 新增 NOT NULL 列无 default 时实测：`Init FAILED: SqliteError: NOT NULL constraint failed`，事务回滚后 `schema_version` 不变 + 数据保留
 - **synchronize 失败不会清空数据**（事务回滚保证），但启动失败需用户明确知道是 schema 同步失败而非数据库损坏

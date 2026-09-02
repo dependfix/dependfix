@@ -20,10 +20,10 @@
   - testing.md 补充 e2e global-setup 串行场景网络抗性最佳实践 + e2e 未认证 API 调用测试标准模式（`storageState: { cookies: [], origins: [] }` 强制隔离）
 - **优先级**：P2（治理）
 - **验收**：
-  - [ ] security.md §2.1 为权威完整声明，development.md §5.1.18 + platform.md §3.7 收敛为引用 + 仅保留差异化信息（差异化信息段不重复 SQLite 防护规则全文）
-  - [ ] wisdom 活跃条目 ≤ 20（蒸馏后实证 `pnpm distill:wisdom --check`）
-  - [ ] 4 条 pattern 正式挂入对应 standards / agent 文档（含交叉引用链接）
-  - [ ] `pnpm run lint:md` + `pnpm run check:docs` 0 error
+  - [x] security.md §2.1 为权威完整声明，development.md §5.1.18 + platform.md §3.7 收敛为引用 + 仅保留差异化信息（差异化信息段不重复 SQLite 防护规则全文）—— 2026-09-02 G1 commit `f8a8640` 闭环
+  - [x] wisdom 活跃条目 ≤ 20（蒸馏后实证 `pnpm distill:wisdom --check`）—— 2026-09-02 G2 commit `35b9714` 范围修订闭环（M22.7 hotfix 阶段 wisdom 21 → 17 蒸馏已落地，本批次仅核验状态合规）
+  - [x] 4 条 pattern 正式挂入对应 standards / agent 文档（含交叉引用链接）—— 2026-09-02 G3 commit `?` 闭环（commit hash 待本批次 G3 落地后填入）
+  - [x] `pnpm run lint:md` + `pnpm run check:docs` 0 error
 - **依赖**：M22 全部 commit 已推送至 origin/master（M22.7 hotfix `f617b56 + 51e8c13` + M22.8 hotfix `bdcd900 + 2472b05`）；commit `43f40b5` 已落地信息密度规范强化
 - **交付物**：security.md §2.1 + development.md §5.1.18 + platform.md §3.7 三 文档同步修订 + `.session/wisdom.md` 蒸馏 + 4 条 standards 挂接 + 1-2 atomic commits
 - **风险与缓解措施**：neat-freak 收敛涉及 3 个文档同步编辑，避免漏改 → D 阶段开工前先 `rg -n "SQLite 启动期备份|db-restore|db-doctor"` 全仓库扫描引用位置；wisdom 蒸馏可能误删高价值条目 → 蒸馏前 `wisdom.md` 快照备份 + 关键 pattern 单独保留

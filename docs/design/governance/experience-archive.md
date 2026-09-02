@@ -825,6 +825,51 @@ M20 归档批次执行时：
 
 本案例符合准入标准第 1 条"教训未落入规范"（planning.md §4.4 缺少"预防性迁出后 cross-reference 更新"规范）+ 第 3 条"重复违规预警"（M18 归档批次预防性迁出 M13/M12/M10 / M19 归档批次预防性迁出 M14/M15 均有类似断链风险）。挂接治理检查点 2 项可显著降低未来同类问题概率。
 
+## 四十九、atomic commit 边界：重构支撑 vs 业务行为变更必须分 commit（2026-09-02，M22.4 commit `daa255c` audit Round 1 Reject）
+
+### 案例
+
+M22.4 commit `daa255c`（2026-08-31）实施 "TypeORM synchronize 显式 opt-in + 启动日志"时，将 3 类不同性质的改动打包到 1 个 commit：
+
+1. **业务行为变更**（synchronize 默认值反转）：原 `synchronize: DATABASE_SYNCHRONIZE === 'true' || isDev`（dev 自动开启）→ 新 `synchronize: DATABASE_SYNCHRONIZE === 'true'`（dev 默认关闭）。这是**业务行为变更**，影响所有依赖 dev 自动同步的脚本与 CI 路径。
+2. **重构支撑**（提取 migrationsRun 为 const）：原 `migrationsRun: process.env.DATABASE_MIGRATIONS_RUN !== 'false'`（默认 true）→ 新 `const migrationsRun = process.env.DATABASE_MIGRATIONS_RUN !== 'false'`（仍默认 true，只是提取为 const 支撑启动日志）。
+3. **重构支撑**（删除 isDev 分支）：从 synchronize 计算逻辑删除 `|| isDev` 分支，配合 #1 的反转。
+
+3 类打包到 1 个 commit 后，audit Round 1 quick depth Reject（0 B / 2 B + 4 W），强制回退整个 commit + M22.5 commit `32bb375` 重新只做 #2 + #3（重构支撑）+ M22.5.1 后续单独 commit 反转默认值。
+
+### 根因
+
+作者混淆 "提取 const 支撑启动日志"（重构）与 "反转默认值"（业务行为变更）的本质差异，前者不动计算逻辑，后者改变默认行为，两者必须分 commit：
+- 重构支撑 = 不改变行为，只改善代码结构（提取 const / 改命名 / 删除冗余分支）
+- 业务行为变更 = 改变默认行为（默认值反转 / 逻辑反转 / 新增功能）
+
+混在一起导致：
+- audit 无法独立回退单个逻辑（如只想回退默认值反转但保留重构支撑）
+- 默认值反转被"重构支撑"伪装，越界落地未受独立审计
+- `.env.example:98` 文档与代码默认行为相反（M22.4 改 env 默认值但未同步文档）
+
+### 修复路径
+
+1. **业务行为变更先于重构支撑 commit**：先 commit 行为变更（如默认值反转），再 commit 重构支撑（提取 const）。两者必须独立 atomic commit。
+2. **临时用内联表达式不提取 const**：启动日志要打印某变量时，`console.log(\`migrationsRun=${process.env.DATABASE_MIGRATIONS_RUN !== 'false'}\`)` 内联即可，不提取 const。行为变更的 commit 时再统一提取 + 改计算。
+3. **AGENTS.md 提交规范第 4 条 + planning.md §1.1 任务粒度约束**已明确 "原子粒度"原则；本案例补充细化 "重构支撑 vs 业务行为变更"边界。
+
+### 教训
+
+- 教训 1：提取 const 是**重构支撑**（不动计算逻辑），改 const 计算语义是**业务行为变更**——两者必须分 commit。
+- 教训 2：commit message 必须清晰标识每条 commit 的"变更性质"（重构支撑 / 行为变更 / 文档更新），便于 audit 判断越界。
+- 教训 3：默认值反转类改动必须单独 commit，便于回滚 + 文档同步 + 影响面独立评估。
+
+### 挂接治理检查点
+
+1. **docs/standards/development.md §5.1.20 atomic commit 边界**（规范新增）：明确重构支撑 vs 业务行为变更边界 + 必分 commit。
+2. **.github/agents/code-auditor.agent.md 主责边界「atomic commit 边界（必查项）」**（必查项新增）：审查 commit 是否混类型改动。
+3. **AGENTS.md 提交规范第 4 条**：原子粒度原则（本案例为细化补充）。
+
+### 准入标准复核
+
+本案例符合准入标准第 1 条"教训未落入规范"（development.md 之前缺 atomic commit 边界细化条款）+ 第 3 条"重复违规预警"（M22.6 commit `7f84b6e` Round 1 audit 类似越界合并条目实证）。挂接治理检查点 3 项可显著降低未来同类越界风险。
+
 ## 五十、SQLite 数据库业务数据被清空：开发环境不可恢复事故（2026-09-01）
 
 ### 案例

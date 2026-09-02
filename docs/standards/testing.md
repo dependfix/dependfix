@@ -121,6 +121,26 @@
 
 集成 `@octokit/auth-app` / Vue 插件 / TypeORM / better-auth 等外部库时，**集成层测试不 mock 真实被集成库**（保留真实代码路径可执行）；mock 仅替换被测单元边界。完整规范 + 教训 + mock 边界示例见 [development.md §5.1.15](./development.md) + [经验归档 §四十三](../../docs/design/governance/experience-archive.md#四十三集成外部库必须读-readme-标准用法--e2e-真实路径冒烟测试2026-08-29m18.4-audit-round-1-reject-后补修)。
 
+### 6.4 E2E 网络抗性 + 未认证 API 调用标准模式
+
+> 教训来源：M22.7 hotfix commit `f617b56`（CI run 33525721103 E2E global-setup ECONNRESET）+ M22.8 hotfix commit `bdcd900`（CI run 33533376712 未认证 API 测试 cookie 注入）+ [经验归档 §五十一](../design/governance/experience-archive.md) + §五十二。
+
+#### e2e global-setup 串行场景网络抗性
+
+- **问题**：e2e global-setup 串行多次 setupPage.request / pageSignin（admin + viewer + storageState 序列化 6s+）后紧接 fixtures cleanup 首请求偶现 ECONNRESET（TCP RST，100ms 内）
+- **根因排查边界**：handler / 单测 / 本地复现穷举 → 通过即接受兜底修复 + 根因 backlog 分离
+- **修复模式**（test helper 层而非 handler 层）：复用 Playwright 1.62 `_sendRequestWithRetries` 内置 250ms 指数 backoff 重试（仅对 `e.code === 'ECONNRESET'` 触发）
+- **JSDoc 精度**：必须穷举"哪些错误重试"+"哪些错误不重试"（`ECONNREFUSED` / `ETIMEDOUT` 等不重试）
+- **根因排查**：按 ROI 排序登记 backlog.md §已知边界 M22.7 衍生段（M 阶段规划时优先排查 better-auth 1.7 transaction close 时序 / Nitro h3 async generator / SQLite WAL 模式）
+
+#### e2e 未认证 API 调用测试标准模式
+
+- **问题**：Playwright 1.62 `describe` 块内 `test.use({ storageState })` 配置可能通过 fixture pool 隐式传播到该 scope 内所有 `browser.newContext()` 调用（包括未指定 storageState 的手动创建）—— 未认证 API 调用测试（期望 401/403）莫名收到 200/201
+- **诊断信号**：网络追踪 `trace.zip` 中 `context-options` 携带上游 session token + `network` 子文件含完整 cookie / header / request 序列
+- **修复模式**：测试 `browser.newContext()` 调用必须显式传 `storageState: { cookies: [], origins: [] }`（Playwright 1.62 文档推荐的"unauthenticated API call"模式），与 `test.use({ storageState })` 完全脱钩强制清空 cookies/origins
+- **CI 失败时间模式诊断**：global-setup 失败 → 后续测试不运行 → 掩盖后续测试真实状态。CI 修复需走完整链路（global-setup → setup → tests → teardown），单一节点失败掩盖下游问题
+- **未来扩展**：建立 helper `tests/e2e/helpers/unauth-request.helper.ts` 抽取重复模式（audit suggest 候选）
+
 ## 7. 测试代码质量
 
 - 测试代码本身也需要通过 lint + typecheck

@@ -390,6 +390,30 @@ CI 失败后不得回退到全量重试，应分析具体失败点针对性修�
 - 三维度全为"登记"则统一登记 backlog；任一为"修复"则必须在本次 commit 内处理。warning 不允许"跳过"决策。
 - 跨领域补充：本节与 [§4.5](#45-code-auditor-quick-depth-时长校准5min-时间盒实测-79s) + [code-reviewer SKILL.md §2.5 分级审计协议](../../.github/skills/code-reviewer/SKILL.md) 配合使用——`audit-depth: quick` + 实测时间 + warning 决策框架三件套决定 F 阶段放行。
 
+### 4.7 CI 偶发错误三阶段协议（PDTFC+ F 阶段修复工作流）
+
+> 教训来源：M22.7 hotfix commit `f617b56`（CI run 33525721103 E2E global-setup ECONNRESET）+ M22.8 hotfix commit `bdcd900`（CI run 33533376712 未认证 API 测试 cookie 注入）+ [经验归档 §五十一](../design/governance/experience-archive.md) + §五十二。
+
+CI 失败时按以下三阶段协议处理（避免"无限本地复现"陷阱）：
+
+**阶段 1：穷举排查**
+- handler 逻辑 / 单测 / 本地复现全部走一遍
+- 通过即接受兜底修复 + 根因 backlog 分离（不要在本地无限复现根因）
+- 通过判定：handler 单测全过 + vitest 集成测试通过 + 本地 fresh context 复现稳定
+
+**阶段 2：helper 层兜底修复（而非 handler 层）**
+- 测试代码改 helper，不动 server handler
+- helper 层加 `maxRetries` / `storageState: { cookies: [], origins: [] }` 等防御性参数
+- server 不感知，本地/CI 行为等价
+- handler 单元测试 0 改动
+
+**阶段 3：根因 backlog 分离 + M 阶段规划时优先排查**
+- 根因登记 backlog §已知边界 衍生段
+- M 阶段规划时按 ROI 排序候选根因（候选 3-4 项）
+- 实施 M 阶段时优先排查，避免"兜底修复 = 完成"心理陷阱
+
+**JSDoc 精度要求**：helper 兜底代码必须穷举"哪些错误重试"+"哪些错误不重试"——避免维护者误判覆盖范围（例：`maxRetries: 2` JSDoc 必须说明"仅对 e.code === 'ECONNRESET' 触发 250ms 指数 backoff 重试，其他错误码错误不重试"）
+
 ## 5. 相关文档
 
 - [AI 资产治理规范](./ai-governance.md)

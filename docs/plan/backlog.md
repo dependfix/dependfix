@@ -282,13 +282,14 @@
   - SQLite 文件 inode 监控（`fs.watch` 检测 .sqlite 文件被外部 rm / rename 触发紧急备份）
 - **规范挂接**：[development.md §5.1.18](./../standards/development.md) + [§5.1.19](./../standards/development.md) + [platform.md §3.6](./../standards/platform.md) + [§3.7](./../standards/platform.md) + [security.md §2.1](./../standards/security.md)
 
-### E2E global-setup 串行场景 ECONNRESET 根因（M22.7 hotfix 衍生）
+### E2E global-setup 串行场景 ECONNRESET 根因（M22.7 hotfix 衍生 + M23.1 部分闭环）
 
-- **背景**：2026-09-01 CI run 33525721103 E2E job 失败于 global-setup 末尾 `cleanAlertsRowgroupFixtures` → `DELETE /api/e2e/fixtures` → `ECONNRESET`（TCP RST，100ms 内）。handler 逻辑 / 单元测试 / 本地复现均通过，无法本地稳定复现；最可能根因是 better-auth session 写入后 SQLite 连接释放时序与 fixtures DELETE `ensureDatabaseInitialized()` 走同一 singleton 的异步清理窗口竞争。**M22.7 hotfix 已落地 helper 层兜底**（commit `f617b56`：e2e/fixtures helper 加 `maxRetries: 2`，复用 Playwright 1.62 `_sendRequestWithRetries` 内置 250ms 指数 backoff 重试；详见 [todo-archive.md §M22.7](todo-archive.md#m227-e2efixtures-helper-网络兜底hotfix--ci-run-33525721103-2026-09-01-闭环) + [经验归档 §五十一](../design/governance/experience-archive.md#五十一e2e-global-setup-串行多次-setuppage-后首请求-econnreset2026-09-01ci-run-33525721103)）。
+- **M23.1 闭环**（2026-09-02 commit `2ffaa45`）：候选 ③ SQLite WAL 模式 + busy_timeout 优化已落地（`journal_mode=WAL` + `busy_timeout=5000ms`），详见 [经验归档 §五十三](../design/governance/experience-archive.md#五十三sqlitewal模式busytimeout治本m227econnreset根因候选③20260902m231commit) + [todo.md §M23.1](todo.md)。**剩余候选 1/2/4 待 CI 复现一次确认是否仍存在**（better-auth transaction 关闭时序 / Nitro h3 `defineEventHandler` async generator / fixtures API 节流）。
+- **背景**：2026-09-01 CI run 33525721103 E2E job 失败于 global-setup 末尾 `cleanAlertsRowgroupFixtures` → `DELETE /api/e2e/fixtures` → `ECONNRESET`（TCP RST，100ms 内）。handler 逻辑 / 单元测试 / 本地复现均通过，无法本地稳定复现；最可能根因是 better-auth session 写入后 SQLite 连接释放时序与 fixtures DELETE `ensureDatabaseInitialized()` 走同一 singleton 的异步清理窗口竞争。**M22.7 hotfix 已落地 helper 层兜底**（commit `f617b56`：e2e/fixtures helper 加 `maxRetries: 2`，复用 Playwright 1.62 `_sendRequestWithRetries` 内置 250ms 指数 backoff 重试；详见 [todo.md §M22.7](todo-archive.md#m227-e2efixtures-helper-网络兜底hotfix--ci-run-33525721103-2026-09-01-闭环) + [经验归档 §五十一](../design/governance/experience-archive.md#五十一e2e-global-setup-串行多次-setuppage-后首请求-econnreset2026-09-01ci-run-33525721103)）。
 - **候选根因排查（M23 优先）**：按 ROI 排序：
   1. **better-auth 1.7 transaction 关闭时序** —— 在 `getAuth()` 加 `[auth] transaction close trace` 日志 + `ds.transaction` 包装打印 begin/commit 时间戳，CI 复现一次
   2. **Nitro h3 `defineEventHandler` async generator 行为** —— 检查 fixtures.delete handler 是否被识别为 generator（`async function*`）导致提前 close socket
-  3. **SQLite WAL 模式 + `journalMode=delete`** —— 当前 default rollback journal，并发事务可能短暂持锁；切 WAL + `busy_timeout` 可能消解
+  3. ~~**SQLite WAL 模式 + `journalMode=delete`**~~ —— 2026-09-02 M23.1 commit `2ffaa45` 闭环（落地 WAL + busy_timeout 优化）
   4. **fixtures API 请求间节流** —— 经验性方案，避免作为唯一修复
 - **wisdom 沉淀**：见 .session/wisdom.md 2026-09-01 M22.7 hotfix 段 `pattern-playwright-maxRetries-econnreset`（Playwright 仅对 `e.code === 'ECONNRESET'` 重试的源码实证 + test helper 兜底模式 + 4 项治理检查点登记）
 

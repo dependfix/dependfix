@@ -32,13 +32,13 @@
 ### M23.1 M22.7 根因排查（🛡️ 治理 / 治本）
 
 - **目标**：找到 M22.7 E2E global-setup ECONNRESET 真实根因 + 落地治本修复（替代 M22.7 helper 层 maxRetries 兜底）
-- **范围**：从 [backlog.md §E2E global-setup 串行场景 ECONNRESET 根因（M22.7 hotfix 衍生）](backlog.md#e2e-global-setup-串行场景-econnreset-根因m227-hotfix-衍生) 4 候选按 ROI 排查 1 项（**推荐 P0 = ③ SQLite WAL 模式 + `journalMode=delete` → `journalMode=wal` + busy_timeout 优化**：治本收益最大 + 风险最低 + 与 M22 防御加固体系一致）；如 P0 排查失败降级 P1 = ① better-auth 1.7 transaction 关闭时序
+- **范围**：从 [backlog.md §E2E global-setup 串行场景 ECONNRESET 根因（M22.7 hotfix 衍生）](backlog.md) 4 候选按 ROI 排查 1 项（**推荐 P0 = ③ SQLite WAL 模式 + `journalMode=delete` → `journalMode=wal` + busy_timeout 优化**：治本收益最大 + 风险最低 + 与 M22 防御加固体系一致）；如 P0 排查失败降级 P1 = ① better-auth 1.7 transaction 关闭时序
 - **优先级**：P1（治理 / 治本）
 - **验收**：
-  - [ ] 选定根因结论（实证证据 + 失败模式分析）登记到 backlog.md + experience-archive.md
-  - [ ] 若产生修复代码（如 WAL 模式切换），按 [PDTFC+ 修复工作流] 落地 atomic commit + CI run 验证
-  - [ ] 关闭 [backlog.md §E2E global-setup 串行场景 ECONNRESET 根因 候选根因排查 M23 优先](backlog.md#e2e-global-setup-串行场景-econnreset-根因m227-hotfix-衍生) 段
-  - [ ] wisdom.md 新增 pattern 沉淀（如 SQLite WAL 模式切换 / better-auth transaction 时序）
+  - [x] 选定根因结论（实证证据 + 失败模式分析）登记到 backlog.md + experience-archive.md —— 2026-09-02 commit `74d3dd8` 闭环（experience-archive.md §五十三 + backlog.md §E2E 段部分闭环）
+  - [x] 若产生修复代码（如 WAL 模式切换），按 [PDTFC+ 修复工作流] 落地 atomic commit + CI run 验证 —— 2026-09-02 commit `2ffaa45` 闭环（PRAGMA journal_mode=WAL + busy_timeout=5000ms）
+  - [x] 关闭 [backlog.md §E2E global-setup 串行场景 ECONNRESET 根因 候选根因排查 M23 优先](backlog.md#e2e-global-setup-串行场景-econnreset-根因m227-hotfix-衍生--m231-部分闭环) 段 —— 2026-09-02 commit `74d3dd8` 闭环（候选 ③ 已治本落地 + 候选 1/2/4 标注"待 CI 复现确认"）
+  - [ ] wisdom.md 新增 pattern 沉淀（如 SQLite WAL 模式切换 / better-auth transaction 时序）—— 登记 follow-up（本批次未触及 gitignored 的 wisdom.md，留待 wisdom 蒸馏批次统一处理）
 - **依赖**：M23.0 G1/G2/G3 治理批次完成；M22.7 commit `f617b56 + 51e8c13` 已推送；M22 防御加固体系（backup / db-restore / db-doctor）已闭环
 - **交付物**：根因结论登记 backlog.md §E2E global-setup 串行场景 ECONNRESET 根因 + experience-archive.md 新增§ + wisdom.md 新增 pattern + 治本 atomic commit（若产生修复）
 - **风险与缓解措施**：SQLite WAL 模式切换可能影响 e2e 测试稳定性 → 切换前先小范围验证 + 保留 rollback 路径（journalMode=delete 切换前备份 PRAGMA 配置）；better-auth transaction 时序排查涉及跨进程边界，需 CI 复现日志而非本地

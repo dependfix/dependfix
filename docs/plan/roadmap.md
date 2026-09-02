@@ -307,7 +307,7 @@ per-alert 模型 + reconcile + API 简化 + UI 调整 + backfill 脚本。5 子�
 
 ### M23.1 M22.7 根因排查（🛡️ 治理 / 治本）
 
-> **范围**：从 [backlog.md §E2E global-setup 串行场景 ECONNRESET 根因（M22.7 hotfix 衍生）](backlog.md#e2e-global-setup-串行场景-econnreset-根因m227-hotfix-衍生) 4 候选按 ROI 排查 1 项。
+> **范围**：从 [backlog.md §E2E global-setup 串行场景 ECONNRESET 根因（M22.7 hotfix 衍生）](backlog.md) 4 候选按 ROI 排查 1 项。
 >
 > **优先级**：P1（治理 / 治本）
 >
@@ -319,7 +319,7 @@ per-alert 模型 + reconcile + API 简化 + UI 调整 + backfill 脚本。5 子�
 >
 > - 选定根因结论（实证证据 + 失败模式分析）登记到 backlog.md + experience-archive.md
 > - 若产生修复代码（如 WAL 模式切换），按 [PDTFC+ 修复工作流](../standards/ai-collaboration.md#4-修复工作流原则) 落地 atomic commit + CI run 验证
-> - 关闭 [backlog.md §E2E global-setup 串行场景 ECONNRESET 根因 候选根因排查 M23 优先](backlog.md#e2e-global-setup-串行场景-econnreset-根因m227-hotfix-衍生) 段
+> - 关闭 [backlog.md §E2E global-setup 串行场景 ECONNRESET 根因 候选根因排查 M23 优先](backlog.md) 段
 > - wisdom.md 新增 pattern 沉淀（如 SQLite WAL 模式切换 / better-auth transaction 时序）
 
 ### M23.2 M22.8 根因排查（🛡️ 治理 / 治本）

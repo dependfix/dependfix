@@ -1253,3 +1253,40 @@ if (process.env.E2E_TEST !== 'true' || process.env.NODE_ENV === 'production') {
 ### 准入标准复核
 
 本案例符合准入标准第 1 条"教训未落入规范"（wisdom.md / testing.md 均无 Playwright 1.62 fixture pool 行为说明 + 未认证 API 测试标准模式）+ 第 4 条"工具/环境陷阱"（Playwright fixture pool 隐式行为是真实运行才能暴露的陷阱）。挂接治理检查点 3 项可降低未来同类"未认证 API 测试误通过"问题的修复成本 + 建立显式空 storageState 标准模式。
+
+## 五十三、SQLite WAL 模式 + busy_timeout 治本 M22.7 ECONNRESET 根因候选 ③（2026-09-02，M23.1 commit `2ffaa45`）
+
+### 案例
+
+2026-09-01 CI run 33525721103 E2E job 失败于 global-setup 末尾 `cleanAlertsRowgroupFixtures` → `DELETE /api/e2e/fixtures` → ECONNRESET（TCP RST，100ms 内）。[backlog.md §E2E global-setup 串行场景 ECONNRESET 根因段](../../plan/backlog.md) 列出 4 候选按 ROI 排查，本案例落地 P0 候选 ③（SQLite WAL 模式 + busy_timeout 优化）。M22.7 hotfix helper 层兜底（commit `f617b56`）保留不动，治本修复不替代兜底修复。
+
+### 根因
+
+SQLite 默认 `journal_mode = delete`（rollback journal），并发读 / 写持有锁时其他连接访问直接返回 SQLITE_BUSY（`busy_timeout` 默认 0 立即返回）。better-auth session 写入与 fixtures DELETE `ensureDatabaseInitialized()` 走同一 singleton 的异步清理窗口竞争：session 写入持锁期间，fixtures DELETE 发起 → TCP RST（ECONNRESET，server 端 socket 关闭），client 端偶发 ECONNRESET。
+
+### 修复路径
+
+1. `apps/platform/server/database/index.ts ensureDatabaseInitialized` 初始化后调用 `applySqlitePragmas(ds)`：
+   - `PRAGMA journal_mode = WAL`：WAL 模式让读不阻塞写 + 多并发读不互锁
+   - `PRAGMA busy_timeout = 5000`：5s 等待吸收瞬时锁竞争（better-auth session 写入持锁不会立即打断 fixtures DELETE）
+2. fail-open：PRAGMA 失败仅 console.error 不阻塞启动（与 backup.ts fail-open 语义一致）
+3. 仅 SQLite 数据库生效（pg/mysql 跳过 `applySqlitePragmas`）
+4. 新增单测验证 journal_mode=wal + busy_timeout=5000
+5. 待 CI 复现一次确认其他 3 候选是否仍存在（backlog.md §E2E 候选 1 better-auth transaction 关闭时序 / 2 Nitro h3 async generator / 4 fixtures API 节流）
+
+### 教训
+
+1. 教训 1：SQLite 默认 journal_mode = delete 不适合并发多连接场景；better-sqlite3 单进程应用 + Nuxt SSR + better-auth session + 60+ 处 API endpoint 共用 singleton 是典型并发场景，应启用 WAL + busy_timeout。
+2. 教训 2：hot path idempotent 函数（ensureDatabaseInitialized 60+ 处调用）的 PRAGMA 应用需在 `ds.initialize()` 之后执行（连接已建立）+ 启动期日志确认 PRAGMA 生效状态。
+3. 教训 3：ECONNRESET 在 CI 环境偶发且本地复现困难时，按 ROI 排序候选根因（P0 = 治本收益最大 + 风险最低）优先排查，避免"无限本地复现"陷阱（按 [ai-collaboration.md §4.7 CI 偶发错误三阶段协议](../../standards/ai-collaboration.md)）。
+4. 教训 4：M22.7 hotfix helper 层 maxRetries 兜底保留不动（治本修复不替代兜底修复；helper 层 + 治本修复双管齐下，符合"应用层兜底 + 治本修复"模式）。
+
+### 挂接治理检查点
+
+1. **docs/standards/security.md §2.1 SQLite 数据库防护**（后续挂接）：建议新增 §2.1.6 "启动期 PRAGMA 优化（hard requirement）"（journal_mode=WAL + busy_timeout=5000 + fail-open + 仅 SQLite 生效）—— 当前未挂接，建议下次 M 阶段或 neat-freak 批次补挂。
+2. **apps/platform/server/database/scripts/db-doctor.ts**（后续扩展）：`PRAGMA_KEYS` 列表已含 `journal_mode` 但缺 `busy_timeout`，M23.1 切换后 `busy_timeout=5000` 应纳入自检工具—— 建议下次 M 阶段或 neat-freak 批次扩展。
+3. **AGENTS.md 提交规范第 4 条**：原子粒度原则 + 本案例体现的"治本修复不替代兜底修复"教训。
+
+### 准入标准复核
+
+本案例符合准入标准第 1 条"教训未落入规范"（之前 security.md §2.1 缺启动期 PRAGMA 优化规范）+ 第 3 条"重复违规预警"（SQLite 默认 journal_mode=delete 在多连接应用中是常见隐患，未来类似 dependfix 应用可能重蹈覆辙）。挂接治理检查点 3 项可显著降低未来同类风险。

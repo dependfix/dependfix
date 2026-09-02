@@ -12,8 +12,8 @@
 
 ### M23.0 治理批次（合并 G1+G2+G3，🛡️ 治理）
 
-- **目标**：消化 M22 沉淀批次审计 W-2/W-3/W-4 标记的 neat-freak 治理债 + wisdom 21 条超 20 阈值蒸馏 + wisdom 4 条 pattern 挂 standards（commit `43f40b5` 已落地「commit message 信息密度」必查项）
-- **范围**：① **G1** M22 neat-freak 收敛（[backlog.md §延期 / 暂缓项 §M22 规范单点声明收敛](backlog.md#延期--暂缓项)）—— security.md §2.1 为 SQLite 防护规则权威完整声明，development.md §5.1.18 / platform.md §3.7 第 1/2/3 条收敛为引用 + 仅保留差异化信息；② **G2** wisdom 蒸馏（21 条超 20 阈值，`pnpm distill:wisdom`）；③ **G3** wisdom 4 条 pattern 挂 standards：
+- **目标**：消化 M22 沉淀批次审计 W-2/W-3/W-4 标记的 neat-freak 治理债 + wisdom 蒸馏核验 + wisdom 4 条 pattern 挂 standards（commit `43f40b5` 已落地「commit message 信息密度」必查项）
+- **范围**：① **G1** M22 neat-freak 收敛（[backlog.md §延期 / 暂缓项 §M22 规范单点声明收敛](backlog.md#延期--暂缓项)）—— security.md §2.1 为 SQLite 防护规则权威完整声明，development.md §5.1.18 / platform.md §3.7 第 1/2/3 条收敛为引用 + 仅保留差异化信息；② **G2** wisdom 蒸馏核验（实测 `pnpm distill:wisdom --check` 输出 WISDOM_OK：17 active entries < 20 阈值已合规；wisdom.md 蒸馏日志最近记录为 2026-09-02 M22.8 hotfix（active 20 → 21），本次实测 17 条表明存在未登记的精简——属 wisdom 文档自身一致性瑕疵，header 文本"当前活跃条目 21 条"已 stale，登记 follow-up；本批次仅做状态核验，无新增蒸馏动作）；③ **G3** wisdom 4 条 pattern 挂 standards：
   - code-auditor.agent.md 主责边界新增「构建产物 grep 兜底」必查项（涉 runtime env 条件判断 / server/api 端点 / 安全门控 改动时 audit 必 rebuild + grep 实测产物）
   - development.md §5.1.20 新增 atomic commit 边界示例（提取 const 重构支撑 vs 改 const 计算语义业务行为变更必须分 commit）
   - ai-collaboration.md §4 PDTFC+ 补充 CI 偶发错误三阶段协议（① handler / 单测 / 本地复现穷举 → ② helper 层兜底修复 → ③ 根因 backlog 分离 + M 阶段规划时优先排查）

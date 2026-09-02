@@ -31,6 +31,7 @@
 | M21: 治理收口 + 能力扩展 + 测试补强 | 承接 M20 闭环后 backlog 候选池 + M18.x 治理剩余风险；4 项任务按类型平衡原则：M21.1（P3，🛡️ 治理）Code Scanning RG-W01 + RG-W02 `execFileSync` 替换 `execSync` 2 处 / M21.2（P3，🛡️ 治理）M18.x 剩余风险 W1 + W2 + audit suggest 1+2 集中清理 / M21.4（P3，🚀 能力扩展）B3 PR 自动合并闭环 / M21.5（P3，🧪 测试覆盖）T704 async 定时触发 + Schedule CRUD e2e 补强（M21.3 重复登记——S-5 已由 M18.x commit `878ae1a` 闭环，本批次删除） | P3 | 已完成（2026-08-31 归档；M21.1 + M21.2 + M21.4 + M21.5 全部 4 子阶段闭环；11 atomic commits 实施 + 4 docs 收口 = 15 commits 已全部推送至 origin/master ahead=0；详见 [todo-archive.md §M21](todo-archive.md#m21-治理收口--能力扩展--测试补强m211m212m214m215-全部已闭环--2026-08-31-归档)） |
 | M22: SQLite 数据保护防御加固 | 2026-09-01 `apps/platform/data/dependfix.sqlite` 启动后业务表数据被清空事故（代码内未找到清空路径，最可能清空来源在代码外部——shell/CI/运维/误操作）。事故暴露 5 条可加固设计风险（详见 [经验归档 §五十](../design/governance/experience-archive.md#五十sqlite-数据库业务数据被清空开发环境不可恢复事故2026-09-01)），按 [规划规范 §1.1 任务粒度约束](../standards/planning.md) + 类型平衡原则拆 **6 原子条目独立闭环**：M22 沉淀（P0，🛡️ 治理）阶段登记 + 事故复盘 + 5 防御规范挂接 / M22.1（P0，🛡️ 治理）SQLite 启动期自动备份 hard requirement（backup.ts + ensureDatabaseInitialized 之前同步调用 + fsync/rename 写安全 + 保留策略 + fail-open）/ M22.2（P0，🛡️ 治理）db-restore 命令式恢复（`--from` + `--yes` 双门控 + 覆盖前自动备份 + 旁文件清理 + 前后 integrity_check）/ M22.3（P1，🛡️ 治理）db-doctor 自检工具（文件元信息 + 10 项 PRAGMA + 各表 COUNT(*) + 六类结论判定 + 人读机读双模）/ M22.4（P1，🛡️ 治理）TypeORM synchronize 显式 opt-in + 启动日志 / M22.5（P1，🛡️ 治理）TypeORM migrationsRun 显式 opt-in + 默认改为 false / M22.6（P1，🛡️ 治理）e2e/fixtures 端点双门控 + runtimeConfig 兜底防 esbuild 折叠 | P0-P1 | 已完成（2026-09-01 归档；M22 沉淀 + M22.1 + M22.2 + M22.3 + M22.4 + M22.5 + M22.6 全部 6 原子条目闭环；9 atomic commits 实施 + 4 docs 收口 = 13 commits / ahead=7 待用户主动推送（`git rev-list HEAD ^origin/master --count` 2026-09-01 实测）；含 M22.4 Round 1 Reject（migrationsRun 默认值越界落地）+ M22.6 Round 1 Reject（Nitro/esbuild `process.env.NODE_ENV` 静态替换陷阱）→ 修订为 runtimeConfig 兜底；详见 [todo-archive.md §M22](todo-archive.md#m22-sqlite-数据保护防御加固m221m222m223m224m225m226-全部已闭环--2026-09-01-归档)） |
 | M23: M22 治理债收口 + 根因排查 + 能力扩展 + 测试补强 | 2026-09-02 用户决策启动，承接 M22 闭环 + M22.7+M22.8 hotfix 衍生根因治理债 + backlog §C66 告警视图增强（2026-08-25 用户实测反馈）+ 测试基建清理；按"类型平衡"原则（治理 1 + 根因 2（治理相关）+ 能力 1 + 测试 1）拆 **5 原子条目独立闭环**：M23.0（P2，🛡️ 治理）M22 neat-freak 收敛（security.md §2.1 权威 + development.md §5.1.18 / platform.md §3.7 收敛为引用）+ wisdom 21 条蒸馏 + 4 条 pattern 挂 standards（code-auditor 「构建产物 grep 兜底」必查项 / development.md §5.1.20 atomic commit 边界 / ai-collaboration.md §4 PDTFC+ CI 偶发错误三阶段协议 / testing.md e2e 未认证 API 调用标准模式）/ M23.1（P1，🛡️ 治理/治本）M22.7 ECONNRESET 根因排查（4 候选按 ROI 选 1：推荐 SQLite WAL 模式切换）/ M23.2（P1，🛡️ 治理/治本）M22.8 Playwright fixture pool cookie 注入根因排查（3 候选按 ROI 选 1：推荐 fixture pool `test.use → browser.newContext` 注入路径源码实证）/ M23.3（P2，🚀 能力扩展）C66 告警视图增强 A1+A2+C+D 4 子任务（ScanResult ghsaId/cveIds + fetcher 透传 + alerts UI Identifiers 列 + reuseScanRunId fix 模式；B1 数据层去重暂缓）/ M23.4（P3，🧪 测试补强）T1 cron-preview wall-clock 依赖消除（范围收敛：T2 + T3 已由 M21.1 commit `0a83c74 + a77e557` + M21.2 commit `fe7cc0f + ad376c8` 闭环） | P1-P3 | 已完成（2026-09-02 归档；M23.0 + M23.1 + M23.2 + M23.3 + M23.4 全部 5 原子条目闭环；17 atomic commits 全部 ahead=0 已推送至 origin/master（`git rev-list HEAD ^origin/master --count` 2026-09-02 实测 = 0）；含 M23.3 C66-C standard depth audit W1 typecheck 验证矩阵不完整 git stash 实证非本批引入 + W3 todo.md stale 已本批同步修正 + W4 i18n 9 语言声明错引已本批同步改为双语言现状；归档批次衍生 3 项 governance check point 落地——AGENTS.md 提交规范第 6 条「src/dist 不一致时 build 在先（monorepo 纪律）」+ code-auditor 主责边界新必查项「i18n locale 实际状态审计」+ wisdom.md monorepo rebuild 教训合并到现有 principle-Nitro-esbuild 段；详见 [todo-archive.md §M23](todo-archive.md#m23-m22-治理债收口--根因排查--能力扩展--测试补强m230m231m232m233m234-全部已闭环--2026-09-02-归档)） |
+| M24: PR Check MVP + 治理债 + 测试补强 + 用户体验 | 2026-09-03 用户决策启动方案 B（能力突破优先），按"类型平衡"原则（🚀 能力 1 + 🛡️ 治理 2 + 🧪 测试 1 + 🎨 体验 1）拆 **5 原子条目独立闭环**：M24.1（P1，🚀 能力）PR Check 状态监测 MVP（~1100 行新建 + ~70 行修改 + 5 phase 串行；P 阶段决策 D1-D8 全部 2026-09-02 用户决策落地）/ M24.2（P2，🛡️ 治理）M22.7+M22.8 根因 4 项残留源码排查（候选 ③/① 已治本；剩 ①/②/④ 仅做源码层面排查，不依赖非 sandbox 环境 CI 复现）/ M24.3（P3，🧪 测试）cron-preview wall-clock 依赖消除（M23.4 commit `df4ba9b` 后续 audit suggest 1+2+3 闭环）/ M24.4（P3，🛡️ 治理）M18.x W1+W2 + Code Scanning RG-W01/W02 集中清理（~110 行 + 3 测）/ M24.5（P2，🎨 体验）C36 服务端 API i18n 扩展（沿用 M17 已沉淀 createLocalizedError 模式 + 选定 pr-checks 模块与 M24.1 同步实施避免硬编码英文） | P1-P3 | 规划中（2026-09-03 启动；详见 [todo.md §M24](todo.md#m24-pr-check-mvp--治理债--测试补强--用户体验) + [backlog.md §PR Check 段已上收](backlog.md)） |
 
 > **本路线图定位**：按 [规划规范 §2.1](../standards/planning.md) 仅维护阶段概览（目标 / 优先级 / 状态）。详细实施记录 / commit 引用 / 关键决策 / 经验教训见对应归档段（详见下方"## 详细任务"索引）。
 
@@ -302,9 +303,37 @@ per-alert 模型 + reconcile + API 简化 + UI 调整 + backfill 脚本。5 子�
 
 ---
 
+## M24: PR Check MVP + 治理债 + 测试补强 + 用户体验
+
+> ⏳ 规划中 2026-09-03 启动。
+
+承接 M23 闭环后 backlog 候选池，2026-09-03 用户决策启动方案 B（能力突破优先）。**方案 B 关键决策**：① 方案选择 = 方案 B（PR Check MVP 单条目占 M24 总规模 ~58% + 配套治理 + 测试补强 + 体验扩展）；② M24.2 候选替换 = M22.7+M22.8 根因 4 项残留源码排查（**原方案 B 的 M24.2「M22 neat-freak 收敛」已被 M23.0 G1 commit `f8a8640` docs(standards) 闭环**，security.md §2.1 为 SQLite 防护规则权威完整声明，development.md §5.1.18 + platform.md §3.7 第 1/2/3 条收敛为引用 + 仅保留差异化信息）；③ M24.5 体验扩展 = C36 服务端 API i18n（而非 UX-R3 `/scans` 页面深化），且选定 **pr-checks 模块**与 M24.1 同步实施（避免 pr-checks API 错误消息硬编码英文）；④ PR Check MVP 保持在 M24.1 内（不独立 M25 阶段；5 phase 串行严格按 M24.1.1-5 顺序）；⑤ wisdom 蒸馏：本批次不主动启动（WISDOM_OK 17 ≤ 20 阈值已合规，无强需求）。
+
+**状态**：⏳ 规划中 2026-09-03；详见 [todo.md §M24](todo.md#m24-pr-check-mvp--治理债--测试补强--用户体验)。
+
+### M24 阶段交付概览（规划）
+
+- **总条目**：5 原子条目（M24.1 PR Check MVP / M24.2 M22.7+M22.8 根因排查 / M24.3 cron-preview / M24.4 M18.x+Code Scanning / M24.5 C36 i18n）
+- **类型分布**：🚀 能力 1 + 🛡️ 治理 2 + 🧪 测试 1 + 🎨 体验 1
+- **预估规模**：~1860 行新建 + ~70 行修改 + ~14 commits
+- **P 阶段决策（已落地）**：
+  - M24.1 PR Check D1-D8 全部 2026-09-02 用户决策落地：PRCheck 实体独立于 ScanResult（`apps/platform/server/entities/pr-check.ts` 新建）+ Polling 间隔 5min/仓 + 失败 PR firing alert + ack UI + 用户手动创建 schedule 启用 + webhook MVP 仅接口预留 + 仅 per-org scope + env 开关 `ACTION_STATUS_MONITOR_ENABLED` 默认 false + 文档明确 mergify 仍是主控（D8 跨文档分散：dependfix README + `.github/mergify.yml` 注释 + PRCheck 设计文档）
+  - M24.2 根因 4 项残留候选：① better-auth 1.7 transaction close 时序（候选 ③ SQLite WAL 已由 M23.1 闭环，候选 ① 已部分治本；本批次仅源码层面排查）+ ② Nitro h3 `defineEventHandler` async generator 行为（fixtures.delete handler 行为判定）+ ④ fixtures API 请求间节流（经验性方案兜底）
+- **关键风险与缓解**：
+  - **R1** PRCheck 复合唯一索引声明错误（§3b 教训）→ M24.1 Phase 1 必跑 `pnpm --filter @dependfix/platform test:e2e` 二轮验证；声明类级复合唯一索引 `(repositoryId, prNumber, headSha)`
+  - **R2** PRCheck 监测失败是否被 mergify 决策阻断 → D8 已决策：mergify 仅看 `check-success=Test`；PRCheck 监测失败不阻塞 mergify
+  - **R3** TypeORM synchronize 默认值（M22.4 教训）→ PRCheck entity 同样需要确保 `synchronize: false`（M22.4 已默认）+ `migrationsRun: false`（M22.5 已默认）+ migration 手动跑
+  - **R4** CLI 端 entity metadata 显式 import（M20.7 教训）→ 复用 `apps/platform/server/database/index.ts` 注册 PRCheck entity +1 行
+  - **R5** M24.2 根因 4 项残留本地无法完全闭环（依赖非 sandbox 环境重跑 e2e）→ 本批次仅做源码排查 + follow-up 登记
+  - **R6** C36 i18n 扩展范围控制（M17.4 教训）→ M24.5 单条目 ≤ 4 端口（本批次仅 pr-checks 模块 4 端点内）
+  - **R7** execFileSync 替换覆盖完整性 → M24.4 RG-W01/RG-W02 同步执行（避免遗漏）
+- **类型平衡原则遵循**（[规划规范 §1.1 任务粒度约束](../standards/planning.md)）：5 原子条目 ≤ 5-6 硬上限；M24.1 PR Check MVP 单条目占 ~58% 总规模（超单条目 800 行阈值），建议 D 阶段开工时进一步拆 5 phase × 1-2 commits = ~7-10 commits，符合 atomic commit 原则
+
+---
+
 ## 详细任务
 
-- 当前阶段任务：[todo.md](todo.md)（**M23 阶段已 2026-09-02 全部闭环**——M23.0 + M23.1 + M23.2 + M23.3 + M23.4 5 原子条目 / 17 atomic commits / ahead=0 已推送；详见 [todo-archive.md §M23](todo-archive.md#m23-m22-治理债收口--根因排查--能力扩展--测试补强m230m231m232m233m234-全部已闭环--2026-09-02-归档)；待用户决策启动 M24 阶段规划，候选池从 backlog.md §短期 / 一次性候选任务 + §已知边界 选取，按"类型平衡"原则拆 5-6 原子条目独立闭环；待人工验收 T701/T702/T704 项随真实环境推进）
+- 当前阶段任务：[todo.md](todo.md)（**M24 阶段 2026-09-03 用户决策启动**——方案 B 能力突破优先，5 原子条目独立闭环：M24.1 PR Check MVP / M24.2 M22.7+M22.8 根因排查 / M24.3 cron-preview wall-clock / M24.4 M18.x+Code Scanning / M24.5 C36 i18n；详见 [todo.md §M24](todo.md#m24-pr-check-mvp--治理债--测试补强--用户体验)；待人工验收 T701/T702/T704 项随真实环境推进）
 - 已归档阶段：[todo-archive.md](todo-archive.md)（主窗口保留最近 5 段：2026-09-02 M23 / 2026-09-01 M22 / 2026-08-31 M21 / 2026-08-31 M20 / 2026-08-31 M19；**2026-09-01 M22 归档批次预防性迁出 M18 至新分片 [archive/todo-archive-phases-m18.md](archive/todo-archive-phases-m18.md)**（M22 段 119 行新增前主窗口 612 行 + M22 段预估 80-100 行将超 700 分片阈值；M18 单段迁出与 M19/M20 归档批次迁出 M14-M15/M16-M17 同源策略）；2026-08-31 M20 归档批次预防性迁出 M16 + M17 至新分片 [archive/todo-archive-phases-m16-m17.md](archive/todo-archive-phases-m16-m17.md)；2026-08-31 M19 归档批次预防性迁出 M14 + M15 至新分片 [archive/todo-archive-phases-m14-m15.md](archive/todo-archive-phases-m14-m15.md)；2026-08-30 M18 归档批次预防性迁出 M13 至新分片 [archive/todo-archive-phases-m13.md](archive/todo-archive-phases-m13.md)；2026-08-28 M17 归档批次预防性迁出 M12 至新分片 [archive/todo-archive-phases-m12.md](archive/todo-archive-phases-m12.md)；2026-08-28 M16 归档批次预防性迁出 M10 / T912 / C53 / 2026-08-20 平台 UI 增强 C59-C61 至新分片 [archive/todo-archive-phases-m10-c53-c59c61.md](archive/todo-archive-phases-m10-c53-c59c61.md)；早期阶段见 [archive/index.md](archive/index.md) 分片索引）
 - 后续阶段任务（延期项 + 未排期增强候选）：[backlog.md](backlog.md)
 

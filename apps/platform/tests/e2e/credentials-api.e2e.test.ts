@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { authedCookieHeader } from './helpers/auth-cookie.helper'
+import { unauthenticatedApiContext } from './helpers/unauthenticated-api.helper'
 
 /**
  * 凭据管理 API 集成测试（todo.md §M19.4 T701-e2e）：
@@ -284,7 +285,7 @@ test.describe('凭据管理 API 鉴权边界（todo.md §M19.4 T701-e2e）', () 
         // 强制空 storageState（避免任何上游 cookie 注入——CI run 33533376712 实证：未显式传
         // storageState: { cookies: [], origins: [] } 时，新 context 可能携带上游 session，
         // 导致期望 401 的请求被认证通过收到 200）
-        const context = await browser.newContext({ storageState: { cookies: [], origins: [] } })
+        const context = await unauthenticatedApiContext(browser)
         const page = await context.newPage()
         const response = await page.context().request.get('/api/credentials', {
             headers: { origin: 'http://127.0.0.1:3101' },

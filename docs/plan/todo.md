@@ -65,7 +65,7 @@
 - **范围**：承接 2026-08-25 用户实测反馈；按 [backlog.md §远期登记 / 未排期增强候选 §C66 告警视图增强](backlog.md#远期登记--未排期增强候选) 5 子任务中 **A1+A2+C+D 4 子任务**实施（B 数据层去重 B1 暂缓，应用层去重已实施满足当前需求）：
   - **C66-A1** ScanResult 数据模型扩展：加 `ghsaId` / `cveIds` 列 + TypeORM 1.x 类级复合索引迁移（按 §3b D 阶段自检强制项）—— 2026-09-02 commit `f44a527` 闭环
   - **C66-A2** fetcher 提取 GHSA + CVE：Dependabot API `cve_id` + `identifiers[]` 透传 / pnpm-audit `cves[]` 透传；`NormalizedSecurityAlert` 接口加字段 —— 2026-09-02 commit `b6e7716` 闭环
-  - **C66-C** alerts UI 增加 GHSA / CVE 列：单列智能 `Identifiers` 列（GHSA 优先，fallback CVE，多 CVE 展开）+ 复用 alerts-rowgroup 视觉 —— 2026-09-02 commit `?` 闭环（代码）+ commit `?`（docs）
+  - **C66-C** alerts UI 增加 GHSA / CVE 列：单列智能 `Identifiers` 列（GHSA 优先，fallback CVE，多 CVE 展开）+ 复用 alerts-rowgroup 视觉 —— 2026-09-02 commit `650a0d2`（代码）+ commit `9c64ee0`（docs）闭环
   - **C66-D** fix 模式复用 scanRunId：`POST /api/repos/[id]/scan` 接受 `reuseScanRunId` 跳过重拉 + alerts 视图加 "立即修复此仓库" 入口 —— **已在 M16.2 闭环**（详见 [todo-archive.md §M16.2](todo-archive.md) audit suggest 触发的提前抽取；不计入 M23.3 验收清单）
 - **优先级**：P2（能力扩展 / UX）
 - **验收**：

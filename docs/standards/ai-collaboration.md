@@ -227,6 +227,41 @@ wc -l docs/design/governance/experience-archive.md  # 当前最新§号连续性
 - **§规划规范 §4.4 第 10 条**：本节是其在沉淀工作流的具体执行——预防性迁出后 cross-reference 更新。
 - **§开发规范 §3 注释规范**：本节文档涉及"PDTFC+ 闭环"、"A 阶段"等术语引用——不得孤立编号标记（如 "1.5"），必须带文档路径或章节名引用。
 
+## 1.6 commit 前轻量级审核流程（PDTFC+ F 阶段必经）
+
+执行 `git commit` 前必须走轻量级审核，禁止随意提交 commit message。
+
+### 1. 执行方 self-check（4 项必查）
+
+写完 commit message 后，过一遍 self-check 清单：
+
+1. **执行命令 + 结果数字**：是否含 `pnpm ... 0 error` / `N passed` / `+N/-M` 等？→ 删除
+2. **改动行数描述**：是否含"改动了多少行"？→ 删除（git diff 直接可见）
+3. **没实证的废话**：是否含"确切路径需源码进一步实证"等？→ 删除或精简
+4. **关键决策 / 教训 / 关联 commit**：是否有实质信息？→ 保留
+
+self-check 通过后方可触发下一步。
+
+### 2. code-auditor quick depth 触发条件
+
+self-check 通过后，按以下条件判断是否触发 code-auditor quick depth 审核：
+
+- **触发**（任一）：
+  - commit message 信息密度异常（堆砌命令/数字/废话但 self-check 未识别）
+  - 改动跨多个独立模块（如 `packages/core` + `apps/platform` + `docs/standards`）
+  - diff 文件数 > 8 或新增行数 > 800（quick depth 触发阈值，与 [§1.4 单次提交审计阈值](#14-单次提交审计阈值10-文件--800-行) hard split 阈值 10 文件 / 800 行区分——8 是 audit 触发点，10 是 hard split 阈值）
+  - commit message 中含关键决策 / 风险声明 / 插队理由（需审计背书）
+- **不触发**：
+  - 单文件改动 + 单类型 + 信息密度合规
+  - 已有相同模式 commit 走过的标准流程（如 hotfix test(e2e) commit）
+
+### 3. 与既有规范的关联
+
+- **§4.4 F 阶段本地验证**：本节是其在 commit message 维度的延伸——F 阶段本地验证 ≠ commit message 堆砌执行结果。
+- **§4.6 audit warning 修复决策协议**：commit 前轻量级审核走的就是"低成本 + 对齐验收"的修复维度（self-check 即修复）。
+- **git.md §3.6 commit message 信息密度规范**：本节是其在 AI 协作流程维度的执行——commit 必经 self-check + code-auditor quick depth 触发条件。
+- **AGENTS.md §提交规范**：本节补强"质量前置"维度——commit message 本身也是质量的一部分。
+
 ---
 
 ## 2.1 迭代中途发现事项处理

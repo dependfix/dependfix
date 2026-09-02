@@ -112,6 +112,34 @@
 - 修正：lint auto-fix 是合规修改，**不要回滚**。如不希望与 docs 提交混杂，应在 commit 前 `git restore --staged <file>` 排除；如已 uncommitted，作为 standalone chore commit 独立接受（如 `fc0b175 chore(platform): 接受 ESLint array-type lint 自动修复（alerts-sidebar.e2e）`）。commit message 显式说明"历史曾因误带 docs 提交回滚，本次作为 standalone chore commit 独立接受"。
 - 实操：在每次 commit 前过一遍 lint（`pnpm lint` / `pnpm run lint:md` / `pnpm typecheck`）确认 0 error；如发现 working tree 有未提交 lint auto-fix 改动，按本节策略处理（接受并独立 commit）。
 
+### 3.6 commit message 信息密度规范
+
+commit message 应聚焦于"当次提交的改动"+"可供事后复查的信息"，避免堆砌与 git diff / CI 实测输出重叠的冗余。
+
+**应包含**：
+
+- 改动总览（哪些文件/模块，改了什么）
+- 关联 todo 条目（M\d+\.\d+ / T\d+ 等）
+- 关键决策（多路径选择 + 为什么选这条）
+- 问题原因 / 经验教训（事后复查视角，含关联 commit 引用）
+- 跨模块影响时说明关联模块与同步关系
+
+**不应包含**（git diff / CI 实测输出已涵盖，堆砌无增量价值）：
+
+- 执行了哪些命令（如 `pnpm run check:docs` / `pnpm lint` / `pnpm typecheck` 等）
+- 执行结果数字（如 "links: 103" / "lint:md 0 error" / "1001/1008 passed"）
+- 改动行数（如 "+189/-3"）
+- 没实证的废话（如"确切路径需源码进一步实证"——没实证就别写）
+- 与本 commit 实际改动关联度低的教训段（教训应归属在 hotfix 修复 commit 而非 docs 登记 commit）
+
+**实证教训**——M22.7 hotfix (`f617b56` / `51e8c13`) + M22.8 hotfix (`bdcd900` / `2472b05`) commit message 含验证命令 + 结果数字 + 改动行数等冗余信息：
+
+- `f617b56`："验证：lint / typecheck / vitest（6/6 fixtures 单测 + 全量 1001/1008）通过" —— 数字 + 命令与 git diff / CI 重叠
+- `2472b05`："验证：pnpm run check:docs 0 error（links: 103 + vue-interp: 58 全过）；lint:md 0 error" —— 同上
+- `2472b05`："教训：CI 修复需走完整链路（global-setup → setup → tests → teardown）" —— 教训应归属 `bdcd900`（修复 commit）而非 docs 登记 commit
+
+**commit 前轻量级审核**：执行方 self-check 4 项必查 + 触发 code-auditor quick depth 条件详见 [ai-collaboration.md §1.6 commit 前轻量级审核流程](./ai-collaboration.md)。
+
 ## 4. AI 行为准则
 
 - **禁止擅自推送**: commit 后不得自动执行 `git push`，推送仅限用户明确指令。

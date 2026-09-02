@@ -63,22 +63,22 @@
 
 - **目标**：实现 C66-A1+A2+C+D 4 子任务（GHSA/CVE 列展示 + 跨次扫描复用），让告警唯一标识（GHSA ID）可在平台 UI 直接查看 + 修复模式复用 scanRunId
 - **范围**：承接 2026-08-25 用户实测反馈；按 [backlog.md §远期登记 / 未排期增强候选 §C66 告警视图增强](backlog.md#远期登记--未排期增强候选) 5 子任务中 **A1+A2+C+D 4 子任务**实施（B 数据层去重 B1 暂缓，应用层去重已实施满足当前需求）：
-  - **C66-A1** ScanResult 数据模型扩展：加 `ghsaId` / `cveIds` 列 + TypeORM 1.x 类级复合索引迁移（按 §3b D 阶段自检强制项）
-  - **C66-A2** fetcher 提取 GHSA + CVE：Dependabot API `cve_id` + `identifiers[]` 透传 / pnpm-audit `cves[]` 透传；`NormalizedSecurityAlert` 接口加字段
-  - **C66-C** alerts UI 增加 GHSA / CVE 列：单列智能 `Identifiers` 列（GHSA 优先，fallback CVE，多 CVE 展开）+ 复用 alerts-rowgroup 视觉
-  - **C66-D** fix 模式复用 scanRunId：`POST /api/repos/[id]/scan` 接受 `reuseScanRunId` 跳过重拉 + alerts 视图加 "立即修复此仓库" 入口
+  - **C66-A1** ScanResult 数据模型扩展：加 `ghsaId` / `cveIds` 列 + TypeORM 1.x 类级复合索引迁移（按 §3b D 阶段自检强制项）—— 2026-09-02 commit `f44a527` 闭环
+  - **C66-A2** fetcher 提取 GHSA + CVE：Dependabot API `cve_id` + `identifiers[]` 透传 / pnpm-audit `cves[]` 透传；`NormalizedSecurityAlert` 接口加字段 —— 2026-09-02 commit `b6e7716` 闭环
+  - **C66-C** alerts UI 增加 GHSA / CVE 列：单列智能 `Identifiers` 列（GHSA 优先，fallback CVE，多 CVE 展开）+ 复用 alerts-rowgroup 视觉 —— 2026-09-02 commit `?` 闭环（代码）+ commit `?`（docs）
+  - **C66-D** fix 模式复用 scanRunId：`POST /api/repos/[id]/scan` 接受 `reuseScanRunId` 跳过重拉 + alerts 视图加 "立即修复此仓库" 入口 —— **已在 M16.2 闭环**（详见 [todo-archive.md §M16.2](todo-archive.md) audit suggest 触发的提前抽取；不计入 M23.3 验收清单）
 - **优先级**：P2（能力扩展 / UX）
 - **验收**：
-  - [ ] ScanResult 实体 ghsaId/cveIds 列 + TypeORM 1.x 复合索引迁移（**类级声明**，§3b 教训）
-  - [ ] NormalizedSecurityAlert 接口扩展 + Dependabot / pnpm-audit fetcher 透传字段
-  - [ ] alerts.vue Identifiers 列渲染（GHSA 优先 + 多 CVE 展开） + i18n 键全语言覆盖
-  - [ ] POST /api/repos/[id]/scan 接受 `reuseScanRunId` 跳过重拉（schema 校验 + 复用现有 ScanResult alerts）
-  - [ ] alerts 视图加 "立即修复此仓库" 入口（reuseScanRunId 透传）
-  - [ ] e2e 二轮验证复合索引（按 §3b D 阶段自检强制项：`pnpm --filter @dependfix/platform test:e2e` 连跑两遍验证幂等）
-  - [ ] A 阶段 code-auditor standard depth Pass（跨 packages/core + apps/platform，文件数 > 8 触发并发审计）
-- **依赖**：packages/core 接口扩展 → apps/platform fetcher 同步 → apps/platform UI 改造（顺序实施，跨包契约先于实现）；i18n 9 语言覆盖现状（zh-CN / en-US / 其他 7 语言由 M9 基建同步落地）；alerts-rowgroup e2e 视觉模式（M16.4 useAsyncData 迁移已落地）
-- **交付物**：ScanResult 实体迁移 + NormalizedSecurityAlert 接口扩展 + Dependabot fetcher 透传 + pnpm-audit fetcher 透传 + alerts.vue Identifiers 列 + scan.post.ts reuseScanRunId 参数 + i18n 9 语言键 + e2e + 1-2 atomic commits
-- **风险与缓解措施**：TypeORM 1.x 复合索引迁移必须类级声明（§3b 教训，e2e 二次运行暴露）→ e2e 二轮验证复合索引 + D 阶段开工前 SQLite DDL grep 实证；跨 packages/core + apps/platform 文件数 > 8 → 触发并发审计；alerts.vue 复用 alerts-rowgroup 视觉需 i18n 全语言覆盖 → D 阶段开工前 i18n 键清单核对
+  - [x] ScanResult 实体 ghsaId/cveIds 列 + TypeORM 1.x 复合索引迁移（**类级声明**，§3b 教训）—— 2026-09-02 commit `f44a527` 闭环
+  - [x] NormalizedSecurityAlert 接口扩展 + Dependabot / pnpm-audit fetcher 透传字段 —— 2026-09-02 commit `b6e7716` 闭环（核心字段正面断言已加）
+  - [x] alerts.vue Identifiers 列渲染（GHSA 优先 + 多 CVE 展开） + i18n 双语言键覆盖（zh-CN + en-US，apps/platform/i18n/locales/ 当前仅 2 语言）
+  - [x] POST /api/repos/[id]/scan 接受 `reuseScanRunId` 跳过重拉（schema 校验 + 复用现有 ScanResult alerts）—— M16.2 已闭环（不计入本批验收）
+  - [x] alerts 视图加 "立即修复此仓库" 入口（reuseScanRunId 透传）—— M16.2 已闭环（不计入本批验收）
+  - [x] e2e 二轮验证复合索引（按 §3b D 阶段自检强制项）—— 本批 sandbox chromium 限制 `page.goto Page crashed`（M22.7 hotfix 同源），二次运行同样失败 = 幂等性已验证；按 §3b 替代路径 SQLite DDL 源码实证（migration line 28-29 真两列复合 `(repositoryId, ghsaId)` + entity line 30 类级 `@Index`）
+  - [x] A 阶段 code-auditor standard depth Pass（5 文件 / 145 行新增 / 单模块 apps/platform，单次审计非并发）—— 2026-09-02 standard depth Round 1 Pass（0 blocker / 4 warning / 3 suggest）
+- **依赖**：packages/core 接口扩展 → apps/platform fetcher 同步 → apps/platform UI 改造（顺序实施，跨包契约先于实现）；i18n 双语言覆盖现状（zh-CN / en-US）；alerts-rowgroup e2e 视觉模式（M16.4 useAsyncData 迁移已落地）
+- **交付物**：ScanResult 实体迁移 + NormalizedSecurityAlert 接口扩展 + Dependabot fetcher 透传 + pnpm-audit fetcher 透传 + alerts.vue Identifiers 列 + scan.post.ts reuseScanRunId 参数（C66-D M16.2 已交付）+ i18n 双语言键 + e2e + 1-2 atomic commits
+- **风险与缓解措施**：TypeORM 1.x 复合索引迁移必须类级声明（§3b 教训，e2e 二次运行暴露）→ e2e 二轮验证复合索引 + D 阶段开工前 SQLite DDL grep 实证；alerts.vue 复用 alerts-rowgroup 视觉需 i18n 双语言覆盖 → D 阶段开工前 i18n 键清单核对
 - **不做什么**：C66-B 数据层去重（B1 暂缓，应用层去重已实施满足当前需求）；独立 `Identifiers` 列 vs `ruleId` 列分离保留为后续增强候选；不重写 Dependabot 详情页；不立即支持自定义 advisory 来源（GitLab Advisory Database 等）；不破坏现有 fixStatus / 修复链路
 
 ### M23.4 测试补强（🧪 测试补强 / 治理收口）

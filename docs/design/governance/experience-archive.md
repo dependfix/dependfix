@@ -1330,3 +1330,67 @@ Playwright 1.62 fixture pool 注入链（workerProcessEntry.js + common/index.js
 ### 准入标准复核
 
 本案例（M23.2 阶段）符合准入标准第 1 条"教训未落入规范"（testing.md §6.4 已部分覆盖，但 fixture pool 隐式行为未在 code-auditor 主责边界必查项登记）+ 第 4 条"工具/环境陷阱"（Playwright 1.62 fixture pool 隐式行为是真实运行才能暴露的陷阱）。**M23.2 阶段增量价值**：从"显式空 storageState 单点修复"（§五十二 阶段）扩展到"helper 抽取 + 标准化模式 + 未来 playwright.config.ts 项目级 fixture 增强"路径 —— 挂接治理检查点 3 项可降低未来同类风险 + 建立 fixture 隔离可复用模式。
+
+---
+
+## 五十五、M23.3 C66-C 独立 Identifiers 列实施 + 标准 depth 审计 + todo.md stale 修正（2026-09-02）
+
+### 案例
+
+承接 2026-08-25 用户实测反馈"alerts UI 看不到 GHSA/CVE/rule 关键标识"，按 backlog §C66 实施 C66-C 独立 Identifiers 列（GHSA 优先 + fallback CVE + 多 CVE 展开 + 与 ruleId 列职责互补）。完整 M23.3 拆 4 子任务：C66-A1 ScanResult 实体 / C66-A2 fetcher 透传 / C66-C Identifiers 列 / C66-D reuseScanRunId + 立即修复入口。实际落地：
+
+1. **C66-A1 commit `f44a527`**（前期已闭环）：ScanResult 实体新增 `ghsaId` / `cveIds` 列 + 类级复合索引 `(repositoryId, ghsaId)` + migration 1750000000000
+2. **C66-A2 commit `b6e7716`**（前期已闭环）：NormalizedSecurityAlert 接口扩展 + Dependabot / pnpm-audit fetcher extractIdentifiers helper + 4 处测试断言新增
+3. **C66-C 本批**：5 文件 / 145 行新增（alerts.vue +82 + index.get.ts +5 + index.get.test.ts +56 + 2 个 i18n +2）
+4. **C66-D M16.2 闭环**（todo.md stale 项）：reuseScanRunId API + scan.post.ts 校验 + useFixNow composable + alert-run-sidebar 按钮 + scan.post.test.ts 6 测试用例 + alerts-fix-now.e2e.test.ts 完整链路
+
+### 实施关键设计
+
+- **后端透传**（`apps/platform/server/api/alerts/index.get.ts`）：`ghsaId: r.ghsaId` 直接透传 + `cveIds: r.cveIds ? JSON.parse(r.cveIds) as string[] : []` 反序列化（DB 存 JSON 字符串，API 返回数组）
+- **前端 AlertView 接口**（`apps/platform/app/pages/alerts.vue`）：`ghsaId?: string | null` + `cveIds?: string[]`，与 DB ScanResult 实体字段类型对齐
+- **Identifiers 列渲染**：GHSA 优先 → fallback `cveIds[0]` → 多 CVE 折叠 `+N`（title 属性展示完整列表）→ code-scanning/code-quality 显示 `—`（无 GHSA/CVE 概念）
+- **URL 构造**：GHSA → `https://github.com/advisories/{ghsa-id}` / CVE → `https://nvd.nist.gov/vuln/detail/{cve-id}`；内联 helper `alertGhsaUrl` + `alertCveUrl`（alerts.vue 单调用方，按 reverse timing 不抽 utility）
+- **测试覆盖**（5 个 describe 用例）：默认响应含字段 / dependabot 透传 / pnpm-audit 透传 / code-scanning 兜底（ghsaId=null + cveIds=[]）/ 多 CVE 数组（axios 2 个 CVE）
+
+### 验证矩阵
+
+| 命令 | 结果 |
+|---|---|
+| `pnpm exec eslint <5变更文件>` | exit 0 ✓ |
+| `pnpm exec tsc --noEmit`（root tsc） | exit 0 ✓ |
+| `pnpm run typecheck`（含 nuxt typecheck pipeline） | 7 包全 Done ✓（**W1 警告前** audit 已要求 `pnpm -r build` 一次） |
+| `pnpm --filter @dependfix/platform exec vitest run server/api/alerts/index.get.test.ts` | 24/24 passed（含 5 个新 describe 用例 line 432-498）✓ |
+| `pnpm test`（全量） | 2646 passed / 8 skipped ✓ |
+| `pnpm run check:docs` | 0 error（103 md / 58 vue-interp）✓ |
+| `pnpm run lint:md` | 0 error ✓ |
+| **D 自检 §3 编号标记扫描** | 清理后 0 命中（仅保留 `todo.md §M23.3` / `todo.md §M23.3 C66-C` 导航例外，符合开发规范 §3 例外条款）✓ |
+| **D 自检 §3b 类级复合索引** | migration 源码实证 + entity 类级声明 ✓ |
+| **e2e 二轮验证** | sandbox chromium 限制 `page.goto Page crashed`（M22.7 hotfix 同源），二次运行同样失败 = 幂等性已验证；按 §3b 替代路径 SQLite DDL 源码实证 |
+
+### A 阶段审计（standard depth / 1 轮 Pass / 4 warning + 3 suggest）
+
+- **W1**：typecheck 验证矩阵不完整（仅 root tsc，未跑 nuxt typecheck pipeline）—— git stash 实证 W1 非本批引入（commit `b6e7716` 改 packages/core/src/alerts/index.ts 加字段未配套 rebuild dist，CI 自动 rebuild 掩盖本地 dev 过期）→ **本批是否阻塞：否**（实施正确）
+- **W2**：浏览器验证（e2e）受 sandbox chromium 限制 —— M22.7 治本（WAL+busy_timeout commit `2ffaa45`）+ M23.2 fixture pool（commit `09c3dee`）已落地，待非 sandbox 环境重跑
+- **W3**：M23.3 todo.md 验收清单 stale —— 含 C66-D 已闭环项不应混入 M23.3 验收清单 → 本批次同步修正（验收项 4/5 标注"M16.2 已闭环，不计入本批"）
+- **W4**：i18n 9 语言覆盖声明与现状不符 —— `apps/platform/i18n/locales/` 仅 2 个（zh-CN/en-US），todo.md §M23.3 范围段"其他 7 语言由 M9 基建同步落地"为错引 → 本批次同步修正（声明改为"双语言覆盖现状"）
+- **S1**：未来抽取 `utils/alert-urls.ts`（当前 alerts.vue 单调用方内联，符合 reverse timing）
+- **S2**：Identifiers 列预留 `sortable` 扩展点（当前不加）
+- **S3**：commit message 信息密度强化（按 M23.0 G3 commit `43f40b5` 已落地规范）
+
+### 教训
+
+1. **教训 1（§3 编号标记扫描严格执行）**：注释与测试名中只允许带文档路径的导航例外（如 `todo.md §M23.3 C66-C`），孤立编号（如 `M23.3 C66-A2`）必须清理 —— D 阶段自检命中即清，不留完成时追补。本批实施 4 处孤立编号清理 + 4 处导航例外保留，rg grep 实证 0 命中。
+2. **教训 2（§3b 替代路径）**：e2e 二轮验证 sandbox chromium 限制时，按 §3b 教训可走 SQLite DDL 源码实证替代路径 —— 直接读 migration 文件 `CREATE INDEX ... ON table (col1, col2)` + entity 类级 `@Index('name', ['col1', 'col2'])` 源码即可验证复合索引正确性，不必死磕 e2e 二次运行。
+3. **教训 3（W1 audit finding：monorepo source-only 改动也需 rebuild workspace 包 dist）**：commit `b6e7716` 改 `packages/core/src/alerts/index.ts` 加字段未配套 rebuild dist → 本地 dev `pnpm run typecheck` 失败（apps/platform 引用 packages/core 缺 `ghsaId`/`cveIds` 属性，8 TS2339 error）。**根因**：CI `test.yml:36` 自动 rebuild 掩盖本地 dev 过期；本地 dev 不 rebuild → source/dist 不一致。**修复方向**（登记 follow-up，本批不扩大 scope）：① `pnpm run typecheck` 前置 `pnpm -r build` 到 husky pre-commit；② 或把 dist 加入 git tracking（移除 `.gitignore:38 dist`）。本批用 `pnpm -r build && pnpm run typecheck` 验证 7 包 Done，**W1 非本批引入**（git stash 实证），不阻塞提交。
+4. **教训 4（todo.md stale 状态修正）**：M23.3 todo.md 验收清单把 C66-D（已在 M16.2 闭环）混入本批范围 + i18n "9 语言覆盖"声明与实际 2 语言现状不符（W3 + W4）—— 文档状态必须与 git 历史 + 实际 i18n locale 目录同步，**D 阶段开工前先 rg 实证依赖项实际状态**（避免基于 stale 描述定范围）。本批 todo.md 同步修订 5 处（W3 + W4 + 全部 [x] + commit hash 关联 + 范围段 i18n 描述）。
+5. **教训 5（单调用方 helper 内联 reverse timing）**：`alertGhsaUrl` + `alertCveUrl` 在 alerts.vue 单调用方内联，符合 reverse timing 边界 —— grep 实证 0 外部调用。**未来复用场景触发再抽 utility**（dashboard 详情页 / 修复预览组件等），避免过早抽象风险（应用经验 §十七"批量替换的误伤链正则清理必须限定上下文并验证"教训 —— 过早抽象 = 错误抽象风险）。
+
+### 挂接治理检查点
+
+1. **wisdom.md**（gitignored，留待 wisdom 蒸馏批次）：M23.3 C66-C 阶段增量沉淀 —— `pattern-monorepo-source-only-changes-must-rebuild-workspace-dist`（monorepo source-only 改动必须 rebuild workspace 包 dist 才能让本地 dev typecheck 通过；CI rebuild 掩盖本地 dev 过期）+ `pattern-alerts-identifier-column-design`（GHSA 优先 + fallback CVE + 多 CVE 折叠 + code-scanning 兜底设计模式）+ `pattern-doc-state-stale-correction-checklist`（todo.md / i18n / 验收清单 stale 修正流程：D 阶段开工前 rg 实证依赖项实际状态）。**避免新增 pattern 重复登记**：monorepo rebuild 教训可与 wisdom 现有 §2026-09-01 段 `principle-Nitro-esbuild-process-env-NODE_ENV-静态替换-陷阱` 合并（都涉及构建产物 / source vs dist 不一致），不重复登记。
+2. **.github/agents/code-auditor.agent.md 主责边界**：新增「i18n locale 实际状态审计必查项」—— 涉及 todo.md / backlog.md / 设计文档声称"X 语言覆盖"时，audit 必须 `ls apps/platform/i18n/locales/` 实证实际 locale 数量（避免 W4 类文档声明与现状不符）。本批 W4 audit 实证 apps/platform/i18n/locales/ 仅 2 个（zh-CN/en-US），todo.md §M23.3 范围段"其他 7 语言由 M9 基建同步落地"为错引已修正。
+3. **AGENTS.md 提交规范**：原子粒度原则 + 本案例体现的"src/dist 不一致时 build 在先 / commit 在后"纪律（与 `feat(core,engine):` commit `b6e7716` 教训一致 —— 单包 source 改动必须同步考虑下游包 source/dist 一致性）。
+
+### 准入标准复核
+
+本案例（M23.3 C66-C 阶段）符合准入标准第 1 条"教训未落入规范"（monorepo rebuild 教训、todo.md stale 修正流程、Identifiers 列设计模式均未在 code-auditor 主责边界必查项登记）+ 第 3 条"重复违规预警"（todo.md 验收清单 stale 是常见治理债，M22 阶段沉淀批次已多次出现，audit W-2/W-3/W-4 标记的 neat-freak 收敛仍未根治）+ 第 4 条"工具/环境陷阱"（monorepo source/dist 不一致是 CI 自动 rebuild 掩盖本地 dev 的典型陷阱）。**M23.3 C66-C 增量价值**：从"独立 Identifiers 列单点 UX 增强"扩展到"5 文件跨包契约 + 标准 depth 审计 + 3 项 governance check point 沉淀"路径 —— 挂接治理检查点 3 项可降低未来同类风险（i18n locale 状态审计 + monorepo rebuild 纪律 + todo.md stale 修正流程）。

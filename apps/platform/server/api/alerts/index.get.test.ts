@@ -54,6 +54,9 @@ describe('GET /api/alerts', () => {
             lastSeenAt: new Date('2026-08-01T00:00:00Z'),
             occurrenceCount: 1,
             supersededAt: null,
+            // 依赖类告警携带 GHSA + CVE 标识（reconcile 路径 JSON 序列化 cveIds）
+            ghsaId: 'GHSA-p6mc-m468-83gw',
+            cveIds: JSON.stringify(['CVE-2021-23337']),
         }))
         await ds.getRepository(ScanResult).save(ds.getRepository(ScanResult).create({
             scanRunId: run.id,
@@ -72,6 +75,9 @@ describe('GET /api/alerts', () => {
             lastSeenAt: new Date('2026-08-01T00:00:00Z'),
             occurrenceCount: 1,
             supersededAt: null,
+            // code-scanning 无 GHSA/CVE 概念，ghsaId/cveIds 留 NULL
+            ghsaId: null,
+            cveIds: null,
         }))
     })
 
@@ -142,6 +148,9 @@ describe('GET /api/alerts', () => {
                 lastSeenAt: new Date('2026-08-01T00:00:00Z'),
                 occurrenceCount: 1,
                 supersededAt: null,
+                // pnpm-audit 携带 GHSA + CVE（fetcher extractIdentifiers helper 透传字段）
+                ghsaId: 'GHSA-rv95-896h-c2vc',
+                cveIds: JSON.stringify(['CVE-2024-29041']),
             }))
         })
 
@@ -212,6 +221,9 @@ describe('GET /api/alerts', () => {
                 lastSeenAt: new Date('2026-08-01T00:00:00Z'),
                 occurrenceCount: 1,
                 supersededAt: null,
+                // 多 CVE 用例（同一 advisory 关联 2 个 CVE）
+                ghsaId: 'GHSA-42xw-2xvc-qx8m',
+                cveIds: JSON.stringify(['CVE-2023-45857', 'CVE-2024-39338']),
             }))
         })
 
@@ -414,6 +426,50 @@ describe('GET /api/alerts', () => {
             for (const row of lodashRows) {
                 expect(row.occurrenceCount).toBe(1)
             }
+        })
+    })
+
+    describe('ghsaId / cveIds 字段透传（todo.md §M23.3 前端依赖）', () => {
+        it('默认响应每行包含 ghsaId 与 cveIds 字段', async () => {
+            const list = await call('/api/alerts') as Record<string, unknown>[]
+            expect(list.length).toBeGreaterThan(0)
+            for (const row of list) {
+                expect(row).toHaveProperty('ghsaId')
+                expect(row).toHaveProperty('cveIds')
+                // cveIds 必须为数组（即使是空：code-scanning 无 CVE 概念）
+                expect(Array.isArray(row.cveIds)).toBe(true)
+            }
+        })
+
+        it('dependabot 告警：ghsaId 非 null + cveIds 反序列化为数组', async () => {
+            const list = await call('/api/alerts?source=dependabot') as { packageName: string, ghsaId: string | null, cveIds: string[] }[]
+            const lodashRow = list.find((a) => a.packageName === 'lodash')
+            expect(lodashRow).toBeDefined()
+            expect(lodashRow?.ghsaId).toBe('GHSA-p6mc-m468-83gw')
+            expect(lodashRow?.cveIds).toEqual(['CVE-2021-23337'])
+        })
+
+        it('pnpm-audit 告警：ghsaId 非 null + cveIds 反序列化', async () => {
+            const list = await call('/api/alerts?source=pnpm-audit') as { packageName: string, ghsaId: string | null, cveIds: string[] }[]
+            const expressRow = list.find((a) => a.packageName === 'express')
+            expect(expressRow).toBeDefined()
+            expect(expressRow?.ghsaId).toBe('GHSA-rv95-896h-c2vc')
+            expect(expressRow?.cveIds).toEqual(['CVE-2024-29041'])
+        })
+
+        it('code-scanning 告警：ghsaId=null + cveIds=[]（无 GHSA/CVE 概念）', async () => {
+            const list = await call('/api/alerts?source=code-scanning') as { ruleId: string | null, ghsaId: string | null, cveIds: string[] }[]
+            const eolRow = list.find((a) => a.ruleId === 'eol-last')
+            expect(eolRow).toBeDefined()
+            expect(eolRow?.ghsaId).toBeNull()
+            expect(eolRow?.cveIds).toEqual([])
+        })
+
+        it('多 CVE 数组：同一告警携带 2 个 CVE 全部返回', async () => {
+            const list = await call('/api/alerts') as { packageName: string, cveIds: string[] }[]
+            const axiosRow = list.find((a) => a.packageName === 'axios')
+            expect(axiosRow).toBeDefined()
+            expect(axiosRow?.cveIds).toEqual(['CVE-2023-45857', 'CVE-2024-39338'])
         })
     })
 })

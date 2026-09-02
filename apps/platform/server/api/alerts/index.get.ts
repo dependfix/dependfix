@@ -108,5 +108,10 @@ export default defineEventHandler(async (event) => {
         firstSeenAt: r.firstSeenAt.toISOString(),
         lastSeenAt: r.lastSeenAt.toISOString(),
         supersededAt: r.supersededAt?.toISOString() ?? null,
+        // 漏洞唯一标识透传：依赖类告警携带 GHSA（GitHub Advisory Database）+ CVE 列表，
+        // code-scanning / code-quality 源无此概念，ghsaId=null / cveIds=[]。
+        // 写入路径见 ScanResult.reconcile（JSON 序列化 cveIds 字符串）；读取时反序列化。
+        ghsaId: r.ghsaId,
+        cveIds: r.cveIds ? JSON.parse(r.cveIds) as string[] : [],
     }))
 })

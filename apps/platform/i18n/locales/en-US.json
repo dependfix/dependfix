@@ -431,6 +431,7 @@
         "colSeverity": "Severity",
         "colPackage": "Package / rule",
         "colSource": "Source",
+        "colIdentifiers": "Identifiers",
         "colRuleId": "Rule ID",
         "colFixable": "Fixable",
         "colRecommended": "Recommended",

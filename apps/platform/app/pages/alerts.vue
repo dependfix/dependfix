@@ -46,6 +46,13 @@ interface AlertView {
     firstSeenAt?: string
     lastSeenAt?: string
     supersededAt?: string | null
+    // 漏洞唯一标识（依赖类告警）：
+    // - ghsaId：GitHub Security Advisory ID（如 GHSA-p6mc-m468-83gw），dependabot / pnpm-audit 源非 null
+    // - cveIds：CVE 列表（如 ['CVE-2021-23337']），code-scanning / code-quality 源为空数组
+    // 数据来源：fetcher 透传到 ScanResult.ghsaId / ScanResult.cveIds（JSON 序列化），reconcile 写入 DB；
+    // 前端 Identifiers 列渲染依赖此二字段（详情见 todo.md §M23.3）。
+    ghsaId?: string | null
+    cveIds?: string[]
 }
 
 /**
@@ -325,6 +332,15 @@ const dataTableAttrs = computed(() => {
         expandableRowGroups: true,
     }
 })
+
+/**
+ * Identifiers 列 URL 构造（todo.md §M23.3 C66-C）：
+ * - GHSA → GitHub Advisory Database（github.com/advisories/{GHSA-id}）
+ * - CVE → NVD（nvd.nist.gov/vuln/detail/{CVE-id}）
+ * 内联实现：alerts.vue 单调用方，未来若 dashboard / 详情页复用再抽 utility（reverse timing）。
+ */
+const alertGhsaUrl = (ghsaId: string): string => `https://github.com/advisories/${ghsaId}`
+const alertCveUrl = (cveId: string): string => `https://nvd.nist.gov/vuln/detail/${cveId}`
 </script>
 
 <template>
@@ -476,6 +492,49 @@ const dataTableAttrs = computed(() => {
                     >
                         <template #body="{data}">
                             <Tag :value="data.source" severity="secondary" />
+                        </template>
+                    </Column>
+                    <Column
+                        :header="t('alerts.colIdentifiers')"
+                        :export="false"
+                        :style="{width: '180px'}"
+                    >
+                        <template #body="{data}">
+                            <!-- 依赖类告警：GHSA 优先（fetcher 透传到 ScanResult.ghsaId，reconcile 写入 DB） -->
+                            <a
+                                v-if="data.ghsaId"
+                                :href="alertGhsaUrl(data.ghsaId)"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                class="alerts__identifier-link"
+                                :title="data.ghsaId"
+                            >
+                                <Tag :value="data.ghsaId" severity="success" />
+                            </a>
+                            <!-- 无 GHSA 但有 CVE：fallback 显示第一个 CVE -->
+                            <a
+                                v-else-if="data.cveIds && data.cveIds.length > 0"
+                                :href="alertCveUrl(data.cveIds[0] ?? '')"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                class="alerts__identifier-link"
+                                :title="data.cveIds[0] ?? ''"
+                            >
+                                <Tag :value="data.cveIds[0] ?? ''" severity="warn" />
+                            </a>
+                            <!-- 多 CVE：剩余 N 个折叠显示（hover title 展示完整列表） -->
+                            <span
+                                v-if="data.cveIds && data.cveIds.length > 1"
+                                class="alerts__identifier-more"
+                                :title="data.cveIds.slice(1).join(', ')"
+                            >
+                                +{{ data.cveIds.length - 1 }}
+                            </span>
+                            <!-- code-scanning / code-quality 源无 GHSA/CVE 概念 -->
+                            <span
+                                v-if="!data.ghsaId && (!data.cveIds || data.cveIds.length === 0)"
+                                class="text-muted"
+                            >—</span>
                         </template>
                     </Column>
                     <Column
@@ -691,6 +750,29 @@ const dataTableAttrs = computed(() => {
         text-overflow: ellipsis;
         white-space: nowrap;
         display: inline-block;
+    }
+
+    // identifiers 列（todo.md §M23.3 C66-C）：与 ruleId 列同源视觉（最长 GHSA/CVE 截断）
+    &__identifier-link {
+        text-decoration: none;
+        display: inline-flex;
+        max-width: 100%;
+    }
+
+    &__identifier-link :deep(.p-tag-label) {
+        max-width: 160px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        display: inline-block;
+    }
+
+    // 多 CVE 折叠徽章：与主标识同行，title 属性展示完整列表
+    &__identifier-more {
+        margin-left: $space-1;
+        font-size: $font-size-sm;
+        color: $color-text-muted;
+        cursor: help;
     }
 }
 </style>

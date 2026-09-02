@@ -282,25 +282,25 @@
   - SQLite 文件 inode 监控（`fs.watch` 检测 .sqlite 文件被外部 rm / rename 触发紧急备份）
 - **规范挂接**：[development.md §5.1.18](./../standards/development.md) + [§5.1.19](./../standards/development.md) + [platform.md §3.6](./../standards/platform.md) + [§3.7](./../standards/platform.md) + [security.md §2.1](./../standards/security.md)
 
-### E2E global-setup 串行场景 ECONNRESET 根因（M22.7 hotfix 衍生 + M23.1 部分闭环）
+### E2E global-setup 串行场景 ECONNRESET 根因（M22.7 hotfix 衍生 + M23.1 已闭环）
 
-- **M23.1 闭环**（2026-09-02 commit `2ffaa45`）：候选 ③ SQLite WAL 模式 + busy_timeout 优化已落地（`journal_mode=WAL` + `busy_timeout=5000ms`），详见 [经验归档 §五十三](../design/governance/experience-archive.md#五十三sqlitewal模式busytimeout治本m227econnreset根因候选③20260902m231commit) + [todo.md §M23.1](todo.md)。**剩余候选 1/2/4 待 CI 复现一次确认是否仍存在**（better-auth transaction 关闭时序 / Nitro h3 `defineEventHandler` async generator / fixtures API 节流）。
-- **背景**：2026-09-01 CI run 33525721103 E2E job 失败于 global-setup 末尾 `cleanAlertsRowgroupFixtures` → `DELETE /api/e2e/fixtures` → `ECONNRESET`（TCP RST，100ms 内）。handler 逻辑 / 单元测试 / 本地复现均通过，无法本地稳定复现；最可能根因是 better-auth session 写入后 SQLite 连接释放时序与 fixtures DELETE `ensureDatabaseInitialized()` 走同一 singleton 的异步清理窗口竞争。**M22.7 hotfix 已落地 helper 层兜底**（commit `f617b56`：e2e/fixtures helper 加 `maxRetries: 2`，复用 Playwright 1.62 `_sendRequestWithRetries` 内置 250ms 指数 backoff 重试；详见 [todo.md §M22.7](todo-archive.md#m227-e2efixtures-helper-网络兜底hotfix--ci-run-33525721103-2026-09-01-闭环) + [经验归档 §五十一](../design/governance/experience-archive.md#五十一e2e-global-setup-串行多次-setuppage-后首请求-econnreset2026-09-01ci-run-33525721103)）。
-- **候选根因排查（M23 优先）**：按 ROI 排序：
+- **M23.1 已闭环**（2026-09-02 commit `2ffaa45` + `74d3dd8` + `9c56fe6`）：候选 ③ SQLite WAL 模式 + busy_timeout 优化已落地（`journal_mode=WAL` + `busy_timeout=5000ms`），详见 [经验归档 §五十三](../design/governance/experience-archive.md#五十三sqlitewal模式busytimeout治本m227econnreset根因候选③20260902m231commit) + [todo-archive.md §M23.1](todo-archive.md#m23-m22-治理债收口--根因排查--能力扩展--测试补强m230m231m232m233m234-全部已闭环--2026-09-02-归档)。**剩余候选 1/2/4 待 CI 复现一次确认是否仍存在**（better-auth transaction 关闭时序 / Nitro h3 `defineEventHandler` async generator / fixtures API 节流）—— 登记 follow-up，CI 偶发 ECONNRESET 仍可能由其他 3 候选触发；M22.7 helper 层 maxRetries 兜底保留兜底修复 + 治本修复并存。
+- **背景**：2026-09-01 CI run 33525721103 E2E job 失败于 global-setup 末尾 `cleanAlertsRowgroupFixtures` → `DELETE /api/e2e/fixtures` → `ECONNRESET`（TCP RST，100ms 内）。handler 逻辑 / 单元测试 / 本地复现均通过，无法本地稳定复现；最可能根因是 better-auth session 写入后 SQLite 连接释放时序与 fixtures DELETE `ensureDatabaseInitialized()` 走同一 singleton 的异步清理窗口竞争。**M22.7 hotfix 已落地 helper 层兜底**（commit `f617b56`：e2e/fixtures helper 加 `maxRetries: 2`，复用 Playwright 1.62 `_sendRequestWithRetries` 内置 250ms 指数 backoff 重试；详见 [todo-archive.md §M22.7](todo-archive.md#m22-sqlite-数据保护防御加固m221m222m223m224m225m226-全部已闭环--2026-09-01-归档) + [经验归档 §五十一](../design/governance/experience-archive.md#五十一e2e-global-setup-串行多次-setuppage-后首请求-econnreset2026-09-01ci-run-33525721103)）。
+- **候选根因排查（部分已闭环）**：按 ROI 排序：
   1. **better-auth 1.7 transaction 关闭时序** —— 在 `getAuth()` 加 `[auth] transaction close trace` 日志 + `ds.transaction` 包装打印 begin/commit 时间戳，CI 复现一次
   2. **Nitro h3 `defineEventHandler` async generator 行为** —— 检查 fixtures.delete handler 是否被识别为 generator（`async function*`）导致提前 close socket
   3. ~~**SQLite WAL 模式 + `journalMode=delete`**~~ —— 2026-09-02 M23.1 commit `2ffaa45` 闭环（落地 WAL + busy_timeout 优化）
   4. **fixtures API 请求间节流** —— 经验性方案，避免作为唯一修复
 - **wisdom 沉淀**：见 .session/wisdom.md 2026-09-01 M22.7 hotfix 段 `pattern-playwright-maxRetries-econnreset`（Playwright 仅对 `e.code === 'ECONNRESET'` 重试的源码实证 + test helper 兜底模式 + 4 项治理检查点登记）
 
-### Playwright 1.62 fixture pool 注入 cookie 根因（M22.8 hotfix 衍生 + M23.2 部分闭环）
+### Playwright 1.62 fixture pool 注入 cookie 根因（M22.8 hotfix 衍生 + M23.2 已闭环）
 
-- **M23.2 闭环**（2026-09-02 commit `09c3dee` + `e0f9b29`）：候选 ① Playwright 1.62 fixture pool `test.use → browser.newContext` 注入路径源码实证已落地（workerProcessEntry.js + common/index.js + coreBundle.js 三处源码追溯：test.use → suite._use → FixturePool(parent._use, ..., pool) 继承链 + FixturePool constructor 注册继承父池 registrations）+ helper 抽取（apps/platform/tests/e2e/helpers/unauthenticated-api.helper.ts 封装 `browser.newContext({ storageState: { cookies: [], origins: [] } })` 标准模式）。详见 [经验归档 §五十四](../design/governance/experience-archive.md#五十四playwright-1-62-fixture-pool-跨-scope-隐式行为源码实证--m232-helper-抽取20260902m232-commit) + [todo.md §M23.2](todo.md)。**剩余候选 2/3 待 CI 复现一次确认是否仍存在**（better-auth 中间件 Set-Cookie 路径扫描 / Playwright 1.62 vs 1.61/1.60 fixture pool 行为对比）。
+- **M23.2 已闭环**（2026-09-02 commit `09c3dee` + `e0f9b29` + `68b973d` + `aa76ad4`）：候选 ① Playwright 1.62 fixture pool `test.use → browser.newContext` 注入路径源码实证已落地（workerProcessEntry.js + common/index.js + coreBundle.js 三处源码追溯：test.use → suite._use → FixturePool(parent._use, ..., pool) 继承链 + FixturePool constructor 注册继承父池 registrations）+ helper 抽取（apps/platform/tests/e2e/helpers/unauthenticated-api.helper.ts 封装 `browser.newContext({ storageState: { cookies: [], origins: [] } })` 标准模式）。详见 [经验归档 §五十四](../design/governance/experience-archive.md#五十四playwright-1-62-fixture-pool-跨-scope-隐式行为源码实证--m232-helper-抽取20260902m232-commit) + [todo-archive.md §M23.2](todo-archive.md#m23-m22-治理债收口--根因排查--能力扩展--测试补强m230m231m232m233m234-全部已闭环--2026-09-02-归档)。**剩余候选 2/3 待 CI 复现一次确认是否仍存在**（better-auth 中间件 Set-Cookie 路径扫描 / Playwright 1.62 vs 1.61/1.60 fixture pool 行为对比）—— 登记 follow-up，等非 sandbox 环境重跑 e2e 时同步排查。
 - **背景**：2026-09-02 CI run 33533376712 E2E job 在 M22.7 修复 global-setup 后跑满 6 分钟，失败 2 个用例（`Expected: 401, Received: 200`）：
   - `tests/e2e/credentials-api.e2e.test.ts:283 › 未认证 GET /api/credentials → 401`
   - `tests/e2e/repos-api.e2e.test.ts:447 › 未认证 GET /api/repos → 401`
-  网络追踪实证两个失败用例的 `context-options` 携带完全相同的上游 session cookie（`i18n_locale=zh-CN` + `better-auth.session_token=LhAh2mxu4rTjo27Wc8wLyeDpspBq4MnE...`，expires 1790873050 = 29 天后），但测试代码是 `browser.newContext()` 无参——最可能是 Playwright 1.62 fixture pool 在 describe 块 scope 内将 `test.use({ storageState })` 隐式注入到所有 `browser.newContext()` 调用（含未显式传 storageState 的手动创建）。**M22.8 hotfix 已落地测试层兜底**（commit `bdcd900`：2 个测试在 `browser.newContext()` 调用中显式传 `storageState: { cookies: [], origins: [] }`，Playwright 1.62 文档推荐的"unauthenticated API call"模式；详见 [todo-archive.md §M22.8](todo-archive.md#m228未认证api测试显式空storagestate隔离cookie注入hotfixcirun335333767122026-09-02闭环) + [经验归档 §五十二](../design/governance/experience-archive.md#五十二playwrighttestuse存储状态传染导致未认证api测试收到20020260902cirun33533376712)）。
-- **候选根因排查（M23 优先）**：按 ROI 排序：
+  网络追踪实证两个失败用例的 `context-options` 携带完全相同的上游 session cookie（`i18n_locale=zh-CN` + `better-auth.session_token=LhAh2mxu4rTjo27Wc8wLyeDpspBq4MnE...`，expires 1790873050 = 29 天后），但测试代码是 `browser.newContext()` 无参——最可能是 Playwright 1.62 fixture pool 在 describe 块 scope 内将 `test.use({ storageState })` 隐式注入到所有 `browser.newContext()` 调用（含未显式传 storageState 的手动创建）。**M22.8 hotfix 已落地测试层兜底**（commit `bdcd900`：2 个测试在 `browser.newContext()` 调用中显式传 `storageState: { cookies: [], origins: [] }`，Playwright 1.62 文档推荐的"unauthenticated API call"模式；详见 [todo-archive.md §M22.8](todo-archive.md#m22-sqlite-数据保护防御加固m221m222m223m224m225m226-全部已闭环--2026-09-01-归档) + [经验归档 §五十二](../design/governance/experience-archive.md#五十二playwrighttestuse存储状态传染导致未认证api测试收到20020260902cirun33533376712)）。
+- **候选根因排查（部分已闭环）**：按 ROI 排序：
   1. ~~**Playwright 1.62 fixture pool `test.use → browser.newContext` 注入路径源码实证**~~ —— 2026-09-02 M23.2 commit `09c3dee + e0f9b29` 闭环（fixture pool 源码追溯 + helper 抽取落地）
   2. **better-auth 中间件对非 /api/auth/* 端点返回 Set-Cookie 路径扫描** —— 确认 session refresh 不会污染下游 context
   3. **Playwright 1.62 vs 1.61 / 1.60 fixture pool 行为对比** —— 确认是 regression 还是历史行为
@@ -312,8 +312,8 @@
 
 | 内容类型 | 位置 |
 |:--|:--|
-| 当前阶段活跃任务 | [todo.md](todo.md) 顶部"当前阶段"段 |
-| 已完成阶段归档 | [todo-archive.md](todo-archive.md)（主窗口保留最近 4 阶段：M22 / M21 / M20 / M19）+ [archive/](archive/)（M0-M18 详细分片） |
-| 里程碑与阶段交付 | [roadmap.md](roadmap.md) |
+| 当前阶段活跃任务 | [todo.md](todo.md) 顶部"当前阶段"段（M23 已 2026-09-02 全部闭环，待用户决策启动 M24 阶段规划） |
+| 已完成阶段归档 | [todo-archive.md](todo-archive.md)（主窗口保留最近 4 阶段：M23 / M22 / M21 / M20 / M19——M23 加入后实际 5 阶段，符合"主窗口保留 3-5 个阶段"健康策略）+ [archive/](archive/)（M0-M18 详细分片） |
+| 里程碑与阶段交付 | [roadmap.md](roadmap.md)（M23 段已 2026-09-02 归档） |
 | 长期主线 / 候选 / 待人工验收 / 已知边界 | 本文档（按四象限结构） |
 | 历史归档索引 | [archive/index.md](archive/index.md) |

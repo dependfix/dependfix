@@ -119,6 +119,9 @@ export const reconcileAlerts = async (params: ReconcileAlertsParams): Promise<Re
                 fixStrategy: alert.fixStrategy,
                 recommendedVersion: alert.recommendedVersion,
                 htmlUrl: alert.htmlUrl,
+                // M23.3 C66-A1：透传 GitHub Advisory ID + CVE 列表（JSON 序列化）
+                ghsaId: alert.ghsaId ?? null,
+                cveIds: alert.cveIds && alert.cveIds.length > 0 ? JSON.stringify(alert.cveIds) : null,
                 fixStatus: 'not-tried',
                 errorMessage: null,
                 firstSeenAt: now,
@@ -157,6 +160,9 @@ export const reconcileAlerts = async (params: ReconcileAlertsParams): Promise<Re
         existing.fixStrategy = alert.fixStrategy
         existing.recommendedVersion = alert.recommendedVersion
         existing.htmlUrl = alert.htmlUrl
+        // M23.3 C66-A1：透传 GitHub Advisory ID + CVE 列表（活跃告警每次刷新）
+        existing.ghsaId = alert.ghsaId ?? null
+        existing.cveIds = alert.cveIds && alert.cveIds.length > 0 ? JSON.stringify(alert.cveIds) : null
         // firstSeenAt 不变（首次发现时间固定）
         existing.lastSeenAt = now
         existing.occurrenceCount += 1

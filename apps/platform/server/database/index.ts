@@ -9,6 +9,7 @@ import pg from 'pg'
 import { SnakeCaseNamingStrategy } from './naming-strategy'
 import { resolveDatabaseType, type DatabaseType } from './type'
 import { CreateAuditEventTable1700000000000 } from './migrations/1700000000000-CreateAuditEventTable'
+import { AddScanResultIdentifiers1750000000000 } from './migrations/1750000000000-AddScanResultIdentifiers'
 import { runStartupBackup } from './backup'
 import { Account } from '#server/entities/account'
 import { Session } from '#server/entities/session'
@@ -67,7 +68,10 @@ export const createDataSourceOptions = (): DataSourceOptions => {
             BatchRun,
             AuditEvent,
         ],
-        migrations: [CreateAuditEventTable1700000000000],
+        migrations: [
+            CreateAuditEventTable1700000000000,
+            AddScanResultIdentifiers1750000000000,
+        ],
         migrationsRun,
         synchronize,
         entityPrefix,

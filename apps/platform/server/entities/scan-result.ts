@@ -27,6 +27,7 @@ import { Repository } from './repository'
 @Entity('scan_result')
 @Index('idx_scan_result_repo_upstream', ['repositoryId', 'upstreamId'], { unique: true })
 @Index('idx_scan_result_repo_superseded', ['repositoryId', 'supersededAt'])
+@Index('idx_scan_result_repo_ghsa', ['repositoryId', 'ghsaId'])
 export class ScanResult extends BaseEntity {
     @Index()
     @Column({ type: 'varchar', length: 36 })
@@ -85,6 +86,28 @@ export class ScanResult extends BaseEntity {
     /** 告警 HTML 链接 */
     @Column({ type: 'varchar', length: 500, nullable: true })
     htmlUrl!: string | null
+
+    /**
+     * GitHub Security Advisory ID（M23.3 C66-A1 新增）。
+     * - dependabot：`security_advisory.ghsa_id`
+     * - pnpm-audit：`advisory.github_advisory_id`（GitHub Advisory Database 收录时）
+     * - code-scanning / code-quality：无此概念（缺省 null）
+     * 类级复合索引 `(repositoryId, ghsaId)` 便于 dashboard 按 GHSA 维度查询
+     * （参考 development.md §3b：复合索引必须类级声明）。
+     */
+    @Column({ type: 'varchar', length: 32, nullable: true })
+    ghsaId!: string | null
+
+    /**
+     * CVE ID 列表（M23.3 C66-A1 新增）。
+     * SQLite 不支持 string[]，存 JSON 序列化字符串（如 `'["CVE-2021-23337"]'`）。
+     * - dependabot：从 `security_advisory.identifiers[]` 提取 type === 'CVE' 列表
+     * - pnpm-audit：从 `advisory.cves[]` 字符串数组
+     * - code-scanning / code-quality：无此概念（缺省 null）
+     * 注：不建复合索引（JSON 字段不适合 B-Tree 索引；跨次扫描去重依赖 `upstreamId` 复合唯一索引）
+     */
+    @Column({ type: 'text', nullable: true })
+    cveIds!: string | null
 
     /** 修复结果（success / failed / skipped / converged / not-tried） */
     @Column({ type: 'varchar', length: 32, default: 'not-tried' })

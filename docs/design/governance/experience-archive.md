@@ -1290,3 +1290,43 @@ SQLite 默认 `journal_mode = delete`（rollback journal），并发读 / 写持
 ### 准入标准复核
 
 本案例符合准入标准第 1 条"教训未落入规范"（之前 security.md §2.1 缺启动期 PRAGMA 优化规范）+ 第 3 条"重复违规预警"（SQLite 默认 journal_mode=delete 在多连接应用中是常见隐患，未来类似 dependfix 应用可能重蹈覆辙）。挂接治理检查点 3 项可显著降低未来同类风险。
+
+## 五十四、Playwright 1.62 fixture pool 跨 scope 隐式行为源码实证 + M23.2 helper 抽取（2026-09-02，M23.2 commit `09c3dee`）
+
+### 案例
+
+见 §五十二 案例（CI run 33533376712 + 2 用例失败 + M22.8 hotfix `bdcd900` 修复）；本节聚焦 M23.2 阶段新增的 fixture pool 源码追溯实证 + helper 抽取治理（避免与 §五十二 案例段实质重复）。
+
+### 根因（FixturePool 注入路径源码实证）
+
+Playwright 1.62 fixture pool 注入链（workerProcessEntry.js + common/index.js 源码追溯）：
+
+1. `test.use({ storageState })` 调用栈：common/index.js:line 2424-2428 `_use(location, fixtures)` → `suite._use.push({ fixtures, location })`（push 到当前 suite 的 `_use` 数组）
+2. pool build 时（common/index.js:line 1902-1918 `_buildPoolForTest`）：遍历 test.parent 链（包含 describe 块），若 `parent._use.length > 0` 创建新 `FixturePool(parent._use, ..., pool, parent._type === "describe")` —— 继承父池 + 加 options
+3. `FixturePool` 构造函数（common/index.js:line 1576）：`this._registrations = new Map(parentPool ? parentPool._registrations : [])` —— **继承父池所有 registrations**
+4. `Browser.newContext`（coreBundle.js:line 52286）：`validateBrowserContextOptions(options, this.options)` 仅验证不 merge + `await this.doCreateNewContext(options)` 创建 context + `await context2.setStorageState(progress2, options.storageState, "initial")` 设置 storage state
+
+`未认证` 测试手动调用 `browser.newContext()` 应绕过 fixture pool —— 但实测（trace 实证）新 context 携带上游 session token（expires 29 天后 = better-auth `expiresIn: 60*60*24*30`）。最可能根因：`Browser` fixture 在 worker scope 创建时，跨 describe 块的 cookie 状态被后续 context 实例化读取 —— 具体路径需 Playwright 1.62 fixture pool 跨 worker scope 行为进一步实证（已知无法本地稳定复现，与 fixture pool digest mismatch 时跨 scope 重用 cookie 有关）。
+
+### 修复路径
+
+1. **测试代码显式空 storageState 隔离**（M22.8 hotfix `bdcd900`）：`browser.newContext({ storageState: { cookies: [], origins: [] } })` 强制清空 cookies/origins，与 describe 块 `test.use({ storageState })` 完全脱钩
+2. **抽取 helper 统一模式**（M23.2 commit `09c3dee`）：新建 `apps/platform/tests/e2e/helpers/unauthenticated-api.helper.ts` 封装 `browser.newContext({ storageState: { cookies: [], origins: [] } })` 标准模式 + JSDoc 记录根因与修复路径
+3. **未来扩展**（待实施）：`playwright.config.ts` 可注册 `unauthenticatedContext` 项目级 fixture 提供 worker scope 自动隔离（避免每个测试手工调用 helper）
+
+### 教训
+
+1. 教训 1：见 §五十二 教训 1（fixture pool 跨 scope 隐式行为 + "未认证 API 测试必须显式空 storageState"）
+2. 教训 2：见 §五十二 教训 3（CI 失败时序模式诊断 —— global-setup 失败 → 后续测试不运行 → 掩盖下游问题）
+3. 教训 3（M23.2 阶段新增）：**helper 抽取需先 fixture pool 源码追溯明确"未认证 API 测试标准"再实施** —— 否则抽取的 helper 模式可能错误（如未含 `storageState: { cookies: [], origins: [] }` 强制清空即变成普通 newContext，治本失效）
+4. 教训 4（M23.2 阶段新增）：**helper 抽取的边界确认** —— 至少 2 处重复使用且抽象边界稳定后抽取（应用经验 §十七"批量替换的误伤链正则清理必须限定上下文并验证"教训 —— 过早抽象 = 错误抽象风险）
+
+### 挂接治理检查点
+
+1. **docs/standards/testing.md §6.4 E2E 网络抗性 + 未认证 API 调用标准模式**（已挂接 M23.0 G3 commit `606df17`）—— testing.md §6.4 已含未认证 API 调用测试标准模式条目
+2. **.github/agents/code-auditor.agent.md 主责边界「集成外部库 README 标准用法 + e2e 真实路径冒烟测试」必查项**（已挂接 commit `22a6a6d`）—— 可考虑新增「Playwright fixture pool 跨 scope 污染」必查项（涉及 describe 块 `test.use` 配置时 audit 应检查未认证 API 测试是否显式空 storageState）
+3. **wisdom.md**（gitignored，留待 wisdom 蒸馏批次）：wisdom 2026-09-02 M22.8 hotfix 段已登记 `pattern-playwright-browser-newContext-cookie-injection` —— M23.2 阶段增量（fixture pool 跨 scope 源码实证 + helper 抽取模式 + 2 处调用方统一）追加到现有 pattern，**避免新增 pattern 重复登记**
+
+### 准入标准复核
+
+本案例（M23.2 阶段）符合准入标准第 1 条"教训未落入规范"（testing.md §6.4 已部分覆盖，但 fixture pool 隐式行为未在 code-auditor 主责边界必查项登记）+ 第 4 条"工具/环境陷阱"（Playwright 1.62 fixture pool 隐式行为是真实运行才能暴露的陷阱）。**M23.2 阶段增量价值**：从"显式空 storageState 单点修复"（§五十二 阶段）扩展到"helper 抽取 + 标准化模式 + 未来 playwright.config.ts 项目级 fixture 增强"路径 —— 挂接治理检查点 3 项可降低未来同类风险 + 建立 fixture 隔离可复用模式。

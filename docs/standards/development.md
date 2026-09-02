@@ -272,32 +272,22 @@ void Repository
 
 教训（M20.7 backfill 一次性脚本反思实证）：用户质疑"添加 tsx 是为什么？这个脚本为什么要 TypeScript？"→诚实分析：tsdown / tsx 不可替代（装饰器约束），但 register-entities.ts 单独文件可整合到主脚本顶部 inline 块（净 -21 行），engines 升级 `>=20` → `>=22`（Node 20 EOL）。详见 [经验归档 §四十七](../design/governance/experience-archive.md#四十七一次性脚本不应-over-engineeringtsx-cli-装饰器依赖-vs-node-22-strip-types2026-08-31m20.7)。
 
-#### 5.1.18 SQLite 数据库启动期自动备份强制项（hard requirement）
+#### 5.1.18 SQLite 数据库启动期自动备份（引用 security.md §2.1 + 开发角度差异化信息）
 
-依赖 better-sqlite3 单文件的 Nuxt 全栈应用（`apps/platform`）**必须**在每次 `ensureDatabaseInitialized()` 之前对 SQLite 数据库做时间戳备份，避免任何形式的清空 / 误删 / schema 重建导致业务数据永久丢失。
+> 权威完整声明（备份路径 / fsync / 保留策略 / 命令式恢复 / 自检工具等）见 [security.md §2.1](./security.md)。本节仅保留开发角度差异化信息（应用范围 / 禁止 / 实证 / D 阶段自检 + A 阶段 Review Gate）。
 
-**触发条件**：
-- SQLite 文件存在 + 文件 size > 0 + 不是 `.bak` 后缀文件
-- 应用启动前自动备份（无需用户介入）
-- 备份目录：`data/backups/dependfix.sqlite.YYYY-MM-DDTHH-mm-ss.bak`
-- 保留策略：最近 10 份（`BACKUP_RETENTION_COUNT` env 可覆盖），超出按 mtime 排序清理老备份
-
-**强制要求**：
-1. 备份文件写入前必须 `fsync`（`fs.fsyncSync(fd)`）+ 重命名（`fs.renameSync(tmp, target)`）——确保断电时不会留下半成品
-2. 备份过程失败不能阻塞应用启动（catch + console.error 即可，应用照常运行）
-3. 必须提供 `pnpm db:restore --from=<backup-file>` 还原命令（CLI 入口守卫必备，见 §5.1.5）
-4. 必须提供 `pnpm db:doctor` 自检命令（打印各表行数 + freelist + page_count + schema_version + journal_mode + integrity_check）
-5. D 阶段自检（Full Stack Master (全栈大师) agent）必须验证：apps/platform/server/database/backup.ts 存在 + 含 backup-on-startup 调用 + 含 fsync + 含保留策略清理逻辑
-6. A 阶段 Review Gate 必查项：apps/platform/server/database/backup.ts 文件存在 + 含 fsync 证据 + 含保留策略
+**应用范围**：所有 better-sqlite3 部署形态（dev / e2e / prod / Docker 容器）。e2e.sqlite 与 dependfix.sqlite 各自独立（不交叉备份）。
 
 **禁止**：
 - 禁用 `--no-verify-backup` 跳过备份（无备份时应用启动期打印醒目 WARN 但仍允许启动——这是 fail-open 而非 fail-closed；恢复依赖用户的本地副本或外部备份）
 - 禁用备份目录走 `.gitignore` 之外的位置（避免误提交）
 - 禁用备份过程阻塞启动超过 5 秒（超过视为备份实现有问题，需审计）
 
-**应用范围**：所有 better-sqlite3 部署形态（dev / e2e / prod / Docker 容器）。e2e.sqlite 与 dependfix.sqlite 各自独立（不交叉备份）。
+**实证**：2026-09-01 dependfix.sqlite 数据清空事故 + 防御加固挂接详见 [security.md §2.1.5](./security.md) + [经验归档 §五十](../design/governance/experience-archive.md#五十sqlite-数据库业务数据被清空开发环境不可恢复事故2026-09-01)。
 
-**实证**（2026-09-01 dependfix.sqlite 数据清空事故）：用户报告 dependfix.sqlite 启动后业务表全空，事后无法回滚。根因排查发现代码内无清空路径（synchronize 失败会回滚、fixtures 端点受门控保护、cleanupStaleRuns 只清理 ScanRun/BatchRun、backfill 只处理 ScanResult），最可能清空来源在代码外部（shell / CI / 运维）。但项目无任何备份机制，事故无法回滚。详见 [经验归档 §五十](../design/governance/experience-archive.md#五十sqlite-数据库业务数据被清空开发环境不可恢复事故2026-09-01)。
+**D 阶段自检（Full Stack Master (全栈大师) agent）**：必须验证 apps/platform/server/database/backup.ts 存在 + 含 backup-on-startup 调用 + 含 fsync + 含保留策略清理逻辑
+
+**A 阶段 Review Gate 必查项**：apps/platform/server/database/backup.ts 文件存在 + 含 fsync 证据 + 含保留策略
 
 #### 5.1.19 TypeORM 1.x synchronize 与 migrationsRun 反模式禁止（hard requirement）
 

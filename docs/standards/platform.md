@@ -178,36 +178,17 @@ runtimeConfig: {
 
 **实证**（2026-09-01 dependfix.sqlite 数据清空事故关联风险 + M22.6 修订教训）：事故排查发现 `apps/platform/server/api/e2e/fixtures.delete.ts:39` 只有 `E2E_TEST !== 'true'` 单门控，与 fixtures.post.ts 同模式（post.ts:24-26 已记录 RG-S3 follow-up 未落地）。M22.6 commit 首次落地使用 `process.env.NODE_ENV === 'production'` 兜底，因 Nitro/esbuild 静态替换导致 prod build 折叠为 `... || true`，code-auditor quick depth + 构建产物实测发现并强制修订为 `runtimeConfig.e2eFixturesAllowed`（NUXT_E2E_FIXTURES_ALLOWED 运行时覆盖通道）。详见 [经验归档 §五十](../design/governance/experience-archive.md#五十sqlite-数据库业务数据被清空开发环境不可恢复事故2026-09-01) + todo.md §M22.6。
 
-### 3.7 SQLite 启动期备份 + 自检工具
+### 3.7 SQLite 启动期备份 + 自检工具（引用 security.md §2.1 + 平台角度差异化信息）
 
-依赖 better-sqlite3 的 `apps/platform` 应用必须提供：
+> 权威完整声明（备份路径 / fsync / 保留策略 / 命令式恢复 / 自检工具判断逻辑等）见 [security.md §2.1](./security.md)。本节仅保留平台角度差异化信息（调用时机 / 协同关系 / D 阶段自检 + A 阶段 Review Gate）。
 
-1. **`apps/platform/server/database/backup.ts`**（hard requirement）：启动期自动备份
-   - 调用时机：`ensureDatabaseInitialized()` 之前同步调用
-   - 备份路径：`data/backups/${basename}.${YYYY-MM-DDTHH-mm-ss}.bak`
-   - 触发条件：源文件存在 + size > 0 + 后缀不是 `.bak`
-   - 写入安全：`fsync` + `rename`（避免断电留半成品）
-   - 保留策略：最近 N 份（默认 10，`BACKUP_RETENTION_COUNT` env 可覆盖），按 mtime 升序清理
-   - 失败处理：catch + console.error，**不阻塞启动**
+**调用时机**：backup.ts 在 `ensureDatabaseInitialized()` 之前同步调用（详见 [security.md §2.1.1](./security.md)）
 
-2. **`apps/platform/server/database/scripts/db-restore.ts`**（CLI 入口守卫必备，见 development.md §5.1.5）：
-   - 用法：`pnpm db:restore --from=<backup-file>`
-   - 安全门控：必须 `--yes` flag 二次确认（避免误操作覆盖当前数据库）
-   - 实现：先备份当前数据库到 `data/backups/auto.${timestamp}-${ms}.bak`（覆盖前再留一份），再 `cp` 目标备份到 `data/dependfix.sqlite`，最后清理旧库的 `-wal` / `-shm` / `-journal` 旁文件
+**协同关系**：与 e2e / fixtures 端点双门控（[platform.md §3.6](#36-e2e--fixtures-端点双门控规范)）协同——防止生产环境误暴露清空端点（详见 [security.md §2.1.4](./security.md)）
 
-3. **`apps/platform/server/database/scripts/db-doctor.ts`**（自检工具）：
-   - 打印：各表行数、`freelist_count`、`page_count`、`schema_version`、`journal_mode`、`integrity_check`、`sqlite_sequence`
-   - 判断"数据是被清空 vs 从未注入 vs schema 升级中"：
-     - schema_version > 0 + 各表全空 → 数据被清空或从未注入
-     - schema_version = 0 → 全新数据库
-     - freelist_count > 0 → 有数据被删除但未 VACUUM
-   - 输出可读报告（人读 + 机读双模，见 §5.1.2 development.md）
-
-**D 阶段自检**：必须验证上述 3 个文件存在且含核心实现（fsync / retention / `--yes` 门控 / 报告格式）
+**D 阶段自检**：必须验证 backup.ts / db-restore.ts / db-doctor.ts 3 个文件存在且含核心实现（fsync / retention / `--yes` 门控 / 报告格式；文件路径见 [security.md §2.1](./security.md)）
 
 **A 阶段 Review Gate**：backup.ts 必须含 fsync + retention 清理逻辑；db-restore.ts 必须含 `--yes` 二次确认；db-doctor.ts 必须打印 schema_version + freelist_count
-
-详见 [development.md §5.1.18](./development.md) 与 [经验归档 §五十](../design/governance/experience-archive.md#五十sqlite-数据库业务数据被清空开发环境不可恢复事故2026-09-01)。
 
 ## 4. 认证规范（better-auth）
 

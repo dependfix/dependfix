@@ -22,7 +22,7 @@
 - **验收**：
   - [x] security.md §2.1 为权威完整声明，development.md §5.1.18 + platform.md §3.7 收敛为引用 + 仅保留差异化信息（差异化信息段不重复 SQLite 防护规则全文）—— 2026-09-02 G1 commit `f8a8640` 闭环
   - [x] wisdom 活跃条目 ≤ 20（蒸馏后实证 `pnpm distill:wisdom --check`）—— 2026-09-02 G2 commit `35b9714` 范围修订闭环（M22.7 hotfix 阶段 wisdom 21 → 17 蒸馏已落地，本批次仅核验状态合规）
-  - [x] 4 条 pattern 正式挂入对应 standards / agent 文档（含交叉引用链接）—— 2026-09-02 G3 commit `?` 闭环（commit hash 待本批次 G3 落地后填入）
+  - [x] 4 条 pattern 正式挂入对应 standards / agent 文档（含交叉引用链接）—— 2026-09-02 G3 commit `606df17` 闭环
   - [x] `pnpm run lint:md` + `pnpm run check:docs` 0 error
 - **依赖**：M22 全部 commit 已推送至 origin/master（M22.7 hotfix `f617b56 + 51e8c13` + M22.8 hotfix `bdcd900 + 2472b05`）；commit `43f40b5` 已落地信息密度规范强化
 - **交付物**：security.md §2.1 + development.md §5.1.18 + platform.md §3.7 三 文档同步修订 + `.session/wisdom.md` 蒸馏 + 4 条 standards 挂接 + 1-2 atomic commits

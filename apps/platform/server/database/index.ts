@@ -155,6 +155,30 @@ export const getDataSource = (): DataSource => {
  *   （60+ 处 API endpoint / service 引用），备份必须在 schema 同步 / 数据写入前完成但不能在每次调用时执行
  */
 let startupBackupRan = false
+
+/**
+ * SQLite 启动期 PRAGMA 优化（M23.1 根因排查落地）：
+ * - `journal_mode = WAL`：rollback journal（默认 delete）→ WAL，让读不阻塞写 + 多个并发读不互锁
+ *   （M22.7 ECONNRESET 根因候选 P0，详见 backlog.md §E2E global-setup 串行场景 ECONNRESET 根因段）；
+ * - `busy_timeout = 5000ms`：默认 0 立即返回 SQLITE_BUSY，5s 等待可吸收 better-auth session 写入
+ *   与 fixtures DELETE `ensureDatabaseInitialized()` 走同一 singleton 的异步清理窗口竞争。
+ *
+ * 仅 SQLite 数据库生效（pg/mysql 跳过）。fail-open：PRAGMA 失败仅警告不阻塞。
+ */
+const applySqlitePragmas = async (ds: DataSource): Promise<void> => {
+    if (currentDatabaseType() !== 'sqlite') {
+        return
+    }
+    try {
+        await ds.query('PRAGMA journal_mode = WAL')
+        await ds.query('PRAGMA busy_timeout = 5000')
+        const journalMode = await ds.query('PRAGMA journal_mode')
+        console.log(`[database] SQLite PRAGMA applied: journal_mode=${String(journalMode[0]?.journal_mode ?? 'unknown')}, busy_timeout=5000`)
+    } catch (error) {
+        console.error('[database] SQLite PRAGMA apply failed (non-fatal):', error)
+    }
+}
+
 export const ensureDatabaseInitialized = async (): Promise<DataSource> => {
     // 启动期备份（once 保护；详见 docs/standards/development.md §5.1.18）
     // 注：ensureDatabaseInitialized 是 hot path，每次调用都会执行；备份仅在首次调用时执行一次
@@ -174,6 +198,10 @@ export const ensureDatabaseInitialized = async (): Promise<DataSource> => {
         try {
             if (!ds.isInitialized) {
                 await ds.initialize()
+            }
+            // PRAGMA 应用必须在 initialize 之后（连接已建立）
+            if (ds.isInitialized) {
+                await applySqlitePragmas(ds)
             }
         } catch (error) {
             console.error('[database] initialization failed:', error)

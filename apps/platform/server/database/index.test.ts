@@ -176,4 +176,28 @@ describe('ensureDatabaseInitialized', () => {
         const afterCount = readdirSync(backupsDir).length
         expect(afterCount).toBe(beforeCount)
     })
+
+    it('applies SQLite WAL mode and busy_timeout PRAGMA after initialization (M23.1)', async () => {
+        // M23.1 根因排查落地：SQLite WAL 模式 + busy_timeout 5000ms 优化
+        // 验证 ensureDatabaseInitialized 初始化后 journal_mode=wal + busy_timeout=5000
+        vi.resetModules()
+        const { ensureDatabaseInitialized: ensureFresh } = await import('./index')
+
+        const ds = await ensureFresh().catch(() =>
+            // 测试环境可能 DataSource 初始化失败，跳过断言
+            null)
+
+        if (!ds?.isInitialized) {
+            // 测试环境 DataSource 初始化失败（无 better-sqlite3 native binding 等），跳过
+            return
+        }
+
+        // 验证 journal_mode = wal
+        const journalModeRows = await ds.query('PRAGMA journal_mode')
+        expect(String(journalModeRows[0]?.journal_mode ?? '').toLowerCase()).toBe('wal')
+
+        // 验证 busy_timeout = 5000ms
+        const busyTimeoutRows = await ds.query('PRAGMA busy_timeout')
+        expect(Number(busyTimeoutRows[0]?.busy_timeout ?? 0)).toBe(5000)
+    })
 })

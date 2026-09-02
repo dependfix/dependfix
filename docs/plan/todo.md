@@ -87,12 +87,12 @@
 
 - **目标**：消除 cron-preview 测试对真实 wall clock 的依赖（16h / 8h 分支 flaky test fix），固定-now 断言 + 强化分支覆盖
 - **范围**：
-  - **T1** [backlog.md §测试基础设施清理 §cron-preview 时区测试 wall-clock 依赖消除](backlog.md#测试基础设施清理) S1+S2 两条：S1 用 `vi.setSystemTime` 写固定-now 用例断言 `diffHours === 16` + 对照用例固定到 8h 窗口断言 `diffHours === 8`（强制两个分支都被覆盖）；S2 改 `cron-preview.test.ts:89` 断言为 `expect(diffHours === 8 || diffHours === 160).toBe(true)`
+  - **T1** [backlog.md §测试基础设施清理 §cron-preview 时区测试 wall-clock 依赖消除](backlog.md#测试基础设施清理) S1+S2 两条：S1 用 `vi.setSystemTime` 写固定-now 用例断言 `diffHours === 8`（UTC 周六 14:00 now）+ 对照用例固定到 UTC 周日 18:00（Shanghai 周一 02:00 CST）断言 `diffHours === 160`（cron-parser 实测返回可能值 8 或 160，不是原计划 16；强制两个分支都被覆盖）；S2 改 `cron-preview.test.ts:89` 断言为 `expect(diffHours === 8 || diffHours === 160).toBe(true)`
 - **优先级**：P3（测试补强 / 治理收口）
 - **验收**：
-  - [ ] cron-preview.test.ts 0 真实 wall clock 依赖（`vi.setSystemTime` 固定-now 断言）
-  - [ ] vitest 单测通过 + lint + typecheck 0 error
-  - [ ] 编号标记扫描 0 命中（按 §3 D 阶段自检强制项 + code-auditor 主责边界必查项）
+  - [x] cron-preview.test.ts 0 真实 wall clock 依赖（`vi.setSystemTime` 固定-now 断言 diffHours === 8 + diffHours === 160）—— 2026-09-02 commit `?` 闭环
+  - [x] vitest 单测通过 + lint + typecheck 0 error —— vitest 12/12 passed + eslint 0 warning + typecheck exit 0
+  - [x] 编号标记扫描 0 命中（按 §3 D 阶段自检强制项 + code-auditor 主责边界必查项）
 - **依赖**：M23.0 治理批次完成；commit `3597dcf`（cron-preview flaky test fix audit suggest 登记）作为基线
 - **交付物**：cron-preview.test.ts 修改（vi.setSystemTime 固定-now 用例 + 断言改写）+ 1 atomic commit
 - **风险与缓解措施**：固定-now 测试可能错过未来 cron-parser 行为退化 → 加分支断言（diffHours === 8 或 160）强制两个分支都被覆盖；vi.setSystemTime + cron-parser currentDate 参数语义对齐需测试复跑验证

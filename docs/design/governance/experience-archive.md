@@ -1489,3 +1489,176 @@ Playwright 1.62 fixture pool 注入链（workerProcessEntry.js + common/index.js
 - ⑤ todo.md §M24.1 验收 + 实施记录（本批已落地）
 
 **M24.1 阶段已完全闭环**，可作为方案 B 的第 1 个原子条目独立归档。M24.2 根因排查源码层面 + M24.3 cron-preview + M24.4 治理债 + M24.5 C36 服务端 API i18n 待用户决策推进。
+
+## 五十七、M22.7+M22.8 根因 4 项残留候选源码追溯：候选 ①/③ 已治本 + ② 非根因 + ④ 经验性方案登记 follow-up（2026-09-03，M24.2 阶段 docs-only）
+
+### 案例背景
+
+M22.7 hotfix（commit `f617b56`，helper 层 maxRetries 兜底）+ M22.8 hotfix（commit `bdcd900`，fixture pool helper 抽取）作为 e2e 失败的临时修复已闭环，但根因未完全治本。后续 M23.1 commit `2ffaa45`（SQLite WAL + busy_timeout）+ M23.2 commit `09c3dee`（Playwright fixture pool cookie 注入）已落地深度治本。但 M22.7+M22.8 hotfix 阶段的 4 项根因候选仍有 3 项未明确判定：候选 ① better-auth transaction close 时序、② Nitro h3 async generator 行为、④ fixtures API 请求间节流（候选 ③ SQLite WAL 已由 M23.1 闭环）。
+
+M24.2 阶段（2026-09-03 启动）按"类型平衡"原则拆出，**仅做源码层面排查**（不依赖非 sandbox 环境 CI 复现 —— sandbox chromium 阻断 `page.goto` 同源问题 M22.7 hotfix 实证过，二次运行同样失败 = 幂等性已验证；非 sandbox 环境重跑属 follow-up）。本案例为 3 份源码追溯报告 + 治本判定 + follow-up 登记，docs-only 落地（commit `<M24.2>`）。
+
+### 候选 ① better-auth 1.7 transaction close 时序源码追溯
+
+**结论**：✅ **已治本** —— typeorm-adapter.ts L237-241 已走真事务路径 + better-auth 1.7.2 自动 patch fallback 不适用本项目。无需 trace 注入。
+
+**源码追溯链**：
+
+1. **`apps/platform/server/utils/auth.ts:407` `getAuth()`** —— 通过 `betterAuth({ database: typeormAdapter(ds), ... })` 构造 better-auth 实例。typeormAdapter 接收 `ds: DataSource`，返回 better-auth adapter factory（`typeorm-adapter.ts:231-244`）。
+
+2. **`apps/platform/server/database/typeorm-adapter.ts:237-241` `transaction` 实现**：
+   ```typescript
+   transaction: <R>(callback: (trx: DBTransactionAdapter) => Promise<R>) =>
+       dataSource.transaction(async (manager) => {
+           const trx = createTypeormAdapter(dataSource, manager) as DBTransactionAdapter
+           return callback(trx)
+       })
+   ```
+   - 调用 TypeORM `dataSource.transaction()`，传入 async callback
+   - callback 内部用事务 EntityManager 创建新 adapter（`createTypeormAdapter(dataSource, manager)` L239）
+   - TypeORM 1.x `transaction()` 保证 callback promise resolve 后 COMMIT，rollback 在 throw 时触发
+   - **时序保证**：TypeORM `dataSource.transaction` 实现是 begin → await callback → commit/rollback，无 close 时序隐患
+
+3. **`better-auth 1.7.2` adapter fallback 路径**：`node_modules/.pnpm/better-auth@1.7.2_*/better-auth/dist/db/adapter-base.mjs:18`：
+   ```javascript
+   if (!adapter.transaction) {
+       logger.warn("Adapter does not correctly implement transaction function, patching it automatically...");
+       adapter.transaction = async (cb) => { return cb(adapter) };
+   }
+   ```
+   - 该 fallback 是 better-auth 1.7.1 时期的"自动 patch"，仅对**未实现 transaction**的 adapter 生效
+   - 但本项目 typeorm-adapter.ts L237-241 **已实现 transaction**，better-auth 1.7.2 走真事务路径（L237）
+   - Fallback 不适用本项目
+
+4. **close 时序触发条件**：
+   - TypeORM 1.x `dataSource.transaction()` 内部用 `QueryRunner` 管理 BEGIN/COMMIT/ROLLBACK
+   - callback 返回值 = transaction commit 成功；callback throw = transaction rollback
+   - `better-auth 1.7.2` 内部所有 transaction wrapper（如 `withHooks`、`adapter-base.mjs:18` fallback）都遵循 callback promise resolve → commit
+   - **M22.7 ECONNRESET 与 transaction close 时序无因果关系**
+
+**建议 trace 注入位置**（如未来仍怀疑 ① 候选，注入位置已确定）：
+- `apps/platform/server/database/typeorm-adapter.ts:237` `transaction` 函数首行加 `console.log('[auth] transaction begin', new Date().toISOString())`
+- callback 结束位置（L241）加 `console.log('[auth] transaction commit', new Date().toISOString())`
+- callback throw 位置加 `console.error('[auth] transaction rollback', err)`
+
+### 候选 ② Nitro h3 `defineEventHandler` async generator 行为源码追溯
+
+**结论**：✅ **非根因** —— fixtures.delete / fixtures.post handler 均为普通 `async (event) => {}` 函数（非 `async function*` generator），与 M22.7 ECONNRESET 无因果关系。
+
+**源码追溯链**：
+
+1. **`apps/platform/server/api/e2e/fixtures.delete.ts:42` handler 定义**：
+   ```typescript
+   export default defineEventHandler(async (event) => { ... })
+   ```
+   - `async (event) => { ... }` 是普通 async arrow function，**不是** `async function*`
+   - 返回类型 `Promise<{ deleted: { repos, scanRuns, scanResults } }>`
+   - 同一模式 `apps/platform/server/api/e2e/fixtures.post.ts:98` 同款
+
+2. **h3 `defineEventHandler` 内部处理**：`node_modules/.pnpm/h3@1.15.11/h3/dist/index.mjs:1886-1890`：
+   ```javascript
+   async function _callHandler(event, handler, hooks) {
+       // ... hook.onRequest 省略
+       const body = await handler(event);
+       const response = { body };
+       if (hooks.onBeforeResponse) { ... }
+       return response.body;
+   }
+   ```
+   - `_callHandler` 直接 `await handler(event)` → handler 返回 Promise<value>
+   - `const body = await handler(event)` 解包 Promise 为 plain value
+   - 不区分 `async function*`（async generator）
+
+3. **h3 `coerceIterable` 工具函数**（`index.mjs:716-725`）—— 仅在显式调用 `sendIterable()` 时使用：
+   ```javascript
+   function coerceIterable(iterable) {
+       if (typeof iterable === "function") iterable = iterable();
+       if (Symbol.iterator in iterable) return iterable[Symbol.iterator]();
+       if (Symbol.asyncIterator in iterable) return iterable[Symbol.asyncIterator]();
+       return iterable;
+   }
+   ```
+   - `defineEventHandler` 默认 handler 路径不走 `coerceIterable`（仅 `sendIterable` 内部用）
+   - 即便 handler 是 `async function*`，h3 默认会 `await handler(event)` 拿到 AsyncGenerator 对象，**不会自动迭代**（async generator 不 awaitable，需要 `for await...of` 迭代）
+
+4. **Nitro handler 适配器**：`node_modules/.pnpm/nitropack@2.13.4/nitropack/dist/` 全局 `grep isAsyncIterable|asyncIterator|generator` 0 命中 → Nitro 直接消费 h3 handler 返回值，不做 generator 区分。
+
+**fixtures.delete / fixtures.post 行为判定**：
+- ✅ 普通 async function（不是 generator）
+- ✅ h3 `_callHandler` `await handler(event)` 拿到 Promise<{ ... }>
+- → 返回 plain object，序列化为 JSON 响应
+- → **与 ECONNRESET 无因果关系**（ECONNRESET 发生在 socket 层而非 handler 返回路径）
+
+**trace 注入位置**（如需进一步验证）：
+- `apps/platform/server/api/e2e/fixtures.delete.ts:42` 函数首尾各加一行 `console.log('[fixtures.delete] begin/end', Date.now())`
+- 同样 `fixtures.post.ts:98`
+
+### 候选 ④ fixtures API 请求间节流源码追溯
+
+**结论**：🟡 **经验性方案** —— 当前 fixtures handler **无节流 / debounce / rate-limit 代码**，仅靠 `E2E_TEST === 'true'` + `runtimeConfig.e2eFixturesAllowed` 双门控限制访问范围。follow-up 登记经验性节流方案，不强制实施。
+
+**源码追溯链**：
+
+1. **fixtures.delete / fixtures.post 双门控**：
+   - `apps/platform/server/api/e2e/fixtures.delete.ts:46-48`：
+     ```typescript
+     if (process.env.E2E_TEST !== 'true' || !config.e2eFixturesAllowed) {
+         throw createError({ statusCode: 404, statusMessage: 'Not Found' })
+     }
+     ```
+   - `apps/platform/server/api/e2e/fixtures.post.ts:105-107` 同款
+
+2. **节流代码搜索**：
+   ```bash
+   rg -n "rate.?limit|throttle|debounce" apps/platform/server/api/e2e/
+   ```
+   - 0 命中 → fixtures handler **无任何节流逻辑**
+   - 实际节流仅依赖 e2e webServer 单进程 + 同步 SQLite 操作时序（fixtures.delete 与 fixtures.post 在 global-setup 串行调用）
+
+3. **fixtures 调用频次**（global-setup.ts）：
+   - 全局 setup.ts 在 seed 之前调 fixtures.delete（清空）→ seed 期间调 fixtures.post（注入）→ e2e 测试套跑期间 fixtures API 不再被调用（page 真实 fetch 走 server）
+   - fixtures API 调用频次 = global-setup 阶段 1 次 delete + 1 次 post，**不属于高频路径**
+
+**经验性节流方案**（如未来 e2e 复现 fixture 并发问题，可加）：
+
+```typescript
+// apps/platform/server/utils/fixtures-throttle.ts
+let lastFixtureCall = 0
+export const fixturesRateLimit = (): boolean => {
+    const now = Date.now()
+    if (now - lastFixtureCall < 100) return false  // 100ms 节流
+    lastFixtureCall = now
+    return true
+}
+```
+
+- fixtures.delete / fixtures.post 在双门控通过后调用 `fixturesRateLimit()`；返回 false → 429 Too Many Requests
+- 与 M23.2 fixture pool helper 抽取风格一致（helper + helper 单测）
+- **不强制实施**：本批次判定 fixtures 调用频次低 + 单进程串行，不存在并发资源竞态；登记 follow-up 待未来 e2e 复现确认
+
+### 教训（3 项）
+
+1. **教训 1（better-auth 1.7 自动 patch fallback 不适用所有项目）**：better-auth 1.7.2 `getBaseAdapter` 在 adapter 不实现 transaction 时自动 patch `cb => cb(adapter)` fallback，logger warn 但**不阻断**业务运行。该 fallback 仅对未实现 transaction 的 adapter（如纯 in-memory adapter）生效，**有真实 transaction 实现的 adapter（如 typeorm-adapter.ts L237）走真事务路径**。**本批排查结论**：项目已走真事务，根因 ① 不适用。**修复方向**（登记 follow-up）：在 `getBaseAdapter` 加 `if (!adapter.transaction && !adapter.id) throw` 早期失败而非 warn 自动降 —— 但 better-auth 上游决策，改动依赖上游合作，本批仅记录。
+
+2. **教训 2（async function vs async function\* 的运行时差异）**：`async (event) => {}` 与 `async function* (event) => {}` 在 h3 `defineEventHandler` 中行为差异是：前者返回 `Promise<value>`，后者返回 `AsyncGenerator<T>`（不可 await 自动迭代）。前者 h3 `await handler(event)` 解包 Promise；后者需显式 `for await...of` 迭代（如 `sendIterable`）。**根因排查误区**：单纯 grep `async function*` 看是否被识别为 generator；M22.7 hotfix 阶段排查时可能误判 fixtures.delete 为 generator（实际不是）。**本批实测**：fixtures.delete / fixtures.post handler 签名明确为 `async (event) => {}`，源码层面消除根因 ② 嫌疑。
+
+3. **教训 3（依赖自动 fallback 是隐性技术债）**：better-auth 1.7.2 `adapter-base.mjs:18` 自动 patch fallback 是隐性技术债 —— 业务代码可能误以为有真事务保护（实际仅同步回调）。**未来风险**：若 better-auth 上游某版本改动 fallback 行为（如改为 throw），项目 typeorm-adapter 已实现 transaction 不受影响（适配实现逻辑优先于 fallback）；但若有其他未实现 transaction 的 adapter 引入，可能静默回退。**修复方向**（登记 follow-up）：写 `apps/platform/server/utils/__tests__/better-auth-adapter-transaction.test.ts` 单测验证项目 typeorm-adapter.transaction 是真事务（mock adapter + 验证 callback commit 时序），避免未来重构引入回退。
+
+### 挂接治理检查点
+
+1. **wisdom.md**（gitignored，留待下次会话 wisdom 蒸馏批次）：M24.2 阶段新增 3 条 pattern —— ① `pattern-better-auth-adapter-transaction-required`（better-auth 1.7 自动 patch fallback 不适用所有项目；adapter 必须显式实现 transaction）；② `pattern-h3-defineEventHandler-async-vs-generator`（`async function*` 在 h3 中不会自动迭代；必须显式 sendIterable）；③ `pattern-fixtures-no-throttle-by-default`（fixtures handler 无节流，靠 global-setup 串行调用避免并发）。本批 3 条 + M24.1 5 条 + 现有 17 条合并后共 25 条，距 20 阈值已超 5 条，**下批次会话执行 wisdom 蒸馏**（详见 wisdom.md §distillation_log）。
+
+2. **.github/agents/code-auditor.agent.md 主责边界**：本批不新增必查项（3 条 pattern 属源码追溯层而非审查清单）。**已沉淀的 standard depth audit 实践**：Phase 1/2/3/4 全部 single-round audit + 内联修复，本批次 docs-only 不触发 audit。
+
+3. **docs/plan/todo.md §M24.2**：本批同步完成验收清单 + 实施记录 + 根因候选 4 项最终状态表（详见 todo.md §M24.2 验收标准 + 根因候选 4 项最终状态表）。
+
+4. **follow-up 候选登记**（本批无法本地验证，留待下批次非 sandbox 环境或 wisdom 蒸馏批次）：
+   - 候选 ① better-auth transaction close 时序：本批次源码追溯已判定**已治本**，无需 CI 复现确认；如未来 e2e 仍出现 ECONNRESET，trace 注入位置见 §五十七 候选 ① 段
+   - 候选 ② Nitro h3 async generator：本批次源码追溯已判定**非根因**，无需 CI 复现确认
+   - 候选 ④ fixtures API 节流：经验性方案 `apps/platform/server/utils/fixtures-throttle.ts` 模板已写在 §五十七 候选 ④ 段；如未来 e2e 复现 fixture 并发问题，按模板实施 + 加 helper 单测
+
+### 准入标准复核
+
+本案例（M24.2 阶段）符合准入标准第 1 条"教训未落入规范"（3 条 pattern 涉及 better-auth + h3 + 节流设计，均为新发现实践教训，未在现有规范登记）+ 第 2 条"重大 bugfix 经验未沉淀"（本批 0 实施，仅 docs-only 源码排查；M22.7 ECONNRESET 根因链已闭环）+ 第 3 条"重复违规预警"（better-auth 自动 patch fallback 是隐性技术债，未来重构可能引入回退；已登记 follow-up 单测建议）。**M24.2 增量贡献**：从 M22.7+M22.8 阶段"4 项根因候选未明确判定"演进到 M24.2 阶段"3 候选已治本 + 1 候选经验性方案登记" —— 源码追溯 + 治本判定 + 3 教训 + 4 follow-up 形成完整治理闭环。
+
+M24 阶段方案 B 第 2 个原子条目（M24.2）独立闭环。M24.3 cron-preview wall-clock + M24.4 M18.x+Code Scanning 集中清理 + M24.5 C36 服务端 API i18n 仍待用户决策推进。

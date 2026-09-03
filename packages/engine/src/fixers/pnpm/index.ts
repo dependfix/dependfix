@@ -1,4 +1,4 @@
-import { execFileSync, execSync } from 'node:child_process'
+import { execFileSync } from 'node:child_process'
 import { copyFileSync, existsSync, readFileSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 
@@ -78,7 +78,7 @@ interface ClassificationResult {
  */
 export function classifyLockfileFailure(workDir: string): ClassificationResult {
     try {
-        execSync('pnpm install --frozen-lockfile', {
+        execFileSync('pnpm', ['install', '--frozen-lockfile'], {
             cwd: workDir,
             stdio: 'pipe',
             timeout: 120_000,
@@ -334,7 +334,7 @@ const LOCKFILE_NAME = 'pnpm-lock.yaml'
  */
 function verifyFrozenLockfile(workDir: string): { ret: number, stderr: string } {
     try {
-        execSync('pnpm install --frozen-lockfile', {
+        execFileSync('pnpm', ['install', '--frozen-lockfile'], {
             cwd: workDir,
             stdio: 'pipe',
             timeout: 120_000,

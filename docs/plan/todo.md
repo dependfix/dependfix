@@ -203,14 +203,28 @@
 
 **验收标准**：
 
-- [ ] W1 stageAndCommit --local flag 路径回归测试覆盖（`process.env.GIT_CONFIG_GLOBAL` 模拟 + 不预设 local config）
-- [ ] W2 detectServerLocale 大小写值接受（?locale=EN 等同 ?locale=en）
-- [ ] RG-W01 pr-creator.ts:214 execSync 替换为 execFileSync
-- [ ] RG-W02 fixers/pnpm/index.ts:144 execSync 替换为 execFileSync
-- [ ] Code Scanning 0 告警（依赖 github-code-scanning 工具实测或本地 grep 兜底）
-- [ ] 编号标记扫描 0 命中
+- [x] W1 stageAndCommit --local flag 路径回归测试覆盖（`process.env.GIT_CONFIG_GLOBAL` 模拟 + 不预设 local config）—— **已由 M18.4 阶段闭环**（packages/engine/src/github/pr-creator.test.ts 行 606-641；W1 回归 case "host 全局 git config 存在 user.name 但 repo 无 local config → ensureGitConfig 写入 local config"）
+- [x] W2 detectServerLocale 大小写值接受（?locale=EN 等同 ?locale=en）—— **已由 M16.3 阶段闭环**（apps/platform/server/utils/localized-error.ts 行 103-110 + 124-132；`rawValue.toLowerCase()` 归一化 + `'en' / 'en-us' / 'zh' / 'zh-cn'` 4 个大小写不敏感映射）
+- [x] RG-W01 pr-creator.ts:214 execSync 替换为 execFileSync —— **已由 M18.4 阶段闭环**（packages/engine/src/github/pr-creator.ts 行 213-214 已是 `execFileSync('git', ['add', '.'], ...)` 数组传参模式；todo.md §M24.4 描述"L214"是 stale 行号偏移，实际 L213-214 已修复）
+- [x] RG-W02 fixers/pnpm/index.ts:144 execSync 替换为 execFileSync —— **本批次落地**（packages/engine/src/fixers/pnpm/index.ts L81 + L337 替换 `execSync('pnpm install --frozen-lockfile', ...)` → `execFileSync('pnpm', ['install', '--frozen-lockfile'], ...)`；todo.md §M24.4 描述"L144"是 stale 行号，实际 L81 + L337 两处需改）
+- [x] Code Scanning 0 告警（依赖 github-code-scanning 工具实测或本地 grep 兜底）—— 本地 grep 兜底确认：production code 0 execSync 字符串模板残留（仅 test helper `*.test.ts` 保留 execSync 模拟 git/pnpm 环境初始化，与 §四十四经验一致）
+- [x] 编号标记扫描 0 命中
 
-**预估**：~110 行 + 3 测；commits 预估 1 commit
+**实施记录**：
+
+| 阶段 | Commit | 范围 |
+|:---|:---|:---|
+| 3 项已闭环前置工作 | M16.3 / M18.4 | detectServerLocale 大小写不敏感 + stageAndCommit W1 回归 + pr-creator.execFileSync |
+| 1 项实际修复 + 验收 | `<commit>`（M24.4） | fixers/pnpm L81 + L337 execSync → execFileSync + todo.md §M24.4 验收更新 |
+
+**4 项治理债最终状态**：
+
+| 治理债 | 状态 | 实际位置 / 修复 commit |
+|:---|:---|:---|
+| W1 stageAndCommit --local flag | ✅ **已闭环**（M18.4） | `pr-creator.test.ts:606-641` |
+| W2 detectServerLocale 大小写 | ✅ **已闭环**（M16.3） | `localized-error.ts:103-110 / 124-132` |
+| RG-W01 pr-creator.execSync | ✅ **已闭环**（M18.4） | `pr-creator.ts:213-214`（todo.md §M24.4 描述"L214"是 stale） |
+| RG-W02 fixers/pnpm.execSync | ✅ **本批次修复** | `fixers/pnpm/index.ts:81 / 337`（todo.md §M24.4 描述"L144"是 stale，实际 2 处） |
 
 ### M24.5 [P2 🎨 体验] C36 服务端 API i18n 扩展
 

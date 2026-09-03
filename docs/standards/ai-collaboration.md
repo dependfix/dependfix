@@ -100,6 +100,28 @@ Agent-First 的完整项目级定义以 `AGENTS.md` 为准。Agent 是默认任�
 
 ## 2. PDTFC+ 工作流
 
+### 2.0 D 阶段自检三向验证纪律
+
+D 阶段自检不能仅依赖 `pnpm exec eslint --fix`（自动修复 import/order + eol-last 等警告级问题），必须分别跑以下三向独立命令并取 0 error 证据：
+
+```bash
+# 1. ESLint 无 --fix（避免 lint 警告被自动压制后误判为"通过"）
+pnpm exec eslint <本批改动文件>
+
+# 2. nuxt typecheck（CI 实际命令；vitest 走 esbuild 不触发 TS 严格检查）
+pnpm --filter @dependfix/platform run typecheck
+
+# 3. vitest 全套（不破坏现有测试）
+pnpm --filter @dependfix/platform exec vitest run
+```
+
+**根因教训**（M24.1 + M24.2 + M24.3 阶段累积）：
+- vitest 用 esbuild 转译不触发 TS 严格检查，CI 通过 ≠ 本地 typecheck 通过；CI 自动 rebuild workspace dist 掩盖本地 dev 过期
+- ESLint --fix 自动修复 import/order + eol-last 等问题，可能掩盖"0 error 自检证据"覆盖盲区
+- M24.1 Phase 2 两次 audit Reject 实证 B1（polling-source.test.ts import 错误）+ B2（Array<T> 错误）都是 D 阶段自检仅跑 --fix 漏掉
+
+**CI 失败兜底**：上述三向验证通过 + `pnpm run check:docs` exit 0 + (含 SCSS/CSS 改动时) `pnpm --filter @dependfix/platform build` exit 0，才能进入 A 阶段审计。CI 通过 = 最终裁决，本地通过 ≠ 完成。
+
 所有写操作任务必须严格遵循以下执行顺序。**严禁跨越关键质量阈值。**
 
 ### P (Plan) — 需求分析与规划

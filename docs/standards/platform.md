@@ -190,6 +190,27 @@ runtimeConfig: {
 
 **A 阶段 Review Gate**：backup.ts 必须含 fsync + retention 清理逻辑；db-restore.ts 必须含 `--yes` 二次确认；db-doctor.ts 必须打印 schema_version + freelist_count
 
+### 3.7.1 fixtures API 无节流默认 + 经验性节流方案
+
+fixtures handler（`apps/platform/server/api/e2e/fixtures.{post,delete}.ts`）**当前无任何节流 / debounce / rate-limit 代码**，依赖调用方（`tests/e2e/global-setup.ts` + 各 test suite）按顺序串行调用。**M24.2 阶段源码追溯判定**（`rg -n "rate.?limit|throttle|debounce" apps/platform/server/api/e2e/` 0 命中）：调用频次低（global-setup 阶段 ≤ 2 次），不存在并发资源竞态。
+
+**经验性节流方案**（M24.2 follow-up，未来 e2e 复现 fixture 并发问题时实施）：
+
+```typescript
+// apps/platform/server/utils/fixtures-throttle.ts
+let lastFixtureCall = 0
+export const fixturesRateLimit = (): boolean => {
+    const now = Date.now()
+    if (now - lastFixtureCall < 100) return false  // 100ms 节流
+    lastFixtureCall = now
+    return true
+}
+```
+
+fixtures.delete / fixtures.post 在双门控通过后调用 `fixturesRateLimit()`；返回 false → `429 Too Many Requests`。
+
+**未来触发条件**：CI 偶现 fixtures DELETE 502/503 + 资源释放竞态时优先复现 → 启用节流而非加复杂锁。详见 [经验归档 §五十七 M24.2 候选 ④（experience-archive.md §五十七段）](../design/governance/experience-archive.md)。
+
 ## 4. 认证规范（better-auth）
 
 ### 4.1 实例配置（`server/utils/auth.ts`）
@@ -209,6 +230,7 @@ runtimeConfig: {
 - 事务：`dataSource.transaction(async (manager) => callback(createAdapter(manager)))`
 - 字段映射：实体属性名 = better-auth schema 字段名（camelCase）；列名由命名策略转换，**adapter 不感知列名**
 - 禁止在 adapter 中 import 业务实体（保持通用）
+- **better-auth adapter 必须显式实现 `transaction`（隐性技术债陷阱）**（M24.2 阶段教训）：better-auth 1.7.2 `getBaseAdapter`（`node_modules/.pnpm/better-auth@*/dist/db/adapter-base.mjs:18`）在 adapter 不实现 `transaction` 时**自动 patch fallback** `cb => cb(adapter)`（**非真事务**，仅同步回调）+ logger warn 但**不阻断**业务运行。**根因**：业务代码可能误以为有真事务保护（实际仅同步回调；并发场景下 better-auth 多步写入的隔离性丢失）。**M24.2 源码追溯结论**：项目 `typeorm-adapter.ts:209` 已实现 `dataSource.transaction(...)` 真事务，better-auth 走真事务路径（fallback 不适用）。**防御**（防 future 重构引入回退）：在 `server/utils/__tests__/better-auth-adapter-transaction.test.ts` 写单测验证项目 typeorm-adapter.transaction 是真事务（mock adapter + 验证 callback commit 时序），不依赖 better-auth 上游 fallback。详见 [经验归档 §五十七 M24.2 教训 1 + 教训 3（experience-archive.md §五十七段）](../design/governance/experience-archive.md)。
 
 ## 5. 凭据安全规范（T602 起生效）
 
@@ -227,6 +249,7 @@ runtimeConfig: {
 - 认证守卫：除 `auth/**` 与登录相关外，API 默认要求会话（`requireSession` 工具），未登录 401
 - 凭据类 API 永不返回明文 token
 - API 层只做参数校验与响应组装，业务逻辑下沉 `server/services/`
+- **h3 `defineEventHandler` 行为：handler 是 `async function` 而非 `async function*` generator**（M24.2 阶段教训）：h3 `_callHandler`（`node_modules/.pnpm/h3@1.15.11/h3/dist/index.mjs:1886-1890`）`await handler(event)` —— handler 返回 `Promise<value>`（普通 async function）或 `AsyncGenerator<T>`（`async function*` generator，不可 await 自动迭代）。`async function*` 在 h3 默认 handler 路径下不会自动迭代（需显式 `sendIterable` 走 `coerceIterable` 工具函数，定义于 `index.mjs:716-725`）；如误用 `async function*` 写 API handler，Nitro 默认路径下行为异常（不会自动 yield）。**M24.2 源码追溯判定**：`apps/platform/server/api/e2e/fixtures.{post,delete}.ts` 与 `pr-checks/index.get.ts` 等均明确为 `async (event) => { ... }` 普通 async function（grep `async function\*` 全仓仅 `packages/engine/src/runners/cgroup.ts:282` 1 处，为 cgroup OOM observer 非 API handler），**与 M22.7 ECONNRESET 无因果关系**。**防御**：写 Nuxt server route 时 handler 一律 `defineEventHandler(async (event) => { ... })`；如确需流式响应（SSE / 长轮询），显式 `defineEventHandler(async (event) => { ... return sendIterable(event, generator) })`。详见 [经验归档 §五十七 M24.2 候选 ②（experience-archive.md §五十七段）](../design/governance/experience-archive.md)。
 
 ## 7. 前端规范（app/）
 
@@ -246,6 +269,7 @@ runtimeConfig: {
 - **`<Chart>` 引入体积警告**：PrimeVue `<Chart>` 内部 `import('chart.js/auto')` 引入 ~200KB 全量依赖，与 tree-shakable 原则冲突。引入 PrimeVue wrapper 组件前先 grep 内部是否引入了全量依赖；如确实需要 Chart.js，**自实现 `ChartCanvas.vue` 包装**（仅注册用到的 controllers/elements/scales/plugins 子集，如 `LinearScale` + `CategoryScale` + `BarController` + `BarElement` + `DoughnutController` + `ArcElement` + `Tooltip` + `Legend`），实测 bundle < 50KB gzip（vs PrimeVue wrapper 200KB，节省 75%）。`<ClientOnly>`  包裹避免 SSR `window is not defined` 报错。
 - **类型 vs 运行时契约核验**：编写 PrimeVue v-model 绑定、ref 形态、callback 契约时**必须直接看 `node_modules/primevue/<comp>/index.mjs` 内部实现**（如 `this.expandedRowGroups.indexOf(...)` 调用），不能信 TypeScript 类型声明（已知 type bug 案例：`DataTableExpandedRows = Record<string, boolean>` 类型允许，但 PrimeVue 4 `v-model:expanded-row-groups` 内部要求 `string[]`，传 Record 触发 `TypeError: ...indexOf is not a function`）。本项目已积累 2 条同类 latent bug：`alerts.vue expandedPackages Record → string[]` 修复（C64，commit `de28ae4`）+ `alerts.vue multiSortMeta` 修复（commit `5c39fe5`）。核验流程：grep `node_modules/primevue/<comp>/index.mjs` 找 `this.<ref>.indexOf` / `this.<ref>[0].field` 等内部契约调用点。
 - **`sort-mode="multiple"` 必须用 `v-model:multi-sort-meta` 传初始排序**：PrimeVue 4 `sort-field` + `sort-order` 仅在 `sort-mode="single"` 下生效；切到 `multiple` 后 `d_multiSortMeta` 不会被自动填充（保持空数组 `[]`），但 `d_sortField` 被赋值后 `sorted` 仍为 `true`（`node_modules/primevue/datatable/index.mjs:6091-6093` `sorted = d_sortField || ...`），进入 `processedData` 走 `sortMultiple(data)` → `multisortField(d, d, 0)` → `d_multiSortMeta[0].field` → 空数组 `TypeError: Cannot read properties of undefined (reading 'field')`。正确写法：`v-model:multi-sort-meta="ref<DataTableSortMeta[]>([{field: 'packageName', order: 1}])"`（PrimeVue Volt UI 官方文档明确："In multiple sort mode, `multiSortMeta` should be used"）。触发条件：必须有真实数据加载（e2e 因 mock 数据未真正进入 DataTable 计算路径，被 hydration fixme 掩盖，调试时易误判）。修复 commit `5c39fe5`。
+- **PrimeVue 4 DataTable 不支持 `:sort-meta` prop（silent ignore 陷阱）**（M24.1 阶段教训）：PrimeVue 4 DataTable 的 sort 状态 prop **仅**有 `v-model:multi-sort-meta`（v-model 形式），**没有** `:sort-meta` / `sortMeta` 等命名（实测 `node_modules/primevue/datatable/DataTable.vue` + `BaseDataTable.vue` 0 命中 `sortMeta`/`sort-meta`，仅 `multiSortMeta` 在 L371/L418/L463）。Vue 模板解析时未知 prop 被静默忽略（无运行时错误但也无功能效果——默认排序失效 + 用户点击列头排序无法持久）。**根因**：Vue 模板解析 + v-model 双向绑定的 prop 名必须与组件定义的 `props.multiSortMeta` 严格匹配（v-model:multi-sort-meta → props.multiSortMeta 短横线转驼峰）。**M24.1 Phase 4 B2 实证**：pr-checks.vue `:sort-meta="sortMeta"` 写错导致默认排序 + 用户排序均失效。**防御**：写 PrimeVue 4 DataTable 多列排序前 grep `node_modules/primevue/datatable/index.mjs` 确认 prop 名；TypeScript 类型声明也仅暴露 `multiSortMeta: DataTableSortMeta[]`，未暴露 `sortMeta`。详见 [经验归档 §五十六 M24.1 教训 3（experience-archive.md §五十六段）](../design/governance/experience-archive.md)。
 - **`<Select>` disabled 不渲染 root `.p-disabled` class**：PrimeVue 4 `<Select>`（非 editable 形态，default）的 `disabled` 状态**不渲染 root `.p-disabled` class**，而是写到内部 `<span role="combobox">` 的 `aria-disabled="true"` + `tabindex="-1"`（`node_modules/primevue/select/index.mjs:1134-1167` span 渲染分支）。editable 形态才走 `<input>` 的 `disabled` 属性。e2e 断言必须用 selector `.p-select span[role="combobox"]` 而非 root `.p-select` class（`.p-disabled` class 来自 `style/index.mjs:10` 的 CSS-in-JS 模板，PrimeVue 4 默认未注入到 DOM）。
 - **bugfix 烟雾脚本**：一次性 smoke 验证脚本（`tests/e2e/_smoke-xxx.mjs`，跑完即删）能精准捕获 PrimeVue 类型/运行时契约类 bug 的修复有效性：监听 `pageerror` + `console.error`，过滤已知 noise（preload warnings），断言关键 TypeError 文本（如 `multisortField` / `Cannot read properties of undefined.*reading 'field'`）。比单纯 typecheck 更具说服力，特别是 e2e 被 known-issue fixme 掩盖的场景。验证后清理脚本不留痕（开发规范 §5.1.11 调试临时代码清理规则）。
 

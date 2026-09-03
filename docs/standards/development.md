@@ -36,6 +36,7 @@
 - **禁止无效或过量注释**: 不机械给每行、每个变量加注释。
 - **注释必须随实现同步**: 修改逻辑时同步更新或删除过时注释。
 - **禁止开发流程编号标记**: 注释与测试名中一律不得出现 `C1:`、`T303`、`G2`、`M4+`、`R2`、`P0` 这类规划 / 任务 / 审计 / backlog 编号（含 `C1：xxx` 与 `it('C1: xxx')` 形式）。阶段与编号是规划文档（`docs/plan/`）中区分进度的概念，代码中无意义且无法反查；追溯用 `git blame` / 审计记录。例外：代码内真实存在的常量（如 HTTP 错误码 `E401`），以及**指向规划文档的导航说明**（如"背景详见 `docs/plan/todo.md`「已知缺口 G2」"、"见 todo.md G3"、"见 backlog B1"）——导航指针内的规划编号属例外，因为它们提供真实可查的文档锚点，但必须同时写明文档路径或章节名，不得只写孤立编号。**执行挂接**：D 阶段自检（Full Stack Master (全栈大师) agent）与 A 阶段 Review Gate 必查项（Code Auditor (代码审计员) agent）均含本检查；违反案例见 [经验归档 §十六](../design/governance/experience-archive.md)。
+- **i18n locale 文件 insert anchor 必须用目标 locale 实际文本**（M24.1 阶段教训）：locale 文件多段对称（`apps/platform/i18n/locales/zh-CN.json` + `en-US.json`），edit 工具 insert anchor 必须用**目标 locale 实际文本**。**根因**：JSON.parse 容忍重复键 last-key-wins，anchor 错位（用 zh-CN 中文文本插入 en-US.json）导致后续段被改写但前端未触发 lint 检测（vitest 不读 i18n 字段语义）。**M24.1 Phase 4 B1 实证**：en-US.json `alerts.errors.loadFailed` 被中文污染为 `"加载失败：{message}"`。**防御**：D 阶段编辑 locale 文件后 `rg "loadFailed|新增键" <locale.json>` 验证 anchor 唯一性 + 对称性（en-US/zh-CN 段键集相同 + 文本不同属正常态；anchor 用错位文本属异常态）。后续扩展：写 `scripts/i18n-anchor-check.mjs` 工具，编辑 locale 文件后跑一遍 anchor 一致性 + 双语键集对称。详见 [经验归档 §五十六 M24.1 教训 2（experience-archive.md §五十六段）](../design/governance/experience-archive.md)。
 - **同一解释只写一处**: 相同背景说明（平台坑、口径、设计取舍）在仓库内只保留一处，通常放在首次出现或语义最贴近的位置；其他位置要么不写，要么用一句话指向文档。
 - **详细解释放文档，代码只留短指针**: 完整设计背景、复盘结论、口径变更写入 `docs/design/`、`docs/research/` 或复盘文档；代码注释只保留一句"为什么"或文档指针，不展开长文。
 - **简化标记约定**: 主动选择简化实现时使用 `// lean:` 标记：
@@ -312,6 +313,33 @@ void Repository
 - 事务回滚保证数据不丢（`RdbmsSchemaBuilder.build()` 内嵌 startTransaction / commitTransaction / rollbackTransaction）
 - 启动期需打印明确错误：`[database] synchronize FAILED: ...请写 migration 而非改 entity`
 - D 阶段自检必须验证：涉及 NOT NULL 列无 default 的 schema 变更必须走 migration 路径，不可仅靠 synchronize
+
+#### 5.1.21 zod `.optional()` 接受 undefined 为合法值（陷阱模式）
+
+zod `z.enum([...]).optional()` 接受 `undefined` 为合法值（`safeParse(undefined).success = true, data = undefined`），但区分「未传字段」与「传 undefined」需**显式** `data !== undefined` 判断，否则 `data === 'some-value'` 三元永远为 false（因 `data` 是 `undefined`）。
+
+**M24.1 Phase 3 实证**（W2 dead code）：`index.get.ts` 早期实现
+```typescript
+const conclusion = conclusionParsed.success && conclusionParsed.data !== undefined
+    ? conclusionParsed.data
+    : undefined
+```
+`data !== undefined` 在 `.optional()` 模式下恒为 false（dead code）+ 误导注释"必须显式 `data !== undefined` 判断「实际传了值」"——后人按错误前提重构。**修正后**：
+```typescript
+// 简化为单层判断（下方 if (conclusion) 过滤 falsy 含 undefined）
+const conclusion = conclusionParsed.success ? conclusionParsed.data : undefined
+// alertFiring 是 boolean，需显式 !== undefined 区分「未传」与「false」
+const alertFiring = alertFiringParsed.success && alertFiringParsed.data !== undefined
+    ? alertFiringParsed.data === 'true'
+    : undefined
+```
+
+**防御**（防 future zod 0.x 升级或 .optional() 行为变更）：
+- 写 query 参数解析时，对 `boolean` 字段必须保留 `data !== undefined` 区分（`false` 是合法值）
+- 对 `string` 字段可简化为单层 `safeParse.success ? data : undefined`（下方 `if (conclusion)` 自动过滤 falsy）
+- 写 `server/utils/zod-helpers.ts` 提供 `parseOptional<T>(schema, value, fieldName): { success: boolean, value?: T }` helper 强制语义区分（follow-up，登记）
+
+详见 [经验归档 §五十六 M24.1 教训 4（experience-archive.md §五十六段）](../design/governance/experience-archive.md)。
 
 #### 5.1.20 atomic commit 边界（重构支撑 vs 业务行为变更必须分 commit）
 

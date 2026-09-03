@@ -551,7 +551,7 @@
 
 ### 待迁移经验（next neat-freak 候选）
 
-- **M19.5 pnpm-audit 单源文案优化**（P3 follow-up）：当前警告文案 "pnpm-audit source failed" 不够友好（缺详细失败原因）—— 后续批次优化为 "pnpm-audit: <error.message>" 格式；与 M18.x FixError 字段模式一致
+- **M19.5 pnpm-audit 单源文案优化**（P3 follow-up）：当前警告文案 "pnpm-audit source failed" 不够友好（缺详细失败原因）—— 后续批次优化为 `pnpm-audit: <error.message>` 格式；与 M18.x FixError 字段模式一致
 - **M19.4 e2e fixtures 复用**（P3 follow-up）：M19.4 实施时新建 `users-api.e2e.test.ts` 等 3 个新 e2e 文件 —— 后续批次可考虑抽取 fixtures helper（如 `apps/platform/tests/e2e/helpers/api-roles.helper.ts` 统一封装 viewer/admin/org_admin 三角色 mock），与 M17.5 `authedCookieHeader` 抽取同源策略
 - **M19.x 收口 commit 风格一致性**（P3 follow-up）：M19.x 收口 `ae33671` 是 refactor 类型 commit + 编号清理 —— 与 M14.x `b45f55e` git.md 双空行格式修复 + `84b4e1a` test 名孤立编号清理同模式（neat-freak 批次顺手处理）；建议统一为 `chore(refactor)` 类型而非 `docs(refactor)` —— 类型分类微调不影响 commit 内容
 - **M19 backlog 候选池（M20+ 可拣选）**：B2（固定分支单线）/ B3（PR 自动合并闭环）/ C24（org 级 alerts 批量拉取）/ C33（MCP P3）/ C9（summary 字段未渲染）/ C13（循环依赖）/ C14（多 cs 告警性能）—— 详见 [backlog.md](backlog.md) §短期 / 一次性候选任务

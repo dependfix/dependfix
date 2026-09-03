@@ -147,7 +147,7 @@
 **验收标准**：
 
 - [x] better-auth 1.7 transaction close 时序源码追溯报告（详见 experience-archive §五十七；输出：typeorm-adapter.ts L237-241 已走真事务 `dataSource.transaction()` + better-auth 1.7.2 `adapter-base.mjs:18` 自动 patch fallback 不适用本项目；判定**已治本**，无需注入 trace）
-- [x] Nitro h3 `defineEventHandler` async generator 行为源码追溯报告（详见 experience-archive §五十七；输出：fixtures.delete / fixtures.post 均为 `async (event) => {}` 普通 async function，**不是** `async function*` generator；h3 `_callHandler` 走 `await handler(event)` 返回 Promise<value>；判定与 M22.7 ECONNRESET 无因果关系）
+- [x] Nitro h3 `defineEventHandler` async generator 行为源码追溯报告（详见 experience-archive §五十七；输出：fixtures.delete / fixtures.post 均为 `async (event) => {}` 普通 async function，**不是** `async function*` generator；h3 `_callHandler` 走 `await handler(event)` 返回 `Promise<value>`；判定与 M22.7 ECONNRESET 无因果关系）
 - [x] fixtures API 请求间节流源码追溯报告（详见 experience-archive §五十七；输出：fixtures handler 无节流 / debounce / rate-limit 代码；双门控 `E2E_TEST === 'true'` + `runtimeConfig.e2eFixturesAllowed`；经验性方案可登记 follow-up）
 - [x] wisdom.md 新增 pattern（如适用，活跃条目合并后超 20 阈值；待下次会话蒸馏批次统一处理）
 - [x] experience-archive.md 新增 §五十七 完整案例（3 份源码追溯报告 + 治本判定 + 3 教训）
@@ -165,7 +165,7 @@
 | 候选 | 状态 | 结论 |
 |:---|:---|:---|
 | ① better-auth 1.7 transaction close 时序 | ✅ **已治本**（无需额外动作） | typeorm-adapter.ts L237-241 实现真事务 `dataSource.transaction(async manager => ...)`；better-auth 1.7.2 `adapter-base.mjs:18` 自动 patch fallback 仅对未实现 transaction 的 adapter 生效；TypeORM 1.x transaction 保证 callback promise resolve 后 COMMIT，无时序隐患 |
-| ② Nitro h3 `defineEventHandler` async generator 行为 | ✅ **非根因**（与 M22.7 无因果） | fixtures.delete / fixtures.post 均为 `async (event) => {}` 普通 async function（不是 `async function*` generator）；h3 `index.mjs:1886` `_callHandler` 走 `await handler(event)` 返回 Promise<value>；Nitro 不区分 async iterable |
+| ② Nitro h3 `defineEventHandler` async generator 行为 | ✅ **非根因**（与 M22.7 无因果） | fixtures.delete / fixtures.post 均为 `async (event) => {}` 普通 async function（不是 `async function*` generator）；h3 `index.mjs:1886` `_callHandler` 走 `await handler(event)` 返回 `Promise<value>`；Nitro 不区分 async iterable |
 | ③ SQLite WAL 模式 | ✅ M23.1 commit `2ffaa45` 已闭环 | — |
 | ④ fixtures API 请求间节流 | 🟡 **经验性方案**（follow-up） | 当前无节流代码；如后续 e2e 复现仍出现资源竞态，加 fixtures middleware 节流 100ms |
 

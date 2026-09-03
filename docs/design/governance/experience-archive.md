@@ -1565,7 +1565,7 @@ M24.2 阶段（2026-09-03 启动）按"类型平衡"原则拆出，**仅做源�
        return response.body;
    }
    ```
-   - `_callHandler` 直接 `await handler(event)` → handler 返回 Promise<value>
+   - `_callHandler` 直接 `await handler(event)` → handler 返回 `Promise<value>`
    - `const body = await handler(event)` 解包 Promise 为 plain value
    - 不区分 `async function*`（async generator）
 

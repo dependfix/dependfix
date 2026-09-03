@@ -191,3 +191,14 @@ a {
 .text-success {
     color: $color-success;
 }
+
+// DataTable 空状态双线修复（2026-09-03 治本，详见 docs/plan/todo.md §M24 follow-up #7）：
+// PrimeVue Aura 主题默认 `.p-datatable-thead th` 和 `.p-datatable-tbody > tr > td` 都画 1px
+// `slate-200` border-bottom（border-collapse: separate 模型下独立绘制）。有数据时 TD border
+// 是"行间分隔"语义正确；空状态无数据时 TD border 与 thead border 中间隔 5px 空白，视觉上
+// 形成"两条独立横线"（Card+DataTable 包裹场景下尤其明显，因为 Card 没有 border 干扰视觉）。
+// 空状态本身无需"行间分隔"语义，去掉 TD border-bottom 是治本方案 — 不影响有数据状态、不
+// 影响 light/dark mode（Aura 主题 `--p-datatable-body-cell-border-color` 变量驱动颜色变化）。
+.p-datatable-tbody > tr.p-datatable-empty-message > td {
+    border-bottom: 0;
+}

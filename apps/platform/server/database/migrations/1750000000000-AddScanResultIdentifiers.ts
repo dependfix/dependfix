@@ -11,6 +11,12 @@ import type { MigrationInterface, QueryRunner } from 'typeorm'
  *
  * 历史数据：旧行 ghsaId / cveIds = NULL，reconcile 时通过 alert.ghsaId / alert.cveIds 透传更新
  * （C66-A1 + C66-A2 实施后下次扫描自动填充）。
+ *
+ * **列名必须用 snake_case**（2026-09-03 修复）：raw SQL 走 `queryRunner.query()` 不经过
+ * `SnakeCaseNamingStrategy`（命名策略仅作用于 TypeORM 自动生成的 SQL，如 entity / QueryBuilder）。
+ * 业务表的实际列名经 namingStrategy 转换 = snake_case；raw SQL 引用 camelCase 会导致
+ * `no such column: repositoryId`（SQLite 列名大小写敏感）。详见
+ * [development.md §5.1.19](../standards/development.md) + [todo.md §M24 follow-up #6](../plan/todo.md)。
  */
 export class AddScanResultIdentifiers1750000000000 implements MigrationInterface {
     name = 'AddScanResultIdentifiers1750000000000'
@@ -18,15 +24,15 @@ export class AddScanResultIdentifiers1750000000000 implements MigrationInterface
     public async up(queryRunner: QueryRunner): Promise<void> {
         await queryRunner.query(`
             ALTER TABLE dependfix_scan_result
-                ADD COLUMN ghsaId varchar(32) NULL
+                ADD COLUMN ghsa_id varchar(32) NULL
         `)
         await queryRunner.query(`
             ALTER TABLE dependfix_scan_result
-                ADD COLUMN cveIds text NULL
+                ADD COLUMN cve_ids text NULL
         `)
         await queryRunner.query(`
             CREATE INDEX IF NOT EXISTS idx_scan_result_repo_ghsa
-                ON dependfix_scan_result (repositoryId, ghsaId)
+                ON dependfix_scan_result (repository_id, ghsa_id)
         `)
     }
 
@@ -36,11 +42,11 @@ export class AddScanResultIdentifiers1750000000000 implements MigrationInterface
         `)
         await queryRunner.query(`
             ALTER TABLE dependfix_scan_result
-                DROP COLUMN cveIds
+                DROP COLUMN cve_ids
         `)
         await queryRunner.query(`
             ALTER TABLE dependfix_scan_result
-                DROP COLUMN ghsaId
+                DROP COLUMN ghsa_id
         `)
     }
 }

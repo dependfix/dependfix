@@ -35,6 +35,7 @@
 > 3. `server/utils/zod-helpers.ts` 提供 `parseOptional<T>` helper（统一 zod optional 语义处理）—— M24.1 教训 4 follow-up
 > 4. M24.2 follow-up：better-auth adapter transaction 单测（防 1.7.2 fallback 静默回退）
 > 5. e2e 真实环境重跑 CI（验证 M22.7 hotfix + M23.1 WAL + M23.2 fixture pool 治本，sandbox chromium 限制下跳过）
+> 6. **migration raw SQL 列名 bug 修复**（2026-09-03 紧急 bug：`server/database/migrations/*.ts` raw SQL 全用 camelCase 列名，但实际表经 `SnakeCaseNamingStrategy` 转 snake_case；`queryRunner.query()` 不经过 namingStrategy，导致 `1750000000000-AddScanResultIdentifiers` 跑挂 `no such column: repositoryId`、`1800000000000-CreatePrCheckTable` / `1800000000001-AddScheduleKind` 同样会失败。**直接插队到 todo 当前阶段**（规范 §3.1 原则 #4 可用性阻塞：注册账号 dashboard 500）；CI 长期未暴露是因为 §5.1.19 e2e 路径走 `synchronize=true` 独立数据库不跑 migrations。修复范围：4 个 migration 文件 camelCase → snake_case 列名 + 重跑 `DATABASE_MIGRATIONS_RUN=true` 验证 + e2e 二轮幂等验证 + docs/standards/development.md §5.1.19 旁补"raw SQL 必须用 snake_case"提示 + A 阶段 standard depth 审计。单 atomic commit，关联本次 follow-up 条目）
 >
 > **M25 阶段 P 阶段规划**：依赖用户决策 M25 启动范围（候选池见 [backlog.md](../plan/backlog.md)，按"类型平衡"原则选取 5 原子条目独立闭环）。
 >

@@ -245,4 +245,108 @@ test.describe('alerts rowGroup + 视图切换', () => {
         await page.locator('#include-superseded').click()
         await expect(page.locator('tbody tr:has-text("minimist")')).toHaveCount(0, { timeout: 5000 })
     })
+
+    /**
+     * 默认排序契约：默认视图（'package'）下告警按严重级别降序，
+     * 同 severity 内按 packageName 升序（保证 rowGroup subheader 渲染）。
+     *
+     * 反向锁定（bug fix 2026-09-04）：
+     * - 修复前 multiSortMeta = [{ field: 'packageName', order: 1 }] → 按包名字典序，
+     *   severity 高低完全无序 → 用户期望 critical 优先看到但实际看到 medium 在最前
+     * - 修复后 multiSortMeta = [{ field: '_severityRank', order: -1 }, { field: 'packageName', order: 1 }]
+     *   → severity desc + packageName asc
+     *
+     * 业务依据：docs/standards/platform.md §7.1 「业务语义排序需 :default-sort-order='-1'」，
+     * severity Rank 字段是 highest-first（critical=5），desc 渲染符合「critical 优先」业务期望。
+     *
+     * 断言契约（subheader 级别，而非数据行级别）：
+     * - 用户可见的第一印象是「subheader 顺序」——每个 subheader 代表一个 package 的告警集合
+     * - PrimeVue 多键排序 stable sort 保留同 package 内原顺序（lodash 3 条 = high/medium/high，
+     *   high × 2 + medium × 1 → stable sort 后仍是 high → medium → high），但**不同 package 之间**
+     *   必须按 severity desc 排列
+     * - 因此正确的断言不是「所有数据行 severity 单调不增」（会因稳定排序误判），
+     *   而是「所有 subheader 内的最高 severity 单调不增」
+     *
+     * 实现细节：DataTable 默认 rowGroup 折叠，先点开每个 subheader 展开告警行才能读到 severity cell。
+     */
+    test('默认排序契约：告警视图按严重级别降序（subheader 顺序：critical package 在 high 之前，依此类推）', async ({ page }) => {
+        await page.goto('/alerts')
+        await waitForHydration(page)
+        await page.waitForSelector('.alerts__group-header', { timeout: 15000 })
+
+        const groupCount = await page.locator('.alerts__group-header').count()
+        expect(groupCount).toBeGreaterThan(0)
+
+        // 逐一点击每个 subheader 展开所有告警行
+        for (let i = 0; i < groupCount; i++) {
+            const gh = page.locator('.alerts__group-header').nth(i)
+            if (await gh.isVisible()) {
+                await gh.click()
+                await page.waitForTimeout(50)
+            }
+        }
+        // 等所有数据 Tag cell 都出现
+        await page.waitForTimeout(200)
+
+        // 提取每个 subheader 对应的 package + 该 group 内告警的 severity 序列
+        // 关键 DOM 特征：
+        // - subheader 行：class 含 p-datatable-row-group-header，TD colspan=13，内嵌 .alerts__group-header
+        // - 数据行：class p-row-odd / p-row-even，紧随在某 subheader 行之后
+        const groupSeverities: { packageName: string, severities: string[] }[] = await page.evaluate(() => {
+            const rows = Array.from(document.querySelectorAll('tbody tr'))
+            const groups: { packageName: string, severities: string[] }[] = []
+            let current: { packageName: string, severities: string[] } | null = null
+            for (const tr of rows) {
+                const cls = tr.getAttribute('class') ?? ''
+                const isRowGroupHeader = cls.includes('p-datatable-row-group-header')
+                if (isRowGroupHeader) {
+                    const strong = tr.querySelector('.alerts__group-header strong')
+                    const packageName = strong?.textContent?.trim() ?? ''
+                    current = { packageName, severities: [] }
+                    groups.push(current)
+                    continue
+                }
+                // 数据行：class p-row-odd 或 p-row-even；只取紧接 subheader 后面的
+                if (current && (cls.includes('p-row-odd') || cls.includes('p-row-even'))) {
+                    const cells = tr.querySelectorAll('td')
+                    const severityCell = cells[1]
+                    const tag = severityCell?.querySelector('.p-tag-label')
+                    const tagText = tag?.textContent?.trim().toLowerCase() ?? ''
+                    if (tagText) {
+                        current.severities.push(tagText)
+                    }
+                }
+            }
+            return groups
+        })
+
+        // 断言至少有一个 subheader 分组（有数据）
+        const nonEmptyGroups = groupSeverities.filter((g) => g.severities.length > 0)
+        expect(nonEmptyGroups.length, '至少有一个 subheader 含告警').toBeGreaterThan(0)
+
+        // 严重级别排序权重（与 apps/platform/app/utils/sort-helpers.ts SEVERITY_RANK 同步）
+        const severityRank: Record<string, number> = {
+            critical: 5,
+            high: 4,
+            medium: 3,
+            low: 2,
+            unknown: 1,
+        }
+        const maxSeverityOf = (arr: string[]): number =>
+            arr.reduce((max, s) => Math.max(max, severityRank[s] ?? 0), 0)
+
+        // subheader 顺序契约：每个 group 的最高 severity 单调不增
+        // 修复前的回归症状：subheader 按 packageName asc，severity 高的 package（如 lodash = high）
+        // 会排在 severity 低 package（如 axios = low）之后，与用户期望「critical 优先」相反
+        let prevMaxRank = Infinity
+        for (const g of nonEmptyGroups) {
+            const maxRank = maxSeverityOf(g.severities)
+            expect(
+                maxRank,
+                `subheader 顺序契约违反：group '${g.packageName}' 的最高 severity rank ${maxRank}（含 [${g.severities.join(', ')}]）`
+                + `不单调不增，前序 group 最高 rank ${prevMaxRank}`,
+            ).toBeLessThanOrEqual(prevMaxRank)
+            prevMaxRank = maxRank
+        }
+    })
 })

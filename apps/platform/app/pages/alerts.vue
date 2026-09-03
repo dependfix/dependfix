@@ -196,12 +196,20 @@ const error = computed(() => {
 /**
  * 切换视图模式：仅重置 multiSortMeta + expandedPackages 避免 group 状态污染。
  * multiSortMeta 必须用 v-model 形式（不能用 sortField/sortOrder，参见 PrimeVue 4 rowGroup 数据流必现 TypeError）。
- * 数据 refetch 由 useAsyncData 的 watch: [viewMode] 自动触发，无需手动调用。
+ *
+ * 默认严重级别优先（severity desc）+ 次排序按 viewMode 选择的 groupBy 字段升序。
+ * - 业务依据：docs/standards/platform.md §7.1 「业务语义排序需 :default-sort-order='-1'」，
+ *   severity Rank 字段是 highest-first 设计（critical=5），desc 渲染才符合「critical 优先」业务期望
+ * - groupBy 次排序保证 rowGroupMode='subheader' 相邻 groupRowsBy 值切换能渲染 subheader
+ *   （PrimeVue 4 rowGroup 数据流要求相邻行 groupRowsBy 字段值变化才插入 subheader 标记）
+ * - 'none' 视图无 rowGroup，单一 severity desc 即可
  */
 const onViewModeChange = () => {
+    const severityFirst: DataTableSortMeta = { field: '_severityRank', order: -1 }
+    const groupField = viewMode.value === 'package' ? 'packageName' : 'repository'
     multiSortMeta.value = viewMode.value === 'none'
-        ? [{ field: '_severityRank', order: -1 }]
-        : [{ field: viewMode.value === 'package' ? 'packageName' : 'repository', order: 1 }]
+        ? [severityFirst]
+        : [severityFirst, { field: groupField, order: 1 }]
     expandedPackages.value = []
 }
 
@@ -305,7 +313,11 @@ const groupHeaderLabel = (data: Record<string, unknown>): string => {
 //   PrimeVue 4 在 expandable-row-groups 模式下会在 #groupheader slot 之前自动渲染 rowToggleButton
 //   （含 ChevronDown/RightIcon），slot 内不应再叠加自定义 chevron，否则双 chevron 视觉缺陷
 //   （node_modules/primevue/datatable/index.mjs:1776-1800 rowToggleButton 渲染分支）
-const multiSortMeta = ref<DataTableSortMeta[]>([{ field: 'packageName', order: 1 }])
+// 默认排序严重级别优先（critical 优先）+ packageName 次排序保证 rowGroup subheader 渲染
+const multiSortMeta = ref<DataTableSortMeta[]>([
+    { field: '_severityRank', order: -1 },
+    { field: 'packageName', order: 1 },
+])
 const expandedPackages = ref<string[]>([])
 // 自定义 span 整体可点击 + 键盘 enter/space 触发（todo.md §C65-D2 验收）。
 // PrimeVue 4 rowToggleButton 在 groupheader 之前渲染（已验证 datatable/index.mjs:1776-1800），

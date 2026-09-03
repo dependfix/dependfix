@@ -442,8 +442,13 @@ describe('GET /api/alerts', () => {
         })
 
         it('dependabot 告警：ghsaId 非 null + cveIds 反序列化为数组', async () => {
-            const list = await call('/api/alerts?source=dependabot') as { packageName: string, ghsaId: string | null, cveIds: string[] }[]
-            const lodashRow = list.find((a) => a.packageName === 'lodash')
+            // 锁定 fixture 中预置 GHSA 的那条 lodash 行（upstreamId='dependabot:1'）：
+            // 同 describe 下 M20.5 dedupe beforeAll 另插一条 lodash（无 ghsaId），
+            // 跨 worker 还可能被其他测试文件（如 stats.get / runs/[id].get / scan-orchestrator）通过
+            // globalThis singleton DataSource 注入更多 lodash；按 upstreamId 精确匹配避免依赖
+            // 列表顺序（createdAt DESC 在 SQLite rowid 同毫秒下不稳定，且会被后插入的无 ghsaId 行污染）。
+            const list = await call('/api/alerts?source=dependabot') as { packageName: string, upstreamId: string, ghsaId: string | null, cveIds: string[] }[]
+            const lodashRow = list.find((a) => a.packageName === 'lodash' && a.upstreamId === 'dependabot:1')
             expect(lodashRow).toBeDefined()
             expect(lodashRow?.ghsaId).toBe('GHSA-p6mc-m468-83gw')
             expect(lodashRow?.cveIds).toEqual(['CVE-2021-23337'])

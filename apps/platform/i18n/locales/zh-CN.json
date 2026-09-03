@@ -752,6 +752,18 @@
             "zh-CN": "参数校验失败",
             "en": "Request validation failed"
         },
+        "PR_CHECK_NOT_FOUND": {
+            "zh-CN": "PR check 记录不存在",
+            "en": "PR check record not found"
+        },
+        "PR_CHECK_ID_MISSING": {
+            "zh-CN": "缺少 PR check id",
+            "en": "PR check id is required"
+        },
+        "PR_CHECK_ACK_VALIDATION_FAILED": {
+            "zh-CN": "参数校验失败",
+            "en": "Request validation failed"
+        },
         "BATCH_RUN_ID_MISSING": {
             "zh-CN": "缺少批量运行 id",
             "en": "Batch run id is required"

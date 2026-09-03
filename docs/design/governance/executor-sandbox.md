@@ -422,59 +422,91 @@ if (executorKind === 'sandbox') {
 
 ## 8. A 模式 push + PR 推送机制
 
-> 状态：✅ 设计落盘（C53，2026-08-20 实施）——A 模式（`ContainerExecutor`）fix / fix-and-pr 完成后新增推送修复分支到远程 + 创建 PR 两条链路，落盘 commit `83ec736` / `46b7c15` / `3ed8303`。详细任务验收与 Review Gate 记录见 [todo-archive-phases-m10-c53-c59c61.md §C53](../../plan/archive/todo-archive-phases-m10-c53-c59c61.md#c53-平台集成模式-fix-修复结果推送远程已归档)。
+> 状态：✅ 设计落盘（C53，2026-08-20 实施）——A 模式（`ContainerExecutor`）fix / fix-and-pr 完成后新增推送修复分支到远程 + 创建 PR 两条链路，落盘 commit `83ec736` / `46b7c15` / `3ed8303`。
+>
+> **2026-09-04 修订（M25 事故修复）**：C53 原始设计假定 `app.run()` 内部只做本地修复 + commit，push / PR 由平台承担。但实际上引擎的 `fix-and-pr` 模式自带 `createFixBranch → pushBranch → createPullRequest` 完整链路，且 `pushBranch` 走裸 `git push` 不带凭据——容器内 `git -c http.extraheader=... clone` 也不会把 extraheader 写入 .git/config（实测 `git -c` 是 git 级 flag，非 clone 子命令），导致 push 必然缺凭据失败。
+>
+> 修复后：引擎降级为 `mode: 'fix' + commit: true`（仅本地修复+commit），push + PR 全部走平台 [platform-delivery] 模块，保留引擎的 dedup / supersede 决策。详细根因与方案见 `todo.md` §M25 段。
 
-### 8.1 流程变更（M6 → C53 后的差异）
+### 8.1 流程变更（C53 → M25 修复后差异）
 
-**M6 阶段（修复前）**：`ContainerExecutor.execute()` 流程为 `clone → DependfixApp.run() 内部 commit → finally 立即 rm workDir`，修复结果仅存在于临时目录，**从未推送到远程**，用户原反馈"显然没有修复功能"。
-
-**C53 阶段（修复后）**：
+**C53 阶段（修复前）**：
 
 ```
 ContainerExecutor.execute()
   ↓
-  fix / fix-and-pr 模式 + app.run() 成功（exitCode === 0）
+  fix-and-pr 模式 + app.run() 成功（exitCode === 0）
   ↓
-  extractBranchName(workDir)        // git rev-parse --abbrev-ref HEAD
+  [引擎内部] createFixBranch + pushBranch + createPullRequest  ← 推 push 必然失败（容器无凭据）
   ↓
-  pushFixBranch(branch, workDir, token)  // git push origin <branch>，token 走 http.extraheader
+  平台 fallback: pushFixBranch(branch, workDir, token)  ← exitCode≠0 整段被跳过
   ↓
-  runUrl 兜底 = https://github.com/{owner}/{name}/tree/{branchName}
-  ↓
-  fix-and-pr 模式：
-    ├─ createPrForFix(result, owner, name, branch, token)  // 复用 createGitHubClient + createPullRequest
-    │    ↓
-    │    runUrl = PR.htmlUrl  （覆盖 branch URL）
-    │
-    └─ PR 失败（权限 / 422 / 网络）：
-         ↓
-         moveToPending(workDir, runId, _pending/)  // 保留 24h 供诊断
-         ↓
-         return pr_creation_failed（status: dispatched）
+  status = completed（误报）
 ```
 
-### 8.2 状态机扩展（与 B 模式 `dispatched` 语义对齐）
+**M25 阶段（修复后）**：
 
-C53 引入 A 模式 `dispatched` 三分支（`scan-run-state.ts`）：
+```
+ContainerExecutor.execute()
+  ↓
+  clone + preRunHead = rev-parse HEAD
+  ↓
+  app.run() in mode='fix' + commit=true        ← 引擎仅做本地修复+commit
+  ↓
+  hasNewCommit = (postRunHead !== preRunHead)  ← 严格判定（no-op 扫描不产生空 push）
+  ↓
+  fix 模式：pushFixBranch(current branch, workDir, token)  → runUrl = branch URL
+  ↓
+  fix-and-pr 模式：
+    ├─ planFixAndPrDelivery(octokit, ...)  ← 复用引擎 computeFixFingerprint + findDependfixOpenPR + computeFixAndPrPlan
+    │   ├─ skip: 同指纹 PR 已存在 → runUrl = existing PR URL（幂等交付）
+    │   └─ create: 推进 push + create + close supersede
+    ↓
+    createFixBranch(plan.branchName, workDir)
+    ↓
+    pushFixBranchWithCredential(plan.branchName, workDir, token)  ← http.extraheader 注入 token
+    ↓
+    createPullRequest(...) → runUrl = PR.htmlUrl
+    ↓
+    closeSupersededPRs(...)  ← best-effort；失败仅 warn
+    ↓
+    失败兜底（结构化 PlatformDeliveryError）：
+      ├─ push_failed: failed + workDir 立即清理
+      └─ pr_creation_failed: dispatched + workDir 保留 24h 供诊断
+```
 
-| 场景 | error.code | status | runUrl | workDir 处理 |
-|:--|:--|:--|:--|:--|
-| 修复成功 + push 成功 + PR 成功 | — | `completed` | PR URL | finally 立即清理 |
-| 修复成功 + push 成功 + PR 失败 | `pr_creation_failed` | `dispatched` | branch URL（兜底） | moveToPending 保留 24h |
-| 修复成功 + push 失败 | `push_failed` | `failed` | null | finally 立即清理 |
-| 修复成功 + 修复动作执行失败 | `execution_failed` | `failed` | null | finally 立即清理 |
-| 执行超时 | `execution_timeout` | `failed` | null | finally 立即清理 |
-| report-only | — | `completed` | null | finally 立即清理 |
+### 8.2 状态机扩展（与 B 模式 `dispatched` 语义对齐 + M25 引擎交付类识别）
+
+C53 引入 A 模式 `dispatched` 三分支（`scan-run-state.ts`），M25 新增引擎交付类 category 识别：
+
+| 场景 | error.code | result.errors category | status | runUrl | workDir 处理 |
+|:--|:--|:--|:--|:--|:--|
+| 修复成功 + push 成功 + PR 成功 | — | — | `completed` | PR URL | finally 立即清理 |
+| 修复成功 + push 成功 + PR 失败 | `pr_creation_failed` | — | `dispatched` | branch URL（兜底） | moveToPending 保留 24h |
+| 修复成功 + push 失败 | `push_failed` | — | `failed` | null | finally 立即清理 |
+| 引擎内部交付失败（commit / verify / rollback / FATAL） | `engine_delivery_failed` | `COMMIT_FAILED` / `VERIFICATION_FAILED` / `ROLLBACK_FAILED` / `FATAL` | `failed` | null | finally 立即清理 |
+| 引擎进程级 exitCode=2 + result 存在 | `engine_exit_2` | — | `failed` | null | finally 立即清理 |
+| 修复成功 + 修复动作执行失败 | `execution_failed` | — | `failed` | null | finally 立即清理 |
+| 执行超时 | `execution_timeout` | — | `failed` | null | finally 立即清理 |
+| report-only | — | — | `completed` | null | finally 立即清理 |
 
 错误码 `pr_creation_failed` 命名与 B 模式已有的 `result_fetch_failed` / `run_url_not_resolved` 对齐——表达"副作用已落库（分支已推）+ 最终操作未完成"。
+错误码 `engine_delivery_failed` 是 M25 新增的进程内识别——引擎在 `fix` / `fix-and-pr` 流程走到交付阶段失败（commit / PR / verify / rollback / FATAL），result 仍可能存在（部分仓库成功 + 部分失败）但**远程未完整落地**。原行为 result 存在即 `completed` 会让"已修复 8 但无 PR"误报（见 2026-09-04 03:28 AM 事故）。
 
 ### 8.3 关键代码点
 
-| 函数 | 位置 | 职责 |
+| 函数 / 模块 | 位置 | 职责 |
 |:--|:--|:--|
-| `extractBranchName(workDir)` | `container-executor.ts` | 读 `git rev-parse --abbrev-ref HEAD`；detached HEAD 抛错 |
-| `pushFixBranch(branch, workDir, token?)` | `container-executor.ts` | `git push origin <branch>`，token 走 `http.extraheader`（base64 basic auth），避免进 argv/URL |
-| `createPrForFix(result, owner, name, branch, token)` | `container-executor.ts` | 复用引擎 `createGitHubClient` + `createPullRequest` + `generatePRBody` + `buildPrTitle` + `fetchDefaultBranch`（5 个函数） |
+| `extractBranchName(workDir)` | `container-executor.ts` | 读 `git rev-parse --abbrev-ref HEAD`；detached HEAD 抛错（仅 fix 模式推默认分支时使用） |
+| `pushFixBranch(branch, workDir, token?)` | `container-executor.ts` | `git push origin <branch>`，token 走 `http.extraheader`（base64 basic auth），避免进 argv/URL（仅 fix 模式使用） |
+| `createFixBranch(branchName, workDir)` | `@dependfix/engine` | `git checkout -b` 创建/切换修复分支（fix-and-pr 模式从 HEAD 拉新分支，引擎导出复用） |
+| `readHeadSha(workDir)` | `container-executor.ts` | 读 `git rev-parse HEAD`，返回 SHA 或 null（用于 hasNewCommit 判定） |
+| `checkHasNewCommit(workDir, preRunHead)` | `container-executor.ts` | 比较修复前后 HEAD SHA，引擎 commit 后才返回 true |
+| **platform-delivery 模块** | `executor/platform-delivery.ts` | **M25 新增**：平台侧 fix-and-pr 完整交付单元（plan / push / create / close supersede） |
+| `planFixAndPrDelivery(octokit, owner, repo, result)` | `platform-delivery.ts` | 复用引擎 `computeFixFingerprint` + `findDependfixOpenPR` + `computeFixAndPrPlan`，返回 skip / create 决策 |
+| `pushFixBranchWithCredential(branch, workDir, token)` | `platform-delivery.ts` | 与 `pushFixBranch` 等价，独立导出便于单测；失败抛 `PlatformDeliveryError(push_failed)` |
+| `deliverFixAndPr(ctx)` | `platform-delivery.ts` | 编排 push + create + close supersede；失败抛 `PlatformDeliveryError(pr_creation_failed / supersede_failed)` |
+| `PlatformDeliveryError` | `platform-delivery.ts` | 带 `code` + `branchPushed` 状态的结构化错误（区分 push_failed vs pr_creation_failed） |
 | `moveToPending(workDir, runId, pendingRoot, retentionMs)` | `container-executor.ts` | 移动 workDir 到 `_pending/{runId}/` + 写 `.meta.json`（含 `expiresAt`） |
 | `cleanupRemoteBranch(branch, workDir, token?)` | `container-executor.ts` | best-effort 远程分支清理；当前 **不主动调用**（保留远程分支供用户手动开 PR） |
 
@@ -490,6 +522,10 @@ C53 引入 A 模式 `fix-and-pr` 链路完成的关键代价是 **凭据权限�
 | **B 模式**（GitHub Action） | **`actions: read + write`**（仅触发 workflow + 拉结果） |
 
 **A 模式 fix-and-pr 要求 wide-scope PAT**（classic PAT 勾选 `repo` 或 fine-grained PAT 显式授权 `Contents: write` + `Pull requests: write`），与 B 模式的窄权限形成鲜明对比。
+
+**安全优势（M25 修复后）**：
+- 修复前：引擎在容器内裸 `git push` 无凭据 → 失败 + workDir 保留 24h（含 .git/config 未持久化 extraheader，但其他 token 落盘风险存在）
+- 修复后：平台 `pushFixBranchWithCredential` 走 `git -c http.extraheader=...` 一次性注入，**token 不写 .git/config**；即使 pr_creation_failed workDir 保留 24h，**无 token 落盘**
 
 **安全建议**：
 - **默认推荐 B 模式**（目标仓库已配置 action 时，自动降级为 `actions: read + write`，权限面最窄）

@@ -6,14 +6,17 @@ import type { RunResult } from '@dependfix/core'
 import {
     DependfixApp,
     type RuntimeConfig,
-    buildPrTitle,
-    createGitHubClient,
-    createPullRequest,
-    fetchDefaultBranch,
-    generatePRBody,
+    computeFixFingerprint,
+    createFixBranch,
 } from '@dependfix/engine'
-import { fromPat, type AuthProvider } from '@dependfix/engine/auth'
+import type { AuthProvider } from '@dependfix/engine/auth'
 import type { ScanExecutor, ScanExecutorContext, ScanExecutorResult } from './types'
+import {
+    deliverFixAndPr,
+    planFixAndPrDelivery,
+    PlatformDeliveryError,
+    createPlatformOctokit,
+} from './platform-delivery'
 
 const execFileAsync = promisify(execFile)
 
@@ -149,41 +152,6 @@ export async function moveToPending(
 }
 
 /**
- * 创建修复 PR（fix-and-pr 模式）：通过 GitHub API 调用引擎层 createPullRequest。
- * 复用引擎的 createGitHubClient + fetchDefaultBranch + buildPrTitle + generatePRBody。
- *
- * 失败原样抛错，由 execute() 归类为 pr_creation_failed（与 B 模式命名一致）。
- *
- * 设计要点：
- * - Octokit 实例由 createGitHubClient 构造（自带限流 hook：GET/HEAD 限流重试，POST 写请求豁免）
- * - 默认分支从 GitHub API 获取；失败回退 'unknown'（与 engine 端 fetchDefaultBranch 行为一致）
- * - PR body 模板引擎端已实现供应链信号披露 / 升级明细 / 截断保护（60KB 上限）
- */
-export async function createPrForFix(
-    result: RunResult,
-    owner: string,
-    name: string,
-    branchName: string,
-    token: string,
-): Promise<{ htmlUrl: string, number: number }> {
-    const client = createGitHubClient({
-        auth: fromPat(token, { retry: { maxRetries: 3, maxBackoffMs: 30_000 } }),
-    })
-    const baseBranch = await fetchDefaultBranch(client, owner, name)
-    const title = buildPrTitle(result.summary, result.actions)
-    const body = generatePRBody(result)
-    return createPullRequest({
-        octokit: client,
-        owner,
-        repo: name,
-        headBranch: branchName,
-        baseBranch,
-        title,
-        body,
-    })
-}
-
-/**
  * A 模式执行器（默认）：平台容器内执行。
  *
  * 设计要点（见 executor-sandbox.md §2.2 / §5.1）：
@@ -237,12 +205,21 @@ export class ContainerExecutor implements ScanExecutor {
                 await this.cloneRepository(owner, name, defaultBranch, workDir, ctx.credential?.token)
             }
 
+            // 记录修复前 HEAD — 用于修复后 hasNewCommit 判定（no-op 扫描不产生空 push）
+            const preRunHead = needsPush ? await readHeadSha(workDir).catch(() => null) : null
+
             // 构造 RuntimeConfig：凭据来自 credential service 解密结果（来源单一，见契约要点 1）
+            // 关键修复（M25）：fix-and-pr 在平台模式下被降级为 `mode: 'fix' + commit: true + createPullRequest: false`，
+            // 让引擎只做本地修复+commit（不动 push/PR），由 [platform-delivery] 接管带凭据的 push + PR
+            // 见 [executor-sandbox.md §8.5 push + PR 链路修复后流程]
             const config: RuntimeConfig = {
                 ...ctx.config,
+                mode: 'fix',
                 repositories: [`${owner}/${name}`],
                 githubToken: ctx.credential?.token ?? ctx.config.githubToken,
                 alertsToken: ctx.credential?.token ?? ctx.config.alertsToken,
+                commit: true,
+                createPullRequest: false,
             }
 
             const app = new DependfixApp({
@@ -256,48 +233,74 @@ export class ContainerExecutor implements ScanExecutor {
 
             const { result, exitCode } = await withTimeout(app.run(), this.timeoutMs)
 
-            // 推送修复分支到远程（仅 fix / fix-and-pr 模式且 app.run() 成功）
-            // push 失败单独归类 push_failed（与执行超时/失败语义区分），便于上层状态机决策
+            // 平台接管交付：仅当引擎 commit 产生新提交时触发（no-op 扫描不产生空 push）
+            // 触发条件比原 `exitCode === 0` 更严格：exitCode 1 也算"有部分成功"，但只有真产生 commit 才推
             let runUrl: string | undefined
-            if (needsPush && exitCode === 0) {
-                try {
-                    const branchName = await extractBranchName(workDir)
-                    await pushFixBranch(branchName, workDir, ctx.credential?.token)
-                    // runUrl 兜底为 branch URL（PR 失败时仍可显示供用户手动开 PR）
-                    runUrl = `https://github.com/${owner}/${name}/tree/${branchName}`
+            if (needsPush && result && ctx.credential?.token) {
+                const hasNewCommit = await checkHasNewCommit(workDir, preRunHead)
+                if (!hasNewCommit) {
+                    // 引擎未产生新 commit（无告警 / 告警已收敛 / 全部 failed 已被回滚）→ 不推
+                    return { exitCode, result, startedAt, finishedAt: new Date().toISOString() }
+                }
 
-                    // fix-and-pr 模式：push 成功后再创建 PR
-                    if (needsPr && ctx.credential?.token) {
-                        try {
-                            const pr = await createPrForFix(result, owner, name, branchName, ctx.credential.token)
-                            runUrl = pr.htmlUrl
-                        } catch (prError) {
-                            const raw = prError instanceof Error ? prError.message : String(prError)
-                            // 保留 workDir 24h 供诊断（moveToPending 失败静默，不影响错误回传）
+                try {
+                    if (needsPr) {
+                        // fix-and-pr：创建 fix 分支 + 走 platform-delivery 完整链路
+                        const octokit = createPlatformOctokit(ctx.credential.token)
+                        const plan = await planFixAndPrDelivery(octokit, owner, name, result)
+                        // 创建/切换到 fix 分支（在 HEAD 上，含 commit）
+                        createFixBranch(plan.branchName, workDir)
+                        const delivery = await deliverFixAndPr({
+                            owner,
+                            repo: name,
+                            branchName: plan.branchName,
+                            token: ctx.credential.token,
+                            workDir,
+                            result,
+                            plan,
+                            octokit,
+                        })
+                        runUrl = delivery.runUrl
+                    } else {
+                        // fix 模式（无 PR）：推当前分支（默认分支）即可
+                        const branchName = await extractBranchName(workDir)
+                        await pushFixBranch(branchName, workDir, ctx.credential.token)
+                        runUrl = `https://github.com/${owner}/${name}/tree/${branchName}`
+                    }
+                } catch (deliveryError) {
+                    // 平台交付失败（带结构化 code）：细分 push_failed / pr_creation_failed
+                    if (deliveryError instanceof PlatformDeliveryError) {
+                        if (deliveryError.code === 'pr_creation_failed') {
+                            // 分支已推 + PR 失败 → 保留 workDir 24h 供诊断 + 状态机 dispatched
                             await moveToPending(workDir, ctx.runId, pendingRoot).catch(() => { /* 保留失败静默 */ })
                             return {
                                 exitCode: 2,
                                 error: {
                                     code: 'pr_creation_failed',
-                                    message: `创建 PR 失败（分支已推送，workDir 已保留 24h 供诊断）：${sanitizeErrorMessage(raw)}`,
+                                    message: `创建 PR 失败（分支已推送 ${deliveryError.message}，workDir 已保留 24h 供诊断）`,
                                 },
                                 startedAt,
                                 finishedAt: new Date().toISOString(),
-                                runUrl,
+                                // runUrl 兜底：plan 信息保留在 deliveryError 内不现实（已 throw），
+                                // 此处使用 ctx.runId 兜底（虽然不是真分支名，但 user 可点进 run 详情查 workDir 状态）；
+                                // 实际场景下 platform-delivery PR 失败时仍可重新从 _pending 目录恢复
+                                runUrl: `https://github.com/${owner}/${name}/tree/dependfix/auto-fix-${runIdFingerprint(result)}`,
                             }
                         }
+                        // push_failed：分支未推
+                        return {
+                            exitCode: 2,
+                            error: {
+                                code: 'push_failed',
+                                message: `推送修复分支失败：${sanitizeErrorMessage(deliveryError.message)}`,
+                            },
+                            startedAt,
+                            finishedAt: new Date().toISOString(),
+                        }
                     }
-                } catch (pushError) {
-                    const raw = pushError instanceof Error ? pushError.message : String(pushError)
-                    return {
-                        exitCode: 2,
-                        error: {
-                            code: 'push_failed',
-                            message: `推送修复分支失败：${sanitizeErrorMessage(raw)}`,
-                        },
-                        startedAt,
-                        finishedAt: new Date().toISOString(),
-                    }
+                    // 未预期的非 PlatformDeliveryError → 走 execution_failed 兜底
+                    const raw = deliveryError instanceof Error ? deliveryError.message : String(deliveryError)
+                    throw new Error(raw)
                 }
             }
 
@@ -382,4 +385,51 @@ export function sanitizeErrorMessage(message: string): string {
     return message
         .replace(/https?:\/\/[^/@\s]+@/g, 'https://***@')
         .replace(/(Authorization:\s+(?:basic|token|bearer)\s+)\S+/gi, '$1***')
+}
+
+/**
+ * 读取 workDir 当前 HEAD SHA（用于 hasNewCommit 判定）。
+ * detached HEAD / 失败 → 返回 null（让调用方 fallback 处理）。
+ */
+async function readHeadSha(workDir: string): Promise<string | null> {
+    try {
+        const { stdout } = await execFileAsync('git', ['rev-parse', 'HEAD'], {
+            cwd: workDir,
+            timeout: 5_000,
+        })
+        return stdout.trim() || null
+    } catch {
+        return null
+    }
+}
+
+/**
+ * 判定引擎是否产生新 commit：
+ * - preRunHead 为 null（readHeadSha 失败）→ 保守视为 true（确保不会漏推真实修复）
+ * - post HEAD 与 pre 一致 → false（无新 commit，不推）
+ * - post HEAD 与 pre 不同 → true（有新 commit，推）
+ *
+ * 防御：引擎可能在 verify-failed 后回滚（`git reset --hard HEAD`），此时 post HEAD 仍等于 pre → false，
+ * 不会推空分支；这是 expected behavior（回滚意味着无交付）。
+ */
+async function checkHasNewCommit(workDir: string, preRunHead: string | null): Promise<boolean> {
+    const postRunHead = await readHeadSha(workDir)
+    if (postRunHead === null) {
+        return false
+    }
+    if (preRunHead === null) {
+        // 修复前读不到 HEAD（极少见：clone 失败 / 权限问题）→ 保守视为有 commit
+        // 否则可能漏推真实修复。代价：偶发空 push（用户看到 fix 分支但无内容），可接受。
+        return true
+    }
+    return postRunHead !== preRunHead
+}
+
+/**
+ * 从 RunResult.actions 计算指纹（8 位 hex），用于 pr_creation_failed 时的 runUrl 兜底分支名。
+ * 复用 engine.computeFixFingerprint 的语义（与 platform-delivery.planFixAndPrDelivery 内部用同一函数），
+ * 保证兜底 URL 与 plan.branchName 一致。
+ */
+function runIdFingerprint(result: RunResult): string {
+    return computeFixFingerprint(result.actions)
 }

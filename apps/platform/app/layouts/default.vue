@@ -60,6 +60,14 @@ const logout = async () => {
                 </NuxtLink>
                 <NuxtLink
                     v-if="session?.user?.role !== 'viewer'"
+                    to="/pr-checks"
+                    class="platform__nav-link"
+                    active-class="platform__nav-link--active"
+                >
+                    {{ t('prChecks.title') }}
+                </NuxtLink>
+                <NuxtLink
+                    v-if="session?.user?.role !== 'viewer'"
                     to="/env-events"
                     class="platform__nav-link"
                     active-class="platform__nav-link--active"

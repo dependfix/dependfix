@@ -468,6 +468,40 @@
             "loadFailed": "加载失败：{message}"
         }
     },
+    "prChecks": {
+        "title": "PR Check 监测",
+        "subtitle": "监测 dependfix / dependabot PR 的 CI Test check 状态",
+        "empty": "暂无 PR Check 数据（需先在定时计划中创建 pr-check 类型 schedule 并启用）",
+        "allRepositories": "全部仓库",
+        "filterRepository": "仓库",
+        "filterAlertFiring": "Alert 状态",
+        "alertFiringAll": "全部",
+        "alertFiringTrue": "仅 firing",
+        "alertFiringFalse": "仅已 ack",
+        "colRepository": "仓库",
+        "colPrNumber": "PR",
+        "colAuthor": "作者",
+        "colConclusion": "结论",
+        "colLastPolledAt": "最近轮询",
+        "colStatus": "Alert",
+        "colLink": "链接",
+        "colActions": "操作",
+        "repositoryUnknown": "未知仓库",
+        "ack": {
+            "action": "Ack 关闭告警",
+            "success": "已 ack PR #{prNumber}",
+            "failed": "Ack 失败：{message}",
+            "confirm": "确认关闭 PR #{prNumber} 的告警？"
+        },
+        "summary": {
+            "total": "总数",
+            "firing": "Firing",
+            "acked": "已 ack"
+        },
+        "errors": {
+            "loadFailed": "加载失败：{message}"
+        }
+    },
     "envEvents": {
         "title": "环境事件",
         "subtitle": "sandbox / docker / runtime 环境变化告警（含通知状态）",

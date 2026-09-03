@@ -468,6 +468,40 @@
             "loadFailed": "Failed to load: {message}"
         }
     },
+    "prChecks": {
+        "title": "PR Check Monitoring",
+        "subtitle": "Monitor dependfix / dependabot PR Test check status",
+        "empty": "No PR Check data yet (create a pr-check schedule first and enable it)",
+        "allRepositories": "All repositories",
+        "filterRepository": "Repository",
+        "filterAlertFiring": "Alert status",
+        "alertFiringAll": "All",
+        "alertFiringTrue": "Firing only",
+        "alertFiringFalse": "Acked only",
+        "colRepository": "Repository",
+        "colPrNumber": "PR",
+        "colAuthor": "Author",
+        "colConclusion": "Conclusion",
+        "colLastPolledAt": "Last polled",
+        "colStatus": "Alert",
+        "colLink": "Link",
+        "colActions": "Actions",
+        "repositoryUnknown": "Unknown repository",
+        "ack": {
+            "action": "Ack and close alert",
+            "success": "PR #{prNumber} acknowledged",
+            "failed": "Ack failed: {message}",
+            "confirm": "Acknowledge PR #{prNumber} alert?"
+        },
+        "summary": {
+            "total": "Total",
+            "firing": "Firing",
+            "acked": "Acked"
+        },
+        "errors": {
+            "loadFailed": "Failed to load: {message}"
+        }
+    },
     "envEvents": {
         "title": "Env Events",
         "subtitle": "Sandbox / docker / runtime environment alerts (with notification status)",

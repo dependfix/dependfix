@@ -359,7 +359,7 @@ const handleAck = async (row: PRCheckView) => {
     }
 
     &__summary-value {
-        font-size: $font-size-2xl;
+        font-size: $font-size-xl;
         font-weight: 600;
     }
 
@@ -416,7 +416,7 @@ const handleAck = async (row: PRCheckView) => {
     }
 
     &__author {
-        font-family: $font-family-monospace;
+        font-family: monospace;
         font-size: $font-size-sm;
     }
 }

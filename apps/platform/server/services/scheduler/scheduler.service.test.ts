@@ -221,7 +221,7 @@ describe('scheduler.service（双模调度注册/注销/触发）', () => {
 
             const result = await triggerSchedule('schedule-1')
 
-            expect(result).toEqual({ batchRunId: 'batch-1', repositoryCount: 2 })
+            expect(result).toEqual({ kind: 'scan', batchRunId: 'batch-1', repositoryCount: 2 })
 
             // 解析输入
             expect(resolveRepositoryIdsMock).toHaveBeenCalledTimes(1)

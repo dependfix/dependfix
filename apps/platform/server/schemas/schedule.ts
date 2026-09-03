@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { CronExpressionParser } from 'cron-parser'
-import type { ScheduleSelectorKind } from '#server/entities/schedule'
+import type { ScheduleSelectorKind, ScheduleKind } from '#server/entities/schedule'
 
 /**
  * cron 表达式校验（cron-parser v5：CronExpressionParser.parse 自动识别 5/6 段）。
@@ -144,13 +144,16 @@ const scheduleFields = z.object({
     mode: z.enum(['report-only', 'fix', 'fix-and-pr']),
     severityThreshold: z.enum(['critical', 'high', 'medium', 'all']),
     enabled: z.boolean(),
+    /** 业务类型（详见 docs/plan/todo.md §M24.1 关键决策 D4）；`pr-check` 走 ActionStatusMonitor 链路 */
+    kind: z.enum(['scan', 'pr-check']) as z.ZodType<ScheduleKind>,
 })
 
-/** 定时计划创建字段（POST 缺省语义：mode/severityThreshold/enabled 有默认值） */
+/** 定时计划创建字段（POST 缺省语义：mode/severityThreshold/enabled/kind 有默认值） */
 const scheduleCreateFields = scheduleFields.extend({
     mode: scheduleFields.shape.mode.default('report-only'),
     severityThreshold: scheduleFields.shape.severityThreshold.default('high'),
     enabled: scheduleFields.shape.enabled.default(true),
+    kind: scheduleFields.shape.kind.default('scan'),
 })
 
 /** 定时计划创建校验（Zod）。selectorJson 为 JSON 字符串，按 selectorKind 交叉校验。 */

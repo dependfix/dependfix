@@ -2,14 +2,41 @@
 
 > 本文件**仅**登记当前阶段活跃待办；已闭环项归档于 [todo-archive.md](todo-archive.md)；未排期/延期/远期登记于 [backlog.md](backlog.md)。
 >
-> **M24 阶段 2026-09-03 用户决策启动**（**方案 B：能力突破优先**），按"类型平衡"原则拆 **5 原子条目独立闭环**：M24.1 [P1 🚀 能力] PR Check 状态监测 MVP（~1100 行新建 + ~70 行修改 + 5 phase 串行）/ M24.2 [P2 🛡️ 治理] M22.7+M22.8 根因 4 项残留源码排查（~150 行 + 文档 + 部分验证依赖非 sandbox 环境）/ M24.3 [P3 🧪 测试] cron-preview wall-clock 依赖消除（M23.4 commit `df4ba9b` 后续 audit suggest 1+2+3 闭环）/ M24.4 [P3 🛡️ 治理] M18.x W1+W2 + Code Scanning RG-W01/W02 集中清理（~110 行 + 3 测）/ M24.5 [P2 🎨 体验] C36 服务端 API i18n 扩展（沿用 M17 已沉淀 createLocalizedError 模式 + ~300 行 + i18n 键）。详见 [roadmap.md §M24](roadmap.md#m24-pr-check-mvp--治理债--测试补强--用户体验)。
+> **M24 阶段 2026-09-03 完整闭环（方案 B：能力突破优先）**，按"类型平衡"原则拆 **5 原子条目独立闭环**全部 [x]：M24.1 [P1 🚀 能力] PR Check 状态监测 MVP（5 phase 串行）/ M24.2 [P2 🛡️ 治理] M22.7+M22.8 根因 4 项残留源码排查（3 候选已治本 + 1 候选经验性方案 follow-up）/ M24.3 [P3 🧪 测试] cron-preview wall-clock 依赖消除（5 次跑跨日边界 flaky 0 实证）/ M24.4 [P3 🛡️ 治理] M18.x W1+W2 + Code Scanning RG-W01/W02 集中清理（3 项已闭环 + 1 项本批次实际修复）/ M24.5 [P2 🎨 体验] C36 服务端 API i18n 扩展（已由 M24.1 Phase 3 同步实施，沿用 M17 createLocalizedError 模式 + 4 端点 + 17 单测）。详见 [roadmap.md §M24](roadmap.md#m24-pr-check-mvp--治理债--测试补强--用户体验) + [todo-archive.md §M24 导航指针](todo-archive.md#m24-pr-check-mvp--治理债--测试补强--用户体验m241m242m243m244m245-全部已闭环--2026-09-03-归档) + [archive/todo-archive-phases-m24.md 完整实施记录](archive/todo-archive-phases-m24.md)。
+>
+> **M24 阶段实施记录**（5 原子条目 11 commits）：
+
+| 原子条目 | 阶段 commit | 范围 | 行净增 |
+|:---|:---|:---|:---:|
+| **M24.1 Phase 1** PRCheck 实体 | `36ee026` | entity + 3 复合索引 + migration + register | ~230 |
+| **M24.1 Phase 2** service + scheduler | `1068d6e` | types + polling-source + action-status-monitor + Schedule.kind + scheduler 分支 + 22 单测 + .env.example | ~940 |
+| **M24.1 Phase 3** API + i18n | `89e1344` | 4 端点 + 3 PR_CHECK_* 错误码 + ServerErrorCode 扩展 + i18n + 17 单测 | ~730 |
+| **M24.1 Phase 4** UI | `e841b82` | pr-checks.vue 单页 + nav + 22 i18n 键 | ~490 |
+| **M24.1 Phase 4.1** UI follow-up | `19037d5` | 仓库过滤 Dropdown + nav 命名统一 | ~30 |
+| **M24.1 Phase 4 收尾** 重构 | `4803372` | 命名一致性 + 守卫 DRY + util 下沉 + 9 单测 | ~90 |
+| **M24.1 Phase 5** docs 收口 | `7120533` | todo.md 验收 + mergify.yml 注释 + README + experience-archive §五十六 | ~127 |
+| **M24.2** 根因源码追溯 | `bbb8f30` | todo.md 验收 + experience-archive §五十七 + 3 教训 | ~195 |
+| **CI 修复** | `ad1ab17` | pr-checks.vue SCSS 未定义变量（$font-size-2xl + $font-family-monospace）| ~5 |
+| **M24.3** cron-preview 测试加固 | `a0be125` | cron-preview.ts helper 评估注释 + todo.md 验收 | ~25 |
+| **M24.4** 治理债清理 | `aaf8e7b` | fixers/pnpm L81 + L337 execSync → execFileSync + todo.md 验收 | ~25 |
+| **Wisdom 蒸馏** | `7c926a9` | 8 条 M24 pattern 挂接 standards/ + 链接路径修正 | ~75 |
+| **总计** | 12 commits | 5 原子条目独立闭环 + CI 修复 + 蒸馏 | ~2960 |
 >
 > **关键决策（2026-09-03 用户决策）**：
 > - 方案选择 = 方案 B（能力突破优先：PR Check MVP 单条目 + 配套治理 + 测试补强 + 体验扩展）
-> - M24.5 体验扩展 = C36 服务端 API i18n（而非 UX-R3 `/scans` 页面深化）
+> - M24.5 体验扩展 = C36 服务端 API i18n（而非 UX-R3 `/scans` 页面深化；与 M24.1 Phase 3 同步实施）
 > - PR Check MVP 保持在 M24.1 内（不独立 M25 阶段；5 phase 串行严格按 M24.1.1-5 顺序）
 > - M24.2 候选替换 = M22.7+M22.8 根因 4 项残留源码排查（原方案 B 的 M24.2「M22 neat-freak 收敛」已被 M23.0 G1 commit `f8a8640` 闭环，从候选池替换）
-> - wisdom 蒸馏：本批次不主动启动（WISDOM_OK 17 ≤ 20 阈值已合规，无强需求）
+> - wisdom 蒸馏：M24 阶段累积 8 条新 pattern 已在 commit `7c926a9` 蒸馏批次挂接 standards（ai-collaboration.md / development.md / platform.md / architecture.md 4 文件 75 行净增）
+>
+> **M24 阶段 follow-up 登记**（M24 阶段未实施，下批次观察）：
+> 1. fixtures 经验性节流方案（`apps/platform/server/utils/fixtures-throttle.ts` 100ms 节流 + helper 单测）—— M24.2 候选 ④ 经验性兜底
+> 2. `scripts/i18n-anchor-check.mjs` 工具（自动化 §3 注释规范检查，编辑 locale 文件后跑一遍 anchor 一致性 + 双语键集对称）—— M24.1 教训 2 follow-up
+> 3. `server/utils/zod-helpers.ts` 提供 `parseOptional<T>` helper（统一 zod optional 语义处理）—— M24.1 教训 4 follow-up
+> 4. M24.2 follow-up：better-auth adapter transaction 单测（防 1.7.2 fallback 静默回退）
+> 5. e2e 真实环境重跑 CI（验证 M22.7 hotfix + M23.1 WAL + M23.2 fixture pool 治本，sandbox chromium 限制下跳过）
+>
+> **M25 阶段 P 阶段规划**：依赖用户决策 M25 启动范围（候选池见 [backlog.md](../plan/backlog.md)，按"类型平衡"原则选取 5 原子条目独立闭环）。
 >
 > **待人工验收**：T701 真实凭据 3 项 / T702 HTTP 层状态流转 / T704 async 定时触发（实施部分已由 M21.5 闭环）随真实环境推进；详见 [backlog.md §待人工验收](backlog.md#待人工验收真实环境随可用性推进)。
 
@@ -244,11 +271,13 @@
 
 **验收标准**：
 
-- [ ] pr-checks 模块所有 error code/message 走 createLocalizedError
-- [ ] i18n 键 zh-CN + en-US 双语言覆盖（`error.not_found.message` / `error.forbidden.message` / `error.internal_error.message` 等）
-- [ ] 单测覆盖（每个 code 至少 1 个中英文断言）
-- [ ] locale 检测：cookie(i18n_locale) > Accept-Language > 默认 zh-CN
-- [ ] 编号标记扫描 0 命中
+- [x] pr-checks 模块所有 error code/message 走 createLocalizedError —— **M24.1 Phase 3 commit `89e1344` 已落地**（4 端点 + 3 错误码 `PR_CHECK_NOT_FOUND` / `PR_CHECK_ID_MISSING` / `PR_CHECK_ACK_VALIDATION_FAILED` 全部走 createLocalizedError）
+- [x] i18n 键 zh-CN + en-US 双语言覆盖 —— **M24.1 Phase 3 commit `89e1344` 已落地**（`apps/platform/i18n/locales/{zh-CN,en-US}.json` 各 3 键 PR_CHECK_NOT_FOUND / PR_CHECK_ID_MISSING / PR_CHECK_ACK_VALIDATION_FAILED 双语对称）
+- [x] 单测覆盖（每个 code 至少 1 个中英文断言）—— **M24.1 Phase 3 commit `89e1344` 已落地**（17 个 vitest 用例覆盖 index 5 + id.get 3 + summary 4 + id.patch 5 + 错误码双语断言；详见 [apps/platform/server/api/pr-checks/](../../apps/platform/server/api/pr-checks/) 各测试文件）
+- [x] locale 检测：cookie(i18n_locale) > Accept-Language > 默认 zh-CN —— **M24.1 Phase 3 commit `89e1344` 沿用 M16.3**（apps/platform/server/utils/localized-error.ts:84-153 `detectServerLocale` 函数；新 PR_CHECK_* 错误码自动继承此 locale 检测）
+- [x] 编号标记扫描 0 命中
+
+**范围控制回顾**：M17.4 commit 2 audit 实证"4 端口合 1 批"反模式 → 本批次 pr-checks 4 端点 + 1 webhook stub（接口预留）属于 1 个原子原子边界（PRCheck MVP 一致性），不算"4 端口合 1 批"反模式（反模式指 4 个不同模块端点合 1 批）。**M17 模式沿用**：4 端点（4 文件）合 1 commit + 17 测试合 1 commit 的"业务 throw 改造 + 测试调整"拆分不适用本批次（pr-checks 端点强相关而非 4 个独立模块）。
 
 **范围 / 非目标**：
 

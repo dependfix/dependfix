@@ -225,6 +225,10 @@ const runScanInternal = async (
         let result: RunResult | undefined
         let error: { code: string, message: string } | undefined
         let runUrl: string | null = null
+        // DependfixApp.run() 返回的进程级 exit code（0 / 1 / 2）。透传给状态机作为
+        // 引擎交付类 category 识别之外的进程级兜底（exitCode=2 + result 存在 → 标记 failed）。
+        // B 模式（github-action）executor 不会透传 exitCode，保持 undefined。
+        let exitCode: number | undefined
         // 降级信号（todo.md §M11 T1005-C）：sandbox 启动时不可用 → 自动降级 ContainerExecutor → degradedReason 记录原 sandbox_unavailable
         // 范围：try 块顶层，确保 decision 处理块可见（degraded 状态机决策的输入）
         let degradedReason: { code: string, message: string } | undefined
@@ -272,6 +276,7 @@ const runScanInternal = async (
                 const execResult = await sandbox.execute(ctx)
                 result = execResult.result
                 error = execResult.error
+                exitCode = execResult.exitCode
             } else {
                 // A 场景：启动时不可用 → 记录降级原因 + 走 ContainerExecutor
                 degradedReason = {
@@ -285,6 +290,7 @@ const runScanInternal = async (
                 const execResult = await executor.execute(ctx)
                 result = execResult.result
                 error = execResult.error
+                exitCode = execResult.exitCode
                 runUrl = execResult.runUrl ?? null
             }
         } else {
@@ -294,6 +300,7 @@ const runScanInternal = async (
             const execResult = await executor.execute(ctx)
             result = execResult.result
             error = execResult.error
+            exitCode = execResult.exitCode
             // A 模式（container）：fix / fix-and-pr 完成后 executor 端推送修复分支，
             // runUrl 指向 GitHub branch tree 页（参见 container-executor.pushFixBranch 后置）
             runUrl = execResult.runUrl ?? null
@@ -306,7 +313,7 @@ const runScanInternal = async (
         //   仅触发级失败（workflow 未配置/不存在/无权限等，action 未运行）→ failed
         // - sandbox 启动时降级（A 场景，详见 executor-sandbox.md §7.8）：degraded + summaryJson + runUrl + errorJson
         //   （业务结果完整，路径偏离；errorJson 保留 sandbox_unavailable 错误码便于审计）
-        const decision = resolveScanRunState(executorKind, error, result, degradedReason)
+        const decision = resolveScanRunState(executorKind, error, result, degradedReason, exitCode)
         if (decision.status === 'dispatched') {
             savedRun.status = 'dispatched'
             savedRun.runUrl = runUrl
@@ -314,7 +321,15 @@ const runScanInternal = async (
         } else if (decision.status === 'failed') {
             savedRun.status = 'failed'
             savedRun.finishedAt = new Date()
-            savedRun.errorJson = error ? JSON.stringify(error) : null
+            // 优先用决策函数生成的 errorJson（含 engine_delivery_failed / engine_exit_2 等结构化代码）
+            // fallback 才用 executor 报的 error——避免吞掉状态机产生的更精确分类
+            if (decision.errorJson) {
+                savedRun.errorJson = JSON.stringify(decision.errorJson)
+            } else if (error) {
+                savedRun.errorJson = JSON.stringify(error)
+            } else {
+                savedRun.errorJson = null
+            }
         } else if (decision.status === 'degraded') {
             // degraded：业务结果完整 + 路径偏离（与 completed 等价写 summaryJson + runUrl）
             savedRun.status = 'degraded'

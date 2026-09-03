@@ -64,7 +64,7 @@ const logout = async () => {
                     class="platform__nav-link"
                     active-class="platform__nav-link--active"
                 >
-                    {{ t('prChecks.title') }}
+                    {{ t('common.nav.prChecks') }}
                 </NuxtLink>
                 <NuxtLink
                     v-if="session?.user?.role !== 'viewer'"

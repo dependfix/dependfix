@@ -7,6 +7,7 @@
             "scans": "扫描",
             "alerts": "告警",
             "envEvents": "环境事件",
+            "prChecks": "PR Checks",
             "schedules": "定时计划",
             "batchRuns": "批量运行",
             "credentials": "凭据",

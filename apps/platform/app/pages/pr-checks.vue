@@ -68,6 +68,20 @@ const alertFiringOptions = computed(() => [
 
 // SSR-aware 数据获取（SSR 阶段 handler 跑完拿数据，hydration 时 PrimeVue 已能渲染）
 const fetch = useRequestFetch()
+
+// /api/repos 用于仓库 Dropdown 选项（SSR 阶段就拉取，无 hydration 闪烁）；
+// 复用 alerts.vue L130-135 模式，generic 标注规避 TS 5.x 对 $fetch overload 路径推断的栈深度限制。
+const { data: repositories } = await useAsyncData<Array<{ id: string, owner: string, name: string }>>(
+    'pr-checks-repositories',
+    () => fetch<Array<{ id: string, owner: string, name: string }>>('/api/repos'),
+    { default: () => [] },
+)
+
+const repositoryOptions = computed(() => [
+    { id: 'all', name: t('prChecks.allRepositories') },
+    ...(repositories.value ?? []).map((r) => ({ id: r.id, name: `${r.owner}/${r.name}` })),
+])
+
 const { data: rows, refresh } = await useAsyncData<PRCheckView[]>('pr-checks', async () => {
     const params = new URLSearchParams()
     if (filters.repositoryId !== 'all') {
@@ -194,8 +208,21 @@ const handleAck = async (row: PRCheckView) => {
         <section class="pr-checks__filters">
             <div class="pr-checks__filter-row">
                 <div class="pr-checks__filter-field">
-                    <label>{{ t('prChecks.filterAlertFiring') }}</label>
+                    <label for="pr-check-repository">{{ t('prChecks.filterRepository') }}</label>
                     <Dropdown
+                        id="pr-check-repository"
+                        v-model="filters.repositoryId"
+                        :options="repositoryOptions"
+                        option-label="name"
+                        option-value="id"
+                        :placeholder="t('prChecks.allRepositories')"
+                        class="pr-checks__filter-dropdown"
+                    />
+                </div>
+                <div class="pr-checks__filter-field">
+                    <label for="pr-check-alert-firing">{{ t('prChecks.filterAlertFiring') }}</label>
+                    <Dropdown
+                        id="pr-check-alert-firing"
                         v-model="filters.alertFiring"
                         :options="alertFiringOptions"
                         option-label="label"

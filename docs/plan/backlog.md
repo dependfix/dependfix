@@ -148,6 +148,52 @@
     - **B1 数据层去重** vs B2 UI 层 GROUP BY / B3 每次清空：选 B1 —— 彻底解决重复 + 自然支持 fix 复用 + 不破坏审计（fixStatus + scanRunId 仍可追溯）；B2 实现简单但数据膨胀 + fix 复用难做；B3 最简单但破坏"何时发现"审计信号。**备注：B1 数据层去重暂缓，应用层去重（方案 B2 等价）已实施且满足当前业务需求；如未来需要 fix 复用 / 历史 fixStatus 跨次保留再迁移到 B1**
     - **C3 单列智能** vs C1 两列分开 / C2 单列合并：选 C3 —— 用户原话"GHSA ID ... 这才是能真正跨平台追溯漏洞的关键信息"（GHSA 在 GitHub Advisory Database 统一收录多个 CVE，反向追溯更强）；C1 多列占空间但实际查看价值有限；C2 简单但 GHSA / CVE 视觉权重平等，跨平台追溯信号被稀释
 
+#### 平台批量导入 / Resource owner 抽象
+
+- **C67 批量导入 Resource owner 化** —— 2026-09-04 用户实测反馈：当前 Platform 批量导入对话框（`apps/platform/app/components/import-repos-dialog.vue`）后端 `importable.get.ts:34` 硬编码默认 `affiliation='owner'`，前端从不传 `affiliation` 查询参数（`import-repos-dialog.vue:147-152`），仅显示用户个人仓库；对组织仓库 + 用户所属多组织场景支持不足。MCP 工具 `packages/mcp/src/tools/discover-repos.ts:24-31` 已在 Resource owner 抽象层级（`owner: string[]` 入参），Platform UI 与 MCP 不一致。**用户决策（2026-09-04）**：① 采用 Resource owner 抽象（沿用 GitHub 官方概念，不区分 user vs org）；② 单端点设计（共用 `GET /api/repos/importable`，通过 `include=owners|repos` 路由）；③ 凭据创建时记录 owner（Fine-grained PAT 必填 + GitHub App 可自动从 installation 解析 + Classic PAT 可选）；④ 不提供"全部 owner 合并视图"（坚持 Resource owner 级别隔离）；⑤ **暂时不纳入当前阶段**（M24+ 远期候选）。
+
+  - **架构对齐**：与 MCP `discover_repos` `owner: string[]` 参数 + engine `fetchOwnerRepositories`（`repository-discovery.ts:179-203`）auto-detect user/org 模式天然一致；本次改造让 Platform UI 收敛到同一抽象
+  - **前提改动（schema 扩展）**：
+    - `apps/platform/server/entities/credential.ts` 新增 `ownerLogin: string | null` 列（nullable column；与现有 `botLogin` / `installationId` 等 nullable 字段同模式）
+    - `apps/platform/server/schemas/credential.ts` Zod discriminated union 同步扩展：
+      - `type='fine-grained-pat'` → ownerLogin 必填（Fine-grained PAT 创建时绑定单一 owner，运行时无法动态发现）
+      - `type='github-app'` → ownerLogin 可选，可从 `installationId` 经 `GET /app/installations/{id}` 自动解析后填充
+      - `type='classic-pat'` → ownerLogin 可选（运行时通过 `GET /user` + `GET /user/orgs` 自动发现为准）
+    - 对应 TypeORM migration（data migration 路径同 `synchronize opt-in` 策略，参考 [platform.md §3.6](../../docs/standards/platform.md) + [development.md §5.1.19](../../docs/standards/development.md)）
+    - Credential 视图 (`apps/platform/app/types/platform.ts`) 同步扩展 `ownerLogin?: string | null`
+  - **单端点契约**（`GET /api/repos/importable`）：
+    - `?credentialId=X&include=owners` → 返回 `{ owners: ResourceOwner[] }`，TTL=5min 缓存（key=`owners:${credentialId}`）
+    - `?credentialId=X&owner=Y` → 返回 `{ repos, total, cachedAt, fromCache }`，缓存 key=`repos:${credentialId}:${ownerLogin}`
+    - **向后兼容**：`affiliation` 参数保留并标记 deprecated（行为不变）；当 `owner` 与 `affiliation` 同时存在时 `owner` 胜出
+  - **owner 发现逻辑**：
+    - Classic PAT：`GET /user` 拿 personal owner + `GET /user/orgs` 拿所属组织 owner 列表，personal 永远排第一
+    - Fine-grained PAT user-bound：`GET /user` 拿 personal owner（单值）；`/user/orgs` 大概率 403/404 忽略
+    - Fine-grained PAT org-bound：依赖凭据 `ownerLogin` 字段（运行时无法发现）
+    - GitHub App：`installation.account` 字段直接读取（无需运行时发现）
+  - **UI 改造**：
+    - `import-repos-dialog.vue` 新增 Resource owner 选择器（PrimeVue Select，与现有 credential 选择器风格一致）
+    - 当 owner 列表仅 1 项时降级为只读 chip 显示（Fine-grained PAT / GitHub App 场景）
+    - 凭据切换时联动：先 load owners → 默认选第一个 → load 该 owner 的 repos
+    - i18n 新增 5 个 key：`repos.importOwner` / `importOwnerPlaceholder` / `importOwnerPersonalBadge` / `importOwnerOrgBadge` / `errors.ownersFetchFailed`（zh-CN + en-US 各一份）
+  - **不做什么**：
+    - 不重写 repos 列表现有 fork / visibility / search 三维过滤（保持不变）
+    - 不重写 batch.post 批量导入提交链路（仅修改 importable.get 拉取链路）
+    - 不立即支持"全部 owner 合并视图"选项（用户原话：做一层 Resource owner 级别的隔离会更好）
+    - 不破坏现有 `affiliation` 参数行为（仅标记 deprecated，保留向后兼容）
+  - **预估工作量**：~3.5-4 小时 / 3 commits：
+    - `feat(api)` 新增 `ownerLogin` 字段 + TypeORM migration + credential schema 扩展 + 测试（约 1h）
+    - `feat(api)` `importable.get.ts` 单端点重构（`include=owners|repos` 路由 + 向后兼容）+ 单测（约 1.5h）
+    - `feat(ui)` `import-repos-dialog.vue` Resource owner 选择器 + i18n + 联动逻辑（约 1.5h）
+  - **A 阶段 audit 阈值**：commit 2 + commit 3 走 standard depth（涉及 schema / 缓存策略 / UI 状态机变更）
+  - **上收触发条件**（任一）：M24 阶段收口后用户实测反馈升级（组织仓库管理需求被升级）/ 多组织场景实测痛点再出现 / Classic PAT 多 org 用户主动要求 / 主线 #1 PrimeVue hydration 闭环后 `useAsyncData` 模式可复用至此 dialog
+  - **关键决策回顾（2026-09-04 用户确认）**：
+    - **Resource owner 抽象** vs 个人/组织二态/三态：选 Resource owner 抽象 —— 与 GitHub 官方语义对齐 + 与 MCP `discover_repos` owner 数组参数同源 + 跨多 org 场景天然支持（Classic PAT 可同时持有 5+ 组织成员资格，二态切换粒度太粗）
+    - **单端点** vs 双端点（owners + repos 分离）：选单端点 —— 用户明确偏好 + 实现更省（仅 1 个 API 端点 + 1 个测试文件）+ 缓存粒度通过 `include` query param 隐式区分；缺点是单端点契约面变宽，未来若 owner 列表需独立扩展（如订阅 webhook）需重新拆分
+    - **凭据创建时记录 owner** vs 纯运行时发现：选前者 —— Fine-grained PAT 绑定单一 owner 无法动态发现（`GET /user` 返回 404 必须静态记录）；GitHub App 可自动从 `installationId` 解析（无需用户输入）；Classic PAT 可选（运行时发现为准，但保留字段便于 UI 预选默认）
+    - **不提供合并视图** vs 提供"全部"入口：选不提供 —— 用户原话"如果用户/组织下面的项目比较多，混在一起实际上也不太好找（虽然说有搜索功能），做一层 Resource owner 级别的隔离会更好"，明确反对混合视图
+    - **暂时不纳入**：当前 M24 阶段排期已满（M24.1 PR Check MVP + M24.2 治理债 + M24.3 测试补强 + M24.4 源码治理 + M24.5 i18n），本特性作为 M25+ 远期候选
+  - **关联文档**：架构 [architecture.md](../design/governance/architecture.md) + [c22-pat-backward-compat.md §4.5](../design/governance/c22-pat-backward-compat.md) + [planning.md §3.1 新需求默认走评估→backlog 原则](../standards/planning.md)
+
 ## 待人工验收（真实环境，随可用性推进）
 
 > 以下条目属 M7.1 / M7.2 / 发布管线阶段遗留的真实环境验证任务，保留随真实环境可用性推进。

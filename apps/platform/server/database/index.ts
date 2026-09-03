@@ -10,6 +10,7 @@ import { SnakeCaseNamingStrategy } from './naming-strategy'
 import { resolveDatabaseType, type DatabaseType } from './type'
 import { CreateAuditEventTable1700000000000 } from './migrations/1700000000000-CreateAuditEventTable'
 import { AddScanResultIdentifiers1750000000000 } from './migrations/1750000000000-AddScanResultIdentifiers'
+import { CreatePrCheckTable1800000000000 } from './migrations/1800000000000-CreatePrCheckTable'
 import { runStartupBackup } from './backup'
 import { Account } from '#server/entities/account'
 import { Session } from '#server/entities/session'
@@ -23,6 +24,7 @@ import { ScanResult } from '#server/entities/scan-result'
 import { Schedule } from '#server/entities/schedule'
 import { BatchRun } from '#server/entities/batch-run'
 import { AuditEvent } from '#server/entities/audit-event'
+import { PRCheck } from '#server/entities/pr-check'
 
 /**
  * TypeORM DataSource 单例（多后端：SQLite 默认 / MySQL / PostgreSQL）。
@@ -67,10 +69,12 @@ export const createDataSourceOptions = (): DataSourceOptions => {
             Schedule,
             BatchRun,
             AuditEvent,
+            PRCheck,
         ],
         migrations: [
             CreateAuditEventTable1700000000000,
             AddScanResultIdentifiers1750000000000,
+            CreatePrCheckTable1800000000000,
         ],
         migrationsRun,
         synchronize,

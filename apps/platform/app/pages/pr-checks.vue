@@ -17,6 +17,7 @@
 import { computed, reactive, ref } from 'vue'
 import type { DataTableSortMeta } from 'primevue/datatable'
 import { useToast } from 'primevue/usetoast'
+import { conclusionTagSeverity } from '~/utils/pr-check-style'
 
 definePageMeta({
     middleware: 'auth',
@@ -67,13 +68,13 @@ const alertFiringOptions = computed(() => [
 ])
 
 // SSR-aware 数据获取（SSR 阶段 handler 跑完拿数据，hydration 时 PrimeVue 已能渲染）
-const fetch = useRequestFetch()
+const requestFetch = useRequestFetch()
 
 // /api/repos 用于仓库 Dropdown 选项（SSR 阶段就拉取，无 hydration 闪烁）；
 // 复用 alerts.vue L130-135 模式，generic 标注规避 TS 5.x 对 $fetch overload 路径推断的栈深度限制。
 const { data: repositories } = await useAsyncData<Array<{ id: string, owner: string, name: string }>>(
     'pr-checks-repositories',
-    () => fetch<Array<{ id: string, owner: string, name: string }>>('/api/repos'),
+    () => requestFetch<Array<{ id: string, owner: string, name: string }>>('/api/repos'),
     { default: () => [] },
 )
 
@@ -90,7 +91,7 @@ const { data: rows, refresh } = await useAsyncData<PRCheckView[]>('pr-checks', a
     if (filters.alertFiring !== 'all') {
         params.set('alertFiring', filters.alertFiring)
     }
-    return await fetch<PRCheckView[]>(`/api/pr-checks?${params.toString()}`)
+    return await requestFetch<PRCheckView[]>(`/api/pr-checks?${params.toString()}`)
 }, {
     watch: [() => filters.repositoryId, () => filters.alertFiring],
     default: () => [],
@@ -98,7 +99,7 @@ const { data: rows, refresh } = await useAsyncData<PRCheckView[]>('pr-checks', a
 
 // Summary（顶部统计卡片）
 const { data: summary } = await useAsyncData<PRCheckSummary>('pr-checks-summary', async () => {
-    return await fetch<PRCheckSummary>('/api/pr-checks/summary')
+    return await requestFetch<PRCheckSummary>('/api/pr-checks/summary')
 }, {
     default: () => ({ total: 0, firing: 0, acknowledged: 0, byConclusion: [] }),
 })
@@ -107,30 +108,12 @@ const sortMeta = ref<DataTableSortMeta[]>([
     { field: 'lastPolledAt', order: -1 },
 ])
 
-const conclusionTagSeverity = (conclusion: string): string => {
-    // GitHub check conclusion 语义 → PrimeVue Tag severity
-    // failure / timed_out / action_required → danger（红色）
-    // success → success（绿色）
-    // pending → warn（黄色）
-    // 其他 → info（蓝色）
-    if (conclusion === 'failure' || conclusion === 'timed_out' || conclusion === 'action_required') {
-        return 'danger'
-    }
-    if (conclusion === 'success') {
-        return 'success'
-    }
-    if (conclusion === 'pending') {
-        return 'warn'
-    }
-    return 'info'
-}
-
 const isAcking = ref<string | null>(null)
 
 const handleAck = async (row: PRCheckView) => {
     isAcking.value = row.id
     try {
-        await fetch<PRCheckView>(`/api/pr-checks/${row.id}`, {
+        await requestFetch<PRCheckView>(`/api/pr-checks/${row.id}`, {
             method: 'PATCH',
             body: { alertFiring: false },
         })

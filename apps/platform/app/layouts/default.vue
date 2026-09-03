@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { useColorMode } from '~/composables/use-color-mode'
 import { authClient } from '~/utils/auth-client'
 
@@ -20,6 +21,10 @@ const logout = async () => {
     await refreshNuxtData()
     await navigateTo('/login')
 }
+
+// nav 守卫（DRY：env-events / pr-checks / schedules 三处同款「非 viewer 可见」复用）：
+// 与 admin-only 守卫（仅 L100 单处使用）区分，canAccessAdmin 表达「可访问管理面板」。
+const canAccessAdmin = computed(() => session.value?.user?.role !== 'viewer')
 </script>
 
 <template>
@@ -59,7 +64,7 @@ const logout = async () => {
                     {{ t('common.nav.alerts') }}
                 </NuxtLink>
                 <NuxtLink
-                    v-if="session?.user?.role !== 'viewer'"
+                    v-if="canAccessAdmin"
                     to="/pr-checks"
                     class="platform__nav-link"
                     active-class="platform__nav-link--active"
@@ -67,7 +72,7 @@ const logout = async () => {
                     {{ t('common.nav.prChecks') }}
                 </NuxtLink>
                 <NuxtLink
-                    v-if="session?.user?.role !== 'viewer'"
+                    v-if="canAccessAdmin"
                     to="/env-events"
                     class="platform__nav-link"
                     active-class="platform__nav-link--active"
@@ -75,7 +80,7 @@ const logout = async () => {
                     {{ t('common.nav.envEvents') }}
                 </NuxtLink>
                 <NuxtLink
-                    v-if="session?.user?.role !== 'viewer'"
+                    v-if="canAccessAdmin"
                     to="/schedules"
                     class="platform__nav-link"
                     active-class="platform__nav-link--active"

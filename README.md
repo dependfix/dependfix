@@ -46,12 +46,13 @@ dependfix fix-and-pr --repo owner/repo --github-token $GITHUB_TOKEN
 ## 使用方式
 
 | 方式 | 说明 | 文档 |
-|:-----|:-----|:-----|
+| |:-----|:-----|:-----|
 | CLI | 命令行工具，支持 `report-only` / `fix` / `fix-and-pr` 三种模式 | [packages/cli/README.md](packages/cli/README.md) |
 | GitHub Action | 通过 `uses: dependfix/dependfix@v1` 一行接入 CI，支持定时与手动触发 | [快速开始 → GitHub Action](docs/guide/quick-start.md#github-action-使用) |
 | MCP Server | 将扫描 / 修复能力暴露给 AI 编程助手（Claude / Copilot / Cursor 等） | [packages/mcp/README.md](packages/mcp/README.md) |
 | Agent Skill | `dependfix-remediator` 可分发给主流 AI 编码工具，对话式驱动修复闭环 | [packages/skills/README.md](packages/skills/README.md) |
 | 管理平台 | 集中管理平台，支持简体中文 / English 双语 | [系统架构 → 平台架构](docs/design/governance/architecture.md#平台架构-apps-platform) |
+| **PR Check 监测**（M24.1）| 管理平台内置模块：监测 dependfix / dependabot PR 的 CI Test check 状态，CI 跑挂时通过 alerts firing + UI ack；与 mergify 自动合并互不干扰 | [todo.md §M24.1](docs/plan/todo.md#m241-p1--能力-pr-check-状态监测-mvp) |
 
 ## 仓库结构
 

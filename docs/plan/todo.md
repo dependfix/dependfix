@@ -65,15 +65,27 @@
 
 **验收标准**：
 
-- [ ] dependfix 自身 PR（author 含 `dependfix[bot]`）+ dependabot PR（author=`dependabot[bot]`）的最新 `Test` check 状态可被定时抓取并落库
-- [ ] 状态变化时（pending → success / failure）落 `PRCheck` 行（复合唯一索引 `(repositoryId, prNumber, headSha)` 幂等）
-- [ ] 失败 PR 通过 alerts 系统 firing（**D3**）；UI 提供 ack 按钮；回归 success 时自动 ack
-- [ ] polling 任务可关闭（schedule 启停 + env 开关 `ACTION_STATUS_MONITOR_ENABLED`）；关闭时保留历史 PRCheck 但停止新轮询
-- [ ] 用户手动在 Schedule UI 创建 `pr-check` 类型 schedule 启用（**D4**）；默认未启用
-- [ ] UI 提供 `/api/pr-checks` 列表（支持 `repositoryId` / `conclusion` / `alertFiring` 过滤）+ 单 PR 时间线
-- [ ] mergify 不受影响（监测失败不阻止 mergify 决策；**D8** 在文档中明确说明）
-- [ ] webhook 接口预留（`PRCheckSyncSource` abstract + PollingSource implements）但 MVP 不实现
-- [ ] 编号标记扫描 0 命中（按 [开发规范 §3 注释规范](../standards/development.md) + [code-auditor 主责边界必查项](../../.github/agents/code-auditor.agent.md) 防御）
+- [x] dependfix 自身 PR（author 含 `dependfix[bot]`）+ dependabot PR（author=`dependabot[bot]`）的最新 `Test` check 状态可被定时抓取并落库（commit `1068d6e` Phase 2 service 落地）
+- [x] 状态变化时（pending → success / failure）落 `PRCheck` 行（复合唯一索引 `(repositoryId, prNumber, headSha)` 幂等）（commit `36ee026` Phase 1 entity 落地）
+- [x] 失败 PR 通过 alerts 系统 firing（**D3**）；UI 提供 ack 按钮；回归 success 时自动 ack（commit `89e1344` API + commit `e841b82` UI 落地）
+- [x] polling 任务可关闭（schedule 启停 + env 开关 `ACTION_STATUS_MONITOR_ENABLED`）；关闭时保留历史 PRCheck 但停止新轮询（commit `1068d6e` triggerPrCheckSchedule runtime check）
+- [x] 用户手动在 Schedule UI 创建 `pr-check` 类型 schedule 启用（**D4**）；默认未启用（commit `1068d6e` Schedule.kind 字段落地）
+- [x] UI 提供 `/api/pr-checks` 列表（支持 `repositoryId` / `conclusion` / `alertFiring` 过滤）+ 单 PR 时间线（commit `e841b82` + commit `19037d5` 仓库 Dropdown 补全）
+- [x] mergify 不受影响（监测失败不阻止 mergify 决策；**D8** 在文档中明确说明）（commit `<Phase 5 docs>` mergify.yml 注释 + README + experience-archive §五十六 落地）
+- [x] webhook 接口预留（`PRCheckSyncSource` abstract + PollingSource implements）但 MVP 不实现（commit `1068d6e` types.ts interface 预留）
+- [x] 编号标记扫描 0 命中（按 [开发规范 §3 注释规范](../standards/development.md) + [code-auditor 主责边界必查项](../../.github/agents/code-auditor.agent.md) 防御）
+
+**实施记录**：
+
+| Phase | Commit | 范围 |
+|:---|:---|:---|
+| Phase 1 | `36ee026` | PRCheck 实体 + 复合索引 + migration + register |
+| Phase 2 | `1068d6e` | service 三件套（types + polling-source + action-status-monitor）+ Schedule.kind + scheduler 分支 + 22 单测 |
+| Phase 3 | `89e1344` | 4 API 端点（list / single / summary / ack PATCH）+ i18n 3 错误码 + 17 单测 |
+| Phase 4 | `e841b82` | pr-checks.vue 单页（4 卡片 summary + alertFiring 过滤 + ack 操作 + 状态机 UI 渲染 D3）|
+| Phase 4.1 | `19037d5` | 仓库过滤 Dropdown + nav 命名统一（common.nav.prChecks）|
+| Phase 4 收尾 | `4803372` | 命名一致性（fetch → requestFetch）+ 守卫 DRY（canAccessAdmin computed）+ conclusionTagSeverity util 下沉 + 9 单测 |
+| Phase 5 | `<commit>` | mergify.yml 注释 + dependfix README + experience-archive §五十六 |
 
 **范围 / 非目标**：
 

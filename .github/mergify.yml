@@ -13,6 +13,15 @@ pull_request_rules:
   # —— 见 M18.2 commit author 动态化）。不加 label 条件是因为 dependfix 创建 PR 时
   # 不打固定 label（依赖下游 labels.addLabels 手动加 `duplicate` 等）；author 正则
   # 足够约束范围 + 防止误合并外部贡献者 PR。
+  #
+  # 与 M24.1 PR Check 监测的边界（docs/plan/todo.md §M24.1 关键决策 D8）：
+  # mergify 负责「通过即合」（按 check-success=Test 触发 rebase merge）；
+  # dependfix 平台 PR Check（apps/platform/app/pages/pr-checks.vue）负责「失败即显」
+  # （监测 + alert firing + ack UI）。两条链路互不干扰：
+  # - mergify 在 check-success=Test 触发合并；CI 失败时 mergify 不合并
+  # - PRCheck 在 alert firing 时仅显示 UI 告警 + 写 alert_event，不阻止合并
+  # 因此 PR Check alert firing 不会影响 mergify 决策；mergify 仍按 `check-success=Test`
+  # 单条件触发。详见 docs/design/governance/experience-archive.md §五十六 M24.1 案例。
   - name: automatic merge for dependfix bot pull requests
     conditions:
       - check-success=Test

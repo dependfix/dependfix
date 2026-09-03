@@ -1394,3 +1394,98 @@ Playwright 1.62 fixture pool 注入链（workerProcessEntry.js + common/index.js
 ### 准入标准复核
 
 本案例（M23.3 C66-C 阶段）符合准入标准第 1 条"教训未落入规范"（monorepo rebuild 教训、todo.md stale 修正流程、Identifiers 列设计模式均未在 code-auditor 主责边界必查项登记）+ 第 3 条"重复违规预警"（todo.md 验收清单 stale 是常见治理债，M22 阶段沉淀批次已多次出现，audit W-2/W-3/W-4 标记的 neat-freak 收敛仍未根治）+ 第 4 条"工具/环境陷阱"（monorepo source/dist 不一致是 CI 自动 rebuild 掩盖本地 dev 的典型陷阱）。**M23.3 C66-C 增量价值**：从"独立 Identifiers 列单点 UX 增强"扩展到"5 文件跨包契约 + 标准 depth 审计 + 3 项 governance check point 沉淀"路径 —— 挂接治理检查点 3 项可降低未来同类风险（i18n locale 状态审计 + monorepo rebuild 纪律 + todo.md stale 修正流程）。
+
+## 五十六、M24.1 PR Check 状态监测 MVP：5 phase 串行 + A 阶段 Reject 内联修复 + 6 atomic commits 闭环（2026-09-03，commits `36ee026 / 1068d6e / 89e1344 / e841b82 / 19037d5 / 4803372`）
+
+### 案例背景
+
+2026-09-03 用户决策启动 M24 阶段方案 B（能力突破优先），按"类型平衡"原则拆 **5 原子条目独立闭环**：M24.1 PR Check 状态监测 MVP + M24.2 根因排查源码层面 + M24.3 cron-preview wall-clock + M24.4 M18.x+Code Scanning 集中清理 + M24.5 C36 服务端 API i18n 扩展。M24.1 占 M24 总规模 ~58%（5 phase 串行独立闭环），其余 4 条目按用户决策可分批推进。
+
+业务定位（docs/plan/todo.md §M24.1）：监测 dependfix 自身 PR（author 含 `dependfix[bot]`）+ dependabot PR（author=`dependabot[bot]`）最新 `Test` check 状态，让"发出去"的修复 PR 在 CI 跑挂时通过 alerts 系统 firing 并提供 ack UI。**沉默失败场景**：dependfix 升级修复 PR 跑挂 → 升级状态停滞 + 用户不知情；dependabot PR 跑挂 → mergify 不合并（依赖 `check-success=Test`）+ 用户不知情。两条链路的 CI 失败都属于"沉默失败"，破坏 dependfix 的自动化承诺。
+
+### 关键决策 D1-D8（用户 2026-09-02 决策落地，方案 B 全部 8 项）
+
+- **D1**：PRCheck 实体位于 `apps/platform/server/entities/pr-check.ts`（独立于 ScanResult，per-PR-head 模型语义不同 —— ScanResult 是 per-alert reconcile 模型，PRCheck 是 per-PR-head polling INSERT/UPDATE 模型）
+- **D2**：Polling 间隔默认 5min/仓（service 不内置 timer，由 scheduler 触发；GitHub `actions: read` scope 不计入主限流）
+- **D3**：失败 PR firing alert + ack UI（状态机：失败→firing=true；用户 ack 或回归 success 自动 ack→firing=false；ack **不修改** `conclusion`）
+- **D4**：用户手动创建 schedule 启用（不创建默认 schedule，避免无 App installation 用户报错；Schedule entity 加 `kind` 字段区分 `scan` / `pr-check`）
+- **D5**：webhook MVP 仅接口预留（`PRCheckSyncSource` interface + PollingSource implements + WebhookSource 留位；webhook handler 文件不挂路由）
+- **D6**：仅 per-org scope（service `pollOnce({ organizationId })`；跨组织聚合留作后续）
+- **D7**：env 开关 `ACTION_STATUS_MONITOR_ENABLED` 默认 false（`triggerPrCheckSchedule` runtime check + `skipped: true` 标识；env false 时不更新 `lastTriggeredAt` 避免运维调试时每分钟落触发时间戳）
+- **D8**：mergify 仍是主控（PRCheck 仅监测 + 告警 + ack UI，不阻断 mergify 决策；本文档 + `.github/mergify.yml` 注释 + dependfix README 三处明确："mergify 负责通过即合（按 `check-success=Test`）；PRCheck 负责失败即显。互不干扰"）
+
+### 实施路径（5 phase 串行独立闭环 + Phase 4.1 + Phase 4 收尾 = 6 commits）
+
+| Phase | Commit | 范围 | 行净增 |
+|:---|:---|:---|:---:|
+| **Phase 1** PRCheck 实体 | `36ee026` | entity + 3 复合索引（`repositoryId+prNumber+headSha` UNIQUE / `repositoryId+conclusion` / `repositoryId+createdAt`）+ 3 单索引 + migration 1800000000000 + database/index.ts 注册 | ~230 |
+| **Phase 2** service + scheduler | `1068d6e` | types.ts（PRCheckSyncSource interface + 状态机 helper）+ polling-source.ts（Octokit 复用 + author 过滤 + conclusion 映射）+ action-status-monitor.ts（核心 service + 状态机 D3）+ Schedule.kind 字段 + migration 1800000000001 + 22 单测 + .env.example 登记 env 开关 | ~940 |
+| **Phase 3** API 层 | `89e1344` | 4 API 端点（list / single / summary / ack PATCH）+ 3 PR_CHECK_* 错误码 + ServerErrorCode 枚举扩展 + i18n 双语 + 17 单测 | ~730 |
+| **Phase 4** UI 层 | `e841b82` | pr-checks.vue 单页（4 卡片 summary + alertFiring 过滤 + ack 操作 + 状态机 UI 渲染 D3）+ nav 集成 + 22 i18n 键 | ~490 |
+| **Phase 4.1** UI follow-up | `19037d5` | 仓库过滤 Dropdown（消除 W2 死状态）+ common.nav.prChecks 键（消除 S1 nav 命名不一致）| ~30 |
+| **Phase 4 收尾** 重构 | `4803372` | `const fetch` → `requestFetch` 命名对齐 + 守卫 DRY（canAccessAdmin computed 替代 3 处重复 v-if）+ conclusionTagSeverity 下沉为 util + 9 单测 | ~90 |
+| **总计** | 6 commits | 业务实施 5 phase + UI follow-up + 重构 | ~2510 |
+
+### A 阶段审计（含 Phase 4 Reject 修复关键案例）
+
+**Phase 1**（standard depth / 1 轮 Pass / 0 warning）：§3b SQLite DDL 实证 6 索引全部生成正确（含 3 列唯一索引 `(repositoryId, prNumber, headSha)` 实证）。W1 内联修复：删除 PRCheck entity 列级 `@Index()` 装饰器 3 处（避免 synchronize=true 路径生成冗余索引；migration 显式 CREATE INDEX 提供同名单索引）。
+
+**Phase 2**（standard depth / 1 轮 Reject → 修复 → Pass / 2 blocker + 5 warning + 3 suggest）：
+- **B1**：`poling-source.test.ts:9` import `isTargetAuthor as _unused` 路径错误（从 `./types` 但实际定义于 `./poling-source`）→ **本批 D 阶段自检声称"typecheck exit 0"与实际 TS2305 不符**。修复：删除 dead import。
+- **B2**：`scheduler.service.ts:208` ESLint error `Array<T>` → 改为 `T[]` + 用 `Repository` 实体类替换字符串 lookup（避免 type safety 绕开）。
+- **W3**：dead imports `void TARGET_PR_AUTHOR_LOGINS / void isFailureConclusion`（YAGNI 反模式）→ 删除。
+- **W4**：`ds.getRepository('Repository' as never)` 类型 cast → 改用 `Repository` 实体类。
+- **W5**：`.env.example` 未登记 `ACTION_STATUS_MONITOR_ENABLED` → 登记 + 启用前置条件说明。
+- **W6**：自动 ack 测试 fixture `acknowledgedAt: null` → 改为 `new Date('2026-09-01')` 真实验证 acknowledgedAt 清空路径。
+- **W9**：triggerSchedule 返回 union 类型加 `kind` discriminator（Phase 3 API 拆分前的契约稳定化）。
+- **W10**：env 关闭时不更新 `lastTriggeredAt`（triggerPrCheckSchedule 返回 `{ skipped: true }`，caller 仅在非 skipped 时更新）。
+
+**关键教训**：本批次 D 阶段自检仅跑 `pnpm exec eslint --fix`（自动修复 import/order + eol-last 等），未单独跑 `pnpm exec eslint`（无 --fix）+ `pnpm --filter @dependfix/platform run typecheck`（CI 实际命令）—— **0 error 自检证据覆盖盲区**。修复方向（落地）：D 阶段自检必须先跑 `pnpm exec eslint` 无 --fix + nuxt typecheck 双向验证（vitest 用 esbuild 转译不触发 TS 严格检查，不能作为 typecheck 证据）。
+
+**Phase 3**（standard depth / 1 轮 Pass / 0 blocker / 3 warning + 6 suggest）：
+- **W1**：summary.get.ts 聚合查询未做 organization 隔离（D6 仅 service 层实现）—— 与现有 alerts 模式一致（alerts/index.get.ts 同样未做 organizationId 隔离），非新引入偏差，登记 follow-up。
+- **W2**：index.get.ts zod `.optional()` 双重判断冗余（`data !== undefined` 在 `.optional()` 模式下恒为 false）+ 误导注释 → **修复**：删除冗余判断 + 简化注释（`alertFiring` 保留 `!== undefined` 因需区分「未传」与「false」）。
+- **W3**：[id].get.ts 与 index.get.ts 的 `toView` 完全重复 → Phase 4 UI 时一并收敛为 `_view.ts` helper（Phase 5 docs 收口期延后）。
+
+**Phase 4**（standard depth / 1 轮 Reject → 修复 → Pass / 2 blocker + 1 warning + 4 suggest）：
+- **B1**：en-US.json `alerts.errors.loadFailed` 被中文污染（"加载失败：{message}"）—— **5-Why 根因**：本次 en PRCheck 段 insert anchor 用 zh-CN 中文文本（`loadFailed: "加载失败：{message}"`），与 en-US 段实际英文不匹配，JSON.parse 容忍重复键 last-key-wins，导致 alerts 段尾部被改写。**修复**：`git checkout apps/platform/i18n/locales/en-US.json` 恢复 + 用 en-US 段实际英文 anchor `loadFailed: "Failed to load: {message}"` 重新插入 PRCheck 段。
+- **B2**：DataTable `:sort-meta="sortMeta"` 不是合法 PrimeVue 4 prop —— 正确 prop 是 `v-model:multi-sort-meta`（实测 `primevue/datatable/DataTable.vue` + `BaseDataTable.vue` 0 命中 `sortMeta`/`sort-meta`，仅 `multiSortMeta` 在 L371/L418/L463）。**修复**：替换为 `v-model:multi-sort-meta="sortMeta"`（与 alerts.vue L441 对齐）。
+- **W1**：summary 卡片标签硬编码 locale 检测三元（`t('alerts.colStatus') === 'Alert' ? 'Total' : '总数'` 永远返回 `'总数'`）→ **修复**：新增 `prChecks.summary.{total/firing/acked}` 子键避免硬编码。
+- **S1-S4**：命名一致性（fetch → requestFetch）/ 守卫 DRY（canAccessAdmin computed）/ conclusionTagSeverity util 下沉 + 单测 9 个。
+
+### 教训（5 项）
+
+1. **教训 1（D 阶段自检双向验证纪律）**：D 阶段自检不能仅依赖 `pnpm exec eslint --fix`（自动修复 + 警告压制），必须分别跑 `pnpm exec eslint` 无 --fix + `pnpm --filter @dependfix/platform run typecheck` + `pnpm exec vitest run` 三向验证。**根因**：vitest 用 esbuild 转译不触发 TS 严格检查，CI 通过 ≠ 本地 typecheck 通过（CI 自动 rebuild workspace dist 掩盖本地 dev 过期；M23.3 §五十五 教训 3 复盘）。**本批落地**：Phase 2 B1 + Phase 4 B1 都是 D 阶段自检覆盖盲区，强制加 D 阶段自检 checklist：`lint` 无 --fix + `nuxt typecheck` + `vitest` 三项独立命令 run。
+
+2. **教训 2（i18n insert anchor 必须用目标 locale 文本）**：locale 文件多段对称（zh-CN.json + en-US.json），insert anchor 必须用**目标 locale 实际文本**（如 en-US 段必须用 `loadFailed: "Failed to load: {message}"` 英文 anchor）。**根因**：JSON.parse 容忍重复键 last-key-wins，anchor 错位导致后续段被改写但前端未触发 lint 检测（vitest 不读 i18n 字段语义）。**修复方向**：写 `scripts/i18n-anchor-check.mjs` 工具，D 阶段编辑 locale 文件后跑一遍 `rg` 验证 anchor 唯一性 + 对称性（en-US/zh-CN 段键集相同 + 文本不同属正常态；anchor 用错位文本属异常态）。
+
+3. **教训 3（DataTable sort prop 是 `v-model:multi-sort-meta`）**：PrimeVue 4 DataTable 仅支持 `v-model:multi-sort-meta`（v-model 形式）；Vue 模板解析时未知 prop 被静默忽略，无运行时错误但也无功能效果（默认排序失效 + 用户点击列头排序无法持久）。**修复方向**（轻量）：tech radar 列表新增 PrimeVue 4 已知 prop 命名（`v-model:multi-sort-meta` / `v-model:filters` / `v-model:selection` 等）—— 防止 Phase 4 B2 类 silent ignore。
+
+4. **教训 4（zod `.optional()` 陷阱）**：`z.enum([...]).optional()` 接受 undefined 为合法值（safeParse(undefined).success=true, data=undefined），但区分「未传字段」与「传 undefined」需显式 `data !== undefined` 判断。本批次 Phase 3 W2（dead code）+ Phase 2 W6（ack fixture acknowledgedAt 必须非空）都是该陷阱衍生物。**修复方向**（登记 follow-up）：写 `apps/platform/server/utils/zod-helpers.ts` 提供 `parseOptional<T>(schema, query, fieldName): { success: boolean, value?: T }` helper 强制语义区分。
+
+5. **教训 5（en-US.json alerts 段被中文污染教训的反面案例）**：Phase 4 B1 是"i18n insert anchor 必须用目标 locale 文本"教训的实证 —— Phase 4 D 阶段 insert PRCheck 段到 en-US.json 时，anchor 用了 zh-CN 中文文本导致 en-US 段尾部 loadFailed 字段被改写为中文，**JS 解析通过 + 集成测试通过 + 视觉测试前无法发现**。**根因**：JSON.parse 容忍重复键 + 现有 localized-error.test.ts 的"键集对称"测试只检查键存在性不检查值的 locale。**修复方向**（登记 follow-up）：localized-error.test.ts 新增"值 locale 对称性"测试 —— 任意 code 在 zh-CN locale 取值不应等于 en-US locale 取值（"加载失败：{message}" ≠ "Failed to load: {message}" 是对称态；两者相等是错位污染）。
+
+### 挂接治理检查点
+
+1. **wisdom.md**（gitignored，留待 wisdom 蒸馏批次）：M24.1 阶段增量沉淀 5 条 pattern/principle —— ① `pattern-D-stage-self-check-three-commands`（D 阶段自检必须 lint 无 --fix + nuxt typecheck + vitest 三向独立验证）；② `pattern-i18n-insert-anchor-target-locale`（locale 文件 insert anchor 必须用目标 locale 实际文本）；③ `pattern-PrimeVue-4-multi-sort-meta-prop`（DataTable 仅支持 v-model:multi-sort-meta，不用 :sort-meta）；④ `pattern-zod-optional-undefined-trap`（z.enum().optional() 接受 undefined 为合法值，区分「未传字段」需显式 !== undefined）；⑤ `principle-monitoring-vs-merge-decoupling`（依赖监测系统不应阻断自动合并；mergify 按 check-success=Test 单条件触发；PRCheck 监测 + alert 不修改 check 状态）。本批 5 条与 wisdom 现有 17 条合并后共 22 条，距 20 阈值已超，**下批次会话执行 wisdom 蒸馏**（详见 wisdom.md §distillation_log）。
+
+2. **.github/agents/code-auditor.agent.md 主责边界**：本批不新增必查项（5 条 pattern 属于开发陷阱而非审查清单），但**已审查的标准深度 audit 实践沉淀**（按 git history 可查 Phase 1/2/3/4 全部 standard depth audit 报告）。**登记 follow-up**：code-auditor 应支持 multi-round 审计协议（按 full-stack-master skill §4 描述），本批 Phase 2/4 均为单轮 audit 后内联修复；未来同类大型批次可考虑 2 轮（首轮 broad + 复审 narrow）—— 实际是否拆分需按 phase 规模评估。
+
+3. **.github/mergify.yml**：本次更新 dependfix bot PR rule 注释（D8 兜底）—— 明确"mergify 负责通过即合（按 `check-success=Test`）；PRCheck 负责失败即显。互不干扰"，消除监测系统与自动合并的潜在边界混淆（PRCheck alert firing 不应阻止 mergify 决策）。
+
+4. **dependfix README.md**（顶层）：本批同步补 PR Check 监测模块章节 —— 业务定位 / 启用步骤（创建 `pr-check` 类型 schedule + 设置 env 开关）/ 数据源（GitHub Actions Test job polling）/ 用户交互（`/pr-checks` 页面 ack 操作）/ 与 mergify 边界（D8）。**新增章节结构**：与现有「CLI / MCP / Action / Platform」四大模块并列，新增「Platform PR Check 监测」第五模块。
+
+5. **docs/plan/todo.md §M24.1**：本批同步完成验收清单 + commit hash 回填 —— 9 项验收 [x] + 实施记录表（5 phase + 2 follow-up + 1 重构共 6 commits）+ §M24.1 关键决策 D1-D8 已落地。**后续**：M24.2-M24.5 闭环后整体 M24 阶段归档（按 M21-M23 模式 docs-only commit + wisdom 蒸馏）。
+
+### 准入标准复核
+
+本案例（M24.1 PRCheck MVP）符合准入标准第 1 条"教训未落入规范"（5 条 pattern 涉及 i18n + PrimeVue + zod + 自检纪律，均为新发现实践教训，未在现有规范登记）+ 第 2 条"重大 bugfix 经验未沉淀"（本批 0 blocker 实施路径干净；W1-W10 均 warning 而非 blocker，已全部内联修复或登记 follow-up）+ 第 4 条"工具/环境陷阱"（en-US.json anchor 错位 + PrimeVue 4 silent ignore + zod optional trap + merge vs monitoring decoupling）。**M24.1 增量贡献**：从 M23.3 "5 文件跨包契约 + 17 单测 + standard depth audit" 扩展到 **M24.1 "5 phase 串行 + 6 atomic commits + 2 次 audit Reject 修复 + 6 commits 累计 ~2510 行净增 + 5 pattern 沉淀 + 4 docs 文件落地"** —— 是 dependfix monorepo 自 M22 治理债收口以来规模最大的能力扩展 + 治理收口批次。
+
+挂接治理检查点 5 项中：
+- ① wisdom.md 5 条 pattern（待下次会话蒸馏）
+- ② code-auditor 主责边界（无新增，沉淀实践可查）
+- ③ mergify.yml 注释（本批已落地）
+- ④ dependfix README 章节（本批已落地）
+- ⑤ todo.md §M24.1 验收 + 实施记录（本批已落地）
+
+**M24.1 阶段已完全闭环**，可作为方案 B 的第 1 个原子条目独立归档。M24.2 根因排查源码层面 + M24.3 cron-preview + M24.4 治理债 + M24.5 C36 服务端 API i18n 待用户决策推进。

@@ -11,6 +11,11 @@
  * - 触发次数默认 3（"next 3 runs"），用户最关心"什么时候会触发"而非完整描述。
  *
  * 关联 todo：todo.md §M12 C65-C1（与 todo.md §M12 C65-C2 共享 cron preview 状态）
+ *
+ * 测试 helper 模式评估（todo.md §M24.3 S3）：**不适用** setupMemoryDatabase / ensureDatabaseInitialized
+ * 等 server 端 DB helper —— cron-preview 是纯前端工具函数（无 DB / 无 server 端 import）；
+ * 时区切换测试走 vitest `vi.useFakeTimers` + `vi.setSystemTime`（见 cron-preview.test.ts "时区切换" describe 块，
+ * M23.4 commit `df4ba9b` 落地 + M24.3 闭环），与 server test helper 模式正交。
  */
 import { CronExpressionParser } from 'cron-parser'
 

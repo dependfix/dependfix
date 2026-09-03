@@ -166,13 +166,20 @@
 
 **验收标准**：
 
-- [ ] S1 双分支固定-now 用例（8h + 16h 各 1 case）
-- [ ] S2 表达式简化（`=== 8 || === 160` 替换 `% 24 ∈ {8, 16}`）
-- [ ] S3 helper 模式评估结论文档化（不适用 + 理由）
-- [ ] 跨日边界 flaky 0（连续 5 次跑 cron-preview.test.ts 全绿）
-- [ ] 编号标记扫描 0 命中
+- [x] S1 双分支固定-now 用例（8h + 16h 各 1 case）（M23.4 commit `df4ba9b` 已落地；cron-preview.test.ts 行 87-96 + 98-108）
+- [x] S2 表达式简化（`=== 8 || === 160` 替换 `% 24 ∈ {8, 16}`）（M23.4 commit `df4ba9b` 已落地；cron-preview.test.ts 行 110-118）
+- [x] S3 helper 模式评估结论文档化（不适用 + 理由）（M24.3 阶段落地；cron-preview.ts 顶部注释新增"测试 helper 模式评估"段，明确不适用 setupMemoryDatabase 等 server DB helper + 走 vi.useFakeTimers / vi.setSystemTime）
+- [x] 跨日边界 flaky 0（连续 5 次跑 cron-preview.test.ts 全绿）（M24.3 阶段实测：5 次跑均 12 tests passed 稳定；本批次 commit 前最终验证）
+- [x] 编号标记扫描 0 命中
 
-**预估**：~50 行测；commits 预估 1 commit
+**实施记录**：
+
+| 阶段 | Commit | 范围 |
+|:---|:---|:---|
+| S1 + S2 部分闭环 | `df4ba9b`（M23.4） | 双分支固定-now 用例 + `=== 8 \|\| === 160` 简化断言 |
+| S3 helper 评估 + flaky 验证 | `<commit>`（M24.3） | cron-preview.ts 顶部注释"测试 helper 模式评估"段 + todo.md §M24.3 验收 [x] |
+
+**根因背景（与 M23.4 关联）**：M23.4 commit `df4ba9b` 已部分闭环 S1 + S2，本批次（M24.3）只补 S3 注释文档化 + 验收清单更新 + 跨日边界 flaky 验证。**S2 表达式 `=== 8 || === 160`** 实际 M23.4 已落地（cron-preview.test.ts 行 117），与 §M24.3 描述完全一致。**todo.md §M24.3 原验收清单是 stale 状态**（M24.3 描述说"未闭环"但实际 M23.4 已部分落地）—— 本批次同步修正避免 M24.3 重做 S1+S2 重复劳动。
 
 ### M24.4 [P3 🛡️ 治理] M18.x W1+W2 + Code Scanning RG-W01/W02 集中清理
 

@@ -329,13 +329,13 @@ per-alert 模型 + reconcile + API 简化 + UI 调整 + backfill 脚本。5 子�
   - **R7** ✅ execFileSync 替换覆盖完整（M24.4 RG-W01 实际已由 M18.4 阶段闭环 + RG-W02 本批次 L81 + L337 两处实际修复）
 - **类型平衡原则遵循**（[规划规范 §1.1 任务粒度约束](../standards/planning.md)）：5 原子条目 ≤ 5-6 硬上限；M24.1 PR Check MVP 单条目占 ~58% 总规模（超单条目 800 行阈值），实际拆 5 phase × 1-2 commits = 7 commits（`36ee026` / `1068d6e` / `89e1344` / `e841b82` / `19037d5` / `4803372` / `7120533`），符合 atomic commit 原则
 - **2 次 audit Reject 修复经验**（M24.1 Phase 2 + Phase 4 实证）：D 阶段自检需三向独立验证（lint 无 --fix + nuxt typecheck + vitest）；en-US.json 中文污染用 `data !== undefined` 显式判断等 8 条新 pattern 已挂接 standards（详见 [Wisdom 蒸馏批次 commit `7c926a9`](#)）
-- **11 项 follow-up 登记**（M24 阶段未实施，下批次观察）：fixtures 节流方案 / i18n-anchor-check 工具 / zod-helpers helper / better-auth adapter transaction 单测 / e2e 真实环境重跑等
+- **11 项 follow-up 登记**（M24 阶段 follow-up，8 项未实施下批次观察 + 2 项已实施）：fixtures 节流方案 / i18n-anchor-check 工具 / zod-helpers helper / better-auth adapter transaction 单测 / e2e 真实环境重跑等；已实施：✅ migration raw SQL 列名 bug 修复（commit `b5ab0b2`）+ ✅ Card+DataTable 空状态双线 UX bug（commit `8d01b36`）
 
 ---
 
 ## 详细任务
 
-- 当前阶段任务：[todo.md](todo.md)（**M24 阶段 2026-09-03 用户决策启动**——方案 B 能力突破优先，5 原子条目独立闭环：M24.1 PR Check MVP / M24.2 M22.7+M22.8 根因排查 / M24.3 cron-preview wall-clock / M24.4 M18.x+Code Scanning / M24.5 C36 i18n；详见 [todo.md §M24](todo.md#m24-pr-check-mvp--治理债--测试补强--用户体验)；待人工验收 T701/T702/T704 项随真实环境推进）
+- 当前阶段任务：[todo.md](todo.md)（**M24 阶段 2026-09-03 用户决策启动**——方案 B 能力突破优先，5 原子条目独立闭环：M24.1 PR Check MVP / M24.2 M22.7+M22.8 根因排查 / M24.3 cron-preview wall-clock / M24.4 M18.x+Code Scanning / M24.5 C36 i18n；详见 [todo.md §M24](todo.md#m24-pr-check-mvp--治理债--测试补强--用户体验已归档)；待人工验收 T701/T702/T704 项随真实环境推进）
 - 已归档阶段：[todo-archive.md](todo-archive.md)（主窗口保留最近 5 段：2026-09-02 M23 / 2026-09-01 M22 / 2026-08-31 M21 / 2026-08-31 M20 / 2026-08-31 M19；**2026-09-01 M22 归档批次预防性迁出 M18 至新分片 [archive/todo-archive-phases-m18.md](archive/todo-archive-phases-m18.md)**（M22 段 119 行新增前主窗口 612 行 + M22 段预估 80-100 行将超 700 分片阈值；M18 单段迁出与 M19/M20 归档批次迁出 M14-M15/M16-M17 同源策略）；2026-08-31 M20 归档批次预防性迁出 M16 + M17 至新分片 [archive/todo-archive-phases-m16-m17.md](archive/todo-archive-phases-m16-m17.md)；2026-08-31 M19 归档批次预防性迁出 M14 + M15 至新分片 [archive/todo-archive-phases-m14-m15.md](archive/todo-archive-phases-m14-m15.md)；2026-08-30 M18 归档批次预防性迁出 M13 至新分片 [archive/todo-archive-phases-m13.md](archive/todo-archive-phases-m13.md)；2026-08-28 M17 归档批次预防性迁出 M12 至新分片 [archive/todo-archive-phases-m12.md](archive/todo-archive-phases-m12.md)；2026-08-28 M16 归档批次预防性迁出 M10 / T912 / C53 / 2026-08-20 平台 UI 增强 C59-C61 至新分片 [archive/todo-archive-phases-m10-c53-c59c61.md](archive/todo-archive-phases-m10-c53-c59c61.md)；早期阶段见 [archive/index.md](archive/index.md) 分片索引）
 - 后续阶段任务（延期项 + 未排期增强候选）：[backlog.md](backlog.md)
 

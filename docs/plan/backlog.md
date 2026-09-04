@@ -105,17 +105,13 @@
 
 #### 测试基础设施清理
 
-- **cron-preview 时区测试 wall-clock 依赖消除**（2026-08-31 cron-preview flaky test fix audit suggest 登记；commit `3597dcf`）
-  - 当前状态：`apps/platform/app/utils/cron-preview.test.ts:89` 已接受 `diffHours % 24 ∈ {8, 16}` 两个值（消除跨日边界 flaky），但仍依赖真实 wall clock（`cron-preview.ts:65` `CronExpressionParser.parse` 未传 `currentDate`）
-  - 仍存在的风险：① 16h 窗口仅占每周 ~8h（约 9.5% 概率），cron-parser 后续若行为退化（如永远不再触发 16h 分支），新断言会 silently pass；② 8h 断言改成 `expect(diffHours === 8 || diffHours === 160).toBe(true)` 可读性更强（直接表达"绝对差是 8h 或 160h"），不必 mod 24
-  - 修复方向：① **S1** 用 `vi.setSystemTime(new Date('2026-08-30T18:56:00Z'))` 写一个固定-now 用例断言 `diffHours === 16`，再加一个对照用例固定到 8h 窗口断言 `diffHours === 8`，强制两个分支都被覆盖；② **S2** 把当前 L89 断言改为 `expect(diffHours === 8 || diffHours === 160).toBe(true)`；③ 与 M17.5 `authedCookieHeader` helper 抽取同源策略——评估是否能复用 `setupMemoryDatabase` 等测试 helper 模式
-  - 优先级：P3（不阻塞 db79d5f / 3597dcf CI；建议与未来 cron-preview 增强批次合并实施，或单独 1 commit 闭环）
+- ~~**cron-preview 时区测试 wall-clock 依赖消除**~~ —— **已闭环 2026-09-02 M23.4 + 2026-09-03 M24.3**（M23.4 commit `df4ba9b`：双分支固定-now 用例 + `=== 8 || === 160` 简化断言；M24.3：cron-preview.ts 顶部注释"测试 helper 模式评估"段 + todo.md §M24.3 验收 [x]；详见 [todo-archive.md §M23.4](todo-archive.md#m234-测试补强🧪-测试补强--治理收口2026-09-02-闭环) + [todo-archive.md §M24.3](archive/todo-archive-phases-m24.md#m243-p3-🧪-测试-cron-preview-wall-clock-依赖消除1-commit--25-行)）
 
 #### PR 管理
 
 - **B2** 固定分支单线设计（独立平台部署后修复频率上升，需要固定修复分支如 `dependfix/auto-fix` 避免频繁向 master 提交 PR；触发：v1.0.0 后 M12 平台 UX 修复链路上线；关联：T210 指纹方案整合复用/重建策略 + force push 语义）
 
-- ~~**PR Check 状态监测**~~ —— **已上收 2026-09-03 M24.1**（用户决策方案 B；详见 [roadmap.md §M24](roadmap.md#m24-pr-check-mvp--治理债--测试补强--用户体验) + [todo.md §M24](todo.md#m24-pr-check-mvp--治理债--测试补强--用户体验)）。P 阶段决策纪要 D1-D8 全部 2026-09-02 用户决策落地：PRCheck 实体独立于 ScanResult；Polling 间隔 5min/仓；失败 PR firing alert + ack UI（回归 success 自动 ack）；用户手动创建 schedule 启用；webhook MVP 仅接口预留；仅 per-org scope；env 开关 `ACTION_STATUS_MONITOR_ENABLED` 默认 false；文档明确 mergify 仍是主控（[dependfix README + `.github/mergify.yml` 注释 + PRCheck 设计文档](#)）
+- ~~**PR Check 状态监测**~~ —— **已上收 2026-09-03 M24.1**（用户决策方案 B；详见 [roadmap.md §M24](roadmap.md#m24-pr-check-mvp--治理债--测试补强--用户体验) + [todo.md §M24](todo.md#m24-pr-check-mvp--治理债--测试补强--用户体验已归档)）。P 阶段决策纪要 D1-D8 全部 2026-09-02 用户决策落地：PRCheck 实体独立于 ScanResult；Polling 间隔 5min/仓；失败 PR firing alert + ack UI（回归 success 自动 ack）；用户手动创建 schedule 启用；webhook MVP 仅接口预留；仅 per-org scope；env 开关 `ACTION_STATUS_MONITOR_ENABLED` 默认 false；文档明确 mergify 仍是主控（[dependfix README + `.github/mergify.yml` 注释 + PRCheck 设计文档](#)）
 
 #### Code Scanning 规则体系
 

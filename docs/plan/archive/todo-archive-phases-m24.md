@@ -90,6 +90,8 @@
 - **M24.1 follow-up #4 — zod-helpers 统一封装**（P3 follow-up）：写 `server/utils/zod-helpers.ts` 提供 `parseOptional<T>(schema, value, fieldName): { success: boolean, value?: T }` helper 强制语义区分（避免每个 query 解析写 `data !== undefined` 三元）。
 - **M24 阶段 follow-up #5 — nuxt build 必查项加固**（P2 follow-up）：D 阶段自检 checklist 增加 `pnpm --filter @dependfix/platform build`（含 SCSS 编译验证）—— 当前 CI Test job + E2E job 失败时会跳过下游 steps，CI 失败时本地必须先 build 兜底。**M24.1 Phase 4 e841b82 commit 实证**：SCSS 未定义变量在 `nuxt build` 阶段暴露但 lint/typecheck/vitest 不捕获。
 - **M24 阶段 follow-up #6 — e2e 真实环境重跑 CI**（P3 follow-up）：M22.7 hotfix + M23.1 WAL + M23.2 fixture pool 三层治本在 sandbox chromium 限制下未本地复现，待非 sandbox 环境（如本地 docker / 真实 CI runner）重跑 e2e 验证治本有效性，避免 M22.7 类隐性回归。
+- ✅ **M24 阶段 follow-up #7 — migration raw SQL 列名 bug 修复** —— 已实施（commit `b5ab0b2` 2026-09-03）：4 个 migration 文件 camelCase → snake_case 列名 + 重跑 `DATABASE_MIGRATIONS_RUN=true` 验证 + e2e 二轮幂等验证 + docs/standards/development.md §5.1.19 旁补"raw SQL 必须用 snake_case"提示。**根因**：`queryRunner.query()` 不经过 TypeORM `SnakeCaseNamingStrategy`，raw SQL 必须用 snake_case 列名。
+- ✅ **M24 阶段 follow-up #8 — Card+DataTable 空状态双线 UX bug** —— 已实施（commit `8d01b36` 2026-09-03）：`apps/platform/app/assets/styles/main.scss` 加 1 段 ~5 行 SCSS，仅空状态行去除 TD border-bottom，全局生效（repos / scans / alerts-rowgroup / pr-checks 同步修复）+ light/dark mode 都覆盖。**根因**：PrimeVue Aura 主题默认给每行 TD 1px slate-200 border-bottom，空状态无数据时 TD border 失去"行间分隔"语义。
 
 ## M25 阶段 P 阶段规划候选
 

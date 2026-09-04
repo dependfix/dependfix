@@ -18,9 +18,14 @@ test.describe('C60 平台表格 sortable', () => {
         // severity 列 header 含 sortable 标记（PrimeVue 4 用 data-p-sortable-column 属性）
         const severityHeader = page.locator('.p-datatable th:has-text("严重级别")')
         await expect(severityHeader).toHaveAttribute('data-p-sortable-column', 'true')
-        // 点击列头 → 切换排序状态
+        // 默认状态（e5bf11d 落地后）已是 desc 排序：multiSortMeta = [{ _severityRank, -1 }, ...]，
+        // 因此首击触发 PrimeVue 4 removableSort 三态切换链路：
+        //   desc → unsorted（removableSort=true 且 -1 * -1 === DataTable defaultSortOrder(1)，
+        //                    触发 splice 移除；datatable/index.mjs:4706）
+        //   unsorted → asc（再点一次按 defaultSortOrder=1 push 入 multiSortMeta）
+        // 双击后断言 data-p-sorted='true' 覆盖「可点击 + 排序状态正确循环」。
         await severityHeader.click()
-        // PrimeVue 4 sortable 点击后表头加 data-p-sorted 属性
+        await severityHeader.click()
         await expect(severityHeader).toHaveAttribute('data-p-sorted', 'true', { timeout: 5000 })
     })
 

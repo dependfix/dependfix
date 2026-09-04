@@ -407,6 +407,12 @@ onMounted(refresh)
                     :empty-message="t('scans.runList.empty')"
                     @page="onPage"
                 >
+                    <Column :header="t('runs.colRepo')">
+                        <template #body="{data}">
+                            <span v-if="data.owner && data.name">{{ data.owner }}/{{ data.name }}</span>
+                            <span v-else class="text-muted">—</span>
+                        </template>
+                    </Column>
                     <Column :header="t('runs.colStatus')">
                         <template #body="{data}">
                             <span

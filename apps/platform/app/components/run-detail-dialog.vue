@@ -334,7 +334,7 @@ watch(() => props.runId, (runId) => {
 
     &__logs {
         margin-bottom: $space-3;
-        border:1px solid $color-border;
+        border: 1px solid $color-border;
         border-radius: $radius-md;
         overflow: hidden;
     }
@@ -344,34 +344,34 @@ watch(() => props.runId, (runId) => {
         align-items: center;
         justify-content: space-between;
         padding: $space-2 $space-3;
-        background: $color-bg-muted;
-        border-bottom:1px solid $color-border;
+        background: $color-surface;
+        border-bottom: 1px solid $color-border;
     }
 
     &__logs-title {
-        font-weight: $font-weight-semibold;
+        font-weight: 600;
         font-size: $font-size-sm;
     }
 
     &__logs-content {
         padding: $space-2;
-        font-family: $font-family-mono;
-        font-size: $font-size-xs;
-        line-height:1.5;
+        font-family: monospace;
+        font-size: $font-size-sm;
+        line-height: 1.5;
     }
 
     &__log-entry {
         display: flex;
         gap: $space-2;
         padding: $space-1 0;
-        border-bottom:1px solid $color-border-light;
+        border-bottom: 1px solid $color-border;
 
         &:last-child {
             border-bottom: none;
         }
 
         &--error {
-            color: $color-error;
+            color: $color-danger;
         }
 
         &--warn {

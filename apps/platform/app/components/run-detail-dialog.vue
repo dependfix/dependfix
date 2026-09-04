@@ -323,8 +323,20 @@ watch(() => props.runId, (runId) => {
     }
 
     &__run-url {
-        display: inline-block;
+        display: inline-flex;
+        align-items: center;
         margin-bottom: $space-3;
+        padding: $space-1 $space-2;
+        background: rgba($color-primary, 0.1);
+        border-radius: $radius-sm;
+        color: $color-primary;
+        text-decoration: none;
+        font-size: $font-size-sm;
+        transition: background 0.2s;
+
+        &:hover {
+            background: rgba($color-primary, 0.2);
+        }
     }
 
     &__error-message {

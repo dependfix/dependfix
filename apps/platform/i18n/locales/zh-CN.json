@@ -458,7 +458,7 @@
         "detailRunThreshold": "严重级别阈值",
         "detailRunExecutor": "执行器",
         "detailRunAlertsFound": "告警数",
-        "detailRunOpen": "查看运行",
+        "detailRunOpen": "查看 PR",
         "detailRunEmpty": "无关联扫描运行",
         "fixNow": {
             "action": "立即修复此仓库",

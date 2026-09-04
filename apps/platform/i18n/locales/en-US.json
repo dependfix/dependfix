@@ -458,7 +458,7 @@
         "detailRunThreshold": "Severity threshold",
         "detailRunExecutor": "Executor",
         "detailRunAlertsFound": "Alerts found",
-        "detailRunOpen": "Open run",
+        "detailRunOpen": "View PR",
         "detailRunEmpty": "No related scan runs",
         "fixNow": {
             "action": "Fix this repository now",

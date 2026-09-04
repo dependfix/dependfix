@@ -309,7 +309,7 @@ watch(() => route.query[props.queryKey], async (newVal) => {
                             {{ t('runs.errorNoDetail') }}
                         </p>
                     </Message>
-                    <!-- PR 链接 -->
+                    <!-- PR 链接（右手边） -->
                     <a
                         v-if="detail.runUrl"
                         :href="detail.runUrl"
@@ -486,9 +486,28 @@ watch(() => route.query[props.queryKey], async (newVal) => {
         cursor: help;
     }
 
+    &__detail-header {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: $space-2;
+    }
+
     &__run-url {
-        display: inline-block;
-        margin-top: $space-2;
+        display: inline-flex;
+        align-items: center;
+        margin-left: auto;
+        padding: $space-1 $space-2;
+        background: rgba($color-primary, 0.1);
+        border-radius: $radius-sm;
+        color: $color-primary;
+        text-decoration: none;
+        font-size: $font-size-sm;
+        transition: background 0.2s;
+
+        &:hover {
+            background: rgba($color-primary, 0.2);
+        }
     }
 
     &__logs {

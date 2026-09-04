@@ -20,6 +20,27 @@ import {
 
 const execFileAsync = promisify(execFile)
 
+/** clone 超时默认值（可通过 CLONE_TIMEOUT_MS 环境变量覆盖） */
+const DEFAULT_CLONE_TIMEOUT_MS = 120_000 // 120秒（原60秒，弱网/大仓库场景不足）
+
+/** clone 最大重试次数（可通过 CLONE_MAX_RETRIES 环境变量覆盖） */
+const DEFAULT_CLONE_MAX_RETRIES = 2
+
+/** clone 重试基础延迟（指数退避：attempt * baseDelay） */
+const CLONE_RETRY_BASE_DELAY_MS = 2000
+
+/**
+ * 解析环境变量为正整数（NaN / 负数 / 0 → 返回默认值）。
+ * 对齐 queue-mode.ts:79-84 的 parseRetryConfig 模式。
+ */
+export function parsePositiveInt(raw: string | undefined, defaultValue: number): number {
+    if (!raw) {
+        return defaultValue
+    }
+    const value = parseInt(raw, 10)
+    return Number.isInteger(value) && value > 0 ? value : defaultValue
+}
+
 /**
  * 从 git 工作目录读取当前分支名（用于 push 后填 runUrl）。
  *
@@ -169,10 +190,18 @@ export class ContainerExecutor implements ScanExecutor {
 
     private readonly workRoot: string
     private readonly timeoutMs: number
+    private readonly cloneTimeoutMs: number
+    private readonly cloneMaxRetries: number
 
-    constructor(options: { workRoot: string, timeoutMs?: number } = { workRoot: process.env.DATABASE_PATH ? join(process.env.DATABASE_PATH, '..', 'runs') : 'data/runs' }) {
+    constructor(options: { workRoot: string, timeoutMs?: number, cloneTimeoutMs?: number, cloneMaxRetries?: number } = { workRoot: process.env.DATABASE_PATH ? join(process.env.DATABASE_PATH, '..', 'runs') : 'data/runs' }) {
         this.workRoot = options.workRoot
         this.timeoutMs = options.timeoutMs ?? 30 * 60 * 1000
+        // clone 超时：优先构造参数 > 环境变量 > 默认值
+        this.cloneTimeoutMs = options.cloneTimeoutMs
+            ?? parsePositiveInt(process.env.CLONE_TIMEOUT_MS, DEFAULT_CLONE_TIMEOUT_MS)
+        // clone 重试次数：优先构造参数 > 环境变量 > 默认值
+        this.cloneMaxRetries = options.cloneMaxRetries
+            ?? parsePositiveInt(process.env.CLONE_MAX_RETRIES, DEFAULT_CLONE_MAX_RETRIES)
     }
 
     async isAvailable(): Promise<boolean> {
@@ -316,11 +345,29 @@ export class ContainerExecutor implements ScanExecutor {
             const raw = error instanceof Error ? error.message : String(error)
             const message = sanitizeErrorMessage(raw)
             const isTimeout = error instanceof ExecutionTimeoutError
+
+            // 诊断日志：区分 clone 超时 vs 整体执行超时 vs 其他失败
+            let errorSource = 'execution_failed'
+            let errorMessage = message
+            if (isTimeout) {
+                const isCloneTimeout = error.source === 'clone'
+                errorSource = isCloneTimeout ? 'clone_timeout' : 'execution_timeout'
+                errorMessage = isCloneTimeout
+                    ? `git clone 超时（${this.cloneTimeoutMs / 1000} 秒上限，可通过 CLONE_TIMEOUT_MS 调整）`
+                    : `执行超时（${this.timeoutMs / 60000} 分钟上限）`
+            }
+            console.error(`[executor] ${owner}/${name} failed: ${errorSource} - ${message}`)
+
+            let errorCode: string = 'execution_failed'
+            if (isTimeout) {
+                errorCode = error.source === 'clone' ? 'clone_timeout' : 'execution_timeout'
+            }
+
             return {
                 exitCode: 2,
                 error: {
-                    code: isTimeout ? 'execution_timeout' : 'execution_failed',
-                    message: isTimeout ? `执行超时（${this.timeoutMs / 60000} 分钟上限）` : message,
+                    code: errorCode,
+                    message: errorMessage,
                 },
                 startedAt,
                 finishedAt: new Date().toISOString(),
@@ -332,7 +379,18 @@ export class ContainerExecutor implements ScanExecutor {
         }
     }
 
-    /** git clone 目标仓库（凭据经 http.extraheader 注入，URL 不携带 token——防 execFile 错误回显泄露） */
+    /**
+     * git clone 目标仓库（带重试 + 超时分类修正）。
+     *
+     * 修复点：
+     * 1. 超时分类：execFileAsync 超时抛标准 Error（killed: true），
+     *    转为 ExecutionTimeoutError 让 execute() 正确分类为 execution_timeout
+     * 2. 可配置超时：CLONE_TIMEOUT_MS 环境变量（默认 120s）
+     * 3. 可配置重试：CLONE_MAX_RETRIES 环境变量（默认 2 次）
+     * 4. 错误信息：提取 git stderr 中的 fatal:/error: 行，便于诊断
+     *
+     * 凭据经 http.extraheader 注入，URL 不携带 token——防 execFile 错误回显泄露。
+     */
     private async cloneRepository(owner: string, name: string, branch: string, workDir: string, token?: string): Promise<void> {
         const repoUrl = `https://github.com/${owner}/${name}.git`
         const args = ['clone', '--depth', '1', '--branch', branch, repoUrl, '.']
@@ -341,18 +399,75 @@ export class ContainerExecutor implements ScanExecutor {
             const basic = Buffer.from(`x-access-token:${token}`).toString('base64')
             args.unshift('-c', `http.extraheader=Authorization: basic ${basic}`)
         }
-        const { stderr } = await execFileAsync('git', args, { cwd: workDir, timeout: 60_000 })
-        if (stderr && !stderr.trim().startsWith('Cloning into')) {
-            throw new Error(`git clone 失败：${stderr.trim()}`)
+
+        // 诊断日志：clone 配置（不含 token）
+        console.log(`[clone] ${owner}/${name} → branch=${branch}, timeout=${this.cloneTimeoutMs}ms, maxRetries=${this.cloneMaxRetries}`)
+
+        let lastError: Error | undefined
+        for (let attempt = 1; attempt <= this.cloneMaxRetries; attempt++) {
+            const attemptStart = Date.now()
+            try {
+                const { stderr } = await execFileAsync('git', args, {
+                    cwd: workDir,
+                    timeout: this.cloneTimeoutMs,
+                })
+                if (stderr && !stderr.trim().startsWith('Cloning into')) {
+                    throw new Error(`git clone 失败：${extractGitErrorMessage(stderr)}`)
+                }
+                // 成功
+                if (attempt > 1) {
+                    console.log(`[clone] ${owner}/${name} succeeded on attempt ${attempt} (${Date.now() - attemptStart}ms)`)
+                }
+                return
+            } catch (err) {
+                const elapsed = Date.now() - attemptStart
+                lastError = err instanceof Error ? err : new Error(String(err))
+
+                // 超时检测：execFileAsync 超时时 error.killed = true（Node.js child_process 行为）
+                const isTimeout = (lastError as unknown as { killed?: boolean }).killed
+                    || /SIGTERM|ETIMEDOUT/i.test(lastError.message)
+
+                if (isTimeout) {
+                    console.warn(`[clone] ${owner}/${name} timeout on attempt ${attempt}/${this.cloneMaxRetries} (${elapsed}ms, limit ${this.cloneTimeoutMs}ms)`)
+                    // 最后一次尝试超时 → 抛 ExecutionTimeoutError（让 execute() 正确分类）
+                    if (attempt === this.cloneMaxRetries) {
+                        throw new ExecutionTimeoutError(this.cloneTimeoutMs, 'clone')
+                    }
+                } else {
+                    // 非超时错误（认证失败、仓库不存在等）→ 不重试，直接抛出
+                    const gitMsg = extractGitErrorMessage(lastError.message)
+                    console.warn(`[clone] ${owner}/${name} failed on attempt ${attempt}: ${gitMsg}`)
+                    // 认证/权限/不存在类错误重试无意义
+                    if (/authentication|401|403|not found|404/i.test(lastError.message)) {
+                        throw new Error(`git clone 失败：${gitMsg}`)
+                    }
+                    // 其他错误（网络中断等）可重试
+                    if (attempt === this.cloneMaxRetries) {
+                        throw new Error(`git clone 失败（${attempt} 次尝试）：${gitMsg}`)
+                    }
+                }
+
+                // 指数退避：清理整个 workDir 并重建空目录（git clone . 要求目标为空）
+                await rm(workDir, { recursive: true, force: true }).catch(() => {})
+                await mkdir(workDir, { recursive: true })
+                const delay = CLONE_RETRY_BASE_DELAY_MS * attempt
+                console.log(`[clone] retrying in ${delay}ms...`)
+                await new Promise((r) => setTimeout(r, delay))
+            }
         }
+
+        // 理论上不会到这里，但防御性抛出
+        throw lastError ?? new Error(`git clone 失败：未知错误`)
     }
 }
 
 /** 带超时的 Promise 包装（超时抛专属错误类供识别，避免字符串匹配误判） */
 class ExecutionTimeoutError extends Error {
-    constructor(ms: number) {
+    readonly source: 'clone' | 'execution'
+    constructor(ms: number, source: 'clone' | 'execution' = 'execution') {
         super(`operation timeout after ${ms}ms`)
         this.name = 'ExecutionTimeoutError'
+        this.source = source
     }
 }
 
@@ -366,6 +481,20 @@ async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
     } finally {
         clearTimeout(timer)
     }
+}
+
+/**
+ * 从 git stderr 提取关键错误信息（fatal:/error: 行）。
+ * 去除噪音（进度信息、Cloning into 等），保留诊断价值高的内容。
+ */
+export function extractGitErrorMessage(stderr: string): string {
+    const lines = stderr.split('\n')
+    const errorLines = lines.filter((l) => /^\s*(fatal:|error:)/i.test(l.trim()))
+    if (errorLines.length > 0) {
+        return errorLines.map((l) => l.trim()).join('; ')
+    }
+    // 无明确错误行 → 返回最后 3 行（通常包含上下文）
+    return lines.filter((l) => l.trim()).slice(-3).join('; ').trim() || stderr.trim()
 }
 
 /**

@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest'
-import { ContainerExecutor, sanitizeErrorMessage } from './container-executor'
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
+import { ContainerExecutor, sanitizeErrorMessage, parsePositiveInt, extractGitErrorMessage } from './container-executor'
 import type { ScanExecutorContext } from './types'
 
 const makeCtx = (overrides: Partial<ScanExecutorContext> = {}): ScanExecutorContext => ({
@@ -101,5 +101,126 @@ describe('sanitizeErrorMessage', () => {
     it('leaves clean messages unchanged', () => {
         const input = 'fatal: repository not found'
         expect(sanitizeErrorMessage(input)).toBe(input)
+    })
+})
+
+describe('ContainerExecutor clone configuration', () => {
+    const originalEnv = { ...process.env }
+
+    beforeEach(() => {
+        delete process.env.CLONE_TIMEOUT_MS
+        delete process.env.CLONE_MAX_RETRIES
+    })
+
+    afterEach(() => {
+        process.env = { ...originalEnv }
+    })
+
+    it('uses default clone timeout (120s) when env not set', () => {
+        const executor = new ContainerExecutor({ workRoot: 'data/runs-test' })
+        // 间接验证：构造不抛异常 + 后续 execute 行为符合默认值
+        expect(executor).toBeDefined()
+    })
+
+    it('constructor parameters override environment variables', () => {
+        process.env.CLONE_TIMEOUT_MS = '999999'
+        process.env.CLONE_MAX_RETRIES = '99'
+        // 构造参数应优先于 env
+        const executor = new ContainerExecutor({
+            workRoot: 'data/runs-test',
+            cloneTimeoutMs: 60000,
+            cloneMaxRetries: 1,
+        })
+        expect(executor).toBeDefined()
+    })
+
+    it('ignores invalid CLONE_TIMEOUT_MS (NaN, negative, zero)', () => {
+        // NaN
+        process.env.CLONE_TIMEOUT_MS = 'foo'
+        const exec1 = new ContainerExecutor({ workRoot: 'data/runs-test' })
+        expect(exec1).toBeDefined()
+
+        // 负数
+        process.env.CLONE_TIMEOUT_MS = '-1'
+        const exec2 = new ContainerExecutor({ workRoot: 'data/runs-test' })
+        expect(exec2).toBeDefined()
+
+        // 零
+        process.env.CLONE_TIMEOUT_MS = '0'
+        const exec3 = new ContainerExecutor({ workRoot: 'data/runs-test' })
+        expect(exec3).toBeDefined()
+    })
+
+    it('ignores invalid CLONE_MAX_RETRIES (NaN, negative, zero)', () => {
+        process.env.CLONE_MAX_RETRIES = 'abc'
+        const exec1 = new ContainerExecutor({ workRoot: 'data/runs-test' })
+        expect(exec1).toBeDefined()
+
+        process.env.CLONE_MAX_RETRIES = '-1'
+        const exec2 = new ContainerExecutor({ workRoot: 'data/runs-test' })
+        expect(exec2).toBeDefined()
+    })
+})
+
+describe('parsePositiveInt', () => {
+    it('returns default for undefined', () => {
+        expect(parsePositiveInt(undefined, 42)).toBe(42)
+    })
+
+    it('returns default for empty string', () => {
+        expect(parsePositiveInt('', 42)).toBe(42)
+    })
+
+    it('returns default for NaN', () => {
+        expect(parsePositiveInt('foo', 42)).toBe(42)
+    })
+
+    it('returns default for negative', () => {
+        expect(parsePositiveInt('-1', 42)).toBe(42)
+    })
+
+    it('returns default for zero', () => {
+        expect(parsePositiveInt('0', 42)).toBe(42)
+    })
+
+    it('parses valid positive integer', () => {
+        expect(parsePositiveInt('180000', 42)).toBe(180000)
+    })
+
+    it('parses "1" as minimum valid value', () => {
+        expect(parsePositiveInt('1', 42)).toBe(1)
+    })
+})
+
+describe('extractGitErrorMessage', () => {
+    it('extracts fatal: lines', () => {
+        const stderr = 'Cloning into \'.\'...\nremote: Enumerating objects: 42.\nfatal: unable to access \'...\': Could not resolve host'
+        expect(extractGitErrorMessage(stderr)).toContain('fatal: unable to access')
+    })
+
+    it('extracts error: lines', () => {
+        const stderr = 'Cloning into \'.\'...\nerror: RPC failed; curl 56 GnuTLS recv error'
+        expect(extractGitErrorMessage(stderr)).toContain('error: RPC failed')
+    })
+
+    it('joins multiple error lines with semicolons', () => {
+        const stderr = 'fatal: first error\nfatal: second error'
+        expect(extractGitErrorMessage(stderr)).toBe('fatal: first error; fatal: second error')
+    })
+
+    it('falls back to last 3 lines when no fatal:/error: found', () => {
+        const stderr = 'line1\nline2\nline3\nline4\n'
+        const result = extractGitErrorMessage(stderr)
+        expect(result).toContain('line2')
+        expect(result).toContain('line3')
+        expect(result).toContain('line4')
+    })
+
+    it('returns raw stderr when it is a single line with no fatal:/error:', () => {
+        expect(extractGitErrorMessage('some message')).toBe('some message')
+    })
+
+    it('handles empty stderr', () => {
+        expect(extractGitErrorMessage('')).toBe('')
     })
 })

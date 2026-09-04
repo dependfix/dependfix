@@ -49,9 +49,26 @@ const pageSize = ref(10)
 const first = ref(0)
 const loading = ref(false)
 const error = ref('')
-// detail 含 status + error（用于 Error Banner 展示失败原因）+ results；扩展自 { results: unknown[] }
+// detail 含 status + error（用于 Error Banner 展示失败原因）+ results + logs + runUrl
 // 实测反馈：详情面板需展示执行级错误，否则失败 run 详情仅能看到空 alerts 表
-const detail = ref<{ status: string, error: { code: string, message: string } | null, results: unknown[] } | null>(null)
+interface DetailView {
+    id?: string
+    owner?: string | null
+    name?: string | null
+    mode?: string
+    severityThreshold?: string
+    executorKind?: string
+    status: string
+    startedAt?: string | null
+    finishedAt?: string | null
+    runUrl?: string | null
+    summary?: Record<string, unknown> | null
+    error: { code: string, message: string } | null
+    results: unknown[]
+    logs?: Array<{ timestamp: string, level: string, message: string }>
+    logsText?: string | null
+}
+const detail = ref<DetailView | null>(null)
 const detailLoading = ref(false)
 const detailError = ref('')
 
@@ -78,6 +95,32 @@ const statusLabel = (status: string) => ({
     dispatched: t('runs.statusDispatched'),
     running: t('runs.statusRunning'),
 })[status] ?? status
+
+const formatLogTime = (timestamp: string) => {
+    try {
+        const date = new Date(timestamp)
+        return date.toLocaleTimeString('zh-CN', { hour12: false })
+    } catch {
+        return timestamp
+    }
+}
+
+const copyLogs = async () => {
+    if (!detail.value?.logsText) {
+        return
+    }
+    try {
+        await navigator.clipboard.writeText(detail.value.logsText)
+    } catch {
+        // 降级方案
+        const textarea = document.createElement('textarea')
+        textarea.value = detail.value.logsText
+        document.body.appendChild(textarea)
+        textarea.select()
+        document.execCommand('copy')
+        document.body.removeChild(textarea)
+    }
+}
 
 const fetchRuns = async (id: string, page = 1, rows = pageSize.value) => {
     loading.value = true
@@ -266,8 +309,47 @@ watch(() => route.query[props.queryKey], async (newVal) => {
                             {{ t('runs.errorNoDetail') }}
                         </p>
                     </Message>
+                    <!-- PR 链接 -->
+                    <a
+                        v-if="detail.runUrl"
+                        :href="detail.runUrl"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="repo-history__run-url"
+                    >
+                        {{ t('alerts.detailRunOpen') }}
+                    </a>
                 </div>
             </template>
+            <!-- 日志区域 -->
+            <div v-if="detail.logs && detail.logs.length > 0" class="repo-history__logs">
+                <div class="repo-history__logs-header">
+                    <span class="repo-history__logs-title">{{ t('runs.logsTitle') }}</span>
+                    <Button
+                        icon="pi pi-copy"
+                        text
+                        rounded
+                        size="small"
+                        :aria-label="t('runs.logsCopy')"
+                        :title="t('runs.logsCopy')"
+                        @click="copyLogs"
+                    />
+                </div>
+                <ScrollPanel style="height: 200px">
+                    <div class="repo-history__logs-content">
+                        <div
+                            v-for="(entry, index) in detail.logs"
+                            :key="index"
+                            class="repo-history__log-entry"
+                            :class="`repo-history__log-entry--${entry.level}`"
+                        >
+                            <span class="repo-history__log-time">{{ formatLogTime(entry.timestamp) }}</span>
+                            <span class="repo-history__log-level">{{ entry.level.toUpperCase() }}</span>
+                            <span class="repo-history__log-message">{{ entry.message }}</span>
+                        </div>
+                    </div>
+                </ScrollPanel>
+            </div>
             <Column :header="t('runs.colPackage')" field="packageName" />
             <Column :header="t('runs.colSeverity')">
                 <template #body="{data}">
@@ -402,6 +484,81 @@ watch(() => route.query[props.queryKey], async (newVal) => {
         // inline-flex 让 span 紧贴 Tag 内部尺寸，title 命中区域 = Tag 渲染范围
         display: inline-flex;
         cursor: help;
+    }
+
+    &__run-url {
+        display: inline-block;
+        margin-top: $space-2;
+    }
+
+    &__logs {
+        margin-bottom: $space-3;
+        border: 1px solid $color-border;
+        border-radius: $radius-md;
+        overflow: hidden;
+    }
+
+    &__logs-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: $space-2 $space-3;
+        background: $color-surface;
+        border-bottom: 1px solid $color-border;
+    }
+
+    &__logs-title {
+        font-weight: 600;
+        font-size: $font-size-sm;
+    }
+
+    &__logs-content {
+        padding: $space-2;
+        font-family: monospace;
+        font-size: $font-size-sm;
+        line-height: 1.5;
+    }
+
+    &__log-entry {
+        display: flex;
+        gap: $space-2;
+        padding: $space-1 0;
+        border-bottom: 1px solid $color-border;
+
+        &:last-child {
+            border-bottom: none;
+        }
+
+        &--error {
+            color: $color-danger;
+        }
+
+        &--warn {
+            color: $color-warning;
+        }
+
+        &--info {
+            color: $color-text;
+        }
+
+        &--debug {
+            color: $color-text-muted;
+        }
+    }
+
+    &__log-time {
+        color: $color-text-muted;
+        white-space: nowrap;
+    }
+
+    &__log-level {
+        font-weight: 600;
+        white-space: nowrap;
+        min-width: 40px;
+    }
+
+    &__log-message {
+        word-break: break-word;
     }
 }
 </style>

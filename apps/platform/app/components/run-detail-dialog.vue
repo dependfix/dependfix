@@ -209,7 +209,7 @@ watch(() => props.runId, (runId) => {
                 </div>
             </div>
             <a
-                v-if="detail.executorKind === 'github-action' && detail.runUrl"
+                v-if="detail.runUrl"
                 class="run-detail__run-url"
                 :href="detail.runUrl"
                 target="_blank"

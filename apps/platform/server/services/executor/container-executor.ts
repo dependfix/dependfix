@@ -227,6 +227,14 @@ export class ContainerExecutor implements ScanExecutor {
         // push 成功 + PR 失败时保留 workDir 24h 供诊断（pendingRoot = workRoot/_pending）
         const pendingRoot = join(this.workRoot, '_pending')
 
+        // 创建 MemoryLogger 捕获执行日志（同时输出到控制台）
+        // 作用域提升到 try 外部，确保 catch 块也能访问
+        const memLogger = new MemoryLogger({
+            name: 'dependfix',
+            console: true,
+            maxEntries: 1000,
+        })
+
         try {
             await mkdir(workDir, { recursive: true })
 
@@ -253,13 +261,6 @@ export class ContainerExecutor implements ScanExecutor {
                 createPullRequest: false,
             }
 
-            // 创建 MemoryLogger 捕获执行日志（同时输出到控制台）
-            const memLogger = new MemoryLogger({
-                name: 'dependfix',
-                console: true,
-                maxEntries: 1000,
-            })
-
             const app = new DependfixApp({
                 config,
                 workDir,
@@ -280,7 +281,7 @@ export class ContainerExecutor implements ScanExecutor {
                 const hasNewCommit = await checkHasNewCommit(workDir, preRunHead)
                 if (!hasNewCommit) {
                     // 引擎未产生新 commit（无告警 / 告警已收敛 / 全部 failed 已被回滚）→ 不推
-                    return { exitCode, result, startedAt, finishedAt: new Date().toISOString() }
+                    return { exitCode, result, startedAt, finishedAt: new Date().toISOString(), logsJson: memLogger.toJson() }
                 }
 
                 try {
@@ -383,6 +384,7 @@ export class ContainerExecutor implements ScanExecutor {
                 },
                 startedAt,
                 finishedAt: new Date().toISOString(),
+                logsJson: memLogger.toJson(),
             }
         } finally {
             // 临时工作目录清理（执行后不留存）；清理失败不影响执行结果

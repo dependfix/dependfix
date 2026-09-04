@@ -23,10 +23,10 @@ import { sanitizeString } from '#server/utils/sanitize'
 const execFileAsync = promisify(execFile)
 
 /** clone 超时默认值（可通过 CLONE_TIMEOUT_MS 环境变量覆盖） */
-const DEFAULT_CLONE_TIMEOUT_MS = 120_000 // 120秒（原60秒，弱网/大仓库场景不足）
+const DEFAULT_CLONE_TIMEOUT_MS = 300_000 // 300秒（弱网环境 GitHub CDN 慢，120s 不足）
 
 /** clone 最大重试次数（可通过 CLONE_MAX_RETRIES 环境变量覆盖） */
-const DEFAULT_CLONE_MAX_RETRIES = 2
+const DEFAULT_CLONE_MAX_RETRIES = 3
 
 /** clone 重试基础延迟（指数退避：attempt * baseDelay） */
 const CLONE_RETRY_BASE_DELAY_MS = 2000
@@ -409,7 +409,9 @@ export class ContainerExecutor implements ScanExecutor {
      */
     private async cloneRepository(owner: string, name: string, branch: string, workDir: string, token?: string, logger?: MemoryLogger): Promise<void> {
         const repoUrl = `https://github.com/${owner}/${name}.git`
-        const args = ['clone', '--depth', '1', '--branch', branch, repoUrl, '.']
+        // partial clone（--filter=blob:none）：不下载 blob 对象，按需延迟拉取
+        // 显著减少弱网环境下的传输量和超时概率
+        const args = ['clone', '--depth', '1', '--filter=blob:none', '--branch', branch, repoUrl, '.']
         if (token) {
             // 凭据走 http.extraheader（base64 basic auth），不进 argv/URL
             const basic = Buffer.from(`x-access-token:${token}`).toString('base64')

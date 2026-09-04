@@ -241,7 +241,7 @@ export class ContainerExecutor implements ScanExecutor {
             // fix / fix-and-pr 需要本地仓库文件：clone 到工作目录
             const needsClone = ctx.config.mode !== 'report-only'
             if (needsClone) {
-                await this.cloneRepository(owner, name, defaultBranch, workDir, ctx.credential?.token)
+                await this.cloneRepository(owner, name, defaultBranch, workDir, ctx.credential?.token, memLogger)
             }
 
             // 记录修复前 HEAD — 用于修复后 hasNewCommit 判定（no-op 扫描不产生空 push）
@@ -369,7 +369,9 @@ export class ContainerExecutor implements ScanExecutor {
                     ? `git clone 超时（${this.cloneTimeoutMs / 1000} 秒上限，可通过 CLONE_TIMEOUT_MS 调整）`
                     : `执行超时（${this.timeoutMs / 60000} 分钟上限）`
             }
-            console.error(`[executor] ${owner}/${name} failed: ${errorSource} - ${message}`)
+            const executorFailMsg = `[executor] ${owner}/${name} failed: ${errorSource} - ${message}`
+            memLogger.error(executorFailMsg)
+            console.error(executorFailMsg)
 
             let errorCode: string = 'execution_failed'
             if (isTimeout) {
@@ -405,7 +407,7 @@ export class ContainerExecutor implements ScanExecutor {
      *
      * 凭据经 http.extraheader 注入，URL 不携带 token——防 execFile 错误回显泄露。
      */
-    private async cloneRepository(owner: string, name: string, branch: string, workDir: string, token?: string): Promise<void> {
+    private async cloneRepository(owner: string, name: string, branch: string, workDir: string, token?: string, logger?: MemoryLogger): Promise<void> {
         const repoUrl = `https://github.com/${owner}/${name}.git`
         const args = ['clone', '--depth', '1', '--branch', branch, repoUrl, '.']
         if (token) {
@@ -415,7 +417,9 @@ export class ContainerExecutor implements ScanExecutor {
         }
 
         // 诊断日志：clone 配置（不含 token）
-        console.log(`[clone] ${owner}/${name} → branch=${branch}, timeout=${this.cloneTimeoutMs}ms, maxRetries=${this.cloneMaxRetries}`)
+        const cloneInfo = `[clone] ${owner}/${name} → branch=${branch}, timeout=${this.cloneTimeoutMs}ms, maxRetries=${this.cloneMaxRetries}`
+        logger?.info(cloneInfo)
+        console.log(cloneInfo)
 
         let lastError: Error | undefined
         for (let attempt = 1; attempt <= this.cloneMaxRetries; attempt++) {
@@ -430,7 +434,9 @@ export class ContainerExecutor implements ScanExecutor {
                 }
                 // 成功
                 if (attempt > 1) {
-                    console.log(`[clone] ${owner}/${name} succeeded on attempt ${attempt} (${Date.now() - attemptStart}ms)`)
+                    const msg = `[clone] ${owner}/${name} succeeded on attempt ${attempt} (${Date.now() - attemptStart}ms)`
+                    logger?.info(msg)
+                    console.log(msg)
                 }
                 return
             } catch (err) {
@@ -442,7 +448,9 @@ export class ContainerExecutor implements ScanExecutor {
                     || /SIGTERM|ETIMEDOUT/i.test(lastError.message)
 
                 if (isTimeout) {
-                    console.warn(`[clone] ${owner}/${name} timeout on attempt ${attempt}/${this.cloneMaxRetries} (${elapsed}ms, limit ${this.cloneTimeoutMs}ms)`)
+                    const msg = `[clone] ${owner}/${name} timeout on attempt ${attempt}/${this.cloneMaxRetries} (${elapsed}ms, limit ${this.cloneTimeoutMs}ms)`
+                    logger?.warn(msg)
+                    console.warn(msg)
                     // 最后一次尝试超时 → 抛 ExecutionTimeoutError（让 execute() 正确分类）
                     if (attempt === this.cloneMaxRetries) {
                         throw new ExecutionTimeoutError(this.cloneTimeoutMs, 'clone')
@@ -450,7 +458,9 @@ export class ContainerExecutor implements ScanExecutor {
                 } else {
                     // 非超时错误（认证失败、仓库不存在等）→ 不重试，直接抛出
                     const gitMsg = extractGitErrorMessage(lastError.message)
-                    console.warn(`[clone] ${owner}/${name} failed on attempt ${attempt}: ${gitMsg}`)
+                    const msg = `[clone] ${owner}/${name} failed on attempt ${attempt}: ${gitMsg}`
+                    logger?.warn(msg)
+                    console.warn(msg)
                     // 认证/权限/不存在类错误重试无意义
                     if (/authentication|401|403|not found|404/i.test(lastError.message)) {
                         throw new Error(`git clone 失败：${gitMsg}`)
@@ -465,7 +475,9 @@ export class ContainerExecutor implements ScanExecutor {
                 await rm(workDir, { recursive: true, force: true }).catch(() => {})
                 await mkdir(workDir, { recursive: true })
                 const delay = CLONE_RETRY_BASE_DELAY_MS * attempt
-                console.log(`[clone] retrying in ${delay}ms...`)
+                const retryMsg = `[clone] retrying in ${delay}ms...`
+                logger?.info(retryMsg)
+                console.log(retryMsg)
                 await new Promise((r) => setTimeout(r, delay))
             }
         }

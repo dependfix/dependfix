@@ -393,7 +393,7 @@ watch(() => props.runId, (runId) => {
     }
 
     &__log-level {
-        font-weight: $font-weight-semibold;
+        font-weight: 600;
         white-space: nowrap;
         min-width:40px;
     }

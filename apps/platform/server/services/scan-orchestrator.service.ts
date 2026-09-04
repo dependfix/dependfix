@@ -232,6 +232,8 @@ const runScanInternal = async (
         // 降级信号（todo.md §M11 T1005-C）：sandbox 启动时不可用 → 自动降级 ContainerExecutor → degradedReason 记录原 sandbox_unavailable
         // 范围：try 块顶层，确保 decision 处理块可见（degraded 状态机决策的输入）
         let degradedReason: { code: string, message: string } | undefined
+        // 执行日志（MemoryLogger 输出，仅 container 执行器支持）
+        let logsJson: string | undefined | null
 
         if (executorKind === 'github-action') {
             const executor = new ActionTriggerExecutor(token ?? '')
@@ -304,6 +306,8 @@ const runScanInternal = async (
             // A 模式（container）：fix / fix-and-pr 完成后 executor 端推送修复分支，
             // runUrl 指向 GitHub branch tree 页（参见 container-executor.pushFixBranch 后置）
             runUrl = execResult.runUrl ?? null
+            // 捕获执行日志（MemoryLogger 输出）
+            logsJson = execResult.logsJson ?? null
         }
 
         // 落库（状态机决策见 scan-run-state.ts 纯函数）：
@@ -363,6 +367,11 @@ const runScanInternal = async (
         // 回填仓库最近扫描时间
         repository.lastScanAt = new Date()
         await repoRepo.save(repository)
+
+        // 保存执行日志（MemoryLogger 输出）
+        if (logsJson) {
+            savedRun.logsJson = logsJson
+        }
 
         const persistedRun = await runRepo.save(savedRun)
 

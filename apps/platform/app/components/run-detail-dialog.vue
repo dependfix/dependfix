@@ -33,6 +33,8 @@ interface RunDetailView {
     summary: Record<string, unknown> | null
     error: { code: string, message: string } | null
     results: RunResultView[]
+    logs?: Array<{ timestamp: string, level: string, message: string }>
+    logsText?: string | null
 }
 
 const props = defineProps<{
@@ -78,6 +80,32 @@ const statusSeverity = (status: string) => {
             return 'info' as const
         default:
             return 'warn' as const
+    }
+}
+
+const formatLogTime = (timestamp: string) => {
+    try {
+        const date = new Date(timestamp)
+        return date.toLocaleTimeString('zh-CN', { hour12: false })
+    } catch {
+        return timestamp
+    }
+}
+
+const copyLogs = async () => {
+    if (!detail.value?.logsText) {
+        return
+    }
+    try {
+        await navigator.clipboard.writeText(detail.value.logsText)
+    } catch {
+        // 降级方案
+        const textarea = document.createElement('textarea')
+        textarea.value = detail.value.logsText
+        document.body.appendChild(textarea)
+        textarea.select()
+        document.execCommand('copy')
+        document.body.removeChild(textarea)
     }
 }
 
@@ -202,6 +230,34 @@ watch(() => props.runId, (runId) => {
                     {{ t('runs.errorNoDetail') }}
                 </p>
             </Message>
+            <div v-if="detail.logs && detail.logs.length > 0" class="run-detail__logs">
+                <div class="run-detail__logs-header">
+                    <span class="run-detail__logs-title">{{ t('runs.logsTitle') }}</span>
+                    <Button
+                        icon="pi pi-copy"
+                        text
+                        rounded
+                        size="small"
+                        :aria-label="t('runs.logsCopy')"
+                        :title="t('runs.logsCopy')"
+                        @click="copyLogs"
+                    />
+                </div>
+                <ScrollPanel style="height: 200px">
+                    <div class="run-detail__logs-content">
+                        <div
+                            v-for="(entry, index) in detail.logs"
+                            :key="index"
+                            class="run-detail__log-entry"
+                            :class="`run-detail__log-entry--${entry.level}`"
+                        >
+                            <span class="run-detail__log-time">{{ formatLogTime(entry.timestamp) }}</span>
+                            <span class="run-detail__log-level">{{ entry.level.toUpperCase() }}</span>
+                            <span class="run-detail__log-message">{{ entry.message }}</span>
+                        </div>
+                    </div>
+                </ScrollPanel>
+            </div>
             <DataTable
                 :value="detail.results"
                 striped-rows
@@ -273,6 +329,76 @@ watch(() => props.runId, (runId) => {
 
     &__error-message {
         margin: $space-2 0 0;
+        word-break: break-word;
+    }
+
+    &__logs {
+        margin-bottom: $space-3;
+        border:1px solid $color-border;
+        border-radius: $radius-md;
+        overflow: hidden;
+    }
+
+    &__logs-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: $space-2 $space-3;
+        background: $color-bg-muted;
+        border-bottom:1px solid $color-border;
+    }
+
+    &__logs-title {
+        font-weight: $font-weight-semibold;
+        font-size: $font-size-sm;
+    }
+
+    &__logs-content {
+        padding: $space-2;
+        font-family: $font-family-mono;
+        font-size: $font-size-xs;
+        line-height:1.5;
+    }
+
+    &__log-entry {
+        display: flex;
+        gap: $space-2;
+        padding: $space-1 0;
+        border-bottom:1px solid $color-border-light;
+
+        &:last-child {
+            border-bottom: none;
+        }
+
+        &--error {
+            color: $color-error;
+        }
+
+        &--warn {
+            color: $color-warning;
+        }
+
+        &--info {
+            color: $color-text;
+        }
+
+        &--debug {
+            color: $color-text-muted;
+        }
+    }
+
+    &__log-time {
+        color: $color-text-muted;
+        white-space: nowrap;
+    }
+
+    &__log-level {
+        font-weight: $font-weight-semibold;
+        white-space: nowrap;
+        min-width:40px;
+    }
+
+    &__log-message {
         word-break: break-word;
     }
 }

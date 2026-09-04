@@ -3,6 +3,7 @@ import { join, relative } from 'node:path'
 import type { RunResult } from '@dependfix/core'
 import type { ScanExecutor, ScanExecutorContext, ScanExecutorResult } from './types'
 import { DockerAdapter, SANDBOX_DEFAULTS, type ContainerRunResult, type ContainerSpec, type RuntimeAdapter } from './runtime-adapter'
+import { sanitizeString } from '#server/utils/sanitize'
 
 /** SandboxExecutor 默认 workRoot(沿用 ContainerExecutor 约定) */
 const defaultWorkRoot = process.env.DATABASE_PATH ? join(process.env.DATABASE_PATH, '..', 'runs') : 'data/runs'
@@ -375,16 +376,14 @@ async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
 }
 
 /**
- * 错误消息脱敏：抹除 URL 中可能内联的凭据（纵深防御，与 container-executor.ts 对齐）。
+ * 错误消息脱敏：抹除 URL 中可能内联的凭据（纵深防御，防 execFile argv 回显）。
  *
  * 覆盖模式：URL 内嵌凭据 / Authorization 头（basic / token / Bearer 三种 scheme）。
  * GitHub REST API v3+ 推荐 `Bearer`，但 legacy `token` 仍兼容——`Authorization: token ghp_xxx`
  * 与 `Authorization: Bearer ghp_xxx` 均需脱敏（C53-后-B + security.md §5.5）。
  *
- * 与 container-executor.ts:340 同步实现；如有调整需同步两处。
+ * 已迁移至 #server/utils/sanitize.ts，此处保留导出以兼容既有调用。
  */
 export function sanitizeErrorMessage(message: string): string {
-    return message
-        .replace(/https?:\/\/[^/@\s]+@/g, 'https://***@')
-        .replace(/(Authorization:\s+(?:basic|token|bearer)\s+)\S+/gi, '$1***')
+    return sanitizeString(message)
 }

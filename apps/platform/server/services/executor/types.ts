@@ -36,6 +36,8 @@ export interface ScanExecutorResult {
     runUrl?: string
     /** B 模式：GitHub Actions run id（结果回填时下载 artifact 用） */
     runId?: number
+    /** 执行日志（JSON 数组：[{timestamp, level, message, context}]） */
+    logsJson?: string
     startedAt: string
     finishedAt: string
 }

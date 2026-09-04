@@ -62,6 +62,10 @@ export class ScanRun extends BaseEntity {
     @Column({ type: 'text', nullable: true })
     errorJson!: string | null
 
+    /** 执行日志（JSON 数组：[{timestamp, level, message, context}]） */
+    @Column({ type: 'text', nullable: true })
+    logsJson!: string | null
+
     /** B 模式：action run 页面 URL（触发后轮询定位） */
     @Column({ type: 'varchar', length: 500, nullable: true })
     runUrl!: string | null

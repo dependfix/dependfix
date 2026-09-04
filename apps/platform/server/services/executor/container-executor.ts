@@ -17,6 +17,8 @@ import {
     PlatformDeliveryError,
     createPlatformOctokit,
 } from './platform-delivery'
+import { MemoryLogger } from '#server/utils/memory-logger'
+import { sanitizeString } from '#server/utils/sanitize'
 
 const execFileAsync = promisify(execFile)
 
@@ -251,6 +253,13 @@ export class ContainerExecutor implements ScanExecutor {
                 createPullRequest: false,
             }
 
+            // 创建 MemoryLogger 捕获执行日志（同时输出到控制台）
+            const memLogger = new MemoryLogger({
+                name: 'dependfix',
+                console: true,
+                maxEntries: 1000,
+            })
+
             const app = new DependfixApp({
                 config,
                 workDir,
@@ -258,6 +267,8 @@ export class ContainerExecutor implements ScanExecutor {
                 verbose: false,
                 // 容器内执行属设计内沙箱（非 root + 临时目录），不触发本地模式风险警告
                 executionEnvironment: 'container',
+                // 注入 MemoryLogger 用于捕获执行日志
+                logger: memLogger,
             })
 
             const { result, exitCode } = await withTimeout(app.run(), this.timeoutMs)
@@ -339,6 +350,7 @@ export class ContainerExecutor implements ScanExecutor {
                 startedAt,
                 finishedAt: new Date().toISOString(),
                 runUrl,
+                logsJson: memLogger.toJson(),
             }
         } catch (error) {
             // 纵深防御：错误消息脱敏（防未来任何路径把凭据带进错误文本）
@@ -503,17 +515,11 @@ export function extractGitErrorMessage(stderr: string): string {
  * 覆盖模式：
  * - URL 内嵌：`https://x-access-token:TOKEN@github.com/...` → `https://***@...`
  * - Authorization 头：`Authorization: <scheme> <token>`，scheme 支持 `basic` / `token` / `Bearer`
- *   （GitHub REST API v3+ 推荐 `Bearer`，但 legacy `token` 仍兼容；详见 C53-后-B + security.md §5.5）
  *
- * 不覆盖：未匹配到上述模式的明文 token（如 `ghp_xxx` 单独出现）；调用方应避免把明文 token
- * 拼到错误消息中（防御纵深依赖调用纪律，本工具仅兜底 sanitize）。
- *
- * 与 sandbox-executor.ts:378 同步实现；如有调整需同步两处（C53-后-B 登记）。
+ * 已迁移至 #server/utils/sanitize.ts，此处保留导出以兼容既有调用。
  */
 export function sanitizeErrorMessage(message: string): string {
-    return message
-        .replace(/https?:\/\/[^/@\s]+@/g, 'https://***@')
-        .replace(/(Authorization:\s+(?:basic|token|bearer)\s+)\S+/gi, '$1***')
+    return sanitizeString(message)
 }
 
 /**

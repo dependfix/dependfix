@@ -3,8 +3,9 @@ import { ScanResult } from '#server/entities/scan-result'
 import { ensureDatabaseInitialized } from '#server/database'
 import { requireAuth } from '#server/utils/guard'
 import { createLocalizedError } from '#server/utils/localized-error'
+import { parseLogEntries, formatLogEntries } from '#server/utils/memory-logger'
 
-/** GET /api/runs/[id]：扫描详情（含结果明细） */
+/** GET /api/runs/[id]：扫描详情（含结果明细 + 执行日志） */
 export default defineEventHandler(async (event) => {
     await requireAuth(event)
 
@@ -29,6 +30,10 @@ export default defineEventHandler(async (event) => {
         where: { scanRunId: run.id },
         order: { severity: 'ASC' },
     })
+
+    // 解析执行日志
+    const logEntries = parseLogEntries(run.logsJson)
+    const logsText = logEntries.length > 0 ? formatLogEntries(logEntries) : null
 
     return {
         id: run.id,
@@ -59,5 +64,7 @@ export default defineEventHandler(async (event) => {
             fixStatus: r.fixStatus,
             errorMessage: r.errorMessage,
         })),
+        logs: logEntries,
+        logsText,
     }
 })

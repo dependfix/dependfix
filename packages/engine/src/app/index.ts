@@ -91,6 +91,11 @@ export interface DependfixAppOptions {
      * 不触发本地模式不可信代码风险警告。
      */
     executionEnvironment?: 'local' | 'container'
+    /**
+     * 自定义 Logger（平台层注入 MemoryLogger 用于捕获执行日志）。
+     * 未提供时使用内部 createLogger（输出到 console）。
+     */
+    logger?: Logger
 }
 
 export interface DependfixRunResult {
@@ -189,7 +194,8 @@ export class DependfixApp {
         this.executionEnvironment = options.executionEnvironment ?? 'local'
         this.runId = `dependfix-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
 
-        this.logger = createLogger({
+        // 使用自定义 Logger（平台层注入 MemoryLogger）或内部创建
+        this.logger = options.logger ?? createLogger({
             name: 'dependfix',
             minLevel: this.verbose ? 'debug' : 'info',
         })

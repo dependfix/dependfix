@@ -231,7 +231,7 @@ describe('deliverFixAndPr', () => {
     it('pushes + creates PR when plan.action=create + no supersede', async () => {
         childProcessMock.execFile.mockResolvedValue({ stdout: '', stderr: 'To https://github.com/o/r.git\n' })
         engineMock.fetchDefaultBranch.mockResolvedValue('main')
-        engineMock.buildPrTitle.mockReturnValue('fix(deps): auto fix')
+        engineMock.buildPrTitle.mockReturnValue('chore(deps): auto fix')
         engineMock.generatePRBody.mockReturnValue('body')
         engineMock.createPullRequest.mockResolvedValue({ number: 200, htmlUrl: 'https://github.com/o/r/pull/200' })
 

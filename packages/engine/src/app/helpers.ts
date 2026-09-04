@@ -69,7 +69,7 @@ export function resolveAlertRepositories(
 }
 
 /** 自动修复提交的兜底标题（无成功升级 / 包名超长无法生成动态标题时） */
-export const FIX_COMMIT_MESSAGE = 'fix(deps): automated dependfix security repair'
+export const FIX_COMMIT_MESSAGE = 'chore(deps): automated dependfix security repair'
 
 /** commitlint header-max-length 上限（commitlint-config-cmyr 覆盖为 140） */
 const COMMIT_HEADER_MAX_LENGTH = 140
@@ -102,12 +102,12 @@ function buildCommitTitle(upgrades: FixAction[]): string {
         const a = upgrades[0]
         const from = a.fromVersion && a.fromVersion !== 'unknown' ? ` from ${a.fromVersion}` : ''
         const to = a.toVersion ? ` to ${a.toVersion}` : ''
-        const title = `fix(deps): bump ${a.target}${from}${to}`
+        const title = `chore(deps): bump ${a.target}${from}${to}`
         return title.length <= COMMIT_HEADER_MAX_LENGTH ? title : FIX_COMMIT_MESSAGE
     }
 
     const names = upgrades.map((a) => a.target)
-    const full = `fix(deps): bump ${names.join(', ')}`
+    const full = `chore(deps): bump ${names.join(', ')}`
     if (full.length <= COMMIT_HEADER_MAX_LENGTH) {
         return full
     }
@@ -115,7 +115,7 @@ function buildCommitTitle(upgrades: FixAction[]): string {
     // 超长：逐步减少展示数量，直到 `bump a, b and N more` 不超过上限
     let count = names.length - 1
     while (count > 0) {
-        const candidate = `fix(deps): bump ${names.slice(0, count).join(', ')} and ${names.length - count} more`
+        const candidate = `chore(deps): bump ${names.slice(0, count).join(', ')} and ${names.length - count} more`
         if (candidate.length <= COMMIT_HEADER_MAX_LENGTH) {
             return candidate
         }
@@ -756,8 +756,8 @@ export function buildPrTitle(summary: Pick<RunSummary, 'alertsFixed'>, actions: 
         parts.push(`${codeFixes} code fix${codeFixes > 1 ? 'es' : ''}`)
     }
     return parts.length > 0
-        ? `fix(deps): automated security fix — ${parts.join(', ')}`
-        : 'fix(deps): automated security fix'
+        ? `chore(deps): automated security fix — ${parts.join(', ')}`
+        : 'chore(deps): automated security fix'
 }
 
 // ---------------------------------------------------------------------------

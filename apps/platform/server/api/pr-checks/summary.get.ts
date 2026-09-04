@@ -23,7 +23,7 @@ interface PrCheckSummary {
     firing: number
     acknowledged: number
     total: number
-    byConclusion: Array<{ conclusion: string, count: number }>
+    byConclusion: { conclusion: string, count: number }[]
 }
 
 const summarize = async (ds: DataSource): Promise<PrCheckSummary> => {

@@ -83,7 +83,7 @@ describe('GET /api/pr-checks', () => {
     })
 
     it('返回全部 PRCheck（默认按 createdAt DESC；3 条 createdAt 接近，断言用 set）', async () => {
-        const list = await call('/api/pr-checks') as Array<{ prNumber: number }>
+        const list = await call('/api/pr-checks') as { prNumber: number }[]
         expect(list).toHaveLength(3)
         // 3 条 createdAt 接近，SQLite datetime 精度下顺序不稳定，仅断言 set 包含
         expect(new Set(list.map((r) => r.prNumber))).toEqual(new Set([1, 2, 3]))
@@ -100,26 +100,26 @@ describe('GET /api/pr-checks', () => {
             defaultBranch: 'main',
             executorKind: 'container',
         }))
-        const list = await call(`/api/pr-checks?repositoryId=${repositoryId}`) as Array<{ repositoryId: string }>
+        const list = await call(`/api/pr-checks?repositoryId=${repositoryId}`) as { repositoryId: string }[]
         expect(list.every((r) => r.repositoryId === repositoryId)).toBe(true)
     })
 
     it('conclusion 过滤：仅 failure', async () => {
-        const list = await call('/api/pr-checks?conclusion=failure') as Array<{ conclusion: string }>
+        const list = await call('/api/pr-checks?conclusion=failure') as { conclusion: string }[]
         expect(list).toHaveLength(1)
         expect(list[0]!.conclusion).toBe('failure')
     })
 
     it('alertFiring=true 仅返回 firing 的 PR', async () => {
-        const list = await call('/api/pr-checks?alertFiring=true') as Array<{ alertFiring: boolean }>
+        const list = await call('/api/pr-checks?alertFiring=true') as { alertFiring: boolean }[]
         expect(list).toHaveLength(1)
         expect(list[0]!.alertFiring).toBe(true)
     })
 
     it('alertFiring=false 仅返回非 firing 的 PR', async () => {
-        const list = await call('/api/pr-checks?alertFiring=false') as Array<{ alertFiring: boolean }>
+        const list = await call('/api/pr-checks?alertFiring=false') as { alertFiring: boolean }[]
         expect(list.length).toBeGreaterThan(0)
-        expect(list.every((r) => r.alertFiring === false)).toBe(true)
+        expect(list.every((r) => !r.alertFiring)).toBe(true)
     })
 })
 

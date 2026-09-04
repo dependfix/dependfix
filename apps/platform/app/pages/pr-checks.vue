@@ -175,7 +175,7 @@ const handleAck = async (row: PRCheckView) => {
                 <div class="pr-checks__summary-label">
                     {{ t('prChecks.colConclusion') }}
                 </div>
-                <div class="pr-checks__summary-value pr-checks__summary-byconclusion">
+                <div class="pr-checks__summary-byconclusion pr-checks__summary-value">
                     <span
                         v-for="row in summary?.byConclusion ?? []"
                         :key="row.conclusion"
@@ -235,7 +235,7 @@ const handleAck = async (row: PRCheckView) => {
                     :header="t('prChecks.colPrNumber')"
                     sortable
                 >
-                    <template #body="{ data }">
+                    <template #body="{data}">
                         <a
                             v-if="data.detailsUrl"
                             :href="data.detailsUrl"
@@ -253,7 +253,7 @@ const handleAck = async (row: PRCheckView) => {
                     :header="t('prChecks.colAuthor')"
                     sortable
                 >
-                    <template #body="{ data }">
+                    <template #body="{data}">
                         <span class="pr-checks__author">{{ data.authorLogin }}</span>
                     </template>
                 </Column>
@@ -262,7 +262,7 @@ const handleAck = async (row: PRCheckView) => {
                     :header="t('prChecks.colConclusion')"
                     sortable
                 >
-                    <template #body="{ data }">
+                    <template #body="{data}">
                         <Tag :severity="conclusionTagSeverity(data.conclusion)" :value="data.conclusion" />
                     </template>
                 </Column>
@@ -271,7 +271,7 @@ const handleAck = async (row: PRCheckView) => {
                     :header="t('prChecks.colLastPolledAt')"
                     sortable
                 >
-                    <template #body="{ data }">
+                    <template #body="{data}">
                         {{ new Date(data.lastPolledAt).toLocaleString() }}
                     </template>
                 </Column>
@@ -280,7 +280,7 @@ const handleAck = async (row: PRCheckView) => {
                     :header="t('prChecks.colStatus')"
                     sortable
                 >
-                    <template #body="{ data }">
+                    <template #body="{data}">
                         <Tag
                             v-if="data.alertFiring"
                             severity="danger"
@@ -299,7 +299,7 @@ const handleAck = async (row: PRCheckView) => {
                     </template>
                 </Column>
                 <Column :header="t('prChecks.colActions')" :exportable="false">
-                    <template #body="{ data }">
+                    <template #body="{data}">
                         <Button
                             v-if="data.alertFiring"
                             :label="t('prChecks.ack.action')"

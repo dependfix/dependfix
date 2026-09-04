@@ -96,7 +96,7 @@ describe('GET /api/pr-checks/summary', () => {
     })
 
     it('byConclusion 按 conclusion 分组', async () => {
-        const summary = await call() as { byConclusion: Array<{ conclusion: string, count: number }> }
+        const summary = await call() as { byConclusion: { conclusion: string, count: number }[] }
         const grouped = Object.fromEntries(summary.byConclusion.map((row) => [row.conclusion, row.count]))
         expect(grouped.success).toBe(1)
         expect(grouped.failure).toBe(2)

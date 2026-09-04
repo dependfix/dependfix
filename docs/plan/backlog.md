@@ -111,7 +111,7 @@
 
 - **B2** 固定分支单线设计（独立平台部署后修复频率上升，需要固定修复分支如 `dependfix/auto-fix` 避免频繁向 master 提交 PR；触发：v1.0.0 后 M12 平台 UX 修复链路上线；关联：T210 指纹方案整合复用/重建策略 + force push 语义）
 
-- ~~**PR Check 状态监测**~~ —— **已上收 2026-09-03 M24.1**（用户决策方案 B；详见 [roadmap.md §M24](roadmap.md#m24-pr-check-mvp--治理债--测试补强--用户体验) + [todo.md §M24](todo.md#m24-pr-check-mvp--治理债--测试补强--用户体验已归档)）。P 阶段决策纪要 D1-D8 全部 2026-09-02 用户决策落地：PRCheck 实体独立于 ScanResult；Polling 间隔 5min/仓；失败 PR firing alert + ack UI（回归 success 自动 ack）；用户手动创建 schedule 启用；webhook MVP 仅接口预留；仅 per-org scope；env 开关 `ACTION_STATUS_MONITOR_ENABLED` 默认 false；文档明确 mergify 仍是主控（[dependfix README + `.github/mergify.yml` 注释 + PRCheck 设计文档](#)）
+- ~~**PR Check 状态监测**~~ —— **已上收 2026-09-03 M24.1**（用户决策方案 B；详见 [roadmap.md §M24](roadmap.md#m24-pr-check-mvp--治理债--测试补强--用户体验) + [todo-archive.md §M24](todo-archive.md#m24-pr-check-mvp--治理债--测试补强--用户体验m241m242m243m244m245-全部已闭环--2026-09-03-归档)）。P 阶段决策纪要 D1-D8 全部 2026-09-02 用户决策落地：PRCheck 实体独立于 ScanResult；Polling 间隔 5min/仓；失败 PR firing alert + ack UI（回归 success 自动 ack）；用户手动创建 schedule 启用；webhook MVP 仅接口预留；仅 per-org scope；env 开关 `ACTION_STATUS_MONITOR_ENABLED` 默认 false；文档明确 mergify 仍是主控（[dependfix README + `.github/mergify.yml` 注释 + PRCheck 设计文档](#)）
 
 #### Code Scanning 规则体系
 

@@ -1,4 +1,17 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi, beforeEach } from 'vitest'
+
+// Mock @dependfix/engine - 只 mock DependfixApp，保留其他导出
+const mockRun = vi.fn().mockResolvedValue({ exitCode: 0 })
+vi.mock('@dependfix/engine', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('@dependfix/engine')>()
+    return {
+        ...actual,
+        DependfixApp: class {
+            run = mockRun
+        },
+    }
+})
+
 import { createPipeline } from './pipeline'
 
 // ---------------------------------------------------------------------------
@@ -62,5 +75,32 @@ describe('createPipeline', () => {
 
         // history 短路优先，其余参数被忽略（既有 CLI 语义）
         expect(logger.info).toHaveBeenCalledTimes(1)
+    })
+
+    it('non-history branch invokes app.run and calls exit', async () => {
+        mockRun.mockResolvedValueOnce({ exitCode: 0 })
+        const mockExit = vi.fn()
+
+        const pipeline = createPipeline({
+            env: { GITHUB_TOKEN: 'test-token' },
+            exit: mockExit,
+        })
+
+        const exitCode = await pipeline.run(['fix', '--repo', 'owner/repo'])
+
+        expect(exitCode).toBe(0)
+        expect(mockExit).toHaveBeenCalledWith(0)
+    })
+
+    it('non-history branch uses default exit (process.exitCode)', async () => {
+        mockRun.mockResolvedValueOnce({ exitCode: 1 })
+
+        const pipeline = createPipeline({
+            env: { GITHUB_TOKEN: 'test-token' },
+        })
+
+        const exitCode = await pipeline.run(['fix', '--repo', 'owner/repo'])
+
+        expect(exitCode).toBe(1)
     })
 })

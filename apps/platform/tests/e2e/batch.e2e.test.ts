@@ -78,9 +78,9 @@ test.describe('批量扫描（sync 降级模式）', () => {
         await expect(page.locator('.batch-runs__detail')).toContainText('成功/完成')
         await expect(page.locator('.p-datatable-tbody tr').first()).toContainText('已完成', { timeout: 15000 })
 
-        // 下属 ScanRun 明细（2 个仓库；无凭据时 fetch 告警软失败 → run completed + 0 告警）
-        // stats 卡片终态聚合："2/2成功/完成"（0/2 → 2/2 需等轮询详情写回终态快照）
-        await expect(page.locator('.batch-runs__detail')).toContainText('2/2成功/完成', { timeout: 15000 })
+        // 下属 ScanRun 明细（2 个仓库；无凭据时容器执行器交付阶段失败 → engine_delivery_failed → run failed）
+        // stats 卡片终态聚合："0/2成功/完成"（两个 run 均因 engine_delivery_failed 标记为 failed）
+        await expect(page.locator('.batch-runs__detail')).toContainText('0/2成功/完成', { timeout: 15000 })
         await expect(page.locator('.batch-runs__detail .p-datatable-tbody tr')).toHaveCount(2)
         await expect(page.locator('.batch-runs__detail')).toContainText(owner)
     })

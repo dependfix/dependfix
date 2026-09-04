@@ -53,7 +53,7 @@ C22 GitHub App BYO App 模式实施（M18 阶段）需要在 [`packages/engine/s
 |:---|:---|:---|
 | [`packages/mcp/src/tools/discover-repos.test.ts`](../../../packages/mcp/src/tools/discover-repos.test.ts) | `vi.mock('@dependfix/engine')` + `vi.mocked(createGitHubClient)` | mock 改为接受 `{ auth }` 或保留（向后兼容包装内仍调用） |
 | [`packages/mcp/src/tools/cleanup-branches.test.ts`](../../../packages/mcp/src/tools/cleanup-branches.test.ts) | 同上 | 同上 |
-| [`apps/platform/server/services/executor/container-executor-pr.test.ts`](../../../apps/platform/server/services/executor/container-executor-pr.test.ts) | `vi.mocked(engineMock.createGitHubClient)` + `mockReturnValue` + `toHaveBeenCalledWith({ token })`（行 86 + 行 136）| mock 改为 `toHaveBeenCalledWith({ auth: expect.any(Object) })` 或保留 token 字段验证 |
+| [`apps/platform/server/services/executor/platform-delivery.test.ts`](../../../apps/platform/server/services/executor/platform-delivery.test.ts) | `vi.mocked(engineMock.createGitHubClient)` + `mockReturnValue` + `toHaveBeenCalledWith({ token })`（行 86 + 行 136）| mock 改为 `toHaveBeenCalledWith({ auth: expect.any(Object) })` 或保留 token 字段验证 |
 
 ### 2.3 类型定义（`packages/engine/src/github/client.ts:16-32`）
 

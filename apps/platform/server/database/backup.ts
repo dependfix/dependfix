@@ -23,8 +23,9 @@ import { dirname, join } from 'node:path'
  * 设计要点：
  * - 写入原子性：`fsyncSync + renameSync` 双重保护 —— 写入临时文件后 fsync 刷盘，再原子 rename
  *   到最终路径；断电时不会留下半成品
- * - 保留策略：默认 10 份，可通过 BACKUP_RETENTION_COUNT env 覆盖；按 mtime 降序排序，超出部分删除
+ * - 保留策略：默认 5 份，可通过 BACKUP_RETENTION_COUNT env 覆盖；按 mtime 降序排序，超出部分删除
  * - 触发条件：源文件存在 + size > 0 + 后缀不是 .bak（避免备份目录内 .bak 文件被递归备份）
+ * - 跳过机制：BACKUP_SKIP=true 时跳过备份（用于 e2e 测试等无需备份的场景）
  * - 失败处理：catch + console.error，不抛 —— 应用启动期 fail-open 而非 fail-closed（恢复依赖
  *   用户的本地副本或外部备份）
  * - 时间戳格式：ISO 8601 紧凑型 `YYYY-MM-DDTHH-mm-ss`（避免冒号在文件名中的转义问题）
@@ -32,8 +33,8 @@ import { dirname, join } from 'node:path'
  * 测试覆盖：apps/platform/server/database/backup.test.ts（备份创建 / 跳过 / fsync / 保留策略 / 失败不抛）
  */
 
-/** 默认保留备份份数 */
-export const DEFAULT_RETENTION_COUNT = 10
+/** 默认保留备份份数（5 份已足够覆盖最近几天的回滚需求，减少磁盘占用） */
+export const DEFAULT_RETENTION_COUNT = 5
 
 /** 备份目录名（与 SQLite 文件同级，e.g. `data/backups/`） */
 export const BACKUP_DIR_NAME = 'backups'
@@ -48,8 +49,8 @@ const TEM_FILE_EXTENSION = '.tmp'
 export interface BackupResult {
     /** 成功创建的备份路径（成功时） */
     created?: string
-    /** 跳过原因（无源文件 / 源为空 / 源为 .bak 文件） */
-    skipped?: 'no source file' | 'empty file' | 'backup file'
+    /** 跳过原因（无源文件 / 源为空 / 源为 .bak 文件 / BACKUP_SKIP） */
+    skipped?: 'no source file' | 'empty file' | 'backup file' | 'skip enabled'
     /** 清理的老备份份数（成功或跳过都可能产生） */
     cleaned?: number
     /** 错误信息（失败时；调用方应 fail-open 不阻塞启动） */
@@ -61,13 +62,18 @@ export interface BackupResult {
  * schema 同步 / 数据写入操作前都有最新备份。
  *
  * @param dbPath SQLite 数据库文件路径（绝对或相对 process.cwd()）
- * @param options.retentionCount 保留备份份数（默认 10，可通过 BACKUP_RETENTION_COUNT env 覆盖）
+ * @param options.retentionCount 保留备份份数（默认 5，可通过 BACKUP_RETENTION_COUNT env 覆盖）
  * @returns BackupResult（成功 / 跳过 / 失败 / 清理数）
  */
 export const backupDatabaseIfNeeded = (
     dbPath: string,
     options: { retentionCount?: number } = {},
 ): BackupResult => {
+    // BACKUP_SKIP=true 时跳过备份（用于 e2e 测试等无需备份的场景）
+    if (process.env.BACKUP_SKIP === 'true') {
+        return { skipped: 'skip enabled' }
+    }
+
     const retentionCount = options.retentionCount
         ?? (Number(process.env.BACKUP_RETENTION_COUNT) || DEFAULT_RETENTION_COUNT)
 

@@ -42,6 +42,7 @@ const e2eServerEnv = [
     `DATABASE_PATH=data/e2e.sqlite`,
     'DATABASE_SYNCHRONIZE=true',
     'NUXT_QUEUE_ENABLED=false',
+    'BACKUP_SKIP=true', // e2e 测试无需创建启动备份（测试库是临时的，备份无意义且累积磁盘）
 ].join(' ')
 
 /** CI 强制串行（共享 SQLite 库）；本地默认并行 */

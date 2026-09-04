@@ -397,8 +397,27 @@ describe('backupDatabaseIfNeeded', () => {
 
             vi.stubEnv('BACKUP_RETENTION_COUNT', 'not-a-number')
             const result = backupDatabaseIfNeeded(dbPath)
-            // 12 老 + 1 新 = 13 总，保留 10 (DEFAULT)，清理 3
-            expect(result.cleaned).toBe(13 - 10)
+            // 12 老 + 1 新 = 13 总，保留 5 (DEFAULT)，清理 8
+            expect(result.cleaned).toBe(13 - 5)
+        })
+    })
+
+    describe('BACKUP_SKIP', () => {
+        it('skips backup when BACKUP_SKIP=true', () => {
+            writeFile(dbPath, 'content')
+            vi.stubEnv('BACKUP_SKIP', 'true')
+            const result = backupDatabaseIfNeeded(dbPath)
+            expect(result.skipped).toBe('skip enabled')
+            expect(result.created).toBeUndefined()
+            expect(existsSync(backupDir)).toBe(false) // 备份目录不应该被创建
+        })
+
+        it('does not skip when BACKUP_SKIP is not true', () => {
+            writeFile(dbPath, 'content')
+            vi.stubEnv('BACKUP_SKIP', 'false')
+            const result = backupDatabaseIfNeeded(dbPath)
+            expect(result.skipped).toBeUndefined()
+            expect(result.created).toBeDefined()
         })
     })
 })

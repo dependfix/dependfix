@@ -12,6 +12,7 @@ import { CreateAuditEventTable1700000000000 } from './migrations/1700000000000-C
 import { AddScanResultIdentifiers1750000000000 } from './migrations/1750000000000-AddScanResultIdentifiers'
 import { CreatePrCheckTable1800000000000 } from './migrations/1800000000000-CreatePrCheckTable'
 import { AddScheduleKind1800000000001 } from './migrations/1800000000001-AddScheduleKind'
+import { AddScanRunLogs1800000000002 } from './migrations/1800000000002-AddScanRunLogs'
 import { runStartupBackup } from './backup'
 import { Account } from '#server/entities/account'
 import { Session } from '#server/entities/session'
@@ -77,6 +78,7 @@ export const createDataSourceOptions = (): DataSourceOptions => {
             AddScanResultIdentifiers1750000000000,
             CreatePrCheckTable1800000000000,
             AddScheduleKind1800000000001,
+            AddScanRunLogs1800000000002,
         ],
         migrationsRun,
         synchronize,

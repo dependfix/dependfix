@@ -45,7 +45,11 @@
     "test:coverage": "vitest run --coverage",
     "docs:dev": "pnpm --filter dependfix-docs dev",
     "docs:build": "pnpm --filter dependfix-docs build",
-    "docs:preview": "pnpm --filter dependfix-docs preview"
+    "docs:preview": "pnpm --filter dependfix-docs preview",
+    "regression:weekly": "node scripts/regression/run-periodic-regression.mjs --profile=weekly",
+    "regression:pre-release": "node scripts/regression/run-periodic-regression.mjs --profile=pre-release",
+    "regression:phase-close": "node scripts/regression/run-periodic-regression.mjs --profile=phase-close",
+    "security:audit-deps": "pnpm audit --prod --audit-level=moderate"
   },
   "devDependencies": {
     "@intlify/eslint-plugin-vue-i18n": "4.5.1",

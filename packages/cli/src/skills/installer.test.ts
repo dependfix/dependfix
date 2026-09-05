@@ -90,6 +90,25 @@ describe('installSkillToDir', () => {
         expect(existsSync(join(target, 'dependfix-remediator'))).toBe(false)
     })
 
+    it('dry-run 目标已存在且一致返回 up-to-date', async () => {
+        const src = makeSource()
+        const target = join(tempRoot, 'agents')
+        await installSkillToDir({ sourceDir: src, targetDir: target })
+        const result = await installSkillToDir({ sourceDir: src, targetDir: target, dryRun: true })
+        expect(result.status).toBe('up-to-date')
+        expect(result.detail).toContain('dry-run')
+    })
+
+    it('dry-run 目标已存在但不一致返回 installed', async () => {
+        const src = makeSource()
+        const target = join(tempRoot, 'agents')
+        await installSkillToDir({ sourceDir: src, targetDir: target })
+        writeFileSync(join(target, 'dependfix-remediator', 'SKILL.md'), '# tampered')
+        const result = await installSkillToDir({ sourceDir: src, targetDir: target, dryRun: true })
+        expect(result.status).toBe('installed')
+        expect(result.detail).toContain('dry-run')
+    })
+
     it('权威源不存在：failed 不抛错', async () => {
         const result = await installSkillToDir({
             sourceDir: join(tempRoot, 'missing'),

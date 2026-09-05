@@ -174,3 +174,99 @@ describe('/api/credentials/[id] 错误响应 i18n（todo.md §M17.2）', () => {
         })
     })
 })
+
+/**
+ * GitHub App 类型凭据分支覆盖（todo.md §M20.5）
+ * 覆盖 credentials/[id].ts 中 type === 'github-app' 的分支
+ */
+describe('/api/credentials/[id] GitHub App 类型分支覆盖', () => {
+    let githubAppId: string
+
+    beforeAll(async () => {
+        setupMemoryDatabase()
+        // 创建一个 github-app 类型的凭据
+        const created = await callIndex('POST', '/api/credentials', {
+            name: 'github-app-cred',
+            type: 'github-app',
+            appId: '12345',
+            installationId: '67890',
+            botLogin: 'dependfix-bot',
+            encryptedPrivateKey: '-----BEGIN RSA PRIVATE KEY-----\ntest-key\n-----END RSA PRIVATE KEY-----',
+        }) as { id: string }
+        githubAppId = created.id
+    })
+
+    afterAll(() => {
+        teardownMemoryDatabase()
+    })
+
+    beforeEach(() => {
+        vi.clearAllMocks()
+    })
+
+    it('GET returns github-app specific fields (appId, installationId, botLogin)', async () => {
+        // 分支覆盖：found.type === 'github-app' && { appId, installationId, botLogin }
+        const detail = await callId('GET', `/api/credentials/${githubAppId}`, undefined, { id: githubAppId }) as Record<string, unknown>
+        expect(detail).toMatchObject({
+            id: githubAppId,
+            name: 'github-app-cred',
+            type: 'github-app',
+            hasToken: true,
+            appId: '12345',
+            installationId: '67890',
+            botLogin: 'dependfix-bot',
+        })
+    })
+
+    it('GET returns hasToken based on encryptedPrivateKey for github-app', async () => {
+        // 分支覆盖：found.type === 'github-app' ? Boolean(found.encryptedPrivateKey) : Boolean(found.encryptedToken)
+        const detail = await callId('GET', `/api/credentials/${githubAppId}`, undefined, { id: githubAppId }) as Record<string, unknown>
+        expect(detail.hasToken).toBe(true)
+    })
+
+    it('PUT updates github-app specific fields', async () => {
+        // 分支覆盖：parsed.data.appId !== undefined, parsed.data.installationId !== undefined, parsed.data.botLogin !== undefined
+        const result = await callId('PUT', `/api/credentials/${githubAppId}`, {
+            appId: '99999',
+            installationId: '11111',
+            botLogin: 'new-bot',
+        }, { id: githubAppId }) as { updated: boolean }
+        expect(result).toEqual({ id: githubAppId, updated: true })
+
+        const detail = await callId('GET', `/api/credentials/${githubAppId}`, undefined, { id: githubAppId }) as Record<string, unknown>
+        expect(detail.appId).toBe('99999')
+        expect(detail.installationId).toBe('11111')
+        expect(detail.botLogin).toBe('new-bot')
+    })
+
+    it('PUT updates encryptedPrivateKey for github-app', async () => {
+        // 分支覆盖：parsed.data.encryptedPrivateKey !== undefined && parsed.data.encryptedPrivateKey !== ''
+        const result = await callId('PUT', `/api/credentials/${githubAppId}`, {
+            encryptedPrivateKey: '-----BEGIN RSA PRIVATE KEY-----\nnew-key\n-----END RSA PRIVATE KEY-----',
+        }, { id: githubAppId }) as { updated: boolean }
+        expect(result).toEqual({ id: githubAppId, updated: true })
+    })
+
+    it('PUT updates type field', async () => {
+        // 分支覆盖：parsed.data.type !== undefined
+        const result = await callId('PUT', `/api/credentials/${githubAppId}`, {
+            type: 'fine-grained-pat',
+        }, { id: githubAppId }) as { updated: boolean }
+        expect(result).toEqual({ id: githubAppId, updated: true })
+    })
+
+    it('PUT returns 404 for nonexistent credential', async () => {
+        // 分支覆盖：!found in updateCredential
+        await expectError(callId('PUT', '/api/credentials/nonexistent', { name: 'x' }, { id: 'nonexistent' }), 404)
+    })
+
+    it('DELETE returns 404 for nonexistent credential', async () => {
+        // 分支覆盖：!found in deleteCredential
+        await expectError(callId('DELETE', '/api/credentials/nonexistent', undefined, { id: 'nonexistent' }), 404)
+    })
+
+    it('returns 400 when id param is missing', async () => {
+        // 分支覆盖：!id in main handler
+        await expectError(callId('GET', '/api/credentials/'), 400)
+    })
+})

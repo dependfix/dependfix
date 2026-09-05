@@ -33,7 +33,7 @@
 ## 2026-09-05 阶段收口前周期性回归（自动回填）
 
 - 执行入口: `pnpm regression:phase-close -- --dry-run`
-- 证据 artifact: [md](../../../artifacts/review-gate/2026-09-05-phase-close-regression.md) / [json](../../../artifacts/review-gate/2026-09-05-phase-close-regression.json)
+- 证据 artifact: `artifacts/review-gate/2026-09-05-phase-close-regression.md` / `artifacts/review-gate/2026-09-05-phase-close-regression.json`（本地生成，不入 Git）
 - 结果摘要: `Prepared`；blocker=0，warning=0。
 - 已执行验证: test:coverage=DRY RUN，security:audit-deps=DRY RUN，docs:check:i18n=DRY RUN，lint:md:check=DRY RUN，check:docs=DRY RUN，i18n:audit:missing=DRY RUN，lint=DRY RUN，typecheck=DRY RUN，build=DRY RUN，verify:changelog=DRY RUN
 - 回归窗口: 53 行 / 2 条，归档判定=窗口健康。
@@ -45,7 +45,7 @@
 ## 2026-09-05 发版前周期性回归（自动回填）
 
 - 执行入口: `pnpm regression:pre-release -- --dry-run`
-- 证据 artifact: [md](../../../artifacts/review-gate/2026-09-05-pre-release-regression.md) / [json](../../../artifacts/review-gate/2026-09-05-pre-release-regression.json)
+- 证据 artifact: `artifacts/review-gate/2026-09-05-pre-release-regression.md` / `artifacts/review-gate/2026-09-05-pre-release-regression.json`（本地生成，不入 Git）
 - 结果摘要: `Prepared`；blocker=0，warning=0。
 - 已执行验证: test:coverage=DRY RUN，security:audit-deps=DRY RUN，docs:check:i18n=DRY RUN，lint:md:check=DRY RUN，check:docs=DRY RUN，i18n:audit:missing=DRY RUN，lint=DRY RUN，typecheck=DRY RUN，build=DRY RUN，verify:changelog=DRY RUN
 - 回归窗口: 40 行 / 1 条，归档判定=窗口健康。
@@ -57,7 +57,7 @@
 ## 2026-09-05 周级周期性回归（自动回填）
 
 - 执行入口: `pnpm regression:weekly -- --dry-run`
-- 证据 artifact: [md](../../../artifacts/review-gate/2026-09-05-weekly-regression.md) / [json](../../../artifacts/review-gate/2026-09-05-weekly-regression.json)
+- 证据 artifact: `artifacts/review-gate/2026-09-05-weekly-regression.md` / `artifacts/review-gate/2026-09-05-weekly-regression.json`（本地生成，不入 Git）
 - 结果摘要: `Prepared`；blocker=0，warning=0。
 - 已执行验证: test:coverage=DRY RUN，security:audit-deps=DRY RUN，docs:check:i18n=DRY RUN，lint:md:check=DRY RUN，check:docs=DRY RUN，i18n:audit:missing=DRY RUN，lint=DRY RUN，typecheck=DRY RUN，build=DRY RUN
 - 回归窗口: 40 行 / 1 条，归档判定=窗口健康。

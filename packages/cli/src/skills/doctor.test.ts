@@ -87,4 +87,41 @@ describe('runDoctor', () => {
         expect(findings.some((f) => f.message.includes('internal 标记'))).toBe(false)
         expect(existsSync(join(tempRoot, 'other'))).toBe(false) // 项目根不存在也不应崩溃
     })
+
+    it('内部 skill 目录含非目录条目时跳过', () => {
+        const skillsRoot = join(tempRoot, '.github', 'skills')
+        mkdirSync(skillsRoot, { recursive: true })
+        // 创建一个文件（非目录）应该被跳过
+        writeFileSync(join(skillsRoot, 'not-a-dir.txt'), 'some content')
+        mkdirSync(join(skillsRoot, 'skill-a'), { recursive: true })
+        writeFileSync(join(skillsRoot, 'skill-a', 'SKILL.md'), '---\nname: skill-a\nmetadata:\n    internal: true\n---\n# body')
+        const findings = runDoctor({ homeDir: join(tempRoot, 'home'), projectRoot: tempRoot, productSourceDir: makeProductSource() })
+        expect(findings.some((f) => f.level === 'ok' && f.message.includes('internal 标记完整性检查通过'))).toBe(true)
+    })
+
+    it('内部 skill 目录缺 SKILL.md 时报告缺失', () => {
+        const skillsRoot = join(tempRoot, '.github', 'skills')
+        mkdirSync(join(skillsRoot, 'skill-no-file'), { recursive: true })
+        // 不创建 SKILL.md
+        const findings = runDoctor({ homeDir: join(tempRoot, 'home'), projectRoot: tempRoot, productSourceDir: makeProductSource() })
+        const error = findings.find((f) => f.level === 'error')
+        expect(error).toBeDefined()
+        expect(error?.message).toContain('skill-no-file')
+        expect(error?.message).toContain('缺 SKILL.md')
+    })
+
+    it('未提供 productSourceDir 时安全回退（不崩溃）', () => {
+        const findings = runDoctor({ homeDir: join(tempRoot, 'home'), projectRoot: tempRoot })
+        // 不应崩溃，可能返回空或仅含 agent 检查结果
+        expect(Array.isArray(findings)).toBe(true)
+    })
+
+    it('项目级 skills 目录不存在时报告 ok', () => {
+        const home = join(tempRoot, 'home')
+        mkdirSync(join(home, '.claude'), { recursive: true })
+        const projectRoot = join(tempRoot, 'project')
+        mkdirSync(projectRoot, { recursive: true })
+        const findings = runDoctor({ homeDir: home, projectRoot, productSourceDir: makeProductSource() })
+        expect(findings.some((f) => f.level === 'ok' && f.message.includes('项目级 skills 目录不存在'))).toBe(true)
+    })
 })

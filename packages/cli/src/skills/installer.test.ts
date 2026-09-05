@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { installSkillToDir, isContentSame } from './installer'
+import { collectFileHashes, installSkillToDir, isContentSame } from './installer'
 
 let tempRoot: string
 
@@ -113,5 +113,74 @@ describe('isContentSame', () => {
         // 文件集合不同
         writeFileSync(join(b, 'extra.md'), 'extra')
         expect(isContentSame(a, b)).toBe(false)
+    })
+})
+
+describe('collectFileHashes', () => {
+    it('不存在的目录返回空 Map', () => {
+        const result = collectFileHashes(join(tempRoot, 'missing'))
+        expect(result.size).toBe(0)
+    })
+
+    it('收集单个文件', () => {
+        const dir = join(tempRoot, 'single')
+        mkdirSync(dir, { recursive: true })
+        writeFileSync(join(dir, 'file.txt'), 'content')
+        const result = collectFileHashes(dir)
+        expect(result.size).toBe(1)
+        expect(result.has('file.txt')).toBe(true)
+    })
+
+    it('递归收集嵌套文件', () => {
+        const dir = join(tempRoot, 'nested')
+        mkdirSync(join(dir, 'sub'), { recursive: true })
+        writeFileSync(join(dir, 'root.txt'), 'root')
+        writeFileSync(join(dir, 'sub', 'child.txt'), 'child')
+        const result = collectFileHashes(dir)
+        expect(result.size).toBe(2)
+        expect(result.has('root.txt')).toBe(true)
+        expect(result.has('sub/child.txt')).toBe(true)
+    })
+
+    it('相同内容产生相同 hash', () => {
+        const dirA = join(tempRoot, 'hash-a')
+        const dirB = join(tempRoot, 'hash-b')
+        mkdirSync(dirA, { recursive: true })
+        mkdirSync(dirB, { recursive: true })
+        writeFileSync(join(dirA, 'file.txt'), 'same content')
+        writeFileSync(join(dirB, 'file.txt'), 'same content')
+        const hashA = collectFileHashes(dirA)
+        const hashB = collectFileHashes(dirB)
+        expect(hashA.get('file.txt')).toBe(hashB.get('file.txt'))
+    })
+
+    it('不同内容产生不同 hash', () => {
+        const dirA = join(tempRoot, 'diff-a')
+        const dirB = join(tempRoot, 'diff-b')
+        mkdirSync(dirA, { recursive: true })
+        mkdirSync(dirB, { recursive: true })
+        writeFileSync(join(dirA, 'file.txt'), 'content A')
+        writeFileSync(join(dirB, 'file.txt'), 'content B')
+        const hashA = collectFileHashes(dirA)
+        const hashB = collectFileHashes(dirB)
+        expect(hashA.get('file.txt')).not.toBe(hashB.get('file.txt'))
+    })
+
+    it('空目录返回空 Map', () => {
+        const dir = join(tempRoot, 'empty')
+        mkdirSync(dir, { recursive: true })
+        const result = collectFileHashes(dir)
+        expect(result.size).toBe(0)
+    })
+
+    it('混合文件和目录', () => {
+        const dir = join(tempRoot, 'mixed')
+        mkdirSync(join(dir, 'subdir'), { recursive: true })
+        writeFileSync(join(dir, 'file1.txt'), 'content1')
+        writeFileSync(join(dir, 'subdir', 'file2.txt'), 'content2')
+        const result = collectFileHashes(dir)
+        expect(result.size).toBe(2)
+        expect(result.has('file1.txt')).toBe(true)
+        expect(result.has('subdir/file2.txt')).toBe(true)
     })
 })

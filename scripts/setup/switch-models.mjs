@@ -16,7 +16,7 @@
 
 import { readFile, writeFile, readdir } from 'node:fs/promises'
 import { join, dirname, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const ROOT = resolve(__dirname, '../..')
@@ -24,7 +24,7 @@ const CONFIGS_DIR = join(ROOT, '.opencode/configs')
 const SHARED_CONFIG = join(CONFIGS_DIR, 'opencode.shared.json')
 const TARGET_CONFIG = join(ROOT, 'opencode.json')
 
-function mergeConfig(baseConfig, overrideConfig) {
+export function mergeConfig(baseConfig, overrideConfig) {
     if (Array.isArray(baseConfig) || Array.isArray(overrideConfig)) {
         return overrideConfig ?? baseConfig
     }
@@ -49,7 +49,7 @@ function mergeConfig(baseConfig, overrideConfig) {
     return result
 }
 
-function normalizeConfig(config) {
+export function normalizeConfig(config) {
     const orderedKeys = ['$schema', 'model', 'default_agent', 'instructions', 'mcp', 'agent']
     const normalized = {}
 
@@ -167,7 +167,9 @@ async function main() {
     await switchPreset(args[0])
 }
 
-main().catch((err) => {
-    console.error('错误：', err.message)
-    process.exit(1)
-})
+if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
+    main().catch((err) => {
+        console.error('错误：', err.message)
+        process.exit(1)
+    })
+}

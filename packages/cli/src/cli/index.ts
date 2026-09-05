@@ -200,19 +200,19 @@ export const argsDef = {
 // Conversion helpers
 // ---------------------------------------------------------------------------
 
-function isRuntimeMode(value: string): value is RuntimeMode {
+export function isRuntimeMode(value: string): value is RuntimeMode {
     return RUNTIME_MODES.includes(value as RuntimeMode)
 }
 
-function isSeverityThreshold(value: string): value is SeverityThreshold {
+export function isSeverityThreshold(value: string): value is SeverityThreshold {
     return SEVERITY_THRESHOLDS.includes(value as SeverityThreshold)
 }
 
-function isAlertSource(value: string): value is AlertSourceKind {
+export function isAlertSource(value: string): value is AlertSourceKind {
     return ALERT_SOURCES.includes(value as AlertSourceKind)
 }
 
-function appendRepositories(target: string[], value: string): void {
+export function appendRepositories(target: string[], value: string): void {
     for (const repository of value.split(',')) {
         const trimmed = repository.trim()
 
@@ -231,7 +231,7 @@ function appendRepositories(target: string[], value: string): void {
     }
 }
 
-function parseCommandsFlag(value: string): string[] {
+export function parseCommandsFlag(value: string): string[] {
     return value
         .split(',')
         .map((cmd) => cmd.trim())
@@ -242,7 +242,7 @@ function parseCommandsFlag(value: string): string[] {
  * 严格整数字面量解析（修复：拒绝 `2.5` 被 parseInt 静默截断为 2）。
  * 仅接受 `^\d+$`；范围语义由调用方在 expected 描述中声明（config 校验兜底）。
  */
-function parseIntegerFlag(value: string, flagName: string, expected: string): number {
+export function parseIntegerFlag(value: string, flagName: string, expected: string): number {
     const trimmed = value.trim()
     if (!/^\d+$/.test(trimmed)) {
         throw new AppError(
@@ -257,7 +257,7 @@ function parseIntegerFlag(value: string, flagName: string, expected: string): nu
  * 归一化可重复 flag 值（citty/mri 对重复传入返回数组，单次传入返回字符串）：
  * 按逗号拆分 + 去空白 + 去空项。`--owner a,b --owner c` → ['a', 'b', 'c']。
  */
-function normalizeFlagList(value: string | string[] | undefined): string[] {
+export function normalizeFlagList(value: string | string[] | undefined): string[] {
     if (value === undefined) {
         return []
     }
@@ -498,7 +498,7 @@ function parsedArgsToCliOverrides(parsed: ParsedArgs<typeof argsDef>): CliConfig
  * 空 entry 忽略；非空但缺冒号/组名或包列表为空 → 抛 ARGUMENT_PARSE_ERROR；
  * 原型链风险键名（__proto__ / constructor / prototype）忽略。
  */
-function parseUpgradeGroupsFlag(value: string): Record<string, string[]> {
+export function parseUpgradeGroupsFlag(value: string): Record<string, string[]> {
     const result: Record<string, string[]> = {}
     for (const entry of value.split(';')) {
         if (!entry.trim()) {

@@ -2,7 +2,7 @@ import { mkdir, lstat, realpath, symlink } from 'node:fs/promises'
 import { spawn } from 'node:child_process'
 import path from 'node:path'
 import process from 'node:process'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const repoRoot = path.resolve(__dirname, '..', '..')
@@ -52,7 +52,7 @@ function runGitWorktreeList() {
     })
 }
 
-function toSymlinkTarget(linkPath, targetPath) {
+export function toSymlinkTarget(linkPath, targetPath) {
     if (process.platform === 'win32') {
         return targetPath
     }
@@ -110,7 +110,9 @@ async function main() {
     console.info('\n所有工作树同步完成！')
 }
 
-main().catch((error) => {
-    console.error(error?.message || error)
-    process.exit(1)
-})
+if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
+    main().catch((error) => {
+        console.error(error?.message || error)
+        process.exit(1)
+    })
+}

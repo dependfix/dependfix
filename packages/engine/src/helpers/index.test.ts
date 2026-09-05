@@ -207,6 +207,18 @@ describe('quickVerifyProject', () => {
         await expect(quickVerifyProject({ logger, workDir } as never, 'foo/bar')).resolves.toBe(true)
         expect(mockRunVerification).not.toHaveBeenCalled()
     })
+
+    it('uses customCommands when provided (full verification sequence)', async () => {
+        workDir = mkdtempSync(join(tmpdir(), 'dependfix-quick-'))
+        writeFileSync(join(workDir, 'package.json'), JSON.stringify({
+            scripts: { lint: 'eslint .', build: 'tsc' },
+        }))
+        const customCommands = ['pnpm install --frozen-lockfile', 'pnpm lint', 'pnpm build']
+        mockRunVerification.mockResolvedValue({ success: true, commandResults: [] })
+
+        await expect(quickVerifyProject({ logger, workDir, customCommands } as never, 'foo/bar')).resolves.toBe(true)
+        expect(mockRunVerification).toHaveBeenCalledWith({ workDir, commands: customCommands })
+    })
 })
 
 // ---------------------------------------------------------------------------

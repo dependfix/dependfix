@@ -145,6 +145,9 @@ runs:
         # 构建链 core → engine → cli（cli 运行时 imports @dependfix/engine/dist，漏构建会
         # ERR_MODULE_NOT_FOUND——engine 加入后 action 构建链未同步，Security Auto Fix 首跑暴露）
         pnpm --filter @dependfix/core --filter @dependfix/engine --filter dependfix build
+        # Nuxt 平台 lint 依赖 .nuxt/tsconfig.json（nuxt prepare 生成物）；
+        # quickVerifyProject 仅跑 pnpm lint，无 prepare 步骤会导致 eslint OOM（教训：run 33946113272）
+        pnpm --filter @dependfix/platform exec nuxt prepare
         # Smoke check：确认 CLI bin 可执行、外部依赖可解析（pnpm isolated 布局）
         node "${{ github.action_path }}/packages/cli/dist/bin.mjs" --help > /dev/null
       shell: bash

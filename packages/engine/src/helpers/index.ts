@@ -79,18 +79,23 @@ export function restoreTrackedFiles(workDir: string, snapshot: Record<string, st
 }
 
 /**
- * 快速验证（逐包）：仅运行 `pnpm lint`（脚本存在时）。
+ * 快速验证（逐包）：运行验证命令序列。
  *
- * 完整验证（install + lint + build）成本高，逐包执行不现实；
- * lint 是依赖兼容性的快速信号（本次坏 PR 即因 lint 失败）。
- * 无 lint 脚本时视为通过（与 verifyProject 的跳过语义一致）。
+ * 有自定义命令时执行完整序列（含 install + setup + lint + build），
+ * 否则仅运行 `pnpm lint`（脚本存在时）。
+ *
+ * 设计决策（run 33946113272 复盘）：旧版仅跑 `pnpm lint`，但 Nuxt 等框架
+ * 项目 lint 依赖 `nuxt prepare` 生成的 `.nuxt/tsconfig.json`——无 prepare
+ * 步骤会导致 ESLint OOM。自定义命令已含 prepare，走完整序列可避免此问题；
+ * `pnpm install` 在 node_modules 已就绪时近乎空操作，性能影响可忽略。
  */
 export async function quickVerifyProject(
-    ctx: Pick<AppContext, 'logger' | 'workDir'>,
+    ctx: Pick<AppContext, 'logger' | 'workDir' | 'customCommands'>,
     repo: string,
 ): Promise<boolean> {
-    const { logger, workDir } = ctx
-    const { valid, skipped } = validateVerifyCommands(['pnpm lint'], workDir)
+    const { logger, workDir, customCommands } = ctx
+    const rawCommands = customCommands ?? ['pnpm lint']
+    const { valid, skipped } = validateVerifyCommands(rawCommands, workDir)
 
     if (valid.length === 0) {
         if (skipped.length > 0) {

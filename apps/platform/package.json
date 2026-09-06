@@ -30,7 +30,7 @@
     "@primevue/nuxt-module": "^4.5.5",
     "better-auth": "^1.7.2",
     "better-sqlite3": "^13.0.3",
-    "bullmq": "^6.3.1",
+    "bullmq": "^6.3.4",
     "chart.js": "^4.5.1",
     "cron-parser": "^5.10.0",
     "h3": "^1.15.11",

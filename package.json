@@ -53,7 +53,7 @@
   },
   "devDependencies": {
     "@intlify/eslint-plugin-vue-i18n": "4.5.1",
-    "@lint-md/cli": "2.3.0",
+    "@lint-md/cli": "2.3.1",
     "@types/node": "^26.4.0",
     "@vitest/coverage-v8": "^4.1.10",
     "commitizen": "^4.3.1",

@@ -69,6 +69,13 @@ a {
         width: 28px;
         height: 28px;
         flex-shrink: 0;
+
+        // 透明背景的 logo-mark.svg (teal-600 #0D9488) 在 header 深背景（slate-800 #1E293B）
+        // 上对比度偏弱（约 4:1，WCAG AA 边缘）；用 filter 提亮 + 增饱和，保证暗色模式
+        // 视觉权重与浅色模式平衡；不需要切换 asset（保持单一来源 + 无新资源依赖）
+        @include dark-mode {
+            filter: brightness(1.15) saturate(1.25);
+        }
     }
 
     &__nav {

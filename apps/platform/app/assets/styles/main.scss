@@ -168,17 +168,12 @@ a {
         // auth 页（登录/注册/首页）品牌 mark：方形图标 + 下方 h1 文本组合
         // 用 logo-light / logo-navy 方形 mark（无文字），与 h1 文本分离避免冗余
         // 标题文本由 h1 + 副标题提供（i18n 支持），不再需要 lockup 自带文字
+        // 由 Vue computed :src="authLogoSrc" 跟随 .dark class 切换主题（不是 prefers-color-scheme），
+        // 与 PrimeVue darkModeSelector: .dark 一致
         display: block;
         width: 96px;
         height: 96px;
         margin: 0 auto $space-3;
-
-        // <picture> 是包装容器，其渲染尺寸由内部 <img> 决定；尺寸需下推到 <img>
-        > img {
-            display: block;
-            width: 100%;
-            height: 100%;
-        }
     }
 
     &__title {

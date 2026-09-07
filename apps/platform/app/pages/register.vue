@@ -32,6 +32,11 @@ const allowedDomains: string[] = typeof rawAllowedDomains === 'string'
 const showDomainHint = isEnterprise && allowedDomains.length > 0
 const registrationClosed = publicConfig.registrationDisabled === true
 
+// auth 页品牌 mark：跟随 .dark class 动态切换（与 PrimeVue 主题切换逻辑一致）
+// 之前用 <picture media="(prefers-color-scheme: dark)"> 只跟随系统偏好，
+// 与用户在站内手动 toggle 暗色模式的 .dark class 冲突，导致深色背景下显示浅色 mark
+const authLogoSrc = computed(() => dark.value ? '/brand/logo-navy.svg' : '/brand/logo-light.svg')
+
 const onSubmit = async () => {
     error.value = ''
     if (password.value !== confirmPassword.value) {
@@ -73,10 +78,11 @@ const onSubmit = async () => {
 <template>
     <div class="auth">
         <div class="auth__card">
-            <picture class="auth__logo">
-                <source media="(prefers-color-scheme: dark)" srcset="/brand/logo-navy.svg">
-                <img alt="dependfix" src="/brand/logo-light.svg">
-            </picture>
+            <img
+                class="auth__logo"
+                :src="authLogoSrc"
+                alt="dependfix"
+            >
             <h1 class="auth__title">
                 dependfix
             </h1>

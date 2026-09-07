@@ -172,6 +172,14 @@ a {
         max-width: 280px;
         height: auto;
         margin: 0 auto $space-3;
+
+        // <picture> 是包装容器，其渲染宽度由内部 <img> 决定；max-width 需下推到 <img>
+        // 否则 SVG 按 intrinsic 560×128 渲染，撑破 card 容器（max-width: 420px）
+        > img {
+            display: block;
+            width: 100%;
+            height: auto;
+        }
     }
 
     &__title {

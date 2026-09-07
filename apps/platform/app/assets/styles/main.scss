@@ -182,9 +182,11 @@ a {
     }
 
     &__title {
+        // auth 页主标题：与上方 96×96 mark 形成层次，视觉权重略大于 xl 但不喧宾夺主
         margin: 0 0 $space-1;
-        font-size: $font-size-xl;
-        font-weight: 600;
+        font-size: 1.875rem;
+        font-weight: 700;
+        letter-spacing: -0.01em;
         text-align: center;
     }
 

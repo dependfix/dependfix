@@ -3,7 +3,9 @@ description: "Automated remediation of Dependabot security alerts for pnpm/Node.
 author: "CaoMeiYouRen"
 
 branding:
-  icon: "shield"
+  # GitHub Actions branding.icon 仅支持 Feather v4.28.0 allowlist（无 wrench / tool）。
+  # 选择 check-circle：与 dependfix 品牌资产 logo-mark.svg 的对勾视觉呼应 + auto-fix 语义贴合。
+  icon: "check-circle"
   color: "green"
 
 inputs:

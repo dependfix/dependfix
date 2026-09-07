@@ -64,6 +64,13 @@ a {
         font-weight: 600;
     }
 
+    &__brand-logo {
+        // 与 $header-height (56px) 对齐，logo 占约一半高度
+        width: 28px;
+        height: 28px;
+        flex-shrink: 0;
+    }
+
     &__nav {
         display: flex;
         align-items: center;
@@ -155,6 +162,16 @@ a {
     &__card {
         width: 100%;
         max-width: 420px;
+    }
+
+    &__logo {
+        // auth 页（登录/注册/首页）品牌 lockup：与卡片宽度协调，居中显示
+        // 使用 <picture> 标签实现明暗模式自动切换
+        display: block;
+        width: 100%;
+        max-width: 280px;
+        height: auto;
+        margin: 0 auto $space-3;
     }
 
     &__title {

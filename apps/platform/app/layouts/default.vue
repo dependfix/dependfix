@@ -31,7 +31,12 @@ const canAccessAdmin = computed(() => session.value?.user?.role !== 'viewer')
     <div class="platform">
         <header class="platform__header">
             <div class="platform__brand">
-                <span class="pi pi-shield" aria-hidden="true" />
+                <img
+                    src="/brand/logo-mark.svg"
+                    alt=""
+                    class="platform__brand-logo"
+                    aria-hidden="true"
+                >
                 <span>dependfix</span>
             </div>
             <nav v-if="session?.user" class="platform__nav">

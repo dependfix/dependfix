@@ -26,6 +26,15 @@ const DependfixPreset = definePreset(Aura, {
 export default defineNuxtConfig({
     compatibilityDate: '2025-08-01',
     devtools: { enabled: false },
+    // 全站 favicon：引用 apps/platform/public/brand/ 下的 SVG 副本
+    // （单一来源为仓库根 assets/brand/svg/，公共目录副本保持同步）
+    app: {
+        head: {
+            link: [
+                { rel: 'icon', type: 'image/svg+xml', href: '/brand/favicon.svg' },
+            ],
+        },
+    },
     modules: [
         '@primevue/nuxt-module',
         '@nuxtjs/i18n',

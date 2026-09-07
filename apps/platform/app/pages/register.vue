@@ -73,6 +73,10 @@ const onSubmit = async () => {
 <template>
     <div class="auth">
         <div class="auth__card">
+            <picture class="auth__logo">
+                <source media="(prefers-color-scheme: dark)" srcset="/brand/lockup-dark.svg">
+                <img alt="dependfix" src="/brand/lockup-light.svg">
+            </picture>
             <h1 class="auth__title">
                 dependfix
             </h1>

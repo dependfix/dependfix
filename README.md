@@ -1,3 +1,10 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="./assets/brand/svg/lockup-dark.svg">
+    <img alt="dependfix" src="./assets/brand/svg/lockup-light.svg">
+  </picture>
+</p>
+
 <h1 align="center">dependfix</h1>
 <p>
   <img alt="Version" src="https://img.shields.io/github/package-json/v/dependfix/dependfix.svg" />

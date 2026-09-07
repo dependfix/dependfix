@@ -1,3 +1,10 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="../../assets/brand/svg/lockup-dark.svg">
+    <img alt="dependfix" src="../../assets/brand/svg/lockup-light.svg">
+  </picture>
+</p>
+
 # dependfix
 
 > 自动化处理 GitHub Dependabot / Code Scanning 安全告警的 CLI 工具。

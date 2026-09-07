@@ -1,8 +1,5 @@
 <p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="../../assets/brand/svg/lockup-dark.svg">
-    <img alt="dependfix" src="../../assets/brand/svg/lockup-light.svg">
-  </picture>
+  <img alt="dependfix" src="../../assets/brand/png/banner.png">
 </p>
 
 # dependfix

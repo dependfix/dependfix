@@ -26,12 +26,27 @@ const DependfixPreset = definePreset(Aura, {
 export default defineNuxtConfig({
     compatibilityDate: '2025-08-01',
     devtools: { enabled: false },
-    // 全站 favicon：引用 apps/platform/public/brand/ 下的 SVG 副本
-    // （单一来源为仓库根 assets/brand/svg/，公共目录副本保持同步）
+    // 全站 favicon + 社交分享卡片：
+    // SVG favicon 优先（现代浏览器原生支持），同时声明 PNG 兜底（部分平台 / 渲染器不支持 SVG）
+    // apple-touch-icon 走 PNG（iOS Safari 强制 PNG），og:image 走 PNG（社交平台兼容）
+    // 资产单一来源为仓库根 assets/brand/svg/ + assets/brand/png/，公共目录副本保持同步
     app: {
         head: {
+            meta: [
+                { property: 'og:image', content: '/brand/og-image.png' },
+                { property: 'og:image:width', content: '1200' },
+                { property: 'og:image:height', content: '630' },
+                { property: 'og:image:alt', content: 'dependfix' },
+                { name: 'twitter:card', content: 'summary_large_image' },
+                { name: 'twitter:image', content: '/brand/og-image.png' },
+                { name: 'twitter:image:alt', content: 'dependfix' },
+            ],
             link: [
                 { rel: 'icon', type: 'image/svg+xml', href: '/brand/favicon.svg' },
+                // PNG 兜底：浏览器/平台不支持 SVG 时的 fallback
+                { rel: 'alternate icon', type: 'image/png', sizes: '32x32', href: '/brand/favicon-32.png' },
+                // iOS Safari 添加到主屏幕时强制 PNG
+                { rel: 'apple-touch-icon', sizes: '180x180', href: '/brand/apple-touch-icon.png' },
             ],
         },
     },

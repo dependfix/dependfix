@@ -122,6 +122,37 @@
     - **本次只写文档 + 挂 backlog** vs 直接落地：选前者（用户决策 2026-09-08）—— 与 C68 决策一致，避免与当前 M24+ 阶段排期冲突；触发条件达到后再上收
   - **关联文档**：[`docs/standards/i18n.md`](../standards/i18n.md)（本文档遵循的唯一权威规范，§2 分级 / §2.1 freshness / §4 README / §5 术语 / §6 贡献流程 / §7 回归 / §8 PR 建议全部沿用）/ [`docs/design/governance/platform-ai-integration.md`](../design/governance/platform-ai-integration.md)（平行设计先行稿 C68，本文档即 C69 候选）/ [`docs/standards/git.md` §3 atomic commit 边界](../standards/git.md)（commit 拆分依据）/ [`docs/standards/documentation.md`](../standards/documentation.md)（文档规范）/ [`apps/platform/i18n/locales/`](../../apps/platform/i18n/locales)（平台 UI i18n 现有实现参照）/ <a href="https://github.com/CaoMeiYouRen/momei/blob/master/docs/guide/translation-governance.md">momei translation-governance.md</a>（多语言治理参考）/ <a href="https://github.com/CaoMeiYouRen/momei/blob/master/docs/.vitepress/config.ts">momei docs/.vitepress/config.ts</a>（VitePress locales 配置参考）/ <a href="https://github.com/CaoMeiYouRen/momei/blob/master/packages/cli/README.md">momei packages/cli/README.md</a>（包 README 双语模板参考）
 
+#### 协议与依赖合规
+
+- **C70 apps/platform PrimeUI 主题库降级（@primeuix/themes 3.x → 2.x）** —— 2026-09-08 用户调研触发。**现状**：[`@primeuix/themes@3.0.0`](../standards/index.md) 是 PrimeUI 商业 License（社区免费版有年收入< $1M USD / 开发者< 5 / 员工< 10 / 风投< $3M 限制，**强制 license key**，缺失/无效/过期会显示 license notice）；`apps/platform/nuxt.config.ts` 直接 import `import Aura from '@primeuix/themes/aura'` + `import { definePreset } from '@primeuix/themes'`；`primeicons@8.0.0` + `@primeui/license-manager@1.0.0` 同为 PrimeUI License（5 个 PrimeUI License 包）。**目标**：把 `@primeuix/themes` 从 `^3.0.0` 降到 `^2.0.3`（MIT 协议），消除商业 license 风险与 license key 配置负担。**完整设计先行稿**：[primeui-themes-v2-downgrade.md](../design/governance/primeui-themes-v2-downgrade.md)。
+  - **架构决策**：
+    - **降级 v2 vs 维持 v3 + 申请 license key**：选降级 v2 —— 改动最小（1 import + 1 版本号）+ 协议 MIT + 不依赖用户/组织规模
+    - **仅降级 themes vs PrimeVue 4.x 全栈迁移**：选仅 themes —— PrimeVue 4.x 框架本体仍 MIT，迁移全栈成本远高于 license 风险
+    - **v2 兼容性验证**：`definePreset` API 在 v2/v3 一致；自定义 DependfixPreset（仅改 `semantic.primary` 50-950 色阶）大概率无需改；需小范围跑 typecheck + test + build + dev 视觉回归
+    - **本次只文档 + 挂 backlog**：与 C68 / C69 一致，先文档沉淀 + 评估，避免一次性大改动
+  - **范围（建议落地步骤）**：
+    - **P0 降级落地**（2-3 commits）：① `apps/platform/package.json` `@primeuix/themes` 版本约束 `^3.0.0` → `^2.0.3` + `pnpm install`；② `apps/platform/nuxt.config.ts` 检查 import 路径（如 v2 import 路径有变化需调整）；③ `docs/guide/tech-stack.md` 修正版本号标注（已写 `^2.x` 但实际是 `^3.x`，需对齐）
+    - **P1 评估（可选）**：`primeicons@8.x` → `7.x`（MIT）降级 —— 项目仅用 2 个图标（pi-check-circle / pi-times-circle），license 风险有限但可一并清理；`THIRD_PARTY_NOTICES.md`（仓库根）补 PrimeUI License 治理记录 + caniuse-lite CC-BY-4.0 等；`pnpm licenses:audit` 加 CI 步骤
+  - **不做什么**：不升级 PrimeVue 5.x（避免全栈 PrimeUI License）/ 不迁移其他 UI 库（Element Plus / Naive UI / Vuetify 成本极高）/ 不申请 PrimeUI 商业 license（依赖用户/组织资格，本文档不替用户决策）/ 不重写 DependfixPreset（definePreset API 在 v2 一致，理论上无需改）
+  - **预估工作量**：P0 2-3 commits / 约 30 分钟（含 typecheck + test + build + 视觉回归）
+  - **A 阶段 audit 阈值**：commit 涉及版本号变更 + import 路径调整 + 主题渲染回归，**standard depth**（与 C68 / C69 audit 决策一致）
+  - **落地前 baseline**（用于落地后 diff 对比）：
+    - `pnpm list @primeuix/themes --filter @dependfix/platform`：`@primeuix/themes@3.0.0`
+    - `pnpm licenses list --prod --json | jq '.["Unknown"] | length'`：7（其中 5 个 PrimeUI 相关）
+    - `pnpm view @primeuix/themes@3.0.0 license`：PrimeUI License（社区免费版）
+  - **落地后预期**（验证生效）：
+    - `pnpm list @primeuix/themes --filter @dependfix/platform`：`@primeuix/themes@2.0.3`
+    - `pnpm view @primeuix/themes@2.0.3 license`：**MIT**
+    - `pnpm licenses list --prod --json | jq '.["Unknown"] | length'`：2（移除 5 个 PrimeUI 相关）
+    - 全 license 分布 MIT 占比：84.1% → 84.7%（+5 个）
+  - **回滚预案**：v2 验证失败 → pin `@primeuix/themes@2.0.0`（v2 最早版避免 minor 变更）/ 评估 OpenVue 1.0 迁移 / 申请 PrimeUI 商业 license（用户决策）
+  - **上收触发条件**（任一）：① 用户实测反馈 apps/platform 部署出现 PrimeUI license notice（合规紧迫）；② 用户实测反馈需要长期 license 合规（公开部署 / 商业化）；③ 与 C68 / C69 联动（M28 阶段合并 license 治理 + i18n 治理 + AI 研判）；④ 用户明确触发上收
+  - **关键决策回顾（2026-09-08 用户确认）**：
+    - **降级 v2 vs 维持 v3 + 申请 license key**：选降级 v2 —— 改动最小 + 协议 MIT + 不依赖用户/组织规模
+    - **仅降级 themes vs PrimeVue 全栈迁移**：选仅降级 themes —— PrimeVue 4.x 框架本体仍 MIT，迁移全栈成本远高于 license 风险
+    - **本次只文档 + 挂 backlog**：与 C68 / C69 决策一致，避免一次性大改动；触发条件达到后再上收
+  - **关联文档**：[`docs/standards/index.md`](../standards/index.md)（平台 UI 主题现状）/ [`docs/standards/platform.md`](../standards/platform.md)（`@primeuix/themes` + Aura preset + `darkModeSelector: '.dark'`）/ [`docs/guide/tech-stack.md`](../guide/tech-stack.md)（技术栈文档，需修正版本号）/ [`docs/design/governance/platform-ai-integration.md`](../design/governance/platform-ai-integration.md)（C68 平行设计）/ [`docs/design/governance/docs-and-readme-i18n.md`](../design/governance/docs-and-readme-i18n.md)（C69 平行设计）
+
 #### 多组织 / 多租户
 
 - **D1** repo_admin + RepositoryAccess（实现仓库级 admin 角色区别于全局 admin；当前 owner 角色对仓库控制粒度不足；关联：C22 GitHub App 验证身份）

@@ -153,6 +153,28 @@
     - **B1 数据层去重** vs B2 UI 层 GROUP BY / B3 每次清空：选 B1 —— 彻底解决重复 + 自然支持 fix 复用 + 不破坏审计（fixStatus + scanRunId 仍可追溯）；B2 实现简单但数据膨胀 + fix 复用难做；B3 最简单但破坏"何时发现"审计信号。**备注：B1 数据层去重暂缓，应用层去重（方案 B2 等价）已实施且满足当前业务需求；如未来需要 fix 复用 / 历史 fixStatus 跨次保留再迁移到 B1**
     - **C3 单列智能** vs C1 两列分开 / C2 单列合并：选 C3 —— 用户原话"GHSA ID ... 这才是能真正跨平台追溯漏洞的关键信息"（GHSA 在 GitHub Advisory Database 统一收录多个 CVE，反向追溯更强）；C1 多列占空间但实际查看价值有限；C2 简单但 GHSA / CVE 视觉权重平等，跨平台追溯信号被稀释
 
+#### 平台治理扩展
+
+- **C68 平台 AI 研判集成（apps/platform 端到端联通）** —— 2026-09-08 用户调研触发。**现状**：AI breaking change 研判引擎层 `packages/engine/src/ai/` M5 已闭环（commit 3475e6e），CLI / MCP / GitHub Action 三条用户路径全部支持 `--ai` 系列参数；apps/platform（管理平台）作为执行入口时**零集成**——`POST /api/repos/[id]/scan` 不接收 ai 字段、`ScanRequest` schema 无 ai 字段、三执行器（container / sandbox / github-action）未透传 `RuntimeConfig.ai`、UI 无 AI 配置入口、RunDetailDialog / alerts 视图不消费 `result.aiUsage`。**目标**：让用户在管理平台点 "扫描" 即可启用 AI 研判，集中管理 AI API Key（避免散落 CLI / Action 用户），并在 UI 上可观测 AI 用量与评估结果。**完整设计先行稿**：[platform-ai-integration.md](../design/governance/platform-ai-integration.md)。
+  - **架构决策**：
+    - **API Key 挂载层**：Organization 级加密存储 + 单仓库级开关（vs Repository 级 Key / 全局 platform.config / Credential 复用）—— 一个 Key 服务多仓库避免重复采购 + Organization 实体（M7.1 已落地）天然支持；单仓库独立 aiEnabled 控制成本 / 合规
+    - **未来三层扩展**：评估个人使用（platform.config）/ 组织（本文档）/ 公开（仅 CLI / Action）三种区分
+    - **三执行器一致**：container / sandbox / github-action 同步补齐（vs 仅 container 先落地）
+    - **合并优先级**：API override > Repository 默认 > Organization 共享 Key
+  - **范围（建议落地步骤）**：
+    - **P0 核心集成**（6 步 / 估算 7-9 commits）：① 数据模型（Organization.aiApiKeyEncrypted + aiProvider + aiModel + aiBaseUrl + aiApiUrl + Repository.aiEnabled + aiTrigger + ScanRun.aiConfigSnapshot） + migration；② Schema + Service + Executor 透传；③ 4 个 API 端点（POST scan 扩展 + PATCH organization-ai-config + GET repo-ai-config + POST repo-ai-config）；④ UI（Organization AI 配置表单 + 仓库 AI 开关 + 扫描对话框 override + RunDetailDialog 用量 + alerts 评估列）；⑤ i18n（zh-CN + en-US 加 `ai.*` 命名空间）；⑥ docs/design/governance/architecture.md 同步更新
+    - **P1 增强**：AI 输出安全门与审计（[architecture.md §AI 研判误判处理](../design/governance/architecture.md) 对齐：lint/typecheck/build 验证 + PR 不自动合并 + 置信度阈值 + maskSecrets 日志脱敏）
+  - **不做什么**：不重写 AI 研判引擎本身（engine 层 M5 已闭环）/ 不引入新 AI provider（OpenAI 兼容 + Anthropic 双 provider 足够）/ 不立即支持"个人层"配置（按触发条件评估）/ 不修改 CLI / MCP / GitHub Action 已有的 AI 参数（避免回归）/ 不破坏现有 ScanRequest schema（仅扩展字段，向后兼容）
+  - **预估工作量**：P0 7-9 commits / 约 1.5-2 阶段切片容量（与 C66 量级相近）
+  - **A 阶段 audit 阈值**：commit 涉及 schema / migration / 三执行器透传 / 4 个 API 端点 / UI 状态机变更，**standard depth**（与 C67 audit 决策一致）
+  - **上收触发条件**（任一）：① 用户实测反馈需要管理平台触发 AI 研判（典型：组织内多人协作希望统一管理 Key）；② 公开部署（docker 一键部署）后用户配置 AI 研判门槛太高；③ M28+ 阶段（含 M7.2 平台能力深化续期）启动时；④ 与 C66 告警视图增强联动（M28 阶段合并实施）；⑤ 用户明确触发上收
+  - **关键决策回顾（2026-09-08 用户确认）**：
+    - **AI Key 挂 Organization 级** vs Repository 级 / 全局 / Credential 复用：选 Organization 级 —— 一个 Key 服务多仓库 + Organization 实体已支持 + 多组织 / 多租户场景天然隔离；Repository 级 Key 散落不合规；全局 platform.config 违反多租户方向；Credential 复用混职责
+    - **三执行器同步补齐** vs 仅 container 先落地：选三执行器同步 —— 不一致会埋"未来 sandbox 启用后才发现 AI Key 透传缺失"的坑（参考 sandbox-executor 设计.md §8 类似教训）；container / sandbox / github-action 链路一致才完整
+    - **合并优先级 API override > Repository 默认** vs 完全 override：选前者 —— API override 用于"本次扫描特殊覆盖"（如一次性大版本升级），日常按仓库默认；完全 override 会让 API 调用方每次都要传，运维负担重
+    - **本次只写设计文档 + 挂 backlog** vs 直接落地：选前者（用户决策 2026-09-08）—— 先文档沉淀 + 评估，避免一次性大改动与当前 M24 阶段排期冲突；触发条件达到后再上收
+  - **关联文档**：[architecture.md §AI 研判误判处理](../design/governance/architecture.md) / [sandbox-security-governance.md §A §C](../design/governance/sandbox-security-governance.md)（AI 研判在供应链防护的角色）/ [platform-auth-users.md](../design/governance/platform-auth-users.md)（Organization 实体扩展基线）/ [platform-scheduled-batch.md](../design/governance/platform-scheduled-batch.md)（定时扫描链路统一应用 AI 研判）/ [standards/index.md](../standards/index.md)（"AI 研判不自动合并"治理原则）/ [experience-archive.md](../design/governance/experience-archive.md)（经验沉淀持续追加）
+
 #### 平台批量导入 / Resource owner 抽象
 
 - **C67 批量导入 Resource owner 化** —— 2026-09-04 用户实测反馈：当前 Platform 批量导入对话框（`apps/platform/app/components/import-repos-dialog.vue`）后端 `importable.get.ts:34` 硬编码默认 `affiliation='owner'`，前端从不传 `affiliation` 查询参数（`import-repos-dialog.vue:147-152`），仅显示用户个人仓库；对组织仓库 + 用户所属多组织场景支持不足。MCP 工具 `packages/mcp/src/tools/discover-repos.ts:24-31` 已在 Resource owner 抽象层级（`owner: string[]` 入参），Platform UI 与 MCP 不一致。**用户决策（2026-09-04）**：① 采用 Resource owner 抽象（沿用 GitHub 官方概念，不区分 user vs org）；② 单端点设计（共用 `GET /api/repos/importable`，通过 `include=owners|repos` 路由）；③ 凭据创建时记录 owner（Fine-grained PAT 必填 + GitHub App 可自动从 installation 解析 + Classic PAT 可选）；④ 不提供"全部 owner 合并视图"（坚持 Resource owner 级别隔离）；⑤ **暂时不纳入当前阶段**（M24+ 远期候选）。

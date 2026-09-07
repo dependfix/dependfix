@@ -58,6 +58,7 @@ export default defineConfig({
                         { text: '安全设计', link: '/design/governance/security' },
                         { text: 'GitHub Action 工作流', link: '/design/governance/github-action-workflow' },
                         { text: 'MCP Server 设计（M6）', link: '/design/governance/mcp-server' },
+                        { text: '平台 AI 研判集成设计', link: '/design/governance/platform-ai-integration' },
                     ],
                 },
             ],

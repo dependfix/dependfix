@@ -25,6 +25,11 @@ yarn-error.log*
 *.jpg
 *.png
 *.rar
+# 例外：dependfix 品牌资产（assets/brand/png/ 主源 + apps/platform/public/brand/ Nuxt 静态资源）
+# 部分平台/渲染器不支持 SVG（iOS apple-touch-icon、GitHub social preview 抓图、部分邮件客户端），
+# 必须保留 PNG 作为兜底
+!assets/brand/png/*.png
+!apps/platform/public/brand/*.png
 
 .git
 # ssl

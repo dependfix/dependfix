@@ -6,10 +6,13 @@
 
 ```
 assets/brand/
-└── svg/        所有矢量品牌资产（SVG 格式）
+├── svg/        矢量品牌资产（主源：mark / light / app / navy / lockup / favicon）
+└── png/        位图兜底（不渲染 SVG 的平台：favicon / apple-touch-icon / og-image / banner）
 ```
 
 ## 资产清单
+
+### SVG（主源，矢量）
 
 | 文件 | 用途 | 尺寸（viewBox） | 主题 |
 |:---|:---|:---:|:---|
@@ -20,6 +23,16 @@ assets/brand/
 | `svg/lockup-light.svg` | 横版带「dependfix」文字-浅色 | 560×128 | light |
 | `svg/lockup-dark.svg` | 横版带「dependfix」文字-暗色 | 560×128 | dark |
 | `svg/favicon.svg` | 浏览器 favicon（小尺寸深底） | 32×32 | dark |
+
+### PNG（兜底，位图）
+
+| 文件 | 用途 | 尺寸 | 适用平台 |
+|:---|:---|:---:|:---|
+| `png/favicon-32.png` | 浏览器 favicon PNG 兜底 | 32×32 | 旧浏览器 / 部分桌面 dock |
+| `png/favicon-64.png` | 浏览器 favicon PNG 兜底 | 64×64 | 同上（更高分辨率） |
+| `png/apple-touch-icon.png` | iOS Safari 主屏图标 | 180×180 | iOS / iPadOS（强制 PNG） |
+| `png/og-image.png` | 社交分享卡片 | 1200×630 | Twitter / Facebook / LinkedIn / 微信 |
+| `png/banner.png` | README 头部 banner | 1280×640 | GitHub / npm / 不渲染 SVG 的 Markdown 渲染器 |
 
 ## 命名规范
 
@@ -33,12 +46,12 @@ assets/brand/
 
 ### 仓库根 `README.md`
 
-使用 `<picture>` 标签实现明暗主题自动切换（GitHub 已支持）：
+使用 `<picture>` 标签：暗色模式浏览器显示 SVG（清晰、矢量），其他场景 fallback 到 PNG banner（兼容老渲染器 / 邮件客户端 / 部分平台）：
 
 ```markdown
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="./assets/brand/svg/lockup-dark.svg">
-  <img alt="dependfix" src="./assets/brand/svg/lockup-light.svg">
+  <img alt="dependfix" src="./assets/brand/png/banner.png">
 </picture>
 ```
 
@@ -57,23 +70,34 @@ teal-600 主色在浅色与深色主题下都可辨识，故不需要 `{ light, 
 
 ### `apps/platform`（Nuxt 4）
 
-Nuxt 静态资源走 `apps/platform/public/`，同样需要把 SVG 复制到此目录下：
+Nuxt 静态资源走 `apps/platform/public/`，SVG + PNG 都要复制到此目录下：
 
 ```
 apps/platform/public/brand/
-├── favicon.svg
+├── favicon.svg          # SVG 优先
+├── favicon-32.png       # PNG 兜底
+├── apple-touch-icon.png # iOS 强制 PNG
+├── og-image.png         # 社交分享卡片
 ├── logo-mark.svg
 ├── lockup-light.svg
 └── lockup-dark.svg
 ```
 
-在 `nuxt.config.ts` 的 `app.head` 中引用：
+在 `nuxt.config.ts` 的 `app.head` 中同时声明 SVG + PNG + og:image：
 
 ```ts
 app: {
     head: {
+        meta: [
+            { property: 'og:image', content: '/brand/og-image.png' },
+            { property: 'og:image:width', content: '1200' },
+            { property: 'og:image:height', content: '630' },
+            { name: 'twitter:card', content: 'summary_large_image' },
+        ],
         link: [
             { rel: 'icon', type: 'image/svg+xml', href: '/brand/favicon.svg' },
+            { rel: 'alternate icon', type: 'image/png', sizes: '32x32', href: '/brand/favicon-32.png' },
+            { rel: 'apple-touch-icon', sizes: '180x180', href: '/brand/apple-touch-icon.png' },
         ],
     },
 }
@@ -92,14 +116,12 @@ app: {
 
 ## 文件格式策略
 
-项目**仅使用 SVG**，不提交 PNG 位图：
+项目**以 SVG 为主，PNG 为必要场景兜底**：
 
-- 矢量无损缩放，文件极小（5 个 logo 平均 600B，lockup 1KB）。
-- 单一主源覆盖 README / docs / Nuxt / npm 等多端。
-- 暗色模式天然支持（`<picture>` / VitePress `light/dark` / CSS 媒体查询）。
-- `.gitignore` 已忽略 `*.png`，不破坏项目历史规范。
+- **SVG**（主源）：矢量无损缩放，文件极小（5 个 logo 平均 600B，lockup 1KB）。覆盖 README / docs / Nuxt / npm 等多端；暗色模式天然支持（`<picture>` / VitePress `light/dark` / CSS 媒体查询）。
+- **PNG**（兜底）：覆盖不渲染 SVG 的场景——iOS Safari 主屏图标（强制 PNG）、社交分享卡片（og:image 多数平台接受 PNG）、README 在邮件客户端 / 老 Markdown 渲染器的 fallback。
 
-如果未来需要 PNG（如 iOS apple-touch-icon），在 `assets/brand/png/` 下新增目录即可，不影响现有结构。
+`.gitignore` 已加例外 `!assets/brand/png/*.png` 和 `!apps/platform/public/brand/*.png`，仅放行品牌资产目录，其他 `*.png` 仍默认忽略。
 
 ## 修改流程
 
@@ -107,11 +129,19 @@ app: {
 
 1. 在本地设计稿源（建议统一存放在 `dependfix-logo` 等独立目录，按设计稿与 SVG 双轨管理）。
 2. 重新导出对应 SVG 至本目录 `svg/`，保持命名规范。
-3. 检查所有引用位点是否需要同步更新：
-   - 仓库根 `README.md`
-   - `docs/.vitepress/config.ts`
-   - `apps/platform/nuxt.config.ts` + `apps/platform/app/**`
+3. 对需要 PNG 的变体，用 Python（PIL / Pillow）从 SVG 渲染或从原始 PNG 调整尺寸：
+   - `favicon-32.png`（32×32）/ `favicon-64.png`（64×64）：从 SVG 渲染或从更大 PNG 缩放
+   - `apple-touch-icon.png`（180×180）：iOS 标准尺寸
+   - `og-image.png`（1200×630）：Twitter / Facebook 推荐尺寸，可用 lockup SVG letterbox 生成
+   - `banner.png`（1280×640）：README banner，从原始 1024×1024 mark 加 lockup 文字生成
+4. 同步更新公共目录副本（保持与主源 byte-identical）：
+   - `docs/public/brand/` 副本（VitePress 静态资源）
+   - `apps/platform/public/brand/` 副本（Nuxt 静态资源，含 SVG + PNG 两套）
+5. 检查所有引用位点是否需要同步更新：
+   - 仓库根 `README.md`（banner 用 `<picture>` 配 SVG + PNG fallback）
+   - `docs/.vitepress/config.ts`（仅 favicon + logo，无 og:image）
+   - `apps/platform/nuxt.config.ts`（SVG + PNG 都要声明）+ `apps/platform/app/**`（组件用 SVG）
    - `packages/*/README.md`（如有）
    - 各包 `package.json` 的 `icon` 字段（如已设置）
-4. 跑 `pnpm lint:md` 确保新增/修改的 markdown 通过 lint。
-5. 跑 `pnpm typecheck` + 视觉回归验证（如涉及 apps/platform）。
+6. 跑 `pnpm lint:md` 确保新增/修改的 markdown 通过 lint。
+7. 跑 `pnpm typecheck` + `pnpm --filter dependfix-docs build` + 视觉回归验证（如涉及 apps/platform）。

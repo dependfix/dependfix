@@ -165,20 +165,19 @@ a {
     }
 
     &__logo {
-        // auth 页（登录/注册/首页）品牌 lockup：与卡片宽度协调，居中显示
-        // 使用 <picture> 标签实现明暗模式自动切换
+        // auth 页（登录/注册/首页）品牌 mark：方形图标 + 下方 h1 文本组合
+        // 用 logo-light / logo-navy 方形 mark（无文字），与 h1 文本分离避免冗余
+        // 标题文本由 h1 + 副标题提供（i18n 支持），不再需要 lockup 自带文字
         display: block;
-        width: 100%;
-        max-width: 280px;
-        height: auto;
+        width: 96px;
+        height: 96px;
         margin: 0 auto $space-3;
 
-        // <picture> 是包装容器，其渲染宽度由内部 <img> 决定；max-width 需下推到 <img>
-        // 否则 SVG 按 intrinsic 560×128 渲染，撑破 card 容器（max-width: 420px）
+        // <picture> 是包装容器，其渲染尺寸由内部 <img> 决定；尺寸需下推到 <img>
         > img {
             display: block;
             width: 100%;
-            height: auto;
+            height: 100%;
         }
     }
 

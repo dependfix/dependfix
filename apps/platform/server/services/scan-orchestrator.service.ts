@@ -10,9 +10,11 @@ import type { ScanExecutorContext } from './executor/types'
 import { notifyEnvEvent } from './notification'
 import type { NotificationEvent } from './notification/channel'
 import { reconcileAlerts } from './scan-reconcile'
+import { resolveAiConfig } from './ai-config-resolver'
 import { Repository, parseSandboxLimits } from '#server/entities/repository'
 import { Credential } from '#server/entities/credential'
 import { ScanRun } from '#server/entities/scan-run'
+import { Organization } from '#server/entities/organization'
 import { AuditEvent } from '#server/entities/audit-event'
 import { ensureDatabaseInitialized } from '#server/database'
 
@@ -36,6 +38,16 @@ export interface ScanRequest {
     severityThreshold: string
     /** 执行后端（默认 container；sandbox 启动时不可用自动降级） */
     executorKind?: 'container' | 'github-action' | 'sandbox'
+    /**
+     * AI 研判开关（运行时 override 仓库默认；todo.md §M25.2a）
+     * 合并优先级：API > Repository.aiEnabled > false
+     */
+    aiEnabled?: boolean
+    /**
+     * AI 研判触发范围（运行时 override 仓库默认；todo.md §M25.2a）
+     * 合并优先级：API > Repository.aiTrigger > 'both'
+     */
+    aiTrigger?: 'failure' | 'major' | 'both'
 }
 
 export interface ScanRunOptions {
@@ -126,6 +138,25 @@ const runScanInternal = async (
         throw createError({ statusCode: 404, statusMessage: 'Not Found', message: '仓库不存在' })
     }
 
+    // AI 研判配置合并（todo.md §M25.2a + [platform-ai-integration.md §5.3](../design/governance/platform-ai-integration.md)）：
+    // 优先级：API override (request.aiEnabled/aiTrigger) > Repository 默认 > Organization 共享 Key
+    // provider / model / apiKey / baseUrl / apiUrl 仅取 Organization 级（仓库级无 override——Key 管理是组织级）
+    const orgRepo = ds.getRepository(Organization)
+    const organization = repository.organizationId
+        ? await orgRepo.findOne({ where: { id: repository.organizationId } })
+        : null
+
+    // resolveAiConfig 返回 { ai, error }：error 不为 null 时本次扫描拒绝启动
+    const aiConfigResolution = resolveAiConfig(request, repository, organization)
+    if (aiConfigResolution.error) {
+        throw createError({
+            statusCode: aiConfigResolution.error.statusCode,
+            statusMessage: 'Not Found',
+            message: aiConfigResolution.error.message,
+        })
+    }
+    const resolvedAi = aiConfigResolution.ai
+
     // 执行器选择：显式指定优先，其次按 actionWorkflowFile 自动（B 模式）
     const executorKind = resolveExecutorKind(repository, request)
 
@@ -163,6 +194,10 @@ const runScanInternal = async (
             existing.mode = request.mode
             existing.severityThreshold = request.severityThreshold
             existing.executorKind = executorKind
+            // reuse 时也刷新 AI 配置快照（apiKey 不写入快照；hasApiKey 标记替代）
+            existing.aiConfigSnapshot = aiConfigResolution.snapshot
+                ? JSON.stringify(aiConfigResolution.snapshot)
+                : null
         }
         savedRun = await runRepo.save(existing)
     } else {
@@ -174,6 +209,10 @@ const runScanInternal = async (
             status: 'running',
             startedAt: new Date(),
             batchRunId: options?.batchRunId ?? null,
+            // AI 配置快照（apiKey 不写入；hasApiKey 标记替代）；见 resolveAiConfig
+            aiConfigSnapshot: aiConfigResolution.snapshot
+                ? JSON.stringify(aiConfigResolution.snapshot)
+                : null,
         })
         savedRun = await runRepo.save(run)
     }
@@ -215,6 +254,9 @@ const runScanInternal = async (
             maxRetries: 3,
             maxBackoffMs: 30_000,
             maxRepos: 100,
+            // AI 研判配置（M25.2a）：runtime 注入，已合并优先级 + 解密 apiKey
+            // 见 [resolveAiConfig] 函数注释（AI 合并优先级 + 错误规则）
+            ai: resolvedAi,
         },
         credential: token ? { token } : undefined,
         workDir: savedRun.id,

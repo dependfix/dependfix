@@ -137,29 +137,30 @@
 #### M25.4 M24 follow-up 工具化（i18n-anchor-check + zod-helpers parseOptional）
 
 **P0 i18n-anchor-check 工具**：
-- [ ] `scripts/i18n-anchor-check.mjs` 工具脚本
-- [ ] 检测逻辑：任意 key 在 zh-CN/en-US locale 取值相等时报警（除非是 `{}` placeholder 或 `:number/:date` i18n 复合格式）
-- [ ] 配置 `ignorePatterns` 允许列表
-- [ ] `pnpm i18n:check:anchor` npm script
-- [ ] CI test job 添加该步骤
-- [ ] 故意错位测试 fixture 验证 exit 1 + 当前 zh-CN/en-US 全部 keys 对称时 exit 0
-- [ ] `pnpm run check:docs` 0 error
+- [x] `scripts/i18n/i18n-anchor-check.mjs` 工具脚本（与现有 i18n audit 工具风格一致）
+- [x] 检测逻辑：对比 zh-CN + en-US locale 文件，识别同一 key 在两边取值完全相等且 en-US locale 值含中文的错位污染
+- [x] `ignorePatterns` 允许列表：纯 ASCII 字符串（产品名 / 版本号 / 技术术语 PR Checks）+ 数字 / 布尔字面量 + i18n 复合格式占位符（{count, number}）+ 含 * placeholder（如 "Owner *"）
+- [x] `isLocaleInternalKey` 跳过规则：key 末尾含 .zh-CN / .en / .en-US（结构化本地化数据内部字段如 serverErrors.UNAUTHORIZED.zh-CN）
+- [x] `pnpm i18n:check:anchor` npm script
+- [x] CI test job `.github/workflows/test.yml` 添加该步骤作为 locale 错位污染 blocker
+- [x] 13 个测试用例覆盖：shouldIgnore 6 个 / loadLocaleMap 1 个 / findSuspiciousMatches 3 个（en-US 中文污染 + locale 内部 key 跳过 + 正常翻译不误报）/ main CLI 3 个（baseline exit 0 / 故意污染 exit 1 / JSON 格式输出）
+- [x] `pnpm run check:docs` 0 error
 
 **P0 zod-helpers parseOptional<T>**：
-- [ ] `apps/platform/server/utils/zod-helpers.ts` 模块 + `parseOptional<T>(schema, query, fieldName)` helper
-- [ ] 5+ 单元测试（未传 / 传 undefined / 传合法值 / 传非法值 / 嵌套）
-- [ ] 替换 [经验归档 §五十六 Phase 3 W2](https://github.com/CaoMeiYouRen/dependfix/blob/master/docs/design/governance/experience-archive.md) 死代码（alerts/index.get.ts `data !== undefined` 双重判断冗余）
-- [ ] 替换 [经验归档 §五十六 Phase 2 W6](https://github.com/CaoMeiYouRen/dependfix/blob/master/docs/design/governance/experience-archive.md) ack fixture 路径（acknowledgedAt 必填验证）
+- [x] `apps/platform/server/utils/zod-helpers.ts` 模块 + `parseOptional<T>(schema, value): { success, value?, isProvided }` helper
+- [x] 13 个单元测试覆盖：boolean / enum / 嵌套对象 schema × 5 种值（未传 / 传 true / 传 false / 传非法 / 传 null）+ alertFiring 三态语义实战
+- [x] 替换 [经验归档 §五十六 Phase 3 W2](docs/design/governance/experience-archive.md) 死代码（pr-checks/index.get.ts `data !== undefined` 双重判断冗余 → parseOptional 显式三态）
+- [x] 替换 [经验归档 §五十六 Phase 2 W6](docs/design/governance/experience-archive.md) ack fixture 验证（[id].patch.test.ts `not.toBeNull()` → parseOptional 强制 isProvided + ISO 8601 可解析）
 
 **P0 文档挂接**：
-- [ ] `docs/standards/development.md` 补充「i18n locale 对称性检查」段
-- [ ] `docs/standards/development.md` 补充「zod optional 语义区分」段
+- [x] `docs/standards/development.md` §3 升级 i18n locale 注释规范（引入 `pnpm i18n:check:anchor` 自动检测 + 跳过规则说明）
+- [x] `docs/standards/development.md` §5.1.21 zod optional 补充 zod-helpers 落地说明 + 应用示例 + ack fixture 验证升级
 
 **commit 跟踪**：
-- [ ] commit 1: `feat(platform): i18n-anchor-check 工具脚本 + CI 集成（locale 对称性检查）`（~3 文件 / ~150 行）
-- [ ] commit 2: `feat(platform): zod-helpers parseOptional<T> helper + 应用替换 Phase 3 W2 + Phase 2 W6`（~4 文件 / ~180 行）
+- [x] commit 1: `80912c2` `feat(i18n): i18n-anchor-check 工具脚本 + CI 集成（locale 对称性检查）`（5 文件 / +386 行 / 13 单测）
+- [x] commit 2: `65a8ec1` `feat(platform): zod-helpers parseOptional<T> helper + 应用替换 Phase 3 W2 + Phase 2 W6`（5 文件 / +213 行 / 13 单测）
 
-**预计 commits**：2 / 行净增 ~330 / **类型 🛡️🧪 governance + testing** / **audit quick depth**
+**实际 commits**：2 / 行净增 ~599 / **类型 🛡️🧪 governance + testing** / **audit quick depth** / **ahead=2 + M25.3 2 + M25.2a 5 + M25.1 3 + M25 P 阶段 2 = ahead=14 待用户主动推送**
 
 ### 阶段切片容量核验
 

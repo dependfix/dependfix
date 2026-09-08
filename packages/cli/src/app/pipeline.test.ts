@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 // Mock @dependfix/engine - 只 mock DependfixApp，保留其他导出
 const mockRun = vi.fn().mockResolvedValue({ exitCode: 0 })

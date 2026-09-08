@@ -43,7 +43,7 @@
     "nuxt": "^4.5.1",
     "pg": "^8.23.0",
     "primeicons": "^8.0.0",
-    "primelocale": "^2.4.0",
+    "primelocale": "^2.5.0",
     "primevue": "^4.5.5",
     "reflect-metadata": "^0.2.2",
     "sass": "^1.104.0",

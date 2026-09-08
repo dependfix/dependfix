@@ -55,7 +55,7 @@ wc -l docs/design/governance/experience-archive.md
 |:---|:---|:---|:---|
 | `[bug]` | 已被后续 CI/测试验证稳定修复 | `docs/design/governance/` 对应治理文档 | P0 防护演进（多版本共存 overrides） |
 | `[pattern]` | 被 2+ 个不同模块复用或验证有效 | `docs/standards/` 对应规范文档 | dry-run 纪律 → `ai-collaboration.md` |
-| `[decision]` | 影响后续持续开发方向的架构选型 | `docs/design/packages/` 模块设计或 `docs/design/governance/` | 多版本共存分别 overrides → 修复链路设计 |
+| `[decision]` | 影响后续持续开发方向的架构选型 | `docs/design/modules/` 模块设计或 `docs/design/governance/` | 多版本共存分别 overrides → 修复链路设计 |
 | `[env]` | 影响多台机器的环境配置/工具链 | `docs/guide/tech-stack.md` 或 `docs/guide/ai-development.md` | Windows 行尾纪律 |
 | `[test]` | 可复用为项目测试规范 | `docs/standards/testing.md` | Review Gate 独立验证测试声明 |
 | `[baseline]` | 作为后续对比基线 | `docs/research/` | 测试规模演进基线 |

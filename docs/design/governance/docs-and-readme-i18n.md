@@ -384,7 +384,7 @@ npx dependfix report-only --repo owner/repo --github-token $GITHUB_TOKEN
 
 > dependfix 核心领域模型库。
 
-详情见 [docs/design/packages/data-model.md](https://github.com/dependfix/dependfix/blob/master/docs/design/packages/data-model.md)。
+详情见 [docs/design/modules/data-model.md](https://github.com/dependfix/dependfix/blob/master/docs/design/modules/data-model.md)。
 
 ## 安装
 
@@ -400,7 +400,7 @@ npx dependfix report-only --repo owner/repo --github-token $GITHUB_TOKEN
 
 > dependfix core domain model library.
 
-See [docs/design/packages/data-model.md](https://github.com/dependfix/dependfix/blob/master/docs/design/packages/data-model.md) for details.
+See [docs/design/modules/data-model.md](https://github.com/dependfix/dependfix/blob/master/docs/design/modules/data-model.md) for details.
 
 ## Installation
 

@@ -53,8 +53,6 @@ Agent-First 的完整项目级定义以 `AGENTS.md` 为准。Agent 是默认任�
 | 3 | 本地实验 | 跑一下胜过猜：`npm pack` 验证发布产物、临时 git 仓库模拟 tag 分段、单测验证边界——分钟级出实锤 |
 | 4 | 翻源码 | **仅限**：需要最终实锤且 1-3 均无法确认（如"标题写死"这类文档不描述的实现细节）；对第三方包做安全审计。禁止作为默认手段 |
 
-> 2026-08 教训：方案未确认就派审计 agent 翻源码属于浪费；`npm pack` 实验 30 秒实锤了"npm 不替换 workspace:*"，真实项目产物（better-auth npm manifest 无 `workspace:` 残留）直接否定了错误假设。
-
 #### 分级审计执行协议（audit-depth）
 
 审查投入与改动风险匹配，不应对所有改动一视同仁长时间分析。本协议与 [§2.2 验证分级矩阵](#22-验证分级矩阵) 正交：**验证矩阵决定最低证据门槛**（哪些验证证据必须存在，缺失即 Reject），**audit-depth 决定核验投入**（审计者怎么核验、花多长时间）。执行角色按 §2.2 收集验证证据，审计者按下表核验：
@@ -66,7 +64,7 @@ Agent-First 的完整项目级定义以 `AGENTS.md` 为准。Agent 是默认任�
 | `deep` | 发布流程、安全/鉴权、外部调用、数据写入、配置与依赖变更、agent/skill 定义 | 全量 checklist + 针对性实证（临时仓库/本地实验/验证命令按需执行） | ≤ 20 分钟 |
 
 配套实践：
-- **审计 prompt 携带"已查证事实"**：执行角色把调研结论/实验证据写进审计任务，避免审计者从头翻源码，显著提升效率与命中率（2026-08 多轮 Review Gate 实证：抓到 tag 不推送、分段回归、runner 无 git 身份等真问题，同时每轮用时可控）；
+- **审计 prompt 携带"已查证事实"**：执行角色把调研结论/实验证据写进审计任务，避免审计者从头翻源码，显著提升效率与命中率；
 - **分级沿用 blocker / warning / suggest**（见 [测试规范 §4.1 按风险分级执行](../standards/testing.md) 与 [code-reviewer skill](../../.github/skills/code-reviewer/SKILL.md)）；
 - **审计调用协议**：`Full Stack Master (全栈大师)` 发起审计时必须显式声明 `audit-depth`（quick / standard / deep + 理由）、变更文件清单、已验证证据摘要与复审问题编号；未声明按 `deep` 防御执行；
 - **真实用时实测（事后校准数据，非审计过程命令）**：LLM 自报用时是估算值，无真实时间感知，**不得作为时间盒核验依据**。时间盒核验由调用方事后实测：发起审计 task 前用宿主系统时钟记录启动时间戳（PowerShell 用 `Get-Date -Format o` 等），审计返回后用系统时钟计算 elapsed，把"实际用时 / 是否超时间盒"回填审计结论与证据记录。**审计过程中不要求审计方感知或检查时间**——专注审计本身；超时（elapsed > 时间盒）不回溯要求审计方补动作，只作为分级校准信号记录：连续/高频超时说明 audit-depth 声明偏松或时间盒偏紧，据此调整分级与时间盒设置；
@@ -82,14 +80,14 @@ Agent-First 的完整项目级定义以 `AGENTS.md` 为准。Agent 是默认任�
 - **dry-run 纪律**：所有会写盘/执行/变更的路径，在 mutation 前必须 guard dry-run（零写盘、零 install、零 mutation）。
 - **交付检查所有暴露层**：能力交付前检查四层——CLI flag / env / action input / 文档表，缺一层即不完整。
 - **不可行证明优先于硬实现**：需求与实现约束冲突时，记录论证过程后放弃是合规决策；不引入不可验证的修复器。
-- **方案设计接受「用户引导收敛」**：用户对方案的修订往往收敛到"更简 + 更实用"——典型三轮收敛：大方案（后端全量 + 前端滚动）→ 用户「还是多了」→ 中方案（纯前端分页）→ 用户「加缓存优化」→ 终方案（缓存 + 轻量分页）。实战意义：第一轮方案不必过度优化，接受「用户会引导收敛」的预期；主动问「还有优化空间吗」常能得到缓存等非显式需求。
+- **方案设计接受「用户引导收敛」**：用户对方案的修订往往收敛到"更简 + 更实用"；第一轮方案不必过度优化，接受「用户会引导收敛」的预期；主动问「还有优化空间吗」常能得到缓存等非显式需求。
 
 ### 1.4 单次提交审计阈值（10 文件 / 800 行）
 
 - 单次 commit/diff 超出 **10 文件** 或 **800 行新增** → 必须拆分 multiple atomic commits，否则第 1 轮 audit Reject。
 - 拆分依据：按职责切分（utils / 表格 / 后端 / 前端 / docs）。拆分后每个 commit 须 < 10 文件 / < 800 行新增（与 §1.1 任务粒度约束 + 本节硬阈值保持一致）。
 - **推荐拆分粒度（非硬阈值）**：≤ 5 文件 / ≤ 350 行 —— 便于审查聚焦与单测覆盖；超此粒度但仍在硬阈值内仍合规（如 7 文件 / 600 行的跨包契约 commit）。
-- **依赖关系处理（拆分时必填）**：拆分后确保 commit 1 独立可测（基础设施层如字典 + helper 同步落地，codeSet 测试覆盖新 code）；commit 2 业务 throw 改造依赖 commit 1（引用新 code）；commit 3 测试调整依赖 commit 2（验证 throw 改造行为）。任何 commit 不可被独立运行验证即拆分错位。M17.4 总 13 文件拆 2 commits 实证：commit 1 字典 + helper + API throw 改造（9 文件 / < 10 文件阈值 / 独立可测——codeSet 测试通过）；commit 2 既有测试 message→code 断言调整（4 文件 / 依赖 commit 1 新 code——commit 2 时 typecheck / test 必须实测确认 commit 1 已落地）。
+- **依赖关系处理（拆分时必填）**：拆分后确保 commit 1 独立可测（基础设施层如字典 + helper 同步落地，codeSet 测试覆盖新 code）；commit 2 业务 throw 改造依赖 commit 1（引用新 code）；commit 3 测试调整依赖 commit 2（验证 throw 改造行为）。任何 commit 不可被独立运行验证即拆分错位。
 - 例外：纯新增文件（如新建测试文件或工具模块）单文件超过 800 行（如生成的 d.ts）不强制拆分——但需在 audit prompt 中声明"超出阈值但属单文件生成产物"理由。
 
 ### 1.5 风险分级 vs blocker 区分（依赖审计 vs 依赖风险）
@@ -116,12 +114,7 @@ pnpm --filter @dependfix/platform run typecheck
 pnpm --filter @dependfix/platform exec vitest run
 ```
 
-**根因教训**（M24.1 + M24.2 + M24.3 阶段累积）：
-- vitest 用 esbuild 转译不触发 TS 严格检查，CI 通过 ≠ 本地 typecheck 通过；CI 自动 rebuild workspace dist 掩盖本地 dev 过期
-- ESLint --fix 自动修复 import/order + eol-last 等问题，可能掩盖"0 error 自检证据"覆盖盲区
-- M24.1 Phase 2 两次 audit Reject 实证 B1（polling-source.test.ts import 错误）+ B2（`Array<T>` 错误）都是 D 阶段自检仅跑 --fix 漏掉
-
-**CI 失败兜底**：上述三向验证通过 + `pnpm run check:docs` exit 0 + (含 SCSS/CSS 改动时) `pnpm --filter @dependfix/platform build` exit 0，才能进入 A 阶段审计。CI 通过 = 最终裁决，本地通过 ≠ 完成。
+**CI 失败兜底**：上述三向验证通过 + `pnpm run check:docs` exit 0 + (含 SCSS/CSS 改动时) `pnpm --filter @dependfix/platform build` exit 0，才能进入 A 阶段审计。CI 通过 = 最终裁决，本地通过 ≠ 完成。教训见 [经验归档 §五十六（M24.1 教训 1）](../design/governance/experience-archive.md)。
 
 所有写操作任务必须严格遵循以下执行顺序。**严禁跨越关键质量阈值。**
 
@@ -141,7 +134,7 @@ P 阶段规划写入 `todo.md` 顶部 banner / M 段 banner 时，ahead 状态�
 - **正确**：`ahead commits 实证命令` + commits 列表（如 `M13.4 三 commits 2dce01d + bb3b49a + 8762a4b 推送至 origin/master`）—— 即便部分已推送也只损失"哪些未推"信息，不损失准确性
 - **附议**：sub-task ID 跨 commit 引用时（如 "T1310 ahead 5 commits + T1401 + T1402 + T1403"）typo 风险显著，建议 `rg -n "T\d{4}" docs/plan/*.md` 校对
 
-教训：M14 P 阶段规划 commit `1fd38c1` 写错 2 处（① sub-task ID typo `T1402+T1303` 应为 `T1402+T1403`；② banner ahead 描述写"ahead=3 仅 M13.4 三 commits 待用户推送" + "ahead=8"——实际 M13.4 三 commits + M13 归档批次 5 commits 均已被用户推送至 origin/master，ahead=0；M14.1 P 阶段规划 commit 落地后 ahead=1）。M14.1 收口 commit `e7103f6` 修正（ahead 改用 commits 列表 + 实证命令；typo 修正）。详见 [规划规范 §4.4 §5 ahead commits 实证 + 动态描述](./planning.md#44-大批量归档批次操作规范) + [session wisdom 蒸馏机制](../design/governance/session-wisdom-distillation.md)。
+教训（M14 P 阶段规划 commit `1fd38c1` typo + ahead 描述错误）详见 [规划规范 §4.4 §5 ahead commits 实证 + 动态描述](./planning.md#44-大批量归档批次操作规范) + [session wisdom 蒸馏机制](../design/governance/session-wisdom-distillation.md)。
 
 ### D (Do) — 业务执行
 
@@ -239,9 +232,7 @@ wc -l docs/design/governance/experience-archive.md  # 当前最新§号连续性
 - **规范单点声明**：新规则仅在权威文档完整声明一次，其他文档/skill/agent 仅一行链接引用（[documentation.md §4](./documentation.md)）
 - **活跃 Wisdom 条目数**：本批次新增 pattern 累计后是否触达 20 阈值（若是必须先蒸馏）
 
-**实证教训**：
-- M20 经验教训沉淀 commits（`7a3d746`/`b23251c`/`5e81b19`/`f56e9a1`）提交后 `pnpm run check:docs` 发现 2 处断链（experience-archive.md:781 路径错误 + development.md:237 锚点格式错误），返工 commit `edef93b` 修复——若沉淀前 A 阶段审计检查 cross-reference + check:docs 可避免返工。
-- M18 / M19 归档批次同样有"删过头"教训（§四十五 经验沉淀）——沉淀/归档操作不是无风险，D 阶段标准必须套用。
+**实证教训**（M20 断链 + M18/M19 删过头）：沉淀/归档操作不是无风险，D 阶段标准必须套用。详见 [经验归档 §四十五](../design/governance/experience-archive.md)。
 
 ### 4. 与既有规范的关联
 
@@ -387,8 +378,7 @@ CI 失败后不得回退到全量重试，应分析具体失败点针对性修�
 - F 阶段本地验证用 `pnpm --filter <pkg> test`（仅跑特定包，例：platform → 705+4skip）≠ CI 跑 `pnpm test` 全 workspace（2128+5skip）+ coverage 4 维度（stmts/branch/funcs/lines）。
 - **陷阱**：本地 F 阶段验证全过、vitest 全绿、无回归——**完全漏掉 apps/platform/server / packages/cli / packages/engine / scripts 等非 platform 包引起的分支回归**。CI Coverage job 失败（branches 79.88% < 80%）时常因此发生。
 - **修复协议（hard requirement）**：F 阶段"完整验证"必须含 `pnpm run test:coverage`（全 workspace）+ 检查 4 维度（statements / branches / functions / lines）是否 ≥ 80% 阈值 + 定位新增文件未覆盖分支 + 补测至 ≥ 阈值，而非仅 `pnpm --filter <pkg> test`。CI 通过 = 最终裁决，本地通过 ≠ 完成。
-- **二次固化警告**：本节规则曾在 [CI run 32880889750](https://github.com/dependfix/dependfix/actions/runs/32880889750) 二次复发——branches 79.98% < 80% 失败，根因是 M13.3 T1308 新增 `code-quality-fetcher.ts` 等 4 个新文件未被既有测试覆盖（防御分支 cursor 重复死循环 / URL parse catch / RATE_LIMITED 兜底 / 三源错误隔离）。**默认 80% 阈值即通过但漏了多包增量回归**。F 阶段验证清单须把 `pnpm run test:coverage` 列入 hard requirement，不得用"基线已通过"做理由省略。
-- 实证：某次 platform UX 治理阶段 12 commits 推送后 CI Coverage job 失败，但本地 F 阶段验证显示全过，**回归 +8 分支**才发现（详见 commit `0c57211`，2026-08-21 推送；背景见 [经验归档 §二十八](../design/governance/experience-archive.md)）+ M13.3 补测 commit `e63cdb9`（branches 79.98% → 80.17%，14 case）。
+- **二次固化警告**：本节规则曾在 [CI run 32880889750](https://github.com/dependfix/dependfix/actions/runs/32880889750) 二次复发——branches 79.98% < 80% 失败。**默认 80% 阈值即通过但漏了多包增量回归**。F 阶段验证清单须把 `pnpm run test:coverage` 列入 hard requirement，不得用"基线已通过"做理由省略。详见 [经验归档 §二十八（M13.3 + 0c57211）](../design/governance/experience-archive.md)。
 
 - **`pnpm --filter @dependfix/platform typecheck` 输出 "Done" ≠ TS 0 error（nuxt typecheck 容忍部分 TS error）**：nuxt typecheck 走 `vue-tsc` pipeline，在某些情况下容忍 TS error（如 `Record<string, unknown>` 索引访问得到 `{}` 时不报错；strict 模式下访问 `err.data?.code` 仍会 TS2339 但 build 不阻断）。执行方"typecheck 7 包全 Done"宣称**不可信**——必须实测确认 0 error。M17.4 commit 2 audit Reject 实测 7 个 TS2304 + TS2339 error（`batch.post.test.ts:2` 缺 `afterEach` import + 6 处 `err.data?.code/field/resource` 属性访问失败）此前未触发实测；Reject 后针对性补修闭环。F 阶段验证必须实测 typecheck 0 error，不能仅看 "Done" 输出。其他文档（git.md、testing.md、skill/agent 定义）仅作一行引用。
   - 实操：执行 `pnpm --filter @dependfix/platform typecheck 2>&1 | grep -E "error TS|Done"` 看完整输出；或跑 audit 时让 code-auditor agent 实测 typecheck（不能信执行方证据）。
@@ -415,7 +405,7 @@ CI 失败后不得回退到全量重试，应分析具体失败点针对性修�
 
 ### 4.7 CI 偶发错误三阶段协议（PDTFC+ F 阶段修复工作流）
 
-> 教训来源：M22.7 hotfix commit `f617b56`（CI run 33525721103 E2E global-setup ECONNRESET）+ M22.8 hotfix commit `bdcd900`（CI run 33533376712 未认证 API 测试 cookie 注入）+ [经验归档 §五十一](../design/governance/experience-archive.md) + §五十二。
+> 教训来源（M22.7 + M22.8 hotfix）见 [经验归档 §五十一](../design/governance/experience-archive.md) + §五十二。
 
 CI 失败时按以下三阶段协议处理（避免"无限本地复现"陷阱）：
 

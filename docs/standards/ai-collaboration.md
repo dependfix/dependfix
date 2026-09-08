@@ -87,8 +87,9 @@ Agent-First 的完整项目级定义以 `AGENTS.md` 为准。Agent 是默认任�
 ### 1.4 单次提交审计阈值（10 文件 / 800 行）
 
 - 单次 commit/diff 超出 **10 文件** 或 **800 行新增** → 必须拆分 multiple atomic commits，否则第 1 轮 audit Reject。
-- 拆分依据：按职责切分（utils / 表格 / 后端 / 前端 / docs），每个批次 ≤ 5 文件 / ≤ 350 行。
-- **依赖关系处理（拆分时必填）**：拆分后确保 commit 1 独立可测（基础设施层如字典 + helper 同步落地，codeSet 测试覆盖新 code）；commit 2 业务 throw 改造依赖 commit 1（引用新 code）；commit 3 测试调整依赖 commit 2（验证 throw 改造行为）。任何 commit 不可被独立运行验证即拆分错位。M17.4 总 13 文件拆 2 commits 实证：commit 1 字典 + helper + API throw 改造（9 文件 / 独立可测——codeSet 测试通过）；commit 2 既有测试 message→code 断言调整（4 文件 / 依赖 commit 1 新 code——commit 2 时 typecheck / test 必须实测确认 commit 1 已落地）。
+- 拆分依据：按职责切分（utils / 表格 / 后端 / 前端 / docs）。拆分后每个 commit 须 < 10 文件 / < 800 行新增（与 §1.1 任务粒度约束 + 本节硬阈值保持一致）。
+- **推荐拆分粒度（非硬阈值）**：≤ 5 文件 / ≤ 350 行 —— 便于审查聚焦与单测覆盖；超此粒度但仍在硬阈值内仍合规（如 7 文件 / 600 行的跨包契约 commit）。
+- **依赖关系处理（拆分时必填）**：拆分后确保 commit 1 独立可测（基础设施层如字典 + helper 同步落地，codeSet 测试覆盖新 code）；commit 2 业务 throw 改造依赖 commit 1（引用新 code）；commit 3 测试调整依赖 commit 2（验证 throw 改造行为）。任何 commit 不可被独立运行验证即拆分错位。M17.4 总 13 文件拆 2 commits 实证：commit 1 字典 + helper + API throw 改造（9 文件 / < 10 文件阈值 / 独立可测——codeSet 测试通过）；commit 2 既有测试 message→code 断言调整（4 文件 / 依赖 commit 1 新 code——commit 2 时 typecheck / test 必须实测确认 commit 1 已落地）。
 - 例外：纯新增文件（如新建测试文件或工具模块）单文件超过 800 行（如生成的 d.ts）不强制拆分——但需在 audit prompt 中声明"超出阈值但属单文件生成产物"理由。
 
 ### 1.5 风险分级 vs blocker 区分（依赖审计 vs 依赖风险）

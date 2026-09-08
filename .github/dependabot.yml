@@ -10,13 +10,26 @@ updates:
     # §T1310 apps/platform/package.json 的 version 字段由 release 脚本管理
     # （release:version 依赖传导 + 手动版本提升）；dependabot 默认不动顶层 version，
     # 但 apps/platform 的内部依赖（better-sqlite3 / bullmq / h3 / ioredis / mysql2
-    # / pg / typeorm / nuxt / primevue / zod 等）若需要升级走 dependabot 无碍，
+    # / pg / typeorm / nuxt / zod 等）若需要升级走 dependabot 无碍，
     # 不在此处加 ignore 以免误拦截其他 5 个 npm 包的依赖管理
     # §M14.2 conventional-changelog@8.x 模板引擎与 cmyr-config 3.x 不兼容
     # （scripts/changelog.mjs:23 已锁 ^7），忽略 major 升级直到 cmyr-config 适配 8.x
+    # §M25.1 + M25 follow-up #3 PrimeUI License 治理：拦截所有 prime 依赖包自动更新
+    # - @primeuix/themes@2.0.3 (MIT) → v3.x 跨大版本是 PrimeUI License（商业）
+    # - @primevue/nuxt-module@4.5.5 (PrimeUI License) → minor/patch 可能引入 license key 强制要求
+    # - primeicons@8.0.0 (PrimeUI License) → v7.x 是 MIT（降级需 M26 follow-up 手动实施）
+    # 详见 [C70 PrimeUI 主题库降级设计先行稿](../design/governance/primeui-themes-v2-downgrade.md) + M25 阶段归档 [archive/todo-archive-phases-m25.md](../plan/archive/todo-archive-phases-m25.md)
+    # 拦截策略：所有 update-types（major + minor + patch）—— PrimeUI License 包严格管控，
+    # 升级需人工审核 License 风险 + M25 follow-up 实施（M26 阶段 primeicons 8.x → 7.x 降级 + 经验归档沉淀）
     ignore:
       - dependency-name: conventional-changelog
         update-types: [version-update:semver-major]
+      - dependency-name: "@primeuix/*"
+        update-types: ["version-update:semver-major", "version-update:semver-minor", "version-update:semver-patch"]
+      - dependency-name: "@primevue/*"
+        update-types: ["version-update:semver-major", "version-update:semver-minor", "version-update:semver-patch"]
+      - dependency-name: primeicons
+        update-types: ["version-update:semver-major", "version-update:semver-minor", "version-update:semver-patch"]
   - package-ecosystem: github-actions
     directory: /
     open-pull-requests-limit: 20

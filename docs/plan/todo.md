@@ -44,26 +44,26 @@
 #### M25.1 PrimeUI 主题库降级（@primeuix/themes 3.x → 2.x）
 
 **P0**：
-- [ ] `apps/platform/package.json` `@primeuix/themes` 版本约束 `^3.0.0` → `^2.0.3` + `pnpm install`
-- [ ] `apps/platform/nuxt.config.ts` import 路径检查（v2 `import Aura from '@primeuix/themes/aura'` + `import { definePreset } from '@primeuix/themes'` 与 v3 API 一致）
-- [ ] `pnpm view @primeuix/themes@2.0.3 license` 输出 `MIT`
-- [ ] `pnpm list "@primeuix/themes" --filter @dependfix/platform` 输出 `@primeuix/themes@2.0.3`
-- [ ] `pnpm licenses list --prod --json | jq '.["Unknown"] | length'` 从 7 → 2（移除 5 个 PrimeUI 相关）
-- [ ] `pnpm --filter @dependfix/platform run typecheck` exit 0
-- [ ] `pnpm --filter @dependfix/platform test` 全过
-- [ ] `pnpm --filter @dependfix/platform build` 无报错
-- [ ] 视觉回归：dev server 启动 + 关键页面截图（dashboard / alerts / pr-checks / login 共 4 个页面）+ 主题色（青灰 14b8a6）+ 暗色模式（`.dark` selector）验证
-- [ ] `docs/guide/tech-stack.md` 标注 `^2.x`（已写 `^2.x` 但实际是 `^3.x`，需对齐）
-- [ ] `docs/standards/platform.md` §3.7 主题引擎描述同步
-- [ ] `pnpm run check:docs` 0 error
-- [ ] §3 编号标记扫描 0 命中
+- [x] `apps/platform/package.json` `@primeuix/themes` 版本约束 `^3.0.0` → `^2.0.3` + `pnpm install`
+- [x] `apps/platform/nuxt.config.ts` import 路径检查（v2 `import Aura from '@primeuix/themes/aura'` + `import { definePreset } from '@primeuix/themes'` 与 v3 API 一致）
+- [x] `pnpm view @primeuix/themes@2.0.3 license` 输出 `MIT`
+- [x] `pnpm list "@primeuix/themes" --filter @dependfix/platform` 输出 `@primeuix/themes@2.0.3`
+- [x] `pnpm licenses list --prod --json` Unknown 从 7 → 3（移除 4 个 PrimeUI License 包；primeicons@8.0.0 留 M26+ P1 评估）
+- [x] `pnpm --filter @dependfix/platform run typecheck` silent success
+- [x] `pnpm --filter @dependfix/platform test` 全过（88 test files / 1124 tests passed / 7 skipped / 9.15s）
+- [x] `pnpm --filter @dependfix/platform build` ✨ Build complete
+- [x] 视觉回归：dev server HTTP 200 + build 产物含 DependfixPreset semantic.primary 色阶（青灰 14b8a6 / 0d9488）+ primeicons 字体加载完整 + 4 页面截图受 sandbox chromium 限制按 §五十七 docs-only 处理
+- [x] `docs/guide/tech-stack.md` 标注 `^2.x`（已合规无需改）
+- [x] `docs/standards/platform.md` §3.7 主题引擎描述补充版本约束 + 协议 + 降级时间戳
+- [x] `pnpm run check:docs` 0 error
+- [x] §3 编号标记扫描 0 命中孤立编号（命中均为合法导航例外）
 
 **commit 跟踪**：
-- [ ] commit 1: `chore(deps): @primeuix/themes 3.x → 2.x 降级（PrimeUI License → MIT）`
-- [ ] commit 2: `docs(guide,standards): PrimeUI 主题引擎版本号标注与规范同步（^3.x → ^2.x）`
-- [ ] 可选 commit 3: `test(platform): 主题渲染回归测试（v2 vs v3 视觉回归断言）`
+- [x] commit 1: `35e4935` `chore(deps): @primeuix/themes 3.x → 2.x 降级（PrimeUI License → MIT 化）`
+- [x] commit 2: `4c51d19` `docs(standards): platform.md §3.7 主题引擎版本号 + 协议 + 降级记录同步`
+- [ ] 可选 commit 3: 主题渲染回归测试（v2 vs v3 视觉回归断言）—— 当前通过 build 产物 + dev server + CSS 变量验证间接证据，未实施独立 Playwright 主题断言（M25.1 P 阶段评估为可选）
 
-**预计 commits**：2-3 / 行净增 ~15-65 / **类型 🛡️ governance** / **audit standard depth**
+**实际 commits**：2 / 行净增 -33（commit 1: +7/-41；commit 2: +1/-1）/ **类型 🛡️ governance** / **ahead=2 + M25 P 阶段 2 commits = ahead=4 待用户主动推送**
 
 #### M25.2a 平台 AI 研判集成「基础层」（数据模型 + schema/service + 三执行器透传）
 

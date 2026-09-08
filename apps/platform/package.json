@@ -55,7 +55,7 @@
     "zod": "^4.5.4"
   },
   "devDependencies": {
-    "@playwright/test": "^1.62.1",
+    "@playwright/test": "^1.63.0",
     "@types/better-sqlite3": "^9.6.0",
     "@types/nodemailer": "^8.0.1",
     "@types/pg": "^8.23.1",

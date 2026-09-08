@@ -35,8 +35,8 @@
 - **导出函数默认应有 JSDoc**: 简要说明用途、边界、返回语义与副作用。
 - **禁止无效或过量注释**: 不机械给每行、每个变量加注释。
 - **注释必须随实现同步**: 修改逻辑时同步更新或删除过时注释。
-- **禁止开发流程编号标记**: 注释与测试名中一律不得出现 `C1:`、`T303`、`G2`、`M4+`、`R2`、`P0` 这类规划 / 任务 / 审计 / backlog 编号（含 `C1：xxx` 与 `it('C1: xxx')` 形式）。阶段与编号是规划文档（`docs/plan/`）中区分进度的概念，代码中无意义且无法反查；追溯用 `git blame` / 审计记录。例外：代码内真实存在的常量（如 HTTP 错误码 `E401`），以及**指向规划文档的导航说明**（如"背景详见 `docs/plan/todo.md`「已知缺口 G2」"、"见 todo.md G3"、"见 backlog B1"）——导航指针内的规划编号属例外，因为它们提供真实可查的文档锚点，但必须同时写明文档路径或章节名，不得只写孤立编号。**执行挂接**：D 阶段自检（Full Stack Master (全栈大师) agent）与 A 阶段 Review Gate 必查项（Code Auditor (代码审计员) agent）均含本检查；违反案例见 [经验归档 §十六](../design/governance/experience-archive.md)。
-- **i18n locale 文件 insert anchor 必须用目标 locale 实际文本**（M24.1 阶段教训）：locale 文件多段对称（`apps/platform/i18n/locales/zh-CN.json` + `en-US.json`），edit 工具 insert anchor 必须用**目标 locale 实际文本**。**根因**：JSON.parse 容忍重复键 last-key-wins，anchor 错位（用 zh-CN 中文文本插入 en-US.json）导致后续段被改写但前端未触发 lint 检测（vitest 不读 i18n 字段语义）。**M24.1 Phase 4 B1 实证**：en-US.json `alerts.errors.loadFailed` 被中文污染为 `"加载失败：{message}"`。**自动检测**（M25.4 落地）：`pnpm i18n:check:anchor`（`scripts/i18n/i18n-anchor-check.mjs`）对比 zh-CN + en-US locale 文件，检测同一 key 在两边取值完全相等且 en-US locale 值含中文的错位污染（结构化本地化数据如 `serverErrors.UNAUTHORIZED.zh-CN` 内部字段 + i18n 复合格式占位符如 `{count, number}` + 纯 ASCII 字符串如 `PR Checks` 视为合理相等，自动跳过）。CI test job 已添加该步骤作为 blocker。详见 [经验归档 §五十六 M24.1 教训 2（experience-archive.md §五十六段）](../design/governance/experience-archive.md) + `scripts/i18n/i18n-anchor-check.mjs` 注释。
+- **禁止开发流程编号标记**: 注释与测试名中一律不得出现 `C1:`、`T303`、`G2`、`M4+`、`R2`、`P0` 这类规划 / 任务 / 审计 / backlog 编号（含 `C1：xxx` 与 `it('C1: xxx')` 形式）。阶段与编号是规划文档（`docs/plan/`）中区分进度的概念，代码中无意义且无法反查；追溯用 `git blame` / 审计记录。例外：代码内真实存在的常量（如 HTTP 错误码 `E401`），以及**指向规划文档的导航说明**（如"背景详见 `docs/plan/todo.md`「已知缺口 G2」"、"见 todo.md G3"、"见 backlog B1"）——导航指针内的规划编号属例外，因为它们提供真实可查的文档锚点，但必须同时写明文档路径或章节名，不得只写孤立编号。**执行挂接**：D 阶段自检（Full Stack Master (全栈大师) agent）与 A 阶段 Review Gate 必查项（Code Auditor (代码审计员) agent）均含本检查。违反案例见 [经验归档 §十六](../design/governance/experience-archive.md)。
+- **i18n locale 文件 insert anchor 必须用目标 locale 实际文本**：locale 文件多段对称（`apps/platform/i18n/locales/zh-CN.json` + `en-US.json`），edit 工具 insert anchor 必须用**目标 locale 实际文本**。根因：JSON.parse 容忍重复键 last-key-wins，anchor 错位（用 zh-CN 中文文本插入 en-US.json）导致后续段被改写但前端未触发 lint 检测。自动检测：`pnpm i18n:check:anchor`（`scripts/i18n/i18n-anchor-check.mjs`）对比 zh-CN + en-US locale 文件，检测同一 key 在两边取值完全相等且 en-US locale 值含中文的错位污染（结构化本地化数据 + i18n 复合格式占位符 + 纯 ASCII 字符串视为合理相等，自动跳过）。CI test job 已添加该步骤作为 blocker。详见 [经验归档 §五十六 M24.1 教训 2](../design/governance/experience-archive.md) + `scripts/i18n/i18n-anchor-check.mjs` 注释。
 - **同一解释只写一处**: 相同背景说明（平台坑、口径、设计取舍）在仓库内只保留一处，通常放在首次出现或语义最贴近的位置；其他位置要么不写，要么用一句话指向文档。
 - **详细解释放文档，代码只留短指针**: 完整设计背景、复盘结论、口径变更写入 `docs/design/`、`docs/research/` 或复盘文档；代码注释只保留一句"为什么"或文档指针，不展开长文。
 - **简化标记约定**: 主动选择简化实现时使用 `// lean:` 标记：
@@ -142,8 +142,7 @@ apps/platform/               # Nuxt 全栈平台
   }
   ```
 
-- 原因：vitest 单测 `import` 模块时会执行顶层副作用——无守卫时 main() 无条件运行，若依赖工作区文件（如 `.session/wisdom.md`）会 `process.exit` 被 vitest 拦截报 `Unhandled Rejection`，且仅 CI（无该文件）暴露、本地侥幸通过（2026-08-13 distill-wisdom 案例，见 [经验归档 §三十九](../design/governance/experience-archive.md)）。
-- vitest 4 起拦截更严：`process.exit` 在 import 阶段触发会抛 `Error: process.exit unexpectedly called with "1"`，stack trace 同时指向脚本自身 + 测试 import 行（CI 在 nuxt prepare + workspace build 后文件状态变化时命中）。新增脚本复制既有脚本骨架时，守卫是最容易被漏掉的一行——完成新脚本后 grep `process.argv[1]` 确认。
+- 守卫是入口副本中最容易被漏的一行——完成新脚本后 grep `process.argv[1]` 确认。教训见 [经验归档 §三十九](../design/governance/experience-archive.md)。
 
 #### 5.1.7 容器拼装类代码注释必须准确区分 `execFile` 与 `exec`
 
@@ -185,32 +184,32 @@ apps/platform/               # Nuxt 全栈平台
 #### 5.1.12 调试临时代码触发 TDZ（Temporal Dead Zone）陷阱
 
 - `script setup` 顶部加临时调试 `console.log` 引用**尚未声明的 ref/computed** 会触发 TDZ `Cannot access 'X' before initialization` SSR 500 错误——即使 `console.log` 只是 debug 也会让整个 SSR 阶段失败（不是 hydration warning 而是真错误）。
-- 教训：临时调试代码引用变量前必须确认其在执行前已声明，或放在 `watchEffect` / `onMounted` 里。
+- 临时调试代码引用变量前必须确认其在执行前已声明，或放在 `watchEffect` / `onMounted` 里。
 - 调试完成后立刻清理不留痕（与 §5.1.11 调试临时代码清理规则配合）。
-- 实证：某批次 `users.vue` 调试时 `console.log(users[0])` 引用了下面才声明的 `const users = ref(...)` 导致 SSR 500，移除 console.log 即修复。
+- 教训 + 实证见 [经验归档 §四十二](../design/governance/experience-archive.md)。
 
 #### 5.1.13 已测试文件补测胜于新建（CI 覆盖率阈值回归修复模式）
 
 - CI Coverage 阈值回归（差 7 分支）时，**优先在已有测试文件加 case**，而不是新建 test 文件或临时修改 vitest 阈值。
 - 判断标准：diff 文件数 = 1 / 风险扩散 = 0 / 价值密度 = 高（覆盖核心聚合更新策略 / 失败终态保护 / 多状态流转等业务关键路径）。
-- 实证：某次 CI Coverage 阈值回归（79.88% < 80%）时，目标文件 `apps/platform/server/api/batch-runs/[id].get.test.ts` 已有 2 case（success + 404），文件本身有测试基础设施（mock + beforeAll 创建 batchRun/scanRun）+ 目标文件 branches 55.17%（13 未覆盖）+ 1 文件 3 case 即可覆盖 line 36/45-49/50/58/65 全部未命中分支 → branches 55.17% → 82.75%（+27.58%），全 workspace 79.88% → 80.02%（+8 分支）。
+- 实证见 [经验归档 §四十二（M13.3 + 0c57211）](../design/governance/experience-archive.md)。
 
 #### 5.1.14 OR 链触发条件精确追踪（`if (a || b || c || d || e)` 写回决策测试模式）
 
 - `if (a || b || c || d || e)` 写回决策的 OR 链必须**逐项追踪每个条件真假**才能准确断言测试用例。
 - 常见错误：以为 "statusWriteBack=false 就完全不写回"，但 counts 差异仍会触发 OR 链进入写回块（只跳过 status 赋值，counts/summaryJson 仍更新）。
 - 修复模式：调试 case 时打开真实 SQL 数据看 `batchRepo.save` 后的状态字段；不要"想当然"按 statusWriteBack 反推。
-- 实证：Case 3（running + 1 running）的 `pendingCount=0 → 1` 实际写回后不是 0，断言 `toBe(0)` 失败即源于此错误假设（CI Coverage 修复批次 commit `0c57211`）。
+- 实证见 [经验归档 §四十二（CI Coverage 修复批次 commit 0c57211）](../design/governance/experience-archive.md)。
 
 #### 5.1.15 集成外部库前必须读 README 标准用法 + 落地真实路径 e2e 冒烟测试（hard requirement）
 
-集成任何外部库（`@octokit/*`、Vue 插件、TypeORM、Playwright、better-auth 等）前**必须**先查 README 官方示例（installation / authentication / getting started 章节的契约代码）——训练数据 / 直觉写法可能与最新库契约不符（如 `@octokit/auth-app` v8.x README 要求 `authStrategy: createAppAuth, auth: {...}` 双字段，凭直觉写 `auth: createAppAuth(...)` 必抛 `Token passed to createTokenAuth is not a string`）。
+集成任何外部库（`@octokit/*`、Vue 插件、TypeORM、Playwright、better-auth 等）前**必须**先查 README 官方示例（installation / authentication / getting started 章节的契约代码）。
 
-**集成层测试不 mock 真实被集成库**：mock 仅替换被测单元边界（如 mock `@octokit/auth-app` 时**不** mock `@octokit/rest`，让 `@octokit/core` 真实构造路径可执行）；mock 形态永远无法完整模拟真实 dispatch 行为（@octokit/auth-app 内部 `auth(state, authOptions)` 走 `switch (authOptions.type)` 异步拒绝分支；mock 让 `authCallable` 同步返回 `{hook}` 绕开真实 type dispatch）。**真实路径冒烟测试必须用真实 RSA / 真实私钥 / 真实 nock 拦截**（fixture 字符串无法 JWT signing），不能仅凭单测通过即认为集成完成。详见 [testing.md §6.2](./testing.md) + [经验归档 §四十三](../../docs/design/governance/experience-archive.md#四十三集成外部库必须读-readme-标准用法--e2e-真实路径冒烟测试2026-08-29m18.4-audit-round-1-reject-后补修)。
+**集成层测试不 mock 真实被集成库**：mock 仅替换被测单元边界；mock 形态永远无法完整模拟真实 dispatch 行为。**真实路径冒烟测试必须用真实 RSA / 真实私钥 / 真实 nock 拦截**，不能仅凭单测通过即认为集成完成。
 
 **「单测全过 + typecheck 0 error」≠ 集成 Done**：必须有「真实路径调用 + 断言关键行为」的可执行验证；A 阶段 code-auditor 主责边界已挂「集成外部库时验证 README 标准用法引用 + e2e 真实路径测试存在」必查项（[code-auditor.agent.md 主责边界](../../.github/agents/code-auditor.agent.md)）。
 
-教训（M18.4 audit round 1 Reject 实证）：M18.1 commit 4 凭直觉写 `auth: createAppAuth(...)`（错误用法）+ `app-provider.test.ts` `vi.mock('@octokit/rest')` + `vi.mock('@octokit/auth-app')` 完全跳过 `@octokit/core` 真实构造路径 → 所有单测通过但生产必抛 `Invalid auth type: undefined` / `Cannot read properties of undefined (reading 'bind')`，直到 M18.4 e2e 真实路径冒烟测试才暴露。
+教训见 [经验归档 §四十三（M18.4 audit round 1 Reject 实证）](../design/governance/experience-archive.md)。
 
 #### 5.1.16 v-model 修改嵌套字段必须用 reactive + deep watch（hard requirement）
 
@@ -235,7 +234,7 @@ watch(filters, () => { void refreshAlerts() }, { deep: true })
 
 **调试技巧**：用 `page.on('request')` 跟踪浏览器侧 `/api/alerts` 请求数（而不是 Vue devtools），直接判断 refetch 是否触发。
 
-教训（M20.6 alerts-rowgroup + ToggleSwitch v-model 嵌套字段触发实证）：e2e test 10（"视图切换：includeSuperseded 关闭 → 隐藏已关闭告警；打开 → 显示已关闭告警"）失败——点击 `#include-superseded` 开关后 `aria-checked=true` 但 `/api/alerts?includeSuperseded=true` 请求数 = 0（refetch 未触发）。修复：`filters` 改 `reactive` + `watch(filters, () => refreshAlerts(), { deep: true })`。详见 [经验归档 §四十六](../design/governance/experience-archive.md#四十六primevuetoggleswitchvmodel嵌套字段触发useasyncdatawatch浅监听失效20260831m206)。
+教训（M20.6 实证）见 [经验归档 §四十六](../design/governance/experience-archive.md#四十六primevuetoggleswitchvmodel嵌套字段触发useasyncdatawatch浅监听失效20260831m206)。
 
 #### 5.1.17 一次性脚本 TypeScript 价值评估（避免 over-engineering）
 
@@ -271,24 +270,24 @@ void Repository
 
 **engines 应该与 Node LTS 实际部署版本对齐**：Node 20 已 EOL（2026-04-30），engines `>=20` 是历史遗留，实际部署是 Node 22+ 或 Node 24+。建议升级到 `>=22`（兼容 Node 22 LTS）+ 注释说明 Node 22.6+ 内置 strip-types 仍不处理装饰器（tsx 仍必须）。
 
-教训（M20.7 backfill 一次性脚本反思实证）：用户质疑"添加 tsx 是为什么？这个脚本为什么要 TypeScript？"→诚实分析：tsdown / tsx 不可替代（装饰器约束），但 register-entities.ts 单独文件可整合到主脚本顶部 inline 块（净 -21 行），engines 升级 `>=20` → `>=22`（Node 20 EOL）。详见 [经验归档 §四十七](../design/governance/experience-archive.md#四十七一次性脚本不应-over-engineeringtsx-cli-装饰器依赖-vs-node-22-strip-types2026-08-31m20.7)。
+教训（M20.7 实证）见 [经验归档 §四十七](../design/governance/experience-archive.md#四十七一次性脚本不应-over-engineeringtsx-cli-装饰器依赖-vs-node-22-strip-types2026-08-31m20.7)。
 
 #### 5.1.18 SQLite 数据库启动期自动备份（引用 security.md §2.1 + 开发角度差异化信息）
 
-> 权威完整声明（备份路径 / fsync / 保留策略 / 命令式恢复 / 自检工具等）见 [security.md §2.1](./security.md)。本节仅保留开发角度差异化信息（应用范围 / 禁止 / 实证 / D 阶段自检 + A 阶段 Review Gate）。
+> 权威完整声明（备份路径 / fsync / 保留策略 / 命令式恢复 / 自检工具等）见 [security.md §2.1](./security.md)。本节仅保留开发角度差异化信息（应用范围 / 禁止 / D 阶段自检 + A 阶段 Review Gate）。
 
 **应用范围**：所有 better-sqlite3 部署形态（dev / e2e / prod / Docker 容器）。e2e.sqlite 与 dependfix.sqlite 各自独立（不交叉备份）。
 
 **禁止**：
-- 禁用 `--no-verify-backup` 跳过备份（无备份时应用启动期打印醒目 WARN 但仍允许启动——这是 fail-open 而非 fail-closed；恢复依赖用户的本地副本或外部备份）
+- 禁用 `--no-verify-backup` 跳过备份（无备份时应用启动期打印醒目 WARN 但仍允许启动——这是 fail-open 而非 fail-closed）
 - 禁用备份目录走 `.gitignore` 之外的位置（避免误提交）
 - 禁用备份过程阻塞启动超过 5 秒（超过视为备份实现有问题，需审计）
-
-**实证**：2026-09-01 dependfix.sqlite 数据清空事故 + 防御加固挂接详见 [security.md §2.1.5](./security.md) + [经验归档 §五十](../design/governance/experience-archive.md#五十sqlite-数据库业务数据被清空开发环境不可恢复事故2026-09-01)。
 
 **D 阶段自检（Full Stack Master (全栈大师) agent）**：必须验证 apps/platform/server/database/backup.ts 存在 + 含 backup-on-startup 调用 + 含 fsync + 含保留策略清理逻辑
 
 **A 阶段 Review Gate 必查项**：apps/platform/server/database/backup.ts 文件存在 + 含 fsync 证据 + 含保留策略
+
+实证（2026-09-01 dependfix.sqlite 数据清空事故）见 [经验归档 §五十](../design/governance/experience-archive.md#五十sqlite-数据库业务数据被清空开发环境不可恢复事故2026-09-01)。
 
 #### 5.1.19 TypeORM 1.x synchronize 与 migrationsRun 反模式禁止（hard requirement）
 
@@ -318,48 +317,15 @@ void Repository
 
 zod `z.enum([...]).optional()` 接受 `undefined` 为合法值（`safeParse(undefined).success = true, data = undefined`），但区分「未传字段」与「传 undefined」需**显式** `data !== undefined` 判断，否则 `data === 'some-value'` 三元永远为 false（因 `data` 是 `undefined`）。
 
-**M24.1 Phase 3 实证**（W2 dead code）：`index.get.ts` 早期实现
-```typescript
-const conclusion = conclusionParsed.success && conclusionParsed.data !== undefined
-    ? conclusionParsed.data
-    : undefined
-```
-`data !== undefined` 在 `.optional()` 模式下恒为 false（dead code）+ 误导注释"必须显式 `data !== undefined` 判断「实际传了值」"——后人按错误前提重构。**修正后**：
-```typescript
-// 简化为单层判断（下方 if (conclusion) 过滤 falsy 含 undefined）
-const conclusion = conclusionParsed.success ? conclusionParsed.data : undefined
-// alertFiring 是 boolean，需显式 !== undefined 区分「未传」与「false」
-const alertFiring = alertFiringParsed.success && alertFiringParsed.data !== undefined
-    ? alertFiringParsed.data === 'true'
-    : undefined
-```
-
 **防御**（防 future zod 0.x 升级或 .optional() 行为变更）：
 - 写 query 参数解析时，对 `boolean` 字段必须保留 `data !== undefined` 区分（`false` 是合法值）
 - 对 `string` 字段可简化为单层 `safeParse.success ? data : undefined`（下方 `if (conclusion)` 自动过滤 falsy）
 
-**zod-helpers 落地（M25.4 follow-up）**：`apps/platform/server/utils/zod-helpers.ts` 提供 `parseOptional<T>(schema, value): { success: boolean, value?: T, isProvided: boolean }` helper，强制三态语义区分（success / value / isProvided）。`isProvided` 区分「未传」与「传 undefined」两种情况，避免原 `data !== undefined` 死代码陷阱。**应用示例**（M25.4 commit 2）：
+**zod-helpers helper**：`apps/platform/server/utils/zod-helpers.ts` 提供 `parseOptional<T>(schema, value): { success: boolean, value?: T, isProvided: boolean }` helper，强制三态语义区分（success / value / isProvided），避免原 `data !== undefined` 死代码陷阱。
 
-```typescript
-// 之前（Phase 3 W2 dead code）
-const alertFiringParsed = alertFiringSchema.safeParse(query.alertFiring)
-const alertFiring = alertFiringParsed.success && alertFiringParsed.data !== undefined
-    ? alertFiringParsed.data === 'true' : undefined
-
-// 之后（M25.4 follow-up）
-const { success: alertFiringSuccess, value: alertFiringValue, isProvided: alertFiringProvided }
-    = parseOptional(alertFiringSchema, query.alertFiring)
-const alertFiring = alertFiringSuccess && alertFiringProvided
-    ? alertFiringValue === 'true' : undefined
-```
-
-**ack fixture 验证升级**（M24.1 Phase 2 W6 衍生物）：原 `expect(result.acknowledgedAt).not.toBeNull()` 接受 `null` / `undefined` / 非空字符串；升级为 `parseOptional(z.string(), result.acknowledgedAt)` 强制 `isProvided=true + success=true + value !== undefined + 类型为 string + ISO 8601 可解析`，确保 acknowledgedAt 真正写入而非字段缺失。
-
-详见 [经验归档 §五十六 M24.1 教训 4（experience-archive.md §五十六段）](../design/governance/experience-archive.md)。
+详见 [经验归档 §五十六 M24.1 教训 4](../design/governance/experience-archive.md)。
 
 #### 5.1.20 atomic commit 边界（重构支撑 vs 业务行为变更必须分 commit）
-
-> 教训来源：M22.4 commit `daa255c` 实施 "TypeORM synchronize 显式 opt-in + 启动日志" 时将 3 类改动打包到 1 个 commit ——（1）**业务行为变更** synchronize 默认值反转（`DATABASE_SYNCHRONIZE === 'true' || isDev` → `DATABASE_SYNCHRONIZE === 'true'`）+ （2）**重构支撑** 提取 migrationsRun 为 const + （3）**重构支撑** 删除 isDev 分支。3 类打包越界落地 M22.5 核心改动（默认值反转属 M22.5 范围），audit Round 1 quick depth Reject（0 B / 2 B + 4 W），强制回退整个 commit + M22.5 commit `32bb375` 重新只做重构支撑 + 后续单独 commit 反转默认值。详见 [经验归档 §四十九（M22.4 教训沉淀）](../design/governance/experience-archive.md)。
 
 **核心规则**：
 - 重构支撑 = 不改变行为，只改善代码结构（提取 const / 改命名 / 删除冗余分支）
@@ -371,12 +337,7 @@ const alertFiring = alertFiringSuccess && alertFiringProvided
 
 **规范支撑**：[AGENTS.md §提交规范](../../AGENTS.md) 第 4 条"原子粒度——一个提交对应一个逻辑变更" + [规划规范 §1.1 任务粒度约束](./planning.md)
 
-**实证**（repro.cjs / sv-test3.cjs）：
-- TypeORM 1.x 在 SQLite + 已有数据 + 新增 NOT NULL 列无 default 时实测：`Init FAILED: SqliteError: NOT NULL constraint failed`，事务回滚后 `schema_version` 不变 + 数据保留
-- **synchronize 失败不会清空数据**（事务回滚保证），但启动失败需用户明确知道是 schema 同步失败而非数据库损坏
-- dev 模式硬编码 `synchronize=true` 会让 schema 升级每次都触发同步逻辑，频繁启动期失败
-
-教训（2026-09-01 dependfix.sqlite 事故关联风险）：dev 模式 `synchronize: true || isDev` 硬编码导致任何 schema 变更都会触发同步，未来再次出现 NOT NULL 列无 default 改动时启动期失败。详见 [经验归档 §五十](../design/governance/experience-archive.md#五十sqlite-数据库业务数据被清空开发环境不可恢复事故2026-09-01) + §二十七（M20.3 ScanResult NOT NULL 列加列风险首次复现）。
+教训见 [经验归档 §四十九（M22.4 教训沉淀）](../design/governance/experience-archive.md) + §五十（2026-09-01 dependfix.sqlite 事故关联风险）。
 
 ---
 

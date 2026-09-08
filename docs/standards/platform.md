@@ -14,7 +14,7 @@
 | 框架 | Nuxt 4（全栈 SSR + API Routes） | `app/` + `server/` 目录结构 |
 | 语言 | TypeScript（strict 逐步收紧） | 平台独立 tsconfig（`nuxt typecheck`） |
 | UI | PrimeVue 4 + `@primevue/nuxt-module` | 组件库 |
-| 主题 | `@primeuix/themes`（Aura preset + 自定义 primary） | 暗色模式 `darkModeSelector: '.dark'` |
+| 主题 | `@primeuix/themes@^2.0.3`（Aura preset + 自定义 primary，MIT 协议；2026-09-08 M25.1 从 v3.x 降级消除 PrimeUI 商业 License） | 暗色模式 `darkModeSelector: '.dark'` |
 | 样式 | 纯 SCSS + BEM，无 CSS-in-JS / Tailwind | 全局变量 + mixin |
 | 认证 | better-auth（邮箱密码） | TypeORM adapter（自研，见 §4.2） |
 | ORM | TypeORM 1.x | 显式驱动注入，多后端兼容 |

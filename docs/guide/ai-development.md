@@ -61,7 +61,7 @@
 | typecheck 失败 | `pnpm --filter @dependfix/<pkg> typecheck` |
 | 本地 lint 缺依赖 | `pnpm --filter @dependfix/<pkg> lint` |
 
-**判定准则**：除非实测报错 + 有具体错误信息，否则不放弃本地路径。背景与反模式案例：见 [docs/archive/2026-08-20-standards-revisions.md §3](../archive/2026-08-20-standards-revisions.md)。
+**判定准则**：除非实测报错 + 有具体错误信息，否则不放弃本地路径。
 
 ## 6. 相关文档
 

@@ -174,7 +174,7 @@ permissions:
 
 ## 6. 告警数据源与 Token 策略（G2）
 
-> 完整调研与方案矩阵见 [G2](../../plan/archive/todo-archive-phases-m2-m55.md#g2-处置记录-github_token-无法访问-dependabot-alerts) 与 [调研文档](../../research/2026-08-04-github-token-dependabot-bug-or-design.md)。
+> 完整调研与方案矩阵见 [G2 处置记录](../../plan/archive/todo-archive-phases-m2-m55.md#g2-处置记录-github_token-无法访问-dependabot-alerts)。
 
 **核心事实**：`GITHUB_TOKEN` **永远无法**访问 Dependabot alerts API——`vulnerability-alerts` 是 GitHub App-only 权限，Actions 权限模型从未支持（故意设计 + 官方文档误导）。
 

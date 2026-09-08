@@ -28,7 +28,6 @@ docs/
 ├── research/                # 调研文档（命名规范见 §5.0 / §5.1）
 │   ├── README.md            # 目录定位（简要，规范见本文档）
 │   ├── 2026-07-26-competitive-research.md
-│   ├── 2026-08-04-github-token-dependabot-bug-or-design.md
 │   └── ...
 ├── standards/               # 项目规范（本目录）
 └── .vitepress/              # VitePress 站点配置（导航/侧边栏）
@@ -123,7 +122,7 @@ docs/
 5. **例外（持续追加型文档不设日期）**：跨阶段持续追加、不随单一产出结束的文档使用**固定名**，不套日期规则——如 [经验归档](../design/governance/experience-archive.md)（`experience-archive.md`，章节按序追加，见其文件头"准入标准"）；再如 `todo-archive.md`、`backlog.md` 等规划滚动文档。判断标准：文档的"完成日期"不存在（永远在追加）→ 不设日期。
 
 **示例**：
-- `2026-08-04-github-token-dependabot-bug-or-design.md`（调研）
+- `2026-08-02-release-tools-comparison.md`（调研）
 - `experience-archive.md`（经验归档）
 - `2026-08-06-audit-report-v2.md`（同天第二版审计报告）
 
@@ -135,10 +134,10 @@ docs/
 **命名规范**（沿用 [§5.2 通用带日期文件命名规范](#52-通用带日期文件命名规范)）:
 
 1. 文件名必须包含日期，格式 `{YYYY-MM-DD}-{topic-slug}.md`
-   - 示例：`2026-08-04-github-token-dependabot-bug-or-design.md`
+   - 示例：`2026-08-02-release-tools-comparison.md`
    - 日期为调研**完成日期**；topic-slug 为小写 kebab-case 主题词
 2. 同一天对同一主题多次调研（追加搜索、数据更新、结论修正）时，**追加版本后缀**：
-   - `2026-08-04-github-token-audit-v2.md`（保留旧版本作为历史决策依据，新版本 `-v{n}` 从 2 起）
+   - `2026-08-02-release-tools-audit-v2.md`（保留旧版本作为历史决策依据，新版本 `-v{n}` 从 2 起）
 3. 旧版被新版完全覆盖且无决策参考价值时，可删除旧版
 
 **内容结构（建议）**:
@@ -200,7 +199,7 @@ docs/
 
 **执行检查**：每次编辑 `docs/plan/` 任一文档前，用 §7 表自检条目归属；编辑后用 `rg` 扫描违规关键词（"ahead / commit.*[0-9a-f]{7} / 验证矩阵 / 已闭环 / M\d 闭环 / done / completed / closed"），命中即重新分类。
 
-**判定理由与背景**：见 [docs/archive/2026-08-20-standards-revisions.md §1](../archive/2026-08-20-standards-revisions.md)。
+**判定理由**：规范定义本身已完整说明边界，无需追溯历史档案。
 
 ## 8. 相关文档
 

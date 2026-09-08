@@ -234,7 +234,7 @@ watch(filters, () => { void refreshAlerts() }, { deep: true })
 
 **调试技巧**：用 `page.on('request')` 跟踪浏览器侧 `/api/alerts` 请求数（而不是 Vue devtools），直接判断 refetch 是否触发。
 
-教训（M20.6 实证）见 [经验归档 §四十六](../design/governance/experience-archive.md#四十六primevuetoggleswitchvmodel嵌套字段触发useasyncdatawatch浅监听失效20260831m206)。
+教训（M20.6 实证）见 [经验归档 §四十六](../design/governance/experience-archive-§41-§48-archive-batch.md#四十六primevuetoggleswitchvmodel嵌套字段触发useasyncdatawatch浅监听失效20260831m206)。
 
 #### 5.1.17 一次性脚本 TypeScript 价值评估（避免 over-engineering）
 
@@ -270,7 +270,7 @@ void Repository
 
 **engines 应该与 Node LTS 实际部署版本对齐**：Node 20 已 EOL（2026-04-30），engines `>=20` 是历史遗留，实际部署是 Node 22+ 或 Node 24+。建议升级到 `>=22`（兼容 Node 22 LTS）+ 注释说明 Node 22.6+ 内置 strip-types 仍不处理装饰器（tsx 仍必须）。
 
-教训（M20.7 实证）见 [经验归档 §四十七](../design/governance/experience-archive.md#四十七一次性脚本不应-over-engineeringtsx-cli-装饰器依赖-vs-node-22-strip-types2026-08-31m20.7)。
+教训（M20.7 实证）见 [经验归档 §四十七](../design/governance/experience-archive-§41-§48-archive-batch.md#四十七一次性脚本不应-over-engineeringtsx-cli-装饰器依赖-vs-node-22-strip-types2026-08-31m20.7)。
 
 #### 5.1.18 SQLite 数据库启动期自动备份（引用 security.md §2.1 + 开发角度差异化信息）
 
@@ -287,7 +287,7 @@ void Repository
 
 **A 阶段 Review Gate 必查项**：apps/platform/server/database/backup.ts 文件存在 + 含 fsync 证据 + 含保留策略
 
-实证（2026-09-01 dependfix.sqlite 数据清空事故）见 [经验归档 §五十](../design/governance/experience-archive.md#五十sqlite-数据库业务数据被清空开发环境不可恢复事故2026-09-01)。
+实证（2026-09-01 dependfix.sqlite 数据清空事故）见 [经验归档 §五十](../design/governance/experience-archive-§49-§57-recent-investigation.md#五十sqlite-数据库业务数据被清空开发环境不可恢复事故2026-09-01)。
 
 #### 5.1.19 TypeORM 1.x synchronize 与 migrationsRun 反模式禁止（hard requirement）
 

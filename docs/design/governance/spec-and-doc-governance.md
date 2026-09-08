@@ -154,7 +154,7 @@
 
 **集成层测试不 mock 真实被集成库**。
 
-教训见 [经验归档 §四十三](../design/governance/experience-archive.md#四十三集成外部库必须读-readme-标准用法--e2e-真实路径冒烟测试)。
+教训见 [经验归档 §四十三](../design/governance/experience-archive-§41-§48-archive-batch.md#四十三集成外部库必须读-readme-标准用法--e2e-真实路径冒烟测试)。
 ```
 
 **禁止写法**：
@@ -164,7 +164,7 @@
 
 ...（长段内容）...
 M18.4 audit round 1 Reject 实证：M18.1 commit 4 凭直觉写 `auth: createAppAuth(...)`（错误用法）+ ...
-教训见 [经验归档 §四十三](../design/governance/experience-archive.md#四十三集成外部库必须读-readme-标准用法--e2e-真实路径冒烟测试)。
+教训见 [经验归档 §四十三](../design/governance/experience-archive-§41-§48-archive-batch.md#四十三集成外部库必须读-readme-标准用法--e2e-真实路径冒烟测试)。
 ```
 
 ### 3.2 设计文档（design）写作原则

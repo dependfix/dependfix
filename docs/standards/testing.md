@@ -119,7 +119,7 @@
 
 ### 6.3 集成外部库测试模式（薄引用 — 完整规范见 development.md §5.1.15）
 
-集成 `@octokit/auth-app` / Vue 插件 / TypeORM / better-auth 等外部库时，**集成层测试不 mock 真实被集成库**（保留真实代码路径可执行）；mock 仅替换被测单元边界。完整规范 + 教训 + mock 边界示例见 [development.md §5.1.15](./development.md) + [经验归档 §四十三](../../docs/design/governance/experience-archive.md#四十三集成外部库必须读-readme-标准用法--e2e-真实路径冒烟测试2026-08-29m18.4-audit-round-1-reject-后补修)。
+集成 `@octokit/auth-app` / Vue 插件 / TypeORM / better-auth 等外部库时，**集成层测试不 mock 真实被集成库**（保留真实代码路径可执行）；mock 仅替换被测单元边界。完整规范 + 教训 + mock 边界示例见 [development.md §5.1.15](./development.md) + [经验归档 §四十三](../../docs/design/governance/experience-archive-§41-§48-archive-batch.md#四十三集成外部库必须读-readme-标准用法--e2e-真实路径冒烟测试2026-08-29m18.4-audit-round-1-reject-后补修)。
 
 ### 6.4 E2E 网络抗性 + 未认证 API 调用标准模式
 

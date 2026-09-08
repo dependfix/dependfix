@@ -7,7 +7,7 @@
 
 <h1 align="center">dependfix</h1>
 <p>
-  <img alt="Version" src="https://img.shields.io/github/package-json/v/dependfix/dependfix.svg" />
+  <img alt="Version" src="https://img.shields.io/github/v/tag/dependfix/dependfix" />
   <a href="https://github.com/dependfix/dependfix/actions?query=workflow%3ARelease" target="_blank">
     <img alt="GitHub Workflow Status" src="https://img.shields.io/github/actions/workflow/status/dependfix/dependfix/release.yml?branch=master">
   </a>

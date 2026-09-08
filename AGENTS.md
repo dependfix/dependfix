@@ -35,7 +35,7 @@
 ## 相关文档
 
 - 架构设计：[docs/design/governance/architecture.md](docs/design/governance/architecture.md)
-- 数据模型：[docs/design/packages/data-model.md](docs/design/packages/data-model.md)
+- 数据模型：[docs/design/modules/data-model.md](docs/design/modules/data-model.md)
 - 安全设计：[docs/design/governance/security.md](docs/design/governance/security.md)
 - 技术栈：[docs/guide/tech-stack.md](docs/guide/tech-stack.md)
 - AI 协同指南：[docs/guide/ai-development.md](docs/guide/ai-development.md)
@@ -60,6 +60,36 @@
 | 规划 | [docs/standards/planning.md](docs/standards/planning.md) |
 
 momei 仅作为 1.0.0 前的参考蓝本，1.0.0 后按本项目自身实践演进，形成自有规范体系。
+
+## 命名规范
+
+阶段编号分配规则：
+
+- `M\d+` 主阶段：一段完整规划周期（如 M0 / M25）
+- `M\d+.\d+` 子阶段：阶段内原子条目（如 M25.1 / M25.2a），按类型平衡原则选取 4-6 个独立闭环
+- `M\d+.\d+.\d+` 任务/工作流：子阶段内具体任务
+
+**约束**：backlog 候选不得包含 `M\d+` 阶段编号（除非经用户明确授权上收）。完整规则见 [规划规范 §3.1](./docs/standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement)。
+
+## 设计文档架构
+
+`docs/design/` 下分两类目录，按文档对象分流：
+
+- **`modules/`** —— 单 monorepo 包总设计（`packages/core`、`packages/engine`、`packages/cli`、`packages/mcp`、`packages/skills`、`apps/platform`）
+- **`governance/`** —— 跨模块 / 治理 / 重大变更专项设计 + 经验归档（`architecture.md` / `security.md` / `experience-archive.md` 等）
+
+**硬阈值**：改动预计 > 10 文件 / > 800 行 → **必须有** governance 文档；> 5 文件 / > 350 行 → 建议有；跨 ≥ 2 个独立模块 → 必须有。完整规则见 [规范与文档治理设计 §2.4](./docs/design/governance/spec-and-doc-governance.md#24-设计文档硬阈值hard-requirement)。
+
+## 审计触发
+
+A 阶段 `code-auditor` 审计必须触发的场景：
+
+- 治理定义改动（`docs/standards/*.md` / `docs/design/governance/*.md` / `.github/skills/*.md` / `.github/agents/*.md`）
+- 设计文档硬阈值触发（按设计文档架构章节）
+- 跨 ≥ 2 个独立模块的代码改动
+- 公开 API / 鉴权 / 数据写入 / 外部调用
+
+未触发审计的 F 阶段 commit 视为不合规，由 code-auditor Reject 退回。完整规则见 [规范与文档治理设计 §6.1](./docs/design/governance/spec-and-doc-governance.md#61-a-阶段-audit-required-触发判定hard-requirement)。
 
 ## 必要检查
 

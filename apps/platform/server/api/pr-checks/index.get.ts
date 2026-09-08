@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { PRCheck, PR_CHECK_CONCLUSIONS } from '#server/entities/pr-check'
 import { ensureDatabaseInitialized } from '#server/database'
 import { requireAuth } from '#server/utils/guard'
+import { parseOptional } from '#server/utils/zod-helpers'
 
 /**
  * GET /api/pr-checks：依赖更新 PR check 状态监测列表（详见 docs/plan/todo.md §M24.1）。
@@ -53,10 +54,14 @@ const listHandler = async (event: H3Event) => {
     const conclusionParsed = conclusionSchema.safeParse(query.conclusion)
     // zod .optional() 接受 undefined 为合法值（data=undefined）；下方 if (conclusion) 已过滤 falsy
     const conclusion = conclusionParsed.success ? conclusionParsed.data : undefined
-    const alertFiringParsed = alertFiringSchema.safeParse(query.alertFiring)
-    // alertFiring 是 boolean，需显式 !== undefined 区分「未传」与「false」
-    const alertFiring = alertFiringParsed.success && alertFiringParsed.data !== undefined
-        ? alertFiringParsed.data === 'true'
+    // alertFiring 三态：未传 → undefined / 'true' → true / 'false' → false / 非法 → undefined
+    // parseOptional 强制 isProvided + success 语义区分（§五十六 M24.1 Phase 3 W2 follow-up）
+    const { success: alertFiringSuccess, value: alertFiringValue, isProvided: alertFiringProvided } = parseOptional(
+        alertFiringSchema,
+        query.alertFiring,
+    )
+    const alertFiring = alertFiringSuccess && alertFiringProvided
+        ? alertFiringValue === 'true'
         : undefined
 
     const ds = await ensureDatabaseInitialized()

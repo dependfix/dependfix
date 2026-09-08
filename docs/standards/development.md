@@ -337,7 +337,23 @@ const alertFiring = alertFiringParsed.success && alertFiringParsed.data !== unde
 **防御**（防 future zod 0.x 升级或 .optional() 行为变更）：
 - 写 query 参数解析时，对 `boolean` 字段必须保留 `data !== undefined` 区分（`false` 是合法值）
 - 对 `string` 字段可简化为单层 `safeParse.success ? data : undefined`（下方 `if (conclusion)` 自动过滤 falsy）
-- 写 `server/utils/zod-helpers.ts` 提供 `parseOptional<T>(schema, value, fieldName): { success: boolean, value?: T }` helper 强制语义区分（follow-up，登记）
+
+**zod-helpers 落地（M25.4 follow-up）**：`apps/platform/server/utils/zod-helpers.ts` 提供 `parseOptional<T>(schema, value): { success: boolean, value?: T, isProvided: boolean }` helper，强制三态语义区分（success / value / isProvided）。`isProvided` 区分「未传」与「传 undefined」两种情况，避免原 `data !== undefined` 死代码陷阱。**应用示例**（M25.4 commit 2）：
+
+```typescript
+// 之前（Phase 3 W2 dead code）
+const alertFiringParsed = alertFiringSchema.safeParse(query.alertFiring)
+const alertFiring = alertFiringParsed.success && alertFiringParsed.data !== undefined
+    ? alertFiringParsed.data === 'true' : undefined
+
+// 之后（M25.4 follow-up）
+const { success: alertFiringSuccess, value: alertFiringValue, isProvided: alertFiringProvided }
+    = parseOptional(alertFiringSchema, query.alertFiring)
+const alertFiring = alertFiringSuccess && alertFiringProvided
+    ? alertFiringValue === 'true' : undefined
+```
+
+**ack fixture 验证升级**（M24.1 Phase 2 W6 衍生物）：原 `expect(result.acknowledgedAt).not.toBeNull()` 接受 `null` / `undefined` / 非空字符串；升级为 `parseOptional(z.string(), result.acknowledgedAt)` 强制 `isProvided=true + success=true + value !== undefined + 类型为 string + ISO 8601 可解析`，确保 acknowledgedAt 真正写入而非字段缺失。
 
 详见 [经验归档 §五十六 M24.1 教训 4（experience-archive.md §五十六段）](../design/governance/experience-archive.md)。
 

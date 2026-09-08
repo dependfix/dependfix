@@ -1,10 +1,12 @@
 import 'reflect-metadata'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
+import { z } from 'zod'
 import { makeEvent, setupMemoryDatabase, teardownMemoryDatabase } from '../../../tests/api-helper'
 import reposIndexHandler from '../repos/index'
 import patchHandler from './[id].patch'
 import { PRCheck } from '#server/entities/pr-check'
 import { ensureDatabaseInitialized } from '#server/database'
+import { parseOptional } from '#server/utils/zod-helpers'
 
 vi.mock('#server/utils/guard', () => ({
     requireAuth: vi.fn(async () => ({ user: { id: 'u1', email: 'admin@test.dev' } })),
@@ -59,7 +61,14 @@ describe('PATCH /api/pr-checks/[id]', () => {
         }
         expect(result.id).toBe(firingId)
         expect(result.alertFiring).toBe(false)
-        expect(result.acknowledgedAt).not.toBeNull()
+        // 严格验证 acknowledgedAt 必须非空（§五十六 M24.1 Phase 2 W6 follow-up）：
+        // parseOptional 强制 value !== undefined 语义区分；原 `not.toBeNull()` 接受 null/undefined
+        const acknowledgedAtParsed = parseOptional(z.string(), result.acknowledgedAt)
+        expect(acknowledgedAtParsed.isProvided).toBe(true)
+        expect(acknowledgedAtParsed.success).toBe(true)
+        expect(typeof acknowledgedAtParsed.value).toBe('string')
+        // 验证时间格式可解析（ISO 8601）
+        expect(new Date(acknowledgedAtParsed.value!).getTime()).toBeGreaterThan(0)
         expect(result.acknowledgedByUserId).toBe('u1')
         // 关键决策 D3：ack 不修改 conclusion（service polling 继续独立判定）
         expect(result.conclusion).toBe('failure')

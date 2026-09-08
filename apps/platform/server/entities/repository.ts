@@ -72,6 +72,24 @@ export class Repository extends BaseEntity {
     @Column({ type: 'varchar', length: 32, default: 'container' })
     executorKind!: string
 
+    /**
+     * AI 研判开关（默认 false，opt-in）
+     * - false：扫描不触发 AI 研判（即使 Organization 已配置 API Key）
+     * - true：按 aiTrigger 范围在 dependency upgrade validation failure / major upgrade 时触发
+     * - 与 Organization.aiApiKeyEncrypted 配合：启用前必须先配置 Organization AI Key
+     */
+    @Column({ type: 'boolean', default: false, name: 'ai_enabled' })
+    aiEnabled!: boolean
+
+    /**
+     * AI 研判触发范围（默认 both）
+     * - failure：仅升级验证失败时触发
+     * - major：仅 major 升级时触发
+     * - both：failure + major 任一触发
+     */
+    @Column({ type: 'varchar', length: 16, default: 'both', name: 'ai_trigger' })
+    aiTrigger!: 'failure' | 'major' | 'both'
+
     /** 备注（可选） */
     @Column({ type: 'text', nullable: true })
     note!: string | null

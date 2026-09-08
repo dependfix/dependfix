@@ -66,6 +66,15 @@ export class ScanRun extends BaseEntity {
     @Column({ type: 'text', nullable: true })
     logsJson!: string | null
 
+    /**
+     * AI 研判配置快照（JSON 字符串）
+     * - 记录本次扫描实际使用的 AI 配置：{ enabled, provider, model, baseUrl?, apiUrl?, trigger, hasApiKey }
+     * - apiKey 不写入快照（避免日志/审计泄露）；hasApiKey 布尔代替
+     * - 用于审计 + run-history 聚合（参见 [platform-ai-integration.md §8.3](../design/governance/platform-ai-integration.md)）
+     */
+    @Column({ type: 'text', nullable: true, name: 'ai_config_snapshot' })
+    aiConfigSnapshot!: string | null
+
     /** B 模式：action run 页面 URL（触发后轮询定位） */
     @Column({ type: 'varchar', length: 500, nullable: true })
     runUrl!: string | null

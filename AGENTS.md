@@ -122,3 +122,22 @@ momei 仅作为 1.0.0 前的参考蓝本，1.0.0 后按本项目自身实践演�
 4. **原子粒度**：一个提交对应一个逻辑变更，关联且仅关联 `todo.md` 中的一个原子条目。
 5. **推送禁令**：`git commit` 后不得自动执行 `git push`，推送仅限用户明确要求时执行。提交完成后应告知用户"已提交到本地，等待推送确认"。
 6. **src/dist 不一致时 build 在先（monorepo 纪律）**：改动涉及 `packages/*/src/**`（被其他 workspace 包 import）时，**提交前必须先 `pnpm -r build`（或定向 `pnpm --filter <changed-pkg> build`）重建 dist**，否则下游包的 typecheck 会报 TS2339（缺新字段）。CI 自动 rebuild 掩盖本地 dev 过期，导致 `pnpm exec tsc --noEmit` 通过但 `pnpm run typecheck`（含 nuxt typecheck pipeline）失败。**验证协议**：commit 前实测 `pnpm run typecheck` exit 0（覆盖 root tsc + nuxt typecheck）；如失败，第一动作是 `pnpm -r build` 而非修改源码。教训见 [经验归档 §五十五（M23.3 C66-C standard depth audit W1）](docs/design/governance/experience-archive.md)。
+
+## 安全与行为红线
+
+### 核心文件保护
+
+-   严禁修改或删除 `.env`，非必要也不得读取 `.env`，应当优先参考 `.env.full.example` 了解环境变量字段。
+-   修改本文件 `AGENTS.md` 前应该询问用户，并得到用户明确指示。
+-   严禁在代码中硬编码任何 API Key、Token 或敏感凭据。
+
+### 终端操作安全
+
+在执行脚本或命令前，必须进行环境检查与路径校验。具体的脚本安全准则请参考 [安全开发规范](./docs/standards/security.md)。
+
+
+## 其他要求
+
+1.  **多语言响应**: 在与用户沟通时，应使用用户发送的语言进行回复（默认为中文）。如果可以，请优先使用用户发送的语言进行思考（think）
+2.  **重大变更确认**: 在进行涉及架构、核心逻辑或项目路线图的重大变更前，必须主动向用户请求确认。
+3.  **性能下限原则**：使用的 AI 智能体，其基础能力不应低于 Claude Sonnet 4.6 / GPT-5.3 / DeepSeek V4 Flash 0731 这一档的大模型水平。

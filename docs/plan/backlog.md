@@ -365,8 +365,8 @@
 
 | 内容类型 | 位置 |
 |:--|:--|
-| 当前阶段活跃任务 | [todo.md](todo.md) 顶部"当前阶段"段（M25 阶段 2026-09-08 用户决策启动方案 A：PrimeUI License 治理 + 平台 AI 研判集成基础层 + lint baseline 治理 + M24 follow-up 工具化 / M25.1+M25.2a+M25.3+M25.4 共 4 原子条目 8-10 commits） |
-| 已完成阶段归档 | [todo-archive.md](todo-archive.md)（主窗口保留最近 5 阶段：M24 / M23 / M22 / M21 / M20；早期阶段见 [archive/](archive/)） |
-| 里程碑与阶段交付 | [roadmap.md](roadmap.md)（M24 段已 2026-09-03 归档；M25 段 2026-09-08 用户决策启动） |
+| 当前阶段活跃任务 | [todo.md](todo.md) 顶部"当前阶段"段（M25 阶段 2026-09-08 用户决策启动方案 A + 完整闭环归档：PrimeUI License 治理 + 平台 AI 研判集成基础层 + lint baseline 治理 + M24 follow-up 工具化 / M25.1+M25.2a+M25.3+M25.4 共 4 原子条目 17 commits / ahead=17 待用户主动推送；M26 阶段规划候选已就位待用户决策） |
+| 已完成阶段归档 | [todo-archive.md](todo-archive.md)（主窗口保留最近 5 阶段：M25 / M24 / M23 / M22 / M21 / M20；早期阶段见 [archive/](archive/)） |
+| 里程碑与阶段交付 | [roadmap.md](roadmap.md)（M25 段已 2026-09-08 用户决策启动 + 完整闭环归档；M26 阶段规划候选待用户决策启动） |
 | 长期主线 / 候选 / 待人工验收 / 已知边界 | 本文档（按四象限结构） |
 | 历史归档索引 | [archive/index.md](archive/index.md) |

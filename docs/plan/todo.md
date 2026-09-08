@@ -149,8 +149,8 @@
 **P0 zod-helpers parseOptional<T>**：
 - [x] `apps/platform/server/utils/zod-helpers.ts` 模块 + `parseOptional<T>(schema, value): { success, value?, isProvided }` helper
 - [x] 13 个单元测试覆盖：boolean / enum / 嵌套对象 schema × 5 种值（未传 / 传 true / 传 false / 传非法 / 传 null）+ alertFiring 三态语义实战
-- [x] 替换 [经验归档 §五十六 Phase 3 W2](docs/design/governance/experience-archive.md) 死代码（pr-checks/index.get.ts `data !== undefined` 双重判断冗余 → parseOptional 显式三态）
-- [x] 替换 [经验归档 §五十六 Phase 2 W6](docs/design/governance/experience-archive.md) ack fixture 验证（[id].patch.test.ts `not.toBeNull()` → parseOptional 强制 isProvided + ISO 8601 可解析）
+- [x] 替换 [经验归档 §五十六 Phase 3 W2](../design/governance/experience-archive.md) 死代码（pr-checks/index.get.ts `data !== undefined` 双重判断冗余 → parseOptional 显式三态）
+- [x] 替换 [经验归档 §五十六 Phase 2 W6](../design/governance/experience-archive.md) ack fixture 验证（[id].patch.test.ts `not.toBeNull()` → parseOptional 强制 isProvided + ISO 8601 可解析）
 
 **P0 文档挂接**：
 - [x] `docs/standards/development.md` §3 升级 i18n locale 注释规范（引入 `pnpm i18n:check:anchor` 自动检测 + 跳过规则说明）

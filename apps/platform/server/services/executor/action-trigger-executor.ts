@@ -78,6 +78,24 @@ export class ActionTriggerExecutor implements ScanExecutor {
             'max-alerts-per-repository': String(ctx.config.maxAlertsPerRepository ?? 20),
         }
 
+        // AI 研判 inputs（todo.md §M25.2a + [platform-ai-integration.md §4.1 B](../design/governance/platform-ai-integration.md)）
+        // action.yml L86-112 已声明 7 个 ai-* inputs；执行器透传到 workflow inputs
+        if (ctx.config.ai) {
+            inputs.ai = ctx.config.ai.enabled ? 'true' : 'false'
+            inputs['ai-provider'] = ctx.config.ai.provider
+            inputs['ai-model'] = ctx.config.ai.model
+            inputs['ai-trigger'] = ctx.config.ai.trigger
+            if (ctx.config.ai.apiKey) {
+                inputs['ai-api-key'] = ctx.config.ai.apiKey
+            }
+            if (ctx.config.ai.baseUrl) {
+                inputs['ai-base-url'] = ctx.config.ai.baseUrl
+            }
+            if (ctx.config.ai.apiUrl) {
+                inputs['ai-api-url'] = ctx.config.ai.apiUrl
+            }
+        }
+
         try {
             await this.client.rest.actions.createWorkflowDispatch({
                 owner,
@@ -162,9 +180,9 @@ export class ActionTriggerExecutor implements ScanExecutor {
                 if (run) {
                     return { id: run.id, html_url: run.html_url }
                 }
-            } catch (pollError) {
+            } catch {
                 // 轮询失败不阻断（runUrl 缺失可接受）；下一轮重试
-                void pollError
+                // catch 块不消费错误对象；改用匿名 catch 避免 bare expression lint error
             }
         }
         return null

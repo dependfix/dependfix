@@ -129,4 +129,141 @@ describe('ActionTriggerExecutor', () => {
         expect(result.exitCode).toBe(0)
         expect(result.error?.code).toBe('run_url_not_resolved')
     })
+
+    describe('AI 研判 inputs 透传（todo.md §M25.2a）', () => {
+        it('ctx.config.ai 启用时 inputs 包含 ai / ai-provider / ai-model / ai-trigger / ai-api-key / ai-base-url', async () => {
+            nock(API)
+                .get(/\/repos\/owner-a\/repo-b\/actions\/workflows\/.*security-auto-fix\.yml$/)
+                .reply(200, { id: 1 })
+            nock(API)
+                .post(/\/repos\/owner-a\/repo-b\/actions\/workflows\/.*dispatches$/, (body) => {
+                    // 验证 AI 研判 inputs 已透传
+                    expect(body.inputs?.ai).toBe('true')
+                    expect(body.inputs?.['ai-provider']).toBe('openai-compatible')
+                    expect(body.inputs?.['ai-model']).toBe('deepseek-v4-flash')
+                    expect(body.inputs?.['ai-trigger']).toBe('both')
+                    expect(body.inputs?.['ai-api-key']).toBe('sk-test-1234')
+                    expect(body.inputs?.['ai-base-url']).toBe('https://api.deepseek.com')
+                    return true
+                })
+                .reply(204)
+            nock(API)
+                .get(/\/repos\/owner-a\/repo-b\/actions\/workflows\/.*\/runs/)
+                .query({ event: 'workflow_dispatch', per_page: 5 })
+                .reply(200, {
+                    workflow_runs: [
+                        { id: 101, created_at: new Date(Date.now() + 10000).toISOString(), html_url: 'https://github.com/owner-a/repo-b/actions/runs/101' },
+                    ],
+                })
+
+            const executor = new ActionTriggerExecutor('ghp_test', { pollDelayMs: 0, pollAttempts: 1 })
+            await executor.execute(makeCtx({
+                config: {
+                    mode: 'report-only',
+                    severityThreshold: 'high',
+                    repositories: ['owner-a/repo-b'],
+                    dryRun: false,
+                    createPullRequest: false,
+                    commit: false,
+                    cleanupBranches: false,
+                    cleanupBranchesAuto: false,
+                    githubToken: 'ghp_test',
+                    alertSource: 'github-dependabot',
+                    codeScanningEnabled: false,
+                    codeQualityEnabled: false,
+                    allowMajorUpgrade: false,
+                    maxAlertsPerRepository: 20,
+                    maxConcurrency: 1,
+                    maxRetries: 3,
+                    maxBackoffMs: 30000,
+                    maxRepos: 100,
+                    ai: {
+                        enabled: true,
+                        provider: 'openai-compatible',
+                        model: 'deepseek-v4-flash',
+                        apiKey: 'sk-test-1234',
+                        baseUrl: 'https://api.deepseek.com',
+                        trigger: 'both',
+                    },
+                },
+            }))
+        })
+
+        it('ctx.config.ai 未启用时不发送 ai inputs（避免空字符串覆盖默认值）', async () => {
+            nock(API)
+                .get(/\/repos\/owner-a\/repo-b\/actions\/workflows\/.*security-auto-fix\.yml$/)
+                .reply(200, { id: 1 })
+            nock(API)
+                .post(/\/repos\/owner-a\/repo-b\/actions\/workflows\/.*dispatches$/, (body) => {
+                    expect(body.inputs?.ai).toBeUndefined()
+                    expect(body.inputs?.['ai-api-key']).toBeUndefined()
+                    return true
+                })
+                .reply(204)
+            nock(API)
+                .get(/\/repos\/owner-a\/repo-b\/actions\/workflows\/.*\/runs/)
+                .query({ event: 'workflow_dispatch', per_page: 5 })
+                .reply(200, {
+                    workflow_runs: [
+                        { id: 102, created_at: new Date(Date.now() + 10000).toISOString(), html_url: 'https://github.com/owner-a/repo-b/actions/runs/102' },
+                    ],
+                })
+
+            const executor = new ActionTriggerExecutor('ghp_test', { pollDelayMs: 0, pollAttempts: 1 })
+            await executor.execute(makeCtx())
+        })
+
+        it('anthropic provider 时 inputs 包含 ai-api-url（Anthropic 端点覆盖）', async () => {
+            nock(API)
+                .get(/\/repos\/owner-a\/repo-b\/actions\/workflows\/.*security-auto-fix\.yml$/)
+                .reply(200, { id: 1 })
+            nock(API)
+                .post(/\/repos\/owner-a\/repo-b\/actions\/workflows\/.*dispatches$/, (body) => {
+                    expect(body.inputs?.['ai-provider']).toBe('anthropic')
+                    expect(body.inputs?.['ai-api-url']).toBe('https://api.anthropic.com/v1/messages')
+                    return true
+                })
+                .reply(204)
+            nock(API)
+                .get(/\/repos\/owner-a\/repo-b\/actions\/workflows\/.*\/runs/)
+                .query({ event: 'workflow_dispatch', per_page: 5 })
+                .reply(200, {
+                    workflow_runs: [
+                        { id: 103, created_at: new Date(Date.now() + 10000).toISOString(), html_url: 'https://github.com/owner-a/repo-b/actions/runs/103' },
+                    ],
+                })
+
+            const executor = new ActionTriggerExecutor('ghp_test', { pollDelayMs: 0, pollAttempts: 1 })
+            await executor.execute(makeCtx({
+                config: {
+                    mode: 'report-only',
+                    severityThreshold: 'high',
+                    repositories: ['owner-a/repo-b'],
+                    dryRun: false,
+                    createPullRequest: false,
+                    commit: false,
+                    cleanupBranches: false,
+                    cleanupBranchesAuto: false,
+                    githubToken: 'ghp_test',
+                    alertSource: 'github-dependabot',
+                    codeScanningEnabled: false,
+                    codeQualityEnabled: false,
+                    allowMajorUpgrade: false,
+                    maxAlertsPerRepository: 20,
+                    maxConcurrency: 1,
+                    maxRetries: 3,
+                    maxBackoffMs: 30000,
+                    maxRepos: 100,
+                    ai: {
+                        enabled: true,
+                        provider: 'anthropic',
+                        model: 'claude-3-5-sonnet',
+                        apiKey: 'sk-ant-test',
+                        apiUrl: 'https://api.anthropic.com/v1/messages',
+                        trigger: 'failure',
+                    },
+                },
+            }))
+        })
+    })
 })

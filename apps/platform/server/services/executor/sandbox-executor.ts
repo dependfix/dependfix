@@ -117,6 +117,18 @@ export class SandboxExecutor implements ScanExecutor {
                 GITHUB_REPOSITORY: `${ctx.repository.owner}/${ctx.repository.name}`,
                 DEPENDFIX_MODE: ctx.config.mode,
                 DEPENDFIX_SEVERITY: String(ctx.config.severityThreshold),
+                // AI 研判 env 注入（todo.md §M25.2a + [platform-ai-integration.md §4.1 B](../design/governance/platform-ai-integration.md)）
+                // engine 层 packages/engine/src/config/index.ts:499-505 从 DEPENDFIX_AI_* env 读取
+                // 仅在 ctx.config.ai 启用时注入（避免空字符串覆盖 engine 默认值）
+                ...(ctx.config.ai?.enabled && {
+                    DEPENDFIX_AI: 'true',
+                    DEPENDFIX_AI_PROVIDER: ctx.config.ai.provider,
+                    DEPENDFIX_AI_MODEL: ctx.config.ai.model,
+                    DEPENDFIX_AI_BASE_URL: ctx.config.ai.baseUrl ?? '',
+                    DEPENDFIX_AI_TRIGGER: ctx.config.ai.trigger,
+                    ...(ctx.config.ai.apiKey && { DEPENDFIX_AI_API_KEY: ctx.config.ai.apiKey }),
+                    ...(ctx.config.ai.apiUrl && { DEPENDFIX_AI_API_URL: ctx.config.ai.apiUrl }),
+                }),
             },
             memoryMb: this.sandboxLimits.memoryMb,
             cpu: this.sandboxLimits.cpu,

@@ -6,6 +6,27 @@ import { SandboxExecutor, sanitizeErrorMessage } from './sandbox-executor'
 import type { ScanExecutorContext } from './types'
 import { SpyRuntimeAdapter } from './runtime-adapter'
 
+const defaultRuntimeConfig = {
+    mode: 'report-only' as const,
+    severityThreshold: 'high' as const,
+    repositories: ['owner-a/repo-b'],
+    dryRun: false,
+    createPullRequest: false,
+    commit: false,
+    cleanupBranches: false,
+    cleanupBranchesAuto: false,
+    githubToken: 'ghp_test',
+    alertSource: 'github-dependabot' as const,
+    codeScanningEnabled: false,
+    codeQualityEnabled: false,
+    allowMajorUpgrade: false,
+    maxAlertsPerRepository: 20,
+    maxConcurrency: 1,
+    maxRetries: 3,
+    maxBackoffMs: 30_000,
+    maxRepos: 100,
+}
+
 const makeCtx = (overrides: Partial<ScanExecutorContext> = {}): ScanExecutorContext => ({
     runId: 'run-sandbox-1',
     repository: {
@@ -13,26 +34,7 @@ const makeCtx = (overrides: Partial<ScanExecutorContext> = {}): ScanExecutorCont
         name: 'repo-b',
         defaultBranch: 'main',
     },
-    config: {
-        mode: 'report-only',
-        severityThreshold: 'high',
-        repositories: ['owner-a/repo-b'],
-        dryRun: false,
-        createPullRequest: false,
-        commit: false,
-        cleanupBranches: false,
-        cleanupBranchesAuto: false,
-        githubToken: 'ghp_test',
-        alertSource: 'github-dependabot',
-        codeScanningEnabled: false,
-        codeQualityEnabled: false,
-        allowMajorUpgrade: false,
-        maxAlertsPerRepository: 20,
-        maxConcurrency: 1,
-        maxRetries: 3,
-        maxBackoffMs: 30_000,
-        maxRepos: 100,
-    },
+    config: defaultRuntimeConfig,
     credential: { token: 'ghp_test' },
     workDir: '/tmp/runs/run-sandbox-1',
     ...overrides,
@@ -182,7 +184,64 @@ describe('SandboxExecutor', () => {
             const call = adapter.calls[0]
             expect(call?.spec.env?.GITHUB_TOKEN).toBe('ghp_SECRET')
             // 验证:cmd 字段不含 token
-            expect(JSON.stringify(call?.cmd)).not.toContain('ghp_SECRET')
+            const cmdStr = call?.spec.cmd?.join(' ') ?? ''
+            expect(cmdStr).not.toContain('ghp_SECRET')
+        })
+
+        it('ctx.config.ai 启用时 spec.env 包含 DEPENDFIX_AI_* (todo.md §M25.2a + [platform-ai-integration.md §4.1 B](../design/governance/platform-ai-integration.md))', async () => {
+            const adapter = new SpyRuntimeAdapter()
+            const executor = new SandboxExecutor({ workRoot, runtimeAdapter: adapter })
+            await executor.execute(makeCtx({
+                config: {
+                    ...defaultRuntimeConfig,
+                    ai: {
+                        enabled: true,
+                        provider: 'openai-compatible',
+                        model: 'deepseek-v4-flash',
+                        apiKey: 'sk-deepseek-secret',
+                        baseUrl: 'https://api.deepseek.com',
+                        trigger: 'both',
+                    },
+                },
+            }))
+            const env = adapter.calls[0]?.spec.env ?? {}
+            expect(env.DEPENDFIX_AI).toBe('true')
+            expect(env.DEPENDFIX_AI_PROVIDER).toBe('openai-compatible')
+            expect(env.DEPENDFIX_AI_MODEL).toBe('deepseek-v4-flash')
+            expect(env.DEPENDFIX_AI_BASE_URL).toBe('https://api.deepseek.com')
+            expect(env.DEPENDFIX_AI_TRIGGER).toBe('both')
+            expect(env.DEPENDFIX_AI_API_KEY).toBe('sk-deepseek-secret')
+        })
+
+        it('ctx.config.ai 未启用时不注入 DEPENDFIX_AI_* env（避免空字符串覆盖默认值）', async () => {
+            const adapter = new SpyRuntimeAdapter()
+            const executor = new SandboxExecutor({ workRoot, runtimeAdapter: adapter })
+            await executor.execute(makeCtx())
+            const env = adapter.calls[0]?.spec.env ?? {}
+            expect(env.DEPENDFIX_AI).toBeUndefined()
+            expect(env.DEPENDFIX_AI_PROVIDER).toBeUndefined()
+            expect(env.DEPENDFIX_AI_API_KEY).toBeUndefined()
+        })
+
+        it('anthropic provider 时 spec.env 包含 DEPENDFIX_AI_API_URL（Anthropic 端点覆盖）', async () => {
+            const adapter = new SpyRuntimeAdapter()
+            const executor = new SandboxExecutor({ workRoot, runtimeAdapter: adapter })
+            await executor.execute(makeCtx({
+                config: {
+                    ...defaultRuntimeConfig,
+                    ai: {
+                        enabled: true,
+                        provider: 'anthropic',
+                        model: 'claude-3-5-sonnet',
+                        apiKey: 'sk-ant-secret',
+                        apiUrl: 'https://api.anthropic.com/v1/messages',
+                        trigger: 'failure',
+                    },
+                },
+            }))
+            const env = adapter.calls[0]?.spec.env ?? {}
+            expect(env.DEPENDFIX_AI_PROVIDER).toBe('anthropic')
+            expect(env.DEPENDFIX_AI_API_URL).toBe('https://api.anthropic.com/v1/messages')
         })
 
         it('sets network to none for report-only mode (zero trust default)', async () => {

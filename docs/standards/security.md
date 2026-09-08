@@ -56,9 +56,9 @@
 - **不能用 `process.env.NODE_ENV === 'production'` 作第二门控**（Nitro/esbuild 构建期把 `process.env.NODE_ENV` 静态替换为构建时值，prod build 表达式折叠后永远 404；详见 [platform.md §3.6](./platform.md)「为什么不用 `process.env.NODE_ENV`」陷阱段）
 - 详见 [platform.md §3.6](./platform.md)
 
-#### 2.1.5 实证
+#### 2.1.5 防御措施挂接（实证背景）
 
-2026-09-01 `dependfix.sqlite` 数据清空事故：用户报告数据库启动后业务表全空，事后无法回滚。根因排查发现代码内无清空路径（synchronize 失败会回滚、cleanupStaleRuns 只清理 ScanRun/BatchRun、e2e fixtures 受门控保护、backfill 只处理 ScanResult），最可能清空来源在代码外部（shell / CI / 运维 / 误操作）。但项目无任何备份机制，事故无法回滚。本规范作为防御措施挂接。详见 [经验归档 §五十](../design/governance/experience-archive.md#五十sqlite-数据库业务数据被清空开发环境不可恢复事故2026-09-01) + [development.md §5.1.18](./development.md) + [platform.md §3.7](./platform.md)。
+2026-09-01 `dependfix.sqlite` 数据清空事故（事故根因与应急响应详见 [经验归档 §五十](../design/governance/experience-archive.md) + [development.md §5.1.18](./development.md) + [platform.md §3.7](./platform.md)）触发本节防御加固。
 
 ## 3. Web 安全防护 (Web Protection)
 

@@ -143,7 +143,7 @@
 **为什么是 hard requirement**：
 - backlog 默认评估可避免 AI 越权决策导致项目目标偏移
 - 用户对阶段规划有最终决策权（[todo.md §当前阶段段](../plan/todo.md) banner 显式说明"下一阶段规划待用户触发后启动"）
-- 历史教训：M22 后 AI 单方面推进"PRCheck 监测"候选登记后被用户撤回 M23.1 编号并修正"最高优先级"判断（[backlog.md §PR 管理候选池](../plan/backlog.md#pr-管理) 决策点）；
+- 历史教训（M22 后 AI 越权推进候选登记）见 [backlog.md §PR 管理候选池决策点](../plan/backlog.md#pr-管理)；
 
 **合规核验**：本条由 [code-auditor 主责边界「新需求未默认升级为下一阶段 todo」必查项](../../.github/agents/code-auditor.agent.md) 强制检查——改动涉及新增功能需求但未走 backlog → Reject 退回。
 
@@ -179,26 +179,26 @@
 1. **anchor 实证**：写 markdown 链接前必须 `rg -n "^## " <目标文件>` 确认锚点真实形式，避免凭印象写错锚点（括号转 anchor 规则不是直觉）；check:docs 是兜底而非首选。
 2. **跨文件外链主动追踪**：段删除 / 段重命名前必须 `rg -n "<删除段标题>"` 全仓库扫描所有外链（不仅是删除段所在文件），列出每个外链文件 + 位置 + 目标，逐个修复为新的归档位置（`todo-archive.md` 主窗口或 `archive/todo-archive-phases-*.md` 分片）。
 3. **跨目录相对路径精确**：从 `docs/<dir1>/xxx.md` 引用 `docs/<dir2>/yyy.md` 需 `../<dir2>/yyy.md`，多级目录按 `../../` 累加；写之前主动计算，check:docs 兜底。
-4. **commit 分组追踪**：归档文案中分组 commit 时必须**先列每个 commit 归属**，避免子批次 commit 与"todo.md 收口 commit" 重复计数（todo.md 收口 commits 通常已含在子批次计数内，独立列出 = 重复 +1）。M12 归档实证：todo.md 收口 5 commits 已含在 C65-A/B/C/D 子批次计数内，"独立列出 +5"导致累加 24 ≠ 实际 19。
+4. **commit 分组追踪**：归档文案中分组 commit 时必须**先列每个 commit 归属**，避免子批次 commit 与"todo.md 收口 commit" 重复计数（todo.md 收口 commits 通常已含在子批次计数内，独立列出 = 重复 +1）。M12 归档教训见 [经验归档 §四十八](../design/governance/experience-archive.md)。
 5. **ahead commits 实证 + 动态描述**：归档文案 "ahead of origin/master N commits" 必须用 `git rev-list HEAD ^origin/master --count` 双向核验（已推送 commits 不计入 ahead），不能凭印象估算——跨批次归档时用户可能已推送过。具体命令与 ahead 计数语义详见 [Git 规范 §3 提交规范](./git.md)（一行引用，不重复抄写命令）。**额外约束**：ahead 数字写具体值极易过时（用户可在 banner 写后立即推送），改用 commits 列表 + 实证命令替代具体数字（与 [AI 协作规范 §2.P.1](./ai-collaboration.md#p1-ahead-状态动态描述原则避免-staleness) 配套）。
 6. **段结构引用原则**：已删除段不在外链保留（避免读者点击 404），外链改为指向新归档位置 + 段标题对齐（避免 VitePress / GitHub 渲染降级到文件顶部）。
 7. **死链验证**：归档后必须 `pnpm run check:docs` 实证 0 error；CI Test job 跳过盲区（wis #43）需在归档批次前主动跑通。
 8. **算式校对（commit 数量 + 子任务数量去重统计）**：归档文案中"X 子任务 / Y commits"等算式信息**必须从 git log first-parent 列表去重统计，不依赖估算**：
    - commit 数量：`git log master --first-parent --since=<起始日期> --until=<结束日期> --oneline | grep -E "<子任务前缀>" | sort -u | wc -l`
    - 子任务数量：子任务编号列表一一对应（`T1301+T1302+...+T1403 = 12 子任务`），不留估算空间
-   - 教训：M13 阶段归档批次审计实证：执行角色归档文案估算"M13.2 10 commits / M13.3 4 commits / 合计 24 commits / 合计 11 子任务" → Code Auditor quick depth 检出 RG-W1 + RG-W2 两处算式错误（实际 M13.2 11 / M13.3 5 / 合计 26 commits / 合计 12 子任务）。修复 commit `3621982` → `e9987f9` 5 atomic commits 中 5 文件 6 处统一算式校对（todo-archive.md 4 处 + todo.md 1 处 + roadmap.md 1 处 + backlog.md 1 处 + archive/index.md 2 处）。
+   - 教训（M13 阶段审计实证）见 [经验归档 §四十二](../design/governance/experience-archive.md)。
 9. **区分已归档内容与必要信息**：清理 `backlog.md` / `todo.md` 时必须区分"已归档内容"和"必要信息"：
    - **可删除**：`闭环整理` 这类已归档内容（如 M16/M17/M18 归档批次的详细记录）
    - **必须保留**：`维护规则`（backlog 的治理依据）、`长期主线任务详细描述`（后续阶段理解任务背景）、`未上收待办项`（活跃任务）、`待人工验收条目`（真实环境验证任务）
    - **归档后验证链接**：`pnpm run check:docs` 检查断链
    - **判断标准**：删除前问"这个信息在下一阶段启动时是否需要？"——如果需要，就保留
-   - 教训：M18 归档批次两次"删过头"实证——第一次删除了 todo.md 中的"维护规则"和待人工验收条目 + backlog.md 中的未上收待办项；第二次 backlog.md 被简化过度，删除了长期主线任务的详细描述和周期性回归验证层。详见 [经验归档 §四十五](../design/governance/experience-archive.md#四十五归档时区分已归档内容与必要信息2026-08-30m18-归档批次)
+   - 教训（M18 删过头实证）见 [经验归档 §四十五](../design/governance/experience-archive.md)。
 10. **预防性迁出后 cross-reference 更新**：todo-archive.md 预防性迁出主窗口内的§至 `archive/todo-archive-phases-*.md` 分片后，其他文档（`roadmap.md` / `backlog.md` / `data-model.md` / `docs/index.md` 等）中所有引用已迁出§的锚点全部失效，必须统一更新：
     - **扫描范围**：用 `rg -n "todo-archive.md#m\d+-|<被迁出§标题>"` 全仓库检索锚点引用
     - **锚点格式**：`--`（双连字符）在 check-docs.mjs 中自动转换为单词连续（如 `m161--m162` → `m161m162`），不要手动拼接
     - **跨文件更新**：统一指向分片文件路径（如 `archive/todo-archive-phases-m16-m17.md`），不要保留主窗口引用
     - **验证**：更新后必须 `pnpm run check:docs` 实证 0 error
-    - 教训：M20 归档批次 10 处断链实证（roadmap.md 4 处 + backlog.md 4 处 + data-model.md 1 处 + docs/index.md 1 处），全部由本规范预防；详见 [经验归档 §四十八](../design/governance/experience-archive.md#四十八归档批次预防性分片--cross-reference-断链修复2026-08-31m20-归档批次)
+    - 教训（M20 断链实证）见 [经验归档 §四十八](../design/governance/experience-archive.md)。
 11. **归档后 backlog.md / todo.md 必清理（必执行项）**：阶段归档完成后必须从 `docs/plan/backlog.md` / `docs/plan/todo.md` 清出所有"已闭环 / 已归档"内容——
     - **可删除**（"已闭环 / 已归档"内容）：
       - backlog.md `§历史归档指针（不在 backlog 重复登记）` 整段——所有已闭环阶段（M19/M20/M21/...）+ 已闭环特定批次（B3/C53/C16/...）指针段
@@ -219,9 +219,9 @@
     - **长期主线任务章节硬性规则**：下面有且仅有"可以多阶段反复执行"的任务，不保留任何其他东西（包括已闭环批次记录 / 已落地方案详细描述 / 触发事件 / 临时修复细节）
     - **判断标准**：删除前问"下一阶段启动时是否需要？"——已闭环 / 已归档内容由 todo-archive.md 统一维护，不应在 backlog.md/todo.md 重复
     - **执行范围**：本规则与 §4.4 第 9 条（"区分已归档内容与必要信息"，反向防"删过头"）互补——第 9 条强调保留必要信息，本规则强调必清出已闭环内容；两者配套执行
-    - 教训：M21 阶段归档批次（2026-08-31 commit `61b2ea6`）实证——尽管归档完成，但 backlog.md 仍残留 `§历史归档指针（不在 backlog 重复登记）` 段（含 M19/M20/M21/M17/M16/M15/M14/M13/M12/M0-M11 + 已闭环特定批次全部指针段）+ `§已沉淀经验（已迁移至 standards）` 段 + 已闭环条目（C16/C21/C22/C34/C39/G1/UX-R1/R2/R3）+ `§已评估不实现` 段 + 主线任务章节下面的已闭环批次记录，未按本规则清出；用户反馈"已完成、已归档的项目不应该保留任何内容，包括归档摘要/闭环整理；长期主线任务下面有且仅有可以多阶段反复执行的任务"后追加 commit `9ebe6a5` 强制清理——backlog.md 327 → 199 行（净瘦 128 行），todo.md 24 → 16 行（净瘦 8 行），重复工作量；若归档批次执行时同步执行本规则可避免返工。详见 [经验归档 §四十九](../design/governance/experience-archive.md)（2026-09-01 用户规则强化清理批次新增）
+    - 教训（M21 阶段实证）见 [经验归档 §四十九](../design/governance/experience-archive.md)。
 
-> 本节为大批量文档归档批次（multi-file edit + 段结构变更）的统一操作规范；其他文档归档 / 小批量编辑仅执行相关条目。M12 归档 + backlog 重排 2 个批次实证：anchor 实证命中 1 次 / 跨文件外链追踪命中 10 次 / 相对路径精确命中 2 次 / commit 分组追踪命中 2 次 / ahead 实证命中 0 次（但作为常态化检查）。M20 归档批次实证：第 10 条新加——预防性迁出后 cross-reference 更新命中 10 处断链，全部修复。M21 归档批次实证：第 11 条新加——归档后 backlog.md/todo.md 必清理（2026-09-01 用户反馈"已完成、已归档的项目不应该保留任何内容，包括归档摘要、闭环整理；长期主线任务下面有且仅有可以多阶段反复执行的任务"），M21 归档批次 commit `61b2ea6` 未执行本规则，追加 commit `9ebe6a5` 强制清理——backlog.md 净瘦 128 行 / todo.md 净瘦 8 行，若归档批次同步执行本规则可避免返工。
+> 本节为大批量文档归档批次（multi-file edit + 段结构变更）的统一操作规范；其他文档归档 / 小批量编辑仅执行相关条目。实战教训（M12/M20/M21 实证）见 [经验归档 §四十二 + §四十五 + §四十八 + §四十九](../design/governance/experience-archive.md)。
 
 ## 5. 需求采访与意图抽离
 

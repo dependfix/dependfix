@@ -183,8 +183,8 @@ describe('SandboxExecutor', () => {
             await executor.execute(makeCtx({ credential: { token: 'ghp_SECRET' } }))
             const call = adapter.calls[0]
             expect(call?.spec.env?.GITHUB_TOKEN).toBe('ghp_SECRET')
-            // 验证:cmd 字段不含 token
-            const cmdStr = call?.spec.cmd?.join(' ') ?? ''
+            // 验证:cmd 字段不含 token（cmd 是 spy.calls 顶层属性，非 spec.cmd）
+            const cmdStr = call?.cmd?.join(' ') ?? ''
             expect(cmdStr).not.toContain('ghp_SECRET')
         })
 
@@ -213,6 +213,26 @@ describe('SandboxExecutor', () => {
             expect(env.DEPENDFIX_AI_API_KEY).toBe('sk-deepseek-secret')
         })
 
+        it('Organization.aiBaseUrl 为 null 时 ai.baseUrl 兜底 https://api.deepseek.com', async () => {
+            const adapter = new SpyRuntimeAdapter()
+            const executor = new SandboxExecutor({ workRoot, runtimeAdapter: adapter })
+            await executor.execute(makeCtx({
+                config: {
+                    ...defaultRuntimeConfig,
+                    ai: {
+                        enabled: true,
+                        provider: 'openai-compatible',
+                        model: 'deepseek-v4-flash',
+                        apiKey: 'sk-test',
+                        baseUrl: 'https://api.deepseek.com',
+                        trigger: 'both',
+                    },
+                },
+            }))
+            const env = adapter.calls[0]?.spec.env ?? {}
+            expect(env.DEPENDFIX_AI_BASE_URL).toBe('https://api.deepseek.com')
+        })
+
         it('ctx.config.ai 未启用时不注入 DEPENDFIX_AI_* env（避免空字符串覆盖默认值）', async () => {
             const adapter = new SpyRuntimeAdapter()
             const executor = new SandboxExecutor({ workRoot, runtimeAdapter: adapter })
@@ -234,6 +254,7 @@ describe('SandboxExecutor', () => {
                         provider: 'anthropic',
                         model: 'claude-3-5-sonnet',
                         apiKey: 'sk-ant-secret',
+                        baseUrl: 'https://api.deepseek.com',
                         apiUrl: 'https://api.anthropic.com/v1/messages',
                         trigger: 'failure',
                     },

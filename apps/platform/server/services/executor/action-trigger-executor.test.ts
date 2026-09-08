@@ -259,6 +259,7 @@ describe('ActionTriggerExecutor', () => {
                         provider: 'anthropic',
                         model: 'claude-3-5-sonnet',
                         apiKey: 'sk-ant-test',
+                        baseUrl: 'https://api.deepseek.com',
                         apiUrl: 'https://api.anthropic.com/v1/messages',
                         trigger: 'failure',
                     },

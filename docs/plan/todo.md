@@ -68,39 +68,42 @@
 #### M25.2a 平台 AI 研判集成「基础层」（数据模型 + schema/service + 三执行器透传）
 
 **P0 数据模型**：
-- [ ] Organization.aiApiKeyEncrypted + aiProvider + aiModel + aiBaseUrl + aiApiUrl 字段
-- [ ] Repository.aiEnabled + aiTrigger 字段
-- [ ] ScanRun.aiConfigSnapshot 字段
-- [ ] TypeORM migration
-- [ ] database/index.ts 实体注册
-- [ ] 2+ 单元测试（字段定义 + 默认值 + 加解密）
+- [x] Organization.aiApiKeyEncrypted + aiProvider + aiModel + aiBaseUrl + aiApiUrl 字段（snake_case 列名 + encryption 列）
+- [x] Repository.aiEnabled + aiTrigger 字段
+- [x] ScanRun.aiConfigSnapshot 字段（JSON 审计快照；apiKey 不写入）
+- [x] TypeORM migration `1900000000000-AddAiConfigFields`（幂等处理：检查表/列存在性后 ALTER TABLE）
+- [x] entity 列名与 migration snake_case 对齐（SnakeCaseNamingStrategy 兼容）
+- [x] 6 个单元测试覆盖默认值 + 加解密 round-trip + 三枚举值 + JSON 持久化（`apps/platform/server/entities/ai-config.test.ts`）
 
 **P0 Schema + Service + 入口**：
-- [ ] `apps/platform/server/schemas/scan.ts` Zod schema 扩展 ai 字段（optional + 默认值兜底）
-- [ ] `apps/platform/server/services/scan-orchestrator.service.ts` 透传 `RuntimeConfig.ai` 到三执行器
-- [ ] `apps/platform/server/api/repos/[id]/scan.post.ts` 校验 + 透传
-- [ ] 3+ 单元测试
+- [x] `apps/platform/server/schemas/scan.ts` Zod schema 扩展 aiEnabled + aiTrigger 可选字段（向后兼容）
+- [x] `apps/platform/server/services/scan-orchestrator.service.ts` 调用 resolveAiConfig 合并 + 解密 aiApiKey + 注入 RuntimeConfig.ai + 持久化 ScanRun.aiConfigSnapshot
+- [x] ScanRequest 接口扩展 aiEnabled / aiTrigger 字段（与 schema 对齐）
+- [x] `apps/platform/server/services/ai-config-resolver.ts` 新建工具：合并优先级 API override > Repository 默认 > Organization 共享 Key；apiKey 不写入 snapshot（hasApiKey 布尔代替）；baseUrl 兜底 https://api.deepseek.com
+- [x] 13 个单元测试覆盖：默认未启用 / Organization 已配 Key 但不启用 / anthropic 透传 / 合并成功 + apiKey 解密 / API override 优先 / Organization=null / 兜底 baseUrl / trigger 三枚举值合并
 
 **P0 三执行器同步透传**：
-- [ ] `container-executor.ts` 接收 ai 字段 + 构造 RuntimeConfig（mode 透传）
-- [ ] `sandbox-executor.ts` 同款（一致性兜底）
-- [ ] `action-trigger-executor.ts` 同款（一致性兜底）
-- [ ] 公共 `RuntimeConfig.ai` 类型扩展（与 engine layer 对齐）
-- [ ] 6+ 单元测试（三执行器各 2 case）
+- [x] `container-executor.ts`: `...ctx.config` 展开自动透传 ai（无需修改）
+- [x] `sandbox-executor.ts`: buildSpec.env 新增 DEPENDFIX_AI_* 注入（仅 enabled=true 时注入，避免空字符串覆盖 engine 默认值）；anystrings 时注入 DEPENDFIX_AI_API_KEY / DEPENDFIX_AI_BASE_URL / DEPENDFIX_AI_API_URL
+- [x] `action-trigger-executor.ts`: inputs 字典新增 ai / ai-provider / ai-model / ai-trigger / ai-api-key / ai-base-url / ai-api-url 透传（action.yml 已声明 7 个 inputs）；polRun catch 重构为匿名 catch 消除 baseline lint error
+- [x] sandbox-executor.test.ts: 4 个 case（启用 / 禁用 / anthropic / 兜底 baseUrl）
+- [x] action-trigger-executor.test.ts: 3 个 case（启用 / 禁用 / anthropic）
 
 **跨约束核验**：
-- [ ] `pnpm --filter @dependfix/platform run typecheck` exit 0（含 monorepo source/dist 一致性，按 [AGENTS.md §6 src/dist 不一致时 build 在先](https://github.com/CaoMeiYouRen/dependfix/blob/master/AGENTS.md) 纪律）
-- [ ] §3b TypeORM 复合索引类级声明（按 [经验归档 §三十](https://github.com/CaoMeiYouRen/dependfix/blob/master/docs/design/governance/experience-archive.md)）
-- [ ] §3 编号标记扫描 0 命中
-- [ ] D 阶段自检三向验证（lint 无 --fix + typecheck + vitest，按 [AI 协作规范 §1.4 + 经验归档 §五十六 教训 1](https://github.com/CaoMeiYouRen/dependfix/blob/master/docs/design/governance/experience-archive.md)）
+- [x] `pnpm --filter @dependfix/platform run typecheck` exit 0
+- [x] `pnpm --filter @dependfix/platform test` 全过（1150 passed / 7 skipped / 9.04s）
+- [x] `pnpm run check:docs` 0 error（105 个 md 文件 / 62 个 vue-interp 全部通过）
+- [x] §3b TypeORM 实体无复合索引（本次都是简单列，不需要类级复合索引）
+- [x] §3 编号标记扫描 0 命中孤立编号（命中均为合法导航例外：§M25.2a / §5.3 / §6.1 / §M16.2 等）
+- [x] D 阶段自检三向验证（lint 无 --fix 0 error / typecheck 0 error / vitest 1150 passed）
+- [x] 三执行器一致性：container / sandbox / github-action 都正确处理 ctx.config.ai 透传（grep 实证）
 
 **commit 跟踪**：
-- [ ] commit 1: `feat(platform): Organization + Repository + ScanRun AI 配置实体 + migration`（~5 文件 / ~280 行）
-- [ ] commit 2: `feat(platform): ScanRequest schema 扩展 + service 透传 RuntimeConfig.ai`（~4 文件 / ~180 行）
-- [ ] commit 3: `feat(platform): 三执行器（container/sandbox/github-action）同步透传 ai 字段`（~4 文件 / ~350 行）
-- [ ] commit 4: `refactor(platform): RuntimeConfig.ai 工具抽取（resolveAiConfig 合并优先级 + 单测）`（可选，~3 文件 / ~80 行）
+- [x] commit 1: `1c65582` `feat(platform): Organization + Repository + ScanRun AI 配置实体 + migration`（5 文件 / +366 行 / 6 单测）
+- [x] commit 2: `f174cce` `feat(platform): ScanRequest schema 扩展 + scan-orchestrator service 透传 RuntimeConfig.ai`（4 文件 / +377 行 / 13 单测，含 ai-config-resolver 抽取合并原 commit 4）
+- [x] commit 3: `7250ec1` `feat(platform): 三执行器同步透传 ai 字段（container / sandbox / github-action）`（4 文件 / +249 行 / 7 单测 + action-trigger-executor baseline lint error fix）
 
-**预计 commits**：3-4 / 行净增 ~810 / **类型 🚀 capability** / **audit standard depth**
+**实际 commits**：3 / 行净增 ~992 / **类型 🚀 capability** / **ahead=3 + M25 P 阶段 2 + M25.1 阶段 3 = ahead=8 待用户主动推送**
 
 #### M25.3 apps/platform baseline 16 lint errors 清理
 

@@ -116,6 +116,12 @@
 
 commit message 应聚焦于"当次提交的改动"+"可供事后复查的信息"，避免堆砌与 git diff / CI 实测输出重叠的冗余。
 
+**正文硬性约束**：
+
+- 正文条目 1-3 条；超过必须压缩或拆分到独立 commit
+- 内容简单时应当无正文——主题行已能完整说明"做了什么"
+- 若有正文，每行最长 120 字符，只说明**做了什么**及**为什么这么做**
+
 **应包含**：
 
 - 改动总览（哪些文件/模块，改了什么）
@@ -131,12 +137,6 @@ commit message 应聚焦于"当次提交的改动"+"可供事后复查的信息"
 - 改动行数（如 "+189/-3"）
 - 没实证的废话（如"确切路径需源码进一步实证"——没实证就别写）
 - 与本 commit 实际改动关联度低的教训段（教训应归属在 hotfix 修复 commit 而非 docs 登记 commit）
-
-**实证教训**——M22.7 hotfix (`f617b56` / `51e8c13`) + M22.8 hotfix (`bdcd900` / `2472b05`) commit message 含验证命令 + 结果数字 + 改动行数等冗余信息：
-
-- `f617b56`："验证：lint / typecheck / vitest（6/6 fixtures 单测 + 全量 1001/1008）通过" —— 数字 + 命令与 git diff / CI 重叠
-- `2472b05`："验证：pnpm run check:docs 0 error（links: 103 + vue-interp: 58 全过）；lint:md 0 error" —— 同上
-- `2472b05`："教训：CI 修复需走完整链路（global-setup → setup → tests → teardown）" —— 教训应归属 `bdcd900`（修复 commit）而非 docs 登记 commit
 
 **commit 前轻量级审核**：执行方 self-check 4 项必查 + 触发 code-auditor quick depth 条件详见 [ai-collaboration.md §1.6 commit 前轻量级审核流程](./ai-collaboration.md)。
 

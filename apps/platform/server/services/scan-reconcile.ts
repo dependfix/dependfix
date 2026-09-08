@@ -146,7 +146,7 @@ export const reconcileAlerts = async (params: ReconcileAlertsParams): Promise<Re
             continue
         }
 
-        const previousRunId = existing.scanRunId
+        const previousRunId = existing.scanRunId // eslint-disable-line @typescript-eslint/no-unused-vars -- 保留字段以备未来调试 reconcile 同 run 内跨次扫描关系
         existing.scanRunId = newRunId
         existing.repositoryId = repositoryId
         existing.upstreamId = upstreamId
@@ -175,8 +175,7 @@ export const reconcileAlerts = async (params: ReconcileAlertsParams): Promise<Re
 
         // 防御：从 existingByUpstreamId 移除以免后续 superseded 误判
         existingByUpstreamId.delete(upstreamId)
-        // 防御：previousRunId 仅占位，标记已处理（保留字段以备未来调试）
-        void previousRunId
+        // 注：previousRunId 字段在 line 149 声明（保留以备未来调试 reconcile 同 run 内跨次扫描关系），此处不引用
     }
 
     // 2. 处理 remaining existingByUpstreamId（newAlerts 中不存在的 upstreamId → 可能需要 supersede）

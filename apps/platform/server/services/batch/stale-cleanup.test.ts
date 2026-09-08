@@ -185,10 +185,10 @@ describe('cleanupStaleRuns', () => {
         const batchRepo = ds.getRepository(BatchRun)
         await createRepo('repo-x')
         const batch = await createBatchRun(organizationId)
-        const _run = await createScanRun({
+        // createScanRun 返回值忽略：合法 run 的存在是关键（cleanupStaleRuns 通过 batchRunId 查找）
+        await createScanRun({
             repositoryId: 'repo-x', batchRunId: batch.id, status: 'running', startedAt: new Date(),
         })
-        void _run // 仅占位：合法 run 的存在是关键
         await backdateBatchRun(batch.id, new Date(Date.now() - 31 * 60 * 1000))
 
         const result = await cleanupStaleRuns()

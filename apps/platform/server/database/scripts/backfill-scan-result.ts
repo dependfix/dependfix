@@ -1,4 +1,5 @@
 #!/usr/bin/env tsx
+/* eslint-disable @typescript-eslint/no-unused-vars -- entity imports 仅触发 TypeORM 装饰器注册副作用（tsx CLI 不走 Nitro auto-load），运行时无实际引用 */
 /**
  * M20.7 backfill-scan-result：一次性数据迁移脚本。
  *
@@ -30,11 +31,10 @@
 import { pathToFileURL } from 'node:url'
 import type { EntityManager } from 'typeorm'
 import { ensureDatabaseInitialized } from '../index'
-import { ScanResult } from '../../entities/scan-result'
-import { Repository } from '../../entities/repository'
 // 注册所有 entities 到 TypeORM metadata（tsx CLI 不走 Nitro auto-load；必须显式 import 触发装饰器）
 // side-effect import（仅用于触发 @Entity/@Column 装饰器注册，运行时无副作用）
- 
+import { ScanResult } from '../../entities/scan-result'
+import { Repository } from '../../entities/repository'
 import { ScanRun } from '../../entities/scan-run'
 import { User } from '../../entities/user'
 import { Session } from '../../entities/session'
@@ -45,19 +45,7 @@ import { Organization } from '../../entities/organization'
 import { Schedule } from '../../entities/schedule'
 import { BatchRun } from '../../entities/batch-run'
 import { AuditEvent } from '../../entities/audit-event'
-void ScanResult
-void Repository
-void ScanRun
-void User
-void Session
-void Account
-void Verification
-void Credential
-void Organization
-void Schedule
-void BatchRun
-void AuditEvent
- 
+
 
 /**
  * backfill 统计结果（dry-run 与 apply 共用输出格式）

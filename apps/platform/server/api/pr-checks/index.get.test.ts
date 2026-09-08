@@ -122,6 +122,3 @@ describe('GET /api/pr-checks', () => {
         expect(list.every((r) => !r.alertFiring)).toBe(true)
     })
 })
-
-// 抑制 beforeEach 未使用警告（vitest 内置）
-void beforeEach

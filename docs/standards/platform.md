@@ -157,7 +157,7 @@ runtimeConfig: {
 - ⚠️ **Nitro / esbuild 构建期会把 `process.env.NODE_ENV` 静态替换为构建时值**（prod build 时折叠为 `"production"`，dev build 时折叠为 `"development"`）
 - 表达式 `process.env.E2E_TEST !== 'true' || process.env.NODE_ENV === 'production'` 在产物中被折叠为 `... || true`，**永远 404**，e2e 套件必然破裂
 - **runtimeConfig 是 Nuxt 官方运行时覆盖通道**（`NUXT_` 前缀），运行时由 `NUXT_E2E_FIXTURES_ALLOWED` 注入，可绕开 esbuild define；prod build 时 `e2eFixturesAllowed` 默认 false，端点 404，e2e webServer 启动时设 `NUXT_E2E_FIXTURES_ALLOWED=true` 覆盖为 true
-- 教训：M22 阶段 fixtures 双门控首次落地时使用 `process.env.NODE_ENV === 'production'`（详见 todo.md §M22.6 风险与缓解），build 产物实测 `... || true` 折叠，code-auditor quick depth + 构建产物 grep 兜底发现并强制修订
+- 教训（M22 阶段 fixtures 双门控落地修订）见 todo.md §M22.6 + [经验归档 §五十](../design/governance/experience-archive.md)
 
 **应用范围**：
 - `apps/platform/server/api/e2e/fixtures.post.ts` — POST /api/e2e/fixtures
@@ -176,7 +176,7 @@ runtimeConfig: {
 
 **A 阶段 Review Gate**：code-auditor 主责边界新增"e2e 端点双门控 + runtimeConfig 兜底 + 构建产物 grep"必查项
 
-**实证**（2026-09-01 dependfix.sqlite 数据清空事故关联风险 + M22.6 修订教训）：事故排查发现 `apps/platform/server/api/e2e/fixtures.delete.ts:39` 只有 `E2E_TEST !== 'true'` 单门控，与 fixtures.post.ts 同模式（post.ts:24-26 已记录 RG-S3 follow-up 未落地）。M22.6 commit 首次落地使用 `process.env.NODE_ENV === 'production'` 兜底，因 Nitro/esbuild 静态替换导致 prod build 折叠为 `... || true`，code-auditor quick depth + 构建产物实测发现并强制修订为 `runtimeConfig.e2eFixturesAllowed`（NUXT_E2E_FIXTURES_ALLOWED 运行时覆盖通道）。详见 [经验归档 §五十](../design/governance/experience-archive.md#五十sqlite-数据库业务数据被清空开发环境不可恢复事故2026-09-01) + todo.md §M22.6。
+**实证**（2026-09-01 dependfix.sqlite 数据清空事故关联风险 + M22.6 修订教训）：详见 [经验归档 §五十](../design/governance/experience-archive.md) + todo.md §M22.6。
 
 ### 3.7 SQLite 启动期备份 + 自检工具（引用 security.md §2.1 + 平台角度差异化信息）
 

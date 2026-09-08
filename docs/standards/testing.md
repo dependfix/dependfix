@@ -82,7 +82,7 @@
 - **Mock 原则**: mock 不掩盖真正的集成风险。优先真实调用，mock 仅在外部依赖不可控时使用。
 - **Mock 上限对执行速度敏感（跨平台 flaky）**: 循环/轮询类测试的固定次数 mock（如 nock `times(100)`）在更快环境（CI Linux vs 本地 Windows）可能被突破 → 第 N+1 次请求 No match。优先用 `persist()`（无上限）或放大 10 倍并注明原因；此类测试本地连跑多次验证后仍需 CI 实证（[经验归档 §二十七](../design/governance/experience-archive.md)）。
 - **失败处理**: 测试失败时先解释根因，再决定改代码还是改测试。严禁直接改断言让它绿掉。
-- **函数签名变更必须同步所有调用方验证**：utility 函数签名变更（如 `alertsFound(summary)` → `alertsFound(view)`）后必须 grep 全仓调用方同步更新；`pnpm typecheck` **不**捕捉 vitest `vi.mock` 下的类型错误（mock 路径可能跳过部分类型检查）——F 阶段本地验证 `typecheck 0 error` **不是** audit 替代。修复协议：F 阶段本地 typecheck 后必须补 A 阶段 Review Gate（`audit-depth: quick` 起步）独立核验调用方一致性；utility 抽取后单测一次性覆盖所有分支并包含"调用方误用"回归 case。M15.1 第 1 轮 Reject B1 实证：实现已通过单测 + typecheck，但调用方未对齐签名 → 审计快速 depth 仍能捕获。
+- **函数签名变更必须同步所有调用方验证**：utility 函数签名变更（如 `alertsFound(summary)` → `alertsFound(view)`）后必须 grep 全仓调用方同步更新；`pnpm typecheck` **不**捕捉 vitest `vi.mock` 下的类型错误（mock 路径可能跳过部分类型检查）——F 阶段本地验证 `typecheck 0 error` **不是** audit 替代。修复协议：F 阶段本地 typecheck 后必须补 A 阶段 Review Gate（`audit-depth: quick` 起步）独立核验调用方一致性；utility 抽取后单测一次性覆盖所有分支并包含"调用方误用"回归 case。教训（M15.1 第 1 轮 Reject B1 实证）见 [经验归档 §四十二](../design/governance/experience-archive.md)。
 - **utility 单测一次性覆盖所有分支**：抽取后立即补单测覆盖所有分支（含 NaN / Infinity / 缺失字段 / 负时长 / 非法日期等边界）；不接受"先实现后补测"的两段式。`pnpm --filter @dependfix/platform test <utility>.test.ts` 在 D 阶段收尾时必须全过。
 - **测试隔离 afterEach 模式（describe 块 cleanup 兜底）**：describe 块 cleanup 应统一用 `afterEach` 兜底（vitest 钩子），而非 it case 末尾手动 cleanup 块——后者在 `expectError` 抛错 / 异常分支时易跳过导致污染后续测试。M17.4 commit 1 后 `repos/batch.post.test.ts` L165 实测：手动 cleanup（L183-187）不在 try/finally，L181 抛错后 cleanup 跳过，L190 后续测试读到外组织凭据导致 `RESOURCE_NOT_IN_ORG` 误抛（audit suggest #2 即源自此）。修复协议：① describe 块内首行添加 `afterEach(async () => { /* 还原被修改的全局状态 */ })`；② 手动 cleanup 块（如 L183-187）保留但仅作正向恢复兜底（afterEach 失败时仍可执行）；③ `expectError` 内部 catch 后 `return err`（不抛错）— 但若 statusCode 不匹配会抛 `Error('expected handler to throw 403')`，此时清理需 afterEach 兜底。
 - **test helper 强契约类型契约**：test helper 返回类型应反映测试断言模式：message 断言（如 `expect(err.message).toContain(...)`）可用 `Record<string, unknown>`；code/data 强契约断言（如 `expect(err.data?.code).toBe(...)`）需放宽为 `Record<string, any>` 或引入泛型（`expectError<T = Record<string, unknown>>`）。M17.4 commit 2 实测：`apps/platform/tests/api-helper.ts:32` `expectError` 返回 `Record<string, unknown>` 在 strict 模式下导致 6 处 `err.data?.code` 访问 TS2339。helper 选型决策：① message-only 测试用 `Record<string, unknown>`（vitest mock 路径特例，见上文 L85）；② code/data 强契约测试用 `Record<string, any>`（test helper 上下文 any 风险可控；JSDoc 注明 h3 1.15 createError 不透传顶层 code 需通过 data 读取）；③ 进阶用泛型 `expectError<T = Record<string, unknown>>`（调用处 `<{ code: string; field: string }>` 显式标注）。
@@ -105,7 +105,7 @@
 - **CI 失败分析必看 `error-context.md`**：playwright CI 失败时 `test-results/<spec>/error-context.md` 含 accessibility tree（DOM 实际渲染态：row class / cell text / role attribute / button 标签），比堆栈更快定位 DOM-based 测试失败。诊断顺序：error-context.md → trace.zip → webServer 日志 → console.log。判定理由：见 [docs/archive/2026-08-20-standards-revisions.md §4](../archive/2026-08-20-standards-revisions.md)。
 - **PrimeVue 4 wrapper class 重命名**：`scrollable` 包裹层从 `.p-datatable-wrapper`（PrimeVue 3）改为 `.p-datatable-table-container`（PrimeVue 4）。e2e 断言必须看实际渲染产物（playwright error-context.md 或 `page.evaluate` 输出 classList）。判定理由：见 [docs/archive/2026-08-20-standards-revisions.md §10](../archive/2026-08-20-standards-revisions.md)。
 - **PrimeVue 4 + Nuxt SSR hydration 状态机分歧**（known-issue）：`onMounted` 异步赋值 `alerts.value` 后 PrimeVue 不重新计算 `processedData`，rowGroup subheader 永不渲染；`page.reload()` 后能渲染可佐证非业务逻辑问题。修复路径：迁移 alerts 加载到 `useAsyncData` 让 SSR 阶段就有数据，或升级 PrimeVue 到修复版本。当前 2 个 alerts-rowgroup.e2e.test.ts 测试以 `test.fixme()` 标记（命名空间 `known-issue/primevue-hydration-rowgroup`），等修复后取消 `.fixme`。详细背景：见 [docs/archive/2026-08-20-standards-revisions.md §7](../archive/2026-08-20-standards-revisions.md) + [`docs/plan/backlog.md` 已知边界与 known-issue](../plan/backlog.md)。
-- **Nuxt 4 payload 解析模式**：Nuxt 4 用 devalue 编码 SSR payload 到 `<script id="__NUXT_DATA__">`，结构是稀疏数组：`payload[0] = ["ShallowReactive",1]`、`payload[1] = {data:2, ...}`、`payload[15] = {role:21, id:12, ...}`。对象属性也是位置引用（`id: 12` 表示 `payload[12]` = 实际字符串），必须递归解引用才能拿到字面量。e2e 取 session userId 模式：遍历数组找含 role 的对象 → deref role → deref id → string。教训：编写 e2e 解析 Nuxt 4 SSR 注入数据时**不要假设标准 JSON 结构**，必须遍历稀疏数组 + 递归解引用。
+- **Nuxt 4 payload 解析模式**：Nuxt 4 用 devalue 编码 SSR payload 到 `<script id="__NUXT_DATA__">`，结构是稀疏数组：对象属性也是位置引用（如 `id: 12` 表示 `payload[12]` = 实际字符串），必须递归解引用才能拿到字面量。e2e 取 session userId 模式：遍历数组找含 role 的对象 → deref role → deref id → string。编写 e2e 解析 Nuxt 4 SSR 注入数据时**不要假设标准 JSON 结构**，必须遍历稀疏数组 + 递归解引用。
 
 ### 6.2 真实基础设施集成测试（进程内，优先于后台服务冒烟）
 
@@ -123,7 +123,7 @@
 
 ### 6.4 E2E 网络抗性 + 未认证 API 调用标准模式
 
-> 教训来源：M22.7 hotfix commit `f617b56`（CI run 33525721103 E2E global-setup ECONNRESET）+ M22.8 hotfix commit `bdcd900`（CI run 33533376712 未认证 API 测试 cookie 注入）+ [经验归档 §五十一](../design/governance/experience-archive.md) + §五十二。
+> 教训来源（M22.7 + M22.8 hotfix）见 [经验归档 §五十一](../design/governance/experience-archive.md) + §五十二。
 
 #### e2e global-setup 串行场景网络抗性
 

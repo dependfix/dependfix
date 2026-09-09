@@ -32,6 +32,7 @@
     "i18n:audit:unused": "node scripts/i18n/audit-locale-keys.mjs --only=unused",
     "i18n:audit:duplicates": "node scripts/i18n/audit-duplicate-messages.mjs",
     "i18n:check:anchor": "node scripts/i18n/i18n-anchor-check.mjs",
+    "check:readme-i18n": "node scripts/i18n/check-readme-i18n.mjs",
     "docs:check:i18n": "node scripts/docs/check-i18n-duplicates.mjs",
     "lint:i18n": "cross-env NODE_ENV=production ESLINT_I18N=true eslint apps/platform --quiet",
     "lint": "cross-env NODE_ENV=production eslint . --fix --max-warnings 10",

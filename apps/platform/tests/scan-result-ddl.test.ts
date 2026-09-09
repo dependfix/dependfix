@@ -25,7 +25,7 @@ describe('M20.3 ScanResult entity DDL validation', () => {
         setupMemoryDatabase()
         try {
             const ds = await ensureDatabaseInitialized()
-            const queryRunner = ds.manager.connection.createQueryRunner()
+            const queryRunner = ds.manager.dataSource.createQueryRunner()
 
             // 1. 查 ScanResult 表的所有索引
             const indices = await queryRunner.query(
@@ -64,7 +64,7 @@ describe('M20.3 ScanResult entity DDL validation', () => {
         setupMemoryDatabase()
         try {
             const ds = await ensureDatabaseInitialized()
-            const queryRunner = ds.manager.connection.createQueryRunner()
+            const queryRunner = ds.manager.dataSource.createQueryRunner()
 
             // 1. ghsa_id / cve_ids 列必须存在且 nullable
             const columns = await queryRunner.query(`PRAGMA table_info('dependfix_scan_result')`)

@@ -46,6 +46,10 @@ export type ServerErrorCode =
     | 'GITHUB_API_AUTH_FAILED'
     | 'GITHUB_API_FETCH_FAILED'
     | 'METHOD_NOT_ALLOWED'
+    | 'ORG_ID_MISSING'
+    | 'ORG_NOT_FOUND'
+    | 'AI_CONFIG_VALIDATION_FAILED'
+    | 'AI_KEY_REQUIRED'
     | 'UNKNOWN'
 
 /** locale 标记（与 apps/platform/i18n/nuxt-i18n-config.ts locales.code 对齐） */

@@ -15,6 +15,7 @@ import { ScanRun } from './scan-run'
  * - sandbox_unavailable：sandbox.execute 抛 errno（B 场景运行时失败）
  * - sandbox_degraded：scan-orchestrator 产出的 degradedReason（A 场景 sandbox 启动降级）
  * - docker_daemon_down：docker daemon 全局不可用（预扩展，当前未自动触发，后续可加 sandbox-executor 启动期探测）
+ * - ai_config_update：Organization / Repository AI 研判配置更新（todo.md §M26.1 / [platform-ai-integration.md §8.3](../design/governance/platform-ai-integration.md) 审计要求）
  *
  * 类型扩展点：未来可加 `cgroup_limit_hit` / `runtime_swap` 等
  * （保持小写 snake_case，便于 SQL 过滤与 i18n 键对齐）。
@@ -23,12 +24,14 @@ export type AuditEventType =
     | 'sandbox_unavailable'
     | 'sandbox_degraded'
     | 'docker_daemon_down'
+    | 'ai_config_update'
 
 /** 审计事件类型枚举（API 校验用） */
 export const AUDIT_EVENT_TYPES: readonly AuditEventType[] = [
     'sandbox_unavailable',
     'sandbox_degraded',
     'docker_daemon_down',
+    'ai_config_update',
 ] as const
 
 /** 审计事件严重级别（与 alerts.severity 解耦：审计事件是系统信号，告警是业务信号） */

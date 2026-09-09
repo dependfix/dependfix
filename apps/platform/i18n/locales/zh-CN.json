@@ -842,6 +842,22 @@
             "zh-CN": "请求方法不被允许",
             "en": "Method not allowed"
         },
+        "ORG_ID_MISSING": {
+            "zh-CN": "缺少组织 id",
+            "en": "Organization id is missing"
+        },
+        "ORG_NOT_FOUND": {
+            "zh-CN": "组织不存在",
+            "en": "Organization not found"
+        },
+        "AI_CONFIG_VALIDATION_FAILED": {
+            "zh-CN": "AI 研判配置校验失败",
+            "en": "AI assessment config validation failed"
+        },
+        "AI_KEY_REQUIRED": {
+            "zh-CN": "Organization 未配置 AI API Key，请先在设置中添加",
+            "en": "Organization has no AI API Key configured. Please add one in settings"
+        },
         "UNKNOWN": {
             "zh-CN": "未知错误",
             "en": "Unknown error"

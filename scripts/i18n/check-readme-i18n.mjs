@@ -11,22 +11,20 @@
 import { readFileSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { execSync } from 'node:child_process'
+import { isDirectExecution } from '../shared/cli.mjs'
 
-const repoRoot = execSync('git rev-parse --show-toplevel', { encoding: 'utf-8' }).trim()
-const SWITCH_MARKER = '<!-- i18n: switch -->'
+export const SWITCH_MARKER = '<!-- i18n: switch -->'
 
-const errors = []
-
-function readFile(path) {
-    return readFileSync(path, 'utf-8')
+export function getRepoRoot() {
+    return execSync('git rev-parse --show-toplevel', { encoding: 'utf-8' }).trim()
 }
 
-function listReadmes() {
+export function listReadmes(repoRoot) {
     const out = execSync('git ls-files "packages/*/README*.md"', { cwd: repoRoot, encoding: 'utf-8' }).trim()
     return out.split('\n').filter(Boolean)
 }
 
-function extractHeadings(content) {
+export function extractHeadings(content) {
     const lines = content.split('\n')
     const headings = []
     for (const line of lines) {
@@ -38,13 +36,13 @@ function extractHeadings(content) {
     return headings
 }
 
-function checkFile(readmePath) {
+export function checkFile(readmePath, repoRoot, errors) {
     const absPath = join(repoRoot, readmePath)
     if (!existsSync(absPath)) {
         return
     }
 
-    const content = readFile(absPath)
+    const content = readFileSync(absPath, 'utf-8')
     const isChinese = readmePath.endsWith('/README.md')
     const counterpartExt = isChinese ? '.en-US.md' : '.md'
     const counterpartPath = readmePath.replace(/\/README(?:\.en-US)?\.md$/, `/README${counterpartExt}`)
@@ -79,7 +77,7 @@ function checkFile(readmePath) {
     }
 
     // 3. Check heading structure consistency (when both bilingual exist)
-    const counterpartContent = readFile(counterpartAbs)
+    const counterpartContent = readFileSync(counterpartAbs, 'utf-8')
     const headingsSelf = extractHeadings(content)
     const headingsCounterpart = extractHeadings(counterpartContent)
 
@@ -103,20 +101,28 @@ function checkFile(readmePath) {
     }
 }
 
-console.log('[check-readme-i18n] Checking packages/*/README*.md bidirectional links + section structure consistency...\n')
+export function main() {
+    console.log('[check-readme-i18n] Checking packages/*/README*.md bidirectional links + section structure consistency...\n')
 
-const readmes = listReadmes()
-for (const r of readmes) {
-    checkFile(r)
+    const repoRoot = getRepoRoot()
+    const readmes = listReadmes(repoRoot)
+    const errors = []
+    for (const r of readmes) {
+        checkFile(r, repoRoot, errors)
+    }
+
+    if (errors.length === 0) {
+        console.log(`[check-readme-i18n] OK: ${readmes.length} README files all pass`)
+        return
+    }
+
+    console.error(`[check-readme-i18n] ${errors.length} issue(s):\n`)
+    for (const e of errors) {
+        console.error(`  - ${e.file}: ${e.message}`)
+    }
+    process.exit(1)
 }
 
-if (errors.length === 0) {
-    console.log(`[check-readme-i18n] OK: ${readmes.length} README files all pass`)
-    process.exit(0)
+if (isDirectExecution(import.meta.url)) {
+    main()
 }
-
-console.error(`[check-readme-i18n] ${errors.length} issue(s):\n`)
-for (const e of errors) {
-    console.error(`  - ${e.file}: ${e.message}`)
-}
-process.exit(1)

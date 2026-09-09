@@ -53,7 +53,10 @@ test.describe('凭据管理 CRUD（todo.md §M16.5）', () => {
         const stamp = Date.now()
         const name = `cred-create-${stamp}`
         await page.locator('input#name').fill(name)
-        // type Select 默认 fine-grained-pat 即可，测试只关注创建路径
+        // 显式选 classic-pat 避开 fine-grained-pat 必填 ownerLogin（commit 10af85c）；
+        // fine-grained-pat 创建路径由 credentials-api.e2e 单测覆盖（带 ownerLogin）
+        await page.locator('#type').click()
+        await page.locator('.p-select-overlay li:has-text("经典 PAT")').click()
         // PrimeVue Password 把 id 放在外层 div，内部 input 才是真的输入框
         await page.locator('div#token input').fill(`ghp_new_${stamp}`)
         // 保存

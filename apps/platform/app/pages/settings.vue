@@ -192,6 +192,22 @@ onUnmounted(() => {
         clearTimeout(toastTimer)
     }
 })
+
+/**
+ * 加载当前 Organization id（todo.md §M26.x commit 7）。
+ * 通过新引入的 GET /api/organizations/current 端点推断（单组织模型下恒为默认组织）。
+ * ai-config-form 组件挂在 settings 页面，依赖 organizationId 作为 props 加载。
+ */
+const currentOrganizationId = ref<string | null>(null)
+const loadCurrentOrganization = async () => {
+    try {
+        const data = await $fetch<{ id: string }>('/api/organizations/current')
+        currentOrganizationId.value = data.id
+    } catch {
+        currentOrganizationId.value = null
+    }
+}
+onMounted(loadCurrentOrganization)
 </script>
 
 <template>
@@ -394,6 +410,11 @@ onUnmounted(() => {
                     </div>
                 </template>
             </Card>
+
+            <ai-config-form
+                v-if="currentOrganizationId"
+                :organization-id="currentOrganizationId"
+            />
         </div>
         <p v-else class="text-muted">
             {{ t('common.empty.loading') }}

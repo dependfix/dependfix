@@ -208,7 +208,7 @@ describe('GET /api/repos/importable', () => {
     describe('include=owners（M26.2 C67 Resource owner 化）', () => {
         it('返回 personal owner + 空 orgs（Classic PAT 默认路径）', async () => {
             listForAuthenticatedOrgs.mockResolvedValue({ data: [] })
-            const result = await call(`/api/repos/importable?credentialId=${credentialId}&include=owners`) as { owners: Array<{ login: string, type: string }> }
+            const result = await call(`/api/repos/importable?credentialId=${credentialId}&include=owners`) as { owners: { login: string, type: string }[] }
 
             expect(result.owners).toHaveLength(1)
             expect(result.owners[0]).toEqual({
@@ -225,7 +225,7 @@ describe('GET /api/repos/importable', () => {
                     { login: 'org-2', avatar_url: 'https://example.com/org-2' },
                 ],
             })
-            const result = await call(`/api/repos/importable?credentialId=${credentialId}&include=owners`) as { owners: Array<{ login: string, type: string }> }
+            const result = await call(`/api/repos/importable?credentialId=${credentialId}&include=owners`) as { owners: { login: string, type: string }[] }
 
             expect(result.owners).toHaveLength(3)
             expect(result.owners[0]?.login).toBe('demo') // personal 永远排第一
@@ -237,7 +237,7 @@ describe('GET /api/repos/importable', () => {
             getAuthenticated.mockRejectedValue(new Error('403 Forbidden'))
             listForAuthenticatedOrgs.mockRejectedValue(new Error('403 Forbidden'))
             // credential.ownerLogin 由 seed 设置为 'demo'
-            const result = await call(`/api/repos/importable?credentialId=${credentialId}&include=owners`) as { owners: Array<{ login: string, type: string }> }
+            const result = await call(`/api/repos/importable?credentialId=${credentialId}&include=owners`) as { owners: { login: string, type: string }[] }
 
             expect(result.owners).toHaveLength(1)
             expect(result.owners[0]).toEqual({ login: 'demo', type: 'Organization' })

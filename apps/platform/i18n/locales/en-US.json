@@ -189,28 +189,13 @@
             "batchFailed": "Batch scan failed: {message}",
             "repoFetchFailed": "Failed to fetch repositories: {message}",
             "importFailed": "Import failed: {message}",
-            "selectAtLeastOne": "Select at least one repository"
+            "selectAtLeastOne": "Select at least one repository",
+            "ownersFetchFailed": "Failed to load owners: {message}"
         },
-        "importOwner": {
-            "zh-CN": "Resource owner",
-            "en": "Resource owner"
-        },
-        "importOwnerPlaceholder": {
-            "zh-CN": "请先选择凭据",
-            "en": "Select credential first"
-        },
-        "importOwnerPersonalBadge": {
-            "zh-CN": "个人",
-            "en": "Personal"
-        },
-        "importOwnerOrgBadge": {
-            "zh-CN": "组织",
-            "en": "Organization"
-        },
-        "errors.ownersFetchFailed": {
-            "zh-CN": "加载 owner 列表失败：{message}",
-            "en": "Failed to load owners: {message}"
-        }
+        "importOwner": "Resource owner",
+        "importOwnerPlaceholder": "Select credential first",
+        "importOwnerPersonalBadge": "Personal",
+        "importOwnerOrgBadge": "Organization"
     },
     "schedules": {
         "title": "Schedules",
@@ -884,173 +869,41 @@
         }
     },
     "ai": {
-        "title": {
-            "zh-CN": "AI 研判配置",
-            "en": "AI assessment config"
-        },
-        "subtitle": {
-            "zh-CN": "管理 Organization 级 AI API Key 与仓库级研判开关",
-            "en": "Manage Organization-level AI API key and per-repository assessment toggle"
-        },
-        "orgSection": {
-            "zh-CN": "Organization AI 配置",
-            "en": "Organization AI config"
-        },
-        "providerLabel": {
-            "zh-CN": "Provider",
-            "en": "Provider"
-        },
-        "modelLabel": {
-            "zh-CN": "Model",
-            "en": "Model"
-        },
-        "apiKeyLabel": {
-            "zh-CN": "API Key",
-            "en": "API key"
-        },
-        "baseUrlLabel": {
-            "zh-CN": "OpenAI 兼容端点",
-            "en": "OpenAI-compatible base URL"
-        },
-        "anthropicUrlLabel": {
-            "zh-CN": "Anthropic 端点",
-            "en": "Anthropic URL"
-        },
-        "apiKeyHint": {
-            "zh-CN": "API Key 落库前自动加密（AES-256-GCM），仅运行时解密注入引擎",
-            "en": "API key is encrypted with AES-256-GCM before storage and only decrypted at runtime"
-        },
-        "apiKeyPlaceholder": {
-            "zh-CN": "留空表示不修改；输入新 Key 覆盖",
-            "en": "Leave empty to keep current key; enter a new value to overwrite"
-        },
-        "apiKeySetBadge": {
-            "zh-CN": "已配置",
-            "en": "Configured"
-        },
-        "apiKeyRequiredWarning": {
-            "zh-CN": "Organization 未配置 AI Key，启用前请先配置",
-            "en": "Organization has no AI key configured. Please configure before enabling"
-        },
-        "testConnection": {
-            "zh-CN": "测试连接",
-            "en": "Test connection"
-        },
-        "saveConfig": {
-            "zh-CN": "保存配置",
-            "en": "Save config"
-        },
-        "providerOptions": {
-            "openaiCompatible": {
-                "zh-CN": "OpenAI 兼容",
-                "en": "OpenAI-compatible"
-            },
-            "anthropic": {
-                "zh-CN": "Anthropic",
-                "en": "Anthropic"
-            }
-        },
-        "repoSection": {
-            "zh-CN": "仓库 AI 研判",
-            "en": "Repository AI assessment"
-        },
-        "repoEnabledLabel": {
-            "zh-CN": "启用 AI 研判",
-            "en": "Enable AI assessment"
-        },
-        "triggerLabel": {
-            "zh-CN": "触发范围",
-            "en": "Trigger range"
-        },
-        "triggerOptions": {
-            "failure": {
-                "zh-CN": "验证失败时",
-                "en": "On validation failure"
-            },
-            "major": {
-                "zh-CN": "跨大版本升级时",
-                "en": "On major version upgrade"
-            },
-            "both": {
-                "zh-CN": "两者都触发",
-                "en": "Both"
-            }
-        },
-        "scanOverrideSection": {
-            "zh-CN": "本次扫描 AI 覆盖",
-            "en": "Scan-level AI override"
-        },
-        "scanOverrideEnabledLabel": {
-            "zh-CN": "覆盖仓库默认",
-            "en": "Override repo default"
-        },
-        "scanOverrideEnabledHint": {
-            "zh-CN": "默认 = 仓库默认设置",
-            "en": "Default = repository setting"
-        },
-        "scanOverrideDisabledHint": {
-            "zh-CN": "Organization 未配置 AI Key，本次扫描无法启用 AI 研判",
-            "en": "Organization has no AI key configured. AI assessment is unavailable for this scan"
-        },
-        "saveSuccess": {
-            "zh-CN": "AI 配置已保存",
-            "en": "AI config saved"
-        },
-        "saveFailed": {
-            "zh-CN": "保存失败：{message}",
-            "en": "Failed to save: {message}"
-        },
-        "loadFailed": {
-            "zh-CN": "加载失败：{message}",
-            "en": "Failed to load: {message}"
-        },
-        "usageSectionTitle": {
-            "zh-CN": "AI 用量",
-            "en": "AI usage"
-        },
-        "usageCalls": {
-            "zh-CN": "调用次数",
-            "en": "Calls"
-        },
-        "usageInputTokens": {
-            "zh-CN": "输入 token",
-            "en": "Input tokens"
-        },
-        "usageOutputTokens": {
-            "zh-CN": "输出 token",
-            "en": "Output tokens"
-        },
-        "usageTotalTokens": {
-            "zh-CN": "总 token",
-            "en": "Total tokens"
-        },
-        "usageCostUsd": {
-            "zh-CN": "估算费用 (USD)",
-            "en": "Estimated cost (USD)"
-        },
-        "alertsEvaluatedColumn": {
-            "zh-CN": "AI 评估",
-            "en": "AI assessment"
-        },
-        "alertsEvaluatedTag": {
-            "zh-CN": "已评估",
-            "en": "Evaluated"
-        },
-        "alertsSkippedTag": {
-            "zh-CN": "跳过",
-            "en": "Skipped"
-        },
-        "evaluationConfidence": {
-            "zh-CN": "置信度",
-            "en": "Confidence"
-        },
-        "evaluationBreaking": {
-            "zh-CN": "Breaking 风险",
-            "en": "Breaking risks"
-        },
-        "evaluationPatch": {
-            "zh-CN": "Patch 建议",
-            "en": "Patch suggestion"
-        }
+        "title": "AI assessment config",
+        "subtitle": "Manage Organization-level AI API key and per-repository assessment toggle",
+        "orgSection": "Organization AI config",
+        "providerLabel": "Provider",
+        "modelLabel": "Model",
+        "apiKeyLabel": "API key",
+        "baseUrlLabel": "OpenAI-compatible base URL",
+        "anthropicUrlLabel": "Anthropic URL",
+        "apiKeyHint": "API key is encrypted with AES-256-GCM before storage and only decrypted at runtime",
+        "apiKeyPlaceholder": "Leave empty to keep current key; enter a new value to overwrite",
+        "apiKeySetBadge": "Configured",
+        "apiKeyRequiredWarning": "Organization has no AI key configured. Please configure before enabling",
+        "testConnection": "Test connection",
+        "saveConfig": "Save config",
+        "repoSection": "Repository AI assessment",
+        "repoEnabledLabel": "Enable AI assessment",
+        "triggerLabel": "Trigger range",
+        "scanOverrideSection": "Scan-level AI override",
+        "scanOverrideEnabledLabel": "Override repo default",
+        "scanOverrideEnabledHint": "Default = repository setting",
+        "scanOverrideDisabledHint": "Organization has no AI key configured. AI assessment is unavailable for this scan",
+        "saveSuccess": "AI config saved",
+        "saveFailed": "Failed to save: {message}",
+        "loadFailed": "Failed to load: {message}",
+        "usageSectionTitle": "AI usage",
+        "usageCalls": "Calls",
+        "usageInputTokens": "Input tokens",
+        "usageOutputTokens": "Output tokens",
+        "usageTotalTokens": "Total tokens",
+        "usageCostUsd": "Estimated cost (USD)",
+        "alertsEvaluatedColumn": "AI assessment",
+        "alertsEvaluatedTag": "Evaluated",
+        "alertsSkippedTag": "Skipped",
+        "evaluationConfidence": "Confidence",
+        "evaluationBreaking": "Breaking risks",
+        "evaluationPatch": "Patch suggestion"
     }
 }

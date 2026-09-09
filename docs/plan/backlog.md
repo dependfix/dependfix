@@ -156,6 +156,56 @@
 
 - **C68 平台 AI 研判集成（apps/platform 端到端联通）** —— 2026-09-08 用户调研触发。**现状（M25.2a 闭环后）**：AI breaking change 研判引擎层 `packages/engine/src/ai/` M5 已闭环（commit 3475e6e），CLI / MCP / GitHub Action 三条用户路径全部支持 `--ai` 系列参数；apps/platform 端到端联通**按 P0 基础层 + P1 应用层拆分两步实施**：**P0 基础层 M25.2a 已闭环**（5 commits / ~992 行，commit `1c65582` 数据模型 + `f174cce` Schema+Service + `7250ec1` 三执行器透传 + `49480a6` typecheck 修复 + `782fa27` 收口）—— Organization.aiApiKeyEncrypted / Repository.aiEnabled / ScanRun.aiConfigSnapshot 数据模型 + scan-orchestrator 透传 + container/sandbox/github-action 三执行器同步；**P1 应用层 M26.1 承接**（5 commits / ~1130 行，详见 [todo.md §M26.1](todo.md#m261-p1--能力--ux-m252b-应用层5-commits--1130-行--standard-depth-audit) + [platform-ai-integration.md](../design/governance/platform-ai-integration.md) 设计先行稿）—— 4 个 API 端点（PATCH organization-ai-config / GET repo-ai-config / POST repo-ai-config / 扩展 POST scan）+ UI（Organization AI 配置表单 + 仓库 AI 开关 + 扫描对话框 override + RunDetailDialog 用量展示 + alerts 评估列）+ i18n（zh-CN + en-US `ai.*` 命名空间）+ docs architecture.md AI 研判段扩展。
 
+#### devEx / lint 治理
+
+- **W1 apps/platform 增配 stylelint + lint 系列 scripts（参照 momei）** —— 2026-09-09 用户决策入 backlog。**现状**：apps/platform `package.json` scripts 仅 `lint`（eslint . --fix --max-warnings 10），缺 `lint:i18n` / `lint:css` / `lint:md`；整个 dependfix 无 stylelint 依赖与配置；根 `lint:md` 路径未覆盖 `apps/**/*.md`；根 `lint-staged` 缺 `*.{css,scss,vue}` 钩子。**参照**：momei `package.json` `lint` / `lint:i18n` / `lint:css` / `lint:md` + `stylelint-config-cmyr@1.0.0`（cmyr 出品，flat config 形式）+ `stylelint@17.15.0`（本地路径 `/root/projects/momei/package.json` + [momei stylelint.config.js 镜像 7 行 extends cmyr](https://github.com/CaoMeiYouRen/momei/blob/master/stylelint.config.js)）。**范围**（按 [规划规范 §1.1 任务粒度约束](../standards/planning.md#11-硬性约束) 1 atomic commit / < 5 文件 / < 800 行硬阈值）：
+
+  - `apps/platform/package.json` devDeps 加 `stylelint@17.15.0` + `stylelint-config-cmyr@^1.0.0`（与 momei 版本一致）
+  - `apps/platform/package.json` scripts 加 `lint:i18n`（`cross-env NODE_ENV=production ESLINT_I18N=true eslint . --quiet`）/`lint:css`（`stylelint "**/*.{html,css,scss,sass,vue}" --fix`）/`lint:md`（`lint-md "**/*.md" --fix`）
+  - 新增 `apps/platform/stylelint.config.js`（7 行 extends cmyr，镜像 momei：https://github.com/CaoMeiYouRen/momei/blob/master/stylelint.config.js）
+  - 新增 `apps/platform/.stylelintignore`（`.nuxt` / `.output` / `data` / `coverage` / `playwright-report` / `test-results` / `node_modules` / `*.min.css`）
+  - 根 `package.json` `lint:md` 路径补 `apps/**/*.md`（让根 lint:md 覆盖 apps 内的 md）
+  - 根 `package.json` `lint-staged` 加 `*.{css,scss,vue}` → `pnpm --filter @dependfix/platform lint:css`（apps/platform 是平台）
+
+  **不动**（避免破坏现有行为）：
+  - `apps/platform/eslint.config.js`（与根 eslint.config.js 语义一致）
+  - 根 `eslint.config.js`
+  - 根 `lint` / 根 `lint:i18n` 现有命令
+  - 不重命名现有 `lint` 命令
+
+  **验收标准**：
+  - `pnpm --filter @dependfix/platform lint` → 0 error（既有 0 warning 状态保持）
+  - `pnpm --filter @dependfix/platform lint:i18n` → 0 error
+  - `pnpm --filter @dependfix/platform lint:css` → exit 0（baseline warnings 数量记录，参考 M26.4b 治本 vs 临时策略）
+  - `pnpm --filter @dependfix/platform lint:md` → 0 error
+  - `pnpm run lint:md` → 0 error（根，覆盖 `apps/**/*.md`）
+  - `pnpm install` lockfile 同步
+
+  **不做什么**：
+  - 不做 `lint:css` baseline 治本（如果跑通时只有少量 warnings 走一遍 --fix 即可；如有大量 warnings 则与 M26.4b 一致**先记录 baseline + 治本留后续评估**，**不引入 `--max-warnings` 临时方案**）
+  - 不重写 apps/platform 现有 .vue / .scss 文件以贴合 stylelint-config-cmyr 规则（除 --fix 自动修复部分）
+  - 不修改 eslint.config.js（根 + apps/platform）
+  - 不引入 stylelint-config-standard / stylelint-config-standard-scss / stylelint-config-html（stylelint-config-cmyr 已间接包含）
+  - 不动根 `lint` / 根 `lint:i18n` 现有命令
+
+  **依赖**：无前置（独立 feature；`stylelint-config-cmyr@1.0.0` 已在 npm registry；`stylelint@17.15.0` 与 momei 对齐）
+
+  **交付物**：1 atomic commit（`chore(platform): apps/platform 增配 stylelint + lint:i18n/lint:css/lint:md`）+ quick depth audit（无跨模块改动，无新增设计文档）
+
+  **风险与缓解措施**：
+  - **风险 1**：`lint:css` baseline 可能有 5-15 warnings（apps/platform 现有 25 个 .vue + 3 个 .scss 不一定全部符合 cmyr 规则）—— 缓解：`stylelint --fix` 自动修复能消的 warnings + 不可自动修复的视为「已有 baseline」不阻塞（与 M26.4b 治本 vs 临时策略一致）；后续按需治本留 M27+ 评估
+  - **风险 2**：stylelint-config-cmyr 规则较严可能与 PrimeVue 4 / UnoCSS 兼容性问题 —— 缓解：先跑 dry-run 评估实际 warnings 数量；如有 PrimeVue 特定 selectors（`:deep` / `::v-deep`）问题按需加 stylelint-disable 注释（与 ESLint disable 模式一致）
+  - **风险 3**：CI test job 暂未跑 `lint:css`（W1 仅引入命令，CI 集成留 M27+ 评估）—— 缓解：本次仅本地命令，CI 不强制；上收时同步考虑 CI workflow 更新
+
+  **上收触发条件**（任一）：
+  - 用户实测反馈升级（apps/platform 维护期间频繁手动跑 lint:i18n / lint:css）
+  - 后续 .vue / .scss baseline 治本需求
+  - 用户明确授权上收
+
+  **关联决策回顾**（2026-09-09 用户确认）：
+  - **入 backlog 而非直接上收 M27** —— 按 [规划规范 §3.1 新需求默认走"评估 → backlog"原则（hard requirement）](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement)：本任务不在 3 类插队例外（安全/漏洞/可用性）中 → 默认走 backlog 评估路径
+  - **不动 apps/platform/eslint.config.js 与根 eslint.config.js** —— `ESLINT_I18N=true` 在根已有 `lint:i18n` 限定 apps/platform 范围，apps/platform 子命令 `lint:i18n` 仅为开发者本地便利（cd apps/platform && pnpm lint:i18n）
+
 ## 待人工验收（真实环境，随可用性推进）
 
 > 以下条目属 M7.1 / M7.2 / 发布管线阶段遗留的真实环境验证任务，保留随真实环境可用性推进。
@@ -243,5 +293,5 @@
 | 当前阶段活跃任务 | [todo.md](todo.md) 顶部"当前阶段"段（M26 阶段 2026-09-08 用户决策启动方案 A + M26.4 拆分：M25.2b 应用层 + C67 批量导入 Resource owner 化 + C69 文档站 + 包 README 多语言 en-US P0 + primeicons 降级 + baseline 9 warnings 治理 + 经验归档沉淀 / M26.1+M26.2+M26.3+M26.4a+M26.4b+M26.5 共 6 原子条目 / 承接 M25.2b；M25 阶段全部 17 commits 已 2026-09-08 用户主动推送，ahead=0） |
 | 已完成阶段归档 | [todo-archive.md](todo-archive.md)（主窗口保留最近 5 阶段：M25 / M24 / M23 / M22 / M21 / M20；早期阶段见 [archive/](archive/)） |
 | 里程碑与阶段交付 | [roadmap.md](roadmap.md)（M26 段已 2026-09-08 用户决策启动 + 6 原子条目方案 A + M26.4 拆分决策；M25 段状态从「进行中」→「已闭环」） |
-| 长期主线 / 候选 / 待人工验收 / 已知边界 | 本文档（按四象限结构） |
+| 长期主线 / 候选 / 待人工验收 / 已知边界 | 本文档（按四象限结构；2026-09-09 新增「devEx / lint 治理」段登记 W1 apps/platform 增配 stylelint + lint 系列候选） |
 | 历史归档索引 | [archive/index.md](archive/index.md) |

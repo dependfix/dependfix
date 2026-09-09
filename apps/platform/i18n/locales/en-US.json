@@ -904,6 +904,15 @@
         "alertsSkippedTag": "Skipped",
         "evaluationConfidence": "Confidence",
         "evaluationBreaking": "Breaking risks",
-        "evaluationPatch": "Patch suggestion"
+        "evaluationPatch": "Patch suggestion",
+        "providerOptions": {
+            "openaiCompatible": "OpenAI-compatible",
+            "anthropic": "Anthropic"
+        },
+        "triggerOptions": {
+            "failure": "On validation failure",
+            "major": "On major version upgrade",
+            "both": "Both"
+        }
     }
 }

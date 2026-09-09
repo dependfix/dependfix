@@ -904,6 +904,15 @@
         "alertsSkippedTag": "跳过",
         "evaluationConfidence": "置信度",
         "evaluationBreaking": "Breaking 风险",
-        "evaluationPatch": "Patch 建议"
+        "evaluationPatch": "Patch 建议",
+        "providerOptions": {
+            "openaiCompatible": "OpenAI 兼容",
+            "anthropic": "Anthropic"
+        },
+        "triggerOptions": {
+            "failure": "验证失败时",
+            "major": "跨大版本升级时",
+            "both": "两者都触发"
+        }
     }
 }

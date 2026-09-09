@@ -4,6 +4,9 @@
 
 # dependfix
 
+<!-- i18n: switch -->
+[简体中文](./README.md) | [English](./README.en-US.md)
+
 > 自动化处理 GitHub Dependabot / Code Scanning 安全告警的 CLI 工具。
 
 ## 安装

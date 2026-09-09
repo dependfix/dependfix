@@ -1,5 +1,8 @@
 # @dependfix/skills
 
+<!-- i18n: switch -->
+[简体中文](./README.md) | <!-- English version pending -->
+
 dependfix 产品 Agent Skill 权威源（`dependfix-remediator`），随 npm 发布。
 
 ## 这是什么

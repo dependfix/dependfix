@@ -1,5 +1,8 @@
 # @dependfix/core
 
+<!-- i18n: switch -->
+[简体中文](./README.md) | <!-- English version pending -->
+
 > dependfix 核心领域模型库。提供告警标准化模型、过滤器、优先级排序、报告生成、日志等跨包共享模块。
 
 ## 安装

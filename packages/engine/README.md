@@ -1,5 +1,8 @@
 # @dependfix/engine
 
+<!-- i18n: switch -->
+[简体中文](./README.md) | <!-- English version pending -->
+
 > dependfix 执行引擎包：编排、采集、修复与研判核心。由 CLI（dependfix）、MCP Server（@dependfix/mcp）与平台（apps/platform）共同依赖，应用层不再互相依赖。
 
 ## 内容

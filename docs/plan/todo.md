@@ -4,14 +4,14 @@
 >
 ---
 
-## 当前阶段：M26 平台 AI 研判应用层 + 批量导入 Resource owner 化 + 文档站 i18n + License 收口 + 经验沉淀（M26.1+M26.2+M26.3+M26.4a+M26.4b+M26.5 共 6 原子条目 / 2026-09-08 用户决策方案 A + M26.4 拆分决策）
+## 当前阶段：M26 平台 AI 研判应用层 + 批量导入 Resource owner 化 + 文档站 i18n + License 收口 + 经验沉淀（M26.1+M26.2+M26.3+M26.4a+M26.4b+M26.4c+M26.5 共 7 原子条目 / 2026-09-08 用户决策方案 A + M26.4 拆分决策）
 
-> **M26 阶段承接 M25.2b**：方案 A 治理优先 + 能力扩展 + UX + 测试补强，6 原子条目独立闭环覆盖平台 AI 研判集成「应用层」（P1 follow-up，承接 M25.2a 基础层）+ 批量导入 Resource owner 化（P2 能力扩展，承接 C67）+ 文档站 + 包 README 多语言 en-US P0（P2 治理，承接 C69）+ License 收口（P3 治理，承接 M25 follow-up #3）+ baseline 9 warnings 治理（P3 治理，承接 M25 follow-up #4）+ 经验归档沉淀（P2 治理，承接 M25 follow-up #5）。类型分布 🚀 2 + 🛡️ 2 + 📚 2 + UX 隐含在 M26.1/M26.2/M26.3，符合 [规划规范 §1.1 L12 类型平衡原则](../standards/planning.md)。
+> **M26 阶段承接 M25.2b**：方案 A 治理优先 + 能力扩展 + UX + 测试补强，7 原子条目独立闭环覆盖平台 AI 研判集成「应用层」（P1 follow-up，承接 M25.2a 基础层）+ 批量导入 Resource owner 化（P2 能力扩展，承接 C67）+ 文档站 + 包 README 多语言 en-US P0（P2 治理，承接 C69）+ License 收口（P3 治理，承接 M25 follow-up #3）+ baseline 9 warnings 治理（P3 治理，承接 M25 follow-up #4）+ e2e 适配 M26.1/M26.2 行为变更（P3 治理，本批次 M26.4c）+ 经验归档沉淀（P2 治理，承接 M25 follow-up #5）。类型分布 🚀 2 + 🛡️ 3 + 📚 2 + UX 隐含在 M26.1/M26.2/M26.3，符合 [规划规范 §1.1 L12 类型平衡原则](../standards/planning.md)。
 >
-> **ahead commits 实证**：`git rev-list HEAD ^origin/master --count` = **31**（M26 P 阶段规划 2 + M26.1 8 + M26.2 3 + M26.3 7 + M26 修复 5 + M26.4a 1 + M26.4b 3 + M26.4 docs 1 + M26.5 1 = 31 commits，待用户主动推送）；当前 HEAD = `6b01e35` docs(governance): M26.5 经验归档 + wisdom 蒸馏双轨制落地
+> **ahead commits 实证**：`git rev-list HEAD ^origin/master --count` = **0**（M26 全部 31 commits 已推 origin/master）；当前 HEAD = `da0ebdf7` ci(i18n): 重构 README 检查脚本以增强可读性和可维护性。**注**：M26.4c 闭环 e2e 适配 4 commits 上线后 ahead 计数将增加 4-5 commits（M26.4c docs 1 + test 4 = 5）
 >
 > **关键决策 D1-D4**：
-> - **D1**：M26 6 原子条目按 §1.1 任务粒度约束（每原子 < 5 commits / < 800 行推荐粒度，< 10 文件 / < 800 行硬阈值）+ §1.1 L12 类型平衡原则选 6 原子；每原子独立验证矩阵（lint + typecheck + 定向测试）
+> - **D1**：M26 7 原子条目按 §1.1 任务粒度约束（每原子 < 5 commits / < 800 行推荐粒度，< 10 文件 / < 800 行硬阈值）+ §1.1 L12 类型平衡原则选 7 原子；每原子独立验证矩阵（lint + typecheck + 定向测试）；**2026-09-08 决策时为 6 原子（M26.4a + M26.4b），2026-09-10 增 M26.4c e2e 适配后为 7 原子**
 > - **D2**：**M26.4 拆分**为 M26.4a（primeicons 降级 1 commit License 治理）+ M26.4b（baseline 9 warnings 治理 1-2 commits lint baseline）—— 不相干内容不合并原子条目（用户决策 2026-09-08）
 > - **D3**：**M26.3 C69 仅落地 P0**（5 commits / 0.5-1 切片），P1 增强（语言切换入口增强 + SEO 基础 + 翻译自动化脚手架 + 其他语言接入评估）留 M27+ —— 避免一次性大改动
 > - **D4**：**M26.5 范围 b**（wisdom 蒸馏 + experience-archive §五十八-§六十二 双轨制）—— 覆盖 M25 沉淀的 2 条新 wisdom（principle-specification-internal-consistency + principle-baseline-lint-error-形式 vs 删除 占位符决策）+ M25 → 当前 commit 之间 25 commits 文档治理批次新增 pattern（如有）
@@ -217,6 +217,50 @@
 
 ---
 
+### M26.4c [P3 🧪 治理] e2e 测试适配 M26.1/M26.2 行为变更（4 commits / quick depth audit）
+
+- **闭环状态**（2026-09-10）：⏳ 进行中
+- **背景与必要性**：
+  - M26.1（AI 研判应用层，commit `2fe6d1a`）在 settings.vue 挂载 `<ai-config-form>` 卡片，从 5 张扩到 6 张
+  - M26.2（Resource owner 化，commit `10af85c`）`fine-grained-pat` schema 强必填 `ownerLogin`（Fine-grained PAT 绑定单一 owner 运行时无法动态发现）
+  - M26.2（commit `9ae7c2c`）`importable.get` 单端点重构，`affiliation` 校验被 `include` 校验替换（`affiliation` 保留为 deprecated 向后兼容）
+  - 上述三处行为变更均未同步更新 e2e 测试，导致 master CI Test job 在 4 个核心场景持续红：admin 个人设置卡片计数 / credentials fine-grained-pat 创建 / credentials-crud 创建凭据 / repos-api importable 非法参数
+  - 本批次仅测试侧适配，不改生产代码；保持 M26.1/M26.2 行为变更收敛
+- **目标**：在不动生产代码前提下，让 4 个失败 e2e 转绿，使 PR #87（chore(deps): automated security fix — 5 upgrades）经 Mergify queue 自然合入
+- **范围**（4 e2e 文件，按测试文件分 4 atomic commits）：
+  - `apps/platform/tests/e2e/admin.e2e.test.ts` 「个人设置 › 五张卡片渲染」→「6 张卡片渲染」+ 语义化抽样 ai-config-form 卡片标题
+  - `apps/platform/tests/e2e/credentials-api.e2e.test.ts` POST /api/credentials fine-grained-pat 测试补 `ownerLogin` 字段
+  - `apps/platform/tests/e2e/credentials-crud.e2e.test.ts` 创建凭据 Dialog 显式选 `classic-pat` 避开必填 ownerLogin（fine-grained-pat 创建路径由 credentials-api.e2e 覆盖）
+  - `apps/platform/tests/e2e/repos-api.e2e.test.ts` importable 非法参数测试改测 `include=bogus`（与 importable.get.test.ts 单测对齐）
+- **验收标准**（已闭环后回填）：
+  - [ ] 4 个 e2e 测试本地 + CI 全部通过（`pnpm --filter @dependfix/platform test:e2e` exit 0）
+  - [ ] `pnpm --filter @dependfix/platform lint` 0 error 0 warning
+  - [ ] `pnpm --filter @dependfix/platform typecheck` 0 error
+  - [ ] `pnpm --filter @dependfix/platform build` 0 error
+  - [ ] PR 合并后 PR #87 经 Mergify queue 自然合入
+- **不做什么**：
+  - 不改生产代码（`settings.vue` / `credentials.vue` / `credentialSchema` / `importable.get.ts`）
+  - 不加 data-testid 锚点（按用户决策 no，依赖 i18n 标题文案做语义化断言）
+  - 不修改 UI Dialog 默认 type（按用户决策 no，测试里显式选 classic-pat）
+  - 不引入 `importable.get` 对 `affiliation` 的二次校验（保持 deprecated 语义）
+  - 不扩展 `max-warnings` 临时方案（M26.4b 已确立基线 0）
+- **依赖**：
+  - M26.1/M26.2 实施 commit（`2fe6d1a` / `10af85c` / `9ae7c2c`）已合 master
+  - M26.4a/M26.4b 治理完成（lint baseline 0）
+- **交付物**：4 atomic commits（按 e2e 文件拆）+ 1 docs commit（todo.md M26.4c 阶段定义）：
+  - commit 1 = docs(plan): M26.4c 阶段定义（本 commit）
+  - commit 2 = test(platform): admin.e2e 个人设置卡片 5→6 张适配 + 语义化抽样
+  - commit 3 = test(platform): credentials-api.e2e fine-grained-pat 创建补 ownerLogin
+  - commit 4 = test(platform): credentials-crud.e2e 创建凭据显式选 classic-pat 避必填
+  - commit 5 = test(platform): repos-api.e2e importable 改测 include=bogus
+- **风险与缓解措施**：
+  - **风险 1**：admin.e2e 语义化断言依赖 i18n 文案 `Organization AI 配置`，未来 i18n 重构可能失稳 —— 缓解：在 ai-config-form 组件 props 文档中标注「测试锚点」字样（后续 M27+ 评估 data-testid 引入）
+  - **风险 2**：credentials-crud 测试显式选 `classic-pat`，与生产默认值 `fine-grained-pat` 不一致 —— 缓解：测试聚焦 CRUD 流程，不绑定默认 type；fine-grained-pat 创建路径在 credentials-api.e2e 单独覆盖
+  - **风险 3**：repos-api e2e 改测 `include=bogus`，与原 `affiliation=invalid-affiliation` 测试意图略有差异（deprecated vs 新参数） —— 缓解：在 test describe 注释中说明 `affiliation` 已 deprecated，新参数校验路径测试覆盖
+  - **风险 4**：本地 sandbox 无法跑 e2e（chromium 启动需特定 flags）—— 缓解：完全依赖 CI 验证，PR 状态检查通过即视为完成；本地仅跑 lint + typecheck + 单测覆盖
+
+---
+
 ### M26.5 [P2 📚 治理] 经验归档沉淀（wisdom 蒸馏 + experience-archive §五十八-§六十二）（1 commit / quick depth audit）
 
 - **闭环状态**（2026-09-09）：✅ 已闭环（commit 待提交）—— experience-archive-§49-§57-recent-investigation.md 追加 §五十八-§六十二 共 5 节（~1500 行净增） + wisdom 蒸馏 4 条新挂 standards（specification-internal-consistency / baseline-lint-error-decision / i18n-anchor-check-bidirectional / zod-parseOptional-three-state）+ 压缩 5 条已挂接活跃条目到已蒸馏段（PrimeVue-multisortMeta / OR 链 + M20 阶段 3 条） + 6 个挂接点写入 standards（ai-collaboration.md §1.4 跨文档一致性 / development.md §5.1.22 baseline lint 治理 / i18n.md §3.X locale anchor / testing.md §6 zod parseOptional / planning.md §1.1 跨文档一致性 / experience-archive 主窗口分片索引表更新）
@@ -261,4 +305,4 @@
 |:--|:--|
 | 已完成阶段归档 | [todo-archive.md](todo-archive.md)（主窗口保留最近 5 阶段：M25 / M24 / M23 / M22 / M21 / M20；早期阶段见 [archive/](archive/)） |
 | 未排期 / 延期 / 远期 / 长期主线 / 已知边界 | [backlog.md](backlog.md)（**M26 P 阶段同步清理**：C68 状态调整（M26.1 承接应用层）+ C70 已闭环移除 + C67 / C69 已上收移除） |
-| 里程碑与阶段交付 | [roadmap.md](roadmap.md)（**M26 段新增**：2026-09-08 用户决策启动方案 A + 6 原子条目 + M25 状态从「进行中」→「已闭环」 + M26 ahead commits 实证 31 待推送） |
+| 里程碑与阶段交付 | [roadmap.md](roadmap.md)（**M26 段新增**：2026-09-08 用户决策启动方案 A + 7 原子条目（2026-09-10 增 M26.4c e2e 适配）+ M25 状态从「进行中」→「已闭环」 + M26 ahead commits 实证 31 待推送） |

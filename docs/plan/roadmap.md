@@ -235,6 +235,31 @@ per-alert 模型 + reconcile + API 简化 + UI 调整 + backfill 脚本。5 子�
 
 > 详细任务见 [todo-archive.md §M24](todo-archive.md#m24-pr-check-mvp--治理债--测试补强--用户体验m241m242m243m244m245-全部已闭环--2026-09-03-归档) + [archive/todo-archive-phases-m24.md 完整实施记录](archive/todo-archive-phases-m24.md)
 
+## M25: PrimeUI License 治理 + 平台 AI 研判集成 + lint baseline 治理 + M24 follow-up 工具化（已完成 2026-09-08 归档）
+
+方案 A 治理优先 + 能力扩展 + 测试补强。4 原子条目独立闭环（M25.1 PrimeUI 主题库 License 治理 / M25.2a 平台 AI 研判集成基础层 / M25.3 apps/platform baseline 16 lint errors 清理 / M25.4 M24 follow-up 工具化）。17 commits / ~1821 行净增；ahead=17 全部推送完成。
+
+> 详细任务见 [todo-archive.md §M25](todo-archive.md#m25-primeui-license-治理--平台-ai-研判集成--lint-baseline-治理--m24-follow-up-工具化m251m252am253m254-全部已闭环--2026-09-08-归档) + [archive/todo-archive-phases-m25.md 完整实施记录](archive/todo-archive-phases-m25.md)
+
+## M26: 平台 AI 研判应用层 + 批量导入 Resource owner 化 + 文档站 i18n + License 收口 + 经验沉淀（2026-09-08 用户决策方案 A + M26.4 拆分 / 进行中）
+
+承接 M25.2b（M25 follow-up #1）+ C67（批量导入 Resource owner 化）+ C69 P0（文档站 + 包 README 多语言 en-US）+ M25 follow-up #3（primeicons 降级）+ M25 follow-up #4（baseline 9 warnings 治理）+ M25 follow-up #5（经验归档沉淀）。6 原子条目独立闭环覆盖 🚀 2 + 🛡️ 2 + 📚 2 + UX 隐含在 M26.1/M26.2/M26.3，符合 [规划规范 §1.1 L12 类型平衡原则](../standards/planning.md)。
+
+- **M26.1** [P1 🚀] M25.2b 应用层（5 commits / ~1130 行 / standard depth）—— C68 P1 增强落地（4 API 端点 + UI + i18n + docs），承接 M25.2a 基础层
+- **M26.2** [P2 🚀] C67 批量导入 Resource owner 化（3 commits / ~4h / standard depth）—— 与 MCP `discover_repos` `owner: string[]` 对齐
+- **M26.3** [P2 📚] C69 文档站 + 包 README 多语言 en-US P0（5 commits / 0.5-1 切片 / standard depth）—— VitePress 脚手架 + 8 个 en-US md 文件 + 包 README 双语化 + check:readme-i18n 同步门禁
+- **M26.4a** [P3 🛡️] primeicons@8.x → 7.x 降级（1 commit / quick depth）—— 消除最后 1 个 PrimeUI License 包
+- **M26.4b** [P3 🧪] baseline 9 warnings 治理（1-2 commits / quick depth）—— 逐项修复避免扩展 max-warnings 临时方案
+- **M26.5** [P2 📚] 经验归档沉淀（wisdom 蒸馏 + experience-archive §五十八-§六十二）（1 commit / quick depth）—— M25 4 个治理实践 + wisdom 蒸馏活跃条目 ~18 → ≤ 15
+
+**关键决策 D1-D4**：
+- **D1**：6 原子条目按 §1.1 任务粒度约束（每原子 < 5 commits / < 800 行推荐粒度，< 10 文件 / < 800 行硬阈值）+ §1.1 L12 类型平衡原则
+- **D2**：M26.4 拆分为 M26.4a（primeicons 降级）+ M26.4b（baseline 9 warnings）—— 不相干内容不合并（用户决策 2026-09-08）
+- **D3**：M26.3 C69 仅落地 P0（5 commits），P1 增强留 M27+ —— 避免一次性大改动
+- **D4**：M26.5 范围 b（wisdom 蒸馏 + experience-archive §五十八-§六十二 双轨制）—— 覆盖 M25 沉淀的 2 条新 wisdom + 25 commits 文档治理批次新增 pattern
+
+> 详细任务见 [todo.md §M26](todo.md)
+
 ---
 
 ## 详细任务

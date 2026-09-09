@@ -190,7 +190,13 @@ onUnmounted(() => {
     pollCancelled = true
 })
 
-const triggerScan = async (repo: RepoView, mode: string, severity: string) => {
+const triggerScan = async (
+    repo: RepoView,
+    mode: string,
+    severity: string,
+    aiEnabled: boolean = false,
+    aiTrigger: 'failure' | 'major' | 'both' = 'both',
+) => {
     pollCancelled = false
     scanError.value = ''
     scanSuccess.value = ''
@@ -207,6 +213,8 @@ const triggerScan = async (repo: RepoView, mode: string, severity: string) => {
                 mode,
                 severityThreshold: severity,
                 executorKind: repo.executorKind === 'github-action' ? 'github-action' : undefined,
+                aiEnabled,
+                aiTrigger,
             },
         })
         const runData = run as unknown as { id: string, status: string, runUrl: string | null }
@@ -258,19 +266,45 @@ const scanConfigDialogVisible = ref(false)
 const scanConfigRepo = ref<RepoView | null>(null)
 const scanConfigMode = ref('report-only')
 const scanConfigSeverity = ref('high')
+// AI 研判 override state（todo.md §M26.1 + [platform-ai-integration.md §7.3](../design/governance/platform-ai-integration.md)）：
+// 默认从仓库级 aiEnabled / aiTrigger 继承；用户可在 Dialog 中临时 override（不写回 repo）
+const scanConfigAiEnabled = ref(false)
+const scanConfigAiTrigger = ref<'failure' | 'major' | 'both'>('both')
+const scanConfigHasOrgAiKey = ref(false)
 
 const openScanConfig = (repo: RepoView) => {
     scanConfigRepo.value = repo
     scanConfigMode.value = 'report-only'
     scanConfigSeverity.value = 'high'
+    // 默认值：继承仓库级 aiEnabled / aiTrigger；Organization Key 状态由 fetchData 期间缓存的 hasOrgAiKey 提供
+    scanConfigAiEnabled.value = repo.aiEnabled
+    scanConfigAiTrigger.value = repo.aiTrigger
     scanConfigDialogVisible.value = true
+    // 异步加载 Organization AI Key 状态（影响 AI override 面板是否禁用）
+    void loadOrgAiKey()
+}
+
+/** 加载 Organization AI Key 状态（用于 scan-config-dialog AI override 面板禁用判定） */
+const loadOrgAiKey = async () => {
+    try {
+        const data = await $fetch<{ hasAiApiKey: boolean }>('/api/organizations/current')
+        scanConfigHasOrgAiKey.value = data.hasAiApiKey
+    } catch {
+        scanConfigHasOrgAiKey.value = false
+    }
 }
 
 const submitScanConfig = () => {
     const repo = scanConfigRepo.value
     if (!repo) return
     scanConfigDialogVisible.value = false
-    void triggerScan(repo, scanConfigMode.value, scanConfigSeverity.value)
+    void triggerScan(
+        repo,
+        scanConfigMode.value,
+        scanConfigSeverity.value,
+        scanConfigAiEnabled.value,
+        scanConfigAiTrigger.value,
+    )
 }
 
 // 批量扫描（勾选多仓库 → 跳转批量运行页）
@@ -709,9 +743,12 @@ const importDialogVisible = ref(false)
             v-model:visible="scanConfigDialogVisible"
             v-model:mode="scanConfigMode"
             v-model:severity="scanConfigSeverity"
+            v-model:ai-enabled="scanConfigAiEnabled"
+            v-model:ai-trigger="scanConfigAiTrigger"
             :repo="scanConfigRepo"
             :mode-options="modeOptions"
             :severity-options="severityOptions"
+            :has-org-ai-key="scanConfigHasOrgAiKey"
             @submit="submitScanConfig"
         />
         <!-- `repo-history-dialog` 不再在此挂载：pi-history 跳转改到 /scans?repository=xxx（todo.md §M16.1），

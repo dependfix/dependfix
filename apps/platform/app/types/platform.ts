@@ -16,6 +16,10 @@ export interface RepoView {
     executorKind: string
     note: string | null
     tags: string[]
+    /** AI 研判开关（todo.md §M26.1 + M25.2a 实体扩展；与 POST /api/repos/[id]/ai-config 联动） */
+    aiEnabled: boolean
+    /** AI 研判触发范围（failure / major / both） */
+    aiTrigger: 'failure' | 'major' | 'both'
     lastScanAt: string | null
     createdAt: string
     updatedAt: string

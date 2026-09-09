@@ -20,6 +20,8 @@ const toView = (r: Repository) => ({
     note: r.note,
     tags: parseTags(r.tags),
     sandboxLimits: parseSandboxLimits(r.sandboxLimits),
+    aiEnabled: r.aiEnabled,
+    aiTrigger: r.aiTrigger,
     lastScanAt: r.lastScanAt,
     createdAt: r.createdAt,
     updatedAt: r.updatedAt,

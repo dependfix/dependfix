@@ -37,6 +37,20 @@ interface ImportableResponse {
     fromCache: boolean
 }
 
+/** Resource owner（user 或 organization；；M26.2 C67 单端点契约 include=owners） */
+interface ResourceOwner {
+    login: string
+    type: 'User' | 'Organization'
+    avatarUrl?: string
+}
+
+/** Resource owner 列表响应（[backlog.md §C67 单端点契约](../plan/backlog.md)） */
+interface ResourceOwnerResponse {
+    owners: ResourceOwner[]
+    cachedAt: string
+    fromCache: boolean
+}
+
 const dialogVisible = computed({
     get: () => props.visible,
     set: (v: boolean) => emit('update:visible', v),
@@ -45,6 +59,10 @@ const dialogVisible = computed({
 const importLoading = ref(false)
 const importSaving = ref(false)
 const importCredentialId = ref<string | null>(null)
+// M26.2 C67：Resource owner 状态（personal + organizations）
+const importableOwners = ref<ResourceOwner[]>([])
+const importOwnerLogin = ref<string | null>(null)
+const ownersLoading = ref(false)
 const importableRepos = ref<ImportableRepo[]>([])
 const selectedRepos = ref<ImportableRepo[]>([])
 // 三维过滤（默认 source-only / all / 空关键字；docs/plan/todo.md §PR3-1）
@@ -105,6 +123,21 @@ const cachedMinutesAgo = computed(() => {
     return Math.max(0, Math.ceil((Date.now() - lastCachedAt.value.getTime()) / 60000))
 })
 
+/** M26.2 C67：Resource owner 类型 badge 标签（Personal / Organization） */
+const ownerBadge = (login: string) => {
+    const owner = importableOwners.value.find((o) => o.login === login)
+    if (!owner) {
+        return login
+    }
+    return owner.type === 'Organization' ? t('repos.importOwnerOrgBadge') : t('repos.importOwnerPersonalBadge')
+}
+
+/** M26.2 C67：owner type 对应 tag severity（Personal = success，Organization = info） */
+const ownerBadgeSeverity = (login: string): 'success' | 'info' => {
+    const owner = importableOwners.value.find((o) => o.login === login)
+    return owner?.type === 'Organization' ? 'info' : 'success'
+}
+
 const importError = ref('')
 const importSuccess = ref('')
 
@@ -121,6 +154,8 @@ watch(() => props.visible, (v) => {
     importSuccess.value = ''
     selectedRepos.value = []
     importableRepos.value = []
+    importableOwners.value = []
+    importOwnerLogin.value = null
     forkFilter.value = 'source'
     visibilityFilter.value = 'all'
     searchKeyword.value = ''
@@ -129,15 +164,15 @@ watch(() => props.visible, (v) => {
     lastCachedAt.value = null
     lastFromCache.value = false
     lastFreshRefreshed.value = false
-    // 单凭据场景自动选中并加载可导入仓库
+    // 单凭据场景自动选中并加载 owner 列表
     if (props.credentials.length === 1) {
         importCredentialId.value = props.credentials[0]!.id
-        void loadImportable()
+        void loadOwnersAndRepos()
     }
 })
 
 const loadImportable = async (options?: { fresh?: boolean }) => {
-    if (!importCredentialId.value) {
+    if (!importCredentialId.value || !importOwnerLogin.value) {
         importableRepos.value = []
         return
     }
@@ -147,6 +182,7 @@ const loadImportable = async (options?: { fresh?: boolean }) => {
         const res = await $fetch('/api/repos/importable', {
             query: {
                 credentialId: importCredentialId.value,
+                owner: importOwnerLogin.value,
                 ...(options?.fresh ? { fresh: 'true' } : {}),
             },
         })
@@ -162,6 +198,43 @@ const loadImportable = async (options?: { fresh?: boolean }) => {
         importError.value = t('repos.errors.repoFetchFailed', { message: e?.data?.message ?? e?.message ?? t('common.errors.unknown') })
     } finally {
         importLoading.value = false
+    }
+}
+
+/**
+ * M26.2 C67：先加载 owner 列表，再根据 owner 加载仓库。
+ * 凭据切换时调用：loadOwners 完成后默认选第一个 owner（personal 永远排第一），再触发 loadImportable。
+ */
+const loadOwnersAndRepos = async () => {
+    if (!importCredentialId.value) {
+        importableOwners.value = []
+        importOwnerLogin.value = null
+        return
+    }
+    ownersLoading.value = true
+    try {
+        const res = await $fetch('/api/repos/importable', {
+            query: {
+                credentialId: importCredentialId.value,
+                include: 'owners',
+            },
+        })
+        const data = res as ResourceOwnerResponse
+        importableOwners.value = data.owners
+        // 默认选第一个 owner（personal 排第一）
+        if (data.owners.length > 0) {
+            importOwnerLogin.value = data.owners[0]?.login ?? null
+            await loadImportable()
+        } else {
+            importOwnerLogin.value = null
+            importableRepos.value = []
+        }
+    } catch (e: any) {
+        importError.value = t('repos.errors.ownersFetchFailed', { message: e?.data?.message ?? e?.message ?? t('common.errors.unknown') })
+        importableOwners.value = []
+        importOwnerLogin.value = null
+    } finally {
+        ownersLoading.value = false
     }
 }
 
@@ -219,9 +292,9 @@ const submitImport = async () => {
                         option-label="name"
                         option-value="id"
                         :placeholder="t('repos.importCredentialPlaceholder')"
-                        :loading="importLoading"
+                        :loading="ownersLoading || importLoading"
                         fluid
-                        @change="() => loadImportable()"
+                        @change="() => loadOwnersAndRepos()"
                     />
                 </div>
                 <Button
@@ -230,9 +303,45 @@ const submitImport = async () => {
                     rounded
                     :aria-label="t('repos.importRefresh')"
                     :title="t('repos.importRefresh')"
-                    :disabled="!importCredentialId || importLoading"
+                    :disabled="!importCredentialId || ownersLoading || importLoading"
                     @click="loadImportable({fresh: true})"
                 />
+            </div>
+
+            <!-- M26.2 C67：Resource owner 选择器（凭据切换后由 loadOwnersAndRepos 填充） -->
+            <div class="import-form__field">
+                <label for="importOwner">{{ t('repos.importOwner') }}</label>
+                <Select
+                    id="importOwner"
+                    v-model="importOwnerLogin"
+                    :options="importableOwners"
+                    option-label="login"
+                    option-value="login"
+                    :placeholder="importCredentialId ? t('repos.importOwnerPlaceholder') : t('repos.importOwnerPlaceholder')"
+                    :loading="ownersLoading"
+                    :disabled="!importableOwners.length"
+                    fluid
+                    @change="() => loadImportable()"
+                >
+                    <template #value="{value}">
+                        <span v-if="value">
+                            {{ value }}
+                            <Tag
+                                :value="ownerBadge(value)"
+                                :severity="ownerBadgeSeverity(value)"
+                                class="import-form__owner-badge"
+                            />
+                        </span>
+                    </template>
+                    <template #option="{option}">
+                        <span>{{ option.login }}</span>
+                        <Tag
+                            :value="ownerBadge(option.login)"
+                            :severity="ownerBadgeSeverity(option.login)"
+                            class="import-form__owner-badge"
+                        />
+                    </template>
+                </Select>
             </div>
 
             <!-- 默认关联凭据（与「拉取用凭据」并排显示，语义分离；docs/plan/todo.md §PR3-3 C50） -->

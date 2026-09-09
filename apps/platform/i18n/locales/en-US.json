@@ -190,6 +190,26 @@
             "repoFetchFailed": "Failed to fetch repositories: {message}",
             "importFailed": "Import failed: {message}",
             "selectAtLeastOne": "Select at least one repository"
+        },
+        "importOwner": {
+            "zh-CN": "Resource owner",
+            "en": "Resource owner"
+        },
+        "importOwnerPlaceholder": {
+            "zh-CN": "请先选择凭据",
+            "en": "Select credential first"
+        },
+        "importOwnerPersonalBadge": {
+            "zh-CN": "个人",
+            "en": "Personal"
+        },
+        "importOwnerOrgBadge": {
+            "zh-CN": "组织",
+            "en": "Organization"
+        },
+        "errors.ownersFetchFailed": {
+            "zh-CN": "加载 owner 列表失败：{message}",
+            "en": "Failed to load owners: {message}"
         }
     },
     "schedules": {

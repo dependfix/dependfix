@@ -95,6 +95,8 @@ const backToRepos = () => navigateTo('/repos')
 const openRunUrl = (url: string) => {
     window.open(url, '_blank')
 }
+
+const repoId = computed(() => route.params.id as string)
 </script>
 
 <template>
@@ -112,6 +114,8 @@ const openRunUrl = (url: string) => {
                 <h2>{{ t('runs.title') }}</h2>
             </div>
         </div>
+
+        <repo-ai-toggle :repository-id="repoId" class="runs__ai-toggle" />
 
         <Message
             v-if="error"

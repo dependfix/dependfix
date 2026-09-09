@@ -44,6 +44,8 @@ jobs:
       - run: pnpm run docs:check:i18n
       - run: pnpm run lint:md:check
       - run: pnpm run check:docs
+      # M26.3 C69：README 双向链接 + 章节结构一致性门禁（依赖中文 README + README.en-US.md 同存在）
+      - run: pnpm run check:readme-i18n
       # docs 构建前置：VitePress 会把 markdown 中的裸 HTML 当作 Vue 模板编译（缺结束标签即失败），
       # lint-md/check-docs 均不检查标签配对——docs 构建失败必须尽早暴露，不等 typecheck/test/build 跑完
       # （教训见经验归档 §三十三：release.md 裸 <path> 导致 Test/Pages 双 workflow 在末尾构建才失败）

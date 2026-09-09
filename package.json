@@ -80,7 +80,8 @@
   },
   "lint-staged": {
     "*.{js,ts}": [
-      "npm run lint"
+      "npm run lint",
+      "git add"
     ],
     "*.md": [
       "npm run lint:md",

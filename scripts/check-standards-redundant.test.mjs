@@ -1,10 +1,10 @@
 /**
  * check-standards-redundant 测试：验证 scanFile / scanStandards 行为
  */
-import { describe, it, expect } from 'vitest'
 import { mkdtempSync, writeFileSync, mkdirSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { describe, it, expect } from 'vitest'
 import { scanFile, scanStandards, DEFAULT_KEYWORDS, OPTIONAL_KEYWORDS } from './check-standards-redundant.mjs'
 
 describe('scanFile', () => {

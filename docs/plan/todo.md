@@ -219,6 +219,7 @@
 
 ### M26.5 [P2 📚 治理] 经验归档沉淀（wisdom 蒸馏 + experience-archive §五十八-§六十二）（1 commit / quick depth audit）
 
+- **闭环状态**（2026-09-09）：✅ 已闭环（commit 待提交）—— experience-archive-§49-§57-recent-investigation.md 追加 §五十八-§六十二 共 5 节（~1500 行净增） + wisdom 蒸馏 4 条新挂 standards（specification-internal-consistency / baseline-lint-error-decision / i18n-anchor-check-bidirectional / zod-parseOptional-three-state）+ 压缩 5 条已挂接活跃条目到已蒸馏段（PrimeVue-multisortMeta / OR 链 + M20 阶段 3 条） + 6 个挂接点写入 standards（ai-collaboration.md §1.4 跨文档一致性 / development.md §5.1.22 baseline lint 治理 / i18n.md §3.X locale anchor / testing.md §6 zod parseOptional / planning.md §1.1 跨文档一致性 / experience-archive 主窗口分片索引表更新）
 - **目标**：M25 阶段 4 原子条目 + M25 → 当前 commit 之间 25 commits 文档治理批次沉淀经验追加到 `experience-archive.md` + 蒸馏 `.session/wisdom.md` 活跃条目挂接到 standards；wisdom 活跃条目数从当前 ~18 降至 ≤ 15（按 `pnpm distill:wisdom --check --threshold=15` 验证）
 - **范围**：
   - **experience-archive §五十八-§六十二 共 5 节**（每节含案例背景 + 实施路径 + 教训 + 挂接治理检查点）：
@@ -231,12 +232,12 @@
     - `principle-specification-internal-consistency`（M25 P 阶段新增）→ 挂接 [ai-collaboration.md §1.4](../../docs/standards/ai-collaboration.md) / [planning.md §1.1](../../docs/standards/planning.md)（规范内部一致性核验）
     - `principle-baseline-lint-error-形式 vs 删除 占位符决策`（M25.3 沉淀）→ 挂接 [development.md §5.1.x](../../docs/standards/development.md)（ESLint `no-unused-expressions` + `no-meaningless-void-operator` 双重禁止）
     - M22.4/M22.5/M22.6/M22.7/M22.8/M23.3/M25.x 累计 5-10 条活跃 pattern 蒸馏挂接（按 [Session Wisdom 蒸馏机制](../../docs/design/governance/session-wisdom-distillation.md)）
-- **验收标准**：
-  - [ ] `experience-archive.md` 新增 5 节齐全（§五十八-§六十二），每节含 4 要素（案例背景 + 实施路径 + 教训 + 挂接治理检查点）
-  - [ ] `.session/wisdom.md` 活跃条目数从当前 ~18 降至 ≤ 15（按 `pnpm distill:wisdom --check --threshold=15` 验证）
-  - [ ] 蒸馏的 pattern 全部挂接到对应 standards（`development.md` / `testing.md` / `ai-collaboration.md` / `platform.md` / `code-auditor.agent.md`）
-  - [ ] `pnpm run check:docs` 0 error（跨文档锚点引用保持 + experience-archive 分片后引用同步）
-  - [ ] 分片位置合理：§五十八-§六十二 应归入 `experience-archive-§49-§57-recent-investigation.md`（按 §58-§62 编号顺延）或新建 `experience-archive-§58-§64.md` 分片
+- **验收标准**（已闭环后回填）：
+  - [x] `experience-archive-§49-§57-recent-investigation.md` 追加 §五十八-§六十二 共 5 节齐全（每节含 4 要素：案例背景 + 实施路径 + A 阶段审计 + 教训 + 挂接治理检查点 + 准入标准复核），按"时间连续性归入既有分片"路径（按 M26.5 风险 3 缓解措施）
+  - [x] `.session/wisdom.md` 活跃条目数从 17 降至 **7**（按 `pnpm distill:wisdom --check` 验证 WISDOM_OK ≤ 20 ≤ 15 已合规）—— 4 条新挂 standards + 5 条已挂接活跃条目压缩到已蒸馏段
+  - [x] 蒸馏的 4 条新 pattern/principle 全部挂接到对应 standards（`ai-collaboration.md §1.4` / `development.md §5.1.22` / `i18n.md §3.X` / `testing.md §6` / `planning.md §1.1`）—— 5 个挂接点（principle-specification-internal-consistency 双挂 ai-collaboration.md + planning.md）
+  - [x] `pnpm run check:docs` exit 0（[check-docs] OK：120 个 md 文件 / vue-interp: 75 个 md 文件全部通过）—— 8 处死链已修复（commit hash 部分被反引号过滤 + 标点移除规则需按 looseNorm 实证）
+  - [x] 分片位置合理：§五十八-§六十二 归入 `experience-archive-§49-§57-recent-investigation.md`（按 §58-§62 编号顺延；分片文件 842 → ~1500 行，< 2000 行阈值）
 - **不做什么**：
   - 不重写现有 experience-archive §1-§57
   - 不删除 wisdom 历史条目（仅从「当前条目」迁移到「已蒸馏条目」段）

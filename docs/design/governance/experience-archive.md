@@ -31,6 +31,7 @@
 | [experience-archive-§36-§40-toolchain.md](./experience-archive-§36-§40-toolchain.md) | §三十六 - §四十 | 工具链与编码陷阱（锚点漂移 / git tag committer / PowerShell 文本 / 入口守卫 / 批量替换）|
 | [experience-archive-§41-§48-archive-batch.md](./experience-archive-§41-§48-archive-batch.md) | §四十一 - §四十八 | 归档批次与设计取舍（cgroup 集成测试 / Coverage 阈值 / 集成外部库 / Code Scanning / 删过头 / PrimeVue v-model / over-engineering / 断链）|
 | [experience-archive-§49-§57-recent-investigation.md](./experience-archive-§49-§57-recent-investigation.md) | §四十九 - §五十七 | 近期根因排查与治理（atomic commit / SQLite 清空 / E2E / Playwright / fixture / M23.3 / M24.1 PR Check / M22.7+M22.8 根因）|
+| [experience-archive-§49-§57-recent-investigation.md](./experience-archive-§49-§57-recent-investigation.md) | §五十八 - §六十二 | M25 阶段治理与 M25→当前 25 commits 文档治理批次（PrimeUI License 降级 / 三执行器同步透传 / baseline lint 治理 / i18n-anchor-check 工具化 / 25 commits 文档治理批次）|
 
 **外链引用规范**：所有跨文件 / 跨文档引用按 §编号 命中（如 `#四十三集成外部库必须读-readme-标准用法--e2e-真实路径冒烟测试2026-08-29m18.4-audit-round-1-reject-后补修`）。锚点 slug 规则见 [documentation.md §2 链接检查](../../standards/documentation.md)。
 

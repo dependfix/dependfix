@@ -339,6 +339,33 @@ zod `z.enum([...]).optional()` 接受 `undefined` 为合法值（`safeParse(unde
 
 教训见 [经验归档 §四十九（M22.4 教训沉淀）](../design/governance/experience-archive.md) + §五十（2026-09-01 dependfix.sqlite 事故关联风险）。
 
+#### 5.1.22 baseline lint 治理路径：删除占位符 vs 改写为 `void X` 的治本决策（M25.3 阶段实证）
+
+ESLint 双重禁止规则：
+- `@typescript-eslint/no-unused-expressions` 禁止未使用表达式（如 `someCondition && doSomething()`）
+- `@typescript-eslint/no-meaningless-void-operator` 禁止 `void X` 无意义用法
+
+**修复方向选择**：
+- **方向 A（删除占位符）**：删除冗余表达式（`void someValue` → 完全删除该行；`condition && doSomething()` → 改为 `if (condition) { doSomething() }`）—— **本项目标准做法**
+- **方向 B（改写为 `void X`）**：保留表达式但用 `void` 前缀 —— 与 `no-meaningless-void-operator` 冲突，**禁止**
+
+**M25.3 实证**：baseline 16 errors 全部走方向 A 治本（12 个 `void X` 直接删除，4 个 `condition && doSomething()` 改写为 `if` 块，0 个使用 eslint-disable 抑制）。**`max-warnings` 临时方案同样禁止**——CI 触发 ESLint 临界值是"信号"而非"阈值调整"，治理方向是"清空 warnings"而非"提高阈值"。
+
+**M26.4b 延伸实证**：22 warnings → 0 warnings 全部治本（不扩展 `max-warnings` 临时方案）。具体修复策略：
+- `await-thenable`（9 个）→ 去除冗余 await
+- `no-invalid-void-type`（1 个）→ `void` union 改 `undefined`
+- `max-params`（1 个）→ 合并相邻可选参数到 options 对象
+- `no-empty-function`（1 个）→ 保留 + 加注释说明设计意图
+- `only-throw-error`（1 个）→ 仅测试代码必须 throw 非 Error 覆盖 fallback 时加 eslint-disable 注释
+- `max-statements-per-line`（4 个）→ 拆分多语句到多行
+- `no-unused-vars`（3 个）→ 删除未使用 import / 冗余 import
+- `no-deprecated`（2 个）→ TypeORM 1.x `connection` 改 `dataSource`
+- `require-await`（1 个）→ `async function` 改 `function`（返回 `Promise.resolve(...)` 显式包装 fetch API 契约）
+
+**规范支撑**：[规划规范 §4.4 治本 vs 临时](../standards/planning.md#44-大批量归档批次操作规范) + D 阶段自检三向验证纪律（[AI 协作规范 §2.0](../standards/ai-collaboration.md#20-d-阶段自检三向验证纪律)）
+
+教训见 [经验归档 §六十 M25.3 baseline lint 修复方向](../design/governance/experience-archive-§49-§57-recent-investigation.md#六十m253baselinelint治理双重禁止的治本路径20260908commits) + §六十二 教训 2（M25 → 当前 25 commits 文档治理批次）。
+
 ---
 
 ## 6. 样式规范（平台阶段适用）

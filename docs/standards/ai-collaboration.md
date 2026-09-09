@@ -172,6 +172,7 @@ P 阶段规划写入 `todo.md` 顶部 banner / M 段 banner 时，ahead 状态�
 - **用户驱动工作流**：用户在 "确认方案" / "提交本次改动" / "开始规划" 等明确指令出现前，执行角色只交付 P 阶段产出 + 收口摘要 + 下一步建议；任何后续动作（commit / push / D 阶段实现）须用户显式触发。
 - **会话沉淀**：P 阶段规划落地后必须同步更新 `.session/current-task.yaml` 与 `.session/runtime-state.json`，标注 `phase = "P 阶段文档已落地，待用户指令进入 D 阶段"` + `blocked_on = "用户发布"`。
 - **经验闭环**：P 阶段收口时同步更新 `docs/standards/*` 与 `.github/skills/*`，把本次 P 阶段的字段切分 / 标题层级 / 锚点规则等决定固化进规范（避免经验仅留会话）。
+- **跨文档内部一致性**（M25 阶段教训，M25.5 蒸馏挂接）：`新需求处理原则` + `插队例外清单 3 类` + `合规核验 code-auditor 主责边界必查项` 三段必须在 `AGENTS.md §新需求处理原则` + `docs/standards/ai-collaboration.md §1.4` + `docs/standards/planning.md §3.1` 三处保持一致。**根因**：规范在不同阶段（M0 基础规范建立 + M15 增强 + M24 拆分）多次修改，跨文档同步不彻底。**修复模式**：(a) 规范修改前先 `rg -n "新需求.*处理原则" docs/standards/ docs/standards/ai-collaboration.md AGENTS.md docs/standards/planning.md` 实证所有相关描述；(b) 修改后 `pnpm run check:docs` 验证链接 + `rg -n` 交叉验证措辞一致；(c) 关键原则（hard requirement / 插队例外）必须 3 处同步 + commit message 显式说明"3 处同步落地"。教训见 [经验归档 §六十二 教训 1（M25 → 当前 25 commits 文档治理批次）](../design/governance/experience-archive-§49-§57-recent-investigation.md#六十二m25--当前-commit-25-commits-文档治理批次规范精简--experience-archive-分片--dependabot-拦截--14-内部一致性2026-09-09ahead-commits-25)。
 
 ## 1.5 阶段归档检查 + 沉淀工作流（PDTFC+ 闭环后必经）
 

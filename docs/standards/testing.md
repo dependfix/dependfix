@@ -89,6 +89,7 @@
 - **CI 最终裁决**: 修复的验收标准是 CI 全部通过，不是本地通过。
 - **测试输入用真实形态**: 测试 fixture 应使用真实格式的输入（如带固定前缀的 ID），合成数据会漏掉真实格式才触发的缺陷。
 - **lint 门禁**: `--max-warnings N` 让存量 warning 变成 CI 硬门禁倒逼清理；测试名应与真实断言一致（误导性测试名会掩盖缺口）。
+- **zod `parseOptional<T>` 三态语义 helper**（M25.4 commit `65a8ec1`）：`apps/platform/server/utils/zod-helpers.ts` 提供 `parseOptional<T>(schema, value): { success: boolean, value?: T, isProvided: boolean }` helper，强制三态语义区分——`success` 表达 schema.safeParse 通过与否；`value` 表达 schema 解析后的实际值（可能 `undefined`）；`isProvided` 表达"是否真的提供了该字段"（区分「未传」与「传 undefined」）。**根因**：`z.enum([...]).optional()` 接受 `undefined` 为合法值（`safeParse(undefined).success = true, data = undefined`），但 `data === 'some-value'` 三元永远 false（`data` 是 `undefined`），导致「未传字段」与「传 undefined」被静默混同。**M25.4 实证**：8 个单测覆盖三态语义边界 + 应用替换（M24.1 Phase 3 W2 alertFiring `!== undefined` 简化注释保留 + Phase 2 W6 ack fixture `acknowledgedAt` 必须非空）+ i18n-anchor-check 配套（[i18n.md §3.X locale 文件 insert anchor](./i18n.md#3x-locale-文件-insert-anchor-必须用目标-locale-文本m254-阶段实证)）。教训见 [经验归档 §六十一 M25.4 教训 2](../design/governance/experience-archive-§49-§57-recent-investigation.md#六十一m254i18nanchorcheck工具化locale文件insertanchor错位污染检测zod陷阱helper20260908commits) + [经验归档 §五十六 M24.1 教训 4 zod `.optional()` 陷阱](../design/governance/experience-archive-§49-§57-recent-investigation.md#五十六m241-pr-check-状态监测-mvp5-phase-串行--a-阶段-reject-内联修复--6-atomic-commits-闭环2026-09-03commits)。
 
 ### 6.1 E2E 实践经验（Playwright）
 

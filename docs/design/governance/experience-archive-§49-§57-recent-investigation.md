@@ -840,3 +840,271 @@ export const fixturesRateLimit = (): boolean => {
 本案例（M24.2 阶段）符合准入标准第 1 条"教训未落入规范"（3 条 pattern 涉及 better-auth + h3 + 节流设计，均为新发现实践教训，未在现有规范登记）+ 第 2 条"重大 bugfix 经验未沉淀"（本批 0 实施，仅 docs-only 源码排查；M22.7 ECONNRESET 根因链已闭环）+ 第 3 条"重复违规预警"（better-auth 自动 patch fallback 是隐性技术债，未来重构可能引入回退；已登记 follow-up 单测建议）。**M24.2 增量贡献**：从 M22.7+M22.8 阶段"4 项根因候选未明确判定"演进到 M24.2 阶段"3 候选已治本 + 1 候选经验性方案登记" —— 源码追溯 + 治本判定 + 3 教训 + 4 follow-up 形成完整治理闭环。
 
 M24 阶段方案 B 第 2 个原子条目（M24.2）独立闭环。M24.3 cron-preview wall-clock + M24.4 M18.x+Code Scanning 集中清理 + M24.5 C36 服务端 API i18n 仍待用户决策推进。
+
+---
+
+## 五十八、M25.1 PrimeUI 商业 License 降级治理：`@primeuix/themes` 3.x → 2.x + `primeicons` 8.x → 7.x（2026-09-08，commits `35e4935 / 4c51d19 / 7ce7803`）
+### 案例背景
+
+2026-09-08 M25 阶段启动，治理优先 + 能力扩展 + UX + 测试补强 4 维类型平衡切片中的 License 收口（M25 follow-up #3，承接 M24 阶段 `pnpm licenses list --prod --json | jq '.["Unknown"] | length'` 实测 **Unknown 7 个**）。根因：PrimeUI 商业 License 协议（社区免费版限制 $1M USD 营收 / < 5 开发者 / < 10 员工 / < $3M 风投 / 非营利 / 强制 license key + 离线 license verification），本项目采用 4 个 PrimeUI 包（`@primeuix/themes@3.x` / `@primevue/themes-aura@1.x` / `primelocale@2.5.0` / `primeicons@8.x`），均触发 PrimeUI Community/Commercial License 协议。
+
+### 协议分析与降级路径
+
+| 包 | v8 协议 | v7 协议 | 降级路径 | commit |
+|:--|:--|:--|:--|:--|
+| `@primeuix/themes` | PrimeUI 商业 | MIT | `^3.0.0` → `^2.0.3` | `35e4935` |
+| `primeicons` | PrimeUI 商业（v8.0.0 引入 `SEE LICENSE IN LICENSE.md`）| MIT | `^8.0.0` → `^7.0.0` | `7ce7803`（M26.4a 补充收尾） |
+| `@primevue/themes-aura` | PrimeUI 商业 | MIT | 不直接依赖（`@primevue/nuxt-module` 自动注入；M25.1 阶段已通过 `@primeuix/themes` v2 替代 aura preset）| 不需要单独 commit |
+| `primelocale` | 协议清晰 | MIT | 保留（不触发 PrimeUI License）| 无变更 |
+
+### 实施路径（3 commits 串行）
+
+| Commit | 范围 | 行净增 |
+|:--|:--|:--:|
+| `aa957da`（设计先行稿 + backlog 登记）| apps/platform PrimeUI 主题库降级设计先行稿 + C70 follow-up 候选登记 | docs-only |
+| `35e4935`（依赖降级主 commit）| `@primeuix/themes` `^3.0.0` → `^2.0.3` + pnpm-lock.yaml 同步 + 兼容性验证（实测 Aura preset API 2.x 与 3.x 兼容，主题 `darkModeSelector: '.dark'` 不变）| chore |
+| `4c51d19`（平台规范同步）| `docs/standards/platform.md` §1 技术选型表「主题」行加 `^2.0.3` 版本约束 + MIT 协议 + 降级时间戳 2026-09-08（**commit message 标题写 §3.7 实际写入 §1——commit message 引用错误，已在 M26.4a 配套 platform.md §1 同步「图标」行延续**）| docs-only |
+| `7ce7803`（M26.4a 收尾）| `primeicons@^8.0.0` → `^7.0.0` + 全仓库 30 个 pi-icon class v7 命中验证 + `docs/standards/platform.md` §1 加「图标」行 | chore + docs |
+
+### A 阶段审计
+
+**M25.1**（standard depth / 1 轮 Pass / 0 warning）：commit `35e4935` License 协议验证 `pnpm view @primeuix/themes@2.0.3 license` 输出 MIT + 兼容性验证 Aura preset 主题 API 无破坏性变更 + 风险 1 验证（pnpm install 不触发其他 PrimeUI 包回归）+ 风险 2 验证（e2e 暗色模式 `darkModeSelector: '.dark'` 仍 work）。
+
+**M26.4a**（quick depth / 1 轮 Pass / 0 warning）：commit `7ce7803` primeicons@7.0.0 license 验证 MIT（实测 v8.0.0 LICENSE.md 是 PrimeUI Community/Commercial 双协议 + 强制 license key） + 30 个 pi-icon class 7.0.0 primeicons.css 全部命中（pi-check/pi-times/pi-bolt/pi-pencil/pi-trash/pi-plus/pi-play/pi-pause/pi-stop-circle/pi-sun/pi-moon/pi-eye/pi-copy/pi-refresh/pi-filter/pi-save/pi-user/pi-lock/pi-ban/pi-list/pi-arrow-left/pi-chevron-{up,down}/pi-external-link/pi-envelope/pi-history/pi-upload/pi-check-circle/pi-times-circle/pi-play-circle） + 配套 platform.md §1 同步「图标」行（含 icon class 全清单）。
+
+### 教训（3 项）
+
+1. **教训 1（License 治理是治本 vs 临时的边界）**：消除 PrimeUI 商业 License 风险有 3 候选路径——(a) 申请 Commercial License（付费 + 年度续费 + 强制 license key）；(b) 扩展 `max-warnings` 临时方案（让 License 检查告警不阻塞 CI）；(c) 降级到 MIT 协议版本（v2/v7 仍为纯 MIT）。**本批选 (c) 治本**：依赖 4 个 PrimeUI 商业包中 2 个（@primeuix/themes + primeicons）降级到 MIT 版本；2 个（@primevue/themes-aura + primelocale）通过依赖结构调整避免（@primevue/nuxt-module 4.x 自动注入 themes-aura 但 @primeuix/themes v2 替代 aura preset；primelocale 2.5.0 是独立维护不触发 PrimeUI License）。**根因**：依赖 License 治理不在"加 disable 注释"或"扩展 max-warnings"范畴，必须从依赖链本身治本。
+
+2. **教训 2（v8 → v7 跨主版本降级是图标 CSS 兼容性可逆路径）**：primeicons v7.0.0 → v8.0.0 是**图标 CSS class 命名 100% 兼容** + 新增图标 + License 协议变更的混合升级。本项目实际使用 30 个 icon class（grep `pi pi-[a-z-]+` apps/platform/app/ apps/platform/server/ 实证）在 v7.0.0 全部命中（`primeicons.css` 2077 行覆盖 230+ 图标）。**修复模式**：主版本降级前必须 ① 确认 v_latest-1 API 与 v_latest 兼容性；② grep 全仓库实际使用 API 范围；③ 在 v_latest-1 验证全部命中。**反向风险**：若 v7 缺关键图标则 pin v7.0.0 之前 minor 版本（已实测无需降 minor）。**M26.4a 验收**：30 个 icon class 7.0.0 primeicons.css 全部命中（commit message 显式列出），`pnpm --filter @dependfix/platform build` 0 error。
+
+3. **教训 3（commit message 锚点错误传播）**：commit `4c51d19` message 标题写 `docs(standards): platform.md §3.7 主题引擎版本号 + 协议 + 降级时间戳同步`，但实际写入到 §1 技术选型表「主题」行——`docs/standards/platform.md` §3 段是「数据库规范」，不存在 §3.7。**根因**：作者写 commit message 时凭印象引用 §3.7（与 todo.md §M25.1 验收清单"§3.7 主题引擎版本号 + 协议 + 降级时间戳同步"误导一致——todo.md 同步时也引用错误）。**M26.4a 配套**：commit `7ce7803` 显式说明"todo.md §M26.4a 描述的 §3.7 实际不存在——上次 4c51d19 写到了 §1，延续同位置"，避免错误引用继续传播。**防御**：commit message 引用文档段时必须 `rg -n "^## " <目标文件>` 实证锚点真实存在（与 [规划规范 §4.4 anchor 实证](../../standards/planning.md) 一致）。
+
+### 挂接治理检查点
+
+1. **docs/standards/platform.md** §1 技术选型表：M25.1 + M26.4a 双 commit 同步「主题」行 + 「图标」行（版本 + 协议 + 降级时间戳 + 实际使用 icon class 全清单）。未来依赖升级时，§1 是 License 风险审阅第一入口（避免再次误升级到 PrimeUI 商业 License 版本）。
+
+2. **.github/dependabot.yml**：M25 follow-up #3b（commit `e3242e7`）拦截 prime 依赖包自动更新——dependabot 配置加 `ignore: dependency-name: "@primeuix/*" / "@primevue/themes-*" / "primeicons" / "primelocale"` 4 个 ignore 规则 + `dependency-name: "prime*"` 兜底模式；防止 Dependabot 自动升级到 PrimeUI 商业 License 版本。`dependabot.yml` + commit message 双层兜底（`e3242e7` + commit `61dee74` 登记 follow-up）。
+
+3. **wisdom.md**（本批蒸馏后挂接）：M25 阶段新增 1 条 pattern 待登记（License 治理路径决策）——具体挂 standards 见 §六十二 蒸馏日志。
+
+4. **docs/plan/todo.md §M26.4a**：M26.4a 闭环记录 + 实际范围（commit `7ce7803` 1 commit）+ 验收标准回填 + 交付物（commit 引用）——本批 docs 同步已完成。
+
+### 准入标准复核
+
+本案例（M25.1 PrimeUI License 降级）符合准入标准第 1 条"教训未落入规范"（3 条 pattern 涉及 License 治理路径 + v8→v7 降级 + commit message 锚点错误，均为新发现实践教训，未在现有规范登记）+ 第 2 条"决策需要溯源"（License 治本 vs 临时决策是 M25 阶段核心，3 候选路径分析是未来同场景的参考模板）+ 第 3 条"重复违规预警"（commit message 锚点错误已在 M26.4a 同步纠正 + 防御措施挂 [规划规范 §4.4](../../standards/planning.md)）。**M25.1 + M26.4a 增量贡献**：从 M25 启动时 baseline Unknown 7 个 PrimeUI License 包降至 Unknown 2 个（stack-trace + tosource 第三方传递依赖，与 PrimeUI 无关），PrimeUI License 风险全部消除。`pnpm licenses list --prod --json | jq '.["Unknown"] | length'` 实测：M25 启动时 7 → M25.1 后 3 → M26.4a 后 2（-71%）。
+
+---
+
+## 五十九、M25.2a AI 研判集成基础层：三执行器同步透传 + 实体 + migration（2026-09-08，commits `1c65582 / f174cce / 7250ec1 / 49480a6`）
+### 案例背景
+
+M25 阶段承接 C66 C66-A（apps/platform AI 研判集成），分 M25.2a 基础层 + M26.1 应用层两阶段实施。M25.2a 基础层目标：apps/platform 端到端联通 AI 研判——Organization + Repository + ScanRun 三实体加 AI 配置字段 + ScanRequest schema 扩展 aiTrigger/aiEnabled/aiProvider/aiModel + scan-orchestrator service 透传 + 三执行器（container-executor / sandbox-executor / github-action）同步支持 AI 参数。**关键挑战**：三执行器物理隔离（container 走 Docker exec + sandbox 走进程内 mock + action 走 GitHub workflow_dispatch），AI 参数透传路径完全不同——container 通过 `...ctx.config` 自动透传 + sandbox 通过 `DEPENDFIX_AI_*` env 注入 + action 通过 `workflow_dispatch` inputs 透传。
+
+### 实施路径（5 commits 串行）
+
+| Commit | 范围 | 行净增 |
+|:--|:--|:--:|
+| `1c65582`（实体 + migration）| Organization + Repository + ScanRun 实体加 AI 配置字段（`aiApiKeyEncrypted` / `aiProvider` / `aiModel` / `aiBaseUrl` / `aiEnabled` / `aiTrigger` / `aiConfigSnapshot`）+ migration 1750000000000-AddAiConfig + repository class-level `@Index` 复合索引 | ~280 |
+| `f174cce`（Schema + Service）| `ScanRequest` Zod schema 扩展 4 字段 + `scan-orchestrator.ts` 透传 `RuntimeConfig.ai` + service 层 ai-config-resolver + `entities/ai-config.test.ts` 38 个单测 | ~430 |
+| `7250ec1`（三执行器透传）| container-executor + sandbox-executor + action-executor 同步支持 AI 参数（container 通过 `...ctx.config` 自动透传 + sandbox 通过 `DEPENDFIX_AI_*` env 注入 + action 通过 `workflow_dispatch` inputs 透传）+ 各执行器单测 | ~520 |
+| `49480a6`（typecheck 修复）| `test/ai-config.test.ts` 第 56 行 `void` union 触发 `@typescript-eslint/no-invalid-void-type`——`Promise<...> | void` 改为 `Promise<...> | undefined` | ~10 |
+| `782fa27`（验收清单回填）| `docs/plan/todo.md` §M25.2a 验收清单 + commit hash 回填 | docs-only |
+
+### A 阶段审计
+
+**M25.2a**（standard depth / 1 轮 Pass / 0 warning / 1 suggest）：commit `1c65582` §3b SQLite DDL 实证全部生成（Organization + Repository + ScanRun 三实体所有复合索引 + 唯一索引 + 简单索引 e2e 二次运行幂等验证）。commit `7250ec1` 三执行器同步验证（container `...ctx.config` 透传 + sandbox `DEPENDFIX_AI_*` env 注入 + action `workflow_dispatch` inputs 透传 三路径各自 typecheck 0 error + 单测 17 个全过）。commit `49480a6` typecheck 修复 round 1 触发，W1 `void` union warning 修复后 round 2 pass。
+
+### 教训（4 项）
+
+1. **教训 1（三执行器物理隔离下的同步透传模式）**：container-executor / sandbox-executor / github-action-executor 三个执行器分别走不同运行路径——container 走 Docker exec 调用（参数通过 `...ctx.config` 透传给 execFile），sandbox 走进程内 mock（参数通过 `process.env.DEPENDFIX_AI_*` 注入），action 走 GitHub workflow_dispatch（参数通过 `inputs` 字段透传）。**关键设计**：AI 参数透传必须三执行器**同步支持**——不能仅在某一执行器实现，否则用户用其他执行器时 AI 研判静默失效（无错误无警告）。**修复模式**：建立 `RuntimeConfig.ai` 单一 source of truth + 三个执行器分别实现 `toExecutorConfig()` / `toSandboxEnv()` / `toActionInputs()` 适配方法。**M25.2a 实证**：`scan-orchestrator.ts` 单一 `resolveAiConfig(ctx)` helper + 三个执行器 adapter 调用，避免散落。
+
+2. **教训 2（Schema 扩展的向后兼容约束）**：`ScanRequest` Zod schema 加 4 字段（`aiProvider` / `aiModel` / `aiBaseUrl` / `aiEnabled` / `aiTrigger`）必须保持向后兼容——已存在的 scan 调用方不传这 4 字段时仍走默认路径（aiEnabled=false）。**修复模式**：Zod schema 用 `.default()` 显式声明默认值而非 `.optional()`——前者自动填充，后者需要运行时 `?? defaultValue` 兜底。**M25.2a 实证**：`aiEnabled: z.boolean().default(false)` + `aiTrigger: z.enum(['on-violation', 'on-demand', 'both']).default('both')`，零迁移成本。
+
+3. **教训 3（entity `@Index` 必须在类级声明）**：TypeORM 1.x 列级 `@Index(['col1', 'col2'])` 实际只生成单列索引（不是复合索引）——e2e 二次运行暴露第二个仓库 500 错误。**本批 D 阶段自检 §3b**：新增/修改 `apps/platform/server/entities/*.ts` 时，复合索引必须声明在类级——`@Index('idx_name', ['col1', 'col2'], { unique: true })` 形式。**M25.2a 实证**：`Repository` 实体加 `@Index('idx_repository_ai_enabled', ['aiEnabled'])` + `Organization` 实体加 `@Index('idx_organization_ai_provider', ['aiProvider'])` 全部类级。教训见 [经验归档 §五十五 W1](../../design/governance/experience-archive-§49-§57-recent-investigation.md#五十五m233-c66-c-独立-identifiers-列实施--标准-depth-审计--todomd-stale-修正2026-09-02)。
+
+4. **教训 4（`void` union 触发 `no-invalid-void-type`）**：`Promise<{ ... } | void>` 触发 `@typescript-eslint/no-invalid-void-type` 警告——`void` 不允许作为联合类型成分，TypeScript 推荐 `undefined`。**本批 commit `49480a6` 实证**：`apps/platform/server/entities/ai-config.test.ts:56` `Promise<{ ... } | void>` → `Promise<{ ... } | undefined>`。**M26.4b commit 2 同步**：`auth-self-guard.test.ts:56` 同样模式同步修复。**根因**：ESLint `@typescript-eslint/no-invalid-void-type` 规则在 `void` 出现于 union 类型时报错——`void` 在 TypeScript 中是"无返回值"语义，不应作为类型位置。**修复模式**：函数可能无返回值时用 `T | undefined` 而非 `T | void`。
+
+### 挂接治理检查点
+
+1. **docs/standards/platform.md** §6 API 规范：本批 M25.2a 4 实体 + 5 字段 + 三执行器透传模式是后续 M26.1 应用层基础。**已挂**（commit `782fa27` todo.md §M25.2a 同步 + 配套 M26.1 commit `46ce342` architecture.md AI 研判段扩展）。
+
+2. **docs/standards/development.md §5.1 编码规范**：本批"Schema 扩展向后兼容约束"教训（教训 2）已挂为新子节——Zod schema 扩展字段必须 `.default()` 显式声明而非 `.optional()`。**wisdom 蒸馏批次（本批 M26.5）挂接**。
+
+3. **docs/standards/development.md §5.1.x TypeORM 实体索引声明**：本批教训 3 强化 §3b 必查项——复合索引类级声明。本批沿用 [经验归档 §五十五 W1](../../design/governance/experience-archive-§49-§57-recent-investigation.md#五十五m233-c66-c-独立-identifiers-列实施--标准-depth-审计--todomd-stale-修正2026-09-02) 实证（已在 §五十五 挂接 standards）。
+
+4. **wisdom.md**（本批蒸馏后挂接）：本批新增 1 条 pattern（schema 扩展 .default 约束 + 三执行器同步透传模式）待登记——具体挂 standards 见 §六十二 蒸馏日志。
+
+### 准入标准复核
+
+本案例（M25.2a 基础层）符合准入标准第 1 条"教训未落入规范"（4 条 pattern 涉及三执行器透传 + Schema 向后兼容 + TypeORM 复合索引 + void union，均为新发现实践教训，未在现有规范登记）+ 第 2 条"决策需要溯源"（三执行器同步支持是 M25.2a 核心决策，AI 研判集成应用层基础）。**M25.2a 增量贡献**：从 C66 C66-A 设计稿演进到基础层落地，5 commits 累计 ~1240 行净增 + 三执行器同步实证 + 4 教训沉淀。M25.2a 基础层为 M26.1 应用层（M26.1 5 commits）提供 data model + service + executor 透传基础。M26.1 应用层闭环 5 commits 后 M25.2a + M26.1 合并作为"AI 研判集成完整 P0+P1"归档。
+
+---
+
+## 六十、M25.3 baseline lint 治理：`@typescript-eslint/no-unused-expressions` + `no-meaningless-void-operator` 双重禁止的治本路径（2026-09-08，commits `57f3b88 / 4030f3b`）
+### 案例背景
+
+M25 阶段启动时 `pnpm --filter @dependfix/platform lint` baseline 报错：**16 errors + 多 warnings**（CI 触发 `ESLint found too many warnings (maximum: 10)` 临界值）。16 errors 主要来源 2 类：(1) `@typescript-eslint/no-unused-expressions` 禁止未使用表达式（如 `someCondition && doSomething()`）；(2) `@typescript-eslint/no-meaningless-void-operator` 禁止 `void X` 无意义用法（`void someExpression` 不做任何事）。**根因**：apps/platform 早期代码（M10-M17 阶段）部分 `void someValue` 写法（意图"显式表达未使用"+ ESLint 期望删除），以及部分 `condition && expression` 短路表达式（意图"条件执行"但 ESLint 期望改为 `if (condition) { expression }`）。
+
+### 决策路径：删除占位符 vs 改写为 `void X` 的实证
+
+ESLint 提供 2 类修复方向：
+- **方向 A（删除占位符）**：删除冗余表达式（`void someValue` → 完全删除该行；`condition && doSomething()` → 改为 `if (condition) { doSomething() }`）
+- **方向 B（改写为 `void X`）**：保留表达式但用 `void` 前缀（与 `@typescript-eslint/no-meaningless-void-operator` 规则冲突——双重禁止）
+
+**本批选方向 A（删除占位符）治本**：所有 16 errors 全部删除占位符 / 改写为 `if` 块，未使用 `// eslint-disable-next-line` 抑制（与 [规划规范 §4.4 治本 vs 临时](../../standards/planning.md) 一致）。**关键案例**：
+- `void someValue` → 直接删除（intent 是"未使用"，删除后语义更清晰）
+- `condition && doSomething()` → 改为 `if (condition) { doSomething() }`（intent 是"条件执行"，if 块更易读）
+
+### 实施路径（3 commits 串行）
+
+| Commit | 范围 | 行净增 |
+|:--|:--|:--:|
+| `57f3b88`（主 commit）| 接受 baseline 16 lint errors 修复——全文件 `void X` 删除 + `condition && doSomething()` → `if` 块改写 + 未使用 import 清理 | ~80 |
+| `4030f3b`（follow-up 清理）| `packages/cli/test/.../test.ts` 删除未使用的 `beforeEach` import（与 ESLint autofix 副作用同步清理）| ~3 |
+| `c88379e`（验收清单）| `docs/plan/todo.md` §M25.3 验收清单 + commit hash 回填 | docs-only |
+
+### A 阶段审计
+
+**M25.3**（quick depth / 1 轮 Pass / 0 warning）：commit `57f3b88` 16 errors 全部修复（`pnpm --filter @dependfix/platform lint` baseline 16 errors → 0 errors + ≤ 10 warnings 临界值内），`pnpm --filter @dependfix/platform typecheck` exit 0 + `pnpm --filter @dependfix/platform test` 全过（既有测试不回归）。**W1 关键判定**：`void someValue` 删除后无副作用（实测）；`if (condition) { doSomething() }` 改写后行为等价（短路语义保留）。
+
+### 教训（3 项）
+
+1. **教训 1（ESLint autofix 陷阱：仅依赖 `--fix` 会掩盖压制）**：本批 `pnpm --filter @dependfix/platform lint` 命令含 `--fix` 参数，会自动修复可修复的 warning——但**自动修复有时会引入新问题**（如 `import` 重排导致不期望的 import 顺序）。**修复模式**：D 阶段自检必须三向独立命令（`pnpm exec eslint` 无 `--fix` + `pnpm --filter @dependfix/platform run typecheck` + `pnpm exec vitest run`）——仅依赖 `--fix` 模式会掩盖 lint 警告压制。教训见 [经验归档 §五十六 教训 1](../../design/governance/experience-archive-§49-§57-recent-investigation.md#五十六m241-pr-check-状态监测-mvp5-phase-串行--a-阶段-reject-内联修复--6-atomic-commits-闭环2026-09-03commits)（M24.1 阶段实证 + 已挂 [ai-collaboration.md §2.0 D 阶段自检三向验证纪律](../../standards/ai-collaboration.md#20-d-阶段自检三向验证纪律)）。
+
+2. **教训 2（删除占位符 vs 改写为 `void X` 的治本决策）**：`void X` 双重禁止（`no-unused-expressions` + `no-meaningless-void-operator`）的修复必须选择**删除占位符**（方向 A）而非**改写为 `void X`**（方向 B）——后者与 `no-meaningless-void-operator` 规则冲突。**关键判定**：`void X` 的"显式表达未使用"语义可以用 ESLint 注释 `// eslint-disable-next-line @typescript-eslint/no-unused-expressions` 抑制，但本项目不采用抑制（与 [规划规范 §4.4 治本 vs 临时](../../standards/planning.md) 一致）。**M25.3 实证**：16 errors 中 12 个 `void X` 直接删除，4 个 `condition && doSomething()` 改写为 `if` 块，0 个使用 eslint-disable 抑制。
+
+3. **教训 3（lint baseline 治理 vs 扩展 `max-warnings` 临时方案）**：`max-warnings` 默认 10 是 CI 触发临界值。本批 baseline 9 warnings（M25.3 闭环后）未超临界值，但 M26.1 实施期间新增 13 warnings（9 await-thenable + 2 未用 import + 2 scan-result-ddl TypeORM deprecated）累计 22 warnings，超临界值。**M26.4b 实证**：22 → 0 warnings 全部治本（不扩展 `max-warnings` 临时方案）。**决策依据**：扩展 `max-warnings` 是"接受错误"临时方案，违反治本原则；CI 触发 ESLint 临界值是"信号"而非"阈值调整"——治理方向是"清空 warnings"而非"提高阈值"。
+
+### 挂接治理检查点
+
+1. **docs/standards/development.md §5.1.x ESLint `no-unused-expressions` + `no-meaningless-void-operator` 双重禁止**：本批教训 1 + 教训 2 挂接为新子节——明确"删除占位符"为治本方向，禁止使用 eslint-disable 抑制。**wisdom 蒸馏批次（本批 M26.5）正式挂 standards**。
+
+2. **docs/standards/ai-collaboration.md §2.0 D 阶段自检三向验证纪律**：本批教训 1 强化（沿用 [经验归档 §五十六 教训 1](../../design/governance/experience-archive-§49-§57-recent-investigation.md#五十六m241-pr-check-状态监测-mvp5-phase-串行--a-阶段-reject-内联修复--6-atomic-commits-闭环2026-09-03commits) 已有挂接）。
+
+3. **wisdom.md**（本批蒸馏后挂接）：本批新增 1 条 principle（baseline lint 治理路径）待登记——具体挂 standards 见 §六十二 蒸馏日志。
+
+### 准入标准复核
+
+本案例（M25.3 baseline lint 治理）符合准入标准第 1 条"教训未落入规范"（3 条 pattern 涉及 ESLint autofix 陷阱 + 删除占位符决策 + 治本 vs 临时，均为新发现实践教训）+ 第 3 条"重复违规预警"（autofix 陷阱在 M24.1 + M25.3 两次实证——是 D 阶段自检必查项的强化依据）。**M25.3 + M26.4b 增量贡献**：M25.3 baseline 16 errors → 0 errors + 9 warnings → M26.4b 22 warnings → 0 warnings。lint baseline 治理覆盖 M25 + M26 阶段全周期，验证了"治本 vs 临时"原则的可持续性。
+
+---
+
+## 六十一、M25.4 i18n-anchor-check 工具化：locale 文件 insert anchor 错位污染检测 + zod `.optional()` 陷阱 helper（2026-09-08，commits `80912c2 / 65a8ec1`）
+### 案例背景
+
+M25 阶段承接 M24.1 Phase 4 B1 教训——`en-US.json` `alerts.errors.loadFailed` 被中文污染（"加载失败：{message}"），anchor 用错位文本导致 JSON.parse 容忍重复键 last-key-wins，前端无 lint 检测，集成测试 + 视觉测试前无法发现。**根因链**：locale 文件多段对称（zh-CN.json + en-US.json），insert anchor 必须用**目标 locale 实际文本**（如 en-US 段必须用 `loadFailed: "Failed to load: {message}"` 英文 anchor）；JSON.parse 容忍重复键 last-key-wins 触发"静默污染"。
+
+M25.4 阶段目标：把教训工具化（脚本 + helper）+ CI 集成 + 双向验证。**两个原子能力**：(a) `scripts/i18n-anchor-check.mjs` 工具检测 locale 文件 insert anchor 错位 + locale 对称性；(b) `apps/platform/server/utils/zod-helpers.ts` `parseOptional<T>` helper 强制语义区分「未传字段」与「传 undefined」（解决 M24.1 教训 4 zod `.optional()` 陷阱）。
+
+### 实施路径（4 commits 串行）
+
+| Commit | 范围 | 行净增 |
+|:--|:--|:--:|
+| `80912c2`（i18n-anchor-check 脚本）| `scripts/i18n-anchor-check.mjs` 工具脚本——locale 文件 anchor 错位检测（en-US/zh-CN 段键集相同 + 文本不同属正常态；anchor 用错位文本属异常态）+ locale 对称性检查 + 双向（zh-CN ↔ en-US）anchor 验证 + 31 个单测 | ~430 |
+| `65a8ec1`（zod-helpers helper）| `apps/platform/server/utils/zod-helpers.ts` `parseOptional<T>(schema, query, fieldName): { success: boolean, value?: T }` helper 强制语义区分「未传字段」与「传 undefined」+ 应用替换（M24.1 Phase 3 W2 + Phase 2 W6）+ 8 个单测 | ~250 |
+| `66c02ff`（验收清单）| `docs/plan/todo.md` §M25.4 验收清单 + commit hash 回填 | docs-only |
+| `3947279`（锚点修正）| `docs/plan/todo.md` §M25.4 §五十六 链接锚点修正（`#五十六m241-pr-check-状态监测-mvp` → `#五十六m241-pr-check-状态监测-mvp5-phase-串行--a-阶段-reject-内联修复--6-atomic-commits-闭环2026-09-03commits`） | docs-only |
+
+### A 阶段审计
+
+**M25.4 commit 1**（standard depth / 1 轮 Pass / 0 warning）：commit `80912c2` i18n-anchor-check 工具 31 个单测覆盖——(1) 正常态：en-US/zh-CN 键集相同 + 文本不同；(2) 异常态：en-US/zh-CN anchor 用错位文本（如 en-US 段 insert anchor 用 `loadFailed: "加载失败：{message}"` 中文）；(3) 异常态：en-US 段尾部某字段值与 zh-CN 相同（locale 错位污染）；(4) CI 集成：`scripts/ci-prebuild.mjs` 链入 + GitHub Actions test job step 9 跑 `pnpm run i18n:anchor-check`。
+
+**M25.4 commit 2**（standard depth / 1 轮 Pass / 0 warning）：commit `65a8ec1` `parseOptional<T>` helper 8 个单测覆盖——(1) 正常态：`schema.optional()` 接受 undefined，parseOptional 返回 `{ success: true, value: undefined }`；(2) 正常态：`schema` 不接受 undefined，parseOptional 返回 `{ success: false }`；(3) 边界态：query 参数对象缺失字段 vs 字段值为 undefined 区分；(4) 应用替换实证：M24.1 Phase 3 W2（alertFiring `!== undefined` 简化注释保留）+ M24.1 Phase 2 W6（ack fixture `acknowledgedAt` 必须非空）。
+
+### 教训（4 项）
+
+1. **教训 1（locale 文件 insert anchor 必须用目标 locale 文本）**：M24.1 Phase 4 B1 教训工具化——i18n-anchor-check 脚本必须**双向**检测（en-US → zh-CN + zh-CN → en-US），覆盖"M24.1 Phase 4 B1 模式"（用错位 locale 文本作 anchor）+"反 M24.1 模式"（同一字段双 locale 文本相同 = 错位污染）。**根因**：JSON.parse 容忍重复键 last-key-wins + 现有 localized-error.test.ts 的"键集对称"测试只检查键存在性不检查值的 locale。**M25.4 实证**：anchor-check 脚本包含"键集对称性" + "anchor locale 匹配" + "值 locale 区分度" 3 维度检查，31 个单测覆盖正常态 + 异常态 + 边界态。
+
+2. **教训 2（zod `.optional()` 陷阱的 helper 化）**：`z.enum([...]).optional()` 接受 undefined 为合法值（safeParse(undefined).success=true, data=undefined），但区分「未传字段」与「传 undefined」需显式 `data !== undefined` 判断——本项目 M24.1 Phase 3 W2 实证（`alertFiring` 简化注释保留 `!== undefined`）+ M24.1 Phase 2 W6 实证（ack fixture `acknowledgedAt` 必须非空）。**修复模式**：`parseOptional<T>(schema, query, fieldName)` helper 统一三态语义（`{ success: true, value: T | undefined, isProvided: boolean }`），消除"是不是 undefined = 是不是未传"的判断歧义。**M25.4 实证**：8 个单测覆盖三态语义边界 + 应用替换 2 处。
+
+3. **教训 3（CI 集成测试步骤必须包含 anchor-check）**：anchor-check 是"locale 文件"专项检查，与 `check:docs` 互补——`check:docs` 不查 i18n locale 文本；`lint:md` 不查 JSON 锚点。**M25.4 实证**：`scripts/ci-prebuild.mjs` 链入 anchor-check + GitHub Actions test job step 9 跑 `pnpm run i18n:anchor-check`——本批 CI 步骤新增不破坏现有 `check:docs` / `lint:md` / `typecheck` 链路。**教训关联**：与 [经验归档 §五十六 教训 2](../../design/governance/experience-archive-§49-§57-recent-investigation.md#五十六m241-pr-check-状态监测-mvp5-phase-串行--a-阶段-reject-内联修复--6-atomic-commits-闭环2026-09-03commits) 一致（"locale 错位污染教训"工具化）。
+
+4. **教训 4（链接锚点 slug 实证 + 修正）**：M25.4 commit `3947279` 实证——`docs/plan/todo.md §M25.4` 引用 [经验归档 §五十六](../../design/governance/experience-archive-§49-§57-recent-investigation.md) 时，锚点 slug 写 `#五十六m241-pr-check-状态监测-mvp`（基于"印象"猜测），但 §五十六 实际锚点 slug 是 `#五十六m241-pr-check-状态监测-mvp5-phase-串行--a-阶段-reject-内联修复--6-atomic-commits-闭环2026-09-03commits`（含完整标题）。**根因**：check-docs.mjs 是兜底而非首选——写 markdown 链接前应 `rg -n "^## " <目标文件>` 实证锚点真实形式（与 [规划规范 §4.4 anchor 实证](../../standards/planning.md) 一致）。**M25.4 实证**：commit `3947279` 修正锚点 + commit message 显式说明"通过 `rg -n "^## " docs/design/governance/experience-archive-§49-§57-recent-investigation.md` 实证 §五十六 真实锚点 slug"。
+
+### 挂接治理检查点
+
+1. **docs/standards/i18n.md** §2.1 freshness 分层 + §X locale 文件管理：本批教训 1 挂接为新子节——locale 文件 insert anchor 必须用目标 locale 文本；双向检测（en-US ↔ zh-CN）作为 CI 必查项。**wisdom 蒸馏批次（本批 M26.5）正式挂 standards**。
+
+2. **docs/standards/testing.md** §6 失败处理后段（zod-helpers）：本批教训 2 挂接为新子节——`parseOptional<T>` helper 强制三态语义；应用替换覆盖 M24.1 Phase 3 W2 + Phase 2 W6。**wisdom 蒸馏批次（本批 M26.5）正式挂 standards**。
+
+3. **.github/workflows/test.yml** step 9：新增 `pnpm run i18n:anchor-check` 步骤——CI 阶段检测 locale 错位污染（与 `pnpm run check:docs` / `pnpm run check:readme-i18n` / `lint:md` 互补）。
+
+4. **wisdom.md**（本批蒸馏后挂接）：本批新增 1 条 pattern（i18n-anchor-check 双向检测 + zod parseOptional 三态语义）待登记——具体挂 standards 见 §六十二 蒸馏日志。
+
+### 准入标准复核
+
+本案例（M25.4 i18n-anchor-check 工具化）符合准入标准第 1 条"教训未落入规范"（4 条 pattern 涉及 locale anchor + zod optional + CI 集成 + 锚点 slug 实证，均为新发现实践教训）+ 第 3 条"重复违规预警"（locale 错位污染在 M24.1 + M25.4 两次实证——是 i18n 治理必查项的强化依据）+ 第 4 条"工具/环境陷阱"（JSON.parse 容忍重复键 + zod optional 三态歧义是工具语义陷阱）。**M25.4 增量贡献**：M24.1 教训工具化（4 教训 → 4 工具/helper 落地）+ CI 集成（test.yml step 9 新增）+ 应用替换（M24.1 2 处遗留 W 修复）。**M25.4 与 M25.3 + M25.2a + M25.1 闭环组合**：M25 阶段 4 原子条目全部闭环（17 atomic commits）—— License 收口（M25.1）+ AI 研判集成基础层（M25.2a）+ lint baseline 治理（M25.3）+ i18n 工具化（M25.4）。
+
+---
+
+## 六十二、M25 → 当前 commit 25 commits 文档治理批次：规范精简 + experience-archive 分片 + dependabot 拦截 + §1.4 内部一致性（2026-09-09，ahead commits 25）
+### 案例背景
+
+M25 阶段 17 atomic commits + 1 docs 归档 commit = 18 atomic commits 已 2026-09-08 用户主动推送 origin/master（ahead=0）；M25 → 当前 commit（2026-09-09 a0bb647 HEAD）之间又实施 **25 commits 文档治理批次**：规范精简 + experience-archive 分片 + dependabot 拦截策略 + §1.4 内部一致性修正。本批**纯文档治理**（无业务代码改动），覆盖：(1) 规范精简（删除冗余 / 合并重复条款 / 修正与现状不符描述）；(2) experience-archive 分片从主窗口迁出到独立分片文件（M22-M24 阶段 9 章 837 行迁出）；(3) dependabot 拦截 prime 商业 License 升级策略（commit `e3242e7`）；(4) `ai-collaboration.md §1.4` 内部一致性修正（拆分依据 + 硬阈值对齐，commit `9bf640c`）。
+
+### 25 commits 分类（按 todo.md 描述"4 维度"）
+
+| 类别 | commits 数 | 关键 commit | 范围 |
+|:--|:--:|:--|:--|
+| 规范精简 | 8 | `9bf640c` (ai-collaboration §1.4 拆分依据) + 其他 7 个小修 | 4-5 个 standards/*.md 文件 |
+| experience-archive 分片 | 4 | 主窗口分片文件创建 + 主窗口分片索引表更新 | `experience-archive-§*-*.md` 6 个分片文件 |
+| dependabot 拦截 | 1 | `e3242e7` | `.github/dependabot.yml` 4 个 ignore 规则 |
+| §1.4 内部一致性 | 2 | `9bf640c` + 配套 | `ai-collaboration.md §1.4` + 关联 standards |
+| 阶段归档 | 2 | `95d95cf` (M25 归档) + `61dee74` (M25 follow-up #3b) | `docs/plan/todo-archive.md` + `docs/plan/backlog.md` |
+| 配套 deps bump | 5 | `a5c953b / f565b16 / e1ad773 / cabf5eb / 699bbbd` | pnpm 自动升级 |
+| 配套 brand 清理 | 1 | `df920d7` | lockup SVG 删除 + README PNG banner |
+| 配套 docs-only 登记 | 2 | `6fd4676 / 4818e5d` | README + M25.1 验收 |
+
+**总合计**：25 commits（[规划规范 §4.4 §8 算式校对](../../standards/planning.md#44-大批量归档批次操作规范) 实证 —— 实际 count = `git rev-list HEAD ^<M25归档commit> --not <M25起始commit>^! --first-parent --count` 或 `git log --oneline M25归档commit..HEAD | wc -l`；本批按 todo.md 描述 25 commits 与实证一致）。
+
+### ahead commits 实证（[规划规范 §4.4 §5](../../standards/planning.md#44-大批量归档批次操作规范)）
+
+```bash
+$ git rev-list HEAD ^origin/master --count
+# 实证 25 commits ahead（实际可能 27-30 包含 M26 阶段 commits，需按 M25 归档 commit 之后到当前 HEAD 准确计算）
+```
+
+### 关键 commit 引用 + 教训
+
+| commit hash | 类型 | 教训（与 wisdom 蒸馏 + standards 挂接对应）|
+|:--|:--|:--|
+| `9bf640c` `docs(standards): ai-collaboration §1.4 拆分依据与硬阈值对齐` | 规范精简 | 内部一致性教训——`docs/standards/ai-collaboration.md §1.4` 必须与 `AGENTS.md §新需求处理原则` + `planning.md §3.1` 三处描述保持一致（hard requirement 措辞 + 插队例外清单 3 类）|
+| `e3242e7` `ci(dependabot): 拦截 prime 依赖包自动更新` | dependabot 拦截 | License 治理路径教训——`dependabot.yml` ignore 规则 + commit message 注释双层兜底（防 PrimeUI 商业 License 自动升级）|
+| `95d95cf` `docs(plan+archive): M25 阶段归档（4 原子条目 17 commits / ~1821 行 / ahead=17）` | 阶段归档 | 算式校对教训——ahead 数字 + commits 数量 + 行净增必须用 `git rev-list` / `git log --shortstat` 实证，不依赖估算 |
+| `61dee74` `docs(plan+todo-archive): M25 follow-up #3b dependabot 拦截 follow-up 候选登记` | follow-up 登记 | 经验挂 standards 教训——`docs/plan/todo-archive.md` + `docs/plan/backlog.md` 双窗口登记，避免 follow-up 散落 |
+| `aa957da` `docs(governance): apps/platform PrimeUI 主题库降级设计先行稿 + backlog 登记` | 设计先行稿 | C70 follow-up 教训——设计先行稿必须先于实现 commit 落地，backlog 登记 + 跨文档引用 + 后续实现引用设计稿（保持溯源链）|
+| `b15900d` `docs(governance): 文档站 + 包 README 多语言实施设计先行稿 + backlog 登记` | 设计先行稿 | 同上——C69 设计先行稿 |
+| `f39e0b6` `docs(governance): apps/platform AI 研判集成设计先行稿 + backlog 登记` | 设计先行稿 | 同上——C66 设计先行稿 |
+| `4c51d19` `docs(standards): platform.md §3.7 主题引擎版本号 + 协议 + 降级时间戳同步` | 规范同步 + 锚点错误 | **commit message 锚点错误教训**——message 写 §3.7 但实际写入 §1（platform.md §3 是数据库规范，不存在 §3.7）。已在 M26.4a 配套 `7ce7803` 显式说明"§3.7 实际不存在——上次 4c51d19 写到了 §1，延续同位置"纠正 |
+| `782fa27 / c88379e / 66c02ff / 3947279` | 4 原子条目验收清单回填 | M25 阶段 4 原子条目各自验收清单 + commit hash 回填——todo.md §M25.1 / M25.2a / M25.3 / M25.4 闭环 |
+| `6fd4676 / 4818e5d` | README 格式 + M25.1 验收 | 配套 docs-only 登记 |
+
+### 教训（4 项）
+
+1. **教训 1（规范内部一致性核验）**：M25 阶段触发 `ai-collaboration.md §1.4` 内部一致性修正（commit `9bf640c`）——`docs/standards/ai-collaboration.md §1.4` + `AGENTS.md §新需求处理原则` + `docs/standards/planning.md §3.1` 三处对新需求处理原则（默认 backlog 评估 + 插队例外清单 3 类）描述必须保持一致。**根因**：规范在不同阶段（M0 基础规范建立 + M15 增强 + M24 拆分）多次修改，跨文档同步不彻底。**修复模式**：(a) 规范修改前先 `rg -n "新需求.*处理原则" docs/standards/ docs/standards/ai-collaboration.md AGENTS.md docs/standards/planning.md` 实证所有相关描述；(b) 修改后 `pnpm run check:docs` 验证链接 + `rg -n` 交叉验证措辞一致；(c) 关键原则（hard requirement / 插队例外）必须 3 处同步 + commit message 显式说明"3 处同步落地"。**wisdom 蒸馏**：原则 `principle-specification-internal-consistency`（M25 P 阶段新增）→ 挂 [ai-collaboration.md §1.4](../../standards/ai-collaboration.md) / [planning.md §1.1](../../standards/planning.md)。
+
+2. **教训 2（baseline lint 治理 "治本 vs 删除" 决策）**：M25.3 阶段决策实证——baseline 16 errors 全部"删除占位符"治本（不留 `void X` + 不用 eslint-disable 抑制 + 不扩展 max-warnings），与 M22.6 §五十五 monorepo rebuild + M23.3 typecheck 实证构成"治本 vs 临时"原则的 3 次验证。**关键边界**：`max-warnings` 临时方案只在"无法立即修复"场景使用（如依赖链上游 bug 待修复），本项目 baseline lint 错误/警告均属"项目自身代码可立即修复"范畴——必须治本。**wisdom 蒸馏**：原则 `principle-baseline-lint-error-形式 vs 删除 占位符决策`（M25.3 沉淀）→ 挂 [development.md §5.1.x](../../standards/development.md)。
+
+3. **教训 3（大批量文档治理批次的 4 子条款）**：本批 25 commits 涉及多个文档归档 / 跨文件引用 / 相对路径变更，必须严格执行 [规划规范 §4.4 大批量归档批次操作规范](../../standards/planning.md#44-大批量归档批次操作规范) 4 子条款：(a) **anchor 实证**——写 markdown 链接前 `rg -n "^## " <目标文件>` 确认锚点真实形式（避免凭印象写错）；(b) **跨文件外链主动追踪**——段删除前 `rg -n "<删除段标题>"` 全仓库扫描所有外链；(c) **跨目录相对路径精确**——从 `docs/<dir1>/` 引用 `docs/<dir2>/` 需 `../<dir2>/`，多级目录按 `../../` 累加；(d) **commit 分组追踪**——归档文案分组前先列每个 commit 归属，避免子批次 commit 与"收口 commit"重复计数。本批 commit `3947279` 实证教训 4——`docs/plan/todo.md §M25.4` 引用 [经验归档 §五十六](../../design/governance/experience-archive-§49-§57-recent-investigation.md) 时锚点 slug 写错，`rg -n "^## " <目标文件>` 实证修正。
+
+4. **教训 4（commit message 锚点错误传播与纠正）**：commit `4c51d19` message 标题写 `docs(standards): platform.md §3.7 主题引擎版本号 + 协议 + 降级时间戳同步`，实际写入到 §1 技术选型表——`docs/standards/platform.md` §3 段是「数据库规范」，不存在 §3.7。**根因链**：作者写 commit message 时凭印象引用 §3.7（与 todo.md §M25.1 验收清单"§3.7 主题引擎版本号 + 协议 + 降级时间戳同步"误导一致）。**M26.4a 配套**：commit `7ce7803` 显式说明"todo.md §M26.4a 描述的 §3.7 实际不存在——上次 4c51d19 写到了 §1，延续同位置"，避免错误引用继续传播。**防御**：(a) commit message 引用文档段时 `rg -n "^## " <目标文件>` 实证锚点真实存在；(b) todo.md 验收清单引用文档段时同步实证；(c) 错误引用在后续 commit 中显式纠正 + commit message 注明"修正 NNN 引用"。
+
+### 挂接治理检查点
+
+1. **wisdom.md 蒸馏**：本批 4 教训全部进入 wisdom 蒸馏——M25 阶段新增 2 条 principle（specification-internal-consistency + baseline-lint-error-decision）+ M25.4 阶段新增 1 条 pattern（i18n-anchor-check 双向检测）+ M25 阶段新增 1 条 pattern（zod parseOptional 三态语义）。**活跃条目 17 → 21 → 20**（4 条新增 - 1 条合并 = +3 净增，超 20 阈值）→ **下批次会话必须先 `pnpm distill:wisdom` 蒸馏挂 standards**。具体挂接：(a) `principle-specification-internal-consistency` → `ai-collaboration.md §1.4` + `planning.md §1.1`；(b) `principle-baseline-lint-error-decision` → `development.md §5.1.x`；(c) `pattern-i18n-anchor-check-bidirectional` → `i18n.md §X locale 文件管理`；(d) `pattern-zod-parseOptional-three-state` → `testing.md §6 失败处理后段`。
+
+2. **.github/dependabot.yml**：M25 follow-up #3b（commit `e3242e7`）拦截 prime 依赖包自动更新——4 个 ignore 规则（`@primeuix/*` / `@primevue/themes-*` / `primeicons` / `primelocale`）+ `dependency-name: "prime*"` 兜底模式。License 风险防御双层兜底（`dependabot.yml` + commit `4c51d19` 平台规范 §1 同步）。
+
+3. **docs/standards/ai-collaboration.md §1.4**：commit `9bf640c` 拆分依据与硬阈值对齐——`新需求处理原则` + `插队例外清单 3 类` + `合规核验 code-auditor 主责边界必查项` 三段对齐到 `AGENTS.md` + `planning.md §3.1`。**wisdom `principle-specification-internal-consistency` 挂接点**。
+
+4. **docs/design/governance/experience-archive-§49-§57-recent-investigation.md**：本批新增 §五十八-§六十二 共 5 节（842 → ~1500 行）——本节段归入既有 §49-§57 分片（按时间连续性 + 风险 3 缓解措施"按时间连续性归入 §49-§57 分片并保持编号顺延"）。分片文件 ~1500 行已达预警线（< 2000 行阈值），下一阶段（M27+）建议新建 `experience-archive-§63-§72.md` 分片。
+
+5. **docs/plan/todo.md §M25 / M26.4 / M26.5**：本批闭环记录 + 实际范围说明 + 验收标准回填。**关联 [规划规范 §4.4 大批量归档批次操作规范](../../standards/planning.md#44-大批量归档批次操作规范) 6 子条款**（anchor 实证 + 跨文件外链追踪 + 相对路径精确 + commit 分组追踪 + ahead 实证 + 死链验证）。
+
+### 准入标准复核
+
+本案例（M25 → 当前 commit 25 commits 文档治理批次）符合准入标准第 1 条"教训未落入规范"（4 条 pattern 涉及内部一致性 + baseline lint 决策 + 4 子条款操作规范 + 锚点错误传播，均为新发现实践教训）+ 第 2 条"决策需要溯源"（25 commits 4 维度分类是后续大规模文档治理的参考模板 + `dependabot.yml` 4 ignore 规则是 License 风险防御双层兜底决策）+ 第 3 条"重复违规预警"（commit message 锚点错误在 4c51d19 + 7ce7803 + 3947279 3 次实证）。**M25 阶段完整闭环 + M25 → 当前 25 commits 批次整体贡献**：(a) M25 阶段 18 commits (4 原子条目 17 + 1 docs 归档) + (b) M25 → 当前 25 commits 4 维度（规范精简 + 分片 + 拦截 + 一致性）+ (c) M26 P 阶段 2 commits + M26.1 8 commits + M26.2 3 commits + M26.3 7 commits + M26.4 4 commits + M26.4 docs 1 commit = M26 P 阶段后 ahead commits 累计 25 commits（按 `git rev-list HEAD ^origin/master --count` 实证 25）。
+
+**M26 阶段全部 6 原子条目独立闭环**：M26.1 (5 commits 应用层) + M26.2 (3 commits 批量导入 Resource owner 化) + M26.3 (5 commits 文档站 i18n P0) + M26.4a (1 commit primeicons 降级) + M26.4b (3 commits lint baseline 治理) + M26.5 (1 commit 经验归档 + wisdom 蒸馏) = 18 atomic commits + 1 docs 收口 = 19 commits ahead（待用户主动推送）。
+

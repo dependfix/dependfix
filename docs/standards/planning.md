@@ -11,6 +11,7 @@
 - **任务粒度约束**: 规划时预估单条任务的 diff 规模（文件数 × 行数）。预计新增 > 10 个文件或 > 800 行（新领域 / 跨模块骨架任务从严，> 5 文件即考虑拆分）时，**必须拆分为可独立提交的子任务**，每个子任务有独立验收点与提交批次；禁止"一个原子条目 = 一个巨型 diff"（教训见 [经验归档 §二十四](../design/governance/experience-archive.md)，T601 平台骨架 40 文件/+8329 行单次提交导致审计 5 轮、修复往返 10+ 处）。**本条是任务粒度约束的唯一权威声明**：其他文档（git.md、ai-collaboration.md、skill/agent 定义）仅作一行引用，不得重复抄写阈值或教训；合规核验由 review 阶段执行（见 code-reviewer 检查点与 Code Auditor 必查项）。
 - **迭代范围与候选组合**: 单次迭代核心任务应在 5-6 项以内；当上一阶段闭环后仅剩单一候选（M15 收口后 UX-R3 仅占 1 项）的尴尬局面时，**主动扩展**——从 backlog 中挑选 UX 痛点 / 技术债 / 能力扩展类候选填充，使总任务数达到 5 项左右；类型平衡建议：用户体验 ≥ 2 项 + 技术债 ≥ 1 项 + 能力扩展 ≥ 1 项 + 测试覆盖 ≥ 1 项，避免单一类型堆叠。
 - **backlog 历史指针压缩**: 每个阶段归档完成后必须执行 backlog 历史指针压缩——已闭环条目不再展开细节，仅保留最近 3-4 个阶段 + 早期间接指针（如 `M0-M11：详见 archive/todo-archive-phases-*.md`）；避免 backlog 随阶段线性膨胀。**禁止**在 backlog 中复制 `todo-archive.md` 已闭环条目的子任务细节。
+- **跨文档内部一致性**（M25 阶段教训）：`新需求处理原则` + `插队例外清单 3 类` + `合规核验 code-auditor 主责边界必查项` 三段必须在 `AGENTS.md §新需求处理原则` + `docs/standards/ai-collaboration.md §1.4` + `docs/standards/planning.md §1.1` 三处保持一致。**根因**：规范在不同阶段（M0 基础规范建立 + M15 增强 + M24 拆分）多次修改，跨文档同步不彻底。**修复模式**：(a) 规范修改前先 `rg -n "新需求.*处理原则" docs/standards/ docs/standards/ai-collaboration.md AGENTS.md docs/standards/planning.md` 实证所有相关描述；(b) 修改后 `pnpm run check:docs` 验证链接 + `rg -n` 交叉验证措辞一致；(c) 关键原则（hard requirement / 插队例外）必须 3 处同步 + commit message 显式说明"3 处同步落地"。教训见 [经验归档 §六十二 教训 1](../design/governance/experience-archive-§49-§57-recent-investigation.md#六十二m25--当前-commit-25-commits-文档治理批次规范精简--experience-archive-分片--dependabot-拦截--14-内部一致性2026-09-09ahead-commits-25)。
 
 ### 1.2 阶段归档流程
 

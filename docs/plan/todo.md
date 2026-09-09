@@ -140,6 +140,7 @@
 
 ### M26.4a [P3 🛡️ License 治理] primeicons@8.x → 7.x 降级（1 commit / quick depth audit）
 
+- **闭环状态**（2026-09-09）：✅ 已闭环 commit `7ce7803` chore(deps): 平台 primeicons 8.x → 7.x 降级
 - **目标**：消除最后 1 个 PrimeUI License 包（primeicons@8.0.0），项目仅用 2 个图标（`pi-check-circle` / `pi-times-circle`），license 风险有限但可一并清理；与 M25.1 `@primeuix/themes` 3.x → 2.x 降级同源策略
 - **范围**：
   - `apps/platform/package.json` `primeicons` 版本约束 `^8.0.0` → `^7.0.0`
@@ -169,24 +170,35 @@
 
 ---
 
-### M26.4b [P3 🧪 治理] baseline 9 warnings 治理（1-2 commits / quick depth audit）
+### M26.4b [P3 🧪 治理] baseline 22 warnings 治理（3 commits / quick depth audit）—— 实际范围 9 → 22 扩展说明
 
+- **闭环状态**（2026-09-09）：✅ 已闭环 commit `d02713a` + `03e7dad` + `7407ed8`（共 3 atomic commits）；warnings 22 → 0
+- **实际范围说明**：todo.md P 阶段规划时 baseline 9 warnings（M25.3 闭环后），M26.1 实施期间（AI 研判应用层 5 commits）新增 9 个 await-thenable（3 个 M26.1 ai-config test 文件）+ 2 个未用 import（pr-checks beforeEach + container-executor.test vi）+ 2 个既有文件 warnings 累计 = 22 warnings。本批次按"治本 vs 临时"原则逐一修复，未扩展 `max-warnings` 临时方案（与 M25.3 「删除占位符」治本思路一致）
 - **目标**：清除 M25.3 后剩余 9 warnings（CI test job 触发 `ESLint found too many warnings (maximum: 10)` 临界值），逐项修复避免扩展 `max-warnings` 临时方案（与 M25.3 baseline 16 errors 「删除占位符」治本思路一致）
-- **范围**（9 warnings 分布 8 文件）：
-  - `apps/platform/server/auth-self-guard.test.ts:56` — `no-useless-template-literals`（void union 触发）
-  - `apps/platform/server/services/container-executor.ts:410` — `max-params`（函数参数过多）
-  - `apps/platform/server/services/container-executor.ts:477` — `@typescript-eslint/no-empty-function`（empty arrow function）
-  - `apps/platform/server/mailer.test.ts:241` — `only-throw-error`（抛非 Error 对象）
-  - `apps/platform/server/scheduler.integration.test.ts:71/103` — `max-statements`（函数语句过多）
-  - `apps/platform/server/utils/logger.ts:22` — `sanitizeDeep` 类型问题
-  - `apps/platform/server/database/scripts/scan-result-ddl.test.ts:28/67` — `connection` deprecated（TypeORM 0.3 → 1.x 迁移期）
-  - `apps/platform/server/setup-nuxt-server.ts:42` — `require-await`（async 函数无 await）
-- **验收标准**：
-  - [ ] 9 warnings 全部修复（`pnpm --filter @dependfix/platform lint` 0 error + ≤ 5 warnings 远低于临界值 10）
-  - [ ] 每个 warning 修复有针对性（不是 `// eslint-disable-next-line` 抑制 + 不是扩展 `max-warnings` 临时方案）
-  - [ ] `pnpm --filter @dependfix/platform typecheck` 0 error
-  - [ ] `pnpm --filter @dependfix/platform test` 全过（既有测试不回归）
-  - [ ] `pnpm --filter @dependfix/platform build` 0 error
+- **范围**（22 warnings 分布 11 文件 —— M26.1 阶段新增 13 warnings）：
+  - M26.1 新增 ai-config test 文件（3 个文件 × 3 await-thenable = 9 个）：
+    - `apps/platform/server/api/organizations/[id]/ai-config.patch.test.ts:33/37/38` — `await-thenable`（await 同步函数 `setupMemoryDatabase`）
+    - `apps/platform/server/api/repos/[id]/ai-config.get.test.ts:46/50/51` — 同上
+    - `apps/platform/server/api/repos/[id]/ai-config.post.test.ts:46/50/51` — 同上
+  - M26 既有未用 import（2 个）：
+    - `apps/platform/server/api/pr-checks/index.get.test.ts:2` — `no-unused-vars`（`beforeEach` import 未用）
+    - `apps/platform/server/services/executor/container-executor.test.ts:1` — `no-unused-vars`（`vi` import 未用）
+  - M25.3 既有 baseline（11 个）：
+    - `apps/platform/server/middleware/auth-self-guard.test.ts:56` — `no-invalid-void-type`（void union）
+    - `apps/platform/server/services/executor/container-executor.ts:410` — `max-params`（cloneRepository 6 参数）
+    - `apps/platform/server/services/executor/container-executor.ts:477` — `no-empty-function`（empty catch handler）
+    - `apps/platform/server/services/mailer/mailer.test.ts:241` — `only-throw-error`（throw 字符串覆盖 fallback 分支）
+    - `apps/platform/server/services/scheduler/scheduler.integration.test.ts:71/103` — `max-statements-per-line`（try/catch 同行 + 后续语句）
+    - `apps/platform/server/utils/logger.ts:22` — `no-unused-vars`（`sanitizeDeep` import 冗余，line 44 已 re-export）
+    - `apps/platform/server/utils/zod-helpers.test.ts:112` — `max-statements-per-line`（三元链同行）
+    - `apps/platform/tests/setup-nuxt-server.ts:42` — `require-await`（async function 无 await）
+    - `apps/platform/tests/scan-result-ddl.test.ts:28/67` — `no-deprecated`（TypeORM 1.x `connection` 改 `dataSource`）
+- **验收标准**（已闭环后回填）：
+  - [x] 22 warnings 全部修复（`pnpm --filter @dependfix/platform lint` 0 error + 0 warnings，远低于临界值 10）
+  - [x] 每个 warning 修复有针对性（仅 1 处 `// eslint-disable-next-line` 用于 `mailer.test.ts:241` 测试代码必须 throw 非 Error 覆盖 fallback 分支——commit message 显式说明是测试设计意图而非代码缺陷；未扩展 `max-warnings` 临时方案）
+  - [x] `pnpm --filter @dependfix/platform typecheck` 0 error
+  - [x] `pnpm --filter @dependfix/platform test` 全过（1199 passed / 7 skipped）
+  - [x] `pnpm --filter @dependfix/platform build` 0 error
 - **不做什么**：
   - 不扩展 `max-warnings` 临时方案（违反治本 vs 临时原则）
   - 不重写 `logger.ts` `sanitizeDeep` 实现（仅类型调整）
@@ -194,7 +206,10 @@
   - 不修改 ESLint 配置规则（仅修复违规）
 - **依赖**：
   - M25.3 已闭环 baseline 16 errors（基线 `0 errors + 9 warnings`）
-- **交付物**：1-2 atomic commits（按文件分布拆：commit 1 = 5 warnings（auth-self-guard + container-executor 2 处 + mailer.test + setup-nuxt-server）；commit 2 = 4 warnings（scheduler.integration + logger.ts + scan-result-ddl）+ 最终核验）
+- **交付物**：3 atomic commits（按规则类型拆 + 兼顾 M26.1 vs M25 baseline 来源）：
+  - commit 1 = `d02713a` test(platform): 修复 M26.1 ai-config test 9 处 await-thenable + 清理 2 处未用 import（11 warnings：3 个 M26.1 文件 × 3 await + pr-checks beforeEach + container-executor.test vi）
+  - commit 2 = `03e7dad` test(platform): 修复 M26.4b 既有 server/ 文件 9 处 lint warning（9 warnings：auth-self-guard + container-executor 2 + mailer + scheduler 2 + logger + zod-helpers + setup-nuxt-server）
+  - commit 3 = `7407ed8` test(platform): 修复 M26.4b TypeORM 1.x `connection` deprecated 收尾（2 warnings：scan-result-ddl × 2）
 - **风险与缓解措施**：
   - **风险 1**：`container-executor` `max-params` 修复可能需要 DTO 抽取（保留改造范围可控）—— 缓解：如需 DTO 抽取则拆为单独原子条目，本次仅调整函数签名顺序或合并相邻参数
   - **风险 2**：empty arrow function 修复需明确意图注释（vs 删除）—— 缓解：如确无副作用则删除 + 加注释说明「设计如此」

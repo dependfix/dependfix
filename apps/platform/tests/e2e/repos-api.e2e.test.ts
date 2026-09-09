@@ -332,11 +332,15 @@ test.describe('仓库管理 API 集成（todo.md §M19.4 T701-e2e）', () => {
         expect(body.data?.code).toBe('IMPORTABLE_CREDENTIAL_ID_MISSING')
     })
 
-    test('GET /api/repos/importable 非法 affiliation → 400', async ({ page }) => {
+    // importable.get 单端点重构（commit 9ae7c2c）后，
+    // `affiliation` 参数已被 `include` 参数替代（affiliation 保留为 deprecated 向后兼容），
+    // 校验改在 include 路径上。本测试改测 `include=bogus` → 400 + IMPORTABLE_AFFILIATION_INVALID
+    // （错误 code 保留以兼容旧断言）
+    test('GET /api/repos/importable 非法 include → 400', async ({ page }) => {
         const cookies = await authedCookieHeader(page)
         const response = await page.context().request.get('/api/repos/importable', {
             headers: { cookie: cookies, origin: 'http://127.0.0.1:3101' },
-            params: { credentialId: 'any', affiliation: 'invalid-affiliation' },
+            params: { credentialId: 'any', include: 'bogus' },
         })
         expect(response.status()).toBe(400)
         const body = await response.json()

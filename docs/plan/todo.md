@@ -8,7 +8,7 @@
 
 > **M26 阶段承接 M25.2b**：方案 A 治理优先 + 能力扩展 + UX + 测试补强，6 原子条目独立闭环覆盖平台 AI 研判集成「应用层」（P1 follow-up，承接 M25.2a 基础层）+ 批量导入 Resource owner 化（P2 能力扩展，承接 C67）+ 文档站 + 包 README 多语言 en-US P0（P2 治理，承接 C69）+ License 收口（P3 治理，承接 M25 follow-up #3）+ baseline 9 warnings 治理（P3 治理，承接 M25 follow-up #4）+ 经验归档沉淀（P2 治理，承接 M25 follow-up #5）。类型分布 🚀 2 + 🛡️ 2 + 📚 2 + UX 隐含在 M26.1/M26.2/M26.3，符合 [规划规范 §1.1 L12 类型平衡原则](../standards/planning.md)。
 >
-> **ahead commits 实证**：`git rev-list HEAD ^origin/master --count` = **0**（M25 全部 17 commits 已 2026-09-08 用户主动推送）；当前 HEAD = `288770e` docs(agents): code-auditor 主责边界迁向分片
+> **ahead commits 实证**：`git rev-list HEAD ^origin/master --count` = **31**（M26 P 阶段规划 2 + M26.1 8 + M26.2 3 + M26.3 7 + M26 修复 5 + M26.4a 1 + M26.4b 3 + M26.4 docs 1 + M26.5 1 = 31 commits，待用户主动推送）；当前 HEAD = `6b01e35` docs(governance): M26.5 经验归档 + wisdom 蒸馏双轨制落地
 >
 > **关键决策 D1-D4**：
 > - **D1**：M26 6 原子条目按 §1.1 任务粒度约束（每原子 < 5 commits / < 800 行推荐粒度，< 10 文件 / < 800 行硬阈值）+ §1.1 L12 类型平衡原则选 6 原子；每原子独立验证矩阵（lint + typecheck + 定向测试）
@@ -261,4 +261,4 @@
 |:--|:--|
 | 已完成阶段归档 | [todo-archive.md](todo-archive.md)（主窗口保留最近 5 阶段：M25 / M24 / M23 / M22 / M21 / M20；早期阶段见 [archive/](archive/)） |
 | 未排期 / 延期 / 远期 / 长期主线 / 已知边界 | [backlog.md](backlog.md)（**M26 P 阶段同步清理**：C68 状态调整（M26.1 承接应用层）+ C70 已闭环移除 + C67 / C69 已上收移除） |
-| 里程碑与阶段交付 | [roadmap.md](roadmap.md)（**M26 段新增**：2026-09-08 用户决策启动方案 A + 6 原子条目 + M25 状态从「进行中」→「已闭环」） |
+| 里程碑与阶段交付 | [roadmap.md](roadmap.md)（**M26 段新增**：2026-09-08 用户决策启动方案 A + 6 原子条目 + M25 状态从「进行中」→「已闭环」 + M26 ahead commits 实证 31 待推送） |

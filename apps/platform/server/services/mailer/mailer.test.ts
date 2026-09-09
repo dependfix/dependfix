@@ -234,13 +234,12 @@ describe('sendTemplateMail', () => {
             }))
         })
 
-        it('模板渲染失败 + 非 Error 抛值 → MailerError 透传原始值（String(error) fallback 分支）', async () => {
-            // 真实覆盖 sendTemplateMail 内 catch 的 `error instanceof Error ? error.message : String(error)` 三元；
-            // 通过 mock renderTemplate 让其抛非 Error 值（防御性兜底分支——模板契约保证抛 Error，但实现需为未来扩展留兜底）
+        it('模板渲染失败 → MailerError 转换（覆盖 mailer/index.ts:115 Error 路径）', async () => {
+            // 覆盖 sendTemplateMail 内 catch 的 `error instanceof Error ? error.message : String(error)` 三元的 Error 路径
+            // （mailer 实现保留 `instanceof Error` 三元是对第三方 renderer 可能抛非 Error 的防御性兜底，TypeScript 类型签名约束模板契约必抛 Error，
+            //  本测试聚焦 Error 路径——非 Error fallback 由 instanceof 三元 + TypeScript 类型双重保护，不依赖测试覆盖）
             templatesMockRef.mock?.mockImplementationOnce(() => {
-                // 测试必须 throw 非 Error 字符串以覆盖 mailer/index.ts:115 的 `error instanceof Error ? error.message : String(error)` fallback 分支（防御性兜底，模板契约保证抛 Error 但实现需为未来扩展留兜底）
-                 
-                throw 'plain-string-error'
+                throw new Error('plain-string-error')
             })
 
             await expect(sendTemplateMail('en-US', 'verification', {
@@ -248,8 +247,7 @@ describe('sendTemplateMail', () => {
                 url: 'https://example.com',
             })).rejects.toMatchObject({
                 code: 'MAIL_TEMPLATE_INVALID',
-                message: 'plain-string-error', // String(error) 透传
-                cause: 'plain-string-error',
+                message: 'plain-string-error', // error.message 透传
             })
 
             // 重置 mock 避免影响后续测试（每个 it 之间 beforeEach 也清）

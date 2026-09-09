@@ -15,6 +15,7 @@
 | 语言 | TypeScript（strict 逐步收紧） | 平台独立 tsconfig（`nuxt typecheck`） |
 | UI | PrimeVue 4 + `@primevue/nuxt-module` | 组件库 |
 | 主题 | `@primeuix/themes@^2.0.3`（Aura preset + 自定义 primary，MIT 协议；2026-09-08 M25.1 从 v3.x 降级消除 PrimeUI 商业 License） | 暗色模式 `darkModeSelector: '.dark'` |
+| 图标 | `primeicons@^7.0.0`（MIT 协议；2026-09-09 M26.4a 从 v8.x 降级消除 PrimeUI 商业 License——v7→v8 引入 PrimeUI 商业 License 协议，7.x 仍为纯 MIT） | 全仓库实际使用 30 个 icon class（pi-check/pi-times/pi-bolt/pi-pencil/pi-trash/pi-plus/pi-play/pi-pause/pi-stop-circle/pi-sun/pi-moon/pi-eye/pi-copy/pi-refresh/pi-filter/pi-save/pi-user/pi-lock/pi-ban/pi-list/pi-arrow-left/pi-chevron-{up,down}/pi-external-link/pi-envelope/pi-history/pi-upload/pi-check-circle/pi-times-circle/pi-play-circle） |
 | 样式 | 纯 SCSS + BEM，无 CSS-in-JS / Tailwind | 全局变量 + mixin |
 | 认证 | better-auth（邮箱密码） | TypeORM adapter（自研，见 §4.2） |
 | ORM | TypeORM 1.x | 显式驱动注入，多后端兼容 |

@@ -43,12 +43,12 @@ const seedRepoAndOrg = async (overrides: {
 
 describe('GET /api/repos/[id]/ai-config', () => {
     beforeAll(async () => {
-        await setupMemoryDatabase()
+        setupMemoryDatabase()
     })
 
     beforeEach(async () => {
-        await teardownMemoryDatabase()
-        await setupMemoryDatabase()
+        teardownMemoryDatabase()
+        setupMemoryDatabase()
     })
 
     it('返回 repository + organization + effective 三段配置 + 不返回 apiKey 明文', async () => {

@@ -1,5 +1,5 @@
 import 'reflect-metadata'
-import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { makeEvent, setupMemoryDatabase, teardownMemoryDatabase } from '../../../tests/api-helper'
 import reposIndexHandler from '../repos/index'
 import prChecksHandler from './index.get'

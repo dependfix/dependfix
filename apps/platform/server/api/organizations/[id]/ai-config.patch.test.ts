@@ -30,12 +30,12 @@ const seedOrg = async (aiApiKeyEncrypted: string | null = null) => {
 
 describe('PATCH /api/organizations/[id]/ai-config', () => {
     beforeAll(async () => {
-        await setupMemoryDatabase()
+        setupMemoryDatabase()
     })
 
     beforeEach(async () => {
-        await teardownMemoryDatabase()
-        await setupMemoryDatabase()
+        teardownMemoryDatabase()
+        setupMemoryDatabase()
     })
 
     it('更新 AI Provider + Model + Base URL 写入并审计', async () => {

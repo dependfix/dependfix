@@ -43,12 +43,12 @@ const seed = async (orgHasKey = true, repoEnabled = false) => {
 
 describe('POST /api/repos/[id]/ai-config', () => {
     beforeAll(async () => {
-        await setupMemoryDatabase()
+        setupMemoryDatabase()
     })
 
     beforeEach(async () => {
-        await teardownMemoryDatabase()
-        await setupMemoryDatabase()
+        teardownMemoryDatabase()
+        setupMemoryDatabase()
     })
 
     it('更新 aiEnabled + aiTrigger 写入 + 审计', async () => {

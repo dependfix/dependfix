@@ -28,21 +28,35 @@ const githubAppCredentialFields = {
 /**
  * 凭据创建校验（Zod discriminated union + strict mode）。
  *
- * - type='classic-pat' | 'fine-grained-pat' → 必填 token，禁用 appId/encryptedPrivateKey/installationId
- * - type='github-app' → 必填 appId/encryptedPrivateKey/installationId，禁用 token
+ * - type='classic-pat' → 必填 token；ownerLogin 可选（运行时通过 GET /user + GET /user/orgs 自动发现）
+ * - type='fine-grained-pat' → 必填 token + ownerLogin（Fine-grained PAT 绑定单一 owner 运行时无法动态发现）
+ * - type='github-app' → 必填 appId/encryptedPrivateKey/installationId + token 禁用；ownerLogin 可选（可从 installationId 经 GET /app/installations/{id} 自动解析后填充）
  * - `.strict()` 拒绝未声明字段（防止 PAT 路径误传 App 字段或反之）
+ *
+ * Resource owner 抽象（todo.md §M26.2 + backlog.md §C67）：
+ * - 与 MCP `discover_repos` `owner: string[]` 参数对齐
+ * - ownerLogin 是 nullable 列；schema 上仅在 fine-grained-pat 路径强制必填
  */
 export const credentialSchema = z.discriminatedUnion('type', [
     z.object({
         name: z.string().trim().min(1, '名称不能为空').max(100),
-        type: z.enum(['classic-pat', 'fine-grained-pat']),
+        type: z.literal('classic-pat'),
         ...patCredentialFields,
+        ownerLogin: z.string().trim().min(1, 'Resource owner 登录名').max(100).optional(),
+        note: z.string().max(500).nullable().optional(),
+    }).strict(),
+    z.object({
+        name: z.string().trim().min(1, '名称不能为空').max(100),
+        type: z.literal('fine-grained-pat'),
+        ...patCredentialFields,
+        ownerLogin: z.string().trim().min(1, 'Resource owner 登录名（Fine-grained PAT 绑定单一 owner，必填）').max(100),
         note: z.string().max(500).nullable().optional(),
     }).strict(),
     z.object({
         name: z.string().trim().min(1, '名称不能为空').max(100),
         type: z.literal('github-app'),
         ...githubAppCredentialFields,
+        ownerLogin: z.string().trim().min(1, 'Resource owner 登录名').max(100).optional(),
         note: z.string().max(500).nullable().optional(),
     }).strict(),
 ])
@@ -62,6 +76,8 @@ export const credentialUpdateSchema = z.object({
     encryptedPrivateKey: z.string().trim().min(1, 'PEM 私钥不能为空').max(10000).optional(),
     installationId: z.string().trim().min(1, 'Installation ID 不能为空').max(32).optional(),
     botLogin: z.string().trim().max(128).nullable().optional(),
+    /** Resource owner 登录名（任意类型可更新；fine-grained PAT 路径推荐提供以避免运行时发现失败） */
+    ownerLogin: z.string().trim().min(1).max(100).nullable().optional(),
     note: z.string().max(500).nullable().optional(),
 }).strict()
 

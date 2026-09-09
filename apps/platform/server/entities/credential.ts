@@ -76,6 +76,19 @@ export class Credential extends BaseEntity {
     @Column({ type: 'varchar', length: 128, nullable: true })
     botLogin!: string | null
 
+    /**
+     * Resource owner 登录名（todo.md §M26.2 C67 批量导入 Resource owner 化）
+     * - nullable column；与现有 botLogin / installationId 等 nullable 字段同模式
+     * - 三类凭据的填写规则：
+     *   · fine-grained-pat（org-bound）：必填，运行时无法发现（GET /user 走不通）
+     *   · github-app：可选，可从 installationId 经 GET /app/installations/{id} 自动解析后填充
+     *   · classic-pat：可选，运行时通过 GET /user + GET /user/orgs 自动发现为准
+     * - 命名语义：owner 泛指 user 或 organization（沿用 GitHub 官方概念）
+     * - 详细架构决策：[backlog.md §C67](../关键 决策.md) + [platform-ai-integration.md §5.1](../design/governance/platform-ai-integration.md) 类似模式
+     */
+    @Column({ type: 'varchar', length: 100, nullable: true })
+    ownerLogin!: string | null
+
     /** 备注（可选） */
     @Column({ type: 'text', nullable: true })
     note!: string | null

@@ -81,7 +81,8 @@ const createCredential = async (event: H3Event) => {
             encryptedPrivateKey,
             installationId: parsed.data.installationId,
             botLogin: parsed.data.botLogin ?? null,
-        })
+            ownerLogin: 'ownerLogin' in parsed.data ? parsed.data.ownerLogin ?? null : null,
+        } as Credential)
     } else {
         // PAT 路径：加密 token；其他 GitHub App 字段为 null
         const encryptedToken = encryptToken(parsed.data.token, encryptionKey)
@@ -92,7 +93,8 @@ const createCredential = async (event: H3Event) => {
             encryptedPrivateKey: null,
             installationId: null,
             botLogin: null,
-        })
+            ownerLogin: 'ownerLogin' in parsed.data ? parsed.data.ownerLogin ?? null : null,
+        } as Credential)
     }
 
     const saved = await repo.save(entity)

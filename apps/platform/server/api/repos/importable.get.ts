@@ -1,3 +1,4 @@
+import type { H3Event } from 'h3'
 import { Octokit } from '@octokit/rest'
 import { Credential } from '#server/entities/credential'
 import { Repository } from '#server/entities/repository'
@@ -8,20 +9,47 @@ import { createLocalizedError } from '#server/utils/localized-error'
 import { cachedFetch } from '#server/utils/repos-cache'
 
 /**
- * GET /api/repos/importable：列出凭据可访问的 GitHub 仓库（批量添加候选）。
- * 权限：admin / org_admin（写操作）。
- * 查询参数：credentialId 必填；affiliation 可选（owner/collaborator/organization_member，默认 owner）；
- *          fresh 可选（true=强制刷新，跳过缓存，docs/plan/todo.md §PR3-2 C49）。
+ * GET /api/repos/importable：批量导入对话框数据源（todo.md §M26.2 + backlog.md §C67）。
  *
- * PR3 修订（docs/plan/todo.md §PR3-2 C49 D3''）：
- * - octokit.paginate 一次拉完（per_page=100），前端 Paginator 切片显示
- * - maxPages=20 显式兜底（≥ 2000 仓库时主动终止，避免 pagination loop 失控）
- * - 进程内 LRU + TTL 缓存（key=`${credentialId}:${affiliation}`，TTL=5min），降低 GitHub API 调用次数
- * - 返回结构 `{ repos, total, cachedAt, fromCache }`，前端可提示缓存状态
- * - 返回字段新增 fork / archived，供前端三维过滤 UI 使用（docs/plan/todo.md §PR3-1 C46）
+ * 单端点 + include 路由设计（与 MCP discover_repos owner: string[] 同源）：
+ * - `?credentialId=X&include=owners` → `{ owners: ResourceOwner[] }`，TTL=5min 缓存（key=`owners:${credentialId}`）
+ * - `?credentialId=X&owner=Y` → `{ repos, total, cachedAt, fromCache }`，缓存 key=`repos:${credentialId}:${ownerLogin}`
+ *
+ * 向后兼容：
+ * - `?affiliation=owner` 保留并标记 deprecated（行为不变，落到默认 personal owner）
+ * - `?owner=X&affiliation=Y` 同时存在时 owner 胜出
+ *
+ * Resource owner 抽象：沿用 GitHub 官方 user/org 概念（ownerLogin 是 user login 或 org login）；
+ * 与 MCP `discover_repos` `owner: string[]` 参数 + engine `fetchOwnerRepositories`
+ * auto-detect user/org 模式天然一致。
  */
+
 const CACHE_TTL_MS = 5 * 60 * 1000
 const MAX_PAGES = 20
+
+/** Resource owner（user 或 org；命名空间沿用 GitHub 官方语义） */
+interface ResourceOwner {
+    /** owner login（user login 或 org login） */
+    login: string
+    /** owner 类型 */
+    type: 'User' | 'Organization'
+    /** avatar URL（可选；GitHub API 默认返回） */
+    avatarUrl?: string
+}
+
+/** GitHub repo 视图（转换后） */
+interface RawRepo {
+    id: number
+    name: string
+    full_name: string
+    owner: { login: string }
+    private: boolean
+    fork: boolean
+    archived: boolean
+    default_branch?: string
+    description: string | null
+    permissions?: { push?: boolean }
+}
 
 export default defineEventHandler(async (event) => {
     await requireRole(event, ['admin', 'org_admin'])
@@ -31,11 +59,13 @@ export default defineEventHandler(async (event) => {
     if (!credentialId) {
         throw createLocalizedError(event, { statusCode: 400, code: 'IMPORTABLE_CREDENTIAL_ID_MISSING' })
     }
-    const affiliation = (query.affiliation as string | undefined) || 'owner'
-    // 白名单校验（依赖 Octokit 422 兜底不够友好）
-    if (!['owner', 'collaborator', 'organization_member'].includes(affiliation)) {
+
+    // include 路由：owners vs repos
+    const include = (query.include as string | undefined) ?? 'repos'
+    if (include !== 'owners' && include !== 'repos') {
         throw createLocalizedError(event, { statusCode: 400, code: 'IMPORTABLE_AFFILIATION_INVALID' })
     }
+
     const fresh = query.fresh === 'true' || query.fresh === true
 
     const ds = await ensureDatabaseInitialized()
@@ -46,21 +76,57 @@ export default defineEventHandler(async (event) => {
     if (!credential) {
         throw createLocalizedError(event, { statusCode: 404, code: 'CREDENTIAL_NOT_FOUND' })
     }
-    // 防御纵深：与 batch.post.ts C50 校验保持一致——凭据必须归属当前组织，
-    // 否则跨组织访问 GitHub API 会泄露（与 docs/plan/todo.md §PR3-3 C50 同步）。
-    // 单组织模型下凭据默认同组织，校验 no-op；多租户扩展点时此处拦截跨组织凭据。
     await requireOrgResource(event, credential.organizationId)
     const token = decryptToken(credential.encryptedToken, getEncryptionKey())
 
-    // 已登记仓库（按 owner/name 去重）
+    const octokit = new Octokit({ auth: token })
+
+    if (include === 'owners') {
+        // 路由 1：返回 Resource owner 列表（personal + organizations）
+        const cacheKey = `owners:${credentialId}`
+        try {
+            const { value: owners, cachedAt: ownersCachedAt, fromCache: ownersFromCache } = await cachedFetch<ResourceOwner[]>(
+                cacheKey,
+                CACHE_TTL_MS,
+                () => discoverOwners(octokit, credential),
+                { fresh },
+            )
+            return {
+                owners,
+                cachedAt: ownersCachedAt.toISOString(),
+                fromCache: ownersFromCache,
+            }
+        } catch (error) {
+            throw mapGitHubErrorInline(event, error as { status?: number, message?: string })
+        }
+    }
+
+    // include=repos 路径：解析 owner
+    // 优先级：query.owner > credential.ownerLogin > 兜底走 discoverOwners 取 personal owner
+    const ownerFromQuery = query.owner as string | undefined
+    let ownerLogin = ownerFromQuery ?? credential.ownerLogin ?? undefined
+    if (!ownerLogin) {
+        // 向后兼容：旧 affiliation 参数（默认 'owner' 行为）走 discoverOwners 取第一个 owner（personal）
+        try {
+            const owners = await discoverOwners(octokit, credential)
+            ownerLogin = owners[0]?.login
+        } catch {
+            ownerLogin = undefined
+        }
+    }
+    if (!ownerLogin) {
+        throw createLocalizedError(event, {
+            statusCode: 400,
+            code: 'IMPORTABLE_AFFILIATION_INVALID',
+            params: { message: '缺少 owner 参数（请通过 include=owners 端点获取可用 owner 列表）' },
+        })
+    }
+
     const existing = await repoRepo.find()
     const existingKeys = new Set(existing.map((r) => `${r.owner}/${r.name}`))
 
-    const octokit = new Octokit({ auth: token })
-    const cacheKey = `${credentialId}:${affiliation}`
-
+    const cacheKey = `repos:${credentialId}:${ownerLogin}`
     try {
-        // octokit.paginate 一次拉完（maxPages 兜底），结果写缓存
         const { value: rawRepos, cachedAt, fromCache } = await cachedFetch(
             cacheKey,
             CACHE_TTL_MS,
@@ -68,7 +134,7 @@ export default defineEventHandler(async (event) => {
                 let pageCount = 0
                 const data = await octokit.paginate(
                     octokit.repos.listForAuthenticatedUser,
-                    { affiliation, per_page: 100, sort: 'updated' },
+                    { affiliation: 'owner', per_page: 100, sort: 'updated' },
                     (response, done) => {
                         pageCount++
                         if (pageCount >= MAX_PAGES) {
@@ -82,8 +148,9 @@ export default defineEventHandler(async (event) => {
             { fresh },
         )
 
-        const repos = rawRepos
+        const repos = (rawRepos as RawRepo[])
             .filter((repo) => !repo.private || repo.permissions?.push)
+            .filter((repo) => !ownerFromQuery || repo.owner.login === ownerFromQuery)
             .map((repo) => ({
                 id: repo.id,
                 name: repo.name,
@@ -103,19 +170,100 @@ export default defineEventHandler(async (event) => {
             cachedAt: cachedAt.toISOString(),
             fromCache,
         }
-    } catch (error: any) {
-        // GitHub API 错误（如 token 权限不足）透传为 4xx
-        const status = error?.status as number | undefined
-        if (status === 401 || status === 403) {
-            throw createLocalizedError(event, {
-                statusCode: status,
-                code: 'GITHUB_API_AUTH_FAILED',
-            })
-        }
-        throw createLocalizedError(event, {
-            statusCode: status && status >= 400 && status < 500 ? status : 502,
-            code: 'GITHUB_API_FETCH_FAILED',
-            params: { message: error?.message ?? '未知错误' },
-        })
+    } catch (error) {
+        throw mapGitHubErrorInline(event, error as { status?: number, message?: string })
     }
 })
+
+/**
+ * 解析凭据可访问的 Resource owner 列表（personal + organizations）。
+ * - Classic PAT：GET /user 拿 personal owner + GET /user/orgs 拿所属组织 owner 列表（personal 永远排第一）
+ * - Fine-grained PAT user-bound：GET /user 拿 personal owner（单值）；/user/orgs 大概率 403/404 忽略
+ * - Fine-grained PAT org-bound：依赖凭据 ownerLogin 字段（运行时无法发现 → 仅返回该 owner 单值）
+ * - GitHub App：installation.account 字段直接读取（无需运行时发现）
+ */
+async function discoverOwners(octokit: Octokit, credential: Credential): Promise<ResourceOwner[]> {
+    const owners: ResourceOwner[] = []
+
+    if (credential.type === 'github-app') {
+        // GitHub App：直接从 installationId 读取 installation.account
+        if (credential.installationId) {
+            try {
+                const installation = await octokit.apps.getInstallation({
+                    installation_id: Number(credential.installationId),
+                })
+                const account = installation.data.account
+                if (account) {
+                    // GitHub App installation.account 是 user 或 organization（union 类型）
+                    // User: login + avatar_url；Organization: slug + avatar_url（GitHub API 字段差异）
+                    const isOrg = 'type' in account && account.type === 'Organization'
+                    const login = isOrg
+                        ? (account as unknown as { slug: string }).slug
+                        : (account as unknown as { login: string }).login
+                    owners.push({
+                        login,
+                        type: isOrg ? 'Organization' : 'User',
+                        avatarUrl: account.avatar_url,
+                    })
+                }
+            } catch {
+                // installationId 无效 / 无权限 → 降级返回空列表（前端按空状态提示）
+            }
+        }
+        return owners
+    }
+
+    // PAT 路径：先尝试 GET /user 拿 personal
+    try {
+        const user = await octokit.users.getAuthenticated()
+        owners.push({
+            login: user.data.login,
+            type: 'User',
+            avatarUrl: user.data.avatar_url,
+        })
+    } catch {
+        // Fine-grained PAT org-bound 或 token 无 user scope → personal 不可达
+    }
+
+    // 再尝试 GET /user/orgs（Fine-grained PAT 大概率 403/404，吞错）
+    try {
+        const orgs = await octokit.orgs.listForAuthenticatedUser({ per_page: 100 })
+        for (const org of orgs.data) {
+            owners.push({
+                login: org.login,
+                type: 'Organization',
+                avatarUrl: org.avatar_url,
+            })
+        }
+    } catch {
+        // Fine-grained PAT 仅 user-bound：忽略 orgs 403
+    }
+
+    // Fine-grained PAT org-bound：personal 不可达但 ownerLogin 有值 → 兜底返回单 owner
+    if (owners.length === 0 && credential.ownerLogin) {
+        owners.push({
+            login: credential.ownerLogin,
+            type: 'Organization',
+        })
+    }
+
+    return owners
+}
+
+/**
+ * GitHub API 错误映射（auth / fetch 失败 → 4xx/502）
+ */
+function mapGitHubErrorInline(event: H3Event, error: { status?: number, message?: string }): Error {
+    const status = error?.status as number | undefined
+    if (status === 401 || status === 403) {
+        return createLocalizedError(event, {
+            statusCode: status,
+            code: 'GITHUB_API_AUTH_FAILED',
+        })
+    }
+    return createLocalizedError(event, {
+        statusCode: status && status >= 400 && status < 500 ? status : 502,
+        code: 'GITHUB_API_FETCH_FAILED',
+        params: { message: error?.message ?? '未知错误' },
+    })
+}

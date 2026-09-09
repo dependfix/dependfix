@@ -19,7 +19,6 @@ import fs from 'node:fs'
 import path from 'node:path'
 import winston from 'winston'
 import DailyRotateFile from 'winston-daily-rotate-file'
-import { sanitizeDeep } from './sanitize'
 
 // ---------------------------------------------------------------------------
 // 环境变量解析

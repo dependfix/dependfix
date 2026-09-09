@@ -238,7 +238,9 @@ describe('sendTemplateMail', () => {
             // 真实覆盖 sendTemplateMail 内 catch 的 `error instanceof Error ? error.message : String(error)` 三元；
             // 通过 mock renderTemplate 让其抛非 Error 值（防御性兜底分支——模板契约保证抛 Error，但实现需为未来扩展留兜底）
             templatesMockRef.mock?.mockImplementationOnce(() => {
-                throw 'plain-string-error' // 非 Error 实例
+                // 测试必须 throw 非 Error 字符串以覆盖 mailer/index.ts:115 的 `error instanceof Error ? error.message : String(error)` fallback 分支（防御性兜底，模板契约保证抛 Error 但实现需为未来扩展留兜底）
+                 
+                throw 'plain-string-error'
             })
 
             await expect(sendTemplateMail('en-US', 'verification', {

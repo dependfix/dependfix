@@ -39,10 +39,10 @@ g.useRuntimeConfig = () => ({ encryptionKey: 'test-encryption-key-32-bytes!!', e
  */
 if (typeof g.fetch === 'function' && !g.__oidcDiscoveryMocked) {
     const originalFetch = g.fetch.bind(g)
-    g.fetch = async function mockedFetch(input: any, init?: any) {
+    g.fetch = function mockedFetch(input: any, init?: any) {
         const url = typeof input === 'string' ? input : input?.url ?? ''
         if (url.startsWith('https://idp.example.com/.well-known/openid-configuration')) {
-            return new Response(JSON.stringify({
+            return Promise.resolve(new Response(JSON.stringify({
                 issuer: 'https://idp.example.com',
                 authorization_endpoint: 'https://idp.example.com/authorize',
                 token_endpoint: 'https://idp.example.com/token',
@@ -51,7 +51,7 @@ if (typeof g.fetch === 'function' && !g.__oidcDiscoveryMocked) {
             }), {
                 status: 200,
                 headers: { 'content-type': 'application/json' },
-            })
+            }))
         }
         return originalFetch(input, init)
     }

@@ -53,7 +53,7 @@ async function callMiddleware(
     method: string,
     path: string,
     body: unknown,
-): Promise<{ statusCode: number, data: Record<string, unknown>, message?: string } | void> {
+): Promise<{ statusCode: number, data: Record<string, unknown>, message?: string } | undefined> {
     const req = new IncomingMessage(new Socket())
     req.method = method
     req.url = path

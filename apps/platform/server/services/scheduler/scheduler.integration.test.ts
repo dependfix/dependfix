@@ -68,7 +68,11 @@ describe.skipIf(!enabled)('scheduler upsertJobScheduler real-redis integration (
             expect(keysBefore.some((k) => k.includes(schedulerId))).toBe(true)
         } finally {
             // W2 修复：scheduler cleanup 必须在 finally 内（waitFor 超时或断言失败时也清理，避免残留 scheduler 持续触发）
-            try { await queue.removeJobScheduler(schedulerId) } catch { /* ignore cleanup failure */ }
+            try {
+                await queue.removeJobScheduler(schedulerId)
+            } catch {
+                /* ignore cleanup failure */
+            }
             await queue.close()
             queueConnection.disconnect()
         }
@@ -100,7 +104,11 @@ describe.skipIf(!enabled)('scheduler upsertJobScheduler real-redis integration (
             expect(keysAfter.some((k) => k.includes(schedulerId))).toBe(false)
         } finally {
             // W2 修复：cleanup 兜底
-            try { await queue.removeJobScheduler(schedulerId) } catch { /* ignore cleanup failure */ }
+            try {
+                await queue.removeJobScheduler(schedulerId)
+            } catch {
+                /* ignore cleanup failure */
+            }
             await queue.close()
             queueConnection.disconnect()
         }

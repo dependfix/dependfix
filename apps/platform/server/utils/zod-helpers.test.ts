@@ -109,7 +109,13 @@ describe('parseOptional', () => {
                 // 应用层语义：alertFiring = success && isProvided && value === 'true' ? true : success && isProvided && value === 'false' ? false : undefined
                 let alertFiring: boolean | undefined
                 if (success && isProvided) {
-                    if (value === 'true') { alertFiring = true } else if (value === 'false') { alertFiring = false } else { alertFiring = undefined }
+                    if (value === 'true') {
+                        alertFiring = true
+                    } else if (value === 'false') {
+                        alertFiring = false
+                    } else {
+                        alertFiring = undefined
+                    }
                 } else {
                     alertFiring = undefined
                 }

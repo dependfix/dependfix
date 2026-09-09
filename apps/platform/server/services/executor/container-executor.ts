@@ -241,7 +241,7 @@ export class ContainerExecutor implements ScanExecutor {
             // fix / fix-and-pr 需要本地仓库文件：clone 到工作目录
             const needsClone = ctx.config.mode !== 'report-only'
             if (needsClone) {
-                await this.cloneRepository(owner, name, defaultBranch, workDir, ctx.credential?.token, memLogger)
+                await this.cloneRepository(owner, name, defaultBranch, workDir, { token: ctx.credential?.token, logger: memLogger })
             }
 
             // 记录修复前 HEAD — 用于修复后 hasNewCommit 判定（no-op 扫描不产生空 push）
@@ -407,7 +407,14 @@ export class ContainerExecutor implements ScanExecutor {
      *
      * 凭据经 http.extraheader 注入，URL 不携带 token——防 execFile 错误回显泄露。
      */
-    private async cloneRepository(owner: string, name: string, branch: string, workDir: string, token?: string, logger?: MemoryLogger): Promise<void> {
+    private async cloneRepository(
+        owner: string,
+        name: string,
+        branch: string,
+        workDir: string,
+        options: { token?: string, logger?: MemoryLogger } = {},
+    ): Promise<void> {
+        const { token, logger } = options
         const repoUrl = `https://github.com/${owner}/${name}.git`
         // partial clone（--filter=blob:none）：不下载 blob 对象，按需延迟拉取
         // 显著减少弱网环境下的传输量和超时概率
@@ -474,7 +481,9 @@ export class ContainerExecutor implements ScanExecutor {
                 }
 
                 // 指数退避：清理整个 workDir 并重建空目录（git clone . 要求目标为空）
-                await rm(workDir, { recursive: true, force: true }).catch(() => {})
+                await rm(workDir, { recursive: true, force: true }).catch((_err) => {
+                    // 设计如此：rm 失败（如目录不存在 / 权限受限）无需处理——后续 mkdir 会重建
+                })
                 await mkdir(workDir, { recursive: true })
                 const delay = CLONE_RETRY_BASE_DELAY_MS * attempt
                 const retryMsg = `[clone] retrying in ${delay}ms...`

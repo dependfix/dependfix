@@ -27,7 +27,7 @@ features:
       details: When GITHUB_TOKEN is missing, automatically fall back to pnpm audit (--alerts-source pnpm-audit) so offline single-host scans work.
       link: /en-US/design/governance/architecture
     - title: Standalone management platform
-      details: Nuxt full-stack Web UI: repo / credential management, scan triggering, dashboard, RunDetailDialog, PR Check monitoring; deployable with one Docker command.
+      details: "Nuxt full-stack Web UI: repo / credential management, scan triggering, dashboard, RunDetailDialog, PR Check monitoring; deployable with one Docker command."
       link: /en-US/design/governance/architecture
     - title: Agent Skill / MCP Server
       details: dependfix-remediator skill lets AI assistants (Claude Code / Copilot / Cursor) drive fixes conversationally; MCP Server exposes scan/fix capabilities to AI tools.
@@ -45,7 +45,7 @@ features:
       details: M0-M22 all archived (2026-09-01); current phase tasks and future plans in roadmap and todo.
       link: /en-US/plan/roadmap
     - title: Standards
-      details: 10 standards index entry: AI collaboration, development, testing, documentation, security, Git, planning, API and more.
+      details: "10 standards index entry: AI collaboration, development, testing, documentation, security, Git, planning, API and more."
       link: /en-US/standards/i18n
 ---
 

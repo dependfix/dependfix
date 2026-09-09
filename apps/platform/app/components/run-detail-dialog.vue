@@ -33,6 +33,18 @@ interface RunDetailView {
     summary: Record<string, unknown> | null
     error: { code: string, message: string } | null
     results: RunResultView[]
+    /**
+     * AI 研判用量聚合（todo.md §M26.1 + [platform-ai-integration.md §RunDetailDialog AI 用量 section](../design/governance/platform-ai-integration.md)）。
+     * - 当次扫描未启用 AI 研判时为 null（前端条件渲染隐藏整个 section）
+     * - 字段：calls / inputTokens / outputTokens / totalTokens / estimatedCostUsd
+     */
+    aiUsage?: {
+        calls: number
+        inputTokens: number
+        outputTokens: number
+        totalTokens: number
+        estimatedCostUsd: number
+    } | null
     logs?: Array<{ timestamp: string, level: string, message: string }>
     logsText?: string | null
 }
@@ -206,6 +218,36 @@ watch(() => props.runId, (runId) => {
                 <div class="run-detail__meta-item">
                     <span class="run-detail__meta-label">{{ t('alerts.detailRunStatus') }}</span>
                     <Tag :value="statusLabel(detail.status)" :severity="statusSeverity(detail.status)" />
+                </div>
+            </div>
+            <div
+                v-if="detail.aiUsage"
+                class="run-detail__ai-usage"
+            >
+                <h4 class="run-detail__ai-usage-title">
+                    {{ t('ai.usageSectionTitle') }}
+                </h4>
+                <div class="run-detail__ai-usage-grid">
+                    <div class="run-detail__meta-item">
+                        <span class="run-detail__meta-label">{{ t('ai.usageCalls') }}</span>
+                        <strong>{{ detail.aiUsage.calls }}</strong>
+                    </div>
+                    <div class="run-detail__meta-item">
+                        <span class="run-detail__meta-label">{{ t('ai.usageInputTokens') }}</span>
+                        <strong>{{ detail.aiUsage.inputTokens }}</strong>
+                    </div>
+                    <div class="run-detail__meta-item">
+                        <span class="run-detail__meta-label">{{ t('ai.usageOutputTokens') }}</span>
+                        <strong>{{ detail.aiUsage.outputTokens }}</strong>
+                    </div>
+                    <div class="run-detail__meta-item">
+                        <span class="run-detail__meta-label">{{ t('ai.usageTotalTokens') }}</span>
+                        <strong>{{ detail.aiUsage.totalTokens }}</strong>
+                    </div>
+                    <div class="run-detail__meta-item">
+                        <span class="run-detail__meta-label">{{ t('ai.usageCostUsd') }}</span>
+                        <strong>${{ detail.aiUsage.estimatedCostUsd.toFixed(4) }}</strong>
+                    </div>
                 </div>
             </div>
             <a

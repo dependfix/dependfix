@@ -53,6 +53,17 @@ interface AlertView {
     // 前端 Identifiers 列渲染依赖此二字段（详情见 todo.md §M23.3）。
     ghsaId?: string | null
     cveIds?: string[]
+
+    // AI 研判评估结果（todo.md §M26.1 + platform-ai-integration.md §alerts 视图 AI 评估列）：
+    // - aiEvaluated：true 表示本次扫描引擎触发 AI 研判；false 表示跳过（依赖未触发 / Organization 未配 Key 等）
+    // - aiEvaluation：当 aiEvaluated=true 时携带结构化评估结果（confidence / breakingRisks / patchSuggestion）
+    // - 触发范围由 Repository.aiTrigger 控制（failure / major / both）；默认不渲染整列内容，仅在 AI 启用过的扫描中显示 Tag
+    aiEvaluated?: boolean
+    aiEvaluation?: {
+        confidence: number
+        breakingRisks: string[]
+        patchSuggestion: string | null
+    } | null
 }
 
 /**
@@ -599,6 +610,26 @@ const alertCveUrl = (cveId: string): string => `https://nvd.nist.gov/vuln/detail
                     >
                         <template #body="{data}">
                             <Tag :value="statusLabel(data)" severity="secondary" />
+                        </template>
+                    </Column>
+                    <Column
+                        :header="t('ai.alertsEvaluatedColumn')"
+                        :export="false"
+                    >
+                        <template #body="{data}">
+                            <Tag
+                                v-if="data.aiEvaluated"
+                                :value="t('ai.alertsEvaluatedTag')"
+                                severity="info"
+                            />
+                            <span
+                                v-else-if="data.aiEvaluated === false"
+                                class="text-muted"
+                            >—</span>
+                            <span
+                                v-else
+                                class="text-muted"
+                            >—</span>
                         </template>
                     </Column>
                     <!-- per-alert 模型下 ScanResult 字段直接绑定为默认列（不再 v-if 控制，见 todo.md §M20.3 + §M20.6） -->

@@ -325,11 +325,15 @@ test.describe('用户管理（admin）', () => {
 })
 
 test.describe('个人设置', () => {
-    test('五张卡片渲染', async ({ page }) => {
+    // settings.vue 挂载 <ai-config-form> 后（commit 2fe6d1a）共 6 张：
+    // 个人资料 / 修改密码 / 邮箱 / 绑定账号 / 语言偏好 / Organization AI 配置
+    test('6 张卡片渲染', async ({ page }) => {
         await page.goto('/settings')
         await waitForHydration(page)
         await expect(page.locator('h2')).toContainText('个人设置')
-        await expect(page.locator('.p-card')).toHaveCount(5, { timeout: 15000 })
+        await expect(page.locator('.p-card')).toHaveCount(6, { timeout: 15000 })
+        // 语义化抽样：ai-config-form 卡片标题存在（防 ai-config-form 后续被改回 5 张时回归）
+        await expect(page.locator('.p-card').filter({ hasText: 'Organization AI 配置' })).toHaveCount(1)
     })
 
     test('修改显示名并同步头部', async ({ page }) => {

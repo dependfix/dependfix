@@ -45,9 +45,16 @@ test.describe('凭据管理 API 集成（todo.md §M19.4 T701-e2e）', () => {
     test('POST /api/credentials 创建 fine-grained-pat 凭据 → 200', async ({ page }) => {
         const cookies = await authedCookieHeader(page)
         const stamp = uniqueStamp()
+        // fine-grained-pat schema 强必填 ownerLogin（commit 10af85c，schema 同步 Resource owner 抽象），
+        // Fine-grained PAT 绑定单一 owner 运行时无法动态发现
         const response = await page.context().request.post('/api/credentials', {
             headers: { cookie: cookies, origin: 'http://127.0.0.1:3101' },
-            data: { name: `api-cred-fineg-${stamp}`, type: 'fine-grained-pat', token: `ghp_fine_${stamp}` },
+            data: {
+                name: `api-cred-fineg-${stamp}`,
+                type: 'fine-grained-pat',
+                token: `ghp_fine_${stamp}`,
+                ownerLogin: `e2e-fineg-owner-${stamp}`,
+            },
         })
         expect(response.status()).toBe(200)
         const body = await response.json()

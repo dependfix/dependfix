@@ -1108,3 +1108,33 @@ $ git rev-list HEAD ^origin/master --count
 
 **M26 阶段全部 6 原子条目独立闭环**：M26.1 (5 commits 应用层) + M26.2 (3 commits 批量导入 Resource owner 化) + M26.3 (5 commits 文档站 i18n P0) + M26.4a (1 commit primeicons 降级) + M26.4b (3 commits lint baseline 治理) + M26.5 (1 commit 经验归档 + wisdom 蒸馏) = 18 atomic commits + 1 docs 收口 = 19 commits ahead（待用户主动推送）。
 
+
+## 六十三、M26 阶段 git config user 错位事故与防护（2026-09-09）
+
+### 案例背景
+
+2026-09-09 M26 阶段 33 commits 全部以 `dependfix[bot]` 提交，而项目 owner 是 `CaoMeiYouRen`。`git config --local user.*` 设错会**静默**覆盖 global（无任何提示）。
+
+### 根因
+
+`.git/config` local repo 配置有 `[user] name=dependfix[bot] email=dependfix[bot]@users.noreply.github.com]`，覆盖了 `~/.gitconfig` global `CaoMeiYouRen`。`git config` 优先级 `local > global > system`——local 静默覆盖 global。`.git/config` mtime 2026-09-09 21:05:41 早于本 session 第一 commit 21:08：21，说明改写来自上一 session 残留。husky 9.x 自己只改 `core.hooksPath`（不改 `[user]`）——改写来源是上一 session 某个 subagent / 工具调用 `git -c user.name=...` 临时参数 + 副作用写入 local config。
+
+### 修复
+
+按用户要求"已提交 commit 保持原样"——不改 author，仅 `.git/config [user] = CaoMeiYouRen` 修正未来 commit identity。**测试 commit f482708 author = `CaoMeiYouRen` 验证修复成功**。
+
+### 教训
+
+1. **git config 优先级 local > global > system 静默覆盖**——pre-commit guard 是必要防护
+2. **commit 不可批量修改 author**——`git commit --amend --author` 只能改最后 1 个，批量改需 `git rebase -i HEAD~N --exec`（风险高）
+3. **identity 错位只能事后发现**——session 启动时第一件事 `git log -1 --format="%an <%ae>"` + 预期 author 对比
+
+### 挂接治理检查点
+
+1. **pre-commit guard**：[`.husky/pre-commit-identity-guard.sh`](../../../.husky/pre-commit-identity-guard.sh) + `.husky/pre-commit` 第一步
+2. **wisdom 沉淀**：`.session/wisdom.md` 当前条目段 `pattern-git-config-user-identity-mismatch`（路径不入库，gitignored）
+3. **规范挂接**：[docs/standards/development.md §5.1.23](../../standards/development.md#5123gitconfiguseridentity一致性guardm26阶段20260909实证)
+
+### 准入标准复核
+
+符合准入标准第 1 条"教训未落入规范"+ 第 2 条"决策需要溯源"（保持 commit 原样 vs amend 全部 commit 的决策）+ 第 3 条"重复违规预警"（momei 同类型事故可能再次发生，pre-commit guard 是治本）。

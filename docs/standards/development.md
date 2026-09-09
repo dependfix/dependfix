@@ -366,6 +366,16 @@ ESLint 双重禁止规则：
 
 教训见 [经验归档 §六十 M25.3 baseline lint 修复方向](../design/governance/experience-archive-§49-§57-recent-investigation.md#六十m253baselinelint治理双重禁止的治本路径20260908commits) + §六十二 教训 2（M25 → 当前 25 commits 文档治理批次）。
 
+#### 5.1.23 git config user identity 一致性 guard（M26 阶段 2026-09-09 实证）
+
+git config 优先级 `local > global > system`，`.git/config [user]` 会**静默**覆盖 global user（无任何提示）。M26 阶段 33 commits 误用 `dependfix[bot]` 而非 `CaoMeiYouRen` 即此现象实证。**修复模式**：
+
+1. **pre-commit guard 治本**：检测 `.git/config [user]` 与 `git config --global user.*` 一致性，不一致阻断 commit（项目内已落地 `.husky/pre-commit-identity-guard.sh` + `.husky/pre-commit` 第一步）
+2. **session 启动时第一件事**：`.session/current-task.yaml` 段对齐 `git config --local user.*` 与 `git config --global user.*`
+3. **严禁批量改 commit author**（除非用户显式同意 + `git rebase -i HEAD~N --exec 'git commit --amend --no-edit --author=...'` + 强制 push）——历史 commit 改 author 风险高
+
+教训见 [经验归档 §六十三 M26 阶段 git config user 错位事故与防护](../design/governance/experience-archive-§49-§57-recent-investigation.md#六十三m26-阶段-git-config-user-错位事故与防护2026-09-09)。
+
 ---
 
 ## 6. 样式规范（平台阶段适用）

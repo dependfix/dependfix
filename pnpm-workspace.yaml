@@ -23,9 +23,13 @@ overrides:
   brace-expansion@1: ^1.1.16
   brace-expansion@5: ^5.0.7
   fast-uri@3: ^3.1.5
-  js-yaml@4: ^4.3.0
+  js-yaml@4: ^4.3.2
   vite@5: ^5.4.21
   js-yaml@3: ^3.15.1
   "@octokit/auth-app": 8.3.0
   fast-uri: 3.1.6
   qs: ^6.16.0
+  svgo: ^4.1.0
+  "@vitest/mocker": ^4.1.11
+  hono: ^4.13.5
+  vitest: ^4.1.11

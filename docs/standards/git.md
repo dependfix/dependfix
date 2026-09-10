@@ -138,6 +138,12 @@ commit message 应聚焦于"当次提交的改动"+"可供事后复查的信息"
 - 没实证的废话（如"确切路径需源码进一步实证"——没实证就别写）
 - 与本 commit 实际改动关联度低的教训段（教训应归属在 hotfix 修复 commit 而非 docs 登记 commit）
 
+**硬约束自动拦截**：`scripts/commitlint/` 提供 4 个 commitlint plugins 在 `.husky/commit-msg` hook 阶段自动拦截上述违规：
+
+- 规则集与正文硬性约束一一对应（不写执行命令 / 不写执行结果数字 / 不写改动行数 / 不写没实证废话与关联度低教训段）
+- 拦截失败时返回 exit=1，git commit 直接拒绝
+- 规则实现 + 单测详见 [scripts/commitlint/](../../scripts/commitlint/) 目录
+
 **commit 前轻量级审核**：执行方 self-check 4 项必查 + 触发 code-auditor quick depth 条件详见 [ai-collaboration.md §1.6 commit 前轻量级审核流程](./ai-collaboration.md)。
 
 ## 4. AI 行为准则

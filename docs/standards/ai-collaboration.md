@@ -257,6 +257,8 @@ wc -l docs/design/governance/experience-archive.md  # 当前最新§号连续性
 
 self-check 通过后方可触发下一步。
 
+**硬约束自动拦截**：上述 4 项 self-check 已落地到 husky `commit-msg` hook（[scripts/commitlint/](../../scripts/commitlint/) 提供 4 个 commitlint plugins 自动执行），违规 commit message 会被直接拒绝。self-check 与 hook 拦截二者择一即可——hook 是兜底防线。
+
 ### 2. code-auditor quick depth 触发条件
 
 self-check 通过后，按以下条件判断是否触发 code-auditor quick depth 审核：
@@ -274,7 +276,7 @@ self-check 通过后，按以下条件判断是否触发 code-auditor quick dept
 
 - **§4.4 F 阶段本地验证**：本节是其在 commit message 维度的延伸——F 阶段本地验证 ≠ commit message 堆叠执行结果。
 - **§4.6 audit warning 修复决策协议**：commit 前轻量级审核走的就是"低成本 + 对齐验收"的修复维度（self-check 即修复）。
-- **git.md §3.6 commit message 信息密度规范**：本节是其在 AI 协作流程维度的执行——commit 必经 self-check + code-auditor quick depth 触发条件。
+- **git.md §3.6 commit message 信息密度规范**：本节是其在 AI 协作流程维度的执行——commit 必经 self-check + code-auditor quick depth 触发条件。commitlint 拦截规则集与 §3.6「不应包含」5 条一一对应，详见 [scripts/commitlint/](../../scripts/commitlint/)。
 - **AGENTS.md §提交规范**：本节补强"质量前置"维度——commit message 本身也是质量的一部分。
 
 ## 1.7 阶段启动重复评估自检流程（PDTFC+ P 阶段必经 / M27.1 重复评估教训）

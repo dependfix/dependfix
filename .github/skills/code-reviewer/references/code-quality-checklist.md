@@ -156,7 +156,7 @@ if (value) { ... }  // 对 0, "", false 失效
 - **CI 引用**：release.yml / changelog.mjs / create-release-plan.mjs 是否自动覆盖（单点化后无需逐个改，但需确认无残留硬编码包列表）
 - **Docker 影响面**：平台镜像（apps/platform/Dockerfile）是否需要在构建/运行时包含该包
 
-教训见 [经验归档 §二十五](../../../../docs/design/governance/experience-archive.md)（mcp 包遗漏 README/release 链路），规范见 [release.md](../../../../docs/guide/release.md)。
+详见 [经验归档 §二十五](../../../../docs/design/governance/experience-archive.md)（mcp 包遗漏 README/release 链路），规范见 [release.md](../../../../docs/guide/release.md)。
 
 ### CI 工作流类型解析完整性（必查项）
 
@@ -167,7 +167,7 @@ if (value) { ... }  // 对 0, "", false 失效
 - **构建顺序**：多包预构建顺序是否与 Dockerfile 依赖图一致（core → engine → cli → platform）
 - **新增内部包时**：新包的 src 是否需要加入根 tsconfig.json paths / vitest.config.ts alias（源码级解析，避免无 dist 时 "Failed to resolve entry"）
 
-教训见 [经验归档 §二十七](../../../../docs/design/governance/experience-archive.md)（monorepo CI 类型解析链），规范见 [ai-collaboration.md §4.2](../../../../docs/standards/ai-collaboration.md)。
+详见 [经验归档 §二十七](../../../../docs/design/governance/experience-archive.md)（monorepo CI 类型解析链），规范见 [ai-collaboration.md §4.2](../../../../docs/standards/ai-collaboration.md)。
 
 ### TypeORM 实体复合索引声明（必查项）
 
@@ -178,7 +178,7 @@ if (value) { ... }  // 对 0, "", false 失效
 - **验证手段**：e2e 二次运行（连跑两遍 `test:e2e` 验证幂等）；或查 SQLite DDL（`SELECT sql FROM sqlite_master WHERE type='index' AND tbl_name='...'`）确认索引列集合
 - **回归覆盖**：唯一约束语义是否被集成/回归测试覆盖（同键冲突报错 + 不同键共存）
 
-教训见 [经验归档 §三十](../../../../docs/design/governance/experience-archive.md)（TypeORM 1.x 列级复合索引 bug，e2e 二次运行暴露）。
+详见 [经验归档 §三十](../../../../docs/design/governance/experience-archive.md)（TypeORM 1.x 列级复合索引 bug，e2e 二次运行暴露）。
 
 ### docs 裸 HTML 标签与本地 docs:build 验证（必查项）
 
@@ -189,7 +189,7 @@ if (value) { ... }  // 对 0, "", false 失效
 - **本地 docs:build 证据**：`pnpm --filter dependfix-docs build` 是否已执行并提供通过证据？docs build 是唯一防线，缺失 → 退回补验证
 - **排查命令**：`rg '<[a-z][a-z0-9-]*>'` 后人工过滤反引号内命中
 
-规范见 [documentation.md §2 裸 HTML 标签禁令](../../../../docs/standards/documentation.md)，教训见 [经验归档 §三十九](../../../../docs/design/governance/experience-archive.md)（§三十三 `<path>` 后二次复现：登记 ≠ 防御，教训必须落成检查点）。
+规范见 [documentation.md §2 裸 HTML 标签禁令](../../../../docs/standards/documentation.md)，详见 [经验归档 §三十九](../../../../docs/design/governance/experience-archive.md)（§三十三 `<path>` 后二次复现：登记 ≠ 防御，教训必须落成检查点）。
 
 ### 本地 md 链接与锚点 check:docs 验证（必查项）
 
@@ -199,7 +199,7 @@ if (value) { ... }  // 对 0, "", false 失效
 - **CI check:docs 步骤**：CI Test job `Run pnpm run check:docs` 步骤是否通过？该步骤失败 → Test job 后续 `docs:build` / `typecheck` / `test` / `build` 共 5 步被 skipped（GitHub Actions 默认行为），盲区极大（run 32396605272 实证：Test job step 12 失败 → step 13-17 全部 skipped；其他类型如 `lint` / `lint:i18n` / `i18n:audit:missing` / `docs:check:i18n` / `lint:md:check` 在该 run 中均通过，唯 check:docs 卡住后续全部盲区）
 - **典型失败场景**：标题重命名 / 文档归档 / 跨文档锚点迁移 → 锚点漂移 → 跨文档锚点链接失效；GitHub 移除全角标点 `（）`、`、` 等生成锚点，VS Code / VitePress 保留 → 跨平台锚点漂移（check:docs 按宽松规范化兼容三平台差异）
 - **修复路径**：全局检索指向变更标题的锚点链接（`rg -n '\[[^]]*\]\([^)]*#.*'`）→ 同步改指新位置/新锚点；check:docs 输出 `path:line:col message` 格式可直接定位
-- **与 lint:md / docs:build 边界**：lint:md 不查链接存在性；check:docs 不查 HTML 标签配对；docs:build 不查链接锚点（VitePress 默认宽容）；三者是**互补**而非替代关系，缺一不可（教训见 run 32396605272 与 [documentation.md §链接检查](../../../../docs/standards/documentation.md)）。
+- **与 lint:md / docs:build 边界**：lint:md 不查链接存在性；check:docs 不查 HTML 标签配对；docs:build 不查链接锚点（VitePress 默认宽容）；三者是**互补**而非替代关系，缺一不可（详见 run 32396605272 与 [documentation.md §链接检查](../../../../docs/standards/documentation.md)）。
 
 ### Node 脚本 main 入口守卫（必查项）
 
@@ -209,7 +209,7 @@ if (value) { ... }  // 对 0, "", false 失效
 - **git 忽略文件依赖**：脚本/测试是否隐式依赖 `.session/`、`temp/` 等 git 忽略目录文件的存在性（本地有、CI 无 → 行为分叉）？依赖路径是否可注入或已模拟缺失场景验证
 - **典型故障**：依赖缺失文件时 main() 内 `process.exit(0)` 被 vitest 拦截 → catch 再 `process.exit(1)` → `process.exit unexpectedly called` Unhandled Rejection，仅 CI 暴露
 
-规范见 [development.md §5.1.5/§5.1.6](../../../../docs/standards/development.md)，教训见 [经验归档 §三十九](../../../../docs/design/governance/experience-archive.md)。
+规范见 [development.md §5.1.5/§5.1.6](../../../../docs/standards/development.md)，详见 [经验归档 §三十九](../../../../docs/design/governance/experience-archive.md)。
 
 ### 发布链路 tag 推送核验（必查项）
 
@@ -220,14 +220,14 @@ if (value) { ... }  // 对 0, "", false 失效
 - **本地补打纪律**：手动补打 tag 后文档是否提示显式 `--tags` 推送 + followTags 建议（git 默认不推 tag）
 - **判定多源兜底**：changelog 等"已发布"判定是否依赖 tag 单源——应有 npm registry 兜底（见 §二十五）
 
-教训见 [经验归档 §二十六](../../../../docs/design/governance/experience-archive.md)（tag 创建与推送分离 + CI 推送静默失败），规范见 [release.md](../../../../docs/guide/release.md)。
+详见 [经验归档 §二十六](../../../../docs/design/governance/experience-archive.md)（tag 创建与推送分离 + CI 推送静默失败），规范见 [release.md](../../../../docs/guide/release.md)。
 
 ### 包依赖约束（必查项）
 
 改动内部包依赖（`packages/*/package.json` 的 dependencies，或新增内部包）时，检查依赖方向是否符合 [development.md §4 依赖约束](../../../../docs/standards/development.md)：
 
 - **单向分层**：依赖方向 `core` ← `engine` ← `{cli, mcp, platform}`；禁止反向依赖与循环引用
-- **应用层禁互相依赖**：`cli` / `mcp` / `platform` 之间不得互相依赖——mcp 曾依赖 cli（`dependfix`）导致应用层互相依赖 + 安装膨胀 + 版本耦合（engine 拆包教训，见 [todo.md](../../../../docs/plan/todo.md)「已完成任务：@dependfix/engine 拆包」）
+- **应用层禁互相依赖**：`cli` / `mcp` / `platform` 之间不得互相依赖——mcp 曾依赖 cli（`dependfix`）导致应用层互相依赖 + 安装膨胀 + 版本耦合（详见 [todo.md](../../../../docs/plan/todo.md)「已完成任务：@dependfix/engine 拆包」）
 - **共享能力下沉 engine**：应用层不得复制 engine 已导出的实现或直连 core 内部模块；缺导出先补 1 行导出
 - **core 纯净**：`@dependfix/core` 不得新增 Node / 浏览器运行时环境依赖（tslib 等编译辅助除外）
 - **skills 资源包**：`@dependfix/skills` 不引入运行时依赖，仅被 cli 消费
@@ -242,7 +242,7 @@ if (value) { ... }  // 对 0, "", false 失效
 - **冲突裁定**：同一规则出现两处完整声明时，按事实源层次（documentation.md §4：L0 > L1 > L2 > L3）更高层为准，退回执行角色收敛为引用
 - **执行层例外**：宽松指引（应当、建议）可在执行阶段（skill/agent）声明；严格约束（必须、阈值、禁令）不得在执行文档复制完整条款，只能引用
 
-规范见 [documentation.md §4 规范单点声明原则](../../../../docs/standards/documentation.md)，教训见 [经验归档 §二十四](../../../../docs/design/governance/experience-archive.md)。
+规范见 [documentation.md §4 规范单点声明原则](../../../../docs/standards/documentation.md)，详见 [经验归档 §二十四](../../../../docs/design/governance/experience-archive.md)。
 
 ### 规范执行分层（严格约束须挂 review 检查点）
 
@@ -286,7 +286,7 @@ P 阶段规划 / 阶段实施 / 阶段归档批次触及 `docs/plan/todo.md` / `
   - 模糊口径关键词扫描：`grep -nE "(优化一下|清理一下|先做最小版本|做个基础版|顺手做|后续完善)" docs/plan/todo.md docs/plan/todo-archive.md`
   - 缺失要素 ≥ 2 项或含模糊口径 → warning；缺失要素 ≥ 4 项或主条目整体过简 → blocker
 
-教训：M19 / M20 P 阶段规划 commit 实证：子任务描述简略（"M19.4 T701-e2e 管理端点集成测试补强" + 一行说明），缺乏验收标准 / 风险 / 范围详细度——后续 session 接手时需重新理解需求，违反 [planning.md §1.1 L10 验收标准具体化](../../../../docs/standards/planning.md) 与 §2.2 L41 任务描述要求。本必查项由 M21 P 阶段规划新增（2026-08-31）。
+本必查项由 M21 P 阶段规划新增（2026-08-31）：子任务描述必须含验收标准 / 风险 / 范围详细度，避免后续 session 接手时需重新理解需求，违反 [planning.md §1.1 L10 验收标准具体化](../../../../docs/standards/planning.md) 与 §2.2 L41 任务描述要求。
 
 ### 分级审计协议（audit-depth）必查项
 
@@ -454,9 +454,9 @@ diff 包含大范围替换（脚本/正则批量改写、多文件机械变更�
 - **行尾噪音**：`git diff --ignore-space-at-eol` 与普通 diff 行数差异大 → 说明整文件行尾被翻转（混合行尾仓库常见），要求按行保留原行尾重做
 - **代码误伤**：替换正则是否误删代码 token（空调用 `()`、方法名 `trim`/`toUpperCase` 后丢失括号、URL `https:// /` 出现空格）——注意 `typecheck` 不总能覆盖字符串/注释误伤
 - **外链破坏**：涉及 URL 文本时检查是否出现 `https:// /`、`http://` 等畸形（check:docs 只查本地链接）
-- **PowerShell 转义残留（必查）**：diff 疑似经 PowerShell 批量替换（`-replace`/`Replace`/`Set-Content` 产物）时，检查：① 字面量转义残留——扫描变更文件中的字面量 `\r?\n`（反斜杠形态）与"反引号 + n"字符序列，命中即退回（PowerShell 替换文本不做转义解释、单引号完全字面）；② 既有内容误伤——`git diff` 中非预期行（如已知条目内容被拆行/截断）须逐条核验，`String.Replace` 短序列全局替换会拆坏"反引号 + n"（如代码块中的 `npm_config_registry` 变 "换行 + pm_config_registry"）；③ 修复路径必须是 `git checkout -- <file>` 恢复 + 精确 edit 重新应用，**不得**再用 PowerShell 批量替换"修复"替换造成的损坏。lint:md / check:docs / docs:build 均不检测文本语义，内容级验证（Node 字节抽查）由调用方补证（教训见 [经验归档 §四十](../../../../docs/design/governance/experience-archive.md)）
+- **PowerShell 转义残留（必查）**：diff 疑似经 PowerShell 批量替换（`-replace`/`Replace`/`Set-Content` 产物）时，检查：① 字面量转义残留——扫描变更文件中的字面量 `\r?\n`（反斜杠形态）与"反引号 + n"字符序列，命中即退回（PowerShell 替换文本不做转义解释、单引号完全字面）；② 既有内容误伤——`git diff` 中非预期行（如已知条目内容被拆行/截断）须逐条核验，`String.Replace` 短序列全局替换会拆坏"反引号 + n"（如代码块中的 `npm_config_registry` 变 "换行 + pm_config_registry"）；③ 修复路径必须是 `git checkout -- <file>` 恢复 + 精确 edit 重新应用，**不得**再用 PowerShell 批量替换"修复"替换造成的损坏。lint:md / check:docs / docs:build 均不检测文本语义，内容级验证（Node 字节抽查）由调用方补证（详见 [经验归档 §四十](../../../../docs/design/governance/experience-archive.md)）
 
-规范见 [ai-collaboration.md §1.2 执行原则 6](../../../../docs/standards/ai-collaboration.md)，教训见 [经验归档 §十七 / §四十](../../../../docs/design/governance/experience-archive.md)。
+规范见 [ai-collaboration.md §1.2 执行原则 6](../../../../docs/standards/ai-collaboration.md)，详见 [经验归档 §十七 / §四十](../../../../docs/design/governance/experience-archive.md)。
 
 ### 应提出的问题
 

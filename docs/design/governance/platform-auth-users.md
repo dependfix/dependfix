@@ -1,7 +1,7 @@
 # 平台认证与用户体系设计（M7.1 T701/T707）
 
 > 状态：✅ 设计定稿（2026-08-09，待 Review Gate 审计）
-> 任务归属：[todo.md §M7.1](../../plan/todo.md) T701（RBAC + 用户管理 + 个人界面）与 T707（认证扩展）
+> 任务归属：[archive/todo-archive-phases-m6-m7-t711.md §M7.1](https://github.com/dependfix/dependfix/blob/master/docs/plan/archive/todo-archive-phases-m6-m7-t711.md#m71-认证与用户体系已归档) T701（RBAC + 用户管理 + 个人界面）与 T707（认证扩展；M7 阶段已 2026-08-12 归档）
 > 关联文档：[architecture.md 认证/国际化节](architecture.md)、[security.md](security.md)、[M7 规划定稿（2026-08-09，详见 archive/todo-archive-phases-m6-m7-t711.md §M6 规划决策）](../../plan/archive/todo-archive-phases-m6-m7-t711.md#m6-最小平台-mvp已归档)
 
 ## 1. 背景与目标
@@ -201,7 +201,7 @@ REGISTRATION_DISABLED=true: 拒绝所有注册渠道——邮箱密码路径由
 | 迁移 | **SQLite 存量迁移实验**（B1 验收）：预置存量数据 + 无 organization_id 列 → 启动 synchronize 建列 → 初始化填充 → 断言存量 organization_id 非空；角色 'user'→'viewer' 迁移幂等 |
 | 类型/质量门 | `pnpm typecheck` + `pnpm lint` + 定向 vitest（`apps/platform`） |
 
-## 10. 实施拆分（对齐 todo.md §M7.1）
+## 10. 实施拆分（对齐 M7.1 / 详见 [archive/todo-archive-phases-m6-m7-t711.md §M7.1](https://github.com/dependfix/dependfix/blob/master/docs/plan/archive/todo-archive-phases-m6-m7-t711.md#m71-认证与用户体系已归档)）
 
 | 子任务 | 内容 | 提交粒度 |
 |---|---|---|

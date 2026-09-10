@@ -1,6 +1,6 @@
 import { defineConfig } from 'vitepress'
 
-// VitePress 多语言配置（todo.md §M26.3 + [docs-and-readme-i18n.md §6.1](../design/governance/docs-and-readme-i18n.md)）。
+// VitePress 多语言配置（[archive/todo-archive-phases-m26.md §M26.3](https://github.com/dependfix/dependfix/blob/master/docs/plan/archive/todo-archive-phases-m26.md#m263-p2--治理--ux-c69-文档站--包-readme-多语言-en-us-p07-commits--860-行--standard-depth-audit) + [docs-and-readme-i18n.md §6.1](../design/governance/docs-and-readme-i18n.md)）。
 //
 // 参照 momei 模式：
 // - rewrites 把 `i18n/en-US/*` 重写为对外 URL `/*`（保留 `en-US/` 物理目录镜像但不暴露内部组织）

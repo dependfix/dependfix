@@ -43,10 +43,10 @@ apps/platform/
 ├── server/
 │   ├── api/                    # REST API（Nuxt server routes）
 │   │   ├── auth/               # better-auth 挂载
-│   │   ├── repos/              # 仓库 CRUD + 扫描触发（T602/T603，任务归属见 `docs/plan/todo.md` §M6）
-│   │   ├── credentials/        # 凭据管理（T602，任务归属见 `docs/plan/todo.md` §M6）
-│   │   ├── runs/               # 扫描历史/报告（T603/T604，任务归属见 `docs/plan/todo.md` §M6）
-│   │   └── alerts/             # 告警查询（T604，任务归属见 `docs/plan/todo.md` §M6）
+│   │   ├── repos/              # 仓库 CRUD + 扫描触发（T602/T603，任务归属见 [archive/todo-archive-phases-m6-m7-t711.md §M6](archive/todo-archive-phases-m6-m7-t711.md#m6-最小平台-mvp已归档)）
+│   │   ├── credentials/        # 凭据管理（T602，任务归属见 [archive/todo-archive-phases-m6-m7-t711.md §M6](archive/todo-archive-phases-m6-m7-t711.md#m6-最小平台-mvp已归档)）
+│   │   ├── runs/               # 扫描历史/报告（T603/T604，任务归属见 [archive/todo-archive-phases-m6-m7-t711.md §M6](archive/todo-archive-phases-m6-m7-t711.md#m6-最小平台-mvp已归档)）
+│   │   └── alerts/             # 告警查询（T604，任务归属见 [archive/todo-archive-phases-m6-m7-t711.md §M6](archive/todo-archive-phases-m6-m7-t711.md#m6-最小平台-mvp已归档)）
 │   ├── database/               # 数据库层
 │   │   ├── index.ts            # DataSource 初始化（多后端）
 │   │   ├── type.ts             # getDateType() 列类型映射
@@ -158,7 +158,7 @@ runtimeConfig: {
 - ⚠️ **Nitro / esbuild 构建期会把 `process.env.NODE_ENV` 静态替换为构建时值**（prod build 时折叠为 `"production"`，dev build 时折叠为 `"development"`）
 - 表达式 `process.env.E2E_TEST !== 'true' || process.env.NODE_ENV === 'production'` 在产物中被折叠为 `... || true`，**永远 404**，e2e 套件必然破裂
 - **runtimeConfig 是 Nuxt 官方运行时覆盖通道**（`NUXT_` 前缀），运行时由 `NUXT_E2E_FIXTURES_ALLOWED` 注入，可绕开 esbuild define；prod build 时 `e2eFixturesAllowed` 默认 false，端点 404，e2e webServer 启动时设 `NUXT_E2E_FIXTURES_ALLOWED=true` 覆盖为 true
-- 教训（M22 阶段 fixtures 双门控落地修订）见 todo.md §M22.6 + [经验归档 §五十](../design/governance/experience-archive.md)
+- 教训（M22 阶段 fixtures 双门控落地修订）见 [todo-archive.md §M22 段](../plan/todo-archive.md#m22-sqlite-数据保护防御加固m221m222m223m224m225m226-全部已闭环--2026-09-01-归档) M22.6 + [经验归档 §五十](../design/governance/experience-archive.md)
 
 **应用范围**：
 - `apps/platform/server/api/e2e/fixtures.post.ts` — POST /api/e2e/fixtures
@@ -177,7 +177,7 @@ runtimeConfig: {
 
 **A 阶段 Review Gate**：code-auditor 主责边界新增"e2e 端点双门控 + runtimeConfig 兜底 + 构建产物 grep"必查项
 
-**实证**（2026-09-01 dependfix.sqlite 数据清空事故关联风险 + M22.6 修订教训）：详见 [经验归档 §五十](../design/governance/experience-archive.md) + todo.md §M22.6。
+**实证**（2026-09-01 dependfix.sqlite 数据清空事故关联风险 + M22.6 修订教训）：详见 [经验归档 §五十](../design/governance/experience-archive.md) + [todo-archive.md §M22.6](../plan/todo-archive.md#m22-sqlite-数据保护防御加固m221m222m223m224m225m226-全部已闭环--2026-09-01-归档)。
 
 ### 3.7 SQLite 启动期备份 + 自检工具（引用 security.md §2.1 + 平台角度差异化信息）
 

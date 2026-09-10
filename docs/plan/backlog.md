@@ -90,7 +90,6 @@
 
 - **C36** 服务端 API 错误消息 i18n（当前 API 错误消息硬编码英文如 `error.code.field_required`；用户体验：中文用户看不懂；触发：M8 国际化后未覆盖服务端；验收：所有 `apps/platform/server/api/**` 端点错误响应 `code` 键维持英文 + `message` 键按请求 locale 返回）
 - **C37** 语言偏好多设备同步（当前仅单一设备语言偏好；多设备切换需重新设置；触发：用户实测反馈多设备用户；前置：先有 C36 服务端 API i18n 基础）
-- ~~**C69 文档站 + 包 README 多语言实施（en-US）**~~ —— **已上收 2026-09-08 M26.3**（用户决策 P0 范围 / VitePress 脚手架 + 首批 8 个 en-US md 文件 + 包 README 双语化 + check:readme-i18n 同步门禁 + CI 步骤 / 5 commits / standard depth audit；详见 [todo.md §M26.3](todo.md#m263-p2--治理--ux-c69-文档站--包-readme-多语言-en-us-p05-commits--05-1-切片--standard-depth-audit) + [docs/design/governance/docs-and-readme-i18n.md](../design/governance/docs-and-readme-i18n.md) 设计先行稿）；P1 增强（语言切换入口 + SEO + 翻译自动化脚手架）留 M27+
 
 #### 多组织 / 多租户
 
@@ -151,10 +150,6 @@
   - 关键决策回顾（2026-08-25 用户确认）：
     - **B1 数据层去重** vs B2 UI 层 GROUP BY / B3 每次清空：选 B1 —— 彻底解决重复 + 自然支持 fix 复用 + 不破坏审计（fixStatus + scanRunId 仍可追溯）；B2 实现简单但数据膨胀 + fix 复用难做；B3 最简单但破坏"何时发现"审计信号。**备注：B1 数据层去重暂缓，应用层去重（方案 B2 等价）已实施且满足当前业务需求；如未来需要 fix 复用 / 历史 fixStatus 跨次保留再迁移到 B1**
     - **C3 单列智能** vs C1 两列分开 / C2 单列合并：选 C3 —— 用户原话"GHSA ID ... 这才是能真正跨平台追溯漏洞的关键信息"（GHSA 在 GitHub Advisory Database 统一收录多个 CVE，反向追溯更强）；C1 多列占空间但实际查看价值有限；C2 简单但 GHSA / CVE 视觉权重平等，跨平台追溯信号被稀释
-
-#### 平台治理扩展
-
-- **C68 平台 AI 研判集成（apps/platform 端到端联通）** —— 2026-09-08 用户调研触发。**现状（M25.2a 闭环后）**：AI breaking change 研判引擎层 `packages/engine/src/ai/` M5 已闭环（commit 3475e6e），CLI / MCP / GitHub Action 三条用户路径全部支持 `--ai` 系列参数；apps/platform 端到端联通**按 P0 基础层 + P1 应用层拆分两步实施**：**P0 基础层 M25.2a 已闭环**（5 commits / ~992 行，commit `1c65582` 数据模型 + `f174cce` Schema+Service + `7250ec1` 三执行器透传 + `49480a6` typecheck 修复 + `782fa27` 收口）—— Organization.aiApiKeyEncrypted / Repository.aiEnabled / ScanRun.aiConfigSnapshot 数据模型 + scan-orchestrator 透传 + container/sandbox/github-action 三执行器同步；**P1 应用层 M26.1 承接**（5 commits / ~1130 行，详见 [todo.md §M26.1](todo.md#m261-p1--能力--ux-m252b-应用层5-commits--1130-行--standard-depth-audit) + [platform-ai-integration.md](../design/governance/platform-ai-integration.md) 设计先行稿）—— 4 个 API 端点（PATCH organization-ai-config / GET repo-ai-config / POST repo-ai-config / 扩展 POST scan）+ UI（Organization AI 配置表单 + 仓库 AI 开关 + 扫描对话框 override + RunDetailDialog 用量展示 + alerts 评估列）+ i18n（zh-CN + en-US `ai.*` 命名空间）+ docs architecture.md AI 研判段扩展。
 
 #### devEx / lint 治理
 
@@ -290,8 +285,8 @@
 
 | 内容类型 | 位置 |
 |:--|:--|
-| 当前阶段活跃任务 | [todo.md](todo.md) 顶部"当前阶段"段（M26 阶段 2026-09-08 用户决策启动方案 A + M26.4 拆分：M25.2b 应用层 + C67 批量导入 Resource owner 化 + C69 文档站 + 包 README 多语言 en-US P0 + primeicons 降级 + baseline 9 warnings 治理 + 经验归档沉淀 / M26.1+M26.2+M26.3+M26.4a+M26.4b+M26.5 共 6 原子条目 / 承接 M25.2b；M25 阶段全部 17 commits 已 2026-09-08 用户主动推送，ahead=0） |
-| 已完成阶段归档 | [todo-archive.md](todo-archive.md)（主窗口保留最近 5 阶段：M25 / M24 / M23 / M22 / M21 / M20；早期阶段见 [archive/](archive/)） |
-| 里程碑与阶段交付 | [roadmap.md](roadmap.md)（M26 段已 2026-09-08 用户决策启动 + 6 原子条目方案 A + M26.4 拆分决策；M25 段状态从「进行中」→「已闭环」） |
-| 长期主线 / 候选 / 待人工验收 / 已知边界 | 本文档（按四象限结构；2026-09-09 新增「devEx / lint 治理」段登记 W1 apps/platform 增配 stylelint + lint 系列候选） |
+| 当前阶段活跃任务 | [todo.md](todo.md)（M26 已闭环 + 2026-09-10 归档；M27 候选评估待用户决策启动；详见 [todo.md §M26 阶段归档闭环摘要](todo.md#m26-阶段归档闭环摘要2026-09-10--ahead0--36-commits)） |
+| 已完成阶段归档 | [todo-archive.md](todo-archive.md)（主窗口保留最近 3 个完整段：M26 指针 + M23 + M22 完整段；M19/M20/M21 预防性分片迁出至 [archive/todo-archive-phases-m19-m21.md](archive/todo-archive-phases-m19-m21.md)；早期阶段见 [archive/](archive/)） |
+| 里程碑与阶段交付 | [roadmap.md](roadmap.md)（M26 段已 2026-09-10 完整闭环 + 归档；M26 ahead=0 / 7 原子条目 × 23 commits + 配套 13 commits = 36 commits 全部已推送 origin/master；详见 [roadmap.md §M26](roadmap.md#m26-平台-ai-研判应用层--批量导入-resource-owner-化--文档站-i18n--license-收口--经验沉淀2026-09-08-用户决策方案-a--m264-拆分--m264c-e2e-适配--2026-09-10-已闭环--归档)） |
+| 长期主线 / 候选 / 待人工验收 / 已知边界 | 本文档（按四象限结构；**M26 归档批次同步清理**：C67（已 M26.2 闭环）/ C68（已 M26.1 闭环）/ C69（已 M26.3 闭环）/ M25 follow-up #3 primeicons 降级（已 M26.4a 闭环）/ M25 follow-up #4 baseline 22 warnings 治理（已 M26.4b 闭环）/ M25 follow-up #5 经验归档沉淀（已 M26.5 闭环）全部已闭环移除） |
 | 历史归档索引 | [archive/index.md](archive/index.md) |

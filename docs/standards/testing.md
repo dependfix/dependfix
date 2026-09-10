@@ -61,7 +61,7 @@
 | `apps/platform/server/` / `apps/platform/app/` | >= 80% |
 | `scripts/` | >= 80% |
 
-> 基线（2026-08-12 口径修正后）：整体 Statements 67.81% / Branches 65.39% / Functions 68.43% / Lines 67.83%，未达门槛。补测冲刺见 [todo.md T711](../plan/todo.md)。
+> 基线（2026-08-12 口径修正后）：整体 Statements 67.81% / Branches 65.39% / Functions 68.43% / Lines 67.83%，未达门槛。补测冲刺见 [archive/todo-archive-phases-m6-m7-t711.md §T711](../plan/archive/todo-archive-phases-m6-m7-t711.md#t711-覆盖率口径修正--冲刺至-80已归档)（T711 已 M7.2 阶段 2026-08-12 归档）。
 
 提升策略：先补缺口分析，再逐模块推进，不追求一次性全量达标。
 

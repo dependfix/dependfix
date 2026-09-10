@@ -426,7 +426,7 @@ if (executorKind === 'sandbox') {
 >
 > **2026-09-04 修订（M25 事故修复）**：C53 原始设计假定 `app.run()` 内部只做本地修复 + commit，push / PR 由平台承担。但实际上引擎的 `fix-and-pr` 模式自带 `createFixBranch → pushBranch → createPullRequest` 完整链路，且 `pushBranch` 走裸 `git push` 不带凭据——容器内 `git -c http.extraheader=... clone` 也不会把 extraheader 写入 .git/config（实测 `git -c` 是 git 级 flag，非 clone 子命令），导致 push 必然缺凭据失败。
 >
-> 修复后：引擎降级为 `mode: 'fix' + commit: true`（仅本地修复+commit），push + PR 全部走平台 [platform-delivery] 模块，保留引擎的 dedup / supersede 决策。详细根因与方案见 `todo.md` §M25 段。
+> 修复后：引擎降级为 `mode: 'fix' + commit: true`（仅本地修复+commit），push + PR 全部走平台 [platform-delivery] 模块，保留引擎的 dedup / supersede 决策。详细根因与方案见 [archive/todo-archive-phases-m25.md §M25](https://github.com/dependfix/dependfix/blob/master/docs/plan/archive/todo-archive-phases-m25.md)（M25 已 2026-09-08 归档）。
 
 ### 8.1 流程变更（C53 → M25 修复后差异）
 

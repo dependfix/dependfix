@@ -26,13 +26,14 @@
 | M16: 平台可用性深化 | 把 apps/platform 从 demo 落地为实际可用项目 | P1 | 已完成（[archive/todo-archive-phases-m16-m17.md §M16](archive/todo-archive-phases-m16-m17.md#m16-平台可用性深化m161m162m163m164m165-全部已闭环--2026-08-28-归档)） |
 | M17: 安全与可用性收口 | C38 encryptionKey + 服务端 API i18n + admin viewer role check | P1-P3 | 已完成（[archive/todo-archive-phases-m16-m17.md §M17](archive/todo-archive-phases-m16-m17.md#m17-安全与可用性收口m171m172m173m174m175m176-全部已闭环--2026-08-28-归档)） |
 | M18: 平台 GitHub App BYO App 模式 | PAT + GitHub App 二者并存 + 5 子阶段 + 治理批次 | P0-P3 | 已完成（[archive/todo-archive-phases-m18.md §M18](archive/todo-archive-phases-m18.md#m18-平台-github-app-byo-app-模式m180m181m182m183m184m18x-全部已闭环--2026-08-30-归档)） |
-| M19: 治理 + 能力扩展 + 测试补强 | 按类型平衡原则 5 项任务（技术债 + 能力 + 体验 + 测试） | P2-P3 | 已完成（[todo-archive.md §M19](todo-archive.md#m19-治理-能力扩展-测试补强m191m192m193m194m195-全部已闭环-2026-08-31-归档)） |
-| M20: ScanResult 数据模型重构 | per-alert 模型 + reconcile + API 简化 + UI + backfill | P2 | 已完成（[archive/todo-archive-phases-m2-m55.md §M20](archive/todo-archive-phases-m2-m55.md)） |
-| M21: 治理收口 + 能力扩展 + 测试补强 | Code Scanning RG-W + M18.x 剩余风险 + B3 PR 自动合并 + T704 e2e | P3 | 已完成（[todo-archive.md §M21](todo-archive.md#m21-治理收口--能力扩展--测试补强m211m212m214m215-全部已闭环--2026-08-31-归档)） |
+| M19: 治理 + 能力扩展 + 测试补强 | 按类型平衡原则 5 项任务（技术债 + 能力 + 体验 + 测试） | P2-P3 | 已完成（[archive/todo-archive-phases-m19-m21.md §M19](archive/todo-archive-phases-m19-m21.md#m19-治理--能力扩展--测试补强m191m192m193m194m195-全部已闭环-2026-08-31-归档)） |
+| M20: ScanResult 数据模型重构 | per-alert 模型 + reconcile + API 简化 + UI + backfill | P2 | 已完成（[archive/todo-archive-phases-m19-m21.md §M20](archive/todo-archive-phases-m19-m21.md#m20-scanresult-数据模型重构m201m203m205m206m207-全部已闭环--2026-08-31-归档)） |
+| M21: 治理收口 + 能力扩展 + 测试补强 | Code Scanning RG-W + M18.x 剩余风险 + B3 PR 自动合并 + T704 e2e | P3 | 已完成（[archive/todo-archive-phases-m19-m21.md §M21](archive/todo-archive-phases-m19-m21.md#m21-治理收口--能力扩展--测试补强m211m212m214m215-全部已闭环--2026-08-31-归档)） |
 | M22: SQLite 数据保护防御加固 | 2026-09-01 dependfix.sqlite 数据清空事故 + 6 原子条目 | P0-P1 | 已完成（[todo-archive.md §M22](todo-archive.md#m22-sqlite-数据保护防御加固m221m222m223m224m225m226-全部已闭环--2026-09-01-归档)） |
 | M23: M22 治理债收口 + 根因排查 + 能力扩展 + 测试补强 | M22.7+M22.8 根因 + C66 告警视图增强 | P1-P3 | 已完成（[todo-archive.md §M23](todo-archive.md#m23-m22-治理债收口--根因排查--能力扩展--测试补强m230m231m232m233m234-全部已闭环--2026-09-02-归档)） |
 | M24: PR Check MVP + 治理债 + 测试补强 + 用户体验 | PR Check 状态监测 MVP + M22.7+M22.8 残留根因 + C36 i18n | P1-P3 | 已完成（[todo-archive.md §M24](todo-archive.md#m24-pr-check-mvp--治理债--测试补强--用户体验m241m242m243m244m245-全部已闭环--2026-09-03-归档)） |
 | M25: PrimeUI License 治理 + 平台 AI 研判集成 + lint baseline + M24 follow-up 工具化 | C70 PrimeUI 降级 + C68 AI 研判基础层 + lint baseline + i18n-anchor-check + zod-helpers | P1-P3 | 已完成（[todo-archive.md §M25](todo-archive.md#m25-primeui-license-治理--平台-ai-研判集成--lint-baseline-治理--m24-follow-up-工具化m251m252am253m254-全部已闭环--2026-09-08-归档)） |
+| M26: 平台 AI 研判应用层 + 批量导入 Resource owner 化 + 文档站 i18n + License 收口 + 经验沉淀 | C68 P1 应用层 + C67 + C69 P0 + primeicons 降级 + baseline 22 warnings 治理 + e2e 适配 + 经验归档沉淀 | P1-P3 | 已完成（[todo-archive.md §M26](todo-archive.md#m26-平台-ai-研判应用层--批量导入-resource-owner-化--文档站-i18n--license-收口--经验沉淀m261m262m263m264am264bm264cm265-全部已闭环--2026-09-10-归档)） |
 
 > **本路线图定位**：按 [规划规范 §2.1](../standards/planning.md) 仅维护阶段概览（目标 / 优先级 / 状态）。详细实施记录 / commit 引用 / 关键决策 / 经验教训见对应归档段（详见下方"## 详细任务"索引）。
 
@@ -203,19 +204,19 @@ T1001-T1004 全部完成：Docker rootless runtime + RuntimeAdapter 抽象层 + 
 
 按"类型平衡"原则选取 5 项任务独立闭环（技术债 + 能力扩展 + 用户体验 + 测试覆盖）+ M19.x 收口（孤立编号清理）。5 atomic commits 全部 ahead=0，5 轮独立 Review Gate Pass。
 
-> 详细任务见 [todo-archive.md §M19](todo-archive.md#m19-治理-能力扩展-测试补强m191m192m193m194m195-全部已闭环-2026-08-31-归档)
+> 详细任务见 [archive/todo-archive-phases-m19-m21.md §M19](archive/todo-archive-phases-m19-m21.md#m19-治理--能力扩展--测试补强m191m192m193m194m195-全部已闭环-2026-08-31-归档)
 
 ## M20: ScanResult 数据模型重构
 
 per-alert 模型 + reconcile + API 简化 + UI 调整 + backfill 脚本。5 子阶段全部闭环。
 
-> 详细任务见 [todo-archive.md §M20](todo-archive.md#m20-scanresult-数据模型重构m201m203m205m206m207-全部已闭环--2026-08-31-归档)
+> 详细任务见 [archive/todo-archive-phases-m19-m21.md §M20](archive/todo-archive-phases-m19-m21.md#m20-scanresult-数据模型重构m201m203m205m206m207-全部已闭环--2026-08-31-归档)
 
 ## M21: 治理收口 + 能力扩展 + 测试补强
 
 承接 M20 闭环后 backlog 候选池 + M18.x 治理剩余风险。4 子阶段独立闭环（M21.1 Code Scanning RG-W / M21.2 M18.x 剩余风险 / M21.4 B3 PR 自动合并 / M21.5 T704 async）。
 
-> 详细任务见 [todo-archive.md §M21](todo-archive.md#m21-治理收口--能力扩展--测试补强m211m212m214m215-全部已闭环--2026-08-31-归档)
+> 详细任务见 [archive/todo-archive-phases-m19-m21.md §M21](archive/todo-archive-phases-m19-m21.md#m21-治理收口--能力扩展--测试补强m211m212m214m215-全部已闭环--2026-08-31-归档)
 
 ## M22: SQLite 数据保护防御加固
 
@@ -241,31 +242,38 @@ per-alert 模型 + reconcile + API 简化 + UI 调整 + backfill 脚本。5 子�
 
 > 详细任务见 [todo-archive.md §M25](todo-archive.md#m25-primeui-license-治理--平台-ai-研判集成--lint-baseline-治理--m24-follow-up-工具化m251m252am253m254-全部已闭环--2026-09-08-归档) + [archive/todo-archive-phases-m25.md 完整实施记录](archive/todo-archive-phases-m25.md)
 
-## M26: 平台 AI 研判应用层 + 批量导入 Resource owner 化 + 文档站 i18n + License 收口 + 经验沉淀（2026-09-08 用户决策方案 A + M26.4 拆分 / 进行中）
+## M26: 平台 AI 研判应用层 + 批量导入 Resource owner 化 + 文档站 i18n + License 收口 + 经验沉淀（2026-09-08 用户决策方案 A + M26.4 拆分 + M26.4c e2e 适配 / 2026-09-10 已闭环 + 归档）
 
-承接 M25.2b（M25 follow-up #1）+ C67（批量导入 Resource owner 化）+ C69 P0（文档站 + 包 README 多语言 en-US）+ M25 follow-up #3（primeicons 降级）+ M25 follow-up #4（baseline 9 warnings 治理）+ M25 follow-up #5（经验归档沉淀）。6 原子条目独立闭环覆盖 🚀 2 + 🛡️ 2 + 📚 2 + UX 隐含在 M26.1/M26.2/M26.3，符合 [规划规范 §1.1 L12 类型平衡原则](../standards/planning.md)。
+承接 M25.2b（M25 follow-up #1）+ C67（批量导入 Resource owner 化）+ C69 P0（文档站 + 包 README 多语言 en-US）+ M25 follow-up #3（primeicons 降级）+ M25 follow-up #4（baseline 9 warnings 治理）+ M25 follow-up #5（经验归档沉淀）。**7 原子条目独立闭环**（2026-09-08 决策时为 6 原子，2026-09-10 增 M26.4c e2e 适配后为 7 原子）覆盖 🚀 2 + 🛡️ 3 + 🧪 2 + 📚 2 + UX 隐含在 M26.1/M26.2/M26.3，符合 [规划规范 §1.1 L12 类型平衡原则](../standards/planning.md)。
 
-- **M26.1** [P1 🚀] M25.2b 应用层（5 commits / ~1130 行 / standard depth）—— C68 P1 增强落地（4 API 端点 + UI + i18n + docs），承接 M25.2a 基础层
-- **M26.2** [P2 🚀] C67 批量导入 Resource owner 化（3 commits / ~4h / standard depth）—— 与 MCP `discover_repos` `owner: string[]` 对齐
-- **M26.3** [P2 📚] C69 文档站 + 包 README 多语言 en-US P0（5 commits / 0.5-1 切片 / standard depth）—— VitePress 脚手架 + 8 个 en-US md 文件 + 包 README 双语化 + check:readme-i18n 同步门禁
+- **M26.1** [P1 🚀] M25.2b 应用层（10 commits / ~1130 行 / standard depth）—— C68 P1 增强落地（4 API 端点 + UI + i18n + docs），承接 M25.2a 基础层（含 5 项 re-audit 修复：补全 GET 端点 / 嵌套对象恢复 / i18n 结构 / README 恢复 / YAML 半角冒号）
+- **M26.2** [P2 🚀] C67 批量导入 Resource owner 化（4 commits / ~510 行 / standard depth）—— 与 MCP `discover_repos` `owner: string[]` 对齐
+- **M26.3** [P2 📚] C69 文档站 + 包 README 多语言 en-US P0（7 commits / ~860 行 / standard depth）—— VitePress 脚手架 + 8 个 en-US md 文件 + 包 README 双语化 + check:readme-i18n 同步门禁 + CI workflow 步骤
 - **M26.4a** [P3 🛡️] primeicons@8.x → 7.x 降级（1 commit / quick depth）—— 消除最后 1 个 PrimeUI License 包
-- **M26.4b** [P3 🧪] baseline 9 warnings 治理（1-2 commits / quick depth）—— 逐项修复避免扩展 max-warnings 临时方案
-- **M26.5** [P2 📚] 经验归档沉淀（wisdom 蒸馏 + experience-archive §五十八-§六十二）（1 commit / quick depth）—— M25 4 个治理实践 + wisdom 蒸馏活跃条目 ~18 → ≤ 15
+- **M26.4b** [P3 🧪] baseline 22 warnings 治理（4 commits / quick depth）—— 22 → 0 warnings 全部治本（不扩展 max-warnings 临时方案；含 mailer.test.ts throw 形式收口）
+- **M26.4c** [P3 🧪] e2e 测试适配 M26.1/M26.2 行为变更（5 commits / quick depth）—— 仅测试侧适配，不改生产代码（admin 5→6 张卡片 / credentials-api fine-grained-pat 补 ownerLogin / credentials-crud 选 classic-pat 避必填 / repos-api 改测 include=bogus）
+- **M26.5** [P2 📚] 经验归档沉淀（wisdom 蒸馏 + experience-archive §五十八-§六十二）（1 commit / quick depth）—— M25 4 个治理实践 + wisdom 蒸馏活跃条目 17 → 7 ≤ 15 阈值已合规
+- **配套治理**（8 commits）：pre-commit identity guard（husky）+ git config guard 说明 + lint-staged 配置 + stylelint 配置（apps/platform）+ README 检查脚本重构 + M26.4 docs 闭环 + M26 ahead commits 实证 + chore(deps) bump
+- **CI Coverage 修复**（1 commit）—— `a4a5680` fix(ci): 补齐 check-readme-i18n 单测恢复 branches 80% coverage gate（PDTFC+ 闭环：脚本加 isDirectExecution 守卫 + 导出 5 个核心函数 + 415 行单测 28 cases / 全量 Branches 80.06% ✓）
 
 **关键决策 D1-D4**：
-- **D1**：6 原子条目按 §1.1 任务粒度约束（每原子 < 5 commits / < 800 行推荐粒度，< 10 文件 / < 800 行硬阈值）+ §1.1 L12 类型平衡原则
-- **D2**：M26.4 拆分为 M26.4a（primeicons 降级）+ M26.4b（baseline 9 warnings）—— 不相干内容不合并（用户决策 2026-09-08）
+- **D1**：7 原子条目按 §1.1 任务粒度约束（每原子 < 5 commits / < 800 行推荐粒度，< 10 文件 / < 800 行硬阈值）+ §1.1 L12 类型平衡原则
+- **D2**：M26.4 拆分为 M26.4a（primeicons 降级）+ M26.4b（baseline 22 warnings）—— 不相干内容不合并（用户决策 2026-09-08）
 - **D3**：M26.3 C69 仅落地 P0（5 commits），P1 增强留 M27+ —— 避免一次性大改动
-- **D4**：M26.5 范围 b（wisdom 蒸馏 + experience-archive §五十八-§六十二 双轨制）—— 覆盖 M25 沉淀的 2 条新 wisdom + 25 commits 文档治理批次新增 pattern
+- **D4**：M26.5 双轨制（wisdom 蒸馏 + experience-archive §五十八-§六十二）—— 覆盖 M25 沉淀的 2 条新 wisdom + 25 commits 文档治理批次新增 pattern
 
-> 详细任务见 [todo.md §M26](todo.md)
+**ahead commits 实证**：`git rev-list HEAD ^origin/master --count` = **0**（M26 全部 36 commits 已推 origin/master / 2026-09-10 实测）
+
+**总投入**：**23 atomic commits 实施 + 13 配套 commits（re-audit 修复 + docs 收口 + 治理补丁 + CI Coverage 修复）= 36 commits**（ahead=0 全部已推送 origin/master）
+
+> 详细任务见 [todo-archive.md §M26](todo-archive.md#m26-平台-ai-研判应用层--批量导入-resource-owner-化--文档站-i18n--license-收口--经验沉淀m261m262m263m264am264bm264cm265-全部已闭环--2026-09-10-归档) + [archive/todo-archive-phases-m26.md](archive/todo-archive-phases-m26.md)（完整实施记录 7 原子条目 × 23 commits + 配套 13 commits = 36 commits / ~3240 行净增）
 
 ---
 
 ## 详细任务
 
-- 当前阶段任务：[todo.md](todo.md)
-- 已归档阶段：[todo-archive.md](todo-archive.md)（主窗口保留最近 5 段：2026-09-02 M23 / 2026-09-01 M22 / 2026-08-31 M21 / 2026-08-31 M20 / 2026-08-31 M19；早期阶段见 [archive/index.md](archive/index.md) 分片索引）
+- 当前阶段任务：[todo.md](todo.md)（M26 已闭环 + 2026-09-10 归档；M27 候选评估待用户决策启动）
+- 已归档阶段：[todo-archive.md](todo-archive.md)（主窗口保留最近 3 个完整段：2026-09-10 M26 指针段 + 2026-09-02 M23 + 2026-09-01 M22 完整段；早期阶段见 [archive/index.md](archive/index.md) 分片索引；M19 / M20 / M21 已 2026-09-10 M26 归档批次预防性分片迁出至 [archive/todo-archive-phases-m19-m21.md](archive/todo-archive-phases-m19-m21.md)）
 - 后续阶段任务（延期项 + 未排期增强候选）：[backlog.md](backlog.md)
 
 ## 交付原则

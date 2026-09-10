@@ -323,7 +323,7 @@ A 阶段 audit 阈值：commit 1 quick depth（基础层骨架）/ commit 2 stan
 
 **风险描述**：违反"防升级回归"目的——mock 后测的不是 `@octokit/auth-app` 真实行为；该库升级若改变 installation token 缓存 / rate limit / JWT 签名边界行为，e2e 无法捕获。
 
-**风险承担方**：**用户已接受**（决策 C 显式记录于 [todo.md §M18 3 用户决策固化](../../plan/todo.md) + [backlog.md §C22 §M18 实施状态](../../plan/backlog.md)）。
+**风险承担方**：**用户已接受**（决策 C 显式记录于 [archive/todo-archive-phases-m18.md §M18](https://github.com/dependfix/dependfix/blob/master/docs/plan/archive/todo-archive-phases-m18.md)（M18 已 2026-08-30 归档）+ [backlog.md §C22 §M18 实施状态](../../plan/backlog.md)）。
 
 **缓解措施**：
 
@@ -358,7 +358,7 @@ A 阶段 audit 阈值：commit 1 quick depth（基础层骨架）/ commit 2 stan
 
 ### 6.3 M18.2-M18.4 验收标准（后续子阶段）
 
-按 M18 P 阶段锁定方案逐项验证，详见 [todo.md §M18 5 子阶段验收](../../plan/todo.md)。
+按 M18 P 阶段锁定方案逐项验证，详见 [archive/todo-archive-phases-m18.md §M18](https://github.com/dependfix/dependfix/blob/master/docs/plan/archive/todo-archive-phases-m18.md)（M18 已 2026-08-30 归档）。
 
 ## 7. 时间盒预估（M18.1 实施工作量）
 

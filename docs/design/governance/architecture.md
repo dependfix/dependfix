@@ -406,7 +406,7 @@ packages/core (@dependfix/core)
 
 apps/platform 管理平台作为 dependfix 内部运维与公开部署的核心入口，承担 AI breaking change 研判能力的端到端联通职责。引擎层（`packages/engine/src/ai/`）M5 已闭环（commit `3475e6e`），CLI / MCP / GitHub Action 三条用户路径全部支持 `--ai` 系列参数；M26 阶段将能力补齐到 apps/platform 平台（点 "扫描" 即可启用 AI 研判 + 可观测用量与评估结果）。
 
-完整设计先行稿：[platform-ai-integration.md](./platform-ai-integration.md)；阶段切片见 [todo.md §M26.1](../../plan/todo.md)。
+完整设计先行稿：[platform-ai-integration.md](./platform-ai-integration.md)；阶段切片见 [todo-archive.md §M26](https://github.com/dependfix/dependfix/blob/master/docs/plan/todo-archive.md#m26-平台-ai-研判应用层--批量导入-resource-owner-化--文档站-i18n--license-收口--经验沉淀m261m262m263m264m264bm264cm265-全部已闭环--2026-09-10-归档) + [archive/todo-archive-phases-m26.md §M26.1](https://github.com/dependfix/dependfix/blob/master/docs/plan/archive/todo-archive-phases-m26.md#m261-p1--能力--ux-m252b-应用层10-commits--1130-行--standard-depth-audit)（M26 阶段 2026-09-10 完整闭环 + 归档；M26.1 应用层 10 commits / ~1130 行）。
 
 ### 数据模型扩展（M25.2a commit `1c65582`）
 

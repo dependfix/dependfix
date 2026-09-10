@@ -497,14 +497,27 @@ onMounted(refresh)
         align-items: center;
         justify-content: space-between;
         margin-bottom: $space-5;
-        h2 { margin: 0 0 $space-1; }
-        p { margin: 0; font-size: $font-size-sm; }
+
+        h2 {
+            margin: 0 0 $space-1;
+        }
+
+        p {
+            margin: 0;
+            font-size: $font-size-sm;
+        }
     }
-    &__header-actions { display: flex; align-items: center; gap: $space-2; }
+
+    &__header-actions {
+        display: flex;
+        align-items: center;
+        gap: $space-2;
+    }
 
     &__filter-banner {
         margin-bottom: $space-4;
     }
+
     &__filter-row {
         display: flex;
         align-items: center;
@@ -518,12 +531,18 @@ onMounted(refresh)
         gap: $space-4;
         margin-bottom: $space-5;
     }
+
     &__stat-value {
         font-size: $font-size-xl;
         font-weight: 600;
         color: var(--p-primary-color);
-        &--sm { font-size: $font-size-base; font-weight: 500; }
+
+        &--sm {
+            font-size: $font-size-base;
+            font-weight: 500;
+        }
     }
+
     &__stat-label {
         margin-top: $space-1;
         font-size: $font-size-sm;
@@ -541,7 +560,7 @@ onMounted(refresh)
     }
 }
 
-@media (max-width: 900px) {
+@media (width <= 900px) {
     .scans__summary {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }

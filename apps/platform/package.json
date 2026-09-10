@@ -13,6 +13,11 @@
     "preview": "nuxt preview",
     "typecheck": "nuxt typecheck",
     "lint": "cross-env NODE_ENV=production eslint . --fix --max-warnings 10",
+    "lint:i18n": "cross-env NODE_ENV=production ESLINT_I18N=true eslint . --quiet",
+    "lint:css": "stylelint \"**/*.{html,css,scss,sass,vue}\" --fix",
+    "lint:css:check": "stylelint \"**/*.{html,css,scss,sass,vue}\"",
+    "lint:md": "lint-md \"**/*.md\" --fix",
+    "lint:md:check": "lint-md \"**/*.md\"",
     "test": "vitest run",
     "test:e2e": "playwright test",
     "test:e2e:install": "playwright install chromium",
@@ -61,6 +66,9 @@
     "@types/pg": "^8.23.1",
     "cross-env": "^10.0.0",
     "nock": "^14.0.17",
+    "postcss": "^8.5.6",
+    "stylelint": "17.15.0",
+    "stylelint-config-cmyr": "^1.0.0",
     "tsx": "^4.23.13",
     "vue-tsc": "^3.3.11"
   }

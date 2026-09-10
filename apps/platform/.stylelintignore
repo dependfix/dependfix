@@ -1,0 +1,15 @@
+# Build outputs
+.nuxt/
+.output/
+dist/
+node_modules/
+
+# Runtime / coverage / reports
+data/
+coverage/
+playwright-report/
+test-results/
+blob-report/
+
+# Generated assets (e.g. lcov, vendor bundles)
+*.min.css

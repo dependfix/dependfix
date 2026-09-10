@@ -401,7 +401,7 @@ onMounted(fetchEvents)
         max-width: 480px;
         padding: $space-2;
         margin: 0 0 $space-2;
-        background: rgba(0, 0, 0, 0.05);
+        background: rgb(0 0 0 / 0.05);
         border-radius: 4px;
         font-size: $font-size-sm;
         overflow-x: auto;
@@ -409,7 +409,7 @@ onMounted(fetchEvents)
 
     @include dark-mode {
         &__message-full {
-            background: rgba(255, 255, 255, 0.05);
+            background: rgb(255 255 255 / 0.05);
         }
     }
 

@@ -763,35 +763,102 @@ const importDialogVisible = ref(false)
         align-items: center;
         justify-content: space-between;
         margin-bottom: $space-5;
-        h2 { margin: 0 0 $space-1; }
-        p { margin: 0; font-size: $font-size-sm; }
+
+        h2 {
+            margin: 0 0 $space-1;
+        }
+
+        p {
+            margin: 0;
+            font-size: $font-size-sm;
+        }
     }
-    &__header-actions { display: flex; align-items: center; gap: $space-2; }
+
+    &__header-actions {
+        display: flex;
+        align-items: center;
+        gap: $space-2;
+    }
 }
 
 .repo-form {
     display: flex;
     flex-direction: column;
     gap: $space-4;
-    &__row { display: grid; grid-template-columns: 1fr 1fr; gap: $space-3; }
-    &__field { display: flex; flex-direction: column; gap: $space-1;
-        label { font-size: $font-size-sm; font-weight: 500; }
+
+    &__row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: $space-3;
     }
-    &__actions { display: flex; justify-content: flex-end; gap: $space-2; margin-top: $space-2; }
+
+    &__field {
+        display: flex;
+        flex-direction: column;
+        gap: $space-1;
+
+        label {
+            font-size: $font-size-sm;
+            font-weight: 500;
+        }
+    }
+
+    &__actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: $space-2;
+        margin-top: $space-2;
+    }
 }
 
-.repos__tags { display: flex; flex-wrap: wrap; gap: $space-1; }
+.repos__tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: $space-1;
+}
 
 .batch-form {
     display: flex;
     flex-direction: column;
     gap: $space-4;
-    &__repos { display: flex; flex-wrap: wrap; gap: $space-1; max-height: 120px; overflow-y: auto; }
-    &__repo { font-size: $font-size-sm; background-color: rgba($color-primary, 0.08); border-radius: $radius-sm; padding: $space-1 $space-2; }
-    &__row { display: grid; grid-template-columns: 1fr 1fr; gap: $space-3; }
-    &__field { display: flex; flex-direction: column; gap: $space-1;
-        label { font-size: $font-size-sm; font-weight: 500; }
+
+    &__repos {
+        display: flex;
+        flex-wrap: wrap;
+        gap: $space-1;
+        max-height: 120px;
+        overflow-y: auto;
     }
-    &__actions { display: flex; justify-content: flex-end; gap: $space-2; margin-top: $space-2; }
+
+    &__repo {
+        font-size: $font-size-sm;
+        background-color: rgba($color-primary, 0.08);
+        border-radius: $radius-sm;
+        padding: $space-1 $space-2;
+    }
+
+    &__row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: $space-3;
+    }
+
+    &__field {
+        display: flex;
+        flex-direction: column;
+        gap: $space-1;
+
+        label {
+            font-size: $font-size-sm;
+            font-weight: 500;
+        }
+    }
+
+    &__actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: $space-2;
+        margin-top: $space-2;
+    }
 }
 </style>

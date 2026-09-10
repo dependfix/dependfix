@@ -477,7 +477,7 @@ watch(() => route.query[props.queryKey], async (newVal) => {
 
     &__error-message {
         margin: $space-2 0 0;
-        word-break: break-word;
+        overflow-wrap: anywhere;
     }
 
     &__status-wrap {
@@ -577,7 +577,7 @@ watch(() => route.query[props.queryKey], async (newVal) => {
     }
 
     &__log-message {
-        word-break: break-word;
+        overflow-wrap: anywhere;
     }
 }
 </style>

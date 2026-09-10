@@ -383,7 +383,7 @@ watch(() => props.runId, (runId) => {
 
     &__error-message {
         margin: $space-2 0 0;
-        word-break: break-word;
+        overflow-wrap: anywhere;
     }
 
     &__logs {
@@ -453,7 +453,7 @@ watch(() => props.runId, (runId) => {
     }
 
     &__log-message {
-        word-break: break-word;
+        overflow-wrap: anywhere;
     }
 }
 </style>

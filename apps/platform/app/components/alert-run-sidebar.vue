@@ -178,15 +178,18 @@ const onHide = () => {
         font-size: $font-size-sm;
     }
 }
+
 .alerts-run-cell {
     display: flex;
     flex-direction: column;
     gap: $space-1;
+
     code {
         font-family: monospace;
         font-size: $font-size-sm;
     }
 }
+
 .alerts-sidebar-actions {
     display: flex;
     align-items: center;

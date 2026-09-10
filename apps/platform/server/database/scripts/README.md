@@ -48,7 +48,7 @@ pnpm db:backfill
 重复执行结果一致：
 
 - 第二次执行时 `toDelete` 长度 0（行已删）
-- 第二次执行时 `toSupersede` 长度 0（行已 superseded，filter IsNull() 排除）
+- 第二次执行时 `toSupersede` 长度 0（行已 superseded，filter IsNull（） 排除）
 - 第二次执行时 `preservedSuccess` 计数仍正确（success 行永远保留）
 
 ### 回滚
@@ -61,7 +61,7 @@ pnpm db:backfill
 
 ### 输出示例
 
-```
+```plain
 [DRY-RUN] backfill 统计
   仓库数:           3
   处理前行数:       91

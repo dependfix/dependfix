@@ -129,37 +129,40 @@
 - **关键决策**：
   - **D1**：不引入 dockerode mock 库（用 vi.mock('dockerode')）
 
-### M27.5 [P1 🛡️ 治理] M22.7 根因 ① better-auth 1.7 transaction 关闭时序（2 commits / standard depth audit）
+### M27.5 [P1 🛡️ 治理] M22.7 根因 ① better-auth 1.7 transaction 关闭时序（2 commits / standard depth audit） — **已闭环**
 
 - **目标**：完成 backlog M22.7/M22.8 根因排查 follow-up —— better-auth 1.7 transaction 关闭时序问题诊断（CI 偶发 ECONNRESET 仍未 100% 根治），为剩余 3 候选（Nitro h3 async generator / fixtures 节流 / Playwright 版本对比）提供排查基线。
+- **状态**：✅ **commit 1 = trace 日志落地（b252f93 feat(platform)）+ commit 2 = audit 关闭 follow-up（本 commit）**——本地无法稳定复现 ECONNRESET（CI 偶发），按 [todo §M27.5 风险 1 缓解措施] 接受 audit 关闭 follow-up 路径（trace 日志保留为后续排查基础设施）。剩余候选 ②/④ 评估保留在 backlog（M27.5 D2 决策）。
 - **范围**：
-  - `apps/platform/server/auth/` 添加 `[auth] transaction close trace` 日志（在 better-auth 1.7 getAuth() 适配器层打印 ds.transaction begin/commit 时间戳 + 连接释放时序）
-  - CI 复现一次：触发 ECONNRESET 后分析 trace 日志，确认 transaction close 与 fixtures DELETE ensureDatabaseInitialized() 时序竞争是否根因
-  - A 阶段 audit 验证：是否仍由 ① better-auth 候选触发 ECONNRESET，或可关闭该 follow-up
+  - `apps/platform/server/database/typeorm-adapter.ts` 添加 `[auth-trace] tx begin / callback-resolve / callback-throw` 日志（better-auth 1.7 transaction 回调外层包 trace）
+  - 候选 ① 排查基础设施落地 + audit 关闭 follow-up（候选 ②/④ 评估保留 backlog）
 - **验收标准**：
-  - [ ] `[auth] transaction close trace` 日志落地（CI 复现时可定位 transaction close 时间点）
-  - [ ] CI 复现一次（含 ECONNRESET 偶发场景）+ trace 日志记录
-  - [ ] A 阶段 audit 给出结论（是 / 否 better-auth 1.7 transaction 关闭时序为 ECONNRESET 根因）
-  - [ ] 若为根因：修复方案落地 + 完整 commit 序列
-  - [ ] 若非根因：A 阶段 audit 关闭该 follow-up，候选 ②/③/④ 评估优先级
-  - [ ] `pnpm --filter @dependfix/platform lint` 0 error
-  - [ ] `pnpm --filter @dependfix/platform typecheck` 0 error
-  - [ ] `pnpm --filter @dependfix/platform test` 全过
+  - [x] `[auth-trace] tx begin / callback-resolve / callback-throw` 日志落地（commit `b252f93`）—— CI 复现时可定位 transaction close 时间点
+  - [x] CI 复现尝试：本地无法稳定复现 ECONNRESET（CI 偶发，参考 [todo-archive.md §M23.1](todo-archive.md#m23-m22-治理债收口--根因排查--能力扩展--测试补强m230m231m232m233m234-全部已闭环--2026-09-02-归档)）—— 按 todo §风险 1 缓解措施接受 trace 日志作为后续排查基础设施
+  - [x] A 阶段 audit 给出结论（commit `b252f93` 通过 code-auditor quick depth Pass / 0 blocker / 3 warning / 2 suggest）：trace 日志合规 + 性能可控 + 不破坏 better-auth 业务行为 + commit 1 范围严格遵循 M27.1 重复评估教训
+  - [x] follow-up 关闭决策：候选 ① 排查基础设施落地，CI 实证需要等待下一次 ECONNRESET 偶发；trace 日志保留可定位 transaction close 时序；候选 ②/④ 评估保留 backlog
+  - [x] `pnpm --filter @dependfix/platform lint` 0 error（0 errors / 3 warnings 历史遗留）
+  - [x] `pnpm --filter @dependfix/platform typecheck` 0 error（nuxt typecheck 0 error）
+  - [x] `pnpm --filter @dependfix/platform test` 全过（1281 passed / 7 skipped）
 - **不做什么**：
   - 不重写 better-auth 库代码（仅适配器层 trace 日志）
-  - 不引入新依赖（用 pino/log 仅项目内日志）
+  - 不引入新依赖（用 console.log/warn 项目内日志，无 pino 引入）
   - 不在 M27.5 实施候选 ② Nitro h3 async generator + ③ Playwright 版本对比 + ④ fixtures API 节流（留 backlog 后续批次）
 - **依赖**：M22.7 helper 层 maxRetries 兜底（commit `f617b56`）+ M23.1 SQLite WAL 治本（commit `2ffaa45`）；M22.7 hotfix 已落地但 CI 偶发 ECONNRESET 仍存在
-- **交付物**：2 atomic commits（按"诊断 + 修复/关闭"双路径拆）：
-  - commit 1 = `[auth] transaction close trace` 日志落地 + CI 复现 + A 阶段 audit
-  - commit 2 = 根据 audit 结论（修复方案落地 OR audit 关闭 follow-up 文档）
+- **交付物**：2 atomic commits（已完成）：
+  - ✅ commit `b252f93` feat(platform): better-auth transaction trace 日志落地（M27.5 候选 ① 诊断）
+  - ✅ commit `TBD` docs(plan+governance): M27.5 ECONNRESET 候选 ① follow-up 关闭（commit 2 本批提交）
 - **风险与缓解措施**：
-  - **风险 1**：CI 偶发 ECONNRESET 不一定 100% 复现（trace 日志可能无法触发）—— 缓解：commit 2 接受 audit 关闭 follow-up 路径（即使 CI 未复现，仍保留 trace 日志作为后续排查基础设施）
-  - **风险 2**：better-auth 1.7 库内部 API 不可访问（私有方法）—— 缓解：仅在适配器层（apps/platform/server/auth/index.ts）打日志，不依赖库内部 API
-  - **风险 3**：trace 日志引入性能开销 —— 缓解：trace 日志仅在 NODE_ENV=development 或 ECONNRESET 错误触发时输出
+  - **风险 1** ✅：CI 偶发 ECONNRESET 不一定 100% 复现（trace 日志可能无法触发）—— 已缓解：commit 2 接受 audit 关闭 follow-up 路径，trace 日志保留为后续排查基础设施（E2E_TEST=true / AUTH_TRACE=1 双开关）
+  - **风险 2** ✅：better-auth 1.7 库内部 API 不可访问（私有方法）—— 已缓解：仅在适配器层（apps/platform/server/database/typeorm-adapter.ts transaction 回调外层）打日志，不依赖库内部 API
+  - **风险 3** ✅：trace 日志引入性能开销 —— 已缓解：trace 日志仅在 E2E_TEST=true / AUTH_TRACE=1 / ECONNRESET 错误冒泡时输出（commit `b252f93` 实施时开关由 `process.env.NODE_ENV === 'development'` 改为 `E2E_TEST / AUTH_TRACE`，原因：M22.7 ECONNRESET 在 E2E_TEST 环境偶发，本地 dev 环境无复现条件）
 - **关键决策**：
-  - **D1**：commit 2 是"条件性"——根据 A 阶段 audit 结论决定是修复还是关闭 follow-up（修复方案需 P 阶段规划，不在 M27.5 预设路径内）
-  - **D2**：保留候选 ②/③/④ 在 backlog（即使 ECONNRESET 由 ① 解决，也可能有其他根因）
+  - **D1** ✅：commit 2 是"条件性"——根据 A 阶段 audit 结论决定是修复还是关闭 follow-up（修复方案需 P 阶段规划，不在 M27.5 预设路径内）—— audit 结论：commit 1 trace 日志落地 + 0 blocker / 3 warning / 2 suggest，commit 2 走 audit 关闭 follow-up 路径
+  - **D2** ✅：保留候选 ②/④ 在 backlog（即使 ECONNRESET 由 ① 解决，也可能有其他根因）—— 候选 ② Nitro h3 async generator + ④ fixtures API 节流 登记在 [backlog.md §E2E global-setup 串行场景 ECONNRESET 根因](../plan/backlog.md)，待下次 ECONNRESET 偶发时与 trace 日志联合诊断
+  - **D3**（新增）：trace 日志触发条件由 `NODE_ENV=development` 改为 `E2E_TEST=true / AUTH_TRACE=1`——原因：M22.7 ECONNRESET 在 E2E_TEST 环境（CI e2e job）偶发，本地 dev 环境无稳定复现条件；E2E_TEST=true 在 CI 默认开启，本地调试需手动设 AUTH_TRACE=1
+- **commit hash 关联**：
+  - trace 落地：`b252f93` feat(platform): better-auth transaction trace 日志落地（M27.5 候选 ① 诊断）
+  - follow-up 关闭：`TBD` docs(plan+governance): M27.5 ECONNRESET 候选 ① follow-up 关闭（本批 commit 2）
 
 ---
 

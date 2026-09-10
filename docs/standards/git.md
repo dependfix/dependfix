@@ -103,12 +103,12 @@
 - **仅在 commit 未推送（ahead of remote）时适用**；已推送的 commit 必须靠后续 commit 修复或 revert，不能 reset（会与其他开发者历史冲突）。
 - stage 前先 `git diff --staged` 确认本次 commit 内容边界——避免误把跨子批次改动纳入同一 commit。
 - 与 [§3.2 单文件跨 type 改动需提前规划 commit 拆分](#32-单文件跨-type-改动需提前规划-commit-拆分) 配套——§3.2 处理 staged diff 误纳（`git restore --staged`），§3.4 处理已 commit 但未推送的误纳（`git reset --soft`）。
-- 教训（admin self-protection 调试 reset + 1d7c5c8/2076fda 系列）见 [经验归档 §二十四](../design/governance/experience-archive.md)。
+- 详见 [经验归档 §二十四](../design/governance/experience-archive.md)
 
 ### 3.5 lint auto-fix 接受策略（不要回滚，独立 chore commit 接受）
 
 - ESLint `--fix` 自动修改（如 `@typescript-eslint/array-type` 规则偏好 `T[]` 写法替换 `Array<T>`、`@typescript-eslint/consistent-type-imports` 加 `type` 关键字等）是合规修改——两种写法 TypeScript 等价，规则要求即合规。**应该接受 + 独立 `chore` commit**——不要回滚。
-- 历史教训（M16.1 docs 误带 lint auto-fix 回滚）见 [经验归档 §四十二](../design/governance/experience-archive.md)。
+- 详见 [经验归档 §四十二](../design/governance/experience-archive.md)
 - 修正：lint auto-fix 是合规修改，**不要回滚**。如不希望与 docs 提交混杂，应在 commit 前 `git restore --staged <file>` 排除；如已 uncommitted，作为 standalone chore commit 独立接受。
 - 实操：在每次 commit 前过一遍 lint（`pnpm lint` / `pnpm run lint:md` / `pnpm typecheck`）确认 0 error；如发现 working tree 有未提交 lint auto-fix 改动，按本节策略处理（接受并独立 commit）。
 

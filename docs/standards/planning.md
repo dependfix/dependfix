@@ -8,10 +8,10 @@
 - **功能解耦**: 新功能不破坏现有核心逻辑。涉及核心架构变动必须先技术预研并更新设计文档。
 - **测试先行**: 规划任务时同步制定测试方案。不包含测试补全计划的功能不具备准入资格。
 - **验收标准具体化**: 待办条目必须写清：执行范围、非目标、可验证验收标准、最小验证矩阵/证据落点，以及必要时的回滚边界。禁止"优化一下""先做最小版本"等模糊口径。
-- **任务粒度约束**: 规划时预估单条任务的 diff 规模（文件数 × 行数）。预计新增 > 10 个文件或 > 800 行（新领域 / 跨模块骨架任务从严，> 5 文件即考虑拆分）时，**必须拆分为可独立提交的子任务**，每个子任务有独立验收点与提交批次；禁止"一个原子条目 = 一个巨型 diff"（教训见 [经验归档 §二十四](../design/governance/experience-archive.md)，T601 平台骨架 40 文件/+8329 行单次提交导致审计 5 轮、修复往返 10+ 处）。**本条是任务粒度约束的唯一权威声明**：其他文档（git.md、ai-collaboration.md、skill/agent 定义）仅作一行引用，不得重复抄写阈值或教训；合规核验由 review 阶段执行（见 code-reviewer 检查点与 Code Auditor 必查项）。
+- **任务粒度约束**: 规划时预估单条任务的 diff 规模（文件数 × 行数）。预计新增 > 10 个文件或 > 800 行（新领域 / 跨模块骨架任务从严，> 5 文件即考虑拆分）时，**必须拆分为可独立提交的子任务**，每个子任务有独立验收点与提交批次；禁止"一个原子条目 = 一个巨型 diff"。**本条是任务粒度约束的唯一权威声明**：其他文档（git.md、ai-collaboration.md、skill/agent 定义）仅作一行引用，不得重复抄写阈值或教训；合规核验由 review 阶段执行（见 code-reviewer 检查点与 Code Auditor 必查项）。
 - **迭代范围与候选组合**: 单次迭代核心任务应在 5-6 项以内；当上一阶段闭环后仅剩单一候选（M15 收口后 UX-R3 仅占 1 项）的尴尬局面时，**主动扩展**——从 backlog 中挑选 UX 痛点 / 技术债 / 能力扩展类候选填充，使总任务数达到 5 项左右；类型平衡建议：用户体验 ≥ 2 项 + 技术债 ≥ 1 项 + 能力扩展 ≥ 1 项 + 测试覆盖 ≥ 1 项，避免单一类型堆叠。
 - **backlog 历史指针压缩**: 每个阶段归档完成后必须执行 backlog 历史指针压缩——已闭环条目不再展开细节，仅保留最近 3-4 个阶段 + 早期间接指针（如 `M0-M11：详见 archive/todo-archive-phases-*.md`）；避免 backlog 随阶段线性膨胀。**禁止**在 backlog 中复制 `todo-archive.md` 已闭环条目的子任务细节。
-- **跨文档内部一致性**（M25 阶段教训）：`新需求处理原则` + `插队例外清单 3 类` + `合规核验 code-auditor 主责边界必查项` 三段必须在 `AGENTS.md §新需求处理原则` + `docs/standards/ai-collaboration.md §1.4` + `docs/standards/planning.md §1.1` 三处保持一致。**根因**：规范在不同阶段（M0 基础规范建立 + M15 增强 + M24 拆分）多次修改，跨文档同步不彻底。**修复模式**：(a) 规范修改前先 `rg -n "新需求.*处理原则" docs/standards/ docs/standards/ai-collaboration.md AGENTS.md docs/standards/planning.md` 实证所有相关描述；(b) 修改后 `pnpm run check:docs` 验证链接 + `rg -n` 交叉验证措辞一致；(c) 关键原则（hard requirement / 插队例外）必须 3 处同步 + commit message 显式说明"3 处同步落地"。教训见 [经验归档 §六十二 教训 1](../design/governance/experience-archive-§49-§57-recent-investigation.md#六十二m25--当前-commit-25-commits-文档治理批次规范精简--experience-archive-分片--dependabot-拦截--14-内部一致性2026-09-09ahead-commits-25)。
+- **跨文档内部一致性**：`新需求处理原则` + `插队例外清单 3 类` + `合规核验 code-auditor 主责边界必查项` 三段必须在 `AGENTS.md §新需求处理原则` + `docs/standards/ai-collaboration.md §1.4` + `docs/standards/planning.md §3.1` 三处保持一致。**修复模式**：(a) 规范修改前先 `rg -n "新需求.*处理原则" docs/standards/ docs/standards/ai-collaboration.md AGENTS.md docs/standards/planning.md` 实证所有相关描述；(b) 修改后 `pnpm run check:docs` 验证链接 + `rg -n` 交叉验证措辞一致；(c) 关键原则（hard requirement / 插队例外）必须 3 处同步 + commit message 显式说明"3 处同步落地"。
 
 ### 1.2 阶段归档流程
 
@@ -141,11 +141,6 @@
 - ❌ 用户提出需求后 AI 不经评估直接进入 D 阶段
 - ❌ backlog 候选因"看起来很重要"被 AI 跨过用户决策直接落地
 
-**为什么是 hard requirement**：
-- backlog 默认评估可避免 AI 越权决策导致项目目标偏移
-- 用户对阶段规划有最终决策权（[todo.md §当前阶段段](../plan/todo.md) banner 显式说明"下一阶段规划待用户触发后启动"）
-- 历史教训（M22 后 AI 越权推进候选登记）见 [backlog.md §PR 管理候选池决策点](../plan/backlog.md#pr-管理)；
-
 **合规核验**：本条由 [code-auditor 主责边界「新需求未默认升级为下一阶段 todo」必查项](../../.github/agents/code-auditor.agent.md) 强制检查——改动涉及新增功能需求但未走 backlog → Reject 退回。
 
 **变更历史**：本条由 2026-09-02 用户规则强化新增——基于 [backlog.md §PR 管理候选池决策点](../plan/backlog.md#pr-管理) 反思：AI 默认赋予阶段编号 + 默认最高优先级判断违反"AI 单方面决策最小化"原则，应通过规范约束。
@@ -168,17 +163,13 @@
 
 **典型反模式**（M27.1 重复评估教训）：
 
-- ❌ 仅读 backlog.md / todo-archive.md 文档侧资料，未打开实际代码验证（M27.1 commit `0ddd4e2` 决策 D2 错误归类 C66-C / C66-D 为"未落地"，实际已 100% 闭环）
+- ❌ 仅读 backlog.md / todo-archive.md 文档侧资料，未打开实际代码验证
 - ❌ 决策描述中出现"参考 NNN 实施"自相矛盾——若 NNN 仅"参考实施"则候选未落地，若 NNN 已 100% 落地则候选不需增强，必须先厘清
 - ❌ 决策 D 阶段前未用 `git log --oneline -- <相关路径>` 5 分钟实证候选状态
 
-**为什么是 hard requirement**：
-
-- M27.1 重复评估教训实证：commit `0ddd4e2` 决策 D2 错误归类 C66-C / C66-D 为"未落地"，实际已 100% 闭环（M23.3 commit `650a0d2` + `9c64ee0` + `6e53616` + M16.2 commits），导致整个 M27.1 任务段 + 范围 + 验收 + 风险与缓解 + 关键决策 + 交付物（3 atomic commits）全部基于错误前提设计。详见 [experience-archive §六十四 M27.1 重复评估教训](../design/governance/experience-archive-§49-§57-recent-investigation.md#六十四m271c66告警视图增强重复评估教训阶段启动决策时未对照已闭环清单导致规划无效工作20260910commit决策d2错误)。
-
 **合规核验**：本条由 [code-auditor 主责边界「阶段启动重复评估自检」必查项](../../.github/agents/code-auditor.agent.md) 强制检查——commit 涉及 todo.md §当前阶段新增 / 修改时，三项交叉核验任意一项未执行 / 未通过 → Reject 退回。
 
-**backlog 描述同步要求**：当 todo.md §当前阶段新增条目对应 backlog 候选时，必须同步修订 backlog.md 描述：(a) 已 ahead=0 闭环的子任务追加 ✅ 已闭环标注 + commit hash 回填；(b) ⏸️ 暂缓的子任务追加 ⏸️ 暂缓标注 + 暂缓原因；(c) 「保留为后续增强候选」措辞必须基于"当前未落地"前提，否则删除。挂 [backlog.md C66 修订实证](../plan/backlog.md)（2026-09-10 M27.1 教训批次）。
+**backlog 描述同步要求**：当 todo.md §当前阶段新增条目对应 backlog 候选时，必须同步修订 backlog.md 描述：(a) 已 ahead=0 闭环的子任务追加 ✅ 已闭环标注 + commit hash 回填；(b) ⏸️ 暂缓的子任务追加 ⏸️ 暂缓标注 + 暂缓原因；(c) 「保留为后续增强候选」措辞必须基于"当前未落地"前提，否则删除。
 
 ## 4. 阶段归档流程
 
@@ -210,26 +201,26 @@
 1. **anchor 实证**：写 markdown 链接前必须 `rg -n "^## " <目标文件>` 确认锚点真实形式，避免凭印象写错锚点（括号转 anchor 规则不是直觉）；check:docs 是兜底而非首选。
 2. **跨文件外链主动追踪**：段删除 / 段重命名前必须 `rg -n "<删除段标题>"` 全仓库扫描所有外链（不仅是删除段所在文件），列出每个外链文件 + 位置 + 目标，逐个修复为新的归档位置（`todo-archive.md` 主窗口或 `archive/todo-archive-phases-*.md` 分片）。
 3. **跨目录相对路径精确**：从 `docs/<dir1>/xxx.md` 引用 `docs/<dir2>/yyy.md` 需 `../<dir2>/yyy.md`，多级目录按 `../../` 累加；写之前主动计算，check:docs 兜底。
-4. **commit 分组追踪**：归档文案中分组 commit 时必须**先列每个 commit 归属**，避免子批次 commit 与"todo.md 收口 commit" 重复计数（todo.md 收口 commits 通常已含在子批次计数内，独立列出 = 重复 +1）。M12 归档教训见 [经验归档 §四十八](../design/governance/experience-archive.md)。
+4. **commit 分组追踪**：归档文案中分组 commit 时必须**先列每个 commit 归属**，避免子批次 commit 与"todo.md 收口 commit" 重复计数（todo.md 收口 commits 通常已含在子批次计数内，独立列出 = 重复 +1）。详见 [经验归档 §四十八](../design/governance/experience-archive.md)。
 5. **ahead commits 实证 + 动态描述**：归档文案 "ahead of origin/master N commits" 必须用 `git rev-list HEAD ^origin/master --count` 双向核验（已推送 commits 不计入 ahead），不能凭印象估算——跨批次归档时用户可能已推送过。具体命令与 ahead 计数语义详见 [Git 规范 §3 提交规范](./git.md)（一行引用，不重复抄写命令）。**额外约束**：ahead 数字写具体值极易过时（用户可在 banner 写后立即推送），改用 commits 列表 + 实证命令替代具体数字（与 [AI 协作规范 §2.P.1](./ai-collaboration.md#p1-ahead-状态动态描述原则避免-staleness) 配套）。
 6. **段结构引用原则**：已删除段不在外链保留（避免读者点击 404），外链改为指向新归档位置 + 段标题对齐（避免 VitePress / GitHub 渲染降级到文件顶部）。
 7. **死链验证**：归档后必须 `pnpm run check:docs` 实证 0 error；CI Test job 跳过盲区（wis #43）需在归档批次前主动跑通。
 8. **算式校对（commit 数量 + 子任务数量去重统计）**：归档文案中"X 子任务 / Y commits"等算式信息**必须从 git log first-parent 列表去重统计，不依赖估算**：
    - commit 数量：`git log master --first-parent --since=<起始日期> --until=<结束日期> --oneline | grep -E "<子任务前缀>" | sort -u | wc -l`
    - 子任务数量：子任务编号列表一一对应（`T1301+T1302+...+T1403 = 12 子任务`），不留估算空间
-   - 教训（M13 阶段审计实证）见 [经验归档 §四十二](../design/governance/experience-archive.md)。
+   - 详见 [经验归档 §四十二](../design/governance/experience-archive.md)
 9. **区分已归档内容与必要信息**：清理 `backlog.md` / `todo.md` 时必须区分"已归档内容"和"必要信息"：
    - **可删除**：`闭环整理` 这类已归档内容（如 M16/M17/M18 归档批次的详细记录）
    - **必须保留**：`维护规则`（backlog 的治理依据）、`长期主线任务详细描述`（后续阶段理解任务背景）、`未上收待办项`（活跃任务）、`待人工验收条目`（真实环境验证任务）
    - **归档后验证链接**：`pnpm run check:docs` 检查断链
    - **判断标准**：删除前问"这个信息在下一阶段启动时是否需要？"——如果需要，就保留
-   - 教训（M18 删过头实证）见 [经验归档 §四十五](../design/governance/experience-archive.md)。
+   - 详见 [经验归档 §四十五](../design/governance/experience-archive.md)
 10. **预防性迁出后 cross-reference 更新**：todo-archive.md 预防性迁出主窗口内的§至 `archive/todo-archive-phases-*.md` 分片后，其他文档（`roadmap.md` / `backlog.md` / `data-model.md` / `docs/index.md` 等）中所有引用已迁出§的锚点全部失效，必须统一更新：
     - **扫描范围**：用 `rg -n "todo-archive.md#m\d+-|<被迁出§标题>"` 全仓库检索锚点引用
     - **锚点格式**：`--`（双连字符）在 check-docs.mjs 中自动转换为单词连续（如 `m161--m162` → `m161m162`），不要手动拼接
     - **跨文件更新**：统一指向分片文件路径（如 `archive/todo-archive-phases-m16-m17.md`），不要保留主窗口引用
     - **验证**：更新后必须 `pnpm run check:docs` 实证 0 error
-    - 教训（M20 断链实证）见 [经验归档 §四十八](../design/governance/experience-archive.md)。
+    - 详见 [经验归档 §四十八](../design/governance/experience-archive.md)
 11. **归档后 backlog.md / todo.md 必清理（必执行项）**：阶段归档完成后必须从 `docs/plan/backlog.md` / `docs/plan/todo.md` 清出所有"已闭环 / 已归档"内容——
     - **可删除**（"已闭环 / 已归档"内容）：
       - backlog.md `§历史归档指针（不在 backlog 重复登记）` 整段——所有已闭环阶段（M19/M20/M21/...）+ 已闭环特定批次（B3/C53/C16/...）指针段
@@ -250,9 +241,9 @@
     - **长期主线任务章节硬性规则**：下面有且仅有"可以多阶段反复执行"的任务，不保留任何其他东西（包括已闭环批次记录 / 已落地方案详细描述 / 触发事件 / 临时修复细节）
     - **判断标准**：删除前问"下一阶段启动时是否需要？"——已闭环 / 已归档内容由 todo-archive.md 统一维护，不应在 backlog.md/todo.md 重复
     - **执行范围**：本规则与 §4.4 第 9 条（"区分已归档内容与必要信息"，反向防"删过头"）互补——第 9 条强调保留必要信息，本规则强调必清出已闭环内容；两者配套执行
-    - 教训（M21 阶段实证）见 [经验归档 §四十九](../design/governance/experience-archive.md)。
+    - 详见 [经验归档 §四十九](../design/governance/experience-archive.md)
 
-> 本节为大批量文档归档批次（multi-file edit + 段结构变更）的统一操作规范；其他文档归档 / 小批量编辑仅执行相关条目。实战教训（M12/M20/M21 实证）见 [经验归档 §四十二 + §四十五 + §四十八 + §四十九](../design/governance/experience-archive.md)。
+> 本节为大批量文档归档批次（multi-file edit + 段结构变更）的统一操作规范；其他文档归档 / 小批量编辑仅执行相关条目。详见 [经验归档 §四十二 + §四十五 + §四十八 + §四十九](../design/governance/experience-archive.md)。
 
 ## 5. 需求采访与意图抽离
 

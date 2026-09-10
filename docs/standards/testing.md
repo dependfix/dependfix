@@ -82,16 +82,16 @@
 - **Mock 原则**: mock 不掩盖真正的集成风险。优先真实调用，mock 仅在外部依赖不可控时使用。
 - **Mock 上限对执行速度敏感（跨平台 flaky）**: 循环/轮询类测试的固定次数 mock（如 nock `times(100)`）在更快环境（CI Linux vs 本地 Windows）可能被突破 → 第 N+1 次请求 No match。优先用 `persist()`（无上限）或放大 10 倍并注明原因；此类测试本地连跑多次验证后仍需 CI 实证（[经验归档 §二十七](../design/governance/experience-archive.md)）。
 - **失败处理**: 测试失败时先解释根因，再决定改代码还是改测试。严禁直接改断言让它绿掉。
-- **函数签名变更必须同步所有调用方验证**：utility 函数签名变更（如 `alertsFound(summary)` → `alertsFound(view)`）后必须 grep 全仓调用方同步更新；`pnpm typecheck` **不**捕捉 vitest `vi.mock` 下的类型错误（mock 路径可能跳过部分类型检查）——F 阶段本地验证 `typecheck 0 error` **不是** audit 替代。修复协议：F 阶段本地 typecheck 后必须补 A 阶段 Review Gate（`audit-depth: quick` 起步）独立核验调用方一致性；utility 抽取后单测一次性覆盖所有分支并包含"调用方误用"回归 case。教训（M15.1 第 1 轮 Reject B1 实证）见 [经验归档 §四十二](../design/governance/experience-archive.md)。
+- **函数签名变更必须同步所有调用方验证**：utility 函数签名变更（如 `alertsFound(summary)` → `alertsFound(view)`）后必须 grep 全仓调用方同步更新；`pnpm typecheck` **不**捕捉 vitest `vi.mock` 下的类型错误（mock 路径可能跳过部分类型检查）——F 阶段本地验证 `typecheck 0 error` **不是** audit 替代。修复协议：F 阶段本地 typecheck 后必须补 A 阶段 Review Gate（`audit-depth: quick` 起步）独立核验调用方一致性；utility 抽取后单测一次性覆盖所有分支并包含"调用方误用"回归 case。详见 [经验归档 §四十二](../design/governance/experience-archive.md)。
 - **utility 单测一次性覆盖所有分支**：抽取后立即补单测覆盖所有分支（含 NaN / Infinity / 缺失字段 / 负时长 / 非法日期等边界）；不接受"先实现后补测"的两段式。`pnpm --filter @dependfix/platform test <utility>.test.ts` 在 D 阶段收尾时必须全过。
 - **测试隔离 afterEach 模式（describe 块 cleanup 兜底）**：describe 块 cleanup 应统一用 `afterEach` 兜底（vitest 钩子），而非 it case 末尾手动 cleanup 块——后者在 `expectError` 抛错 / 异常分支时易跳过导致污染后续测试。M17.4 commit 1 后 `repos/batch.post.test.ts` L165 实测：手动 cleanup（L183-187）不在 try/finally，L181 抛错后 cleanup 跳过，L190 后续测试读到外组织凭据导致 `RESOURCE_NOT_IN_ORG` 误抛（audit suggest #2 即源自此）。修复协议：① describe 块内首行添加 `afterEach(async () => { /* 还原被修改的全局状态 */ })`；② 手动 cleanup 块（如 L183-187）保留但仅作正向恢复兜底（afterEach 失败时仍可执行）；③ `expectError` 内部 catch 后 `return err`（不抛错）— 但若 statusCode 不匹配会抛 `Error('expected handler to throw 403')`，此时清理需 afterEach 兜底。
 - **test helper 强契约类型契约**：test helper 返回类型应反映测试断言模式：message 断言（如 `expect(err.message).toContain(...)`）可用 `Record<string, unknown>`；code/data 强契约断言（如 `expect(err.data?.code).toBe(...)`）需放宽为 `Record<string, any>` 或引入泛型（`expectError<T = Record<string, unknown>>`）。M17.4 commit 2 实测：`apps/platform/tests/api-helper.ts:32` `expectError` 返回 `Record<string, unknown>` 在 strict 模式下导致 6 处 `err.data?.code` 访问 TS2339。helper 选型决策：① message-only 测试用 `Record<string, unknown>`（vitest mock 路径特例，见上文 L85）；② code/data 强契约测试用 `Record<string, any>`（test helper 上下文 any 风险可控；JSDoc 注明 h3 1.15 createError 不透传顶层 code 需通过 data 读取）；③ 进阶用泛型 `expectError<T = Record<string, unknown>>`（调用处 `<{ code: string; field: string }>` 显式标注）。
 - **CI 最终裁决**: 修复的验收标准是 CI 全部通过，不是本地通过。
 - **测试输入用真实形态**: 测试 fixture 应使用真实格式的输入（如带固定前缀的 ID），合成数据会漏掉真实格式才触发的缺陷。
 - **lint 门禁**: `--max-warnings N` 让存量 warning 变成 CI 硬门禁倒逼清理；测试名应与真实断言一致（误导性测试名会掩盖缺口）。
-- **zod `parseOptional<T>` 三态语义 helper**（M25.4 commit `65a8ec1`）：`apps/platform/server/utils/zod-helpers.ts` 提供 `parseOptional<T>(schema, value): { success: boolean, value?: T, isProvided: boolean }` helper，强制三态语义区分——`success` 表达 schema.safeParse 通过与否；`value` 表达 schema 解析后的实际值（可能 `undefined`）；`isProvided` 表达"是否真的提供了该字段"（区分「未传」与「传 undefined」）。**根因**：`z.enum([...]).optional()` 接受 `undefined` 为合法值（`safeParse(undefined).success = true, data = undefined`），但 `data === 'some-value'` 三元永远 false（`data` 是 `undefined`），导致「未传字段」与「传 undefined」被静默混同。**M25.4 实证**：8 个单测覆盖三态语义边界 + 应用替换（M24.1 Phase 3 W2 alertFiring `!== undefined` 简化注释保留 + Phase 2 W6 ack fixture `acknowledgedAt` 必须非空）+ i18n-anchor-check 配套（[i18n.md §3.X locale 文件 insert anchor](./i18n.md#3x-locale-文件-insert-anchor-必须用目标-locale-文本m254-阶段实证)）。教训见 [经验归档 §六十一 M25.4 教训 2](../design/governance/experience-archive-§49-§57-recent-investigation.md#六十一m254i18nanchorcheck工具化locale文件insertanchor错位污染检测zod陷阱helper20260908commits) + [经验归档 §五十六 M24.1 教训 4 zod `.optional()` 陷阱](../design/governance/experience-archive-§49-§57-recent-investigation.md#五十六m241-pr-check-状态监测-mvp5-phase-串行--a-阶段-reject-内联修复--6-atomic-commits-闭环2026-09-03commits)。
+- **zod `parseOptional<T>` 三态语义 helper**（M25.4 commit `65a8ec1`）：`apps/platform/server/utils/zod-helpers.ts` 提供 `parseOptional<T>(schema, value): { success: boolean, value?: T, isProvided: boolean }` helper，强制三态语义区分——`success` 表达 schema.safeParse 通过与否；`value` 表达 schema 解析后的实际值（可能 `undefined`）；`isProvided` 表达"是否真的提供了该字段"（区分「未传」与「传 undefined」）。**M25.4 实证**：8 个单测覆盖三态语义边界 + 应用替换（M24.1 Phase 3 W2 alertFiring `!== undefined` 简化注释保留 + Phase 2 W6 ack fixture `acknowledgedAt` 必须非空）+ i18n-anchor-check 配套（[i18n.md §3.X locale 文件 insert anchor](./i18n.md#3x-locale-文件-insert-anchor-必须用目标-locale-文本m254-阶段实证)）。详见 [经验归档 §六十一 M25.4 教训 2](../design/governance/experience-archive-§49-§57-recent-investigation.md#六十一m254i18nanchorcheck工具化locale文件insertanchor错位污染检测zod陷阱helper20260908commits) + [经验归档 §五十六 M24.1 教训 4 zod `.optional()` 陷阱](../design/governance/experience-archive-§49-§57-recent-investigation.md#五十六m241-pr-check-状态监测-mvp5-phase-串行--a-阶段-reject-内联修复--6-atomic-commits-闭环2026-09-03commits)。
 
-### 6.1 E2E 实践经验（Playwright）
+### 6.1 E2E 实践模式（Playwright）
 
 - **用例必须幂等**：同一数据库二次运行是回归验证手段（能暴露单次运行不可见的隐性缺陷，如 §三十 TypeORM 复合索引 bug）。固定名（如 `e2e-owner/e2e-repo`）二次运行必撞唯一索引 → 用例用 `Date.now()` 时间戳唯一名；global-setup 注册账号容忍已存在（200/201/422 均视为成功）。
 - **服务端用构建产物**：`.output/server/index.mjs`（对齐生产形态），独立端口 + 独立库 + 独立 AUTH_SECRET；生产构建 synchronize 默认关闭，e2e 库必须 `DATABASE_SYNCHRONIZE=true` 显式开启。
@@ -120,11 +120,11 @@
 
 ### 6.3 集成外部库测试模式（薄引用 — 完整规范见 development.md §5.1.15）
 
-集成 `@octokit/auth-app` / Vue 插件 / TypeORM / better-auth 等外部库时，**集成层测试不 mock 真实被集成库**（保留真实代码路径可执行）；mock 仅替换被测单元边界。完整规范 + 教训 + mock 边界示例见 [development.md §5.1.15](./development.md) + [经验归档 §四十三](../../docs/design/governance/experience-archive-§41-§48-archive-batch.md#四十三集成外部库必须读-readme-标准用法--e2e-真实路径冒烟测试2026-08-29m18.4-audit-round-1-reject-后补修)。
+集成 `@octokit/auth-app` / Vue 插件 / TypeORM / better-auth 等外部库时，**集成层测试不 mock 真实被集成库**（保留真实代码路径可执行）；mock 仅替换被测单元边界。完整规范见 [development.md §5.1.15](./development.md) + [经验归档 §四十三](../../docs/design/governance/experience-archive-§41-§48-archive-batch.md#四十三集成外部库必须读-readme-标准用法--e2e-真实路径冒烟测试2026-08-29m18.4-audit-round-1-reject-后补修)。
 
 ### 6.4 E2E 网络抗性 + 未认证 API 调用标准模式
 
-> 教训来源（M22.7 + M22.8 hotfix）见 [经验归档 §五十一](../design/governance/experience-archive.md) + §五十二。
+> 详见 [经验归档 §五十一 + §五十二](../design/governance/experience-archive.md)。
 
 #### e2e global-setup 串行场景网络抗性
 

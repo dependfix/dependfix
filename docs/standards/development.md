@@ -36,7 +36,7 @@
 - **禁止无效或过量注释**: 不机械给每行、每个变量加注释。
 - **注释必须随实现同步**: 修改逻辑时同步更新或删除过时注释。
 - **禁止开发流程编号标记**: 注释与测试名中一律不得出现 `C1:`、`T303`、`G2`、`M4+`、`R2`、`P0` 这类规划 / 任务 / 审计 / backlog 编号（含 `C1：xxx` 与 `it('C1: xxx')` 形式）。阶段与编号是规划文档（`docs/plan/`）中区分进度的概念，代码中无意义且无法反查；追溯用 `git blame` / 审计记录。例外：代码内真实存在的常量（如 HTTP 错误码 `E401`），以及**指向规划文档的导航说明**（如"背景详见 `docs/plan/todo.md`「已知缺口 G2」"、"见 todo.md G3"、"见 backlog B1"）——导航指针内的规划编号属例外，因为它们提供真实可查的文档锚点，但必须同时写明文档路径或章节名，不得只写孤立编号。**执行挂接**：D 阶段自检（Full Stack Master (全栈大师) agent）与 A 阶段 Review Gate 必查项（Code Auditor (代码审计员) agent）均含本检查。违反案例见 [经验归档 §十六](../design/governance/experience-archive.md)。
-- **i18n locale 文件 insert anchor 必须用目标 locale 实际文本**：locale 文件多段对称（`apps/platform/i18n/locales/zh-CN.json` + `en-US.json`），edit 工具 insert anchor 必须用**目标 locale 实际文本**。根因：JSON.parse 容忍重复键 last-key-wins，anchor 错位（用 zh-CN 中文文本插入 en-US.json）导致后续段被改写但前端未触发 lint 检测。自动检测：`pnpm i18n:check:anchor`（`scripts/i18n/i18n-anchor-check.mjs`）对比 zh-CN + en-US locale 文件，检测同一 key 在两边取值完全相等且 en-US locale 值含中文的错位污染（结构化本地化数据 + i18n 复合格式占位符 + 纯 ASCII 字符串视为合理相等，自动跳过）。CI test job 已添加该步骤作为 blocker。详见 [经验归档 §五十六 M24.1 教训 2](../design/governance/experience-archive.md) + `scripts/i18n/i18n-anchor-check.mjs` 注释。
+- **i18n locale 文件 insert anchor 必须用目标 locale 实际文本**：locale 文件多段对称（`apps/platform/i18n/locales/zh-CN.json` + `en-US.json`），edit 工具 insert anchor 必须用**目标 locale 实际文本**。自动检测：`pnpm i18n:check:anchor`（`scripts/i18n/i18n-anchor-check.mjs`）对比 zh-CN + en-US locale 文件，检测同一 key 在两边取值完全相等且 en-US locale 值含中文的错位污染（结构化本地化数据 + i18n 复合格式占位符 + 纯 ASCII 字符串视为合理相等，自动跳过）。CI test job 已添加该步骤作为 blocker。详见 [经验归档 §五十六 M24.1 教训 2](../design/governance/experience-archive.md) + `scripts/i18n/i18n-anchor-check.mjs` 注释。
 - **同一解释只写一处**: 相同背景说明（平台坑、口径、设计取舍）在仓库内只保留一处，通常放在首次出现或语义最贴近的位置；其他位置要么不写，要么用一句话指向文档。
 - **详细解释放文档，代码只留短指针**: 完整设计背景、复盘结论、口径变更写入 `docs/design/`、`docs/research/` 或复盘文档；代码注释只保留一句"为什么"或文档指针，不展开长文。
 - **简化标记约定**: 主动选择简化实现时使用 `// lean:` 标记：
@@ -142,7 +142,7 @@ apps/platform/               # Nuxt 全栈平台
   }
   ```
 
-- 守卫是入口副本中最容易被漏的一行——完成新脚本后 grep `process.argv[1]` 确认。教训见 [经验归档 §三十九](../design/governance/experience-archive.md)。
+- 守卫是入口副本中最容易被漏的一行——完成新脚本后 grep `process.argv[1]` 确认。详见 [经验归档 §三十九](../design/governance/experience-archive.md)。
 
 #### 5.1.7 容器拼装类代码注释必须准确区分 `execFile` 与 `exec`
 
@@ -186,7 +186,7 @@ apps/platform/               # Nuxt 全栈平台
 - `script setup` 顶部加临时调试 `console.log` 引用**尚未声明的 ref/computed** 会触发 TDZ `Cannot access 'X' before initialization` SSR 500 错误——即使 `console.log` 只是 debug 也会让整个 SSR 阶段失败（不是 hydration warning 而是真错误）。
 - 临时调试代码引用变量前必须确认其在执行前已声明，或放在 `watchEffect` / `onMounted` 里。
 - 调试完成后立刻清理不留痕（与 §5.1.11 调试临时代码清理规则配合）。
-- 教训 + 实证见 [经验归档 §四十二](../design/governance/experience-archive.md)。
+- 详见 [经验归档 §四十二](../design/governance/experience-archive.md)
 
 #### 5.1.13 已测试文件补测胜于新建（CI 覆盖率阈值回归修复模式）
 
@@ -209,7 +209,7 @@ apps/platform/               # Nuxt 全栈平台
 
 **「单测全过 + typecheck 0 error」≠ 集成 Done**：必须有「真实路径调用 + 断言关键行为」的可执行验证；A 阶段 code-auditor 主责边界已挂「集成外部库时验证 README 标准用法引用 + e2e 真实路径测试存在」必查项（[code-auditor.agent.md 主责边界](../../.github/agents/code-auditor.agent.md)）。
 
-教训见 [经验归档 §四十三（M18.4 audit round 1 Reject 实证）](../design/governance/experience-archive.md)。
+详见 [经验归档 §四十三（M18.4 audit round 1 Reject 实证）](../design/governance/experience-archive.md)
 
 #### 5.1.16 v-model 修改嵌套字段必须用 reactive + deep watch（hard requirement）
 
@@ -234,7 +234,7 @@ watch(filters, () => { void refreshAlerts() }, { deep: true })
 
 **调试技巧**：用 `page.on('request')` 跟踪浏览器侧 `/api/alerts` 请求数（而不是 Vue devtools），直接判断 refetch 是否触发。
 
-教训（M20.6 实证）见 [经验归档 §四十六](../design/governance/experience-archive-§41-§48-archive-batch.md#四十六primevuetoggleswitchvmodel嵌套字段触发useasyncdatawatch浅监听失效20260831m206)。
+详见 [经验归档 §四十六](../design/governance/experience-archive-§41-§48-archive-batch.md#四十六primevuetoggleswitchvmodel嵌套字段触发useasyncdatawatch浅监听失效20260831m206)
 
 #### 5.1.17 一次性脚本 TypeScript 价值评估（避免 over-engineering）
 
@@ -270,7 +270,7 @@ void Repository
 
 **engines 应该与 Node LTS 实际部署版本对齐**：Node 20 已 EOL（2026-04-30），engines `>=20` 是历史遗留，实际部署是 Node 22+ 或 Node 24+。建议升级到 `>=22`（兼容 Node 22 LTS）+ 注释说明 Node 22.6+ 内置 strip-types 仍不处理装饰器（tsx 仍必须）。
 
-教训（M20.7 实证）见 [经验归档 §四十七](../design/governance/experience-archive-§41-§48-archive-batch.md#四十七一次性脚本不应-over-engineeringtsx-cli-装饰器依赖-vs-node-22-strip-types2026-08-31m20.7)。
+详见 [经验归档 §四十七](../design/governance/experience-archive-§41-§48-archive-batch.md#四十七一次性脚本不应-over-engineeringtsx-cli-装饰器依赖-vs-node-22-strip-types2026-08-31m20.7)
 
 #### 5.1.18 SQLite 数据库启动期自动备份（引用 security.md §2.1 + 开发角度差异化信息）
 
@@ -337,7 +337,7 @@ zod `z.enum([...]).optional()` 接受 `undefined` 为合法值（`safeParse(unde
 
 **规范支撑**：[AGENTS.md §提交规范](../../AGENTS.md) 第 4 条"原子粒度——一个提交对应一个逻辑变更" + [规划规范 §1.1 任务粒度约束](./planning.md)
 
-教训见 [经验归档 §四十九（M22.4 教训沉淀）](../design/governance/experience-archive.md) + §五十（2026-09-01 dependfix.sqlite 事故关联风险）。
+详见 [经验归档 §四十九（M22.4 教训沉淀）](../design/governance/experience-archive.md) + §五十（2026-09-01 dependfix.sqlite 事故关联风险）
 
 #### 5.1.22 baseline lint 治理路径：删除占位符 vs 改写为 `void X` 的治本决策（M25.3 阶段实证）
 
@@ -364,7 +364,7 @@ ESLint 双重禁止规则：
 
 **规范支撑**：[规划规范 §4.4 治本 vs 临时](../standards/planning.md#44-大批量归档批次操作规范) + D 阶段自检三向验证纪律（[AI 协作规范 §2.0](../standards/ai-collaboration.md#20-d-阶段自检三向验证纪律)）
 
-教训见 [经验归档 §六十 M25.3 baseline lint 修复方向](../design/governance/experience-archive-§49-§57-recent-investigation.md#六十m253baselinelint治理双重禁止的治本路径20260908commits) + §六十二 教训 2（M25 → 当前 25 commits 文档治理批次）。
+详见 [经验归档 §六十 M25.3 baseline lint 修复方向](../design/governance/experience-archive-§49-§57-recent-investigation.md#六十m253baselinelint治理双重禁止的治本路径20260908commits) + §六十二 教训 2（M25 → 当前 25 commits 文档治理批次）
 
 #### 5.1.23 git config user identity 一致性 guard（M26 阶段 2026-09-09 实证）
 
@@ -374,7 +374,7 @@ git config 优先级 `local > global > system`，`.git/config [user]` 会**静�
 2. **session 启动时第一件事**：`.session/current-task.yaml` 段对齐 `git config --local user.*` 与 `git config --global user.*`
 3. **严禁批量改 commit author**（除非用户显式同意 + `git rebase -i HEAD~N --exec 'git commit --amend --no-edit --author=...'` + 强制 push）——历史 commit 改 author 风险高
 
-教训见 [经验归档 §六十三 M26 阶段 git config user 错位事故与防护](../design/governance/experience-archive-§49-§57-recent-investigation.md#六十三m26-阶段-git-config-user-错位事故与防护2026-09-09)。
+详见 [经验归档 §六十三 M26 阶段 git config user 错位事故与防护](../design/governance/experience-archive-§49-§57-recent-investigation.md#六十三m26-阶段-git-config-user-错位事故与防护2026-09-09)
 
 ---
 

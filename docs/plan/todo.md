@@ -58,12 +58,13 @@
   - 根 `package.json` `lint:md` 路径补 `apps/**/*.md`
   - 根 `package.json` `lint-staged` 加 `*.{css,scss,vue}` → `pnpm --filter @dependfix/platform lint:css`
 - **验收标准**：
-  - [ ] `pnpm --filter @dependfix/platform lint` 0 error（保持既有 baseline 0 warning 状态）
-  - [ ] `pnpm --filter @dependfix/platform lint:i18n` 0 error
-  - [ ] `pnpm --filter @dependfix/platform lint:css` exit 0（baseline warnings 数量记录）
-  - [ ] `pnpm --filter @dependfix/platform lint:md` 0 error
-  - [ ] `pnpm run lint:md` 0 error（根，覆盖 `apps/**/*.md`）
-  - [ ] `pnpm install` lockfile 同步
+  - [x] `pnpm --filter @dependfix/platform lint` 0 error（保持既有 baseline 0 warning 状态）— 1 warning: repos.vue 806 行超 max-lines 800（D3 决策预期）
+  - [x] `pnpm --filter @dependfix/platform lint:i18n` 0 error
+  - [x] `pnpm --filter @dependfix/platform lint:css` exit 0（baseline warnings 数量记录）— 修复 28 个 --fix + 6 个手工修复（4 word-break + 2 空注释 + 14 单行多声明展开 + 2 rgba→rgb + 4 @media 范围语法）
+  - [x] `pnpm --filter @dependfix/platform lint:md` 0 error
+  - [x] `pnpm run lint:md` 0 error（根，覆盖 `apps/**/*.md`）
+  - [x] `pnpm install` lockfile 同步
+- **commit hash**: `7888435` chore(platform): apps/platform 增配 stylelint + lint 系列 scripts（17 files / ahead=1 待推送）
 - **不做什么**：
   - 不做 lint:css baseline 治本（如有 warnings 走 --fix 或留 baseline）
   - 不重写 apps/platform .vue/.scss 贴合 stylelint-config-cmyr

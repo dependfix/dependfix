@@ -272,10 +272,70 @@ self-check 通过后，按以下条件判断是否触发 code-auditor quick dept
 
 ### 3. 与既有规范的关联
 
-- **§4.4 F 阶段本地验证**：本节是其在 commit message 维度的延伸——F 阶段本地验证 ≠ commit message 堆砌执行结果。
+- **§4.4 F 阶段本地验证**：本节是其在 commit message 维度的延伸——F 阶段本地验证 ≠ commit message 堆叠执行结果。
 - **§4.6 audit warning 修复决策协议**：commit 前轻量级审核走的就是"低成本 + 对齐验收"的修复维度（self-check 即修复）。
 - **git.md §3.6 commit message 信息密度规范**：本节是其在 AI 协作流程维度的执行——commit 必经 self-check + code-auditor quick depth 触发条件。
 - **AGENTS.md §提交规范**：本节补强"质量前置"维度——commit message 本身也是质量的一部分。
+
+## 1.7 阶段启动重复评估自检流程（PDTFC+ P 阶段必经 / M27.1 重复评估教训）
+
+**触发条件**：
+
+- todo.md §当前阶段 banner 修改（新增阶段）
+- todo.md §当前阶段新增 M\d+\.\d+ 原子条目
+- todo.md §当前阶段任务段范围 / 验收标准 / 交付物修改
+- 用户决策修订方案上收 backlog 候选
+
+**5 步自检流程**（hard requirement）：
+
+1. **todo-archive.md 历史阶段表格扫描**（5 分钟）：
+   ```bash
+   rg -n "已闭环|不计入本批|不计入 M\d+|ahead=0.*已推" docs/plan/todo-archive.md docs/plan/archive/todo-archive-phases-*.md
+   ```
+   找到"已闭环"标注的子任务，从 todo.md §当前阶段任务段删除对应范围。**M27.1 教训**：C66-C 在 todo-archive.md §M23.3 表格 L85 标注 `650a0d2 (feat(platform))` + L87 标注 `9c64ee0` + L88 标注 `6e53616` 三处 commit hash，commit `0ddd4e2` 决策时未扫描。
+
+2. **git log 历史核验**（5 分钟）：
+   ```bash
+   git log --oneline -- <候选相关路径>
+   git log --all --grep="<候选标识>"
+   git rev-list HEAD ^origin/master --grep="<候选标识>" --count
+   ```
+   找到已 ahead=0 推 origin/master 的 commits，从 todo.md §当前阶段任务段删除对应范围。**M27.1 教训**：M23.3 阶段 17 commits（M23.0-M23.4）+ M16.2 阶段 use-fix-now.ts + alert-run-sidebar.vue + scan.post.ts 全部 ahead=0 推 origin/master，commit `0ddd4e2` 决策时未核验。
+
+3. **实际代码侧 anchor 实证**（5 分钟）：
+   ```bash
+   # 打开候选相关代码文件（alerts.vue / use-fix-now.ts / scan.post.ts 等）
+   rg -n "<候选特征字段>" <候选相关路径>
+   ```
+   实际打开文件验证候选描述的状态与实际代码一致。**M27.1 教训**：apps/platform/app/pages/alerts.vue L520-562 Identifiers 列已完整渲染 + apps/platform/app/composables/use-fix-now.ts 87 行已完整实现 + apps/platform/app/components/alert-run-sidebar.vue L143-153 `pi pi-bolt` 按钮已实现，commit `0ddd4e2` 决策时未打开验证。
+
+4. **决策描述前提矛盾厘清**（3 分钟）：
+   - 若决策描述中出现"参考 NNN 实施"——**先验证 NNN 是否已落地**（`git log --grep="NNN"` + `rg -n "NNN" docs/plan/todo-archive.md`）
+   - 若 NNN 已 100% 落地 → 候选不需增强，从 todo.md 任务段删除
+   - 若 NNN 仅"参考实施"未落地 → 保留候选范围
+   - **M27.1 教训**：commit `0ddd4e2` D2 决策描述「参考 M16.2 实施」——若 M16.2 仅"参考实施"则 C66-D 未落地，若 M16.2 已 100% 落地则 C66-D 不需 M27.1 增强；决策者未厘清这一前提矛盾。
+
+5. **backlog 描述同步修订**（5 分钟）：
+   - todo.md §当前阶段新增条目对应 backlog 候选时，**必须**同步修订 backlog.md 描述
+   - ✅ 已 ahead=0 闭环的子任务追加「已闭环」标注 + commit hash 回填
+   - ⏸️ 暂缓的子任务追加「暂缓」标注 + 暂缓原因
+   - 「保留为后续增强候选」措辞必须基于"当前未落地"前提，否则删除
+
+**典型反模式**（M27.1 重复评估教训）：
+
+- ❌ 仅读 backlog.md / todo-archive.md 文档侧资料，未打开实际代码验证
+- ❌ 决策描述中出现"参考 NNN 实施"自相矛盾，未先厘清 NNN 是否已落地
+- ❌ 决策 D 阶段前未用 `git log --oneline -- <相关路径>` 5 分钟实证候选状态
+- ❌ 仅依赖 backlog.md 候选描述做规划，未对照 commit history + 实际代码 + todo-archive.md 表格三重交叉核验
+
+**为什么是 hard requirement**：
+
+- M27.1 重复评估教训实证：commit `0ddd4e2` 决策 D2 错误归类 C66-C / C66-D 为"未落地"，实际已 100% 闭环，导致整个 M27.1 任务段 + 范围 + 验收 + 风险与缓解 + 关键决策 + 交付物（3 atomic commits）全部基于错误前提设计
+- 重复评估类错误在依赖 fix-status 的项目 + 长期主线 backlog 候选中可能再次出现，本流程是治本
+
+**合规核验**：本流程由 [code-auditor 主责边界「阶段启动重复评估自检」必查项](../../.github/agents/code-auditor.agent.md) 强制检查——commit 涉及 todo.md §当前阶段新增 / 修改时，五步自检任意一步未执行 / 未通过 → Reject 退回。
+
+**关联规范**：[planning.md §3.4 阶段启动决策前置交叉核验硬要求](./planning.md#34-阶段启动决策前置交叉核验硬要求m271-重复评估教训--2026-09-10) + [experience-archive §六十四 M27.1 重复评估教训](../design/governance/experience-archive-§49-§57-recent-investigation.md#六十四m271c66告警视图增强重复评估教训阶段启动决策时未对照已闭环清单导致规划无效工作20260910commit决策d2错误) + [backlog.md §C66 修订实证](../plan/backlog.md)（2026-09-10 M27.1 教训批次）。
 
 ---
 

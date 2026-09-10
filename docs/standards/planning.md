@@ -150,6 +150,36 @@
 
 **变更历史**：本条由 2026-09-02 用户规则强化新增——基于 [backlog.md §PR 管理候选池决策点](../plan/backlog.md#pr-管理) 反思：AI 默认赋予阶段编号 + 默认最高优先级判断违反"AI 单方面决策最小化"原则，应通过规范约束。
 
+### 3.4 阶段启动决策前置交叉核验硬要求（M27.1 重复评估教训 / 2026-09-10）
+
+**核心规则**：
+
+当 todo.md §当前阶段新增条目（无论是 backlog 候选上收 / 插队例外 / 用户直接决策），**必须**执行以下三重交叉核验，**未通过任何一项**不得进入 D 阶段：
+
+1. **todo-archive.md 历史阶段表格核验**：`rg -n "已闭环|不计入本批|不计入 M\d+|ahead=0.*已推" docs/plan/todo-archive.md docs/plan/archive/todo-archive-phases-*.md` 扫描最近 3-5 个阶段表格，验证候选对应 backlog 条目的子任务是否已 ahead=0 闭环；若发现"已闭环"标注，必须从 todo.md §当前阶段任务段删除对应子任务范围。
+2. **git log 历史核验**：`git log --oneline -- <候选相关路径>` + `git log --all --grep="<候选标识>"` 验证候选对应 commit hash 是否已 ahead=0 推 origin/master；若发现已推，必须从 todo.md §当前阶段任务段删除对应范围。
+3. **实际代码侧 anchor 实证**：打开候选相关代码文件（`apps/platform/app/pages/alerts.vue` / `apps/platform/app/composables/use-fix-now.ts` 等），验证候选描述的状态与实际代码一致；若发现已实现，必须从 todo.md §当前阶段任务段删除对应范围。
+
+**触发条件**：
+
+- todo.md §当前阶段 banner 修改（新增阶段）
+- todo.md §当前阶段新增 M\d+\.\d+ 原子条目
+- todo.md §当前阶段任务段范围 / 验收标准 / 交付物修改
+
+**典型反模式**（M27.1 重复评估教训）：
+
+- ❌ 仅读 backlog.md / todo-archive.md 文档侧资料，未打开实际代码验证（M27.1 commit `0ddd4e2` 决策 D2 错误归类 C66-C / C66-D 为"未落地"，实际已 100% 闭环）
+- ❌ 决策描述中出现"参考 NNN 实施"自相矛盾——若 NNN 仅"参考实施"则候选未落地，若 NNN 已 100% 落地则候选不需增强，必须先厘清
+- ❌ 决策 D 阶段前未用 `git log --oneline -- <相关路径>` 5 分钟实证候选状态
+
+**为什么是 hard requirement**：
+
+- M27.1 重复评估教训实证：commit `0ddd4e2` 决策 D2 错误归类 C66-C / C66-D 为"未落地"，实际已 100% 闭环（M23.3 commit `650a0d2` + `9c64ee0` + `6e53616` + M16.2 commits），导致整个 M27.1 任务段 + 范围 + 验收 + 风险与缓解 + 关键决策 + 交付物（3 atomic commits）全部基于错误前提设计。详见 [experience-archive §六十四 M27.1 重复评估教训](../design/governance/experience-archive-§49-§57-recent-investigation.md#六十四m271c66告警视图增强重复评估教训阶段启动决策时未对照已闭环清单导致规划无效工作20260910commit决策d2错误)。
+
+**合规核验**：本条由 [code-auditor 主责边界「阶段启动重复评估自检」必查项](../../.github/agents/code-auditor.agent.md) 强制检查——commit 涉及 todo.md §当前阶段新增 / 修改时，三项交叉核验任意一项未执行 / 未通过 → Reject 退回。
+
+**backlog 描述同步要求**：当 todo.md §当前阶段新增条目对应 backlog 候选时，必须同步修订 backlog.md 描述：(a) 已 ahead=0 闭环的子任务追加 ✅ 已闭环标注 + commit hash 回填；(b) ⏸️ 暂缓的子任务追加 ⏸️ 暂缓标注 + 暂缓原因；(c) 「保留为后续增强候选」措辞必须基于"当前未落地"前提，否则删除。挂 [backlog.md C66 修订实证](../plan/backlog.md)（2026-09-10 M27.1 教训批次）。
+
 ## 4. 阶段归档流程
 
 ### 4.1 归档准入

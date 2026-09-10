@@ -2,50 +2,56 @@
 
 > 本文件**仅**登记当前阶段活跃待办；已闭环项归档于 [todo-archive.md](todo-archive.md)；未排期/延期/远期登记于 [backlog.md](backlog.md)。
 >
-> **当前阶段：M27 用户体验 + 治理优先（C66 告警视图增强 + W1 apps/platform stylelint + W2/W4 coverage 治理 + M22.7 根因排查 / 2026-09-10 用户决策修订方案 B-1）** —— 下一阶段启动由用户在 M27 阶段闭环后触发。
+> **当前阶段：M27 用户体验 + 治理优先（W1 apps/platform stylelint + W2/W4 coverage 治理 + M22.7 根因排查 + M27.1 重复评估教训治理 / 2026-09-10 用户决策修订方案 B-1 + 2026-09-10 M27.1 重复评估修正）** —— 下一阶段启动由用户在 M27 阶段闭环后触发。
 
 ---
 
-## 当前阶段：M27 用户体验 + 治理优先（5 原子条目 / 2026-09-10 用户决策修订方案 B-1）
+## 当前阶段：M27 用户体验 + 治理优先（5 原子条目 / 2026-09-10 用户决策修订方案 B-1 + 2026-09-10 M27.1 重复评估修正）
 
-> **M27 阶段承接 M26 完整闭环**（2026-09-10 已 ahead=0 推送 origin/master / 36 commits / ~3240 行净增）。**类型平衡分布** 🚀 1 + 🛡️ 2 + 🧪 2 = 5 原子，符合 [规划规范 §1.1 L12 类型平衡原则](../standards/planning.md)。**P 阶段决策 D1-D4**：
+> **M27 阶段承接 M26 完整闭环**（2026-09-10 已 ahead=0 推送 origin/master / 36 commits / ~3240 行净增）。**类型平衡分布** 🚀 0 + 🛡️ 2 + 🧪 2 + 📚 教训治理 1 = 5 原子，符合 [规划规范 §1.1 L12 类型平衡原则](../standards/planning.md)。**P 阶段决策 D1-D5**：
 > - **D1**：按 §1.1 任务粒度约束（每原子 < 5 commits / < 800 行推荐粒度，< 10 文件 / < 800 行硬阈值）+ §1.1 L12 类型平衡原则选 5 原子
-> - **D2**：C66 排除 C66-A1 ScanResult ghsaId/cveIds 列（M23.3 已闭环）+ C66-B 数据层去重暂缓（M23.3 决策）；M27.1 仅完成 C66-C Identifiers 列增强 + C66-D fix 复用入口剩余子任务
-> - **D3**：W1 / W2 / W4 均为 quick depth（单 commit 模式）；M22.7 根因排查为 P1 优先（剩余 ECONNRESET 偶发根因）+ C66 为 standard depth（多 commit 模式）
+> - **D2**（2026-09-10 修正）：M27.1 重复评估错误归正 —— todo.md §M27 阶段启动 commit `0ddd4e2` 决策 D2 错误地把 C66-C / C66-D 归类为"未落地"；实际 C66-C 已在 M23.3 commit `650a0d2` 闭环 + 经验归档 §五十五 commit `9c64ee0` + commit hash 回填 commit `6e53616`；C66-D 已在 M16.2 闭环（reuseScanRunId API + scan.post.test.ts L144-L260 5 case（sync mode / async queue mode / 404 / 跨仓库 400 / 跨仓库 409）+ useFixNow composable + alert-run-sidebar 按钮 + alerts-fix-now.e2e.test.ts 3 case）。M27.1 **无代码改动需求**，修订为 1 docs(plan+governance) atomic commit（详见 M27.1 段修订）
+> - **D3**：W1 / W2 / W4 均为 quick depth（单 commit 模式）；M22.7 根因排查为 P1 优先（剩余 ECONNRESET 偶发根因）
 > - **D4**：M22 neat-freak 收敛已 M23.0 G1 闭环（不在 M27 复用）；M22.7 根因 follow-up 中 ② Nitro h3 async generator + ③ Playwright 版本对比 + ④ fixtures API 节流留 backlog 后续批次
+> - **D5**（2026-09-10 新增）：M27 重复评估教训治理 —— 修订 planning.md §3.4「决策前置交叉核验」硬要求 + ai-collaboration.md §1.7「阶段启动重复评估自检」流程 + backlog.md C66 5 子任务现状明确标注 + experience-archive §六十四 完整教训 + wisdom.md governance check point「阶段启动必须对照 todo-archive.md 最近 3 个阶段表格 + commit history + 实际代码状态三重交叉核验」（详见 M27.5 教训治理段）
 
-### M27.1 [P2 🚀 UX] C66 告警视图增强（2-3 commits / standard depth audit）
+### M27.1 [P2 🚀 UX] C66 告警视图增强（已闭环 / 无新增 commit / 1 docs(plan+governance) commit 修正状态）
 
-- **目标**：完成 backlog C66 5 子任务中 M23.3 未落地的 C66-C Identifiers 列增强 + C66-D fix 复用入口剩余子任务，提升用户对告警关键标识（GHSA / CVE / 多 CVE 折叠）的可视化能力。
-- **范围**：
-  - C66-C alerts UI Identifiers 列增强（M23.3 §C66-C standard depth Round 1 W3/W4 已部分落地；本批增强：完整 alerts 视图添加 Identifiers 列 GHSA 优先 → CVE 兜底 → 多 CVE 折叠 + i18n zh-CN/en-US 双语）
-  - C66-D `POST /api/repos/[id]/scan` 接受 `reuseScanRunId` + alerts 视图加"立即修复此仓库"入口（reuseScanRunId API 跳过重拉逻辑 + useFixNow composable + alert-run-sidebar 按钮）
-  - C66-C 经验归档 + A 阶段 audit + commit hash 回填
+- **状态**：✅ **已闭环（M23.3 + M16.2 已实施，本批不需新增 commit）** —— 2026-09-10 M27 阶段启动 commit `0ddd4e2` 决策 D2 错误归类已修正（详见本页 §D2 决策 + [experience-archive §六十四 M27.1 重复评估教训](../design/governance/experience-archive-§49-§57-recent-investigation.md#六十四m271c66告警视图增强重复评估教训阶段启动决策时未对照已闭环清单导致规划无效工作20260910commit决策d2错误)）
+- **范围（已闭环现状 100% 复核）**：
+  - **C66-A1 ScanResult 数据模型扩展**：✅ `f44a527` (M23.3 feat(platform)) — apps/platform/server/entities/scan-result.ts 新增 `ghsaId` / `cveIds` 列 + 类级复合索引 + migration 1750000000000（§3b 教训：TypeORM 1.x 列级复合 `@Index([...])` 生成单列索引，必须类级声明）
+  - **C66-A2 fetcher 提取 GHSA + CVE**：✅ `b6e7716` (M23.3 feat(core,engine)) — packages/core/src/alerts/index.ts NormalizedSecurityAlert 接口扩展 + packages/engine fetcher extractIdentifiers helper 透传
+  - **C66-B 数据层去重**：⏸️ **暂缓（M23.3 决策）** —— 应用层去重（方案 B2 等价）已实施且满足当前业务需求；如未来需要 fix 复用 / 历史 fixStatus 跨次保留再迁移到 B1（详见 [backlog.md §C66-B](../plan/backlog.md)）
+  - **C66-C alerts UI Identifiers 列**：✅ `650a0d2` (M23.3 feat(platform)) — apps/platform/app/pages/alerts.vue L520-562 Column 完整渲染（GHSA 优先 → fallback CVE[0] → 多 CVE 折叠 +N → code-scanning/code-quality 兜底 —）+ alertGhsaUrl / alertCveUrl helper + SCSS 列宽 180px + i18n colIdentifiers / fixNow 双语（zh-CN + en-US）；经验归档 §五十五：`9c64ee0` (M23.3 docs(plan+design))
+  - **C66-D fix 模式复用 scanRunId + 立即修复入口**：✅ **M16.2 已闭环**（不计入 M23.3 / M27.1 本批；详见 todo-archive.md §M23.3 表格 L86）—— apps/platform/server/schemas/scan.ts `reuseScanRunId` 字段 + scan.post.ts API 实现 + scan.post.test.ts L144-L260 5 case（sync mode / async queue mode / 404 / 跨仓库 400 / 跨仓库 409）+ apps/platform/app/composables/use-fix-now.ts 87 行（fixingRunId / fixError / fixSuccess 三态 + triggerFix 复用 run_id 跳 /scans）+ apps/platform/app/components/alert-run-sidebar.vue L143-153 `pi pi-bolt` 按钮（report-only 模式守卫 + fixingRunId loading）+ apps/platform/tests/e2e/alerts-fix-now.e2e.test.ts 3 case
 - **验收标准**：
-  - [ ] C66-C alerts 视图 Identifiers 列完整渲染（GHSA 优先 / CVE 兜底 / code-scanning 兜底 / 多 CVE 折叠）；i18n 双语齐全
-  - [ ] C66-D reuseScanRunId API 单测覆盖（跳过重拉逻辑 + fixStatus 审计）；alerts 视图"立即修复此仓库"入口 e2e 覆盖
-  - [ ] `pnpm --filter @dependfix/platform typecheck` 0 error
-  - [ ] `pnpm --filter @dependfix/platform test` 全过（contract + UI test + e2e 不回归）
-  - [ ] `pnpm --filter @dependfix/platform build` 0 error
-  - [ ] `pnpm run check:docs` 0 error
+  - [x] C66-C alerts 视图 Identifiers 列完整渲染（GHSA 优先 / CVE 兜底 / code-scanning 兜底 / 多 CVE 折叠）；i18n 双语齐全 — M23.3 `650a0d2` 已 ahead=0 推 origin/master
+  - [x] C66-D reuseScanRunId API 单测覆盖（跳过重拉逻辑 + fixStatus 审计）；alerts 视图"立即修复此仓库"入口 e2e 覆盖 — M16.2 已闭环 + M23.3 表格 L86 标注
+  - [x] `pnpm --filter @dependfix/platform typecheck` 0 error — M27.2 W1 阶段验证已 EXIT=0
+  - [x] `pnpm --filter @dependfix/platform test` 全过（contract + UI test + e2e 不回归）— M27.2 W1 A 阶段审计实测 1199 passed / 7 skipped
+  - [x] `pnpm --filter @dependfix/platform build` 0 error — 既有 M26.4b / M26.4c 阶段验证继承有效
+  - [x] `pnpm run check:docs` 0 error — 既有 M26 归档批次验证继承有效
 - **不做什么**：
+  - **不在 M27.1 重做 C66-A1/A2/C/D**（已 100% 闭环，仅作状态修正）
+  - 不做 C66-B 数据层去重（M23.3 决策暂缓 + 应用层去重已满足需求）
   - 不重写 Dependabot 详情页（详情在 dependabot 那边，UI 只展示关键标识 + 跳链）
   - 不立即支持自定义 advisory 来源（GitLab Advisory Database 等）
   - 不破坏现有 fixStatus / 修复链路
-  - 不在 M27.1 重做 C66-A1 ScanResult ghsaId/cveIds 列（M23.3 已落 — 仅验证复用）
-  - 不做 C66-B 数据层去重（M23.3 决策暂缓）
-- **依赖**：M23.3 基础（M23.3 C66-C standard depth Round 1 已落地部分）；M26 阶段 36 commits ahead=0 已推 origin/master
-- **交付物**：3 atomic commits（按 C66 子任务拆）：
-  - commit 1 = C66-C alerts 视图 Identifiers 列增强 + 单测
-  - commit 2 = C66-D reuseScanRunId API + useFixNow composable + alert-run-sidebar 按钮
-  - commit 3 = C66 经验归档 + commit hash 回填 + A 阶段 audit 修复
-- **风险与缓解措施**：
-  - **风险 1**：C66-C alerts Identifiers 列依赖 M23.3 ghsaId/cveIds 数据（5 文件跨包契约）—— 缓解：先验证 `/api/alerts` 透传 ghsaId + cveIds（commit 1 实测）再实现 UI 列
-  - **风险 2**：C66-D reuseScanRunId 可能被滥用（恶意跳过重拉）—— 缓解：API 验证 fixStatus='open' 才允许 skip + 审计 log AuditEvent
-  - **风险 3**：alerts-fix-now e2e flaky（fix 链路可能超 CI timeout）—— 缓解：e2e mock 模式 + 真实路径在 Test workflow E2E job 跑
+- **关联 commit hash**：
+  - M23.3 阶段：`b6e7716` (feat(core,engine)) + `f44a527` (feat(platform)) + `650a0d2` (feat(platform)) + `9c64ee0` (docs(plan+design)) + `6e53616` (docs(plan))
+  - M16.2 阶段：reuseScanRunId API + scan.post.test.ts + use-fix-now.ts + alert-run-sidebar.vue + alerts-fix-now.e2e.test.ts
+  - 全部 ahead=0 已推 origin/master（M23 整阶段 17 commits + M16 阶段若干 commits）
+- **本批唯一 commit**：`docs(plan+governance): M27.1 C66 告警视图增强 重复评估修正 + 教训治理（backlog.md C66 现状标注 / planning.md §3.4 决策前置交叉核验硬要求 / ai-collaboration.md §1.7 重复评估自检流程 / experience-archive §六十四 完整教训 / wisdom.md governance check point）` —— standard depth audit（多文件跨模块治理）
+- **教训归档**：详见 [experience-archive §六十四 M27.1 重复评估教训](../design/governance/experience-archive-§49-§57-recent-investigation.md#六十四m271c66告警视图增强重复评估教训阶段启动决策时未对照已闭环清单导致规划无效工作20260910commit决策d2错误)
+- **重复评估根因**（commit `0ddd4e2` 决策 D2 错误）：
+  1. **决策时未对照 todo-archive.md §M23.3 表格 L79-88** —— 该表格明确列出 C66-A1/A2/C/D 全部 commit hash 与状态
+  2. **决策时未对照 commit history** —— M23.3 5 commits（b6e7716 + f44a527 + 650a0d2 + 9c64ee0 + 6e53616）+ M16.2 commits 均在 `git log` 中可查
+  3. **决策时未实际打开 alerts.vue 验证** —— 即使读了文档，也应该打开 apps/platform/app/pages/alerts.vue 验证 Identifiers 列实际渲染
+  4. **决策时未实际打开 use-fix-now.ts 验证** —— 87 行 composable 已完整实现
+  5. **backlog.md C66 描述含糊** —— L143 "保留为后续增强候选"基于 A1+A2 未闭环前提，实际 A1+A2 已闭环；L144 C66-D 无明确"已闭环 + commit hash"标注
 - **关键决策**：
-  - **D1**：C66-D 不复刻 alerts-fix-now 完整测试（参考 M16.2 实施：useFixNow composable + alert-run-sidebar 按钮 + alerts-fix-now.e2e.test.ts 6 case + audit；本批仅复用 + 增强）
-  - **D2**：B1 数据层去重暂缓（M23.3 已应用层去重（方案 B2 等价）满足当前需求；本批不引入数据库 schema 变更）
+  - **D1**（修正）：M27.1 无代码改动需求，仅 docs(plan+governance) 1 atomic commit 修订 todo.md + backlog.md + planning.md + ai-collaboration.md + experience-archive §六十四 + wisdom.md
+  - **D2**（治理）：决策前置交叉核验硬要求落地为 governance check point（详见 M27.5 教训治理段）
 
 ### M27.2 [P2 🛡️ devEx 治理] W1 apps/platform 增配 stylelint + lint 系列 scripts（1 commit / quick depth audit）
 

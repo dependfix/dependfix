@@ -30,8 +30,8 @@
 | [experience-archive-§29-§35-integration.md](./experience-archive-§29-§35-integration.md) | §二十九 - §三十五 | 集成测试与外部库（e2e 基建 / TypeORM 复合索引 / BullMQ / HTML 标签 / destr / workspace 依赖）|
 | [experience-archive-§36-§40-toolchain.md](./experience-archive-§36-§40-toolchain.md) | §三十六 - §四十 | 工具链与编码陷阱（锚点漂移 / git tag committer / PowerShell 文本 / 入口守卫 / 批量替换）|
 | [experience-archive-§41-§48-archive-batch.md](./experience-archive-§41-§48-archive-batch.md) | §四十一 - §四十八 | 归档批次与设计取舍（cgroup 集成测试 / Coverage 阈值 / 集成外部库 / Code Scanning / 删过头 / PrimeVue v-model / over-engineering / 断链）|
-| [experience-archive-§49-§57-recent-investigation.md](./experience-archive-§49-§57-recent-investigation.md) | §四十九 - §五十七 | 近期根因排查与治理（atomic commit / SQLite 清空 / E2E / Playwright / fixture / M23.3 / M24.1 PR Check / M22.7+M22.8 根因）|
-| [experience-archive-§49-§57-recent-investigation.md](./experience-archive-§49-§57-recent-investigation.md) | §五十八 - §六十二 | M25 阶段治理与 M25→当前 25 commits 文档治理批次（PrimeUI License 降级 / 三执行器同步透传 / baseline lint 治理 / i18n-anchor-check 工具化 / 25 commits 文档治理批次）|
+| [experience-archive-§49-§57-recent-investigation.md](./experience-archive-§49-§57-recent-investigation.md) | §四十九 - §六十三 | 近期根因排查与治理 + M25/M26 阶段治理（atomic commit / SQLite 清空 / E2E / Playwright / fixture / M23.3 / M24.1 PR Check / M22.7+M22.8 根因 / PrimeUI License 降级 / 三执行器同步透传 / baseline lint 治理 / i18n-anchor-check 工具化 / 25 commits 文档治理批次 / M26 git config user 错位事故）|
+| [experience-archive-§49-§57-recent-investigation.md](./experience-archive-§49-§57-recent-investigation.md) | §六十四 | M27.1 C66 告警视图增强 重复评估教训（commit `0ddd4e2` 决策 D2 错误归类 → 5 处根因 → 5 项教训 → 治理检查点挂接 planning.md §3.4 / ai-collaboration.md §X / code-auditor 主责边界扩展 / wisdom governance check point）|
 
 **外链引用规范**：所有跨文件 / 跨文档引用按 §编号 命中（如 `#四十三集成外部库必须读-readme-标准用法--e2e-真实路径冒烟测试2026-08-29m18.4-audit-round-1-reject-后补修`）。锚点 slug 规则见 [documentation.md §2 链接检查](../../standards/documentation.md)。
 

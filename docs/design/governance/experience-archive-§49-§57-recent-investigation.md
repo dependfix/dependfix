@@ -1138,3 +1138,96 @@ $ git rev-list HEAD ^origin/master --count
 ### 准入标准复核
 
 符合准入标准第 1 条"教训未落入规范"+ 第 2 条"决策需要溯源"（保持 commit 原样 vs amend 全部 commit 的决策）+ 第 3 条"重复违规预警"（momei 同类型事故可能再次发生，pre-commit guard 是治本）。
+
+---
+
+## 六十四、M27.1 C66 告警视图增强 重复评估教训：阶段启动决策时未对照"已闭环清单"导致规划无效工作（2026-09-10，commit `0ddd4e2` 决策 D2 错误）
+
+### 案例背景
+
+2026-09-10 用户决策修订方案 B-1 启动 M27 阶段，commit `0ddd4e2` 引入 todo.md §M27.1「C66 告警视图增强（2-3 commits / standard depth audit）」任务段，描述「完成 backlog C66 5 子任务中 M23.3 未落地的 C66-C Identifiers 列增强 + C66-D fix 复用入口剩余子任务」。
+
+实际进入 P 阶段调研（2026-09-10）发现：
+
+- **C66-A1 ScanResult 数据模型扩展**：✅ 已闭环（M23.3 commit `f44a527` feat(platform)）
+- **C66-A2 fetcher 提取 GHSA + CVE**：✅ 已闭环（M23.3 commit `b6e7716` feat(core,engine)）
+- **C66-B ScanResult 跨次扫描去重**：⏸️ 暂缓（M23.3 决策 + 应用层去重已实施）
+- **C66-C alerts UI Identifiers 列**：✅ 已 100% 闭环（M23.3 commit `650a0d2` feat(platform) + 经验归档 §五十五 commit `9c64ee0` + commit hash 回填 commit `6e53616`）—— apps/platform/app/pages/alerts.vue L520-562 Column 完整渲染（GHSA 优先 → fallback CVE[0] → 多 CVE 折叠 +N → code-scanning/code-quality 兜底 —）+ alertGhsaUrl / alertCveUrl helper + SCSS 列宽 180px + i18n colIdentifiers / fixNow 双语
+- **C66-D fix 模式复用 scanRunId + 立即修复入口**：✅ 已 100% 闭环（M16.2 已 ahead=0 推 origin/master；M23.3 todo-archive.md 表格 L86 明确标注「M16.2 闭环（不计入本批）」）—— scan.post.ts reuseScanRunId API + scan.post.test.ts L144-L260 5 case（sync mode / async queue mode / 404 / 跨仓库 400 / 跨仓库 409）+ use-fix-now.ts 87 行 composable + alert-run-sidebar.vue L143-153 `pi pi-bolt` 按钮 + alerts-fix-now.e2e.test.ts 3 case
+
+**M27.1 实际范围 0% 未落地**，但 todo.md 任务段 + 范围 + 验收标准 + 风险与缓解措施 + 关键决策 + 交付物（commit 1 = C66-C 增强 / commit 2 = C66-D 复用入口 / commit 3 = 经验归档）全部基于错误前提设计。原本规划的 2-3 commits + standard depth audit 实际无任何代码工作可做。
+
+### 根因分析（5 处决策缺陷）
+
+**根因 1：决策 D2 错误归类 C66-C / C66-D 为"未落地"**
+
+commit `0ddd4e2` M27 阶段启动决策 D2 描述：
+
+> D2：C66 排除 C66-A1 ScanResult ghsaId/cveIds 列（M23.3 已闭环）+ C66-B 数据层去重暂缓（M23.3 决策）；M27.1 仅完成 C66-C Identifiers 列增强 + C66-D fix 复用入口剩余子任务
+
+D2 决策**正确识别** C66-A1 已闭环 + C66-B 暂缓，但**错误归类** C66-C / C66-D 为"未落地"。commit `0ddd4e2` 第 2 bullet 第 2 句又自相矛盾：「参考 M16.2 实施」——若 M16.2 仅"参考实施"则 C66-D 未落地，若 M16.2 已 100% 落地则 C66-D 不需 M27.1 增强。决策者未厘清这一前提矛盾。
+
+**根因 2：决策时未对照 `todo-archive.md §M23.3` 表格**
+
+todo-archive.md §M23.3 L79-88 表格明确列出 C66 5 子任务全部 commit hash 与状态：
+
+```
+| C66-C alerts 视图独立 Identifiers 列 | 650a0d2 (feat(platform)) | apps/platform/app/pages/alerts.vue AlertView 接口扩展 ghsaId? + cveIds?[] + ... |
+| C66-D reuseScanRunId + 立即修复入口 | M16.2 闭环（不计入本批） | reuseScanRunId API + scan.post.test.ts 6 测试用例 + useFixNow composable + alert-run-sidebar 按钮 + alerts-fix-now.e2e.test.ts 完整链路 |
+```
+
+决策者若在 commit `0ddd4e2` 撰写前 5 分钟读 todo-archive.md §M23.3 表格，可直接发现 C66-C + C66-D 均已 100% 闭环，避免整个 M27.1 任务段的错误规划。
+
+**根因 3：决策时未对照 `git log` 历史**
+
+M23.3 阶段 17 atomic commits（M23.0 - M23.4 全部 5 原子条目）已于 2026-09-02 全部 ahead=0 推 origin/master。M16.2 阶段的 scan.post.ts + scan.post.test.ts + use-fix-now.ts + alert-run-sidebar.vue + alerts-fix-now.e2e.test.ts commits 同样 ahead=0 推 origin/master。`git log --grep="C66"` + `git log --oneline -- apps/platform/app/composables/use-fix-now.ts` + `git log --oneline -- apps/platform/app/pages/alerts.vue` 5 分钟可验证状态。
+
+**根因 4：决策时未实际打开 alerts.vue / use-fix-now.ts 验证**
+
+即使读了文档，也应打开 apps/platform/app/pages/alerts.vue 验证 Identifiers 列实际渲染（实际 L520-562 已完整实现）+ apps/platform/app/composables/use-fix-now.ts 验证三态分离 + apps/platform/app/components/alert-run-sidebar.vue 验证 pi-bolt 按钮 + apps/platform/tests/e2e/alerts-fix-now.e2e.test.ts 验证 e2e 覆盖。决策阶段应做"代码侧 anchor 实证"——读代码 ≠ 读文档。
+
+**根因 5：`backlog.md C66` 描述含糊 + `todo.md §M27.1` 任务段基于错误前提**
+
+backlog.md L143 C66-C 描述：
+
+> 当前 `ruleId` 字段已轻量覆盖...；**完整 schema 扩展（A1+A2 后做"独立 `Identifiers` 列"）保留为后续增强候选**，触发条件：用户要求按 GHSA 单独搜索/过滤 / 多 CVE 展开视图
+
+L143「保留为后续增强候选」基于 A1+A2 未闭环前提，但 A1+A2 已 100% 闭环，"后续增强候选"语义不成立。L144 C66-D 无明确「已闭环 + commit hash」标注，与实际状态（M16.2 闭环）不符。
+
+todo.md §M27.1 任务段（L17-48）所有 8 要素（目标 / 范围 / 验收 / 不做什么 / 依赖 / 交付物 / 风险与缓解 / 关键决策）都基于"未落地"错误前提设计。范围段写"本批增强：完整 alerts 视图添加 Identifiers 列"——但完整 alerts 视图已含 Identifiers 列。
+
+### 教训（5 项）
+
+1. **教训 1（阶段启动决策必须对照"已闭环清单"三重交叉核验）**：M27.1 重复评估根本原因是 commit `0ddd4e2` 决策 D2 未做"已闭环检查"——决策 backlog 候选时必须三重交叉核验：(a) `todo-archive.md §当前 + 历史阶段表格` + (b) `git log <候选相关路径>` + (c) **实际打开候选相关代码文件验证现状**。三项中任意一项均可发现 C66-C / C66-D 已闭环。**fix 模式**：(a) 决策 D 阶段前用 `git log --oneline -- <相关路径>` 5 分钟实证；(b) `rg -n "已闭环|不计入本批" docs/plan/todo-archive.md` 扫描已 ahead=0 闭环条目；(c) 对每个候选都打开实际代码 1 分钟确认状态。**wisdom 蒸馏**：新增 principle `principle-stage-launch-must-cross-verify-recent-archive` → 挂 [planning.md §3.4 决策前置交叉核验硬要求](../../standards/planning.md#34-阶段启动决策前置交叉核验硬要求m271-重复评估教训--2026-09-10) + [ai-collaboration.md §1.7 阶段启动重复评估自检流程（PDTFC+ P 阶段必经）](../../standards/ai-collaboration.md#17-阶段启动重复评估自检流程pdtfc-p-阶段必经--m271-重复评估教训)。
+
+2. **教训 2（backlog 描述与实际状态漂移治理）**：backlog.md C66 L143「保留为后续增强候选」+ L144 无明确闭环标注 = 描述与实际状态漂移。**fix 模式**：backlog 候选每次被上收至 todo.md §当前阶段时，必须同步：(a) backlog 候选描述追加"已闭环子任务"明确标注（✅ A1/A2/C/D 已闭环 ahead=0 推 origin/master + ⏸️ B 暂缓）；(b) 关联 commit hash 回填；(c) 「保留为后续增强候选」措辞必须基于"当前未落地"前提，否则删除。本批已修订 backlog.md C66 5 子任务状态标注。**wisdom 蒸馏**：新增 pattern `pattern-backlog-state-must-sync-with-archive-table`。
+
+3. **教训 3（"参考 M16.2 实施"自相矛盾 = 决策者未厘清前提）**：commit `0ddd4e2` D2 决策描述「参考 M16.2 实施：useFixNow composable + alert-run-sidebar 按钮 + alerts-fix-now.e2e.test.ts 6 case + audit」——若 M16.2 仅"参考实施"则 C66-D 未落地，若 M16.2 已 100% 落地则 C66-D 不需 M27.1 增强。（注：本批修订实测 alerts-fix-now.e2e.test.ts 实际 3 case 非 6 case——D2 描述本身 stale；按 W1 audit 警告补修）**fix 模式**：决策描述中出现"参考 NNN 实施"时必须先验证 NNN 是否已落地（`git log --grep="NNN"` + `rg -n "NNN" docs/plan/todo-archive.md` 5 分钟内可验证）；决策前提矛盾必须先厘清才能进入下一步。
+
+4. **教训 4（决策时"代码侧 anchor 实证"是 hard requirement）**：M27.1 决策时仅读 todo-archive.md / backlog.md 文档侧资料，未实际打开 alerts.vue / use-fix-now.ts / scan.post.ts 验证。**fix 模式**：决策 D 阶段必须做"代码侧 anchor 实证"——`cat <候选相关文件>` 或 `grep -n "<候选特征字段>" <候选相关文件>` 验证候选是否已落地；这是 [规划规范 §4.4 大批量归档批次操作规范 §1 anchor 实证](../../standards/planning.md#44-大批量归档批次操作规范) 的延伸应用（不仅 commit 时，决策时也需 anchor 实证）。**wisdom 蒸馏**：新增 principle `principle-decision-must-do-code-side-anchor-verification`。
+
+5. **教训 5（重复评估类错误的 code-auditor 主责边界扩展）**：原 `code-auditor` agent 主责边界仅包含「新需求未默认升级为下一阶段 todo」必查项；本次重复评估错误（M27.1 任务段基于错误前提设计）不属于"新需求默认升级"范畴——属于"已闭环候选被错误纳入当前阶段 todo"。**fix 模式**：扩展 `code-auditor` agent 主责边界 → 新增「阶段启动重复评估自检」必查项——当 todo.md §当前阶段新增条目涉及 backlog 候选时，必须验证该候选对应 backlog 条目描述与 todo-archive.md 历史阶段表格 / commit history / 实际代码状态三者一致；若发现不一致必须 Reject 退回。
+
+### 挂接治理检查点
+
+1. **wisdom.md 蒸馏**：本批 5 教训全部进入 wisdom 蒸馏——M27 阶段新增 1 条 principle（stage-launch-must-cross-verify-recent-archive）+ 1 条 pattern（backlog-state-must-sync-with-archive-table）+ 1 条 principle（decision-must-do-code-side-anchor-verification）。**活跃条目实测 `pnpm distill:wisdom --check` WISDOM_OK 8 active entries**（threshold=20，统计口径：parseWisdom + section classify，historical 段不计入活跃）+ 本批新增 3 条 = **11 活跃条目**（未超 20 阈值）→ 下批次会话可按需蒸馏。W4 audit 警告补修：原「活跃条目 17 条」banner（L7）+「活跃条目 8 + 3 = 11」描述已修正为本实测值；rg 数 19 = 全文档历史 + 当前总命中（含已蒸馏 13 条），并非 active 计数。
+
+2. **docs/standards/planning.md**：新增 §3.4「阶段启动决策前置交叉核验硬要求」——规定 todo.md §当前阶段新增条目时必须三重交叉核验（todo-archive.md 表格 + git log + 实际代码）。挂 wisdom `principle-stage-launch-must-cross-verify-recent-archive`。
+
+3. **docs/standards/ai-collaboration.md**：新增 §1.7「阶段启动重复评估自检流程（PDTFC+ P 阶段必经）」——规定阶段启动 P 阶段必须执行 5 步自检：(a) `git log --oneline -- <相关路径>` 实证；(b) `rg -n "已闭环|不计入本批" docs/plan/todo-archive.md` 扫描；(c) 打开实际代码验证；(d) 决策描述中"参考 NNN 实施"先验证 NNN 是否已落地；(e) `code-auditor` Reject 退回。
+
+4. **code-auditor agent 主责边界扩展**：在 [.github/agents/code-auditor.agent.md](../../../.github/agents/code-auditor.agent.md) 新增「阶段启动重复评估自检」必查项——当 commit 涉及 todo.md §当前阶段新增条目 / 修改时，验证该条目对应 backlog 候选描述与 todo-archive.md 历史阶段表格 / commit history / 实际代码状态三者一致。挂 wisdom `principle-stage-launch-must-cross-verify-recent-archive` + `principle-decision-must-do-code-side-anchor-verification`。
+
+5. **docs/plan/backlog.md**：本批修订 C66 5 子任务状态标注（A1/A2/C/D ✅ 已闭环 + commit hash 回填 + B ⏸️ 暂缓 + 整体上收触发条件修订）。挂 wisdom `pattern-backlog-state-must-sync-with-archive-table`。
+
+6. **docs/plan/todo.md §M27.1**：本批修订状态段（标记已闭环 + 5 子任务现状 100% 复核 + 关联 commit hash 回填 + 重复评估根因 5 处 + 关键决策 D1/D2 修正 + 本批唯一 commit 标注）+ §M27 阶段启动决策 D2 修正 + D5 新增教训治理决策。
+
+### 准入标准复核
+
+本案例（M27.1 C66 告警视图增强 重复评估教训）符合准入标准第 1 条"教训未落入规范"（5 教训涉及决策前置交叉核验 + backlog 状态同步 + 代码侧 anchor 实证 + code-auditor 主责边界扩展，均为新发现实践教训）+ 第 2 条"决策需要溯源"（commit `0ddd4e2` 决策 D2 错误归类是 M27 阶段启动决策的参考案例 + backlog 描述含糊 vs 实际状态漂移是后续阶段 backlog 治理的参考）+ 第 3 条"重复违规预警"（重复评估类错误在依赖 fix-status 的项目 + 长期主线 backlog 候选中可能再次出现，决策前置交叉核验是治本）。
+
+**M27.1 闭环路径**：
+
+- 本批 commit `TBD` docs(plan+governance)：修订 todo.md §M27.1 + backlog.md C66 + planning.md §3.4 + ai-collaboration.md §1.7 + experience-archive §六十四 + wisdom.md governance check point
+- 修订后 todo.md §M27.1 状态：✅ 已闭环（M23.3 + M16.2 已实施，本批不需新增 commit）
+- ahead 状态：M27.1 闭环 + M27 阶段剩余 4 原子条目（M27.2 已 ahead / M27.3 / M27.4 / M27.5）待用户决策启动顺序

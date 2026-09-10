@@ -285,7 +285,7 @@
 
 | 内容类型 | 位置 |
 |:--|:--|
-| 当前阶段活跃任务 | [todo.md](todo.md)（M26 已闭环 + 2026-09-10 归档；M27 候选评估待用户决策启动；详见 [todo.md §M26 阶段归档闭环摘要](todo.md#m26-阶段归档闭环摘要2026-09-10--ahead0--36-commits)） |
+| 当前阶段活跃任务 | [todo.md](todo.md)（当前无活跃阶段；M26 已 2026-09-10 归档，详见 [todo-archive.md §M26](todo-archive.md#m26-平台-ai-研判应用层--批量导入-resource-owner-化--文档站-i18n--license-收口--经验沉淀m261m262m263m264am264bm264cm265-全部已闭环--2026-09-10-归档) + [archive/todo-archive-phases-m26.md](archive/todo-archive-phases-m26.md)） |
 | 已完成阶段归档 | [todo-archive.md](todo-archive.md)（主窗口保留最近 3 个完整段：M26 指针 + M23 + M22 完整段；M19/M20/M21 预防性分片迁出至 [archive/todo-archive-phases-m19-m21.md](archive/todo-archive-phases-m19-m21.md)；早期阶段见 [archive/](archive/)） |
 | 里程碑与阶段交付 | [roadmap.md](roadmap.md)（M26 段已 2026-09-10 完整闭环 + 归档；M26 ahead=0 / 7 原子条目 × 23 commits + 配套 13 commits = 36 commits 全部已推送 origin/master；详见 [roadmap.md §M26](roadmap.md#m26-平台-ai-研判应用层--批量导入-resource-owner-化--文档站-i18n--license-收口--经验沉淀2026-09-08-用户决策方案-a--m264-拆分--m264c-e2e-适配--2026-09-10-已闭环--归档)） |
 | 长期主线 / 候选 / 待人工验收 / 已知边界 | 本文档（按四象限结构；**M26 归档批次同步清理**：C67（已 M26.2 闭环）/ C68（已 M26.1 闭环）/ C69（已 M26.3 闭环）/ M25 follow-up #3 primeicons 降级（已 M26.4a 闭环）/ M25 follow-up #4 baseline 22 warnings 治理（已 M26.4b 闭环）/ M25 follow-up #5 经验归档沉淀（已 M26.5 闭环）全部已闭环移除） |

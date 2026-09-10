@@ -34,6 +34,7 @@
 | M24: PR Check MVP + 治理债 + 测试补强 + 用户体验 | PR Check 状态监测 MVP + M22.7+M22.8 残留根因 + C36 i18n | P1-P3 | 已完成（[todo-archive.md §M24](todo-archive.md#m24-pr-check-mvp--治理债--测试补强--用户体验m241m242m243m244m245-全部已闭环--2026-09-03-归档)） |
 | M25: PrimeUI License 治理 + 平台 AI 研判集成 + lint baseline + M24 follow-up 工具化 | C70 PrimeUI 降级 + C68 AI 研判基础层 + lint baseline + i18n-anchor-check + zod-helpers | P1-P3 | 已完成（[todo-archive.md §M25](todo-archive.md#m25-primeui-license-治理--平台-ai-研判集成--lint-baseline-治理--m24-follow-up-工具化m251m252am253m254-全部已闭环--2026-09-08-归档)） |
 | M26: 平台 AI 研判应用层 + 批量导入 Resource owner 化 + 文档站 i18n + License 收口 + 经验沉淀 | C68 P1 应用层 + C67 + C69 P0 + primeicons 降级 + baseline 22 warnings 治理 + e2e 适配 + 经验归档沉淀 | P1-P3 | 已完成（[todo-archive.md §M26](todo-archive.md#m26-平台-ai-研判应用层--批量导入-resource-owner-化--文档站-i18n--license-收口--经验沉淀m261m262m263m264am264bm264cm265-全部已闭环--2026-09-10-归档)） |
+| M27: 用户体验 + 治理优先 | M27.1 重复评估修正 + M27.2 W1 apps/platform stylelint + M27.3 W2 logger 补测 + M27.4 W4 container-executor 补测 + M27.5 ECONNRESET 候选 ① 诊断 | P1-P3 | 已完成（[todo-archive.md §M27](todo-archive.md#m27-用户体验--治理优先m271m272-w1m273-w2m274-w4m275-全部已闭环--2026-09-10-归档)） |
 
 > **本路线图定位**：按 [规划规范 §2.1](../standards/planning.md) 仅维护阶段概览（目标 / 优先级 / 状态）。详细实施记录 / commit 引用 / 关键决策 / 经验教训见对应归档段（详见下方"## 详细任务"索引）。
 
@@ -268,12 +269,35 @@ per-alert 模型 + reconcile + API 简化 + UI 调整 + backfill 脚本。5 子�
 
 > 详细任务见 [todo-archive.md §M26](todo-archive.md#m26-平台-ai-研判应用层--批量导入-resource-owner-化--文档站-i18n--license-收口--经验沉淀m261m262m263m264am264bm264cm265-全部已闭环--2026-09-10-归档) + [archive/todo-archive-phases-m26.md](archive/todo-archive-phases-m26.md)（完整实施记录 7 原子条目 × 23 commits + 配套 13 commits = 36 commits / ~3240 行净增）
 
+## M27: 用户体验 + 治理优先（2026-09-10 用户决策修订方案 B-1 + 2026-09-10 M27.1 重复评估修正 / 2026-09-10 已闭环 + 归档）
+
+承接 M26 完整闭环后 backlog §短期候选 + M22.7/M22.8 根因 follow-up + M27 启动决策时重复评估教训（D2 修正）。**5 原子条目独立闭环**（2026-09-10 用户决策修订方案 B-1：UX + 治理优先），覆盖 🚀 0 + 🛡️ 2 + 🧪 2 + 📚 教训治理 1，符合 [规划规范 §1.1 L12 类型平衡原则](../standards/planning.md)。
+
+- **M27.1** [P2 📚 教训治理] C66 告警视图增强 重复评估修正（1 docs commit / standard depth）—— M23.3 + M16.2 已实施 C66-C + C66-D，本批无新增代码 commit，仅 1 docs(plan+governance) 修订 todo.md + backlog.md + planning.md + ai-collaboration.md + experience-archive §六十四 + wisdom.md（M27.1 重复评估教训）
+- **M27.2 W1** [P2 🛡️ devEx 治理] apps/platform 增配 stylelint + lint 系列 scripts（2 commits / quick depth）—— apps/platform/package.json devDeps 加 stylelint@17.15.0 + stylelint-config-cmyr@1.0.0 + postcss + 5 条 scripts + stylelint.config.js extends cmyr + .stylelintignore + 根 lint:md/lint:md:check 路径补 apps/**/*.md + 根 lint-staged 加 *.{css,scss,vue} 钩子 + 修复 stylelint baseline 28 个 --fix + 6 个手工修复
+- **M27.3 W2** [P2 🧪 测试治理] logger.ts 26 branches 100% 未覆盖补单测（1 commit / quick depth）—— apps/platform/server/utils/logger.ts 重构（isDirectExecution 守卫 + 导出核心函数）+ 新增 logger.test.ts 覆盖 winston/fs/axiom mock 副作用
+- **M27.4 W4** [P3 🧪 测试治理] container-executor.ts 35.2% branches 覆盖补测（1 commit / quick depth）—— apps/platform/server/services/executor/container-executor.test.ts 新增 32 cases + 23 既有迁移 = 55 cases 全覆盖
+- **M27.5** [P1 🛡️ 治理] M22.7 根因 ① better-auth 1.7 transaction 关闭时序（2 commits / standard depth）—— apps/platform/server/database/typeorm-adapter.ts 添加 [auth-trace] tx begin / callback-resolve / callback-throw 日志（E2E_TEST=true / AUTH_TRACE=1 双开关）+ audit 关闭 follow-up（本地无法稳定复现 ECONNRESET，CI 偶发）
+- **M27 启动相关 docs 收口**（3 commits）：todo.md 清理为最小化骨架 + backlog.md 清理已闭环条目 + 归档 M26 阶段并预防性分片迁出 M19-M21
+- **总投入**：**8 atomic commits 实施 + 3 docs 收口 commits = 11 commits**（ahead=11 待用户主动推送；2026-09-10 实测）
+
+**关键决策 D1-D5**：
+- **D1**：按 §1.1 任务粒度约束（每原子 < 5 commits / < 800 行推荐粒度，< 10 文件 / < 800 行硬阈值）+ §1.1 L12 类型平衡原则选 5 原子
+- **D2**（修正）：M27.1 重复评估错误归正 —— todo.md §M27 阶段启动 commit `0ddd4e2` 决策 D2 错误地把 C66-C / C66-D 归类为"未落地"，修订为 1 docs commit 修正状态
+- **D3**：W1 / W2 / W4 均为 quick depth（单 commit 模式）；M22.7 根因排查为 P1 优先（剩余 ECONNRESET 偶发根因）
+- **D4**：M22 neat-freak 收敛已 M23.0 G1 闭环（不在 M27 复用）；M22.7 根因 follow-up 中 ② Nitro h3 async generator + ③ Playwright 版本对比 + ④ fixtures API 节流留 backlog 后续批次
+- **D5**（新增）：M27 重复评估教训治理 —— 修订 planning.md §3.4「决策前置交叉核验」硬要求 + ai-collaboration.md §1.7「阶段启动重复评估自检」流程 + backlog.md C66 5 子任务现状明确标注 + experience-archive §六十四 完整教训 + wisdom.md governance check point「阶段启动必须对照 todo-archive.md 最近 3 个阶段表格 + commit history + 实际代码状态三重交叉核验」
+
+**ahead commits 实证**：`git rev-list HEAD ^origin/master --count` = **11**（M27 全部 11 commits ahead 待用户主动推送；2026-09-10 实测）
+
+> 详细任务见 [todo-archive.md §M27](todo-archive.md#m27-用户体验--治理优先m271m272-w1m273-w2m274-w4m275-全部已闭环--2026-09-10-归档)（指针段 + 关键 commit 实证模式，与 M26 段同源策略；完整实施记录通过 `git log` 关键 commit 链查）
+
 ---
 
 ## 详细任务
 
-- 当前阶段任务：[todo.md](todo.md)（M26 已闭环 + 2026-09-10 归档；M27 候选评估待用户决策启动）
-- 已归档阶段：[todo-archive.md](todo-archive.md)（主窗口保留最近 3 个完整段：2026-09-10 M26 指针段 + 2026-09-02 M23 + 2026-09-01 M22 完整段；早期阶段见 [archive/index.md](archive/index.md) 分片索引；M19 / M20 / M21 已 2026-09-10 M26 归档批次预防性分片迁出至 [archive/todo-archive-phases-m19-m21.md](archive/todo-archive-phases-m19-m21.md)）
+- 当前阶段任务：[todo.md](todo.md)（M27 已闭环 + 2026-09-10 归档；M28 候选评估待用户决策启动）
+- 已归档阶段：[todo-archive.md](todo-archive.md)（主窗口保留最近 4 个完整段：2026-09-10 M27 + 2026-09-10 M26 指针段 + 2026-09-02 M23 + 2026-09-01 M22 完整段；早期阶段见 [archive/index.md](archive/index.md) 分片索引；M19 / M20 / M21 已 2026-09-10 M26 归档批次预防性分片迁出至 [archive/todo-archive-phases-m19-m21.md](archive/todo-archive-phases-m19-m21.md)）
 - 后续阶段任务（延期项 + 未排期增强候选）：[backlog.md](backlog.md)
 
 ## 交付原则

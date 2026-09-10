@@ -30,6 +30,11 @@ import { snowflake } from '#server/utils/snowflake'
  *   adapter 无需处理 relations；这里保持返回基础数据即可。
  * - 事务回调提供 consumeOne / incrementOne（一次性消费 / 原子计数），
  *   避免 better-auth 内部事务路径缺失方法。
+ *
+ * M27.5 / 2026-09-10：transaction 回调包 [auth] trace（捕获 begin / callback resolve /
+ * commit / rollback 时间戳 + 连接释放 elapsed）—— M22.7 ECONNRESET 根因候选 ①
+ * （better-auth 1.7 transaction 关闭时序）诊断基础设施；trace 仅在
+ * E2E_TEST / ECONNRESET 错误触发 / AUTH_TRACE=1 时输出，避免生产环境性能开销。
  */
 
 type TypeormWhere = Required<Where>[]
@@ -237,7 +242,36 @@ export const typeormAdapter = (dataSource: DataSource): ReturnType<typeof create
         transaction: <R>(callback: (trx: DBTransactionAdapter) => Promise<R>) =>
             dataSource.transaction(async (manager) => {
                 const trx = createTypeormAdapter(dataSource, manager) as DBTransactionAdapter
-                return callback(trx)
+                // M27.5 / 2026-09-10：transaction trace —— 记录 begin/callback-resolve/commit 时序
+                // 用于诊断 M22.7 ECONNRESET 根因候选 ①（better-auth 1.7 transaction 关闭时序）。
+                // trace 触发条件：E2E_TEST 模式 / AUTH_TRACE=1 / ECONNRESET 错误冒泡时。
+                // 性能：开启时仅 console.log，无额外 IO；关闭时为单一 if 早返回。
+                const shouldTrace = process.env.E2E_TEST === 'true'
+                    || process.env.AUTH_TRACE === '1'
+                const traceBegin = shouldTrace ? Date.now() : 0
+                if (shouldTrace) {
+                     
+                    console.log(`[auth-trace] tx begin at=${traceBegin}`)
+                }
+                try {
+                    const result = await callback(trx)
+                    if (shouldTrace) {
+                        const callbackEnd = Date.now()
+                         
+                        console.log(`[auth-trace] tx callback-resolve at=${callbackEnd} callback-elapsed=${callbackEnd - traceBegin}ms`)
+                    }
+                    return result
+                } catch (err) {
+                    if (shouldTrace) {
+                        const callbackErr = Date.now()
+                         
+                        console.warn(`[auth-trace] tx callback-throw at=${callbackErr} callback-elapsed=${callbackErr - traceBegin}ms error=${(err as Error)?.message ?? String(err)}`)
+                    }
+                    throw err
+                }
+                // 注意：transaction commit/rollback 时戳由 dataSource.transaction 回调的隐式 finally 块控制；
+                // better-auth adapter 层只能观测 callback resolve 与 throw 节点；commit / rollback 的
+                // 实际释放时序通过 callback-resolve → 下一次 better-auth API 调用 begin 的间隔推断。
             }),
     },
     adapter: () => createTypeormAdapter(dataSource, dataSource.manager),

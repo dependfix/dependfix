@@ -1,0 +1,337 @@
+{
+  "_meta": {
+    "description": "Code Scanning 样本 fixture 模板（M28.3 / C15）",
+    "generated_at": "2026-09-11T01:25:06.755Z",
+    "seed_repos_count": 32,
+    "languages": [
+      "js",
+      "ts",
+      "py",
+      "java",
+      "go",
+      "ruby"
+    ]
+  },
+  "samples": [
+    {
+      "owner": "facebook",
+      "repo": "react",
+      "language": "js",
+      "has_code_scanning": false,
+      "alert_count": 0,
+      "unique_rule_count": 0,
+      "rule_ids": [],
+      "severity_breakdown": {}
+    },
+    {
+      "owner": "vuejs",
+      "repo": "core",
+      "language": "js",
+      "has_code_scanning": false,
+      "alert_count": 0,
+      "unique_rule_count": 0,
+      "rule_ids": [],
+      "severity_breakdown": {}
+    },
+    {
+      "owner": "microsoft",
+      "repo": "vscode",
+      "language": "ts",
+      "has_code_scanning": false,
+      "alert_count": 0,
+      "unique_rule_count": 0,
+      "rule_ids": [],
+      "severity_breakdown": {}
+    },
+    {
+      "owner": "angular",
+      "repo": "angular.js",
+      "language": "js",
+      "has_code_scanning": false,
+      "alert_count": 0,
+      "unique_rule_count": 0,
+      "rule_ids": [],
+      "severity_breakdown": {}
+    },
+    {
+      "owner": "nodejs",
+      "repo": "node",
+      "language": "js",
+      "has_code_scanning": false,
+      "alert_count": 0,
+      "unique_rule_count": 0,
+      "rule_ids": [],
+      "severity_breakdown": {}
+    },
+    {
+      "owner": "expressjs",
+      "repo": "express",
+      "language": "js",
+      "has_code_scanning": false,
+      "alert_count": 0,
+      "unique_rule_count": 0,
+      "rule_ids": [],
+      "severity_breakdown": {}
+    },
+    {
+      "owner": "webpack",
+      "repo": "webpack",
+      "language": "js",
+      "has_code_scanning": false,
+      "alert_count": 0,
+      "unique_rule_count": 0,
+      "rule_ids": [],
+      "severity_breakdown": {}
+    },
+    {
+      "owner": "mrdoob",
+      "repo": "three.js",
+      "language": "js",
+      "has_code_scanning": false,
+      "alert_count": 0,
+      "unique_rule_count": 0,
+      "rule_ids": [],
+      "severity_breakdown": {}
+    },
+    {
+      "owner": "django",
+      "repo": "django",
+      "language": "py",
+      "has_code_scanning": false,
+      "alert_count": 0,
+      "unique_rule_count": 0,
+      "rule_ids": [],
+      "severity_breakdown": {}
+    },
+    {
+      "owner": "pallets",
+      "repo": "flask",
+      "language": "py",
+      "has_code_scanning": false,
+      "alert_count": 0,
+      "unique_rule_count": 0,
+      "rule_ids": [],
+      "severity_breakdown": {}
+    },
+    {
+      "owner": "psf",
+      "repo": "requests",
+      "language": "py",
+      "has_code_scanning": false,
+      "alert_count": 0,
+      "unique_rule_count": 0,
+      "rule_ids": [],
+      "severity_breakdown": {}
+    },
+    {
+      "owner": "pallets",
+      "repo": "click",
+      "language": "py",
+      "has_code_scanning": false,
+      "alert_count": 0,
+      "unique_rule_count": 0,
+      "rule_ids": [],
+      "severity_breakdown": {}
+    },
+    {
+      "owner": "python",
+      "repo": "cpython",
+      "language": "py",
+      "has_code_scanning": false,
+      "alert_count": 0,
+      "unique_rule_count": 0,
+      "rule_ids": [],
+      "severity_breakdown": {}
+    },
+    {
+      "owner": "pydantic",
+      "repo": "pydantic",
+      "language": "py",
+      "has_code_scanning": false,
+      "alert_count": 0,
+      "unique_rule_count": 0,
+      "rule_ids": [],
+      "severity_breakdown": {}
+    },
+    {
+      "owner": "spring-projects",
+      "repo": "spring-framework",
+      "language": "java",
+      "has_code_scanning": false,
+      "alert_count": 0,
+      "unique_rule_count": 0,
+      "rule_ids": [],
+      "severity_breakdown": {}
+    },
+    {
+      "owner": "apache",
+      "repo": "kafka",
+      "language": "java",
+      "has_code_scanning": false,
+      "alert_count": 0,
+      "unique_rule_count": 0,
+      "rule_ids": [],
+      "severity_breakdown": {}
+    },
+    {
+      "owner": "elastic",
+      "repo": "elasticsearch",
+      "language": "java",
+      "has_code_scanning": false,
+      "alert_count": 0,
+      "unique_rule_count": 0,
+      "rule_ids": [],
+      "severity_breakdown": {}
+    },
+    {
+      "owner": "google",
+      "repo": "guava",
+      "language": "java",
+      "has_code_scanning": false,
+      "alert_count": 0,
+      "unique_rule_count": 0,
+      "rule_ids": [],
+      "severity_breakdown": {}
+    },
+    {
+      "owner": "square",
+      "repo": "okhttp",
+      "language": "java",
+      "has_code_scanning": false,
+      "alert_count": 0,
+      "unique_rule_count": 0,
+      "rule_ids": [],
+      "severity_breakdown": {}
+    },
+    {
+      "owner": "ReactiveX",
+      "repo": "RxJava",
+      "language": "java",
+      "has_code_scanning": false,
+      "alert_count": 0,
+      "unique_rule_count": 0,
+      "rule_ids": [],
+      "severity_breakdown": {}
+    },
+    {
+      "owner": "gin-gonic",
+      "repo": "gin",
+      "language": "go",
+      "has_code_scanning": false,
+      "alert_count": 0,
+      "unique_rule_count": 0,
+      "rule_ids": [],
+      "severity_breakdown": {}
+    },
+    {
+      "owner": "gorilla",
+      "repo": "mux",
+      "language": "go",
+      "has_code_scanning": false,
+      "alert_count": 0,
+      "unique_rule_count": 0,
+      "rule_ids": [],
+      "severity_breakdown": {}
+    },
+    {
+      "owner": "spf13",
+      "repo": "cobra",
+      "language": "go",
+      "has_code_scanning": false,
+      "alert_count": 0,
+      "unique_rule_count": 0,
+      "rule_ids": [],
+      "severity_breakdown": {}
+    },
+    {
+      "owner": "gohugoio",
+      "repo": "hugo",
+      "language": "go",
+      "has_code_scanning": false,
+      "alert_count": 0,
+      "unique_rule_count": 0,
+      "rule_ids": [],
+      "severity_breakdown": {}
+    },
+    {
+      "owner": "prometheus",
+      "repo": "prometheus",
+      "language": "go",
+      "has_code_scanning": false,
+      "alert_count": 0,
+      "unique_rule_count": 0,
+      "rule_ids": [],
+      "severity_breakdown": {}
+    },
+    {
+      "owner": "caddyserver",
+      "repo": "caddy",
+      "language": "go",
+      "has_code_scanning": false,
+      "alert_count": 0,
+      "unique_rule_count": 0,
+      "rule_ids": [],
+      "severity_breakdown": {}
+    },
+    {
+      "owner": "rails",
+      "repo": "rails",
+      "language": "ruby",
+      "has_code_scanning": false,
+      "alert_count": 0,
+      "unique_rule_count": 0,
+      "rule_ids": [],
+      "severity_breakdown": {}
+    },
+    {
+      "owner": "jekyll",
+      "repo": "jekyll",
+      "language": "ruby",
+      "has_code_scanning": false,
+      "alert_count": 0,
+      "unique_rule_count": 0,
+      "rule_ids": [],
+      "severity_breakdown": {}
+    },
+    {
+      "owner": "discourse",
+      "repo": "discourse",
+      "language": "ruby",
+      "has_code_scanning": false,
+      "alert_count": 0,
+      "unique_rule_count": 0,
+      "rule_ids": [],
+      "severity_breakdown": {}
+    },
+    {
+      "owner": "fastlane",
+      "repo": "fastlane",
+      "language": "ruby",
+      "has_code_scanning": false,
+      "alert_count": 0,
+      "unique_rule_count": 0,
+      "rule_ids": [],
+      "severity_breakdown": {}
+    },
+    {
+      "owner": "rubocop",
+      "repo": "rubocop",
+      "language": "ruby",
+      "has_code_scanning": false,
+      "alert_count": 0,
+      "unique_rule_count": 0,
+      "rule_ids": [],
+      "severity_breakdown": {}
+    },
+    {
+      "owner": "sidekiq",
+      "repo": "sidekiq",
+      "language": "ruby",
+      "has_code_scanning": false,
+      "alert_count": 0,
+      "unique_rule_count": 0,
+      "rule_ids": [],
+      "severity_breakdown": {}
+    }
+  ]
+}

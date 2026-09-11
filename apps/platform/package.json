@@ -24,7 +24,9 @@
     "db:backfill:dry-run": "tsx server/database/scripts/backfill-scan-result.ts --dry-run",
     "db:backfill": "tsx server/database/scripts/backfill-scan-result.ts --apply",
     "db:restore": "tsx server/database/scripts/db-restore.ts",
-    "db:doctor": "tsx server/database/scripts/db-doctor.ts"
+    "db:doctor": "tsx server/database/scripts/db-doctor.ts",
+    "trace:set-cookie": "node scripts/set-cookie-trace.mjs",
+    "trace:set-cookie:md": "SET_COOKIE_TRACE_FORMAT=md node scripts/set-cookie-trace.mjs"
   },
   "dependencies": {
     "@dependfix/core": "workspace:*",

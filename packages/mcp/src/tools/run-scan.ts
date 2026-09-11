@@ -2,7 +2,17 @@ import { DependfixApp, DEFAULT_RUNTIME_CONFIG, type RuntimeConfig } from '@depen
 import { isValidRepoIdentifier } from '@dependfix/core'
 import { requireToken, toToolError } from './errors'
 
-/** `run_scan` 返回结构 */
+/** `run_scan` 返回结构（M28.4 RunResult 对齐 + 向后兼容）
+ *
+ * 字段对齐 `RunResult` 接口（packages/core/src/report/types.ts）：
+ * - 8 字段保留（向后兼容——老客户端忽略未知字段）：
+ *   ok / exitCode / runId / summary / repositories / errors
+ * - 5 字段新增（M28.4 RunResult 对齐）：
+ *   startedAt / finishedAt / config / alerts / actions
+ *
+ * 2 字段可选（按 --ai 开启 + 供应链信号决定；不在 RunScanResult 必填）：
+ *   aiUsage? / supplyChainWarnings?（暂不映射——避免 RunScanResult 类型膨胀）
+ */
 export type RunScanResult =
     | {
         ok: true
@@ -11,6 +21,16 @@ export type RunScanResult =
         summary: import('@dependfix/core').RunSummary
         repositories: Array<Record<string, unknown>>
         errors: Array<Record<string, unknown>>
+        /** RunResult.startedAt：ISO 8601 字符串 */
+        startedAt: string
+        /** RunResult.finishedAt：ISO 8601 字符串 */
+        finishedAt: string
+        /** RunResult.config：本次运行配置快照（RuntimeConfig） */
+        config: import('@dependfix/core').RunReportConfig
+        /** RunResult.alerts：所有仓库合并归一化告警 */
+        alerts: Array<import('@dependfix/core').NormalizedSecurityAlert>
+        /** RunResult.actions：所有仓库合并的修复动作 */
+        actions: Array<import('@dependfix/core').FixAction>
     }
     | { ok: false, error: string }
 
@@ -107,6 +127,11 @@ export const runScan = async (input: {
                 category: e.category,
                 message: e.message,
             })),
+            startedAt: result.startedAt,
+            finishedAt: result.finishedAt,
+            config: result.config,
+            alerts: result.alerts,
+            actions: result.actions,
         }
     } catch (error) {
         return toToolError(error)

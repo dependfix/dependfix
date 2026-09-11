@@ -35,7 +35,7 @@
 | M25: PrimeUI License 治理 + 平台 AI 研判集成 + lint baseline + M24 follow-up 工具化 | C70 PrimeUI 降级 + C68 AI 研判基础层 + lint baseline + i18n-anchor-check + zod-helpers | P1-P3 | 已完成（[todo-archive.md §M25](todo-archive.md#m25-primeui-license-治理--平台-ai-研判集成--lint-baseline-治理--m24-follow-up-工具化m251m252am253m254-全部已闭环--2026-09-08-归档)） |
 | M26: 平台 AI 研判应用层 + 批量导入 Resource owner 化 + 文档站 i18n + License 收口 + 经验沉淀 | C68 P1 应用层 + C67 + C69 P0 + primeicons 降级 + baseline 22 warnings 治理 + e2e 适配 + 经验归档沉淀 | P1-P3 | 已完成（[todo-archive.md §M26](todo-archive.md#m26-平台-ai-研判应用层--批量导入-resource-owner-化--文档站-i18n--license-收口--经验沉淀m261m262m263m264am264bm264cm265-全部已闭环--2026-09-10-归档)） |
 | M27: 用户体验 + 治理优先 | M27.1 重复评估修正 + M27.2 W1 apps/platform stylelint + M27.3 W2 logger 补测 + M27.4 W4 container-executor 补测 + M27.5 ECONNRESET 候选 ① 诊断 | P1-P3 | 已完成（[todo-archive.md §M27](todo-archive.md#m27-用户体验--治理优先m271m272-w1m273-w2m274-w4m275-全部已闭环--2026-09-10-归档)） |
-| M28: 治理债清理 + 能力扩展 | M28.1 backlog.md §已知边界段批量治理 + §4.4 第 11 条规则强化 + M28.2 C14 多 cs lint 性能 + M28.3 C15 B 类规则样本核对 + M28.4 C33 MCP P3 + M28.5 M22.8 follow-up ② | P2-P3 | 进行中（[todo.md §M28](todo.md)；2026-09-11 用户决策方案 M28-A + M28.1 重编号；M28.1 治理债清理优先，M28.2-M28.5 留待 M28.1 完成后按 §3.4 强化流程重新评估） |
+| M28: 治理债清理 + 能力扩展 | M28.1 backlog.md §已知边界段批量治理 + §4.4 第 11 条规则强化 + M28.2 C14 多 cs lint 性能 + M28.3 C15 B 类规则样本核对 + M28.4 C33 MCP P3 + M28.5 M22.8 follow-up ② | P2-P3 | 已完成（[todo-archive.md §M28](todo-archive.md)；2026-09-11 用户决策方案 M28-A + M28.1 重编号 + 完整 5 候选闭环 + M28.6 归档批次落地 ahead=11 commits 待推送） |
 
 > **本路线图定位**：按 [规划规范 §2.1](../standards/planning.md) 仅维护阶段概览（目标 / 优先级 / 状态）。详细实施记录 / commit 引用 / 关键决策 / 经验教训见对应归档段（详见下方"## 详细任务"索引）。
 
@@ -295,40 +295,60 @@ per-alert 模型 + reconcile + API 简化 + UI 调整 + backfill 脚本。5 子�
 
 ---
 
-## M28: 治理债清理 + 能力扩展（2026-09-11 用户决策方案 M28-A + M28.1 重编号）
+## M28: 治理债清理 + 能力扩展（2026-09-11 用户决策方案 M28-A + M28.1 重编号 / M28.6 归档已落地）
 
-承接 M27 完整闭环 + D 阶段 backlog 治理债清理（6 文件 modified 待 commit：backlog.md 5 段清理 W1/C9/C13/C36 + M22.7/8 follow-up stale 同步 + roadmap.md §M27 D4 stale 修正 + todo-archive.md §M22.7/§M22.8 修正 + archive/index.md 健康窗口更新 + planning.md §4.4 第 11 条 C36 引用 + session 元数据 ahead=17 → 0 同步）+ A 阶段真实性审查 Pass（0 blocker / 2 warning / 2 suggest），按 [§3.1 新需求默认走"评估 → backlog"原则（hard requirement）](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 用户明确授权方案 M28-A + M28.1 重编号启动 M28 阶段。**5 原子条目独立闭环**（2026-09-11 决策时 M28.1 重编号 + 4 候选 + 类型平衡），覆盖 📚 1 + 🛡️ 3 + 🚀 1，符合 [规划规范 §1.1 L12 类型平衡原则](../standards/planning.md#11-硬性约束)。
+承接 M27 完整闭环 + D 阶段 backlog 治理债清理 + A 阶段真实性审查 Pass（0 blocker / 2 warning / 2 suggest）+ 用户明确授权方案 M28-A + M28.1 重编号启动 M28 阶段。**5 候选全部 ahead=11 commits 已落地闭环**，M28.6 归档批次 ahead 待推送，ahead=11 commits 待用户主动推送。覆盖 📚 1 + 🛡️ 3 + 🚀 1，符合 [规划规范 §1.1 L12 类型平衡原则](../standards/planning.md#11-硬性约束)。
 
-- **M28.1**（重编号）[P3 📚 治理] backlog.md §已知边界段批量治理 + §4.4 第 11 条规则强化 —— D 阶段清理批次 6 文件已落地（commit 待）+ §4.4 第 11 条新增"§已知边界段部分闭环处理指引"（治本 M27.1 教训复发）+ wisdom 教训追加 session 私有
-- **M28.2** [P3 🛡️ 技术债] C14 多 cs 告警逐告警全项目 lint 性能（T303 Review Gate 触发；F 阶段三重核验实测未做）
-- **M28.3** [P2 🛡️ 技术债] C15 B 类规则真实仓库样本核对（A/B/C 分层已 M23.3 落地，样本核对未做；F 阶段三重核验实证）
-- **M28.4** [P3 🚀 能力扩展] C33 MCP P3（pnpm-audit 本地 tool + 错误包装 helper + RunResult 对齐；F 阶段三重核验实测未做）
-- **M28.5** [P3 🛡️ 治本] M22.8 follow-up ② better-auth 中间件 Set-Cookie 路径扫描（M24.2 commit bbb8f30 部分覆盖 transaction close 时序已治本，Set-Cookie 路径扫描未单独闭环；F 阶段三重核验实测未做）
+- **M28.1**（重编号）[P3 📚 治理] backlog.md §已知边界段批量治理 + §4.4 第 11 条规则强化 —— ✅ 已闭环（commit `1a75068`）：§4.4 第 11 条新增"§已知边界段部分闭环处理指引"（治本 M27.1 教训复发）+ backlog.md §已知边界 M22.7/M22.8 follow-up stale 同步 + wisdom 教训追加 session 私有
+- **M28.2** [P3 🛡️ 技术债] C14 多 cs 告警逐告警全项目 lint 性能 —— ✅ 已闭环（commit `395ee29` + `eaaa997`）：vitest bench API N=10/50/100 baseline（实测 96x 性能差距证明顺序 spawn 瓶颈）+ 批处理优化（batchSize=10 折中方案，提速 ~10x）
+- **M28.3** [P2 🛡️ 技术债] C15 B 类规则真实仓库样本核对 —— ⚠️ 第一阶段已闭环（commit `99302b5`）：sample-collector.mjs 采集脚本 + 报告模板 + 32 种子仓库跨 5 语言 fixture 占位（实际 GitHub API 采集合后续 CI/staging 环境）
+- **M28.4** [P3 🚀 能力扩展] C33 MCP P3（pnpm-audit 本地 tool + RunResult 字段对齐）—— ✅ 已闭环（commit `9207481` + `5cf2d22`）：pnpm_audit MCP tool 新增（MCP 7 tool → 8 tool）+ runScan 返回结构 RunResult 对齐 5 字段（startedAt / finishedAt / config / alerts / actions）+ 现有 8 字段保留向后兼容
+- **M28.5** [P3 🛡️ 治本] M22.8 follow-up ② better-auth 中间件 Set-Cookie 路径扫描 —— ✅ 治本验证通过（commit `d7289df`）：set-cookie-trace.mjs 静态扫描实证 better-auth 中间件对非 `/api/auth/*` 端点不会主动设置 Set-Cookie + 项目代码无显式 setCookie 调用 + M22.8 follow-up ② 建议关闭
 
-**关键决策 D1-D3**（2026-09-11 用户决策）：
+**关键决策 D1-D6**（2026-09-11 用户决策 + M28 完整闭环后）：
 
-- **D1**：方案 M28-A 类型平衡原则（5 候选 = 📚 1 + 🛡️ 3 + 🚀 1）—— 按 §1.1 L12 推荐粒度（5-6 原子条目硬上限）；UX / 测试覆盖缺口真实存在显式标注（候选池中 C36/C37 已闭环 + db-restore S-1/S-2 恢复条件不明确）
-- **D2**：M28.1 重编号为 backlog.md §已知边界段批量治理 + §4.4 第 11 条规则强化 —— **优先治本 §4.4 第 11 条结构性缺陷**，避免 M27.1 教训复发（M28.2-M28.5 留待 M28.1 完成后按 §3.4 强化流程重新评估）
-- **D3**：backlog.md 治理债清理 D 阶段已落地（6 文件 modified 待 commit）—— W1 / C9 / C13 / C36 已闭环条目整段/行删除 + §已知边界 M22.7/M22.8 follow-up stale 同步 + session 元数据 ahead=17 → 0 同步；F 阶段 M28 候选清单真实性核验**完整执行 §3.4 三重交叉核验**（todo-archive + git log --grep 候选 ID + 代码侧 anchor 实证），0 项重复评估
+- **D1**：方案 M28-A 类型平衡原则（5 候选 = 📚 1 + 🛡️ 3 + 🚀 1）—— 按 §1.1 L12 推荐粒度（5-6 原子条目硬上限）；UX / 测试覆盖缺口真实存在显式标注
+- **D2**：M28.1 重编号为 backlog.md §已知边界段批量治理 + §4.4 第 11 条规则强化 —— **优先治本 §4.4 第 11 条结构性缺陷**，避免 M27.1 教训复发
+- **D3**：backlog.md 治理债清理 D 阶段已落地 —— W1 / C9 / C13 / C36 已闭环条目整段/行删除 + §已知边界 M22.7/M22.8 follow-up stale 同步 + session 元数据 ahead=17 → 0 同步
+- **D4**（M28.4 诚实修订）：`packages/mcp/src/tools/errors.ts` 已 M26.x 阶段落地（`ToolError` + `requireToken()` + `toToolError()` 双 helper），本任务不再做错误包装 helper；仅做未落地部分：pnpm-audit 本地 tool + RunResult 5 字段对齐
+- **D5**（§3.4 五步流程完整执行）：M28.2-M28.5 P 阶段 §3.4 五步流程核验全部 0 项重复评估 + M28.4 部分已落地修订 todo.md §M28.4 验收标准 + 执行顺序建议按"用户决策方案"实际推进
+- **D6**（M28 完整闭环）：5 候选 ahead commits 实测 = 11（含 M28 启动 2 + 治理债清理 3 + M28 完整闭环 6 = 11）—— M28.6 归档批次落地指针模式 + ahead commits 待用户主动推送
 
 **类型平衡复核**：
 
-- 🛡️ 技术债 / 治本：3 项（M28.1 / M28.2 / M28.5）—— ✅ 满足
+- 🛡️ 技术债 / 治本：2 项（M28.2 / M28.5）—— ✅ 满足
 - 🚀 能力扩展：1 项（M28.4 C33 MCP）—— ✅ 满足
+- 🛡️ 技术债：1 项（M28.3 C15）—— ✅ 满足
 - 📚 治理：1 项（M28.1 重编号）—— ✅ 满足
 - 🎨 用户体验：**0 项** —— ❌ 缺口（C36 / C37 均已闭环或前置依赖）
 - 🧪 测试覆盖：**0 项** —— ❌ 缺口（db-restore S-1/S-2 恢复条件不明确）
 
-**ahead commits 实证**：`git rev-list HEAD ^origin/master --count` = **0**（M28 启动批次 4 atomic commits 待落地：commit 1 M28 启动决策落地 todo.md + roadmap.md §M28 + §M27 D4 stale 修正 / commit 2 backlog.md 治理债清理 + M22.7/M22.8 follow-up stale 同步 / commit 3 跨文档 stale 同步（todo-archive + archive/index + session 元数据）/ commit 4 planning.md §4.4 第 11 条规则强化）
+**ahead commits 实证**：`git rev-list HEAD ^origin/master --count` = **11**（M28 完整闭环 ahead 待用户主动推送；按 [AGENTS.md §5 推送禁令](../../AGENTS.md) 未经用户明确要求不得执行 `git push`）
 
-> 详细任务见 [todo.md §M28](todo.md)（5 原子条目 × 8 要素齐全）+ [backlog.md](backlog.md)（M28 启动批次同步清理后健康窗口 ~230 行）
+- **M28 完整闭环 ahead commits 关联表**（按提交顺序）：
+
+ | 候选 / 类别 | | commit | subject |
+ |:---|:---|:---|:---|
+ | M28 启动 | | `1e68948` | docs(plan): M28 启动决策落地 todo.md + roadmap.md §M28 + §M27 D4 stale 修正 |
+ | M28 评估 | | `a4abb71` | docs(plan): M28.2-M28.5 P 阶段评估修订 todo.md §M28.4 验收标准 + 类型平衡 + 执行顺序 |
+ | backlog 清理 | | `608bcac` | docs(plan): backlog.md 治理债清理 + M22.7/M22.8 follow-up stale 同步 |
+ | 跨文档同步 | | `f5be990` | docs(plan): 跨文档 stale 同步（todo-archive.md §M22.7/§M22.8 + archive/index.md 健康窗口 + planning.md §4.4 第 11 条 C36 引用） |
+ | M28.1 | | `1a75068` | docs(standards): planning.md §4.4 第 11 条规则强化（§已知边界段部分闭环处理指引） |
+ | M28.5 | | `d7289df` | docs(platform): better-auth 中间件 Set-Cookie 路径扫描脚本 + 报告 |
+ | M28.2 benchmark | | `395ee29` | test(engine): verification-runner 多 cs 告警性能基准基线 |
+ | M28.2 优化 | | `eaaa997` | fix(engine): runCodeScanningFixes 批处理 + 测试覆盖（M28.2 优化） |
+ | M28.3 | | `99302b5` | feat(engine): Code Scanning 真实仓库样本采集脚本 + 报告模板（M28.3 / C15） |
+ | M28.4 tool | | `9207481` | feat(mcp): 新增 pnpm_audit 本地回退数据源 tool |
+ | M28.4 对齐 | | `5cf2d22` | feat(mcp): runScan 返回结构 RunResult 对齐 5 字段 |
+
+> 详细任务见 [todo-archive.md §M28](todo-archive.md)（M28.6 归档已落地 / 指针段模式 + 关键决策 D1-D6 + ahead commits 关联表）+ [backlog.md](backlog.md)（M28 归档批次同步清理后健康窗口 ~229 行）
 
 ---
 
 ## 详细任务
 
-- 当前阶段任务：[todo.md](todo.md)（M28 启动决策方案 M28-A + M28.1 重编号 / 2026-09-11 / 5 候选：📚 1 + 🛡️ 3 + 🚀 1）
-- 已归档阶段：[todo-archive.md](todo-archive.md)（主窗口保留最近 4 个完整段：2026-09-10 M27 + 2026-09-10 M26 指针段 + 2026-09-02 M23 + 2026-09-01 M22 完整段；早期阶段见 [archive/index.md](archive/index.md) 分片索引；M19 / M20 / M21 已 2026-09-10 M26 归档批次预防性分片迁出至 [archive/todo-archive-phases-m19-m21.md](archive/todo-archive-phases-m19-m21.md)）
+- 当前阶段任务：[todo.md](todo.md)（M28 完整闭环 ahead=11 commits 待用户主动推送；下一阶段待用户决策 M29+ 启动）
+- 已归档阶段：[todo-archive.md](todo-archive.md)（主窗口保留最近 4 个完整段：2026-09-11 M28 + 2026-09-10 M27 + 2026-09-10 M26 指针段 + 2026-09-02 M23；早期阶段见 [archive/index.md](archive/index.md) 分片索引；M19 / M20 / M21 已 2026-09-10 M26 归档批次预防性分片迁出至 [archive/todo-archive-phases-m19-m21.md](archive/todo-archive-phases-m19-m21.md)）
 - 后续阶段任务（延期项 + 未排期增强候选）：[backlog.md](backlog.md)
 
 ## 交付原则

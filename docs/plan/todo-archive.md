@@ -288,7 +288,7 @@
 > **修复方案（最小变动 + 兜底 + 根因追踪分离）**：
 > - 已落地：e2e/fixtures helper 加 `maxRetries: 2`（commit `f617b56` test(platform)）。实证 Playwright 1.62.1 `_sendRequestWithRetries` 源码（`playwright-core@1.62.1/lib/coreBundle.js:25870-25895`）仅对 `e.code === 'ECONNRESET'` 触发 250ms 指数 backoff 重试（其他网络错误码如 ECONNREFUSED / ETIMEDOUT 不重试）；maxRetries=2 走 250ms → 500ms → 1000ms，正好覆盖"首请求 ECONNRESET + 异步资源清理收敛后第二次成功"窗口
 > - 不触动 server handler：本地 / CI 行为等价；handler 单元测试 + 真实路由测试均通过
-> - **未落地（根因排查）**：登记 M23 阶段规划 backlog 候选（按 ROI 排序）：① better-auth 1.7 transaction 关闭时序 → `getAuth()` 加 trace 日志 + `ds.transaction` 包装打印 begin/commit 时间戳；② Nitro h3 `defineEventHandler` async generator 行为；③ SQLite WAL 模式 + `journalMode=delete` 切 WAL + `busy_timeout` 消解并发事务持锁；④ fixtures API 请求间 100ms 节流（经验性方案，不作为唯一修复）
+> - **未落地（根因排查）**：登记 M23 阶段规划 backlog 候选（按 ROI 排序）：① better-auth 1.7 transaction 关闭时序 → `getAuth()` 加 trace 日志 + `ds.transaction` 包装打印 begin/commit 时间戳（M27.5 commit `b252f93` feat(platform) 已落地 better-auth transaction trace 诊断基础设施——`AUTH_TRACE=1` / `E2E_TEST=true` 双开关，待 CI 复现一次确认是否仍存在 ECONNRESET）；② Nitro h3 `defineEventHandler` async generator 行为（**2026-09-03 M24.2 commit `bbb8f30` 闭环**——源码判定非根因：`apps/platform/server/api/e2e/fixtures.{post,delete}.ts` 均为 `async (event) => {}` 普通 async function 非 `async function*`；h3 `_callHandler` 走 `await handler(event)` 返回 `Promise<value>`；详见 [经验归档 §五十七 M24.2 候选 ②](../design/governance/experience-archive-§49-§57-recent-investigation.md)）；③ SQLite WAL 模式 + `journalMode=delete` 切 WAL + `busy_timeout` 消解并发事务持锁（**2026-09-02 M23.1 commit `2ffaa45` 闭环**——落地 WAL + busy_timeout 优化）；④ fixtures API 请求间 100ms 节流（**2026-09-03 M24.2 commit `bbb8f30` 判定"fixtures handler 无节流靠 global-setup 串行调用避免并发"**——经验性方案登记 follow-up：调用频次低 ≤ 2 次不存在资源竞态；如未来 e2e 复现 fixture 并发问题按经验性模板 `apps/platform/server/utils/fixtures-throttle.ts` 加 100ms 节流；详见 [docs/standards/platform.md §3.7.1 fixtures API 无节流默认 + 经验性节流方案](../standards/platform.md#371-fixtures-api-无节流默认--经验性节流方案)）
 
 > **验证**：
 > - lint / typecheck exit 0
@@ -328,7 +328,7 @@
 > **修复方案**（最小变动 + 标准化兜底）：
 > - 已落地：2 个测试在 `browser.newContext()` 调用中**显式传** `storageState: { cookies: [], origins: [] }`（commit `bdcd900` test(e2e)）—— Playwright 1.62 文档推荐的"unauthenticated API call"模式，与 `test.use({ storageState })` 完全脱钩，强制清空 cookies/origins
 > - 不触动 handler：测试期望值不变（仍期望 401）
-> - **未落地（根因排查）**：登记 M23 阶段规划排查（按 ROI 排序）：① Playwright 1.62 fixture pool `test.use → browser.newContext` 注入路径源码实证；② better-auth 中间件对非 /api/auth/* 端点返回 Set-Cookie 路径扫描
+> - **未落地（根因排查）**：登记 M23 阶段规划排查（按 ROI 排序）：① Playwright 1.62 fixture pool `test.use → browser.newContext` 注入路径源码实证（**2026-09-02 M23.2 commit `09c3dee + e0f9b29` 闭环**——workerProcessEntry.js + common/index.js + coreBundle.js 三处源码追溯 + helper 抽取落地 `apps/platform/tests/e2e/helpers/unauthenticated-api.helper.ts`）；② better-auth 中间件对非 /api/auth/* 端点返回 Set-Cookie 路径扫描（**未单独闭环**——M24.2 commit `bbb8f30` 部分覆盖 better-auth transaction close 时序判定已治本，但 Set-Cookie 路径扫描未单独闭环；待非 sandbox 环境重跑 e2e 时同步排查）；③ Playwright 1.62 vs 1.61/1.60 fixture pool 行为对比（**已因 Playwright 1.62 → 1.63 升级场景变更而失效**——改为持续观察 1.63 fixture pool 行为是否仍存在跨 scope 隐式传播，待 CI 偶发场景复现时同步验证）
 
 > **验证**：
 > - `pnpm exec eslint tests/e2e/{credentials-api,repos-api}.e2e.test.ts` exit 0

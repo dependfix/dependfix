@@ -1,6 +1,6 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
-import { fetchAlertsSchema, getLastReportSchema, runScanSchema, fixDependencySchema, discoverReposSchema, cleanupBranchesSchema, historySchema } from './tools/schemas'
+import { fetchAlertsSchema, getLastReportSchema, runScanSchema, fixDependencySchema, discoverReposSchema, cleanupBranchesSchema, historySchema, pnpmAuditSchema } from './tools/schemas'
 import { fetchAlerts } from './tools/fetch-alerts'
 import { getLastReport } from './tools/get-last-report'
 import { runScan } from './tools/run-scan'
@@ -8,6 +8,7 @@ import { fixDependency } from './tools/fix-dependency'
 import { discoverRepos } from './tools/discover-repos'
 import { cleanupBranches } from './tools/cleanup-branches'
 import { getHistory } from './tools/history'
+import { pnpmAudit } from './tools/pnpm-audit.tool'
 
 /**
  * dependfix MCP Server：向 AI 助手暴露 7 个 tool。
@@ -118,6 +119,20 @@ export const createMcpServer = (): McpServer => {
         },
         async (input) => {
             const result = await getHistory(input)
+            return {
+                content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
+            }
+        },
+    )
+
+    server.registerTool(
+        'pnpm_audit',
+        {
+            description: '本地 pnpm audit 回退数据源（无需 GitHub token；audit 失败硬返回错误）',
+            inputSchema: pnpmAuditSchema,
+        },
+        async (input) => {
+            const result = await pnpmAudit(input)
             return {
                 content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
             }

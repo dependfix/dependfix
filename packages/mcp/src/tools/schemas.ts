@@ -65,3 +65,11 @@ export const cleanupBranchesSchema = z.object({
 export const historySchema = z.object({
     repo: z.string().describe('目标仓库，格式 owner/repo'),
 })
+
+/** `pnpm_audit` 输入：本地 pnpm audit 回退数据源 */
+export const pnpmAuditSchema = z.object({
+    /** 本地仓库工作目录（已 clone，包含 pnpm-lock.yaml） */
+    workDir: z.string().describe('本地仓库工作目录（已 clone，包含 pnpm-lock.yaml）'),
+    /** 仓库标识（owner/repo 或 local 兜底；与 CLI --repo 同源语义） */
+    repository: z.string().describe('仓库标识（owner/repo 或 local 兜底；用于归一化 NormalizedSecurityAlert.repository 字段）'),
+})

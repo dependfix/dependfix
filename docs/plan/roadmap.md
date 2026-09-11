@@ -35,6 +35,7 @@
 | M25: PrimeUI License 治理 + 平台 AI 研判集成 + lint baseline + M24 follow-up 工具化 | C70 PrimeUI 降级 + C68 AI 研判基础层 + lint baseline + i18n-anchor-check + zod-helpers | P1-P3 | 已完成（[todo-archive.md §M25](todo-archive.md#m25-primeui-license-治理--平台-ai-研判集成--lint-baseline-治理--m24-follow-up-工具化m251m252am253m254-全部已闭环--2026-09-08-归档)） |
 | M26: 平台 AI 研判应用层 + 批量导入 Resource owner 化 + 文档站 i18n + License 收口 + 经验沉淀 | C68 P1 应用层 + C67 + C69 P0 + primeicons 降级 + baseline 22 warnings 治理 + e2e 适配 + 经验归档沉淀 | P1-P3 | 已完成（[todo-archive.md §M26](todo-archive.md#m26-平台-ai-研判应用层--批量导入-resource-owner-化--文档站-i18n--license-收口--经验沉淀m261m262m263m264am264bm264cm265-全部已闭环--2026-09-10-归档)） |
 | M27: 用户体验 + 治理优先 | M27.1 重复评估修正 + M27.2 W1 apps/platform stylelint + M27.3 W2 logger 补测 + M27.4 W4 container-executor 补测 + M27.5 ECONNRESET 候选 ① 诊断 | P1-P3 | 已完成（[todo-archive.md §M27](todo-archive.md#m27-用户体验--治理优先m271m272-w1m273-w2m274-w4m275-全部已闭环--2026-09-10-归档)） |
+| M28: 治理债清理 + 能力扩展 | M28.1 backlog.md §已知边界段批量治理 + §4.4 第 11 条规则强化 + M28.2 C14 多 cs lint 性能 + M28.3 C15 B 类规则样本核对 + M28.4 C33 MCP P3 + M28.5 M22.8 follow-up ② | P2-P3 | 进行中（[todo.md §M28](todo.md)；2026-09-11 用户决策方案 M28-A + M28.1 重编号；M28.1 治理债清理优先，M28.2-M28.5 留待 M28.1 完成后按 §3.4 强化流程重新评估） |
 
 > **本路线图定位**：按 [规划规范 §2.1](../standards/planning.md) 仅维护阶段概览（目标 / 优先级 / 状态）。详细实施记录 / commit 引用 / 关键决策 / 经验教训见对应归档段（详见下方"## 详细任务"索引）。
 
@@ -285,18 +286,48 @@ per-alert 模型 + reconcile + API 简化 + UI 调整 + backfill 脚本。5 子�
 - **D1**：按 §1.1 任务粒度约束（每原子 < 5 commits / < 800 行推荐粒度，< 10 文件 / < 800 行硬阈值）+ §1.1 L12 类型平衡原则选 5 原子
 - **D2**（修正）：M27.1 重复评估错误归正 —— todo.md §M27 阶段启动 commit `0ddd4e2` 决策 D2 错误地把 C66-C / C66-D 归类为"未落地"，修订为 1 docs commit 修正状态
 - **D3**：W1 / W2 / W4 均为 quick depth（单 commit 模式）；M22.7 根因排查为 P1 优先（剩余 ECONNRESET 偶发根因）
-- **D4**：M22 neat-freak 收敛已 M23.0 G1 闭环（不在 M27 复用）；M22.7 根因 follow-up 中 ② Nitro h3 async generator + ③ Playwright 版本对比 + ④ fixtures API 节流留 backlog 后续批次
+- **D4**：M22 neat-freak 收敛已 M23.0 G1 闭环（不在 M27 复用）；M22.7 根因 follow-up 中 ② Nitro h3 async generator 已 2026-09-03 M24.2 commit `bbb8f30` 判定非根因 + ④ fixtures API 节流已 M24.2 登记 follow-up；M22.7 follow-up 候选 ① better-auth transaction 关闭时序 已 M27.5 commit `b252f93` 落地诊断基础设施（`AUTH_TRACE=1` 开关），等 CI 复现
 - **D5**（新增）：M27 重复评估教训治理 —— 修订 planning.md §3.4「决策前置交叉核验」硬要求 + ai-collaboration.md §1.7「阶段启动重复评估自检」流程 + backlog.md C66 5 子任务现状明确标注 + experience-archive §六十四 完整教训 + wisdom.md governance check point「阶段启动必须对照 todo-archive.md 最近 3 个阶段表格 + commit history + 实际代码状态三重交叉核验」
 
-**ahead commits 实证**：`git rev-list HEAD ^origin/master --count` = **11**（M27 全部 11 commits ahead 待用户主动推送；2026-09-10 实测）
+**ahead commits 实证**：`git rev-list HEAD ^origin/master --count` = **0**（M27 全部 11 commits 已 ahead=0 推送 origin/master；2026-09-10 实测；session 元数据 ahead=17 stale 已 2026-09-11 同步修正）
 
 > 详细任务见 [todo-archive.md §M27](todo-archive.md#m27-用户体验--治理优先m271m272-w1m273-w2m274-w4m275-全部已闭环--2026-09-10-归档)（指针段 + 关键 commit 实证模式，与 M26 段同源策略；完整实施记录通过 `git log` 关键 commit 链查）
 
 ---
 
+## M28: 治理债清理 + 能力扩展（2026-09-11 用户决策方案 M28-A + M28.1 重编号）
+
+承接 M27 完整闭环 + D 阶段 backlog 治理债清理（6 文件 modified 待 commit：backlog.md 5 段清理 W1/C9/C13/C36 + M22.7/8 follow-up stale 同步 + roadmap.md §M27 D4 stale 修正 + todo-archive.md §M22.7/§M22.8 修正 + archive/index.md 健康窗口更新 + planning.md §4.4 第 11 条 C36 引用 + session 元数据 ahead=17 → 0 同步）+ A 阶段真实性审查 Pass（0 blocker / 2 warning / 2 suggest），按 [§3.1 新需求默认走"评估 → backlog"原则（hard requirement）](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 用户明确授权方案 M28-A + M28.1 重编号启动 M28 阶段。**5 原子条目独立闭环**（2026-09-11 决策时 M28.1 重编号 + 4 候选 + 类型平衡），覆盖 📚 1 + 🛡️ 3 + 🚀 1，符合 [规划规范 §1.1 L12 类型平衡原则](../standards/planning.md#11-硬性约束)。
+
+- **M28.1**（重编号）[P3 📚 治理] backlog.md §已知边界段批量治理 + §4.4 第 11 条规则强化 —— D 阶段清理批次 6 文件已落地（commit 待）+ §4.4 第 11 条新增"§已知边界段部分闭环处理指引"（治本 M27.1 教训复发）+ wisdom 教训追加 session 私有
+- **M28.2** [P3 🛡️ 技术债] C14 多 cs 告警逐告警全项目 lint 性能（T303 Review Gate 触发；F 阶段三重核验实测未做）
+- **M28.3** [P2 🛡️ 技术债] C15 B 类规则真实仓库样本核对（A/B/C 分层已 M23.3 落地，样本核对未做；F 阶段三重核验实证）
+- **M28.4** [P3 🚀 能力扩展] C33 MCP P3（pnpm-audit 本地 tool + 错误包装 helper + RunResult 对齐；F 阶段三重核验实测未做）
+- **M28.5** [P3 🛡️ 治本] M22.8 follow-up ② better-auth 中间件 Set-Cookie 路径扫描（M24.2 commit bbb8f30 部分覆盖 transaction close 时序已治本，Set-Cookie 路径扫描未单独闭环；F 阶段三重核验实测未做）
+
+**关键决策 D1-D3**（2026-09-11 用户决策）：
+
+- **D1**：方案 M28-A 类型平衡原则（5 候选 = 📚 1 + 🛡️ 3 + 🚀 1）—— 按 §1.1 L12 推荐粒度（5-6 原子条目硬上限）；UX / 测试覆盖缺口真实存在显式标注（候选池中 C36/C37 已闭环 + db-restore S-1/S-2 恢复条件不明确）
+- **D2**：M28.1 重编号为 backlog.md §已知边界段批量治理 + §4.4 第 11 条规则强化 —— **优先治本 §4.4 第 11 条结构性缺陷**，避免 M27.1 教训复发（M28.2-M28.5 留待 M28.1 完成后按 §3.4 强化流程重新评估）
+- **D3**：backlog.md 治理债清理 D 阶段已落地（6 文件 modified 待 commit）—— W1 / C9 / C13 / C36 已闭环条目整段/行删除 + §已知边界 M22.7/M22.8 follow-up stale 同步 + session 元数据 ahead=17 → 0 同步；F 阶段 M28 候选清单真实性核验**完整执行 §3.4 三重交叉核验**（todo-archive + git log --grep 候选 ID + 代码侧 anchor 实证），0 项重复评估
+
+**类型平衡复核**：
+
+- 🛡️ 技术债 / 治本：3 项（M28.1 / M28.2 / M28.5）—— ✅ 满足
+- 🚀 能力扩展：1 项（M28.4 C33 MCP）—— ✅ 满足
+- 📚 治理：1 项（M28.1 重编号）—— ✅ 满足
+- 🎨 用户体验：**0 项** —— ❌ 缺口（C36 / C37 均已闭环或前置依赖）
+- 🧪 测试覆盖：**0 项** —— ❌ 缺口（db-restore S-1/S-2 恢复条件不明确）
+
+**ahead commits 实证**：`git rev-list HEAD ^origin/master --count` = **0**（M28 启动批次 4 atomic commits 待落地：commit 1 M28 启动决策落地 todo.md + roadmap.md §M28 + §M27 D4 stale 修正 / commit 2 backlog.md 治理债清理 + M22.7/M22.8 follow-up stale 同步 / commit 3 跨文档 stale 同步（todo-archive + archive/index + session 元数据）/ commit 4 planning.md §4.4 第 11 条规则强化）
+
+> 详细任务见 [todo.md §M28](todo.md)（5 原子条目 × 8 要素齐全）+ [backlog.md](backlog.md)（M28 启动批次同步清理后健康窗口 ~230 行）
+
+---
+
 ## 详细任务
 
-- 当前阶段任务：[todo.md](todo.md)（M27 已闭环 + 2026-09-10 归档；M28 候选评估待用户决策启动）
+- 当前阶段任务：[todo.md](todo.md)（M28 启动决策方案 M28-A + M28.1 重编号 / 2026-09-11 / 5 候选：📚 1 + 🛡️ 3 + 🚀 1）
 - 已归档阶段：[todo-archive.md](todo-archive.md)（主窗口保留最近 4 个完整段：2026-09-10 M27 + 2026-09-10 M26 指针段 + 2026-09-02 M23 + 2026-09-01 M22 完整段；早期阶段见 [archive/index.md](archive/index.md) 分片索引；M19 / M20 / M21 已 2026-09-10 M26 归档批次预防性分片迁出至 [archive/todo-archive-phases-m19-m21.md](archive/todo-archive-phases-m19-m21.md)）
 - 后续阶段任务（延期项 + 未排期增强候选）：[backlog.md](backlog.md)
 

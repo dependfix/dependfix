@@ -87,8 +87,7 @@
 
 - **C33 MCP P3**：pnpm-audit 本地 tool（需 workDir 语义，等本地场景真实需求）/ 统一错误包装 helper（token 检查 + try/catch → ok:false 模板代码收口）/ 返回结构对齐完整 `RunResult`（当前 run_scan 只映射 8 字段，保持简化 + 文档声明）
 
-- **C36** 服务端 API 错误消息 i18n（当前 API 错误消息硬编码英文如 `error.code.field_required`；用户体验：中文用户看不懂；触发：M8 国际化后未覆盖服务端；验收：所有 `apps/platform/server/api/**` 端点错误响应 `code` 键维持英文 + `message` 键按请求 locale 返回）
-- **C37** 语言偏好多设备同步（当前仅单一设备语言偏好；多设备切换需重新设置；触发：用户实测反馈多设备用户；前置：先有 C36 服务端 API i18n 基础）
+- **C37** 语言偏好多设备同步（当前仅单一设备语言偏好；多设备切换需重新设置；触发：用户实测反馈多设备用户；前置：服务端 API i18n 基础已 M16.3 + M17.x + M24.1 完整闭环）
 
 #### 多组织 / 多租户
 
@@ -114,11 +113,6 @@
 
 #### 报告与统计口径
 
-- **C9** summary 字段未渲染（T304 遗留；告警 summary 已收集未渲染 JSON 可见；报告/PR body 如需摘要列可加；来源：T304 Review Gate 2026-08-05）
-
-#### 架构与性能
-
-- **C13** app/helpers ↔ cli/helpers 值级循环依赖（M3 收尾引入反向边；`quickVerifyProject` ↔ `validateVerifyCommands` 运行时安全；建议下沉公共层或回调注入；关联：M5 T505 CLI 解耦；来源：M3 收尾审查登记 2026-08-05）
 - **C14** 多 cs 告警逐告警全项目 lint 性能（T303 遗留；多 code-scanning 告警时逐个跑全项目 lint 性能瓶颈；可合并验证；来源：T303 Review Gate 2026-08-05）
 
 #### 网络优化
@@ -149,55 +143,7 @@
     - **C3 单列智能** vs C1 两列分开 / C2 单列合并：选 C3 —— 用户原话"GHSA ID ... 这才是能真正跨平台追溯漏洞的关键信息"（GHSA 在 GitHub Advisory Database 统一收录多个 CVE，反向追溯更强）；C1 多列占空间但实际查看价值有限；C2 简单但 GHSA / CVE 视觉权重平等，跨平台追溯信号被稀释
     - **2026-09-10 M27.1 重复评估教训修正**（commit `0ddd4e2` 决策 D2 错误归类）：C66-C + C66-D 已 100% 闭环，不应作为 M27.1 任务条目；详见 [experience-archive §六十四 M27.1 重复评估教训](../design/governance/experience-archive-§49-§57-recent-investigation.md#六十四m271c66告警视图增强重复评估教训阶段启动决策时未对照已闭环清单导致规划无效工作20260910commit决策d2错误)
 
-#### devEx / lint 治理
-
-- **W1 apps/platform 增配 stylelint + lint 系列 scripts（参照 momei）** —— 2026-09-09 用户决策入 backlog。**现状**：apps/platform `package.json` scripts 仅 `lint`（eslint . --fix --max-warnings 10），缺 `lint:i18n` / `lint:css` / `lint:md`；整个 dependfix 无 stylelint 依赖与配置；根 `lint:md` 路径未覆盖 `apps/**/*.md`；根 `lint-staged` 缺 `*.{css,scss,vue}` 钩子。**参照**：momei `package.json` `lint` / `lint:i18n` / `lint:css` / `lint:md` + `stylelint-config-cmyr@1.0.0`（cmyr 出品，flat config 形式）+ `stylelint@17.15.0`（本地路径 `/root/projects/momei/package.json` + [momei stylelint.config.js 镜像 7 行 extends cmyr](https://github.com/CaoMeiYouRen/momei/blob/master/stylelint.config.js)）。**范围**（按 [规划规范 §1.1 任务粒度约束](../standards/planning.md#11-硬性约束) 1 atomic commit / < 5 文件 / < 800 行硬阈值）：
-
-  - `apps/platform/package.json` devDeps 加 `stylelint@17.15.0` + `stylelint-config-cmyr@^1.0.0`（与 momei 版本一致）
-  - `apps/platform/package.json` scripts 加 `lint:i18n`（`cross-env NODE_ENV=production ESLINT_I18N=true eslint . --quiet`）/`lint:css`（`stylelint "**/*.{html,css,scss,sass,vue}" --fix`）/`lint:md`（`lint-md "**/*.md" --fix`）
-  - 新增 `apps/platform/stylelint.config.js`（7 行 extends cmyr，镜像 momei：https://github.com/CaoMeiYouRen/momei/blob/master/stylelint.config.js）
-  - 新增 `apps/platform/.stylelintignore`（`.nuxt` / `.output` / `data` / `coverage` / `playwright-report` / `test-results` / `node_modules` / `*.min.css`）
-  - 根 `package.json` `lint:md` 路径补 `apps/**/*.md`（让根 lint:md 覆盖 apps 内的 md）
-  - 根 `package.json` `lint-staged` 加 `*.{css,scss,vue}` → `pnpm --filter @dependfix/platform lint:css`（apps/platform 是平台）
-
-  **不动**（避免破坏现有行为）：
-  - `apps/platform/eslint.config.js`（与根 eslint.config.js 语义一致）
-  - 根 `eslint.config.js`
-  - 根 `lint` / 根 `lint:i18n` 现有命令
-  - 不重命名现有 `lint` 命令
-
-  **验收标准**：
-  - `pnpm --filter @dependfix/platform lint` → 0 error（既有 0 warning 状态保持）
-  - `pnpm --filter @dependfix/platform lint:i18n` → 0 error
-  - `pnpm --filter @dependfix/platform lint:css` → exit 0（baseline warnings 数量记录，参考 M26.4b 治本 vs 临时策略）
-  - `pnpm --filter @dependfix/platform lint:md` → 0 error
-  - `pnpm run lint:md` → 0 error（根，覆盖 `apps/**/*.md`）
-  - `pnpm install` lockfile 同步
-
-  **不做什么**：
-  - 不做 `lint:css` baseline 治本（如果跑通时只有少量 warnings 走一遍 --fix 即可；如有大量 warnings 则与 M26.4b 一致**先记录 baseline + 治本留后续评估**，**不引入 `--max-warnings` 临时方案**）
-  - 不重写 apps/platform 现有 .vue / .scss 文件以贴合 stylelint-config-cmyr 规则（除 --fix 自动修复部分）
-  - 不修改 eslint.config.js（根 + apps/platform）
-  - 不引入 stylelint-config-standard / stylelint-config-standard-scss / stylelint-config-html（stylelint-config-cmyr 已间接包含）
-  - 不动根 `lint` / 根 `lint:i18n` 现有命令
-
-  **依赖**：无前置（独立 feature；`stylelint-config-cmyr@1.0.0` 已在 npm registry；`stylelint@17.15.0` 与 momei 对齐）
-
-  **交付物**：1 atomic commit（`chore(platform): apps/platform 增配 stylelint + lint:i18n/lint:css/lint:md`）+ quick depth audit（无跨模块改动，无新增设计文档）
-
-  **风险与缓解措施**：
-  - **风险 1**：`lint:css` baseline 可能有 5-15 warnings（apps/platform 现有 25 个 .vue + 3 个 .scss 不一定全部符合 cmyr 规则）—— 缓解：`stylelint --fix` 自动修复能消的 warnings + 不可自动修复的视为「已有 baseline」不阻塞（与 M26.4b 治本 vs 临时策略一致）；后续按需治本留 M27+ 评估
-  - **风险 2**：stylelint-config-cmyr 规则较严可能与 PrimeVue 4 / UnoCSS 兼容性问题 —— 缓解：先跑 dry-run 评估实际 warnings 数量；如有 PrimeVue 特定 selectors（`:deep` / `::v-deep`）问题按需加 stylelint-disable 注释（与 ESLint disable 模式一致）
-  - **风险 3**：CI test job 暂未跑 `lint:css`（W1 仅引入命令，CI 集成留 M27+ 评估）—— 缓解：本次仅本地命令，CI 不强制；上收时同步考虑 CI workflow 更新
-
-  **上收触发条件**（任一）：
-  - 用户实测反馈升级（apps/platform 维护期间频繁手动跑 lint:i18n / lint:css）
-  - 后续 .vue / .scss baseline 治本需求
-  - 用户明确授权上收
-
-  **关联决策回顾**（2026-09-09 用户确认）：
-  - **入 backlog 而非直接上收 M27** —— 按 [规划规范 §3.1 新需求默认走"评估 → backlog"原则（hard requirement）](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement)：本任务不在 3 类插队例外（安全/漏洞/可用性）中 → 默认走 backlog 评估路径
-  - **不动 apps/platform/eslint.config.js 与根 eslint.config.js** —— `ESLINT_I18N=true` 在根已有 `lint:i18n` 限定 apps/platform 范围，apps/platform 子命令 `lint:i18n` 仅为开发者本地便利（cd apps/platform && pnpm lint:i18n）
+## 待人工验收（真实环境，随可用性推进）
 
 ## 待人工验收（真实环境，随可用性推进）
 
@@ -255,26 +201,26 @@
 
 ### E2E global-setup 串行场景 ECONNRESET 根因（M22.7 hotfix 衍生 + M23.1 已闭环）
 
-- **M23.1 已闭环**（2026-09-02 commit `2ffaa45` + `74d3dd8` + `9c56fe6`）：候选 ③ SQLite WAL 模式 + busy_timeout 优化已落地（`journal_mode=WAL` + `busy_timeout=5000ms`），详见 [经验归档 §五十三](../design/governance/experience-archive-§49-§57-recent-investigation.md#五十三sqlitewal模式busytimeout治本m227econnreset根因候选③20260902m231commit) + [todo-archive.md §M23.1](todo-archive.md#m23-m22-治理债收口--根因排查--能力扩展--测试补强m230m231m232m233m234-全部已闭环--2026-09-02-归档)。**剩余候选 1/2/4 待 CI 复现一次确认是否仍存在**（better-auth transaction 关闭时序 / Nitro h3 `defineEventHandler` async generator / fixtures API 节流）—— 登记 follow-up，CI 偶发 ECONNRESET 仍可能由其他 3 候选触发；M22.7 helper 层 maxRetries 兜底保留兜底修复 + 治本修复并存。
+- **M23.1 已闭环**（2026-09-02 commit `2ffaa45` + `74d3dd8` + `9c56fe6`）：候选 ③ SQLite WAL 模式 + busy_timeout 优化已落地（`journal_mode=WAL` + `busy_timeout=5000ms`），详见 [经验归档 §五十三](../design/governance/experience-archive-§49-§57-recent-investigation.md#五十三sqlitewal模式busytimeout治本m227econnreset根因候选③20260902m231commit) + [todo-archive.md §M23.1](todo-archive.md#m23-m22-治理债收口--根因排查--能力扩展--测试补强m230m231m232m233m234-全部已闭环--2026-09-02-归档)。**剩余候选 1 待 CI 复现一次确认是否仍存在**（better-auth transaction 关闭时序）—— M24.2 commit `bbb8f30` 已对候选 ② Nitro h3 判定非根因、候选 ④ fixtures 节流登记经验性 follow-up（`apps/platform/server/utils/fixtures-throttle.ts`）；M27.5 commit `b252f93` 落地 better-auth transaction trace 诊断基础设施（`AUTH_TRACE=1` / `E2E_TEST=true` 双开关）；M22.7 helper 层 maxRetries 兜底保留兜底修复 + 治本修复并存。
 - **背景**：2026-09-01 CI run 33525721103 E2E job 失败于 global-setup 末尾 `cleanAlertsRowgroupFixtures` → `DELETE /api/e2e/fixtures` → `ECONNRESET`（TCP RST，100ms 内）。handler 逻辑 / 单元测试 / 本地复现均通过，无法本地稳定复现；最可能根因是 better-auth session 写入后 SQLite 连接释放时序与 fixtures DELETE `ensureDatabaseInitialized()` 走同一 singleton 的异步清理窗口竞争。**M22.7 hotfix 已落地 helper 层兜底**（commit `f617b56`：e2e/fixtures helper 加 `maxRetries: 2`，复用 Playwright 1.62 `_sendRequestWithRetries` 内置 250ms 指数 backoff 重试；详见 [todo-archive.md §M22.7](todo-archive.md#m22-sqlite-数据保护防御加固m221m222m223m224m225m226-全部已闭环--2026-09-01-归档) + [经验归档 §五十一](../design/governance/experience-archive-§49-§57-recent-investigation.md#五十一e2e-global-setup-串行多次-setuppage-后首请求-econnreset2026-09-01ci-run-33525721103)）。
 - **候选根因排查（部分已闭环）**：按 ROI 排序：
-  1. **better-auth 1.7 transaction 关闭时序** —— 在 `getAuth()` 加 `[auth] transaction close trace` 日志 + `ds.transaction` 包装打印 begin/commit 时间戳，CI 复现一次
-  2. **Nitro h3 `defineEventHandler` async generator 行为** —— 检查 fixtures.delete handler 是否被识别为 generator（`async function*`）导致提前 close socket
+  1. **better-auth 1.7 transaction 关闭时序** —— 在 `getAuth()` 加 `[auth] transaction close trace` 日志 + `ds.transaction` 包装打印 begin/commit 时间戳，CI 复现一次（M27.5 commit `b252f93` feat(platform) 已落地 better-auth transaction trace 诊断基础设施——`E2E_TEST=true` / `AUTH_TRACE=1` 双开关，待 CI 复现一次确认是否仍存在 ECONNRESET）
+  2. ~~**Nitro h3 `defineEventHandler` async generator 行为**~~ —— 2026-09-03 M24.2 commit `bbb8f30` 闭环（源码判定非根因：`apps/platform/server/api/e2e/fixtures.{post,delete}.ts` 均为 `async (event) => {}` 普通 async function，非 `async function*`；h3 `_callHandler` 走 `await handler(event)` 返回 `Promise<value>`；详见 [经验归档 §五十七 M24.2 候选 ②](../design/governance/experience-archive-§49-§57-recent-investigation.md) + [docs/standards/platform.md §6 API 规范](../standards/platform.md)）
   3. ~~**SQLite WAL 模式 + `journalMode=delete`**~~ —— 2026-09-02 M23.1 commit `2ffaa45` 闭环（落地 WAL + busy_timeout 优化）
-  4. **fixtures API 请求间节流** —— 经验性方案，避免作为唯一修复
+  4. **fixtures API 请求间节流** —— 经验性方案登记 follow-up（M24.2 commit `bbb8f30` 判定"fixtures handler 无节流靠 global-setup 串行调用避免并发"；调用频次低（global-setup ≤ 2 次）不存在资源竞态；如未来 e2e 复现 fixture 并发问题按经验性模板 `apps/platform/server/utils/fixtures-throttle.ts` 加 100ms 节流；详见 [docs/standards/platform.md §3.7.1 fixtures API 无节流默认 + 经验性节流方案](../standards/platform.md#371-fixtures-api-无节流默认--经验性节流方案)）
 - **wisdom 沉淀**：见 .session/wisdom.md 2026-09-01 M22.7 hotfix 段 `pattern-playwright-maxRetries-econnreset`（Playwright 仅对 `e.code === 'ECONNRESET'` 重试的源码实证 + test helper 兜底模式 + 4 项治理检查点登记）
 
 ### Playwright 1.62 fixture pool 注入 cookie 根因（M22.8 hotfix 衍生 + M23.2 已闭环）
 
-- **M23.2 已闭环**（2026-09-02 commit `09c3dee` + `e0f9b29` + `68b973d` + `aa76ad4`）：候选 ① Playwright 1.62 fixture pool `test.use → browser.newContext` 注入路径源码实证已落地（workerProcessEntry.js + common/index.js + coreBundle.js 三处源码追溯：test.use → suite._use → FixturePool(parent._use, ..., pool) 继承链 + FixturePool constructor 注册继承父池 registrations）+ helper 抽取（apps/platform/tests/e2e/helpers/unauthenticated-api.helper.ts 封装 `browser.newContext({ storageState: { cookies: [], origins: [] } })` 标准模式）。详见 [经验归档 §五十四](../design/governance/experience-archive-§49-§57-recent-investigation.md#五十四playwright-1-62-fixture-pool-跨-scope-隐式行为源码实证--m232-helper-抽取20260902m232-commit) + [todo-archive.md §M23.2](todo-archive.md#m23-m22-治理债收口--根因排查--能力扩展--测试补强m230m231m232m233m234-全部已闭环--2026-09-02-归档)。**剩余候选 2/3 待 CI 复现一次确认是否仍存在**（better-auth 中间件 Set-Cookie 路径扫描 / Playwright 1.62 vs 1.61/1.60 fixture pool 行为对比）—— 登记 follow-up，等非 sandbox 环境重跑 e2e 时同步排查。
+- **M23.2 已闭环**（2026-09-02 commit `09c3dee` + `e0f9b29` + `68b973d` + `aa76ad4`）：候选 ① Playwright 1.62 fixture pool `test.use → browser.newContext` 注入路径源码实证已落地（workerProcessEntry.js + common/index.js + coreBundle.js 三处源码追溯：test.use → suite._use → FixturePool(parent._use, ..., pool) 继承链 + FixturePool constructor 注册继承父池 registrations）+ helper 抽取（apps/platform/tests/e2e/helpers/unauthenticated-api.helper.ts 封装 `browser.newContext({ storageState: { cookies: [], origins: [] } })` 标准模式）。详见 [经验归档 §五十四](../design/governance/experience-archive-§49-§57-recent-investigation.md#五十四playwright-1-62-fixture-pool-跨-scope-隐式行为源码实证--m232-helper-抽取20260902m232-commit) + [todo-archive.md §M23.2](todo-archive.md#m23-m22-治理债收口--根因排查--能力扩展--测试补强m230m231m232m233m234-全部已闭环--2026-09-02-归档)。**剩余候选 2 待非 sandbox 环境重跑 e2e 时同步排查**（better-auth 中间件 Set-Cookie 路径扫描）；**候选 3 已因 Playwright 1.62 → 1.63 升级场景变更而失效**（持续观察 1.63 fixture pool 行为）。
 - **背景**：2026-09-02 CI run 33533376712 E2E job 在 M22.7 修复 global-setup 后跑满 6 分钟，失败 2 个用例（`Expected: 401, Received: 200`）：
   - `tests/e2e/credentials-api.e2e.test.ts:283 › 未认证 GET /api/credentials → 401`
   - `tests/e2e/repos-api.e2e.test.ts:447 › 未认证 GET /api/repos → 401`
   网络追踪实证两个失败用例的 `context-options` 携带完全相同的上游 session cookie（`i18n_locale=zh-CN` + `better-auth.session_token=LhAh2mxu4rTjo27Wc8wLyeDpspBq4MnE...`，expires 1790873050 = 29 天后），但测试代码是 `browser.newContext()` 无参——最可能是 Playwright 1.62 fixture pool 在 describe 块 scope 内将 `test.use({ storageState })` 隐式注入到所有 `browser.newContext()` 调用（含未显式传 storageState 的手动创建）。**M22.8 hotfix 已落地测试层兜底**（commit `bdcd900`：2 个测试在 `browser.newContext()` 调用中显式传 `storageState: { cookies: [], origins: [] }`，Playwright 1.62 文档推荐的"unauthenticated API call"模式；详见 [todo-archive.md §M22.8](todo-archive.md#m22-sqlite-数据保护防御加固m221m222m223m224m225m226-全部已闭环--2026-09-01-归档) + [经验归档 §五十二](../design/governance/experience-archive-§49-§57-recent-investigation.md#五十二playwrighttestuse存储状态传染导致未认证api测试收到20020260902cirun33533376712)）。
 - **候选根因排查（部分已闭环）**：按 ROI 排序：
   1. ~~**Playwright 1.62 fixture pool `test.use → browser.newContext` 注入路径源码实证**~~ —— 2026-09-02 M23.2 commit `09c3dee + e0f9b29` 闭环（fixture pool 源码追溯 + helper 抽取落地）
-  2. **better-auth 中间件对非 /api/auth/* 端点返回 Set-Cookie 路径扫描** —— 确认 session refresh 不会污染下游 context
-  3. **Playwright 1.62 vs 1.61 / 1.60 fixture pool 行为对比** —— 确认是 regression 还是历史行为
+  2. **better-auth 中间件对非 /api/auth/* 端点返回 Set-Cookie 路径扫描** —— 确认 session refresh 不会污染下游 context（M24.2 commit `bbb8f30` 部分覆盖 better-auth transaction close 时序判定已治本，但 Set-Cookie 路径扫描未单独闭环）；CI 偶发场景下 helper 层兜底（`tests/e2e/helpers/unauthenticated-api.helper.ts` 显式空 storageState）保留
+  3. ~~**Playwright 1.62 vs 1.61 / 1.60 fixture pool 行为对比**~~ —— 场景已变更：Playwright 已从 1.62 升级到 `@playwright/test@^1.63.0`（`apps/platform/package.json`），原 1.62 vs 1.61/1.60 三向对比需求不再适用；改为持续观察 1.63 fixture pool 行为是否仍存在跨 scope 隐式传播（待 CI 偶发场景复现时同步验证）
 - **wisdom 沉淀**：见 .session/wisdom.md 2026-09-02 M22.8 hotfix 段 `pattern-playwright-browser-newContext-cookie-injection`（Playwright 1.62 fixture pool `test.use` 隐式传播 + "未认证 API 测试"显式空 storageState 标准模式 + 3 项治理检查点登记）——M23.2 阶段增量（fixture pool 跨 scope 源码实证 + helper 抽取模式）追加到现有 pattern，**避免新增 pattern 重复登记**
 
 ---

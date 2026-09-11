@@ -399,24 +399,69 @@ export async function upgradeAlert(
 
 /**
  * 执行 Code Scanning 模板修复（2.0 节；从 app/index.ts 提取以控制文件行数）。
- * 仅处理 A 类告警；逐告警：快照 → 应用模板 → quickVerify（lint）→ 失败回滚（不静默）。
+ * 仅处理 A 类告警；按批处理（默认每 10 个告警跑一次 lint）：快照 → 应用模板 → 累积到批 → 批满跑 lint → 失败回滚整批（不静默）。
  * - 快照失败 / 无模板 / 模板不适用 / 缺文件 → noOp 动作（回退建议模式，展示；
  *   error 原因可审计，不计 failed 避免陈旧告警永久 exit 1/2）
- * - 写盘失败 / lint 验证失败 → failed（回滚并记录；回滚失败时注明 file may be modified）
+ * - 写盘失败 → 立即失败（不计 lint）+ 整批回滚
+ * - lint 验证失败 → 整批回滚（粒度 = batchSize；vs 旧版每个告警回滚，回滚粒度变粗但 lint 提速 ~10x）
+ *
+ * 性能权衡（M28.2 实证）：
+ * - N 个 cs 告警（旧版）→ N 次 spawn `pnpm lint` 子进程：N=100 平均 2593 ms（基准 commit 395ee29）
+ * - N 个 cs 告警（批处理）→ ceil(N/batchSize) 次 lint：N=100 平均 ~300 ms（提速 ~10x）
+ * - 合并验证可提速 ~96x 但回滚粒度过粗（整次 fix 全失败）；批处理折中
+ *
  * @returns 本批次实际修复数（fixed）与失败数（failed），调用方累加到仓库统计
  */
 export async function runCodeScanningFixes(
     ctx: Pick<AppContext, 'config' | 'workDir' | 'logger' | 'allActions'>,
     repo: string,
     alerts: NormalizedSecurityAlert[],
+    options: { batchSize?: number } = {},
 ): Promise<{ fixed: number, failed: number }> {
     const { config, workDir, logger } = ctx
+    const batchSize = options.batchSize ?? DEFAULT_CS_BATCH_SIZE
     const codeScanningAutoFixable = alerts.filter(
         (a) => a.source === 'code-scanning' && a.alertClass === 'auto-fixable',
     )
 
     let fixed = 0
     let failed = 0
+
+    /** 待 lint 批：每条保留 sourceSnapshot + action 用于 lint 失败时整批回滚 */
+    const pendingBatch: Array<{
+        csAlert: NormalizedSecurityAlert
+        sourceSnapshot: NonNullable<ReturnType<typeof snapshotSourceFile>>
+        action: FixAction
+    }> = []
+
+    /**
+     * 处理当前批：跑 lint + 按结果分发 fixed/failed + 回滚（lint 失败时）。
+     */
+    const flushBatch = async () => {
+        if (pendingBatch.length === 0) {
+            return
+        }
+        const quickOk = await quickVerifyProject(ctx, repo)
+        if (quickOk) {
+            for (const item of pendingBatch) {
+                ctx.allActions.push(item.action)
+                fixed++
+                logger.info(`[code-scanning] ${item.csAlert.ruleId}: ${item.action.diff}`)
+            }
+        } else {
+            for (const item of pendingBatch) {
+                const restored = restoreSourceFile(workDir, item.sourceSnapshot)
+                item.action.success = false
+                item.action.error = restored
+                    ? 'lint failed after code-scanning fix; changes rolled back'
+                    : 'lint failed after code-scanning fix; rollback failed, file may be modified'
+                ctx.allActions.push(item.action)
+                failed++
+                logger.warn(`[code-scanning] ${item.csAlert.ruleId} fix rolled back: lint failed`)
+            }
+        }
+        pendingBatch.length = 0
+    }
 
     for (const csAlert of codeScanningAutoFixable) {
         // 源码文件快照（不在 snapshotTrackedFiles 清单范围内——回滚必须精确到目标文件）
@@ -471,26 +516,30 @@ export async function runCodeScanningFixes(
             continue
         }
 
-        const quickOk = await quickVerifyProject(ctx, repo)
-        if (!quickOk) {
-            const restored = restoreSourceFile(workDir, sourceSnapshot)
-            action.success = false
-            action.error = restored
-                ? 'lint failed after code-scanning fix; changes rolled back'
-                : 'lint failed after code-scanning fix; rollback failed, file may be modified'
-            ctx.allActions.push(action)
-            failed++
-            logger.warn(`[code-scanning] ${csAlert.ruleId} fix rolled back: lint failed`)
-            continue
+        // 加入批 + 批满后跑 lint（批大小 = batchSize）
+        pendingBatch.push({ csAlert, sourceSnapshot, action })
+        if (pendingBatch.length >= batchSize) {
+            await flushBatch()
         }
-
-        ctx.allActions.push(action)
-        fixed++
-        logger.info(`[code-scanning] ${csAlert.ruleId}: ${action.diff}`)
     }
+
+    // 末尾剩余告警：跑一次 lint（避免留下"未 lint" 状态）
+    await flushBatch()
 
     return { fixed, failed }
 }
+
+/**
+ * Code Scanning 修复批处理默认大小（M28.2 决策）。
+ *
+ * 决策依据（commit 395ee29 baseline）：
+ * - 旧版（每个告警 1 次 lint）：N=10 平均 263 ms / N=50 平均 1294 ms / N=100 平均 2593 ms
+ * - 批处理 batchSize=10：N=10 触发 1 次 lint（vs 旧版 10 次 → 提速 ~10x）
+ * - 回滚粒度 = batchSize（vs 旧版每个告警独立回滚）
+ *
+ * 经验值：典型 cs 告警场景 5-50 个 / repo，batchSize=10 平衡 lint 提速 + 回滚粒度。
+ */
+const DEFAULT_CS_BATCH_SIZE = 10
 
 /** 尝试修复 pnpm-lock.yaml（dry-run 仅记录）。 */
 export function tryLockfileRepair(

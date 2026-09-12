@@ -107,6 +107,73 @@
 
 #### Code Scanning 规则体系
 
+#### 依赖修复引擎（dependency-fixer）
+
+- **C71 pnpm overrides 路径级覆盖（`parent>child`）支持** —— 2026-09-13 commit f67aea2 实证触发：dependfix 仓库自身 `pnpm audit` 报 21 个告警（11 high / 10 moderate），按 dependfix 默认修复链路只能写**顶层**覆盖 `undici: 7.29.0` / `nodemailer: 9.1.1` 等，**但** `pnpm-workspace.yaml` 必须**手动**补 3 条**路径级**覆盖才能让 `pnpm audit` 输出 `No known vulnerabilities found`：
+  - `@semantic-release/github>undici: 7.29.0`
+  - `@vercel/node>undici: 7.29.0`
+  - `push-all-in-one>nodemailer: 9.1.1`
+
+  根因：dependfix 引擎不感知"通过哪个父包引入"的依赖路径，**3 层全部缺失**：
+
+  1. **数据模型**：[`packages/core/src/alerts/index.ts`](../../packages/core/src/alerts/index.ts) `NormalizedSecurityAlert` 无 `dependencyPath` 字段（仅 `dependencyType: 'direct' | 'transitive'` 二分）
+  2. **数据采集**：
+     - [`packages/engine/src/alerts/pnpm-audit-fetcher.ts`](../../packages/engine/src/alerts/pnpm-audit-fetcher.ts) 解析 `vulnerabilities.<pkg>.via[]` 只取 `name / severity / url / advisoryId`，**不解析** pnpm v11 `nodes[].path`（含完整依赖链）或 legacy `findings[].paths[]`（pnpm < 8 `paths: ['@semantic-release/github>undici@7.28.0']`）
+     - [`packages/engine/src/github/dependabot-fetcher.ts`](../../packages/engine/src/github/dependabot-fetcher.ts) 只取 `dependency.package.name + relationship`（直接/间接），不携带依赖链
+  3. **写入层**：
+     - [`packages/engine/src/fixers/dependency/overrides-io.ts`](../../packages/engine/src/fixers/dependency/overrides-io.ts) `writeWorkspaceOverride` 只接收 `packageName`，**不接收** `dependencyPath`
+     - [`packages/engine/src/app/helpers.ts`](../../packages/engine/src/app/helpers.ts) `buildVersionedOverrides` 支持 `pkg@major` 形式（2026-08-09 复盘），**不支持** `parent>child` 形式
+     - `readExistingOverrides` / `overrideTransitiveDependency` 同理只读/写顶层
+
+  **pnpm 官方路径级覆盖语法**（[dependency-resolution#overrides](https://pnpm.io/settings/dependency-resolution#overrides) 已确认支持，2026-09-13 webfetch 实证）：
+  ```yaml
+  overrides:
+    "qar@1>zoo": "2"           # 只覆盖 qar@1 的 zoo 依赖
+    "react-dom>react": "18.1.0" # 覆盖 react-dom 的 react peer
+    "foo@1.0.0>bar": "-"       # 移除 foo@1.0.0 的 bar 依赖
+  ```
+  pnpm 文档原话："You may specify the package the overridden dependency belongs to by separating the package selector from the dependency selector with a `>`"——dependfix 引擎**有能力**利用但**当前不利用**。
+
+  **候选实现方向**（待上收时敲定决策点）：
+
+  1. **数据采集策略**：
+     - pnpm-audit：解析 `nodes[].path` 优先（pnpm v11 modern 格式含完整依赖链），fallback legacy `findings[].paths[]`（pnpm < 8），双格式兼容（pnpm-audit-fetcher 已有 modern/legacy 双解析基础）
+     - dependabot：API 缺依赖链时，从 `package.json` + `pnpm-lock.yaml` 路径反查（如 `node_modules/@semantic-release/github/node_modules/undici` → `['@semantic-release/github', 'undici']`）—— **优先级低于 pnpm-audit 解析**（不引入新依赖如 `@pnpm/lockfile`）
+  2. **修复策略决策**：
+     - **方案 A（推荐）**：首选**顶层覆盖**（兜底广，pnpm 默认语义）+ 路径级作为**补丁**（处理"顶层覆盖不生效"边界场景，如 monorepo 多 workspace 成员 peer 冲突、版本约束阻断等）
+     - **方案 B**：每条告警都写对应路径级（粒度细但 PR diff 大，可能 pnpm 报"过度配置"）
+     - 倾向 A：与 pnpm 文档"路径级只覆盖特定父包"语义一致；commit f67aea2 实证"3 条路径级 + 1 条顶层" 即可彻底消除告警
+  3. **数据模型扩展**：
+     - `NormalizedSecurityAlert` 新增 `dependencyPath?: string[]`（从根到目标包路径，如 `['@semantic-release/github', 'undici']`）
+     - 同步评估：平台 `apps/platform/server/entities/scan-result.ts` 是否需要 migration（schema 改动走 M22.4/22.5 双向 opt-in 流程）
+  4. **报告展示**：PR body / 报告 §4 增加 `dependencyPath` 列，让用户审计"为什么这条告警需要路径级覆盖"——**与 C66 告警视图增强不同**（C66 关注标识符 + 去重，C71 关注修复链路）
+
+  **验收标准**：
+  - `pnpm audit` 报 `undici` 告警且 lockfile 中有 ≥2 个父包传递 → dependfix 推荐 PR 自动包含 ≥1 条路径级覆盖（如 `parent1>undici: 7.29.0`）
+  - 修复后 `pnpm audit` 输出 `No known vulnerabilities found`（commit f67aea2 这类场景的依赖 fix 自动化）
+  - pnpm-audit-fetcher.test.ts + overrideTransitiveDependency.test.ts 新增路径级场景 case（pnpm v11 `nodes[].path` 解析 + legacy `findings[].paths[]` 解析 + 路径级 override 写入回滚 + 与既有顶层覆盖协同取 max）
+  - 平台 schema 如需 migration 走 M22.4/22.5 双向 opt-in 流程同步
+
+  **关联**：
+  - 直接关联 commit f67aea2（dependfix 仓库自身的依赖修复实证，ahead=0 未推送仅本地，参考既有 0430f05 前例）
+  - 间接关联：M22.4/22.5 synchronize + migrationsRun 双向 opt-in 流程（如 platform schema 需改）
+  - 间接关联：C66 告警视图增强（`dependencyPath` 是告警的可视化属性，理论上 C66 UI 也可展示，但不强制 C71 内做）
+  - 间接关联：MCP `pnpm_audit` 工具（M28.4 已落地 RunResult 对齐 5 字段，C71 评估时需决定是否扩展 RunResult 透传 `dependencyPath`）
+
+  **不做什么**（先排除歧义）：
+  - 不引入新依赖（如 `@pnpm/lockfile` 解析器）—— 继续走 `pnpm audit --json` + `pnpm-lock.yaml` 文本解析
+  - 不重写 report schema，只在报告 §4 Repositories / 建议区块展示 `dependencyPath`
+  - 不在 C71 评估时直接落平台 schema 改动（如需拆 C71.x 子项）
+  - 不替代或重写 `buildVersionedOverrides` 的 `pkg@major` 语义——路径级（`parent>child`）与版本级（`pkg@major`）是正交维度，可叠加（如 `vite@5>esbuild: ^0.25.0`）
+
+  **复杂度估算**：
+  - 代码：~150-200 行（fetcher 解析 `nodes[].path`/`findings[].paths[]` + override 写入 + 单测 + 报告渲染）
+  - 测试：~50-80 case（双格式解析 + 路径级 override 写入回滚 + 与顶层覆盖协同取 max + e2e 端到端）
+  - 文档：1 个 [modules/dependency-fixer.md](../design/modules/dependency-fixer.md) 设计文档更新 + 1 个 usage example
+  - 类型平衡：🚀 能力扩展（核心） + 🛡️ 治本（修复完整性，避免 dependfix 推荐 PR 不完整）
+  - 优先级：P2（治本有用户实证 commit f67aea2 + 长期影响 dependfix 自身管理 dependfix 仓库的依赖流程）
+  - **按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 不带 M\d+ 阶段编号**：等待用户明确决策启动
+
 #### 报告与统计口径
 
 #### 网络优化

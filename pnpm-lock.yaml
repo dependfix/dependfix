@@ -36,8 +36,8 @@ importers:
         specifier: 4.5.1
         version: 4.5.1(eslint@9.39.2(jiti@2.7.0)(supports-color@10.2.2))(jsonc-eslint-parser@2.3.0)(supports-color@10.2.2)(vue-eslint-parser@10.4.1(eslint@9.39.2(jiti@2.7.0)(supports-color@10.2.2))(supports-color@10.2.2))(yaml-eslint-parser@1.2.2)
       '@lint-md/cli':
-        specifier: 2.3.1
-        version: 2.3.1
+        specifier: 2.4.0
+        version: 2.4.0
       '@types/node':
         specifier: ^26.6.1
         version: 26.6.1
@@ -1325,22 +1325,22 @@ packages:
   '@kwsites/promise-deferred@1.1.1':
     resolution: {integrity: sha512-GaHYm+c0O9MjZRu0ongGBRbinu8gVAMd2UZjji6jVmqKtZluZnptXGWhz1E8j8D2HJ3f/yMxKAUC0b+57wncIw==}
 
-  '@lint-md/cli@2.3.1':
-    resolution: {integrity: sha512-/n3vXLLE7rQBL1RhFGR9T/X50iygP0uskxXizMO4mGiWHaU4nBSKdwPGBjxKrplw4j4/6QBNcUaS1sWPqNT1kg==}
+  '@lint-md/cli@2.4.0':
+    resolution: {integrity: sha512-rQNOU46eLeFthZM5w2sC16D9eXqSHTraE0TX2a7AoS4p6WAgeLR2GN0irrKh0rcGWLqwq+ebNY9K5jJU/1v3Mw==}
     hasBin: true
 
   '@lint-md/core@2.0.0':
     resolution: {integrity: sha512-DbjU4NhmddVM2GaeUz+f+urFLt0IoTomwJglrRGuUKBCr4udpVe/rnh26R02zQKXm/+ocQ5WfU0iLCCWBsXoYA==}
 
-  '@lint-md/core@2.4.0':
-    resolution: {integrity: sha512-Fp2drWoAd6GDdxqx64U+9rdoYOqTYbGtaQeV4NCd3zb2RL+Xi0JGamax9xT3+U9g9ktgwZnPkx9Hy8GpGpxUmA==}
+  '@lint-md/core@2.5.2':
+    resolution: {integrity: sha512-cqxD7umFUOsIBfldaDXO21iQpoAk6YOwghO/cFM/QLWVFuN8+ZYAud9ukntlIfhbDczOCKNiIMB3S+/iKMMdHg==}
     engines: {node: '>=20'}
 
   '@lint-md/parser@0.0.14':
     resolution: {integrity: sha512-kFFq6TowN2MBe+EFctnn6VluPWHV/9i/mHGQG/d5qGcR7EnA7JSURaxw9kQDHG11bwUK+pHOoXjSOp/6VzM/1w==}
 
-  '@lint-md/parser@0.2.1':
-    resolution: {integrity: sha512-tgnfSiid5qxFs+i9gFeJcuQDhWmPNQnVns8G2FwIhE0PhbKglEXiuVvowE3cns+4scRBE+VWI4JXzAvBQYK69g==}
+  '@lint-md/parser@0.2.2':
+    resolution: {integrity: sha512-ROpRwsrZusefphz4fCy1ia8JWBLvEgOuBD4wUfkouzfyj77vRJiwx6rNFLoW2Pyf3WEoe5m5BP+WJHuYpz13PQ==}
     engines: {node: '>=20'}
 
   '@mapbox/node-pre-gyp@2.0.3':
@@ -9578,9 +9578,9 @@ snapshots:
 
   '@kwsites/promise-deferred@1.1.1': {}
 
-  '@lint-md/cli@2.3.1':
+  '@lint-md/cli@2.4.0':
     dependencies:
-      '@lint-md/core': 2.4.0
+      '@lint-md/core': 2.5.2
       chalk: 4.1.2
       commander: 9.5.0
       glob: 11.1.0
@@ -9595,9 +9595,9 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@lint-md/core@2.4.0':
+  '@lint-md/core@2.5.2':
     dependencies:
-      '@lint-md/parser': 0.2.1
+      '@lint-md/parser': 0.2.2
 
   '@lint-md/parser@0.0.14(supports-color@10.2.2)':
     dependencies:
@@ -9611,7 +9611,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@lint-md/parser@0.2.1':
+  '@lint-md/parser@0.2.2':
     dependencies:
       '@types/mdast': 3.0.15
 

@@ -13,6 +13,8 @@ import { AddScanResultIdentifiers1750000000000 } from './migrations/175000000000
 import { CreatePrCheckTable1800000000000 } from './migrations/1800000000000-CreatePrCheckTable'
 import { AddScheduleKind1800000000001 } from './migrations/1800000000001-AddScheduleKind'
 import { AddScanRunLogs1800000000002 } from './migrations/1800000000002-AddScanRunLogs'
+import { AddAiConfigFields1900000000000 } from './migrations/1900000000000-AddAiConfigFields'
+import { AddCredentialOwnerLogin2000000000000 } from './migrations/2000000000000-AddCredentialOwnerLogin'
 import { runStartupBackup } from './backup'
 import { Account } from '#server/entities/account'
 import { Session } from '#server/entities/session'
@@ -79,6 +81,8 @@ export const createDataSourceOptions = (): DataSourceOptions => {
             CreatePrCheckTable1800000000000,
             AddScheduleKind1800000000001,
             AddScanRunLogs1800000000002,
+            AddAiConfigFields1900000000000,
+            AddCredentialOwnerLogin2000000000000,
         ],
         migrationsRun,
         synchronize,

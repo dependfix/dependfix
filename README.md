@@ -53,7 +53,7 @@ dependfix fix-and-pr --repo owner/repo --github-token $GITHUB_TOKEN
 ## 使用方式
 
 | 方式 | 说明 | 文档 |
-| |:-----|:-----|:-----|
+|:-----|:-----|:-----|
 | CLI | 命令行工具，支持 `report-only` / `fix` / `fix-and-pr` 三种模式 | [packages/cli/README.md](packages/cli/README.md) |
 | GitHub Action | 通过 `uses: dependfix/dependfix@v1` 一行接入 CI，支持定时与手动触发 | [快速开始 → GitHub Action](docs/guide/quick-start.md#github-action-使用) |
 | MCP Server | 将扫描 / 修复能力暴露给 AI 编程助手（Claude / Copilot / Cursor 等） | [packages/mcp/README.md](packages/mcp/README.md) |

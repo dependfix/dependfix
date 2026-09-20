@@ -55,7 +55,7 @@
     "reflect-metadata": "^0.2.2",
     "sass": "^1.104.1",
     "typeorm": "^1.1.1",
-    "vue": "^3.5.42",
+    "vue": "^3.5.43",
     "vue-router": "^5.3.1",
     "winston": "^3.19.0",
     "winston-daily-rotate-file": "^5.0.0",

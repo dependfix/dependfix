@@ -20,14 +20,18 @@ jobs:
           node-version: "lts/*"
           cache: "pnpm"
       - run: pnpm i --frozen-lockfile
-      # 依赖审计（M18.x 治理批次 W4 — c22 §5.5 决策 C 缓解措施 4）：
+      # 依赖审计（决策依据：docs/design/governance/c22-pat-backward-compat.md §5.5 决策 C 缓解措施 4；
+      # 覆盖范围修订依据：docs/plan/backlog.md C80）：
       # - pnpm.overrides 钉定 @octokit/auth-app=8.3.0（pnpm-workspace.yaml）
-      # - audit --prod 只看 prod deps（devDeps 漏洞不影响生产部署）
+      # - 覆盖 prod + devDeps：原 `--prod` 只看 prod deps；devDeps 链同样需要治理
+      #   （docs 工具链的 vite 漏洞只能从 devDeps 侧修复，实证见 docs/plan/todo.md M29.1），
+      #   故改为全量 audit 以取得同步 PR 级信号
       # - --audit-level=moderate 包含 high + critical（Dependabot 默认告警阈值）
-      # - 失败不阻断 Test job（|| true）：audit 失败仅作为信号；hard-fail 由 dependabot.yml 处理
-      # - 升级 @octokit/auth-app 前必须重跑 M18.4 e2e + 评估 breaking change
-      - name: pnpm audit (prod deps, moderate+)
-        run: pnpm audit --prod --audit-level=moderate || true
+      # - 失败不阻断 Test job（|| true）：audit 失败仅作为信号；阻断语义当前未启用
+      #   （security alerts / updates 由 repo 级 Dependabot 设置提供，不是 dependabot.yml 的配置项）
+      # - 升级 @octokit/auth-app 前必须重跑 e2e（回归范围见 docs/plan/archive/todo-archive-phases-m18.md）+ 评估 breaking change
+      - name: pnpm audit (all deps, moderate+)
+        run: pnpm audit --audit-level=moderate || true
       # Nuxt 平台 eslint 依赖 .nuxt/tsconfig.json（Nuxt 生成的类型），需先 prepare 生成
       - run: pnpm --filter @dependfix/platform exec nuxt prepare
       # 平台 server 代码 import dependfix、@dependfix/core、@dependfix/engine 的 dist 类型声明（Nuxt tsconfig 不映射 workspace 源码）：
@@ -44,7 +48,8 @@ jobs:
       - run: pnpm run docs:check:i18n
       - run: pnpm run lint:md:check
       - run: pnpm run check:docs
-      # M26.3 C69：README 双向链接 + 章节结构一致性门禁（依赖中文 README + README.en-US.md 同存在）
+      # README 双向链接 + 章节结构一致性门禁（依赖中文 README + README.en-US.md 同存在；
+      # 背景见 docs/plan/archive/todo-archive-phases-m26.md）
       - run: pnpm run check:readme-i18n
       # docs 构建前置：VitePress 会把 markdown 中的裸 HTML 当作 Vue 模板编译（缺结束标签即失败），
       # lint-md/check-docs 均不检查标签配对——docs 构建失败必须尽早暴露，不等 typecheck/test/build 跑完

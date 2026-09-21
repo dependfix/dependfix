@@ -26,7 +26,7 @@
 | M16: 平台可用性深化 | 把 apps/platform 从 demo 落地为实际可用项目 | P1 | 已完成（[archive/todo-archive-phases-m16-m17.md §M16](archive/todo-archive-phases-m16-m17.md#m16-平台可用性深化m161m162m163m164m165-全部已闭环--2026-08-28-归档)） |
 | M17: 安全与可用性收口 | C38 encryptionKey + 服务端 API i18n + admin viewer role check | P1-P3 | 已完成（[archive/todo-archive-phases-m16-m17.md §M17](archive/todo-archive-phases-m16-m17.md#m17-安全与可用性收口m171m172m173m174m175m176-全部已闭环--2026-08-28-归档)） |
 | M18: 平台 GitHub App BYO App 模式 | PAT + GitHub App 二者并存 + 5 子阶段 + 治理批次 | P0-P3 | 已完成（[archive/todo-archive-phases-m18.md §M18](archive/todo-archive-phases-m18.md#m18-平台-github-app-byo-app-模式m180m181m182m183m184m18x-全部已闭环--2026-08-30-归档)） |
-| M19: 治理 + 能力扩展 + 测试补强 | 按类型平衡原则 5 项任务（技术债 + 能力 + 体验 + 测试） | P2-P3 | 已完成（[archive/todo-archive-phases-m19-m21.md §M19](archive/todo-archive-phases-m19-m21.md#m19-治理--能力扩展--测试补强m191m192m193m194m195-全部已闭环-2026-08-31-归档)） |
+| M19: 治理 + 能力扩展 + 测试补强 | 按类型平衡原则 5 项任务（技术债 + 能力 + 体验 + 测试） | P2-P3 | 已完成（[archive/todo-archive-phases-m19-m21.md §M19](archive/todo-archive-phases-m19-m21.md#m19-治理--能力扩展--测试补强m191m192m193m194m195-全部已闭环--2026-08-31-归档)） |
 | M20: ScanResult 数据模型重构 | per-alert 模型 + reconcile + API 简化 + UI + backfill | P2 | 已完成（[archive/todo-archive-phases-m19-m21.md §M20](archive/todo-archive-phases-m19-m21.md#m20-scanresult-数据模型重构m201m203m205m206m207-全部已闭环--2026-08-31-归档)） |
 | M21: 治理收口 + 能力扩展 + 测试补强 | Code Scanning RG-W + M18.x 剩余风险 + B3 PR 自动合并 + T704 e2e | P3 | 已完成（[archive/todo-archive-phases-m19-m21.md §M21](archive/todo-archive-phases-m19-m21.md#m21-治理收口--能力扩展--测试补强m211m212m214m215-全部已闭环--2026-08-31-归档)） |
 | M22: SQLite 数据保护防御加固 | 2026-09-01 dependfix.sqlite 数据清空事故 + 6 原子条目 | P0-P1 | 已完成（[todo-archive.md §M22](todo-archive.md#m22-sqlite-数据保护防御加固m221m222m223m224m225m226-全部已闭环--2026-09-01-归档)） |
@@ -35,7 +35,7 @@
 | M25: PrimeUI License 治理 + 平台 AI 研判集成 + lint baseline + M24 follow-up 工具化 | C70 PrimeUI 降级 + C68 AI 研判基础层 + lint baseline + i18n-anchor-check + zod-helpers | P1-P3 | 已完成（[todo-archive.md §M25](todo-archive.md#m25-primeui-license-治理--平台-ai-研判集成--lint-baseline-治理--m24-follow-up-工具化m251m252am253m254-全部已闭环--2026-09-08-归档)） |
 | M26: 平台 AI 研判应用层 + 批量导入 Resource owner 化 + 文档站 i18n + License 收口 + 经验沉淀 | C68 P1 应用层 + C67 + C69 P0 + primeicons 降级 + baseline 22 warnings 治理 + e2e 适配 + 经验归档沉淀 | P1-P3 | 已完成（[todo-archive.md §M26](todo-archive.md#m26-平台-ai-研判应用层--批量导入-resource-owner-化--文档站-i18n--license-收口--经验沉淀m261m262m263m264am264bm264cm265-全部已闭环--2026-09-10-归档)） |
 | M27: 用户体验 + 治理优先 | M27.1 重复评估修正 + M27.2 W1 apps/platform stylelint + M27.3 W2 logger 补测 + M27.4 W4 container-executor 补测 + M27.5 ECONNRESET 候选 ① 诊断 | P1-P3 | 已完成（[todo-archive.md §M27](todo-archive.md#m27-用户体验--治理优先m271m272-w1m273-w2m274-w4m275-全部已闭环--2026-09-10-归档)） |
-| M28: 治理债清理 + 能力扩展 | M28.1 backlog.md §已知边界段批量治理 + §4.4 第 11 条规则强化 + M28.2 C14 多 cs lint 性能 + M28.3 C15 B 类规则样本核对 + M28.4 C33 MCP P3 + M28.5 M22.8 follow-up ② | P2-P3 | 已完成（[todo-archive.md §M28](todo-archive.md)；2026-09-11 用户决策方案 M28-A + M28.1 重编号 + 完整 5 候选闭环 + M28.6 归档批次落地 ahead=11 commits 待推送） |
+| M28: 治理债清理 + 能力扩展 | M28.1 backlog.md §已知边界段批量治理 + §4.4 第 11 条规则强化 + M28.2 C14 多 cs lint 性能 + M28.3 C15 B 类规则样本核对 + M28.4 C33 MCP P3 + M28.5 M22.8 follow-up ② | P2-P3 | 已完成（[todo-archive.md §M28](todo-archive.md)；2026-09-11 用户决策方案 M28-A + M28.1 重编号 + 完整 5 候选闭环 + M28.6 归档批次落地，commits 已推送 origin/master） |
 
 > **本路线图定位**：按 [规划规范 §2.1](../standards/planning.md) 仅维护阶段概览（目标 / 优先级 / 状态）。详细实施记录 / commit 引用 / 关键决策 / 经验教训见对应归档段（详见下方"## 详细任务"索引）。
 
@@ -160,17 +160,8 @@ T1001-T1004 全部完成：Docker rootless runtime + RuntimeAdapter 抽象层 + 
 
 - **T1301**：wisdom 蒸馏条目选择标准——保留高频复用 / 实战类 pattern / 项目 SOP，其余迁移至 standards
 - **T1305**：候选方向 3（命令输出 URL 与真实外联区分）治本根因而非逐次新增白名单；候选方向 1/2 优先级降低
-## M12: 平台 UX 一致性 + i18n 治理（已完成 2026-08-21 归档）
 
-承接 2026-08-21 用户实测反馈 10 项平台 UX / 安全 / i18n 问题。4 子阶段独立闭环（C65-A 用户管理安全 / C65-B i18n 单点声明 / C65-C schedules 增强 / C65-D 平台表格视图增强）。
-
-> 详细任务见 [archive/todo-archive-phases-m12.md §M12](archive/todo-archive-phases-m12.md)
-
-## M13: 治理 + UX 反馈 + 网络治理 + Code Scanning（已完成 2026-08-26 归档）
-
-承接 M12 闭环后 backlog 治理前置 + 2026-08-25~26 用户实测反馈 5 项 UX 问题。4 子阶段独立闭环（治理前置 / 网络治理 + 告警去重 / Code Scanning 规则化 / UX 反馈批次立刻做）。
-
-> 详细任务见 [archive/todo-archive-phases-m13.md §M13](archive/todo-archive-phases-m13.md)
+> 详细子任务清单 + commit 引用 + 实施记录 / 关键经验 / 待迁移经验：见 [archive/todo-archive-phases-m13.md](archive/todo-archive-phases-m13.md)（2026-08-30 M18 归档批次预防性分片迁出）
 
 ## M14: platform release 通道 + UX 反馈跟进（已完成 2026-08-26 归档）
 
@@ -206,7 +197,7 @@ T1001-T1004 全部完成：Docker rootless runtime + RuntimeAdapter 抽象层 + 
 
 按"类型平衡"原则选取 5 项任务独立闭环（技术债 + 能力扩展 + 用户体验 + 测试覆盖）+ M19.x 收口（孤立编号清理）。5 atomic commits 全部 ahead=0，5 轮独立 Review Gate Pass。
 
-> 详细任务见 [archive/todo-archive-phases-m19-m21.md §M19](archive/todo-archive-phases-m19-m21.md#m19-治理--能力扩展--测试补强m191m192m193m194m195-全部已闭环-2026-08-31-归档)
+> 详细任务见 [archive/todo-archive-phases-m19-m21.md §M19](archive/todo-archive-phases-m19-m21.md#m19-治理--能力扩展--测试补强m191m192m193m194m195-全部已闭环--2026-08-31-归档)
 
 ## M20: ScanResult 数据模型重构
 
@@ -280,7 +271,7 @@ per-alert 模型 + reconcile + API 简化 + UI 调整 + backfill 脚本。5 子�
 - **M27.4 W4** [P3 🧪 测试治理] container-executor.ts 35.2% branches 覆盖补测（1 commit / quick depth）—— apps/platform/server/services/executor/container-executor.test.ts 新增 32 cases + 23 既有迁移 = 55 cases 全覆盖
 - **M27.5** [P1 🛡️ 治理] M22.7 根因 ① better-auth 1.7 transaction 关闭时序（2 commits / standard depth）—— apps/platform/server/database/typeorm-adapter.ts 添加 [auth-trace] tx begin / callback-resolve / callback-throw 日志（E2E_TEST=true / AUTH_TRACE=1 双开关）+ audit 关闭 follow-up（本地无法稳定复现 ECONNRESET，CI 偶发）
 - **M27 启动相关 docs 收口**（3 commits）：todo.md 清理为最小化骨架 + backlog.md 清理已闭环条目 + 归档 M26 阶段并预防性分片迁出 M19-M21
-- **总投入**：**8 atomic commits 实施 + 3 docs 收口 commits = 11 commits**（ahead=11 待用户主动推送；2026-09-10 实测）
+- **总投入**：**8 atomic commits 实施 + 3 docs 收口 commits = 11 commits**（commits 已推送 origin/master）
 
 **关键决策 D1-D5**：
 - **D1**：按 §1.1 任务粒度约束（每原子 < 5 commits / < 800 行推荐粒度，< 10 文件 / < 800 行硬阈值）+ §1.1 L12 类型平衡原则选 5 原子
@@ -297,7 +288,7 @@ per-alert 模型 + reconcile + API 简化 + UI 调整 + backfill 脚本。5 子�
 
 ## M28: 治理债清理 + 能力扩展（2026-09-11 用户决策方案 M28-A + M28.1 重编号 / M28.6 归档已落地）
 
-承接 M27 完整闭环 + D 阶段 backlog 治理债清理 + A 阶段真实性审查 Pass（0 blocker / 2 warning / 2 suggest）+ 用户明确授权方案 M28-A + M28.1 重编号启动 M28 阶段。**5 候选全部 ahead=11 commits 已落地闭环**，M28.6 归档批次 ahead 待推送，ahead=11 commits 待用户主动推送。覆盖 📚 1 + 🛡️ 3 + 🚀 1，符合 [规划规范 §1.1 L12 类型平衡原则](../standards/planning.md#11-硬性约束)。
+承接 M27 完整闭环 + D 阶段 backlog 治理债清理 + A 阶段真实性审查 Pass（0 blocker / 2 warning / 2 suggest）+ 用户明确授权方案 M28-A + M28.1 重编号启动 M28 阶段。**5 候选全部落地闭环**（11 commits 已推送 origin/master）。覆盖 📚 1 + 🛡️ 3 + 🚀 1，符合 [规划规范 §1.1 L12 类型平衡原则](../standards/planning.md#11-硬性约束)。
 
 - **M28.1**（重编号）[P3 📚 治理] backlog.md §已知边界段批量治理 + §4.4 第 11 条规则强化 —— ✅ 已闭环（commit `1a75068`）：§4.4 第 11 条新增"§已知边界段部分闭环处理指引"（治本 M27.1 教训复发）+ backlog.md §已知边界 M22.7/M22.8 follow-up stale 同步 + wisdom 教训追加 session 私有
 - **M28.2** [P3 🛡️ 技术债] C14 多 cs 告警逐告警全项目 lint 性能 —— ✅ 已闭环（commit `395ee29` + `eaaa997`）：vitest bench API N=10/50/100 baseline（实测 96x 性能差距证明顺序 spawn 瓶颈）+ 批处理优化（batchSize=10 折中方案，提速 ~10x）
@@ -312,7 +303,7 @@ per-alert 模型 + reconcile + API 简化 + UI 调整 + backfill 脚本。5 子�
 - **D3**：backlog.md 治理债清理 D 阶段已落地 —— W1 / C9 / C13 / C36 已闭环条目整段/行删除 + §已知边界 M22.7/M22.8 follow-up stale 同步 + session 元数据 ahead=17 → 0 同步
 - **D4**（M28.4 诚实修订）：`packages/mcp/src/tools/errors.ts` 已 M26.x 阶段落地（`ToolError` + `requireToken()` + `toToolError()` 双 helper），本任务不再做错误包装 helper；仅做未落地部分：pnpm-audit 本地 tool + RunResult 5 字段对齐
 - **D5**（§3.4 五步流程完整执行）：M28.2-M28.5 P 阶段 §3.4 五步流程核验全部 0 项重复评估 + M28.4 部分已落地修订 todo.md §M28.4 验收标准 + 执行顺序建议按"用户决策方案"实际推进
-- **D6**（M28 完整闭环）：5 候选 ahead commits 实测 = 11（含 M28 启动 2 + 治理债清理 3 + M28 完整闭环 6 = 11）—— M28.6 归档批次落地指针模式 + ahead commits 待用户主动推送
+- **D6**（M28 完整闭环）：5 候选共 11 commits（含 M28 启动 2 + 治理债清理 3 + M28 完整闭环 6）—— M28.6 归档批次落地指针模式
 
 **类型平衡复核**：
 
@@ -323,9 +314,9 @@ per-alert 模型 + reconcile + API 简化 + UI 调整 + backfill 脚本。5 子�
 - 🎨 用户体验：**0 项** —— ❌ 缺口（C36 / C37 均已闭环或前置依赖）
 - 🧪 测试覆盖：**0 项** —— ❌ 缺口（db-restore S-1/S-2 恢复条件不明确）
 
-**ahead commits 实证**：`git rev-list HEAD ^origin/master --count` = **11**（M28 完整闭环 ahead 待用户主动推送；按 [AGENTS.md §5 推送禁令](../../AGENTS.md) 未经用户明确要求不得执行 `git push`）
+**ahead commits 实证**：M28 全部 commits 已推送 `origin/master`（`git rev-list HEAD ^origin/master --count` 实测；按 [AGENTS.md §5 推送禁令](../../AGENTS.md) 未经用户明确要求不得执行 `git push`）
 
-- **M28 完整闭环 ahead commits 关联表**（按提交顺序）：
+- **M28 完整闭环 commits 关联表**（按提交顺序）：
 
  | 候选 / 类别 | | commit | subject |
  |:---|:---|:---|:---|
@@ -341,14 +332,14 @@ per-alert 模型 + reconcile + API 简化 + UI 调整 + backfill 脚本。5 子�
  | M28.4 tool | | `9207481` | feat(mcp): 新增 pnpm_audit 本地回退数据源 tool |
  | M28.4 对齐 | | `5cf2d22` | feat(mcp): runScan 返回结构 RunResult 对齐 5 字段 |
 
-> 详细任务见 [todo-archive.md §M28](todo-archive.md)（M28.6 归档已落地 / 指针段模式 + 关键决策 D1-D6 + ahead commits 关联表）+ [backlog.md](backlog.md)（M28 归档批次同步清理后健康窗口 ~229 行）
+> 详细任务见 [todo-archive.md §M28](todo-archive.md)（指针段模式 + 关键决策 D1-D6 + commits 关联表）+ [backlog.md](backlog.md)（M28 归档批次同步清理后健康窗口）
 
 ---
 
 ## 详细任务
 
-- 当前阶段任务：[todo.md](todo.md)（M28 完整闭环 ahead=11 commits 待用户主动推送；下一阶段待用户决策 M29+ 启动）
-- 已归档阶段：[todo-archive.md](todo-archive.md)（主窗口保留最近 4 个完整段：2026-09-11 M28 + 2026-09-10 M27 + 2026-09-10 M26 指针段 + 2026-09-02 M23；早期阶段见 [archive/index.md](archive/index.md) 分片索引；M19 / M20 / M21 已 2026-09-10 M26 归档批次预防性分片迁出至 [archive/todo-archive-phases-m19-m21.md](archive/todo-archive-phases-m19-m21.md)）
+- 当前阶段任务：[todo.md](todo.md)（当前无活跃阶段；下一阶段启动待用户明确决策）
+- 已归档阶段：[todo-archive.md](todo-archive.md)（主窗口保留最近阶段完整段 + 指针段；早期阶段见 [archive/index.md](archive/index.md) 分片索引）
 - 后续阶段任务（延期项 + 未排期增强候选）：[backlog.md](backlog.md)
 
 ## 交付原则

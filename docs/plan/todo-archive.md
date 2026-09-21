@@ -20,15 +20,15 @@
 
 ## 主窗口保留范围
 
-- 主文档保留最近阶段的近线归档块（当前保留 **2026-09-11 M28 治理债清理 + 能力扩展（M28.1 §4.4 第 11 条规则强化 + M28.2 C14 多 cs lint 性能 benchmark + 批处理 + M28.3 C15 B 类规则样本核对脚本 + 报告模板 + M28.4 C33 MCP P3 pnpm_audit tool + RunResult 对齐 + M28.5 M22.8 follow-up ② Set-Cookie 路径扫描治本验证 / 全部 5 候选已闭环 / ahead=11 commits 待用户主动推送）+ 2026-09-10 M27 用户体验 + 治理优先（M27.1-M27.5 全部 5 原子条目已闭环 / ahead=11 commits 待用户主动推送）+ 2026-09-10 M26 平台 AI 研判应用层 + 批量导入 Resource owner 化 + 文档站 i18n + License 收口 + 经验沉淀（M26.1-M26.5 全部 7 原子条目已闭环 / 36 commits 全部 ahead=0 已推送至 origin/master）+ 2026-09-02 M23 M22 治理债收口 + 根因排查 + 能力扩展 + 测试补强（M23.0+M23.1+M23.2+M23.3+M23.4 全部已闭环 / 17 atomic commits 全部 ahead=0 已推送至 origin/master）+ 2026-09-01 M22 SQLite 数据保护防御加固（M22.1+M22.2+M22.3+M22.4+M22.5+M22.6 全部已闭环 / 13 commits 全部 ahead=0 已推送）** 共 5 个完整段（最新 5 个阶段按时间倒序在主窗口顶部，M28 指针段与 M26/M27 同源策略）。**预防性分片同步记录**：M28.6 归档批次（2026-09-11）已预防性迁出至 [archive/todo-archive-phases-m28.md](archive/todo-archive-phases-m28.md)；M26 已于 2026-09-10 M26 归档批次迁出至 [archive/todo-archive-phases-m26.md](archive/todo-archive-phases-m26.md)；M24 / M25 已于 2026-09-08 迁出至 [archive/todo-archive-phases-m24.md](archive/todo-archive-phases-m24.md) + [archive/todo-archive-phases-m25.md](archive/todo-archive-phases-m25.md)；M19 / M20 / M21 已于 2026-09-10 M26 归档批次预防性分片迁出至 [archive/todo-archive-phases-m19-m21.md](archive/todo-archive-phases-m19-m21.md)；M14 + M15 已于 2026-08-31 迁出至 [archive/todo-archive-phases-m14-m15.md](archive/todo-archive-phases-m14-m15.md)；M16 + M17 已于 2026-08-31 迁出至 [archive/todo-archive-phases-m16-m17.md](archive/todo-archive-phases-m16-m17.md)；M18 已于 2026-09-01 M22 归档批次预防性迁出至 [archive/todo-archive-phases-m18.md](archive/todo-archive-phases-m18.md)。
+- 主文档保留最近 5 个完整段的近线归档块（M28 指针段 + M27 + M26 指针段 + M23 + M22 完整段，按时间倒序排列在顶部）+ 早期阶段指针段；各阶段 ahead 状态以各段 commit 列表 + `git rev-list HEAD ^origin/master --count` 实证为准，不写死具体数字。**预防性分片同步记录**：M28.6 归档批次（2026-09-11）已预防性迁出至 [archive/todo-archive-phases-m28.md](archive/todo-archive-phases-m28.md)；M26 已于 2026-09-10 M26 归档批次迁出至 [archive/todo-archive-phases-m26.md](archive/todo-archive-phases-m26.md)；M24 / M25 已于 2026-09-08 迁出至 [archive/todo-archive-phases-m24.md](archive/todo-archive-phases-m24.md) + [archive/todo-archive-phases-m25.md](archive/todo-archive-phases-m25.md)；M19 / M20 / M21 已于 2026-09-10 M26 归档批次预防性分片迁出至 [archive/todo-archive-phases-m19-m21.md](archive/todo-archive-phases-m19-m21.md)；M14 + M15 已于 2026-08-31 迁出至 [archive/todo-archive-phases-m14-m15.md](archive/todo-archive-phases-m14-m15.md)；M16 + M17 已于 2026-08-31 迁出至 [archive/todo-archive-phases-m16-m17.md](archive/todo-archive-phases-m16-m17.md)；M18 已于 2026-09-01 M22 归档批次预防性迁出至 [archive/todo-archive-phases-m18.md](archive/todo-archive-phases-m18.md)。
 - 当 `todo-archive.md` 超过 700 行时，将早期阶段迁入分片归档（最近一次迁出于 2026-08-31 M19 归档批次预防性迁出 M14 + M15 至新分片 `todo-archive-phases-m14-m15.md`）。
 - **2026-08-20 归档批次**：M9 / 2026-08-19 PR1-PR3 / 2026-08-19 C54+C55 / M11 推进批次迁入分片 [archive/todo-archive-phases-m11.md](archive/todo-archive-phases-m11.md)。
 - **2026-08-25 归档批次**：M12 9 子任务完整闭环，**所有 19 commits 已推送至 `origin/master`**（ahead=0，git rev-list HEAD ^origin/master --count 核验）。详见 [archive/todo-archive-phases-m12.md](archive/todo-archive-phases-m12.md)（**2026-08-28 M17 归档批次预防性分片迁出**）。
-- **2026-08-26 归档批次（M13）**：M13.1+M13.2+M13.3+M13.4 全部 12 子任务完整闭环，**26 commits 已推送至 `origin/master`**（含 T1310 部分 ahead commit；git rev-list HEAD ^origin/master --count 实证：ahead=3，仅 M13.4 三 commits 待推送：T1401 `2dce01d` + T1402+T1403 `bb3b49a` + todo.md 收口 `8762a4b`）。详见 [archive/todo-archive-phases-m13.md](archive/todo-archive-phases-m13.md)（**2026-08-30 M18 归档批次预防性迁出**）。
+- **2026-08-26 归档批次（M13）**：M13.1+M13.2+M13.3+M13.4 全部 12 子任务完整闭环，**26 commits 已推送至 `origin/master`**（含 T1310 部分 ahead commit；git rev-list HEAD ^origin/master --count 实证：ahead=3，仅 M13.4 三 commits 当时待推送（后续已推送 origin/master）：T1401 `2dce01d` + T1402+T1403 `bb3b49a` + todo.md 收口 `8762a4b`）。详见 [archive/todo-archive-phases-m13.md](archive/todo-archive-phases-m13.md)（**2026-08-30 M18 归档批次预防性迁出**）。
 - **2026-08-30 归档批次（M18）**：M18.0+M18.1+M18.2+M18.3+M18.4+M18.x 全部 6 子阶段 + 1 治理批次完整闭环，**~24 commits 已全部推送至 `origin/master`**（ahead=0 `git rev-list HEAD ^origin/master --count` 2026-08-30 实测）。详见下方 §M18 段。
 - **2026-08-31 归档批次（M19）**：M19.1+M19.2+M19.3+M19.4+M19.5 全部 5 子任务完整闭环，**5 commits 已全部推送至 `origin/master`**（ahead=0 `git rev-list HEAD ^origin/master --count` 2026-08-31 实测；M19.1 `0c536c1` + M19.2 `c998d58` + M19.3 `5839771` + M19.4 `8db2fd4` + M19.5 `a20ea02` + M19.x 收口 `ae33671` + 配套 commits `2f9eb38` / `bee5c3f` / `61b3ddc` / `4231ffb` 共 11 commits 落地）。详见下方 §M19 段。
 - **2026-08-31 同期动作**：M14 + M15 共 2 个早期批次从 todo-archive.md 主窗口预防性迁出至新分片 [archive/todo-archive-phases-m14-m15.md](archive/todo-archive-phases-m14-m15.md)（M19 段新增前主窗口 699 行 + M19 段预估 80-100 行将超 700 强制分片阈值，预防性迁出与 M18/M17/M16 归档批次预防性迁出 M13/M12/M10 同源策略）；主窗口保留范围相应调整为 M19/M18/M17/M16 共 4 个完整段。
-- **2026-08-26 同期动作（已迁出）**：M14.1 / M14.2 / M14.3 / M14.x / M14.y + M15.1 详见 [archive/todo-archive-phases-m14-m15.md](archive/todo-archive-phases-m14-m15.md)（2026-08-31 M19 归档批次预防性迁出）。M14.1 / M14.2 / M14.x / M14.y 阶段 commits 已全部推送至 `origin/master`（ahead=0 `git rev-list HEAD ^origin/master --count` 2026-08-26 实测）；M15.1 3 commits 落地 + release.yml CI 修复 1 commit 同期 ahead 部分待用户推送（ahead commits 按 [规划规范 §4.4 §5 ahead 实证](../../docs/standards/planning.md) 动态核验）。
+- **2026-08-26 同期动作（已迁出）**：M14.1 / M14.2 / M14.3 / M14.x / M14.y + M15.1 详见 [archive/todo-archive-phases-m14-m15.md](archive/todo-archive-phases-m14-m15.md)（2026-08-31 M19 归档批次预防性迁出）。M14.1 / M14.2 / M14.x / M14.y 阶段 commits 已全部推送至 `origin/master`（ahead=0 `git rev-list HEAD ^origin/master --count` 2026-08-26 实测）；M15.1 3 commits 落地 + release.yml CI 修复 1 commit 同期落地（后续已推送 origin/master；ahead commits 按 [规划规范 §4.4 §5 ahead 实证](../../docs/standards/planning.md) 动态核验）。
 
 ---
 
@@ -108,7 +108,7 @@
 
 ## M27: 用户体验 + 治理优先（M27.1+M27.2 W1+M27.3 W2+M27.4 W4+M27.5 全部已闭环 / 2026-09-10 归档）
 
-> **2026-09-10 M27 归档批次迁出**：M27 段（5 原子条目 8 atomic commits 实施 + 3 docs 收口 commits = **11 commits ahead 待用户主动推送**）已从 `todo.md` 主窗口迁入 [todo-archive.md §M27](#m27-用户体验--治理优先m271m272-w1m273-w2m274-w4m275-全部已闭环--2026-09-10-归档)。M27 段完整实施记录 / 关键经验 / 待迁移经验均在 git log 中可查。主窗口 [todo-archive.md §M27](#m27-用户体验--治理优先m271m272-w1m273-w2m274-w4m275-全部已闭环--2026-09-10-归档) 仅保留导航指针 + 关键 commit 实证。
+> **2026-09-10 M27 归档批次迁出**：M27 段（5 原子条目 8 atomic commits 实施 + 3 docs 收口 commits = **11 commits**）已从 `todo.md` 主窗口迁入 [todo-archive.md §M27](#m27-用户体验--治理优先m271m272-w1m273-w2m274-w4m275-全部已闭环--2026-09-10-归档)。M27 段完整实施记录 / 关键经验 / 待迁移经验均在 git log 中可查。主窗口 [todo-archive.md §M27](#m27-用户体验--治理优先m271m272-w1m273-w2m274-w4m275-全部已闭环--2026-09-10-归档) 仅保留导航指针 + 关键 commit 实证。
 >
 > **关键导航**：
 > - **roadmap 状态**：[roadmap.md §M27](roadmap.md#m27-用户体验--治理优先2026-09-10-用户决策修订方案-b-1--2026-09-10-m271-重复评估修正--2026-09-10-已闭环--归档) + Milestone 概述表 M27 行状态更新（active → 已完成 2026-09-10 归档）
@@ -121,10 +121,10 @@
 >   - **M27.4 W4 container-executor**（1 commit）：`544e5a7` test(platform): 补齐 container-executor 单测恢复 branches 80% coverage gate
 >   - **M27.5 ECONNRESET 候选 ① 诊断**（2 commits）：`b252f93` feat(platform): better-auth transaction trace 日志落地 + `45449314` docs(plan): M27.5 ECONNRESET 候选 ① follow-up 关闭
 >   - **M27 启动相关 docs 收口**（3 commits）：`3f4b055` docs(plan): todo.md 清理为最小化骨架 + `4e54afd` docs(plan): backlog.md 清理已闭环条目 + `ed2d0ce` docs(plan): 归档 M26 阶段并预防性分片迁出 M19-M21
-> - **ahead commits 实证**：`git rev-list HEAD ^origin/master --count` = **11**（M27 全部 11 commits ahead 待用户主动推送；2026-09-10 实测）
+> - **ahead commits 实证**：M27 全部 11 commits 已推送 `origin/master`（`git rev-list HEAD ^origin/master --count` 实测）
 > - **完整实施记录 / 关键经验 / 待迁移经验**：见 `git log M27 启动前 ~` 关键 commit 链
 >
-> **状态**：✅ 全部完成（M27.1 + M27.2 W1 + M27.3 W2 + M27.4 W4 + M27.5 全部 5 原子条目共 **8 atomic commits 实施 + 3 docs 收口 commits = 11 commits ahead 待用户主动推送**）
+> **状态**：✅ 全部完成（M27.1 + M27.2 W1 + M27.3 W2 + M27.4 W4 + M27.5 全部 5 原子条目共 **8 atomic commits 实施 + 3 docs 收口 commits = 11 commits**）
 >
 > **关键决策 D1-D5**：
 > - **D1**：按 §1.1 任务粒度约束（每原子 < 5 commits / < 800 行推荐粒度，< 10 文件 / < 800 行硬阈值）+ §1.1 L12 类型平衡原则选 5 原子（🚀 0 + 🛡️ 2 + 🧪 2 + 📚 教训治理 1）
@@ -168,7 +168,7 @@
 >
 > **非目标**：不发布 mergify action（仅提供模板 + 文档引导）；不修改 dependfix 自身 PR 提交流程；M22.6 双门控第二门控**不能**用 `process.env.NODE_ENV`（Nitro/esbuild 静态替换陷阱——M22.6 Round 1 audit quick depth + 构建产物 grep 兜底发现并强制修订为 `useRuntimeConfig().e2eFixturesAllowed` + `NUXT_E2E_FIXTURES_ALLOWED` 运行时覆盖通道）。
 >
-> **状态**：✅ 全部完成（M22 沉淀 + M22.1 + M22.2 + M22.3 + M22.4 + M22.5 + M22.6 全部 6 原子条目 + 4 docs 闭环登记 commits 共 **9 atomic commits 实施 + 4 docs 收口 commits = 13 commits**；ahead=7 `git rev-list HEAD ^origin/master --count` 2026-09-01 实测：`a4d29bf` M22 沉淀 + `2a31597` M22.1 已推送至 origin/master；`7b8721e` M22.2 + `7b495a7` M22.2 闭环登记 + `5835887` M22.3 + `5cf1b6a` M22.3 路径同步 + `daa255c` M22.4 + `32bb375` M22.5 + `7f84b6e` M22.6 ahead 7 commits 待用户主动推送；7 轮独立 Review Gate Pass —— M22.4 Round 2 / M22.5 Round 1 / M22.6 Round 2；含 M22.4 Round 1 Reject（migrationsRun 默认值越界落地）后补修 + M22.6 Round 1 Reject（Nitro/esbuild 折叠）后修订为 runtimeConfig 兜底）
+> **状态**：✅ 全部完成（M22 沉淀 + M22.1 + M22.2 + M22.3 + M22.4 + M22.5 + M22.6 全部 6 原子条目 + 4 docs 闭环登记 commits 共 **9 atomic commits 实施 + 4 docs 收口 commits = 13 commits**；ahead=7 `git rev-list HEAD ^origin/master --count` 2026-09-01 实测：`a4d29bf` M22 沉淀 + `2a31597` M22.1 已推送至 origin/master；`7b8721e` M22.2 + `7b495a7` M22.2 闭环登记 + `5835887` M22.3 + `5cf1b6a` M22.3 路径同步 + `daa255c` M22.4 + `32bb375` M22.5 + `7f84b6e` M22.6 ahead 7 commits（2026-09-01 当时实测，后续已推送 origin/master）；7 轮独立 Review Gate Pass —— M22.4 Round 2 / M22.5 Round 1 / M22.6 Round 2；含 M22.4 Round 1 Reject（migrationsRun 默认值越界落地）后补修 + M22.6 Round 1 Reject（Nitro/esbuild 折叠）后修订为 runtimeConfig 兜底）
 
 ### 阶段闭环清单
 
@@ -244,7 +244,7 @@
 - [x] vitest 单测覆盖 + playwright e2e 覆盖 —— apps/platform vitest server/ 70 test files / 828 tests passed
 - [x] `pnpm check:docs` 全过 —— 103 md + 58 vue-interp OK
 - [x] 编号标记扫描 0 命中（无孤立 `T\d+` / `M\d+` / `C\d+` 等编号——按 [开发规范 §3 注释规范](../standards/development.md) 与 [code-auditor.agent.md 主责边界必查项](../../.github/agents/code-auditor.agent.md) 防御）
-- [x] CI 端到端裁决待推送后核验 —— ahead=7 commits 待用户主动推送（按 AGENTS.md §5 推送禁令）；M22 沉淀 + M22.1 已推送至 origin/master（`git rev-list HEAD ^origin/master --count` 2026-09-01 实测 ahead=7）
+- [x] CI 端到端裁决待推送后核验 —— ahead=7 commits（2026-09-01 当时实测，后续已推送 origin/master；按 AGENTS.md §5 推送禁令）；M22 沉淀 + M22.1 已推送至 origin/master（`git rev-list HEAD ^origin/master --count` 2026-09-01 实测 ahead=7）
 - [x] 实施过程中新发现 2 条 wisdom 沉淀——Nitro/esbuild `process.env.NODE_ENV` 静态替换陷阱 + atomic commit 边界（提取 const 支撑日志 vs 改 const 计算语义要分清）
 
 ### 阶段治理记录
@@ -252,7 +252,7 @@
 - **总投入**：**9 atomic commits 实施 + 4 docs 收口 commits = 13 commits**（M22 沉淀 `a4d29bf` docs(plan+standards+archive) + M22.1 `2a31597` feat(platform) + M22.2 `7b8721e` feat(platform) + M22.2 闭环 `7b495a7` docs(plan) + M22.3 `5835887` feat(platform) + M22.3 路径同步 `5cf1b6a` docs(standards+plan) + M22.4 `daa255c` feat(platform) + M22.5 `32bb375` fix(platform) + M22.6 `7f84b6e` fix(platform)）
 - **测试覆盖**：apps/platform vitest server/ 70 test files passed (2 skipped) / 828 tests passed (7 skipped)；M22.1 backup.test.ts 26 case + M22.3 db-doctor.test.ts 26 case + M22.6 fixtures.post/delete.test.ts 6 case + M22.4/5 index.test.ts 12 case
 - **审计覆盖**：3 轮独立 Review Gate Pass —— M22.4 Round 2（Round 1 Reject 后补修：migrationsRun 越界落地 + 补 NODE_ENV=development 回归用例 + 同步 platform.md §3.3）/ M22.5 Round 1 / M22.6 Round 2（Round 1 Reject 后修订 runtimeConfig 兜底 + 构建产物 grep 兜底审计模式）
-- **ahead commits 实证**：`git rev-list HEAD ^origin/master --count` 2026-09-01 实测 ahead=7（`7f84b6e` + `32bb375` + `daa255c` + `5cf1b6a` + `5835887` + `7b495a7` + `7b8721e` 7 commits 待用户主动推送）；M22 沉淀 + M22.1 已推送至 origin/master
+- **ahead commits 实证**：`git rev-list HEAD ^origin/master --count` 2026-09-01 实测 ahead=7（`7f84b6e` + `32bb375` + `daa255c` + `5cf1b6a` + `5835887` + `7b495a7` + `7b8721e` 7 commits 当时待推送（后续已推送 origin/master））；M22 沉淀 + M22.1 已推送至 origin/master
 - **文档落盘**：
   - `docs/plan/todo-archive.md` §M22 段（本段；2026-09-01 M22 归档批次新增）
   - `docs/plan/todo.md` M22 段 → 顶部 banner 更新（M22 → 待确定 active）
@@ -328,7 +328,7 @@
 > **修复方案**（最小变动 + 标准化兜底）：
 > - 已落地：2 个测试在 `browser.newContext()` 调用中**显式传** `storageState: { cookies: [], origins: [] }`（commit `bdcd900` test(e2e)）—— Playwright 1.62 文档推荐的"unauthenticated API call"模式，与 `test.use({ storageState })` 完全脱钩，强制清空 cookies/origins
 > - 不触动 handler：测试期望值不变（仍期望 401）
-> - **未落地（根因排查）**：登记 M23 阶段规划排查（按 ROI 排序）：① Playwright 1.62 fixture pool `test.use → browser.newContext` 注入路径源码实证（**2026-09-02 M23.2 commit `09c3dee + e0f9b29` 闭环**——workerProcessEntry.js + common/index.js + coreBundle.js 三处源码追溯 + helper 抽取落地 `apps/platform/tests/e2e/helpers/unauthenticated-api.helper.ts`）；② better-auth 中间件对非 /api/auth/* 端点返回 Set-Cookie 路径扫描（**未单独闭环**——M24.2 commit `bbb8f30` 部分覆盖 better-auth transaction close 时序判定已治本，但 Set-Cookie 路径扫描未单独闭环；待非 sandbox 环境重跑 e2e 时同步排查）；③ Playwright 1.62 vs 1.61/1.60 fixture pool 行为对比（**已因 Playwright 1.62 → 1.63 升级场景变更而失效**——改为持续观察 1.63 fixture pool 行为是否仍存在跨 scope 隐式传播，待 CI 偶发场景复现时同步验证）
+> - **未落地（根因排查）**：登记 M23 阶段规划排查（按 ROI 排序）：① Playwright 1.62 fixture pool `test.use → browser.newContext` 注入路径源码实证（**2026-09-02 M23.2 commit `09c3dee + e0f9b29` 闭环**——workerProcessEntry.js + common/index.js + coreBundle.js 三处源码追溯 + helper 抽取落地 `apps/platform/tests/e2e/helpers/unauthenticated-api.helper.ts`）；② better-auth 中间件对非 /api/auth/* 端点返回 Set-Cookie 路径扫描（**2026-09-11 M28.5 commit `d7289df` 闭环**——实证 better-auth 中间件对非 `/api/auth/*` 端点不会主动设置 Set-Cookie + 项目代码无显式 setCookie 调用，M22.8 follow-up ② 实证无影响；CI 偶发场景下 helper 层兜底保留）；③ Playwright 1.62 vs 1.61/1.60 fixture pool 行为对比（**已因 Playwright 1.62 → 1.63 升级场景变更而失效**——改为持续观察 1.63 fixture pool 行为是否仍存在跨 scope 隐式传播，待 CI 偶发场景复现时同步验证）
 
 > **验证**：
 > - `pnpm exec eslint tests/e2e/{credentials-api,repos-api}.e2e.test.ts` exit 0
@@ -336,9 +336,9 @@
 > - `pnpm test` exit 0（1001 passed / 7 skipped）
 > - A 阶段 quick depth Round 1 Pass（0 blocker / 1 warning hotfix 任务编号登记 / 2 suggest 注释长度 + helper 抽取）
 > - 本地复现脚本：fresh context + 空 cookies → 401 ✓
-> - CI run 33533376712 修复待用户推送后下次 CI 验证
+> - CI run 33533376712 修复（已推送 origin/master）后下次 CI 验证
 
-> **关键经验（已挂 wisdom.md）**：新增 `pattern-playwright-browser-newContext-cookie-injection` —— Playwright 1.62 `test.use({ storageState })` 在 describe 块内可能通过 fixture pool 传播到所有 `browser.newContext()` 调用（即使新 context 未指定 storageState）；"未认证 API 调用"测试必须显式传 `storageState: { cookies: [], origins: [] }` 强制隔离。详见 [经验归档 §五十二](../design/governance/experience-archive-§49-§57-recent-investigation.md#五十二playwrighttestuse存储状态传染导致未认证api测试收到20020260902cirun33533376712)。
+> **关键经验（已挂 wisdom.md）**：新增 `pattern-playwright-browser-newContext-cookie-injection` —— Playwright 1.62 `test.use({ storageState })` 在 describe 块内可能通过 fixture pool 传播到所有 `browser.newContext()` 调用（即使新 context 未指定 storageState）；"未认证 API 调用"测试必须显式传 `storageState: { cookies: [], origins: [] }` 强制隔离。详见 [经验归档 §五十二](../design/governance/experience-archive-§49-§57-recent-investigation.md#五十二playwright-testuse-存储状态传染导致未认证api-测试收到-2002026-09-02ci-run-33533376712)。
 
 ---
 
@@ -350,7 +350,7 @@
 > - **roadmap 状态**：[roadmap.md §M19](roadmap.md#m19-治理--能力扩展--测试补强) + Milestone 概述表 M19 行
 > - **archive 索引**：[archive/index.md §4 当前基线](archive/index.md) + §5 近期归档批次登记 M19 行
 > - **关键 commit 实证**：`0c536c1` M19.1 / `c998d58` M19.2 / `5839771` M19.3 / `8db2fd4` M19.4 / `a20ea02` M19.5 + `ae33671` M19.x 收口 + `2f9eb38` `bee5c3f` `61b3ddc` `4231ffb` 配套
-> - **完整实施记录 / 关键经验 / 待迁移经验**：见 [archive/todo-archive-phases-m19-m21.md §M19](archive/todo-archive-phases-m19-m21.md#m19-治理--能力扩展--测试补强m191m192m193m194m195-全部已闭环-2026-08-31-归档)
+> - **完整实施记录 / 关键经验 / 待迁移经验**：见 [archive/todo-archive-phases-m19-m21.md §M19](archive/todo-archive-phases-m19-m21.md#m19-治理--能力扩展--测试补强m191m192m193m194m195-全部已闭环--2026-08-31-归档)
 
 ---
 
@@ -427,7 +427,7 @@
 >
 > **关键导航**：
 > - **backlog 历史归档指针段**：详见 [todo-archive.md](todo-archive.md)
-> - **roadmap 状态**：[roadmap.md §M15](roadmap.md#m15-扫描历史详情侧栏增强ux-r2已完成-2026-08-26-归档) + Milestone 概述表 M15 行
+> - **roadmap 状态**：[roadmap.md §M15](roadmap.md#m15-扫描历史详情侧栏增强-ux-r2已完成-2026-08-26-归档) + Milestone 概述表 M15 行
 > - **archive 索引**：[archive/index.md §4 当前基线](archive/index.md) + §5 近期归档批次登记 M15 行
 > - **关键 commit 实证**：`5c65177` P 阶段 docs + `1112017` UX-R2 实施（5 文件 / +425/-12）+ `0a60e3d` test 覆盖（2 文件 / +251）+ `d517a7f` release.yml CI 修复（不计入 M15 总投入）
 > - **完整实施记录 / commit 引用 / 验证矩阵 / 关键决策 / 关键经验 / 待迁移经验**：见 [archive/todo-archive-phases-m14-m15.md §M15](archive/todo-archive-phases-m14-m15.md#m15-扫描历史详情侧栏增强ux-r2已闭环)
@@ -457,7 +457,7 @@
 
 > **2026-08-20 neat-freak 归档批次迁出**：M8 段已迁至 [archive/todo-archive-phases-m6-m7-t711.md](archive/todo-archive-phases-m6-m7-t711.md)（M6 / M7.1 / M7.2 / T711 / M8），不再在 todo-archive.md 主窗口保留。本条仅保留导航指针。
 >
-> **原始背景**：M8 阶段 6 任务（T801-T806）由 C38-C45 治理项驱动，20 个提交本地待推送。详见分片文档。
+> **原始背景**：M8 阶段 6 任务（T801-T806）由 C38-C45 治理项驱动，20 个提交当时本地待推送。详见分片文档。
 
 ---
 
@@ -472,7 +472,7 @@
 |:--|:--:|:--|
 | **C53** 平台集成模式 fix 修复结果推送远程 | 3 commits（`83ec736` / `46b7c15` / `3ed8303`） | [分片 §C53](archive/todo-archive-phases-m10-c53-c59c61.md#c53-平台集成模式-fix-修复结果推送远程已归档)（含 C53-1 push 链路 + C53-2 PR 创建 + C53-3 清理时序；衍生子任务 C53-后-A/B/C 在 [archive-phases-m11.md](archive/todo-archive-phases-m11.md) §M11 推进批次） |
 | **M10** 独立沙箱容器 C26 实施规划 | 13 commits（T1001 B1+B2 + T1002 + T1003 + T1004） | [分片 §M10](archive/todo-archive-phases-m10-c53-c59c61.md#m10-独立沙箱容器-c26-实施规划已归档)（含 Docker rootless + 出站白名单代理 + cgroup v2 资源限制 + 文档收口） |
-| **T912** SMTP 邮件发送器主体收口 | 3 commits（`edc9c94` / `6f00937` / `6e28207`） | [分片 §T912](archive/todo-archive-phases-m10-c53-c59c61.md#t912-smtp-邮件发送器主体收口t9123--c28-联动)（T912-3 合并入 C28） |
+| **T912** SMTP 邮件发送器主体收口 | 3 commits（`edc9c94` / `6f00937` / `6e28207`） | [分片 §T912](archive/todo-archive-phases-m10-c53-c59c61.md#t912-smtp-邮件发送器主体收口t912-3--c28-联动)（T912-3 合并入 C28） |
 | **2026-08-20 平台 UI 增强**（C59-C61） | 10 commits（C59 `9949504` + `03ba3b2` / C60 `a1d5bd9` `532ea78` `6b994b5` `5bba3f4` `5fbad71` / C61 `ffacfca` `5abd914` `402dc03`） | [分片 §2026-08-20 平台 UI 增强](archive/todo-archive-phases-m10-c53-c59c61.md#2026-08-20-平台-ui-增强c59--c60--c61)（C59 mixin 修复 + C60 sortable + C61 dashboard 图表） |
 | **2026-08-20 M11 推进批次** | 22 commits（M11 推进批次 12 + M11 启动批次 10） | [分片 §M11 推进批次](archive/todo-archive-phases-m11.md#m11-推进批次业务可见性--沙箱落地--安全文档--通知基建)（C53-后-A/B/C + T1005-A/B/C/D + C28 + C56/C57 + C58 + C-ENV-CHANGE-ALERT） |
 
@@ -495,10 +495,10 @@
 > **2026-09-08 M25 归档批次迁出**：M25 段（4 原子条目 17 commits / ~1821 行净增 / 方案 A 治理优先 + 能力扩展 + 测试补强）已从 `todo.md` 主窗口迁入新分片 [archive/todo-archive-phases-m25.md](archive/todo-archive-phases-m25.md)。M25 段完整实施记录 / 关键经验 / 待迁移经验均在分片中。主窗口 todo.md 仅保留导航指针（与 M24 归档批次同源策略）。
 >
 > **关键导航**：
-> - **roadmap 状态**：[roadmap.md](roadmap.md)（Milestone 概述表 M25 行 + §M25 段已新增详细实施状态段）+ 状态更新：M25 行从「进行中」→「**已完成**（2026-09-08 完整闭环 4 原子条目 17 commits / ~1821 行净增；ahead=17 待用户主动推送）」
+> - **roadmap 状态**：[roadmap.md](roadmap.md)（Milestone 概述表 M25 行 + §M25 段已新增详细实施状态段）+ 状态更新：M25 行从「进行中」→「**已完成**（2026-09-08 完整闭环 4 原子条目 17 commits / ~1821 行净增；ahead=17（2026-09-08 当时实测，后续已推送 origin/master））」
 > - **archive 索引**：[archive/index.md §4 当前基线](archive/index.md) + §5 近期归档批次登记 M25 行
 > - **关键 commit 实证**：`9bf640c` §1.4 规范修正 / `482438d` 方案 A 规划 / `35e4935` PrimeUI License 降级 / `4c51d19` platform.md §3.7 同步 / `1c65582` 数据模型 / `f174cce` Schema+Service / `7250ec1` 三执行器透传 / `49480a6` typecheck 修复 / `782fa27` M25.2a 收口 / `57f3b88` baseline lint 修复 / `4030f3b` packages/cli 修复 / `c88379e` M25.3 收口 / `80912c2` i18n-anchor-check / `65a8ec1` zod-helpers / `66c02ff` M25.4 收口 / `3947279` 锚点修正 + `4818e5d` M25.1 收口
-> - **ahead commits 实证**：`git rev-list HEAD ^origin/master --count` = **17** 待用户主动推送
+> - **ahead commits 实证**：`git rev-list HEAD ^origin/master --count` = **17**（2026-09-08 当时实测，后续已推送 origin/master）
 > - **完整实施记录 / 关键经验 / 待迁移经验**：见 [archive/todo-archive-phases-m25.md](archive/todo-archive-phases-m25.md)
 
 ---
@@ -509,11 +509,11 @@
 >
 > **关键导航**：
 > - **roadmap 状态**：[roadmap.md §M28](roadmap.md#m28-治理债清理--能力扩展2026-09-11-用户决策方案-m28-a--m281-重编号--m286-归档已落地)（Milestone 概述表 M28 行状态已更新：**已完成** + §M28 段已新增 D6 决策增补 + ahead commits 关联表）
-> - **archive 索引**：[archive/index.md §4 当前基线](archive/index.md) + §5 近期归档批次登记 M28 行（M28.6 归档批次落地 ahead=12 commits 待推送：11 M28 commits + 1 M28.6 归档 commit）
-> - **todo.md 同步**：[todo.md](todo.md)（M28 完整闭环 ahead=11 commits 待用户主动推送 + 下一阶段待用户决策 M29+ 启动）
-> - **backlog.md 同步**：M28 候选 C14 / C15 / C33 已 M28.6 归档批次同步清理（backlog.md 健康窗口 ~235 → ~229 行）
+> - **archive 索引**：[archive/index.md §4 当前基线](archive/index.md) + §5 近期归档批次登记 M28 行
+> - **todo.md 同步**：[todo.md](todo.md)（当前无活跃阶段；M28 已归档，下一阶段启动待用户明确决策）
+> - **backlog.md 同步**：M28 候选 C14 / C33 已 M28.6 归档批次同步清理；C15 第二阶段（实际样本采集 + 规则分级修正）保留为未闭环候选（见 [backlog.md §Code Scanning 规则体系](backlog.md#code-scanning-规则体系)）
 >
-> **ahead commits 实证**：`git rev-list HEAD ^origin/master --count` = **11** 待用户主动推送（按 [AGENTS.md §5 推送禁令](../../AGENTS.md) 未经用户明确要求不得执行 `git push`）
+> **ahead commits 实证**：M28 全部 commits 已推送 `origin/master`（`git rev-list HEAD ^origin/master --count` 实测；按 [AGENTS.md §5 推送禁令](../../AGENTS.md) 未经用户明确要求不得执行 `git push`）
 >
 > **M28 ahead commits 关联表**（按提交顺序 / 完整闭环 5 候选 + M28 启动批次 + 治理债清理 + §4.4 规则强化）：
 >
@@ -538,15 +538,15 @@
 > - **D3**：backlog.md 治理债清理 D 阶段已落地（6 文件 modified → 4 atomic commits ahead）—— W1 / C9 / C13 / C36 已闭环条目整段/行删除 + §已知边界 M22.7/M22.8 follow-up stale 同步 + session 元数据 ahead=17 → 0 同步
 > - **D4**（M28.4 诚实修订）：`packages/mcp/src/tools/errors.ts` 已 M26.x 阶段落地（`ToolError` + `requireToken()` + `toToolError()` 双 helper），本任务不再做错误包装 helper；仅做未落地部分：pnpm-audit 本地 tool + RunResult 5 字段对齐
 > - **D5**（§3.4 五步流程完整执行）：M28.2-M28.5 P 阶段 §3.4 五步流程核验全部 0 项重复评估 + M28.4 部分已落地修订 todo.md §M28.4 验收标准 + 执行顺序建议按"用户决策方案"实际推进
-> - **D6**（M28 完整闭环）：5 候选 ahead commits 实测 = 11（含 M28 启动 2 + 治理债清理 3 + M28 完整闭环 6 = 11）—— M28.6 归档批次落地指针模式 + ahead commits 待用户主动推送
+> - **D6**（M28 完整闭环）：5 候选共 11 commits（含 M28 启动 2 + 治理债清理 3 + M28 完整闭环 6）—— M28.6 归档批次落地指针模式
 >
 > **类型平衡复核**：
-> - - 🛡️ 技术债 / 治本：2 项（M28.2 / M28.5）—— ✅ 满足
-> - - 🚀 能力扩展：1 项（M28.4 C33 MCP）—— ✅ 满足
-> - - 🛡️ 技术债：1 项（M28.3 C15）—— ✅ 满足
-> - - 📚 治理：1 项（M28.1 重编号）—— ✅ 满足
-> - - 🎨 用户体验：**0 项** —— ❌ 缺口（C36 / C37 均已闭环或前置依赖）
-> - - 🧪 测试覆盖：**0 项** —— ❌ 缺口（db-restore S-1/S-2 恢复条件不明确）
+> - 🛡️ 技术债 / 治本：2 项（M28.2 / M28.5）—— ✅ 满足
+> - 🚀 能力扩展：1 项（M28.4 C33 MCP）—— ✅ 满足
+> - 🛡️ 技术债：1 项（M28.3 C15）—— ✅ 满足
+> - 📚 治理：1 项（M28.1 重编号）—— ✅ 满足
+> - 🎨 用户体验：**0 项** —— ❌ 缺口（C36 / C37 均已闭环或前置依赖）
+> - 🧪 测试覆盖：**0 项** —— ❌ 缺口（db-restore S-1/S-2 恢复条件不明确）
 >
 > **关键经验**：
 > - **M28.1 §4.4 第 11 条规则强化治本 §4.4 第 11 条结构性缺陷**（粗粒度触发 vs 细粒度触发 + 二元决策 vs 三元决策）——避免 M27.1 教训复发（重复评估）
@@ -554,6 +554,6 @@
 > - **M28.3 第一阶段脚本 + fixture + 报告框架就绪**——实际 GitHub API 采集合 CI/staging 环境跑 `GITHUB_TOKEN=xxx node sample-collector.mjs`
 > - **M28.4 RunResult 对齐保持向后兼容**（8 字段保留 + 5 字段新增 + 2 可选字段按需）——不破坏现有 MCP 客户端契约
 > - **M28.5 治本验证通过**（better-auth 中间件对非 `/api/auth/*` 端点不会主动设置 Set-Cookie）——M22.8 follow-up ② 建议关闭
-> - **§3.4 五步流程完整执行**（todo-archive + git log + 代码侧 anchor + git log --grep 候选 ID + 关联决策交叉核验）——避免本次踩中的" M27.1 教训复发"
+> - **§3.4 五步流程完整执行**（todo-archive + git log + 代码侧 anchor + git log --grep 候选 ID + 关联决策交叉核验）——避免本次踩中的"M27.1 教训复发"
 >
 > **完整实施记录 / 关键经验 / 待迁移经验**：见 [archive/todo-archive-phases-m28.md](archive/todo-archive-phases-m28.md)（2026-09-11 M28.6 归档批次预防性分片迁出——M28 完整记录 5 候选 × 8 要素 + 性能基准数据 + 批处理决策表 + RunResult 对齐前后对照 + better-auth 中间件 Set-Cookie 触发机制分析）

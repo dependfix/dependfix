@@ -123,6 +123,56 @@ describe('DependfixApp versioned overrides (same-major coexistence)', () => {
         expect(voActions[0].toVersion).toContain('3.1.5')
         expect(nock.pendingMocks()).toEqual([])
     })
+
+    it('overrides 保护名单命中：多版本路径不写入 versioned override（记 OVERRIDE_PROTECTED + noOp）', async () => {
+        nock('https://api.github.com')
+            .get('/repos/foo/bar/dependabot/alerts')
+            .query({ state: 'open', per_page: '100' })
+            .reply(200, [{
+                number: 1,
+                state: 'open',
+                security_advisory: { ghsa_id: 'GHSA-f8p3-7c7w-h6x4', severity: 'high' },
+                security_vulnerability: {
+                    package: { ecosystem: 'npm', name: 'fast-uri' },
+                    severity: 'high',
+                    vulnerable_version_range: '< 3.1.5',
+                    first_patched_version: { identifier: '3.1.5' },
+                },
+                dependency: { package: { ecosystem: 'npm', name: 'fast-uri' }, manifest_path: 'pnpm-lock.yaml' },
+            }])
+
+        nock('https://api.github.com')
+            .get('/repos/foo/bar')
+            .reply(200, { default_branch: 'master' })
+
+        const config = resolveRuntimeConfig({
+            env: {
+                GITHUB_TOKEN: 'main-token-value',
+                DEPENDFIX_MODE: 'fix',
+                DEPENDFIX_REPOSITORIES: 'foo/bar',
+                DEPENDFIX_DRY_RUN: 'true',
+                DEPENDFIX_OVERRIDE_PROTECT: 'foo/bar:fast-uri',
+            },
+        })
+
+        const app = new DependfixApp({ config, workDir, reportOutputDir: join(workDir, 'reports') })
+        const { exitCode, result } = await app.run()
+
+        // 退出码 1：全部告警被保护跳过 → 无修复；且跳过审计条目计入 allErrors（hasErrors → 非 0）
+        // 注：跳过类审计条目不应翻转退出码（语义问题已登记 backlog）
+        expect(exitCode).toBe(1)
+        // 不产生 versioned-override 动作
+        expect(result.actions.filter((a) => a.strategy === 'versioned-override' && a.target === 'fast-uri')).toHaveLength(0)
+        // 记录为 noOp 保护跳过动作（不计 fixed/failed）
+        const protectedActions = result.actions.filter((a) => a.strategy === 'override-protected' && a.target === 'fast-uri')
+        expect(protectedActions).toHaveLength(1)
+        expect(protectedActions[0].noOp).toBe(true)
+        // 报告记录判定依据（含命中模式）
+        const protectedErrors = result.errors.filter((e) => e.category === 'OVERRIDE_PROTECTED')
+        expect(protectedErrors).toHaveLength(1)
+        expect(protectedErrors[0].message).toContain('foo/bar')
+        expect(nock.pendingMocks()).toEqual([])
+    })
 })
 
 // ---------------------------------------------------------------------------

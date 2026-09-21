@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { AppError } from '@dependfix/core'
-import { resolveRuntimeConfig } from './index'
+import { readEnvConfig, resolveRuntimeConfig } from './index'
 
 describe('resolveRuntimeConfig', () => {
     it('reads defaults from env when required inputs exist', () => {
@@ -704,5 +704,30 @@ describe('GITHUB_REMOTE_RE', () => {
     it('matches with leading whitespace', () => {
         const m = execGitHubRemote(' https://github.com/owner/repo.git')
         expect(m[1]).toBe('owner')
+    })
+})
+
+// ---------------------------------------------------------------------------
+// DEPENDFIX_OVERRIDE_PROTECT（overrides 保护名单）
+// ---------------------------------------------------------------------------
+
+describe('readEnvConfig: overrideProtect', () => {
+    it('解析 repo-glob:pkg,...;... 形态', () => {
+        const config = readEnvConfig({
+            DEPENDFIX_OVERRIDE_PROTECT: 'foo/bar:decode-uri-component;owner/*:left-pad,foo',
+        } as NodeJS.ProcessEnv)
+        expect(config.overrideProtect).toEqual({
+            'foo/bar': ['decode-uri-component'],
+            'owner/*': ['left-pad', 'foo'],
+        })
+    })
+
+    it('未设置 → undefined（默认行为不变）', () => {
+        expect(readEnvConfig({} as NodeJS.ProcessEnv).overrideProtect).toBeUndefined()
+    })
+
+    it('非法条目 → CONFIG_VALIDATION_ERROR（fail-fast，与 UPGRADE_GROUPS 同口径）', () => {
+        expect(() => readEnvConfig({ DEPENDFIX_OVERRIDE_PROTECT: 'foo/bar' } as NodeJS.ProcessEnv))
+            .toThrow(/OVERRIDE_PROTECT/)
     })
 })

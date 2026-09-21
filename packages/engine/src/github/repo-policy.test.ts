@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import {
     filterExplicitRepositories,
+    matchesOverrideProtect,
     matchesRepoExclude,
     matchesRepoGlob,
     matchesRepoInclude,
     matchesTopicsExclude,
     MAX_GLOB_PATTERN_LENGTH,
+    parseOverrideProtectEntries,
     repoGlobToRegExp,
     type RepoPolicy,
 } from './repo-policy'
@@ -157,5 +159,75 @@ describe('policy predicate composition (discovery filters before probing)', () =
             && !matchesRepoExclude(policy, r.fullName)
         ))
         expect(kept.map((r) => r.fullName)).not.toContain('org/legacy-1')
+    })
+})
+
+// ---------------------------------------------------------------------------
+// matchesOverrideProtect / parseOverrideProtectEntries（overrides 保护名单）
+// ---------------------------------------------------------------------------
+
+describe('matchesOverrideProtect', () => {
+    const policy = {
+        overrideProtect: {
+            'foo/bar': ['decode-uri-component'],
+            'owner/*': ['left-pad'],
+        },
+    }
+
+    it('命中：仓库精确匹配 + 包名在列表内 → protected 且返回命中模式', () => {
+        expect(matchesOverrideProtect(policy, 'foo/bar', 'decode-uri-component'))
+            .toEqual({ protected: true, matchedPattern: 'foo/bar' })
+    })
+
+    it('仓库匹配但包名不在列表内 → protected=false', () => {
+        expect(matchesOverrideProtect(policy, 'foo/bar', 'lodash').protected).toBe(false)
+    })
+
+    it('仓库 glob（owner/*）命中 → protected', () => {
+        expect(matchesOverrideProtect(policy, 'owner/anything', 'left-pad'))
+            .toEqual({ protected: true, matchedPattern: 'owner/*' })
+    })
+
+    it('仓库不匹配（未在名单内的仓库）→ protected=false', () => {
+        expect(matchesOverrideProtect(policy, 'other/repo', 'decode-uri-component').protected).toBe(false)
+    })
+
+    it('两段通配全局兜底：所有仓库均保护该包（单星号不跨斜杠）', () => {
+        expect(matchesOverrideProtect({ overrideProtect: { '*/*': ['lodash'] } }, 'any/repo', 'lodash').protected).toBe(true)
+    })
+
+    it('未配置 overrideProtect → protected=false（回归：默认行为不变）', () => {
+        expect(matchesOverrideProtect({}, 'foo/bar', 'decode-uri-component').protected).toBe(false)
+    })
+})
+
+describe('parseOverrideProtectEntries', () => {
+    const factory = (message: string) => new Error(message)
+
+    it('解析单条目与多条目（; 分隔条目，, 分隔包名）', () => {
+        expect(parseOverrideProtectEntries(
+            'CaoMeiYouRen/rss-impact-server:decode-uri-component;owner/*:left-pad,foo',
+            factory,
+            '--override-protect',
+        )).toEqual({
+            'CaoMeiYouRen/rss-impact-server': ['decode-uri-component'],
+            'owner/*': ['left-pad', 'foo'],
+        })
+    })
+
+    it('空 entry（尾随 / 连续分号）忽略', () => {
+        expect(parseOverrideProtectEntries('foo/bar:pkg;;', factory, 'x')).toEqual({ 'foo/bar': ['pkg'] })
+    })
+
+    it('缺冒号 → fail-fast 抛错', () => {
+        expect(() => parseOverrideProtectEntries('foo/bar', factory, '--override-protect')).toThrow(/Invalid --override-protect entry/)
+    })
+
+    it('包列表为空 → fail-fast 抛错', () => {
+        expect(() => parseOverrideProtectEntries('foo/bar:', factory, '--override-protect')).toThrow(/Invalid --override-protect entry/)
+    })
+
+    it('原型链风险键名忽略', () => {
+        expect(parseOverrideProtectEntries('__proto__:pkg;foo/bar:pkg', factory, 'x')).toEqual({ 'foo/bar': ['pkg'] })
     })
 })

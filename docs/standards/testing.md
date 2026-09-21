@@ -105,7 +105,7 @@
 - **`page.route` 注册顺序铁律**：Vue/Nuxt 应用 `onMounted` 在 hydration 后**立即**触发 fetch。`page.route` 必须在 `page.goto` **之前**注册（首选 `test.beforeEach` 模式），否则 onMounted 抢跑走真实 API（401/403）→ events 为空 → DataTable 不渲染 wrapper / rowGroup 不显示 subheader。
 - **CI 失败分析必看 `error-context.md`**：playwright CI 失败时 `test-results/<spec>/error-context.md` 含 accessibility tree（DOM 实际渲染态：row class / cell text / role attribute / button 标签），比堆栈更快定位 DOM-based 测试失败。诊断顺序：error-context.md → trace.zip → webServer 日志 → console.log。
 - **PrimeVue 4 wrapper class 重命名**：`scrollable` 包裹层从 `.p-datatable-wrapper`（PrimeVue 3）改为 `.p-datatable-table-container`（PrimeVue 4）。e2e 断言必须看实际渲染产物（playwright error-context.md 或 `page.evaluate` 输出 classList）。
-- **PrimeVue 4 + Nuxt SSR hydration 状态机分歧**（known-issue）：`onMounted` 异步赋值 `alerts.value` 后 PrimeVue 不重新计算 `processedData`，rowGroup subheader 永不渲染；`page.reload()` 后能渲染可佐证非业务逻辑问题。修复路径：迁移 alerts 加载到 `useAsyncData` 让 SSR 阶段就有数据，或升级 PrimeVue 到修复版本。当前 2 个 alerts-rowgroup.e2e.test.ts 测试以 `test.fixme()` 标记（命名空间 `known-issue/primevue-hydration-rowgroup`），等修复后取消 `.fixme`。详见 [`docs/plan/backlog.md` 已知边界与 known-issue](../plan/backlog.md)。
+- **PrimeVue 4 + Nuxt SSR hydration 状态机分歧**（已修复，保留为模式参考）：`onMounted` 异步赋值 `alerts.value` 后 PrimeVue 不重新计算 `processedData`，rowGroup subheader 永不渲染（`page.reload()` 后能渲染可佐证非业务逻辑问题）。修复路径：迁移 alerts 加载到 `useAsyncData`（SSR 阶段 handler 执行 fetch 并塞进 payload，hydration 时数据已就绪）+ `useRequestFetch` 转发 cookie；已取消 2 个 alerts-rowgroup e2e `.fixme` 并新增 SSR 锁定 test。
 - **Nuxt 4 payload 解析模式**：Nuxt 4 用 devalue 编码 SSR payload 到 `<script id="__NUXT_DATA__">`，结构是稀疏数组：对象属性也是位置引用（如 `id: 12` 表示 `payload[12]` = 实际字符串），必须递归解引用才能拿到字面量。e2e 取 session userId 模式：遍历数组找含 role 的对象 → deref role → deref id → string。编写 e2e 解析 Nuxt 4 SSR 注入数据时**不要假设标准 JSON 结构**，必须遍历稀疏数组 + 递归解引用。
 
 ### 6.2 真实基础设施集成测试（进程内，优先于后台服务冒烟）
@@ -132,7 +132,7 @@
 - **根因排查边界**：handler / 单测 / 本地复现穷举 → 通过即接受兜底修复 + 根因 backlog 分离
 - **修复模式**（test helper 层而非 handler 层）：复用 Playwright 1.62 `_sendRequestWithRetries` 内置 250ms 指数 backoff 重试（仅对 `e.code === 'ECONNRESET'` 触发）
 - **JSDoc 精度**：必须穷举"哪些错误重试"+"哪些错误不重试"（`ECONNREFUSED` / `ETIMEDOUT` 等不重试）
-- **根因排查**：按 ROI 排序登记 backlog.md §已知边界 M22.7 衍生段（M 阶段规划时优先排查 better-auth 1.7 transaction close 时序 / Nitro h3 async generator / SQLite WAL 模式）
+- **根因排查**：候选按 ROI 排序 —— 候选 ③ SQLite WAL 模式 + `busy_timeout` 已落地（治本）；候选 ② Nitro h3 async generator 已判定非根因；候选 ④ fixtures API 节流为经验性 follow-up；候选 ① better-auth 1.7 transaction 关闭时序诊断基础设施已落地（`AUTH_TRACE=1` 开关），待 CI 复现（详见 [backlog.md §已知边界](../plan/backlog.md#已知边界与-known-issue)）
 
 #### e2e 未认证 API 调用测试标准模式
 

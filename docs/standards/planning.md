@@ -241,15 +241,17 @@
     - **长期主线任务章节硬性规则**：下面有且仅有"可以多阶段反复执行"的任务，不保留任何其他东西（包括已闭环批次记录 / 已落地方案详细描述 / 触发事件 / 临时修复细节）
     - **判断标准**：删除前问"下一阶段启动时是否需要？"——已闭环 / 已归档内容由 todo-archive.md 统一维护，不应在 backlog.md/todo.md 重复
     - **执行范围**：本规则与 §4.4 第 9 条（"区分已归档内容与必要信息"，反向防"删过头"）互补——第 9 条强调保留必要信息，本规则强调必清出已闭环内容；两者配套执行
-    - **§已知边界段部分闭环处理指引**（M28.1 治理债清理批次强化 / 2026-09-11）：
-      §已知边界与 known-issue 段不应仅做"保留 / 删除"二元决策；当某持续观察项已**部分闭环**时，必须**更新描述**而非整段保留或删除。具体指引：
-      - **完全闭环**：整段删除（如 §已知边界 SQLite 单文件脆弱性段持续观察项 TypeORM 1.x 升级已 M23.x 闭环，整段删除）
-      - **完全未闭环**：保留原描述（如 §已知边界 PrimeVue 4 + Nuxt hydration 主线 #1 持续观察，无阶段闭环）
-      - **部分闭环**：必须更新描述 + 引用闭环 commit hash（如 §已知边界 M22.7 follow-up 候选 ② Nitro h3 async generator 已 M24.2 commit `bbb8f30` 判定非根因——更新描述加 ~~删除线~~ 标注 + commit hash 引用；如未来 e2e 复现 fixture 并发问题按经验性模板加 fixtures-throttle.ts 登记 follow-up）
-      - **场景变更**：必须更新描述（如 §已知边界 M22.8 follow-up 候选 ③ Playwright 1.62 vs 1.61/1.60 fixture pool 行为对比 已因 Playwright 1.62 → 1.63 升级（`@playwright/test@^1.63.0` 实证）场景变更而失效——更新描述标注"持续观察 1.63 fixture pool 行为"）
-      - **触发条件**：(a) 任意阶段 commit message 涉及 backlog §已知边界段候选的闭环判定；(b) 任意阶段 commit message 涉及 backlog §已知边界段候选的场景变更；(c) Mxx 归档批次涉及 backlog §已知边界段清理
-      - **合规核验**：本条由 [code-auditor 主责边界「§已知边界段 stale 描述未同步」必查项](../../.github/agents/code-auditor.agent.md) 强制检查——commit 涉及 backlog §已知边界段候选状态变更时，三项检查任意一项未执行 / 未通过 → Reject 退回
+    - **§已知边界段 / 长期主线段 stale 描述处理指引**（M28.1 治理债清理批次强化 / 2026-09-11；示例于 2026-09-21 规划文档归档批次校正 + 长期主线卡闭环同步子条款新增）：
+      §已知边界与 known-issue 段 / 长期主线段不应仅做"保留 / 删除"二元决策；当某持续观察项 / 主线卡已**部分闭环**时，必须**更新描述**而非整段保留或删除。具体指引：
+      - **完全闭环**：整段删除（如 §已知边界 PrimeVue 4 + Nuxt hydration known-issue 段——目标已被 M16.4 取消 e2e `.fixme` + alerts 迁移 `useAsyncData` 达成，整段删除）
+      - **完全未闭环**：保留原描述（如 §已知边界 E2E ECONNRESET 剩余候选 better-auth transaction 关闭时序，待 CI 复现）
+      - **部分闭环**：必须更新描述 + 引用闭环 commit hash（如 §已知边界 E2E ECONNRESET 候选 ② Nitro h3 async generator 已 M24.2 commit `bbb8f30` 判定非根因——更新描述加 ~~删除线~~ 标注 + commit hash 引用；如未来 e2e 复现 fixture 并发问题按经验性模板加 fixtures-throttle.ts 登记 follow-up）
+      - **场景变更**：必须更新描述（历史示例：Playwright 1.62 vs 1.61/1.60 fixture pool 行为对比已因 1.62 → 1.63 升级（`@playwright/test@^1.63.0` 实证）场景变更而失效——当时更新描述标注"持续观察 1.63 fixture pool 行为"；该条目已随 M22.8 / M23.2 闭环清理，示例保留供模式参考）
+      - **长期主线卡闭环同步**（2026-09-21 规划文档归档批次强化）：长期主线卡的**验收条件达成 / 目标被某阶段闭环**时，必须整卡删除或改写状态，不得保留"暂停 / 观察中"的 stale 描述；触发于任意阶段 commit 涉及该主线相关代码 / 测试 / 依赖时。反例：PrimeVue hydration 主线卡在 M16.4 取消 e2e `.fixme` + alerts 迁移 `useAsyncData` 后仍以"暂停"状态滞留 backlog，直至 2026-09-21 规划文档归档批次才清理
+      - **触发条件**：(a) 任意阶段 commit message 涉及 backlog §已知边界段 / 长期主线段候选的闭环判定；(b) 任意阶段 commit message 涉及 backlog §已知边界段候选的场景变更；(c) Mxx 归档批次涉及 backlog §已知边界段 / 长期主线段清理
+      - **合规核验**：本条由 [code-auditor 主责边界「§已知边界段 / 长期主线段 stale 描述同步」必查项 ⑩](../../.github/agents/code-auditor.agent.md) 强制检查——commit 涉及 backlog §已知边界段 / 长期主线段候选状态变更时，五项判定（完全闭环 / 完全未闭环 / 部分闭环 / 场景变更 / 长期主线卡闭环）任意一项未执行 / 未通过 → Reject 退回
     - 详见 [经验归档 §四十九](../design/governance/experience-archive.md)
+12. **超长行完整性校验**（2026-09-21 规划文档归档批次强化）：写入超长 markdown 行（如 `archive/index.md` §5 批次登记表行，常 > 2000 字符）时，**禁止直接粘贴被截断的工具输出**；写入后必须校验行完整性——`rg -n 'line truncated' docs/plan/` 零命中 + 表格行首尾 `|` 成对 + 单元格内 `|` 已转义（`\|`）+ 无重复行 / 游离分隔符（`|:--|...` 单独成行）。反例：`archive/index.md` §5 曾出现含 `(line truncated to 2000 chars)` 字面量的损坏行 + 重复 M27 行 + 游离分隔符，2026-09-21 规划文档归档批次清理。
 
 > 本节为大批量文档归档批次（multi-file edit + 段结构变更）的统一操作规范；其他文档归档 / 小批量编辑仅执行相关条目。详见 [经验归档 §四十二 + §四十五 + §四十八 + §四十九](../design/governance/experience-archive.md)。
 

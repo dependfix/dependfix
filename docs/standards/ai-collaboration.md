@@ -328,7 +328,7 @@ self-check 通过后，按以下条件判断是否触发 code-auditor quick dept
 
 **合规核验**：本流程由 [code-auditor 主责边界「阶段启动重复评估自检」必查项](../../.github/agents/code-auditor.agent.md) 强制检查——commit 涉及 todo.md §当前阶段新增 / 修改时，五步自检任意一步未执行 / 未通过 → Reject 退回。
 
-**关联规范**：[planning.md §3.4 阶段启动决策前置交叉核验硬要求](./planning.md#34-阶段启动决策前置交叉核验硬要求m271-重复评估教训--2026-09-10) + [experience-archive §六十四 M27.1 重复评估教训](../design/governance/experience-archive-§49-§57-recent-investigation.md#六十四m271c66告警视图增强重复评估教训阶段启动决策时未对照已闭环清单导致规划无效工作20260910commit决策d2错误) + [backlog.md §C66 修订实证](../plan/backlog.md)。
+**关联规范**：[planning.md §3.4 阶段启动决策前置交叉核验硬要求](./planning.md#34-阶段启动决策前置交叉核验硬要求m271-重复评估教训--2026-09-10) + [experience-archive §六十四 M27.1 重复评估教训](../design/governance/experience-archive-§49-§57-recent-investigation.md#六十四m271c66告警视图增强重复评估教训阶段启动决策时未对照已闭环清单导致规划无效工作20260910commit决策d2错误) + [todo-archive.md §M23](../plan/todo-archive.md#m23-m22-治理债收口--根因排查--能力扩展--测试补强m230m231m232m233m234-全部已闭环--2026-09-02-归档)（C66 告警视图增强闭环记录）。
 
 ---
 

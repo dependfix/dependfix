@@ -105,6 +105,58 @@
 
 - **B2** 固定分支单线设计（独立平台部署后修复频率上升，需要固定修复分支如 `dependfix/auto-fix` 避免频繁向 master 提交 PR；触发：v1.0.0 后 M12 平台 UX 修复链路上线；关联：T210 指纹方案整合复用/重建策略 + force push 语义）
 
+#### 修复交付链路（commit / push / PR）
+
+- **C73 隔离宿主 git 全局配置对自动 commit 的污染（`commit.gpgsign` 等）** —— 2026-09-21 用户发起「修复并建 PR 模式下工作区 commit 身份」现状分析时实证触发；评估完成待上收；按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) **不带 M\d+ 阶段编号**。
+  - **目标**：自动修复链路产生的 commit 不受宿主 git 全局 / 系统配置影响——commit 恒成功，且不会被宿主个人 GPG 签名。
+  - **范围**：`packages/engine/src/github/pr-creator.ts`（`stageAndCommit` / `ensureGitConfig`）+ 共用该函数的两个调用方（`packages/engine/src/app/helpers.ts` `/` `packages/engine/src/app/index.ts`）+ 宿主配置泄漏路径 `apps/platform/server/services/executor/container-executor.ts`。
+  - **现状实证**（2026-09-21 代码核对 + 最小复现）：
+    - [`stageAndCommit`](../../packages/engine/src/github/pr-creator.ts) 仅显式传 `-c user.name` / `-c user.email`（M18.4 W3 修复），**未隔离 `commit.gpgsign`**。
+    - 非测试源码**零处** `GIT_CONFIG_GLOBAL` / `GIT_CONFIG_NOSYSTEM` / `commit.gpgsign` 处理（仓库级检索 0 命中）；配置隔离仅存在于 `pr-creator.test.ts`。
+    - [`container-executor.ts`](../../apps/platform/server/services/executor/container-executor.ts) 名为 container，实际在**宿主进程内** `new DependfixApp(...)`（无 docker 调用），宿主全局 git 配置完全生效。
+    - 最小复现 ①（gpg 可用 **且** `user.signingkey` 已配置 / 默认密钥可自动选中）：按 `stageAndCommit` 命令形式提交 → commit 成功但**带宿主个人 GPG 签名**，签名身份与 commit author 不一致；若宿主无可用签名 key，则落入 ② 的失败分支。
+    - 最小复现 ②（gpg 程序不可用，模拟 CI / 纯 Linux 容器）：`gpg failed to sign the data` → `failed to write commit object`，commit 直接失败。
+  - **影响面**：[`commitLocalChanges`](../../packages/engine/src/app/helpers.ts)（平台 `mode:'fix' + commit:true` 路径）与 [`executeFixAndPrMode`](../../packages/engine/src/app/index.ts)（引擎自带 fix-and-pr 路径）共用 `stageAndCommit`；签名失败归入 C53 状态机的 `git commit 失败` 分支。
+  - **候选修复方向（待上收时敲定）**：
+    - **方案 A（推荐，最小改动）**：`git commit` 显式追加 `-c commit.gpgsign=false`，直击签名污染根因，不改变其余宿主配置语义。
+    - **方案 B（彻底隔离）**：为 git 子进程注入 `GIT_CONFIG_GLOBAL=/dev/null` + `GIT_CONFIG_NOSYSTEM=1`，一次性屏蔽全部宿主配置；代价是同时丢失宿主 `url.*.insteadOf` / 代理 / `core.hooksPath` 等可用配置，可能影响 clone / push。
+    - **方案 C**：扩展 `ensureGitConfig`，clone 后向克隆仓库写 local `commit.gpgsign=false`（不改宿主配置）。
+  - **验收标准**：
+    - [ ] 宿主 `commit.gpgsign=true` 且 gpg 可用时，工作区 commit 无签名（`git log --show-signature` 无 Good signature）
+    - [ ] 宿主 `gpg.program` 指向不可用程序时，工作区 commit 仍成功
+    - [ ] `pr-creator.test.ts` 新增 case 覆盖签名污染场景（沿用既有 `GIT_CONFIG_GLOBAL` 隔离测试范式）
+    - [ ] engine + platform 定向测试 + `pnpm lint` + `pnpm typecheck` 通过
+  - **不做什么**：不改宿主 `~/.gitconfig`；不关闭用户手工 git 操作的签名；不改 push 凭据链路（`http.extraheader` 注入已满足安全要求）；不回溯已产生的 commit
+  - **依赖**：关联 M18.4 W3（`-c user.name` / `-c user.email` 显式覆盖范式）；关联 C53 状态机 `git commit 失败` 分支；关联 C74（同属 commit 身份 / 配置治理）
+  - **交付物**：1-2 atomic commits（`fix(engine)` 签名污染隔离 + `test(engine)` case）
+  - **风险与缓解**：方案 B 完全隔离可能丢失宿主必要的代理 / `insteadOf` 配置，导致 clone / push 回归；缓解：默认采用方案 A（仅签名开关），彻底隔离如需另开评估
+  - **优先级**：P2（宿主 `commit.gpgsign=true` 且 gpg 不可用（CI / 容器 / 未装 gpg）时，会直接导致 fix-and-pr 交付失败；同时会把宿主个人 GPG 签名写入被修复的第三方仓库历史）
+  - **复杂度估算**：代码 ~5-20 行；测试 2-4 case；文档 0（未触发设计文档硬阈值）
+
+- **C74 接线 `getCommitAuthor()`，让 GitHub App 凭据路径使用真实 bot 身份** —— 同 C73 分析衍生；评估完成待上收；**不带 M\d+ 阶段编号**。
+  - **目标**：自动修复 commit 的 author 来源于凭据对应的真实 GitHub 身份——GitHub App 路径输出沿用 M18.x 既有 author 约定的 `{app_id}[bot]` / `{app_id}+{bot_login}[bot]@users.noreply.github.com`（email 格式决定 GitHub 账号归属，name 属显示层）。
+  - **范围**：`packages/engine/src/auth/{auth-provider,pat-provider,app-provider}.ts`（`getCommitAuthor()` 接线）+ `packages/engine/src/app/{helpers,index}.ts`（author 透传）。
+  - **现状实证**（2026-09-21 代码核对）：
+    - [`auth-provider.ts`](../../packages/engine/src/auth/auth-provider.ts) 定义 `getCommitAuthor()` 契约，[`pat-provider.ts`](../../packages/engine/src/auth/pat-provider.ts) 与 [`app-provider.ts`](../../packages/engine/src/auth/app-provider.ts) 各自实现——但**非测试源码零调用**。
+    - `stageAndCommit` 两个调用点（[`helpers.ts`](../../packages/engine/src/app/helpers.ts) + [`index.ts`](../../packages/engine/src/app/index.ts)）均不传 `author` → 恒落 `PAT_DEFAULT_COMMIT_AUTHOR`。
+    - 结果：即使使用 GitHub App 凭据，commit author 仍是硬编码 `dependfix[bot] <dependfix[bot]@users.noreply.github.com>`——该邮箱非真实账号，提交不归属任何 GitHub 账号。
+  - **决策点（待上收时敲定）**：
+    - **PAT 路径是否同步调整**：M18.0 决策 2「PAT 用户行为零变化」为既有约束，改动会改变既有仓库的 commit 归属，需用户决策。
+    - **App 路径 `botLogin` 透传链路**：`app-provider.ts` 在 `params.botLogin` 缺失时 fallback `dependfix[bot]`，调用方需显式提供才能得到真实 bot login。
+    - **与 push / PR 身份的一致性**：push 与 PR 均走 token，归属于凭据所有者；commit author 改为 App bot 身份后需评估三者语义是否自洽。
+  - **验收标准**：
+    - [ ] GitHub App 凭据路径工作区 commit author = `{app_id}[bot] <{app_id}+{bot_login}[bot]@users.noreply.github.com>`
+    - [ ] commit 在 GitHub 页面上归属 App bot 账号（由 email 映射生效，人工核验一次）
+    - [ ] PAT 路径行为按用户决策保持一致或同步调整
+    - [ ] auth-provider / pr-creator 单测覆盖接线路径
+    - [ ] `pnpm lint` + `pnpm typecheck` + 定向测试通过
+  - **不做什么**：不改 push 凭据链路；不改分支命名 / 内容指纹；不回溯已产生的历史提交
+  - **依赖**：AuthProvider 抽象（M18.x）；关联 [c22-pat-backward-compat.md](../design/governance/c22-pat-backward-compat.md)；关联 C73（同一 commit 身份治理批次）
+  - **交付物**：1-2 atomic commits（`feat(engine)` getCommitAuthor 接线 + `test(engine)` case）
+  - **风险与缓解**：变更 commit author 可能触发目标仓库保护规则（要求签名 commit / 限定作者）导致 PR 被拒；缓解：先在单一测试仓库验证，并与 C73 的签名策略一并评估
+  - **优先级**：P3（当前 PAT 路径功能可用；App 路径身份不真实属审计一致性 / 体验问题）
+  - **复杂度估算**：代码 ~20-40 行（author 透传 + botLogin 传递）；测试 3-5 case；文档 0（未触发设计文档硬阈值）
+
 #### Code Scanning 规则体系
 
 #### 依赖修复引擎（dependency-fixer）

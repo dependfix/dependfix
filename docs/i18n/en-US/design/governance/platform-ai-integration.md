@@ -358,8 +358,8 @@ When any of the following is triggered, adopt from backlog to todo.md §current 
 
 1. User feedback needs management platform to trigger AI assessment (typical scenario: in-org multi-person collaboration wants unified Key management)
 2. Public deployment (docker one-click deployment) user AI assessment config barrier too high (CLI user few, wants panel-based config)
-3. M28+ phase (M7.2 platform capability deepening continuation) starts
-4. Link with C66 alert view enhancement (M28 phase combined implementation)
+3. A later phase starts (stage number pending user decision; continues M7.2 platform capability deepening)
+4. Link with alert view enhancement (C66, closed in M23.3)
 5. User explicitly triggers adoption
 
 ## 11. Key decision review (to be filled when user adopts stage)
@@ -383,5 +383,5 @@ When any of the following is triggered, adopt from backlog to todo.md §current 
 
 - **Design first draft created**: 2026-09-08
 - **Trigger**: User research "How to supplement AI assessment in apps/platform"
-- **Related stage**: M26 (closed 2026-09-10); candidate stage M26+ (link with M25.2a → M26.1 application layer implementation). See [archive/todo-archive-phases-m26.md](https://github.com/dependfix/dependfix/blob/master/docs/plan/archive/todo-archive-phases-m26.md).
+- **Related stage**: Not yet adopted (backlog only); candidate stage pending user decision (continues M7.2 platform capability deepening).
 - **Audit basis**: This document is the design basis for P0 landing, no A-stage audit taken (consistent with design docs governance convention)

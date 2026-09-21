@@ -266,5 +266,5 @@ $ pnpm licenses list --prod --json | jq '.["Unknown"] | length'
 
 - **设计先行稿创建时间**：2026-09-08
 - **触发**：用户调研"apps/platform/node_modules/@primeuix/themes/LICENSE.md 存在 PrimeUI License 风险问题，评估回滚版本还是迁移到其他 UI 库"
-- **关联阶段**：未上收（仅挂 backlog）；候选阶段为 M28+（与 C68 / C69 联动）
+- **关联阶段**：未上收（仅挂 backlog）；候选阶段待用户决策（阶段编号由用户分配）
 - **审计依据**：本文档作为 P0 落地的设计依据，未走 A 阶段 audit（与 design docs 治理惯例一致）

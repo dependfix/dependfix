@@ -1106,7 +1106,7 @@ $ git rev-list HEAD ^origin/master --count
 
 本案例（M25 → 当前 commit 25 commits 文档治理批次）符合准入标准第 1 条"教训未落入规范"（4 条 pattern 涉及内部一致性 + baseline lint 决策 + 4 子条款操作规范 + 锚点错误传播，均为新发现实践教训）+ 第 2 条"决策需要溯源"（25 commits 4 维度分类是后续大规模文档治理的参考模板 + `dependabot.yml` 4 ignore 规则是 License 风险防御双层兜底决策）+ 第 3 条"重复违规预警"（commit message 锚点错误在 4c51d19 + 7ce7803 + 3947279 3 次实证）。**M25 阶段完整闭环 + M25 → 当前 25 commits 批次整体贡献**：(a) M25 阶段 18 commits (4 原子条目 17 + 1 docs 归档) + (b) M25 → 当前 25 commits 4 维度（规范精简 + 分片 + 拦截 + 一致性）+ (c) M26 P 阶段 2 commits + M26.1 8 commits + M26.2 3 commits + M26.3 7 commits + M26.4 4 commits + M26.4 docs 1 commit = M26 P 阶段后 ahead commits 累计 25 commits（按 `git rev-list HEAD ^origin/master --count` 实证 25）。
 
-**M26 阶段全部 6 原子条目独立闭环**：M26.1 (5 commits 应用层) + M26.2 (3 commits 批量导入 Resource owner 化) + M26.3 (5 commits 文档站 i18n P0) + M26.4a (1 commit primeicons 降级) + M26.4b (3 commits lint baseline 治理) + M26.5 (1 commit 经验归档 + wisdom 蒸馏) = 18 atomic commits + 1 docs 收口 = 19 commits ahead（待用户主动推送）。
+**M26 阶段全部 6 原子条目独立闭环**：M26.1 (5 commits 应用层) + M26.2 (3 commits 批量导入 Resource owner 化) + M26.3 (5 commits 文档站 i18n P0) + M26.4a (1 commit primeicons 降级) + M26.4b (3 commits lint baseline 治理) + M26.5 (1 commit 经验归档 + wisdom 蒸馏) = 18 atomic commits + 1 docs 收口 = 19 commits（已推送 origin/master）。
 
 
 ## 六十三、M26 阶段 git config user 错位事故与防护（2026-09-09）

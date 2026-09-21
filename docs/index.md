@@ -43,7 +43,7 @@ features:
       details: 模块边界、依赖分组升级、依赖图与执行矩阵；系统级设计见架构文档。
       link: /design/governance/architecture
     - title: 路线图
-      details: M0-M22 已全部闭环归档（2026-09-01）；当前阶段任务与未来规划见路线图与 todo。
+      details: M0-M28 已全部闭环归档；当前阶段任务与未来规划见路线图与 todo。
       link: /plan/roadmap
     - title: 当前任务
       details: 查看进行中的开发任务、验收指标与依赖；待办积压与归档历史。

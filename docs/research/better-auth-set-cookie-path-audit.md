@@ -1,6 +1,6 @@
 # better-auth 中间件 Set-Cookie 路径扫描报告
 
-> **任务**：M22.8 follow-up ② / M28.5（[todo.md §M28.5](../plan/todo.md)）——确认 better-auth 中间件对非 `/api/auth/*` 端点返回 Set-Cookie 路径是否会污染下游 e2e context。
+> **任务**：M22.8 follow-up ② / M28.5（[todo-archive.md §M28](../plan/todo-archive.md#m28-治理债清理--能力扩展m281-m285-全部已闭环--2026-09-11-归档)）——确认 better-auth 中间件对非 `/api/auth/*` 端点返回 Set-Cookie 路径是否会污染下游 e2e context。
 >
 > **扫描脚本**：[`apps/platform/scripts/set-cookie-trace.mjs`](../../apps/platform/scripts/set-cookie-trace.mjs)
 >

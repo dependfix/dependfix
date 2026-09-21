@@ -42,7 +42,7 @@ features:
       details: Module boundaries, dependency-group upgrades, dependency graph and execution matrix; system design in architecture docs.
       link: /en-US/design/governance/architecture
     - title: Roadmap
-      details: M0-M22 all archived (2026-09-01); current phase tasks and future plans in roadmap and todo.
+      details: M0-M28 all archived; current phase tasks and future plans in roadmap and todo.
       link: /en-US/plan/roadmap
     - title: Standards
       details: "10 standards index entry: AI collaboration, development, testing, documentation, security, Git, planning, API and more."

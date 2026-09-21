@@ -1,6 +1,6 @@
 # GitHub Code Scanning B 类规则样本报告
 
-> **任务**：M28.3 / C15（[todo.md §M28.3](../../docs/plan/todo.md)）—— 在已实现 A/B/C 分层基础上做真实仓库样本核对（B 类规则 id 格式与变体分布 + 误判率）
+> **任务**：M28.3 / C15（[todo-archive.md §M28](../plan/todo-archive.md#m28-治理债清理--能力扩展m281-m285-全部已闭环--2026-09-11-归档)）—— 在已实现 A/B/C 分层基础上做真实仓库样本核对（B 类规则 id 格式与变体分布 + 误判率）
 > **采集脚本**：[packages/engine/src/code-scanning/scripts/sample-collector.mjs](../../packages/engine/src/code-scanning/scripts/sample-collector.mjs)
 > **种子仓库**：32 个跨 js/ts / py / java / go / ruby 5 语言
 

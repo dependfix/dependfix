@@ -198,6 +198,57 @@
   - **风险与缓解**：若 `typecheck` 是有意描述的更宽质量期望（而非链成员），直接剔除会丢失该意图；缓解：上收时先确认表述意图，必要时改为分层表述（「验证链（见 `DEFAULT_VERIFY_COMMANDS`）+ 其他静态检查」）
   - **复杂度估算**：文档 4 文件 8 处；测试 0（文档类）
 
+- **C85 目标仓库专属配置（dependfix.yml 类）与自动发现** —— 2026-09-22 M29.4 设计评估时用户提出；评估完成待上收；按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) **不带 M\d+ 阶段编号**。
+  - **目标**：支持在**目标仓库内**声明 dependfix 专属配置（如 `.github/dependfix.yml`），与 `dependabot.yml` / `mergify.yml` 同类范式。
+  - **优先级**：P3（非阻塞；当前 M29.4 已用中央配置 `overrideProtect` 覆盖该需求）
+  - **范围**：待方案敲定（新增目标仓库配置文件读取层 + schema 校验 + 与中央配置的优先级规则）
+  - **现状实证 / 依据**（用户 2026-09-22 观察）：专属配置文件在**自动发现**上有结构性优势——配置随仓库走，dependfix 管理大量仓库时无需中央维护名单；权责就近（谁移除 override 谁声明）。**用户明确「并不是坏设计」**，M29.4 暂不实施、后续规划。
+  - **决策点（待上收时敲定）**：文件路径与格式（`.github/dependfix.yml` / `package.json#dependfix`）；与中央配置（`overrideProtect` 等）的优先级与合并规则；是否需要 schema 校验与错误降级；是否复用既有 dependabot.yml 探测的 clone 后读取路径。
+  - **验收标准**：
+    - [ ] 目标仓库可声明专属配置并在修复链路生效（优先级规则明确且有测试）
+    - [ ] 与中央配置冲突时的行为有明确文档与测试
+    - [ ] 第三方仓库（无该文件）行为不变（回归）
+  - **不做什么**：不替代中央配置（两者并存）；不改 `dependabot.yml` 语义；不在本候选内做全量配置项迁移
+  - **依赖**：关联 M29.4（中央配置 `overrideProtect` 已落地，本候选为其目标仓库侧演进）；关联 `repository-discovery` 的 dependabot.yml 探测路径
+  - **交付物**：待方案敲定后评估（2-4 atomic commits）
+  - **风险与缓解**：新增配置文件约定需目标仓库采纳，短期覆盖率低；缓解：与中央配置并存，按仓库渐进采纳
+  - **复杂度估算**：读取层 + schema + 优先级约 80-150 行；测试 4-6 case；文档 2 处
+
+- **C86 `repo-fix.ts` 行数超 max-lines 需拆分** —— 2026-09-22 M29.4 落地时实测触发；评估完成待上收；按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) **不带 M\d+ 阶段编号**。
+  - **目标**：`packages/engine/src/app/repo-fix.ts` 回到 max-lines 阈值内（非空行 ≤ 800）。
+  - **优先级**：P3（非阻塞；仅 eslint baseline 由 3 → 4 warnings，无功能影响）
+  - **范围**：`packages/engine/src/app/repo-fix.ts`
+  - **现状实证**（2026-09-22 实测）：M29.4 前非空行 795；新增 overrides 保护判定接线后 816（超 800 阈值 16 行）→ eslint 新增 1 条 `max-lines` warning。
+  - **决策点（待上收时敲定）**：拆分口径——按职责抽出「多版本 overrides 处理」循环为独立函数 / 拆出到 `repo-fix-multiversion.ts`；是否顺带收敛既有长函数。
+  - **验收标准**：
+    - [ ] 非空行 ≤ 800（`NODE_ENV=production pnpm exec eslint packages/engine/src/app/repo-fix.ts` 无 `max-lines`）
+    - [ ] 既有 repo-fix 相关测试全过（行为不变）
+    - [ ] `pnpm lint` + `pnpm typecheck` 通过
+  - **不做什么**：不改变修复流程语义；不做无关重构
+  - **依赖**：关联 M29.4（触发来源）
+  - **交付物**：1 atomic commit（`refactor(engine)` 拆分）
+  - **风险与缓解**：拆分长函数可能引入行为回归；缓解：纯搬移 + 参数化，测试先行、行为不变为准
+  - **复杂度估算**：搬移约 40-60 行；测试 0（既有覆盖）
+
+- **C87 跳过类审计条目不应翻转退出码** —— 2026-09-22 M29.4 落地时实测发现；评估完成待上收；按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) **不带 M\d+ 阶段编号**。
+  - **目标**：`allErrors` 中的「跳过类」审计条目（非失败）不再使 `computeExitCode` 判为 hasErrors，避免「有意跳过」把整轮 run 变成非零退出（CI 红）。
+  - **优先级**：P2（影响可用性判定：CI 驱动的 dependfix 会因有意跳过而报红）
+  - **范围**：`packages/engine/src/app/result-assembly.ts`（`computeExitCode`）+ 各跳过类 `category` 的定义口径
+  - **现状实证**（2026-09-22 实测）：
+    - `computeExitCode` 以 `allErrors.length > 0` 判 `hasErrors` → 任何审计条目（含跳过类）都会把退出码抬到 ≥ 1。
+    - **M29.4 触发**：`OVERRIDE_PROTECTED`（保护名单命中，主动跳过）计入 `allErrors` → 全部告警被保护跳过时 exitCode = 1（已在 `index.test.ts` 断言记录）。
+    - **同源既有影响（M29.3 引入）**：默认验证链纳入 test 后，**无 `test` 脚本的仓库**会记 `SCRIPT_NOT_FOUND`（跳过类审计）→ 同样抬升退出码；该交互在 M29.3 未被识别。
+  - **决策点（待上收时敲定）**：口径选择——(a) 跳过类 `category` 白名单不计入 hasErrors；(b) 新增「非阻塞审计」通道（如 `allNotices`）与 `allErrors` 分离；(c) 保持现状并在文档声明「审计条目即非零」。
+  - **验收标准**：
+    - [ ] 有意跳过（保护名单命中 / 无 test 脚本）不单独导致非零退出码；真实失败仍为 1/2
+    - [ ] 单测覆盖：仅跳过类审计条目 → exitCode 0；跳过 + 真实失败 → 非 0
+    - [ ] `pnpm lint` + `pnpm typecheck` + 定向测试通过
+  - **不做什么**：不改既有真实失败的退出码语义；不删除跳过类审计条目（报告可见性保留）
+  - **依赖**：关联 M29.4（`OVERRIDE_PROTECTED`）+ M29.3（`SCRIPT_NOT_FOUND` 交互）；关联 `computeExitCode`
+  - **交付物**：1-2 atomic commits（`fix(engine)` 退出码口径 + 测试）
+  - **风险与缓解**：放宽 hasErrors 可能掩盖真实问题；缓解：仅对显式声明的跳过类 `category` 豁免，且报告仍展示条目
+  - **复杂度估算**：代码 ~20-40 行；测试 3-5 case；文档 1 处
+
 #### Code Scanning 规则体系
 
 - **C15 Code Scanning B 类规则真实仓库样本核对（第二阶段）** —— 2026-09-11 M28.3 第一阶段已闭环（commit `99302b5`：`sample-collector.mjs` 采集脚本 + 32 种子仓库跨 5 语言 fixture 占位 + 报告框架 `docs/research/code-scanning-b-class-samples.md`）；**剩余未闭环**：实际 GitHub API 样本采集 + 按需规则分级修正（`go/*` / `ruby/*` 补 `SUGGESTED_RULES`）。

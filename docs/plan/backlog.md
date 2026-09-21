@@ -204,6 +204,38 @@
   - **优先级**：P3（当前默认链可用；无平台配置不影响基础能力）
   - **复杂度估算**：代码 ~40-80 行；测试 3-5 case；文档 1 处（platform.md）
 
+#### 告警获取（Dependabot / Code Scanning）
+
+- **C78 区分 Dependabot alerts「确实未启用」与「获取失败」** —— 2026-09-21 用户实测反馈触发（`CaoMeiYouRen/better-bytes` run 日志 403）；评估完成待上收；按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) **不带 M\d+ 阶段编号**。
+  - **目标**：alerts 获取失败时能判定根因——是仓库**确实未启用** Dependabot alerts（应视为预期状态并单独统计），还是 token 权限 / 限流 / 网络等**获取失败**（应保持错误）；消除当前把「未启用」也提示成「token 权限不足」的误导。
+  - **范围**：[`errors.ts`](../../packages/engine/src/github/errors.ts)（错误分类）+ [`dependabot-fetcher.ts`](../../packages/engine/src/github/dependabot-fetcher.ts)（403 message 判定）+ [`helpers.ts`](../../packages/engine/src/app/helpers.ts)（三个 alerts hint 函数）+ [`repo-alerts.ts`](../../packages/engine/src/app/repo-alerts.ts)（`FETCH_FAILED` 记录与 run 失败语义）+ [platform.md](../standards/platform.md)（错误码口径）+ 报告 / 平台展示口径。
+  - **现状实证**（2026-09-21 代码核对 + 实测日志 + 官方文档核对）：
+    - 实测：`GET /repos/CaoMeiYouRen/better-bytes/dependabot/alerts?state=open&per_page=100` → 403，body message 为 `Dependabot alerts are disabled for this repository.`；dependfix 把该 403 归类为 token 权限问题（提示「请检查 token 是否具备 Dependabot alerts 读取权限……」）并让整轮 run 失败（exitCode 2）。
+    - 代码：`errors.ts` 的 `resolveErrorCode` 只看 status（403 → `PERMISSION_DENIED`）与 `x-ratelimit-remaining`，**不判定响应体 message**（Octokit `RequestError.message` 已由响应体 message 透出——用户日志中打印的即该文案，故判定可复用既有 `error.message`，无需新增 `response.data` 读取路径）；`helpers.ts` 的 `dependabotAlertsTokenHint` 对 `PERMISSION_DENIED` 一律返回 token 权限提示；`repo-alerts.ts` 的 `recordAlertSourceError` 统一记 `FETCH_FAILED`。
+    - 官方文档：`docs.github.com` 的 `GET /repos/{owner}/{repo}/dependabot/alerts` 响应码仅列 200 / 304 / 400 / 403 / 404 / 422，**没有单列「alerts 未启用」的码或 body**（页面內检索 `Dependabot alerts are disabled` 0 命中）——即没有语义化响应可直接判定；文档对 404 仅写 `Resource not found`，未细分「无访问权」与「仓库不存在」，当前统一映射 `REPO_NOT_FOUND`。
+    - **可判定的信号**（文档 + 多源社区实证）：
+      1. **403 + message** `Dependabot alerts are disabled for this repository.` ＝ 确实未启用（社区实证原话：该 403「是检查不适用，而非 scope 缺失」）；无效 token 走 401，已可由状态码区分。
+      2. **探测端点** `GET /repos/{owner}/{repo}/vulnerability-alerts` → 204 = 已启用 / 404 = 未启用（官方文档原文：Shows whether dependency alerts are enabled or disabled for a repository. **The authenticated user must have admin read access to the repository.**）。
+      3. 语义易混的相邻端点：`GET /repos/{owner}/{repo}/automated-security-fixes`（200 `{enabled, paused}` / 404）是 Dependabot **security updates**；`GET /repos/{owner}/{repo}` 的 `security_and_analysis` 字段集中**只有 `dependabot_security_updates`、没有 dependabot alerts**，且需 admin 权限才可见——二者都不能替代 alerts 启用状态判定。
+      - 社区实证来源：`michaelpipkin/dependabot-agent` issue #12（403 body 原文 + bad token 走 401）、`thomaschristory/netbox-proxy-plugin` issue #10（同款 403）、`microsoft/ghqr` 规则 `repo-sec-001`「Dependabot alerts not enabled」。
+    - 探测端点的局限（**不得作为主判定**）：`vulnerability-alerts` 要求 admin read（fine-grained 对应 `Administration: read-only`，而非 `Dependabot alerts: read`；权限不足时该端点自身返回 403 `Resource not accessible by personal access token`），最小权限 token 探测时可能自身 403/404；且 404 与「未启用」共用同一状态码，无法区分「未启用」与「无 admin 权限」。因此只以 **204 确认「已启用」**，404 不得单独作为「未启用」结论；主判定仍为 403 message。
+  - **决策点（待上收时敲定）**：
+    - **归类口径**：新增独立状态 / 错误码（如 `ALERTS_DISABLED`）并在报告与平台单列「未启用 N 个仓库」，或仅修正错误文案而不改变失败语义。
+    - **run 语义**：仓库未启用 alerts 时是否仍算整轮失败（当前 exitCode 2）——倾向视为「跳过 / 预期」，但需确认不会掩盖真实权限问题。
+    - **是否自动回退**：`alertsSource=github-dependabot` 遇「未启用」时是否自动降级 pnpm-audit（当前 403 不自动降级，保持硬失败，仅提示手动切换）。
+    - **同类覆盖**：Code Scanning / Code Quality 是否存在同类混同（`code-scanning-fetcher.ts` / `code-quality-fetcher.ts` 同样只经 `mapGitHubError`，未做 message 判定）。**Code Scanning 已有文档级证据**：官方文档 `GET /repos/{owner}/{repo}/code-scanning/alerts` 明确 403 = "Response if GitHub Advanced Security is not enabled for this repository"，而当前同样落 `PERMISSION_DENIED` + 「请检查 token 是否具备 Code Scanning alerts 读取权限」提示——上收时可直接决定并入 C78 或拆分。
+  - **验收标准**：
+    - [ ] 未启用仓库（403 + 该 message）与权限失败可区分，报告 / 日志各输出对应准确文案
+    - [ ] 单测覆盖三类：未启用（403 + message）/ 权限不足（401 或 403 其他 message）/ 限流（403 + ratelimit 归零）
+    - [ ] 未启用仓库的 run 语义按决策点落地，报告单列「未启用」计数
+    - [ ] `pnpm lint` + `pnpm typecheck` + engine 定向测试通过
+  - **不做什么**：不自动修改目标仓库设置（开启 alerts 需 admin，且属用户决策）；不改 `alertsSource` 默认值；不引入新依赖
+  - **依赖**：关联 `repo-alerts.ts` 双 token 设计（`alertsToken` 最小权限）；关联 [platform.md](../standards/platform.md)（错误码与提示口径）；关联 `errors.ts` 既有 `mapGitHubError` 语义；关联 [经验归档 §一 外部平台限制先探针验证（G2 处置）](../design/governance/experience-archive-§1-§21-spec-compliance.md#一外部平台限制先探针验证g2-处置)（同一 403 通道内不同 message 的细分，避免重复评估历史结论）
+  - **交付物**：1-2 atomic commits（`feat(engine)` 错误细分 + `test(engine)` case + 文案 / 报告字段同步）
+  - **风险与缓解**：该 message 文案属非文档化行为，未来可能变动；缓解：以 message 匹配为主信号 + 探测端点兜底，匹配失败时退回现有 `PERMISSION_DENIED` 语义（不误判为「未启用」）
+  - **优先级**：P2（影响可用性判定与告警覆盖统计：可用仓库被误报为权限错误并让整轮 run 失败）
+  - **复杂度估算**：代码 ~30-60 行（错误分类 + message 判定 + 文案 + 报告字段）；测试 4-6 case；文档 1 处（platform.md 错误码口径）
+
 #### Code Scanning 规则体系
 
 #### 依赖修复引擎（dependency-fixer）

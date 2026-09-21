@@ -61,6 +61,7 @@ dependfix fix-and-pr --repo owner/repo --github-token $GITHUB_TOKEN
 | `--commit` | — | After fix, commit on local current branch (`fix` mode only; no push, no PR) | `false` |
 | `--max-alerts-per-repository` | — | Max alerts processed per repo | `20` |
 | `--commands` | — | Custom verification commands (comma-separated), override default `install/lint/build/test` | — |
+| `--override-protect` | — | Overrides protection list (per-repository, `repo-glob:pkg1,pkg2;...`); on a hit the override is not written | — |
 | `--verbose` | — | Verbose logging | `false` |
 
 ### Environment variables

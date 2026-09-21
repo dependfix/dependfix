@@ -312,6 +312,7 @@ A/B 场景差异化见 [executor-sandbox.md §7.8.1](../design/governance/execut
 | `--code-scanning` | — | 同时拉取 Code Scanning alerts（与 Dependabot 并行源；需要 token 具备 `security-events: read`，GITHUB_TOKEN 默认具备） | `false`（env `DEPENDFIX_CODE_SCANNING`） |
 | `--allow-major-upgrade` | — | 跨线告警（推荐版本跨大版本，当前线内无修复版本）显式授权自动升级：仅根 package.json 直接依赖（workspace 成员独占声明维持人工）且 lockfile 单版本的告警自动跨线升级，升级后复核脆弱实例消除、强制完整验证（install+lint+build+test），失败自动回滚；间接依赖 / 多版本共存跨线告警维持人工处理。**仅 CLI 可用，Action 不支持**（详见下方"跨大版本升级"风险章节） | `false`（**无 env 通道**） |
 | `--commands` | — | 自定义验证命令（逗号分隔） | — |
+| `--override-protect` | — | overrides 保护名单（按仓库粒度，格式 `repo-glob:pkg1,pkg2;...`）；命中则不写入该包的 override 并记 `OVERRIDE_PROTECTED` 审计（防历史被人工移除的破坏性 override 复发） | —（env `DEPENDFIX_OVERRIDE_PROTECT`） |
 | `--verbose` | — | 详细日志 | `false` |
 
 ### ⚠️ 跨大版本升级（实验性，风险须知）

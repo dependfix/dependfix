@@ -236,7 +236,7 @@
   - **范围**：`packages/engine/src/app/result-assembly.ts`（`computeExitCode`）+ 各跳过类 `category` 的定义口径
   - **现状实证**（2026-09-22 实测）：
     - `computeExitCode` 以 `allErrors.length > 0` 判 `hasErrors` → 任何审计条目（含跳过类）都会把退出码抬到 ≥ 1。
-    - **M29.4 触发**：`OVERRIDE_PROTECTED`（保护名单命中，主动跳过）计入 `allErrors` → 全部告警被保护跳过时 exitCode = 1（已在 `index.test.ts` 断言记录）。
+    - **M29.4 触发**：`OVERRIDE_PROTECTED`（保护名单命中，主动跳过）计入 `allErrors` → **任何一次**保护跳过（含部分跳过）都使退出码 ≥ 1（启用该 flag 的 CI 轮次会常态非零退出）（已在 `index.test.ts` 断言记录）。
     - **同源既有影响（M29.3 引入）**：默认验证链纳入 test 后，**无 `test` 脚本的仓库**会记 `SCRIPT_NOT_FOUND`（跳过类审计）→ 同样抬升退出码；该交互在 M29.3 未被识别。
   - **决策点（待上收时敲定）**：口径选择——(a) 跳过类 `category` 白名单不计入 hasErrors；(b) 新增「非阻塞审计」通道（如 `allNotices`）与 `allErrors` 分离；(c) 保持现状并在文档声明「审计条目即非零」。
   - **验收标准**：

@@ -23,6 +23,7 @@
 | [平台 AI 研判集成设计](./platform-ai-integration.md) | 专项设计（apps/platform AI 研判端到端联通） | 🔶 设计先行稿（[backlog](../../plan/backlog.md) 候选，未上收） |
 | [文档站 + 包 README 多语言实施设计](./docs-and-readme-i18n.md) | 专项设计（en-US 接入，参照 momei） | 🔶 设计先行稿（[backlog](../../plan/backlog.md) 候选，未上收） |
 | [apps/platform PrimeUI 主题库降级设计](./primeui-themes-v2-downgrade.md) | 专项设计（@primeuix/themes 3.x → 2.x MIT 降级） | 🔶 设计先行稿（[backlog](../../plan/backlog.md) 候选，未上收） |
+| [overrides 保护名单](./override-protect-policy.md) | 方案 B / A1 载体（按仓库粒度） | ✅ 已实施（M29.4） |
 | [C22 PAT 无感升级评估](./c22-pat-backward-compat.md) | 评估报告（M18.0 P0 docs only 子阶段） | ✅ 已落地（2026-08-29，Review Gate Pass） |
 | [规范与文档治理设计](./spec-and-doc-governance.md) | 专项设计（文档治理边界 + modules/governance 分流依据 + 写作规范 + 实施计划） | ✅ 已落地（2026-09-09，G1 P 阶段产出） |
 

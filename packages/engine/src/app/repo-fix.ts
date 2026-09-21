@@ -749,8 +749,8 @@ async function applyGroupUpgrades(
                 continue
             }
             if (action.noOp) {
-                // overrides 保护名单命中：主动跳过（不计 fixed/failed）
-                ctx.summary.alertsSkipped++
+                // overrides 保护名单命中：主动跳过（不计 fixed/failed）。skipped 计数已在
+                // handleOverrideProtection 内完成，此处不得重复计
                 continue
             }
             if (ctx.config.dryRun) {
@@ -802,7 +802,7 @@ async function applyGroupUpgrades(
                 continue
             }
             if (action.noOp) {
-                ctx.summary.alertsSkipped++
+                // 同上：skipped 计数已在 handleOverrideProtection 内完成
                 continue
             }
             const quickOk = await quickVerifyProject(ctx, repo)

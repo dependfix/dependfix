@@ -116,7 +116,7 @@
 
 ---
 
-### M29.4 [P2 🛡️ 治本] C77 override 曾被人工移除的复发防护 —— ✅ 已闭环（`4e3a2b5` + `73baffa` + `8626758`）
+### M29.4 [P2 🛡️ 治本] C77 override 曾被人工移除的复发防护 —— ✅ 已闭环（`4e3a2b5` + `73baffa` + `8626758`；A 阶段 1 轮 Reject 后修复：双重计数 / 设计文档失准 / 间接路径零覆盖）
 
 - **目标**：dependfix 不再重复提出「历史上已被人工移除过的 override」，防止同一破坏性覆盖反复交付到被修复仓库
 - **优先级**：P2（已实证复发，且破坏会实际交付到第三方仓库）
@@ -124,7 +124,7 @@
 - **验收标准**：
   - [x] 复现 #1095 场景：**命中保护名单**的仓库不再自动写入同条 override —— 方案 B（用户显式维护名单）落地；单测 + app 流程测试双重覆盖（保护命中 → 不产生 versioned-override / 不调用 override 写入）
   - [x] 报告 / PR body 记录判定依据（**policy 命中**）—— `allErrors` 记 `OVERRIDE_PROTECTED`（含命中模式）进报告 Errors 区；FixAction 记 `strategy: override-protected` + `noOp: true` + 判定依据文本
-  - [x] 对应单测 case（policy 黑名单）覆盖 —— 谓词 6 case + 解析器 5 case + env 3 case + 两条 override 路径各 1 case
+  - [x] 对应单测 case（policy 黑名单）覆盖 —— 谓词 6 case + 解析器 5 case + env 3 case + **两条 override 路径各自 case**（间接依赖路径：`upgrade-alert-override-protect.test.ts`；多版本路径：`index.test.ts`）
   - [x] `pnpm lint` + `pnpm typecheck` + 定向测试通过 —— engine 58 文件 1096 passed / 1 skipped；eslint **0 error / 4 warning**（既有 3 + 新增 `repo-fix.ts` max-lines，已登记 C86）；typecheck `error TS` 0
 - **不做什么**：不自动改写目标仓库历史；不引入新依赖做 lockfile 解析；不做全量 overrides 语义分析
 - **依赖**：关联 M29.6（overrides 文件域）；关联 M29.3（补 test 可减少但不消除此类复发）；关联 repo policy 相关规范

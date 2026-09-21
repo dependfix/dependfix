@@ -1,7 +1,8 @@
 # Overrides 保护名单（方案 B / A1 载体）设计
 
 > 阶段：M29.4（C77 override 被人工移除的复发防护）。载体形态经用户 2026-09-22 确认为 **A1**（`RepoPolicy` 扩展 + 紧凑字符串入口语法）。
-> 关联：[backlog.md §C77](../../plan/backlog.md)、[repo-policy.ts](../../../packages/engine/src/github/repo-policy.ts)、[经验归档 §十六](./experience-archive-§1-§21-spec-compliance.md)。
+> 状态：已实施（M29.4，commits `4e3a2b5` + `73baffa` + `8626758`）。
+> 关联：[todo.md §M29.4](../../plan/todo.md)、[repo-policy.ts](../../../packages/engine/src/github/repo-policy.ts)、[经验归档 §十六](./experience-archive-§1-§21-spec-compliance.md)。
 
 ## 1. 背景与问题
 
@@ -42,7 +43,7 @@ export interface RepoPolicy {
     /**
      * overrides 保护名单（显式维护）：仓库 glob → 不得自动写入 override 的包名列表。
      * 命中时 dependfix 跳过该包的 override 写入并记审计（防历史上被人工移除的破坏性 override 复发）。
-     * 键支持与 include / exclude 相同的 glob 语义（`owner/*`、`owner/pkg-*`），`*` 可作全局兜底。
+     * 键支持与 include / exclude 相同的 glob 语义（`owner/*`、`owner/pkg-*`）；因单星号不跨斜杠，全局兜底需写两段通配（owner 段与 repo 段各一个星号）。
      */
     overrideProtect?: Record<string, string[]>
 }
@@ -60,10 +61,10 @@ export function matchesOverrideProtect(
 
 ### 4.2 入口语法（A1）
 
-- **CLI**：`--override-protect '<repo-glob>:<pkg1>,<pkg2>'`，**可重复**（多次出现累积）。
+- **CLI**：`--override-protect '<repo-glob>:<pkg1>,<pkg2>;...'`。注：citty 对重复同名 flag 取 **last-wins**，故多条目须写在**同一值内**用 `;` 分隔（不可依赖重复传入累积）。
 - **env**：`DEPENDFIX_OVERRIDE_PROTECT`，多条以 `;` 分隔，条目内以 `,` 分隔包名。
   - 例：`CaoMeiYouRen/rss-impact-server:decode-uri-component;owner/*:left-pad`
-- **解析失败降级**：条目缺 `:` / 仓库为空 / 包名为空 → 跳过该条目并 `logger.warn`（与 `--rules-config` 的「解析失败降级」口径一致，不因配置笔误中止整轮）。
+- **解析失败 fail-fast**：条目缺 `:` / 仓库 glob 为空 / 包列表为空 → **抛错**（CLI 抛 `ARGUMENT_PARSE_ERROR`、env 抛 `CONFIG_VALIDATION_ERROR`），与同语法的 `--upgrade-groups` 口径一致（不静默降级，避免保护名单被笔误静默削弱）。
 
 分隔符选择说明：条目间用 `;`、包名间用 `,`，避免与既有「逗号分隔列表」风格产生歧义（`a/b:p1,c/d:p2` 无法区分是两条目还是一条目的两个包）。
 
@@ -110,17 +111,17 @@ export function matchesOverrideProtect(
 | 4 | 入口语法解析（CLI 重复累积 / env `;` 分隔 / 非法条目降级 + 告警） | `config/index.test.ts` + CLI 解析测试 |
 | 5 | 报告记录判定依据（含命中模式） | 断言 `allErrors` 含 `OVERRIDE_PROTECTED` 与模式文本 |
 | 6 | 统计口径：计入 skipped，不计入 fixed / failed | 断言 `summary.alertsSkipped` 与 `noOp` |
-| 7 | 两条 override 路径均覆盖 | `helpers`（间接依赖）+ `repo-fix`（多版本）各自 case |
+| 7 | 两条 override 路径均覆盖 | `upgrade-alert-override-protect.test.ts`（间接依赖）+ `index.test.ts`（多版本）各自 case；MCP 人工路径显式排除（见 §7） |
 | 8 | 质量门 | `pnpm lint` + `pnpm typecheck` + engine 定向测试 + `pnpm -r build` |
 
 ## 7. 风险与缓解
 
 | 风险 | 缓解 |
 |:--|:--|
-| 判定仅在调用侧 → 未来新增 override 调用点可能绕过 | 谓词单一事实源 + 本设计文档显式声明「新增调用点必须复用」+ 测试覆盖现有两路径 |
+| 判定仅在调用侧 → 未来新增 override 调用点可能绕过 | 谓词单一事实源 + 本设计文档显式声明「新增调用点必须复用」+ 测试覆盖现有两路径。**已知既有第三调用点**：MCP `fix-dependency.ts` 的 `overrideTransitiveDependency`（人工 / 单包显式调用，入参仅 workDir、无 repository 身份，无法做仓库 glob 判定）——本设计目标为「不得被**自动**写入 override」，故该人工路径**显式排除**在保护范围外 |
 | 中央配置需人工维护，存在「不知道该保护什么」的发现成本 | 见下方后续规划（目标仓库专属配置方向）；本轮先落地显式名单 |
 | 用户误配（包名写错）导致保护失效 | 解析降级 + 告警；判定命中时报告展示命中模式，便于核对 |
-| 保护过宽（如 `*:pkg`）导致该包在所有仓库都不再升级 | 键支持 glob 属显式行为，文档写明 `*` 语义与影响面 |
+| 保护过宽（两段通配键）导致该包在所有仓库都不再升级 | 键支持 glob 属显式行为，文档写明两段通配语义与影响面 |
 
 ## 8. 替代方案与后续规划
 

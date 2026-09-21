@@ -2,9 +2,9 @@
 
 > 本文件**仅**登记当前阶段活跃待办；已闭环项归档于 [todo-archive.md](todo-archive.md)；未排期 / 延期 / 远期 / 长期主线 / 已知边界登记于 [backlog.md](backlog.md)。
 >
-> **当前阶段：M29 修复交付链路正确性 + 能力扩展（方案 M29-B / 2026-09-21 用户决策）** —— 6 核心候选（C73 / C75 / C77 / C78 / C71 / C72）+ 1 插队 hotfix（docs 依赖链 vite 漏洞，§3.1 例外清单第 2 类）。全部候选已于 P 阶段执行 §3.4 三重交叉核验，**0 项重复评估**。
+> **当前阶段：M29 修复交付链路正确性 + 能力扩展（方案 M29-B / 2026-09-21 用户决策）** —— 6 核心候选（C73 / C75 / C77 / C78 / C71 / C72）+ 1 插队 hotfix（docs 依赖链 vite 漏洞，§3.1 例外清单第 2 类）+ 2 个衍生小条目（M29.8 C79 / M29.9 C80-A，由 M29.1 的 D / A 阶段发现，经用户 2026-09-21 授权从 backlog 上收）。**P 阶段 6 核心候选已执行 §3.4 三重交叉核验（0 项重复评估）；M29.1 与 2 个衍生条目按同强度核验**（见下表）。
 >
-> **P 阶段 §3.4 / §1.7 三重交叉核验实证**（2026-09-21 实测）：
+> **§3.4 / §1.7 三重交叉核验实证**（2026-09-21 实测）：
 >
 > | 候选 | 核验命令 | 结果 |
 > |:---|:---|:---|
@@ -15,8 +15,10 @@
 > | C71 | `rg -n "dependencyPath" packages/core/src packages/engine/src apps/platform/server` | 0 命中（未落地） |
 > | C72 | `rg -n "archived" importable.get.ts import-repos-dialog.vue` | 字段仅透传展示，**无过滤维度**（未落地） |
 > | vite 漏洞 | `pnpm audit --json` | 1 high + 2 moderate 全部落在 `docs>vitepress>vite`（未修复） |
+> | C79 | `git log -S "vitepress/cache" -- eslint.config.js` + 代码侧 `rg` | root 配置 **0 命中**（未落地；`docs/eslint.config.js` 自 `36b9331` 起含 `cache` 但缺 `.temp`，见 M29.8 范围） |
+> | C80-A | `git log -S "audit --prod" -- .github/workflows/test.yml` + 代码侧 `rg` | 仅 `933e578`（引入 `--prod`）；修复前 workflow 仍为 `--prod`（未落地） |
 >
-> **任务条目计数口径**：§1.1 硬性约束"单个迭代核心任务 5-6 项以内"适用于**核心任务**；M29.1 为 §3.1 例外清单第 2 类插队项（高危漏洞影响 dependfix 自身），非核心任务、不参与核心容量竞争，故 M29 = **6 核心 + 1 插队**。
+> **任务条目计数口径**：§1.1 硬性约束"单个迭代核心任务 5-6 项以内"适用于**核心任务**——M29 核心候选为 6 项（M29.2-M29.7）。以下三类非核心条目不参与核心容量竞争：① M29.1 = §3.1 例外清单第 2 类插队项（高危漏洞影响 dependfix 自身）；② M29.8 / M29.9 = M29.1 的 D / A 阶段衍生小条目（合计 ≤5 行代码 / 配置改动 + 1 处注释口径 + 1 处失效引用），经用户 2026-09-21 明确授权从 backlog 上收（原 C79 / C80-A）。
 
 ---
 
@@ -183,11 +185,62 @@
 
 ---
 
+### M29.8 [P3 🛠️ devEx] C79 ESLint 未忽略 VitePress 生成物 —— ✅ 已闭环（`3d34132`）
+
+- **目标**：开发者本地跑过 `pnpm docs:dev`（生成 Vite 依赖预构建缓存）后 `pnpm lint` 仍返回既有 baseline，而非因 ESLint 扫描缓存产物爆出上千条 error
+- **优先级**：P3（非阻塞——CI 结构性不受影响，见「现状实证」；仅本地 devEx 缺口）
+- **范围**：`eslint.config.js`（root `ignores` 段）+ `docs/eslint.config.js`（docs 包内 `ignores` 段 —— 同缺口：自 `36b9331` 起含 `.vitepress/cache/**` 但缺 `.vitepress/.temp/**`，两处 lint 路径口径需一致）
+- **现状实证**（2026-09-21 实测）：
+  - root `eslint.config.js` `ignores` 已含 `**/dist/**` / `**/.nuxt/**` / `**/.output/**` / `**/.data/**` / `apps/platform/data/**` / Playwright 生成物，**无** `docs/.vitepress/cache/**`；配置内已有同源注释自陈根因「ESLint 9 flat config 不读 .gitignore 需显式排除」。
+  - 复现：`vitepress dev` → 生成 `docs/.vitepress/cache/deps/*.js` → `pnpm lint` **1096 errors**（全部来自缓存文件）。
+  - `docs/eslint.config.js` 自带 `ignores` 仅含 `.vitepress/dist/**` + `.vitepress/cache/**`（无 `.temp/**`）→ 包内 lint 路径存在同缺口。
+  - **CI 三重保障证明结构性不受影响**：① `vitepress build`（CI 唯一会跑的 vitepress 命令：`test.yml:52` / `docs.yml:41`）**不产** cache（实测 build 后仅 `config.ts` + `dist`）；② 即便产，`lint`（`test.yml:37`）先于 `docs:build`（`:52`）；③ 根 `pnpm build`（`package.json:41`）= `pnpm -r --filter "./packages/*" build` **不含 docs**。
+  - `.temp` 在 VitePress 1.6.4 真实存在（`tempDir = <root>/.temp`，build SSR 中间产物，正常结束被 rimraf，`DEBUG` 保留）；`.gitignore` 已覆盖 `docs/.vitepress/dist` / `cache` / `.temp`（生成物不入库，仅 lint 面漏配）。
+- **验收标准**：
+  - [x] root `eslint.config.js` `ignores` 补 `docs/.vitepress/cache/**` + `docs/.vitepress/.temp/**`
+  - [x] `docs/eslint.config.js` `ignores` 补 `.vitepress/.temp/**`（口径对齐）
+  - [x] 复现路径实证：跑 `vitepress dev` 生成缓存后 `pnpm lint` 仍为 0 error / 3 warning baseline
+  - [x] 探针双向对照：`cache/deps/*.js` 与 `.temp/*.js` → `File ignored because of a matching ignore pattern`；未忽略路径对照（`apps/platform/app/*.js`）→ `no-var` error（证明探针可区分）
+  - [x] `pnpm lint` + `pnpm typecheck` 通过
+- **不做什么**：不改 `.gitignore`（已覆盖）；不清既有 3 条 warning baseline（`repos.vue` max-lines / `container-executor.test.ts` import-order / `runner.test.ts` no-empty-function）；不动 lint-staged 与 CI 侧配置
+- **依赖**：关联 M29.1（本条目发现来源：M29.1 dev 冒烟）；关联 `eslint.config.js` 既有 Playwright 生成物忽略范式（同一「flat config 不读 .gitignore」根因）
+- **交付物**：1 atomic commit（补 `ignores` 条目）
+- **风险与缓解措施**：若整体忽略 `docs/.vitepress/**` 会连带忽略真实源码 `docs/.vitepress/config.ts`（当前参与 lint 且通过）；缓解：只忽略 `cache/**` 与 `.temp/**` 生成物子目录，保留 `config.ts` 覆盖
+
+---
+
+### M29.9 [P3 🛠️ CI 治理] C80-A devDeps 链漏洞可见性（去 `--prod`）+ 失效引用修正 —— ✅ 已闭环（`70d31c0` + `c214ace`）
+
+- **目标**：CI 的依赖审计覆盖 prod + devDeps（取得同步 PR 级可见信号），并修正 [ai-collaboration.md §1.5](../standards/ai-collaboration.md) 指向已不存在条目的失效引用
+- **优先级**：P3（非阻塞；属「审计门禁缺失」维度，按 [ai-collaboration.md §1.5](../standards/ai-collaboration.md)「依赖审计门禁缺失 ≠ 依赖本身有漏洞」为独立问题）
+- **范围**：`.github/workflows/test.yml`（audit 步骤 + 上方注释块）+ [docs/standards/ai-collaboration.md §1.5](../standards/ai-collaboration.md)
+- **现状实证**（2026-09-21 实测）：
+  - `test.yml:30` 原为 `pnpm audit --prod --audit-level=moderate || true`，`:25-27` 有显式设计注释；`--prod` 使 devDeps 漏洞**结构上不可见**，而 M29.1 修复的三条 advisory **全部位于 devDeps 链**。
+  - **告警通道并不缺失**：`GET /repos/dependfix/dependfix/vulnerability-alerts` → **204（已启用）**；`automated-security-fixes` → `{"enabled":true}`；当时 **3 条 open Dependabot alert 正是 M29.1 修复的 vite 三连**（1 high + 2 medium）→ devDeps 漏洞已被告警通道覆盖。
+  - **但告警通道 ≠ 修复通道**：本案即为反例——Dependabot 无法在 `vitepress` 声明的 `vite: ^5.4.14` 范围内修复（正是必须手写 override 的原因）。故本条目价值为**同步 PR 级可见信号**，而非新增覆盖。
+  - 原注释「hard-fail 由 `dependabot.yml` 处理」**混淆两个特性**：`dependabot.yml` 只配 version updates；security alerts / updates 是 repo 级设置（已实测启用）。
+  - [ai-collaboration.md §1.5](../standards/ai-collaboration.md) 引用「依赖审计进 CI backlog 条目（如 C60/C61 RG-B04）」为失效引用（C60/C61 实为平台 UI 增强，backlog 中原无该条目）。
+- **决策（用户 2026-09-21）**：**方案 A** —— 仅去掉 `--prod`（覆盖 prod + devDeps），**保留 `|| true` 非阻断语义**，不改变门禁阻断策略。
+- **验收标准**：
+  - [x] workflow audit 步骤改为 `pnpm audit --audit-level=moderate || true`（覆盖 prod + devDeps）
+  - [x] 注释口径精确化：说明去 `--prod` 依据（M29.1 实证）+ 区分 version updates vs security alerts + 注明阻断语义当前未启用
+  - [x] [ai-collaboration.md §1.5](../standards/ai-collaboration.md) 失效引用改指 backlog C80
+  - [x] YAML 语法校验通过（3 job 结构完整）+ audit 命令实跑 `No known vulnerabilities found`
+  - [x] `pnpm run check:docs` + `pnpm run lint:md:check` + `pnpm typecheck` 通过
+- **不做什么**：不改阻断语义（保留 `|| true`）；不引入 Snyk 等第三方 SCA 服务；不改 `pnpm-workspace.yaml` overrides 策略；不清理存量告警（当前 `pnpm audit` 实测 0 告警）
+- **依赖**：关联 M29.1（触发实证）；关联 backlog C80 剩余决策（是否启用阻断语义 = 原方案 B/C）
+- **交付物**：2 atomic commits（`ci(test)` workflow 调整 + `docs(standards)` 失效引用修正）
+- **风险与缓解措施**：
+  - **风险 1**：workflow 改动本地不可验证（[§4.2 CI 为最终裁决](../standards/ai-collaboration.md)），且用户明确不推送 → 本批次无法取得 CI 复跑裁决；缓解：语义零变更（保留 `|| true`）+ YAML 解析校验 + 实跑 audit 命令；真实裁决待推送后 CI
+  - **风险 2**：去 `--prod` 后若上游新披露 devDeps 漏洞，日志会出现 audit 失败信号（不阻断 job）；缓解：`|| true` 保留，job 不会红；如需阻断须走 backlog C80 剩余决策（方案 B）
+
+---
+
 ## 类型平衡复核
 
 按 [§1.1 L12 类型平衡原则](../standards/planning.md#11-硬性约束)：用户体验 ≥ 2 + 技术债 ≥ 1 + 能力扩展 ≥ 1 + 测试覆盖 ≥ 1
 
-- 🛡️ **技术债 / 治本**：3 项（M29.2 C73 + M29.3 C75 + M29.4 C77）+ 插队 1 项（M29.1 vite 漏洞）—— ✅ 满足
+- 🛡️ **技术债 / 治本**：3 项（M29.2 C73 + M29.3 C75 + M29.4 C77）+ 插队 1 项（M29.1 vite 漏洞）+ 衍生 2 项（M29.8 devEx 配置缺口 / M29.9 CI 审计覆盖）—— ✅ 满足
 - 🚀 **能力扩展**：2 项（M29.5 C78 + M29.6 C71）—— ✅ 满足
 - 🎨 **用户体验**：1 项（M29.7 C72）—— ⚠️ 低于建议值 2（候选池中 C76 为 P3 且含远程命令执行面安全决策，C37 前置依赖未闭环，本轮不纳入）
 - 🧪 **测试覆盖**：**0 项独立条目** —— ❌ 缺口（M29.2 / M29.3 / M29.5 / M29.6 均在各自交付物内含定向测试补强，但无独立测试治理条目）。**候选池排除理由**：C15（Code Scanning B 类规则真实仓库样本核对第二阶段）虽属验证类，但恢复条件为 CI / staging 具备 `GITHUB_TOKEN` 执行 `sample-collector.mjs`（**环境依赖**，本阶段不可排）；db-restore 审计未采纳 4 项（M22.2 遗留）虽在 backlog 写明恢复条件（脚本被远程 / 容器自动化触发，或补测试成本下降），但当前 `db-restore` 为本地管理员工具、攻击面极低，该恢复触发场景不具现实可达性，故不排入本阶段
@@ -197,9 +250,10 @@
 ## 执行顺序建议
 
 1. **M29.1**（插队 hotfix，独立、体积小，先清合规债）
-2. **M29.2 C73 → M29.3 C75 → M29.4 C77**（修复交付链路治本三连：commit 身份 → 验证矩阵 → override 复发防护，同属一条交付链路，按上下游顺序）
-3. **M29.5 C78**（告警获取错误细分，独立于交付链路）
-4. **M29.6 C71**（能力扩展，跨 core + engine + platform，最大条目，放在交付链路治理之后避免与 C77 的 overrides 文件域改动冲突）
-5. **M29.7 C72**（UX，平台侧独立，可并行收尾）
+2. **M29.8 + M29.9**（M29.1 衍生小条目，已随 M29.1 收尾批次闭环：devEx 配置缺口 + CI 审计覆盖）
+3. **M29.2 C73 → M29.3 C75 → M29.4 C77**（修复交付链路治本三连：commit 身份 → 验证矩阵 → override 复发防护，同属一条交付链路，按上下游顺序）
+4. **M29.5 C78**（告警获取错误细分，独立于交付链路）
+5. **M29.6 C71**（能力扩展，跨 core + engine + platform，最大条目，放在交付链路治理之后避免与 C77 的 overrides 文件域改动冲突）
+6. **M29.7 C72**（UX，平台侧独立，可并行收尾）
 
 > 每条目完成后按 PDTFC+ 独立走 A 阶段审计 + F 阶段提交；跨 ≥ 2 模块（C71）与安全敏感面（C73 / C78）按 [分级审计执行协议](../standards/ai-collaboration.md) 提级审计 depth。

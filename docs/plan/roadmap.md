@@ -36,7 +36,7 @@
 | M26: 平台 AI 研判应用层 + 批量导入 Resource owner 化 + 文档站 i18n + License 收口 + 经验沉淀 | C68 P1 应用层 + C67 + C69 P0 + primeicons 降级 + baseline 22 warnings 治理 + e2e 适配 + 经验归档沉淀 | P1-P3 | 已完成（[todo-archive.md §M26](todo-archive.md#m26-平台-ai-研判应用层--批量导入-resource-owner-化--文档站-i18n--license-收口--经验沉淀m261m262m263m264am264bm264cm265-全部已闭环--2026-09-10-归档)） |
 | M27: 用户体验 + 治理优先 | M27.1 重复评估修正 + M27.2 W1 apps/platform stylelint + M27.3 W2 logger 补测 + M27.4 W4 container-executor 补测 + M27.5 ECONNRESET 候选 ① 诊断 | P1-P3 | 已完成（[todo-archive.md §M27](todo-archive.md#m27-用户体验--治理优先m271m272-w1m273-w2m274-w4m275-全部已闭环--2026-09-10-归档)） |
 | M28: 治理债清理 + 能力扩展 | M28.1 backlog.md §已知边界段批量治理 + §4.4 第 11 条规则强化 + M28.2 C14 多 cs lint 性能 + M28.3 C15 B 类规则样本核对 + M28.4 C33 MCP P3 + M28.5 M22.8 follow-up ② | P2-P3 | 已完成（[todo-archive.md §M28](todo-archive.md)；2026-09-11 用户决策方案 M28-A + M28.1 重编号 + 完整 5 候选闭环 + M28.6 归档批次落地，commits 已推送 origin/master） |
-| M29: 修复交付链路正确性 + 能力扩展 | C73 git 配置污染隔离 + C75 验证链纳入 test + C77 override 复发防护 + C78 alerts 未启用/获取失败区分 + C71 pnpm 路径级 overrides + C72 批量导入 archived 过滤 + vite 漏洞插队 hotfix | P2-P3 | 规划中（2026-09-21 用户决策方案 M29-B） |
+| M29: 修复交付链路正确性 + 能力扩展 | C73 git 配置污染隔离 + C75 验证链纳入 test + C77 override 复发防护 + C78 alerts 未启用/获取失败区分 + C71 pnpm 路径级 overrides + C72 批量导入 archived 过滤 + vite 漏洞插队 hotfix + C79 devEx 配置缺口 + C80-A CI 审计覆盖（M29.8/M29.9 为 M29.1 衍生） | P2-P3 | 规划中（2026-09-21 用户决策方案 M29-B；M29.1 / M29.8 / M29.9 已闭环） |
 
 > **本路线图定位**：按 [规划规范 §2.1](../standards/planning.md) 仅维护阶段概览（目标 / 优先级 / 状态）。详细实施记录 / commit 引用 / 关键决策 / 经验教训见对应归档段（详见下方"## 详细任务"索引）。
 
@@ -339,7 +339,7 @@ per-alert 模型 + reconcile + API 简化 + UI 调整 + backfill 脚本。5 子�
 
 ## M29: 修复交付链路正确性 + 能力扩展（2026-09-21 用户决策方案 M29-B + vite 漏洞插队项并入）
 
-承接 M28 完整闭环后 backlog 候选池。2026-09-21 规划文档归档批次 + 用户实测反馈（rss-impact-server PR #1095 / better-bytes 403）产出 6 个「评估完成待上收」候选（C71 / C72 / C73 / C75 / C77 / C78），用户明确授权方案 M29-B 启动 + vite 漏洞插队项并入。**6 核心候选 + 1 插队 hotfix**，覆盖 🛡️ 4 + 🚀 2 + 🎨 1，符合 [规划规范 §1.1 L12 类型平衡原则](../standards/planning.md#11-硬性约束)（UX 1 项低于建议值 2，显式标注缺口）。
+承接 M28 完整闭环后 backlog 候选池。2026-09-21 规划文档归档批次 + 用户实测反馈（rss-impact-server PR #1095 / better-bytes 403）产出 6 个「评估完成待上收」候选（C71 / C72 / C73 / C75 / C77 / C78），用户明确授权方案 M29-B 启动 + vite 漏洞插队项并入。**6 核心候选 + 1 插队 hotfix + 2 衍生小条目**（M29.8 / M29.9 由 M29.1 的 D / A 阶段发现，经用户 2026-09-21 授权从 backlog 上收），覆盖 🛡️ 4 + 🚀 2 + 🎨 1，符合 [规划规范 §1.1 L12 类型平衡原则](../standards/planning.md#11-硬性约束)（UX 1 项低于建议值 2，显式标注缺口）。
 
 - **M29.1** [P2 🛡️ 插队 hotfix] docs 依赖链 vite 漏洞治理（1 high + 2 moderate，全部落在 `docs>vitepress>vite`）—— §3.1 例外清单第 2 类
 - **M29.2** [P2 🛡️ 治本] C73 隔离宿主 git 全局配置对自动 commit 的污染（`commit.gpgsign`）
@@ -348,6 +348,8 @@ per-alert 模型 + reconcile + API 简化 + UI 调整 + backfill 脚本。5 子�
 - **M29.5** [P2 🚀 能力扩展] C78 区分 Dependabot alerts「确实未启用」与「获取失败」
 - **M29.6** [P2 🚀 能力扩展] C71 pnpm overrides 路径级覆盖（`parent>child`）支持
 - **M29.7** [P3 🎨 用户体验] C72 批量导入默认过滤 archived 仓库
+- **M29.8** [P3 🛠️ devEx] C79 ESLint 未忽略 VitePress 生成物（`docs/.vitepress/cache`）—— M29.1 衍生
+- **M29.9** [P3 🛠️ CI 治理] C80-A devDeps 链漏洞可见性（去 `--prod`）+ 失效引用修正 —— M29.1 衍生
 
 **关键决策 D1-D4**（2026-09-21 用户决策）：
 
@@ -355,10 +357,11 @@ per-alert 模型 + reconcile + API 简化 + UI 调整 + backfill 脚本。5 子�
 - **D2**：vite 漏洞并入 M29 作 M29.1（§3.1 例外清单第 2 类插队项）—— 体积 1-2 commits，不参与 §1.1「核心任务 5-6 项」容量竞争
 - **D3**：ahead commits 不推送 —— 按 [AGENTS.md §5 推送禁令](../../AGENTS.md) 等待用户主动推送
 - **D4**：全部 6 候选经 P 阶段 §3.4 三重交叉核验（todo-archive 表格 / git log / 代码侧 anchor）实测 0 命中，**0 项重复评估**（M27.1 教训防护）
+- **D5**（新增）：M29.1 衍生项上收 —— M29.8（C79 devEx 配置缺口）+ M29.9（C80-A CI 审计覆盖）经用户「评估影响后直接修复」授权上收；C80 剩余「阻断语义」决策留在 backlog
 
 **类型平衡复核**：
 
-- 🛡️ 技术债 / 治本：3 项（M29.2 / M29.3 / M29.4）+ 插队 1 项（M29.1）—— ✅ 满足
+- 🛡️ 技术债 / 治本：3 项（M29.2 / M29.3 / M29.4）+ 插队 1 项（M29.1）+ 衍生 2 项（M29.8 / M29.9）—— ✅ 满足
 - 🚀 能力扩展：2 项（M29.5 C78 / M29.6 C71）—— ✅ 满足
 - 🎨 用户体验：1 项（M29.7 C72）—— ⚠️ 低于建议值 2
 - 🧪 测试覆盖：0 项独立条目 —— ❌ 缺口（各条目交付物内含定向测试补强）

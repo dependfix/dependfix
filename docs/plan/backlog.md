@@ -160,47 +160,56 @@
 
 #### 开发工具链
 
-- **C79 ESLint 未忽略 VitePress 生成物（`docs/.vitepress/cache`）** —— 2026-09-21 M29.1 dev 冒烟实证触发；评估完成待上收；按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) **不带 M\d+ 阶段编号**。
-  - **目标**：开发者本地跑过 `pnpm docs:dev`（生成 Vite 依赖预构建缓存）后 `pnpm lint` 仍返回既有 baseline，而非因 ESLint 扫描缓存产物爆出上千条 error。
-  - **优先级**：P3（非阻塞——CI 不跑 `vitepress dev`，故 CI 不受影响；仅本地 devEx 缺口）
-  - **范围**：`eslint.config.js`（`ignores` 段）
-  - **现状实证**（2026-09-21 实测）：
-    - `eslint.config.js` `ignores` 已含 `**/dist/**` / `**/.nuxt/**` / `**/.output/**` / `**/.data/**` / `apps/platform/data/**` / Playwright 生成物（`playwright-report` / `test-results` / `blob-report`），**无** `docs/.vitepress/cache/**`。
-    - 配置文件内已有同源注释自陈根因：「ESLint 9 flat config 不读 .gitignore 需显式排除」——Playwright 生成物即为同一模式的前例。
-    - 复现路径：`pnpm --filter dependfix-docs dev`（生成 `docs/.vitepress/cache/deps/*.js`）→ `pnpm lint` → **1096 errors 全部来自缓存文件**；删除缓存后回到 0 error / 3 warning baseline。
-    - `.gitignore` 已覆盖 `docs/.vitepress/dist` / `cache` / `.temp`（生成物不入库，仅 lint 面漏配）。
+- **C80 devDependencies 链漏洞的 CI 阻断语义（覆盖方式部分已上收 M29.9）** —— 2026-09-21 M29.1 审计剩余风险实证触发；**部分已上收**，剩余决策项待用户明确；按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) **不带 M\d+ 阶段编号**。
+  - **✅ 已上收部分（M29.9 / 原方案 A，2026-09-21 用户决策）**：覆盖方式已落地（commits `70d31c0` + `c214ace`），详见 [todo.md §M29.9](todo.md)（命令、注释口径与实测证据不在此重复）。
+  - **剩余未闭环（本条目当前范围）**：**是否启用阻断语义**——即去掉 `|| true` 让 devDeps 漏洞阻断 Test job，或维持「仅信号」。
+  - **目标**：决定 devDeps 链漏洞在 CI 中是「信号」还是「门禁」，并落地对应语义 + 观察期策略。
+  - **优先级**：P3（非阻塞；当前为信号级已可观测，阻断语义属策略选择）
+  - **范围**：`.github/workflows/test.yml`（audit 步骤的 `|| true` 与 `--audit-level` 取值）
+  - **现状实证**（2026-09-21 实测，M29.9 落地后）：
+    - `test.yml` audit 步骤现为 `pnpm audit --audit-level=moderate || true`，注释显式标注「阻断语义当前未启用」。
+    - **告警通道不缺失**：`vulnerability-alerts` → 204（已启用）；`automated-security-fixes` → `{"enabled":true}`；devDeps 漏洞已由 Dependabot 告警通道覆盖（当时 3 条 open alert 即 M29.1 修复的 vite 三连）。
+    - **但告警通道 ≠ 修复通道**：Dependabot 无法在 `vitepress` 声明的 `vite: ^5.4.14` 范围内修复（正是 M29.1 必须手写 override 的原因）——故「阻断」相对「告警」的增量价值 = **同步拦截 + 阻止合并**。
+    - 原注释「hard-fail 由 `dependabot.yml` 处理」曾混淆两个特性（`dependabot.yml` 只配 version updates；security alerts / updates 是 repo 级设置），该口径已在 M29.9 修正。
+  - **决策点（待用户敲定）**：
+    - **方案 B（阻断）**：去掉 `|| true` → devDeps 漏洞红掉 Test job。
+    - **方案 C（观察期）**：维持 `|| true` 但显式标注观察期截止条件（如「连续 N 次 CI 无 devDeps 告警后转阻断」）。
+    - **阈值**：`--audit-level` 是否由 moderate 收紧到 high / critical。
+    - **registry 抖动防护**：`pnpm audit` 的 registry 类错误（网络 / 限流）与「真有漏洞」需区分——转阻断前应评估 `--ignore-registry-errors`（pnpm 官方说明：registry 报错时返回 exit code 0，适用于 CI 场景），避免非漏洞问题红掉 CI。
   - **验收标准**：
-    - [ ] `eslint.config.js` `ignores` 补 `docs/.vitepress/cache/**`（`docs/.vitepress/.temp/**` 一并评估）
-    - [ ] 复现路径实证：跑 `pnpm docs:dev` 生成缓存后 `pnpm lint` 仍为 0 error / 3 warning baseline
-    - [ ] `pnpm lint` + `pnpm typecheck` 通过
-  - **不做什么**：不改 `.gitignore`（已覆盖）；不清理既有 3 条 warning baseline（`repos.vue` max-lines / `container-executor.test.ts` import-order / `runner.test.ts` no-empty-function）；不动 lint-staged 与 CI 侧配置
-  - **依赖**：无；关联 `eslint.config.js` 既有 Playwright 生成物忽略范式（同一「flat config 不读 .gitignore」根因）
-  - **交付物**：1 atomic commit（补 `ignores` 条目）
-  - **风险与缓解**：若整体忽略 `docs/.vitepress/**` 会连带忽略真实源码 `docs/.vitepress/config.ts`（当前参与 lint 且通过）；缓解：只忽略 `cache/**` 与 `.temp/**` 生成物子目录，保留 `config.ts` 覆盖
-  - **复杂度估算**：代码 ~2 行；测试 0（配置类，以复现路径实证替代）；文档 0
-
-- **C80 devDependencies 链漏洞的 CI 回归拦截（含失效引用修正）** —— 2026-09-21 M29.1 审计剩余风险实证触发；评估完成待上收；按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) **不带 M\d+ 阶段编号**。
-  - **目标**：devDependencies 链上的已知漏洞有 CI 回归拦截（当前结构上不可见），使 M29.1 这类修复不因后续依赖变动而静默回退。
-  - **优先级**：P3（非阻塞；属「审计门禁缺失」维度，按 [ai-collaboration.md §1.5](../standards/ai-collaboration.md)「依赖审计门禁缺失 ≠ 依赖本身有漏洞」为独立问题，不构成 blocker）
-  - **范围**：`.github/workflows/test.yml`（audit 步骤）+ [ai-collaboration.md §1.5](../standards/ai-collaboration.md)（失效引用修正）
-  - **现状实证**（2026-09-21 实测）：
-    - `test.yml:30` 现为 `pnpm audit --prod --audit-level=moderate || true`，且 `:25-27` 有**显式设计注释**：`--prod` 依据「devDeps 漏洞不影响生产部署」、`|| true` 依据「hard-fail 由 `dependabot.yml` 处理，audit 失败仅作信号」。故这不是遗漏而是**既有决策**。
-    - 但 M29.1 修复的三条 advisory **全部位于 devDeps 链**（`docs>vitepress>vite`）——即当前 CI 恰好无法感知该类回归；本候选要评估的是「Dependabot 告警覆盖」是否足以替代「CI 回归拦截」，还是需要独立 devDeps audit 步骤。
-    - [ai-collaboration.md §1.5](../standards/ai-collaboration.md) 的「纳入『依赖审计进 CI』backlog 条目（如 C60/C61 RG-B04）」为**失效引用**：`C60`/`C61` 实为平台 UI 增强（见 [archive/todo-archive-phases-m10-c53-c59c61.md](archive/todo-archive-phases-m10-c53-c59c61.md)），`RG-B04` 全仓库仅该处出现，backlog 中原无「依赖审计进 CI」条目（本候选即为其真实落点）。
-  - **决策点（待上收时敲定）**：
-    - **覆盖方式**：保留 `--prod` + 新增独立 devDeps audit 步骤 / 改为全量 audit（去掉 `--prod`） / 维持现状仅修正失效引用（若判定 Dependabot 覆盖已足够）。
-    - **阻断语义**：是否去掉 `|| true` 转阻断，或先设观察期（非阻断 + 显式告警）。
-    - **阈值**：`--audit-level` 取值（moderate / high / critical）与既有注释口径对齐。
-  - **验收标准**：
-    - [ ] 按决策点落地覆盖方式；若维持现状，须在 workflow 注释与 [ai-collaboration.md §1.5](../standards/ai-collaboration.md) 中显式写明「devDeps 由 Dependabot 覆盖、CI 不重复拦截」的依据
-    - [ ] 若新增 / 改为 devDeps audit：CI 主链路不因存量告警失败（存量清零或显式豁免清单）
-    - [ ] [ai-collaboration.md §1.5](../standards/ai-collaboration.md) 失效引用修正为本候选编号或删除
+    - [ ] 按用户决策落地阻断语义（方案 B 或 C），并在 workflow 注释中写明依据与观察期条件
+    - [ ] 若转阻断：CI 主链路不因存量告警失败（存量清零或显式豁免清单）；且 registry 类错误不误伤（`--ignore-registry-errors` 或等价防护）
     - [ ] workflow 变更后跑一次真实 CI（或 `act` 本地模拟）验证步骤生效
-  - **不做什么**：不引入 Snyk / 第三方 SCA 服务；不改 `pnpm-workspace.yaml` overrides 策略；不在本候选内清理存量 devDeps 告警（当前 `pnpm audit` 实测已 0 告警）
-  - **依赖**：关联 M29.1（本候选的触发实证）；关联 [ai-collaboration.md §1.5](../standards/ai-collaboration.md)（失效引用修正建议同批，避免二次返工）；关联 `dependabot.yml`（既有 hard-fail 通道，需评估是否真能替代 CI 拦截）
-  - **交付物**：1-2 atomic commits（`ci` workflow 调整 + `docs(standards)` 引用修正）
-  - **风险与缓解**：全量 audit 转阻断可能因上游新披露 devDeps 漏洞突然红掉 CI、阻塞无关 PR；缓解：先观察期（非阻断 + 告警），存量清零后再评估转阻断
-  - **复杂度估算**：CI 配置 ~5-15 行；文档 1 处；测试 0（配置类，以 CI 实跑实证）
+    - [ ] 若涉及 `--audit-level` 调整，同步注释口径
+  - **不做什么**：不引入 Snyk / 第三方 SCA 服务；不改 `pnpm-workspace.yaml` overrides 策略；不在本候选内清理存量告警（当前全量 audit 实测 0 告警）；不重复处理覆盖方式（已 M29.9 落地）
+  - **依赖**：关联 M29.1（触发实证）+ M29.9（覆盖方式已落地，本条目仅剩阻断语义）；关联 `dependabot.yml` 与 repo 级 security alerts 设置（告警通道）
+  - **交付物**：1 atomic commit（`ci(test)` 阻断语义调整 + 注释口径）
+  - **风险与缓解**：转阻断可能因上游新披露 devDeps 漏洞突然红掉 CI、阻塞无关 PR；缓解：优先方案 C（观察期）而非直接阻断，存量清零后再评估
+  - **复杂度估算**：CI 配置 ~2-5 行；文档 0（注释随行）；测试 0（配置类，以 CI 实跑实证）
+
+- **C81 源码 / 配置注释中的孤立规划编号清理（存量）** —— 2026-09-21 M29.9 A 阶段审计 B1 衍生；评估完成待上收；按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) **不带 M\d+ 阶段编号**。
+  - **目标**：清理存量源码 / 配置 / 脚本注释中**无文档指针的孤立规划编号**，使其符合 [开发规范 §3 注释规范](../standards/development.md)「禁止开发流程编号标记」（例外仅两类：代码内真实常量、带文档路径或章节名的导航指针）。
+  - **优先级**：P3（非阻塞；属治理债——规则本身由 D 阶段自检 + A 阶段必查项强制，但**仅作用于新增 / 修改文件**，故存量长期沉积）
+  - **范围**：全仓库非 `docs/` 的源码 / 配置 / 脚本注释（扫描面实测 819 文件：`.github/workflows` / `packages` / `apps` / `scripts` / 根与包级 eslint 配置）
+  - **现状实证**（2026-09-21 启发式扫描；行级判定「同行是否含 `docs/` / `.md` / `§` / `todo.md` 等文档指针」）：
+    - 规划编号命中 **670** 处；其中带文档指针（合规例外）**342** 处；**孤立疑似违规 277** 处。
+    - 样例：`packages/core/src/alerts/index.ts:48`「上游告警唯一 ID（M20 新增）」；`packages/engine/src/code-scanning/scripts/sample-collector.mjs:5`「（M28.3 / C15）」；`apps/platform/server/api/dashboard/stats.get.ts:10`「M20.5 调整（todo.md §M20.5）」——末例首段孤立、后段合规，说明需按**注释块粒度**而非行级判定。
+    - 检测启发式含少量误报（如真实常量 `E401`、非规划语义的短编号）；上收时须先固化白名单与判定粒度。
+  - **决策点（待上收时敲定）**：
+    - **判定粒度**：行级 vs 注释块级。
+    - **真常量白名单**：如何区分规划编号与代码内真实常量（HTTP 错误码 `E401` 等）。
+    - **分批策略**：277 处远超 [§1.1 任务粒度约束](../standards/planning.md#11-硬性约束) 单批阈值 → 需按包 / 目录切分子批次（每批 < 10 文件）。
+    - **清理方式**：仅删除编号保留解释正文，或改写为带文档路径的导航指针（后者保留可追溯性）。
+  - **验收标准**：
+    - [ ] 固化检测命令或脚本（含白名单 + 注释块级判定），输出可复现的孤立命中清单
+    - [ ] 按子批次清理至孤立命中 0（带文档指针的导航指针保留）
+    - [ ] 批量替换遵守 [AI 协作规范 §1.2 第 6 条批量替换纪律](../standards/ai-collaboration.md)（先改 1 个代表性文件 → typecheck + diff 审查 → 再铺开）
+    - [ ] 每子批次 `pnpm lint` + `pnpm typecheck` + 定向测试通过，且不丢失编号后的解释正文
+  - **不做什么**：不清理带文档路径 / 章节名的导航指针（合规例外）；不清理代码内真实常量；不改 `docs/` 下的规划与治理文档（编号在其语境中合法）；不在本候选内改动 D / A 阶段自检规则本身
+  - **依赖**：关联 M29.9（A 阶段审计触发）；关联 [开发规范 §3 注释规范](../standards/development.md) + [经验归档 §十六](../design/governance/experience-archive.md)（历史违规案例）；关联既有清理先例 commit `1dcfc3c`（源码注释与脚本登记的失效规划文档指针修复）
+  - **交付物**：待分批方案敲定后评估（预计 3-6 子批次，每子批次 1 atomic commit）
+  - **风险与缓解**：批量删除编号可能丢失可追溯性；缓解：优先「改写为导航指针」而非纯删除，并保留编号后的解释正文；另需防批量替换误伤（按 §1.2 第 6 条纪律执行）
+  - **复杂度估算**：注释 ~277 处（跨多包，必须分批）；测试 0（注释类，以 lint + typecheck + 复扫 0 命中为证据）；文档 0
 
 ## 待人工验收（真实环境，随可用性推进）
 

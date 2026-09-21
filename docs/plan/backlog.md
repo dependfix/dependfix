@@ -204,7 +204,40 @@
     - **C3 单列智能** vs C1 两列分开 / C2 单列合并：选 C3 —— 用户原话"GHSA ID ... 这才是能真正跨平台追溯漏洞的关键信息"（GHSA 在 GitHub Advisory Database 统一收录多个 CVE，反向追溯更强）；C1 多列占空间但实际查看价值有限；C2 简单但 GHSA / CVE 视觉权重平等，跨平台追溯信号被稀释
     - **2026-09-10 M27.1 重复评估教训修正**（commit `0ddd4e2` 决策 D2 错误归类）：C66-C + C66-D 已 100% 闭环，不应作为 M27.1 任务条目；详见 [experience-archive §六十四 M27.1 重复评估教训](../design/governance/experience-archive-§49-§57-recent-investigation.md#六十四m271c66告警视图增强重复评估教训阶段启动决策时未对照已闭环清单导致规划无效工作20260910commit决策d2错误)
 
-## 待人工验收（真实环境，随可用性推进）
+#### 平台批量导入
+
+- **C72 批量导入默认过滤 archived 仓库（与 engine 发现链路口径对齐）** —— 2026-09-21 用户实测反馈触发；评估完成待上收；按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) **不带 M\d+ 阶段编号**，等待用户明确决策启动。
+  - **目标**：批量导入对话框默认不展示 archived（已归档）仓库——archived 仓库在 GitHub 上为只读，无法接收 push 提交 / 无法创建 PR，导入后无法被 dependfix 修复链路处理。
+  - **现状实证**（2026-09-21 代码核对）：
+    - **后端** [`importable.get.ts`](../../apps/platform/server/api/repos/importable.get.ts) 过滤链仅 `!repo.private || repo.permissions?.push` + owner 匹配，**不剔除** archived；`archived` 字段已透传但仅作展示。
+    - **前端** [`import-repos-dialog.vue`](../../apps/platform/app/components/import-repos-dialog.vue) 三维过滤 = fork（默认 `source`）/ visibility（默认 `all`）/ keyword（默认空），**无 archived 维度**；仅渲染 `· archived` 标签；全选基于 `selectableFilteredRepos`（当前会把 archived 一并勾选）。
+    - **口径不一致**：engine 自动发现链路 [`repository-discovery.ts`](../../packages/engine/src/github/repository-discovery.ts) 基础过滤已剔除 archived / disabled / fork——手动批量导入入口与该口径不一致。
+  - **决策点（待上收时敲定）**：
+    - **方案 A（UI 第 4 维过滤，默认隐藏）**：新增 `archivedFilter`（默认 `active` / 可选 `all`），与既有三维过滤范式一致；保留透明度（用户可显式查看 archived）+ 后端字段不动。
+    - **方案 B（后端硬过滤）**：`importable.get.ts` 过滤链直接剔除 archived；UI 零改动成本，但前端无法查看 archived（透明度损失 + 未来「仅扫描不修复」场景受限）。
+    - **倾向 A**：用户原话为「**默认**过滤掉」，语义是可切换的默认值，且与既有 fork / visibility 过滤器一致。
+    - **附带决策**：`disabled` 仓库是否同批处理（engine 基础过滤同样剔除、importable 未剔除）——建议同批评估，避免二次返工。
+  - **验收标准**：
+    - [ ] 默认视图下 archived 仓库不出现在候选列表（`filteredRepos` 不含 `archived === true`）
+    - [ ] 「全选」不勾选 archived 仓库（`selectableFilteredRepos` 已剔除）
+    - [ ] 方案 A 切到「含 archived」时 archived 仓库可见；方案 B 明确不提供该视图
+    - [ ] `importable.get.test.ts` 新增 case：GitHub 返回含 archived 仓库 → 断言行为符合所选方案
+    - [ ] i18n `zh-CN.json` / `en-US.json` 双语键同步（方案 A 新增 filter label）
+    - [ ] e2e `batch-import-filters.e2e.test.ts` 同步第 4 维过滤控件断言（方案 A；`repos-api.e2e.test.ts` importable 仅覆盖 400/404 负路径，不在本候选范围）
+    - [ ] `pnpm --filter @dependfix/platform test` + `pnpm lint` + `pnpm typecheck` 0 error
+  - **不做什么**：
+    - 不删除后端 `archived` 字段（保留审计 / 展示透明性）
+    - 不回溯清理已导入的 archived 仓库（本候选只改导入候选集合）
+    - 不改动 engine `repository-discovery.ts`（已过滤）
+    - 不在本候选内改 MCP `discover_repos`（如与 engine 同源需另评估）
+  - **依赖**：无（当前无活跃阶段）；关联 engine `repository-discovery.ts` 已有 archived 剔除口径；关联 M26.2 C67 importable 单端点重构（`include=owners` / `include=repos` 路由）
+  - **交付物**：1-2 atomic commits（`feat(platform)` importable archived 默认过滤 + `test(platform)` case + i18n）
+  - **风险与缓解**：
+    - 风险：5min TTL `cachedFetch`（key=`repos:${credentialId}:${ownerLogin}`）缓存生效期内可能返回旧口径数据；缓解：缓存为进程内 LRU，重启即失效，或评估缓存 key 加过滤版本后缀
+    - 风险：已导入的 archived 仓库不受本候选影响；缓解：明确 out-of-scope + 文档说明
+  - **复杂度估算**：代码 ~20-40 行（方案 A 前端过滤 + i18n）或 ~5 行（方案 B 后端硬过滤）；测试 2-4 case；文档 0（未触发设计文档硬阈值）
+  - **类型平衡**：UX 体验优化（核心） + 🛡️ 一致性对齐（与 engine 口径）
+  - **优先级**：P3（非阻塞；archived 仓库占比通常小；engine 自动链路已过滤，仅手动批量导入入口受影响）
 
 ## 待人工验收（真实环境，随可用性推进）
 

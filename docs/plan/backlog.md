@@ -183,6 +183,21 @@
   - **风险与缓解**：懒基线需在修复后回跑 pristine 状态，涉及工作区切换（`git stash` / 临时 worktree），实现复杂且易引入新的状态污染；缓解：优先评估「命令级基线 + 修复前一次性采样」的简单形态，避免修复后回跑
   - **复杂度估算**：方案未定；命令级一次性采样约 40-80 行 + 修复流程接入
 
+- **C84 AI 输出质量门链描述与实际验证链对齐（剔除 typecheck）** —— 2026-09-22 M29.3 A 阶段审计衍生；评估完成待上收；按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) **不带 M\d+ 阶段编号**。
+  - **目标**：AI 输出质量门的文档表述与实际执行的验证链一致，避免读者按文档以为门禁中存在 typecheck 步骤。
+  - **优先级**：P3（非阻塞；纯文档表述不精确，实际门禁行为正确）
+  - **范围**：`docs/design/governance/architecture.md` + `docs/design/governance/platform-ai-integration.md`（各含 zh 与 en-US 镜像，共 4 文件 8 处）
+  - **现状实证**（2026-09-22 实测）：该 4 文件 8 处表述为 `lint/typecheck/build/test`，而 `packages/engine/src/ai/app-integration.ts` 复用 `verifyProject` → `DEFAULT_VERIFY_COMMANDS`（install/lint/build/test）**不含 typecheck**——即 `typecheck` 属 pre-existing 不精确（早于 M29.3，链中从未有 typecheck）。
+  - **决策点（待上收时敲定）**：剔除 `typecheck` 使表述等于实际链；或改为引用常量名（`DEFAULT_VERIFY_COMMANDS`）避免逐项列举漂移。
+  - **验收标准**：
+    - [ ] 4 文件 8 处表述与实际验证链一致（或改为常量名引用）
+    - [ ] `pnpm run check:docs` + `pnpm run lint:md:check` EXIT 0；i18n 双语同步
+  - **不做什么**：不改 AI 门实际执行逻辑（本就复用验证链）；不改 `safety-gate.ts` 的静态检查范围
+  - **依赖**：关联 M29.3（同批发现）；关联 `DEFAULT_VERIFY_COMMANDS`（唯一事实源）
+  - **交付物**：1 atomic commit（`docs` 4 文件表述对齐）
+  - **风险与缓解**：若 `typecheck` 是有意描述的更宽质量期望（而非链成员），直接剔除会丢失该意图；缓解：上收时先确认表述意图，必要时改为分层表述（「验证链（见 `DEFAULT_VERIFY_COMMANDS`）+ 其他静态检查」）
+  - **复杂度估算**：文档 4 文件 8 处；测试 0（文档类）
+
 #### Code Scanning 规则体系
 
 - **C15 Code Scanning B 类规则真实仓库样本核对（第二阶段）** —— 2026-09-11 M28.3 第一阶段已闭环（commit `99302b5`：`sample-collector.mjs` 采集脚本 + 32 种子仓库跨 5 语言 fixture 占位 + 报告框架 `docs/research/code-scanning-b-class-samples.md`）；**剩余未闭环**：实际 GitHub API 样本采集 + 按需规则分级修正（`go/*` / `ruby/*` 补 `SUGGESTED_RULES`）。

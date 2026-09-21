@@ -137,6 +137,26 @@
   - **优先级**：P3（当前默认链可用；无平台配置不影响基础能力）
   - **复杂度估算**：代码 ~40-80 行；测试 3-5 case；文档 1 处（platform.md）
 
+- **C82 git 签名语义边界（push.gpgSign 隔离 + commit 签名 opt-in）** —— 2026-09-21 M29.2 A 阶段审计 warning / suggest 衍生；评估完成待上收；按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) **不带 M\d+ 阶段编号**。
+  - **目标**：把 dependfix 与 git 签名的关系收敛为**显式策略**——① push 链路同样不受宿主 `push.gpgSign` 污染；② 是否产出「签名 commit」由配置决定，而非硬编码关闭。
+  - **优先级**：P3（非阻塞；① 需宿主显式开启 `push.gpgSign` 才触发，② 需目标仓库强制签名保护规则才需要）
+  - **范围**：`packages/engine/src/github/pr-creator.ts`（`pushBranch` + `stageAndCommit`）+ 配置层（若做 opt-in）
+  - **现状实证**（2026-09-21 实测）：
+    - **① push 签名未隔离**：本地 bare remote 复现——宿主 `push.gpgSign=true` + `gpg.program` 不可用 → `git push` 报 `fatal: the receiving end does not support --signed push` → `fatal: the remote end hung up unexpectedly`；追加 `-c push.gpgSign=false` 后 push 成功。当前 `pushBranch` 仅 `execFileSync('git', ['push', 'origin', branchName])`，无任何 `-c` 隔离。
+    - **② 签名硬编码关闭**：`stageAndCommit` 已固定传 `-c commit.gpgsign=false`（M29.2 落地），无 opt-in 入口；目标仓库若要求签名 commit，dependfix PR 无法满足。
+  - **决策点（待上收时敲定）**：
+    - **push 隔离方式**：与 commit 同法（`-c push.gpgSign=false`），或抽为统一的「签名语义」常量避免两处漂移。
+    - **是否提供 commit 签名 opt-in**：若提供，需决定密钥来源（用户配置的 signingkey / 目标仓库要求）、失败语义（签名失败是否回滚交付）、暴露层（CLI flag / env / action input / 平台配置——按「交付检查所有暴露层」四层对齐）。
+  - **验收标准**：
+    - [ ] 宿主 `push.gpgSign=true` + gpg 不可用时 push 仍成功（新增 case 覆盖）
+    - [ ] 签名策略（关闭 / 可开启）在四层暴露面口径一致（CLI / env / action / 文档表），或明确记录「不提供 opt-in」的决策依据
+    - [ ] `pnpm lint` + `pnpm typecheck` + engine 定向测试通过
+  - **不做什么**：不改宿主 `~/.gitconfig`；不关闭用户手工 git 操作的签名；不回溯已产生的 commit / push；不在本候选内做目标仓库保护规则的预检
+  - **依赖**：关联 M29.2（commit 侧已闭环，本候选为同根因的 push 侧 + 策略侧）；关联 C74（commit author 变更可能触发仓库保护规则，含「要求签名 commit」风险，与本候选互引）
+  - **交付物**：1-2 atomic commits（`fix(engine)` push 隔离 + 可选 `feat(engine)` 签名 opt-in）
+  - **风险与缓解**：若提供 opt-in，签名失败会成为新的交付失败点；缓解：默认保持关闭（现状），仅在显式开启时对签名失败做硬失败 + 明确错误文案
+  - **复杂度估算**：push 隔离 ~2 行；opt-in 需先出方案（配置层 + 四层暴露 + 失败语义）再评估
+
 #### Code Scanning 规则体系
 
 - **C15 Code Scanning B 类规则真实仓库样本核对（第二阶段）** —— 2026-09-11 M28.3 第一阶段已闭环（commit `99302b5`：`sample-collector.mjs` 采集脚本 + 32 种子仓库跨 5 语言 fixture 占位 + 报告框架 `docs/research/code-scanning-b-class-samples.md`）；**剩余未闭环**：实际 GitHub API 样本采集 + 按需规则分级修正（`go/*` / `ruby/*` 补 `SUGGESTED_RULES`）。

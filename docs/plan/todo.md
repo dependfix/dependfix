@@ -58,23 +58,29 @@
 
 ---
 
-### M29.2 [P2 🛡️ 治本] C73 隔离宿主 git 全局配置对自动 commit 的污染
+### M29.2 [P2 🛡️ 治本] C73 隔离宿主 git 全局配置对自动 commit 的污染 —— ✅ 已闭环（`fd2280b` + `47dbb61`）
 
 - **目标**：自动修复链路产生的 commit 不受宿主 git 全局 / 系统配置影响——commit 恒成功，且不会被宿主个人 GPG 签名
 - **优先级**：P2（宿主 `commit.gpgsign=true` 且 gpg 不可用（CI / 容器 / 未装 gpg）时直接导致 fix-and-pr 交付失败；同时会把宿主个人 GPG 签名写入被修复的第三方仓库历史）
 - **现状实证**（2026-09-21 代码核对 + 最小复现，随 backlog 条目上收内联保留）：non-test 源码 `rg "gpgsign|GIT_CONFIG_GLOBAL|GIT_CONFIG_NOSYSTEM"` **0 命中**（配置隔离仅存在于 `pr-creator.test.ts`）；`stageAndCommit` 仅显式传 `-c user.name` / `-c user.email`（M18.4 W3），未隔离 `commit.gpgsign`。最小复现 ①：宿主 `commit.gpgsign=true` 且 gpg 可用 → commit 成功但带宿主个人签名；最小复现 ②：gpg 程序不可用（模拟 CI / 纯 Linux 容器）→ `gpg failed to sign the data` → `failed to write commit object`，commit 直接失败
-- **范围**：`packages/engine/src/github/pr-creator.ts`（`stageAndCommit` / `ensureGitConfig`）+ 共用调用方 `packages/engine/src/app/helpers.ts` + `packages/engine/src/app/index.ts` + 宿主配置泄漏路径 `apps/platform/server/services/executor/container-executor.ts`
+- **范围**：`packages/engine/src/github/pr-creator.ts`（`stageAndCommit`）+ `packages/engine/src/github/pr-creator.test.ts`（回归 case）。**修复点单一**：**自动修复链路的** `git commit` 调用仅 `pr-creator.ts` 一处（数组参数形式）——`app/helpers.ts` / `app/index.ts` 仅调用 `stageAndCommit`、`container-executor.ts` 无 `git commit`，故三者**无需改动**（经 `stageAndCommit` 间接覆盖），本批次仅作验证面。注：`scripts/auto-version.mjs` 的 release commit 走 `git commit -F`（发布链路，非自动修复链路），不在本批次范围（见风险 3）
 - **验收标准**：
-  - [ ] 宿主 `commit.gpgsign=true` 且 gpg 可用时，工作区 commit 无签名（`git log --show-signature` 无 Good signature）
-  - [ ] 宿主 `gpg.program` 指向不可用程序时，工作区 commit 仍成功
-  - [ ] `pr-creator.test.ts` 新增 case 覆盖签名污染场景（沿用既有 `GIT_CONFIG_GLOBAL` 隔离测试范式）
-  - [ ] engine + platform 定向测试 + `pnpm lint` + `pnpm typecheck` 通过
-- **不做什么**：不改宿主 `~/.gitconfig`；不关闭用户手工 git 操作的签名；不改 push 凭据链路（`http.extraheader` 注入已满足安全要求）；不回溯已产生的 commit
+  - [x] 宿主 `commit.gpgsign=true` 且 gpg 可用时，工作区 commit 无签名（`git log --show-signature` 无 Good signature）—— 新增 case 断言 `git log -1 --format=%G?` = `N`（`N` 即无签名；`--show-signature` 在 `gpg.program` 不可用时无法执行，故取等价且环境无关的 `%G?`）
+  - [x] 宿主 `gpg.program` 指向不可用程序时，工作区 commit 仍成功 —— 最小复现（修复前 `fatal: failed to write commit object`）+ 新增 case 覆盖
+  - [x] `pr-creator.test.ts` 新增 case 覆盖签名污染场景（沿用既有 `GIT_CONFIG_GLOBAL` 隔离测试范式）—— 新增 3 case（`gpg.program` 不可用 / gpg 按 host 默认 / `-c` 不落盘 local config）
+  - [x] engine + platform 定向测试 + `pnpm lint` + `pnpm typecheck` 通过 —— engine 58 文件 1075 passed / 1 skipped；platform executor 55 passed；eslint 0 error / 3 warning（既有 baseline）；typecheck `error TS` 0 命中
+- **D 阶段补充证据**：
+  - **测试有效性反证**：临时撤下修复行后重跑，新增 case 2 项失败（`gpg: signing failed: No secret key` / `fatal: failed to write commit object`）→ 复原后全过，证明 case 确实锚定该缺陷
+  - **未走方案 B 的实证**：方案 A 仅关签名开关，`url.*.insteadOf` / 代理 / `core.hooksPath` 等 host 配置语义不变（未注入 `GIT_CONFIG_GLOBAL` / `GIT_CONFIG_NOSYSTEM`）
+  - **D 阶段自检（编号标记必查）**：两个改动源文件扫描（含注释与测试名）孤立规划编号 **0 命中**；顺带清理同文件既有孤立标记（`W1` / `W3` / `M18.2` / `M18.4` / `C22`），保留带文档路径的导航指针
+- **不做什么**：不改宿主 `~/.gitconfig`；不关闭用户手工 git 操作的签名；不改 push 凭据链路（`http.extraheader` 注入已满足安全要求）；不回溯已产生的 commit；**不改 `container-executor.ts`**（经 `stageAndCommit` 间接覆盖，无独立改动点）
 - **依赖**：关联 M18.4 W3（`-c user.name` / `-c user.email` 显式覆盖范式）；关联 C53 状态机 `git commit 失败` 分支；关联 M29.6（同属 overrides / git 配置治理批次）
-- **交付物**：1-2 atomic commits（`fix(engine)` 签名污染隔离 + `test(engine)` case）
+- **交付物**：3 atomic commits（`fix(engine)` 行为行 + 同 hunk JSDoc；`test(engine)` 新增 case + 同文件编号清理；`docs(plan)` 本条目勾选与闭环登记）
 - **风险与缓解措施**：
   - **风险 1**：方案 B（`GIT_CONFIG_GLOBAL=/dev/null` + `GIT_CONFIG_NOSYSTEM=1`）完全隔离会丢失宿主 `url.*.insteadOf` / 代理 / `core.hooksPath` 等可用配置，导致 clone / push 回归；缓解：默认采用方案 A（`git commit` 显式追加 `-c commit.gpgsign=false`，直击根因且不改变其余宿主配置语义），彻底隔离如需另开评估
   - **风险 2**：宿主 `core.hooksPath` 注入的 hook 仍可能改变 commit 行为；缓解：本次只治理签名污染单一根因，hooks 面留 backlog 观察（避免范围膨胀）
+  - **风险 3**：**同根因的 push 链路未覆盖** —— 宿主 `push.gpgSign=true` 且 gpg 不可用时 `git push` 报 `fatal: the receiving end does not support --signed push`（本地 bare remote 实测复现；追加 `-c push.gpgSign=false` 后 push 成功）；本次仅治理 commit，push 签名隔离与「签名 opt-in」需求一并登记 backlog C82（不在本批次扩围）
+  - **风险 4**：签名开关为硬编码关闭，目标仓库若强制「要求签名 commit」的保护规则，dependfix PR 将无法满足；缓解：属策略选择，登记 backlog C82 与既有 [C74](backlog.md) 的签名风险条目互引，本批次不改
 
 ---
 

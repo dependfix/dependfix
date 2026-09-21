@@ -1,9 +1,9 @@
 import { bench, describe } from 'vitest'
 
 /**
- * packages/engine/src/runners/verification-runner.bench.test.ts
+ * packages/engine/src/runners/verification-runner.bench.ts
  *
- * 多 code-scanning 告警 lint 性能基准（M28.2 / T303 Review Gate 触发）。
+ * 多 code-scanning 告警 lint 性能基准（见 docs/plan/archive/todo-archive-phases-m28.md）。
  *
  * 测量 "在 N 个 cs 告警下逐个跑 quickVerifyProject → runVerification → pnpm lint spawn"
  * 的总耗时，作为优化方案（合并验证 / 批处理 / 缓存）的基线对照。
@@ -20,12 +20,12 @@ import { bench, describe } from 'vitest'
  *
  * 用法：
  *   pnpm --filter @dependfix/engine exec vitest bench \
- *     src/runners/verification-runner.bench.test.ts
+ *     src/runners/verification-runner.bench.ts
  *
  * 预期输出：tinybench 报告每个 bench 的 hz（每秒操作数）/ mean / p99 等。
  * baseline 数据记录到本文件 JSDoc（每次实测后更新）。
  *
- * 关联：T303 Review Gate 2026-08-05 触发 + M28.2 todo.md §M28.2。
+ * 关联：2026-08-05 Review Gate 触发（见 docs/plan/archive/todo-archive-phases-m28.md）。
  */
 
 import { runVerification } from './verification-runner'
@@ -44,7 +44,7 @@ const PLACEHOLDER_LINT_COMMAND = 'node -e "process.exit(0)"'
 const REAL_WORK_DIR = process.cwd()
 
 /**
- * Baseline 数据（M28.2 实施时实测 2026-09-11）：
+ * Baseline 数据（实测 2026-09-11，见 docs/plan/archive/todo-archive-phases-m28.md）：
  *
  * - 当前实现（N 次顺序 runVerification，PLACEHOLDER_LINT_COMMAND 占位命令）：
  *   - N=10  ：~263 ms mean / 340 ms p99

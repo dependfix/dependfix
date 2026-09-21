@@ -67,12 +67,13 @@ interface AlertView {
 }
 
 /**
- * SSR-aware 数据获取（todo.md §M16.4 PrimeVue hydration 缓解）：
+ * SSR-aware 数据获取（历史阶段记录见 docs/plan/archive/todo-archive-phases-m16-m17.md
+ * 「M16.4 PrimeVue hydration 主线 #1 缓解」）：
  *
  * 历史：alerts 加载走 onMounted(fetchRepositories + fetchAlerts)，SSR 阶段 alerts.value 初值为
  * []，hydration 后从 [] 突变到 mock 数据，PrimeVue 4 DataTable 不重新计算 processedData，
- * rowGroup subheader 永不渲染（docs/plan/backlog.md §主线 #1 PrimeVue 4 + Nuxt hydration
- * rowGroup known-issue）。page.reload() 后能渲染佐证非业务逻辑问题。
+ * rowGroup subheader 永不渲染（模式参考见 docs/standards/testing.md「PrimeVue 4 + Nuxt SSR
+ * hydration 状态机分歧」）。page.reload() 后能渲染佐证非业务逻辑问题。
  *
  * 修复路径：迁移到 useAsyncData，SSR 阶段 handler 就执行 fetch 并塞进 payload，hydration 时
  * data.value 已有完整数据 → PrimeVue DataTable processedData 在 hydration 阶段就有数据 →

@@ -26,8 +26,12 @@ import { fileURLToPath } from 'node:url'
  *   **当前豁免**（与原 check-links.mjs 行为一致）的原因：归档动作会让历史
  *   文档中的相对链接（如 [roadmap.md]）指向错误位置——这些是归档过程
  *   引入的预期行为，不应让链接检查在归档批次每次触发红 CI。已知问题：
- *   docs/plan/archive/ 下含 16+ 处失效相对链接（roadmap.md / todo.md /
- *   todo-archive-phases-m0-m1.md 等），统一扫描会立即暴露；修复属独立批次。
+ *   docs/plan/archive/ 下含 ~98 处失效相对链接（roadmap.md / todo.md /
+ *   todo-archive-phases-m0-m1.md / ../design/governance/*.md 等）+ 2 处失效
+ *   自锚点（m6-m7 分片引用的 M10 段已迁出至 m10 分片），统一扫描会立即暴露；
+ *   修复属独立批次。2026-09-21 规划文档归档批次已修复 archive/index.md 与
+ *   各分片的 anchor / gh-slug 失配（anchor-dead=0 / gh-slug=0），剩余 file-dead
+ *   为既有路径前缀问题。
  *   决策：维持历史豁免 + 注释登记；待独立 fix 批次统一处理。
  * - `.agents` / `.claude`：opencode / claude code 的 agent 定义目录，
  *   不进 VitePress 编译且非文档，豁免。

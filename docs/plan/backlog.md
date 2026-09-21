@@ -105,7 +105,7 @@
 
 - **B2** 固定分支单线设计（独立平台部署后修复频率上升，需要固定修复分支如 `dependfix/auto-fix` 避免频繁向 master 提交 PR；触发：v1.0.0 后 M12 平台 UX 修复链路上线；关联：T210 指纹方案整合复用/重建策略 + force push 语义）
 
-#### 修复交付链路（commit / push / PR）
+#### 修复交付链路（验证 / commit / push / PR）
 
 - **C73 隔离宿主 git 全局配置对自动 commit 的污染（`commit.gpgsign` 等）** —— 2026-09-21 用户发起「修复并建 PR 模式下工作区 commit 身份」现状分析时实证触发；评估完成待上收；按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) **不带 M\d+ 阶段编号**。
   - **目标**：自动修复链路产生的 commit 不受宿主 git 全局 / 系统配置影响——commit 恒成功，且不会被宿主个人 GPG 签名。
@@ -156,6 +156,53 @@
   - **风险与缓解**：变更 commit author 可能触发目标仓库保护规则（要求签名 commit / 限定作者）导致 PR 被拒；缓解：先在单一测试仓库验证，并与 C73 的签名策略一并评估
   - **优先级**：P3（当前 PAT 路径功能可用；App 路径身份不真实属审计一致性 / 体验问题）
   - **复杂度估算**：代码 ~20-40 行（author 透传 + botLogin 传递）；测试 3-5 case；文档 0（未触发设计文档硬阈值）
+
+- **C75 验证命令链纳入 test（补交付前验证矩阵缺口）** —— 2026-09-21 rss-impact-server PR #1095 实证触发（该 PR 已由用户 close）；评估完成待上收；**不带 M\d+ 阶段编号**。
+  - **目标**：交付前验证矩阵能捕获「install / lint / build 通过但测试无法运行或失败」的破坏，避免把坏修复交付成 PR。
+  - **范围**：`packages/engine/src/app/helpers.ts`（主链 `DEFAULT_VERIFY_COMMANDS`）+ `packages/engine/src/runners/verification-runner.ts`（fallback `DEFAULT_COMMANDS`）+ `packages/engine/src/verification/validate-commands.ts`（脚本存在性跳过）+ `docs/design/modules/dependency-fixer.md`（口径同步）。
+  - **现状实证**（2026-09-21 代码核对 + 远端 CI 日志）：
+    - [`verification-runner.ts`](../../packages/engine/src/runners/verification-runner.ts) `DEFAULT_COMMANDS = ['pnpm install --frozen-lockfile', 'pnpm lint', 'pnpm build']`；[`helpers.ts`](../../packages/engine/src/app/helpers.ts) 的 `DEFAULT_VERIFY_COMMANDS` 为同一份链的副本——**两条链均不含 test**。
+    - 实证失败类型：PR #1095 把 `decode-uri-component` 覆写到 0.5.0（纯 ESM），CJS 消费方 `query-string@7.1.3` 在 Jest 下无法加载该模块（`SyntaxError: Unexpected token 'export'`），`src/utils/rss-helper.test.ts` suite 直接失败；而 install / lint / build 三条全绿（本例实测 lint / build 未加载该 CJS `require` 路径，故这类破坏在该仓库不可见；其他仓库是否命中取决于其 bundler 配置）。
+    - 设计文档已固化该口径并自陈限制：[`dependency-fixer.md`](../design/modules/dependency-fixer.md) 「强制完整验证（install + lint + build）」+「lint/build 通过 ≠ 运行时功能正确」。
+    - 现有 [`validate-commands.ts`](../../packages/engine/src/verification/validate-commands.ts) 已支持按 `package.json#scripts` 校验脚本存在性（无脚本 → 跳过并记 `SCRIPT_NOT_FOUND` 审计）——把 test 纳入默认链不会误伤无 test 脚本的仓库。
+  - **决策点（待上收时敲定）**：
+    - **顺序**：test 置于 build 之前还是之后（test 常依赖 build 产物；build 之后最接近 CI，但耗时最长）。
+    - **默认开启 vs opt-in**：默认开启会让所有被修复仓库多跑一条可能很慢的命令（单命令超时默认 10 分钟）。
+    - **既有失败基线**：目标仓库本身长期 test 红的场景，会把与本次修复无关的失败算作修复失败——需先决定「基线判定」或「仅 opt-in」。
+  - **验收标准**：
+    - [ ] 两条默认链同步纳入 test（顺序与超时策略在文档中明确；或收敛为单一常量以消除副本漂移）
+    - [ ] 无 `test` 脚本的仓库优雅跳过（沿用 `validateVerifyCommands` + `SCRIPT_NOT_FOUND` 审计）
+    - [ ] 新增 case 复现「ESM-only 依赖破坏 CJS 消费方」场景下验证失败并触发门禁回滚
+    - [ ] 报告 / PR body 的 Verification 区展示 test 结果
+    - [ ] `pnpm lint` + `pnpm typecheck` + engine 定向测试通过
+  - **不做什么**：不改单包级回滚逻辑；不引入 CI 等价全量（coverage / e2e）；不改单命令默认超时
+  - **依赖**：关联 C76（平台侧命令配置暴露）；关联 C73 / C74（同属修复交付链路）；关联 [`dependency-fixer.md`](../design/modules/dependency-fixer.md) 已知限制条目
+  - **交付物**：1-2 atomic commits（`feat(engine)` 命令链 + `test(engine)` case + 文档同步）
+  - **风险与缓解**：test 链耗时 / 资源放大，且仓库既有 test 红会把无关失败归因到本次修复；缓解：先评估「默认开启 vs opt-in」与既有失败基线策略，必要时先做 opt-in 再转默认
+  - **优先级**：P2（已实证会向第三方仓库交付坏 PR；属交付链路正确性缺口）
+  - **复杂度估算**：代码 ~10-30 行（命令链 + 文档）；测试 3-5 case；文档 1 处（dependency-fixer.md）
+
+- **C76 平台侧暴露验证命令配置（与 CLI `--commands` 对齐）** —— 同 C75 分析衍生；评估完成待上收；**不带 M\d+ 阶段编号**。
+  - **目标**：平台发起的修复也能配置验证命令，使平台场景可追加 test 等命令，而不必等默认链变更。
+  - **范围**：`apps/platform/server/services/executor/container-executor.ts`（RuntimeConfig 组装）+ `apps/platform/server/schemas/*`（配置 schema，如需 migration 按既有流程）+ `apps/platform/app`（配置 UI，粒度敲定后）。
+  - **现状实证**（2026-09-21 代码核对）：
+    - CLI 已有 `--commands`（[`cli/index.ts`](../../packages/cli/src/cli/index.ts) 选项定义 + `parseCommandsFlag` → `overrides.commands`），并在 pipeline 透传。
+    - `apps/platform` 全仓检索 `commands` 0 命中；[`container-executor.ts`](../../apps/platform/server/services/executor/container-executor.ts) 构造 `RuntimeConfig` 时仅 `...ctx.config`，平台无 commands 来源 → **平台恒用引擎默认链**。
+  - **决策点（待上收时敲定）**：
+    - **配置粒度**：平台全局 / 每仓库（Repository 实体）/ 每次扫描（ScanRequest）。
+    - **安全边界**：`container-executor` 实际在宿主进程内运行引擎，平台自定义命令等价于远程命令执行面，需权限门槛与审计。沙箱路由与容器生命周期已落地（M8 / M11 T1005，daemon 不可用自动降级 container），但容器内真实执行序列尚未实现（`sandbox-executor.ts` 当前为最小占位命令，注释自述「后续集成阶段实现 git clone + pnpm install + dependfix-cli 完整序列」）——上收前不能指望沙箱缓解该风险。
+    - **数据落位**：如按仓库配置需评估 TypeORM schema / migration（走 M22.4 / M22.5 双向 opt-in 流程）。
+  - **验收标准**：
+    - [ ] 平台可配置验证命令并透传至 `RuntimeConfig.commands`（schema 变更如需 migration 按既有流程）
+    - [ ] 单测 / e2e 覆盖配置透传链路
+    - [ ] 权限门槛（仅 admin / org_admin）+ 审计记录 + 文档说明执行风险
+    - [ ] `pnpm lint` + `pnpm typecheck` + 定向测试通过
+  - **不做什么**：不在本候选内落地沙箱隔离；不开放任意 shell（仅接受命令数组）；不改变 CLI 侧语义
+  - **依赖**：关联 C75（默认链口径）；关联 C73（同属修复交付链路）；关联 [`docs/standards/platform.md`](../standards/platform.md)
+  - **交付物**：1-2 atomic commits（`feat(platform)` 配置透传 + `test(platform)` case）
+  - **风险与缓解**：自定义命令构成命令执行面；缓解：权限门槛 + 审计留痕 + 文档风险声明，沙箱落地后再评估放宽
+  - **优先级**：P3（当前默认链可用；无平台配置不影响基础能力）
+  - **复杂度估算**：代码 ~40-80 行；测试 3-5 case；文档 1 处（platform.md）
 
 #### Code Scanning 规则体系
 
@@ -225,6 +272,29 @@
   - 类型平衡：🚀 能力扩展（核心） + 🛡️ 治本（修复完整性，避免 dependfix 推荐 PR 不完整）
   - 优先级：P2（治本有用户实证 commit f67aea2 + 长期影响 dependfix 自身管理 dependfix 仓库的依赖流程）
   - **按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 不带 M\d+ 阶段编号**：等待用户明确决策启动
+
+- **C77 override 曾被人工移除的复发防护** —— 2026-09-21 rss-impact-server 实证触发（PR #1095 已由用户 close）；评估完成待上收；**不带 M\d+ 阶段编号**。
+  - **目标**：dependfix 不再重复提出「历史上已被人工移除过的 override」，防止同一破坏性覆盖反复交付到被修复仓库。
+  - **范围**：`packages/engine/src/fixers/dependency/`（override 写入前判定）+ `packages/engine/src/app/repo-fix.ts`（修复流程接入点）+ repo policy 类型与消费侧（方案 B）。
+  - **现状实证**（2026-09-21 远端提交历史 + 代码核对）：
+    - 复发链：`3376aca3`（2026-09-04，author `dependfix[bot]`）批量写入 overrides，含 `decode-uri-component: ^0.5.0` → `9fe327af`（同日，人工）`fix(deps): remove decode-uri-component override to fix Jest ESM compatibility`，message 明确「0.5.0 is ESM-only, but query-string@7.1.3 (CJS) depends on it. The original 0.2.2 already patches GHSA-vcc3-ghjq-m6fr (fixed in 0.2.1)」→ 2026-09-21 PR #1095 再次写入同条 override。
+    - 引擎侧无记忆：[`overrides-io.ts`](../../packages/engine/src/fixers/dependency/overrides-io.ts) 只有 write / backup / rollback，无 override 变更历史概念；repo policy 仅 include / exclude / topics，无 override 黑名单。
+    - 单包级回滚只处理「本次 install 失败 / 升级后实例残留」，不感知「上次为何被移除」。
+  - **候选实现方向（待上收时敲定）**：
+    - **方案 A**：交付前读取目标仓库 overrides 相关文件的提交历史（GitHub API），检出「该 override 曾被移除」→ 报告警示并跳过该条。
+    - **方案 B**：repo policy 增加 overrides 黑名单 / 保护名单（用户显式维护，成本低）。
+    - **方案 C**：升级目标改为「最小修复版本」（该 GHSA 自 0.2.1 已修复，0.2.2 即足够），避免无收益的破坏性升级——需先实证现有 recommendedVersion 的来源。
+  - **验收标准**：
+    - [ ] 复现 #1095 场景：存在该 override 移除历史的仓库，dependfix 不再自动写入同条 override（或产出警示并默认跳过）
+    - [ ] 报告 / PR body 记录判定依据（检出移除历史 或 policy 命中）
+    - [ ] 对应单测 case（历史检出 / policy 黑名单）覆盖
+    - [ ] `pnpm lint` + `pnpm typecheck` + 定向测试通过
+  - **不做什么**：不自动改写目标仓库历史；不引入新依赖做 lockfile 解析；不做全量 overrides 语义分析
+  - **依赖**：关联 C71（overrides 文件域）；关联 C75（补 test 可减少但不消除此类复发）；关联 repo policy 相关规范
+  - **交付物**：待方案敲定后评估（1-3 atomic commits；方案 A 约 `fixers/dependency/*` + GitHub API 查询层，方案 B 约 policy 类型 + 消费点，方案 C 先出调研结论）
+  - **风险与缓解**：方案 A 启发式判定可能误伤合法升级（曾被移除但本次确实需要）；缓解：默认「警示 + 报告」而非静默跳过，保留人工放行（方案 B 由用户显式维护可规避误判）
+  - **优先级**：P2（已实证复发，且破坏会实际交付到第三方仓库）
+  - **复杂度估算**：方案 B ~30-60 行；方案 A ~80-150 行 + GitHub API 成本；方案 C 需先做版本选择来源调研
 
 #### 报告与统计口径
 

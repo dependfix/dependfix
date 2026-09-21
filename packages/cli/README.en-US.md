@@ -60,7 +60,7 @@ dependfix fix-and-pr --repo owner/repo --github-token $GITHUB_TOKEN
 | `--create-pr` | — | Create Pull Request (auto-enabled in `fix-and-pr` mode) | `false` |
 | `--commit` | — | After fix, commit on local current branch (`fix` mode only; no push, no PR) | `false` |
 | `--max-alerts-per-repository` | — | Max alerts processed per repo | `20` |
-| `--commands` | — | Custom verification commands (comma-separated), override default `install/lint/build` | — |
+| `--commands` | — | Custom verification commands (comma-separated), override default `install/lint/build/test` | — |
 | `--verbose` | — | Verbose logging | `false` |
 
 ### Environment variables

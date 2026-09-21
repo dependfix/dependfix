@@ -103,7 +103,7 @@ for 组 in groups:
     组内成功包计入 fixed，失败/回滚包计入 failed
 ```
 
-**组级验证命令**: 默认 `pnpm lint`（与逐包验证一致，快速信号）；`--commands` 已有配置能力可覆盖为完整验证。**最终全量验证门禁（install + lint + build）保留**——组级 lint 通过后，最终门禁仍做完整验证兜底（跨组组合性破坏在此捕获）。
+**组级验证命令**: 默认 `pnpm lint`（与逐包验证一致，快速信号）；`--commands` 已有配置能力可覆盖为完整验证。**最终全量验证门禁（install + lint + build + test）保留**——组级 lint 通过后，最终门禁仍做完整验证兜底（跨组组合性破坏在此捕获）。
 
 ---
 
@@ -135,7 +135,7 @@ for 组 in groups:
 
 | 风险 | 缓解 |
 |:---|:---|
-| 组级完整验证时间成本：G × (install+lint+build)，momei 14 组场景可能超 action timeout | 组级默认 lint 快速验证；最终门禁完整验证；`--commands` 可配置 |
+| 组级完整验证时间成本：G × (install+lint+build+test)，momei 14 组场景可能超 action timeout | 组级默认 lint 快速验证；最终门禁完整验证；`--commands` 可配置 |
 | dependabot.yml groups 是"PR 合并节奏分组"非"验证分组"，语义有偏差 | 作为最高自动层使用；@types 归并规则在其后应用；拆组兜底吸收误分组损失 |
 | pattern 裸 `*` 全匹配误分组 | 解析时忽略裸 `*` |
 | 组内"必须锁步"的包（如 typescript + typescript-eslint 已知不兼容）拆组无解 | 引入 ignore / 版本上限机制（衔接 G3 遗留"大版本锁定"，参考 momei `ignore` + 评估文档模式）——本设计登记，M3+ 实施 |

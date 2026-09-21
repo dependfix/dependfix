@@ -93,7 +93,7 @@ dependfix 批量处理仓库与依赖，若防护不足会成为恶意依赖的"
 
 ## 6. 使用侧安全指引（面向用户）
 
-- **本地 CLI 模式执行不可信代码**：本地模式无隔离，恶意依赖脚本（install/lint/build 钩子）直接在用户机器执行。建议：在专用环境（容器/VM/CI runner）运行；使用**专用低权限 token**（`security-events: read` + 目标仓库 `contents/pull-requests` 写权限），不要使用高权限 PAT。
+- **本地 CLI 模式执行不可信代码**：本地模式无隔离，恶意依赖脚本（install/lint/build/test 钩子）直接在用户机器执行。建议：在专用环境（容器/VM/CI runner）运行；使用**专用低权限 token**（`security-events: read` + 目标仓库 `contents/pull-requests` 写权限），不要使用高权限 PAT。
 - **owner 模式扫描范围即信任边界**：`--owner` 发现的仓库会被 clone 并执行其依赖脚本——只扫描可信组织的仓库；对不可信来源先人工 review 再纳入。
 - **平台部署**：平台容器执行进程已**非 root 降权**（`dependfix` 用户，uid 100；entrypoint 启动时自动 chown 数据卷，兼容存量 root 卷升级，C38 已修复）；部署时勿挂载 `docker.sock`、勿给容器额外特权；`AUTH_SECRET`/`ENCRYPTION_KEY` 保持强随机值。
 - **PR 合入前检查**：PR body 中标记 ⚠️ 的跨线升级、以及"新增/升级包带 lifecycle scripts"信号（C43 落地后）应人工确认。

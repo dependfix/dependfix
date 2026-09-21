@@ -450,11 +450,11 @@ T108 (报告生成器)
 - `--allow-major-upgrade`（CLI 专属，**无 env 通道**，Action 结构性禁用）显式授权后，**仅**以下跨线告警进入自动跨线链路（2.0.2）：
   - **根 package.json** 直接依赖（`isRootDirectDependency`，修复器只改根 manifest——workspace 成员独占声明维持人工，Review Gate P2-2 修正）
   - lockfile 中该包**单版本**（`readLockfileVersions` 长度 1）
-- 处理流程：快照 → `upgradeDependency`（改根声明，install 失败内建回滚）→ **升级后实例复核**（重读 lockfile：仍存在 `< recommended` 的脆弱实例——workspace 成员同 range / 传递依赖 pin 残留——则回滚 + failed，不进入验证，避免误标 fixed 且下一轮被最高实例掩盖误判 converged）→ **强制完整验证**（`verifyProject`：install + lint + build，非 lint-only——跨线 breaking change 面大，类型/构建错误 lint 无法兜底）→ 全部通过保留 / 任一失败 `restoreTrackedFiles` 回滚并计 failed。验证动作入 allActions（报告可审计，Review Gate P2-3 修正）。
+- 处理流程：快照 → `upgradeDependency`（改根声明，install 失败内建回滚）→ **升级后实例复核**（重读 lockfile：仍存在 `< recommended` 的脆弱实例——workspace 成员同 range / 传递依赖 pin 残留——则回滚 + failed，不进入验证，避免误标 fixed 且下一轮被最高实例掩盖误判 converged）→ **强制完整验证**（`verifyProject`：install + lint + build + test，非 lint-only——跨线 breaking change 面大，类型/构建错误 lint 无法兜底；test 用于捕获「lint/build 通过但测试无法运行或失败」的破坏，无 `test` 脚本的仓库自动跳过并记 `SCRIPT_NOT_FOUND` 审计）→ 全部通过保留 / 任一失败 `restoreTrackedFiles` 回滚并计 failed。验证动作入 allActions（报告可审计，Review Gate P2-3 修正）。
 - **维持人工的场景**（即使开启）：
   - 间接依赖跨线（全局 override 会波及所有实例与声明，破坏面不可控）
   - workspace 成员独占声明（root 未声明——修复器 `upgradeDependency` 仅改根 manifest，必然失败）
   - 多版本共存跨线（版本化 overrides 跨 major 会破坏依赖方 range 导致 install 失败；全局 override 会降级根声明——C10 教训）
 - 同包多条跨线告警按包聚合，取最高 `recommendedVersion` 为升级目标（镜像 `dedupeFixableAlerts` 语义，Review Gate P2-1 修正）
 - 统计口径：跨线升级成功 → fixed；失败（install 失败 / 实例残留 / 验证失败）→ failed；维持人工 → skipped。不误标纪律延续（PR #28）。
-- 已知限制：lint/build 通过 ≠ 运行时功能正确；验证耗时逐包完整链；快照回滚不还原 node_modules。
+- 已知限制：install/lint/build 通过 ≠ 运行时功能正确（test 已纳入默认链，但仍无法覆盖未写成测试的运行时行为）；验证耗时逐包完整链（含 test，通常为最慢一步）；快照回滚不还原 node_modules；**既有失败基线未做区分**——目标仓库测试在修复前即为红时，该失败会计入本次修复并触发回滚（与既有 install/lint/build 的「假定 pristine 检出可通过」口径一致；如需基线判定见 backlog C83）；test 另引入三条新失败路径——占位 test 脚本（`npm init` 默认的 `exit 1`）/ 测试依赖网络·密钥·浏览器等外部资源 / 套件耗时超单命令超时（10 分钟），三者均按当前口径判失败并回滚。

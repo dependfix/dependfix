@@ -48,7 +48,7 @@
 | `--allow-major-upgrade` | 跨线告警显式授权自动升级（仅 CLI；workspace 成员独占声明 / 多版本共存维持人工） |
 | `--upgrade-groups` | 显式分组，格式 `name1:pkg1,pkg2;name2:pkg3` |
 | `--max-alerts-per-repository` | 每仓库最多处理告警数，默认 20 |
-| `--commands` | 自定义验证命令（逗号分隔），覆盖默认 install/lint/build |
+| `--commands` | 自定义验证命令（逗号分隔），覆盖默认 install/lint/build/test |
 | `--toolchain-pnpm-version` | lockfile 修复用的 pnpm 版本 |
 
 ### 多仓库并发

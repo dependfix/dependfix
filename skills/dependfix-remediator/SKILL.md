@@ -72,7 +72,7 @@ npx dependfix report-only --repo <owner/repo> --severity-threshold high
 npx dependfix fix --repo <owner/repo> --severity-threshold high
 ```
 
-- 自动升级可修复依赖 → 强制验证（install + lint + build）→ 生成报告。默认不提交不推送。
+- 自动升级可修复依赖 → 强制验证（install + lint + build + test）→ 生成报告。默认不提交不推送。
 - 需要本地提交时追加 `--commit`；需要预演时先加 `--dry-run`（只输出将要做的修改，不写文件）。
 - 汇报：修复的告警、验证结果、未修复（需人工处理）清单、报告路径。
 
@@ -151,5 +151,5 @@ npx dependfix cleanup-branches --repo <owner/repo>
 
 1. 扫描范围：仓库 / 数据源 / 严重级别阈值。
 2. 结果：修复 N 个告警，未修复 M 个（含原因与建议）。
-3. 验证状态：install / lint / build 是否通过。
+3. 验证状态：install / lint / build / test 是否通过。
 4. 产物：报告路径、PR 链接（如有）。

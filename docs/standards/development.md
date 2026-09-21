@@ -71,7 +71,7 @@ packages/engine/src/         # 共享执行引擎（DependfixApp），cli / mcp 
 ├── multirepo/               # 多仓库治理
 ├── report/                  # 报告模型
 ├── runners/                 # 执行器
-└── verification/            # 验证链（install / lint / build）
+└── verification/            # 验证链（install / lint / build / test）
 
 packages/cli/src/            # CLI 入口（薄壳），编排依赖 engine
 ├── app/                     # pipeline（本地执行编排）

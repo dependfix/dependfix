@@ -198,7 +198,7 @@ jobs:
 
 > dependfix 的核心动作是升级第三方依赖——**执行不可信代码**。更新依赖是为了修复漏洞，但修复过程不能引入新漏洞：dependfix 不能成为恶意依赖扩散的工具。以下为使用侧要点，完整威胁模型与治理见 [沙箱与恶意依赖防护治理](../design/governance/sandbox-security-governance.md)。
 
-- **本地 CLI 模式无隔离**：本地模式下依赖的 install/lint/build 脚本直接在**你的机器**上执行（`--commands` 自定义命令同样如此）。恶意脚本可读取你 shell 环境中的所有变量（`GITHUB_TOKEN`、`DEPENDFIX_AI_API_KEY` 等）。建议：在专用环境（容器 / VM / CI runner）运行，或确认目标仓库与依赖来源可信。fix / fix-and-pr 启动时 CLI 会输出本地执行风险警告；已确认风险可设置 `DEPENDFIX_SUPPRESS_LOCAL_EXECUTION_WARNING=1` 抑制。
+- **本地 CLI 模式无隔离**：本地模式下依赖的 install/lint/build/test 脚本直接在**你的机器**上执行（`--commands` 自定义命令同样如此）。恶意脚本可读取你 shell 环境中的所有变量（`GITHUB_TOKEN`、`DEPENDFIX_AI_API_KEY` 等）。建议：在专用环境（容器 / VM / CI runner）运行，或确认目标仓库与依赖来源可信。fix / fix-and-pr 启动时 CLI 会输出本地执行风险警告；已确认风险可设置 `DEPENDFIX_SUPPRESS_LOCAL_EXECUTION_WARNING=1` 抑制。
 - **Token 使用最小权限**：不要给 dependfix 使用全量 scope 的 PAT。推荐组合：`dependabot-alerts-token` 用仅 `Dependabot alerts: read` 的 fine-grained PAT；`github-token` 仅给目标仓库所需的最小权限（`security-events: read` + `contents`/`pull-requests` 写权限）。owner 模式扫描多个仓库时，token 权限面 = 所有被扫描仓库的信任边界。**启动时会对 token 做权限面检查**：检测到 classic PAT 且含 `repo`（全量仓库）权限时输出警告（不阻断运行）——该 token 一旦被恶意脚本窃取即可接管所有可见仓库。
 - **owner 模式扫描范围即信任边界**：`--owner` 发现的仓库会被 clone 并执行其依赖脚本——只扫描可信组织的仓库；对不可信来源先人工 review 再纳入名单（`--repo-include` / `--repo-exclude` 可限制范围）。
 - **PR 合入前人工检查**：跨线升级（PR body 带 ⚠️ Major 标记）以及新增/升级包带 lifecycle scripts 且被仓库批准时（供应链信号披露落地后见报告警示区），合入前应人工确认。
@@ -310,7 +310,7 @@ A/B 场景差异化见 [executor-sandbox.md §7.8.1](../design/governance/execut
 | `--max-retries` | — | GitHub API 限流重试次数（0-10，默认 3） | `DEPENDFIX_MAX_RETRIES` |
 | `--history` | — | 查询仓库历史运行摘要（读 `dependfix-reports/index.json`，倒序；不执行扫描） | — |
 | `--code-scanning` | — | 同时拉取 Code Scanning alerts（与 Dependabot 并行源；需要 token 具备 `security-events: read`，GITHUB_TOKEN 默认具备） | `false`（env `DEPENDFIX_CODE_SCANNING`） |
-| `--allow-major-upgrade` | — | 跨线告警（推荐版本跨大版本，当前线内无修复版本）显式授权自动升级：仅根 package.json 直接依赖（workspace 成员独占声明维持人工）且 lockfile 单版本的告警自动跨线升级，升级后复核脆弱实例消除、强制完整验证（install+lint+build），失败自动回滚；间接依赖 / 多版本共存跨线告警维持人工处理。**仅 CLI 可用，Action 不支持**（详见下方"跨大版本升级"风险章节） | `false`（**无 env 通道**） |
+| `--allow-major-upgrade` | — | 跨线告警（推荐版本跨大版本，当前线内无修复版本）显式授权自动升级：仅根 package.json 直接依赖（workspace 成员独占声明维持人工）且 lockfile 单版本的告警自动跨线升级，升级后复核脆弱实例消除、强制完整验证（install+lint+build+test），失败自动回滚；间接依赖 / 多版本共存跨线告警维持人工处理。**仅 CLI 可用，Action 不支持**（详见下方"跨大版本升级"风险章节） | `false`（**无 env 通道**） |
 | `--commands` | — | 自定义验证命令（逗号分隔） | — |
 | `--verbose` | — | 详细日志 | `false` |
 
@@ -326,8 +326,8 @@ A/B 场景差异化见 [executor-sandbox.md §7.8.1](../design/governance/execut
 
 **已知风险与问题**：
 
-1. **API 破坏面**：跨大版本升级必然引入 breaking change。完整验证能兜底编译/类型/构建错误，但 **lint/build 通过 ≠ 运行时功能正确**——建议在合并前人工审查 PR（PR body 中跨线升级带 ⚠️ Major 标记）。
-2. **验证耗时**：每个跨线包执行一次完整 install + lint + build（逐包串行），耗时显著高于常规 lint-only 组级验证。
+1. **API 破坏面**：跨大版本升级必然引入 breaking change。完整验证能兜底编译/类型/构建错误，但 **install/lint/build/test 通过 ≠ 运行时功能正确**——建议在合并前人工审查 PR（PR body 中跨线升级带 ⚠️ Major 标记）。
+2. **验证耗时**：每个跨线包执行一次完整 install + lint + build + test（逐包串行），耗时显著高于常规 lint-only 组级验证。
 3. **回滚边界**：快照回滚覆盖 package.json / pnpm-lock.yaml 等受跟踪文件；`node_modules` 不还原（临时目录语义，可接受）。
 4. **语义变化**：跨线升级会改变依赖声明（如 `^5.4.0` → `^6.4.3`），影响面超出漏洞本身——升级后其他 API 用法可能失效。
 5. **Action 不可用**：GitHub Action 刻意**不暴露**该参数，且**无 `DEPENDFIX_ALLOW_MAJOR_UPGRADE` 环境变量通道**（结构性禁用，防止 CI 自动跨线引发意外破坏）。

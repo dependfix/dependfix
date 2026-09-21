@@ -157,6 +157,32 @@
   - **风险与缓解**：若提供 opt-in，签名失败会成为新的交付失败点；缓解：默认保持关闭（现状），仅在显式开启时对签名失败做硬失败 + 明确错误文案
   - **复杂度估算**：push 隔离 ~2 行；opt-in 需先出方案（配置层 + 四层暴露 + 失败语义）再评估
 
+- **C83 验证链的「既有失败基线」判定（区分修复引入的失败与修复前已存在的失败）** —— 2026-09-21 M29.3 落地 test 纳入默认链时显式登记的已知限制；评估完成待上收；按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) **不带 M\d+ 阶段编号**。
+  - **目标**：目标仓库在修复前就存在的验证失败（尤其测试套件长期红）不再被计入本次修复，避免合法修复被门禁回滚、使仓库变得「不可用」。
+  - **优先级**：P3（非阻塞；当前口径与既有 install/lint/build 的「假定 pristine 检出可通过」一致，仅在目标仓库测试长期红时暴露）
+  - **范围**：`packages/engine/src/app/helpers.ts`（`verifyProject`）+ `packages/engine/src/app/repo-fix.ts`（修复流程接入点）+ `packages/engine/src/runners/verification-gate.ts`（判定口径）
+  - **现状实证**（2026-09-21）：
+    - M29.3 已把 `test` 纳入默认验证链（`DEFAULT_VERIFY_COMMANDS`，唯一事实源）；`repo-fix.ts` 以 `verifyActions.every((a) => a.success)` 判定 `verificationPassed`，任一命令失败 → `enforceVerificationGate` 回滚。
+    - 链中**无基线概念**：修复前即为红的命令，其失败会计入本次修复。既有 install/lint/build 已隐含同样假设（pristine 检出可通过），M29.3 只是把该假设扩展到 test。
+    - 已知限制已写入 [docs/design/modules/dependency-fixer.md](../design/modules/dependency-fixer.md)（「既有失败基线未做区分」）。
+    - **test 与 install/lint/build 的基线红概率不对称**，且 test 引入三条**此前不存在**的新失败路径（此前任何文档 / backlog 均未登记）：
+      1. **占位 test 脚本**：`npm init` 默认生成的 `"test": "echo \"Error: no test specified\" && exit 1"` 极常见——按当前口径会被判失败并回滚；
+      2. **测试依赖外部资源**：需网络 / 密钥 / 浏览器（Playwright 等）的套件在 dependfix 的受限环境中必然失败；
+      3. **test 超单命令超时（10 分钟）**：大型套件超时被判失败 → 回滚（该路径已在 `verification-runner.ts` 超时常量注释中登记）。
+  - **决策点（待上收时敲定）**：
+    - **基线时机**：修复前在 pristine 检出上跑一遍链（成本翻倍）／只对 test 做懒基线（仅当 test 失败时才回跑 pristine 基线）／按目标仓库配置豁免。
+    - **判定粒度**：命令级（该命令基线失败则从本次判定中移除并记审计）vs 仓库级（基线失败 → 跳过该仓库验证并显式告警）。
+    - **审计口径**：新增错误码（如 `PRE_EXISTING_FAILURE`）以便报告单列「基线已红」。
+  - **验收标准**：
+    - [ ] 修复前即为红的命令不再导致本次修复被回滚，且报告显式区分「本次引入的失败」与「基线已存在的失败」
+    - [ ] 单测覆盖：基线红 + 修复后仍红（不归因本次）／基线绿 + 修复后红（归因本次并回滚）
+    - [ ] `pnpm lint` + `pnpm typecheck` + engine 定向测试通过
+  - **不做什么**：不改单命令超时；不引入 CI 等价全量（coverage / e2e）；不在本候选内做目标仓库 CI 状态查询
+  - **依赖**：关联 M29.3（触发实证：test 纳入默认链后暴露该限制）；关联 `verification-gate.ts`（回滚判定）
+  - **交付物**：待方案敲定后评估（1-3 atomic commits）
+  - **风险与缓解**：懒基线需在修复后回跑 pristine 状态，涉及工作区切换（`git stash` / 临时 worktree），实现复杂且易引入新的状态污染；缓解：优先评估「命令级基线 + 修复前一次性采样」的简单形态，避免修复后回跑
+  - **复杂度估算**：方案未定；命令级一次性采样约 40-80 行 + 修复流程接入
+
 #### Code Scanning 规则体系
 
 - **C15 Code Scanning B 类规则真实仓库样本核对（第二阶段）** —— 2026-09-11 M28.3 第一阶段已闭环（commit `99302b5`：`sample-collector.mjs` 采集脚本 + 32 种子仓库跨 5 语言 fixture 占位 + 报告框架 `docs/research/code-scanning-b-class-samples.md`）；**剩余未闭环**：实际 GitHub API 样本采集 + 按需规则分级修正（`go/*` / `ruby/*` 补 `SUGGESTED_RULES`）。

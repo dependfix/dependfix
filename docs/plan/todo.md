@@ -9,7 +9,7 @@
 > | 候选 | 核验命令 | 结果 |
 > |:---|:---|:---|
 > | C73 | `rg -n "gpgsign\|GIT_CONFIG_GLOBAL\|GIT_CONFIG_NOSYSTEM" packages/engine/src apps/platform/server --glob '!*.test.ts'` | 0 命中（未落地） |
-> | C75 | `sed -n` 读 `helpers.ts:40` + `verification-runner.ts:69` | 两条默认链均为 `install/lint/build`，**无 test**（未落地） |
+> | C75 | `sed -n` 读 `helpers.ts:40` + `verification-runner.ts:69` | 两条默认链均为 `install/lint/build`，**无 test**（未落地）——**P 阶段当时口径**，M29.3 已落地为单一常量 + test |
 > | C77 | `rg -n "blacklist\|overrideHistory\|removedOverride" packages/engine/src` | 0 命中（未落地） |
 > | C78 | `rg -n "ALERTS_DISABLED\|alerts are disabled\|vulnerability-alerts" packages/engine/src apps/platform/server` | 0 命中（未落地） |
 > | C71 | `rg -n "dependencyPath" packages/core/src packages/engine/src apps/platform/server` | 0 命中（未落地） |
@@ -84,20 +84,31 @@
 
 ---
 
-### M29.3 [P2 🛡️ 治本] C75 验证命令链纳入 test
+### M29.3 [P2 🛡️ 治本] C75 验证命令链纳入 test —— ✅ 已闭环（`fbed8e7` + `b414312` + `e1d5695`）
 
 - **目标**：交付前验证矩阵能捕获「install / lint / build 通过但测试无法运行或失败」的破坏，避免把坏修复交付成 PR
 - **优先级**：P2（已实证会向第三方仓库交付坏 PR；属交付链路正确性缺口）
-- **范围**：`packages/engine/src/app/helpers.ts`（主链 `DEFAULT_VERIFY_COMMANDS`）+ `packages/engine/src/runners/verification-runner.ts`（fallback `DEFAULT_COMMANDS`）+ `packages/engine/src/verification/validate-commands.ts`（脚本存在性跳过）+ `docs/design/modules/dependency-fixer.md`（口径同步）
+- **范围**：`packages/engine/src/runners/verification-runner.ts`（`DEFAULT_VERIFY_COMMANDS` —— **唯一事实源**，app 层改为经此导入）+ `packages/engine/src/app/helpers.ts`（删除本地副本）+ `packages/engine/src/verification/validate-commands.ts`（脚本存在性跳过，无改动，仅验证）+ `packages/engine/src/app/verify-project.test.ts` + `packages/engine/src/runners/verification-runner.test.ts` + `docs/design/modules/dependency-fixer.md`（口径同步）
+- **决策（D 阶段敲定，含依据）**：
+  - **顺序** = `install → lint → build → test`。依据：与常见 CI 约定一致；test 通常最慢，置于最后让前置便宜命令先快速短路；且「测试套件依赖 build 产物」的仓库前提已满足。（不采用「test 先于 build」：那是依赖 test 不读构建产物的个例，不可推广到任意目标仓库。）
+  - **默认开启**（非 opt-in）。依据：验收标准要求两条默认链纳入 test；opt-in 无法解决原始事故（默认不跑 test 时坏修复照旧交付）。
+  - **既有失败基线 = 不做区分**（显式假设）。依据：既有 install/lint/build 已隐含「pristine 检出可通过」假设，纳入 test 只是把同一假设扩展到 test，未引入新的失败类别；实现成本 0。风险与替代方案登记为 backlog C83。
+  - **单命令超时** = 保持 10 分钟不变（不做什么已声明不改）。
 - **验收标准**：
-  - [ ] 两条默认链同步纳入 test（顺序与超时策略在文档中明确；或收敛为单一常量以消除副本漂移）
-  - [ ] 无 `test` 脚本的仓库优雅跳过（沿用 `validateVerifyCommands` + `SCRIPT_NOT_FOUND` 审计）
-  - [ ] 新增 case 复现「ESM-only 依赖破坏 CJS 消费方」场景下验证失败并触发门禁回滚
-  - [ ] 报告 / PR body 的 Verification 区展示 test 结果
-  - [ ] `pnpm lint` + `pnpm typecheck` + engine 定向测试通过
-- **不做什么**：不改单包级回滚逻辑；不引入 CI 等价全量（coverage / e2e）；不改单命令默认超时
+  - [x] 两条默认链同步纳入 test —— **已收敛为单一常量**（`DEFAULT_VERIFY_COMMANDS` 由 `verification-runner.ts` 导出，`helpers.ts` 副本删除并改为导入），顺序与超时策略在代码 JSDoc + 设计文档中明确
+  - [x] 无 `test` 脚本的仓库优雅跳过（沿用 `validateVerifyCommands` + `SCRIPT_NOT_FOUND` 审计）—— 新增 case 断言命令链降为 3 条且记 `SCRIPT_NOT_FOUND`
+  - [x] 新增 case 复现「ESM-only 依赖破坏 CJS 消费方」场景下验证失败并触发门禁回滚 —— ① 单测：install/lint/build 全绿 + `pnpm test` 失败（附 Jest `Unexpected token 'export'` 摘要）→ verification action 失败；② 组合单测：`verificationPassed=false` → `enforceVerificationGate` 阻断 + 真实 git 仓库回滚；③ **真实端到端复现**（dist 产物 + 真实 pnpm 子进程）→ `success=false` / `failedCommand=pnpm test`
+  - **复现配方（可重跑）**：临时目录建 `node_modules/esm-only-tla/`（`package.json` 含 `"type": "module"`；`index.js` 含 top-level await + `export`）与 `consumer.cjs`（`require("esm-only-tla")`）；`package.json#scripts` 置 `lint` / `build` 为 `node -e "process.exit(0)"`、`test` 为 `node consumer.cjs`；再经 `packages/engine/dist/index.mjs` 调用 `runVerification({ workDir, commands: ["pnpm lint", "pnpm build", "pnpm test"], networkAuditDisabled: true })`。
+  - **机制说明（避免误导后人）**：Node ≥ 22 的 `require(esm)` 已支持无 top-level await 的 ESM，本复现依赖 **top-level await** 才抛 `ERR_REQUIRE_ASYNC_MODULE`。原始事故（PR #1095）是 Jest 对 ESM-only 依赖的解析失败（`Unexpected token 'export'`）——**同一失败类别（ESM-only 依赖破坏 CJS 消费方）、不同触发机制**，故作为「类别」证据成立；单测侧用 mock 复现原始 Jest 错误文案以保持忠实。
+  - [x] 报告 / PR body 的 Verification 区展示 test 结果 —— PR body 的 Verification 区逐条渲染 `commandResults`（`target` = 命令），纳入链后 `pnpm test` 自动出现，无需额外渲染改动
+  - [x] `pnpm lint` + `pnpm typecheck` + engine 定向测试通过 —— engine 58 文件 1081 passed / 1 skipped；eslint 0 error / 3 warning（既有 baseline）；typecheck `error TS` 0 命中
+- **D 阶段补充证据**：
+  - **D 阶段自检（编号标记必查）**：改动源文件扫描孤立规划编号 0 命中
+  - **测试适配**：默认 fixture 补 `test` 脚本（避免 `SCRIPT_NOT_FOUND` 污染既有 `allErrors` 断言）；mock 改用 `importOriginal` 保留真实 `DEFAULT_VERIFY_COMMANDS`，避免测试内再造副本
+  - **PR body 展示**：由既有 `generatePRBody` 的 Verification 区逐条渲染逻辑天然覆盖（`actions.filter(a => a.type === 'verification')`）
+- **不做什么**：不改单包级回滚逻辑；不引入 CI 等价全量（coverage / e2e）；不改单命令默认超时（保持 10 分钟）；不做既有失败基线判定（登记 backlog C83）
 - **依赖**：关联 M29.4（补 test 可减少但不消除 override 复发）；关联 `docs/design/modules/dependency-fixer.md` 已知限制条目；C76（平台侧命令配置暴露，本批不做）
-- **交付物**：1-2 atomic commits（`feat(engine)` 命令链 + `test(engine)` case + 文档同步）
+- **交付物**：4 atomic commits（`refactor(engine)` 唯一事实源收敛（行为不变）→ `feat(engine)` 链纳入 test（含单测与引擎侧注释口径）→ `docs` 公开契约与文档口径同步 → `docs(plan)` 本条目勾选与闭环登记）。原计划「1-2 commits」低估了公开契约同步面（action.yml / CLI help / README / 指南 / 设计 / standards / 资源包），按审计 W5 拆分
 - **风险与缓解措施**：
   - **风险 1**：test 链耗时 / 资源放大（单命令超时默认 10 分钟），且目标仓库既有 test 红会把无关失败归因到本次修复；缓解：上收时先在 todo 条目内敲定「顺序（build 前 / 后）」「默认开启 vs opt-in」「既有失败基线」三项决策，必要时先做 opt-in 再转默认
   - **风险 2**：两条链为人工副本，改动易只落一条（漂移）；缓解：优先收敛为单一常量导出，消除双副本

@@ -24,7 +24,7 @@ const strictRules = {
 export default defineConfig([
     cmyr,
     {
-        ignores: ['.vitepress/dist/**', '.vitepress/cache/**', 'node_modules/**'],
+        ignores: ['.vitepress/dist/**', '.vitepress/cache/**', '.vitepress/.temp/**', 'node_modules/**'],
     },
     {
         rules: {

@@ -118,6 +118,11 @@ export default defineConfig([
             'apps/platform/playwright-report/**',
             'apps/platform/test-results/**',
             'apps/platform/blob-report/**',
+            // VitePress 生成物（同样因 flat config 不读 .gitignore 需显式排除）：
+            // - `cache/**`：`vitepress dev` 产出的 Vite 依赖预构建缓存（本次复现来源）
+            // - `.temp/**`：`vitepress build` 的 SSR 中间产物目录（正常结束会被 rimraf，DEBUG 模式保留）
+            'docs/.vitepress/cache/**',
+            'docs/.vitepress/.temp/**',
         ],
     },
     {

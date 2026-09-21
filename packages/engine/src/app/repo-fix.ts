@@ -29,6 +29,7 @@ import {
     snapshotTrackedFiles,
     type MemberManifestAlert,
 } from '../helpers'
+import { handleOverrideProtection } from './override-protect'
 import {
     buildVersionedOverrides,
     codeScanningAlertsTokenHint,
@@ -277,6 +278,17 @@ async function applyLockfileFixes(
             continue
         }
         upgradedMultiVersion.add(alert.packageName)
+        const protectedAction = handleOverrideProtection(ctx, {
+            overrideProtect: ctx.config.overrideProtect,
+            repository: alert.repository,
+            packageName: alert.packageName,
+            toVersion: alert.recommendedVersion,
+            scope: 'versioned-override',
+        })
+        if (protectedAction) {
+            ctx.allActions.push(protectedAction)
+            continue
+        }
         const versionedOverrides = versionedOverridesByPackage.get(alert.packageName) ?? {}
         const targets = Object.values(versionedOverrides)
         const targetSummary = targets.length > 0 ? targets.join(', ') : alert.recommendedVersion
@@ -736,6 +748,11 @@ async function applyGroupUpgrades(
                 progress.failed++
                 continue
             }
+            if (action.noOp) {
+                // overrides 保护名单命中：主动跳过（不计 fixed/failed）
+                ctx.summary.alertsSkipped++
+                continue
+            }
             if (ctx.config.dryRun) {
                 // dry-run 无实际文件改动，跳过验证
                 progress.fixed++
@@ -782,6 +799,10 @@ async function applyGroupUpgrades(
             ctx.allActions.push(action)
             if (!action.success) {
                 progress.failed++
+                continue
+            }
+            if (action.noOp) {
+                ctx.summary.alertsSkipped++
                 continue
             }
             const quickOk = await quickVerifyProject(ctx, repo)

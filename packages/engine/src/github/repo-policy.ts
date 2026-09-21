@@ -56,11 +56,85 @@ export interface RepoPolicy {
     exclude?: string[]
     /** topic 黑名单（仅作用于发现结果：排除含任一指定 topic 的仓库） */
     topicsExclude?: string[]
+    /**
+     * overrides 保护名单（显式维护）：仓库 glob → 不得自动写入 override 的包名列表。
+     *
+     * 命中时 dependfix 跳过该包的 override 写入并记审计（`OVERRIDE_PROTECTED`），
+     * 防止历史上被人工移除的破坏性 override 复发（实证见
+     * [override-protect-policy.md](../../../../docs/design/governance/override-protect-policy.md)）。
+     *
+     * **必须按仓库粒度**：同一 override 对不同仓库的破坏性不同（如纯 ESM 依赖只破坏 CJS 消费方），
+     * 全局包名黑名单会误伤真正需要该升级的仓库。键支持与 include / exclude 相同的 glob 语义
+     * （`owner/*`、`owner/pkg-*`）；全局兜底需写两段通配（owner 段与 repo 段各一个星号），因单星号不跨 `/`。
+     */
+    overrideProtect?: Record<string, string[]>
 }
 
 /** 是否命中任一 exclude 模式（黑名单）。 */
 export function matchesRepoExclude(policy: RepoPolicy, fullName: string): boolean {
     return (policy.exclude ?? []).some((pattern) => matchesRepoGlob(pattern, fullName))
+}
+
+/**
+ * 该仓库是否保护指定包的 override 写入。
+ *
+ * 命中条件：存在键 glob 匹配 `fullName` **且** 该键的包名列表包含 `packageName`。
+ * 返回命中的模式（用于报告展示判定依据）；未命中时 `protected=false`。
+ */
+export function matchesOverrideProtect(
+    policy: RepoPolicy,
+    fullName: string,
+    packageName: string,
+): { protected: boolean, matchedPattern?: string } {
+    for (const [pattern, packages] of Object.entries(policy.overrideProtect ?? {})) {
+        if (packages.includes(packageName) && matchesRepoGlob(pattern, fullName)) {
+            return { protected: true, matchedPattern: pattern }
+        }
+    }
+    return { protected: false }
+}
+
+/**
+ * 解析 overrides 保护名单入口值（与 `--upgrade-groups` 同格式、同口径）：
+ * `name1:pkg1,pkg2;name2:pkg3`（`;` 分隔条目，`:` 分隔仓库 glob 与包列表，`,` 分隔包名）。
+ *
+ * 与 `normalizeUpgradeGroups` / `parseUpgradeGroupsFlag` 保持一致的 fail-fast 语义：
+ * 空 entry 忽略；非空但缺冒号 / 仓库 glob 为空 / 包列表为空 → 抛错（不静默降级）；
+ * 原型链风险键名（`__proto__` / `constructor` / `prototype`）忽略。
+ *
+ * @param value - 原始入口值（CLI 单值 / env 单值）
+ * @param errorFactory - 抛错工厂（config 侧抛 CONFIG_VALIDATION_ERROR、CLI 侧抛 ARGUMENT_PARSE_ERROR）
+ * @param label - 报错中展示的入口名（如 `--override-protect` / `DEPENDFIX_OVERRIDE_PROTECT`）
+ */
+export function parseOverrideProtectEntries(
+    value: string,
+    errorFactory: (message: string) => Error,
+    label: string,
+): Record<string, string[]> {
+    const result: Record<string, string[]> = {}
+    for (const entry of value.split(';')) {
+        if (!entry.trim()) {
+            continue
+        }
+        const idx = entry.indexOf(':')
+        if (idx <= 0) {
+            throw errorFactory(`Invalid ${label} entry: "${entry}". Expected format: "repo-glob:pkg1,pkg2"`)
+        }
+        const repoPattern = entry.slice(0, idx).trim()
+        const packages = entry
+            .slice(idx + 1)
+            .split(',')
+            .map((p) => p.trim())
+            .filter(Boolean)
+        if (repoPattern === '__proto__' || repoPattern === 'constructor' || repoPattern === 'prototype') {
+            continue
+        }
+        if (!repoPattern || packages.length === 0) {
+            throw errorFactory(`Invalid ${label} entry: "${entry}". Expected format: "repo-glob:pkg1,pkg2"`)
+        }
+        result[repoPattern] = packages
+    }
+    return result
 }
 
 /** 是否通过 include 白名单（include 为空 = 不限制；非空 = 必须命中任一模式）。 */

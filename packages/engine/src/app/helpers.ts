@@ -37,6 +37,7 @@ import {
 
 import { quickVerifyProject } from '../helpers'
 import { validateVerifyCommands } from '../verification/validate-commands'
+import { handleOverrideProtection } from './override-protect'
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -311,7 +312,7 @@ export function buildVersionedOverrides(
  * 优先直接升级，失败且为间接依赖时回退到 pnpm overrides。
  */
 export async function upgradeAlert(
-    ctx: Pick<AppContext, 'config' | 'logger' | 'workDir'>,
+    ctx: Pick<AppContext, 'config' | 'logger' | 'workDir' | 'allErrors' | 'summary'>,
     alert: NormalizedSecurityAlert,
 ): Promise<FixAction> {
     const { config, logger, workDir } = ctx
@@ -342,6 +343,18 @@ export async function upgradeAlert(
 
         if (!result.success && result.error?.includes('not found in dependencies')) {
             // 间接依赖 — 通过 pnpm overrides 升级
+            // 先查 overrides 保护名单（repo policy）：命中则不写盘并记审计
+            // （防历史上被人工移除的破坏性 override 复发，实证 PR #1095）
+            const protectedAction = handleOverrideProtection(ctx, {
+                overrideProtect: config.overrideProtect,
+                repository: alert.repository,
+                packageName: alert.packageName,
+                toVersion: alert.recommendedVersion,
+                scope: 'override',
+            })
+            if (protectedAction) {
+                return protectedAction
+            }
             strategy = 'override'
             result = await overrideTransitiveDependency({
                 packageName: alert.packageName,

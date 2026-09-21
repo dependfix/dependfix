@@ -1,5 +1,6 @@
 import { execSync } from 'node:child_process'
 import { AppError, isValidRepoIdentifier, type SeverityThreshold, type AlertSourceKind } from '@dependfix/core'
+import { parseOverrideProtectEntries } from '../github/repo-policy'
 import { resolveRepoList } from '../github/repo-selector'
 import { isValidPnpmVersion } from '../fixers/pnpm'
 import { isValidConcurrency } from '../multirepo/scheduler'
@@ -56,6 +57,12 @@ export interface RuntimeConfig {
      * 排除含任一指定 topic 的仓库。仅作用于发现结果（显式列表无 topics 元数据）。
      */
     repoTopicsExclude?: string[]
+    /**
+     * overrides 保护名单（`--override-protect` / `DEPENDFIX_OVERRIDE_PROTECT`）：
+     * 仓库 glob（`owner/*` / `owner/pkg-*`；全局兜底需写两段通配，因单星号不跨斜杠）→ 不得自动写入 override 的包名列表。
+     * 命中时跳过该包的 override 写入并记 `OVERRIDE_PROTECTED` 审计（防历史上被人工移除的破坏性 override 复发）。
+     */
+    overrideProtect?: Record<string, string[]>
     dryRun: boolean
     createPullRequest: boolean
     /** 修复完成后是否在本地当前分支直接提交（不推送、不创建 PR） */
@@ -199,6 +206,8 @@ export interface CliConfigOverrides {
     repoExclude?: string[]
     /** 发现结果 topic 黑名单（排除含任一指定 topic 的仓库） */
     repoTopicsExclude?: string[]
+    /** overrides 保护名单（仓库 glob → 包名列表；命中则跳过 override 写入） */
+    overrideProtect?: Record<string, string[]>
     dryRun?: boolean
     createPullRequest?: boolean
     /** 修复完成后是否在本地当前分支直接提交 */
@@ -428,6 +437,24 @@ function normalizeUpgradeGroups(value: string | undefined): Record<string, strin
     return Object.keys(result).length > 0 ? result : undefined
 }
 
+/**
+ * 解析 `DEPENDFIX_OVERRIDE_PROTECT`：`repo-glob:pkg1,pkg2;repo-glob2:pkg3`。
+ *
+ * 语法与 `normalizeUpgradeGroups` 一致（`;` 分隔条目 / `:` 分隔仓库 glob 与包列表 / `,` 分隔包名）；
+ * 解析逻辑复用 `parseOverrideProtectEntries`（与 CLI 同源），非法条目 fail-fast。
+ */
+function normalizeOverrideProtect(value: string | undefined): Record<string, string[]> | undefined {
+    if (value === undefined || value.trim() === '') {
+        return undefined
+    }
+    const parsed = parseOverrideProtectEntries(
+        value,
+        (message) => new AppError('CONFIG_VALIDATION_ERROR', message),
+        `${ENV_PREFIX}OVERRIDE_PROTECT`,
+    )
+    return Object.keys(parsed).length > 0 ? parsed : undefined
+}
+
 /** 原型链风险键名过滤 */
 function isSafeUpgradeGroupName(name: string): boolean {
     return name !== '__proto__' && name !== 'constructor' && name !== 'prototype'
@@ -479,6 +506,7 @@ export function readEnvConfig(env: NodeJS.ProcessEnv = process.env): CliConfigOv
         repoInclude: normalizeList(readEnv(env, 'REPO_INCLUDE')),
         repoExclude: normalizeList(readEnv(env, 'REPO_EXCLUDE')),
         repoTopicsExclude: normalizeList(readEnv(env, 'REPO_TOPICS_EXCLUDE')),
+        overrideProtect: normalizeOverrideProtect(readEnv(env, 'OVERRIDE_PROTECT')),
         dryRun: normalizeBoolean(readEnv(env, 'DRY_RUN'), `${ENV_PREFIX}DRY_RUN`),
         createPullRequest: normalizeBoolean(readEnv(env, 'CREATE_PR'), `${ENV_PREFIX}CREATE_PR`),
         commit: normalizeBoolean(readEnv(env, 'COMMIT'), `${ENV_PREFIX}COMMIT`),
@@ -798,6 +826,7 @@ export function resolveRuntimeConfig(options: ResolveRuntimeConfigOptions = {}):
         maxBackoffMs: cliOverrides.maxBackoffMs ?? envConfig.maxBackoffMs ?? DEFAULT_RUNTIME_CONFIG.maxBackoffMs,
         maxRepos: cliOverrides.maxRepos ?? envConfig.maxRepos ?? DEFAULT_RUNTIME_CONFIG.maxRepos,
         upgradeGroups: cliOverrides.upgradeGroups ?? envConfig.upgradeGroups,
+        overrideProtect: cliOverrides.overrideProtect ?? envConfig.overrideProtect,
         toolchainPnpmVersion: cliOverrides.toolchainPnpmVersion ?? envConfig.toolchainPnpmVersion,
         ai: resolveAiOptions(cliOverrides, envConfig),
     }

@@ -12,6 +12,7 @@ import {
     RUNTIME_MODES,
     SEVERITY_THRESHOLDS,
     ALERT_SOURCES,
+    parseOverrideProtectEntries,
 } from '@dependfix/engine'
 // ---------------------------------------------------------------------------
 // Public interfaces
@@ -58,6 +59,10 @@ export const argsDef = {
     'repo-exclude': {
         type: 'string' as const,
         description: '仓库黑名单 glob（逗号分隔多个或多次传入；显式列表与发现结果均受约束，与 include 冲突时胜出）',
+    },
+    'override-protect': {
+        type: 'string' as const,
+        description: 'overrides 保护名单（防历史被人工移除的破坏性 override 复发），格式 "repo-glob:pkg1,pkg2;repo-glob2:pkg3"',
     },
     'repo-topics-exclude': {
         type: 'string' as const,
@@ -440,6 +445,16 @@ function parsedArgsToCliOverrides(parsed: ParsedArgs<typeof argsDef>): CliConfig
     const upgradeGroups = parsed['upgrade-groups']
     if (upgradeGroups) {
         overrides.upgradeGroups = parseUpgradeGroupsFlag(upgradeGroups)
+    }
+
+    // override-protect（与 env DEPENDFIX_OVERRIDE_PROTECT 同格式；解析器与 config 同源）
+    const overrideProtect = parsed['override-protect']
+    if (overrideProtect) {
+        overrides.overrideProtect = parseOverrideProtectEntries(
+            overrideProtect,
+            (message) => new AppError('ARGUMENT_PARSE_ERROR', message),
+            '--override-protect',
+        )
     }
 
     // toolchain-pnpm-version

@@ -774,6 +774,7 @@ export class DependfixApp {
             include: this.config.repoInclude,
             exclude: this.config.repoExclude,
             topicsExclude: this.config.repoTopicsExclude,
+            overrideProtect: this.config.overrideProtect,
         }
 
         if (!client || !owner || owner.length === 0) {

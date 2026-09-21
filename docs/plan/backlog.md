@@ -158,6 +158,50 @@
 
 - **T905** git worktree 并行开发预案（触发条件：多 agent 并行开发成为常态；当前单 agent 工作流无需启用）
 
+#### 开发工具链
+
+- **C79 ESLint 未忽略 VitePress 生成物（`docs/.vitepress/cache`）** —— 2026-09-21 M29.1 dev 冒烟实证触发；评估完成待上收；按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) **不带 M\d+ 阶段编号**。
+  - **目标**：开发者本地跑过 `pnpm docs:dev`（生成 Vite 依赖预构建缓存）后 `pnpm lint` 仍返回既有 baseline，而非因 ESLint 扫描缓存产物爆出上千条 error。
+  - **优先级**：P3（非阻塞——CI 不跑 `vitepress dev`，故 CI 不受影响；仅本地 devEx 缺口）
+  - **范围**：`eslint.config.js`（`ignores` 段）
+  - **现状实证**（2026-09-21 实测）：
+    - `eslint.config.js` `ignores` 已含 `**/dist/**` / `**/.nuxt/**` / `**/.output/**` / `**/.data/**` / `apps/platform/data/**` / Playwright 生成物（`playwright-report` / `test-results` / `blob-report`），**无** `docs/.vitepress/cache/**`。
+    - 配置文件内已有同源注释自陈根因：「ESLint 9 flat config 不读 .gitignore 需显式排除」——Playwright 生成物即为同一模式的前例。
+    - 复现路径：`pnpm --filter dependfix-docs dev`（生成 `docs/.vitepress/cache/deps/*.js`）→ `pnpm lint` → **1096 errors 全部来自缓存文件**；删除缓存后回到 0 error / 3 warning baseline。
+    - `.gitignore` 已覆盖 `docs/.vitepress/dist` / `cache` / `.temp`（生成物不入库，仅 lint 面漏配）。
+  - **验收标准**：
+    - [ ] `eslint.config.js` `ignores` 补 `docs/.vitepress/cache/**`（`docs/.vitepress/.temp/**` 一并评估）
+    - [ ] 复现路径实证：跑 `pnpm docs:dev` 生成缓存后 `pnpm lint` 仍为 0 error / 3 warning baseline
+    - [ ] `pnpm lint` + `pnpm typecheck` 通过
+  - **不做什么**：不改 `.gitignore`（已覆盖）；不清理既有 3 条 warning baseline（`repos.vue` max-lines / `container-executor.test.ts` import-order / `runner.test.ts` no-empty-function）；不动 lint-staged 与 CI 侧配置
+  - **依赖**：无；关联 `eslint.config.js` 既有 Playwright 生成物忽略范式（同一「flat config 不读 .gitignore」根因）
+  - **交付物**：1 atomic commit（补 `ignores` 条目）
+  - **风险与缓解**：若整体忽略 `docs/.vitepress/**` 会连带忽略真实源码 `docs/.vitepress/config.ts`（当前参与 lint 且通过）；缓解：只忽略 `cache/**` 与 `.temp/**` 生成物子目录，保留 `config.ts` 覆盖
+  - **复杂度估算**：代码 ~2 行；测试 0（配置类，以复现路径实证替代）；文档 0
+
+- **C80 devDependencies 链漏洞的 CI 回归拦截（含失效引用修正）** —— 2026-09-21 M29.1 审计剩余风险实证触发；评估完成待上收；按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) **不带 M\d+ 阶段编号**。
+  - **目标**：devDependencies 链上的已知漏洞有 CI 回归拦截（当前结构上不可见），使 M29.1 这类修复不因后续依赖变动而静默回退。
+  - **优先级**：P3（非阻塞；属「审计门禁缺失」维度，按 [ai-collaboration.md §1.5](../standards/ai-collaboration.md)「依赖审计门禁缺失 ≠ 依赖本身有漏洞」为独立问题，不构成 blocker）
+  - **范围**：`.github/workflows/test.yml`（audit 步骤）+ [ai-collaboration.md §1.5](../standards/ai-collaboration.md)（失效引用修正）
+  - **现状实证**（2026-09-21 实测）：
+    - `test.yml:30` 现为 `pnpm audit --prod --audit-level=moderate || true`，且 `:25-27` 有**显式设计注释**：`--prod` 依据「devDeps 漏洞不影响生产部署」、`|| true` 依据「hard-fail 由 `dependabot.yml` 处理，audit 失败仅作信号」。故这不是遗漏而是**既有决策**。
+    - 但 M29.1 修复的三条 advisory **全部位于 devDeps 链**（`docs>vitepress>vite`）——即当前 CI 恰好无法感知该类回归；本候选要评估的是「Dependabot 告警覆盖」是否足以替代「CI 回归拦截」，还是需要独立 devDeps audit 步骤。
+    - [ai-collaboration.md §1.5](../standards/ai-collaboration.md) 的「纳入『依赖审计进 CI』backlog 条目（如 C60/C61 RG-B04）」为**失效引用**：`C60`/`C61` 实为平台 UI 增强（见 [archive/todo-archive-phases-m10-c53-c59c61.md](archive/todo-archive-phases-m10-c53-c59c61.md)），`RG-B04` 全仓库仅该处出现，backlog 中原无「依赖审计进 CI」条目（本候选即为其真实落点）。
+  - **决策点（待上收时敲定）**：
+    - **覆盖方式**：保留 `--prod` + 新增独立 devDeps audit 步骤 / 改为全量 audit（去掉 `--prod`） / 维持现状仅修正失效引用（若判定 Dependabot 覆盖已足够）。
+    - **阻断语义**：是否去掉 `|| true` 转阻断，或先设观察期（非阻断 + 显式告警）。
+    - **阈值**：`--audit-level` 取值（moderate / high / critical）与既有注释口径对齐。
+  - **验收标准**：
+    - [ ] 按决策点落地覆盖方式；若维持现状，须在 workflow 注释与 [ai-collaboration.md §1.5](../standards/ai-collaboration.md) 中显式写明「devDeps 由 Dependabot 覆盖、CI 不重复拦截」的依据
+    - [ ] 若新增 / 改为 devDeps audit：CI 主链路不因存量告警失败（存量清零或显式豁免清单）
+    - [ ] [ai-collaboration.md §1.5](../standards/ai-collaboration.md) 失效引用修正为本候选编号或删除
+    - [ ] workflow 变更后跑一次真实 CI（或 `act` 本地模拟）验证步骤生效
+  - **不做什么**：不引入 Snyk / 第三方 SCA 服务；不改 `pnpm-workspace.yaml` overrides 策略；不在本候选内清理存量 devDeps 告警（当前 `pnpm audit` 实测已 0 告警）
+  - **依赖**：关联 M29.1（本候选的触发实证）；关联 [ai-collaboration.md §1.5](../standards/ai-collaboration.md)（失效引用修正建议同批，避免二次返工）；关联 `dependabot.yml`（既有 hard-fail 通道，需评估是否真能替代 CI 拦截）
+  - **交付物**：1-2 atomic commits（`ci` workflow 调整 + `docs(standards)` 引用修正）
+  - **风险与缓解**：全量 audit 转阻断可能因上游新披露 devDeps 漏洞突然红掉 CI、阻塞无关 PR；缓解：先观察期（非阻断 + 告警），存量清零后再评估转阻断
+  - **复杂度估算**：CI 配置 ~5-15 行；文档 1 处；测试 0（配置类，以 CI 实跑实证）
+
 ## 待人工验收（真实环境，随可用性推进）
 
 > 以下条目属 M7.1 / M7.2 / 发布管线阶段遗留的真实环境验证任务，保留随真实环境可用性推进。

@@ -34,17 +34,18 @@
 
 ## M29 阶段任务清单（方案 M29-B：交付链路正确性 + 能力扩展 + UX）
 
-### M29.1 [P2 🛡️ 插队 hotfix] docs 依赖链 vite 漏洞治理（1 high + 2 moderate）
+### M29.1 [P2 🛡️ 插队 hotfix] docs 依赖链 vite 漏洞治理（1 high + 2 moderate）—— ✅ 已闭环（`694b85a`）
 
 - **目标**：消除 `pnpm audit` 报出的 1 high + 2 moderate——全部落在 `docs>vitepress>vite` 与 `docs>vitepress>@vitejs/plugin-vue>vite` 路径
 - **优先级**：P2（§3.1 插队例外清单第 2 类：GHSA 标识 high 且影响 dependfix 自身；用户 2026-09-21 明确授权并入 M29）
 - **范围**：`pnpm-workspace.yaml`（`overrides` 段）+ `pnpm-lock.yaml` +（备选路径）`docs/package.json`
 - **验收标准**：
-  - [ ] `pnpm audit` 输出 **0 high / 0 moderate**（走方案 A 或 B 时）；若经用户确认走方案 C，则须有决策记录 + [backlog.md §已知边界与 known-issue](backlog.md#已知边界与-known-issue) 登记
-  - [ ] `pnpm install --frozen-lockfile` EXIT 0
-  - [ ] `pnpm --filter dependfix-docs build` EXIT 0（走方案 A / B 时）
-  - [ ] docs 本地 dev 冒烟：首页渲染正常（走方案 A / B 时）
-  - [ ] `pnpm lint` + `pnpm typecheck` 0 error
+  - [x] `pnpm audit` 输出 **0 high / 0 moderate**（走方案 A 或 B 时）；若经用户确认走方案 C，则须有决策记录 + [backlog.md §已知边界与 known-issue](backlog.md#已知边界与-known-issue) 登记 —— 实测 `No known vulnerabilities found`（方案 A 落地）
+  - [x] `pnpm install --frozen-lockfile` EXIT 0
+  - [x] `pnpm --filter dependfix-docs build` EXIT 0（走方案 A / B 时）—— `build complete`（vitepress 1.6.4 跑在 vite 6.4.3）
+  - [x] docs 本地 dev 冒烟：首页渲染正常（走方案 A / B 时）—— `/` `/index.md` `/guide/tech-stack.md` `/@vite/client` 全 200，dev log 无 error
+  - [x] `pnpm lint` + `pnpm typecheck` 0 error —— lint 0 error / 3 warning（既有 baseline）；typecheck 7/7 Done
+- **D 阶段实测任务结果**：① 单条路径级 `vitepress>vite` 即已覆盖 `@vitejs/plugin-vue` 边（peer 解析复用 vitepress 子树 vite 实例），无需并列声明；② 路径级**压制**版本级 `vite@5: ^5.4.21`，lockfile 中 `vite@5.4.21` 实体消失
 - **不做什么**：不升级 Nuxt / VitePress 之外的无关依赖；不删除既有 overrides 条目；不引入 `pnpm audit` CI 门禁（属 backlog 独立条目）
 - **依赖**：无前置；关联 §3.1 插队例外清单第 2 类
 - **交付物**：1-2 atomic commits（`fix(deps)` override + lockfile；若走 vitepress 升级路径则为 `chore(docs)`）

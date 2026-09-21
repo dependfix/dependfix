@@ -391,7 +391,7 @@ T105 (upgradeDependency)
     ▼
 T107 (验证执行器)
     │
-    │  pnpm install --frozen-lockfile → pnpm lint → pnpm build
+    │  pnpm install --frozen-lockfile → pnpm lint → pnpm build → pnpm test
     ▼
 T108 (报告生成器)
 ```

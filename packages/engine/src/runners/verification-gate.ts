@@ -1,6 +1,6 @@
 // verification-gate.ts（原 cli/src 根目录）
 // 验证门禁：修复（提交/PR）交付前的最后一道检查。
-// 任一仓库验证失败时，记录审计、回滚修复改动，防止把未通过 lint/build/install
+// 任一仓库验证失败时，记录审计、回滚修复改动，防止把未通过 lint/build/test/install
 // 的坏改动提交给用户（曾导致坏 PR 被创建）。
 import { execSync } from 'node:child_process'
 import { toErrorMessage, type RepositoryResult } from '@dependfix/core'

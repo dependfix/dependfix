@@ -81,7 +81,7 @@ export function restoreTrackedFiles(workDir: string, snapshot: Record<string, st
 /**
  * 快速验证（逐包）：运行验证命令序列。
  *
- * 有自定义命令时执行完整序列（含 install + setup + lint + build），
+ * 有自定义命令时执行完整序列（含 install + setup + lint + build + test），
  * 否则仅运行 `pnpm lint`（脚本存在时）。
  *
  * 设计决策（run 33946113272 复盘）：旧版仅跑 `pnpm lint`，但 Nuxt 等框架

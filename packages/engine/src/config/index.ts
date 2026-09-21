@@ -253,7 +253,7 @@ export interface CliConfigOverrides {
     aiTrigger?: AiTriggerKind
     /** 是否输出详细日志 */
     verbose?: boolean
-    /** 自定义验证命令（覆盖默认的 `pnpm install --frozen-lockfile` / `pnpm lint` / `pnpm build`） */
+    /** 自定义验证命令（覆盖默认的 `pnpm install --frozen-lockfile` / `pnpm lint` / `pnpm build` / `pnpm test`） */
     commands?: string[]
     /**
      * 历史查询（仅 CLI `--history`）：读取归档索引列出仓库历史运行摘要，

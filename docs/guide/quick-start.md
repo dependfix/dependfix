@@ -322,7 +322,7 @@ A/B 场景差异化见 [executor-sandbox.md §7.8.1](../design/governance/execut
 - ✅ **lockfile 中该包仅一个版本**（单版本场景）
 - ⏭️ 间接依赖 / workspace 成员独占声明 / 多版本共存的跨线告警**仍维持人工处理**（跨线版本化 overrides 会破坏依赖方 range，全局 override 会降级根声明——保守正确）
 
-**处理流程**：改根声明 → `pnpm install` → **升级后实例复核**（确认脆弱实例真实消除；若 workspace 成员同 range / 传递依赖 pin 仍锁旧版本导致残留，则自动回滚并计 failed）→ **强制完整验证**（`pnpm install --frozen-lockfile` + `pnpm lint` + `pnpm build`）→ 全部通过才保留；任一失败自动回滚并计入 failed。
+**处理流程**：改根声明 → `pnpm install` → **升级后实例复核**（确认脆弱实例真实消除；若 workspace 成员同 range / 传递依赖 pin 仍锁旧版本导致残留，则自动回滚并计 failed）→ **强制完整验证**（`pnpm install --frozen-lockfile` + `pnpm lint` + `pnpm build` + `pnpm test`）→ 全部通过才保留；任一失败自动回滚并计入 failed。
 
 **已知风险与问题**：
 

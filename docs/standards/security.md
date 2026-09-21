@@ -114,7 +114,7 @@ dependfix 的核心动作是升级第三方依赖——**拉取并执行不可�
 
 #### 5.3.1 网络外联审计（执行期网络行为可观测）
 
-verification 阶段（依赖修复后的 `pnpm install --frozen-lockfile` / `pnpm lint` / `pnpm build`）执行期网络外联审计按以下规则落地，捕获面见 [`packages/engine/src/runners/network-audit.ts`](../../packages/engine/src/runners/network-audit.ts)：
+verification 阶段（依赖修复后的 `pnpm install --frozen-lockfile` / `pnpm lint` / `pnpm build` / `pnpm test`）执行期网络外联审计按以下规则落地，捕获面见 [`packages/engine/src/runners/network-audit.ts`](../../packages/engine/src/runners/network-audit.ts)：
 
 - **真实外联 = deny-by-default 阻断**：本地拦截代理对非白名单域名返回 502 不建立上游连接，命中记录 `network_violations`（deny-by-default）。白名单默认含 `*.npmjs.org` / GitHub API 域 / `rolldown.rs`，可经 `DEPENDFIX_ALLOWED_DOMAINS` 扩展。
 - **命令输出 URL = 仅 audit 记录，不阻断**（治本候选方向 3，2026-08-25 落地）：stdout/stderr 中出现的 URL 是文本而非真实网络连接；旧逻辑误判 `pnpm.io` / `rolldown.rs` 等合法链接为 `network_violation` 触发 verification fail。新逻辑统一入 `networkAudit` entries 备查，**不再作为 verification fail 依据**。run `dependfix-mt8nasq2-0iiiry` 实证：pnpm 11.x warnings 把 `https://pnpm.io/catalogs` 写进 stderr，Nuxt CLI 把 `https://telemetry.nuxt.com` 写进 stdout，这些链接不应阻断 verification。

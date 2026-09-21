@@ -31,7 +31,7 @@ dependfix report-only --repo owner/repo --github-token $GITHUB_TOKEN
 
 ### `fix` — Fix alerts
 
-Execute dependency upgrade, lockfile fix and verification (lint / build), modifications limited to local files, no branch or PR creation.
+Execute dependency upgrade, lockfile fix and verification (lint / build / test), modifications limited to local files, no branch or PR creation.
 
 ```bash
 dependfix fix --repo owner/repo --github-token $GITHUB_TOKEN --severity-threshold high
@@ -88,7 +88,7 @@ const { result, exitCode } = await app.run()
 2. **Filter and sort** — filter by severity, sort by priority, limit count
 3. **Upgrade dependencies** — `pnpm update <package>` to recommended version
 4. **Lockfile fix** — detect and fix `pnpm frozen-lockfile` issues
-5. **Verify** — execute `pnpm install --frozen-lockfile` → `pnpm lint` → `pnpm build`
+5. **Verify** — execute `pnpm install --frozen-lockfile` → `pnpm lint` → `pnpm build` → `pnpm test`
 6. **Branch and PR** — in `fix-and-pr` mode, create branch, commit, push, PR
 
 ## Related packages

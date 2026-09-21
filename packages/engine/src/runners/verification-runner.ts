@@ -32,7 +32,7 @@ export interface VerificationParams {
     workDir: string
     /**
      * 要执行的命令序列。
-     * 默认: `pnpm install --frozen-lockfile` → `pnpm lint` → `pnpm build`
+     * 默认: `pnpm install --frozen-lockfile` → `pnpm lint` → `pnpm build` → `pnpm test`
      */
     commands?: string[]
     /**

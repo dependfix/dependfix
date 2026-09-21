@@ -396,7 +396,7 @@ packages/core (@dependfix/core)
 | GitHub API 限流 | 批量分页拉取；并发控制；报告中记录被限流情况 |
 | lockfile 修复不稳定 | 固定 Node 与 pnpm 版本；保存安装日志与 lockfile diff |
 | Code Scanning 范围过大 | 首期只开放白名单规则；未命中白名单只做建议输出 |
-| AI 研判误判 | AI 修复代码必须通过 lint/typecheck/build；PR 不自动合并；置信度低于阈值时仅输出建议；限制 patch 范围 |
+| AI 研判误判 | AI 修复代码必须通过 lint/typecheck/build/test；PR 不自动合并；置信度低于阈值时仅输出建议；限制 patch 范围 |
 | Prompt 注入攻击 | 限制触发权限为管理员；输入仅限结构化数据；系统指令硬编码；外部内容做清洗 |
 | 多租户安全 | 仓库间数据隔离；用户 Token 加密存储；操作审计日志完整记录 |
 | **监测系统 vs 自动合并解耦**（M24.1 关键决策 D8）| 依赖监测系统（PRCheck）**不**阻断 mergify 自动合并决策：`mergify 负责通过即合`（按 `check-success=Test` 单条件触发 rebase merge）；`PRCheck 负责失败即显`（监测 + alert firing + ack UI）——两条链路**互不干扰**，监测 alert firing 仅记录 alert_event 写库 + UI 告警，**不**修改 check 状态 / **不**修改 `check-success=Test` 判定。**根因**：监测系统目标是"用户感知"（失败即显 + ack），合并系统目标是"通过即合"（check 通过即合）——两类系统目标正交，强行耦合会导致监测 bug（如 alert firing 偶发）阻塞 mergify 合并。**M24.1 实施**：`.github/mergify.yml` 注释明确边界 + dependfix README + experience-archive §五十六 三处同步。详见 [经验归档 §五十六 M24.1 关键决策 D8（experience-archive.md §五十六段）](../governance/experience-archive.md) + [.github/mergify.yml 注释](../../../.github/mergify.yml)。ernance/experience-archive-§49-§57-recent-investigation.md#五十六) + [.github/mergify.yml 注释](../../../.github/mergify.yml)。 |
@@ -481,7 +481,7 @@ POST   /api/repos/[id]/scan
 
 ### 治理验收（与 engine 层一致）
 
-- AI 输出必须通过 `lint` / `typecheck` / `build`（沿用 [§AI 研判误判处理](#主要风险与应对) 现有治理基线）
+- AI 输出必须通过 `lint` / `typecheck` / `build` / `test`（沿用 [§AI 研判误判处理](#主要风险与应对) 现有治理基线）
 - AI 生成的 PR 不自动合并（与 [standards/index.md §AI 研判默认不自动合并](../../standards/index.md) 一致）
 - 置信度低于阈值仅输出建议（engine 层 `safety-gate.ts` 已实施）
 - AI API Key 日志脱敏（复用 `packages/engine/src/ai/secrets.ts:maskSecrets`）

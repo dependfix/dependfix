@@ -224,7 +224,7 @@ aiTrigger!: 'failure' | 'major' | 'both'
 
 **F. 安全治理（与 [architecture.md §AI 研判误判处理](./architecture.md) 对齐）**
 
-- AI 输出必须通过 lint/typecheck/build（沿用 engine 层现有 safety-gate）
+- AI 输出必须通过 lint/typecheck/build/test（沿用 engine 层现有 safety-gate）
 - AI 生成的 PR 不自动合并（与 `standards/index.md` 一致）
 - 置信度低于阈值仅输出建议不写 PR body
 - AI API Key 日志脱敏（复用 `packages/engine/src/ai/secrets.ts:maskSecrets`）
@@ -384,7 +384,7 @@ aiTrigger!: 'failure' | 'major' | 'both'
 
 沿用 [architecture.md §AI 研判误判处理](./architecture.md)：
 
-- AI 输出必须通过 `lint` / `typecheck` / `build`（现有 verification 阶段）
+- AI 输出必须通过 `lint` / `typecheck` / `build` / `test`（现有 verification 阶段）
 - PR 不自动合并（与 [standards/index.md](../../standards/index.md) 一致）
 - 置信度低于阈值仅输出建议（safety-gate.ts 已实施）
 - limit patch 范围（防止大范围破坏性改动）

@@ -157,7 +157,7 @@ Four execution modes form a progressive chain (each mode is a refinement of the 
 | GitHub API rate limit | Batch pagination; concurrency control; record rate-limited requests in reports |
 | Lockfile fix instability | Fix Node + pnpm version; save install logs + lockfile diff |
 | Code Scanning scope too large | Phase 1 only whitelist rules; unmatched rules only suggest output |
-| AI assessment misjudgment | AI fix code must pass lint/typecheck/build; PR not auto-merged; only output suggestions below confidence threshold; limit patch scope |
+| AI assessment misjudgment | AI fix code must pass lint/typecheck/build/test; PR not auto-merged; only output suggestions below confidence threshold; limit patch scope |
 | Prompt injection attacks | Restrict trigger permission to admin; inputs only structured data; system instructions hard-coded; external content sanitized |
 | Multi-tenant security | Repo-level data isolation; user tokens encrypted; complete operation audit log |
 | Monitoring system vs auto-merge decoupling (M24.1 key decision D8) | Monitoring system (PRCheck) does NOT block mergify auto-merge: `mergify responsible for merge on pass` (rebase merge triggered by `check-success=Test` single condition); `PRCheck responsible for fail-to-show` (monitor + alert firing + ack UI) — two chains do not interfere, monitoring alert firing only writes alert_event + UI alert, does NOT modify check status / does NOT modify `check-success=Test` judgment. M24.1 implementation: `.github/mergify.yml` annotations + dependfix README + experience-archive §56 three-way sync |
@@ -199,7 +199,7 @@ Error rules: `aiEnabled=true` but Organization has no Key → `400 AI_KEY_REQUIR
 
 ### Governance validation (consistent with engine layer)
 
-- AI output must pass `lint` / `typecheck` / `build` (reusing existing safety-gate from §7 row "AI assessment misjudgment")
+- AI output must pass `lint` / `typecheck` / `build` / `test` (reusing existing safety-gate from §7 row "AI assessment misjudgment")
 - AI-generated PR not auto-merged (consistent with [standards/index.md §AI assessment not auto-merged by default](https://github.com/dependfix/dependfix/blob/master/docs/standards/development.md))
 - Below confidence threshold only outputs suggestions (engine layer `safety-gate.ts` already implemented)
 - AI API Key logs redacted (reusing `packages/engine/src/ai/secrets.ts:maskSecrets`)

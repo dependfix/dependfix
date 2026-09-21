@@ -145,7 +145,7 @@ Need TypeORM migration (consistent with `synchronize opt-in` strategy); AI Key c
 
 **F. Security governance (aligned with [architecture.md §AI assessment misjudgment handling](./architecture.md))**
 
-- AI output must pass `lint` / `typecheck` / `build` (reusing existing safety-gate)
+- AI output must pass `lint` / `typecheck` / `build` / `test` (reusing existing safety-gate)
 - AI-generated PR not auto-merged (consistent with [standards/index.md](https://github.com/dependfix/dependfix/blob/master/docs/standards/development.md))
 - Below confidence threshold only output suggestions
 - AI API Key logs redacted (reusing `packages/engine/src/ai/secrets.ts:maskSecrets`)
@@ -305,7 +305,7 @@ Permission: admin / org_admin. Response: `{ repository: {...} }`.
 ### 8.2 AI output safety gate
 
 Consistent with [architecture.md §AI assessment misjudgment handling](./architecture.md):
-- AI output must pass `lint` / `typecheck` / `build` (reusing existing verification phase)
+- AI output must pass `lint` / `typecheck` / `build` / `test` (reusing existing verification phase)
 - AI-generated PR not auto-merged (consistent with [standards/index.md](https://github.com/dependfix/dependfix/blob/master/docs/standards/development.md))
 - Below confidence threshold only output suggestions (engine `safety-gate.ts` already implemented)
 - Limit patch range (prevent large-scale destructive changes)

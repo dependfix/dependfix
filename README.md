@@ -31,7 +31,7 @@
 ## 功能
 
 - **告警获取**：自动拉取 Dependabot / Code Scanning alerts，按严重级别过滤
-- **自动修复**：依赖升级、pnpm frozen-lockfile 修复与验证（lint / build）
+- **自动修复**：依赖升级、pnpm frozen-lockfile 修复与验证（lint / build / test）
 - **报告输出**：Markdown + JSON 双格式报告，可归档、可审计
 - **PR 创建**：`fix-and-pr` 模式自动创建修复分支并提交 Pull Request
 - **多仓库支持**：按 owner / org 自动发现仓库（topic / glob 过滤），支持批量修复

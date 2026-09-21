@@ -31,7 +31,7 @@ dependfix report-only --repo owner/repo --github-token $GITHUB_TOKEN
 
 ### `fix` — 修复告警
 
-执行依赖升级、lockfile 修复和验证（lint / build），修改仅限本地文件，不创建分支或 PR。
+执行依赖升级、lockfile 修复和验证（lint / build / test），修改仅限本地文件，不创建分支或 PR。
 
 ```bash
 dependfix fix --repo owner/repo --github-token $GITHUB_TOKEN --severity-threshold high
@@ -88,7 +88,7 @@ const { result, exitCode } = await app.run()
 2. **过滤排序** — 按严重级别过滤、优先级排序、数量限制
 3. **依赖升级** — `pnpm update <package>` 升级到推荐版本
 4. **lockfile 修复** — 检测并修复 `pnpm frozen-lockfile` 问题
-5. **验证** — 执行 `pnpm install --frozen-lockfile` → `pnpm lint` → `pnpm build`
+5. **验证** — 执行 `pnpm install --frozen-lockfile` → `pnpm lint` → `pnpm build` → `pnpm test`
 6. **分支与 PR** — `fix-and-pr` 模式下，创建分支、commit、push、PR
 
 ## 相关包

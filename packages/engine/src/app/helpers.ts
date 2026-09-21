@@ -28,7 +28,12 @@ import { repairLockfile, type LockfileRepairResult } from '../fixers/pnpm'
 import { applyCodeScanningFix, restoreSourceFile, snapshotSourceFile } from '../fixers/code-scanning'
 import { inferRepoFromGitRemote, type RuntimeConfig } from '../config'
 
-import { formatVerificationError, runVerification, type VerificationResult } from '../runners/verification-runner'
+import {
+    DEFAULT_VERIFY_COMMANDS,
+    formatVerificationError,
+    runVerification,
+    type VerificationResult,
+} from '../runners/verification-runner'
 
 import { quickVerifyProject } from '../helpers'
 import { validateVerifyCommands } from '../verification/validate-commands'
@@ -36,12 +41,6 @@ import { validateVerifyCommands } from '../verification/validate-commands'
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
-
-const DEFAULT_VERIFY_COMMANDS = [
-    'pnpm install --frozen-lockfile',
-    'pnpm lint',
-    'pnpm build',
-]
 
 /** 匹配 `pnpm <singleWord>` 模式的命令（可能是 package.json script 引用） */
 
@@ -405,7 +404,7 @@ export async function upgradeAlert(
  * - 写盘失败 → 立即失败（不计 lint）+ 整批回滚
  * - lint 验证失败 → 整批回滚（粒度 = batchSize；vs 旧版每个告警回滚，回滚粒度变粗但 lint 提速 ~10x）
  *
- * 性能权衡（M28.2 实证）：
+ * 性能权衡（批处理实证）：
  * - N 个 cs 告警（旧版）→ N 次 spawn `pnpm lint` 子进程：N=100 平均 2593 ms（基准 commit 395ee29）
  * - N 个 cs 告警（批处理）→ ceil(N/batchSize) 次 lint：N=100 平均 ~300 ms（提速 ~10x）
  * - 合并验证可提速 ~96x 但回滚粒度过粗（整次 fix 全失败）；批处理折中
@@ -530,7 +529,7 @@ export async function runCodeScanningFixes(
 }
 
 /**
- * Code Scanning 修复批处理默认大小（M28.2 决策）。
+ * Code Scanning 修复批处理默认大小（批处理决策）。
  *
  * 决策依据（commit 395ee29 baseline）：
  * - 旧版（每个告警 1 次 lint）：N=10 平均 263 ms / N=50 平均 1294 ms / N=100 平均 2593 ms

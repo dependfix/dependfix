@@ -66,12 +66,20 @@ export interface VerificationResult {
     networkViolations?: NetworkAuditEntry[]
 }
 
-const DEFAULT_COMMANDS = [
+/**
+ * 默认验证命令链（**唯一事实源**——app 层经此导入，消除此前的双副本漂移）。
+ */
+export const DEFAULT_VERIFY_COMMANDS = [
     'pnpm install --frozen-lockfile',
     'pnpm lint',
     'pnpm build',
 ]
 
+/**
+ * 单命令超时（10 分钟）：与纳入 test 前保持一致，不因命令数增加而调整。
+ * 注意：test 通常是链中最慢一步，大型测试套件超 10 分钟会被判超时 → verification 失败 → 交付回滚
+ * （该路径已登记 backlog C83）。
+ */
 const DEFAULT_COMMAND_TIMEOUT_MS = 10 * 60 * 1000
 
 const MAX_OUTPUT_LINES = 200
@@ -138,7 +146,7 @@ export function formatVerificationError(cr: CommandResult): string {
  * ```
  */
 export async function runVerification(params: VerificationParams): Promise<VerificationResult> {
-    const commands = params.commands ?? DEFAULT_COMMANDS
+    const commands = params.commands ?? DEFAULT_VERIFY_COMMANDS
     const commandResults: CommandResult[] = []
 
     // 执行期网络外联审计（默认开启；代理仅在环境无既有代理时注入，防覆盖用户代理）

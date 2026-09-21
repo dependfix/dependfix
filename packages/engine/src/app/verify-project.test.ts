@@ -1,20 +1,30 @@
-// verify-project.test.ts — verifyProject（默认命令链 install 与工具链同版本）。
+// verify-project.test.ts — verifyProject（默认命令链 install 与工具链同版本 + test 纳入默认链）。
 // 拆分自 app/helpers.test.ts（原 1031 行超 max-lines 1000）。
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
+import { execSync } from 'node:child_process'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { enforceVerificationGate } from '../runners/verification-gate'
 import { verifyProject, type AppContext } from './helpers'
 
 // ---------------------------------------------------------------------------
 // Mock verification-runner（verifyProject 依赖，避免真实 spawn）
+// 用 importOriginal 保留真实导出（DEFAULT_VERIFY_COMMANDS / formatVerificationError），
+// 只替换 runVerification——避免在测试内再造一份命令链副本（与「唯一事实源」相悖）。
 // ---------------------------------------------------------------------------
 
 const verificationRunnerMock = vi.hoisted(() => ({
     runVerification: vi.fn(),
 }))
 
-vi.mock('../runners/verification-runner', () => verificationRunnerMock)
+vi.mock('../runners/verification-runner', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('../runners/verification-runner')>()
+    return {
+        ...actual,
+        runVerification: verificationRunnerMock.runVerification,
+    }
+})
 
 describe('verifyProject', () => {
     let workDir: string
@@ -24,7 +34,7 @@ describe('verifyProject', () => {
         writeFileSync(join(workDir, 'package.json'), JSON.stringify({
             name: 'fixture',
             version: '1.0.0',
-            scripts: { lint: 'eslint .', build: 'tsc' },
+            scripts: { lint: 'eslint .', build: 'tsc', test: 'vitest run' },
         }, null, 2))
         verificationRunnerMock.runVerification.mockReset()
         verificationRunnerMock.runVerification.mockResolvedValue({

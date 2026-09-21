@@ -106,9 +106,10 @@
   - **D 阶段自检（编号标记必查）**：改动源文件扫描孤立规划编号 0 命中
   - **测试适配**：默认 fixture 补 `test` 脚本（避免 `SCRIPT_NOT_FOUND` 污染既有 `allErrors` 断言）；mock 改用 `importOriginal` 保留真实 `DEFAULT_VERIFY_COMMANDS`，避免测试内再造副本
   - **PR body 展示**：由既有 `generatePRBody` 的 Verification 区逐条渲染逻辑天然覆盖（`actions.filter(a => a.type === 'verification')`）
+  - **口径同步复扫教训（A 阶段第 2 轮 Reject 触发）**：首轮复扫以**字面 pattern** 驱动（`install + lint + build` / `install/lint/build`），漏掉**逐命令反引号**（`pnpm lint` → `pnpm build`）与**简写**（验证（lint / build））两类形态，导致同文件内、同章节内自相矛盾（如 `quick-start.md` 处理流程 vs 已知风险段）。改用**结构化查询**（`rg 'lint'` → `rg 'build'` → `rg -v 'test'` 人工过滤历史 / 动机性引用）后补齐 14 文件 20 处（含 AI 输出质量门的 4 处表述）。教训：口径同步应以**语义站点清单 + 结构化查询**驱动，而非上一轮表述的措辞。
 - **不做什么**：不改单包级回滚逻辑；不引入 CI 等价全量（coverage / e2e）；不改单命令默认超时（保持 10 分钟）；不做既有失败基线判定（登记 backlog C83）
 - **依赖**：关联 M29.4（补 test 可减少但不消除 override 复发）；关联 `docs/design/modules/dependency-fixer.md` 已知限制条目；C76（平台侧命令配置暴露，本批不做）
-- **交付物**：4 atomic commits（`refactor(engine)` 唯一事实源收敛（行为不变）→ `feat(engine)` 链纳入 test（含单测与引擎侧注释口径）→ `docs` 公开契约与文档口径同步 → `docs(plan)` 本条目勾选与闭环登记）。原计划「1-2 commits」低估了公开契约同步面（action.yml / CLI help / README / 指南 / 设计 / standards / 资源包），按审计 W5 拆分
+- **交付物**：6 atomic commits（`refactor(engine)` 唯一事实源收敛（行为不变）→ `feat(engine)` 链纳入 test（含单测与引擎侧注释口径）→ `docs` 公开契约与文档口径同步 → `docs(plan)` 闭环登记 → `docs` 补齐措辞变体站点（A 阶段第 2 轮 Reject 修复）→ `docs(plan)` 本补记）。原计划「1-2 commits」低估了公开契约同步面（action.yml / CLI help / README / 指南 / 设计 / standards / 资源包）与复扫迭代成本，按审计 W5 拆分
 - **风险与缓解措施**：
   - **风险 1**：test 链耗时 / 资源放大（单命令超时默认 10 分钟），且目标仓库既有 test 红会把无关失败归因到本次修复；缓解：上收时先在 todo 条目内敲定「顺序（build 前 / 后）」「默认开启 vs opt-in」「既有失败基线」三项决策，必要时先做 opt-in 再转默认
   - **风险 2**：两条链为人工副本，改动易只落一条（漂移）；缓解：优先收敛为单一常量导出，消除双副本

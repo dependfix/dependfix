@@ -60,9 +60,9 @@ export interface DependfixOpenPR {
 /**
  * PAT 路径默认 commit author（保持现有 PAT 路径用户行为零变化）。
  *
- * 注：此常量仅作为 PAT 路径的默认值；GitHub App 路径（M18.2 之后接入）走动态 commit author。
+ * 注：此常量仅作为 PAT 路径的默认值；GitHub App 路径接入后走动态 commit author。
  * 现有 PAT 路径仍硬编码 `dependfix[bot]@users.noreply.github.com`，虽非真实 bot 身份（字符串约定），
- * 但保持行为不变以确保 PAT 用户无感升级。已知缺陷由 C22 范围之外的后续阶段修复。
+ * 但保持行为不变以确保 PAT 用户无感升级。已知缺陷由后续阶段修复。
  *
  * @see [C22 PAT 无感升级评估 §5.1 兼容性](../../../../docs/design/governance/c22-pat-backward-compat.md)
  */
@@ -199,12 +199,15 @@ export function createFixBranch(branchName: string, workDir: string): FixBranchR
  * 使用 `execFileSync` 参数数组形式（不经 shell），保证多行 commit message
  * 与 UTF-8 字符（如 →）在 Windows/Linux 双平台传递一致。
  *
- * W3 修复（M18.4 audit round 2）：显式传 `-c user.name=X -c user.email=Y` 强制 commit author
- * 使用传入值，不受 host 全局 `user.name`（如 CaoMeiYouRen）污染——`git commit` 走 lookup order
- * (env → `-c` config → local → global → system)，显式 `-c` 在 lookup order 中最高优先。
+ * commit author 隔离：显式传 `-c user.name=X -c user.email=Y` 强制 commit author 使用传入值，
+ * 不受 host 全局 `user.name`（如 CaoMeiYouRen）污染——显式 `-c` 优于 local / global / system 配置。
+ *
+ * 签名污染隔离：显式传 `-c commit.gpgsign=false`，使 commit 不受 host 全局 / 系统 / repo local
+ * 的 `commit.gpgsign=true` 影响（否则会带上宿主个人签名，或因无可用 key 而 commit 失败）。
+ * 仅关签名开关，不注入 `GIT_CONFIG_GLOBAL` / `GIT_CONFIG_NOSYSTEM`（会连带屏蔽 host 代理等配置）。
  *
  * @param author - 可选 commit author 信息；不传时使用 PAT 默认值（保持现有 PAT 路径行为零变化）。
- *   M18.2 之后 GitHub App 路径会传入动态生成的 `{app_id}+{bot_login}[bot]` author。
+ *   GitHub App 路径接入后会传入动态生成的 `{app_id}+{bot_login}[bot]` author。
  *
  * @see [C22 PAT 无感升级评估 §5.1 兼容性](../../../../docs/design/governance/c22-pat-backward-compat.md)
  */
@@ -215,6 +218,8 @@ export function stageAndCommit(message: string, workDir: string, author?: { name
     execFileSync('git', [
         '-c', `user.name=${effectiveAuthor.name}`,
         '-c', `user.email=${effectiveAuthor.email}`,
+        // 关闭签名：避免 host `commit.gpgsign=true` 导致的签名污染与 commit 失败（见上方 JSDoc）
+        '-c', 'commit.gpgsign=false',
         'commit',
         '-m', message,
     ], { cwd: workDir, stdio: 'pipe' })
@@ -741,7 +746,6 @@ function gitConfigExists(key: string, workDir: string): boolean {
     // 必须用 `--local` 限定 local config 查询——否则 `git config user.name`（无 flag）
     // 走 lookup order (local → global → system)，会返回 host 全局 user.name（如
     // CaoMeiYouRen）误判"已配置"，让 ensureGitConfig 跳过 set local config。
-    // W3 修复（M18.4 audit round 2）：见 stageAndCommit 内 `-c user.name=X` 注释。
     try {
         execFileSync('git', ['config', '--local', '--get', key], { cwd: workDir, stdio: 'pipe' })
         return true

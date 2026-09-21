@@ -140,15 +140,15 @@
 - **C82 git 签名语义边界（push.gpgSign 隔离 + commit 签名 opt-in）** —— 2026-09-21 M29.2 A 阶段审计 warning / suggest 衍生；评估完成待上收；按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) **不带 M\d+ 阶段编号**。
   - **目标**：把 dependfix 与 git 签名的关系收敛为**显式策略**——① push 链路同样不受宿主 `push.gpgSign` 污染；② 是否产出「签名 commit」由配置决定，而非硬编码关闭。
   - **优先级**：P3（非阻塞；① 需宿主显式开启 `push.gpgSign` 才触发，② 需目标仓库强制签名保护规则才需要）
-  - **范围**：`packages/engine/src/github/pr-creator.ts`（`pushBranch` + `stageAndCommit`）+ 配置层（若做 opt-in）
+  - **范围**：push 侧**全部 4 处未隔离调用点**（实测）——`packages/engine/src/github/pr-creator.ts:228`（`pushBranch`）/ `apps/platform/server/services/executor/platform-delivery.ts:126`（平台接管交付路径）/ `apps/platform/server/services/executor/container-executor.ts:109`（`pushFixBranch`）/ `:129`（`cleanupRemoteBranch`，`--delete`）；commit 侧 `stageAndCommit` 已 M29.2 落地；另含配置层（若做 opt-in）
   - **现状实证**（2026-09-21 实测）：
-    - **① push 签名未隔离**：本地 bare remote 复现——宿主 `push.gpgSign=true` + `gpg.program` 不可用 → `git push` 报 `fatal: the receiving end does not support --signed push` → `fatal: the remote end hung up unexpectedly`；追加 `-c push.gpgSign=false` 后 push 成功。当前 `pushBranch` 仅 `execFileSync('git', ['push', 'origin', branchName])`，无任何 `-c` 隔离。
+    - **① push 签名未隔离**：本地 bare remote 复现——宿主 `push.gpgSign=true`（**单独设置即触发**，与服务端 `receive-pack` 证书协商能力相关，不经过 `gpg.program`）→ `git push` 报 `fatal: the receiving end does not support --signed push` → `fatal: the remote end hung up unexpectedly`；追加 `-c push.gpgSign=false` 后 push 成功。实测未隔离调用点 4 处（见「范围」）；平台部署场景由 platform 侧接管 push，污染面主要在 platform 路径。
     - **② 签名硬编码关闭**：`stageAndCommit` 已固定传 `-c commit.gpgsign=false`（M29.2 落地），无 opt-in 入口；目标仓库若要求签名 commit，dependfix PR 无法满足。
   - **决策点（待上收时敲定）**：
     - **push 隔离方式**：与 commit 同法（`-c push.gpgSign=false`），或抽为统一的「签名语义」常量避免两处漂移。
     - **是否提供 commit 签名 opt-in**：若提供，需决定密钥来源（用户配置的 signingkey / 目标仓库要求）、失败语义（签名失败是否回滚交付）、暴露层（CLI flag / env / action input / 平台配置——按「交付检查所有暴露层」四层对齐）。
   - **验收标准**：
-    - [ ] 宿主 `push.gpgSign=true` + gpg 不可用时 push 仍成功（新增 case 覆盖）
+    - [ ] 宿主 `push.gpgSign=true` 时 push 仍成功（新增 case 覆盖；触发条件不涉及 `gpg.program`）
     - [ ] 签名策略（关闭 / 可开启）在四层暴露面口径一致（CLI / env / action / 文档表），或明确记录「不提供 opt-in」的决策依据
     - [ ] `pnpm lint` + `pnpm typecheck` + engine 定向测试通过
   - **不做什么**：不改宿主 `~/.gitconfig`；不关闭用户手工 git 操作的签名；不回溯已产生的 commit / push；不在本候选内做目标仓库保护规则的预检

@@ -350,7 +350,7 @@ async function applyLockfileFixes(
     // 升级后实例复核（确认脆弱实例真实消除——跨线只改 root 声明，workspace 成员
     // 同 range / 传递依赖 pin 可能仍锁旧 major，残留实例必须回滚，避免误标 fixed
     // 且下一轮被最高实例掩盖误判 converged，PR #28 纪律）→ 强制完整验证
-    // （install + lint + build，跨线 breaking change 面大，lint-only 不足以兜底
+    // （install + lint + build + test，跨线 breaking change 面大，lint-only 不足以兜底
     // 类型/构建错误）→ 失败回滚。
     // 同包多条跨线告警取最高 recommendedVersion 为升级目标（镜像 dedupeFixableAlerts
     // 语义），被合并告警随代表告警一并处理并在日志中说明。
@@ -441,7 +441,7 @@ async function applyLockfileFixes(
             )
             continue
         }
-        // 跨线强制完整验证（install + lint + build）
+        // 跨线强制完整验证（install + lint + build + test）
         const majorVerifyActions = await verifyProject(ctx, repo)
         // 验证动作入 allActions：成功证据可审计（summary 验证计数 + PR body Verification 章节）
         ctx.allActions.push(...majorVerifyActions)

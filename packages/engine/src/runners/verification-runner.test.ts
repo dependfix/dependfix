@@ -22,6 +22,7 @@ vi.mock('node:child_process', () => ({
 }))
 
 import {
+    DEFAULT_VERIFY_COMMANDS,
     formatVerificationError,
     runVerification,
     sanitizeOutput,
@@ -466,11 +467,12 @@ describe('runVerification', () => {
         const result = await runVerification({ workDir: '/tmp/test' })
 
         expect(result.success).toBe(true)
-        expect(result.commandResults).toHaveLength(3)
-        // 默认命令: frozen-lockfile → lint → build
+        expect(result.commandResults).toHaveLength(4)
+        // 默认命令: frozen-lockfile → lint → build → test
         expect(result.commandResults[0].command).toContain('--frozen-lockfile')
         expect(result.commandResults[1].command).toContain('lint')
         expect(result.commandResults[2].command).toContain('build')
+        expect(result.commandResults[3].command).toContain('test')
     })
 
     it('uses custom commands when provided', async () => {
@@ -713,5 +715,20 @@ describe('formatVerificationError', () => {
         })
 
         expect(result).toBe('timed out after 30000ms')
+    })
+})
+
+// ---------------------------------------------------------------------------
+// DEFAULT_VERIFY_COMMANDS（唯一事实源：app 层经此导入，消除副本漂移）
+// ---------------------------------------------------------------------------
+
+describe('DEFAULT_VERIFY_COMMANDS', () => {
+    it('含 test 且顺序为 install → lint → build → test', () => {
+        expect(DEFAULT_VERIFY_COMMANDS).toEqual([
+            'pnpm install --frozen-lockfile',
+            'pnpm lint',
+            'pnpm build',
+            'pnpm test',
+        ])
     })
 })

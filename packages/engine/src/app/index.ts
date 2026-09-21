@@ -329,7 +329,7 @@ export class DependfixApp {
             && (this.config.mode === 'fix' || this.config.mode === 'fix-and-pr')
         if (isLocalFix && process.env.DEPENDFIX_SUPPRESS_LOCAL_EXECUTION_WARNING !== '1') {
             this.logger.warn(
-                '[local-exec] 本地模式将直接执行目标仓库的依赖安装/验证脚本（install/lint/build 钩子，属不可信代码）'
+                '[local-exec] 本地模式将直接执行目标仓库的依赖安装/验证脚本（install/lint/build/test 钩子，属不可信代码）'
                 + '——若仓库或依赖被恶意控制，脚本可读取本机环境变量（含 GITHUB_TOKEN）。'
                 + '建议：使用专用低权限 token，并在专用环境（容器/VM/CI runner）运行；'
                 + '已确认风险可设置 DEPENDFIX_SUPPRESS_LOCAL_EXECUTION_WARNING=1 抑制本提示'

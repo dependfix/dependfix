@@ -253,7 +253,7 @@ describe('DependfixApp cross-major upgrade (--allow-major-upgrade)', () => {
         writeFileSync(join(workDir, 'package.json'), JSON.stringify({
             name: 'fixture',
             version: '1.0.0',
-            scripts: { lint: 'exit 0', build: 'exit 0' },
+            scripts: { lint: 'exit 0', build: 'exit 0', test: 'exit 0' },
             devDependencies: { vite: '^5.4.0' },
         }, null, 2))
         writeSingleVersionLockfile(workDir)
@@ -262,7 +262,7 @@ describe('DependfixApp cross-major upgrade (--allow-major-upgrade)', () => {
 
         const { result } = await runApp({ cliOverrides: { allowMajorUpgrade: true } })
 
-        // 跨线告警进入 2.0.2：真实升级 + 强制完整验证（install+lint+build）→ fixed
+        // 跨线告警进入 2.0.2：真实升级 + 强制完整验证（install+lint+build+test）→ fixed
         expect(result.summary.alertsSkipped).toBe(0)
         expect(result.summary.alertsFixed).toBe(1)
         const majorActions = result.actions.filter((a) => a.strategy === 'major-upgrade')
@@ -273,14 +273,15 @@ describe('DependfixApp cross-major upgrade (--allow-major-upgrade)', () => {
             isMajor: true,
             success: true,
         })
-        // 完整验证链（3 条命令：install + lint + build），非 lint-only
+        // 完整验证链（4 条命令：install + lint + build + test），非 lint-only
         const verificationCalls = mockRunVerification.mock.calls
-        const fullVerifyCall = verificationCalls.find(([params]) => params.commands.length === 3)
+        const fullVerifyCall = verificationCalls.find(([params]) => params.commands.length === 4)
         expect(fullVerifyCall).toBeDefined()
         expect(fullVerifyCall![0].commands).toEqual([
             'pnpm install --frozen-lockfile',
             'pnpm lint',
             'pnpm build',
+            'pnpm test',
         ])
         // 声明已更新为 ^6.4.3
         const pkg = JSON.parse(readFileSync(join(workDir, 'package.json'), 'utf-8')) as { devDependencies: Record<string, string> }
@@ -291,7 +292,7 @@ describe('DependfixApp cross-major upgrade (--allow-major-upgrade)', () => {
         writeFileSync(join(workDir, 'package.json'), JSON.stringify({
             name: 'fixture',
             version: '1.0.0',
-            scripts: { lint: 'exit 0', build: 'exit 0' },
+            scripts: { lint: 'exit 0', build: 'exit 0', test: 'exit 0' },
             devDependencies: { vite: '^5.4.0' },
         }, null, 2))
         writeSingleVersionLockfile(workDir)
@@ -376,7 +377,7 @@ describe('DependfixApp cross-major upgrade (--allow-major-upgrade)', () => {
         writeFileSync(join(workDir, 'package.json'), JSON.stringify({
             name: 'fixture',
             version: '1.0.0',
-            scripts: { lint: 'exit 0', build: 'exit 0' },
+            scripts: { lint: 'exit 0', build: 'exit 0', test: 'exit 0' },
             devDependencies: { vite: '^5.4.0' },
         }, null, 2))
         writeFileSync(join(workDir, 'pnpm-workspace.yaml'), 'packages:\n  - docs\n')
@@ -413,7 +414,7 @@ describe('DependfixApp cross-major upgrade (--allow-major-upgrade)', () => {
         writeFileSync(join(workDir, 'package.json'), JSON.stringify({
             name: 'fixture',
             version: '1.0.0',
-            scripts: { lint: 'exit 0', build: 'exit 0' },
+            scripts: { lint: 'exit 0', build: 'exit 0', test: 'exit 0' },
             devDependencies: { vite: '^5.4.0' },
         }, null, 2))
         writeSingleVersionLockfile(workDir)
@@ -437,7 +438,7 @@ describe('DependfixApp cross-major upgrade (--allow-major-upgrade)', () => {
         writeFileSync(join(workDir, 'package.json'), JSON.stringify({
             name: 'fixture',
             version: '1.0.0',
-            scripts: { lint: 'exit 0', build: 'exit 0' },
+            scripts: { lint: 'exit 0', build: 'exit 0', test: 'exit 0' },
             dependencies: { '@dependfix/core': '^1.0.0' },
         }, null, 2))
         writeFileSync(join(workDir, 'pnpm-workspace.yaml'), 'packages:\n  - docs\n')
@@ -461,7 +462,7 @@ describe('DependfixApp cross-major upgrade (--allow-major-upgrade)', () => {
         writeFileSync(join(workDir, 'package.json'), JSON.stringify({
             name: 'fixture',
             version: '1.0.0',
-            scripts: { lint: 'exit 0', build: 'exit 0' },
+            scripts: { lint: 'exit 0', build: 'exit 0', test: 'exit 0' },
             devDependencies: { vite: '^5.4.0' },
         }, null, 2))
         writeSingleVersionLockfile(workDir)
@@ -470,7 +471,7 @@ describe('DependfixApp cross-major upgrade (--allow-major-upgrade)', () => {
 
         const { result } = await runApp({ cliOverrides: { allowMajorUpgrade: true } })
 
-        // 跨线验证链（install+lint+build）作为 verification 动作写入报告（可审计）
+        // 跨线验证链（install+lint+build+test）作为 verification 动作写入报告（可审计）
         const verifyActions = result.actions.filter((a) => a.type === 'verification')
         expect(verifyActions.length).toBeGreaterThanOrEqual(3)
         const majorVerifyCommands = verifyActions.map((a) => a.target)

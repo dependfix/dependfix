@@ -94,7 +94,7 @@ export interface RuntimeConfig {
      *
      * 开启后仅对「根 package.json 直接依赖（workspace 成员独占声明维持人工）
      * + lockfile 单版本」的跨线告警自动升级，升级后复核脆弱实例消除、
-     * 强制完整验证（install + lint + build），失败自动回滚；
+     * 强制完整验证（install + lint + build + test），失败自动回滚；
      * 间接依赖 / 多版本共存跨线告警维持人工处理（skipped + warn）。
      */
     allowMajorUpgrade: boolean

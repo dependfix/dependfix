@@ -68,11 +68,23 @@ export interface VerificationResult {
 
 /**
  * 默认验证命令链（**唯一事实源**——app 层经此导入，消除此前的双副本漂移）。
+ *
+ * **顺序** install → lint → build → test：与常见 CI 约定一致；test 置于最后——它通常是
+ * 最慢的一步，前置的便宜命令先失败可快速短路，且「测试套件依赖 build 产物」的仓库前提已满足。
+ *
+ * **为何纳入 test**：仅 install/lint/build 的矩阵无法捕获「lint/build 通过但测试无法运行或失败」
+ * 的破坏。实证：目标仓库把 `decode-uri-component` 升到纯 ESM 版本后，CJS 消费方
+ * `query-string@7.1.3` 在 Jest 下无法加载该模块（`SyntaxError: Unexpected token 'export'`），
+ * 而 install / lint / build 三条全绿——坏修复被交付成 PR。
+ *
+ * 无 `test` 脚本的仓库由 `validateVerifyCommands` 跳过并记 `SCRIPT_NOT_FOUND` 审计，
+ * 不会误伤未配置测试的仓库。
  */
 export const DEFAULT_VERIFY_COMMANDS = [
     'pnpm install --frozen-lockfile',
     'pnpm lint',
     'pnpm build',
+    'pnpm test',
 ]
 
 /**

@@ -1,6 +1,6 @@
 // AI 输出安全校验与质量门（静态检查层）：
 // 范围限制、路径穿越、敏感信息泄露、命令注入（package.json 执行面）。
-// 动态质量门（install + lint + build 完整验证）由 app 层复用 verification-runner
+// 动态质量门（install + lint + build + test 完整验证）由 app 层复用 verification-runner
 // 执行（对齐跨线升级语义），本模块只做可静态判定的防线。
 
 import type { AiFileChange } from './schema'
@@ -54,7 +54,7 @@ const DANGEROUS_SHELL_PATTERNS: RegExp[] = [
  * 警告（warn，不阻塞）：
  * - package.json 变更含危险 shell 模式（写入 scripts 等执行面，人工复核信号）
  *
- * 动态质量门（install + lint + build）由 app 层验证执行，不在此层。
+ * 动态质量门（install + lint + build + test）由 app 层验证执行，不在此层。
  */
 export function validateAiChanges(
     workDir: string,

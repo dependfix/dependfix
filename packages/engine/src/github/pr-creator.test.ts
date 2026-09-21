@@ -1,4 +1,4 @@
-/* eslint-disable max-lines -- M18.4（todo.md §M18.4 范围）测试层补强 stageAndCommit author 路径回归 + 既有 955 行；按职责不拆分 */
+/* eslint-disable max-lines -- 测试层补强 stageAndCommit author / 签名隔离路径回归 + 既有 955 行；按职责不拆分（范围见 docs/plan/archive/todo-archive-phases-m18.md §M18.4） */
 import { execSync } from 'node:child_process'
 import { mkdtempSync, writeFileSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
@@ -348,7 +348,7 @@ describe('closePullRequest', () => {
 })
 
 // ---------------------------------------------------------------------------
-// commentOnPullRequest / addLabelToPullRequest（todo.md §M19.3 重复 PR 评论 + label）
+// commentOnPullRequest / addLabelToPullRequest（docs/plan/archive/todo-archive-phases-m19-m21.md §M19.3 重复 PR 评论 + label）
 // ---------------------------------------------------------------------------
 
 describe('commentOnPullRequest', () => {
@@ -419,7 +419,7 @@ describe('addLabelToPullRequest', () => {
  * - PAT 路径（author 不传）→ 使用 `PAT_DEFAULT_COMMIT_AUTHOR`（保持 PAT 路径行为零变化）
  * - GitHub App 路径（author 传入 `{app_id}+{bot_login}[bot]`）→ 使用传入 author
  *
- * 关键回归约束（与 todo.md §M18.0 决策 2 PAT 用户行为零变化一致）：
+ * 关键回归约束（与 docs/plan/archive/todo-archive-phases-m18.md §M18.0 决策 2 PAT 用户行为零变化一致）：
  * - 已有 `user.name` / `user.email` 时**不**覆盖（用户/CI 上游可能预设 git config）
  *
  * **测试隔离**：本测试通过 `GIT_CONFIG_GLOBAL=/dev/null` + `GIT_CONFIG_NOSYSTEM=1` 隔离
@@ -427,7 +427,7 @@ describe('addLabelToPullRequest', () => {
  * `git config user.name` 误判"已配置"而不设 local）。所有 execSync 都通过 `git` helper 走隔离 env。
  *
  * @see [C22 PAT 无感升级评估 §5.1 兼容性](../../../../docs/design/governance/c22-pat-backward-compat.md)
- * @see [todo.md §M18.4（测试层）](../../../../docs/plan/todo.md)
+ * @see [docs/plan/archive/todo-archive-phases-m18.md §M18.4（测试层）](../../../../docs/plan/archive/todo-archive-phases-m18.md)
  */
 describe('stageAndCommit (author 路径回归)', () => {
     const tempDirs: string[] = []
@@ -484,9 +484,9 @@ describe('stageAndCommit (author 路径回归)', () => {
     }
 
     beforeEach(() => {
-        // 注：原 M18.4 测试曾用 ISOLATED_GIT_ENV (GIT_CONFIG_GLOBAL=/dev/null) 屏蔽 host 全局，
+        // 注：早期测试曾用 ISOLATED_GIT_ENV (GIT_CONFIG_GLOBAL=/dev/null) 屏蔽 host 全局，
         // 但 `/dev/null` 不是合法 git config 文件 → `git init` 抛 `bad config line 1 in file /dev/null`。
-        // W3 修复改用 stageAndCommit 内部 `-c user.name=X -c user.email=Y` 显式传，
+        // 后改用 stageAndCommit 内部 `-c user.name=X -c user.email=Y` 显式传，
         // 强制 commit author 用传入值（lookup order 中最高优先），无需屏蔽 host 全局。
     })
 
@@ -517,7 +517,7 @@ describe('stageAndCommit (author 路径回归)', () => {
         const dir = createGitRepoWithoutGitConfig()
         writeFileSync(join(dir, 'change.txt'), 'fixed\n')
 
-        // 模拟 todo.md §M18.2（集成层）调用：传入 AppAuthProvider.getCommitAuthor() 动态生成的 author
+        // 模拟 docs/plan/archive/todo-archive-phases-m18.md §M18.2（集成层）调用：传入 AppAuthProvider.getCommitAuthor() 动态生成的 author
         stageAndCommit('fix: dependabot', dir, {
             name: '123456[bot]',
             email: '123456+dependfix-bot[bot]@users.noreply.github.com',
@@ -572,7 +572,7 @@ describe('stageAndCommit (author 路径回归)', () => {
     }, 15_000)
 
     /**
-     * W3 回归：stageAndCommit 显式传 `-c user.name=X -c user.email=Y` 保证 commit author
+     * 回归：stageAndCommit 显式传 `-c user.name=X -c user.email=Y` 保证 commit author
      * 用传入值，不受 host 全局 user.name 污染。
      *
      * 修复前：`git config user.name` 查询会查到 host 全局 `CaoMeiYouRen`，
@@ -584,7 +584,7 @@ describe('stageAndCommit (author 路径回归)', () => {
      * order（env → `-c` config → local → global → system）中最高优先，**强制** commit author
      * 用传入值，与 host 全局 config 无关。
      */
-    it('W3 回归：stageAndCommit 显式 -c user.name -c user.email 覆盖 host 全局 user.name', () => {
+    it('stageAndCommit 显式 -c user.name -c user.email 覆盖 host 全局 user.name', () => {
         // 场景：worker 创建 tempDir + git init，host 全局有 user.name=CaoMeiYouRen（不屏蔽）
         const dir = createGitRepoWithoutGitConfig()
         // 模拟 host 全局有 user.name（在 local 写入等效——git commit lookup order：local 优先）
@@ -603,9 +603,9 @@ describe('stageAndCommit (author 路径回归)', () => {
         expect(author.email).toBe('123456+dependfix-bot[bot]@users.noreply.github.com')
     }, 15_000)
 
-    // W1 回归：host 全局 git config 含 user.name 但 repo 无 local config → ensureGitConfig
+    // host 全局 git config 含 user.name 但 repo 无 local config → ensureGitConfig
     // 写入 local config（不被 host 全局污染）—— 验证 gitConfigExists 用 --local flag 路径
-    it('W1 回归：host 全局 git config 存在 user.name 但 repo 无 local config → ensureGitConfig 写入 local config（不被 host 污染）', () => {
+    it('host 全局 git config 存在 user.name 但 repo 无 local config → ensureGitConfig 写入 local config（不被 host 污染）', () => {
         // 模拟开发者机器的 host 全局 git config（不应被 dependfix 错误读取）
         const globalDir = mkdtempSync(join(tmpdir(), 'dependfix-global-'))
         const globalConfig = join(globalDir, 'gitconfig')
@@ -638,6 +638,119 @@ describe('stageAndCommit (author 路径回归)', () => {
                 /* ignore */
             }
         }
+    }, 15_000)
+
+    /**
+     * 回归：stageAndCommit 显式传 `-c commit.gpgsign=false`，隔离 host `commit.gpgsign=true`。
+     *
+     * 根因：dependfix 宿主进程直接继承宿主 git 配置（平台 `container-executor` 名为 container、
+     * 实为宿主进程内运行），故 host 开启签名时有两种破坏：
+     * ① host 有可用签名 key → commit 带上宿主个人 GPG 签名（签名身份与被修复仓库的 commit
+     *   author 不一致）；
+     * ② host 无可用 key / `gpg.program` 不可用（CI、纯 Linux 容器）→
+     *   `gpg failed to sign the data` → `failed to write commit object`，交付直接失败。
+     *
+     * 修复后 `-c commit.gpgsign=false` 在 lookup order（env → `-c` → local → global → system）
+     * 中最高优先，签名不再被触发，commit 恒成功且 `%G?` = `N`（无签名）。
+     *
+     * 本用例把 `gpg.program` 指向不存在的程序：若签名未被关闭，commit 必然失败——
+     * 断言与环境无关（无论本机是否安装 gpg）。
+     */
+    it('host commit.gpgsign=true + gpg.program 不可用 → commit 仍成功且无签名', () => {
+        const globalDir = mkdtempSync(join(tmpdir(), 'dependfix-gpgsign-'))
+        const globalConfig = join(globalDir, 'gitconfig')
+        writeFileSync(
+            globalConfig,
+            '[commit]\n\tgpgsign = true\n[gpg]\n\tprogram = /nonexistent/dependfix-no-such-gpg\n',
+        )
+        vi.stubEnv('GIT_CONFIG_GLOBAL', globalConfig)
+        vi.stubEnv('GIT_CONFIG_NOSYSTEM', '1')
+
+        try {
+            const dir = createGitRepoWithoutGitConfig()
+            writeFileSync(join(dir, 'change.txt'), 'fixed\n')
+
+            // 修复前：此处抛 `fatal: failed to write commit object`
+            stageAndCommit('fix: dependabot', dir)
+
+            const author = readCommitAuthor(dir)
+            expect(author.name).toBe('dependfix[bot]')
+            // %G? = N 表示 commit 无 GPG 签名
+            expect(git('log -1 --format=%G?', dir)).toBe('N')
+        } finally {
+            vi.unstubAllEnvs()
+            try {
+                rmSync(globalDir, { recursive: true, force: true })
+            } catch {
+                /* ignore */
+            }
+        }
+    }, 15_000)
+
+    /**
+     * 回归（覆盖根因分支 ①）：host `commit.gpgsign=true` 且 gpg 按 host 默认配置可用时，
+     * commit 仍不得带签名。
+     *
+     * 与上一用例的差异：**不**把 `gpg.program` 指向不可用程序。若 host 配了可用签名 key，
+     * 修复前 commit 会带宿主个人签名（`%G?` = `G`/`U`）；若 host 无可用 key，修复前 commit
+     * 直接失败。两种情形在修复后均应为「成功 + `%G?` = `N`」，故本断言同样与环境无关。
+     */
+    it('host commit.gpgsign=true + gpg 可用 → commit 仍成功且无签名', () => {
+        const globalDir = mkdtempSync(join(tmpdir(), 'dependfix-gpgsign-'))
+        const globalConfig = join(globalDir, 'gitconfig')
+        writeFileSync(globalConfig, '[commit]\n\tgpgsign = true\n')
+        vi.stubEnv('GIT_CONFIG_GLOBAL', globalConfig)
+        vi.stubEnv('GIT_CONFIG_NOSYSTEM', '1')
+
+        try {
+            const dir = createGitRepoWithoutGitConfig()
+            writeFileSync(join(dir, 'change.txt'), 'fixed\n')
+
+            stageAndCommit('fix: dependabot', dir)
+
+            const author = readCommitAuthor(dir)
+            expect(author.name).toBe('dependfix[bot]')
+            expect(git('log -1 --format=%G?', dir)).toBe('N')
+        } finally {
+            vi.unstubAllEnvs()
+            try {
+                rmSync(globalDir, { recursive: true, force: true })
+            } catch {
+                /* ignore */
+            }
+        }
+    }, 15_000)
+
+    /**
+     * 回归：repo **local** `commit.gpgsign=true`（非 host global）同样被 `-c` 覆盖。
+     * 与 host 级用例互补——验证显式 `-c` 在 lookup order 中同时优于 repo local 配置。
+     */
+    it('repo local commit.gpgsign=true → commit 仍成功且无签名', () => {
+        const dir = createGitRepoWithoutGitConfig()
+        // 写入 repo local config（非 host global）：签名开关 + 不可用的 gpg 程序
+        git('config commit.gpgsign true', dir)
+        git('config gpg.program /nonexistent/dependfix-no-such-gpg', dir)
+        writeFileSync(join(dir, 'change.txt'), 'fixed\n')
+
+        // 修复前：local `commit.gpgsign=true` 会触发签名 → gpg 不可用 → failed to write commit object
+        stageAndCommit('fix: dependabot', dir)
+
+        expect(git('log -1 --format=%G?', dir)).toBe('N')
+    }, 15_000)
+
+    it('commit.gpgsign=false 仅作用于本次调用，不写入 repo local config', () => {
+        const dir = createGitRepoWithoutGitConfig()
+        writeFileSync(join(dir, 'change.txt'), 'fixed\n')
+
+        stageAndCommit('fix: dependabot', dir)
+
+        // `-c` 是单次调用级配置，不得落盘到用户仓库的 local config（不改变被修复仓库状态）。
+        // 用 `--list`（成功路径）而非 `--get`：local 未设该键时 `--get` exit 1 会被 git() helper
+        // 吞成空串，使 `toBe('')` 恒真而失去断言力。
+        const localConfig = git('config --local --list', dir)
+        expect(localConfig).not.toContain('commit.gpgsign')
+        // 前置校验：local config 确有内容（ensureGitConfig 写入的 user.*），证明 --list 走的是成功路径
+        expect(localConfig).toContain('user.name=')
     }, 15_000)
 })
 

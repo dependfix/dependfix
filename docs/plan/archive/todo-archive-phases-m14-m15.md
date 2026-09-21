@@ -5,8 +5,8 @@
 > **迁出触发**：todo-archive.md M19 归档批次新增段前主窗口 699 行 + M19 段新增预估 80-100 行 = 779-799 行，超 700 强制分片阈值；M14 + M15 是 2026-08-26 闭环阶段（距今 5 天），按"主窗口保留 3-5 个阶段"健康策略迁出。
 >
 > **关键导航**：
-> - **backlog 历史归档指针段**：详见 [todo-archive.md](todo-archive.md) + [backlog.md §已闭环阶段](../backlog.md#已闭环阶段)
-> - **roadmap 状态**：[roadmap.md §M14](../roadmap.md#m14-platform-release-通道闭环--ux-反馈跟进m14123xy-全部已闭环) + [§M15](../roadmap.md#m15-扫描历史详情侧栏增强ux-r2已完成-2026-08-26-归档) + Milestone 概述表 M14/M15 行
+> - **backlog 历史归档指针段**：详见 [todo-archive.md](../todo-archive.md)
+> - **roadmap 状态**：[roadmap.md §M14](../roadmap.md#m14-platform-release-通道--ux-反馈跟进已完成-2026-08-26-归档) + [§M15](../roadmap.md#m15-扫描历史详情侧栏增强-ux-r2已完成-2026-08-26-归档) + Milestone 概述表 M14/M15 行
 > - **archive 索引**：[archive/index.md §4 当前基线](index.md) + §5 近期归档批次登记 M14/M15 行
 > - **M14 关键 commit 实证**：T1310 `300b318` / `1819b59` / `733e198` / `7b40a2c` / `a74d07d` / `1fd38c1` / M14.1 收口 / M14.2 `81bd8d2` `581e1a9` `1a9eddf` 收口 + `17b5643` / M14.3 `5ccaaf4` / M14.x `92cc348` `ea0e24f` `84b4e1a` `b45f55e` / M14.y dependabot PR commits
 > - **M15 关键 commit 实证**：`5c65177` P 阶段 docs + `1112017` UX-R2 实施（5 文件 / +425/-12）+ `0a60e3d` test 覆盖（2 文件 / +251）+ `d517a7f` release.yml CI 修复（不计入 M15 总投入）
@@ -111,7 +111,7 @@
 
 - **apps/platform docker-only 平台独立通道模式**：依赖 docker workflow 而非 npm publish 的发布单元，独立 version + 独立 CHANGELOG + tag-only action 3 件套，可被其他 monorepo 项目复用
 - **`npmPublishable` 字段语义扩展**：`scripts/packages.config.mjs` 新增字段保 npmPublishable=true 缺省行为（5 个现有 npm 包 0 改动），仅显式置 false 的 platform 走 tag-only；通过字段扩展而非新分支逻辑收敛代码路径
-- **F 阶段本地验证强制 coverage**（二次固化）：本次 M14.1 F 阶段验证包含完整 test:coverage 4 维度 + ahead=1 待用户推送（与 M13.3 CI Coverage 79.98% 实证教训 + [规划规范 §4.4 大批量归档批次操作规范 §算式校对](../../docs/standards/planning.md#44-大批量归档批次操作规范) 一致）
+- **F 阶段本地验证强制 coverage**（二次固化）：本次 M14.1 F 阶段验证包含完整 test:coverage 4 维度 + ahead=1（后续已推送）（与 M13.3 CI Coverage 79.98% 实证教训 + [规划规范 §4.4 大批量归档批次操作规范 §算式校对](../../docs/standards/planning.md#44-大批量归档批次操作规范) 一致）
 - **M14.2 silent bug fix during feature implementation**：实施中实证 alerts.vue §openRunSidebar 此前传 `ids` 但 server 不支持（silent bug），建议所有"前端用某个参数但 server 不识别"的代码路径在 feature 实施时主动 grep 实证，避免无声回归
 - **M14.2 PrimeVue 4 Paginator + vue-i18n 嵌套占位符**：PrimeVue CurrentPageReport 模板用 `{first}` / `{last}` / `{totalRecords}` 占位符，vue-i18n 先做字面替换（i18n 字符串中 `{first}` → `{first}` 字面），PrimeVue 再做数值替换 —— 嵌套转义机制需保持 i18n 字符串占位符与 PrimeVue 占位符同名同结构
 - **M14.x wisdom 蒸馏 scope 扩展协议**：wisdom 蒸馏批次实施时可主动扩展 scope（如 M14.x 从 2 条扩到 3 条），条件是真实 commit 教训触发（M14.1 P 阶段规划 commit `1fd38c1` ahead 数字 + typo 实证），且 todo.md 计划段同步登记 scope 扩展理由；不允许静默扩展
@@ -135,7 +135,7 @@
 > **归档日期**: 2026-08-26
 > **阶段摘要**: M14.2 UX-R1 闭环后承接 UX-R2，在 alerts 去重视图中增强受影响运行 Sidebar 可辨识度——展示运行短 ID / 模式 / 严重级别阈值 / 执行器 / 告警数 / 开始时间与持续时间，按执行器显示 GitHub Action 外链；新增独立 RunDetailDialog 复用 `GET /api/runs/:id` 与 `requestSequence` 守卫。**不**触碰 `/api/runs` 后端契约、**不**动 `RepoHistoryDialog.vue`、**不**做数据层迁移 / PrimeVue 升级 / C36/C37 i18n。UX-R3（`/scans` 独立页面 + 替代 RepoHistoryDialog）属 backlog 候选（高风险，跨 5+ 文件），顺延 M16。
 > **阶段边界**: M15 只实现 UX-R2，scope 严格收敛以避免阶段膨胀。
-> **状态**: ✅ 全部完成（M15 1 子阶段 / 4 子任务全部闭环 / 2 轮 code-auditor quick depth Pass / ahead 部分待用户推送）
+> **状态**: ✅ 全部完成（M15 1 子阶段 / 4 子任务全部闭环 / 2 轮 code-auditor quick depth Pass / ahead 部分后续已推送）
 
 ### 阶段闭环清单
 

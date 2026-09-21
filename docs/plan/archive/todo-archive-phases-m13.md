@@ -2,7 +2,7 @@
 
 > **归档日期**：2026-08-26
 > **阶段摘要**：M12 闭环后承接 backlog 治理前置 + 2026-08-25~26 用户实测反馈 5 项 UX 问题 + 网络治理长期主线 #2（network-audit G1 治本）+ Code Scanning 规则化 + code-quality-findings 接入 + T1310 platform 进入 release 通道。按 [规划规范 §1.1 任务粒度约束](../../docs/standards/planning.md)（≤5-6 项硬上限 + A3 跨 packages+apps > 10 文件超阈值需拆分）拆 **4 子阶段独立闭环 + T1310 同步推进**：M13.1 治理 + UX / M13.2 网络治理 + 告警去重 / M13.3 Code Scanning 规则化 + CQL / M13.4 UX 反馈批次立刻做（低风险）。
-> **状态**：✅ 全部完成（M13.1+M13.2+M13.3+M13.4 全部 12 子任务闭环；26 commits 已推送至 origin/master，ahead=3 待用户推送 M13.4 三 commits）
+> **状态**：✅ 全部完成（M13.1+M13.2+M13.3+M13.4 全部 12 子任务闭环；26 commits 已推送至 origin/master，含 M13.4 三 commits）
 
 ### 阶段闭环清单
 
@@ -57,12 +57,12 @@
 - [x] branches 覆盖率维持 ≥ 80% —— M13.3 T1308 提交后 branches 79.98% → 80.17%（CI 阈值回归修复 `e63cdb9` 补测 14 case）
 - [x] `pnpm check:docs` 全过 —— 99 links + 55 vue-interp OK
 - [x] 用户实测反馈 5 项全部闭环 —— #5.1（单仓库扫描互斥修复 → T1303）+ #5.2（历史 Dialog X 按钮修复 → T1304）+ #1（失败原因展示 → T1401）+ #4a（alerts UI 增加 ruleId 列 → T1402）+ #4b（dedupe 默认值 → T1403）；另 3 项进 backlog 暂缓（UX-R1~R3）
-- [x] CI 端到端裁决通过 —— 26 commits 已推送至 origin/master（ahead=3，仅 M13.4 三 commits 待用户推送）
+- [x] CI 端到端裁决通过 —— 26 commits 已推送至 origin/master（含 M13.4 三 commits）
 
 ### 阶段治理记录
 
 - **总投入**：26 commits（M13.1 5 + M13.2 11 + M13.3 5 + M13.4 5 + T1310 同步 5 杂项 commit）
-  - 注：T1310 5 commits（`300b318` / `1819b59` / `733e198` / `7b40a2c` / `a74d07d`）虽与 M13 同步推进但属于 T1310 子阶段，ahead 计数不计入 M13 ahead=3；M13.4 三 commits (`8762a4b` / `bb3b49a` / `2dce01d`) 是 ahead=3 待用户推送的精确范围（git rev-list origin/master..master --count 实证）
+  - 注：T1310 5 commits（`300b318` / `1819b59` / `733e198` / `7b40a2c` / `a74d07d`）虽与 M13 同步推进但属于 T1310 子阶段，ahead 计数不计入 M13 ahead=3；M13.4 三 commits (`8762a4b` / `bb3b49a` / `2dce01d`) 是当时待推送的精确范围（后续已推送；git rev-list origin/master..master --count 实证）
 - **测试覆盖**：+14 个 case（code-quality-fetcher.test.ts 3 + token-hints.test.ts 5 + repo-alerts.test.ts 6）；vitest 2225 passed / playwright 6 alerts-rowgroup + 2 history-dialog 全部通过
 - **branches coverage**：80.17% ≥ 80% 阈值
 - **审计覆盖**：T1301 quick / T1302 standard 2 轮 / T1303 quick / T1304 quick / T1305 quick / T1306 standard / T1307 standard / T1308 standard 2 轮 / T1401+T1402+T1403 standard 2 轮——全部 Pass

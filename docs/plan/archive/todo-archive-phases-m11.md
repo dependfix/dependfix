@@ -70,7 +70,7 @@
 
 > 归档日期: 2026-08-19~20
 > 阶段摘要: 用户实测反馈平台可用性问题（导入对话框默认全勾、批量导入无过滤、单仓库扫描无模式选择、扫描历史子路由不可达、Dialog 默认可拖拽等）一次性收口三个 PR；同时修复 unrouting 0.2.x 兼容 bug（应用层 Dialog 化）
-> 状态: ✅ 全部完成（PR1 / PR2 / PR3 + C51 子路由 Dialog 修复；5 commits 待推送）
+> 状态: ✅ 全部完成（PR1 / PR2 / PR3 + C51 子路由 Dialog 修复；5 commits 当时待推送）
 
 **批次成果**: 批量导入对话框（C46 三维过滤 + C48 默认不勾选 + C49 分页缓存 + C50 默认关联凭据）+ 单仓库扫描模式（C52）+ Dialog 默认不可拖动（C47）+ 扫描历史 Dialog 化（C51 兼容修复）共 7 个 backlog 项批量收口。
 
@@ -105,7 +105,7 @@
 ### 阶段治理记录
 
 - **提交序列**: C51 修复 (`b067b3a` → `2102894` → `0b9411b`) → PR1 (`cb788e7` → `9e26b56`) → PR2 (`1a663f3`) → PR3 (`2a7f99f`) → docs 同步 (`0b8088f` → `9ae1767`)
-- **累计 commits**: PR1+PR2+PR3 共 5 commits 待推送 + C51 相关 3 commits 待推送
+- **累计 commits**: PR1+PR2+PR3 共 5 commits 当时待推送 + C51 相关 3 commits 当时待推送
 - **审计覆盖**: 每个 PR reviewer standard 第 1 轮 + 第 2 轮 Pass；UI validator 视觉验证 Pass
 - **历史教训**（已迁移至 docs/standards/，对应 8d02cce wisdom 蒸馏批次）:
   - W10 删除"自动逻辑"必须搜遍被动接收态路径 → [开发规范 §5.1.10](../../../standards/development.md)
@@ -142,7 +142,7 @@
 
 ### 阶段治理记录
 
-- **提交序列**: C54 (`3a2757b` → `edb066c`) → C55 (`ce523d4` → `4c813f8`) 共 4 commits 待推送
+- **提交序列**: C54 (`3a2757b` → `edb066c`) → C55 (`ce523d4` → `4c813f8`) 共 4 commits 当时待推送
 - **关联**: C54 + C55 同页面但解决不同问题（C54 轮询+防抖 / C55 孤儿兜底）；与 PR1-PR3 互不阻塞
 - **历史教训**: C54 D 阶段踩过 unshift 反转顺序 bug 后切 splice(0,0,...)；RG-B1 `loading` 初值 true 误吞首屏请求是经典"UI 态与并发守卫复用 ref"反模式
 

@@ -1,6 +1,6 @@
 # M26 阶段归档：平台 AI 研判应用层 + 批量导入 Resource owner 化 + 文档站 i18n + License 收口 + 经验沉淀
 
-> **2026-09-10 M26 归档批次迁出**：本分片包含 M26 阶段 7 原子条目（M26.1 + M26.2 + M26.3 + M26.4a + M26.4b + M26.4c + M26.5）共 **23 atomic commits 实施 + 13 配套 commits（re-audit 修复 + docs 收口 + 治理补丁 + CI Coverage 修复）= 36 commits 全部 ahead=0 已推送至 origin/master** 的完整实施记录 + 关键经验 + 待迁移经验。主窗口 [todo-archive.md §M26](../todo-archive.md#m26-平台-ai-研判应用层--批量导入-resource-owner-化--文档站-i18n--license-收口--经验沉淀m261m262m263m264m264bm264cm265-全部已闭环--2026-09-10-归档) 仅保留导航指针 + 关键 commit 实证。
+> **2026-09-10 M26 归档批次迁出**：本分片包含 M26 阶段 7 原子条目（M26.1 + M26.2 + M26.3 + M26.4a + M26.4b + M26.4c + M26.5）共 **23 atomic commits 实施 + 13 配套 commits（re-audit 修复 + docs 收口 + 治理补丁 + CI Coverage 修复）= 36 commits 全部 ahead=0 已推送至 origin/master** 的完整实施记录 + 关键经验 + 待迁移经验。主窗口 [todo-archive.md §M26](../todo-archive.md#m26-平台-ai-研判应用层--批量导入-resource-owner-化--文档站-i18n--license-收口--经验沉淀m261m262m263m264am264bm264cm265-全部已闭环--2026-09-10-归档) 仅保留导航指针 + 关键 commit 实证。
 
 ## 阶段摘要
 

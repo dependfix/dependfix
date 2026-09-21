@@ -217,7 +217,7 @@
 > **阶段摘要**：参见 [roadmap.md §M8](../roadmap.md)
 > **设计文档**：[sandbox-security-governance.md](../../design/governance/sandbox-security-governance.md)（§5 治理决议 + §7 验收）
 
-**阶段成果**：兑现 [sandbox-security-governance.md §5 治理决议](../../design/governance/sandbox-security-governance.md) G2-G7 + C45 实证发现——容器内 git/pnpm 工具链补齐（C45，P0）、验证命令单命令超时（C41）、凭据权限面启动检查（C42/C39）、供应链信号披露（C43）、执行期外联审计（C40）、规范挂接 review 检查点（C44）；同时封堵 dependfix 成为恶意依赖扩散工具的残余路径（C39 本地模式防线）。**20 个提交本地待推送**（M8 推送时与 M9 批量合并处理）。
+**阶段成果**：兑现 [sandbox-security-governance.md §5 治理决议](../../design/governance/sandbox-security-governance.md) G2-G7 + C45 实证发现——容器内 git/pnpm 工具链补齐（C45，P0）、验证命令单命令超时（C41）、凭据权限面启动检查（C42/C39）、供应链信号披露（C43）、执行期外联审计（C40）、规范挂接 review 检查点（C44）；同时封堵 dependfix 成为恶意依赖扩散工具的残余路径（C39 本地模式防线）。**20 个提交当时本地待推送**（M8 推送时与 M9 批量合并处理）。
 
 ### 规划决策（2026-08-14）
 
@@ -264,7 +264,7 @@
 - **交付物**：`verification-runner` 网络外联审计代理（默认开启，可 `networkAuditDisabled` 关闭）
 - **实现内容**：① 本地审计代理（CONNECT 隧道 + 明文 HTTP 转发，10s 超时防挂死）注入 HTTP(S)_PROXY/ALL_PROXY 捕获尊重代理工具外联（curl/wget/npm/git），环境已有代理时不覆盖；② 命令输出 URL 提取（去重限 100/命令）确定性捕获 pnpm/npm registry 外联（实证 pnpm 11 undici 直连不走代理 env，输出含完整 tarball URL）；③ 执行日志输出（总数 info/明细 debug，仅方法+目标无请求体）
 - **验收**：实证 curl CONNECT `registry.npmjs.org:443` 捕获 + echo URL 提取双路径真实生效；13 新测试
-- **覆盖边界**：undici 直连/原始 socket 不在列（连接级全量捕获留 [M10 C26 网络白名单](#m10-独立沙箱容器-c26-实施规划已归档)）
+- **覆盖边界**：undici 直连/原始 socket 不在列（连接级全量捕获留 [M10 C26 网络白名单](todo-archive-phases-m10-c53-c59c61.md#m10-独立沙箱容器-c26-实施规划已归档)）
 
 ### T806 安全规范挂接 review 检查点 ✅（C44，P1）
 
@@ -275,7 +275,7 @@
 
 ### M8 完成判定（全部通过）
 
-- [x] T801-T806 全部交付，每项独立 Review Gate Pass + 分批提交（20 个提交本地待推送）
+- [x] T801-T806 全部交付，每项独立 Review Gate Pass + 分批提交（20 个提交当时本地待推送）
 - [x] `pnpm lint` / `typecheck` / 定向测试通过（Dockerfile 类改动附容器实证）
 - [x] G2-G7 + C45 全部修复并通过 [sandbox-security-governance.md §7 验收](../../design/governance/sandbox-security-governance.md#7-验收与持续治理)
 - [x] C44 闭环：规范 §5.3 必须级条款挂接 code-reviewer 检查点（[code-quality-checklist.md](../../../.github/skills/code-reviewer/references/code-quality-checklist.md) + Code Auditor 必查项）
@@ -287,7 +287,7 @@
 
 ### 已知边界 / 移交下一阶段 backlog
 
-- **C26 独立沙箱容器**：随 T702 BullMQ 并发落地威胁加重，已激活为 [M10 段](#m10-独立沙箱容器-c26-实施规划已归档)（2026-08-19 启动 P1 → 2026-08-20 收口归档）
+- **C26 独立沙箱容器**：随 T702 BullMQ 并发落地威胁加重，已激活为 [M10 段](todo-archive-phases-m10-c53-c59c61.md#m10-独立沙箱容器-c26-实施规划已归档)（2026-08-19 启动 P1 → 2026-08-20 收口归档）
 - **C30 Publish Docker 双平台 CI 链路**：⏸️ 2026-08-18 用户决策暂缓（run 31862632207 23m 2s 成功完成证明当前 docker.yml 稳定工作，恢复条件详见 [backlog C30](../../plan/backlog.md)）
 - **C28 security.md §凭据加密存储 章节**：T602 已交付实现，文档待补；触发条件 T912-3 安全与文档进行中联动
 - **C29 平台 UI 暗色模式**：暂缓（2026-08-10 用户指示），需 UI Validator 视觉验证

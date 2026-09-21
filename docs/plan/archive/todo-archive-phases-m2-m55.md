@@ -370,7 +370,7 @@
 - **实现内容**: 主通道本地源实证（`npx skills add <source> -s dependfix-remediator -g` 发现 + copied 安装，发布 = git push）；内部 skill 防发现（10 个 metadata.internal: true，可见性矩阵 1/11 实测）；兜底安装器（agent 目录约定检测 → 复制产品 skill → 安装清单；非 TTY 默认拒绝覆盖，--force 强制；幂等可重跑）；doctor（目录约定漂移 + 安装状态/内容一致性 + internal 标记完整性检查）
 - **验收**: 兜底本机 3 agent 实测 installed/up-to-date + doctor 0 error；主通道与兜底均幂等可重跑
 - **Review Gate**: 首轮 PASS + 复审
-- **已知边界**: GitHub 源端到端（`npx skills add dependfix/dependfix`）待推送后 CI 复验（本机 clone github.com 网络受限）
+- **已知边界**: GitHub 源端到端（`npx skills add dependfix/dependfix`）待推送后 CI 复验（后续已推送；本机 clone github.com 网络受限）
 
 ### T508 MCP 双后端扩展点（衔接 T606/T706）✅
 
@@ -382,7 +382,7 @@
 ### M5.5 完成判定（全部通过）
 
 - [x] T506-T508 交付并通过 Review Gate（每任务独立审计：T506 两轮闭环、T507 首轮 PASS+复审、T508 PASS）
-- [x] npx skills 主通道 + 兜底安装器双路径验证通过（主通道本地源实证 + 兜底本机 3 agent 实测；GitHub 源端到端待推送后复验）
+- [x] npx skills 主通道 + 兜底安装器双路径验证通过（主通道本地源实证 + 兜底本机 3 agent 实测；GitHub 源端到端待推送后复验（后续已推送））
 - [x] 内部开发 skill 生态不可见（可见性矩阵实测：正常 1 个 / INSTALL_INTERNAL_SKILLS=1 11 个）
 - [x] `pnpm typecheck` + `pnpm lint` + 全量测试 + `pnpm build` 通过（串行 929/929；并行 2 个已知 Windows flaky 与本次改动无关）
 - [x] CLI 现状行为回归无损（主命令 positional 命令面 + --help 实测正常）

@@ -1,16 +1,16 @@
 # M28: 治理债清理 + 能力扩展（2026-09-11 M28.6 归档批次预防性分片迁出）
 
-> **2026-09-11 M28.6 归档批次预防性分片迁出**：M28 段（5 候选完整闭环 + 11 ahead commits 待用户主动推送 + M28.6 归档批次 1 commit）已从 `todo-archive.md` 主窗口迁入本分片。主窗口仅保留导航指针（与 M26 / M27 归档批次同源策略）。
+> **2026-09-11 M28.6 归档批次预防性分片迁出**：M28 段（5 候选完整闭环 + 11 commits + M28.6 归档批次 1 commit，commits 已推送 origin/master）已从 `todo-archive.md` 主窗口迁入本分片。主窗口仅保留导航指针（与 M26 / M27 归档批次同源策略）。
 >
 > **关键导航**：
-> - **roadmap 状态**：[roadmap.md §M28](../roadmap.md#m28-治理债清理--能力扩展2026-09-11-用户决策方案-m28-a--m281-重编号--m286-归档已落地)（Milestone 概述表 M28 行 + §M28 段 D6 决策增补 + ahead commits 关联表）
+> - **roadmap 状态**：[roadmap.md §M28](../roadmap.md#m28-治理债清理--能力扩展2026-09-11-用户决策方案-m28-a--m281-重编号--m286-归档已落地)（Milestone 概述表 M28 行 + §M28 段 D6 决策增补 + commits 关联表）
 > - **archive 索引**：[archive/index.md §4 当前基线](index.md) + §5 近期归档批次登记 M28 行
-> - **todo.md 同步**：[todo.md](../todo.md)（M28 完整闭环 ahead=11 commits 待用户主动推送 + 下一阶段待用户决策 M29+ 启动）
+> - **todo.md 同步**：[todo.md](../todo.md)（当前无活跃阶段；M28 已归档，下一阶段启动待用户明确决策）
 > - **backlog.md 同步**：[backlog.md](../backlog.md)（M28 归档批次同步清理 C14 / C15 / C33 3 个已闭环候选，健康窗口 ~229 行）
 >
-> **ahead commits 实证**：`git rev-list HEAD ^origin/master --count` = **11** 待用户主动推送（按 [AGENTS.md §5 推送禁令](../../../AGENTS.md) 未经用户明确要求不得执行 `git push`）
+> **commits 实证**：M28 全部 commits 已推送 `origin/master`（`git rev-list HEAD ^origin/master --count` 实测；按 [AGENTS.md §5 推送禁令](../../../AGENTS.md) 未经用户明确要求不得执行 `git push`）
 >
-> **M28 ahead commits 关联表**（按提交顺序 / 完整闭环 5 候选 + M28 启动批次 + 治理债清理 + §4.4 规则强化）：
+> **M28 commits 关联表**（按提交顺序 / 完整闭环 5 候选 + M28 启动批次 + 治理债清理 + §4.4 规则强化）：
 >
 > | 候选 / 类别 | commit | subject |
 > |:---|:---|:---|
@@ -33,7 +33,7 @@
 > - **D3**：backlog.md 治理债清理 D 阶段已落地（6 文件 modified → 4 atomic commits ahead）—— W1 / C9 / C13 / C36 已闭环条目整段/行删除 + §已知边界 M22.7/M22.8 follow-up stale 同步 + session 元数据 ahead=17 → 0 同步
 > - **D4**（M28.4 诚实修订）：`packages/mcp/src/tools/errors.ts` 已 M26.x 阶段落地（`ToolError` + `requireToken()` + `toToolError()` 双 helper），本任务不再做错误包装 helper；仅做未落地部分：pnpm-audit 本地 tool + RunResult 5 字段对齐
 > - **D5**（§3.4 五步流程完整执行）：M28.2-M28.5 P 阶段 §3.4 五步流程核验全部 0 项重复评估 + M28.4 部分已落地修订 todo.md §M28.4 验收标准 + 执行顺序建议按"用户决策方案"实际推进
-> - **D6**（M28 完整闭环）：5 候选 ahead commits 实测 = 11（含 M28 启动 2 + 治理债清理 3 + M28 完整闭环 6 = 11）—— M28.6 归档批次落地指针模式 + ahead commits 待用户主动推送
+> - **D6**（M28 完整闭环）：5 候选共 11 commits（含 M28 启动 2 + 治理债清理 3 + M28 完整闭环 6）—— M28.6 归档批次落地指针模式
 >
 > **类型平衡复核**：
 > - 🛡️ 技术债 / 治本：2 项（M28.2 / M28.5）—— ✅ 满足
@@ -58,4 +58,4 @@
 > - **M28.4 详细记录**：见 commits `9207481` + `5cf2d22` —— pnpm_audit MCP tool（74 行实现 + 158 行测试 / 7 测试用例 / 复用 errors.ts 错误包装 helper / MCP 7 tool → 8 tool）+ RunResult 对齐 5 字段（startedAt / finishedAt / config / alerts / actions / 保留 8 字段向后兼容 / 2 可选字段按需）
 > - **M28.5 详细记录**：见 commit `d7289df` —— apps/platform/scripts/set-cookie-trace.mjs 420 行（静态扫描 + 离线分析模式 + rate limit 重试 + 404 跳过）/ 报告 docs/research/better-auth-set-cookie-path-audit.md 77 行 / 结论 better-auth 中间件对非 `/api/auth/*` 端点不会主动设置 Set-Cookie + M22.8 follow-up ② 实证无影响建议关闭
 >
-> **ahead 状态**：`git rev-list HEAD ^origin/master --count` = **11** 待用户主动推送（按 [AGENTS.md §5 推送禁令](../../../AGENTS.md) 未经用户明确要求不得执行 `git push`）
+> **ahead 状态**：M28 全部 commits 已推送 `origin/master`（`git rev-list HEAD ^origin/master --count` 实测；按 [AGENTS.md §5 推送禁令](../../../AGENTS.md) 未经用户明确要求不得执行 `git push`）

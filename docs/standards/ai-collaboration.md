@@ -94,7 +94,7 @@ Agent-First 的完整项目级定义以 `AGENTS.md` 为准。Agent 是默认任�
 
 - 依赖审计门禁缺失（如 `pnpm audit` 未进 CI）≠ 依赖本身有漏洞。**两个独立维度**，分开处理：
   - 依赖风险：单一包版本钉定 + lockfile + integrity hash 校验通过 → 不构成 blocker，纳入 backlog 跟进
-  - 审计门禁缺失：纳入「依赖审计进 CI」backlog 条目（如 C60/C61 RG-B04）
+  - 审计门禁缺失：纳入 backlog 候选（当前落点见 [backlog C80](../plan/backlog.md#开发工具链)）
 - typecheck + lint + e2e 全过已足够验证本次改动对依赖本身的兼容性；CI 依赖审计门禁是流程问题，不阻塞当前 PR。
 
 ## 2. PDTFC+ 工作流

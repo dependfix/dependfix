@@ -163,12 +163,12 @@
 - **优先级**：P2（治本有依赖现状实证 —— 当前 `pnpm-workspace.yaml` `overrides` 段**无任何路径级条目**，而 `pnpm audit --json` 报出的缺陷路径形如 `docs>vitepress>@vitejs/plugin-vue>vite`，即「父包链」信息已可得但引擎不消费；且长期影响 dependfix 自身管理 dependfix 仓库的依赖流程。**注**：原 backlog 条目引用的历史实证 commit `f67aea2` 在本仓库不可解析（`git cat-file -t f67aea2` → `Not a valid object name`，2026-09-21 A 阶段审计实证），故改挂当前可复现实证）
 - **范围**：`packages/core/src/alerts/index.ts`（`NormalizedSecurityAlert` 新增 `dependencyPath?: string[]`）+ `packages/engine/src/alerts/pnpm-audit-fetcher.ts`（`advisories[].findings[].paths[]` 解析）+ `packages/engine/src/github/dependabot-fetcher.ts` + `packages/engine/src/fixers/dependency/overrides-io.ts`（`writeWorkspaceOverride` 接收路径）+ `packages/engine/src/app/helpers.ts`（`buildVersionedOverrides` 支持 `parent>child`）+ 报告渲染 + `apps/platform/server/entities/scan-result.ts`（schema 影响评估）
 - **验收标准**：
-  - [ ] **数据格式以实测为准**：`pnpm audit --json`（pnpm 11.17.0 / 11.22.0 实测）顶层键仅 `advisories` + `metadata`——**无 `vulnerabilities`、无 `nodes[].path`**（后者是 `npm audit --json` 形态）；依赖链位于 `advisories[].findings[].paths[]` 且已含完整链（实测样例 `docs>vitepress>@vitejs/plugin-vue>vite`）——fetcher 实现与 fixture 一律按此实测格式编写，不臆造格式
-  - [ ] `pnpm audit` 报 transitive 告警且 lockfile 中有 ≥2 个父包传递 → dependfix 推荐 PR 自动包含 ≥1 条路径级覆盖（形如 `parent>child: <version>`）
-  - [ ] 修复后 `pnpm audit` 输出 `No known vulnerabilities found`
-  - [ ] `pnpm-audit-fetcher.test.ts` + `overrideTransitiveDependency.test.ts` 新增路径级场景 case（实测 `advisories[].findings[].paths[]` 解析 + 路径级 override 写入回滚 + 与既有顶层覆盖协同取 max）
-  - [ ] 平台 schema 如需 migration 走 [M22.4 / M22.5](../plan/todo-archive.md#m22-sqlite-数据保护防御加固m221m222m223m224m225m226-全部已闭环--2026-09-01-归档) 双向 opt-in 流程同步
-  - [ ] `pnpm lint` + `pnpm typecheck` + 定向测试通过
+  - [x] **数据格式以实测为准**：`pnpm audit --json`（pnpm 11.17.0 / 11.22.0 实测）顶层键仅 `advisories` + `metadata`——**无 `vulnerabilities`、无 `nodes[].path`**（后者是 `npm audit --json` 形态）；依赖链位于 `advisories[].findings[].paths[]` 且已含完整链（实测样例 `docs>vitepress>@vitejs/plugin-vue>vite`）——fetcher 实现与 fixture 一律按此实测格式编写，不臆造格式
+  - [x] `pnpm audit` 报 transitive 告警且 lockfile 中有 ≥2 个父包传递 → dependfix 推荐 PR 自动包含 ≥1 条路径级覆盖（形如 `parent>child: <version>`）
+  - [ ] 修复后 `pnpm audit` 输出 `No known vulnerabilities found`（运行时验收——当前无实际漏洞，待真实场景验证）
+  - [x] `pnpm-audit-fetcher.test.ts` + `overrideTransitiveDependency.test.ts` 新增路径级场景 case（实测 `advisories[].findings[].paths[]` 解析 + 路径级 override 写入回滚 + 与既有顶层覆盖协同取 max）
+  - [x] 平台 schema 如需 migration 走 [M22.4 / M22.5](../plan/todo-archive.md#m22-sqlite-数据保护防御加固m221m222m223m224m225m226-全部已闭环--2026-09-01-归档) 双向 opt-in 流程同步（评估结论：不需要——`dependencyPath` 仅运行时消费，不持久化）
+  - [x] `pnpm lint` + `pnpm typecheck` + 定向测试通过
 - **不做什么**：不引入新依赖（如 `@pnpm/lockfile` 解析器，继续走 `pnpm audit --json` + `pnpm-lock.yaml` 文本解析）；不重写 report schema，只在报告 §4 Repositories / 建议区块展示 `dependencyPath`；不替代或重写 `buildVersionedOverrides` 的 `pkg@major` 语义（路径级与版本级正交，可叠加如 `vite@5>esbuild: ^0.25.0`）
 - **依赖**：关联 M29.2（同为 git / 依赖配置治理面）；关联 MCP `pnpm_audit` 工具（M28.4 已落地 RunResult 对齐 5 字段，本任务需决定是否透传 `dependencyPath`）
 - **设计文档硬阈值判定**：`dependencyPath` 属**纯可选字段增量**（现有模块功能扩展），按 [spec-and-doc-governance §2.4](../design/governance/spec-and-doc-governance.md) 适用范围仅 4 类（专项设计 / 专项治理 / 重大变更设计 / 新增模块）→ **不触发**硬阈值；若 D 阶段确认需平台 schema migration（实体字段变更 = 数据迁移），则升级为专项设计文档 + `deep` depth 审计

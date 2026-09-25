@@ -636,6 +636,48 @@ describe('applyVersionedOverrides', () => {
         expect(overrides['existing-pkg']).toBe('^1.0.0')
     })
 
+    it('writes path-level overrides (parent>child) and preserves top-level entries', async () => {
+        mockExecSync.mockReturnValue('Done')
+
+        const result = await applyVersionedOverrides({
+            packageName: 'vite',
+            versionedOverrides: {
+                vite: '^2.0.5',
+                '@vitejs/plugin-vue>vite': '^2.0.5',
+            },
+            workDir: dir,
+        })
+
+        expect(result.success).toBe(true)
+        const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8'))
+        const overrides = (pkg.pnpm as Record<string, unknown>).overrides as Record<string, string>
+        expect(overrides['vite']).toBe('^2.0.5')
+        expect(overrides['@vitejs/plugin-vue>vite']).toBe('^2.0.5')
+    })
+
+    it('rolls back path-level overrides when pnpm install fails', async () => {
+        mockExecSync.mockImplementation(() => {
+            throw new Error('ERESOLVE')
+        })
+        const lockContent = 'lockfileVersion: \'9.0\'\n'
+        writeFileSync(lockfilePath, lockContent)
+
+        const result = await applyVersionedOverrides({
+            packageName: 'vite',
+            versionedOverrides: {
+                vite: '^2.0.5',
+                '@vitejs/plugin-vue>vite': '^2.0.5',
+            },
+            workDir: dir,
+        })
+
+        expect(result.success).toBe(false)
+        // 路径级 + 顶层均回滚
+        const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8'))
+        expect((pkg.pnpm as Record<string, unknown> | undefined)?.overrides).toBeUndefined()
+        expect(readFileSync(lockfilePath, 'utf-8')).toBe(lockContent)
+    })
+
     it('returns failure when no overrides provided', async () => {
         const result = await applyVersionedOverrides({
             packageName: 'vite',

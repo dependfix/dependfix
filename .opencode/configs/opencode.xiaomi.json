@@ -1,18 +1,18 @@
 {
-    "model": "xiaomi/mimo-v2.5-pro",
+    "model": "xiaomi-token-plan-cn/mimo-v2.6-pro",
     "agent": {
         "full-stack-master": {
-            "model": "xiaomi/mimo-v2.5-pro",
+            "model": "xiaomi-token-plan-cn/mimo-v2.6-pro",
             "mode": "primary",
             "variant": "high"
         },
         "code-auditor": {
-            "model": "xiaomi/mimo-v2.5-pro",
+            "model": "xiaomi-token-plan-cn/mimo-v2.6-pro",
             "mode": "subagent",
             "variant": "high"
         },
         "ui-validator": {
-            "model": "xiaomi/mimo-v2.5-pro",
+            "model": "xiaomi-token-plan-cn/mimo-v2.6-pro",
             "mode": "subagent",
             "variant": "high"
         }

@@ -112,6 +112,7 @@ const alerts = await octokit.paginate(octokit.rest.dependabot.listAlertsForRepo,
 export const GITHUB_ERROR_CODES = [
     'AUTHENTICATION_FAILED',
     'PERMISSION_DENIED',
+    'ALERTS_DISABLED',
     'RATE_LIMITED',
     'REPO_NOT_FOUND',
     'GITHUB_API_ERROR',
@@ -167,6 +168,7 @@ export function mapGitHubError(error: unknown, context: string): AppError {
 | HTTP 状态码 | 条件 | `AppError.code` |
 |:---:|------|------|
 | 401 | — | `AUTHENTICATION_FAILED` |
+| 403 | message 含 `Dependabot alerts are disabled for this repository` | `ALERTS_DISABLED` |
 | 403 | `X-RateLimit-Remaining: 0` | `RATE_LIMITED` |
 | 403 | 其他 | `PERMISSION_DENIED` |
 | 404 | — | `REPO_NOT_FOUND` |
@@ -259,6 +261,7 @@ describe('createGitHubClient', () => {
 | 认证失败 | `.reply(401)` | 抛 `AUTHENTICATION_FAILED` |
 | 限流 | `.reply(403, {}, { 'x-ratelimit-remaining': '0' })` | 抛 `RATE_LIMITED` |
 | 权限不足 | `.reply(403)` | 抛 `PERMISSION_DENIED` |
+| alerts 未启用 | `.reply(403, { message: 'Dependabot alerts are disabled for this repository.' })` | 抛 `ALERTS_DISABLED` |
 | 仓库不存在 | `.reply(404)` | 抛 `REPO_NOT_FOUND` |
 | 网络错误 | `nock.disableNetConnect()` + 断网 | 抛 `NETWORK_ERROR` |
 

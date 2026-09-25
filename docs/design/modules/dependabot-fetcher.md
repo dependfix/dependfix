@@ -333,8 +333,9 @@ M3 若需要定时运行并区分"新增告警"和"已有告警"：
 | 场景 | HTTP 状态码 | `AppError.code` | 触发条件 |
 |------|:---:|------|------|
 | Token 无效或过期 | 401 | `AUTHENTICATION_FAILED` | `RequestError` + status 401 |
+| alerts 未启用 | 403 | `ALERTS_DISABLED` | `RequestError` + status 403 + message 含 `Dependabot alerts are disabled for this repository`（非限流、非权限） |
 | 限流 | 403 | `RATE_LIMITED` | `RequestError` + status 403 + `X-RateLimit-Remaining: 0` |
-| Token 无 `dependabot_alerts:read` 权限 | 403 | `PERMISSION_DENIED` | `RequestError` + status 403（非限流） |
+| Token 无 `dependabot_alerts:read` 权限 | 403 | `PERMISSION_DENIED` | `RequestError` + status 403（非限流、非 disabled message） |
 | 仓库不存在 | 404 | `REPO_NOT_FOUND` | `RequestError` + status 404 |
 | GitHub API 内部错误 | 4xx/5xx | `GITHUB_API_ERROR` | `RequestError` + 其他状态码 |
 | 网络不可达 | — | `NETWORK_ERROR` | 非 `RequestError`（DNS 失败、超时等） |
@@ -383,6 +384,7 @@ try {
 | 7 | 401 认证失败 | `.reply(401)` | 抛 `AppError('AUTHENTICATION_FAILED')` |
 | 8 | 403 限流 | `.reply(403, {}, { 'x-ratelimit-remaining': '0' })` | 抛 `AppError('RATE_LIMITED')` |
 | 9 | 403 权限不足 | `.reply(403)` | 抛 `AppError('PERMISSION_DENIED')` |
+| 9b | 403 alerts 未启用 | `.reply(403, { message: 'Dependabot alerts are disabled for this repository.' })` | 抛 `AppError('ALERTS_DISABLED')` |
 | 10 | 404 仓库不存在 | `.reply(404)` | 抛 `AppError('REPO_NOT_FOUND')` |
 | 11 | `dependency.package` 缺失 | `.reply(200, fixture: missing package)` | `packageName: 'unknown'`, `packageEcosystem: 'unknown'` |
 | 12 | `manifest_path` 缺失 | `.reply(200, fixture: missing manifest)` | `manifestPath: ''` |

@@ -149,8 +149,11 @@
 - **依赖**：关联 `repo-alerts.ts` 双 token 设计（`alertsToken` 最小权限）；关联 [platform.md](../standards/platform.md)（错误码与提示口径）；关联 [经验归档 §一 外部平台限制先探针验证](../design/governance/experience-archive-§1-§21-spec-compliance.md)（同一 403 通道内不同 message 的细分）
 - **交付物**：1-2 atomic commits（`feat(engine)` 错误细分 + `test(engine)` case + 文案 / 报告字段同步）
 - **风险与缓解措施**：
-  - **风险 1**：`Dependabot alerts are disabled for this repository.` 属**非文档化**行为，未来可能变动；缓解：以 message 匹配为主信号 + 探测端点 `GET /repos/{owner}/{repo}/vulnerability-alerts`（仅 204 可确认「已启用」，404 不得单独作为「未启用」结论）兜底；匹配失败时退回现有 `PERMISSION_DENIED` 语义（不误判为「未启用」）
-  - **风险 2**：Code Scanning 存在同类混同（官方文档明确 403 = GitHub Advanced Security 未启用，当前同样落 `PERMISSION_DENIED`）；缓解：上收时直接决定并入 C78 或拆独立候选，避免二次返工
+  - **风险 1**：`Dependabot alerts are disabled for this repository.` 属**非文档化**行为，未来可能变动；缓解：以 message 匹配为主信号，匹配失败时退回现有 `PERMISSION_DENIED` 语义（不误判为「未启用」，fail-safe 方向）。**注**：原计划「探测端点 `GET /repos/{owner}/{repo}/vulnerability-alerts` 兜底」经评估**放弃**——该端点 404 既可能表示「未启用」也可能表示「无权限」（歧义），仅 204 可确认「已启用」，无法反向确认「未启用」，兜底价值有限；保留单信号 + fail-safe（message 变动时退回 PERMISSION_DENIED，不静默误判为未启用）
+  - **风险 2**：Code Scanning 存在同类混同（官方文档明确 403 = GitHub Advanced Security 未启用，当前同样落 `PERMISSION_DENIED`）；**决策**（2026-09-25）：**拆独立候选**延后——前端尚未实现 Code Scanning 扫描、Code Quality 底层依赖库未实现，暂不接入（已登记 backlog）
+- **决策记录**（2026-09-25 用户决策）：
+  - **决策点 1 = 方案 A**：「未启用」≠ 失败——不计入 `allErrors` / 不触发 exitCode 非 0，报告 `RunSummary.reposWithAlertsDisabled` 单列计数 + `RunResult.alertsDisabled` 明细，日志输出准确文案（"仓库未启用 Dependabot alerts（非 token 权限问题）"）
+  - **决策点 2 = 拆独立候选**：Code Scanning / Code Quality 同类混同延后（理由见风险 2）
 
 ---
 

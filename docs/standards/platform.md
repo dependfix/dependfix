@@ -252,6 +252,21 @@ fixtures.delete / fixtures.post 在双门控通过后调用 `fixturesRateLimit()
 - API 层只做参数校验与响应组装，业务逻辑下沉 `server/services/`
 - **h3 `defineEventHandler` 行为：handler 是 `async function` 而非 `async function*` generator**：`async function*` 在 h3 默认 handler 路径下不会自动迭代（需显式 `sendIterable`）；如误用 `async function*` 写 API handler，Nitro 默认路径下行为异常（不会自动 yield）。**防御**：写 Nuxt server route 时 handler 一律 `defineEventHandler(async (event) => { ... })`；如确需流式响应（SSE / 长轮询），显式 `defineEventHandler(async (event) => { ... return sendIterable(event, generator) })`。详见 [经验归档 §五十七 M24.2 候选 ②](../design/governance/experience-archive.md)。
 
+### 6.1 错误码与告警状态口径（平台展示消费 engine 错误码）
+
+平台 UI / API 展示 engine 层 `AppError.code` 时，按以下口径区分文案与语义（M29.5 C78）：
+
+| 错误码 | 语义 | 平台展示口径 | 是否计入失败 |
+|:--|:--|:--|:--:|
+| `ALERTS_DISABLED` | 仓库**未启用** alerts 功能（如 Dependabot alerts 未开启） | 「未启用」+ 开启指引（Settings → Code security）；单列计数，不标红 | **否**（预期状态） |
+| `PERMISSION_DENIED` | token 权限不足 | 「权限不足」+ token 权限指引 | 是 |
+| `AUTHENTICATION_FAILED` | token 无效 / 过期 | 「认证失败」+ 检查 token 配置 | 是 |
+| `RATE_LIMITED` | API 限流（ratelimit 归零） | 「限流」+ 等待重置时间 | 是 |
+| `REPO_NOT_FOUND` | 仓库不存在 / 无访问权 | 「仓库不可达」 | 是 |
+| `NETWORK_ERROR` / `GITHUB_API_ERROR` | 网络 / API 异常 | 「获取失败」 | 是 |
+
+**关键区分**：`ALERTS_DISABLED` ≠ `PERMISSION_DENIED`。前者是仓库设置问题（非 token 权限），不应误导用户排查 token；报告 / 日志均输出准确文案。未启用仓库计入 `RunSummary.reposWithAlertsDisabled` 单列计数 + `RunResult.alertsDisabled` 明细，不影响 exitCode。
+
 ## 7. 前端规范（app/）
 
 - Vue 3 Composition API + `<script setup lang="ts">`

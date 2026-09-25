@@ -249,6 +249,23 @@
   - **风险与缓解**：放宽 hasErrors 可能掩盖真实问题；缓解：仅对显式声明的跳过类 `category` 豁免，且报告仍展示条目
   - **复杂度估算**：代码 ~20-40 行；测试 3-5 case；文档 1 处
 
+- **C89 Code Scanning / Code Quality alerts「未启用」与「获取失败」区分** —— 2026-09-25 C78（Dependabot alerts 未启用细分）决策点 2 拆出；评估完成待上收；按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) **不带 M\d+ 阶段编号**。
+  - **目标**：Code Scanning（GitHub Advanced Security 未启用时 403）与 Code Quality 的「未启用」状态从 `PERMISSION_DENIED` 中区分出来，与 Dependabot 的 `ALERTS_DISABLED` 口径一致（未启用 ≠ 失败，单列计数 + 准确文案）。
+  - **优先级**：P3（延后原因：前端尚未实现 Code Scanning 扫描、Code Quality 底层依赖库未实现，当前无消费场景）
+  - **范围**：`packages/engine/src/github/code-scanning-fetcher.ts` + `code-quality-fetcher.ts`（403 message 判定）+ `packages/core/src/errors/error-codes.ts`（错误码）+ `helpers.ts` hint 分支 + 报告展示口径
+  - **现状实证**（2026-09-25 C78 落地时）：Code Scanning 403 = GitHub Advanced Security 未启用（官方文档明确）当前落 `PERMISSION_DENIED`，与 Dependabot 同类混同；`dependabotAlertsTokenHint` 已区分但 `codeScanningAlertsTokenHint` / `codeQualityAlertsTokenHint` 仍对 `PERMISSION_DENIED` 统一提示 token 权限。
+  - **决策点（待上收时敲定）**：错误码复用 `ALERTS_DISABLED`（source 区分）vs 新增 `CODE_SCANNING_DISABLED` 独立码；Code Quality「未启用」判定信号（当前无官方 message 文档）。
+  - **验收标准**：
+    - [ ] Code Scanning 403 + Advanced Security 未启用 message 可与权限失败区分，报告 / 日志准确文案
+    - [ ] 单测覆盖未启用 / 权限不足 / 限流三类
+    - [ ] 未启用仓库单列计数，不影响 exitCode（与 C78 方案 A 口径一致）
+    - [ ] `pnpm lint` + `pnpm typecheck` + 定向测试通过
+  - **不做什么**：不改 `alertsSource` 默认值；不自动开启目标仓库 Advanced Security；不引入新依赖
+  - **依赖**：关联 C78（已落地的 Dependabot 口径）；关联前端 Code Scanning 扫描落地（消费场景前置）
+  - **交付物**：2-3 atomic commits（`feat(engine)` 错误细分 + `test(engine)` case + 报告字段同步）
+  - **风险与缓解**：Code Quality「未启用」无官方 message 文档，判定信号不确定；缓解：以 Code Scanning 为主（有文档）先落地，Code Quality 待信号明确后补；匹配失败退回 `PERMISSION_DENIED`（不误判）
+  - **复杂度估算**：代码面约 80-120 行（2 个 fetcher + 错误码 + hint + 报告）；测试面 3-5 case
+
 #### Code Scanning 规则体系
 
 - **C15 Code Scanning B 类规则真实仓库样本核对（第二阶段）** —— 2026-09-11 M28.3 第一阶段已闭环（commit `99302b5`：`sample-collector.mjs` 采集脚本 + 32 种子仓库跨 5 语言 fixture 占位 + 报告框架 `docs/research/code-scanning-b-class-samples.md`）；**剩余未闭环**：实际 GitHub API 样本采集 + 按需规则分级修正（`go/*` / `ruby/*` 补 `SUGGESTED_RULES`）。
@@ -344,6 +361,7 @@
   - **风险与缓解**：DataTable 行分组 / 行展开是关键路径阻塞 → 先解阻（§5.2）；e2e 改写面 16 文件 → 逐批保留用例语义；caomei-ui 0.x API 可能调整 → pin 精确版本。
   - **优先级**：P3（License 风险已由主题库 / 图标降级清零，非阻塞；属组件库统一与长期可维护性事项）
   - **复杂度估算**：代码面 23 个 `.vue` + `nuxt.config.ts` + 插件 + e2e 16 文件；文档面评估已交付、实施期需同步 `platform.md` / `tech-stack.md`。
+
 
 ## 待人工验收（真实环境，随可用性推进）
 

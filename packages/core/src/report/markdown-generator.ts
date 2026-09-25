@@ -195,6 +195,16 @@ export function generateMarkdownReport(result: RunResult): string {
                     const alertClass = alertClassLabel(alert.alertClass)
                     sections.push(`| \`${alert.packageName}\` | ${escapeMd(ruleOrAdvisory)} | ${alertClass} | ${alert.severity.toUpperCase()} | ${fromVer} | ${toVer} | ${major} | ${icon} |`)
                 }
+                // 依赖链展示（pnpm-audit 源有 dependencyPath 时）
+                const alertsPaths = repo.alerts.filter((a) => a.dependencyPath && a.dependencyPath.length > 0)
+                if (alertsPaths.length > 0) {
+                    sections.push('', '**Dependency paths:**', '')
+                    for (const a of alertsPaths) {
+                        for (const p of a.dependencyPath ?? []) {
+                            sections.push(`- \`${escapeMd(a.packageName)}\`: \`${escapeMd(p)}\``)
+                        }
+                    }
+                }
                 sections.push('')
             } else {
                 sections.push('_No alerts for this repository._', '')

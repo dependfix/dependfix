@@ -655,3 +655,54 @@ describe('generateMarkdownReport code quality findings', () => {
         expect(md).toContain('GitHub Dependabot + Code Scanning API + Code Quality API')
     })
 })
+
+describe('generateMarkdownReport dependency paths', () => {
+    it('renders dependency paths section when alerts have dependencyPath', () => {
+        const result = {
+            ...EMPTY_RUN_RESULT,
+            repositories: [
+                { repository: 'owner/repo', defaultBranch: 'main', alertsCount: 1, fixable: 1, fixed: 0, failed: 0, lockfileRepaired: false, durationMs: 100 },
+            ],
+            alerts: [
+                makeAlert({
+                    packageName: 'vite',
+                    dependencyPath: ['docs>vitepress>@vitejs/plugin-vue>vite'],
+                }),
+            ],
+        }
+        const md = generateMarkdownReport(result)
+        expect(md).toContain('**Dependency paths:**')
+        expect(md).toContain('`vite`')
+        expect(md).toContain('docs>vitepress>@vitejs/plugin-vue>vite')
+    })
+
+    it('renders multiple dependency paths for one alert', () => {
+        const result = {
+            ...EMPTY_RUN_RESULT,
+            repositories: [
+                { repository: 'owner/repo', defaultBranch: 'main', alertsCount: 1, fixable: 1, fixed: 0, failed: 0, lockfileRepaired: false, durationMs: 100 },
+            ],
+            alerts: [
+                makeAlert({
+                    packageName: 'vite',
+                    dependencyPath: ['a>b>vite', 'c>vite'],
+                }),
+            ],
+        }
+        const md = generateMarkdownReport(result)
+        expect(md).toContain('a>b>vite')
+        expect(md).toContain('c>vite')
+    })
+
+    it('omits dependency paths section when no alerts have dependencyPath', () => {
+        const result = {
+            ...EMPTY_RUN_RESULT,
+            repositories: [
+                { repository: 'owner/repo', defaultBranch: 'main', alertsCount: 1, fixable: 1, fixed: 0, failed: 0, lockfileRepaired: false, durationMs: 100 },
+            ],
+            alerts: [makeAlert()],
+        }
+        const md = generateMarkdownReport(result)
+        expect(md).not.toContain('**Dependency paths:**')
+    })
+})

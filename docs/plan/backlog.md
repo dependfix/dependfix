@@ -325,6 +325,26 @@
   - **风险与缓解**：批量删除编号可能丢失可追溯性；缓解：优先「改写为导航指针」而非纯删除，并保留编号后的解释正文；另需防批量替换误伤（按 §1.2 第 6 条纪律执行）
   - **复杂度估算**：注释 300 至 430 量级（跨多包，必须分批）；测试 0（注释类，以 lint + typecheck + 复扫 0 命中为证据）；文档 0
 
+#### 平台 UI 与组件库
+
+- **C88 apps/platform UI 组件库迁移（PrimeVue → caomei-ui）** —— 2026-09-22 用户需求触发（参照 caomei-ui 源码与文档制定迁移方案，规避 PrimeUI 商业许可风险）；评估完成待上收；按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) **不带 M\d+ 阶段编号**。
+  - **目标**：把 `apps/platform` 从 PrimeVue 栈迁到自建 caomei-ui，卸载 `primevue` / `@primevue/nuxt-module` / `@primeuix/themes` / `primeicons` / `primelocale`，消除「PrimeVue 4.x 冻结、5.x 转商业许可」的升级路径风险，并与多下游统一到同一组件库。
+  - **评估文档**：[apps/platform UI 组件库迁移评估与方案](../design/governance/caomei-ui-migration.md)（只读静态比对，含逐组件映射、缺口分级、分批计划与验收标准；快照 dependfix `1a73abc` / caomei-ui `58f814d`）。
+  - **结论**：**可行（有条件）**——23 个 PrimeVue 组件中 21 个有等价组件；1 个关键路径结构性缺口（DataTable 行分组 / 行展开 / 多列排序）+ 2 处无对应组件（`ScrollPanel` / `Chips`）+ 2 类零散改写（`Select filter` → `AutoComplete`、`Paginator template` 无对应）。
+  - **现状实证**（2026-09-22 静态统计）：PrimeVue 组件 23 个 / 417 开标签 / 23 个 `.vue`；`severity` 111（字面量 79 + 动态 32，Tag 51 / Message 39 / Button 21）/ `fluid` 64 / `size="small"` 52 / `icon="pi pi-*"` 49（30 唯一图标）；`--p-*` 10 处 / 7 文件、`.p-*`（样式层）7 处 / 2 文件；e2e `p-*` 断言 16 文件；`useToast` 1 文件、`useConfirm` / `useDialog` 0。当前 PrimeUI License 包为 0（主题库 / 图标已由 M25.1 + M26.4a 降级为 MIT）。
+  - **决策点（待上收时敲定）**：
+    - **`alerts.vue` 行分组 / `batch-runs.vue` 行展开 / 多列排序取向**：库侧补齐 / 页面侧改写 / 混合（评估 §5.2 选项 A / B / C）。
+    - **迁移范围与批次**：分批全量 vs 部分迁移；B0~B4 批次划分与出口条件是否照用。
+    - **目标版本**：caomei-ui 0.1.0（npm `latest`）vs 0.2.0（`main` 准备中，样式入口 `styles.css` → `theme.css` 破坏性变更）。
+    - **主色实底对比度**：teal-600 作 `--caomei-color-primary-solid` 配白字约 3.74:1（低于 caomei-ui AA 口径），是否调整 `-solid` 档（推荐 teal-700）或记录显式例外。
+  - **验收标准**：见 [评估文档 §10](../design/governance/caomei-ui-migration.md)（依赖卸载、`rg "primevue|--p-|\.p-"` 归零、typecheck / lint / test / build + e2e 全通过、i18n 与暗色 / 响应式无回归、包体对比留痕）。
+  - **不做什么**：不升级 PrimeVue 5.x；不申请 PrimeUI 商业许可；不引入 Tailwind；不迁移图表（`chart-canvas.vue` 已自实现）；不在本候选内修改 caomei-ui 仓库（库侧补齐须在其自身阶段立项）。
+  - **依赖**：关联 [primeui-themes-v2-downgrade.md](../design/governance/primeui-themes-v2-downgrade.md)（License 治理前置，已落地）；关联 caomei-ui 仓库迁移指南与设计规范 §7；关联 `docs/standards/platform.md §7.1`（现有 PrimeVue 集成实践，迁移时逐条重核）。
+  - **交付物**：视批次而定（评估文档已交付；实施为多批次 atomic commits）。
+  - **风险与缓解**：DataTable 行分组 / 行展开是关键路径阻塞 → 先解阻（§5.2）；e2e 改写面 16 文件 → 逐批保留用例语义；caomei-ui 0.x API 可能调整 → pin 精确版本。
+  - **优先级**：P3（License 风险已由主题库 / 图标降级清零，非阻塞；属组件库统一与长期可维护性事项）
+  - **复杂度估算**：代码面 23 个 `.vue` + `nuxt.config.ts` + 插件 + e2e 16 文件；文档面评估已交付、实施期需同步 `platform.md` / `tech-stack.md`。
+
 ## 待人工验收（真实环境，随可用性推进）
 
 > 以下条目属 M7.1 / M7.2 / 发布管线阶段遗留的真实环境验证任务，保留随真实环境可用性推进。

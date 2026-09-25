@@ -30,6 +30,29 @@ describe('parseCliArgs', () => {
         ).toThrowError(/Invalid --upgrade-groups entry/)
     })
 
+    it('parses overrideProtect from cli --override-protect', () => {
+        const invocation = parseCliArgs([
+            'fix',
+            '--repo', 'owner/repo-a',
+            '--override-protect', 'owner/*:decode-uri-component;owner/repo-b:left-pad,pkg-a',
+        ])
+
+        expect(invocation.configOverrides.overrideProtect).toEqual({
+            'owner/*': ['decode-uri-component'],
+            'owner/repo-b': ['left-pad', 'pkg-a'],
+        })
+    })
+
+    it('rejects malformed --override-protect entries', () => {
+        expect(() =>
+            parseCliArgs([
+                'fix',
+                '--repo', 'owner/repo-a',
+                '--override-protect', 'missing-colon-here',
+            ]),
+        ).toThrowError(/Invalid --override-protect entry/)
+    })
+
     it('lets cli overrides take precedence over env', () => {
         const invocation = parseCliArgs([
             'fix',

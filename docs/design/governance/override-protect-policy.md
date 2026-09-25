@@ -87,7 +87,7 @@ export function matchesOverrideProtect(
 
 - `allErrors.push({ repository, target: packageName, stage: 'fix', category: 'OVERRIDE_PROTECTED', message })` —— 报告 Errors 区展示判定依据（含命中模式）；沿用 `SCRIPT_NOT_FOUND` 的「跳过 + 审计留痕」范式。
 - `summary.alertsSkipped += 1` —— 与子目录 manifest 跳过同一计数口径。
-- `FixAction`：`{ type: 'dependency-upgrade', success: true, noOp: true, strategy: 'override-protected', error: <判定依据> }`；调用侧识别 `noOp` 后计入 skipped 而非 fixed。
+- `FixAction`：`{ type: 'dependency-upgrade', success: true, noOp: true, strategy: 'override-protected', error: <判定依据> }`；**skipped 计数的唯一事实源在处理函数内**（`handleOverrideProtection` 计一次），调用侧识别 `noOp` 后**只跳过写入、不再重复计数**（两处调用点均如此）。
 - PR body：`noOp` 动作不出现在 fixed 统计；判定依据经 `allErrors` 进入报告 Errors 区。
 
 ## 5. 影响面（文件清单）
@@ -108,7 +108,7 @@ export function matchesOverrideProtect(
 | 1 | 复现 #1095 场景：命中保护名单的包不再写入 override | 单测：保护命中 → 不调用写入函数 / 工作区 overrides 未变 |
 | 2 | 未命中时行为不变（回归） | 既有 overrides 写入测试全过 |
 | 3 | glob 语义与 include / exclude 一致（含 `*` 全局兜底） | `repo-policy.test.ts` 新 case |
-| 4 | 入口语法解析（CLI 重复累积 / env `;` 分隔 / 非法条目降级 + 告警） | `config/index.test.ts` + CLI 解析测试 |
+| 4 | 入口语法解析（CLI **last-wins** 故多条目须写在同一值内 / env `;` 分隔 / 非法条目 **fail-fast 抛错**） | `repo-policy.test.ts`（解析器）+ `config/index.test.ts`（env）+ `packages/cli/src/cli/index.test.ts`（CLI flag） |
 | 5 | 报告记录判定依据（含命中模式） | 断言 `allErrors` 含 `OVERRIDE_PROTECTED` 与模式文本 |
 | 6 | 统计口径：计入 skipped，不计入 fixed / failed | 断言 `summary.alertsSkipped` 与 `noOp` |
 | 7 | 两条 override 路径均覆盖 | `upgrade-alert-override-protect.test.ts`（间接依赖）+ `index.test.ts`（多版本）各自 case；MCP 人工路径显式排除（见 §7） |
@@ -120,7 +120,7 @@ export function matchesOverrideProtect(
 |:--|:--|
 | 判定仅在调用侧 → 未来新增 override 调用点可能绕过 | 谓词单一事实源 + 本设计文档显式声明「新增调用点必须复用」+ 测试覆盖现有两路径。**已知既有第三调用点**：MCP `fix-dependency.ts` 的 `overrideTransitiveDependency`（人工 / 单包显式调用，入参仅 workDir、无 repository 身份，无法做仓库 glob 判定）——本设计目标为「不得被**自动**写入 override」，故该人工路径**显式排除**在保护范围外 |
 | 中央配置需人工维护，存在「不知道该保护什么」的发现成本 | 见下方后续规划（目标仓库专属配置方向）；本轮先落地显式名单 |
-| 用户误配（包名写错）导致保护失效 | 解析降级 + 告警；判定命中时报告展示命中模式，便于核对 |
+| 用户误配（包名写错）导致保护失效 | 非法条目 **fail-fast 抛错**（不静默降级，避免笔误静默削弱保护）；判定命中时报告展示命中模式，便于核对 |
 | 保护过宽（两段通配键）导致该包在所有仓库都不再升级 | 键支持 glob 属显式行为，文档写明两段通配语义与影响面 |
 
 ## 8. 替代方案与后续规划

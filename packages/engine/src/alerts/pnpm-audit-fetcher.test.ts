@@ -145,6 +145,76 @@ describe('parseAuditReport', () => {
         expect(lodash?.cveIds).toBeUndefined()
     })
 
+    it('extracts dependencyPath from advisories[].findings[].paths[] (flat merge + dedup)', () => {
+        const report = {
+            advisories: {
+                '100': {
+                    findings: [
+                        { version: '1.0.0', paths: ['docs>vitepress>@vitejs/plugin-vue>vite'] },
+                        { version: '1.0.0', paths: ['docs>vitepress>vite'] },
+                    ],
+                    id: 100,
+                    module_name: 'vite',
+                    patched_versions: '>=2.0.0',
+                    severity: 'high',
+                    title: 'Vite vulnerability',
+                    url: 'https://github.com/advisories/GHSA-x',
+                },
+            },
+            metadata: { vulnerabilities: { high: 1 }, dependencies: 5 },
+        }
+        const risks = parseAuditReport(report)
+        const vite = risks.find((r) => r.packageName === 'vite')
+        expect(vite).toBeDefined()
+        expect(vite?.dependencyPaths).toEqual([
+            'docs>vitepress>@vitejs/plugin-vue>vite',
+            'docs>vitepress>vite',
+        ])
+    })
+
+    it('deduplicates dependencyPath across multiple findings', () => {
+        const report = {
+            advisories: {
+                '101': {
+                    findings: [
+                        { version: '1.0.0', paths: ['a>b>vuln', 'a>c>vuln'] },
+                        { version: '1.0.0', paths: ['a>b>vuln'] },
+                    ],
+                    id: 101,
+                    module_name: 'vuln',
+                    patched_versions: '>=2.0.0',
+                    severity: 'high',
+                    title: 'test',
+                    url: '',
+                },
+            },
+            metadata: { vulnerabilities: { high: 1 }, dependencies: 5 },
+        }
+        const risks = parseAuditReport(report)
+        const vuln = risks.find((r) => r.packageName === 'vuln')
+        expect(vuln?.dependencyPaths).toEqual(['a>b>vuln', 'a>c>vuln'])
+    })
+
+    it('omits dependencyPaths when findings[].paths[] is empty or missing', () => {
+        const report = {
+            advisories: {
+                '102': {
+                    findings: [{ version: '1.0.0', paths: [] }],
+                    id: 102,
+                    module_name: 'clean',
+                    patched_versions: '>=1.0.0',
+                    severity: 'low',
+                    title: 'clean advisory',
+                    url: '',
+                },
+            },
+            metadata: { vulnerabilities: { low: 1 }, dependencies: 5 },
+        }
+        const risks = parseAuditReport(report)
+        const clean = risks.find((r) => r.packageName === 'clean')
+        expect(clean?.dependencyPaths).toBeUndefined()
+    })
+
     it('parses legacy format (advisories/actions) with action target', () => {
         const risks = parseAuditReport(LEGACY_AUDIT_JSON)
         expect(risks).toHaveLength(1)

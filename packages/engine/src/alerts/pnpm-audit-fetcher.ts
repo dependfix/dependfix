@@ -113,6 +113,8 @@ interface RiskRecord {
     ghsaId?: string
     /** CVE ID 列表（pnpm audit `advisory.cves[]` 字符串数组） */
     cveIds?: string[]
+    /** 依赖链路径（`advisories[].findings[].paths[]` 合并去重，每项一条完整链） */
+    dependencyPaths?: string[]
 }
 
 /** pnpm audit 修复版本的空值哨兵（无可用修复） */
@@ -206,6 +208,7 @@ function parseLegacyAuditReport(report: Record<string, unknown>): RiskRecord[] {
             actionMap.get(id) ?? (typeof advisory.patched_versions === 'string' ? advisory.patched_versions : undefined),
         )
         const extras = advisoryExtrasMap.get(id)
+        const dependencyPaths = extractDependencyPaths(advisory)
         risks.push({
             advisoryId: resolveAdvisoryId(advisory),
             packageName: typeof advisory.module_name === 'string' ? advisory.module_name : 'unknown-package',
@@ -214,9 +217,31 @@ function parseLegacyAuditReport(report: Record<string, unknown>): RiskRecord[] {
             htmlUrl: typeof advisory.url === 'string' ? advisory.url : '',
             patchedVersion: patched,
             ...(extras ?? {}),
+            ...(dependencyPaths.length > 0 ? { dependencyPaths } : {}),
         })
     }
     return risks
+}
+
+/**
+ * 从 `advisories[].findings[].paths[]` 提取依赖链路径（合并去重）。
+ *
+ * 每条 path 为完整链（`>` 分隔，从 workspace root 到 vulnerable package），
+ * 如 `docs>vitepress>@vitejs/plugin-vue>vite`。多 finding 多 path 统一展开去重。
+ */
+function extractDependencyPaths(advisory: Record<string, unknown>): string[] {
+    const paths = new Set<string>()
+    for (const finding of toArray(advisory.findings)) {
+        if (!finding || typeof finding !== 'object') {
+            continue
+        }
+        for (const p of toArray((finding as Record<string, unknown>).paths)) {
+            if (typeof p === 'string' && p) {
+                paths.add(p)
+            }
+        }
+    }
+    return [...paths]
 }
 
 /** modern 格式（pnpm >= 8 的 `vulnerabilities`/`via`）解析 */
@@ -388,5 +413,7 @@ function mapAuditRiskToAlert(risk: RiskRecord, repository: string): NormalizedSe
         // M23.3 C66-A2：透传 GitHub Advisory ID + CVE 列表
         ghsaId: risk.ghsaId,
         cveIds: risk.cveIds,
+        // 依赖链路径（路径级 overrides 写入依据 + 报告展示）
+        dependencyPath: risk.dependencyPaths,
     }
 }

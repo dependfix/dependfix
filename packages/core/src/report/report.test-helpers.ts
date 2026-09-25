@@ -32,6 +32,7 @@ export const EMPTY_RUN_RESULT: RunResult = {
         alertsSkipped: 0,
         alertsConverged: 0,
         alertsTruncated: 0,
+        reposWithAlertsDisabled: 0,
         lockfileRepairs: 0,
         verificationsPassed: 0,
         verificationsFailed: 0,

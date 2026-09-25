@@ -7,6 +7,7 @@ import { execSync } from 'node:child_process'
 import {
     AppError,
     toErrorMessage,
+    type AlertsDisabledRecord,
     type FixAction,
     type FixError,
     type Logger,
@@ -138,9 +139,31 @@ export function pullRequestCreationHint(error: unknown): string | null {
 }
 
 /**
+ * 判定 alerts fetch 错误是否为「alerts 功能未启用」。
+ *
+ * 与 PERMISSION_DENIED（token 权限不足）区分：未启用是仓库设置问题，
+ * 属预期状态而非获取失败。仅 403 + 固定 message 可判定；其他情况退回
+ * PERMISSION_DENIED 语义（不误判为「未启用」）。
+ */
+export function isAlertsDisabledError(error: unknown): boolean {
+    return error instanceof AppError && error.code === 'ALERTS_DISABLED'
+}
+
+/**
+ * Dependabot alerts 未启用提示文案（方案 A：未启用 ≠ 失败）。
+ * 明确区分「仓库设置未开启」与「token 权限不足」，消除误导。
+ */
+export function dependabotAlertsDisabledHint(): string {
+    return '仓库未启用 Dependabot alerts（非 token 权限问题）：仓库 Settings → Code security → Dependabot alerts 开启后重试；本地场景可切换 --alerts-source pnpm-audit 使用 pnpm audit 回退'
+}
+
+/**
  * Dependabot alerts fetch 错误用户指引（GITHUB_TOKEN 无法读取 Dependabot alerts）。
  * 仅用于 alerts fetch 错误路径；按精确 context 匹配（`fetch dependabot alerts for`），
  * 不依赖裸关键字（仓库名可能包含对方关键字，如 dependabot/dependabot-core）。
+ *
+ * 注：`ALERTS_DISABLED`（未启用）不走此函数——由 `isAlertsDisabledError` +
+ * `dependabotAlertsDisabledHint` 独立处理。
  */
 export function dependabotAlertsTokenHint(error: unknown): string | null {
     if (!(error instanceof AppError)) {
@@ -215,6 +238,8 @@ export interface AppContext {
     allAlerts: NormalizedSecurityAlert[]
     allActions: FixAction[]
     allErrors: FixError[]
+    /** alerts 功能未启用记录（方案 A：未启用 ≠ 失败，不计入 allErrors） */
+    alertsDisabled: AlertsDisabledRecord[]
     repoResults: RepositoryResult[]
     summary: RunSummary
     startedAt: string

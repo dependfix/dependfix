@@ -268,6 +268,40 @@ describe('fetchDependabotAlerts', () => {
         }
     })
 
+    it('throws ALERTS_DISABLED on 403 with Dependabot alerts disabled message', async () => {
+        nock(API_BASE)
+            .get(GET_ALERTS_PATH)
+            .query(true)
+            .reply(403, { message: 'Dependabot alerts are disabled for this repository.' })
+
+        const client = setupClient()
+
+        try {
+            await fetchDependabotAlerts(client, { owner: 'foo', repo: 'bar' })
+            expect.fail('Expected fetchDependabotAlerts to throw')
+        } catch (error) {
+            expect(error).toBeInstanceOf(AppError)
+            expect((error as AppError).code).toBe('ALERTS_DISABLED')
+        }
+    })
+
+    it('falls back to PERMISSION_DENIED when 403 message does not match disabled pattern', async () => {
+        nock(API_BASE)
+            .get(GET_ALERTS_PATH)
+            .query(true)
+            .reply(403, { message: 'Dependabot alerts are disabled' })
+
+        const client = setupClient()
+
+        try {
+            await fetchDependabotAlerts(client, { owner: 'foo', repo: 'bar' })
+            expect.fail('Expected fetchDependabotAlerts to throw')
+        } catch (error) {
+            expect(error).toBeInstanceOf(AppError)
+            expect((error as AppError).code).toBe('PERMISSION_DENIED')
+        }
+    })
+
     it('throws REPO_NOT_FOUND on 404', async () => {
         nock(API_BASE)
             .get(GET_ALERTS_PATH)

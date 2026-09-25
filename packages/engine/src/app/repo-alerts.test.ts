@@ -42,6 +42,7 @@ function makeDep(overrides: Partial<{
         workDir: '/tmp',
         logger: logger as never,
         allErrors: [],
+        alertsDisabled: [],
     }
 }
 
@@ -180,5 +181,47 @@ describe('fetchRepoAlerts (three-source parallel + per-source error isolation)',
         const deps = makeDep({ codeScanningEnabled: true, codeQualityEnabled: true })
 
         await expect(fetchRepoAlerts(deps, REPO)).rejects.toBeInstanceOf(AppError)
+    })
+
+    it('records ALERTS_DISABLED as alertsDisabled (not allErrors), does not fail run', async () => {
+        nock(API_BASE)
+            .get('/repos/foo/bar/dependabot/alerts')
+            .query(true)
+            .reply(403, { message: 'Dependabot alerts are disabled for this repository.' })
+
+        const deps = makeDep()
+        const alerts = await fetchRepoAlerts(deps, REPO)
+
+        // 未启用 ≠ 失败：返回空数组，不抛错（方案 A）
+        expect(alerts).toHaveLength(0)
+        // 不计入 allErrors
+        expect(deps.allErrors).toHaveLength(0)
+        // 计入 alertsDisabled
+        expect(deps.alertsDisabled).toHaveLength(1)
+        expect(deps.alertsDisabled[0].repository).toBe(REPO)
+        expect(deps.alertsDisabled[0].source).toBe('dependabot')
+    })
+
+    it('tracks ALERTS_DISABLED separately from real FETCH_FAILED errors', async () => {
+        nock(API_BASE)
+            .get('/repos/foo/bar/dependabot/alerts')
+            .query(true)
+            .reply(403, { message: 'Dependabot alerts are disabled for this repository.' })
+        nock(API_BASE)
+            .get('/repos/foo/bar/code-quality/findings')
+            .query(true)
+            .reply(403, { message: 'Resource not accessible by integration' })
+
+        const deps = makeDep({ codeQualityEnabled: true })
+        const alerts = await fetchRepoAlerts(deps, REPO)
+
+        // 未启用不算失败源 + code-quality 真实失败 → 不抛错（failedSources.length !== totalSources）
+        expect(alerts).toHaveLength(0)
+        // code-quality 真实失败计入 allErrors
+        expect(deps.allErrors).toHaveLength(1)
+        expect(deps.allErrors[0].source).toBe('code-quality')
+        // dependabot 未启用单独记录
+        expect(deps.alertsDisabled).toHaveLength(1)
+        expect(deps.alertsDisabled[0].source).toBe('dependabot')
     })
 })

@@ -16,9 +16,9 @@ import type { AppContext } from './helpers'
 
 /** 汇总所有动作到 summary（alertsSkipped 已在 repo-fix 修复管线中累加）。 */
 export function computeSummary(
-    ctx: Pick<AppContext, 'allActions' | 'allAlerts' | 'repoResults' | 'summary'>,
+    ctx: Pick<AppContext, 'allActions' | 'allAlerts' | 'alertsDisabled' | 'repoResults' | 'summary'>,
 ): void {
-    const { allActions, allAlerts, repoResults, summary } = ctx
+    const { allActions, allAlerts, alertsDisabled, repoResults, summary } = ctx
 
     let fixed = 0
     let failed = 0
@@ -64,13 +64,16 @@ export function computeSummary(
     summary.alertsFixable = fixable
     summary.alertsFixed = fixed
     summary.alertsFailed = failed
+    // 方案 A：未启用 ≠ 失败，单列计数（不计入 alertsFailed / errors）。
+    // 按仓库去重（而非源级记录数）：同仓库多源未启用只计 1 次，与表头「(repos)」口径一致
+    summary.reposWithAlertsDisabled = new Set(alertsDisabled.map((r) => r.repository)).size
     summary.lockfileRepairs = lockfileRepairs
     summary.verificationsPassed = verificationsPassed
     summary.verificationsFailed = verificationsFailed
 }
 
 export function buildRunResult(
-    ctx: Pick<AppContext, 'config' | 'runId' | 'startedAt' | 'finishedAt' | 'summary' | 'repoResults' | 'allAlerts' | 'allActions' | 'allErrors'>,
+    ctx: Pick<AppContext, 'config' | 'runId' | 'startedAt' | 'finishedAt' | 'summary' | 'repoResults' | 'allAlerts' | 'allActions' | 'allErrors' | 'alertsDisabled'>,
     aiUsage?: AiUsageAggregate, supplyChainWarnings?: SupplyChainWarning[],
 ): RunResult {
     const reportConfig: RunReportConfig = {
@@ -97,6 +100,7 @@ export function buildRunResult(
         errors: ctx.allErrors,
         aiUsage: aiUsage && aiUsage.calls > 0 ? aiUsage : undefined,
         supplyChainWarnings: supplyChainWarnings && supplyChainWarnings.length > 0 ? supplyChainWarnings : undefined,
+        alertsDisabled: ctx.alertsDisabled.length > 0 ? ctx.alertsDisabled : undefined,
     }
 }
 

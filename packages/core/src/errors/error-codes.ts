@@ -5,6 +5,8 @@
 export const GITHUB_ERROR_CODES = [
     'AUTHENTICATION_FAILED',
     'PERMISSION_DENIED',
+    /** Dependabot alerts 未启用（403 + 特定 message；非 token 权限问题） */
+    'ALERTS_DISABLED',
     'RATE_LIMITED',
     'REPO_NOT_FOUND',
     'GITHUB_API_ERROR',

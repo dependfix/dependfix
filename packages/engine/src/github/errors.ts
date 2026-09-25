@@ -32,6 +32,12 @@ function resolveErrorCode(error: RequestError): GitHubErrorCode {
         case 401:
             return 'AUTHENTICATION_FAILED'
         case 403: {
+            // Dependabot alerts 未启用（非文档化行为，message 匹配为主信号）。
+            // 与 PERMISSION_DENIED 区分：未启用是仓库设置问题，不是 token 权限不足。
+            // 匹配失败时退回 PERMISSION_DENIED（不误判为「未启用」）。
+            if (isAlertsDisabledMessage(error.message)) {
+                return 'ALERTS_DISABLED'
+            }
             const remaining = error.response?.headers['x-ratelimit-remaining']
             if (remaining !== undefined && remaining === '0') {
                 return 'RATE_LIMITED'
@@ -43,6 +49,19 @@ function resolveErrorCode(error: RequestError): GitHubErrorCode {
         default:
             return 'GITHUB_API_ERROR'
     }
+}
+
+/**
+ * 判定 403 message 是否为「alerts 功能未启用」。
+ *
+ * GitHub API 在 Dependabot alerts 未启用时返回 403 + 固定文案
+ * `Dependabot alerts are disabled for this repository.`（非文档化行为，未来可能变动）。
+ * 以 message 包含匹配为主信号（`includes` 刻意容忍尾标点 / 措辞漂移）；
+ * 匹配失败退回 PERMISSION_DENIED，不误判为「未启用」。
+ */
+function isAlertsDisabledMessage(message: string | undefined): boolean {
+    return typeof message === 'string'
+        && message.includes('Dependabot alerts are disabled for this repository')
 }
 
 function collectErrorDetails(error: RequestError): Record<string, unknown> {

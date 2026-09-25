@@ -560,6 +560,41 @@ describe('generateMarkdownReport supply chain warnings', () => {
         expect(json.supplyChainWarnings).toHaveLength(1)
         expect(json.supplyChainWarnings?.[0]).toMatchObject({ packageName: 'esbuild', scriptTypes: ['postinstall'] })
     })
+
+    it('renders Alerts Disabled section with repository/source/message when alertsDisabled present', () => {
+        const result = {
+            ...EMPTY_RUN_RESULT,
+            alertsDisabled: [
+                { repository: 'owner/repo', source: 'dependabot', message: 'Dependabot alerts are disabled for this repository.' },
+            ],
+        }
+        const md = generateMarkdownReport(result)
+        expect(md).toContain('## Alerts Disabled')
+        expect(md).toContain('owner/repo')
+        expect(md).toContain('dependabot')
+        expect(md).toContain('Dependabot alerts are disabled for this repository.')
+    })
+
+    it('renders Alerts disabled count in summary table', () => {
+        const result = {
+            ...EMPTY_RUN_RESULT,
+            summary: { ...EMPTY_RUN_RESULT.summary, reposWithAlertsDisabled: 3 },
+        }
+        const md = generateMarkdownReport(result)
+        // 精确断言行内容（避免 toContain('3') 被日期字符污染恒真）
+        expect(md).toContain('| Alerts disabled (repos) | 3 |')
+    })
+
+    it('omits Alerts Disabled section when no alertsDisabled records', () => {
+        const md = generateMarkdownReport(EMPTY_RUN_RESULT)
+        expect(md).not.toContain('## Alerts Disabled')
+    })
+
+    it('omits Alerts Disabled section when alertsDisabled is empty array', () => {
+        const result = { ...EMPTY_RUN_RESULT, alertsDisabled: [] }
+        const md = generateMarkdownReport(result)
+        expect(md).not.toContain('## Alerts Disabled')
+    })
 })
 
 // ---------------------------------------------------------------------------

@@ -5,7 +5,9 @@ import { AppError } from '@dependfix/core'
 import {
     codeQualityAlertsTokenHint,
     codeScanningAlertsTokenHint,
+    dependabotAlertsDisabledHint,
     dependabotAlertsTokenHint,
+    isAlertsDisabledError,
     pullRequestCreationHint,
 } from './helpers'
 
@@ -147,5 +149,29 @@ describe('codeQualityAlertsTokenHint', () => {
     it('returns null for non-AppError values', () => {
         expect(codeQualityAlertsTokenHint(new Error('boom'))).toBeNull()
         expect(codeQualityAlertsTokenHint('string error')).toBeNull()
+    })
+})
+
+describe('isAlertsDisabledError', () => {
+    it('returns true for AppError with ALERTS_DISABLED code', () => {
+        expect(isAlertsDisabledError(new AppError('ALERTS_DISABLED', 'Dependabot alerts are disabled for this repository.'))).toBe(true)
+    })
+
+    it('returns false for AppError with PERMISSION_DENIED code', () => {
+        expect(isAlertsDisabledError(new AppError('PERMISSION_DENIED', 'Resource not accessible'))).toBe(false)
+    })
+
+    it('returns false for non-AppError values', () => {
+        expect(isAlertsDisabledError(new Error('ALERTS_DISABLED'))).toBe(false)
+        expect(isAlertsDisabledError(null)).toBe(false)
+    })
+})
+
+describe('dependabotAlertsDisabledHint', () => {
+    it('returns guidance mentioning non-token nature and enable path', () => {
+        const hint = dependabotAlertsDisabledHint()
+        expect(hint).toContain('未启用')
+        expect(hint).toContain('非 token 权限问题')
+        expect(hint).toContain('Code security')
     })
 })

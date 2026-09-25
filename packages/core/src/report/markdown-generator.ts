@@ -23,6 +23,8 @@ import { collectCodeQualityFindings } from './code-quality-suggestions'
  * 4. Alerts by Severity 表
  * 5. Repositories 明细
  * 5.5. Code Scanning Suggestions（有建议时才渲染）
+ * 5.6. Code Quality Findings（有 findings 时才渲染）
+ * 3.6. Alerts Disabled（有未启用记录时才渲染）
  * 6. Fix Actions 表
  * 7. Errors 节（有错误时才渲染）
  */
@@ -57,6 +59,7 @@ export function generateMarkdownReport(result: RunResult): string {
         `| Skipped | ${summary.alertsSkipped} |`,
         `| Converged (already >= target) | ${summary.alertsConverged} |`,
         `| Truncated (max alerts/repo) | ${summary.alertsTruncated} |`,
+        `| Alerts disabled (repos) | ${summary.reposWithAlertsDisabled} |`,
         `| Lockfile repairs | ${summary.lockfileRepairs} |`,
         `| Verifications passed | ${summary.verificationsPassed} |`,
         `| Verifications failed | ${summary.verificationsFailed} |`,
@@ -91,6 +94,23 @@ export function generateMarkdownReport(result: RunResult): string {
             sections.push(
                 `| \`${escapeMd(w.packageName)}\` | \`${escapeMd(w.version)}\` | ${w.scriptTypes.map((t) => `\`${escapeMd(t)}\``).join(', ')} | ${escapeMd(w.repository)} |`,
             )
+        }
+        sections.push('')
+    }
+
+    // ---- 3.6 Alerts Disabled（方案 A：未启用 ≠ 失败，单列展示）----
+    if (result.alertsDisabled && result.alertsDisabled.length > 0) {
+        sections.push(
+            '## Alerts Disabled',
+            '',
+            '> 以下仓库**未启用**对应 alerts 功能（预期状态，非获取失败；不影响退出码）。',
+            '> 开启方式：仓库 Settings → Code security → Dependabot alerts。',
+            '',
+            '| Repository | Source | Message |',
+            '|------------|--------|---------|',
+        )
+        for (const d of result.alertsDisabled) {
+            sections.push(`| ${escapeMd(d.repository)} | ${escapeMd(d.source)} | ${escapeMd(d.message)} |`)
         }
         sections.push('')
     }

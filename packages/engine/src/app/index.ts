@@ -9,6 +9,7 @@ import {
     writeReport,
     createEmptyRunSummary,
     toErrorMessage,
+    type AlertsDisabledRecord,
     type Logger,
     type NormalizedSecurityAlert,
     type RunResult,
@@ -176,6 +177,8 @@ export class DependfixApp {
     private readonly allAlerts: NormalizedSecurityAlert[] = []
     private readonly allActions: FixAction[] = []
     private readonly allErrors: FixError[] = []
+    /** alerts 功能未启用记录（未启用 ≠ 失败，不计入 allErrors / exitCode） */
+    private readonly alertsDisabled: AlertsDisabledRecord[] = []
     private readonly repoResults: RepositoryResult[] = []
     private readonly summary: RunSummary = createEmptyRunSummary()
     /** run 级 AI 用量聚合（--ai 实际调用时填充；报告 aiUsage 段数据源；由 repo-fix 管线步骤回写） */
@@ -230,6 +233,7 @@ export class DependfixApp {
             allAlerts: this.allAlerts,
             allActions: this.allActions,
             allErrors: this.allErrors,
+            alertsDisabled: this.alertsDisabled,
             repoResults: this.repoResults,
             summary: this.summary,
             startedAt: this.startedAt,

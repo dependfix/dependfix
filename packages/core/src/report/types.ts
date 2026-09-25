@@ -45,6 +45,11 @@ export interface RunSummary {
     alertsConverged: number
     /** 因 maxAlertsPerRepository 截断的告警数（收尾审查遗留：截断明细进报告） */
     alertsTruncated: number
+    /**
+     * 未启用 alerts 功能的仓库数（如 Dependabot alerts 未开启）。
+     * 语义：预期状态而非失败，不计入 allErrors / 不影响 exitCode。
+     */
+    reposWithAlertsDisabled: number
     lockfileRepairs: number
     verificationsPassed: number
     verificationsFailed: number
@@ -156,6 +161,26 @@ export interface RunResult {
     aiUsage?: AiUsageAggregate
     /** 供应链信号警示区（本次升级包带脚本且被批准；空 = 不渲染） */
     supplyChainWarnings?: SupplyChainWarning[]
+    /**
+     * alerts 功能未启用记录（方案 A：未启用 ≠ 失败，单列展示）。
+     * 仅在有仓库未启用 alerts 时存在；空/undefined = 不渲染。
+     */
+    alertsDisabled?: AlertsDisabledRecord[]
+}
+
+/**
+ * alerts 功能未启用记录。
+ *
+ * 与 FixError 的区别：未启用是**预期状态**（仓库设置未开启 Dependabot alerts），
+ * 不是获取失败；不计入 errors / 不触发 exitCode 非 0，仅在报告单列展示。
+ */
+export interface AlertsDisabledRecord {
+    /** 目标仓库（owner/repo） */
+    repository: string
+    /** 告警源标识（'dependabot'；未来可扩展 'code-scanning'） */
+    source: string
+    /** 原始提示文案（GitHub API 返回的 message，如 "Dependabot alerts are disabled for this repository."） */
+    message: string
 }
 
 /** 按严重级别聚合的统计。 */
@@ -443,6 +468,7 @@ export function createEmptyRunSummary(): RunSummary {
         alertsSkipped: 0,
         alertsConverged: 0,
         alertsTruncated: 0,
+        reposWithAlertsDisabled: 0,
         lockfileRepairs: 0,
         verificationsPassed: 0,
         verificationsFailed: 0,

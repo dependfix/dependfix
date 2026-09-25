@@ -1,5 +1,5 @@
 import type { Octokit } from '@octokit/rest'
-import { toErrorMessage, type FixError, type Logger, type NormalizedSecurityAlert } from '@dependfix/core'
+import { toErrorMessage, type AlertsDisabledRecord, type FixError, type Logger, type NormalizedSecurityAlert } from '@dependfix/core'
 import { fetchPnpmAuditAlerts } from '../alerts'
 import type { RuntimeConfig } from '../config'
 import { fromPat } from '../auth'
@@ -12,7 +12,9 @@ import {
 import {
     codeQualityAlertsTokenHint,
     codeScanningAlertsTokenHint,
+    dependabotAlertsDisabledHint,
     dependabotAlertsTokenHint,
+    isAlertsDisabledError,
 } from './helpers'
 
 /** fetchRepoAlerts 所需的最小上下文切片（AppContext 满足此结构）。 */
@@ -21,6 +23,8 @@ export interface FetchAlertsDeps {
     workDir: string
     logger: Logger
     allErrors: FixError[]
+    /** alerts 功能未启用记录（方案 A：未启用 ≠ 失败，不计入 allErrors） */
+    alertsDisabled: AlertsDisabledRecord[]
 }
 
 /**
@@ -58,18 +62,17 @@ export async function fetchRepoAlerts(deps: FetchAlertsDeps, repo: string): Prom
 
     if (dependabotResult.status === 'fulfilled') {
         alerts.push(...dependabotResult.value)
-    } else {
+    } else if (!recordAlertSourceError(deps, repo, 'dependabot', dependabotResult.reason)) {
+        // 未启用（ALERTS_DISABLED）不算失败源；真实失败才推入
         failedSources.push('dependabot')
-        recordAlertSourceError(deps, repo, 'dependabot', dependabotResult.reason)
     }
 
     if (config.codeScanningEnabled) {
         if (codeScanningResult.status === 'fulfilled') {
             alerts.push(...codeScanningResult.value)
             deps.logger.info(`Fetched ${codeScanningResult.value.length} code scanning alerts for ${repo}`)
-        } else {
+        } else if (!recordAlertSourceError(deps, repo, 'code-scanning', codeScanningResult.reason)) {
             failedSources.push('code-scanning')
-            recordAlertSourceError(deps, repo, 'code-scanning', codeScanningResult.reason)
         }
     }
 
@@ -77,9 +80,8 @@ export async function fetchRepoAlerts(deps: FetchAlertsDeps, repo: string): Prom
         if (codeQualityResult.status === 'fulfilled') {
             alerts.push(...codeQualityResult.value)
             deps.logger.info(`Fetched ${codeQualityResult.value.length} code quality findings for ${repo}`)
-        } else {
+        } else if (!recordAlertSourceError(deps, repo, 'code-quality', codeQualityResult.reason)) {
             failedSources.push('code-quality')
-            recordAlertSourceError(deps, repo, 'code-quality', codeQualityResult.reason)
         }
     }
 
@@ -126,8 +128,24 @@ function createAlertsClientFromConfig(config: RuntimeConfig): Octokit {
     })
 }
 
-/** 记录单个告警源的拉取失败（不中断另一源的处理）。 */
-function recordAlertSourceError(deps: FetchAlertsDeps, repo: string, source: string, error: unknown): void {
+/**
+ * 记录单个告警源的拉取结果（不中断另一源的处理）。
+ *
+ * 方案 A：`ALERTS_DISABLED`（alerts 功能未启用）≠ 获取失败——
+ * 不计入 `allErrors` / 不触发 exitCode 非 0，改记 `alertsDisabled` + 准确日志文案。
+ *
+ * @returns `true` = 未启用（预期状态，不算失败源）；`false` = 真实失败
+ */
+function recordAlertSourceError(deps: FetchAlertsDeps, repo: string, source: string, error: unknown): boolean {
+    // 未启用 ≠ 失败：独立记录，不入 allErrors（方案 A）
+    if (isAlertsDisabledError(error)) {
+        const message = toErrorMessage(error)
+        const hint = dependabotAlertsDisabledHint()
+        deps.logger.warn(`Dependabot alerts disabled for ${repo}: ${message} — ${hint}`)
+        deps.alertsDisabled.push({ repository: repo, source, message })
+        return true
+    }
+
     const message = toErrorMessage(error)
     const hint = dependabotAlertsTokenHint(error)
         ?? codeScanningAlertsTokenHint(error)
@@ -140,6 +158,7 @@ function recordAlertSourceError(deps: FetchAlertsDeps, repo: string, source: str
         source,
         message: hint ? `${message}（${hint}）` : message,
     })
+    return false
 }
 
 /**

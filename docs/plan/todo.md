@@ -141,10 +141,10 @@
 - **优先级**：P2（影响可用性判定与告警覆盖统计：可用仓库被误报为权限错误并让整轮 run 失败，exitCode 2）
 - **范围**：`packages/engine/src/github/errors.ts`（错误分类）+ `dependabot-fetcher.ts`（403 message 判定）+ `packages/engine/src/app/helpers.ts`（三个 alerts hint 函数）+ `packages/engine/src/app/repo-alerts.ts`（`FETCH_FAILED` 记录与 run 失败语义）+ [docs/standards/platform.md](../standards/platform.md)（错误码口径）+ 报告 / 平台展示口径
 - **验收标准**：
-  - [ ] 未启用仓库（403 + `Dependabot alerts are disabled for this repository.`）与权限失败可区分，报告 / 日志各输出对应准确文案
-  - [ ] 单测覆盖三类：未启用（403 + message）/ 权限不足（401 或 403 其他 message）/ 限流（403 + ratelimit 归零）
-  - [ ] 未启用仓库的 run 语义按决策点落地，报告单列「未启用」计数
-  - [ ] `pnpm lint` + `pnpm typecheck` + engine 定向测试通过
+  - [x] 未启用仓库（403 + `Dependabot alerts are disabled for this repository.`）与权限失败可区分，报告 / 日志各输出对应准确文案
+  - [x] 单测覆盖三类：未启用（403 + message）/ 权限不足（401 或 403 其他 message）/ 限流（403 + ratelimit 归零）
+  - [x] 未启用仓库的 run 语义按决策点落地，报告单列「未启用」计数
+  - [x] `pnpm lint` + `pnpm typecheck` + engine 定向测试通过
 - **不做什么**：不自动修改目标仓库设置（开启 alerts 需 admin，且属用户决策）；不改 `alertsSource` 默认值；不引入新依赖
 - **依赖**：关联 `repo-alerts.ts` 双 token 设计（`alertsToken` 最小权限）；关联 [platform.md](../standards/platform.md)（错误码与提示口径）；关联 [经验归档 §一 外部平台限制先探针验证](../design/governance/experience-archive-§1-§21-spec-compliance.md)（同一 403 通道内不同 message 的细分）
 - **交付物**：1-2 atomic commits（`feat(engine)` 错误细分 + `test(engine)` case + 文案 / 报告字段同步）

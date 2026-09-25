@@ -142,6 +142,15 @@ export function cleanupBackups(paths: { pkgBackup: string, lockBackup: string | 
  *
  * @returns 写入前该包的旧值（`undefined` 表示原先不存在该 override）
  */
+/**
+ * 写入 pnpm-workspace.yaml 的 overrides 条目。
+ *
+ * `packageName` 参数为 override key，支持两种格式：
+ * - 顶层覆盖：`packageName`（如 `vite`）或版本化 key（`vite@5`）
+ * - 路径级覆盖：`parent>child`（如 `@vitejs/plugin-vue>vite`）
+ *
+ * @returns 旧值（undefined = 该 key 原本不存在）
+ */
 export function writeWorkspaceOverride(
     workspaceYamlPath: string,
     packageName: string,

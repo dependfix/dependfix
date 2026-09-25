@@ -281,6 +281,21 @@ export function hasMultipleMajorVersions(lockfilePath: string, packageName: stri
  * @param existingOverrides - 当前已生效的 overrides 映射（readExistingOverrides 读取）
  * @returns 需要新增/更新的 overrides 映射；无脆弱实例或无需更新时返回 {}
  */
+/**
+ * 从依赖链提取路径级 override key（`parent>child`）。
+ *
+ * 取最后两级（pnpm 官方语义「只覆盖特定父包」）：
+ * 链 `docs>vitepress>@vitejs/plugin-vue>vite` → key `@vitejs/plugin-vue>vite`。
+ * 少于两级返回 undefined（无法形成 `parent>child` 结构）。
+ */
+export function extractPathOverrideKey(dependencyPath: string): string | undefined {
+    const segments = dependencyPath.split('>').map((s) => s.trim()).filter(Boolean)
+    if (segments.length < 2) {
+        return undefined
+    }
+    return `${segments[segments.length - 2]}>${segments[segments.length - 1]}`
+}
+
 export function buildVersionedOverrides(
     lockfilePath: string,
     alerts: NormalizedSecurityAlert[],
@@ -326,6 +341,28 @@ export function buildVersionedOverrides(
             const existing = existingTarget(key)
             if (!existing || compareSemver(target, existing) > 0) {
                 overrides[key] = `^${target}`
+            }
+        }
+    }
+
+    // 路径级补丁（顶层兜底 + 路径级补丁策略）：有 dependencyPath 时额外生成
+    // `parent>child` key，精确覆盖特定父包的传递依赖。顶层与路径级正交叠加。
+    for (const alert of alerts) {
+        if (!alert.dependencyPath) {
+            continue
+        }
+        const target = alert.recommendedVersion
+        if (!target) {
+            continue
+        }
+        for (const path of alert.dependencyPath) {
+            const pathKey = extractPathOverrideKey(path)
+            if (!pathKey) {
+                continue
+            }
+            const existing = existingTarget(pathKey)
+            if (!existing || compareSemver(target, existing) > 0) {
+                overrides[pathKey] = `^${target}`
             }
         }
     }

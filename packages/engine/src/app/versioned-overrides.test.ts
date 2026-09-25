@@ -131,6 +131,68 @@ describe('buildVersionedOverrides', () => {
         expect(overrides).toEqual({ 'fast-uri': '^3.1.5' })
     })
 
+    it('generates path-level override (parent>child) from dependencyPath', () => {
+        // 单 major 场景：lockfile vite@2.0.0，推荐 2.0.5 → 顶层 key = vite
+        writeFileSync(lockfilePath, 'lockfileVersion: \'9.0\'\n\n  vite@2.0.0:\n    resolution: {integrity: sha512-x}')
+        const alerts = [
+            alert('vite', '2.0.5', { dependencyPath: ['docs>vitepress>@vitejs/plugin-vue>vite'] }),
+        ]
+        const result = buildVersionedOverrides(lockfilePath, alerts, {})
+        // 顶层兜底 + 路径级补丁：顶层 key 覆盖整条线，路径级 key 精确覆盖
+        expect(result['vite']).toBe('^2.0.5')
+        expect(result['@vitejs/plugin-vue>vite']).toBe('^2.0.5')
+    })
+
+    it('generates multiple path-level overrides from multiple dependencyPath entries', () => {
+        writeFileSync(lockfilePath, 'lockfileVersion: \'9.0\'\n\n  vite@2.0.0:\n    resolution: {integrity: sha512-x}')
+        const alerts = [
+            alert('vite', '2.0.5', {
+                dependencyPath: [
+                    'docs>vitepress>@vitejs/plugin-vue>vite',
+                    'docs>vitepress>vite',
+                ],
+            }),
+        ]
+        const result = buildVersionedOverrides(lockfilePath, alerts, {})
+        expect(result['@vitejs/plugin-vue>vite']).toBe('^2.0.5')
+        expect(result['vitepress>vite']).toBe('^2.0.5')
+    })
+
+    it('takes max between existing path-level override and recommended', () => {
+        writeFileSync(lockfilePath, 'lockfileVersion: \'9.0\'\n\n  vite@2.0.0:\n    resolution: {integrity: sha512-x}')
+        const alerts = [
+            alert('vite', '2.0.5', { dependencyPath: ['a>b>vite'] }),
+        ]
+        const existing = { 'b>vite': '^1.0.0' }
+        const result = buildVersionedOverrides(lockfilePath, alerts, existing)
+        // 推荐 2.0.5 > 已有 1.0.0 → 覆盖
+        expect(result['b>vite']).toBe('^2.0.5')
+    })
+
+    it('keeps existing path-level override when it is higher than recommended', () => {
+        writeFileSync(lockfilePath, 'lockfileVersion: \'9.0\'\n\n  vite@2.0.0:\n    resolution: {integrity: sha512-x}')
+        const alerts = [
+            alert('vite', '1.0.0', { dependencyPath: ['a>b>vite'] }),
+        ]
+        const existing = { 'b>vite': '^2.0.0' }
+        const result = buildVersionedOverrides(lockfilePath, alerts, existing)
+        // 已有 2.0.0 >= 推荐 1.0.0 → 不写入
+        expect(result['b>vite']).toBeUndefined()
+    })
+
+    it('skips path-level override when dependencyPath has fewer than 2 segments', () => {
+        writeFileSync(lockfilePath, 'lockfileVersion: \'9.0\'\n\n  vite@2.0.0:\n    resolution: {integrity: sha512-x}')
+        const alerts = [
+            alert('vite', '2.0.5', { dependencyPath: ['vite'] }),
+        ]
+        const result = buildVersionedOverrides(lockfilePath, alerts, {})
+        // 单段路径无法形成 parent>child → 不生成路径级 key（顶层 key vite 仍存在）
+        expect(result['vite']).toBe('^2.0.5')
+        // 无任何 parent>child 格式的 key
+        const pathKeys = Object.keys(result).filter((k) => k.includes('>'))
+        expect(pathKeys).toHaveLength(0)
+    })
+
     it('merges existing plain override to max for single-major package', () => {
         writeFastUriLockfile()
         const overrides = buildVersionedOverrides(

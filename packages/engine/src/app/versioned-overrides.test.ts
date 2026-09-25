@@ -228,6 +228,30 @@ describe('buildVersionedOverrides', () => {
         expect(result['b>vite']).toBe('^2.0.5')
     })
 
+    it('locks current behavior: path-level key is major-agnostic (multi-major scenario)', () => {
+        // 多 major 共存：vite@5 + vite@8；告警分别针对不同 major 线
+        writeFileSync(lockfilePath, [
+            'lockfileVersion: \'9.0\'',
+            '',
+            '  vite@5.4.14:',
+            '    resolution: {integrity: sha512-old}',
+            '',
+            '  vite@8.2.0:',
+            '    resolution: {integrity: sha512-new}',
+        ].join('\n'))
+        const alerts = [
+            alert('vite', '5.4.21', { dependencyPath: ['a>b>vite'] }),
+            alert('vite', '8.2.1', { dependencyPath: ['a>b>vite'] }),
+        ]
+        const result = buildVersionedOverrides(lockfilePath, alerts, {})
+        // 当前行为：路径级 key 无 major 限定，取 max（8.2.1 > 5.4.21）→ 8.2.1
+        // 已知限制：可能把低 major 线目标抬到高 major 线版本（跨线强制风险）
+        expect(result['b>vite']).toBe('^8.2.1')
+        // 顶层版本化 key 仍按 major 分线保护
+        expect(result['vite@5']).toBe('^5.4.21')
+        expect(result['vite@8']).toBe('^8.2.1')
+    })
+
     it('skips path-level override when dependencyPath has fewer than 2 segments', () => {
         writeFileSync(lockfilePath, 'lockfileVersion: \'9.0\'\n\n  vite@2.0.0:\n    resolution: {integrity: sha512-x}')
         const alerts = [

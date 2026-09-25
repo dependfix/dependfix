@@ -158,6 +158,28 @@ describe('buildVersionedOverrides', () => {
         expect(result['vitepress>vite']).toBe('^2.0.5')
     })
 
+    it('takes max across multiple alerts sharing same pathKey (order-independent)', () => {
+        writeFileSync(lockfilePath, 'lockfileVersion: \'9.0\'\n\n  vite@2.0.0:\n    resolution: {integrity: sha512-x}')
+        // 两个告警共享同一 pathKey `b>vite`，推荐版本不同 → 取 max
+        const alerts = [
+            alert('vite', '1.0.0', { dependencyPath: ['a>b>vite'] }),
+            alert('vite', '2.0.5', { dependencyPath: ['a>b>vite'] }),
+        ]
+        const result = buildVersionedOverrides(lockfilePath, alerts, {})
+        expect(result['b>vite']).toBe('^2.0.5')
+    })
+
+    it('takes max across multiple alerts sharing same pathKey (reverse order)', () => {
+        writeFileSync(lockfilePath, 'lockfileVersion: \'9.0\'\n\n  vite@2.0.0:\n    resolution: {integrity: sha512-x}')
+        // 反向顺序：先高后低 → 仍取 max
+        const alerts = [
+            alert('vite', '2.0.5', { dependencyPath: ['a>b>vite'] }),
+            alert('vite', '1.0.0', { dependencyPath: ['a>b>vite'] }),
+        ]
+        const result = buildVersionedOverrides(lockfilePath, alerts, {})
+        expect(result['b>vite']).toBe('^2.0.5')
+    })
+
     it('takes max between existing path-level override and recommended', () => {
         writeFileSync(lockfilePath, 'lockfileVersion: \'9.0\'\n\n  vite@2.0.0:\n    resolution: {integrity: sha512-x}')
         const alerts = [
@@ -178,6 +200,32 @@ describe('buildVersionedOverrides', () => {
         const result = buildVersionedOverrides(lockfilePath, alerts, existing)
         // 已有 2.0.0 >= 推荐 1.0.0 → 不写入
         expect(result['b>vite']).toBeUndefined()
+    })
+
+    it('generates both top-level and path-level overrides (orthogonal)', () => {
+        writeFileSync(lockfilePath, 'lockfileVersion: \'9.0\'\n\n  vite@2.0.0:\n    resolution: {integrity: sha512-x}')
+        const alerts = [
+            alert('vite', '2.0.5', { dependencyPath: ['a>b>vite'] }),
+        ]
+        const existing = { vite: '^1.0.0' }
+        const result = buildVersionedOverrides(lockfilePath, alerts, existing)
+        // 顶层兜底：已有 1.0.0 < 推荐 2.0.5 → 覆盖
+        expect(result['vite']).toBe('^2.0.5')
+        // 路径级补丁：正交生成
+        expect(result['b>vite']).toBe('^2.0.5')
+    })
+
+    it('keeps top-level override when existing is higher, still generates path-level', () => {
+        writeFileSync(lockfilePath, 'lockfileVersion: \'9.0\'\n\n  vite@2.0.0:\n    resolution: {integrity: sha512-x}')
+        const alerts = [
+            alert('vite', '2.0.5', { dependencyPath: ['a>b>vite'] }),
+        ]
+        const existing = { vite: '^3.0.0' }
+        const result = buildVersionedOverrides(lockfilePath, alerts, existing)
+        // 顶层已有 3.0.0 >= 推荐 2.0.5 → 不覆盖
+        expect(result['vite']).toBeUndefined()
+        // 路径级仍生成（正交）
+        expect(result['b>vite']).toBe('^2.0.5')
     })
 
     it('skips path-level override when dependencyPath has fewer than 2 segments', () => {

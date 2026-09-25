@@ -66,6 +66,18 @@ export interface NormalizedSecurityAlert {
      * - code-scanning / code-quality：无此概念（缺省空数组）
      */
     cveIds?: string[]
+    /**
+     * 依赖链路径列表（pnpm-audit `advisories[].findings[].paths[]` 解析）。
+     *
+     * 每项为一条完整依赖链（`>` 分隔，从 workspace root 到 vulnerable package），
+     * 如 `docs>vitepress>@vitejs/plugin-vue>vite`。扁平数组，多 finding 多 path
+     * 统一展开去重。
+     * - pnpm-audit：`findings[].paths[]` 合并去重
+     * - dependabot / code-scanning / code-quality：无此概念（缺省 undefined）
+     *
+     * 用途：路径级 pnpm overrides（`parent>child`）写入依据 + 报告依赖链展示。
+     */
+    dependencyPath?: string[]
 }
 
 /**

@@ -147,6 +147,57 @@ describe('GET /api/repos/importable', () => {
         expect(result.repos[1]).toMatchObject({ fullName: 'demo/private-repo', private: true })
     })
 
+    it('passes through archived and disabled fields for frontend filtering', async () => {
+        // mock 返回含 archived + disabled 仓库
+        vi.mocked(listForAuthenticatedUser).mockResolvedValueOnce({
+            data: [
+                {
+                    id: 10,
+                    name: 'active-repo',
+                    full_name: 'demo/active-repo',
+                    owner: { login: 'demo' },
+                    private: false,
+                    fork: false,
+                    archived: false,
+                    disabled: false,
+                    default_branch: 'main',
+                    description: 'active',
+                },
+                {
+                    id: 11,
+                    name: 'archived-repo',
+                    full_name: 'demo/archived-repo',
+                    owner: { login: 'demo' },
+                    private: false,
+                    fork: false,
+                    archived: true,
+                    disabled: false,
+                    default_branch: 'main',
+                    description: 'archived',
+                },
+                {
+                    id: 12,
+                    name: 'disabled-repo',
+                    full_name: 'demo/disabled-repo',
+                    owner: { login: 'demo' },
+                    private: false,
+                    fork: false,
+                    archived: false,
+                    disabled: true,
+                    default_branch: 'main',
+                    description: 'disabled',
+                },
+            ],
+        })
+
+        const result = await call(`/api/repos/importable?credentialId=${credentialId}&fresh=true`) as ImportableResponse
+        expect(result.repos).toHaveLength(3)
+        // 方案 A：后端透传字段，前端过滤——不剔除，保留审计透明性
+        expect(result.repos.find((r) => r.fullName === 'demo/active-repo')).toMatchObject({ archived: false, disabled: false })
+        expect(result.repos.find((r) => r.fullName === 'demo/archived-repo')).toMatchObject({ archived: true, disabled: false })
+        expect(result.repos.find((r) => r.fullName === 'demo/disabled-repo')).toMatchObject({ archived: false, disabled: true })
+    })
+
     it('marks already imported repositories', async () => {
         // 预置一个已登记仓库（demo/alpha）
         const reposIndex = await import('../repos/index').then((m) => m.default)

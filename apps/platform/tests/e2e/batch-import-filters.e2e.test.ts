@@ -5,12 +5,15 @@ import { waitForHydration } from './helpers/hydration.helper'
  * 批量导入对话框过滤 + 分页 + 默认凭据 + 缓存命中 e2e（docs/plan/todo.md §PR3）。
  *
  * 覆盖点：
- * - PR3-1 C46 三维过滤控件存在（fork / visibility / search）
- * - PR3-2 C49 顶部「共 N 个」计数 + 默认 pageSize=25 + Paginator 可见
- * - PR3-3 C50 默认关联凭据下拉显示凭据选项 + 提交 payload 携带 defaultCredentialId
+ * - Dialog 渲染 + 默认关联凭据下拉 + 拉取用凭据下拉
+ * - 默认不勾选仓库（回归：手滑防护）
+ * - Dialog 默认不可拖动（回归：标题栏 mousedown 不移动弹窗）
  *
  * 不覆盖：服务端真实缓存命中（受 SSR+CSR 双层 fetch 影响，单测覆盖 hit/miss/expiry/fresh/in-flight）。
- * 不覆盖：fork/visibility filter 真实数据收敛（需 > 100 仓库凭据，单测覆盖 cache+paginate）。
+ * 不覆盖：fork/visibility/archived filter 真实数据收敛（需 > 100 仓库凭据，单测覆盖 cache+paginate）。
+ * 不覆盖：第 4 维 archived/disabled 过滤控件渲染断言（过滤 UI 仅在 importableRepos.length > 0 时渲染，
+ * 当前 e2e 场景无真实 GitHub 凭据/仓库；过滤谓词逻辑由 import-repos-filter.test.ts 单测覆盖，
+ * 后端透传由 importable.get.test.ts 覆盖）。
  *
  * 不 mock GitHub API（PR1 W11 教训）：e2e 走真实凭据（admin.json storageState）。
  */

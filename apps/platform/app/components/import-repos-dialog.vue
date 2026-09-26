@@ -2,7 +2,7 @@
 // 批量导入仓库弹窗（自 repos.vue 拆出：页面行数治理 max-lines 800）
 // 父组件传入已加载的凭据列表；导入成功后 emit('imported') 通知刷新仓库列表。
 // PR3 能力补全（docs/plan/todo.md §PR3）：
-//   - 三维过滤（fork / visibility / 关键字），过滤切换保留已勾选项（基于 id）
+//   - 四维过滤（fork / visibility / archived+disabled / 关键字），过滤切换保留已勾选项（基于 id）
 //   - 后端缓存（5min TTL + LRU max=64 + 并发去重）+ 前端 PrimeVue Paginator 默认 pageSize=25
 //   - 顶层 defaultCredentialId 提交时携带，导入的所有仓库写库带凭据
 const props = defineProps<{
@@ -25,6 +25,7 @@ interface ImportableRepo {
     private: boolean
     fork: boolean
     archived: boolean
+    disabled: boolean
     defaultBranch: string
     description: string | null
     imported: boolean
@@ -65,10 +66,12 @@ const importOwnerLogin = ref<string | null>(null)
 const ownersLoading = ref(false)
 const importableRepos = ref<ImportableRepo[]>([])
 const selectedRepos = ref<ImportableRepo[]>([])
-// 三维过滤（默认 source-only / all / 空关键字；docs/plan/todo.md §PR3-1）
+// 四维过滤（默认 source-only / all / 空关键字 / exclude archived+disabled；docs/plan/todo.md §PR3-1）
 const forkFilter = ref<'source' | 'all'>('source')
 const visibilityFilter = ref<'all' | 'public' | 'private'>('all')
 const searchKeyword = ref('')
+// 第 4 维：archived/disabled 过滤（默认排除——只读仓库无法接收 push / 创建 PR）
+const archivedFilter = ref<'exclude' | 'include'>('exclude')
 // 前端分页（默认 25，参考 PR3 用户决策避免单页过载；docs/plan/todo.md §PR3-2）
 const pageSize = ref<number>(25)
 const currentPage = ref(0)
@@ -82,27 +85,18 @@ const lastFreshRefreshed = ref(false)
 /** 可勾选仓库（排除已导入项；全选/计数均基于此集合） */
 const selectableRepos = computed(() => importableRepos.value.filter((r) => !r.imported))
 
-/** 三维过滤后的候选（保留 selectedRepos 语义见下方 resetPage 注；docs/plan/todo.md §PR3-1） */
+import { passesRepoFilter } from '../utils/import-repos-filter'
+
+/** 四维过滤后的候选（保留 selectedRepos 语义见下方 resetPage 注；docs/plan/todo.md §PR3-1） */
 const filteredRepos = computed(() => {
     const keyword = searchKeyword.value.trim().toLowerCase()
-    return importableRepos.value.filter((repo) => {
-        if (forkFilter.value === 'source' && repo.fork) {
-            return false
-        }
-        if (visibilityFilter.value === 'public' && repo.private) {
-            return false
-        }
-        if (visibilityFilter.value === 'private' && !repo.private) {
-            return false
-        }
-        if (keyword) {
-            const haystack = `${repo.fullName}\n${repo.description ?? ''}`.toLowerCase()
-            if (!haystack.includes(keyword)) {
-                return false
-            }
-        }
-        return true
-    })
+    return importableRepos.value.filter((repo) =>
+        passesRepoFilter(repo, {
+            fork: forkFilter.value,
+            visibility: visibilityFilter.value,
+            archived: archivedFilter.value,
+            keyword,
+        }))
 })
 
 /** 过滤后可勾选（基于 filteredRepos，排除已导入） */
@@ -378,7 +372,7 @@ const submitImport = async () => {
                 {{ t('common.empty.loading') }}
             </div>
             <template v-else-if="importableRepos.length">
-                <!-- 三维过滤（docs/plan/todo.md §PR3-1 C46） -->
+                <!-- 四维过滤 -->
                 <div class="import-form__filters">
                     <div class="import-form__filter">
                         <label>{{ t('repos.importFilterFork') }}</label>
@@ -400,6 +394,18 @@ const submitImport = async () => {
                                 {label: t('repos.importFilterVisibilityAll'), value: 'all'},
                                 {label: t('repos.importFilterVisibilityPublic'), value: 'public'},
                                 {label: t('repos.importFilterVisibilityPrivate'), value: 'private'}
+                            ]"
+                            option-label="label"
+                            option-value="value"
+                        />
+                    </div>
+                    <div class="import-form__filter">
+                        <label>{{ t('repos.importFilterArchived') }}</label>
+                        <SelectButton
+                            v-model="archivedFilter"
+                            :options="[
+                                {label: t('repos.importFilterArchivedExclude'), value: 'exclude'},
+                                {label: t('repos.importFilterArchivedInclude'), value: 'include'}
                             ]"
                             option-label="label"
                             option-value="value"
@@ -456,7 +462,7 @@ const submitImport = async () => {
                             <small class="text-muted">
                                 {{ repo.private ? t('repos.privateRepo') : t('repos.publicRepo') }} · {{ repo.defaultBranch }}
                                 <template v-if="repo.fork"> · fork</template>
-                                <template v-if="repo.archived"> · archived</template>
+                                <template v-if="repo.archived"> · archived</template><template v-if="repo.disabled"> · disabled</template>
                                 <template v-if="repo.imported"> · {{ t('repos.imported') }}</template>
                             </small>
                         </div>

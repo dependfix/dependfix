@@ -46,6 +46,7 @@ interface RawRepo {
     private: boolean
     fork: boolean
     archived: boolean
+    disabled: boolean
     default_branch?: string
     description: string | null
     permissions?: { push?: boolean }
@@ -159,6 +160,7 @@ export default defineEventHandler(async (event) => {
                 private: repo.private,
                 fork: repo.fork,
                 archived: repo.archived,
+                disabled: repo.disabled,
                 defaultBranch: repo.default_branch ?? 'main',
                 description: repo.description,
                 imported: existingKeys.has(repo.full_name),

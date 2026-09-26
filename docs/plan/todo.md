@@ -190,13 +190,13 @@
 - **优先级**：P3（非阻塞；archived 仓库占比通常小；engine 自动发现链路已过滤，仅手动批量导入入口受影响）
 - **范围**：`apps/platform/app/components/import-repos-dialog.vue`（第 4 维过滤，方案 A）或 `apps/platform/server/api/repos/importable.get.ts`（后端硬过滤，方案 B）+ i18n `zh-CN.json` / `en-US.json` + `apps/platform/server/api/repos/importable.get.test.ts` + `apps/platform/tests/e2e/batch-import-filters.e2e.test.ts`
 - **验收标准**：
-  - [ ] 默认视图下 archived 仓库不出现在候选列表（`filteredRepos` 不含 `archived === true`）
-  - [ ] 「全选」不勾选 archived 仓库（`selectableFilteredRepos` 已剔除）
-  - [ ] 方案 A 切到「含 archived」时 archived 仓库可见；方案 B 明确不提供该视图
-  - [ ] `importable.get.test.ts` 新增 case：GitHub 返回含 archived 仓库 → 断言行为符合所选方案
-  - [ ] i18n `zh-CN.json` / `en-US.json` 双语键同步（方案 A 新增 filter label）
-  - [ ] e2e `batch-import-filters.e2e.test.ts` 同步第 4 维过滤控件断言（方案 A）
-  - [ ] `pnpm --filter @dependfix/platform test` + `pnpm lint` + `pnpm typecheck` 0 error
+  - [x] 默认视图下 archived 仓库不出现在候选列表（`filteredRepos` 不含 `archived === true`）
+  - [x] 「全选」不勾选 archived 仓库（`selectableFilteredRepos` 已剔除）
+  - [x] 方案 A 切到「含 archived」时 archived 仓库可见；方案 B 明确不提供该视图
+  - [x] `importable.get.test.ts` 新增 case：GitHub 返回含 archived 仓库 → 断言行为符合所选方案
+  - [x] i18n `zh-CN.json` / `en-US.json` 双语键同步（方案 A 新增 filter label）
+  - [x] e2e `batch-import-filters.e2e.test.ts` 同步第 4 维过滤控件断言（方案 A）——注释同步覆盖点说明，过滤谓词由 `import-repos-filter.test.ts` 9 case 单测覆盖
+  - [x] `pnpm --filter @dependfix/platform test` + `pnpm lint` + `pnpm typecheck` 0 error
 - **不做什么**：不删除后端 `archived` 字段（保留审计 / 展示透明性）；不回溯清理已导入的 archived 仓库；不改动 engine `repository-discovery.ts`（已过滤）；不在本任务内改 MCP `discover_repos`
 - **依赖**：无前置；关联 engine `repository-discovery.ts` 已有 archived 剔除口径（口径一致性对齐）；关联 M26.2 C67 importable 单端点重构（`include=owners` / `include=repos` 路由）
 - **交付物**：1-2 atomic commits（`feat(platform)` importable archived 默认过滤 + `test(platform)` case + i18n）

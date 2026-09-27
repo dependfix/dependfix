@@ -76,7 +76,16 @@
 
 ---
 
-### M30.1 C87 跳过类审计条目退出码修正
+### M30.1 C87 跳过类审计条目退出码修正 ✅ **完成** (commit 41a13ab)
+
+- **目标**：`allErrors` 中的「跳过类」审计条目（`OVERRIDE_PROTECTED`、`SCRIPT_NOT_FOUND` 等）不再使 `computeExitCode` 判为 `hasErrors`，避免有意跳过导致 CI 常态非零退出。
+- **范围**：`packages/engine/src/app/result-assembly.ts`（`computeExitCode`）+ 跳过类 `category` 定义口径
+- **验收标准**：
+  - [x] 仅跳过类审计条目 → `exitCode 0`
+  - [x] 跳过类 + 真实失败 → 非 0
+  - [x] `pnpm lint` + `pnpm typecheck` + 定向测试通过
+- **优先级**：P2（直接影响 CI 可用性判定）
+- **复杂度**：~20-40 行 + 3-5 case
 
 - **目标**：`allErrors` 中的「跳过类」审计条目（`OVERRIDE_PROTECTED`、`SCRIPT_NOT_FOUND` 等）不再使 `computeExitCode` 判为 `hasErrors`，避免有意跳过导致 CI 常态非零退出。
 - **范围**：`packages/engine/src/app/result-assembly.ts`（`computeExitCode`）+ 跳过类 `category` 定义口径
@@ -89,7 +98,16 @@
 
 ---
 
-### M30.2 C86 repo-fix.ts 行数拆分
+### M30.2 C86 repo-fix.ts 行数拆分 ✅ **完成** (commit 6923fdc)
+
+- **目标**：`packages/engine/src/app/repo-fix.ts` 非空行 ≤ 800（当前 816，超 16 行），消除 eslint `max-lines` warning。
+- **范围**：`packages/engine/src/app/repo-fix.ts`，抽出「多版本 overrides 处理」循环为独立函数或拆分文件。
+- **验收标准**：
+  - [x] `NODE_ENV=production pnpm exec eslint packages/engine/src/app/repo-fix.ts` 无 `max-lines`
+  - [x] 既有 repo-fix 相关测试全过（行为不变）
+  - [x] `pnpm lint` + `pnpm typecheck` 通过
+- **优先级**：P3
+- **复杂度**：1 atomic commit（搬移约 40-60 行）
 
 - **目标**：`packages/engine/src/app/repo-fix.ts` 非空行 ≤ 800（当前 816，超 16 行），消除 eslint `max-lines` warning。
 - **范围**：`packages/engine/src/app/repo-fix.ts`，抽出「多版本 overrides 处理」循环为独立函数或拆分文件。
@@ -102,7 +120,15 @@
 
 ---
 
-### M30.3 C84 AI 质量门文档描述对齐
+### M30.3 C84 AI 质量门文档描述对齐 ✅ **完成** (commit 21bf8bb)
+
+- **目标**：剔除 4 个文档文件 8 处表述中的 `typecheck`，使文档与实际验证链（`DEFAULT_VERIFY_COMMANDS` = install/lint/build/test）一致。
+- **范围**：`docs/design/governance/architecture.md` + `platform-ai-integration.md`（各含 zh/en-US，共 4 文件 8 处）
+- **验收标准**：
+  - [x] 8 处表述与实际验证链一致（或改为引用常量名 `DEFAULT_VERIFY_COMMANDS`）
+  - [x] `pnpm run check:docs` + `pnpm run lint:md:check` EXIT 0；i18n 双语同步
+- **优先级**：P3
+- **复杂度**：1 atomic commit（纯文档）
 
 - **目标**：剔除 4 个文档文件 8 处表述中的 `typecheck`，使文档与实际验证链（`DEFAULT_VERIFY_COMMANDS` = install/lint/build/test）一致。
 - **范围**：`docs/design/governance/architecture.md` + `platform-ai-integration.md`（各含 zh/en-US，共 4 文件 8 处）
@@ -114,24 +140,21 @@
 
 ---
 
-### M30.4 C74 getCommitAuthor() 接线（GitHub App 真实 bot 身份）
+### M30.4 C74 getCommitAuthor() 接线（GitHub App 真实 bot 身份） ✅ **完成** (commit 61acfae)
 
 - **目标**：自动修复 commit 的 author 来源于凭据对应的真实 GitHub 身份。GitHub App 路径输出 `{app_id}[bot] <{app_id}+{bot_login}[bot]@users.noreply.github.com>`。
 - **范围**：
   - `packages/engine/src/auth/{auth-provider,pat-provider,app-provider}.ts`（`getCommitAuthor()` 透传）
   - `packages/engine/src/app/{helpers,index}.ts`（`stageAndCommit` 接收并透传 `author`）
-- **决策点（需用户敲定）**：
-  - PAT 路径是否同步调整（M18.0 决策 2「PAT 用户行为零变化」为约束）
+- **决策点（已敲定）**：
+  - **仅 App 路径接线**（PAT 路径保持 M18.0 兼容性不变，用户决策 2026-09-27）
   - App 路径 `botLogin` 透传链路（缺失时 fallback `dependfix[bot]`）
 - **验收标准**：
-  - [ ] GitHub App 凭据路径 commit author = 真实 bot 身份
-  - [ ] commit 在 GitHub 页面归属 App bot 账号（人工核验一次）
-  - [ ] PAT 路径行为按决策保持或同步调整
-  - [ ] auth-provider / pr-creator 单测覆盖接线路径
-  - [ ] `pnpm lint` + `pnpm typecheck` + 定向测试通过
-- **优先级**：P3
-- **复杂度**：1-2 atomic commits
-
+  - [x] GitHub App 凭据路径 commit author = 真实 bot 身份
+  - [x] commit 在 GitHub 页面归属 App bot 账号（人工核验一次）
+  - [x] PAT 路径行为按决策保持一致
+  - [x] auth-provider / pr-creator 单测覆盖接线路径
+  - [x] `pnpm lint` + `pnpm typecheck` + 定向测试通过
 ---
 
 ### M30.5 db-restore 审计未采纳项补测

@@ -1,5 +1,3 @@
-import { vi, describe, expect, it, beforeEach, afterEach, beforeAll } from 'vitest'
-
 /**
  * ContainerExecutor 补单测（M27.4 W4 / 2026-09-10）
  *
@@ -76,6 +74,7 @@ vi.mock('@dependfix/engine', async (importOriginal) => {
 import { mkdir, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { vi, describe, expect, it, beforeEach, afterEach, beforeAll } from 'vitest'
 
 import type { RunResult } from '@dependfix/core'
 import {

@@ -84,7 +84,7 @@ describe('dependfixCommand', () => {
             run: mockRun,
         } as any)
 
-        const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+        const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
 
         await cmd.run({ rawArgs: ['fix'] })
 

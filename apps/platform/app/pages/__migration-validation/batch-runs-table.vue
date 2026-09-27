@@ -276,7 +276,7 @@ const columns = [
                     </template>
 
                     <!-- Expansion Slot - 嵌套表格 -->
-                    <template #expansion="{data, index}">
+                    <template #expansion="{data}">
                         <div class="batch-expansion">
                             <div class="expansion-stats">
                                 <div class="stat-item">

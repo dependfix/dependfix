@@ -328,7 +328,7 @@ const columns = [
                     @row-collapse="onRowCollapse"
                 >
                     <!-- Group Header Slot -->
-                    <template v-if="viewMode !== 'none'" #groupheader="{data, index, groupValue}">
+                    <template v-if="viewMode !== 'none'" #groupheader="{data}">
                         <div
                             class="validation-group-header"
                             tabindex="0"
@@ -387,7 +387,7 @@ const columns = [
                     </template>
 
                     <!-- Expansion Slot for Row Detail -->
-                    <template #expansion="{data, index}">
+                    <template #expansion="{data}">
                         <div class="validation-expansion">
                             <div class="expansion-grid">
                                 <div><strong>Rule ID:</strong> {{ data.ruleId }}</div>

@@ -17,6 +17,7 @@ import {
 } from '@dependfix/core'
 import { stageAndCommit } from '../github/pr-creator'
 import { logNetworkAudit, redactUrlForReport } from '../runners/network-audit'
+import { type AuthProvider } from '../auth'
 import {
     compareSemver,
     parseMajorVersion,
@@ -244,6 +245,8 @@ export interface AppContext {
     summary: RunSummary
     startedAt: string
     finishedAt: string
+    /** GitHub App 认证提供者（用于 commit author 真实 bot 身份） */
+    authProvider?: AuthProvider
 }
 
 // ---------------------------------------------------------------------------
@@ -790,9 +793,9 @@ export async function verifyProject(
  *   因此这里不需要再检查这两个开关
  */
 export function commitLocalChanges(
-    ctx: Pick<AppContext, 'logger' | 'workDir' | 'allActions'>,
+    ctx: Pick<AppContext, 'logger' | 'workDir' | 'allActions' | 'authProvider'>,
 ): void {
-    const { logger, workDir, allActions } = ctx
+    const { logger, workDir, allActions, authProvider } = ctx
 
     if (!hasGitChanges(workDir)) {
         logger.info('No changes to commit — skipping local commit')
@@ -803,7 +806,8 @@ export function commitLocalChanges(
     ensureGitignore(workDir)
 
     const commitMessage = buildCommitMessage(allActions)
-    stageAndCommit(commitMessage, workDir)
+    const author = authProvider?.getCommitAuthor()
+    stageAndCommit(commitMessage, workDir, author)
     logger.info(`Committed fix changes to current branch: ${commitMessage.split('\n')[0]}`)
 }
 

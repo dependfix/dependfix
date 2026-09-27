@@ -10,6 +10,22 @@ export const SEVERITY_THRESHOLDS = ['critical', 'high', 'medium', 'all'] as cons
 export const ALERT_SOURCES: readonly AlertSourceKind[] = ['github-dependabot', 'pnpm-audit']
 
 /**
+ * GitHub App 认证配置（M30.4 / C74）。
+ * 通过 GitHub App installation token 认证时使用，用于生成真实 bot 身份的 commit author。
+ * 仅在 fix / fix-and-pr 模式下创建 commit 时生效；PAT 路径保持不变（M18.0 兼容性）。
+ */
+export interface GitHubAppConfig {
+    /** GitHub App ID */
+    appId: string
+    /** PEM 格式私钥 */
+    privateKey: string
+    /** Installation ID */
+    installationId: string
+    /** Bot 用户名（用于 commit author 动态生成；缺省 fallback `dependfix[bot]`） */
+    botLogin?: string
+}
+
+/**
  * 环境变量统一前缀（v0.2 起替代旧项目名遗留的 `AUTO_FIX_GITHUB_SECURITY_`）。
  * 所有环境变量读取必须经由 {@link readEnv}，禁止散落硬编码，防止改名漏网。
  */
@@ -72,6 +88,11 @@ export interface RuntimeConfig {
     /** fix-and-pr 模式下结束后是否自动删除已合并/已关闭的 dependfix 分支（非交互） */
     cleanupBranchesAuto: boolean
     githubToken: string
+    /**
+     * GitHub App 认证配置（用于 commit author 真实 bot 身份）。
+     * 仅 fix-and-pr / fix 模式下创建 commit 时使用；PAT 路径保持不变（M18.0 兼容性）。
+     */
+    githubApp?: GitHubAppConfig
     /**
      * 告警数据源。默认 `github-dependabot`（GitHub Dependabot alerts API）；
      * `pnpm-audit` 为本地无 token 回退（`pnpm audit --json`），repository 解析
@@ -269,6 +290,11 @@ export interface CliConfigOverrides {
      * 不进入运行配置（resolveRuntimeConfig 不消费），由 CLI 层直接处理。
      */
     history?: string
+    /**
+     * GitHub App 认证配置（用于 commit author 真实 bot 身份）。
+     * 仅 fix / fix-and-pr 模式下创建 commit 时使用；PAT 路径保持不变。
+     */
+    githubApp?: GitHubAppConfig
 }
 
 export interface ResolveRuntimeConfigOptions {
@@ -531,6 +557,7 @@ export function readEnvConfig(env: NodeJS.ProcessEnv = process.env): CliConfigOv
         aiApiUrl: readEnv(env, 'AI_API_URL')?.trim() || undefined,
         aiApiKey: readEnv(env, 'AI_API_KEY')?.trim() || undefined,
         aiTrigger: readAiTrigger(readEnv(env, 'AI_TRIGGER'), `${ENV_PREFIX}AI_TRIGGER`),
+        githubApp: readGitHubAppConfig(readEnv(env, 'GITHUB_APP_CONFIG')),
     }
 }
 
@@ -554,6 +581,27 @@ function readAiTrigger(value: string | undefined, name: string): AiTriggerKind |
         return normalized
     }
     throw new AppError('CONFIG_PARSE_ERROR', `Invalid ${name} value: "${value}". Expected "failure", "major" or "both".`)
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function readGitHubAppConfig(value: string | undefined): GitHubAppConfig | undefined {
+    if (value === undefined || value.trim() === '') {
+        return undefined
+    }
+    try {
+        const parsed: any = JSON.parse(value.trim())
+        if (!parsed.appId || !parsed.privateKey || !parsed.installationId) {
+            throw new Error('Missing required fields: appId, privateKey, installationId')
+        }
+        return {
+            appId: String(parsed.appId),
+            privateKey: String(parsed.privateKey),
+            installationId: String(parsed.installationId),
+            botLogin: parsed.botLogin ? String(parsed.botLogin) : undefined,
+        }
+    } catch {
+        throw new AppError('CONFIG_PARSE_ERROR', 'Invalid GITHUB_APP_CONFIG: expected JSON with appId, privateKey, installationId, optional botLogin')
+    }
 }
 
 function resolveDryRun(mode: RuntimeMode, cliOverrides: CliConfigOverrides, envConfig: CliConfigOverrides): boolean {
@@ -778,7 +826,20 @@ function validateRuntimeConfig(config: RuntimeConfig): RuntimeConfig {
         )
     }
 
+    if (config.githubApp) {
+        validateGitHubAppConfig(config.githubApp)
+    }
+
     return config
+}
+
+function validateGitHubAppConfig(config: GitHubAppConfig): void {
+    if (!config.appId || !config.privateKey || !config.installationId) {
+        throw new AppError(
+            'CONFIG_VALIDATION_ERROR',
+            'GitHub App config requires appId, privateKey, and installationId',
+        )
+    }
 }
 
 export function resolveRuntimeConfig(options: ResolveRuntimeConfigOptions = {}): RuntimeConfig {
@@ -829,6 +890,7 @@ export function resolveRuntimeConfig(options: ResolveRuntimeConfigOptions = {}):
         overrideProtect: cliOverrides.overrideProtect ?? envConfig.overrideProtect,
         toolchainPnpmVersion: cliOverrides.toolchainPnpmVersion ?? envConfig.toolchainPnpmVersion,
         ai: resolveAiOptions(cliOverrides, envConfig),
+        githubApp: cliOverrides.githubApp ?? envConfig.githubApp,
     }
 
     return validateRuntimeConfig(config)

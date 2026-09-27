@@ -18,7 +18,7 @@ import {
     type FixAction,
     type FixError,
 } from '@dependfix/core'
-import { fromPat } from '../auth'
+import { fromPat, fromApp, type AuthProvider } from '../auth'
 import {
     createFixBranch,
     stageAndCommit,
@@ -173,6 +173,8 @@ export class DependfixApp {
     private readonly customCommands?: string[]
     private readonly executionEnvironment: 'local' | 'container'
     private readonly runId: string
+    /** GitHub App 认证提供者（用于 commit author 真实 bot 身份；仅 fix/fix-and-pr 模式生效） */
+    private readonly githubAppAuth?: AuthProvider
 
     private readonly allAlerts: NormalizedSecurityAlert[] = []
     private readonly allActions: FixAction[] = []
@@ -196,6 +198,11 @@ export class DependfixApp {
         this.customCommands = options.commands
         this.executionEnvironment = options.executionEnvironment ?? 'local'
         this.runId = `dependfix-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
+
+        // GitHub App 认证提供者（用于 commit author 真实 bot 身份）
+        if (this.config.githubApp) {
+            this.githubAppAuth = fromApp(this.config.githubApp)
+        }
 
         // 使用自定义 Logger（平台层注入 MemoryLogger）或内部创建
         this.logger = options.logger ?? createLogger({
@@ -238,6 +245,7 @@ export class DependfixApp {
             summary: this.summary,
             startedAt: this.startedAt,
             finishedAt: this.finishedAt,
+            authProvider: this.githubAppAuth,
         }
     }
 
@@ -567,7 +575,8 @@ export class DependfixApp {
             this.logger.info(`Creating fix branch: ${branchName}`)
 
             this.logger.info('Staging and committing changes')
-            stageAndCommit(buildCommitMessage(this.allActions), this.workDir)
+            const author = this.githubAppAuth?.getCommitAuthor()
+            stageAndCommit(buildCommitMessage(this.allActions), this.workDir, author)
 
             this.logger.info(`Pushing branch: ${branchName}`)
             pushBranch(branchName, this.workDir)

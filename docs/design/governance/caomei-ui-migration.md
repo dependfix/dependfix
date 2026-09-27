@@ -404,12 +404,88 @@ PrimeTek 已公告 PrimeVue 5.x 起转入 PrimeUI 商业许可（Community 免�
 - caomei-ui 侧（外部仓库）：[从 PrimeVue 迁移指南](https://github.com/CaoMeiYouRen/caomei-ui/blob/master/docs/guide/primevue-migration.md)、[设计规范 §7 迁移映射](https://github.com/CaoMeiYouRen/caomei-ui/blob/master/docs/design/design-spec.md)、[主题与样式设计](https://github.com/CaoMeiYouRen/caomei-ui/blob/master/docs/design/theming.md)
 
 ---
-
+ 
 ## 14. 文档元数据
-
+ 
 - **创建时间**：2026-09-22
 - **文档类型**：迁移评估与方案（设计先行稿）
 - **取数快照**：dependfix `1a73abc`（2026-09-22）/ caomei-ui `58f814d`（2026-09-22，版本 0.1.0）
 - **关联阶段**：未上收（仅挂 [Backlog](../../plan/backlog.md) 候选）；阶段编号待用户决策时分配
 - **审计依据**：本文档为评估先行稿，未触发代码改动；A 阶段审计按 [AI 协作规范](../../standards/ai-collaboration.md) 的文档改动口径执行
 - **口径说明**：本文所有计数为 `.vue` 开标签与 quote-aware 属性的静态统计；caomei-ui 能力面以设计规范 §7 与源码 props 为唯一事实源；未运行任一仓库构建 / 测试
+ 
+---
+ 
+## 15. caomei-ui 0.3.0 重新评估补记（2026-09-27）
+ 
+> 2026-09-27 caomei-ui 发布 **0.3.0**（npm `latest`），本节记录关键路径阻塞点的最新闭环情况，作为上收决策的补充依据。
+ 
+### 15.1 关键路径阻塞点闭环确认
+ 
+| 原评估 §5.2 缺口 | 0.3.0 现状 | 闭环确认 |
+|-----------------|-----------|---------|
+| **行分组 subheader** | ✅ `rowGroupMode="subheader"` + `groupRowsBy` + `expandableRowGroups` + `expandedRowGroups` + `#groupheader` + `@update:expandedRowGroups` | **已闭环** |
+| **可展开/折叠分组** | ✅ 内建折叠按钮 + 受控 `expandedRowGroups` | **已闭环** |
+| **行展开** | ✅ `expander: true` 列 + `expandedRows` + `#expansion` 槽 + `@update:expandedRows` | **已闭环** |
+| **多列排序** | ✅ `sortMode="multiple"` + `multiSortMeta` + `sortDescFirst` | **已闭环** |
+| **降序优先** | ✅ `sortDescFirst: true` | **已闭环** |
+ 
+> **结论**：原评估中最大的结构性风险（DataTable 能力面）在 0.3.0 中**全部已由库侧闭环**。选项 A（库侧补齐）已完成，无需 dependfix 侧等待或结构性改写。
+ 
+### 15.2 新增组件覆盖
+ 
+| 原缺口项 | 0.3.0 新增 | 迁移处置更新 |
+|---------|-----------|-------------|
+| `Chips` 标签录入 | ✅ **`TagsInput`**（`v-model: string[]` + `delimiter` + `max` + `allowDuplicate` + `addOnPaste/Blur/Tab`） | 直接用 `CaomeiTagsInput` 替代，**无需改写** |
+ 
+### 15.3 仍需处理的局部缺口（更易处理）
+ 
+| 缺口项 | 原编号 | 0.3.0 现状 | 迁移处置 |
+|--------|--------|-----------|----------|
+| `Select` 可搜索单选 | §5.3 #1 | 仍无 `filter` prop | 改用 `AutoComplete` + `strict: true`（强制从 IANA 列表选） |
+| `MultiSelect` filter + chip | §5.3 #2 | 仍无 `filter` / `display` | 删除两属性，搜索内建常开、形态固定 chip |
+| `ScrollPanel` | §5.3 #4 | 仍无 | 原生 `<div style="overflow:auto">` + CSS |
+| `Paginator` template | §5.3 #5-6 | 无 `template` / `CurrentPageReport` | 自渲染「第 x / 共 y 页」或接受默认形态 |
+| `--p-*` / `.p-*` token | §6 | 命名空间已隔离 | 逐项改 `--caomei-*` / `.caomei-*` |
+ 
+### 15.4 迁移可行性重新定级
+ 
+| 维度 | 原评估 (0.1.0) | 重新评估 (0.3.0) |
+|------|----------------|------------------|
+| **整体可行性** | 有条件可行 | **高度可行**（阻塞点已清零） |
+| **关键路径工作量** | 高（需库侧补齐或结构性改写） | **低**（库侧已就绪，主要是机械映射） |
+| **e2e 回归面** | 16 文件深度依赖 PrimeVue class | 仍需改写选择器，但功能语义可 1:1 保留 |
+| **建议策略** | 选项 C（混合：先 B 后等 A） | **直接全量分批迁移**（无需等库侧） |
+ 
+### 15.5 更新后的分批计划（简化版）
+ 
+| 批次 | 内容 | 预估工作量 |
+|------|------|------------|
+| **B0** | Token/图标映射表、视觉基线、并存白名单 | 1-2 天 |
+| **B1** | **DataTable 密集页迁移**（alerts / batch-runs / pr-checks / scans / repos 等） | 3-5 天 |
+| **B2** | 表单/浮层组件全量切换 + i18n/Toast/Confirm 接线 | 2-3 天 |
+| **B3** | 收尾：卸载 5 个 PrimeVue 依赖、清理样式、e2e 全通 | 1-2 天 |
+ 
+**总工期估算**：约 **1-2 周**（含验证），显著低于原评估。
+ 
+### 15.6 需注意的 0.3.0 破坏性变更
+ 
+1. **样式入口**：`caomei-ui/theme.css`（而非 0.1.0 的 `styles.css`）
+2. **包形态**：组件样式随构建产物按需自带，基础层仅 `theme.css`
+3. **Nuxt 模块配置**：
+   ```ts
+   // nuxt.config.ts
+   modules: ['caomei-ui/nuxt', '@nuxtjs/i18n'],
+   caomeiUI: {
+     prefix: 'Caomei',
+     darkMode: 'class',
+     theme: { primary: '#0d9488' }  // token 覆盖
+   }
+   ```
+4. **主色实底对比度**：仍需把 `--caomei-color-primary-solid` 设为 `#0f766e` (teal-700) 达 AA 标准
+ 
+### 15.7 回收触发条件核对
+ 
+> **Backlog C88 触发条件第 3 条**：`caomei-ui 发布 ≥ 0.2.0 稳定版并明确 0.x API 冻结窗口` —— **已满足**（0.3.0 已发布 npm `latest`）
+ 
+> 其他条件：用户明确授权启动、关键路径取向裁定、出现必须升级 PrimeVue 5.x 的问题 —— 待用户决策。

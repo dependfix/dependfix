@@ -423,8 +423,8 @@
 
 | 内容类型 | 位置 |
 |:--|:--|
-| 当前阶段活跃任务 | [todo.md](todo.md)（M29 修复交付链路正确性 + 能力扩展规划中，2026-09-21 用户决策方案 M29-B；M28 已 2026-09-11 归档，详见 [todo-archive.md §M28](todo-archive.md#m28-治理债清理--能力扩展m281-m285-全部已闭环--2026-09-11-归档) + [archive/todo-archive-phases-m28.md](archive/todo-archive-phases-m28.md)） |
+| 当前阶段活跃任务 | [todo.md](todo.md)（M29 已 2026-09-27 完整归档，下一阶段待用户决策启动；M28 已 2026-09-11 归档，详见 [todo-archive.md §M28](todo-archive.md#m28-治理债清理--能力扩展m281-m285-全部已闭环--2026-09-11-归档) + [archive/todo-archive-phases-m28.md](archive/todo-archive-phases-m28.md)） |
 | 已完成阶段归档 | [todo-archive.md](todo-archive.md)（主窗口保留最近阶段完整段 + 指针段；早期阶段见 [archive/](archive/)） |
-| 里程碑与阶段交付 | [roadmap.md](roadmap.md)（M0-M28 全部已完成归档；M29 规划中） |
+| 里程碑与阶段交付 | [roadmap.md](roadmap.md)（M0-M29 全部已完成归档） |
 | 长期主线 / 候选 / 待人工验收 / 已知边界 | 本文档（按四象限结构） |
 | 历史归档索引 | [archive/index.md](archive/index.md) |

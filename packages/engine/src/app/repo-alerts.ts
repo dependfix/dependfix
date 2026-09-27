@@ -15,7 +15,7 @@ import {
     dependabotAlertsDisabledHint,
     dependabotAlertsTokenHint,
     isAlertsDisabledError,
-} from './helpers'
+} from './token-hints'
 
 /** fetchRepoAlerts 所需的最小上下文切片（AppContext 满足此结构）。 */
 export interface FetchAlertsDeps {

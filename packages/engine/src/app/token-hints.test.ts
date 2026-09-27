@@ -9,7 +9,7 @@ import {
     dependabotAlertsTokenHint,
     isAlertsDisabledError,
     pullRequestCreationHint,
-} from './helpers'
+} from './token-hints'
 
 describe('pullRequestCreationHint', () => {
     it('returns guidance for GITHUB_TOKEN PR creation 403', () => {

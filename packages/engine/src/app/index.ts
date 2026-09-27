@@ -51,20 +51,18 @@ import {
     buildPrTitle,
     buildRunResult,
     closeSupersededPRs,
-    codeScanningAlertsTokenHint,
     commitLocalChanges,
     computeExitCode,
     computeSummary,
-    dependabotAlertsTokenHint,
     ensureGitignore,
     hasGitChanges,
-    pullRequestCreationHint,
     reportCleanupCandidates,
     autoCleanupMergedBranches,
     resolveAlertRepositories,
     runBranchCleanupForRepo,
     type AppContext,
 } from './helpers'
+import { codeScanningAlertsTokenHint, dependabotAlertsTokenHint, pullRequestCreationHint } from './token-hints'
 
 // 仅 re-export 平台直接调用的辅助函数（PR 创建在平台 A 模式复用）
 export { buildPrTitle } from './helpers'

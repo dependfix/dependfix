@@ -32,8 +32,6 @@ import { buildUpgradeGroups } from '../grouping'
 import { handleOverrideProtection } from './override-protect'
 import {
     buildVersionedOverrides,
-    codeScanningAlertsTokenHint,
-    dependabotAlertsTokenHint,
     mergeAiUsage,
     runCodeScanningFixes,
     tryLockfileRepair,
@@ -42,6 +40,7 @@ import {
     type AppContext,
 } from './helpers'
 import { fetchDefaultBranch, fetchRepoAlerts, truncatedWarning } from './repo-alerts'
+import { codeScanningAlertsTokenHint, dependabotAlertsTokenHint } from './token-hints'
 
 // ---------------------------------------------------------------------------
 // 单仓库修复管线（fix / fix-and-pr 模式共用）

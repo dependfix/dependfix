@@ -64,7 +64,7 @@
 - **T703 跨平台 Git**（GitLab + Bitbucket）—— 2026-08-12 用户指示暂缓排期
 - **C30 Publish Docker build job 失败排查** —— 2026-08-18 用户决策暂缓（双平台构建 23m 2s 成功证明当前 docker.yml 可稳定工作）；恢复条件：① master 分支 push 频率显著提升；② 镜像实际发布成为强需求（v1.0.0 正式发布前）；③ 用户明确恢复
 - **§M14.2 PrimeVue 4 → 5 升级评估** —— 2026-08-26 dependabot #49 触发评估，Nuxt build 报 `Rolldown failed to resolve import "primevue/inputcolor"`（v5 改组件导入约定）。`@primevue/nuxt-module` 5.x + `@primeuix/themes` 3.x 需联动升级，影响 `apps/platform/nuxt.config.ts` 及可能的 DataTable 等组件用法。PR 已关闭，恢复条件：① 评估 PrimeVue 5 migration guide 工作量；② 与 PrimeVue 4 + Nuxt hydration 兼容性问题的修复路径联动决策——该问题已由 alerts 迁移 `useAsyncData` 解决，可独立评估升级；③ 用户明确恢复
-- **db-restore 审计未采纳项（M22.2 落地遗留）** —— 2026-09-01 M22.2 A 阶段审计 S-1 第 2/3/4 项 + S-2 未采纳：① `inspectSqliteFile` 能打开但 `integrity_check != 'ok'` 分支未覆盖（需用 `PRAGMA writable_schema` 构造损坏 fixture）；② 恢复后 `integrity_check` 失败分支未覆盖（需 mock 注入）；③ sidecar `unlinkSync` 部分失败的 `removedSidecars` 状态一致性未覆盖；④ `--from` / `--to` 未做路径规范化（不校验 `..` / 符号链接）。当前 `db-restore` 是本地管理员工具，攻击面极低；恢复条件：脚本被远程 / 容器自动化触发，或补测试成本下降（对应实现见 `apps/platform/server/database/scripts/db-restore.ts`）
+- **db-restore 审计未采纳项（M22.2 落地遗留）** ✅ **已上收 M30.5** —— 2026-09-01 M22.2 A 阶段审计 S-1 第 2/3/4 项 + S-2 未采纳：① `inspectSqliteFile` 能打开但 `integrity_check != 'ok'` 分支未覆盖（需用 `PRAGMA writable_schema` 构造损坏 fixture）；② 恢复后 `integrity_check` 失败分支未覆盖（需 mock 注入）；③ sidecar `unlinkSync` 部分失败的 `removedSidecars` 状态一致性未覆盖；④ `--from` / `--to` 未做路径规范化（不校验 `..` / 符号链接）。当前 `db-restore` 是本地管理员工具，攻击面极低；恢复条件：脚本被远程 / 容器自动化触发，或补测试成本下降（对应实现见 `apps/platform/server/database/scripts/db-restore.ts`）
 - **ScanResult 数据层去重（upsert 唯一索引）** —— 2026-09-02 M23.3 决策暂缓：应用层去重（fingerprint + occurrenceCount / firstSeenAt / lastSeenAt / affectedRunIds）已实施且满足当前业务需求；恢复条件：出现"fix 复用同一 `scan_run_id` 跨次刷新"或"历史 fixStatus 跨次保留"需求时迁移到数据层 upsert（关联 [todo-archive.md §M23](todo-archive.md#m23-m22-治理债收口--根因排查--能力扩展--测试补强m230m231m232m233m234-全部已闭环--2026-09-02-归档)）
 
 ### 远期登记 / 未排期增强候选
@@ -91,7 +91,7 @@
 
 #### 修复交付链路（验证 / commit / push / PR）
 
-- **C74 接线 `getCommitAuthor()`，让 GitHub App 凭据路径使用真实 bot 身份** —— 同 M29.2（原 C73）分析衍生；评估完成待上收；**不带 M\d+ 阶段编号**。
+- **C74 接线 `getCommitAuthor()`，让 GitHub App 凭据路径使用真实 bot 身份** ✅ **已上收 M30.4** —— 同 M29.2（原 C73）分析衍生；评估完成待上收；**不带 M\d+ 阶段编号**。
   - **目标**：自动修复 commit 的 author 来源于凭据对应的真实 GitHub 身份——GitHub App 路径输出沿用 M18.x 既有 author 约定的 `{app_id}[bot]` / `{app_id}+{bot_login}[bot]@users.noreply.github.com`（email 格式决定 GitHub 账号归属，name 属显示层）。
   - **范围**：`packages/engine/src/auth/{auth-provider,pat-provider,app-provider}.ts`（`getCommitAuthor()` 接线）+ `packages/engine/src/app/{helpers,index}.ts`（author 透传）。
   - **现状实证**（2026-09-21 代码核对）：
@@ -361,6 +361,7 @@
   - **优先级**：P3（License 风险已清零，非阻塞；属组件库统一与长期可维护性事项）
   - **复杂度估算**：代码面 23 个 `.vue` + `nuxt.config.ts` + 插件 + e2e 16 文件；文档面评估已交付、实施期需同步 `platform.md` / `tech-stack.md`。
   - **回收触发条件核对**：✅ 条件 3 已满足（caomei-ui ≥ 0.2.0 稳定版已发布）；条件 1/2/4 待用户决策。
+  - **后续流程**：**待 M30.6 V1-V3 全绿验证通过后**，由用户决策启动 **M31 正式迁移阶段**（独立阶段，不在 M30 内执行）。
 
 
 ## 待人工验收（真实环境，随可用性推进）

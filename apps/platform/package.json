@@ -72,7 +72,7 @@
     "postcss": "^8.5.28",
     "stylelint": "17.15.0",
     "stylelint-config-cmyr": "^1.0.0",
-    "tsx": "^4.23.13",
+    "tsx": "^4.23.15",
     "vue-tsc": "^3.3.11"
   }
 }

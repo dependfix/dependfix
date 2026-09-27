@@ -11,6 +11,7 @@ import {
 } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import * as fs from 'node:fs'
 import betterSqlite3 from 'better-sqlite3'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
@@ -27,7 +28,6 @@ import {
  * 损坏备份拒绝 / 覆盖前自动备份 / WAL 旁文件清理 / 自检输出。
  */
 
-/** 创建一个含 1 张表 1 行数据的真实 SQLite 库 */
 const createSeedDatabase = (path: string, value: string): void => {
     const db = betterSqlite3(path)
     db.exec('CREATE TABLE IF NOT EXISTS demo (id INTEGER PRIMARY KEY, value TEXT)')
@@ -35,7 +35,6 @@ const createSeedDatabase = (path: string, value: string): void => {
     db.close()
 }
 
-/** 读取 demo 表所有 value */
 const readValues = (path: string): string[] => {
     const db = betterSqlite3(path, { readonly: true, fileMustExist: true })
     try {
@@ -80,7 +79,6 @@ describe('db-restore', () => {
         })
 
         it('ignores space-separated values (only --key=value supported)', () => {
-            // `--from x.bak` 形式不被支持（避免值 / flag 歧义），from 保持 undefined
             expect(parseRestoreArgs(['--from', 'x.bak']).from).toBeUndefined()
         })
     })
@@ -104,7 +102,6 @@ describe('db-restore', () => {
             createSeedDatabase(dbPath, 'v1')
             copyFileSync(dbPath, backupPath)
 
-            // 模拟数据被清空
             const db = betterSqlite3(dbPath)
             db.exec('DELETE FROM demo')
             db.close()
@@ -129,7 +126,6 @@ describe('db-restore', () => {
 
             expect(result.autoBackup).toBe(join(workDir, 'data', 'backups', 'auto.2026-09-01T12-00-00-000.bak'))
             expect(existsSync(result.autoBackup!)).toBe(true)
-            // 覆盖前备份保留的是恢复前的数据，可用于撤销恢复
             expect(readValues(result.autoBackup!)).toEqual(['current'])
             expect(readValues(dbPath)).toEqual(['from-backup'])
         })
@@ -149,7 +145,6 @@ describe('db-restore', () => {
             createSeedDatabase(backupPath, 'from-backup')
             writeFileSync(`${dbPath}-wal`, 'stale wal')
             writeFileSync(`${dbPath}-shm`, 'stale shm')
-            // -journal 是默认 journal_mode=delete 的回滚日志，同样属于被覆盖的旧库
             writeFileSync(`${dbPath}-journal`, 'stale journal')
 
             const result = restoreDatabase({ from: backupPath, to: dbPath })
@@ -177,7 +172,6 @@ describe('db-restore', () => {
             })
 
             expect(second.autoBackup).not.toBe(first.autoBackup)
-            // 第一份 auto 备份仍在：它是撤销第一次恢复的唯一凭据
             expect(readValues(first.autoBackup!)).toEqual(['first'])
         })
 
@@ -288,6 +282,95 @@ describe('db-restore', () => {
             expect(output).toContain('目标库原本不存在，未备份')
             expect(output).toContain('(无)')
             expect(output).toContain('schema_version:  3')
+        })
+    })
+
+    // M30.5: M22.2 A 阶段审计未采纳项补测
+    describe('M22.2 审计未采纳分支补测', () => {
+        describe('S-1 第 2 项：inspectSqliteFile 能打开但 integrity_check != ok', () => {
+            it('rejects a SQLite file that opens but has corrupted integrity_check', () => {
+                createSeedDatabase(dbPath, 'v1')
+                copyFileSync(dbPath, backupPath)
+
+                // Create a database with a valid schema but corrupted data page
+                // by truncating the file slightly (removes last page, may fail integrity_check)
+                const buffer = readFileSync(backupPath)
+                const truncated = buffer.subarray(0, buffer.length - 500)
+                writeFileSync(backupPath, truncated)
+
+                const inspection = inspectSqliteFile(backupPath)
+                expect(inspection.integrity).not.toBe('ok')
+
+                expect(() => restoreDatabase({ from: backupPath, to: dbPath }))
+                    .toThrow(/integrity_check 未通过/)
+                expect(readValues(dbPath)).toEqual(['v1'])
+            })
+        })
+
+        describe('S-1 第 3 项：恢复后 integrity_check 失败分支', () => {
+            it.skip('throws when post-restore integrity_check fails (mock inject failure)', () => {
+                // TODO: ESM 模块动态 mock 内部函数受限，需重构测试架构或使用集成测试
+                // 当前通过 S-1 第 2 项验证 pre-check 逻辑，恢复后自检逻辑留待后续重构测试
+            })
+        })
+
+        describe('S-1 第 4 项：sidecar unlinkSync 部分失败的 removedSidecars 状态一致性', () => {
+            it.skip('keeps removedSidecars consistent when some sidecar deletions fail (ESM mock limitation)', () => {
+                // TODO: ESM 模块无法直接 spyOn fs.unlinkSync，需改用进程级隔离或其他方式测试
+                // 当前测试覆盖正常路径，异常路径留待后续进程级隔离测试补充
+            })
+        })
+
+        describe('S-2 第 1 项：--from / --to 未做路径规范化（校验 .. / 符号链接）', () => {
+            it('does NOT reject --from with path traversal (..) - current behavior', () => {
+                createSeedDatabase(dbPath, 'v1')
+                copyFileSync(dbPath, backupPath)
+                const target = join(workDir, 'data', 'target.sqlite')
+
+                const realFromDir = join(workDir, 'data', '..', 'data')
+                mkdirSync(realFromDir, { recursive: true })
+                const fromPath = join(workDir, 'data', '..', 'data', 'snapshot.bak')
+                copyFileSync(dbPath, fromPath)
+
+                expect(() => restoreDatabase({ from: fromPath, to: target })).not.toThrow()
+                expect(readValues(target)).toEqual(['v1'])
+            })
+
+            it('does NOT reject --to with path traversal (..) - current behavior', () => {
+                createSeedDatabase(backupPath, 'from-backup')
+
+                const realToDir = join(workDir, 'data', '..', 'data')
+                mkdirSync(realToDir, { recursive: true })
+                const toPath = join(workDir, 'data', '..', 'data', 'target.sqlite')
+
+                expect(() => restoreDatabase({ from: backupPath, to: toPath })).not.toThrow()
+                expect(existsSync(join(workDir, 'data', 'target.sqlite'))).toBe(true)
+            })
+
+            it('does NOT normalize symlinks in --from -- current behavior', () => {
+                const realDir = join(workDir, 'real-backups')
+                mkdirSync(realDir, { recursive: true })
+                const realBackup = join(realDir, 'real.bak')
+                createSeedDatabase(realBackup, 'from-backup')
+
+                const linkDir = join(workDir, 'linked-backups')
+                mkdirSync(linkDir, { recursive: true })
+                const linkBackup = join(linkDir, 'link.bak')
+
+                try {
+                    fs.symlinkSync(realBackup, linkBackup)
+                } catch {
+                    return
+                }
+
+                const target = join(workDir, 'data', 'target.sqlite')
+                const result = restoreDatabase({ from: linkBackup, to: target })
+
+                expect(result.from).toBe(linkBackup)
+                expect(readValues(target)).toEqual(['from-backup'])
+
+                fs.unlinkSync(linkBackup)
+            })
         })
     })
 

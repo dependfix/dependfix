@@ -19,7 +19,6 @@ import {
     upgradeDependency,
 } from '../fixers/dependency'
 import { runAiIntegration } from '../ai/app-integration'
-import { buildUpgradeGroups } from '../grouping'
 import {
     dedupeFixableAlerts,
     isRootDirectDependency,
@@ -29,6 +28,7 @@ import {
     snapshotTrackedFiles,
     type MemberManifestAlert,
 } from '../helpers'
+import { buildUpgradeGroups } from '../grouping'
 import { handleOverrideProtection } from './override-protect'
 import {
     buildVersionedOverrides,
@@ -133,9 +133,9 @@ export async function processRepoFix(
 }
 
 /**
- * 步骤 1：抓取告警（双源 + 截断提示）→ Code Scanning 模板修复 → 依赖告警分区。
- * @returns 依赖告警分区产物（root/member/lockfilePath）
- */
+     * 步骤 1：抓取告警（双源 + 截断提示）→ Code Scanning 模板修复 → 依赖告警分区。
+     * @returns 依赖告警分区产物（root/member/lockfilePath）
+     */
 async function prepareRepoFix(
     ctx: RepoFixCtx,
     client: Octokit | null,
@@ -200,27 +200,10 @@ async function applyLockfileFixes(
 ): Promise<{ singleVersionAlerts: NormalizedSecurityAlert[] }> {
     const { rootManifestAlerts, lockfilePath } = sets
 
-    // 2.0 lockfile 脆弱实例 → overrides 修复（独立于分组升级，避免全局覆盖误伤根声明）
-    // 门槛：该包在 lockfile 中存在脆弱实例（低于某大版本线的推荐目标）——
-    // 覆盖多 major（vite@5.4.14 + vite@8.2.0）与同 major 多小版本
-    // （fast-uri@3.1.0 + 3.1.5）两类场景（2026-08-06 run 31028234123 复盘）。
-    // key 形式：真实多 major 共存 → 版本化 `pkg@major`；单 major → 无版本号 `pkg`
-    // （2026-08-09 复盘：单 major 用 `pkg@major` 会与既有无版本号条目分裂并存）
     const lockfileManifestAlerts = rootManifestAlerts.filter(
         (a) => a.source !== 'code-scanning' && a.manifestPath.trim().replace(/\\/g, '/') === 'pnpm-lock.yaml'
             && a.fixable && a.recommendedVersion,
     )
-    // 2.0 跨线告警分流（跨线告警复盘 + --allow-major-upgrade 扩展）：
-    // 推荐版本的 major 不在 lockfile 实例 majors 中 → 本大版本线无修复版本
-    // （如 5.x 实例的 GHSA-fx2h 推荐 6.4.3），只能跨大版本升级修复。
-    // 默认保持不跨大版本自动升级——此类告警不修复、不标 fixed/converged，
-    // 计入 skipped 并提示人工检查/升级/批准。
-    // --allow-major-upgrade 显式授权后，仅「根 package.json 直接依赖 + lockfile
-    // 单版本」的跨线告警进入 2.0.2 自动跨线（改声明 + 升级后实例复核 + 强制完整
-    // 验证 + 失败回滚）；workspace 成员独占声明（root 未声明，修复器只改根
-    // manifest——必然失败）、间接依赖、多版本共存跨线告警维持人工（跨线版本化
-    // overrides 会破坏依赖方 range 导致 install 失败，全局 override 会降级根声明
-    // ——保守正确，降级声明教训）。
     const allCrossMajorAlerts = lockfileManifestAlerts.filter((a) => isCrossMajorFixRequired(lockfilePath, a))
     const manualCrossMajorAlerts = allCrossMajorAlerts.filter(
         (a) => !(ctx.config.allowMajorUpgrade
@@ -261,17 +244,12 @@ async function applyLockfileFixes(
             .filter(([, overrides]) => Object.keys(overrides).length > 0)
             .map(([packageName]) => packageName),
     )
-    // 多版本包的所有 lockfile 告警进入 2.0.1（按告警身份排除，不按包名——同包
-    // 其他 manifest 告警（package.json 根声明等）保留在常规链路，避免静默丢失）
     const multiVersionAlerts = fixableLockfileAlerts.filter((a) => multiVersionPackages.has(a.packageName))
     const multiVersionAlertIds = new Set(multiVersionAlerts.map((a) => a.id))
-    // 常规链路同样排除跨线告警（避免 no-downgrade 用最高实例版本误判 converged——
-    // 8.2.0 的安全会掩盖 5.4.x 实例的跨线告警未修复，PR #28 复盘）
     const singleVersionAlerts = rootManifestAlerts.filter(
         (a) => !multiVersionAlertIds.has(a.id) && !crossMajorAlertIds.has(a.id) && !autoMajorAlertIds.has(a.id),
     )
 
-    // 2.0.1 执行版本化 overrides 修复（逐包：快照 → 写入 → install → 组级验证 → 回滚）
     const upgradedMultiVersion = new Set<string>()
     for (const alert of multiVersionAlerts) {
         if (upgradedMultiVersion.has(alert.packageName)) {
@@ -357,17 +335,6 @@ async function applyLockfileFixes(
         }
     }
 
-    // 2.0.2 跨线升级（--allow-major-upgrade 显式授权；仅根直接依赖 + lockfile 单版本）
-    // 逐包：快照 → upgradeDependency（改根声明 + install 内建失败回滚）→
-    // 升级后实例复核（确认脆弱实例真实消除——跨线只改 root 声明，workspace 成员
-    // 同 range / 传递依赖 pin 可能仍锁旧 major，残留实例必须回滚，避免误标 fixed
-    // 且下一轮被最高实例掩盖误判 converged，PR #28 纪律）→ 强制完整验证
-    // （install + lint + build + test，跨线 breaking change 面大，lint-only 不足以兜底
-    // 类型/构建错误）→ 失败回滚。
-    // 同包多条跨线告警取最高 recommendedVersion 为升级目标（镜像 dedupeFixableAlerts
-    // 语义），被合并告警随代表告警一并处理并在日志中说明。
-    // 不误标 fixed/converged：成功仅计入 fixed；失败计 failed + 错误可审计。
-    // 按包聚合：取最高推荐版本为代表告警（避免同包多告警只升第一条目标、其余静默丢失）
     const autoMajorByPackage = new Map<string, NormalizedSecurityAlert>()
     for (const alert of autoMajorAlerts) {
         const existing = autoMajorByPackage.get(alert.packageName)
@@ -426,9 +393,6 @@ async function applyLockfileFixes(
             progress.failed++
             continue
         }
-        // 升级后实例复核：root 声明已升，但 workspace 成员同 range /
-        // 传递依赖 pin 可能仍锁旧 major → lockfile 残留脆弱实例 → 回滚
-        // （不进入验证阶段，省时且不制造"跨线成功但告警未消除"状态）
         const remainingVersions = readLockfileVersions(lockfilePath, alert.packageName)
         const stillVulnerable = remainingVersions.some(
             (v) => compareSemver(v, alert.recommendedVersion!) < 0,
@@ -453,15 +417,10 @@ async function applyLockfileFixes(
             )
             continue
         }
-        // 跨线强制完整验证（install + lint + build + test）
         const majorVerifyActions = await verifyProject(ctx, repo)
-        // 验证动作入 allActions：成功证据可审计（summary 验证计数 + PR body Verification 章节）
         ctx.allActions.push(...majorVerifyActions)
         let majorOk = majorVerifyActions.every((a) => a.success)
 
-        // AI 研判接入：升级验证失败（带失败日志）或 major 升级（预防性）
-        // 时触发 → code-change 修复（apply + 内部完整验证）→ 通过则保留。
-        // 仅 --ai 开启且非 dry-run（不产生费用）。
         const ai = ctx.config.ai
         const aiTriggered = ai?.enabled === true
             && !ctx.config.dryRun
@@ -569,7 +528,6 @@ async function applyMemberUpgrades(
         const { alert, manifestDir } = item
         const memberManifestPath = `${manifestDir}/package.json`
         if (ctx.config.dryRun) {
-            // dry-run 不写盘：仅记录计划动作（与 2.0.1/2.0.2 dry-run 语义一致）
             ctx.logger.info(`[dry-run] Would upgrade ${alert.packageName} in ${memberManifestPath} → ${alert.recommendedVersion}`)
             ctx.allActions.push({
                 type: 'dependency-upgrade',
@@ -613,8 +571,6 @@ async function applyMemberUpgrades(
             progress.failed++
             continue
         }
-        // 升级后实例复核：成员声明已升，但根全局 override / 其他位置 pin
-        // 可能仍锁旧版本 → 残留脆弱实例 → 回滚（不进入验证阶段）
         const remainingMemberVersions = readLockfileVersions(lockfilePath, alert.packageName)
         const stillVulnerable = remainingMemberVersions.some(
             (v) => compareSemver(v, alert.recommendedVersion!) < 0,
@@ -640,7 +596,6 @@ async function applyMemberUpgrades(
             )
             continue
         }
-        // 快速验证（根 lint，与 2.0 常规升级一致）
         const memberOk = await quickVerifyProject(ctx, repo)
         if (!memberOk) {
             restoreTrackedFiles(ctx.workDir, memberSnapshot)
@@ -714,14 +669,12 @@ async function applyGroupUpgrades(
     let snapshot: ReturnType<typeof snapshotTrackedFiles>
 
     for (const group of groups) {
-        // 组前快照（整组回滚基线）
         snapshot = snapshotTrackedFiles(ctx.workDir)
 
         const pendingActions: FixAction[] = []
         const upgradedInGroup: NormalizedSecurityAlert[] = []
 
         for (const packageName of group.packages) {
-            // 防御：assign 已通过 target 集合过滤，组内包必在 fixableAlerts 中
             const alert = alertByPackage.get(packageName)
             if (!alert) {
                 continue
@@ -736,7 +689,6 @@ async function applyGroupUpgrades(
                 continue
             }
             if (currentVersion === null) {
-                // 包不在 lockfile（或格式非常规）——不降级保护失效，warn 提示
                 ctx.logger.warn(
                     `Could not resolve current version of ${alert.packageName} from lockfile — no-downgrade protection inactive`,
                 )
@@ -749,25 +701,20 @@ async function applyGroupUpgrades(
                 continue
             }
             if (action.noOp) {
-                // overrides 保护名单命中：主动跳过（不计 fixed/failed）。skipped 计数已在
-                // handleOverrideProtection 内完成，此处不得重复计
                 continue
             }
             if (ctx.config.dryRun) {
-                // dry-run 无实际文件改动，跳过验证
                 progress.fixed++
                 continue
             }
             upgradedInGroup.push(alert)
         }
 
-        // dry-run 或组内无实际升级：仅记录 action，不做组级验证
         if (ctx.config.dryRun || upgradedInGroup.length === 0) {
             ctx.allActions.push(...pendingActions)
             continue
         }
 
-        // 组级快速验证：lint 通过 → 整组保留（一次验证替代逐包 N 次验证）
         const groupOk = await quickVerifyProject(ctx, repo)
         if (groupOk) {
             ctx.allActions.push(...pendingActions)
@@ -775,25 +722,21 @@ async function applyGroupUpgrades(
             ctx.logger.info(
                 `[group] ${group.name}: ${upgradedInGroup.length} upgrade(s) passed group verification`,
             )
-            // 更新快照基线：后续组的失败回滚不应影响本组
             snapshot = snapshotTrackedFiles(ctx.workDir)
             continue
         }
 
-        // 组级验证失败：整组回滚 → 拆组逐个重试（保留能单独通过的包）
         restoreTrackedFiles(ctx.workDir, snapshot)
         ctx.logger.warn(
             `[group] ${group.name}: group verification failed — rolling back group, retrying per-package`,
         )
 
-        // 组内升级失败的包：保留原始失败记录（已计 failed）
         for (const action of pendingActions) {
             if (!action.success) {
                 ctx.allActions.push(action)
             }
         }
 
-        // 组内升级成功但组验证失败的包：逐个重新升级 + 验证
         for (const alert of upgradedInGroup) {
             const action = await upgradeAlert(ctx, alert)
             ctx.allActions.push(action)
@@ -802,7 +745,6 @@ async function applyGroupUpgrades(
                 continue
             }
             if (action.noOp) {
-                // 同上：skipped 计数已在 handleOverrideProtection 内完成
                 continue
             }
             const quickOk = await quickVerifyProject(ctx, repo)
@@ -817,13 +759,10 @@ async function applyGroupUpgrades(
                 continue
             }
             progress.fixed++
-            // 更新快照基线：后续包的失败回滚不应影响本包
             snapshot = snapshotTrackedFiles(ctx.workDir)
         }
     }
 
-    // Track skipped (non-fixable) alerts（子目录 manifest 已在 2.0 单独计入，避免重复计数；
-    // 多版本共存包已在 2.0.1 独立处理，不计入此 skipped 差额）
     const skippedCount = singleVersionAlerts.length - fixableAlerts.length
     ctx.summary.alertsSkipped += skippedCount
 }
@@ -836,14 +775,12 @@ async function finalizeRepoFix(
     repo: string,
     progress: RepoFixProgress,
 ): Promise<void> {
-    // 3. Lockfile repair
     const repairAction = tryLockfileRepair(ctx, repo)
     ctx.allActions.push(repairAction)
     if (repairAction.success) {
         progress.lockfileRepaired = true
     }
 
-    // 4. Verification (skip in dry-run mode)
     if (!ctx.config.dryRun) {
         const verifyActions = await verifyProject(ctx, repo)
         ctx.allActions.push(...verifyActions)

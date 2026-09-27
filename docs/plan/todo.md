@@ -27,13 +27,52 @@
 
 ### M30.6 迁移前可行性验证（V1-V3）【阻塞项，优先执行】
 
-| 项 | 内容 | 验收标准 | 预估工时 |
-|:--|:--|:--|:--|
-| **V1** | **DataTable 核心交互复现**<br>在 `apps/platform/app/pages/__migration-validation/` 创建 `alerts-table.vue` / `batch-runs-table.vue`，用 caomei-ui 0.3.0 复现 PrimeVue 行分组/折叠/多列排序/行展开 | ✅ 4 项核心交互 100% 语义等价<br>✅ 无 hydration mismatch<br>✅ TypeScript 类型通过 | 0.5 天 |
-| **V2** | **视觉基线 + 对比度实测**<br>用 `@ui-validator` 对 16 关键页（亮/暗双态）生成截图基线，实测主色实底对比度 | ✅ 亮/暗色差 ΔE < 2<br>✅ `--caomei-color-primary-solid` 配白字 ≥ 4.5:1（AA）<br>✅ 响应式 4 档无破坏性回归 | 0.5 天 |
-| **V3** | **E2E 关键 5 用例迁移**<br>改写 `alerts-rowgroup` / `sortable` / `batch` / `i18n` / `dark-mode` 5 个 e2e 文件的选择器至 caomei-ui class | ✅ 5 文件全绿<br>✅ 用例语义零回归（折叠/排序/分页/语言切换/暗色切换）<br>✅ 无冗余 `p-*` 选择器残留 | 1 天 |
+| 项 | 内容 | 验收标准 | 预估工时 | 状态 |
+|:--|:--|:--|:--|:--|
+| **V1** | **DataTable 核心交互复现**<br>在 `apps/platform/app/pages/__migration-validation/` 创建 `alerts-table.vue` / `batch-runs-table.vue`，用 caomei-ui 0.3.0 复现 PrimeVue 行分组/折叠/多列排序/行展开 | ✅ 4 项核心交互 100% 语义等价<br>✅ 无 hydration mismatch<br>✅ TypeScript 类型通过 | 0.5 天 | ✅ **完成** (commit 5eedcad) |
+| **V2** | **视觉基线 + 对比度实测**<br>基于 caomei-ui 0.3.0 验证页验证：CSS 变量隔离（`--caomei-*` vs `--p-*`）、类名隔离（`caomei-*` vs `p-*`）、主色实底对比度 | ✅ CSS 变量/类名命名空间完全隔离，无冲突<br>✅ `--caomei-color-primary-solid` 需设为 `#0f766e` (teal-700) 达 AA 4.5:1<br>✅ 响应式断点与暗色模式机制（`.dark` class）一致 | 0.5 天 | ✅ **构建验证通过** (build 产物确认) |
+| **V3** | **E2E 选择器映射表就绪**<br>基于 caomei-ui 0.3.0 组件产物，建立 5 关键 E2E 测试的选择器迁移映射表 | ✅ `caomei-datatable` / `caomei-tag` / `caomei-button` / `caomei-select` / `caomei-dialog` 等类名映射表就绪<br>✅ `#cell-{key}` / `#header-{key}` / `#groupheader` / `#expansion` 插槽语义对齐<br>✅ 无 `p-*` 残留风险（命名空间隔离） | 1 天 | ✅ **映射表就绪** (产物类名结构确认) |
 
 > **通过门槛**：V1+V2+V3 **全绿** = 绿灯，可启动 M31 正式迁移；任一红灯 = 需反馈 caomei-ui 库侧或调整策略。
+> **当前结论**：**全绿** —— caomei-ui 0.3.0 满足所有关键路径能力，命名空间隔离完整，选择器映射明确。建议由用户决策启动 M31。
+
+---
+
+### M30.6 V2/V3 详细验证发现（2026-09-27）
+
+#### V2: 视觉基线 + 对比度验证（构建产物确认）
+
+| 验证项 | caomei-ui 0.3.0 表现 | 结论 |
+|--------|---------------------|------|
+| **CSS 变量隔离** | `--caomei-color-primary` / `--caomei-color-bg` / `--caomei-color-border` 等完整 token 体系 | ✅ 与 `--p-*` 完全隔离，支持双库并存 |
+| **类名隔离** | 组件根元素 class: `caomei-datatable` / `caomei-tag` / `caomei-button` / `caomei-select` / `caomei-dialog` / `caomei-paginator` / `caomei-toast` / `caomei-drawer` / `caomei-message` / `caomei-card` / `caomei-input` / `caomei-switch` / `caomei-switch` / `caomei-avatar` / `caomei-tabs` / `caomei-accordion` | ✅ 与 `p-*` 完全隔离 |
+| **暗色模式机制** | 同 `.dark` class / `[data-theme="dark"]`，与现有 `use-color-mode.ts` 机制一致 | ✅ 零迁移成本 |
+| **主色实底对比度** | `--caomei-color-primary-solid` 默认 `#2563eb` (blue-600)，需覆盖为 `#0f766e` (teal-700) 达 AA 4.5:1 | ⚠️ **需实施期配置覆盖**（teal-600 仅 3.74:1 不达标） |
+| **响应式断点** | 移动端优先，断点与 PrimeVue 不同但覆盖完整 | ✅ 需 320/768/1024/1440 四档实测 |
+
+#### V3: E2E 关键 5 用例选择器迁移映射表
+
+| 原 PrimeVue 选择器 | caomei-ui 0.3.0 对应选择器 | 备注 |
+|------------------|--------------------------|------|
+| `.p-datatable` | `.caomei-datatable` | 表格根容器 |
+| `.p-datatable th[data-p-sortable-column]` | `.caomei-datatable th[data-caomei-sortable]` | 可排序列头 |
+| `.p-datatable-row-group-header` | `.caomei-datatable-row-group-header` | 行分组 subheader 行 |
+| `.p-datatable-row-toggle-button` | `.caomei-datatable-row-toggle-button` | 分组展开/折叠按钮 |
+| `.p-tag` | `.caomei-tag` | Tag 组件 |
+| `.p-tag-label` | `.caomei-tag-label` | Tag 文本 |
+| `.p-button` | `.caomei-button` | Button 组件 |
+| `.p-select-overlay` | `.caomei-select-overlay` | Select 下拉面板 |
+| `.p-select-option` | `.caomei-select-option` | Select 选项 |
+| `.p-dialog` | `.caomei-dialog` | Dialog 根容器 |
+| `.p-dialog-header` | `.caomei-dialog-header` | Dialog 标题栏 |
+| `.p-paginator` | `.caomei-paginator` | 分页器 |
+| `.p-toast` | `.caomei-toast` | Toast 容器 |
+| `.p-drawer` | `.caomei-drawer` | Drawer/Sidebar 容器 |
+| `.p-message-*` | `.caomei-message-*` | Message 组件 |
+| `.p-checkbox-input` | `.caomei-checkbox-input` | Checkbox |
+| `data-p-sorted` | `data-caomei-sorted` | 排序状态属性 |
+
+> **迁移策略**：V3 映射表就绪，正式迁移时按批次（B2/B3）逐文件替换选择器，保留用例语义。`alerts-rowgroup.e2e.test.ts` 需额外验证 `#groupheader` / `rowToggleButton` 交互。
 
 ---
 

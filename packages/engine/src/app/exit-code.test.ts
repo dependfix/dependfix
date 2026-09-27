@@ -169,4 +169,83 @@ describe('computeExitCode', () => {
         }))
         expect(exitCode).toBe(1)
     })
+
+    // M30.1: "跳过类"审计条目不影响 exit code
+    it('returns 0 when only OVERRIDE_PROTECTED skipped audits exist', () => {
+        const exitCode = computeExitCode(makeCtx({
+            allErrors: [{
+                repository: 'foo/bar',
+                stage: 'fix',
+                category: 'OVERRIDE_PROTECTED',
+                message: 'package lodash@4.17.21 is protected from override',
+            } as never],
+            repoResults: [{ alertsCount: 1, fixed: 0, verificationPassed: true } as never],
+        }))
+        expect(exitCode).toBe(0)
+    })
+
+    it('returns 0 when only SCRIPT_NOT_FOUND skipped audits exist', () => {
+        const exitCode = computeExitCode(makeCtx({
+            allErrors: [{
+                repository: 'foo/bar',
+                stage: 'verify',
+                category: 'SCRIPT_NOT_FOUND',
+                message: 'pnpm test script not found',
+            } as never],
+            repoResults: [{ alertsCount: 0, fixed: 0, verificationPassed: true } as never],
+        }))
+        expect(exitCode).toBe(0)
+    })
+
+    it('returns 0 when multiple skipped audit categories coexist', () => {
+        const exitCode = computeExitCode(makeCtx({
+            allErrors: [
+                { repository: 'foo/bar', stage: 'fix', category: 'OVERRIDE_PROTECTED', message: 'protected' } as never,
+                { repository: 'foo/baz', stage: 'verify', category: 'SCRIPT_NOT_FOUND', message: 'no test script' } as never,
+            ],
+            repoResults: [
+                { alertsCount: 1, fixed: 0, verificationPassed: true } as never,
+                { alertsCount: 0, fixed: 0, verificationPassed: true } as never,
+            ],
+        }))
+        expect(exitCode).toBe(0)
+    })
+
+    // 跳过类 + 真实失败 → 非 0
+    it('returns 1 when skipped audit + real failure coexist', () => {
+        const exitCode = computeExitCode(makeCtx({
+            allErrors: [
+                { repository: 'foo/bar', stage: 'fix', category: 'OVERRIDE_PROTECTED', message: 'protected' } as never,
+                { repository: 'foo/bad', stage: 'fix', category: 'PROCESS_FAILED', message: 'real failure' } as never,
+            ],
+            repoResults: [
+                { alertsCount: 1, fixed: 0, verificationPassed: true } as never,
+                { alertsCount: 0, fixed: 0 } as never,
+            ],
+        }))
+        expect(exitCode).toBe(1)
+    })
+
+    it('returns 1 when skipped audit + failed action coexist', () => {
+        const exitCode = computeExitCode(makeCtx({
+            allActions: [{ success: false } as never],
+            allErrors: [{ repository: 'foo/bar', stage: 'verify', category: 'SCRIPT_NOT_FOUND', message: 'no test' } as never],
+            repoResults: [{ alertsCount: 0, fixed: 0, verificationPassed: true } as never],
+        }))
+        expect(exitCode).toBe(1)
+    })
+
+    it('returns 2 when skipped audit + all repos fail', () => {
+        const exitCode = computeExitCode(makeCtx({
+            allErrors: [
+                { repository: 'foo/bar', stage: 'fix', category: 'OVERRIDE_PROTECTED', message: 'protected' } as never,
+                { repository: 'foo/bad', stage: 'fetch', category: 'FETCH_FAILED', message: '403' } as never,
+            ],
+            repoResults: [
+                { alertsCount: 0, fixed: 0 } as never,
+                { alertsCount: 0, fixed: 0 } as never,
+            ],
+        }))
+        expect(exitCode).toBe(2)
+    })
 })

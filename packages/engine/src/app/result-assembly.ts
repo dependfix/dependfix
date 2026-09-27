@@ -137,21 +137,31 @@ export function mergeAiUsage(
     return next
 }
 
+/** "跳过类"审计条目 category 白名单：这些是预期内的跳过行为，不应影响 exit code。 */
+const SKIPPED_AUDIT_CATEGORIES = new Set<string>([
+    'OVERRIDE_PROTECTED', // 保护名单命中，主动跳过 override 写入
+    'SCRIPT_NOT_FOUND', // 无 test 脚本，跳过 pnpm test 验证
+])
+
 /**
  * 计算退出码：
- * - 0: 全部仓库处理成功（无 failed actions、无 errors）
+ * - 0: 全部仓库处理成功（无 failed actions、无 non-skipped errors）
  * - 1: 部分仓库失败
  * - 2: 全部仓库失败（或无仓库被成功处理）
  *
  * 语义注记：AI 辅助动作（ai-patch）失败计入 exit code（fail-safe——AI 修复失败
  * 说明 breaking change 未解决，应报红提醒人工），但不计入 summary.alertsFailed
  * （告警结果由主动作代表；见 computeSummary 的 ai 辅助动作排除规则）。
+ *
+ * "跳过类"审计条目（OVERRIDE_PROTECTED / SCRIPT_NOT_FOUND）不计入 hasErrors，
+ * 避免有意跳过导致 CI 常态非零退出。
  */
 export function computeExitCode(
     ctx: Pick<AppContext, 'config' | 'allErrors' | 'allActions' | 'repoResults'>,
 ): number {
     const { config, allErrors, allActions, repoResults } = ctx
-    const hasErrors = allErrors.length > 0
+    const nonSkippedErrors = allErrors.filter((e) => !SKIPPED_AUDIT_CATEGORIES.has(e.category ?? ''))
+    const hasErrors = nonSkippedErrors.length > 0
     const hasFailures = allActions.some((a) => !a.success)
     // 保守判定：dry-run 下成功仓库的 verificationPassed 为 undefined、alertsCount 可能为 0，
     // 与失败仓库并存时会被判为"无成功"（返回 2 而非 1）——fail-safe 方向可接受

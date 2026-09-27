@@ -158,9 +158,9 @@ describe('DependfixApp versioned overrides (same-major coexistence)', () => {
         const app = new DependfixApp({ config, workDir, reportOutputDir: join(workDir, 'reports') })
         const { exitCode, result } = await app.run()
 
-        // 退出码 1：全部告警被保护跳过 → 无修复；且跳过审计条目计入 allErrors（hasErrors → 非 0）
-        // 注：跳过类审计条目不应翻转退出码（语义问题已登记 backlog）
-        expect(exitCode).toBe(1)
+        // 退出码 0：全部告警被保护跳过 → 无修复；但跳过类审计条目（OVERRIDE_PROTECTED）
+        // 不再计入 hasErrors（M30.1 修正），故全跳过也为 0
+        expect(exitCode).toBe(0)
         // 不产生 versioned-override 动作
         expect(result.actions.filter((a) => a.strategy === 'versioned-override' && a.target === 'fast-uri')).toHaveLength(0)
         // 记录为 noOp 保护跳过动作（不计 fixed/failed）

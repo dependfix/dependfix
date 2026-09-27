@@ -10,6 +10,7 @@ allowBuilds:
   esbuild: true
   msgpackr-extract: true
   unrs-resolver: true
+  vue-demi: set this to true or false
 overrides:
   compare-func: ^2.0.0
   katex: ^0.16.21

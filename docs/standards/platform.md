@@ -343,6 +343,7 @@ fixtures.delete / fixtures.post 在双门控通过后调用 `fixturesRateLimit()
 ## 9. 质量门禁
 
 - `pnpm lint` / `pnpm typecheck`（根目录，含平台）
+- **平台 Vue 模板规则只在平台自己的 ESLint 配置生效**：根 `pnpm run lint` 不覆盖平台 `eslint.config.js`（`eslint-config-cmyr/nuxt`）的模板规则，且两侧 `lint` 脚本都带 `--fix`（会静默修正、exit 0）→ 平台改动收尾须额外跑**非 `--fix`** 检查：`pnpm --filter @dependfix/platform exec eslint . --max-warnings 10`，确保提交态 fix-stable。属**执行层验证指引**（不新增 review 检查点）。
 - `nuxt build` 必须通过（Docker 构建前置）
 - 平台相关改动需运行 `pnpm --filter @dependfix/platform test`
 - 提交走 [conventional-committer 流程](./git.md)，scope 用 `platform`（如 `feat(platform): ...`）

@@ -65,19 +65,19 @@
 
 ---
 
-#### M31.3 [P2 🎨 用户体验] B1b 其余 DataTable 页迁移（pr-checks / scans / repos / dashboard）
+#### M31.3 [P2 🎨 用户体验] B1b 其余表页全量迁移（PrimeVue DataTable → caomei）
 
 - **目标**：其余含表格页面从 PrimeVue DataTable 迁到 `CaomeiDataTable`，行为与迁移前等价。
-- **范围**：`apps/platform/app/pages/{pr-checks,scans,repos,index}.vue` + 相关表格子组件、`apps/platform/tests/e2e/` 对应文件。
+- **范围**：按用户裁定扩为**全部剩余表页与表子组件**（实际范围与逐文件清单见[评估文档 §15.11](../design/governance/caomei-ui-migration.md#1511-其余表页迁移实证m3132026-09-28)；计划原文仅点名 `pr-checks/scans/repos/index`，其中 `index.vue` 为跳转页、`dashboard.vue` 无表格）+ `apps/platform/tests/e2e/` 对应文件。
 - **验收标准**：
-  - [ ] 4 页表格（排序 / 分页 / 空态 / 加载态）行为等价
-  - [ ] 对应 e2e 选择器改写完成，用例语义保留
-  - [ ] `pnpm --filter @dependfix/platform test` + 相关 `playwright test` 通过
+  - [x] 4 页表格（排序 / 分页 / 空态 / 加载态）**功能与交互语义等价**（视觉差异见评估文档 §15.11 第 8 条遗留项）—— 实际按用户裁定扩为**全部剩余表页**（本批 13 vue / 11 e2e；连同 M31.2 共 15 vue 含 `CaomeiDataTable`），覆盖清单见评估文档 §15.11
+  - [x] 对应 e2e 选择器改写完成，用例语义保留
+  - [x] `pnpm --filter @dependfix/platform test` + 相关 `playwright test` 通过（全量 172 条：170 passed / 0 failed / 2 flaky，flaky 均为既有环境抖动）
 - **不做什么**：不动 alerts / batch-runs（M31.2 已完成）；不改页面业务逻辑；不改 i18n
-- **依赖**：M31.1（B0）；与 M31.2 同源策略 + [评估文档 §15.8 选择器映射表](../design/governance/caomei-ui-migration.md#158-选择器映射表更正2026-09-28b0-接线实证)
-- **交付物**：多 commits（页面迁移 + e2e 改写）
-- **风险与缓解**：分页器 `Paginator template` 缺口（评估 §15.3）→ 按映射表改写或原生 CSS；批量操作弹窗联动遗漏 → 逐页回归
-- **复杂度估算**：~4-6 vue + 4-6 e2e 文件（超 10 文件时按页再拆分提交）
+- **依赖**：M31.1（B0）；与 M31.2 同源策略 + [评估文档 §15.8 选择器映射表](../design/governance/caomei-ui-migration.md#158-选择器映射表更正2026-09-28b0-接线实证) + [§15.10](../design/governance/caomei-ui-migration.md#1510-datatable-核心页迁移实证m3122026-09-28) + [§15.11](../design/governance/caomei-ui-migration.md#1511-其余表页迁移实证m3132026-09-28)
+- **交付物**：多 commits（按页分组的 `refactor(platform)` + `test(platform)` e2e 改写 + `docs(platform)` 实证登记）
+- **风险与缓解**：分页器 `Paginator template` 缺口（评估 §15.3）→ 内建分页接受 caomei 默认形态、独立 Paginator 自渲染页码文案（§15.11 第 3/4 条）；行选择控件由 `input` 变 `button`（e2e 已改写）；`scrollable` 表头不再吸顶（已接受差异）；批量操作弹窗联动遗漏 → 逐页回归（`batch.e2e` / `batch-import-filters` / `scan-config` 均通过）
+- **复杂度估算**：本批实际 13 vue / 11 e2e 文件（`git diff --name-only` 计数）；与 M31.2 触及并集为 14 vue / 14 e2e（原估 4-6 vue，按用户裁定全量迁完，按页分组提交）
 
 ---
 

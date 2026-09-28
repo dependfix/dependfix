@@ -421,6 +421,7 @@ PrimeTek 已公告 PrimeVue 5.x 起转入 PrimeUI 商业许可（Community 免�
   - 2026-09-27：新增 §15（caomei-ui 0.3.0 重新评估补记）
   - 2026-09-28（M31.1 B0 接线）：新增 [§15.8 选择器映射表更正](#158-选择器映射表更正2026-09-28b0-接线实证) + [§15.9 B0 接线暴露的验证覆盖缺口](#159-b0-接线暴露的验证覆盖缺口m31-各批次须补齐)；§15.1「全绿」结论按 §15.9 修订为「能力存在、验证覆盖不足」
   - 2026-09-28（M31.2 DataTable 核心页迁移）：新增 [§15.10 DataTable 核心页迁移实证](#1510-datatable-核心页迁移实证m3122026-09-28)（含排序机制修正 / 分组列过滤 / 服务端排序依赖 / 密度对齐 / 选择器与取证口径）；§15.1「降序优先」行按该节修订机制描述
+  - 2026-09-28（M31.3 其余表页迁移）：新增 [§15.11 其余表页迁移实证](#1511-其余表页迁移实证m3132026-09-28)（覆盖清单 / 行选择 / 内建与 lazy 分页 / 独立 Paginator / scrollable 与 ScrollPanel / 无表级 `#header` 槽的结构变化 / 遗留项）
  
 ---
  
@@ -597,3 +598,55 @@ PrimeVue Aura small 尺寸单元格内边距为 `0.375rem 0.5rem`（6px 8px）�
 - e2e：相关子集 26 条 = `pnpm exec playwright test alerts-rowgroup sortable batch alerts-sidebar alerts-fix-now`（其中过滤词 `batch` 亦匹配未受影响的 `batch-import-filters`）；全量 `pnpm exec playwright test` = 172 条用例中 170 passed / 1 failed（env-events 导航菜单用例，单跑 9/9 通过，属用例顺序相关 flaky，该页未迁移）/ 1 flaky（schedules-crud trigger 重试通过，未迁移）
 - 单测 1295 条 = `pnpm --filter @dependfix/platform test`；`pnpm run typecheck` / `pnpm run lint` / `pnpm --filter @dependfix/platform lint:css:check` / `pnpm --filter @dependfix/platform build` 全部通过
 - **环境前提**：e2e 的 webServer 跑 `.output`，须先 `pnpm --filter @dependfix/platform build`；本机容器需 `ignoreDefaultArgs: ['--disable-dev-shm-usage']` + `--no-sandbox`（容器 `/tmp` 不可写，默认参数会让 chromium `Page crashed`），CI 不受此限。
+
+### 15.11 其余表页迁移实证（M31.3，2026-09-28）
+
+> M31.3（B1b）把**全部剩余 PrimeVue DataTable**（14 处 / 11 文件）+ 独立 `Paginator`（1 处）+ `ScrollPanel`（2 处）迁完，`apps/platform/app` 下已无 PrimeVue 表组件引用。本节记录新遇到的映射与差异（§15.10 的通用规则仍适用）。
+
+**1）覆盖清单**（口径：本批 `git diff --name-only` = 13 vue 文件；含 `CaomeiDataTable` 的仓库文件共 15 个（含 2 个 `__migration-validation/*.vue` 验证页）；与 M31.2 触及文件的并集为 14 vue）
+
+| 组 | 文件 | 关键能力 |
+| :--- | :--- | :--- |
+| 简单表 | `pages/credentials.vue` / `pages/schedules.vue` / `pages/users.vue` / `pages/repos/[id]/runs.vue`（2 表） | 排序 + 空态 |
+| 分页 | `pages/pr-checks.vue`（内建分页 + 多列排序）、`pages/scans.vue`（2 表，含 lazy 分页）、`components/repo-history-dialog.vue`（2 表，含 lazy 分页） | 内建分页 / lazy / 页码受控 |
+| 特殊 | `pages/repos.vue`（行选择）、`pages/env-events.vue`（滚动容器）、`components/import-repos-dialog.vue`（独立 Paginator） | 选择 / 滚动 / 分页器 |
+| 侧栏/弹窗 | `components/alert-run-sidebar.vue`、`components/run-detail-dialog.vue`（含 ScrollPanel） | 表 + 日志滚动区 |
+
+**2）行选择（`v-model:selection` → 受控 `selection`）**
+
+- `selection-mode="multiple"` + `:selection` + `@update:selection` 回写 + `row-key="id"`（受控回写约定见 [平台规范 §7.4](../../standards/platform.md)）；`update:selection` 载荷为 `T | T[] | null`，需 `Array.isArray` 窄化后回写。
+- 选择列由 caomei 内建渲染：`td.caomei-data-table__select-cell` > `div.caomei-data-table__select-cell-inner` > **`button.caomei-checkbox__control`**（Reka `role="checkbox"`，**不是 `input`**）→ e2e 原 `input.p-checkbox-input` 必须改写。
+
+**3）内建分页 / lazy 分页**
+
+- `paginator` / `rows` / `rowsPerPageOptions` / `totalRecords` / `lazy` 同名；**页码基准不同**：PrimeVue `first`（0 基）→ caomei `page`（1 基），换算 `page = floor(first / rows) + 1`，`@page` 载荷含 `{page, rows, first, pageCount}`（可直接取 `first` 回写）。
+- `paginator-template` / `current-page-report-template` 删除：caomei DataTable **无 `#paginator` 插槽**，页码报表文案无法保留 → **已接受差异**（e2e 未断言该文案）。
+
+**4）独立 `Paginator`（import-repos-dialog）**
+
+- `:rows` → `:items-per-page`、`:total-records` → `:total`、`:first` → `v-model:page`（1 基）；`@page` → `@update:page` + `@update:items-per-page`（caomei 切每页条数会按首行偏移重推页码）。
+- 页码报表文案由页面自渲染（`.import-form__pagination-report`），保留原 i18n key 与语义。
+
+**5）`scrollable` / `ScrollPanel`**
+
+- DataTable `scrollable` + `scrollHeight` → 外层容器 + CSS（`.env-events__table-scroll`：`max-height: 60vh; overflow: auto`）；**已接受差异**：表头不再吸顶（PrimeVue 曾固定表头）。
+- `ScrollPanel` → 原生 `<div style="height:200px;overflow:auto">`（保留原内容类名，新增 `.repo-history__logs-scroll` / `.run-detail__logs-scroll` 供定位）。
+
+**6）caomei DataTable 无表级 `#header` 插槽（结构变化，已接受）**
+
+`repo-history-dialog.vue` 原把返回/关闭按钮、错误横幅、PR 链接放在 DataTable 的 `#header` 插槽内；caomei 仅支持 `#cell-*` / `#header-*` / `#empty` / `#groupheader` / `#expansion`，故这些内容上移为表格**之前的兄弟节点**（类名不变）——**已接受差异**，由 `scans.e2e.test.ts` case 3 覆盖通过，B4 视觉收口时复核布局。
+
+**7）验证证据**（可复现口径）
+
+- 残留检查：`grep -rnE "<DataTable([ >]|$)|<Column([ >]|$)|<Paginator([ >]|$)|<ScrollPanel([ >]|$)" apps/platform/app --include="*.vue"` → 仅注释命中（0 个真实标签）。
+- 列 key 双向一致性（脚本化，两向都查）：① 槽→列（`#cell-{key}` 必须有对应 `columns.key`）；② 列→字段（无插槽且无 `accessor` 的列，其 `key` 必须在文件内被引用为字段）——**该反向检查在首轮审计后新增，正是它命中并修复了 `repo-history-dialog` 的「阈值」列 key 失配（`threshold` → `severityThreshold`）**；修复后 15 个文件双向均无异常。
+- e2e 全量：`pnpm exec playwright test` → 172 条用例全部通过（本批收尾复跑 172 passed / 0 failed / 0 flaky）。首轮执行时曾出现 2 条 flaky：`schedules-crud` trigger 404（该页本批迁移，但失败点是 `/api/schedules/[id]/trigger` 在无 GitHub 凭据环境下返回 404，属既有环境抖动——M31.2 批次已记录同类）与 `api-i18n` cookie 用例（服务端 API i18n，非表路径）；两者重试均通过，收尾复跑未再出现。
+- 门禁：`pnpm run typecheck` / `pnpm --filter @dependfix/platform exec eslint . --max-warnings 10`（**非 `--fix`**）/ `lint:css:check` / `build` / 单测 1295 条 全部通过。
+- 结构取证：`artifacts/m31-b3/`（repos / env-events / scans / pr-checks 4 页截图 + 表数 / 排序按钮数 / 选择单元格数 / 分页器 / 滚动容器 / 密度 6px 8px / 0 pageError）。
+
+**8）遗留项（需在 B4 视觉收口时确认）**
+
+- `pr-checks.vue` 原 DataTable **未设 `size`**（PrimeVue 默认档 12px 16px），迁移后受全局 small 密度收敛影响 → 行高变紧，属**可见视觉变化**，待用户确认口径（与 §15.9 第 6 条的 `primary-foreground` 决策同类）。
+- `repos.vue` 凭据列「未关联」在窄列下换行（列宽由内容自适应），待 B4 视觉基线比对确认是否需列宽约束。
+- `import-repos-dialog` 的 `CaomeiPaginator` 固定渲染页码按钮组（原 PrimeVue template 无该控件）→ 属可见 UI 新增，B4 确认是否接受。
+- 内建分页器的页码报表文案丢失（第 3 条）→ B4 确认是否需要在表外自渲染补回。

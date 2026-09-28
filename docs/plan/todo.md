@@ -33,16 +33,16 @@
 #### M31.1 [P2 🛡️ 技术债 / 前置基建] B0 迁移基线与双库并存接线
 
 - **目标**：接入 `caomei-ui/nuxt` 0.3.0 并与 PrimeVue 双库并存，建立 token 映射与视觉基线，使后续批次可在同一应用内渐进切换。
-- **范围**：`apps/platform/nuxt.config.ts`（`modules` + `caomeiUI` 配置）、`apps/platform/app/assets/scss/`（新增 `--caomei-*` token 覆盖）、`apps/platform/package.json`（确认 `caomei-ui: 0.3.0` 精确锁定）。
+- **范围**：`apps/platform/nuxt.config.ts`（`modules` + `caomeiUI` 配置 + `primevue.composables.exclude`）、`apps/platform/app/assets/styles/`（新增 `_caomei-tokens.scss` + `main.scss` 引入）、`apps/platform/app/pages/__migration-validation/*`（模块注册后暴露的类型/API 对齐）、`apps/platform/package.json`（确认 `caomei-ui: 0.3.0` 精确锁定）。
 - **验收标准**：
-  - [ ] `nuxt.config.ts` 注册 `caomei-ui/nuxt`（`prefix: 'Caomei'` + `darkMode: 'class'` + `theme.primary` teal），与 PrimeVue 模块并存不冲突
-  - [ ] 样式入口为 0.3.0 的 `caomei-ui/theme.css`（非 0.1.0 的 `styles.css`）
-  - [ ] `--caomei-color-primary-solid` 覆盖为 `#0f766e`（teal-700），实底白字对比度实测达 AA 4.5:1
-  - [ ] 双库并存：既有 PrimeVue 页面与 `__migration-validation` 验证页均正常渲染，无 CSS 变量 / 类名冲突（`--p-*` vs `--caomei-*`）
-  - [ ] `pnpm --filter @dependfix/platform typecheck` + `lint` + `build` 通过；构建产物 grep 确认 token 覆盖生效
+  - [x] `nuxt.config.ts` 注册 `caomei-ui/nuxt`（`prefix: 'Caomei'` + `darkMode: 'class'` + `theme.primary` teal），与 PrimeVue 模块并存不冲突
+  - [x] 样式入口为 0.3.0 的 `caomei-ui/theme.css`（非 0.1.0 的 `styles.css`）
+  - [x] `--caomei-color-primary-solid` 覆盖为 `#0f766e`（teal-700），实底白字对比度实测达 AA 4.5:1（实测 5.47:1）
+  - [x] 双库并存：既有 PrimeVue 页面与 `__migration-validation` 验证页均正常渲染，无 CSS 变量 / 类名冲突（`--p-*` vs `--caomei-*`）
+  - [x] `pnpm --filter @dependfix/platform typecheck` + `lint` + `build` 通过；构建产物 grep 确认 token 覆盖生效
 - **不做什么**：不改任何现有业务页面的组件实现（B0 仅接线）；不卸载 PrimeVue；不改 i18n / 数据获取逻辑
-- **依赖**：M30.6 V1-V3 全绿（[todo-archive.md §M30](todo-archive.md#m30-治理债清理--迁移可行性验证--能力扩展--测试补强m301m306-全部已闭环--2026-09-28-归档)）+ [评估文档 §15.6](../design/governance/caomei-ui-migration.md)
-- **交付物**：1-2 atomic commits（`feat(platform)` nuxt 接线 + `docs(platform)` 基线登记）；视觉基线截图归档
+- **依赖**：M30.6 V1-V3 全绿（[todo-archive.md §M30](todo-archive.md#m30-治理债清理--迁移可行性验证--能力扩展--测试补强m301m306-全部已闭环--2026-09-28-归档)）+ [评估文档 §15.6](../design/governance/caomei-ui-migration.md) + [§15.9 验证覆盖缺口修订](../design/governance/caomei-ui-migration.md#159-b0-接线暴露的验证覆盖缺口m31-各批次须补齐)
+- **交付物**：1-2 atomic commits（`feat(platform)` nuxt 接线 + `docs(platform)` 基线登记）；视觉基线证据归档于 gitignored `artifacts/m31-b0/`（受仓库 `*.png` 全局忽略约束，不入 Git：截图 ×5 + 浏览器断言脚本）
 - **风险与缓解**：双库 CSS 变量 / 类名冲突 → 命名空间已由 V2 验证隔离；token 覆盖未生效 → 构建产物 grep 兜底（`process.env` 折叠陷阱同类教训）
 - **复杂度估算**：~3-5 文件（配置 + SCSS），无业务逻辑改写
 
@@ -55,12 +55,12 @@
 - **验收标准**：
   - [ ] alerts 行分组（`rowGroupMode="subheader"` + `#groupheader`）+ 分组折叠 + 多列排序（`sortMode="multiple"` + `sortDescFirst`）语义等价
   - [ ] batch-runs 行展开（`expander` 列 + `#expansion`）语义等价
-  - [ ] 相关 e2e 选择器按 V3 映射表改写（`.p-datatable*` → `.caomei-datatable*`），用例语义保留
+  - [ ] 相关 e2e 选择器按 [评估文档 §15.8 映射表](../design/governance/caomei-ui-migration.md) 改写（`.p-datatable*` → `.caomei-data-table*`，注意类名为逐词 kebab-case），用例语义保留
   - [ ] `pnpm --filter @dependfix/platform test` + 相关 `playwright test` 通过；无 hydration mismatch
 - **不做什么**：不迁其余 DataTable 页（M31.3）；不改数据获取 / 过滤逻辑；不改 i18n
-- **依赖**：M31.1（B0 接线）；[评估文档 §5.2 + §15.1 能力映射](../design/governance/caomei-ui-migration.md) + V3 选择器映射表（映射表正文见 commit `7be5b93`）
+- **依赖**：M31.1（B0 接线）；[评估文档 §5.2 + §15.1 能力映射](../design/governance/caomei-ui-migration.md#151-关键路径阻塞点闭环确认) + [§15.8 选择器映射表](../design/governance/caomei-ui-migration.md#158-选择器映射表更正2026-09-28b0-接线实证) + [§15.9 验证缺口](../design/governance/caomei-ui-migration.md#159-b0-接线暴露的验证覆盖缺口m31-各批次须补齐)
 - **交付物**：多 commits（`refactor(platform)` 页面迁移 + `test(platform)` e2e 选择器改写）
-- **风险与缓解**：`sortMode='multiple'` + `multiSortMeta` 类型与运行时差异（platform.md §7.1 PrimeVue 陷阱）→ 以 caomei `sortDescFirst` 显式对齐；e2e 选择器改写遗漏 → 按 V3 映射表逐条核对 `#groupheader` / `rowToggleButton`
+- **风险与缓解**：`sortMode='multiple'` + `multiSortMeta` 类型与运行时差异（platform.md §7.1 PrimeVue 陷阱）→ 以 caomei `sortDescFirst` 显式对齐；受控 `expandedRowGroups` / `expandedRows` 漏回写会致内建按钮失效（B0 实证）→ 以 prop + `@update:*` 回写保真 `v-model` 语义；e2e 选择器改写遗漏 → 按 §15.8 映射表逐条核对 `.caomei-data-table__row-group-toggle` / `__sort` / `th[aria-sort]`
 - **复杂度估算**：~2-4 vue + 2-4 e2e 文件
 
 ---
@@ -74,7 +74,7 @@
   - [ ] 对应 e2e 选择器改写完成，用例语义保留
   - [ ] `pnpm --filter @dependfix/platform test` + 相关 `playwright test` 通过
 - **不做什么**：不动 alerts / batch-runs（M31.2 已完成）；不改页面业务逻辑；不改 i18n
-- **依赖**：M31.1（B0）；与 M31.2 同源策略 + V3 映射表（正文见 commit `7be5b93`）
+- **依赖**：M31.1（B0）；与 M31.2 同源策略 + [评估文档 §15.8 选择器映射表](../design/governance/caomei-ui-migration.md#158-选择器映射表更正2026-09-28b0-接线实证)
 - **交付物**：多 commits（页面迁移 + e2e 改写）
 - **风险与缓解**：分页器 `Paginator template` 缺口（评估 §15.3）→ 按映射表改写或原生 CSS；批量操作弹窗联动遗漏 → 逐页回归
 - **复杂度估算**：~4-6 vue + 4-6 e2e 文件（超 10 文件时按页再拆分提交）
@@ -84,7 +84,7 @@
 #### M31.4 [P2 🎨 用户体验] B2 表单 / 浮层 / 导航组件切换 + i18n 接线
 
 - **目标**：非表格组件全量切换 + i18n / Toast / Confirm 接线，使页面不再依赖 PrimeVue 组件。
-- **范围**：`apps/platform/app/**`（Dialog / Select→AutoComplete / MultiSelect / ToggleSwitch / InputText / Textarea / Toast / Confirm / Drawer / Tabs / Accordion / Tag / Button 等）+ `apps/platform/app/assets/scss/` 样式残留 + `apps/platform/app/plugins/`（Toast / Confirm 接线）+ i18n locale。
+- **范围**：`apps/platform/app/**`（Dialog / Select→AutoComplete / MultiSelect / ToggleSwitch / InputText / Textarea / Toast / Confirm / Drawer / Tabs / Accordion / Tag / Button 等）+ `apps/platform/app/assets/styles/` 样式残留 + `apps/platform/app/plugins/`（Toast / Confirm 接线）+ i18n locale。
 - **验收标准**：
   - [ ] Select 可搜索单选改 `AutoComplete` + `strict: true`；MultiSelect 删 `filter` / `display`（搜索内建常开 + chip 形态）
   - [ ] Toast / Confirm 从 PrimeVue service 切到 caomei 接线；i18n 内建文案随 zh / en 切换正确
@@ -93,7 +93,7 @@
 - **不做什么**：不迁图表（`chart-canvas.vue` 自实现，与 PrimeVue 无关）；不改业务逻辑；不引入 Tailwind / UnoCSS
 - **依赖**：M31.2 / M31.3（表格先迁）；[评估文档 §5.3 + §15.3](../design/governance/caomei-ui-migration.md)
 - **交付物**：多 commits（组件切换 + 接线 + 样式清理）
-- **风险与缓解**：表单组件 prop 语义差异（`severity` / `fluid` / `size="small"` 等）→ 按 §5.4 通用属性映射表逐项改写；Toast / Confirm 接线遗漏 → 全量 `rg "useToast|useConfirm"` 核对
+- **风险与缓解**：表单组件 prop 语义差异（`severity` / `fluid` / `size="small"` 等）→ 按 §5.4 通用属性映射表逐项改写；Toast / Confirm 接线遗漏 → 全量 `rg "useToast|useConfirm"` 核对；按钮图标需 `#icon` + `@lucide/vue`（`CaomeiIcon` 无 `name` prop，`@lucide/vue` 尚非平台直接依赖）→ 本批次先补依赖；`--caomei-color-primary-foreground` 亮色档对比度不足（[评估文档 §15.9 第 6 条](../design/governance/caomei-ui-migration.md#159-b0-接线暴露的验证覆盖缺口m31-各批次须补齐)）→ 进入生产页前经用户确认口径并 @ui-validator 复核；浮层组件无裸根类（`.caomei-dialog__content` 等）→ 按 §15.8 定位
 - **复杂度估算**：~10+ vue 文件（需按目录拆分提交，遵守单批 < 10 文件）
 
 ---
@@ -101,13 +101,13 @@
 #### M31.5 [P2 🛡️ 技术债] B3 收尾：依赖卸载 + 全量回归 + 文档同步
 
 - **目标**：卸载 5 个 PrimeVue 依赖，清零 PrimeVue 引用，e2e 全量通过，产出包体对比，清理迁移验证产物。
-- **范围**：`apps/platform/package.json` + `pnpm-lock.yaml`、`apps/platform/nuxt.config.ts`、删除 `apps/platform/app/pages/__migration-validation/`、`docs/standards/platform.md §7.1`、`docs/guide/tech-stack.md`、`docs/design/governance/caomei-ui-migration.md`（状态更新）。
+- **范围**：`apps/platform/package.json` + `pnpm-lock.yaml`、`apps/platform/nuxt.config.ts`、删除 `apps/platform/app/pages/__migration-validation/`、`docs/standards/platform.md`（§7.1 + 迁移期 §7.4 去留复核）、`docs/guide/tech-stack.md`、`docs/design/governance/caomei-ui-migration.md`（状态更新）。
 - **验收标准**：
   - [ ] 5 个 PrimeVue 依赖从 `package.json` 卸载（`primevue` / `@primevue/nuxt-module` / `@primeuix/themes` / `primeicons` / `primelocale`）
   - [ ] `rg "primevue|--p-[a-z]|\.p-[a-z]" apps/platform/{app,server,tests,nuxt.config.ts}` 归零（排除文档性注释）
   - [ ] `pnpm --filter @dependfix/platform typecheck` + `lint` + `test` + `build` 通过；e2e 全量通过
   - [ ] 迁移前后包体对比记录产出；`__migration-validation` 验证页移除
-  - [ ] `platform.md §7.1` / `tech-stack.md` / 评估文档状态同步（PrimeVue 集成实践段改为 caomei-ui）
+  - [ ] `platform.md §7.1` / `§7.4`（迁移期条款去留复核）/ `tech-stack.md` / 评估文档状态同步（PrimeVue 集成实践段改为 caomei-ui）
 - **不做什么**：不升级 PrimeVue 5.x；不申请 PrimeUI 商业许可；不迁移图表；不做无关重构
 - **依赖**：M31.4（全部组件切换完成）；[评估文档 §10 验收标准](../design/governance/caomei-ui-migration.md)
 - **交付物**：1-3 atomic commits（`chore(platform)` 依赖卸载 + `docs(platform)` 文档同步）+ 包体对比留痕

@@ -315,6 +315,21 @@ fixtures.delete / fixtures.post 在双门控通过后调用 `fixturesRateLimit()
 - **函数签名变更必须同步所有调用方**：utility 函数签名变更后必须 grep 全仓所有调用方同步更新；`pnpm typecheck` 不捕捉 vitest mock 下的类型错误（mock 路径可能跳过部分类型检查），Review Gate `audit-depth: quick` 仍能命中此类 blocker（M15.1 第 1 轮 Reject B1 `alertsFound` 误用——调用方传整个 run 对象，签名已变）。
 - **跨组件复用边界**：utility 一旦抽到 `utils/<feature>.ts`，所有 SFC（含 dialog 组件）通过 import 复用；禁止在第二个 SFC 中复制定义（即使仅微调）。
 
+### 7.4 caomei-ui 双库并存接线（PrimeVue 迁移期）
+
+> 迁移背景与分批计划见 [apps/platform UI 组件库迁移评估](../design/governance/caomei-ui-migration.md)（§15 含 0.3.0 能力复核与选择器映射更正）；本节只登记**接线约定**与**实证结论**。
+
+- **模块注册**：`modules: ['@primevue/nuxt-module', 'caomei-ui/nuxt', '@nuxtjs/i18n']` + `caomeiUI: { prefix: 'Caomei', darkMode: 'class', theme: { ... } }`。组件名 `Caomei*`、类名 `caomei-*`、token `--caomei-*` 与 PrimeVue 的 `p-*` / `--p-*` 命名空间隔离，两库可在同一应用内逐页切换。
+- **自动导入命名冲突（两库唯一冲突点）**：PrimeVue 与 caomei-ui 都自动导入 `useToast` / `useConfirm`。用 `primevue.composables.exclude: ['useToast', 'useConfirm']` 让 PrimeVue 侧退出自动导入（显式 `import { useToast } from 'primevue/usetoast'` 仍可用），消除构建期 `Duplicated imports` 警告，并使无限定调用在迁移期唯一解析到 caomei-ui。
+- **token 覆盖分两处，不可合并**：`caomeiUI.theme` **只生成一条跨明暗的 `:root` 声明**（适合 `--caomei-color-primary-solid` 这类跨主题稳定的实底色）；随明暗自适应的 token 必须在 CSS 中按明暗分别覆盖，落在 `app/assets/styles/_caomei-tokens.scss`。原因：库内暗色档由 `caomei-ui/theme.css` 的 `:is(.dark, [data-theme="dark"])`（特异性 0,1,0）提供，会被模块生成的后加载 `:root`（同为 0,1,0）压过；因此暗色档改用 `:root.dark` / `:root[data-theme="dark"]`（0,2,0），与打包顺序无关。
+- **`_caomei-tokens.scss` 必须显式 `@use './variables' as *`**：经 `@use` 引入的 partial 不会继承 Vite `additionalData` 注入的变量层（Sass `@use` 不传播注入），漏写时 `nuxt build` 报 `Undefined variable` —— **typecheck / lint 不编译 SCSS，唯 `build` 能暴露**。
+- **主色 token 取值（对比度实测）**：`--caomei-color-primary-solid: #0f766e`（teal-700）配 `--caomei-color-on-solid`（白）实测 **5.47:1**（≥ AA 4.5:1）；`--caomei-color-primary` 亮色 `#0d9488`（teal-600）/ 暗色 `#5eead4`（teal-300）；`bg` / `bg-elevated` / `text` / `text-muted` / `border` 对齐 `_variables.scss` 的 `$color-*` 明暗两档。
+- **图标**：`CaomeiIcon` 的 prop 是 `icon: Component`（`@lucide/vue` 图标组件），**不存在** `name` 字符串 prop；`@lucide/vue` 目前不是平台直接依赖，业务页面迁移前须先加依赖（图标替换批次）。
+- **受控状态必须回写**：`expandedRowGroups` / `expandedRows` / `multiSortMeta` / `page` 等受控 prop 需配合 `@update:*` 回写（等价 PrimeVue 的 `v-model:*`）。只声明 prop 而不回写会出现"内建按钮点了没反应"（V1 验证页曾命中）。
+- **验证命令**：`pnpm --filter @dependfix/platform typecheck` + `lint` + `test` + `build`；样式类改动必须跑 `build`（见上）；浏览器侧证据（截图与断言脚本）留在 gitignored 的 `artifacts/m31-b0/`。
+
+> 执行分层说明：以上为**迁移期接线约定**，其中「影响打包 / 入口 / 产物时必跑 `build`」由 [AGENTS.md 必要检查](../../AGENTS.md) 第 3 条（既有强制门禁）承接；其余条目为执行层指引，不新增 review 检查点。本节属迁移期条款，B3（M31.5）收尾时与其他 caomei-ui 相关条款一并复核去留。
+
 ## 8. 测试规范
 
 - server 层纯逻辑（加密、adapter、服务）用 Vitest node 环境，位于 `server/**/*.test.ts`

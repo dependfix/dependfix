@@ -12,7 +12,7 @@
 
 > 本文档为 **`apps/platform`（Nuxt 管理平台）PrimeVue → caomei-ui 的迁移评估与方案**，用于规避 PrimeUI 商业许可风险并与下游统一组件库。
 >
-> **状态**：评估先行稿，**2026-09-28 已上收 M31 正式迁移阶段**（用户决策方案 B；Backlog C88 上收后移除；实施批次映射 M31.1-M31.6 —— 见 [todo.md §M31](../../plan/todo.md)）；库侧能力补齐（若采纳）属 caomei-ui 仓库自身阶段范围，须另行立项。
+> **状态**：评估先行稿，**2026-09-28 已上收 M31 正式迁移阶段**（用户决策方案 B；Backlog C88 上收后移除；实施批次映射 M31.1-M31.6 —— 见 [todo.md §M31](../../plan/todo.md)）；库侧能力补齐（若采纳）属 caomei-ui 仓库自身阶段范围，须另行立项。**2026-09-28 B0 接线落地后本文进入实施期实证**：选择器映射以 [§15.8](#158-选择器映射表更正2026-09-28b0-接线实证) 为准、能力验证口径以 [§15.9](#159-b0-接线暴露的验证覆盖缺口m31-各批次须补齐) 为准。
 
 ---
 
@@ -417,12 +417,15 @@ PrimeTek 已公告 PrimeVue 5.x 起转入 PrimeUI 商业许可（Community 免�
 - **关联阶段**：**M31（2026-09-28 上收，用户决策方案 B）**——B0-B3 批次映射 M31.1-M31.5 + C90 补强映射 M31.6；Backlog C88 上收后移除
 - **审计依据**：本文档为评估先行稿，未触发代码改动；A 阶段审计按 [AI 协作规范](../../standards/ai-collaboration.md) 的文档改动口径执行
 - **口径说明**：本文所有计数为 `.vue` 开标签与 quote-aware 属性的静态统计；caomei-ui 能力面以设计规范 §7 与源码 props 为唯一事实源；未运行任一仓库构建 / 测试
+- **更新记录**：
+  - 2026-09-27：新增 §15（caomei-ui 0.3.0 重新评估补记）
+  - 2026-09-28（M31.1 B0 接线）：新增 [§15.8 选择器映射表更正](#158-选择器映射表更正2026-09-28b0-接线实证) + [§15.9 B0 接线暴露的验证覆盖缺口](#159-b0-接线暴露的验证覆盖缺口m31-各批次须补齐)；§15.1「全绿」结论按 §15.9 修订为「能力存在、验证覆盖不足」
  
 ---
  
 ## 15. caomei-ui 0.3.0 重新评估补记（2026-09-27）
  
-> 2026-09-27 caomei-ui 发布 **0.3.0**（npm `latest`），本节记录关键路径阻塞点的最新闭环情况，作为上收决策的补充依据。
+> 2026-09-27 caomei-ui 发布 **0.3.0**（npm `latest`），本节记录关键路径阻塞点的最新闭环情况，作为上收决策的补充依据；2026-09-28 B0 接线落地后追加 [§15.8 选择器映射更正](#158-选择器映射表更正2026-09-28b0-接线实证) 与 [§15.9 验证覆盖缺口](#159-b0-接线暴露的验证覆盖缺口m31-各批次须补齐)。
  
 ### 15.1 关键路径阻塞点闭环确认
  
@@ -435,6 +438,8 @@ PrimeTek 已公告 PrimeVue 5.x 起转入 PrimeUI 商业许可（Community 免�
 | **降序优先** | ✅ `sortDescFirst: true` | **已闭环** |
  
 > **结论**：原评估中最大的结构性风险（DataTable 能力面）在 0.3.0 中**全部已由库侧闭环**。选项 A（库侧补齐）已完成，无需 dependfix 侧等待或结构性改写。
+>
+> **2026-09-28 B0 接线后修订**：能力存在已由真实浏览器验证（行分组 / 折叠 / 行重展开 / 多列排序），但 M30.6 V1 当时的验证覆盖不足——**能力结论成立、验证口径按 [§15.9](#159-b0-接线暴露的验证覆盖缺口m31-各批次须补齐) 校正**。
  
 ### 15.2 新增组件覆盖
  
@@ -493,3 +498,41 @@ PrimeTek 已公告 PrimeVue 5.x 起转入 PrimeUI 商业许可（Community 免�
 > **Backlog C88 触发条件第 3 条**：`caomei-ui 发布 ≥ 0.2.0 稳定版并明确 0.x API 冻结窗口` —— **已满足**（0.3.0 已发布 npm `latest`）
  
 > 其他条件：**2026-09-28 已全部满足**（用户明确授权启动方案 B + 关键路径取向裁定「选项 A 已由 0.3.0 库侧闭环」+ 主色实底 teal-700 决策）—— M31 正式迁移阶段已启动。
+
+### 15.8 选择器映射表更正（2026-09-28，B0 接线实证）
+
+> **本章更正 §15.1 配套的 V3 映射表**。原表（M30.6 记录，commit `7be5b93`）的类名系按组件名推测，**与实际产物不符**（如推测 `.caomei-datatable`，实际为 `.caomei-data-table`；推测存在 `.caomei-dialog` / `.caomei-drawer` 根类，实际均无）。下表按 `caomei-ui@0.3.0` 产物逐行核查（`rg` 组件 JS 的类名字符串 + CSS 选择器），**后续批次以本表为准**。
+
+| 原 V3 表（推测） | 实际产物选择器（0.3.0） | 说明 |
+| :--- | :--- | :--- |
+| `.caomei-datatable` | `.caomei-data-table` | 多词组件逐词 kebab-case |
+| `.p-datatable-row-group-header` → `.caomei-datatable-row-group-header` | `.caomei-data-table__row-group`（内容单元格 `__row-group-cell`） | 元素用 BEM `__` |
+| `.caomei-datatable-row-toggle-button` | `.caomei-data-table__row-group-toggle` | 内建分组折叠按钮 |
+| *（原表未列）* | `.caomei-data-table__row-expander` / `__row-expansion` / `__row-expansion-cell` | `expander` 列与展开区 |
+| `.caomei-tag-label` | `.caomei-tag__content` | Tag 无 `-label` 后缀（`.caomei-tag` 根类存在） |
+| `.caomei-select-overlay` | `.caomei-select__content` | 浮层内容容器 |
+| `.caomei-select-option` | `.caomei-select__item` | 选项 |
+| `.caomei-dialog-header` | `.caomei-dialog__header` | 面板标题栏 |
+| `.p-dialog` → **`.caomei-dialog`** | **无裸根类**：面板 `.caomei-dialog__content`、遮罩 `.caomei-dialog__overlay` | 面板由 Reka `DialogContent` 渲染（`role="dialog"` + `aria-modal`） |
+| `.p-drawer` → **`.caomei-drawer`** | **无裸根类**：`.caomei-drawer__content` / `__overlay` | 同上（侧别经 `__content--right` 等修饰类） |
+| `.caomei-message-*` | `.caomei-message__*`（变体 `--danger` 等） | `__` 是元素、`--` 是变体 |
+| `.caomei-checkbox-input` | `.caomei-checkbox__control` | — |
+| `th[data-caomei-sortable]` / `data-caomei-sorted` | **不存在**：可排列用 `.caomei-data-table__sort`（按钮），排序状态用 `th[aria-sort]`；多列排序优先级显示为 `.caomei-data-table__sort-index` | 排序走 ARIA，无 `data-*` |
+| `.caomei-paginator` / `.caomei-toast` / `.caomei-button` / `.caomei-tag` / `.caomei-select` / `.caomei-checkbox` | 裸根类存在，命名与组件名一致（Toast 视口为 `.caomei-toast-viewport`） | 原表正确 |
+
+**命名规律**：多词组件类名 = 逐词 kebab-case（`caomei-data-table` / `caomei-auto-complete` / `caomei-multi-select` / `caomei-progress-spinner` / `caomei-tags-input` / `caomei-select-button` 等）；`.caomei-root` 为共享根类。
+
+**无裸根类的组件（浮层类为主，必须用元素类定位）**：`config-provider` / `dialog` / `drawer` / `confirm-dialog` / `popover` / `dropdown-menu` —— 产物中不存在 `.caomei-dialog` / `.caomei-drawer` 这类根类，一律用 `__content` / `__overlay` 等元素类（或 `role` / `aria-*`）定位。
+
+**未列出组件不回落原表**：本表只覆盖原 V3 表涉及的组件；其余组件写选择器前必须 `rg` 产物核实（先判有无裸根类，再找 `__` 元素类），**不得按组件名推断**。
+
+### 15.9 B0 接线暴露的验证覆盖缺口（M31 各批次须补齐）
+
+`caomei-ui/nuxt` 注册（B0）后首次获得真实运行时验证，同时暴露出 §15.1「已闭环」结论背后的**验证覆盖不足**：
+
+1. **B0 之前 V1 页面并未真正渲染 caomei 组件**：模块未注册时 `CaomeiDataTable` 等属未解析组件（原构建产物为 `resolveComponent("CaomeiDataTable")`，只渲染空自定义元素），当时的 `typecheck` / `lint` / `build` 通过**不构成能力验证**。注册模块后 SSR 产物出现 `.caomei-data-table__row-group` / `__row-group-toggle` / `__sort`，能力首次得到真实确认。
+2. **V1 页面存在 API 误用**（已随 B0 修正）：`CaomeiIcon` 传 `name`（实为 `icon: Component`）；`tone="info"` / `tone="warn"`（实为 `primary` / `warning`，`ComponentTone` 无 `info` / `warn`）；`columns` 未声明 `DataTableColumn<T>[]` 导致 `sortFn` 宽化为 `string`。
+3. **受控模式未回写**：V1 的 `@update:expandedRowGroups` / `@update:expandedRows` 只打日志不回写 → 内建分组折叠按钮点击无效（V1 实际从未验证过分组展开）。真实页面迁移时 `v-model:*` 必须保真为 `prop + 回写`。
+4. **`expander` 列内建按钮路径未被 V1 覆盖**：V1 的 batch-runs 页用自定义按钮切换 `expandedRows`，未走 `expander: true` 列的内建按钮；M31.2 按 `expander` 列实现时须单独回归该路径。
+5. **DataTable 无 `size` prop**：V1 页传入的 `size="sm"` 被当作透传属性（无效果），密度须走 CSS 变量覆盖（见 §15.3）。
+6. **`--caomei-color-primary-foreground` 未随主色覆盖（B2 前置项）**：亮色档库默认 `#fff`，而本项目 `--caomei-color-primary` 取 `#0d9488`（teal-600），白字对比度 **3.74:1 < AA 4.5:1**；受影响的正是**以自适应主色作底**的控件（Paginator 选中页码、Toggle/SelectButton 激活态、Stepper 指示器等）。可选处置：① 把亮色 `--caomei-color-primary` 调整为 `#0f766e`（白字 5.47:1，与实底同档）；② 显式覆盖 `--caomei-color-primary-foreground` 为深色前景（`#0b0b0d` 对比 5.25:1）。二者均改变视觉，属设计口径决策，**须在 B2（M31.4）进入生产页前经用户确认并 @ui-validator 复核**。B0 验收只覆盖 `-solid × on-solid`（实测 5.47:1，达标）；对比度口径与 §6 / §9.1 / [平台规范 §7.4](../../standards/platform.md) 一致（WCAG 相对亮度公式）。

@@ -1,5 +1,7 @@
 // dependfix 平台全局样式（SCSS + BEM）
 
+@use './caomei-tokens';
+
 *,
 *::before,
 *::after {

@@ -51,9 +51,31 @@ export default defineNuxtConfig({
         },
     },
     modules: [
+        // 迁移期双库并存：PrimeVue（存量页面）与 caomei-ui（新页面 / 逐页迁移）同时注册。
+        // 命名空间隔离由库侧保证（组件 `Caomei*` / 类名 `caomei-` / token `--caomei-*` vs `p-*` / `--p-*`）。
         '@primevue/nuxt-module',
+        'caomei-ui/nuxt',
         '@nuxtjs/i18n',
     ],
+    // caomei-ui 主题接线：模块的 `theme` 只生成一条跨明暗的 `:root` 声明，
+    // 因此这里只声明跨主题稳定的 token（实底色 / 亮色档）；
+    // 随明暗自适应的 token（primary / bg / text / border）暗色档见 app/assets/styles/_caomei-tokens.scss。
+    caomeiUI: {
+        prefix: 'Caomei',
+        darkMode: 'class',
+        theme: {
+            // teal-600：soft 底 / 文字 / 边框强调（与 PrimeVue 预设 primary.600 对齐）
+            primary: '#0d9488',
+            // teal-700：实底背景色，配 `--caomei-color-on-solid`（白）达 AA 4.5:1；
+            // 该 token 跨明暗稳定，不随暗色档变化
+            'primary-solid': '#0f766e',
+            bg: '#fff',
+            'bg-elevated': '#f8fafc',
+            text: '#334155',
+            'text-muted': '#94a3b8',
+            border: '#e2e8f0',
+        },
+    },
     // 国际化：单点声明见 i18n/i18n.config.ts（locales / strategy / detectBrowserLanguage / detector 路径）
     i18n: {
         ...nuxtI18n,
@@ -65,6 +87,12 @@ export default defineNuxtConfig({
         '@/assets/styles/main.scss',
     ],
     primevue: {
+        // 迁移期双库并存的唯一命名冲突点：PrimeVue 与 caomei-ui 都自动导入 `useToast` / `useConfirm`。
+        // 这里显式让 PrimeVue 侧退出自动导入（保留显式子路径导入 `primevue/usetoast` 可用），
+        // 使无限定调用在迁移期唯一解析到 caomei-ui，并消除构建期 "Duplicated imports" 警告。
+        composables: {
+            exclude: ['useToast', 'useConfirm'],
+        },
         options: {
             theme: {
                 preset: DependfixPreset,

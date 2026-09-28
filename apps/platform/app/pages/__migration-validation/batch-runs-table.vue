@@ -1,13 +1,15 @@
 <script setup lang="ts">
 /**
- * M30.6 V1: DataTable 核心交互复现 - batch-runs.vue 迁移验证页
- * 用 caomei-ui 0.3.0 复现 PrimeVue 行展开 + 嵌套表格
- * 仅做验证，不进入生产代码
+ * caomei-ui 0.3.0 DataTable 核心交互复现验证页（batch-runs 行展开 + 嵌套表格）
+ * 仅做迁移可行性验证，不进入生产代码；批次背景见 docs/design/governance/caomei-ui-migration.md §15
+ *
+ * 注：展开指示符用文本符号而非 `CaomeiIcon`——后者要求传 `icon: Component`
+ * （`@lucide/vue` 图标组件），而 `@lucide/vue` 尚未成为平台直接依赖（图标替换批次引入）。
  */
 
 import { ref, computed, onMounted } from 'vue'
 import { useI18n } from '#imports'
-import type { DataTableRowExpandEvent } from 'caomei-ui'
+import type { ComponentTone, DataTableRowExpandEvent } from 'caomei-ui'
 
 const { t, d } = useI18n()
 
@@ -126,11 +128,11 @@ const sortMeta = ref<{ field: string, order: 1 | -1 }[]>([{ field: 'createdAt', 
 const modeLabel = (mode: string) => ({ 'report-only': '仅报告', fix: '自动修复', 'fix-and-pr': '修复+PR' })[mode] ?? mode
 const severityLabel = (s: string) => ({ critical: 'Critical', high: 'High', medium: 'Medium', all: '全部' })[s] ?? s
 
-const statusTag = (status: string) => {
-    if (status === 'completed') return { label: '已完成', tone: 'success' as const }
-    if (status === 'failed') return { label: '失败', tone: 'danger' as const }
-    if (status === 'dispatched') return { label: '已分发', tone: 'info' as const }
-    return { label: '进行中', tone: 'warn' as const }
+const statusTag = (status: string): { label: string, tone: ComponentTone } => {
+    if (status === 'completed') return { label: '已完成', tone: 'success' }
+    if (status === 'failed') return { label: '失败', tone: 'danger' }
+    if (status === 'dispatched') return { label: '已分发', tone: 'primary' }
+    return { label: '进行中', tone: 'warning' }
 }
 
 const runStatusLabel = (status: string) => ({
@@ -138,11 +140,11 @@ const runStatusLabel = (status: string) => ({
     failed: '失败', dispatched: '已分发',
 })[status] ?? status
 
-const runStatusTone = (status: string) => {
-    if (status === 'completed') return 'success' as const
-    if (status === 'failed') return 'danger' as const
-    if (status === 'dispatched') return 'info' as const
-    return 'warn' as const
+const runStatusTone = (status: string): ComponentTone => {
+    if (status === 'completed') return 'success'
+    if (status === 'failed') return 'danger'
+    if (status === 'dispatched') return 'primary'
+    return 'warning'
 }
 
 const executorLabel = (kind: string) => ({
@@ -201,7 +203,7 @@ const columns = [
 <template>
     <div class="validation-page">
         <header class="validation-header">
-            <h2>M30.6 V1: DataTable 核心交互验证 - batch-runs-table</h2>
+            <h2>caomei-ui DataTable 核心交互验证 - batch-runs-table</h2>
             <p class="text-muted">
                 caomei-ui 0.3.0 DataTable: 行展开 + 嵌套表格 + @row-expand
             </p>
@@ -231,9 +233,9 @@ const columns = [
                                 :aria-label="isRowExpanded(row.id) ? '收起' : '展开'"
                                 @click.stop="toggleRow(row.id)"
                             >
-                                <CaomeiIcon :name="isRowExpanded(row.id) ? 'chevron-down' : 'chevron-right'" size="xs" />
+                                <span aria-hidden="true">▸</span>
                             </CaomeiButton>
-                            <CaomeiTag :tone="row.source === 'scheduled' ? 'info' : 'neutral'">
+                            <CaomeiTag :tone="row.source === 'scheduled' ? 'primary' : 'neutral'">
                                 {{ row.source === 'scheduled' ? t('batchRuns.sourceScheduled') : t('batchRuns.sourceManual') }}
                             </CaomeiTag>
                         </div>
@@ -288,7 +290,7 @@ const columns = [
                                     <span class="stat-label">{{ t('batchRuns.statFixedCount') }}</span>
                                 </div>
                                 <div class="stat-item">
-                                    <span class="stat-value">{{ data.completedCount ?? '—' }} / {{ data.finishedCount ?? '—' }}</span>
+                                    <span class="stat-value">{{ data.completedCount ?? '—' }} / {{ data.repositoryCount ?? '—' }}</span>
                                     <span class="stat-label">{{ t('batchRuns.statSuccessFinished') }}</span>
                                 </div>
                                 <div

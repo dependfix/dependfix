@@ -1,0 +1,25 @@
+// caomei-ui 主题 token 覆盖（迁移期双库并存；亮色档见 nuxt.config.ts 的 `caomeiUI.theme`）
+
+// 显式声明依赖：本文件可能被 `@use` 引入，此时 Vite 的 `additionalData` 不会注入变量层
+@use './variables' as *;
+
+// 分工依据（caomei-ui 主题与样式设计 §2 / §4）：
+// - **跨明暗稳定的 token**（`--caomei-color-primary-solid` 等实底背景色）由 Nuxt 模块的 `theme` 声明——
+//   模块只生成一条 `:root` 规则，语义上正好对应「跨主题稳定」。
+// - **随明暗自适应的 token**（primary / bg / text / border）必须在 CSS 中按明暗分别覆盖：
+//   模块 `theme` 无法表达明暗分档；且库内暗色档由 `caomei-ui/theme.css` 的
+//   `:is(.dark, [data-theme="dark"])`（特异性 0,1,0）提供，会被模块生成的 `:root`（同为 0,1,0，
+//   但后加载）覆盖。此处用 `:root.dark` / `:root[data-theme="dark"]`（特异性 0,2,0）确保暗色档生效，
+//   与「main.scss 先于模块注入的 theme.css 加载」这一顺序无关。
+// 映射来源：`docs/design/governance/caomei-ui-migration.md` §6（值经真实浏览器复核）
+
+:root.dark,
+:root[data-theme='dark'] {
+    // 暗底强调色取 teal-300，在深背景上保持充分对比度
+    --caomei-color-primary: #5eead4;
+    --caomei-color-bg: #{$color-bg-dark};
+    --caomei-color-bg-elevated: #{$color-surface-dark};
+    --caomei-color-text: #{$color-text-dark};
+    --caomei-color-text-muted: #{$color-text-muted};
+    --caomei-color-border: #{$color-border-dark};
+}

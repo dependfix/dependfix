@@ -1,13 +1,21 @@
 <script setup lang="ts">
 /**
- * M30.6 V1: DataTable 核心交互复现 - alerts.vue 迁移验证页
- * 用 caomei-ui 0.3.0 复现 PrimeVue 行分组/折叠/多列排序
- * 仅做验证，不进入生产代码
+ * caomei-ui 0.3.0 DataTable 核心交互复现验证页（alerts 行分组/折叠/多列排序）
+ * 仅做迁移可行性验证，不进入生产代码；批次背景见 docs/design/governance/caomei-ui-migration.md §15
+ *
+ * 注：折叠 / 展开指示符用文本符号而非 `CaomeiIcon`——后者要求传 `icon: Component`
+ * （`@lucide/vue` 图标组件），而 `@lucide/vue` 尚未成为平台直接依赖（图标替换批次引入）。
  */
 
 import { ref, computed, onMounted } from 'vue'
 import { useI18n } from '#imports'
-import type { DataTableSortMeta, DataTableRowGroupEvent, DataTableRowExpandEvent } from 'caomei-ui'
+import type {
+    ComponentTone,
+    DataTableColumn,
+    DataTableRowExpandEvent,
+    DataTableRowGroupEvent,
+    DataTableSortMeta,
+} from 'caomei-ui'
 
 const { t } = useI18n()
 
@@ -116,11 +124,11 @@ const groupCounts = computed(() => {
     return counts
 })
 
-const groupHeaderLabel = (data: Record<string, unknown>): string => {
+const groupHeaderLabel = (data: AlertItem): string => {
     if (viewMode.value === 'repository') {
-        return data.repository as string
+        return data.repository
     }
-    return data.packageName as string
+    return data.packageName
 }
 
 const isGroupExpanded = (key: string) => expandedRowGroups.value.includes(key)
@@ -156,16 +164,20 @@ const onUpdateMultiSortMeta = (meta: DataTableSortMeta[]) => {
     console.log('[V1] Update multiSortMeta:', meta)
 }
 const onUpdateExpandedRowGroups = (groups: string[]) => {
+    // 受控模式必须回写，否则内建折叠按钮点击后无效果（等价 PrimeVue 的 `v-model:expanded-row-groups`）
+    expandedRowGroups.value = groups
     console.log('[V1] Update expandedRowGroups:', groups)
 }
 const onUpdateExpandedRows = (rows: string[]) => {
+    expandedRows.value = rows
     console.log('[V1] Update expandedRows:', rows)
 }
 
-const severityTagMap: Record<string, string> = {
+// PrimeVue severity → caomei-ui tone 映射（caomei 无 info / warn，见迁移评估 §5.4：info → primary）
+const severityTagMap: Record<AlertItem['severity'], ComponentTone> = {
     critical: 'danger',
-    high: 'warn',
-    medium: 'info',
+    high: 'warning',
+    medium: 'primary',
     low: 'success',
 }
 const severityLabel = (s: string) => ({ critical: 'Critical', high: 'High', medium: 'Medium', low: 'Low' })[s] ?? s
@@ -178,7 +190,7 @@ const pushEvent = (type: string, data: unknown) => {
     if (events.value.length > 20) events.value.pop()
 }
 // 列定义
-const columns = [
+const columns: DataTableColumn<AlertItem>[] = [
     {
         key: 'repository',
         header: '仓库',
@@ -256,7 +268,7 @@ const columns = [
 <template>
     <div class="validation-page">
         <header class="validation-header">
-            <h2>M30.6 V1: DataTable 核心交互验证 - alerts-table</h2>
+            <h2>caomei-ui DataTable 核心交互验证 - alerts-table</h2>
             <p class="text-muted">
                 caomei-ui 0.3.0 DataTable: 行分组/折叠/多列排序/行展开
             </p>
@@ -335,9 +347,11 @@ const columns = [
                             @click="toggleGroup(groupHeaderLabel(data))"
                             @keydown.enter.prevent="toggleGroup(groupHeaderLabel(data))"
                         >
-                            <span class="validation-group-toggle" :class="{expanded: isGroupExpanded(groupHeaderLabel(data))}">
-                                <CaomeiIcon :name="isGroupExpanded(groupHeaderLabel(data)) ? 'chevron-down' : 'chevron-right'" size="sm" />
-                            </span>
+                            <span
+                                class="validation-group-toggle"
+                                :class="{expanded: isGroupExpanded(groupHeaderLabel(data))}"
+                                aria-hidden="true"
+                            >▸</span>
                             <strong>{{ groupHeaderLabel(data) }}</strong>
                             <span class="validation-group-count">{{ groupCounts.get(groupHeaderLabel(data)) ?? 0 }} 项</span>
                         </div>
@@ -353,7 +367,7 @@ const columns = [
                                 aria-label="展开详情"
                                 @click.stop="toggleRow(row.id)"
                             >
-                                <CaomeiIcon name="chevron-right" size="xs" />
+                                <span aria-hidden="true">▸</span>
                             </CaomeiButton>
                             <CaomeiButton
                                 v-else
@@ -362,7 +376,7 @@ const columns = [
                                 aria-label="收起详情"
                                 @click.stop="toggleRow(row.id)"
                             >
-                                <CaomeiIcon name="chevron-down" size="xs" />
+                                <span aria-hidden="true">▾</span>
                             </CaomeiButton>
                             <span>{{ row.repository }}</span>
                         </div>

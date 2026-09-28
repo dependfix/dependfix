@@ -69,6 +69,10 @@ export default defineNuxtConfig({
             // teal-700：实底背景色，配 `--caomei-color-on-solid`（白）达 AA 4.5:1；
             // 该 token 跨明暗稳定，不随暗色档变化
             'primary-solid': '#0f766e',
+            // 自适应主色作底时的前景色：库默认亮色档为白（配 #0d9488 仅 3.74:1 < AA），
+            // 改深色前景后亮色档 5.25:1 达标；暗色档主色为 #5eead4（亮青），库默认前景本就是
+            // #0b0b0d，故该跨明暗单值不会造成暗色回归
+            'primary-foreground': '#0b0b0d',
             bg: '#fff',
             'bg-elevated': '#f8fafc',
             text: '#334155',

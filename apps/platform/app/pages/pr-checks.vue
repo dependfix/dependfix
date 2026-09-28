@@ -312,6 +312,14 @@ const handleAck = async (row: PRCheckView) => {
 .pr-checks {
     padding: $space-4 $space-5;
 
+    // 本页 DataTable 原未设 PrimeVue `size`（默认档 12px 16px），更接近 caomei 默认单元格密度
+    // （`--caomei-space-2` / `--caomei-space-3` = 8px 12px），而非全局收敛用的 small 档（6px 8px）。
+    // 故此处恢复 caomei 默认密度（特异性 0,4,1 > 全局覆盖的 0,2,1）。
+    &__table :deep(.caomei-data-table__table th.caomei-data-table__th),
+    &__table :deep(.caomei-data-table__table td.caomei-data-table__td) {
+        padding: var(--caomei-space-2) var(--caomei-space-3);
+    }
+
     &__header {
         margin-bottom: $space-4;
     }

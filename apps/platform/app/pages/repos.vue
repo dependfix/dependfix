@@ -346,7 +346,8 @@ const columns = computed<DataTableColumn<RepoView>[]>(() => [
     { key: 'tags', header: t('repos.colTags') },
     { key: 'defaultBranch', header: t('repos.colDefaultBranch') },
     { key: 'packageManager', header: t('repos.colPackageManager'), sortable: true },
-    { key: 'credentialName', header: t('repos.colCredential') },
+    // 凭据列：宽度约束 + 不折行（「未关联」等短值在窄列下曾折行；长凭据名保持单行、由自适应布局撑开列）
+    { key: 'credentialName', header: t('repos.colCredential'), width: '104px', bodyClass: 'repos__col-credential' },
     { key: 'executorKind', header: t('repos.colExecutor'), sortable: true },
     { key: 'actions', header: t('repos.colActions'), width: '230px' },
 ])
@@ -725,6 +726,11 @@ const columns = computed<DataTableColumn<RepoView>[]>(() => [
 
 <style lang="scss" scoped>
 .repos {
+    // 凭据列单元格不折行（配合 columns 的 width 约束；长凭据名单行显示，列宽由自适应布局撑开）
+    :deep(.repos__col-credential) {
+        white-space: nowrap;
+    }
+
     &__header {
         display: flex;
         align-items: center;

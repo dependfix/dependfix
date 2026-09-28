@@ -146,6 +146,15 @@ commit message 应聚焦于"当次提交的改动"+"可供事后复查的信息"
 
 **commit 前轻量级审核**：执行方 self-check 4 项必查 + 触发 code-auditor quick depth 条件详见 [ai-collaboration.md §1.6 commit 前轻量级审核流程](./ai-collaboration.md)。
 
+### 3.7 提交态自洽：amend / 提交前必须核对全部关联文件入库（M29.7 实证）
+
+修复一个功能点时，**支撑文件必须与修复点同 commit 入库**——类型扩展 / 字段透传 / i18n key / 测试 mock 等任一项留在工作区未暂存，都会造成"提交态不自洽"（类型谎言 / i18n 裸 key / 测试断链），工作区看似正常但提交后运行时半失效。
+
+- **执行**：`git commit` / `git commit --amend` 前先 `git status`，逐项确认所有关联文件已暂存（不只修复点文件）。
+- **审计口径**：Review Gate 以「提交态自洽」而非「工作区自洽」为准。
+- **反例**：M29.7 修复 commit 只含 4 文件（纯函数 + 组件 + 测试 + e2e 注释），`disabled` 透传 + i18n key 未暂存 → A 阶段审计 RG-B3 Reject。
+- 详见 [经验归档 §六十五](../design/governance/experience-archive-§49-§57-recent-investigation.md#六十五m30-归档批次经验沉淀)
+
 ## 4. AI 行为准则
 
 - **禁止擅自推送**: commit 后不得自动执行 `git push`，推送仅限用户明确指令。

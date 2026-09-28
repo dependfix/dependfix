@@ -376,6 +376,18 @@ git config 优先级 `local > global > system`，`.git/config [user]` 会**静�
 
 详见 [经验归档 §六十三 M26 阶段 git config user 错位事故与防护](../design/governance/experience-archive-§49-§57-recent-investigation.md#六十三m26-阶段-git-config-user-错位事故与防护2026-09-09)
 
+#### 5.1.24 多 key 生成循环必须按 key 预聚合取 max（last-write-wins 陷阱）
+
+生成 overrides / 映射 / 统计等「多输入 → 同 key」场景时，若在循环内直接 `map[key] = value` 会产生 last-write-wins——同 key 多输入时最终值取决于遍历顺序而非语义正确值。**修复模式**：先 `Map<key, value>` 预聚合（如 `compareSemver` 取 max），再统一写入输出；对齐同模块已有的聚合模式（如顶层 `targetByMajor`）。反例：M29.6 路径级 override 同 pathKey 多告警时后写覆盖先写，可能写入低于修复所需版本。
+
+#### 5.1.25 声明范围前必须全仓库穷举同根因调用点
+
+声明「修复点单一 / 影响范围」前，必须以**行为特征**（如 git 子命令 argv、环境变量读取）而非「包路径」为锚点全仓库扫描，把跨包（尤其平台侧）同根因命中逐条列入范围或显式排除。反例①（同根因缺口）：M29.2 只改 engine 的 `stageAndCommit`，漏了 push 侧 4 处未隔离调用点（含平台接管交付路径 3 处）；反例②（范围声明失误）：M29.2 范围行误称"git commit 调用仅此一处"，被 release 链路的 `git commit -F` 反例推翻。
+
+#### 5.1.26 构建产物 dts 入口与共享 chunk 文件名冲突（tsdown `hash:false`）
+
+tsdown `hash:false` 下多 entry 构建时，entry 与共享 dts chunk 会争用同名文件（如 `index.d.mts`），入口声明被挤出 `index2.d.mts`，而 `package.json#types` 仍指向 `index.d.mts` → 下游解析不到导出（TS2305）。**修复模式**：用 `outputOptions.chunkFileNames` 把 chunk 统一隔离到 `chunks/` 子目录，entry 名保持稳定。**排查**：构建后 `dist/` 出现 `index2.d.mts` / `index2.mjs` 即命中。详见 [backlog.md §已知边界](../plan/backlog.md#tsdown-hashfalse-下-entry-与共享-chunk-文件名冲突持续观察)。
+
 ---
 
 ## 6. 样式规范（平台阶段适用）

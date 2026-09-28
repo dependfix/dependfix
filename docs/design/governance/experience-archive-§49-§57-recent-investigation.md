@@ -1231,3 +1231,64 @@ todo.md §M27.1 任务段（L17-48）所有 8 要素（目标 / 范围 / 验收 
 - 本批 commit `TBD` docs(plan+governance)：修订 todo.md §M27.1 + backlog.md C66 + planning.md §3.4 + ai-collaboration.md §1.7 + experience-archive §六十四 + wisdom.md governance check point
 - 修订后 todo.md §M27.1 状态：✅ 已闭环（M23.3 + M16.2 已实施，本批不需新增 commit）
 - ahead 状态：M27.1 闭环 + M27 阶段剩余 4 原子条目（M27.2 已 ahead / M27.3 / M27.4 / M27.5）待用户决策启动顺序
+
+## 六十五、M30 归档批次经验沉淀
+
+> 2026-09-28 M30 归档批次。本阶段为治理债清理 + UI 组件库迁移可行性验证（caomei-ui 0.3.0），衍生暴露工具链 / 测试架构 / 提交态自洽三类教训。
+
+### 教训摘要
+
+1. **tsdown `hash:false` 产物错位**：多 entry 与共享 dts chunk 争名 `index.d.mts`，下游解析错位 → chunk 隔离到 `chunks/`。
+2. **pnpm 11 `allowBuilds` 严格校验**：未赋值占位串被视为非法值阻断安装 → 显式赋值。
+3. **ESM 模块 mock 受限**：命名导出无法 `vi.spyOn` → 可注入依赖 / 进程级隔离，不得静默 skip 或写恒真断言。
+4. **提交态自洽**：支撑文件必须与修复点同 commit 入库；审计以提交态而非工作区为准。
+
+### 案例一：tsdown `hash:false` 下 entry 与共享 dts chunk 同名冲突（commit `644f9f0`）
+
+- **现象**：接入 `caomei-ui@0.3.0` 后 `apps/platform` 对 `@dependfix/engine` 的导入报 TS2305（无导出成员），而 engine 单包 typecheck 通过。
+- **根因**：engine 多 entry（`index` + `auth`）构建，tsdown `hash:false` 时 entry 与共享 dts chunk 争用 `index.d.mts`，入口声明被挤出 `index2.d.mts`；`package.json#types` 指向 `index.d.mts` → 下游解析到错位产物。
+- **修法**：`outputOptions.chunkFileNames` 把 chunk 统一隔离到 `chunks/` 子目录，entry 名保持稳定；chunk 名解析用 `chunk.name.slice(0, -2)` 而非占位符（规避 tsdown 升级回归）。
+- **沉淀**：[development.md §5.1.26](../../standards/development.md)（规范）+ [backlog.md §已知边界](../../plan/backlog.md)（`core` / `cli` / `mcp` 同类潜在风险持续观察）。
+
+### 案例二：pnpm 11 `allowBuilds` 未赋值占位串阻断安装（commit `124078a`）
+
+- **现象**：`caomei-ui@0.3.0` 依赖链引入 `vue-demi`（需 postinstall 切换 Vue3 产物），`pnpm install` 报 `ERR_PNPM_IGNORED_BUILDS`。
+- **根因**：`pnpm-workspace.yaml` 的 `allowBuilds` 条目存在未赋值的占位串，pnpm 11 严格校验后阻断安装前依赖校验链路。
+- **修法**：显式赋值 `vue-demi`（及其他占位项）为确定值。
+- **启示**：占位串在 pnpm 11 下不再是"未配置"语义而是非法值；新增构建脚本依赖时必须同步 `allowBuilds`（pnpm 大版本迁移时复核）。
+
+### 案例三：ESM 模块 mock 受限导致失败分支无法覆盖（commit `80dff3f`，M30.5）
+
+- **现象**：`db-restore` 两条失败分支（恢复后 `integrity_check` 失败注入 / sidecar `unlinkSync` 部分失败状态一致性）无法测试。
+- **根因**：Vitest `vi.spyOn(fs, 'unlinkSync')` 对 ESM 命名导出无效；被测模块内部调用无法直接注入失败。
+- **处理**：两分支 `it.skip` + TODO 理由 + 残留登记 backlog C90（不静默 skip，也不写恒真断言）。
+- **沉淀**：[testing.md §6.6](../../standards/testing.md)（ESM mock 受限处理原则）。
+
+### 案例四：提交态自洽（M29.7 教训，本批蒸馏）
+
+- **现象**：M29.7 修复 commit 只含 4 文件，`disabled` 透传 + i18n key 留在工作区未暂存 → 提交态运行时半失效；A 阶段审计 RG-B3 判定"支撑文件未入库" Reject。
+- **修法**：`git commit` / `--amend` 前 `git status` 核对全部关联文件已暂存；审计以「提交态自洽」而非「工作区自洽」为准。
+- **沉淀**：[git.md §3.7](../../standards/git.md)（规范）+ code-auditor 主责边界必查项。
+
+### 与既有教训的关联
+
+- 案例一（tsdown dts 冲突）与 [§二十九 TypeORM 复合索引](./experience-archive-§29-§35-integration.md) 同属「产物 / DDL 与源码声明不一致，只有真实运行或二次运行才暴露」类工具陷阱。
+- 案例三（ESM mock 受限）与 [testing.md §6.3 集成外部库测试模式](../../standards/testing.md) 同属「mock 边界」主题（mock 最小化 vs ESM 无法 `vi.spyOn` 时的替代路径）。
+- 案例四（提交态自洽）与 [§四十九 atomic commit 边界](./experience-archive-§41-§48-archive-batch.md) 同属提交粒度与自洽性治理。
+
+### 挂接治理检查点
+
+| 教训 | 规范条款 | Review 检查点挂接状态 |
+|:--|:--|:--|
+| 提交态自洽 | [git.md §3.7](../../standards/git.md) | ✅ 已挂 code-auditor 主责边界「提交态自洽」必查项 |
+| tsdown dts 入口冲突 | [development.md §5.1.26](../../standards/development.md) | ⏳ 待补挂（登记 backlog C91） |
+| 多 key 预聚合 | [development.md §5.1.24](../../standards/development.md) | ⏳ 待补挂（登记 backlog C91） |
+| 范围穷举同根因 | [development.md §5.1.25](../../standards/development.md) | ⏳ 待补挂（登记 backlog C91） |
+| 断言禁用恒真 | [testing.md §6.5](../../standards/testing.md) | ⏳ 待补挂（登记 backlog C91） |
+| ESM mock 受限 | [testing.md §6.6](../../standards/testing.md) | ⏳ 待补挂（登记 backlog C91） |
+| 量化断言可复现口径 | [planning.md §2.5](../../standards/planning.md) | ⏳ 待补挂（登记 backlog C91） |
+| 口径同步结构化复扫 | [planning.md §4.4 第 13 条](../../standards/planning.md) | ⏳ 待补挂（登记 backlog C91） |
+
+### 准入标准复核
+
+本案例符合准入标准第 1 条"教训未落入规范"（tsdown dts 冲突 / ESM mock 受限 / 提交态自洽 均已迁移 `docs/standards/`）+ 第 4 条"工具/环境陷阱"（tsdown `hash:false` 产物错位、pnpm 11 `allowBuilds` 严格校验，均为真实运行才暴露）。

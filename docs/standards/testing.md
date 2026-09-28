@@ -142,6 +142,14 @@
 - **CI 失败时间模式诊断**：global-setup 失败 → 后续测试不运行 → 掩盖后续测试真实状态。CI 修复需走完整链路（global-setup → setup → tests → teardown），单一节点失败掩盖下游问题
 - **未来扩展**：建立 helper `tests/e2e/helpers/unauth-request.helper.ts` 抽取重复模式（audit suggest 候选）
 
+### 6.5 断言禁用恒真写法（裸数字 / 短字符串）
+
+`expect(x).toContain('3')` / `toContain(3)` 等短断言会被 fixture 数据（日期 `2026-07-30` 含字符 `3`、ID、计数字段）污染**恒真**，计数错误 / 缺失无法拦截。**修复模式**：表格 / 结构化输出断言用**完整行**（如 `toContain('| Alerts disabled (repos) | 3 |')` 含标签与管道符）或 `toMatch` 正则锚定边界；数字断言优先 `toBe(n)` 直接测数据层而非渲染文本。反例：M29.5 报告计数测试 `expect(md).toContain('3')` 在计数=0 时仍通过。
+
+### 6.6 ESM 模块 mock 受限的处理原则
+
+Vitest 对 ESM 命名导出（如 `node:fs` 的 `unlinkSync`）无法用 `vi.spyOn` 拦截，被测模块内部调用也无法直接注入失败。**处理原则**：① 优先改造为**可注入依赖**（生产代码接受协作对象）；② 或改用**进程级隔离 + 环境变量 / 文件系统真实故障注入**；③ 确认 `vi.mock` 对目标模块支持度后再用。**不得**为凑覆盖率写"看似 mock 实则恒过"的断言，也不得静默 `it.skip`——skip 必须带 TODO 理由并登记 backlog（反例：M30.5 db-restore 两分支因 ESM mock 受限 `it.skip`，残留登记 C90）。
+
 ## 7. 测试代码质量
 
 - 测试代码本身也需要通过 lint + typecheck

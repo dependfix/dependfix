@@ -651,3 +651,70 @@ PrimeVue Aura small 尺寸单元格内边距为 `0.375rem 0.5rem`（6px 8px）�
 - ✅ **`--caomei-color-primary-foreground` 对比度**：用户裁定改前景 token（影响面小于改主色），已落地并实测亮色 5.25:1 / 暗色 13.29:1，详见 [§15.9 第 6 条](#159-b0-接线暴露的验证覆盖缺口m31-各批次须补齐)。
 - ⏳ `import-repos-dialog` 的 `CaomeiPaginator` 固定渲染页码按钮组（原 PrimeVue template 无该控件）→ 属可见 UI 新增，B4 确认是否接受。
 - ⏳ 内建分页器的页码报表文案丢失（第 3 条）→ B4 确认是否需要在表外自渲染补回。
+
+### 15.12 表单 / 浮层 / 导航组件迁移实证（M31.4，2026-09-29）
+
+> M31.4（B2）把 `apps/platform/app` 下**全部剩余 PrimeVue 组件**（非表格类）迁到 caomei-ui 0.3.0，并完成 Toast / Confirm / i18n 内建文案接线。迁移后 `apps/platform/app` 的**生产页面集合**已无 PrimeVue 组件标签与 `pi pi-*` 图标 / `fluid`（M31.5 待删的 `__migration-validation` V1 验证页仍有 5 处 `<Card>`；另有 4 类残留见第 5 条）。
+
+**1）覆盖清单**（口径：M31.4（B2）批次全部改动文件，跨多个 commit；`git diff --name-only` 统计）
+
+| 组 | 文件 | 关键能力 |
+| :--- | :--- | :--- |
+| 接线地基 | `app/app.vue`、`app/layouts/default.vue`、`app/pages/index.vue`、`package.json`（`@lucide/vue`）、`assets/styles/_caomei-tokens.scss` | providers（Config/Toast/Confirm）+ locale 映射 + 图标依赖 + 选择器全宽 |
+| 认证 / 展示 | `pages/login.vue`、`pages/register.vue`、`pages/dashboard.vue`、`pages/settings.vue` | Password / Message / Card / 图标按钮 |
+| 表单 A | `pages/credentials.vue`、`pages/repos.vue`、`pages/repos/[id]/runs.vue` | Dialog / Select / Textarea / TagsInput |
+| 表单 B | `pages/schedules.vue`、`pages/scans.vue`、`pages/pr-checks.vue`、`pages/users.vue`、`pages/env-events.vue` | AutoComplete / MultiSelect / Switch / Toast / Confirm |
+| 告警 / 批任务 | `pages/alerts.vue`、`pages/batch-runs.vue`、`utils/alerts-view.ts(+test)` | Switch / Select / Confirm |
+| 子组件 | `components/{ai-config-form,alert-run-sidebar,import-repos-dialog,repo-ai-toggle,repo-history-dialog,run-detail-dialog,scan-config-dialog}.vue` | Drawer / Dialog / Checkbox / SelectButton |
+| 共享 util | `utils/pr-check-style.ts(+test)`、`utils/dashboard-charts.ts`、`assets/styles/main.scss` | `TagSeverity` → `ComponentTone`；图表配色/主题注释去 PrimeVue 化 |
+
+e2e 侧共改写 14 个 spec（`.p-dialog*` / `.p-select*` / `.p-drawer` / `.p-card` / `.p-message-*` / `.p-tag-label` / `.p-button-loading-icon` / `input[type=checkbox]`）+ 2 个共享 helper（`auth.helper.ts` 的 `input#password`、`hydration.helper.ts` 增等 `isHydrating === false`）。
+
+**2）Toast / Confirm / i18n 接线**
+
+- `app.vue`：`CaomeiConfigProvider`（`:locale` 由平台 i18n 单点映射 `en` → `en-US`）→ `CaomeiToastProvider` → `CaomeiConfirmDialog`。
+- **顺带修复既有缺陷**：`pr-checks.vue` 此前调用 PrimeVue `useToast()` 但全仓无 `<Toast />` 根挂载（提示从未渲染）；本批改 `toast.success/danger({ title, duration })` 并由 `CaomeiToastProvider` 承接，实测 ack 成功后 `.caomei-toast` 可见。
+- 3 处原生 `confirm()`（`batch-runs` / `settings` / `users`）改为 `useConfirm().open({ title, tone: 'danger' })`；确认弹窗渲染为 `.caomei-confirm-dialog__content`（`role="alertdialog"`），文案与「取消 / 确定」按钮由 caomei 内建 locale 提供。
+
+**3）组件级差异与处置**（本批新遇到，§15.10 / §15.11 的通用规则仍适用）
+
+| 差异 | 处置 |
+| :--- | :--- |
+| `Button severity="secondary"`（PrimeVue Aura = 浅灰实底 `surface.100` + `surface.600` 字）在 caomei 无同名档 | 有 `text` 的 8 处 → `variant="ghost"`（与 PrimeVue `.p-button-text` 覆盖 `.p-button-outlined` 的实测结论一致）；无 `text` 的 6 处（`batch-runs`/`credentials`/`pr-checks`/`repos`×2/`scans` 头部动作按钮）→ `tone="neutral"`（默认实底变体）。**视觉差异**：caomei `--caomei-color-neutral-solid` 为深灰（#52525b）+ 白字，比 PrimeVue 的浅灰实底更重 → 见第 6 条遗留项。 |
+| `Message` 默认 soft 档只有底色、无可见边框（PrimeVue 为浅底 + 1px 同色边框） | **2026-09-29 用户裁定**采用 soft 默认档并接受该差异；实测 `border: 1px solid transparent`（`borderTopColor: rgba(0,0,0,0)`）。 |
+| `Select` 无 `#value` 槽 | `import-repos-dialog` owner 选择器触发器不再显示 Personal/Organization badge（下拉 `#option` 内仍显示）→ 见第 6 条遗留项。 |
+| `Select` 无 `loading` prop | 移除 2 处 `:loading`（原为静默透传的无效 DOM 属性），禁用态与加载分支逻辑保留。 |
+| `Drawer` 只 emit `update:open`（无 `hide`） | `alert-run-sidebar` 用 `computed` 双向桥接既有 `visible` 契约，关闭时补发 `hide`，父组件 `@hide` 清理语义不变。 |
+| `Checkbox` 根是 `role="checkbox"` 的按钮（无原生 input） | ① e2e 由 `input[type=checkbox]` 改 `button.caomei-checkbox__control[data-state="checked"]`；② 全选行原 `<label>` 包裹改为 Checkbox 自带 `text`（嵌套 label 无法点选）。 |
+| `Input` 的 `type` 联合不含 `datetime-local` | `env-events` 时间范围筛选保留原生 `datetime-local`（属性透传到内层 input），以带注释的收窄常量 `as unknown as InputType` 表达。 |
+| `Select` 家族字段外层 `inline-flex; width: 100%`，且可见根元素是 `SelectTrigger`（非组件根 vnode） | ① 全局覆盖 `--caomei-select-max-width: none` 必须用 `:root:root`（库 `theme.css` 的 `:root` 后加载、同特异性会压过）；② `users.vue` 操作列角色选择器改用外层 `inline-block` 定宽容器（直接挂 class 写宽度无效）；③ 页头语言选择器同理由「选择器上挂 `.platform__lang`」改为「容器 div 定宽 8.5rem」。 |
+| `Select` 的 `update:modelValue` 载荷为 `OptionValue \| null \| undefined` | 所有原 `@change` 改 `@update:model-value`；`v-model` + 显式 `@update:model-value` 可共存（编译器合并为数组、按模板顺序调用，实测 v-model 先写回）。 |
+| `Password` 的 `feedback` 默认值由 `true` 变 `false` | 仓库内迁移前 6 处 `Password` **全部显式 `:feedback="false"`**（无强度条）→ 迁移后一律不传该 prop（caomei 默认即关闭），**不新增强度条这一可见 UI**。 |
+| `CaomeiInput` / `CaomeiTextarea` 透传的 `@input` **先于** v-model 写回触发 | 内层控件的 v-model 由 `vModelDynamic` / `vModelText` 指令在 `created` 阶段 `addEventListener` 注册，晚于 `mergeProps` 里透传的 `onInput`；依赖「新值」的同步 handler 必须改用 `@update:model-value`（`credentials.vue` 的 PEM 指纹计算已改；`users.vue` 的搜索因有 300ms 防抖无影响，一并统一）。 |
+
+**4）图标替换**
+
+49 处字面 `icon="pi pi-*"`（21 个唯一值）连同 `:icon` 三元 / `<i class="pi pi-*">` 等动态用法共 **63 处 `pi pi-` 用法 / 30 个唯一图标**，全部替换为 `#icon` 槽 + `<CaomeiIcon :icon="X" />`（`@lucide/vue` 已升为平台直接依赖 `^1.48.0`）。映射表见 [§15.8](#158-选择器映射表更正2026-09-28b0-接线实证) 与 [平台规范 §7.4](../../standards/platform.md)。`CaomeiIcon` 默认 `size="1em"`，与 primeicons 的 1rem 同量级。
+
+**5）验证证据**（可复现口径）
+
+- e2e 全量：`pnpm exec playwright test --workers=1` → **172 passed / 0 failed / 0 flaky**（容器需 `playwright.local.config.ts` 的 `--no-sandbox` + 禁用 `--disable-dev-shm-usage` 覆盖，见 §15.10 第 9 条）。
+- 单测：`pnpm --filter @dependfix/platform test` → 1295 passed / 9 skipped（与迁移前基线一致）。
+- 门禁：`pnpm --filter @dependfix/platform typecheck` / `exec eslint . --max-warnings 10`（**非 `--fix`**）/ `build` 全部通过。
+- 残留检查（**生产页面集合**，排除 M31.5 待删的 V1 验证页）：`grep -rnE "<(Button|Tag|Message|Card|Select|Dropdown|InputText|Dialog|Password|ToggleSwitch|InputSwitch|Textarea|SelectButton|Checkbox|Chips|Sidebar|ProgressSpinner|Avatar|MultiSelect|Paginator|ScrollPanel|Toast|ConfirmDialog)([ >/]|$)|pi pi-|fluid" apps/platform/app --include="*.vue" | grep -v __migration-validation` → **0 命中**（含注释）。
+- **M31.5 待清理的 PrimeVue 残留**（5 类）：① `apps/platform/nuxt.config.ts`（`@primevue/nuxt-module` 注册、`DependfixPreset` / `@primeuix/themes` 主题、CSS layer、vite `dedupe` 5 项）；② `app/plugins/primevue-locale.ts`；③ `app/assets/styles/main.scss` 的 `.p-datatable-tbody > tr.p-datatable-empty-message > td` 死规则（+2 行说明注释）；④ `app/app.vue` 的「PrimeVue 仍由 `@primevue/nuxt-module` 注册」说明性注释；⑤ `app/pages/__migration-validation/{alerts-table,batch-runs-table}.vue` 的 5 处 `<Card>`（V1 验证页整体删除）。此外 `apps/platform/app` 下有 **24 个文件**在注释中提及 PrimeVue（均为解释性表述，如 `_caomei-tokens.scss` 的密度对齐依据、`chart-canvas.vue` 的动机说明），M31.5 收尾时按需改写。
+- 编号标记扫描（**本批改动文件**）：`rg -n "§(M|C|T|P|G|R|B)\d+" <本批 app + e2e 改动文件>` → **0 命中**。仓库内未触及文件仍有 178 处历史 `§编号` 引用（跨 95 个文件，含 `server/` / `tests/` / `chart-canvas.vue` 等），登记为 M31.5 清理项。
+- 浏览器取证：`artifacts/m31-b4/`（27 张截图：11 页 light + login/register + 4 页 dark + 3 页 mobile + Dialog / Select 浮层 / 分组表折叠与展开 / Drawer / Confirm / Toast；`ui-evidence.json` 记录 20 项检查（7 项交互）全部 OK，`findings` 为空 —— 该字段归集 `pageerror` 与 `console` 的 error / warning 两路，故等价于「0 console error / 0 pageerror」；**hydration mismatch 由 console warning 通道覆盖，未单独断言**）。
+- 计算样式取证 `artifacts/m31-b4/style-parity.json`（冻结代码实测）：表格单元格密度 6px 8px（`pr-checks` 例外 8px 12px）、Card body padding 16px、确认弹窗 400px（「取消 / 确定」+ `role="alertdialog"`）、登录主按钮 `#0d9488` 底 × `#0b0b0d` 字、`users` 角色选择器容器与触发器均 144px（操作列 300px 无横向溢出）、页头语言选择器容器与触发器均 136px（8.5rem）、schedules 弹窗内 AutoComplete 与 Select 均 528px（= 容器全宽，`max-width: none`）、`repos` 标签录入 488px、`Message` soft 档 `border: 1px solid transparent`（已裁定接受的差异）。
+
+**6）遗留项（B4 视觉收口 / 用户裁定复核）**
+
+- ⏳ **`severity="secondary"` 无 `text` 的 6 处按钮**：当前映射为 `tone="neutral"` 默认实底（深灰 #52525b + 白字），比 PrimeVue 的浅灰实底视觉更重；备选 `variant="secondary" tone="neutral"`（白底 + 浅描边，更接近原浅色观感但引入边框）。待 B4 或用户裁定。
+- ⏳ `import-repos-dialog` owner 选择器触发器 badge 丢失（`Select` 无 `#value` 槽）→ B4 确认是否接受或外置渲染。
+- ⏳ `Message` soft 档无边框（已裁定接受）→ B4 视觉复核时确认观感。
+- ⏳ `index.vue` 加载 spinner 由内联 40px 改为 `size="lg"`（32px，caomei 无 40px 档）→ 差异轻微，如需精确对齐可覆盖 `--caomei-progress-spinner-size`。
+- ⏳ `utils/alerts-view.ts` 的 `code-quality` ruleId 由 PrimeVue `contrast`（高对比实底）降为 `neutral`（与 default 同色）→ 视觉区分度下降，B4 复核是否改用 `warning` 或单独 variant。
+- ⏳ `components/import-repos-dialog.vue` 的 `selectableRepos` 为**既有死代码**（迁移前即无引用）→ M31.5 清理时一并移除。
+- ⏳ §15.11 第 8 条的两项（Paginator 页码按钮组 / 分页报表文案）仍待 B4 复核。
+
+> **验证覆盖缺口（已知，非缺陷）**：`batch-import-filters` / `admin` 的全选 Checkbox 断言在 CI 环境（无真实 GitHub 凭据）走空态分支，`if (有候选)` 分支的「unchecked → click → checked」翻转未被 CI 实际执行（相对迁移前的**空断言**仍为增强，且空态分支有实质断言）；`/repos/[id]/runs` 兼容路径页无 e2e/截图覆盖；`TagsInput`（`repos.vue` 标签录入）与 `AutoComplete` 的 `strict`（自由文本不入模型）无自动化断言，仅人工/单测兜底。

@@ -86,14 +86,14 @@
 - **目标**：非表格组件全量切换 + i18n / Toast / Confirm 接线，使页面不再依赖 PrimeVue 组件。
 - **范围**：`apps/platform/app/**`（Dialog / Select→AutoComplete / MultiSelect / ToggleSwitch / InputText / Textarea / Toast / Confirm / Drawer / Tabs / Accordion / Tag / Button 等）+ `apps/platform/app/assets/styles/` 样式残留 + `apps/platform/app/plugins/`（Toast / Confirm 接线）+ i18n locale。
 - **验收标准**：
-  - [ ] Select 可搜索单选改 `AutoComplete` + `strict: true`；MultiSelect 删 `filter` / `display`（搜索内建常开 + chip 形态）
-  - [ ] Toast / Confirm 从 PrimeVue service 切到 caomei 接线；i18n 内建文案随 zh / en 切换正确
-  - [ ] 暗色模式（`.dark`）+ 响应式关键页无回归
-  - [ ] `pnpm --filter @dependfix/platform typecheck` + `lint` + `test` 通过
+  - [x] Select 可搜索单选改 `AutoComplete` + `strict: true`（`schedules.vue` 时区）；MultiSelect 删 `filter` / `display`（搜索内建常开 + chip 形态）
+  - [x] Toast / Confirm 从 PrimeVue service 切到 caomei 接线（`app.vue` 挂 `CaomeiConfigProvider` / `CaomeiToastProvider` / `CaomeiConfirmDialog`；3 处原生 `confirm()` 改 `useConfirm().open()`）；i18n 内建文案随 zh / en 切换正确（`i18n.e2e` 用例 3 实测 Dialog 关闭按钮 aria-label `关闭` / `Close`）
+  - [x] 暗色模式（`.dark`）+ 响应式关键页无回归（浏览器取证 4 页 dark + 3 页 390px mobile，0 console error / 0 pageerror；hydration mismatch 由 console warning 通道覆盖，未单独断言）
+  - [x] `pnpm --filter @dependfix/platform typecheck` + `lint` + `test` 通过（另有 `build` + 全量 e2e 172 passed / 0 failed / 0 flaky）
 - **不做什么**：不迁图表（`chart-canvas.vue` 自实现，与 PrimeVue 无关）；不改业务逻辑；不引入 Tailwind / UnoCSS
 - **依赖**：M31.2 / M31.3（表格先迁）；[评估文档 §5.3 + §15.3](../design/governance/caomei-ui-migration.md)
-- **交付物**：多 commits（组件切换 + 接线 + 样式清理）
-- **风险与缓解**：表单组件 prop 语义差异（`severity` / `fluid` / `size="small"` 等）→ 按 §5.4 通用属性映射表逐项改写；Toast / Confirm 接线遗漏 → 全量 `rg "useToast|useConfirm"` 核对；按钮图标需 `#icon` + `@lucide/vue`（`CaomeiIcon` 无 `name` prop，`@lucide/vue` 尚非平台直接依赖）→ 本批次先补依赖；`--caomei-color-primary-foreground` 亮色档对比度不足（[评估文档 §15.9 第 6 条](../design/governance/caomei-ui-migration.md#159-b0-接线暴露的验证覆盖缺口m31-各批次须补齐)）→ 进入生产页前经用户确认口径并 @ui-validator 复核；浮层组件无裸根类（`.caomei-dialog__content` 等）→ 按 §15.8 定位
+- **交付物**：多 commits（组件切换 + 接线 + 样式清理）；实证登记见[评估文档 §15.12](../design/governance/caomei-ui-migration.md#1512-表单--浮层--导航组件迁移实证m3142026-09-29)
+- **风险与缓解**：表单组件 prop 语义差异（`severity` / `fluid` / `size="small"` 等）→ 按 §5.4 通用属性映射表逐项改写（实证差异与处置见 §15.12 第 3 条）；Toast / Confirm 接线遗漏 → 全量 `rg "useToast|useConfirm"` 核对；按钮图标需 `#icon` + `@lucide/vue`（`CaomeiIcon` 无 `name` prop）→ 本批已补 `@lucide/vue` 直接依赖（`^1.48.0`）；`--caomei-color-primary-foreground` 亮色档对比度不足（[评估文档 §15.9 第 6 条](../design/governance/caomei-ui-migration.md#159-b0-接线暴露的验证覆盖缺口m31-各批次须补齐)）→ 已于 M31.3 按用户裁定落地并经浏览器实测；浮层组件无裸根类（`.caomei-dialog__content` 等）→ 按 §15.8 定位
 - **复杂度估算**：~10+ vue 文件（需按目录拆分提交，遵守单批 < 10 文件）
 
 ---

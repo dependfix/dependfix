@@ -326,6 +326,8 @@ fixtures.delete / fixtures.post 在双门控通过后调用 `fixturesRateLimit()
 - **主色 token 取值（对比度实测）**：`--caomei-color-primary-solid: #0f766e`（teal-700）配 `--caomei-color-on-solid`（白）实测 **5.47:1**（≥ AA 4.5:1）；`--caomei-color-primary` 亮色 `#0d9488`（teal-600）/ 暗色 `#5eead4`（teal-300）；`bg` / `bg-elevated` / `text` / `text-muted` / `border` 对齐 `_variables.scss` 的 `$color-*` 明暗两档。
 - **图标**：`CaomeiIcon` 的 prop 是 `icon: Component`（`@lucide/vue` 图标组件），**不存在** `name` 字符串 prop；`@lucide/vue` 目前不是平台直接依赖，业务页面迁移前须先加依赖（图标替换批次）。
 - **受控状态必须回写**：`expandedRowGroups` / `expandedRows` / `multiSortMeta` / `page` 等受控 prop 需配合 `@update:*` 回写（等价 PrimeVue 的 `v-model:*`）。只声明 prop 而不回写会出现"内建按钮点了没反应"（V1 验证页曾命中）。
+- **DataTable 密度与覆盖特异性**：caomei 无 `size` prop，默认单元格内边距大于 PrimeVue `size="small"`；仓库统一在 `_caomei-tokens.scss` 收敛为 small 档（覆盖单元格须用 `.caomei-data-table__table th.caomei-data-table__th` 级别的选择器，caomei 的 scoped 规则特异性为 0,2,0）。**例外**：`pr-checks.vue` 未设 `size`，迁移该页时需单独确认密度口径（详见[迁移评估 §15.10](../design/governance/caomei-ui-migration.md#1510-datatable-核心页迁移实证m3122026-09-28)）。
+- **分组列与分组连续性**：本仓库做法是从 `columns` 剔除 `groupRowsBy` 同名列（PrimeVue 在 subheader 模式本就省略该列），并依赖服务端 `orderBy(groupBy)` 保证同组相邻；**不要保留分组字段的客户端排序键**（TanStack 只对列模型中存在的列排序，会被静默丢弃）。详见[迁移评估 §15.10](../design/governance/caomei-ui-migration.md#1510-datatable-核心页迁移实证m3122026-09-28)。
 - **验证命令**：`pnpm --filter @dependfix/platform typecheck` + `lint` + `test` + `build`；样式类改动必须跑 `build`（见上）；浏览器侧证据（截图与断言脚本）留在 gitignored 的 `artifacts/m31-b0/`。
 
 > 执行分层说明：以上为**迁移期接线约定**，其中「影响打包 / 入口 / 产物时必跑 `build`」由 [AGENTS.md 必要检查](../../AGENTS.md) 第 3 条（既有强制门禁）承接；其余条目为执行层指引，不新增 review 检查点。本节属迁移期条款，B3（M31.5）收尾时与其他 caomei-ui 相关条款一并复核去留。

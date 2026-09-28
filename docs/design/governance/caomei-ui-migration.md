@@ -420,6 +420,7 @@ PrimeTek 已公告 PrimeVue 5.x 起转入 PrimeUI 商业许可（Community 免�
 - **更新记录**：
   - 2026-09-27：新增 §15（caomei-ui 0.3.0 重新评估补记）
   - 2026-09-28（M31.1 B0 接线）：新增 [§15.8 选择器映射表更正](#158-选择器映射表更正2026-09-28b0-接线实证) + [§15.9 B0 接线暴露的验证覆盖缺口](#159-b0-接线暴露的验证覆盖缺口m31-各批次须补齐)；§15.1「全绿」结论按 §15.9 修订为「能力存在、验证覆盖不足」
+  - 2026-09-28（M31.2 DataTable 核心页迁移）：新增 [§15.10 DataTable 核心页迁移实证](#1510-datatable-核心页迁移实证m3122026-09-28)（含排序机制修正 / 分组列过滤 / 服务端排序依赖 / 密度对齐 / 选择器与取证口径）；§15.1「降序优先」行按该节修订机制描述
  
 ---
  
@@ -435,7 +436,7 @@ PrimeTek 已公告 PrimeVue 5.x 起转入 PrimeUI 商业许可（Community 免�
 | **可展开/折叠分组** | ✅ 内建折叠按钮 + 受控 `expandedRowGroups` | **已闭环** |
 | **行展开** | ✅ `expander: true` 列 + `expandedRows` + `#expansion` 槽 + `@update:expandedRows` | **已闭环** |
 | **多列排序** | ✅ `sortMode="multiple"` + `multiSortMeta` + `sortDescFirst` | **已闭环** |
-| **降序优先** | ✅ `sortDescFirst: true` | **已闭环** |
+| **降序优先** | ✅ `sortDescFirst` / 默认排序键均可表达 | **已闭环**（机制修正：实测全局 `sortDescFirst` 会改变点击循环，最终由 `multi-sort-meta` 初值承载默认方向，见 [§15.10](#1510-datatable-核心页迁移实证m3122026-09-28) 第 1 条） |
  
 > **结论**：原评估中最大的结构性风险（DataTable 能力面）在 0.3.0 中**全部已由库侧闭环**。选项 A（库侧补齐）已完成，无需 dependfix 侧等待或结构性改写。
 >
@@ -536,3 +537,63 @@ PrimeTek 已公告 PrimeVue 5.x 起转入 PrimeUI 商业许可（Community 免�
 4. **`expander` 列内建按钮路径未被 V1 覆盖**：V1 的 batch-runs 页用自定义按钮切换 `expandedRows`，未走 `expander: true` 列的内建按钮；M31.2 按 `expander` 列实现时须单独回归该路径。
 5. **DataTable 无 `size` prop**：V1 页传入的 `size="sm"` 被当作透传属性（无效果），密度须走 CSS 变量覆盖（见 §15.3）。
 6. **`--caomei-color-primary-foreground` 未随主色覆盖（B2 前置项）**：亮色档库默认 `#fff`，而本项目 `--caomei-color-primary` 取 `#0d9488`（teal-600），白字对比度 **3.74:1 < AA 4.5:1**；受影响的正是**以自适应主色作底**的控件（Paginator 选中页码、Toggle/SelectButton 激活态、Stepper 指示器等）。可选处置：① 把亮色 `--caomei-color-primary` 调整为 `#0f766e`（白字 5.47:1，与实底同档）；② 显式覆盖 `--caomei-color-primary-foreground` 为深色前景（`#0b0b0d` 对比 5.25:1）。二者均改变视觉，属设计口径决策，**须在 B2（M31.4）进入生产页前经用户确认并 @ui-validator 复核**。B0 验收只覆盖 `-solid × on-solid`（实测 5.47:1，达标）；对比度口径与 §6 / §9.1 / [平台规范 §7.4](../../standards/platform.md) 一致（WCAG 相对亮度公式）。
+
+### 15.10 DataTable 核心页迁移实证（M31.2，2026-09-28）
+
+> alerts / batch-runs 两页迁移（B1a）中与「库差异」相关的实测结论，供 B1b（M31.3）与 B4（M31.5）直接复用。
+
+**1）排序方向：不启用 caomei 的 `sortDescFirst`**（对 §15.1「`sortDescFirst` 已闭环」的机制修正）
+
+| 场景 | PrimeVue（迁移前实测） | caomei `sort-desc-first` 开启 | caomei 不开启（本批采用） |
+| :--- | :--- | :--- | :--- |
+| 初始未排序列，连点 3 次 | asc → desc → 移除 | desc → asc → 移除 | **asc → desc → 移除** |
+| 初值已 desc 的业务列（severity） | 移除 → asc → desc | desc → asc → 移除 | **移除 → asc → desc** |
+| 多列追加 | `Ctrl`/`Cmd` + 点击 | `Ctrl` + 点击 | `Ctrl` + 点击 |
+
+- 结论：**不设 `sort-desc-first`**，默认方向由 `multi-sort-meta` 初值承载（severity desc），实测在**上述 3 类点击场景**（普通列首击 / 初值已 desc 列 / `Ctrl` 追加）下的循环与默认顺序均与 PrimeVue 一致（确定性断言见 `apps/platform/tests/e2e/sortable.e2e.test.ts`）。
+- 反例记录：曾尝试「全局 `sortDescFirst` + 首次点击按列纠正」以复刻 PrimeVue 的逐列 `:default-sort-order="-1"`，实测非业务列会退化为「asc → 移除 → asc」（`desc` 状态不可达），已回退。PrimeVue 的 `default-sort-order` 实测只影响**初始**排序状态，不影响点击循环。
+
+**2）分组列处理：按视图过滤掉分组字段列**
+
+PrimeVue 在 `rowGroupMode="subheader"` 下**省略** `groupRowsBy` 同名列（表头与单元格都不渲染；实测 14 表头 / 分组行 colspan=14 / 数据行 14 格）；caomei 会保留该列并渲染空白占位。迁移做法：`columns` computed 按当前 `groupRowsBy` 过滤（`viewMode='none'` 时不过滤）。实测列数、表头文本与顺序、分组行 colspan、各组行数与内容**逐项一致**。
+
+**3）受控状态回写**：`multi-sort-meta` / `expanded-row-groups` / `expanded-rows` 三者均需 `@update:*` 回写（不回写则点击列头与内建折叠/展开按钮均无效果）——约定见 [平台规范 §7.4](../../standards/platform.md)。
+
+**4）`expandedRows` 契约差异**
+
+PrimeVue 的 `expandedRows` 是 `Record<rowKey, boolean>`（配合 `data-key`），caomei 是 `string[]`（行 key 数组，配合 `rowKey`）→ 迁移时改 `ref<string[]>([])`；`#expansion` 插槽 scope 均为 `{ data }`（本批统一解构为 `{ data: row }`）。
+
+**5）行展开列与内建按钮**
+
+PrimeVue `<Column expander>` → caomei `columns` 中的 `{ expander: true }`（表头恒留空）；内建按钮 `.caomei-data-table__row-expander` 带 `aria-expanded` / `aria-label`，分组折叠按钮 `.caomei-data-table__row-group-toggle` 同理（比 PrimeVue 的 SVG path 切换更易稳定断言）。
+
+**6）本批实测使用的选择器（其余见 §15.8 映射表）**
+
+| 用途 | caomei 选择器 |
+| :--- | :--- |
+| 排序按钮 / 排序状态 | `.caomei-data-table__sort` + `th[aria-sort]`（`ascending` / `descending` / `none`） |
+| 分组折叠按钮 | `.caomei-data-table__row-group-toggle`（`aria-expanded`） |
+| 行展开按钮 / 展开区 | `.caomei-data-table__row-expander` / `.caomei-data-table__row-expansion` |
+
+**7）分组连续性依赖服务端排序（不是客户端次排序键）**
+
+分组字段列被剔出 `columns` 后，TanStack 只对「列模型中存在的列」排序（`createSortedRowModel` 以 `getColumn(sort.id)` 为门槛），传入分组字段的排序键会被**静默丢弃**。故本批不设 `packageName` / `repository` 次排序键，改为依赖：
+
+- `/api/alerts?groupBy=` 服务端 `orderBy(groupBy)`（`server/api/alerts/index.get.ts`）
+- 客户端仅按严重级别降序，稳定排序在同 severity 内保持服务端的分组字段升序
+
+实测结果与 PrimeVue 双键 `[_severityRank desc, packageName asc]` 完全一致（分组标签序列与各组行内容逐项相同）。**B1b 若沿用「剔除分组字段列」的做法，必须同样确认服务端已按分组字段排序。**
+
+**8）单元格密度对齐 PrimeVue `size="small"`**
+
+PrimeVue Aura small 尺寸单元格内边距为 `0.375rem 0.5rem`（6px 8px），caomei 默认为 `var(--caomei-space-2) var(--caomei-space-3)`（8px 12px）；仓库内 DataTable 标签共 20 处（PrimeVue 14 处，其中 13 处显式 `size="small"`；caomei 6 处无 `size` prop），故在 `_caomei-tokens.scss` 统一收敛为 PrimeVue small（实测表头 padding `8px 12px` → `6px 8px`，表头高度 34.5px → 30.5px）。复现计数：`grep -rhE "<DataTable([ >]|$)" apps/platform/app --include="*.vue" | wc -l`（14）与 `grep -rhE "<CaomeiDataTable([ >]|$)" ...`（6）。
+
+> ⚠️ **B1b 注意**：`pr-checks.vue` 的 DataTable 未设 `size`（PrimeVue 默认档 `0.75rem 1rem`），迁移后会被本全局覆盖压到 small 档 → 该页需单独确认密度口径（接受变密或页面级覆盖）。
+
+**9）验证证据**（可复现口径）
+
+- 迁移前后结构取证（列数 / 表头 / 分组标签 / 各组行内容 / 排序三态循环）→ `artifacts/m31-b2/{before,after}-alerts.json`（gitignored；**after 取证基于最终构建**，⚠️ fixtures 的 `createdAt` 时间戳随重新 seed 变化，行内容比对需忽略日期列）
+- 排序三态循环的**确定性断言**在 `apps/platform/tests/e2e/sortable.e2e.test.ts`（asc → desc → 移除）
+- e2e：相关子集 26 条 = `pnpm exec playwright test alerts-rowgroup sortable batch alerts-sidebar alerts-fix-now`（其中过滤词 `batch` 亦匹配未受影响的 `batch-import-filters`）；全量 `pnpm exec playwright test` = 172 条用例中 170 passed / 1 failed（env-events 导航菜单用例，单跑 9/9 通过，属用例顺序相关 flaky，该页未迁移）/ 1 flaky（schedules-crud trigger 重试通过，未迁移）
+- 单测 1295 条 = `pnpm --filter @dependfix/platform test`；`pnpm run typecheck` / `pnpm run lint` / `pnpm --filter @dependfix/platform lint:css:check` / `pnpm --filter @dependfix/platform build` 全部通过
+- **环境前提**：e2e 的 webServer 跑 `.output`，须先 `pnpm --filter @dependfix/platform build`；本机容器需 `ignoreDefaultArgs: ['--disable-dev-shm-usage']` + `--no-sandbox`（容器 `/tmp` 不可写，默认参数会让 chromium `Page crashed`），CI 不受此限。

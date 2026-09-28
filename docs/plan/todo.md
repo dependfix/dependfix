@@ -53,14 +53,14 @@
 - **目标**：`alerts.vue`（行分组 / 分组折叠 / 多列排序 / 降序优先）与 `batch-runs.vue`（行展开）从 PrimeVue DataTable 迁到 `CaomeiDataTable`，行为语义等价。
 - **范围**：`apps/platform/app/pages/alerts.vue`、`apps/platform/app/pages/batch-runs.vue`（含其内联表格与相关子组件）、`apps/platform/tests/e2e/alerts*.e2e.test.ts` + `batch-runs*.e2e.test.ts`。
 - **验收标准**：
-  - [ ] alerts 行分组（`rowGroupMode="subheader"` + `#groupheader`）+ 分组折叠 + 多列排序（`sortMode="multiple"` + `sortDescFirst`）语义等价
-  - [ ] batch-runs 行展开（`expander` 列 + `#expansion`）语义等价
-  - [ ] 相关 e2e 选择器按 [评估文档 §15.8 映射表](../design/governance/caomei-ui-migration.md) 改写（`.p-datatable*` → `.caomei-data-table*`，注意类名为逐词 kebab-case），用例语义保留
-  - [ ] `pnpm --filter @dependfix/platform test` + 相关 `playwright test` 通过；无 hydration mismatch
+  - [x] alerts 行分组（`rowGroupMode="subheader"` + `#groupheader`）+ 分组折叠 + 多列排序（`sortMode="multiple"` + `multiSortMeta` 初值承载默认方向）语义等价（实测循环与默认顺序与 PrimeVue 逐项一致，见评估文档 §15.10）
+  - [x] batch-runs 行展开（`expander` 列 + `#expansion`）语义等价
+  - [x] 相关 e2e 选择器按 [评估文档 §15.8 映射表](../design/governance/caomei-ui-migration.md#158-选择器映射表更正2026-09-28b0-接线实证) 改写（`.p-datatable*` → `.caomei-data-table__*`，注意类名为逐词 kebab-case），用例语义保留
+  - [x] `pnpm --filter @dependfix/platform test` + 相关 `playwright test` 通过（相关子集 26 条全绿；全量 172 条用例中 170 passed / 1 failed+1 flaky，均为未迁移页的用例顺序相关抖动，见评估文档 §15.10 第 9 条）；无 hydration mismatch
 - **不做什么**：不迁其余 DataTable 页（M31.3）；不改数据获取 / 过滤逻辑；不改 i18n
 - **依赖**：M31.1（B0 接线）；[评估文档 §5.2 + §15.1 能力映射](../design/governance/caomei-ui-migration.md#151-关键路径阻塞点闭环确认) + [§15.8 选择器映射表](../design/governance/caomei-ui-migration.md#158-选择器映射表更正2026-09-28b0-接线实证) + [§15.9 验证缺口](../design/governance/caomei-ui-migration.md#159-b0-接线暴露的验证覆盖缺口m31-各批次须补齐)
 - **交付物**：多 commits（`refactor(platform)` 页面迁移 + `test(platform)` e2e 选择器改写）
-- **风险与缓解**：`sortMode='multiple'` + `multiSortMeta` 类型与运行时差异（platform.md §7.1 PrimeVue 陷阱）→ 以 caomei `sortDescFirst` 显式对齐；受控 `expandedRowGroups` / `expandedRows` 漏回写会致内建按钮失效（B0 实证）→ 以 prop + `@update:*` 回写保真 `v-model` 语义；e2e 选择器改写遗漏 → 按 §15.8 映射表逐条核对 `.caomei-data-table__row-group-toggle` / `__sort` / `th[aria-sort]`
+- **风险与缓解**：`sortMode='multiple'` + `multiSortMeta` 类型与运行时差异（platform.md §7.1 PrimeVue 陷阱）→ 实测 caomei 全局 `sortDescFirst` 会改变点击循环，改为由 `multi-sort-meta` 初值承载默认方向（§15.10 第 1 条）；受控 `expandedRowGroups` / `expandedRows` 漏回写会致内建按钮失效（B0 实证）→ 以 prop + `@update:*` 回写保真 `v-model` 语义；e2e 选择器改写遗漏 → 按 §15.8 + §15.10 第 6 条映射表逐条核对 `.caomei-data-table__row-group-toggle` / `__sort` / `th[aria-sort]`
 - **复杂度估算**：~2-4 vue + 2-4 e2e 文件
 
 ---

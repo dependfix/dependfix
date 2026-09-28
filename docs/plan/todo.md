@@ -70,7 +70,7 @@
 - **目标**：其余含表格页面从 PrimeVue DataTable 迁到 `CaomeiDataTable`，行为与迁移前等价。
 - **范围**：按用户裁定扩为**全部剩余表页与表子组件**（实际范围与逐文件清单见[评估文档 §15.11](../design/governance/caomei-ui-migration.md#1511-其余表页迁移实证m3132026-09-28)；计划原文仅点名 `pr-checks/scans/repos/index`，其中 `index.vue` 为跳转页、`dashboard.vue` 无表格）+ `apps/platform/tests/e2e/` 对应文件。
 - **验收标准**：
-  - [x] 4 页表格（排序 / 分页 / 空态 / 加载态）**功能与交互语义等价**（视觉差异见评估文档 §15.11 第 8 条遗留项）—— 实际按用户裁定扩为**全部剩余表页**（本批 13 vue / 11 e2e；连同 M31.2 共 15 vue 含 `CaomeiDataTable`），覆盖清单见评估文档 §15.11
+  - [x] 4 页表格（排序 / 分页 / 空态 / 加载态）**功能与交互语义等价**（视觉差异见评估文档 §15.11 第 8 条，三项口径已于 2026-09-29 用户裁定后落地）—— 实际按用户裁定扩为**全部剩余表页**（本批 13 vue / 11 e2e；连同 M31.2 共 15 vue 含 `CaomeiDataTable`），覆盖清单见评估文档 §15.11
   - [x] 对应 e2e 选择器改写完成，用例语义保留
   - [x] `pnpm --filter @dependfix/platform test` + 相关 `playwright test` 通过（全量 172 条：170 passed / 0 failed / 2 flaky，flaky 均为既有环境抖动）
 - **不做什么**：不动 alerts / batch-runs（M31.2 已完成）；不改页面业务逻辑；不改 i18n

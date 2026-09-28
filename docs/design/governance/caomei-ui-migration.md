@@ -287,7 +287,7 @@ PrimeTek 已公告 PrimeVue 5.x 起转入 PrimeUI 商业许可（Community 免�
 | PrimeVue / 现用值 | caomei-ui token | 建议值 | 备注 |
 | :--- | :--- | :--- | :--- |
 | `primary.500 / 600`（#14b8a6 / #0d9488） | `--caomei-color-primary` | `#0d9488`（亮） | soft / 描边 / 文字强调 |
-| `primary.contrastColor`（白） | `--caomei-color-primary-foreground`（亮）/ `--caomei-color-on-solid` | `#fff` | 随主题变化，需按明暗分别覆盖 |
+| `primary.contrastColor`（白） | `--caomei-color-primary-foreground`（亮）/ `--caomei-color-on-solid` | **`#0b0b0d`**（以 §15.9 第 6 条裁定为准；本表原草案值 `#fff` 不达标） | 本项目按跨明暗单值覆盖（亮色 5.25:1 / 暗色 13.29:1） |
 | 主色实底（按钮 / 选中态） | `--caomei-color-primary-solid` | **建议 `#0f766e`（teal-700）** | **对比度约束**：`#0d9488` 配白字约 **3.74:1**，低于 caomei-ui 设计规范 §3.2 对 `-solid` × `on-solid` 的 AA（4.5:1）要求；`#0f766e` 配白字约 **5.47:1** 达标 |
 | 暗色主色 | `--caomei-color-primary`（暗） | `#5eead4`（teal-300） | 暗底对比度充分 |
 | `--p-content-background` / `--p-surface-50` | `--caomei-color-bg` / `--caomei-color-bg-elevated` | 按页面现状对齐 | — |
@@ -537,7 +537,7 @@ PrimeTek 已公告 PrimeVue 5.x 起转入 PrimeUI 商业许可（Community 免�
 3. **受控模式未回写**：V1 的 `@update:expandedRowGroups` / `@update:expandedRows` 只打日志不回写 → 内建分组折叠按钮点击无效（V1 实际从未验证过分组展开）。真实页面迁移时 `v-model:*` 必须保真为 `prop + 回写`。
 4. **`expander` 列内建按钮路径未被 V1 覆盖**：V1 的 batch-runs 页用自定义按钮切换 `expandedRows`，未走 `expander: true` 列的内建按钮；M31.2 按 `expander` 列实现时须单独回归该路径。
 5. **DataTable 无 `size` prop**：V1 页传入的 `size="sm"` 被当作透传属性（无效果），密度须走 CSS 变量覆盖（见 §15.3）。
-6. **`--caomei-color-primary-foreground` 未随主色覆盖（B2 前置项）**：亮色档库默认 `#fff`，而本项目 `--caomei-color-primary` 取 `#0d9488`（teal-600），白字对比度 **3.74:1 < AA 4.5:1**；受影响的正是**以自适应主色作底**的控件（Paginator 选中页码、Toggle/SelectButton 激活态、Stepper 指示器等）。可选处置：① 把亮色 `--caomei-color-primary` 调整为 `#0f766e`（白字 5.47:1，与实底同档）；② 显式覆盖 `--caomei-color-primary-foreground` 为深色前景（`#0b0b0d` 对比 5.25:1）。二者均改变视觉，属设计口径决策，**须在 B2（M31.4）进入生产页前经用户确认并 @ui-validator 复核**。B0 验收只覆盖 `-solid × on-solid`（实测 5.47:1，达标）；对比度口径与 §6 / §9.1 / [平台规范 §7.4](../../standards/platform.md) 一致（WCAG 相对亮度公式）。
+6. **`--caomei-color-primary-foreground` 未随主色覆盖（已闭环）**：亮色档库默认 `#fff`，而本项目 `--caomei-color-primary` 取 `#0d9488`（teal-600），白字对比度 **3.74:1 < AA 4.5:1**；受影响的是**以自适应主色作底**的控件（Paginator 选中页码、Toggle/SelectButton 激活态、Stepper 指示器、Checkbox/Radio 前景等）。**2026-09-29 用户裁定**：采用「覆盖前景 token」而非「改主色」——理由是主色影响面更大（文字/边框/soft 底等全量自适应位点），改前景只影响「主色作底」这一组控件。落地方式：`nuxt.config.ts` 的 `caomeiUI.theme` 增 `'primary-foreground': '#0b0b0d'`（模块只生成一条跨明暗 `:root`；暗色档库默认前景本就是 `#0b0b0d`，故无暗色回归）。**真实浏览器实测**（`/scans` 分页器选中页码）：亮色 `#0d9488` 底 × `#0b0b0d` 字 = **5.25:1**，暗色 `#5eead4` 底 × `#0b0b0d` 字 = **13.29:1**，均达 AA。B0 验收的 `-solid × on-solid` 仍为 5.47:1。
 
 ### 15.10 DataTable 核心页迁移实证（M31.2，2026-09-28）
 
@@ -589,7 +589,7 @@ PrimeVue `<Column expander>` → caomei `columns` 中的 `{ expander: true }`（
 
 PrimeVue Aura small 尺寸单元格内边距为 `0.375rem 0.5rem`（6px 8px），caomei 默认为 `var(--caomei-space-2) var(--caomei-space-3)`（8px 12px）；仓库内 DataTable 标签共 20 处（PrimeVue 14 处，其中 13 处显式 `size="small"`；caomei 6 处无 `size` prop），故在 `_caomei-tokens.scss` 统一收敛为 PrimeVue small（实测表头 padding `8px 12px` → `6px 8px`，表头高度 34.5px → 30.5px）。复现计数：`grep -rhE "<DataTable([ >]|$)" apps/platform/app --include="*.vue" | wc -l`（14）与 `grep -rhE "<CaomeiDataTable([ >]|$)" ...`（6）。
 
-> ⚠️ **B1b 注意**：`pr-checks.vue` 的 DataTable 未设 `size`（PrimeVue 默认档 `0.75rem 1rem`），迁移后会被本全局覆盖压到 small 档 → 该页需单独确认密度口径（接受变密或页面级覆盖）。
+> **B1b 已闭环**：`pr-checks.vue` 的 DataTable 未设 `size`（PrimeVue 默认档 `0.75rem 1rem`），迁移后本会被全局覆盖压到 small 档 → M31.3 按用户裁定「取最接近档位」判定 caomei 默认档（8px 12px）更接近并恢复之（见 [§15.11](#1511-其余表页迁移实证m3132026-09-28) 第 8 条）。
 
 **9）验证证据**（可复现口径）
 
@@ -644,9 +644,10 @@ PrimeVue Aura small 尺寸单元格内边距为 `0.375rem 0.5rem`（6px 8px）�
 - 门禁：`pnpm run typecheck` / `pnpm --filter @dependfix/platform exec eslint . --max-warnings 10`（**非 `--fix`**）/ `lint:css:check` / `build` / 单测 1295 条 全部通过。
 - 结构取证：`artifacts/m31-b3/`（repos / env-events / scans / pr-checks 4 页截图 + 表数 / 排序按钮数 / 选择单元格数 / 分页器 / 滚动容器 / 密度 6px 8px / 0 pageError）。
 
-**8）遗留项（需在 B4 视觉收口时确认）**
+**8）遗留项（2026-09-29 用户裁定后已落地，B4 视觉收口时复核）**
 
-- `pr-checks.vue` 原 DataTable **未设 `size`**（PrimeVue 默认档 12px 16px），迁移后受全局 small 密度收敛影响 → 行高变紧，属**可见视觉变化**，待用户确认口径（与 §15.9 第 6 条的 `primary-foreground` 决策同类）。
-- `repos.vue` 凭据列「未关联」在窄列下换行（列宽由内容自适应），待 B4 视觉基线比对确认是否需列宽约束。
-- `import-repos-dialog` 的 `CaomeiPaginator` 固定渲染页码按钮组（原 PrimeVue template 无该控件）→ 属可见 UI 新增，B4 确认是否接受。
-- 内建分页器的页码报表文案丢失（第 3 条）→ B4 确认是否需要在表外自渲染补回。
+- ✅ **`pr-checks.vue` 密度**（原 DataTable 未设 `size`，PrimeVue 默认档 12px 16px）：按「最接近档位」判定 —— caomei 默认档（`--caomei-space-2` / `--caomei-space-3` = 8px 12px）比 small 档（6px 8px）更接近 → 该页从全局 small 收敛中**排除**，恢复 caomei 默认密度（页面 scoped `:deep()` 覆盖，实测 8px 12px；其余页仍为 6px 8px）。
+- ✅ **`repos.vue` 凭据列窄列换行**：给 `credentialName` 列加 `width: '104px'` 约束，实测「未关联」不再折行（元素高 16px < 行高 21px）。
+- ✅ **`--caomei-color-primary-foreground` 对比度**：用户裁定改前景 token（影响面小于改主色），已落地并实测亮色 5.25:1 / 暗色 13.29:1，详见 [§15.9 第 6 条](#159-b0-接线暴露的验证覆盖缺口m31-各批次须补齐)。
+- ⏳ `import-repos-dialog` 的 `CaomeiPaginator` 固定渲染页码按钮组（原 PrimeVue template 无该控件）→ 属可见 UI 新增，B4 确认是否接受。
+- ⏳ 内建分页器的页码报表文案丢失（第 3 条）→ B4 确认是否需要在表外自渲染补回。

@@ -285,46 +285,6 @@
   - **风险与缓解**：合并总检查点颗粒度不足可能漏检；缓解：优先逐条落点，至少覆盖高风险项
   - **复杂度估算**：检查点文档 ~30-60 行；测试 0；文档 2 处
 
-#### 测试基建
-
-- **C90 db-restore ESM mock 受限失败分支补测（M30.5 遗留未覆盖项）** —— 2026-09-28 M30.5 落地时显式登记的未覆盖分支；评估完成待上收；按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) **不带 M\d+ 阶段编号**。
-  - **目标**：补齐 `db-restore.ts` 两条因 ESM 模块 mock 受限而 `it.skip` 的失败分支测试——① 恢复后 `integrity_check` 失败分支（需 mock 注入）；② sidecar `unlinkSync` 部分失败的 `removedSidecars` 状态一致性。
-  - **优先级**：P3（非阻塞；`db-restore` 是本地管理员工具，攻击面极低；M30.5 已覆盖 pre-check 与路径行为分支）
-  - **范围**：`apps/platform/server/database/scripts/db-restore.ts` + `db-restore.test.ts`（需测试架构调整或可注入化重构）
-  - **现状实证**（2026-09-28 M30.5 实测）：`db-restore.test.ts` 两个 `it.skip` 显式标注 ESM 限制——`vi.spyOn(fs, 'unlinkSync')` 对 ESM 命名导出无效，`restoreDatabase` 内部恢复后自检无法直接注入失败。
-  - **决策点（待上收时敲定）**：把 `unlinkSync` / 恢复后自检抽为可注入依赖（重构生产代码）vs 进程级隔离 + 失败注入（不改生产代码）vs `vi.mock` 部分 mock ESM 模块（需验证 vitest 支持度）。
-  - **验收标准**：
-    - [ ] 两条 `it.skip` 分支转为实际断言（skip 清零）
-    - [ ] 既有 db-restore 测试全过（行为不变）
-    - [ ] `pnpm lint` + `pnpm typecheck` + `pnpm --filter @dependfix/platform test` 通过
-  - **不做什么**：不改 `db-restore` CLI 语义（`--from` / `--yes` 双门控）；不引入新测试框架
-  - **依赖**：关联 M30.5（触发来源，见 [todo-archive.md §M30](todo-archive.md#m30-治理债清理--迁移可行性验证--能力扩展--测试补强m301m306-全部已闭环--2026-09-28-归档)）
-  - **交付物**：1-2 atomic commits（`test(platform)` 补测 + 必要时的 `refactor(platform)` 可注入化）
-  - **风险与缓解**：为可测性重构生产代码可能引入行为回归；缓解：优先不改生产代码方案（进程级隔离 / `vi.mock`），重构须行为等价并回归既有测试
-  - **复杂度估算**：测试架构 ~40-80 行；测试 2 case；文档 0
-
-#### 平台 UI 与组件库
- 
-- **C88 apps/platform UI 组件库迁移（PrimeVue → caomei-ui）** —— 2026-09-22 用户需求触发；2026-09-27 **caomei-ui 0.3.0 重新评估** 补充关键路径闭环；评估完成待上收；按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) **不带 M\d+ 阶段编号**。
-  - **目标**：把 `apps/platform` 从 PrimeVue 栈迁到自建 caomei-ui，卸载 `primevue` / `@primevue/nuxt-module` / `@primeuix/themes` / `primeicons` / `primelocale`，消除「PrimeVue 4.x 冻结、5.x 转商业许可」的升级路径风险，并与多下游统一到同一组件库。
-  - **评估文档**：[apps/platform UI 组件库迁移评估与方案](../design/governance/caomei-ui-migration.md)（含 §15 0.3.0 重新评估补记；快照 dependfix `1a73abc` / caomei-ui `58f814d` (0.1.0) + 0.3.0 npm 包验证）。
-  - **结论**：**高度可行**——**关键路径阻塞点已全部闭环**（DataTable 行分组 / 行展开 / 多列排序 / 降序优先均在 0.3.0 支持）；`Chips` 缺口由新增 `TagsInput` 闭环；剩余局部缺口仅 5 项（Select filter、MultiSelect filter、ScrollPanel、Paginator template、token 映射），均为机械映射或小范围改写，**无结构性风险**。
-  - **现状实证**（2026-09-22 静态统计 + 2026-09-27 0.3.0 包验证）：PrimeVue 组件 23 个 / 417 开标签 / 23 个 `.vue`；`severity` 111 / `fluid` 64 / `size="small"` 52 / `icon="pi pi-*"` 49（30 唯一图标）；`--p-*` 10 处 / 7 文件、`.p-*` 7 处 / 2 文件；e2e `p-*` 断言 16 文件；`useToast` 1 文件。当前 PrimeUI License 包为 0（主题库 / 图标已由 M25.1 + M26.4a 降级为 MIT）。caomei-ui 0.3.0 包含 DataTable 全能力 + TagsInput + 完整 Nuxt 模块。
-  - **决策点（待上收时敲定）**：
-    - **迁移范围与批次**：分批全量 vs 部分迁移；B0~B3 批次划分与出口条件是否照用（评估文档 §15.5 简化版）。
-    - **主色实底对比度**：teal-600 作 `--caomei-color-primary-solid` 配白字约 3.74:1（低于 caomei-ui AA 口径），是否调整 `-solid` 档为 teal-700 (`#0f766e`) 或记录显式例外。
-    - **目标版本锁定**：caomei-ui **0.3.0 精确版本**（npm `latest`），避免 0.x API 调整。
-  - **验收标准**：见 [评估文档 §10 + §15.4](../design/governance/caomei-ui-migration.md)（依赖卸载、`rg "primevue|--p-|\.p-"` 归零、typecheck / lint / test / build + e2e 全通过、i18n 与暗色 / 响应式无回归、包体对比留痕、主色对比度达 AA）。
-  - **不做什么**：不升级 PrimeVue 5.x；不申请 PrimeUI 商业许可；不引入 Tailwind；不迁移图表（`chart-canvas.vue` 已自实现）；不在本候选内修改 caomei-ui 仓库。
-  - **依赖**：关联 [primeui-themes-v2-downgrade.md](../design/governance/primeui-themes-v2-downgrade.md)（License 治理前置，已落地）；关联 caomei-ui 仓库迁移指南与设计规范 §7；关联 `docs/standards/platform.md §7.1`。
-  - **交付物**：评估文档已交付；实施为多批次 atomic commits（B0-B3）。
-  - **风险与缓解**：e2e 改写面 16 文件 → 逐批保留用例语义；caomei-ui 0.x API 可能调整 → pin 0.3.0 精确版本；主色对比度 → 实施期按 §15.6 调整 `-solid` 档。
-  - **优先级**：P3（License 风险已清零，非阻塞；属组件库统一与长期可维护性事项）
-  - **复杂度估算**：代码面 23 个 `.vue` + `nuxt.config.ts` + 插件 + e2e 16 文件；文档面评估已交付、实施期需同步 `platform.md` / `tech-stack.md`。
-  - **回收触发条件核对**：✅ 条件 3 已满足（caomei-ui ≥ 0.2.0 稳定版已发布）；条件 1/2/4 待用户决策。
-  - **后续流程**：**待 M30.6 V1-V3 全绿验证通过后**，由用户决策启动 **M31 正式迁移阶段**（独立阶段，不在 M30 内执行）。
-
-
 ## 待人工验收（真实环境，随可用性推进）
 
 > 以下条目属 M7.1 / M7.2 / 发布管线阶段遗留的真实环境验证任务，保留随真实环境可用性推进。
@@ -398,7 +358,7 @@
 
 | 内容类型 | 位置 |
 |:--|:--|
-| 当前阶段活跃任务 | [todo.md](todo.md)（当前无活跃阶段，等待用户决策；M30 已于 2026-09-28 完整归档，详见 [todo-archive.md §M30](todo-archive.md#m30-治理债清理--迁移可行性验证--能力扩展--测试补强m301m306-全部已闭环--2026-09-28-归档)） |
+| 当前阶段活跃任务 | [todo.md](todo.md)（**M31 进行中**：apps/platform UI 组件库迁移 6 原子条目；M30 已于 2026-09-28 完整归档，详见 [todo-archive.md §M30](todo-archive.md#m30-治理债清理--迁移可行性验证--能力扩展--测试补强m301m306-全部已闭环--2026-09-28-归档)） |
 | 已完成阶段归档 | [todo-archive.md](todo-archive.md)（主窗口保留最近阶段完整段 + 指针段；早期阶段见 [archive/](archive/)） |
 | 里程碑与阶段交付 | [roadmap.md](roadmap.md)（M0-M30 全部已完成归档） |
 | 长期主线 / 候选 / 待人工验收 / 已知边界 | 本文档（按四象限结构） |

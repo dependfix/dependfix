@@ -12,7 +12,7 @@
 
 > 本文档为 **`apps/platform`（Nuxt 管理平台）PrimeVue → caomei-ui 的迁移评估与方案**，用于规避 PrimeUI 商业许可风险并与下游统一组件库。
 >
-> **状态**：评估先行稿，未进入阶段实施面（挂载到 [backlog.md §平台 UI 与组件库](../../plan/backlog.md) 候选 C88）；库侧能力补齐（若采纳）属 caomei-ui 仓库自身阶段范围，须另行立项。
+> **状态**：评估先行稿，**2026-09-28 已上收 M31 正式迁移阶段**（用户决策方案 B；Backlog C88 上收后移除；实施批次映射 M31.1-M31.6 —— 见 [todo.md §M31](../../plan/todo.md)）；库侧能力补齐（若采纳）属 caomei-ui 仓库自身阶段范围，须另行立项。
 
 ---
 
@@ -20,11 +20,13 @@
 
 **结论：可行（有条件）**——`apps/platform` 实际用到的 23 个 PrimeVue 组件中 21 个在 caomei-ui 有等价组件，**不存在整体性阻塞**；剩余缺口集中在 `DataTable` 能力面、2 处无对应组件与 2 类零散改写。
 
-三个先决条件：
+> **本节为 2026-09-22 初评快照**：关键路径与三个先决条件已由 [§15 caomei-ui 0.3.0 重新评估](#15-caomei-ui-030-重新评估补记2026-09-27) 更新为「高度可行」，先决条件均已闭环；以下正文保留初评记录供溯源。
 
-1. **`DataTable` 行分组 / 行展开 / 多列排序能力先行（关键路径）**——`alerts.vue` 在用 `row-group-mode="subheader"` + `group-rows-by` + `expandable-row-groups` + `#groupheader` 槽 + `v-model:expanded-row-groups`；`batch-runs.vue` 在用**行展开**（`v-model:expanded-rows` + `Column expander` + `#expansion` 槽 + `@row-expand`）。caomei-ui DataTable **既无行分组也无行展开**（源码 0 命中，二者均未登记于 caomei-ui Backlog）；且其为**单列排序**，不支持 `sort-mode="multiple"` + `v-model:multi-sort-meta`（`alerts.vue` / `pr-checks.vue` 在用）。这些能力需**库侧补齐**或 **apps/platform 侧改写**（见 §5.2）。
-2. **2 处无对应组件**——`ScrollPanel`（2 处，`repo-history-dialog.vue` / `run-detail-dialog.vue`）改用原生滚动容器 + CSS；`Chips`（1 处，`repos.vue` 标签录入）可用 `CaomeiAutoComplete` + `multiple` 近似，或在页面侧自绘标签输入。二者 caomei-ui 均无对应组件，亦未登记为候选（见 §5.3）。
-3. **`Select` 可搜索单选改用 `AutoComplete`**——`schedules.vue` 时区选择器用 `Select` + `filter`；caomei-ui 的 Reka Select 无 filter primitive，官方口径为映射到 `CaomeiAutoComplete`（见 caomei-ui 设计规范 §7 与[从 PrimeVue 迁移](https://github.com/CaoMeiYouRen/caomei-ui/blob/master/docs/guide/primevue-migration.md)）。
+三个先决条件（闭环状态见 §15.1 / §15.2 / §15.3）：
+
+1. **`DataTable` 行分组 / 行展开 / 多列排序能力先行（关键路径）**——`alerts.vue` 在用 `row-group-mode="subheader"` + `group-rows-by` + `expandable-row-groups` + `#groupheader` 槽 + `v-model:expanded-row-groups`；`batch-runs.vue` 在用**行展开**（`v-model:expanded-rows` + `Column expander` + `#expansion` 槽 + `@row-expand`）。caomei-ui DataTable **既无行分组也无行展开**（源码 0 命中，二者均未登记于 caomei-ui Backlog）；且其为**单列排序**，不支持 `sort-mode="multiple"` + `v-model:multi-sort-meta`（`alerts.vue` / `pr-checks.vue` 在用）。这些能力需**库侧补齐**或 **apps/platform 侧改写**（见 §5.2）。**（已闭环：0.3.0 已支持行分组 / 行展开 / 多列排序 / 降序优先，见 §15.1）**
+2. **2 处无对应组件**——`ScrollPanel`（2 处，`repo-history-dialog.vue` / `run-detail-dialog.vue`）改用原生滚动容器 + CSS；`Chips`（1 处，`repos.vue` 标签录入）可用 `CaomeiAutoComplete` + `multiple` 近似，或在页面侧自绘标签输入。二者 caomei-ui 均无对应组件，亦未登记为候选（见 §5.3）。**（部分更新：`Chips` 已由 0.3.0 `TagsInput` 替代、无需改写；`ScrollPanel` 仍无，改用原生容器 + CSS，见 §15.2 / §15.3）**
+3. **`Select` 可搜索单选改用 `AutoComplete`**——`schedules.vue` 时区选择器用 `Select` + `filter`；caomei-ui 的 Reka Select 无 filter primitive，官方口径为映射到 `CaomeiAutoComplete`（见 caomei-ui 设计规范 §7 与[从 PrimeVue 迁移](https://github.com/CaoMeiYouRen/caomei-ui/blob/master/docs/guide/primevue-migration.md)）。**（已闭环：改用 `AutoComplete` + `strict: true`，见 §15.3）**
 
 工作量画像（可复现的规模口径，非工期）：
 
@@ -387,6 +389,8 @@ PrimeTek 已公告 PrimeVue 5.x 起转入 PrimeUI 商业许可（Community 免�
 
 本评估仅产出文档并登记 [Backlog](../../plan/backlog.md) 候选；任一条件触发时，从 backlog 上收到 `todo.md` 当前阶段（阶段编号由用户分配）：
 
+> **2026-09-28 已上收**：用户决策方案 B 启动 **M31 正式迁移阶段**（阶段编号 M31.1-M31.6），本评估的 B0-B3 批次映射为 M31.1-M31.5，C90 测试补强为 M31.6；Backlog C88 上收后已移除。详见 [todo.md §M31](../../plan/todo.md)。
+
 1. 用户明确授权启动迁移（分批或全量）。
 2. `alerts.vue` 行分组 / `batch-runs.vue` 行展开 / 多列排序能力的取向（§5.2 选项 A / B / C）经用户裁定，且（若选 A）caomei-ui 侧有能力面补齐计划。
 3. caomei-ui 发布 ≥ 0.2.0 稳定版并明确 0.x API 冻结窗口。
@@ -399,7 +403,7 @@ PrimeTek 已公告 PrimeVue 5.x 起转入 PrimeUI 商业许可（Community 免�
 - [apps/platform PrimeUI 主题库降级设计](./primeui-themes-v2-downgrade.md) —— License 治理前置（主题库 / 图标已降级 MIT）
 - [平台规范 §7.1 PrimeVue 4 集成实践](../../standards/platform.md#71-primevue-4-集成实践) —— 现有 PrimeVue 用法与陷阱（迁移时须逐条重新核验）
 - [技术栈](../../guide/tech-stack.md) —— UI 选型登记处（迁移后需同步）
-- [Backlog](../../plan/backlog.md) —— 本评估的候选登记处
+- [Backlog](../../plan/backlog.md) —— 候选已上收 M31 并从 backlog 移除（见 §12 / §14）
 - [规范与文档治理设计](./spec-and-doc-governance.md) —— 设计文档分流与硬阈值依据
 - caomei-ui 侧（外部仓库）：[从 PrimeVue 迁移指南](https://github.com/CaoMeiYouRen/caomei-ui/blob/master/docs/guide/primevue-migration.md)、[设计规范 §7 迁移映射](https://github.com/CaoMeiYouRen/caomei-ui/blob/master/docs/design/design-spec.md)、[主题与样式设计](https://github.com/CaoMeiYouRen/caomei-ui/blob/master/docs/design/theming.md)
 
@@ -410,7 +414,7 @@ PrimeTek 已公告 PrimeVue 5.x 起转入 PrimeUI 商业许可（Community 免�
 - **创建时间**：2026-09-22
 - **文档类型**：迁移评估与方案（设计先行稿）
 - **取数快照**：dependfix `1a73abc`（2026-09-22）/ caomei-ui `58f814d`（2026-09-22，版本 0.1.0）
-- **关联阶段**：未上收（仅挂 [Backlog](../../plan/backlog.md) 候选）；阶段编号待用户决策时分配
+- **关联阶段**：**M31（2026-09-28 上收，用户决策方案 B）**——B0-B3 批次映射 M31.1-M31.5 + C90 补强映射 M31.6；Backlog C88 上收后移除
 - **审计依据**：本文档为评估先行稿，未触发代码改动；A 阶段审计按 [AI 协作规范](../../standards/ai-collaboration.md) 的文档改动口径执行
 - **口径说明**：本文所有计数为 `.vue` 开标签与 quote-aware 属性的静态统计；caomei-ui 能力面以设计规范 §7 与源码 props 为唯一事实源；未运行任一仓库构建 / 测试
  
@@ -488,4 +492,4 @@ PrimeTek 已公告 PrimeVue 5.x 起转入 PrimeUI 商业许可（Community 免�
  
 > **Backlog C88 触发条件第 3 条**：`caomei-ui 发布 ≥ 0.2.0 稳定版并明确 0.x API 冻结窗口` —— **已满足**（0.3.0 已发布 npm `latest`）
  
-> 其他条件：用户明确授权启动、关键路径取向裁定、出现必须升级 PrimeVue 5.x 的问题 —— 待用户决策。
+> 其他条件：**2026-09-28 已全部满足**（用户明确授权启动方案 B + 关键路径取向裁定「选项 A 已由 0.3.0 库侧闭环」+ 主色实底 teal-700 决策）—— M31 正式迁移阶段已启动。

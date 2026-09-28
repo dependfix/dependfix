@@ -38,6 +38,7 @@
 | M28: 治理债清理 + 能力扩展 | M28.1 backlog.md §已知边界段批量治理 + §4.4 第 11 条规则强化 + M28.2 C14 多 cs lint 性能 + M28.3 C15 B 类规则样本核对 + M28.4 C33 MCP P3 + M28.5 M22.8 follow-up ② | P2-P3 | 已完成（[todo-archive.md §M28](todo-archive.md)；2026-09-11 用户决策方案 M28-A + M28.1 重编号 + 完整 5 候选闭环 + M28.6 归档批次落地，commits 已推送 origin/master） |
 | M29: 修复交付链路正确性 + 能力扩展 | C73 git 配置污染隔离 + C75 验证链纳入 test + C77 override 复发防护 + C78 alerts 未启用/获取失败区分 + C71 pnpm 路径级 overrides + C72 批量导入 archived/disabled 过滤 + vite 漏洞插队 hotfix + C79 devEx 配置缺口 + C80-A CI 审计覆盖（M29.8/M29.9 为 M29.1 衍生） | P2-P3 | 已完成（[todo-archive.md §M29](todo-archive.md#m29-修复交付链路正确性--能力扩展m291m299-全部已闭环--2026-09-27-归档)） |
 | M30: 治理债清理 + 迁移可行性验证 + 能力扩展 + 测试补强 | C87 跳过类审计退出码 + C86 max-lines 拆分 + C84 文档对齐 + C74 getCommitAuthor 接线（App 路径）+ db-restore 补测 + UI 组件库迁移可行性验证 V1-V3 | P2-P3 | 已完成（[todo-archive.md §M30](todo-archive.md#m30-治理债清理--迁移可行性验证--能力扩展--测试补强m301m306-全部已闭环--2026-09-28-归档)） |
+| M31: apps/platform UI 组件库迁移（PrimeVue → caomei-ui） | B0 基线与双库并存接线 + B1a/B1b DataTable 迁移 + B2 表单/浮层切换 + B3 收尾卸载与回归 + C90 db-restore 补强 | P2-P3 | 进行中（[todo.md §M31](todo.md)） |
 
 > **本路线图定位**：按 [规划规范 §2.1](../standards/planning.md) 仅维护阶段概览（目标 / 优先级 / 状态）。详细实施记录 / commit 引用 / 关键决策 / 经验教训见对应归档段（详见下方"## 详细任务"索引）。
 
@@ -383,7 +384,7 @@ per-alert 模型 + reconcile + API 简化 + UI 调整 + backfill 脚本。5 子�
 - **M30.3** [P3 📚 治理] C84 AI 质量门文档描述与实际验证链对齐（`21bf8bb`）
 - **M30.4** [P2 🚀 能力扩展] C74 接线 `getCommitAuthor()`（仅 App 路径，`61acfae`）
 - **M30.5** [P3 🧪 测试补强] db-restore 审计未采纳项补测（`80dff3f`；**部分闭环**，2 分支 ESM mock 受限转 backlog C90）
-- **M30.6** [P3 🔍 可行性验证] 迁移前可行性验证 V1-V3（`5eedcad` + `7be5b93`；**全绿**，M31 待用户决策）
+- **M30.6** [P3 🔍 可行性验证] 迁移前可行性验证 V1-V3（`5eedcad` + `7be5b93`；**全绿**，已由 M31 承接）
 - **衍生治理批次**（6 commits）：`124078a` vue-demi allowBuilds / `644f9f0` tsdown dts 入口错位 / `9226ddd` + `207a806` max-lines 治理 / `7458973` lint 清理 / `32e3a8b` 已知边界登记
 
 **关键决策 D1-D4**：
@@ -399,9 +400,30 @@ per-alert 模型 + reconcile + API 简化 + UI 调整 + backfill 脚本。5 子�
 
 ---
 
+## M31: apps/platform UI 组件库迁移（PrimeVue → caomei-ui）（2026-09-28 用户决策方案 B / 进行中）
+
+承接 M30.6 V1-V3 可行性验证全绿（caomei-ui 0.3.0 关键路径能力已由库侧闭环），2026-09-28 用户决策方案 B 启动 M31 正式迁移阶段。**6 原子条目**：迁移主线 5 项（B0→B3 串行）+ 类型平衡补强 1 项，覆盖 🎨 3 + 🛡️ 2 + 🧪 1（🚀 / 📚 无独立条目，显式标注缺口）。
+
+- **M31.1** [P2 🛡️] B0 迁移基线与双库并存接线（`caomei-ui/nuxt` + `--caomei-*` token 覆盖含主色实底 teal-700 + 视觉基线）
+- **M31.2** [P2 🎨] B1a DataTable 核心页迁移（alerts 行分组/折叠/多列排序 + batch-runs 行展开 + e2e）
+- **M31.3** [P2 🎨] B1b 其余 DataTable 页迁移（pr-checks / scans / repos / dashboard + e2e）
+- **M31.4** [P2 🎨] B2 表单 / 浮层 / 导航组件切换 + i18n / Toast / Confirm 接线
+- **M31.5** [P2 🛡️] B3 收尾：卸载 5 个 PrimeVue 依赖 + `rg "primevue|--p-|\.p-"` 归零 + e2e 全通 + 包体对比 + 文档同步
+- **M31.6** [P3 🧪] C90 db-restore ESM mock 受限失败分支补测（类型平衡补强，独立可并行）
+
+**关键决策 D1-D3**（2026-09-28 用户裁定）：
+
+- **D1**：方案 B（迁移主线 + C90 补强）—— 迁移为阶段主线，追加 1 项测试补强平衡类型
+- **D2**：`--caomei-color-primary-solid` 覆盖为 `#0f766e`（teal-700）达 WCAG AA 4.5:1
+- **D3**：caomei-ui 精确锁定 `0.3.0`，避免 0.x API 漂移
+
+> 详细任务见 [todo.md §M31](todo.md)（6 原子条目 8 要素齐全 + 类型平衡 + 执行依赖图）；评估依据见 [caomei-ui-migration.md](../design/governance/caomei-ui-migration.md)
+
+---
+
 ## 详细任务
 
-- 当前阶段任务：[todo.md](todo.md)（当前无活跃阶段，等待用户决策启动；M30 已 2026-09-28 完整归档）
+- 当前阶段任务：[todo.md](todo.md)（**M31 进行中**：apps/platform UI 组件库迁移；M30 已 2026-09-28 完整归档）
 - 已归档阶段：[todo-archive.md](todo-archive.md)（主窗口保留最近阶段完整段 + 指针段；早期阶段见 [archive/index.md](archive/index.md) 分片索引）
 - 后续阶段任务（延期项 + 未排期增强候选）：[backlog.md](backlog.md)
 

@@ -103,7 +103,7 @@ test.describe('alerts 去重视图受影响运行 Sidebar', () => {
         await waitForHydration(page)
         await page.locator('#view-mode').click()
         await page.locator('.p-select-overlay li').filter({ hasText: '原始列表' }).click()
-        const row = page.locator('.p-datatable tbody tr').filter({ hasText: 'lodash' }).first()
+        const row = page.locator('.caomei-data-table__row').filter({ hasText: 'lodash' }).first()
         await expect(row).toBeVisible()
 
         await row.locator('button[aria-label="详情"]').click()
@@ -137,7 +137,7 @@ test.describe('alerts 去重视图受影响运行 Sidebar', () => {
         await waitForHydration(page)
         await page.locator('#view-mode').click()
         await page.locator('.p-select-overlay li').filter({ hasText: '原始列表' }).click()
-        const row = page.locator('.p-datatable tbody tr').filter({ hasText: 'lodash' }).first()
+        const row = page.locator('.caomei-data-table__row').filter({ hasText: 'lodash' }).first()
         await expect(row).toBeVisible()
         await row.locator('button[aria-label="详情"]').click()
 

@@ -102,25 +102,19 @@ test.describe('alerts rowGroup + 视图切换', () => {
         await waitForHydration(page)
         await page.waitForSelector('.alerts__group-header', { timeout: 15000 })
         const firstGroup = page.locator('.alerts__group-header').first()
-        // PrimeVue 4.5.5 rowToggleButton + chevron 图标：ChevronRight/Left 通过 SVG path 区分
-        // （不是 pi-chevron-* class 名 —— 旧版 PrimeVue 4 早期使用 font-awesome class，
-        // 4.5.5 改用 primeicons SVG），断言 SVG path 子串区分
-        // 折叠态 SVG path 起点 "M14"（ChevronRight）；展开态 "M5"（ChevronDown）；
-        // 用 rowToggleButton 的 transform 状态判断（PrimeVue 内部用旋转 + 路径切换实现）
-        const toggleButton = page.locator('.p-datatable-row-toggle-button').first()
-        // 点击前：折叠态（默认）
+        // caomei DataTable 内建分组折叠按钮：`.caomei-data-table__row-group-toggle`
+        // （含 aria-expanded 与 aria-label，图标为 ChevronRight/Down 切换）
+        const toggleButton = page.locator('.caomei-data-table__row-group-toggle').first()
         await expect(toggleButton).toBeVisible()
-        // 点击 groupheader 展开
+        await expect(toggleButton).toHaveAttribute('aria-expanded', 'false')
+        // 点击 groupheader 展开 → aria-expanded 翻转 + 该组数据行渲染
         await firstGroup.click()
-        // 等待动画后验证 toggleButton 内部 SVG path 已变（展开态）
-        await page.waitForTimeout(300)
-        const expandedPath = await page.locator('.p-datatable-row-toggle-button').first().locator('svg path').getAttribute('d')
-        // 折叠态 "M14 7.5L17.5 10.5L14 13.5"（ChevronRight） vs 展开态 "M5 7.5L8 10.5L5 13.5"（ChevronLeft 旋转）
-        // 简化断言：点击前后 path 不一致即可证明状态切换
+        await expect(toggleButton).toHaveAttribute('aria-expanded', 'true', { timeout: 5000 })
+        await expect(page.locator('.caomei-data-table__row').first()).toBeVisible({ timeout: 5000 })
+        // 再点一次折叠 → aria-expanded 回到 false 且数据行不再渲染
         await firstGroup.click()
-        await page.waitForTimeout(300)
-        const collapsedPath = await page.locator('.p-datatable-row-toggle-button').first().locator('svg path').getAttribute('d')
-        expect(expandedPath).not.toBe(collapsedPath)
+        await expect(toggleButton).toHaveAttribute('aria-expanded', 'false', { timeout: 5000 })
+        await expect(page.locator('.caomei-data-table__row')).toHaveCount(0)
     })
 
     test('#groupheader slot 内无自定义 chevron（双 chevron 视觉缺陷修复）', async ({ page }) => {
@@ -289,16 +283,16 @@ test.describe('alerts rowGroup + 视图切换', () => {
         await page.waitForTimeout(200)
 
         // 提取每个 subheader 对应的 package + 该 group 内告警的 severity 序列
-        // 关键 DOM 特征：
-        // - subheader 行：class 含 p-datatable-row-group-header，TD colspan=13，内嵌 .alerts__group-header
-        // - 数据行：class p-row-odd / p-row-even，紧随在某 subheader 行之后
+        // 关键 DOM 特征（caomei DataTable）：
+        // - subheader 行：class 含 caomei-data-table__row-group，TD colspan=14，内嵌 .alerts__group-header
+        // - 数据行：class 含 caomei-data-table__row，紧随在某 subheader 行之后
         const groupSeverities: { packageName: string, severities: string[] }[] = await page.evaluate(() => {
             const rows = Array.from(document.querySelectorAll('tbody tr'))
             const groups: { packageName: string, severities: string[] }[] = []
             let current: { packageName: string, severities: string[] } | null = null
             for (const tr of rows) {
                 const cls = tr.getAttribute('class') ?? ''
-                const isRowGroupHeader = cls.includes('p-datatable-row-group-header')
+                const isRowGroupHeader = cls.includes('caomei-data-table__row-group')
                 if (isRowGroupHeader) {
                     const strong = tr.querySelector('.alerts__group-header strong')
                     const packageName = strong?.textContent?.trim() ?? ''
@@ -306,8 +300,8 @@ test.describe('alerts rowGroup + 视图切换', () => {
                     groups.push(current)
                     continue
                 }
-                // 数据行：class p-row-odd 或 p-row-even；只取紧接 subheader 后面的
-                if (current && (cls.includes('p-row-odd') || cls.includes('p-row-even'))) {
+                // 数据行：只取紧接 subheader 后面的
+                if (current && cls.includes('caomei-data-table__row')) {
                     const cells = tr.querySelectorAll('td')
                     const severityCell = cells[1]
                     const tag = severityCell?.querySelector('.p-tag-label')

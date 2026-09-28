@@ -65,23 +65,23 @@ test.describe('批量扫描（sync 降级模式）', () => {
         await page.waitForURL(/\/batch-runs/, { timeout: 120000 })
 
         // 列表出现手动批量记录
-        const firstRow = page.locator('.p-datatable-tbody tr').first()
+        const firstRow = page.locator('.caomei-data-table__row').first()
         await expect(firstRow).toContainText('手动批量', { timeout: 30000 })
 
         // 展开首行 → 详情（GET /api/batch-runs/[id] 实时聚合写回）
-        // 行展开按钮：PrimeVue 4 DataTable 为 button.p-datatable-row-toggle-button
-        await firstRow.locator('button.p-datatable-row-toggle-button').click()
+        // 行展开按钮：caomei DataTable 为 button.caomei-data-table__row-expander（含 aria-expanded）
+        await firstRow.locator('button.caomei-data-table__row-expander').click()
         await expect(page.locator('.batch-runs__detail')).toBeVisible({ timeout: 15000 })
 
         // 聚合统计：状态收敛为已完成（整体完成含部分失败）+ 统计卡片渲染
         await expect(page.locator('.batch-runs__detail')).toContainText('告警总数', { timeout: 15000 })
         await expect(page.locator('.batch-runs__detail')).toContainText('成功/完成')
-        await expect(page.locator('.p-datatable-tbody tr').first()).toContainText('已完成', { timeout: 15000 })
+        await expect(page.locator('.caomei-data-table__row').first()).toContainText('已完成', { timeout: 15000 })
 
         // 下属 ScanRun 明细（2 个仓库；无凭据时容器执行器交付阶段失败 → engine_delivery_failed → run failed）
         // stats 卡片终态聚合："0/2成功/完成"（两个 run 均因 engine_delivery_failed 标记为 failed）
         await expect(page.locator('.batch-runs__detail')).toContainText('0/2成功/完成', { timeout: 15000 })
-        await expect(page.locator('.batch-runs__detail .p-datatable-tbody tr')).toHaveCount(2)
+        await expect(page.locator('.batch-runs__detail .caomei-data-table__row')).toHaveCount(2)
         await expect(page.locator('.batch-runs__detail')).toContainText(owner)
     })
 
@@ -110,11 +110,11 @@ test.describe('批量扫描（sync 降级模式）', () => {
         await clickPromise
 
         // DataTable 容器仍可见（refresh 不破坏页面——首屏骨架已折叠，loading 不影响 DataTable）
-        await expect(page.locator('.p-datatable')).toBeVisible({ timeout: 5000 })
+        await expect(page.locator('.caomei-data-table')).toBeVisible({ timeout: 5000 })
 
         // 连续点击不破坏页面状态（in-flight 守卫保证不并发堆叠）
         await refreshButton.click()
         await refreshButton.click().catch(() => { /* 守卫期间点击可能抛错，吞掉 */ })
-        await expect(page.locator('.p-datatable')).toBeVisible({ timeout: 5000 })
+        await expect(page.locator('.caomei-data-table')).toBeVisible({ timeout: 5000 })
     })
 })

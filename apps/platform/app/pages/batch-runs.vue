@@ -10,6 +10,7 @@
 //   running 批次平均 30s+ 进度变化有限，60s 已足够；保留 BATCH_POLL_INTERVAL_MS 常量便于后续微调）
 // - sortable 字段：sortable + removableSort 三态（asc/desc/none）；与 C54 增量 reconcile 并存（见 docs/plan/todo.md §C54 + §C60）——
 //   reconcile 只替换 updatedAt 变化行引用，不重排已排序数组；用户手动排序状态保留（C60 决策）
+import type { DataTableColumn } from 'caomei-ui'
 import type { BatchRunRun, BatchRunSummary, BatchRunView } from '~/types/platform'
 import { reconcileBatchRuns } from '~/utils/reconcile-batch-runs'
 import { updateStatusRank, withStatusRank } from '~/utils/sort-helpers'
@@ -31,7 +32,12 @@ const loading = ref(false)
 const inflight = ref(false)
 const error = ref('')
 const batchRuns = ref<BatchRunView[]>([])
-const expandedRows = ref<Record<string, boolean>>({})
+// caomei DataTable 的行展开为「行 key 数组」（PrimeVue 的 `expandedRows` 是 Record<key, boolean>，
+// 迁移时按 caomei 契约改写；row-key 同为 'id'）
+const expandedRows = ref<string[]>([])
+const onUpdateExpandedRows = (rows: string[]) => {
+    expandedRows.value = rows
+}
 
 // 展开详情缓存（id → 详情响应；轮询时复用已展开行）
 const detailMap = ref<Record<string, {
@@ -223,6 +229,34 @@ onMounted(async () => {
 })
 
 onUnmounted(stopPolling)
+
+/**
+ * 列定义（caomei DataTable 用 `columns` 数组 + `#cell-{key}` 插槽替代 PrimeVue 的 `<Column>`）。
+ * - `expander: true` 列即 PrimeVue `<Column expander>`（表头留空，单元格渲染展开/收起按钮）
+ * - `_statusRank` 保留为排序字段（与 sort-helpers 的 rank 注入一致）；原 `:default-sort-order="-1"`
+ *   仅影响初始排序方向，而本页初始无排序，故迁移后行为一致
+ */
+const columns = computed<DataTableColumn<BatchRunView>[]>(() => [
+    { key: 'expander', width: '3rem', expander: true },
+    { key: 'source', header: t('batchRuns.colSource'), sortable: true },
+    { key: 'createdAt', header: t('batchRuns.colCreatedAt'), sortable: true },
+    { key: 'params', header: t('batchRuns.colParams') },
+    { key: 'repositoryCount', header: t('batchRuns.colProgress'), sortable: true },
+    { key: '_statusRank', header: t('batchRuns.colStatus'), sortable: true },
+    { key: 'finishedAt', header: t('batchRuns.colFinishedAt'), sortable: true },
+])
+
+/**
+ * 展开区嵌套表格列定义（与 PrimeVue `<Column>` 等价，均不可排序）。
+ * 这些是**虚拟列**：单元格内容全部由 `#cell-*` 插槽渲染，不要设为 sortable（无对应可排序字段）。
+ */
+const nestedColumns = computed<DataTableColumn<BatchRunRun>[]>(() => [
+    { key: 'repo', header: t('runs.colRepo') },
+    { key: 'runStatus', header: t('runs.colStatus') },
+    { key: 'executor', header: t('runs.colExecutor') },
+    { key: 'alerts', header: t('runs.colAlerts') },
+    { key: 'result', header: t('runs.colResult') },
+])
 </script>
 
 <template>
@@ -253,108 +287,74 @@ onUnmounted(stopPolling)
 
         <Card v-if="!firstLoad">
             <template #content>
-                <DataTable
-                    v-model:expanded-rows="expandedRows"
-                    :value="batchRuns"
-                    data-key="id"
-                    striped-rows
-                    size="small"
-                    removable-sort
-                    :empty-message="t('batchRuns.empty')"
+                <CaomeiDataTable
+                    :data="batchRuns"
+                    :columns="columns"
+                    row-key="id"
+                    striped
+                    :expanded-rows="expandedRows"
+                    :empty-text="t('batchRuns.empty')"
+                    @update:expanded-rows="onUpdateExpandedRows"
                     @row-expand="onRowExpand"
                 >
-                    <Column expander style="width: 3rem" />
-                    <Column
-                        field="source"
-                        :header="t('batchRuns.colSource')"
-                        sortable
-                    >
-                        <template #body="{data}">
-                            <Tag
-                                :value="data.source === 'scheduled' ? t('batchRuns.sourceScheduled') : t('batchRuns.sourceManual')"
-                                :severity="data.source === 'scheduled' ? 'info' : 'secondary'"
+                    <template #cell-source="{row}">
+                        <Tag
+                            :value="row.source === 'scheduled' ? t('batchRuns.sourceScheduled') : t('batchRuns.sourceManual')"
+                            :severity="row.source === 'scheduled' ? 'info' : 'secondary'"
+                        />
+                    </template>
+                    <template #cell-createdAt="{row}">
+                        {{ d(new Date(row.createdAt), 'long') }}
+                    </template>
+                    <template #cell-params="{row}">
+                        {{ modeLabel(row.mode) }} · {{ severityLabel(row.severityThreshold) }}
+                    </template>
+                    <template #cell-repositoryCount="{row}">
+                        <span v-if="row.pendingCount > 0" class="text-muted">
+                            {{ t('batchRuns.progressPending', {done: row.completedCount + row.failedCount, total: row.repositoryCount}) }}
+                        </span>
+                        <span v-else>
+                            {{ t('batchRuns.progressDone', {done: row.completedCount, total: row.repositoryCount}) }}
+                            <span v-if="row.failedCount > 0" class="text-danger">{{ t('batchRuns.progressFailed', {count: row.failedCount}) }}</span>
+                        </span>
+                    </template>
+                    <template #cell-_statusRank="{row}">
+                        <div class="batch-runs__status-cell">
+                            <Tag :value="statusTag(row.status).label" :severity="statusTag(row.status).severity" />
+                            <Button
+                                v-if="row.status === 'running'"
+                                icon="pi pi-stop-circle"
+                                :label="t('batchRuns.forceFail')"
+                                severity="danger"
+                                size="small"
+                                text
+                                :loading="forceFailing[row.id]"
+                                @click="forceFail(row.id)"
                             />
-                        </template>
-                    </Column>
-                    <Column
-                        field="createdAt"
-                        :header="t('batchRuns.colCreatedAt')"
-                        sortable
-                    >
-                        <template #body="{data}">
-                            {{ d(new Date(data.createdAt), 'long') }}
-                        </template>
-                    </Column>
-                    <Column :header="t('batchRuns.colParams')">
-                        <template #body="{data}">
-                            {{ modeLabel(data.mode) }} · {{ severityLabel(data.severityThreshold) }}
-                        </template>
-                    </Column>
-                    <Column
-                        field="repositoryCount"
-                        :header="t('batchRuns.colProgress')"
-                        sortable
-                    >
-                        <template #body="{data}">
-                            <span v-if="data.pendingCount > 0" class="text-muted">
-                                {{ t('batchRuns.progressPending', {done: data.completedCount + data.failedCount, total: data.repositoryCount}) }}
-                            </span>
-                            <span v-else>
-                                {{ t('batchRuns.progressDone', {done: data.completedCount, total: data.repositoryCount}) }}
-                                <span v-if="data.failedCount > 0" class="text-danger">{{ t('batchRuns.progressFailed', {count: data.failedCount}) }}</span>
-                            </span>
-                        </template>
-                    </Column>
-                    <Column
-                        field="_statusRank"
-                        :header="t('batchRuns.colStatus')"
-                        sortable
-                        :default-sort-order="-1"
-                    >
-                        <template #body="{data}">
-                            <div class="batch-runs__status-cell">
-                                <Tag :value="statusTag(data.status).label" :severity="statusTag(data.status).severity" />
-                                <Button
-                                    v-if="data.status === 'running'"
-                                    icon="pi pi-stop-circle"
-                                    :label="t('batchRuns.forceFail')"
-                                    severity="danger"
-                                    size="small"
-                                    text
-                                    :loading="forceFailing[data.id]"
-                                    @click="forceFail(data.id)"
-                                />
-                            </div>
-                        </template>
-                    </Column>
-                    <Column
-                        field="finishedAt"
-                        :header="t('batchRuns.colFinishedAt')"
-                        sortable
-                    >
-                        <template #body="{data}">
-                            {{ data.finishedAt ? d(new Date(data.finishedAt), 'long') : '—' }}
-                        </template>
-                    </Column>
-                    <template #expansion="{data}">
+                        </div>
+                    </template>
+                    <template #cell-finishedAt="{row}">
+                        {{ row.finishedAt ? d(new Date(row.finishedAt), 'long') : '—' }}
+                    </template>
+                    <template #expansion="{ data: row }">
                         <div class="batch-runs__detail">
                             <div class="batch-runs__stats">
                                 <div class="batch-runs__stat">
-                                    <span class="batch-runs__stat-value">{{ detailMap[data.id]?.summary?.alertsTotal ?? '—' }}</span>
+                                    <span class="batch-runs__stat-value">{{ detailMap[row.id]?.summary?.alertsTotal ?? '—' }}</span>
                                     <span class="batch-runs__stat-label">{{ t('batchRuns.statAlertsTotal') }}</span>
                                 </div>
                                 <div class="batch-runs__stat">
-                                    <span class="batch-runs__stat-value">{{ detailMap[data.id]?.summary?.fixedCount ?? '—' }}</span>
+                                    <span class="batch-runs__stat-value">{{ detailMap[row.id]?.summary?.fixedCount ?? '—' }}</span>
                                     <span class="batch-runs__stat-label">{{ t('batchRuns.statFixedCount') }}</span>
                                 </div>
                                 <div class="batch-runs__stat">
                                     <span class="batch-runs__stat-value">
-                                        {{ detailMap[data.id] ? `${detailMap[data.id]?.completedCount ?? '—'}/${detailMap[data.id]?.finishedCount ?? '—'}` : '—' }}
+                                        {{ detailMap[row.id] ? `${detailMap[row.id]?.completedCount ?? '—'}/${detailMap[row.id]?.finishedCount ?? '—'}` : '—' }}
                                     </span>
                                     <span class="batch-runs__stat-label">{{ t('batchRuns.statSuccessFinished') }}</span>
                                 </div>
                                 <div
-                                    v-for="(count, severity) in detailMap[data.id]?.summary?.severityCounts ?? {}"
+                                    v-for="(count, severity) in detailMap[row.id]?.summary?.severityCounts ?? {}"
                                     :key="severity"
                                     class="batch-runs__stat"
                                 >
@@ -363,63 +363,53 @@ onUnmounted(stopPolling)
                                 </div>
                             </div>
 
-                            <DataTable
-                                :value="detailMap[data.id]?.runs ?? []"
-                                size="small"
-                                :empty-message="t('batchRuns.subEmpty')"
+                            <CaomeiDataTable
+                                :data="detailMap[row.id]?.runs ?? []"
+                                :columns="nestedColumns"
+                                :empty-text="t('batchRuns.subEmpty')"
                             >
-                                <Column :header="t('runs.colRepo')">
-                                    <template #body="{data: run}">
-                                        {{ run.owner }}/{{ run.name }}
-                                    </template>
-                                </Column>
-                                <Column :header="t('runs.colStatus')">
-                                    <template #body="{data: run}">
-                                        <Tag :value="runStatusLabel(run.status)" :severity="runStatusSeverity(run.status)" />
-                                    </template>
-                                </Column>
-                                <Column :header="t('runs.colExecutor')">
-                                    <template #body="{data: run}">
-                                        {{ run.executorKind === 'github-action' ? t('repos.githubAction') : run.executorKind === 'sandbox' ? t('repos.sandboxContainer') : t('repos.platformContainer') }}
-                                    </template>
-                                </Column>
-                                <Column :header="t('runs.colAlerts')">
-                                    <template #body="{data: run}">
-                                        {{ (run.summary as {alertsFound?: number} | null)?.alertsFound ?? '—' }}
-                                    </template>
-                                </Column>
-                                <Column :header="t('runs.colResult')">
-                                    <template #body="{data: run}">
-                                        <span
-                                            v-if="run.error"
-                                            class="text-danger"
-                                            :title="run.error.message"
+                                <template #cell-repo="{row: run}">
+                                    {{ run.owner }}/{{ run.name }}
+                                </template>
+                                <template #cell-runStatus="{row: run}">
+                                    <Tag :value="runStatusLabel(run.status)" :severity="runStatusSeverity(run.status)" />
+                                </template>
+                                <template #cell-executor="{row: run}">
+                                    {{ run.executorKind === 'github-action' ? t('repos.githubAction') : run.executorKind === 'sandbox' ? t('repos.sandboxContainer') : t('repos.platformContainer') }}
+                                </template>
+                                <template #cell-alerts="{row: run}">
+                                    {{ (run.summary as {alertsFound?: number} | null)?.alertsFound ?? '—' }}
+                                </template>
+                                <template #cell-result="{row: run}">
+                                    <span
+                                        v-if="run.error"
+                                        class="text-danger"
+                                        :title="run.error.message"
+                                    >
+                                        {{ run.error.code }}
+                                    </span>
+                                    <span v-else-if="run.runUrl">
+                                        <a
+                                            :href="run.runUrl"
+                                            target="_blank"
+                                            rel="noopener noreferrer"
                                         >
-                                            {{ run.error.code }}
-                                        </span>
-                                        <span v-else-if="run.runUrl">
-                                            <a
-                                                :href="run.runUrl"
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                            >
-                                                {{ t('batchRuns.openRun') }}
-                                            </a>
-                                        </span>
-                                        <span v-else>—</span>
-                                        <!-- C53-后-C：A 模式 PR 创建失败 → dispatched + branch URL 兜底，提示手动开 PR -->
-                                        <small
-                                            v-if="run.status === 'dispatched' && run.error?.code === 'pr_creation_failed'"
-                                            class="d-block mt-1 text-warning"
-                                        >
-                                            {{ t('batchRuns.openRunPrFailedHint') }}
-                                        </small>
-                                    </template>
-                                </Column>
-                            </DataTable>
+                                            {{ t('batchRuns.openRun') }}
+                                        </a>
+                                    </span>
+                                    <span v-else>—</span>
+                                    <!-- A 模式 PR 创建失败 → dispatched + branch URL 兜底，提示手动开 PR（背景见 docs/plan/todo.md §PR 系列已闭环条目） -->
+                                    <small
+                                        v-if="run.status === 'dispatched' && run.error?.code === 'pr_creation_failed'"
+                                        class="d-block mt-1 text-warning"
+                                    >
+                                        {{ t('batchRuns.openRunPrFailedHint') }}
+                                    </small>
+                                </template>
+                            </CaomeiDataTable>
                         </div>
                     </template>
-                </DataTable>
+                </CaomeiDataTable>
             </template>
         </Card>
         <p v-else class="text-muted">

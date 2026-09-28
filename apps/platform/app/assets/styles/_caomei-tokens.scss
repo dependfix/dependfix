@@ -13,6 +13,18 @@
 //   与「main.scss 先于模块注入的 theme.css 加载」这一顺序无关。
 // 映射来源：`docs/design/governance/caomei-ui-migration.md` §6（值经真实浏览器复核）
 
+// DataTable 单元格密度对齐 PrimeVue `size="small"`：
+// PrimeVue Aura small 尺寸为 `0.375rem 0.5rem`（6px 8px），caomei 默认为
+// `var(--caomei-space-2) var(--caomei-space-3)`（8px 12px）→ 行高与单元格内边距偏大。
+// 仓库内 DataTable 标签共 20 处（PrimeVue 14 处，其中 13 处显式 size="small"；caomei 6 处），
+// 故统一按 PrimeVue small 收敛；唯一例外 pr-checks.vue 未设 size（迁移该页时需单独确认密度口径，见评估文档 §15.10）。
+// 注意：caomei 的单元格规则为 scoped 形式 `.caomei-data-table__th[data-v-xxx]`（特异性 0,2,0），
+// 故此处用 `.caomei-data-table__table th.caomei-data-table__th`（0,2,1）确保胜出（不依赖加载顺序）。
+.caomei-data-table__table th.caomei-data-table__th,
+.caomei-data-table__table td.caomei-data-table__td {
+    padding: 0.375rem 0.5rem;
+}
+
 :root.dark,
 :root[data-theme='dark'] {
     // 暗底强调色取 teal-300，在深背景上保持充分对比度

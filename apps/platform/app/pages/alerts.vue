@@ -14,7 +14,7 @@ import {
     type AlertsFilters,
     type AlertsViewMode,
 } from '~/utils/alerts-view'
-import type { DataTableSortMeta } from 'primevue/datatable'
+import type { DataTableColumn, DataTableSortMeta } from 'caomei-ui'
 
 definePageMeta({
     middleware: 'auth',
@@ -206,22 +206,16 @@ const error = computed(() => {
 })
 
 /**
- * 切换视图模式：仅重置 multiSortMeta + expandedPackages 避免 group 状态污染。
- * multiSortMeta 必须用 v-model 形式（不能用 sortField/sortOrder，参见 PrimeVue 4 rowGroup 数据流必现 TypeError）。
+ * 切换视图模式：重置 multiSortMeta + expandedPackages，避免上一个视图的排序 / 折叠状态污染。
  *
- * 默认严重级别优先（severity desc）+ 次排序按 viewMode 选择的 groupBy 字段升序。
- * - 业务依据：docs/standards/platform.md §7.1 「业务语义排序需 :default-sort-order='-1'」，
- *   severity Rank 字段是 highest-first 设计（critical=5），desc 渲染才符合「critical 优先」业务期望
- * - groupBy 次排序保证 rowGroupMode='subheader' 相邻 groupRowsBy 值切换能渲染 subheader
- *   （PrimeVue 4 rowGroup 数据流要求相邻行 groupRowsBy 字段值变化才插入 subheader 标记）
- * - 'none' 视图无 rowGroup，单一 severity desc 即可
+ * 默认严重级别优先（severity desc）：
+ * - 业务依据：docs/standards/platform.md §7.1（severity Rank 是 highest-first 设计，desc 才符合
+ *   「critical 优先」的业务期望）
+ * - 分组连续性由服务端负责（详见下方 multiSortMeta 注释），客户端不设分组字段次排序键
  */
 const onViewModeChange = () => {
-    const severityFirst: DataTableSortMeta = { field: '_severityRank', order: -1 }
-    const groupField = viewMode.value === 'package' ? 'packageName' : 'repository'
-    multiSortMeta.value = viewMode.value === 'none'
-        ? [severityFirst]
-        : [severityFirst, { field: groupField, order: 1 }]
+    // 仅严重级别降序；分组字段的相邻性由服务端 orderBy(groupBy) 保证（见 multiSortMeta 注释）
+    multiSortMeta.value = [{ field: '_severityRank', order: -1 }]
     expandedPackages.value = []
 }
 
@@ -308,27 +302,30 @@ const groupCounts = computed(() => {
     return counts
 })
 // groupHeader 显示的标签：package 模式显示 packageName，repository 模式显示 repository 字段
-const groupHeaderLabel = (data: Record<string, unknown>): string => {
+const groupHeaderLabel = (data: AlertView): string => {
     if (viewMode.value === 'repository') {
-        return (data.repository as string | null) ?? t('alerts.repositoryUnknown')
+        return data.repository ?? t('alerts.repositoryUnknown')
     }
-    return data.packageName as string
+    return data.packageName
 }
 
-// rowGroup 多列排序持久 + expandableRowGroups 折叠状态
-// - 排序模式 multiple：用户点其他列时 PrimeVue 自动把 packageName 保留为第一排序键
-// - 默认排序必须用 multiSortMeta（v-model），不能用 sortField/sortOrder——后者只在 sortMode='single' 生效，
-//   多列模式下 d_multiSortMeta 不会被自动填充，会保持空数组；但 d_sortField 被赋值后 `sorted` 仍为 true，
-//   触发 sortMultiple → multisortField(data, data, 0) → d_multiSortMeta[0].field → TypeError
-// - 折叠状态以 packageName 数组跟踪：PrimeVue v-model:expanded-row-groups 内部用 .indexOf() 判断 group 是否展开，
-//   传 Record<string, boolean> 会触发 TypeError: this.expandedRowGroups.indexOf is not a function（RowGroup 数据流必现）
-//   PrimeVue 4 在 expandable-row-groups 模式下会在 #groupheader slot 之前自动渲染 rowToggleButton
-//   （含 ChevronDown/RightIcon），slot 内不应再叠加自定义 chevron，否则双 chevron 视觉缺陷
-//   （node_modules/primevue/datatable/index.mjs:1776-1800 rowToggleButton 渲染分支）
-// 默认排序严重级别优先（critical 优先）+ packageName 次排序保证 rowGroup subheader 渲染
+// 行分组（rowGroup）与排序状态说明：
+// - 折叠状态用 `string[]` 跟踪（分组键数组）；caomei 受控模式经 `@update:expanded-row-groups` 回写，
+//   不回写则内建折叠按钮点击无效果
+// - caomei 在 `expandableRowGroups` 下会在 `#groupheader` 槽之前渲染内建折叠按钮
+//   （`.caomei-data-table__row-group-toggle`，含 aria-expanded），槽内不再叠加自定义 chevron，避免双 chevron
+/**
+ * 默认排序：仅严重级别降序。
+ *
+ * 分组连续性不靠客户端次排序键保证——caomei 的分组字段列已从 `columns` 中剔除，
+ * TanStack 只对「列模型中存在的列」排序（`createSortedRowModel` 以 `getColumn(sort.id)` 为门槛），
+ * 传入分组字段（packageName / repository）会被静默丢弃。分组所需的同组相邻由**服务端**保证：
+ * `/api/alerts?groupBy=` 会 `orderBy(groupBy)`，客户端再按严重级别做稳定排序后，同 severity 内
+ * 仍保持服务端的分组字段升序（等价 PrimeVue 双键 `[_severityRank desc, packageName asc]` 的结果）。
+ * 详见 docs/design/governance/caomei-ui-migration.md §15.10
+ */
 const multiSortMeta = ref<DataTableSortMeta[]>([
     { field: '_severityRank', order: -1 },
-    { field: 'packageName', order: 1 },
 ])
 const expandedPackages = ref<string[]>([])
 // 自定义 span 整体可点击 + 键盘 enter/space 触发（todo.md §C65-D2 验收）。
@@ -356,6 +353,55 @@ const dataTableAttrs = computed(() => {
         expandableRowGroups: true,
     }
 })
+
+/**
+ * 列定义：caomei DataTable 用 `columns` 数组 + `#cell-{key}` 插槽替代 PrimeVue 的 `<Column>`。
+ *
+ * 等价性要点（迁移自 PrimeVue `<Column>`）：
+ * - `key` 同时是排序字段，故严重级别 / 状态列用 rank 字段作 key（与 `multiSortMeta.field` 一致）
+ * - **分组模式下剔除分组字段列**：PrimeVue 渲染 subheader 模式时省略 `groupRowsBy` 同名列
+ *   （表头与单元格都不渲染，实测 14 列 / colspan=14）；caomei 对分组同名列保留单元格位但不渲染内容，
+ *   为保持列数与表结构等价，这里按当前分组字段过滤（分组连续性改由服务端排序保证，见 `multiSortMeta` 注释）
+ * - 原 PrimeVue `:export="false"` 是无效 prop（PrimeVue 无该字段），按迁移评估 §5.3 直接删除
+ */
+const columns = computed<DataTableColumn<AlertView>[]>(() => {
+    const all: DataTableColumn<AlertView>[] = [
+        { key: 'repository', header: t('alerts.colRepository'), sortable: true },
+        { key: '_severityRank', header: t('alerts.colSeverity'), sortable: true },
+        { key: 'packageName', header: t('alerts.colPackage'), sortable: true },
+        { key: 'source', header: t('alerts.colSource'), sortable: true },
+        { key: 'identifiers', header: t('alerts.colIdentifiers'), width: '180px' },
+        { key: 'ruleId', header: t('alerts.colRuleId'), sortable: true, width: '180px' },
+        { key: 'fixable', header: t('alerts.colFixable') },
+        { key: 'recommendedVersion', header: t('alerts.colRecommended'), sortable: true },
+        { key: '_fixStatusRank', header: t('alerts.colStatus'), sortable: true },
+        { key: 'aiEvaluated', header: t('ai.alertsEvaluatedColumn') },
+        { key: 'occurrenceCount', header: t('alerts.colOccurrenceCount'), sortable: true },
+        { key: 'firstSeenAt', header: t('alerts.colFirstSeenAt'), sortable: true },
+        { key: 'lastSeenAt', header: t('alerts.colLastSeenAt'), sortable: true },
+        { key: 'link', header: t('alerts.colLink') },
+        { key: 'actions', header: t('common.actions.details'), width: '100px' },
+    ]
+    const groupField = dataTableAttrs.value.groupRowsBy
+    return groupField ? all.filter((column) => column.key !== groupField) : all
+})
+
+/**
+ * 受控排序回写：提供 `multi-sort-meta` 时 caomei 进入受控模式，不回写则点击列头不改变排序
+ * （等价 PrimeVue 的 `v-model:multi-sort-meta`）。
+ *
+ * 不用 caomei 的全局 `sort-desc-first`：实测该开关会把列头点击循环变成「desc → asc → 移除」，
+ * 与 PrimeVue 的「asc → desc → 移除」不一致（且叠加首次点击纠正后 desc 状态不可达）。
+ * 默认排序方向仅由 `multiSortMeta` 初值承载（severity desc）；分组连续性见上方注释，与 PrimeVue 逐项一致。
+ */
+const onUpdateMultiSortMeta = (meta: DataTableSortMeta[]) => {
+    multiSortMeta.value = meta
+}
+
+/** 受控分组展开回写（等价 `v-model:expanded-row-groups`；不回写则内建折叠按钮点击无效果） */
+const onUpdateExpandedRowGroups = (groups: string[]) => {
+    expandedPackages.value = groups
+}
 
 /**
  * Identifiers 列 URL 构造（todo.md §M23.3 C66-C）：
@@ -460,18 +506,20 @@ const alertCveUrl = (cveId: string): string => `https://nvd.nist.gov/vuln/detail
 
         <Card v-if="!loading" class="alerts__table">
             <template #content>
-                <DataTable
-                    v-model:expanded-row-groups="expandedPackages"
-                    v-model:multi-sort-meta="multiSortMeta"
-                    :value="alerts"
-                    striped-rows
-                    size="small"
-                    removable-sort
+                <CaomeiDataTable
+                    :data="alerts"
+                    :columns="columns"
+                    row-key="id"
+                    striped
                     sort-mode="multiple"
+                    :multi-sort-meta="multiSortMeta"
                     :row-group-mode="dataTableAttrs.rowGroupMode"
                     :group-rows-by="dataTableAttrs.groupRowsBy"
                     :expandable-row-groups="dataTableAttrs.expandableRowGroups"
-                    :empty-message="t('alerts.empty')"
+                    :expanded-row-groups="expandedPackages"
+                    :empty-text="t('alerts.empty')"
+                    @update:multi-sort-meta="onUpdateMultiSortMeta"
+                    @update:expanded-row-groups="onUpdateExpandedRowGroups"
                 >
                     <template v-if="viewMode !== 'none'" #groupheader="{data}">
                         <span
@@ -489,213 +537,132 @@ const alertCveUrl = (cveId: string): string => `https://nvd.nist.gov/vuln/detail
                             </span>
                         </span>
                     </template>
-                    <Column
-                        field="repository"
-                        :header="t('alerts.colRepository')"
-                        sortable
-                    />
-                    <Column
-                        field="_severityRank"
-                        :header="t('alerts.colSeverity')"
-                        sortable
-                        :default-sort-order="-1"
-                    >
-                        <template #body="{data}">
-                            <Tag :value="data.severity" :severity="alertsSeverityTagSeverity(data.severity)" />
-                        </template>
-                    </Column>
-                    <Column
-                        field="packageName"
-                        :header="t('alerts.colPackage')"
-                        sortable
-                    />
-                    <Column
-                        field="source"
-                        :header="t('alerts.colSource')"
-                        sortable
-                    >
-                        <template #body="{data}">
-                            <Tag :value="data.source" severity="secondary" />
-                        </template>
-                    </Column>
-                    <Column
-                        :header="t('alerts.colIdentifiers')"
-                        :export="false"
-                        :style="{width: '180px'}"
-                    >
-                        <template #body="{data}">
-                            <!-- 依赖类告警：GHSA 优先（fetcher 透传到 ScanResult.ghsaId，reconcile 写入 DB） -->
-                            <a
-                                v-if="data.ghsaId"
-                                :href="alertGhsaUrl(data.ghsaId)"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                class="alerts__identifier-link"
-                                :title="data.ghsaId"
-                            >
-                                <Tag :value="data.ghsaId" severity="success" />
-                            </a>
-                            <!-- 无 GHSA 但有 CVE：fallback 显示第一个 CVE -->
-                            <a
-                                v-else-if="data.cveIds && data.cveIds.length > 0"
-                                :href="alertCveUrl(data.cveIds[0] ?? '')"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                class="alerts__identifier-link"
-                                :title="data.cveIds[0] ?? ''"
-                            >
-                                <Tag :value="data.cveIds[0] ?? ''" severity="warn" />
-                            </a>
-                            <!-- 多 CVE：剩余 N 个折叠显示（hover title 展示完整列表） -->
-                            <span
-                                v-if="data.cveIds && data.cveIds.length > 1"
-                                class="alerts__identifier-more"
-                                :title="data.cveIds.slice(1).join(', ')"
-                            >
-                                +{{ data.cveIds.length - 1 }}
-                            </span>
-                            <!-- code-scanning / code-quality 源无 GHSA/CVE 概念 -->
-                            <span
-                                v-if="!data.ghsaId && (!data.cveIds || data.cveIds.length === 0)"
-                                class="text-muted"
-                            >—</span>
-                        </template>
-                    </Column>
-                    <Column
-                        field="ruleId"
-                        :header="t('alerts.colRuleId')"
-                        :export="false"
-                        sortable
-                        :style="{width: '180px'}"
-                    >
-                        <template #body="{data}">
-                            <!-- 实测反馈：alert 行展示 GHSA/CVE/rule id；htmlUrl 存在时点击跳 advisory 详情 -->
-                            <a
-                                v-if="data.ruleId && data.htmlUrl"
-                                :href="data.htmlUrl"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                class="alerts__ruleid-link"
-                                :title="data.ruleId"
-                            >
-                                <Tag :value="data.ruleId" :severity="alertsRuleIdTagSeverity(data.source)" />
-                            </a>
-                            <span
-                                v-else-if="data.ruleId"
-                                class="alerts__ruleid-plain"
-                                :title="data.ruleId"
-                            >
-                                <Tag :value="data.ruleId" :severity="alertsRuleIdTagSeverity(data.source)" />
-                            </span>
-                            <span v-else class="text-muted">—</span>
-                        </template>
-                    </Column>
-                    <Column :header="t('alerts.colFixable')">
-                        <template #body="{data}">
-                            <Tag
-                                :value="data.fixable ? t('common.yes') : t('common.no')"
-                                :severity="data.fixable ? 'success' : 'secondary'"
-                            />
-                        </template>
-                    </Column>
-                    <Column
-                        field="recommendedVersion"
-                        :header="t('alerts.colRecommended')"
-                        sortable
-                    />
-                    <Column
-                        field="_fixStatusRank"
-                        :header="t('alerts.colStatus')"
-                        sortable
-                        :default-sort-order="-1"
-                    >
-                        <template #body="{data}">
-                            <Tag :value="statusLabel(data)" severity="secondary" />
-                        </template>
-                    </Column>
-                    <Column
-                        :header="t('ai.alertsEvaluatedColumn')"
-                        :export="false"
-                    >
-                        <template #body="{data}">
-                            <Tag
-                                v-if="data.aiEvaluated"
-                                :value="t('ai.alertsEvaluatedTag')"
-                                severity="info"
-                            />
-                            <span
-                                v-else-if="data.aiEvaluated === false"
-                                class="text-muted"
-                            >—</span>
-                            <span
-                                v-else
-                                class="text-muted"
-                            >—</span>
-                        </template>
-                    </Column>
+                    <template #cell-_severityRank="{row}">
+                        <Tag :value="row.severity" :severity="alertsSeverityTagSeverity(row.severity)" />
+                    </template>
+                    <template #cell-source="{row}">
+                        <Tag :value="row.source" severity="secondary" />
+                    </template>
+                    <template #cell-identifiers="{row}">
+                        <!-- 依赖类告警：GHSA 优先（fetcher 透传到 ScanResult.ghsaId，reconcile 写入 DB） -->
+                        <a
+                            v-if="row.ghsaId"
+                            :href="alertGhsaUrl(row.ghsaId)"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            class="alerts__identifier-link"
+                            :title="row.ghsaId"
+                        >
+                            <Tag :value="row.ghsaId" severity="success" />
+                        </a>
+                        <!-- 无 GHSA 但有 CVE：fallback 显示第一个 CVE -->
+                        <a
+                            v-else-if="row.cveIds && row.cveIds.length > 0"
+                            :href="alertCveUrl(row.cveIds[0] ?? '')"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            class="alerts__identifier-link"
+                            :title="row.cveIds[0] ?? ''"
+                        >
+                            <Tag :value="row.cveIds[0] ?? ''" severity="warn" />
+                        </a>
+                        <!-- 多 CVE：剩余 N 个折叠显示（hover title 展示完整列表） -->
+                        <span
+                            v-if="row.cveIds && row.cveIds.length > 1"
+                            class="alerts__identifier-more"
+                            :title="row.cveIds.slice(1).join(', ')"
+                        >
+                            +{{ row.cveIds.length - 1 }}
+                        </span>
+                        <!-- code-scanning / code-quality 源无 GHSA/CVE 概念 -->
+                        <span
+                            v-if="!row.ghsaId && (!row.cveIds || row.cveIds.length === 0)"
+                            class="text-muted"
+                        >—</span>
+                    </template>
+                    <template #cell-ruleId="{row}">
+                        <!-- 实测反馈：alert 行展示 GHSA/CVE/rule id；htmlUrl 存在时点击跳 advisory 详情 -->
+                        <a
+                            v-if="row.ruleId && row.htmlUrl"
+                            :href="row.htmlUrl"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            class="alerts__ruleid-link"
+                            :title="row.ruleId"
+                        >
+                            <Tag :value="row.ruleId" :severity="alertsRuleIdTagSeverity(row.source)" />
+                        </a>
+                        <span
+                            v-else-if="row.ruleId"
+                            class="alerts__ruleid-plain"
+                            :title="row.ruleId"
+                        >
+                            <Tag :value="row.ruleId" :severity="alertsRuleIdTagSeverity(row.source)" />
+                        </span>
+                        <span v-else class="text-muted">—</span>
+                    </template>
+                    <template #cell-fixable="{row}">
+                        <Tag
+                            :value="row.fixable ? t('common.yes') : t('common.no')"
+                            :severity="row.fixable ? 'success' : 'secondary'"
+                        />
+                    </template>
+                    <template #cell-_fixStatusRank="{row}">
+                        <Tag :value="statusLabel(row)" severity="secondary" />
+                    </template>
+                    <template #cell-aiEvaluated="{row}">
+                        <Tag
+                            v-if="row.aiEvaluated"
+                            :value="t('ai.alertsEvaluatedTag')"
+                            severity="info"
+                        />
+                        <span
+                            v-else-if="row.aiEvaluated === false"
+                            class="text-muted"
+                        >—</span>
+                        <span
+                            v-else
+                            class="text-muted"
+                        >—</span>
+                    </template>
                     <!-- per-alert 模型下 ScanResult 字段直接绑定为默认列（不再 v-if 控制，见 todo.md §M20.3 + §M20.6） -->
-                    <Column
-                        field="occurrenceCount"
-                        :header="t('alerts.colOccurrenceCount')"
-                        sortable
-                    >
-                        <template #body="{data}">
-                            <Tag :value="String(data.occurrenceCount ?? 1)" severity="warn" />
-                        </template>
-                    </Column>
-                    <Column
-                        field="firstSeenAt"
-                        :header="t('alerts.colFirstSeenAt')"
-                        sortable
-                    >
-                        <template #body="{data}">
-                            <span v-if="data.firstSeenAt" class="text-muted">
-                                {{ d(new Date(data.firstSeenAt), 'long') }}
-                            </span>
-                            <span v-else class="text-muted">—</span>
-                        </template>
-                    </Column>
-                    <Column
-                        field="lastSeenAt"
-                        :header="t('alerts.colLastSeenAt')"
-                        sortable
-                    >
-                        <template #body="{data}">
-                            <span v-if="data.lastSeenAt" class="text-muted">
-                                {{ d(new Date(data.lastSeenAt), 'long') }}
-                            </span>
-                            <span v-else class="text-muted">—</span>
-                        </template>
-                    </Column>
-                    <Column :header="t('alerts.colLink')">
-                        <template #body="{data}">
-                            <a
-                                v-if="data.htmlUrl"
-                                :href="data.htmlUrl"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                            >
-                                {{ t('alerts.view') }}
-                            </a>
-                            <span v-else class="text-muted">—</span>
-                        </template>
-                    </Column>
-                    <Column
-                        :header="t('common.actions.details')"
-                        :style="{width: '100px'}"
-                    >
-                        <template #body="{data}">
-                            <Button
-                                icon="pi pi-list"
-                                text
-                                rounded
-                                size="small"
-                                :aria-label="t('common.actions.details')"
-                                @click="openRunSidebar(data)"
-                            />
-                        </template>
-                    </Column>
-                </DataTable>
+                    <template #cell-occurrenceCount="{row}">
+                        <Tag :value="String(row.occurrenceCount ?? 1)" severity="warn" />
+                    </template>
+                    <template #cell-firstSeenAt="{row}">
+                        <span v-if="row.firstSeenAt" class="text-muted">
+                            {{ d(new Date(row.firstSeenAt), 'long') }}
+                        </span>
+                        <span v-else class="text-muted">—</span>
+                    </template>
+                    <template #cell-lastSeenAt="{row}">
+                        <span v-if="row.lastSeenAt" class="text-muted">
+                            {{ d(new Date(row.lastSeenAt), 'long') }}
+                        </span>
+                        <span v-else class="text-muted">—</span>
+                    </template>
+                    <template #cell-link="{row}">
+                        <a
+                            v-if="row.htmlUrl"
+                            :href="row.htmlUrl"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                        >
+                            {{ t('alerts.view') }}
+                        </a>
+                        <span v-else class="text-muted">—</span>
+                    </template>
+                    <template #cell-actions="{row}">
+                        <Button
+                            icon="pi pi-list"
+                            text
+                            rounded
+                            size="small"
+                            :aria-label="t('common.actions.details')"
+                            @click="openRunSidebar(row)"
+                        />
+                    </template>
+                </CaomeiDataTable>
             </template>
         </Card>
         <p v-else class="text-muted">

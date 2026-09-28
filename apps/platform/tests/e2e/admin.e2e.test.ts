@@ -35,7 +35,7 @@ test.describe('仓库管理', () => {
         await page.goto('/repos')
         await waitForHydration(page)
         await expect(page.locator('h2')).toContainText('仓库管理')
-        await expect(page.locator('.p-datatable')).toBeVisible({ timeout: 15000 })
+        await expect(page.locator('.caomei-data-table')).toBeVisible({ timeout: 15000 })
     })
 
     test('添加仓库表单校验：GitHub Action 必须填 workflow 文件', async ({ page }) => {
@@ -126,23 +126,23 @@ test.describe('用户管理（admin）', () => {
         await page.goto('/users')
         await waitForHydration(page)
         await expect(page.locator('h2')).toContainText('用户管理')
-        await expect(page.locator('.p-datatable')).toBeVisible({ timeout: 15000 })
-        await expect(page.locator('.p-datatable')).toContainText('e2e-admin@dependfix.test')
-        await expect(page.locator('.p-datatable')).toContainText('e2e-viewer@dependfix.test')
+        await expect(page.locator('.caomei-data-table')).toBeVisible({ timeout: 15000 })
+        await expect(page.locator('.caomei-data-table')).toContainText('e2e-admin@dependfix.test')
+        await expect(page.locator('.caomei-data-table')).toContainText('e2e-viewer@dependfix.test')
     })
 
     test('搜索过滤用户', async ({ page }) => {
         await page.goto('/users')
         await waitForHydration(page)
         await page.locator('.users__search').fill('e2e-viewer')
-        await expect(page.locator('.p-datatable')).toContainText('e2e-viewer@dependfix.test', { timeout: 15000 })
-        await expect(page.locator('.p-datatable')).not.toContainText('e2e-admin@dependfix.test')
+        await expect(page.locator('.caomei-data-table')).toContainText('e2e-viewer@dependfix.test', { timeout: 15000 })
+        await expect(page.locator('.caomei-data-table')).not.toContainText('e2e-admin@dependfix.test')
     })
 
     test('角色分配下拉框可用', async ({ page }) => {
         await page.goto('/users')
         await waitForHydration(page)
-        const roleSelects = page.locator('.p-datatable .p-select')
+        const roleSelects = page.locator('.caomei-data-table .p-select')
         await expect(roleSelects.first()).toBeVisible({ timeout: 15000 })
     })
 
@@ -150,7 +150,7 @@ test.describe('用户管理（admin）', () => {
         await page.goto('/users')
         await waitForHydration(page)
         // 自己 row（当前登录 admin = e2e-admin@dependfix.test）role Select 应禁用
-        const selfRow = page.locator('.p-datatable-tbody tr', { hasText: 'e2e-admin@dependfix.test' })
+        const selfRow = page.locator('.caomei-data-table__row', { hasText: 'e2e-admin@dependfix.test' })
         await expect(selfRow).toBeVisible({ timeout: 15000 })
         // PrimeVue 4 Select（非 editable 形态）把 disabled 写到内部 combobox span 的 aria-disabled，
         // root 不渲染 p-disabled class；定位 role="combobox" 的 span 断言 aria-disabled="true"
@@ -158,7 +158,7 @@ test.describe('用户管理（admin）', () => {
         await expect(selfCombobox).toHaveAttribute('aria-disabled', 'true')
 
         // 他人 row（viewer）的 role Select 仍可用
-        const otherRow = page.locator('.p-datatable-tbody tr', { hasText: 'e2e-viewer@dependfix.test' })
+        const otherRow = page.locator('.caomei-data-table__row', { hasText: 'e2e-viewer@dependfix.test' })
         await expect(otherRow).toBeVisible({ timeout: 15000 })
         const otherCombobox = otherRow.locator('.p-select span[role="combobox"]')
         await expect(otherCombobox).toHaveAttribute('aria-disabled', 'false')

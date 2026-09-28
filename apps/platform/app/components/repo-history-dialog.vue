@@ -8,6 +8,8 @@
 //
 // 分页（todo.md §M14.2 UX-R1）：服务端分页（lazy DataTable + Paginator）。
 // 默认 pageSize=10，rows-per-page-options=[10, 25, 50]，最大 200 由 server 钳制。
+import type { DataTableColumn, DataTablePageEvent } from 'caomei-ui'
+
 const props = withDefaults(defineProps<{
     /**
      * 触发 Dialog 的 query 键：
@@ -71,6 +73,50 @@ interface DetailView {
 const detail = ref<DetailView | null>(null)
 const detailLoading = ref(false)
 const detailError = ref('')
+
+/**
+ * detail.results 行的显式形状（原 PrimeVue 表格 value 为内联 `as` 断言；
+ * 迁移后抽出接口供 `columns` 复用，避免断言与列定义类型漂移）。
+ */
+interface DetailResultRow {
+    id: string
+    packageName: string
+    severity: string
+    source: string
+    fixable: boolean
+    fixStrategy: string | null
+    recommendedVersion: string | null
+    htmlUrl: string | null
+}
+
+/** caomei DataTable 受控分页为 1 基 `page`（PrimeVue 为 0 基 `first`）；由既有 first / pageSize 换算 */
+const page = computed(() => Math.floor(first.value / pageSize.value) + 1)
+
+/**
+ * 列定义（caomei DataTable 用 `columns` 数组 + `#cell-{key}` 插槽替代 PrimeVue 的 `<Column>`）。
+ * detail 表 value 由原内联断言改为 computed `detailResults`（强类型）。
+ */
+const detailResults = computed<DetailResultRow[]>(() => (detail.value?.results ?? []) as DetailResultRow[])
+const detailColumns = computed<DataTableColumn<DetailResultRow>[]>(() => [
+    { key: 'packageName', header: t('runs.colPackage') },
+    { key: 'severity', header: t('runs.colSeverity') },
+    { key: 'source', header: t('runs.colSource') },
+    { key: 'fixable', header: t('runs.colFixable') },
+    { key: 'recommendedVersion', header: t('runs.colRecommended') },
+    { key: 'link', header: t('runs.colLink') },
+])
+
+/** 列定义（历史 run 列表 list 表） */
+const listColumns = computed<DataTableColumn<HistoryRunView>[]>(() => [
+    { key: 'status', header: t('runs.colStatus') },
+    { key: 'mode', header: t('runs.colMode') },
+    // key 即默认取值字段，须与 HistoryRunView 字段名一致（severityThreshold）
+    { key: 'severityThreshold', header: t('runs.colThreshold') },
+    { key: 'startedAt', header: t('runs.colStartedAt') },
+    { key: 'alerts', header: t('runs.colAlerts') },
+    { key: 'fixed', header: t('runs.colFixed') },
+    { key: 'actions', header: t('runs.colActions'), width: '200px' },
+])
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50] as const
 
@@ -139,12 +185,12 @@ const fetchRuns = async (id: string, page = 1, rows = pageSize.value) => {
     }
 }
 
-// PrimeVue DataTable @page 事件：page 0-indexed，first 是首行索引（rows × page）
-const onPage = async (event: { page: number, first: number, rows: number }) => {
+// caomei DataTable @page 事件：page 1-based（对齐后端 page 参数，不再 +1）
+const onPage = async (event: DataTablePageEvent) => {
     pageSize.value = event.rows
     first.value = event.first
     if (repoId.value) {
-        await fetchRuns(repoId.value, event.page + 1, event.rows)
+        await fetchRuns(repoId.value, event.page, event.rows)
     }
 }
 
@@ -265,63 +311,56 @@ watch(() => route.query[props.queryKey], async (newVal) => {
         >
             {{ detailError }}
         </Message>
-        <!-- 实测反馈：detail.status === 'failed' 时在 results 表格 header 内展示执行级 Error Banner，
+        <!-- 实测反馈：detail.status === 'failed' 时在 results 表格上方展示执行级 Error Banner，
              即使 detail.error 为空（数据损坏 / 旧数据迁移 / 后端 errorJson 缺失）也显示降级提示（RG-W02）。
-             放在 DataTable #header slot 内避免与外面 v-else-if="detail" 链冲突 -->
-        <DataTable
-            v-else-if="detail"
-            :value="(detail as {results: Array<{id: string; packageName: string; severity: string; source: string; fixable: boolean; fixStrategy: string | null; recommendedVersion: string | null; htmlUrl: string | null}>}).results"
-            striped-rows
-            size="small"
-            :empty-message="t('runs.detailEmpty')"
-        >
-            <template #header>
-                <div class="repo-history__detail-header">
-                    <!-- list mode：返回列表按钮 -->
-                    <Button
-                        v-if="!detailMode"
-                        icon="pi pi-arrow-left"
-                        :label="t('runs.backToList')"
-                        text
-                        size="small"
-                        @click="resetDetail"
-                    />
-                    <!-- run mode（queryKey='run'）：列表不可用，提供关闭按钮；history mode 但已无列表上下文时也降级到关闭 -->
-                    <Button
-                        v-else-if="queryKey === 'run'"
-                        icon="pi pi-times"
-                        :label="t('common.actions.close')"
-                        text
-                        size="small"
-                        @click="closeDialog"
-                    />
-                    <Message
-                        v-if="detail.status === 'failed'"
-                        severity="error"
-                        :closable="false"
-                        class="repo-history__error-banner"
-                    >
-                        <strong>{{ t('runs.errorTitle', {code: detail.error?.code ?? 'UNKNOWN'}) }}</strong>
-                        <p v-if="detail.error" class="repo-history__error-message">
-                            {{ detail.error.message }}
-                        </p>
-                        <p v-else class="repo-history__error-message text-muted">
-                            {{ t('runs.errorNoDetail') }}
-                        </p>
-                    </Message>
-                    <!-- PR 链接（右手边） -->
-                    <a
-                        v-if="detail.runUrl"
-                        :href="detail.runUrl"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        class="repo-history__run-url"
-                    >
-                        {{ t('alerts.detailRunOpen') }}
-                    </a>
-                </div>
-            </template>
-            <!-- 日志区域 -->
+             caomei DataTable 无表级 #header 插槽，故原 #header 内容（返回/关闭按钮 + Error Banner + PR 链接）
+             与日志区一并上移到表格容器前（仍处于 v-else-if="detail" 分支）。 -->
+        <template v-else-if="detail">
+            <div class="repo-history__detail-header">
+                <!-- list mode：返回列表按钮 -->
+                <Button
+                    v-if="!detailMode"
+                    icon="pi pi-arrow-left"
+                    :label="t('runs.backToList')"
+                    text
+                    size="small"
+                    @click="resetDetail"
+                />
+                <!-- run mode（queryKey='run'）：列表不可用，提供关闭按钮；history mode 但已无列表上下文时也降级到关闭 -->
+                <Button
+                    v-else-if="queryKey === 'run'"
+                    icon="pi pi-times"
+                    :label="t('common.actions.close')"
+                    text
+                    size="small"
+                    @click="closeDialog"
+                />
+                <Message
+                    v-if="detail.status === 'failed'"
+                    severity="error"
+                    :closable="false"
+                    class="repo-history__error-banner"
+                >
+                    <strong>{{ t('runs.errorTitle', {code: detail.error?.code ?? 'UNKNOWN'}) }}</strong>
+                    <p v-if="detail.error" class="repo-history__error-message">
+                        {{ detail.error.message }}
+                    </p>
+                    <p v-else class="repo-history__error-message text-muted">
+                        {{ t('runs.errorNoDetail') }}
+                    </p>
+                </Message>
+                <!-- PR 链接（右手边） -->
+                <a
+                    v-if="detail.runUrl"
+                    :href="detail.runUrl"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="repo-history__run-url"
+                >
+                    {{ t('alerts.detailRunOpen') }}
+                </a>
+            </div>
+            <!-- 日志区域（ScrollPanel → 原生滚动容器 + CSS，见迁移配方 §5） -->
             <div v-if="detail.logs && detail.logs.length > 0" class="repo-history__logs">
                 <div class="repo-history__logs-header">
                     <span class="repo-history__logs-title">{{ t('runs.logsTitle') }}</span>
@@ -335,7 +374,7 @@ watch(() => route.query[props.queryKey], async (newVal) => {
                         @click="copyLogs"
                     />
                 </div>
-                <ScrollPanel style="height: 200px">
+                <div class="repo-history__logs-scroll" style="height: 200px; overflow: auto">
                     <div class="repo-history__logs-content">
                         <div
                             v-for="(entry, index) in detail.logs"
@@ -348,122 +387,106 @@ watch(() => route.query[props.queryKey], async (newVal) => {
                             <span class="repo-history__log-message">{{ entry.message }}</span>
                         </div>
                     </div>
-                </ScrollPanel>
+                </div>
             </div>
-            <Column :header="t('runs.colPackage')" field="packageName" />
-            <Column :header="t('runs.colSeverity')">
-                <template #body="{data}">
+            <CaomeiDataTable
+                :data="detailResults"
+                :columns="detailColumns"
+                striped
+                :empty-text="t('runs.detailEmpty')"
+            >
+                <template #cell-severity="{row}">
                     <Tag
-                        :value="data.severity"
-                        :severity="data.severity === 'critical' ? 'danger' : data.severity === 'high' ? 'warn' : 'info'"
+                        :value="row.severity"
+                        :severity="row.severity === 'critical' ? 'danger' : row.severity === 'high' ? 'warn' : 'info'"
                     />
                 </template>
-            </Column>
-            <Column :header="t('runs.colSource')" field="source" />
-            <Column :header="t('runs.colFixable')">
-                <template #body="{data}">
+                <template #cell-fixable="{row}">
                     <Tag
-                        :value="data.fixable ? t('common.yes') : t('common.no')"
-                        :severity="data.fixable ? 'success' : 'secondary'"
+                        :value="row.fixable ? t('common.yes') : t('common.no')"
+                        :severity="row.fixable ? 'success' : 'secondary'"
                     />
                 </template>
-            </Column>
-            <Column :header="t('runs.colRecommended')" field="recommendedVersion" />
-            <Column :header="t('runs.colLink')">
-                <template #body="{data}">
+                <template #cell-link="{row}">
                     <a
-                        v-if="data.htmlUrl"
-                        :href="data.htmlUrl"
+                        v-if="row.htmlUrl"
+                        :href="row.htmlUrl"
                         target="_blank"
                         rel="noopener noreferrer"
                     >
                         {{ t('runs.view') }}
                     </a>
                 </template>
-            </Column>
-        </DataTable>
+            </CaomeiDataTable>
+        </template>
         <template v-else-if="!detailMode">
             <!-- todo.md §M14.2 UX-R1：服务端分页（lazy DataTable + 内置 paginator）
                  —— pageSize 由 pageSize.value 驱动，total 由后端返回的 total 驱动，
                  翻页触发 onPage → 重新请求 /api/runs 带 page + pageSize -->
-            <DataTable
-                :value="runs"
+            <CaomeiDataTable
+                :data="runs"
+                :columns="listColumns"
                 lazy
                 paginator
-                paginator-template="PrevPageLink CurrentPageReport NextPageLink RowsPerPageDropdown"
-                :current-page-report-template="t('runs.paginatorInfo', {first: '{first}', last: '{last}', total: '{totalRecords}'})"
+                :page="page"
                 :rows="pageSize"
                 :total-records="total"
-                :first="first"
                 :rows-per-page-options="[...PAGE_SIZE_OPTIONS]"
                 :loading="loading"
-                striped-rows
-                size="small"
-                :empty-message="t('runs.empty')"
+                striped
+                :empty-text="t('runs.empty')"
                 @page="onPage"
             >
-                <Column :header="t('runs.colStatus')">
-                    <template #body="{data}">
-                        <!-- 实测反馈：failed 状态 Tag 包一层 span :title 显示 error.message
-                             （PrimeVue Tag inheritAttrs:false，:title 不会自动 fallthrough 到 root） -->
-                        <span
-                            v-if="data.error"
-                            class="repo-history__status-wrap"
-                            :title="data.error.message"
-                        >
-                            <Tag
-                                :value="statusLabel(data.status)"
-                                :severity="statusSeverity(data.status)"
-                            />
-                        </span>
+                <template #cell-status="{row}">
+                    <!-- 实测反馈：failed 状态 Tag 包一层 span :title 显示 error.message
+                         （PrimeVue Tag inheritAttrs:false，:title 不会自动 fallthrough 到 root） -->
+                    <span
+                        v-if="row.error"
+                        class="repo-history__status-wrap"
+                        :title="row.error.message"
+                    >
                         <Tag
-                            v-else
-                            :value="statusLabel(data.status)"
-                            :severity="statusSeverity(data.status)"
+                            :value="statusLabel(row.status)"
+                            :severity="statusSeverity(row.status)"
                         />
-                    </template>
-                </Column>
-                <Column :header="t('runs.colMode')" field="mode" />
-                <Column :header="t('runs.colThreshold')" field="severityThreshold" />
-                <Column :header="t('runs.colStartedAt')">
-                    <template #body="{data}">
-                        {{ data.startedAt ? d(new Date(data.startedAt), 'long') : '—' }}
-                    </template>
-                </Column>
-                <Column :header="t('runs.colAlerts')">
-                    <template #body="{data}">
-                        {{ (data.summary as Record<string, number> | null)?.alertsFound ?? 0 }}
-                    </template>
-                </Column>
-                <Column :header="t('runs.colFixed')">
-                    <template #body="{data}">
-                        {{ (data.summary as Record<string, number> | null)?.alertsFixed ?? 0 }}
-                    </template>
-                </Column>
-                <Column :header="t('runs.colActions')" :style="{width: '200px'}">
-                    <template #body="{data}">
-                        <Button
-                            v-if="data.runUrl"
-                            icon="pi pi-external-link"
-                            text
-                            rounded
-                            size="small"
-                            :aria-label="t('runs.actionViewActionRun')"
-                            :title="t('runs.actionViewActionRun')"
-                            @click="openRunUrl(data.runUrl)"
-                        />
-                        <Button
-                            icon="pi pi-eye"
-                            text
-                            rounded
-                            size="small"
-                            :aria-label="t('runs.actionViewDetail')"
-                            :title="t('runs.actionViewDetail')"
-                            @click="openDetail(data)"
-                        />
-                    </template>
-                </Column>
-            </DataTable>
+                    </span>
+                    <Tag
+                        v-else
+                        :value="statusLabel(row.status)"
+                        :severity="statusSeverity(row.status)"
+                    />
+                </template>
+                <template #cell-startedAt="{row}">
+                    {{ row.startedAt ? d(new Date(row.startedAt), 'long') : '—' }}
+                </template>
+                <template #cell-alerts="{row}">
+                    {{ (row.summary as Record<string, number> | null)?.alertsFound ?? 0 }}
+                </template>
+                <template #cell-fixed="{row}">
+                    {{ (row.summary as Record<string, number> | null)?.alertsFixed ?? 0 }}
+                </template>
+                <template #cell-actions="{row}">
+                    <Button
+                        v-if="row.runUrl"
+                        icon="pi pi-external-link"
+                        text
+                        rounded
+                        size="small"
+                        :aria-label="t('runs.actionViewActionRun')"
+                        :title="t('runs.actionViewActionRun')"
+                        @click="openRunUrl(row.runUrl)"
+                    />
+                    <Button
+                        icon="pi pi-eye"
+                        text
+                        rounded
+                        size="small"
+                        :aria-label="t('runs.actionViewDetail')"
+                        :title="t('runs.actionViewDetail')"
+                        @click="openDetail(row)"
+                    />
+                </template>
+            </CaomeiDataTable>
         </template>
     </Dialog>
 </template>

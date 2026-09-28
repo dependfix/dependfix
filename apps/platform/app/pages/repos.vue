@@ -1,5 +1,6 @@
 <script setup lang="ts">
 // 仓库管理：列表 + 添加/编辑/删除
+import type { DataTableColumn } from 'caomei-ui'
 import type { RepoView } from '~/types/platform'
 
 definePageMeta({
@@ -309,6 +310,16 @@ const submitScanConfig = () => {
 
 // 批量扫描（勾选多仓库 → 跳转批量运行页）；状态与提交逻辑见 use-repo-batch-scan.ts
 const selectedRows = ref<RepoView[]>([])
+
+/**
+ * 行选择受控回写：提供 `selection` 时 caomei 进入受控模式，不回写则勾选无效
+ * （等价 PrimeVue 的 `v-model:selection`）。
+ * emit 载荷类型为 `T | T[] | null`（multiple 模式运行时恒为数组），此处做最小窄化，
+ * 不改动 `selectedRows` 的下游语义（批量扫描按钮启用条件 / 批量操作请求体）。
+ */
+const onSelectionChange = (rows: RepoView | RepoView[] | null) => {
+    selectedRows.value = Array.isArray(rows) ? rows : rows ? [rows] : []
+}
 const {
     batchDialogVisible,
     batchSubmitting,
@@ -323,6 +334,22 @@ const {
 
 // ===== 批量导入（子组件 `import-repos-dialog` 承载；visible 由本页控制）=====
 const importDialogVisible = ref(false)
+
+/**
+ * 列定义（caomei DataTable 用 `columns` 数组 + `#cell-{key}` 插槽替代 PrimeVue 的 `<Column>`）。
+ * - `key` 即排序字段（`field` 语义并入 `key`）；`actions` 等非排序列用语义名保证唯一 key
+ * - 行选择列由 `selection-mode="multiple"` 内建渲染，不再需要 PrimeVue 的 `<Column selection-mode>`
+ */
+const columns = computed<DataTableColumn<RepoView>[]>(() => [
+    { key: 'owner', header: t('repos.colOwner'), sortable: true },
+    { key: 'name', header: t('repos.colRepo'), sortable: true },
+    { key: 'tags', header: t('repos.colTags') },
+    { key: 'defaultBranch', header: t('repos.colDefaultBranch') },
+    { key: 'packageManager', header: t('repos.colPackageManager'), sortable: true },
+    { key: 'credentialName', header: t('repos.colCredential') },
+    { key: 'executorKind', header: t('repos.colExecutor'), sortable: true },
+    { key: 'actions', header: t('repos.colActions'), width: '230px' },
+])
 
 </script>
 
@@ -399,110 +426,80 @@ const importDialogVisible = ref(false)
 
         <Card v-if="!loading">
             <template #content>
-                <DataTable
-                    v-model:selection="selectedRows"
-                    :value="repos"
-                    data-key="id"
-                    striped-rows
-                    size="small"
-                    removable-sort
-                    :empty-message="t('repos.empty')"
+                <CaomeiDataTable
+                    :data="repos"
+                    :columns="columns"
+                    row-key="id"
+                    selection-mode="multiple"
+                    :selection="selectedRows"
+                    striped
+                    :empty-text="t('repos.empty')"
+                    @update:selection="onSelectionChange"
                 >
-                    <Column selection-mode="multiple" header-style="{width: '3rem'}" />
-                    <Column
-                        field="owner"
-                        :header="t('repos.colOwner')"
-                        sortable
-                    />
-                    <Column
-                        field="name"
-                        :header="t('repos.colRepo')"
-                        sortable
-                    />
-                    <Column :header="t('repos.colTags')">
-                        <template #body="{data}">
-                            <div v-if="data.tags?.length" class="repos__tags">
-                                <Tag
-                                    v-for="tag in data.tags"
-                                    :key="tag"
-                                    :value="tag"
-                                    severity="info"
-                                    rounded
-                                />
-                            </div>
-                            <span v-else class="text-muted">—</span>
-                        </template>
-                    </Column>
-                    <Column :header="t('repos.colDefaultBranch')">
-                        <template #body="{data}">
-                            {{ data.defaultBranch }}
-                        </template>
-                    </Column>
-                    <Column
-                        field="packageManager"
-                        :header="t('repos.colPackageManager')"
-                        sortable
-                    >
-                        <template #body="{data}">
-                            <Tag :value="data.packageManager" severity="secondary" />
-                        </template>
-                    </Column>
-                    <Column :header="t('repos.colCredential')">
-                        <template #body="{data}">
-                            <span v-if="data.credentialName">{{ data.credentialName }}</span>
-                            <span v-else class="text-muted">{{ t('repos.notLinked') }}</span>
-                        </template>
-                    </Column>
-                    <Column
-                        field="executorKind"
-                        :header="t('repos.colExecutor')"
-                        sortable
-                    >
-                        <template #body="{data}">
-                            <Tag :value="data.executorKind === 'github-action' ? t('repos.githubAction') : data.executorKind === 'sandbox' ? t('repos.sandboxContainer') : t('repos.platformContainer')" />
-                        </template>
-                    </Column>
-                    <Column :header="t('repos.colActions')" :style="{width: '230px'}">
-                        <template #body="{data}">
-                            <Button
-                                icon="pi pi-play"
-                                text
+                    <template #cell-tags="{row}">
+                        <div v-if="row.tags?.length" class="repos__tags">
+                            <Tag
+                                v-for="tag in row.tags"
+                                :key="tag"
+                                :value="tag"
+                                severity="info"
                                 rounded
-                                size="small"
-                                :loading="scanningId === data.id"
-                                :aria-label="t('repos.actionTriggerScan')"
-                                :title="t('repos.actionTriggerScan')"
-                                @click="openScanConfig(data)"
                             />
-                            <Button
-                                icon="pi pi-history"
-                                text
-                                rounded
-                                size="small"
-                                :aria-label="t('repos.actionScanHistory')"
-                                :title="t('repos.actionScanHistory')"
-                                @click="navigateTo(`/scans?repository=${data.id}`)"
-                            />
-                            <Button
-                                icon="pi pi-pencil"
-                                text
-                                rounded
-                                size="small"
-                                :aria-label="t('repos.actionEdit')"
-                                @click="openEdit(data)"
-                            />
-                            <Button
-                                icon="pi pi-trash"
-                                text
-                                rounded
-                                size="small"
-                                severity="danger"
-                                :aria-label="t('repos.actionDelete')"
-                                @click="remove(data)"
-                            />
-                        </template>
-                    </Column>
-                </DataTable>
+                        </div>
+                        <span v-else class="text-muted">—</span>
+                    </template>
+                    <template #cell-defaultBranch="{row}">
+                        {{ row.defaultBranch }}
+                    </template>
+                    <template #cell-packageManager="{row}">
+                        <Tag :value="row.packageManager" severity="secondary" />
+                    </template>
+                    <template #cell-credentialName="{row}">
+                        <span v-if="row.credentialName">{{ row.credentialName }}</span>
+                        <span v-else class="text-muted">{{ t('repos.notLinked') }}</span>
+                    </template>
+                    <template #cell-executorKind="{row}">
+                        <Tag :value="row.executorKind === 'github-action' ? t('repos.githubAction') : row.executorKind === 'sandbox' ? t('repos.sandboxContainer') : t('repos.platformContainer')" />
+                    </template>
+                    <template #cell-actions="{row}">
+                        <Button
+                            icon="pi pi-play"
+                            text
+                            rounded
+                            size="small"
+                            :loading="scanningId === row.id"
+                            :aria-label="t('repos.actionTriggerScan')"
+                            :title="t('repos.actionTriggerScan')"
+                            @click="openScanConfig(row)"
+                        />
+                        <Button
+                            icon="pi pi-history"
+                            text
+                            rounded
+                            size="small"
+                            :aria-label="t('repos.actionScanHistory')"
+                            :title="t('repos.actionScanHistory')"
+                            @click="navigateTo(`/scans?repository=${row.id}`)"
+                        />
+                        <Button
+                            icon="pi pi-pencil"
+                            text
+                            rounded
+                            size="small"
+                            :aria-label="t('repos.actionEdit')"
+                            @click="openEdit(row)"
+                        />
+                        <Button
+                            icon="pi pi-trash"
+                            text
+                            rounded
+                            size="small"
+                            severity="danger"
+                            :aria-label="t('repos.actionDelete')"
+                            @click="remove(row)"
+                        />
+                    </template>
+                </CaomeiDataTable>
             </template>
         </Card>
         <p v-else class="text-muted">

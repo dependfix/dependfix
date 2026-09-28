@@ -70,7 +70,7 @@ test.describe('国际化（i18n 语言切换）', () => {
         // 直接访问 /en/repos（带前缀 URL，避免无前缀 + en cookie 的服务器 locale 重定向）
         await page.goto('/en/repos')
         await waitForHydration(page)
-        await expect(page.locator('.p-datatable')).toBeVisible({ timeout: 15000 })
+        await expect(page.locator('.caomei-data-table')).toBeVisible({ timeout: 15000 })
         // 添加仓库 → Dialog 打开（PrimeVue 内置关闭按钮 aria-label 来自 locale）
         await page.locator('button:has-text("Add repository")').click()
         const dialog = page.locator('.p-dialog')
@@ -92,8 +92,8 @@ test.describe('国际化（i18n 语言切换）', () => {
         // "组织管理员"仅出现在 Select option，未实际分配给任何用户时不进入 DataTable）
         await page.goto('/users')
         await waitForHydration(page)
-        await expect(page.locator('.p-datatable')).toContainText('管理员', { timeout: 15000 })
-        await expect(page.locator('.p-datatable')).toContainText('观察者')
+        await expect(page.locator('.caomei-data-table')).toContainText('管理员', { timeout: 15000 })
+        await expect(page.locator('.caomei-data-table')).toContainText('观察者')
 
         // 切 en → 角色 Tag 应为英文
         await page.goto('/dashboard')
@@ -102,9 +102,9 @@ test.describe('国际化（i18n 语言切换）', () => {
         await expect(page.locator('.platform__nav')).toContainText('Dashboard', { timeout: 15000 })
         await page.goto('/en/users')
         await waitForHydration(page)
-        await expect(page.locator('.p-datatable')).toContainText('Admin', { timeout: 15000 })
-        await expect(page.locator('.p-datatable')).toContainText('Viewer')
+        await expect(page.locator('.caomei-data-table')).toContainText('Admin', { timeout: 15000 })
+        await expect(page.locator('.caomei-data-table')).toContainText('Viewer')
         // 无中文残留
-        await expect(page.locator('.p-datatable')).not.toContainText('管理员')
+        await expect(page.locator('.caomei-data-table')).not.toContainText('管理员')
     })
 })

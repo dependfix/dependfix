@@ -336,7 +336,7 @@ const nestedColumns = computed<DataTableColumn<BatchRunRun>[]>(() => [
                     <template #cell-finishedAt="{row}">
                         {{ row.finishedAt ? d(new Date(row.finishedAt), 'long') : '—' }}
                     </template>
-                    <template #expansion="{ data: row }">
+                    <template #expansion="{data: row}">
                         <div class="batch-runs__detail">
                             <div class="batch-runs__stats">
                                 <div class="batch-runs__stat">

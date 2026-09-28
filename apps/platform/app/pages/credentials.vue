@@ -1,5 +1,6 @@
 <script setup lang="ts">
 // 凭据管理：创建/编辑/删除（token 加密存储于服务端，永不回传明文）
+import type { DataTableColumn } from 'caomei-ui'
 import type { CredentialView } from '~/types/platform'
 import { computePemFingerprint, validateGithubAppId, validatePemSize, type PemParseResult } from '~/utils/pem'
 
@@ -204,6 +205,18 @@ const remove = async (credential: CredentialView) => {
     }
 }
 
+/**
+ * 列定义（caomei DataTable 用 `columns` 数组 + `#cell-{key}` 插槽替代 PrimeVue 的 `<Column>`）。
+ * `key` 即排序字段（原 `field`），非排序列（token / actions）取语义唯一 key。
+ */
+const columns = computed<DataTableColumn<CredentialView>[]>(() => [
+    { key: 'name', header: t('credentials.colName'), sortable: true },
+    { key: 'type', header: t('credentials.colType'), sortable: true },
+    { key: 'token', header: t('credentials.colToken') },
+    { key: 'createdAt', header: t('credentials.colCreatedAt'), sortable: true },
+    { key: 'actions', header: t('credentials.colActions'), width: '160px' },
+])
+
 const toastMessage = computed(() => success.value)
 watch(toastMessage, (v) => {
     if (v) {
@@ -247,72 +260,51 @@ watch(toastMessage, (v) => {
 
         <Card v-if="!loading">
             <template #content>
-                <DataTable
-                    :value="credentials"
-                    striped-rows
-                    size="small"
-                    removable-sort
-                    :empty-message="t('credentials.empty')"
+                <CaomeiDataTable
+                    :data="credentials"
+                    :columns="columns"
+                    row-key="id"
+                    striped
+                    :empty-text="t('credentials.empty')"
                 >
-                    <Column
-                        field="name"
-                        :header="t('credentials.colName')"
-                        sortable
-                    />
-                    <Column
-                        field="type"
-                        :header="t('credentials.colType')"
-                        sortable
-                    >
-                        <template #body="{data}">
-                            <Tag :value="typeLabel(data.type)" />
-                        </template>
-                    </Column>
-                    <Column :header="t('credentials.colToken')">
-                        <template #body="{data}">
-                            <Tag
-                                v-if="data.hasToken"
-                                :value="t('credentials.tokenConfigured')"
-                                severity="success"
-                            />
-                            <Tag
-                                v-else
-                                :value="t('credentials.tokenNotConfigured')"
-                                severity="warn"
-                            />
-                        </template>
-                    </Column>
-                    <Column
-                        field="createdAt"
-                        :header="t('credentials.colCreatedAt')"
-                        sortable
-                    >
-                        <template #body="{data}">
-                            {{ d(new Date(data.createdAt), 'long') }}
-                        </template>
-                    </Column>
-                    <Column :header="t('credentials.colActions')" :style="{width: '160px'}">
-                        <template #body="{data}">
-                            <Button
-                                icon="pi pi-pencil"
-                                text
-                                rounded
-                                size="small"
-                                :aria-label="t('repos.actionEdit')"
-                                @click="openEdit(data)"
-                            />
-                            <Button
-                                icon="pi pi-trash"
-                                text
-                                rounded
-                                size="small"
-                                severity="danger"
-                                :aria-label="t('repos.actionDelete')"
-                                @click="remove(data)"
-                            />
-                        </template>
-                    </Column>
-                </DataTable>
+                    <template #cell-type="{row}">
+                        <Tag :value="typeLabel(row.type)" />
+                    </template>
+                    <template #cell-token="{row}">
+                        <Tag
+                            v-if="row.hasToken"
+                            :value="t('credentials.tokenConfigured')"
+                            severity="success"
+                        />
+                        <Tag
+                            v-else
+                            :value="t('credentials.tokenNotConfigured')"
+                            severity="warn"
+                        />
+                    </template>
+                    <template #cell-createdAt="{row}">
+                        {{ d(new Date(row.createdAt), 'long') }}
+                    </template>
+                    <template #cell-actions="{row}">
+                        <Button
+                            icon="pi pi-pencil"
+                            text
+                            rounded
+                            size="small"
+                            :aria-label="t('repos.actionEdit')"
+                            @click="openEdit(row)"
+                        />
+                        <Button
+                            icon="pi pi-trash"
+                            text
+                            rounded
+                            size="small"
+                            severity="danger"
+                            :aria-label="t('repos.actionDelete')"
+                            @click="remove(row)"
+                        />
+                    </template>
+                </CaomeiDataTable>
             </template>
         </Card>
         <p v-else class="text-muted">

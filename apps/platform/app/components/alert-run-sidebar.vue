@@ -8,6 +8,7 @@
 // - 复用既有 run_id：useFixNow composable 携带 reuseScanRunId，服务端 skip createPendingScanRun
 // - per-alert 模型下每个 alert 关联 1 个 run（todo.md §M20.3，runs.length 通常为 1）；
 //   旧 todo.md §M13.2 §T1306 affectedRunIds 聚合字段已无意义，移除依赖
+import type { DataTableColumn } from 'caomei-ui'
 import { alertsFound, formatRunDuration, runExecutorLabel, runModeLabel, shortRunId } from '~/utils/run-view'
 import { useFixNow } from '~/composables/use-fix-now'
 import { alertsRunStatusSeverity } from '~/utils/alerts-view'
@@ -49,6 +50,15 @@ const { fixingRunId, fixError, fixSuccess, triggerFix } = useFixNow()
 const modeLabel = (mode: string) => runModeLabel(mode, t)
 const executorLabel = (executorKind: string) => runExecutorLabel(executorKind, t)
 const formatDuration = (run: AlertSidebarRun) => formatRunDuration(run.startedAt, run.finishedAt, t)
+
+/** 列定义（caomei DataTable 用 `columns` 数组 + `#cell-{key}` 插槽替代 PrimeVue 的 `<Column>`） */
+const columns = computed<DataTableColumn<AlertSidebarRun>[]>(() => [
+    { key: 'runId', header: t('alerts.detailRunId') },
+    { key: 'status', header: t('alerts.detailRunStatus') },
+    { key: 'startedAt', header: t('alerts.detailRunStartedAt') },
+    { key: 'alertsFound', header: t('alerts.detailRunAlertsFound') },
+    { key: 'actions', header: t('common.actions.actions'), width: '180px' },
+])
 
 const onHide = () => {
     emit('hide')
@@ -94,76 +104,67 @@ const onHide = () => {
             <div v-if="loading" class="text-muted">
                 {{ t('common.empty.loading') }}
             </div>
-            <DataTable
+            <CaomeiDataTable
                 v-else-if="runs.length > 0"
-                :value="runs"
-                striped-rows
-                size="small"
+                :data="runs"
+                :columns="columns"
+                row-key="id"
+                striped
             >
-                <Column :header="t('alerts.detailRunId')">
-                    <template #body="{data}">
-                        <div class="alerts-run-cell">
-                            <code :title="data.id">{{ shortRunId(data.id) }}</code>
-                            <span>{{ modeLabel(data.mode) }}</span>
-                            <small class="text-muted">
-                                {{ data.severityThreshold }} · {{ executorLabel(data.executorKind) }}
-                            </small>
-                        </div>
-                    </template>
-                </Column>
-                <Column :header="t('alerts.detailRunStatus')" field="status">
-                    <template #body="{data}">
-                        <Tag :value="data.status" :severity="alertsRunStatusSeverity(data.status)" />
-                    </template>
-                </Column>
-                <Column :header="t('alerts.detailRunStartedAt')" field="startedAt">
-                    <template #body="{data}">
-                        <div class="alerts-run-cell">
-                            <span>{{ data.startedAt ? d(new Date(data.startedAt), 'long') : '—' }}</span>
-                            <small class="text-muted">{{ formatDuration(data) }}</small>
-                        </div>
-                    </template>
-                </Column>
-                <Column :header="t('alerts.detailRunAlertsFound')">
-                    <template #body="{data}">
-                        {{ alertsFound(data.summary) }}
-                    </template>
-                </Column>
-                <Column :header="t('common.actions.actions')" :style="{width: '180px'}">
-                    <template #body="{data}">
-                        <div class="alerts-sidebar-actions">
-                            <Button
-                                icon="pi pi-eye"
-                                text
-                                rounded
-                                size="small"
-                                :aria-label="t('common.actions.details')"
-                                @click="emit('view-detail', data)"
-                            />
-                            <Button
-                                v-if="data.mode === 'report-only'"
-                                icon="pi pi-bolt"
-                                text
-                                rounded
-                                size="small"
-                                :loading="fixingRunId === data.id"
-                                :aria-label="t('alerts.fixNow.action')"
-                                :title="t('alerts.fixNow.action')"
-                                @click="triggerFix(data)"
-                            />
-                            <a
-                                v-if="data.executorKind === 'github-action' && data.runUrl"
-                                :href="data.runUrl"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                            >
-                                {{ t('alerts.detailRunOpen') }}
-                            </a>
-                            <span v-else class="text-muted">—</span>
-                        </div>
-                    </template>
-                </Column>
-            </DataTable>
+                <template #cell-runId="{row}">
+                    <div class="alerts-run-cell">
+                        <code :title="row.id">{{ shortRunId(row.id) }}</code>
+                        <span>{{ modeLabel(row.mode) }}</span>
+                        <small class="text-muted">
+                            {{ row.severityThreshold }} · {{ executorLabel(row.executorKind) }}
+                        </small>
+                    </div>
+                </template>
+                <template #cell-status="{row}">
+                    <Tag :value="row.status" :severity="alertsRunStatusSeverity(row.status)" />
+                </template>
+                <template #cell-startedAt="{row}">
+                    <div class="alerts-run-cell">
+                        <span>{{ row.startedAt ? d(new Date(row.startedAt), 'long') : '—' }}</span>
+                        <small class="text-muted">{{ formatDuration(row) }}</small>
+                    </div>
+                </template>
+                <template #cell-alertsFound="{row}">
+                    {{ alertsFound(row.summary) }}
+                </template>
+                <template #cell-actions="{row}">
+                    <div class="alerts-sidebar-actions">
+                        <Button
+                            icon="pi pi-eye"
+                            text
+                            rounded
+                            size="small"
+                            :aria-label="t('common.actions.details')"
+                            @click="emit('view-detail', row)"
+                        />
+                        <Button
+                            v-if="row.mode === 'report-only'"
+                            icon="pi pi-bolt"
+                            text
+                            rounded
+                            size="small"
+                            :loading="fixingRunId === row.id"
+                            :aria-label="t('alerts.fixNow.action')"
+                            :title="t('alerts.fixNow.action')"
+                            @click="triggerFix(row)"
+                        />
+                        <a
+                            v-if="row.executorKind === 'github-action' && row.runUrl"
+                            :href="row.runUrl"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                        >
+                            {{ t('alerts.detailRunOpen') }}
+                        </a>
+                        <span v-else class="text-muted">—</span>
+                    </div>
+                </template>
+            </CaomeiDataTable>
             <p v-else class="text-muted">
                 {{ t('alerts.detailRunEmpty') }}
             </p>

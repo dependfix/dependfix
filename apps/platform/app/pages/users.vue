@@ -1,6 +1,7 @@
 <script setup lang="ts">
 // 用户管理（admin only）：列表/搜索、启用/禁用、角色分配
 // 全部走 better-auth admin 插件原生端点（/api/auth/admin/*，经 authClient.admin.* 封装）
+import type { DataTableColumn } from 'caomei-ui'
 import type { Role, UserView } from '~/types/platform'
 import { authClient } from '~/utils/auth-client'
 import { updateRoleRank, withRoleRank } from '~/utils/sort-helpers'
@@ -171,6 +172,30 @@ const roleSeverity = (role: Role | null) => {
     return 'secondary'
 }
 
+/**
+ * 列定义（caomei DataTable 用 `columns` 数组 + `#cell-{key}` 插槽替代 PrimeVue 的 `<Column>`）。
+ * `key` 即排序字段，故角色列用 `_roleRank`（与 sort-helpers 注入的 rank 一致）。
+ */
+const columns = computed<DataTableColumn<UserView>[]>(() => [
+    { key: 'email', header: t('users.email'), sortable: true },
+    { key: 'name', header: t('users.name'), sortable: true },
+    { key: '_roleRank', header: t('users.role'), sortable: true },
+    { key: 'status', header: t('users.status') },
+    { key: 'emailVerified', header: t('users.emailVerified') },
+    { key: 'actions', header: t('users.actions'), width: '300px' },
+])
+
+/**
+ * 角色下拉变更 → 提交（Select 的 v-model 已写入 row.role；这里做非空窄化后调用 setRole）。
+ * 迁移到 caomei 后插槽行对象为强类型 `UserView`（PrimeVue 的 `data` 为 any），
+ * `role` 可空故不再内联直接传参。
+ */
+const onRoleChange = (user: UserView) => {
+    if (user.role) {
+        void setRole(user, user.role)
+    }
+}
+
 const toastMessage = computed(() => success.value)
 watch(toastMessage, (v) => {
     if (v) {
@@ -216,90 +241,66 @@ watch(toastMessage, (v) => {
 
         <Card v-if="!loading">
             <template #content>
-                <DataTable
-                    :value="users"
-                    striped-rows
-                    size="small"
-                    removable-sort
-                    :empty-message="t('users.empty')"
+                <CaomeiDataTable
+                    :data="users"
+                    :columns="columns"
+                    row-key="id"
+                    striped
+                    :empty-text="t('users.empty')"
                 >
-                    <Column
-                        field="email"
-                        :header="t('users.email')"
-                        sortable
-                    />
-                    <Column
-                        field="name"
-                        :header="t('users.name')"
-                        sortable
-                    >
-                        <template #body="{data}">
-                            {{ data.name || '—' }}
-                        </template>
-                    </Column>
-                    <Column
-                        field="_roleRank"
-                        :header="t('users.role')"
-                        sortable
-                        :default-sort-order="-1"
-                    >
-                        <template #body="{data}">
-                            <Tag :value="roleLabel(data.role)" :severity="roleSeverity(data.role)" />
-                        </template>
-                    </Column>
-                    <Column :header="t('users.status')">
-                        <template #body="{data}">
-                            <Tag
-                                :value="data.banned ? t('common.status.banned') : t('common.status.active')"
-                                :severity="data.banned ? 'danger' : 'success'"
-                            />
-                        </template>
-                    </Column>
-                    <Column :header="t('users.emailVerified')">
-                        <template #body="{data}">
-                            <Tag
-                                :value="data.emailVerified ? t('common.status.verified') : t('common.status.unverified')"
-                                :severity="data.emailVerified ? 'success' : 'secondary'"
-                            />
-                        </template>
-                    </Column>
-                    <Column :header="t('users.actions')" :style="{width: '300px'}">
-                        <template #body="{data}">
-                            <Select
-                                v-model="data.role"
-                                :options="ROLES"
-                                option-label="label"
-                                option-value="value"
-                                size="small"
-                                :disabled="saving || isSelfTarget(data.id, session?.user?.id)"
-                                :aria-label="t('users.assignRole')"
-                                @change="setRole(data, data.role)"
-                            />
-                            <Button
-                                :icon="data.banned ? 'pi pi-check-circle' : 'pi pi-ban'"
-                                text
-                                rounded
-                                size="small"
-                                :severity="data.banned ? 'success' : 'danger'"
-                                :disabled="saving"
-                                :aria-label="data.banned ? t('users.enable') : t('users.disable')"
-                                :title="data.banned ? t('users.enable') : t('users.disable')"
-                                @click="toggleBanned(data)"
-                            />
-                            <Button
-                                icon="pi pi-trash"
-                                text
-                                rounded
-                                size="small"
-                                severity="danger"
-                                :disabled="saving"
-                                :aria-label="t('users.delete')"
-                                :title="t('users.delete')"
-                                @click="remove(data)"
-                            />
-                        </template>
-                    </Column>
-                </DataTable>
+                    <template #cell-name="{row}">
+                        {{ row.name || '—' }}
+                    </template>
+                    <template #cell-_roleRank="{row}">
+                        <Tag :value="roleLabel(row.role)" :severity="roleSeverity(row.role)" />
+                    </template>
+                    <template #cell-status="{row}">
+                        <Tag
+                            :value="row.banned ? t('common.status.banned') : t('common.status.active')"
+                            :severity="row.banned ? 'danger' : 'success'"
+                        />
+                    </template>
+                    <template #cell-emailVerified="{row}">
+                        <Tag
+                            :value="row.emailVerified ? t('common.status.verified') : t('common.status.unverified')"
+                            :severity="row.emailVerified ? 'success' : 'secondary'"
+                        />
+                    </template>
+                    <template #cell-actions="{row}">
+                        <Select
+                            v-model="row.role"
+                            :options="ROLES"
+                            option-label="label"
+                            option-value="value"
+                            size="small"
+                            :disabled="saving || isSelfTarget(row.id, session?.user?.id)"
+                            :aria-label="t('users.assignRole')"
+                            @change="onRoleChange(row)"
+                        />
+                        <Button
+                            :icon="row.banned ? 'pi pi-check-circle' : 'pi pi-ban'"
+                            text
+                            rounded
+                            size="small"
+                            :severity="row.banned ? 'success' : 'danger'"
+                            :disabled="saving"
+                            :aria-label="row.banned ? t('users.enable') : t('users.disable')"
+                            :title="row.banned ? t('users.enable') : t('users.disable')"
+                            @click="toggleBanned(row)"
+                        />
+                        <Button
+                            icon="pi pi-trash"
+                            text
+                            rounded
+                            size="small"
+                            severity="danger"
+                            :disabled="saving"
+                            :aria-label="t('users.delete')"
+                            :title="t('users.delete')"
+                            @click="remove(row)"
+                        />
+                    </template>
+                </CaomeiDataTable>
             </template>
         </Card>
         <p v-else class="text-muted">

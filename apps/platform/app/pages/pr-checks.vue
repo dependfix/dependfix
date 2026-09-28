@@ -15,7 +15,8 @@
 // 自动转发 cookie（Nuxt 4 官方 SSR 转发方案），hydration 阶段 data.value
 // 已有完整数据，避免 PrimeVue DataTable processedData 重复计算问题。
 import { computed, reactive, ref } from 'vue'
-import type { DataTableSortMeta } from 'primevue/datatable'
+import type { DataTableColumn, DataTableSortMeta } from 'caomei-ui'
+import type { PRCheckConclusion } from '#server/entities/pr-check'
 import { useToast } from 'primevue/usetoast'
 import { conclusionTagSeverity } from '~/utils/pr-check-style'
 
@@ -107,6 +108,27 @@ const { data: summary } = await useAsyncData<PRCheckSummary>('pr-checks-summary'
 const sortMeta = ref<DataTableSortMeta[]>([
     { field: 'lastPolledAt', order: -1 },
 ])
+
+/**
+ * 列定义（caomei DataTable 用 `columns` 数组 + `#cell-{key}` 插槽替代 PrimeVue 的 `<Column>`）。
+ * `key` 即排序字段；actions 列不可排序（原 `:exportable="false"` 非 PrimeVue/caomei 有效 prop，按评估 §5.3 删除）。
+ */
+const columns = computed<DataTableColumn<PRCheckView>[]>(() => [
+    { key: 'prNumber', header: t('prChecks.colPrNumber'), sortable: true },
+    { key: 'authorLogin', header: t('prChecks.colAuthor'), sortable: true },
+    { key: 'conclusion', header: t('prChecks.colConclusion'), sortable: true },
+    { key: 'lastPolledAt', header: t('prChecks.colLastPolledAt'), sortable: true },
+    { key: 'alertFiring', header: t('prChecks.colStatus'), sortable: true },
+    { key: 'actions', header: t('prChecks.colActions') },
+])
+
+/**
+ * 受控多列排序回写：提供 `multi-sort-meta` 时 caomei 进入受控模式，
+ * 不回写则点击列头不改变排序（等价 PrimeVue 的 `v-model:multi-sort-meta`）。
+ */
+const onUpdateMultiSortMeta = (meta: DataTableSortMeta[]) => {
+    sortMeta.value = meta
+}
 
 const isAcking = ref<string | null>(null)
 
@@ -218,99 +240,70 @@ const handleAck = async (row: PRCheckView) => {
 
         <!-- 列表 -->
         <section class="pr-checks__list">
-            <DataTable
-                v-model:multi-sort-meta="sortMeta"
-                :value="rows ?? []"
-                :sort-mode="'multiple'"
+            <CaomeiDataTable
+                :data="rows ?? []"
+                :columns="columns"
+                row-key="id"
+                striped
+                sort-mode="multiple"
+                :multi-sort-meta="sortMeta"
                 :paginator="true"
                 :rows="20"
                 :rows-per-page-options="[20, 50, 100]"
-                :empty-message="t('prChecks.empty')"
-                data-key="id"
-                striped-rows
+                :empty-text="t('prChecks.empty')"
                 class="pr-checks__table"
+                @update:multi-sort-meta="onUpdateMultiSortMeta"
             >
-                <Column
-                    field="prNumber"
-                    :header="t('prChecks.colPrNumber')"
-                    sortable
-                >
-                    <template #body="{data}">
-                        <a
-                            v-if="data.detailsUrl"
-                            :href="data.detailsUrl"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            class="pr-checks__pr-link"
-                        >
-                            #{{ data.prNumber }}
-                        </a>
-                        <span v-else>#{{ data.prNumber }}</span>
-                    </template>
-                </Column>
-                <Column
-                    field="authorLogin"
-                    :header="t('prChecks.colAuthor')"
-                    sortable
-                >
-                    <template #body="{data}">
-                        <span class="pr-checks__author">{{ data.authorLogin }}</span>
-                    </template>
-                </Column>
-                <Column
-                    field="conclusion"
-                    :header="t('prChecks.colConclusion')"
-                    sortable
-                >
-                    <template #body="{data}">
-                        <Tag :severity="conclusionTagSeverity(data.conclusion)" :value="data.conclusion" />
-                    </template>
-                </Column>
-                <Column
-                    field="lastPolledAt"
-                    :header="t('prChecks.colLastPolledAt')"
-                    sortable
-                >
-                    <template #body="{data}">
-                        {{ new Date(data.lastPolledAt).toLocaleString() }}
-                    </template>
-                </Column>
-                <Column
-                    field="alertFiring"
-                    :header="t('prChecks.colStatus')"
-                    sortable
-                >
-                    <template #body="{data}">
-                        <Tag
-                            v-if="data.alertFiring"
-                            severity="danger"
-                            :value="t('prChecks.alertFiringTrue')"
-                        />
-                        <Tag
-                            v-else-if="data.acknowledgedAt"
-                            severity="secondary"
-                            :value="t('prChecks.alertFiringFalse')"
-                        />
-                        <Tag
-                            v-else
-                            severity="success"
-                            value="OK"
-                        />
-                    </template>
-                </Column>
-                <Column :header="t('prChecks.colActions')" :exportable="false">
-                    <template #body="{data}">
-                        <Button
-                            v-if="data.alertFiring"
-                            :label="t('prChecks.ack.action')"
-                            severity="secondary"
-                            size="small"
-                            :loading="isAcking === data.id"
-                            @click="handleAck(data)"
-                        />
-                    </template>
-                </Column>
-            </DataTable>
+                <template #cell-prNumber="{row}">
+                    <a
+                        v-if="row.detailsUrl"
+                        :href="row.detailsUrl"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="pr-checks__pr-link"
+                    >
+                        #{{ row.prNumber }}
+                    </a>
+                    <span v-else>#{{ row.prNumber }}</span>
+                </template>
+                <template #cell-authorLogin="{row}">
+                    <span class="pr-checks__author">{{ row.authorLogin }}</span>
+                </template>
+                <template #cell-conclusion="{row}">
+                    <!-- caomei 插槽行对象为强类型：API 层 conclusion 为 string，此处按服务端枚举窄化（DB 枚举约束兜底） -->
+                    <Tag :severity="conclusionTagSeverity(row.conclusion as PRCheckConclusion)" :value="row.conclusion" />
+                </template>
+                <template #cell-lastPolledAt="{row}">
+                    {{ new Date(row.lastPolledAt).toLocaleString() }}
+                </template>
+                <template #cell-alertFiring="{row}">
+                    <Tag
+                        v-if="row.alertFiring"
+                        severity="danger"
+                        :value="t('prChecks.alertFiringTrue')"
+                    />
+                    <Tag
+                        v-else-if="row.acknowledgedAt"
+                        severity="secondary"
+                        :value="t('prChecks.alertFiringFalse')"
+                    />
+                    <Tag
+                        v-else
+                        severity="success"
+                        value="OK"
+                    />
+                </template>
+                <template #cell-actions="{row}">
+                    <Button
+                        v-if="row.alertFiring"
+                        :label="t('prChecks.ack.action')"
+                        severity="secondary"
+                        size="small"
+                        :loading="isAcking === row.id"
+                        @click="handleAck(row)"
+                    />
+                </template>
+            </CaomeiDataTable>
         </section>
     </div>
 </template>

@@ -3,6 +3,7 @@
 // 数据源：GET /api/audit-events（sandbox 启动降级 / 运行时失败事件 + 通知状态）
 // 过滤维度：type / severity / notified / repositoryId
 import { computed } from 'vue'
+import type { DataTableColumn } from 'caomei-ui'
 import { withEnvEventSeverityRank } from '~/utils/sort-helpers'
 
 definePageMeta({
@@ -161,6 +162,24 @@ const extractMessagePreview = (json: string | null): string => {
     return degraded ?? (p.message as string | undefined) ?? ''
 }
 
+/**
+ * 列定义（caomei DataTable 用 `columns` 数组 + `#cell-{key}` 插槽替代 PrimeVue 的 `<Column>`）。
+ * - `key` 即排序字段（`field` 语义并入 `key`）：severity 列用 rank 字段 `_severityRank`，
+ *   message 列用派生的 `messageText`（均为 sortable 的排序键）
+ * - 原 `<Column field="_severityRank" :default-sort-order="-1">` 的 `default-sort-order` 删除：
+ *   实测 PrimeVue 该 prop 只影响点击循环方向、不影响初始状态（初始为未排序 `aria-sort="none"`）；
+ *   caomei 默认三态循环 asc → desc → 移除，与 PrimeVue 行为一致，故不设 `multiSortMeta` 初值
+ * - `removable-sort` 删除：caomei/TanStack 三态默认等价
+ */
+const columns = computed<DataTableColumn<EnvEventView>[]>(() => [
+    { key: 'type', header: t('envEvents.colType'), sortable: true },
+    { key: '_severityRank', header: t('envEvents.colSeverity'), sortable: true },
+    { key: 'repository', header: t('envEvents.colRepository'), sortable: true },
+    { key: 'messageText', header: t('envEvents.colMessage'), sortable: true },
+    { key: 'notified', header: t('envEvents.colNotified'), sortable: true },
+    { key: 'createdAt', header: t('envEvents.colTime'), sortable: true },
+])
+
 onMounted(fetchEvents)
 </script>
 
@@ -250,92 +269,56 @@ onMounted(fetchEvents)
 
         <Card v-if="!loading" class="env-events__table">
             <template #content>
-                <DataTable
-                    :value="events"
-                    striped-rows
-                    size="small"
-                    data-key="id"
-                    scrollable
-                    scroll-height="60vh"
-                    removable-sort
-                    :empty-message="t('envEvents.empty')"
-                >
-                    <Column
-                        field="type"
-                        :header="t('envEvents.colType')"
-                        sortable
+                <!-- caomei 无 DataTable `scrollable` / `scroll-height`：用外层容器 + CSS 承接滚动（配方 §5） -->
+                <div class="env-events__table-scroll">
+                    <CaomeiDataTable
+                        :data="events"
+                        :columns="columns"
+                        row-key="id"
+                        striped
+                        :empty-text="t('envEvents.empty')"
                     >
-                        <template #body="{data}">
-                            <Tag :value="typeLabel(data.type)" severity="secondary" />
+                        <template #cell-type="{row}">
+                            <Tag :value="typeLabel(row.type)" severity="secondary" />
                         </template>
-                    </Column>
-                    <Column
-                        field="_severityRank"
-                        :header="t('envEvents.colSeverity')"
-                        sortable
-                        :default-sort-order="-1"
-                    >
-                        <template #body="{data}">
-                            <Tag :value="data.severity" :severity="severityTagSeverity(data.severity)" />
+                        <template #cell-_severityRank="{row}">
+                            <Tag :value="row.severity" :severity="severityTagSeverity(row.severity)" />
                         </template>
-                    </Column>
-                    <Column
-                        field="repository"
-                        :header="t('envEvents.colRepository')"
-                        sortable
-                    />
-                    <Column
-                        field="messageText"
-                        :header="t('envEvents.colMessage')"
-                        sortable
-                    >
-                        <template #body="{data}">
-                            <span v-if="!isExpanded(data.id)" class="env-events__message-preview">
+                        <template #cell-messageText="{row}">
+                            <span v-if="!isExpanded(row.id)" class="env-events__message-preview">
                                 {{ (() => {
-                                    const p = parsePayload(data.payloadJson)
+                                    const p = parsePayload(row.payloadJson)
                                     if (!p) return '—'
                                     const m = (p.degradedReason as {message?: string} | undefined)?.message
                                         ?? (p.message as string | undefined)
                                     return m ?? '—'
                                 })() }}
                             </span>
-                            <pre v-else class="env-events__message-full">{{ data.payloadJson ?? '—' }}</pre>
+                            <pre v-else class="env-events__message-full">{{ row.payloadJson ?? '—' }}</pre>
                             <Button
-                                v-if="data.payloadJson"
-                                :label="isExpanded(data.id) ? t('envEvents.collapse') : t('envEvents.expand')"
-                                :icon="isExpanded(data.id) ? 'pi pi-chevron-up' : 'pi pi-chevron-down'"
+                                v-if="row.payloadJson"
+                                :label="isExpanded(row.id) ? t('envEvents.collapse') : t('envEvents.expand')"
+                                :icon="isExpanded(row.id) ? 'pi pi-chevron-up' : 'pi pi-chevron-down'"
                                 text
                                 size="small"
                                 class="env-events__expand-btn"
-                                @click="toggleExpanded(data.id)"
+                                @click="toggleExpanded(row.id)"
                             />
                         </template>
-                    </Column>
-                    <Column
-                        field="notified"
-                        :header="t('envEvents.colNotified')"
-                        sortable
-                    >
-                        <template #body="{data}">
+                        <template #cell-notified="{row}">
                             <Tag
-                                :value="data.notified ? t('envEvents.notifiedYes') : t('envEvents.notifiedNo')"
-                                :severity="data.notified ? 'success' : 'secondary'"
+                                :value="row.notified ? t('envEvents.notifiedYes') : t('envEvents.notifiedNo')"
+                                :severity="row.notified ? 'success' : 'secondary'"
                             />
-                            <small v-if="data.notifiedVia" class="env-events__notified-via text-muted">
-                                via {{ data.notifiedVia }}
+                            <small v-if="row.notifiedVia" class="env-events__notified-via text-muted">
+                                via {{ row.notifiedVia }}
                             </small>
                         </template>
-                    </Column>
-                    <Column
-                        field="createdAt"
-                        :header="t('envEvents.colTime')"
-                        sortable
-                    >
-                        <template #body="{data}">
-                            {{ formatTime(data.createdAt) }}
+                        <template #cell-createdAt="{row}">
+                            {{ formatTime(row.createdAt) }}
                         </template>
-                    </Column>
-                </DataTable>
+                    </CaomeiDataTable>
+                </div>
             </template>
         </Card>
         <p v-else class="text-muted">
@@ -361,6 +344,12 @@ onMounted(fetchEvents)
 
     &__filters {
         margin-bottom: $space-4;
+    }
+
+    // caomei 无 DataTable `scrollable`：外层容器承接 60vh 纵向滚动（表头非吸顶，见交付说明遗留差异）
+    &__table-scroll {
+        max-height: 60vh;
+        overflow: auto;
     }
 
     &__filter-row {

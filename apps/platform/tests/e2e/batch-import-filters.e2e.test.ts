@@ -23,7 +23,7 @@ test.describe('批量导入对话框（docs/plan/todo.md §PR3）', () => {
     test('打开批量导入 → Dialog 渲染 + 默认关联凭据下拉可见 + 拉取用凭据下拉', async ({ page }) => {
         await page.goto('/repos')
         await waitForHydration(page)
-        await expect(page.locator('.p-datatable')).toBeVisible({ timeout: 15000 })
+        await expect(page.locator('.caomei-data-table')).toBeVisible({ timeout: 15000 })
 
         await page.locator('button:has-text("批量导入")').click()
         await expect(page.locator('.p-dialog-header')).toContainText('批量导入仓库', { timeout: 15000 })

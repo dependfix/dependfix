@@ -38,7 +38,7 @@ test.describe('暗色模式（C59 修复防护）', () => {
         // 2) 进入 /repos，等待 hydration + DataTable 渲染
         await page.goto('/repos')
         await waitForHydration(page)
-        await expect(page.locator('.p-datatable')).toBeVisible({ timeout: 15000 })
+        await expect(page.locator('.caomei-data-table')).toBeVisible({ timeout: 15000 })
 
         // 3) 等待 initColorMode 把 .dark 挂到 <html>（同步事件，但需 Vue mount 触发）
         await expect(page.locator('html')).toHaveClass(/dark/, { timeout: 5000 })

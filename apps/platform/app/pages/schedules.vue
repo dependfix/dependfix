@@ -1,5 +1,6 @@
 <script setup lang="ts">
 // 定时计划管理：新建/编辑/删除/启用禁用/手动触发（cron 到点自动触发批量扫描）
+import type { DataTableColumn } from 'caomei-ui'
 import type { RepoView, ScheduleSelectorKind, ScheduleView } from '~/types/platform'
 import { previewCron } from '~/utils/cron-preview'
 
@@ -285,6 +286,20 @@ const toggleEnabled = async (schedule: ScheduleView) => {
     }
 }
 
+/**
+ * 列定义（caomei DataTable 用 `columns` 数组 + `#cell-{key}` 插槽替代 PrimeVue 的 `<Column>`）。
+ * `key` 即排序字段（原 `field`），非排序列（status / actions）取语义唯一 key。
+ */
+const columns = computed<DataTableColumn<ScheduleView>[]>(() => [
+    { key: 'name', header: t('schedules.colName'), sortable: true },
+    { key: 'cron', header: t('schedules.colCron'), sortable: true },
+    { key: 'selectorKind', header: t('schedules.colStrategy'), sortable: true },
+    { key: 'mode', header: t('schedules.colMode'), sortable: true },
+    { key: 'status', header: t('schedules.colStatus') },
+    { key: 'lastTriggeredAt', header: t('schedules.colLastTriggered'), sortable: true },
+    { key: 'actions', header: t('schedules.colActions'), width: '220px' },
+])
+
 const toastMessage = computed(() => success.value)
 watch(toastMessage, (v) => {
     if (v) {
@@ -328,105 +343,72 @@ watch(toastMessage, (v) => {
 
         <Card v-if="!loading">
             <template #content>
-                <DataTable
-                    :value="schedules"
-                    striped-rows
-                    size="small"
-                    removable-sort
-                    :empty-message="t('schedules.empty')"
+                <CaomeiDataTable
+                    :data="schedules"
+                    :columns="columns"
+                    row-key="id"
+                    striped
+                    :empty-text="t('schedules.empty')"
                 >
-                    <Column
-                        field="name"
-                        :header="t('schedules.colName')"
-                        sortable
-                    />
-                    <Column
-                        field="cron"
-                        :header="t('schedules.colCron')"
-                        sortable
-                    >
-                        <template #body="{data}">
-                            <code>{{ data.cron }}</code>
-                            <small
-                                v-if="data.timezone"
-                                class="text-muted"
-                            >{{ t('schedules.timezoneSuffix', {timezone: data.timezone}) }}</small>
-                        </template>
-                    </Column>
-                    <Column
-                        field="selectorKind"
-                        :header="t('schedules.colStrategy')"
-                        sortable
-                    >
-                        <template #body="{data}">
-                            {{ selectorLabel(data.selectorKind) }}
-                        </template>
-                    </Column>
-                    <Column
-                        field="mode"
-                        :header="t('schedules.colMode')"
-                        sortable
-                    >
-                        <template #body="{data}">
-                            <Tag :value="modeOptions.find((m) => m.value === data.mode)?.label ?? data.mode" />
-                        </template>
-                    </Column>
-                    <Column :header="t('schedules.colStatus')">
-                        <template #body="{data}">
-                            <Tag
-                                :value="data.enabled ? t('schedules.enabled') : t('schedules.disabled')"
-                                :severity="data.enabled ? 'success' : 'warn'"
-                            />
-                        </template>
-                    </Column>
-                    <Column
-                        field="lastTriggeredAt"
-                        :header="t('schedules.colLastTriggered')"
-                        sortable
-                    >
-                        <template #body="{data}">
-                            {{ data.lastTriggeredAt ? d(new Date(data.lastTriggeredAt), 'long') : '—' }}
-                        </template>
-                    </Column>
-                    <Column :header="t('schedules.colActions')" :style="{width: '220px'}">
-                        <template #body="{data}">
-                            <Button
-                                icon="pi pi-play"
-                                text
-                                rounded
-                                size="small"
-                                :title="t('schedules.actionTrigger')"
-                                :loading="triggering === data.id"
-                                @click="trigger(data)"
-                            />
-                            <Button
-                                :icon="data.enabled ? 'pi pi-pause' : 'pi pi-play-circle'"
-                                text
-                                rounded
-                                size="small"
-                                :title="data.enabled ? t('schedules.actionDisable') : t('schedules.actionEnable')"
-                                @click="toggleEnabled(data)"
-                            />
-                            <Button
-                                icon="pi pi-pencil"
-                                text
-                                rounded
-                                size="small"
-                                :aria-label="t('schedules.actionEdit')"
-                                @click="openEdit(data)"
-                            />
-                            <Button
-                                icon="pi pi-trash"
-                                text
-                                rounded
-                                size="small"
-                                severity="danger"
-                                :aria-label="t('schedules.actionDelete')"
-                                @click="remove(data)"
-                            />
-                        </template>
-                    </Column>
-                </DataTable>
+                    <template #cell-cron="{row}">
+                        <code>{{ row.cron }}</code>
+                        <small
+                            v-if="row.timezone"
+                            class="text-muted"
+                        >{{ t('schedules.timezoneSuffix', {timezone: row.timezone}) }}</small>
+                    </template>
+                    <template #cell-selectorKind="{row}">
+                        {{ selectorLabel(row.selectorKind) }}
+                    </template>
+                    <template #cell-mode="{row}">
+                        <Tag :value="modeOptions.find((m) => m.value === row.mode)?.label ?? row.mode" />
+                    </template>
+                    <template #cell-status="{row}">
+                        <Tag
+                            :value="row.enabled ? t('schedules.enabled') : t('schedules.disabled')"
+                            :severity="row.enabled ? 'success' : 'warn'"
+                        />
+                    </template>
+                    <template #cell-lastTriggeredAt="{row}">
+                        {{ row.lastTriggeredAt ? d(new Date(row.lastTriggeredAt), 'long') : '—' }}
+                    </template>
+                    <template #cell-actions="{row}">
+                        <Button
+                            icon="pi pi-play"
+                            text
+                            rounded
+                            size="small"
+                            :title="t('schedules.actionTrigger')"
+                            :loading="triggering === row.id"
+                            @click="trigger(row)"
+                        />
+                        <Button
+                            :icon="row.enabled ? 'pi pi-pause' : 'pi pi-play-circle'"
+                            text
+                            rounded
+                            size="small"
+                            :title="row.enabled ? t('schedules.actionDisable') : t('schedules.actionEnable')"
+                            @click="toggleEnabled(row)"
+                        />
+                        <Button
+                            icon="pi pi-pencil"
+                            text
+                            rounded
+                            size="small"
+                            :aria-label="t('schedules.actionEdit')"
+                            @click="openEdit(row)"
+                        />
+                        <Button
+                            icon="pi pi-trash"
+                            text
+                            rounded
+                            size="small"
+                            severity="danger"
+                            :aria-label="t('schedules.actionDelete')"
+                            @click="remove(row)"
+                        />
+                    </template>
+                </CaomeiDataTable>
             </template>
         </Card>
         <p v-else class="text-muted">

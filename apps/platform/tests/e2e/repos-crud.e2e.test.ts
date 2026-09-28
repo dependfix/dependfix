@@ -35,10 +35,10 @@ test.describe('仓库管理 CRUD（todo.md §M16.5）', () => {
         await page.goto('/repos')
         await waitForHydration(page)
         await expect(page.locator('h2')).toContainText('仓库管理', { timeout: 15000 })
-        await expect(page.locator('.p-datatable')).toBeVisible()
-        await expect(page.locator('.p-datatable')).toContainText(owner, { timeout: 15000 })
+        await expect(page.locator('.caomei-data-table')).toBeVisible()
+        await expect(page.locator('.caomei-data-table')).toContainText(owner, { timeout: 15000 })
         // repos.vue 列定义：Owner / 仓库(name) 两列分别渲染，无斜杠拼接
-        await expect(page.locator('.p-datatable')).toContainText(repoName)
+        await expect(page.locator('.caomei-data-table')).toContainText(repoName)
     })
 
     test('创建仓库：Dialog 填写 → 保存 → 列表新增', async ({ page }) => {
@@ -56,8 +56,8 @@ test.describe('仓库管理 CRUD（todo.md §M16.5）', () => {
         // 成功 toast
         await expect(page.locator('.p-message-success')).toContainText('仓库已添加', { timeout: 15000 })
         // 列表新增（repos.vue owner/name 两列分别渲染，无 / 拼接）
-        await expect(page.locator('.p-datatable')).toContainText(owner, { timeout: 15000 })
-        await expect(page.locator('.p-datatable')).toContainText(name)
+        await expect(page.locator('.caomei-data-table')).toContainText(owner, { timeout: 15000 })
+        await expect(page.locator('.caomei-data-table')).toContainText(name)
     })
 
     test('编辑仓库：点击编辑 → 改 defaultBranch → 保存 → 列表更新', async ({ page }) => {
@@ -78,9 +78,9 @@ test.describe('仓库管理 CRUD（todo.md §M16.5）', () => {
 
         await page.goto('/repos')
         await waitForHydration(page)
-        await expect(page.locator('.p-datatable')).toContainText(owner, { timeout: 15000 })
+        await expect(page.locator('.caomei-data-table')).toContainText(owner, { timeout: 15000 })
         // 点击编辑按钮
-        const row = page.locator('.p-datatable-tbody tr', { hasText: owner })
+        const row = page.locator('.caomei-data-table__row', { hasText: owner })
         await row.locator('button[aria-label="编辑"]').click()
         await expect(page.locator('.p-dialog-header')).toContainText('编辑仓库', { timeout: 15000 })
         // 改 defaultBranch（input#defaultBranch）
@@ -90,7 +90,7 @@ test.describe('仓库管理 CRUD（todo.md §M16.5）', () => {
         await page.locator('.p-dialog button:has-text("保存")').click()
         await expect(page.locator('.p-message-success')).toContainText('仓库已更新', { timeout: 15000 })
         // 列表不再显示 owner（可能切换视图或刷新）— 简单断言列表仍可见即可
-        await expect(page.locator('.p-datatable')).toBeVisible()
+        await expect(page.locator('.caomei-data-table')).toBeVisible()
     })
 
     test('删除仓库：列表移除', async ({ page }) => {
@@ -111,20 +111,20 @@ test.describe('仓库管理 CRUD（todo.md §M16.5）', () => {
 
         await page.goto('/repos')
         await waitForHydration(page)
-        await expect(page.locator('.p-datatable')).toContainText(owner, { timeout: 15000 })
+        await expect(page.locator('.caomei-data-table')).toContainText(owner, { timeout: 15000 })
         // 删除前确认对话框
         page.once('dialog', (dialog) => dialog.accept())
-        const row = page.locator('.p-datatable-tbody tr', { hasText: owner })
+        const row = page.locator('.caomei-data-table__row', { hasText: owner })
         await row.locator('button[aria-label="删除"]').click()
         await expect(page.locator('.p-message-success')).toContainText('仓库已删除', { timeout: 15000 })
-        await expect(page.locator('.p-datatable')).not.toContainText(owner)
+        await expect(page.locator('.caomei-data-table')).not.toContainText(owner)
     })
 
     test('列表分页：seed 后 DataTable 渲染（M14.2 已闭环分页契约）', async ({ page }) => {
         await page.goto('/repos')
         await waitForHydration(page)
-        await expect(page.locator('.p-datatable')).toBeVisible({ timeout: 15000 })
-        // PrimeVue DataTable 容器渲染（不强制 paginator — 由数据量决定）
+        await expect(page.locator('.caomei-data-table')).toBeVisible({ timeout: 15000 })
+        // caomei DataTable 容器渲染（不强制 paginator — 由数据量决定）
         // M14.2 /api/repos 单测已覆盖分页契约
     })
 })

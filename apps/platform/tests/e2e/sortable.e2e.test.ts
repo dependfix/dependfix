@@ -34,32 +34,26 @@ test.describe('C60 平台表格 sortable', () => {
     test('repos 页面 owner 列可点击排序 + selectedRows 保留', async ({ page }) => {
         await page.goto('/repos')
         await waitForHydration(page)
-        await expect(page.locator('.p-datatable')).toBeVisible({ timeout: 15000 })
-        // owner 列 sortable
-        const ownerHeader = page.locator('.p-datatable th:has-text("Owner")')
-        await expect(ownerHeader).toHaveAttribute('data-p-sortable-column', 'true')
-        await ownerHeader.click()
-        await expect(ownerHeader).toHaveAttribute('data-p-sorted', 'true', { timeout: 5000 })
+        await expect(page.locator('.caomei-data-table')).toBeVisible({ timeout: 15000 })
+        // owner 列可排序（caomei 用 `.caomei-data-table__sort` 按钮 + th[aria-sort]）
+        const ownerHeader = page.locator('.caomei-data-table th:has-text("Owner")')
+        const ownerSort = ownerHeader.locator('.caomei-data-table__sort')
+        await expect(ownerSort).toBeVisible()
+        await ownerSort.click()
+        await expect(ownerHeader).toHaveAttribute('aria-sort', 'ascending', { timeout: 5000 })
         // 排序后批量选择 checkbox 仍可用（PR1 W10 教训：selectedRows 不应被排序重置）
-        const checkboxes = page.locator('.p-datatable .p-checkbox')
+        const checkboxes = page.locator('.caomei-data-table .caomei-checkbox__control')
         await expect(checkboxes.first()).toBeVisible()
     })
 
-    test('schedules / credentials / users（PrimeVue）与 batch-runs（caomei）sortable 列存在', async ({ page }) => {
-        for (const route of ['/schedules', '/credentials', '/users']) {
+    test('schedules / credentials / users / batch-runs 页面 sortable 列存在', async ({ page }) => {
+        for (const route of ['/schedules', '/credentials', '/users', '/batch-runs']) {
             await page.goto(route)
             await waitForHydration(page)
-            await expect(page.locator('.p-datatable')).toBeVisible({ timeout: 15000 })
-            // 至少一个 sortable 列存在（PrimeVue 4 data-p-sortable-column 属性）
-            const sortableHeaders = page.locator('.p-datatable th[data-p-sortable-column="true"]')
-            await expect(sortableHeaders.first()).toBeVisible()
+            await expect(page.locator('.caomei-data-table')).toBeVisible({ timeout: 15000 })
+            // 至少一个可排序列存在（caomei 用 `.caomei-data-table__sort` 按钮）
+            await expect(page.locator('.caomei-data-table th .caomei-data-table__sort').first()).toBeVisible()
         }
-        // batch-runs 已迁移到 caomei DataTable（PrimeVue `.p-datatable` 不再存在；
-        // 迁移批次见 docs/plan/todo.md §M31）
-        await page.goto('/batch-runs')
-        await waitForHydration(page)
-        await expect(page.locator('.caomei-data-table')).toBeVisible({ timeout: 15000 })
-        await expect(page.locator('.caomei-data-table th .caomei-data-table__sort').first()).toBeVisible()
     })
 
     test('env-events 页面 6 列均 sortable（type/severity/repository/message/notified/createdAt）', async ({ page }) => {
@@ -68,9 +62,9 @@ test.describe('C60 平台表格 sortable', () => {
         }))
         await page.goto('/env-events')
         await waitForHydration(page)
-        await expect(page.locator('.p-datatable')).toBeVisible({ timeout: 15000 })
-        // 6 列均含 sortable 标记（PrimeVue 4 data-p-sortable-column 属性）
-        const sortableHeaders = page.locator('.p-datatable th[data-p-sortable-column="true"]')
+        await expect(page.locator('.caomei-data-table')).toBeVisible({ timeout: 15000 })
+        // 6 列均渲染排序按钮（caomei 用 `.caomei-data-table__sort`）
+        const sortableHeaders = page.locator('.caomei-data-table th .caomei-data-table__sort')
         await expect(sortableHeaders).toHaveCount(6, { timeout: 5000 })
     })
 })

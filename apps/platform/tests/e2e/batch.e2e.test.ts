@@ -19,7 +19,7 @@ test.describe('批量扫描（sync 降级模式）', () => {
         // 浏览器上下文就绪后，构造会话 Cookie header 供 API 请求使用
         await page.goto('/repos')
         await waitForHydration(page)
-        await expect(page.locator('.p-datatable')).toBeVisible({ timeout: 15000 })
+        await expect(page.locator('.caomei-data-table')).toBeVisible({ timeout: 15000 })
         const cookieHeader = (await page.context().cookies())
             .map((c) => `${c.name}=${c.value}`)
             .join('; ')
@@ -45,12 +45,12 @@ test.describe('批量扫描（sync 降级模式）', () => {
         // 重新导航（带唯一 query 强制全新加载）→ 新仓库恒排最前（createdAt DESC）
         await page.goto(`/repos?r=${stamp}`)
         await waitForHydration(page)
-        await expect(page.locator('.p-datatable')).toBeVisible({ timeout: 15000 })
-        const rows = page.locator('.p-datatable-tbody tr')
-        // 本轮创建的 2 个仓库是列表前 2 行；行选择 checkbox 为原生 input（无显式 role 属性）
+        await expect(page.locator('.caomei-data-table')).toBeVisible({ timeout: 15000 })
+        const rows = page.locator('.caomei-data-table__row')
+        // 本轮创建的 2 个仓库是列表前 2 行；行选择控件为 caomei Checkbox（button.caomei-checkbox__control，role=checkbox）
         await expect(rows.nth(0)).toContainText(owner, { timeout: 15000 })
-        await rows.nth(0).locator('input.p-checkbox-input').click()
-        await rows.nth(1).locator('input.p-checkbox-input').click()
+        await rows.nth(0).locator('.caomei-checkbox__control').click()
+        await rows.nth(1).locator('.caomei-checkbox__control').click()
 
         // 批量扫描按钮随勾选激活
         const batchButton = page.locator('button:has-text("批量扫描")')

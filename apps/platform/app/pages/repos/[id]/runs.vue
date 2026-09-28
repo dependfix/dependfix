@@ -2,6 +2,7 @@
 // 扫描历史：按仓库查看运行列表与详情
 // 注意：本页面已被 C51 应用层修复迁入 `repo-history-dialog`（见 docs/plan/todo.md §C51），但保留兼容——
 // 用户直接访问 /repos/{id}/runs 仍可使用（C58 候选删除，见 docs/plan/backlog.md §C58）。
+import type { DataTableColumn } from 'caomei-ui'
 import { withRunStatusRank } from '~/utils/sort-helpers'
 
 definePageMeta({
@@ -25,6 +26,18 @@ interface RunView {
     summary: Record<string, unknown> | null
     error: { code: string, message: string } | null
     _statusRank?: number
+}
+
+/** 详情弹窗内扫描结果行（`/api/runs/[id]` 返回的 results 元素） */
+interface RunResultView {
+    id: string
+    packageName: string
+    severity: string
+    source: string
+    fixable: boolean
+    fixStrategy: string | null
+    recommendedVersion: string | null
+    htmlUrl: string | null
 }
 
 const route = useRoute()
@@ -92,11 +105,48 @@ const openDetail = async (run: RunView) => {
 }
 
 const backToRepos = () => navigateTo('/repos')
-const openRunUrl = (url: string) => {
-    window.open(url, '_blank')
+/**
+ * 打开 Action run 外链。迁移到 caomei 后 `#cell-*` 插槽行对象为强类型 `RunView`，
+ * `runUrl` 可空且行内 `v-if` 的收窄不会带入事件闭包，故在本地 handler 内做非空 guard。
+ */
+const openRunUrl = (run: RunView) => {
+    if (run.runUrl) {
+        window.open(run.runUrl, '_blank')
+    }
 }
 
 const repoId = computed(() => route.params.id as string)
+
+/**
+ * 列定义（caomei DataTable 用 `columns` 数组 + `#cell-{key}` 插槽替代 PrimeVue 的 `<Column>`）。
+ * `key` 即排序字段（原 `field`）；`alerts` / `fixed` 无对应字段，仅为单元格插槽占位的唯一 key。
+ * 原 `_statusRank` 列的 `:default-sort-order="-1"` 只影响初始方向而本页初始无排序，故删除后行为一致。
+ */
+const columns = computed<DataTableColumn<RunView>[]>(() => [
+    { key: '_statusRank', header: t('runs.colStatus'), sortable: true },
+    { key: 'mode', header: t('runs.colMode'), sortable: true },
+    { key: 'severityThreshold', header: t('runs.colThreshold'), sortable: true },
+    { key: 'executorKind', header: t('runs.colExecutor'), sortable: true },
+    { key: 'startedAt', header: t('runs.colStartedAt'), sortable: true },
+    { key: 'alerts', header: t('runs.colAlerts') },
+    { key: 'fixed', header: t('runs.colFixed') },
+    { key: 'actions', header: t('runs.colActions'), width: '200px' },
+])
+
+/** 详情弹窗内扫描结果（`detail` 为运行时透传，强类型列定义下做一次窄化断言） */
+const runResults = computed<RunResultView[]>(() =>
+    (detail.value as { results: RunResultView[] } | null)?.results ?? [],
+)
+
+/** 详情弹窗内结果表列定义（原 PrimeVue 各 `<Column>` 均不可排序） */
+const resultsColumns = computed<DataTableColumn<RunResultView>[]>(() => [
+    { key: 'packageName', header: t('runs.colPackage') },
+    { key: 'severity', header: t('runs.colSeverity') },
+    { key: 'source', header: t('runs.colSource') },
+    { key: 'fixable', header: t('runs.colFixable') },
+    { key: 'recommendedVersion', header: t('runs.colRecommended') },
+    { key: 'link', header: t('runs.colLink') },
+])
 </script>
 
 <template>
@@ -127,96 +177,61 @@ const repoId = computed(() => route.params.id as string)
 
         <Card v-if="!loading">
             <template #content>
-                <DataTable
-                    :value="runs"
-                    striped-rows
-                    size="small"
-                    removable-sort
-                    :empty-message="t('runs.empty')"
+                <CaomeiDataTable
+                    :data="runs"
+                    :columns="columns"
+                    row-key="id"
+                    striped
+                    :empty-text="t('runs.empty')"
                 >
-                    <Column
-                        field="_statusRank"
-                        :header="t('runs.colStatus')"
-                        sortable
-                        :default-sort-order="-1"
-                    >
-                        <template #body="{data}">
-                            <Tag
-                                :value="isPrFailedDispatched(data as RunView)
-                                    ? t('batchRuns.runStatus.dispatchedPrFailed')
-                                    : statusLabel(data.status)"
-                                :severity="statusSeverity(data.status)"
-                            />
-                            <small
-                                v-if="isPrFailedDispatched(data as RunView)"
-                                class="d-block mt-1 text-warning"
-                            >
-                                {{ t('batchRuns.openRunPrFailedHint') }}
-                            </small>
-                        </template>
-                    </Column>
-                    <Column
-                        field="mode"
-                        :header="t('runs.colMode')"
-                        sortable
-                    />
-                    <Column
-                        field="severityThreshold"
-                        :header="t('runs.colThreshold')"
-                        sortable
-                    />
-                    <Column
-                        field="executorKind"
-                        :header="t('runs.colExecutor')"
-                        sortable
-                    >
-                        <template #body="{data}">
-                            <Tag :value="data.executorKind === 'github-action' ? t('repos.githubAction') : data.executorKind === 'sandbox' ? t('repos.sandboxContainer') : t('repos.platformContainer')" severity="secondary" />
-                        </template>
-                    </Column>
-                    <Column
-                        field="startedAt"
-                        :header="t('runs.colStartedAt')"
-                        sortable
-                    >
-                        <template #body="{data}">
-                            {{ data.startedAt ? d(new Date(data.startedAt), 'long') : '—' }}
-                        </template>
-                    </Column>
-                    <Column :header="t('runs.colAlerts')">
-                        <template #body="{data}">
-                            {{ (data.summary as Record<string, number> | null)?.alertsFound ?? 0 }}
-                        </template>
-                    </Column>
-                    <Column :header="t('runs.colFixed')">
-                        <template #body="{data}">
-                            {{ (data.summary as Record<string, number> | null)?.alertsFixed ?? 0 }}
-                        </template>
-                    </Column>
-                    <Column :header="t('runs.colActions')" :style="{width: '200px'}">
-                        <template #body="{data}">
-                            <Button
-                                v-if="data.runUrl"
-                                icon="pi pi-external-link"
-                                text
-                                rounded
-                                size="small"
-                                :aria-label="t('runs.actionViewActionRun')"
-                                :title="t('runs.actionViewActionRun')"
-                                @click="openRunUrl(data.runUrl)"
-                            />
-                            <Button
-                                icon="pi pi-eye"
-                                text
-                                rounded
-                                size="small"
-                                :aria-label="t('runs.actionViewDetail')"
-                                :title="t('runs.actionViewDetail')"
-                                @click="openDetail(data)"
-                            />
-                        </template>
-                    </Column>
-                </DataTable>
+                    <template #cell-_statusRank="{row}">
+                        <Tag
+                            :value="isPrFailedDispatched(row)
+                                ? t('batchRuns.runStatus.dispatchedPrFailed')
+                                : statusLabel(row.status)"
+                            :severity="statusSeverity(row.status)"
+                        />
+                        <small
+                            v-if="isPrFailedDispatched(row)"
+                            class="d-block mt-1 text-warning"
+                        >
+                            {{ t('batchRuns.openRunPrFailedHint') }}
+                        </small>
+                    </template>
+                    <template #cell-executorKind="{row}">
+                        <Tag :value="row.executorKind === 'github-action' ? t('repos.githubAction') : row.executorKind === 'sandbox' ? t('repos.sandboxContainer') : t('repos.platformContainer')" severity="secondary" />
+                    </template>
+                    <template #cell-startedAt="{row}">
+                        {{ row.startedAt ? d(new Date(row.startedAt), 'long') : '—' }}
+                    </template>
+                    <template #cell-alerts="{row}">
+                        {{ (row.summary as Record<string, number> | null)?.alertsFound ?? 0 }}
+                    </template>
+                    <template #cell-fixed="{row}">
+                        {{ (row.summary as Record<string, number> | null)?.alertsFixed ?? 0 }}
+                    </template>
+                    <template #cell-actions="{row}">
+                        <Button
+                            v-if="row.runUrl"
+                            icon="pi pi-external-link"
+                            text
+                            rounded
+                            size="small"
+                            :aria-label="t('runs.actionViewActionRun')"
+                            :title="t('runs.actionViewActionRun')"
+                            @click="openRunUrl(row)"
+                        />
+                        <Button
+                            icon="pi pi-eye"
+                            text
+                            rounded
+                            size="small"
+                            :aria-label="t('runs.actionViewDetail')"
+                            :title="t('runs.actionViewDetail')"
+                            @click="openDetail(row)"
+                        />
+                    </template>
+                </CaomeiDataTable>
             </template>
         </Card>
         <p v-else class="text-muted">
@@ -234,38 +249,28 @@ const repoId = computed(() => route.params.id as string)
                 {{ t('common.empty.loading') }}
             </div>
             <div v-else-if="detail">
-                <DataTable
-                    :value="(detail as {results: Array<{id: string; packageName: string; severity: string; source: string; fixable: boolean; fixStrategy: string | null; recommendedVersion: string | null; htmlUrl: string | null}>}).results"
-                    striped-rows
-                    size="small"
-                    :empty-message="t('runs.detailEmpty')"
+                <CaomeiDataTable
+                    :data="runResults"
+                    :columns="resultsColumns"
+                    :empty-text="t('runs.detailEmpty')"
                 >
-                    <Column field="packageName" :header="t('runs.colPackage')" />
-                    <Column :header="t('runs.colSeverity')">
-                        <template #body="{data}">
-                            <Tag :value="data.severity" :severity="data.severity === 'critical' ? 'danger' : data.severity === 'high' ? 'warn' : 'info'" />
-                        </template>
-                    </Column>
-                    <Column field="source" :header="t('runs.colSource')" />
-                    <Column :header="t('runs.colFixable')">
-                        <template #body="{data}">
-                            <Tag :value="data.fixable ? t('common.yes') : t('common.no')" :severity="data.fixable ? 'success' : 'secondary'" />
-                        </template>
-                    </Column>
-                    <Column field="recommendedVersion" :header="t('runs.colRecommended')" />
-                    <Column :header="t('runs.colLink')">
-                        <template #body="{data}">
-                            <a
-                                v-if="data.htmlUrl"
-                                :href="data.htmlUrl"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                            >
-                                {{ t('runs.view') }}
-                            </a>
-                        </template>
-                    </Column>
-                </DataTable>
+                    <template #cell-severity="{row}">
+                        <Tag :value="row.severity" :severity="row.severity === 'critical' ? 'danger' : row.severity === 'high' ? 'warn' : 'info'" />
+                    </template>
+                    <template #cell-fixable="{row}">
+                        <Tag :value="row.fixable ? t('common.yes') : t('common.no')" :severity="row.fixable ? 'success' : 'secondary'" />
+                    </template>
+                    <template #cell-link="{row}">
+                        <a
+                            v-if="row.htmlUrl"
+                            :href="row.htmlUrl"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                        >
+                            {{ t('runs.view') }}
+                        </a>
+                    </template>
+                </CaomeiDataTable>
             </div>
         </Dialog>
     </div>

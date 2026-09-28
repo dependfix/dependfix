@@ -39,8 +39,8 @@ test.describe('单仓库扫描配置 Dialog（见 docs/plan/todo.md §PR2 C52）
         // 2) 进入 repos 页 + 找到新仓库行
         await page.goto(`/repos?_=${stamp}`)
         await waitForHydration(page)
-        await expect(page.locator('.p-datatable')).toBeVisible({ timeout: 15000 })
-        const row = page.locator('.p-datatable-tbody tr').filter({ hasText: owner })
+        await expect(page.locator('.caomei-data-table')).toBeVisible({ timeout: 15000 })
+        const row = page.locator('.caomei-data-table__row').filter({ hasText: owner })
         await expect(row).toBeVisible({ timeout: 15000 })
 
         // 3) 点击 pi-play → 打开单仓库扫描配置 Dialog
@@ -106,8 +106,8 @@ test.describe('单仓库扫描配置 Dialog（见 docs/plan/todo.md §PR2 C52）
         // 进入 repos 页 + 找到新仓库行
         await page.goto(`/repos?_=${stamp}`)
         await waitForHydration(page)
-        await expect(page.locator('.p-datatable')).toBeVisible({ timeout: 15000 })
-        const row = page.locator('.p-datatable-tbody tr').filter({ hasText: owner })
+        await expect(page.locator('.caomei-data-table')).toBeVisible({ timeout: 15000 })
+        const row = page.locator('.caomei-data-table__row').filter({ hasText: owner })
         await expect(row).toBeVisible({ timeout: 15000 })
 
         // 点击 pi-play → 打开 Dialog

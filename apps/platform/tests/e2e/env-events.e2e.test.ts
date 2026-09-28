@@ -93,9 +93,9 @@ test.describe('C-ENV env-events UI', () => {
         expect(flexWrap).toBe('wrap')
     })
 
-    test('DataTable scrollable：60vh 滚动容器存在', async ({ page }) => {
-        // PrimeVue 4 DataTable scrollable 包裹层 class 名为 .p-datatable-table-container
-        // （PrimeVue 3 叫 .p-datatable-wrapper，4 已重命名）—— 返回 1 条最小数据确保包裹层出现
+    test('DataTable 滚动容器：60vh 滚动容器存在', async ({ page }) => {
+        // caomei DataTable 无 scrollable 能力，改用外层容器 + CSS 承接（见迁移评估 docs/design/governance/caomei-ui-migration.md §15.3/§15.10）：
+        // 容器为页面自定义类 `.env-events__table-scroll`（max-height: 60vh; overflow: auto）
         await page.route('**/api/audit-events*', (route) => route.fulfill({
             status: 200,
             contentType: 'application/json',
@@ -106,11 +106,23 @@ test.describe('C-ENV env-events UI', () => {
         await page.goto('/env-events')
         await waitForHydration(page)
         await page.waitForSelector('.env-events__table', { timeout: 10000 })
-        const scrollWrapper = page.locator('.env-events__table .p-datatable-table-container')
+        const scrollWrapper = page.locator('.env-events__table .env-events__table-scroll')
         await expect(scrollWrapper).toBeVisible()
+        // 断言滚动容器的核心 CSS（原 PrimeVue `scrollable` + `scroll-height="60vh"` 的等价承接）
+        const scrollStyles = await scrollWrapper.evaluate((el) => {
+            const cs = window.getComputedStyle(el)
+            return {
+                overflowY: cs.overflowY,
+                maxHeightPx: Number.parseFloat(cs.maxHeight),
+                expectedPx: window.innerHeight * 0.6,
+            }
+        })
+        expect(scrollStyles.overflowY).toBe('auto')
+        expect(scrollStyles.maxHeightPx).toBeGreaterThan(0)
+        expect(Math.abs(scrollStyles.maxHeightPx - scrollStyles.expectedPx)).toBeLessThanOrEqual(2)
     })
 
-    test('severity 列 sortable 三态：点击切换 unsorted → asc → desc → unsorted（removable-sort）', async ({ page }) => {
+    test('severity 列 sortable 三态：点击切换 unsorted → asc → desc → unsorted', async ({ page }) => {
         await page.route('**/api/audit-events*', (route) => route.fulfill({
             status: 200,
             contentType: 'application/json',
@@ -122,19 +134,20 @@ test.describe('C-ENV env-events UI', () => {
         await page.goto('/env-events')
         await waitForHydration(page)
         await page.waitForSelector('.env-events__table tbody tr', { timeout: 10000 })
-        const severityHeader = page.locator('.env-events__table .p-datatable th:has-text("级别")')
-        // 列 header 含 sortable 标记（PrimeVue 4 data-p-sortable-column 属性）
-        await expect(severityHeader).toHaveAttribute('data-p-sortable-column', 'true')
+        const severityHeader = page.locator('.env-events__table .caomei-data-table th:has-text("级别")')
+        // 可排序列头渲染排序按钮（caomei 用 `.caomei-data-table__sort` + th[aria-sort]）
+        const severitySort = severityHeader.locator('.caomei-data-table__sort')
+        await expect(severitySort).toBeVisible()
         // 初始未排序：aria-sort="none"
         await expect(severityHeader).toHaveAttribute('aria-sort', 'none')
-        // 第一击：unsorted → asc（PrimeVue 4 默认 sort-order=1）
-        await severityHeader.click()
+        // 第一击：unsorted → asc
+        await severitySort.click()
         await expect(severityHeader).toHaveAttribute('aria-sort', 'ascending', { timeout: 5000 })
-        // 第二击：asc → desc 翻转（:default-sort-order=-1 决定再次点击进入 desc）
-        await severityHeader.click()
+        // 第二击：asc → desc
+        await severitySort.click()
         await expect(severityHeader).toHaveAttribute('aria-sort', 'descending', { timeout: 5000 })
-        // 第三击：desc → unsorted（removable-sort 三态）
-        await severityHeader.click()
+        // 第三击：desc → unsorted（三态含移除）
+        await severitySort.click()
         await expect(severityHeader).toHaveAttribute('aria-sort', 'none', { timeout: 5000 })
     })
 })

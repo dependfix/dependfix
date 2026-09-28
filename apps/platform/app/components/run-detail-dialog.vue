@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { DataTableColumn } from 'caomei-ui'
 import {
     alertsFound,
     formatRunDuration,
@@ -59,6 +60,17 @@ const emit = defineEmits<{
 }>()
 
 const { t, d } = useI18n()
+
+/** 列定义（caomei DataTable 用 `columns` 数组 + `#cell-{key}` 插槽替代 PrimeVue 的 `<Column>`） */
+const resultColumns = computed<DataTableColumn<RunResultView>[]>(() => [
+    { key: 'packageName', header: t('runs.colPackage') },
+    { key: 'severity', header: t('runs.colSeverity') },
+    { key: 'source', header: t('runs.colSource') },
+    { key: 'fixable', header: t('runs.colFixable') },
+    { key: 'recommendedVersion', header: t('runs.colRecommended') },
+    { key: 'link', header: t('runs.colLink') },
+])
+
 const detail = ref<RunDetailView | null>(null)
 const loading = ref(false)
 const error = ref('')
@@ -285,7 +297,7 @@ watch(() => props.runId, (runId) => {
                         @click="copyLogs"
                     />
                 </div>
-                <ScrollPanel style="height: 200px">
+                <div class="run-detail__logs-scroll" style="height: 200px; overflow: auto">
                     <div class="run-detail__logs-content">
                         <div
                             v-for="(entry, index) in detail.logs"
@@ -298,47 +310,39 @@ watch(() => props.runId, (runId) => {
                             <span class="run-detail__log-message">{{ entry.message }}</span>
                         </div>
                     </div>
-                </ScrollPanel>
+                </div>
             </div>
-            <DataTable
-                :value="detail.results"
-                striped-rows
-                size="small"
-                :empty-message="t('runs.detailEmpty')"
+            <CaomeiDataTable
+                :data="detail.results"
+                :columns="resultColumns"
+                row-key="id"
+                striped
+                :empty-text="t('runs.detailEmpty')"
             >
-                <Column field="packageName" :header="t('runs.colPackage')" />
-                <Column :header="t('runs.colSeverity')">
-                    <template #body="{data}">
-                        <Tag
-                            :value="data.severity"
-                            :severity="data.severity === 'critical' ? 'danger' : data.severity === 'high' ? 'warn' : 'info'"
-                        />
-                    </template>
-                </Column>
-                <Column field="source" :header="t('runs.colSource')" />
-                <Column :header="t('runs.colFixable')">
-                    <template #body="{data}">
-                        <Tag
-                            :value="data.fixable ? t('common.yes') : t('common.no')"
-                            :severity="data.fixable ? 'success' : 'secondary'"
-                        />
-                    </template>
-                </Column>
-                <Column field="recommendedVersion" :header="t('runs.colRecommended')" />
-                <Column :header="t('runs.colLink')">
-                    <template #body="{data}">
-                        <a
-                            v-if="data.htmlUrl"
-                            :href="data.htmlUrl"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                        >
-                            {{ t('runs.view') }}
-                        </a>
-                        <span v-else class="text-muted">—</span>
-                    </template>
-                </Column>
-            </DataTable>
+                <template #cell-severity="{row}">
+                    <Tag
+                        :value="row.severity"
+                        :severity="row.severity === 'critical' ? 'danger' : row.severity === 'high' ? 'warn' : 'info'"
+                    />
+                </template>
+                <template #cell-fixable="{row}">
+                    <Tag
+                        :value="row.fixable ? t('common.yes') : t('common.no')"
+                        :severity="row.fixable ? 'success' : 'secondary'"
+                    />
+                </template>
+                <template #cell-link="{row}">
+                    <a
+                        v-if="row.htmlUrl"
+                        :href="row.htmlUrl"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                    >
+                        {{ t('runs.view') }}
+                    </a>
+                    <span v-else class="text-muted">—</span>
+                </template>
+            </CaomeiDataTable>
         </template>
     </Dialog>
 </template>

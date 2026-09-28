@@ -16,6 +16,7 @@
 // 非目标（todo.md §M16 阶段边界）：
 // - 不引入多组织；不重写后端聚合；不动 dashboard.vue；不动 batch-runs 跨仓库视图
 // - 不升 PrimeVue 5；不破坏既有 alerts-rowgroup / history-dialog / 视图切换 / dedupe 行为
+import type { DataTableColumn, DataTablePageEvent } from 'caomei-ui'
 import {
     alertsFound,
     runExecutorLabel,
@@ -85,6 +86,13 @@ const runs = ref<RunView[]>([])
 const total = ref(0)
 const pageSize = ref(10)
 const first = ref(0)
+
+/**
+ * caomei DataTable 受控分页为 1 基 `page`（PrimeVue 为 0 基 `first`）。
+ * 由既有 `first` / `pageSize` 状态换算，`@page` 回写 `first` 即驱动页码；
+ * `pageSize` / `first` 的语义与下游 `fetchRuns` 用法保持不变。
+ */
+const page = computed(() => Math.floor(first.value / pageSize.value) + 1)
 
 // query ?repository= 与 query ?run= 解析（scans 页面三态入口）
 const repositoryIdQuery = computed(() => {
@@ -163,11 +171,11 @@ const refresh = async () => {
     first.value = 0
 }
 
-/** PrimeVue DataTable @page 事件：page 0-indexed */
-const onPage = async (event: { page: number, first: number, rows: number }) => {
+/** caomei DataTable @page 事件：page 1-based（对齐后端 page 参数，不再 +1）；既有重新请求副作用不变 */
+const onPage = async (event: DataTablePageEvent) => {
     pageSize.value = event.rows
     first.value = event.first
-    await fetchRuns(event.page + 1, event.rows)
+    await fetchRuns(event.page, event.rows)
 }
 
 /** 状态 Tag 颜色 + 文案（与 `repo-history-dialog` 风格一致） */
@@ -209,6 +217,37 @@ const filterByRepository = (repo: { id: string }) => {
 const clearFilter = () => {
     void router.push({ path: '/scans' })
 }
+
+/** 汇总聚合行类型（byRepo 表） */
+type SummaryRepository = SummaryResponse['repositories'][number]
+
+/**
+ * 列定义（caomei DataTable 用 `columns` 数组 + `#cell-{key}` 插槽替代 PrimeVue 的 `<Column>`）。
+ * 非排序列（lastRun / lastStatus / actions）也需唯一 key；`key` 即排序字段。
+ */
+const byRepoColumns = computed<DataTableColumn<SummaryRepository>[]>(() => [
+    { key: 'owner', header: t('scans.byRepo.colOwner') },
+    { key: 'name', header: t('scans.byRepo.colName') },
+    { key: 'runCount', header: t('scans.byRepo.colRuns'), sortable: true },
+    { key: 'alertCount', header: t('scans.byRepo.colAlerts'), sortable: true },
+    { key: 'fixedCount', header: t('scans.byRepo.colFixed'), sortable: true },
+    { key: 'lastRun', header: t('scans.byRepo.colLastRun') },
+    { key: 'lastStatus', header: t('scans.byRepo.colLastStatus') },
+    { key: 'actions', header: t('scans.byRepo.colActions'), width: '180px' },
+])
+
+/** 列定义（全运行列表 runList 表） */
+const runListColumns = computed<DataTableColumn<RunView>[]>(() => [
+    { key: 'repo', header: t('runs.colRepo') },
+    { key: 'status', header: t('runs.colStatus') },
+    { key: 'mode', header: t('runs.colMode') },
+    { key: 'threshold', header: t('runs.colThreshold') },
+    { key: 'executor', header: t('runs.colExecutor') },
+    { key: 'startedAt', header: t('runs.colStartedAt') },
+    { key: 'alerts', header: t('runs.colAlerts') },
+    { key: 'fixed', header: t('runs.colFixed') },
+    { key: 'actions', header: t('runs.colActions'), width: '120px' },
+])
 
 // 监听 repositoryIdQuery 变化（用户点 byRepo 过滤 / 清除过滤）
 watch(repositoryIdQuery, async () => {
@@ -327,60 +366,37 @@ onMounted(refresh)
         </h3>
         <Card>
             <template #content>
-                <DataTable
-                    :value="summary?.repositories ?? []"
-                    data-key="repositoryId"
-                    striped-rows
-                    size="small"
-                    :empty-message="t('scans.byRepo.empty')"
+                <CaomeiDataTable
+                    :data="summary?.repositories ?? []"
+                    :columns="byRepoColumns"
+                    row-key="repositoryId"
+                    striped
+                    :empty-text="t('scans.byRepo.empty')"
                 >
-                    <Column :header="t('scans.byRepo.colOwner')" field="owner" />
-                    <Column :header="t('scans.byRepo.colName')" field="name" />
-                    <Column
-                        :header="t('scans.byRepo.colRuns')"
-                        field="runCount"
-                        sortable
-                    />
-                    <Column
-                        :header="t('scans.byRepo.colAlerts')"
-                        field="alertCount"
-                        sortable
-                    />
-                    <Column
-                        :header="t('scans.byRepo.colFixed')"
-                        field="fixedCount"
-                        sortable
-                    />
-                    <Column :header="t('scans.byRepo.colLastRun')">
-                        <template #body="{data}">
-                            {{ data.lastRunAt ? d(new Date(data.lastRunAt), 'short') : '—' }}
-                        </template>
-                    </Column>
-                    <Column :header="t('scans.byRepo.colLastStatus')">
-                        <template #body="{data}">
-                            <Tag
-                                v-if="data.lastStatus"
-                                :value="statusLabel(data.lastStatus)"
-                                :severity="statusSeverity(data.lastStatus)"
-                            />
-                            <span v-else class="text-muted">—</span>
-                        </template>
-                    </Column>
-                    <Column :header="t('scans.byRepo.colActions')" :style="{width: '180px'}">
-                        <template #body="{data}">
-                            <Button
-                                icon="pi pi-filter"
-                                text
-                                rounded
-                                size="small"
-                                :disabled="!!repositoryIdQuery && repositoryIdQuery === data.repositoryId"
-                                :aria-label="t('scans.byRepo.actionFilterThis')"
-                                :title="t('scans.byRepo.actionFilterThis')"
-                                @click="filterByRepository({id: data.repositoryId})"
-                            />
-                        </template>
-                    </Column>
-                </DataTable>
+                    <template #cell-lastRun="{row}">
+                        {{ row.lastRunAt ? d(new Date(row.lastRunAt), 'short') : '—' }}
+                    </template>
+                    <template #cell-lastStatus="{row}">
+                        <Tag
+                            v-if="row.lastStatus"
+                            :value="statusLabel(row.lastStatus)"
+                            :severity="statusSeverity(row.lastStatus)"
+                        />
+                        <span v-else class="text-muted">—</span>
+                    </template>
+                    <template #cell-actions="{row}">
+                        <Button
+                            icon="pi pi-filter"
+                            text
+                            rounded
+                            size="small"
+                            :disabled="!!repositoryIdQuery && repositoryIdQuery === row.repositoryId"
+                            :aria-label="t('scans.byRepo.actionFilterThis')"
+                            :title="t('scans.byRepo.actionFilterThis')"
+                            @click="filterByRepository({id: row.repositoryId})"
+                        />
+                    </template>
+                </CaomeiDataTable>
             </template>
         </Card>
 
@@ -390,92 +406,72 @@ onMounted(refresh)
         </h3>
         <Card v-if="!firstLoad">
             <template #content>
-                <DataTable
-                    :value="runs"
-                    data-key="id"
+                <CaomeiDataTable
+                    :data="runs"
+                    :columns="runListColumns"
+                    row-key="id"
                     lazy
                     paginator
-                    paginator-template="PrevPageLink CurrentPageReport NextPageLink RowsPerPageDropdown"
-                    :current-page-report-template="t('runs.paginatorInfo', {first: '{first}', last: '{last}', total: '{totalRecords}'})"
+                    :page="page"
                     :rows="pageSize"
                     :total-records="total"
-                    :first="first"
                     :rows-per-page-options="[10, 25, 50]"
                     :loading="loading"
-                    striped-rows
-                    size="small"
-                    :empty-message="t('scans.runList.empty')"
+                    striped
+                    :empty-text="t('scans.runList.empty')"
                     @page="onPage"
                 >
-                    <Column :header="t('runs.colRepo')">
-                        <template #body="{data}">
-                            <span v-if="data.owner && data.name">{{ data.owner }}/{{ data.name }}</span>
-                            <span v-else class="text-muted">—</span>
-                        </template>
-                    </Column>
-                    <Column :header="t('runs.colStatus')">
-                        <template #body="{data}">
-                            <span
-                                v-if="data.error"
-                                class="scans__status-wrap"
-                                :title="data.error.message"
-                            >
-                                <Tag
-                                    :value="statusLabel(data.status)"
-                                    :severity="statusSeverity(data.status)"
-                                />
-                            </span>
+                    <template #cell-repo="{row}">
+                        <span v-if="row.owner && row.name">{{ row.owner }}/{{ row.name }}</span>
+                        <span v-else class="text-muted">—</span>
+                    </template>
+                    <template #cell-status="{row}">
+                        <span
+                            v-if="row.error"
+                            class="scans__status-wrap"
+                            :title="row.error.message"
+                        >
                             <Tag
-                                v-else
-                                :value="statusLabel(data.status)"
-                                :severity="statusSeverity(data.status)"
+                                :value="statusLabel(row.status)"
+                                :severity="statusSeverity(row.status)"
                             />
-                        </template>
-                    </Column>
-                    <Column :header="t('runs.colMode')">
-                        <template #body="{data}">
-                            {{ runModeLabel(data.mode, t) }}
-                        </template>
-                    </Column>
-                    <Column :header="t('runs.colThreshold')">
-                        <template #body="{data}">
-                            {{ data.severityThreshold === 'all' ? t('common.severity.all') : data.severityThreshold }}
-                        </template>
-                    </Column>
-                    <Column :header="t('runs.colExecutor')">
-                        <template #body="{data}">
-                            <Tag :value="runExecutorLabel(data.executorKind, t)" severity="secondary" />
-                        </template>
-                    </Column>
-                    <Column :header="t('runs.colStartedAt')">
-                        <template #body="{data}">
-                            {{ data.startedAt ? d(new Date(data.startedAt), 'long') : '—' }}
-                        </template>
-                    </Column>
-                    <Column :header="t('runs.colAlerts')">
-                        <template #body="{data}">
-                            {{ alertsFound(data.summary) }}
-                        </template>
-                    </Column>
-                    <Column :header="t('runs.colFixed')">
-                        <template #body="{data}">
-                            {{ (data.summary as Record<string, number> | null)?.alertsFixed ?? 0 }}
-                        </template>
-                    </Column>
-                    <Column :header="t('runs.colActions')" :style="{width: '120px'}">
-                        <template #body="{data}">
-                            <Button
-                                icon="pi pi-eye"
-                                text
-                                rounded
-                                size="small"
-                                :aria-label="t('runs.actionViewDetail')"
-                                :title="t('runs.actionViewDetail')"
-                                @click="openRunDetail(data.id)"
-                            />
-                        </template>
-                    </Column>
-                </DataTable>
+                        </span>
+                        <Tag
+                            v-else
+                            :value="statusLabel(row.status)"
+                            :severity="statusSeverity(row.status)"
+                        />
+                    </template>
+                    <template #cell-mode="{row}">
+                        {{ runModeLabel(row.mode, t) }}
+                    </template>
+                    <template #cell-threshold="{row}">
+                        {{ row.severityThreshold === 'all' ? t('common.severity.all') : row.severityThreshold }}
+                    </template>
+                    <template #cell-executor="{row}">
+                        <Tag :value="runExecutorLabel(row.executorKind, t)" severity="secondary" />
+                    </template>
+                    <template #cell-startedAt="{row}">
+                        {{ row.startedAt ? d(new Date(row.startedAt), 'long') : '—' }}
+                    </template>
+                    <template #cell-alerts="{row}">
+                        {{ alertsFound(row.summary) }}
+                    </template>
+                    <template #cell-fixed="{row}">
+                        {{ (row.summary as Record<string, number> | null)?.alertsFixed ?? 0 }}
+                    </template>
+                    <template #cell-actions="{row}">
+                        <Button
+                            icon="pi pi-eye"
+                            text
+                            rounded
+                            size="small"
+                            :aria-label="t('runs.actionViewDetail')"
+                            :title="t('runs.actionViewDetail')"
+                            @click="openRunDetail(row.id)"
+                        />
+                    </template>
+                </CaomeiDataTable>
             </template>
         </Card>
         <p

@@ -34,8 +34,8 @@ test.describe('凭据管理 CRUD（todo.md §M16.5）', () => {
         await page.goto('/credentials')
         await waitForHydration(page)
         await expect(page.locator('h2')).toContainText('凭据管理', { timeout: 15000 })
-        await expect(page.locator('.p-datatable')).toBeVisible()
-        await expect(page.locator('.p-datatable')).toContainText(name, { timeout: 15000 })
+        await expect(page.locator('.caomei-data-table')).toBeVisible()
+        await expect(page.locator('.caomei-data-table')).toContainText(name, { timeout: 15000 })
         // 脱敏：token 明文不应在页面 DOM
         const html = await page.content()
         expect(html).not.toContain(token)
@@ -64,7 +64,7 @@ test.describe('凭据管理 CRUD（todo.md §M16.5）', () => {
         // 成功 toast
         await expect(page.locator('.p-message-success')).toContainText('凭据已添加', { timeout: 15000 })
         // 列表新增
-        await expect(page.locator('.p-datatable')).toContainText(name)
+        await expect(page.locator('.caomei-data-table')).toContainText(name)
     })
 
     test('编辑凭据：token 留空不修改', async ({ page }) => {
@@ -79,9 +79,9 @@ test.describe('凭据管理 CRUD（todo.md §M16.5）', () => {
 
         await page.goto('/credentials')
         await waitForHydration(page)
-        await expect(page.locator('.p-datatable')).toContainText(name, { timeout: 15000 })
+        await expect(page.locator('.caomei-data-table')).toContainText(name, { timeout: 15000 })
         // 找该行点击编辑按钮（pi-pencil）
-        const row = page.locator('.p-datatable-tbody tr', { hasText: name })
+        const row = page.locator('.caomei-data-table__row', { hasText: name })
         await row.locator('button[aria-label="编辑"]').click()
         await expect(page.locator('.p-dialog-header')).toContainText('编辑凭据', { timeout: 15000 })
         // token 输入框为空（编辑模式留空不修改）
@@ -91,7 +91,7 @@ test.describe('凭据管理 CRUD（todo.md §M16.5）', () => {
         await page.locator('.p-dialog button:has-text("保存")').click()
         await expect(page.locator('.p-message-success')).toContainText('凭据已更新', { timeout: 15000 })
         // 列表显示新名
-        await expect(page.locator('.p-datatable')).toContainText(`${name}-renamed`)
+        await expect(page.locator('.caomei-data-table')).toContainText(`${name}-renamed`)
     })
 
     test('删除凭据：列表移除', async ({ page }) => {
@@ -105,19 +105,19 @@ test.describe('凭据管理 CRUD（todo.md §M16.5）', () => {
 
         await page.goto('/credentials')
         await waitForHydration(page)
-        await expect(page.locator('.p-datatable')).toContainText(name, { timeout: 15000 })
+        await expect(page.locator('.caomei-data-table')).toContainText(name, { timeout: 15000 })
         // Confirm dialog（PrimeVue 4 默认 confirm-popup）需先拦截
         page.once('dialog', (dialog) => dialog.accept())
-        const row = page.locator('.p-datatable-tbody tr', { hasText: name })
+        const row = page.locator('.caomei-data-table__row', { hasText: name })
         await row.locator('button[aria-label="删除"]').click()
         await expect(page.locator('.p-message-success')).toContainText('凭据已删除', { timeout: 15000 })
         // 列表不应再含该名
-        await expect(page.locator('.p-datatable')).not.toContainText(name)
+        await expect(page.locator('.caomei-data-table')).not.toContainText(name)
     })
 
     test('列表分页：seed 多条后翻页控件可见（M14.2 已闭环分页契约）', async ({ page }) => {
         // 简化版断言：DataTable 容器渲染 + 翻页器在有数据时可见
-        // PrimeVue DataTable 在 0 数据时**不渲染** paginator（只渲染 empty-message）；
+        // caomei DataTable 在 0 数据时**不渲染** paginator（只渲染空态）；
         // 先 seed 1 条让 DataTable 进入有数据态
         const stamp = Date.now()
         const name = `cred-paging-${stamp}`
@@ -128,9 +128,9 @@ test.describe('凭据管理 CRUD（todo.md §M16.5）', () => {
         })
         await page.goto('/credentials')
         await waitForHydration(page)
-        await expect(page.locator('.p-datatable')).toBeVisible({ timeout: 15000 })
-        await expect(page.locator('.p-datatable')).toContainText(name)
-        // PrimeVue DataTable 有数据时渲染 .p-paginator（分页 UI）
+        await expect(page.locator('.caomei-data-table')).toBeVisible({ timeout: 15000 })
+        await expect(page.locator('.caomei-data-table')).toContainText(name)
+        // DataTable 有数据时渲染分页 UI（caomei：`.caomei-data-table__pagination` / `.caomei-paginator`）
         // 这里只断言 DataTable 渲染（不强制 paginator 出现 — 实际由 pageSize 与 total 决定）
         // M14.2 /api/credentials 单测已覆盖分页契约
     })

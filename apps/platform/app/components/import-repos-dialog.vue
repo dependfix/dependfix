@@ -109,6 +109,22 @@ const pagedRepos = computed(() => {
     return filteredRepos.value.slice(start, start + pageSize.value)
 })
 
+/**
+ * caomei Paginator 的 `page` 为 1 基，本页 `currentPage` 为 0 基：
+ * 用 computed 做双向换算，保持下游分页切片（`currentPage * pageSize`）与重置逻辑不变。
+ */
+const paginatorPage = computed({
+    get: () => currentPage.value + 1,
+    set: (page: number) => {
+        currentPage.value = page - 1
+    },
+})
+
+/** 每页条数切换：caomei emit `update:items-per-page`（切档时会同步重推 page 以保持首行偏移） */
+const onItemsPerPageChange = (value: number) => {
+    pageSize.value = value
+}
+
 /** 缓存时间距今分钟数（向上取整，至少 0） */
 const cachedMinutesAgo = computed(() => {
     if (!lastCachedAt.value) {
@@ -474,19 +490,21 @@ const submitImport = async () => {
                     </div>
                 </div>
 
-                <!-- 分页器（默认 pageSize=25，可切 50/100；docs/plan/todo.md §PR3-2 C49） -->
-                <Paginator
-                    :rows="pageSize"
-                    :total-records="filteredRepos.length"
-                    :first="currentPage * pageSize"
-                    :rows-per-page-options="[25, 50, 100]"
-                    template="PrevPageLink CurrentPageReport NextPageLink RowsPerPageDropdown"
-                    :current-page-report-template="t('repos.importPaginationPageInfo', {current: '{currentPage}', page: '{totalPages}'})"
-                    @page="(e: { page: number, rows: number, first: number }) => {
-                        currentPage = e.page
-                        pageSize = e.rows
-                    }"
-                />
+                <!-- 分页器（默认 pageSize=25，可切 50/100；docs/plan/todo.md §PR3-2 C49）
+                     迁移：PrimeVue `<Paginator>` → `CaomeiPaginator`（page 1 基，经 `paginatorPage` 换算）；
+                     `template` / `current-page-report-template` 为 PrimeVue 专有 prop 已删除，页码报表改为自渲染 `span` -->
+                <div class="import-form__pagination">
+                    <CaomeiPaginator
+                        v-model:page="paginatorPage"
+                        :total="filteredRepos.length"
+                        :items-per-page="pageSize"
+                        :rows-per-page-options="[25, 50, 100]"
+                        @update:items-per-page="onItemsPerPageChange"
+                    />
+                    <span class="import-form__pagination-report">
+                        {{ t('repos.importPaginationPageInfo', {current: paginatorPage, page: pageCount}) }}
+                    </span>
+                </div>
             </template>
             <p v-else-if="!importLoading && importCredentialId" class="text-muted">
                 {{ t('repos.importNoRepos') }}
@@ -605,6 +623,20 @@ const submitImport = async () => {
         flex-direction: column;
         flex: 1;
         min-width: 0;
+    }
+
+    &__pagination {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: $space-3;
+        flex-wrap: wrap;
+    }
+
+    // 页码报表（原 PrimeVue `current-page-report-template` 自渲染替代）
+    &__pagination-report {
+        font-size: $font-size-sm;
+        color: $color-text-muted;
     }
 
     &__actions {

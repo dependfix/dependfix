@@ -24,9 +24,9 @@ test.describe('管理后台角色权限（todo.md §M16.5）', () => {
         await page.goto('/users')
         // 页面应渲染用户列表
         await expect(page.locator('h2')).toContainText('用户管理', { timeout: 15000 })
-        await expect(page.locator('.p-datatable')).toBeVisible()
+        await expect(page.locator('.caomei-data-table')).toBeVisible()
         // 包含已注册 admin / viewer 账号
-        await expect(page.locator('.p-datatable')).toContainText('e2e-admin@dependfix.test')
+        await expect(page.locator('.caomei-data-table')).toContainText('e2e-admin@dependfix.test')
     })
 
     test('viewer 访问 /users → 重定向到 /dashboard（roles:["admin"] 不匹配）', async ({ browser }) => {

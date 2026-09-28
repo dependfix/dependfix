@@ -26,13 +26,13 @@ export interface DashboardStats {
     } | null
 }
 
-/** severity 5 色映射：复用 PrimeVue Tag 配色映射（与 severityTagSeverity 视觉一致） */
+/** severity 5 色映射：dashboard 严重级别图表配色（迁移前即固定的可视化取值，不随组件库更换） */
 export const SEVERITY_COLORS: Record<string, string> = {
-    critical: '#e11d48', // danger
-    high: '#f59e0b', // warn
-    medium: '#3b82f6', // info
-    low: '#64748b', // secondary
-    unknown: '#94a3b8', // secondary (lighter)
+    critical: '#e11d48',
+    high: '#f59e0b',
+    medium: '#3b82f6',
+    low: '#64748b',
+    unknown: '#94a3b8',
 }
 
 /** Top-10 包柱状图截断阈值（避免 x 轴标签拥挤） */
@@ -41,7 +41,7 @@ export const TOP_PACKAGES_LIMIT = 10
 /** Top-10 包柱状图 x 轴标签截断阈值（tooltip 显示完整名） */
 const TOP_PACKAGE_LABEL_MAX = 20
 
-/** severity 桶顺序（与 primevue tag severity 视觉对齐） */
+/** severity 桶顺序（与 dashboard 严重级别 Tag 的 tone 视觉顺序对齐） */
 const SEVERITY_ORDER = ['critical', 'high', 'medium', 'low', 'unknown'] as const
 
 /**

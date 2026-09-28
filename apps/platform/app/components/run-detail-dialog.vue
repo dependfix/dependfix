@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { DataTableColumn } from 'caomei-ui'
+import { Copy } from '@lucide/vue'
 import {
     alertsFound,
     formatRunDuration,
@@ -35,7 +36,7 @@ interface RunDetailView {
     error: { code: string, message: string } | null
     results: RunResultView[]
     /**
-     * AI 研判用量聚合（todo.md §M26.1 + [platform-ai-integration.md §RunDetailDialog AI 用量 section](../design/governance/platform-ai-integration.md)）。
+     * AI 研判用量聚合（设计见 [platform-ai-integration.md §RunDetailDialog AI 用量 section](../design/governance/platform-ai-integration.md)）。
      * - 当次扫描未启用 AI 研判时为 null（前端条件渲染隐藏整个 section）
      * - 字段：calls / inputTokens / outputTokens / totalTokens / estimatedCostUsd
      */
@@ -61,7 +62,7 @@ const emit = defineEmits<{
 
 const { t, d } = useI18n()
 
-/** 列定义（caomei DataTable 用 `columns` 数组 + `#cell-{key}` 插槽替代 PrimeVue 的 `<Column>`） */
+/** 列定义（caomei DataTable 用 `columns` 数组 + `#cell-{key}` 插槽） */
 const resultColumns = computed<DataTableColumn<RunResultView>[]>(() => [
     { key: 'packageName', header: t('runs.colPackage') },
     { key: 'severity', header: t('runs.colSeverity') },
@@ -94,16 +95,16 @@ const statusLabel = (status: string) => ({
     degraded: t('runs.statusDegraded'),
 })[status] ?? status
 
-const statusSeverity = (status: string) => {
+const statusTone = (status: string) => {
     switch (status) {
         case 'completed':
             return 'success' as const
         case 'failed':
             return 'danger' as const
         case 'dispatched':
-            return 'info' as const
+            return 'primary' as const
         default:
-            return 'warn' as const
+            return 'warning' as const
     }
 }
 
@@ -178,11 +179,10 @@ watch(() => props.runId, (runId) => {
 </script>
 
 <template>
-    <Dialog
-        v-model:visible="visible"
-        :header="dialogTitle"
+    <CaomeiDialog
+        v-model:open="visible"
+        :title="dialogTitle"
         modal
-        :draggable="false"
         :style="{width: '720px'}"
         :breakpoints="{'1199px': '75vw', '575px': '90vw'}"
         @hide="reset"
@@ -190,13 +190,13 @@ watch(() => props.runId, (runId) => {
         <div v-if="loading" class="text-muted">
             {{ t('common.empty.loading') }}
         </div>
-        <Message
+        <CaomeiMessage
             v-else-if="error"
-            severity="error"
+            tone="danger"
             :closable="false"
         >
             {{ error }}
-        </Message>
+        </CaomeiMessage>
         <template v-else-if="detail">
             <div class="run-detail__meta">
                 <div class="run-detail__meta-item">
@@ -229,7 +229,9 @@ watch(() => props.runId, (runId) => {
                 </div>
                 <div class="run-detail__meta-item">
                     <span class="run-detail__meta-label">{{ t('alerts.detailRunStatus') }}</span>
-                    <Tag :value="statusLabel(detail.status)" :severity="statusSeverity(detail.status)" />
+                    <CaomeiTag :tone="statusTone(detail.status)">
+                        {{ statusLabel(detail.status) }}
+                    </CaomeiTag>
                 </div>
             </div>
             <div
@@ -271,9 +273,9 @@ watch(() => props.runId, (runId) => {
             >
                 {{ t('alerts.detailRunOpen') }}
             </a>
-            <Message
+            <CaomeiMessage
                 v-if="detail.status === 'failed'"
-                severity="error"
+                tone="danger"
                 :closable="false"
             >
                 <strong>{{ t('runs.errorTitle', {code: detail.error?.code ?? 'UNKNOWN'}) }}</strong>
@@ -283,19 +285,22 @@ watch(() => props.runId, (runId) => {
                 <p v-else class="run-detail__error-message text-muted">
                     {{ t('runs.errorNoDetail') }}
                 </p>
-            </Message>
+            </CaomeiMessage>
             <div v-if="detail.logs && detail.logs.length > 0" class="run-detail__logs">
                 <div class="run-detail__logs-header">
                     <span class="run-detail__logs-title">{{ t('runs.logsTitle') }}</span>
-                    <Button
-                        icon="pi pi-copy"
-                        text
+                    <CaomeiButton
+                        variant="ghost"
                         rounded
-                        size="small"
+                        size="sm"
                         :aria-label="t('runs.logsCopy')"
                         :title="t('runs.logsCopy')"
                         @click="copyLogs"
-                    />
+                    >
+                        <template #icon>
+                            <CaomeiIcon :icon="Copy" />
+                        </template>
+                    </CaomeiButton>
                 </div>
                 <div class="run-detail__logs-scroll" style="height: 200px; overflow: auto">
                     <div class="run-detail__logs-content">
@@ -320,16 +325,18 @@ watch(() => props.runId, (runId) => {
                 :empty-text="t('runs.detailEmpty')"
             >
                 <template #cell-severity="{row}">
-                    <Tag
-                        :value="row.severity"
-                        :severity="row.severity === 'critical' ? 'danger' : row.severity === 'high' ? 'warn' : 'info'"
-                    />
+                    <CaomeiTag
+                        :tone="row.severity === 'critical' ? 'danger' : row.severity === 'high' ? 'warning' : 'primary'"
+                    >
+                        {{ row.severity }}
+                    </CaomeiTag>
                 </template>
                 <template #cell-fixable="{row}">
-                    <Tag
-                        :value="row.fixable ? t('common.yes') : t('common.no')"
-                        :severity="row.fixable ? 'success' : 'secondary'"
-                    />
+                    <CaomeiTag
+                        :tone="row.fixable ? 'success' : 'neutral'"
+                    >
+                        {{ row.fixable ? t('common.yes') : t('common.no') }}
+                    </CaomeiTag>
                 </template>
                 <template #cell-link="{row}">
                     <a
@@ -344,7 +351,7 @@ watch(() => props.runId, (runId) => {
                 </template>
             </CaomeiDataTable>
         </template>
-    </Dialog>
+    </CaomeiDialog>
 </template>
 
 <style lang="scss" scoped>

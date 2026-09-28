@@ -11,11 +11,11 @@ test.describe('仪表板', () => {
         await page.goto('/dashboard')
         await waitForHydration(page)
         await expect(page.locator('h2')).toContainText('仪表板')
-        // 统计区域：仓库数 / 告警总数 / 已修复数 / 最近扫描——C61 后图表卡（dashboard__charts）扩展到 7 张
+        // 统计区域：仓库数 / 告警总数 / 已修复数 / 最近扫描，共 4 张卡片
         await expect(page.locator('.dashboard')).toBeVisible()
-        await expect(page.locator('.dashboard__stats .p-card')).toHaveCount(4, { timeout: 15000 })
-        // 图表区 3 张卡片（C61 新增 severity/fixRate/topPackages）
-        await expect(page.locator('.dashboard__charts .p-card')).toHaveCount(3, { timeout: 15000 })
+        await expect(page.locator('.dashboard__stats .caomei-card')).toHaveCount(4, { timeout: 15000 })
+        // 图表区 3 张卡片（severity / fixRate / topPackages）
+        await expect(page.locator('.dashboard__charts .caomei-card')).toHaveCount(3, { timeout: 15000 })
     })
 
     test('导航栏渲染完整', async ({ page }) => {
@@ -50,16 +50,16 @@ test.describe('仓库管理', () => {
         await page.locator('input#name').fill(name)
         // 切换执行方式为 GitHub Action
         await page.locator('#executorKind').click()
-        await page.locator('.p-select-option:has-text("GitHub Action")').click()
+        await page.locator('.caomei-select__content .caomei-select__item:has-text("GitHub Action")').click()
         // workflow 输入框条件出现
         await expect(page.locator('input#actionWorkflowFile')).toBeVisible()
         // 不填 workflow 直接保存 → 表单校验失败
         await page.locator('button[type="submit"]').click()
-        await expect(page.locator('.p-message-error')).toBeVisible()
+        await expect(page.locator('.caomei-message--danger')).toBeVisible()
         // 填 workflow 后保存成功
         await page.locator('input#actionWorkflowFile').fill('.github/workflows/security.yml')
         await page.locator('button[type="submit"]').click()
-        await expect(page.locator('.p-message-success')).toContainText('仓库已添加', { timeout: 15000 })
+        await expect(page.locator('.caomei-message--success')).toContainText('仓库已添加', { timeout: 15000 })
     })
 
     test('平台容器模式不显示 workflow 输入框', async ({ page }) => {
@@ -74,23 +74,29 @@ test.describe('仓库管理', () => {
         await page.goto('/repos')
         await waitForHydration(page)
         await page.locator('button:has-text("批量导入")').click()
-        await expect(page.locator('.p-dialog-header')).toContainText('批量导入仓库', { timeout: 15000 })
+        await expect(page.locator('.caomei-dialog__header')).toContainText('批量导入仓库', { timeout: 15000 })
         await expect(page.locator('#importCredential')).toBeVisible()
         // 无凭据时提示先选择
         await expect(page.locator('text=请先选择 GitHub 凭据')).toBeVisible()
     })
 
-    test('批量导入对话框默认不勾选仓库（手滑防护，见 docs/plan/todo.md §PR1 C48）', async ({ page }) => {
+    test('批量导入对话框默认不勾选仓库（手滑防护）', async ({ page }) => {
         await page.goto('/repos')
         await waitForHydration(page)
         await page.locator('button:has-text("批量导入")').click()
-        await expect(page.locator('.p-dialog-header')).toContainText('批量导入仓库', { timeout: 15000 })
-        // Dialog 内不应存在任何已勾选 checkbox（默认全空——见 docs/plan/todo.md §PR1 C48）
-        await expect(page.locator('.p-dialog input[type="checkbox"]:checked')).toHaveCount(0)
-        // 全选 checkbox 仍可见可点：勾上后才有 checked 状态
-        const selectAllCheckbox = page.locator('.p-dialog .import-form__list-actions input[type="checkbox"]')
-        if (await selectAllCheckbox.count()) {
-            await expect(selectAllCheckbox).not.toBeChecked()
+        await expect(page.locator('.caomei-dialog__header')).toContainText('批量导入仓库', { timeout: 15000 })
+        const dialog = page.locator('.caomei-dialog__content')
+        // Dialog 内不应存在任何已勾选 checkbox（默认全空）
+        await expect(dialog.locator('button.caomei-checkbox__control[data-state="checked"]')).toHaveCount(0)
+        // 全选控件仅在「有可导入仓库」时渲染（e2e 无真实 GitHub 凭据 → 通常走空态分支）。
+        // 两条分支都必须给出实质断言：有候选时全选默认未勾选且可点击翻转为选中；无候选时明确处于空态。
+        const selectAll = dialog.locator('.import-form__meta button.caomei-checkbox__control')
+        if (await selectAll.count()) {
+            await expect(selectAll).toHaveAttribute('data-state', 'unchecked')
+            await selectAll.click()
+            await expect(selectAll).toHaveAttribute('data-state', 'checked')
+        } else {
+            await expect(dialog.locator('text=请先选择 GitHub 凭据')).toBeVisible({ timeout: 10000 })
         }
     })
 })
@@ -134,7 +140,7 @@ test.describe('用户管理（admin）', () => {
     test('搜索过滤用户', async ({ page }) => {
         await page.goto('/users')
         await waitForHydration(page)
-        await page.locator('.users__search').fill('e2e-viewer')
+        await page.locator('.users__search input').fill('e2e-viewer')
         await expect(page.locator('.caomei-data-table')).toContainText('e2e-viewer@dependfix.test', { timeout: 15000 })
         await expect(page.locator('.caomei-data-table')).not.toContainText('e2e-admin@dependfix.test')
     })
@@ -142,7 +148,7 @@ test.describe('用户管理（admin）', () => {
     test('角色分配下拉框可用', async ({ page }) => {
         await page.goto('/users')
         await waitForHydration(page)
-        const roleSelects = page.locator('.caomei-data-table .p-select')
+        const roleSelects = page.locator('.caomei-data-table button.caomei-select')
         await expect(roleSelects.first()).toBeVisible({ timeout: 15000 })
     })
 
@@ -152,16 +158,17 @@ test.describe('用户管理（admin）', () => {
         // 自己 row（当前登录 admin = e2e-admin@dependfix.test）role Select 应禁用
         const selfRow = page.locator('.caomei-data-table__row', { hasText: 'e2e-admin@dependfix.test' })
         await expect(selfRow).toBeVisible({ timeout: 15000 })
-        // PrimeVue 4 Select（非 editable 形态）把 disabled 写到内部 combobox span 的 aria-disabled，
-        // root 不渲染 p-disabled class；定位 role="combobox" 的 span 断言 aria-disabled="true"
-        const selfCombobox = selfRow.locator('.p-select span[role="combobox"]')
-        await expect(selfCombobox).toHaveAttribute('aria-disabled', 'true')
+        // caomei Select 触发器是 button.caomei-select，禁用态同时落在原生 disabled 与 --disabled 修饰类上
+        const selfTrigger = selfRow.locator('button.caomei-select')
+        await expect(selfTrigger).toBeDisabled()
+        await expect(selfTrigger).toHaveClass(/caomei-select--disabled/)
 
         // 他人 row（viewer）的 role Select 仍可用
         const otherRow = page.locator('.caomei-data-table__row', { hasText: 'e2e-viewer@dependfix.test' })
         await expect(otherRow).toBeVisible({ timeout: 15000 })
-        const otherCombobox = otherRow.locator('.p-select span[role="combobox"]')
-        await expect(otherCombobox).toHaveAttribute('aria-disabled', 'false')
+        const otherTrigger = otherRow.locator('button.caomei-select')
+        await expect(otherTrigger).toBeEnabled()
+        await expect(otherTrigger).not.toHaveClass(/caomei-select--disabled/)
     })
 
     test('服务端强制拦截（绕过前端 UI 直接调 API）', async ({ page }) => {
@@ -331,9 +338,9 @@ test.describe('个人设置', () => {
         await page.goto('/settings')
         await waitForHydration(page)
         await expect(page.locator('h2')).toContainText('个人设置')
-        await expect(page.locator('.p-card')).toHaveCount(6, { timeout: 15000 })
+        await expect(page.locator('.caomei-card')).toHaveCount(6, { timeout: 15000 })
         // 语义化抽样：ai-config-form 卡片标题存在（防 ai-config-form 后续被改回 5 张时回归）
-        await expect(page.locator('.p-card').filter({ hasText: 'Organization AI 配置' })).toHaveCount(1)
+        await expect(page.locator('.caomei-card').filter({ hasText: 'Organization AI 配置' })).toHaveCount(1)
     })
 
     test('修改显示名并同步头部', async ({ page }) => {
@@ -343,7 +350,7 @@ test.describe('个人设置', () => {
         await expect(nameInput).toBeVisible({ timeout: 15000 })
         await nameInput.fill('E2E Renamed')
         await page.locator('button:has-text("保存资料")').click()
-        await expect(page.locator('.p-message-success')).toContainText('个人资料已更新', { timeout: 15000 })
+        await expect(page.locator('.caomei-message--success')).toContainText('个人资料已更新', { timeout: 15000 })
         // 头部用户名同步
         await expect(page.locator('.platform__user-name')).toContainText('E2E Renamed')
     })
@@ -351,12 +358,12 @@ test.describe('个人设置', () => {
     test('修改密码需当前密码', async ({ page }) => {
         await page.goto('/settings')
         await waitForHydration(page)
-        await expect(page.locator('#currentPassword input')).toBeVisible({ timeout: 15000 })
-        await page.locator('#currentPassword input').fill('wrong-current')
-        await page.locator('#newPassword input').fill('NewPassword123')
-        await page.locator('#confirmPassword input').fill('NewPassword123')
+        await expect(page.locator('input#currentPassword')).toBeVisible({ timeout: 15000 })
+        await page.locator('input#currentPassword').fill('wrong-current')
+        await page.locator('input#newPassword').fill('NewPassword123')
+        await page.locator('input#confirmPassword').fill('NewPassword123')
         await page.locator('button:has-text("修改密码")').click()
         // 错误当前密码 → 报错（better-auth INVALID_PASSWORD）
-        await expect(page.locator('.p-message-error')).toBeVisible({ timeout: 15000 })
+        await expect(page.locator('.caomei-message--danger')).toBeVisible({ timeout: 15000 })
     })
 })

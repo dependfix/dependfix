@@ -3,7 +3,8 @@
 // 数据源：GET /api/audit-events（sandbox 启动降级 / 运行时失败事件 + 通知状态）
 // 过滤维度：type / severity / notified / repositoryId
 import { computed } from 'vue'
-import type { DataTableColumn } from 'caomei-ui'
+import { ChevronDown, ChevronUp, Funnel } from '@lucide/vue'
+import type { DataTableColumn, InputType } from 'caomei-ui'
 import { withEnvEventSeverityRank } from '~/utils/sort-helpers'
 
 definePageMeta({
@@ -11,6 +12,12 @@ definePageMeta({
 })
 
 const { t } = useI18n()
+
+/**
+ * caomei Input 的 `type` 联合仅含 text/password/email/search/tel/url，但内层原生 input 原样透传
+ * 该属性，datetime-local 在浏览器可用；此处收窄以在保留 CaomeiInput 样式的同时支持时间范围筛选。
+ */
+const dateTimeLocalType = 'datetime-local' as unknown as InputType
 
 interface EnvEventView {
     id: string
@@ -64,18 +71,18 @@ const notifiedOptions = computed(() => [
     { label: t('envEvents.notifiedNo'), value: 'false' },
 ])
 
-const severityTagSeverity = (severity: string) => {
+const severityTagTone = (severity: string) => {
     switch (severity) {
         case 'critical':
             return 'danger'
         case 'error':
             return 'danger'
         case 'warn':
-            return 'warn'
+            return 'warning'
         case 'info':
-            return 'info'
+            return 'primary'
         default:
-            return 'secondary'
+            return 'neutral'
     }
 }
 
@@ -194,133 +201,131 @@ onMounted(fetchEvents)
             </div>
         </div>
 
-        <Card class="env-events__filters">
-            <template #content>
-                <div class="env-events__filter-row">
-                    <div class="env-events__filter-field">
-                        <label for="type">{{ t('envEvents.filterType') }}</label>
-                        <Select
-                            id="type"
-                            v-model="filters.type"
-                            :options="typeOptions"
-                            option-label="label"
-                            option-value="value"
-                            fluid
-                        />
-                    </div>
-                    <div class="env-events__filter-field">
-                        <label for="severity">{{ t('envEvents.filterSeverity') }}</label>
-                        <Select
-                            id="severity"
-                            v-model="filters.severity"
-                            :options="severityOptions"
-                            option-label="label"
-                            option-value="value"
-                            fluid
-                        />
-                    </div>
-                    <div class="env-events__filter-field">
-                        <label for="notified">{{ t('envEvents.filterNotified') }}</label>
-                        <Select
-                            id="notified"
-                            v-model="filters.notified"
-                            :options="notifiedOptions"
-                            option-label="label"
-                            option-value="value"
-                            fluid
-                        />
-                    </div>
-                    <div class="env-events__filter-field">
-                        <label for="from">{{ t('envEvents.filterFrom') }}</label>
-                        <InputText
-                            id="from"
-                            v-model="filters.from"
-                            type="datetime-local"
-                            fluid
-                        />
-                    </div>
-                    <div class="env-events__filter-field">
-                        <label for="to">{{ t('envEvents.filterTo') }}</label>
-                        <InputText
-                            id="to"
-                            v-model="filters.to"
-                            type="datetime-local"
-                            fluid
-                        />
-                    </div>
-                    <div class="env-events__filter-action">
-                        <Button
-                            :label="t('envEvents.filterApply')"
-                            icon="pi pi-filter"
-                            @click="fetchEvents"
-                        />
-                    </div>
+        <CaomeiCard class="env-events__filters">
+            <div class="env-events__filter-row">
+                <div class="env-events__filter-field">
+                    <label for="type">{{ t('envEvents.filterType') }}</label>
+                    <CaomeiSelect
+                        id="type"
+                        v-model="filters.type"
+                        :options="typeOptions"
+                        option-label="label"
+                        option-value="value"
+                    />
                 </div>
-            </template>
-        </Card>
+                <div class="env-events__filter-field">
+                    <label for="severity">{{ t('envEvents.filterSeverity') }}</label>
+                    <CaomeiSelect
+                        id="severity"
+                        v-model="filters.severity"
+                        :options="severityOptions"
+                        option-label="label"
+                        option-value="value"
+                    />
+                </div>
+                <div class="env-events__filter-field">
+                    <label for="notified">{{ t('envEvents.filterNotified') }}</label>
+                    <CaomeiSelect
+                        id="notified"
+                        v-model="filters.notified"
+                        :options="notifiedOptions"
+                        option-label="label"
+                        option-value="value"
+                    />
+                </div>
+                <div class="env-events__filter-field">
+                    <label for="from">{{ t('envEvents.filterFrom') }}</label>
+                    <CaomeiInput
+                        id="from"
+                        v-model="filters.from"
+                        :type="dateTimeLocalType"
+                    />
+                </div>
+                <div class="env-events__filter-field">
+                    <label for="to">{{ t('envEvents.filterTo') }}</label>
+                    <CaomeiInput
+                        id="to"
+                        v-model="filters.to"
+                        :type="dateTimeLocalType"
+                    />
+                </div>
+                <div class="env-events__filter-action">
+                    <CaomeiButton @click="fetchEvents">
+                        <template #icon>
+                            <CaomeiIcon :icon="Funnel" />
+                        </template>
+                        {{ t('envEvents.filterApply') }}
+                    </CaomeiButton>
+                </div>
+            </div>
+        </CaomeiCard>
 
-        <Message
+        <CaomeiMessage
             v-if="error"
-            severity="error"
+            tone="danger"
             :closable="false"
         >
             {{ error }}
-        </Message>
+        </CaomeiMessage>
 
-        <Card v-if="!loading" class="env-events__table">
-            <template #content>
-                <!-- caomei 无 DataTable `scrollable` / `scroll-height`：用外层容器 + CSS 承接滚动（配方 §5） -->
-                <div class="env-events__table-scroll">
-                    <CaomeiDataTable
-                        :data="events"
-                        :columns="columns"
-                        row-key="id"
-                        striped
-                        :empty-text="t('envEvents.empty')"
-                    >
-                        <template #cell-type="{row}">
-                            <Tag :value="typeLabel(row.type)" severity="secondary" />
-                        </template>
-                        <template #cell-_severityRank="{row}">
-                            <Tag :value="row.severity" :severity="severityTagSeverity(row.severity)" />
-                        </template>
-                        <template #cell-messageText="{row}">
-                            <span v-if="!isExpanded(row.id)" class="env-events__message-preview">
-                                {{ (() => {
-                                    const p = parsePayload(row.payloadJson)
-                                    if (!p) return '—'
-                                    const m = (p.degradedReason as {message?: string} | undefined)?.message
-                                        ?? (p.message as string | undefined)
-                                    return m ?? '—'
-                                })() }}
-                            </span>
-                            <pre v-else class="env-events__message-full">{{ row.payloadJson ?? '—' }}</pre>
-                            <Button
-                                v-if="row.payloadJson"
-                                :label="isExpanded(row.id) ? t('envEvents.collapse') : t('envEvents.expand')"
-                                :icon="isExpanded(row.id) ? 'pi pi-chevron-up' : 'pi pi-chevron-down'"
-                                text
-                                size="small"
-                                class="env-events__expand-btn"
-                                @click="toggleExpanded(row.id)"
-                            />
-                        </template>
-                        <template #cell-notified="{row}">
-                            <Tag
-                                :value="row.notified ? t('envEvents.notifiedYes') : t('envEvents.notifiedNo')"
-                                :severity="row.notified ? 'success' : 'secondary'"
-                            />
-                            <small v-if="row.notifiedVia" class="env-events__notified-via text-muted">
-                                via {{ row.notifiedVia }}
-                            </small>
-                        </template>
-                        <template #cell-createdAt="{row}">
-                            {{ formatTime(row.createdAt) }}
-                        </template>
-                    </CaomeiDataTable>
-                </div>
-            </template>
-        </Card>
+        <CaomeiCard v-if="!loading" class="env-events__table">
+            <!-- caomei 无 DataTable `scrollable` / `scroll-height`：用外层容器 + CSS 承接滚动 -->
+            <div class="env-events__table-scroll">
+                <CaomeiDataTable
+                    :data="events"
+                    :columns="columns"
+                    row-key="id"
+                    striped
+                    :empty-text="t('envEvents.empty')"
+                >
+                    <template #cell-type="{row}">
+                        <CaomeiTag tone="neutral">
+                            {{ typeLabel(row.type) }}
+                        </CaomeiTag>
+                    </template>
+                    <template #cell-_severityRank="{row}">
+                        <CaomeiTag :tone="severityTagTone(row.severity)">
+                            {{ row.severity }}
+                        </CaomeiTag>
+                    </template>
+                    <template #cell-messageText="{row}">
+                        <span v-if="!isExpanded(row.id)" class="env-events__message-preview">
+                            {{ (() => {
+                                const p = parsePayload(row.payloadJson)
+                                if (!p) return '—'
+                                const m = (p.degradedReason as {message?: string} | undefined)?.message
+                                    ?? (p.message as string | undefined)
+                                return m ?? '—'
+                            })() }}
+                        </span>
+                        <pre v-else class="env-events__message-full">{{ row.payloadJson ?? '—' }}</pre>
+                        <CaomeiButton
+                            v-if="row.payloadJson"
+                            variant="ghost"
+                            size="sm"
+                            class="env-events__expand-btn"
+                            @click="toggleExpanded(row.id)"
+                        >
+                            <template #icon>
+                                <CaomeiIcon :icon="isExpanded(row.id) ? ChevronUp : ChevronDown" />
+                            </template>
+                            {{ isExpanded(row.id) ? t('envEvents.collapse') : t('envEvents.expand') }}
+                        </CaomeiButton>
+                    </template>
+                    <template #cell-notified="{row}">
+                        <CaomeiTag :tone="row.notified ? 'success' : 'neutral'">
+                            {{ row.notified ? t('envEvents.notifiedYes') : t('envEvents.notifiedNo') }}
+                        </CaomeiTag>
+                        <small v-if="row.notifiedVia" class="env-events__notified-via text-muted">
+                            via {{ row.notifiedVia }}
+                        </small>
+                    </template>
+                    <template #cell-createdAt="{row}">
+                        {{ formatTime(row.createdAt) }}
+                    </template>
+                </CaomeiDataTable>
+            </div>
+        </CaomeiCard>
         <p v-else class="text-muted">
             {{ t('common.empty.loading') }}
         </p>

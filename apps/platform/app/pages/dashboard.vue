@@ -29,16 +29,16 @@ const {
 
 onMounted(fetchStats)
 
-const severityTagSeverity = (severity: string) => {
+const severityTagTone = (severity: string) => {
     switch (severity) {
         case 'critical':
             return 'danger'
         case 'high':
-            return 'warn'
+            return 'warning'
         case 'medium':
-            return 'info'
+            return 'primary'
         default:
-            return 'secondary'
+            return 'neutral'
     }
 }
 </script>
@@ -50,56 +50,48 @@ const severityTagSeverity = (severity: string) => {
             {{ t('dashboard.welcome', {email: session?.user?.email}) }}
         </p>
 
-        <Message
+        <CaomeiMessage
             v-if="error"
-            severity="error"
+            tone="danger"
             :closable="false"
         >
             {{ error }}
-        </Message>
+        </CaomeiMessage>
 
         <template v-if="!loading && stats">
             <div class="dashboard__stats">
-                <Card class="dashboard__stat">
-                    <template #content>
-                        <div class="dashboard__stat-value">
-                            {{ stats.repositoryCount }}
-                        </div>
-                        <div class="dashboard__stat-label text-muted">
-                            {{ t('dashboard.repositoryCount') }}
-                        </div>
-                    </template>
-                </Card>
-                <Card class="dashboard__stat">
-                    <template #content>
-                        <div class="dashboard__stat-value">
-                            {{ stats.alertsTotal }}
-                        </div>
-                        <div class="dashboard__stat-label text-muted">
-                            {{ t('dashboard.alertsTotal') }}
-                        </div>
-                    </template>
-                </Card>
-                <Card class="dashboard__stat">
-                    <template #content>
-                        <div class="dashboard__stat-value">
-                            {{ stats.fixedCount }}
-                        </div>
-                        <div class="dashboard__stat-label text-muted">
-                            {{ t('dashboard.fixedCount') }}
-                        </div>
-                    </template>
-                </Card>
-                <Card class="dashboard__stat">
-                    <template #content>
-                        <div class="dashboard__stat-value dashboard__stat-value--sm">
-                            {{ stats.latestRun?.repository ?? '—' }}
-                        </div>
-                        <div class="dashboard__stat-label text-muted">
-                            {{ t('dashboard.latestRun') }}
-                        </div>
-                    </template>
-                </Card>
+                <CaomeiCard class="dashboard__stat">
+                    <div class="dashboard__stat-value">
+                        {{ stats.repositoryCount }}
+                    </div>
+                    <div class="dashboard__stat-label text-muted">
+                        {{ t('dashboard.repositoryCount') }}
+                    </div>
+                </CaomeiCard>
+                <CaomeiCard class="dashboard__stat">
+                    <div class="dashboard__stat-value">
+                        {{ stats.alertsTotal }}
+                    </div>
+                    <div class="dashboard__stat-label text-muted">
+                        {{ t('dashboard.alertsTotal') }}
+                    </div>
+                </CaomeiCard>
+                <CaomeiCard class="dashboard__stat">
+                    <div class="dashboard__stat-value">
+                        {{ stats.fixedCount }}
+                    </div>
+                    <div class="dashboard__stat-label text-muted">
+                        {{ t('dashboard.fixedCount') }}
+                    </div>
+                </CaomeiCard>
+                <CaomeiCard class="dashboard__stat">
+                    <div class="dashboard__stat-value dashboard__stat-value--sm">
+                        {{ stats.latestRun?.repository ?? '—' }}
+                    </div>
+                    <div class="dashboard__stat-label text-muted">
+                        {{ t('dashboard.latestRun') }}
+                    </div>
+                </CaomeiCard>
             </div>
 
             <div class="dashboard__severity">
@@ -110,7 +102,7 @@ const severityTagSeverity = (severity: string) => {
                         :key="severity"
                         class="dashboard__severity-item"
                     >
-                        <Tag :value="severity" :severity="severityTagSeverity(severity)" />
+                        <CaomeiTag :tone="severityTagTone(severity)">{{ severity }}</CaomeiTag>
                         <span class="dashboard__severity-count">
                             {{ stats.severityCounts[severity] ?? 0 }}
                         </span>
@@ -121,71 +113,65 @@ const severityTagSeverity = (severity: string) => {
             <div class="dashboard__charts">
                 <h3>{{ t('dashboard.chartTitle') }}</h3>
                 <div class="dashboard__charts-grid">
-                    <Card class="dashboard__chart-card">
-                        <template #content>
-                            <h4 class="dashboard__chart-title">
-                                {{ t('dashboard.severityChartTitle') }}
-                            </h4>
-                            <ClientOnly>
-                                <div class="dashboard__chart-canvas">
-                                    <chart-canvas
-                                        type="doughnut"
-                                        :data="severityChartData"
-                                        :options="severityChartOptions"
-                                        :aria-label="`${t('dashboard.severityChartTitle')}: ${Object.entries(stats.severityCounts).map(([k, v]) => `${k} ${v}`).join(', ')}`"
-                                    />
-                                    <p v-if="!hasSeverityData" class="dashboard__chart-overlay-empty text-muted">
-                                        {{ t('dashboard.chartEmpty') }}
-                                    </p>
+                    <CaomeiCard class="dashboard__chart-card">
+                        <h4 class="dashboard__chart-title">
+                            {{ t('dashboard.severityChartTitle') }}
+                        </h4>
+                        <ClientOnly>
+                            <div class="dashboard__chart-canvas">
+                                <chart-canvas
+                                    type="doughnut"
+                                    :data="severityChartData"
+                                    :options="severityChartOptions"
+                                    :aria-label="`${t('dashboard.severityChartTitle')}: ${Object.entries(stats.severityCounts).map(([k, v]) => `${k} ${v}`).join(', ')}`"
+                                />
+                                <p v-if="!hasSeverityData" class="dashboard__chart-overlay-empty text-muted">
+                                    {{ t('dashboard.chartEmpty') }}
+                                </p>
+                            </div>
+                        </ClientOnly>
+                    </CaomeiCard>
+                    <CaomeiCard class="dashboard__chart-card">
+                        <h4 class="dashboard__chart-title">
+                            {{ t('dashboard.fixRateChartTitle') }}
+                        </h4>
+                        <ClientOnly>
+                            <div class="dashboard__chart-canvas dashboard__chart-canvas--with-center">
+                                <chart-canvas
+                                    type="doughnut"
+                                    :data="fixRateChartData"
+                                    :options="fixRateChartOptions"
+                                    :aria-label="`${t('dashboard.fixRateChartTitle')}: ${t('dashboard.fixRateValue', {percent: fixRatePercent})}`"
+                                />
+                                <div class="dashboard__chart-center">
+                                    <span v-if="fixRateIsEmpty" class="dashboard__chart-center-value dashboard__chart-center-value--muted">—</span>
+                                    <span v-else class="dashboard__chart-center-value">{{ t('dashboard.fixRateValue', {percent: fixRatePercent}) }}</span>
                                 </div>
-                            </ClientOnly>
-                        </template>
-                    </Card>
-                    <Card class="dashboard__chart-card">
-                        <template #content>
-                            <h4 class="dashboard__chart-title">
-                                {{ t('dashboard.fixRateChartTitle') }}
-                            </h4>
-                            <ClientOnly>
-                                <div class="dashboard__chart-canvas dashboard__chart-canvas--with-center">
-                                    <chart-canvas
-                                        type="doughnut"
-                                        :data="fixRateChartData"
-                                        :options="fixRateChartOptions"
-                                        :aria-label="`${t('dashboard.fixRateChartTitle')}: ${t('dashboard.fixRateValue', {percent: fixRatePercent})}`"
-                                    />
-                                    <div class="dashboard__chart-center">
-                                        <span v-if="fixRateIsEmpty" class="dashboard__chart-center-value dashboard__chart-center-value--muted">—</span>
-                                        <span v-else class="dashboard__chart-center-value">{{ t('dashboard.fixRateValue', {percent: fixRatePercent}) }}</span>
-                                    </div>
-                                    <p v-if="fixRateIsEmpty" class="dashboard__chart-overlay-empty text-muted">
-                                        {{ t('dashboard.chartEmpty') }}
-                                    </p>
-                                </div>
-                            </ClientOnly>
-                        </template>
-                    </Card>
-                    <Card class="dashboard__chart-card dashboard__chart-card--wide">
-                        <template #content>
-                            <h4 class="dashboard__chart-title">
-                                {{ t('dashboard.topPackagesChartTitle') }}
-                                <span class="dashboard__chart-hint text-muted">{{ t('dashboard.packageTruncated') }}</span>
-                            </h4>
-                            <ClientOnly>
-                                <div class="dashboard__chart-canvas dashboard__chart-canvas--bar">
-                                    <chart-canvas
-                                        type="bar"
-                                        :data="topPackagesChartData"
-                                        :options="topPackagesChartOptions"
-                                        :aria-label="`${t('dashboard.topPackagesChartTitle')}: ${stats.topPackages.map((p) => `${p.packageName} ${p.count}`).join(', ')}`"
-                                    />
-                                    <p v-if="!hasTopPackages" class="dashboard__chart-overlay-empty text-muted">
-                                        {{ t('dashboard.chartEmpty') }}
-                                    </p>
-                                </div>
-                            </ClientOnly>
-                        </template>
-                    </Card>
+                                <p v-if="fixRateIsEmpty" class="dashboard__chart-overlay-empty text-muted">
+                                    {{ t('dashboard.chartEmpty') }}
+                                </p>
+                            </div>
+                        </ClientOnly>
+                    </CaomeiCard>
+                    <CaomeiCard class="dashboard__chart-card dashboard__chart-card--wide">
+                        <h4 class="dashboard__chart-title">
+                            {{ t('dashboard.topPackagesChartTitle') }}
+                            <span class="dashboard__chart-hint text-muted">{{ t('dashboard.packageTruncated') }}</span>
+                        </h4>
+                        <ClientOnly>
+                            <div class="dashboard__chart-canvas dashboard__chart-canvas--bar">
+                                <chart-canvas
+                                    type="bar"
+                                    :data="topPackagesChartData"
+                                    :options="topPackagesChartOptions"
+                                    :aria-label="`${t('dashboard.topPackagesChartTitle')}: ${stats.topPackages.map((p) => `${p.packageName} ${p.count}`).join(', ')}`"
+                                />
+                                <p v-if="!hasTopPackages" class="dashboard__chart-overlay-empty text-muted">
+                                    {{ t('dashboard.chartEmpty') }}
+                                </p>
+                            </div>
+                        </ClientOnly>
+                    </CaomeiCard>
                 </div>
             </div>
         </template>

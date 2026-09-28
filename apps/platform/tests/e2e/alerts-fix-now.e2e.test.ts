@@ -7,7 +7,7 @@ import { waitForHydration } from './helpers/hydration.helper'
  * 2. 点击按钮 → POST /api/repos/[id]/scan 携带 reuseScanRunId → 跳转 /scans?repository=xxx&run=xxx
  * 3. 成功消息 toast 显示 + 5s 自动清除
  *
- * 依赖：todo.md §M14.2 /api/runs 分页契约 + §M16.2 reuseScanRunId API + `alert-run-sidebar` 组件 + useFixNow composable
+ * 依赖：/api/runs 分页契约 + reuseScanRunId API + `alert-run-sidebar` 组件 + useFixNow composable
  * 共享：e2e 测试账号（global-setup 注册首用户 admin）
  */
 test.use({ storageState: 'tests/e2e/.auth/admin.json' })
@@ -135,12 +135,12 @@ test.describe('alerts "立即修复此仓库" 入口', () => {
         await page.goto('/alerts')
         await waitForHydration(page)
         await page.locator('#view-mode').click()
-        await page.locator('.p-select-overlay li').filter({ hasText: '原始列表' }).click()
+        await page.locator('.caomei-select__content .caomei-select__item').filter({ hasText: '原始列表' }).click()
         const row = page.locator('.caomei-data-table__row').filter({ hasText: 'lodash' }).first()
         await expect(row).toBeVisible()
         await row.locator('button[aria-label="详情"]').click()
 
-        const sidebar = page.locator('.p-drawer')
+        const sidebar = page.locator('.caomei-drawer__content')
         await expect(sidebar).toContainText('12345678')
 
         // 按钮可见（aria-label 中文 "立即修复此仓库"）
@@ -175,12 +175,12 @@ test.describe('alerts "立即修复此仓库" 入口', () => {
         await page.goto('/alerts')
         await waitForHydration(page)
         await page.locator('#view-mode').click()
-        await page.locator('.p-select-overlay li').filter({ hasText: '原始列表' }).click()
+        await page.locator('.caomei-select__content .caomei-select__item').filter({ hasText: '原始列表' }).click()
         const row = page.locator('.caomei-data-table__row').filter({ hasText: 'lodash' }).first()
         await expect(row).toBeVisible()
         await row.locator('button[aria-label="详情"]').click()
 
-        const sidebar = page.locator('.p-drawer')
+        const sidebar = page.locator('.caomei-drawer__content')
         await expect(sidebar).toContainText('12345678')
         // 修复模式运行不应展示 "立即修复此仓库" 按钮
         await expect(sidebar.locator('button[aria-label="立即修复此仓库"]')).toHaveCount(0)
@@ -206,18 +206,18 @@ test.describe('alerts "立即修复此仓库" 入口', () => {
         await page.goto('/alerts')
         await waitForHydration(page)
         await page.locator('#view-mode').click()
-        await page.locator('.p-select-overlay li').filter({ hasText: '原始列表' }).click()
+        await page.locator('.caomei-select__content .caomei-select__item').filter({ hasText: '原始列表' }).click()
         const row = page.locator('.caomei-data-table__row').filter({ hasText: 'lodash' }).first()
         await expect(row).toBeVisible()
         await row.locator('button[aria-label="详情"]').click()
 
-        const sidebar = page.locator('.p-drawer')
+        const sidebar = page.locator('.caomei-drawer__content')
         const fixBtn = sidebar.locator('button[aria-label="立即修复此仓库"]')
         await expect(fixBtn).toBeVisible()
         await fixBtn.click()
 
         // 错误消息显示（success 不会显示，因为没成功）
-        await expect(sidebar.locator('.p-message-error')).toContainText('该扫描正在执行中', { timeout: 10000 })
+        await expect(sidebar.locator('.caomei-message--danger')).toContainText('该扫描正在执行中', { timeout: 10000 })
         // URL 不变（仍在 /alerts）
         await expect(page).toHaveURL(/\/alerts$/)
     })

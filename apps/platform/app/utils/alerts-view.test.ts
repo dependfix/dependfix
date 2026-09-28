@@ -1,16 +1,16 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
     alertsFixStatusLabel,
-    alertsRuleIdTagSeverity,
-    alertsRunStatusSeverity,
-    alertsSeverityTagSeverity,
+    alertsRuleIdTone,
+    alertsRunStatusTone,
+    alertsSeverityTone,
     alertsStatusLabel,
     buildAlertsQuery,
     type AlertsFilters,
 } from './alerts-view'
 
 /**
- * alerts 视图 Tag 颜色 + 文案工具测试（todo.md §M16.2 抽出）。
+ * alerts 视图 Tag 颜色 + 文案工具测试。
  *
  * 设计：4 个 switch 函数 + 1 个对象映射函数，覆盖每个分支（含 default）。
  * 同目录其它 utility（cron-preview / dashboard-charts / sort-helpers 等）均采用
@@ -18,67 +18,67 @@ import {
  */
 
 describe('alerts-view 纯函数', () => {
-    describe('alertsSeverityTagSeverity', () => {
-        it('critical → danger（PrimeVue Tag severity）', () => {
-            expect(alertsSeverityTagSeverity('critical')).toBe('danger')
+    describe('alertsSeverityTone', () => {
+        it('critical → danger（caomei Tag tone）', () => {
+            expect(alertsSeverityTone('critical')).toBe('danger')
         })
 
-        it('high → warn', () => {
-            expect(alertsSeverityTagSeverity('high')).toBe('warn')
+        it('high → warning', () => {
+            expect(alertsSeverityTone('high')).toBe('warning')
         })
 
-        it('medium → info', () => {
-            expect(alertsSeverityTagSeverity('medium')).toBe('info')
+        it('medium → primary', () => {
+            expect(alertsSeverityTone('medium')).toBe('primary')
         })
 
-        it('low / unknown 等非枚举值 → secondary（default 分支）', () => {
-            expect(alertsSeverityTagSeverity('low')).toBe('secondary')
-            expect(alertsSeverityTagSeverity('unknown')).toBe('secondary')
-            expect(alertsSeverityTagSeverity('')).toBe('secondary')
+        it('low / unknown 等非枚举值 → neutral（default 分支）', () => {
+            expect(alertsSeverityTone('low')).toBe('neutral')
+            expect(alertsSeverityTone('unknown')).toBe('neutral')
+            expect(alertsSeverityTone('')).toBe('neutral')
         })
     })
 
-    describe('alertsRuleIdTagSeverity（按 source 区分 GHSA/CVE/CodeQL 等 ruleId Tag 颜色）', () => {
+    describe('alertsRuleIdTone（按 source 区分 GHSA/CVE/CodeQL 等 ruleId Tag 颜色）', () => {
         it('dependabot → success', () => {
-            expect(alertsRuleIdTagSeverity('dependabot')).toBe('success')
+            expect(alertsRuleIdTone('dependabot')).toBe('success')
         })
 
-        it('pnpm-audit → warn', () => {
-            expect(alertsRuleIdTagSeverity('pnpm-audit')).toBe('warn')
+        it('pnpm-audit → warning', () => {
+            expect(alertsRuleIdTone('pnpm-audit')).toBe('warning')
         })
 
-        it('code-scanning → info', () => {
-            expect(alertsRuleIdTagSeverity('code-scanning')).toBe('info')
+        it('code-scanning → primary', () => {
+            expect(alertsRuleIdTone('code-scanning')).toBe('primary')
         })
 
-        it('code-quality → contrast', () => {
-            expect(alertsRuleIdTagSeverity('code-quality')).toBe('contrast')
+        it('code-quality → neutral', () => {
+            expect(alertsRuleIdTone('code-quality')).toBe('neutral')
         })
 
-        it('未知 source → secondary（default 分支，防御未来新增 source 类型）', () => {
-            expect(alertsRuleIdTagSeverity('unknown-source')).toBe('secondary')
-            expect(alertsRuleIdTagSeverity('')).toBe('secondary')
+        it('未知 source → neutral（default 分支，防御未来新增 source 类型）', () => {
+            expect(alertsRuleIdTone('unknown-source')).toBe('neutral')
+            expect(alertsRuleIdTone('')).toBe('neutral')
         })
     })
 
-    describe('alertsRunStatusSeverity（dedupe 详情侧栏 RunDetailView 状态映射）', () => {
+    describe('alertsRunStatusTone（dedupe 详情侧栏 RunDetailView 状态映射）', () => {
         it('completed → success', () => {
-            expect(alertsRunStatusSeverity('completed')).toBe('success')
+            expect(alertsRunStatusTone('completed')).toBe('success')
         })
 
         it('failed → danger', () => {
-            expect(alertsRunStatusSeverity('failed')).toBe('danger')
+            expect(alertsRunStatusTone('failed')).toBe('danger')
         })
 
-        it('dispatched → info', () => {
-            expect(alertsRunStatusSeverity('dispatched')).toBe('info')
+        it('dispatched → primary', () => {
+            expect(alertsRunStatusTone('dispatched')).toBe('primary')
         })
 
-        it('pending / running / degraded 等非枚举值 → warn（default 分支）', () => {
-            expect(alertsRunStatusSeverity('pending')).toBe('warn')
-            expect(alertsRunStatusSeverity('running')).toBe('warn')
-            expect(alertsRunStatusSeverity('degraded')).toBe('warn')
-            expect(alertsRunStatusSeverity('')).toBe('warn')
+        it('pending / running / degraded 等非枚举值 → warning（default 分支）', () => {
+            expect(alertsRunStatusTone('pending')).toBe('warning')
+            expect(alertsRunStatusTone('running')).toBe('warning')
+            expect(alertsRunStatusTone('degraded')).toBe('warning')
+            expect(alertsRunStatusTone('')).toBe('warning')
         })
     })
 
@@ -109,7 +109,7 @@ describe('alerts-view 纯函数', () => {
         })
     })
 
-    describe('buildAlertsQuery（todo.md §M16.4 useAsyncData handler 共用）', () => {
+    describe('buildAlertsQuery（useAsyncData handler 共用）', () => {
         // 默认筛选：所有字段为 'all' / includeSuperseded=false，用于验证各 viewMode 行为
         const defaultFilters: AlertsFilters = {
             repositoryId: 'all',
@@ -123,7 +123,7 @@ describe('alerts-view 纯函数', () => {
             expect(query).not.toHaveProperty('groupBy')
         })
 
-        it('viewMode="package" 携带 groupBy=package（PrimeVue rowGroup subheader 预排序）', () => {
+        it('viewMode="package" 携带 groupBy=package（rowGroup subheader 预排序）', () => {
             const query = buildAlertsQuery('package', defaultFilters)
             expect(query.groupBy).toBe('package')
         })
@@ -188,7 +188,7 @@ describe('alerts-view 纯函数', () => {
         })
     })
 
-    describe('alertsStatusLabel（todo.md §M20.6 状态列：fixStatus + supersededAt → 文案）', () => {
+    describe('alertsStatusLabel（状态列：fixStatus + supersededAt → 文案）', () => {
         // 简化的 translator mock：直接返回 key，便于断言 i18n key 调用正确性
         // 真实 i18n 文案在 apps/platform/i18n/locales/*.json 维护，本测试只验证映射
         const t = vi.fn((key: string) => `t(${key})`) as unknown as (key: string) => string

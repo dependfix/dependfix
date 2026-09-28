@@ -2,25 +2,26 @@ import { expect, test } from '@playwright/test'
 import { waitForHydration } from './helpers/hydration.helper'
 
 /**
- * 定时计划页增强 e2e（docs/plan/todo.md §M12 C65-C1 + C65-C2）。
+ * 定时计划页增强 e2e。
  *
  * 覆盖点：
- * - C65-C1 cron 实时预览：cron InputText 变更触发 previewCron 重算，合法 cron 显示 next 3 次
- * - C65-C1 非法 cron 反馈：字段数非法或语法非法时显示 cronInvalid 错误提示
- * - C65-C2 时区 Select：含 Intl.supportedValuesOf 全量列表 + filter + 默认浏览器时区（首位）
- * - C65-C2 i18n locale 切换不影响时区列表（IANA 与 locale 无关）
+ * - cron 实时预览：cron 输入变更触发预览重算，合法 cron 显示 next 3 次
+ * - 非法 cron 反馈：字段数非法或语法非法时显示 cronInvalid 错误提示
+ * - 时区选择器：CaomeiAutoComplete 载入 Intl.supportedValuesOf 全量时区，输入关键字过滤，
+ *   默认浏览器时区排在首位
+ * - i18n locale 切换不影响时区列表（IANA 与 locale 无关）
  *
  * 不覆盖：cron-parser next() 计算精度（vitest 单测覆盖）；后端 cron 触发执行（待真实环境验证）。
  */
 
 test.use({ storageState: 'tests/e2e/.auth/admin.json' })
 
-test.describe('定时计划增强（docs/plan/todo.md §M12 C65-C1 + C65-C2）', () => {
+test.describe('定时计划增强', () => {
     test('打开新建 Dialog → 默认 cron 0 2 * * 1 触发预览显示 next 3 次', async ({ page }) => {
         await page.goto('/schedules')
         await waitForHydration(page)
         await page.locator('button:has-text("新建计划")').click()
-        await expect(page.locator('.p-dialog-header')).toContainText('新建定时计划', { timeout: 15000 })
+        await expect(page.locator('.caomei-dialog__header')).toContainText('新建定时计划', { timeout: 15000 })
 
         // 等待 cron preview 渲染（默认空表单 cron = '0 2 * * 1'）
         const cronPreview = page.locator('.schedule-form__cron-preview')
@@ -36,7 +37,7 @@ test.describe('定时计划增强（docs/plan/todo.md §M12 C65-C1 + C65-C2）',
         await page.goto('/schedules')
         await waitForHydration(page)
         await page.locator('button:has-text("新建计划")').click()
-        await expect(page.locator('.p-dialog-header')).toContainText('新建定时计划', { timeout: 15000 })
+        await expect(page.locator('.caomei-dialog__header')).toContainText('新建定时计划', { timeout: 15000 })
 
         // 输入 3 段（非法）
         await page.locator('#cron').fill('0 2 *')
@@ -49,37 +50,36 @@ test.describe('定时计划增强（docs/plan/todo.md §M12 C65-C1 + C65-C2）',
         await expect(page.locator('.schedule-form__cron-preview')).toBeVisible({ timeout: 5000 })
     })
 
-    test('时区 Select 含 IANA 列表 + filter + 默认浏览器时区首位', async ({ page }) => {
+    test('时区 AutoComplete 含 IANA 列表 + 输入过滤 + 默认浏览器时区首位', async ({ page }) => {
         await page.goto('/schedules')
         await waitForHydration(page)
         await page.locator('button:has-text("新建计划")').click()
-        await expect(page.locator('.p-dialog-header')).toContainText('新建定时计划', { timeout: 15000 })
+        await expect(page.locator('.caomei-dialog__header')).toContainText('新建定时计划', { timeout: 15000 })
 
-        // 时区 Select 可见
-        const timezoneSelect = page.locator('#timezone')
-        await expect(timezoneSelect).toBeVisible({ timeout: 15000 })
+        // 时区选择器为 CaomeiAutoComplete，id 落在输入框上
+        const timezoneInput = page.locator('.caomei-auto-complete__input#timezone')
+        await expect(timezoneInput).toBeVisible({ timeout: 15000 })
 
-        // 打开 Select overlay（PrimeVue 4 .p-select 容器）
-        await timezoneSelect.click()
-        const overlay = page.locator('.p-select-overlay')
+        // 聚焦/点击展开建议浮层
+        await timezoneInput.click()
+        const overlay = page.locator('.caomei-auto-complete__content')
         await expect(overlay).toBeVisible({ timeout: 5000 })
 
         // 默认浏览器时区排在首位（运行时探测，跨时区可移植；不硬编码开发机假设）
         const browserTz = await page.evaluate(() => Intl.DateTimeFormat().resolvedOptions().timeZone)
-        const firstOption = overlay.locator('li, [role="option"]').first()
-        await expect(firstOption).toContainText(browserTz, { timeout: 5000 })
+        const items = overlay.locator('.caomei-auto-complete__item')
+        await expect(items.first()).toContainText(browserTz, { timeout: 5000 })
 
-        // overlay 选项数 ≥ 10（IANA 时区列表远大于此，验证 Intl.supportedValuesOf 数据源已加载）
-        const optionCount = await overlay.locator('li, [role="option"]').count()
-        expect(optionCount).toBeGreaterThanOrEqual(10)
+        // 建议项数 ≥ 10（IANA 时区列表远大于此，验证 Intl.supportedValuesOf 数据源已加载）
+        expect(await items.count()).toBeGreaterThanOrEqual(10)
 
-        // filter 过滤（仅显示包含 'Shanghai' 的项，UTC/Tokyo 等被排除）
-        await overlay.locator('input.p-select-filter').first().fill('Shanghai')
-        await expect(overlay.locator('li, [role="option"]').filter({ hasText: 'Shanghai' }).first()).toBeVisible({ timeout: 5000 })
-        await expect(overlay.locator('li, [role="option"]').filter({ hasText: 'Tokyo' })).toHaveCount(0)
+        // 输入关键字过滤（仅保留包含 'Shanghai' 的项，Tokyo 等被排除）
+        await timezoneInput.fill('Shanghai')
+        await expect(items.filter({ hasText: 'Shanghai' }).first()).toBeVisible({ timeout: 5000 })
+        await expect(items.filter({ hasText: 'Tokyo' })).toHaveCount(0)
 
-        // filter 清空回到完整列表；Tokyo 应出现（前 20 项可见区域），验证浏览器时区首位与 Tokyo 共存
-        await overlay.locator('input.p-select-filter').first().fill('')
-        await expect(overlay.locator('li, [role="option"]').filter({ hasText: 'Asia/Tokyo' }).first()).toBeVisible({ timeout: 5000 })
+        // 清空关键字回到完整列表；Tokyo 应再次出现（验证过滤可逆）
+        await timezoneInput.fill('')
+        await expect(items.filter({ hasText: 'Asia/Tokyo' }).first()).toBeVisible({ timeout: 5000 })
     })
 })

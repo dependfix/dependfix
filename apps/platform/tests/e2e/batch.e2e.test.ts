@@ -58,7 +58,7 @@ test.describe('批量扫描（sync 降级模式）', () => {
 
         // 打开批量扫描弹窗（参数默认 report-only / high）→ 确认开始
         await batchButton.click()
-        await expect(page.locator('.p-dialog-header')).toContainText('批量扫描（2 个仓库）')
+        await expect(page.locator('.caomei-dialog__header')).toContainText('批量扫描（2 个仓库）')
         await page.locator('.batch-form button:has-text("开始扫描")').click()
 
         // 提交后跳转批量运行页（sync 模式 POST 返回时下属 run 已全部终态）
@@ -100,11 +100,11 @@ test.describe('批量扫描（sync 降级模式）', () => {
         await expect(refreshButton).toBeVisible()
         await expect(refreshButton).toBeEnabled()
 
-        // 点击刷新：PrimeVue Button.loading 反馈 → fetchBatchRuns → reconcileBatchRuns → 列表恢复
+        // 点击刷新：caomei Button loading 反馈 → fetchBatchRuns → reconcileBatchRuns → 列表恢复
         const clickPromise = refreshButton.click()
-        // 锚定 loading 真的曾出现（PrimeVue 4 渲染 .p-button-loading-icon）—— 防止 refactor 误删
+        // 锚定 loading 真的曾出现（caomei 渲染 .caomei-button__spinner + .caomei-button--loading）—— 防止 refactor 误删
         // loading.value=true 后断言无法 catch 的回归；极短请求可能错过，catch 兜底
-        await expect(refreshButton.locator('.p-button-loading-icon')).toBeVisible({ timeout: 500 }).catch(() => { /* 极短请求 catch 掉,主路径靠 toBeEnabled 兜底 */ })
+        await expect(refreshButton.locator('.caomei-button__spinner')).toBeVisible({ timeout: 500 }).catch(() => { /* 极短请求 catch 掉,主路径靠 toBeEnabled 兜底 */ })
         // 请求期间按钮 loading 状态短暂可见（5000ms 内必恢复，无 batch run 时几乎瞬时）
         await expect(refreshButton).toBeEnabled({ timeout: 5000 })
         await clickPromise

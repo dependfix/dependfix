@@ -56,7 +56,7 @@ export async function pageSignIn(page: Page, user: { email: string, password: st
     // 等待 hydration（SSR 静态 DOM 无事件绑定；global-setup 与各测试共用此路径）
     await waitForHydration(page)
     await page.locator('input#email').fill(user.email)
-    await page.locator('#password input').fill(user.password)
+    await page.locator('input#password').fill(user.password)
     await page.locator('button[type="submit"]').click()
     await expect(page).toHaveURL(/\/dashboard/)
 }

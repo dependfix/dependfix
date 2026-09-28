@@ -1,21 +1,22 @@
 <script setup lang="ts">
-// /scans 独立页面（todo.md §M16.1）：
+// /scans 独立页面：
 // - 顶部 4 块汇总卡片（totalRuns / totalAlerts / totalFixed / 最近扫描）
 // - 按仓库聚合列表（byRepo DataTable，可点击"仅查看此仓库"过滤）
 // - 全运行列表（runList DataTable，分页 + 可点击进入详情 dialog）
 //
 // 三种 query 组合：
 // - /scans：全量展示
-// - /scans?repository=xxx：按仓库过滤（来自 repos.vue pi-history 跳转）
+// - /scans?repository=xxx：按仓库过滤（来自 repos.vue 跳转）
 // - /scans?run=xxx：直接打开单 run 详情（`repo-history-dialog` query-key='run'）
 //
-// 依赖：/api/runs（todo.md §M14.2 已闭环分页 + ids 过滤 + §M16.1 加 organizationId 隔离）
-//      /api/scan-history/summary（todo.md §M16.1 新增聚合端点）
+// 依赖：/api/runs（已闭环分页 + ids 过滤 + organizationId 隔离）
+//      /api/scan-history/summary（聚合端点）
 //      `repo-history-dialog` 组件（queryKey='run' mode 直接打开 detail）
 //
-// 非目标（todo.md §M16 阶段边界）：
+// 非目标：
 // - 不引入多组织；不重写后端聚合；不动 dashboard.vue；不动 batch-runs 跨仓库视图
-// - 不升 PrimeVue 5；不破坏既有 alerts-rowgroup / history-dialog / 视图切换 / dedupe 行为
+// - 不破坏既有 alerts-rowgroup / history-dialog / 视图切换 / dedupe 行为
+import { Eye, Funnel, RefreshCw, X } from '@lucide/vue'
 import type { DataTableColumn, DataTablePageEvent } from 'caomei-ui'
 import {
     alertsFound,
@@ -179,18 +180,18 @@ const onPage = async (event: DataTablePageEvent) => {
 }
 
 /** 状态 Tag 颜色 + 文案（与 `repo-history-dialog` 风格一致） */
-const statusSeverity = (status: string) => {
+const statusTone = (status: string) => {
     switch (status) {
         case 'completed':
             return 'success' as const
         case 'failed':
             return 'danger' as const
         case 'dispatched':
-            return 'info' as const
+            return 'primary' as const
         case 'degraded':
-            return 'warn' as const
+            return 'warning' as const
         default:
-            return 'secondary' as const
+            return 'neutral' as const
     }
 }
 
@@ -222,7 +223,7 @@ const clearFilter = () => {
 type SummaryRepository = SummaryResponse['repositories'][number]
 
 /**
- * 列定义（caomei DataTable 用 `columns` 数组 + `#cell-{key}` 插槽替代 PrimeVue 的 `<Column>`）。
+ * 列定义（caomei DataTable 用 `columns` 数组 + `#cell-{key}` 插槽表达单元格）。
  * 非排序列（lastRun / lastStatus / actions）也需唯一 key；`key` 即排序字段。
  */
 const byRepoColumns = computed<DataTableColumn<SummaryRepository>[]>(() => [
@@ -269,20 +270,23 @@ onMounted(refresh)
                 </p>
             </div>
             <div class="scans__header-actions">
-                <Button
-                    icon="pi pi-refresh"
-                    :label="t('common.actions.refresh')"
-                    severity="secondary"
+                <CaomeiButton
+                    tone="neutral"
                     :loading="loading || summaryLoading"
                     @click="refresh"
-                />
+                >
+                    <template #icon>
+                        <CaomeiIcon :icon="RefreshCw" />
+                    </template>
+                    {{ t('common.actions.refresh') }}
+                </CaomeiButton>
             </div>
         </div>
 
         <!-- 仓库过滤面包屑（scans?repository=xxx） -->
-        <Message
+        <CaomeiMessage
             v-if="filteredRepository"
-            severity="info"
+            tone="primary"
             :closable="false"
             class="scans__filter-banner"
         >
@@ -290,190 +294,190 @@ onMounted(refresh)
                 <span>
                     {{ t('scans.repoFilterActive', {owner: filteredRepository.owner, name: filteredRepository.name}) }}
                 </span>
-                <Button
-                    icon="pi pi-times"
-                    :label="t('scans.clearFilter')"
-                    severity="secondary"
-                    text
-                    size="small"
+                <CaomeiButton
+                    tone="neutral"
+                    variant="ghost"
+                    size="sm"
                     @click="clearFilter"
-                />
+                >
+                    <template #icon>
+                        <CaomeiIcon :icon="X" />
+                    </template>
+                    {{ t('scans.clearFilter') }}
+                </CaomeiButton>
             </div>
-        </Message>
+        </CaomeiMessage>
 
-        <Message
+        <CaomeiMessage
             v-if="error"
-            severity="error"
+            tone="danger"
             :closable="false"
         >
             {{ error }}
-        </Message>
-        <Message
+        </CaomeiMessage>
+        <CaomeiMessage
             v-if="summaryError"
-            severity="warn"
+            tone="warning"
             :closable="false"
         >
             {{ summaryError }}
-        </Message>
+        </CaomeiMessage>
 
-        <!-- 4 块汇总卡片（todo.md §M16.1） -->
+        <!-- 4 块汇总卡片 -->
         <div class="scans__summary">
-            <Card class="scans__stat">
-                <template #content>
-                    <div class="scans__stat-value">
-                        {{ summary?.totals.runs ?? 0 }}
-                    </div>
-                    <div class="scans__stat-label text-muted">
-                        {{ t('scans.summary.totalRuns') }}
-                    </div>
-                </template>
-            </Card>
-            <Card class="scans__stat">
-                <template #content>
-                    <div class="scans__stat-value">
-                        {{ summary?.totals.totalAlerts ?? 0 }}
-                    </div>
-                    <div class="scans__stat-label text-muted">
-                        {{ t('scans.summary.totalAlerts') }}
-                    </div>
-                </template>
-            </Card>
-            <Card class="scans__stat">
-                <template #content>
-                    <div class="scans__stat-value">
-                        {{ summary?.totals.totalFixed ?? 0 }}
-                    </div>
-                    <div class="scans__stat-label text-muted">
-                        {{ t('scans.summary.totalFixed') }}
-                    </div>
-                </template>
-            </Card>
-            <Card class="scans__stat">
-                <template #content>
-                    <div class="scans__stat-value scans__stat-value--sm">
-                        {{ summary?.lastRunAt ? d(new Date(summary.lastRunAt), 'short') : '—' }}
-                    </div>
-                    <div class="scans__stat-label text-muted">
-                        {{ t('scans.summary.lastRunAt') }}
-                    </div>
-                </template>
-            </Card>
+            <CaomeiCard class="scans__stat">
+                <div class="scans__stat-value">
+                    {{ summary?.totals.runs ?? 0 }}
+                </div>
+                <div class="scans__stat-label text-muted">
+                    {{ t('scans.summary.totalRuns') }}
+                </div>
+            </CaomeiCard>
+            <CaomeiCard class="scans__stat">
+                <div class="scans__stat-value">
+                    {{ summary?.totals.totalAlerts ?? 0 }}
+                </div>
+                <div class="scans__stat-label text-muted">
+                    {{ t('scans.summary.totalAlerts') }}
+                </div>
+            </CaomeiCard>
+            <CaomeiCard class="scans__stat">
+                <div class="scans__stat-value">
+                    {{ summary?.totals.totalFixed ?? 0 }}
+                </div>
+                <div class="scans__stat-label text-muted">
+                    {{ t('scans.summary.totalFixed') }}
+                </div>
+            </CaomeiCard>
+            <CaomeiCard class="scans__stat">
+                <div class="scans__stat-value scans__stat-value--sm">
+                    {{ summary?.lastRunAt ? d(new Date(summary.lastRunAt), 'short') : '—' }}
+                </div>
+                <div class="scans__stat-label text-muted">
+                    {{ t('scans.summary.lastRunAt') }}
+                </div>
+            </CaomeiCard>
         </div>
 
         <!-- 按仓库聚合（byRepo DataTable，可点击"仅查看此仓库"过滤） -->
         <h3 class="scans__section-title">
             {{ t('scans.byRepo.title') }}
         </h3>
-        <Card>
-            <template #content>
-                <CaomeiDataTable
-                    :data="summary?.repositories ?? []"
-                    :columns="byRepoColumns"
-                    row-key="repositoryId"
-                    striped
-                    :empty-text="t('scans.byRepo.empty')"
-                >
-                    <template #cell-lastRun="{row}">
-                        {{ row.lastRunAt ? d(new Date(row.lastRunAt), 'short') : '—' }}
-                    </template>
-                    <template #cell-lastStatus="{row}">
-                        <Tag
-                            v-if="row.lastStatus"
-                            :value="statusLabel(row.lastStatus)"
-                            :severity="statusSeverity(row.lastStatus)"
-                        />
-                        <span v-else class="text-muted">—</span>
-                    </template>
-                    <template #cell-actions="{row}">
-                        <Button
-                            icon="pi pi-filter"
-                            text
-                            rounded
-                            size="small"
-                            :disabled="!!repositoryIdQuery && repositoryIdQuery === row.repositoryId"
-                            :aria-label="t('scans.byRepo.actionFilterThis')"
-                            :title="t('scans.byRepo.actionFilterThis')"
-                            @click="filterByRepository({id: row.repositoryId})"
-                        />
-                    </template>
-                </CaomeiDataTable>
-            </template>
-        </Card>
+        <CaomeiCard>
+            <CaomeiDataTable
+                :data="summary?.repositories ?? []"
+                :columns="byRepoColumns"
+                row-key="repositoryId"
+                striped
+                :empty-text="t('scans.byRepo.empty')"
+            >
+                <template #cell-lastRun="{row}">
+                    {{ row.lastRunAt ? d(new Date(row.lastRunAt), 'short') : '—' }}
+                </template>
+                <template #cell-lastStatus="{row}">
+                    <CaomeiTag
+                        v-if="row.lastStatus"
+                        :tone="statusTone(row.lastStatus)"
+                    >
+                        {{ statusLabel(row.lastStatus) }}
+                    </CaomeiTag>
+                    <span v-else class="text-muted">—</span>
+                </template>
+                <template #cell-actions="{row}">
+                    <CaomeiButton
+                        variant="ghost"
+                        rounded
+                        size="sm"
+                        :label="t('scans.byRepo.actionFilterThis')"
+                        :title="t('scans.byRepo.actionFilterThis')"
+                        :disabled="!!repositoryIdQuery && repositoryIdQuery === row.repositoryId"
+                        @click="filterByRepository({id: row.repositoryId})"
+                    >
+                        <template #icon>
+                            <CaomeiIcon :icon="Funnel" />
+                        </template>
+                    </CaomeiButton>
+                </template>
+            </CaomeiDataTable>
+        </CaomeiCard>
 
         <!-- 全运行列表（paginated DataTable；点击行进入 ?run= 详情） -->
         <h3 class="scans__section-title">
             {{ t('scans.runList.title') }}
         </h3>
-        <Card v-if="!firstLoad">
-            <template #content>
-                <CaomeiDataTable
-                    :data="runs"
-                    :columns="runListColumns"
-                    row-key="id"
-                    lazy
-                    paginator
-                    :page="page"
-                    :rows="pageSize"
-                    :total-records="total"
-                    :rows-per-page-options="[10, 25, 50]"
-                    :loading="loading"
-                    striped
-                    :empty-text="t('scans.runList.empty')"
-                    @page="onPage"
-                >
-                    <template #cell-repo="{row}">
-                        <span v-if="row.owner && row.name">{{ row.owner }}/{{ row.name }}</span>
-                        <span v-else class="text-muted">—</span>
-                    </template>
-                    <template #cell-status="{row}">
-                        <span
-                            v-if="row.error"
-                            class="scans__status-wrap"
-                            :title="row.error.message"
-                        >
-                            <Tag
-                                :value="statusLabel(row.status)"
-                                :severity="statusSeverity(row.status)"
-                            />
-                        </span>
-                        <Tag
-                            v-else
-                            :value="statusLabel(row.status)"
-                            :severity="statusSeverity(row.status)"
-                        />
-                    </template>
-                    <template #cell-mode="{row}">
-                        {{ runModeLabel(row.mode, t) }}
-                    </template>
-                    <template #cell-threshold="{row}">
-                        {{ row.severityThreshold === 'all' ? t('common.severity.all') : row.severityThreshold }}
-                    </template>
-                    <template #cell-executor="{row}">
-                        <Tag :value="runExecutorLabel(row.executorKind, t)" severity="secondary" />
-                    </template>
-                    <template #cell-startedAt="{row}">
-                        {{ row.startedAt ? d(new Date(row.startedAt), 'long') : '—' }}
-                    </template>
-                    <template #cell-alerts="{row}">
-                        {{ alertsFound(row.summary) }}
-                    </template>
-                    <template #cell-fixed="{row}">
-                        {{ (row.summary as Record<string, number> | null)?.alertsFixed ?? 0 }}
-                    </template>
-                    <template #cell-actions="{row}">
-                        <Button
-                            icon="pi pi-eye"
-                            text
-                            rounded
-                            size="small"
-                            :aria-label="t('runs.actionViewDetail')"
-                            :title="t('runs.actionViewDetail')"
-                            @click="openRunDetail(row.id)"
-                        />
-                    </template>
-                </CaomeiDataTable>
-            </template>
-        </Card>
+        <CaomeiCard v-if="!firstLoad">
+            <CaomeiDataTable
+                :data="runs"
+                :columns="runListColumns"
+                row-key="id"
+                lazy
+                paginator
+                :page="page"
+                :rows="pageSize"
+                :total-records="total"
+                :rows-per-page-options="[10, 25, 50]"
+                :loading="loading"
+                striped
+                :empty-text="t('scans.runList.empty')"
+                @page="onPage"
+            >
+                <template #cell-repo="{row}">
+                    <span v-if="row.owner && row.name">{{ row.owner }}/{{ row.name }}</span>
+                    <span v-else class="text-muted">—</span>
+                </template>
+                <template #cell-status="{row}">
+                    <span
+                        v-if="row.error"
+                        class="scans__status-wrap"
+                        :title="row.error.message"
+                    >
+                        <CaomeiTag :tone="statusTone(row.status)">
+                            {{ statusLabel(row.status) }}
+                        </CaomeiTag>
+                    </span>
+                    <CaomeiTag
+                        v-else
+                        :tone="statusTone(row.status)"
+                    >
+                        {{ statusLabel(row.status) }}
+                    </CaomeiTag>
+                </template>
+                <template #cell-mode="{row}">
+                    {{ runModeLabel(row.mode, t) }}
+                </template>
+                <template #cell-threshold="{row}">
+                    {{ row.severityThreshold === 'all' ? t('common.severity.all') : row.severityThreshold }}
+                </template>
+                <template #cell-executor="{row}">
+                    <CaomeiTag tone="neutral">
+                        {{ runExecutorLabel(row.executorKind, t) }}
+                    </CaomeiTag>
+                </template>
+                <template #cell-startedAt="{row}">
+                    {{ row.startedAt ? d(new Date(row.startedAt), 'long') : '—' }}
+                </template>
+                <template #cell-alerts="{row}">
+                    {{ alertsFound(row.summary) }}
+                </template>
+                <template #cell-fixed="{row}">
+                    {{ (row.summary as Record<string, number> | null)?.alertsFixed ?? 0 }}
+                </template>
+                <template #cell-actions="{row}">
+                    <CaomeiButton
+                        variant="ghost"
+                        rounded
+                        size="sm"
+                        :label="t('runs.actionViewDetail')"
+                        :title="t('runs.actionViewDetail')"
+                        @click="openRunDetail(row.id)"
+                    >
+                        <template #icon>
+                            <CaomeiIcon :icon="Eye" />
+                        </template>
+                    </CaomeiButton>
+                </template>
+            </CaomeiDataTable>
+        </CaomeiCard>
         <p
             v-else
             class="text-muted"
@@ -531,7 +535,7 @@ onMounted(refresh)
     &__stat-value {
         font-size: $font-size-xl;
         font-weight: 600;
-        color: var(--p-primary-color);
+        color: var(--caomei-color-primary);
 
         &--sm {
             font-size: $font-size-base;

@@ -2,12 +2,12 @@ import { expect, test } from '@playwright/test'
 import { waitForHydration } from './helpers/hydration.helper'
 
 /**
- * /scans 独立页面（todo.md §M16.1）端到端测试：
+ * /scans 独立页面端到端测试：
  * 1. /scans（无 query）— 顶部汇总卡片 + 全运行列表渲染
  * 2. /scans?repository=xxx — 按仓库过滤 + 仓库面包屑
  * 3. /scans?run=xxx — `repo-history-dialog` query-key='run' 直接打开单 run 详情
  *
- * 依赖：todo.md §M14.2 /api/runs 分页契约 + §M16.1 organizationId 隔离 + `repo-history-dialog` query-key 支持
+ * 依赖：/api/runs 分页契约 + organizationId 隔离 + `repo-history-dialog` query-key 支持
  * 共享：e2e 测试账号（global-setup 注册首用户 admin + viewer；admin 走 storageState）
  */
 test.use({ storageState: 'tests/e2e/.auth/admin.json' })
@@ -76,13 +76,13 @@ test.describe('/scans 独立页面', () => {
         await page.goto(`/scans?run=${runId}`)
         await waitForHydration(page)
         // Dialog 应自动打开（`repo-history-dialog` watch ?run= query）
-        await expect(page.locator('.p-dialog')).toBeVisible({ timeout: 15000 })
-        await expect(page.locator('.p-dialog-header')).toContainText('扫描历史')
+        await expect(page.locator('.caomei-dialog__content')).toBeVisible({ timeout: 15000 })
+        await expect(page.locator('.caomei-dialog__header')).toContainText('扫描历史')
     })
 })
 
 /**
- * viewer 角色可见性：todo.md §M16.1 阶段扫描历史是只读数据，viewer 应可见（与 batch-runs 一致）；
+ * viewer 角色可见性：阶段扫描历史是只读数据，viewer 应可见（与 batch-runs 一致）；
  * 菜单项 + 页面均可访问。
  */
 test.describe('/scans viewer 角色可见', () => {
@@ -107,7 +107,7 @@ test.describe('/scans viewer 角色可见', () => {
         expect(response?.status()).toBe(200)
         await waitForHydration(page)
         // viewer 应不报 Error Message（403 / 401）
-        await expect(page.locator('.p-message-error')).toHaveCount(0)
+        await expect(page.locator('.caomei-message--danger')).toHaveCount(0)
     })
 })
 

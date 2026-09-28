@@ -2,13 +2,14 @@
 // 扫描历史 Dialog（应用层修复：替代 unrouting 0.2.x 子路由 /repos/[id]/runs，
 // 用 query 传仓库 id，绕开 `:id()` dynamic segment 与 path-to-regexp 8.x 不兼容的根因）。
 //
-// 当前由两种调用方消费（todo.md §M16.1）：
+// 当前由两种调用方消费：
 // - repos.vue 老路径 `/repos?history={id}`：保留 queryKey='history' 默认值兼容
 // - scans.vue 新路径 `/scans?run={id}`：通过 :query-key="'run'" 注入
 //
-// 分页（todo.md §M14.2 UX-R1）：服务端分页（lazy DataTable + Paginator）。
+// 分页：服务端分页（lazy DataTable + Paginator）。
 // 默认 pageSize=10，rows-per-page-options=[10, 25, 50]，最大 200 由 server 钳制。
 import type { DataTableColumn, DataTablePageEvent } from 'caomei-ui'
+import { ArrowLeft, Copy, ExternalLink, Eye, X } from '@lucide/vue'
 
 const props = withDefaults(defineProps<{
     /**
@@ -75,8 +76,7 @@ const detailLoading = ref(false)
 const detailError = ref('')
 
 /**
- * detail.results 行的显式形状（原 PrimeVue 表格 value 为内联 `as` 断言；
- * 迁移后抽出接口供 `columns` 复用，避免断言与列定义类型漂移）。
+ * detail.results 行的显式形状（value 曾以内联 `as` 断言；抽出接口供 `columns` 复用，避免断言与列定义类型漂移）。
  */
 interface DetailResultRow {
     id: string
@@ -89,12 +89,12 @@ interface DetailResultRow {
     htmlUrl: string | null
 }
 
-/** caomei DataTable 受控分页为 1 基 `page`（PrimeVue 为 0 基 `first`）；由既有 first / pageSize 换算 */
+/** caomei DataTable 受控分页为 1 基 `page`；由既有 0 基 `first` 与 `pageSize` 换算 */
 const page = computed(() => Math.floor(first.value / pageSize.value) + 1)
 
 /**
- * 列定义（caomei DataTable 用 `columns` 数组 + `#cell-{key}` 插槽替代 PrimeVue 的 `<Column>`）。
- * detail 表 value 由原内联断言改为 computed `detailResults`（强类型）。
+ * 列定义（caomei DataTable 用 `columns` 数组 + `#cell-{key}` 插槽）。
+ * detail 表 value 由内联断言改为 computed `detailResults`（强类型）。
  */
 const detailResults = computed<DetailResultRow[]>(() => (detail.value?.results ?? []) as DetailResultRow[])
 const detailColumns = computed<DataTableColumn<DetailResultRow>[]>(() => [
@@ -126,12 +126,12 @@ const resetDetail = () => {
     detailLoading.value = false
 }
 
-const statusSeverity = (status: string) => {
+const statusTone = (status: string) => {
     switch (status) {
         case 'completed': return 'success'
         case 'failed': return 'danger'
-        case 'dispatched': return 'info'
-        default: return 'warn'
+        case 'dispatched': return 'primary'
+        default: return 'warning'
     }
 }
 
@@ -250,7 +250,7 @@ const closeDialog = async () => {
 
 // 监听 URL ?<queryKey>={id} → 自动打开 Dialog
 // - queryKey='history'：按仓库过滤列表（向后兼容）
-// - queryKey='run'：直接打开单 run 详情（todo.md §M16.1）
+// - queryKey='run'：直接打开单 run 详情
 watch(() => route.query[props.queryKey], async (newVal) => {
     const id = typeof newVal === 'string'
         ? newVal
@@ -281,63 +281,68 @@ watch(() => route.query[props.queryKey], async (newVal) => {
 </script>
 
 <template>
-    <Dialog
-        v-model:visible="dialogVisible"
-        :header="t('runs.title')"
+    <CaomeiDialog
+        v-model:open="dialogVisible"
+        :title="t('runs.title')"
         modal
-        :draggable="false"
         :closable="!detail || queryKey === 'run'"
-        :close-on-escape="!detail || queryKey === 'run'"
+        :close-on-esc="!detail || queryKey === 'run'"
         :style="{width: '720px'}"
         @hide="closeDialog"
     >
         <div v-if="loading && runs.length === 0 && !detailMode" class="text-muted">
             {{ t('common.empty.loading') }}
         </div>
-        <Message
+        <CaomeiMessage
             v-else-if="error && !detailMode"
-            severity="error"
+            tone="danger"
             :closable="false"
         >
             {{ error }}
-        </Message>
+        </CaomeiMessage>
         <div v-else-if="detailLoading" class="text-muted">
             {{ t('common.empty.loading') }}
         </div>
-        <Message
+        <CaomeiMessage
             v-else-if="detailError"
-            severity="error"
+            tone="danger"
             :closable="false"
         >
             {{ detailError }}
-        </Message>
+        </CaomeiMessage>
         <!-- 实测反馈：detail.status === 'failed' 时在 results 表格上方展示执行级 Error Banner，
-             即使 detail.error 为空（数据损坏 / 旧数据迁移 / 后端 errorJson 缺失）也显示降级提示（RG-W02）。
+             即使 detail.error 为空（数据损坏 / 旧数据迁移 / 后端 errorJson 缺失）也显示降级提示。
              caomei DataTable 无表级 #header 插槽，故原 #header 内容（返回/关闭按钮 + Error Banner + PR 链接）
              与日志区一并上移到表格容器前（仍处于 v-else-if="detail" 分支）。 -->
         <template v-else-if="detail">
             <div class="repo-history__detail-header">
                 <!-- list mode：返回列表按钮 -->
-                <Button
+                <CaomeiButton
                     v-if="!detailMode"
-                    icon="pi pi-arrow-left"
-                    :label="t('runs.backToList')"
-                    text
-                    size="small"
+                    variant="ghost"
+                    size="sm"
                     @click="resetDetail"
-                />
+                >
+                    <template #icon>
+                        <CaomeiIcon :icon="ArrowLeft" />
+                    </template>
+                    {{ t('runs.backToList') }}
+                </CaomeiButton>
                 <!-- run mode（queryKey='run'）：列表不可用，提供关闭按钮；history mode 但已无列表上下文时也降级到关闭 -->
-                <Button
+                <CaomeiButton
                     v-else-if="queryKey === 'run'"
-                    icon="pi pi-times"
-                    :label="t('common.actions.close')"
-                    text
-                    size="small"
+                    variant="ghost"
+                    size="sm"
                     @click="closeDialog"
-                />
-                <Message
+                >
+                    <template #icon>
+                        <CaomeiIcon :icon="X" />
+                    </template>
+                    {{ t('common.actions.close') }}
+                </CaomeiButton>
+                <CaomeiMessage
                     v-if="detail.status === 'failed'"
-                    severity="error"
+                    tone="danger"
                     :closable="false"
                     class="repo-history__error-banner"
                 >
@@ -348,7 +353,7 @@ watch(() => route.query[props.queryKey], async (newVal) => {
                     <p v-else class="repo-history__error-message text-muted">
                         {{ t('runs.errorNoDetail') }}
                     </p>
-                </Message>
+                </CaomeiMessage>
                 <!-- PR 链接（右手边） -->
                 <a
                     v-if="detail.runUrl"
@@ -360,19 +365,22 @@ watch(() => route.query[props.queryKey], async (newVal) => {
                     {{ t('alerts.detailRunOpen') }}
                 </a>
             </div>
-            <!-- 日志区域（ScrollPanel → 原生滚动容器 + CSS，见迁移配方 §5） -->
+            <!-- 日志区域（原生滚动容器 + CSS） -->
             <div v-if="detail.logs && detail.logs.length > 0" class="repo-history__logs">
                 <div class="repo-history__logs-header">
                     <span class="repo-history__logs-title">{{ t('runs.logsTitle') }}</span>
-                    <Button
-                        icon="pi pi-copy"
-                        text
+                    <CaomeiButton
+                        variant="ghost"
                         rounded
-                        size="small"
+                        size="sm"
                         :aria-label="t('runs.logsCopy')"
                         :title="t('runs.logsCopy')"
                         @click="copyLogs"
-                    />
+                    >
+                        <template #icon>
+                            <CaomeiIcon :icon="Copy" />
+                        </template>
+                    </CaomeiButton>
                 </div>
                 <div class="repo-history__logs-scroll" style="height: 200px; overflow: auto">
                     <div class="repo-history__logs-content">
@@ -396,16 +404,18 @@ watch(() => route.query[props.queryKey], async (newVal) => {
                 :empty-text="t('runs.detailEmpty')"
             >
                 <template #cell-severity="{row}">
-                    <Tag
-                        :value="row.severity"
-                        :severity="row.severity === 'critical' ? 'danger' : row.severity === 'high' ? 'warn' : 'info'"
-                    />
+                    <CaomeiTag
+                        :tone="row.severity === 'critical' ? 'danger' : row.severity === 'high' ? 'warning' : 'primary'"
+                    >
+                        {{ row.severity }}
+                    </CaomeiTag>
                 </template>
                 <template #cell-fixable="{row}">
-                    <Tag
-                        :value="row.fixable ? t('common.yes') : t('common.no')"
-                        :severity="row.fixable ? 'success' : 'secondary'"
-                    />
+                    <CaomeiTag
+                        :tone="row.fixable ? 'success' : 'neutral'"
+                    >
+                        {{ row.fixable ? t('common.yes') : t('common.no') }}
+                    </CaomeiTag>
                 </template>
                 <template #cell-link="{row}">
                     <a
@@ -420,7 +430,7 @@ watch(() => route.query[props.queryKey], async (newVal) => {
             </CaomeiDataTable>
         </template>
         <template v-else-if="!detailMode">
-            <!-- todo.md §M14.2 UX-R1：服务端分页（lazy DataTable + 内置 paginator）
+            <!-- 服务端分页（lazy DataTable + 内置 paginator）
                  —— pageSize 由 pageSize.value 驱动，total 由后端返回的 total 驱动，
                  翻页触发 onPage → 重新请求 /api/runs 带 page + pageSize -->
             <CaomeiDataTable
@@ -438,23 +448,23 @@ watch(() => route.query[props.queryKey], async (newVal) => {
                 @page="onPage"
             >
                 <template #cell-status="{row}">
-                    <!-- 实测反馈：failed 状态 Tag 包一层 span :title 显示 error.message
-                         （PrimeVue Tag inheritAttrs:false，:title 不会自动 fallthrough 到 root） -->
+                    <!-- 实测反馈：failed 状态 Tag 外包一层 span 承载 error.message 的 tooltip
+                         （span 同时承担 `repo-history__status-wrap` 布局样式） -->
                     <span
                         v-if="row.error"
                         class="repo-history__status-wrap"
                         :title="row.error.message"
                     >
-                        <Tag
-                            :value="statusLabel(row.status)"
-                            :severity="statusSeverity(row.status)"
-                        />
+                        <CaomeiTag :tone="statusTone(row.status)">
+                            {{ statusLabel(row.status) }}
+                        </CaomeiTag>
                     </span>
-                    <Tag
+                    <CaomeiTag
                         v-else
-                        :value="statusLabel(row.status)"
-                        :severity="statusSeverity(row.status)"
-                    />
+                        :tone="statusTone(row.status)"
+                    >
+                        {{ statusLabel(row.status) }}
+                    </CaomeiTag>
                 </template>
                 <template #cell-startedAt="{row}">
                     {{ row.startedAt ? d(new Date(row.startedAt), 'long') : '—' }}
@@ -466,29 +476,35 @@ watch(() => route.query[props.queryKey], async (newVal) => {
                     {{ (row.summary as Record<string, number> | null)?.alertsFixed ?? 0 }}
                 </template>
                 <template #cell-actions="{row}">
-                    <Button
+                    <CaomeiButton
                         v-if="row.runUrl"
-                        icon="pi pi-external-link"
-                        text
+                        variant="ghost"
                         rounded
-                        size="small"
+                        size="sm"
                         :aria-label="t('runs.actionViewActionRun')"
                         :title="t('runs.actionViewActionRun')"
                         @click="openRunUrl(row.runUrl)"
-                    />
-                    <Button
-                        icon="pi pi-eye"
-                        text
+                    >
+                        <template #icon>
+                            <CaomeiIcon :icon="ExternalLink" />
+                        </template>
+                    </CaomeiButton>
+                    <CaomeiButton
+                        variant="ghost"
                         rounded
-                        size="small"
+                        size="sm"
                         :aria-label="t('runs.actionViewDetail')"
                         :title="t('runs.actionViewDetail')"
                         @click="openDetail(row)"
-                    />
+                    >
+                        <template #icon>
+                            <CaomeiIcon :icon="Eye" />
+                        </template>
+                    </CaomeiButton>
                 </template>
             </CaomeiDataTable>
         </template>
-    </Dialog>
+    </CaomeiDialog>
 </template>
 
 <style lang="scss" scoped>

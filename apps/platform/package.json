@@ -31,6 +31,7 @@
   "dependencies": {
     "@dependfix/core": "workspace:*",
     "@dependfix/engine": "workspace:*",
+    "@lucide/vue": "^1.48.0",
     "@nuxtjs/i18n": "^10.6.0",
     "@octokit/rest": "^22.0.1",
     "@primeuix/themes": "^2.0.3",

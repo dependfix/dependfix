@@ -8,8 +8,9 @@
 // - 手动刷新按钮：点击立即拉取 + 重置下次轮询计时；in-flight 守卫防并发
 // - 60s 节拍为 2026-08-19 用户反馈决策（backlog 原推荐 5s 实际仍嫌频繁；
 //   running 批次平均 30s+ 进度变化有限，60s 已足够；保留 BATCH_POLL_INTERVAL_MS 常量便于后续微调）
-// - sortable 字段：sortable + removableSort 三态（asc/desc/none）；与 C54 增量 reconcile 并存（见 docs/plan/todo.md §C54 + §C60）——
-//   reconcile 只替换 updatedAt 变化行引用，不重排已排序数组；用户手动排序状态保留（C60 决策）
+// - sortable 字段：sortable + removableSort 三态（asc/desc/none）；与增量 reconcile 并存——
+//   reconcile 只替换 updatedAt 变化行引用，不重排已排序数组；用户手动排序状态保留
+import { CircleStop, RefreshCw } from '@lucide/vue'
 import type { DataTableColumn } from 'caomei-ui'
 import type { BatchRunRun, BatchRunSummary, BatchRunView } from '~/types/platform'
 import { reconcileBatchRuns } from '~/utils/reconcile-batch-runs'
@@ -21,9 +22,12 @@ definePageMeta({
 
 const { t, d } = useI18n()
 
+// 破坏性操作二次确认（caomei 内置 Confirm Dialog，provider 挂载在 app.vue）
+const confirmDialog = useConfirm()
+
 const BATCH_POLL_INTERVAL_MS = 60_000
 
-// 三态分离（RG-B1 修复：UI 态与并发守卫必须解耦）：
+// 三态分离（UI 态与并发守卫必须解耦）：
 // - firstLoad: 首屏骨架控制（true → 显示骨架；fetch 成功后 false → 显示 DataTable 且不再回滚）
 // - loading: 手动刷新按钮 loading 反馈（首屏骨架由 firstLoad 单独控制，不影响 DataTable 折叠）
 // - inflight: 实际请求是否 in-flight（并发守卫，与 UI 态解耦避免首屏请求被吞）
@@ -66,12 +70,12 @@ const severityLabel = (severity: string) => ({
 
 const statusTag = (status: string) => {
     if (status === 'completed') {
-        return { label: t('batchRuns.statusCompleted'), severity: 'success' as const }
+        return { label: t('batchRuns.statusCompleted'), tone: 'success' as const }
     }
     if (status === 'failed') {
-        return { label: t('batchRuns.statusFailed'), severity: 'danger' as const }
+        return { label: t('batchRuns.statusFailed'), tone: 'danger' as const }
     }
-    return { label: t('batchRuns.statusRunning'), severity: 'warn' as const }
+    return { label: t('batchRuns.statusRunning'), tone: 'warning' as const }
 }
 
 const runStatusLabel = (status: string) => ({
@@ -82,7 +86,7 @@ const runStatusLabel = (status: string) => ({
     dispatched: t('batchRuns.runStatus.dispatched'),
 })[status] ?? status
 
-const runStatusSeverity = (status: string) => {
+const runStatusTone = (status: string) => {
     if (status === 'completed') {
         return 'success' as const
     }
@@ -90,9 +94,9 @@ const runStatusSeverity = (status: string) => {
         return 'danger' as const
     }
     if (status === 'dispatched') {
-        return 'info' as const
+        return 'primary' as const
     }
-    return 'warn' as const
+    return 'warning' as const
 }
 
 /** 列表加载（增量 reconcile 而非整表替换；in-flight 守卫与 UI 态解耦） */
@@ -155,7 +159,7 @@ const fetchDetail = async (id: string) => {
             runs: BatchRunRun[]
         }>(`/api/batch-runs/${id}`)
         detailMap.value[id] = detail
-        // 同步列表行状态（详情聚合值覆盖存储值；RG-B07 同步派生 _statusRank）
+        // 同步列表行状态（详情聚合值覆盖存储值，同步派生 _statusRank）
         const row = batchRuns.value.find((b) => b.id === id)
         if (row) {
             updateStatusRank(row, detail.status)
@@ -180,7 +184,7 @@ const onRowExpand = (event: { data: BatchRunView }) => {
 const forceFailing = ref<Record<string, boolean>>({})
 const forceFail = async (id: string): Promise<void> => {
     if (forceFailing.value[id]) return
-    if (!confirm(t('batchRuns.forceFailConfirm'))) return
+    if (!await confirmDialog.open({ title: t('batchRuns.forceFailConfirm'), tone: 'danger' })) return
     forceFailing.value[id] = true
     try {
         await $fetch(`/api/batch-runs/${id}/force-fail`, { method: 'POST' })
@@ -268,150 +272,158 @@ const nestedColumns = computed<DataTableColumn<BatchRunRun>[]>(() => [
                     {{ t('batchRuns.subtitle') }}
                 </p>
             </div>
-            <Button
-                icon="pi pi-refresh"
-                :label="t('batchRuns.refresh')"
-                severity="secondary"
+            <CaomeiButton
+                variant="primary"
+                tone="neutral"
                 :loading="loading"
                 @click="manualRefresh"
-            />
+            >
+                <template #icon>
+                    <CaomeiIcon :icon="RefreshCw" />
+                </template>
+                {{ t('batchRuns.refresh') }}
+            </CaomeiButton>
         </div>
 
-        <Message
+        <CaomeiMessage
             v-if="error"
-            severity="error"
+            tone="danger"
             :closable="false"
         >
             {{ error }}
-        </Message>
+        </CaomeiMessage>
 
-        <Card v-if="!firstLoad">
-            <template #content>
-                <CaomeiDataTable
-                    :data="batchRuns"
-                    :columns="columns"
-                    row-key="id"
-                    striped
-                    :expanded-rows="expandedRows"
-                    :empty-text="t('batchRuns.empty')"
-                    @update:expanded-rows="onUpdateExpandedRows"
-                    @row-expand="onRowExpand"
-                >
-                    <template #cell-source="{row}">
-                        <Tag
-                            :value="row.source === 'scheduled' ? t('batchRuns.sourceScheduled') : t('batchRuns.sourceManual')"
-                            :severity="row.source === 'scheduled' ? 'info' : 'secondary'"
-                        />
-                    </template>
-                    <template #cell-createdAt="{row}">
-                        {{ d(new Date(row.createdAt), 'long') }}
-                    </template>
-                    <template #cell-params="{row}">
-                        {{ modeLabel(row.mode) }} · {{ severityLabel(row.severityThreshold) }}
-                    </template>
-                    <template #cell-repositoryCount="{row}">
-                        <span v-if="row.pendingCount > 0" class="text-muted">
-                            {{ t('batchRuns.progressPending', {done: row.completedCount + row.failedCount, total: row.repositoryCount}) }}
-                        </span>
-                        <span v-else>
-                            {{ t('batchRuns.progressDone', {done: row.completedCount, total: row.repositoryCount}) }}
-                            <span v-if="row.failedCount > 0" class="text-danger">{{ t('batchRuns.progressFailed', {count: row.failedCount}) }}</span>
-                        </span>
-                    </template>
-                    <template #cell-_statusRank="{row}">
-                        <div class="batch-runs__status-cell">
-                            <Tag :value="statusTag(row.status).label" :severity="statusTag(row.status).severity" />
-                            <Button
-                                v-if="row.status === 'running'"
-                                icon="pi pi-stop-circle"
-                                :label="t('batchRuns.forceFail')"
-                                severity="danger"
-                                size="small"
-                                text
-                                :loading="forceFailing[row.id]"
-                                @click="forceFail(row.id)"
-                            />
-                        </div>
-                    </template>
-                    <template #cell-finishedAt="{row}">
-                        {{ row.finishedAt ? d(new Date(row.finishedAt), 'long') : '—' }}
-                    </template>
-                    <template #expansion="{data: row}">
-                        <div class="batch-runs__detail">
-                            <div class="batch-runs__stats">
-                                <div class="batch-runs__stat">
-                                    <span class="batch-runs__stat-value">{{ detailMap[row.id]?.summary?.alertsTotal ?? '—' }}</span>
-                                    <span class="batch-runs__stat-label">{{ t('batchRuns.statAlertsTotal') }}</span>
-                                </div>
-                                <div class="batch-runs__stat">
-                                    <span class="batch-runs__stat-value">{{ detailMap[row.id]?.summary?.fixedCount ?? '—' }}</span>
-                                    <span class="batch-runs__stat-label">{{ t('batchRuns.statFixedCount') }}</span>
-                                </div>
-                                <div class="batch-runs__stat">
-                                    <span class="batch-runs__stat-value">
-                                        {{ detailMap[row.id] ? `${detailMap[row.id]?.completedCount ?? '—'}/${detailMap[row.id]?.finishedCount ?? '—'}` : '—' }}
-                                    </span>
-                                    <span class="batch-runs__stat-label">{{ t('batchRuns.statSuccessFinished') }}</span>
-                                </div>
-                                <div
-                                    v-for="(count, severity) in detailMap[row.id]?.summary?.severityCounts ?? {}"
-                                    :key="severity"
-                                    class="batch-runs__stat"
-                                >
-                                    <span class="batch-runs__stat-value">{{ count }}</span>
-                                    <span class="batch-runs__stat-label">{{ severity }}</span>
-                                </div>
+        <CaomeiCard v-if="!firstLoad">
+            <CaomeiDataTable
+                :data="batchRuns"
+                :columns="columns"
+                row-key="id"
+                striped
+                :expanded-rows="expandedRows"
+                :empty-text="t('batchRuns.empty')"
+                @update:expanded-rows="onUpdateExpandedRows"
+                @row-expand="onRowExpand"
+            >
+                <template #cell-source="{row}">
+                    <CaomeiTag :tone="row.source === 'scheduled' ? 'primary' : 'neutral'">
+                        {{ row.source === 'scheduled' ? t('batchRuns.sourceScheduled') : t('batchRuns.sourceManual') }}
+                    </CaomeiTag>
+                </template>
+                <template #cell-createdAt="{row}">
+                    {{ d(new Date(row.createdAt), 'long') }}
+                </template>
+                <template #cell-params="{row}">
+                    {{ modeLabel(row.mode) }} · {{ severityLabel(row.severityThreshold) }}
+                </template>
+                <template #cell-repositoryCount="{row}">
+                    <span v-if="row.pendingCount > 0" class="text-muted">
+                        {{ t('batchRuns.progressPending', {done: row.completedCount + row.failedCount, total: row.repositoryCount}) }}
+                    </span>
+                    <span v-else>
+                        {{ t('batchRuns.progressDone', {done: row.completedCount, total: row.repositoryCount}) }}
+                        <span v-if="row.failedCount > 0" class="text-danger">{{ t('batchRuns.progressFailed', {count: row.failedCount}) }}</span>
+                    </span>
+                </template>
+                <template #cell-_statusRank="{row}">
+                    <div class="batch-runs__status-cell">
+                        <CaomeiTag :tone="statusTag(row.status).tone">
+                            {{ statusTag(row.status).label }}
+                        </CaomeiTag>
+                        <CaomeiButton
+                            v-if="row.status === 'running'"
+                            tone="danger"
+                            variant="ghost"
+                            size="sm"
+                            :loading="forceFailing[row.id]"
+                            @click="forceFail(row.id)"
+                        >
+                            <template #icon>
+                                <CaomeiIcon :icon="CircleStop" />
+                            </template>
+                            {{ t('batchRuns.forceFail') }}
+                        </CaomeiButton>
+                    </div>
+                </template>
+                <template #cell-finishedAt="{row}">
+                    {{ row.finishedAt ? d(new Date(row.finishedAt), 'long') : '—' }}
+                </template>
+                <template #expansion="{data: row}">
+                    <div class="batch-runs__detail">
+                        <div class="batch-runs__stats">
+                            <div class="batch-runs__stat">
+                                <span class="batch-runs__stat-value">{{ detailMap[row.id]?.summary?.alertsTotal ?? '—' }}</span>
+                                <span class="batch-runs__stat-label">{{ t('batchRuns.statAlertsTotal') }}</span>
                             </div>
-
-                            <CaomeiDataTable
-                                :data="detailMap[row.id]?.runs ?? []"
-                                :columns="nestedColumns"
-                                :empty-text="t('batchRuns.subEmpty')"
+                            <div class="batch-runs__stat">
+                                <span class="batch-runs__stat-value">{{ detailMap[row.id]?.summary?.fixedCount ?? '—' }}</span>
+                                <span class="batch-runs__stat-label">{{ t('batchRuns.statFixedCount') }}</span>
+                            </div>
+                            <div class="batch-runs__stat">
+                                <span class="batch-runs__stat-value">
+                                    {{ detailMap[row.id] ? `${detailMap[row.id]?.completedCount ?? '—'}/${detailMap[row.id]?.finishedCount ?? '—'}` : '—' }}
+                                </span>
+                                <span class="batch-runs__stat-label">{{ t('batchRuns.statSuccessFinished') }}</span>
+                            </div>
+                            <div
+                                v-for="(count, severity) in detailMap[row.id]?.summary?.severityCounts ?? {}"
+                                :key="severity"
+                                class="batch-runs__stat"
                             >
-                                <template #cell-repo="{row: run}">
-                                    {{ run.owner }}/{{ run.name }}
-                                </template>
-                                <template #cell-runStatus="{row: run}">
-                                    <Tag :value="runStatusLabel(run.status)" :severity="runStatusSeverity(run.status)" />
-                                </template>
-                                <template #cell-executor="{row: run}">
-                                    {{ run.executorKind === 'github-action' ? t('repos.githubAction') : run.executorKind === 'sandbox' ? t('repos.sandboxContainer') : t('repos.platformContainer') }}
-                                </template>
-                                <template #cell-alerts="{row: run}">
-                                    {{ (run.summary as {alertsFound?: number} | null)?.alertsFound ?? '—' }}
-                                </template>
-                                <template #cell-result="{row: run}">
-                                    <span
-                                        v-if="run.error"
-                                        class="text-danger"
-                                        :title="run.error.message"
-                                    >
-                                        {{ run.error.code }}
-                                    </span>
-                                    <span v-else-if="run.runUrl">
-                                        <a
-                                            :href="run.runUrl"
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                        >
-                                            {{ t('batchRuns.openRun') }}
-                                        </a>
-                                    </span>
-                                    <span v-else>—</span>
-                                    <!-- A 模式 PR 创建失败 → dispatched + branch URL 兜底，提示手动开 PR（背景见 docs/plan/todo.md §PR 系列已闭环条目） -->
-                                    <small
-                                        v-if="run.status === 'dispatched' && run.error?.code === 'pr_creation_failed'"
-                                        class="d-block mt-1 text-warning"
-                                    >
-                                        {{ t('batchRuns.openRunPrFailedHint') }}
-                                    </small>
-                                </template>
-                            </CaomeiDataTable>
+                                <span class="batch-runs__stat-value">{{ count }}</span>
+                                <span class="batch-runs__stat-label">{{ severity }}</span>
+                            </div>
                         </div>
-                    </template>
-                </CaomeiDataTable>
-            </template>
-        </Card>
+
+                        <CaomeiDataTable
+                            :data="detailMap[row.id]?.runs ?? []"
+                            :columns="nestedColumns"
+                            :empty-text="t('batchRuns.subEmpty')"
+                        >
+                            <template #cell-repo="{row: run}">
+                                {{ run.owner }}/{{ run.name }}
+                            </template>
+                            <template #cell-runStatus="{row: run}">
+                                <CaomeiTag :tone="runStatusTone(run.status)">
+                                    {{ runStatusLabel(run.status) }}
+                                </CaomeiTag>
+                            </template>
+                            <template #cell-executor="{row: run}">
+                                {{ run.executorKind === 'github-action' ? t('repos.githubAction') : run.executorKind === 'sandbox' ? t('repos.sandboxContainer') : t('repos.platformContainer') }}
+                            </template>
+                            <template #cell-alerts="{row: run}">
+                                {{ (run.summary as {alertsFound?: number} | null)?.alertsFound ?? '—' }}
+                            </template>
+                            <template #cell-result="{row: run}">
+                                <span
+                                    v-if="run.error"
+                                    class="text-danger"
+                                    :title="run.error.message"
+                                >
+                                    {{ run.error.code }}
+                                </span>
+                                <span v-else-if="run.runUrl">
+                                    <a
+                                        :href="run.runUrl"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                    >
+                                        {{ t('batchRuns.openRun') }}
+                                    </a>
+                                </span>
+                                <span v-else>—</span>
+                                <!-- A 模式 PR 创建失败 → dispatched + branch URL 兜底，提示手动开 PR（背景见 docs/plan/todo.md §PR 系列已闭环条目） -->
+                                <small
+                                    v-if="run.status === 'dispatched' && run.error?.code === 'pr_creation_failed'"
+                                    class="d-block mt-1 text-warning"
+                                >
+                                    {{ t('batchRuns.openRunPrFailedHint') }}
+                                </small>
+                            </template>
+                        </CaomeiDataTable>
+                    </div>
+                </template>
+            </CaomeiDataTable>
+        </CaomeiCard>
         <p v-else class="text-muted">
             {{ t('common.empty.loading') }}
         </p>

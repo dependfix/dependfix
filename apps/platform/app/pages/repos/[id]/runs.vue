@@ -1,7 +1,8 @@
 <script setup lang="ts">
 // 扫描历史：按仓库查看运行列表与详情
-// 注意：本页面已被 C51 应用层修复迁入 `repo-history-dialog`（见 docs/plan/todo.md §C51），但保留兼容——
-// 用户直接访问 /repos/{id}/runs 仍可使用（C58 候选删除，见 docs/plan/backlog.md §C58）。
+// 注意：本页面已被应用层修复迁入 `repo-history-dialog`，但保留兼容——
+// 用户直接访问 /repos/{id}/runs 仍可使用（候选删除条目见 docs/plan/backlog.md）。
+import { ArrowLeft, ExternalLink, Eye } from '@lucide/vue'
 import type { DataTableColumn } from 'caomei-ui'
 import { withRunStatusRank } from '~/utils/sort-helpers'
 
@@ -48,16 +49,16 @@ const detailVisible = ref(false)
 const detailLoading = ref(false)
 const detail = ref<{ results: unknown[] } | null>(null)
 
-const statusSeverity = (status: string) => {
+const statusTone = (status: string) => {
     switch (status) {
         case 'completed':
             return 'success'
         case 'failed':
             return 'danger'
         case 'dispatched':
-            return 'info'
+            return 'primary'
         default:
-            return 'warn'
+            return 'warning'
     }
 }
 
@@ -68,7 +69,7 @@ const statusLabel = (status: string) => ({
     running: t('runs.statusRunning'),
 })[status] ?? status
 
-/** C53-后-C：A 模式 PR 创建失败时 dispatched 状态 Tag 用专门文案（区别于 B 模式「已触发等待结果」） */
+/** A 模式 PR 创建失败时 dispatched 状态 Tag 用专门文案（区别于 B 模式「已触发等待结果」） */
 const isPrFailedDispatched = (run: RunView) => run.status === 'dispatched' && run.error?.code === 'pr_creation_failed'
 
 const fetchRuns = async () => {
@@ -77,9 +78,9 @@ const fetchRuns = async () => {
     try {
         const repoId = route.params.id as string
         const res = await $fetch('/api/runs', { query: { repositoryId: repoId } })
-        // 排序键派生：status 走业务语义排序（RG-W03 修复——runs 状态全集与 batch-runs 不同）
-        // todo.md §M14.2 适配：/api/runs 返回结构变更为 {items, total, page, pageSize}（向后兼容：pageSize 缺省 100）
-        // 本页面无分页控件（保留 backlog.md §C58 候选删除兼容路径），仍取全部 items
+        // 排序键派生：status 走业务语义排序（runs 状态全集与 batch-runs 不同）
+        // /api/runs 返回结构为 {items, total, page, pageSize}（向后兼容：pageSize 缺省 100）
+        // 本页面无分页控件（属候选删除的兼容路径），仍取全部 items
         const data = res as { items: RunView[] }
         runs.value = withRunStatusRank(data.items)
     } catch (e: any) {
@@ -118,9 +119,9 @@ const openRunUrl = (run: RunView) => {
 const repoId = computed(() => route.params.id as string)
 
 /**
- * 列定义（caomei DataTable 用 `columns` 数组 + `#cell-{key}` 插槽替代 PrimeVue 的 `<Column>`）。
- * `key` 即排序字段（原 `field`）；`alerts` / `fixed` 无对应字段，仅为单元格插槽占位的唯一 key。
- * 原 `_statusRank` 列的 `:default-sort-order="-1"` 只影响初始方向而本页初始无排序，故删除后行为一致。
+ * 列定义（`columns` 数组 + `#cell-{key}` 插槽）。
+ * `key` 即排序字段；`alerts` / `fixed` 无对应字段，仅为单元格插槽占位的唯一 key。
+ * `_statusRank` 不设初始排序方向：该设置只影响初始方向，而本页初始无排序，故行为一致。
  */
 const columns = computed<DataTableColumn<RunView>[]>(() => [
     { key: '_statusRank', header: t('runs.colStatus'), sortable: true },
@@ -138,7 +139,7 @@ const runResults = computed<RunResultView[]>(() =>
     (detail.value as { results: RunResultView[] } | null)?.results ?? [],
 )
 
-/** 详情弹窗内结果表列定义（原 PrimeVue 各 `<Column>` 均不可排序） */
+/** 详情弹窗内结果表列定义（各列不可排序） */
 const resultsColumns = computed<DataTableColumn<RunResultView>[]>(() => [
     { key: 'packageName', header: t('runs.colPackage') },
     { key: 'severity', header: t('runs.colSeverity') },
@@ -153,96 +154,101 @@ const resultsColumns = computed<DataTableColumn<RunResultView>[]>(() => [
     <div class="runs">
         <div class="runs__header">
             <div>
-                <Button
-                    icon="pi pi-arrow-left"
-                    text
+                <CaomeiButton
+                    variant="ghost"
                     rounded
-                    size="small"
-                    :aria-label="t('runs.back')"
+                    size="sm"
+                    :label="t('runs.back')"
                     @click="backToRepos"
-                />
+                >
+                    <template #icon>
+                        <CaomeiIcon :icon="ArrowLeft" />
+                    </template>
+                </CaomeiButton>
                 <h2>{{ t('runs.title') }}</h2>
             </div>
         </div>
 
         <repo-ai-toggle :repository-id="repoId" class="runs__ai-toggle" />
 
-        <Message
+        <CaomeiMessage
             v-if="error"
-            severity="error"
+            tone="danger"
             :closable="false"
         >
             {{ error }}
-        </Message>
+        </CaomeiMessage>
 
-        <Card v-if="!loading">
-            <template #content>
-                <CaomeiDataTable
-                    :data="runs"
-                    :columns="columns"
-                    row-key="id"
-                    striped
-                    :empty-text="t('runs.empty')"
-                >
-                    <template #cell-_statusRank="{row}">
-                        <Tag
-                            :value="isPrFailedDispatched(row)
-                                ? t('batchRuns.runStatus.dispatchedPrFailed')
-                                : statusLabel(row.status)"
-                            :severity="statusSeverity(row.status)"
-                        />
-                        <small
-                            v-if="isPrFailedDispatched(row)"
-                            class="d-block mt-1 text-warning"
-                        >
-                            {{ t('batchRuns.openRunPrFailedHint') }}
-                        </small>
-                    </template>
-                    <template #cell-executorKind="{row}">
-                        <Tag :value="row.executorKind === 'github-action' ? t('repos.githubAction') : row.executorKind === 'sandbox' ? t('repos.sandboxContainer') : t('repos.platformContainer')" severity="secondary" />
-                    </template>
-                    <template #cell-startedAt="{row}">
-                        {{ row.startedAt ? d(new Date(row.startedAt), 'long') : '—' }}
-                    </template>
-                    <template #cell-alerts="{row}">
-                        {{ (row.summary as Record<string, number> | null)?.alertsFound ?? 0 }}
-                    </template>
-                    <template #cell-fixed="{row}">
-                        {{ (row.summary as Record<string, number> | null)?.alertsFixed ?? 0 }}
-                    </template>
-                    <template #cell-actions="{row}">
-                        <Button
-                            v-if="row.runUrl"
-                            icon="pi pi-external-link"
-                            text
-                            rounded
-                            size="small"
-                            :aria-label="t('runs.actionViewActionRun')"
-                            :title="t('runs.actionViewActionRun')"
-                            @click="openRunUrl(row)"
-                        />
-                        <Button
-                            icon="pi pi-eye"
-                            text
-                            rounded
-                            size="small"
-                            :aria-label="t('runs.actionViewDetail')"
-                            :title="t('runs.actionViewDetail')"
-                            @click="openDetail(row)"
-                        />
-                    </template>
-                </CaomeiDataTable>
-            </template>
-        </Card>
+        <CaomeiCard v-if="!loading">
+            <CaomeiDataTable
+                :data="runs"
+                :columns="columns"
+                row-key="id"
+                striped
+                :empty-text="t('runs.empty')"
+            >
+                <template #cell-_statusRank="{row}">
+                    <CaomeiTag :tone="statusTone(row.status)">
+                        {{ isPrFailedDispatched(row) ? t('batchRuns.runStatus.dispatchedPrFailed') : statusLabel(row.status) }}
+                    </CaomeiTag>
+                    <small
+                        v-if="isPrFailedDispatched(row)"
+                        class="d-block mt-1 text-warning"
+                    >
+                        {{ t('batchRuns.openRunPrFailedHint') }}
+                    </small>
+                </template>
+                <template #cell-executorKind="{row}">
+                    <CaomeiTag tone="neutral">
+                        {{ row.executorKind === 'github-action' ? t('repos.githubAction') : row.executorKind === 'sandbox' ? t('repos.sandboxContainer') : t('repos.platformContainer') }}
+                    </CaomeiTag>
+                </template>
+                <template #cell-startedAt="{row}">
+                    {{ row.startedAt ? d(new Date(row.startedAt), 'long') : '—' }}
+                </template>
+                <template #cell-alerts="{row}">
+                    {{ (row.summary as Record<string, number> | null)?.alertsFound ?? 0 }}
+                </template>
+                <template #cell-fixed="{row}">
+                    {{ (row.summary as Record<string, number> | null)?.alertsFixed ?? 0 }}
+                </template>
+                <template #cell-actions="{row}">
+                    <CaomeiButton
+                        v-if="row.runUrl"
+                        variant="ghost"
+                        rounded
+                        size="sm"
+                        :label="t('runs.actionViewActionRun')"
+                        :title="t('runs.actionViewActionRun')"
+                        @click="openRunUrl(row)"
+                    >
+                        <template #icon>
+                            <CaomeiIcon :icon="ExternalLink" />
+                        </template>
+                    </CaomeiButton>
+                    <CaomeiButton
+                        variant="ghost"
+                        rounded
+                        size="sm"
+                        :label="t('runs.actionViewDetail')"
+                        :title="t('runs.actionViewDetail')"
+                        @click="openDetail(row)"
+                    >
+                        <template #icon>
+                            <CaomeiIcon :icon="Eye" />
+                        </template>
+                    </CaomeiButton>
+                </template>
+            </CaomeiDataTable>
+        </CaomeiCard>
         <p v-else class="text-muted">
             {{ t('common.empty.loading') }}
         </p>
 
-        <Dialog
-            v-model:visible="detailVisible"
-            :header="t('runs.dialogTitle')"
+        <CaomeiDialog
+            v-model:open="detailVisible"
+            :title="t('runs.dialogTitle')"
             modal
-            :draggable="false"
             :style="{width: '720px'}"
         >
             <div v-if="detailLoading" class="text-muted">
@@ -255,10 +261,14 @@ const resultsColumns = computed<DataTableColumn<RunResultView>[]>(() => [
                     :empty-text="t('runs.detailEmpty')"
                 >
                     <template #cell-severity="{row}">
-                        <Tag :value="row.severity" :severity="row.severity === 'critical' ? 'danger' : row.severity === 'high' ? 'warn' : 'info'" />
+                        <CaomeiTag :tone="row.severity === 'critical' ? 'danger' : row.severity === 'high' ? 'warning' : 'primary'">
+                            {{ row.severity }}
+                        </CaomeiTag>
                     </template>
                     <template #cell-fixable="{row}">
-                        <Tag :value="row.fixable ? t('common.yes') : t('common.no')" :severity="row.fixable ? 'success' : 'secondary'" />
+                        <CaomeiTag :tone="row.fixable ? 'success' : 'neutral'">
+                            {{ row.fixable ? t('common.yes') : t('common.no') }}
+                        </CaomeiTag>
                     </template>
                     <template #cell-link="{row}">
                         <a
@@ -272,7 +282,7 @@ const resultsColumns = computed<DataTableColumn<RunResultView>[]>(() => [
                     </template>
                 </CaomeiDataTable>
             </div>
-        </Dialog>
+        </CaomeiDialog>
     </div>
 </template>
 

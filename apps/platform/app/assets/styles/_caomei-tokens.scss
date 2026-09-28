@@ -25,6 +25,17 @@
     padding: 0.375rem 0.5rem;
 }
 
+// 选择器家族（Select / MultiSelect / AutoComplete）默认上限 20rem：
+// PrimeVue 侧 32 处里 29 处显式 `fluid`（全宽），caomei 无 `fluid` prop。为对齐迁移前
+// 「表单字段 / 过滤项随容器全宽」的既有布局，把上限收敛为 none，宽度约束交由**外层容器**
+// 承担（选择器的可见根是 Reka `SelectTrigger`，页面/全局样式写在选择器上约束不了宽度）——
+// 例如 `.platform__lang`（容器 div，main.scss）与 `users.vue` 的 `.users__role-select`（inline-block 容器）。
+// 特异性必须高于库：`caomei-ui/theme.css` 的 `:root`（0,1,0）在 main.scss 之后加载，
+// 同特异性的 `:root` 会被它压过（实测仍解析为 20rem）——与下方暗色档用 `:root.dark` 同理。
+:root:root {
+    --caomei-select-max-width: none;
+}
+
 :root.dark,
 :root[data-theme='dark'] {
     // 暗底强调色取 teal-300，在深背景上保持充分对比度

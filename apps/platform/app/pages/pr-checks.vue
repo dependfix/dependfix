@@ -1,24 +1,22 @@
 <script setup lang="ts">
-// PR Check 状态监测 UI（详见 docs/plan/todo.md §M24.1 Phase 4）
+// PR Check 状态监测 UI
 //
-// 数据来源：GET /api/pr-checks（Phase 3 API 层）
+// 数据来源：GET /api/pr-checks
 // 业务逻辑：service 层按 (repositoryId, prNumber, headSha) 复合唯一索引幂等
-//           INSERT/UPDATE 写入 PRCheck，状态机 D3（失败→firing=true；回归 success→
+//           INSERT/UPDATE 写入 PRCheck，状态机（失败→firing=true；回归 success→
 //           自动 ack）。本页面仅渲染 + 用户手动 ack 操作，不参与状态机推断。
 //
-// 视觉策略：复用 PrimeVue DataTable 视觉模式（与 alerts.vue 同款），但不复用
+// 视觉策略：复用 DataTable 视觉模式（与 alerts.vue 同款），但不复用
 // alerts-rowgroup subheader（PRCheck 是 per-PR-head 模型，按 repositoryId /
 // prNumber 维度无分组价值）。ack 按钮在 alertFiring=true 行内可见，点击触发
 // PATCH /api/pr-checks/[id] { alertFiring: false } 关闭告警。
 //
-// SSR：M16.4 PrimeVue hydration 教训——用 useAsyncData + useRequestFetch
-// 自动转发 cookie（Nuxt 4 官方 SSR 转发方案），hydration 阶段 data.value
-// 已有完整数据，避免 PrimeVue DataTable processedData 重复计算问题。
+// SSR：用 useAsyncData + useRequestFetch 自动转发 cookie（Nuxt 4 官方 SSR 转发方案），
+// hydration 阶段 data.value 已有完整数据，避免 DataTable processedData 重复计算问题。
 import { computed, reactive, ref } from 'vue'
 import type { DataTableColumn, DataTableSortMeta } from 'caomei-ui'
 import type { PRCheckConclusion } from '#server/entities/pr-check'
-import { useToast } from 'primevue/usetoast'
-import { conclusionTagSeverity } from '~/utils/pr-check-style'
+import { conclusionTagTone } from '~/utils/pr-check-style'
 
 definePageMeta({
     middleware: 'auth',
@@ -71,7 +69,7 @@ const alertFiringOptions = computed(() => [
 // SSR-aware 数据获取（SSR 阶段 handler 跑完拿数据，hydration 时 PrimeVue 已能渲染）
 const requestFetch = useRequestFetch()
 
-// /api/repos 用于仓库 Dropdown 选项（SSR 阶段就拉取，无 hydration 闪烁）；
+// /api/repos 用于仓库选项（SSR 阶段就拉取，无 hydration 闪烁）；
 // 复用 alerts.vue L130-135 模式，generic 标注规避 TS 5.x 对 $fetch overload 路径推断的栈深度限制。
 const { data: repositories } = await useAsyncData<Array<{ id: string, owner: string, name: string }>>(
     'pr-checks-repositories',
@@ -139,20 +137,18 @@ const handleAck = async (row: PRCheckView) => {
             method: 'PATCH',
             body: { alertFiring: false },
         })
-        toast.add({
-            severity: 'success',
-            summary: t('prChecks.ack.success', { prNumber: row.prNumber }),
-            life: 3000,
+        toast.success({
+            title: t('prChecks.ack.success', { prNumber: row.prNumber }),
+            duration: 3000,
         })
         await refresh()
     } catch (error) {
         const message = (error as { data?: { message?: string }, message?: string }).data?.message
             ?? (error as { message?: string }).message
             ?? String(error)
-        toast.add({
-            severity: 'error',
-            summary: t('prChecks.ack.failed', { message }),
-            life: 5000,
+        toast.danger({
+            title: t('prChecks.ack.failed', { message }),
+            duration: 5000,
         })
     } finally {
         isAcking.value = null
@@ -214,7 +210,7 @@ const handleAck = async (row: PRCheckView) => {
             <div class="pr-checks__filter-row">
                 <div class="pr-checks__filter-field">
                     <label for="pr-check-repository">{{ t('prChecks.filterRepository') }}</label>
-                    <Dropdown
+                    <CaomeiSelect
                         id="pr-check-repository"
                         v-model="filters.repositoryId"
                         :options="repositoryOptions"
@@ -226,7 +222,7 @@ const handleAck = async (row: PRCheckView) => {
                 </div>
                 <div class="pr-checks__filter-field">
                     <label for="pr-check-alert-firing">{{ t('prChecks.filterAlertFiring') }}</label>
-                    <Dropdown
+                    <CaomeiSelect
                         id="pr-check-alert-firing"
                         v-model="filters.alertFiring"
                         :options="alertFiringOptions"
@@ -271,37 +267,43 @@ const handleAck = async (row: PRCheckView) => {
                 </template>
                 <template #cell-conclusion="{row}">
                     <!-- caomei 插槽行对象为强类型：API 层 conclusion 为 string，此处按服务端枚举窄化（DB 枚举约束兜底） -->
-                    <Tag :severity="conclusionTagSeverity(row.conclusion as PRCheckConclusion)" :value="row.conclusion" />
+                    <CaomeiTag :tone="conclusionTagTone(row.conclusion as PRCheckConclusion)">
+                        {{ row.conclusion }}
+                    </CaomeiTag>
                 </template>
                 <template #cell-lastPolledAt="{row}">
                     {{ new Date(row.lastPolledAt).toLocaleString() }}
                 </template>
                 <template #cell-alertFiring="{row}">
-                    <Tag
+                    <CaomeiTag
                         v-if="row.alertFiring"
-                        severity="danger"
-                        :value="t('prChecks.alertFiringTrue')"
-                    />
-                    <Tag
+                        tone="danger"
+                    >
+                        {{ t('prChecks.alertFiringTrue') }}
+                    </CaomeiTag>
+                    <CaomeiTag
                         v-else-if="row.acknowledgedAt"
-                        severity="secondary"
-                        :value="t('prChecks.alertFiringFalse')"
-                    />
-                    <Tag
+                        tone="neutral"
+                    >
+                        {{ t('prChecks.alertFiringFalse') }}
+                    </CaomeiTag>
+                    <CaomeiTag
                         v-else
-                        severity="success"
-                        value="OK"
-                    />
+                        tone="success"
+                    >
+                        OK
+                    </CaomeiTag>
                 </template>
                 <template #cell-actions="{row}">
-                    <Button
+                    <CaomeiButton
                         v-if="row.alertFiring"
-                        :label="t('prChecks.ack.action')"
-                        severity="secondary"
-                        size="small"
+                        tone="neutral"
+                        size="sm"
                         :loading="isAcking === row.id"
                         @click="handleAck(row)"
-                    />
+                    >
+                        {{ t('prChecks.ack.action') }}
+                    </CaomeiButton>
                 </template>
             </CaomeiDataTable>
         </section>
@@ -344,8 +346,8 @@ const handleAck = async (row: PRCheckView) => {
 
     &__summary-card {
         padding: $space-3;
-        background: var(--p-content-background);
-        border: 1px solid var(--p-content-border-color);
+        background: var(--caomei-color-bg);
+        border: 1px solid var(--caomei-color-border);
         border-radius: $radius-md;
 
         &--firing {
@@ -374,7 +376,7 @@ const handleAck = async (row: PRCheckView) => {
 
     &__summary-tag {
         padding: 2px $space-2;
-        background: var(--p-content-hover-background);
+        background: var(--caomei-color-bg-elevated);
         border-radius: $radius-sm;
     }
 

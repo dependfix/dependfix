@@ -42,7 +42,7 @@ watch(
             <p class="auth__subtitle">
                 {{ t('index.subtitle') }}
             </p>
-            <ProgressSpinner v-if="isPending" style="width: 40px; height: 40px" />
+            <CaomeiProgressSpinner v-if="isPending" size="lg" />
         </div>
     </div>
 </template>

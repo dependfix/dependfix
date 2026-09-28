@@ -1,14 +1,15 @@
 <script setup lang="ts">
 // 告警视图：按仓库/严重级别/来源/视图模式筛选
-// 顶部不渲染 dashboard 同款图表（todo.md §C65-D4：与 dashboard.vue 完全去重），
+// 顶部不渲染 dashboard 同款图表（与 dashboard.vue 完全去重），
 // 用户需要全局统计去 dashboard；alerts 聚焦表格 + 详情
 //
-// 详情侧栏已抽出为 components/alert-run-sidebar.vue（todo.md §M16.2 audit 触发的 max-lines 抽取）
+// 详情侧栏已抽出为 components/alert-run-sidebar.vue（audit 触发的 max-lines 抽取）
 // 一键修复状态机抽出为 composables/use-fix-now.ts
+import { Funnel, List } from '@lucide/vue'
 import { withFixStatusRank, withSeverityRank } from '~/utils/sort-helpers'
 import {
-    alertsRuleIdTagSeverity,
-    alertsSeverityTagSeverity,
+    alertsRuleIdTone,
+    alertsSeverityTone,
     alertsStatusLabel,
     buildAlertsQuery,
     type AlertsFilters,
@@ -38,7 +39,7 @@ interface AlertView {
     htmlUrl: string | null
     fixStatus: string
     errorMessage: string | null
-    // per-alert 模型下 ScanResult 字段直接绑定（不再 v-if 控制，见 todo.md §M20.3 + §M20.6）：
+    // per-alert 模型下 ScanResult 字段直接绑定（不再 v-if 控制）：
     // occurrenceCount 累加跨次扫描出现次数（业务语义："曾出现 N 次"）
     // firstSeenAt / lastSeenAt 分离首次发现 vs 最近见到时间
     // supersededAt 上游已关闭时由 reconcile 函数写入（决策 1：fixStatus=success 永不被 supersede）
@@ -50,11 +51,11 @@ interface AlertView {
     // - ghsaId：GitHub Security Advisory ID（如 GHSA-p6mc-m468-83gw），dependabot / pnpm-audit 源非 null
     // - cveIds：CVE 列表（如 ['CVE-2021-23337']），code-scanning / code-quality 源为空数组
     // 数据来源：fetcher 透传到 ScanResult.ghsaId / ScanResult.cveIds（JSON 序列化），reconcile 写入 DB；
-    // 前端 Identifiers 列渲染依赖此二字段（详情见 todo.md §M23.3）。
+    // 前端 Identifiers 列渲染依赖此二字段。
     ghsaId?: string | null
     cveIds?: string[]
 
-    // AI 研判评估结果（todo.md §M26.1 + platform-ai-integration.md §alerts 视图 AI 评估列）：
+    // AI 研判评估结果（platform-ai-integration.md §alerts 视图 AI 评估列）：
     // - aiEvaluated：true 表示本次扫描引擎触发 AI 研判；false 表示跳过（依赖未触发 / Organization 未配 Key 等）
     // - aiEvaluation：当 aiEvaluated=true 时携带结构化评估结果（confidence / breakingRisks / patchSuggestion）
     // - 触发范围由 Repository.aiTrigger 控制（failure / major / both）；默认不渲染整列内容，仅在 AI 启用过的扫描中显示 Tag
@@ -67,17 +68,16 @@ interface AlertView {
 }
 
 /**
- * SSR-aware 数据获取（历史阶段记录见 docs/plan/archive/todo-archive-phases-m16-m17.md
- * 「M16.4 PrimeVue hydration 主线 #1 缓解」）：
+ * SSR-aware 数据获取（历史背景见 docs/plan/archive/todo-archive-phases-m16-m17.md）：
  *
  * 历史：alerts 加载走 onMounted(fetchRepositories + fetchAlerts)，SSR 阶段 alerts.value 初值为
- * []，hydration 后从 [] 突变到 mock 数据，PrimeVue 4 DataTable 不重新计算 processedData，
- * rowGroup subheader 永不渲染（模式参考见 docs/standards/testing.md「PrimeVue 4 + Nuxt SSR
- * hydration 状态机分歧」）。page.reload() 后能渲染佐证非业务逻辑问题。
+ * []，hydration 后从 [] 突变到数据，表格不重新计算 processedData，rowGroup subheader 永不渲染
+ * （模式参考见 docs/standards/testing.md「SSR hydration 状态机分歧」）。page.reload() 后能渲染
+ * 佐证非业务逻辑问题。
  *
  * 修复路径：迁移到 useAsyncData，SSR 阶段 handler 就执行 fetch 并塞进 payload，hydration 时
- * data.value 已有完整数据 → PrimeVue DataTable processedData 在 hydration 阶段就有数据 →
- * rowGroup subheader 渲染。viewMode / filters 变化通过 watch: [...] 自动 refetch。
+ * data.value 已有完整数据 → 表格 processedData 在 hydration 阶段就有数据 → rowGroup subheader
+ * 渲染。viewMode / filters 变化通过 watch: [...] 自动 refetch。
  *
  * useRequestFetch：SSR 阶段自动转发 cookie（Nuxt 4 官方 SSR 转发方案），否则 alerts 页有
  * auth middleware 鉴权，SSR 拿不到 session 会 401。
@@ -88,11 +88,11 @@ const filters = reactive<AlertsFilters>({
     severity: 'all',
     source: 'all',
     /**
-     * includeSuperseded 开关（todo.md §M20.6）：
+     * includeSuperseded 开关：
      * - false（默认）：后端 result.supersededAt IS NULL 过滤，仅显示活跃告警
      * - true：返回全量（含已 superseded 上游已消失的告警）
      *
-     * 替代旧 todo.md §M13.2 §T1306 的 dedupe 跨次去重 UI（per-alert 模型下 ScanResult 已天然 deduped，
+     * 替代旧的 dedupe 跨次去重 UI（per-alert 模型下 ScanResult 已天然 deduped，
      * occurrenceCount 字段直接来自 ScanResult，无需应用层 fingerprint 聚合）。
      *
      * 使用 reactive 而非 ref：useAsyncData watch 默认浅监听 ref 引用变化；
@@ -102,7 +102,7 @@ const filters = reactive<AlertsFilters>({
 })
 
 /**
- * 视图模式（todo.md §C65-D3）：按包 / 按项目 / 原始列表三选一。
+ * 视图模式：按包 / 按项目 / 原始列表三选一。
  * - 'package'：rowGroupMode='subheader'，按 packageName 分组（默认）
  * - 'repository'：rowGroupMode='subheader'，按 repository 分组
  * - 'none'：原始列表，无分组
@@ -147,7 +147,7 @@ const { data: reposData } = await useAsyncData<Array<{ id: string, owner: string
 )
 
 /**
- * /api/alerts 列表（todo.md §M16.4 SSR-aware data fetching）
+ * /api/alerts 列表（SSR-aware data fetching）
  *
  * watch: [viewMode, filters] 自动 refetch：viewMode 切换 / filters 任意字段变更都触发
  * useAsyncData 重跑 handler，避免 onViewModeChange / filterApply Button
@@ -169,14 +169,14 @@ const {
     }),
     {
         // 单独监听 viewMode（ref 引用变化）；filters reactive 字段变化通过下方显式 watch 触发 refetch
-        // （Vue 3 + Nuxt useAsyncData watch 默认浅监听，对 nested field 修改不触发；M20.6 新增
+        // （Vue 3 + Nuxt useAsyncData watch 默认浅监听，对 nested field 修改不触发；新增
         // includeSuperseded 开关 toggle 后必须显式 deep watch —— 测试已实证默认 watch 不触发）
         watch: [viewMode],
         default: () => [],
     },
 )
 
-// 显式监听 filters reactive 字段变化触发 refetch（深 watch；M20.6 引入 includeSuperseded 开关后必须）
+// 显式监听 filters reactive 字段变化触发 refetch（深 watch；includeSuperseded 开关引入后必须）
 // 注：依赖 Nuxt 4.x useAsyncData 默认 `dedupe: 'cancel'` 抑制双触发（useAsyncData 内置 watch + 此显式 watch
 // 都可能触发 refresh，但 abortController 会取消旧 execute）；改 dedupe 策略前需重新评估
 watch(filters, () => {
@@ -219,7 +219,7 @@ const onViewModeChange = () => {
     expandedPackages.value = []
 }
 
-// per-alert 模型下每行 1 个 runId（todo.md §M20.3）；详情侧栏（PrimeVue Sidebar 右侧滑出，
+// per-alert 模型下每行 1 个 runId；详情侧栏（右侧滑出，
 // 显示该告警关联 run 列表 + 立即修复此仓库按钮）
 interface RunDetailView {
     id: string
@@ -242,10 +242,10 @@ const runDetailVisible = ref(false)
 const selectedRunId = ref<string | null>(null)
 
 /**
- * 一键修复（todo.md §M16.2 C66-D）：
+ * 一键修复：
  * - 复用既有 run_id：服务端 skip createPendingScanRun，直接以复用 run 进入 fix 流程
  * - 状态机（fixingRunId / fixError / fixSuccess）抽出到 composables/use-fix-now.ts
- *   （参考 todo.md §M15.1 utility 抽取的反向时机 —— audit warning 触发的单向提前抽取）
+ *   （utility 抽取的反向时机 —— audit warning 触发的单向提前抽取）
  * - 成功后 toast 提示并跳转到扫描历史（/scans?repository=）查看 fix 进度
  */
 const { fixingRunId, fixError, fixSuccess, triggerFix } = useFixNow()
@@ -257,8 +257,8 @@ const openRunSidebar = async (alert: AlertView) => {
     runDetailVisible.value = false
     selectedRunId.value = null
     try {
-        // per-alert 模型下每行 1 个 runId（todo.md §M20.3）；直接拉取该 run 详情显示 sidebar
-        // （旧 todo.md §M13.2 §T1306 实现从 affectedRunIds 拉取多个 runs 已无意义）
+        // per-alert 模型下每行 1 个 runId；直接拉取该 run 详情显示 sidebar
+        // （旧的从 affectedRunIds 拉取多个 runs 已无意义）
         if (alert.runId) {
             const res = await $fetch<RunDetailView>(`/api/runs/${alert.runId}`)
             sidebarRuns.value = [res]
@@ -328,7 +328,7 @@ const multiSortMeta = ref<DataTableSortMeta[]>([
     { field: '_severityRank', order: -1 },
 ])
 const expandedPackages = ref<string[]>([])
-// 自定义 span 整体可点击 + 键盘 enter/space 触发（todo.md §C65-D2 验收）。
+// 自定义 span 整体可点击 + 键盘 enter/space 触发（验收要求）。
 // PrimeVue 4 rowToggleButton 在 groupheader 之前渲染（已验证 datatable/index.mjs:1776-1800），
 // 自定义 toggle 与 PrimeVue 内部 toggle 走不同路径但修改同一 ref，不会重复 toggle。
 const isPackageExpanded = (packageName: string) => expandedPackages.value.includes(packageName)
@@ -404,7 +404,7 @@ const onUpdateExpandedRowGroups = (groups: string[]) => {
 }
 
 /**
- * Identifiers 列 URL 构造（todo.md §M23.3 C66-C）：
+ * Identifiers 列 URL 构造：
  * - GHSA → GitHub Advisory Database（github.com/advisories/{GHSA-id}）
  * - CVE → NVD（nvd.nist.gov/vuln/detail/{CVE-id}）
  * 内联实现：alerts.vue 单调用方，未来若 dashboard / 详情页复用再抽 utility（reverse timing）。
@@ -424,252 +424,266 @@ const alertCveUrl = (cveId: string): string => `https://nvd.nist.gov/vuln/detail
             </div>
         </div>
 
-        <!-- 顶部图表区块已删除（todo.md §C65-D4）：与 dashboard.vue 完全重复，全量聚合与 alerts 过滤无关，
+        <!-- 顶部图表区块已删除：与 dashboard.vue 完全重复，全量聚合与 alerts 过滤无关，
              用户需要全局统计去 dashboard；alerts 聚焦表格 + 详情 -->
 
-        <Card class="alerts__filters">
-            <template #content>
-                <div class="alerts__filter-row">
-                    <div class="alerts__filter-field">
-                        <label for="view-mode">{{ t('alerts.viewMode') }}</label>
-                        <Select
-                            id="view-mode"
-                            v-model="viewMode"
-                            :options="viewModeOptions"
-                            option-label="label"
-                            option-value="value"
-                            fluid
-                            @change="onViewModeChange"
-                        />
-                    </div>
-                    <div class="alerts__filter-field">
-                        <label for="repo">{{ t('alerts.filterRepository') }}</label>
-                        <Select
-                            id="repo"
-                            v-model="filters.repositoryId"
-                            :options="repositories"
-                            option-label="name"
-                            option-value="id"
-                            :placeholder="t('alerts.allRepositories')"
-                            fluid
-                        />
-                    </div>
-                    <div class="alerts__filter-field">
-                        <label for="severity">{{ t('alerts.filterSeverity') }}</label>
-                        <Select
-                            id="severity"
-                            v-model="filters.severity"
-                            :options="severityOptions"
-                            option-label="label"
-                            option-value="value"
-                            fluid
-                        />
-                    </div>
-                    <div class="alerts__filter-field">
-                        <label for="source">{{ t('alerts.filterSource') }}</label>
-                        <Select
-                            id="source"
-                            v-model="filters.source"
-                            :options="sourceOptions"
-                            option-label="label"
-                            option-value="value"
-                            fluid
-                        />
-                    </div>
-                    <div class="alerts__filter-field">
-                        <label for="include-superseded">{{ t('alerts.filter.includeSuperseded') }}</label>
-                        <ToggleSwitch
-                            id="include-superseded"
-                            v-model="filters.includeSuperseded"
-                        />
-                    </div>
-                    <div class="alerts__filter-field">
-                        <Button
-                            :label="t('alerts.filterApply')"
-                            icon="pi pi-filter"
-                            @click="() => {
-                                void refreshAlerts()
-                            }"
-                        />
-                    </div>
+        <CaomeiCard class="alerts__filters">
+            <div class="alerts__filter-row">
+                <div class="alerts__filter-field">
+                    <label for="view-mode">{{ t('alerts.viewMode') }}</label>
+                    <CaomeiSelect
+                        id="view-mode"
+                        v-model="viewMode"
+                        :options="viewModeOptions"
+                        option-label="label"
+                        option-value="value"
+                        @update:model-value="onViewModeChange"
+                    />
                 </div>
-            </template>
-        </Card>
+                <div class="alerts__filter-field">
+                    <label for="repo">{{ t('alerts.filterRepository') }}</label>
+                    <CaomeiSelect
+                        id="repo"
+                        v-model="filters.repositoryId"
+                        :options="repositories"
+                        option-label="name"
+                        option-value="id"
+                        :placeholder="t('alerts.allRepositories')"
+                    />
+                </div>
+                <div class="alerts__filter-field">
+                    <label for="severity">{{ t('alerts.filterSeverity') }}</label>
+                    <CaomeiSelect
+                        id="severity"
+                        v-model="filters.severity"
+                        :options="severityOptions"
+                        option-label="label"
+                        option-value="value"
+                    />
+                </div>
+                <div class="alerts__filter-field">
+                    <label for="source">{{ t('alerts.filterSource') }}</label>
+                    <CaomeiSelect
+                        id="source"
+                        v-model="filters.source"
+                        :options="sourceOptions"
+                        option-label="label"
+                        option-value="value"
+                    />
+                </div>
+                <div class="alerts__filter-field">
+                    <label for="include-superseded">{{ t('alerts.filter.includeSuperseded') }}</label>
+                    <CaomeiSwitch
+                        id="include-superseded"
+                        v-model="filters.includeSuperseded"
+                    />
+                </div>
+                <div class="alerts__filter-field">
+                    <CaomeiButton
+                        @click="() => {
+                            void refreshAlerts()
+                        }"
+                    >
+                        <template #icon>
+                            <CaomeiIcon :icon="Funnel" />
+                        </template>
+                        {{ t('alerts.filterApply') }}
+                    </CaomeiButton>
+                </div>
+            </div>
+        </CaomeiCard>
 
-        <Message
+        <CaomeiMessage
             v-if="error"
-            severity="error"
+            tone="danger"
             :closable="false"
         >
             {{ error }}
-        </Message>
+        </CaomeiMessage>
 
-        <Card v-if="!loading" class="alerts__table">
-            <template #content>
-                <CaomeiDataTable
-                    :data="alerts"
-                    :columns="columns"
-                    row-key="id"
-                    striped
-                    sort-mode="multiple"
-                    :multi-sort-meta="multiSortMeta"
-                    :row-group-mode="dataTableAttrs.rowGroupMode"
-                    :group-rows-by="dataTableAttrs.groupRowsBy"
-                    :expandable-row-groups="dataTableAttrs.expandableRowGroups"
-                    :expanded-row-groups="expandedPackages"
-                    :empty-text="t('alerts.empty')"
-                    @update:multi-sort-meta="onUpdateMultiSortMeta"
-                    @update:expanded-row-groups="onUpdateExpandedRowGroups"
-                >
-                    <template v-if="viewMode !== 'none'" #groupheader="{data}">
-                        <span
-                            class="alerts__group-header"
-                            role="button"
-                            tabindex="0"
-                            :aria-expanded="isPackageExpanded(groupHeaderLabel(data))"
-                            @click="togglePackage(groupHeaderLabel(data))"
-                            @keydown.enter.prevent="togglePackage(groupHeaderLabel(data))"
-                            @keydown.space.prevent="togglePackage(groupHeaderLabel(data))"
-                        >
-                            <strong>{{ groupHeaderLabel(data) }}</strong>
-                            <span class="alerts__group-count text-muted">
-                                {{ t('alerts.groupHeaderCount', {count: groupCounts.get(groupHeaderLabel(data)) ?? 0}) }}
-                            </span>
+        <CaomeiCard v-if="!loading" class="alerts__table">
+            <CaomeiDataTable
+                :data="alerts"
+                :columns="columns"
+                row-key="id"
+                striped
+                sort-mode="multiple"
+                :multi-sort-meta="multiSortMeta"
+                :row-group-mode="dataTableAttrs.rowGroupMode"
+                :group-rows-by="dataTableAttrs.groupRowsBy"
+                :expandable-row-groups="dataTableAttrs.expandableRowGroups"
+                :expanded-row-groups="expandedPackages"
+                :empty-text="t('alerts.empty')"
+                @update:multi-sort-meta="onUpdateMultiSortMeta"
+                @update:expanded-row-groups="onUpdateExpandedRowGroups"
+            >
+                <template v-if="viewMode !== 'none'" #groupheader="{data}">
+                    <span
+                        class="alerts__group-header"
+                        role="button"
+                        tabindex="0"
+                        :aria-expanded="isPackageExpanded(groupHeaderLabel(data))"
+                        @click="togglePackage(groupHeaderLabel(data))"
+                        @keydown.enter.prevent="togglePackage(groupHeaderLabel(data))"
+                        @keydown.space.prevent="togglePackage(groupHeaderLabel(data))"
+                    >
+                        <strong>{{ groupHeaderLabel(data) }}</strong>
+                        <span class="alerts__group-count text-muted">
+                            {{ t('alerts.groupHeaderCount', {count: groupCounts.get(groupHeaderLabel(data)) ?? 0}) }}
                         </span>
-                    </template>
-                    <template #cell-_severityRank="{row}">
-                        <Tag :value="row.severity" :severity="alertsSeverityTagSeverity(row.severity)" />
-                    </template>
-                    <template #cell-source="{row}">
-                        <Tag :value="row.source" severity="secondary" />
-                    </template>
-                    <template #cell-identifiers="{row}">
-                        <!-- 依赖类告警：GHSA 优先（fetcher 透传到 ScanResult.ghsaId，reconcile 写入 DB） -->
-                        <a
-                            v-if="row.ghsaId"
-                            :href="alertGhsaUrl(row.ghsaId)"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            class="alerts__identifier-link"
-                            :title="row.ghsaId"
-                        >
-                            <Tag :value="row.ghsaId" severity="success" />
-                        </a>
-                        <!-- 无 GHSA 但有 CVE：fallback 显示第一个 CVE -->
-                        <a
-                            v-else-if="row.cveIds && row.cveIds.length > 0"
-                            :href="alertCveUrl(row.cveIds[0] ?? '')"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            class="alerts__identifier-link"
-                            :title="row.cveIds[0] ?? ''"
-                        >
-                            <Tag :value="row.cveIds[0] ?? ''" severity="warn" />
-                        </a>
-                        <!-- 多 CVE：剩余 N 个折叠显示（hover title 展示完整列表） -->
-                        <span
-                            v-if="row.cveIds && row.cveIds.length > 1"
-                            class="alerts__identifier-more"
-                            :title="row.cveIds.slice(1).join(', ')"
-                        >
-                            +{{ row.cveIds.length - 1 }}
-                        </span>
-                        <!-- code-scanning / code-quality 源无 GHSA/CVE 概念 -->
-                        <span
-                            v-if="!row.ghsaId && (!row.cveIds || row.cveIds.length === 0)"
-                            class="text-muted"
-                        >—</span>
-                    </template>
-                    <template #cell-ruleId="{row}">
-                        <!-- 实测反馈：alert 行展示 GHSA/CVE/rule id；htmlUrl 存在时点击跳 advisory 详情 -->
-                        <a
-                            v-if="row.ruleId && row.htmlUrl"
-                            :href="row.htmlUrl"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            class="alerts__ruleid-link"
-                            :title="row.ruleId"
-                        >
-                            <Tag :value="row.ruleId" :severity="alertsRuleIdTagSeverity(row.source)" />
-                        </a>
-                        <span
-                            v-else-if="row.ruleId"
-                            class="alerts__ruleid-plain"
-                            :title="row.ruleId"
-                        >
-                            <Tag :value="row.ruleId" :severity="alertsRuleIdTagSeverity(row.source)" />
-                        </span>
-                        <span v-else class="text-muted">—</span>
-                    </template>
-                    <template #cell-fixable="{row}">
-                        <Tag
-                            :value="row.fixable ? t('common.yes') : t('common.no')"
-                            :severity="row.fixable ? 'success' : 'secondary'"
-                        />
-                    </template>
-                    <template #cell-_fixStatusRank="{row}">
-                        <Tag :value="statusLabel(row)" severity="secondary" />
-                    </template>
-                    <template #cell-aiEvaluated="{row}">
-                        <Tag
-                            v-if="row.aiEvaluated"
-                            :value="t('ai.alertsEvaluatedTag')"
-                            severity="info"
-                        />
-                        <span
-                            v-else-if="row.aiEvaluated === false"
-                            class="text-muted"
-                        >—</span>
-                        <span
-                            v-else
-                            class="text-muted"
-                        >—</span>
-                    </template>
-                    <!-- per-alert 模型下 ScanResult 字段直接绑定为默认列（不再 v-if 控制，见 todo.md §M20.3 + §M20.6） -->
-                    <template #cell-occurrenceCount="{row}">
-                        <Tag :value="String(row.occurrenceCount ?? 1)" severity="warn" />
-                    </template>
-                    <template #cell-firstSeenAt="{row}">
-                        <span v-if="row.firstSeenAt" class="text-muted">
-                            {{ d(new Date(row.firstSeenAt), 'long') }}
-                        </span>
-                        <span v-else class="text-muted">—</span>
-                    </template>
-                    <template #cell-lastSeenAt="{row}">
-                        <span v-if="row.lastSeenAt" class="text-muted">
-                            {{ d(new Date(row.lastSeenAt), 'long') }}
-                        </span>
-                        <span v-else class="text-muted">—</span>
-                    </template>
-                    <template #cell-link="{row}">
-                        <a
-                            v-if="row.htmlUrl"
-                            :href="row.htmlUrl"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                        >
-                            {{ t('alerts.view') }}
-                        </a>
-                        <span v-else class="text-muted">—</span>
-                    </template>
-                    <template #cell-actions="{row}">
-                        <Button
-                            icon="pi pi-list"
-                            text
-                            rounded
-                            size="small"
-                            :aria-label="t('common.actions.details')"
-                            @click="openRunSidebar(row)"
-                        />
-                    </template>
-                </CaomeiDataTable>
-            </template>
-        </Card>
+                    </span>
+                </template>
+                <template #cell-_severityRank="{row}">
+                    <CaomeiTag :tone="alertsSeverityTone(row.severity)">
+                        {{ row.severity }}
+                    </CaomeiTag>
+                </template>
+                <template #cell-source="{row}">
+                    <CaomeiTag tone="neutral">
+                        {{ row.source }}
+                    </CaomeiTag>
+                </template>
+                <template #cell-identifiers="{row}">
+                    <!-- 依赖类告警：GHSA 优先（fetcher 透传到 ScanResult.ghsaId，reconcile 写入 DB） -->
+                    <a
+                        v-if="row.ghsaId"
+                        :href="alertGhsaUrl(row.ghsaId)"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="alerts__identifier-link"
+                        :title="row.ghsaId"
+                    >
+                        <CaomeiTag tone="success">
+                            {{ row.ghsaId }}
+                        </CaomeiTag>
+                    </a>
+                    <!-- 无 GHSA 但有 CVE：fallback 显示第一个 CVE -->
+                    <a
+                        v-else-if="row.cveIds && row.cveIds.length > 0"
+                        :href="alertCveUrl(row.cveIds[0] ?? '')"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="alerts__identifier-link"
+                        :title="row.cveIds[0] ?? ''"
+                    >
+                        <CaomeiTag tone="warning">
+                            {{ row.cveIds[0] ?? '' }}
+                        </CaomeiTag>
+                    </a>
+                    <!-- 多 CVE：剩余 N 个折叠显示（hover title 展示完整列表） -->
+                    <span
+                        v-if="row.cveIds && row.cveIds.length > 1"
+                        class="alerts__identifier-more"
+                        :title="row.cveIds.slice(1).join(', ')"
+                    >
+                        +{{ row.cveIds.length - 1 }}
+                    </span>
+                    <!-- code-scanning / code-quality 源无 GHSA/CVE 概念 -->
+                    <span
+                        v-if="!row.ghsaId && (!row.cveIds || row.cveIds.length === 0)"
+                        class="text-muted"
+                    >—</span>
+                </template>
+                <template #cell-ruleId="{row}">
+                    <!-- 实测反馈：alert 行展示 GHSA/CVE/rule id；htmlUrl 存在时点击跳 advisory 详情 -->
+                    <a
+                        v-if="row.ruleId && row.htmlUrl"
+                        :href="row.htmlUrl"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="alerts__ruleid-link"
+                        :title="row.ruleId"
+                    >
+                        <CaomeiTag :tone="alertsRuleIdTone(row.source)">
+                            {{ row.ruleId }}
+                        </CaomeiTag>
+                    </a>
+                    <span
+                        v-else-if="row.ruleId"
+                        class="alerts__ruleid-plain"
+                        :title="row.ruleId"
+                    >
+                        <CaomeiTag :tone="alertsRuleIdTone(row.source)">
+                            {{ row.ruleId }}
+                        </CaomeiTag>
+                    </span>
+                    <span v-else class="text-muted">—</span>
+                </template>
+                <template #cell-fixable="{row}">
+                    <CaomeiTag :tone="row.fixable ? 'success' : 'neutral'">
+                        {{ row.fixable ? t('common.yes') : t('common.no') }}
+                    </CaomeiTag>
+                </template>
+                <template #cell-_fixStatusRank="{row}">
+                    <CaomeiTag tone="neutral">
+                        {{ statusLabel(row) }}
+                    </CaomeiTag>
+                </template>
+                <template #cell-aiEvaluated="{row}">
+                    <CaomeiTag
+                        v-if="row.aiEvaluated"
+                        tone="primary"
+                    >
+                        {{ t('ai.alertsEvaluatedTag') }}
+                    </CaomeiTag>
+                    <span
+                        v-else-if="row.aiEvaluated === false"
+                        class="text-muted"
+                    >—</span>
+                    <span
+                        v-else
+                        class="text-muted"
+                    >—</span>
+                </template>
+                <!-- per-alert 模型下 ScanResult 字段直接绑定为默认列 -->
+                <template #cell-occurrenceCount="{row}">
+                    <CaomeiTag tone="warning">
+                        {{ String(row.occurrenceCount ?? 1) }}
+                    </CaomeiTag>
+                </template>
+                <template #cell-firstSeenAt="{row}">
+                    <span v-if="row.firstSeenAt" class="text-muted">
+                        {{ d(new Date(row.firstSeenAt), 'long') }}
+                    </span>
+                    <span v-else class="text-muted">—</span>
+                </template>
+                <template #cell-lastSeenAt="{row}">
+                    <span v-if="row.lastSeenAt" class="text-muted">
+                        {{ d(new Date(row.lastSeenAt), 'long') }}
+                    </span>
+                    <span v-else class="text-muted">—</span>
+                </template>
+                <template #cell-link="{row}">
+                    <a
+                        v-if="row.htmlUrl"
+                        :href="row.htmlUrl"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                    >
+                        {{ t('alerts.view') }}
+                    </a>
+                    <span v-else class="text-muted">—</span>
+                </template>
+                <template #cell-actions="{row}">
+                    <CaomeiButton
+                        variant="ghost"
+                        rounded
+                        size="sm"
+                        :label="t('common.actions.details')"
+                        @click="openRunSidebar(row)"
+                    >
+                        <template #icon>
+                            <CaomeiIcon :icon="List" />
+                        </template>
+                    </CaomeiButton>
+                </template>
+            </CaomeiDataTable>
+        </CaomeiCard>
         <p v-else class="text-muted">
             {{ t('common.empty.loading') }}
         </p>
 
-        <!-- 详情侧栏（抽出为 components/alert-run-sidebar.vue，todo.md §M16.2 audit max-lines 触发） -->
+        <!-- 详情侧栏（抽出为 components/alert-run-sidebar.vue，audit max-lines 触发） -->
         <alert-run-sidebar
             v-model:visible="sidebarVisible"
             :alert="sidebarAlert"
@@ -754,8 +768,8 @@ const alertCveUrl = (cveId: string): string => `https://nvd.nist.gov/vuln/detail
         max-width: 100%;
     }
 
-    &__ruleid-link :deep(.p-tag-label),
-    &__ruleid-plain :deep(.p-tag-label) {
+    &__ruleid-link :deep(.caomei-tag__content),
+    &__ruleid-plain :deep(.caomei-tag__content) {
         max-width: 160px;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -763,14 +777,14 @@ const alertCveUrl = (cveId: string): string => `https://nvd.nist.gov/vuln/detail
         display: inline-block;
     }
 
-    // identifiers 列（todo.md §M23.3 C66-C）：与 ruleId 列同源视觉（最长 GHSA/CVE 截断）
+    // identifiers 列：与 ruleId 列同源视觉（最长 GHSA/CVE 截断）
     &__identifier-link {
         text-decoration: none;
         display: inline-flex;
         max-width: 100%;
     }
 
-    &__identifier-link :deep(.p-tag-label) {
+    &__identifier-link :deep(.caomei-tag__content) {
         max-width: 160px;
         overflow: hidden;
         text-overflow: ellipsis;

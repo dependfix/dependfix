@@ -111,7 +111,10 @@ a {
     }
 
     &__lang {
+        // 选择器家族的可见根是 Reka SelectTrigger（组件根 vnode 不是它），页面/全局样式
+        // 直接写在选择器上无法约束宽度 → 用外层容器定宽，选择器自身按 100% 填充
         width: 8.5rem;
+        flex-shrink: 0;
     }
 
     &__user {
@@ -222,7 +225,7 @@ a {
     color: $color-success;
 }
 
-// DataTable 空状态双线修复（2026-09-03 治本，详见 docs/plan/todo.md §M24 follow-up #7）：
+// DataTable 空状态双线修复（2026-09-03 治本）：
 // PrimeVue Aura 主题默认 `.p-datatable-thead th` 和 `.p-datatable-tbody > tr > td` 都画 1px
 // `slate-200` border-bottom（border-collapse: separate 模型下独立绘制）。有数据时 TD border
 // 是"行间分隔"语义正确；空状态无数据时 TD border 与 thead border 中间隔 5px 空白，视觉上

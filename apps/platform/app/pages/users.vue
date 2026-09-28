@@ -1,6 +1,7 @@
 <script setup lang="ts">
 // 用户管理（admin only）：列表/搜索、启用/禁用、角色分配
 // 全部走 better-auth admin 插件原生端点（/api/auth/admin/*，经 authClient.admin.* 封装）
+import { Ban, CircleCheck, Trash } from '@lucide/vue'
 import type { DataTableColumn } from 'caomei-ui'
 import type { Role, UserView } from '~/types/platform'
 import { authClient } from '~/utils/auth-client'
@@ -14,6 +15,7 @@ definePageMeta({
 
 const { t } = useI18n()
 const { session } = useSession()
+const confirm = useConfirm()
 
 const ROLES = computed<{ label: string, value: Role }[]>(() => [
     { label: t('common.role.admin'), value: 'admin' },
@@ -71,7 +73,7 @@ const onSearch = () => {
 }
 
 const setRole = async (user: UserView, role: Role) => {
-    // 禁止 admin 对自己修改角色（防止自我降级锁死唯一管理员；见 todo.md §C65-A1）。
+    // 禁止 admin 对自己修改角色（防止自我降级锁死唯一管理员）。
     // isSelfTarget null-safe 兜底由 auth middleware 保证 session 就绪。
     if (isSelfTarget(user.id, session.value?.user?.id)) {
         // Select v-model 已先写入新值，刷新列表恢复真实状态后再提示
@@ -95,7 +97,7 @@ const setRole = async (user: UserView, role: Role) => {
             error.value = t('users.errors.roleUpdateFailed', { message: roleError.message ?? t('common.errors.unknown') })
             return
         }
-        // RG-B07 修复：setRole 成功后同步派生 _roleRank（保证 DataTable sortable 业务语义一致）
+        // setRole 成功后同步派生 _roleRank（保证 DataTable sortable 业务语义一致）
         updateRoleRank(user, role)
         success.value = t('users.success.roleUpdated', { email: user.email })
     } catch (e: any) {
@@ -139,7 +141,7 @@ const toggleBanned = async (user: UserView) => {
 }
 
 const remove = async (user: UserView) => {
-    if (!confirm(t('users.confirm.deleteUser', { email: user.email }))) {
+    if (!await confirm.open({ title: t('users.confirm.deleteUser', { email: user.email }), tone: 'danger' })) {
         return
     }
     saving.value = true
@@ -162,14 +164,14 @@ const remove = async (user: UserView) => {
 }
 
 const roleLabel = (role: Role | null) => ROLES.value.find((r) => r.value === role)?.label ?? t('users.unknownRole')
-const roleSeverity = (role: Role | null) => {
+const roleTone = (role: Role | null) => {
     if (role === 'admin') {
         return 'danger'
     }
     if (role === 'org_admin') {
         return 'warning'
     }
-    return 'secondary'
+    return 'neutral'
 }
 
 /**
@@ -215,94 +217,102 @@ watch(toastMessage, (v) => {
                     {{ t('users.subtitle', {total}) }}
                 </p>
             </div>
-            <InputText
+            <CaomeiInput
                 v-model="searchValue"
                 :placeholder="t('users.searchPlaceholder')"
                 class="users__search"
                 :disabled="loading"
-                @input="onSearch"
+                @update:model-value="onSearch"
             />
         </div>
 
-        <Message
+        <CaomeiMessage
             v-if="error"
-            severity="error"
+            tone="danger"
             :closable="false"
         >
             {{ error }}
-        </Message>
-        <Message
+        </CaomeiMessage>
+        <CaomeiMessage
             v-if="success"
-            severity="success"
+            tone="success"
             :closable="false"
         >
             {{ success }}
-        </Message>
+        </CaomeiMessage>
 
-        <Card v-if="!loading">
-            <template #content>
-                <CaomeiDataTable
-                    :data="users"
-                    :columns="columns"
-                    row-key="id"
-                    striped
-                    :empty-text="t('users.empty')"
-                >
-                    <template #cell-name="{row}">
-                        {{ row.name || '—' }}
-                    </template>
-                    <template #cell-_roleRank="{row}">
-                        <Tag :value="roleLabel(row.role)" :severity="roleSeverity(row.role)" />
-                    </template>
-                    <template #cell-status="{row}">
-                        <Tag
-                            :value="row.banned ? t('common.status.banned') : t('common.status.active')"
-                            :severity="row.banned ? 'danger' : 'success'"
-                        />
-                    </template>
-                    <template #cell-emailVerified="{row}">
-                        <Tag
-                            :value="row.emailVerified ? t('common.status.verified') : t('common.status.unverified')"
-                            :severity="row.emailVerified ? 'success' : 'secondary'"
-                        />
-                    </template>
-                    <template #cell-actions="{row}">
-                        <Select
+        <CaomeiCard v-if="!loading">
+            <CaomeiDataTable
+                :data="users"
+                :columns="columns"
+                row-key="id"
+                striped
+                :empty-text="t('users.empty')"
+            >
+                <template #cell-name="{row}">
+                    {{ row.name || '—' }}
+                </template>
+                <template #cell-_roleRank="{row}">
+                    <CaomeiTag :tone="roleTone(row.role)">
+                        {{ roleLabel(row.role) }}
+                    </CaomeiTag>
+                </template>
+                <template #cell-status="{row}">
+                    <CaomeiTag :tone="row.banned ? 'danger' : 'success'">
+                        {{ row.banned ? t('common.status.banned') : t('common.status.active') }}
+                    </CaomeiTag>
+                </template>
+                <template #cell-emailVerified="{row}">
+                    <CaomeiTag :tone="row.emailVerified ? 'success' : 'neutral'">
+                        {{ row.emailVerified ? t('common.status.verified') : t('common.status.unverified') }}
+                    </CaomeiTag>
+                </template>
+                <template #cell-actions="{row}">
+                    <!-- 操作列宽 300px：选择器家族的字段外层是 `inline-flex; width: 100%`（占满整行会
+                         把同行图标按钮挤到下一行），故套一层限定宽度的 inline-block 容器让三者同行 -->
+                    <div class="users__role-select">
+                        <CaomeiSelect
                             v-model="row.role"
                             :options="ROLES"
                             option-label="label"
                             option-value="value"
-                            size="small"
+                            size="sm"
                             :disabled="saving || isSelfTarget(row.id, session?.user?.id)"
-                            :aria-label="t('users.assignRole')"
-                            @change="onRoleChange(row)"
+                            :label="t('users.assignRole')"
+                            @update:model-value="onRoleChange(row)"
                         />
-                        <Button
-                            :icon="row.banned ? 'pi pi-check-circle' : 'pi pi-ban'"
-                            text
-                            rounded
-                            size="small"
-                            :severity="row.banned ? 'success' : 'danger'"
-                            :disabled="saving"
-                            :aria-label="row.banned ? t('users.enable') : t('users.disable')"
-                            :title="row.banned ? t('users.enable') : t('users.disable')"
-                            @click="toggleBanned(row)"
-                        />
-                        <Button
-                            icon="pi pi-trash"
-                            text
-                            rounded
-                            size="small"
-                            severity="danger"
-                            :disabled="saving"
-                            :aria-label="t('users.delete')"
-                            :title="t('users.delete')"
-                            @click="remove(row)"
-                        />
-                    </template>
-                </CaomeiDataTable>
-            </template>
-        </Card>
+                    </div>
+                    <CaomeiButton
+                        variant="ghost"
+                        rounded
+                        size="sm"
+                        :tone="row.banned ? 'success' : 'danger'"
+                        :disabled="saving"
+                        :label="row.banned ? t('users.enable') : t('users.disable')"
+                        :title="row.banned ? t('users.enable') : t('users.disable')"
+                        @click="toggleBanned(row)"
+                    >
+                        <template #icon>
+                            <CaomeiIcon :icon="row.banned ? CircleCheck : Ban" />
+                        </template>
+                    </CaomeiButton>
+                    <CaomeiButton
+                        variant="ghost"
+                        rounded
+                        size="sm"
+                        tone="danger"
+                        :disabled="saving"
+                        :label="t('users.delete')"
+                        :title="t('users.delete')"
+                        @click="remove(row)"
+                    >
+                        <template #icon>
+                            <CaomeiIcon :icon="Trash" />
+                        </template>
+                    </CaomeiButton>
+                </template>
+            </CaomeiDataTable>
+        </CaomeiCard>
         <p v-else class="text-muted">
             {{ t('common.empty.loading') }}
         </p>
@@ -330,6 +340,13 @@ watch(toastMessage, (v) => {
 
     &__search {
         max-width: 260px;
+    }
+
+    // 操作列内的角色选择器：inline-block 容器限宽，与同行两个图标按钮保持单行（见模板注释）
+    &__role-select {
+        display: inline-block;
+        width: 9rem;
+        vertical-align: middle;
     }
 }
 </style>

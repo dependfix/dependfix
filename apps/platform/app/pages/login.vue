@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Moon, Sun, User } from '@lucide/vue'
 import { useColorMode } from '~/composables/use-color-mode'
 import { authClient } from '~/utils/auth-client'
 import { resolveSocialProviders } from '~/utils/social-providers'
@@ -28,7 +29,7 @@ const socialProviders = computed<string[]>(() => resolveSocialProviders({
     oidcAvailable: publicConfig.oidcAvailable === true,
 }))
 
-// auth 页品牌 mark：跟随 .dark class 动态切换（与 PrimeVue 主题切换逻辑一致）
+// auth 页品牌 mark：跟随 .dark class 动态切换（与主题切换逻辑一致）
 // 之前用 <picture media="(prefers-color-scheme: dark)"> 只跟随系统偏好，
 // 与用户在站内手动 toggle 暗色模式的 .dark class 冲突，导致深色背景下显示浅色 mark
 const authLogoSrc = computed(() => dark.value ? '/brand/logo-navy.svg' : '/brand/logo-light.svg')
@@ -85,80 +86,80 @@ const onSubmit = async () => {
             <p class="auth__subtitle">
                 {{ t('auth.login.subtitle') }}
             </p>
-            <Card>
-                <template #content>
-                    <form class="auth-form" @submit.prevent="onSubmit">
-                        <div class="auth-form__field">
-                            <label for="email">{{ t('auth.login.email') }}</label>
-                            <InputText
-                                id="email"
-                                v-model="email"
-                                type="email"
-                                placeholder="you@example.com"
-                                fluid
-                                required
-                            />
-                        </div>
-                        <div class="auth-form__field">
-                            <label for="password">{{ t('auth.login.password') }}</label>
-                            <Password
-                                id="password"
-                                v-model="password"
-                                :feedback="false"
-                                toggle-mask
-                                :placeholder="t('auth.login.passwordPlaceholder')"
-                                fluid
-                                required
-                            />
-                        </div>
-                        <Message
-                            v-if="error"
-                            severity="error"
-                            :closable="false"
-                        >
-                            {{ error }}
-                        </Message>
-                        <Button
-                            type="submit"
-                            :label="t('auth.login.submit')"
-                            :loading="loading"
-                            fluid
+            <CaomeiCard>
+                <form class="auth-form" @submit.prevent="onSubmit">
+                    <div class="auth-form__field">
+                        <label for="email">{{ t('auth.login.email') }}</label>
+                        <CaomeiInput
+                            id="email"
+                            v-model="email"
+                            type="email"
+                            placeholder="you@example.com"
+                            required
                         />
-                    </form>
-                    <!-- 第三方登录区：authMode 感知 + 已配置 provider 才显示（OAuth / OIDC 子任务填充） -->
-                    <div v-if="authMode && socialProviders.length" class="auth__social">
-                        <div class="auth__divider">
-                            {{ t('auth.login.or') }}
-                        </div>
-                        <div class="auth__social-buttons">
-                            <Button
-                                v-for="provider in socialProviders"
-                                :key="provider"
-                                :label="provider === 'oidc' ? t('auth.login.ssoLogin') : t('auth.login.socialLogin', {provider})"
-                                icon="pi pi-user"
-                                text
-                                outlined
-                                fluid
-                                @click="onSocialSignIn(provider)"
-                            />
-                        </div>
                     </div>
-                    <div v-if="!registrationClosed" class="auth__switch">
-                        {{ t('auth.login.noAccount') }}
-                        <NuxtLink to="/register">
-                            {{ t('auth.login.registerNow') }}
-                        </NuxtLink>
+                    <div class="auth-form__field">
+                        <label for="password">{{ t('auth.login.password') }}</label>
+                        <CaomeiPassword
+                            id="password"
+                            v-model="password"
+                            :placeholder="t('auth.login.passwordPlaceholder')"
+                            required
+                        />
                     </div>
-                </template>
-            </Card>
+                    <CaomeiMessage
+                        v-if="error"
+                        tone="danger"
+                        :closable="false"
+                    >
+                        {{ error }}
+                    </CaomeiMessage>
+                    <CaomeiButton
+                        type="submit"
+                        :loading="loading"
+                        block
+                    >
+                        {{ t('auth.login.submit') }}
+                    </CaomeiButton>
+                </form>
+                <!-- 第三方登录区：authMode 感知 + 已配置 provider 才显示（OAuth / OIDC 子任务填充） -->
+                <div v-if="authMode && socialProviders.length" class="auth__social">
+                    <div class="auth__divider">
+                        {{ t('auth.login.or') }}
+                    </div>
+                    <div class="auth__social-buttons">
+                        <CaomeiButton
+                            v-for="provider in socialProviders"
+                            :key="provider"
+                            variant="ghost"
+                            block
+                            @click="onSocialSignIn(provider)"
+                        >
+                            <template #icon>
+                                <CaomeiIcon :icon="User" />
+                            </template>
+                            {{ provider === 'oidc' ? t('auth.login.ssoLogin') : t('auth.login.socialLogin', {provider}) }}
+                        </CaomeiButton>
+                    </div>
+                </div>
+                <div v-if="!registrationClosed" class="auth__switch">
+                    {{ t('auth.login.noAccount') }}
+                    <NuxtLink to="/register">
+                        {{ t('auth.login.registerNow') }}
+                    </NuxtLink>
+                </div>
+            </CaomeiCard>
             <div style="display: flex; justify-content: center; margin-top: 1rem">
-                <Button
-                    :icon="dark ? 'pi pi-sun' : 'pi pi-moon'"
-                    text
+                <CaomeiButton
+                    variant="ghost"
                     rounded
-                    :aria-label="t('auth.login.toggleDarkMode')"
+                    :label="t('auth.login.toggleDarkMode')"
                     @click="toggle"
-                />
+                >
+                    <template #icon>
+                        <CaomeiIcon :icon="dark ? Sun : Moon" />
+                    </template>
+                </CaomeiButton>
             </div>
         </div>
     </div>
@@ -197,7 +198,7 @@ const onSubmit = async () => {
     align-items: center;
     gap: $space-3;
     margin-bottom: $space-3;
-    color: var(--p-content-muted-color);
+    color: var(--caomei-color-text-muted);
     font-size: $font-size-sm;
 
     &::before,
@@ -205,7 +206,7 @@ const onSubmit = async () => {
         content: '';
         flex: 1;
         height: 1px;
-        background: var(--p-content-border-color);
+        background: var(--caomei-color-border);
     }
 }
 </style>

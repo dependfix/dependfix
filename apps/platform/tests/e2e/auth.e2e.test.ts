@@ -11,7 +11,7 @@ test.describe('认证流程', () => {
     test('登录页表单渲染', async ({ page }) => {
         await page.goto('/login')
         await expect(page.locator('input#email')).toBeVisible()
-        await expect(page.locator('#password input')).toBeVisible()
+        await expect(page.locator('input#password')).toBeVisible()
         await expect(page.locator('button[type="submit"]')).toBeVisible()
         await expect(page.locator('a[href="/register"]')).toBeVisible()
     })
@@ -29,7 +29,7 @@ test.describe('认证流程', () => {
         await page.goto('/login')
         await waitForHydration(page)
         await page.locator('input#email').fill('wrong@dependfix.test')
-        await page.locator('#password input').fill('wrong-password')
+        await page.locator('input#password').fill('wrong-password')
         await page.locator('button[type="submit"]').click()
         await expect(page.locator('.auth')).toBeVisible()
         await expect(page).toHaveURL(/\/login/)
@@ -38,7 +38,7 @@ test.describe('认证流程', () => {
     test('注册页表单渲染', async ({ page }) => {
         await page.goto('/register')
         await expect(page.locator('input#email')).toBeVisible()
-        await expect(page.locator('#password input')).toBeVisible()
+        await expect(page.locator('input#password')).toBeVisible()
         await expect(page.locator('button[type="submit"]')).toBeVisible()
     })
 

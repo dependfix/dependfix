@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * 仓库 AI 研判开关（todo.md §M26.1 + platform-ai-integration.md §7.2）。
+ * 仓库 AI 研判开关（设计见 platform-ai-integration.md §7.2）。
  *
  * 自 runs.vue 拆出（页面行数治理 max-lines 800）。
  * 用法：在 runs.vue 顶部插入 <repo-ai-toggle :repository-id="..." />；组件独立管理
@@ -82,54 +82,48 @@ onMounted(fetchConfig)
 </script>
 
 <template>
-    <Card>
-        <template #title>
-            {{ t('ai.repoSection') }}
-        </template>
-        <template #content>
-            <div v-if="loading" class="text-muted">
-                {{ t('common.empty.loading') }}
-            </div>
-            <Message
-                v-else-if="error"
-                severity="error"
+    <CaomeiCard :title="t('ai.repoSection')">
+        <div v-if="loading" class="text-muted">
+            {{ t('common.empty.loading') }}
+        </div>
+        <CaomeiMessage
+            v-else-if="error"
+            tone="danger"
+            :closable="false"
+        >
+            {{ error }}
+        </CaomeiMessage>
+        <div v-else class="repo-ai-toggle">
+            <CaomeiMessage
+                v-if="orgMissingKey"
+                tone="warning"
                 :closable="false"
             >
-                {{ error }}
-            </Message>
-            <div v-else class="repo-ai-toggle">
-                <Message
-                    v-if="orgMissingKey"
-                    severity="warn"
-                    :closable="false"
-                >
-                    {{ t('ai.apiKeyRequiredWarning') }}
-                </Message>
-                <div class="repo-ai-toggle__row">
-                    <label for="repoAiEnabled">{{ t('ai.repoEnabledLabel') }}</label>
-                    <ToggleSwitch
-                        id="repoAiEnabled"
-                        v-model="aiEnabled"
-                        :disabled="orgMissingKey || saving"
-                        @update:model-value="saveConfig"
-                    />
-                </div>
-                <div class="repo-ai-toggle__row">
-                    <label for="repoAiTrigger">{{ t('ai.triggerLabel') }}</label>
-                    <Select
-                        id="repoAiTrigger"
-                        v-model="aiTrigger"
-                        :options="triggerOptions"
-                        option-label="label"
-                        option-value="value"
-                        :disabled="!aiEnabled || saving"
-                        fluid
-                        @update:model-value="saveConfig"
-                    />
-                </div>
+                {{ t('ai.apiKeyRequiredWarning') }}
+            </CaomeiMessage>
+            <div class="repo-ai-toggle__row">
+                <label for="repoAiEnabled">{{ t('ai.repoEnabledLabel') }}</label>
+                <CaomeiSwitch
+                    id="repoAiEnabled"
+                    v-model="aiEnabled"
+                    :disabled="orgMissingKey || saving"
+                    @update:model-value="saveConfig"
+                />
             </div>
-        </template>
-    </Card>
+            <div class="repo-ai-toggle__row">
+                <label for="repoAiTrigger">{{ t('ai.triggerLabel') }}</label>
+                <CaomeiSelect
+                    id="repoAiTrigger"
+                    v-model="aiTrigger"
+                    :options="triggerOptions"
+                    option-label="label"
+                    option-value="value"
+                    :disabled="!aiEnabled || saving"
+                    @update:model-value="saveConfig"
+                />
+            </div>
+        </div>
+    </CaomeiCard>
 </template>
 
 <style lang="scss" scoped>

@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test'
 import { waitForHydration } from './helpers/hydration.helper'
 
 /**
- * env-events 视图冒烟测试（docs/plan/todo.md §C-ENV-CHANGE-ALERT）。
+ * env-events 视图冒烟测试。
  *
  * 覆盖：
  * - viewer 角色访问 /env-events 跳转（导航隐藏但 URL 直访必须 403 重定向）
@@ -51,7 +51,7 @@ test.describe('C-ENV env-events UI', () => {
         await waitForHydration(page)
         // 选择 type
         await page.locator('#type').click()
-        await page.locator('li:has-text("沙箱降级")').click()
+        await page.locator('.caomei-select__item:has-text("沙箱降级")').click()
         // 点筛选
         await page.locator('button:has-text("筛选")').click()
         // 等待 table 行出现

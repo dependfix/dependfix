@@ -1,11 +1,13 @@
 <script setup lang="ts">
 /**
- * Organization AI 研判配置表单（todo.md §M26.1 + platform-ai-integration.md §7.1）。
+ * Organization AI 研判配置表单（设计见 platform-ai-integration.md §7.1）。
  *
  * 自 settings.vue 拆出：避免 settings.vue 突破 max-lines 800 上限。
  * 用法：在 settings.vue 顶部插入 <ai-config-form />；表单独立管理 Organization.ai* 字段；
  * 提交走 PATCH /api/organizations/[id]/ai-config；加载靠 props.organizationId。
  */
+import { Save } from '@lucide/vue'
+
 const props = defineProps<{
     organizationId: string
 }>()
@@ -89,97 +91,94 @@ onMounted(fetchConfig)
 </script>
 
 <template>
-    <Card>
+    <CaomeiCard>
         <template #title>
             <span class="ai-config-form__title">
                 {{ t('ai.orgSection') }}
-                <Tag
+                <CaomeiTag
                     v-if="config?.hasAiApiKey"
-                    :value="t('ai.apiKeySetBadge')"
-                    severity="success"
+                    tone="success"
                     class="ai-config-form__badge"
-                />
+                >
+                    {{ t('ai.apiKeySetBadge') }}
+                </CaomeiTag>
             </span>
         </template>
-        <template #content>
-            <div v-if="loading" class="text-muted">
-                {{ t('common.empty.loading') }}
-            </div>
-            <Message
-                v-else-if="error"
-                severity="error"
+        <div v-if="loading" class="text-muted">
+            {{ t('common.empty.loading') }}
+        </div>
+        <CaomeiMessage
+            v-else-if="error"
+            tone="danger"
+            :closable="false"
+        >
+            {{ error }}
+        </CaomeiMessage>
+        <div v-else class="ai-config-form">
+            <CaomeiMessage
+                v-if="success"
+                tone="success"
                 :closable="false"
             >
-                {{ error }}
-            </Message>
-            <div v-else class="ai-config-form">
-                <Message
-                    v-if="success"
-                    severity="success"
-                    :closable="false"
-                >
-                    {{ success }}
-                </Message>
-                <div class="ai-config-form__field">
-                    <label for="aiProvider">{{ t('ai.providerLabel') }}</label>
-                    <Select
-                        id="aiProvider"
-                        v-model="form.aiProvider"
-                        :options="providerOptions"
-                        option-label="label"
-                        option-value="value"
-                        fluid
-                    />
-                </div>
-                <div class="ai-config-form__field">
-                    <label for="aiModel">{{ t('ai.modelLabel') }}</label>
-                    <InputText
-                        id="aiModel"
-                        v-model="form.aiModel"
-                        fluid
-                    />
-                </div>
-                <div class="ai-config-form__field">
-                    <label for="aiBaseUrl">{{ t('ai.baseUrlLabel') }}</label>
-                    <InputText
-                        id="aiBaseUrl"
-                        v-model="form.aiBaseUrl"
-                        placeholder="https://api.deepseek.com"
-                        fluid
-                    />
-                </div>
-                <div class="ai-config-form__field">
-                    <label for="aiApiUrl">{{ t('ai.anthropicUrlLabel') }}</label>
-                    <InputText
-                        id="aiApiUrl"
-                        v-model="form.aiApiUrl"
-                        placeholder="https://api.anthropic.com"
-                        fluid
-                    />
-                </div>
-                <div class="ai-config-form__field">
-                    <label for="aiApiKey">{{ t('ai.apiKeyLabel') }}</label>
-                    <InputText
-                        id="aiApiKey"
-                        v-model="form.aiApiKey"
-                        type="password"
-                        :placeholder="t('ai.apiKeyPlaceholder')"
-                        fluid
-                    />
-                    <small class="text-muted">{{ t('ai.apiKeyHint') }}</small>
-                </div>
-                <div class="ai-config-form__actions">
-                    <Button
-                        :label="t('ai.saveConfig')"
-                        icon="pi pi-save"
-                        :loading="saving"
-                        :disabled="saving"
-                        @click="saveConfig"
-                    />
-                </div>
+                {{ success }}
+            </CaomeiMessage>
+            <div class="ai-config-form__field">
+                <label for="aiProvider">{{ t('ai.providerLabel') }}</label>
+                <CaomeiSelect
+                    id="aiProvider"
+                    v-model="form.aiProvider"
+                    :options="providerOptions"
+                    option-label="label"
+                    option-value="value"
+                />
             </div>
-        </template>
-    </Card>
+            <div class="ai-config-form__field">
+                <label for="aiModel">{{ t('ai.modelLabel') }}</label>
+                <CaomeiInput
+                    id="aiModel"
+                    v-model="form.aiModel"
+                />
+            </div>
+            <div class="ai-config-form__field">
+                <label for="aiBaseUrl">{{ t('ai.baseUrlLabel') }}</label>
+                <CaomeiInput
+                    id="aiBaseUrl"
+                    v-model="form.aiBaseUrl"
+                    placeholder="https://api.deepseek.com"
+                />
+            </div>
+            <div class="ai-config-form__field">
+                <label for="aiApiUrl">{{ t('ai.anthropicUrlLabel') }}</label>
+                <CaomeiInput
+                    id="aiApiUrl"
+                    v-model="form.aiApiUrl"
+                    placeholder="https://api.anthropic.com"
+                />
+            </div>
+            <div class="ai-config-form__field">
+                <label for="aiApiKey">{{ t('ai.apiKeyLabel') }}</label>
+                <CaomeiInput
+                    id="aiApiKey"
+                    v-model="form.aiApiKey"
+                    type="password"
+                    :placeholder="t('ai.apiKeyPlaceholder')"
+                />
+                <small class="text-muted">{{ t('ai.apiKeyHint') }}</small>
+            </div>
+            <div class="ai-config-form__actions">
+                <CaomeiButton
+                    :loading="saving"
+                    :disabled="saving"
+                    @click="saveConfig"
+                >
+                    <template #icon>
+                        <CaomeiIcon :icon="Save" />
+                    </template>
+                    {{ t('ai.saveConfig') }}
+                </CaomeiButton>
+            </div>
+        </div>
+    </CaomeiCard>
 </template>
 
 <style lang="scss" scoped>

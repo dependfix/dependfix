@@ -1,10 +1,12 @@
 <script setup lang="ts">
 // 批量导入仓库弹窗（自 repos.vue 拆出：页面行数治理 max-lines 800）
 // 父组件传入已加载的凭据列表；导入成功后 emit('imported') 通知刷新仓库列表。
-// PR3 能力补全（docs/plan/todo.md §PR3）：
+// 能力补全：
 //   - 四维过滤（fork / visibility / archived+disabled / 关键字），过滤切换保留已勾选项（基于 id）
-//   - 后端缓存（5min TTL + LRU max=64 + 并发去重）+ 前端 PrimeVue Paginator 默认 pageSize=25
+//   - 后端缓存（5min TTL + LRU max=64 + 并发去重）+ 前端 Paginator 默认 pageSize=25
 //   - 顶层 defaultCredentialId 提交时携带，导入的所有仓库写库带凭据
+import { Check, RefreshCw } from '@lucide/vue'
+
 const props = defineProps<{
     visible: boolean
     credentials: { id: string, name: string }[]
@@ -38,14 +40,14 @@ interface ImportableResponse {
     fromCache: boolean
 }
 
-/** Resource owner（user 或 organization；；M26.2 C67 单端点契约 include=owners） */
+/** Resource owner（user 或 organization；单端点契约 include=owners） */
 interface ResourceOwner {
     login: string
     type: 'User' | 'Organization'
     avatarUrl?: string
 }
 
-/** Resource owner 列表响应（[backlog.md §C67 单端点契约](../plan/backlog.md)） */
+/** Resource owner 列表响应（单端点契约 include=owners） */
 interface ResourceOwnerResponse {
     owners: ResourceOwner[]
     cachedAt: string
@@ -60,24 +62,24 @@ const dialogVisible = computed({
 const importLoading = ref(false)
 const importSaving = ref(false)
 const importCredentialId = ref<string | null>(null)
-// M26.2 C67：Resource owner 状态（personal + organizations）
+// Resource owner 状态（personal + organizations）
 const importableOwners = ref<ResourceOwner[]>([])
 const importOwnerLogin = ref<string | null>(null)
 const ownersLoading = ref(false)
 const importableRepos = ref<ImportableRepo[]>([])
 const selectedRepos = ref<ImportableRepo[]>([])
-// 四维过滤（默认 source-only / all / 空关键字 / exclude archived+disabled；docs/plan/todo.md §PR3-1）
+// 四维过滤（默认 source-only / all / 空关键字 / exclude archived+disabled）
 const forkFilter = ref<'source' | 'all'>('source')
 const visibilityFilter = ref<'all' | 'public' | 'private'>('all')
 const searchKeyword = ref('')
 // 第 4 维：archived/disabled 过滤（默认排除——只读仓库无法接收 push / 创建 PR）
 const archivedFilter = ref<'exclude' | 'include'>('exclude')
-// 前端分页（默认 25，参考 PR3 用户决策避免单页过载；docs/plan/todo.md §PR3-2）
+// 前端分页（默认 25，避免单页过载）
 const pageSize = ref<number>(25)
 const currentPage = ref(0)
-// 默认关联凭据（docs/plan/todo.md §PR3-3）
+// 默认关联凭据
 const defaultCredentialId = ref<string | null>(null)
-// 缓存提示（docs/plan/todo.md §PR3-2）
+// 缓存提示
 const lastCachedAt = ref<Date | null>(null)
 const lastFromCache = ref(false)
 const lastFreshRefreshed = ref(false)
@@ -87,7 +89,7 @@ const selectableRepos = computed(() => importableRepos.value.filter((r) => !r.im
 
 import { passesRepoFilter } from '../utils/import-repos-filter'
 
-/** 四维过滤后的候选（保留 selectedRepos 语义见下方 resetPage 注；docs/plan/todo.md §PR3-1） */
+/** 四维过滤后的候选（保留 selectedRepos 语义，过滤变更仅重置页码） */
 const filteredRepos = computed(() => {
     const keyword = searchKeyword.value.trim().toLowerCase()
     return importableRepos.value.filter((repo) =>
@@ -133,7 +135,7 @@ const cachedMinutesAgo = computed(() => {
     return Math.max(0, Math.ceil((Date.now() - lastCachedAt.value.getTime()) / 60000))
 })
 
-/** M26.2 C67：Resource owner 类型 badge 标签（Personal / Organization） */
+/** Resource owner 类型 badge 标签（Personal / Organization） */
 const ownerBadge = (login: string) => {
     const owner = importableOwners.value.find((o) => o.login === login)
     if (!owner) {
@@ -142,16 +144,16 @@ const ownerBadge = (login: string) => {
     return owner.type === 'Organization' ? t('repos.importOwnerOrgBadge') : t('repos.importOwnerPersonalBadge')
 }
 
-/** M26.2 C67：owner type 对应 tag severity（Personal = success，Organization = info） */
-const ownerBadgeSeverity = (login: string): 'success' | 'info' => {
+/** owner type 对应 tag tone（Personal = success，Organization = primary） */
+const ownerBadgeTone = (login: string): 'success' | 'primary' => {
     const owner = importableOwners.value.find((o) => o.login === login)
-    return owner?.type === 'Organization' ? 'info' : 'success'
+    return owner?.type === 'Organization' ? 'primary' : 'success'
 }
 
 const importError = ref('')
 const importSuccess = ref('')
 
-// filter / pageSize / searchKeyword 变更时重置页码到第 1（docs/plan/todo.md §PR3-1 决策：保留 selectedRepos 但重置页码）
+// filter / pageSize / searchKeyword 变更时重置页码到第 1（保留 selectedRepos 但重置页码）
 watch([forkFilter, visibilityFilter, searchKeyword, pageSize], () => {
     currentPage.value = 0
 })
@@ -201,7 +203,7 @@ const loadImportable = async (options?: { fresh?: boolean }) => {
         lastCachedAt.value = new Date(data.cachedAt)
         lastFromCache.value = data.fromCache
         lastFreshRefreshed.value = !!options?.fresh
-        // 默认不勾选任何仓库（docs/plan/todo.md §PR1-1 C48：避免手滑一次导入大量仓库）；用户需主动勾选或点全选按钮
+        // 默认不勾选任何仓库（避免手滑一次导入大量仓库）；用户需主动勾选或点全选按钮
         // 当前页码重置（filter 默认值在 watch 中已重置；这里防御一次）
         currentPage.value = 0
     } catch (e: any) {
@@ -212,7 +214,7 @@ const loadImportable = async (options?: { fresh?: boolean }) => {
 }
 
 /**
- * M26.2 C67：先加载 owner 列表，再根据 owner 加载仓库。
+ * 先加载 owner 列表，再根据 owner 加载仓库。
  * 凭据切换时调用：loadOwners 完成后默认选第一个 owner（personal 永远排第一），再触发 loadImportable。
  */
 const loadOwnersAndRepos = async () => {
@@ -272,7 +274,8 @@ const submitImport = async () => {
         importSuccess.value = t('repos.success.importDone', { imported: data.imported, skipped: data.skipped })
         emit('imported')
         // 清空已导入项选择，避免下次刷新列表后 selectedRepos 残留已 disabled 的旧数据
-        // （docs/plan/todo.md §PR1-1 C48：修复删除自动勾选后必须主动清空，否则导入按钮仍可点产生误导）
+        // （导入后必须主动清空已导入项选择，避免下次刷新列表后 selectedRepos 残留已 disabled 的旧数据：
+        //   修复删除自动勾选后必须主动清空，否则导入按钮仍可点产生误导）
         selectedRepos.value = []
         await loadImportable()
     } catch (e: any) {
@@ -284,105 +287,94 @@ const submitImport = async () => {
 </script>
 
 <template>
-    <Dialog
-        v-model:visible="dialogVisible"
-        :header="t('repos.importTitle')"
+    <CaomeiDialog
+        v-model:open="dialogVisible"
+        :title="t('repos.importTitle')"
         modal
-        :draggable="false"
         :style="{width: '760px'}"
     >
         <div class="import-form">
             <div class="import-form__row">
                 <div class="import-form__field">
                     <label for="importCredential">{{ t('repos.importCredential') }}</label>
-                    <Select
+                    <CaomeiSelect
                         id="importCredential"
                         v-model="importCredentialId"
                         :options="credentials"
                         option-label="name"
                         option-value="id"
                         :placeholder="t('repos.importCredentialPlaceholder')"
-                        :loading="ownersLoading || importLoading"
-                        fluid
-                        @change="() => loadOwnersAndRepos()"
+                        @update:model-value="() => loadOwnersAndRepos()"
                     />
                 </div>
-                <Button
-                    icon="pi pi-refresh"
-                    text
+                <CaomeiButton
+                    variant="ghost"
                     rounded
                     :aria-label="t('repos.importRefresh')"
                     :title="t('repos.importRefresh')"
                     :disabled="!importCredentialId || ownersLoading || importLoading"
                     @click="loadImportable({fresh: true})"
-                />
+                >
+                    <template #icon>
+                        <CaomeiIcon :icon="RefreshCw" />
+                    </template>
+                </CaomeiButton>
             </div>
 
-            <!-- M26.2 C67：Resource owner 选择器（凭据切换后由 loadOwnersAndRepos 填充） -->
+            <!-- Resource owner 选择器（凭据切换后由 loadOwnersAndRepos 填充）
+                 caomei Select 无 `#value` 插槽，触发器仅显示 option-label（login），owner 类型 badge 仅在选项列表展示 -->
             <div class="import-form__field">
                 <label for="importOwner">{{ t('repos.importOwner') }}</label>
-                <Select
+                <CaomeiSelect
                     id="importOwner"
                     v-model="importOwnerLogin"
                     :options="importableOwners"
                     option-label="login"
                     option-value="login"
                     :placeholder="importCredentialId ? t('repos.importOwnerPlaceholder') : t('repos.importOwnerPlaceholder')"
-                    :loading="ownersLoading"
                     :disabled="!importableOwners.length"
-                    fluid
-                    @change="() => loadImportable()"
+                    @update:model-value="() => loadImportable()"
                 >
-                    <template #value="{value}">
-                        <span v-if="value">
-                            {{ value }}
-                            <Tag
-                                :value="ownerBadge(value)"
-                                :severity="ownerBadgeSeverity(value)"
-                                class="import-form__owner-badge"
-                            />
-                        </span>
-                    </template>
                     <template #option="{option}">
                         <span>{{ option.login }}</span>
-                        <Tag
-                            :value="ownerBadge(option.login)"
-                            :severity="ownerBadgeSeverity(option.login)"
+                        <CaomeiTag
+                            :tone="ownerBadgeTone(option.login)"
                             class="import-form__owner-badge"
-                        />
+                        >
+                            {{ ownerBadge(option.login) }}
+                        </CaomeiTag>
                     </template>
-                </Select>
+                </CaomeiSelect>
             </div>
 
-            <!-- 默认关联凭据（与「拉取用凭据」并排显示，语义分离；docs/plan/todo.md §PR3-3 C50） -->
+            <!-- 默认关联凭据（与「拉取用凭据」并排显示，语义分离） -->
             <div class="import-form__field">
                 <label for="importDefaultCredential">{{ t('repos.importDefaultCredential') }}</label>
-                <Select
+                <CaomeiSelect
                     id="importDefaultCredential"
                     v-model="defaultCredentialId"
                     :options="credentials"
                     option-label="name"
                     option-value="id"
                     :placeholder="t('repos.importDefaultCredentialPlaceholder')"
-                    fluid
                 />
                 <small class="text-muted">{{ t('repos.importDefaultCredentialHint') }}</small>
             </div>
 
-            <Message
+            <CaomeiMessage
                 v-if="importError"
-                severity="error"
+                tone="danger"
                 :closable="false"
             >
                 {{ importError }}
-            </Message>
-            <Message
+            </CaomeiMessage>
+            <CaomeiMessage
                 v-if="importSuccess"
-                severity="success"
+                tone="success"
                 :closable="false"
             >
                 {{ importSuccess }}
-            </Message>
+            </CaomeiMessage>
 
             <div v-if="importLoading" class="text-muted">
                 {{ t('common.empty.loading') }}
@@ -392,7 +384,7 @@ const submitImport = async () => {
                 <div class="import-form__filters">
                     <div class="import-form__filter">
                         <label>{{ t('repos.importFilterFork') }}</label>
-                        <SelectButton
+                        <CaomeiSelectButton
                             v-model="forkFilter"
                             :options="[
                                 {label: t('repos.importFilterForkSource'), value: 'source'},
@@ -404,7 +396,7 @@ const submitImport = async () => {
                     </div>
                     <div class="import-form__filter">
                         <label>{{ t('repos.importFilterVisibility') }}</label>
-                        <SelectButton
+                        <CaomeiSelectButton
                             v-model="visibilityFilter"
                             :options="[
                                 {label: t('repos.importFilterVisibilityAll'), value: 'all'},
@@ -417,7 +409,7 @@ const submitImport = async () => {
                     </div>
                     <div class="import-form__filter">
                         <label>{{ t('repos.importFilterArchived') }}</label>
-                        <SelectButton
+                        <CaomeiSelectButton
                             v-model="archivedFilter"
                             :options="[
                                 {label: t('repos.importFilterArchivedExclude'), value: 'exclude'},
@@ -429,16 +421,15 @@ const submitImport = async () => {
                     </div>
                     <div class="import-form__filter import-form__filter--grow">
                         <label for="importSearch">{{ t('repos.importFilterSearch') }}</label>
-                        <InputText
+                        <CaomeiInput
                             id="importSearch"
                             v-model="searchKeyword"
                             :placeholder="t('repos.importFilterSearchPlaceholder')"
-                            fluid
                         />
                     </div>
                 </div>
 
-                <!-- 总数 + 缓存提示 + 全选计数（docs/plan/todo.md §PR3-2 C49） -->
+                <!-- 总数 + 缓存提示 + 全选计数 -->
                 <div class="import-form__meta">
                     <span class="text-muted">
                         {{ t('repos.importPaginationTotalCount', {total: filteredRepos.length}) }}
@@ -446,14 +437,14 @@ const submitImport = async () => {
                         <span v-if="lastFromCache && !lastFreshRefreshed">{{ t('repos.importCachedAt', {minutes: cachedMinutesAgo}) }}</span>
                         <span v-else-if="lastFreshRefreshed">{{ t('repos.importFreshRefreshed') }}</span>
                     </span>
-                    <label>
-                        <Checkbox
-                            :model-value="selectedRepos.length === selectableFilteredRepos.length && selectableFilteredRepos.length > 0"
-                            :binary="true"
-                            @update:model-value="(v: boolean) => selectedRepos = v ? [...selectableFilteredRepos] : []"
-                        />
-                        {{ t('repos.importSelectAll', {count: selectableFilteredRepos.length}) }}
-                    </label>
+                    <!-- 可见文案走 Checkbox 自带的 `text`（组件内部渲染关联 label）；
+                         不能再套外层 `<label>`：caomei Checkbox 根元素是 `role="checkbox"` 的按钮，
+                         不是原生 input，嵌套 label 无法点选 -->
+                    <CaomeiCheckbox
+                        :model-value="selectedRepos.length === selectableFilteredRepos.length && selectableFilteredRepos.length > 0"
+                        :text="t('repos.importSelectAll', {count: selectableFilteredRepos.length})"
+                        @update:model-value="(v) => selectedRepos = v === true ? [...selectableFilteredRepos] : []"
+                    />
                     <span class="text-muted">{{ t('repos.importSelectedCount', {count: selectedRepos.length}) }}</span>
                 </div>
 
@@ -463,12 +454,11 @@ const submitImport = async () => {
                         :key="repo.id"
                         class="import-form__item"
                     >
-                        <Checkbox
+                        <CaomeiCheckbox
                             :model-value="selectedRepos.some((r) => r.id === repo.id)"
-                            :binary="true"
                             :disabled="repo.imported"
-                            @update:model-value="(checked: boolean) => {
-                                selectedRepos = checked
+                            @update:model-value="(checked) => {
+                                selectedRepos = checked === true
                                     ? [...selectedRepos, repo]
                                     : selectedRepos.filter((r) => r.id !== repo.id)
                             }"
@@ -482,17 +472,17 @@ const submitImport = async () => {
                                 <template v-if="repo.imported"> · {{ t('repos.imported') }}</template>
                             </small>
                         </div>
-                        <Tag
+                        <CaomeiTag
                             v-if="repo.imported"
-                            :value="t('repos.exists')"
-                            severity="secondary"
-                        />
+                            tone="neutral"
+                        >
+                            {{ t('repos.exists') }}
+                        </CaomeiTag>
                     </div>
                 </div>
 
-                <!-- 分页器（默认 pageSize=25，可切 50/100；docs/plan/todo.md §PR3-2 C49）
-                     迁移：PrimeVue `<Paginator>` → `CaomeiPaginator`（page 1 基，经 `paginatorPage` 换算）；
-                     `template` / `current-page-report-template` 为 PrimeVue 专有 prop 已删除，页码报表改为自渲染 `span` -->
+                <!-- 分页器（默认 pageSize=25，可切 50/100）
+                     CaomeiPaginator 的 `page` 为 1 基（经 `paginatorPage` 换算），页码报表由页面自渲染 `span` -->
                 <div class="import-form__pagination">
                     <CaomeiPaginator
                         v-model:page="paginatorPage"
@@ -514,22 +504,26 @@ const submitImport = async () => {
             </p>
 
             <div class="import-form__actions">
-                <Button
-                    :label="t('common.actions.cancel')"
-                    severity="secondary"
-                    text
+                <CaomeiButton
+                    variant="ghost"
+                    tone="neutral"
                     @click="dialogVisible = false"
-                />
-                <Button
-                    :label="t('repos.importSelect')"
-                    icon="pi pi-check"
+                >
+                    {{ t('common.actions.cancel') }}
+                </CaomeiButton>
+                <CaomeiButton
                     :loading="importSaving"
                     :disabled="!selectedRepos.length"
                     @click="submitImport"
-                />
+                >
+                    <template #icon>
+                        <CaomeiIcon :icon="Check" />
+                    </template>
+                    {{ t('repos.importSelect') }}
+                </CaomeiButton>
             </div>
         </div>
-    </Dialog>
+    </CaomeiDialog>
 </template>
 
 <style lang="scss" scoped>
@@ -633,7 +627,7 @@ const submitImport = async () => {
         flex-wrap: wrap;
     }
 
-    // 页码报表（原 PrimeVue `current-page-report-template` 自渲染替代）
+    // 页码报表（Paginator 无内建报表，由页面自渲染）
     &__pagination-report {
         font-size: $font-size-sm;
         color: $color-text-muted;

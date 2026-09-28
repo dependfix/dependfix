@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { Moon, Sun } from '@lucide/vue'
 import { useColorMode } from '~/composables/use-color-mode'
 import { authClient } from '~/utils/auth-client'
 
@@ -7,8 +8,10 @@ const { session } = useSession()
 const { dark, toggle, initColorMode } = useColorMode()
 
 const { locale, setLocale, locales, t } = useI18n()
-// 切换语言：setLocale 自动写 i18n_locale cookie，登录/未登录一致（偏好持久化）
-const switchLocale = async (code: string) => {
+// 切换语言：setLocale 自动写 i18n_locale cookie，登录/未登录一致（偏好持久化）。
+// caomei Select 的 `update:modelValue` 载荷为 OptionValue | null | undefined，非字符串载荷直接忽略。
+const switchLocale = async (code: string | number | null | undefined) => {
+    if (typeof code !== 'string') return
     await setLocale(code as typeof locale.value)
 }
 
@@ -116,22 +119,26 @@ const canAccessAdmin = computed(() => session.value?.user?.role !== 'viewer')
                 </NuxtLink>
             </nav>
             <div class="platform__actions">
-                <Select
-                    :model-value="locale"
-                    :options="locales"
-                    option-label="name"
-                    option-value="code"
-                    size="small"
-                    class="platform__lang"
-                    @update:model-value="switchLocale"
-                />
-                <Button
-                    :icon="dark ? 'pi pi-sun' : 'pi pi-moon'"
-                    text
+                <div class="platform__lang">
+                    <CaomeiSelect
+                        :model-value="locale"
+                        :options="locales"
+                        option-label="name"
+                        option-value="code"
+                        size="sm"
+                        @update:model-value="switchLocale"
+                    />
+                </div>
+                <CaomeiButton
+                    variant="ghost"
                     rounded
-                    :aria-label="t('common.nav.toggleDarkMode')"
+                    :label="t('common.nav.toggleDarkMode')"
                     @click="toggle"
-                />
+                >
+                    <template #icon>
+                        <CaomeiIcon :icon="dark ? Sun : Moon" />
+                    </template>
+                </CaomeiButton>
                 <template v-if="session?.user">
                     <NuxtLink
                         to="/settings"
@@ -144,21 +151,21 @@ const canAccessAdmin = computed(() => session.value?.user?.role !== 'viewer')
                             :alt="t('common.nav.userAvatar')"
                             class="platform__avatar"
                         >
-                        <Avatar
+                        <CaomeiAvatar
                             v-else
-                            :label="(session.user.name || session.user.email || '?').slice(0, 1).toUpperCase()"
+                            :fallback="(session.user.name || session.user.email || '?').slice(0, 1).toUpperCase()"
                             shape="circle"
-                            size="small"
                         />
                         <span class="platform__user-name">{{ session.user.name || session.user.email }}</span>
                     </NuxtLink>
-                    <Button
-                        :label="t('common.nav.logout')"
-                        severity="secondary"
-                        text
-                        size="small"
+                    <CaomeiButton
+                        tone="neutral"
+                        variant="ghost"
+                        size="sm"
                         @click="logout"
-                    />
+                    >
+                        {{ t('common.nav.logout') }}
+                    </CaomeiButton>
                 </template>
             </div>
         </header>

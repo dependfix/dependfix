@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Moon, Sun } from '@lucide/vue'
 import { useColorMode } from '~/composables/use-color-mode'
 import { authClient } from '~/utils/auth-client'
 
@@ -32,7 +33,7 @@ const allowedDomains: string[] = typeof rawAllowedDomains === 'string'
 const showDomainHint = isEnterprise && allowedDomains.length > 0
 const registrationClosed = publicConfig.registrationDisabled === true
 
-// auth 页品牌 mark：跟随 .dark class 动态切换（与 PrimeVue 主题切换逻辑一致）
+// auth 页品牌 mark：跟随 .dark class 动态切换（与主题切换逻辑一致）
 // 之前用 <picture media="(prefers-color-scheme: dark)"> 只跟随系统偏好，
 // 与用户在站内手动 toggle 暗色模式的 .dark class 冲突，导致深色背景下显示浅色 mark
 const authLogoSrc = computed(() => dark.value ? '/brand/logo-navy.svg' : '/brand/logo-light.svg')
@@ -89,101 +90,97 @@ const onSubmit = async () => {
             <p class="auth__subtitle">
                 {{ t('auth.register.subtitle') }}
             </p>
-            <Card>
-                <template #content>
-                    <Message
-                        v-if="registrationClosed"
-                        severity="warn"
-                        :closable="false"
-                    >
-                        {{ t('auth.register.registrationClosed') }}
-                    </Message>
-                    <Message
-                        v-else-if="showDomainHint"
-                        severity="info"
-                        :closable="false"
-                    >
-                        {{ t('auth.register.onlyDomains', {domains: allowedDomains.map((d) => `@${d}`).join(t('auth.register.domainSeparator'))}) }}
-                    </Message>
-                    <form
-                        v-if="!registrationClosed"
-                        class="auth-form"
-                        @submit.prevent="onSubmit"
-                    >
-                        <div class="auth-form__field">
-                            <label for="name">{{ t('auth.register.name') }}</label>
-                            <InputText
-                                id="name"
-                                v-model="name"
-                                :placeholder="t('auth.register.namePlaceholder')"
-                                fluid
-                            />
-                        </div>
-                        <div class="auth-form__field">
-                            <label for="email">{{ t('auth.register.email') }}</label>
-                            <InputText
-                                id="email"
-                                v-model="email"
-                                type="email"
-                                placeholder="you@example.com"
-                                fluid
-                                required
-                            />
-                        </div>
-                        <div class="auth-form__field">
-                            <label for="password">{{ t('auth.register.password') }}</label>
-                            <Password
-                                id="password"
-                                v-model="password"
-                                :feedback="false"
-                                toggle-mask
-                                :placeholder="t('auth.register.passwordPlaceholder')"
-                                fluid
-                                required
-                            />
-                        </div>
-                        <div class="auth-form__field">
-                            <label for="confirm-password">{{ t('auth.register.confirmPassword') }}</label>
-                            <Password
-                                id="confirm-password"
-                                v-model="confirmPassword"
-                                :feedback="false"
-                                toggle-mask
-                                :placeholder="t('auth.register.confirmPasswordPlaceholder')"
-                                fluid
-                                required
-                            />
-                        </div>
-                        <Message
-                            v-if="error"
-                            severity="error"
-                            :closable="false"
-                        >
-                            {{ error }}
-                        </Message>
-                        <Button
-                            type="submit"
-                            :label="t('auth.register.submit')"
-                            :loading="loading"
-                            fluid
+            <CaomeiCard>
+                <CaomeiMessage
+                    v-if="registrationClosed"
+                    tone="warning"
+                    :closable="false"
+                >
+                    {{ t('auth.register.registrationClosed') }}
+                </CaomeiMessage>
+                <CaomeiMessage
+                    v-else-if="showDomainHint"
+                    tone="primary"
+                    :closable="false"
+                >
+                    {{ t('auth.register.onlyDomains', {domains: allowedDomains.map((d) => `@${d}`).join(t('auth.register.domainSeparator'))}) }}
+                </CaomeiMessage>
+                <form
+                    v-if="!registrationClosed"
+                    class="auth-form"
+                    @submit.prevent="onSubmit"
+                >
+                    <div class="auth-form__field">
+                        <label for="name">{{ t('auth.register.name') }}</label>
+                        <CaomeiInput
+                            id="name"
+                            v-model="name"
+                            :placeholder="t('auth.register.namePlaceholder')"
                         />
-                    </form>
-                    <div class="auth__switch">
-                        {{ t('auth.register.hasAccount') }}
-                        <NuxtLink to="/login">
-                            {{ t('auth.register.backToLogin') }}
-                        </NuxtLink>
                     </div>
-                </template>
-            </Card>
+                    <div class="auth-form__field">
+                        <label for="email">{{ t('auth.register.email') }}</label>
+                        <CaomeiInput
+                            id="email"
+                            v-model="email"
+                            type="email"
+                            placeholder="you@example.com"
+                            required
+                        />
+                    </div>
+                    <div class="auth-form__field">
+                        <label for="password">{{ t('auth.register.password') }}</label>
+                        <!-- caomei `feedback` 默认关闭，与迁移前 PrimeVue 显式 `:feedback="false"` 的行为一致，
+                             故不传该 prop（不新增强度条这一可见 UI） -->
+                        <CaomeiPassword
+                            id="password"
+                            v-model="password"
+                            :placeholder="t('auth.register.passwordPlaceholder')"
+                            required
+                        />
+                    </div>
+                    <div class="auth-form__field">
+                        <label for="confirm-password">{{ t('auth.register.confirmPassword') }}</label>
+                        <CaomeiPassword
+                            id="confirm-password"
+                            v-model="confirmPassword"
+                            :placeholder="t('auth.register.confirmPasswordPlaceholder')"
+                            required
+                        />
+                    </div>
+                    <CaomeiMessage
+                        v-if="error"
+                        tone="danger"
+                        :closable="false"
+                    >
+                        {{ error }}
+                    </CaomeiMessage>
+                    <CaomeiButton
+                        type="submit"
+                        :loading="loading"
+                        block
+                    >
+                        {{ t('auth.register.submit') }}
+                    </CaomeiButton>
+                </form>
+                <div class="auth__switch">
+                    {{ t('auth.register.hasAccount') }}
+                    <NuxtLink to="/login">
+                        {{ t('auth.register.backToLogin') }}
+                    </NuxtLink>
+                </div>
+            </CaomeiCard>
             <div style="display: flex; justify-content: center; margin-top: 1rem">
-                <Button
-                    :icon="dark ? 'pi pi-sun' : 'pi pi-moon'"
-                    text
+                <CaomeiButton
+                    variant="ghost"
                     rounded
-                    :aria-label="t('auth.register.toggleDarkMode')"
+                    :label="t('auth.register.toggleDarkMode')"
                     @click="toggle"
-                />
+                >
+                    <template #icon>
+                        <CaomeiIcon :icon="dark ? Sun : Moon" />
+                    </template>
+                </CaomeiButton>
             </div>
         </div>
     </div>

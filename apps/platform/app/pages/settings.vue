@@ -1,6 +1,7 @@
 <script setup lang="ts">
 // 个人设置：资料（姓名/头像）、修改密码、修改邮箱、绑定账号状态、语言偏好
 // 全部操作走 better-auth 原生端点（/api/auth/*，经 authClient 封装），不自建代理 API
+import { Check, Lock, Mail, X } from '@lucide/vue'
 import { authClient } from '~/utils/auth-client'
 
 definePageMeta({
@@ -9,9 +10,14 @@ definePageMeta({
 
 // 语言偏好：选择即 setLocale 写 i18n_locale cookie，与导航栏切换器联动
 const { locale, setLocale, locales, t } = useI18n()
-const switchLocale = async (code: string) => {
+// caomei Select 的 `update:modelValue` 载荷为 OptionValue | null | undefined，非字符串载荷直接忽略
+const switchLocale = async (code: string | number | null | undefined) => {
+    if (typeof code !== 'string') return
     await setLocale(code as typeof locale.value)
 }
+
+// 解绑账号二次确认（provider 由 CaomeiConfirmDialog 承接）
+const confirm = useConfirm()
 
 interface BoundAccount {
     id: string
@@ -153,7 +159,10 @@ const changeEmail = async () => {
 }
 
 const unlink = async (account: BoundAccount) => {
-    if (!confirm(t('settings.confirm.unlinkAccount', { provider: providerLabel(account.providerId) }))) {
+    if (!await confirm.open({
+        title: t('settings.confirm.unlinkAccount', { provider: providerLabel(account.providerId) }),
+        tone: 'danger',
+    })) {
         return
     }
     error.value = ''
@@ -194,8 +203,8 @@ onUnmounted(() => {
 })
 
 /**
- * 加载当前 Organization id（todo.md §M26.x commit 7）。
- * 通过新引入的 GET /api/organizations/current 端点推断（单组织模型下恒为默认组织）。
+ * 加载当前 Organization id。
+ * 通过 GET /api/organizations/current 端点推断（单组织模型下恒为默认组织）。
  * ai-config-form 组件挂在 settings 页面，依赖 organizationId 作为 props 加载。
  */
 const currentOrganizationId = ref<string | null>(null)
@@ -221,195 +230,174 @@ onMounted(loadCurrentOrganization)
             </div>
         </div>
 
-        <Message
+        <CaomeiMessage
             v-if="error"
-            severity="error"
+            tone="danger"
             :closable="false"
         >
             {{ error }}
-        </Message>
-        <Message
+        </CaomeiMessage>
+        <CaomeiMessage
             v-if="success"
-            severity="success"
+            tone="success"
             :closable="false"
         >
             {{ success }}
-        </Message>
+        </CaomeiMessage>
 
         <div v-if="!loading" class="settings__grid">
-            <Card>
-                <template #title>
-                    {{ t('settings.profileCard') }}
-                </template>
-                <template #content>
-                    <form class="settings-form" @submit.prevent="saveName">
-                        <div class="settings-form__field">
-                            <label for="name">{{ t('settings.displayName') }}</label>
-                            <InputText
-                                id="name"
-                                v-model="nameForm"
-                                :placeholder="t('settings.displayNamePlaceholder')"
-                                fluid
-                                required
-                            />
-                        </div>
-                        <div class="settings-form__field">
-                            <label>{{ t('settings.emailLabel') }}</label>
-                            <div class="text-muted">
-                                {{ session?.user?.email }}
-                            </div>
-                            <small class="text-muted">{{ t('settings.emailHint') }}</small>
-                        </div>
-                        <div class="settings-form__field">
-                            <label>{{ t('settings.roleLabel') }}</label>
-                            <Tag :value="session?.user?.role ?? 'viewer'" severity="secondary" />
-                        </div>
-                        <Button
-                            type="submit"
-                            :label="t('settings.saveProfile')"
-                            icon="pi pi-check"
-                            :loading="nameSaving"
-                        />
-                    </form>
-                </template>
-            </Card>
-
-            <Card>
-                <template #title>
-                    {{ t('settings.passwordCard') }}
-                </template>
-                <template #content>
-                    <form class="settings-form" @submit.prevent="changePassword">
-                        <div class="settings-form__field">
-                            <label for="currentPassword">{{ t('settings.currentPassword') }}</label>
-                            <Password
-                                id="currentPassword"
-                                v-model="passwordForm.currentPassword"
-                                :feedback="false"
-                                toggle-mask
-                                :placeholder="t('settings.currentPasswordPlaceholder')"
-                                fluid
-                                required
-                            />
-                        </div>
-                        <div class="settings-form__field">
-                            <label for="newPassword">{{ t('settings.newPassword') }}</label>
-                            <Password
-                                id="newPassword"
-                                v-model="passwordForm.newPassword"
-                                :feedback="false"
-                                toggle-mask
-                                :placeholder="t('settings.newPasswordPlaceholder')"
-                                fluid
-                                required
-                            />
-                        </div>
-                        <div class="settings-form__field">
-                            <label for="confirmPassword">{{ t('settings.confirmNewPassword') }}</label>
-                            <Password
-                                id="confirmPassword"
-                                v-model="passwordForm.confirmPassword"
-                                :feedback="false"
-                                toggle-mask
-                                :placeholder="t('settings.confirmNewPasswordPlaceholder')"
-                                fluid
-                                required
-                            />
-                        </div>
-                        <Button
-                            type="submit"
-                            :label="t('settings.changePassword')"
-                            icon="pi pi-lock"
-                            :loading="passwordSaving"
-                        />
-                        <small class="text-muted">{{ t('settings.passwordChangedHint') }}</small>
-                    </form>
-                </template>
-            </Card>
-
-            <Card>
-                <template #title>
-                    {{ t('settings.emailCard') }}
-                </template>
-                <template #content>
-                    <form class="settings-form" @submit.prevent="changeEmail">
-                        <div class="settings-form__field">
-                            <label for="newEmail">{{ t('settings.newEmail') }}</label>
-                            <InputText
-                                id="newEmail"
-                                v-model="emailForm"
-                                type="email"
-                                placeholder="you@example.com"
-                                fluid
-                                required
-                            />
-                        </div>
-                        <Button
-                            type="submit"
-                            :label="t('settings.changeEmail')"
-                            icon="pi pi-envelope"
-                            :loading="emailSaving"
-                        />
-                        <small class="text-muted">{{ t('settings.emailChangedHint') }}</small>
-                    </form>
-                </template>
-            </Card>
-
-            <Card>
-                <template #title>
-                    {{ t('settings.accountsCard') }}
-                </template>
-                <template #content>
-                    <div v-if="accounts.length" class="settings-accounts">
-                        <div
-                            v-for="account in accounts"
-                            :key="account.id"
-                            class="settings-accounts__item"
-                        >
-                            <div>
-                                <Tag :value="providerLabel(account.providerId)" severity="secondary" />
-                                <small class="text-muted">{{ account.accountId }}</small>
-                            </div>
-                            <Button
-                                icon="pi pi-times"
-                                text
-                                rounded
-                                size="small"
-                                severity="danger"
-                                :loading="unlinkSaving?.id === account.id"
-                                :aria-label="t('settings.unlink')"
-                                :title="t('settings.unlink')"
-                                @click="unlink(account)"
-                            />
-                        </div>
-                    </div>
-                    <p v-else class="text-muted">
-                        {{ t('settings.noAccounts') }}
-                    </p>
-                    <small class="text-muted">{{ t('settings.accountsHint') }}</small>
-                </template>
-            </Card>
-
-            <Card>
-                <template #title>
-                    {{ t('settings.languageCard') }}
-                </template>
-                <template #content>
+            <CaomeiCard :title="t('settings.profileCard')">
+                <form class="settings-form" @submit.prevent="saveName">
                     <div class="settings-form__field">
-                        <label for="language">{{ t('settings.languageLabel') }}</label>
-                        <Select
-                            id="language"
-                            :model-value="locale"
-                            :options="locales"
-                            option-label="name"
-                            option-value="code"
-                            fluid
-                            @update:model-value="switchLocale"
+                        <label for="name">{{ t('settings.displayName') }}</label>
+                        <CaomeiInput
+                            id="name"
+                            v-model="nameForm"
+                            :placeholder="t('settings.displayNamePlaceholder')"
+                            required
                         />
-                        <small class="text-muted">{{ t('settings.languageHint') }}</small>
                     </div>
-                </template>
-            </Card>
+                    <div class="settings-form__field">
+                        <label>{{ t('settings.emailLabel') }}</label>
+                        <div class="text-muted">
+                            {{ session?.user?.email }}
+                        </div>
+                        <small class="text-muted">{{ t('settings.emailHint') }}</small>
+                    </div>
+                    <div class="settings-form__field">
+                        <label>{{ t('settings.roleLabel') }}</label>
+                        <CaomeiTag tone="neutral">
+                            {{ session?.user?.role ?? 'viewer' }}
+                        </CaomeiTag>
+                    </div>
+                    <CaomeiButton
+                        type="submit"
+                        :loading="nameSaving"
+                    >
+                        <template #icon>
+                            <CaomeiIcon :icon="Check" />
+                        </template>
+                        {{ t('settings.saveProfile') }}
+                    </CaomeiButton>
+                </form>
+            </CaomeiCard>
+
+            <CaomeiCard :title="t('settings.passwordCard')">
+                <form class="settings-form" @submit.prevent="changePassword">
+                    <div class="settings-form__field">
+                        <label for="currentPassword">{{ t('settings.currentPassword') }}</label>
+                        <CaomeiPassword
+                            id="currentPassword"
+                            v-model="passwordForm.currentPassword"
+                            :placeholder="t('settings.currentPasswordPlaceholder')"
+                            required
+                        />
+                    </div>
+                    <div class="settings-form__field">
+                        <label for="newPassword">{{ t('settings.newPassword') }}</label>
+                        <CaomeiPassword
+                            id="newPassword"
+                            v-model="passwordForm.newPassword"
+                            :placeholder="t('settings.newPasswordPlaceholder')"
+                            required
+                        />
+                    </div>
+                    <div class="settings-form__field">
+                        <label for="confirmPassword">{{ t('settings.confirmNewPassword') }}</label>
+                        <CaomeiPassword
+                            id="confirmPassword"
+                            v-model="passwordForm.confirmPassword"
+                            :placeholder="t('settings.confirmNewPasswordPlaceholder')"
+                            required
+                        />
+                    </div>
+                    <CaomeiButton
+                        type="submit"
+                        :loading="passwordSaving"
+                    >
+                        <template #icon>
+                            <CaomeiIcon :icon="Lock" />
+                        </template>
+                        {{ t('settings.changePassword') }}
+                    </CaomeiButton>
+                    <small class="text-muted">{{ t('settings.passwordChangedHint') }}</small>
+                </form>
+            </CaomeiCard>
+
+            <CaomeiCard :title="t('settings.emailCard')">
+                <form class="settings-form" @submit.prevent="changeEmail">
+                    <div class="settings-form__field">
+                        <label for="newEmail">{{ t('settings.newEmail') }}</label>
+                        <CaomeiInput
+                            id="newEmail"
+                            v-model="emailForm"
+                            type="email"
+                            placeholder="you@example.com"
+                            required
+                        />
+                    </div>
+                    <CaomeiButton
+                        type="submit"
+                        :loading="emailSaving"
+                    >
+                        <template #icon>
+                            <CaomeiIcon :icon="Mail" />
+                        </template>
+                        {{ t('settings.changeEmail') }}
+                    </CaomeiButton>
+                    <small class="text-muted">{{ t('settings.emailChangedHint') }}</small>
+                </form>
+            </CaomeiCard>
+
+            <CaomeiCard :title="t('settings.accountsCard')">
+                <div v-if="accounts.length" class="settings-accounts">
+                    <div
+                        v-for="account in accounts"
+                        :key="account.id"
+                        class="settings-accounts__item"
+                    >
+                        <div>
+                            <CaomeiTag tone="neutral">
+                                {{ providerLabel(account.providerId) }}
+                            </CaomeiTag>
+                            <small class="text-muted">{{ account.accountId }}</small>
+                        </div>
+                        <CaomeiButton
+                            variant="ghost"
+                            rounded
+                            size="sm"
+                            tone="danger"
+                            :loading="unlinkSaving?.id === account.id"
+                            :label="t('settings.unlink')"
+                            :title="t('settings.unlink')"
+                            @click="unlink(account)"
+                        >
+                            <template #icon>
+                                <CaomeiIcon :icon="X" />
+                            </template>
+                        </CaomeiButton>
+                    </div>
+                </div>
+                <p v-else class="text-muted">
+                    {{ t('settings.noAccounts') }}
+                </p>
+                <small class="text-muted">{{ t('settings.accountsHint') }}</small>
+            </CaomeiCard>
+
+            <CaomeiCard :title="t('settings.languageCard')">
+                <div class="settings-form__field">
+                    <label for="language">{{ t('settings.languageLabel') }}</label>
+                    <CaomeiSelect
+                        id="language"
+                        :model-value="locale"
+                        :options="locales"
+                        option-label="name"
+                        option-value="code"
+                        @update:model-value="switchLocale"
+                    />
+                    <small class="text-muted">{{ t('settings.languageHint') }}</small>
+                </div>
+            </CaomeiCard>
 
             <ai-config-form
                 v-if="currentOrganizationId"
@@ -472,7 +460,7 @@ onMounted(loadCurrentOrganization)
         justify-content: space-between;
         gap: $space-3;
         padding: $space-2 0;
-        border-bottom: 1px solid var(--p-content-border-color);
+        border-bottom: 1px solid var(--caomei-color-border);
 
         div {
             display: flex;

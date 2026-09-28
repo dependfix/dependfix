@@ -1,10 +1,11 @@
 <script setup lang="ts">
 // 单仓库扫描配置弹窗（自 repos.vue 拆出：页面行数治理 max-lines 800）。
-// PR2 见 docs/plan/todo.md §PR2 C52：补全 mode/severity 选择入口，让单仓库 pi-play 触发扫描时支持 12 种 mode×severity 组合。
+// 补全 mode/severity 选择入口，让单仓库触发扫描时支持 12 种 mode×severity 组合。
 // 与批量扫描 Dialog 共享 modeOptions / severityOptions 数据源（父组件传入）。
-// M26.1 commit：新增 AI override 折叠面板（todo.md §M26.1 + [platform-ai-integration.md §7.3](../design/governance/platform-ai-integration.md)）
+// AI override 折叠面板（设计见 [platform-ai-integration.md §7.3](../design/governance/platform-ai-integration.md)）
 // —— Organization 未配 Key 时整段禁用 + 警告 Message，避免用户误启用 AI 研判跑不出来。
 import type { RepoView } from '~/types/platform'
+import { Play } from '@lucide/vue'
 
 interface ScanModeOption {
     label: string
@@ -45,6 +46,25 @@ const onClose = () => {
     emit('update:visible', false)
 }
 
+/** caomei Select 的 `update:modelValue` 载荷为 OptionValue | null | undefined，非字符串载荷直接忽略 */
+const onModeChange = (value: string | number | null | undefined) => {
+    if (typeof value === 'string') {
+        emit('update:mode', value)
+    }
+}
+
+const onSeverityChange = (value: string | number | null | undefined) => {
+    if (typeof value === 'string') {
+        emit('update:severity', value)
+    }
+}
+
+const onAiTriggerChange = (value: string | number | null | undefined) => {
+    if (value === 'failure' || value === 'major' || value === 'both') {
+        emit('update:ai-trigger', value)
+    }
+}
+
 const aiTriggerOptions = computed(() => [
     { label: t('ai.triggerOptions.failure'), value: 'failure' as const },
     { label: t('ai.triggerOptions.major'), value: 'major' as const },
@@ -53,13 +73,12 @@ const aiTriggerOptions = computed(() => [
 </script>
 
 <template>
-    <Dialog
-        :visible="props.visible"
-        :header="repo ? t('repos.scanConfigHeader', {owner: repo.owner, name: repo.name}) : t('repos.scanConfigHeaderEmpty')"
+    <CaomeiDialog
+        :open="props.visible"
+        :title="repo ? t('repos.scanConfigHeader', {owner: repo.owner, name: repo.name}) : t('repos.scanConfigHeaderEmpty')"
         modal
-        :draggable="false"
         :style="{width: '480px'}"
-        @update:visible="(v: boolean) => emit('update:visible', v)"
+        @update:open="(v: boolean) => emit('update:visible', v)"
     >
         <div class="scan-config-form">
             <div v-if="repo" class="scan-config-form__repo">
@@ -68,41 +87,39 @@ const aiTriggerOptions = computed(() => [
             <div class="scan-config-form__row">
                 <div class="scan-config-form__field">
                     <label for="scanConfigMode">{{ t('repos.batchMode') }}</label>
-                    <Select
+                    <CaomeiSelect
                         id="scanConfigMode"
                         :model-value="props.mode"
                         :options="modeOptions"
                         option-label="label"
                         option-value="value"
-                        fluid
-                        @update:model-value="(v: string) => emit('update:mode', v)"
+                        @update:model-value="onModeChange"
                     />
                 </div>
                 <div class="scan-config-form__field">
                     <label for="scanConfigSeverity">{{ t('repos.batchSeverity') }}</label>
-                    <Select
+                    <CaomeiSelect
                         id="scanConfigSeverity"
                         :model-value="props.severity"
                         :options="severityOptions"
                         option-label="label"
                         option-value="value"
-                        fluid
-                        @update:model-value="(v: string) => emit('update:severity', v)"
+                        @update:model-value="onSeverityChange"
                     />
                 </div>
             </div>
             <div class="scan-config-form__ai">
-                <Message
+                <CaomeiMessage
                     v-if="!props.hasOrgAiKey"
-                    severity="warn"
+                    tone="warning"
                     :closable="false"
                 >
                     {{ t('ai.scanOverrideDisabledHint') }}
-                </Message>
+                </CaomeiMessage>
                 <div class="scan-config-form__row">
                     <div class="scan-config-form__field">
                         <label for="scanConfigAiEnabled">{{ t('ai.scanOverrideEnabledLabel') }}</label>
-                        <ToggleSwitch
+                        <CaomeiSwitch
                             id="scanConfigAiEnabled"
                             :model-value="props.aiEnabled"
                             :disabled="!props.hasOrgAiKey"
@@ -112,34 +129,35 @@ const aiTriggerOptions = computed(() => [
                     </div>
                     <div class="scan-config-form__field">
                         <label for="scanConfigAiTrigger">{{ t('ai.scanOverrideSection') }}</label>
-                        <Select
+                        <CaomeiSelect
                             id="scanConfigAiTrigger"
                             :model-value="props.aiTrigger"
                             :options="aiTriggerOptions"
                             option-label="label"
                             option-value="value"
                             :disabled="!props.aiEnabled || !props.hasOrgAiKey"
-                            fluid
-                            @update:model-value="(v: AiTrigger) => emit('update:ai-trigger', v)"
+                            @update:model-value="onAiTriggerChange"
                         />
                     </div>
                 </div>
             </div>
             <div class="scan-config-form__actions">
-                <Button
-                    :label="t('common.actions.cancel')"
-                    severity="secondary"
-                    text
+                <CaomeiButton
+                    variant="ghost"
+                    tone="neutral"
                     @click="onClose"
-                />
-                <Button
-                    :label="t('repos.batchStart')"
-                    icon="pi pi-play"
-                    @click="emit('submit')"
-                />
+                >
+                    {{ t('common.actions.cancel') }}
+                </CaomeiButton>
+                <CaomeiButton @click="emit('submit')">
+                    <template #icon>
+                        <CaomeiIcon :icon="Play" />
+                    </template>
+                    {{ t('repos.batchStart') }}
+                </CaomeiButton>
             </div>
         </div>
-    </Dialog>
+    </CaomeiDialog>
 </template>
 
 <style lang="scss" scoped>
@@ -167,7 +185,7 @@ const aiTriggerOptions = computed(() => [
         flex-direction: column;
         gap: $space-3;
         padding: $space-3;
-        border: 1px solid var(--p-content-border-color);
+        border: 1px solid var(--caomei-color-border);
         border-radius: $radius-sm;
     }
 

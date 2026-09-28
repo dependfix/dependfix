@@ -1,43 +1,43 @@
 import { describe, expect, it } from 'vitest'
-import { conclusionTagSeverity } from './pr-check-style'
+import { conclusionTagTone } from './pr-check-style'
 
-describe('conclusionTagSeverity', () => {
+describe('conclusionTagTone', () => {
     describe('danger（CI 异常失败）', () => {
         it('failure → danger', () => {
-            expect(conclusionTagSeverity('failure')).toBe('danger')
+            expect(conclusionTagTone('failure')).toBe('danger')
         })
         it('timed_out → danger', () => {
-            expect(conclusionTagSeverity('timed_out')).toBe('danger')
+            expect(conclusionTagTone('timed_out')).toBe('danger')
         })
         it('action_required → danger', () => {
-            expect(conclusionTagSeverity('action_required')).toBe('danger')
+            expect(conclusionTagTone('action_required')).toBe('danger')
         })
     })
 
     describe('success', () => {
         it('success → success', () => {
-            expect(conclusionTagSeverity('success')).toBe('success')
+            expect(conclusionTagTone('success')).toBe('success')
         })
     })
 
-    describe('warn（CI 进行中）', () => {
-        it('pending → warn', () => {
-            expect(conclusionTagSeverity('pending')).toBe('warn')
+    describe('warning（CI 进行中）', () => {
+        it('pending → warning', () => {
+            expect(conclusionTagTone('pending')).toBe('warning')
         })
     })
 
-    describe('info（中性 / 已关闭）', () => {
-        it('neutral → info', () => {
-            expect(conclusionTagSeverity('neutral')).toBe('info')
+    describe('primary（中性 / 已关闭）', () => {
+        it('neutral → primary', () => {
+            expect(conclusionTagTone('neutral')).toBe('primary')
         })
-        it('cancelled → info', () => {
-            expect(conclusionTagSeverity('cancelled')).toBe('info')
+        it('cancelled → primary', () => {
+            expect(conclusionTagTone('cancelled')).toBe('primary')
         })
-        it('stale → info', () => {
-            expect(conclusionTagSeverity('stale')).toBe('info')
+        it('stale → primary', () => {
+            expect(conclusionTagTone('stale')).toBe('primary')
         })
-        it('skipped → info', () => {
-            expect(conclusionTagSeverity('skipped')).toBe('info')
+        it('skipped → primary', () => {
+            expect(conclusionTagTone('skipped')).toBe('primary')
         })
     })
 })

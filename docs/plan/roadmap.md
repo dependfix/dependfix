@@ -29,7 +29,7 @@
 | M19: 治理 + 能力扩展 + 测试补强 | 按类型平衡原则 5 项任务（技术债 + 能力 + 体验 + 测试） | P2-P3 | 已完成（[archive/todo-archive-phases-m19-m21.md §M19](archive/todo-archive-phases-m19-m21.md#m19-治理--能力扩展--测试补强m191m192m193m194m195-全部已闭环--2026-08-31-归档)） |
 | M20: ScanResult 数据模型重构 | per-alert 模型 + reconcile + API 简化 + UI + backfill | P2 | 已完成（[archive/todo-archive-phases-m19-m21.md §M20](archive/todo-archive-phases-m19-m21.md#m20-scanresult-数据模型重构m201m203m205m206m207-全部已闭环--2026-08-31-归档)） |
 | M21: 治理收口 + 能力扩展 + 测试补强 | Code Scanning RG-W + M18.x 剩余风险 + B3 PR 自动合并 + T704 e2e | P3 | 已完成（[archive/todo-archive-phases-m19-m21.md §M21](archive/todo-archive-phases-m19-m21.md#m21-治理收口--能力扩展--测试补强m211m212m214m215-全部已闭环--2026-08-31-归档)） |
-| M22: SQLite 数据保护防御加固 | 2026-09-01 dependfix.sqlite 数据清空事故 + 6 原子条目 | P0-P1 | 已完成（[todo-archive.md §M22](todo-archive.md#m22-sqlite-数据保护防御加固m221m222m223m224m225m226-全部已闭环--2026-09-01-归档)） |
+| M22: SQLite 数据保护防御加固 | 2026-09-01 dependfix.sqlite 数据清空事故 + 6 原子条目 | P0-P1 | 已完成（[archive/todo-archive-phases-m22.md §M22](archive/todo-archive-phases-m22.md#m22-sqlite-数据保护防御加固m221m222m223m224m225m226-全部已闭环--2026-09-01-归档)） |
 | M23: M22 治理债收口 + 根因排查 + 能力扩展 + 测试补强 | M22.7+M22.8 根因 + C66 告警视图增强 | P1-P3 | 已完成（[todo-archive.md §M23](todo-archive.md#m23-m22-治理债收口--根因排查--能力扩展--测试补强m230m231m232m233m234-全部已闭环--2026-09-02-归档)） |
 | M24: PR Check MVP + 治理债 + 测试补强 + 用户体验 | PR Check 状态监测 MVP + M22.7+M22.8 残留根因 + C36 i18n | P1-P3 | 已完成（[todo-archive.md §M24](todo-archive.md#m24-pr-check-mvp--治理债--测试补强--用户体验m241m242m243m244m245-全部已闭环--2026-09-03-归档)） |
 | M25: PrimeUI License 治理 + 平台 AI 研判集成 + lint baseline + M24 follow-up 工具化 | C70 PrimeUI 降级 + C68 AI 研判基础层 + lint baseline + i18n-anchor-check + zod-helpers | P1-P3 | 已完成（[todo-archive.md §M25](todo-archive.md#m25-primeui-license-治理--平台-ai-研判集成--lint-baseline-治理--m24-follow-up-工具化m251m252am253m254-全部已闭环--2026-09-08-归档)） |
@@ -37,6 +37,7 @@
 | M27: 用户体验 + 治理优先 | M27.1 重复评估修正 + M27.2 W1 apps/platform stylelint + M27.3 W2 logger 补测 + M27.4 W4 container-executor 补测 + M27.5 ECONNRESET 候选 ① 诊断 | P1-P3 | 已完成（[todo-archive.md §M27](todo-archive.md#m27-用户体验--治理优先m271m272-w1m273-w2m274-w4m275-全部已闭环--2026-09-10-归档)） |
 | M28: 治理债清理 + 能力扩展 | M28.1 backlog.md §已知边界段批量治理 + §4.4 第 11 条规则强化 + M28.2 C14 多 cs lint 性能 + M28.3 C15 B 类规则样本核对 + M28.4 C33 MCP P3 + M28.5 M22.8 follow-up ② | P2-P3 | 已完成（[todo-archive.md §M28](todo-archive.md)；2026-09-11 用户决策方案 M28-A + M28.1 重编号 + 完整 5 候选闭环 + M28.6 归档批次落地，commits 已推送 origin/master） |
 | M29: 修复交付链路正确性 + 能力扩展 | C73 git 配置污染隔离 + C75 验证链纳入 test + C77 override 复发防护 + C78 alerts 未启用/获取失败区分 + C71 pnpm 路径级 overrides + C72 批量导入 archived/disabled 过滤 + vite 漏洞插队 hotfix + C79 devEx 配置缺口 + C80-A CI 审计覆盖（M29.8/M29.9 为 M29.1 衍生） | P2-P3 | 已完成（[todo-archive.md §M29](todo-archive.md#m29-修复交付链路正确性--能力扩展m291m299-全部已闭环--2026-09-27-归档)） |
+| M30: 治理债清理 + 迁移可行性验证 + 能力扩展 + 测试补强 | C87 跳过类审计退出码 + C86 max-lines 拆分 + C84 文档对齐 + C74 getCommitAuthor 接线（App 路径）+ db-restore 补测 + UI 组件库迁移可行性验证 V1-V3 | P2-P3 | 已完成（[todo-archive.md §M30](todo-archive.md#m30-治理债清理--迁移可行性验证--能力扩展--测试补强m301m306-全部已闭环--2026-09-28-归档)） |
 
 > **本路线图定位**：按 [规划规范 §2.1](../standards/planning.md) 仅维护阶段概览（目标 / 优先级 / 状态）。详细实施记录 / commit 引用 / 关键决策 / 经验教训见对应归档段（详见下方"## 详细任务"索引）。
 
@@ -216,7 +217,7 @@ per-alert 模型 + reconcile + API 简化 + UI 调整 + backfill 脚本。5 子�
 
 承接 2026-09-01 `apps/platform/data/dependfix.sqlite` 启动后业务表数据被清空事故。事故暴露 5 条可加固设计风险。6 原子条目 + 1 沉淀批次独立闭环（M22 沉淀 / M22.1 SQLite 自动备份 / M22.2 db-restore / M22.3 db-doctor / M22.4 TypeORM synchronize opt-in / M22.5 migrationsRun opt-in / M22.6 e2e/fixtures 双门控）。
 
-> 详细任务见 [todo-archive.md §M22](todo-archive.md#m22-sqlite-数据保护防御加固m221m222m223m224m225m226-全部已闭环--2026-09-01-归档)
+> 详细任务见 [archive/todo-archive-phases-m22.md §M22](archive/todo-archive-phases-m22.md#m22-sqlite-数据保护防御加固m221m222m223m224m225m226-全部已闭环--2026-09-01-归档)
 
 ## M23: M22 治理债收口 + 根因排查 + 能力扩展 + 测试补强
 
@@ -373,9 +374,34 @@ per-alert 模型 + reconcile + API 简化 + UI 调整 + backfill 脚本。5 子�
 
 ---
 
+## M30: 治理债清理 + 迁移可行性验证 + 能力扩展 + 测试补强（2026-09-27 启动 / 2026-09-28 已闭环 + 归档）
+
+承接 M29 完整闭环后遗留治理债（退出码 / 文件行数 / 文档对齐）+ UI 组件库迁移可行性验证 + GitHub App 身份接线 + db-restore 测试补强。2026-09-27 决策启动，**6 原子条目全部闭环**（M30.1-M30.6），覆盖 🛡️ 2 + 🚀 1 + 📚 1 + 🧪 1 + 🔍 1，符合 [规划规范 §1.1 L12 类型平衡原则](../standards/planning.md#11-硬性约束)（UX 0 项独立条目，显式标注缺口）。
+
+- **M30.1** [P2 🛡️ 治本] C87 跳过类审计条目退出码修正（`41a13ab`）
+- **M30.2** [P3 🛡️ 治本] C86 `repo-fix.ts` 行数拆分（`6923fdc`）
+- **M30.3** [P3 📚 治理] C84 AI 质量门文档描述与实际验证链对齐（`21bf8bb`）
+- **M30.4** [P2 🚀 能力扩展] C74 接线 `getCommitAuthor()`（仅 App 路径，`61acfae`）
+- **M30.5** [P3 🧪 测试补强] db-restore 审计未采纳项补测（`80dff3f`；**部分闭环**，2 分支 ESM mock 受限转 backlog C90）
+- **M30.6** [P3 🔍 可行性验证] 迁移前可行性验证 V1-V3（`5eedcad` + `7be5b93`；**全绿**，M31 待用户决策）
+- **衍生治理批次**（6 commits）：`124078a` vue-demi allowBuilds / `644f9f0` tsdown dts 入口错位 / `9226ddd` + `207a806` max-lines 治理 / `7458973` lint 清理 / `32e3a8b` 已知边界登记
+
+**关键决策 D1-D4**：
+
+- **D1**：M30.6 为前置阻塞项——V1-V3 全绿才可启动 M31 正式迁移
+- **D2**：M30.4 仅 App 路径接线，PAT 路径保持 M18.0 兼容性零变化
+- **D3**：M30.5 遇 ESM mock 受限——两分支 `it.skip` + TODO 登记，残留转 backlog C90
+- **D4**：M30.6 V2 主色实底对比度——`--caomei-color-primary-solid` 实施期需覆盖为 `#0f766e`（teal-700）达 AA 4.5:1
+
+**ahead commits 实证**：M30 全部 commits 已推送 `origin/master`（`git rev-list HEAD ^origin/master --count` 归档时实测 = 0）
+
+> 详细任务见 [todo-archive.md §M30](todo-archive.md#m30-治理债清理--迁移可行性验证--能力扩展--测试补强m301m306-全部已闭环--2026-09-28-归档)
+
+---
+
 ## 详细任务
 
-- 当前阶段任务：[todo.md](todo.md)（M29 已 2026-09-27 完整归档，下一阶段待用户决策启动）
+- 当前阶段任务：[todo.md](todo.md)（当前无活跃阶段，等待用户决策启动；M30 已 2026-09-28 完整归档）
 - 已归档阶段：[todo-archive.md](todo-archive.md)（主窗口保留最近阶段完整段 + 指针段；早期阶段见 [archive/index.md](archive/index.md) 分片索引）
 - 后续阶段任务（延期项 + 未排期增强候选）：[backlog.md](backlog.md)
 

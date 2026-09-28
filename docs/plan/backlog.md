@@ -18,7 +18,7 @@
 
 - **目标**：把 network-audit 默认白名单从"按次新增"演进为"按域名 / SRI 哈希 / 输出区分"的可持续治理方案，避免每次构建工具跨 major 升级都需补白名单。
 - **状态**：观察中。
-- **当前进度**：候选方向 3（命令输出 URL 与真实外联区分）已落地；整体治本方向未完成。
+- **当前进度**：候选方向 3（命令输出 URL 与真实外联区分）已落地（M13.2 T1305，commits `0f08c40` + `5269d0a` + `9c79fc9`）；整体治本方向未完成（候选方向 1/2 优先级降低，按需触发）。
 - **下一次可切片方向**（任一触发时重新评估）：
   1. 构建工具生态文档站类目预置白名单（rolldown.rs / swc.rs / rust-lang.org 等）—— **候选方向 3 落地后优先级降低**：合法外联不会再被误判，新增白名单诉求应转为"真实注册表域"申请而非"构建工具文档站"
   2. 按 SRI 哈希钉资源（推荐域动态发现）
@@ -64,7 +64,6 @@
 - **T703 跨平台 Git**（GitLab + Bitbucket）—— 2026-08-12 用户指示暂缓排期
 - **C30 Publish Docker build job 失败排查** —— 2026-08-18 用户决策暂缓（双平台构建 23m 2s 成功证明当前 docker.yml 可稳定工作）；恢复条件：① master 分支 push 频率显著提升；② 镜像实际发布成为强需求（v1.0.0 正式发布前）；③ 用户明确恢复
 - **§M14.2 PrimeVue 4 → 5 升级评估** —— 2026-08-26 dependabot #49 触发评估，Nuxt build 报 `Rolldown failed to resolve import "primevue/inputcolor"`（v5 改组件导入约定）。`@primevue/nuxt-module` 5.x + `@primeuix/themes` 3.x 需联动升级，影响 `apps/platform/nuxt.config.ts` 及可能的 DataTable 等组件用法。PR 已关闭，恢复条件：① 评估 PrimeVue 5 migration guide 工作量；② 与 PrimeVue 4 + Nuxt hydration 兼容性问题的修复路径联动决策——该问题已由 alerts 迁移 `useAsyncData` 解决，可独立评估升级；③ 用户明确恢复
-- **db-restore 审计未采纳项（M22.2 落地遗留）** ✅ **已上收 M30.5** —— 2026-09-01 M22.2 A 阶段审计 S-1 第 2/3/4 项 + S-2 未采纳：① `inspectSqliteFile` 能打开但 `integrity_check != 'ok'` 分支未覆盖（需用 `PRAGMA writable_schema` 构造损坏 fixture）；② 恢复后 `integrity_check` 失败分支未覆盖（需 mock 注入）；③ sidecar `unlinkSync` 部分失败的 `removedSidecars` 状态一致性未覆盖；④ `--from` / `--to` 未做路径规范化（不校验 `..` / 符号链接）。当前 `db-restore` 是本地管理员工具，攻击面极低；恢复条件：脚本被远程 / 容器自动化触发，或补测试成本下降（对应实现见 `apps/platform/server/database/scripts/db-restore.ts`）
 - **ScanResult 数据层去重（upsert 唯一索引）** —— 2026-09-02 M23.3 决策暂缓：应用层去重（fingerprint + occurrenceCount / firstSeenAt / lastSeenAt / affectedRunIds）已实施且满足当前业务需求；恢复条件：出现"fix 复用同一 `scan_run_id` 跨次刷新"或"历史 fixStatus 跨次保留"需求时迁移到数据层 upsert（关联 [todo-archive.md §M23](todo-archive.md#m23-m22-治理债收口--根因排查--能力扩展--测试补强m230m231m232m233m234-全部已闭环--2026-09-02-归档)）
 
 ### 远期登记 / 未排期增强候选
@@ -90,30 +89,6 @@
 - **B2** 固定分支单线设计（独立平台部署后修复频率上升，需要固定修复分支如 `dependfix/auto-fix` 避免频繁向 master 提交 PR；触发：v1.0.0 后 M12 平台 UX 修复链路上线；关联：T210 指纹方案整合复用/重建策略 + force push 语义）
 
 #### 修复交付链路（验证 / commit / push / PR）
-
-- **C74 接线 `getCommitAuthor()`，让 GitHub App 凭据路径使用真实 bot 身份** ✅ **已上收 M30.4** —— 同 M29.2（原 C73）分析衍生；评估完成待上收；**不带 M\d+ 阶段编号**。
-  - **目标**：自动修复 commit 的 author 来源于凭据对应的真实 GitHub 身份——GitHub App 路径输出沿用 M18.x 既有 author 约定的 `{app_id}[bot]` / `{app_id}+{bot_login}[bot]@users.noreply.github.com`（email 格式决定 GitHub 账号归属，name 属显示层）。
-  - **范围**：`packages/engine/src/auth/{auth-provider,pat-provider,app-provider}.ts`（`getCommitAuthor()` 接线）+ `packages/engine/src/app/{helpers,index}.ts`（author 透传）。
-  - **现状实证**（2026-09-21 代码核对）：
-    - [`auth-provider.ts`](../../packages/engine/src/auth/auth-provider.ts) 定义 `getCommitAuthor()` 契约，[`pat-provider.ts`](../../packages/engine/src/auth/pat-provider.ts) 与 [`app-provider.ts`](../../packages/engine/src/auth/app-provider.ts) 各自实现——但**非测试源码零调用**。
-    - `stageAndCommit` 两个调用点（[`helpers.ts`](../../packages/engine/src/app/helpers.ts) + [`index.ts`](../../packages/engine/src/app/index.ts)）均不传 `author` → 恒落 `PAT_DEFAULT_COMMIT_AUTHOR`。
-    - 结果：即使使用 GitHub App 凭据，commit author 仍是硬编码 `dependfix[bot] <dependfix[bot]@users.noreply.github.com>`——该邮箱非真实账号，提交不归属任何 GitHub 账号。
-  - **决策点（待上收时敲定）**：
-    - **PAT 路径是否同步调整**：M18.0 决策 2「PAT 用户行为零变化」为既有约束，改动会改变既有仓库的 commit 归属，需用户决策。
-    - **App 路径 `botLogin` 透传链路**：`app-provider.ts` 在 `params.botLogin` 缺失时 fallback `dependfix[bot]`，调用方需显式提供才能得到真实 bot login。
-    - **与 push / PR 身份的一致性**：push 与 PR 均走 token，归属于凭据所有者；commit author 改为 App bot 身份后需评估三者语义是否自洽。
-  - **验收标准**：
-    - [ ] GitHub App 凭据路径工作区 commit author = `{app_id}[bot] <{app_id}+{bot_login}[bot]@users.noreply.github.com>`
-    - [ ] commit 在 GitHub 页面上归属 App bot 账号（由 email 映射生效，人工核验一次）
-    - [ ] PAT 路径行为按用户决策保持一致或同步调整
-    - [ ] auth-provider / pr-creator 单测覆盖接线路径
-    - [ ] `pnpm lint` + `pnpm typecheck` + 定向测试通过
-  - **不做什么**：不改 push 凭据链路；不改分支命名 / 内容指纹；不回溯已产生的历史提交
-  - **依赖**：AuthProvider 抽象（M18.x）；关联 [c22-pat-backward-compat.md](../design/governance/c22-pat-backward-compat.md)；关联 M29.2（同一 commit 身份治理批次）
-  - **交付物**：1-2 atomic commits（`feat(engine)` getCommitAuthor 接线 + `test(engine)` case）
-  - **风险与缓解**：变更 commit author 可能触发目标仓库保护规则（要求签名 commit / 限定作者）导致 PR 被拒；缓解：先在单一测试仓库验证，并与 M29.2 的签名策略一并评估
-  - **优先级**：P3（当前 PAT 路径功能可用；App 路径身份不真实属审计一致性 / 体验问题）
-  - **复杂度估算**：代码 ~20-40 行（author 透传 + botLogin 传递）；测试 3-5 case；文档 0（未触发设计文档硬阈值）
 
 - **C76 平台侧暴露验证命令配置（与 CLI `--commands` 对齐）** —— 同 M29.3（原 C75）分析衍生；评估完成待上收；**不带 M\d+ 阶段编号**。
   - **目标**：平台发起的修复也能配置验证命令，使平台场景可追加 test 等命令，而不必等默认链变更。
@@ -152,7 +127,7 @@
     - [ ] 签名策略（关闭 / 可开启）在四层暴露面口径一致（CLI / env / action / 文档表），或明确记录「不提供 opt-in」的决策依据
     - [ ] `pnpm lint` + `pnpm typecheck` + engine 定向测试通过
   - **不做什么**：不改宿主 `~/.gitconfig`；不关闭用户手工 git 操作的签名；不回溯已产生的 commit / push；不在本候选内做目标仓库保护规则的预检
-  - **依赖**：关联 M29.2（commit 侧已闭环，本候选为同根因的 push 侧 + 策略侧）；关联 C74（commit author 变更可能触发仓库保护规则，含「要求签名 commit」风险，与本候选互引）
+  - **依赖**：关联 M29.2（commit 侧已闭环，本候选为同根因的 push 侧 + 策略侧）；关联 M30.4（commit author 变更可能触发仓库保护规则，含「要求签名 commit」风险，与本候选互引，见 [todo-archive.md §M30](todo-archive.md#m30-治理债清理--迁移可行性验证--能力扩展--测试补强m301m306-全部已闭环--2026-09-28-归档)）
   - **交付物**：1-2 atomic commits（`fix(engine)` push 隔离 + 可选 `feat(engine)` 签名 opt-in）
   - **风险与缓解**：若提供 opt-in，签名失败会成为新的交付失败点；缓解：默认保持关闭（现状），仅在显式开启时对签名失败做硬失败 + 明确错误文案
   - **复杂度估算**：push 隔离 ~2 行；opt-in 需先出方案（配置层 + 四层暴露 + 失败语义）再评估
@@ -183,21 +158,6 @@
   - **风险与缓解**：懒基线需在修复后回跑 pristine 状态，涉及工作区切换（`git stash` / 临时 worktree），实现复杂且易引入新的状态污染；缓解：优先评估「命令级基线 + 修复前一次性采样」的简单形态，避免修复后回跑
   - **复杂度估算**：方案未定；命令级一次性采样约 40-80 行 + 修复流程接入
 
-- **C84 AI 输出质量门链描述与实际验证链对齐（剔除 typecheck）** —— 2026-09-22 M29.3 A 阶段审计衍生；评估完成待上收；按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) **不带 M\d+ 阶段编号**。
-  - **目标**：AI 输出质量门的文档表述与实际执行的验证链一致，避免读者按文档以为门禁中存在 typecheck 步骤。
-  - **优先级**：P3（非阻塞；纯文档表述不精确，实际门禁行为正确）
-  - **范围**：`docs/design/governance/architecture.md` + `docs/design/governance/platform-ai-integration.md`（各含 zh 与 en-US 镜像，共 4 文件 8 处）
-  - **现状实证**（2026-09-22 实测）：该 4 文件 8 处表述为 `lint/typecheck/build/test`，而 `packages/engine/src/ai/app-integration.ts` 复用 `verifyProject` → `DEFAULT_VERIFY_COMMANDS`（install/lint/build/test）**不含 typecheck**——即 `typecheck` 属 pre-existing 不精确（早于 M29.3，链中从未有 typecheck）。
-  - **决策点（待上收时敲定）**：剔除 `typecheck` 使表述等于实际链；或改为引用常量名（`DEFAULT_VERIFY_COMMANDS`）避免逐项列举漂移。
-  - **验收标准**：
-    - [ ] 4 文件 8 处表述与实际验证链一致（或改为常量名引用）
-    - [ ] `pnpm run check:docs` + `pnpm run lint:md:check` EXIT 0；i18n 双语同步
-  - **不做什么**：不改 AI 门实际执行逻辑（本就复用验证链）；不改 `safety-gate.ts` 的静态检查范围
-  - **依赖**：关联 M29.3（同批发现）；关联 `DEFAULT_VERIFY_COMMANDS`（唯一事实源）
-  - **交付物**：1 atomic commit（`docs` 4 文件表述对齐）
-  - **风险与缓解**：若 `typecheck` 是有意描述的更宽质量期望（而非链成员），直接剔除会丢失该意图；缓解：上收时先确认表述意图，必要时改为分层表述（「验证链（见 `DEFAULT_VERIFY_COMMANDS`）+ 其他静态检查」）
-  - **复杂度估算**：文档 4 文件 8 处；测试 0（文档类）
-
 - **C85 目标仓库专属配置（dependfix.yml 类）与自动发现** —— 2026-09-22 M29.4 设计评估时用户提出；评估完成待上收；按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) **不带 M\d+ 阶段编号**。
   - **目标**：支持在**目标仓库内**声明 dependfix 专属配置（如 `.github/dependfix.yml`），与 `dependabot.yml` / `mergify.yml` 同类范式。
   - **优先级**：P3（非阻塞；当前 M29.4 已用中央配置 `overrideProtect` 覆盖该需求）
@@ -213,41 +173,6 @@
   - **交付物**：待方案敲定后评估（2-4 atomic commits）
   - **风险与缓解**：新增配置文件约定需目标仓库采纳，短期覆盖率低；缓解：与中央配置并存，按仓库渐进采纳
   - **复杂度估算**：读取层 + schema + 优先级约 80-150 行；测试 4-6 case；文档 2 处
-
-- **C86 `repo-fix.ts` 行数超 max-lines 需拆分** —— 2026-09-22 M29.4 落地时实测触发；评估完成待上收；按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) **不带 M\d+ 阶段编号**。
-  - **目标**：`packages/engine/src/app/repo-fix.ts` 回到 max-lines 阈值内（非空行 ≤ 800）。
-  - **优先级**：P3（非阻塞；仅 eslint baseline 由 3 → 4 warnings，无功能影响）
-  - **范围**：`packages/engine/src/app/repo-fix.ts`
-  - **现状实证**（2026-09-22 实测）：M29.4 前非空行 795；新增 overrides 保护判定接线后 816（超 800 阈值 16 行）→ eslint 新增 1 条 `max-lines` warning。
-  - **决策点（待上收时敲定）**：拆分口径——按职责抽出「多版本 overrides 处理」循环为独立函数 / 拆出到 `repo-fix-multiversion.ts`；是否顺带收敛既有长函数。
-  - **验收标准**：
-    - [ ] 非空行 ≤ 800（`NODE_ENV=production pnpm exec eslint packages/engine/src/app/repo-fix.ts` 无 `max-lines`）
-    - [ ] 既有 repo-fix 相关测试全过（行为不变）
-    - [ ] `pnpm lint` + `pnpm typecheck` 通过
-  - **不做什么**：不改变修复流程语义；不做无关重构
-  - **依赖**：关联 M29.4（触发来源）
-  - **交付物**：1 atomic commit（`refactor(engine)` 拆分）
-  - **风险与缓解**：拆分长函数可能引入行为回归；缓解：纯搬移 + 参数化，测试先行、行为不变为准
-  - **复杂度估算**：搬移约 40-60 行；测试 0（既有覆盖）
-
-- **C87 跳过类审计条目不应翻转退出码** —— 2026-09-22 M29.4 落地时实测发现；评估完成待上收；按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) **不带 M\d+ 阶段编号**。
-  - **目标**：`allErrors` 中的「跳过类」审计条目（非失败）不再使 `computeExitCode` 判为 hasErrors，避免「有意跳过」把整轮 run 变成非零退出（CI 红）。
-  - **优先级**：P2（影响可用性判定：CI 驱动的 dependfix 会因有意跳过而报红）
-  - **范围**：`packages/engine/src/app/result-assembly.ts`（`computeExitCode`）+ 各跳过类 `category` 的定义口径
-  - **现状实证**（2026-09-22 实测）：
-    - `computeExitCode` 以 `allErrors.length > 0` 判 `hasErrors` → 任何审计条目（含跳过类）都会把退出码抬到 ≥ 1。
-    - **M29.4 触发**：`OVERRIDE_PROTECTED`（保护名单命中，主动跳过）计入 `allErrors` → **任何一次**保护跳过（含部分跳过）都使退出码 ≥ 1（启用该 flag 的 CI 轮次会常态非零退出）（已在 `index.test.ts` 断言记录）。
-    - **同源既有影响（M29.3 引入）**：默认验证链纳入 test 后，**无 `test` 脚本的仓库**会记 `SCRIPT_NOT_FOUND`（跳过类审计）→ 同样抬升退出码；该交互在 M29.3 未被识别。
-  - **决策点（待上收时敲定）**：口径选择——(a) 跳过类 `category` 白名单不计入 hasErrors；(b) 新增「非阻塞审计」通道（如 `allNotices`）与 `allErrors` 分离；(c) 保持现状并在文档声明「审计条目即非零」。
-  - **验收标准**：
-    - [ ] 有意跳过（保护名单命中 / 无 test 脚本）不单独导致非零退出码；真实失败仍为 1/2
-    - [ ] 单测覆盖：仅跳过类审计条目 → exitCode 0；跳过 + 真实失败 → 非 0
-    - [ ] `pnpm lint` + `pnpm typecheck` + 定向测试通过
-  - **不做什么**：不改既有真实失败的退出码语义；不删除跳过类审计条目（报告可见性保留）
-  - **依赖**：关联 M29.4（`OVERRIDE_PROTECTED`）+ M29.3（`SCRIPT_NOT_FOUND` 交互）；关联 `computeExitCode`
-  - **交付物**：1-2 atomic commits（`fix(engine)` 退出码口径 + 测试）
-  - **风险与缓解**：放宽 hasErrors 可能掩盖真实问题；缓解：仅对显式声明的跳过类 `category` 豁免，且报告仍展示条目
-  - **复杂度估算**：代码 ~20-40 行；测试 3-5 case；文档 1 处
 
 - **C89 Code Scanning / Code Quality alerts「未启用」与「获取失败」区分** —— 2026-09-25 C78（Dependabot alerts 未启用细分）决策点 2 拆出；评估完成待上收；按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) **不带 M\d+ 阶段编号**。
   - **目标**：Code Scanning（GitHub Advanced Security 未启用时 403）与 Code Quality 的「未启用」状态从 `PERMISSION_DENIED` 中区分出来，与 Dependabot 的 `ALERTS_DISABLED` 口径一致（未启用 ≠ 失败，单列计数 + 准确文案）。
@@ -290,7 +215,7 @@
 #### 开发工具链
 
 - **C80 devDependencies 链漏洞的 CI 阻断语义（覆盖方式部分已上收 M29.9）** —— 2026-09-21 M29.1 审计剩余风险实证触发；**部分已上收**，剩余决策项待用户明确；按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) **不带 M\d+ 阶段编号**。
-  - **✅ 已上收部分（M29.9 / 原方案 A，2026-09-21 用户决策）**：覆盖方式已落地（commits `70d31c0` + `c214ace`），详见 [todo.md §M29.9](todo.md)（命令、注释口径与实测证据不在此重复）。
+  - **✅ 已上收部分（M29.9 / 原方案 A，2026-09-21 用户决策）**：覆盖方式已落地（commits `70d31c0` + `c214ace`），详见 [todo-archive.md §M29](todo-archive.md#m29-修复交付链路正确性--能力扩展m291m299-全部已闭环--2026-09-27-归档)（命令、注释口径与实测证据不在此重复）。
   - **剩余未闭环（本条目当前范围）**：**是否启用阻断语义**——即去掉 `|| true` 让 devDeps 漏洞阻断 Test job，或维持「仅信号」。
   - **目标**：决定 devDeps 链漏洞在 CI 中是「信号」还是「门禁」，并落地对应语义 + 观察期策略。
   - **优先级**：P3（非阻塞；当前为信号级已可观测，阻断语义属策略选择）
@@ -341,6 +266,42 @@
   - **交付物**：待分批方案敲定后评估（预计 3-6 子批次，每子批次 1 atomic commit）
   - **风险与缓解**：批量删除编号可能丢失可追溯性；缓解：优先「改写为导航指针」而非纯删除，并保留编号后的解释正文；另需防批量替换误伤（按 §1.2 第 6 条纪律执行）
   - **复杂度估算**：注释 300 至 430 量级（跨多包，必须分批）；测试 0（注释类，以 lint + typecheck + 复扫 0 命中为证据）；文档 0
+
+#### 规范与治理
+
+- **C91 新增规范条款的 review 检查点补挂（M30 归档批次衍生）** —— 2026-09-28 M30 A 阶段审计 RG-W1 衍生；评估完成待上收；按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) **不带 M\d+ 阶段编号**。
+  - **目标**：把 M30 批次新增的 6 条严格约束（必须 / 禁令类）挂接到 review 检查点，使其具备强制点而非"仅权威文档声明"。
+  - **优先级**：P3（非阻塞；条款已发布于权威文档，仅缺 review 强制点；按 [code-auditor 必查项「规范执行分层」](../../.github/agents/code-auditor.agent.md) 严格约束须挂接或登记 backlog）
+  - **范围**：`docs/standards/development.md §5.1.24`（多 key 预聚合）/ `§5.1.25`（范围穷举同根因）/ `§5.1.26`（tsdown dts 冲突）+ `docs/standards/testing.md §6.5`（断言禁恒真）/ `§6.6`（ESM mock 受限）+ `docs/standards/planning.md §2.5`（量化断言口径）/ `§4.4 第 13 条`（口径同步结构化复扫）的检查点落点。
+  - **现状实证**（2026-09-28）：`rg -n "5\.1\.24|5\.1\.25|5\.1\.26|恒真|量化断言" .github/agents .github/skills` = 0 命中（`git.md §3.7 提交态自洽` 已挂接，其余 6 条未挂）。
+  - **决策点（待上收时敲定）**：逐条落点 vs 合并为一条「规范一致性总检查点」；落点选择（`code-quality-checklist.md` vs `code-auditor` 主责边界必查项）。
+  - **验收标准**：
+    - [ ] 6 条严格约束各自有明确 review 检查点（或一条总检查点完整覆盖）
+    - [ ] 检查点按 [documentation.md §4 单点声明](../standards/documentation.md) 引用规范原文，不重复抄写
+    - [ ] `pnpm run check:docs` EXIT 0（新增链接可解析）
+  - **不做什么**：不改规范条款正文；不新增规范条款
+  - **依赖**：关联 M30 归档批次（触发来源）；关联 [经验归档 §六十五](../design/governance/experience-archive-§49-§57-recent-investigation.md)
+  - **交付物**：1-2 atomic commits（`docs(review)` 检查点补挂）
+  - **风险与缓解**：合并总检查点颗粒度不足可能漏检；缓解：优先逐条落点，至少覆盖高风险项
+  - **复杂度估算**：检查点文档 ~30-60 行；测试 0；文档 2 处
+
+#### 测试基建
+
+- **C90 db-restore ESM mock 受限失败分支补测（M30.5 遗留未覆盖项）** —— 2026-09-28 M30.5 落地时显式登记的未覆盖分支；评估完成待上收；按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) **不带 M\d+ 阶段编号**。
+  - **目标**：补齐 `db-restore.ts` 两条因 ESM 模块 mock 受限而 `it.skip` 的失败分支测试——① 恢复后 `integrity_check` 失败分支（需 mock 注入）；② sidecar `unlinkSync` 部分失败的 `removedSidecars` 状态一致性。
+  - **优先级**：P3（非阻塞；`db-restore` 是本地管理员工具，攻击面极低；M30.5 已覆盖 pre-check 与路径行为分支）
+  - **范围**：`apps/platform/server/database/scripts/db-restore.ts` + `db-restore.test.ts`（需测试架构调整或可注入化重构）
+  - **现状实证**（2026-09-28 M30.5 实测）：`db-restore.test.ts` 两个 `it.skip` 显式标注 ESM 限制——`vi.spyOn(fs, 'unlinkSync')` 对 ESM 命名导出无效，`restoreDatabase` 内部恢复后自检无法直接注入失败。
+  - **决策点（待上收时敲定）**：把 `unlinkSync` / 恢复后自检抽为可注入依赖（重构生产代码）vs 进程级隔离 + 失败注入（不改生产代码）vs `vi.mock` 部分 mock ESM 模块（需验证 vitest 支持度）。
+  - **验收标准**：
+    - [ ] 两条 `it.skip` 分支转为实际断言（skip 清零）
+    - [ ] 既有 db-restore 测试全过（行为不变）
+    - [ ] `pnpm lint` + `pnpm typecheck` + `pnpm --filter @dependfix/platform test` 通过
+  - **不做什么**：不改 `db-restore` CLI 语义（`--from` / `--yes` 双门控）；不引入新测试框架
+  - **依赖**：关联 M30.5（触发来源，见 [todo-archive.md §M30](todo-archive.md#m30-治理债清理--迁移可行性验证--能力扩展--测试补强m301m306-全部已闭环--2026-09-28-归档)）
+  - **交付物**：1-2 atomic commits（`test(platform)` 补测 + 必要时的 `refactor(platform)` 可注入化）
+  - **风险与缓解**：为可测性重构生产代码可能引入行为回归；缓解：优先不改生产代码方案（进程级隔离 / `vi.mock`），重构须行为等价并回归既有测试
+  - **复杂度估算**：测试架构 ~40-80 行；测试 2 case；文档 0
 
 #### 平台 UI 与组件库
  
@@ -404,7 +365,7 @@
 ### SQLite 单文件脆弱性 + TypeORM synchronize 风险（持续观察）
 
 - **背景**：2026-09-01 `apps/platform/data/dependfix.sqlite` 业务数据被清空事故（详见 [经验归档 §五十](../design/governance/experience-archive-§49-§57-recent-investigation.md#五十sqlite-数据库业务数据被清空开发环境不可恢复事故2026-09-01)）。代码内无清空路径，最可能清空来源在代码外部（shell / CI / 运维）。
-- **防御现状**：事故防御加固已完成（M22 全部 6 原子条目闭环，详见 [todo-archive.md §M22](todo-archive.md#m22-sqlite-数据保护防御加固m221m222m223m224m225m226-全部已闭环--2026-09-01-归档)；启动期备份 / db-restore / db-doctor / synchronize + migrationsRun 双 opt-in / e2e fixtures 双门控），规范见下方"规范挂接"。
+- **防御现状**：事故防御加固已完成（M22 全部 6 原子条目闭环，详见 [archive/todo-archive-phases-m22.md §M22](archive/todo-archive-phases-m22.md#m22-sqlite-数据保护防御加固m221m222m223m224m225m226-全部已闭环--2026-09-01-归档)；启动期备份 / db-restore / db-doctor / synchronize + migrationsRun 双 opt-in / e2e fixtures 双门控），规范见下方"规范挂接"。
 - **持续观察项**：
   - TypeORM 1.x 升级 / 替换为 0.3.x（1.x 已停止维护）—— 当前无明确上收时机，待后续评估
   - PostgreSQL 多写者迁移 —— 当前 single-org 模型限制（依赖 D3 多租户组织体系上线），D3 未上收
@@ -437,8 +398,8 @@
 
 | 内容类型 | 位置 |
 |:--|:--|
-| 当前阶段活跃任务 | [todo.md](todo.md)（M29 已 2026-09-27 完整归档，下一阶段待用户决策启动；M28 已 2026-09-11 归档，详见 [todo-archive.md §M28](todo-archive.md#m28-治理债清理--能力扩展m281-m285-全部已闭环--2026-09-11-归档) + [archive/todo-archive-phases-m28.md](archive/todo-archive-phases-m28.md)） |
+| 当前阶段活跃任务 | [todo.md](todo.md)（当前无活跃阶段，等待用户决策；M30 已于 2026-09-28 完整归档，详见 [todo-archive.md §M30](todo-archive.md#m30-治理债清理--迁移可行性验证--能力扩展--测试补强m301m306-全部已闭环--2026-09-28-归档)） |
 | 已完成阶段归档 | [todo-archive.md](todo-archive.md)（主窗口保留最近阶段完整段 + 指针段；早期阶段见 [archive/](archive/)） |
-| 里程碑与阶段交付 | [roadmap.md](roadmap.md)（M0-M29 全部已完成归档） |
+| 里程碑与阶段交付 | [roadmap.md](roadmap.md)（M0-M30 全部已完成归档） |
 | 长期主线 / 候选 / 待人工验收 / 已知边界 | 本文档（按四象限结构） |
 | 历史归档索引 | [archive/index.md](archive/index.md) |

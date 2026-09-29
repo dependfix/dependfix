@@ -8,7 +8,7 @@
 
 | 内容类型 | 位置 |
 |:--|:--|
-| 当前阶段任务 | [M33 治理债收口 + 测试基建扩展](#m33-治理债收口--测试基建扩展2026-09-30-用户决策方案-a-启动)（2026-09-30 用户决策方案 A 启动，6 原子条目） |
+| 当前阶段任务 | [M33 治理债收口 + 测试基建扩展](#m33-治理债收口--测试基建扩展2026-09-30-用户决策方案-a-启动)（2026-09-30 用户决策方案 A 启动，6 原子条目 + M33.7 用户直接决策追加） |
 | 已完成阶段归档 | [todo-archive.md](todo-archive.md)（主窗口 + [archive/](archive/) 分片；M0-M32 全部已归档） |
 | 未排期 / 延期 / 远期 / 长期主线 / 已知边界 | [backlog.md](backlog.md) |
 | 里程碑与阶段交付 | [roadmap.md](roadmap.md)（M0-M32 已归档） |
@@ -22,7 +22,9 @@
 
 > **定位**：承接 M32 完整闭环归档后（[todo-archive.md §M32](todo-archive.md#m32-能力扩展优先m321m325-全部已闭环--2026-09-30-归档)）的 backlog 候选池。2026-09-30 用户决策**方案 A（治理 + 测试基建收口）**——从「评估完成待上收」候选与本批评估新登记的可行动已知边界项中上收 6 项；C80 按用户决策采用**方案 C（观察期）**。
 >
-> **类型平衡复核**：📚 治理 1 项（M33.1）✅ / 🛠️ CI 与 devEx 治理 3 项（M33.2 / M33.3 / M33.6）✅ / 🧪 测试覆盖 2 项（M33.4 / M33.5）✅ / 🎨 用户体验 0 项 —— ⚠️ 缺口显式标注（承接 M28–M32 同型缺口；候选池无 UX 类可上收项，`C37` 语言多设备同步与 alerts 宽表 UX 议题为潜在 UX 项，留后续阶段评估）。
+> **阶段内追加**：M33.7（数据库迁移命令入口补齐）为 2026-09-30 用户**直接决策**追加（非插队例外 3 类，走 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement)「用户直接决策」路径）——触发来源为当日 dev 库 schema 漂移导致 `/api/dashboard/stats` 运行时崩溃（`no such column: ScanRun__ScanRun_repository.verify_commands`）。
+>
+> **类型平衡复核**：📚 治理 1 项（M33.1）✅ / 🛠️ CI 与 devEx 治理 4 项（M33.2 / M33.3 / M33.6 / M33.7）✅ / 🧪 测试覆盖 2 项（M33.4 / M33.5）✅ / 🎨 用户体验 0 项 —— ⚠️ 缺口显式标注（承接 M28–M32 同型缺口；候选池无 UX 类可上收项，`C37` 语言多设备同步与 alerts 宽表 UX 议题为潜在 UX 项，留后续阶段评估）。
 >
 > **§3.4 三重交叉核验结论**（M33.1–M33.6 全部实测 **0 项重复评估**）：① todo-archive 表格扫描（§1.7 原文命令 `rg -n "已闭环|不计入本批|不计入 M\d+|ahead=0.*已推" docs/plan/todo-archive.md docs/plan/archive/todo-archive-phases-*.md` + 补充按候选 id 过滤 `rg`）无候选被标已闭环；② git log 核验（`git log --all --oneline --grep="C91|C93|C94|C80|C83|C15"`）仅命中候选登记 docs commit，无实现 commit；③ 代码侧 anchor 实证（C91 `rg -n "5\.1\.2[4-9]|恒真|视觉回归|中央优先|前缀感知|SIGNING_ISOLATION" .github/agents .github/skills` 仅 1 命中且非检查点；C93 `rg -n prCheck apps/platform/server/api/e2e/` = 0；C94 基线目录仅 7 张无横向补拍；C80 `test.yml:34` 仍 `|| true` + 注释「阻断语义当前未启用」；M31 死配置 `rg -n "primevue|primeuix|primeicons" .github/dependabot.yml` 命中 3 条 ignore；视觉 CI `continue-on-error: true` 仍在）。
 >
@@ -123,6 +125,27 @@
 - **交付物**：1 atomic commit（`ci(test)` 注释口径 + 观察期条件 + 转阻断配套结论）；文件 `.github/workflows/test.yml` + `docs/standards/ai-collaboration.md`（±`security.md` / `development.md`）。
 - **风险与缓解**：观察期条件若不可判定则形同虚设；缓解：条件须可由 CI run 历史脚本化判定并写入注释（含统计命令），使第三方可复现。
 
+#### M33.7 [P2 🛠️ devEx 治理] 数据库迁移命令入口补齐（2026-09-30 用户直接决策追加）
+
+- **目标**：补齐可用的数据库迁移手动入口。`.env.example` 此前记录的 `pnpm --filter @dependfix/platform exec typeorm migration:run` 缺少 `-d <data-source>`，实测直接报 `Missing required argument: dataSource`，仓库也没有 DataSource 文件或对应脚本 —— 即**不存在可用的手动迁移路径**，导致 pending migration 无人执行、schema 漂移静默累积，直到运行时查询崩溃（2026-09-30 实测 `SqliteError: no such column: ScanRun__ScanRun_repository.verify_commands`）。
+- **优先级**：P2（非阻塞；直接决定本地开发与生产 schema 升级的可操作性）。
+- **§3.4 三重交叉核验结论**（2026-09-30 实测，**0 项重复评估**）：① todo-archive 表格扫描（`rg -n "db:migrate|migration:run|迁移入口|手动迁移" docs/plan/todo-archive.md docs/plan/archive/*.md`）仅命中 M22 归档中 `.env.example` 注释更新记录，无"迁移入口补建"闭环项；② git log 核验（`git log --all --oneline --grep="db:migrate"` / `--grep="migration:run"`）0 命中，`git log --oneline -- apps/platform/server/database/scripts/` 仅有 backfill / db-restore / db-doctor 历史；③ 代码侧 anchor 实证（`rg -n "db:migrate" --glob '!node_modules' .` = 0 命中 + `pnpm exec typeorm migration:run` 实测 `EXIT=1`）。④ 决策描述无"参考 NNN 实施"前提矛盾；⑤ backlog 描述同步：本条非 backlog 候选上收，改以交叉引用方式补进 backlog §apps/platform 早期 migration 表名前缀不统一（手动入口落点）。
+- **范围**：`apps/platform/server/database/scripts/db-migrate.ts`（新增 CLI）+ `db-migrate.test.ts`（新增单测）+ `apps/platform/package.json`（`db:migrate` / `db:migrate:show` / `db:migrate:revert`）+ `apps/platform/.env.example`（修正不可用手动命令）+ `apps/platform/server/database/scripts/README.md`（新增 db-migrate 章节）+ `docs/plan/backlog.md`（既有条目补手动入口落点）+ `docs/plan/todo.md`。
+- **验收标准**：
+  - [x] `pnpm db:migrate:show`（apps/platform 下）列出全部 8 条已注册迁移及 executed / pending 状态，exit 0，不写库（实测 8 条全 `[X]` / 待执行 0）
+  - [x] `pnpm db:migrate` 执行 pending，exit 0；二次执行 `本次执行 0 条`（幂等，exit 0）
+  - [x] `pnpm db:migrate:revert` 缺 `--yes` 时 exit 1 且不开库（实测 ELIFECYCLE exit 1）；`-- --yes` 回退最近一次并打印被回退迁移名；无记录时打印「无可回退」且 exit 0
+  - [x] CLI 行为与 `DATABASE_MIGRATIONS_RUN` / `DATABASE_SYNCHRONIZE` 解耦（`createMigrateDataSource` 强制双 false）；实证：`DATABASE_SYNCHRONIZE=true DATABASE_MIGRATIONS_RUN=true DATABASE_PATH=<不存在> pnpm db:migrate:show` 未同步 schema、未跑迁移、未创建库文件，且打印 effective 覆盖日志
+  - [x] 单测覆盖参数解析（动作互斥 / `--yes` / `--help`）、无动作、动作冲突、revert 缺 `--yes`、`--show`（含库文件缺失与不建迁移表两态）、`--apply` 幂等、revert 链、迁移抛错 exit 1、env 解耦、标识符白名单；共 20 case；**mutation 标定 4/4 被捕获**（首轮 3 项：conflict 恒 false / revert 不校验 `--yes` / 已执行集合恒空；复审轮补 4 项：synchronize 未强制 / `--show` 缺文件守卫失效 / `--show` 建迁移表 / 标识符白名单失效）
+  - [x] `pnpm lint`（0 error 0 warning）+ `pnpm --filter @dependfix/platform typecheck` EXIT 0；`pnpm --filter @dependfix/platform test` **101 文件 / 1350 tests 通过**（EXIT 0，含本条新增 20 case）；根全量 `vitest run` **217 文件 / 3387 tests 通过**；`.env.example` 与 README 中记录的命令原样可执行成功
+  - [x] 既有手动命令失效修复实证：`pnpm exec typeorm migration:run` 原报 `Missing required argument: dataSource`（EXIT 1），现由 `db:migrate` 取代
+- **不做什么**：不改早期 7 个迁移的表名前缀处理与幂等性（属 backlog §apps/platform 早期 migration 表名前缀不统一既有条目，触发条件未满足）；不改运行时自动迁移语义（`DATABASE_MIGRATIONS_RUN` 仍 opt-in）；不引入 typeorm CLI 与 ts-node 依赖；不做 schema 漂移自动检测（另评估）。
+- **依赖**：M22.4 / M22.5（synchronize + migrationsRun 双 opt-in）+ M32.1（前缀感知迁移 `2100000000000`）+ backlog §apps/platform 早期 migration 表名前缀不统一。
+- **交付物**：1 atomic commit（`feat(platform)`）；文件见"范围"。
+- **风险与缓解**：误用 `--revert` 造成 schema 回退；缓解：`--revert` 强制 `--yes` 双门控 + 打印被回退迁移名 + help / README 提示先 `db:doctor` 自检、整库回滚走 `db:restore`。
+- **证据备注（运行时残留污染，非本 diff 引入）**：验证期间平台有扫描 run 在跑，其克隆产物落在 gitignored 的 `apps/platform/data/runs/<runId>/`（`683ba3fe8af7f536` 实测约 1.4G，03:36 被平台自行清理并由新 run `683ba9dd18b7fe9f` 接替），使本地 `pnpm --filter @dependfix/platform test`（636 文件 / 412 failed，其中 205 tests failed）与 `pnpm run check:docs`（986 处，**全部**命中该目录，diff 相关 md 命中 0）在产物在场时出现噪声；CI 干净检出不受影响。产物清空后同一标准命令复测通过（101 文件 / 1350 tests），另以显式 `--exclude 'apps/platform/data/**'`（叠加配置既有 exclude）取得根全量证据 **217 文件 / 3387 tests 通过**。该 devEx 缺口不在本条范围，已按 backlog 候选登记（[backlog.md §待上收候选「本地 devEx：运行时 data/ 产物污染 vitest 与 check-docs」](backlog.md)，随本条 commit 落库；实现待用户决策）。
+- **审计**：第 1 轮 `standard` **Reject**（1 blocker / 1 warning / 5 suggest，2026-09-30T03:03 发起、约 03:12 收敛，实测 elapsed ≤ 9 min 未超时间盒）→ 收敛 RG-B01（默认工厂只锁 `migrationsRun`，未锁 `synchronize`，`DATABASE_SYNCHRONIZE=true` 时 `--show` 实际写库）/ RG-W01（「不建迁移表」未被断言锚定）/ RG-S01（迁移表名插值纵深防御）/ RG-S02（effective 日志错位）/ RG-S05（`--show` 在库文件缺失时创建空文件）→ 第 2 轮 `standard` 复审 **Pass**（7 项全部关闭，含独立行为探针 PROBE_A/B/C 验证断言区分度），新 warning RG-W02（`todo.md` 声称的 backlog 候选尚未落地）已随本 commit 登记 backlog 候选关闭；RG-S06（`vi.unstubAllEnvs`）已采纳。
+
 #### 阶段决策记录
 
 - **D1**：方案 A（治理 + 测试基建收口）——从「评估完成待上收」候选（C91 / C93 / C94 / C80 剩余）与本批评估新登记的可行动已知边界项（视觉回归 CI 转阻断 / M31 dependabot 死配置）中上收 6 原子条目；类型平衡 📚 1 + 🛠️ 3 + 🧪 2，🎨 UX 缺口显式标注。
@@ -131,6 +154,7 @@
 - **D4**：**不纳入** C81（注释孤立编号清理）与 C83（验证链既有失败基线判定）——C81 存量规模（非 docs 孤立规划编号行级扫描 **292 行**；测量方 = M33 启动评估执行角色；可复现命令 `rg -n --glob '!docs/**' --glob '!node_modules/**' --glob '!**/dist/**' --glob '!**/.nuxt/**' --glob '!pnpm-lock.yaml' "\b[MT][0-9]{2,4}(\.[0-9]{1,2})?\b|\b[CRGBD][0-9]{1,3}\b" . | rg -v "docs/|\.md|§|todo" | wc -l`；量级与 C81 条目 300–430 同档）超 §1.1 单批阈值，须 3-6 子批次，会挤压 5-6 项容量，留独立阶段或主线；C83 属能力扩展（P3，方案 B 范围）留后续。
 - **D5**：M33 阶段启动 commit 仅改 `docs/plan/*`（P 阶段规划暂停协议），提交后暂停等待用户指令进入 D 阶段。
 - **D6**（A 阶段审计收敛）：第 1 轮 `standard` 审计 **Pass**（0 blocker / 4 warning / 6 suggest）。warning 处置——RG-W1/W2（C91 / C80 跨文件陈旧指针，`ai-collaboration.md §1.5` / `platform.md §3.9` / `testing.md §6.7` / experience-archive 检查点表）**落点登记**到对应条目交付物（M33.1 / M33.2 / M33.4 / M33.5 / M33.6），不在本 P 批次内改 `docs/standards/*`（保持 P 阶段仅 `docs/plan/*` 的边界）；RG-W3（M33.5 量化口径）与 RG-W4（M33.3 范围漏列 backlog.md）已在本批修正。suggest 采纳：RG-S1（roadmap §M32 历史段加「已上收 M33.x」注记）/ RG-S2（M33.3 依赖回填 commit `406fd1f`）/ RG-S3（roadmap D4 补测量方）/ RG-S6（banner 对齐 §1.7 原文命令）；RG-S4 于 F 阶段收口（`.session` 同步）；RG-S5 保持现状（归档历史快照）。
+- **D7**：M33.7（数据库迁移命令入口补齐）经用户 2026-09-30 明确指示「现在就补齐迁移入口」追加进本阶段——属 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement)「用户直接决策」路径（非插队例外 3 类），已执行 §3.4 三重交叉核验（0 项重复评估）。阶段容量 6 → 7，仍属单批可控范围（M33.1 已闭环，活跃 6 条）。
 
 ---
 

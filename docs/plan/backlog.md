@@ -58,6 +58,21 @@
 
 > 共享说明：本区块条目当前均处于"候选评估中"或"延期暂缓"状态；正式上收阶段后从 backlog 移除并归档至 [todo-archive.md](todo-archive.md)。评估为"暂不实现"的候选直接关闭。
 
+### 待上收候选（评估完成，等待用户决策）
+
+- **本地 devEx：运行时 `data/` 产物污染 vitest 与 check-docs**（P3，🛠️ 工具链治理）—— 来源：M33.7 验证期发现（2026-09-30，测量方 = M33.7 执行角色）
+  - **目标**：使本地 `pnpm test` / `pnpm run check:docs` 不受平台扫描 run 落在 `apps/platform/data/**`（gitignored）的克隆产物影响
+  - **范围**：`vitest.config.ts`（`test.exclude` 增补 `apps/platform/data/**`）；`scripts/check-docs.mjs`（遍历时跳过 `data/` 等 gitignored 运行时目录）
+  - **验收标准**：
+    - [ ] 扫描 run 产物在场时 `pnpm test` 不再收集其测试文件（基线：产物在场 636 文件 / 412 failed；叠加 `--exclude 'apps/platform/data/**'` 后 219 文件 / 0 failed）
+    - [ ] 产物在场时 `pnpm run check:docs` 仍 EXIT 0（基线：产物在场 986 处问题且**全部**位于 `apps/platform/data/runs/<runId>/`；排除后 EXIT 0 / links 143 / vue-interp 79）
+    - [ ] 干净检出下两项检查结果与改动前一致（CI 为干净检出，本缺口不影响 CI）
+    - [ ] 复现命令：`pnpm test 2>&1 | tail -3` 与 `pnpm exec vitest run --exclude 'apps/platform/data/**' 2>&1 | tail -3` 对比；`pnpm run check:docs 2>&1 | grep -c "apps/platform/data/runs/"`
+  - **不做什么**：不改扫描 run 的产物落盘位置与清理策略；不改 CI 工作流；不清理既有产物目录
+  - **依赖**：M33.7 验证期实证（产物目录 `apps/platform/data/runs/683ba3fe8af7f536/`，约 1.4G，由在跑的扫描 run 生成）
+  - **交付物**：1 atomic commit（`chore(test)` vitest exclude + check-docs 跳过规则 + 回归验证记录）
+  - **风险与缓解**：过宽排除模式（如 `**/data/**`）可能误排除真实测试目录；缓解：优先精确 `apps/platform/data/**` 并加注释说明理由
+
 ### 延期 / 暂缓项
 
 - **T705 生产级部署**（PostgreSQL + Helm + Sentry）—— 2026-08-12 用户指示暂缓排期
@@ -236,6 +251,7 @@
 - **共同失败特征**：两类都在「非预期前缀组合」下静默不生效，且迁移框架不报错——排查成本高。
 - **已落地差异**：`2100000000000-AddRepositoryVerifyCommands`（M32.1 C76）改为**前缀感知**（先试 `entityPrefix + 表名`，再回退无前缀），单测覆盖两种前缀形态 + up/down 幂等 + 目标表缺失 no-op。
 - **待治理**：早期 7 个迁移是否统一改前缀感知（或改为按实体元数据解析表名），需与「生产库实际如何升级 schema（`DATABASE_SYNCHRONIZE` opt-in vs migration 链）」一并决策。
+- **手动入口（M33.7 已补齐）**：`pnpm db:migrate`（`db:migrate:show` 只读预览 / `db:migrate:revert -- --yes` 回退），见 [server/database/scripts/README.md §db-migrate](../../apps/platform/server/database/scripts/README.md)；本条治理范围（前缀一致性 + 幂等性）不受影响，仍待触发条件满足。
 - **触发条件**：① 用户报告某字段在 `DATABASE_MIGRATIONS_RUN=true` 后仍未生效；② 出现自定义 `DATABASE_ENTITY_PREFIX` 的部署；③ 生产库迁移链正式启用排期（关联延期项 T705）。
 - **规范挂接**：[platform.md §3.8](../standards/platform.md#38-仓库级自定义验证命令verifycommands-m321-c76)（前缀感知实现说明）
 

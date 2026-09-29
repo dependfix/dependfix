@@ -193,3 +193,55 @@ PRAGMA
 结论
   - 数据正常：12 张业务表共 87 行
 ```
+
+## db-migrate（运维脚本）
+
+### 背景
+
+`synchronize` 与 `migrationsRun` 自 M22.4 / M22.5 起均为显式 opt-in，但仓库此前没有可用的
+"手动执行迁移"入口——`.env.example` 记录的命令缺少 `-d <data-source>`，实测直接报
+`Missing required argument: dataSource`。结果是 pending migration 无人执行、schema 漂移静默累积，
+直到运行时查询报 `no such column`（2026-09-30 实测 `ScanRun__ScanRun_repository.verify_commands`）。
+本脚本补齐入口，并复用 `createDataSourceOptions`（与运行时同一套连接 / 前缀 / 迁移注册）。
+
+### 用法
+
+```bash
+# 1. 只读查看迁移状态（executed / pending，不写库）
+pnpm db:migrate:show
+
+# 2. 执行全部 pending migration
+pnpm db:migrate
+
+# 3. 回退最近一次已执行迁移（--yes 为必填双门控）
+pnpm db:migrate:revert -- --yes
+```
+
+### 数据库连接
+
+沿用 `createDataSourceOptions` 逻辑，通过 `DATABASE_*` 环境变量配置（`DATABASE_TYPE` /
+`DATABASE_PATH` / `DATABASE_URL` / `DATABASE_ENTITY_PREFIX`）。
+
+### 安全门
+
+1. **显式动作**：不传动作即拒绝执行（exit 1），不猜"用户想 apply"
+2. **动作互斥**：`--show` / `--apply` / `--revert` 同时出现即拒绝执行
+3. **revert 双门控**：`--revert` 必须配 `--yes`，与 `db-restore` 同口径
+4. **环境无关的确定性**：DataSource 强制 `synchronize: false` + `migrationsRun: false` —— 只锁后者不够：
+   `DATABASE_SYNCHRONIZE=true` 时 `initialize()` 会先同步 schema，令 `--show` 实际写库
+5. **只读保守**：`--show` 不创建迁移表；SQLite 库文件缺失时只报告状态，不创建空库文件
+
+回退前建议先 `pnpm db:doctor` 自检；需要整库回滚时用 `pnpm db:restore`。
+
+### 输出示例
+
+```text
+[MIGRATE] 迁移状态
+  [X] 已执行  CreateAuditEventTable1700000000000
+  [X] 已执行  AddScanResultIdentifiers1750000000000
+  ...
+  [ ] 待执行  AddRepositoryVerifyCommands2100000000000
+
+  合计 8 条，待执行 1 条
+```
+

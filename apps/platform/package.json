@@ -27,6 +27,9 @@
     "db:backfill": "tsx server/database/scripts/backfill-scan-result.ts --apply",
     "db:restore": "tsx server/database/scripts/db-restore.ts",
     "db:doctor": "tsx server/database/scripts/db-doctor.ts",
+    "db:migrate": "tsx server/database/scripts/db-migrate.ts --apply",
+    "db:migrate:show": "tsx server/database/scripts/db-migrate.ts --show",
+    "db:migrate:revert": "tsx server/database/scripts/db-migrate.ts --revert",
     "trace:set-cookie": "node scripts/set-cookie-trace.mjs",
     "trace:set-cookie:md": "SET_COOKIE_TRACE_FORMAT=md node scripts/set-cookie-trace.mjs"
   },

@@ -12,7 +12,7 @@
 
 > 本文档为 **`apps/platform`（Nuxt 管理平台）PrimeVue → caomei-ui 的迁移评估与方案**，用于规避 PrimeUI 商业许可风险并与下游统一组件库。
 >
-> **状态**：评估先行稿，**2026-09-28 已上收 M31 正式迁移阶段**（用户决策方案 B；Backlog C88 上收后移除；实施批次映射 M31.1-M31.6 —— 见 [todo.md §M31](../../plan/todo.md)）；库侧能力补齐（若采纳）属 caomei-ui 仓库自身阶段范围，须另行立项。**2026-09-28 B0 接线落地后本文进入实施期实证**：选择器映射以 [§15.8](#158-选择器映射表更正2026-09-28b0-接线实证) 为准、能力验证口径以 [§15.9](#159-b0-接线暴露的验证覆盖缺口m31-各批次须补齐) 为准。**2026-09-29 M31.5（B3）收尾完成，迁移主线（M31.1-M31.5）闭环**：5 个 PrimeVue 依赖已卸载、代码侧引用归零、e2e 全量通过、包体对比与 B4 视觉裁定落定 —— 见 [§15.13](#1513-b3-收尾实证m3152026-09-29)。
+> **状态**：评估先行稿，**2026-09-28 已上收 M31 正式迁移阶段**（用户决策方案 B；Backlog C88 上收后移除；实施批次映射 M31.1-M31.6 —— 见 [todo-archive.md §M31](../../plan/todo-archive.md#m31-appsplatform-ui-组件库迁移primevue--caomei-ui-m311m316-全部已闭环--2026-09-29-归档)）；**2026-09-29 M31.5（B3）收尾完成，迁移主线（M31.1-M31.5）闭环**：5 个 PrimeVue 依赖已卸载、代码侧引用归零、e2e 全量通过、包体对比与 B4 视觉裁定落定 —— 见 [§15.13](#1513-b3-收尾实证m3152026-09-29)。库侧能力补齐（若采纳）属 caomei-ui 仓库自身阶段范围，须另行立项。**2026-09-28 B0 接线落地后本文进入实施期实证**：选择器映射以 [§15.8](#158-选择器映射表更正2026-09-28b0-接线实证) 为准、能力验证口径以 [§15.9](#159-b0-接线暴露的验证覆盖缺口m31-各批次须补齐) 为准。
 
 ---
 
@@ -56,7 +56,7 @@ PrimeTek 已公告 PrimeVue 5.x 起转入 PrimeUI 商业许可（Community 免�
 ### 2.2 当前剩余风险
 
 1. **升级路径冻结**：PrimeVue 4.x 是 MIT 冻结分支；升到 5.x 即进入商业许可范围，意味着后续安全更新、新组件与新框架兼容（Nuxt 4 后续版本）都只能停在 4.5.5。
-2. **Dependabot / 供应链噪声**：`primevue ^4.5.5`、`@primevue/nuxt-module ^4.5.5` 等依赖需长期用 override / 人工判读挡住 5.x 升级（Backlog 已登记「PrimeVue 4 → 5 升级评估」暂缓项）。
+2. **Dependabot / 供应链噪声**：`primevue ^4.5.5`、`@primevue/nuxt-module ^4.5.5` 等依赖需长期用 override / 人工判读挡住 5.x 升级（Backlog 曾登记「PrimeVue 4 → 5 升级评估」暂缓项 —— **该风险已随 M31 卸载 5 个 PrimeVue 依赖而消除，暂缓项同期删除**）。
 3. **多前缀双轨成本**：`p-*` / `--p-*` / `@primevue/*` 与 CSS `@layer primevue` 分散在 `nuxt.config.ts`（模块 + 主题 preset + vite dedupe）、`main.scss`、e2e selector 三处，长期与团队自建组件库并行维护。
 4. **统一路线既定**：caomei-ui 的定位即「替代多个下游项目中的 PrimeVue」，其[路线图](https://github.com/CaoMeiYouRen/caomei-ui/blob/master/docs/plan/roadmap.md)「目标下游」明确包含 `dependfix/apps/platform`。
 
@@ -389,7 +389,7 @@ PrimeTek 已公告 PrimeVue 5.x 起转入 PrimeUI 商业许可（Community 免�
 
 本评估仅产出文档并登记 [Backlog](../../plan/backlog.md) 候选；任一条件触发时，从 backlog 上收到 `todo.md` 当前阶段（阶段编号由用户分配）：
 
-> **2026-09-28 已上收**：用户决策方案 B 启动 **M31 正式迁移阶段**（阶段编号 M31.1-M31.6），本评估的 B0-B3 批次映射为 M31.1-M31.5，C90 测试补强为 M31.6；Backlog C88 上收后已移除。详见 [todo.md §M31](../../plan/todo.md)。
+> **2026-09-28 已上收**：用户决策方案 B 启动 **M31 正式迁移阶段**（阶段编号 M31.1-M31.6），本评估的 B0-B3 批次映射为 M31.1-M31.5，C90 测试补强为 M31.6；Backlog C88 上收后已移除。**2026-09-29 M31 全部 6 原子条目闭环归档**，详见 [todo-archive.md §M31](../../plan/todo-archive.md#m31-appsplatform-ui-组件库迁移primevue--caomei-ui-m311m316-全部已闭环--2026-09-29-归档)。
 
 1. 用户明确授权启动迁移（分批或全量）。
 2. `alerts.vue` 行分组 / `batch-runs.vue` 行展开 / 多列排序能力的取向（§5.2 选项 A / B / C）经用户裁定，且（若选 A）caomei-ui 侧有能力面补齐计划。
@@ -723,7 +723,7 @@ e2e 侧共改写 14 个 spec（`.p-dialog*` / `.p-select*` / `.p-drawer` / `.p-c
 
 ### 15.13 B3 收尾实证（M31.5，2026-09-29）
 
-> M31.5（B3）卸载 5 个 PrimeVue 依赖、清零代码侧引用、产出包体对比并完成文档同步。**迁移主线（M31.1-M31.5）至此闭环**；M31.6（C90 db-restore 补测）独立待启动。
+> M31.5（B3）卸载 5 个 PrimeVue 依赖、清零代码侧引用、产出包体对比并完成文档同步。**迁移主线（M31.1-M31.5）至此闭环**；M31.6（C90 db-restore 补测）当时独立待启动 —— **该条后续已于 2026-09-29 闭环，M31 全部 6 原子条目已归档**（见 [todo-archive.md §M31](../../plan/todo-archive.md#m31-appsplatform-ui-组件库迁移primevue--caomei-ui-m311m316-全部已闭环--2026-09-29-归档)）。
 
 **1）依赖卸载与配置收敛**
 

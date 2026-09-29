@@ -38,7 +38,7 @@
 | M28: 治理债清理 + 能力扩展 | M28.1 backlog.md §已知边界段批量治理 + §4.4 第 11 条规则强化 + M28.2 C14 多 cs lint 性能 + M28.3 C15 B 类规则样本核对 + M28.4 C33 MCP P3 + M28.5 M22.8 follow-up ② | P2-P3 | 已完成（[todo-archive.md §M28](todo-archive.md)；2026-09-11 用户决策方案 M28-A + M28.1 重编号 + 完整 5 候选闭环 + M28.6 归档批次落地，commits 已推送 origin/master） |
 | M29: 修复交付链路正确性 + 能力扩展 | C73 git 配置污染隔离 + C75 验证链纳入 test + C77 override 复发防护 + C78 alerts 未启用/获取失败区分 + C71 pnpm 路径级 overrides + C72 批量导入 archived/disabled 过滤 + vite 漏洞插队 hotfix + C79 devEx 配置缺口 + C80-A CI 审计覆盖（M29.8/M29.9 为 M29.1 衍生） | P2-P3 | 已完成（[todo-archive.md §M29](todo-archive.md#m29-修复交付链路正确性--能力扩展m291m299-全部已闭环--2026-09-27-归档)） |
 | M30: 治理债清理 + 迁移可行性验证 + 能力扩展 + 测试补强 | C87 跳过类审计退出码 + C86 max-lines 拆分 + C84 文档对齐 + C74 getCommitAuthor 接线（App 路径）+ db-restore 补测 + UI 组件库迁移可行性验证 V1-V3 | P2-P3 | 已完成（[todo-archive.md §M30](todo-archive.md#m30-治理债清理--迁移可行性验证--能力扩展--测试补强m301m306-全部已闭环--2026-09-28-归档)） |
-| M31: apps/platform UI 组件库迁移（PrimeVue → caomei-ui） | B0 基线与双库并存接线 + B1a/B1b DataTable 迁移 + B2 表单/浮层切换 + B3 收尾卸载与回归 + C90 db-restore 补强 | P2-P3 | 进行中（[todo.md §M31](todo.md)） |
+| M31: apps/platform UI 组件库迁移（PrimeVue → caomei-ui） | B0 基线与双库并存接线 + B1a/B1b DataTable 迁移 + B2 表单/浮层切换 + B3 收尾卸载与回归 + C90 db-restore 补强 | P2-P3 | 已完成（[todo-archive.md §M31](todo-archive.md#m31-appsplatform-ui-组件库迁移primevue--caomei-ui-m311m316-全部已闭环--2026-09-29-归档)） |
 
 > **本路线图定位**：按 [规划规范 §2.1](../standards/planning.md) 仅维护阶段概览（目标 / 优先级 / 状态）。详细实施记录 / commit 引用 / 关键决策 / 经验教训见对应归档段（详见下方"## 详细任务"索引）。
 
@@ -400,13 +400,13 @@ per-alert 模型 + reconcile + API 简化 + UI 调整 + backfill 脚本。5 子�
 
 ---
 
-## M31: apps/platform UI 组件库迁移（PrimeVue → caomei-ui）（2026-09-28 用户决策方案 B / M31.1-M31.5 已完成 · M31.6 待启动）
+## M31: apps/platform UI 组件库迁移（PrimeVue → caomei-ui）（2026-09-28 用户决策方案 B / 2026-09-29 已闭环 + 归档）
 
 承接 M30.6 V1-V3 可行性验证全绿（caomei-ui 0.3.0 关键路径能力已由库侧闭环），2026-09-28 用户决策方案 B 启动 M31 正式迁移阶段。**6 原子条目**：迁移主线 5 项（B0→B3 串行）+ 类型平衡补强 1 项，覆盖 🎨 3 + 🛡️ 2 + 🧪 1（🚀 / 📚 无独立条目，显式标注缺口）。
 
 - **M31.1** [P2 🛡️] B0 迁移基线与双库并存接线（`caomei-ui/nuxt` + `--caomei-*` token 覆盖含主色实底 teal-700 + 视觉基线）
 - **M31.2** [P2 🎨] B1a DataTable 核心页迁移（alerts 行分组/折叠/多列排序 + batch-runs 行展开 + e2e）
-- **M31.3** [P2 🎨] B1b 其余 DataTable 页迁移（pr-checks / scans / repos / dashboard + e2e）
+- **M31.3** [P2 🎨] B1b 其余表页全量迁移（原计划 pr-checks / scans / repos / index；实际按用户裁定扩为**全部剩余表页与表子组件**，13 vue / 11 e2e）
 - **M31.4** [P2 🎨] B2 表单 / 浮层 / 导航组件切换 + i18n / Toast / Confirm 接线
 - **M31.5** [P2 🛡️] ✅ B3 收尾：卸载 5 个 PrimeVue 依赖 + `rg "primevue|--p-|\.p-"` 归零 + e2e 全通 + 包体对比 + 文档同步（2026-09-29 完成；client gzip −59.8%）
 - **M31.6** [P3 🧪] ✅ C90 db-restore ESM mock 受限失败分支补测（2026-09-29 完成；两分支以真实文件系统故障注入 + 自检注入点补齐，`it.skip` 清零）
@@ -417,13 +417,13 @@ per-alert 模型 + reconcile + API 简化 + UI 调整 + backfill 脚本。5 子�
 - **D2**：`--caomei-color-primary-solid` 覆盖为 `#0f766e`（teal-700）达 WCAG AA 4.5:1
 - **D3**：caomei-ui 精确锁定 `0.3.0`，避免 0.x API 漂移
 
-> 详细任务见 [todo.md §M31](todo.md)（6 原子条目 8 要素齐全 + 类型平衡 + 执行依赖图）；评估依据见 [caomei-ui-migration.md](../design/governance/caomei-ui-migration.md)
+> 详细任务见 [todo-archive.md §M31](todo-archive.md#m31-appsplatform-ui-组件库迁移primevue--caomei-ui-m311m316-全部已闭环--2026-09-29-归档)（6 原子条目摘要 + 关键决策 + 迁移期实证索引）；评估依据见 [caomei-ui-migration.md](../design/governance/caomei-ui-migration.md)
 
 ---
 
 ## 详细任务
 
-- 当前阶段任务：[todo.md](todo.md)（**M31 进行中**：apps/platform UI 组件库迁移；M30 已 2026-09-28 完整归档）
+- 当前阶段任务：[todo.md](todo.md)（**暂无进行中阶段**：M31 已于 2026-09-29 完整归档，详见 [todo-archive.md §M31](todo-archive.md#m31-appsplatform-ui-组件库迁移primevue--caomei-ui-m311m316-全部已闭环--2026-09-29-归档)；下一阶段待规划）
 - 已归档阶段：[todo-archive.md](todo-archive.md)（主窗口保留最近阶段完整段 + 指针段；早期阶段见 [archive/index.md](archive/index.md) 分片索引）
 - 后续阶段任务（延期项 + 未排期增强候选）：[backlog.md](backlog.md)
 

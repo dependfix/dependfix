@@ -63,7 +63,7 @@
 - **T705 生产级部署**（PostgreSQL + Helm + Sentry）—— 2026-08-12 用户指示暂缓排期
 - **T703 跨平台 Git**（GitLab + Bitbucket）—— 2026-08-12 用户指示暂缓排期
 - **C30 Publish Docker build job 失败排查** —— 2026-08-18 用户决策暂缓（双平台构建 23m 2s 成功证明当前 docker.yml 可稳定工作）；恢复条件：① master 分支 push 频率显著提升；② 镜像实际发布成为强需求（v1.0.0 正式发布前）；③ 用户明确恢复
-- **§M14.2 PrimeVue 4 → 5 升级评估** —— 2026-08-26 dependabot #49 触发评估，Nuxt build 报 `Rolldown failed to resolve import "primevue/inputcolor"`（v5 改组件导入约定）。`@primevue/nuxt-module` 5.x + `@primeuix/themes` 3.x 需联动升级，影响 `apps/platform/nuxt.config.ts` 及可能的 DataTable 等组件用法。PR 已关闭，恢复条件：① 评估 PrimeVue 5 migration guide 工作量；② 与 PrimeVue 4 + Nuxt hydration 兼容性问题的修复路径联动决策——该问题已由 alerts 迁移 `useAsyncData` 解决，可独立评估升级；③ 用户明确恢复
+- **caomei-ui 0.x → 1.0 升级回归** —— 库处于 0.x（当前精确锁定 `0.3.0`），1.0 前 API / 目录仍可能调整。恢复条件：① 库发布 1.0.0 或用户指定目标版本；② 平台需跟进新组件能力；③ 用户明确恢复。届时按 M31 迁移期实证索引（[caomei-ui-migration.md §15](../design/governance/caomei-ui-migration.md)）做回归
 - **ScanResult 数据层去重（upsert 唯一索引）** —— 2026-09-02 M23.3 决策暂缓：应用层去重（fingerprint + occurrenceCount / firstSeenAt / lastSeenAt / affectedRunIds）已实施且满足当前业务需求；恢复条件：出现"fix 复用同一 `scan_run_id` 跨次刷新"或"历史 fixStatus 跨次保留"需求时迁移到数据层 upsert（关联 [todo-archive.md §M23](todo-archive.md#m23-m22-治理债收口--根因排查--能力扩展--测试补强m230m231m232m233m234-全部已闭环--2026-09-02-归档)）
 
 ### 远期登记 / 未排期增强候选
@@ -348,14 +348,18 @@
 - **影响**：类型侧由 `nuxt typecheck` 覆盖；但涉及 `packages/*/dist`（如 engine chunk 结构）变更后，容器 / 运行时冒烟前需重建 `apps/platform/.output`，否则可能引用旧产物。
 - **触发条件**：需要容器 / 运行时冒烟验证依赖 `packages/*/dist` 的变更时。
 
+### M31 迁移遗留的配置清理项（待清理）
+
+- **`.github/dependabot.yml` 的 PrimeVue 相关 ignore 规则成死配置**：M31.5 已卸载 `primevue` / `@primevue/nuxt-module` / `@primeuix/themes` / `primeicons` / `primelocale` 5 依赖，`@primeuix/*` / `@primevue/*` / `primeicons` 的 ignore 条目不再命中任何包。清理动作：移除该批 ignore 条目与 M25 / M26 时期的配套注释（保留 `conventional-changelog` 条目）。触发条件：下次依赖治理批次。
+
 ---
 
 ## 文档位置速查
 
 | 内容类型 | 位置 |
 |:--|:--|
-| 当前阶段活跃任务 | [todo.md](todo.md)（**M31 进行中**：apps/platform UI 组件库迁移 6 原子条目；M30 已于 2026-09-28 完整归档，详见 [todo-archive.md §M30](todo-archive.md#m30-治理债清理--迁移可行性验证--能力扩展--测试补强m301m306-全部已闭环--2026-09-28-归档)） |
+| 当前阶段活跃任务 | *暂无进行中阶段* —— M31 已于 2026-09-29 完整归档，详见 [todo-archive.md §M31](todo-archive.md#m31-appsplatform-ui-组件库迁移primevue--caomei-ui-m311m316-全部已闭环--2026-09-29-归档)；M30 见 [§M30](todo-archive.md#m30-治理债清理--迁移可行性验证--能力扩展--测试补强m301m306-全部已闭环--2026-09-28-归档) |
 | 已完成阶段归档 | [todo-archive.md](todo-archive.md)（主窗口保留最近阶段完整段 + 指针段；早期阶段见 [archive/](archive/)） |
-| 里程碑与阶段交付 | [roadmap.md](roadmap.md)（M0-M30 全部已完成归档） |
+| 里程碑与阶段交付 | [roadmap.md](roadmap.md)（M0-M31 全部已完成归档） |
 | 长期主线 / 候选 / 待人工验收 / 已知边界 | 本文档（按四象限结构） |
 | 历史归档索引 | [archive/index.md](archive/index.md) |

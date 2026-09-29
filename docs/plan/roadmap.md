@@ -383,7 +383,7 @@ per-alert 模型 + reconcile + API 简化 + UI 调整 + backfill 脚本。5 子�
 - **M30.2** [P3 🛡️ 治本] C86 `repo-fix.ts` 行数拆分（`6923fdc`）
 - **M30.3** [P3 📚 治理] C84 AI 质量门文档描述与实际验证链对齐（`21bf8bb`）
 - **M30.4** [P2 🚀 能力扩展] C74 接线 `getCommitAuthor()`（仅 App 路径，`61acfae`）
-- **M30.5** [P3 🧪 测试补强] db-restore 审计未采纳项补测（`80dff3f`；**部分闭环**，2 分支 ESM mock 受限转 backlog C90）
+- **M30.5** [P3 🧪 测试补强] db-restore 审计未采纳项补测（`80dff3f`；**已闭环**——2 分支 ESM mock 受限部分由 M31.6 以真实故障注入 + 注入点补齐）
 - **M30.6** [P3 🔍 可行性验证] 迁移前可行性验证 V1-V3（`5eedcad` + `7be5b93`；**全绿**，已由 M31 承接）
 - **衍生治理批次**（6 commits）：`124078a` vue-demi allowBuilds / `644f9f0` tsdown dts 入口错位 / `9226ddd` + `207a806` max-lines 治理 / `7458973` lint 清理 / `32e3a8b` 已知边界登记
 
@@ -409,7 +409,7 @@ per-alert 模型 + reconcile + API 简化 + UI 调整 + backfill 脚本。5 子�
 - **M31.3** [P2 🎨] B1b 其余 DataTable 页迁移（pr-checks / scans / repos / dashboard + e2e）
 - **M31.4** [P2 🎨] B2 表单 / 浮层 / 导航组件切换 + i18n / Toast / Confirm 接线
 - **M31.5** [P2 🛡️] ✅ B3 收尾：卸载 5 个 PrimeVue 依赖 + `rg "primevue|--p-|\.p-"` 归零 + e2e 全通 + 包体对比 + 文档同步（2026-09-29 完成；client gzip −59.8%）
-- **M31.6** [P3 🧪] C90 db-restore ESM mock 受限失败分支补测（类型平衡补强，独立可并行）
+- **M31.6** [P3 🧪] ✅ C90 db-restore ESM mock 受限失败分支补测（2026-09-29 完成；两分支以真实文件系统故障注入 + 自检注入点补齐，`it.skip` 清零）
 
 **关键决策 D1-D3**（2026-09-28 用户裁定）：
 

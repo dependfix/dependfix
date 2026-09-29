@@ -128,14 +128,15 @@
 - **目标**：补齐 `db-restore.ts` 因 ESM 模块 mock 受限而 `it.skip` 的两条失败分支测试（恢复后 `integrity_check` 失败注入 / sidecar `unlinkSync` 部分失败的 `removedSidecars` 状态一致性）。
 - **范围**：`apps/platform/server/database/scripts/db-restore.ts` + `db-restore.test.ts`（测试架构调整或可注入化重构）。
 - **验收标准**：
-  - [ ] 两条 `it.skip` 分支转为实际断言（skip 清零）
-  - [ ] 既有 db-restore 测试全过（行为不变）
-  - [ ] `pnpm lint` + `pnpm typecheck` + `pnpm --filter @dependfix/platform test` 通过
+  - [x] 两条 `it.skip` 分支转为实际断言（skip 清零）—— 恢复后自检失败分支经 `inspect` 注入点；sidecar 部分删除失败分支经真实 fs 故障注入（`-shm` 建成目录使 `unlinkSync` 抛错），`it.skip` 在 `db-restore.test.ts` 归零
+  - [x] 既有 db-restore 测试全过（行为不变）—— 该文件 28 tests passed；全量单测由 1295 passed / 9 skipped 变为 **1297 passed / 7 skipped**（净增 2 passed、净减 2 skipped）
+  - [x] `pnpm lint` + `pnpm typecheck` + `pnpm --filter @dependfix/platform test` 通过 —— 非 `--fix` eslint 与 `nuxt typecheck` 通过；`build` 亦通过（脚本进 server 产物）
 - **不做什么**：不改 `db-restore` CLI 语义（`--from` / `--yes` 双门控）；不引入新测试框架
 - **依赖**：M30.5（触发来源）；[testing.md §6.6 ESM mock 受限处理原则](../standards/testing.md)
-- **交付物**：1-2 atomic commits（`test(platform)` 补测 + 必要时的 `refactor(platform)` 可注入化）
-- **风险与缓解**：为可测性重构生产代码可能引入行为回归 → 优先不改生产代码方案（进程级隔离 / `vi.mock`），重构须行为等价并回归既有测试
-- **复杂度估算**：测试架构 ~40-80 行；测试 2 case；文档 0
+- **交付物**：1-2 atomic commits（`test(platform)` 补测 + `refactor(platform)` 可注入化）
+- **风险与缓解**：为可测性重构生产代码可能引入行为回归 → 优先不改生产代码方案（进程级隔离 / `vi.mock`），重构须行为等价并回归既有测试（实测：sidecar 分支零生产代码改动，自检分支仅新增可选注入点且默认值即原实现）
+- **实测登记**：2 文件（`db-restore.ts` +14/−4、`db-restore.test.ts` +41/−14）；生产代码改动为 `restoreDatabase` 新增可选 `inspect` 注入点（与既有 `now` 注入风格一致，向后兼容）
+- **复杂度估算**：测试架构 ~40-80 行；测试 2 case；文档 0（实测测试 +41 行、生产 +14 行）
 
 ---
 

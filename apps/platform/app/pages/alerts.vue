@@ -641,14 +641,25 @@ const alertCveUrl = (cveId: string): string => `https://nvd.nist.gov/vuln/detail
                         {{ String(row.occurrenceCount ?? 1) }}
                     </CaomeiTag>
                 </template>
+                <!-- 首次发现 / 最近见到时间：值派生自 fixtures 注入时间，属视觉回归的动态区域，
+                     以 data-visual-mask 显式遮蔽（selector 见 apps/platform/tests/visual/helpers/visual.ts），
+                     不依赖像素容差兜底 -->
                 <template #cell-firstSeenAt="{row}">
-                    <span v-if="row.firstSeenAt" class="text-muted">
+                    <span
+                        v-if="row.firstSeenAt"
+                        class="text-muted"
+                        data-visual-mask
+                    >
                         {{ d(new Date(row.firstSeenAt), 'long') }}
                     </span>
                     <span v-else class="text-muted">—</span>
                 </template>
                 <template #cell-lastSeenAt="{row}">
-                    <span v-if="row.lastSeenAt" class="text-muted">
+                    <span
+                        v-if="row.lastSeenAt"
+                        class="text-muted"
+                        data-visual-mask
+                    >
                         {{ d(new Date(row.lastSeenAt), 'long') }}
                     </span>
                     <span v-else class="text-muted">—</span>

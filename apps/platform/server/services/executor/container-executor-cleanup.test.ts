@@ -127,6 +127,8 @@ describe('cleanupRemoteBranch', () => {
         expect(bin).toBe('git')
         expect(args).toEqual([
             '-c',
+            'push.gpgSign=false',
+            '-c',
             expect.stringContaining('http.extraheader=Authorization: basic '),
             'push',
             'origin',
@@ -152,6 +154,6 @@ describe('cleanupRemoteBranch', () => {
 
         const callArgs = childProcessMock.execFile.mock.calls[0] as unknown as [string, string[]]
         const [, args] = callArgs
-        expect(args).toEqual(['push', 'origin', '--delete', 'dependfix/auto-fix-abc12345'])
+        expect(args).toEqual(['-c', 'push.gpgSign=false', 'push', 'origin', '--delete', 'dependfix/auto-fix-abc12345'])
     })
 })

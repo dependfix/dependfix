@@ -628,9 +628,11 @@ describe('pushFixBranch', () => {
         const callArgs = childProcessMock.execFile.mock.calls[0] as unknown as [string, string[], Record<string, unknown>]
         const [bin, args] = callArgs
         expect(bin).toBe('git')
-        expect(args[0]).toBe('-c')
-        expect(args[1]).toMatch(/^http\.extraheader=Authorization: basic /)
-        expect(args[1]).not.toContain('ghp_test')
+        // 前置签名隔离参数（push.gpgSign=false）必须存在
+        expect(args.slice(0, 2)).toEqual(['-c', 'push.gpgSign=false'])
+        expect(args[2]).toBe('-c')
+        expect(args[3]).toMatch(/^http\.extraheader=Authorization: basic /)
+        expect(args[3]).not.toContain('ghp_test')
         expect(args).toContain('push')
         expect(args).toContain('origin')
         expect(args).toContain('dependfix/auto-fix-abc')
@@ -649,11 +651,12 @@ describe('pushFixBranch', () => {
 
         const callArgs = childProcessMock.execFile.mock.calls[0] as unknown as [string, string[]]
         const [, args] = callArgs
-        expect(args[1]).toMatch(/^http\.extraheader=Authorization: basic /)
+        expect(args.slice(0, 2)).toEqual(['-c', 'push.gpgSign=false'])
+        expect(args[3]).toMatch(/^http\.extraheader=Authorization: basic /)
         // base64(app-user:ghs_app_token) 不应包含原 token 明文
-        expect(args[1]).not.toContain('ghs_app_token')
+        expect(args[3]).not.toContain('ghs_app_token')
         // base64 解码后是 'app-user:ghs_app_token'
-        const extraHeader = args[1]
+        const extraHeader = args[3]
         if (extraHeader) {
             const base64 = extraHeader.replace('http.extraheader=Authorization: basic ', '')
             expect(Buffer.from(base64, 'base64').toString('utf-8')).toBe('app-user:ghs_app_token')
@@ -670,7 +673,7 @@ describe('pushFixBranch', () => {
 
         const callArgs = childProcessMock.execFile.mock.calls[0] as unknown as [string, string[]]
         const [, args] = callArgs
-        expect(args).toEqual(['push', 'origin', 'main'])
+        expect(args).toEqual(['-c', 'push.gpgSign=false', 'push', 'origin', 'main'])
     })
 
     it('throws when stderr does not match /^To / pattern', async () => {

@@ -136,18 +136,23 @@ export const inspectSqliteFile = (dbPath: string): DatabaseInspection => {
  * @param options.to 恢复目标数据库路径
  * @param options.now 时间戳注入点（测试用，默认 new Date()）
  * @param options.retentionCount `auto.*.bak` 保留份数（默认 10，BACKUP_RETENTION_COUNT env 可覆盖）
+ * @param options.inspect 自检函数注入点（测试用，默认 `inspectSqliteFile`）。
+ *   恢复后自检失败分支在真实环境不可达（`copyFileSync` 保证目标库与备份字节一致，除非磁盘故障），
+ *   故以注入点在单测中模拟"源备份正常、恢复后损坏"，避免用 ESM mock 替换同模块内部绑定。
  */
 export const restoreDatabase = (options: {
     from: string
     to: string
     now?: Date
     retentionCount?: number
+    inspect?: (dbPath: string) => DatabaseInspection
 }): RestoreResult => {
     const {
         from,
         to,
         now = new Date(),
         retentionCount = Number(process.env.BACKUP_RETENTION_COUNT) || DEFAULT_RETENTION_COUNT,
+        inspect = inspectSqliteFile,
     } = options
 
     // 1. 源备份预校验：存在 + 非空 + 是可读的 SQLite 库
@@ -159,7 +164,7 @@ export const restoreDatabase = (options: {
     }
     let sourceInspection: DatabaseInspection
     try {
-        sourceInspection = inspectSqliteFile(from)
+        sourceInspection = inspect(from)
     } catch (error) {
         throw new Error(`备份文件无法作为 SQLite 数据库打开，拒绝恢复：${from}（${(error as Error).message}）`)
     }
@@ -200,7 +205,7 @@ export const restoreDatabase = (options: {
     }
 
     // 5. 恢复后自检
-    const inspection = inspectSqliteFile(to)
+    const inspection = inspect(to)
     if (inspection.integrity !== 'ok') {
         throw new Error(`恢复后 integrity_check 未通过：${inspection.integrity}`)
     }

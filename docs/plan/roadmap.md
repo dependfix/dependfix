@@ -39,6 +39,7 @@
 | M29: 修复交付链路正确性 + 能力扩展 | C73 git 配置污染隔离 + C75 验证链纳入 test + C77 override 复发防护 + C78 alerts 未启用/获取失败区分 + C71 pnpm 路径级 overrides + C72 批量导入 archived/disabled 过滤 + vite 漏洞插队 hotfix + C79 devEx 配置缺口 + C80-A CI 审计覆盖（M29.8/M29.9 为 M29.1 衍生） | P2-P3 | 已完成（[todo-archive.md §M29](todo-archive.md#m29-修复交付链路正确性--能力扩展m291m299-全部已闭环--2026-09-27-归档)） |
 | M30: 治理债清理 + 迁移可行性验证 + 能力扩展 + 测试补强 | C87 跳过类审计退出码 + C86 max-lines 拆分 + C84 文档对齐 + C74 getCommitAuthor 接线（App 路径）+ db-restore 补测 + UI 组件库迁移可行性验证 V1-V3 | P2-P3 | 已完成（[todo-archive.md §M30](todo-archive.md#m30-治理债清理--迁移可行性验证--能力扩展--测试补强m301m306-全部已闭环--2026-09-28-归档)） |
 | M31: apps/platform UI 组件库迁移（PrimeVue → caomei-ui） | B0 基线与双库并存接线 + B1a/B1b DataTable 迁移 + B2 表单/浮层切换 + B3 收尾卸载与回归 + C90 db-restore 补强 | P2-P3 | 已完成（[todo-archive.md §M31](todo-archive.md#m31-appsplatform-ui-组件库迁移primevue--caomei-ui-m311m316-全部已闭环--2026-09-29-归档)） |
+| M32: 能力扩展优先 | C76 平台验证命令配置 + C85 目标仓库专属配置 + C89 Code Scanning 未启用区分 + C82 git 签名语义边界 + C92 视觉回归最小集 | P3 | 进行中（2026-09-29 用户决策方案 B 启动） |
 
 > **本路线图定位**：按 [规划规范 §2.1](../standards/planning.md) 仅维护阶段概览（目标 / 优先级 / 状态）。详细实施记录 / commit 引用 / 关键决策 / 经验教训见对应归档段（详见下方"## 详细任务"索引）。
 
@@ -421,9 +422,41 @@ per-alert 模型 + reconcile + API 简化 + UI 调整 + backfill 脚本。5 子�
 
 ---
 
+## M32: 能力扩展优先（2026-09-29 用户决策方案 B / 进行中）
+
+承接 M31 完整闭环归档后的 backlog 候选池。2026-09-29 用户决策方案 B（能力扩展优先），从「评估完成待上收」候选中上收 5 项。**5 原子条目**覆盖 🚀 3 + 🛡️ 1 + 🧪 1（🎨 纯 UX 无独立条目，缺口显式标注，与 M28-M31 同型）。
+
+- **M32.1** [P3 🚀 能力扩展] C76 平台侧暴露验证命令配置（每仓库 Repository 字段，含 migration + 透传 + 最小 UI）
+- **M32.2** [P3 🚀 能力扩展] C85 目标仓库专属配置 `.github/dependfix.yml`（中央优先；首批仅 `overrideProtect`）
+- **M32.3** [P3 🚀 能力扩展] C89 Code Scanning / Code Quality「未启用」与「获取失败」区分（复用 `ALERTS_DISABLED` + source 区分）
+- **M32.4** [P3 🛡️ 技术债] C82 git 签名语义边界（4 处 push 调用点隔离 + 不提供签名 opt-in）
+- **M32.5** [P3 🧪 测试基建] C92 apps/platform 视觉回归最小集（入仓库基线 + 独立 CI job）
+
+**关键决策 D1-D6**（2026-09-29 用户裁定）：
+
+- **D1**：方案 B（能力扩展优先）—— 从 8 项「评估完成待上收」候选中选 5 项，🚀 3 + 🛡️ 1 + 🧪 1
+- **D2**：M32.1 C76 配置粒度 = **每仓库 Repository 字段**（需 TypeORM migration，走既有双向 opt-in 流程）
+- **D3**：M32.2 C85 文件路径 = **`.github/dependfix.yml`**，冲突时**中央配置优先**（防目标仓库自行绕过保护策略）
+- **D4**：M32.4 C82 **不提供 commit 签名 opt-in**（仅 push 隔离 + 文档记录决策依据与重开条件）
+- **D5**：M32.5 C92 **入仓库基线 + 独立 CI job**（沿用 momei 同源做法，可回溯、可在 PR review 差异）
+- **D6**：M32.3 C89 **复用 `ALERTS_DISABLED` + source 区分**，不新增独立错误码（与 C78 方案 A 口径一致）
+
+**类型平衡复核**：
+
+- 🚀 能力扩展：3 项（M32.1 / M32.2 / M32.3）—— ✅ 满足
+- 🛡️ 技术债 / 治本：1 项（M32.4）—— ✅ 满足
+- 🧪 测试基建：1 项（M32.5）—— ✅ 满足
+- 🎨 用户体验：**0 项独立条目** —— ❌ 缺口（候选池无 UX 类候选；M32.5 兼作视觉层兜底）
+
+**未纳入本批（保留 backlog）**：C80 阻断语义（待用户敲定方案 B / C）/ C81 注释编号清理（存量 300-430 命中，需分批）/ C83 验证链基线（方案未定）/ C91 review 检查点补挂 / M31 遗留 `dependabot.yml` 死配置清理 / C15 第二阶段（需 `GITHUB_TOKEN`）/ C68（需代理基建）/ T701 / T702 / T704（需真实环境）/ D1 / D3 / D8 / B2 / C37 / T905（触发条件未到）
+
+> 详细任务与 8 要素见 [todo.md §M32](todo.md#m32-能力扩展优先2026-09-29-用户决策方案-b--进行中)
+
+---
+
 ## 详细任务
 
-- 当前阶段任务：[todo.md](todo.md)（**暂无进行中阶段**：M31 已于 2026-09-29 完整归档，详见 [todo-archive.md §M31](todo-archive.md#m31-appsplatform-ui-组件库迁移primevue--caomei-ui-m311m316-全部已闭环--2026-09-29-归档)；下一阶段待规划）
+- 当前阶段任务：[todo.md](todo.md)（**M32 能力扩展优先进行中**：2026-09-29 用户决策方案 B 启动，5 原子条目；上一阶段 M31 已于 2026-09-29 完整归档，详见 [todo-archive.md §M31](todo-archive.md#m31-appsplatform-ui-组件库迁移primevue--caomei-ui-m311m316-全部已闭环--2026-09-29-归档)）
 - 已归档阶段：[todo-archive.md](todo-archive.md)（主窗口保留最近阶段完整段 + 指针段；早期阶段见 [archive/index.md](archive/index.md) 分片索引）
 - 后续阶段任务（延期项 + 未排期增强候选）：[backlog.md](backlog.md)
 

@@ -88,49 +88,7 @@
 
 - **B2** 固定分支单线设计（独立平台部署后修复频率上升，需要固定修复分支如 `dependfix/auto-fix` 避免频繁向 master 提交 PR；触发：v1.0.0 后 M12 平台 UX 修复链路上线；关联：T210 指纹方案整合复用/重建策略 + force push 语义）
 
-#### 修复交付链路（验证 / commit / push / PR）
-
-- **C76 平台侧暴露验证命令配置（与 CLI `--commands` 对齐）** —— 同 M29.3（原 C75）分析衍生；评估完成待上收；**不带 M\d+ 阶段编号**。
-  - **目标**：平台发起的修复也能配置验证命令，使平台场景可追加 test 等命令，而不必等默认链变更。
-  - **范围**：`apps/platform/server/services/executor/container-executor.ts`（RuntimeConfig 组装）+ `apps/platform/server/schemas/*`（配置 schema，如需 migration 按既有流程）+ `apps/platform/app`（配置 UI，粒度敲定后）。
-  - **现状实证**（2026-09-21 代码核对）：
-    - CLI 已有 `--commands`（[`cli/index.ts`](../../packages/cli/src/cli/index.ts) 选项定义 + `parseCommandsFlag` → `overrides.commands`），并在 pipeline 透传。
-    - `apps/platform` 全仓检索 `commands` 0 命中；[`container-executor.ts`](../../apps/platform/server/services/executor/container-executor.ts) 构造 `RuntimeConfig` 时仅 `...ctx.config`，平台无 commands 来源 → **平台恒用引擎默认链**。
-  - **决策点（待上收时敲定）**：
-    - **配置粒度**：平台全局 / 每仓库（Repository 实体）/ 每次扫描（ScanRequest）。
-    - **安全边界**：`container-executor` 实际在宿主进程内运行引擎，平台自定义命令等价于远程命令执行面，需权限门槛与审计。沙箱路由与容器生命周期已落地（M8 / M11 T1005，daemon 不可用自动降级 container），但容器内真实执行序列尚未实现（`sandbox-executor.ts` 当前为最小占位命令，注释自述「后续集成阶段实现 git clone + pnpm install + dependfix-cli 完整序列」）——上收前不能指望沙箱缓解该风险。
-    - **数据落位**：如按仓库配置需评估 TypeORM schema / migration（走 M22.4 / M22.5 双向 opt-in 流程）。
-  - **验收标准**：
-    - [ ] 平台可配置验证命令并透传至 `RuntimeConfig.commands`（schema 变更如需 migration 按既有流程）
-    - [ ] 单测 / e2e 覆盖配置透传链路
-    - [ ] 权限门槛（仅 admin / org_admin）+ 审计记录 + 文档说明执行风险
-    - [ ] `pnpm lint` + `pnpm typecheck` + 定向测试通过
-  - **不做什么**：不在本候选内落地沙箱隔离；不开放任意 shell（仅接受命令数组）；不改变 CLI 侧语义
-  - **依赖**：关联 M29.3（默认链口径）；关联 M29.2（同属修复交付链路）；关联 [`docs/standards/platform.md`](../standards/platform.md)
-  - **交付物**：1-2 atomic commits（`feat(platform)` 配置透传 + `test(platform)` case）
-  - **风险与缓解**：自定义命令构成命令执行面；缓解：权限门槛 + 审计留痕 + 文档风险声明，沙箱落地后再评估放宽
-  - **优先级**：P3（当前默认链可用；无平台配置不影响基础能力）
-  - **复杂度估算**：代码 ~40-80 行；测试 3-5 case；文档 1 处（platform.md）
-
-- **C82 git 签名语义边界（push.gpgSign 隔离 + commit 签名 opt-in）** —— 2026-09-21 M29.2 A 阶段审计 warning / suggest 衍生；评估完成待上收；按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) **不带 M\d+ 阶段编号**。
-  - **目标**：把 dependfix 与 git 签名的关系收敛为**显式策略**——① push 链路同样不受宿主 `push.gpgSign` 污染；② 是否产出「签名 commit」由配置决定，而非硬编码关闭。
-  - **优先级**：P3（非阻塞；① 需宿主显式开启 `push.gpgSign` 才触发，② 需目标仓库强制签名保护规则才需要）
-  - **范围**：push 侧**全部 4 处未隔离调用点**（实测）——`packages/engine/src/github/pr-creator.ts:228`（`pushBranch`）/ `apps/platform/server/services/executor/platform-delivery.ts:126`（平台接管交付路径）/ `apps/platform/server/services/executor/container-executor.ts:109`（`pushFixBranch`）/ `:129`（`cleanupRemoteBranch`，`--delete`）；commit 侧 `stageAndCommit` 已 M29.2 落地；另含配置层（若做 opt-in）
-  - **现状实证**（2026-09-21 实测）：
-    - **① push 签名未隔离**：本地 bare remote 复现——宿主 `push.gpgSign=true`（**单独设置即触发**，与服务端 `receive-pack` 证书协商能力相关，不经过 `gpg.program`）→ `git push` 报 `fatal: the receiving end does not support --signed push` → `fatal: the remote end hung up unexpectedly`；追加 `-c push.gpgSign=false` 后 push 成功。实测未隔离调用点 4 处（见「范围」）；平台部署场景由 platform 侧接管 push，污染面主要在 platform 路径。
-    - **② 签名硬编码关闭**：`stageAndCommit` 已固定传 `-c commit.gpgsign=false`（M29.2 落地），无 opt-in 入口；目标仓库若要求签名 commit，dependfix PR 无法满足。
-  - **决策点（待上收时敲定）**：
-    - **push 隔离方式**：与 commit 同法（`-c push.gpgSign=false`），或抽为统一的「签名语义」常量避免两处漂移。
-    - **是否提供 commit 签名 opt-in**：若提供，需决定密钥来源（用户配置的 signingkey / 目标仓库要求）、失败语义（签名失败是否回滚交付）、暴露层（CLI flag / env / action input / 平台配置——按「交付检查所有暴露层」四层对齐）。
-  - **验收标准**：
-    - [ ] 宿主 `push.gpgSign=true` 时 push 仍成功（新增 case 覆盖；触发条件不涉及 `gpg.program`）
-    - [ ] 签名策略（关闭 / 可开启）在四层暴露面口径一致（CLI / env / action / 文档表），或明确记录「不提供 opt-in」的决策依据
-    - [ ] `pnpm lint` + `pnpm typecheck` + engine 定向测试通过
-  - **不做什么**：不改宿主 `~/.gitconfig`；不关闭用户手工 git 操作的签名；不回溯已产生的 commit / push；不在本候选内做目标仓库保护规则的预检
-  - **依赖**：关联 M29.2（commit 侧已闭环，本候选为同根因的 push 侧 + 策略侧）；关联 M30.4（commit author 变更可能触发仓库保护规则，含「要求签名 commit」风险，与本候选互引，见 [todo-archive.md §M30](todo-archive.md#m30-治理债清理--迁移可行性验证--能力扩展--测试补强m301m306-全部已闭环--2026-09-28-归档)）
-  - **交付物**：1-2 atomic commits（`fix(engine)` push 隔离 + 可选 `feat(engine)` 签名 opt-in）
-  - **风险与缓解**：若提供 opt-in，签名失败会成为新的交付失败点；缓解：默认保持关闭（现状），仅在显式开启时对签名失败做硬失败 + 明确错误文案
-  - **复杂度估算**：push 隔离 ~2 行；opt-in 需先出方案（配置层 + 四层暴露 + 失败语义）再评估
+#### 修复交付链路（验证链）
 
 - **C83 验证链的「既有失败基线」判定（区分修复引入的失败与修复前已存在的失败）** —— 2026-09-21 M29.3 落地 test 纳入默认链时显式登记的已知限制；评估完成待上收；按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) **不带 M\d+ 阶段编号**。
   - **目标**：目标仓库在修复前就存在的验证失败（尤其测试套件长期红）不再被计入本次修复，避免合法修复被门禁回滚、使仓库变得「不可用」。
@@ -157,39 +115,6 @@
   - **交付物**：待方案敲定后评估（1-3 atomic commits）
   - **风险与缓解**：懒基线需在修复后回跑 pristine 状态，涉及工作区切换（`git stash` / 临时 worktree），实现复杂且易引入新的状态污染；缓解：优先评估「命令级基线 + 修复前一次性采样」的简单形态，避免修复后回跑
   - **复杂度估算**：方案未定；命令级一次性采样约 40-80 行 + 修复流程接入
-
-- **C85 目标仓库专属配置（dependfix.yml 类）与自动发现** —— 2026-09-22 M29.4 设计评估时用户提出；评估完成待上收；按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) **不带 M\d+ 阶段编号**。
-  - **目标**：支持在**目标仓库内**声明 dependfix 专属配置（如 `.github/dependfix.yml`），与 `dependabot.yml` / `mergify.yml` 同类范式。
-  - **优先级**：P3（非阻塞；当前 M29.4 已用中央配置 `overrideProtect` 覆盖该需求）
-  - **范围**：待方案敲定（新增目标仓库配置文件读取层 + schema 校验 + 与中央配置的优先级规则）
-  - **现状实证 / 依据**（用户 2026-09-22 观察）：专属配置文件在**自动发现**上有结构性优势——配置随仓库走，dependfix 管理大量仓库时无需中央维护名单；权责就近（谁移除 override 谁声明）。**用户明确「并不是坏设计」**，M29.4 暂不实施、后续规划。
-  - **决策点（待上收时敲定）**：文件路径与格式（`.github/dependfix.yml` / `package.json#dependfix`）；与中央配置（`overrideProtect` 等）的优先级与合并规则；是否需要 schema 校验与错误降级；是否复用既有 dependabot.yml 探测的 clone 后读取路径。
-  - **验收标准**：
-    - [ ] 目标仓库可声明专属配置并在修复链路生效（优先级规则明确且有测试）
-    - [ ] 与中央配置冲突时的行为有明确文档与测试
-    - [ ] 第三方仓库（无该文件）行为不变（回归）
-  - **不做什么**：不替代中央配置（两者并存）；不改 `dependabot.yml` 语义；不在本候选内做全量配置项迁移
-  - **依赖**：关联 M29.4（中央配置 `overrideProtect` 已落地，本候选为其目标仓库侧演进）；关联 `repository-discovery` 的 dependabot.yml 探测路径
-  - **交付物**：待方案敲定后评估（2-4 atomic commits）
-  - **风险与缓解**：新增配置文件约定需目标仓库采纳，短期覆盖率低；缓解：与中央配置并存，按仓库渐进采纳
-  - **复杂度估算**：读取层 + schema + 优先级约 80-150 行；测试 4-6 case；文档 2 处
-
-- **C89 Code Scanning / Code Quality alerts「未启用」与「获取失败」区分** —— 2026-09-25 C78（Dependabot alerts 未启用细分）决策点 2 拆出；评估完成待上收；按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) **不带 M\d+ 阶段编号**。
-  - **目标**：Code Scanning（GitHub Advanced Security 未启用时 403）与 Code Quality 的「未启用」状态从 `PERMISSION_DENIED` 中区分出来，与 Dependabot 的 `ALERTS_DISABLED` 口径一致（未启用 ≠ 失败，单列计数 + 准确文案）。
-  - **优先级**：P3（延后原因：前端尚未实现 Code Scanning 扫描、Code Quality 底层依赖库未实现，当前无消费场景）
-  - **范围**：`packages/engine/src/github/code-scanning-fetcher.ts` + `code-quality-fetcher.ts`（403 message 判定）+ `packages/core/src/errors/error-codes.ts`（错误码）+ `helpers.ts` hint 分支 + 报告展示口径
-  - **现状实证**（2026-09-25 C78 落地时）：Code Scanning 403 = GitHub Advanced Security 未启用（官方文档明确）当前落 `PERMISSION_DENIED`，与 Dependabot 同类混同；`dependabotAlertsTokenHint` 已区分但 `codeScanningAlertsTokenHint` / `codeQualityAlertsTokenHint` 仍对 `PERMISSION_DENIED` 统一提示 token 权限。
-  - **决策点（待上收时敲定）**：错误码复用 `ALERTS_DISABLED`（source 区分）vs 新增 `CODE_SCANNING_DISABLED` 独立码；Code Quality「未启用」判定信号（当前无官方 message 文档）。
-  - **验收标准**：
-    - [ ] Code Scanning 403 + Advanced Security 未启用 message 可与权限失败区分，报告 / 日志准确文案
-    - [ ] 单测覆盖未启用 / 权限不足 / 限流三类
-    - [ ] 未启用仓库单列计数，不影响 exitCode（与 C78 方案 A 口径一致）
-    - [ ] `pnpm lint` + `pnpm typecheck` + 定向测试通过
-  - **不做什么**：不改 `alertsSource` 默认值；不自动开启目标仓库 Advanced Security；不引入新依赖
-  - **依赖**：关联 C78（已落地的 Dependabot 口径）；关联前端 Code Scanning 扫描落地（消费场景前置）
-  - **交付物**：2-3 atomic commits（`feat(engine)` 错误细分 + `test(engine)` case + 报告字段同步）
-  - **风险与缓解**：Code Quality「未启用」无官方 message 文档，判定信号不确定；缓解：以 Code Scanning 为主（有文档）先落地，Code Quality 待信号明确后补；匹配失败退回 `PERMISSION_DENIED`（不误判）
-  - **复杂度估算**：代码面约 80-120 行（2 个 fetcher + 错误码 + hint + 报告）；测试面 3-5 case
 
 #### Code Scanning 规则体系
 
@@ -266,30 +191,6 @@
   - **交付物**：待分批方案敲定后评估（预计 3-6 子批次，每子批次 1 atomic commit）
   - **风险与缓解**：批量删除编号可能丢失可追溯性；缓解：优先「改写为导航指针」而非纯删除，并保留编号后的解释正文；另需防批量替换误伤（按 §1.2 第 6 条纪律执行）
   - **复杂度估算**：注释 300 至 430 量级（跨多包，必须分批）；测试 0（注释类，以 lint + typecheck + 复扫 0 命中为证据）；文档 0
-
-- **C92 apps/platform 视觉回归最小集（Playwright 截图识别层）** —— 2026-09-29 M31 迁移收口后用户提出「迁移视觉变化有多大 / 有无视觉回归测试」疑虑衍生；评估完成待上收；按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) **不带 M\d+ 阶段编号**。
-  - **目标**：为 `apps/platform` 建立**像素级**视觉兜底，使组件库版本升级 / 主题 token 变更 / 关键页样式改动导致的非预期视觉漂移可被自动检出，而不是依赖一次性人工（视觉模型）判读。
-  - **优先级**：P3（非阻塞；M31 迁移期已用 `ui-validator` + 计算样式取证完成一次判定，本候选的增量价值体现在**未来**：caomei-ui 0.x → 1.0 升级回归与周期性回归层）。
-  - **现状实证**（2026-09-29，执行角色实测）：`rg -n "toHaveScreenshot|snapshotPathTemplate" apps packages` → **0 命中**；快照目录 `find apps/platform -name "*snapshots*"` → **0**。现有替代为四层——① 单测 1295（引自 [caomei-ui-migration.md §15.13](../design/governance/caomei-ui-migration.md#1513-b3-收尾实证m3152026-09-29) 实测，不含渲染观感）；② e2e 173（同引；选择器已改写，**判功能不判视觉**）；③ `dark-mode.e2e.test.ts` 的 body / header 精确 `rgb()` 计算样式断言（`rg -n "rgb\("` 该文件 → 4 条暗色断言，属样式回归而非像素回归）；④ V 阶段 `ui-validator`（视觉模型 `qwen3.7-plus`）截图审查 + `artifacts/m31-b{0,2,3,4,5}/` 与 `style-parity.json` 计算样式取证。**缺口**：无像素基线 / 无阈值 / 不可复跑比对；`artifacts/` 与 `test-results/` 均在 `.gitignore`（实测 75 / 84 行），证据随会话消失；CI 无视觉门禁；本文件「周期性回归验证层」的覆盖矩阵当前仅登记主线 #1，视觉层缺位。
-  - **参照做法（同源迁移先例）**：momei 的 PrimeVue → caomei-ui 迁移采用独立视觉工程——独立 `playwright.visual.config.ts`（不并入 `test:e2e` 的 `testMatch`）、基线快照入仓库、`maxDiffPixels: 200` + `threshold: 0.2`、`animations: 'disabled'` + `caret: 'hide'`、固定 chromium / 1440×900 / DSF1 / zh-CN / Asia-Shanghai、动态区域以 `[data-visual-mask]` 遮蔽、`workers: 1` + `retries: 0`；实测迁移期每页差异 0.6%~1.2%（逐项归因后更新基线），后续 `caomei-ui 0.2.0 → 0.3.0` 升级 `test:visual` 10/10 **零像素差异**，单轮约 1.5–2.0 min（耗时画像引自 momei `docs/reports/regression/current.md` 试点节，**外部引用，未在本仓复现**）。
-  - **最小集清单（建议，上收时敲定）**：亮色 4–5 张（`alerts` 分组 + 多列排序 / `repos` 行选择 + 标签录入 / `pr-checks` 密度例外页 / 一个浮层如 `dialog-import-repos` / `login`）+ 暗色 2 张（`alerts` / `repos`），合计 6–7 张。
-  - **决策点（待上收时敲定）**：
-    - **基线落位**：入仓库（momei 模式，可回溯、可在 PR 中 review）vs 仅 CI artifact（体积小但不可比对）。
-    - **阈值**：沿用 `maxDiffPixels: 200` + `threshold: 0.2`；须显式约定「不为让测试变绿放宽阈值」。
-    - **CI 接入**：独立 job（隔离耗时与报告）vs 并入 Test job 的 step；增量预算约 1.5–2 min。
-    - **环境固定**：基线须在 CI（ubuntu-latest）或固定容器内采集——本地 / 跨 OS 字体与抗锯齿差异不可作判据（本仓 e2e 已有容器 `TMPDIR=/dev/shm` 前置，见 [caomei-ui-migration.md §15.13](../design/governance/caomei-ui-migration.md#1513-b3-收尾实证m3152026-09-29)）。
-    - **已裁定差异的基线说明**：M31 的 8 条裁定项（7 项接受 + 1 项已修复）、§15.11 的表头不吸顶等另行接受的差异，以及 6 处 `neutral` 实底按钮 / `Message` soft 无边框，须写入基线说明或注释，避免后人误判为新回归。
-  - **验收标准**：
-    - [ ] `pnpm --filter @dependfix/platform test:visual` 独立入口可用，且不改变既有 `test:e2e` 的 `testMatch` 与断言语义
-    - [ ] 最小集覆盖亮 / 暗两态；动态区域以 `mask` 显式遮蔽（不靠像素容差兜底）
-    - [ ] 人为注入一处 token / 样式改动可被检出（反例验证：阈值有效，非恒真）
-    - [ ] CI 接入后增量耗时预算有实测记录；`pnpm lint` + `pnpm typecheck` 通过
-    - [ ] 基线采集环境（浏览器渠道 / viewport / locale / 时区）在配置注释中固化可复现
-  - **不做什么**：不做全量页面 × 多浏览器 × 多 viewport 矩阵；不替代 `ui-validator` 的交互 / 可用性审查（像素层不判「交互是否合理」）；不修改 e2e 功能层语义；不为让测试变绿放宽阈值或用 `mask` 掩盖真实差异；不在本候选内处理 M31 已裁定的视觉差异本身。
-  - **依赖**：关联 M31（触发来源，[caomei-ui-migration.md §15.13](../design/governance/caomei-ui-migration.md#1513-b3-收尾实证m3152026-09-29)）；消费者为本文件延期项「caomei-ui 0.x → 1.0 升级回归」；关联 [测试规范 §6.1 E2E 实践模式](../standards/testing.md#61-e2e-实践模式playwright)；外部参照 momei 的 `playwright.visual.config.ts` / `tests/visual/helpers/visual.ts`。
-  - **交付物**：2–4 atomic commits（`test(platform)` 视觉工程配置 + 基线快照 + 可选 `ci` 接入）
-  - **风险与缓解**：① 像素抖动导致 flaky → `workers: 1` + `retries: 0` + 关动画 + 字体就绪等待 + `mask`；② 跨 OS / 字体渲染差异 → 基线只在 CI 或固定容器采集；③ 基线体积与维护成本 → 只取最小集 + 提供增量更新入口；④ 阈值过宽掩盖真实回归 / 过窄误报 → 上收时用「注入式反例验证」标定。
-  - **复杂度估算**：配置 + helper 约 120–200 行；最小集 6–7 张基线；CI 接入 1 个 job 或 step；文档 2 处（`testing.md` 与 `platform.md`）
 
 #### 规范与治理
 
@@ -382,8 +283,8 @@
 
 | 内容类型 | 位置 |
 |:--|:--|
-| 当前阶段活跃任务 | *暂无进行中阶段* —— M31 已于 2026-09-29 完整归档，详见 [todo-archive.md §M31](todo-archive.md#m31-appsplatform-ui-组件库迁移primevue--caomei-ui-m311m316-全部已闭环--2026-09-29-归档)；M30 见 [§M30](todo-archive.md#m30-治理债清理--迁移可行性验证--能力扩展--测试补强m301m306-全部已闭环--2026-09-28-归档) |
+| 当前阶段活跃任务 | **M32 能力扩展优先**（2026-09-29 用户决策方案 B 启动，5 原子条目）—— 详见 [todo.md §M32](todo.md#m32-能力扩展优先2026-09-29-用户决策方案-b--进行中)；M31 已于 2026-09-29 完整归档，见 [§M31](todo-archive.md#m31-appsplatform-ui-组件库迁移primevue--caomei-ui-m311m316-全部已闭环--2026-09-29-归档) |
 | 已完成阶段归档 | [todo-archive.md](todo-archive.md)（主窗口保留最近阶段完整段 + 指针段；早期阶段见 [archive/](archive/)） |
-| 里程碑与阶段交付 | [roadmap.md](roadmap.md)（M0-M31 全部已完成归档） |
+| 里程碑与阶段交付 | [roadmap.md](roadmap.md)（M0-M31 已归档，M32 进行中） |
 | 长期主线 / 候选 / 待人工验收 / 已知边界 | 本文档（按四象限结构） |
 | 历史归档索引 | [archive/index.md](archive/index.md) |

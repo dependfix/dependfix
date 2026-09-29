@@ -133,7 +133,12 @@
 - **交付物**：2-3 atomic commits（`fix(engine)` + `fix(platform)` 隔离 + `test` case + `docs(git)`）
 - **风险与缓解**：若未来目标仓库强制签名 commit，需回到本决策；缓解：文档记录重开条件（密钥来源 / 失败语义 / 暴露层三项待定）
 
-#### M32.5（P3，🧪 测试基建 / 视觉兜底）C92 apps/platform 视觉回归最小集
+#### M32.5（P3，🧪 测试基建 / 视觉兜底）C92 apps/platform 视觉回归最小集 ✅ 已完成
+
+> **闭环记录（2026-09-29）**：7 commits（`114611f` fixtures 端点标签支持 / `ec3d236` alerts 视觉遮罩属性 / `cddeda2` vitest 排除视觉目录 / `1969ad5` 视觉回归独立工程 + 用例 + 入仓库基线 / `589db12` CI 接入与基线入库例外 / `01aa519` 规范与候选登记 / 本闭环登记）；A 阶段两分区（standard = platform 代码 / 测试；deep = CI / 配置 / 文档）**第 1 轮 1 Pass + 1 Reject**（RG-B1 blocker：验收项「M31 已裁定差异写入基线说明」未落地）→ 修复 → 第 2 轮 standard 复审 **Pass**（新增 RG-N1 引用归属 warning 已同步修正）。
+> **验证证据**（测量方：执行角色）：`TMPDIR=/dev/shm pnpm run test:visual` **7 passed**，基线采集后连跑两次零 diff（确定性）；反例验证 2 组——① 改 `_variables.scss` `$color-primary` → **2/7 失败**（pr-checks 226px / login 215px，其余页受影响面积 ≤200px 阈值未被检出）② 改 nuxt caomei 主题 `theme.primary` → **5/7 失败**（全部亮色用例 957-13658px，暗色用例不受影响因暗色档单独覆盖 `--caomei-color-primary`），还原 + 重建后 7/7 绿；e2e 175 passed（`--workers=1` 串行，2m24s，无回归）；根 `pnpm test` 3355 项（3347 passed / 8 skipped，含 fixtures 标签新用例）；root `pnpm run typecheck` 7 包 exit 0；非 `--fix` eslint（root + platform）0 problem；`check:docs` / `lint:md:check` 通过；视觉比对步骤实测约 12-13s（含 webServer 启动），远低于 1.5-2 min 预算。
+> **落地差异**：① 视觉套件改跑**独立 SQLite 库**（`data/visual.sqlite`）而非 e2e 库——e2e 库被用例累积写入（`repos-crud` 留记录、`scanRuns` 每次新建）会让基线必然漂移；② fixtures 端点新增可选 `tags`（视觉「标签录入」列需确定性数据，向后兼容 + 双门控不变）；③ `alerts` 时间列加 `data-visual-mask`；④ 根 `vitest.config.ts` 排除 `**/tests/visual/**`（新 spec 名命中 vitest 默认 include，首轮 `pnpm test` 因此失败）；⑤ CI job 初期 `continue-on-error`（基线为本地容器采集）+ 转阻断判定条件固化于 workflow 注释与 §6.7；⑥ `pr-checks` 行级 / `alerts` 右端列两处覆盖盲区登记 backlog（C93 / C94）。
+> **范围说明（A 类配套扩展）**：`server/api/e2e/fixtures.post.ts`（+`tags`）/ `tests/e2e/helpers/fixtures.helper.ts`（类型）/ `app/pages/alerts.vue`（遮罩属性）/ `package.json` / `tsconfig.json` / `vitest.config.ts` 属「补足 M32.5 验收标准的配套工作」，非独立能力扩展；交付物 commit 类型相应含 `feat(platform)`（fixtures 端点）与 `test(platform)`（视觉工程 + 基线）。
 
 - **目标**：为 `apps/platform` 建立像素级视觉兜底，使组件库版本升级 / 主题 token 变更 / 关键页样式改动导致的非预期视觉漂移可被自动检出，而不是依赖一次性人工（视觉模型）判读。
 - **优先级**：P3
@@ -155,7 +160,7 @@
   - [ ] 基线采集环境（浏览器渠道 / viewport / locale / 时区）在配置注释中固化可复现；`pnpm lint` + `pnpm typecheck` 通过
 - **不做什么**：不做全量页面 × 多浏览器 × 多 viewport 矩阵；不替代 `ui-validator` 的交互 / 可用性审查；不修改 e2e 功能层语义；不为让测试变绿放宽阈值或用 `mask` 掩盖真实差异；不在本条目内处理 M31 已裁定的视觉差异本身
 - **依赖**：关联 M31（触发来源，[caomei-ui-migration.md §15.13](../design/governance/caomei-ui-migration.md)）；消费者为 backlog 延期项「caomei-ui 0.x → 1.0 升级回归」；关联 [测试规范 §6.1 E2E 实践模式](../standards/testing.md)；外部参照 momei 的 `playwright.visual.config.ts` / `tests/visual/helpers/visual.ts`
-- **交付物**：2-4 atomic commits（`test(platform)` 配置 + helper + 基线快照 / `test(platform)` 用例 / `ci` 接入 / `docs`）
+- **交付物**（收口后校正为 7 atomic commits，按 [§1.1 任务粒度约束](../standards/planning.md#11-硬性约束)「单 commit ≤ 10 文件」与「提交态自洽」共同拆分）：① `test(platform)` fixtures 端点标签支持（端点 + 单测 + e2e 类型）② `test(platform)` alerts 时间列视觉遮罩属性 ③ `test` 排除视觉回归目录避免 vitest 误收集 ④ `test(platform)` 视觉回归独立工程 + 用例 + 入仓库基线 ⑤ `ci` 独立任务 + 基线入库例外 ⑥ `docs(standards)` 口径与候选登记 ⑦ `docs(plan)` 验收闭环登记。其中 ④ 含 15 文件（8 个代码/配置/文档 + 7 张二进制基线快照）——基线须与用例同 commit，否则该提交态下视觉套件必失败（提交态自洽优先于文件数阈值；二进制快照不计入代码审查负载）
 - **风险与缓解**：① 像素抖动导致 flaky → `workers: 1` + `retries: 0` + 关动画 + 字体就绪等待 + `mask`；② 跨 OS / 字体渲染差异 → 基线只在 CI 或固定容器采集（本仓 e2e 已有容器 `TMPDIR=/dev/shm` 前置）；③ 基线体积与维护成本 → 只取最小集 + 提供增量更新入口；④ 阈值过宽掩盖真实回归 / 过窄误报 → 用「注入式反例验证」标定
 
 ---

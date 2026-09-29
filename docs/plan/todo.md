@@ -28,20 +28,21 @@
 >
 > **ahead commits 实证**：阶段启动前 `git rev-list HEAD ^origin/master --count` 实测 = 0（M0-M32 全部已推送）；本阶段 commits 按 [AGENTS.md §5 推送禁令](../../AGENTS.md) 等待用户主动推送。
 
-#### M33.1 [P3 📚 治理] C91 新增规范条款的 review 检查点补挂
+#### M33.1 [P3 📚 治理] C91 新增规范条款的 review 检查点补挂 ✅ 已闭环（commit 4543a54）
 
 - **目标**：把已发布但缺 review 强制点的「必须 / 禁止」级约束挂接到 review 检查点，使其具备强制点而非仅权威文档声明。
 - **优先级**：P3（非阻塞；条款已发布于权威文档，仅缺 review 强制点）。
 - **范围**：`.github/agents/code-auditor.agent.md` + `.github/skills/code-reviewer/SKILL.md`（落点选择见决策点）；**注记清理**（A 阶段 RG-W1/W2）：`docs/standards/testing.md §6.7`（「review 检查点」bullet 的「补挂登记于 backlog（C91）」注记）+ `docs/standards/platform.md §3.9`（「补挂登记于 backlog.md（C91）」注记）+ `docs/design/governance/experience-archive-§49-§57-recent-investigation.md`（检查点表 7 行「⏳ 待补挂（登记 backlog C91）」→ 挂接后改 ✅ 并回填检查点落点）；覆盖条款：`development.md §5.1.24`–`§5.1.30`、`testing.md §6.1 / §6.5 / §6.6 / §6.7 / §6.8`、`security.md §2`、`platform.md §3.3 / §3.8 / §3.9`、`planning.md §2.3 / §2.5 / §4.4 第 13 条`、`ai-collaboration.md §1.3 分级审计执行协议`、`git.md §3.8`（签名隔离）。
 - **验收标准**：
-  - [ ] 各严格约束均有明确 review 检查点（或一条总检查点完整覆盖）
-  - [ ] 检查点按 [documentation.md §4 单点声明](../standards/documentation.md) 引用规范原文，不重复抄写
-  - [ ] **条款落点冒烟复扫**：`rg -n "5\.1\.2[4-9]|5\.1\.30|恒真|量化断言|视觉回归|中央优先|迁移前行为核实|取证工件|防护矩阵|前缀感知|dependfix\.yml|SIGNING_ISOLATION" .github/agents .github/skills` 命中 ≥ 15（改动前为 1）。该 rg 仅为冒烟检查，**覆盖证据以「矩阵行 ↔ §M33.1 范围条款逐行比对」为准**——部分触发面（`testing.md §6.1` / `§6.6`、`planning.md §2.3` / `§4.4 第 13 条`、`ai-collaboration.md §1.3`）不含 pattern 关键字，rg 结构上无法命中
-  - [ ] **注记清理复扫**：`rg -n "C91|待补挂" docs/standards/testing.md docs/standards/platform.md "docs/design/governance/experience-archive-§49-§57-recent-investigation.md"` = 0 命中（C91 相关注记全部消除；§6.6 / §6.7 覆盖边界与 CI 转阻断指针属其它条目范围，不在本条）
-  - [ ] `pnpm run check:docs` EXIT 0（新增链接可解析）
+  - [x] 各严格约束均有明确 review 检查点（`code-quality-checklist` 新增「规范条款 review 检查点矩阵」21 行逐条落点；`platform.md §3.8` 委托既有必查项不重复挂接）
+  - [x] 检查点按 [documentation.md §4 单点声明](../standards/documentation.md) 引用规范原文，不重复抄写（矩阵只写「review 检查动作」，code-auditor / SKILL.md 仅一行链接引用）
+  - [x] **条款落点冒烟复扫**：`rg -n "5\.1\.2[4-9]|5\.1\.30|恒真|量化断言|视觉回归|中央优先|迁移前行为核实|取证工件|防护矩阵|前缀感知|dependfix\.yml|SIGNING_ISOLATION" .github/agents .github/skills` 实测 17 命中（改动前为 1）；**覆盖证据以「矩阵行 ↔ §M33.1 范围条款逐行比对」为准**——部分触发面（`testing.md §6.1` / `§6.6`、`planning.md §2.3` / `§4.4 第 13 条`、`ai-collaboration.md §1.3`、`platform.md §3.8`）不含 pattern 关键字，rg 结构上无法命中
+  - [x] **注记清理复扫**：`rg -n "C91|待补挂" docs/standards/testing.md docs/standards/platform.md "docs/design/governance/experience-archive-§49-§57-recent-investigation.md"` 实测 0 命中（§6.6 / §6.7 覆盖边界与 CI 转阻断指针属其它条目范围，不在本条）
+  - [x] `pnpm run check:docs` EXIT 0（links 143 / vue-interp 79）；`lint:md:check` / `docs:check:i18n` / `docs:build` 通过；`pnpm lint` + `pnpm run typecheck` EXIT 0
 - **不做什么**：不改规范条款正文；不新增规范条款；不改 D 阶段自检规则本身（自检规则已存在于各 skill / agent）。
 - **依赖**：关联 M30 归档批次（触发来源）+ M32.4（`git.md §3.8`）+ M32 归档批次 wisdom 蒸馏（`development.md §5.1.27-§5.1.30` 等新增条款）。
-- **交付物**：1-2 atomic commits（`docs(review)` 检查点补挂）；文件 `.github/agents/code-auditor.agent.md` + `.github/skills/code-reviewer/SKILL.md`（±`references/code-quality-checklist.md`）+ `docs/standards/testing.md` + `docs/standards/platform.md` + `docs/design/governance/experience-archive-§49-§57-recent-investigation.md`。
+- **交付物**：✅ 1 atomic commit（`4543a54` `docs(review)`）；文件 `.github/agents/code-auditor.agent.md` + `.github/skills/code-reviewer/SKILL.md` + `.github/skills/code-reviewer/references/code-quality-checklist.md` + `docs/standards/testing.md` + `docs/standards/platform.md` + `docs/design/governance/experience-archive-§49-§57-recent-investigation.md` + `docs/plan/todo.md`。
+- **审计**：第 1 轮 `deep` Pass（0 blocker / 2 warning / 3 suggest）→ 修复 RG-W1（矩阵补 `platform.md §3.8` 行）/ RG-W2（AC3 声明覆盖边界 + 逐行比对证据）/ RG-S1（补锚点）/ RG-S2（补 §12.7 权威来源）→ 第 2 轮 `standard` 复审 Pass（4 项全部关闭）。
 - **风险与缓解**：合并为总检查点颗粒度不足可能漏检；缓解：优先逐条落点，至少覆盖高风险项（security.md §2 防护矩阵 / testing.md §6.7 视觉回归 / platform.md §3.9 目标仓库配置）。
 
 #### M33.2 [P3 🛠️ CI 治理] 视觉回归 CI job 转阻断（移除 `continue-on-error`）

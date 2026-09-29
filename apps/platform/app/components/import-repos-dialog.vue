@@ -84,9 +84,6 @@ const lastCachedAt = ref<Date | null>(null)
 const lastFromCache = ref(false)
 const lastFreshRefreshed = ref(false)
 
-/** 可勾选仓库（排除已导入项；全选/计数均基于此集合） */
-const selectableRepos = computed(() => importableRepos.value.filter((r) => !r.imported))
-
 import { passesRepoFilter } from '../utils/import-repos-filter'
 
 /** 四维过滤后的候选（保留 selectedRepos 语义，过滤变更仅重置页码） */

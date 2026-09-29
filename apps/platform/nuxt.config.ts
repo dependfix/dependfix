@@ -1,26 +1,5 @@
-import Aura from '@primeuix/themes/aura'
-import { definePreset } from '@primeuix/themes'
 import { parseDomainList } from './server/utils/email-domain'
 import { localeDetectorFile, nuxtI18n } from './i18n/nuxt-i18n-config'
-
-// 自定义 PrimeVue 主题预设：语义主色（青灰）跟随明暗模式
-const DependfixPreset = definePreset(Aura, {
-    semantic: {
-        primary: {
-            '50': '#f0fdfa',
-            '100': '#ccfbf1',
-            '200': '#99f6e4',
-            '300': '#5eead4',
-            '400': '#2dd4bf',
-            '500': '#14b8a6',
-            '600': '#0d9488',
-            '700': '#0f766e',
-            '800': '#115e59',
-            '900': '#134e4a',
-            '950': '#042f2e',
-        },
-    },
-})
 
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
@@ -51,9 +30,6 @@ export default defineNuxtConfig({
         },
     },
     modules: [
-        // 迁移期双库并存：PrimeVue（存量页面）与 caomei-ui（新页面 / 逐页迁移）同时注册。
-        // 命名空间隔离由库侧保证（组件 `Caomei*` / 类名 `caomei-` / token `--caomei-*` vs `p-*` / `--p-*`）。
-        '@primevue/nuxt-module',
         'caomei-ui/nuxt',
         '@nuxtjs/i18n',
     ],
@@ -64,7 +40,7 @@ export default defineNuxtConfig({
         prefix: 'Caomei',
         darkMode: 'class',
         theme: {
-            // teal-600：soft 底 / 文字 / 边框强调（与 PrimeVue 预设 primary.600 对齐）
+            // teal-600：soft 底 / 文字 / 边框强调（与 `_variables.scss` 的 `$color-primary-dark` 对齐）
             primary: '#0d9488',
             // teal-700：实底背景色，配 `--caomei-color-on-solid`（白）达 AA 4.5:1；
             // 该 token 跨明暗稳定，不随暗色档变化
@@ -87,29 +63,8 @@ export default defineNuxtConfig({
         experimental: { localeDetector: localeDetectorFile },
     },
     css: [
-        'primeicons/primeicons.css',
         '@/assets/styles/main.scss',
     ],
-    primevue: {
-        // 迁移期双库并存的唯一命名冲突点：PrimeVue 与 caomei-ui 都自动导入 `useToast` / `useConfirm`。
-        // 这里显式让 PrimeVue 侧退出自动导入（保留显式子路径导入 `primevue/usetoast` 可用），
-        // 使无限定调用在迁移期唯一解析到 caomei-ui，并消除构建期 "Duplicated imports" 警告。
-        composables: {
-            exclude: ['useToast', 'useConfirm'],
-        },
-        options: {
-            theme: {
-                preset: DependfixPreset,
-                options: {
-                    darkModeSelector: '.dark',
-                    cssLayer: {
-                        name: 'primevue',
-                        order: 'theme, base, primevue',
-                    },
-                },
-            },
-        },
-    },
     runtimeConfig: {
         // 服务端私有配置（NUXT_ 前缀环境变量可覆盖）
         // 构建期默认值仅用于开发；生产必须通过 NUXT_AUTH_SECRET 注入（getAuth 启动校验强制）
@@ -192,15 +147,6 @@ export default defineNuxtConfig({
         },
     },
     vite: {
-        resolve: {
-            dedupe: [
-                'primevue',
-                '@primevue/core',
-                '@primeuix/styled',
-                '@primeuix/styles',
-                '@primeuix/themes',
-            ],
-        },
         css: {
             preprocessorOptions: {
                 scss: {

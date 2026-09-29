@@ -12,7 +12,7 @@ onMounted(() => {
     initColorMode()
 })
 
-// auth 页品牌 mark：跟随 .dark class 动态切换（与 PrimeVue 主题切换逻辑一致）
+// auth 页品牌 mark：跟随 .dark class 动态切换（与站点主题切换逻辑一致）
 // 之前用 <picture media="(prefers-color-scheme: dark)"> 只跟随系统偏好，
 // 与用户在站内手动 toggle 暗色模式的 .dark class 冲突，导致深色背景下显示浅色 mark
 const authLogoSrc = computed(() => dark.value ? '/brand/logo-navy.svg' : '/brand/logo-light.svg')
@@ -42,7 +42,19 @@ watch(
             <p class="auth__subtitle">
                 {{ t('index.subtitle') }}
             </p>
-            <CaomeiProgressSpinner v-if="isPending" size="lg" />
+            <CaomeiProgressSpinner
+                v-if="isPending"
+                class="auth__spinner"
+                size="lg"
+            />
         </div>
     </div>
 </template>
+
+<style lang="scss" scoped>
+// 加载指示器对齐迁移前的 40px（caomei 尺寸档最大为 lg = 32px）。
+// 库的档位变量规则由 `:where()` 包裹（特异性 0），此 scoped 规则可直接覆盖。
+.auth__spinner {
+    --caomei-progress-spinner-size: 40px;
+}
+</style>

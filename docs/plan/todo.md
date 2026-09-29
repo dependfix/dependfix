@@ -88,11 +88,13 @@
 - **交付物**：2-4 atomic commits（`feat(engine)` 读取层 + schema / `feat(engine)` 优先级合并 / `test(engine)` case / `docs`）
 - **风险与缓解**：新增配置约定需目标仓库采纳，短期覆盖率低；缓解：与中央配置并存，按仓库渐进采纳
 
-#### M32.3（P3，🚀 能力扩展）C89 Code Scanning / Code Quality「未启用」与「获取失败」区分
+#### M32.3（P3，🚀 能力扩展）C89 Code Scanning / Code Quality「未启用」与「获取失败」区分 ✅ 已完成
+
+> **闭环记录（2026-09-29）**：3 commits（`00a11ff` `fix(engine)` 403 判定与源感知文案 / `c7e5cce` `fix(core)` 报告指引源无关 / `0a9516e` `docs(standards)` 口径登记）+ 本闭环登记；A 阶段两分区（deep + standard）**第 1 轮均 Pass**（0 blocker），并按 warning / suggest 收敛（集成层断言改锁 hint 独有子串 / 匹配口径补 `code security` / 删除无调用点入口 / 报告测试正向锁指引句 / 匹配口径权威单点迁至 `github-client.md §5.3`）。
 
 - **目标**：Code Scanning（Advanced Security 未启用时 403）与 Code Quality 的「未启用」状态从 `PERMISSION_DENIED` 中区分出来，与 Dependabot 的 `ALERTS_DISABLED` 口径一致（未启用 ≠ 失败：单列计数 + 准确文案）。
 - **优先级**：P3
-- **范围**：`packages/engine/src/github/code-scanning-fetcher.ts` + `code-quality-fetcher.ts`（403 message 判定 → `ALERTS_DISABLED` + source 信息）/ `packages/engine/src/app/token-hints.ts`（`codeScanningAlertsTokenHint` / `codeQualityAlertsTokenHint` 增加「未启用」分支，复用 `isAlertsDisabledError`）/ `packages/engine/src/app/index.ts`（接线）/ 报告展示口径
+- **范围**（落地后校正：判定**集中**在共用映射层，而非两个 fetcher 各自实现）：`packages/engine/src/github/errors.ts`（403「功能未启用」匹配：Dependabot 精确文案 + GHAS / Code Security 容忍匹配）/ `packages/engine/src/app/token-hints.ts`（`alertSourceLabel` / `alertsDisabledHint(source)` 按源文案）/ `packages/engine/src/app/repo-alerts.ts`（未启用分支按源记录与提示）/ `packages/core/src/report/markdown-generator.ts` + `types.ts`（报告指引源无关 + 明细注释）/ `docs/standards/platform.md §6.1` + `docs/design/modules/github-client.md §5.3`
 - **决策（P 阶段裁定）**：复用 `ALERTS_DISABLED` 错误码 + source 区分，**不新增独立错误码**——与 C78 方案 A 口径一致，避免错误码增殖
 - **验收标准**：
   - [ ] Code Scanning 403 + Advanced Security 未启用 message 可与权限失败区分，报告 / 日志文案准确
@@ -101,9 +103,10 @@
   - [ ] Code Quality 判定信号未明时退回 `PERMISSION_DENIED`（不误判）
   - [ ] `pnpm lint` + `pnpm typecheck` + engine 定向测试通过
 - **不做什么**：不改 `alertsSource` 默认值；不自动开启目标仓库 Advanced Security；不引入新依赖；不落地前端 Code Scanning 扫描消费场景
-- **依赖**：关联 C78（已落地的 Dependabot 未启用口径，含 `isAlertsDisabledError` / `dependabotAlertsDisabledHint`）；关联前端 Code Scanning 扫描落地（消费场景前置，本批仅为口径对齐）
+- **依赖**：关联 C78（已落地的 Dependabot 未启用口径，含 `isAlertsDisabledError`）；关联前端 Code Scanning 扫描落地（消费场景前置，本批仅为口径对齐）
 - **交付物**：2-3 atomic commits（`feat(engine)` 错误细分 + `test(engine)` case + 报告字段 / 文档同步）
-- **风险与缓解**：Code Quality「未启用」无官方 message 文档，判定信号不确定；缓解：以 Code Scanning 为主（有官方文档）先落地，Code Quality 待信号明确后补；匹配失败退 `PERMISSION_DENIED`
+- **风险与缓解**：Code Quality「未启用」无官方 message 文案（官方文档仅描述 403 语义）；缓解：采用「产品名片段 + 否定启用词」双片段容忍匹配（覆盖 `advanced security` / 新称 `code security`），匹配失败退 `PERMISSION_DENIED`（不误判）；若未来取到真实文案可固化为 fixture。另：未启用源与其余源全失败时的仓库级粒度退化已登记 backlog §已知边界。
+- **验证证据**（测量方：执行角色）：root `pnpm test` 3354 项（`pnpm test`，3346 passed / 8 skipped）；mutation 实证 2 项（去掉 GHAS 容忍匹配 → 6 用例失败；提示硬编码回 Dependabot → 源感知用例失败）；root `typecheck` 7 包全绿；非 `--fix` eslint 0 problem；`check:docs` / `lint:md` 通过；`pnpm run build` 重建 dist
 
 #### M32.4（P3，🛡️ 技术债 / 治本）C82 git 签名语义边界（push 隔离 + 不提供 opt-in）✅ 已完成
 

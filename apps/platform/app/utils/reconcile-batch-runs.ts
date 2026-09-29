@@ -2,7 +2,7 @@ import type { BatchRunView } from '~/types/platform'
 
 /**
  * 按 id 增量合并服务端最新列表到本地 batchRuns（原地变异以触发 Vue 3 数组响应式）。
- * 设计目标：避免 PrimeVue DataTable 整表重排导致屏闪。
+ * 设计目标：避免迁移前的 DataTable 整表重排导致屏闪。
  *
  * 算法三步：
  * 1. 移除已消失的 id（从后往前 splice，索引稳定）

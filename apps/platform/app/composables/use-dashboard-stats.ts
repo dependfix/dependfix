@@ -18,7 +18,7 @@
  * ```
  *
  * 复用页面：dashboard.vue + alerts.vue。
- * 设计文档：[docs/standards/platform.md §7.1 PrimeVue 4 集成实践](../../../../docs/standards/platform.md#71-primevue-4-集成实践)。
+ * 设计文档：[docs/standards/platform.md §7.1 caomei-ui 集成实践](../../../../docs/standards/platform.md#71-caomei-ui-集成实践)。
  */
 import {
     buildFixRateChartData,

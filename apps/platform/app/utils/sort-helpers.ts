@@ -1,7 +1,7 @@
 /**
  * 表格排序辅助工具：枚举字段业务语义排序键 + map helper。
  *
- * 背景：PrimeVue DataTable `<Column sortable field="x">` 默认按字段值字符串字典序比较；
+ * 背景：迁移前的 DataTable `<Column sortable field="x">` 默认按字段值字符串字典序比较；
  * 但 severity / status / role / fixStatus 等枚举字段按字典序排序不符合用户直觉
  * （如字典序会把 unknown 排第一，但用户期望 critical 排第一）。
  *

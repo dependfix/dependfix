@@ -321,7 +321,7 @@ const groupHeaderLabel = (data: AlertView): string => {
  * TanStack 只对「列模型中存在的列」排序（`createSortedRowModel` 以 `getColumn(sort.id)` 为门槛），
  * 传入分组字段（packageName / repository）会被静默丢弃。分组所需的同组相邻由**服务端**保证：
  * `/api/alerts?groupBy=` 会 `orderBy(groupBy)`，客户端再按严重级别做稳定排序后，同 severity 内
- * 仍保持服务端的分组字段升序（等价 PrimeVue 双键 `[_severityRank desc, packageName asc]` 的结果）。
+ * 仍保持服务端的分组字段升序（等价迁移前组件库双键 `[_severityRank desc, packageName asc]` 的结果）。
  * 详见 docs/design/governance/caomei-ui-migration.md §15.10
  */
 const multiSortMeta = ref<DataTableSortMeta[]>([
@@ -329,8 +329,8 @@ const multiSortMeta = ref<DataTableSortMeta[]>([
 ])
 const expandedPackages = ref<string[]>([])
 // 自定义 span 整体可点击 + 键盘 enter/space 触发（验收要求）。
-// PrimeVue 4 rowToggleButton 在 groupheader 之前渲染（已验证 datatable/index.mjs:1776-1800），
-// 自定义 toggle 与 PrimeVue 内部 toggle 走不同路径但修改同一 ref，不会重复 toggle。
+// 迁移前组件库 4.x 的 rowToggleButton 在 groupheader 之前渲染（渲染顺序实证见迁移评估 §15.10），
+// 自定义 toggle 与其内部 toggle 走不同路径但修改同一 ref，不会重复 toggle。
 const isPackageExpanded = (packageName: string) => expandedPackages.value.includes(packageName)
 const togglePackage = (packageName: string) => {
     expandedPackages.value = isPackageExpanded(packageName)
@@ -355,14 +355,14 @@ const dataTableAttrs = computed(() => {
 })
 
 /**
- * 列定义：caomei DataTable 用 `columns` 数组 + `#cell-{key}` 插槽替代 PrimeVue 的 `<Column>`。
+ * 列定义：caomei DataTable 用 `columns` 数组 + `#cell-{key}` 插槽替代迁移前的 `<Column>`。
  *
- * 等价性要点（迁移自 PrimeVue `<Column>`）：
+ * 等价性要点（由迁移前 `<Column>` 迁移而来）：
  * - `key` 同时是排序字段，故严重级别 / 状态列用 rank 字段作 key（与 `multiSortMeta.field` 一致）
- * - **分组模式下剔除分组字段列**：PrimeVue 渲染 subheader 模式时省略 `groupRowsBy` 同名列
+ * - **分组模式下剔除分组字段列**：迁移前组件库渲染 subheader 模式时省略 `groupRowsBy` 同名列
  *   （表头与单元格都不渲染，实测 14 列 / colspan=14）；caomei 对分组同名列保留单元格位但不渲染内容，
  *   为保持列数与表结构等价，这里按当前分组字段过滤（分组连续性改由服务端排序保证，见 `multiSortMeta` 注释）
- * - 原 PrimeVue `:export="false"` 是无效 prop（PrimeVue 无该字段），按迁移评估 §5.3 直接删除
+ * - 原迁移前组件库 `:export="false"` 是无效 prop（迁移前组件库无该字段），按迁移评估 §5.3 直接删除
  */
 const columns = computed<DataTableColumn<AlertView>[]>(() => {
     const all: DataTableColumn<AlertView>[] = [
@@ -388,11 +388,11 @@ const columns = computed<DataTableColumn<AlertView>[]>(() => {
 
 /**
  * 受控排序回写：提供 `multi-sort-meta` 时 caomei 进入受控模式，不回写则点击列头不改变排序
- * （等价 PrimeVue 的 `v-model:multi-sort-meta`）。
+ * （等价迁移前的 `v-model:multi-sort-meta`）。
  *
  * 不用 caomei 的全局 `sort-desc-first`：实测该开关会把列头点击循环变成「desc → asc → 移除」，
- * 与 PrimeVue 的「asc → desc → 移除」不一致（且叠加首次点击纠正后 desc 状态不可达）。
- * 默认排序方向仅由 `multiSortMeta` 初值承载（severity desc）；分组连续性见上方注释，与 PrimeVue 逐项一致。
+ * 与迁移前组件库的「asc → desc → 移除」不一致（且叠加首次点击纠正后 desc 状态不可达）。
+ * 默认排序方向仅由 `multiSortMeta` 初值承载（severity desc）；分组连续性见上方注释，与迁移前组件库逐项一致。
  */
 const onUpdateMultiSortMeta = (meta: DataTableSortMeta[]) => {
     multiSortMeta.value = meta

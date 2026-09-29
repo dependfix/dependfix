@@ -108,7 +108,7 @@ test.describe('C-ENV env-events UI', () => {
         await page.waitForSelector('.env-events__table', { timeout: 10000 })
         const scrollWrapper = page.locator('.env-events__table .env-events__table-scroll')
         await expect(scrollWrapper).toBeVisible()
-        // 断言滚动容器的核心 CSS（原 PrimeVue `scrollable` + `scroll-height="60vh"` 的等价承接）
+        // 断言滚动容器的核心 CSS（迁移前 `scrollable` + `scroll-height="60vh"` 的等价承接）
         const scrollStyles = await scrollWrapper.evaluate((el) => {
             const cs = window.getComputedStyle(el)
             return {

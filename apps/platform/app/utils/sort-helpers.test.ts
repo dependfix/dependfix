@@ -278,7 +278,7 @@ describe('集成: withXxxRank + DataTable 排序契约', () => {
             { id: '4', severity: 'high', packageName: 'd' },
         ]
         const enriched = withSeverityRank(items)
-        // DataTable 默认 asc（PrimeVue 4 行为），数值小排前
+        // DataTable 默认 asc（迁移前组件库 4.x 行为），数值小排前
         const sorted = [...enriched].sort((a, b) => a._severityRank - b._severityRank)
         expect(sorted.map((x) => x.severity)).toEqual(['unknown', 'low', 'high', 'critical'])
     })

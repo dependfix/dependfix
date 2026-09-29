@@ -130,7 +130,7 @@ const onSubmit = async () => {
                     </div>
                     <div class="auth-form__field">
                         <label for="password">{{ t('auth.register.password') }}</label>
-                        <!-- caomei `feedback` 默认关闭，与迁移前 PrimeVue 显式 `:feedback="false"` 的行为一致，
+                        <!-- caomei `feedback` 默认关闭，与迁移前组件库显式 `:feedback="false"` 的行为一致，
                              故不传该 prop（不新增强度条这一可见 UI） -->
                         <CaomeiPassword
                             id="password"

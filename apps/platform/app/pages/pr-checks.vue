@@ -66,7 +66,7 @@ const alertFiringOptions = computed(() => [
     { label: t('prChecks.alertFiringFalse'), value: 'false' },
 ])
 
-// SSR-aware 数据获取（SSR 阶段 handler 跑完拿数据，hydration 时 PrimeVue 已能渲染）
+// SSR-aware 数据获取（SSR 阶段 handler 跑完拿数据，hydration 时迁移前组件库已能渲染）
 const requestFetch = useRequestFetch()
 
 // /api/repos 用于仓库选项（SSR 阶段就拉取，无 hydration 闪烁）；
@@ -108,8 +108,8 @@ const sortMeta = ref<DataTableSortMeta[]>([
 ])
 
 /**
- * 列定义（caomei DataTable 用 `columns` 数组 + `#cell-{key}` 插槽替代 PrimeVue 的 `<Column>`）。
- * `key` 即排序字段；actions 列不可排序（原 `:exportable="false"` 非 PrimeVue/caomei 有效 prop，按评估 §5.3 删除）。
+ * 列定义（caomei DataTable 用 `columns` 数组 + `#cell-{key}` 插槽替代迁移前的 `<Column>`）。
+ * `key` 即排序字段；actions 列不可排序（原 `:exportable="false"` 非迁移前组件库/caomei 有效 prop，按评估 §5.3 删除）。
  */
 const columns = computed<DataTableColumn<PRCheckView>[]>(() => [
     { key: 'prNumber', header: t('prChecks.colPrNumber'), sortable: true },
@@ -122,7 +122,7 @@ const columns = computed<DataTableColumn<PRCheckView>[]>(() => [
 
 /**
  * 受控多列排序回写：提供 `multi-sort-meta` 时 caomei 进入受控模式，
- * 不回写则点击列头不改变排序（等价 PrimeVue 的 `v-model:multi-sort-meta`）。
+ * 不回写则点击列头不改变排序（等价迁移前的 `v-model:multi-sort-meta`）。
  */
 const onUpdateMultiSortMeta = (meta: DataTableSortMeta[]) => {
     sortMeta.value = meta
@@ -314,7 +314,7 @@ const handleAck = async (row: PRCheckView) => {
 .pr-checks {
     padding: $space-4 $space-5;
 
-    // 本页 DataTable 原未设 PrimeVue `size`（默认档 12px 16px），更接近 caomei 默认单元格密度
+    // 本页 DataTable 原未设迁移前组件库 `size`（默认档 12px 16px），更接近 caomei 默认单元格密度
     // （`--caomei-space-2` / `--caomei-space-3` = 8px 12px），而非全局收敛用的 small 档（6px 8px）。
     // 故此处恢复 caomei 默认密度（特异性 0,4,1 > 全局覆盖的 0,2,1）。
     &__table :deep(.caomei-data-table__table th.caomei-data-table__th),

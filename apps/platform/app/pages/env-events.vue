@@ -170,12 +170,12 @@ const extractMessagePreview = (json: string | null): string => {
 }
 
 /**
- * 列定义（caomei DataTable 用 `columns` 数组 + `#cell-{key}` 插槽替代 PrimeVue 的 `<Column>`）。
+ * 列定义（caomei DataTable 用 `columns` 数组 + `#cell-{key}` 插槽替代迁移前的 `<Column>`）。
  * - `key` 即排序字段（`field` 语义并入 `key`）：severity 列用 rank 字段 `_severityRank`，
  *   message 列用派生的 `messageText`（均为 sortable 的排序键）
  * - 原 `<Column field="_severityRank" :default-sort-order="-1">` 的 `default-sort-order` 删除：
- *   实测 PrimeVue 该 prop 只影响点击循环方向、不影响初始状态（初始为未排序 `aria-sort="none"`）；
- *   caomei 默认三态循环 asc → desc → 移除，与 PrimeVue 行为一致，故不设 `multiSortMeta` 初值
+ *   实测迁移前组件库该 prop 只影响点击循环方向、不影响初始状态（初始为未排序 `aria-sort="none"`）；
+ *   caomei 默认三态循环 asc → desc → 移除，与迁移前组件库行为一致，故不设 `multiSortMeta` 初值
  * - `removable-sort` 删除：caomei/TanStack 三态默认等价
  */
 const columns = computed<DataTableColumn<EnvEventView>[]>(() => [

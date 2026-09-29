@@ -49,7 +49,7 @@ const emit = defineEmits<{
 /**
  * caomei Drawer 仅 emit `update:open`（无 `hide`）：用 computed 双向桥接既有 `visible` 契约，
  * 并由 `visible` 的 true→false 边沿补发 `hide`，覆盖「内建关闭按钮 / Esc / 遮罩」与
- * 「父级程序化置 false」两条路径（等价 PrimeVue Sidebar 的 `hide` 语义，各发一次）。
+ * 「父级程序化置 false」两条路径（等价迁移前的 Sidebar 的 `hide` 语义，各发一次）。
  */
 const drawerOpen = computed({
     get: () => props.visible,

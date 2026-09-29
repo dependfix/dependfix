@@ -4,7 +4,7 @@
 // 刷新策略：
 // - 轮询节拍 60s（替代原 2s），仅 status==='running' 时启用，无运行中批次自动停止
 // - 增量 reconcile：服务端返回 updatedAt，前端按 id 合并数组而非整表替换，
-//   避免 PrimeVue DataTable 整表 reconcile 引发屏闪
+//   避免迁移前的 DataTable 整表 reconcile 引发屏闪
 // - 手动刷新按钮：点击立即拉取 + 重置下次轮询计时；in-flight 守卫防并发
 // - 60s 节拍为 2026-08-19 用户反馈决策（backlog 原推荐 5s 实际仍嫌频繁；
 //   running 批次平均 30s+ 进度变化有限，60s 已足够；保留 BATCH_POLL_INTERVAL_MS 常量便于后续微调）
@@ -36,7 +36,7 @@ const loading = ref(false)
 const inflight = ref(false)
 const error = ref('')
 const batchRuns = ref<BatchRunView[]>([])
-// caomei DataTable 的行展开为「行 key 数组」（PrimeVue 的 `expandedRows` 是 Record<key, boolean>，
+// caomei DataTable 的行展开为「行 key 数组」（迁移前的 `expandedRows` 是 Record<key, boolean>，
 // 迁移时按 caomei 契约改写；row-key 同为 'id'）
 const expandedRows = ref<string[]>([])
 const onUpdateExpandedRows = (rows: string[]) => {
@@ -235,8 +235,8 @@ onMounted(async () => {
 onUnmounted(stopPolling)
 
 /**
- * 列定义（caomei DataTable 用 `columns` 数组 + `#cell-{key}` 插槽替代 PrimeVue 的 `<Column>`）。
- * - `expander: true` 列即 PrimeVue `<Column expander>`（表头留空，单元格渲染展开/收起按钮）
+ * 列定义（caomei DataTable 用 `columns` 数组 + `#cell-{key}` 插槽替代迁移前的 `<Column>`）。
+ * - `expander: true` 列即迁移前组件库 `<Column expander>`（表头留空，单元格渲染展开/收起按钮）
  * - `_statusRank` 保留为排序字段（与 sort-helpers 的 rank 注入一致）；原 `:default-sort-order="-1"`
  *   仅影响初始排序方向，而本页初始无排序，故迁移后行为一致
  */
@@ -251,7 +251,7 @@ const columns = computed<DataTableColumn<BatchRunView>[]>(() => [
 ])
 
 /**
- * 展开区嵌套表格列定义（与 PrimeVue `<Column>` 等价，均不可排序）。
+ * 展开区嵌套表格列定义（与迁移前组件库 `<Column>` 等价，均不可排序）。
  * 这些是**虚拟列**：单元格内容全部由 `#cell-*` 插槽渲染，不要设为 sortable（无对应可排序字段）。
  */
 const nestedColumns = computed<DataTableColumn<BatchRunRun>[]>(() => [

@@ -314,7 +314,7 @@ const selectedRows = ref<RepoView[]>([])
 
 /**
  * 行选择受控回写：提供 `selection` 时 caomei 进入受控模式，不回写则勾选无效
- * （等价 PrimeVue 的 `v-model:selection`）。
+ * （等价迁移前的 `v-model:selection`）。
  * emit 载荷类型为 `T | T[] | null`（multiple 模式运行时恒为数组），此处做最小窄化，
  * 不改动 `selectedRows` 的下游语义（批量扫描按钮启用条件 / 批量操作请求体）。
  */
@@ -337,9 +337,9 @@ const {
 const importDialogVisible = ref(false)
 
 /**
- * 列定义（caomei DataTable 用 `columns` 数组 + `#cell-{key}` 插槽替代 PrimeVue 的 `<Column>`）。
+ * 列定义（caomei DataTable 用 `columns` 数组 + `#cell-{key}` 插槽替代迁移前的 `<Column>`）。
  * - `key` 即排序字段（`field` 语义并入 `key`）；`actions` 等非排序列用语义名保证唯一 key
- * - 行选择列由 `selection-mode="multiple"` 内建渲染，不再需要 PrimeVue 的 `<Column selection-mode>`
+ * - 行选择列由 `selection-mode="multiple"` 内建渲染，不再需要迁移前的 `<Column selection-mode>`
  */
 const columns = computed<DataTableColumn<RepoView>[]>(() => [
     { key: 'owner', header: t('repos.colOwner'), sortable: true },

@@ -6,7 +6,7 @@ import type { APIRequestContext } from '@playwright/test'
  * 背景（todo.md §M16.5 E2E timeout 修复）：
  * - alerts.vue 迁移 useAsyncData 后 SSR 阶段在 server 进程内 fetch /api/alerts
  * - page.route() 拦截不到 server 内 fetch → SSR 阶段真实打 server → e2e 库空 → hydration
- *   alerts.value=[] → PrimeVue rowGroup 不渲染 → rowGroup 测试 timeout 重试 →
+ *   alerts.value=[] → 迁移前的 rowGroup 不渲染 → rowGroup 测试 timeout 重试 →
  *   E2E job 累计 ≥ 20min → workflow timeout-minutes 取消
  * - 修复路径：global-setup 通过 fixtures API 注入真实数据，alerts-rowgroup 去掉
  *   page.route mock alerts/repos，依赖 server 真实返回 fixtures 数据

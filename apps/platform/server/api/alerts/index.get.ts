@@ -18,12 +18,12 @@ import { requireAuth } from '#server/utils/guard'
  *
  * groupBy 参数（todo.md §C65-D3）：
  * - `package`：按 packageName 排序，前端 DataTable rowGroupMode="subheader" 按包分组
- *   （PrimeVue 4 要求数据按 groupRowsBy 字段预排序，相邻行字段值变化触发 subheader）
+ *   （迁移前组件库 4.x 要求数据按 groupRowsBy 字段预排序，相邻行字段值变化触发 subheader）
  * - `repository`：按关联 Repository owner + name 排序，前端按项目分组
  * - 不传 / 其他值：原始列表，按 createdAt DESC（默认）
  *
- * rowGroup 语义：用户切换其他列排序时，PrimeVue 多列排序模式会自动把 groupRowsBy 保留为第一排序键，
- * 避免 group 顺序被破坏（参考 primefaces/primevue DataTable.vue sortSingle/sortMultiple 实现）。
+ * rowGroup 语义：用户切换其他列排序时，迁移前组件库多列排序模式会自动把 groupRowsBy 保留为第一排序键，
+ * 避免 group 顺序被破坏（上游多列排序实现约定，实证见迁移评估 §15.10）。
  *
  * dedupe 参数（M20.5 移除）：
  * - 旧实现（[archive/todo-archive-phases-m13.md §M13.2 / T1306](../archive/todo-archive-phases-m13.md#m132-网络治理--告警去重-)）按 fingerprint (repositoryId + packageName + ruleId) 应用层聚合
@@ -76,7 +76,7 @@ export default defineEventHandler(async (event) => {
     if (groupBy === 'package') {
         qb.orderBy('result.packageName', 'ASC')
     } else if (groupBy === 'repository') {
-        // repository 模式：跨 repo 排序 + 同一 repo 内按 packageName ASC（保证 PrimeVue rowGroup subheader 相邻行字段值变化）
+        // repository 模式：跨 repo 排序 + 同一 repo 内按 packageName ASC（保证迁移前的 rowGroup subheader 相邻行字段值变化）
         qb.orderBy('repository.owner', 'ASC').addOrderBy('repository.name', 'ASC').addOrderBy('result.packageName', 'ASC')
     } else {
         qb.orderBy('result.createdAt', 'DESC')

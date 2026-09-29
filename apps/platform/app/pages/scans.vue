@@ -89,7 +89,7 @@ const pageSize = ref(10)
 const first = ref(0)
 
 /**
- * caomei DataTable 受控分页为 1 基 `page`（PrimeVue 为 0 基 `first`）。
+ * caomei DataTable 受控分页为 1 基 `page`（迁移前组件库为 0 基 `first`）。
  * 由既有 `first` / `pageSize` 状态换算，`@page` 回写 `first` 即驱动页码；
  * `pageSize` / `first` 的语义与下游 `fetchRuns` 用法保持不变。
  */

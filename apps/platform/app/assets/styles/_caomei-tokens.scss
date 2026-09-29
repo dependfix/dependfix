@@ -13,11 +13,11 @@
 //   与「main.scss 先于模块注入的 theme.css 加载」这一顺序无关。
 // 映射来源：`docs/design/governance/caomei-ui-migration.md` §6（值经真实浏览器复核）
 
-// DataTable 单元格密度对齐 PrimeVue `size="small"`：
-// PrimeVue Aura small 尺寸为 `0.375rem 0.5rem`（6px 8px），caomei 默认为
+// DataTable 单元格密度对齐迁移前 `size="small"`：
+// 迁移前主题（Aura）small 尺寸为 `0.375rem 0.5rem`（6px 8px），caomei 默认为
 // `var(--caomei-space-2) var(--caomei-space-3)`（8px 12px）→ 行高与单元格内边距偏大。
-// 仓库内 DataTable 标签共 20 处（PrimeVue 14 处，其中 13 处显式 size="small"；caomei 6 处），
-// 故统一按 PrimeVue small 收敛；唯一例外 pr-checks.vue 未设 size，已按用户裁定恢复 caomei 默认密度（见评估文档 §15.11 第 8 条）。
+// 仓库内 DataTable 标签共 20 处（迁移前组件库 14 处，其中 13 处显式 size="small"；caomei 6 处），
+// 故统一按迁移前的 small 收敛；唯一例外 pr-checks.vue 未设 size，已按用户裁定恢复 caomei 默认密度（见评估文档 §15.11 第 8 条）。
 // 注意：caomei 的单元格规则为 scoped 形式 `.caomei-data-table__th[data-v-xxx]`（特异性 0,2,0），
 // 故此处用 `.caomei-data-table__table th.caomei-data-table__th`（0,2,1）确保胜出（不依赖加载顺序）。
 .caomei-data-table__table th.caomei-data-table__th,
@@ -26,7 +26,7 @@
 }
 
 // 选择器家族（Select / MultiSelect / AutoComplete）默认上限 20rem：
-// PrimeVue 侧 32 处里 29 处显式 `fluid`（全宽），caomei 无 `fluid` prop。为对齐迁移前
+// 迁移前组件库侧 32 处里 29 处显式 `fluid`（全宽），caomei 无 `fluid` prop。为对齐迁移前
 // 「表单字段 / 过滤项随容器全宽」的既有布局，把上限收敛为 none，宽度约束交由**外层容器**
 // 承担（选择器的可见根是 Reka `SelectTrigger`，页面/全局样式写在选择器上约束不了宽度）——
 // 例如 `.platform__lang`（容器 div，main.scss）与 `users.vue` 的 `.users__role-select`（inline-block 容器）。

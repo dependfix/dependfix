@@ -8,7 +8,7 @@ interface ColorModeState {
 }
 
 /**
- * 暗色模式切换（PrimeVue darkModeSelector: '.dark'）。
+ * 暗色模式切换（站点暗色模式切换：`.dark` 挂载于 `<html>`）。
  * 通过 <html> 上的 .dark class 切换，偏好持久化到 localStorage。
  */
 const dark = ref(false)

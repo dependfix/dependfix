@@ -5,7 +5,7 @@ import { waitForHydration } from './helpers/hydration.helper'
  * 暗色模式回归测试（C59 修复防护，见 docs/plan/backlog.md §C59）。
  *
  * 背景：自定义 SCSS 容器（header / body / auth）切到 dark mode 后保持浅色，
- * 与 PrimeVue 组件（DataTable / Dialog / Tag）"半亮半暗"。根因：`_mixins.scss` 的
+ * 与组件库主题（DataTable / Dialog / Tag）"半亮半暗"。根因：`_mixins.scss` 的
  * `@mixin dark-mode` 用 `:global(.dark) &`，这是 CSS Modules 语法，仅在 `<style scoped>`
  * 块内有效；`main.scss` 通过 `nuxt.config.ts:60` 的 `css: [...]` 作为全局 CSS 加载，
  * 没有 scope，编译产物 `:global(.dark) .parent-class` 里的 `:global(.dark)` 不是

@@ -16,7 +16,7 @@ import { resolveOrganizationId } from '#server/utils/organization'
  * - alerts.vue 迁移到 useAsyncData 后，SSR 阶段 useAsyncData handler 在 server 进程内
  *   发起 fetch，page.route() 拦截不到（playwright route 只能拦浏览器请求）。
  * - e2e 测试如果只 page.route mock /api/alerts + /api/repos，SSR 阶段 fetch 会真实打
- *   server，e2e 库空 → hydration 时 alerts.value=[] → PrimeVue rowGroup subheader 不渲染 →
+ *   server，e2e 库空 → hydration 时 alerts.value=[] → 迁移前的 rowGroup subheader 不渲染 →
  *   rowGroup 测试 timeout 重试 → E2E job 累计 ≥ 20min → workflow timeout-minutes 取消。
  * - 修复路径：global-setup 通过本端点注入真实 fixtures（repos + scanRuns + scanResults），
  *   tests/e2e/alerts-rowgroup.e2e.test.ts 去掉 page.route mock alerts/repos，依赖

@@ -175,7 +175,7 @@ const roleTone = (role: Role | null) => {
 }
 
 /**
- * 列定义（caomei DataTable 用 `columns` 数组 + `#cell-{key}` 插槽替代 PrimeVue 的 `<Column>`）。
+ * 列定义（caomei DataTable 用 `columns` 数组 + `#cell-{key}` 插槽替代迁移前的 `<Column>`）。
  * `key` 即排序字段，故角色列用 `_roleRank`（与 sort-helpers 注入的 rank 一致）。
  */
 const columns = computed<DataTableColumn<UserView>[]>(() => [
@@ -189,7 +189,7 @@ const columns = computed<DataTableColumn<UserView>[]>(() => [
 
 /**
  * 角色下拉变更 → 提交（Select 的 v-model 已写入 row.role；这里做非空窄化后调用 setRole）。
- * 迁移到 caomei 后插槽行对象为强类型 `UserView`（PrimeVue 的 `data` 为 any），
+ * 迁移到 caomei 后插槽行对象为强类型 `UserView`（迁移前的 `data` 为 any），
  * `role` 可空故不再内联直接传参。
  */
 const onRoleChange = (user: UserView) => {

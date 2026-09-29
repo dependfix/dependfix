@@ -207,7 +207,7 @@ const remove = async (credential: CredentialView) => {
 }
 
 /**
- * 列定义（caomei DataTable 用 `columns` 数组 + `#cell-{key}` 插槽替代 PrimeVue 的 `<Column>`）。
+ * 列定义（caomei DataTable 用 `columns` 数组 + `#cell-{key}` 插槽替代迁移前的 `<Column>`）。
  * `key` 即排序字段（原 `field`），非排序列（token / actions）取语义唯一 key。
  */
 const columns = computed<DataTableColumn<CredentialView>[]>(() => [

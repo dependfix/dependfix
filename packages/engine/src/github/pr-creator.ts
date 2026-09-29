@@ -7,6 +7,7 @@ import {
     collectCodeScanningSuggestions,
     isAlertFixedByActions,
 } from '@dependfix/core'
+import { GIT_COMMIT_SIGNING_ISOLATION_ARGS, GIT_PUSH_SIGNING_ISOLATION_ARGS } from './git-signing'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -204,6 +205,7 @@ export function createFixBranch(branchName: string, workDir: string): FixBranchR
  *
  * 签名污染隔离：显式传 `-c commit.gpgsign=false`，使 commit 不受 host 全局 / 系统 / repo local
  * 的 `commit.gpgsign=true` 影响（否则会带上宿主个人签名，或因无可用 key 而 commit 失败）。
+ * 参数取自 `GIT_COMMIT_SIGNING_ISOLATION_ARGS`（单一事实源，见 ./git-signing.ts）。
  * 仅关签名开关，不注入 `GIT_CONFIG_GLOBAL` / `GIT_CONFIG_NOSYSTEM`（会连带屏蔽 host 代理等配置）。
  *
  * @param author - 可选 commit author 信息；不传时使用 PAT 默认值（保持现有 PAT 路径行为零变化）。
@@ -219,13 +221,21 @@ export function stageAndCommit(message: string, workDir: string, author?: { name
         '-c', `user.name=${effectiveAuthor.name}`,
         '-c', `user.email=${effectiveAuthor.email}`,
         // 关闭签名：避免 host `commit.gpgsign=true` 导致的签名污染与 commit 失败（见上方 JSDoc）
-        '-c', 'commit.gpgsign=false',
+        ...GIT_COMMIT_SIGNING_ISOLATION_ARGS,
         'commit',
         '-m', message,
     ], { cwd: workDir, stdio: 'pipe' })
 }
+
+/**
+ * 推送分支到 origin。
+ *
+ * 签名隔离：显式传 `-c push.gpgSign=false`，避免宿主 `push.gpgSign=true` 让 push 带上
+ * `--signed`（服务端不支持时直接 `the receiving end does not support --signed push` 失败）。
+ * 参数取自 `GIT_PUSH_SIGNING_ISOLATION_ARGS`（单一事实源，见 ./git-signing.ts）。
+ */
 export function pushBranch(branchName: string, workDir: string): void {
-    execFileSync('git', ['push', 'origin', branchName], { cwd: workDir, stdio: 'pipe' })
+    execFileSync('git', [...GIT_PUSH_SIGNING_ISOLATION_ARGS, 'push', 'origin', branchName], { cwd: workDir, stdio: 'pipe' })
 }
 
 // ---------------------------------------------------------------------------

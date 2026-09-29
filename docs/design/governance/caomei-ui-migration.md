@@ -8,11 +8,11 @@
   - 外部前置调研（非本仓库文档，作者本地工作区）：《PrimeVue 替代方案调研》《自建组件库（基于 Reka UI）最小组件集评估》
 - 方法与口径：**只读静态比对**——`apps/platform` 侧按「`.vue` 开标签计数 + quote-aware 属性计数」（排除 `node_modules` / `.nuxt` / `.output` / 覆盖率与报告目录）统计 PrimeVue 用量；caomei-ui 侧逐组件核对组件文档、设计规范与源码 props。**未运行**任一仓库的构建或测试，**未改动任何代码**。
 - 定位：迁移**评估与方案**（设计先行稿）。本次仅产出文档，不进入实施；上收与实施主体为 dependfix 仓库（见 §12）。
-- 关联文档：[PrimeUI 主题库降级设计](./primeui-themes-v2-downgrade.md)（License 治理前置）、[平台规范 §7.1](../../standards/platform.md#71-primevue-4-集成实践)、[技术栈](../../guide/tech-stack.md)、[Backlog](../../plan/backlog.md)
+- 关联文档：[PrimeUI 主题库降级设计](./primeui-themes-v2-downgrade.md)（License 治理前置）、[平台规范 §7.1](../../standards/platform.md#71-caomei-ui-集成实践)、[技术栈](../../guide/tech-stack.md)、[Backlog](../../plan/backlog.md)
 
 > 本文档为 **`apps/platform`（Nuxt 管理平台）PrimeVue → caomei-ui 的迁移评估与方案**，用于规避 PrimeUI 商业许可风险并与下游统一组件库。
 >
-> **状态**：评估先行稿，**2026-09-28 已上收 M31 正式迁移阶段**（用户决策方案 B；Backlog C88 上收后移除；实施批次映射 M31.1-M31.6 —— 见 [todo.md §M31](../../plan/todo.md)）；库侧能力补齐（若采纳）属 caomei-ui 仓库自身阶段范围，须另行立项。**2026-09-28 B0 接线落地后本文进入实施期实证**：选择器映射以 [§15.8](#158-选择器映射表更正2026-09-28b0-接线实证) 为准、能力验证口径以 [§15.9](#159-b0-接线暴露的验证覆盖缺口m31-各批次须补齐) 为准。
+> **状态**：评估先行稿，**2026-09-28 已上收 M31 正式迁移阶段**（用户决策方案 B；Backlog C88 上收后移除；实施批次映射 M31.1-M31.6 —— 见 [todo.md §M31](../../plan/todo.md)）；库侧能力补齐（若采纳）属 caomei-ui 仓库自身阶段范围，须另行立项。**2026-09-28 B0 接线落地后本文进入实施期实证**：选择器映射以 [§15.8](#158-选择器映射表更正2026-09-28b0-接线实证) 为准、能力验证口径以 [§15.9](#159-b0-接线暴露的验证覆盖缺口m31-各批次须补齐) 为准。**2026-09-29 M31.5（B3）收尾完成，迁移主线（M31.1-M31.5）闭环**：5 个 PrimeVue 依赖已卸载、代码侧引用归零、e2e 全量通过、包体对比与 B4 视觉裁定落定 —— 见 [§15.13](#1513-b3-收尾实证m3152026-09-29)。
 
 ---
 
@@ -314,7 +314,7 @@ PrimeTek 已公告 PrimeVue 5.x 起转入 PrimeUI 商业许可（Community 免�
 | **B1 关键路径解阻** | 敲定 `DataTable` 行分组 / 行展开 / 多列排序取向（§5.2 选项 A / B / C）；`ScrollPanel` 改写方案；`Select filter` → `AutoComplete` 方案 | `alerts.vue` / `batch-runs.vue` 迁移路径确定；`alerts-rowgroup.e2e.test.ts` 改写方案确定 |
 | **B2 数据类页面迁移** | `DataTable` 密集页：`alerts` / `pr-checks` / `scans` / `repos` / `repos/[id]/runs` / `batch-runs` / `credentials` / `env-events` / `schedules` / `users` / `dashboard` 与 3 个 dialog 组件 | 各页排序 / 分页 / 空态 / 分组功能回归；e2e 对应改写通过；视觉与 B0 基线一致 |
 | **B3 表单与浮层迁移** | `Dialog` / `Drawer`（Sidebar）/ `Toast` / `Password` / `InputText` / `Textarea` / `Select` / `MultiSelect` / `SelectButton` / `Checkbox` / `Switch` / `Avatar` / `Card` / `Tag` / `Message` / `Button` 全量切换；`primevue-locale.ts` 替换 | 表单交互 / 校验 / 提示回归；i18n 内建文案联动通过；`useToast` 顺带修复 |
-| **B4 收尾与卸载** | 图标全量替换、`nuxt.config.ts`（模块 / 主题 preset / CSS layer / vite dedupe）收敛、`main.scss` 与 `_mixins.scss` 的 `--p-*` / `.p-*` 清除、e2e `p-*` 断言全量改写、卸载 5 个 PrimeVue 相关依赖 | 全量测试 + e2e 通过；`pnpm typecheck` / `lint` / `build` 通过；`rg "primevue\|--p-\|\.p-" apps/platform` 归零；包体对比记录 |
+| **B4 收尾与卸载** ✅ 2026-09-29 | 图标全量替换、`nuxt.config.ts`（模块 / 主题 preset / CSS layer / vite dedupe）收敛、`main.scss` 与 `_mixins.scss` 的 `--p-*` / `.p-*` 清除、e2e `p-*` 断言全量改写、卸载 5 个 PrimeVue 相关依赖 | 全量测试 + e2e 通过；`pnpm typecheck` / `lint` / `build` 通过；`rg "primevue\|--p-\|\.p-" apps/platform` 归零；包体对比记录 |
 
 ---
 
@@ -359,18 +359,18 @@ PrimeTek 已公告 PrimeVue 5.x 起转入 PrimeUI 商业许可（Community 免�
 
 ## 10. 验收标准
 
-迁移完成（B4 出口）时须同时满足：
+迁移完成（B4 出口）时须同时满足 —— **2026-09-29 M31.5 收尾核验：10/10 通过**（逐项证据见 [§15.13](#1513-b3-收尾实证m3152026-09-29)）：
 
-- [ ] `apps/platform` 不再直接依赖 `primevue` / `@primevue/nuxt-module` / `@primeuix/themes` / `primeicons` / `primelocale`
-- [ ] `rg "primevue|--p-[a-z]|\.p-[a-z]" apps/platform/{app,server,tests,nuxt.config.ts}` 归零（排除文档性注释）
-- [ ] `pnpm --filter @dependfix/platform typecheck` / `lint` / `test` / `build` 通过
-- [ ] 现有 e2e 全量通过（16 个 PrimeVue class 依赖文件完成改写且语义保留）
-- [ ] `alerts.vue`（行分组 / 折叠 / 排序）与 `batch-runs.vue`（行展开）行为与迁移前等价，或按用户裁定的取向显式接受差异
-- [ ] i18n 内建文案随语言切换（zh / en）正确
-- [ ] 暗色模式（`.dark`）与响应式在关键页无回归
-- [ ] 图表（`chart-canvas.vue`，未迁移）无回归
-- [ ] `--caomei-*` token 覆盖后主色（teal）在亮 / 暗两态与迁移前视觉一致，实底前景对比度达 AA
-- [ ] 迁移前后包体对比记录产出
+- [x] `apps/platform` 不再直接依赖 `primevue` / `@primevue/nuxt-module` / `@primeuix/themes` / `primeicons` / `primelocale`
+- [x] `rg "primevue|--p-[a-z]|\.p-[a-z]" apps/platform/{app,server,tests,nuxt.config.ts}` 归零（排除文档性注释）
+- [x] `pnpm --filter @dependfix/platform typecheck` / `lint` / `test` / `build` 通过
+- [x] 现有 e2e 全量通过（16 个 PrimeVue class 依赖文件完成改写且语义保留）
+- [x] `alerts.vue`（行分组 / 折叠 / 排序）与 `batch-runs.vue`（行展开）行为与迁移前等价，或按用户裁定的取向显式接受差异
+- [x] i18n 内建文案随语言切换（zh / en）正确
+- [x] 暗色模式（`.dark`）与响应式在关键页无回归
+- [x] 图表（`chart-canvas.vue`，未迁移）无回归
+- [x] `--caomei-*` token 覆盖后主色（teal）在亮 / 暗两态与迁移前视觉一致，实底前景对比度达 AA
+- [x] 迁移前后包体对比记录产出
 
 ---
 
@@ -401,8 +401,8 @@ PrimeTek 已公告 PrimeVue 5.x 起转入 PrimeUI 商业许可（Community 免�
 ## 13. 关联文档
 
 - [apps/platform PrimeUI 主题库降级设计](./primeui-themes-v2-downgrade.md) —— License 治理前置（主题库 / 图标已降级 MIT）
-- [平台规范 §7.1 PrimeVue 4 集成实践](../../standards/platform.md#71-primevue-4-集成实践) —— 现有 PrimeVue 用法与陷阱（迁移时须逐条重新核验）
-- [技术栈](../../guide/tech-stack.md) —— UI 选型登记处（迁移后需同步）
+- [平台规范 §7.1 caomei-ui 集成实践](../../standards/platform.md#71-caomei-ui-集成实践) —— 接线约定与通用实践；迁移期 PrimeVue 4 陷阱已随 M31 收口（多列排序等历史实证见 [§15.10](#1510-datatable-核心页迁移实证m3122026-09-28) 起各节）
+- [技术栈](../../guide/tech-stack.md) —— UI 选型登记处（已随 M31 同步为 caomei-ui）
 - [Backlog](../../plan/backlog.md) —— 候选已上收 M31 并从 backlog 移除（见 §12 / §14）
 - [规范与文档治理设计](./spec-and-doc-governance.md) —— 设计文档分流与硬阈值依据
 - caomei-ui 侧（外部仓库）：[从 PrimeVue 迁移指南](https://github.com/CaoMeiYouRen/caomei-ui/blob/master/docs/guide/primevue-migration.md)、[设计规范 §7 迁移映射](https://github.com/CaoMeiYouRen/caomei-ui/blob/master/docs/design/design-spec.md)、[主题与样式设计](https://github.com/CaoMeiYouRen/caomei-ui/blob/master/docs/design/theming.md)
@@ -709,6 +709,8 @@ e2e 侧共改写 14 个 spec（`.p-dialog*` / `.p-select*` / `.p-drawer` / `.p-c
 
 **6）遗留项（B4 视觉收口 / 用户裁定复核）**
 
+> **已收口**：M31.5（B3）逐项落定，结论见 [§15.13 第 6 条](#1513-b3-收尾实证m3152026-09-29)。以下 ⏳ 保留为 M31.4 收口时的原始登记。
+
 - ⏳ **`severity="secondary"` 无 `text` 的 6 处按钮**：当前映射为 `tone="neutral"` 默认实底（深灰 #52525b + 白字），比 PrimeVue 的浅灰实底视觉更重；备选 `variant="secondary" tone="neutral"`（白底 + 浅描边，更接近原浅色观感但引入边框）。待 B4 或用户裁定。
 - ⏳ `import-repos-dialog` owner 选择器触发器 badge 丢失（`Select` 无 `#value` 槽）→ B4 确认是否接受或外置渲染。
 - ⏳ `Message` soft 档无边框（已裁定接受）→ B4 视觉复核时确认观感。
@@ -718,3 +720,93 @@ e2e 侧共改写 14 个 spec（`.p-dialog*` / `.p-select*` / `.p-drawer` / `.p-c
 - ⏳ §15.11 第 8 条的两项（Paginator 页码按钮组 / 分页报表文案）仍待 B4 复核。
 
 > **验证覆盖缺口（已知，非缺陷）**：`batch-import-filters` / `admin` 的全选 Checkbox 断言在 CI 环境（无真实 GitHub 凭据）走空态分支，`if (有候选)` 分支的「unchecked → click → checked」翻转未被 CI 实际执行（相对迁移前的**空断言**仍为增强，且空态分支有实质断言）；`/repos/[id]/runs` 兼容路径页无 e2e/截图覆盖；`TagsInput`（`repos.vue` 标签录入）与 `AutoComplete` 的 `strict`（自由文本不入模型）无自动化断言，仅人工/单测兜底。
+
+### 15.13 B3 收尾实证（M31.5，2026-09-29）
+
+> M31.5（B3）卸载 5 个 PrimeVue 依赖、清零代码侧引用、产出包体对比并完成文档同步。**迁移主线（M31.1-M31.5）至此闭环**；M31.6（C90 db-restore 补测）独立待启动。
+
+**1）依赖卸载与配置收敛**
+
+- `apps/platform/package.json` 移除 `primevue` / `@primevue/nuxt-module` / `@primeuix/themes` / `primeicons` / `primelocale` 5 项（`pnpm remove`；`pnpm-lock.yaml` 同步收缩，且全仓已无任何包依赖 primevue）。
+- `nuxt.config.ts` 收敛：删除 `@primeuix/themes` 的 `Aura` import 与 `definePreset` 生成的 `DependfixPreset`、`@primevue/nuxt-module` 模块注册、`primevue.composables.exclude`、`primevue.options.theme`（preset / darkModeSelector / cssLayer）、`primeicons/primeicons.css` 样式入口、`vite.resolve.dedupe` 5 项（迁移期双库去重）。
+- 删除 `app/plugins/primevue-locale.ts`（连空的 `plugins/` 目录）与 `app/pages/__migration-validation/`（2 页 V1 验证页 + 目录）。
+- `app/assets/styles/main.scss` 移除 `.p-datatable-tbody > tr.p-datatable-empty-message > td { border-bottom: 0 }` 死规则：caomei 空态单元格渲染为 `<td class="caomei-data-table__empty">`（**不含** `caomei-data-table__td` 类），而库内 `border-bottom` 只挂在 `__td` / `__th` / `__row-group-cell` / `__row-expansion-cell` 上 → caomei 下不存在迁移前的「表头 + 空态单元格双线」问题，规则**无需等价替代**。
+- 清理遗留死代码：`components/import-repos-dialog.vue` 的 `selectableRepos`（迁移前即无引用）。
+- `pnpm remove` 附带 Nuxt 生态传递依赖的 patch 级重解析：`bundle-name@4.1.0→4.1.1`、`ohash@2.0.11→2.0.12`（依赖链均落在 `nuxt` / `@nuxt/devtools` / `nitropack` 侧，与 PrimeVue 无关，`pnpm why` 已核对）；`@nuxt/kit@3.x` 则随 `@primevue/nuxt-module` 一并移除（预期）。均为重解析副产物，无行为影响。
+
+**2）残留归零（可复现口径）**
+
+| 检查 | 命令 | 结果 |
+| :--- | :--- | :--- |
+| 代码侧全量 | `rg -ni "primevue\|primeicons\|primelocale\|primeuix" apps/platform/{app,server,tests,nuxt.config.ts}` | **0 命中** |
+| 样式选择器 | `rg -n -- "--p-[a-z]\|\.p-[a-z]" apps/platform/app apps/platform/tests apps/platform/nuxt.config.ts` | **0 命中** |
+| 运行时 import | `rg -n "from ['\"](primevue\|@primevue\|@primeuix\|primeicons\|primelocale)" apps packages` | **0 命中** |
+| 锁文件 | `grep -c primevue pnpm-lock.yaml` | **0** |
+
+注释层中性化：改动前 HEAD 快照运行 `git grep -ni "primevue\|primeicons\|primelocale\|primeuix" HEAD -- apps/platform/{app,server,tests,nuxt.config.ts}` → **93 行 / 32 文件**；扣除随文件删除的 `app/plugins/primevue-locale.ts`（10 行）与 `app/pages/__migration-validation/alerts-table.vue`（2 行）后，实际需中性化 **81 行 / 30 文件**，逐处改写为「迁移前组件库 / 迁移前的 X」（保留原技术结论与数字，未改任何字符串字面量 / 模板 / 类型 / 选择器）。**该批改动全部落在注释行**（审计独立复核：32 个非删除 platform 文件的全部新增行中，除 `index.vue` 的模板 + scoped 样式属 B4 已裁定项外，其余均为注释行）。
+
+**3）门禁与全量回归**
+
+- `pnpm --filter @dependfix/platform typecheck` / `eslint . --max-warnings 10`（**非 `--fix`**）/ `stylelint --check` / `build` 全部通过；root 级 `pnpm run typecheck` 与 `npx eslint . --max-warnings 10`（非 `--fix`）同样通过（0 problem）。
+- 文档门禁：`pnpm run check:docs`（links 142 md / vue-interp 79 md）、`pnpm run lint:md:check`、`pnpm --filter dependfix-docs build`（`docs:build`）全部通过。
+- 单测：`pnpm --filter @dependfix/platform test` → **1295 passed / 9 skipped**（与迁移前基线一致）。
+- e2e：`TMPDIR=/dev/shm pnpm exec playwright test --workers=1` → **173 passed / 0 failed / 0 flaky**。172 → 173 的净增量来自 M31.4 commit `f9f1a05` 新增的「关闭侧栏后抽屉隐藏且可再次打开（hide 清理语义回归）」用例（该 commit 的 `tests/e2e` diff 可见）。
+
+> **容器环境要点（本地复现 e2e 的必需前置）**：容器内 `/tmp` 位于 overlayfs，Chromium 默认 arg `--disable-dev-shm-usage`（把共享内存落到 `/tmp`）会导致 renderer `Page crashed`。解法是重定向 `TMPDIR=/dev/shm`（tmpfs），**无需**临时 playwright 配置文件、也无需 `--no-sandbox` 覆盖即可跑通（M31.4 曾用 `ignoreDefaultArgs` + `--no-sandbox` 的等效方案，两者均验证有效）。
+
+**4）包体对比（迁移前后）**
+
+口径：对 `.output` 递归统计（脚本 `artifacts/m31-b5/measure-bundle.mjs`，gzip 用 zlib 默认档）；「迁移前」取 M31 起点前的 commit `a05ac3b` 构建产物（纯 PrimeVue；caomei-ui 当时已在 dependencies 但未注册模块，故不进产物）。
+
+| 指标 | 迁移前 | 迁移后 | 变化 |
+| :--- | ---: | ---: | ---: |
+| client raw（`public/` 子集） | 3282.9 KiB | 1219.4 KiB | **−2063.5 KiB（−62.8%）** |
+| client gzip（`public/` 子集） | 1044.5 KiB | 419.5 KiB | **−625.0 KiB（−59.8%）** |
+| total raw（`.output` 全量） | 42250.3 KiB | 36936.0 KiB | −5314.3 KiB |
+
+`.output` **全量**按扩展名分组（raw，脚本 `byGroupRaw`；与上表 client 口径不同，勿混读）：
+
+| 分组 | 迁移前 | 迁移后 | 变化 |
+| :--- | ---: | ---: | ---: |
+| font | 283.5 KiB | 0 | −283.5 KiB（primeicons 4 档字体） |
+| image | 368.9 KiB | 34.5 KiB | −334.5 KiB（`primeicons.svg` 334.5 KiB 归零） |
+| js | 23189.5 KiB | 18773.9 KiB | −4415.6 KiB |
+| css | 42.7 KiB | 101.8 KiB | +59.1 KiB（caomei 静态 `theme.css` vs PrimeVue CSS-in-JS 按需注入） |
+
+留痕：`artifacts/m31-b5/bundle-{before,after}.json`（gitignored）。
+
+**5）关键改动的静态与产物证据**
+
+- **`index.vue` spinner 恢复 40px**：产物 `pages.*.css` 实测含 `.auth__spinner[data-v-7b4f7882]{--caomei-progress-spinner-size:40px}`。特异性论证：库的尺寸档规则由 `:where(.caomei-progress-spinner--lg[data-v-…])` 包裹（`:where()` 计 0，实际特异性 0,0,0），页面 scoped 规则为 0,2,0 → 覆盖成立，无需 `!important`。
+- **空态无双线**：见第 1 条（caomei `data-table.js` 空态分支为 `<td class="caomei-data-table__empty" colspan=…>`；`dist/components/data-table/*.css` 的 `border-bottom` 不覆盖该类）。
+- **6 处次要动作按钮实测**（computed style）：`scans` 刷新 / `repos` 批量导入 / `repos` 批量扫描 / `batch-runs` 刷新均为 `background: rgb(82,82,91)`（`--caomei-color-neutral-solid` #52525b）+ 白字实底；对照组 `layouts/default.vue` 的 ghost 变体为透明底 + `rgb(51,65,85)` 字。
+
+**6）B4 视觉遗留项裁定结论（8 条全部落定）**
+
+| 项 | 结论 | 依据 |
+| :--- | :--- | :--- |
+| `severity="secondary"` 无 text 的 6 处按钮（深灰实底） | **接受**（保持 `tone="neutral"`） | 与迁移前同为**实底**形态，仅色深更大；6 处均为页头/行内主操作（刷新 / 导入 / 批量扫描 / 上传 PEM / ack），实底醒目合理。如需弱化为描边，改 `variant="secondary"` 即可（`ComponentVariant` 已含该档，一行切换） |
+| `code-quality` ruleId tone 降为 `neutral` | **接受** | ruleId 文本本身可辨识；改 `warning` 会与 `pnpm-audit` 撞色，混淆成本大于收益 |
+| `import-repos-dialog` owner 触发器 badge 丢失 | **接受** | 信息未丢失（下拉 `#option` 内仍渲染 Personal/Org badge）；外置渲染会新增迁移前不存在的可见 UI |
+| `Message` soft 档无边框 | **接受**（沿用 M31.4 用户裁定） | 实测 `border: 1px solid transparent`，亮/暗两态观感有截图留痕 |
+| DataTable 内建分页报表文案丢失 | **接受** | caomei DataTable 无 `#paginator` 插槽；e2e 未断言该文案，且独立 Paginator 场景已自渲染报表（`.import-form__pagination-report`）保留等价能力 |
+| `import-repos-dialog` 新增 Paginator 页码按钮组 | **接受** | 相对迁移前（PrimeVue template 无该控件）为可用性提升 |
+| `index.vue` spinner 40px | **已修复** | 覆盖 `--caomei-progress-spinner-size: 40px` 与迁移前对齐（见第 5 条） |
+| `repo-history-dialog` 布局（`#header` 内容上移为兄弟节点） | **接受** | M31.3 已接受差异并由 `scans.e2e.test.ts` case 3 覆盖；本批截图复核布局无错位 |
+
+**7）浏览器取证（`artifacts/m31-b5/`）**
+
+- 17 张截图：11 个业务页 + login / register + 2 页 dark（alerts / repos）+ 1 页 mobile（repos）+ `dialog-import-repos`（浮层）。
+- `ui-evidence.json`：20 组检查，**console error / warning 与 pageerror 均为 0**（首轮唯一报错为取证脚本误用 `/index` 路由导致的 404，修正为 `/` 后复跑归零，非产品缺陷）。
+
+**8）文档同步**
+
+- [platform.md](../../standards/platform.md)：§1 技术选型表（UI / 主题 / 图标三行改 caomei-ui）、§7 前言（组件自动导入与暗色模式表述）、**§7.1 重写为「caomei-ui 集成实践」**（删除 9 条 PrimeVue 4 专属实现契约、保留 4 条组件库无关的通用实践并指向本节留痕）、**§7.4 去掉迁移期条款**（移除「双库并存」标题、「自动导入命名冲突」整条与迁移期执行分层说明；验证命令 artifacts 路径改为通用）。指向 §7.1 旧锚点的 4 处外链同步修正（`backlog.md` / 本文件 ×2 / `todo-archive-phases-m24.md`）。
+- [tech-stack.md](../../guide/tech-stack.md)：核心框架表 `@primevue/core + primevue` 与 `@primeuix/themes` 两行替换为 `caomei-ui 0.3.0`（精确锁定）+ `@lucide/vue`。
+- 计划与归档文档：`docs/plan/backlog.md` 的「PrimeVue 4 DataTable sort-mode / multisortMeta（持续观察）」known-issue 已整段移除 —— 迁移卸载后该观察项已无观察对象，按 [planning §4.4 第 11 条](../../standards/planning.md)「完全闭环 → 整段删除」处置（本批曾触碰该行，不能以超出范围免责）；`docs/plan/todo.md` 中 M31.2「风险与缓解」对已失效章节的引用改为中性表述；`docs/plan/archive/todo-archive-phases-m24.md` **仅**修正锚点 URL 并加一行「该节已随 M31 收口、陷阱正文以本归档页为准」注记，**不重写历史正文**（依 [spec-and-doc-governance §1.4](../../design/governance/spec-and-doc-governance.md) 归档冻结原则；锚点修正为 `check:docs` 强制的必要改动）。其余归档页（`todo-archive-phases-m10-c53-c59c61` / `-m13` / `-m14-m15` / `-m16-m17` 及 `-m24` 的另 1 处）中的**纯文本历史引用**（如「建议沉淀到 §7.1 PrimeVue 4 集成实践」）保持原样 —— 这些是当时的事实陈述，重写会破坏归档冻结原则；收口信息由 §7.1 前言的退役说明与本节承接。
+
+**9）遗留（不在本批范围）**
+
+- 代码注释中仍有**非 `§` 形式的历史编号标记**（如 `M20.3` / `C59` / `RG-B07` / `S-3`，多无文档路径），跨 `app/` / `server/` / `tests/` 多文件。本批按用户裁定只清理 **M31 触及文件中的 `§编号` 引用**（实际违规仅 `platform.md` 1 处孤立 `M17.1`/`C38`，已清；其余 14 处均带文档路径，属合规导航引用）。全量编号治理建议独立批次处理，避免与本批「组件库卸载」主题混杂。
+- `.github/dependabot.yml` 的 `@primeuix/*` / `@primevue/*` / `primeicons` ignore 规则随依赖卸载成为**死配置**（不再命中任何包），建议后续治理批次移除（保留 `conventional-changelog` 条目）。
+

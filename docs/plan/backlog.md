@@ -318,10 +318,6 @@
 
 ## 已知边界与 known-issue
 
-### PrimeVue 4 DataTable sort-mode / multisortMeta（持续观察）
-
-- **PrimeVue 类型 vs 运行时不一致** —— `sortMode='multiple'` + `multiSortMeta` 在 PrimeVue 4 类型声明与实际运行时存在不一致（类型允许多键但运行时单字段响应）；正确写法与触发条件见 [platform.md §7.1](../standards/platform.md#71-primevue-4-集成实践)，规范一致性检查点见 [code-reviewer code-quality-checklist.md §规范一致性](../../.github/skills/code-reviewer/references/code-quality-checklist.md)。
-
 ### SQLite 单文件脆弱性 + TypeORM synchronize 风险（持续观察）
 
 - **背景**：2026-09-01 `apps/platform/data/dependfix.sqlite` 业务数据被清空事故（详见 [经验归档 §五十](../design/governance/experience-archive-§49-§57-recent-investigation.md#五十sqlite-数据库业务数据被清空开发环境不可恢复事故2026-09-01)）。代码内无清空路径，最可能清空来源在代码外部（shell / CI / 运维）。

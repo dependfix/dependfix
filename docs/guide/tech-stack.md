@@ -33,8 +33,8 @@
 | nuxt | ^4.x | 全栈框架 |
 | vue | ^3.5 | UI 框架 |
 | vue-router | ^5.x | 路由 |
-| @primevue/core + primevue | ^4.x | UI 组件库 |
-| @primeuix/themes | ^2.x | 主题引擎 |
+| caomei-ui | 0.3.0（精确锁定） | UI 组件库（自建；2026-09-29 M31 完成 PrimeVue 4 迁移） |
+| @lucide/vue | ^1.48 | 图标组件（经 `CaomeiIcon` 传入） |
 | @nuxtjs/i18n | ^10.x | 国际化 |
 | @vueuse/core + @vueuse/nuxt | ^14.x | 组合式工具 |
 | @sentry/nuxt | ^10.x | 错误监控 |

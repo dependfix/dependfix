@@ -400,7 +400,7 @@ per-alert 模型 + reconcile + API 简化 + UI 调整 + backfill 脚本。5 子�
 
 ---
 
-## M31: apps/platform UI 组件库迁移（PrimeVue → caomei-ui）（2026-09-28 用户决策方案 B / 进行中）
+## M31: apps/platform UI 组件库迁移（PrimeVue → caomei-ui）（2026-09-28 用户决策方案 B / M31.1-M31.5 已完成 · M31.6 待启动）
 
 承接 M30.6 V1-V3 可行性验证全绿（caomei-ui 0.3.0 关键路径能力已由库侧闭环），2026-09-28 用户决策方案 B 启动 M31 正式迁移阶段。**6 原子条目**：迁移主线 5 项（B0→B3 串行）+ 类型平衡补强 1 项，覆盖 🎨 3 + 🛡️ 2 + 🧪 1（🚀 / 📚 无独立条目，显式标注缺口）。
 
@@ -408,7 +408,7 @@ per-alert 模型 + reconcile + API 简化 + UI 调整 + backfill 脚本。5 子�
 - **M31.2** [P2 🎨] B1a DataTable 核心页迁移（alerts 行分组/折叠/多列排序 + batch-runs 行展开 + e2e）
 - **M31.3** [P2 🎨] B1b 其余 DataTable 页迁移（pr-checks / scans / repos / dashboard + e2e）
 - **M31.4** [P2 🎨] B2 表单 / 浮层 / 导航组件切换 + i18n / Toast / Confirm 接线
-- **M31.5** [P2 🛡️] B3 收尾：卸载 5 个 PrimeVue 依赖 + `rg "primevue|--p-|\.p-"` 归零 + e2e 全通 + 包体对比 + 文档同步
+- **M31.5** [P2 🛡️] ✅ B3 收尾：卸载 5 个 PrimeVue 依赖 + `rg "primevue|--p-|\.p-"` 归零 + e2e 全通 + 包体对比 + 文档同步（2026-09-29 完成；client gzip −59.8%）
 - **M31.6** [P3 🧪] C90 db-restore ESM mock 受限失败分支补测（类型平衡补强，独立可并行）
 
 **关键决策 D1-D3**（2026-09-28 用户裁定）：

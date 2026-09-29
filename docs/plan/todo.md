@@ -27,6 +27,8 @@
 > **用户决策（2026-09-28）**：方案 B（迁移主线 5 原子 + C90 测试补强 1 原子）；`--caomei-color-primary-solid` 覆盖 `#0f766e`（teal-700）达 AA 4.5:1；caomei-ui 精确锁定 `0.3.0`。C88 → M31.1-M31.5；C90 → M31.6（上收后从 backlog 移除）。
 >
 > **执行顺序**：M31.1 → M31.2 → M31.3 → M31.4 → M31.5（B0→B3 串行依赖）；M31.6 独立，可与迁移并行推进。
+>
+> **进度（2026-09-29）**：**M31.1-M31.5 已完成，迁移主线闭环**（PrimeVue 5 依赖已卸载、代码侧引用归零、e2e 173 passed、包体 client gzip −59.8%）；M31.6 待启动。
 
 ---
 
@@ -60,7 +62,7 @@
 - **不做什么**：不迁其余 DataTable 页（M31.3）；不改数据获取 / 过滤逻辑；不改 i18n
 - **依赖**：M31.1（B0 接线）；[评估文档 §5.2 + §15.1 能力映射](../design/governance/caomei-ui-migration.md#151-关键路径阻塞点闭环确认) + [§15.8 选择器映射表](../design/governance/caomei-ui-migration.md#158-选择器映射表更正2026-09-28b0-接线实证) + [§15.9 验证缺口](../design/governance/caomei-ui-migration.md#159-b0-接线暴露的验证覆盖缺口m31-各批次须补齐)
 - **交付物**：多 commits（`refactor(platform)` 页面迁移 + `test(platform)` e2e 选择器改写）
-- **风险与缓解**：`sortMode='multiple'` + `multiSortMeta` 类型与运行时差异（platform.md §7.1 PrimeVue 陷阱）→ 实测 caomei 全局 `sortDescFirst` 会改变点击循环，改为由 `multi-sort-meta` 初值承载默认方向（§15.10 第 1 条）；受控 `expandedRowGroups` / `expandedRows` 漏回写会致内建按钮失效（B0 实证）→ 以 prop + `@update:*` 回写保真 `v-model` 语义；e2e 选择器改写遗漏 → 按 §15.8 + §15.10 第 6 条映射表逐条核对 `.caomei-data-table__row-group-toggle` / `__sort` / `th[aria-sort]`
+- **风险与缓解**：`sortMode='multiple'` + `multiSortMeta` 类型与运行时差异（迁移前组件库的类型 / 运行时不一致陷阱，该节已随 M31 收口，陷阱正文见 [归档页](archive/todo-archive-phases-m24.md)）→ 实测 caomei 全局 `sortDescFirst` 会改变点击循环，改为由 `multi-sort-meta` 初值承载默认方向（§15.10 第 1 条）；受控 `expandedRowGroups` / `expandedRows` 漏回写会致内建按钮失效（B0 实证）→ 以 prop + `@update:*` 回写保真 `v-model` 语义；e2e 选择器改写遗漏 → 按 §15.8 + §15.10 第 6 条映射表逐条核对 `.caomei-data-table__row-group-toggle` / `__sort` / `th[aria-sort]`
 - **复杂度估算**：~2-4 vue + 2-4 e2e 文件
 
 ---
@@ -103,16 +105,21 @@
 - **目标**：卸载 5 个 PrimeVue 依赖，清零 PrimeVue 引用，e2e 全量通过，产出包体对比，清理迁移验证产物。
 - **范围**：`apps/platform/package.json` + `pnpm-lock.yaml`、`apps/platform/nuxt.config.ts`、删除 `apps/platform/app/pages/__migration-validation/`、`docs/standards/platform.md`（§7.1 + 迁移期 §7.4 去留复核）、`docs/guide/tech-stack.md`、`docs/design/governance/caomei-ui-migration.md`（状态更新）。
 - **验收标准**：
-  - [ ] 5 个 PrimeVue 依赖从 `package.json` 卸载（`primevue` / `@primevue/nuxt-module` / `@primeuix/themes` / `primeicons` / `primelocale`）
-  - [ ] `rg "primevue|--p-[a-z]|\.p-[a-z]" apps/platform/{app,server,tests,nuxt.config.ts}` 归零（排除文档性注释）
-  - [ ] `pnpm --filter @dependfix/platform typecheck` + `lint` + `test` + `build` 通过；e2e 全量通过
-  - [ ] 迁移前后包体对比记录产出；`__migration-validation` 验证页移除
-  - [ ] `platform.md §7.1` / `§7.4`（迁移期条款去留复核）/ `tech-stack.md` / 评估文档状态同步（PrimeVue 集成实践段改为 caomei-ui）
+  - [x] 5 个 PrimeVue 依赖从 `package.json` 卸载（`primevue` / `@primevue/nuxt-module` / `@primeuix/themes` / `primeicons` / `primelocale`）—— `pnpm remove` 同步收缩 lockfile；全仓已无任何包依赖 primevue
+  - [x] `rg "primevue|--p-[a-z]|\.p-[a-z]" apps/platform/{app,server,tests,nuxt.config.ts}` 归零（排除文档性注释）—— 代码侧 **0 命中**；注释层同步中性化（改动前 HEAD 快照命中 **93 行 / 32 文件**，扣除随文件删除的 `primevue-locale.ts` 10 行与 `__migration-validation/alerts-table.vue` 2 行后为 **81 行 / 30 文件**，diff 全部落在注释行）
+  - [x] `pnpm --filter @dependfix/platform typecheck` + `lint` + `test` + `build` 通过；e2e 全量通过 —— typecheck / eslint（非 `--fix`）/ stylelint / build 全绿；单测 1295 passed / 9 skipped；e2e **173 passed / 0 failed / 0 flaky**
+  - [x] 迁移前后包体对比记录产出；`__migration-validation` 验证页移除 —— client gzip 1044.5 → **419.5 KiB（−59.8%）**、raw 3282.9 → 1219.4 KiB（primeicons 字体 283.5 KiB + svg 334.5 KiB 归零）；留痕 gitignored `artifacts/m31-b5/`
+  - [x] `platform.md §7.1` / `§7.4`（迁移期条款去留复核）/ `tech-stack.md` / 评估文档状态同步（PrimeVue 集成实践段改为 caomei-ui）—— §7.1 重写为「caomei-ui 集成实践」（删 9 条 PrimeVue 专属契约、留 4 条通用实践）、§7.4 去迁移期条款与双库并存条目；另修正 4 处指向 §7.1 旧锚点的跨文件外链
+  - [x] **B4 视觉遗留 8 项全部落定**（并入本批，见[评估文档 §15.13 第 6 条](../design/governance/caomei-ui-migration.md#1513-b3-收尾实证m3152026-09-29)）：1 项已修复（`index.vue` spinner 恢复 40px）、7 项接受现状（6 处次要动作按钮实底形态 / `code-quality` tone / owner 触发器 badge / `Message` soft 无边框 / 内建分页报表文案 / 新增页码按钮组 / `repo-history-dialog` 布局）
+  - [x] 死代码清理：`import-repos-dialog.vue` 的 `selectableRepos`（迁移前即无引用）；空 `app/plugins/` 目录随 `primevue-locale.ts` 删除
+  - [x] 浏览器取证：`artifacts/m31-b5/` 17 张截图 + `ui-evidence.json` 20 组检查（**console error / warning 与 pageerror 均为 0**）
 - **不做什么**：不升级 PrimeVue 5.x；不申请 PrimeUI 商业许可；不迁移图表；不做无关重构
 - **依赖**：M31.4（全部组件切换完成）；[评估文档 §10 验收标准](../design/governance/caomei-ui-migration.md)
 - **交付物**：1-3 atomic commits（`chore(platform)` 依赖卸载 + `docs(platform)` 文档同步）+ 包体对比留痕
-- **风险与缓解**：卸载后遗漏引用 → 全量 `rg` + build 兜底；e2e 残留 `p-*` 断言 → 全量 rg e2e 目录；卸载导致平台不可构建 → 回滚依赖提交并定位遗漏引用
-- **复杂度估算**：依赖 + 配置 + 文档 ~5-8 文件；删除 1 个验证目录
+- **风险与缓解**：卸载后遗漏引用 → 全量 `rg` + build 兜底；e2e 残留 `p-*` 断言 → 全量 rg e2e 目录；卸载导致平台不可构建 → 回滚依赖提交并定位遗漏引用（实测均未触发）
+- **实测登记**：**43 文件（+240 / −1585 行）**，其中代码与配置 36 文件（+89 / −1525，含删除 2 个验证页 + 1 个 plugin）与文档 7 文件（+151 / −60）；**规模超原估 5-8 文件**，超出部分为注释层中性化（81 行 / 30 文件，属「rg 归零」验收口径的必要工作）与文档同步
+- **环境要点**：容器内跑 e2e 需 `TMPDIR=/dev/shm`（overlayfs 上的 `/tmp` 会让 Chromium 默认 arg `--disable-dev-shm-usage` 触发 renderer `Page crashed`）；该要点已登记于评估文档 §15.13 第 3 条
+- **复杂度估算**：依赖 + 配置 + 文档 ~5-8 文件；删除 1 个验证目录（实测 43 文件，见「实测登记」）
 
 ---
 

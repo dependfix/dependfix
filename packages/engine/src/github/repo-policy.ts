@@ -95,6 +95,17 @@ export function matchesOverrideProtect(
 }
 
 /**
+ * 是否为可安全用作对象键的名称（非原型链风险键）。
+ *
+ * 原型链风险键（`__proto__` / `constructor` / `prototype`）在「以外部输入为键写入对象」时
+ * 可能造成原型污染或语义歧义；overrideProtect 的两个入口（env / CLI 解析、目标仓库配置文件）
+ * 共用本谓词，避免两处口径漂移。
+ */
+export function isSafePrototypeKey(key: string): boolean {
+    return key !== '__proto__' && key !== 'constructor' && key !== 'prototype'
+}
+
+/**
  * 解析 overrides 保护名单入口值（与 `--upgrade-groups` 同格式、同口径）：
  * `name1:pkg1,pkg2;name2:pkg3`（`;` 分隔条目，`:` 分隔仓库 glob 与包列表，`,` 分隔包名）。
  *
@@ -126,7 +137,7 @@ export function parseOverrideProtectEntries(
             .split(',')
             .map((p) => p.trim())
             .filter(Boolean)
-        if (repoPattern === '__proto__' || repoPattern === 'constructor' || repoPattern === 'prototype') {
+        if (!isSafePrototypeKey(repoPattern)) {
             continue
         }
         if (!repoPattern || packages.length === 0) {

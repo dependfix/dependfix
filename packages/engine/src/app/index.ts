@@ -46,6 +46,7 @@ import { collectSupplyChainWarnings } from '../supply-chain'
 import { loadRulesConfigFromEnv, resetActiveRulesConfig, setActiveRulesConfig } from '../code-scanning/rule-config'
 import { fetchRepoAlerts, fetchDefaultBranch, truncatedWarning } from './repo-alerts'
 import { processRepoFix, type AiUsageRef } from './repo-fix'
+import { applyRepoConfig } from './repo-config'
 import {
     buildCommitMessage,
     buildPrTitle,
@@ -163,6 +164,7 @@ export function logPartialSourceFailureSummary(
 // ---------------------------------------------------------------------------
 
 export class DependfixApp {
+    /** 运行时配置；构造期按「中央配置优先」合并目标仓库专属配置后单次赋值（见 applyRepoConfig） */
     private readonly config: RuntimeConfig
     private readonly workDir: string
     private readonly reportOutputDir: string
@@ -189,7 +191,6 @@ export class DependfixApp {
     private preExistingDirty = false
 
     constructor(options: DependfixAppOptions) {
-        this.config = options.config
         this.workDir = options.workDir ?? process.cwd()
         this.reportOutputDir = options.reportOutputDir ?? './dependfix-reports'
         this.verbose = options.verbose ?? false
@@ -197,16 +198,22 @@ export class DependfixApp {
         this.executionEnvironment = options.executionEnvironment ?? 'local'
         this.runId = `dependfix-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
 
-        // GitHub App 认证提供者（用于 commit author 真实 bot 身份）
-        if (this.config.githubApp) {
-            this.githubAppAuth = fromApp(this.config.githubApp)
-        }
-
         // 使用自定义 Logger（平台层注入 MemoryLogger）或内部创建
         this.logger = options.logger ?? createLogger({
             name: 'dependfix',
             minLevel: this.verbose ? 'debug' : 'info',
         })
+
+        // 目标仓库专属配置（`.github/dependfix.yml`）：workDir 即目标仓库检出（平台在 clone
+        // 之后才构造本 app），读取后按「中央配置优先」合并（当前仅 overrideProtect）。
+        // 需在 logger 之后（降级 / 生效告警走 logger），且合并结果作为**唯一 config 来源**
+        // 单次赋值（保持 readonly 不可变语义）；非法配置一律降级不中断运行。
+        this.config = applyRepoConfig(options.config, this.workDir, this.logger)
+
+        // GitHub App 认证提供者（用于 commit author 真实 bot 身份）
+        if (this.config.githubApp) {
+            this.githubAppAuth = fromApp(this.config.githubApp)
+        }
 
         // Code Scanning 规则分类配置：env `CODE_SCANNING_RULES_CONFIG_PATH`
         // 指向的 JSON 文件加载并替换默认分类表；env 未设 / 文件缺失 / 解析失败

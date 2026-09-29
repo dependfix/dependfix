@@ -1,5 +1,19 @@
 import { z } from 'zod'
 
+/**
+ * 是否含换行 / 控制字符（含 DEL）。
+ * 用于保持「一项 = 一条命令行」不变量；用 charCodeAt 判定而非正则，避免 eslint no-control-regex。
+ */
+const hasControlChar = (value: string): boolean => {
+    for (let i = 0; i < value.length; i++) {
+        const code = value.charCodeAt(i)
+        if (code < 0x20 || code === 0x7F) {
+            return true
+        }
+    }
+    return false
+}
+
 /** 仓库创建基础校验（Zod）。owner/name 为必填，其余有默认或可选。 */
 export const repositoryBase = z.object({
     owner: z.string().trim().min(1, 'owner 不能为空').max(100).regex(/^[A-Za-z0-9_.-]+$/, 'owner 含非法字符'),
@@ -23,6 +37,19 @@ export const repositoryBase = z.object({
         memoryMb: z.number().int().min(64, 'memoryMb 至少 64MB').max(32768, 'memoryMb 至多 32768MB (32GB)').optional(),
         cpu: z.number().min(0.1, 'cpu 至少 0.1').max(16, 'cpu 至多 16').optional(),
     }).nullable().optional(),
+    /**
+     * 仓库级自定义验证命令（覆盖引擎默认验证链 `DEFAULT_VERIFY_COMMANDS`）。
+     * 语义与 CLI `--commands` 对齐：数组每项为一条命令；缺省（undefined / null / []）走默认链。
+     * 限制：最多 20 条、每条非空且 ≤ 500 字符、不含换行 / 控制字符（保持「一项 = 一条命令行」不变量）。
+     *
+     * 安全边界：该字段等价于「远程命令执行面」（单条命令按 CLI 语义经 shell 执行）——写入门槛由
+     * API 层 `requireRole(['admin', 'org_admin'])` 保证，变更登记 AuditEvent 留痕。
+     * 详见 [entities/repository.ts Repository.verifyCommands] 字段注释。
+     */
+    verifyCommands: z.array(
+        z.string().trim().min(1, '验证命令不能为空').max(500, '单条验证命令最长 500 字符')
+            .refine((cmd) => !hasControlChar(cmd), '验证命令不能包含换行或控制字符'),
+    ).max(20, '最多 20 条验证命令').nullable().optional(),
 })
 
 /**

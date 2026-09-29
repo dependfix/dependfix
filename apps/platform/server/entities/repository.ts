@@ -115,6 +115,18 @@ export class Repository extends BaseEntity {
      */
     @Column({ type: 'text', nullable: true })
     sandboxLimits!: string | null
+
+    /**
+     * 仓库级自定义验证命令（JSON 数组字符串，如 `'["pnpm install --frozen-lockfile","pnpm test"]'`）；
+     * 覆盖引擎默认验证链（`DEFAULT_VERIFY_COMMANDS`），空数组存 null。
+     *
+     * **安全边界（重要）**：该字段等价于「远程命令执行面」——容器执行器把命令原样交给引擎验证链执行，
+     * 自定义命令**不经过** `validateVerifyCommands` 的脚本存在性校验（与 CLI `--commands` 语义一致）。
+     * 因此：写入门槛由 API 层 `requireRole(['admin', 'org_admin'])` 保证；变更登记 `AuditEvent`
+     * （`verify_commands_update`）留痕；仅接受命令数组，不接受 shell 字符串拼接；单命令超时仍生效。
+     */
+    @Column({ type: 'text', nullable: true })
+    verifyCommands!: string | null
 }
 
 /** 解析 tags JSON 字符串 → 字符串数组（非法/缺失返回空数组，容错不抛错） */
@@ -126,6 +138,28 @@ export const parseTags = (raw: string | null | undefined): string[] => {
         const parsed: unknown = JSON.parse(raw)
         return Array.isArray(parsed)
             ? parsed.filter((tag): tag is string => typeof tag === 'string')
+            : []
+    } catch {
+        return []
+    }
+}
+
+/**
+ * 解析 verifyCommands JSON 字符串 → 命令数组（非法/缺失返回空数组，容错不抛错）。
+ * 与 parseTags 同模式（防御脏数据阻塞 list 渲染）；字段裁剪：丢弃非字符串项，并对命令 trim +
+ * 丢弃 trim 后为空串的项（纵深防御：与 schema 写入侧 trim 语义对齐，避免历史脏数据绕过校验）。
+ */
+export const parseVerifyCommands = (raw: string | null | undefined): string[] => {
+    if (!raw) {
+        return []
+    }
+    try {
+        const parsed: unknown = JSON.parse(raw)
+        return Array.isArray(parsed)
+            ? parsed
+                .filter((cmd): cmd is string => typeof cmd === 'string')
+                .map((cmd) => cmd.trim())
+                .filter((cmd) => cmd.length > 0)
             : []
     } catch {
         return []

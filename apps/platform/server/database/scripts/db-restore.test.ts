@@ -308,16 +308,52 @@ describe('db-restore', () => {
         })
 
         describe('S-1 第 3 项：恢复后 integrity_check 失败分支', () => {
-            it.skip('throws when post-restore integrity_check fails (mock inject failure)', () => {
-                // TODO: ESM 模块动态 mock 内部函数受限，需重构测试架构或使用集成测试
-                // 当前通过 S-1 第 2 项验证 pre-check 逻辑，恢复后自检逻辑留待后续重构测试
+            it('throws when post-restore integrity_check fails', () => {
+                createSeedDatabase(dbPath, 'current')
+                createSeedDatabase(backupPath, 'from-backup')
+
+                // 注入自检：源备份预校验通过、恢复后的目标库自检返回损坏。
+                // 真实环境不可达（copyFileSync 保证目标库与备份字节一致），故以注入点模拟磁盘故障。
+                const inspect = vi.fn<(target: string) => { integrity: string, schemaVersion: number }>()
+                    .mockReturnValueOnce({ integrity: 'ok', schemaVersion: 1 })
+                    .mockReturnValueOnce({ integrity: 'database disk image is malformed', schemaVersion: 1 })
+
+                expect(() => restoreDatabase({ from: backupPath, to: dbPath, inspect }))
+                    .toThrow(/恢复后 integrity_check 未通过/)
+                expect(inspect).toHaveBeenCalledTimes(2)
+                expect(inspect).toHaveBeenNthCalledWith(1, backupPath)
+                expect(inspect).toHaveBeenNthCalledWith(2, dbPath)
+                // fail-closed：抛错发生在 copyFileSync 之后，目标库已被替换，需人工核对
+                expect(readValues(dbPath)).toEqual(['from-backup'])
             })
         })
 
         describe('S-1 第 4 项：sidecar unlinkSync 部分失败的 removedSidecars 状态一致性', () => {
-            it.skip('keeps removedSidecars consistent when some sidecar deletions fail (ESM mock limitation)', () => {
-                // TODO: ESM 模块无法直接 spyOn fs.unlinkSync，需改用进程级隔离或其他方式测试
-                // 当前测试覆盖正常路径，异常路径留待后续进程级隔离测试补充
+            it('keeps on-disk sidecar state consistent when a deletion fails midway', () => {
+                createSeedDatabase(dbPath, 'current')
+                createSeedDatabase(backupPath, 'from-backup')
+                // 真实文件系统故障注入：`-shm` 建成目录 → unlinkSync 对其抛错（EISDIR / EPERM）。
+                // 遍历顺序为 ['-wal', '-shm', '-journal']，故 -wal 在失败前已删除、-journal 未被处理。
+                writeFileSync(`${dbPath}-wal`, 'stale wal')
+                mkdirSync(`${dbPath}-shm`)
+                writeFileSync(`${dbPath}-journal`, 'stale journal')
+
+                expect(() => restoreDatabase({
+                    from: backupPath,
+                    to: dbPath,
+                    // 注入恒 ok 的自检：使本用例唯一可能的抛错来源只能是 unlinkSync 失败。
+                    // 否则残留的陈旧 -journal 会让下游 inspect(to) 以「只读打开尝试回滚」报错，
+                    // 恰好满足无参 toThrow()，从而掩盖「清理循环被 try/catch 吞错」这类回归。
+                    inspect: () => ({ integrity: 'ok', schemaVersion: 1 }),
+                })).toThrow()
+
+                // 磁盘状态一致：已删除的确实删除，失败点及其后的保留（fail-closed，不静默跳过）
+                expect(existsSync(`${dbPath}-wal`)).toBe(false)
+                expect(existsSync(`${dbPath}-shm`)).toBe(true)
+                expect(existsSync(`${dbPath}-journal`)).toBe(true)
+                // 主库已恢复：copyFileSync 在 sidecar 清理之前完成，故目标库字节等于备份
+                // （不用 SQLite 打开校验：残留的陈旧 -journal 会让只读打开尝试回滚恢复而报错）
+                expect(readFileSync(dbPath)).toEqual(readFileSync(backupPath))
             })
         })
 

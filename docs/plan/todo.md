@@ -105,7 +105,11 @@
 - **交付物**：2-3 atomic commits（`feat(engine)` 错误细分 + `test(engine)` case + 报告字段 / 文档同步）
 - **风险与缓解**：Code Quality「未启用」无官方 message 文档，判定信号不确定；缓解：以 Code Scanning 为主（有官方文档）先落地，Code Quality 待信号明确后补；匹配失败退 `PERMISSION_DENIED`
 
-#### M32.4（P3，🛡️ 技术债 / 治本）C82 git 签名语义边界（push 隔离 + 不提供 opt-in）
+#### M32.4（P3，🛡️ 技术债 / 治本）C82 git 签名语义边界（push 隔离 + 不提供 opt-in）✅ 已完成
+
+> **闭环记录（2026-09-29）**：5 commits（`fix(engine)` 单一事实源常量与 push 隔离 / `test(engine)` 真实 git 回归 / `fix(platform)` 3 处调用点 / `test(platform)` argv 断言 / `docs(standards)` 策略与检查点登记）；A 阶段两分区（deep + deep）**第 1 轮均 Pass**（无 blocker），并按 warning / suggest 收敛（修正恒真断言 → 改用 `--get` 可击破断言；配置查找顺序措辞精确化；JSDoc 收敛为指针）。
+> **验证证据**（测量方：执行角色）：root `pnpm test` 3336 项（`pnpm test`，3328 passed / 8 skipped）；引擎 `git-signing.test.ts` 真实 git 回归（同环境裸 push 必失败作反例对照）+ mutation 实证（去掉隔离参数 → 该用例失败于 `does not support --signed push`；写入 local config → 落盘断言失败）；平台 argv 三文件 72 passed；root `typecheck` 7 包全绿；非 `--fix` eslint 0 problem；`check:docs` / `lint:md` 通过；`pnpm run build` 重建 dist（engine src → dist 一致性）。
+> **落地差异**：① 单一事实源落在 `packages/engine/src/github/git-signing.ts`（engine + 平台共用）；② 「不提供 opt-in」策略与重开条件记入 [git.md §3.8](../standards/git.md)；③ 该约束的 review 检查点缺口登记入 backlog `C91`（待挂接）；④ e2e 未跑（无 UI 改动且套件不覆盖 push 路径，理由见交付说明）。
 
 - **目标**：push 链路同 commit 链路一样不受宿主 `push.gpgSign` 污染；并把「不提供 commit 签名 opt-in」作为显式策略记录，而非隐式默认。
 - **优先级**：P3

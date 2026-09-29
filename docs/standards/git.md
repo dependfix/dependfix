@@ -155,6 +155,27 @@ commit message 应聚焦于"当次提交的改动"+"可供事后复查的信息"
 - **反例**：M29.7 修复 commit 只含 4 文件（纯函数 + 组件 + 测试 + e2e 注释），`disabled` 透传 + i18n key 未暂存 → A 阶段审计 RG-B3 Reject。
 - 详见 [经验归档 §六十五](../design/governance/experience-archive-§49-§57-recent-investigation.md#六十五m30-归档批次经验沉淀)
 
+### 3.8 git 签名语义：commit / push 双向隔离，不提供 opt-in（M29.2 + M32.4）
+
+dependfix 的 commit / push 必须**不受宿主 git 签名配置污染**，否则行为不可复现。两类污染与隔离方式：
+
+| 触发配置 | 污染表现 | 隔离参数 |
+|:--|:--|:--|
+| 宿主 / repo `commit.gpgsign=true` | commit 带上宿主个人签名（签名身份与被修复仓库 author 不一致）；宿主无可用 key / `gpg.program` 不可用时直接 `fatal: failed to write commit object` | `-c commit.gpgsign=false` |
+| 宿主 `push.gpgSign=true` | `git push` 自动带 `--signed`；服务端 `receive-pack` 不支持签名推送时 `fatal: the receiving end does not support --signed push` → `fatal: the remote end hung up unexpectedly` | `-c push.gpgSign=false` |
+
+**单一事实源**：`packages/engine/src/github/git-signing.ts` 导出 `GIT_COMMIT_SIGNING_ISOLATION_ARGS` / `GIT_PUSH_SIGNING_ISOLATION_ARGS`（engine 与平台侧共用，禁止散落字面量——避免 commit / push 两处漂移）。**覆盖面**：commit 侧 `stageAndCommit`；push 侧全部 4 处推送调用点——`pr-creator.pushBranch` / `platform-delivery.pushFixBranchWithCredential` / `container-executor.pushFixBranch` + `cleanupRemoteBranch`（含 `--delete`）。
+
+**只关开关、不屏蔽环境**：以 `-c <key>=false` 形式仅作用于该次调用——`-c` 的优先级高于 repo local / worktree / host global / system 配置（git 配置键**大小写不敏感**，故表中 `commit.gpgsign` 与 `push.gpgSign` 的写法差异无功能影响，按代码实际取值列出），且不写回任何配置文件。刻意**不**注入 `GIT_CONFIG_GLOBAL` / `GIT_CONFIG_NOSYSTEM`——那会连带屏蔽宿主代理（`http.proxy`）等运行环境配置。
+
+**策略：不提供签名 opt-in**。是否产出「签名 commit / signed push」不作为可配置项（无 CLI flag / env / action input / 平台配置）。依据：签名会把 dependfix 绑定到调用方密钥环境（需额外设计密钥来源、签名失败语义、四层暴露面），而「目标仓库强制要求签名 commit」属罕见场景。
+
+- **重开条件**（任一出现时重新评估）：① 用户明确要求对特定目标仓库产出签名 commit；② 目标仓库分支保护规则强制 `Require signed commits` 且无法通过 PAT / App 权限例外；③ 平台需要以可验证身份签名（合规审计要求）。
+- **重开时的必做项**：密钥来源（用户配置 signingkey / 目标仓库要求）、签名失败语义（硬失败并回滚交付 vs 降级）、四层暴露面（CLI / env / action / 平台配置）统一，以及本表两条隔离参数的默认值保持「关闭」。
+- **不做的边界**：不改宿主 `~/.gitconfig`；不关闭用户手工 git 操作的签名；不回溯已产生的 commit / push；不做目标仓库保护规则预检。
+
+**取证口径（可复现）**：反例对照必须能击破断言——`packages/engine/src/github/git-signing.test.ts` 在同一次执行内先证「宿主 `push.gpgSign=true` 时裸 `git push` 必失败（`does not support --signed push`）」，再证「`pushBranch` 成功」，避免"环境恰好不触发签名"导致的恒真断言。
+
 ## 4. AI 行为准则
 
 - **禁止擅自推送**: commit 后不得自动执行 `git push`，推送仅限用户明确指令。

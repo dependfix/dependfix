@@ -8,6 +8,7 @@ import {
     type RuntimeConfig,
     computeFixFingerprint,
     createFixBranch,
+    GIT_PUSH_SIGNING_ISOLATION_ARGS,
 } from '@dependfix/engine'
 import type { AuthProvider } from '@dependfix/engine/auth'
 import type { ScanExecutor, ScanExecutorContext, ScanExecutorResult } from './types'
@@ -71,6 +72,8 @@ export async function extractBranchName(workDir: string): Promise<string> {
  *
  * 设计要点：
  * - 凭据走 http.extraheader（base64 basic auth），不进 argv/URL（防 execFile 错误回显泄露）
+ * - 签名隔离：显式传 `-c push.gpgSign=false`（`GIT_PUSH_SIGNING_ISOLATION_ARGS`），避免宿主
+ *   `push.gpgSign=true` 让 push 带 `--signed` 而在服务端不支持时失败（口径见 docs/standards/git.md §3.8）
  * - git push 成功时 stderr 含 "To https://..." 行；任何其他 stderr 视为失败
  * - 与 pushBranch（packages/engine/src/github/pr-creator.ts:200）的语义差异：
  *   本函数为 async + 走 http.extraheader 凭据注入（平台 A 模式需要把 token 重新注入到
@@ -106,11 +109,11 @@ export async function pushFixBranch(
         token = ''
     }
 
-    const args = ['push', 'origin', branchName]
-    if (token) {
-        const basic = Buffer.from(`${username}:${token}`).toString('base64')
-        args.unshift('-c', `http.extraheader=Authorization: basic ${basic}`)
-    }
+    const args = [
+        ...GIT_PUSH_SIGNING_ISOLATION_ARGS,
+        ...(token ? ['-c', `http.extraheader=Authorization: basic ${Buffer.from(`${username}:${token}`).toString('base64')}`] : []),
+        'push', 'origin', branchName,
+    ]
     const { stderr } = await execFileAsync('git', args, { cwd: workDir, timeout: 60_000 })
     if (stderr && !/^To /m.test(stderr)) {
         throw new Error(`git push 失败：${stderr.trim()}`)
@@ -126,11 +129,11 @@ export async function pushFixBranch(
  * 保留为工具函数以备未来需要"严格清理"语义时启用。
  */
 export async function cleanupRemoteBranch(branchName: string, workDir: string, token?: string): Promise<boolean> {
-    const args = ['push', 'origin', '--delete', branchName]
-    if (token) {
-        const basic = Buffer.from(`x-access-token:${token}`).toString('base64')
-        args.unshift('-c', `http.extraheader=Authorization: basic ${basic}`)
-    }
+    const args = [
+        ...GIT_PUSH_SIGNING_ISOLATION_ARGS,
+        ...(token ? ['-c', `http.extraheader=Authorization: basic ${Buffer.from(`x-access-token:${token}`).toString('base64')}`] : []),
+        'push', 'origin', '--delete', branchName,
+    ]
     try {
         await execFileAsync('git', args, { cwd: workDir, timeout: 30_000 })
         return true

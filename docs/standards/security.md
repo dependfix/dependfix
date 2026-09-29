@@ -17,6 +17,7 @@
 - **敏感信息屏蔽**: API 返回前必须脱敏（隐藏密码、Token 等字段）。
 - **Secrets 管理**: 严禁将密钥、Token 提交至 Git，必须使用 `.env`。
 - **不可信路径组件白名单校验**: `runId` 等不可信路径组件（来自 URL / 请求体 / 外部输入）必须**双重**校验：白名单正则（如 `RUN_ID_PATTERN = /^[a-zA-Z0-9_-]{1,64}$/`）+ 相对路径校验（`relative(workRoot, workDir).startsWith('..')`）。runId 不合法时 **early return 在 try 外**，跳过 mkdir / adapter.run / finally rm —— 避免对越界路径执行副作用（rm、删除等"清理逻辑"在路径不可信时同样危险）。
+- **读取外部可控配置文件（如目标仓库的 `.github/*.yml`）的安全增量**: 文件内容由外部仓库完全控制，除「非法 / 超限 / 缺失一律降级回退、不中断主流程」外，安全侧还必须做到——① **日志中的错误摘要截断**（YAML 解析错误会携带文件片段，会被日志聚合 / 平台展示留档）；② **原型链风险键过滤须在 schema 解析之前**（`__proto__` / `constructor` / `prototype`，与 env / CLI 入口共用同一谓词；zod 的 record 会**静默丢弃** own `__proto__` 键，过滤放后面就只剩静默丢弃、没有告警）；③ **未知键检测用 `Object.hasOwn`**（`in` 会命中原型链导致漏报）。完整的读取 / 合并 / 降级矩阵（非普通文件不跟随符号链接、大小上限等）以 [dependency-fixer.md §12.7](../design/modules/dependency-fixer.md) 为唯一权威，本节不重复。
 
 ### 2.1 SQLite 数据库防护（不可恢复数据事故防线）
 

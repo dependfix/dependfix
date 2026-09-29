@@ -97,7 +97,9 @@
 - **服务端用构建产物**：`.output/server/index.mjs`（对齐生产形态），独立端口 + 独立库 + 独立 AUTH_SECRET；生产构建 synchronize 默认关闭，e2e 库必须 `DATABASE_SYNCHRONIZE=true` 显式开启。
 - **会话复用**：global-setup 注册首用户 admin（首个注册自动 admin）保存 storageState，管理页用例 `test.use({ storageState })` 复用；权限用例（viewer）在测试内注册登录。
 - **CI 单 worker 串行**：共享 SQLite 库下并行写互相干扰；CI `workers: 1` + retry 2 + blob 报告。
-- **目录隔离**：`*.e2e.test.ts` 会被 vitest 默认扫描，vitest.config 必须 `exclude: ['**/tests/e2e/**']`。
+- **目录隔离**：`*.e2e.test.ts` 会被 vitest 默认扫描，vitest.config 必须 `exclude: ['**/tests/e2e/**']`。**新增 Playwright 容器同样要排除**——沿用 `*.test.ts` 命名（如 `tests/visual/**/*.visual.test.ts`）会命中 vitest 默认 include，`pnpm test` 直接失败；新增容器入库前先跑一次全量 `pnpm test`，并同步补 `test.exclude`。
+- **容器内 Chromium 需 `TMPDIR=/dev/shm`**：容器 `/tmp` 处于 overlayfs 时，Chromium 默认 arg `--disable-dev-shm-usage`（共享内存落 `/tmp`）会让 renderer 在**真实页面**崩溃（`page.goto` 报 `Page crashed`，而 `about:blank` 与 `launch` 本身正常）→ 用 `TMPDIR=/dev/shm <playwright 命令>`（tmpfs）或 `ignoreDefaultArgs: ['--disable-dev-shm-usage']`。分层定位方法与完整实证见 [caomei-ui-migration.md §15.13](../design/governance/caomei-ui-migration.md)。
+- **本机多 worker + 共享 SQLite 会偶发 flaky → 取证据用 `--workers=1`**：`workers` 仅在 CI 强制为 1，本机默认并行；e2e 共享同一 SQLite 文件时会出现锁 / 时序类偶发失败。「单跑失败但单独运行通过」不等于代码缺陷，先排除并发因素；**权威证据用 `--workers=1`（CI 等价）连跑两遍**。
 - **限流豁免**：better-auth 1.6.26 内置特殊规则（sign-in 10s/3 次）优先于 customRules，无代理 IP 头时回退共享桶（并行必 429）→ e2e 环境 `E2E_TEST=true` + `advanced.ipAddress.disableIpTracking: true` 完全跳过（[经验归档 §三十](../design/governance/experience-archive.md)）。
 - **浏览器 UI 验证必须使用视觉模型 agent**：V 阶段派发 `ui-validator` subagent（视觉模型 opencode-go/qwen3.7-plus）截图审查；无视觉能力的 agent 只能报告计算样式值、无法确认视觉回归（[经验归档 §三十一](../design/governance/experience-archive.md) 同源纪律）。
 - **Nuxt SSR+CSR 双层 fetch 的 mock 限制**：Playwright `page.route` 只在浏览器上下文生效，Nuxt SSR 阶段服务端 `fetchData`(onMounted SSR)直接走真实 API 不走 client mock。即使 client hydration 后 onMounted 跑 fetchData，`credentials.value` 已被 SSR 阶段服务端响应填充为 `[]`，后续 client 拉到的 mock 数据无法回写已显示的空 Select 状态。完整 mock 守卫需：(a) 关闭 SSR(spa mode)或 (b) 注入 service worker 拦截 server response 或 (c) 走 in-process 测试(Vitest + @vue/test-utils mount 组件 + mock `$fetch`)。**page.route mock 只能保证"client side 重新触发 fetch"才能命中**——SSR 已渲染的真实数据无法被覆盖。
@@ -146,6 +148,12 @@
 
 `expect(x).toContain('3')` / `toContain(3)` 等短断言会被 fixture 数据（日期 `2026-07-30` 含字符 `3`、ID、计数字段）污染**恒真**，计数错误 / 缺失无法拦截。**修复模式**：表格 / 结构化输出断言用**完整行**（如 `toContain('| Alerts disabled (repos) | 3 |')` 含标签与管道符）或 `toMatch` 正则锚定边界；数字断言优先 `toBe(n)` 直接测数据层而非渲染文本。反例：M29.5 报告计数测试 `expect(md).toContain('3')` 在计数=0 时仍通过。
 
+**断言子串必须是被测输出的独有子串**：反向 / 正向断言若用了会出现在**其他字段**里的子串就会假绿——例如断言「提示含某产品名」时该串其实由错误消息（`error message`）或 fixture 数据提供，把实现改回旧行为后仍全绿。修复：锁定被测输出的独有子串（如按源区分的完整短语），并在新增后做 mutation（把实现改回旧行为）确认用例会失败。
+
+**断言还要锁定失败来源（不止「有区分度」）**：`expect(() => f()).toThrow()` 无参会接受任何抛错——若被测路径下游还可能抛错，则「把关键清理循环包 try/catch 吞错并中止」这类回归会被静默放过（实测：吞错实现下 28/28 用例仍通过）。**方法论**：新增 / 修改断言后，主动做 2-3 个「故意破坏生产代码」的 mutation（删 guard / 吞错 / 改成继续执行），确认测试会失败；让该路径成为**唯一可能的抛错来源**（如注入恒正常的下游依赖）比断言错误消息更跨平台稳定。**token / 暗色类断言同样用 mutation 标定**：把主题偏好置为另一态实测取值并写入用例注释（如 `colorScheme`、弹层背景与输入文本色的亮 / 暗两态 RGB 值），否则断言可能恒真。
+
+**外部命令输出的大小写 / 规范化形态会让反向断言恒真**：`git config --local --list` 输出**一律小写**键名（写入 `push.gpgSign=true` 输出恒为 `push.gpgsign=true`），故 `expect(list).not.toContain('push.gpgSign')` **无条件为真**。判断某键是否落盘改用 `git config --local --get <key>`（未设置时 exit 1 → 断言抛错），或断言小写形式。**环境相关断言优先「同环境反例对照」**：先在同一用例内断言「未隔离的裸操作必失败（原始错误信息）」，再断言「隔离后成功」——否则一旦环境恰好不触发问题（不同版本 / 传输方式），正例断言会退化为恒真。
+
 ### 6.6 ESM 模块 mock 受限的处理原则
 
 Vitest 对 ESM 命名导出（如 `node:fs` 的 `unlinkSync`）无法用 `vi.spyOn` 拦截，被测模块内部调用也无法直接注入失败。**处理原则（按优先级）**：① **真实故障注入**——优先用真实文件系统 / 进程级隔离制造故障（**零生产代码改动**，如把旁文件建成目录使 `unlinkSync` 抛错）；② **可注入依赖**——真实故障不可达时（如"复制完成后的库损坏"）才给生产代码加可选注入点（默认值即原实现，与既有注入风格保持一致）；③ 确认 `vi.mock` 对目标模块支持度后再用。**不得**为凑覆盖率写"看似 mock 实则恒过"的断言，也不得静默 `it.skip`——skip 必须带 TODO 理由并登记 backlog。**对照做法（M31.6 补 C90）**：M30.5 `db-restore` 的两个失败分支曾因 ESM mock 受限 `it.skip`，补齐时分别采用——① 真实文件系统故障注入（sidecar 部分删除失败：把 `-shm` 建成目录使 `unlinkSync` 抛错，零生产代码改动）；② 注入点（恢复后 `integrity_check` 失败分支在真实环境不可达，给 `restoreDatabase` 加可选 `inspect` 注入点）。
@@ -165,6 +173,10 @@ Vitest 对 ESM 命名导出（如 `node:fs` 的 `unlinkSync`）无法用 `vi.spy
 - **与 `ui-validator` 的分工**：视觉回归只兜「像素漂移」，不做交互 / 可用性 / 语义审查；后者仍由 `ui-validator` 承担（见 §6.1 同款纪律）。
 - **CI 接入**：`test.yml` 的 `visual` job（独立 runner + 失败产物上传 `apps/platform/test-results/`）；初期 `continue-on-error: true`——基线采集环境为维护者本地容器（Linux + Playwright chromium），尚未在 ubuntu-latest runner 确认字体渲染一致。**转阻断判定条件**：出现首个 ubuntu-latest 全绿 run 后移除该行（待办登记 backlog §已知边界）。
 - **review 检查点**：本节三条「必须」级约定（取证前先 build / 加遮蔽须重生成基线 / 反例验证纪律）的检查点补挂登记于 `docs/plan/backlog.md`（C91）。
+
+### 6.8 取证工件必须与冻结代码同批生成
+
+审计 / 文档引用的取证工件（截图、计算样式 JSON、报告样本）必须在**代码冻结后**、与最终验证链（`build` → 全量 e2e → 浏览器取证 → 计算样式取证）**同批生成**；文档中引用的数字只在链条尾部落笔。反例：工件早于最后一轮修复生成 → 文档数字与工件对不上，被审计双双指出。附带约束：工件脚本自身的测量口径（选择器作用域、需先打开的弹层 / 面板）也要随代码变化同步修正。
 
 ## 7. 测试代码质量
 

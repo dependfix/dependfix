@@ -64,6 +64,7 @@ Agent-First 的完整项目级定义以 `AGENTS.md` 为准。Agent 是默认任�
 | `deep` | 发布流程、安全/鉴权、外部调用、数据写入、配置与依赖变更、agent/skill 定义 | 全量 checklist + 针对性实证（临时仓库/本地实验/验证命令按需执行） | ≤ 20 分钟 |
 
 配套实践：
+- **规划 / 阶段启动批次按 `standard` 送审**：仅改 `docs/plan/*.md` 的规划批次不在「审计触发」明列清单内，但触碰多条 hard requirement（[规划规范 §3.1](./planning.md) 新需求默认走评估 → backlog、[§3.4](./planning.md) 三重交叉核验、[§2.5](./planning.md) 八要素、[§4.4 第 11 条](./planning.md)），且 `code-auditor` 主责边界含「阶段启动重复评估自检」必查项 → 规划 / 阶段启动批次声明 `standard`（非 `quick`）。
 - **审计 prompt 携带"已查证事实"**：执行角色把调研结论/实验证据写进审计任务，避免审计者从头翻源码，显著提升效率与命中率；
 - **分级沿用 blocker / warning / suggest**（见 [测试规范 §4.1 按风险分级执行](../standards/testing.md) 与 [code-reviewer skill](../../.github/skills/code-reviewer/SKILL.md)）；
 - **审计调用协议**：`Full Stack Master (全栈大师)` 发起审计时必须显式声明 `audit-depth`（quick / standard / deep + 理由）、变更文件清单、已验证证据摘要与复审问题编号；未声明按 `deep` 防御执行；

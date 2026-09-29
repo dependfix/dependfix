@@ -116,6 +116,8 @@ export const getDateType = (dbType?: string): string => {
 - 初始化失败不抛致命错误：日志告警 + 功能降级（对齐 momei `reportDatabaseInitializationFailure` 语义）
 - 幂等单例 + 并发初始化锁（`ensureDatabaseInitialized`）
 
+- **新增迁移必须前缀感知**：`entityPrefix` 默认 `dependfix_`，而早期迁移表名处理不统一（实测 4 个硬编码前缀 + 3 个硬编码无前缀）→ 非预期前缀组合下迁移**静默 no-op**（`getTable()` 返回 undefined，无日志信号）。新迁移先试 `dataSource.options.entityPrefix + 表名`、再回退无前缀，并配「两种前缀 + 两者同时存在（前缀优先）+ up/down 幂等 + 表缺失」用例；`queryRunner.connection` 在 TypeORM 1.x 已 deprecated，改用 `queryRunner.dataSource`。存量问题与待治理范围见 [backlog.md §已知边界](../plan/backlog.md#appsplatform-早期-migration-表名前缀不统一已知边界待治理)。
+
 ### 3.4 实体规范
 
 - 继承 `BaseEntity`（雪花 ID + `getDateType()` 时间戳）

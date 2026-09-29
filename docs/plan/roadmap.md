@@ -39,7 +39,7 @@
 | M29: 修复交付链路正确性 + 能力扩展 | C73 git 配置污染隔离 + C75 验证链纳入 test + C77 override 复发防护 + C78 alerts 未启用/获取失败区分 + C71 pnpm 路径级 overrides + C72 批量导入 archived/disabled 过滤 + vite 漏洞插队 hotfix + C79 devEx 配置缺口 + C80-A CI 审计覆盖（M29.8/M29.9 为 M29.1 衍生） | P2-P3 | 已完成（[todo-archive.md §M29](todo-archive.md#m29-修复交付链路正确性--能力扩展m291m299-全部已闭环--2026-09-27-归档)） |
 | M30: 治理债清理 + 迁移可行性验证 + 能力扩展 + 测试补强 | C87 跳过类审计退出码 + C86 max-lines 拆分 + C84 文档对齐 + C74 getCommitAuthor 接线（App 路径）+ db-restore 补测 + UI 组件库迁移可行性验证 V1-V3 | P2-P3 | 已完成（[todo-archive.md §M30](todo-archive.md#m30-治理债清理--迁移可行性验证--能力扩展--测试补强m301m306-全部已闭环--2026-09-28-归档)） |
 | M31: apps/platform UI 组件库迁移（PrimeVue → caomei-ui） | B0 基线与双库并存接线 + B1a/B1b DataTable 迁移 + B2 表单/浮层切换 + B3 收尾卸载与回归 + C90 db-restore 补强 | P2-P3 | 已完成（[todo-archive.md §M31](todo-archive.md#m31-appsplatform-ui-组件库迁移primevue--caomei-ui-m311m316-全部已闭环--2026-09-29-归档)） |
-| M32: 能力扩展优先 | C76 平台验证命令配置 + C85 目标仓库专属配置 + C89 Code Scanning 未启用区分 + C82 git 签名语义边界 + C92 视觉回归最小集 | P3 | 进行中（2026-09-29 用户决策方案 B 启动） |
+| M32: 能力扩展优先 | C76 平台验证命令配置 + C85 目标仓库专属配置 + C89 Code Scanning 未启用区分 + C82 git 签名语义边界 + C92 视觉回归最小集 | P3 | 已完成（[todo-archive.md §M32](todo-archive.md#m32-能力扩展优先m321m325-全部已闭环--2026-09-30-归档)） |
 
 > **本路线图定位**：按 [规划规范 §2.1](../standards/planning.md) 仅维护阶段概览（目标 / 优先级 / 状态）。详细实施记录 / commit 引用 / 关键决策 / 经验教训见对应归档段（详见下方"## 详细任务"索引）。
 
@@ -422,15 +422,15 @@ per-alert 模型 + reconcile + API 简化 + UI 调整 + backfill 脚本。5 子�
 
 ---
 
-## M32: 能力扩展优先（2026-09-29 用户决策方案 B / 进行中）
+## M32: 能力扩展优先（2026-09-29 用户决策方案 B / 2026-09-30 已闭环 + 归档）
 
 承接 M31 完整闭环归档后的 backlog 候选池。2026-09-29 用户决策方案 B（能力扩展优先），从「评估完成待上收」候选中上收 5 项。**5 原子条目**覆盖 🚀 3 + 🛡️ 1 + 🧪 1（🎨 纯 UX 无独立条目，缺口显式标注，与 M28-M31 同型）。
 
-- **M32.1** [P3 🚀 能力扩展] C76 平台侧暴露验证命令配置（每仓库 Repository 字段，含 migration + 透传 + 最小 UI）
-- **M32.2** [P3 🚀 能力扩展] C85 目标仓库专属配置 `.github/dependfix.yml`（中央优先；首批仅 `overrideProtect`）
-- **M32.3** [P3 🚀 能力扩展] C89 Code Scanning / Code Quality「未启用」与「获取失败」区分（复用 `ALERTS_DISABLED` + source 区分）
-- **M32.4** [P3 🛡️ 技术债] C82 git 签名语义边界（4 处 push 调用点隔离 + 不提供签名 opt-in）
-- **M32.5** [P3 🧪 测试基建] C92 apps/platform 视觉回归最小集（入仓库基线 + 独立 CI job）
+- **M32.1** [P3 🚀 能力扩展] ✅ C76 平台侧暴露验证命令配置（每仓库 `verifyCommands` 字段 + 前缀感知 migration + 写入链路审计留痕 + 仓库表单 UI + e2e；2026-09-29 完成）
+- **M32.2** [P3 🚀 能力扩展] ✅ C85 目标仓库专属配置 `.github/dependfix.yml`（本地检出读取 + 中央配置优先合并 + 降级矩阵；2026-09-30 完成）
+- **M32.3** [P3 🚀 能力扩展] ✅ C89 Code Scanning / Code Quality「未启用」与「获取失败」区分（403 判定集中在共用映射层 + 源感知文案；2026-09-29 完成）
+- **M32.4** [P3 🛡️ 技术债] ✅ C82 git 签名语义边界（4 处 push 调用点隔离 + 不提供签名 opt-in；2026-09-29 完成）
+- **M32.5** [P3 🧪 测试基建] ✅ C92 apps/platform 视觉回归最小集（独立库 + 入仓库基线 + 独立 CI job；2026-09-29 完成）
 
 **关键决策 D1-D6**（2026-09-29 用户裁定）：
 
@@ -450,13 +450,20 @@ per-alert 模型 + reconcile + API 简化 + UI 调整 + backfill 脚本。5 子�
 
 **未纳入本批（保留 backlog）**：C80 阻断语义（待用户敲定方案 B / C）/ C81 注释编号清理（存量 300-430 命中，需分批）/ C83 验证链基线（方案未定）/ C91 review 检查点补挂 / M31 遗留 `dependabot.yml` 死配置清理 / C15 第二阶段（需 `GITHUB_TOKEN`）/ C68（需代理基建）/ T701 / T702 / T704（需真实环境）/ D1 / D3 / D8 / B2 / C37 / T905（触发条件未到）
 
-> 详细任务与 8 要素见 [todo.md §M32](todo.md#m32-能力扩展优先2026-09-29-用户决策方案-b--进行中)
+**闭环实证摘要**（完整记录见归档段）：
+
+- 26 commits（5 原子条目）+ 1 merge commit（`300e833`）；归档时 `git rev-list HEAD ^origin/master --count` = 27（本地 ahead，待推送）
+- 5 原子条目全部通过 A 阶段 Review Gate（含 2 处第 1 轮 Reject → 修复 → 第 2 轮 Pass：M32.1 双分区 Reject / M32.5 文档分区 Reject）
+- 落地差异：M32.2 读取走**工作区本地文件**（不走 contents API）；M32.5 视觉套件跑**独立 SQLite 库** + CI job 初期非阻断（转阻断条件已固化）
+- 衍生候选保留 backlog：C93（pr-checks 行级覆盖）/ C94（alerts 右端列盲区）/ 视觉 CI 转阻断待办
+
+> 详细任务与 8 要素见归档段 [todo-archive.md §M32](todo-archive.md#m32-能力扩展优先m321m325-全部已闭环--2026-09-30-归档)
 
 ---
 
 ## 详细任务
 
-- 当前阶段任务：[todo.md](todo.md)（**M32 能力扩展优先进行中**：2026-09-29 用户决策方案 B 启动，5 原子条目；上一阶段 M31 已于 2026-09-29 完整归档，详见 [todo-archive.md §M31](todo-archive.md#m31-appsplatform-ui-组件库迁移primevue--caomei-ui-m311m316-全部已闭环--2026-09-29-归档)）
+- 当前阶段任务：[todo.md](todo.md)（**暂无进行中阶段**：M32 已于 2026-09-30 完整闭环 + 归档，详见 [todo-archive.md §M32](todo-archive.md#m32-能力扩展优先m321m325-全部已闭环--2026-09-30-归档)；下一阶段待用户决策）
 - 已归档阶段：[todo-archive.md](todo-archive.md)（主窗口保留最近阶段完整段 + 指针段；早期阶段见 [archive/index.md](archive/index.md) 分片索引）
 - 后续阶段任务（延期项 + 未排期增强候选）：[backlog.md](backlog.md)
 

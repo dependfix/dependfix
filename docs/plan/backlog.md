@@ -63,7 +63,7 @@
 - **T705 生产级部署**（PostgreSQL + Helm + Sentry）—— 2026-08-12 用户指示暂缓排期
 - **T703 跨平台 Git**（GitLab + Bitbucket）—— 2026-08-12 用户指示暂缓排期
 - **C30 Publish Docker build job 失败排查** —— 2026-08-18 用户决策暂缓（双平台构建 23m 2s 成功证明当前 docker.yml 可稳定工作）；恢复条件：① master 分支 push 频率显著提升；② 镜像实际发布成为强需求（v1.0.0 正式发布前）；③ 用户明确恢复
-- **caomei-ui 0.x → 1.0 升级回归** —— 库处于 0.x（当前精确锁定 `0.3.0`），1.0 前 API / 目录仍可能调整。恢复条件：① 库发布 1.0.0 或用户指定目标版本；② 平台需跟进新组件能力；③ 用户明确恢复。届时按 M31 迁移期实证索引（[caomei-ui-migration.md §15](../design/governance/caomei-ui-migration.md)）做回归
+- **caomei-ui 0.x → 1.0 升级回归** —— 库处于 0.x（当前精确锁定 `0.3.0`），1.0 前 API / 目录仍可能调整。恢复条件：① 库发布 1.0.0 或用户指定目标版本；② 平台需跟进新组件能力；③ 用户明确恢复。届时按 M31 迁移期实证索引（[caomei-ui-migration.md §15](../design/governance/caomei-ui-migration.md)）做回归；**升级回归的像素兜底已就位**（M32.5 落地的视觉回归基线 `apps/platform/tests/visual/`，覆盖 alerts / repos / pr-checks / dialog-import-repos / login，口径见 [测试规范 §6.7](../standards/testing.md)）
 - **ScanResult 数据层去重（upsert 唯一索引）** —— 2026-09-02 M23.3 决策暂缓：应用层去重（fingerprint + occurrenceCount / firstSeenAt / lastSeenAt / affectedRunIds）已实施且满足当前业务需求；恢复条件：出现"fix 复用同一 `scan_run_id` 跨次刷新"或"历史 fixStatus 跨次保留"需求时迁移到数据层 upsert（关联 [todo-archive.md §M23](todo-archive.md#m23-m22-治理债收口--根因排查--能力扩展--测试补强m230m231m232m233m234-全部已闭环--2026-09-02-归档)）
 
 ### 远期登记 / 未排期增强候选
@@ -301,7 +301,7 @@
 
 - **背景**：根构建脚本 `pnpm -r --filter "./packages/*" build` 不含 `apps/platform`，`.output` 需单独构建。
 - **影响**：类型侧由 `nuxt typecheck` 覆盖；但涉及 `packages/*/dist`（如 engine chunk 结构）变更后，容器 / 运行时冒烟前需重建 `apps/platform/.output`，否则可能引用旧产物。
-- **触发条件**：需要容器 / 运行时冒烟验证依赖 `packages/*/dist` 的变更时。
+- **触发条件**：① 需要容器 / 运行时冒烟验证依赖 `packages/*/dist` 的变更时；② 跑 `apps/platform` e2e 或**视觉回归**（`pnpm --filter @dependfix/platform test:visual`，M32.5）前——两者都跑 `.output` 产物，源码改动不重建则验证的是旧产物（假绿；M32.1 / M32.5 均实证）。
 
 ### apps/platform 早期 migration 表名前缀不统一（已知边界，待治理）
 
@@ -338,8 +338,8 @@
 
 | 内容类型 | 位置 |
 |:--|:--|
-| 当前阶段活跃任务 | **M32 能力扩展优先**（2026-09-29 用户决策方案 B 启动，5 原子条目）—— 详见 [todo.md §M32](todo.md#m32-能力扩展优先2026-09-29-用户决策方案-b--进行中)；M31 已于 2026-09-29 完整归档，见 [§M31](todo-archive.md#m31-appsplatform-ui-组件库迁移primevue--caomei-ui-m311m316-全部已闭环--2026-09-29-归档) |
+| 当前阶段活跃任务 | **暂无进行中阶段**（M32 能力扩展优先已于 2026-09-30 完整闭环 + 归档，见 [todo-archive.md §M32](todo-archive.md#m32-能力扩展优先m321m325-全部已闭环--2026-09-30-归档)；下一阶段待用户决策） |
 | 已完成阶段归档 | [todo-archive.md](todo-archive.md)（主窗口保留最近阶段完整段 + 指针段；早期阶段见 [archive/](archive/)） |
-| 里程碑与阶段交付 | [roadmap.md](roadmap.md)（M0-M31 已归档，M32 进行中） |
+| 里程碑与阶段交付 | [roadmap.md](roadmap.md)（M0-M32 已归档） |
 | 长期主线 / 候选 / 待人工验收 / 已知边界 | 本文档（按四象限结构） |
 | 历史归档索引 | [archive/index.md](archive/index.md) |

@@ -10,3 +10,6 @@ test-results/
 playwright-report/
 blob-report/
 tests/e2e/.auth/
+# Playwright 视觉回归认证态（独立于 e2e：两份 auth 文件对应各自独立的 SQLite 库，
+# 共用会互相覆盖 session 记录）
+tests/visual/.auth/

@@ -30,6 +30,8 @@ yarn-error.log*
 # 必须保留 PNG 作为兜底
 !assets/brand/png/*.png
 !apps/platform/public/brand/*.png
+# 例外：apps/platform 视觉回归基线快照（须入仓库以支持 PR review 差异与回溯）
+!apps/platform/tests/visual/__screenshots__/**/*.png
 
 .git
 # ssl

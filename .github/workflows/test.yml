@@ -100,6 +100,54 @@ jobs:
           retention-days: 7
 
   # ===============================================================
+  #  Visual Regression — 平台视觉回归最小集（独立 Playwright config）
+  #  与 e2e 完全隔离（独立 config / 端口 / SQLite 库 / 认证目录），不并入 testMatch；
+  #  基线快照入仓库 apps/platform/tests/visual/__screenshots__/（可在 PR 中 review 差异）。
+  #  ⚠️ 初期非阻断（continue-on-error）：基线在维护者本地容器（Linux + Playwright chromium）
+  #     采集，尚未在 ubuntu-latest runner 上确认字体渲染一致。
+  #     转阻断判定条件（可判定口径）：在 ubuntu-latest runner 上出现**首个全绿 run** 后，移除
+  #     `continue-on-error` 并同步删除本节注释与 docs/standards/testing.md §6.7 的「非阻断」说明；
+  #     该待办登记于 docs/plan/backlog.md §已知边界。
+  # ===============================================================
+  visual:
+    name: Visual Regression
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    continue-on-error: true
+    permissions:
+      contents: read
+      # 上传失败产物 artifact 需 actions: write（与 e2e job 同因）
+      actions: write
+    steps:
+      - uses: actions/checkout@v7
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+      - name: Setup Node.js@lts environment
+        uses: actions/setup-node@v7
+        with:
+          node-version: "lts/*"
+          cache: "pnpm"
+      - run: pnpm i --frozen-lockfile
+      # 视觉套件跑构建产物（.output），需完整构建链（与 e2e job 一致）
+      - run: pnpm --filter @dependfix/core build && pnpm --filter @dependfix/engine build && pnpm --filter dependfix build
+      - run: pnpm --filter @dependfix/platform build
+      - name: Install Playwright Browsers
+        run: pnpm --filter @dependfix/platform exec playwright install --with-deps chromium
+      - name: Run visual regression
+        working-directory: apps/platform
+        run: pnpm run test:visual
+      - name: Upload visual diff artifacts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: visual-regression-artifacts
+          # 与 e2e job 同口径：整个 test-results/ 一并上传（含 CI reporter 的 blob 报告
+          # test-results/visual-blob/、失败截图 -actual/-diff）；playwright-report/ 仅本地 html reporter 产出
+          path: apps/platform/test-results/
+          retention-days: 7
+          if-no-files-found: ignore
+
+  # ===============================================================
   #  Coverage — 覆盖率统计并上报 Codecov
   #  （需要仓库配置 CODECOV_TOKEN secret，见
   #   https://docs.codecov.com/docs/quick-start#set-your-repository-upload-token）

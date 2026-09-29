@@ -252,14 +252,6 @@
 - **`.github/dependabot.yml` 的 PrimeVue 相关 ignore 规则成死配置**：M31.5 已卸载 `primevue` / `@primevue/nuxt-module` / `@primeuix/themes` / `primeicons` / `primelocale` 5 依赖，`@primeuix/*` / `@primevue/*` / `primeicons` 的 ignore 条目不再命中任何包。清理动作：移除该批 ignore 条目与 M25 / M26 时期的配套注释（保留 `conventional-changelog` 条目）。
 - **上收状态**：已 2026-09-30 上收 M33.3（[todo.md §M33.3](todo.md#m33-治理债收口--测试基建扩展2026-09-30-用户决策方案-a-启动)）；M33.3 闭环后本条目整段删除（依 [规划规范 §4.4 第 11 条](../standards/planning.md#44-大批量归档批次操作规范)「完全闭环 → 整段删除」）。
 
-### 视觉回归 CI job 初期非阻断（已上收 M33.2，转正条件已达成）
-
-- **背景**：`.github/workflows/test.yml` 的 `visual` job 初期 `continue-on-error: true`——基线在维护者本地容器（Linux + Playwright chromium）采集，尚未在 `ubuntu-latest` runner 确认字体渲染一致（口径见 [测试规范 §6.7](../standards/testing.md)）。
-- **转阻断判定条件（可判定）**：在 `ubuntu-latest` runner 上出现**首个全绿 run** 后，移除 `continue-on-error`，并同步更新 workflow 注释与 §6.7 的「非阻断」说明。
-- **条件达成实证**：CI run `36602407382`（2026-09-29）的 Visual Regression job 在 `ubuntu-latest` 的 `Run visual regression` 步骤结论 = success → **首个全绿 run 达成**（2026-09-30 待办评估实测）。
-- **上收状态**：已 2026-09-30 上收 M33.2（[todo.md §M33.2](todo.md#m33-治理债收口--测试基建扩展2026-09-30-用户决策方案-a-启动)）；M33.2 闭环（转阻断 + 真实 CI run 裁决）后本条目整段删除。
-- **影响**：非阻断期间视觉漂移只记录不拦截；失败产物仍随 `apps/platform/test-results/` artifact 上传，可人工核查。
-
 ---
 
 ## 文档位置速查

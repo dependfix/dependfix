@@ -72,7 +72,7 @@
 >
 > - C93 视觉回归 `pr-checks` 行级覆盖（fixtures 端点扩展 prChecks）
 > - C94 视觉回归 `alerts` 宽表右端列盲区（1440 视口横向溢出）
-> - 视觉回归 CI job 初期非阻断（待首个 ubuntu-latest 全绿 run 后转阻断）
+> - 视觉回归 CI job 初期非阻断（**已 2026-09-30 M33.2 转阻断**：`.github/workflows/test.yml` 移除 `continue-on-error`，依据 run `36602407382` job conclusion = success）
 > - 平台早期 migration 表名前缀不统一（已知边界，待治理）
 > - `apps/platform/.output` 不随根构建脚本重建（操作提醒）
 >

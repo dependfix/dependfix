@@ -171,7 +171,7 @@ Vitest 对 ESM 命名导出（如 `node:fs` 的 `unlinkSync`）无法用 `vi.spy
 - **反例验证纪律**：基线落地必须做一次「人为注入样式改动 → 用例如期失败 → 还原后全绿」，证明阈值非恒真，不得只跑正例。
 - **读基线须知**：`apps/platform/tests/visual/README.md` 记录 M31 已裁定的既有视觉差异（避免后人误判为新回归）与已知盲区。
 - **与 `ui-validator` 的分工**：视觉回归只兜「像素漂移」，不做交互 / 可用性 / 语义审查；后者仍由 `ui-validator` 承担（见 §6.1 同款纪律）。
-- **CI 接入**：`test.yml` 的 `visual` job（独立 runner + 失败产物上传 `apps/platform/test-results/`）；初期 `continue-on-error: true`——基线采集环境为维护者本地容器（Linux + Playwright chromium），尚未在 ubuntu-latest runner 确认字体渲染一致。**转阻断判定条件**：出现首个 ubuntu-latest 全绿 run 后移除该行（待办登记 backlog §已知边界）。
+- **CI 接入**：`test.yml` 的 `visual` job（独立 runner + 失败产物上传 `apps/platform/test-results/`）**阻断语义已启用**——2026-09-29 CI run `36602407382` 在 `ubuntu-latest` 出现首个全绿 run（job conclusion = success，14 步全绿；基线采集环境与 runner 字体渲染一致性已实证），据此移除初期非阻断开关。视觉失败现使 Test workflow 变红（**workflow 级阻断信号**；仓库未配置 required status checks，故不构成硬性合并门禁）；失败产物仍随 artifact 上传供人工核查。
 - **review 检查点**：本节三条「必须」级约定（取证前先 build / 加遮蔽须重生成基线 / 反例验证纪律）已挂 [code-quality-checklist 规范条款 review 检查点矩阵](../../.github/skills/code-reviewer/references/code-quality-checklist.md#规范条款-review-检查点矩阵严格约束逐条挂接)。
 
 ### 6.8 取证工件必须与冻结代码同批生成

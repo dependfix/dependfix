@@ -47,19 +47,20 @@
 
 #### M33.2 [P3 🛠️ CI 治理] 视觉回归 CI job 转阻断（移除 `continue-on-error`）
 
-- **目标**：按 backlog §已知边界既定**可判定口径**，在 `ubuntu-latest` 出现首个全绿 run 后把视觉回归 job 从非阻断转为阻断——该条件已由 CI run `36602407382`（2026-09-29）达成（Visual Regression job 的 `Run visual regression` 步骤 = success）。
+- **目标**：按 backlog §已知边界既定**可判定口径**，在 `ubuntu-latest` 出现首个全绿 run 后把视觉回归 job 从非阻断转为阻断——该条件已由 CI run `36602407382`（2026-09-29）达成（Visual Regression job **conclusion = success，14 步全绿**）。
 - **优先级**：P3（非阻塞；转正条件已实证达成）。
-- **范围**：`.github/workflows/test.yml`（visual job 移除 `continue-on-error: true` + 注释同步）+ `docs/standards/testing.md §6.7`（删除「非阻断」说明 + 「（待办登记 backlog §已知边界）」指针）+ `docs/plan/backlog.md §已知边界`（该条目完全闭环 → 整段删除）。
+- **范围**：`.github/workflows/test.yml`（visual job 移除 `continue-on-error: true` + 注释同步）+ `docs/standards/testing.md §6.7`（删除「非阻断」说明 + 「（待办登记 backlog §已知边界）」指针）+ `docs/plan/backlog.md §已知边界`（该条目完全闭环 → 整段删除）+ `docs/plan/archive/index.md §4`（backlog 基线同步的必然派生）+ `docs/plan/todo-archive.md`（M32 归档段该事项的前向注记，避免历史描述 stale）。
 - **验收标准**：
-  - [ ] `test.yml` visual job 无 `continue-on-error`；注释写明转阻断依据（首个全绿 run 编号 + 日期）
-  - [ ] `rg -n "continue-on-error" .github/workflows/test.yml` 在 visual job 段 0 命中
-  - [ ] `testing.md §6.7` 「非阻断」表述与「待办登记 backlog」指针已同步删除；`backlog.md` 该已知边界条目整段删除
-  - [ ] `pnpm run check:docs` EXIT 0
+  - [x] `test.yml` visual job 无 `continue-on-error`；注释写明转阻断依据（首个全绿 run 编号 + 日期 + job conclusion）
+  - [x] `rg -n "continue-on-error" .github/workflows/test.yml` 0 命中（注释亦不含该字面量，保证命令可判定）
+  - [x] `testing.md §6.7` 「非阻断」表述与「待办登记 backlog」指针已同步删除；`backlog.md` 该已知边界条目整段删除；`archive/index.md §4` 基线同步
+  - [x] `pnpm run check:docs` EXIT 0（links 143 / vue-interp 79）；`lint:md:check` / `docs:check:i18n` / `docs:build` 通过；`pnpm lint` + `pnpm run typecheck` EXIT 0；YAML 解析通过（`continue-on-error` 键不存在）
   - [ ] 用户推送后一次真实 CI run 的 Visual Regression job 结论为 success（最终裁决；本地不可测配置以 CI 为准）
-- **不做什么**：不改视觉基线快照与用例；不改 job 触发条件、artifact 上传与 `timeout-minutes`；不回改 M32.5 视觉基线口径。
+- **不做什么**：不改视觉基线快照与用例；不改 job 触发条件、artifact 上传与 `timeout-minutes`；不回改 M32.5 视觉基线口径；不在本条目内配置 required status checks（合并门禁属独立议题）。
 - **依赖**：关联 M32.5（视觉回归落地）+ CI run `36602407382`（转正证据）。
-- **交付物**：1 atomic commit（`ci(test)`）；文件 `.github/workflows/test.yml` + `docs/standards/testing.md` + `docs/plan/backlog.md`。
-- **风险与缓解**：ubuntu-latest 字体 / 渲染环境后续漂移可能导致偶发红并阻断无关 PR；缓解：转阻断基于实证绿 run，若转后连续红则评估回退（回退动作与依据记入 backlog §已知边界）。
+- **交付物**：1 atomic commit（`ci(test)`）；文件 `.github/workflows/test.yml` + `docs/standards/testing.md` + `docs/plan/backlog.md` + `docs/plan/archive/index.md` + `docs/plan/todo-archive.md` + `docs/plan/todo.md`。
+- **风险与缓解**：ubuntu-latest 字体 / 渲染环境后续漂移可能导致偶发红，使 Test workflow 变红（**workflow 级阻断信号**；当前未配置 required status checks，不构成硬性合并门禁）；缓解：转阻断基于实证绿 run，若转后连续红则评估回退（回退动作与依据登记 backlog §已知边界）。
+- **审计**：第 1 轮 `deep` Pass（0 blocker / 3 warning / 2 suggest）→ 收敛 RG-W1（`archive/index.md` 不提前宣告阶段闭环）/ RG-W2（勾选 AC #1–#4 + 范围/交付物补 `archive/index.md`）/ RG-W3（「阻断语义」口径限定为 workflow 级信号）/ RG-S2（`todo-archive.md` M32 段补前向注记）。AC #5（推送后真实 CI run 裁决）保留待验证。
 
 #### M33.3 [P3 🛠️ 依赖治理] M31 迁移遗留 dependabot 死配置清理
 

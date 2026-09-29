@@ -103,17 +103,15 @@ jobs:
   #  Visual Regression — 平台视觉回归最小集（独立 Playwright config）
   #  与 e2e 完全隔离（独立 config / 端口 / SQLite 库 / 认证目录），不并入 testMatch；
   #  基线快照入仓库 apps/platform/tests/visual/__screenshots__/（可在 PR 中 review 差异）。
-  #  ⚠️ 初期非阻断（continue-on-error）：基线在维护者本地容器（Linux + Playwright chromium）
-  #     采集，尚未在 ubuntu-latest runner 上确认字体渲染一致。
-  #     转阻断判定条件（可判定口径）：在 ubuntu-latest runner 上出现**首个全绿 run** 后，移除
-  #     `continue-on-error` 并同步删除本节注释与 docs/standards/testing.md §6.7 的「非阻断」说明；
-  #     该待办登记于 docs/plan/backlog.md §已知边界。
+  # 阻断语义（2026-09-30 转正）：初期非阻断开关已移除——首个 ubuntu-latest 全绿 run 为
+  #  CI run 36602407382（2026-09-29，job conclusion = success，14 步全绿），基线采集环境与
+  #  runner 字体渲染一致性已实证。视觉失败现使 Test workflow 变红（**workflow 级阻断信号**；
+  #  仓库未配置 required status checks，故不构成硬性合并门禁）。口径见 docs/standards/testing.md §6.7。
   # ===============================================================
   visual:
     name: Visual Regression
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    continue-on-error: true
     permissions:
       contents: read
       # 上传失败产物 artifact 需 actions: write（与 e2e job 同因）

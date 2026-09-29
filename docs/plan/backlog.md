@@ -139,33 +139,6 @@
 
 #### 开发工具链
 
-- **C80 devDependencies 链漏洞的 CI 阻断语义（覆盖方式部分已上收 M29.9）** —— 2026-09-21 M29.1 审计剩余风险实证触发；**部分已上收**，剩余决策项待用户明确；按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) **不带 M\d+ 阶段编号**。
-  - **✅ 已上收部分（M29.9 / 原方案 A，2026-09-21 用户决策）**：覆盖方式已落地（commits `70d31c0` + `c214ace`），详见 [todo-archive.md §M29](todo-archive.md#m29-修复交付链路正确性--能力扩展m291m299-全部已闭环--2026-09-27-归档)（命令、注释口径与实测证据不在此重复）。
-  - **剩余未闭环（本条目当前范围）**：**是否启用阻断语义**——即去掉 `|| true` 让 devDeps 漏洞阻断 Test job，或维持「仅信号」。
-  - **目标**：决定 devDeps 链漏洞在 CI 中是「信号」还是「门禁」，并落地对应语义 + 观察期策略。
-  - **优先级**：P3（非阻塞；当前为信号级已可观测，阻断语义属策略选择）
-  - **范围**：`.github/workflows/test.yml`（audit 步骤的 `|| true` 与 `--audit-level` 取值）
-  - **现状实证**（2026-09-21 实测，M29.9 落地后）：
-    - `test.yml` audit 步骤现为 `pnpm audit --audit-level=moderate || true`，注释显式标注「阻断语义当前未启用」。
-    - **告警通道不缺失**：`vulnerability-alerts` → 204（已启用）；`automated-security-fixes` → `{"enabled":true}`；devDeps 漏洞已由 Dependabot 告警通道覆盖（当时 3 条 open alert 即 M29.1 修复的 vite 三连）。
-    - **但告警通道 ≠ 修复通道**：Dependabot 无法在 `vitepress` 声明的 `vite: ^5.4.14` 范围内修复（正是 M29.1 必须手写 override 的原因）——故「阻断」相对「告警」的增量价值 = **同步拦截 + 阻止合并**。
-    - 原注释「hard-fail 由 `dependabot.yml` 处理」曾混淆两个特性（`dependabot.yml` 只配 version updates；security alerts / updates 是 repo 级设置），该口径已在 M29.9 修正。
-  - **决策点（待用户敲定）**：
-    - **方案 B（阻断）**：去掉 `|| true` → devDeps 漏洞红掉 Test job。
-    - **方案 C（观察期）**：维持 `|| true` 但显式标注观察期截止条件（如「连续 N 次 CI 无 devDeps 告警后转阻断」）。
-    - **阈值**：`--audit-level` 是否由 moderate 收紧到 high / critical。
-    - **registry 抖动防护**：`pnpm audit` 的 registry 类错误（网络 / 限流）与「真有漏洞」需区分——转阻断前应评估 `--ignore-registry-errors`（pnpm 官方说明：registry 报错时返回 exit code 0，适用于 CI 场景），避免非漏洞问题红掉 CI。
-  - **验收标准**：
-    - [ ] 按用户决策落地阻断语义（方案 B 或 C），并在 workflow 注释中写明依据与观察期条件
-    - [ ] 若转阻断：CI 主链路不因存量告警失败（存量清零或显式豁免清单）；且 registry 类错误不误伤（`--ignore-registry-errors` 或等价防护）
-    - [ ] workflow 变更后跑一次真实 CI（或 `act` 本地模拟）验证步骤生效
-    - [ ] 若涉及 `--audit-level` 调整，同步注释口径
-  - **不做什么**：不引入 Snyk / 第三方 SCA 服务；不改 `pnpm-workspace.yaml` overrides 策略；不在本候选内清理存量告警（当前全量 audit 实测 0 告警）；不重复处理覆盖方式（已 M29.9 落地）
-  - **依赖**：关联 M29.1（触发实证）+ M29.9（覆盖方式已落地，本条目仅剩阻断语义）；关联 `dependabot.yml` 与 repo 级 security alerts 设置（告警通道）
-  - **交付物**：1 atomic commit（`ci(test)` 阻断语义调整 + 注释口径）
-  - **风险与缓解**：转阻断可能因上游新披露 devDeps 漏洞突然红掉 CI、阻塞无关 PR；缓解：优先方案 C（观察期）而非直接阻断，存量清零后再评估
-  - **复杂度估算**：CI 配置 ~2-5 行；文档 0（注释随行）；测试 0（配置类，以 CI 实跑实证）
-
 - **C81 源码 / 配置注释中的孤立规划编号清理（存量）** —— 2026-09-21 M29.9 A 阶段审计 B1 衍生；评估完成待上收；按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) **不带 M\d+ 阶段编号**。
   - **目标**：清理存量源码 / 配置 / 脚本注释中**无文档指针的孤立规划编号**，使其符合 [开发规范 §3 注释规范](../standards/development.md)「禁止开发流程编号标记」（例外仅两类：代码内真实常量、带文档路径或章节名的导航指针）。
   - **优先级**：P3（非阻塞；属治理债——规则本身由 D 阶段自检 + A 阶段必查项强制，但**仅作用于新增 / 修改文件**，故存量长期沉积）
@@ -191,54 +164,6 @@
   - **交付物**：待分批方案敲定后评估（预计 3-6 子批次，每子批次 1 atomic commit）
   - **风险与缓解**：批量删除编号可能丢失可追溯性；缓解：优先「改写为导航指针」而非纯删除，并保留编号后的解释正文；另需防批量替换误伤（按 §1.2 第 6 条纪律执行）
   - **复杂度估算**：注释 300 至 430 量级（跨多包，必须分批）；测试 0（注释类，以 lint + typecheck + 复扫 0 命中为证据）；文档 0
-
-- **C93 视觉回归 pr-checks 行级覆盖（fixtures 端点扩展 prChecks 写入路径）** —— 2026-09-29 M32.5 落地视觉回归最小集时显式登记的覆盖边界；评估完成待上收；按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) **不带 M\d+ 阶段编号**。
-  - **目标**：`pr-checks` 页视觉基线覆盖行级渲染（结论标签 / Alert 状态 / 最近轮询列），使该页的「表格密度例外」（caomei 默认密度，其余页为 small 密度收敛）在基线中可被对比。
-  - **优先级**：P3（非阻塞；页面骨架 / 空态 / 表头密度已覆盖，仅缺行级）
-  - **范围**：`apps/platform/server/api/e2e/fixtures.post.ts` + `fixtures.delete.ts`（新增 `prChecks` 数据集与级联删除）、`apps/platform/tests/e2e/helpers/fixtures.helper.ts`（类型）、`apps/platform/tests/visual/helpers/fixtures.ts`（数据集）、视觉用例与基线快照
-  - **现状实证**（2026-09-29）：`POST /api/e2e/fixtures` 仅支持 `repos` / `scanRuns` / `scanResults`（`rg -n "prCheck" apps/platform/server/api/e2e/` = 0 命中）；`PRCheck` 行数据只由 service polling 写入（`lastPolledAt` 等时间列需固定值否则基线漂移）。M32.5 基线中该页为空态（覆盖边界已写入 [测试规范 §6.7](../standards/testing.md)）。
-  - **决策点（待上收时敲定）**：`lastPolledAt` 由 fixtures 显式传入固定值 vs 基线侧 `data-visual-mask` 遮蔽。
-  - **验收标准**：
-    - [ ] 视觉基线覆盖至少 3 行 PRCheck（含 firing 与已 ack 两态），时间列确定性可复现
-    - [ ] fixtures 级联删除覆盖 prCheck（重复运行不累积）
-    - [ ] `pnpm lint` + `pnpm typecheck` + 平台定向测试 + 视觉用例通过
-  - **不做什么**：不改 PRCheck 实体与 service 轮询语义；不新增生产 API；不做全量表格矩阵
-  - **依赖**：关联 [测试规范 §6.7](../standards/testing.md)（视觉回归口径）+ M32.5（触发来源）
-  - **交付物**：1-2 atomic commits（`feat(platform)` fixtures 扩展 + `test(platform)` 基线更新）
-  - **风险与缓解**：fixtures 端点属生产构建内代码（双门控保护）；缓解：仅新增可选字段 + 级联删除，保持向后兼容
-  - **复杂度估算**：schema / 写入 / 删除 ~50 行；类型与数据集 ~60 行；测试 ~20 行
-
-- **C94 视觉回归 alerts 宽表右端列盲区（1440 视口横向溢出）** —— 2026-09-29 M32.5 V 阶段（ui-validator 独立复核 R1）登记；评估完成待上收；按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) **不带 M\d+ 阶段编号**。
-  - **目标**：让 alerts 页 `链接` / `详情` 两列进入视觉基线；当前 1440 视口下表格容器 `overflow-x: auto`（实测 `scrollWidth 1288 > clientWidth 1166`），基线只覆盖约左侧 90% 宽度，最右两列若发生视觉回归不会被捕获。
-  - **优先级**：P3（非阻塞；属覆盖盲区而非缺陷——横向溢出本身是既有宽表设计，非 M32.5 引入）
-  - **范围**：`apps/platform/tests/visual/platform-pages.visual.test.ts`（alerts 用例追加一次横向滚动后补拍或元素级补拍）+ 对应基线快照
-  - **现状实证**（2026-09-29，ui-validator）：`最近发现` 表头被裁、`链接` / `详情` 列不可见；同一视口下 repos 表未溢出。
-  - **决策点（待上收时敲定）**：容器内横向滚动后补拍 vs 为 alerts 单独定义更宽 viewport（后者与 [测试规范 §6.7](../standards/testing.md) 的固定环境口径冲突，需显式开例外）。
-  - **验收标准**：
-    - [ ] 基线包含最右两列（截图或补拍可证），且用例仍 `workers: 1` / `retries: 0` 串行通过
-    - [ ] 覆盖方式与固定环境口径的冲突在用例注释与 §6.7 中说明
-  - **不做什么**：不在本候选内改造 alerts 表格列宽 / 布局（属 UX 议题，另评估）
-  - **依赖**：关联 [测试规范 §6.7](../standards/testing.md) + M32.5（触发来源）
-  - **交付物**：1 atomic commit（`test(platform)` 用例补拍 + 基线快照）
-  - **复杂度估算**：用例 +1 截图 ~10 行；基线 +1 张
-
-#### 规范与治理
-
-- **C91 新增规范条款的 review 检查点补挂（M30 归档批次衍生）** —— 2026-09-28 M30 A 阶段审计 RG-W1 衍生；评估完成待上收；按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) **不带 M\d+ 阶段编号**。
-  - **目标**：把 M30 批次新增的 6 条严格约束（必须 / 禁令类）+ M32.4 新增的 git 签名隔离约束（`docs/standards/git.md §3.8`：commit / push 必须复用 `GIT_*_SIGNING_ISOLATION_ARGS`、禁止字面量漂移、不提供签名 opt-in）+ M32 归档批次 wisdom 蒸馏新增条款（见「范围」）挂接到 review 检查点，使其具备强制点而非"仅权威文档声明"。
-  - **优先级**：P3（非阻塞；条款已发布于权威文档，仅缺 review 强制点；按 [code-auditor 必查项「规范执行分层」](../../.github/agents/code-auditor.agent.md) 严格约束须挂接或登记 backlog）
-  - **范围**：`docs/standards/development.md §5.1.24`（多 key 预聚合）/ `§5.1.25`（范围穷举同根因 + 集中改共用层）/ `§5.1.26`（tsdown dts 冲突）/ `§5.1.27`（迁移前行为核实）/ `§5.1.28`（卸载类任务规模口径）/ `§5.1.29`（配置优先级口径 + 证伪用例）/ `§5.1.30`（构造期合并保持 readonly）+ `docs/standards/testing.md §6.1`（e2e 容器 TMPDIR / 本机 workers / 新容器 vitest 排除）/ `§6.5`（断言禁恒真 + 锁定失败来源）/ `§6.6`（ESM mock 受限）/ `§6.7`（视觉回归三条「必须」级约定）/ `§6.8`（取证工件同批生成）+ `docs/standards/security.md §2`（外部可控配置防护矩阵）+ `docs/standards/platform.md §3.3`（迁移前缀感知）/ `§3.9`（目标仓库配置文件：中央优先 / 不提供 UI 入口）+ `docs/standards/planning.md §2.3`（候选收敛同步）/ `§2.5`（量化断言口径）/ `§4.4 第 13 条`（口径同步结构化复扫）+ `docs/standards/ai-collaboration.md §1.3 分级审计执行协议`（规划批次 standard 送审）的检查点落点。
-  - **现状实证**（2026-09-28）：`rg -n "5\.1\.24|5\.1\.25|5\.1\.26|恒真|量化断言" .github/agents .github/skills` = 0 命中（`git.md §3.7 提交态自洽` 已挂接，其余 6 条未挂）。**2026-09-29 M32.4 追加**：`rg -n "gpgSign|SIGNING_ISOLATION" .github/agents .github/skills` = 0 命中 → `git.md §3.8` 同样待挂接。**2026-09-29 M32.5 A 阶段追加**：`rg -n "视觉回归|反例验证|data-visual-mask" .github/agents .github/skills` 仅 1 命中（`.github/agents/ui-validator.agent.md:12` 的角色职责描述，非检查点）→ `testing.md §6.7` 三条约定同样待挂接。**2026-09-29 M32.2 A 阶段追加**：`rg -n "中央优先|dependfix\.yml" .github/agents .github/skills` = 0 命中 → `platform.md §3.9` 两条约束同样待挂接。**2026-09-30 M32 归档批次蒸馏追加**：`rg -n "迁移前行为核实|取证工件|防护矩阵|前缀感知|字段级|readonly" .github/agents .github/skills` 仅 1 命中（`code-auditor.agent.md:51` 的「reactive 字段级修改」，与本次条款无关）→ 本批新增 / 强化的 `development.md §5.1.27-§5.1.30` + `§5.1.25`（集中改共用层子条款）、`testing.md §6.1`（e2e 环境三条）/ `§6.8`、`security.md §2`（外部可控配置防护矩阵）、`platform.md §3.3`（迁移前缀感知）、`planning.md §2.3`（候选收敛同步）、`ai-collaboration.md §1.3 分级审计执行协议`（规划批次 standard 送审）同样待挂接。
-  - **决策点（待上收时敲定）**：逐条落点 vs 合并为一条「规范一致性总检查点」；落点选择（`code-quality-checklist.md` vs `code-auditor` 主责边界必查项）。
-  - **验收标准**：
-    - [ ] 6 条严格约束各自有明确 review 检查点（或一条总检查点完整覆盖）；`testing.md §6.7` 的视觉回归三条约定、`platform.md §3.9` 的目标仓库配置两条约束、M32 归档批次蒸馏新增条款（`development.md §5.1.27-§5.1.30` / `testing.md §6.1` 与 `§6.8` / `security.md §2` / `platform.md §3.3` / `planning.md §2.3` / `ai-collaboration.md §1.3 分级审计执行协议`）同口径挂接
-    - [ ] 检查点按 [documentation.md §4 单点声明](../standards/documentation.md) 引用规范原文，不重复抄写
-    - [ ] `pnpm run check:docs` EXIT 0（新增链接可解析）
-  - **不做什么**：不改规范条款正文；不新增规范条款
-  - **依赖**：关联 M30 归档批次（触发来源）；关联 [经验归档 §六十五](../design/governance/experience-archive-§49-§57-recent-investigation.md)
-  - **交付物**：1-2 atomic commits（`docs(review)` 检查点补挂）
-  - **风险与缓解**：合并总检查点颗粒度不足可能漏检；缓解：优先逐条落点，至少覆盖高风险项
-  - **复杂度估算**：检查点文档 ~30-60 行；测试 0；文档 2 处
 
 ## 待人工验收（真实环境，随可用性推进）
 
@@ -322,14 +247,17 @@
 - **待治理**：把判据改为「无任何成功源且存在失败源」或按 attempted 源数判定；需同时评估对 `repoResults` 与报告「扫描成功」语义的连锁影响。
 - **触发条件**：① 用户反馈「报告显示某仓库 0 告警但实际有告警」；② 平台侧按仓库汇总成功率时暴露偏差。
 
-### M31 迁移遗留的配置清理项（待清理）
+### M31 迁移遗留的配置清理项（已上收 M33.3）
 
-- **`.github/dependabot.yml` 的 PrimeVue 相关 ignore 规则成死配置**：M31.5 已卸载 `primevue` / `@primevue/nuxt-module` / `@primeuix/themes` / `primeicons` / `primelocale` 5 依赖，`@primeuix/*` / `@primevue/*` / `primeicons` 的 ignore 条目不再命中任何包。清理动作：移除该批 ignore 条目与 M25 / M26 时期的配套注释（保留 `conventional-changelog` 条目）。触发条件：下次依赖治理批次。
+- **`.github/dependabot.yml` 的 PrimeVue 相关 ignore 规则成死配置**：M31.5 已卸载 `primevue` / `@primevue/nuxt-module` / `@primeuix/themes` / `primeicons` / `primelocale` 5 依赖，`@primeuix/*` / `@primevue/*` / `primeicons` 的 ignore 条目不再命中任何包。清理动作：移除该批 ignore 条目与 M25 / M26 时期的配套注释（保留 `conventional-changelog` 条目）。
+- **上收状态**：已 2026-09-30 上收 M33.3（[todo.md §M33.3](todo.md#m33-治理债收口--测试基建扩展2026-09-30-用户决策方案-a-启动)）；M33.3 闭环后本条目整段删除（依 [规划规范 §4.4 第 11 条](../standards/planning.md#44-大批量归档批次操作规范)「完全闭环 → 整段删除」）。
 
-### 视觉回归 CI job 初期非阻断（待转阻断）
+### 视觉回归 CI job 初期非阻断（已上收 M33.2，转正条件已达成）
 
 - **背景**：`.github/workflows/test.yml` 的 `visual` job 初期 `continue-on-error: true`——基线在维护者本地容器（Linux + Playwright chromium）采集，尚未在 `ubuntu-latest` runner 确认字体渲染一致（口径见 [测试规范 §6.7](../standards/testing.md)）。
 - **转阻断判定条件（可判定）**：在 `ubuntu-latest` runner 上出现**首个全绿 run** 后，移除 `continue-on-error`，并同步更新 workflow 注释与 §6.7 的「非阻断」说明。
+- **条件达成实证**：CI run `36602407382`（2026-09-29）的 Visual Regression job 在 `ubuntu-latest` 的 `Run visual regression` 步骤结论 = success → **首个全绿 run 达成**（2026-09-30 待办评估实测）。
+- **上收状态**：已 2026-09-30 上收 M33.2（[todo.md §M33.2](todo.md#m33-治理债收口--测试基建扩展2026-09-30-用户决策方案-a-启动)）；M33.2 闭环（转阻断 + 真实 CI run 裁决）后本条目整段删除。
 - **影响**：非阻断期间视觉漂移只记录不拦截；失败产物仍随 `apps/platform/test-results/` artifact 上传，可人工核查。
 
 ---
@@ -338,7 +266,7 @@
 
 | 内容类型 | 位置 |
 |:--|:--|
-| 当前阶段活跃任务 | **暂无进行中阶段**（M32 能力扩展优先已于 2026-09-30 完整闭环 + 归档，见 [todo-archive.md §M32](todo-archive.md#m32-能力扩展优先m321m325-全部已闭环--2026-09-30-归档)；下一阶段待用户决策） |
+| 当前阶段活跃任务 | **M33 治理债收口 + 测试基建扩展进行中**（2026-09-30 用户决策方案 A 启动，6 原子条目，见 [todo.md §M33](todo.md#m33-治理债收口--测试基建扩展2026-09-30-用户决策方案-a-启动)） |
 | 已完成阶段归档 | [todo-archive.md](todo-archive.md)（主窗口保留最近阶段完整段 + 指针段；早期阶段见 [archive/](archive/)） |
 | 里程碑与阶段交付 | [roadmap.md](roadmap.md)（M0-M32 已归档） |
 | 长期主线 / 候选 / 待人工验收 / 已知边界 | 本文档（按四象限结构） |

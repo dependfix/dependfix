@@ -266,11 +266,17 @@ export class ContainerExecutor implements ScanExecutor {
                 workDir,
                 reportOutputDir: join(workDir, 'dependfix-reports'),
                 verbose: false,
+                // 仓库级自定义验证命令透传（未配置 → undefined，引擎走 DEFAULT_VERIFY_COMMANDS；见 docs/standards/platform.md §3.8）
+                commands: ctx.repository.verifyCommands?.length ? ctx.repository.verifyCommands : undefined,
                 // 容器内执行属设计内沙箱（非 root + 临时目录），不触发本地模式风险警告
                 executionEnvironment: 'container',
                 // 注入 MemoryLogger 用于捕获执行日志
                 logger: memLogger,
             })
+
+            if (ctx.repository.verifyCommands?.length) {
+                memLogger.info(`[verify] ${owner}/${name} 使用仓库级自定义验证命令（${ctx.repository.verifyCommands.length} 条），已覆盖引擎默认验证链`)
+            }
 
             const { result, exitCode } = await withTimeout(app.run(), this.timeoutMs)
 

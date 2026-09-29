@@ -16,6 +16,12 @@ export interface ScanExecutorContext {
         packageManager?: 'pnpm' | 'npm' | 'yarn'
         /** ActionTriggerExecutor 使用：目标 workflow 文件名（仓库内路径，如 `.github/workflows/security-auto-fix.yml`） */
         actionWorkflowFile?: string
+        /**
+         * 仓库级自定义验证命令（来自 Repository.verifyCommands；见 docs/standards/platform.md §3.8）。
+         * 缺省（undefined / 空数组）→ 引擎走默认验证链 `DEFAULT_VERIFY_COMMANDS`。
+         * 安全：等价于远程命令执行面，写入门槛见 API 层 requireRole(['admin','org_admin'])。
+         */
+        verifyCommands?: string[]
     }
     /** 复用 cli 的 RuntimeConfig（mode/severityThreshold/repositories 等） */
     config: RuntimeConfig

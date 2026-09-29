@@ -11,7 +11,7 @@ import { notifyEnvEvent } from './notification'
 import type { NotificationEvent } from './notification/channel'
 import { reconcileAlerts } from './scan-reconcile'
 import { resolveAiConfig } from './ai-config-resolver'
-import { Repository, parseSandboxLimits } from '#server/entities/repository'
+import { Repository, parseSandboxLimits, parseVerifyCommands } from '#server/entities/repository'
 import { Credential } from '#server/entities/credential'
 import { ScanRun } from '#server/entities/scan-run'
 import { Organization } from '#server/entities/organization'
@@ -234,6 +234,8 @@ const runScanInternal = async (
             defaultBranch: repository.defaultBranch,
             packageManager: repository.packageManager as 'pnpm' | 'npm' | 'yarn',
             actionWorkflowFile: repository.actionWorkflowFile ?? undefined,
+            // 仓库级自定义验证命令（JSON 数组列 → 命令数组；缺省空数组 → 引擎默认链；见 docs/standards/platform.md §3.8）
+            verifyCommands: parseVerifyCommands(repository.verifyCommands),
         },
         config: {
             mode: request.mode,

@@ -1,9 +1,10 @@
 import type { H3Event } from 'h3'
-import { parseSandboxLimits, parseTags, Repository } from '#server/entities/repository'
+import { parseSandboxLimits, parseTags, parseVerifyCommands, Repository } from '#server/entities/repository'
 import { ensureDatabaseInitialized } from '#server/database'
 import { repositoryUpdateSchema } from '#server/schemas/repository'
 import { requireAuth, requireOrgResource, requireRole } from '#server/utils/guard'
 import { createLocalizedError } from '#server/utils/localized-error'
+import { recordVerifyCommandsAudit } from '#server/services/repository-audit'
 
 /** GET /api/repos/[id]：仓库详情 */
 const getRepository = async (event: H3Event, id: string) => {
@@ -32,6 +33,7 @@ const getRepository = async (event: H3Event, id: string) => {
         note: found.note,
         tags: parseTags(found.tags),
         sandboxLimits: parseSandboxLimits(found.sandboxLimits),
+        verifyCommands: parseVerifyCommands(found.verifyCommands),
         lastScanAt: found.lastScanAt,
         createdAt: found.createdAt,
         updatedAt: found.updatedAt,
@@ -89,6 +91,15 @@ const updateRepository = async (event: H3Event, id: string) => {
             : null
     }
 
+    // verifyCommands 数组 → JSON 字符串列（与 tags 同模式；更新语义：undefined=不修改 / null 或 [] = 清空 → 走默认链）
+    const previousCommands = parseVerifyCommands(found.verifyCommands)
+    let verifyCommandsValue: string | null = found.verifyCommands
+    if (parsed.data.verifyCommands !== undefined) {
+        verifyCommandsValue = parsed.data.verifyCommands && parsed.data.verifyCommands.length > 0
+            ? JSON.stringify(parsed.data.verifyCommands)
+            : null
+    }
+
     Object.assign(found, {
         owner: parsed.data.owner ?? found.owner,
         name: parsed.data.name ?? found.name,
@@ -101,8 +112,22 @@ const updateRepository = async (event: H3Event, id: string) => {
         note: parsed.data.note !== undefined ? parsed.data.note : found.note,
         tags: tagsValue,
         sandboxLimits: sandboxLimitsValue,
+        verifyCommands: verifyCommandsValue,
     })
     const saved = await repo.save(found)
+
+    // 审计留痕（见 docs/standards/platform.md §3.8）：仅在实际发生变化时登记，避免无关字段更新产生噪声
+    const nextCommands = parseVerifyCommands(verifyCommandsValue)
+    if (JSON.stringify(previousCommands) !== JSON.stringify(nextCommands)) {
+        await recordVerifyCommandsAudit(ds, {
+            repositoryId: saved.id,
+            owner: saved.owner,
+            name: saved.name,
+            previous: previousCommands,
+            next: nextCommands,
+        })
+    }
+
     return { id: saved.id, updated: true }
 }
 

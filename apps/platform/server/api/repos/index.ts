@@ -1,10 +1,11 @@
 import type { H3Event } from 'h3'
-import { parseSandboxLimits, parseTags, Repository } from '#server/entities/repository'
+import { parseSandboxLimits, parseTags, parseVerifyCommands, Repository } from '#server/entities/repository'
 import { ensureDatabaseInitialized } from '#server/database'
 import { repositorySchema } from '#server/schemas/repository'
 import { requireAuth, requireRole } from '#server/utils/guard'
 import { createLocalizedError } from '#server/utils/localized-error'
 import { resolveOrganizationId } from '#server/utils/organization'
+import { recordVerifyCommandsAudit } from '#server/services/repository-audit'
 
 const toView = (r: Repository) => ({
     id: r.id,
@@ -20,6 +21,7 @@ const toView = (r: Repository) => ({
     note: r.note,
     tags: parseTags(r.tags),
     sandboxLimits: parseSandboxLimits(r.sandboxLimits),
+    verifyCommands: parseVerifyCommands(r.verifyCommands),
     aiEnabled: r.aiEnabled,
     aiTrigger: r.aiTrigger,
     lastScanAt: r.lastScanAt,
@@ -87,6 +89,11 @@ const createRepository = async (event: H3Event) => {
         ? JSON.stringify(parsed.data.sandboxLimits)
         : null
 
+    // verifyCommands 数组 → JSON 字符串列（与 tags 同模式；空数组存 null → 走引擎默认验证链）
+    const verifyCommandsValue: string | null = parsed.data.verifyCommands && parsed.data.verifyCommands.length > 0
+        ? JSON.stringify(parsed.data.verifyCommands)
+        : null
+
     const entity = repo.create({
         organizationId,
         owner: parsed.data.owner,
@@ -100,8 +107,21 @@ const createRepository = async (event: H3Event) => {
         note: parsed.data.note ?? null,
         tags,
         sandboxLimits,
+        verifyCommands: verifyCommandsValue,
     })
     const saved = await repo.save(entity)
+
+    // 审计留痕（见 docs/standards/platform.md §3.8）：自定义验证命令等价于远程命令执行面，创建时若已配置则登记
+    if (verifyCommandsValue) {
+        await recordVerifyCommandsAudit(ds, {
+            repositoryId: saved.id,
+            owner: saved.owner,
+            name: saved.name,
+            previous: [],
+            next: parseVerifyCommands(verifyCommandsValue),
+        })
+    }
+
     // 保存后重查以加载 relations（创建响应与 GET 语义一致，credentialName 不恒为 null）
     const withRelation = await repo.findOne({
         where: { id: saved.id },

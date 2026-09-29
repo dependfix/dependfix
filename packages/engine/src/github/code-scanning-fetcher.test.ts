@@ -271,6 +271,39 @@ describe('fetchCodeScanningAlerts', () => {
         }
     })
 
+    it('maps 403 with Advanced Security disabled message to ALERTS_DISABLED AppError', async () => {
+        nock(API_BASE)
+            .get(GET_ALERTS_PATH)
+            .query(true)
+            .reply(403, { message: 'Advanced Security must be enabled for this repository to use code scanning.' })
+
+        const client = setupClient()
+        try {
+            await fetchCodeScanningAlerts(client, { owner: 'foo', repo: 'bar' })
+            expect.fail('Expected fetchCodeScanningAlerts to throw')
+        } catch (error) {
+            expect(error).toBeInstanceOf(AppError)
+            expect((error as AppError).code).toBe('ALERTS_DISABLED')
+            // 上下文保留，便于报告 / 日志定位来源
+            expect((error as AppError).message).toContain('fetch code scanning alerts for foo/bar')
+        }
+    })
+
+    it('maps 403 with rate-limit signal to RATE_LIMITED AppError', async () => {
+        nock(API_BASE)
+            .get(GET_ALERTS_PATH)
+            .query(true)
+            .reply(403, { message: 'API rate limit exceeded' }, {
+                'x-ratelimit-remaining': '0',
+                'x-ratelimit-reset': '1719000000',
+            })
+
+        // 关闭限流重试：本文件聚焦错误映射语义（重试行为由 client.test.ts 专项覆盖）
+        const client = createGitHubClient({ auth: fromPat('test-token', { retry: { maxRetries: 0 } }) })
+        await expect(fetchCodeScanningAlerts(client, { owner: 'foo', repo: 'bar' }))
+            .rejects.toMatchObject({ code: 'RATE_LIMITED' })
+    })
+
     it('maps 404 to REPO_NOT_FOUND AppError', async () => {
         nock(API_BASE)
             .get(GET_ALERTS_PATH)

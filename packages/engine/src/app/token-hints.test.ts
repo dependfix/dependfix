@@ -3,9 +3,10 @@
 import { describe, expect, it } from 'vitest'
 import { AppError } from '@dependfix/core'
 import {
+    alertSourceLabel,
+    alertsDisabledHint,
     codeQualityAlertsTokenHint,
     codeScanningAlertsTokenHint,
-    dependabotAlertsDisabledHint,
     dependabotAlertsTokenHint,
     isAlertsDisabledError,
     pullRequestCreationHint,
@@ -167,11 +168,47 @@ describe('isAlertsDisabledError', () => {
     })
 })
 
-describe('dependabotAlertsDisabledHint', () => {
-    it('returns guidance mentioning non-token nature and enable path', () => {
-        const hint = dependabotAlertsDisabledHint()
+describe('alertsDisabledHint（按告警源给出开启路径）', () => {
+    it('dependabot → Dependabot alerts 开启路径 + pnpm-audit 本地回退', () => {
+        const hint = alertsDisabledHint('dependabot')
         expect(hint).toContain('未启用')
         expect(hint).toContain('非 token 权限问题')
         expect(hint).toContain('Code security')
+        expect(hint).toContain('Dependabot alerts')
+        expect(hint).toContain('--alerts-source pnpm-audit')
+    })
+
+    it('code-scanning → GitHub Advanced Security / Code Scanning 开启路径', () => {
+        const hint = alertsDisabledHint('code-scanning')
+        expect(hint).toContain('Advanced Security')
+        expect(hint).toContain('Code Scanning')
+        expect(hint).toContain('非 token 权限问题')
+        expect(hint).not.toContain('--alerts-source pnpm-audit')
+    })
+
+    it('code-quality → GitHub Advanced Security / Code Quality 开启路径', () => {
+        const hint = alertsDisabledHint('code-quality')
+        expect(hint).toContain('Advanced Security')
+        expect(hint).toContain('Code Quality')
+        expect(hint).not.toContain('Dependabot alerts')
+    })
+
+    it('未知源 → 通用文案（不误指具体功能）', () => {
+        const hint = alertsDisabledHint('snyk')
+        expect(hint).toContain('Code security')
+        expect(hint).not.toContain('Dependabot')
+        expect(hint).not.toContain('Advanced Security')
+    })
+})
+
+describe('alertSourceLabel', () => {
+    it('给出三个内置告警源的可读标签', () => {
+        expect(alertSourceLabel('dependabot')).toBe('Dependabot alerts')
+        expect(alertSourceLabel('code-scanning')).toBe('Code Scanning alerts')
+        expect(alertSourceLabel('code-quality')).toBe('Code Quality findings')
+    })
+
+    it('未知源回退为 `<source> alerts`', () => {
+        expect(alertSourceLabel('snyk')).toBe('snyk alerts')
     })
 })

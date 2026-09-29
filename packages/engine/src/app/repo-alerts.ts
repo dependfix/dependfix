@@ -10,9 +10,10 @@ import {
     fetchDependabotAlerts,
 } from '../github'
 import {
+    alertSourceLabel,
+    alertsDisabledHint,
     codeQualityAlertsTokenHint,
     codeScanningAlertsTokenHint,
-    dependabotAlertsDisabledHint,
     dependabotAlertsTokenHint,
     isAlertsDisabledError,
 } from './token-hints'
@@ -137,11 +138,11 @@ function createAlertsClientFromConfig(config: RuntimeConfig): Octokit {
  * @returns `true` = 未启用（预期状态，不算失败源）；`false` = 真实失败
  */
 function recordAlertSourceError(deps: FetchAlertsDeps, repo: string, source: string, error: unknown): boolean {
-    // 未启用 ≠ 失败：独立记录，不入 allErrors（方案 A）
+    // 未启用 ≠ 失败：独立记录，不入 allErrors（方案 A）；提示文案按告警源给出对应开启路径
     if (isAlertsDisabledError(error)) {
         const message = toErrorMessage(error)
-        const hint = dependabotAlertsDisabledHint()
-        deps.logger.warn(`Dependabot alerts disabled for ${repo}: ${message} — ${hint}`)
+        const hint = alertsDisabledHint(source)
+        deps.logger.warn(`${alertSourceLabel(source)} disabled for ${repo}: ${message} — ${hint}`)
         deps.alertsDisabled.push({ repository: repo, source, message })
         return true
     }

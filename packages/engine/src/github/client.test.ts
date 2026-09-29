@@ -284,8 +284,9 @@ describe('mapGitHubError', () => {
     function makeRequestError(
         status: number,
         headers: Record<string, string> = {},
+        message?: string,
     ): RequestError {
-        return new RequestError(`HTTP ${status}`, status, {
+        return new RequestError(message ?? `HTTP ${status}`, status, {
             request: { method: 'GET', url: '/repos/foo/bar', headers: {} },
             response: { status, headers, data: {}, url: '/repos/foo/bar' },
         })
@@ -320,6 +321,53 @@ describe('mapGitHubError', () => {
         const appErr = mapGitHubError(error, 'fetch repo')
 
         expect(appErr.code).toBe('PERMISSION_DENIED')
+    })
+
+    it('maps 403 with Dependabot alerts disabled message to ALERTS_DISABLED', () => {
+        const error = makeRequestError(403, {}, 'Dependabot alerts are disabled for this repository.')
+
+        const appErr = mapGitHubError(error, 'fetch dependabot alerts for foo/bar')
+
+        expect(appErr.code).toBe('ALERTS_DISABLED')
+    })
+
+    it('maps 403 with Advanced Security must-be-enabled message to ALERTS_DISABLED', () => {
+        // GitHub 未在官方文档给出该 403 的响应文案，故采用「advanced security + 否定启用词」容忍匹配
+        const error = makeRequestError(403, {}, 'Advanced Security must be enabled for this repository to use code scanning.')
+
+        const appErr = mapGitHubError(error, 'fetch code scanning alerts for foo/bar')
+
+        expect(appErr.code).toBe('ALERTS_DISABLED')
+    })
+
+    it('maps 403 with Advanced Security not-enabled wording to ALERTS_DISABLED', () => {
+        const error = makeRequestError(403, {}, 'GitHub Advanced Security is not enabled for this repository.')
+
+        const appErr = mapGitHubError(error, 'fetch code quality findings for foo/bar')
+
+        expect(appErr.code).toBe('ALERTS_DISABLED')
+    })
+
+    it('falls back to PERMISSION_DENIED when advanced security wording lacks a negative enablement phrase', () => {
+        // 容忍匹配要求两个片段同时命中：仅出现 "Advanced Security" 不构成「未启用」
+        const error = makeRequestError(403, {}, 'Advanced Security features require the security-events scope')
+
+        const appErr = mapGitHubError(error, 'fetch repo')
+
+        expect(appErr.code).toBe('PERMISSION_DENIED')
+    })
+
+    it('keeps the disabled-message match ahead of the rate-limit signal (403 判定顺序)', () => {
+        // 同时具备未启用文案与限流头时，仍归为未启用（与既有依赖方语义一致）
+        const error = makeRequestError(
+            403,
+            { 'x-ratelimit-remaining': '0' },
+            'Advanced Security must be enabled for this repository to use code scanning.',
+        )
+
+        const appErr = mapGitHubError(error, 'fetch code scanning alerts for foo/bar')
+
+        expect(appErr.code).toBe('ALERTS_DISABLED')
     })
 
     it('maps 404 to REPO_NOT_FOUND', () => {

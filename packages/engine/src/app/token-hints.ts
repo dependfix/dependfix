@@ -25,12 +25,42 @@ export function isAlertsDisabledError(error: unknown): boolean {
 }
 
 /**
- * Dependabot alerts 未启用提示文案（方案 A：未启用 ≠ 失败）。
- * 明确区分「仓库设置未开启」与「token 权限不足」，消除误导。
+ * 告警源的人类可读标签（日志 / 提示文案用）。
+ * 与 `fetchRepoAlerts` 的 source 标识对齐（`dependabot` / `code-scanning` / `code-quality`）。
  */
-export function dependabotAlertsDisabledHint(): string {
-    return '仓库未启用 Dependabot alerts（非 token 权限问题）：仓库 Settings → Code security → Dependabot alerts 开启后重试；本地场景可切换 --alerts-source pnpm-audit 使用 pnpm audit 回退'
+export function alertSourceLabel(source: string): string {
+    switch (source) {
+        case 'dependabot':
+            return 'Dependabot alerts'
+        case 'code-scanning':
+            return 'Code Scanning alerts'
+        case 'code-quality':
+            return 'Code Quality findings'
+        default:
+            return `${source} alerts`
+    }
 }
+
+/**
+ * 「安全功能未启用」提示文案（方案 A：未启用 ≠ 失败）——按告警源给出对应开启路径。
+ * 明确区分「仓库设置未开启」与「token 权限不足」，消除误导。
+ *
+ * 说明：Code Scanning / Code Quality 未启用时 GitHub 的 403 表现为「GitHub Advanced Security
+ * 未启用」，故两者统一指向 Advanced Security 开启路径（而非 token 权限）。
+ */
+export function alertsDisabledHint(source: string): string {
+    switch (source) {
+        case 'dependabot':
+            return '仓库未启用 Dependabot alerts（非 token 权限问题）：仓库 Settings → Code security → Dependabot alerts 开启后重试；本地场景可切换 --alerts-source pnpm-audit 使用 pnpm audit 回退'
+        case 'code-scanning':
+            return '仓库未启用 GitHub Advanced Security / Code Scanning（非 token 权限问题）：仓库 Settings → Code security 开启 GitHub Advanced Security 并配置 code scanning（如 CodeQL 默认设置）后重试'
+        case 'code-quality':
+            return '仓库未启用 GitHub Advanced Security / Code Quality（非 token 权限问题）：仓库 Settings → Code security 开启 GitHub Advanced Security 后重试'
+        default:
+            return '仓库未启用对应 alerts 功能（非 token 权限问题）：请在仓库 Settings → Code security 中开启后重试'
+    }
+}
+
 
 /**
  * Dependabot alerts fetch 错误用户指引（GITHUB_TOKEN 无法读取 Dependabot alerts）。
@@ -38,7 +68,7 @@ export function dependabotAlertsDisabledHint(): string {
  * 不依赖裸关键字（仓库名可能包含对方关键字，如 dependabot/dependabot-core）。
  *
  * 注：`ALERTS_DISABLED`（未启用）不走此函数——由 `isAlertsDisabledError` +
- * `dependabotAlertsDisabledHint` 独立处理。
+ * `alertsDisabledHint(source)` 独立处理。
  */
 export function dependabotAlertsTokenHint(error: unknown): string | null {
     if (!(error instanceof AppError)) {

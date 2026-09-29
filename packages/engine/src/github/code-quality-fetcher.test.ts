@@ -259,6 +259,50 @@ describe('fetchCodeQualityFindings', () => {
         }
     })
 
+    it('maps 403 with Advanced Security disabled message to ALERTS_DISABLED AppError', async () => {
+        // 判定按 message 而非 source：Code Quality 若同样返回 GHAS 未启用文案，也应归为「未启用」
+        nock(API_BASE)
+            .get(FINDINGS_PATH)
+            .query(true)
+            .reply(403, { message: 'GitHub Advanced Security is not enabled for this repository.' })
+
+        const client = setupClient()
+        try {
+            await fetchCodeQualityFindings(client, { owner: 'foo', repo: 'bar' })
+            expect.fail('Expected fetchCodeQualityFindings to throw')
+        } catch (error) {
+            expect(error).toBeInstanceOf(AppError)
+            expect((error as AppError).code).toBe('ALERTS_DISABLED')
+            expect((error as AppError).message).toContain('fetch code quality findings for foo/bar')
+        }
+    })
+
+    it('falls back to PERMISSION_DENIED on 403 without disabled or rate-limit signal (不误判)', async () => {
+        nock(API_BASE)
+            .get(FINDINGS_PATH)
+            .query(true)
+            .reply(403, { message: 'Resource not accessible by integration' })
+
+        const client = setupClient()
+        await expect(fetchCodeQualityFindings(client, { owner: 'foo', repo: 'bar' }))
+            .rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
+    })
+
+    it('maps 403 with rate-limit signal to RATE_LIMITED AppError', async () => {
+        nock(API_BASE)
+            .get(FINDINGS_PATH)
+            .query(true)
+            .reply(403, { message: 'API rate limit exceeded' }, {
+                'x-ratelimit-remaining': '0',
+                'x-ratelimit-reset': '1719000000',
+            })
+
+        // 关闭限流重试：本文件聚焦错误映射语义（重试行为由 client.test.ts 专项覆盖）
+        const client = createGitHubClient({ auth: fromPat('test-token', { retry: { maxRetries: 0 } }) })
+        await expect(fetchCodeQualityFindings(client, { owner: 'foo', repo: 'bar' }))
+            .rejects.toMatchObject({ code: 'RATE_LIMITED' })
+    })
+
     it('maps 404 to REPO_NOT_FOUND AppError', async () => {
         nock(API_BASE)
             .get(FINDINGS_PATH)

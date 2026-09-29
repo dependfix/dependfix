@@ -32,10 +32,10 @@ function resolveErrorCode(error: RequestError): GitHubErrorCode {
         case 401:
             return 'AUTHENTICATION_FAILED'
         case 403: {
-            // Dependabot alerts 未启用（非文档化行为，message 匹配为主信号）。
+            // 安全功能未启用（非文档化行为，message 匹配为主信号）。
             // 与 PERMISSION_DENIED 区分：未启用是仓库设置问题，不是 token 权限不足。
             // 匹配失败时退回 PERMISSION_DENIED（不误判为「未启用」）。
-            if (isAlertsDisabledMessage(error.message)) {
+            if (isFeatureDisabledMessage(error.message)) {
                 return 'ALERTS_DISABLED'
             }
             const remaining = error.response?.headers['x-ratelimit-remaining']
@@ -52,16 +52,36 @@ function resolveErrorCode(error: RequestError): GitHubErrorCode {
 }
 
 /**
- * 判定 403 message 是否为「alerts 功能未启用」。
- *
- * GitHub API 在 Dependabot alerts 未启用时返回 403 + 固定文案
- * `Dependabot alerts are disabled for this repository.`（非文档化行为，未来可能变动）。
- * 以 message 包含匹配为主信号（`includes` 刻意容忍尾标点 / 措辞漂移）；
- * 匹配失败退回 PERMISSION_DENIED，不误判为「未启用」。
+ * Dependabot alerts 未启用时的固定文案（实测精确匹配；非文档化行为，未来可能变动——
+ * 匹配失败退回 PERMISSION_DENIED）。
  */
-function isAlertsDisabledMessage(message: string | undefined): boolean {
-    return typeof message === 'string'
-        && message.includes('Dependabot alerts are disabled for this repository')
+const DEPENDABOT_DISABLED_MESSAGE = 'Dependabot alerts are disabled for this repository'
+
+/**
+ * 判定 403 message 是否为「对应安全功能未启用」。
+ *
+ * 两条判定路径（均要求 403 状态码，由调用方保证）：
+ * 1. **Dependabot alerts**：精确文案（`Dependabot alerts are disabled for this repository`，实测）。
+ * 2. **GitHub Advanced Security（Code Scanning / Code Quality）**：官方文档只描述 403 语义
+ *    （"Response if GitHub Advanced Security is not enabled for this repository"），**未给出响应文案**，
+ *    故采用「两个片段同时命中」的容忍匹配——产品名片段（`advanced security` 或新称 `code security`）
+ *    + 启用状态否定词（`must be enabled` / `not enabled` / `is disabled`，大小写不敏感）——避免单片段误判。
+ *
+ * 匹配失败一律返回 false → 退回 `PERMISSION_DENIED`（不把未知 403 误判为「未启用」）。
+ */
+function isFeatureDisabledMessage(message: string | undefined): boolean {
+    if (typeof message !== 'string') {
+        return false
+    }
+    if (message.includes(DEPENDABOT_DISABLED_MESSAGE)) {
+        return true
+    }
+    const normalized = message.toLowerCase()
+    const mentionsSecurityProduct = normalized.includes('advanced security') || normalized.includes('code security')
+    return mentionsSecurityProduct
+        && (normalized.includes('must be enabled')
+            || normalized.includes('not enabled')
+            || normalized.includes('is disabled'))
 }
 
 function collectErrorDetails(error: RequestError): Record<string, unknown> {

@@ -68,16 +68,21 @@
 - **交付物**：5 atomic commits（`feat(platform)` 存储与校验层 / `feat(platform)` API + 审计 + 执行器透传 / `test(platform)` 单测 / `feat(platform)` UI + i18n + e2e / `docs` 规范与已知边界）—— 因 [§1.1 任务粒度约束](../standards/planning.md#11-硬性约束)「单 commit ≤ 10 文件」而按层拆分
 - **风险与缓解**：平台自定义命令等价于远程命令执行面；缓解：权限门槛 + audit 留痕 + 文档风险声明 + 仅接受数组（不接 shell 字符串）。文件面接近 10 个（entity / migration / schema / 4 executor / UI / i18n / tests / docs）——若实测超 10 文件按 [§1.1 任务粒度约束](../standards/planning.md#11-硬性约束)拆为「后端透传」+「UI」两子批次
 
-#### M32.2（P3，🚀 能力扩展）C85 目标仓库专属配置 `.github/dependfix.yml`（中央优先）
+#### M32.2（P3，🚀 能力扩展）C85 目标仓库专属配置 `.github/dependfix.yml`（中央优先）✅ 已完成
+
+> **闭环记录（2026-09-30）**：4 commits（`40ac252` 读取层与中央优先合并 / `240704f` 读取降级与接线用例 / `e68d62d` 设计口径与配置参考 / 本闭环登记）；A 阶段两分区（deep = engine 代码 / deep = 文档治理）**第 1 轮均 Pass**（0 blocker）→ 修复 → 第 2 轮 standard 复审 **Pass**（12 个问题编号全部关闭；新增 RG-W1 计数失真已校准）。
+> **验证证据**（测量方：执行角色）：engine `repo-config.test.ts` **20 passed**（读取与降级 10 / 中央优先 4 / 合并 3 / app 级接线 3）；engine 全量 62 文件 / 1170 项（1169 passed / 1 skipped）；root `pnpm test` 218 文件 / 3375 项（3367 passed / 8 skipped）；root `pnpm run typecheck` 7 包 exit 0；非 `--fix` eslint（root + engine）0 problem；`check:docs`（links 143）/ `lint:md:check` / `docs:check:i18n` / `docs:build` 通过；**mutation 标定 2 组**——① 把 `resolveOverrideProtect` 优先级翻转为「仓库优先」→ 3 用例失败（含 app 级证伪用例）② 删除 `index.ts` 的 `applyRepoConfig` 接线 → 2 个 app 级用例失败；两次均还原复跑全绿。
+> **落地差异**：① 读取层落在 `packages/engine/src/app/repo-config.ts`，**不走 contents API**（工作区即目标仓库检出：平台在 clone 之后构造 app、CLI 在工作区内运行、Action 由 workflow checkout），省 API 配额且免 base64；范围提示的 `repository-discovery.ts` 探测**未采用**（无消费方，避免死代码）；② 降级矩阵在 P 阶段基础上补「非普通文件（符号链接 / 目录，不跟随链接）/ 超 256 KiB / 空文件 / 原型链风险键」四条；③ `readonly config` 语义保留（构造器改为单次赋值：logger → 合并 config → githubApp auth → rules config）。
+> **范围说明（A 类配套扩展）**：`docs/design/governance/override-protect-policy.md`（§4.2 第三入口指针 + §5 影响面行）/ `docs/guide/configuration.md` + `docs/i18n/en-US/guide/configuration.md`（`overrideProtect` 行交叉引用）属「补足验收标准的配套工作」（否则 overrideProtect 的治理文档与用户配置参考事实过期），非独立能力候选；`docs/guide/quick-start.md` 与 `packages/cli/README*.md` **明确不补**（两处只记 CLI flag 形态，仓库文件来源已由 guide 配置表 + 设计文档承接）。交付物 commit 类型含 `feat(engine)`（读取层）/ `test(engine)` / `docs`。
+> **范围校正（A 阶段 RG-W1）**：下方「范围」中 `repository-discovery.ts`（contents API 探测）一项按落地事实删除，改为 `repo-config.ts`（本地检出读取 + 中央优先合并）。
 
 - **目标**：支持在目标仓库内声明 dependfix 专属配置（`.github/dependfix.yml`），与 `dependabot.yml` / `mergify.yml` 同范式——配置随仓库走，管理大量仓库时无需中央维护名单。
 - **优先级**：P3
-- **范围**：
-  - 新增配置读取层（clone 后读取 `.github/dependfix.yml`）
-  - `packages/engine/src/github/repository-discovery.ts`（复用 `DEPENDABOT_CONFIG_PATH` 的 contents API 探测模式）
+- **范围**（落地后校正：读取走工作区本地文件，不用 contents API）：
+  - 新增配置读取层 `packages/engine/src/app/repo-config.ts`（工作区根 `<workDir>/.github/dependfix.yml`；平台在 clone 后构造 app、CLI 在工作区内运行）
   - zod schema 校验 + 错误降级（非法配置 → 警告 + 回退中央配置，不中断修复）
-  - 优先级规则落地：**中央配置优先**
-  - `docs/standards/platform.md` + `docs/design/modules/dependency-fixer.md`
+  - 优先级规则落地：**中央配置优先**（字段级整体忽略，不逐条合并）
+  - `docs/standards/platform.md` + `docs/design/modules/dependency-fixer.md`（另见上方「范围说明（A 类配套扩展）」）
 - **验收标准**：
   - [ ] 目标仓库 `.github/dependfix.yml` 声明的配置项在修复链路生效（优先级规则有测试证伪）
   - [ ] 与中央配置冲突时「中央优先」行为有测试覆盖
@@ -85,7 +90,7 @@
   - [ ] `pnpm lint` + `pnpm typecheck` + engine 定向测试通过
 - **不做什么**：不替代中央配置（两者并存）；不改 `dependabot.yml` 语义；不做全量配置项迁移——**首批仅支持 `overrideProtect`**（与中央配置同名同语义，中央优先时目标仓库声明仅在中央未指定时生效）
 - **依赖**：关联 M29.4（中央配置 `overrideProtect` 已落地，本候选为其目标仓库侧演进）；关联 `repository-discovery` 的 dependabot.yml 探测路径
-- **交付物**：2-4 atomic commits（`feat(engine)` 读取层 + schema / `feat(engine)` 优先级合并 / `test(engine)` case / `docs`）
+- **交付物**（收口后校正为 4 atomic commits）：① `feat(engine)` 目标仓库配置读取层与中央优先合并（`repo-config.ts` + `index.ts` 接线 + 风险键谓词复用）② `test(engine)` 读取 / 降级 / 中央优先 / app 级接线用例 ③ `docs(engine)` 设计口径与配置参考（`dependency-fixer.md §12.7` + `override-protect-policy.md` + `platform.md §3.9` + guide 双语）④ `docs(plan)` 验收闭环登记
 - **风险与缓解**：新增配置约定需目标仓库采纳，短期覆盖率低；缓解：与中央配置并存，按仓库渐进采纳
 
 #### M32.3（P3，🚀 能力扩展）C89 Code Scanning / Code Quality「未启用」与「获取失败」区分 ✅ 已完成

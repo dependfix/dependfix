@@ -284,6 +284,14 @@
 - **触发条件**：① 用户报告某字段在 `DATABASE_MIGRATIONS_RUN=true` 后仍未生效；② 出现自定义 `DATABASE_ENTITY_PREFIX` 的部署；③ 生产库迁移链正式启用排期（关联延期项 T705）。
 - **规范挂接**：[platform.md §3.8](../standards/platform.md#38-仓库级自定义验证命令verifycommands-m321-c76)（前缀感知实现说明）
 
+### 告警源「未启用 + 其余源全失败」时仓库仍记 0 告警成功（可审计性粒度，持续观察）
+
+- **现象**：`fetchRepoAlerts` 的「全部源失败才抛错」判据为 `failedSources.length === totalSources`；未启用（`ALERTS_DISABLED`）的源计入 `alertsDisabled` 而**不计失败源** → 当「1 源未启用 + 其余源全部真实失败」时判据不成立，函数返回 `[]`，仓库以 **0 告警「成功」** 写入 `repoResults`。
+- **影响**：仅**仓库级粒度**偏乐观（该仓库实际无任何有效数据）；失败信号仍完整暴露在 `RunResult.errors`（`allErrors`）+ exitCode 非 0 + 报告 errors 段落，**不影响退出码正确性**。
+- **性质**：自 C78（Dependabot alerts 未启用）起即存在的形态；C89 把 Code Scanning / Code Quality 纳入同一口径后触发面扩大。当前口径已在 `packages/engine/src/app/repo-alerts.test.ts` 显式锁定（含「1 未启用 + 2 真实失败」的 N=3 组合用例）。
+- **待治理**：把判据改为「无任何成功源且存在失败源」或按 attempted 源数判定；需同时评估对 `repoResults` 与报告「扫描成功」语义的连锁影响。
+- **触发条件**：① 用户反馈「报告显示某仓库 0 告警但实际有告警」；② 平台侧按仓库汇总成功率时暴露偏差。
+
 ### M31 迁移遗留的配置清理项（待清理）
 
 - **`.github/dependabot.yml` 的 PrimeVue 相关 ignore 规则成死配置**：M31.5 已卸载 `primevue` / `@primevue/nuxt-module` / `@primeuix/themes` / `primeicons` / `primelocale` 5 依赖，`@primeuix/*` / `@primevue/*` / `primeicons` 的 ignore 条目不再命中任何包。清理动作：移除该批 ignore 条目与 M25 / M26 时期的配套注释（保留 `conventional-changelog` 条目）。触发条件：下次依赖治理批次。

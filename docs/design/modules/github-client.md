@@ -168,12 +168,21 @@ export function mapGitHubError(error: unknown, context: string): AppError {
 | HTTP 状态码 | 条件 | `AppError.code` |
 |:---:|------|------|
 | 401 | — | `AUTHENTICATION_FAILED` |
-| 403 | message 含 `Dependabot alerts are disabled for this repository` | `ALERTS_DISABLED` |
+| 403 | message 命中「功能未启用」判定（见下方匹配口径） | `ALERTS_DISABLED` |
 | 403 | `X-RateLimit-Remaining: 0` | `RATE_LIMITED` |
 | 403 | 其他 | `PERMISSION_DENIED` |
 | 404 | — | `REPO_NOT_FOUND` |
 | 4xx/5xx | — | `GITHUB_API_ERROR` |
 | 网络异常 | — | `NETWORK_ERROR` |
+
+**403「功能未启用」匹配口径（单点声明）**：
+
+1. **Dependabot alerts**：精确文案 `Dependabot alerts are disabled for this repository`（实测；非文档化行为）。
+2. **GitHub Advanced Security / Code Security（Code Scanning、Code Quality）**：官方文档**只描述 403 语义**（"Response if GitHub Advanced Security is not enabled for this repository"）**未给响应文案**，故采用「两个片段同时命中」的容忍匹配——产品名片段（`advanced security` 或新称 `code security`）+ 启用状态否定词（`must be enabled` / `not enabled` / `is disabled`，大小写不敏感）。
+
+两类均**匹配失败即退回 `PERMISSION_DENIED`**（不把未知 403 误判为「未启用」）；判定按 message 而非调用来源，故 Code Quality 若返回同一文案同样归为「未启用」。判定顺序：未启用 → 限流（`X-RateLimit-Remaining: 0`）→ 权限不足。
+
+> 未启用 ≠ 获取失败：`fetchRepoAlerts` 将其记入 `RunResult.alertsDisabled`（含 `source`）单列计数，不计入 `allErrors`、不影响 exitCode；提示文案由 `alertsDisabledHint(source)` 按源给出（见 [platform.md §6.1](../../standards/platform.md#61-错误码与告警状态口径平台展示消费-engine-错误码)）。
 
 ---
 
@@ -261,7 +270,9 @@ describe('createGitHubClient', () => {
 | 认证失败 | `.reply(401)` | 抛 `AUTHENTICATION_FAILED` |
 | 限流 | `.reply(403, {}, { 'x-ratelimit-remaining': '0' })` | 抛 `RATE_LIMITED` |
 | 权限不足 | `.reply(403)` | 抛 `PERMISSION_DENIED` |
-| alerts 未启用 | `.reply(403, { message: 'Dependabot alerts are disabled for this repository.' })` | 抛 `ALERTS_DISABLED` |
+| alerts 未启用（Dependabot） | `.reply(403, { message: 'Dependabot alerts are disabled for this repository.' })` | 抛 `ALERTS_DISABLED` |
+| alerts 未启用（GHAS） | `.reply(403, { message: 'Advanced Security must be enabled for this repository to use code scanning.' })` | 抛 `ALERTS_DISABLED` |
+| 未启用文案未命中 | `.reply(403, { message: 'Resource not accessible by integration' })` | 抛 `PERMISSION_DENIED`（不误判） |
 | 仓库不存在 | `.reply(404)` | 抛 `REPO_NOT_FOUND` |
 | 网络错误 | `nock.disableNetConnect()` + 断网 | 抛 `NETWORK_ERROR` |
 

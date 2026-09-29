@@ -284,14 +284,20 @@ fixtures.delete / fixtures.post 在双门控通过后调用 `fixturesRateLimit()
 
 | 错误码 | 语义 | 平台展示口径 | 是否计入失败 |
 |:--|:--|:--|:--:|
-| `ALERTS_DISABLED` | 仓库**未启用** alerts 功能（如 Dependabot alerts 未开启） | 「未启用」+ 开启指引（Settings → Code security）；单列计数，不标红 | **否**（预期状态） |
+| `ALERTS_DISABLED` | 仓库**未启用** alerts 功能（Dependabot alerts / GitHub Advanced Security 下的 Code Scanning、Code Quality） | 「未启用」+ **按源**给出开启指引（Settings → Code security）；单列计数，不标红 | **否**（预期状态） |
 | `PERMISSION_DENIED` | token 权限不足 | 「权限不足」+ token 权限指引 | 是 |
 | `AUTHENTICATION_FAILED` | token 无效 / 过期 | 「认证失败」+ 检查 token 配置 | 是 |
 | `RATE_LIMITED` | API 限流（ratelimit 归零） | 「限流」+ 等待重置时间 | 是 |
 | `REPO_NOT_FOUND` | 仓库不存在 / 无访问权 | 「仓库不可达」 | 是 |
 | `NETWORK_ERROR` / `GITHUB_API_ERROR` | 网络 / API 异常 | 「获取失败」 | 是 |
 
-**关键区分**：`ALERTS_DISABLED` ≠ `PERMISSION_DENIED`。前者是仓库设置问题（非 token 权限），不应误导用户排查 token；报告 / 日志均输出准确文案。未启用仓库计入 `RunSummary.reposWithAlertsDisabled` 单列计数 + `RunResult.alertsDisabled` 明细，不影响 exitCode。
+**关键区分**：`ALERTS_DISABLED` ≠ `PERMISSION_DENIED`。前者是仓库设置问题（非 token 权限），不应误导用户排查 token。未启用仓库计入 `RunSummary.reposWithAlertsDisabled` 单列计数 + `RunResult.alertsDisabled`（含 `source`）明细，不影响 exitCode。
+
+**文案落点（区分两层）**：
+- **报告**：`Alerts Disabled` 段用**源无关的通用开启指引** + `Source` 列区分来源（报告层不逐源给路径，避免 core 反向依赖 engine 文案）。
+- **日志 / 运行提示**：由 `alertsDisabledHint(source)` 给出**按源的开启路径**（Dependabot alerts / GitHub Advanced Security 下的 Code Scanning、Code Quality）。
+
+**匹配口径**：`ALERTS_DISABLED` 覆盖 `dependabot` / `code-scanning` / `code-quality`；403 判定的权威说明见 [github-client.md §5.3](../design/modules/github-client.md)（Dependabot 精确文案 / GHAS 容忍匹配 / 匹配失败退回 `PERMISSION_DENIED`）。
 
 ## 7. 前端规范（app/）
 

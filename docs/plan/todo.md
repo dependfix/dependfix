@@ -40,7 +40,11 @@
 
 ---
 
-#### M32.1（P3，🚀 能力扩展）C76 平台侧暴露验证命令配置（每仓库 Repository 字段）
+#### M32.1（P3，🚀 能力扩展）C76 平台侧暴露验证命令配置（每仓库 Repository 字段）✅ 已完成
+
+> **闭环记录（2026-09-29）**：5 commits（`0c79845` 存储与校验层 / `1da2774` 写入链路与审计留痕 / `6e5c86a` 单测 / `0e5b21e` UI 表单与 e2e / `95935e1` 规范与已知边界）；A 阶段两分区（deep + standard）**第 1 轮 Reject → 修复 → 第 2 轮 Pass**。
+> **验证证据**（测量方：执行角色）：全量单测 1336 项（`pnpm --filter @dependfix/platform test`，1329 passed / 7 skipped 为 Redis 集成门控）；e2e 175 passed（`TMPDIR=/dev/shm playwright test --workers=1`，CI 等价串行，连跑两遍）；root `pnpm run typecheck` 7 包全绿；非 `--fix` eslint 0 problem；`check:docs` / `lint:md:check` 通过。
+> **落地差异**：① migration 改为**前缀感知**（既有 7 个迁移前缀不统一，已登记 backlog §已知边界）；② `repos.vue` 触达 eslint max-lines（800）→ 弹窗拆出 `repo-form-dialog.vue`；③ e2e 走预构建 `.output`，取证前需先 `build`（已登记 backlog 操作提醒）。
 
 - **目标**：平台发起的修复可配置验证命令（与 CLI `--commands` 对齐），使平台场景能追加 `test` 等命令，而不必等默认链变更或改代码。
 - **优先级**：P3

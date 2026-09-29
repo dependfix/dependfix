@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { repositorySchema, repositoryUpdateSchema } from './repository'
-import { parseSandboxLimits } from '#server/entities/repository'
+import { parseSandboxLimits, parseVerifyCommands } from '#server/entities/repository'
 
 describe('repository schemas', () => {
     it('创建：owner/name 必填，默认值生效', () => {
@@ -170,6 +170,88 @@ describe('repository schemas', () => {
 
         it('所有字段都无效 → undefined（避免返回空对象误导下游）', () => {
             expect(parseSandboxLimits('{"memoryMb":"x","cpu":"y"}')).toBeUndefined()
+        })
+    })
+
+    describe('verifyCommands（平台侧自定义验证命令）', () => {
+        it('创建：缺省 → undefined（走引擎默认验证链）', () => {
+            const ok = repositorySchema.safeParse({ owner: 'a', name: 'b' })
+            expect(ok.success).toBe(true)
+            expect(ok.success && ok.data.verifyCommands).toBeUndefined()
+        })
+
+        it('创建：命令数组 → success（逐项 trim）', () => {
+            const ok = repositorySchema.safeParse({
+                owner: 'a',
+                name: 'b',
+                verifyCommands: ['pnpm install --frozen-lockfile', '  pnpm test  '],
+            })
+            expect(ok.success).toBe(true)
+            expect(ok.success && ok.data.verifyCommands).toEqual(['pnpm install --frozen-lockfile', 'pnpm test'])
+        })
+
+        it('创建：null / 空数组 → success（清空语义，走默认链）', () => {
+            expect(repositorySchema.safeParse({ owner: 'a', name: 'b', verifyCommands: null }).success).toBe(true)
+            expect(repositorySchema.safeParse({ owner: 'a', name: 'b', verifyCommands: [] }).success).toBe(true)
+        })
+
+        it('创建：超过 20 条 → fail（容量上限）', () => {
+            const bad = repositorySchema.safeParse({
+                owner: 'a',
+                name: 'b',
+                verifyCommands: Array.from({ length: 21 }, (_, i) => `pnpm cmd${i}`),
+            })
+            expect(bad.success).toBe(false)
+        })
+
+        it('创建：含空白项 → fail（拒绝空命令，防误提交空行）', () => {
+            const bad = repositorySchema.safeParse({ owner: 'a', name: 'b', verifyCommands: ['pnpm lint', '   '] })
+            expect(bad.success).toBe(false)
+        })
+
+        it('创建：含换行 / 控制字符 → fail（保持「一项 = 一条命令行」不变量）', () => {
+            expect(repositorySchema.safeParse({ owner: 'a', name: 'b', verifyCommands: ['pnpm lint\nrm -rf /'] }).success).toBe(false)
+            expect(repositorySchema.safeParse({ owner: 'a', name: 'b', verifyCommands: ['pnpm\tlint'] }).success).toBe(false)
+        })
+
+        it('创建：单条超过 500 字符 → fail', () => {
+            const bad = repositorySchema.safeParse({ owner: 'a', name: 'b', verifyCommands: [`pnpm ${'x'.repeat(500)}`] })
+            expect(bad.success).toBe(false)
+        })
+
+        it('更新：undefined = 不修改 / null 或 [] = 清空（与 tags 同语义）', () => {
+            expect(repositoryUpdateSchema.safeParse({}).success).toBe(true)
+            expect(repositoryUpdateSchema.safeParse({ verifyCommands: null }).success).toBe(true)
+            expect(repositoryUpdateSchema.safeParse({ verifyCommands: [] }).success).toBe(true)
+            expect(repositoryUpdateSchema.safeParse({ verifyCommands: ['pnpm test'] }).success).toBe(true)
+        })
+    })
+
+    describe('parseVerifyCommands（实体辅助函数）', () => {
+        it('null / undefined / 空串 → 空数组（走引擎默认验证链）', () => {
+            expect(parseVerifyCommands(null)).toEqual([])
+            expect(parseVerifyCommands(undefined)).toEqual([])
+            expect(parseVerifyCommands('')).toEqual([])
+        })
+
+        it('合法 JSON 数组 → 命令数组', () => {
+            expect(parseVerifyCommands('["pnpm lint","pnpm test"]')).toEqual(['pnpm lint', 'pnpm test'])
+        })
+
+        it('非法 JSON → 空数组（容错不抛错）', () => {
+            expect(parseVerifyCommands('not-json')).toEqual([])
+            expect(parseVerifyCommands('{unclosed')).toEqual([])
+        })
+
+        it('非数组（对象 / 字符串 / 数字）→ 空数组', () => {
+            expect(parseVerifyCommands('{"a":1}')).toEqual([])
+            expect(parseVerifyCommands('"pnpm lint"')).toEqual([])
+            expect(parseVerifyCommands('123')).toEqual([])
+        })
+
+        it('数组内含非字符串 / 空串项 → 被裁剪，命令项 trim 归一（仅保留有效命令）', () => {
+            expect(parseVerifyCommands('["pnpm lint",null,42,"","   ","pnpm test"]')).toEqual(['pnpm lint', 'pnpm test'])
+            expect(parseVerifyCommands('["  pnpm test  "]')).toEqual(['pnpm test'])
         })
     })
 })

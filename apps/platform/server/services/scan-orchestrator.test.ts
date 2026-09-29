@@ -206,6 +206,25 @@ describe('scan-orchestrator.service', () => {
             expect(repo?.lastScanAt).toBeTruthy()
         })
 
+        it('passes repository verifyCommands into executor context', async () => {
+            containerExecute.mockResolvedValue({ result: makeResult(), error: undefined })
+            const withCommands = await createRepo({ verifyCommands: ['pnpm install --frozen-lockfile', 'pnpm test'] })
+
+            await runScanForRepository(withCommands, { mode: 'fix', severityThreshold: 'high' })
+
+            const ctx = containerExecute.mock.calls[0]![0] as { repository: { verifyCommands?: string[] } }
+            expect(ctx.repository.verifyCommands).toEqual(['pnpm install --frozen-lockfile', 'pnpm test'])
+        })
+
+        it('defaults repository verifyCommands to empty array when not configured', async () => {
+            containerExecute.mockResolvedValue({ result: makeResult(), error: undefined })
+
+            await runScanForRepository(repositoryId, { mode: 'fix', severityThreshold: 'high' })
+
+            const ctx = containerExecute.mock.calls[0]![0] as { repository: { verifyCommands?: string[] } }
+            expect(ctx.repository.verifyCommands).toEqual([])
+        })
+
         it('marks run failed when executor returns error', async () => {
             containerExecute.mockResolvedValue({ result: undefined, error: { code: 'exec_failed', message: '容器执行失败' } })
 

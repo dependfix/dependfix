@@ -3,6 +3,8 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vites
 import { expectError, makeEvent, setupMemoryDatabase, teardownMemoryDatabase } from '../../../tests/api-helper'
 import reposIdHandler from './[id]'
 import reposIndexHandler from './index'
+import { ensureDatabaseInitialized } from '#server/database'
+import { AuditEvent } from '#server/entities/audit-event'
 
 // todo.md §M16.5 三角色鉴权：mock 改为可重写（默认 admin），三角色相关 case 用 mockRequireRole.mockImplementationOnce 切换
 const { mockRequireAuth, mockRequireRole, mockRequireOrgResource } = vi.hoisted(() => ({
@@ -101,6 +103,62 @@ describe('GET /api/repos/[id]', () => {
             callId('PUT', `/api/repos/${id}`, { sandboxLimits: { memoryMb: 100000 } }, { id }),
             400,
         )
+    })
+
+    it('persists verifyCommands JSON via PUT', async () => {
+        // 仓库级自定义验证命令序列化 + 读取（数组 → JSON 列 → 数组）
+        const result = await callId('PUT', `/api/repos/${id}`, {
+            verifyCommands: ['pnpm install --frozen-lockfile', 'pnpm test'],
+        }, { id }) as { updated: boolean }
+        expect(result).toEqual({ id, updated: true })
+
+        const detail = await callId('GET', `/api/repos/${id}`, undefined, { id }) as Record<string, unknown>
+        expect(detail.verifyCommands).toEqual(['pnpm install --frozen-lockfile', 'pnpm test'])
+    })
+
+    it('clears verifyCommands via PUT (null) → 走引擎默认验证链', async () => {
+        await callId('PUT', `/api/repos/${id}`, { verifyCommands: ['pnpm test'] }, { id })
+        const cleared = await callId('PUT', `/api/repos/${id}`, { verifyCommands: null }, { id }) as { updated: boolean }
+        expect(cleared).toEqual({ id, updated: true })
+
+        const detail = await callId('GET', `/api/repos/${id}`, undefined, { id }) as Record<string, unknown>
+        expect(detail.verifyCommands).toEqual([])
+    })
+
+    it('records verify_commands_update audit only when commands actually change', async () => {
+        const ds = await ensureDatabaseInitialized()
+        const auditRepo = ds.getRepository(AuditEvent)
+        const before = await auditRepo.find({ where: { repositoryId: id } })
+
+        // 1) 设置命令 → 记 1 条审计（previous=[] / next=设置值）
+        await callId('PUT', `/api/repos/${id}`, { verifyCommands: ['pnpm test'] }, { id })
+        const afterSet = await auditRepo.find({ where: { repositoryId: id } })
+        expect(afterSet.length).toBe(before.length + 1)
+        const setEvent = afterSet[afterSet.length - 1]!
+        expect(setEvent.type).toBe('verify_commands_update')
+        expect(setEvent.severity).toBe('info')
+        expect(JSON.parse(setEvent.payloadJson!)).toEqual({
+            repository: 'demo/app',
+            previous: [],
+            next: ['pnpm test'],
+        })
+
+        // 2) 同一命令重复提交 → 无实际变化 → 不新增审计
+        await callId('PUT', `/api/repos/${id}`, { verifyCommands: ['pnpm test'] }, { id })
+        // 3) 仅更新其它字段（未触碰 verifyCommands）→ 同样不新增审计
+        await callId('PUT', `/api/repos/${id}`, { note: 'no-op change' }, { id })
+        const afterNoop = await auditRepo.find({ where: { repositoryId: id } })
+        expect(afterNoop.length).toBe(afterSet.length)
+
+        // 4) 改为其他命令 → 再记 1 条（previous / next 为变更前后值）
+        await callId('PUT', `/api/repos/${id}`, { verifyCommands: ['pnpm lint', 'pnpm test'] }, { id })
+        const afterChange = await auditRepo.find({ where: { repositoryId: id } })
+        expect(afterChange.length).toBe(afterNoop.length + 1)
+        expect(JSON.parse(afterChange[afterChange.length - 1]!.payloadJson!)).toEqual({
+            repository: 'demo/app',
+            previous: ['pnpm test'],
+            next: ['pnpm lint', 'pnpm test'],
+        })
     })
 
     it('deletes repository via DELETE', async () => {

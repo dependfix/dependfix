@@ -2,6 +2,8 @@ import 'reflect-metadata'
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { makeEvent, setupMemoryDatabase, teardownMemoryDatabase } from '../../../tests/api-helper'
 import reposHandler from './index'
+import { ensureDatabaseInitialized } from '#server/database'
+import { AuditEvent } from '#server/entities/audit-event'
 
 // 鉴权由 guard.test.ts 单独覆盖：API handler 测试 mock guard 层，聚焦业务逻辑；
 // 但 todo.md §M16.5 T701-e2e 补强要求 API handler 测试也覆盖三角色鉴权——
@@ -135,6 +137,88 @@ describe('GET /api/repos', () => {
 
     it('rejects unsupported method with 405', async () => {
         await expect(call('PUT', '/api/repos')).rejects.toMatchObject({ statusCode: 405 })
+    })
+
+    describe('verifyCommands（平台侧自定义验证命令）', () => {
+        it('persists verifyCommands array as JSON column and reads back', async () => {
+            await call('POST', '/api/repos', {
+                owner: 'vc-list',
+                name: 'repo',
+                platform: 'github',
+                packageManager: 'pnpm',
+                defaultBranch: 'main',
+                executorKind: 'container',
+                verifyCommands: ['pnpm install --frozen-lockfile', 'pnpm test'],
+            })
+            const list = await call('GET', '/api/repos') as Record<string, unknown>[]
+            const item = list.find((r) => r.owner === 'vc-list')
+            expect(item?.verifyCommands).toEqual(['pnpm install --frozen-lockfile', 'pnpm test'])
+        })
+
+        it('returns empty verifyCommands when not provided (走引擎默认验证链)', async () => {
+            await call('POST', '/api/repos', {
+                owner: 'vc-empty',
+                name: 'repo',
+                platform: 'github',
+                packageManager: 'pnpm',
+                defaultBranch: 'main',
+                executorKind: 'container',
+            })
+            const list = await call('GET', '/api/repos') as Record<string, unknown>[]
+            expect(list.find((r) => r.owner === 'vc-empty')?.verifyCommands).toEqual([])
+        })
+
+        it('rejects verifyCommands with control characters (400, 保持「一项 = 一条命令行」)', async () => {
+            await expect(call('POST', '/api/repos', {
+                owner: 'vc-invalid',
+                name: 'repo',
+                platform: 'github',
+                packageManager: 'pnpm',
+                defaultBranch: 'main',
+                executorKind: 'container',
+                verifyCommands: ['pnpm lint\nrm -rf /'],
+            })).rejects.toMatchObject({
+                statusCode: 400,
+                data: { code: 'REPO_VALIDATION_FAILED' },
+            })
+        })
+
+        it('records verify_commands_update audit event on create', async () => {
+            const created = await call('POST', '/api/repos', {
+                owner: 'vc-audit',
+                name: 'repo',
+                platform: 'github',
+                packageManager: 'pnpm',
+                defaultBranch: 'main',
+                executorKind: 'container',
+                verifyCommands: ['pnpm test'],
+            }) as { id: string }
+
+            const ds = await ensureDatabaseInitialized()
+            const events = await ds.getRepository(AuditEvent).find({ where: { repositoryId: created.id } })
+            expect(events).toHaveLength(1)
+            expect(events[0]!.type).toBe('verify_commands_update')
+            expect(JSON.parse(events[0]!.payloadJson!)).toEqual({
+                repository: 'vc-audit/repo',
+                previous: [],
+                next: ['pnpm test'],
+            })
+        })
+
+        it('does not record audit event on create without commands', async () => {
+            const created = await call('POST', '/api/repos', {
+                owner: 'vc-no-audit',
+                name: 'repo',
+                platform: 'github',
+                packageManager: 'pnpm',
+                defaultBranch: 'main',
+                executorKind: 'container',
+            }) as { id: string }
+
+            const ds = await ensureDatabaseInitialized()
+            const events = await ds.getRepository(AuditEvent).find({ where: { repositoryId: created.id } })
+            expect(events).toHaveLength(0)
+        })
     })
 })
 

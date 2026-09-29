@@ -371,6 +371,7 @@ fixtures.delete / fixtures.post 在双门控通过后调用 `fixturesRateLimit()
 - 数据库测试：SQLite `:memory:` + `DATABASE_TYPE=sqlite`，每个测试独立 DataSource（`beforeEach` 重建）
 - 时间列断言：使用 `getDateType('sqlite')` 期望值，避免硬编码
 - 测试命令：`pnpm --filter @dependfix/platform test`（vitest run）
+- 视觉回归（截图识别层）：`pnpm --filter @dependfix/platform test:visual`（更新基线加 `:update`）；独立 config / 独立库 / 基线入仓库，口径见 [测试规范 §6.7](./testing.md)
 
 ## 9. 质量门禁
 

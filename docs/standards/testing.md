@@ -150,6 +150,22 @@
 
 Vitest 对 ESM 命名导出（如 `node:fs` 的 `unlinkSync`）无法用 `vi.spyOn` 拦截，被测模块内部调用也无法直接注入失败。**处理原则（按优先级）**：① **真实故障注入**——优先用真实文件系统 / 进程级隔离制造故障（**零生产代码改动**，如把旁文件建成目录使 `unlinkSync` 抛错）；② **可注入依赖**——真实故障不可达时（如"复制完成后的库损坏"）才给生产代码加可选注入点（默认值即原实现，与既有注入风格保持一致）；③ 确认 `vi.mock` 对目标模块支持度后再用。**不得**为凑覆盖率写"看似 mock 实则恒过"的断言，也不得静默 `it.skip`——skip 必须带 TODO 理由并登记 backlog。**对照做法（M31.6 补 C90）**：M30.5 `db-restore` 的两个失败分支曾因 ESM mock 受限 `it.skip`，补齐时分别采用——① 真实文件系统故障注入（sidecar 部分删除失败：把 `-shm` 建成目录使 `unlinkSync` 抛错，零生产代码改动）；② 注入点（恢复后 `integrity_check` 失败分支在真实环境不可达，给 `restoreDatabase` 加可选 `inspect` 注入点）。
 
+### 6.7 视觉回归（截图识别层，apps/platform）
+
+`apps/platform/playwright.visual.config.ts` 是与 e2e **完全隔离**的独立工程：独立 testDir / 端口 / SQLite 库（`data/visual.sqlite`）/ 认证目录（`tests/visual/.auth/`），不并入 `pnpm test:e2e` 的 `testMatch` 与断言语义。入口 `pnpm --filter @dependfix/platform test:visual`（更新基线加 `:update`）；基线快照入仓库（`apps/platform/tests/visual/__screenshots__/`，可在 PR 中 review 差异）。服务端复用 `.output` 构建产物，**取证前必须先 build**（与 §6.1「webServer 缓存必须 rebuild」同因）。
+
+- **环境固定（可复现前提）**：chromium / 1440×900 / deviceScaleFactor 1 / locale `zh-CN` / 时区 `Asia/Shanghai` / `colorScheme: 'light'`；`animations: 'disabled'` + `caret: 'hide'`；`workers: 1` + `retries: 0`（不稳定即失败并归因，不用重试掩盖抖动）。
+- **主题以确定性方式注入**：写 localStorage `dependfix-color-mode`，不依赖系统 `prefers-color-scheme`（CI 无系统偏好、本地可能是深色偏好）；用例内另断言 `<html class="dark">` 兜底键名漂移。
+- **数据确定性**：视觉套件跑独立库，globalSetup 每次**先清理再注入**专属 fixtures（`tests/visual/helpers/fixtures.ts`）。e2e 数据集**不可复用**——缺仓库标签，且 `firstSeenAt` / `lastSeenAt` 缺省时端点填 `now()`。e2e 库还会被用例累积写入（`repos-crud` 留记录、`scanRuns` 每次新建）→ 直接拿 e2e 库采基线必然漂移。视觉数据集需为「每个包单一 severity」（alerts 页分组键是包名、默认排序按 severity 降序，跨档 severity 会把同包行拆到不同区块、分组头重复出现）。
+- **动态区域显式遮蔽**：运行时派生值（时间戳等）标 `data-visual-mask`，由 `dynamicMask()` 在截图前遮蔽，不用像素容差兜底。注意：**加遮蔽会改变基线像素**（Playwright 用实心色块覆盖），必须重新生成该页基线。
+- **阈值口径**：`maxDiffPixels: 200` + `threshold: 0.2`（绝对像素上限，不用比例兜底）。**灵敏度边界（实测）**：单页 1440×900 下，影响面积 ≤200px 的颜色改动**不会被检出**——反例验证中改 `$color-primary` 只触发 2/7 用例（活动导航文案 215-226px 超阈值失败，2 字导航项低于阈值放行）；改 caomei 主题 token（`theme.primary`）则 5/7 失败（全部亮色用例，暗色用例不受影响——暗色档单独覆盖 `--caomei-color-primary`）。结论：**用例要覆盖大面积 token 消费面**，小面积改动仍依赖人工 / `ui-validator` 复核。
+- **覆盖边界（已知）**：`pr-checks` 行数据由 GitHub 轮询产生，fixtures 端点无对应写入路径 → 该页基线只覆盖页面骨架 / summary 卡片 / 空态与表头密度，**不覆盖行级渲染**；`alerts` 宽表在 1440 视口横向溢出 → 最右 `链接` / `详情` 两列不在基线内。两处均登记 backlog。
+- **反例验证纪律**：基线落地必须做一次「人为注入样式改动 → 用例如期失败 → 还原后全绿」，证明阈值非恒真，不得只跑正例。
+- **读基线须知**：`apps/platform/tests/visual/README.md` 记录 M31 已裁定的既有视觉差异（避免后人误判为新回归）与已知盲区。
+- **与 `ui-validator` 的分工**：视觉回归只兜「像素漂移」，不做交互 / 可用性 / 语义审查；后者仍由 `ui-validator` 承担（见 §6.1 同款纪律）。
+- **CI 接入**：`test.yml` 的 `visual` job（独立 runner + 失败产物上传 `apps/platform/test-results/`）；初期 `continue-on-error: true`——基线采集环境为维护者本地容器（Linux + Playwright chromium），尚未在 ubuntu-latest runner 确认字体渲染一致。**转阻断判定条件**：出现首个 ubuntu-latest 全绿 run 后移除该行（待办登记 backlog §已知边界）。
+- **review 检查点**：本节三条「必须」级约定（取证前先 build / 加遮蔽须重生成基线 / 反例验证纪律）的检查点补挂登记于 `docs/plan/backlog.md`（C91）。
+
 ## 7. 测试代码质量
 
 - 测试代码本身也需要通过 lint + typecheck

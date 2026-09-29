@@ -172,7 +172,7 @@ Vitest 对 ESM 命名导出（如 `node:fs` 的 `unlinkSync`）无法用 `vi.spy
 - **读基线须知**：`apps/platform/tests/visual/README.md` 记录 M31 已裁定的既有视觉差异（避免后人误判为新回归）与已知盲区。
 - **与 `ui-validator` 的分工**：视觉回归只兜「像素漂移」，不做交互 / 可用性 / 语义审查；后者仍由 `ui-validator` 承担（见 §6.1 同款纪律）。
 - **CI 接入**：`test.yml` 的 `visual` job（独立 runner + 失败产物上传 `apps/platform/test-results/`）；初期 `continue-on-error: true`——基线采集环境为维护者本地容器（Linux + Playwright chromium），尚未在 ubuntu-latest runner 确认字体渲染一致。**转阻断判定条件**：出现首个 ubuntu-latest 全绿 run 后移除该行（待办登记 backlog §已知边界）。
-- **review 检查点**：本节三条「必须」级约定（取证前先 build / 加遮蔽须重生成基线 / 反例验证纪律）的检查点补挂登记于 `docs/plan/backlog.md`（C91）。
+- **review 检查点**：本节三条「必须」级约定（取证前先 build / 加遮蔽须重生成基线 / 反例验证纪律）已挂 [code-quality-checklist 规范条款 review 检查点矩阵](../../.github/skills/code-reviewer/references/code-quality-checklist.md#规范条款-review-检查点矩阵严格约束逐条挂接)。
 
 ### 6.8 取证工件必须与冻结代码同批生成
 

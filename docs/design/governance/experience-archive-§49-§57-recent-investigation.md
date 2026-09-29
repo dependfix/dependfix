@@ -1281,13 +1281,13 @@ todo.md §M27.1 任务段（L17-48）所有 8 要素（目标 / 范围 / 验收 
 | 教训 | 规范条款 | Review 检查点挂接状态 |
 |:--|:--|:--|
 | 提交态自洽 | [git.md §3.7](../../standards/git.md) | ✅ 已挂 code-auditor 主责边界「提交态自洽」必查项 |
-| tsdown dts 入口冲突 | [development.md §5.1.26](../../standards/development.md) | ⏳ 待补挂（登记 backlog C91） |
-| 多 key 预聚合 | [development.md §5.1.24](../../standards/development.md) | ⏳ 待补挂（登记 backlog C91） |
-| 范围穷举同根因 | [development.md §5.1.25](../../standards/development.md) | ⏳ 待补挂（登记 backlog C91） |
-| 断言禁用恒真 | [testing.md §6.5](../../standards/testing.md) | ⏳ 待补挂（登记 backlog C91） |
-| ESM mock 受限 | [testing.md §6.6](../../standards/testing.md) | ⏳ 待补挂（登记 backlog C91） |
-| 量化断言可复现口径 | [planning.md §2.5](../../standards/planning.md) | ⏳ 待补挂（登记 backlog C91） |
-| 口径同步结构化复扫 | [planning.md §4.4 第 13 条](../../standards/planning.md) | ⏳ 待补挂（登记 backlog C91） |
+| tsdown dts 入口冲突 | [development.md §5.1.26](../../standards/development.md) | ✅ 已挂 code-quality-checklist「规范条款 review 检查点矩阵」 |
+| 多 key 预聚合 | [development.md §5.1.24](../../standards/development.md) | ✅ 已挂 code-quality-checklist「规范条款 review 检查点矩阵」 |
+| 范围穷举同根因 | [development.md §5.1.25](../../standards/development.md) | ✅ 已挂 code-quality-checklist「规范条款 review 检查点矩阵」 |
+| 断言禁用恒真 | [testing.md §6.5](../../standards/testing.md) | ✅ 已挂 code-quality-checklist「规范条款 review 检查点矩阵」 |
+| ESM mock 受限 | [testing.md §6.6](../../standards/testing.md) | ✅ 已挂 code-quality-checklist「规范条款 review 检查点矩阵」 |
+| 量化断言可复现口径 | [planning.md §2.5](../../standards/planning.md) | ✅ 已挂 code-quality-checklist「规范条款 review 检查点矩阵」 |
+| 口径同步结构化复扫 | [planning.md §4.4 第 13 条](../../standards/planning.md) | ✅ 已挂 code-quality-checklist「规范条款 review 检查点矩阵」 |
 
 ### 准入标准复核
 

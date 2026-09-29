@@ -255,6 +255,38 @@ if (value) { ... }  // 对 0, "", false 失效
 
 规范见 [documentation.md §4 规范单点声明原则](../../../../docs/standards/documentation.md)。
 
+### 规范条款 review 检查点矩阵（严格约束逐条挂接）
+
+> **定位**：`docs/standards/*.md` 已发布严格约束（必须 / 阈值 / 禁令）的**统一 review 落点**。上方「规范执行分层」检查新增条款**是否**挂接；本条给出**已挂接条款 → 可执行检查动作**的逐条映射。新增严格约束时，必须在本矩阵登记一行（或在 code-auditor 主责边界 / 本 checklist 挂接独立小节），否则按「规范执行分层」退回补挂。
+
+改动触及下表「触发改动」列描述的实现面时，逐条核验对应「review 检查动作」：
+
+| 规范条款 | 触发改动 | review 检查动作 |
+|:--|:--|:--|
+| [development.md §5.1.24](../../../../docs/standards/development.md) | overrides / 映射 / 统计等「多输入 → 同 key」生成循环 | 同 key 多输入是否先预聚合（`Map<key, value>` 取 max）再统一写入；是否存在循环内 `map[key] = value` 的 last-write-wins |
+| [development.md §5.1.25](../../../../docs/standards/development.md) | 声明「修复点单一 / 影响范围」的改动 | 是否以**行为特征**（argv / env 读取）为锚点全仓库穷举同根因调用点；共用映射 / 判定层改动是否**集中**在共用层；下游消费方是否硬编码单一场景文案 |
+| [development.md §5.1.26](../../../../docs/standards/development.md) | `packages/*/tsdown.config.ts` / 多 entry 构建 | 构建后 `dist/` 是否出现 `index2.d.mts` / `index2.mjs`；共享 dts chunk 是否隔离到 `chunks/` 子目录 |
+| [development.md §5.1.27](../../../../docs/standards/development.md) | 「迁移 / 等价性」判断、组件默认值或属性语义结论 | 是否用 `git show HEAD:<file>` **回读迁移前源码**（而非凭库文档推断仓库现状）；差异成因解释与仓库现状是否分开 |
+| [development.md §5.1.28](../../../../docs/standards/development.md) | 「依赖卸载 + 引用归零」类任务 | 是否定义 `rg` 归零口径（含注释 / 文档 / 历史编号）；包体基线是否**回溯迁移前 commit 现场构建** |
+| [development.md §5.1.29](../../../../docs/standards/development.md) | 写「A 优先于 B」的配置优先级 | 口径是否写明「字段级整体忽略 vs 逐条合并」；是否配**证伪用例**（高优先级来源存在但未覆盖该对象） |
+| [development.md §5.1.30](../../../../docs/standards/development.md) | 构造期用外部数据合并 effective config | 是否保持 `readonly` 单次赋值（未改成可写）、是否避免引入第二份 effectiveConfig |
+| [testing.md §6.1](../../../../docs/standards/testing.md) | 新增 Playwright 容器 / e2e 用例 / 本机取证 | 新容器是否同步 vitest `test.exclude` 并跑全量 `pnpm test`；容器内 Chromium 是否 `TMPDIR=/dev/shm`；权威证据是否 `--workers=1` 连跑两遍 |
+| [testing.md §6.5](../../../../docs/standards/testing.md) | 新增 / 修改测试断言 | 是否**锁定独有子串 + 失败来源**（非恒真）；是否做 2-3 个 mutation（删 guard / 吞错 / 改回旧行为）标定确认用例会失败 |
+| [testing.md §6.6](../../../../docs/standards/testing.md) | 需 mock ESM 命名导出 / 覆盖失败分支 | 优先级是否正确（真实故障注入 > 可选注入点 > `vi.mock`）；`it.skip` 是否带 TODO 理由并登记 backlog |
+| [testing.md §6.7](../../../../docs/standards/testing.md) | **视觉回归**用例 / 基线 / 主题 token 改动 | 取证前先 build；加遮蔽须重生成基线；**反例验证纪律**（注入样式改动 → 用例如期失败 → 还原后全绿） |
+| [testing.md §6.8](../../../../docs/standards/testing.md) | 审计 / 文档引用**取证工件** | 工件是否与冻结代码**同批生成**；文档数字是否只在验证链尾部落笔 |
+| [security.md §2](../../../../docs/standards/security.md) | 读取外部可控配置文件（如目标仓库 `.github/*.yml`） | 外部可控配置**防护矩阵**五要素：错误摘要截断 / 原型链风险键过滤在 schema 之前 / 未知键 `Object.hasOwn` / 非普通文件不跟随符号链接 / 大小上限（完整矩阵以 [dependency-fixer.md §12.7](../../../../docs/design/modules/dependency-fixer.md) 为唯一权威） |
+| [platform.md §3.3](../../../../docs/standards/platform.md) | 新增 `apps/platform` migration | 是否**前缀感知**（先 `entityPrefix + 表名`、再回退无前缀）；用例是否覆盖两种前缀 + up/down 幂等 + 目标表缺失 |
+| [platform.md §3.8](../../../../docs/standards/platform.md) | `Repository.verifyCommands` 字段 / 仓库级自定义验证命令 | 「命令执行面 + 写入门槛 + 审计留痕」三条安全边界是否保持（详细检查点分别落在 code-auditor 主责边界「修复执行安全基线」与「shell 命令安全」必查项，本条不重复其条目内容） |
+| [platform.md §3.9](../../../../docs/standards/platform.md) | `.github/dependfix.yml` 读取 / 合并 | **中央优先**（防目标仓库绕过）与**不提供 UI 入口**两条约束是否保持 |
+| [planning.md §2.3](../../../../docs/standards/planning.md) | 候选上收 / 关闭 | 父段标题括号枚举是否同步收敛；已失效候选是否清理 |
+| [planning.md §2.5](../../../../docs/standards/planning.md) | 条目含统计数字 | **量化断言**可复现口径：量级区间 + 测量方 + 可复现命令（第三方可复现） |
+| [planning.md §4.4 第 13 条](../../../../docs/standards/planning.md) | 跨文件同步事实性口径 | 复扫是否用**结构化查询**（语义站点清单 + 组合 `rg`）而非字面 pattern；双语镜像是否单独扫 |
+| [ai-collaboration.md §1.3 分级审计执行协议](../../../../docs/standards/ai-collaboration.md) | 规划 / 阶段启动批次 | 是否声明 `standard`（非 `quick`）；审计 prompt 是否携带 audit-depth + 变更清单 + 已验证证据 |
+| [git.md §3.8](../../../../docs/standards/git.md) | `git commit` / `git push` 调用点 | 是否复用单一常量 `GIT_*_SIGNING_ISOLATION_ARGS`（无字面量漂移）；是否擅自提供签名 opt-in |
+
+> **维护纪律**：本矩阵为严格约束检查点的**单点落点**，其他文档 / skill / agent 只做一行链接引用（见上方「规范单点声明」）。矩阵行与条款一一对应；条款废弃 / 合并时同步删行。
+
 ### todo.md / todo-archive.md 子任务详细度审计（必查项）
 
 P 阶段规划 / 阶段实施 / 阶段归档批次触及 `docs/plan/todo.md` / `docs/plan/todo-archive.md` 时，按 [planning.md §2.5 任务详细度要求](../../../../docs/standards/planning.md#25-任务详细度要求) 检查每条子任务（子阶段条目）的详细度：

@@ -249,7 +249,7 @@ fixtures.delete / fixtures.post 在双门控通过后调用 `fixturesRateLimit()
 - **优先级**：中央配置优先（完整语义见 §12.7）——平台透传的中央 `overrideProtect`（env / CLI）一旦指定，目标仓库声明即被整体忽略。
 - **可观测性**：生效（`info`）/ 被中央覆盖（`debug`）/ 降级告警（`warn`，含非法 YAML、schema 不匹配、未知键）均写入引擎日志——平台注入 `MemoryLogger` 会捕获并展示在执行日志中；命中保护仍按既有口径记 `OVERRIDE_PROTECTED` 审计（见 [override-protect-policy.md](../design/governance/override-protect-policy.md)）。
 
-**review 检查点挂接**：本节的「中央优先（防绕过）」与「不提供 UI 入口」两条约束的 review 检查点补挂登记于 [backlog.md](../plan/backlog.md)（C91，与 testing.md §6.7 同批次）。
+**review 检查点挂接**：本节的「中央优先（防绕过）」与「不提供 UI 入口」两条约束已挂 [code-quality-checklist 规范条款 review 检查点矩阵](../../.github/skills/code-reviewer/references/code-quality-checklist.md#规范条款-review-检查点矩阵严格约束逐条挂接)。
 
 ## 4. 认证规范（better-auth）
 

@@ -36,8 +36,8 @@
 - **验收标准**：
   - [ ] 各严格约束均有明确 review 检查点（或一条总检查点完整覆盖）
   - [ ] 检查点按 [documentation.md §4 单点声明](../standards/documentation.md) 引用规范原文，不重复抄写
-  - [ ] 复扫 `rg -n "5\.1\.2[4-9]|5\.1\.30|恒真|量化断言|视觉回归|中央优先|迁移前行为核实|取证工件|防护矩阵|前缀感知|dependfix\.yml|SIGNING_ISOLATION" .github/agents .github/skills` 命中覆盖全部条款落点（当前仅 1 命中且非检查点）
-  - [ ] **注记清理复扫** `rg -n "登记 backlog|待补挂|登记于" docs/standards/testing.md docs/standards/platform.md "docs/design/governance/experience-archive-§49-§57-recent-investigation.md"` = 0 命中（C91 相关注记全部消除）
+  - [ ] **条款落点冒烟复扫**：`rg -n "5\.1\.2[4-9]|5\.1\.30|恒真|量化断言|视觉回归|中央优先|迁移前行为核实|取证工件|防护矩阵|前缀感知|dependfix\.yml|SIGNING_ISOLATION" .github/agents .github/skills` 命中 ≥ 15（改动前为 1）。该 rg 仅为冒烟检查，**覆盖证据以「矩阵行 ↔ §M33.1 范围条款逐行比对」为准**——部分触发面（`testing.md §6.1` / `§6.6`、`planning.md §2.3` / `§4.4 第 13 条`、`ai-collaboration.md §1.3`）不含 pattern 关键字，rg 结构上无法命中
+  - [ ] **注记清理复扫**：`rg -n "C91|待补挂" docs/standards/testing.md docs/standards/platform.md "docs/design/governance/experience-archive-§49-§57-recent-investigation.md"` = 0 命中（C91 相关注记全部消除；§6.6 / §6.7 覆盖边界与 CI 转阻断指针属其它条目范围，不在本条）
   - [ ] `pnpm run check:docs` EXIT 0（新增链接可解析）
 - **不做什么**：不改规范条款正文；不新增规范条款；不改 D 阶段自检规则本身（自检规则已存在于各 skill / agent）。
 - **依赖**：关联 M30 归档批次（触发来源）+ M32.4（`git.md §3.8`）+ M32 归档批次 wisdom 蒸馏（`development.md §5.1.27-§5.1.30` 等新增条款）。

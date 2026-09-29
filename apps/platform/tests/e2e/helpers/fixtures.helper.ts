@@ -72,7 +72,7 @@ export interface ScanResultFixture {
 }
 
 export interface AlertsRowgroupFixtures {
-    repos: { owner: string, name: string }[]
+    repos: { owner: string, name: string, tags?: string[] }[]
     scanRuns: ScanRunFixture[]
     scanResults: ScanResultFixture[]
 }

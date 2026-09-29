@@ -2,6 +2,8 @@ import 'reflect-metadata'
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { expectError, makeEvent, setupMemoryDatabase, teardownMemoryDatabase } from '../../../tests/api-helper'
 import fixturesPostHandler from './fixtures.post'
+import { ensureDatabaseInitialized } from '#server/database'
+import { Repository } from '#server/entities/repository'
 
 /**
  * POST /api/e2e/fixtures 双门控（todo.md §M22.6 + docs/standards/platform.md §3.6）：
@@ -49,5 +51,31 @@ describe('POST /api/e2e/fixtures 双门控（todo.md §M22.6）', () => {
         vi.stubGlobal('useRuntimeConfig', () => ({ encryptionKey: 'test-encryption-key-32-bytes!!', e2eFixturesAllowed: true }))
         const result = await fixturesPostHandler(makeEvent('POST', '/api/e2e/fixtures', {})) as { repos: unknown[], scanRuns: unknown[], scanResults: unknown[] }
         expect(result).toEqual({ repos: [], scanRuns: [], scanResults: [] })
+    })
+
+    /**
+     * repos[].tags：视觉回归基线需要确定性的标签列渲染（apps/platform/tests/visual/），
+     * 故 fixtures 端点支持可选标签。写入口径与 POST /api/repos 一致（JSON 字符串存储；
+     * 缺省 / 空数组写 null）。
+     */
+    it('repos[].tags 落库为 JSON 字符串，缺省 / 空数组写 null', async () => {
+        vi.stubEnv('E2E_TEST', 'true')
+        vi.stubGlobal('useRuntimeConfig', () => ({ encryptionKey: 'test-encryption-key-32-bytes!!', e2eFixturesAllowed: true }))
+        await fixturesPostHandler(makeEvent('POST', '/api/e2e/fixtures', {
+            repos: [
+                { owner: 'visual-fixture', name: 'with-tags', tags: ['frontend', 'critical'] },
+                { owner: 'visual-fixture', name: 'without-tags' },
+                { owner: 'visual-fixture', name: 'empty-tags', tags: [] },
+            ],
+        }))
+
+        const ds = await ensureDatabaseInitialized()
+        const repoRepo = ds.getRepository(Repository)
+        const withTags = await repoRepo.findOneByOrFail({ owner: 'visual-fixture', name: 'with-tags' })
+        expect(withTags.tags).toBe(JSON.stringify(['frontend', 'critical']))
+        const withoutTags = await repoRepo.findOneByOrFail({ owner: 'visual-fixture', name: 'without-tags' })
+        expect(withoutTags.tags).toBeNull()
+        const emptyTags = await repoRepo.findOneByOrFail({ owner: 'visual-fixture', name: 'empty-tags' })
+        expect(emptyTags.tags).toBeNull()
     })
 })

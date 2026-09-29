@@ -44,6 +44,12 @@ const repoSchema = z.object({
     owner: z.string().min(1).max(100),
     name: z.string().min(1).max(100),
     platform: z.enum(['github']).default('github'),
+    /**
+     * 仓库标签（可选）。视觉回归基线需要确定性的标签列渲染，否则该列只能落空态；
+     * 写入口径与 POST /api/repos 一致（JSON 字符串存储；空数组 / 缺省写 null）。
+     * 注意：按 owner/name 复用既有仓库时**不更新**该字段（幂等语义），标签仅在该仓库首次创建时生效。
+     */
+    tags: z.array(z.string().trim().min(1).max(50)).max(20).optional(),
 })
 
 const scanRunSchema = z.object({
@@ -144,6 +150,7 @@ export default defineEventHandler(async (event) => {
                 owner: r.owner,
                 name: r.name,
                 platform: r.platform,
+                tags: r.tags?.length ? JSON.stringify(r.tags) : null,
             }))
             repoResults.push({
                 owner: r.owner,

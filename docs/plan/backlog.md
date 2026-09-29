@@ -267,6 +267,30 @@
   - **风险与缓解**：批量删除编号可能丢失可追溯性；缓解：优先「改写为导航指针」而非纯删除，并保留编号后的解释正文；另需防批量替换误伤（按 §1.2 第 6 条纪律执行）
   - **复杂度估算**：注释 300 至 430 量级（跨多包，必须分批）；测试 0（注释类，以 lint + typecheck + 复扫 0 命中为证据）；文档 0
 
+- **C92 apps/platform 视觉回归最小集（Playwright 截图识别层）** —— 2026-09-29 M31 迁移收口后用户提出「迁移视觉变化有多大 / 有无视觉回归测试」疑虑衍生；评估完成待上收；按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) **不带 M\d+ 阶段编号**。
+  - **目标**：为 `apps/platform` 建立**像素级**视觉兜底，使组件库版本升级 / 主题 token 变更 / 关键页样式改动导致的非预期视觉漂移可被自动检出，而不是依赖一次性人工（视觉模型）判读。
+  - **优先级**：P3（非阻塞；M31 迁移期已用 `ui-validator` + 计算样式取证完成一次判定，本候选的增量价值体现在**未来**：caomei-ui 0.x → 1.0 升级回归与周期性回归层）。
+  - **现状实证**（2026-09-29，执行角色实测）：`rg -n "toHaveScreenshot|snapshotPathTemplate" apps packages` → **0 命中**；快照目录 `find apps/platform -name "*snapshots*"` → **0**。现有替代为四层——① 单测 1295（引自 [caomei-ui-migration.md §15.13](../design/governance/caomei-ui-migration.md#1513-b3-收尾实证m3152026-09-29) 实测，不含渲染观感）；② e2e 173（同引；选择器已改写，**判功能不判视觉**）；③ `dark-mode.e2e.test.ts` 的 body / header 精确 `rgb()` 计算样式断言（`rg -n "rgb\("` 该文件 → 4 条暗色断言，属样式回归而非像素回归）；④ V 阶段 `ui-validator`（视觉模型 `qwen3.7-plus`）截图审查 + `artifacts/m31-b{0,2,3,4,5}/` 与 `style-parity.json` 计算样式取证。**缺口**：无像素基线 / 无阈值 / 不可复跑比对；`artifacts/` 与 `test-results/` 均在 `.gitignore`（实测 75 / 84 行），证据随会话消失；CI 无视觉门禁；本文件「周期性回归验证层」的覆盖矩阵当前仅登记主线 #1，视觉层缺位。
+  - **参照做法（同源迁移先例）**：momei 的 PrimeVue → caomei-ui 迁移采用独立视觉工程——独立 `playwright.visual.config.ts`（不并入 `test:e2e` 的 `testMatch`）、基线快照入仓库、`maxDiffPixels: 200` + `threshold: 0.2`、`animations: 'disabled'` + `caret: 'hide'`、固定 chromium / 1440×900 / DSF1 / zh-CN / Asia-Shanghai、动态区域以 `[data-visual-mask]` 遮蔽、`workers: 1` + `retries: 0`；实测迁移期每页差异 0.6%~1.2%（逐项归因后更新基线），后续 `caomei-ui 0.2.0 → 0.3.0` 升级 `test:visual` 10/10 **零像素差异**，单轮约 1.5–2.0 min（耗时画像引自 momei `docs/reports/regression/current.md` 试点节，**外部引用，未在本仓复现**）。
+  - **最小集清单（建议，上收时敲定）**：亮色 4–5 张（`alerts` 分组 + 多列排序 / `repos` 行选择 + 标签录入 / `pr-checks` 密度例外页 / 一个浮层如 `dialog-import-repos` / `login`）+ 暗色 2 张（`alerts` / `repos`），合计 6–7 张。
+  - **决策点（待上收时敲定）**：
+    - **基线落位**：入仓库（momei 模式，可回溯、可在 PR 中 review）vs 仅 CI artifact（体积小但不可比对）。
+    - **阈值**：沿用 `maxDiffPixels: 200` + `threshold: 0.2`；须显式约定「不为让测试变绿放宽阈值」。
+    - **CI 接入**：独立 job（隔离耗时与报告）vs 并入 Test job 的 step；增量预算约 1.5–2 min。
+    - **环境固定**：基线须在 CI（ubuntu-latest）或固定容器内采集——本地 / 跨 OS 字体与抗锯齿差异不可作判据（本仓 e2e 已有容器 `TMPDIR=/dev/shm` 前置，见 [caomei-ui-migration.md §15.13](../design/governance/caomei-ui-migration.md#1513-b3-收尾实证m3152026-09-29)）。
+    - **已裁定差异的基线说明**：M31 的 8 条裁定项（7 项接受 + 1 项已修复）、§15.11 的表头不吸顶等另行接受的差异，以及 6 处 `neutral` 实底按钮 / `Message` soft 无边框，须写入基线说明或注释，避免后人误判为新回归。
+  - **验收标准**：
+    - [ ] `pnpm --filter @dependfix/platform test:visual` 独立入口可用，且不改变既有 `test:e2e` 的 `testMatch` 与断言语义
+    - [ ] 最小集覆盖亮 / 暗两态；动态区域以 `mask` 显式遮蔽（不靠像素容差兜底）
+    - [ ] 人为注入一处 token / 样式改动可被检出（反例验证：阈值有效，非恒真）
+    - [ ] CI 接入后增量耗时预算有实测记录；`pnpm lint` + `pnpm typecheck` 通过
+    - [ ] 基线采集环境（浏览器渠道 / viewport / locale / 时区）在配置注释中固化可复现
+  - **不做什么**：不做全量页面 × 多浏览器 × 多 viewport 矩阵；不替代 `ui-validator` 的交互 / 可用性审查（像素层不判「交互是否合理」）；不修改 e2e 功能层语义；不为让测试变绿放宽阈值或用 `mask` 掩盖真实差异；不在本候选内处理 M31 已裁定的视觉差异本身。
+  - **依赖**：关联 M31（触发来源，[caomei-ui-migration.md §15.13](../design/governance/caomei-ui-migration.md#1513-b3-收尾实证m3152026-09-29)）；消费者为本文件延期项「caomei-ui 0.x → 1.0 升级回归」；关联 [测试规范 §6.1 E2E 实践模式](../standards/testing.md#61-e2e-实践模式playwright)；外部参照 momei 的 `playwright.visual.config.ts` / `tests/visual/helpers/visual.ts`。
+  - **交付物**：2–4 atomic commits（`test(platform)` 视觉工程配置 + 基线快照 + 可选 `ci` 接入）
+  - **风险与缓解**：① 像素抖动导致 flaky → `workers: 1` + `retries: 0` + 关动画 + 字体就绪等待 + `mask`；② 跨 OS / 字体渲染差异 → 基线只在 CI 或固定容器采集；③ 基线体积与维护成本 → 只取最小集 + 提供增量更新入口；④ 阈值过宽掩盖真实回归 / 过窄误报 → 上收时用「注入式反例验证」标定。
+  - **复杂度估算**：配置 + helper 约 120–200 行；最小集 6–7 张基线；CI 接入 1 个 job 或 step；文档 2 处（`testing.md` 与 `platform.md`）
+
 #### 规范与治理
 
 - **C91 新增规范条款的 review 检查点补挂（M30 归档批次衍生）** —— 2026-09-28 M30 A 阶段审计 RG-W1 衍生；评估完成待上收；按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) **不带 M\d+ 阶段编号**。

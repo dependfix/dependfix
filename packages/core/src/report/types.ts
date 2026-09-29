@@ -177,7 +177,7 @@ export interface RunResult {
 export interface AlertsDisabledRecord {
     /** 目标仓库（owner/repo） */
     repository: string
-    /** 告警源标识（'dependabot'；未来可扩展 'code-scanning'） */
+    /** 告警源标识（`dependabot` / `code-scanning` / `code-quality`） */
     source: string
     /** 原始提示文案（GitHub API 返回的 message，如 "Dependabot alerts are disabled for this repository."） */
     message: string

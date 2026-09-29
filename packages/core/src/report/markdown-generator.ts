@@ -104,7 +104,7 @@ export function generateMarkdownReport(result: RunResult): string {
             '## Alerts Disabled',
             '',
             '> 以下仓库**未启用**对应 alerts 功能（预期状态，非获取失败；不影响退出码）。',
-            '> 开启方式：仓库 Settings → Code security → Dependabot alerts。',
+            '> 开启方式：仓库 Settings → Code security 中启用对应功能（Dependabot alerts / GitHub Advanced Security 下的 Code Scanning、Code Quality）。',
             '',
             '| Repository | Source | Message |',
             '|------------|--------|---------|',

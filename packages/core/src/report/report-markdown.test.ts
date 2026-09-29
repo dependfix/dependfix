@@ -575,6 +575,26 @@ describe('generateMarkdownReport supply chain warnings', () => {
         expect(md).toContain('Dependabot alerts are disabled for this repository.')
     })
 
+    it('renders code-scanning disabled record with source-agnostic enablement guidance', () => {
+        const result = {
+            ...EMPTY_RUN_RESULT,
+            alertsDisabled: [
+                {
+                    repository: 'owner/repo',
+                    source: 'code-scanning',
+                    message: 'Advanced Security must be enabled for this repository to use code scanning.',
+                },
+            ],
+        }
+        const md = generateMarkdownReport(result)
+        expect(md).toContain('## Alerts Disabled')
+        expect(md).toContain('code-scanning')
+        // 正向锁定指引句本身（不依赖 message 列，避免被 fixture 字符串「顺带命中」）
+        expect(md).toContain('开启方式：仓库 Settings → Code security 中启用对应功能')
+        // 反向：指引不得只写 Dependabot（否则 code-scanning 记录被误导）
+        expect(md).not.toContain('开启方式：仓库 Settings → Code security → Dependabot alerts。')
+    })
+
     it('renders Alerts disabled count in summary table', () => {
         const result = {
             ...EMPTY_RUN_RESULT,

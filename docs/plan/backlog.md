@@ -227,11 +227,11 @@
 - **C91 新增规范条款的 review 检查点补挂（M30 归档批次衍生）** —— 2026-09-28 M30 A 阶段审计 RG-W1 衍生；评估完成待上收；按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) **不带 M\d+ 阶段编号**。
   - **目标**：把 M30 批次新增的 6 条严格约束（必须 / 禁令类）+ M32.4 新增的 git 签名隔离约束（`docs/standards/git.md §3.8`：commit / push 必须复用 `GIT_*_SIGNING_ISOLATION_ARGS`、禁止字面量漂移、不提供签名 opt-in）挂接到 review 检查点，使其具备强制点而非"仅权威文档声明"。
   - **优先级**：P3（非阻塞；条款已发布于权威文档，仅缺 review 强制点；按 [code-auditor 必查项「规范执行分层」](../../.github/agents/code-auditor.agent.md) 严格约束须挂接或登记 backlog）
-  - **范围**：`docs/standards/development.md §5.1.24`（多 key 预聚合）/ `§5.1.25`（范围穷举同根因）/ `§5.1.26`（tsdown dts 冲突）+ `docs/standards/testing.md §6.5`（断言禁恒真）/ `§6.6`（ESM mock 受限）/ `§6.7`（视觉回归三条「必须」级约定）/ `docs/standards/planning.md §2.5`（量化断言口径）/ `§4.4 第 13 条`（口径同步结构化复扫）的检查点落点。
-  - **现状实证**（2026-09-28）：`rg -n "5\.1\.24|5\.1\.25|5\.1\.26|恒真|量化断言" .github/agents .github/skills` = 0 命中（`git.md §3.7 提交态自洽` 已挂接，其余 6 条未挂）。**2026-09-29 M32.4 追加**：`rg -n "gpgSign|SIGNING_ISOLATION" .github/agents .github/skills` = 0 命中 → `git.md §3.8` 同样待挂接。**2026-09-29 M32.5 A 阶段追加**：`rg -n "视觉回归|反例验证|data-visual-mask" .github/agents .github/skills` 仅 1 命中（`.github/agents/ui-validator.agent.md:12` 的角色职责描述，非检查点）→ `testing.md §6.7` 三条约定同样待挂接。
+  - **范围**：`docs/standards/development.md §5.1.24`（多 key 预聚合）/ `§5.1.25`（范围穷举同根因）/ `§5.1.26`（tsdown dts 冲突）+ `docs/standards/testing.md §6.5`（断言禁恒真）/ `§6.6`（ESM mock 受限）/ `§6.7`（视觉回归三条「必须」级约定）+ `docs/standards/platform.md §3.9`（目标仓库配置文件：中央优先 / 不提供 UI 入口）+ `docs/standards/planning.md §2.5`（量化断言口径）/ `§4.4 第 13 条`（口径同步结构化复扫）的检查点落点。
+  - **现状实证**（2026-09-28）：`rg -n "5\.1\.24|5\.1\.25|5\.1\.26|恒真|量化断言" .github/agents .github/skills` = 0 命中（`git.md §3.7 提交态自洽` 已挂接，其余 6 条未挂）。**2026-09-29 M32.4 追加**：`rg -n "gpgSign|SIGNING_ISOLATION" .github/agents .github/skills` = 0 命中 → `git.md §3.8` 同样待挂接。**2026-09-29 M32.5 A 阶段追加**：`rg -n "视觉回归|反例验证|data-visual-mask" .github/agents .github/skills` 仅 1 命中（`.github/agents/ui-validator.agent.md:12` 的角色职责描述，非检查点）→ `testing.md §6.7` 三条约定同样待挂接。**2026-09-29 M32.2 A 阶段追加**：`rg -n "中央优先|dependfix\.yml" .github/agents .github/skills` = 0 命中 → `platform.md §3.9` 两条约束同样待挂接。
   - **决策点（待上收时敲定）**：逐条落点 vs 合并为一条「规范一致性总检查点」；落点选择（`code-quality-checklist.md` vs `code-auditor` 主责边界必查项）。
   - **验收标准**：
-    - [ ] 6 条严格约束各自有明确 review 检查点（或一条总检查点完整覆盖）；`testing.md §6.7` 的视觉回归三条约定同口径挂接
+    - [ ] 6 条严格约束各自有明确 review 检查点（或一条总检查点完整覆盖）；`testing.md §6.7` 的视觉回归三条约定、`platform.md §3.9` 的目标仓库配置两条约束同口径挂接
     - [ ] 检查点按 [documentation.md §4 单点声明](../standards/documentation.md) 引用规范原文，不重复抄写
     - [ ] `pnpm run check:docs` EXIT 0（新增链接可解析）
   - **不做什么**：不改规范条款正文；不新增规范条款

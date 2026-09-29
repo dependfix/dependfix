@@ -458,3 +458,12 @@ T108 (报告生成器)
 - 同包多条跨线告警按包聚合，取最高 `recommendedVersion` 为升级目标（镜像 `dedupeFixableAlerts` 语义，Review Gate P2-1 修正）
 - 统计口径：跨线升级成功 → fixed；失败（install 失败 / 实例残留 / 验证失败）→ failed；维持人工 → skipped。不误标纪律延续（PR #28）。
 - 已知限制：install/lint/build 通过 ≠ 运行时功能正确（test 已纳入默认链，但仍无法覆盖未写成测试的运行时行为）；验证耗时逐包完整链（含 test，通常为最慢一步）；快照回滚不还原 node_modules；**既有失败基线未做区分**——目标仓库测试在修复前即为红时，该失败会计入本次修复并触发回滚（与既有 install/lint/build 的「假定 pristine 检出可通过」口径一致；如需基线判定见 backlog C83）；test 另引入三条新失败路径——占位 test 脚本（`npm init` 默认的 `exit 1`）/ 测试依赖网络·密钥·浏览器等外部资源 / 套件耗时超单命令超时（10 分钟），三者均按当前口径判失败并回滚。
+
+### 12.7 目标仓库专属配置 `.github/dependfix.yml`（C85）
+
+- **动机**：配置随仓库走（与 `dependabot.yml` / `mergify.yml` 同范式），管理大量仓库时无需在中央逐仓库维护名单；目标仓库可在自己的仓库内声明保护策略并随代码 review（受下方「中央优先」约束：仅在中央未指定该字段时生效）。
+- **读取时机与位置**：`<workDir>/.github/dependfix.yml`。工作区即目标仓库检出——平台在 clone 之后才构造 `DependfixApp`（`container-executor.ts`），CLI 直接在工作区内运行，Action 由工作流 checkout 后运行。因此**不走 contents API**：省 API 配额、无需 base64 处理、CLI / 平台 / Action 三条路径共用同一实现。
+- **首批字段**：仅 `overrideProtect`（与中央配置同名同语义，判定仍复用唯一事实源 `matchesOverrideProtect`）。
+- **优先级：中央配置优先**。中央（env `DEPENDFIX_OVERRIDE_PROTECT` / CLI `--override-protect`）一旦指定该字段，目标仓库声明即被**整体忽略**（不按仓库 glob 逐条合并）——防止目标仓库通过声明弱化中央保护策略；中央未指定（含解析为空）时目标仓库声明生效。生效来源经日志区分（仓库生效 → `info`；被中央覆盖 → `debug`）。
+- **降级矩阵**（一律**回退中央配置**、不中断修复）：文件缺失（预期常态，仅 `debug`）/ 空文件（等价未声明，无告警）/ 非普通文件（符号链接 · 目录 → **不跟随链接**读取检出目录之外的内容）/ 超过大小上限（256 KiB）/ 读取失败 / YAML 非法 / schema 不匹配（类型错误）→ `warn` 告警并忽略该文件；未知顶层键 → `warn` 列出后忽略（向前兼容后续版本新增字段，同时避免拼写错误静默失效）；`overrideProtect` 内的原型链风险键（`__proto__` / `constructor` / `prototype`）→ `warn` 丢弃（与 env / CLI 入口共用 `isSafePrototypeKey` 口径）。
+- **不做什么**：不替代中央配置（两者并存）；不改 `dependabot.yml` 语义；不做全量配置项迁移（后续字段按需扩展 `repoConfigSchema`）；不新增 contents API 探测（读取走本地检出，见上）。

@@ -68,6 +68,8 @@ export function matchesOverrideProtect(
 
 分隔符选择说明：条目间用 `;`、包名间用 `,`，避免与既有「逗号分隔列表」风格产生歧义（`a/b:p1,c/d:p2` 无法区分是两条目还是一条目的两个包）。
 
+**第三个入口：目标仓库 `.github/dependfix.yml`**（配置随仓库走；**中央配置优先**——中央已指定该字段时仓库声明被整体忽略，防目标仓库绕过中央保护策略）。读取 / 合并 / 降级矩阵见 [依赖升级修复器 §12.7](../modules/dependency-fixer.md)，本节不重复。
+
 ### 4.3 判定与消费点
 
 判定位于**调用侧**（两处 override 路径入口，均在写盘之前），命中即早返回、不进入写入函数：
@@ -95,11 +97,11 @@ export function matchesOverrideProtect(
 | 层 | 文件 |
 |:--|:--|
 | 策略层 | `packages/engine/src/github/repo-policy.ts`（类型 + 谓词） |
-| 配置层 | `packages/engine/src/config/index.ts`（`RuntimeConfig.overrideProtect` + env 解析）、`packages/cli/src/cli/index.ts`（`--override-protect`） |
-| 接线 | `packages/engine/src/app/index.ts`（policy 构造带上 `overrideProtect`） |
+| 配置层 | `packages/engine/src/config/index.ts`（`RuntimeConfig.overrideProtect` + env 解析）、`packages/cli/src/cli/index.ts`（`--override-protect`）、`packages/engine/src/app/repo-config.ts`（目标仓库 `.github/dependfix.yml` 读取与中央优先合并，见 [修复器 §12.7](../modules/dependency-fixer.md)） |
+| 接线 | `packages/engine/src/app/index.ts`（policy 构造带上 `overrideProtect`；构造期合并目标仓库配置） |
 | 消费 | `packages/engine/src/app/helpers.ts`、`packages/engine/src/app/repo-fix.ts` |
-| 测试 | `repo-policy.test.ts`、`config/index.test.ts`、`helpers` 侧升级路径测试、`repo-fix` 多版本路径测试 |
-| 文档 | 本设计文档、`docs/guide/configuration.md`（zh + en-US）、`docs/guide/quick-start.md`、包 README（zh + en-US） |
+| 测试 | `repo-policy.test.ts`、`config/index.test.ts`、`repo-config.test.ts`（读取 / 降级 / 中央优先 + app 级接线）、`helpers` 侧升级路径测试、`repo-fix` 多版本路径测试 |
+| 文档 | 本设计文档、`docs/design/modules/dependency-fixer.md §12.7`、`docs/standards/platform.md §3.9`、`docs/guide/configuration.md`（zh + en-US）、`docs/guide/quick-start.md`、包 README（zh + en-US） |
 
 ## 6. 验收与测试矩阵
 

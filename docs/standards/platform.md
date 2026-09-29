@@ -238,6 +238,17 @@ fixtures.delete / fixtures.post 在双门控通过后调用 `fixturesRateLimit()
 
 **review 检查点挂接**：该字段的「命令执行面 + 写入门槛 + 审计留痕」三条安全边界已落入 code-auditor 主责边界必查项的「修复执行安全基线」与「shell 命令安全」覆盖范围（见 [code-auditor.agent.md](../../.github/agents/code-auditor.agent.md)），无需另立检查点。
 
+### 3.9 目标仓库配置文件 `.github/dependfix.yml`（C85）
+
+**是什么**：目标仓库在自身仓库内声明的 dependfix 配置（与 `dependabot.yml` / `mergify.yml` 同范式），首批仅支持 `overrideProtect`。读取 / 合并 / 降级矩阵以 [依赖升级修复器 §12.7](../design/modules/dependency-fixer.md) 为唯一权威，本节只记**平台侧接线与可观测性**。
+
+- **平台侧无需额外接线**：`container-executor.ts` 在 fix / fix-and-pr 模式下**先 clone 到工作目录、再构造 `DependfixApp`**（`new DependfixApp({ config, workDir, ... })`），引擎在构造期读取 `<workDir>/.github/dependfix.yml`。报告模式下不 clone → 无该文件 → 行为不变。
+- **不提供 UI 配置入口**：该文件按设计随目标仓库走，平台不落库、不暴露表单（与 `verifyCommands` 的「平台字段」形态刻意区分）。
+- **优先级**：中央配置优先（完整语义见 §12.7）——平台透传的中央 `overrideProtect`（env / CLI）一旦指定，目标仓库声明即被整体忽略。
+- **可观测性**：生效（`info`）/ 被中央覆盖（`debug`）/ 降级告警（`warn`，含非法 YAML、schema 不匹配、未知键）均写入引擎日志——平台注入 `MemoryLogger` 会捕获并展示在执行日志中；命中保护仍按既有口径记 `OVERRIDE_PROTECTED` 审计（见 [override-protect-policy.md](../design/governance/override-protect-policy.md)）。
+
+**review 检查点挂接**：本节的「中央优先（防绕过）」与「不提供 UI 入口」两条约束的 review 检查点补挂登记于 [backlog.md](../plan/backlog.md)（C91，与 testing.md §6.7 同批次）。
+
 ## 4. 认证规范（better-auth）
 
 ### 4.1 实例配置（`server/utils/auth.ts`）

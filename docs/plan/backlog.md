@@ -273,6 +273,17 @@
 - **影响**：类型侧由 `nuxt typecheck` 覆盖；但涉及 `packages/*/dist`（如 engine chunk 结构）变更后，容器 / 运行时冒烟前需重建 `apps/platform/.output`，否则可能引用旧产物。
 - **触发条件**：需要容器 / 运行时冒烟验证依赖 `packages/*/dist` 的变更时。
 
+### apps/platform 早期 migration 表名前缀不统一（已知边界，待治理）
+
+- **背景**：`createDataSourceOptions` 默认 `entityPrefix='dependfix_'`（`DATABASE_ENTITY_PREFIX` 可配），但 `apps/platform/server/database/migrations/` 早期迁移的表名处理**分两类**（逐文件实测 `getTable(` / `CREATE TABLE` / `ALTER TABLE` 字面量）：
+  - **硬编码 `dependfix_` 前缀（4 个）**：`1700000000000`（`dependfix_audit_event`）/ `1750000000000`（`dependfix_scan_result`）/ `1800000000000`（`dependfix_pr_check`）/ `1800000000001`（`dependfix_schedule`）→ **默认前缀下正常工作**，但自定义 `DATABASE_ENTITY_PREFIX` 时表名失配 → 静默 no-op。
+  - **硬编码无前缀表名（3 个）**：`1800000000002`（`scan_run`）/ `1900000000000`（`organization` / `repository` / `scan_run`）/ `2000000000000`（`credential`）→ 默认前缀下 `queryRunner.getTable('<无前缀表名>')` 返回 `undefined` → **静默 no-op**（不报错、无日志信号）；仅当 `DATABASE_ENTITY_PREFIX=''` 时生效。
+- **共同失败特征**：两类都在「非预期前缀组合」下静默不生效，且迁移框架不报错——排查成本高。
+- **已落地差异**：`2100000000000-AddRepositoryVerifyCommands`（M32.1 C76）改为**前缀感知**（先试 `entityPrefix + 表名`，再回退无前缀），单测覆盖两种前缀形态 + up/down 幂等 + 目标表缺失 no-op。
+- **待治理**：早期 7 个迁移是否统一改前缀感知（或改为按实体元数据解析表名），需与「生产库实际如何升级 schema（`DATABASE_SYNCHRONIZE` opt-in vs migration 链）」一并决策。
+- **触发条件**：① 用户报告某字段在 `DATABASE_MIGRATIONS_RUN=true` 后仍未生效；② 出现自定义 `DATABASE_ENTITY_PREFIX` 的部署；③ 生产库迁移链正式启用排期（关联延期项 T705）。
+- **规范挂接**：[platform.md §3.8](../standards/platform.md#38-仓库级自定义验证命令verifycommands-m321-c76)（前缀感知实现说明）
+
 ### M31 迁移遗留的配置清理项（待清理）
 
 - **`.github/dependabot.yml` 的 PrimeVue 相关 ignore 规则成死配置**：M31.5 已卸载 `primevue` / `@primevue/nuxt-module` / `@primeuix/themes` / `primeicons` / `primelocale` 5 依赖，`@primeuix/*` / `@primevue/*` / `primeicons` 的 ignore 条目不再命中任何包。清理动作：移除该批 ignore 条目与 M25 / M26 时期的配套注释（保留 `conventional-changelog` 条目）。触发条件：下次依赖治理批次。

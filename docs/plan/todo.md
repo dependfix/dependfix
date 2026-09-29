@@ -49,7 +49,7 @@
   - `apps/platform/server/database/migrations/`（新增 migration，按既有 M22.4 / M22.5 双向 opt-in 流程）
   - `apps/platform/server/schemas/`（Repository 配置 schema + zod 校验：命令数组、拒绝空串 / 超长）
   - `apps/platform/server/services/executor/container-executor.ts`（`RuntimeConfig` 组装注入 `commands`；当前仅 `...ctx.config` 透传 → 平台恒用引擎默认链）
-  - `apps/platform/server/services/executor/platform-delivery.ts` + `sandbox-executor.ts` + `action-trigger-executor.ts`（其他执行器透传一致性）
+  - `apps/platform/server/services/executor/types.ts`（`ScanExecutorContext.repository.verifyCommands` 字段）；其他执行器（`sandbox-executor.ts` 为最小占位 / `action-trigger-executor.ts` 走目标仓库 workflow）经该字段已可获得配置，但**本批不接线**——实测唯一构造 `DependfixApp` 的透传点是 `container-executor.ts`
   - `apps/platform/app` 仓库配置表单（最小字段：多行命令输入）+ i18n 双语
   - `docs/standards/platform.md`（配置项 + 执行风险声明）
 - **验收标准**：
@@ -61,7 +61,7 @@
   - [ ] `pnpm lint` + `pnpm typecheck` + platform 定向测试通过
 - **不做什么**：不落地沙箱真实执行序列（`sandbox-executor.ts` 仍为最小占位）；不开放任意 shell（仅接受命令数组）；不改 CLI 侧 `--commands` 语义；不改 `DEFAULT_VERIFY_COMMANDS`
 - **依赖**：关联 M29.3（默认链唯一事实源）+ M29.2（同属修复交付链路）；沙箱路由已 M11 T1005 落地但容器内真实序列未实现，本批不为它兜底；关联 [docs/standards/platform.md](../standards/platform.md)
-- **交付物**：2-4 atomic commits（`feat(platform)` 实体 + migration + schema + 透传 / `feat(platform)` UI + i18n / `test(platform)` case / `docs(platform)`）
+- **交付物**：5 atomic commits（`feat(platform)` 存储与校验层 / `feat(platform)` API + 审计 + 执行器透传 / `test(platform)` 单测 / `feat(platform)` UI + i18n + e2e / `docs` 规范与已知边界）—— 因 [§1.1 任务粒度约束](../standards/planning.md#11-硬性约束)「单 commit ≤ 10 文件」而按层拆分
 - **风险与缓解**：平台自定义命令等价于远程命令执行面；缓解：权限门槛 + audit 留痕 + 文档风险声明 + 仅接受数组（不接 shell 字符串）。文件面接近 10 个（entity / migration / schema / 4 executor / UI / i18n / tests / docs）——若实测超 10 文件按 [§1.1 任务粒度约束](../standards/planning.md#11-硬性约束)拆为「后端透传」+「UI」两子批次
 
 #### M32.2（P3，🚀 能力扩展）C85 目标仓库专属配置 `.github/dependfix.yml`（中央优先）

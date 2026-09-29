@@ -212,6 +212,32 @@ fixtures.delete / fixtures.post 在双门控通过后调用 `fixturesRateLimit()
 
 **未来触发条件**：CI 偶现 fixtures DELETE 502/503 + 资源释放竞态时优先复现 → 启用节流而非加复杂锁。详见 [经验归档 §五十七 M24.2 候选 ④（experience-archive.md §五十七段）](../design/governance/experience-archive.md)。
 
+### 3.8 仓库级自定义验证命令（verifyCommands，M32.1 C76）
+
+**是什么**：`Repository.verifyCommands`（text 列，JSON 数组字符串）声明该仓库的验证命令链，覆盖引擎默认链 `DEFAULT_VERIFY_COMMANDS`（install / lint / build / test）。语义与 CLI `--commands` 对齐——数组每项一条命令；空数组（存 null）走默认链。
+
+**链路（单一事实源）**：
+
+| 层 | 落点 | 行为 |
+|:--|:--|:--|
+| 存储 | `apps/platform/server/entities/repository.ts` `verifyCommands` | JSON 数组字符串；`parseVerifyCommands` 容错解析（非法/缺失 → `[]`） |
+| 校验 | `apps/platform/server/schemas/repository.ts` | 最多 20 条 / 每条非空且 ≤ 500 字符 / 禁止换行与控制字符（保持「一项 = 一条命令行」） |
+| 写入口 | `POST /api/repos` + `PUT /api/repos/[id]` | 数组 ↔ JSON 列；更新语义 `undefined`=不修改 / `null` 或 `[]`=清空（与 `tags` 同模式） |
+| 审计 | `apps/platform/server/services/repository-audit.ts` | 仅在命令实际变化时登记 `AuditEvent`（`verify_commands_update`，payload 记 previous/next） |
+| 执行 | `scan-orchestrator.service.ts` → `ScanExecutorContext.repository.verifyCommands` → `ContainerExecutor` → `DependfixApp({ commands })` | 未配置 → 引擎默认链 |
+
+**安全边界（hard requirement）**：
+
+- **该字段等价于远程命令执行面**：引擎以 `spawn(command, { shell: true })` 执行每条命令（`packages/engine/src/runners/verification-runner.ts`），自定义命令**不经过** `validateVerifyCommands` 的脚本存在性校验——与 CLI `--commands` 语义一致，属于**预期内的高权限能力**。
+- **权限门槛**：写操作走 API 层 `requireRole(event, ['admin', 'org_admin'])`（repos POST/PUT 既有守卫，不新增旁路）——viewer 一律 403。
+- **留痕**：变更登记 `AuditEvent`（`verify_commands_update`），审计失败仅日志不阻断保存（与 `recordEnvAuditEvent` 同策略，避免「已落库但接口 500」）。
+- **不做的边界**：不提供自由 shell 会话（仅命令数组）；不因该字段放宽单命令超时；沙箱真实执行序列尚未实现（`sandbox-executor.ts` 为最小占位），本配置仅对容器执行器生效——**不得**把它当作沙箱已缓解该风险的依据。
+- **不校验脚本存在性**：与 CLI 一致，命令写错由验证链运行时失败暴露（属目标仓库自身问题，非平台校验缺口）。
+
+**UI**：仓库新增/编辑弹窗 `apps/platform/app/components/repo-form-dialog.vue`（M32.1 自 `repos.vue` 拆出，页面 max-lines 治理），多行文本一行一条。
+
+**review 检查点挂接**：该字段的「命令执行面 + 写入门槛 + 审计留痕」三条安全边界已落入 code-auditor 主责边界必查项的「修复执行安全基线」与「shell 命令安全」覆盖范围（见 [code-auditor.agent.md](../../.github/agents/code-auditor.agent.md)），无需另立检查点。
+
 ## 4. 认证规范（better-auth）
 
 ### 4.1 实例配置（`server/utils/auth.ts`）

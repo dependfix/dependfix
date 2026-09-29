@@ -98,4 +98,43 @@ test.describe('暗色模式（C59 修复防护）', () => {
         // light mode: header 背景 = #f8fafc
         expect(lightBackgrounds.headerBackground).toBe('rgb(248, 250, 252)')
     })
+
+    test('暗色模式下仓库表单弹窗（含自定义验证命令输入）随 .dark 切换（docs/standards/platform.md §3.8）', async ({ page, context }) => {
+        await context.addInitScript(() => {
+            localStorage.setItem('dependfix-color-mode', 'dark')
+        })
+
+        await page.goto('/repos')
+        await waitForHydration(page)
+        await expect(page.locator('html')).toHaveClass(/dark/, { timeout: 5000 })
+
+        await page.locator('button:has-text("添加仓库")').click()
+        await expect(page.locator('.caomei-dialog__header')).toContainText('添加仓库', { timeout: 15000 })
+        await expect(page.locator('textarea#verifyCommands')).toBeVisible()
+
+        // 跳过 0.2s 颜色过渡等待（避免 transition 中间态 getComputedStyle 报旧色）
+        await page.waitForTimeout(300)
+
+        const dialogStyles = await page.evaluate(() => {
+            const textarea = document.querySelector('textarea#verifyCommands')
+            const content = document.querySelector('.caomei-dialog__content')
+            return {
+                colorScheme: getComputedStyle(document.documentElement).colorScheme,
+                textareaColor: textarea ? getComputedStyle(textarea).color : null,
+                contentBackground: content ? getComputedStyle(content).backgroundColor : null,
+            }
+        })
+
+        // 断言区分度（mutation 实测：切 light 后三项分别为 light / rgb(255,255,255) / rgb(51,65,85)）
+        expect(dialogStyles.colorScheme).toBe('dark')
+        // 弹窗内容容器背景 = 暗色 surface token rgb(15, 23, 42)（非 light 的白底）
+        expect(dialogStyles.contentBackground).toBe('rgb(15, 23, 42)')
+        // 新增的「自定义验证命令」输入文本色跟随暗色 token rgb(241, 245, 249)（非 light 的 rgb(51, 65, 85)）
+        expect(dialogStyles.textareaColor).toBe('rgb(241, 245, 249)')
+
+        await page.screenshot({
+            path: 'test-results/m32-1-repo-form-dark.png',
+            fullPage: false,
+        })
+    })
 })

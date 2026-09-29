@@ -16,6 +16,11 @@ export interface RepoView {
     executorKind: string
     note: string | null
     tags: string[]
+    /**
+     * 仓库级自定义验证命令（空数组 = 走引擎默认验证链；见 docs/standards/platform.md §3.8）。
+     * 安全：等价于远程命令执行面，写入门槛 admin / org_admin，变更登记 audit_event。
+     */
+    verifyCommands: string[]
     /** AI 研判开关（todo.md §M26.1 + M25.2a 实体扩展；与 POST /api/repos/[id]/ai-config 联动） */
     aiEnabled: boolean
     /** AI 研判触发范围（failure / major / both） */

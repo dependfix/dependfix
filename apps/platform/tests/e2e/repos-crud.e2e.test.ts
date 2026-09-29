@@ -60,6 +60,42 @@ test.describe('仓库管理 CRUD', () => {
         await expect(page.locator('.caomei-data-table')).toContainText(name)
     })
 
+    test('自定义验证命令：Dialog 填写 → 保存 → API 落库 → 编辑回显（docs/standards/platform.md §3.8）', async ({ page }) => {
+        await page.goto('/repos')
+        await waitForHydration(page)
+        await page.locator('button:has-text("添加仓库")').click()
+        await expect(page.locator('.caomei-dialog__header')).toContainText('添加仓库', { timeout: 15000 })
+
+        const stamp = Date.now()
+        const owner = `repos-vc-${stamp}`
+        const name = `repo-${stamp}`
+        await page.locator('input#owner').fill(owner)
+        await page.locator('input#name').fill(name)
+
+        // 多行文本（一行一条）；保存时按行拆分为数组
+        const commandsInput = page.locator('textarea#verifyCommands')
+        await expect(commandsInput).toBeVisible()
+        await commandsInput.fill('pnpm install --frozen-lockfile\npnpm test')
+        await page.locator('.caomei-dialog__content button:has-text("保存")').click()
+        await expect(page.locator('.caomei-message--success')).toContainText('仓库已添加', { timeout: 15000 })
+
+        // API 落库：命令数组 + 顺序保持
+        const cookieHeader = await authedCookieHeader(page)
+        const response = await page.request.get('/api/repos', {
+            headers: { cookie: cookieHeader, origin: 'http://127.0.0.1:3101' },
+        })
+        const repos = await response.json() as { owner: string, verifyCommands: string[] }[]
+        expect(repos.find((r) => r.owner === owner)?.verifyCommands)
+            .toEqual(['pnpm install --frozen-lockfile', 'pnpm test'])
+
+        // 编辑弹窗回显：数组 join('\n') 还原为多行文本
+        const row = page.locator('.caomei-data-table__row', { hasText: owner })
+        await row.locator('button[aria-label="编辑"]').click()
+        await expect(page.locator('.caomei-dialog__header')).toContainText('编辑仓库', { timeout: 15000 })
+        await expect(page.locator('textarea#verifyCommands'))
+            .toHaveValue('pnpm install --frozen-lockfile\npnpm test')
+    })
+
     test('编辑仓库：点击编辑 → 改 defaultBranch → 保存 → 列表更新', async ({ page }) => {
         const stamp = Date.now()
         const owner = `repos-edit-${stamp}`

@@ -10,44 +10,18 @@ definePageMeta({
 
 const { t, d } = useI18n()
 
-interface RepoForm {
-    owner: string
-    name: string
-    defaultBranch: string
-    packageManager: 'pnpm' | 'npm' | 'yarn'
-    credentialId: string | null
-    actionWorkflowFile: string
-    executorKind: 'container' | 'github-action' | 'sandbox'
-    note: string
-    tags: string[]
-}
-
 const loading = ref(true)
-const saving = ref(false)
 const repos = ref<RepoView[]>([])
 const credentials = ref<{ id: string, name: string, type: string }[]>([])
-const dialogVisible = ref(false)
-const editingId = ref<string | null>(null)
+/** 仓库表单弹窗可见性 + 编辑对象（null = 新增；字段状态与提交逻辑内聚在 repo-form-dialog 子组件） */
+const repoDialogVisible = ref(false)
+const editingRepo = ref<RepoView | null>(null)
 const error = ref('')
 const success = ref('')
 
 // 全局默认分支（nuxt.config runtimeConfig.public.defaultBranch，可用 DEFAULT_BRANCH 覆盖）
 const config = useRuntimeConfig()
 const defaultBranch = (config.public.defaultBranch as string) || 'main'
-
-const emptyForm = (): RepoForm => ({
-    owner: '',
-    name: '',
-    defaultBranch,
-    packageManager: 'pnpm',
-    credentialId: null,
-    actionWorkflowFile: '',
-    executorKind: 'container',
-    note: '',
-    tags: [],
-})
-
-const form = ref<RepoForm>(emptyForm())
 
 const fetchData = async () => {
     loading.value = true
@@ -69,62 +43,24 @@ const fetchData = async () => {
 onMounted(fetchData)
 
 const openCreate = () => {
-    editingId.value = null
-    form.value = emptyForm()
-    dialogVisible.value = true
+    editingRepo.value = null
+    repoDialogVisible.value = true
 }
 
 const openEdit = (repo: RepoView) => {
-    editingId.value = repo.id
-    form.value = {
-        owner: repo.owner,
-        name: repo.name,
-        defaultBranch: repo.defaultBranch,
-        packageManager: repo.packageManager as RepoForm['packageManager'],
-        credentialId: repo.credentialId,
-        actionWorkflowFile: repo.actionWorkflowFile ?? '',
-        executorKind: repo.executorKind as RepoForm['executorKind'],
-        note: repo.note ?? '',
-        tags: [...(repo.tags ?? [])],
-    }
-    dialogVisible.value = true
+    editingRepo.value = repo
+    repoDialogVisible.value = true
 }
 
-const closeDialog = () => {
-    dialogVisible.value = false
-    editingId.value = null
+/** 表单保存成功：刷新列表 + 按新增/编辑展示成功提示（表单状态由子组件负责重置） */
+const onRepoFormSaved = async () => {
+    success.value = editingRepo.value ? t('repos.success.updated') : t('repos.success.added')
+    await fetchData()
 }
 
-const submit = async () => {
-    saving.value = true
-    error.value = ''
-    try {
-        const payload = {
-            ...form.value,
-            actionWorkflowFile: form.value.actionWorkflowFile.trim() || null,
-            note: form.value.note.trim() || null,
-            tags: form.value.tags.length > 0 ? form.value.tags : null,
-        }
-        if (editingId.value) {
-            await $fetch(`/api/repos/${editingId.value}`, {
-                method: 'PUT',
-                body: payload,
-            })
-            success.value = t('repos.success.updated')
-        } else {
-            await $fetch('/api/repos', {
-                method: 'POST',
-                body: payload,
-            })
-            success.value = t('repos.success.added')
-        }
-        dialogVisible.value = false
-        await fetchData()
-    } catch (e: any) {
-        error.value = t('repos.errors.saveFailed', { message: e?.data?.message ?? e?.message ?? t('common.errors.unknown') })
-    } finally {
-        saving.value = false
-    }
+/** 表单保存失败：按页面既有错误展示口径包装（与 loadFailed / deleteFailed 同模式） */
+const onRepoFormFailed = (message: string) => {
+    error.value = t('repos.errors.saveFailed', { message })
 }
 
 const remove = async (repo: RepoView) => {
@@ -528,134 +464,14 @@ const columns = computed<DataTableColumn<RepoView>[]>(() => [
             {{ t('common.empty.loading') }}
         </p>
 
-        <CaomeiDialog
-            v-model:open="dialogVisible"
-            :title="editingId ? t('repos.dialogEditTitle') : t('repos.dialogAddTitle')"
-            modal
-            :style="{width: '520px'}"
-        >
-            <form class="repo-form" @submit.prevent="submit">
-                <div class="repo-form__row">
-                    <div class="repo-form__field">
-                        <label for="owner">{{ t('repos.fieldOwner') }}</label>
-                        <CaomeiInput
-                            id="owner"
-                            v-model="form.owner"
-                            placeholder="github-owner"
-                            required
-                        />
-                    </div>
-                    <div class="repo-form__field">
-                        <label for="name">{{ t('repos.fieldName') }}</label>
-                        <CaomeiInput
-                            id="name"
-                            v-model="form.name"
-                            placeholder="repo-name"
-                            required
-                        />
-                    </div>
-                </div>
-                <div class="repo-form__row">
-                    <div class="repo-form__field">
-                        <label for="defaultBranch">{{ t('repos.fieldDefaultBranch') }}</label>
-                        <CaomeiInput
-                            id="defaultBranch"
-                            v-model="form.defaultBranch"
-                        />
-                    </div>
-                    <div class="repo-form__field">
-                        <label for="packageManager">{{ t('repos.fieldPackageManager') }}</label>
-                        <CaomeiSelect
-                            id="packageManager"
-                            v-model="form.packageManager"
-                            :options="[
-                                {label: 'pnpm', value: 'pnpm'},
-                                {label: 'npm', value: 'npm'},
-                                {label: 'yarn', value: 'yarn'}
-                            ]"
-                            option-label="label"
-                            option-value="value"
-                        />
-                    </div>
-                </div>
-                <div class="repo-form__row">
-                    <div class="repo-form__field">
-                        <label for="credentialId">{{ t('repos.fieldCredential') }}</label>
-                        <CaomeiSelect
-                            id="credentialId"
-                            v-model="form.credentialId"
-                            :options="credentials"
-                            option-label="name"
-                            option-value="id"
-                            :show-clear="true"
-                            :placeholder="t('repos.notLinked')"
-                        />
-                    </div>
-                    <div class="repo-form__field">
-                        <label for="executorKind">{{ t('repos.fieldExecutor') }}</label>
-                        <CaomeiSelect
-                            id="executorKind"
-                            v-model="form.executorKind"
-                            :options="[
-                                {label: t('repos.platformContainer'), value: 'container'},
-                                {label: t('repos.githubAction'), value: 'github-action'},
-                                {label: t('repos.sandboxContainer'), value: 'sandbox'}
-                            ]"
-                            option-label="label"
-                            option-value="value"
-                        />
-                    </div>
-                </div>
-                <div
-                    v-if="form.executorKind === 'github-action'"
-                    class="repo-form__field"
-                >
-                    <label for="actionWorkflowFile">{{ t('repos.fieldWorkflowFile') }}</label>
-                    <CaomeiInput
-                        id="actionWorkflowFile"
-                        v-model="form.actionWorkflowFile"
-                        placeholder=".github/workflows/security-auto-fix.yml"
-                    />
-                    <small class="text-muted">{{ t('repos.fieldWorkflowFileHint') }}</small>
-                </div>
-                <div class="repo-form__field">
-                    <label for="note">{{ t('repos.fieldNote') }}</label>
-                    <CaomeiTextarea
-                        id="note"
-                        v-model="form.note"
-                        :rows="2"
-                    />
-                </div>
-                <div class="repo-form__field">
-                    <label for="tags">{{ t('repos.fieldTags') }}</label>
-                    <CaomeiTagsInput
-                        id="tags"
-                        v-model="form.tags"
-                        :placeholder="t('repos.fieldTagsPlaceholder')"
-                    />
-                    <small class="text-muted">{{ t('repos.fieldTagsHint') }}</small>
-                </div>
-
-                <div class="repo-form__actions">
-                    <CaomeiButton
-                        variant="ghost"
-                        tone="neutral"
-                        @click="closeDialog"
-                    >
-                        {{ t('common.actions.cancel') }}
-                    </CaomeiButton>
-                    <CaomeiButton
-                        type="submit"
-                        :loading="saving"
-                    >
-                        <template #icon>
-                            <CaomeiIcon :icon="Check" />
-                        </template>
-                        {{ t('common.actions.save') }}
-                    </CaomeiButton>
-                </div>
-            </form>
-        </CaomeiDialog>
+        <repo-form-dialog
+            v-model:visible="repoDialogVisible"
+            :repo="editingRepo"
+            :credentials="credentials"
+            :default-branch="defaultBranch"
+            @saved="onRepoFormSaved"
+            @failed="onRepoFormFailed"
+        />
 
         <import-repos-dialog
             v-model:visible="importDialogVisible"

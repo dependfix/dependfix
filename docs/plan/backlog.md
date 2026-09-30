@@ -87,6 +87,20 @@
   - **交付物**：1 atomic commit（`test(platform)` 阈值 / 度量调整 + 基线复核 + 规范同步）
   - **风险与缓解**：下调阈值会放大渲染抖动导致的偶发红；缓解：以「连跑两遍不漂移」为落地门槛，必要时保留面积门槛但引入主色直方图断言作为第二信号
 
+- **非弹窗表单 label↔控件间距口径未统一（仍为 4px）**（P3，🎨 体验一致性）—— 来源：M33.8 A 阶段审计发现（2026-09-30，测量方 = M33.8 审计方）
+  - **目标**：把「label↔控件间距」统一为 8px（`$space-2`），覆盖弹窗以外的表单 / 过滤工具栏
+  - **范围**：`apps/platform/app/components/ai-config-form.vue`（`__field`）+ `apps/platform/app/pages/alerts.vue` / `pr-checks.vue` / `env-events.vue` 的 `__filter-field` + 受影响视觉基线
+  - **验收标准**：
+    - [ ] 上述 4 个文件中的 `gap: $space-1`（实测 5 处：`ai-config-form.vue:203` / `alerts.vue:742` / `pr-checks.vue:372,398` / `env-events.vue:370`；`pr-checks.vue:372` 的归属类名需实施时确认）统一为 `$space-2`（与 M33.8 已统一的弹窗口径一致）
+    - [ ] 浏览器实测各页 label↔控件间距 = 8px（计算样式）
+    - [ ] 受影响视觉基线更新，且差异仅由间距引起的定位偏移（逐张核验）
+    - [ ] `pnpm lint` + `lint:css:check` + `typecheck` + `test:visual` 通过
+    - [ ] 复现命令：`rg -n -F 'gap: $space-1' apps/platform/app/components/ai-config-form.vue apps/platform/app/pages/alerts.vue apps/platform/app/pages/pr-checks.vue apps/platform/app/pages/env-events.vue`（`-F` 关闭正则，避免 `$` 被当作行尾锚点）
+  - **不做什么**：不改弹窗（M33.8 已统一）；不改控件高度 / 字号 / 其它间距刻度；不改 `repos.vue` 的 `.batch-form*`
+  - **依赖**：M33.8（弹窗侧口径统一完成，本条为其非弹窗侧补全）
+  - **交付物**：1 atomic commit（`fix(platform)` 间距统一 + 基线更新）
+  - **风险与缓解**：列表页过滤工具栏间距变化会带动多张基线；缓解：逐张像素核验差异仅由间距偏移导致，必要时按内容重建单张基线
+
 ### 延期 / 暂缓项
 
 - **T705 生产级部署**（PostgreSQL + Helm + Sentry）—— 2026-08-12 用户指示暂缓排期

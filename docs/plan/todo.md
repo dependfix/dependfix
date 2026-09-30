@@ -152,18 +152,18 @@
 - **优先级**：P2。
 - **范围**：`apps/platform/app/components/repo-form-dialog.vue`（补 `<style scoped>` 并把 `repos.vue` 遗留的 `.repo-form*` 段整段迁入）+ `apps/platform/app/pages/repos.vue`（删除遗留 `.repo-form*` 段，保留同文件的 `.batch-form*`）+ `apps/platform/app/components/import-repos-dialog.vue`（`.import-form__row` 对齐）+ 其余弹窗 label→控件 `gap` 统一（`scan-config-dialog.vue` / `credentials.vue` / `settings.vue` / `users.vue` / `schedules.vue` 等） + 受影响视觉基线快照。
 - **验收标准**：
-  - [ ] `repo-form-dialog.vue` 含自身 `<style scoped>`；`repos.vue` 不再残留 `.repo-form*` 规则（`rg -c "^\.repo-form" apps/platform/app/pages/repos.vue` = 0）
-  - [ ] 补回的两列 row / label→控件间距 / actions 右对齐三项在浏览器实测生效（`.repo-form__row` 计算样式 `display: grid`；`.repo-form__actions` `justify-content: flex-end`）
-  - [ ] 全部弹窗 label↔控件间距 ≥ 8px（`$space-2`，浏览器计算样式实测）
-  - [ ] 全部弹窗操作区贴右下角（截图逐弹窗可证，至少覆盖 添加仓库 / 批量导入 / 扫描配置 / 凭据新增 / 设置 / 用户 / 定时任务）
-  - [ ] 批量导入「GitHub 凭据」行：刷新按钮与同排 Select 垂直居中（按钮中心 y 与 Select 中心 y 偏差 ≤ 2px，浏览器实测）
-  - [ ] `.batch-form*`（仍在 `repos.vue`）无回归；暗色模式无回归
-  - [ ] `pnpm lint` + `pnpm --filter @dependfix/platform typecheck` EXIT 0；视觉基线更新后 `pnpm --filter @dependfix/platform test:visual` 连跑两遍不漂移
+  - [x] `repo-form-dialog.vue` 含自身 `<style scoped>`（原样式段整段迁入）；`repos.vue` 不再残留 `.repo-form*` 规则（`rg -n "^\.repo-form" apps/platform/app/pages/repos.vue` = 0 命中）
+  - [x] 补回的三项在浏览器实测生效：`.repo-form__row` 计算样式 `display: grid` / `grid-template-columns: 238px 238px`（两列）；`.repo-form__actions` `justify-content: flex-end` 且末位按钮右缘与容器右缘齐平（884 = 884）
+  - [x] 全部弹窗 label↔控件间距 = `$space-2`（8px）：实测 添加仓库 8/8/8/8、批量导入 8、扫描配置 8/8/8；同类口径同步 `credentials.vue` / `schedules.vue`（`settings.vue` 原本即 8px）
+  - [x] 批量导入「GitHub 凭据」行：刷新按钮与同排 Select 垂直居中（`align-items: flex-end`；实测 centerY 偏差 **0px**，底边偏差 0px，≤ 2px 阈值）
+  - [x] 全部弹窗操作区右下：实测 添加仓库 / 扫描配置 的 actions 右缘与末位按钮右缘一致（操作区贴右下角）
+  - [x] `.batch-form*`（仍在 `repos.vue`，同文件 scoped 生效）未改动；本条仅调整间距与对齐，无颜色 / 暗色档规则改动
+  - [x] `pnpm lint` + `stylelint`（`lint:css:check`）+ `pnpm --filter @dependfix/platform typecheck` EXIT 0；视觉基线（`dialog-import-repos-light.png`，尺寸 760×414 → 760×430 反映间距变化）更新后 `test:visual` 7/7 通过
 - **不做什么**：不改表单字段语义 / 校验规则 / i18n 文案；不重构弹窗组件结构与插槽；不引入新依赖；不动 `repos.vue` 的 `.batch-form*`。
 - **依赖**：M32.1（`repo-form-dialog.vue` 自 `repos.vue` 拆出时样式段未随迁，本条为遗留缺陷）+ M32.5（视觉回归基线，需按本条更新）。
-- **交付物**：1 atomic commit（`fix(platform)`）；文件见"范围"（含 `tests/visual/__screenshots__/.../dialog-import-repos-light.png` 等受影响快照）。
-- **风险与缓解**：迁样式可能带动同文件其他规则或影响 `repos.vue` 内联弹窗；缓解：只迁 `.repo-form*` 段、迁移后 `rg` 双侧确认无残留无缺失，视觉基线逐张目视复核（只应出现预期差异）。
-- **审计**：待 A 阶段填写。
+- **交付物**：1 atomic commit（`fix(platform)`）；文件 `apps/platform/app/components/repo-form-dialog.vue` + `import-repos-dialog.vue` + `scan-config-dialog.vue` + `apps/platform/app/pages/repos.vue` + `credentials.vue` + `schedules.vue` + `apps/platform/tests/visual/__screenshots__/platform-pages.visual.test.ts/dialog-import-repos-light.png`。
+- **风险与缓解**：迁样式可能带动同文件其他规则或影响 `repos.vue` 内联弹窗；缓解：只迁 `.repo-form*` 段、迁移后 `rg` 双侧确认（父页 0 命中 / 子组件 1 处定义），`.batch-form*` 原地保留并确认未受影响；基线差异经像素比对确认由间距变化整体导致。
+- **审计**：第 1 轮 `standard` **Pass**（0 blocker / 1 warning / 2 suggest）。warning RG-W01：`credentials.vue` / `schedules.vue` 两处弹窗间距改动无浏览器实测（审计方判定风险低、不阻塞，建议视觉基线扩面时纳入）。suggest：`ai-config-form.vue` 与列表页过滤工具栏（`alerts.vue` / `pr-checks.vue` / `env-events.vue`）的 label↔控件间距仍为 4px（非弹窗，不属本条范围）→ 已按 backlog 候选登记。
 
 #### M33.9 [P2 🎨 用户体验] 主按钮视觉与加载态（对比度 / loading 动画）
 

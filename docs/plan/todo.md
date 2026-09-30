@@ -8,7 +8,7 @@
 
 | 内容类型 | 位置 |
 |:--|:--|
-| 当前阶段任务 | [M33 治理债收口 + 测试基建扩展](#m33-治理债收口--测试基建扩展2026-09-30-用户决策方案-a-启动)（2026-09-30 用户决策方案 A 启动，6 原子条目 + M33.7 / M33.8–M33.10 用户直接决策追加） |
+| 当前阶段任务 | [M33 治理债收口 + 测试基建扩展](#m33-治理债收口--测试基建扩展2026-09-30-用户决策方案-a-启动)（2026-09-30 用户决策方案 A 启动，6 原子条目 + M33.7 / M33.8–M33.10 用户直接决策追加 + M33.11 安全插队追加） |
 | 已完成阶段归档 | [todo-archive.md](todo-archive.md)（主窗口 + [archive/](archive/) 分片；M0-M32 全部已归档） |
 | 未排期 / 延期 / 远期 / 长期主线 / 已知边界 | [backlog.md](backlog.md) |
 | 里程碑与阶段交付 | [roadmap.md](roadmap.md)（M0-M32 已归档） |
@@ -24,7 +24,9 @@
 >
 > **阶段内追加**：M33.7（数据库迁移命令入口补齐）与 M33.8–M33.10（UI 修复批次）均为 2026-09-30 用户**直接决策**追加（非插队例外 3 类，走 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement)「用户直接决策」路径）。M33.7 触发来源为当日 dev 库 schema 漂移导致 `/api/dashboard/stats` 运行时崩溃；M33.8–M33.10 触发来源为用户当日上报的 6 项界面问题（弹窗表单布局 / 按钮对比度与加载态 / 筛选行对齐）。
 >
-> **类型平衡复核**：📚 治理 1 项（M33.1）✅ / 🛠️ CI 与 devEx 治理 4 项（M33.2 / M33.3 / M33.6 / M33.7）✅ / 🧪 测试覆盖 2 项（M33.4 / M33.5）✅ / 🎨 用户体验 3 项（M33.8 / M33.9 / M33.10）✅ —— 原「🎨 UX 缺口」由用户直接决策批次补齐；其余缺口（`C37` 语言多设备同步等）留后续阶段评估。
+> **安全插队追加**：M33.11（devDeps / 运行时链存量漏洞治理）按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) **插队例外清单第 2 类**（依赖链中高危漏洞）追加，经用户 2026-09-30 明确授权（M33.6 的观察期条件以其为前提）。
+>
+> **类型平衡复核**：🛡️ 安全 1 项（M33.11）✅ / 📚 治理 1 项（M33.1）✅ / 🛠️ CI 与 devEx 治理 4 项（M33.2 / M33.3 / M33.6 / M33.7）✅ / 🧪 测试覆盖 2 项（M33.4 / M33.5）✅ / 🎨 用户体验 3 项（M33.8 / M33.9 / M33.10）✅ —— 原「🎨 UX 缺口」由用户直接决策批次补齐；其余缺口（`C37` 语言多设备同步等）留后续阶段评估。
 >
 > **§3.4 三重交叉核验结论**（M33.1–M33.6 全部实测 **0 项重复评估**）：① todo-archive 表格扫描（§1.7 原文命令 `rg -n "已闭环|不计入本批|不计入 M\d+|ahead=0.*已推" docs/plan/todo-archive.md docs/plan/archive/todo-archive-phases-*.md` + 补充按候选 id 过滤 `rg`）无候选被标已闭环；② git log 核验（`git log --all --oneline --grep="C91|C93|C94|C80|C83|C15"`）仅命中候选登记 docs commit，无实现 commit；③ 代码侧 anchor 实证（C91 `rg -n "5\.1\.2[4-9]|恒真|视觉回归|中央优先|前缀感知|SIGNING_ISOLATION" .github/agents .github/skills` 仅 1 命中且非检查点；C93 `rg -n prCheck apps/platform/server/api/e2e/` = 0；C94 基线目录仅 7 张无横向补拍；C80 `test.yml:34` 仍 `|| true` + 注释「阻断语义当前未启用」；M31 死配置 `rg -n "primevue|primeuix|primeicons" .github/dependabot.yml` 命中 3 条 ignore（阶段启动时点记录；M33.3 已清理 → 0）；视觉 CI `continue-on-error: true` 仍在〔阶段启动时点记录；M33.2 已转阻断 → 0〕）。
 >
@@ -208,6 +210,25 @@
 - **风险与缓解**：为对齐给 Switch 加强制控件高度可能影响其他 Switch 场景；缓解：包裹层只作用于 `.alerts__filter-control`（该页自有类），实测 wrap 与暗色两态；基线差异经像素比对确认为筛选行区域（light bbox `(840,176)-(1176,232)` / dark `(840,176)-(911,232)`，light 额外含按钮色板收编）。
 - **审计**：第 1 轮 `quick` **Pass**（0 blocker / 0 warning / 3 suggest）。suggest 处置：RG-S01（范围措辞漏 `.alerts__filter-control`）已修正；RG-S02（light 基线跨条目收编 M33.9 按钮色板）已在落地说明登记并写入提交信息；RG-S03（注释硬编码 22px/36px）已改为引用 token 名。审计方另记录 2 个 **pre-existing** `nuxt.config.ts` 类型问题（`vue-tsc -p .nuxt/tsconfig.json` 可见，未被项目 `nuxt typecheck` 门禁覆盖、非本条引入），留作后续观察。
 
+#### M33.11 [P2 🛡️ 安全插队] devDeps / 运行时链存量漏洞治理（C80 阻断语义前置，2026-09-30 用户明确授权）
+
+- **为何插队**：按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) **插队例外清单第 2 类**（依赖链中高危漏洞）。CI audit 步骤实测 **13 条告警（5 moderate / 8 high）**（Test job 于 run `36704146211`，2026-09-30T10:44:02），全部落在 `brace-expansion` ×9 / `fast-uri` ×3 / `moment` ×1 三条链；Dependabot 侧 open alerts 8 条（high：fast-uri ×2 + brace-expansion ×2；medium：brace-expansion ×3 + moment ×1），其 update run `#1599940877` conclusion = **failure**。用户 2026-09-30 明确授权「先修存量，再落口径」——M33.6 的观察期条件（「存量清零后连续 N 次 CLEAN → 转阻断」）以本条完成为前提。
+- **优先级**：P2（高危，但均在 devDeps / 日志工具链上，无运行时暴露面；长期被 `|| true` 掩盖）。
+- **§3.4 三重交叉核验结论**（2026-09-30 实测，**0 项重复评估**）：① todo-archive 扫描（`rg -n "overrides|审计门禁|pnpm audit" docs/plan/todo-archive.md docs/plan/archive/*.md`）：语义相关命中 M29.6（overrides 路径级覆盖**能力**）/ M29.1（vite 漏洞治理）/ M29.9（audit 覆盖范围），其余命中为 overrides 生成能力 / workspace 迁移等无关条目——经逐条筛读**无「存量 devDeps 漏洞清理」闭环项**；② git log 核验（`git log --all --oneline --grep="overrides"`）无对应清理 commit；stale 钉定的实证来自两处：已合并的 `8176827 chore(deps): bump fast-uri, undici` 把版本化 overrides `fast-uri@3` 提到 `^3.1.7`，但无版本限定的 `fast-uri: 3.1.6` 把它压回 3.1.6（**版本化提升被 stale 通用钉定抵消**）；另有 `048a957 chore(deps): bump fast-uri from 3.1.6 to 3.1.7`（dependfix[bot] 自动修复分支，**未合并**）只把无版本限定钉定升到 3.1.7，仍低于修复所需 3.1.8；③ 代码侧 anchor 实证：`pnpm-workspace.yaml` overrides 段实测 `brace-expansion@1: ^1.1.16`（解析 1.1.18，<1.1.19 三档）、`brace-expansion@5: ^5.0.7`（解析 5.0.9，<5.0.11 两档）、`fast-uri@3: ^3.1.7` **与** `fast-uri: 3.1.6` 并存（后者为无版本限定的通用钉定，把解析版本压回 3.1.6）、brace-expansion 2.x 与 moment 无覆盖（解析 2.1.4 / 2.30.1，均落在告警区间）。
+- **范围**：`pnpm-workspace.yaml` 的 `overrides` 段 + `pnpm-lock.yaml`。
+- **验收标准**：
+  - [x] `pnpm audit --audit-level=moderate --registry=https://registry.npmjs.org` 输出 **`No known vulnerabilities found`**（EXIT 0；修复前基线实测 13 条 = 5 moderate + 8 high。注：本地默认 registry 为 npmmirror，无 audit endpoint → 必须显式指向公共 registry 才能复现）
+  - [x] 清理失效 / 冲突 overrides：`fast-uri: 3.1.6`（无版本限定的通用钉定）已移除——它把解析版本压回 3.1.6，使已合并的 `8176827`（`fast-uri@3: ^3.1.5 → ^3.1.7`）失效；未合并分支 `048a957` 仅把该钉定升到 3.1.7，仍低于修复所需 3.1.8
+  - [x] 覆盖版本均为同 major 内的 patch / minor，lockfile 解析实测：`brace-expansion` 1.1.21 / 2.1.7 / 5.0.12、`fast-uri` 3.1.8、`moment` 2.31.0
+  - [x] `pnpm i` EXIT 0（+5 −5 包）；`pnpm i --frozen-lockfile` EXIT 0（lockfile 一致可复现）
+  - [x] `pnpm lint` + `pnpm run typecheck`（7 包）+ `pnpm test`（217 文件 / 3390 tests passed）+ `pnpm build`（packages）+ 平台 build EXIT 0；平台 e2e **174 passed**（其中 `repos-crud` 首轮 1 flaky〔删除仓库列表移除断言〕，定向复跑 8/8 通过 → 环境噪声，与本条无关）
+  - [ ] 推送后 Dependabot 侧 8 条 open alerts 相应关闭（本条记录预期，实际关闭以推送后状态为准）
+- **不做什么**：不引入 Snyk / 第三方 SCA；不改 audit 步骤阻断语义与 `--audit-level`（属 M33.6）；不做跨 major 升级（brace-expansion 4.x 线不在依赖树内，5.x 覆盖即可）；不改 audit 步骤的覆盖范围（M29.9 已落地）。
+- **依赖**：M33.6（以其为前提）+ M29.1 / M29.9（audit 可见性来源）+ 已合并 `8176827`（版本化 overrides 提升被 stale 通用钉定抵消的实证）+ 未合并 `048a957`（同类尝试，仍低于修复版本）。
+- **交付物**：1 atomic commit（`fix(deps)` overrides + lockfile）+ 1 `docs(plan)`（登记与闭环）。
+- **风险与缓解**：overrides 跨 major 会破坏父包（如 minimatch 3.x 依赖 brace-expansion 1.x）；缓解：只做同 major 内 patch/minor，改后先本地 `pnpm audit` 复验 0 告警，再跑 lint / typecheck / test / build 与平台 e2e。
+- **审计**：第 1 轮 `standard` **Pass**（0 blocker / 2 warning / 3 suggest）。warning 处置：RG-W1（§3.4 ①「仅命中 3 项」措辞不可复现）已改为「语义相关命中 3 项 + 其余为 overrides 生成能力 / workspace 迁移等无关条目」；RG-W2（`048a957` 归因有误——它是 dependfix[bot] 自动修复分支且**未合并**，真正被 stale 通用钉定抵消的是已合并的 `8176827`）已在 4 处修正为准确因果链。suggest：S1（按 §1.3 分级矩阵，overrides / lockfile 变更宜按 `deep` 送审；本条声明 `standard`，审计方依声明执行并已实质覆盖 deep 关键项）作为后续选档校准；S2（`moment` 可用路径级覆盖收窄爆炸半径）保留现状——单消费者下与全局覆盖等价；S3（`brace-expansion@3` 覆盖缺口，树内暂无 3.x）留待引入 3.x 消费者时补。
+
 #### 阶段决策记录
 
 - **D1**：方案 A（治理 + 测试基建收口）——从「评估完成待上收」候选（C91 / C93 / C94 / C80 剩余）与本批评估新登记的可行动已知边界项（视觉回归 CI 转阻断 / M31 dependabot 死配置）中上收 6 原子条目；类型平衡 📚 1 + 🛠️ 3 + 🧪 2，🎨 UX 缺口显式标注。
@@ -218,6 +239,7 @@
 - **D6**（A 阶段审计收敛）：第 1 轮 `standard` 审计 **Pass**（0 blocker / 4 warning / 6 suggest）。warning 处置——RG-W1/W2（C91 / C80 跨文件陈旧指针，`ai-collaboration.md §1.5` / `platform.md §3.9` / `testing.md §6.7` / experience-archive 检查点表）**落点登记**到对应条目交付物（M33.1 / M33.2 / M33.4 / M33.5 / M33.6），不在本 P 批次内改 `docs/standards/*`（保持 P 阶段仅 `docs/plan/*` 的边界）；RG-W3（M33.5 量化口径）与 RG-W4（M33.3 范围漏列 backlog.md）已在本批修正。suggest 采纳：RG-S1（roadmap §M32 历史段加「已上收 M33.x」注记）/ RG-S2（M33.3 依赖回填 commit `406fd1f`）/ RG-S3（roadmap D4 补测量方）/ RG-S6（banner 对齐 §1.7 原文命令）；RG-S4 于 F 阶段收口（`.session` 同步）；RG-S5 保持现状（归档历史快照）。
 - **D7**：M33.7（数据库迁移命令入口补齐）经用户 2026-09-30 明确指示「现在就补齐迁移入口」追加进本阶段——属 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement)「用户直接决策」路径（非插队例外 3 类），已执行 §3.4 三重交叉核验（0 项重复评估）。阶段容量 6 → 7，仍属单批可控范围（M33.1 已闭环，活跃 6 条）。
 - **D8**：M33.8–M33.10（UI 修复批次）经用户 2026-09-30 决策「追加为 M33.8–M33.10」进入本阶段——同属「用户直接决策」路径；拆分依据：① M33.8 = 弹窗表单布局（#1 label 间距 + #2 actions 右下 + #4 刷新按钮对齐，同一"弹窗表单规范"主题，含 `repo-form-dialog` 样式段遗留缺陷）；② M33.9 = 按钮视觉与加载态（#3 对比度 + #5 loading 动画，同一"主按钮"主题）；③ M33.10 = 告警筛选行对齐（#6，独立页面）。**审计深度**：M33.8 / M33.10 为纯 SCSS/模板布局改动（单模块、无逻辑变更）→ `standard`；M33.9 触及 token 全局接线 + 跨页面调用点 → `standard`。**执行顺序**：M33.9 → M33.8 → M33.10（先落全局色板以免基线快照二次改写）。**§3.4 三重交叉核验结论**（2026-09-30 实测，0 项重复评估）：① todo-archive 扫描（`rg -n "对比度|loading|动画|右下角|表单间距|filter-row" docs/plan/todo-archive.md docs/plan/archive/*.md`）命中 M31.1/D4 仅记录 `primary-solid` teal-700 AA 口径（本条正是让默认 primary 变体对齐该既有口径），无「弹窗布局 / 筛选行对齐 / loading 动画」闭环项；② git log 核验（`--grep="对比度|loading|弹窗"`）无对应实现 commit；③ 代码侧 anchor 实证：`repo-form-dialog.vue` 样式块数 = 0、`repos.vue` 仍含 `.repo-form` 规则、`alerts.vue:734` 为 `align-items: flex-end`、`import-repos-dialog.vue` 的 `.import-form__row` 为 `align-items: center`（`:534`）、`nuxt.config.ts:51` 为 `primary-foreground: '#0b0b0d'`——五项均与上报现象自洽。**容量说明**：本阶段活跃条目 5（M33.2 待 CI 裁决 / M33.3–M33.6）→ 8，超 [§3.3 容量控制](../standards/planning.md) 的 5-6 项；用户直接决策明示保留全部条目，不挪出（M33.2 实现已完成、仅剩外部 CI 裁决，实际并行投入未增）。
+- **D9**：M33.11（devDeps / 运行时链存量漏洞治理）经用户 2026-09-30 明确授权「先修存量，再落口径」按 **插队例外清单第 2 类**（依赖链中高危漏洞）追加——触发证据：CI audit 实测 13 条（8 high / 5 moderate）+ Dependabot open alerts 8 条 + 其 update run failure；已执行 §3.4 三重交叉核验（0 项重复评估，并实证 stale 通用钉定 `fast-uri: 3.1.6` 抵消了已合并的 `8176827`（`fast-uri@3` 提升至 `^3.1.7`））。**执行顺序**：M33.11（清存量）→ M33.6（落阻断语义口径，观察期条件以存量清零为起点）。阶段容量：活跃 1（M33.6）→ 2，属插队例外明示范围。
 
 ---
 

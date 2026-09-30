@@ -50,3 +50,45 @@
     --caomei-color-text-muted: #{$color-text-muted};
     --caomei-color-border: #{$color-border-dark};
 }
+
+// 亮色档主按钮实底：改用 `primary-solid`（teal-700 #0f766e）+ `on-solid`（白）= 5.47:1（AA）。
+// 库内默认 `variant="primary"` 取 `var(--caomei-button-bg, var(--caomei-color-primary))`，即 teal-600 底 +
+// nuxt.config 的近黑前景（为达 5.25:1 刻意选的深色），视觉发闷；改白字后 teal-600 仅 3.74:1 不再达
+// AA，故同步加深底色——与「实底按钮统一用 `primary-solid` teal-700」的既有口径一致
+// （来源见 `docs/plan/todo-archive.md` 的 M31 决策 D4）。
+// **必须排除语调档**：库内 `tone` 不改变 `variant`，`<CaomeiButton tone="neutral">` 同时带
+// `--primary` 与 `--tone-neutral`，而且语调档用 `:where()` 归零特异性声明同一批按钮自定义属性，
+// 不排除就会把 neutral / success / danger 等实底按钮一律染成主色（首轮审计实测）。
+// 暗色档保持既有覆盖（亮青 #5eead4 + 近黑前景 13.29:1），避免深底上主按钮失去强调。
+// 特异性 (0,5,0)：高于库内 `:where(...)` 语调档与 `:root`，不依赖加载顺序。
+:root:root:not(.dark, [data-theme='dark']) .caomei-button--primary:not(
+    .caomei-button--tone-neutral,
+    .caomei-button--tone-primary,
+    .caomei-button--tone-success,
+    .caomei-button--tone-warning,
+    .caomei-button--tone-danger
+) {
+    --caomei-button-bg: var(--caomei-color-primary-solid);
+    --caomei-button-fg: var(--caomei-color-on-solid);
+}
+
+// loading 态在 reduced-motion 下的可感知兜底：库内 `@media (prefers-reduced-motion: reduce)`
+// 把 spinner 旋转动画置为 `none`（静态圆环 → 用户读成"loading 没有动画"）。此处改为不依赖
+// 位移 / 旋转的透明度脉冲：既尊重 reduced-motion，又保留"正在处理"的反馈。
+// 特异性 (0,3,0) 高于库内 `.caomei-button__spinner[data-v-*]`（0,2,0）。
+@media (prefers-reduced-motion: reduce) {
+    :root:root .caomei-button__spinner {
+        animation: dependfix-button-spinner-pulse 1.2s ease-in-out infinite;
+    }
+}
+
+@keyframes dependfix-button-spinner-pulse {
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.25;
+    }
+}

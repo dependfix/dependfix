@@ -406,6 +406,14 @@ tsdown `hash:false` 下多 entry 构建时，entry 与共享 dts chunk 会争用
 
 需要在构造期用外部数据（如目标仓库配置文件）合并出一个 effective config 时，不要把 `private readonly config` 改成可写：把依赖该字段的初始化块**后移**，改为单次赋值（logger → 合并 config → 依赖 config 的块）。这样既保持不可变语义，也避免引入第二份 effectiveConfig（双来源漂移）。
 
+#### 5.1.31 声明「与环境开关解耦」必须穷举同族开关
+
+代码路径声明「只读 / 与环境解耦」时，只锁一个开关不足以成立——必须**一次性穷举同族开关**（典型：`migrationsRun` + `synchronize` 双 opt-in），并为每个开关配断言。反例：M33.7 `db-migrate --show` 只锁 `migrationsRun: false`，但 `DATABASE_SYNCHRONIZE=true` 时 `DataSource.initialize()` 仍会同步 schema，令对外声明"只读"的命令实际写库。**配套**：打印 effective 覆盖行（打印**实际生效值**而非按 env 打印的开关值），消解"声明值 vs 生效值"的错位。
+
+#### 5.1.32 pnpm overrides 的「通用钉定」会压过「版本化覆盖」
+
+同一包同时存在**无版本限定的通用覆盖**（如 `fast-uri: 3.1.6`）与**版本化覆盖**（如 `fast-uri@3: ^3.1.7`）时，通用钉定胜出 → 解析版本被压回旧版，使版本化覆盖的升级（与 dependabot 的 bump commit）双双失效，漏洞反复出现且看似"已升级"。**排查**：出现「升级了但漏洞还在」时先列 `pnpm-workspace.yaml` 的 overrides，检查同包是否同时存在通用与版本化两条；**清理**保留一条（版本化优先），再用 `pnpm audit` 复验计数。
+
 ---
 
 ## 6. 样式规范（平台阶段适用）
@@ -417,6 +425,8 @@ tsdown `hash:false` 下多 entry 构建时，entry 与共享 dts chunk 会争用
 - **暗色模式**: 通过 `:global(.dark) .selector` 覆盖样式（**注意**：`main.scss` 是全局 CSS 无 scope，原 `:global(.dark) &` 编译失败，正确写法 `.dark &`，让 mixin 自动工作；详见 [平台开发规范 §7](./platform.md)）。
 - **响应式基线（768px）**: dashboard / 列表 / 表格页都应默认支持 768px 响应式（不是 mobile-specific feature 而是响应式基线）——`@media (max-width: 768px)` 切换 `grid-template-columns: 1fr`、表格水平滚动、侧栏折叠。V 阶段 ui-validator 自动检测 768px 适配遗漏，遗漏会被列为 Blocker。
 - **跨 Dialog i18n label key 共享**: 共享选项数据（mode / severity / batch-start 等）时，i18n label key 也应共享（如 `repos.batchMode` / `repos.batchSeverity` 同时用于批量与单仓库 Dialog），避免冗余 key（如 `repos.scanConfigMode` 与批量 Dialog 相同 label 但不同 key）。仅在 Dialog 标题 / 目标信息等真正差异处新增 key。
+- **子组件抽取时 scoped 样式必须随迁**: 从父页拆出子组件（表单弹窗等）时，父页 `<style scoped>` 里的同名规则**不会穿透子组件**（scoped 只作用于本组件模板 + 子组件根元素）→ 规则整段静默失效（label 贴输入框、操作区落到左下角），构建与 lint 全绿无报错。**判据**：子组件内 `grep -c "<style"` = 0 而同名类名只在父页样式里出现 → 迁移遗漏。**做法**：把同名样式段整段搬到子组件（自带 `<style scoped>`）并删除父页副本，用"构建产物 CSS 含子组件 scope id + 元素类名"复核生效。反例：M32.1 拆出 `repo-form-dialog.vue` 时样式段留在 `repos.vue`，直至 M33.8 才修复。
+- **同行 `flex-end` 对齐下矮控件会压矮整字段**: 同一行 `align-items: flex-end` 排列 label + 控件时，矮控件（如 22px Switch vs 36px 控件档）会把整字段盒压矮、label 随之下移。**做法**：为控件区补足控制档高度并垂直居中（如 `.xx__filter-control { min-height: var(--caomei-control-height-md); display: flex; align-items: center; }`），而不是改行对齐方式——对 wrap 换行场景同样成立。反例：M33.10 告警筛选行「显示已解决」标签比同排靠下。
 
 ## 7. 包命名规范
 

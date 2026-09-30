@@ -329,7 +329,7 @@ self-check 通过后，按以下条件判断是否触发 code-auditor quick dept
 
 **合规核验**：本流程由 [code-auditor 主责边界「阶段启动重复评估自检」必查项](../../.github/agents/code-auditor.agent.md) 强制检查——commit 涉及 todo.md §当前阶段新增 / 修改时，五步自检任意一步未执行 / 未通过 → Reject 退回。
 
-**关联规范**：[planning.md §3.4 阶段启动决策前置交叉核验硬要求](./planning.md#34-阶段启动决策前置交叉核验硬要求m271-重复评估教训--2026-09-10) + [experience-archive §六十四 M27.1 重复评估教训](../design/governance/experience-archive-§49-§57-recent-investigation.md#六十四m271c66告警视图增强重复评估教训阶段启动决策时未对照已闭环清单导致规划无效工作20260910commit决策d2错误) + [todo-archive.md §M23](../plan/todo-archive.md#m23-m22-治理债收口--根因排查--能力扩展--测试补强m230m231m232m233m234-全部已闭环--2026-09-02-归档)（C66 告警视图增强闭环记录）。
+**关联规范**：[planning.md §3.4 阶段启动决策前置交叉核验硬要求](./planning.md#34-阶段启动决策前置交叉核验硬要求m271-重复评估教训--2026-09-10) + [experience-archive §六十四 M27.1 重复评估教训](../design/governance/experience-archive-§49-§57-recent-investigation.md#六十四m271c66告警视图增强重复评估教训阶段启动决策时未对照已闭环清单导致规划无效工作20260910commit决策d2错误) + [archive/todo-archive-phases-m23.md §M23](../plan/archive/todo-archive-phases-m23.md#m23-m22-治理债收口--根因排查--能力扩展--测试补强m230m231m232m233m234-全部已闭环--2026-09-02-归档)（C66 告警视图增强闭环记录）。
 
 ---
 
@@ -427,6 +427,7 @@ CI 失败后不得回退到全量重试，应分析具体失败点针对性修�
 
 - 配置文件显式写"空默认值"（如 `excludeFiles: []`）会覆盖工具内置保护，修改前先确认工具默认值。
 - composite action（action.yml）中 <span v-pre>`${{ }}`</span> 只允许出现在合法上下文（runs 步、outputs 表达式、with 表达式值）；description / 纯文本 / 注释内嵌表达式会被 manifest 模板校验求值并可能引用不可用上下文。action.yml 变更后应跑一次真实 action（本仓库 `security-auto-fix.yml` dogfood workflow）验证。
+- **CI 证据反查（按 headSha）**：核对某次推送的 CI 结论时，Actions API 的 `head_sha` 查询参数对 push run 实测返回 `total_count: 0`（不可用，直接把「AC 依赖 CI 裁决」变得无法取证）；改用 `gh run list --workflow <file> --json databaseId,headSha,event,conclusion,createdAt` 按本地 commit 的 `headSha` 匹配目标 run（推送头的 sha 即 run 的 headSha），再用 `gh run view <id> --json jobs` 逐 job 核对结论，把 run id + headSha + job 结论一并写入验收记录（M33.2 AC #5 实证）。
 
 ### 4.4 F 阶段本地验证口径差异（`pnpm --filter <pkg> test` ≠ `pnpm test` 全 workspace）+ coverage 强制（hard requirement）+ **typecheck 实测必须（nuxt typecheck 不等于 TS 0 error）**
 

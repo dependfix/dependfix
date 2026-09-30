@@ -143,6 +143,7 @@ commit message 应聚焦于"当次提交的改动"+"可供事后复查的信息"
 - 规则集与正文硬性约束一一对应（不写执行命令 / 不写执行结果数字 / 不写改动行数 / 不写没实证废话与关联度低教训段）
 - 拦截失败时返回 exit=1，git commit 直接拒绝
 - 规则实现 + 单测详见 [scripts/commitlint/](../../scripts/commitlint/) 目录
+- **`no-diff-stats` 的误伤**：规则 `[+-]\d+(?=\s|$|[,，])` 会把**日期**（`2026-09-30` → 命中 `-30`）与**色号**（`teal-700` → 命中 `-700`）判为 diff 行数 → 被 husky 拦截。**规避**：主题 / 正文避免「连字符 + 数字」紧跟空白；日期改写为「2026 年 9 月 30 日」，色号改写为 token 名（如 `primary-solid`）或让数字后紧跟非空白字符。
 
 **commit 前轻量级审核**：执行方 self-check 4 项必查 + 触发 code-auditor quick depth 条件详见 [ai-collaboration.md §1.6 commit 前轻量级审核流程](./ai-collaboration.md)。
 

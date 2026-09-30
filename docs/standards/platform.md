@@ -117,6 +117,7 @@ export const getDateType = (dbType?: string): string => {
 - 幂等单例 + 并发初始化锁（`ensureDatabaseInitialized`）
 
 - **新增迁移必须前缀感知**：`entityPrefix` 默认 `dependfix_`，而早期迁移表名处理不统一（实测 4 个硬编码前缀 + 3 个硬编码无前缀）→ 非预期前缀组合下迁移**静默 no-op**（`getTable()` 返回 undefined，无日志信号）。新迁移先试 `dataSource.options.entityPrefix + 表名`、再回退无前缀，并配「两种前缀 + 两者同时存在（前缀优先）+ up/down 幂等 + 表缺失」用例；`queryRunner.connection` 在 TypeORM 1.x 已 deprecated，改用 `queryRunner.dataSource`。存量问题与待治理范围见 [backlog.md §已知边界](../plan/backlog.md#appsplatform-早期-migration-表名前缀不统一已知边界待治理)。
+- **schema 漂移的排查与修复序（双 opt-in 下）**：`synchronize` / `migrationsRun` 双 opt-in 下 schema 漂移会静默累积，直到运行时查询报 `no such column`。修复序：① 复制 dev 库到临时目录、以独立 DataSource 跑完整迁移链验证；② 读 `migrations` 表比对已注册迁移；③ 再对真实库执行（执行前确认启动期自动备份已生成）。**判断某迁移是否生效要查物理表列**（非默认前缀下无前缀表名迁移静默 no-op，`migrations` 记录不代表加列成功）。**手动入口**：`pnpm db:migrate`（`db:migrate:show` 只读预览 / `db:migrate:revert -- --yes` 回退），见 [server/database/scripts/README.md §db-migrate](../../apps/platform/server/database/scripts/README.md#db-migrate运维脚本)。
 
 ### 3.4 实体规范
 

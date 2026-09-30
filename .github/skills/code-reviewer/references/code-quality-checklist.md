@@ -270,10 +270,12 @@ if (value) { ... }  // 对 0, "", false 失效
 | [development.md §5.1.28](../../../../docs/standards/development.md) | 「依赖卸载 + 引用归零」类任务 | 是否定义 `rg` 归零口径（含注释 / 文档 / 历史编号）；包体基线是否**回溯迁移前 commit 现场构建** |
 | [development.md §5.1.29](../../../../docs/standards/development.md) | 写「A 优先于 B」的配置优先级 | 口径是否写明「字段级整体忽略 vs 逐条合并」；是否配**证伪用例**（高优先级来源存在但未覆盖该对象） |
 | [development.md §5.1.30](../../../../docs/standards/development.md) | 构造期用外部数据合并 effective config | 是否保持 `readonly` 单次赋值（未改成可写）、是否避免引入第二份 effectiveConfig |
+| [development.md §5.1.31](../../../../docs/standards/development.md) | 代码路径声明「只读 / 与环境解耦」 | 是否**穷举同族开关**（如 `migrationsRun` + `synchronize`）并各自配断言；是否打印 effective 覆盖行（**实际生效值**而非按 env 打印值） |
+| [development.md §6](../../../../docs/standards/development.md) | 从父页拆出子组件 / 同行 label + 控件对齐 | 父页 `<style scoped>` 的同名规则是否随迁子组件（子组件 `<style>` 数与父页残留核对）；同行 `flex-end` 矮控件是否以「控件区补足控制档高度 + 居中」处理 |
 | [testing.md §6.1](../../../../docs/standards/testing.md) | 新增 Playwright 容器 / e2e 用例 / 本机取证 | 新容器是否同步 vitest `test.exclude` 并跑全量 `pnpm test`；容器内 Chromium 是否 `TMPDIR=/dev/shm`；权威证据是否 `--workers=1` 连跑两遍 |
 | [testing.md §6.5](../../../../docs/standards/testing.md) | 新增 / 修改测试断言 | 是否**锁定独有子串 + 失败来源**（非恒真）；是否做 2-3 个 mutation（删 guard / 吞错 / 改回旧行为）标定确认用例会失败 |
 | [testing.md §6.6](../../../../docs/standards/testing.md) | 需 mock ESM 命名导出 / 覆盖失败分支 | 优先级是否正确（真实故障注入 > 可选注入点 > `vi.mock`）；`it.skip` 是否带 TODO 理由并登记 backlog |
-| [testing.md §6.7](../../../../docs/standards/testing.md) | **视觉回归**用例 / 基线 / 主题 token 改动 | 取证前先 build；加遮蔽须重生成基线；**反例验证纪律**（注入样式改动 → 用例如期失败 → 还原后全绿） |
+| [testing.md §6.7](../../../../docs/standards/testing.md) | **视觉回归**用例 / 基线 / 主题 token 改动 | 取证前先 build；加遮蔽须重生成基线；**反例验证纪律**（注入样式改动 → 用例如期失败 → 还原后全绿）；基线覆盖 fixtures 时须**写入路径锚定**（先断言行数 / 关键文案 / 标签色调再截图）+ 覆盖声明逐列核对；色板 / 间距类改动按内容核验（重建 + 逐像素 diff），不只看"用例通过" |
 | [testing.md §6.8](../../../../docs/standards/testing.md) | 审计 / 文档引用**取证工件** | 工件是否与冻结代码**同批生成**；文档数字是否只在验证链尾部落笔 |
 | [security.md §2](../../../../docs/standards/security.md) | 读取外部可控配置文件（如目标仓库 `.github/*.yml`） | 外部可控配置**防护矩阵**五要素：错误摘要截断 / 原型链风险键过滤在 schema 之前 / 未知键 `Object.hasOwn` / 非普通文件不跟随符号链接 / 大小上限（完整矩阵以 [dependency-fixer.md §12.7](../../../../docs/design/modules/dependency-fixer.md) 为唯一权威） |
 | [platform.md §3.3](../../../../docs/standards/platform.md) | 新增 `apps/platform` migration | 是否**前缀感知**（先 `entityPrefix + 表名`、再回退无前缀）；用例是否覆盖两种前缀 + up/down 幂等 + 目标表缺失 |
@@ -282,6 +284,7 @@ if (value) { ... }  // 对 0, "", false 失效
 | [planning.md §2.3](../../../../docs/standards/planning.md) | 候选上收 / 关闭 | 父段标题括号枚举是否同步收敛；已失效候选是否清理 |
 | [planning.md §2.5](../../../../docs/standards/planning.md) | 条目含统计数字 | **量化断言**可复现口径：量级区间 + 测量方 + 可复现命令（第三方可复现） |
 | [planning.md §4.4 第 13 条](../../../../docs/standards/planning.md) | 跨文件同步事实性口径 | 复扫是否用**结构化查询**（语义站点清单 + 组合 `rg`）而非字面 pattern；双语镜像是否单独扫 |
+| [planning.md §4.4 第 14 条](../../../../docs/standards/planning.md) | 已知边界条目闭环 | 除 backlog 整段删除外，是否同步 `archive/index.md` §4 的「保留」清单与「当前基线」前向描述（`rg` 确认全部落点） |
 | [ai-collaboration.md §1.3 分级审计执行协议](../../../../docs/standards/ai-collaboration.md) | 规划 / 阶段启动批次 | 是否声明 `standard`（非 `quick`）；审计 prompt 是否携带 audit-depth + 变更清单 + 已验证证据 |
 | [git.md §3.8](../../../../docs/standards/git.md) | `git commit` / `git push` 调用点 | 是否复用单一常量 `GIT_*_SIGNING_ISOLATION_ARGS`（无字面量漂移）；是否擅自提供签名 opt-in |
 

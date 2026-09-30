@@ -101,17 +101,20 @@
 
 #### M33.5 [P3 🧪 测试覆盖] C94 视觉回归 alerts 宽表右端列盲区
 
-- **目标**：让 alerts 页 `链接` / `详情` 两列进入视觉基线（当前 1440 视口下表格容器横向溢出——ui-validator 2026-09-29 实测 `scrollWidth 1288 > clientWidth 1166`，基线仅覆盖约左侧 90% 宽度，最右两列回归不会被捕获）。
+- **目标**：让 alerts 页 `链接` / `详情` 两列进入视觉基线（当前 1440 视口下表格容器横向溢出——ui-validator 2026-09-29 实测 `scrollWidth 1288 > clientWidth 1166`〔阶段启动时点记录；M33.5 实现时实测为 `1318 > 1166`，随 fixtures 数据宽度不同〕，基线仅覆盖约左侧 90% 宽度，最右两列回归不会被捕获）。
 - **优先级**：P3（非阻塞；属覆盖盲区而非缺陷——横向溢出本身是既有宽表设计，非 M32.5 引入）。
-- **范围**：`apps/platform/tests/visual/platform-pages.visual.test.ts`（alerts 用例追加横向滚动后补拍或元素级补拍）+ 对应基线快照 + `docs/standards/testing.md §6.7`（「覆盖边界（已知）」bullet 的 alerts 子句更新为「已由 M33.5 覆盖」；与 M33.4 共用同一 bullet，各更新对应半句，同批落地时合并为一次编辑）。
+- **范围**：`apps/platform/tests/visual/platform-pages.visual.test.ts`（alerts 用例追加横向滚动后补拍或元素级补拍）+ 对应基线快照 + `docs/standards/testing.md §6.7`（「覆盖边界（已知）」bullet 的 alerts 子句更新为「已由 M33.5 覆盖」；与 M33.4 共用同一 bullet，各更新对应半句）+ **范围补充**：`apps/platform/tests/visual/helpers/visual.ts`（`expectLocatorScreenshot` 增加可选 `mask` 参数，使元素级补拍与整页基线同遮蔽口径）+ `apps/platform/tests/visual/README.md`（同一条覆盖边界声明）。
 - **验收标准**：
-  - [ ] 基线包含最右两列（截图或补拍可证），用例仍 `workers: 1` / `retries: 0` 串行通过
-  - [ ] 覆盖方式与固定环境口径的冲突在用例注释与 [testing.md §6.7](../standards/testing.md) 中说明
-  - [ ] `pnpm --filter @dependfix/platform test:visual` 通过（连跑两遍不漂移）
-- **不做什么**：不在本候选内改造 alerts 表格列宽 / 布局（属 UX 议题，另评估）；不改视觉阈值与重试口径。
-- **依赖**：关联 [testing.md §6.7](../standards/testing.md) + M32.5（触发来源；ui-validator V 阶段登记）。
-- **交付物**：1 atomic commit（`test(platform)` 用例补拍 + 基线快照）。
-- **风险与缓解**：容器内横向滚动后补拍可能与 §6.7 固定环境口径冲突；缓解：优先容器内滚动补拍（不改 viewport），必要时显式开例外并记录依据。
+  - [x] 基线包含最右两列：新增元素级基线 `alerts-right-light.png` / `alerts-right-dark.png`（1166×514）——实测容器 `clientWidth 1166 < scrollWidth 1318`，滚到最右后 `scrollLeft = 152`，「详情」列右缘恰为容器右边界（137+1166=1303）即整列可见；补拍图右端 60px 实测含表格文本像素
+  - [x] 用例仍 `workers: 1` / `retries: 0` 串行通过：`test:visual` **连跑两遍 7/7 passed**（7 用例 / 9 张快照比对 = 7 整页 + 2 补拍），既有 7 张基线未被改写（仅新增 2 张）
+  - [x] 覆盖方式与固定环境口径的冲突已在用例注释与 [testing.md §6.7](../standards/testing.md) 说明：只改**容器内部滚动位置**（取 `scrollWidth - clientWidth` 最大值 → 跨机器确定），不动 viewport / 阈值 / 重试 / 表格列宽；补拍沿用同一 fixtures 数据集与 `data-visual-mask` 遮蔽口径
+  - [x] `pnpm lint` + `pnpm --filter @dependfix/platform typecheck` EXIT 0；`pnpm run check:docs` / `lint:md:check` 通过
+  - [x] **反例验证（[testing.md §6.7](../standards/testing.md) 纪律）**：对 `链接` / `详情` 两列注入颜色变更后元素级补拍差异 **40948 px ≫ maxDiffPixels 200**（A 阶段审计方独立只读复核）→ 阈值非恒真，右端两列确被用例覆盖
+- **不做什么**：不在本候选内改造 alerts 表格列宽 / 布局（属 UX 议题，另评估）；不改视觉阈值与重试口径；不改 `alerts` 整页基线（既有 7 张不动）。
+- **依赖**：关联 [testing.md §6.7](../standards/testing.md) + M32.5（触发来源；ui-validator V 阶段登记）+ M33.4（同批覆盖边界子句，本轮接手更新另一半句）。
+- **交付物**：1 atomic commit（`test(platform)`：用例 + 2 张补拍基线 + helper mask 参数 + 口径同步）+ 1 `docs(plan)`（验收闭环登记）；文件见"范围"。
+- **风险与缓解**：容器滚动位置若随字体渲染差异变化会导致补拍抖动；缓解：滚动量取最大值（不是固定像素偏移），且 `test:visual` 连跑两遍实测不漂移。
+- **审计**：第 1 轮 `quick` **Pass**（0 blocker / 1 warning / 2 suggest）。warning W1（§6.7 反例验证证据缺失）已回填 AC——审计方独立注入两列颜色变更实测差异 40948 px（≫ 阈值 200），证明覆盖有效且阈值非恒真。suggest 处置：S1（滚动断言 `> 0` 仅证明「发生了滚动」）已收紧为「前提断言溢出 > 0 + 滚动量等于 `scrollWidth - clientWidth`」；S2（「右缘 1303 落在边界内」措辞不精确）已改为「恰为容器右边界即整列可见」。审计方另独立复核：新增 2 张基线确含两列（几何 + 像素位移对齐 dx=289 + mask 面积与整页一致 36064px）、既有 7 张基线零改写、滚动确定性（`scrollBehavior: auto` / LTR / 钳制到最大值）。
 
 #### M33.6 [P3 🛠️ CI 政策] C80 剩余 devDeps 链漏洞阻断语义（方案 C 观察期）
 

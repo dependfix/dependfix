@@ -101,6 +101,19 @@
   - **交付物**：1 atomic commit（`fix(platform)` 间距统一 + 基线更新）
   - **风险与缓解**：列表页过滤工具栏间距变化会带动多张基线；缓解：逐张像素核验差异仅由间距偏移导致，必要时按内容重建单张基线
 
+- **PrimeUI 治理遗留设计先行稿与索引状态陈旧**（P3，📚 文档治理）—— 来源：M33.3 A 阶段审计发现（2026-09-30，测量方 = M33.3 审计方）
+  - **目标**：消除「未上收设计先行稿」的陈旧状态描述，使其与 M25.1 降级已实施、M31.5 已卸载全部 PrimeUI 依赖的事实一致
+  - **范围**：`docs/design/governance/primeui-themes-v2-downgrade.md`（降级方案正文与状态口径）+ `docs/design/governance/index.md:25` 与 `docs/i18n/en-US/design/governance/index.md:25`（索引行状态「🔶 设计先行稿（backlog 候选，未上收）」）
+  - **验收标准**：
+    - [ ] 索引行状态改为与事实一致（已实施 / 已随 M31 收口 / 归档），不再标「未上收」
+    - [ ] 设计稿正文标注实施结果与卸载结论（PrimeVue 全链已由 caomei-ui 替代）
+    - [ ] `pnpm run check:docs` EXIT 0；`pnpm docs:check:i18n` 通过；zh-CN / en-US 两侧索引一致
+    - [ ] 复现命令：`rg -n "未上收|not yet adopted" docs/design/governance/index.md docs/i18n/en-US/design/governance/index.md`
+  - **不做什么**：不重写设计稿历史正文（保留当时的方案与 License 分析）；不改 `caomei-ui-migration.md`（M33.3 已同步其遗留条目）
+  - **依赖**：M33.3 A 阶段审计发现；M25.1（降级实施）+ M31.5（PrimeVue 全链卸载）
+  - **交付物**：1 atomic commit（`docs(design)` 状态口径同步 + 索引一致性）
+  - **风险与缓解**：索引双语文件需同步修改，易漏一侧；缓解：以 `pnpm docs:check:i18n` 与双侧 `rg` 复核（同 docs:check:i18n 既有口径）
+
 ### 延期 / 暂缓项
 
 - **T705 生产级部署**（PostgreSQL + Helm + Sentry）—— 2026-08-12 用户指示暂缓排期
@@ -290,11 +303,6 @@
 - **性质**：自 C78（Dependabot alerts 未启用）起即存在的形态；C89 把 Code Scanning / Code Quality 纳入同一口径后触发面扩大。当前口径已在 `packages/engine/src/app/repo-alerts.test.ts` 显式锁定（含「1 未启用 + 2 真实失败」的 N=3 组合用例）。
 - **待治理**：把判据改为「无任何成功源且存在失败源」或按 attempted 源数判定；需同时评估对 `repoResults` 与报告「扫描成功」语义的连锁影响。
 - **触发条件**：① 用户反馈「报告显示某仓库 0 告警但实际有告警」；② 平台侧按仓库汇总成功率时暴露偏差。
-
-### M31 迁移遗留的配置清理项（已上收 M33.3）
-
-- **`.github/dependabot.yml` 的 PrimeVue 相关 ignore 规则成死配置**：M31.5 已卸载 `primevue` / `@primevue/nuxt-module` / `@primeuix/themes` / `primeicons` / `primelocale` 5 依赖，`@primeuix/*` / `@primevue/*` / `primeicons` 的 ignore 条目不再命中任何包。清理动作：移除该批 ignore 条目与 M25 / M26 时期的配套注释（保留 `conventional-changelog` 条目）。
-- **上收状态**：已 2026-09-30 上收 M33.3（[todo.md §M33.3](todo.md#m33-治理债收口--测试基建扩展2026-09-30-用户决策方案-a-启动)）；M33.3 闭环后本条目整段删除（依 [规划规范 §4.4 第 11 条](../standards/planning.md#44-大批量归档批次操作规范)「完全闭环 → 整段删除」）。
 
 ---
 

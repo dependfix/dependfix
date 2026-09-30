@@ -808,5 +808,5 @@ e2e 侧共改写 14 个 spec（`.p-dialog*` / `.p-select*` / `.p-drawer` / `.p-c
 **9）遗留（不在本批范围）**
 
 - 代码注释中仍有**非 `§` 形式的历史编号标记**（如 `M20.3` / `C59` / `RG-B07` / `S-3`，多无文档路径），跨 `app/` / `server/` / `tests/` 多文件。本批按用户裁定只清理 **M31 触及文件中的 `§编号` 引用**（实际违规仅 `platform.md` 1 处孤立 `M17.1`/`C38`，已清；其余 14 处均带文档路径，属合规导航引用）。全量编号治理建议独立批次处理，避免与本批「组件库卸载」主题混杂。
-- `.github/dependabot.yml` 的 `@primeuix/*` / `@primevue/*` / `primeicons` ignore 规则随依赖卸载成为**死配置**（不再命中任何包），建议后续治理批次移除（保留 `conventional-changelog` 条目）。
+- `.github/dependabot.yml` 的 `@primeuix/*` / `@primevue/*` / `primeicons` ignore 规则随依赖卸载成为**死配置**（不再命中任何包）—— 后续治理批次（M33.3）已移除该批 ignore 条目与配套注释（保留 `conventional-changelog` 条目）。
 

@@ -26,7 +26,7 @@
 >
 > **类型平衡复核**：📚 治理 1 项（M33.1）✅ / 🛠️ CI 与 devEx 治理 4 项（M33.2 / M33.3 / M33.6 / M33.7）✅ / 🧪 测试覆盖 2 项（M33.4 / M33.5）✅ / 🎨 用户体验 3 项（M33.8 / M33.9 / M33.10）✅ —— 原「🎨 UX 缺口」由用户直接决策批次补齐；其余缺口（`C37` 语言多设备同步等）留后续阶段评估。
 >
-> **§3.4 三重交叉核验结论**（M33.1–M33.6 全部实测 **0 项重复评估**）：① todo-archive 表格扫描（§1.7 原文命令 `rg -n "已闭环|不计入本批|不计入 M\d+|ahead=0.*已推" docs/plan/todo-archive.md docs/plan/archive/todo-archive-phases-*.md` + 补充按候选 id 过滤 `rg`）无候选被标已闭环；② git log 核验（`git log --all --oneline --grep="C91|C93|C94|C80|C83|C15"`）仅命中候选登记 docs commit，无实现 commit；③ 代码侧 anchor 实证（C91 `rg -n "5\.1\.2[4-9]|恒真|视觉回归|中央优先|前缀感知|SIGNING_ISOLATION" .github/agents .github/skills` 仅 1 命中且非检查点；C93 `rg -n prCheck apps/platform/server/api/e2e/` = 0；C94 基线目录仅 7 张无横向补拍；C80 `test.yml:34` 仍 `|| true` + 注释「阻断语义当前未启用」；M31 死配置 `rg -n "primevue|primeuix|primeicons" .github/dependabot.yml` 命中 3 条 ignore；视觉 CI `continue-on-error: true` 仍在）。
+> **§3.4 三重交叉核验结论**（M33.1–M33.6 全部实测 **0 项重复评估**）：① todo-archive 表格扫描（§1.7 原文命令 `rg -n "已闭环|不计入本批|不计入 M\d+|ahead=0.*已推" docs/plan/todo-archive.md docs/plan/archive/todo-archive-phases-*.md` + 补充按候选 id 过滤 `rg`）无候选被标已闭环；② git log 核验（`git log --all --oneline --grep="C91|C93|C94|C80|C83|C15"`）仅命中候选登记 docs commit，无实现 commit；③ 代码侧 anchor 实证（C91 `rg -n "5\.1\.2[4-9]|恒真|视觉回归|中央优先|前缀感知|SIGNING_ISOLATION" .github/agents .github/skills` 仅 1 命中且非检查点；C93 `rg -n prCheck apps/platform/server/api/e2e/` = 0；C94 基线目录仅 7 张无横向补拍；C80 `test.yml:34` 仍 `|| true` + 注释「阻断语义当前未启用」；M31 死配置 `rg -n "primevue|primeuix|primeicons" .github/dependabot.yml` 命中 3 条 ignore（阶段启动时点记录；M33.3 已清理 → 0）；视觉 CI `continue-on-error: true` 仍在〔阶段启动时点记录；M33.2 已转阻断 → 0〕）。
 >
 > **ahead commits 实证**：阶段启动前 `git rev-list HEAD ^origin/master --count` 实测 = 0（M0-M32 全部已推送）；本阶段 commits 按 [AGENTS.md §5 推送禁令](../../AGENTS.md) 等待用户主动推送。
 
@@ -68,17 +68,20 @@
 
 - **目标**：移除 `.github/dependabot.yml` 中已无命中包的 PrimeVue 相关 ignore 条目与 M25 / M26 时期配套注释（M31.5 已卸载 5 个 PrimeVue 依赖）。
 - **优先级**：P3（非阻塞；死配置不影响功能，属治理债）。
-- **范围**：`.github/dependabot.yml`（`npm` ecosystem 段的 ignore 列表与配套注释）+ `docs/plan/backlog.md §M31 迁移遗留的配置清理项`（完全闭环 → 整段删除）。
+- **范围**：`.github/dependabot.yml`（`npm` ecosystem 段的 ignore 列表与配套注释）+ `docs/plan/backlog.md §M31 迁移遗留的配置清理项`（完全闭环 → 整段删除）+ **范围补充**：`docs/design/governance/caomei-ui-migration.md` §9「遗留」条目口径同步（该行原写「建议后续治理批次移除」，闭环后成为陈旧指针，依 [development.md §5.1.25](../standards/development.md) 同根因调用点穷举原则同步）。
 - **验收标准**：
-  - [ ] `@primeuix/*` / `@primevue/*` / `primeicons` 三条 `ignore` 条目与配套注释移除；`conventional-changelog` 条目保留
-  - [ ] `rg -n "primevue|primeuix|primeicons" .github/dependabot.yml` = 0 命中；保留条目仍在（`rg -n "conventional-changelog" .github/dependabot.yml` ≥ 1）
-  - [ ] 前置实证：`rg -n "primevue|primeuix|primeicons" package.json apps/*/package.json pnpm-workspace.yaml` = 0（依赖确已卸载）
-  - [ ] YAML 可解析（`node -e "require('yaml').parse(require('fs').readFileSync('.github/dependabot.yml','utf8'))"` 或等价命令 EXIT 0）
-  - [ ] `docs/plan/backlog.md §M31 迁移遗留的配置清理项` 该条目完全闭环 → 整段删除
-- **不做什么**：不改 dependabot 其他配置（`updates` / `schedule` / `github-actions` 段）；不改 `conventional-changelog` ignore 条目；不重开 PrimeVue 依赖治理。
-- **依赖**：关联 M31.5 卸载 commit `406fd1f`（卸载 5 个 PrimeVue 依赖与配置收敛）+ M26.4a（primeicons 8.x → 7.x 降级）+ M28.1（该治理候选登记）。
-- **交付物**：1 atomic commit（`chore(ci)`）；文件 `.github/dependabot.yml` + `docs/plan/backlog.md`。
-- **风险与缓解**：误删仍在用的 ignore 条目导致后续自动升级 PR 噪音；缓解：删除前以验收标准第 3 条实证依赖残留为 0，删除后以第 2 条复扫确认。
+  - [x] `@primeuix/*` / `@primevue/*` / `primeicons` 三条 `ignore` 条目与配套注释移除；`conventional-changelog` 条目保留（保留数 2 = 注释 + 条目）
+  - [x] `rg -c "primevue|primeuix|primeicons" .github/dependabot.yml` = 0 命中；`rg -c "conventional-changelog" .github/dependabot.yml` = 2（≥ 1）
+  - [x] 前置实证：`rg -n "primevue|primeuix|primeicons" package.json apps/*/package.json pnpm-workspace.yaml` = 0 命中（依赖确已卸载）
+  - [x] YAML 可解析（等价命令：`python3 -c "import yaml; yaml.safe_load(open('.github/dependabot.yml'))"` EXIT 0；实测 `updates` 2 段，`npm` 段 ignore 仅剩 `conventional-changelog`，`github-actions` 段 ignore 为空）
+  - [x] `docs/plan/backlog.md §M31 迁移遗留的配置清理项` 该条目整段删除（`rg -n "M31 迁移遗留" docs/plan/backlog.md` = 0 命中；前后相邻条目与分隔线结构完好）
+  - [x] `docs/design/governance/caomei-ui-migration.md` §9 遗留条目已标注由 M33.3 清理（不再指向未完成工作）
+  - [x] `pnpm run check:docs` EXIT 0；`pnpm lint:md:check` 通过；`pnpm lint` 与 `pnpm --filter @dependfix/platform typecheck` EXIT 0
+- **不做什么**：不改 dependabot 其他配置（`updates` / `schedule` / `github-actions` 段）；不改 `conventional-changelog` ignore 条目；不重开 PrimeVue 依赖治理；不动 `docs/design/governance/primeui-themes-v2-downgrade.md` 及其索引条目（属 M31 之前的 License 治理设计先行稿，与本次死配置清理无关）；**不清理** `dependabot.yml` 中既有的 `§T1310` / `§M14.2` 编号注释（全量注释编号治理属 C81，已由 M33 决策 D4 明确留独立批次）。
+- **依赖**：关联 M31.5 卸载 commit `406fd1f`（卸载 5 个 PrimeVue 依赖与配置收敛）+ M26.4a（primeicons 8.x → 7.x 降级）+ M28.1（该治理候选登记）+ [caomei-ui-migration.md §9](../design/governance/caomei-ui-migration.md)（遗留清单来源）。
+- **交付物**：1 atomic commit（`chore(ci)`）；文件 `.github/dependabot.yml` + `docs/plan/backlog.md` + `docs/plan/archive/index.md`（基线同步）+ `docs/design/governance/caomei-ui-migration.md` + `docs/plan/todo.md`。
+- **风险与缓解**：误删仍在用的 ignore 条目导致后续自动升级 PR 噪音；缓解：删除前后各做一次复扫（前置依赖残留 = 0、删除后 prime 命中 = 0 且 `conventional-changelog` 仍在），YAML 解析实测通过。
+- **审计**：第 1 轮 `quick` **Pass**（0 blocker / 1 warning / 3 suggest）。warning RG-W1（`archive/index.md §4` 基线仍把该已知边界列为保留项，且 `:42` 的前向描述未标闭环）已修：补「2026-09-30 M33.3 本地实现闭环」子条 + 保留清单移除该项 + `:42` 标注两项均已闭环。suggest 处置：RG-S1（§3.4 交叉核验结论的「3 条 ignore」加「阶段启动时点记录；M33.3 已清理 → 0」注记）已采纳；RG-S2（`primeui-themes-v2-downgrade.md` 与双语索引行陈旧）已按 backlog 候选登记；RG-S3（编号标记扫描计数表述）已更正——`dependabot.yml` 实有 `§T1310` / `§M14.2` 两处 pre-existing 编号注释，均不属本 diff 且按 C81 留独立批次。
 
 #### M33.4 [P3 🧪 测试覆盖] C93 视觉回归 pr-checks 行级覆盖
 

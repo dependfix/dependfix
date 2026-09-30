@@ -44,8 +44,7 @@
 ## 覆盖边界（现状）
 
 - `pr-checks`：行级渲染已由 M33.4 覆盖——fixtures 端点新增可选 `prChecks` 写入路径（5 行覆盖结论标签四档 danger / success / warning / primary 与 Alert 状态三态 firing / 已 ack / OK）；时间列由 fixtures 钉死 `lastPolledAt` + 视觉环境固定 `locale` / `timezoneId` 保证 `toLocaleString()` 确定性，无需 `data-visual-mask`。
-- `alerts`：1440 视口下表格容器横向溢出，最右 `链接` / `详情` 两列不在基线画面内（既有宽表设计；
-  候选已登记 `docs/plan/backlog.md`）。
+- `alerts`：1440 视口下表格容器横向溢出（`clientWidth 1166 < scrollWidth 1318`），整页基线只覆盖可视区左端；最右 `链接` / `详情` 两列由 `alerts-right-<theme>.png` 覆盖（M33.5：容器横向滚到最右后的元素级补拍，仅改容器内部滚动位置，不动 viewport / 阈值 / 列宽）。
 - 三个页面仅取亮色（`pr-checks` / `dialog-import-repos` / `login`），明暗两态仅覆盖 `alerts` / `repos`。
 
 ## 不做什么

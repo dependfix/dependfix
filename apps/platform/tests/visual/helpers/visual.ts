@@ -74,7 +74,7 @@ export async function expectPageScreenshot(page: Page, name: string): Promise<vo
     })
 }
 
-/** 单个元素（如浮层容器）截图比对。 */
-export async function expectLocatorScreenshot(locator: Locator, name: string): Promise<void> {
-    await expect(locator).toHaveScreenshot(name)
+/** 单个元素（如浮层容器）截图比对；`mask` 用于遮蔽元素内的动态区域（与整页截图同口径）。 */
+export async function expectLocatorScreenshot(locator: Locator, name: string, mask: Locator[] = []): Promise<void> {
+    await expect(locator).toHaveScreenshot(name, mask.length > 0 ? { mask } : {})
 }

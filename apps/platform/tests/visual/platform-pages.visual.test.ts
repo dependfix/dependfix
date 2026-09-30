@@ -4,6 +4,7 @@ import { VISUAL_FIXTURES } from './helpers/fixtures'
 import {
     VISUAL_THEMES,
     applyTheme,
+    dynamicMask,
     expectLocatorScreenshot,
     expectPageScreenshot,
     expectThemeApplied,
@@ -80,6 +81,24 @@ test.describe('平台页面视觉基线', () => {
             await openAlerts(page)
             await expectThemeApplied(page, theme)
             await expectPageScreenshot(page, `alerts-${theme}.png`)
+
+            /* 宽表右端列补拍：1440 视口下表格容器横向溢出（实测 clientWidth 1166 < scrollWidth 1318），
+               上面那张整页基线只覆盖到可视区左端 → 最右「链接」「详情」两列在画面之外，回归不会被捕获。
+               此处把容器内部滚到最右再对容器补拍一张元素级基线。
+               与「固定环境口径」的关系：不动 viewport / 阈值 / 重试 / 表格列宽，只改**容器内部滚动位置**；
+               滚动量取 `scrollWidth - clientWidth`（最大值）→ 跨机器确定；容器高度随行数变化，
+               故补拍仍以固定 fixtures 数据为前提（与整页基线同一数据集）。 */
+            const table = page.locator('.caomei-data-table')
+            /* 前提断言：宽表确实溢出（否则本补拍失去意义，显式失败而非静默通过） */
+            const overflow = await table.evaluate((el: HTMLElement) => el.scrollWidth - el.clientWidth)
+            expect(overflow).toBeGreaterThan(0)
+            await table.evaluate((el: HTMLElement) => {
+                el.scrollLeft = el.scrollWidth
+            })
+            /* 滚动必须到达最右端（不是「发生了滚动」）：取 `scrollWidth - clientWidth` 作为期望值，
+               若未来出现平滑滚动 / 内容变化导致中途停住，此断言失败而非截到半途。 */
+            await expect.poll(async () => table.evaluate((el: HTMLElement) => el.scrollLeft)).toBe(overflow)
+            await expectLocatorScreenshot(table, `alerts-right-${theme}.png`, dynamicMask(page))
         })
 
         test(`repos 行选择与标签列（${theme}）`, async ({ page }) => {

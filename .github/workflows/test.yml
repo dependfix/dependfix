@@ -21,14 +21,26 @@ jobs:
           cache: "pnpm"
       - run: pnpm i --frozen-lockfile
       # 依赖审计（决策依据：docs/design/governance/c22-pat-backward-compat.md §5.5 决策 C 缓解措施 4；
-      # 覆盖范围修订依据：docs/plan/backlog.md C80）：
+      # 覆盖范围修订依据：M29.9「C80-A devDeps 链漏洞可见性（去 --prod）」，见 docs/plan/todo-archive.md）：
       # - pnpm.overrides 钉定 @octokit/auth-app=8.3.0（pnpm-workspace.yaml）
       # - 覆盖 prod + devDeps：原 `--prod` 只看 prod deps；devDeps 链同样需要治理
       #   （docs 工具链的 vite 漏洞只能从 devDeps 侧修复，实证见 docs/plan/todo.md M29.1），
       #   故改为全量 audit 以取得同步 PR 级信号
       # - --audit-level=moderate 包含 high + critical（Dependabot 默认告警阈值）
-      # - 失败不阻断 Test job（|| true）：audit 失败仅作为信号；阻断语义当前未启用
+      # - 失败不阻断 Test job（|| true）：audit 失败仅作为信号——2026-09-30 用户决策方案 C（观察期），
+      #   避免上游新披露 devDeps 漏洞突然红掉 Test workflow / 阻塞无关 PR
       #   （security alerts / updates 由 repo 级 Dependabot 设置提供，不是 dependabot.yml 的配置项）
+      # - **转正条件（可判定）**：自存量清零（2026-09-30，audit 13 条 → 0）起，连续 3 次 master push
+      #   的 Test workflow 中本步骤输出 clean（日志含 "No known vulnerabilities found" 且无
+      #   "vulnerabilities found"）→ 移除 || true 并追加 --ignore-registry-errors
+      #   （pnpm 11.17.0 支持：registry 报错时退出码 0，避免 registry 故障把 CI 判红）。
+      #   口径权威见 docs/standards/security.md §5.6；统计命令：
+      #     for id in $(gh run list --workflow test.yml --branch master --event push --limit 3 --json databaseId --jq '.[].databaseId'); do
+      #       job=$(gh run view "$id" --json jobs --jq '.jobs[] | select(.name=="Test") | .databaseId')
+      #       gh run view --job "$job" --log | grep -q "No known vulnerabilities found" && echo "$id CLEAN" || echo "$id NOT-CLEAN"
+      #     done
+      # - 本地复现须显式指定公共 registry（默认 npmmirror 无 audit endpoint）：
+      #   pnpm audit --audit-level=moderate --registry=https://registry.npmjs.org
       # - 升级 @octokit/auth-app 前必须重跑 e2e（回归范围见 docs/plan/archive/todo-archive-phases-m18.md）+ 评估 breaking change
       - name: pnpm audit (all deps, moderate+)
         run: pnpm audit --audit-level=moderate || true

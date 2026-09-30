@@ -28,7 +28,7 @@
 >
 > **类型平衡复核**：🛡️ 安全 1 项（M33.11）✅ / 📚 治理 1 项（M33.1）✅ / 🛠️ CI 与 devEx 治理 4 项（M33.2 / M33.3 / M33.6 / M33.7）✅ / 🧪 测试覆盖 2 项（M33.4 / M33.5）✅ / 🎨 用户体验 3 项（M33.8 / M33.9 / M33.10）✅ —— 原「🎨 UX 缺口」由用户直接决策批次补齐；其余缺口（`C37` 语言多设备同步等）留后续阶段评估。
 >
-> **§3.4 三重交叉核验结论**（M33.1–M33.6 全部实测 **0 项重复评估**）：① todo-archive 表格扫描（§1.7 原文命令 `rg -n "已闭环|不计入本批|不计入 M\d+|ahead=0.*已推" docs/plan/todo-archive.md docs/plan/archive/todo-archive-phases-*.md` + 补充按候选 id 过滤 `rg`）无候选被标已闭环；② git log 核验（`git log --all --oneline --grep="C91|C93|C94|C80|C83|C15"`）仅命中候选登记 docs commit，无实现 commit；③ 代码侧 anchor 实证（C91 `rg -n "5\.1\.2[4-9]|恒真|视觉回归|中央优先|前缀感知|SIGNING_ISOLATION" .github/agents .github/skills` 仅 1 命中且非检查点；C93 `rg -n prCheck apps/platform/server/api/e2e/` = 0；C94 基线目录仅 7 张无横向补拍；C80 `test.yml:34` 仍 `|| true` + 注释「阻断语义当前未启用」；M31 死配置 `rg -n "primevue|primeuix|primeicons" .github/dependabot.yml` 命中 3 条 ignore（阶段启动时点记录；M33.3 已清理 → 0）；视觉 CI `continue-on-error: true` 仍在〔阶段启动时点记录；M33.2 已转阻断 → 0〕）。
+> **§3.4 三重交叉核验结论**（M33.1–M33.6 全部实测 **0 项重复评估**）：① todo-archive 表格扫描（§1.7 原文命令 `rg -n "已闭环|不计入本批|不计入 M\d+|ahead=0.*已推" docs/plan/todo-archive.md docs/plan/archive/todo-archive-phases-*.md` + 补充按候选 id 过滤 `rg`）无候选被标已闭环；② git log 核验（`git log --all --oneline --grep="C91|C93|C94|C80|C83|C15"`）仅命中候选登记 docs commit，无实现 commit；③ 代码侧 anchor 实证（C91 `rg -n "5\.1\.2[4-9]|恒真|视觉回归|中央优先|前缀感知|SIGNING_ISOLATION" .github/agents .github/skills` 仅 1 命中且非检查点；C93 `rg -n prCheck apps/platform/server/api/e2e/` = 0；C94 基线目录仅 7 张无横向补拍；C80 `test.yml:34` 仍 `|| true` + 注释「阻断语义当前未启用」〔阶段启动时点记录；M33.6 已落为方案 C 观察期 + 可判定转正条件〕；M31 死配置 `rg -n "primevue|primeuix|primeicons" .github/dependabot.yml` 命中 3 条 ignore（阶段启动时点记录；M33.3 已清理 → 0）；视觉 CI `continue-on-error: true` 仍在〔阶段启动时点记录；M33.2 已转阻断 → 0〕）。
 >
 > **ahead commits 实证**：阶段启动前 `git rev-list HEAD ^origin/master --count` 实测 = 0（M0-M32 全部已推送）；本阶段 commits 按 [AGENTS.md §5 推送禁令](../../AGENTS.md) 等待用户主动推送。
 
@@ -122,17 +122,19 @@
 
 - **目标**：按用户 2026-09-30 决策**方案 C**，维持 `|| true`（仅信号）但显式标注**可判定的观察期截止条件**与转阻断配套口径，使「是否转阻断」具备可执行的裁决路径而非悬置。
 - **优先级**：P3（非阻塞；当前为信号级已可观测，阻断语义属策略选择）。
-- **范围**：`.github/workflows/test.yml`（audit 步骤注释）；`docs/standards/ai-collaboration.md §1.5`（「审计门禁缺失：纳入 backlog 候选（当前落点见 backlog C80）」指针 → 更新为 M33.6 决策结果）；如涉规范挂接，追加 `docs/standards/security.md` 或 `development.md` 对应段落（决策点）。
+- **范围**：`.github/workflows/test.yml`（audit 步骤注释）；`docs/standards/ai-collaboration.md §1.5`（「审计门禁缺失：纳入 backlog 候选（当前落点见 backlog C80）」指针 → 更新为 M33.6 决策结果）；**决策点落定**：规范挂接新增 `docs/standards/security.md §5.6 依赖审计阻断语义`（口径权威）+ workflow 注释承载可复现统计命令（操作面），另同步 workflow 注释中同样陈旧的 `backlog.md C80` 指针。
 - **验收标准**：
-  - [ ] audit 步骤注释写明方案 C 依据 + 可判定观察期条件（可脚本化统计，如「连续 N 次 CI run 的 devDeps 告警数为 0 后转阻断」）+ 转阻断配套（`--ignore-registry-errors` 评估结论）
-  - [ ] 维持 `|| true`（**不转阻断**）；`--audit-level` 取值与注释口径一致（当前 `moderate`）
-  - [ ] `rg -n "\|\| true" .github/workflows/test.yml` 仍命中 audit 步骤（确认未误转阻断）
-  - [ ] `rg -n "backlog C80|backlog\.md#开发工具链" docs/standards/ai-collaboration.md` = 0 命中（C80 backlog 落点指针已更新为 M33.6 决策结果）
-  - [ ] 若涉规范链接：`pnpm run check:docs` EXIT 0
-- **不做什么**：不引入 Snyk / 第三方 SCA 服务；不改 `pnpm-workspace.yaml` overrides 策略；不在本候选内清理存量告警（当前全量 audit 实测 0 告警）；不重复处理覆盖方式（M29.9 已落地）。
-- **依赖**：关联 M29.1（触发实证）+ M29.9（覆盖方式已落地，本条目仅剩阻断语义）+ repo 级 security alerts 设置（`vulnerability-alerts` 已启用）。
-- **交付物**：1 atomic commit（`ci(test)` 注释口径 + 观察期条件 + 转阻断配套结论）；文件 `.github/workflows/test.yml` + `docs/standards/ai-collaboration.md`（±`security.md` / `development.md`）。
+  - [x] audit 步骤注释写明方案 C 依据 + **可判定观察期条件**（自存量清零〔2026-09-30 M33.11：13 条 → 0〕起，连续 3 次 `master` push 的 Test workflow 该步骤输出 clean，判据 = 日志含 `No known vulnerabilities found` 且无 `vulnerabilities found`）+ **转阻断配套**（移除 `|| true` 时同步追加 `--ignore-registry-errors`；pnpm 11.17.0 `--help` 实测该选项存在，语义 = registry 报错时退出码 0）+ 完整统计命令 + 本地复现提示（默认 npmmirror 无 audit endpoint）
+  - [x] 维持 `|| true`（**不转阻断**）：`rg -c "\|\| true" .github/workflows/test.yml` = 3（1 处实际使用〔audit 步骤〕+ 注释中 2 处提及）；`--audit-level=moderate` 与注释口径一致
+  - [x] `rg -n "\|\| true" .github/workflows/test.yml` 仍命中 audit 步骤（确认未误转阻断）；YAML 解析通过（`python3 -c "import yaml; yaml.safe_load(...)"`）
+  - [x] `rg -n "backlog C80|backlog\.md#开发工具链" docs/standards/ai-collaboration.md` = **0 命中**（指针改为「C80 剩余阻断语义已由 M33.6 落为方案 C 观察期」+ security.md §5.6 锚点）
+  - [x] `pnpm run check:docs` EXIT 0（links 144 / vue-interp 79；含新增 §5.6 锚点校验）；`pnpm lint:md:check` 通过
+- **统计命令实测**：`gh run list … | gh run view --job <Test job> --log | grep -q "No known vulnerabilities found"` 对最近 3 次 master push 输出 3×`NOT-CLEAN`（M33.11 尚未推送，与预期一致）→ 命令可判定。
+- **不做什么**：不引入 Snyk / 第三方 SCA 服务；不改 `pnpm-workspace.yaml` overrides 策略；不在本候选内清理存量告警（**存量 13 条〔5 moderate / 8 high〕已由 M33.11 治理为 0**，本条只落阻断语义口径）；不重复处理覆盖方式（M29.9 已落地）。
+- **依赖**：关联 **M33.11（存量清零，观察期起点）** + M29.1（触发实证）+ M29.9（覆盖方式已落地，本条目仅剩阻断语义）+ repo 级 security alerts 设置（`vulnerability-alerts` 已启用）。
+- **交付物**：1 atomic commit（`ci(test)` 注释口径 + 观察期条件 + 转阻断配套结论）；文件 `.github/workflows/test.yml` + `docs/standards/ai-collaboration.md` + `docs/standards/security.md`（新增 §5.6 口径权威）+ `docs/plan/todo.md`。
 - **风险与缓解**：观察期条件若不可判定则形同虚设；缓解：条件须可由 CI run 历史脚本化判定并写入注释（含统计命令），使第三方可复现。
+- **审计**：第 1 轮 `standard` **Pass**（0 blocker / 1 warning / 4 suggest）。warning 处置：RG-W1（§5.6 与 §5.2「依赖审计进 CI 门禁」缺少显式协调，可被读为规范冲突）已在 §5.2 该条补一行交叉引用（明示「当前强度为信号级，阻断语义见 §5.6」）。suggest 处置：S2（判据双条件与单命令不完全等价）已改为「含该串即蕴含无 `vulnerabilities found`」说明；S3（§5.6 新增「必须追加 `--ignore-registry-errors`」未挂 review 检查点）已在 §5.6 补 inline「审计必查项」；S4（阶段启动记录 C80 项未标已闭环）已补时点注记；S1（workflow 注释与 §5.6 存在完整重复）保留现状——两处已显式声明「口径权威 / 操作面」分工，且 AC 要求注释自带可复现命令。
 
 #### M33.7 [P2 🛠️ devEx 治理] 数据库迁移命令入口补齐（2026-09-30 用户直接决策追加）
 

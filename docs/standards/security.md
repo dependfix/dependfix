@@ -99,7 +99,7 @@ AI 生成的代码与自动化引入的依赖/工具是独立投毒面，引入�
 - **钉版本 + 锁文件**: 新增依赖必须锁定精确版本并提交锁文件（pnpm-lock.yaml 等）；CI 中 GitHub Actions 必须钉不可变版本（如 setup-uv v8 起无 major tag）。
 - **外部工具/技能来源可信**: 引入 MCP server、agent、skill 或 `git+https` 依赖前，核对来源仓库 URL 与维护组织，只装官方组织或自有仓库；警惕"伪装成有用文档/技能"的诱导信任（TrustFall 模式）。
 - **最小权限**: MCP server 与自动化 agent 不运行于 root、不挂载全盘、数据库端口不暴露公网。
-- **依赖审计进 CI**: 依赖审计（pnpm audit 等）必须进入 CI 门禁，本地抽查不能代替。
+- **依赖审计进 CI**: 依赖审计（pnpm audit 等）必须进入 CI 门禁，本地抽查不能代替。**当前强度为信号级**（`|| true`，不阻断 Test workflow）——阻断语义的转正条件与配套见 [§5.6](#56-依赖审计阻断语义信号级--阻断的转正条件2026-09-30-用户决策方案-c)。
 
 ### 5.3 修复执行安全（dependfix 自身不得成为漏洞扩散工具）
 
@@ -194,6 +194,27 @@ verification 阶段（依赖修复后的 `pnpm install --frozen-lockfile` / `pnp
 - 错误消息 / 日志 / 报告禁止打印明文 token（与 §5.3 "防泄露通道" 一致；`sanitizeErrorMessage` 覆盖 URL 内嵌 + Authorization basic/token/Bearer 三 scheme）
 - `decryptToken` 解密失败必须抛错（防 fail-open）；禁止 catch 后静默返回空 token
 - 密文格式校验（split 3 段）不可删除（防构造畸形密文绕过）
+
+### 5.6 依赖审计阻断语义（信号级 → 阻断的转正条件，2026-09-30 用户决策方案 C）
+
+`test.yml` 的 `pnpm audit (all deps, moderate+)` 步骤当前以 `|| true` 运行——**信号级，不阻断**。这是 2026-09-30 用户决策的**方案 C（观察期）**：上游新披露 devDeps 漏洞时不应突然把 Test workflow 变红、阻塞无关 PR。
+
+- **口径权威**：本节为转正条件的权威声明；`.github/workflows/test.yml` 的 audit 步骤注释承载**可复现统计命令**（面向 CI 操作者）。
+- **观察期条件（可判定）**：自存量清零（2026-09-30 M33.11：audit 由 13 条〔5 moderate / 8 high〕降为 0）起，**连续 3 次 `master` push 的 Test workflow** 中该步骤输出 clean——判据为步骤日志含 `No known vulnerabilities found`（该串为 pnpm audit 的 clean 输出，出现即蕴含无 `vulnerabilities found` 行）。任一 run 不 clean 则计数归零，自其后首个 clean run 重新起算。
+- **统计命令**（第三方可复现，需 `gh` 已认证）：
+  ```bash
+  for id in $(gh run list --workflow test.yml --branch master --event push --limit 3 --json databaseId --jq '.[].databaseId'); do
+    job=$(gh run view "$id" --json jobs --jq '.jobs[] | select(.name=="Test") | .databaseId')
+    gh run view --job "$job" --log | grep -q "No known vulnerabilities found" && echo "$id CLEAN" || echo "$id NOT-CLEAN"
+  done
+  ```
+- **转阻断配套**：移除 `|| true` 时**必须同时追加 `--ignore-registry-errors`**（pnpm 11.17.0 实测支持，语义 = registry 返回错误时退出码 0），避免 registry 故障把 CI 判红——这是「阻断语义」与「registry 可用性」两个独立维度的分离。
+- **触发转正时的动作清单**：① 移除 `|| true` 并追加 `--ignore-registry-errors`；② 更新本节与 workflow 注释（记录转正日期 + 作为依据的 3 个 run id）；③ `--audit-level=moderate` 维持不变（与注释口径一致）。
+- **本地复现提示**：本地默认 registry（npmmirror）**无 audit endpoint**（`ERR_PNPM_AUDIT_ENDPOINT_NOT_EXISTS`），本地复现须显式 `pnpm audit --audit-level=moderate --registry=https://registry.npmjs.org`。
+
+**审计必查项（Code Auditor 必查）**：
+
+- 触发改动 = 移除 audit 步骤的 `|| true`（转阻断）：必须同时追加 `--ignore-registry-errors`，并在本节与 `.github/workflows/test.yml` 注释记录转正日期与作为依据的 3 个 run id（不得只删 `|| true`）
 
 ## 6. 终端命令与自动化安全 (CLI & Automation)
 

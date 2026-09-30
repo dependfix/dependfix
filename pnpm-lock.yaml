@@ -122,8 +122,8 @@ importers:
         specifier: ^13.0.3
         version: 13.0.3
       bullmq:
-        specifier: ^6.3.8
-        version: 6.3.8(ioredis@6.0.0(supports-color@10.2.2))(pg@8.23.0)
+        specifier: ^6.3.9
+        version: 6.3.9(ioredis@6.0.0(supports-color@10.2.2))(pg@8.23.0)
       caomei-ui:
         specifier: 0.3.0
         version: 0.3.0(@nuxt/kit@4.5.2(magic-string@1.1.0)(magicast@0.5.4)(oxc-parser@0.141.0)(rolldown@1.2.7)(unplugin@3.3.0(esbuild@0.25.12)(rolldown@1.2.7)(rollup@4.62.4)(vite@8.3.1(@types/node@26.6.2)(esbuild@0.25.12)(jiti@2.7.0)(sass@1.105.0)(terser@5.49.2)(tsx@4.23.15)(yaml@2.9.1))))(vue@3.5.43(typescript@6.0.3))
@@ -3711,8 +3711,8 @@ packages:
   buffer@6.0.3:
     resolution: {integrity: sha512-FTiCpNxtwiZZHEZbcbTIcZjERVICn9yq/pDFkTl95/AxzD1naBctN7YO68riM/gLSDY7sdrMby8hofADYuuqOA==}
 
-  bullmq@6.3.8:
-    resolution: {integrity: sha512-09zcOQ1uycyCK2C9iY2Pm+/JPa/gIXiZqGBUiIlO1v3VshwBgarmAgWRTWDL/IAvI8NFE1zqrkdKFgRfXHHM5A==}
+  bullmq@6.3.9:
+    resolution: {integrity: sha512-wBGk4tHZRFcQayZlC5DPRxg2EFfCqhgkJq0uQ8EvufMgh2hYmPeH8tK+1U4ffimNmnJzTUhwwW1PNUIQMhvSpQ==}
     engines: {node: '>=14.17.0'}
     peerDependencies:
       bullmq-otel: '>=2.0.0'
@@ -11936,7 +11936,7 @@ snapshots:
       base64-js: 1.5.1
       ieee754: 1.2.1
 
-  bullmq@6.3.8(ioredis@6.0.0(supports-color@10.2.2))(pg@8.23.0):
+  bullmq@6.3.9(ioredis@6.0.0(supports-color@10.2.2))(pg@8.23.0):
     dependencies:
       cron-parser: 5.10.1
       msgpackr: 2.1.0

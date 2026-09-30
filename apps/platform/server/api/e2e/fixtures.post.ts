@@ -4,6 +4,7 @@ import { ensureDatabaseInitialized } from '#server/database'
 import { Repository } from '#server/entities/repository'
 import { ScanRun, SCAN_RUN_STATUSES } from '#server/entities/scan-run'
 import { ScanResult } from '#server/entities/scan-result'
+import { PRCheck, PR_CHECK_CONCLUSIONS } from '#server/entities/pr-check'
 import { resolveOrganizationId } from '#server/utils/organization'
 
 // useRuntimeConfig 由 Nuxt/Nitro auto-import 提供（vitest 环境由 tests/setup-nuxt-server.ts stub）
@@ -35,6 +36,8 @@ import { resolveOrganizationId } from '#server/utils/organization'
  *   标记 created=false（保证 global-setup 重复执行不报错）
  * - scanRuns 每次新建（每次 e2e 跑模拟一次新扫描；与历史 run 共存用于跨次去重断言）
  * - scanResults 跟随 scanRun 创建（无需查重，每条都是独立告警）
+ * - prChecks 按 (repositoryId, prNumber, headSha) 复合唯一索引查重复用（同 repos 语义；
+ *   该写入路径只服务测试——视觉套件需要 pr-checks 页行级基线，见 tests/visual/helpers/fixtures.ts）
  *
  * 清理策略：DELETE /api/e2e/fixtures（同名端点 .delete.ts）按 owner/name 级联清理关联
  * 数据；global-setup 在 seed 前调用避免跨 run 累积。
@@ -95,10 +98,44 @@ const scanResultSchema = z.object({
     supersededAt: z.string().nullable().optional(),
 })
 
+/**
+ * PR Check fixtures（apps/platform/tests/visual 的 pr-checks 页行级基线用）。
+ *
+ * 该表原本没有任何写入路径（行数据只由 GitHub 轮询产生）→ pr-checks 页视觉基线只覆盖空态与表头密度。
+ * 这里补一条**仅测试可达**的写入路径（双门控同本文件），使该页行级渲染进入基线：
+ * 结论标签 / Alert 状态三态（firing / 已 ack / OK）/ 最近轮询列 / ack 按钮。
+ *
+ * 幂等：按实体复合唯一索引 `(repositoryId, prNumber, headSha)` 查重复用，已存在不更新字段
+ * （与 repo 的幂等语义一致；视觉套件每次先 DELETE 再 seed，不依赖更新语义）。
+ */
+const prCheckSchema = z.object({
+    /** 引用 repos 中已存在的仓库（owner/name 组合在 repos 中唯一） */
+    repositoryOwner: z.string().min(1),
+    repositoryName: z.string().min(1),
+    /** PR 编号（GitHub pull_request.number） */
+    prNumber: z.number().int().min(1),
+    /** PR HEAD SHA（实体列长 40；短 SHA 亦可，供 fixture 省略书写） */
+    headSha: z.string().min(1).max(40),
+    /** PR 作者 login（如 `dependfix[bot]` / `dependabot[bot]`） */
+    authorLogin: z.string().min(1).max(100),
+    /** check 结论；复用实体枚举单点声明（避免 schema 与 entity 不同步） */
+    conclusion: z.enum(PR_CHECK_CONCLUSIONS).default('pending'),
+    checkRunId: z.string().max(64).nullable().optional(),
+    detailsUrl: z.string().max(500).nullable().optional(),
+    errorMessage: z.string().nullable().optional(),
+    alertFiring: z.boolean().default(false),
+    /** 用户 ack 时间（ISO 串；null = 未 ack） */
+    acknowledgedAt: z.string().nullable().optional(),
+    acknowledgedByUserId: z.string().max(36).nullable().optional(),
+    /** 最近轮询时间（实体列 NOT NULL）：**必填**，视觉基线需要确定性的时间列取值 */
+    lastPolledAt: z.string().min(1),
+})
+
 const fixturesBodySchema = z.object({
     repos: z.array(repoSchema).optional(),
     scanRuns: z.array(scanRunSchema).optional(),
     scanResults: z.array(scanResultSchema).optional(),
+    prChecks: z.array(prCheckSchema).optional(),
 })
 
 export default defineEventHandler(async (event) => {
@@ -126,6 +163,7 @@ export default defineEventHandler(async (event) => {
     const repoRepo = ds.getRepository(Repository)
     const runRepo = ds.getRepository(ScanRun)
     const resultRepo = ds.getRepository(ScanResult)
+    const prCheckRepo = ds.getRepository(PRCheck)
 
     // repos：按 owner+name+platform 查重（与实体复合唯一索引一致）
     const repoResults: { owner: string, name: string, id: string, created: boolean }[] = []
@@ -245,9 +283,51 @@ export default defineEventHandler(async (event) => {
         }
     }
 
+    // prChecks：通过 owner/name 反查已创建的 repo id；按 (repositoryId, prNumber, headSha) 幂等
+    const prCheckResults: { repositoryId: string, id: string, created: boolean }[] = []
+    if (parsed.data.prChecks) {
+        for (let i = 0; i < parsed.data.prChecks.length; i++) {
+            const pc = parsed.data.prChecks[i]!
+            const repo = repoResults.find(
+                (r) => r.owner === pc.repositoryOwner && r.name === pc.repositoryName,
+            ) ?? await repoRepo.findOne({
+                where: { owner: pc.repositoryOwner, name: pc.repositoryName },
+            })
+            if (!repo) {
+                throw createError({
+                    statusCode: 400,
+                    statusMessage: `prChecks[${i}]: repository ${pc.repositoryOwner}/${pc.repositoryName} not found`,
+                })
+            }
+            const existing = await prCheckRepo.findOne({
+                where: { repositoryId: repo.id, prNumber: pc.prNumber, headSha: pc.headSha },
+            })
+            if (existing) {
+                prCheckResults.push({ repositoryId: repo.id, id: existing.id, created: false })
+                continue
+            }
+            const saved = await prCheckRepo.save(prCheckRepo.create({
+                repositoryId: repo.id,
+                prNumber: pc.prNumber,
+                headSha: pc.headSha,
+                authorLogin: pc.authorLogin,
+                conclusion: pc.conclusion,
+                checkRunId: pc.checkRunId ?? null,
+                detailsUrl: pc.detailsUrl ?? null,
+                errorMessage: pc.errorMessage ?? null,
+                alertFiring: pc.alertFiring,
+                acknowledgedAt: pc.acknowledgedAt ? new Date(pc.acknowledgedAt) : null,
+                acknowledgedByUserId: pc.acknowledgedByUserId ?? null,
+                lastPolledAt: new Date(pc.lastPolledAt),
+            }))
+            prCheckResults.push({ repositoryId: repo.id, id: saved.id, created: true })
+        }
+    }
+
     return {
         repos: repoResults,
         scanRuns: runResults,
         scanResults: resultResults,
+        prChecks: prCheckResults,
     }
 })

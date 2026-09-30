@@ -43,8 +43,7 @@
 
 ## 覆盖边界（现状）
 
-- `pr-checks`：该页行数据由 GitHub 轮询产生，fixtures 端点暂无对应写入路径 → 基线只覆盖页面骨架、
-  summary 卡片、空态与表头密度，**不覆盖行级渲染**（候选已登记 `docs/plan/backlog.md`）。
+- `pr-checks`：行级渲染已由 M33.4 覆盖——fixtures 端点新增可选 `prChecks` 写入路径（5 行覆盖结论标签四档 danger / success / warning / primary 与 Alert 状态三态 firing / 已 ack / OK）；时间列由 fixtures 钉死 `lastPolledAt` + 视觉环境固定 `locale` / `timezoneId` 保证 `toLocaleString()` 确定性，无需 `data-visual-mask`。
 - `alerts`：1440 视口下表格容器横向溢出，最右 `链接` / `详情` 两列不在基线画面内（既有宽表设计；
   候选已登记 `docs/plan/backlog.md`）。
 - 三个页面仅取亮色（`pr-checks` / `dialog-import-repos` / `login`），明暗两态仅覆盖 `alerts` / `repos`。

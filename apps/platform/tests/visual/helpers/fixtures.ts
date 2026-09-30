@@ -1,5 +1,5 @@
 import type { APIRequestContext } from '@playwright/test'
-import { type AlertsRowgroupFixtures, seedCustomFixtures } from '../../e2e/helpers/fixtures.helper'
+import { type FixturesPayload, seedCustomFixtures } from '../../e2e/helpers/fixtures.helper'
 
 /**
  * 视觉回归专属 fixtures 数据集。
@@ -9,7 +9,8 @@ import { type AlertsRowgroupFixtures, seedCustomFixtures } from '../../e2e/helpe
  * - e2e 数据集的 `firstSeenAt` / `lastSeenAt` 缺省 → fixtures 端点填 `now()`，每次运行不同；
  *   视觉基线需要**逐像素可复现**，故本数据集显式钉死时间戳。
  *
- * 数据规模遵循 minimum fixture 原则：3 仓库（2 个带标签 + 1 个无标签）+ 3 次扫描 + 7 条告警。
+ * 数据规模遵循 minimum fixture 原则：3 仓库（2 个带标签 + 1 个无标签）+ 3 次扫描 + 7 条告警
+ * + 5 条 PRCheck（pr-checks 页行级基线）。
  *
  * 数据集刻意让**每个包只有一档 severity**（lodash=high / node-fetch=medium / axios=critical /
  * minimist=low）：alerts 页分组键是包名，而默认排序按 severity 降序——同一包跨多档 severity 时，
@@ -17,7 +18,7 @@ import { type AlertsRowgroupFixtures, seedCustomFixtures } from '../../e2e/helpe
  * 视觉基线取「分组连续」的形态，以覆盖分组头 + 展开行 + 4 档 severity 标签 + 4 种 source +
  * 5 种 fixStatus 呈现。不要扩展本集合，除非新增视觉用例确实需要。
  */
-export const VISUAL_FIXTURES: AlertsRowgroupFixtures = {
+export const VISUAL_FIXTURES: FixturesPayload = {
     repos: [
         { owner: 'acme', name: 'web-app', tags: ['frontend', 'critical'] },
         { owner: 'acme', name: 'api-gateway', tags: ['backend'] },
@@ -171,6 +172,84 @@ export const VISUAL_FIXTURES: AlertsRowgroupFixtures = {
             occurrenceCount: 1,
             firstSeenAt: '2026-08-07T02:00:00.000Z',
             lastSeenAt: '2026-08-26T02:00:00.000Z',
+        },
+    ],
+    /**
+     * pr-checks 页行级基线：5 行覆盖「结论标签四档色」+「Alert 状态三态」+ ack 按钮。
+     *
+     * - #101 `failure` + firing → 结论 danger 标签 + 「仅 firing」danger 标签 + ack 按钮
+     * - #102 `timed_out` + 已 ack（`acknowledgedAt` 非空）→ 结论 danger + 「仅已 ack」neutral 标签
+     * - #103 `success` → 结论 success 标签 + 「OK」success 标签
+     * - #104 `pending` → 结论 warning 标签 + 「OK」success 标签
+     * - #105 `cancelled` → 结论 primary 标签（补齐 `conclusionTagTone` 的第四档）+ 「OK」success 标签
+     *
+     * 标签色来源务必区分：结论列四档 = danger / success / warning / primary；Alert 状态列三态
+     * = danger（firing）/ neutral（已 ack）/ success（OK）——`neutral` 只出现在状态列。
+     *
+     * `lastPolledAt` 显式钉死（页面默认按该列降序）：时间列渲染走 `Date#toLocaleString()`，
+     * 而视觉环境已在 `playwright.visual.config.ts` 固定 `locale: zh-CN` + `timezoneId: Asia/Shanghai`，
+     * 故无需 `data-visual-mask` 遮蔽即可逐像素可复现（决策依据见 todo.md §M33.4）。
+     */
+    prChecks: [
+        {
+            repositoryOwner: 'acme',
+            repositoryName: 'web-app',
+            prNumber: 101,
+            headSha: '1111111111111111111111111111111111111111',
+            authorLogin: 'dependfix[bot]',
+            conclusion: 'failure',
+            checkRunId: '900000101',
+            detailsUrl: 'https://github.com/acme/web-app/pull/101',
+            errorMessage: 'Test workflow failed on shard 2',
+            alertFiring: true,
+            lastPolledAt: '2026-08-28T02:00:00.000Z',
+        },
+        {
+            repositoryOwner: 'acme',
+            repositoryName: 'web-app',
+            prNumber: 102,
+            headSha: '2222222222222222222222222222222222222222',
+            authorLogin: 'dependabot[bot]',
+            conclusion: 'timed_out',
+            checkRunId: '900000102',
+            detailsUrl: 'https://github.com/acme/web-app/pull/102',
+            errorMessage: 'Timed out after 60 minutes',
+            alertFiring: false,
+            acknowledgedAt: '2026-08-27T03:00:00.000Z',
+            lastPolledAt: '2026-08-27T02:00:00.000Z',
+        },
+        {
+            repositoryOwner: 'acme',
+            repositoryName: 'web-app',
+            prNumber: 103,
+            headSha: '3333333333333333333333333333333333333333',
+            authorLogin: 'dependfix[bot]',
+            conclusion: 'success',
+            checkRunId: '900000103',
+            detailsUrl: 'https://github.com/acme/web-app/pull/103',
+            lastPolledAt: '2026-08-26T02:00:00.000Z',
+        },
+        {
+            repositoryOwner: 'acme',
+            repositoryName: 'web-app',
+            prNumber: 104,
+            headSha: '4444444444444444444444444444444444444444',
+            authorLogin: 'dependfix[bot]',
+            conclusion: 'pending',
+            checkRunId: '900000104',
+            detailsUrl: 'https://github.com/acme/web-app/pull/104',
+            lastPolledAt: '2026-08-25T02:00:00.000Z',
+        },
+        {
+            repositoryOwner: 'acme',
+            repositoryName: 'web-app',
+            prNumber: 105,
+            headSha: '5555555555555555555555555555555555555555',
+            authorLogin: 'dependfix[bot]',
+            conclusion: 'cancelled',
+            checkRunId: '900000105',
+            detailsUrl: 'https://github.com/acme/web-app/pull/105',
+            lastPolledAt: '2026-08-24T02:00:00.000Z',
         },
     ],
 }

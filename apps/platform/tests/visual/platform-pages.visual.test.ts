@@ -94,7 +94,25 @@ test.describe('平台页面视觉基线', () => {
         await applyTheme(page, 'light')
         await page.goto('/pr-checks')
         await waitForHydration(page)
-        await expect(page.locator('.caomei-data-table')).toBeVisible({ timeout: 15000 })
+        const table = page.locator('.caomei-data-table')
+        await expect(table).toBeVisible({ timeout: 15000 })
+        /* 行级覆盖断言：fixtures 端点已支持 prChecks 写入路径，
+           若该路径失效则基线会静默落回空态——先断言行数与三态标签再截图，
+           让「基线覆盖行级渲染」这件事本身可被检出。 */
+        const expectedRows = VISUAL_FIXTURES.prChecks?.length ?? 0
+        await expect(table.locator('tbody .caomei-data-table__row')).toHaveCount(expectedRows)
+        await expect(table).toContainText('dependfix[bot]')
+        await expect(table).toContainText('dependabot[bot]')
+        // 结论标签四档色调（danger / success / warning / primary 各至少一处）
+        for (const tone of ['danger', 'success', 'warning', 'primary']) {
+            await expect(table.locator(`.caomei-tag--${tone}`).first()).toBeVisible()
+        }
+        // Alert 状态列 neutral 档（已 ack）独立于结论标签，单列断言
+        await expect(table.locator('.caomei-tag--neutral').first()).toBeVisible()
+        // Alert 状态三态文案（firing / 已 ack / OK）
+        for (const label of ['仅 firing', '仅已 ack', 'OK']) {
+            await expect(table).toContainText(label)
+        }
         await waitForVisualStable(page)
         await expectThemeApplied(page, 'light')
         await expectPageScreenshot(page, 'pr-checks-light.png')

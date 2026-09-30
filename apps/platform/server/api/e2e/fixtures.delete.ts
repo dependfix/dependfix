@@ -5,6 +5,7 @@ import { ensureDatabaseInitialized } from '#server/database'
 import { Repository } from '#server/entities/repository'
 import { ScanRun } from '#server/entities/scan-run'
 import { ScanResult } from '#server/entities/scan-result'
+import { PRCheck } from '#server/entities/pr-check'
 
 // useRuntimeConfig 由 Nuxt/Nitro auto-import 提供（vitest 环境由 tests/setup-nuxt-server.ts stub）
 // 不在 h3 中显式 import，避免被 h3 解析为 undefined（h3 不导出 useRuntimeConfig）
@@ -24,9 +25,10 @@ import { ScanResult } from '#server/entities/scan-result'
  * `process.env.NODE_ENV` 静态替换陷阱（详见 platform.md §3.6 实证段）。
  *
  * 清理顺序（应用层显式级联，不依赖 SQLite FK CASCADE 默认行为）：
- * 1. ScanResult：按 scanRunId IN (...) 批量删除
- * 2. ScanRun：按 repositoryId IN (...) 批量删除
- * 3. Repository：按 id IN (...) 批量删除
+ * 1. PRCheck：按 repositoryId IN (...) 批量删除
+ * 2. ScanResult：按 scanRunId IN (...) 批量删除
+ * 3. ScanRun：按 repositoryId IN (...) 批量删除
+ * 4. Repository：按 id IN (...) 批量删除
  *
  * 幂等：依赖 TypeORM delete 返回 affected count，重复调用安全（删除不存在记录返回 0）。
  */
@@ -59,20 +61,21 @@ export default defineEventHandler(async (event) => {
 
     const repos = parsed.data.repos ?? []
     if (repos.length === 0) {
-        return { deleted: { repos: 0, scanRuns: 0, scanResults: 0 } }
+        return { deleted: { repos: 0, scanRuns: 0, scanResults: 0, prChecks: 0 } }
     }
 
     const ds = await ensureDatabaseInitialized()
     const repoRepo = ds.getRepository(Repository)
     const runRepo = ds.getRepository(ScanRun)
     const resultRepo = ds.getRepository(ScanResult)
+    const prCheckRepo = ds.getRepository(PRCheck)
 
     // 1. 按 owner/name 找到对应 repository id（跳过不存在的 key，幂等）
     const repoEntities = await repoRepo.find({
         where: repos.map((r) => ({ owner: r.owner, name: r.name })),
     })
     if (repoEntities.length === 0) {
-        return { deleted: { repos: 0, scanRuns: 0, scanResults: 0 } }
+        return { deleted: { repos: 0, scanRuns: 0, scanResults: 0, prChecks: 0 } }
     }
     const repoIds = repoEntities.map((r) => r.id)
 
@@ -80,7 +83,9 @@ export default defineEventHandler(async (event) => {
     const scanRuns = await runRepo.find({ where: { repositoryId: In(repoIds) } })
     const scanRunIds = scanRuns.map((r) => r.id)
 
-    // 3. 显式级联删除 ScanResult → ScanRun → Repository
+    // 3. 显式级联删除 PRCheck → ScanResult → ScanRun → Repository
+    const deletedPrChecks = (await prCheckRepo.delete({ repositoryId: In(repoIds) })).affected ?? 0
+
     let deletedScanResults = 0
     if (scanRunIds.length > 0) {
         const result = await resultRepo.delete({ scanRunId: In(scanRunIds) })
@@ -98,6 +103,7 @@ export default defineEventHandler(async (event) => {
             repos: deletedRepos,
             scanRuns: deletedScanRuns,
             scanResults: deletedScanResults,
+            prChecks: deletedPrChecks,
         },
     }
 })

@@ -71,10 +71,37 @@ export interface ScanResultFixture {
     occurrenceCount?: number
 }
 
-export interface AlertsRowgroupFixtures {
+export interface PRCheckFixture {
+    /** 引用 repos 中已存在的仓库 */
+    repositoryOwner: string
+    repositoryName: string
+    prNumber: number
+    headSha: string
+    authorLogin: string
+    conclusion?: 'success' | 'failure' | 'neutral' | 'cancelled' | 'timed_out' | 'action_required' | 'stale' | 'pending' | 'skipped'
+    checkRunId?: string | null
+    detailsUrl?: string | null
+    errorMessage?: string | null
+    alertFiring?: boolean
+    /** 用户 ack 时间（ISO 串）；设置后「Alert 状态」列渲染为已确认态 */
+    acknowledgedAt?: string | null
+    acknowledgedByUserId?: string | null
+    /** 最近轮询时间（ISO 串，必填）：视觉基线依赖确定性取值 */
+    lastPolledAt: string
+}
+
+/**
+ * fixtures 注入载荷（`POST /api/e2e/fixtures` 的 body 形状）。
+ *
+ * 名称沿革：原为 `AlertsRowgroupFixtures`（只有 alerts-rowgroup 数据集用到），
+ * 接入 `prChecks` 字段后成为通用载荷类型，故更名；数据集常量名保持不变。
+ */
+export interface FixturesPayload {
     repos: { owner: string, name: string, tags?: string[] }[]
     scanRuns: ScanRunFixture[]
     scanResults: ScanResultFixture[]
+    /** PR Check 数据（视觉套件 pr-checks 页行级基线用；e2e 数据集可不提供） */
+    prChecks?: PRCheckFixture[]
 }
 
 /**
@@ -94,7 +121,7 @@ export interface AlertsRowgroupFixtures {
  *
  * 不要扩展这个集合除非新测试需要；保持 minimum fixture 避免污染其他 e2e 文件
  */
-export const ALERTS_ROWGROUP_FIXTURES: AlertsRowgroupFixtures = {
+export const ALERTS_ROWGROUP_FIXTURES: FixturesPayload = {
     repos: [
         { owner: 'foo', name: 'bar' },
         { owner: 'foo', name: 'baz' },
@@ -254,7 +281,7 @@ export async function seedAlertsRowgroupFixtures(
  */
 export async function seedCustomFixtures(
     request: APIRequestContext,
-    fixtures: AlertsRowgroupFixtures,
+    fixtures: FixturesPayload,
 ): Promise<void> {
     const response = await request.post('/api/e2e/fixtures', {
         data: fixtures,

@@ -87,16 +87,17 @@
 
 - **目标**：`fixtures` 端点扩展 `prChecks` 写入路径，使 `pr-checks` 页视觉基线覆盖行级渲染（结论标签 / Alert 状态 / 最近轮询列），让该页的「表格密度例外」在基线中可被对比。
 - **优先级**：P3（非阻塞；页面骨架 / 空态 / 表头密度已覆盖，仅缺行级）。
-- **范围**：`apps/platform/server/api/e2e/fixtures.post.ts` + `fixtures.delete.ts`（新增可选 `prChecks` 数据集与级联删除）、`apps/platform/tests/e2e/helpers/fixtures.helper.ts`（类型）、`apps/platform/tests/visual/helpers/fixtures.ts`（数据集）、视觉用例与基线快照、`docs/standards/testing.md §6.7`（「覆盖边界（已知）」bullet 的 pr-checks 子句更新为「已由 M33.4 覆盖」；与 M33.5 共用同一 bullet，各更新对应半句，同批落地时合并为一次编辑）。
+- **范围**：`apps/platform/server/api/e2e/fixtures.post.ts` + `fixtures.delete.ts`（新增可选 `prChecks` 数据集与级联删除）+ 两者单测、`apps/platform/tests/e2e/helpers/fixtures.helper.ts`（类型，含 `AlertsRowgroupFixtures` → `FixturesPayload` 更名）、`apps/platform/tests/visual/helpers/fixtures.ts`（数据集）、视觉用例与基线快照、`docs/standards/testing.md §6.7`（「覆盖边界（已知）」bullet 的 pr-checks 子句更新为「已由 M33.4 覆盖」；与 M33.5 共用同一 bullet，各更新对应半句，同批落地时合并为一次编辑）+ **范围补充**：`apps/platform/tests/visual/README.md`（同一条覆盖边界声明，闭环后成为陈旧指针）。
 - **验收标准**：
-  - [ ] 视觉基线覆盖 ≥ 3 行 PRCheck（含 firing 与已 ack 两态），时间列确定性可复现
-  - [ ] fixtures 级联删除覆盖 prCheck（`pnpm --filter @dependfix/platform test:visual` 连跑两遍基线不漂移）
-  - [ ] `pnpm lint` + `pnpm typecheck` + 平台定向测试 + 视觉用例通过
-  - [ ] 决策点敲定并记录依据：`lastPolledAt` 由 fixtures 显式传入固定值 vs 基线侧 `data-visual-mask` 遮蔽
-- **不做什么**：不改 `PRCheck` 实体与 service 轮询语义；不新增生产 API；不做全量表格矩阵。
-- **依赖**：关联 [testing.md §6.7](../standards/testing.md)（视觉回归口径）+ M32.5（触发来源）。
-- **交付物**：1-2 atomic commits（`feat(platform)` fixtures 扩展 + `test(platform)` 基线更新）。
-- **风险与缓解**：`fixtures` 端点属生产构建内代码（双门控保护）；缓解：仅新增可选字段 + 级联删除，保持向后兼容。
+  - [x] 视觉基线覆盖 ≥ 3 行 PRCheck（含 firing 与已 ack 两态），时间列确定性可复现——实测 **5 行**（`failure`+firing / `timed_out`+已 ack / `success` / `pending` / `cancelled`），覆盖结论标签四档（danger / success / warning / primary）与 Alert 状态三态（danger firing / neutral 已 ack / success OK）；用例内先断言行数与三态文案再截图（避免写入路径失效时基线静默落回空态）
+  - [x] fixtures 级联删除覆盖 prCheck：`resetVisualFixtures` 每次先 DELETE 再 seed；`test:visual` **连跑两遍 7/7 通过不漂移**
+  - [x] `pnpm lint` + `stylelint`（`lint:css:check`）+ `pnpm --filter @dependfix/platform typecheck` EXIT 0；平台全量 test **1353 passed**（含 fixtures 端点单测 10 case：post 6 + delete 4，其中新增 prChecks 落库幂等 / 400 引用校验 / 级联删除 3 case）；`pnpm run check:docs` / `lint:md:check` / `docs:check:i18n` 通过
+  - [x] **决策点敲定**：`lastPolledAt` 由 fixtures **显式传入固定值**（不遮蔽）——依据：视觉环境已在 `playwright.visual.config.ts` 固定 `locale: zh-CN` + `timezoneId: Asia/Shanghai`，`Date#toLocaleString()` 因此跨机器逐像素可复现；改用 `data-visual-mask` 会丢失「最近轮询列」的实际覆盖（该列正是本条目标之一）。
+- **不做什么**：不改 `PRCheck` 实体与 service 轮询语义；不新增生产 API；不做全量表格矩阵；不改 pr-checks 页既有 i18n 文案（`alertFiringTrue` = 「仅 firing」/ `alertFiringFalse` = 「仅已 ack」在筛选器与状态标签间复用属既有形态，另行评估）。
+- **依赖**：关联 [testing.md §6.7](../standards/testing.md)（视觉回归口径）+ M32.5（触发来源）+ M33.3（archive 基线同步纪律，本轮沿用）。
+- **交付物**：1 atomic commit（`feat(platform)`：端点 + 数据集 + 用例 + 基线 + 口径同步）+ 1 `docs(plan)`（验收闭环登记）；文件见"范围"。
+- **风险与缓解**：`fixtures` 端点属生产构建内代码（双门控保护）；缓解：仅新增可选字段 + 级联删除，保持向后兼容（响应体新增 `prChecks` 字段已同步更新两处单测断言）；视觉基线由空态变为 5 行，属预期变更并已逐张核对。
+- **审计**：第 1 轮 `standard` **Pass**（0 blocker / 2 warning / 4 suggest）。warning 处置——W1（五处「四档结论标签」口径与事实不符：`neutral` 档实来自 Alert 状态列，且结论 `primary` 档原本未被任何 fixture 覆盖）**选择补齐覆盖而非降级口径**：新增第 5 行 `cancelled` fixture 使结论四档真实覆盖，并把五处口径改写为「结论标签四档（danger/success/warning/primary）+ Alert 状态三态」；W2（12 文件略超 10 文件粒度指引）非阻塞，批次拆分依据已写入交付物与提交信息。suggest 处置——S3（400 文案「not found in repos payload」与实际查找范围不符）已改为 `not found`；S4（fixture 注释「已确认」与实际 i18n 文案「仅已 ack」不一致）已随 W1 改写；S1（时间字段缺 ISO 校验，非法输入会静默落库脏值）/ S2（schema 默认值与 `headSha` 边界无 mutation 用例）留作观察，不阻塞本条。
 
 #### M33.5 [P3 🧪 测试覆盖] C94 视觉回归 alerts 宽表右端列盲区
 

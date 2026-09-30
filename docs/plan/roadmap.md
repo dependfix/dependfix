@@ -41,6 +41,7 @@
 | M31: apps/platform UI 组件库迁移（PrimeVue → caomei-ui） | B0 基线与双库并存接线 + B1a/B1b DataTable 迁移 + B2 表单/浮层切换 + B3 收尾卸载与回归 + C90 db-restore 补强 | P2-P3 | 已完成（[todo-archive.md §M31](todo-archive.md#m31-appsplatform-ui-组件库迁移primevue--caomei-ui-m311m316-全部已闭环--2026-09-29-归档)） |
 | M32: 能力扩展优先 | C76 平台验证命令配置 + C85 目标仓库专属配置 + C89 Code Scanning 未启用区分 + C82 git 签名语义边界 + C92 视觉回归最小集 | P3 | 已完成（[todo-archive.md §M32](todo-archive.md#m32-能力扩展优先m321m325-全部已闭环--2026-09-30-归档)） |
 | M33: 治理债收口 + 测试基建扩展 | C91 review 检查点补挂 + 视觉回归 CI 转阻断 + M31 dependabot 死配置清理 + C93/C94 视觉回归覆盖扩展 + C80 观察期阻断语义 + M33.7 迁移入口 + M33.8–M33.10 UI 修复 + M33.11 存量漏洞治理 | P3 | 已完成（[todo-archive.md §M33](todo-archive.md#m33-治理债收口--测试基建扩展m331m3311-全部已闭环--2026-09-30-归档)；2026-09-30 归档） |
+| M34: 治理与体验收口 + 组件库升级与巡检基建 | devEx `data/` 产物污染治理 + caomei-ui 0.5.0 升级（弹窗 Select 裁剪/层级） + 视觉回归灵敏度与弹窗覆盖 + 上游组件问题归因流程 + label 间距统一 + PrimeUI 文档同步 + C83 验证链失败基线 | P2-P3 | 进行中（2026-09-30 用户决策启动，6 原子条目） |
 
 > **本路线图定位**：按 [规划规范 §2.1](../standards/planning.md) 仅维护阶段概览（目标 / 优先级 / 状态）。详细实施记录 / commit 引用 / 关键决策 / 经验教训见对应归档段（详见下方"## 详细任务"索引）。
 
@@ -492,7 +493,7 @@ per-alert 模型 + reconcile + API 简化 + UI 调整 + backfill 脚本。5 子�
 
 **类型平衡复核**：📚 治理 1（M33.1）/ 🛠️ CI 与 devEx 治理 4（M33.2 / M33.3 / M33.6 / M33.7）/ 🧪 测试覆盖 2（M33.4 / M33.5）/ 🎨 用户体验 3（M33.8 / M33.9 / M33.10）/ 🛡️ 安全 1（M33.11）。
 
-**未纳入本批（保留 backlog）**：C81（注释孤立编号清理，须分批）/ C83（验证链既有失败基线判定）/ C15 第二阶段（需 `GITHUB_TOKEN` 采集真实样本）/ C37（语言多设备同步）/ D1 / D3 / D8 / B2 / SAML SSO / C68 / T905 / T701 / T702 / T704（触发条件未到或需真实环境）。
+**未纳入本批（保留 backlog）**：C81（注释孤立编号清理，须分批）/ C83（验证链既有失败基线判定；已 2026-09-30 上收 M34.6，见 [todo.md](todo.md)）/ C15 第二阶段（需 `GITHUB_TOKEN` 采集真实样本）/ C37（语言多设备同步）/ D1 / D3 / D8 / B2 / SAML SSO / C68 / T905 / T701 / T702 / T704（触发条件未到或需真实环境）。
 
 **闭环实证摘要**：20 commits（阶段启动 `e6c5502` + 11 原子条目的实现与闭环登记）全部已推送 `origin/master`（`git rev-list HEAD ^origin/master --count` 归档时实测 = 0）；11 轮独立 Review Gate（含 M33.7 / M33.9 的 Reject → 修复 → Pass）。
 
@@ -500,9 +501,42 @@ per-alert 模型 + reconcile + API 简化 + UI 调整 + backfill 脚本。5 子�
 
 ---
 
+## M34: 治理与体验收口 + 组件库升级与巡检基建（2026-09-30 用户决策启动 / 进行中）
+
+承接 M33 完整闭环归档后的 backlog 候选池。2026-09-30 用户决策：**以 M33 期评估完成的「方案 A」（4 项 backlog 待上收候选 + C83 能力扩展）为主，并作适当能力扩展**——追加「caomei-ui `0.3.0 → 0.5.0` 升级（弹窗内 Select 下拉面板被裁剪 / 层级错误的用户可见缺陷）」与「视觉回归灵敏度 + 弹窗组件覆盖 + 上游组件问题归因与 issue 上报流程」。**6 原子条目**，覆盖 🛠️ 1 + 📦 1 + 🧪 1 + 🎨 1 + 📚 1 + 🚀 1，符合 [规划规范 §1.1 L12 类型平衡原则](../standards/planning.md#11-硬性约束)（🎨 仅 1 项，缺口显式标注）。
+
+- **M34.1** [P3 🛠️ 工具链治理] devEx：运行时 `data/` 产物污染 vitest 与 check-docs（`vitest.config.ts` exclude + `check-docs.mjs` gitignored 目录跳过）
+- **M34.2** [P2 📦 依赖升级] caomei-ui `0.3.0 → 0.5.0`（弹窗内 Select 面板裁剪 / 层级修复 + 破坏性变更核对 + 防复发用例）
+- **M34.3** [P3 🧪 测试基建] 视觉回归灵敏度（同明度色相 / 灰度漏检）+ 弹窗组件覆盖扩展 + 上游组件问题归因与 issue 上报流程（**合并条目**，内部子批次）
+- **M34.4** [P3 🎨 用户体验] 非弹窗表单 label↔控件间距统一（5 处 `$space-1` → `$space-2`）
+- **M34.5** [P3 📚 文档治理] PrimeUI 设计先行稿与索引状态同步（zh-CN / en-US 双侧）
+- **M34.6** [P3 🚀 能力扩展] C83 验证链「既有失败基线」判定（命令级 / 仓库级判定 + 审计口径）
+
+**关键决策 D1-D7**（2026-09-30 用户裁定）：
+
+- **D1**：组合定型——方案 A（4 项 backlog 待上收 + C83）为主 + 适当能力扩展（caomei-ui 5.0 升级 + 组件巡检 / 上游归因）；6 原子条目，类型 🛠️ 1 + 📦 1 + 🧪 1 + 🎨 1 + 📚 1 + 🚀 1
+- **D2**：M34.2 目标版本 = `0.5.0`（用户指定；npm `latest` 实测一致），触发 backlog 延期项「caomei-ui 0.x → 1.0 升级回归」恢复条件①
+- **D3**：「视觉回归容差」与「组件巡检 + 上游 issue 流程」**合并**为 M34.3（受 5-6 项上限约束按「进一出一」处理；内部按子批次拆 commit）
+- **D4**：弹窗内 Select 缺陷现象 = **面板被裁剪 / 层级错误**（用户确认）；D 阶段第一步须在 `0.3.0` 下复现取证
+- **D5**：执行顺序建议 M34.2 → M34.4 → M34.3（先落组件库与间距，最后动容差与新基线，避免基线二次改写）；M34.1 / M34.5 / M34.6 可并行
+- **D6**：阶段启动 commit 仅改**规划与文档指针**（`docs/plan/*` + `docs/standards/testing.md` + `docs/design/modules/dependency-fixer.md` 的陈旧指针），**不含运行时代码**（[AI 协作规范 §1.4 P 阶段规划暂停协议](../standards/ai-collaboration.md)），提交后暂停等待用户指令
+- **D7**（P 阶段 A 阶段审计收敛）：第 1 轮 `standard` 审计 **Pass**（0 blocker / 2 warning / 3 suggest）；RG-W1（代码侧陈旧指针 `verification-runner.ts:93`）落点登记 M34.6、RG-W2（D6 措辞）本批修正；suggest 采纳 RG-S1 / RG-S2，RG-S3 不采纳（历史归档段冻结惯例）
+
+**类型平衡复核**：🛠️ 工具链治理 1（M34.1）/ 📦 依赖升级 1（M34.2）/ 🧪 测试基建 1（M34.3）/ 🎨 用户体验 1（M34.4）/ 📚 文档治理 1（M34.5）/ 🚀 能力扩展 1（M34.6）。
+
+**未纳入本批（保留 backlog）**：C81（注释孤立编号清理，存量 300-430 量级，须 3-6 子批次）/ C15 第二阶段（需 `GITHUB_TOKEN`）/ C68（需代理基建）/ C37 / D1 / D3 / D8 / B2 / SAML SSO / T905 / T701 / T702 / T704（触发条件未到或需真实环境）/ 已知边界各条（平台早期 migration 前缀不统一 / 告警源可审计性粒度 / SQLite 与 TypeORM 观察 / ECONNRESET 剩余候选 / tsdown hash:false）。
+
+**§3.4 / §1.7 交叉核验**：6 项候选经 todo-archive 表格扫描 + git log + 代码 anchor 三重核验，**0 项重复评估**（结论详见 [todo.md §M34](todo.md)）。
+
+**ahead commits 实证**：阶段启动前 `git rev-list HEAD ^origin/master --count` 实测 = 2（M33 归档批次 `15ca500` + `6035313` 待用户推送；M0-M33 实现 commits 已全部推送）。
+
+> 详细任务与 8 要素见 [todo.md §M34](todo.md)
+
+---
+
 ## 详细任务
 
-- 当前阶段任务：[todo.md](todo.md)（当前无活跃阶段；M33 已于 2026-09-30 完整闭环归档，下一阶段启动待用户明确决策）
+- 当前阶段任务：[todo.md](todo.md)（M34 治理与体验收口 + 组件库升级与巡检基建，2026-09-30 用户决策启动，6 原子条目）
 - 已归档阶段：[todo-archive.md](todo-archive.md)（主窗口保留最近阶段完整段 + 指针段；M0-M33 全部已归档；早期阶段见 [archive/index.md](archive/index.md) 分片索引）
 - 后续阶段任务（延期项 + 未排期增强候选）：[backlog.md](backlog.md)
 

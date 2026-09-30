@@ -59,66 +59,14 @@
 
 ### 待上收候选（评估完成，等待用户决策）
 
-- **本地 devEx：运行时 `data/` 产物污染 vitest 与 check-docs**（P3，🛠️ 工具链治理）—— 来源：M33.7 验证期发现（2026-09-30，测量方 = M33.7 执行角色）
-  - **目标**：使本地 `pnpm test` / `pnpm run check:docs` 不受平台扫描 run 落在 `apps/platform/data/**`（gitignored）的克隆产物影响
-  - **范围**：`vitest.config.ts`（`test.exclude` 增补 `apps/platform/data/**`）；`scripts/check-docs.mjs`（遍历时跳过 `data/` 等 gitignored 运行时目录）
-  - **验收标准**：
-    - [ ] 扫描 run 产物在场时 `pnpm test` 不再收集其测试文件（基线：产物在场 636 文件 / 412 failed；叠加 `--exclude 'apps/platform/data/**'` 后 219 文件 / 0 failed）
-    - [ ] 产物在场时 `pnpm run check:docs` 仍 EXIT 0（基线：产物在场 986 处问题且**全部**位于 `apps/platform/data/runs/<runId>/`；排除后 EXIT 0 / links 143 / vue-interp 79）
-    - [ ] 干净检出下两项检查结果与改动前一致（CI 为干净检出，本缺口不影响 CI）
-    - [ ] 复现命令：`pnpm test 2>&1 | tail -3` 与 `pnpm exec vitest run --exclude 'apps/platform/data/**' 2>&1 | tail -3` 对比；`pnpm run check:docs 2>&1 | grep -c "apps/platform/data/runs/"`
-  - **不做什么**：不改扫描 run 的产物落盘位置与清理策略；不改 CI 工作流；不清理既有产物目录
-  - **依赖**：M33.7 验证期实证（产物目录 `apps/platform/data/runs/683ba3fe8af7f536/`，约 1.4G，由在跑的扫描 run 生成）
-  - **交付物**：1 atomic commit（`chore(test)` vitest exclude + check-docs 跳过规则 + 回归验证记录）
-  - **风险与缓解**：过宽排除模式（如 `**/data/**`）可能误排除真实测试目录；缓解：优先精确 `apps/platform/data/**` 并加注释说明理由
-
-- **视觉回归容差对「同明度色相 / 灰度替换」不敏感**（P3，🧪 测试基建）—— 来源：M33.9 验证期发现（2026-09-30，测量方 = M33.9 执行角色 + A 阶段审计独立复算）
-  - **目标**：让视觉回归能检出「同明度色相 / 灰度替换」这类外观回归（当前口径会漏检）
-  - **范围**：`apps/platform/playwright.visual.config.ts`（`toHaveScreenshot` 的 `threshold` / `maxDiffPixels` 口径）+ `docs/standards/testing.md §6.7`（口径同步）+ 既有 7 张基线复核
-  - **验收标准**：
-    - [ ] 复现：错误基线（`tone="neutral"` 按钮由 `#52525b` 变 `#0f766e`）在当前口径下 `test:visual` 仍**通过**（实测 5678 个差异像素 0 个超阈）
-    - [ ] 方案落地后同一错误基线用例**失败**（阈值下调或引入第二度量，如主色直方图断言）
-    - [ ] 干净基线在方案落地后仍全绿（7 张）且连跑两遍不漂移
-    - [ ] 口径变更同步 `testing.md §6.7`，并写明「抗噪 ↔ 灵敏度」取舍
-    - [ ] 复现命令：修改任一按钮色板后 `pnpm --filter @dependfix/platform test:visual`，对比 `threshold: 0.2` 下是否变红
-  - **不做什么**：不改动态区域策略（`data-visual-mask` 保持现状）；不重做基线体系；不覆盖其它断言语义
-  - **依赖**：M33.9 验证期实证（Playwright `maxDelta = 35215 × threshold² = 1409`；pixelmatch colorDelta：`#52525b↔#0f766e` ≈1083.6、`#0d9488↔#0f766e` ≈308.8，均低于阈值）
-  - **交付物**：1 atomic commit（`test(platform)` 阈值 / 度量调整 + 基线复核 + 规范同步）
-  - **风险与缓解**：下调阈值会放大渲染抖动导致的偶发红；缓解：以「连跑两遍不漂移」为落地门槛，必要时保留面积门槛但引入主色直方图断言作为第二信号
-
-- **非弹窗表单 label↔控件间距口径未统一（仍为 4px）**（P3，🎨 体验一致性）—— 来源：M33.8 A 阶段审计发现（2026-09-30，测量方 = M33.8 审计方）
-  - **目标**：把「label↔控件间距」统一为 8px（`$space-2`），覆盖弹窗以外的表单 / 过滤工具栏
-  - **范围**：`apps/platform/app/components/ai-config-form.vue`（`__field`）+ `apps/platform/app/pages/alerts.vue` / `pr-checks.vue` / `env-events.vue` 的 `__filter-field` + 受影响视觉基线
-  - **验收标准**：
-    - [ ] 上述 4 个文件中的 `gap: $space-1`（实测 5 处：`ai-config-form.vue:203` / `alerts.vue:742` / `pr-checks.vue:372,398` / `env-events.vue:370`；`pr-checks.vue:372` 的归属类名需实施时确认）统一为 `$space-2`（与 M33.8 已统一的弹窗口径一致）
-    - [ ] 浏览器实测各页 label↔控件间距 = 8px（计算样式）
-    - [ ] 受影响视觉基线更新，且差异仅由间距引起的定位偏移（逐张核验）
-    - [ ] `pnpm lint` + `lint:css:check` + `typecheck` + `test:visual` 通过
-    - [ ] 复现命令：`rg -n -F 'gap: $space-1' apps/platform/app/components/ai-config-form.vue apps/platform/app/pages/alerts.vue apps/platform/app/pages/pr-checks.vue apps/platform/app/pages/env-events.vue`（`-F` 关闭正则，避免 `$` 被当作行尾锚点）
-  - **不做什么**：不改弹窗（M33.8 已统一）；不改控件高度 / 字号 / 其它间距刻度；不改 `repos.vue` 的 `.batch-form*`
-  - **依赖**：M33.8（弹窗侧口径统一完成，本条为其非弹窗侧补全）
-  - **交付物**：1 atomic commit（`fix(platform)` 间距统一 + 基线更新）
-  - **风险与缓解**：列表页过滤工具栏间距变化会带动多张基线；缓解：逐张像素核验差异仅由间距偏移导致，必要时按内容重建单张基线
-
-- **PrimeUI 治理遗留设计先行稿与索引状态陈旧**（P3，📚 文档治理）—— 来源：M33.3 A 阶段审计发现（2026-09-30，测量方 = M33.3 审计方）
-  - **目标**：消除「未上收设计先行稿」的陈旧状态描述，使其与 M25.1 降级已实施、M31.5 已卸载全部 PrimeUI 依赖的事实一致
-  - **范围**：`docs/design/governance/primeui-themes-v2-downgrade.md`（降级方案正文与状态口径）+ `docs/design/governance/index.md:25` 与 `docs/i18n/en-US/design/governance/index.md:25`（索引行状态「🔶 设计先行稿（backlog 候选，未上收）」）
-  - **验收标准**：
-    - [ ] 索引行状态改为与事实一致（已实施 / 已随 M31 收口 / 归档），不再标「未上收」
-    - [ ] 设计稿正文标注实施结果与卸载结论（PrimeVue 全链已由 caomei-ui 替代）
-    - [ ] `pnpm run check:docs` EXIT 0；`pnpm docs:check:i18n` 通过；zh-CN / en-US 两侧索引一致
-    - [ ] 复现命令：`rg -n "未上收|not yet adopted" docs/design/governance/index.md docs/i18n/en-US/design/governance/index.md`
-  - **不做什么**：不重写设计稿历史正文（保留当时的方案与 License 分析）；不改 `caomei-ui-migration.md`（M33.3 已同步其遗留条目）
-  - **依赖**：M33.3 A 阶段审计发现；M25.1（降级实施）+ M31.5（PrimeVue 全链卸载）
-  - **交付物**：1 atomic commit（`docs(design)` 状态口径同步 + 索引一致性）
-  - **风险与缓解**：索引双语文件需同步修改，易漏一侧；缓解：以 `pnpm docs:check:i18n` 与双侧 `rg` 复核（同 docs:check:i18n 既有口径）
+> 当前无待上收候选——4 项（本地 devEx `data/` 产物污染 / 视觉回归容差对同明度色相与灰度替换不敏感 / 非弹窗表单 label↔控件间距 / PrimeUI 设计先行稿与索引陈旧）已于 2026-09-30 经用户决策上收，按维护规则 5 从本文件移除（新登记位置见 [todo.md](todo.md) §M34）。
 
 ### 延期 / 暂缓项
 
 - **T705 生产级部署**（PostgreSQL + Helm + Sentry）—— 2026-08-12 用户指示暂缓排期
 - **T703 跨平台 Git**（GitLab + Bitbucket）—— 2026-08-12 用户指示暂缓排期
 - **C30 Publish Docker build job 失败排查** —— 2026-08-18 用户决策暂缓（双平台构建 23m 2s 成功证明当前 docker.yml 可稳定工作）；恢复条件：① master 分支 push 频率显著提升；② 镜像实际发布成为强需求（v1.0.0 正式发布前）；③ 用户明确恢复
-- **caomei-ui 0.x → 1.0 升级回归** —— 库处于 0.x（当前精确锁定 `0.3.0`），1.0 前 API / 目录仍可能调整。恢复条件：① 库发布 1.0.0 或用户指定目标版本；② 平台需跟进新组件能力；③ 用户明确恢复。届时按 M31 迁移期实证索引（[caomei-ui-migration.md §15](../design/governance/caomei-ui-migration.md)）做回归；**升级回归的像素兜底已就位**（M32.5 落地的视觉回归基线 `apps/platform/tests/visual/`，覆盖 alerts / repos / pr-checks / dialog-import-repos / login，口径见 [测试规范 §6.7](../standards/testing.md)）
+- **caomei-ui 0.x → 1.0 升级回归** —— 库处于 0.x（原精确锁定 `0.3.0`）。**2026-09-30 用户指定目标版本 `0.5.0` → 恢复条件①达成，`0.5.0` 升级（含弹窗内 Select 面板裁剪 / 层级修复）已上收 [todo.md](todo.md) §M34.2**。**剩余观察**：`1.0.0` 发布后的正式升级回归（恢复条件①的 1.0 分支）与「平台需跟进新组件能力」「用户明确恢复」两条触发条件。届时按 M31 迁移期实证索引（[caomei-ui-migration.md §15](../design/governance/caomei-ui-migration.md)）做回归；**升级回归的像素兜底已就位**（M32.5 落地的视觉回归基线 `apps/platform/tests/visual/`，覆盖 alerts / repos / pr-checks / dialog-import-repos / login，口径见 [测试规范 §6.7](../standards/testing.md)）
 - **ScanResult 数据层去重（upsert 唯一索引）** —— 2026-09-02 M23.3 决策暂缓：应用层去重（fingerprint + occurrenceCount / firstSeenAt / lastSeenAt / affectedRunIds）已实施且满足当前业务需求；恢复条件：出现"fix 复用同一 `scan_run_id` 跨次刷新"或"历史 fixStatus 跨次保留"需求时迁移到数据层 upsert（关联 [archive/todo-archive-phases-m23.md §M23](archive/todo-archive-phases-m23.md#m23-m22-治理债收口--根因排查--能力扩展--测试补强m230m231m232m233m234-全部已闭环--2026-09-02-归档)）
 
 ### 远期登记 / 未排期增强候选
@@ -142,34 +90,6 @@
 #### PR 管理
 
 - **B2** 固定分支单线设计（独立平台部署后修复频率上升，需要固定修复分支如 `dependfix/auto-fix` 避免频繁向 master 提交 PR；触发：v1.0.0 后 M12 平台 UX 修复链路上线；关联：T210 指纹方案整合复用/重建策略 + force push 语义）
-
-#### 修复交付链路（验证链）
-
-- **C83 验证链的「既有失败基线」判定（区分修复引入的失败与修复前已存在的失败）** —— 2026-09-21 M29.3 落地 test 纳入默认链时显式登记的已知限制；评估完成待上收；按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) **不带 M\d+ 阶段编号**。
-  - **目标**：目标仓库在修复前就存在的验证失败（尤其测试套件长期红）不再被计入本次修复，避免合法修复被门禁回滚、使仓库变得「不可用」。
-  - **优先级**：P3（非阻塞；当前口径与既有 install/lint/build 的「假定 pristine 检出可通过」一致，仅在目标仓库测试长期红时暴露）
-  - **范围**：`packages/engine/src/app/helpers.ts`（`verifyProject`）+ `packages/engine/src/app/repo-fix.ts`（修复流程接入点）+ `packages/engine/src/runners/verification-gate.ts`（判定口径）
-  - **现状实证**（2026-09-21）：
-    - M29.3 已把 `test` 纳入默认验证链（`DEFAULT_VERIFY_COMMANDS`，唯一事实源）；`repo-fix.ts` 以 `verifyActions.every((a) => a.success)` 判定 `verificationPassed`，任一命令失败 → `enforceVerificationGate` 回滚。
-    - 链中**无基线概念**：修复前即为红的命令，其失败会计入本次修复。既有 install/lint/build 已隐含同样假设（pristine 检出可通过），M29.3 只是把该假设扩展到 test。
-    - 已知限制已写入 [docs/design/modules/dependency-fixer.md](../design/modules/dependency-fixer.md)（「既有失败基线未做区分」）。
-    - **test 与 install/lint/build 的基线红概率不对称**，且 test 引入三条**此前不存在**的新失败路径（此前任何文档 / backlog 均未登记）：
-      1. **占位 test 脚本**：`npm init` 默认生成的 `"test": "echo \"Error: no test specified\" && exit 1"` 极常见——按当前口径会被判失败并回滚；
-      2. **测试依赖外部资源**：需网络 / 密钥 / 浏览器（Playwright 等）的套件在 dependfix 的受限环境中必然失败；
-      3. **test 超单命令超时（10 分钟）**：大型套件超时被判失败 → 回滚（该路径已在 `verification-runner.ts` 超时常量注释中登记）。
-  - **决策点（待上收时敲定）**：
-    - **基线时机**：修复前在 pristine 检出上跑一遍链（成本翻倍）／只对 test 做懒基线（仅当 test 失败时才回跑 pristine 基线）／按目标仓库配置豁免。
-    - **判定粒度**：命令级（该命令基线失败则从本次判定中移除并记审计）vs 仓库级（基线失败 → 跳过该仓库验证并显式告警）。
-    - **审计口径**：新增错误码（如 `PRE_EXISTING_FAILURE`）以便报告单列「基线已红」。
-  - **验收标准**：
-    - [ ] 修复前即为红的命令不再导致本次修复被回滚，且报告显式区分「本次引入的失败」与「基线已存在的失败」
-    - [ ] 单测覆盖：基线红 + 修复后仍红（不归因本次）／基线绿 + 修复后红（归因本次并回滚）
-    - [ ] `pnpm lint` + `pnpm typecheck` + engine 定向测试通过
-  - **不做什么**：不改单命令超时；不引入 CI 等价全量（coverage / e2e）；不在本候选内做目标仓库 CI 状态查询
-  - **依赖**：关联 M29.3（触发实证：test 纳入默认链后暴露该限制）；关联 `verification-gate.ts`（回滚判定）
-  - **交付物**：待方案敲定后评估（1-3 atomic commits）
-  - **风险与缓解**：懒基线需在修复后回跑 pristine 状态，涉及工作区切换（`git stash` / 临时 worktree），实现复杂且易引入新的状态污染；缓解：优先评估「命令级基线 + 修复前一次性采样」的简单形态，避免修复后回跑
-  - **复杂度估算**：方案未定；命令级一次性采样约 40-80 行 + 修复流程接入
 
 #### Code Scanning 规则体系
 
@@ -309,8 +229,8 @@
 
 | 内容类型 | 位置 |
 |:--|:--|
-| 当前阶段活跃任务 | **当前无活跃阶段**——M33 已于 2026-09-30 完整闭环归档（见 [todo-archive.md §M33](todo-archive.md#m33-治理债收口--测试基建扩展m331m3311-全部已闭环--2026-09-30-归档)） |
-| 已完成阶段归档 | [todo-archive.md](todo-archive.md)（主窗口保留最近阶段完整段 + 指针段；早期阶段见 [archive/](archive/)） |
-| 里程碑与阶段交付 | [roadmap.md](roadmap.md)（M0-M33 已归档） |
+| 当前阶段活跃任务 | [todo.md §M34](todo.md)（治理与体验收口 + 组件库升级与巡检基建，2026-09-30 用户决策启动，6 原子条目） |
+| 已完成阶段归档 | [todo-archive.md](todo-archive.md)（主窗口保留最近阶段完整段 + 指针段；M0-M33 已归档；早期阶段见 [archive/](archive/)） |
+| 里程碑与阶段交付 | [roadmap.md](roadmap.md)（M0-M33 已归档；M34 进行中） |
 | 长期主线 / 候选 / 待人工验收 / 已知边界 | 本文档（按四象限结构） |
 | 历史归档索引 | [archive/index.md](archive/index.md) |

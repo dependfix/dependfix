@@ -457,7 +457,7 @@ T108 (报告生成器)
   - 多版本共存跨线（版本化 overrides 跨 major 会破坏依赖方 range 导致 install 失败；全局 override 会降级根声明——C10 教训）
 - 同包多条跨线告警按包聚合，取最高 `recommendedVersion` 为升级目标（镜像 `dedupeFixableAlerts` 语义，Review Gate P2-1 修正）
 - 统计口径：跨线升级成功 → fixed；失败（install 失败 / 实例残留 / 验证失败）→ failed；维持人工 → skipped。不误标纪律延续（PR #28）。
-- 已知限制：install/lint/build 通过 ≠ 运行时功能正确（test 已纳入默认链，但仍无法覆盖未写成测试的运行时行为）；验证耗时逐包完整链（含 test，通常为最慢一步）；快照回滚不还原 node_modules；**既有失败基线未做区分**——目标仓库测试在修复前即为红时，该失败会计入本次修复并触发回滚（与既有 install/lint/build 的「假定 pristine 检出可通过」口径一致；如需基线判定见 backlog C83）；test 另引入三条新失败路径——占位 test 脚本（`npm init` 默认的 `exit 1`）/ 测试依赖网络·密钥·浏览器等外部资源 / 套件耗时超单命令超时（10 分钟），三者均按当前口径判失败并回滚。
+- 已知限制：install/lint/build 通过 ≠ 运行时功能正确（test 已纳入默认链，但仍无法覆盖未写成测试的运行时行为）；验证耗时逐包完整链（含 test，通常为最慢一步）；快照回滚不还原 node_modules；**既有失败基线未做区分**——目标仓库测试在修复前即为红时，该失败会计入本次修复并触发回滚（与既有 install/lint/build 的「假定 pristine 检出可通过」口径一致；如需基线判定见 [todo.md §M34.6](../../plan/todo.md)）；test 另引入三条新失败路径——占位 test 脚本（`npm init` 默认的 `exit 1`）/ 测试依赖网络·密钥·浏览器等外部资源 / 套件耗时超单命令超时（10 分钟），三者均按当前口径判失败并回滚。
 
 ### 12.7 目标仓库专属配置 `.github/dependfix.yml`（C85）
 

@@ -58,15 +58,17 @@
 - **优先级**：P2（用户可见缺陷 + 依赖治理；非插队例外 3 类，经用户直接决策上收）。
 - **范围**：`apps/platform/package.json`（`0.3.0` → `0.5.0`）+ `pnpm-lock.yaml` + 受破坏性变更影响的组件（`scan-config-dialog.vue` / `repo-form-dialog.vue` / `import-repos-dialog.vue` 等弹窗内 `CaomeiSelect`，以变更说明逐条比对后确定）+ 主题 / token 文件（`apps/platform/app/assets/styles/_caomei-tokens.scss`、`nuxt.config.ts` 的 `caomeiUI` 接线，如 `0.5.0` 有 token 命名变更）+ 视觉基线复核 + `docs/design/governance/caomei-ui-migration.md`（§15 追加 0.5.0 升级实证）。
 - **验收标准**：
-  - [ ] **升级前复现取证**：在 `0.3.0` 下实测弹窗内 Select 展开面板被裁剪 / 层级错误（截图 + 复现场景说明，注明弹窗组件与 Select 位置）——避免「换版本后就好了」的不可归因结论
-  - [ ] **升级后同一场景修复**：面板不被弹窗裁剪、层级正确（截图对比 + 计算样式实测 `z-index` / `overflow` 归属）；若 `0.5.0` 未修复该现象 → 按 M34.3 流程提交上游 issue（附最小复现）并在本条目记录 issue 链接
-  - [ ] `0.4.0` / `0.5.0` 破坏性变更逐条核对并记录结论（来源：`CaoMeiYouRen/caomei-ui` 仓库 `CHANGELOG.md`——**该仓库无 GitHub releases / tags**（API 双查为空），需从仓库文件或 npm tarball 内取；结论写入 [caomei-ui-migration.md §15](../design/governance/caomei-ui-migration.md)）
-  - [ ] 弹窗内 Select 场景新增 ≥ 1 条防复发用例（视觉或 e2e，与 M34.3 协作，覆盖展开态与层级）
-  - [ ] `pnpm lint` + `pnpm typecheck` + `pnpm --filter @dependfix/platform test:e2e` + `pnpm --filter @dependfix/platform test:visual` 通过（视觉基线连跑两遍不漂移）
-  - [ ] 复现命令：`pnpm --filter @dependfix/platform build && pnpm --filter @dependfix/platform test:visual`（视觉套件跑 `.output` 产物，未 build 则验证的是旧产物）
+  - [x] **升级前复现取证**：在 `0.3.0` 下实测**面板层 z 序错误**（`layerZ=1000` < `dialogZ=1001`，断言失败）+ 截图与场景说明 —— 复现结论推翻「被裁剪」假设：面板经 `SelectPortal` 挂 body、无真裁剪祖先，缺陷实际轴是 **z 序**（0.3.0 面板 z = `--caomei-z-overlay` 1000，与遮罩同级、低于模态 1001，仅靠 DOM 顺序侥幸可见）。证据：`artifacts/review-gate/m34.2/before-*.png`（gitignored）+ [caomei-ui-migration.md §15.14](../design/governance/caomei-ui-migration.md)
+  - [x] **升级后同一场景修复**：面板层 z = `1050`（`--caomei-z-dropdown`）> 弹窗内容 `1001`，层级确定；「若 `0.5.0` 未修复则提上游 issue」分支**未触发**（库侧已修复，见 §15.14 第 3 条）
+  - [x] `0.4.0` / `0.5.0` 破坏性变更逐条核对并记录结论（三版 tarball `dist` **语义级**比对：77 个 CSS 规范名中 18 个有真实差异；契约类破坏性项 = 表单修饰类 `caomei-select--*` → `caomei-field--*`，已适配 `admin.e2e.test.ts`；同时记录 soft 底色 12%→8%、主按钮 teal-600→teal-700、AutoComplete/MultiSelect/ColorPicker 面板 z 档同批修复、`reka-ui` 三版同锁 `2.10.4`）→ 结论写入 [caomei-ui-migration.md §15.14](../design/governance/caomei-ui-migration.md)
+  - [x] 弹窗内 Select 场景新增防复发用例 `apps/platform/tests/visual/dialog-select-layer.visual.test.ts`（2 例：弹窗内首个 Select / 底部翻转 Select；1 项缺陷检出断言 `layerZ > dialogZ` + 4 项环境不变量守卫）
+  - [x] **视觉基线复核（§6.7 内容核验）**：`--update-snapshots=all` 强制重建后与 0.3.0 期基线逐像素比对 → **9 张全部变化（合计 450011 px）**，逐张 bbox 与归因见 §15.14 第 4 条；接受上游变更（soft 底 8% 有对比度依据、按钮 teal-700 即平台 M33.9 既定口径）并**重建 9 张基线入库**
+  - [x] `pnpm lint` + `pnpm typecheck`（root：platform `nuxt typecheck` + cli / mcp `tsc` 全 Done，0 error）+ platform 单测（1353 passed / 0 failed）+ `test:e2e`（175 passed / 0 failed）+ `test:visual`（重建基线后连跑两遍 9 passed ×2）全部通过
+  - [x] 复现命令（复跑）：`pnpm --filter @dependfix/platform build && TMPDIR=/dev/shm pnpm --filter @dependfix/platform test:visual`（视觉套件跑 `.output` 产物，未 build 则验证的是旧产物）
 - **不做什么**：不升级到 `1.0`（未发布）；不做组件库大版本适配重构；不改弹窗交互设计；不引入第二组件库；不在 dependfix 侧为上游缺陷做二次封装兜底。
 - **依赖**：`caomei-ui@0.5.0` 已发布（npm `dist-tags.latest` 实测）；M31 迁移期实证索引（[caomei-ui-migration.md §15](../design/governance/caomei-ui-migration.md) 已登记 Select 家族 4 类结构差异）；backlog 延期项「caomei-ui 0.x → 1.0 升级回归」恢复条件①「用户指定目标版本」已达成（用户指定 `0.5.0`）。
 - **交付物**：1-2 atomic commits（`chore(platform)` 依赖升级 + 破坏性变更适配；`test(platform)` 防复发用例 + 基线更新）。
+- **闭环实证**（2026-10-01）：`chore(platform)` 升级（`package.json` + lock）+ `test(platform)` 回归用例 + 基线重建（9 张）+ `docs` 实证（[caomei-ui-migration.md §15.14](../design/governance/caomei-ui-migration.md)）。破坏性契约项 1 项（修饰类改挂）已适配；**同时实证视觉门禁两条盲区轴**——色阈值（可吞整块实底按钮色值变更）与面积预算 `maxDiffPixels: 200`（可吞「少面积 × 高色差」的 Switch 拇指变更），见 §15.14 第 4 条 → 灵敏度议题由 M34.3 承接。
 - **风险与缓解**：`0.x` 无 API 冻结窗口，破坏性变更可能波及多处组件；缓解：先取变更说明逐条比对 §15 已登记的差异表（Select 家族：可见根元素为 `SelectTrigger` / 外层 `inline-flex` 定宽 / 无 `#value` 插槽 / `update:modelValue` 载荷为 `OptionValue | null | undefined`），升级后跑全量 e2e + 视觉回归；网络受限时以 `npm pack caomei-ui@0.5.0` 取 tarball 内文件。
 
 #### M34.3 [P3 🧪 测试基建] 视觉回归灵敏度 + 弹窗组件覆盖扩展 + 上游组件问题归因与 issue 上报流程

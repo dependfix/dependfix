@@ -810,3 +810,81 @@ e2e 侧共改写 14 个 spec（`.p-dialog*` / `.p-select*` / `.p-drawer` / `.p-c
 - 代码注释中仍有**非 `§` 形式的历史编号标记**（如 `M20.3` / `C59` / `RG-B07` / `S-3`，多无文档路径），跨 `app/` / `server/` / `tests/` 多文件。本批按用户裁定只清理 **M31 触及文件中的 `§编号` 引用**（实际违规仅 `platform.md` 1 处孤立 `M17.1`/`C38`，已清；其余 14 处均带文档路径，属合规导航引用）。全量编号治理建议独立批次处理，避免与本批「组件库卸载」主题混杂。
 - `.github/dependabot.yml` 的 `@primeuix/*` / `@primevue/*` / `primeicons` ignore 规则随依赖卸载成为**死配置**（不再命中任何包）—— 后续治理批次（M33.3）已移除该批 ignore 条目与配套注释（保留 `conventional-changelog` 条目）。
 
+### 15.14 caomei-ui 0.5.0 升级实证（M34.2，2026-10-01）
+
+> **升级动机**：用户报告弹窗（`CaomeiDialog`）内 Select 展开时下拉面板「被裁剪 / 层级错误」；同时触发 backlog 延期项「caomei-ui 0.x → 1.0 升级回归」恢复条件①（用户指定目标版本 = `0.5.0`）。本节省略迁移期（§15.1-§15.13）历史正文，只记录 0.3.0 → 0.5.0 的增量差异、复核结论与**视觉门禁两条盲区轴（色阈值 / 面积预算）的实证**。
+
+**1）版本与差异口径**
+
+- `apps/platform/package.json`：`caomei-ui` `0.3.0` → `0.5.0`（精确锁定；`pnpm-lock.yaml` 同步）。
+- 上游 `reka-ui` 在 0.3.0 / 0.4.0 / 0.5.0 三版均为 `2.10.4`（三版 tarball `package.json` 实测）→ **浮层引擎（Popper）无版本变化**，差异只能来自 caomei 自身。
+- 差异口径：`npm pack caomei-ui@{0.3.0,0.4.0,0.5.0}` 后对 `dist` 做**剥 `[data-v-*]` 与文件名 hash 的语义级比对**（该仓库无 GitHub releases / tags，`CHANGELOG.md` 不在发布文件内）。
+  > **方法论教训**：首次比对用 `grep -o "[^}]*}" | tr ';' '\n' | sort -u` 做归一化，**掩盖了同名规则的取值差异**（如 `z-index` 行），一度得出「Select CSS 逐字节相同」的错误结论；A 阶段审计以语义级比对推翻。后续同类核对一律用语义级 strip + 全文本 diff，不得用行集合 sort -u 近似。
+- 语义级比对结果：77 个 CSS 文件规范名中 **17 个存在真实语义差异**（另有 1 个 `auto-complete/..._scoped.css` 仅 `@keyframes` 名内嵌 scope hash 变化，不属语义变更；其余为 hash 重命名）。
+
+**2）变更清单（按性质分类 + 对 dependfix 的影响判定）**
+
+| 类别 | 变更 | 平台使用面 | 影响判定 |
+| :--- | :--- | :--- | :--- |
+| **契约（破坏性）** | 表单外壳修饰类由 `caomei-select--{sm,md,lg,disabled,invalid}` 改挂 `caomei-field--*`；同批涉及 `input` / `textarea` / `input-number`（平台未引用） | `admin.e2e.test.ts` 2 处断言 | **已适配**：断言改 `caomei-field--disabled`（原生 `toBeDisabled()` 保留，语义不变） |
+| **契约（破坏性）** | `Select` 触发器根类新增 `.caomei-field` 基类；`.caomei-select__field--{size}` 与 `.caomei-select--clearable` 保留 | 平台样式未引用旧修饰类（`rg` 复扫 0 命中） | 无额外适配 |
+| **层级（本批动机）** | `Select` 面板 `z-index` 由 `--caomei-z-overlay`（1000）改为 `var(--caomei-select-z-index, var(--caomei-z-dropdown))`（1050）；**同批修复 `auto-complete` / `multi-select` 面板（1000 → 1050）与 `color-picker` 面板（`--caomei-z-modal` → dropdown 档）** | `CaomeiAutoComplete`（schedules 时区选择器）/ `CaomeiMultiSelect`（schedules 仓库多选）/ `CaomeiSelect`（弹窗内 8 处） | **正向**：模态内浮层不再依赖 DOM 顺序（详见第 3 条） |
+| **视觉（色值）** | `tag` / `message` / `badge` 的 `--soft` 底色 `color-mix(... 12%)` → `8%`（库内注释：12% 时 primary 文本仅 4.37:1 < AA，8% ≥ 4.5:1） | `CaomeiTag` 53 处、`CaomeiMessage` 39 处、Badge | **正向（对比度）**：接受上游口径，平台不覆盖 |
+| **视觉（色值）** | `switch` 拇指背景 fallback `--caomei-color-bg` → `--caomei-color-primary-foreground`；`toast` 强调色 fallback `--caomei-color-neutral-solid` → `--caomei-color-text-muted`（`color` 同步补 fallback） | Switch 4 处、Toast 全局 | 低风险；由视觉基线复核覆盖（见第 4 条） |
+| **视觉（外壳）** | `input` / `textarea` / `input-number` / `select` 的边框 / 圆角 / 高度 / 焦点 / 非法态样式抽为共享 `.caomei-field` 基类 + 新增 `--caomei-field-*` token（**既有 token 值零变更**：145 个共有 token 无删改）；`styles/index.css` 新增 `[data-preset="minimal"]` 挂载选择器（与 `:root` 同批声明，默认预设下取值不变） | 全部表单控件 | 视觉等价性见第 4 条（`dialog-import-repos` 基线有 Δ≤23 的细微差异；受控 A/B 显示字段区确有小幅渲染变化，判定为外壳取值差异，非缺陷） |
+| **新能力** | `Select` 新增 `#value` 插槽（自定义触发器展示）；`Button` 新增 `iconOnly` / `iconPosition`；新增 `CaomeiRichTextEditor`；`DataTable` 新增 `--caomei-data-table-pagination-justify` 钩子（默认值不变） | 未使用 / 未启用 | 无影响；`#value` 可恢复 `import-repos-dialog` owner badge，**不在本批范围**（属交互变更） |
+| **a11y / 透传** | 新增 `_shared/panel-idref.js`（面板 id 注册进 Reka combobox 上下文，消除 `aria-controls` 空引用 / 时序漂移）；`auto-complete` / `multi-select` / `dropdown-menu-trigger` / `stepper-*` / `select-group` / `calendar-panel` 的 aria 接线；`color-picker` / `date-picker` 的 `disabled` 透传 | 可达 | 正向（可访问性），无行为契约破坏 |
+| **供应链** | 新增传递依赖 `@vavt/cm-extension@2.0.0`（RichTextEditor 用，其 optional peer `md-editor-v3 ^7.1.0` 未安装）；`pnpm-lock.yaml` 另含与本次升级无直接关系的传递解析漂移 `source-map-js 1.2.1→1.2.2`、`ohash 2.0.11→2.0.12` | 未使用 RichTextEditor | 来源为 caomei-ui 自有仓库；平台未启用该组件，不引入新运行时路径；lockfile 漂移为同批 `pnpm install` 副产物 |
+
+> **公开组件口径**（回应审计 RG-W1，原「47 → 48」不可复现）：以 `index.d.ts` 的 `as Caomei*` 导出计 **80 → 81**（推荐口径，可直接复现）；以 `dist/components/` 子目录数计 **48 → 49**（该目录下 `*.vue.d.ts` 文件数为 79 → 80）。三者均只 +1（`CaomeiRichTextEditor`），无移除 / 改名。
+
+**3）层级缺陷的根因、修复与升级前取证**
+
+- **机制**：Reka 的 `PopperContent` 会把面板元素的计算 `z-index` 镜像到 popper 定位包裹层（`contentZIndex.value = window.getComputedStyle(contentElement).zIndex`，`node_modules/reka-ui/dist/Popper/PopperContent.js`）→ **面板 CSS 的 z 档位就是实际层叠档位**。
+- **0.3.0（缺陷态）**：面板 z = `--caomei-z-overlay` = **1000**，与模态遮罩同级、**低于** `.caomei-dialog__content` 的 `--caomei-z-modal` = **1001**；面板与模态同处根层叠上下文时，谁能压住对方**取决于 DOM 顺序**（门户在遮罩之后插入才侥幸可见）——即「层级错误」。
+- **0.5.0（修复态）**：面板 z 提升到 `--caomei-z-dropdown` = **1050** > 1001；库内注释原文：「层级：面板必须高于模态内容（`.caomei-dialog__content` 等，`--caomei-z-modal`），否则在 Dialog / Drawer 内打开的 Select 会被模态卡片盖住（面板为 popper 挂到 body，与模态同处根层叠上下文，只能靠 z-index 分胜负）」。
+- **升级前取证**（同一用例临时降回 0.3.0 运行）：`layerZ=1000` / `dialogZ=1001` → 断言「面板层 z 未高于弹窗内容 z」**失败**；升级后 `layerZ=1050` / `dialogZ=1001` → **通过**。截图 `artifacts/review-gate/m34.2/before-*.png` / `after-*.png`（gitignored）。
+- **未复现项（结论修正）**：「面板被裁剪」在扫描场景（弹窗内首个 Select、弹窗底部 Select 向上翻转）均不成立——面板经 `SelectPortal` 挂到 body、`position: fixed`，无「真裁剪祖先」（`body` 的 `overflow: hidden` 属外壳常态且其矩形完整容纳面板）。故用户可见缺陷的实际轴是**层级（z 序）**，且该轴已由 0.5.0 修复，**未触发「提上游 issue」分支**。
+- 「同一用例在缺陷态下仅 z 序断言失败、其余四项几何断言均成立」已由 0.3.0 降级复跑固化——即四项几何断言是**环境不变量守卫**（防止未来改用非 portal 实现或引入裁剪容器），唯一**缺陷检出断言**是 `layerZ > dialogZ`。
+
+**4）视觉基线复核（testing.md §6.7 内容核验口径）+ 阈值盲区第二次实证**
+
+强制全量重建基线（`--update-snapshots=all`）后与 0.3.0 期基线逐像素比对，**9 张全部变化**：
+
+| 基线 | 差异像素 | 占比 | maxΔ | bbox | 归因 |
+| :--- | ---: | ---: | ---: | :--- | :--- |
+| alerts-light.png | 91526 | 7.06% | 244 | (278,207)-(1111,789) | 主体为 severity / source Tag 的 `--soft` 底色（12%→8%）；**`maxΔ 244` 来自其中的 `CaomeiSwitch` 拇指**（`--caomei-switch-thumb-bg` fallback 由 `--caomei-color-bg` → `--caomei-color-primary-foreground` = 亮色 `#0b0b0d`，bbox `(844,207)-(859,222)` 约 14px 实心圆） |
+| alerts-dark.png | 91508 | 7.06% | 29 | (278,207)-(1111,789) | 同上（暗色档；暗色 `primary-foreground` 与 `bg` 差异小于亮色，故 maxΔ 较小） |
+| alerts-right-light.png | 88544 | 14.77% | 11 | (0,72)-(822,506) | 同上（元素级补拍） |
+| alerts-right-dark.png | 88529 | 14.77% | 11 | (0,72)-(822,506) | 同上（元素级补拍） |
+| pr-checks-light.png | 25916 | 2.00% | 11 | (497,387)-(1034,634) | 状态 / 结论 Tag 的 `--soft` 底色 |
+| repos-light.png | 23814 | 1.84% | 10 | (418,212)-(1035,345) | 标签列 Tag 的 `--soft` 底色 |
+| repos-dark.png | 23844 | 1.84% | 9 | (418,212)-(1035,345) | 同上（暗色档） |
+| login-light.png | 13864 | 1.07% | 236 | (527,561)-(912,596) | **陈旧基线追平（非升级引入）**：旧基线（M32.5 生成）仍是 teal-600，而 0.3.0 下主按钮**已是 teal-700**（`before-dialog-select-open.png` 实测 teal-700 2245 px / teal-600 0 px）→ M33.9 的 `--caomei-button-bg` 覆盖本就生效，只是当次因阈值盲区未被基线捕获；本批 `=all` 重建时追平 |
+| dialog-import-repos-light.png | 2466 | 0.75% | 23 | (16,155)-(743,190) | 弹窗内表单字段 / Select 触发器外壳（field-shell 抽取后取值细微变浅） |
+| **合计** | **450011** | — | — | — | — |
+
+- **受控 A/B 佐证**（同一用例、同一状态、仅库版本不同）：`artifacts/review-gate/m34.2/before-dialog-select-open.png`（0.3.0）vs `after-dialog-select-open.png`（0.5.0）逐像素比对 **30322 px 差异 / maxΔ 242（单通道；三通道和为 564，与上表口径统一取单通道）/ bbox (418,212)-(1035,612)**（表体标签列 + 弹窗字段区）——与上表归因一致：升级确实带来渲染差异，而其中 tag 色值与字段外壳两类差异均**低于视觉阈值**，只会在强制重建时显形。
+- **基线处置**：接受上述变更（soft 底 8% 有对比度依据；字段外壳差异为壳层取值、非缺陷）→ **9 张基线已按 0.5.0 渲染重建入库**；其中 `login-light.png` 属补追 M33.9 的既有色改，其余以 tag 色值变更为主。
+- **第二条盲区轴（同批实证，独立于色阈值）**：`alerts-light` 的 Switch 拇指色差远超色阈值（pixelmatch colorDelta ≈ 3×10⁴ ≫ 1408.6），却仍被 **`maxDiffPixels: 200` 面积预算**吞掉（该图非抗锯齿差异像素实测 **164 ≤ 200**）→ 即「少面积 × 高色差」变更同样可逃逸门禁。两条轴（色阈值 / 面积预算）都由 [todo.md §M34.3](../../plan/todo.md) 承接。
+- **为什么此前 CI / 本地全绿**（`threshold: 0.2` 盲区实证）：pixelmatch 的 `maxDelta = 35215 × 0.2² = 1408.6`，而 `#0d9488 → #0f766e` 的 delta ≈ 308、Tag `12% → 8%` 合成色差约 Δ(9,4,4)（delta 更小）、字段外壳差异更小 → **全部低于阈值被判「同色」**，故失真基线仍持续通过。这是 [测试规范 §6.7](../../standards/testing.md) 登记的容差盲区，本批给出**两次实证**：① M33.9 主按钮 teal-600 → teal-700 **被吞**（铁证：0.3.0 下 `before-*.png` 实测已渲染 teal-700 2245 px / teal-600 0 px，而旧基线仍是 teal-600 且当时 CI 全绿）；② 本批 soft 底色 12% → 8% 同样被吞。**盲区可吞掉整块实底按钮（385×35）的色值变更**，灵敏度议题由 [todo.md §M34.3](../../plan/todo.md) 承接。
+- **方法论教训（本批踩坑，已回填上文第 1 条）**：`--update-snapshots` 不带 `=all` 时**只重写判定为「不匹配」的基线**；在盲区内判定为匹配 → 基线不被重写 → 由此对比得到的「零差异」是**假证据**（本次一度据此得出「视觉零漂移」的错误结论，后经 A 阶段审计质疑 + 元素级探针 + `=all` 强制重建推翻）。§6.7 口径必须用 `--update-snapshots=all` 强制重建后再逐像素 diff。
+- **基线陈旧性推论**：因盲区长期吞掉色值变更，本仓既有基线可能混入「陈旧未追平」项（login-light.png 即为此类）——重建后的 9 张基线以 0.5.0 渲染为唯一参考，后续色值类改动仍需按 §6.7 主动核验，不能只依赖绿色门禁。
+
+**5）验证矩阵（M34.2 收口）**
+
+| 检查 | 命令 | 结果 |
+| :--- | :--- | :--- |
+| Lint | `pnpm lint` | 通过（0 error） |
+| Typecheck | `pnpm typecheck`（platform `nuxt typecheck` + cli / mcp `tsc --noEmit`） | 全 Done，0 error |
+| 单测 | `pnpm --filter @dependfix/platform test` | 1353 passed / 7 skipped / 0 failed |
+| e2e | `TMPDIR=/dev/shm pnpm --filter @dependfix/platform test:e2e` | 175 passed / 0 failed（含类名适配后 admin 组 18/18） |
+| 视觉回归 | `pnpm --filter @dependfix/platform test:visual`（重建基线后连跑两遍） | 9 passed ×2，二次运行零漂移 |
+| 新增防复发用例 | `apps/platform/tests/visual/dialog-select-layer.visual.test.ts` | 2 例：弹窗内首个 Select、弹窗底部翻转 Select；断言 = 门户到 body + 面板在视口内 + 命中自身 + 无真裁剪祖先 + **面板层 z > 弹窗内容 z** |
+
+**6）观察与遗留**
+
+- 全量顺序运行首轮曾出现 2 例 `api-i18n`（POST /api/repos 重复仓库）语言断言失败：该组为**纯 API 用例、不加载客户端组件库**，升级不可能影响其语义；单文件 7/7 与二次全量 175/175 通过 → 判为共享 SQLite 状态导致的**顺序偶发**，已登记 [backlog §已知边界](../../plan/backlog.md)。
+- `_caomei-tokens.scss` 暗色档假设「库基础预设 `--caomei-color-primary-foreground` = `#0b0b0d`（实测 13.29:1）」经 0.5.0 复核**未变**，注释已同步为已复核状态。
+- **视觉阈值盲区**（可吞色值变更）不在本批范围 → 由 [todo.md §M34.3](../../plan/todo.md)（视觉回归灵敏度）承接；本批为其提供了第二条实证与量化基线差异。
+- `Select` 的 `#value` 槽可恢复 owner badge（M31.4 因 0.3.0 无该槽而放弃）——登记为后续 UX 候选（不在 M34 范围）。

@@ -30,7 +30,7 @@
 | M20: ScanResult 数据模型重构 | per-alert 模型 + reconcile + API 简化 + UI + backfill | P2 | 已完成（[archive/todo-archive-phases-m19-m21.md §M20](archive/todo-archive-phases-m19-m21.md#m20-scanresult-数据模型重构m201m203m205m206m207-全部已闭环--2026-08-31-归档)） |
 | M21: 治理收口 + 能力扩展 + 测试补强 | Code Scanning RG-W + M18.x 剩余风险 + B3 PR 自动合并 + T704 e2e | P3 | 已完成（[archive/todo-archive-phases-m19-m21.md §M21](archive/todo-archive-phases-m19-m21.md#m21-治理收口--能力扩展--测试补强m211m212m214m215-全部已闭环--2026-08-31-归档)） |
 | M22: SQLite 数据保护防御加固 | 2026-09-01 dependfix.sqlite 数据清空事故 + 6 原子条目 | P0-P1 | 已完成（[archive/todo-archive-phases-m22.md §M22](archive/todo-archive-phases-m22.md#m22-sqlite-数据保护防御加固m221m222m223m224m225m226-全部已闭环--2026-09-01-归档)） |
-| M23: M22 治理债收口 + 根因排查 + 能力扩展 + 测试补强 | M22.7+M22.8 根因 + C66 告警视图增强 | P1-P3 | 已完成（[todo-archive.md §M23](todo-archive.md#m23-m22-治理债收口--根因排查--能力扩展--测试补强m230m231m232m233m234-全部已闭环--2026-09-02-归档)） |
+| M23: M22 治理债收口 + 根因排查 + 能力扩展 + 测试补强 | M22.7+M22.8 根因 + C66 告警视图增强 | P1-P3 | 已完成（[archive/todo-archive-phases-m23.md §M23](archive/todo-archive-phases-m23.md#m23-m22-治理债收口--根因排查--能力扩展--测试补强m230m231m232m233m234-全部已闭环--2026-09-02-归档)） |
 | M24: PR Check MVP + 治理债 + 测试补强 + 用户体验 | PR Check 状态监测 MVP + M22.7+M22.8 残留根因 + C36 i18n | P1-P3 | 已完成（[todo-archive.md §M24](todo-archive.md#m24-pr-check-mvp--治理债--测试补强--用户体验m241m242m243m244m245-全部已闭环--2026-09-03-归档)） |
 | M25: PrimeUI License 治理 + 平台 AI 研判集成 + lint baseline + M24 follow-up 工具化 | C70 PrimeUI 降级 + C68 AI 研判基础层 + lint baseline + i18n-anchor-check + zod-helpers | P1-P3 | 已完成（[todo-archive.md §M25](todo-archive.md#m25-primeui-license-治理--平台-ai-研判集成--lint-baseline-治理--m24-follow-up-工具化m251m252am253m254-全部已闭环--2026-09-08-归档)） |
 | M26: 平台 AI 研判应用层 + 批量导入 Resource owner 化 + 文档站 i18n + License 收口 + 经验沉淀 | C68 P1 应用层 + C67 + C69 P0 + primeicons 降级 + baseline 22 warnings 治理 + e2e 适配 + 经验归档沉淀 | P1-P3 | 已完成（[todo-archive.md §M26](todo-archive.md#m26-平台-ai-研判应用层--批量导入-resource-owner-化--文档站-i18n--license-收口--经验沉淀m261m262m263m264am264bm264cm265-全部已闭环--2026-09-10-归档)） |
@@ -40,7 +40,7 @@
 | M30: 治理债清理 + 迁移可行性验证 + 能力扩展 + 测试补强 | C87 跳过类审计退出码 + C86 max-lines 拆分 + C84 文档对齐 + C74 getCommitAuthor 接线（App 路径）+ db-restore 补测 + UI 组件库迁移可行性验证 V1-V3 | P2-P3 | 已完成（[todo-archive.md §M30](todo-archive.md#m30-治理债清理--迁移可行性验证--能力扩展--测试补强m301m306-全部已闭环--2026-09-28-归档)） |
 | M31: apps/platform UI 组件库迁移（PrimeVue → caomei-ui） | B0 基线与双库并存接线 + B1a/B1b DataTable 迁移 + B2 表单/浮层切换 + B3 收尾卸载与回归 + C90 db-restore 补强 | P2-P3 | 已完成（[todo-archive.md §M31](todo-archive.md#m31-appsplatform-ui-组件库迁移primevue--caomei-ui-m311m316-全部已闭环--2026-09-29-归档)） |
 | M32: 能力扩展优先 | C76 平台验证命令配置 + C85 目标仓库专属配置 + C89 Code Scanning 未启用区分 + C82 git 签名语义边界 + C92 视觉回归最小集 | P3 | 已完成（[todo-archive.md §M32](todo-archive.md#m32-能力扩展优先m321m325-全部已闭环--2026-09-30-归档)） |
-| M33: 治理债收口 + 测试基建扩展 | C91 review 检查点补挂 + 视觉回归 CI 转阻断 + M31 dependabot 死配置清理 + C93/C94 视觉回归覆盖扩展 + C80 观察期阻断语义 | P3 | 进行中（2026-09-30 用户决策方案 A 启动） |
+| M33: 治理债收口 + 测试基建扩展 | C91 review 检查点补挂 + 视觉回归 CI 转阻断 + M31 dependabot 死配置清理 + C93/C94 视觉回归覆盖扩展 + C80 观察期阻断语义 + M33.7 迁移入口 + M33.8–M33.10 UI 修复 + M33.11 存量漏洞治理 | P3 | 已完成（[todo-archive.md §M33](todo-archive.md#m33-治理债收口--测试基建扩展m331m3311-全部已闭环--2026-09-30-归档)；2026-09-30 归档） |
 
 > **本路线图定位**：按 [规划规范 §2.1](../standards/planning.md) 仅维护阶段概览（目标 / 优先级 / 状态）。详细实施记录 / commit 引用 / 关键决策 / 经验教训见对应归档段（详见下方"## 详细任务"索引）。
 
@@ -226,7 +226,7 @@ per-alert 模型 + reconcile + API 简化 + UI 调整 + backfill 脚本。5 子�
 
 承接 M22 闭环 + M22.7+M22.8 hotfix 衍生根因治理债 + C66 告警视图增强 + 测试基建清理。5 原子条目独立闭环（M23.0 治理收敛 / M23.1 M22.7 根因 / M23.2 M22.8 根因 / M23.3 C66 告警视图 / M23.4 测试补强）。
 
-> 详细任务见 [todo-archive.md §M23](todo-archive.md#m23-m22-治理债收口--根因排查--能力扩展--测试补强m230m231m232m233m234-全部已闭环--2026-09-02-归档)
+> 详细任务见 [archive/todo-archive-phases-m23.md §M23](archive/todo-archive-phases-m23.md#m23-m22-治理债收口--根因排查--能力扩展--测试补强m230m231m232m233m234-全部已闭环--2026-09-02-归档)
 
 ## M24: PR Check MVP + 治理债 + 测试补强 + 用户体验
 
@@ -462,39 +462,48 @@ per-alert 模型 + reconcile + API 简化 + UI 调整 + backfill 脚本。5 子�
 
 ---
 
-## M33: 治理债收口 + 测试基建扩展（2026-09-30 用户决策方案 A 启动 / 进行中）
+## M33: 治理债收口 + 测试基建扩展（2026-09-30 用户决策方案 A / 2026-09-30 已闭环 + 归档）
 
-承接 M32 完整闭环归档后的 backlog 候选池。2026-09-30 用户决策**方案 A（治理 + 测试基建收口）**，从「评估完成待上收」候选（C91 / C93 / C94 / C80 剩余）与本批评估新登记的可行动已知边界项（视觉回归 CI 转阻断 / M31 dependabot 死配置清理）中上收 **6 原子条目**。**C80 采用方案 C（观察期）**。覆盖 📚 1 + 🛠️ 3 + 🧪 2，符合 [规划规范 §1.1 L12 类型平衡原则](../standards/planning.md#11-硬性约束)（🎨 UX 0 项，缺口显式标注，承接 M28–M32 同型缺口）。
+承接 M32 完整闭环归档后的 backlog 候选池。2026-09-30 用户决策**方案 A（治理 + 测试基建收口）**，从「评估完成待上收」候选（C91 / C93 / C94 / C80 剩余）与本批评估新登记的可行动已知边界项（视觉回归 CI 转阻断 / M31 dependabot 死配置清理）中上收 6 原子条目；阶段内 M33.7（迁移命令入口补齐）与 M33.8–M33.10（UI 修复批次）经用户直接决策追加，M33.11（devDeps 存量漏洞治理）按插队例外清单第 2 类经用户明确授权追加。**11 原子条目全部闭环**，覆盖 📚 1 + 🛠️ 4 + 🧪 2 + 🎨 3 + 🛡️ 1，符合 [规划规范 §1.1 L12 类型平衡原则](../standards/planning.md#11-硬性约束)。
 
-- **M33.1** [P3 📚 治理] C91 新增规范条款的 review 检查点补挂（M30 6 条严格约束 + M32.4 `git.md §3.8` + M32 归档批次蒸馏新增条款 → `.github/agents` / `.github/skills`）
-- **M33.2** [P3 🛠️ CI 治理] 视觉回归 CI job 转阻断（移除 `continue-on-error`；依据 run `36602407382` 首个 `ubuntu-latest` 全绿 run）
-- **M33.3** [P3 🛠️ 依赖治理] M31 迁移遗留 dependabot 死配置清理（移除 3 条 PrimeVue 相关 `ignore` + 配套注释）
-- **M33.4** [P3 🧪 测试覆盖] C93 视觉回归 pr-checks 行级覆盖（fixtures 扩展 `prChecks` 写入路径 + 级联删除）
-- **M33.5** [P3 🧪 测试覆盖] C94 视觉回归 alerts 宽表右端列盲区（横向滚动后补拍）
-- **M33.6** [P3 🛠️ CI 政策] C80 剩余 devDeps 链漏洞阻断语义（**方案 C 观察期**：维持 `|| true` + 可判定转阻断条件）
+- **M33.1** [P3 📚 治理] C91 新增规范条款的 review 检查点补挂（「规范条款 review 检查点矩阵」21 行落点）—— `4543a54` + `3ff4595`
+- **M33.2** [P3 🛠️ CI 治理] 视觉回归 CI job 转阻断（移除 `continue-on-error`，依据 run `36602407382` 首个全绿 run）—— `faba8f3` + `921d6a6`
+- **M33.3** [P3 🛠️ 依赖治理] M31 迁移遗留 dependabot 死配置清理（3 条 PrimeVue `ignore` 移除）—— `f8359a8`
+- **M33.4** [P3 🧪 测试覆盖] C93 视觉回归 pr-checks 行级覆盖（fixtures `prChecks` 写入路径 + 5 行行级基线）—— `27d5254` + `8d40230`
+- **M33.5** [P3 🧪 测试覆盖] C94 视觉回归 alerts 宽表右端列盲区（元素级补拍 `alerts-right-*`）—— `1732795` + `a912e34`
+- **M33.6** [P3 🛠️ CI 政策] C80 剩余 devDeps 链漏洞阻断语义（**方案 C 观察期** + 可判定转正条件）—— `f841695`
+- **M33.7** [P2 🛠️ devEx 治理] 数据库迁移命令入口补齐（`db:migrate` CLI 复用 `createDataSourceOptions` 并强制双 false 解耦）—— `0fd45ef`
+- **M33.8** [P2 🎨 用户体验] 弹窗表单布局规范统一（label 间距 / actions 右下 / 刷新按钮对齐）—— `2d796f6` + `cd98bfc`
+- **M33.9** [P2 🎨 用户体验] 主按钮视觉与加载态（teal-700 白字 5.47:1 + reduced-motion 脉冲兜底）—— `a03dbf7` + `f5d9c77`
+- **M33.10** [P3 🎨 用户体验] 告警筛选行「显示已解决」对齐（控件区补足控制档高度 + 居中）—— `d3d2802` + `70606fb`
+- **M33.11** [P2 🛡️ 安全插队] devDeps / 运行时链存量漏洞治理（overrides 升级，audit 13 条 → 0）—— `bb88f26` + `77f95c2`
 
-**关键决策 D1-D5**（2026-09-30 用户裁定）：
+**关键决策 D1-D9**（2026-09-30 用户裁定）：
 
 - **D1**：方案 A（治理 + 测试基建收口）——6 原子条目，类型平衡 📚 1 + 🛠️ 3 + 🧪 2
-- **D2**：C80 采用**方案 C（观察期）**——维持 `|| true` + 标注可判定转阻断条件（避免上游新披露 devDeps 漏洞突然红掉 CI）
-- **D3**：视觉回归 CI 转阻断以 CI run `36602407382` 首个全绿 run 为转正依据；转阻断后以真实 CI run 裁决
-- **D4**：**不纳入** C81（注释存量行级扫描 292 行，测量方 = M33 启动评估执行角色，可复现命令见 [todo.md §M33 D4](todo.md#m33-治理债收口--测试基建扩展2026-09-30-用户决策方案-a-启动)，量级与条目 300–430 同档，须 3-6 子批次，留独立阶段 / 主线）与 C83（能力扩展，方案 B 范围）
-- **D5**：阶段启动 commit 仅改 `docs/plan/*`（P 阶段规划暂停协议），提交后暂停等待用户指令进入 D 阶段
+- **D2**：C80 采用**方案 C（观察期）**——维持 `|| true` + 标注可判定转阻断条件（存量清零后连续 3 次 `master` push clean）
+- **D3**：视觉回归 CI 转阻断以 run `36602407382` 首个全绿 run 为转正依据；转阻断后以真实 CI run 裁决（run `36704146211` Visual Regression job = success）
+- **D4**：**不纳入** C81（注释孤立编号清理，须分批）与 C83（验证链既有失败基线判定，方案未定）
+- **D5**：阶段启动 commit 仅改 `docs/plan/*`（P 阶段规划暂停协议）
+- **D6**（P 阶段 A 阶段审计收敛）：第 1 轮 `standard` Pass（0 blocker / 4 warning / 6 suggest）；warning 落点登记到对应条目交付物
+- **D7**：M33.7 经用户直接决策追加（属 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement)「用户直接决策」路径，非插队例外 3 类）
+- **D8**：M33.8–M33.10 UI 修复批次经用户直接决策追加；执行顺序 M33.9 → M33.8 → M33.10（先落全局色板以免基线二次改写）
+- **D9**：M33.11 经用户明确授权按插队例外清单第 2 类追加；执行顺序 M33.11（清存量）→ M33.6（落阻断语义口径）
 
-**§3.4 三重交叉核验**：M33.1–M33.6 全部实测 **0 项重复评估**（todo-archive 表格扫描 / git log 核验 / 代码侧 anchor 实证；完整证据见 [todo.md §M33](todo.md#m33-治理债收口--测试基建扩展2026-09-30-用户决策方案-a-启动)）。
-
-**ahead commits 实证**：阶段启动前 `git rev-list HEAD ^origin/master --count` 实测 = 0（M0-M32 全部已推送）；本阶段 commits 按 [AGENTS.md §5 推送禁令](../../AGENTS.md) 等待用户主动推送。
+**类型平衡复核**：📚 治理 1（M33.1）/ 🛠️ CI 与 devEx 治理 4（M33.2 / M33.3 / M33.6 / M33.7）/ 🧪 测试覆盖 2（M33.4 / M33.5）/ 🎨 用户体验 3（M33.8 / M33.9 / M33.10）/ 🛡️ 安全 1（M33.11）。
 
 **未纳入本批（保留 backlog）**：C81（注释孤立编号清理，须分批）/ C83（验证链既有失败基线判定）/ C15 第二阶段（需 `GITHUB_TOKEN` 采集真实样本）/ C37（语言多设备同步）/ D1 / D3 / D8 / B2 / SAML SSO / C68 / T905 / T701 / T702 / T704（触发条件未到或需真实环境）。
 
-> 详细任务与 8 要素见 [todo.md §M33](todo.md#m33-治理债收口--测试基建扩展2026-09-30-用户决策方案-a-启动)
+**闭环实证摘要**：20 commits（阶段启动 `e6c5502` + 11 原子条目的实现与闭环登记）全部已推送 `origin/master`（`git rev-list HEAD ^origin/master --count` 归档时实测 = 0）；11 轮独立 Review Gate（含 M33.7 / M33.9 的 Reject → 修复 → Pass）。
+
+> 详细任务与 8 要素见归档段 [todo-archive.md §M33](todo-archive.md#m33-治理债收口--测试基建扩展m331m3311-全部已闭环--2026-09-30-归档)
 
 ---
 
 ## 详细任务
 
-- 当前阶段任务：[todo.md](todo.md)（**M33 治理债收口 + 测试基建扩展进行中**：2026-09-30 用户决策方案 A 启动，6 原子条目；详见 [todo.md §M33](todo.md#m33-治理债收口--测试基建扩展2026-09-30-用户决策方案-a-启动)）
-- 已归档阶段：[todo-archive.md](todo-archive.md)（主窗口保留最近阶段完整段 + 指针段；早期阶段见 [archive/index.md](archive/index.md) 分片索引）
+- 当前阶段任务：[todo.md](todo.md)（当前无活跃阶段；M33 已于 2026-09-30 完整闭环归档，下一阶段启动待用户明确决策）
+- 已归档阶段：[todo-archive.md](todo-archive.md)（主窗口保留最近阶段完整段 + 指针段；M0-M33 全部已归档；早期阶段见 [archive/index.md](archive/index.md) 分片索引）
 - 后续阶段任务（延期项 + 未排期增强候选）：[backlog.md](backlog.md)
 
 ## 交付原则

@@ -18,10 +18,12 @@
   - **M14 + M15**：[archive/todo-archive-phases-m14-m15.md](archive/todo-archive-phases-m14-m15.md)（**2026-08-31 M19 归档批次预防性分片迁出**——M19 段新增前主窗口 699 行 + M19 段预估 80-100 行将超 700 强制分片阈值；M14 + M15 同源批次同期迁出，符合"主窗口保留 3-5 个阶段"健康策略）
   - **M16 + M17**：[archive/todo-archive-phases-m16-m17.md](archive/todo-archive-phases-m16-m17.md)（**2026-08-31 M20 归档批次预防性分片迁出**——M20 段新增前主窗口 638 行 + M20 段预估 100-130 行将超 700 强制分片阈值，预防性迁出与 M19/M18/M17/M16 归档批次预防性迁出 M14/M15/M13/M12/M10 同源策略）
   - **M22**：[archive/todo-archive-phases-m22.md](archive/todo-archive-phases-m22.md)（**2026-09-28 M30 归档批次预防性分片迁出**——M30 段新增前主窗口 682 行 + M30 段新增将超 700 强制分片阈值；M22 完整段迁出与 M19-M21 / M14-M15 / M16-M17 归档批次预防性迁出同源策略）
+  - **M23**：[archive/todo-archive-phases-m23.md](archive/todo-archive-phases-m23.md)（**2026-09-30 M33 归档批次预防性分片迁出**——M33 段新增前主窗口 655 行 + M33 段新增将超 700 强制分片阈值；M23 是主窗口最早的完整段，按「主窗口保留 3-5 个阶段」健康策略迁出）
 
 ## 主窗口保留范围
 
-- 主文档保留最近 3-5 个完整段的近线归档块（当前 5 个，处 [archive/index.md §2](archive/index.md) 定义区间上界：M32 完整段 + M31 完整段 + M30 完整段 + M29 完整段 + M23 完整段，按时间倒序排列在顶部）+ 早期阶段指针段；各阶段 ahead 状态以各段 commit 列表 + `git rev-list HEAD ^origin/master --count` 实证为准，不写死具体数字。**预防性分片同步记录**：M28.6 归档批次（2026-09-11）已预防性迁出至 [archive/todo-archive-phases-m28.md](archive/todo-archive-phases-m28.md)；M26 已于 2026-09-10 M26 归档批次迁出至 [archive/todo-archive-phases-m26.md](archive/todo-archive-phases-m26.md)；M24 / M25 已于 2026-09-08 迁出至 [archive/todo-archive-phases-m24.md](archive/todo-archive-phases-m24.md) + [archive/todo-archive-phases-m25.md](archive/todo-archive-phases-m25.md)；M19 / M20 / M21 已于 2026-09-10 M26 归档批次预防性分片迁出至 [archive/todo-archive-phases-m19-m21.md](archive/todo-archive-phases-m19-m21.md)；M14 + M15 已于 2026-08-31 迁出至 [archive/todo-archive-phases-m14-m15.md](archive/todo-archive-phases-m14-m15.md)；M16 + M17 已于 2026-08-31 迁出至 [archive/todo-archive-phases-m16-m17.md](archive/todo-archive-phases-m16-m17.md)；M18 已于 2026-09-01 M22 归档批次预防性迁出至 [archive/todo-archive-phases-m18.md](archive/todo-archive-phases-m18.md)；M22 已于 2026-09-28 M30 归档批次预防性迁出至 [archive/todo-archive-phases-m22.md](archive/todo-archive-phases-m22.md)。
+- 主文档保留最近 3-5 个完整段的近线归档块（当前 5 个，处 [archive/index.md §2](archive/index.md) 定义区间上界：M33 完整段 + M32 完整段 + M31 完整段 + M30 完整段 + M29 完整段，按时间倒序排列在顶部）+ 早期阶段指针段；各阶段 ahead 状态以各段 commit 列表 + `git rev-list HEAD ^origin/master --count` 实证为准，不写死具体数字。**预防性分片同步记录**：M23 已于 2026-09-30 M33 归档批次预防性迁出至 [archive/todo-archive-phases-m23.md](archive/todo-archive-phases-m23.md)；M28.6 归档批次（2026-09-11）已预防性迁出至 [archive/todo-archive-phases-m28.md](archive/todo-archive-phases-m28.md)；M26 已于 2026-09-10 M26 归档批次迁出至 [archive/todo-archive-phases-m26.md](archive/todo-archive-phases-m26.md)；M24 / M25 已于 2026-09-08 迁出至 [archive/todo-archive-phases-m24.md](archive/todo-archive-phases-m24.md) + [archive/todo-archive-phases-m25.md](archive/todo-archive-phases-m25.md)；M19 / M20 / M21 已于 2026-09-10 M26 归档批次预防性分片迁出至 [archive/todo-archive-phases-m19-m21.md](archive/todo-archive-phases-m19-m21.md)；M14 + M15 已于 2026-08-31 迁出至 [archive/todo-archive-phases-m14-m15.md](archive/todo-archive-phases-m14-m15.md)；M16 + M17 已于 2026-08-31 迁出至 [archive/todo-archive-phases-m16-m17.md](archive/todo-archive-phases-m16-m17.md)；M18 已于 2026-09-01 M22 归档批次预防性迁出至 [archive/todo-archive-phases-m18.md](archive/todo-archive-phases-m18.md)；M22 已于 2026-09-28 M30 归档批次预防性迁出至 [archive/todo-archive-phases-m22.md](archive/todo-archive-phases-m22.md)。
+- **2026-09-30 M33 归档批次**：M33 段（11 原子条目 **20 commits** 实证见 [commit 数量](#m33-治理债收口--测试基建扩展m331m3311-全部已闭环--2026-09-30-归档)）新增至主窗口顶部；M33 全部 commits 已推送 `origin/master`（`git rev-list HEAD ^origin/master --count` 归档时实测 = 0）。主窗口保留范围相应调整为 **M33/M32/M31/M30/M29 共 5 个完整段**（位于 [archive/index.md §2](archive/index.md) 定义的 3-5 个阶段区间上界）+ M23 / M27 / M26 / M22 等指针段；**M23 完整段随 M33 新增预防性迁出**至 [archive/todo-archive-phases-m23.md](archive/todo-archive-phases-m23.md)（M33 段新增前主窗口 655 行 + M33 段新增将超 700 强制分片阈值）；段新增后主窗口 648 行，**未触及 700 强制分片阈值**（位于 [archive/index.md §1](archive/index.md) 定义的 501-700 warning 带）；同期同步 `M0-M32` → `M0-M33` 里程碑口径（`docs/index.md` + `docs/i18n/en-US/index.md` + `backlog.md`）。
 - **2026-09-30 M32 归档批次**：M32 段（5 原子条目 **26 commits** 实证见 [commit 数量](#m32-能力扩展优先m321m325-全部已闭环--2026-09-30-归档) + 1 merge commit `300e833`）新增至主窗口顶部；阶段启动 2 commits（`6315119` + `f3e6423`）已在 `origin/master`，M32 原子条目 commits 归档时为本地 ahead（`git rev-list HEAD ^origin/master --count` 实证）。主窗口保留范围相应调整为 **M32/M31/M30/M29/M23 共 5 个完整段**（位于 [archive/index.md §2](archive/index.md) 定义的 3-5 个阶段区间上界）+ M27/M26 指针段；段新增后主窗口 655 行，**未触及 700 强制分片阈值**（位于 [archive/index.md §1](archive/index.md) 定义的 501-700 warning 带），故本批次无预防性迁出；同期同步 `M0-M31` → `M0-M32` 里程碑口径（`docs/index.md` + `docs/i18n/en-US/index.md` + `backlog.md` + `todo.md`）。
 - **2026-09-27 M29 归档批次**：M29 段（9 原子条目 35 atomic commits = **35 commits 全部 ahead=0 已推送至 origin/master**）新增至主窗口顶部；主窗口保留范围相应调整为 M29/M28/M27/M26/M23 共 5 个阶段（M22 完整段于 2026-09-28 M30 归档批次预防性迁出，见下条）。
 - **2026-09-28 M30 归档批次**：M30 段（6 原子条目 7 commits + 2 docs 收口 + 6 衍生治理 = **15 commits 全部 ahead=0 已推送至 origin/master**）新增至主窗口顶部；主窗口保留范围相应调整为 M30/M29/M27/M26/M23 共 5 个阶段；**M22 完整段随 M30 新增预防性迁出**至 [archive/todo-archive-phases-m22.md](archive/todo-archive-phases-m22.md)（M30 段新增前主窗口 682 行 + M30 段新增将超 700 强制分片阈值）。
@@ -34,6 +36,65 @@
 - **2026-08-31 归档批次（M19）**：M19.1+M19.2+M19.3+M19.4+M19.5 全部 5 子任务完整闭环，**5 commits 已全部推送至 `origin/master`**（ahead=0 `git rev-list HEAD ^origin/master --count` 2026-08-31 实测；M19.1 `0c536c1` + M19.2 `c998d58` + M19.3 `5839771` + M19.4 `8db2fd4` + M19.5 `a20ea02` + M19.x 收口 `ae33671` + 配套 commits `2f9eb38` / `bee5c3f` / `61b3ddc` / `4231ffb` 共 11 commits 落地）。详见下方 §M19 段。
 - **2026-08-31 同期动作**：M14 + M15 共 2 个早期批次从 todo-archive.md 主窗口预防性迁出至新分片 [archive/todo-archive-phases-m14-m15.md](archive/todo-archive-phases-m14-m15.md)（M19 段新增前主窗口 699 行 + M19 段预估 80-100 行将超 700 强制分片阈值，预防性迁出与 M18/M17/M16 归档批次预防性迁出 M13/M12/M10 同源策略）；主窗口保留范围相应调整为 M19/M18/M17/M16 共 4 个完整段。
 - **2026-08-26 同期动作（已迁出）**：M14.1 / M14.2 / M14.3 / M14.x / M14.y + M15.1 详见 [archive/todo-archive-phases-m14-m15.md](archive/todo-archive-phases-m14-m15.md)（2026-08-31 M19 归档批次预防性迁出）。M14.1 / M14.2 / M14.x / M14.y 阶段 commits 已全部推送至 `origin/master`（ahead=0 `git rev-list HEAD ^origin/master --count` 2026-08-26 实测）；M15.1 3 commits 落地 + release.yml CI 修复 1 commit 同期落地（后续已推送 origin/master；ahead commits 按 [规划规范 §4.4 §5 ahead 实证](../../docs/standards/planning.md) 动态核验）。
+
+---
+
+## M33: 治理债收口 + 测试基建扩展（M33.1~M33.11 全部已闭环 / 2026-09-30 归档）
+
+> **归档日期**：2026-09-30
+> **阶段摘要**：承接 M32 完整闭环归档后的 backlog 候选池。2026-09-30 用户决策**方案 A（治理 + 测试基建收口）**，从「评估完成待上收」候选（C91 / C93 / C94 / C80 剩余）与本批评估新登记的可行动已知边界项（视觉回归 CI 转阻断 / M31 dependabot 死配置清理）中上收 6 原子条目；阶段内 M33.7（迁移命令入口）与 M33.8–M33.10（UI 修复批次）经用户直接决策追加，M33.11（devDeps 存量漏洞治理）按插队例外清单第 2 类经用户明确授权追加。**11 原子条目全部闭环**，覆盖 📚 1 + 🛠️ 4 + 🧪 2 + 🎨 3 + 🛡️ 1，类型平衡完整（UX 缺口由用户直接决策批次补齐）。
+>
+> - **M33.1** [P3 📚 治理] C91 新增规范条款的 review 检查点补挂（「规范条款 review 检查点矩阵」21 行落点）—— `4543a54` + `3ff4595`
+> - **M33.2** [P3 🛠️ CI 治理] 视觉回归 CI job 转阻断（移除 `continue-on-error`，依据 run `36602407382` 首个全绿 run）—— `faba8f3` + `921d6a6`
+> - **M33.3** [P3 🛠️ 依赖治理] M31 迁移遗留 dependabot 死配置清理（3 条 PrimeVue `ignore` 移除）—— `f8359a8`
+> - **M33.4** [P3 🧪 测试覆盖] C93 视觉回归 pr-checks 行级覆盖（fixtures `prChecks` 写入路径 + 5 行行级基线）—— `27d5254` + `8d40230`
+> - **M33.5** [P3 🧪 测试覆盖] C94 视觉回归 alerts 宽表右端列盲区（元素级补拍 `alerts-right-*`）—— `1732795` + `a912e34`
+> - **M33.6** [P3 🛠️ CI 政策] C80 剩余 devDeps 链漏洞阻断语义（方案 C 观察期 + 可判定转正条件）—— `f841695`
+> - **M33.7** [P2 🛠️ devEx 治理] 数据库迁移命令入口补齐（`db:migrate` CLI 复用 `createDataSourceOptions` 并强制双 false 解耦）—— `0fd45ef`
+> - **M33.8** [P2 🎨 用户体验] 弹窗表单布局规范统一（label 间距 / actions 右下 / 刷新按钮对齐）—— `2d796f6` + `cd98bfc`
+> - **M33.9** [P2 🎨 用户体验] 主按钮视觉与加载态（teal-700 白字 5.47:1 + reduced-motion 脉冲兜底）—— `a03dbf7` + `f5d9c77`
+> - **M33.10** [P3 🎨 用户体验] 告警筛选行「显示已解决」对齐（控件区补足控制档高度 + 居中）—— `d3d2802` + `70606fb`
+> - **M33.11** [P2 🛡️ 安全插队] devDeps / 运行时链存量漏洞治理（overrides 升级，audit 13 条 → 0）—— `bb88f26` + `77f95c2`
+>
+> **commit 数量实证**：`git log master --first-parent --oneline` 按 `M33` 去重统计 = **20 commits**（阶段启动 `e6c5502` + 11 原子条目的实现与闭环登记 commits），全部已推送 `origin/master`。
+>
+> **关键决策 D1-D9**（2026-09-30 用户裁定；完整记录见 [roadmap.md §M33](roadmap.md#m33-治理债收口--测试基建扩展2026-09-30-用户决策方案-a--2026-09-30-已闭环--归档)）：
+>
+> - **D1**：方案 A（治理 + 测试基建收口）——6 原子条目，类型平衡 📚 1 + 🛠️ 3 + 🧪 2
+> - **D2**：C80 采用**方案 C（观察期）**——维持 `|| true` + 标注可判定转阻断条件（存量清零后连续 3 次 `master` push clean）
+> - **D3**：视觉回归 CI 转阻断以 run `36602407382` 首个全绿 run 为转正依据，转阻断后以真实 CI run 裁决（run `36704146211` Visual Regression job = success）
+> - **D4**：**不纳入** C81（注释孤立编号清理，须分批）与 C83（验证链既有失败基线判定，方案未定）
+> - **D5**：阶段启动 commit 仅改 `docs/plan/*`（P 阶段规划暂停协议）
+> - **D6**（P 阶段 A 阶段审计收敛）：第 1 轮 `standard` Pass（0 blocker / 4 warning / 6 suggest）；warning 落点登记到对应条目交付物
+> - **D7**：M33.7「现在就补齐迁移入口」经用户直接决策追加（属 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement)「用户直接决策」路径，非插队例外 3 类）
+> - **D8**：M33.8–M33.10 UI 修复批次经用户直接决策追加；执行顺序 M33.9 → M33.8 → M33.10（先落全局色板以免基线二次改写）
+> - **D9**：M33.11 devDeps 存量漏洞治理经用户明确授权按插队例外清单第 2 类追加；执行顺序 M33.11（清存量）→ M33.6（落阻断语义口径，观察期以存量清零为起点）
+>
+> **类型平衡复核**：📚 治理 1（M33.1）/ 🛠️ CI 与 devEx 治理 4（M33.2 / M33.3 / M33.6 / M33.7）/ 🧪 测试覆盖 2（M33.4 / M33.5）/ 🎨 用户体验 3（M33.8 / M33.9 / M33.10）/ 🛡️ 安全 1（M33.11）。
+>
+> **关键实证**（细节见各条目闭环记录与相关规范文档）：
+>
+> - **M33.1**：`code-quality-checklist` 新增「规范条款 review 检查点矩阵」，覆盖 M30 / M32.4 / M32 归档批次蒸馏新增条款（含 `platform.md §3.8` 委托既有必查项不重复挂接）
+> - **M33.2**：转阻断后真实 CI run `36704146211`（headSha `8d40230`）Test workflow = success，Visual Regression job = success（阻断语义在真实 CI 成立）
+> - **M33.4**：fixtures 端点新增可选 `prChecks` 写入路径（POST 幂等复用 + DELETE 级联删除 + 3 单测）；基线由空态升级为 **5 行**（结论标签四档 danger / success / warning / primary + Alert 状态三态）
+> - **M33.5**：`expectLocatorScreenshot` 增加可选 `mask` 参数；反例验证注入两列颜色变更差异 **40948 px ≫ maxDiffPixels 200**，右端两列确被覆盖
+> - **M33.6**：`security.md §5.6` 落定方案 C 观察期与转阻断配套（`--ignore-registry-errors`）+ 可复现统计命令；维持 `|| true`
+> - **M33.7**：`createMigrateDataSource` 强制 `synchronize` / `migrationsRun` 双 false 解耦；20 单测 + mutation 标定 4/4 被捕获
+> - **M33.9**：主按钮 teal-700 `#0f766e` + 白字 = 5.47:1（AA）；loading 根因 = 库内 `prefers-reduced-motion: reduce` 抑制旋转 → 补不依赖旋转的透明度脉冲兜底
+> - **M33.11**：overrides 升级 brace-expansion 三条 major 线 + `fast-uri@3` + moment，并移除 stale 通用钉定 `fast-uri: 3.1.6`；`pnpm audit` 13 条（5 moderate / 8 high）→ 0，Dependabot open alerts 8 → 0（推送后 `gh api .../dependabot/alerts?state=open` 实测）
+>
+> **审计**：A 阶段覆盖全部 11 原子条目 —— M33.1（deep Pass → standard 复审 Pass）/ M33.2（standard Pass）/ M33.3（quick Pass → 复审 Pass）/ M33.4（standard Pass）/ M33.5（quick Pass）/ M33.6（standard Pass）/ M33.7（standard Reject → 复审 Pass）/ M33.8（standard Pass）/ M33.9（standard Reject ×2 → quick Pass）/ M33.10（quick Pass）/ M33.11（standard Pass）。
+>
+> **未完成项 / 已知边界**（均登记 backlog，不随本阶段闭环）：
+>
+> - 本地 devEx：运行时 `data/` 产物污染 vitest 与 check-docs（M33.7 验证期登记）
+> - 视觉回归容差对「同明度色相 / 灰度替换」不敏感（M33.9 验证期登记）
+> - 非弹窗表单 label↔控件间距口径未统一（M33.8 审计登记）
+> - PrimeUI 治理遗留设计先行稿与索引状态陈旧（M33.3 审计登记）
+>
+> **ahead commits 实证**：M33 全部 commits 已推送 `origin/master`（`git rev-list HEAD ^origin/master --count` 归档时实测 = 0；期间含远端 dependabot bump 与合并 commit）。
+>
+> **关联**：[roadmap.md §M33](roadmap.md#m33-治理债收口--测试基建扩展2026-09-30-用户决策方案-a--2026-09-30-已闭环--归档) + [backlog.md](backlog.md)（M33 衍生候选）+ [archive/index.md](archive/index.md)
 
 ---
 
@@ -306,77 +367,9 @@
 
 ---
 
-## M23: M22 治理债收口 + 根因排查 + 能力扩展 + 测试补强（M23.0+M23.1+M23.2+M23.3+M23.4 全部已闭环 / 2026-09-02 归档）
+## M23: M22 治理债收口 + 根因排查 + 能力扩展 + 测试补强（已归档 → 2026-09-30 M33 归档批次预防性分片迁出）
 
-> **归档日期**：2026-09-02
-> **阶段摘要**：承接 M22 闭环 + M22.7 hotfix（CI 33525721103 E2E global-setup ECONNRESET）+ M22.8 hotfix（CI 33533376712 未认证 API 测试 cookie 注入）衍生根因治理债 + [backlog.md §C66 告警视图增强](backlog.md)（2026-08-25 用户实测反馈"alerts UI 看不到 GHSA/CVE/rule 关键标识"）+ 测试基建清理。按"类型平衡"原则（🛡️ 治理 1 + 🛡️ 治理/治本 2 + 🚀 能力扩展 1 + 🧪 测试补强 1）拆 **5 原子条目独立闭环**：
->
-> - **M23.0**（P2，🛡️ 治理）治理批次合并 G1+G2+G3 —— G1 M22 neat-freak 收敛（security.md §2.1 为 SQLite 防护规则权威完整声明，development.md §5.1.18 / platform.md §3.7 收敛为引用 + 仅保留差异化信息）；G2 wisdom 蒸馏阈值核验（实测 WISDOM_OK 17 ≤ 20 阈值已合规，无需新增蒸馏）；G3 wisdom 4 条 pattern 挂 standards（[code-auditor.agent.md 主责边界「构建产物 grep 兜底」必查项](../../.github/agents/code-auditor.agent.md) + [development.md §5.1.20 atomic commit 边界示例](../../docs/standards/development.md) + [ai-collaboration.md §4 PDTFC+ CI 偶发错误三阶段协议](../../docs/standards/ai-collaboration.md) + [testing.md §6.4 e2e 未认证 API 调用标准模式](../../docs/standards/testing.md)）
-> - **M23.1**（P1，🛡️ 治理 / 治本）M22.7 ECONNRESET 根因排查 —— 从 backlog §E2E 段 4 候选按 ROI 排查 1 项落地候选 ③ SQLite WAL 模式 + `journal_mode=WAL` + `busy_timeout=5000ms` 治本（commit `2ffaa45` fix(platform)），helper 层 maxRetries 兜底保留不动
-> - **M23.2**（P1，🛡️ 治理 / 治本）M22.8 fixture pool cookie 注入根因排查 —— 从 backlog §Playwright 段 3 候选按 ROI 排查 1 项落地候选 ① fixture pool `test.use → browser.newContext` 注入路径源码实证（workerProcessEntry.js + common/index.js + coreBundle.js 三处源码追溯）+ helper 抽取（`apps/platform/tests/e2e/helpers/unauthenticated-api.helper.ts`）
-> - **M23.3**（P2，🚀 能力扩展 / UX）C66 告警视图增强 A1+A2+C+D 4 子任务 —— C66-A1 ScanResult ghsaId/cveIds 列 + 类级复合索引 + migration 1750000000000（§3b 教训）；C66-A2 NormalizedSecurityAlert 接口扩展 + Dependabot / pnpm-audit fetcher extractIdentifiers helper 透传；C66-C alerts.vue 独立 Identifiers 列（GHSA 优先 + 多 CVE 折叠 + fallback CVE + code-scanning 兜底）；C66-D reuseScanRunId + 立即修复入口（**已在 M16.2 闭环，不计入本批验收**——audit suggest 触发的提前抽取）
-> - **M23.4**（P3，🧪 测试补强）cron-preview wall-clock 依赖消除 —— 用 `vi.setSystemTime` 写固定-now 用例 + 改写 `cron-preview.test.ts:89` 断言为 `expect(diffHours === 8 || diffHours === 160).toBe(true)`（cron-parser 实测返回可能值 8 或 160，强制两个分支都被覆盖）
->
-> **阶段边界**：M23 严格遵循 [规划规范 §1.1 任务粒度约束](../standards/planning.md)（5 原子条目 ≤ 5-6 硬上限）+ 类型平衡（🛡️ 治理 1 + 🛡️ 治理/治本 2 + 🚀 能力扩展 1 + 🧪 测试补强 1）；不涉及 TypeORM 0.3.x 升级或 PostgreSQL 迁移（M24 候选）；不引入新依赖；不升级 better-auth / Nuxt；不动 M22.7 helper 层 maxRetries 兜底（保留兜底）+ 不动 M22.5/M22.6 双门控体系；C66-D 在 M16.2 已闭环（reuseScanRunId API + scan.post.test.ts 6 用例 + useFixNow composable + alert-run-sidebar 按钮 + alerts-fix-now.e2e.test.ts）；C66-B 数据层去重暂缓（应用层去重已实施满足当前需求）。
->
-> **非目标**：不重写 Dependabot 详情页；不立即支持自定义 advisory 来源（GitLab Advisory Database 等）；不破坏现有 fixStatus / 修复链路；不修改 better-auth 1.7 库内部逻辑（外部依赖）；不动 M22 hotfix 兜底（保留兜底修复 + 治本修复并存模式）。
->
-> **状态**：✅ 全部完成（M23.0 + M23.1 + M23.2 + M23.3 + M23.4 全部 5 原子条目共 **17 atomic commits 全部 ahead=0 已推送至 origin/master**；9 轮独立 Review Gate Pass：M23.3 C66-C standard depth Round 1 Pass（0 blocker / 4 warning / 3 suggest）+ 其余 8 轮 quick depth Pass；含 C66-C standard depth Round 1 W1 typecheck 验证矩阵不完整 git stash 实证非本批引入 + W3 todo.md stale 已本批同步修正 + W4 i18n 9 语言声明错引已本批同步改为双语言现状）
-
-### 阶段闭环清单
-
-#### M23.0 治理批次（合并 G1+G2+G3）✅（2026-09-02 闭环）
-
-| 子任务 | 关键 commit | 完成要点 |
-|:--|:--|:--|
-| **G1 M22 neat-freak 收敛** | `f8a8640`（docs(standards)） | security.md §2.1 为 SQLite 防护规则权威完整声明（§2.1.1-§2.1.5 五子节），development.md §5.1.18 + platform.md §3.7 第 1/2/3 条收敛为引用 + 仅保留差异化信息 |
-| **G2 wisdom 蒸馏核验** | `35b9714`（docs(plan)） | `pnpm distill:wisdom --check` 实测 WISDOM_OK 17 ≤ 20 阈值已合规；wisdom.md header 文本"当前活跃条目 21 条"已 stale 登记 follow-up（本批次仅核验状态合规） |
-| **G3 wisdom 4 条 pattern 挂 standards** | `606df17`（docs(standards+agents)） | code-auditor.agent.md 主责边界新增「构建产物 grep 兜底」必查项 + development.md §5.1.20 新增 atomic commit 边界示例 + ai-collaboration.md §4 PDTFC+ 补充 CI 偶发错误三阶段协议 + testing.md 补充 e2e global-setup + 未认证 API 调用标准模式 |
-| **G3 commit hash 占位符填入** | `c265205`（docs(plan)） | G3 commit `?` → `606df17` 关联回填 |
-
-#### M23.1 M22.7 根因排查（🛡️ 治理 / 治本）✅（2026-09-02 闭环）
-
-| 子任务 | 关键 commit | 完成要点 |
-|:--|:--|:--|
-| **SQLite WAL 模式 + busy_timeout 治本** | `2ffaa45`（fix(platform)） | `PRAGMA journal_mode=WAL` + `busy_timeout=5000ms`（SQLite 默认 `journal_mode=delete` 切换为 WAL 模式；hold-tx 时长从 1s 提升到 5s） |
-| **经验归档 §五十三 SQLite WAL 教训** | `74d3dd8`（docs(design)） | experience-archive.md §五十三 SQLite WAL 模式 + busy_timeout 治本 M22.7 ECONNRESET 根因候选 ③ 教训完整案例（症状 + 4 候选 ROI 排序 + P0 ③ 治本 + 剩余 3 候选待 CI 复现 + 4 条教训 + 3 项 governance check point） |
-| **M23.1 验收闭环** | `9c56fe6`（docs(plan)） | todo.md §M23.1 验收清单全部 [x] + backlog.md §E2E 段部分关闭 + 候选 1/2/4 标注"待 CI 复现确认" |
-
-#### M23.2 M22.8 根因排查（🛡️ 治理 / 治本）✅（2026-09-02 闭环）
-
-| 子任务 | 关键 commit | 完成要点 |
-|:--|:--|:--|
-| **抽取 unauthenticatedApiContext helper** | `09c3dee`（test(e2e)） | `apps/platform/tests/e2e/helpers/unauthenticated-api.helper.ts` 新增（封装 `browser.newContext({ storageState: { cookies: [], origins: [] } })` 标准模式 + JSDoc 记录根因与修复路径）+ 2 处调用方统一重构 |
-| **经验归档 §五十四 fixture pool 教训** | `e0f9b29`（docs(design)） | experience-archive.md §五十四 Playwright 1.62 fixture pool 跨 scope 隐式行为源码实证完整案例（workerProcessEntry.js + common/index.js + coreBundle.js 三处源码追溯）+ M23.2 helper 抽取教训（4 项教训 + 3 项 governance check point） |
-| **M23.2 验收闭环** | `68b973d` + `aa76ad4`（docs(plan)） | todo.md §M23.2 验收清单全部 [x] + backlog.md §Playwright 段部分关闭 + 验收第 3 项 commit hash 关联 |
-
-#### M23.3 C66 告警视图增强（🚀 能力扩展 / UX）✅（2026-09-02 闭环）
-
-| 子任务 | 关键 commit | 完成要点 |
-|:--|:--|:--|
-| **C66-A2 NormalizedSecurityAlert 接口 + fetcher 透传** | `b6e7716`（feat(core,engine)） | packages/core/src/alerts/index.ts NormalizedSecurityAlert 接口扩展 `ghsaId?` + `cveIds?[]` + packages/engine/src/github/dependabot-fetcher.ts extractCveIds helper + packages/engine/src/alerts/pnpm-audit-fetcher.ts extractIdentifiers helper + 4 处测试断言新增 |
-| **C66-A1 ScanResult ghsaId/cveIds 列 + 类级复合索引** | `f44a527`（feat(platform)） | apps/platform/server/entities/scan-result.ts 新增 2 列（ghsaId varchar(32) + cveIds text 存 JSON 序列化字符串）+ 类级复合索引 `@Index('idx_scan_result_repo_ghsa', ['repositoryId', 'ghsaId'])`（§3b 教训）+ migration 1750000000000 + reconcile INSERT/UPDATE 透传 |
-| **C66-C alerts 视图独立 Identifiers 列** | `650a0d2`（feat(platform)） | apps/platform/app/pages/alerts.vue AlertView 接口扩展 ghsaId? + cveIds?[] + 新增独立 Identifiers 列在 ruleId 列前（GHSA 优先 → fallback CVE[0] → 多 CVE 折叠 +N → code-scanning/code-quality 兜底 —）+ 5 个 vitest describe 用例（默认响应含字段 / dependabot 透传 / pnpm-audit 透传 / code-scanning 兜底 / 多 CVE 数组）+ /api/alerts 透传 ghsaId + cveIds（DB JSON 字符串反序列化为数组）+ i18n zh-CN + en-US 加 colIdentifiers 键 |
-| **C66-D reuseScanRunId + 立即修复入口** | M16.2 闭环（不计入本批） | reuseScanRunId API + scan.post.test.ts 6 测试用例 + useFixNow composable + alert-run-sidebar 按钮 + alerts-fix-now.e2e.test.ts 完整链路 |
-| **C66-C 经验归档 §五十五 + 验收闭环** | `9c64ee0`（docs(plan+design)） | experience-archive.md §五十五 M23.3 C66-C 完整案例（实施 + 关键设计 + 验证矩阵 + standard depth 审计 4 warning + 3 suggest + 5 项教训 + 3 项 governance check point）+ todo.md §M23.3 验收清单全部 [x] + W3/W4 stale 修正（C66-D 不计入本批 + i18n 9 语言改双语言现状） |
-| **C66-C commit hash 回填** | `6e53616`（docs(plan)） | todo.md §M23.3 C66-C commit `?` → `650a0d2` + `9c64ee0` 关联回填 |
-
-#### M23.4 测试补强（🧪 测试补强 / 治理收口）✅（2026-09-02 闭环）
-
-| 子任务 | 关键 commit | 完成要点 |
-|:--|:--|:--|
-| **cron-preview.test.ts wall-clock 依赖消除** | `df4ba9b`（test(platform)） | `vi.setSystemTime` 写固定-now 用例断言 diffHours === 8（UTC 周六 14:00 now）+ 对照用例固定到 UTC 周日 18:00（Shanghai 周一 02:00 CST）断言 diffHours === 160（cron-parser 实测返回可能值 8 或 160）+ 改 `cron-preview.test.ts:89` 断言为 `expect(diffHours === 8 || diffHours === 160).toBe(true)` 强制两个分支都被覆盖 |
-
-### 阶段治理记录
-
-- **提交序列**：M23.0 治理批次（`f8a8640` → `35b9714` → `606df17` → `c265205`）→ M23.1 M22.7 根因排查（`2ffaa45` → `74d3dd8` → `9c56fe6`）→ M23.2 M22.8 根因排查（`09c3dee` → `e0f9b29` → `68b973d` + `aa76ad4`）→ M23.3 C66 告警视图增强（`b6e7716` + `f44a527` + `650a0d2` → `9c64ee0` → `6e53616`）→ M23.4 测试补强（`df4ba9b`）共 **17 commits 全部 ahead=0 已推送至 origin/master**
-- **审计覆盖**：5 轮独立 Review Gate（M23.3 C66-C standard depth + M23.0 G1 + M23.1 + M23.2 + M23.4 quick depth），全部 Pass；含 C66-C standard depth W1 typecheck 验证矩阵不完整（git stash 实证非本批引入）+ W2 浏览器验证 sandbox chromium 限制（M22.7 同源）+ W3 todo.md stale 已本批同步修正 + W4 i18n 9 语言声明错引已本批同步改为双语言现状
-- **关联升级**：M22.0 G1 neat-freak 收敛后 security.md §2.1 为 SQLite 防护规则权威完整声明；M22.1 治本 WAL 模式切到 §3b 类级复合索引支撑 dashboard 按 GHSA 维度查询；M22.8 hotfix 测试层 `storageState: { cookies: [], origins: [] }` 显式隔离保留兜底；M23.3 C66-C standard depth audit W1 monorepo source/dist 不一致教训合并到 wisdom.md 现有 `principle-Nitro-esbuild-process-env-NODE_ENV-静态替换-陷阱` 段（避免重复 pattern）+ 落地 AGENTS.md 提交规范第 6 条「build-before-commit」纪律
-- **历史教训**：W1 audit typecheck 验证矩阵不完整——`pnpm exec tsc --noEmit` 通过 ≠ `pnpm run typecheck`（含 nuxt typecheck pipeline）通过；monorepo source-only 改动必须 `pnpm -r build` 重建 dist；W3 todo.md 验收清单 stale——D 阶段开工前 rg 实证依赖项实际状态（git 历史 + i18n locale 目录）避免基于 stale 描述定范围；W4 i18n locale 声明与现状不符——`ls apps/platform/i18n/locales/` 实证实际 locale 数量
-- **阶段归档批次衍生治理**（本归档批次落地 3 项 governance check point）：
-  1. **AGENTS.md 提交规范新增第 6 条「src/dist 不一致时 build 在先（monorepo 纪律）」**——commit 前实测 `pnpm run typecheck` exit 0；失败则第一动作是 `pnpm -r build` 而非修改源码
-  2. **code-auditor.agent.md 主责边界新增「i18n locale 实际状态审计必查项」**——diff 涉及 todo.md / backlog.md / 设计文档声称"X 语言覆盖"时 audit 必须 `ls apps/platform/i18n/locales/` 实证实际 locale 数量
-  3. **wisdom.md header 文本 stale 修正 + monorepo rebuild 教训合并到现有 `principle-Nitro-esbuild` 段**——避免与构建产物 / source vs dist 不一致教训重复登记
+> 详见 [archive/todo-archive-phases-m23.md §M23](archive/todo-archive-phases-m23.md#m23-m22-治理债收口--根因排查--能力扩展--测试补强m230m231m232m233m234-全部已闭环--2026-09-02-归档)。
 
 ---
 

@@ -18,11 +18,10 @@
 
 - **目标**：把 network-audit 默认白名单从"按次新增"演进为"按域名 / SRI 哈希 / 输出区分"的可持续治理方案，避免每次构建工具跨 major 升级都需补白名单。
 - **状态**：观察中。
-- **当前进度**：候选方向 3（命令输出 URL 与真实外联区分）已落地（M13.2 T1305，commits `0f08c40` + `5269d0a` + `9c79fc9`）；整体治本方向未完成（候选方向 1/2 优先级降低，按需触发）。
 - **下一次可切片方向**（任一触发时重新评估）：
-  1. 构建工具生态文档站类目预置白名单（rolldown.rs / swc.rs / rust-lang.org 等）—— **候选方向 3 落地后优先级降低**：合法外联不会再被误判，新增白名单诉求应转为"真实注册表域"申请而非"构建工具文档站"
+  1. 构建工具生态文档站类目预置白名单（rolldown.rs / swc.rs / rust-lang.org 等）—— **候选方向 3（命令输出 URL 与真实外联区分）落地后优先级降低**：合法外联不会再被误判，新增白名单诉求应转为"真实注册表域"申请而非"构建工具文档站"
   2. 按 SRI 哈希钉资源（推荐域动态发现）
-- **验收**：默认白名单不再按次新增；verification 阶段合法外联不被误判（已达成）；候选方向任一实施或主线整体评估为长期保留后关闭本主线条目
+- **验收**：默认白名单不再按次新增；verification 阶段合法外联不被误判（已达成）；剩余候选方向（SRI 哈希钉定等）任一实施或主线整体评估为长期保留后关闭本主线条目（候选方向 3「命令输出 URL 与真实外联区分」已落地，不单独构成关闭条件）
 
 ## 周期性回归验证层
 
@@ -120,7 +119,7 @@
 - **T703 跨平台 Git**（GitLab + Bitbucket）—— 2026-08-12 用户指示暂缓排期
 - **C30 Publish Docker build job 失败排查** —— 2026-08-18 用户决策暂缓（双平台构建 23m 2s 成功证明当前 docker.yml 可稳定工作）；恢复条件：① master 分支 push 频率显著提升；② 镜像实际发布成为强需求（v1.0.0 正式发布前）；③ 用户明确恢复
 - **caomei-ui 0.x → 1.0 升级回归** —— 库处于 0.x（当前精确锁定 `0.3.0`），1.0 前 API / 目录仍可能调整。恢复条件：① 库发布 1.0.0 或用户指定目标版本；② 平台需跟进新组件能力；③ 用户明确恢复。届时按 M31 迁移期实证索引（[caomei-ui-migration.md §15](../design/governance/caomei-ui-migration.md)）做回归；**升级回归的像素兜底已就位**（M32.5 落地的视觉回归基线 `apps/platform/tests/visual/`，覆盖 alerts / repos / pr-checks / dialog-import-repos / login，口径见 [测试规范 §6.7](../standards/testing.md)）
-- **ScanResult 数据层去重（upsert 唯一索引）** —— 2026-09-02 M23.3 决策暂缓：应用层去重（fingerprint + occurrenceCount / firstSeenAt / lastSeenAt / affectedRunIds）已实施且满足当前业务需求；恢复条件：出现"fix 复用同一 `scan_run_id` 跨次刷新"或"历史 fixStatus 跨次保留"需求时迁移到数据层 upsert（关联 [todo-archive.md §M23](todo-archive.md#m23-m22-治理债收口--根因排查--能力扩展--测试补强m230m231m232m233m234-全部已闭环--2026-09-02-归档)）
+- **ScanResult 数据层去重（upsert 唯一索引）** —— 2026-09-02 M23.3 决策暂缓：应用层去重（fingerprint + occurrenceCount / firstSeenAt / lastSeenAt / affectedRunIds）已实施且满足当前业务需求；恢复条件：出现"fix 复用同一 `scan_run_id` 跨次刷新"或"历史 fixStatus 跨次保留"需求时迁移到数据层 upsert（关联 [archive/todo-archive-phases-m23.md §M23](archive/todo-archive-phases-m23.md#m23-m22-治理债收口--根因排查--能力扩展--测试补强m230m231m232m233m234-全部已闭环--2026-09-02-归档)）
 
 ### 远期登记 / 未排期增强候选
 
@@ -310,8 +309,8 @@
 
 | 内容类型 | 位置 |
 |:--|:--|
-| 当前阶段活跃任务 | **M33 治理债收口 + 测试基建扩展进行中**（2026-09-30 用户决策方案 A 启动，6 原子条目，见 [todo.md §M33](todo.md#m33-治理债收口--测试基建扩展2026-09-30-用户决策方案-a-启动)） |
+| 当前阶段活跃任务 | **当前无活跃阶段**——M33 已于 2026-09-30 完整闭环归档（见 [todo-archive.md §M33](todo-archive.md#m33-治理债收口--测试基建扩展m331m3311-全部已闭环--2026-09-30-归档)） |
 | 已完成阶段归档 | [todo-archive.md](todo-archive.md)（主窗口保留最近阶段完整段 + 指针段；早期阶段见 [archive/](archive/)） |
-| 里程碑与阶段交付 | [roadmap.md](roadmap.md)（M0-M32 已归档） |
+| 里程碑与阶段交付 | [roadmap.md](roadmap.md)（M0-M33 已归档） |
 | 长期主线 / 候选 / 待人工验收 / 已知边界 | 本文档（按四象限结构） |
 | 历史归档索引 | [archive/index.md](archive/index.md) |

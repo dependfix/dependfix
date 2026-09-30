@@ -188,17 +188,18 @@
 
 - **目标**：用户 2026-09-30 上报 #6「『显示已解决』的文字比其他的靠下」——筛选行 5 个字段的 label 基线一致、Switch 与其同行 Select 的控件区垂直对齐。
 - **优先级**：P3。
-- **范围**：`apps/platform/app/pages/alerts.vue`（`.alerts__filter-row` / `.alerts__filter-field` 对齐规则）+ 受影响视觉基线快照（`alerts-light.png` / `alerts-dark.png`）。
+- **范围**：`apps/platform/app/pages/alerts.vue`（新增 `.alerts__filter-control` 控件区包裹层并补样式；`.alerts__filter-row` / `.alerts__filter-field` 的对齐口径保持不变）+ 受影响视觉基线快照（`alerts-light.png` / `alerts-dark.png`）。
 - **验收标准**：
-  - [ ] 筛选行内各字段 label 顶部对齐（1440 视口实测 y 偏差 ≤ 2px）
-  - [ ] Switch 控件与同排 Select 控件区垂直对齐（中心 y 偏差 ≤ 2px）
-  - [ ] 窄视口 wrap 后仍对齐；暗色模式无回归
-  - [ ] `pnpm lint` + `pnpm --filter @dependfix/platform typecheck` EXIT 0；`alerts` 视觉基线更新后 `test:visual` 连跑两遍不漂移
-- **不做什么**：不改筛选业务逻辑 / 查询参数 / i18n 文案；不改其他页面筛选行；不改造 alerts 表格列宽（M33.5 范围）。
-- **依赖**：无（纯布局修复）。
-- **交付物**：1 atomic commit（`fix(platform)`）；文件见"范围"。
-- **风险与缓解**：为对齐给 Switch 强制控件高度可能影响其他 Switch 场景；缓解：只作用于 `.alerts__filter-field` 作用域内，实测 wrap 与暗色两态。
-- **审计**：待 A 阶段填写。
+  - [x] 筛选行内各字段 label 顶部对齐：实测亮 / 暗色下 6 个字段中 5 个带 label 的 `label.top` 全为 **175px**（偏差 0px，≤ 2px 阈值）
+  - [x] Switch 控件与同排 Select 垂直对齐：`.alerts__filter-control` 控件区 197–233（与 Select 同），Switch 本体 204–226 居中（中心 215 = Select 中心 215）；`.alerts__filter-field` 行内各字段上下缘一致
+  - [x] 窄视口 wrap 后仍对齐：900px 视口下换行后 Switch 字段（控件区 271–307）与筛选按钮字段（271–307）底边一致；暗色模式实测同值，无回归
+  - [x] `pnpm lint` + `stylelint`（`lint:css:check`）+ `pnpm --filter @dependfix/platform typecheck` EXIT 0；`alerts-light.png` / `alerts-dark.png` 基线更新后 `test:visual` 7/7 通过
+- **落地说明**：修复方式为「控件区补足控制高度 + 垂直居中」（新增 `.alerts__filter-control` 包裹层，`min-height: var(--caomei-control-height-md)`），而非改行对齐方式——这样同排 label 与控件上下缘同时对齐，且对 wrap 稳健。`alerts-light.png` 本次同时收编 M33.9 的按钮色板变化（该变化此前被视觉容差漏检，见 M33.9 落地偏差④），基线现与渲染完全一致。
+- **不做什么**：不改筛选业务逻辑 / 查询参数 / i18n 文案；不改其他页面筛选行；不改造 alerts 表格列宽（M33.5 范围）；筛选行 label↔控件间距仍为 4px（统一口径属 backlog §待上收候选既有条目）。
+- **依赖**：M33.9（同页按钮色板变化由本轮基线一并收编）。
+- **交付物**：1 atomic commit（`fix(platform)`）；文件 `apps/platform/app/pages/alerts.vue` + `apps/platform/tests/visual/__screenshots__/platform-pages.visual.test.ts/alerts-light.png` + `alerts-dark.png`。
+- **风险与缓解**：为对齐给 Switch 加强制控件高度可能影响其他 Switch 场景；缓解：包裹层只作用于 `.alerts__filter-control`（该页自有类），实测 wrap 与暗色两态；基线差异经像素比对确认为筛选行区域（light bbox `(840,176)-(1176,232)` / dark `(840,176)-(911,232)`，light 额外含按钮色板收编）。
+- **审计**：第 1 轮 `quick` **Pass**（0 blocker / 0 warning / 3 suggest）。suggest 处置：RG-S01（范围措辞漏 `.alerts__filter-control`）已修正；RG-S02（light 基线跨条目收编 M33.9 按钮色板）已在落地说明登记并写入提交信息；RG-S03（注释硬编码 22px/36px）已改为引用 token 名。审计方另记录 2 个 **pre-existing** `nuxt.config.ts` 类型问题（`vue-tsc -p .nuxt/tsconfig.json` 可见，未被项目 `nuxt typecheck` 门禁覆盖、非本条引入），留作后续观察。
 
 #### 阶段决策记录
 

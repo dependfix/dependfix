@@ -158,17 +158,19 @@ test.describe('用户管理（admin）', () => {
         // 自己 row（当前登录 admin = e2e-admin@dependfix.test）role Select 应禁用
         const selfRow = page.locator('.caomei-data-table__row', { hasText: 'e2e-admin@dependfix.test' })
         await expect(selfRow).toBeVisible({ timeout: 15000 })
-        // caomei Select 触发器是 button.caomei-select，禁用态同时落在原生 disabled 与 --disabled 修饰类上
+        // caomei Select 触发器是 button.caomei-select，禁用态同时落在原生 disabled 与 --disabled 修饰类上。
+        // 0.5.0 起表单外壳抽为 `.caomei-field` 基类，修饰类由 `caomei-select--*` 改挂 `caomei-field--*`
+        // （`caomei-select--*` 在 0.5.0 已不再输出，见 docs/design/governance/caomei-ui-migration.md §15.14）
         const selfTrigger = selfRow.locator('button.caomei-select')
         await expect(selfTrigger).toBeDisabled()
-        await expect(selfTrigger).toHaveClass(/caomei-select--disabled/)
+        await expect(selfTrigger).toHaveClass(/caomei-field--disabled/)
 
         // 他人 row（viewer）的 role Select 仍可用
         const otherRow = page.locator('.caomei-data-table__row', { hasText: 'e2e-viewer@dependfix.test' })
         await expect(otherRow).toBeVisible({ timeout: 15000 })
         const otherTrigger = otherRow.locator('button.caomei-select')
         await expect(otherTrigger).toBeEnabled()
-        await expect(otherTrigger).not.toHaveClass(/caomei-select--disabled/)
+        await expect(otherTrigger).not.toHaveClass(/caomei-field--disabled/)
     })
 
     test('服务端强制拦截（绕过前端 UI 直接调 API）', async ({ page }) => {

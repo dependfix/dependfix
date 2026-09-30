@@ -523,7 +523,7 @@ watch(toastMessage, (v) => {
     &__field {
         display: flex;
         flex-direction: column;
-        gap: $space-1;
+        gap: $space-2;
     }
 
     &__field label {

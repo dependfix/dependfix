@@ -592,36 +592,6 @@ const columns = computed<DataTableColumn<RepoView>[]>(() => [
     }
 }
 
-.repo-form {
-    display: flex;
-    flex-direction: column;
-    gap: $space-4;
-
-    &__row {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: $space-3;
-    }
-
-    &__field {
-        display: flex;
-        flex-direction: column;
-        gap: $space-1;
-
-        label {
-            font-size: $font-size-sm;
-            font-weight: 500;
-        }
-    }
-
-    &__actions {
-        display: flex;
-        justify-content: flex-end;
-        gap: $space-2;
-        margin-top: $space-2;
-    }
-}
-
 .repos__tags {
     display: flex;
     flex-wrap: wrap;

@@ -529,16 +529,18 @@ const submitImport = async () => {
     flex-direction: column;
     gap: $space-4;
 
+    /* 行内一侧是「label + 控件」两行字段、另一侧是裸按钮：center 会按整字段盒居中，
+       按钮视觉上高于输入框；改用 flex-end 让控件底边对齐（与 __filters 同口径）。 */
     &__row {
         display: flex;
-        align-items: center;
+        align-items: flex-end;
         gap: $space-2;
     }
 
     &__field {
         display: flex;
         flex-direction: column;
-        gap: $space-1;
+        gap: $space-2;
         flex: 1;
 
         label {
@@ -556,7 +558,7 @@ const submitImport = async () => {
         label {
             font-size: $font-size-sm;
             font-weight: 500;
-            margin-bottom: $space-1;
+            margin-bottom: $space-2;
             display: block;
         }
     }

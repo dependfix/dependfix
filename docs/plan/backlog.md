@@ -73,6 +73,20 @@
   - **交付物**：1 atomic commit（`chore(test)` vitest exclude + check-docs 跳过规则 + 回归验证记录）
   - **风险与缓解**：过宽排除模式（如 `**/data/**`）可能误排除真实测试目录；缓解：优先精确 `apps/platform/data/**` 并加注释说明理由
 
+- **视觉回归容差对「同明度色相 / 灰度替换」不敏感**（P3，🧪 测试基建）—— 来源：M33.9 验证期发现（2026-09-30，测量方 = M33.9 执行角色 + A 阶段审计独立复算）
+  - **目标**：让视觉回归能检出「同明度色相 / 灰度替换」这类外观回归（当前口径会漏检）
+  - **范围**：`apps/platform/playwright.visual.config.ts`（`toHaveScreenshot` 的 `threshold` / `maxDiffPixels` 口径）+ `docs/standards/testing.md §6.7`（口径同步）+ 既有 7 张基线复核
+  - **验收标准**：
+    - [ ] 复现：错误基线（`tone="neutral"` 按钮由 `#52525b` 变 `#0f766e`）在当前口径下 `test:visual` 仍**通过**（实测 5678 个差异像素 0 个超阈）
+    - [ ] 方案落地后同一错误基线用例**失败**（阈值下调或引入第二度量，如主色直方图断言）
+    - [ ] 干净基线在方案落地后仍全绿（7 张）且连跑两遍不漂移
+    - [ ] 口径变更同步 `testing.md §6.7`，并写明「抗噪 ↔ 灵敏度」取舍
+    - [ ] 复现命令：修改任一按钮色板后 `pnpm --filter @dependfix/platform test:visual`，对比 `threshold: 0.2` 下是否变红
+  - **不做什么**：不改动态区域策略（`data-visual-mask` 保持现状）；不重做基线体系；不覆盖其它断言语义
+  - **依赖**：M33.9 验证期实证（Playwright `maxDelta = 35215 × threshold² = 1409`；pixelmatch colorDelta：`#52525b↔#0f766e` ≈1083.6、`#0d9488↔#0f766e` ≈308.8，均低于阈值）
+  - **交付物**：1 atomic commit（`test(platform)` 阈值 / 度量调整 + 基线复核 + 规范同步）
+  - **风险与缓解**：下调阈值会放大渲染抖动导致的偶发红；缓解：以「连跑两遍不漂移」为落地门槛，必要时保留面积门槛但引入主色直方图断言作为第二信号
+
 ### 延期 / 暂缓项
 
 - **T705 生产级部署**（PostgreSQL + Helm + Sentry）—— 2026-08-12 用户指示暂缓排期

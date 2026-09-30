@@ -8,7 +8,7 @@
 
 | 内容类型 | 位置 |
 |:--|:--|
-| 当前阶段任务 | [M33 治理债收口 + 测试基建扩展](#m33-治理债收口--测试基建扩展2026-09-30-用户决策方案-a-启动)（2026-09-30 用户决策方案 A 启动，6 原子条目 + M33.7 用户直接决策追加） |
+| 当前阶段任务 | [M33 治理债收口 + 测试基建扩展](#m33-治理债收口--测试基建扩展2026-09-30-用户决策方案-a-启动)（2026-09-30 用户决策方案 A 启动，6 原子条目 + M33.7 / M33.8–M33.10 用户直接决策追加） |
 | 已完成阶段归档 | [todo-archive.md](todo-archive.md)（主窗口 + [archive/](archive/) 分片；M0-M32 全部已归档） |
 | 未排期 / 延期 / 远期 / 长期主线 / 已知边界 | [backlog.md](backlog.md) |
 | 里程碑与阶段交付 | [roadmap.md](roadmap.md)（M0-M32 已归档） |
@@ -22,9 +22,9 @@
 
 > **定位**：承接 M32 完整闭环归档后（[todo-archive.md §M32](todo-archive.md#m32-能力扩展优先m321m325-全部已闭环--2026-09-30-归档)）的 backlog 候选池。2026-09-30 用户决策**方案 A（治理 + 测试基建收口）**——从「评估完成待上收」候选与本批评估新登记的可行动已知边界项中上收 6 项；C80 按用户决策采用**方案 C（观察期）**。
 >
-> **阶段内追加**：M33.7（数据库迁移命令入口补齐）为 2026-09-30 用户**直接决策**追加（非插队例外 3 类，走 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement)「用户直接决策」路径）——触发来源为当日 dev 库 schema 漂移导致 `/api/dashboard/stats` 运行时崩溃（`no such column: ScanRun__ScanRun_repository.verify_commands`）。
+> **阶段内追加**：M33.7（数据库迁移命令入口补齐）与 M33.8–M33.10（UI 修复批次）均为 2026-09-30 用户**直接决策**追加（非插队例外 3 类，走 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement)「用户直接决策」路径）。M33.7 触发来源为当日 dev 库 schema 漂移导致 `/api/dashboard/stats` 运行时崩溃；M33.8–M33.10 触发来源为用户当日上报的 6 项界面问题（弹窗表单布局 / 按钮对比度与加载态 / 筛选行对齐）。
 >
-> **类型平衡复核**：📚 治理 1 项（M33.1）✅ / 🛠️ CI 与 devEx 治理 4 项（M33.2 / M33.3 / M33.6 / M33.7）✅ / 🧪 测试覆盖 2 项（M33.4 / M33.5）✅ / 🎨 用户体验 0 项 —— ⚠️ 缺口显式标注（承接 M28–M32 同型缺口；候选池无 UX 类可上收项，`C37` 语言多设备同步与 alerts 宽表 UX 议题为潜在 UX 项，留后续阶段评估）。
+> **类型平衡复核**：📚 治理 1 项（M33.1）✅ / 🛠️ CI 与 devEx 治理 4 项（M33.2 / M33.3 / M33.6 / M33.7）✅ / 🧪 测试覆盖 2 项（M33.4 / M33.5）✅ / 🎨 用户体验 3 项（M33.8 / M33.9 / M33.10）✅ —— 原「🎨 UX 缺口」由用户直接决策批次补齐；其余缺口（`C37` 语言多设备同步等）留后续阶段评估。
 >
 > **§3.4 三重交叉核验结论**（M33.1–M33.6 全部实测 **0 项重复评估**）：① todo-archive 表格扫描（§1.7 原文命令 `rg -n "已闭环|不计入本批|不计入 M\d+|ahead=0.*已推" docs/plan/todo-archive.md docs/plan/archive/todo-archive-phases-*.md` + 补充按候选 id 过滤 `rg`）无候选被标已闭环；② git log 核验（`git log --all --oneline --grep="C91|C93|C94|C80|C83|C15"`）仅命中候选登记 docs commit，无实现 commit；③ 代码侧 anchor 实证（C91 `rg -n "5\.1\.2[4-9]|恒真|视觉回归|中央优先|前缀感知|SIGNING_ISOLATION" .github/agents .github/skills` 仅 1 命中且非检查点；C93 `rg -n prCheck apps/platform/server/api/e2e/` = 0；C94 基线目录仅 7 张无横向补拍；C80 `test.yml:34` 仍 `|| true` + 注释「阻断语义当前未启用」；M31 死配置 `rg -n "primevue|primeuix|primeicons" .github/dependabot.yml` 命中 3 条 ignore；视觉 CI `continue-on-error: true` 仍在）。
 >
@@ -146,6 +146,60 @@
 - **证据备注（运行时残留污染，非本 diff 引入）**：验证期间平台有扫描 run 在跑，其克隆产物落在 gitignored 的 `apps/platform/data/runs/<runId>/`（`683ba3fe8af7f536` 实测约 1.4G，03:36 被平台自行清理并由新 run `683ba9dd18b7fe9f` 接替），使本地 `pnpm --filter @dependfix/platform test`（636 文件 / 412 failed，其中 205 tests failed）与 `pnpm run check:docs`（986 处，**全部**命中该目录，diff 相关 md 命中 0）在产物在场时出现噪声；CI 干净检出不受影响。产物清空后同一标准命令复测通过（101 文件 / 1350 tests），另以显式 `--exclude 'apps/platform/data/**'`（叠加配置既有 exclude）取得根全量证据 **217 文件 / 3387 tests 通过**。该 devEx 缺口不在本条范围，已按 backlog 候选登记（[backlog.md §待上收候选「本地 devEx：运行时 data/ 产物污染 vitest 与 check-docs」](backlog.md)，随本条 commit 落库；实现待用户决策）。
 - **审计**：第 1 轮 `standard` **Reject**（1 blocker / 1 warning / 5 suggest，2026-09-30T03:03 发起、约 03:12 收敛，实测 elapsed ≤ 9 min 未超时间盒）→ 收敛 RG-B01（默认工厂只锁 `migrationsRun`，未锁 `synchronize`，`DATABASE_SYNCHRONIZE=true` 时 `--show` 实际写库）/ RG-W01（「不建迁移表」未被断言锚定）/ RG-S01（迁移表名插值纵深防御）/ RG-S02（effective 日志错位）/ RG-S05（`--show` 在库文件缺失时创建空文件）→ 第 2 轮 `standard` 复审 **Pass**（7 项全部关闭，含独立行为探针 PROBE_A/B/C 验证断言区分度），新 warning RG-W02（`todo.md` 声称的 backlog 候选尚未落地）已随本 commit 登记 backlog 候选关闭；RG-S06（`vi.unstubAllEnvs`）已采纳。
 
+#### M33.8 [P2 🎨 用户体验] 弹窗表单布局规范统一（label 间距 / actions 右下 / 刷新按钮对齐）
+
+- **目标**：用户 2026-09-30 上报 #1「label 距离输入框太近」+ #2「取消/保存应在右下角」+ #4「批量导入凭据刷新按钮未居中」三项目标修复后，弹窗表单的「字段间距、操作区位置、行内控件对齐」在全部弹窗内一致。
+- **优先级**：P2。
+- **范围**：`apps/platform/app/components/repo-form-dialog.vue`（补 `<style scoped>` 并把 `repos.vue` 遗留的 `.repo-form*` 段整段迁入）+ `apps/platform/app/pages/repos.vue`（删除遗留 `.repo-form*` 段，保留同文件的 `.batch-form*`）+ `apps/platform/app/components/import-repos-dialog.vue`（`.import-form__row` 对齐）+ 其余弹窗 label→控件 `gap` 统一（`scan-config-dialog.vue` / `credentials.vue` / `settings.vue` / `users.vue` / `schedules.vue` 等） + 受影响视觉基线快照。
+- **验收标准**：
+  - [ ] `repo-form-dialog.vue` 含自身 `<style scoped>`；`repos.vue` 不再残留 `.repo-form*` 规则（`rg -c "^\.repo-form" apps/platform/app/pages/repos.vue` = 0）
+  - [ ] 补回的两列 row / label→控件间距 / actions 右对齐三项在浏览器实测生效（`.repo-form__row` 计算样式 `display: grid`；`.repo-form__actions` `justify-content: flex-end`）
+  - [ ] 全部弹窗 label↔控件间距 ≥ 8px（`$space-2`，浏览器计算样式实测）
+  - [ ] 全部弹窗操作区贴右下角（截图逐弹窗可证，至少覆盖 添加仓库 / 批量导入 / 扫描配置 / 凭据新增 / 设置 / 用户 / 定时任务）
+  - [ ] 批量导入「GitHub 凭据」行：刷新按钮与同排 Select 垂直居中（按钮中心 y 与 Select 中心 y 偏差 ≤ 2px，浏览器实测）
+  - [ ] `.batch-form*`（仍在 `repos.vue`）无回归；暗色模式无回归
+  - [ ] `pnpm lint` + `pnpm --filter @dependfix/platform typecheck` EXIT 0；视觉基线更新后 `pnpm --filter @dependfix/platform test:visual` 连跑两遍不漂移
+- **不做什么**：不改表单字段语义 / 校验规则 / i18n 文案；不重构弹窗组件结构与插槽；不引入新依赖；不动 `repos.vue` 的 `.batch-form*`。
+- **依赖**：M32.1（`repo-form-dialog.vue` 自 `repos.vue` 拆出时样式段未随迁，本条为遗留缺陷）+ M32.5（视觉回归基线，需按本条更新）。
+- **交付物**：1 atomic commit（`fix(platform)`）；文件见"范围"（含 `tests/visual/__screenshots__/.../dialog-import-repos-light.png` 等受影响快照）。
+- **风险与缓解**：迁样式可能带动同文件其他规则或影响 `repos.vue` 内联弹窗；缓解：只迁 `.repo-form*` 段、迁移后 `rg` 双侧确认无残留无缺失，视觉基线逐张目视复核（只应出现预期差异）。
+- **审计**：待 A 阶段填写。
+
+#### M33.9 [P2 🎨 用户体验] 主按钮视觉与加载态（对比度 / loading 动画）
+
+- **目标**：用户 2026-09-30 上报 #3「绿底黑字对比度小，改白字」+ #5「按钮 loading 阶段似乎没有动画」——主按钮达「白字 + WCAG AA」，且 loading 态在所有已接入 `:loading` 的按钮上可见可动（或明确归因到环境抑制并给出兜底）。
+- **优先级**：P2。
+- **范围**：`apps/platform/app/assets/styles/_caomei-tokens.scss`（主按钮亮色档底色/前景覆盖 + reduced-motion loading 兜底；`nuxt.config.ts` 的 `caomeiUI.theme` 为既有接线，本条**无需改动**）+ 受影响视觉基线快照。
+- **验收标准**：
+  - [x] 主按钮（`CaomeiButton` 默认 `variant="primary"`）底色 = teal-700 `#0f766e` + 文字白色；实测对比度 **5.47:1**（浏览器实测 `rgb(15,118,110)` / `rgb(255,255,255)`，按 WCAG 相对亮度公式复算）
+  - [x] 暗色档主按钮不回退：实测 `rgb(94,234,212)` / `rgb(11,11,13)`（13.29:1，与 nuxt.config 既有口径一致；覆盖选择器限定在 `:not(.dark, [data-theme='dark'])`）
+  - [x] **loading 根因定位并成文**：浏览器实测（`POST /api/repos` 注入 5s 慢响应）——默认环境 spinner 正常渲染且动画在跑（`hasSpinner=true` / `14×14` / `animationName=caomei-button-spin-060a628b` / `animationPlayState=running` / `reducedMotion=false`）；`prefers-reduced-motion: reduce` 下 `animationName=none`（**根因 ②**：库内 `@media (prefers-reduced-motion: reduce)` 主动抑制旋转 → 静态圆环，用户读成"没有动画"）
+  - [x] 根因 ② 修复：新增不依赖旋转的透明度脉冲兜底（`dependfix-button-spinner-pulse`，1.2s）；实测 reduced-motion 下 `animationName=dependfix-button-spinner-pulse`、`opacity=0.519`（动画进行中）
+  - [x] `pnpm lint` + `stylelint`（`lint:css:check`）+ `pnpm --filter @dependfix/platform typecheck` EXIT 0；视觉基线更新（`repos-light.png`）后 `test:visual` 连跑通过（7/7）
+  - [x] 未改动 `--caomei-color-primary` 的强调用途（链接 / 焦点环 / soft 底）与 caomei-ui 库本体
+- **落地偏差与观察**：① AC 原设「根因 ①（调用点未传 `:loading`）→ 补齐调用点」分支未触发（实测既有调用点渲染正常）；仅 `alerts.vue` 筛选按钮等少数按钮确实未传 `:loading`，登记为观察项不入本条范围。② **首轮审计 RG-B01 命中并已修**：`tone="*"` 按钮因库内 `variant` 默认 `primary` 同时带 `--primary` 与 `--tone-*` 类，初版选择器把它们一并覆盖（实测 `tone="neutral"` 由 `#52525b` 变 `#0f766e`）→ 已收窄为 `:not(.caomei-button--tone-neutral, --tone-primary, --tone-success, --tone-warning, --tone-danger)`。③ 视觉基线核验方法：`repos-light.png` 按「删除单文件 + `test:visual:update` 重建」取得，与 HEAD 版本做像素级 diff 确认**变更仅落在主按钮 bbox `(1220,89)-(1319,124)`（3568 px）**，两个 neutral 按钮保持 `#52525b`。④ 其余 6 张基线未重写：色差 `#0d9488 ↔ #0f766e` 与 `#52525b ↔ #0f766e` 均低于视觉口径的每像素 `threshold: 0.2`（pixelmatch 度量下 delta ≈1084 < maxDelta 1409），文本色变化面积又低于 `maxDiffPixels: 200`（口径见 [testing.md §6.7](../standards/testing.md)）——**该容差会漏检「同明度色相/灰度替换」**，故基线必须按内容核验而非仅以「用例通过」判定（本轮即按此纠正了一张被容差漏过的错误基线）；该口径盲区已按 backlog 候选登记（见 [backlog.md §待上收候选「视觉回归容差对同明度色相 / 灰度替换不敏感」](backlog.md)）。
+- **不做什么**：不改 caomei-ui 库本体（0.3.0 精确锁定，升级回归属 backlog §短期候选既有条目）；不改按钮尺寸 / 圆角 / 间距体系；不改 `--caomei-color-primary` 的文字强调用途（仅动按钮底色与前景）。
+- **依赖**：用户 2026-09-30 决策「白字 + 底色加深到 teal-700」+ M31.1 / M31 归档 D4 既有口径（`--caomei-color-primary-solid` = `#0f766e` 达 AA，实测 5.47:1；来源见 [todo-archive.md](todo-archive.md) M31 决策 D4）+ M32.5（视觉基线）。
+- **交付物**：1 atomic commit（`fix(platform)`）；文件 `apps/platform/app/assets/styles/_caomei-tokens.scss` + `apps/platform/tests/visual/__screenshots__/platform-pages.visual.test.ts/repos-light.png`（`docs/plan/todo.md` 的 M33.8–M33.10 登记单独由 `docs(plan)` commit 承载）。
+- **风险与缓解**：直接改 `--caomei-color-primary` 会波及链接 / 焦点环 / soft 底等强调用途；缓解：只覆盖主按钮的 `--caomei-button-bg` / `--caomei-button-fg`，排除语调档并限定亮色档，暗色档实测零变化（`repos-dark` 基线未变）。
+- **审计**：第 1 轮 `standard` **Reject**（1 blocker / 2 warning / 3 suggest）→ 修复 → 第 2 轮 `standard` **Reject**（1 blocker / 1 warning / 2 suggest）→ 修复 → 第 3 轮 `quick` **Pass**（4 项全关，0 新增问题）。blocker 处置：① `tone="*"` 实底按钮被误染主色（选择器收窄 + 语调档枚举）；② 新增注释引入孤立审计编号（清理为解释正文）。warning/suggest 处置：基线按内容重建并做像素级 bbox 核验、注释措辞与行号修正、视觉阈值盲区登记 backlog 候选。
+
+#### M33.10 [P3 🎨 用户体验] 告警视图筛选行「显示已解决」对齐
+
+- **目标**：用户 2026-09-30 上报 #6「『显示已解决』的文字比其他的靠下」——筛选行 5 个字段的 label 基线一致、Switch 与其同行 Select 的控件区垂直对齐。
+- **优先级**：P3。
+- **范围**：`apps/platform/app/pages/alerts.vue`（`.alerts__filter-row` / `.alerts__filter-field` 对齐规则）+ 受影响视觉基线快照（`alerts-light.png` / `alerts-dark.png`）。
+- **验收标准**：
+  - [ ] 筛选行内各字段 label 顶部对齐（1440 视口实测 y 偏差 ≤ 2px）
+  - [ ] Switch 控件与同排 Select 控件区垂直对齐（中心 y 偏差 ≤ 2px）
+  - [ ] 窄视口 wrap 后仍对齐；暗色模式无回归
+  - [ ] `pnpm lint` + `pnpm --filter @dependfix/platform typecheck` EXIT 0；`alerts` 视觉基线更新后 `test:visual` 连跑两遍不漂移
+- **不做什么**：不改筛选业务逻辑 / 查询参数 / i18n 文案；不改其他页面筛选行；不改造 alerts 表格列宽（M33.5 范围）。
+- **依赖**：无（纯布局修复）。
+- **交付物**：1 atomic commit（`fix(platform)`）；文件见"范围"。
+- **风险与缓解**：为对齐给 Switch 强制控件高度可能影响其他 Switch 场景；缓解：只作用于 `.alerts__filter-field` 作用域内，实测 wrap 与暗色两态。
+- **审计**：待 A 阶段填写。
+
 #### 阶段决策记录
 
 - **D1**：方案 A（治理 + 测试基建收口）——从「评估完成待上收」候选（C91 / C93 / C94 / C80 剩余）与本批评估新登记的可行动已知边界项（视觉回归 CI 转阻断 / M31 dependabot 死配置）中上收 6 原子条目；类型平衡 📚 1 + 🛠️ 3 + 🧪 2，🎨 UX 缺口显式标注。
@@ -155,6 +209,7 @@
 - **D5**：M33 阶段启动 commit 仅改 `docs/plan/*`（P 阶段规划暂停协议），提交后暂停等待用户指令进入 D 阶段。
 - **D6**（A 阶段审计收敛）：第 1 轮 `standard` 审计 **Pass**（0 blocker / 4 warning / 6 suggest）。warning 处置——RG-W1/W2（C91 / C80 跨文件陈旧指针，`ai-collaboration.md §1.5` / `platform.md §3.9` / `testing.md §6.7` / experience-archive 检查点表）**落点登记**到对应条目交付物（M33.1 / M33.2 / M33.4 / M33.5 / M33.6），不在本 P 批次内改 `docs/standards/*`（保持 P 阶段仅 `docs/plan/*` 的边界）；RG-W3（M33.5 量化口径）与 RG-W4（M33.3 范围漏列 backlog.md）已在本批修正。suggest 采纳：RG-S1（roadmap §M32 历史段加「已上收 M33.x」注记）/ RG-S2（M33.3 依赖回填 commit `406fd1f`）/ RG-S3（roadmap D4 补测量方）/ RG-S6（banner 对齐 §1.7 原文命令）；RG-S4 于 F 阶段收口（`.session` 同步）；RG-S5 保持现状（归档历史快照）。
 - **D7**：M33.7（数据库迁移命令入口补齐）经用户 2026-09-30 明确指示「现在就补齐迁移入口」追加进本阶段——属 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement)「用户直接决策」路径（非插队例外 3 类），已执行 §3.4 三重交叉核验（0 项重复评估）。阶段容量 6 → 7，仍属单批可控范围（M33.1 已闭环，活跃 6 条）。
+- **D8**：M33.8–M33.10（UI 修复批次）经用户 2026-09-30 决策「追加为 M33.8–M33.10」进入本阶段——同属「用户直接决策」路径；拆分依据：① M33.8 = 弹窗表单布局（#1 label 间距 + #2 actions 右下 + #4 刷新按钮对齐，同一"弹窗表单规范"主题，含 `repo-form-dialog` 样式段遗留缺陷）；② M33.9 = 按钮视觉与加载态（#3 对比度 + #5 loading 动画，同一"主按钮"主题）；③ M33.10 = 告警筛选行对齐（#6，独立页面）。**审计深度**：M33.8 / M33.10 为纯 SCSS/模板布局改动（单模块、无逻辑变更）→ `standard`；M33.9 触及 token 全局接线 + 跨页面调用点 → `standard`。**执行顺序**：M33.9 → M33.8 → M33.10（先落全局色板以免基线快照二次改写）。**§3.4 三重交叉核验结论**（2026-09-30 实测，0 项重复评估）：① todo-archive 扫描（`rg -n "对比度|loading|动画|右下角|表单间距|filter-row" docs/plan/todo-archive.md docs/plan/archive/*.md`）命中 M31.1/D4 仅记录 `primary-solid` teal-700 AA 口径（本条正是让默认 primary 变体对齐该既有口径），无「弹窗布局 / 筛选行对齐 / loading 动画」闭环项；② git log 核验（`--grep="对比度|loading|弹窗"`）无对应实现 commit；③ 代码侧 anchor 实证：`repo-form-dialog.vue` 样式块数 = 0、`repos.vue` 仍含 `.repo-form` 规则、`alerts.vue:734` 为 `align-items: flex-end`、`import-repos-dialog.vue` 的 `.import-form__row` 为 `align-items: center`（`:534`）、`nuxt.config.ts:51` 为 `primary-foreground: '#0b0b0d'`——五项均与上报现象自洽。**容量说明**：本阶段活跃条目 5（M33.2 待 CI 裁决 / M33.3–M33.6）→ 8，超 [§3.3 容量控制](../standards/planning.md) 的 5-6 项；用户直接决策明示保留全部条目，不挪出（M33.2 实现已完成、仅剩外部 CI 裁决，实际并行投入未增）。
 
 ---
 

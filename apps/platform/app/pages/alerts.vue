@@ -473,10 +473,12 @@ const alertCveUrl = (cveId: string): string => `https://nvd.nist.gov/vuln/detail
                 </div>
                 <div class="alerts__filter-field">
                     <label for="include-superseded">{{ t('alerts.filter.includeSuperseded') }}</label>
-                    <CaomeiSwitch
-                        id="include-superseded"
-                        v-model="filters.includeSuperseded"
-                    />
+                    <div class="alerts__filter-control">
+                        <CaomeiSwitch
+                            id="include-superseded"
+                            v-model="filters.includeSuperseded"
+                        />
+                    </div>
                 </div>
                 <div class="alerts__filter-field">
                     <CaomeiButton
@@ -741,6 +743,15 @@ const alertCveUrl = (cveId: string): string => `https://nvd.nist.gov/vuln/detail
         flex-direction: column;
         gap: $space-1;
         min-width: 160px;
+    }
+
+    /* Switch 本体高度低于控件档高度（`--caomei-switch-height` < `--caomei-control-height-md`）：
+       直接放进字段会让该字段整体变矮，在行 flex-end 对齐下其 label 被下压。控件区统一按
+       控制档高度补足并垂直居中，使同排各字段的 label 与控件上下缘都对齐。 */
+    &__filter-control {
+        display: flex;
+        align-items: center;
+        min-height: var(--caomei-control-height-md);
     }
 
     &__filter-field label {

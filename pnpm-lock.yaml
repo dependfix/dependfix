@@ -126,8 +126,8 @@ importers:
         specifier: ^6.3.9
         version: 6.3.9(ioredis@6.0.0(supports-color@10.2.2))(pg@8.23.0)
       caomei-ui:
-        specifier: 0.3.0
-        version: 0.3.0(@nuxt/kit@4.5.2(magic-string@1.1.0)(magicast@0.5.4)(oxc-parser@0.141.0)(rolldown@1.2.7)(unplugin@3.3.0(esbuild@0.25.12)(rolldown@1.2.7)(rollup@4.62.4)(vite@8.3.1(@types/node@26.6.3)(esbuild@0.25.12)(jiti@2.7.0)(sass@1.105.0)(terser@5.49.2)(tsx@4.23.15)(yaml@2.9.1))))(vue@3.5.43(typescript@6.0.3))
+        specifier: 0.5.0
+        version: 0.5.0(@nuxt/kit@4.5.2(magic-string@1.1.0)(magicast@0.5.4)(oxc-parser@0.141.0)(rolldown@1.2.7)(unplugin@3.3.0(esbuild@0.25.12)(rolldown@1.2.7)(rollup@4.62.4)(vite@8.3.1(@types/node@26.6.3)(esbuild@0.25.12)(jiti@2.7.0)(sass@1.105.0)(terser@5.49.2)(tsx@4.23.15)(yaml@2.9.1))))(vue@3.5.43(typescript@6.0.3))
       chart.js:
         specifier: ^4.5.1
         version: 4.5.1
@@ -2963,6 +2963,17 @@ packages:
       webpack:
         optional: true
 
+  '@vavt/cm-extension@2.0.0':
+    resolution: {integrity: sha512-rqnNrggye6BUZqI8suQrdJloYt30HVtwqw+s+p9fQrLQQbVAuWCaQUYxt/Tawh/zf1qJQ6VEiRSvdDRP5WgkQA==}
+    peerDependencies:
+      md-editor-rt: ^7.0.0
+      md-editor-v3: ^7.0.0
+    peerDependenciesMeta:
+      md-editor-rt:
+        optional: true
+      md-editor-v3:
+        optional: true
+
   '@vercel/nft@1.10.2':
     resolution: {integrity: sha512-w+WyX5Ulmj4dtTZrxaulqrjaLZHSbnPzx75SJsTNYmotKsqn1JlLnDJa+lz5hn90HJofhl/2MAtw0mCrgM3qYw==}
     engines: {node: '>=20'}
@@ -3779,14 +3790,17 @@ packages:
   caniuse-lite@1.0.30001809:
     resolution: {integrity: sha512-xxWVywk6a6Arlk+hymeycyn/VgqEfLDxupvhH/xiY5SJ/18kmi9o6MiO320DCUzypORHLtvh0I4i04tUhCNHNQ==}
 
-  caomei-ui@0.3.0:
-    resolution: {integrity: sha512-ReSOhcgO8oLjI1mqfytE/drXEwE426+EXBNU7PgrKULTs6jZzDzyasDUrFL8jpgJh6b/rQ4wWKgFJYJlI8oezQ==}
+  caomei-ui@0.5.0:
+    resolution: {integrity: sha512-53OovGvwIlwEg6fcHEUY1yV1lja0dN6J4bgwDYaotsomaBalfAPoZDbTuHxAz7brP4cUzGv9K/VzqqKRHPWZ+g==}
     engines: {node: '>=20'}
     peerDependencies:
       '@nuxt/kit': ^4.0.0
+      md-editor-v3: ^7.1.0
       vue: ^3.5.0
     peerDependenciesMeta:
       '@nuxt/kit':
+        optional: true
+      md-editor-v3:
         optional: true
 
   ccount@2.0.1:
@@ -7161,6 +7175,10 @@ packages:
 
   source-map-js@1.2.1:
     resolution: {integrity: sha512-UXWMKhLOwVKb728IUtQPXxfYU+usdybtUrK/8uGE8CQMvrhOpwvzDBwj0QhSL7MQc7vIsISBG8VQ8+IDQxpfQA==}
+    engines: {node: '>=0.10.0'}
+
+  source-map-js@1.2.2:
+    resolution: {integrity: sha512-KGj/8Y43x35aZVDtt+J4mK1hoLGHULMYfSkODJNQjNDC3oW1PqPoxMwo0pLUsWM/UEGzON/NxeHywEfNXNP3Vw==}
     engines: {node: '>=0.10.0'}
 
   source-map-support@0.5.21:
@@ -11149,6 +11167,8 @@ snapshots:
       - rollup
       - unloader
 
+  '@vavt/cm-extension@2.0.0': {}
+
   '@vercel/nft@1.10.2(rollup@4.62.4)(supports-color@10.2.2)':
     dependencies:
       '@mapbox/node-pre-gyp': 2.0.3(supports-color@10.2.2)
@@ -11319,7 +11339,7 @@ snapshots:
       '@vue/shared': 3.5.43
       entities: 7.0.1
       estree-walker: 2.0.2
-      source-map-js: 1.2.1
+      source-map-js: 1.2.2
 
   '@vue/compiler-dom@3.5.40':
     dependencies:
@@ -11358,7 +11378,7 @@ snapshots:
       estree-walker: 2.0.2
       magic-string: 0.30.21
       postcss: 8.5.28
-      source-map-js: 1.2.1
+      source-map-js: 1.2.2
 
   '@vue/compiler-ssr@3.5.40':
     dependencies:
@@ -12004,17 +12024,19 @@ snapshots:
 
   caniuse-lite@1.0.30001809: {}
 
-  caomei-ui@0.3.0(@nuxt/kit@4.5.2(magic-string@1.1.0)(magicast@0.5.4)(oxc-parser@0.141.0)(rolldown@1.2.7)(unplugin@3.3.0(esbuild@0.25.12)(rolldown@1.2.7)(rollup@4.62.4)(vite@8.3.1(@types/node@26.6.3)(esbuild@0.25.12)(jiti@2.7.0)(sass@1.105.0)(terser@5.49.2)(tsx@4.23.15)(yaml@2.9.1))))(vue@3.5.43(typescript@6.0.3)):
+  caomei-ui@0.5.0(@nuxt/kit@4.5.2(magic-string@1.1.0)(magicast@0.5.4)(oxc-parser@0.141.0)(rolldown@1.2.7)(unplugin@3.3.0(esbuild@0.25.12)(rolldown@1.2.7)(rollup@4.62.4)(vite@8.3.1(@types/node@26.6.3)(esbuild@0.25.12)(jiti@2.7.0)(sass@1.105.0)(terser@5.49.2)(tsx@4.23.15)(yaml@2.9.1))))(vue@3.5.43(typescript@6.0.3)):
     dependencies:
       '@internationalized/date': 3.12.4
       '@lucide/vue': 1.48.0(vue@3.5.43(typescript@6.0.3))
       '@tanstack/vue-table': 9.2.4(vue@3.5.43(typescript@6.0.3))
+      '@vavt/cm-extension': 2.0.0
       reka-ui: 2.10.4(vue@3.5.43(typescript@6.0.3))
       vue: 3.5.43(typescript@6.0.3)
     optionalDependencies:
       '@nuxt/kit': 4.5.2(magic-string@1.1.0)(magicast@0.5.4)(oxc-parser@0.141.0)(rolldown@1.2.7)(unplugin@3.3.0(esbuild@0.25.12)(rolldown@1.2.7)(rollup@4.62.4)(vite@8.3.1(@types/node@26.6.3)(esbuild@0.25.12)(jiti@2.7.0)(sass@1.105.0)(terser@5.49.2)(tsx@4.23.15)(yaml@2.9.1)))
     transitivePeerDependencies:
       - '@vue/composition-api'
+      - md-editor-rt
 
   ccount@2.0.1: {}
 
@@ -14126,7 +14148,7 @@ snapshots:
     dependencies:
       '@babel/parser': 7.29.8
       '@babel/types': 7.29.8
-      source-map-js: 1.2.1
+      source-map-js: 1.2.2
 
   make-dir@4.0.0:
     dependencies:
@@ -15661,7 +15683,7 @@ snapshots:
       '@vueuse/shared': 14.4.0(vue@3.5.43(typescript@6.0.3))
       aria-hidden: 1.2.6
       defu: 6.1.7
-      ohash: 2.0.11
+      ohash: 2.0.12
       vue: 3.5.43(typescript@6.0.3)
     transitivePeerDependencies:
       - '@vue/composition-api'
@@ -15969,7 +15991,7 @@ snapshots:
     dependencies:
       chokidar: 5.0.0
       immutable: 5.1.9
-      source-map-js: 1.2.1
+      source-map-js: 1.2.2
     optionalDependencies:
       '@parcel/watcher': 2.6.0
 
@@ -16124,6 +16146,8 @@ snapshots:
   smob@1.6.2: {}
 
   source-map-js@1.2.1: {}
+
+  source-map-js@1.2.2: {}
 
   source-map-support@0.5.21:
     dependencies:

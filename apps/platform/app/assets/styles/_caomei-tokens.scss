@@ -42,8 +42,9 @@
     --caomei-color-primary: #5eead4;
 
     // 注意：暗色档的 `--caomei-color-primary-foreground` 未在此覆盖，依赖 nuxt.config.ts 的
-    // `caomeiUI.theme` 单值 `#0b0b0d`——它与 caomei-ui 0.3.0 基础预设的暗色默认值一致
-    // （实测暗色 13.29:1）。库升级或更换预设后需重新核验该假设。
+    // `caomeiUI.theme` 单值 `#0b0b0d`——它与 caomei-ui 基础预设的暗色默认值一致
+    // （实测暗色 13.29:1）。**已随 caomei-ui 0.5.0 复核：该暗色默认值未变，假设继续成立**
+    // （见 caomei-ui-migration.md §15.14；库升级或更换预设后仍需重新核验）。
     --caomei-color-bg: #{$color-bg-dark};
     --caomei-color-bg-elevated: #{$color-surface-dark};
     --caomei-color-text: #{$color-text-dark};

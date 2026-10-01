@@ -272,7 +272,7 @@ if (value) { ... }  // 对 0, "", false 失效
 | [development.md §5.1.30](../../../../docs/standards/development.md) | 构造期用外部数据合并 effective config | 是否保持 `readonly` 单次赋值（未改成可写）、是否避免引入第二份 effectiveConfig |
 | [development.md §5.1.31](../../../../docs/standards/development.md) | 代码路径声明「只读 / 与环境解耦」 | 是否**穷举同族开关**（如 `migrationsRun` + `synchronize`）并各自配断言；是否打印 effective 覆盖行（**实际生效值**而非按 env 打印值） |
 | [development.md §6](../../../../docs/standards/development.md) | 从父页拆出子组件 / 同行 label + 控件对齐 | 父页 `<style scoped>` 的同名规则是否随迁子组件（子组件 `<style>` 数与父页残留核对）；同行 `flex-end` 矮控件是否以「控件区补足控制档高度 + 居中」处理 |
-| [testing.md §6.1](../../../../docs/standards/testing.md) | 新增 Playwright 容器 / e2e 用例 / 本机取证 | 新容器是否同步 vitest `test.exclude` 并跑全量 `pnpm test`；容器内 Chromium 是否 `TMPDIR=/dev/shm`；权威证据是否 `--workers=1` 连跑两遍 |
+| [testing.md §6.1](../../../../docs/standards/testing.md) | 新增 Playwright 容器 / e2e 用例 / 本机取证 / vitest 或文档遍历的排除配置 | 新容器是否同步 vitest `test.exclude` 并跑全量 `pnpm test`；容器内 Chromium 是否 `TMPDIR=/dev/shm`；权威证据是否 `--workers=1` 连跑两遍；**排除模式是否覆盖仓库根与包目录两个 root**（分别在两个模式下跑 `vitest list` 计数）；大目录排除是否在遍历器内**下降前剪枝**且用**路径前缀**（非通用目录名），相邻前缀是否有回归用例 |
 | [testing.md §6.5](../../../../docs/standards/testing.md) | 新增 / 修改测试断言 | 是否**锁定独有子串 + 失败来源**（非恒真）；是否做 2-3 个 mutation（删 guard / 吞错 / 改回旧行为）标定确认用例会失败 |
 | [testing.md §6.6](../../../../docs/standards/testing.md) | 需 mock ESM 命名导出 / 覆盖失败分支 | 优先级是否正确（真实故障注入 > 可选注入点 > `vi.mock`）；`it.skip` 是否带 TODO 理由并登记 backlog |
 | [testing.md §6.7](../../../../docs/standards/testing.md) | **视觉回归**用例 / 基线 / 主题 token 改动 | 取证前先 build；加遮蔽须重生成基线；**反例验证纪律**（注入样式改动 → 用例如期失败 → 还原后全绿）；基线覆盖 fixtures 时须**写入路径锚定**（先断言行数 / 关键文案 / 标签色调再截图）+ 覆盖声明逐列核对；色板 / 间距类改动按内容核验（重建 + 逐像素 diff），不只看"用例通过" |
@@ -290,6 +290,8 @@ if (value) { ... }  // 对 0, "", false 失效
 | [development.md §3](../../../../docs/standards/development.md) | 新增 / 修改源码注释或测试名（含新增文件） | 编号标记扫描是否**覆盖本批全部改动文件**（`git diff --name-only` + `git status --porcelain` + `git diff -U0` 新增行），而非只跑规范示例路径；命中是否为带文档路径的合规导航指针 |
 | [documentation.md §6](../../../../docs/standards/documentation.md) | 文档状态口径改写 / 双语镜像同步 | 反向改写是否有三重实证（commit + 代码现状 + 现存产物）、是否只改状态与元数据而未改写历史正文；镜像是否做到**链接级**一致（非仅行数） |
 | [development.md §5.1.34](../../../../docs/standards/development.md) | 依赖升级差异 / 等价性结论、上游变更说明缺失 | 是否按语义级 diff（剥 hash 与 scope，md5 判同文件）而非归一化近似；无 release 时是否以产物（tarball / dist）为权威 |
+| [planning.md §4.4 第 15 条](../../../../docs/standards/planning.md) | 执行期发现 AC 范围外的同源陈旧 / 同构遗漏 | 是否带 `file:line` 证据提请用户决策（未自行扩范围）；用户授权后是否在条目「范围」段与 commit 说明记录授权来源；AC 排除项是否以**无阶段编号**候选登记且登记位置与区块定义自洽；复扫面是否覆盖 `packages/**/*.ts` + `scripts/**/*.mjs` 注释 |
+| [development.md §5.1.33](../../../../docs/standards/development.md) | 「统一同类写法 / 复用化」类改动的范围穷举 | 是否用**构建产物**穷举（合并同选择器规则；注意 `server/chunks/build/*styles*.mjs`），而非只靠源码 grep（只能发现「值不同」的站点）；「范围已穷举」的结论是否经得起「筛选条件是否只命中目标一部分」的追问 |
 
 > **维护纪律**：本矩阵为严格约束检查点的**单点落点**，其他文档 / skill / agent 只做一行链接引用（见上方「规范单点声明」）。矩阵行与条款一一对应；条款废弃 / 合并时同步删行。
 

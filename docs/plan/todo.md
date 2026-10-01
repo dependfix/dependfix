@@ -44,15 +44,16 @@
 - **优先级**：P3（非阻塞；CI 为干净检出，本缺口不影响 CI，仅污染本地 devEx）。
 - **范围**：`vitest.config.ts`（`test.exclude` 增补 `apps/platform/data/**`）；`scripts/check-docs.mjs`（遍历时跳过 `data/` 等 gitignored 运行时目录）。
 - **验收标准**：
-  - [ ] 扫描 run 产物在场时 `pnpm test` 不再收集其测试文件（基线：产物在场 636 文件 / 412 failed；叠加 `--exclude 'apps/platform/data/**'` 后 219 文件 / 0 failed）
-  - [ ] 产物在场时 `pnpm run check:docs` 仍 EXIT 0（基线：产物在场 986 处问题且**全部**位于 `apps/platform/data/runs/<runId>/`；排除后 EXIT 0 / links 143 / vue-interp 79）
-  - [ ] 干净检出下两项检查结果与改动前一致（CI 为干净检出，本缺口不影响 CI）
-  - [ ] `pnpm lint` + `pnpm typecheck` 通过
-  - [ ] 复现命令：`pnpm test 2>&1 | tail -3` 与 `pnpm exec vitest run --exclude 'apps/platform/data/**' 2>&1 | tail -3` 对比；`pnpm run check:docs 2>&1 | grep -c "apps/platform/data/runs/"`
+  - [x] 运行时产物在场时 `pnpm test` 不再收集其测试文件：合成夹具（`apps/platform/data/runs/_m341-probe/pkg/`：失败 `.test.ts` + 含死链 / 绝对路径的 `README.md`；真实场景为 M33.7 的 1.4G / 636 文件 / 412 failed，本批缩小规模复现）在场时全量 `pnpm test` → **217 passed | 2 skipped（219 文件）/ 3392 passed / 0 failed**（与规划基线「219 文件 / 0 failed」同档）；`vitest list` 命中夹具 根模式 1 → **0**、包模式 **0**
+  - [x] 运行时产物在场时 `pnpm run check:docs` EXIT 0（改前同夹具下报 **2 处问题**，均位于 `apps/platform/data/runs/_m341-probe/pkg/README.md`；改后 EXIT 0 / links 143 / vue-interp 79）
+  - [x] 干净态等价：夹具删除后 `check:docs` 仍 links 143 / vue-interp 79；`vitest list` 根模式 3392（= 改动前 3390 + 新增 2 条用例）/ 包模式 1353（不变）
+  - [x] `pnpm lint` + `pnpm typecheck` 通过；另跑 `pnpm test:coverage`（阈值 80%：statements 86.27 / branches 81.77 / functions 85.12 / lines 86.43）与 `pnpm lint:md:check`
+  - [x] 复现命令（本批实证口径）：① `pnpm test`（夹具在场）→ 219 文件 / 0 failed；② `pnpm exec vitest list | grep -c _m341-probe`（根 / 包模式）→ 0；③ `pnpm run check:docs | grep -c "apps/platform/data/runs/"` → 0；A/B 取证留 `artifacts/m34.1/evidence.md`（gitignored）
 - **不做什么**：不改扫描 run 的产物落盘位置与清理策略；不改 CI 工作流；不清理既有产物目录。
 - **依赖**：M33.7 验证期实证（测量方 = M33.7 执行角色；产物目录 `apps/platform/data/runs/683ba3fe8af7f536/`，约 1.4G，由在跑的扫描 run 生成）。
 - **交付物**：1 atomic commit（`chore(test)`：vitest exclude + check-docs 跳过规则 + 回归验证记录）。
 - **风险与缓解**：过宽排除模式（如 `**/data/**`）可能误排除真实测试目录；缓解：优先精确 `apps/platform/data/**` 并加注释说明理由。
+- **闭环实证**（2026-10-01）：`vitest.config.ts` 双模式排除（`**/apps/platform/data/**` 覆盖仓库根 + `data/**` 覆盖包目录 root）+ `scripts/shared/md-walk.mjs` 新增「相对遍历起点的目录前缀剪枝」（`walkMdFiles` 第 3 参，下降前剪枝）+ `scripts/check-docs.mjs` 传入 `RUNTIME_EXCLUDED_PATHS` + 2 条回归用例（剪枝与不过度排除；含前缀陷阱 `apps/platform/database` 与同名目录 `docs/data`）。**A/B 取证**：改前同夹具下 `check:docs` 报 2 处问题（均位于运行时目录）、`vitest list` 命中夹具、夹具单跑失败；改后三者全部消失。**mutation 标定**：按目录名匹配 / 朴素 `startsWith` 两种错误实现均被用例捕获（各 1 failed / 37 passed），据此把 `isExcludedPath` 简化为精确匹配（`startsWith(prefix + '/')` 分支实际不可达）。**A 阶段审计**：`standard` 第 1 轮 Pass（0 blocker / 1 warning / 2 suggest）→ RG-W01 补「不过度排除」断言后第 2 轮 `quick` 复审 Pass；RG-S01（`data/**` 包级模式的残余风险）以 `vitest.config.ts` inline 注释登记，RG-S02（常量与 `REPO_ROOT` 耦合）非阻塞保持开放。
 
 #### M34.2 [P2 📦 依赖升级] caomei-ui `0.3.0 → 0.5.0`（弹窗内 Select 面板裁剪 / 层级问题修复 + 全链回归）
 

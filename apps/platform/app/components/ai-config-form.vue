@@ -200,7 +200,7 @@ onMounted(fetchConfig)
     &__field {
         display: flex;
         flex-direction: column;
-        gap: $space-1;
+        gap: $space-2;
 
         label {
             font-size: $font-size-sm;

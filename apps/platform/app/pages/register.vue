@@ -193,9 +193,7 @@ const onSubmit = async () => {
     gap: $space-4;
 
     &__field {
-        display: flex;
-        flex-direction: column;
-        gap: $space-2;
+        @include field-stack;
 
         label {
             font-size: $font-size-sm;

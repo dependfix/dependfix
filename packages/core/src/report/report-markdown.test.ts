@@ -510,6 +510,27 @@ describe('generateMarkdownReport', () => {
 
         expect(md).toContain('pnpm lint')
         expect(md).toContain('⚠️ exit code 1')
+        // 反向断言：非既有失败不得被标注为「既有失败」（保证「显式区分」两侧都锁住）
+        expect(md).not.toContain('既有失败（修复前即红，未归因本次改动）')
+    })
+
+    it('verification action 标记 preExisting（既有失败）→ 报告显式区分「本次引入」与「基线已存在」', () => {
+        const result = {
+            ...EMPTY_RUN_RESULT,
+            actions: [
+                makeAction({
+                    type: 'verification',
+                    target: 'pnpm test',
+                    success: false,
+                    error: 'exit code 1',
+                    preExisting: true,
+                    durationMs: 500,
+                }),
+            ],
+        }
+        const md = generateMarkdownReport(result)
+
+        expect(md).toContain('既有失败（修复前即红，未归因本次改动）')
     })
 })
 

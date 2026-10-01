@@ -334,7 +334,8 @@ function actionDetails(action: FixAction, error?: string): string {
                     ? `${action.strategy}: ${action.diff ?? ''}`
                     : action.diff ?? '—'
             case 'verification':
-                return '—'
+                // 既有失败（修复前即红）不归因本次改动，必须在报告层可与「本次引入的失败」区分
+                return action.preExisting ? '既有失败（修复前即红，未归因本次改动）' : '—'
             case 'branch-cleanup':
                 return action.diff ?? '—'
             case 'code-scanning-fix':

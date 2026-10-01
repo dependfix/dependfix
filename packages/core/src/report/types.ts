@@ -67,6 +67,18 @@ export interface RepositoryResult {
     failed: number
     lockfileRepaired: boolean
     verificationPassed?: boolean
+    /**
+     * 是否存在**本次改动引入**的验证失败（决定是否回滚交付）。
+     *
+     * - `undefined`：未做验证（dry-run / 未走修复链路）
+     * - `false`：**不存在本次改动引入的失败**（链路可能全绿，也可能只剩既有基线失败）→ 不触发回滚
+     * - `true`：存在基线中不存在的新失败 → 交付门禁回滚
+     *
+     * 与 `verificationPassed`（修复后是否**全部**命令通过，原始口径）分工：
+     * `verificationPassed === false && verificationBlocking === false` 表示
+     * 「链路未全绿，但失败均为既有基线，未归因本次改动」。
+     */
+    verificationBlocking?: boolean
     durationMs: number
 }
 
@@ -82,6 +94,11 @@ export interface FixAction {
     isMajor?: boolean
     success: boolean
     error?: string
+    /**
+     * 仅 `type === 'verification'` 时有意义：该失败在**修复前的基线采样**中即已存在
+     * （目标仓库本就为红，如长期失败的测试套件）→ 不归因本次改动，交付门禁不据此回滚。
+     */
+    preExisting?: boolean
     strategy?: string
     durationMs?: number
     diff?: string

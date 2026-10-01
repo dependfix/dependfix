@@ -36,6 +36,7 @@ import { getQueueService } from '../queue/queue.service'
 import { executeBatchRun } from './batch-executor'
 import { BatchRun } from '#server/entities/batch-run'
 import { ScanRun } from '#server/entities/scan-run'
+import { ScanResult } from '#server/entities/scan-result'
 import { ensureDatabaseInitialized } from '#server/database'
 
 const mockQueueService = (mode: 'async' | 'sync') => {
@@ -61,6 +62,10 @@ const mockDataSource = () => {
     }
     const scanRunRepo = {
         save: vi.fn(async (run: ScanRun) => run),
+        find: vi.fn(async () => [] as ScanRun[]),
+    }
+    const scanResultRepo = {
+        find: vi.fn(async () => [] as ScanResult[]),
     }
     vi.mocked(ensureDatabaseInitialized).mockResolvedValue({
         getRepository: (entity: unknown) => {
@@ -70,10 +75,13 @@ const mockDataSource = () => {
             if (entity === ScanRun) {
                 return scanRunRepo
             }
+            if (entity === ScanResult) {
+                return scanResultRepo
+            }
             throw new Error(`unexpected entity: ${String(entity)}`)
         },
     } as never)
-    return { batchRunRepo, scanRunRepo, savedBatchRuns }
+    return { batchRunRepo, scanRunRepo, scanResultRepo, savedBatchRuns }
 }
 
 const baseInput = {
@@ -226,6 +234,20 @@ describe('executeBatchRun（批量执行服务）', () => {
         expect(runSyncMock.mock.calls[1]![0]).toBe('repo-2')
         expect(createPendingRunMock).not.toHaveBeenCalled()
         expect(queueAddMock).not.toHaveBeenCalled()
+    })
+
+    it('sync：串行结束后立即聚合终态化，finishedAt = max(子项 finishedAt)', async () => {
+        mockQueueService('sync')
+        const { savedBatchRuns, scanRunRepo } = mockDataSource()
+        const realFinishedAt = new Date('2026-09-04T04:00:00Z')
+        scanRunRepo.find.mockResolvedValueOnce([
+            { id: 'run-1', status: 'completed', finishedAt: realFinishedAt, batchRunId: 'batch-1', summaryJson: null } as ScanRun,
+        ])
+
+        await executeBatchRun(baseInput)
+
+        expect(savedBatchRuns[0]!.status).toBe('completed')
+        expect(savedBatchRuns[0]!.finishedAt?.toISOString()).toBe(realFinishedAt.toISOString())
     })
 
     it('空批次：立即 completed + 零值 summary（终态兜底，避免永久 running）', async () => {

@@ -5,14 +5,18 @@
  *
  * 终态兜底（本服务内收敛）：
  * - 空批次（无目标仓库）：立即 completed + 零值 summary，避免永久 running
- * - async 全部入队失败：直接 failed（轮询聚合只产出 completed，需在此兜底 failed）
- * - 单仓库入队失败：跳过继续（不中断批次），终态由轮询聚合收敛
- * - 其余终态：由轮询聚合（GET /api/batch-runs/[id] 实时聚合写回）收敛
+ * - async 全部入队失败：直接 failed（聚合只产出 completed，需在此兜底 failed）
+ * - 单仓库入队失败：跳过继续（不中断批次），终态由聚合收敛
+ * - sync 模式串行结束：立即聚合终态化（本文件内）
+ * - async 其余终态：由周期兜底对账（batch-reconciler.ts）+ 详情实时聚合收敛
  */
+import { In } from 'typeorm'
 import { getQueueService } from '../queue/queue.service'
 import { SCAN_JOB_PRIORITY } from '../queue/queue-mode'
 import { createPendingScanRun, runScanForRepository, type ScanRequest } from '../scan-orchestrator.service'
-import { EMPTY_BATCH_SUMMARY } from './batch-aggregate'
+import { aggregateScanRuns, EMPTY_BATCH_SUMMARY } from './batch-aggregate'
+import { applyBatchAggregation } from './batch-writeback'
+import { ScanResult } from '#server/entities/scan-result'
 import { ScanRun } from '#server/entities/scan-run'
 import { BatchRun, type BatchRunSource } from '#server/entities/batch-run'
 import { ensureDatabaseInitialized } from '#server/database'
@@ -75,7 +79,7 @@ export const executeBatchRun = async (input: ExecuteBatchInput): Promise<Execute
                     run.status = 'failed'
                     run.finishedAt = new Date()
                     run.errorJson = JSON.stringify({
-                        code: 'SCAN_PENDING_MERGED', // M18.x 治理批次 S1：与 ServerErrorCode 联合类型对齐
+                        code: 'SCAN_PENDING_MERGED', // 与 ServerErrorCode 联合类型对齐
                         message: '该仓库已有进行中的扫描任务，本次触发已合并',
                     })
                     await ds.getRepository(ScanRun).save(run)
@@ -104,9 +108,20 @@ export const executeBatchRun = async (input: ExecuteBatchInput): Promise<Execute
             await batchRepo.save(batchRun)
         }
     } else {
-        // sync 降级：逐仓库同步串行（runScanForRepository 内部兜底失败为 failed run，不抛错中断批次）
+        // sync 降级：逐仓库同步串行。runScanForRepository 内部把「执行失败」兜底为 failed run；
+        // 但预执行错误（如仓库锁 / 凭据缺失）仍会冒泡中断本循环——批次保持 running，交由周期对账收敛
+        // （零子项 → 孤儿 failed；已建出部分子项 → 按已建子项聚合）。不在此静默吞错，避免掩盖未执行仓库
         for (const repositoryId of input.repositoryIds) {
             await runScanForRepository(repositoryId, input.request, { batchRunId: batchRun.id })
+        }
+        // 串行结束即所有子 run 达终态：立即聚合终态化（不依赖用户查看 / 周期对账）
+        const runs = await ds.getRepository(ScanRun).find({ where: { batchRunId: batchRun.id } })
+        const results = runs.length > 0
+            ? await ds.getRepository(ScanResult).find({ where: { scanRunId: In(runs.map((run) => run.id)) } })
+            : []
+        // 零子项时不在此终结（异常场景交由周期对账按孤儿处理，避免误标 completed）
+        if (runs.length > 0 && applyBatchAggregation(batchRun, aggregateScanRuns(runs, results), runs)) {
+            await batchRepo.save(batchRun)
         }
     }
 

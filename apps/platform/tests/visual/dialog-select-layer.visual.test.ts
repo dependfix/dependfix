@@ -9,7 +9,7 @@ import {
 } from './helpers/visual'
 
 /**
- * 弹窗内 Select 下拉面板「裁剪 / 层级」回归（docs/plan/todo.md §M34.2 / §M34.3）。
+ * 弹窗内 Select 下拉面板「裁剪 / 层级」回归（背景见 docs/plan/todo-archive.md §M34）。
  *
  * 背景：用户报告弹窗（`CaomeiDialog`）内 Select 展开时下拉面板被裁剪 / 层级错误。
  * 本文件含两类断言：

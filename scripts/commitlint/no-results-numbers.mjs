@@ -2,7 +2,7 @@
  * commitlint plugin: no-results-numbers
  *
  * 拦截 commit message 中包含执行结果数字的写法（如 `0 error` / `N passed` / `EXIT=0` / `0 blocker / 3 warning / 2 suggest`）。
- * 完整规则集见 docs/standard/git.md §3.6 第 2 条「不写执行结果数字」+ ai-collaboration.md §1.6。
+ * 完整规则集见 docs/standards/git.md §3.6 第 2 条「不写执行结果数字」+ ai-collaboration.md §1.6。
  *
  * 例外（不视为违规）：
  * - 主题中的日期数字（如 `2026-09-10`）

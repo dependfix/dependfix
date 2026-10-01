@@ -6,7 +6,7 @@
  * extends: ['cmyr', './scripts/commitlint/info-density.config.mjs']
  * ```
  *
- * 4 条硬约束（详见 docs/standard/git.md §3.6 + ai-collaboration.md §1.6）：
+ * 4 条硬约束（详见 docs/standards/git.md §3.6 + ai-collaboration.md §1.6）：
  * 1. no-exec-commands：不写执行命令（pnpm run / git rev-list / node scripts/ 等）
  * 2. no-results-numbers：不写执行结果数字（0 error / N passed / EXIT=0 / 0 blocker 等）
  * 3. no-diff-stats：不写改动行数（+N/-M / ~N 行 / N files changed / N commits 等）

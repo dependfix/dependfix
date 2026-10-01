@@ -2,7 +2,7 @@
  * commitlint plugin: no-filler-phrases
  *
  * 拦截 commit message 中包含没实证废话 / 关联度低教训段的写法。
- * 完整规则集见 docs/standard/git.md §3.6 第 4 + 5 条「不写没实证的废话 + 不写关联度低的教训段」+ ai-collaboration.md §1.6。
+ * 完整规则集见 docs/standards/git.md §3.6 第 4 + 5 条「不写没实证的废话 + 不写关联度低的教训段」+ ai-collaboration.md §1.6。
  *
  * 检测模式：
  * - 没实证的废话：声明性猜测 / 没具体路径的引用

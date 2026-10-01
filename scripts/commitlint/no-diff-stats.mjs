@@ -2,7 +2,7 @@
  * commitlint plugin: no-diff-stats
  *
  * 拦截 commit message 中包含改动行数描述的写法（如 `+N/-M` / `N files changed` / `~N 行净增`）。
- * 完整规则集见 docs/standard/git.md §3.6 第 3 条「不写改动行数」+ ai-collaboration.md §1.6。
+ * 完整规则集见 docs/standards/git.md §3.6 第 3 条「不写改动行数」+ ai-collaboration.md §1.6。
  *
  * 例外（不视为违规）：
  * - commit hash 引用（如 `关联 commit：357f6ec`）

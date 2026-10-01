@@ -32,7 +32,7 @@
 >
 > **§1.7 五步自检结论**：步骤 1（归档表格扫描）→ 无候选已闭环；步骤 2（git log 核验）→ 无候选实现 commit；步骤 3（代码 anchor）→ 6 项候选状态与描述一致；步骤 4（前提矛盾）→ 无矛盾；步骤 5（backlog 描述同步）→ 本批次已按维护规则 5 清出 4 项上收候选 + C83，并对 caomei-ui 延期项追加恢复条件达成注记（见本批 `backlog.md` 改动）。
 >
-> **§3.4 交叉核验（M34.7 追加条目，2026-10-01 用户授权）**：① **todo-archive 扫描**（`rg -n "batch-form|field-stack|_mixins"`）仅命中 M10 期 `dark-mode` mixin 修复（`9949504`）与 M16 期对齐教训，**无 `batch-form` 字段间距 / `field-stack` 的闭环记录**；② **git log 核验**（`git log --all --grep="field-stack|mixin"`）无 `field-stack` 实现 commit，`git log -3 -- apps/platform/app/pages/repos.vue` 显示 M33.8（`cd98bfc`）**只处理同文件的 `repo-form` 段并删除父页副本，未覆盖弹窗内 `.batch-form__field`**；③ **代码侧 anchor**：`_mixins.scss` 无 `field-stack`，`repos.vue:506/516` 的 `.batch-form__field` 实测 `gap: $space-1`，其余同构字段均为 `$space-2`；④ **前提矛盾**：无；⑤ **backlog 描述同步**：本项为本次范围穷举**新发现**（非 backlog 候选），无需清出——用户直接决策追加，按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement)「用户直接决策」路径（非插队例外 3 类）。
+> **§3.4 交叉核验（M34.7 追加条目，2026-10-01 用户授权）**：① **todo-archive 扫描**（`rg -n "batch-form|field-stack|_mixins" docs/plan/todo-archive.md docs/plan/archive/*.md`）仅命中 M10 期 `dark-mode` mixin 修复（`9949504`），**无 `batch-form` 字段间距 / `field-stack` 的闭环记录**；② **git log 核验**（`git log --all -E --grep="field-stack|mixin"`）无 `field-stack` 实现 commit（仅有既有 `dark-mode` mixin 相关提交），`git log -3 -- apps/platform/app/pages/repos.vue` 显示 M33.8（`cd98bfc`）**只处理同文件的 `repo-form` 段并删除父页副本，未覆盖弹窗内 `.batch-form__field`**；③ **代码侧 anchor**：`_mixins.scss` 无 `field-stack`，`repos.vue:506/516` 的 `.batch-form__field` 实测 `gap: $space-1`，其余同构字段均为 `$space-2`；④ **前提矛盾**：无；⑤ **backlog 描述同步**：本项为本次范围穷举**新发现**（非 backlog 候选），无需清出——追加依据为 [规划规范 §3.4](../standards/planning.md#34-阶段启动决策前置交叉核验硬要求m271-重复评估教训--2026-09-10) 承认的「用户直接决策」路径（非 §3.1 插队例外 3 类）；⑥ **穷举口径修正（A 阶段 RG-W01 衍生）**：源码 `rg -F 'gap: $space-1'` 只能发现「值不同」的站点——**同构但已同值**的字段堆叠必须用**构建产物**穷举（合并同选择器规则后按 `flex-direction: column` + `gap` 判定），据此补入 `settings.vue` / `login.vue` / `register.vue` 3 处（站点数 10 → 13）。
 >
 > **跨文件陈旧指针同步**（本批次 working diff 含）：`docs/standards/testing.md:103`（`data/` 产物污染规避）、`:173`（视觉容差盲区）与 `docs/design/modules/dependency-fixer.md:460`（既有失败基线已知限制）三处「登记 backlog 候选」指针已更新为上收落点（对应 M34.1 / M34.3 / M34.6）；`docs/plan/archive/index.md` §5 的 M33 批次登记行同步追加「4 项衍生候选已于 2026-09-30 上收 M34」注记。**代码侧第 4 处指针留待 M34.6 处理**：`packages/engine/src/runners/verification-runner.ts:93` 注释仍写「该路径已登记 backlog C83」——按 [AI 协作规范 §1.4](../standards/ai-collaboration.md) P 阶段不改运行时代码，故落点登记至 M34.6 交付物（D 阶段随该条目一并修正）。
 >
@@ -144,18 +144,19 @@
 
 - **目标**：把「表单字段堆叠（label↔控件）」的 8px 口径从「复制到 10+ 处」收敛为**单一可复用声明**（`_mixins.scss` 的 `field-stack`），并补齐 M33.8 遗漏的弹窗内字段（`repos.vue` 批量操作弹窗），使同一口径不再散落、也不再出现「同构不同值」。
 - **优先级**：P3（非阻塞；结构复用 + 一致性收尾。唯一行为变更是弹窗内 2 个字段的间距 4px → 8px）。
-- **范围**：`apps/platform/app/assets/styles/_mixins.scss`（新增 `@mixin field-stack($gap: $space-2)`）+ 同构字段站点改为 `@include`（弹窗侧：`scan-config-dialog` / `import-repos-dialog` / `repo-form-dialog` 的 `__field`、`schedules` 的 `__field`；页面侧：`ai-config-form` 的 `__field`、`alerts` / `pr-checks` / `env-events` 的 `__filter-field`、`credentials` 的 `__field`）+ `repos.vue` 的 `.batch-form__field`（由 4px 档改为 8px 档）+ `docs/standards/development.md §6 样式规范`（口径单点声明）。
+- **范围**：`apps/platform/app/assets/styles/_mixins.scss`（新增 `@mixin field-stack($gap: $space-2)`）+ 同构字段站点改为 `@include`（弹窗侧：`scan-config-dialog` / `import-repos-dialog` / `repo-form-dialog` 的 `__field`、`schedules` 的 `__field`；页面侧：`ai-config-form` / `credentials` / `settings` 的 `__field`（`settings` 侧为 `.settings-form__field`）、`login` / `register` 的 `.auth-form__field`、`alerts` / `pr-checks` / `env-events` 的 `__filter-field`）+ `repos.vue` 的 `.batch-form__field`（由 4px 档改为 8px 档）+ `docs/standards/development.md §6 样式规范`（口径单点声明）。
 - **验收标准**：
-  - [ ] `_mixins.scss` 新增 `field-stack`（默认 `$gap: $space-2`，只承载「column 堆叠 + 间距」两条口径，**不吸收 label 样式**——各站点 label 规则不同，避免过度抽象）；全部目标站点改用 `@include field-stack`
-  - [ ] 弹窗内 `.batch-form__field` 浏览器实测 `gap` = 8px（批量操作弹窗无视觉基线，以计算样式 + 几何探针取证）
-  - [ ] **其余站点渲染零变化**：`test:visual` 连跑两遍全绿，且 `git status` 证明**无任何基线被改写**；另对代表页（`/alerts` + 批量操作弹窗）做改前 / 改后 label 与控件 rect 逐字段对照
-  - [ ] `pnpm lint` + `lint:css:check` + `pnpm typecheck` + `pnpm build`（样式类改动必跑）+ `test:visual`（连跑两遍）通过
-  - [ ] 复现命令：同构字段块内应不再直接出现间距字面量（改由 mixin 承载）——`rg -n 'include field-stack'` 的计数应等于同构站点数
-  - [ ] `development.md §6` 写明口径与边界（显示型 `label↔值` 堆叠**不适用**本口径）
+  - [x] `_mixins.scss` 新增 `field-stack`（默认 `$gap: $space-2`，只承载「column 堆叠 + 间距」两条口径，**不吸收 label 样式**——各站点 label 规则不同，避免过度抽象）；全部 **13 处**目标站点改用 `@include field-stack`（源码侧 `rg -c 'include field-stack' apps/platform/app --glob '*.vue'` 合计 13）
+  - [x] 弹窗内 `.batch-form__field` 浏览器实测 `gap` = 8px（批量操作弹窗无视觉基线，以计算样式 + 几何探针取证）
+  - [x] **其余站点渲染零变化**：`test:visual` 连跑两遍全绿，且 `git status` 证明**无任何基线被改写**；另对代表页（`/alerts` + 批量操作弹窗）做改前 / 改后 label 与控件 rect 逐字段对照
+  - [x] `pnpm lint` + `lint:css:check` + `pnpm typecheck` + `pnpm build`（样式类改动必跑）+ `test:visual`（连跑两遍）通过
+  - [x] 复现命令：① 源码 `rg -c 'include field-stack' apps/platform/app --glob '*.vue'` 合计 13；② **构建产物穷举**（合并同选择器规则后按 `__field` / `__filter-field` 筛）13 处字段均为 `flex-direction: column` + `gap: 8px`（源码 grep 只能发现「值不同」的站点，已同值的同构站点必须靠产物穷举）
+  - [x] `development.md §6` 写明口径与边界（显示型 `label↔值` 堆叠**不适用**本口径）
 - **不做什么**：不改显示型堆叠（`batch-runs` 的 `__stat` / `credentials` 的 `__pem-fingerprint` / `run-detail-dialog` 的 `__meta-item`，语义不同，保持紧凑间距）；不改行 / 区块间距（`__row` / `__actions` / `__detail` 等）；不引入 utility class、不封装字段组件；不改字段高度 / 字号 / label 样式；不动 `repos.vue` 其它 `.batch-form*` 规则。
-- **依赖**：M33.8（弹窗侧 8px 口径建立）+ M34.4（非弹窗侧口径补齐）+ **用户 2026-10-01 授权**——用户裁定「结构完全同构也应处理、优先复用（而非复制）」，并选择**新增本阶段原子条目**；同时裁定显示型堆叠**不纳入**口径。
-- **交付物**：3-4 atomic commits（`refactor(platform)` mixin + 弹窗侧复用；`refactor(platform)` 页面侧复用；`fix(platform)` 弹窗遗漏字段补齐；`docs(standards)` 口径单点声明）。**粒度说明**：预计 11 文件，触 [AI 协作规范 §1.4](../standards/ai-collaboration.md) 单次提交 10 文件上限 → 按上列职责拆分，每个子批次自带验证点。
+- **依赖**：M33.8（弹窗侧 8px 口径建立）+ M34.4（非弹窗侧口径补齐）+ **用户 2026-10-01 授权**——用户裁定「结构完全同构也应处理、优先复用（而非复制）」，并选择**新增本阶段原子条目**；同时裁定显示型堆叠**不纳入**口径。授权依据：[规划规范 §3.4](../standards/planning.md#34-阶段启动决策前置交叉核验硬要求m271-重复评估教训--2026-09-10) 承认「用户直接决策」为当前阶段新增条目的合法路径之一（**非** §3.1 插队例外 3 类）。
+- **交付物**：5 atomic commits（`refactor(platform)` mixin + 弹窗侧 4 处；`refactor(platform)` 页面侧 5 处；`refactor(platform)` 认证 / 设置侧 3 处；`fix(platform)` 弹窗遗漏字段补齐；`docs(standards)` 口径单点声明 + 闭环登记）。**粒度说明**：实交付 14 个应用侧文件 + 3 个文档（`development.md` + `todo.md` + `roadmap.md` 计数修正），触 [AI 协作规范 §1.4](../standards/ai-collaboration.md) 单次提交 10 文件上限 → 按上列职责拆分，每个子批次自带验证点。
 - **风险与缓解**：mixin 抽取若改变声明顺序或特异性，可能引入非预期渲染变化；缓解：mixin 只包含与替换前**完全相同**的声明，以「零基线改写 + 两连跑全绿」为落地门槛；过度抽象风险由「不吸收 label 样式」的边界约束。
+- **闭环实证**（2026-10-01）：源码侧 13 处字段改用 `@include field-stack`（`_mixins.scss` 新增 mixin + `_mixins.scss` 顶部补 `@use './variables' as *`，因 mixin 默认参数在定义侧求值）+ `repos.vue` 弹窗字段由 4px 档补齐为 8px 档 + `development.md §6` 口径单点声明。**取证**：构建产物核验 13 处字段均为 `flex-direction: column` + `gap: 8px`；4 个代表页 label 与控件 rect 与复用前**逐字段一致**；新增纳入的 3 处（settings / login / register）浏览器实测 `gap: 8px` / delta 8；批量弹窗实测 `gap: 8px`（补齐前源文件为 4px 档）；`test:visual` 两连跑 11 passed ×2 且**零基线改写**（`login-light` 为 auth 字段等价性的关键见证）。**A 阶段审计**：2 分区并发（实现面 / 文档与规划）第 1 轮均 Pass；RG-W01（范围穷举漏 3 处同构站点）已纳入并复验，RG-S01-S03（§3.4 证据表述 / grep 命令 / 引用落点）已修正。
 
 #### 阶段决策记录
 

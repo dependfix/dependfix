@@ -427,6 +427,7 @@ tsdown `hash:false` 下多 entry 构建时，entry 与共享 dts chunk 会争用
 - **跨 Dialog i18n label key 共享**: 共享选项数据（mode / severity / batch-start 等）时，i18n label key 也应共享（如 `repos.batchMode` / `repos.batchSeverity` 同时用于批量与单仓库 Dialog），避免冗余 key（如 `repos.scanConfigMode` 与批量 Dialog 相同 label 但不同 key）。仅在 Dialog 标题 / 目标信息等真正差异处新增 key。
 - **子组件抽取时 scoped 样式必须随迁**: 从父页拆出子组件（表单弹窗等）时，父页 `<style scoped>` 里的同名规则**不会穿透子组件**（scoped 只作用于本组件模板 + 子组件根元素）→ 规则整段静默失效（label 贴输入框、操作区落到左下角），构建与 lint 全绿无报错。**判据**：子组件内 `grep -c "<style"` = 0 而同名类名只在父页样式里出现 → 迁移遗漏。**做法**：把同名样式段整段搬到子组件（自带 `<style scoped>`）并删除父页副本，用"构建产物 CSS 含子组件 scope id + 元素类名"复核生效。反例：M32.1 拆出 `repo-form-dialog.vue` 时样式段留在 `repos.vue`，直至 M33.8 才修复。
 - **同行 `flex-end` 对齐下矮控件会压矮整字段**: 同一行 `align-items: flex-end` 排列 label + 控件时，矮控件（如 22px Switch vs 36px 控件档）会把整字段盒压矮、label 随之下移。**做法**：为控件区补足控制档高度并垂直居中（如 `.xx__filter-control { min-height: var(--caomei-control-height-md); display: flex; align-items: center; }`），而不是改行对齐方式——对 wrap 换行场景同样成立。反例：M33.10 告警筛选行「显示已解决」标签比同排靠下。
+- **表单字段堆叠口径（label↔控件）**: 「label 在上、控件在下」的垂直堆叠字段，间距取间距刻度第二档（`$space-2` = 8px），弹窗内外一致。**做法**：统一 `@include field-stack`（`app/assets/styles/_mixins.scss`），而不是在每个字段块内重复 `display` / `flex-direction` / `gap` 三行——口径变更时只改 mixin 一处；mixin 不吸收 label 样式（各字段 label 规则不同）。**边界**：显示型 `label↔值` 堆叠（统计卡 / 指纹盒 / 弹窗 meta 项）语义不同，不适用本口径。反例：M33.8 统一弹窗字段时漏掉同文件弹窗内的 `.batch-form__field`（沿用 4px 档），直至 M34.7 复用化时补齐。
 
 ## 7. 包命名规范
 

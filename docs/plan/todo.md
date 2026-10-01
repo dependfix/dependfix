@@ -20,9 +20,9 @@
 
 ### M34: 治理与体验收口 + 组件库升级与巡检基建（2026-09-30 用户决策）
 
-> **定位**：承接 M33 完整闭环归档后（[todo-archive.md §M33](todo-archive.md#m33-治理债收口--测试基建扩展m331m3311-全部已闭环--2026-09-30-归档)）的 backlog 候选池。2026-09-30 用户决策：**以 M33 期评估完成的「方案 A」（4 项 backlog 待上收候选 + C83 能力扩展）为主，并作适当能力扩展**——追加「caomei-ui `0.3.0 → 0.5.0` 升级（修复弹窗内 Select 下拉面板被裁剪 / 层级错误的用户可见缺陷）」与「视觉回归灵敏度 + 弹窗组件覆盖 + 上游组件问题归因与 issue 上报流程」。共 **6 原子条目**，覆盖 🛠️ 1 + 📦 1 + 🧪 1 + 🎨 1 + 📚 1 + 🚀 1。
+> **定位**：承接 M33 完整闭环归档后（[todo-archive.md §M33](todo-archive.md#m33-治理债收口--测试基建扩展m331m3311-全部已闭环--2026-09-30-归档)）的 backlog 候选池。2026-09-30 用户决策：**以 M33 期评估完成的「方案 A」（4 项 backlog 待上收候选 + C83 能力扩展）为主，并作适当能力扩展**——追加「caomei-ui `0.3.0 → 0.5.0` 升级（修复弹窗内 Select 下拉面板被裁剪 / 层级错误的用户可见缺陷）」与「视觉回归灵敏度 + 弹窗组件覆盖 + 上游组件问题归因与 issue 上报流程」。共 **7 原子条目**（含 2026-10-01 用户授权追加的 M34.7），覆盖 🛠️ 1 + 📦 1 + 🧪 1 + 🎨 1 + 📚 1 + 🚀 1 + 🛡️ 1。
 >
-> **类型平衡复核**：[规划规范 §1.1 L12](../standards/planning.md#11-硬性约束) 建议 🎨 用户体验 ≥ 2 + 🛡️ 技术债 ≥ 1 + 🚀 能力扩展 ≥ 1 + 🧪 测试覆盖 ≥ 1：本批 🎨 1 项（M34.4）⚠️ **缺口显式标注**（承接 M28–M33 同型缺口；候选池无第二条 UX 类可上收项）+ 🛠️ 1（M34.1）+ 🧪 1（M34.3）+ 🚀 1（M34.6）+ 📦 1（M34.2，依赖升级轴）+ 📚 1（M34.5）。合并说明：候选池原有 4 项待上收 + C83 + 用户新增 2 项 = 7 项，超「5-6 项」上限，按「进一出一」把「视觉回归容差」与「组件巡检 + 上游 issue 流程」合并为 M34.3（同属测试基建域，内部按子批次拆 commit）。
+> **类型平衡复核**：[规划规范 §1.1 L12](../standards/planning.md#11-硬性约束) 建议 🎨 用户体验 ≥ 2 + 🛡️ 技术债 ≥ 1 + 🚀 能力扩展 ≥ 1 + 🧪 测试覆盖 ≥ 1：本批 🎨 1 项（M34.4）⚠️ **缺口显式标注**（承接 M28–M33 同型缺口；候选池无第二条 UX 类可上收项）+ 🛠️ 1（M34.1）+ 🧪 1（M34.3）+ 🚀 1（M34.6）+ 📦 1（M34.2，依赖升级轴）+ 📚 1（M34.5）+ 🛡️ 1（M34.7，2026-10-01 用户授权追加：字段堆叠口径复用化 + 弹窗侧遗漏补齐）。合并说明：候选池原有 4 项待上收 + C83 + 用户新增 2 项 = 7 项，超「5-6 项」上限，按「进一出一」把「视觉回归容差」与「组件巡检 + 上游 issue 流程」合并为 M34.3（同属测试基建域，内部按子批次拆 commit）。
 >
 > **§3.4 三重交叉核验结论**（M34.1–M34.6 全部实测 **0 项重复评估**）：
 > - ① **todo-archive 表格扫描**：`rg -n "已闭环|不计入本批|不计入 M\d+|ahead=0.*已推" docs/plan/todo-archive.md docs/plan/archive/todo-archive-phases-*.md` 命中 103 行（历史阶段正常记录）；按候选过滤 `rg -n "C83|caomei-ui|视觉回归容差|space-1|PrimeUI 设计先行稿"` 无候选被标「已闭环」——C83 仅命中 M29.3 登记（`8340c5e`）与 M33 D4「不纳入本批」，caomei-ui 命中 M31 迁移期记录（`0.3.0` 精确锁定）。
@@ -31,6 +31,8 @@
 > - ④ **决策描述前提矛盾厘清**：本批无「参考 NNN 实施」型描述；C83 的触发实证（M29.3 test 纳入默认链）与 `verification-gate.ts` 回滚判定均在位，候选范围保留。
 >
 > **§1.7 五步自检结论**：步骤 1（归档表格扫描）→ 无候选已闭环；步骤 2（git log 核验）→ 无候选实现 commit；步骤 3（代码 anchor）→ 6 项候选状态与描述一致；步骤 4（前提矛盾）→ 无矛盾；步骤 5（backlog 描述同步）→ 本批次已按维护规则 5 清出 4 项上收候选 + C83，并对 caomei-ui 延期项追加恢复条件达成注记（见本批 `backlog.md` 改动）。
+>
+> **§3.4 交叉核验（M34.7 追加条目，2026-10-01 用户授权）**：① **todo-archive 扫描**（`rg -n "batch-form|field-stack|_mixins"`）仅命中 M10 期 `dark-mode` mixin 修复（`9949504`）与 M16 期对齐教训，**无 `batch-form` 字段间距 / `field-stack` 的闭环记录**；② **git log 核验**（`git log --all --grep="field-stack|mixin"`）无 `field-stack` 实现 commit，`git log -3 -- apps/platform/app/pages/repos.vue` 显示 M33.8（`cd98bfc`）**只处理同文件的 `repo-form` 段并删除父页副本，未覆盖弹窗内 `.batch-form__field`**；③ **代码侧 anchor**：`_mixins.scss` 无 `field-stack`，`repos.vue:506/516` 的 `.batch-form__field` 实测 `gap: $space-1`，其余同构字段均为 `$space-2`；④ **前提矛盾**：无；⑤ **backlog 描述同步**：本项为本次范围穷举**新发现**（非 backlog 候选），无需清出——用户直接决策追加，按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement)「用户直接决策」路径（非插队例外 3 类）。
 >
 > **跨文件陈旧指针同步**（本批次 working diff 含）：`docs/standards/testing.md:103`（`data/` 产物污染规避）、`:173`（视觉容差盲区）与 `docs/design/modules/dependency-fixer.md:460`（既有失败基线已知限制）三处「登记 backlog 候选」指针已更新为上收落点（对应 M34.1 / M34.3 / M34.6）；`docs/plan/archive/index.md` §5 的 M33 批次登记行同步追加「4 项衍生候选已于 2026-09-30 上收 M34」注记。**代码侧第 4 处指针留待 M34.6 处理**：`packages/engine/src/runners/verification-runner.ts:93` 注释仍写「该路径已登记 backlog C83」——按 [AI 协作规范 §1.4](../standards/ai-collaboration.md) P 阶段不改运行时代码，故落点登记至 M34.6 交付物（D 阶段随该条目一并修正）。
 >
@@ -138,6 +140,23 @@
 - **交付物**：方案敲定后 1-3 atomic commits（`feat(engine)` 基线判定 + 报告口径 + 单测；含 `verification-runner.ts:93` 陈旧注释指针修正）。
 - **风险与缓解**：懒基线需在修复后回跑 pristine 状态，涉及工作区切换（`git stash` / 临时 worktree），实现复杂且易引入新的状态污染；缓解：优先评估「命令级基线 + 修复前一次性采样」的简单形态，避免修复后回跑。
 
+#### M34.7 [P3 🛡️ 技术债] 表单字段堆叠口径复用化（mixin 抽取 + 弹窗侧遗漏补齐 + 口径单点声明）
+
+- **目标**：把「表单字段堆叠（label↔控件）」的 8px 口径从「复制到 10+ 处」收敛为**单一可复用声明**（`_mixins.scss` 的 `field-stack`），并补齐 M33.8 遗漏的弹窗内字段（`repos.vue` 批量操作弹窗），使同一口径不再散落、也不再出现「同构不同值」。
+- **优先级**：P3（非阻塞；结构复用 + 一致性收尾。唯一行为变更是弹窗内 2 个字段的间距 4px → 8px）。
+- **范围**：`apps/platform/app/assets/styles/_mixins.scss`（新增 `@mixin field-stack($gap: $space-2)`）+ 同构字段站点改为 `@include`（弹窗侧：`scan-config-dialog` / `import-repos-dialog` / `repo-form-dialog` 的 `__field`、`schedules` 的 `__field`；页面侧：`ai-config-form` 的 `__field`、`alerts` / `pr-checks` / `env-events` 的 `__filter-field`、`credentials` 的 `__field`）+ `repos.vue` 的 `.batch-form__field`（由 4px 档改为 8px 档）+ `docs/standards/development.md §6 样式规范`（口径单点声明）。
+- **验收标准**：
+  - [ ] `_mixins.scss` 新增 `field-stack`（默认 `$gap: $space-2`，只承载「column 堆叠 + 间距」两条口径，**不吸收 label 样式**——各站点 label 规则不同，避免过度抽象）；全部目标站点改用 `@include field-stack`
+  - [ ] 弹窗内 `.batch-form__field` 浏览器实测 `gap` = 8px（批量操作弹窗无视觉基线，以计算样式 + 几何探针取证）
+  - [ ] **其余站点渲染零变化**：`test:visual` 连跑两遍全绿，且 `git status` 证明**无任何基线被改写**；另对代表页（`/alerts` + 批量操作弹窗）做改前 / 改后 label 与控件 rect 逐字段对照
+  - [ ] `pnpm lint` + `lint:css:check` + `pnpm typecheck` + `pnpm build`（样式类改动必跑）+ `test:visual`（连跑两遍）通过
+  - [ ] 复现命令：同构字段块内应不再直接出现间距字面量（改由 mixin 承载）——`rg -n 'include field-stack'` 的计数应等于同构站点数
+  - [ ] `development.md §6` 写明口径与边界（显示型 `label↔值` 堆叠**不适用**本口径）
+- **不做什么**：不改显示型堆叠（`batch-runs` 的 `__stat` / `credentials` 的 `__pem-fingerprint` / `run-detail-dialog` 的 `__meta-item`，语义不同，保持紧凑间距）；不改行 / 区块间距（`__row` / `__actions` / `__detail` 等）；不引入 utility class、不封装字段组件；不改字段高度 / 字号 / label 样式；不动 `repos.vue` 其它 `.batch-form*` 规则。
+- **依赖**：M33.8（弹窗侧 8px 口径建立）+ M34.4（非弹窗侧口径补齐）+ **用户 2026-10-01 授权**——用户裁定「结构完全同构也应处理、优先复用（而非复制）」，并选择**新增本阶段原子条目**；同时裁定显示型堆叠**不纳入**口径。
+- **交付物**：3-4 atomic commits（`refactor(platform)` mixin + 弹窗侧复用；`refactor(platform)` 页面侧复用；`fix(platform)` 弹窗遗漏字段补齐；`docs(standards)` 口径单点声明）。**粒度说明**：预计 11 文件，触 [AI 协作规范 §1.4](../standards/ai-collaboration.md) 单次提交 10 文件上限 → 按上列职责拆分，每个子批次自带验证点。
+- **风险与缓解**：mixin 抽取若改变声明顺序或特异性，可能引入非预期渲染变化；缓解：mixin 只包含与替换前**完全相同**的声明，以「零基线改写 + 两连跑全绿」为落地门槛；过度抽象风险由「不吸收 label 样式」的边界约束。
+
 #### 阶段决策记录
 
 - **D1**：组合定型（用户 2026-09-30 决策）——以方案 A（4 项 backlog 待上收候选 + C83 能力扩展）为主并作适当能力扩展，追加 caomei-ui `0.5.0` 升级与组件巡检 / 上游归因流程；共 6 原子条目，类型平衡 🛠️ 1 + 📦 1 + 🧪 1 + 🎨 1 + 📚 1 + 🚀 1（🎨 缺口显式标注）。
@@ -147,6 +166,9 @@
 - **D5**：执行顺序建议 M34.2（组件库升级，渲染面变化最大）→ M34.4（间距统一，动多张基线）→ M34.3（容差 + 新增用例 + 基线复核），避免视觉基线被二次改写；M34.1 / M34.5 / M34.6 与上述无耦合，可并行推进。
 - **D6**：阶段启动 commit 仅改**规划与文档指针**（`docs/plan/*` + `docs/standards/testing.md` + `docs/design/modules/dependency-fixer.md` 的陈旧指针），**不含运行时代码**（[AI 协作规范 §1.4 P 阶段规划暂停协议](../standards/ai-collaboration.md)），提交后暂停等待用户指令进入 D 阶段。
 - **D7**（A 阶段审计收敛）：第 1 轮 `standard` 审计 **Pass**（0 blocker / 2 warning / 3 suggest）。warning 处置——**RG-W1**（代码侧第 4 处陈旧指针 `packages/engine/src/runners/verification-runner.ts:93`「该路径已登记 backlog C83」）按 P 阶段不改运行时代码原则**落点登记**至 M34.6 交付物，并在上文「跨文件陈旧指针同步」显式说明；**RG-W2**（D6 措辞与 working diff 不一致）本批修正为「规划与文档指针」。suggest 采纳：**RG-S1**（archive/index.md 的 todo.md 行数基线 152 → 154）/ **RG-S2**（M34.1 / M34.3 依赖段补测量方标注）；**RG-S3**（历史归档段补「已上收 M34」注记）**不采纳**——保持历史归档段冻结惯例（M32 段 C93/C94 上收 M33 时亦未回改）。
+- **D8**（M34.3 执行期用户拍板）：视觉门禁**双轴收紧**（`threshold` 0.2 → 0.1 + `maxDiffPixels` 200 → 100，方案 A）；浮层覆盖档位取「弹窗内 Select 展开态 light / dark 两张」，不扩到 schedules 弹窗与 Drawer。
+- **D9**（M34.4 执行期范围判定）：`pr-checks.vue:372` 实读归属 `&__summary-byconclusion`（横向 `flex-wrap` 摘要标签行，度量标签间距而非 label↔控件）→ 按该条目「不做什么（不改其它间距刻度）」排除，实改 4 处。
+- **D10**（2026-10-01 用户授权追加）：M34.4 范围穷举发现 `repos.vue` 弹窗内的 `.batch-form__field` 与 M34.4 的 4 处**结构完全同构**，但被该条目「不做什么」排除（实为 M33.8 弹窗口径的遗漏）；用户裁定「结构完全同构也应处理，尝试复用」并选择**新增本阶段原子条目**（而非重开已闭环的 M34.4），同时裁定显示型堆叠（`label↔值`）**不纳入**口径。据此追加 M34.7（含 mixin 复用抽取 + 口径单点声明），并重走 [requirement-analyst](../../.github/skills/requirement-analyst/SKILL.md) 需求分析（追问 2 项：安排方式 / 显示型堆叠口径）。
 
 ---
 

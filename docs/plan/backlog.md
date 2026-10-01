@@ -73,14 +73,14 @@
 
 ### 待上收候选（评估完成，等待用户决策）
 
-> 当前无待上收候选——4 项（本地 devEx `data/` 产物污染 / 视觉回归容差对同明度色相与灰度替换不敏感 / 非弹窗表单 label↔控件间距 / PrimeUI 设计先行稿与索引陈旧）已于 2026-09-30 经用户决策上收，按维护规则 5 从本文件移除（新登记位置见 [todo.md](todo.md) §M34）。
+> 当前无待上收候选——4 项（本地 devEx `data/` 产物污染 / 视觉回归容差对同明度色相与灰度替换不敏感 / 非弹窗表单 label↔控件间距 / PrimeUI 设计先行稿与索引陈旧）已于 2026-09-30 经用户决策上收，按维护规则 5 从本文件移除（登记位置见 [todo-archive.md §M34](todo-archive.md#m34-治理与体验收口--组件库升级与巡检基建m341m347-全部已闭环--2026-10-01-归档)）。
 
 ### 延期 / 暂缓项
 
 - **T705 生产级部署**（PostgreSQL + Helm + Sentry）—— 2026-08-12 用户指示暂缓排期
 - **T703 跨平台 Git**（GitLab + Bitbucket）—— 2026-08-12 用户指示暂缓排期
 - **C30 Publish Docker build job 失败排查** —— 2026-08-18 用户决策暂缓（双平台构建 23m 2s 成功证明当前 docker.yml 可稳定工作）；恢复条件：① master 分支 push 频率显著提升；② 镜像实际发布成为强需求（v1.0.0 正式发布前）；③ 用户明确恢复
-- **caomei-ui 0.x → 1.0 升级回归** —— 库处于 0.x（原精确锁定 `0.3.0`）。**2026-09-30 用户指定目标版本 `0.5.0` → 恢复条件①达成，`0.5.0` 升级（含弹窗内 Select 面板裁剪 / 层级修复）已上收 [todo.md](todo.md) §M34.2**。**剩余观察**：`1.0.0` 发布后的正式升级回归（恢复条件①的 1.0 分支）与「平台需跟进新组件能力」「用户明确恢复」两条触发条件。届时按 M31 迁移期实证索引（[caomei-ui-migration.md §15](../design/governance/caomei-ui-migration.md)）做回归；**升级回归的像素兜底已就位**（M32.5 落地的视觉回归基线 `apps/platform/tests/visual/`，覆盖 alerts / repos / pr-checks / dialog-import-repos / login，口径见 [测试规范 §6.7](../standards/testing.md)）
+- **caomei-ui 0.x → 1.0 升级回归** —— 库处于 0.x（原精确锁定 `0.3.0`）。**2026-09-30 用户指定目标版本 `0.5.0` → 恢复条件①达成，`0.5.0` 升级（含弹窗内 Select 面板裁剪 / 层级修复）已上收 M34.2 并随该阶段归档**。**剩余观察**：`1.0.0` 发布后的正式升级回归（恢复条件①的 1.0 分支）与「平台需跟进新组件能力」「用户明确恢复」两条触发条件。届时按 M31 迁移期实证索引（[caomei-ui-migration.md §15](../design/governance/caomei-ui-migration.md)）做回归；**升级回归的像素兜底已就位**（M32.5 落地的视觉回归基线 `apps/platform/tests/visual/`，覆盖 alerts / repos / pr-checks / dialog-import-repos / login，口径见 [测试规范 §6.7](../standards/testing.md)）
 - **ScanResult 数据层去重（upsert 唯一索引）** —— 2026-09-02 M23.3 决策暂缓：应用层去重（fingerprint + occurrenceCount / firstSeenAt / lastSeenAt / affectedRunIds）已实施且满足当前业务需求；恢复条件：出现"fix 复用同一 `scan_run_id` 跨次刷新"或"历史 fixStatus 跨次保留"需求时迁移到数据层 upsert（关联 [archive/todo-archive-phases-m23.md §M23](archive/todo-archive-phases-m23.md#m23-m22-治理债收口--根因排查--能力扩展--测试补强m230m231m232m233m234-全部已闭环--2026-09-02-归档)）
 
 ### 远期登记 / 未排期增强候选
@@ -250,8 +250,8 @@
 
 | 内容类型 | 位置 |
 |:--|:--|
-| 当前阶段活跃任务 | [todo.md §M34](todo.md)（治理与体验收口 + 组件库升级与巡检基建，2026-09-30 用户决策启动，6 原子条目） |
-| 已完成阶段归档 | [todo-archive.md](todo-archive.md)（主窗口保留最近阶段完整段 + 指针段；M0-M33 已归档；早期阶段见 [archive/](archive/)） |
-| 里程碑与阶段交付 | [roadmap.md](roadmap.md)（M0-M33 已归档；M34 进行中） |
+| 当前阶段活跃任务 | **当前无活跃阶段**——M34 已于 2026-10-01 完整闭环归档（下一阶段启动待用户明确决策） |
+| 已完成阶段归档 | [todo-archive.md](todo-archive.md)（主窗口保留最近阶段完整段 + 指针段；M0-M34 已归档；早期阶段见 [archive/](archive/)） |
+| 里程碑与阶段交付 | [roadmap.md](roadmap.md)（M0-M34 已归档） |
 | 长期主线 / 候选 / 待人工验收 / 已知边界 | 本文档（按四象限结构） |
 | 历史归档索引 | [archive/index.md](archive/index.md) |

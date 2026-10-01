@@ -71,6 +71,13 @@
   - **依赖**：M34.5（本批已处理的索引 `:25` + `architecture.md` 现行陈述）；A 阶段审计 `suggest`（记录 `artifacts/review-gate/2026-10-01-m34.5-primeui-status.md`，gitignored）。
   - **风险与缓解**：批量改写状态描述易误判「未上收 vs 已实施」；缓解：每条先以 commit / 代码 / 现存文件三重实证，再落笔。
 
+- **BatchRun 写回的非原子竞态（详情 GET / sync 尾部 vs 并发 force-fail）** —— 2026-10-02 M35.1 A 阶段第 2 轮审计 RG-W01R 登记（warning；经主审判定不升级 blocker）；**范围与验收待评估**；按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) **不带 M\d+ 阶段编号**。
+  - **现状**：周期对账通道已改条件写回（`batchRepo.update({ id, status:'running' }, …)`），但详情 `GET /api/batch-runs/[id]` 与 sync 批量执行尾部仍为「读内存态 → 整行 `save()`」。admin `force-fail` 在这两处异步窗口内提交时，可能把库中 `failed` 回写成 `completed` + `finishedAt`（对账只扫 `running`，一旦错标永久无法纠正）。
+  - **验收方向**：三处写回统一为条件更新（或把条件写回下沉到共享层）；补并发回归用例；同时保持 GET「对非 running 批次仍对齐计数」的既有契约（现有 `[id].get.test.ts` 断言 failed 批次 counts 会被写回）。
+  - **不做什么**：不改变 `force-fail` 语义；不引入悲观锁（SQLite 支持有限）。
+  - **依赖**：M35.1 / M35.2（共享写回 `applyBatchAggregation`）。
+  - **风险与缓解**：窄竞态、需 admin 同时操作，触发概率低；缓解：登记为已知边界，后续与写回层重构一并处理。
+
 ### 待上收候选（评估完成，等待用户决策）
 
 > 当前无待上收候选——4 项（本地 devEx `data/` 产物污染 / 视觉回归容差对同明度色相与灰度替换不敏感 / 非弹窗表单 label↔控件间距 / PrimeUI 设计先行稿与索引陈旧）已于 2026-09-30 经用户决策上收，按维护规则 5 从本文件移除（登记位置见 [todo-archive.md §M34](todo-archive.md#m34-治理与体验收口--组件库升级与巡检基建m341m347-全部已闭环--2026-10-01-归档)）。
@@ -250,8 +257,8 @@
 
 | 内容类型 | 位置 |
 |:--|:--|
-| 当前阶段活跃任务 | **当前无活跃阶段**——M34 已于 2026-10-01 完整闭环归档（下一阶段启动待用户明确决策） |
+| 当前阶段活跃任务 | **M35 进行中**（批量运行终态兜底对账 + 进度可见性修复，2026-10-02 用户授权启动） |
 | 已完成阶段归档 | [todo-archive.md](todo-archive.md)（主窗口保留最近阶段完整段 + 指针段；M0-M34 已归档；早期阶段见 [archive/](archive/)） |
-| 里程碑与阶段交付 | [roadmap.md](roadmap.md)（M0-M34 已归档） |
+| 里程碑与阶段交付 | [roadmap.md](roadmap.md)（M0-M34 已归档 + M35 进行中） |
 | 长期主线 / 候选 / 待人工验收 / 已知边界 | 本文档（按四象限结构） |
 | 历史归档索引 | [archive/index.md](archive/index.md) |

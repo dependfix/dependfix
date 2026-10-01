@@ -625,9 +625,7 @@ const columns = computed<DataTableColumn<RepoView>[]>(() => [
     }
 
     &__field {
-        display: flex;
-        flex-direction: column;
-        gap: $space-1;
+        @include field-stack;
 
         label {
             font-size: $font-size-sm;

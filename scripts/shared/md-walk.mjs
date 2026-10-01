@@ -14,7 +14,7 @@
  */
 import { execFileSync } from 'node:child_process'
 import { readdirSync, statSync } from 'node:fs'
-import { join } from 'node:path'
+import { join, relative, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 /**
@@ -53,24 +53,55 @@ export const MD_EXCLUDED_DIRS = new Set([
 
 /**
  * 递归扫描目录下所有 .md 文件（不含 EXCLUDED_DIRS 内目录）。
+ *
+ * `excludedPaths` 是**相对遍历起点**的目录前缀（POSIX 分隔符），用于精确定位那些
+ * 不能用目录名概括的运行时目录（gitignored）：按名排除（如 `data`）会误伤同名正常目录，
+ * 而按路径前缀只跳过目标目录。命中在**下降前剪枝**——运行时目录下可能有成千上万个
+ * 克隆 / 产物文件，遍历后再过滤的代价不可接受。
+ *
  * @param {string} dir 起始目录（绝对路径）
  * @param {string[]} [out] 累积输出，供递归调用
+ * @param {string[]} [excludedPaths] 相对遍历起点的排除目录前缀（POSIX）
  * @returns {string[]} .md 文件绝对路径数组
  */
-export function walkMdFiles(dir, out = []) {
+export function walkMdFiles(dir, out = [], excludedPaths = []) {
+    return walkDir(dir, dir, out, excludedPaths)
+}
+
+function walkDir(baseDir, dir, out, excludedPaths) {
     for (const entry of readdirSync(dir)) {
         if (MD_EXCLUDED_DIRS.has(entry)) {
             continue
         }
         const full = join(dir, entry)
-        const st = statSync(full)
-        if (st.isDirectory()) {
-            walkMdFiles(full, out)
+        if (statSync(full).isDirectory()) {
+            if (isExcludedPath(baseDir, full, excludedPaths)) {
+                continue
+            }
+            walkDir(baseDir, full, out, excludedPaths)
         } else if (entry.endsWith('.md')) {
             out.push(full)
         }
     }
     return out
+}
+
+/**
+ * 判断目录是否命中「相对遍历起点的路径前缀」排除项。
+ *
+ * 只做**精确匹配**即可：命中目录在下降前就被剪枝，其子目录不会被访问；
+ * 因此 `startsWith(prefix + '/')` 这类兜底分支实际不可达（不宜保留死代码）。
+ * @param {string} baseDir 遍历起点（绝对路径）
+ * @param {string} absPath 待判目录（绝对路径）
+ * @param {string[]} excludedPaths 排除前缀（POSIX）
+ * @returns {boolean}
+ */
+function isExcludedPath(baseDir, absPath, excludedPaths) {
+    if (excludedPaths.length === 0) {
+        return false
+    }
+    const rel = relative(baseDir, absPath).split(sep).join('/')
+    return excludedPaths.includes(rel)
 }
 
 /**

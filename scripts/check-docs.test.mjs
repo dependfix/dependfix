@@ -160,6 +160,30 @@ describe('checkLinks', () => {
         expect(files).toEqual([join(root, 'docs', 'real.md')])
         expect(errors).toEqual([])
     })
+
+    it('excludes the platform runtime data dir (gitignored scan-run artifacts)', () => {
+        write('apps/platform/data/notes.md', '[死链](missing.md)')
+        write('apps/platform/data/runs/run-1/README.md', '[死链](missing.md)')
+        write('docs/real.md', '[死链](missing.md)')
+        const { files, errors } = checkLinks(root)
+        // 运行时目录整体剪枝：既不收集其 .md，也不产生与环境无关的报错
+        expect(files.some((f) => f.includes('apps/platform/data'))).toBe(false)
+        expect(errors.some((e) => e.includes('apps/platform/data'))).toBe(false)
+        // 未过度排除：普通目录仍被扫描并报错
+        expect(errors.some((e) => e.includes('docs/real.md'))).toBe(true)
+    })
+
+    it('treats the runtime data exclusion as a path prefix, not a name prefix', () => {
+        // `apps/platform/database` 与 `apps/platform/data` 前缀相邻：朴素的 startsWith(prefix) 会误伤
+        write('apps/platform/database/notes.md', '[死链](missing.md)')
+        // `docs/data` 与目标目录同名但不在排除路径下：按目录名排除（把 data 塞进 MD_EXCLUDED_DIRS）会误伤
+        write('docs/data/notes.md', '[死链](missing.md)')
+        const { files, errors } = checkLinks(root)
+        expect(files.some((f) => f.includes('apps/platform/database'))).toBe(true)
+        expect(errors.some((e) => e.includes('apps/platform/database'))).toBe(true)
+        expect(files.some((f) => f.includes('docs/data'))).toBe(true)
+        expect(errors.some((e) => e.includes('docs/data'))).toBe(true)
+    })
 })
 
 // ============================================================

@@ -36,6 +36,16 @@ import { isGitIgnored, isInsideGitWorkTree, REPO_ROOT, walkMdFiles } from './sha
 
 const repoRoot = REPO_ROOT
 
+/**
+ * 仓库内不参与文档检查的运行时目录（相对仓库根的 POSIX 前缀，必须与实参 repoRoot 一致）。
+ *
+ * `apps/platform/data`：平台运行时数据（由 `apps/platform/.gitignore` 排除）。扫描 run 会把
+ * 目标仓库克隆与产物落在 `data/runs/<runId>/` 下（含大量 `.md`），若不剪枝，这些「本仓不存在」
+ * 的文件会被当成仓库文档参与链接 / 插值检查，本地报出成百上千与环境无关的错误
+ * （CI 为干净检出，不受影响）。按路径前缀而非目录名 `data`：`data` 是通用名，按名排除会误伤同名正常目录。
+ */
+const RUNTIME_EXCLUDED_PATHS = ['apps/platform/data']
+
 // ============================================================
 // ============      links 规则（来自 check-links.mjs）      =========
 // ============================================================
@@ -93,7 +103,7 @@ export function collectTitles(file) {
  * 路径拒绝、正文个人机器路径拒绝。
  */
 export function checkLinks(repoRoot) {
-    const files = walkMdFiles(repoRoot)
+    const files = walkMdFiles(repoRoot, [], RUNTIME_EXCLUDED_PATHS)
     const errors = []
     const gitCheckEnabled = isInsideGitWorkTree(repoRoot)
 

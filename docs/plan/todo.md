@@ -114,16 +114,17 @@
 
 - **目标**：消除「未上收设计先行稿」的陈旧状态描述，使其与 M25.1 降级已实施、M31.5 已卸载全部 PrimeUI 依赖的事实一致。
 - **优先级**：P3（非阻塞；文档状态准确性）。
-- **范围**：`docs/design/governance/primeui-themes-v2-downgrade.md`（降级方案正文与状态口径）+ `docs/design/governance/index.md:25` 与 `docs/i18n/en-US/design/governance/index.md:25`（索引行状态「🔶 设计先行稿（backlog 候选，未上收）」）。
+- **范围**：`docs/design/governance/primeui-themes-v2-downgrade.md`（降级方案状态口径）+ `docs/design/governance/index.md:25` 与 `docs/i18n/en-US/design/governance/index.md:25`（索引行状态「🔶 设计先行稿（backlog 候选，未上收）」）。**范围扩展（2026-10-01 用户授权）**：P 阶段范围穷举发现 2 类**同源陈旧**（与「M31.5 已卸载 PrimeVue」的事实不一致）→ 一并同步：① `docs/i18n/en-US/design/governance/index.md` 补 zh 侧有而 en 侧缺的 2 行（`caomei-ui-migration` / `override-protect-policy`，使「两侧索引一致」成立）；② `docs/design/governance/architecture.md`（3 处）与 `docs/i18n/en-US/.../architecture.md`（2 处）的技术栈 / 前端 / 暗色模式陈述由 PrimeVue 4 改为 caomei-ui。
 - **验收标准**：
-  - [ ] 索引行状态改为与事实一致（已实施 / 已随 M31 收口 / 归档），不再标「未上收」
-  - [ ] 设计稿正文标注实施结果与卸载结论（PrimeVue 全链已由 caomei-ui 替代）
-  - [ ] `pnpm run check:docs` EXIT 0；`pnpm docs:check:i18n` 通过；zh-CN / en-US 两侧索引一致
-  - [ ] 复现命令：`rg -n "未上收|not yet adopted" docs/design/governance/index.md docs/i18n/en-US/design/governance/index.md`（同行 23 / 24 的其它两条设计先行稿状态**不在本条目范围**，仅处理 `:25` PrimeUI 行）
+  - [x] 索引行状态改为与事实一致：双侧 `:25` 改为 `✅ 已实施（M25.1 完成 3.x → 2.x MIT 降级；M31.5 全链卸载 PrimeVue 后本方案载体退役…）`，并移除已失效的 backlog 指针（该候选已于 2026-09-30 随 M34 上收时清出）
+  - [x] 设计稿标注实施结果与卸载结论：状态行改为「已实施并退役」+ 新增「实施结果（不改动下文历史正文）」引用块（引用 `35e4935` / `4c51d19` / `406fd1f` 与迁移评估链接）+ §9 关联阶段由「未上收」改为「M25.1 闭环归档 / M31.5 卸载后退役」；§1-§8 历史正文未动
+  - [x] `pnpm run check:docs` EXIT 0（links 143 / vue-interp 79）；`pnpm docs:check:i18n` 通过；`pnpm lint:md:check` 通过；`pnpm --filter dependfix-docs build` 通过；zh-CN / en-US 两侧索引**行数 20/20 + 链接级**一致（审计 RG-W1 教训：仅比对行数不足以证明镜像等价）
+  - [x] 复现命令：`rg -n "未上收|not yet adopted" …双侧索引` 现仅剩第 23 / 24 行（**AC 显式排除项**，其同类陈旧已按审计 `suggest` 以无阶段编号候选登记 backlog §候选评估中）
 - **不做什么**：不重写设计稿历史正文（保留当时的方案与 License 分析）；不改 `caomei-ui-migration.md`（M33.3 已同步其遗留条目）；不顺带处理同一索引表第 23 / 24 行的其它设计先行稿状态。
 - **依赖**：M33.3 A 阶段审计发现；M25.1（降级实施）+ M31.5（PrimeVue 全链卸载）。
 - **交付物**：1 atomic commit（`docs(design)` 状态口径同步 + 索引一致性）。
 - **风险与缓解**：索引双语文件需同步修改，易漏一侧；缓解：以 `pnpm docs:check:i18n` 与双侧 `rg` 复核。
+- **闭环实证**（2026-10-01）：5 个设计 / 镜像文档同步（索引 `:25` 双侧 + 设计稿状态与 §9 + `architecture.md` 及 en 镜像现行陈述 + en 索引补齐 2 行）。**事实锚点**：`apps/platform/package.json` 与 lock 中 PrimeVue 相关依赖 0 命中；M25.1（`35e4935` + `4c51d19`）已闭环归档、M31.5（`406fd1f`）卸载后载体退役。**A 阶段审计**：`standard` 第 1 轮 Pass（0 blocker / 1 warning / 2 suggest）→ 修复点第 2 轮 Pass（RG-W1 en 镜像链接级等价、RG-S1 来源列语义、RG-S2 同源残留登记 backlog）→ 第 3 轮 Pass（RG-W2 候选归位至新建「候选评估中」子节）；记录 `artifacts/review-gate/2026-10-01-m34.5-primeui-status.md`（gitignored）。**遗留**：范围外同类陈旧（索引 23 / 24 行、`platform-ai-integration.md` 与 en 镜像的现行 PrimeVue 表述等）已登记 backlog §候选评估中（无阶段编号，待评估）。
 
 #### M34.6 [P3 🚀 能力扩展] C83 验证链「既有失败基线」判定
 
@@ -171,6 +172,7 @@
 - **D8**（M34.3 执行期用户拍板）：视觉门禁**双轴收紧**（`threshold` 0.2 → 0.1 + `maxDiffPixels` 200 → 100，方案 A）；浮层覆盖档位取「弹窗内 Select 展开态 light / dark 两张」，不扩到 schedules 弹窗与 Drawer。
 - **D9**（M34.4 执行期范围判定）：`pr-checks.vue:372` 实读归属 `&__summary-byconclusion`（横向 `flex-wrap` 摘要标签行，度量标签间距而非 label↔控件）→ 按该条目「不做什么（不改其它间距刻度）」排除，实改 4 处。
 - **D10**（2026-10-01 用户授权追加）：M34.4 范围穷举发现 `repos.vue` 弹窗内的 `.batch-form__field` 与 M34.4 的 4 处**结构完全同构**，但被该条目「不做什么」排除（实为 M33.8 弹窗口径的遗漏）；用户裁定「结构完全同构也应处理，尝试复用」并选择**新增本阶段原子条目**（而非重开已闭环的 M34.4），同时裁定显示型堆叠（`label↔值`）**不纳入**口径。据此追加 M34.7（含 mixin 复用抽取 + 口径单点声明），并重走 [requirement-analyst](../../.github/skills/requirement-analyst/SKILL.md) 需求分析（追问 2 项：安排方式 / 显示型堆叠口径）。
+- **D11**（M34.5 执行期用户授权范围扩展）：P 阶段范围穷举发现 2 类**同源陈旧**（en-US 索引缺 2 行、`architecture.md` 及 en 镜像仍把 PrimeVue 4 写成现行 UI 组件库 / 主题引擎），均与「M31.5 已卸载 PrimeVue」的事实不一致且未登记 backlog → 用户裁定「含同源陈旧一并同步」；索引第 23 / 24 行的同类陈旧按 AC 排除未动，另以**无阶段编号**候选登记 backlog §候选评估中。
 
 ---
 

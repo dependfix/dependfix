@@ -57,6 +57,20 @@
 
 > 共享说明：本区块条目当前均处于"候选评估中"或"延期暂缓"状态；正式上收阶段后从 backlog 移除并归档至 [todo-archive.md](todo-archive.md)。评估为"暂不实现"的候选直接关闭。
 
+### 候选评估中（待评估，暂未进入用户决策面）
+
+- **设计与索引文档的同类陈旧状态清理（存量）** —— 2026-10-01 M34.5 执行期范围穷举发现（P 阶段发现 + A 阶段 `suggest` 建议登记）；**范围与验收待评估**；按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) **不带 M\d+ 阶段编号**。
+  - **目标**：消除 `docs/` 中与 M31.5（PrimeVue 全链卸载）后的现状不一致的**同类残留陈述**（M34.5 只处理了索引 `:25` PrimeUI 行 + `architecture.md` 的现行技术栈陈述；下列条目经 A 阶段审计确认按 AC 排除，未在本批改动）。
+  - **已定位残留**（2026-10-01 实测）：
+    - `docs/design/governance/index.md:23` 与 `docs/i18n/en-US/design/governance/index.md:23`（`platform-ai-integration` 仍标「🔶 设计先行稿（backlog 候选，未上收）」，而 M25.2a「基础层」+ M26.1「应用层」已落地）
+    - `docs/design/governance/index.md:24` 与 en 镜像 `:24`（`docs-and-readme-i18n` 仍标「未上收」，而 `docs/i18n/en-US/**` 已存在）
+    - `docs/design/governance/platform-ai-integration.md:366` 及 en 镜像 `:274` / `:281` / `:289`（现行 PrimeVue / ToggleSwitch 表述未随卸载更新）
+    - `docs/design/governance/docs-and-readme-i18n.md:542`（同类状态口径）
+  - **验收方向**：逐条与「M31.5 卸载 + 各文档实施结果」对齐；`pnpm run check:docs` EXIT 0；`pnpm docs:check:i18n` 通过；zh-CN / en-US 两侧**行数与链接级**一致（M34.5 审计 RG-W1 教训：仅比对行数不足以证明镜像等价）。
+  - **不做什么**：不改写历史归档段与设计稿历史正文；不处理已归档文档（`docs/plan/archive/**` / `experience-archive*`）；不把「未上收」机械改写为「已实施」——每条须先实证实施状态。
+  - **依赖**：M34.5（本批已处理的索引 `:25` + `architecture.md` 现行陈述）；A 阶段审计 `suggest`（记录 `artifacts/review-gate/2026-10-01-m34.5-primeui-status.md`，gitignored）。
+  - **风险与缓解**：批量改写状态描述易误判「未上收 vs 已实施」；缓解：每条先以 commit / 代码 / 现存文件三重实证，再落笔。
+
 ### 待上收候选（评估完成，等待用户决策）
 
 > 当前无待上收候选——4 项（本地 devEx `data/` 产物污染 / 视觉回归容差对同明度色相与灰度替换不敏感 / 非弹窗表单 label↔控件间距 / PrimeUI 设计先行稿与索引陈旧）已于 2026-09-30 经用户决策上收，按维护规则 5 从本文件移除（新登记位置见 [todo.md](todo.md) §M34）。

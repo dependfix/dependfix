@@ -46,8 +46,16 @@ export default defineConfig({
         toHaveScreenshot: {
             animations: 'disabled',
             caret: 'hide',
-            maxDiffPixels: 200,
-            threshold: 0.2,
+            /* 双轴口径（见 docs/standards/testing.md §6.7「阈值口径」）：
+               - threshold 0.1：pixelmatch 的 maxDelta = 35215 × threshold²（0.1 → 352），可检出
+                 「同明度色相 / 灰度替换」类实底色变（实测 neutral 实底 → 主色的色对 delta ≈ 1084，
+                 0.2 档的 1409 会判为同色 → 整块按钮色变逃逸）。抗噪由 Playwright 的
+                 `includeAA: false` 承担（抗锯齿像素经邻域判定后不参与计数），故此处收紧不会放大抖动。
+               - maxDiffPixels 100：色差轴之外的第二个盲区轴。实测「少面积 × 高色差」变更
+                 （开关拇指 164 px，远超色阈值）会被 200 的面积预算吞掉；降至 100 后可检出。
+               两个数值的测量与前后对照取证记录见 docs/standards/testing.md §6.7。 */
+            maxDiffPixels: 100,
+            threshold: 0.1,
             scale: 'css',
         },
     },

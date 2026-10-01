@@ -96,15 +96,16 @@
 - **优先级**：P3（非阻塞；属体验一致性收口）。
 - **范围**：`apps/platform/app/components/ai-config-form.vue`（`__field`）+ `apps/platform/app/pages/alerts.vue` / `pr-checks.vue` / `env-events.vue` 的 `__filter-field` + 受影响视觉基线。
 - **验收标准**：
-  - [ ] 上述 4 个文件中的 `gap: $space-1`（实测 5 处：`ai-config-form.vue:203` / `alerts.vue:744` / `env-events.vue:370` / `pr-checks.vue:372,398`；`pr-checks.vue:372` 的归属类名需实施时确认）统一为 `$space-2`
-  - [ ] 浏览器实测各页 label↔控件间距 = 8px（计算样式）
-  - [ ] 受影响视觉基线更新，且差异仅由间距引起的定位偏移（逐张核验）
-  - [ ] `pnpm lint` + `lint:css:check` + `pnpm typecheck` + `pnpm --filter @dependfix/platform test:visual` 通过
-  - [ ] 复现命令：`rg -n -F 'gap: $space-1' apps/platform/app/components/ai-config-form.vue apps/platform/app/pages/alerts.vue apps/platform/app/pages/pr-checks.vue apps/platform/app/pages/env-events.vue`（`-F` 关闭正则，避免 `$` 被当作行尾锚点）
+  - [x] 上述 4 个文件中的 label↔控件间距统一为 `$space-2`：实改 **4 处**（`ai-config-form.vue:203` / `alerts.vue:744` / `env-events.vue:370` / `pr-checks.vue:398`）。**`pr-checks.vue:372` 归属 `&__summary-byconclusion`**（横向 `flex-wrap` 摘要标签行，度量的是标签间距而非 label↔控件）→ 按「不做什么（不改其它间距刻度）」排除；复扫后该文件仅剩此 1 处符合预期
+  - [x] 浏览器实测各页 label↔控件间距 = 8px（计算样式）：四页（`/settings` 的 ai-config-form、`/alerts`、`/pr-checks`、`/env-events`）改前 `gap: 4px` / 控件顶−label 底 = 4 → 改后 `gap: 8px` / delta = 8；且 **label 矩形与控件 left/height 均不变、控件恰下移 4px**（纯垂直偏移）
+  - [x] 受影响视觉基线更新（**恰好 3 张**：`alerts-light` / `alerts-dark` / `pr-checks-light`；`alerts-right-*` 元素级补拍、`repos-*`、两张弹窗基线、`login-light` 均未受影响），且逐张核验差异**仅为间距引起的定位偏移**：canvas 逐像素分析三张均为「首个差异行之上逐字节全同 + 最佳垂直位移 = 4 + `new[y] === old[y-4]` 相等比例 1.0」（无其它视觉变更）
+  - [x] `pnpm lint` + `lint:css:check`（首轮命中 `comment-empty-line-before` 已修）+ `pnpm typecheck` + `pnpm --filter @dependfix/platform build`（样式类改动必跑，且为视觉套件前置）+ `test:visual`（连跑两遍 11 passed ×2）通过
+  - [x] 复现命令：`rg -n -F 'gap: $space-1' <4 文件>`（`-F` 关闭正则，避免 `$` 被当作行尾锚点）——改后仅剩 `pr-checks.vue:372`（已排除项）
 - **不做什么**：不改弹窗（M33.8 已统一）；不改控件高度 / 字号 / 其它间距刻度；不改 `repos.vue` 的 `.batch-form*`。
 - **依赖**：M33.8（弹窗侧口径统一完成，本条为其非弹窗侧补全）。
 - **交付物**：1 atomic commit（`fix(platform)` 间距统一 + 基线更新）。
 - **风险与缓解**：列表页过滤工具栏间距变化会带动多张基线；缓解：逐张像素核验差异仅由间距偏移导致，必要时按内容重建单张基线。
+- **闭环实证**（2026-10-01）：1 atomic commit（`fix(platform)` 4 处间距值 + 3 张基线重建）。**取证**：计算样式探针（改前 4px / 改后 8px，label 矩形不变、控件仅下移 4px）+ 基线逐像素位移归因（三张 `bestOffset=4` / 相等比例 1.0）——脚手架跑完即删，日志留 `artifacts/m34.4/`（gitignored）。**A 阶段审计**：`standard` 第 1 轮 **Pass**（0 blocker / 0 warning），记录 `artifacts/review-gate/2026-10-01-m34.4-gap-unify.md`。**范围穷举**（同根因 pattern 的其它落点，均在本条目范围外，未扩范围）：`repos.vue` 的 `.batch-form__field`（与本批 4 处同构，但「不做什么」显式排除 `.batch-form*`，**待用户决策是否另立候选**）、`batch-runs.vue` 的 `__stat`（统计卡：值 + 标签堆叠）、`credentials.vue` 的 `__pem-fingerprint`（标题 + 代码堆叠）、`run-detail-dialog.vue` 的 `__meta-item`（弹窗内信息展示项）、`alert-run-sidebar.vue` 的 `.alerts-run-cell` / `.alerts-sidebar-actions`（表格单元 / 按钮间距）。
 
 #### M34.5 [P3 📚 文档治理] PrimeUI 设计先行稿与索引状态同步
 

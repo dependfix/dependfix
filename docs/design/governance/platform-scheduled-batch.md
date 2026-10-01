@@ -301,7 +301,7 @@ BatchRun 的 `finishedCount / completedCount / failedCount / summaryJson / statu
 - **零子项兜底**：`running` 且无任何下属 ScanRun，创建超过 30 分钟 → 判定为孤儿 `failed`（触发进程在建子项前异常 / 子仓库级联删除）；未超阈值（async 正在逐个建子项）保持不动。
 - **sync 模式**：逐仓库串行结束后立即聚合终态化，不等周期对账；零子项时不在此终结（异常场景交由周期对账按孤儿处理，避免误标 completed）。
 
-**兼容性说明**：历史 `finished_at` 可能被旧的「查看时刻」口径污染；存量订正由 `database/scripts/` 一次性脚本按 `max(子项 finishedAt)` 重算（详见 [M35.5](../../plan/todo.md#m35-批量运行终态兜底对账--进度可见性修复m351m356)）。
+**兼容性说明**：历史 `finished_at` 可能被旧的「查看时刻」口径污染；存量订正由 `database/scripts/` 一次性脚本按 `max(子项 finishedAt)` 重算（详见 [M35.5](../../plan/todo-archive.md#m35-批量运行终态兜底对账--进度可见性修复m351m356-全部已闭环--2026-10-02-归档)）。
 
 ### 5.3 仓库选择策略解析
 

@@ -244,7 +244,7 @@ await queue.removeJobScheduler(`schedule-${schedule.id}`)
 1. 读取 Schedule 实体 → 解析 selectorKind + selectorJson → 查询目标仓库列表
 2. 创建 BatchRun（source='scheduled'）
 3. 逐仓库 `createPendingScanRun` + `queue.add`（priority=scheduled，runId 关联 batchRunId）
-4. 返回（BatchRun 聚合由异步回调或轮询更新，见 §5）
+4. 返回（BatchRun 聚合由详情实时聚合 + 周期兜底对账，见 §5）
 
 **jobId 规范**：`scheduled-scan` job 不设自定义 jobId（BullMQ job scheduler 自动生成），避免与单仓库 scan jobId 冲突。每个 scheduler 产生的 job 是独立的，无需去重（到点触发一次即一次）。
 
@@ -286,16 +286,22 @@ const scheduledTasks = new Map<string, cron.ScheduledTask>()  // scheduleId → 
 
 ### 5.2 聚合更新策略
 
-BatchRun 的 `finishedCount / completedCount / failedCount / summaryJson` 需要随下属 ScanRun 完成而更新。两种方案：
+BatchRun 的 `finishedCount / completedCount / failedCount / summaryJson / status / finishedAt` 需要随下属 ScanRun 完成而更新。**采用「详情实时聚合 + 周期兜底对账」双通道**：
 
-| 方案 | 机制 | 优缺点 |
+| 通道 | 机制 | 定位 |
 |:---|:---|:---|
-| **A. 轮询更新**（采用） | 前端轮询 `GET /api/batch-runs/[id]` 时，后端实时查询下属 ScanRun 统计并更新 BatchRun | 实现简单，无需额外回调机制；缺点是聚合更新滞后于轮询频率 |
-| B. Worker 回调 | ScanRun 完成时 Worker 回调更新 BatchRun | 实时性好；缺点是 Worker 需感知 BatchRun 上下文，增加耦合 |
+| **详情实时聚合** | 用户打开 `GET /api/batch-runs/[id]` 时，后端实时查询下属 ScanRun 统计并写回 BatchRun | 用户查看时即时收敛；不引入 Worker 回调 |
+| **周期兜底对账** | `stale-cleanup` 插件每 5 分钟调用 `reconcileRunningBatchRuns()`，扫描全部 `running` BatchRun 聚合写回 | 覆盖「子项已全部终态但父批次从未被查看」与「零子项孤儿」两类盲区，摆脱「看才发生」 |
 
-**采用方案 A**：`GET /api/batch-runs/[id]` 时聚合统计——查询 `ScanRun where batchRunId = ?`，计算 finishedCount/completedCount/failedCount/pendingCount + summaryJson（跨仓库 alertsTotal/severityCounts/fixedCount），写回 BatchRun 并返回。聚合计算是只读推导，无需 Worker 回调。
+**实现口径**（`batch-aggregate.ts` 纯推导 + `batch-writeback.ts` 单一写回，详情接口 / 周期对账 / sync 立即终结三处共用）：
 
-**终态判定**：`pendingCount === 0` 时 BatchRun.status → `completed`（有 failed 也算 completed，整体完成而非全部成功）；写回 `finishedAt`。
+- `aggregateScanRuns(runs, results)`：`pendingCount === 0` 时整体状态 → `completed`（含部分失败，整体完成而非全部成功）；计数与 `summary` 按下属 run 派生。
+- `finishedAt`：首次到达 `completed` 时取 `resolveBatchFinishedAt(runs)` = **`max(子项 finishedAt)`**（真实完成时间），而非聚合触发时刻——避免把「首次查看时间」误记为完成时间。无带 `finishedAt` 的子项时回退当前时刻。
+- 状态流转复用 `shouldWriteBackStatus`：仅 `running` 允许流转，`failed` 终态受保护（executor 显式落库的 async 全部入队失败）。
+- **零子项兜底**：`running` 且无任何下属 ScanRun，创建超过 30 分钟 → 判定为孤儿 `failed`（触发进程在建子项前异常 / 子仓库级联删除）；未超阈值（async 正在逐个建子项）保持不动。
+- **sync 模式**：逐仓库串行结束后立即聚合终态化，不等周期对账；零子项时不在此终结（异常场景交由周期对账按孤儿处理，避免误标 completed）。
+
+**兼容性说明**：历史 `finished_at` 可能被旧的「查看时刻」口径污染；存量订正由 `database/scripts/` 一次性脚本按 `max(子项 finishedAt)` 重算（详见 [M35.5](../../plan/todo.md#m35-批量运行终态兜底对账--进度可见性修复m351m356)）。
 
 ### 5.3 仓库选择策略解析
 
@@ -442,8 +448,8 @@ export const batchScanSchema = z.object({
 
 | Redis | 定时调度 | 批量执行 | 聚合报告 |
 |:---|:---|:---|:---|
-| ✅ async | BullMQ upsertJobScheduler | 逐仓库入队（priority=scheduled） | 轮询聚合 |
-| ❌ sync | node-cron 进程内 | 逐仓库同步串行 runScanForRepository | 轮询聚合 |
+| ✅ async | BullMQ upsertJobScheduler | 逐仓库入队（priority=scheduled） | 详情实时聚合 + 周期兜底对账 |
+| ❌ sync | node-cron 进程内 | 逐仓库同步串行 runScanForRepository | 串行结束立即聚合 + 详情实时聚合 + 周期兜底对账 |
 
 ### 9.2 多实例约束
 

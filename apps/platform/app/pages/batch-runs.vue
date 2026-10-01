@@ -121,8 +121,9 @@ const fetchBatchRuns = async () => {
     }
 }
 
-/** 已展开行详情刷新（轮询体与 manualRefresh 共用；收敛点见审计 RG-W1）
- * 仅刷新 prevRunningIds ∪ currentRunningIds 命中的展开行——终态后的展开行不重复拉取 */
+/** 已展开行详情刷新（轮询体与 manualRefresh 共用）
+ * 仅刷新 prevRunningIds ∪ currentRunningIds 命中的展开行——终态后的展开行不重复拉取。
+ * 折叠行不需要此路径：其列表值由服务端周期对账（batch-reconciler）写回后被列表轮询拉取 */
 const refreshOpenDetails = async (prevRunningIds: string[]) => {
     for (const id of Object.keys(detailMap.value)) {
         if (prevRunningIds.includes(id) || runningIds.value.includes(id)) {
@@ -198,7 +199,8 @@ const forceFail = async (id: string): Promise<void> => {
     }
 }
 
-// 进行中批次轮询（60s 间隔；组件卸载清理）——前端轮询详情即触发后端聚合收敛
+// 进行中批次轮询（60s 间隔；组件卸载清理）——列表值由服务端周期对账（batch-reconciler）持续写回，
+// 本页轮询负责把最新值拉进列表；已展开行额外拉详情做实时聚合（见 refreshOpenDetails）
 let pollTimer: ReturnType<typeof setInterval> | null = null
 const runningIds = computed(() => batchRuns.value.filter((b) => b.status === 'running').map((b) => b.id))
 

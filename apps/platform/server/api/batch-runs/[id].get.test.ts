@@ -20,6 +20,7 @@ const call = (method: string, url: string, params: Record<string, string> = {}, 
 describe('GET /api/batch-runs/[id]', () => {
     let batchRunId: string
     let repositoryId: string
+    const completedAt = new Date('2026-09-04T04:00:00Z')
 
     beforeAll(async () => {
         setupMemoryDatabase()
@@ -52,6 +53,7 @@ describe('GET /api/batch-runs/[id]', () => {
             severityThreshold: 'high',
             executorKind: 'container',
             status: 'completed',
+            finishedAt: completedAt,
         }))
     })
 
@@ -77,7 +79,8 @@ describe('GET /api/batch-runs/[id]', () => {
         const persisted = await ds.getRepository(BatchRun).findOne({ where: { id: batchRunId } })
         expect(persisted?.status).toBe('completed')
         expect(persisted?.finishedCount).toBe(1)
-        expect(persisted?.finishedAt).toBeTruthy()
+        // finishedAt = max(子项 finishedAt)，而非聚合触发时刻
+        expect(persisted?.finishedAt?.toISOString()).toBe(completedAt.toISOString())
     })
 
     it('returns 404 for unknown batch run', async () => {
@@ -115,6 +118,29 @@ describe('GET /api/batch-runs/[id]', () => {
         const persisted = await ds.getRepository(BatchRun).findOne({ where: { id: emptyBatch.id } })
         expect(persisted?.status).toBe('completed')
         expect(persisted?.finishedCount).toBe(0)
+        expect(persisted?.finishedAt).toBeNull()
+    })
+
+    /**
+     * 零子项 + running（终态未定）：不得在详情通道按 completed 收敛——否则孤儿被永久固化，
+     * 周期对账只扫 running 将永远无法纠正。
+     */
+    it('keeps running status for zero-child running batch (undecided, no write-back)', async () => {
+        const ds = await ensureDatabaseInitialized()
+        const organizationId = await resolveOrganizationId(ds)
+        const runningEmpty = await ds.getRepository(BatchRun).save(ds.getRepository(BatchRun).create({
+            organizationId,
+            source: 'manual',
+            mode: 'fix',
+            severityThreshold: 'high',
+            repositoryCount: 5,
+            status: 'running',
+        }))
+        const detail = await call('GET', `/api/batch-runs/${runningEmpty.id}`, { id: runningEmpty.id }) as Record<string, unknown>
+        expect(detail.status).toBe('running')
+
+        const persisted = await ds.getRepository(BatchRun).findOne({ where: { id: runningEmpty.id } })
+        expect(persisted?.status).toBe('running')
         expect(persisted?.finishedAt).toBeNull()
     })
 

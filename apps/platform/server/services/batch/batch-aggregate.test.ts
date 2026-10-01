@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 import {
     aggregateScanRuns,
     EMPTY_BATCH_SUMMARY,
+    isUndecidedZeroChildRunning,
+    resolveBatchFinishedAt,
     shouldWriteBackStatus,
     type BatchAggregation,
 } from './batch-aggregate'
@@ -167,7 +169,7 @@ describe('aggregateScanRuns（BatchRun 聚合纯函数）', () => {
     })
 
     it('含 degraded：独立计 degradedCount + alertsTotal/fixedCount 参与（业务结果完整）+ severityCounts 参与', () => {
-        // M11 T1005-C：sandbox 启动时降级 → degraded 状态终态，summaryJson 等价 completed 口径
+        // sandbox 启动时降级 → degraded 状态终态，summaryJson 等价 completed 口径
         const runs = [
             completedRun('run-1', 5, 2),
             makeRun({ id: 'run-2', status: 'degraded', summaryJson: JSON.stringify({ alertsFound: 3, alertsFixed: 1 }) }),
@@ -248,5 +250,34 @@ describe('shouldWriteBackStatus（轮询聚合写回决策）', () => {
 
     it('completed 终态不再写回（幂等收敛）', () => {
         expect(shouldWriteBackStatus('completed', 'completed')).toBe(false)
+    })
+})
+
+describe('resolveBatchFinishedAt（真实完成时间）', () => {
+    it('取最晚子项 finishedAt，而非触发时刻', () => {
+        const earlier = new Date('2026-09-04T03:00:00Z')
+        const later = new Date('2026-09-04T04:00:00Z')
+        const runs = [
+            makeRun({ id: 'r1', status: 'completed', finishedAt: earlier }),
+            makeRun({ id: 'r2', status: 'failed', finishedAt: later }),
+            makeRun({ id: 'r3', status: 'completed', finishedAt: null }),
+        ]
+        expect(resolveBatchFinishedAt(runs).toISOString()).toBe(later.toISOString())
+    })
+
+    it('无带 finishedAt 的子项：回退 fallback', () => {
+        const fallback = new Date('2026-10-02T00:00:00Z')
+        const runs = [makeRun({ id: 'r1', status: 'completed', finishedAt: null })]
+        expect(resolveBatchFinishedAt(runs, fallback).toISOString()).toBe(fallback.toISOString())
+        expect(resolveBatchFinishedAt([], fallback).toISOString()).toBe(fallback.toISOString())
+    })
+})
+
+describe('isUndecidedZeroChildRunning（零子项 + running 终态未定）', () => {
+    it('running + 零子项 → true；其余组合 → false', () => {
+        expect(isUndecidedZeroChildRunning('running', 0)).toBe(true)
+        expect(isUndecidedZeroChildRunning('running', 1)).toBe(false)
+        expect(isUndecidedZeroChildRunning('completed', 0)).toBe(false)
+        expect(isUndecidedZeroChildRunning('failed', 0)).toBe(false)
     })
 })

@@ -14,7 +14,8 @@ export type BatchRunStatus = 'running' | 'completed' | 'failed'
 /**
  * 批量运行聚合：一次定时触发或手动批量触发产生的多仓库扫描汇总。
  * 关联语义：BatchRun 1 — N ScanRun（ScanRun.batchRunId 反向关联，不加载关系避免 N+1）。
- * 聚合更新采用轮询策略（GET /api/batch-runs/[id] 时实时查询下属 ScanRun 统计并写回），
+ * 聚合更新双通道：详情接口 GET /api/batch-runs/[id] 实时聚合写回（用户查看时收敛）+
+ * 周期兜底对账（batch-reconciler.ts，收敛未被查看的批次），
  * 见 docs/design/governance/platform-scheduled-batch.md §5.2。
  */
 @Entity('batch_run')

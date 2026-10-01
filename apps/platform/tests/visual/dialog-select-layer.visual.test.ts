@@ -1,16 +1,28 @@
 import { expect, type Locator, type Page, test } from '@playwright/test'
 import { waitForHydration } from '../e2e/helpers/hydration.helper'
-import { applyTheme, waitForVisualStable } from './helpers/visual'
+import {
+    VISUAL_THEMES,
+    applyTheme,
+    expectThemeApplied,
+    expectViewportScreenshot,
+    waitForVisualStable,
+} from './helpers/visual'
 
 /**
- * 弹窗内 Select 下拉面板「裁剪 / 层级」回归（docs/plan/todo.md §M34.2）。
+ * 弹窗内 Select 下拉面板「裁剪 / 层级」回归（docs/plan/todo.md §M34.2 / §M34.3）。
  *
  * 背景：用户报告弹窗（`CaomeiDialog`）内 Select 展开时下拉面板被裁剪 / 层级错误。
- * 本用例不依赖"肉眼看截图"，而是用客观几何 / 层叠断言锁死四条不变量：
- *   1) 面板经 `SelectPortal` 挂载到 body，不是弹窗后代（否则会被弹窗 `overflow` 裁剪）；
- *   2) 面板四边均在视口内（未被视口裁剪）；
- *   3) 面板中心点的命中元素属于面板自身（层级高于弹窗与遮罩）；
- *   4) 面板祖先链上不存在 `overflow != visible` 的裁剪容器。
+ * 本文件含两类断言：
+ *   1) 客观几何 / 层叠断言（不依赖"肉眼看截图"）——锁死四条不变量：
+ *      面板经 `SelectPortal` 挂载到 body（不是弹窗后代，否则会被弹窗 `overflow` 裁剪）、
+ *      面板四边在视口内、面板中心点的命中元素属于面板自身（层级高于弹窗与遮罩）、
+ *      面板祖先链上不存在 `overflow != visible` 的裁剪容器；外加一条缺陷检出断言
+ *      （面板有效定位层 z 必须高于弹窗内容 z）。
+ *   2) 展开态视觉基线——门户面板不在弹窗子树内，故用**视口级**截图（`expectViewportScreenshot`）
+ *      覆盖弹窗 + 遮罩 + 门户面板的合成结果，锁住浮层外观（层级 / 位置 / 尺寸 / 配色）的像素级漂移。
+ *      截图口径：动态区域以用例 `data-visual-mask` 标记 + helper 的 `dynamicMask(page)`（选择器
+ *      `[data-visual-mask]`）统一遮蔽；本用例的面板与表单内容均为静态 fixtures、无标记元素，
+ *      故遮蔽为空集——**弹出层必须整块入镜**，不得靠遮蔽掩盖浮层差异。
  *
  * 同时把诊断快照（rect / z-index / overflow 链 / available-height）与截图落到 `artifacts/`
  * （gitignored），作为升级前后对比与上游 issue 的证据。
@@ -195,4 +207,29 @@ test.describe('弹窗内 Select 层叠回归', () => {
         expect(diagnostics.hitInsidePanel, `面板中心命中元素不是面板自身：${String(diagnostics.hitElement)}`).toBe(true)
         expect(diagnostics.realClippingAncestors, '面板被祖先容器裁剪').toEqual([])
     })
+})
+
+test.describe('弹窗内 Select 展开态视觉基线', () => {
+    /* 展开态的像素级兜底：上面的几何 / 层叠断言锁「面板在不在正确层且不被裁剪」，
+       本组锁「面板长什么样」（位置 / 尺寸 / 配色 / 与遮罩的叠色）。两主题各一张，
+       因为层级与配色 token 分主题；视口截图口径见 helpers/visual.ts 的 expectViewportScreenshot。 */
+    for (const theme of VISUAL_THEMES) {
+        test(`弹窗内首个 Select 展开（${theme}）`, async ({ page }) => {
+            await applyTheme(page, theme)
+            const dialog = await openRepoFormDialog(page)
+
+            const firstTrigger = dialog.locator('.caomei-select').first()
+            await expect(firstTrigger).toBeEnabled()
+            await firstTrigger.click()
+            const panel = page.locator('.caomei-select__content')
+            await expect(panel).toBeVisible({ timeout: 10000 })
+            /* 基线前先断言面板「有选项且已挂到 body（非弹窗子树）」：门户挂载失败或选项未渲染时，
+               截图会落成「只有弹窗 + 遮罩」的形态，基线被静默改成缺面板的形态（假绿）。 */
+            await expect(panel.locator('[role="option"]').first()).toBeVisible()
+            await expect(page.locator('.caomei-dialog__content .caomei-select__content')).toHaveCount(0)
+            await waitForVisualStable(page)
+            await expectThemeApplied(page, theme)
+            await expectViewportScreenshot(page, `dialog-select-open-${theme}.png`)
+        })
+    }
 })

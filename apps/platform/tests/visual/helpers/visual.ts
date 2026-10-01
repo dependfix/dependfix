@@ -78,3 +78,14 @@ export async function expectPageScreenshot(page: Page, name: string): Promise<vo
 export async function expectLocatorScreenshot(locator: Locator, name: string, mask: Locator[] = []): Promise<void> {
     await expect(locator).toHaveScreenshot(name, mask.length > 0 ? { mask } : {})
 }
+
+/**
+ * 视口级截图比对（不滚动整页），用于「浮层已展开」这类跨元素状态。
+ *
+ * 为什么不用另外两种口径：门户面板（如 `Select` 的 `SelectPortal`）挂在 body 上、不在弹窗子树内，
+ * 元素级截图取不到面板；整页截图（`fullPage`）会把 fixed 定位的遮罩 / 面板与滚动拼接混在一起。
+ * 视口截图尺寸固定（viewport 1440×900），同时覆盖弹窗、遮罩与门户面板的合成结果。
+ */
+export async function expectViewportScreenshot(page: Page, name: string): Promise<void> {
+    await expect(page).toHaveScreenshot(name, { mask: dynamicMask(page) })
+}

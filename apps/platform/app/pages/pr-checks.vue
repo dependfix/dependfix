@@ -393,9 +393,8 @@ const handleAck = async (row: PRCheckView) => {
     }
 
     &__filter-field {
-        display: flex;
-        flex-direction: column;
-        gap: $space-2;
+        @include field-stack;
+
         min-width: 200px;
     }
 

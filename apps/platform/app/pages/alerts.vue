@@ -739,11 +739,8 @@ const alertCveUrl = (cveId: string): string => `https://nvd.nist.gov/vuln/detail
     }
 
     &__filter-field {
-        display: flex;
-        flex-direction: column;
+        @include field-stack;
 
-        /* label↔控件间距与弹窗表单字段（scan-config-dialog / import-repos-dialog 的 __field）统一为 8px */
-        gap: $space-2;
         min-width: 160px;
     }
 

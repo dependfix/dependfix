@@ -287,6 +287,9 @@ if (value) { ... }  // 对 0, "", false 失效
 | [planning.md §4.4 第 14 条](../../../../docs/standards/planning.md) | 已知边界条目闭环 | 除 backlog 整段删除外，是否同步 `archive/index.md` §4 的「保留」清单与「当前基线」前向描述（`rg` 确认全部落点） |
 | [ai-collaboration.md §1.3 分级审计执行协议](../../../../docs/standards/ai-collaboration.md) | 规划 / 阶段启动批次 | 是否声明 `standard`（非 `quick`）；审计 prompt 是否携带 audit-depth + 变更清单 + 已验证证据 |
 | [git.md §3.8](../../../../docs/standards/git.md) | `git commit` / `git push` 调用点 | 是否复用单一常量 `GIT_*_SIGNING_ISOLATION_ARGS`（无字面量漂移）；是否擅自提供签名 opt-in |
+| [development.md §3](../../../../docs/standards/development.md) | 新增 / 修改源码注释或测试名（含新增文件） | 编号标记扫描是否**覆盖本批全部改动文件**（`git diff --name-only` + `git status --porcelain` + `git diff -U0` 新增行），而非只跑规范示例路径；命中是否为带文档路径的合规导航指针 |
+| [documentation.md §6](../../../../docs/standards/documentation.md) | 文档状态口径改写 / 双语镜像同步 | 反向改写是否有三重实证（commit + 代码现状 + 现存产物）、是否只改状态与元数据而未改写历史正文；镜像是否做到**链接级**一致（非仅行数） |
+| [development.md §5.1.34](../../../../docs/standards/development.md) | 依赖升级差异 / 等价性结论、上游变更说明缺失 | 是否按语义级 diff（剥 hash 与 scope，md5 判同文件）而非归一化近似；无 release 时是否以产物（tarball / dist）为权威 |
 
 > **维护纪律**：本矩阵为严格约束检查点的**单点落点**，其他文档 / skill / agent 只做一行链接引用（见上方「规范单点声明」）。矩阵行与条款一一对应；条款废弃 / 合并时同步删行。
 

@@ -35,7 +35,7 @@
 - **导出函数默认应有 JSDoc**: 简要说明用途、边界、返回语义与副作用。
 - **禁止无效或过量注释**: 不机械给每行、每个变量加注释。
 - **注释必须随实现同步**: 修改逻辑时同步更新或删除过时注释。
-- **禁止开发流程编号标记**: 注释与测试名中一律不得出现 `C1:`、`T303`、`G2`、`M4+`、`R2`、`P0` 这类规划 / 任务 / 审计 / backlog 编号（含 `C1：xxx` 与 `it('C1: xxx')` 形式）。阶段与编号是规划文档（`docs/plan/`）中区分进度的概念，代码中无意义且无法反查；追溯用 `git blame` / 审计记录。例外：代码内真实存在的常量（如 HTTP 错误码 `E401`），以及**指向规划文档的导航说明**（如"背景详见 `docs/plan/todo.md`「已知缺口 G2」"、"见 todo.md G3"、"见 backlog B1"）——导航指针内的规划编号属例外，因为它们提供真实可查的文档锚点，但必须同时写明文档路径或章节名，不得只写孤立编号。**执行挂接**：D 阶段自检（Full Stack Master (全栈大师) agent）与 A 阶段 Review Gate 必查项（Code Auditor (代码审计员) agent）均含本检查。违反案例见 [经验归档 §十六](../design/governance/experience-archive.md)。
+- **禁止开发流程编号标记**: 注释与测试名中一律不得出现 `C1:`、`T303`、`G2`、`M4+`、`R2`、`P0` 这类规划 / 任务 / 审计 / backlog 编号（含 `C1：xxx` 与 `it('C1: xxx')` 形式）。阶段与编号是规划文档（`docs/plan/`）中区分进度的概念，代码中无意义且无法反查；追溯用 `git blame` / 审计记录。例外：代码内真实存在的常量（如 HTTP 错误码 `E401`），以及**指向规划文档的导航说明**（如"背景详见 `docs/plan/todo.md`「已知缺口 G2」"、"见 todo.md G3"、"见 backlog B1"）——导航指针内的规划编号属例外，因为它们提供真实可查的文档锚点，但必须同时写明文档路径或章节名，不得只写孤立编号。**执行挂接**：D 阶段自检（Full Stack Master (全栈大师) agent）与 A 阶段 Review Gate 必查项（Code Auditor (代码审计员) agent）均含本检查。违反案例见 [经验归档 §十六](../design/governance/experience-archive.md)。 **扫描范围口径**：范围必须按**本次改动文件**取（`git diff --name-only` + `git status --porcelain`，含新增文件），并同时扫新增行（`git diff -U0 | grep "^+"`）；只照抄规范里的示例路径（如 `packages/cli/src packages/core/src`）会漏掉新增模块——M34.6 即因此漏检新增 `verify-project.ts` 的编号，被 Review Gate 判 blocker（该规则第 4 次同类复发）。
 - **i18n locale 文件 insert anchor 必须用目标 locale 实际文本**：locale 文件多段对称（`apps/platform/i18n/locales/zh-CN.json` + `en-US.json`），edit 工具 insert anchor 必须用**目标 locale 实际文本**。自动检测：`pnpm i18n:check:anchor`（`scripts/i18n/i18n-anchor-check.mjs`）对比 zh-CN + en-US locale 文件，检测同一 key 在两边取值完全相等且 en-US locale 值含中文的错位污染（结构化本地化数据 + i18n 复合格式占位符 + 纯 ASCII 字符串视为合理相等，自动跳过）。CI test job 已添加该步骤作为 blocker。详见 [经验归档 §五十六 M24.1 教训 2](../design/governance/experience-archive.md) + `scripts/i18n/i18n-anchor-check.mjs` 注释。
 - **同一解释只写一处**: 相同背景说明（平台坑、口径、设计取舍）在仓库内只保留一处，通常放在首次出现或语义最贴近的位置；其他位置要么不写，要么用一句话指向文档。
 - **详细解释放文档，代码只留短指针**: 完整设计背景、复盘结论、口径变更写入 `docs/design/`、`docs/research/` 或复盘文档；代码注释只保留一句"为什么"或文档指针，不展开长文。
@@ -416,6 +416,18 @@ tsdown `hash:false` 下多 entry 构建时，entry 与共享 dts chunk 会争用
 
 ---
 
+#### 5.1.33 同构站点穷举必须用「构建产物」，源码 grep 只能发现「值不同」的
+
+做「把同类写法统一 / 复用化」这类任务时，先用源码 grep 穷举命中的只是**值不同**的站点（如 `rg -F 'gap: $space-1'`）；**结构同构但取值已一致**的站点会被整体漏掉——M34.7 漏掉 3 处（`settings-form__field` / `auth-form__field` ×2），由 A 阶段审计用产物穷举补出（站点数 10 → 13）。**做法**：构建后扫 `.output/**` 的 CSS，**合并同一选择器的多条规则**再按特征筛（同一选择器的声明可能被拆成多条规则，甚至落在 `server/chunks/build/*styles*.mjs`）。通用提问：声明「范围已穷举」前先自问「我的筛选条件是否只能命中目标的一部分？」。
+
+#### 5.1.34 依赖升级的差异口径：语义级 diff + 无 release 时以 tarball 为权威
+
+判断「升级前后是否等价 / 有哪些破坏性变更」时，两条口径必须同时成立：① **口径**——剥掉文件名 hash 与 `[data-v-*]` scope 后逐文件**语义级** diff（`grep -o` + `sort -u` 这类归一化近似会掩盖同名规则的取值差异，曾据此误判「CSS 逐字节相同」；优先用 md5 判断是否同文件），传递依赖版本要**逐版核对**（本项目三版同锁 `reka-ui`，说明差异必来自库自身）；② **权威来源**——上游无 release / changelog 时以**产物本身**为权威（`npm pack` 后对 `dist` 做全量比对：文件集 + d.ts 公开面 + token 值集合），比猜测 changelog 更可复现。
+
+#### 5.1.35 `rg -r` 是 `--replace` 而非递归（输出替换陷阱）
+
+ripgrep 的 `-r` / `--replace` 会把**匹配片段替换为给定文本**再输出（不改文件，但输出被改写）。误写 `rg -rn "<pattern>"` 时，`-rn` 被解析为「替换为 `n`」→ 输出里出现 `Caomein`（`Caomei` + `Select` 被替换）、`artifacts/n/` 之类的**假象**，极易据此误判内容（本项目一次会话内复发 2 次）。**做法**：多文件搜索只用 `rg -n`（递归是默认行为）；确需替换语义时才显式写 `-r`。
+
 ## 6. 样式规范（平台阶段适用）
 
 - **纯 SCSS**: 禁止 CSS-in-JS、Tailwind。所有样式以纯 SCSS 编写。
@@ -427,6 +439,7 @@ tsdown `hash:false` 下多 entry 构建时，entry 与共享 dts chunk 会争用
 - **跨 Dialog i18n label key 共享**: 共享选项数据（mode / severity / batch-start 等）时，i18n label key 也应共享（如 `repos.batchMode` / `repos.batchSeverity` 同时用于批量与单仓库 Dialog），避免冗余 key（如 `repos.scanConfigMode` 与批量 Dialog 相同 label 但不同 key）。仅在 Dialog 标题 / 目标信息等真正差异处新增 key。
 - **子组件抽取时 scoped 样式必须随迁**: 从父页拆出子组件（表单弹窗等）时，父页 `<style scoped>` 里的同名规则**不会穿透子组件**（scoped 只作用于本组件模板 + 子组件根元素）→ 规则整段静默失效（label 贴输入框、操作区落到左下角），构建与 lint 全绿无报错。**判据**：子组件内 `grep -c "<style"` = 0 而同名类名只在父页样式里出现 → 迁移遗漏。**做法**：把同名样式段整段搬到子组件（自带 `<style scoped>`）并删除父页副本，用"构建产物 CSS 含子组件 scope id + 元素类名"复核生效。反例：M32.1 拆出 `repo-form-dialog.vue` 时样式段留在 `repos.vue`，直至 M33.8 才修复。
 - **同行 `flex-end` 对齐下矮控件会压矮整字段**: 同一行 `align-items: flex-end` 排列 label + 控件时，矮控件（如 22px Switch vs 36px 控件档）会把整字段盒压矮、label 随之下移。**做法**：为控件区补足控制档高度并垂直居中（如 `.xx__filter-control { min-height: var(--caomei-control-height-md); display: flex; align-items: center; }`），而不是改行对齐方式——对 wrap 换行场景同样成立。反例：M33.10 告警筛选行「显示已解决」标签比同排靠下。
+- **复用抽取前先确认「已全局注入的复用载体」**: 平台 SCSS 的 `_variables.scss` / `_mixins.scss` 已通过 `vite.css.preprocessorOptions.scss.additionalData` 全局注入，SFC `<style scoped>` 内可直接使用变量与 `@include`（先例：`dark-mode` / `respond-to`），抽 mixin **无需任何 import**。两个坑：① **mixin 默认参数在定义侧求值**，不能引用调用方注入的变量层 → `_mixins.scss` 需自行 `@use './variables' as *`（`_caomei-tokens.scss` 同款先例）；② 只抽「口径」不抽「样式细节」（各站点 label 规则不同，吸收进来即过度抽象）。
 - **表单字段堆叠口径（label↔控件）**: 「label 在上、控件在下」的垂直堆叠字段，间距取间距刻度第二档（`$space-2` = 8px），弹窗内外一致。**做法**：统一 `@include field-stack`（`app/assets/styles/_mixins.scss`），而不是在每个字段块内重复 `display` / `flex-direction` / `gap` 三行——口径变更时只改 mixin 一处；mixin 不吸收 label 样式（各字段 label 规则不同）。**边界**：显示型 `label↔值` 堆叠（统计卡 / 指纹盒 / 弹窗 meta 项）语义不同，不适用本口径。反例：M33.8 统一弹窗字段时漏掉同文件弹窗内的 `.batch-form__field`（沿用 4px 档），直至 M34.7 复用化时补齐。
 
 ## 7. 包命名规范

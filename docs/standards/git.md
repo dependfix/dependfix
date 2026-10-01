@@ -143,7 +143,8 @@ commit message 应聚焦于"当次提交的改动"+"可供事后复查的信息"
 - 规则集与正文硬性约束一一对应（不写执行命令 / 不写执行结果数字 / 不写改动行数 / 不写没实证废话与关联度低教训段）
 - 拦截失败时返回 exit=1，git commit 直接拒绝
 - 规则实现 + 单测详见 [scripts/commitlint/](../../scripts/commitlint/) 目录
-- **`no-diff-stats` 的误伤**：规则 `[+-]\d+(?=\s|$|[,，])` 会把**日期**（`2026-09-30` → 命中 `-30`）与**色号**（`teal-700` → 命中 `-700`）判为 diff 行数 → 被 husky 拦截。**规避**：主题 / 正文避免「连字符 + 数字」紧跟空白；日期改写为「2026 年 9 月 30 日」，色号改写为 token 名（如 `primary-solid`）或让数字后紧跟非空白字符。
+- **`no-diff-stats` 的误伤**：规则 `[+-]\d+(?=\s|$|[,，])` 会把**日期**（`2026-09-30` → 命中 `-30`）、**色号**（`teal-700` → 命中 `-700`）与**带连字符的代码 token**（`$space-1` → 命中 `-1`）判为 diff 行数 → 被 husky 拦截。**规避**：主题 / 正文避免「连字符 + 数字」紧跟空白；日期改写为「2026 年 9 月 30 日」，色号改写为 token 名（如 `primary-solid`）或让数字后紧跟非空白字符，代码常量改写为自然语言（如「4px 档 / 8px 档」）。
+- **同族规则清单（写正文前一次性规避）**：`no-diff-stats`（连字符 + 数字 / 改动行数）、`no-results-numbers`（百分比与执行结果数字，如「下降 12%」）、`no-exec-commands`（命令字面量，如「在包目录内运行测试」而非写出带 `--filter` 的命令）。三者都在 `commit-msg` 阶段拦截并 exit=1；被拦时按报错精确改写，不要重试原消息。
 
 **commit 前轻量级审核**：执行方 self-check 4 项必查 + 触发 code-auditor quick depth 条件详见 [ai-collaboration.md §1.6 commit 前轻量级审核流程](./ai-collaboration.md)。
 
@@ -155,6 +156,12 @@ commit message 应聚焦于"当次提交的改动"+"可供事后复查的信息"
 - **审计口径**：Review Gate 以「提交态自洽」而非「工作区自洽」为准。
 - **反例**：M29.7 修复 commit 只含 4 文件（纯函数 + 组件 + 测试 + e2e 注释），`disabled` 透传 + i18n key 未暂存 → A 阶段审计 RG-B3 Reject。
 - 详见 [经验归档 §六十五](../design/governance/experience-archive-§49-§57-recent-investigation.md#六十五m30-归档批次经验沉淀)
+
+### 3.7.1 lint-staged 的 `git add` 任务会连带暂存工作区其它已改文件
+
+本仓 `package.json` 的 lint-staged 段的 `*.{js,ts}` / `*.<style>` / `*.md` 规则里第二个任务是无 pathspec 的 `git add`（lint-staged 自身会打印告警「Some of your tasks use `git add` command」）→ 在一个工作区里存在**多个不相关改动**时，提交其中一个文件会把**其它已修改文件**一并暂存进本次 commit（实证：`test(platform)` 提交误入 `docs/standards/testing.md`，直到 `git show --stat` 才暴露）。
+
+**做法**：① 提交前 `git stash push -- <其它文件>` 隔离（或先提交再改）；② 每次提交后 `git show --stat HEAD` 逐条核对文件清单；③ 误入时用 `git reset --soft HEAD~1` + `git restore --staged .` 重做（重做前重新隔离工作区）。
 
 ### 3.8 git 签名语义：commit / push 双向隔离，不提供 opt-in（M29.2 + M32.4）
 

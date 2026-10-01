@@ -102,8 +102,10 @@ interface RepositoryResult {
     failed: number
     /** 是否需要 lockfile 修复 */
     lockfileRepaired: boolean
-    /** 修复后验证是否通过 */
+    /** 修复后验证是否通过（原始口径：链路是否全绿） */
     verificationPassed?: boolean
+    /** 是否存在**本次改动引入**的验证失败（决定是否回滚；既有基线失败不归因本次） */
+    verificationBlocking?: boolean
     /** 该仓库总处理耗时（毫秒） */
     durationMs: number
 }
@@ -129,6 +131,8 @@ interface FixAction {
     success: boolean
     /** 失败原因 */
     error?: string
+    /** 仅 verification 类型：该失败在修复前即存在（既有失败，不归因本次改动） */
+    preExisting?: boolean
     /** 修复策略（lockfile-repair 专用） */
     strategy?: string
     /** 耗时（毫秒） */
@@ -213,6 +217,7 @@ interface FixError {
 | dependency-upgrade | owner/repo | lodash | 4.17.20 → 4.17.21 | ✅ | 2.3s |
 | lockfile-repair | owner/repo | pnpm-lock.yaml | REGENERATE: +5/-3 lines | ✅ | 1.1s |
 | verification | owner/repo | install+lint+build+test | — | ❌ | 5.2s |
+| verification | owner/repo | test | 既有失败（修复前即红，未归因本次改动） | ❌ | 4.8s |
 
 ## Errors
 
@@ -225,7 +230,7 @@ interface FixError {
 
 - **分组**：同一仓库的告警和动作聚合在一起，按仓库名称排序
 - **状态图标**：成功 `✅` 失败 `❌` 跳过 `⏭️`
-- **版本列**：仅 `dependency-upgrade` 动作显示 from/to 版本；lockfile-repair 显示 strategy^；verification 显示 `—`
+- **版本列**：仅 `dependency-upgrade` 动作显示 from/to 版本；lockfile-repair 显示 strategy^；verification 显示 `—`，但**既有失败**（`FixAction.preExisting`，修复前即红、未归因本次改动）显示「既有失败（修复前即红，未归因本次改动）」
 - **空数据处理**：
   - 无错误 → 不渲染 Errors 节
   - 无修复动作 → Fix Actions 表显示 `No fix actions performed.`
@@ -315,7 +320,7 @@ interface ReportArtifact {
 | T103 | `NormalizedSecurityAlert[]` | `RunResult.alerts[]` |
 | T105 | `DependencyFixResult` | `FixAction { type: 'dependency-upgrade', ... }` |
 | T106 | `LockfileRepairResult` | `FixAction { type: 'lockfile-repair', ... }` + `RepositoryResult.lockfileRepaired` |
-| T107 | `VerificationResult` | `FixAction { type: 'verification', ... }` + `RepositoryResult.verificationPassed` |
+| T107 | `VerificationResult` | `FixAction { type: 'verification', ... }`（含 `preExisting`）+ `RepositoryResult.verificationPassed` / `verificationBlocking` |
 | 运行时 | `RuntimeConfig` | `RunReportConfig`（排除 `githubToken`） |
 
 ### 6.1 映射函数（可选，视 T109 集成需要）

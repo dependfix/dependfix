@@ -130,17 +130,18 @@
 
 - **目标**：目标仓库在修复前就存在的验证失败（尤其测试套件长期红）不再被计入本次修复，避免合法修复被门禁回滚、使仓库变得「不可用」。
 - **优先级**：P3（非阻塞；当前口径与既有 install/lint/build 的「假定 pristine 检出可通过」一致，仅在目标仓库测试长期红时暴露）。
-- **范围**：`packages/engine/src/app/helpers.ts`（`verifyProject`）+ `packages/engine/src/app/repo-fix.ts`（修复流程接入点）+ `packages/engine/src/runners/verification-gate.ts`（判定口径）+ 陈旧指针修正 `packages/engine/src/runners/verification-runner.ts:93`（注释「该路径已登记 backlog C83」→ 指向本条目，A 阶段审计 RG-W1 落点登记）。
-- **决策点（实施时敲定并记录依据）**：基线时机（修复前 pristine 全链 vs 仅对 test 懒基线 vs 目标仓库配置豁免）；判定粒度（命令级 vs 仓库级）；审计口径（如新增错误码 `PRE_EXISTING_FAILURE` 供报告单列）。
+- **范围**：`packages/engine/src/app/verify-project.ts`（**拆分新增**：验证链命令解析 + 基线采样 + `verifyProject` 归因，自 `app/helpers.ts` 迁出）+ `packages/engine/src/app/helpers.ts`（迁出后收窄）+ `packages/engine/src/app/repo-fix.ts`（修复流程接入点：运行级基线持有器 + 惰性采样 + 接线）+ `packages/engine/src/app/index.ts`（持有器注入）+ `packages/engine/src/runners/verification-gate.ts`（判定口径）+ `packages/core/src/report/{types,markdown-generator}.ts`（报告口径：`verificationBlocking` / `preExisting` 与既有失败标注）+ 陈旧指针修正 `packages/engine/src/runners/verification-runner.ts`（注释「该路径已登记 backlog C83」→ 改为描述新口径，A 阶段审计 RG-W1 落点登记）+ `docs/design/modules/{dependency-fixer,report-generator}.md`（口径与接口同步）。
+- **决策点（已敲定并记录依据）**：① **基线时机 = 修复前一次性采样**（修复链任何改动之前，pristine 工作区；采纳条目风险段首选形态，避免"修复后回跑 pristine"的工作区切换风险；dry-run 跳过、多仓库共享 workDir 时沿用首采）——未采用「仅对 test 懒基线」（成本相近但覆盖窄）与「目标仓库配置豁免」（需新增配置面与目标仓库配合）；② **判定粒度 = 命令级**（只有「同命令在基线中也失败」才豁免；基线中缺失的命令保守归因，未知不算既有）；③ **审计口径 = 新增 `PRE_EXISTING_FAILURE`（报告 Errors 区按 category 单列）+ `FixAction.preExisting`（Fix Actions 表标注「既有失败（修复前即红，未归因本次改动）」）**，并保留 `verificationPassed`（原始口径：链路是否全绿）与新增 `verificationBlocking`（是否存在本次引入的失败，门禁据此回滚）双口径。**显式边界**：退出码 / 平台 run 状态口径未变；跨线升级（2.0.2）保留严格口径不套用基线归因；命令级归因无法区分"失败身份"（同命令换一种失败也算既有）。
 - **验收标准**：
-  - [ ] 修复前即为红的命令不再导致本次修复被回滚，且报告显式区分「本次引入的失败」与「基线已存在的失败」
-  - [ ] 单测覆盖：基线红 + 修复后仍红（不归因本次）／基线绿 + 修复后红（归因本次并回滚）
-  - [ ] `pnpm lint` + `pnpm typecheck` + engine 定向测试通过
-  - [ ] 现状实证保持成立：`packages/engine/src/app/repo-fix.ts:786` 原判定为 `verifyActions.every((a) => a.success)`；`DEFAULT_VERIFY_COMMANDS` 为唯一事实源
+  - [x] 修复前即为红的命令不再导致本次修复被回滚（门禁改判 `verificationBlocking`：仅「本次引入」的失败触发回滚；既有失败不归因），且报告显式区分两类失败（Errors 区 `PRE_EXISTING_FAILURE` 单列 + Fix Actions 表标注「既有失败（修复前即红，未归因本次改动）」；正反两侧均有断言锁定）
+  - [x] 单测覆盖归因四态：基线红 + 修复后仍红 → `preExisting`、不归因／基线绿 + 修复后红 → 归因本次（门禁回滚）／**基线缺该命令 → 保守归因**／未提供基线 → 原始口径；另覆盖基线采样「只测量」（不写 allErrors、外联违规仅 warn 留痕）、采样异常 → `undefined` 退回全量归因、门禁 `verificationBlocking` 判定与缺省回退；集成层补「基线绿 + 修复后红 → 回滚+不创建 PR」与「既有失败 → 不阻断」两例
+  - [x] `pnpm lint`（exit 0）+ `pnpm typecheck`（7 包全 Done）+ engine 定向测试（62 文件 / 1182 passed / 1 skipped / 0 failed）+ 根 `pnpm test`（219 文件 / 3406 passed / 0 failed）+ `pnpm test:coverage`（statements 86.39 / branches 81.85 / functions 85.23 / lines 86.55，阈值 80）+ `pnpm -r build` 通过
+  - [x] 现状实证保持成立：`repo-fix.ts` 的 `progress.verificationPassed = verifyActions.every((a) => a.success)` 原判定保留（新增并行口径 `verificationBlocking`，不替换）；`DEFAULT_VERIFY_COMMANDS` 仍为唯一事实源（新模块 `verify-project.ts` 从 `verification-runner` 导入，未复制副本）
 - **不做什么**：不改单命令超时；不引入 CI 等价全量（coverage / e2e）；不在本条目内做目标仓库 CI 状态查询。
 - **依赖**：M29.3（触发实证：test 纳入默认链后暴露该限制）；`verification-gate.ts`（回滚判定）。
-- **交付物**：方案敲定后 1-3 atomic commits（`feat(engine)` 基线判定 + 报告口径 + 单测；含 `verification-runner.ts:93` 陈旧注释指针修正）。
+- **交付物**：**4 atomic commits**（`feat(core)` 报告归因字段与标注；`refactor(engine)` 验证链拆分独立模块；`feat(engine)` 基线判定 + 门禁归因 + 测试；`docs` 口径同步与闭环登记）。**粒度说明**：实交付 16 文件（engine 13 + core 3 + docs 2，含新增 `verify-project.ts`），触 [AI 协作规范 §1.4](../standards/ai-collaboration.md) 单次提交 10 文件上限 → 按职责拆分，且顺序保证每个提交独立可验证（core 类型先落地 → 纯拆分 → 能力接线 → 文档）。
 - **风险与缓解**：懒基线需在修复后回跑 pristine 状态，涉及工作区切换（`git stash` / 临时 worktree），实现复杂且易引入新的状态污染；缓解：优先评估「命令级基线 + 修复前一次性采样」的简单形态，避免修复后回跑。
+- **闭环实证**（2026-10-01）：4 commits —— `feat(core)` 报告字段与标注 + `refactor(engine)` 拆分 `verify-project.ts`（helpers 因新增代码超 max-lines 上限而拆分，**非**放宽阈值）+ `feat(engine)` 命令级基线判定与门禁归因 + `docs` 口径同步。**取证**：构建产物无关（纯逻辑）；门禁全套通过（见验收标准第 3 条）；集成测试用计数器脚本稳定构造「基线绿 + 修复后红」，并新增「长期红 lint → 既有失败不阻断」用例。**A 阶段审计**：2 分区并发（engine 实现面 / core 报告与文档面）——分区 A 第 1 轮 **Reject**（RG-B01：新增注释与测试名含孤立规划编号；RG-W01：基线外联违规被静默丢弃；RG-W02：双口径未覆盖退出码/平台状态且未文档化）→ 全部收口后第 2 轮 Pass；分区 B 第 1 轮 Pass（W1 报告模块文档未同步 / W2 JSDoc 语义偏差 / W3 缺反向断言 / S1 措辞）→ 第 2 轮 Pass（W4 §2.5 接口未补字段）→ 第 3 轮 Pass。记录 `artifacts/review-gate/2026-10-01-m34.6-pre-existing-baseline-par{A,B}.md`（gitignored）。**已披露边界**：命令级归因无法区分失败身份；基线采样使每次修复运行最多多跑一次验证链（含 pristine 安装副作用）；退出码 / 平台 run 状态口径未变；跨线升级保留严格口径。
 
 #### M34.7 [P3 🛡️ 技术债] 表单字段堆叠口径复用化（mixin 抽取 + 弹窗侧遗漏补齐 + 口径单点声明）
 

@@ -220,7 +220,7 @@ flowchart TD
 | 框架 | Nuxt 4（全栈 SSR + API Routes） | momei |
 | 语言 | TypeScript（strict mode） | — |
 | 包管理 | pnpm（workspace monorepo） | momei |
-| UI 组件 | PrimeVue 4（基于 @primeuix/themes） | momei |
+| UI 组件 | caomei-ui（自建；M31 完成 PrimeVue 4 迁移并卸载其依赖） | — |
 | 样式方案 | SCSS + BEM，暗色模式通过 `.dark` 类切换 | momei |
 | 国际化 | @nuxtjs/i18n（prefix_and_default 策略） | momei |
 | 认证 | better-auth（邮箱 + 第三方登录） | momei |
@@ -333,7 +333,7 @@ packages/core (@dependfix/core)
 ### 前端
 
 - Vue 3 Composition API + `<script setup lang="ts">`
-- PrimeVue 4 + 自定义主题（暗色模式支持）
+- caomei-ui + 自定义主题（暗色模式支持）
 - SCSS + BEM 命名规范
 - 移动端做适当响应式优化，但不是首要目标
 
@@ -359,7 +359,7 @@ packages/core (@dependfix/core)
 ### 暗色模式
 
 - 通过 `<html>` 上的 `.dark` CSS class 切换
-- PrimeVue 主题引擎通过 `darkModeSelector: '.dark'` 适配
+- caomei-ui 主题按 `caomeiUI.darkMode: 'class'` 跟随 `<html>` 上的 `.dark` 切换
 - SCSS 使用 `:global(.dark) .selector` 覆盖样式
 - 跟随系统偏好 + 用户手动切换
 

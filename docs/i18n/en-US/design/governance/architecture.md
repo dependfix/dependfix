@@ -105,11 +105,11 @@ Four execution modes form a progressive chain (each mode is a refinement of the 
 
 ### Stack
 
-- **Frontend**: Nuxt 4 + Vue 3 + PrimeVue 4 + Pinia + Vite
+- **Frontend**: Nuxt 4 + Vue 3 + caomei-ui + Pinia + Vite
 - **Backend**: Nuxt server routes (h3) + TypeORM + better-sqlite3
 - **Auth**: better-auth (email password + GitHub OAuth + Google OAuth + genericOAuth/OIDC SSO)
 - **State management**: Pinia (Nuxt auto-import)
-- **UI components**: PrimeVue 4 DataTable / Select / Dialog / ToggleSwitch / Tag / Card / Message
+- **UI components**: caomei-ui DataTable / Select / Dialog / Switch / Tag / Card / Message
 
 ### Module layering
 

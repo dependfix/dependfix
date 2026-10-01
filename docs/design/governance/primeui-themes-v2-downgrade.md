@@ -2,7 +2,13 @@
 
 > 本文档为 **apps/platform（Nuxt 管理平台）的 `@primeuix/themes` 3.x → 2.x 降级方案**专项设计先行稿。PrimeVue 4.x 框架本身仍为 MIT（`Copyright (c) 2018-2025 PrimeTek`），但其配套主题库 `@primeuix/themes@3.x` 采用 **PrimeUI 商业 License**（社区免费版有年收入 / 规模限制且强制 license key）；降级到 `@primeuix/themes@2.x`（MIT）可彻底消除商业 license 风险。
 >
-> **状态**：设计先行稿，未进入阶段实施面（挂载到 [backlog.md 短期/一次性候选任务](../../plan/backlog.md)）。
+> **状态**：✅ 已实施并退役（M25.1 完成 `@primeuix/themes` 3.x → 2.x 的 MIT 降级；M31.5 全链卸载 PrimeVue 后本方案不再有载体）。
+>
+> **实施结果（2026-10-01 回填；不改动下文历史正文）**：
+>
+> - **方案已按 §4.1 落地**：`apps/platform/package.json` 的 `@primeuix/themes` 由 `^3.0.0` 改为 `^2.0.3`（commit `35e4935`），并同步 lock 与 [平台规范 §3.7](../../standards/platform.md) 的版本号 / 协议 / 降级记录（commit `4c51d19`）→ M25.1 已闭环归档（[todo-archive.md §M25](../../plan/todo-archive.md#m25-primeui-license-治理--平台-ai-研判集成--lint-baseline-治理--m24-follow-up-工具化m251m252am253m254-全部已闭环--2026-09-08-归档)）。
+> - **后续演进改变了本方案前提**：M31 完成 PrimeVue 4 → caomei-ui 的组件库迁移，M31.5（commit `406fd1f`）卸载全部 5 个 PrimeVue 依赖并收敛配置 → **PrimeVue / `@primeuix` / `primeicons` 全链已由 caomei-ui 替代**（当前 `apps/platform/package.json` 与 lock 中已无相关依赖），本文档作为「降级方案」的载体随之退役。
+> - 迁移背景、分批计划与实证见 [apps/platform UI 组件库迁移评估（PrimeVue → caomei-ui）](./caomei-ui-migration.md)。
 
 ## 1. 背景与目标
 
@@ -266,5 +272,5 @@ $ pnpm licenses list --prod --json | jq '.["Unknown"] | length'
 
 - **设计先行稿创建时间**：2026-09-08
 - **触发**：用户调研"apps/platform/node_modules/@primeuix/themes/LICENSE.md 存在 PrimeUI License 风险问题，评估回滚版本还是迁移到其他 UI 库"
-- **关联阶段**：未上收（仅挂 backlog）；候选阶段待用户决策（阶段编号由用户分配）
+- **关联阶段**：M25.1 实施并闭环归档（2026-09-08）；M31.5 卸载全部 PrimeVue 依赖后载体退役（2026-09-29）
 - **审计依据**：本文档作为 P0 落地的设计依据，未走 A 阶段 audit（与 design docs 治理惯例一致）

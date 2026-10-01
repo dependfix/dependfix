@@ -7,12 +7,17 @@ import { toErrorMessage, type RepositoryResult } from '@dependfix/core'
 import type { AppContext } from '../app/helpers'
 
 /**
- * 返回验证失败的仓库列表（`verificationPassed === false`）。
- * 验证门禁：修复（提交/PR）前检查，任一仓库验证失败则不应交付改动。
+ * 返回需要阻断交付（回滚）的仓库列表。
+ *
+ * 判定口径（既有失败基线）：
+ * - 优先用 `verificationBlocking`（**本次改动引入**的验证失败）：既有基线失败（目标仓库
+ *   修复前即为红，如长期失败的测试套件）不归因本次改动，因此不阻断交付
+ * - `verificationBlocking` 未提供（旧数据 / 非本版本产物）时回退 `verificationPassed === false`
+ *   ——保持既有语义，避免调用方漏传字段时静默放过
  */
 export function findVerificationFailedRepos(repoResults: RepositoryResult[]): string[] {
     return repoResults
-        .filter((r) => r.verificationPassed === false)
+        .filter((r) => (r.verificationBlocking ?? (r.verificationPassed === false)))
         .map((r) => r.repository)
 }
 
@@ -36,6 +41,8 @@ export function rollbackChanges(workDir: string): void {
  * - 回滚失败（如非 git 仓库）追加 `ROLLBACK_FAILED`，不掩盖审计记录
  * - 运行前已存在用户未提交改动时**不自动回滚**（避免静默销毁本地工作），
  *   仅 warn 提示手动处理
+ * - 判定用 `verificationBlocking`（本次改动引入的失败）；修复前即红的既有失败
+ *   （`PRE_EXISTING_FAILURE`）不阻断交付
  * - 注意：验证的是"修复后工作区"而非"修复增量"；多仓库共享 workDir 时，
  *   任一仓库失败会全量回滚（归因局限见 todo.md G3）
  */

@@ -29,6 +29,7 @@ import {
     type MemberManifestAlert,
 } from '../helpers'
 import { buildUpgradeGroups } from '../grouping'
+import type { CommandResult } from '../runners/verification-runner'
 import { handleOverrideProtection } from './override-protect'
 import {
     buildVersionedOverrides,
@@ -38,7 +39,7 @@ import {
     upgradeAlert,
     type AppContext,
 } from './helpers'
-import { verifyProject } from './verify-project'
+import { sampleVerificationBaseline, verifyProject } from './verify-project'
 import { fetchDefaultBranch, fetchRepoAlerts, truncatedWarning } from './repo-alerts'
 import { codeScanningAlertsTokenHint, dependabotAlertsTokenHint } from './token-hints'
 
@@ -58,6 +59,8 @@ interface RepoFixProgress {
     failed: number
     lockfileRepaired: boolean
     verificationPassed: boolean | undefined
+    /** 是否存在本次改动引入的验证失败（决定交付回滚；见 RepositoryResult.verificationBlocking） */
+    verificationBlocking: boolean | undefined
     defaultBranch: string
 }
 
@@ -69,6 +72,36 @@ export interface AiUsageRef {
 /** 修复管线上下文 = AppContext + AI 用量引用（避免步骤函数参数超限）。 */
 export interface RepoFixCtx extends AppContext {
     aiUsageRef: AiUsageRef
+    /**
+     * 运行级「修复前验证基线」持有器（由 index.ts 在运行开始时创建，跨仓库复用同一对象）。
+     *
+     * - 首次需要时惰性采样一次（修复前 pristine 工作区）
+     * - 多仓库共享同一 workDir（就地修复）时沿用首采结果——与既有 `preExistingDirty`
+     *   的运行级语义一致；多仓库场景的粒度局限同 `verification-gate.ts` 所述（todo.md G3）
+     * - 未提供（如测试直接构造 ctx）⇒ 不采样，退回原始「全量归因」口径
+     */
+    verificationBaseline?: { value?: CommandResult[] }
+}
+
+/**
+ * 惰性取得本次运行修复前的验证基线（每运行一次）。
+ * dry-run 不做验证，因此也不需要基线。
+ */
+async function ensureVerificationBaseline(
+    ctx: RepoFixCtx,
+    repo: string,
+): Promise<void> {
+    if (ctx.config.dryRun || !ctx.verificationBaseline) {
+        return
+    }
+    if (!ctx.verificationBaseline.value) {
+        ctx.verificationBaseline.value = await sampleVerificationBaseline(ctx, repo)
+    }
+}
+
+/** 读取本次运行的修复前基线（未采样 / 采样失败时为 undefined ⇒ 全量归因）。 */
+function currentBaseline(ctx: RepoFixCtx): CommandResult[] | undefined {
+    return ctx.verificationBaseline?.value
 }
 
 /** lockfile 依赖告警分区产物（供 lockfile / 成员 / 常规升级步骤共用）。 */
@@ -97,10 +130,13 @@ export async function processRepoFix(
         failed: 0,
         lockfileRepaired: false,
         verificationPassed: undefined,
+        verificationBlocking: undefined,
         defaultBranch: '',
     }
 
     try {
+        // 修复前一次性采样验证基线（在任何改动之前；用于区分「本次引入」与「既有」失败）
+        await ensureVerificationBaseline(ctx, repo)
         const sets = await prepareRepoFix(ctx, client, repo, progress)
         const { singleVersionAlerts } = await applyLockfileFixes(ctx, client, repo, sets, progress)
         await applyMemberUpgrades(ctx, repo, sets, progress)
@@ -127,6 +163,7 @@ export async function processRepoFix(
         failed: progress.failed,
         lockfileRepaired: progress.lockfileRepaired,
         verificationPassed: progress.verificationPassed,
+        verificationBlocking: progress.verificationBlocking,
         durationMs: Date.now() - startTime,
     })
 }
@@ -416,6 +453,9 @@ async function applyLockfileFixes(
             )
             continue
         }
+        // 跨线升级保留**严格**口径（不套用基线归因）：命令级基线只能区分「同一命令红 / 绿」，
+        // 无法区分失败身份（红的还是原来那条失败），不足以支撑「跨 major 升级可保留」的判断。
+        // 基线归因仅用于最终交付门禁（finalizeRepoFix）。
         const majorVerifyActions = await verifyProject(ctx, repo)
         ctx.allActions.push(...majorVerifyActions)
         let majorOk = majorVerifyActions.every((a) => a.success)
@@ -781,11 +821,15 @@ async function finalizeRepoFix(
     }
 
     if (!ctx.config.dryRun) {
-        const verifyActions = await verifyProject(ctx, repo)
+        const verifyActions = await verifyProject(ctx, repo, { baseline: currentBaseline(ctx) })
         ctx.allActions.push(...verifyActions)
+        // 原始口径：修复后链路是否全绿（报告与「成功交付」启发式沿用）
         progress.verificationPassed = verifyActions.every((a) => a.success)
+        // 归因口径：是否存在**本次引入**的失败（门禁据此回滚；既有失败不归因）
+        progress.verificationBlocking = verifyActions.some((a) => !a.success && !a.preExisting)
     } else {
         ctx.logger.info(`[dry-run] Skipping verification for ${repo}`)
         progress.verificationPassed = undefined
+        progress.verificationBlocking = undefined
     }
 }

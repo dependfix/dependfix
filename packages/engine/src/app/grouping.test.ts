@@ -182,6 +182,7 @@ describe('DependfixApp group upgrade', () => {
     it('upgrades a group together with a single group verification (N verifications → G)', async () => {
         nockAlerts([alertJson('a-pkg', 1), alertJson('b-pkg', 2)])
         mockRunVerification
+            .mockImplementationOnce(() => Promise.resolve(verificationResult(true))) // 修复前基线采样（pristine 绿）
             .mockImplementationOnce(() => Promise.resolve(verificationResult(true))) // 组级验证
             .mockImplementationOnce(() => Promise.resolve(verificationResult(true))) // 最终 verifyProject
 
@@ -190,7 +191,7 @@ describe('DependfixApp group upgrade', () => {
         expect(exitCode).toBe(0)
         expect(result.repositories[0].fixed).toBe(2)
         // 一次组级验证 + 一次最终验证，而不是逐包 2 次 + 最终 1 次
-        expect(mockRunVerification).toHaveBeenCalledTimes(2)
+        expect(mockRunVerification).toHaveBeenCalledTimes(3)
         const upgrades = result.actions.filter((a) => a.type === 'dependency-upgrade')
         expect(upgrades).toHaveLength(2)
         expect(upgrades.every((a) => a.success)).toBe(true)
@@ -199,6 +200,7 @@ describe('DependfixApp group upgrade', () => {
     it('rolls back the whole group and retries per-package when group verification fails', async () => {
         nockAlerts([alertJson('a-pkg', 1), alertJson('b-pkg', 2)])
         mockRunVerification
+            .mockImplementationOnce(() => Promise.resolve(verificationResult(true))) // 修复前基线采样（pristine 绿）
             .mockImplementationOnce(() => Promise.resolve(verificationResult(false))) // 组级验证失败
             .mockImplementationOnce(() => Promise.resolve(verificationResult(true))) // 拆组 a-pkg 单独通过
             .mockImplementationOnce(() => Promise.resolve(verificationResult(false))) // 拆组 b-pkg 单独失败
@@ -209,7 +211,7 @@ describe('DependfixApp group upgrade', () => {
         expect(exitCode).toBe(1)
         expect(result.repositories[0].fixed).toBe(1)
         expect(result.repositories[0].failed).toBe(1)
-        expect(mockRunVerification).toHaveBeenCalledTimes(4)
+        expect(mockRunVerification).toHaveBeenCalledTimes(5)
 
         const upgrades = result.actions.filter((a) => a.type === 'dependency-upgrade')
         expect(upgrades).toHaveLength(2)
@@ -223,6 +225,7 @@ describe('DependfixApp group upgrade', () => {
     it('keeps per-package verification behavior without grouping config (backward compatible)', async () => {
         nockAlerts([alertJson('a-pkg', 1), alertJson('b-pkg', 2)])
         mockRunVerification
+            .mockImplementationOnce(() => Promise.resolve(verificationResult(true))) // 修复前基线采样（pristine 绿）
             .mockImplementationOnce(() => Promise.resolve(verificationResult(true))) // 组 a-pkg
             .mockImplementationOnce(() => Promise.resolve(verificationResult(true))) // 组 b-pkg
             .mockImplementationOnce(() => Promise.resolve(verificationResult(true))) // 最终 verifyProject
@@ -232,12 +235,13 @@ describe('DependfixApp group upgrade', () => {
         expect(exitCode).toBe(0)
         expect(result.repositories[0].fixed).toBe(2)
         // 无分组配置 → 单包组逐包验证（2 次）+ 最终 1 次
-        expect(mockRunVerification).toHaveBeenCalledTimes(3)
+        expect(mockRunVerification).toHaveBeenCalledTimes(4)
     })
 
     it('isolates group rollback: failing group does not affect successful group', async () => {
         nockAlerts([alertJson('a-pkg', 1), alertJson('b-pkg', 2), alertJson('c-pkg', 3)])
         mockRunVerification
+            .mockImplementationOnce(() => Promise.resolve(verificationResult(true))) // 修复前基线采样（pristine 绿）
             .mockImplementationOnce(() => Promise.resolve(verificationResult(true))) // 组1（a-pkg, b-pkg）通过
             .mockImplementationOnce(() => Promise.resolve(verificationResult(false))) // 组2（c-pkg）失败
             .mockImplementationOnce(() => Promise.resolve(verificationResult(true))) // 拆组 c-pkg 单独通过
@@ -260,7 +264,7 @@ describe('DependfixApp group upgrade', () => {
 
         expect(exitCode).toBe(0)
         expect(result.repositories[0].fixed).toBe(3)
-        expect(mockRunVerification).toHaveBeenCalledTimes(4)
+        expect(mockRunVerification).toHaveBeenCalledTimes(5)
         // 组2 拆组后 c-pkg 单独通过 → 所有包最终都成功
         const upgrades = result.actions.filter((a) => a.type === 'dependency-upgrade')
         expect(upgrades).toHaveLength(3)
@@ -300,6 +304,7 @@ describe('DependfixApp group upgrade', () => {
         nockAlerts([alertJson('a-pkg', 1), alertJson('b-pkg', 2)])
         // 组级验证失败 → 拆组：a-pkg 升级成功（验证通过）、b-pkg 升级本身失败
         mockRunVerification
+            .mockImplementationOnce(() => Promise.resolve(verificationResult(true))) // 修复前基线采样（pristine 绿）
             .mockImplementationOnce(() => Promise.resolve(verificationResult(false))) // 组级验证失败
             .mockImplementationOnce(() => Promise.resolve(verificationResult(true))) // 拆组 a-pkg 验证
             .mockImplementationOnce(() => Promise.resolve(verificationResult(true))) // 最终 verifyProject
@@ -315,7 +320,7 @@ describe('DependfixApp group upgrade', () => {
         expect(exitCode).toBe(1)
         expect(result.repositories[0].fixed).toBe(1)
         expect(result.repositories[0].failed).toBe(1)
-        expect(mockRunVerification).toHaveBeenCalledTimes(3)
+        expect(mockRunVerification).toHaveBeenCalledTimes(4)
 
         const upgrades = result.actions.filter((a) => a.type === 'dependency-upgrade')
         const bPkg = upgrades.find((a) => a.target === 'b-pkg')
@@ -349,6 +354,7 @@ describe('DependfixApp group upgrade', () => {
 
         nockAlerts([viteAlert, fastUriAlert])
         mockRunVerification
+            .mockImplementationOnce(() => Promise.resolve(verificationResult(true))) // 修复前基线采样（pristine 绿）
             .mockImplementationOnce(() => Promise.resolve(verificationResult(true))) // fast-uri 组级验证
             .mockImplementationOnce(() => Promise.resolve(verificationResult(true))) // 最终 verifyProject
 

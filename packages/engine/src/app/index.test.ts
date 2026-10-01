@@ -260,8 +260,20 @@ describe('DependfixApp verification gate', () => {
         execSync('git init -q', { cwd: workDir })
         execSync('git config user.name test', { cwd: workDir })
         execSync('git config user.email test@test', { cwd: workDir })
-        // 带会失败的 lint 脚本的仓库（验证命令使用自定义命令链，快速失败）
-        writeFileSync(join(workDir, 'package.json'), JSON.stringify({ scripts: { lint: 'exit 1' } }))
+        // 构造「基线绿 + 修复后红」的归因场景（既有失败基线判定）：
+        // lint 由计数器脚本承载——第 1 次调用（修复前基线采样）绿、第 2 次（修复后验证）红。
+        // 用独立 .cjs 文件而非 npm script 内嵌引号，避免不同 shell 下的转义差异。
+        writeFileSync(join(workDir, 'lint-check.cjs'), [
+            'const { existsSync, readFileSync, writeFileSync } = require(\'node:fs\')',
+            'const counter = \'lint-check-count\'',
+            'const count = existsSync(counter) ? Number(readFileSync(counter, \'utf8\')) : 0',
+            'writeFileSync(counter, String(count + 1))',
+            'process.exit(count >= 1 ? 1 : 0)',
+            '',
+        ].join('\n'))
+        writeFileSync(join(workDir, 'package.json'), JSON.stringify({
+            scripts: { lint: 'node lint-check.cjs' },
+        }))
         execSync('git add . && git commit -qm init', { cwd: workDir })
     })
 
@@ -291,7 +303,9 @@ describe('DependfixApp verification gate', () => {
             },
         })
 
-        const app = new DependfixApp({ config, workDir, reportOutputDir: join(workDir, 'reports') })
+        const app = new DependfixApp({
+            config, workDir, reportOutputDir: join(workDir, 'reports'), commands: ['pnpm lint'],
+        })
         const { exitCode, result } = await app.run()
 
         expect(exitCode).toBe(2)
@@ -299,6 +313,43 @@ describe('DependfixApp verification gate', () => {
         // 已跟踪文件已回滚（untracked 的 pnpm-lock.yaml / node_modules 是运行产物，保留为预期行为）
         expect(execSync('git status --porcelain --untracked-files=no', { cwd: workDir, encoding: 'utf-8' }).trim()).toBe('')
     }, 30_000) // 含真实 git init/回滚 + 验证子进程：Windows 并行负载下放宽超时
+
+    it('修复前即红的命令（既有失败）→ 记 PRE_EXISTING_FAILURE，不触发门禁回滚', async () => {
+        nock('https://api.github.com')
+            .get('/repos/foo/bar/dependabot/alerts')
+            .query({ state: 'open', per_page: '100' })
+            .reply(200, [])
+        nock('https://api.github.com')
+            .get('/repos/foo/bar')
+            .reply(200, { default_branch: 'master' })
+        // 目标仓库 lint 长期为红：基线采样与修复后验证都会失败 → 归为既有失败，不归因本次改动
+        writeFileSync(join(workDir, 'package.json'), JSON.stringify({ scripts: { lint: 'exit 1' } }))
+        execSync('git add . && git commit -qm init', { cwd: workDir })
+
+        const config = resolveRuntimeConfig({
+            env: {
+                GITHUB_TOKEN: 'token',
+                DEPENDFIX_MODE: 'fix',
+                DEPENDFIX_REPOSITORIES: 'foo/bar',
+                DEPENDFIX_COMMIT: 'true',
+            },
+            cliOverrides: {
+                commands: ['pnpm lint'],
+            },
+        })
+
+        const app = new DependfixApp({
+            config, workDir, reportOutputDir: join(workDir, 'reports'), commands: ['pnpm lint'],
+        })
+        const { result } = await app.run()
+
+        // 既有失败单列；门禁未阻断（不记 VERIFICATION_FAILED、不回滚）
+        expect(result.errors.some((e) => e.category === 'PRE_EXISTING_FAILURE')).toBe(true)
+        expect(result.errors.some((e) => e.category === 'VERIFICATION_FAILED')).toBe(false)
+        // 两个口径分工：链路未全绿（passed=false）但没有本次引入的失败（blocking=false）
+        expect(result.repositories[0]?.verificationPassed).toBe(false)
+        expect(result.repositories[0]?.verificationBlocking).toBe(false)
+    }, 30_000)
 })
 
 // ---------------------------------------------------------------------------

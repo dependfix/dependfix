@@ -394,10 +394,10 @@ describe('DependfixApp cross-major upgrade (--allow-major-upgrade)', () => {
         const { result } = await runApp({ cliOverrides: { allowMajorUpgrade: true } })
 
         // 残留脆弱实例 → 回滚 + failed；跨线链路未执行完整验证
-        // （仅最终 repo 级 verifyProject 跑一次，2.0.2 未触发验证）
+        // （仅修复前基线采样 + 最终 repo 级 verifyProject 各一次，2.0.2 未触发验证）
         expect(result.summary.alertsFailed).toBe(1)
         expect(result.summary.alertsFixed).toBe(0)
-        expect(mockRunVerification).toHaveBeenCalledTimes(1)
+        expect(mockRunVerification).toHaveBeenCalledTimes(2)
         const majorActions = result.actions.filter((a) => a.strategy === 'major-upgrade')
         expect(majorActions).toHaveLength(1)
         expect(majorActions[0].success).toBe(false)

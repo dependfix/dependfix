@@ -25,6 +25,25 @@ describe('findVerificationFailedRepos', () => {
             { repository: 'foo/c', verificationPassed: false } as never,
         ])).toEqual(['foo/b', 'foo/c'])
     })
+
+    it('verificationBlocking=false（链路未全绿但仅既有失败）→ 不阻断交付', () => {
+        expect(findVerificationFailedRepos([
+            { repository: 'foo/a', verificationPassed: false, verificationBlocking: false } as never,
+        ])).toEqual([])
+    })
+
+    it('verificationBlocking=true（存在本次引入的失败）→ 阻断交付，与 verificationPassed 无关', () => {
+        expect(findVerificationFailedRepos([
+            { repository: 'foo/a', verificationPassed: true, verificationBlocking: true } as never,
+        ])).toEqual(['foo/a'])
+    })
+
+    it('未提供 verificationBlocking（旧数据）→ 回退 verificationPassed === false', () => {
+        expect(findVerificationFailedRepos([
+            { repository: 'foo/a', verificationPassed: false, verificationBlocking: undefined } as never,
+            { repository: 'foo/b', verificationPassed: undefined, verificationBlocking: undefined } as never,
+        ])).toEqual(['foo/a'])
+    })
 })
 
 // ---------------------------------------------------------------------------

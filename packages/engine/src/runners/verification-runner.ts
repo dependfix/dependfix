@@ -89,8 +89,9 @@ export const DEFAULT_VERIFY_COMMANDS = [
 
 /**
  * 单命令超时（10 分钟）：与纳入 test 前保持一致，不因命令数增加而调整。
- * 注意：test 通常是链中最慢一步，大型测试套件超 10 分钟会被判超时 → verification 失败 → 交付回滚
- * （该路径已登记 backlog C83）。
+ * 注意：test 通常是链中最慢一步，大型测试套件超 10 分钟会被判超时 → 该命令计为失败。
+ * 修复前即红的既有失败不归因本次改动（命令级基线判定，见 `sampleVerificationBaseline`），
+ * 但超时本身仍按失败记录（不作独立超时豁免）。
  */
 const DEFAULT_COMMAND_TIMEOUT_MS = 10 * 60 * 1000
 

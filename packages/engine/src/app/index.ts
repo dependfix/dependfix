@@ -44,6 +44,7 @@ import type { RuntimeConfig } from '../config'
 import { enforceVerificationGate } from '../runners/verification-gate'
 import { collectSupplyChainWarnings } from '../supply-chain'
 import { loadRulesConfigFromEnv, resetActiveRulesConfig, setActiveRulesConfig } from '../code-scanning/rule-config'
+import type { CommandResult } from '../runners/verification-runner'
 import { fetchRepoAlerts, fetchDefaultBranch, truncatedWarning } from './repo-alerts'
 import { processRepoFix, type AiUsageRef } from './repo-fix'
 import { applyRepoConfig } from './repo-config'
@@ -189,6 +190,11 @@ export class DependfixApp {
     private finishedAt: string = ''
     /** 运行前工作区是否已有未提交改动（验证门禁回滚保护：避免销毁用户本地工作） */
     private preExistingDirty = false
+    /**
+     * 运行级「修复前验证基线」持有器（跨仓库复用；首次修复前惰性采样）。
+     * 惰性而非启动即采样：无需修复的仓库不额外付出一次完整验证链开销。
+     */
+    private verificationBaseline: { value?: CommandResult[] } = {}
 
     constructor(options: DependfixAppOptions) {
         this.workDir = options.workDir ?? process.cwd()
@@ -481,7 +487,11 @@ export class DependfixApp {
     }
 
     private async processRepoForFix(client: Octokit | null, repo: string): Promise<void> {
-        await processRepoFix({ ...this.ctx, aiUsageRef: this.aiUsageRef }, client, repo)
+        await processRepoFix(
+            { ...this.ctx, aiUsageRef: this.aiUsageRef, verificationBaseline: this.verificationBaseline },
+            client,
+            repo,
+        )
     }
 
     // -----------------------------------------------------------------------

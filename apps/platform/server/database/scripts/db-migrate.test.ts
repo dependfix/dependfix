@@ -73,7 +73,7 @@ describe('db-migrate CLI', () => {
 
     const dbPath = (): string => join(dir, 'test.sqlite')
 
-    const makeFactory = (migrations: Array<new () => MigrationInterface>): (() => DataSource) => () => new DataSource({
+    const makeFactory = (migrations: (new () => MigrationInterface)[]): (() => DataSource) => () => new DataSource({
         type: 'better-sqlite3',
         database: dbPath(),
         driver: betterSqlite3,

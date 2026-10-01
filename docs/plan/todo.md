@@ -77,17 +77,18 @@
 - **优先级**：P3（非阻塞；属检测能力与治理流程建设）。
 - **范围**：`apps/platform/playwright.visual.config.ts`（`threshold` / `maxDiffPixels` 口径，必要时引入第二度量）+ `apps/platform/tests/visual/**`（新增弹窗 / 浮层用例 + 基线快照）+ 既有基线复核 + `docs/standards/testing.md §6.7`（口径同步 + 容差盲区）+ 上游问题归因与上报流程的权威落点（初判 `docs/standards/testing.md` 或 `docs/standards/platform.md`，按 [documentation.md §4 单点声明](../standards/documentation.md) 取一处）+ `.github/ISSUE_TEMPLATE/*`（仅在需新增 / 对齐模板时）。
 - **验收标准**：
-  - [ ] **灵敏度复现**：错误基线（`tone="neutral"` 按钮 `#52525b` → `#0f766e`）在当前口径下 `test:visual` 仍**通过**（实测 5678 个差异像素 / 0 个超阈）→ 方案落地后同一错误基线用例**失败**（阈值下调或引入第二度量，如主色直方图断言）
-  - [ ] 干净基线在方案落地后仍全绿（既有基线 + 新增用例）且连跑两遍不漂移
-  - [ ] 弹窗内 Select 展开态 ≥ 1 条视觉用例（与 M34.2 配合锁定层级 / 裁剪防复发），弹出层与动态区域的截图口径（`data-visual-mask` 用法）在用例注释中写明
-  - [ ] 「上游组件问题归因与 issue 上报流程」写入权威文档：含判定清单（能否脱离 dependfix 代码用最小复现 / 官方示例是否复现 / 版本与 prop 是否越界使用）+ 上报路径（目标仓库 `.github/ISSUE_TEMPLATE` 模板优先，缺失时用其通用 bug 结构）+ 模板内容要素（环境版本 / 最小复现 / 期望与实际 / 截图）
-  - [ ] 口径变更同步 `testing.md §6.7`，写明「抗噪 ↔ 灵敏度」取舍
-  - [ ] `pnpm lint` + `lint:css:check` + `pnpm typecheck` + `pnpm --filter @dependfix/platform test:visual`（连跑两遍）通过
-  - [ ] 复现命令：修改任一按钮色板后 `pnpm --filter @dependfix/platform test:visual`，对比 `threshold: 0.2` 下是否变红
+  - [x] **灵敏度复现**：错误基线（实底 neutral 按钮计算样式实测 `#52525b` → 注入 `#0f766e`）在旧口径（0.2 / 200）下 `test:visual` **通过**（自测 6407–6412 差异像素 / 0 超阈；规划期记的 5678 为 M33.9 在另一采样面所得）→ 口径收紧后同一错误基线用例**失败**（5935 超阈）；第二条盲区轴（开关拇指 164 px × 高色差）同批由「通过」翻为「失败」。**注**：改用「降阈值」而非「第二度量」——Playwright 透传 pixelmatch `includeAA: false`，AA 像素不参与计数，故降阈值不放大抖动（见 §6.7「抗噪 ↔ 灵敏度取舍」）
+  - [x] 干净基线在方案落地后仍全绿（既有基线 + 新增用例）且连跑两遍不漂移（11 passed ×2；既有 9 张基线零改写）
+  - [x] 弹窗内 Select 展开态 ≥ 1 条视觉用例（与 M34.2 配合锁定层级 / 裁剪防复发）：实交 2 例（light / dark），门户面板不在弹窗子树内故用**视口级**截图同时覆盖弹窗 + 遮罩 + 面板；截图口径（`data-visual-mask` + `dynamicMask` 选择器、本用例遮蔽为空集）已写入用例注释；另加「面板有选项且非弹窗后代」防假绿断言
+  - [x] 「上游组件问题归因与 issue 上报流程」写入权威文档：落点 **`docs/standards/platform.md §7.5`**（含 5 步：归因判定清单三条 / 取证 / 上报路径（模板优先、缺模板用通用 bug 结构、不因缺模板放弃）/ 模板要素（环境版本 / 最小复现 / 期望与实际 / 截图）/ 本仓侧处置），`testing.md §6.7` 仅留一行指针（遵守规范单点声明）
+  - [x] 口径变更同步 `testing.md §6.7`：`threshold` 0.1 + `maxDiffPixels` 100，两条盲区轴各自的灵敏度边界、「抗噪 ↔ 灵敏度取舍」（AA 排除机制 + 对照组零差异反证 + 需观察真实 CI run）与残留边界（面积 < 100 px）均已写明
+  - [x] `pnpm lint` + `lint:css:check` + `pnpm typecheck` + `pnpm --filter @dependfix/platform test:visual`（连跑两遍）通过；另补 `check:docs` / `lint:md:check` / `docs:check:i18n` / 平台非 `--fix` eslint / 视觉基线变异检验
+  - [x] 复现命令：`page.addStyleTag` 注入按钮色板改动（`.caomei-button--tone-neutral:not(.caomei-button--ghost)`，必须排除幽灵变体——其底色透明，强制实底会制造高色差假信号）后 `pnpm --filter @dependfix/platform test:visual`：`threshold: 0.2` 通过、0.1 失败；取证脚手架跑完即删（结果见下方闭环实证）
 - **不做什么**：不改动态区域策略（`data-visual-mask` 保持现状）；不重做基线体系；不覆盖其它断言语义；不在 dependfix 侧为上游缺陷做兜底封装（本条目只负责检测 + 归因 + 上报）。
 - **依赖**：M33.9 验证期实证（测量方 = M33.9 执行角色 + A 阶段审计独立复算；Playwright `maxDelta = 35215 × threshold² = 1409`；pixelmatch colorDelta `#52525b↔#0f766e` ≈ 1083.6、`#0d9488↔#0f766e` ≈ 308.8，均低于阈值）；M33.2（视觉 CI job 已转阻断 → 口径调整须保证稳定性，避免误红阻断无关 PR）；M34.2（上游问题归因流程的首个候选案例）。
 - **交付物**：2-3 atomic commits（`test(platform)` 容差 / 度量调整 + 基线复核；`test(platform)` 弹窗组件覆盖 + 新增基线；`docs(standards)` 归因流程 + 口径同步）。**粒度说明**：合并条目预计文件数 > 10（含基线 PNG）、行数可能触 [§1.1](../standards/planning.md#11-硬性约束) 阈值 → 按上列子批次独立提交，每个子批次自带验证点。
 - **风险与缓解**：下调阈值会放大渲染抖动导致偶发红，而视觉 CI 已转阻断（会阻断无关 PR）；缓解：以「连跑两遍不漂移」为落地门槛，必要时保留面积门槛并引入主色直方图断言作为第二信号；口径变更后观察 1-2 次真实 CI run。
+- **闭环实证**（2026-10-01）：3 子批次 —— `test(platform)` 双轴收紧（`threshold` 0.2 → 0.1 / `maxDiffPixels` 200 → 100）+ `test(platform)` 弹窗 Select 展开态基线（light / dark 2 张）+ `docs(standards)` 上游归因流程（platform.md §7.5）与口径同步（testing.md §6.7 / 视觉 README / caomei-ui-migration 前向指针）。**灵敏度取证**（临时脚手架，跑完即删）：色阈值轴 6407–6412 差异像素在旧档 0 超阈、新档 5935 超阈；面积预算轴 164 px 在 200 档通过、100 档失败；未注入对照组在 `maxDiffPixels: 1` 下零差异；新基线经变异检验（面板底色 13085 px / 面板位移 823 px）确认确覆盖门户面板。**A 阶段审计**：按模块分区并发（平台实现面 `standard` / 文档治理面 `deep`）第 1 轮均 Pass（0 blocker），修复点第 2 轮 `quick` 复审均 Pass——记录 `artifacts/review-gate/2026-10-01-m34.3-visual-gate.md`（gitignored）。**遗留**：口径收紧后须观察 1-2 次真实 CI run（视觉 job 已阻断，异常则回退或引入第二度量）；残留盲区 = 影响面积 < 100 px。
 
 #### M34.4 [P3 🎨 用户体验] 非弹窗表单 label↔控件间距统一（4px → 8px）
 

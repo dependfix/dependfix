@@ -25,6 +25,8 @@
     "test:visual:update": "playwright test --config=playwright.visual.config.ts --update-snapshots",
     "db:backfill:dry-run": "tsx server/database/scripts/backfill-scan-result.ts --dry-run",
     "db:backfill": "tsx server/database/scripts/backfill-scan-result.ts --apply",
+    "db:backfill:batch-finished-at:dry-run": "tsx server/database/scripts/backfill-batch-finished-at.ts --dry-run",
+    "db:backfill:batch-finished-at": "tsx server/database/scripts/backfill-batch-finished-at.ts --apply",
     "db:restore": "tsx server/database/scripts/db-restore.ts",
     "db:doctor": "tsx server/database/scripts/db-doctor.ts",
     "db:migrate": "tsx server/database/scripts/db-migrate.ts --apply",

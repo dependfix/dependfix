@@ -3,7 +3,7 @@
 /**
  * backfill-batch-finished-at：一次性数据订正脚本。
  *
- * 背景（详见 docs/plan/todo.md「M35 批量运行终态兜底对账」）：
+ * 背景（详见 docs/plan/todo-archive.md「M35 批量运行终态兜底对账」）：
  * - BatchRun 早期聚合口径把 `finishedAt` 写成「聚合触发时刻」= 用户首次查看详情的时刻
  * - 生产事故实证：4 条 2026-09-04~09-29 的批次 `finished_at` 全为同一时刻（本地 2026-10-02 00:39，
  *   间隔数秒）= 逐行展开动作的时间戳，而非真实完成时间

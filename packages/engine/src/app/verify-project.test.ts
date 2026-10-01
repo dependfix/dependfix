@@ -6,7 +6,9 @@ import { tmpdir } from 'node:os'
 import { execSync } from 'node:child_process'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { enforceVerificationGate } from '../runners/verification-gate'
-import { verifyProject, type AppContext } from './helpers'
+import type { CommandResult } from '../runners/verification-runner'
+import { type AppContext } from './helpers'
+import { sampleVerificationBaseline, verifyProject } from './verify-project'
 
 // ---------------------------------------------------------------------------
 // Mock verification-runner（verifyProject 依赖，避免真实 spawn）
@@ -144,6 +146,141 @@ describe('verifyProject', () => {
             ],
         })
     }
+
+    // -----------------------------------------------------------------------
+    // 既有失败基线判定：修复前即红的命令不归因本次改动
+    // -----------------------------------------------------------------------
+
+    /** 修复前基线采样：install / lint / build 绿、test 红（目标仓库长期红测试套件的典型形态） */
+    function baselineWithTestFailure(): CommandResult[] {
+        return [
+            { command: 'pnpm install --frozen-lockfile', exitCode: 0, durationMs: 1, stdout: '', stderr: '' },
+            { command: 'pnpm lint', exitCode: 0, durationMs: 1, stdout: '', stderr: '' },
+            { command: 'pnpm build', exitCode: 0, durationMs: 1, stdout: '', stderr: '' },
+            { command: 'pnpm test', exitCode: 1, durationMs: 1, stdout: '', stderr: 'pre-existing failure' },
+        ]
+    }
+
+    it('基线红 + 修复后仍红 → 标记 preExisting，不归因本次改动（报告单列 PRE_EXISTING_FAILURE）', async () => {
+        writePkg({ lint: 'eslint .', build: 'tsc', test: 'vitest run' })
+        mockTestFailureAtEnd()
+        const ctx = makeVerifyCtx(undefined)
+        const actions = await verifyProject(ctx, 'foo/bar', { baseline: baselineWithTestFailure() })
+
+        const testAction = actions.find((a) => a.target === 'pnpm test')
+        expect(testAction?.success).toBe(false)
+        expect(testAction?.preExisting).toBe(true)
+        // 归因口径：只有 test 是既有失败，其余三条仍为成功
+        expect(actions.filter((a) => a.success).map((a) => a.target)).toEqual([
+            'pnpm install --frozen-lockfile', 'pnpm lint', 'pnpm build',
+        ])
+        // 报告口径：既有失败单列，不混入「本次引入的失败」
+        expect(ctx.allErrors).toEqual([expect.objectContaining({
+            repository: 'foo/bar', stage: 'verify', category: 'PRE_EXISTING_FAILURE', target: 'pnpm test',
+        })])
+    })
+
+    it('基线绿 + 修复后红 → 归因本次改动（不标记 preExisting，交由门禁回滚）', async () => {
+        writePkg({ lint: 'eslint .', build: 'tsc', test: 'vitest run' })
+        mockTestFailureAtEnd()
+        const baseline = baselineWithTestFailure()
+        baseline[3] = { command: 'pnpm test', exitCode: 0, durationMs: 1, stdout: '', stderr: '' }
+        const ctx = makeVerifyCtx(undefined)
+        const actions = await verifyProject(ctx, 'foo/bar', { baseline })
+
+        const testAction = actions.find((a) => a.target === 'pnpm test')
+        expect(testAction?.success).toBe(false)
+        expect(testAction?.preExisting).toBeUndefined()
+        expect(ctx.allErrors.some((e) => e.category === 'PRE_EXISTING_FAILURE')).toBe(false)
+    })
+
+    it('基线中缺少该命令（pristine 链路未跑到）→ 不适用豁免，保守归因本次改动', async () => {
+        writePkg({ lint: 'eslint .', build: 'tsc', test: 'vitest run' })
+        mockTestFailureAtEnd()
+        const ctx = makeVerifyCtx(undefined)
+        // 基线只覆盖 install（pristine 安装即失败 → runVerification 遇错即停，未采样到 test）
+        const actions = await verifyProject(ctx, 'foo/bar', {
+            baseline: [{ command: 'pnpm install --frozen-lockfile', exitCode: 1, durationMs: 1, stdout: '', stderr: '' }],
+        })
+
+        const testAction = actions.find((a) => a.target === 'pnpm test')
+        expect(testAction?.preExisting).toBeUndefined()
+    })
+
+    it('未提供基线 → 维持原始口径（全部失败均归因，不标记 preExisting）', async () => {
+        writePkg({ lint: 'eslint .', build: 'tsc', test: 'vitest run' })
+        mockTestFailureAtEnd()
+        const ctx = makeVerifyCtx(undefined)
+        const actions = await verifyProject(ctx, 'foo/bar')
+
+        expect(actions.find((a) => a.target === 'pnpm test')?.preExisting).toBeUndefined()
+        expect(ctx.allErrors).toEqual([])
+    })
+
+    // -----------------------------------------------------------------------
+    // sampleVerificationBaseline（修复前一次性采样）
+    // -----------------------------------------------------------------------
+
+    it('基线采样只测量：逐命令结果返回、失败只记日志不写 allErrors', async () => {
+        writePkg({ lint: 'eslint .', build: 'tsc', test: 'vitest run' })
+        mockTestFailureAtEnd()
+        const ctx = makeVerifyCtx(undefined)
+        const result = await sampleVerificationBaseline(ctx, 'foo/bar')
+
+        expect(result?.map((cr) => cr.command)).toEqual([
+            'pnpm install --frozen-lockfile', 'pnpm lint', 'pnpm build', 'pnpm test',
+        ])
+        // 既有状态不得渲染成本次运行的问题
+        expect(ctx.allErrors).toEqual([])
+        expect(ctx.logger.warn).toHaveBeenCalledWith(expect.stringContaining('already failing before this run'))
+    })
+
+    it('基线采样沿用同一跳过口径：无对应脚本的命令被跳过，非脚本命令（install）保留', async () => {
+        writePkg({})
+        verificationRunnerMock.runVerification.mockResolvedValue({
+            success: true,
+            commandResults: [{ command: 'pnpm install --frozen-lockfile', exitCode: 0, durationMs: 1, stdout: '', stderr: '' }],
+        })
+        const ctx = makeVerifyCtx(undefined)
+        const result = await sampleVerificationBaseline(ctx, 'foo/bar')
+
+        expect(verificationRunnerMock.runVerification.mock.calls[0][0].commands).toEqual(['pnpm install --frozen-lockfile'])
+        expect(result?.map((cr) => cr.command)).toEqual(['pnpm install --frozen-lockfile'])
+        expect(ctx.logger.info).toHaveBeenCalledWith(expect.stringContaining('Skipping command "pnpm lint"'))
+        expect(ctx.allErrors).toEqual([])
+    })
+
+    it('基线采样：命令链为空 → 直接返回空数组且不发命令', async () => {
+        const ctx = makeVerifyCtx(undefined, [])
+        const result = await sampleVerificationBaseline(ctx, 'foo/bar')
+
+        expect(result).toEqual([])
+        expect(verificationRunnerMock.runVerification).not.toHaveBeenCalled()
+    })
+
+    it('基线采样：外联违规只 warn 留痕、不入 allErrors（既有状态不渲染成本次问题）', async () => {
+        writePkg({ lint: 'eslint .', build: 'tsc', test: 'vitest run' })
+        verificationRunnerMock.runVerification.mockResolvedValue({
+            success: false,
+            commandResults: [{ command: 'pnpm lint', exitCode: 1, durationMs: 1, stdout: '', stderr: 'boom' }],
+            networkViolations: [{ time: 't', source: 'proxy', method: 'CONNECT', target: 'evil.example.com:443', violation: true }],
+        })
+        const ctx = makeVerifyCtx(undefined)
+        await sampleVerificationBaseline(ctx, 'foo/bar')
+
+        expect(ctx.allErrors).toEqual([])
+        expect(ctx.logger.warn).toHaveBeenCalledWith(expect.stringContaining('outbound blocked by allowlist'))
+    })
+
+    it('基线采样异常 → 返回 undefined（调用方退回全量归因，不静默豁免）', async () => {
+        writePkg({ lint: 'eslint .', build: 'tsc', test: 'vitest run' })
+        verificationRunnerMock.runVerification.mockRejectedValue(new Error('spawn EACCES'))
+        const ctx = makeVerifyCtx(undefined)
+        const result = await sampleVerificationBaseline(ctx, 'foo/bar')
+
+        expect(result).toBeUndefined()
+        expect(ctx.logger.warn).toHaveBeenCalledWith(expect.stringContaining('Sampling failed'))
+    })
 
     it('默认命令链纳入 test，顺序 install → lint → build → test', async () => {
         writePkg({ lint: 'eslint .', build: 'tsc', test: 'vitest run' })

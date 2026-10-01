@@ -32,8 +32,10 @@ vi.mock('./changelog-fetcher', async (importOriginal) => {
     }
 })
 
-vi.mock('../app/helpers', async (importOriginal) => {
-    const actual = await importOriginal<typeof import('../app/helpers')>()
+// verifyProject 已拆到 ../app/verify-project（原 ../app/helpers）：mock 目标必须随之更新，
+// 否则会绕过桩执行真实验证链
+vi.mock('../app/verify-project', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('../app/verify-project')>()
     return {
         ...actual,
         verifyProject: mockVerifyProject,

@@ -36,9 +36,9 @@ import {
     runCodeScanningFixes,
     tryLockfileRepair,
     upgradeAlert,
-    verifyProject,
     type AppContext,
 } from './helpers'
+import { verifyProject } from './verify-project'
 import { fetchDefaultBranch, fetchRepoAlerts, truncatedWarning } from './repo-alerts'
 import { codeScanningAlertsTokenHint, dependabotAlertsTokenHint } from './token-hints'
 

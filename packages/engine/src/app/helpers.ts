@@ -15,7 +15,6 @@ import {
     type RunSummary,
 } from '@dependfix/core'
 import { stageAndCommit } from '../github/pr-creator'
-import { logNetworkAudit, redactUrlForReport } from '../runners/network-audit'
 import { type AuthProvider } from '../auth'
 import {
     compareSemver,
@@ -29,15 +28,7 @@ import { repairLockfile, type LockfileRepairResult } from '../fixers/pnpm'
 import { applyCodeScanningFix, restoreSourceFile, snapshotSourceFile } from '../fixers/code-scanning'
 import { inferRepoFromGitRemote, type RuntimeConfig } from '../config'
 
-import {
-    DEFAULT_VERIFY_COMMANDS,
-    formatVerificationError,
-    runVerification,
-    type VerificationResult,
-} from '../runners/verification-runner'
-
 import { quickVerifyProject } from '../helpers'
-import { validateVerifyCommands } from '../verification/validate-commands'
 import { handleOverrideProtection } from './override-protect'
 
 // ---------------------------------------------------------------------------
@@ -589,97 +580,6 @@ export function tryLockfileRepair(
     }
 }
 
-// ---------------------------------------------------------------------------
-// Verification
-// ---------------------------------------------------------------------------
-
-/** 执行验证命令链，返回逐命令结果。 */
-export async function verifyProject(
-    ctx: Pick<AppContext, 'config' | 'customCommands' | 'logger' | 'workDir' | 'allErrors'>,
-    repo: string,
-): Promise<FixAction[]> {
-    const { config, customCommands, logger, workDir, allErrors } = ctx
-
-    // 确定要执行的命令：用户自定义 > 默认命令链
-    let rawCommands = customCommands ?? DEFAULT_VERIFY_COMMANDS
-
-    // 默认命令链的 install 与策略命令同版本（显式 toolchainPnpmVersion 时）
-    // 避免系统裸 pnpm 版本架空 PIN_TOOLCHAIN（旧版 pnpm 可能无法处理新版 lockfile）
-    if (!customCommands && config.toolchainPnpmVersion) {
-        rawCommands = rawCommands.map((cmd) => (
-            cmd === 'pnpm install --frozen-lockfile'
-                ? `corepack pnpm@${config.toolchainPnpmVersion} install --frozen-lockfile`
-                : cmd
-        ))
-    }
-
-    // 仅对默认命令链做脚本存在性校验
-    const isDefault = !customCommands
-    const { valid, skipped } = isDefault
-        ? validateVerifyCommands(rawCommands, workDir)
-        : { valid: rawCommands, skipped: [] as string[] }
-
-    // 记录被跳过的命令
-    for (const cmd of skipped) {
-        logger.info(`Skipping command "${cmd}": script not found in package.json`)
-        allErrors.push({
-            repository: repo,
-            target: cmd,
-            stage: 'verify',
-            category: 'SCRIPT_NOT_FOUND',
-            message: `Skipped: no matching script in package.json for "${cmd}"`,
-        })
-    }
-
-    if (valid.length === 0) {
-        logger.info(`No verification commands to run for ${repo}`)
-        return []
-    }
-
-    try {
-        const result: VerificationResult = await runVerification({
-            workDir,
-            commands: valid,
-        })
-
-        // 执行期网络外联审计（备查：恶意脚本外联事故溯源；总数 info、明细 debug）
-        logNetworkAudit(logger, repo, result.networkAudit ?? [])
-
-        // 非白名单外联违规 → 报告 error 区（verify 阶段，deny-by-default 拦截证据；逐条记录保证可审计）
-        // target 经 redactUrlForReport 最小化为 host[:port]——恶意 URL 的 path/query 可能携带
-        // 外带凭据，拦截后不得原样回显进报告/日志（防御纵深，最小暴露）
-        for (const violation of result.networkViolations ?? []) {
-            const redacted = redactUrlForReport(violation.target)
-            allErrors.push({
-                repository: repo,
-                target: redacted,
-                stage: 'verify',
-                category: 'network_violation',
-                message: `outbound blocked by allowlist: ${violation.method} ${redacted}`,
-            })
-            logger.error(`[network-audit] ${repo}: outbound blocked (network_violation): ${violation.method} ${redacted}`)
-        }
-
-        return result.commandResults.map((cr) => {
-            // 失败时附 stdout/stderr 摘要（已脱敏截断）供日志/报告定位失败原因（run 31552922137 教训：仅 "exit code 1" 无法定位）
-            const error = cr.exitCode !== 0 ? formatVerificationError(cr) : undefined
-            if (error) {
-                logger.error(`Verification failed for ${repo}: ${cr.command} — ${error}`)
-            }
-            return { type: 'verification' as const, repository: repo, target: cr.command, success: cr.exitCode === 0, error, durationMs: cr.durationMs }
-        })
-    } catch (error: unknown) {
-        const message = toErrorMessage(error)
-        logger.error(`Verification error for ${repo}: ${message}`)
-        return [{
-            type: 'verification',
-            repository: repo,
-            target: 'verification',
-            success: false,
-            error: message,
-        }]
-    }
-}
 
 // ---------------------------------------------------------------------------
 // Local commit helpers

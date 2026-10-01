@@ -618,9 +618,7 @@ watch(toastMessage, (v) => {
     gap: $space-4;
 
     &__field {
-        display: flex;
-        flex-direction: column;
-        gap: $space-2;
+        @include field-stack;
     }
 
     &__field label {

@@ -538,9 +538,8 @@ const submitImport = async () => {
     }
 
     &__field {
-        display: flex;
-        flex-direction: column;
-        gap: $space-2;
+        @include field-stack;
+
         flex: 1;
 
         label {

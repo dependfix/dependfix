@@ -1,5 +1,8 @@
 // 通用 SCSS mixin
 
+// 变量在本模块内单独加载：mixin 的默认参数在**定义侧**求值，不能依赖调用方注入的变量层
+@use './variables' as *;
+
 // 暗色模式覆盖（站点暗色模式切换使用 `.dark` class，挂载在 <html> 上）
 
 // 实现注意：`:global(.dark) &` 是 CSS Modules 语法（仅在 `<style scoped>` 块内有效）。
@@ -51,4 +54,14 @@
         -webkit-box-orient: vertical;
         overflow: hidden;
     }
+}
+
+// 表单字段堆叠（label 在上、控件在下），口径见 docs/standards/development.md「样式规范」
+// 只承载「垂直堆叠 + label↔控件间距」两条口径，**不吸收 label 样式**——各字段的 label 规则不同
+// （有的只有字号、有的含字重），吸收进来会变成过度抽象。
+// 边界：显示型 `label↔值` 堆叠（统计卡 / 指纹盒 / 弹窗 meta 项）语义不同，不使用本 mixin。
+@mixin field-stack($gap: $space-2) {
+    display: flex;
+    flex-direction: column;
+    gap: $gap;
 }

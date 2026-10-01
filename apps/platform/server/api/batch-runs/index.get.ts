@@ -26,7 +26,8 @@ const toView = (b: BatchRun) => ({
 /**
  * GET /api/batch-runs：批量运行列表（当前组织，按时间倒序）。
  * 只读角色可见（viewer 可查进度与聚合结果）；计数/状态为存储值，
- * 实时聚合在详情 GET（/api/batch-runs/[id]）时计算并写回（轮询更新策略，见设计 §5.2）。
+ * 实时聚合在详情 GET（/api/batch-runs/[id]）时计算并写回，未被查看的批次由周期兜底对账收敛
+ * （batch-reconciler.ts，见设计 §5.2）。
  */
 export default defineEventHandler(async (event) => {
     await requireAuth(event)

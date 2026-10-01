@@ -203,7 +203,7 @@
 
 1. **anchor 实证**：写 markdown 链接前必须 `rg -n "^## " <目标文件>` 确认锚点真实形式，避免凭印象写错锚点（括号转 anchor 规则不是直觉）；check:docs 是兜底而非首选。
 2. **跨文件外链主动追踪**：段删除 / 段重命名前必须 `rg -n "<删除段标题>"` 全仓库扫描所有外链（不仅是删除段所在文件），列出每个外链文件 + 位置 + 目标，逐个修复为新的归档位置（`todo-archive.md` 主窗口或 `archive/todo-archive-phases-*.md` 分片）。
-3. **跨目录相对路径精确**：从 `docs/<dir1>/xxx.md` 引用 `docs/<dir2>/yyy.md` 需 `../<dir2>/yyy.md`，多级目录按 `../../` 累加；写之前主动计算，check:docs 兜底。
+3. **跨目录相对路径精确**：从 `docs/<dir1>/xxx.md` 引用 `docs/<dir2>/yyy.md` 需 `../<dir2>/yyy.md`，多级目录按 `../../` 累加；写之前主动计算，check:docs 兜底。**批量替换相对路径前缀时**：old 片段必须**从路径字符（`../`）起写、不要带上 `](`**——带上 `](` 会把 `]` 一并替换掉，令 markdown 链接退化为纯文本（M34 归档批次实测 3 处链接损坏，由 A 阶段审计判 blocker）；改完立即做 **malformed 检测**复核——`rg -n "\[[^]\n]*\((\.\.?/|/)"` 应 0 命中（精确匹配「`[` 后无 `]`、直接跟随 `](` 相对路径」之形；朴素的 `\[[^\]]*\(` 会被链接文本内的括号误伤），并人工确认每处 `](` 与 `)` 成对（自建链接校验器只匹配合规 `](`，对坏语法静默跳过，不能作为唯一证据）。
 4. **commit 分组追踪**：归档文案中分组 commit 时必须**先列每个 commit 归属**，避免子批次 commit 与"todo.md 收口 commit" 重复计数（todo.md 收口 commits 通常已含在子批次计数内，独立列出 = 重复 +1）。详见 [经验归档 §四十八](../design/governance/experience-archive.md)。
 5. **ahead commits 实证 + 动态描述**：归档文案 "ahead of origin/master N commits" 必须用 `git rev-list HEAD ^origin/master --count` 双向核验（已推送 commits 不计入 ahead），不能凭印象估算——跨批次归档时用户可能已推送过。具体命令与 ahead 计数语义详见 [Git 规范 §3 提交规范](./git.md)（一行引用，不重复抄写命令）。**额外约束**：ahead 数字写具体值极易过时（用户可在 banner 写后立即推送），改用 commits 列表 + 实证命令替代具体数字（与 [AI 协作规范 §2.P.1](./ai-collaboration.md#p1-ahead-状态动态描述原则避免-staleness) 配套）。
 6. **段结构引用原则**：已删除段不在外链保留（避免读者点击 404），外链改为指向新归档位置 + 段标题对齐（避免 VitePress / GitHub 渲染降级到文件顶部）。

@@ -285,6 +285,7 @@ if (value) { ... }  // 对 0, "", false 失效
 | [planning.md §2.5](../../../../docs/standards/planning.md) | 条目含统计数字 | **量化断言**可复现口径：量级区间 + 测量方 + 可复现命令（第三方可复现） |
 | [planning.md §4.4 第 13 条](../../../../docs/standards/planning.md) | 跨文件同步事实性口径 | 复扫是否用**结构化查询**（语义站点清单 + 组合 `rg`）而非字面 pattern；双语镜像是否单独扫 |
 | [planning.md §4.4 第 14 条](../../../../docs/standards/planning.md) | 已知边界条目闭环 | 除 backlog 整段删除外，是否同步 `archive/index.md` §4 的「保留」清单与「当前基线」前向描述（`rg` 确认全部落点） |
+| [planning.md §4.4 第 3 条](../../../../docs/standards/planning.md) | 跨目录相对路径 / 批量替换相对路径前缀 | old 片段是否**从路径字符（`../`）起写、未带上 `](`**（防吞 `]` 使链接退化）；改完是否做 malformed 检测（精确形态 `rg -n "\[[^]\n]*\((\.\.?/|/)"` 0 命中）并人工确认每处 `](` 与 `)` 成对（自建校验器对坏语法静默跳过，不能作为唯一证据） |
 | [ai-collaboration.md §1.3 分级审计执行协议](../../../../docs/standards/ai-collaboration.md) | 规划 / 阶段启动批次 | 是否声明 `standard`（非 `quick`）；审计 prompt 是否携带 audit-depth + 变更清单 + 已验证证据 |
 | [git.md §3.8](../../../../docs/standards/git.md) | `git commit` / `git push` 调用点 | 是否复用单一常量 `GIT_*_SIGNING_ISOLATION_ARGS`（无字面量漂移）；是否擅自提供签名 opt-in |
 | [development.md §3](../../../../docs/standards/development.md) | 新增 / 修改源码注释或测试名（含新增文件） | 编号标记扫描是否**覆盖本批全部改动文件**（`git diff --name-only` + `git status --porcelain` + `git diff -U0` 新增行），而非只跑规范示例路径；命中是否为带文档路径的合规导航指针 |

@@ -1,4 +1,5 @@
 import type { MigrationInterface, QueryRunner } from 'typeorm'
+import { prefixedTableName } from './migration-helpers'
 
 /**
  * 创建 pr_check 表（M24.1 Phase 1 落地，详见 docs/plan/todo.md §M24.1）。
@@ -44,8 +45,9 @@ export class CreatePrCheckTable1800000000000 implements MigrationInterface {
     name = 'CreatePrCheckTable1800000000000'
 
     public async up(queryRunner: QueryRunner): Promise<void> {
+        const table = prefixedTableName(queryRunner, 'pr_check')
         await queryRunner.query(`
-            CREATE TABLE IF NOT EXISTS dependfix_pr_check (
+            CREATE TABLE IF NOT EXISTS ${table} (
                 id varchar(36) NOT NULL PRIMARY KEY,
                 repository_id varchar(36) NOT NULL,
                 pr_number integer NOT NULL,
@@ -66,37 +68,38 @@ export class CreatePrCheckTable1800000000000 implements MigrationInterface {
         // 类级复合索引（TypeORM 1.x 列级复合 @Index([...]) 会生成单列索引，迁移必须显式声明）
         await queryRunner.query(`
             CREATE UNIQUE INDEX IF NOT EXISTS idx_pr_check_repo_pr_head
-                ON dependfix_pr_check (repository_id, pr_number, head_sha)
+                ON ${table} (repository_id, pr_number, head_sha)
         `)
         await queryRunner.query(`
             CREATE INDEX IF NOT EXISTS idx_pr_check_repo_conclusion
-                ON dependfix_pr_check (repository_id, conclusion)
+                ON ${table} (repository_id, conclusion)
         `)
         await queryRunner.query(`
             CREATE INDEX IF NOT EXISTS idx_pr_check_repo_created
-                ON dependfix_pr_check (repository_id, created_at)
+                ON ${table} (repository_id, created_at)
         `)
         await queryRunner.query(`
             CREATE INDEX IF NOT EXISTS idx_pr_check_repository_id
-                ON dependfix_pr_check (repository_id)
+                ON ${table} (repository_id)
         `)
         await queryRunner.query(`
             CREATE INDEX IF NOT EXISTS idx_pr_check_author_login
-                ON dependfix_pr_check (author_login)
+                ON ${table} (author_login)
         `)
         await queryRunner.query(`
             CREATE INDEX IF NOT EXISTS idx_pr_check_alert_firing
-                ON dependfix_pr_check (alert_firing)
+                ON ${table} (alert_firing)
         `)
     }
 
     public async down(queryRunner: QueryRunner): Promise<void> {
+        const table = prefixedTableName(queryRunner, 'pr_check')
         await queryRunner.query(`DROP INDEX IF EXISTS idx_pr_check_alert_firing`)
         await queryRunner.query(`DROP INDEX IF EXISTS idx_pr_check_author_login`)
         await queryRunner.query(`DROP INDEX IF EXISTS idx_pr_check_repository_id`)
         await queryRunner.query(`DROP INDEX IF EXISTS idx_pr_check_repo_created`)
         await queryRunner.query(`DROP INDEX IF EXISTS idx_pr_check_repo_conclusion`)
         await queryRunner.query(`DROP INDEX IF EXISTS idx_pr_check_repo_pr_head`)
-        await queryRunner.query(`DROP TABLE IF EXISTS dependfix_pr_check`)
+        await queryRunner.query(`DROP TABLE IF EXISTS ${table}`)
     }
 }

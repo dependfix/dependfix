@@ -1,7 +1,8 @@
 import type { MigrationInterface, QueryRunner } from 'typeorm'
+import { addColumnIfMissing, createIndexIfMissing, dropColumnIfExists } from './migration-helpers'
 
 /**
- * M23.3 C66-A1：ScanResult 新增 ghsaId / cveIds 列。
+ * ScanResult 新增 ghsaId / cveIds 列。
  *
  * 设计要点：
  * - ghsaId：varchar(32) nullable，存 GitHub Security Advisory ID（如 `GHSA-xxxx-xxxx-xxxx`）
@@ -10,43 +11,33 @@ import type { MigrationInterface, QueryRunner } from 'typeorm'
  *   SQLite 不支持 string[]，用 JSON 序列化；不建索引（JSON 字段不适合 B-Tree 索引）
  *
  * 历史数据：旧行 ghsaId / cveIds = NULL，reconcile 时通过 alert.ghsaId / alert.cveIds 透传更新
- * （C66-A1 + C66-A2 实施后下次扫描自动填充）。
+ * （实施后下次扫描自动填充）。
  *
- * **列名必须用 snake_case**（2026-09-03 修复）：raw SQL 走 `queryRunner.query()` 不经过
- * `SnakeCaseNamingStrategy`（命名策略仅作用于 TypeORM 自动生成的 SQL，如 entity / QueryBuilder）。
- * 业务表的实际列名经 namingStrategy 转换 = snake_case；raw SQL 引用 camelCase 会导致
- * `no such column: repositoryId`（SQLite 列名大小写敏感）。详见
- * [development.md §5.1.19](../standards/development.md) + [todo.md §M24 follow-up #6](../plan/todo.md)。
+ * **幂等 + 前缀感知**：基线迁移已在全新库建全列，本迁移按「表存在 + 列缺失」守卫重放，
+ * 表名经 `entityPrefix` 解析，非默认前缀（`DATABASE_ENTITY_PREFIX`）下不再静默 no-op。
+ *
+ * **列名必须用 snake_case**：raw SQL 走 `queryRunner.query()` 不经过 `SnakeCaseNamingStrategy`
+ * （命名策略仅作用于 TypeORM 自动生成的 SQL，如 entity / QueryBuilder）。业务表实际列名为
+ * snake_case，raw SQL 引用 camelCase 会报 `no such column`。详见
+ * [开发规范 §5.1.19](../standards/development.md)。
  */
 export class AddScanResultIdentifiers1750000000000 implements MigrationInterface {
     name = 'AddScanResultIdentifiers1750000000000'
 
     public async up(queryRunner: QueryRunner): Promise<void> {
-        await queryRunner.query(`
-            ALTER TABLE dependfix_scan_result
-                ADD COLUMN ghsa_id varchar(32) NULL
-        `)
-        await queryRunner.query(`
-            ALTER TABLE dependfix_scan_result
-                ADD COLUMN cve_ids text NULL
-        `)
-        await queryRunner.query(`
-            CREATE INDEX IF NOT EXISTS idx_scan_result_repo_ghsa
-                ON dependfix_scan_result (repository_id, ghsa_id)
-        `)
+        await addColumnIfMissing(queryRunner, 'scan_result', 'ghsa_id', 'ghsa_id varchar(32) NULL')
+        await addColumnIfMissing(queryRunner, 'scan_result', 'cve_ids', 'cve_ids text NULL')
+        await createIndexIfMissing(
+            queryRunner,
+            'scan_result',
+            'idx_scan_result_repo_ghsa',
+            ['repository_id', 'ghsa_id'],
+        )
     }
 
     public async down(queryRunner: QueryRunner): Promise<void> {
-        await queryRunner.query(`
-            DROP INDEX IF EXISTS idx_scan_result_repo_ghsa
-        `)
-        await queryRunner.query(`
-            ALTER TABLE dependfix_scan_result
-                DROP COLUMN cve_ids
-        `)
-        await queryRunner.query(`
-            ALTER TABLE dependfix_scan_result
-                DROP COLUMN ghsa_id
-        `)
+        await queryRunner.query('DROP INDEX IF EXISTS idx_scan_result_repo_ghsa')
+        await dropColumnIfExists(queryRunner, 'scan_result', 'cve_ids')
+        await dropColumnIfExists(queryRunner, 'scan_result', 'ghsa_id')
     }
 }

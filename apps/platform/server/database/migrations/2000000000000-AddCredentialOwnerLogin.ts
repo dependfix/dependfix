@@ -1,39 +1,23 @@
 /**
- * M26.2 C67 批量导入 Resource owner 化 — Credential 表 ownerLogin 字段迁移。
+ * 批量导入 Resource owner 化 — Credential 表 ownerLogin 字段迁移。
  *
- * 涉及 1 张表（幂等处理：检查列存在性后再 ALTER）：
+ * 涉及 1 张表（幂等 + 前缀感知：表名经 `entityPrefix` 解析，列缺失才 ALTER）：
  * - credential：ownerLogin (varchar 100 nullable)
  *   · fine-grained-pat（org-bound）：必填
  *   · github-app：可选，运行时可自动从 installationId 解析
  *   · classic-pat：可选，运行时通过 GET /user 自动发现
  *
- * 关联：[docs/plan/todo.md §M26.2](../../plan/todo.md) + [backlog.md §C67](../../plan/backlog.md)
+ * 基线迁移已在全新库建列，本迁移按守卫重放（此前硬编码无前缀表名，非默认前缀下静默 no-op）。
  */
 
 import type { MigrationInterface, QueryRunner } from 'typeorm'
+import { addColumnIfMissing, dropColumnIfExists } from './migration-helpers'
 
 export class AddCredentialOwnerLogin2000000000000 implements MigrationInterface {
     name = 'AddCredentialOwnerLogin2000000000000'
 
-    private async addColumnIfMissing(
-        queryRunner: QueryRunner,
-        tableName: string,
-        columnName: string,
-        ddl: string,
-    ): Promise<void> {
-        const table = await queryRunner.getTable(tableName)
-        if (!table) {
-            return
-        }
-        const hasColumn = table.columns.some((c) => c.name === columnName)
-        if (hasColumn) {
-            return
-        }
-        await queryRunner.query(`ALTER TABLE ${tableName} ADD COLUMN ${ddl}`)
-    }
-
     async up(queryRunner: QueryRunner): Promise<void> {
-        await this.addColumnIfMissing(
+        await addColumnIfMissing(
             queryRunner,
             'credential',
             'owner_login',
@@ -42,14 +26,6 @@ export class AddCredentialOwnerLogin2000000000000 implements MigrationInterface 
     }
 
     async down(queryRunner: QueryRunner): Promise<void> {
-        const table = await queryRunner.getTable('credential')
-        if (!table) {
-            return
-        }
-        const hasColumn = table.columns.some((c) => c.name === 'owner_login')
-        if (!hasColumn) {
-            return
-        }
-        await queryRunner.query('ALTER TABLE credential DROP COLUMN owner_login')
+        await dropColumnIfExists(queryRunner, 'credential', 'owner_login')
     }
 }

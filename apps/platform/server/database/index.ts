@@ -8,6 +8,7 @@ import mysql2 from 'mysql2'
 import pg from 'pg'
 import { SnakeCaseNamingStrategy } from './naming-strategy'
 import { resolveDatabaseType, type DatabaseType } from './type'
+import { CreateInitialSchema1600000000000 } from './migrations/1600000000000-CreateInitialSchema'
 import { CreateAuditEventTable1700000000000 } from './migrations/1700000000000-CreateAuditEventTable'
 import { AddScanResultIdentifiers1750000000000 } from './migrations/1750000000000-AddScanResultIdentifiers'
 import { CreatePrCheckTable1800000000000 } from './migrations/1800000000000-CreatePrCheckTable'
@@ -77,6 +78,7 @@ export const createDataSourceOptions = (): DataSourceOptions => {
             PRCheck,
         ],
         migrations: [
+            CreateInitialSchema1600000000000,
             CreateAuditEventTable1700000000000,
             AddScanResultIdentifiers1750000000000,
             CreatePrCheckTable1800000000000,
@@ -175,9 +177,9 @@ export const getDataSource = (): DataSource => {
 let startupBackupRan = false
 
 /**
- * SQLite 启动期 PRAGMA 优化（M23.1 根因排查落地）：
+ * SQLite 启动期 PRAGMA 优化：
  * - `journal_mode = WAL`：rollback journal（默认 delete）→ WAL，让读不阻塞写 + 多个并发读不互锁
- *   （M22.7 ECONNRESET 根因候选 P0，详见 backlog.md §E2E global-setup 串行场景 ECONNRESET 根因段）；
+ *   （详见 backlog.md §E2E global-setup 串行场景 ECONNRESET 根因段）；
  * - `busy_timeout = 5000ms`：默认 0 立即返回 SQLITE_BUSY，5s 等待可吸收 better-auth session 写入
  *   与 fixtures DELETE `ensureDatabaseInitialized()` 走同一 singleton 的异步清理窗口竞争。
  *

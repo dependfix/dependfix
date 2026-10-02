@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 /**
  * packages/mcp/src/tools/pnpm-audit.tool.test.ts
  *
- * pnpmAudit MCP tool 测试覆盖（M28.4 / C33）：
+ * pnpmAudit MCP tool 测试覆盖：
  * - 成功返回：ok=true + count + workDir + repository + alerts
  * - 失败返回：ok=false + error（toToolError 模板）
  * - 错误包装 helper 复用：requireToken + toToolError
@@ -39,7 +39,7 @@ const sampleNormalizedAlert = {
     summary: 'Prototype Pollution in lodash',
 }
 
-describe('pnpmAudit MCP tool (M28.4 / C33)', () => {
+describe('pnpmAudit MCP tool', () => {
     beforeEach(() => {
         vi.clearAllMocks()
         mockRequireToken.mockReturnValue('ghp_test_token')

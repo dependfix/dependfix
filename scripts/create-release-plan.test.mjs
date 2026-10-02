@@ -116,7 +116,7 @@ describe('renderPlan', () => {
 })
 
 describe('stripDevTags', () => {
-    // 注意：以下用例的编号标记（T506/C21/C8）是 stripDevTags 清洗功能的输入样例数据，
+    // 注意：以下用例的编号标记是 stripDevTags 清洗功能的输入样例数据，
     // 用于验证编号标记被正确删除，非开发流程编号残留
     it('removes dev-flow tags and trailing colon', () => {
         expect(stripDevTags('feat(cli): AI 链路（T506：config 接入）')).toBe('feat(cli): AI 链路（config 接入）')

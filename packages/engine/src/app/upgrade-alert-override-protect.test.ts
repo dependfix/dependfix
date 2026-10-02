@@ -1,6 +1,6 @@
 // upgrade-alert-override-protect.test.ts
-// M29.4（C77）：间接依赖 override 路径的 overrides 保护名单覆盖。
-// 该路径（upgradeAlert 的 `not found in dependencies` 回退分支）此前零覆盖（A 阶段审计 RG-B03）。
+// 间接依赖 override 路径的 overrides 保护名单覆盖。
+// 该路径（upgradeAlert 的 `not found in dependencies` 回退分支）此前零覆盖。
 import { describe, expect, it, vi } from 'vitest'
 import type { NormalizedSecurityAlert } from '@dependfix/core'
 
@@ -50,7 +50,7 @@ describe('upgradeAlert overrides 保护名单（间接依赖 override 路径）'
         expect(ctx.allErrors).toHaveLength(1)
         expect(ctx.allErrors[0].category).toBe('OVERRIDE_PROTECTED')
         expect(ctx.allErrors[0].message).toContain('foo/bar')
-        // skipped 恰好计 1 次（RG-B01：不得与调用侧重复计数）
+        // skipped 恰好计 1 次（不得与调用侧重复计数）
         expect(ctx.summary.alertsSkipped).toBe(1)
     })
 

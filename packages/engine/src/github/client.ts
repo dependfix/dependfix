@@ -31,7 +31,7 @@ export interface OctokitClientOptions {
      *
      * 保留作为低层入口；`token` 路径与 `auth: fromPat(token)` 行为等价
      * （共享同一 retry policy 与限流重试 hook）。
-     * 计划在 M19+ 评估移除。
+     * 计划在后续阶段评估移除。
      */
     token?: string
 
@@ -66,7 +66,7 @@ export interface OctokitClientOptions {
  *
  * @example
  * ```typescript
- * // 推荐：使用 auth 抽象层（M18.1 实施后）
+ * // 推荐：使用 auth 抽象层（已实施）
  * import { fromPat } from '@dependfix/engine/auth'
  * const octokit = createGitHubClient({ auth: fromPat('ghp_xxxx') })
  *

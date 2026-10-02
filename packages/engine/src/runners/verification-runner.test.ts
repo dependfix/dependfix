@@ -228,7 +228,7 @@ describe('runVerification', () => {
             expect(spawnOptions.env?.HTTP_PROXY).toMatch(/^http:\/\/127\.0\.0\.1:\d+$/)
             expect(spawnOptions.env?.NO_PROXY).toBe('')
             expect(spawnOptions.env?.no_proxy).toBe('')
-            // telemetry 默认禁用（治本 D2：Nuxt CLI 默认 telemetry 上报 → telemetry.nuxt.com:443
+            // telemetry 默认禁用（Nuxt CLI 默认 telemetry 上报 → telemetry.nuxt.com:443
             // 真实外联；verification 是离线构建验证，必须禁用）
             expect(spawnOptions.env?.NUXT_TELEMETRY_DISABLED).toBe('1')
             expect(spawnOptions.env?.NEXT_TELEMETRY_DISABLED).toBe('1')

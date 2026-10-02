@@ -45,7 +45,7 @@ type DependabotAlertItem =
  *
  * @example
  * ```typescript
- * // 推荐：使用 auth 抽象层（M18.1 实施后）
+ * // 推荐：使用 auth 抽象层（已实施）
  * import { fromPat } from '@dependfix/engine/auth'
  * const octokit = createGitHubClient({ auth: fromPat('ghp_xxxx') })
  * const alerts = await fetchDependabotAlerts(octokit, { owner: 'foo', repo: 'bar' })
@@ -112,7 +112,7 @@ function normalizeAlert(
         recommendedVersion: firstPatched?.identifier ?? '',
         dependencyType: normalizeDependencyRelationship(alert.dependency.relationship),
         upstreamId: normalizeUpstreamId('dependabot', { alertNumber: alert.number }),
-        // M23.3 C66-A2：透传 GHSA + CVE ID 列表
+        // 透传 GHSA + CVE ID 列表
         ghsaId: alert.security_advisory.ghsa_id,
         cveIds: extractCveIds(alert.security_advisory.identifiers),
     }

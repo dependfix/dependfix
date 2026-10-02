@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { normalizeUpstreamId } from './upstream-id'
 
-describe('normalizeUpstreamId（M20）', () => {
+describe('normalizeUpstreamId', () => {
     describe('dependabot / code-scanning / code-quality', () => {
         it.each([
             ['dependabot', 42, 'dependabot:42'],

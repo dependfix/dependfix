@@ -66,7 +66,7 @@ export interface FromAppParams {
     privateKey: string
     /** Installation ID */
     installationId: string
-    /** Bot 用户名（用于 commit author 动态生成；M18.1 commit 4 实施） */
+    /** Bot 用户名（用于 commit author 动态生成） */
     botLogin?: string
 }
 
@@ -78,7 +78,7 @@ export interface FromAppParams {
  * PAT 路径固定 commit author（保持现有行为零变化）。
  *
  * 注：现有 PAT 路径硬编码 `dependfix[bot]@users.noreply.github.com`，虽非真实 bot 身份（字符串约定），
- * 但保持行为不变以确保 PAT 用户无感升级。已知缺陷由 C22 范围之外的后续阶段修复。
+ * 但保持行为不变以确保 PAT 用户无感升级。已知缺陷由后续阶段修复。
  */
 export const PAT_COMMIT_AUTHOR = {
     name: 'dependfix[bot]',

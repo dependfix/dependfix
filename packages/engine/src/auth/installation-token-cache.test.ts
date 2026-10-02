@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { InstallationTokenCache } from './installation-token-cache'
 
 /**
- * InstallationTokenCache 单测（M18.1 commit 4 主实施）。
+ * InstallationTokenCache 单测。
  *
  * 当前实现：占位 + 监控 API（依赖 @octokit/auth-app 内置 59 分钟 LRU TTL 缓存）。
  *
@@ -87,7 +87,7 @@ describe('InstallationTokenCache', () => {
         })
     })
 
-    describe('M18.1 commit 4 集成设计契约 (与 @octokit/auth-app 协同)', () => {
+    describe('集成设计契约 (与 @octokit/auth-app 协同)', () => {
         it('默认 TTL = 59 分钟 = GitHub installation token 60 分钟有效期 - 1 分钟缓冲', () => {
             const cache = new InstallationTokenCache(sampleParams)
             const ttlMs = cache.getTtlMs()

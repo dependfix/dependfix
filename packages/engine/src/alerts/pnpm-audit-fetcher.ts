@@ -125,7 +125,7 @@ function normalizePatchedVersionValue(value: unknown): string | null {
     }
     // legacy 格式 patched_versions 为 range（如 ">=0.2.4" / ">=1.2.3 <2"）：剥离前缀取首个裸版本，
     // 否则 compareSemver 对 ">=x.y.z" 解析退化为 [0,0,0]，当前版本被误判"已达标"而假跳过
-    // （T801 容器实证暴露：minimist 0.0.8 被日志判定 "0.0.8 >= >=0.2.4" 而跳过修复）。
+    // （容器实证暴露：minimist 0.0.8 被日志判定 "0.0.8 >= >=0.2.4" 而跳过修复）。
     // 已知边界（与旧行为等价，未变差）：两段版本（"1.2.x"→"1.2"）、">=0.0.0"（剥离为 0.0.0 后任何
     // 版本判已达标）、pre-release range（compareSemver 忽略 pre-release 段）仍可能假跳过——
     // 真实 npm advisory patched_versions 以 ">=x.y.z" / ">=x.y.z <x.y.z" 为主，残余面罕见，暂登记不处理
@@ -173,7 +173,7 @@ function parseLegacyAuditReport(report: Record<string, unknown>): RiskRecord[] {
 
     // actions 提供修复版本（action.target）
     const actionMap = new Map<string, string | undefined>()
-    // M23.3 C66-A2：提取 GHSA + CVE 列表（按 advisory id 索引）
+    // 提取 GHSA + CVE 列表（按 advisory id 索引）
     const advisoryExtrasMap = new Map<string, { ghsaId?: string, cveIds?: string[] }>()
     for (const [id, rawAdvisory] of Object.entries(advisories as Record<string, unknown>)) {
         if (!rawAdvisory || typeof rawAdvisory !== 'object') {
@@ -347,12 +347,12 @@ export function parseAuditReport(report: unknown): RiskRecord[] {
 // ---------------------------------------------------------------------------
 
 /**
- * advisoryId 的稳定数字哈希（M20 之前使用，M20 后保留以维持向后兼容 `NormalizedSecurityAlert.id: number`）。
+ * advisoryId 的稳定数字哈希（保留以维持向后兼容 `NormalizedSecurityAlert.id: number`）。
  *
  * 取 sha256 前 4 字节完整 uint32（非设计稿的 `% 2^31`：uint32 语义更自然，
  * 碰撞概率 ~2^-32/对，12 条告警场景生日界 ~1.6e-8，可忽略）。
  *
- * M20 弃用：唯一去重键改为 `upstreamId`，详见 [`normalizeUpstreamId`](../../../core/src/alerts/upstream-id.ts)。
+ * 已弃用：唯一去重键改为 `upstreamId`，详见 [`normalizeUpstreamId`](../../../core/src/alerts/upstream-id.ts)。
  * 本函数保留仅为兼容现有 `NormalizedSecurityAlert.id: number` 字段，**不是**平台去重键。
  */
 export function hashAdvisoryId(packageName: string, advisoryId: string): number {
@@ -361,7 +361,7 @@ export function hashAdvisoryId(packageName: string, advisoryId: string): number 
 }
 
 /**
-** M23.3 C66-A2：从 pnpm audit advisory 提取 GHSA ID + CVE 列表。
+** 从 pnpm audit advisory 提取 GHSA ID + CVE 列表。
 ** 兼容 legacy `github_advisory_id` + modern `advisory.github_advisory_id` 与 `cves[]`。
 */
 function extractIdentifiers(candidate: Record<string, unknown>): { ghsaId?: string, cveIds?: string[] } {
@@ -410,7 +410,7 @@ function mapAuditRiskToAlert(risk: RiskRecord, repository: string): NormalizedSe
             packageName: risk.packageName,
             advisoryId: risk.advisoryId,
         }),
-        // M23.3 C66-A2：透传 GitHub Advisory ID + CVE 列表
+        // 透传 GitHub Advisory ID + CVE 列表
         ghsaId: risk.ghsaId,
         cveIds: risk.cveIds,
         // 依赖链路径（路径级 overrides 写入依据 + 报告展示）

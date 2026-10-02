@@ -7,14 +7,14 @@ import type { FixAction, NormalizedSecurityAlert } from '@dependfix/core'
 /**
  * packages/engine/src/app/helpers.test.ts
  *
- * runCodeScanningFixes 批处理（M28.2）测试覆盖：
+ * runCodeScanningFixes 批处理测试覆盖：
  * - batchSize 默认 10 + 可配置
  * - N=10/11/25 触发 1/2/3 次 lint
  * - 批内 lint 失败时所有批内告警 rollback + 标记 failed
  * - dry-run 跳过 lint
  * - 单个告警快照失败不影响其他批内告警
  *
- * 关联：M28.2 baseline bench（commit 395ee29）+ 批处理 commit（M28.2 第二阶段）
+ * 关联：baseline bench（commit 395ee29）+ 批处理第二阶段
  */
 
 // ---------------------------------------------------------------------------
@@ -101,7 +101,7 @@ function makeCtx(workDir: string) {
 // 测试
 // ---------------------------------------------------------------------------
 
-describe('runCodeScanningFixes batch processing (M28.2)', () => {
+describe('runCodeScanningFixes batch processing', () => {
     let workDir: string
 
     beforeEach(() => {

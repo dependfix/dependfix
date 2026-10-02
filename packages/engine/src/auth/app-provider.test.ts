@@ -40,7 +40,7 @@ import { AppAuthProvider, fromApp } from './app-provider'
 const _OctokitType: typeof Octokit = Octokit // 保留类型导入用于类型注解
 
 /**
- * AppAuthProvider 单测（M18.1 commit 4 主实施）。
+ * AppAuthProvider 单测。
  *
  * 覆盖：
  * - 工厂函数 fromApp 返回 AppAuthProvider 实例

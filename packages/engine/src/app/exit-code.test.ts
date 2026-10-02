@@ -170,7 +170,7 @@ describe('computeExitCode', () => {
         expect(exitCode).toBe(1)
     })
 
-    // M30.1: "跳过类"审计条目不影响 exit code
+    // "跳过类"审计条目不影响 exit code
     it('returns 0 when only OVERRIDE_PROTECTED skipped audits exist', () => {
         const exitCode = computeExitCode(makeCtx({
             allErrors: [{

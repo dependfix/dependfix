@@ -9,9 +9,9 @@ export const SEVERITY_THRESHOLDS = ['critical', 'high', 'medium', 'all'] as cons
 export const ALERT_SOURCES: readonly AlertSourceKind[] = ['github-dependabot', 'pnpm-audit']
 
 /**
- * GitHub App 认证配置（M30.4 / C74）。
+ * GitHub App 认证配置。
  * 通过 GitHub App installation token 认证时使用，用于生成真实 bot 身份的 commit author。
- * 仅在 fix / fix-and-pr 模式下创建 commit 时生效；PAT 路径保持不变（M18.0 兼容性）。
+ * 仅在 fix / fix-and-pr 模式下创建 commit 时生效；PAT 路径保持不变。
  */
 export interface GitHubAppConfig {
     /** GitHub App ID */
@@ -89,7 +89,7 @@ export interface RuntimeConfig {
     githubToken: string
     /**
      * GitHub App 认证配置（用于 commit author 真实 bot 身份）。
-     * 仅 fix-and-pr / fix 模式下创建 commit 时使用；PAT 路径保持不变（M18.0 兼容性）。
+     * 仅 fix-and-pr / fix 模式下创建 commit 时使用；PAT 路径保持不变。
      */
     githubApp?: GitHubAppConfig
     /**

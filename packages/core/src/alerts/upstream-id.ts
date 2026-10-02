@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto'
 import type { AlertSource } from './index'
 
 /**
- * 规范化上游告警唯一 ID（M20）。
+ * 规范化上游告警唯一 ID。
  *
  * 设计目标：跨次扫描稳定可比较、平台 ScanResult 唯一索引第二段。
  * 单一 canonical 格式 `${source}:${identifier}`，identifier 按 source 不同：

@@ -62,7 +62,7 @@ describe('fetchDependabotAlerts', () => {
         expect(alert.fixable).toBe(true)
         expect(alert.fixStrategy).toBe('upgrade')
         expect(alert.recommendedVersion).toBe('4.17.21')
-        // M23.3 C66-A2：透传 GHSA + CVE 字段
+        // 透传 GHSA + CVE 字段
         expect(alert.ghsaId).toBe('GHSA-xxxx-xxxx-xxxx')
         expect(alert.cveIds).toEqual(['CVE-2021-23337'])
     })

@@ -53,7 +53,7 @@ describe('commitlint plugin: no-filler-phrases', () => {
         expect(message).toContain('未来可作')
     })
 
-    it('正文含 "留 M27+ 评估" 应被拦截', async () => {
+    it('正文含「留编号评估」填充语应被拦截', async () => {
         const parsed = parse(
             'docs(plan): 归档',
             'audit suggest 留 M27+ 评估',

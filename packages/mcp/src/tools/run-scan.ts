@@ -2,12 +2,12 @@ import { DependfixApp, DEFAULT_RUNTIME_CONFIG, type RuntimeConfig } from '@depen
 import { isValidRepoIdentifier } from '@dependfix/core'
 import { requireToken, toToolError } from './errors'
 
-/** `run_scan` 返回结构（M28.4 RunResult 对齐 + 向后兼容）
+/** `run_scan` 返回结构（RunResult 对齐 + 向后兼容）
  *
  * 字段对齐 `RunResult` 接口（packages/core/src/report/types.ts）：
  * - 8 字段保留（向后兼容——老客户端忽略未知字段）：
  *   ok / exitCode / runId / summary / repositories / errors
- * - 5 字段新增（M28.4 RunResult 对齐）：
+ * - 5 字段新增（RunResult 对齐）：
  *   startedAt / finishedAt / config / alerts / actions
  *
  * 2 字段可选（按 --ai 开启 + 供应链信号决定；不在 RunScanResult 必填）：

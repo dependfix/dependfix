@@ -202,7 +202,7 @@ jobs:
 - **Token 使用最小权限**：不要给 dependfix 使用全量 scope 的 PAT。推荐组合：`dependabot-alerts-token` 用仅 `Dependabot alerts: read` 的 fine-grained PAT；`github-token` 仅给目标仓库所需的最小权限（`security-events: read` + `contents`/`pull-requests` 写权限）。owner 模式扫描多个仓库时，token 权限面 = 所有被扫描仓库的信任边界。**启动时会对 token 做权限面检查**：检测到 classic PAT 且含 `repo`（全量仓库）权限时输出警告（不阻断运行）——该 token 一旦被恶意脚本窃取即可接管所有可见仓库。
 - **owner 模式扫描范围即信任边界**：`--owner` 发现的仓库会被 clone 并执行其依赖脚本——只扫描可信组织的仓库；对不可信来源先人工 review 再纳入名单（`--repo-include` / `--repo-exclude` 可限制范围）。
 - **PR 合入前人工检查**：跨线升级（PR body 带 ⚠️ Major 标记）以及新增/升级包带 lifecycle scripts 且被仓库批准时（供应链信号披露落地后见报告警示区），合入前应人工确认。
-- **平台部署**：默认拉取已发布镜像（`docker compose pull && docker compose up -d`；仅在需要本地打包时叠加 `docker-compose.build.yml` 覆盖文件构建，见 `apps/platform/docker-compose.yml` 顶部说明）。容器执行进程已**非 root 降权**（默认 `dependfix` 用户 uid 100 / gid 101；可用 `PUID`/`PGID` 对齐宿主机用户以控制数据卷 / `$HOME` 归属，解析为 0 时 fail-closed 拒绝启动，entrypoint 自动修复所有权）；部署时勿挂载 `docker.sock`、勿授予特权；`AUTH_SECRET` / `NUXT_ENCRYPTION_KEY` 使用强随机值。
+- **平台部署**：默认拉取已发布镜像（`docker compose pull && docker compose up -d`；仅在需要本地打包时叠加 `docker-compose.build.yml` 覆盖文件构建，见 `apps/platform/docker-compose.yml` 顶部说明）。容器执行进程已**非 root 降权**（默认 `dependfix` 用户 uid 100 / gid 101；可用 `PUID`/`PGID` 对齐宿主机用户以控制数据卷 / `$HOME` 归属，解析为 0 时 fail-closed 拒绝启动，entrypoint 自动修复所有权）；部署时勿挂载 `docker.sock`、勿授予特权；`AUTH_SECRET` / `NUXT_ENCRYPTION_KEY` 使用强随机值。**首次启动自动建表**（compose 默认 `DATABASE_MIGRATIONS_RUN=true`）；完整步骤（环境变量 / 数据卷与权限 / 数据库初始化 / 升级 / 备份恢复 / 故障排查）见 [Docker 部署](./deployment.md)。
 
 #### 启用 rootless sandbox 执行（推荐用于多租户/owner 模式）
 

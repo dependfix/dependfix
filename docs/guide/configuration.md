@@ -230,3 +230,9 @@ export DEPENDFIX_ALERTS_SOURCE=pnpm-audit
 ```
 
 > `GITHUB_TOKEN` 环境变量会被自动识别，无需额外配置前缀。`DEPENDFIX_GITHUB_TOKEN` 优先级高于 `GITHUB_TOKEN`。
+
+## 平台部署配置（Docker）
+
+管理平台（`apps/platform`）的配置通过 compose 从 `apps/platform/.env` 注入，核心变量（`AUTH_SECRET` / `NUXT_ENCRYPTION_KEY` / `NUXT_PUBLIC_BETTER_AUTH_URL` / `PUID` / `PGID` / `DATABASE_MIGRATIONS_RUN` 等）见 `apps/platform/.env.example`。**首次启动自动建表**（compose 默认 `DATABASE_MIGRATIONS_RUN=true`）；完整部署步骤见 [Docker 部署](./deployment.md)。
+
+> 平台是 Nuxt 应用，运行时覆盖只认 `NUXT_` 前缀：compose 变量 `AUTH_SECRET` → 容器 `NUXT_AUTH_SECRET`，`REGISTRATION_DISABLED` → `NUXT_REGISTRATION_DISABLED`。注意不要混用前缀导致静默回退默认值。

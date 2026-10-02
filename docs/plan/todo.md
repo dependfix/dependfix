@@ -18,19 +18,20 @@
 
 ## 当前阶段
 
-### M36: 治理债清仓 + 可观测性与测试稳定性（M36.1~M36.5）
+### M36: 治理债清仓 + 可观测性与测试稳定性（M36.1~M36.6）
 
-> **阶段摘要**：承接 M35 完整闭环归档后的 backlog 候选池，2026-10-02 用户决策**方案 A（治理债清仓）**——从 backlog 中可立即启动的候选中上收 5 项，一次性清空长期沉积的存量治理债（C81 孤立规划编号清理）并收口两处正确性 / 可观测性缺口与一处 e2e 顺序偶发。本批候选均经 [规划规范 §3.4](../standards/planning.md#34-阶段启动决策前置交叉核验硬要求m271-重复评估教训--2026-09-10) 三重交叉核验通过（0 项重复评估）。
+> **阶段摘要**：承接 M35 完整闭环归档后的 backlog 候选池，2026-10-02 用户决策**方案 A（治理债清仓）**——从 backlog 中可立即启动的候选中上收 5 项，一次性清空长期沉积的存量治理债（C81 孤立规划编号清理）并收口两处正确性 / 可观测性缺口与一处 e2e 顺序偶发；同日用户直接指令追加 1 项镜像体积治理（M36.6，属 [规划规范 §3.4](../standards/planning.md#34-阶段启动决策前置交叉核验硬要求m271-重复评估教训--2026-09-10) 承认的「用户直接决策」路径，非 backlog 候选）。backlog 上收的 5 项候选均经 §3.4 三重交叉核验通过（0 项重复评估）。
 >
-> **5 原子条目**（类型平衡 🛡️ 2 / 📚 1 / 🚀 1 / 🧪 1）：
+> **6 原子条目**（类型平衡 🛡️ 3 / 📚 1 / 🚀 1 / 🧪 1）：
 >
 > - **M36.1** [P3 🛡️ 技术债] C81 源码 / 配置注释孤立规划编号存量清理（分批）
 > - **M36.2** [P3 📚 文档治理] 设计与索引文档同类陈旧状态清理（存量）
 > - **M36.3** [P2 🛡️ 技术债] BatchRun 写回非原子竞态收敛（三处写回统一条件更新）
 > - **M36.4** [P3 🚀 可观测性] 告警源「未启用 + 其余源全失败」判据修正
 > - **M36.5** [P3 🧪 测试基建] api-i18n「重复仓库」用例顺序偶发定位与治理
+> - **M36.6** [P2 🛡️ 技术债] dependfix-platform 镜像体积治理（去除冗余 node_modules 打包）
 >
-> **类型平衡复核**：[规划规范 §1.1](../standards/planning.md#11-硬性约束) 建议 🎨 用户体验 + 🛡️ 技术债 + 🚀 能力扩展 + 🧪 测试覆盖：本批 🛡️ 2 + 📚 1 + 🚀 1 + 🧪 1；**🎨 用户体验无独立条目**（候选池无 UX 类候选，与 M28–M32 同型），缺口显式标注。
+> **类型平衡复核**：[规划规范 §1.1](../standards/planning.md#11-硬性约束) 建议 🎨 用户体验 + 🛡️ 技术债 + 🚀 能力扩展 + 🧪 测试覆盖：本批 🛡️ 3 + 📚 1 + 🚀 1 + 🧪 1；**🎨 用户体验无独立条目**（候选池无 UX 类候选，与 M28–M32 同型），缺口显式标注。
 >
 > **§3.4 三重交叉核验结论**（本批为 backlog 上收：「评估 → 用户决策 → 上收」路径）：
 >
@@ -40,15 +41,16 @@
 > - ④ **决策前提矛盾核验**（「参考 NNN 实施」等自相矛盾表述）：本批无此类表述，N/A。
 > - ⑤ **backlog 描述同步**：已按 backlog 维护规则 5 从 backlog 移除 5 项上收候选（§候选评估中 2 项 + §开发工具链 C81 整段 + §已知边界 2 项）。
 >
-> 结论：**5 项全部有效，0 项重复评估**。
+> 结论：backlog 上收的 **5 项全部有效，0 项重复评估**（M36.6 属 §3.4「用户直接决策」路径，其三重核验结论见下文 §M36.6）。
 >
 > **关键决策（待用户在执行期细化）**：
 >
-> - **D1**（2026-10-02 用户决策）：组合定型——方案 A（治理债清仓），5 原子条目；🎨 UX 缺口显式标注。
+> - **D1**（2026-10-02 用户决策）：组合定型——方案 A（治理债清仓），5 原子条目；🎨 UX 缺口显式标注。**同日追加 M36.6（用户直接指令）**，合计 6 原子条目。
 > - **D2**：M36.1 判定口径默认取「注释块级 + 真常量白名单（HTTP 错误码等）+ 优先改写为带文档指针的导航指针，无法归指者删编号留正文」；批量替换遵守 [AI 协作规范 §1.2 第 6 条](../standards/ai-collaboration.md) 分批纪律（每子批次 < 10 文件）。
 > - **D3**：M36.3 以「条件写回下沉共享层」为主，保持 GET「对非 running 批次仍对齐计数」既有契约；不引入悲观锁。
 > - **D4**：M36.4 判据改为「无任何成功源且存在失败源」；明确 `repoResults` / 报告「扫描成功」连锁语义。
-> - **执行顺序建议**：M36.3（P2）优先 → M36.1 分批独立 → M36.2 / M36.4 / M36.5 相互独立可并行。
+> - **D5**（2026-10-02 用户决策）：M36.6 镜像体积治理——对齐 momei / caomei-auth 的 `.output`-only 形态，移除 runtime 冗余 `node_modules` / workspace dist 复制；保持容器内 `DependfixApp` 程序化执行链路可用（引擎已由 Nitro 打包）；sandbox 未来独立入口须自包含，不得依赖 workspace `node_modules`。
+> - **执行顺序建议**：M36.6（已实施 + 实证）→ M36.3（P2）优先 → M36.1 分批独立 → M36.2 / M36.4 / M36.5 相互独立可并行。
 >
 > **范围边界（不做什么）**：不做 UX 强补候选；不启动需外部基建 / token 的候选（C15 / C68）；不动 migration 前缀统一（触发条件未到）与长期观察项。
 
@@ -131,6 +133,29 @@
 - **依赖**：M34.2 会话内 2/3 复现记录；backlog §已知边界条目；[AI 协作规范 §4.7 CI 偶发错误三阶段协议](../standards/ai-collaboration.md)。
 - **交付物**：预计 1–2 commits（定位证据 + 隔离修复）；files 清单见范围。
 - **风险与缓解**：偶发难以复现；缓解：先按 §4.7 三阶段协议取证，必要时加确定性 seed。
+
+#### M36.6 [P2 🛡️ 技术债] dependfix-platform 镜像体积治理（去除冗余 node_modules 打包）
+
+- **目标**：移除 runtime 阶段冗余的根 `node_modules` / workspace `dist` / `packages/skills` 复制，使镜像回归 Nuxt `.output`-only 形态（对齐 momei / caomei-auth），同时保持容器内执行链路（`DependfixApp` 程序化路径）可用。
+- **优先级**：P2（1.1GB 镜像显著影响分发 / 拉取 / 冷启动成本；非功能阻塞）。
+- **范围**：`apps/platform/Dockerfile`（`docker-minifier` / runtime 阶段）；关联文档口径 `docs/standards/platform.md` + `docs/design/governance/executor-sandbox.md`。
+- **验收标准**（2026-10-02 已全部实证）：
+  - [x] runtime 不再复制 `/app/node_modules`、`packages/*/node_modules`、`packages/*/dist`、`packages/skills`
+  - [x] 镜像体积显著下降：实测 **1.1GB → 239MB**（`docker images`）
+  - [x] 容器内工具链可用：`node v24.18.1` / `git 2.54.0` / `pnpm 11.18.0` / `unzip` / `su-exec` 全部存在
+  - [x] 容器启动 HTTP 冒烟 `GET /` → 200 且 PID1 非 root（`dependfi` uid 100）；SQLite `journal_mode=wal` PRAGMA 生效（原生 better-sqlite3 由 `.output` 提供）
+  - [x] `.output` 自包含证据：`.output/server/package.json` 声明依赖 166/166 目录命中、0 处外部 `@dependfix` import、`DependfixApp` / `fromPat` 已打包进 `.output/server/chunks`
+  - [x] `check:docs` EXIT 0 / `lint-md` 通过 / `docs:build` EXIT 0（审计方补跑）/ Dockerfile orphan-ID 手工正则扫描 0 命中（T801/C38 编号已改写为文档指针；`check-orphan-ids.mjs` 的 `SCAN_EXTENSIONS` 未覆盖无扩展名 `Dockerfile`，见 A 阶段 RG-S1）
+- **不做什么**：不改基础镜像 digest（可复现性基线）；不改 entrypoint 降权链路；不改容器内执行器业务代码；不新增镜像构建阶段。
+- **§3.4 三重交叉核验**（属「用户直接决策」路径）：
+  - ① **todo-archive 表格扫描**：`rg -n "镜像体积|镜像大小|node_modules 打包|Dockerfile" docs/plan/todo-archive.md docs/plan/archive/todo-archive-phases-*.md` 命中 T601 平台骨架 / C38 非 root 降权 / T801（**为补齐 node_modules**，与本次移除目标相反）等，**均非镜像优化方向，无既有优化条目**。
+  - ② **git log 历史核验**：`git log --oneline -- apps/platform/Dockerfile` 最近为 `d84ced1`（T801 打包 node_modules）/ `eb8f3c5`（C38 非 root）/ `8a24810`（arm64 SIGILL 复制完整依赖布局），均为「加依赖」方向；`git log --all --grep="镜像体积"` 为空，**无重复优化 commit**。
+  - ③ **代码侧 anchor 实证**：`git show HEAD:apps/platform/Dockerfile` 确认变更前确含冗余拷贝（`/app/node_modules` + `packages/*/node_modules` + `packages/*/dist` + `packages/skills`），与候选描述一致。
+  - 结论：**0 项重复评估**，可进入 D 阶段。
+- **依赖**：2026-10-02 用户直接指令（属 [规划规范 §3.4](../standards/planning.md#34-阶段启动决策前置交叉核验硬要求m271-重复评估教训--2026-09-10)「用户直接决策」路径，非 backlog 候选）；[executor-sandbox.md §7.2](../design/governance/executor-sandbox.md#72-镜像策略)。
+- **交付物**：1 commit（Dockerfile + 文档口径 + 计划登记）。
+- **风险与缓解**：`.output` 若缺运行时依赖 → 容器启动 500；缓解：构建后镜像内依赖完整性（166/166）+ HTTP 冒烟 + 原生模块 PRAGMA 实证；sandbox 未来独立执行入口曾依赖 workspace `node_modules` 的假设已移除并在设计文档登记自包含要求。
+- **残余风险（A 阶段 RG-W2，2026-10-02）**：容器内执行链路「可用」以**静态 + 启动实证**闭合（引擎打包 / 依赖 166/166 / HTTP 200 / SQLite PRAGMA），未在新镜像内实跑一次 `DependfixApp.run()` 全链路（需真实 GitHub 凭据；T801 旧镜像实证不可复用）；静态证据判定风险低，留待 sandbox / 真实扫描场景补跑。
 
 ---
 

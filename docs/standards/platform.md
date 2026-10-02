@@ -56,7 +56,7 @@ apps/platform/
 │   ├── services/               # 业务逻辑层（扫描编排、凭据加解密）
 │   ├── middleware/             # server 中间件（按需）
 │   └── utils/                  # server 工具（auth 实例、加密、雪花 ID）
-├── Dockerfile                  # 多阶段镜像（alpine-nodejs 构建 / minimize 运行时，含 cli/core dist）
+├── Dockerfile                  # 多阶段镜像（alpine-nodejs 构建 / minimize 运行时，仅含 Nuxt .output；引擎由 Nitro 打包）
 ├── docker-compose.yml          # SQLite 数据卷部署
 ├── nuxt.config.ts
 └── package.json

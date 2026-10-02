@@ -50,7 +50,7 @@ dependfix 的核心动作是**升级第三方依赖**，本质是"拉取并执�
 
 > **M6 结论**：平台容器即沙箱（进程级隔离）可接受——单租户自托管场景下威胁模型以"恶意依赖脚本"为主，通过非 root + 临时目录 + 凭据最小化 + 超时四项缓解即可达安全基线；更高隔离（网络出站限制、每任务容器）登记 backlog C26，M7 随 BullMQ worker 模型实现。
 >
-> **⚠️ 2026-08-14 评估修正**：M6 四项缓解中的"非 root 运行（镜像 `USER` 降权）"**已修复（C38，2026-08-14）**——entrypoint 降权方案（dependfix 用户 uid 100 + chown 数据卷 + su-exec），本地实证通过；"记录执行期外联日志"未实现——登记 C40。C26 独立沙箱提级为 M7 前置（并发共享容器交叉污染，见 [治理文档 §3 路径 D](./sandbox-security-governance.md)）。**实证补充**：容器内 git/pnpm 工具链从未安装（本文档声称"平台镜像内置 git/node/pnpm"与实际不符，仅 node 存在）——**已修复（C45/T801，2026-08-14）**：git + pnpm 11.18.0 + workspace node_modules 打包，容器内 fix 全链路实证通过。
+> **⚠️ 2026-08-14 评估修正**：M6 四项缓解中的"非 root 运行（镜像 `USER` 降权）"**已修复（C38，2026-08-14）**——entrypoint 降权方案（dependfix 用户 uid 100 + chown 数据卷 + su-exec），本地实证通过；"记录执行期外联日志"未实现——登记 C40。C26 独立沙箱提级为 M7 前置（并发共享容器交叉污染，见 [治理文档 §3 路径 D](./sandbox-security-governance.md)）。**实证补充**：容器内 git/pnpm 工具链从未安装（本文档声称"平台镜像内置 git/node/pnpm"与实际不符，仅 node 存在）——**已修复（C45/T801，2026-08-14）**：git + pnpm 11.18.0 + workspace node_modules 打包，容器内 fix 全链路实证通过。**2026-10-02 更新**：runtime 镜像改为只保留 Nuxt `.output`——Nitro trace 自带 `.output/server/node_modules`（含 better-sqlite3 musl prebuild），`@dependfix/engine` 已打包进 `.output/server/chunks`，故不再复制 workspace `node_modules` / dist；容器内执行（`DependfixApp` 程序化路径）仍完整可用，镜像体积显著下降（对齐 momei / caomei-auth 的 `.output`-only 形态）。
 
 ---
 
@@ -245,14 +245,14 @@ export interface SandboxHandle {
 
 ### 7.2 镜像策略
 
-复用 `apps/platform/Dockerfile` runtime 阶段（T801 已落地 git + pnpm 11.18.0 工具链；C45 修复），**不维护双镜像**。Sandbox 容器启动命令与平台容器内执行 `DependfixApp.run()` 等价，差异仅在 UID/cgroup/网络隔离边界。镜像 tag 通过 `apps/platform/docker tag` 复用（与 C30 `Publish Docker` CI 链路解耦——CI 发布的镜像不可被 sandbox 直接拉，本场景使用平台内置镜像）。
+复用 `apps/platform/Dockerfile` runtime 阶段（T801 已落地 git + pnpm 11.18.0 工具链；C45 修复；2026-10-02 起 runtime 仅含 Nuxt `.output`，引擎由 Nitro 打包），**不维护双镜像**。Sandbox 容器启动命令与平台容器内执行 `DependfixApp.run()` 等价，差异仅在 UID/cgroup/网络隔离边界。**注意**：runtime 镜像不再随附 workspace CLI / `node_modules`，当前 `SandboxExecutor.buildCmd` 为占位实现；独立沙箱真实执行落地时须提供自包含入口（自包含 CLI bundle），不得依赖 workspace `node_modules`。镜像 tag 通过 `apps/platform/docker tag` 复用（与 C30 `Publish Docker` CI 链路解耦——CI 发布的镜像不可被 sandbox 直接拉，本场景使用平台内置镜像）。
 
 ### 7.3 部署形态
 
 **自托管 docker-compose**（M10 目标，唯一交付形态）：
 
 - `apps/platform/docker-compose.yml` 增加 `sandbox-daemon` 服务（rootless Docker daemon 容器，挂载 `data/runs` 共享卷，映射 unix socket 给 platform 容器）
-- `apps/platform/Dockerfile` 不变（T801/C38 已落地，非 root + 工具链）
+- `apps/platform/Dockerfile` 工具链 / 非 root 链路不变（T801/C38 已落地）；runtime 自 2026-10-02 起仅含 Nuxt `.output`，不再随附 workspace `node_modules`，故 sandbox 独立入口须自包含（见 §7.2）
 - platform 容器通过 `DOCKER_HOST=unix:///var/run/docker.sock`（容器内 socket 路径，与 rootless daemon 共享）
 
 **反模式登记**（绝对不可用）：

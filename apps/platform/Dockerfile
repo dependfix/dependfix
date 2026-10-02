@@ -1,9 +1,15 @@
 # dependfix 平台容器镜像（控制面 + 容器内执行工具链）
-# 参考 momei Dockerfile 四阶段结构：nodejs → builder → minifier → runtime
-# - 基础镜像：caomeiyouren/alpine-nodejs（构建，含 node/pnpm/git）+ alpine-nodejs-minimize（运行时，最小化）
-# - 缩小阶段：只保留 .output（Nuxt 产物自带完整 node_modules）+ 容器内执行所需的 cli/core dist
-# - action.yml 不进容器：它由 GitHub Actions 消费（目标仓库 workflow uses: dependfix/dependfix），
-#   平台容器内执行走 DependfixApp 程序化接口（容器内执行器，任务归属见 docs/plan/todo.md §M6）
+# 参考 momei / caomei-auth Dockerfile 结构：nodejs → deps → builder → docker-minifier → runtime。
+# 基础镜像：caomeiyouren/alpine-nodejs（构建，含 node/pnpm/git）+ alpine-nodejs-minimize（运行时，最小化）。
+#
+# 体积关键结论（2026-10-02 实证）：Nuxt/Nitro `.output` 自带完整运行时依赖
+# （`.output/server/node_modules` 由 Nitro trace 产出，含 better-sqlite3 等原生模块的 musl prebuild），
+# 且平台内执行走的 DependfixApp（`@dependfix/engine`）已被 Nitro 打包进 `.output/server/chunks`——
+# 故 runtime 只需 `.output`，不再复制根 node_modules / workspace dist（后者曾使镜像膨胀至 ~1.1GB）。
+# 容器内执行链路（git clone → pnpm install/audit → DependfixApp）仍完整可用：
+# git 走 apk、pnpm 从构建链镜像零网络拷贝、engine 由 `.output` 载入。
+# action.yml 不进容器：它由 GitHub Actions 消费（目标仓库 workflow uses: dependfix/dependfix），
+# 平台容器内执行走 DependfixApp 程序化接口，链路见 docs/design/governance/executor-sandbox.md。
 # 基础镜像固定 digest（可复现构建，避免 :latest 上游漂移）；Node 24.18.1 / pnpm 11.18
 FROM caomeiyouren/alpine-nodejs@sha256:6bf6f219ac051adf9b9e66f0e0dbda561649f5828e61d7e205fb2bc09f78e095 AS nodejs
 
@@ -36,34 +42,17 @@ RUN pnpm config set verify-deps-before-run=false \
     && pnpm --filter dependfix build \
     && pnpm --filter @dependfix/platform build
 
-# 阶段三：缩小（只保留运行时必需产物）
+# 阶段三：缩小（只保留运行时必需的 Nuxt 产物）
 FROM nodejs AS docker-minifier
 WORKDIR /app
-# .output 自带完整 node_modules（含已编译 better-sqlite3），无需复制 node_modules
+# .output 自带完整 node_modules（Nitro trace + 已编译 better-sqlite3），无需额外复制任何依赖树
 COPY --from=builder /app/apps/platform/.output ./.output
-# 容器内执行器：在容器内运行 DependfixApp 需要 cli/core/engine/skills 构建产物（含 package.json 供依赖解析）
-COPY --from=builder /app/packages/core/dist packages/core/dist
-COPY --from=builder /app/packages/core/package.json packages/core/package.json
-COPY --from=builder /app/packages/engine/dist packages/engine/dist
-COPY --from=builder /app/packages/engine/package.json packages/engine/package.json
-COPY --from=builder /app/packages/cli/dist packages/cli/dist
-COPY --from=builder /app/packages/cli/package.json packages/cli/package.json
-COPY --from=builder /app/packages/skills packages/skills
-# ── T801 容器内执行依赖：workspace node_modules（符号链接 + 根 .pnpm store）──
-# pnpm 布局：各包 node_modules 内依赖链接指向根 node_modules/.pnpm/<pkg>@<ver>/node_modules/...；
-# Docker COPY 保留符号链接，根 store 一并拷贝后链接在镜像内依然有效。
-# 注意：.dockerignore 仅约束 build context（COPY . .），不影响多阶段 COPY --from
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/packages/core/node_modules packages/core/node_modules
-COPY --from=builder /app/packages/engine/node_modules packages/engine/node_modules
-COPY --from=builder /app/packages/cli/node_modules packages/cli/node_modules
-# skills 零依赖，pnpm 不创建其 node_modules（链接直接指向包目录），无需拷贝
 
 # 阶段四：生产
 FROM runtime
 ENV NODE_ENV=production
-# ── T801 容器工具链（ContainerExecutor 依赖）：git（clone）+ pnpm（install/audit）──
-# unzip: B mode result fetch (ActionResultFetcher unzip artifact) needs it
+# 容器工具链（ContainerExecutor 依赖）：git（clone）+ pnpm（install/audit）——
+# unzip：B mode result fetch（ActionResultFetcher unzip artifact）需要
 # git 随 alpine 滚动 index（与 unzip/su-exec 同惯例，实证版本 2.54.0）；可复现性以基础镜像 digest 为基线
 RUN apk add --no-cache unzip git && rm -rf /var/cache/apk/*
 # pnpm：从构建链镜像（docker-minifier，完整 nodejs 镜像）拷贝，版本 11.18.0 与构建链一致、
@@ -73,7 +62,7 @@ COPY --from=docker-minifier /usr/local/lib/node_modules/pnpm /usr/local/lib/node
 RUN ln -sf ../lib/node_modules/pnpm/bin/pnpm.mjs /usr/local/bin/pnpm
 WORKDIR /app
 COPY --from=docker-minifier /app /app
-# ── C38 非 root 降权（安全基线 §5.3 执行环境）：执行不可信代码的进程不得以 root 运行 ──
+# 非 root 降权（安全基线 docs/standards/security.md §5.3 执行环境）：执行不可信代码的进程不得以 root 运行
 # 运行用户创建（幂等，避免与基础镜像内置用户冲突）；su-exec 供 entrypoint 降权
 RUN set -eux; \
     if ! getent passwd dependfix > /dev/null 2>&1; then \

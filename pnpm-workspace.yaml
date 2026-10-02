@@ -37,3 +37,4 @@ overrides:
   hono: ^4.13.5
   vitest: ^4.1.11
   undici: ^8.10.2
+  devalue: ^5.9.3

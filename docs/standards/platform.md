@@ -57,7 +57,8 @@ apps/platform/
 │   ├── middleware/             # server 中间件（按需）
 │   └── utils/                  # server 工具（auth 实例、加密、雪花 ID）
 ├── Dockerfile                  # 多阶段镜像（alpine-nodejs 构建 / minimize 运行时，仅含 Nuxt .output；引擎由 Nitro 打包）
-├── docker-compose.yml          # SQLite 数据卷部署
+├── docker-compose.build.yml    # 本地构建覆盖文件（可选；默认不本地打包）
+├── docker-compose.yml          # SQLite 数据卷部署（默认拉取已发布镜像；PUID/PGID 控制卷权限）
 ├── nuxt.config.ts
 └── package.json
 ```

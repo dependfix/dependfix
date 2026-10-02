@@ -1,4 +1,10 @@
 # dependfix 平台部署编排（SQLite 数据卷持久化 + Redis 扫描队列）
+#
+# 默认拉取已发布镜像，不在本地构建（避免每次部署重跑 pnpm install + nuxt build）：
+#   docker compose pull && docker compose up -d
+# 仅在需要本地打包时使用构建覆盖文件（开发 / 自定义改动）：
+#   docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
+# 镜像可换 registry：DEPENDFIX_IMAGE=ghcr.io/dependfix/dependfix:latest 或阿里云 ACR 地址。
 services:
   # Redis（BullMQ 扫描队列存储；BullMQ 6 要求 Redis >= 5.0，redis:7-alpine 满足）
   redis:
@@ -9,13 +15,18 @@ services:
     # 仅平台服务内部访问，不映射宿主机端口
 
   platform:
-    build:
-      context: ../..
-      dockerfile: apps/platform/Dockerfile
+    # 默认已发布镜像（Docker Hub）；本地构建见 docker-compose.build.yml 覆盖文件
+    image: ${DEPENDFIX_IMAGE:-caomeiyouren/dependfix:latest}
     ports:
       - "${PORT:-3000}:3000"
     environment:
       PORT: 3000
+      # 运行身份（控制 /app/data 数据卷与 $HOME 的宿主侧所有权）：
+      # 默认 100:101 = 镜像内 dependfix 用户（uid 100 / gid 101）；NAS / 多用户场景设为宿主用户 uid:gid。
+      # PUID/PGID 解析为 0 时入口 fail-closed 拒绝启动（保持非 root 执行基线）。
+      # 入口仅在 root 启动时能修复卷所有权并降权；若改用 user: 字段需宿主预先授权卷与 $HOME。
+      PUID: ${PUID:-100}
+      PGID: ${PGID:-101}
       # Nuxt runtimeConfig 运行时覆盖只认 NUXT_ 前缀（AUTH_SECRET 在构建期已烘焙，运行时无效）
       NUXT_AUTH_SECRET: ${AUTH_SECRET:-change-me-to-a-random-secret}
       DATABASE_PATH: /app/data/dependfix.sqlite
@@ -42,10 +53,10 @@ services:
   # 独立 worker 进程（预留，PostgreSQL 生产迁移后启用）：
   # SQLite 下多容器共享 DB 存在写锁冲突，当前阶段使用单容器 in-process worker 形态。
   # worker:
-  #   build:
-  #     context: ../..
-  #     dockerfile: apps/platform/Dockerfile
+  #   image: ${DEPENDFIX_IMAGE:-caomeiyouren/dependfix:latest}
   #   environment:
+  #     PUID: ${PUID:-100}
+  #     PGID: ${PGID:-101}
   #     NUXT_REDIS_URL: redis://redis:6379
   #     NUXT_IN_PROCESS_WORKER: "true"
   #     DATABASE_PATH: /app/data/dependfix.sqlite

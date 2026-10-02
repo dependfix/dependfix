@@ -1,0 +1,17 @@
+# 本地构建覆盖文件（可选）：仅在需要本地打包镜像时叠加。
+#
+# 用法：
+#   docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
+#   docker compose -f docker-compose.yml -f docker-compose.build.yml build
+#
+# 作用：为 docker-compose.yml 的 platform 服务补上 build 段。默认 docker-compose.yml
+# 只声明已发布镜像（优先拉取），本地构建通过本文件显式开启。
+#
+# 本地构建使用独立 tag（默认 caomeiyouren/dependfix:local）避免覆盖已发布的 :latest；
+# 如需自定义本地 tag 可设 DEPENDFIX_BUILD_IMAGE。
+services:
+  platform:
+    image: ${DEPENDFIX_BUILD_IMAGE:-caomeiyouren/dependfix:local}
+    build:
+      context: ../..
+      dockerfile: apps/platform/Dockerfile

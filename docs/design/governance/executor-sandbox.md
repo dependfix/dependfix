@@ -253,6 +253,7 @@ export interface SandboxHandle {
 
 - `apps/platform/docker-compose.yml` 增加 `sandbox-daemon` 服务（rootless Docker daemon 容器，挂载 `data/runs` 共享卷，映射 unix socket 给 platform 容器）
 - `apps/platform/Dockerfile` 工具链 / 非 root 链路不变（T801/C38 已落地）；runtime 自 2026-10-02 起仅含 Nuxt `.output`，不再随附 workspace `node_modules`，故 sandbox 独立入口须自包含（见 §7.2）
+- platform 镜像默认拉取已发布 tag（`docker compose pull && docker compose up -d`），本地构建经 `docker-compose.build.yml` 覆盖文件显式开启；运行身份默认 `dependfix`（uid 100 / gid 101），`PUID`/`PGID` 可对齐宿主用户以控制数据卷 / `$HOME` 所有权，且对 0 值 fail-closed（保持非 root 基线）
 - platform 容器通过 `DOCKER_HOST=unix:///var/run/docker.sock`（容器内 socket 路径，与 rootless daemon 共享）
 
 **反模式登记**（绝对不可用）：

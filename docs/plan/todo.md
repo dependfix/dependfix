@@ -136,9 +136,9 @@
 
 #### M36.6 [P2 🛡️ 技术债] dependfix-platform 镜像体积治理（去除冗余 node_modules 打包）
 
-- **目标**：移除 runtime 阶段冗余的根 `node_modules` / workspace `dist` / `packages/skills` 复制，使镜像回归 Nuxt `.output`-only 形态（对齐 momei / caomei-auth），同时保持容器内执行链路（`DependfixApp` 程序化路径）可用。
+- **目标**：移除 runtime 阶段冗余的根 `node_modules` / workspace `dist` / `packages/skills` 复制，使镜像回归 Nuxt `.output`-only 形态（对齐 momei / caomei-auth），同时保持容器内执行链路（`DependfixApp` 程序化路径）可用；并让 `docker-compose` 默认拉取已发布镜像（本地构建改为可选覆盖文件）、新增 `PUID`/`PGID` 控制数据卷与 `$HOME` 所有权（对 root 身份 fail-closed）。
 - **优先级**：P2（1.1GB 镜像显著影响分发 / 拉取 / 冷启动成本；非功能阻塞）。
-- **范围**：`apps/platform/Dockerfile`（`docker-minifier` / runtime 阶段）；关联文档口径 `docs/standards/platform.md` + `docs/design/governance/executor-sandbox.md`。
+- **范围**：`apps/platform/Dockerfile`（`docker-minifier` / runtime 阶段）+ `apps/platform/docker-compose.yml` / `apps/platform/docker-compose.build.yml`（默认拉取已发布镜像、本地构建改为可选）+ `apps/platform/docker/entrypoint.sh`（PUID/PGID 权限控制）；关联文档口径 `docs/standards/platform.md` + `docs/design/governance/executor-sandbox.md` + `docs/guide/quick-start.md`。
 - **验收标准**（2026-10-02 已全部实证）：
   - [x] runtime 不再复制 `/app/node_modules`、`packages/*/node_modules`、`packages/*/dist`、`packages/skills`
   - [x] 镜像体积显著下降：实测 **1.1GB → 239MB**（`docker images`）
@@ -146,14 +146,18 @@
   - [x] 容器启动 HTTP 冒烟 `GET /` → 200 且 PID1 非 root（`dependfi` uid 100）；SQLite `journal_mode=wal` PRAGMA 生效（原生 better-sqlite3 由 `.output` 提供）
   - [x] `.output` 自包含证据：`.output/server/package.json` 声明依赖 166/166 目录命中、0 处外部 `@dependfix` import、`DependfixApp` / `fromPat` 已打包进 `.output/server/chunks`
   - [x] `check:docs` EXIT 0 / `lint-md` 通过 / `docs:build` EXIT 0（审计方补跑）/ Dockerfile orphan-ID 手工正则扫描 0 命中（T801/C38 编号已改写为文档指针；`check-orphan-ids.mjs` 的 `SCAN_EXTENSIONS` 未覆盖无扩展名 `Dockerfile`，见 A 阶段 RG-S1）
-- **不做什么**：不改基础镜像 digest（可复现性基线）；不改 entrypoint 降权链路；不改容器内执行器业务代码；不新增镜像构建阶段。
+  - [x] docker-compose 默认使用已发布镜像（`image:`，不再本地 `build:`）；本地构建经 `docker-compose.build.yml` 覆盖文件显式开启（`docker compose config` 校验通过）
+  - [x] entrypoint 支持 PUID/PGID：实测 `PUID=1001/PGID=1001` → PID1 `Uid/Gid=1001`、`/app/data` 与 `/home/dependfix` 归属 1001、HTTP 200；`PUID=100/PGID=101` → Uid 100 / Gid 101；无 env 默认 uid 100/gid 101；`user:` 非 root 分支直接执行并 warn `$HOME` 可写性
+  - [x] 非 root 基线 fail-closed：`PUID=0`/`00`/`0x0`/`-1`、`PGID=0`、32 位回绕（`4294967296`/`8589934592`）、`uid_t -1`（`4294967295`）、超范围巨值均拒绝启动（`awk` 范围校验 `1..4294967294`，exit 1 + 明确报错）
+  - [x] chown 作用域收敛：`DATA_DIR=//` / `DATA_DIR=/app/data/../..` / `HOME=//` 经 canonicalize 判根拒绝；符号链接指向根（TOCTOU 向量）解链后拒绝；默认仅允许 `/app`、`/home` 下（`DEPENDFIX_ALLOW_ANY_DIR=1` 可放开，但根路径仍硬拒绝）；chown 直接作用于 canonical 路径
+- **不做什么**：不改基础镜像 digest（可复现性基线）；不改容器内执行器业务代码；不新增镜像构建阶段；不改变非 root 降权基线本身（仅扩展 PUID/PGID 支持并对其 fail-closed）。
 - **§3.4 三重交叉核验**（属「用户直接决策」路径）：
   - ① **todo-archive 表格扫描**：`rg -n "镜像体积|镜像大小|node_modules 打包|Dockerfile" docs/plan/todo-archive.md docs/plan/archive/todo-archive-phases-*.md` 命中 T601 平台骨架 / C38 非 root 降权 / T801（**为补齐 node_modules**，与本次移除目标相反）等，**均非镜像优化方向，无既有优化条目**。
   - ② **git log 历史核验**：`git log --oneline -- apps/platform/Dockerfile` 最近为 `d84ced1`（T801 打包 node_modules）/ `eb8f3c5`（C38 非 root）/ `8a24810`（arm64 SIGILL 复制完整依赖布局），均为「加依赖」方向；`git log --all --grep="镜像体积"` 为空，**无重复优化 commit**。
   - ③ **代码侧 anchor 实证**：`git show HEAD:apps/platform/Dockerfile` 确认变更前确含冗余拷贝（`/app/node_modules` + `packages/*/node_modules` + `packages/*/dist` + `packages/skills`），与候选描述一致。
   - 结论：**0 项重复评估**，可进入 D 阶段。
 - **依赖**：2026-10-02 用户直接指令（属 [规划规范 §3.4](../standards/planning.md#34-阶段启动决策前置交叉核验硬要求m271-重复评估教训--2026-09-10)「用户直接决策」路径，非 backlog 候选）；[executor-sandbox.md §7.2](../design/governance/executor-sandbox.md#72-镜像策略)。
-- **交付物**：1 commit（Dockerfile + 文档口径 + 计划登记）。
+- **交付物**：2 commits（① 镜像瘦身 + 文档口径 + 计划登记；② docker-compose 默认拉镜像 + PUID/PGID 权限控制 + entrypoint）。
 - **风险与缓解**：`.output` 若缺运行时依赖 → 容器启动 500；缓解：构建后镜像内依赖完整性（166/166）+ HTTP 冒烟 + 原生模块 PRAGMA 实证；sandbox 未来独立执行入口曾依赖 workspace `node_modules` 的假设已移除并在设计文档登记自包含要求。
 - **残余风险（A 阶段 RG-W2，2026-10-02）**：容器内执行链路「可用」以**静态 + 启动实证**闭合（引擎打包 / 依赖 166/166 / HTTP 200 / SQLite PRAGMA），未在新镜像内实跑一次 `DependfixApp.run()` 全链路（需真实 GitHub 凭据；T801 旧镜像实证不可复用）；静态证据判定风险低，留待 sandbox / 真实扫描场景补跑。
 

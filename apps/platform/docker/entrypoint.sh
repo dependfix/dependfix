@@ -1,5 +1,16 @@
 #!/bin/sh
-# dependfix 平台容器入口：修复数据目录所有权后降权执行（C38 非 root 降权）
+# dependfix 平台容器入口：按运行身份修复数据目录 / HOME 所有权后降权执行（非 root 降权）
+#
+# 权限模型：
+# - 默认以镜像内 `dependfix` 用户（uid 100 / gid 101）运行；可用 PUID/PGID 覆盖为宿主机用户，
+#   使 /app/data 命名卷或 bind mount 的宿主侧所有权可控（NAS / 多用户场景常用）。
+# - 入口以 root 启动 → chown 数据目录 + HOME → su-exec 降权，不写 /etc/passwd，支持任意非 root uid:gid。
+# - 非 root 执行基线（安全规范 §5.3）：解析出的 uid/gid 必须落在 1..4294967294（uid_t 有效且非 root），
+#   `0` / `00` / 2^32 回绕值等一律 fail-closed 拒绝启动，避免单个环境变量静默关闭降权。
+# - chown 作用域收敛：仅允许 /app 与 /home 下的规范化路径，拒绝根路径（含 //、a/../.. 等非规范形态）；
+#   特殊挂载点可设 DEPENDFIX_ALLOW_ANY_DIR=1 放开（高级用法，根路径仍硬拒）。
+# - 若 compose 直接设置 `user: "uid:gid"`（入口非 root 启动，无法 chown/setuid），则跳过降权直接执行；
+#   此时宿主需预先授予卷与 $HOME 写权限。
 #
 # 场景覆盖：
 # - 新卷：镜像构建期已 mkdir + chown /app/data，此处幂等无操作
@@ -7,17 +18,75 @@
 # - chown 失败不阻断启动（如只读卷），但必须输出警告便于排障
 set -e
 
-RUN_USER="${RUN_USER:-dependfix}"
 DATA_DIR="${DATA_DIR:-/app/data}"
+HOME_DIR="${HOME:-/home/dependfix}"
+ALLOW_ANY_DIR="${DEPENDFIX_ALLOW_ANY_DIR:-0}"
 
-if [ -d "$DATA_DIR" ]; then
-    chown -R "$RUN_USER:$RUN_USER" "$DATA_DIR" 2>/dev/null \
-        || echo "warn: chown $DATA_DIR to $RUN_USER failed (read-only volume?)" >&2
+# 解析运行身份：PUID/PGID 优先，缺省回退镜像内 dependfix 用户（uid 100 / gid 101）
+RUN_USER="${RUN_USER:-dependfix}"
+RUN_UID="${PUID:-$(id -u "$RUN_USER" 2>/dev/null || echo 100)}"
+RUN_GID="${PGID:-$(id -g "$RUN_USER" 2>/dev/null || echo 101)}"
+
+# 数值 + 范围校验：仅接受 1..4294967294（uid_t 有效且非 root）。
+# 用 case 拒绝空串 / 任意非数字字符（含换行、空格、符号）；用 awk 做范围比较（避免 `[ -gt ]` 对超 64 位值报错）；
+# 32 位回绕（如 4294967296 → uid 0）在此被拒。
+is_valid_id() {
+    case "$1" in
+        ""|*[!0-9]*) return 1 ;;
+    esac
+    awk -v n="$1" 'BEGIN { exit !(n >= 1 && n <= 4294967294) }'
+}
+is_valid_id "$RUN_UID" || { echo "error: invalid PUID '$RUN_UID' (expect integer 1..4294967294, non-root)" >&2; exit 1; }
+is_valid_id "$RUN_GID" || { echo "error: invalid PGID '$RUN_GID' (expect integer 1..4294967294, non-root)" >&2; exit 1; }
+
+RUN_IDENTITY="${RUN_UID}:${RUN_GID}"
+export HOME="$HOME_DIR"
+
+# 路径校验：拒绝空值 / 字面根；canonicalize 后拒绝等价根（//、/./、a/../..、指向根的符号链接）；
+# 父目录不存在时 readlink 返回空亦 fail-closed（叶子缺失时由下方 `[ -d ]` 守卫跳过 chown）。
+# 默认 allowlist 仅允许 /app 与 /home 下，收敛 chown -R 作用域。
+# 返回规范化路径（canonical），后续 chown 直接使用 canonical，避免符号链接 TOCTOU。
+check_dir_path() {
+    label="$1"
+    dir="$2"
+    case "$dir" in
+        ""|"/") echo "error: refusing unsafe $label '$dir' (must not be empty or root)" >&2; exit 1 ;;
+    esac
+    canon="$(readlink -f "$dir" 2>/dev/null || true)"
+    # 归一并发斜杠（busybox readlink -f 对 // 可能保留原样），再判根
+    canon="$(printf '%s' "$canon" | sed 's#//*#/#g')"
+    if [ -z "$canon" ] || [ "$canon" = "/" ]; then
+        echo "error: refusing unsafe $label '$dir' (resolves to '$canon'; path must exist)" >&2
+        exit 1
+    fi
+    if [ "$ALLOW_ANY_DIR" != "1" ]; then
+        case "$canon" in
+            /app/*|/home/*) : ;;
+            *) echo "error: refusing chown outside /app or /home: $label '$dir' -> '$canon' (set DEPENDFIX_ALLOW_ANY_DIR=1 to override)" >&2; exit 1 ;;
+        esac
+    fi
+    printf '%s' "$canon"
+}
+
+DATA_DIR_CANON="$(check_dir_path DATA_DIR "$DATA_DIR")"
+HOME_DIR_CANON="$(check_dir_path HOME "$HOME_DIR")"
+
+# 非 root 启动（compose user: 已指定身份）：无法 chown / setuid，直接执行
+if [ "$(id -u)" != "0" ]; then
+    [ -w "$HOME_DIR_CANON" ] || echo "warn: $HOME_DIR_CANON not writable by uid $(id -u); pnpm/npm cache may fail (pre-authorize the volume + HOME)" >&2
+    exec "$@"
 fi
+
+for canon in "$DATA_DIR_CANON" "$HOME_DIR_CANON"; do
+    if [ -d "$canon" ]; then
+        chown -R "$RUN_IDENTITY" "$canon" 2>/dev/null \
+            || echo "warn: chown $canon to $RUN_IDENTITY failed (read-only volume?)" >&2
+    fi
+done
 
 # 降权执行；su-exec 缺失属构建损坏（构建期 apk add 固定安装），fail-closed 拒绝以 root 运行
 if command -v su-exec > /dev/null 2>&1; then
-    exec su-exec "$RUN_USER" "$@"
+    exec su-exec "$RUN_IDENTITY" "$@"
 fi
-echo "error: su-exec not found, refusing to run as root (C38 降权链路损坏)" >&2
+echo "error: su-exec not found, refusing to run as root (降权链路损坏)" >&2
 exit 1

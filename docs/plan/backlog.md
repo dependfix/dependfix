@@ -59,7 +59,7 @@
 
 ### 候选评估中（待评估，暂未进入用户决策面）
 
-> 存量候选说明：两项候选已于 2026-10-02 经用户决策上收至 M36 阶段（方案 A），按维护规则 5 从本文件移除（登记位置见 [todo.md §M36](todo.md#m36-治理债清仓--可观测性与测试稳定性m361m367)）：① 设计与索引文档的同类陈旧状态清理（存量）；② BatchRun 写回的非原子竞态（详情 GET / sync 尾部 vs 并发 `force-fail`）。**另**：2026-10-02 用户直接指令追加 dependfix-platform 镜像体积治理（M36.6）与依赖升级 overrides key 重复写法修复（M36.7，用户报告 nuxt-latest-template#298）——两者均非 backlog 候选，未在本文件评估，登记位置见 [todo.md §M36](todo.md#m36-治理债清仓--可观测性与测试稳定性m361m367)。
+> 存量候选说明：两项候选已于 2026-10-02 经用户决策上收至 M36 阶段（方案 A），按维护规则 5 从本文件移除（登记位置见 [todo.md §M36](todo.md)）：① 设计与索引文档的同类陈旧状态清理（存量）；② BatchRun 写回的非原子竞态（详情 GET / sync 尾部 vs 并发 `force-fail`）。**另**：2026-10-02 用户直接指令追加 dependfix-platform 镜像体积治理（M36.6）、依赖升级 overrides key 重复写法修复（M36.7，用户报告 nuxt-latest-template#298）与 Docker 首次启动数据库初始化 + 部署文档 / 一键初始化脚本（M36.8，用户报告可用性缺陷）——三者均非 backlog 候选，未在本文件评估，登记位置见 [todo.md §M36](todo.md)。
 
 - **运行失败分类与筛选（失败阶段 + 可重试判定 + 重试入口）** —— 运行列表（`/scans` 全部运行）只显示粗粒度「失败」，无法区分失败阶段（告警获取 / clone / install / 修复 / 验证 / 交付 / 运行时 / 清理），也无法区分网络类可重试失败与 `VERIFICATION_FAILED` 等需重点研判失败（2026-10-02 用户报告）。**研判与设计先行稿已产出**：[run-failure-taxonomy.md](../design/governance/run-failure-taxonomy.md)。待评估上收；触发条件：① 用户需要按失败阶段筛选 / 受约束重试；② 失败运行量增长到人工逐条排查成本显著。
 
@@ -181,17 +181,16 @@
 - **影响**：类型侧由 `nuxt typecheck` 覆盖；但涉及 `packages/*/dist`（如 engine chunk 结构）变更后，容器 / 运行时冒烟前需重建 `apps/platform/.output`，否则可能引用旧产物。
 - **触发条件**：① 需要容器 / 运行时冒烟验证依赖 `packages/*/dist` 的变更时；② 跑 `apps/platform` e2e 或**视觉回归**（`pnpm --filter @dependfix/platform test:visual`，M32.5）前——两者都跑 `.output` 产物，源码改动不重建则验证的是旧产物（假绿；M32.1 / M32.5 均实证）。
 
-### apps/platform 早期 migration 表名前缀不统一（已知边界，待治理）
+### apps/platform migration 前缀与自举（M36.8 已闭环，随 M36 归档批次移出）
 
-- **背景**：`createDataSourceOptions` 默认 `entityPrefix='dependfix_'`（`DATABASE_ENTITY_PREFIX` 可配），但 `apps/platform/server/database/migrations/` 早期迁移的表名处理**分两类**（逐文件实测 `getTable(` / `CREATE TABLE` / `ALTER TABLE` 字面量）：
-  - **硬编码 `dependfix_` 前缀（4 个）**：`1700000000000`（`dependfix_audit_event`）/ `1750000000000`（`dependfix_scan_result`）/ `1800000000000`（`dependfix_pr_check`）/ `1800000000001`（`dependfix_schedule`）→ **默认前缀下正常工作**，但自定义 `DATABASE_ENTITY_PREFIX` 时表名失配 → 静默 no-op。
-  - **硬编码无前缀表名（3 个）**：`1800000000002`（`scan_run`）/ `1900000000000`（`organization` / `repository` / `scan_run`）/ `2000000000000`（`credential`）→ 默认前缀下 `queryRunner.getTable('<无前缀表名>')` 返回 `undefined` → **静默 no-op**（不报错、无日志信号）；仅当 `DATABASE_ENTITY_PREFIX=''` 时生效。
-- **共同失败特征**：两类都在「非预期前缀组合」下静默不生效，且迁移框架不报错——排查成本高。
-- **已落地差异**：`2100000000000-AddRepositoryVerifyCommands`（M32.1 C76）改为**前缀感知**（先试 `entityPrefix + 表名`，再回退无前缀），单测覆盖两种前缀形态 + up/down 幂等 + 目标表缺失 no-op。
-- **待治理**：早期 7 个迁移是否统一改前缀感知（或改为按实体元数据解析表名），需与「生产库实际如何升级 schema（`DATABASE_SYNCHRONIZE` opt-in vs migration 链）」一并决策。
-- **手动入口（M33.7 已补齐）**：`pnpm db:migrate`（`db:migrate:show` 只读预览 / `db:migrate:revert -- --yes` 回退），见 [server/database/scripts/README.md §db-migrate](../../apps/platform/server/database/scripts/README.md)；本条治理范围（前缀一致性 + 幂等性）不受影响，仍待触发条件满足。
-- **触发条件**：① 用户报告某字段在 `DATABASE_MIGRATIONS_RUN=true` 后仍未生效；② 出现自定义 `DATABASE_ENTITY_PREFIX` 的部署；③ 生产库迁移链正式启用排期（关联延期项 T705）。
-- **规范挂接**：[platform.md §3.8](../standards/platform.md#38-仓库级自定义验证命令verifycommands-m321-c76)（前缀感知实现说明）
+- **背景（历史）**：`createDataSourceOptions` 默认 `entityPrefix='dependfix_'`（`DATABASE_ENTITY_PREFIX` 可配），但早期迁移表名处理不统一：4 个硬编码 `dependfix_` 前缀（`1700000000000` / `1750000000000` / `1800000000000` / `1800000000001`）、3 个硬编码无前缀（`1800000000002` / `1900000000000` / `2000000000000`）→ 非预期前缀组合下 `queryRunner.getTable()` 返回 `undefined`、迁移静默 no-op。另有更深问题：迁移链无基线迁移，空库执行首个 `ALTER TABLE` 即报 `no such table`（无法自举）。
+- **闭环（M36.8）**：
+  - 新增基线迁移 `CreateInitialSchema1600000000000`（实体元数据运行时生成，前缀感知 + 跨方言 + 幂等）；
+  - 早期迁移统一改前缀感知 + 幂等守卫（新增 `migration-helpers.ts`：`resolveTableName` / `prefixedTableName` / `addColumnIfMissing` / `dropColumnIfExists` / `createIndexIfMissing`）；
+  - 实证：空库 `pnpm db:migrate` 建 13 张业务表（含索引 / 外键）、二次执行 0 条；自定义前缀 `myapp_` 下同样生效且 0 张 `dependfix_` 误建表；存量库基线 no-op、数据不变。
+- **手动入口**：`pnpm db:migrate` / `db:init`（一键初始化）/ `db:migrate:show` / `db:migrate:revert -- --yes`；Docker 用 `docker/init-db.sh`，见 [server/database/scripts/README.md](../../apps/platform/server/database/scripts/README.md)。
+- **规范挂接**：[platform.md §3.3](../standards/platform.md) + [§3.8](../standards/platform.md#38-仓库级自定义验证命令verifycommands-m321-c76) + [development.md §5.1.19](../standards/development.md)。
+- **移出**：随 M36 阶段归档批次从 backlog 移出，并同步 [archive/index.md §4](archive/index.md) 基线「保留」清单与前向描述。
 
 ---
 

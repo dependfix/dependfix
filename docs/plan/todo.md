@@ -18,11 +18,11 @@
 
 ## 当前阶段
 
-### M36: 治理债清仓 + 可观测性与测试稳定性（M36.1~M36.7）
+### M36: 治理债清仓 + 可观测性与测试稳定性（M36.1~M36.8）
 
 > **阶段摘要**：承接 M35 完整闭环归档后的 backlog 候选池，2026-10-02 用户决策**方案 A（治理债清仓）**——从 backlog 中可立即启动的候选中上收 5 项，一次性清空长期沉积的存量治理债（C81 孤立规划编号清理）并收口两处正确性 / 可观测性缺口与一处 e2e 顺序偶发；同日用户直接指令追加 1 项镜像体积治理（M36.6，属 [规划规范 §3.4](../standards/planning.md#34-阶段启动决策前置交叉核验硬要求m271-重复评估教训--2026-09-10) 承认的「用户直接决策」路径，非 backlog 候选）；另用户报告依赖升级 overrides key 重复写法缺陷并追加修复（M36.7，同属「用户直接决策」路径）。backlog 上收的 5 项候选均经 §3.4 三重交叉核验通过（0 项重复评估）。
 >
-> **7 原子条目**（类型平衡 🛡️ 4 / 📚 1 / 🚀 1 / 🧪 1）：
+> **8 原子条目**（类型平衡 🛡️ 5 / 📚 1 / 🚀 1 / 🧪 1；M36.8 含 🎨 用户体验修复）：
 >
 > - **M36.1** [P3 🛡️ 技术债] C81 源码 / 配置注释孤立规划编号存量清理（分批）
 > - **M36.2** [P3 📚 文档治理] 设计与索引文档同类陈旧状态清理（存量）
@@ -31,8 +31,9 @@
 > - **M36.5** [P3 🧪 测试基建] api-i18n「重复仓库」用例顺序偶发定位与治理
 > - **M36.6** [P2 🛡️ 技术债] dependfix-platform 镜像体积治理（去除冗余 node_modules 打包）
 > - **M36.7** [P2 🛡️ 技术债] pnpm overrides key 语义归一化（消除 `pkg@^1` / `pkg@1` 重复写法）
+> - **M36.8** [P1 🛡️ 缺陷修复 / 🎨 体验] Docker 首次启动数据库初始化 + 一键初始化脚本 + 部署文档
 >
-> **类型平衡复核**：[规划规范 §1.1](../standards/planning.md#11-硬性约束) 建议 🎨 用户体验 + 🛡️ 技术债 + 🚀 能力扩展 + 🧪 测试覆盖：本批 🛡️ 4 + 📚 1 + 🚀 1 + 🧪 1；**🎨 用户体验无独立条目**（候选池无 UX 类候选，与 M28–M32 同型），缺口显式标注。
+> **类型平衡复核**：[规划规范 §1.1](../standards/planning.md#11-硬性约束) 建议 🎨 用户体验 + 🛡️ 技术债 + 🚀 能力扩展 + 🧪 测试覆盖：本批 🛡️ 5 + 📚 1 + 🚀 1 + 🧪 1；**🎨 用户体验由 M36.8 承载**（Docker 首次启动即用体验 + 部署文档缺口）。
 >
 > **§3.4 三重交叉核验结论**（本批为 backlog 上收：「评估 → 用户决策 → 上收」路径）：
 >
@@ -46,15 +47,16 @@
 >
 > **关键决策（待用户在执行期细化）**：
 >
-> - **D1**（2026-10-02 用户决策）：组合定型——方案 A（治理债清仓），5 原子条目；🎨 UX 缺口显式标注。**同日追加 M36.6（用户直接指令）+ M36.7（用户报告缺陷修复）**，合计 7 原子条目。
+> - **D1**（2026-10-02 用户决策）：组合定型——方案 A（治理债清仓），5 原子条目；🎨 UX 缺口显式标注。**同日追加 M36.6（用户直接指令）+ M36.7（用户报告缺陷修复）**；后续再追加 **M36.8（用户报告 Docker 首次启动缺陷 + 部署文档 / 初始化脚本需求）**，合计 8 原子条目。
 > - **D2**：M36.1 判定口径默认取「注释块级 + 真常量白名单（HTTP 错误码等）+ 优先改写为带文档指针的导航指针，无法归指者删编号留正文」；批量替换遵守 [AI 协作规范 §1.2 第 6 条](../standards/ai-collaboration.md) 分批纪律（每子批次 < 10 文件）。
 > - **D3**：M36.3 以「条件写回下沉共享层」为主，保持 GET「对非 running 批次仍对齐计数」既有契约；不引入悲观锁。
 > - **D4**：M36.4 判据改为「无任何成功源且存在失败源」；明确 `repoResults` / 报告「扫描成功」连锁语义。
 > - **D5**（2026-10-02 用户决策）：M36.6 镜像体积治理——对齐 momei / caomei-auth 的 `.output`-only 形态，移除 runtime 冗余 `node_modules` / workspace dist 复制；保持容器内 `DependfixApp` 程序化执行链路可用（引擎已由 Nitro 打包）；sandbox 未来独立入口须自包含，不得依赖 workspace `node_modules`。
 > - **D6**（2026-10-02 用户决策）：M36.7 overrides key 归一化——按语义等价类（`1`/`^1`/`1.x`/`^1.0.0`）比对已有 override，命中时沿用其原写法；只收敛可证明等价的等价类，major-0 caret（`^0.0` ≠ `^0`）等保持区分，不引入 `semver` 依赖。
-> - **执行顺序建议**：M36.6 / M36.7（已实施 + 实证）→ M36.3（P2）优先 → M36.1 分批独立 → M36.2 / M36.4 / M36.5 相互独立可并行。
+> - **D7**（2026-10-02 用户决策）：M36.8 Docker 首次启动初始化——① 基线迁移采用**实体元数据运行时生成**（`Table.create`，前缀感知 + 跨方言），存量增量迁移改幂等守卫；② compose 部署层默认 `DATABASE_MIGRATIONS_RUN=true`（应用默认仍 false，符合 [development.md §5.1.19](../standards/development.md)）；③ 保留手动 / 一键初始化脚本 + 补齐 Docker 部署文档。
+> - **执行顺序建议**：M36.6 / M36.7（已实施 + 实证）→ M36.8（P1，用户报告可用性缺陷，优先）→ M36.3（P2）→ M36.1 分批独立 → M36.2 / M36.4 / M36.5 相互独立可并行。
 >
-> **范围边界（不做什么）**：不做 UX 强补候选；不启动需外部基建 / token 的候选（C15 / C68）；不动 migration 前缀统一（触发条件未到）与长期观察项。
+> **范围边界（不做什么）**：不做 UX 强补候选；不启动需外部基建 / token 的候选（C15 / C68）；M36.8 一并处理迁移前缀感知（其 backlog 触发条件 ③「生产库迁移链正式启用排期」已由本次满足），但不做 Postgres 多写者迁移排期与长期观察项。
 
 #### M36.1 [P3 🛡️ 技术债] C81 源码 / 配置注释孤立规划编号存量清理（分批）
 
@@ -183,6 +185,40 @@
 - **交付物**：1 commit（override-key + 接线 + 测试 + 设计口径）。
 - **风险与缓解**：归一化过度合并会误改 selector 作用域；缓解：仅收敛可证明等价的等价类 + major-0 caret 守卫 + A 阶段用 node-semver 交叉核对；保守欠合并（`^0` ↔ `0` 等罕用形态不合并）为安全方向，已登记为已知边界。
 - **残余风险**：`^0` ↔ `0` 等罕用等价形态保守欠合并（可能仍存同类重复写法，但不会产生错误 selector 作用域）；历史遗留的重复 key 不会自动清理（仅阻止新增）。
+
+#### M36.8 [P1 🛡️ 缺陷修复 / 🎨 体验] Docker 首次启动数据库初始化 + 一键初始化脚本 + 部署文档
+
+- **目标**：全新部署（空库）首次启动即可自动建表并可用，消除「启动即 `no such table`」；补齐 Docker 部署使用文档；澄清 `db-migrate` 手动初始化口径并新增一键初始化脚本。
+- **优先级**：P1（用户报告 Docker 镜像首次启动即报 `no such table: dependfix_scan_run` / `dependfix_organization`，属[规划规范 §3.1 插队例外](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement)第 3 类「直接影响可用性的 blocker 级功能缺失」+ §3.4「用户直接决策」路径）。
+- **根因（2026-10-02 实测）**：
+  - R1 表层：全新库零表，Docker 未开启迁移（`DATABASE_MIGRATIONS_RUN` unset → 默认 false）。
+  - R2 深层（关键）：迁移链**无法自举**——无基线迁移创建全部 13 张业务表；空库实测 `pnpm db:migrate` 在首个有效迁移报 `SqliteError: no such table: dependfix_scan_result`。故仅打开 `DATABASE_MIGRATIONS_RUN=true` 仍会失败。
+  - R3：`db:migrate` 文档只描述「手动执行 pending migration」，未覆盖全新库初始化；Docker 部署无独立文档。
+  - R4：早期迁移表名处理不统一（4 个硬编码前缀 + 3 个硬编码无前缀）→ 非默认前缀下静默 no-op（backlog §已知边界）。
+- **范围**：新增 `apps/platform/server/database/migrations/1600000000000-CreateInitialSchema.ts`（实体元数据运行时生成）+ `migration-helpers.ts`（前缀感知表名 / 列守卫）；存量 8 个早期迁移（`1700000000000` / `1750000000000` / `1800000000000` / `1800000000001` / `1800000000002` / `1900000000000` / `2000000000000` / `2100000000000`）统一改幂等 + 前缀感知；`server/database/index.ts` 注册基线迁移；`apps/platform/docker-compose.yml` 默认 `DATABASE_MIGRATIONS_RUN=true`；新增 `db:init` 脚本 + Docker 宿主初始化脚本；新增 `docs/guide/deployment.md`（+ `docs/i18n/en-US/guide/deployment.md`）+ nav/sidebar 接线；`server/database/scripts/README.md` / `.env.example` / `docs/guide/quick-start.md` / `docs/guide/configuration.md` 口径同步。
+- **验收标准**（2026-10-02 D 阶段已全部实证）：
+  - [x] 全新空库 `pnpm db:migrate` 成功创建 13 张业务表（含索引 / FK），二次执行幂等（0 条待执行）
+  - [x] 存量库（默认前缀）跑迁移链 no-op（不报错、不改 schema，数据行数不变）
+  - [x] `DATABASE_MIGRATIONS_RUN=true` 空库生产 `.output` 启动后 `GET /` 200 + `GET /api/auth/get-session` 200 且日志无 `no such table`
+  - [x] 自定义 `DATABASE_ENTITY_PREFIX=myapp_` 下基线 + 增量迁移均生效（13 张 `myapp_` 表、0 张 `dependfix_` 误建）
+  - [x] Docker compose 默认自动迁移（`docker compose config` → `DATABASE_MIGRATIONS_RUN: "true"`）；首次启动无需额外手动步骤
+  - [x] 一键初始化脚本可用：源码 `pnpm db:init`（幂等，输出迁移条数 + 业务表数初始化摘要）+ Docker 宿主 `docker/init-db.sh`（一次性容器，`DEPENDFIX_MIGRATIONS_ONLY=true` 迁移后退出）
+  - [x] `docs/guide/deployment.md` 覆盖镜像拉取 / 核心 env / 数据卷与权限 / 首次启动 / 手动初始化 / 升级 / 备份恢复 / 故障排查；zh / en-US 链接级一致 + nav/sidebar 接线
+  - [x] `pnpm lint` / `pnpm typecheck` / 平台 vitest（107 files / 1392 passed | 7 skipped）/ `pnpm run check:docs`（links 146）/ `pnpm docs:check:i18n` / `pnpm lint:md` 通过
+- **不做什么**：不排期非 SQLite 后端（MySQL / PostgreSQL）的生产启用；不做 Postgres 多写者迁移；不改业务表结构；不删除历史迁移文件（保留名称与记录，仅加幂等 + 前缀感知守卫）；不改变 `force-fail` / 事务语义。
+- **依赖**：用户报告 Docker 首次启动缺陷（直接指令）；backlog §apps/platform 早期 migration 表名前缀不统一（触发条件 ③ 已满足）；[development.md §5.1.19](../standards/development.md) + [platform.md §3.3](../standards/platform.md)。
+- **§3.4 三重交叉核验**（属「用户直接决策 + 插队例外」路径）：
+  - ① **todo-archive 表格扫描**：`rg -n "首次启动|基线迁移|CreateInitialSchema|db:init|一键初始化|deployment\.md" docs/plan/todo-archive.md docs/plan/archive/*.md` 仅命中 M22.4 `setupMemoryDatabase` 适配（synchronize opt-in 的测试适配，非基线迁移），**无既有关闭条目**。
+  - ② **git log 历史核验**：`git log --oneline -- apps/platform/server/database/migrations/` 全部为增量迁移（audit_event / scan_result / pr_check / ai_config / owner_login / verify_commands），**无基线迁移 commit**；`git log --all --grep="迁移链|基线迁移|一键初始化|首次启动"` 无命中。
+  - ③ **代码侧 anchor 实证**：`ls apps/platform/server/database/migrations/` 确认无 16xxxxxxxxx / initial / baseline 文件；`apps/platform/docker-compose.yml` 无 `DATABASE_MIGRATIONS_RUN`；空库实测 `pnpm db:migrate` 复现 `no such table`。
+  - 结论：**0 项重复评估**，可进入 D 阶段。
+- **交付物**：约 4–6 commits（① 基线迁移 + 增量幂等守卫 + 测试；② Docker 默认自动迁移 + 一键初始化脚本；③ 部署文档 + 口径同步；④ 计划登记）。
+- **风险与缓解**：基线由实体元数据生成 → 未来实体变更会改变「全新库基线」形态；缓解：基线幂等 + 全部增量迁移守卫 + 约定新增列必须走新迁移；存量库以 `hasTable` no-op 保证零破坏。Docker 默认自动迁移对存量部署的影响：仅补 pending（存量已记录迁移不重跑），可 `DATABASE_MIGRATIONS_RUN=false` 关闭。
+- **残余风险（A 阶段审计登记）**：
+  - 元数据基线使「新增实体列忘记写迁移」在全新库/CI 自动带上该列（全绿）而存量生产库永久缺列——本批以「基线幂等 + 增量守卫 + 约定新增列走新迁移」缓解，未加自动守护；已记入 platform.md §3.3 口径。
+  - `migration-helpers.createIndexIfMissing` 的去重只看索引名与列集合，未含 `unique` / `where`；当前用法均为普通索引，未来复用于唯一 / 部分索引需扩展。
+  - 增量迁移的 raw `CREATE INDEX IF NOT EXISTS` 沿用项目既有 SQLite / PostgreSQL 语法（MySQL 不支持该子句）；本批不排期 MySQL 全新部署，基线本身经 `Table.create` 方言感知。
+  - 迁移专用模式 `DEPENDFIX_MIGRATIONS_ONLY=true` 会初始化后退出进程；仅 `docker/init-db.sh` 注入，勿用于常规部署。
 
 ---
 

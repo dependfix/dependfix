@@ -30,6 +30,10 @@ services:
       # Nuxt runtimeConfig 运行时覆盖只认 NUXT_ 前缀（AUTH_SECRET 在构建期已烘焙，运行时无效）
       NUXT_AUTH_SECRET: ${AUTH_SECRET:-change-me-to-a-random-secret}
       DATABASE_PATH: /app/data/dependfix.sqlite
+      # 首次启动自动执行 pending migration（部署层显式 opt-in；应用侧默认仍 false，符合开发规范
+      # §5.1.19）。全新库由基线迁移创建全部基础表，存量库仅补 pending（已记录迁移不重跑）。
+      # 如需完全手动控制，设 DATABASE_MIGRATIONS_RUN=false 并改用 docker/init-db.sh 初始化。
+      DATABASE_MIGRATIONS_RUN: ${DATABASE_MIGRATIONS_RUN:-true}
       NUXT_ENCRYPTION_KEY: ${NUXT_ENCRYPTION_KEY:-}
       # 关闭注册（保留登录）：公开部署时设 REGISTRATION_DISABLED=true。
       # 注意：首次部署需保持 false 注册首个管理员后再关闭，否则平台无管理员。

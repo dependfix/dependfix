@@ -104,7 +104,7 @@ pnpm db:restore --help
    校验未通过时直接拒绝，当前数据库不被触碰。
 3. **覆盖前自动备份**：当前数据库先原子备份到 `data/backups/auto.<timestamp>-<ms>.bak`（复用
    `backup.ts` 的 `writeFileAtomicSync`），这份文件是"撤销恢复"的唯一凭据。文件名带毫秒，
-   同一秒内二次恢复不会互相覆盖；这批文件同样受保留策略约束（默认最近 10 份，
+   同一秒内二次恢复不会互相覆盖；这批文件同样受保留策略约束（默认最近 5 份，
    `BACKUP_RETENTION_COUNT` 环境变量可覆盖）。
 4. **旁文件清理**：恢复后删除属于旧数据库的 `-wal` / `-shm` / `-journal` 文件，避免陈旧 WAL 或
    回滚日志被当作新库的崩溃恢复数据回放。
@@ -191,7 +191,7 @@ PRAGMA
   ...
 
 结论
-  - 数据正常：12 张业务表共 87 行
+  - 数据正常：13 张业务表共 87 行
 ```
 
 ## db-migrate（运维脚本）
@@ -217,6 +217,10 @@ pnpm db:migrate
 pnpm db:migrate:revert -- --yes
 ```
 
+> 全新空库可直接用 `pnpm db:init`（一键初始化，见下节）或 `pnpm db:migrate`：迁移链首条
+> `CreateInitialSchema1600000000000` 会从实体元数据创建全部基础表 / 索引 / 外键，其后增量迁移
+> 因列已存在而 no-op。存量库仅补 pending，基线与守卫保证幂等、不破坏既有数据。
+
 ### 数据库连接
 
 沿用 `createDataSourceOptions` 逻辑，通过 `DATABASE_*` 环境变量配置（`DATABASE_TYPE` /
@@ -237,11 +241,56 @@ pnpm db:migrate:revert -- --yes
 
 ```text
 [MIGRATE] 迁移状态
+  [X] 已执行  CreateInitialSchema1600000000000
   [X] 已执行  CreateAuditEventTable1700000000000
   [X] 已执行  AddScanResultIdentifiers1750000000000
   ...
   [ ] 待执行  AddRepositoryVerifyCommands2100000000000
 
-  合计 8 条，待执行 1 条
+  合计 9 条，待执行 1 条
 ```
+
+## db-init（一键初始化）
+
+### 背景
+
+全新部署（尤其 Docker 首次启动）需要一个「一条命令建库」入口：空库既要执行 pending migration，
+又要能确认业务表确实建好。`db-init` 复用 `db-migrate` 的连接配置与执行逻辑，额外打印初始化摘要，
+适合部署脚本调用；可安全重复执行（幂等）。
+
+### 用法
+
+```bash
+# 源码环境（apps/platform 下）：执行 pending migration 并打印摘要
+pnpm db:init
+
+# 帮助
+pnpm db:init --help
+```
+
+Docker 场景：
+
+- 常规启动时 compose 默认 `DATABASE_MIGRATIONS_RUN=true` 自动迁移，通常无需手动初始化；
+- 需要显式初始化（如关闭了自动迁移）时用宿主脚本 `apps/platform/docker/init-db.sh`，
+  以一次性容器执行迁移后退出（成功 0 / 失败 1）；
+- 运行期镜像为 `.output`-only，**不含 `tsx` 与运维脚本**，因此容器内不能直接跑 `pnpm db:init`。
+  源码环境用 `pnpm db:init`；容器场景用 `docker/init-db.sh`。
+
+### 数据库连接
+
+沿用 `createMigrateDataSource`：通过 `DATABASE_*` 环境变量配置（`DATABASE_TYPE` / `DATABASE_PATH` /
+`DATABASE_URL` / `DATABASE_ENTITY_PREFIX`），强制 `synchronize=false` + `migrationsRun=false`，
+不受 `DATABASE_MIGRATIONS_RUN` / `DATABASE_SYNCHRONIZE` 开关影响。
+
+### 输出示例
+
+```text
+[INIT] 数据库初始化完成
+  本次执行迁移: 9 条
+    [X] CreateInitialSchema1600000000000
+    [X] CreateAuditEventTable1700000000000
+    ...
+  业务表: 13 张
+```
+
 

@@ -29,6 +29,7 @@
     "db:backfill:batch-finished-at": "tsx server/database/scripts/backfill-batch-finished-at.ts --apply",
     "db:restore": "tsx server/database/scripts/db-restore.ts",
     "db:doctor": "tsx server/database/scripts/db-doctor.ts",
+    "db:init": "tsx server/database/scripts/db-init.ts",
     "db:migrate": "tsx server/database/scripts/db-migrate.ts --apply",
     "db:migrate:show": "tsx server/database/scripts/db-migrate.ts --show",
     "db:migrate:revert": "tsx server/database/scripts/db-migrate.ts --revert",

@@ -135,7 +135,7 @@ export const inspectSqliteFile = (dbPath: string): DatabaseInspection => {
  * @param options.from 备份文件路径（必须存在 + size > 0 + integrity_check = ok）
  * @param options.to 恢复目标数据库路径
  * @param options.now 时间戳注入点（测试用，默认 new Date()）
- * @param options.retentionCount `auto.*.bak` 保留份数（默认 10，BACKUP_RETENTION_COUNT env 可覆盖）
+ * @param options.retentionCount `auto.*.bak` 保留份数（默认 5，BACKUP_RETENTION_COUNT env 可覆盖）
  * @param options.inspect 自检函数注入点（测试用，默认 `inspectSqliteFile`）。
  *   恢复后自检失败分支在真实环境不可达（`copyFileSync` 保证目标库与备份字节一致，除非磁盘故障），
  *   故以注入点在单测中模拟"源备份正常、恢复后损坏"，避免用 ESM mock 替换同模块内部绑定。
@@ -240,7 +240,7 @@ db-restore：SQLite 数据库命令式恢复
 
 安全说明：
   - 覆盖前会把当前数据库自动备份到 data/backups/auto.<timestamp>.bak（保留最近
-    BACKUP_RETENTION_COUNT 份，默认 10）
+    BACKUP_RETENTION_COUNT 份，默认 5）
   - 备份文件先跑 integrity_check，未通过则拒绝恢复
   - 恢复后清理 -wal / -shm / -journal 旁文件并再次自检
 `.trim()

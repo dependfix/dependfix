@@ -8,16 +8,130 @@
 
 | 内容类型 | 位置 |
 |:--|:--|
-| 当前阶段任务 | **当前无活跃阶段**——M35 已于 2026-10-02 完整闭环归档（下一阶段启动待用户明确决策） |
+| 当前阶段任务 | **M36 进行中**（治理债清仓 + 可观测性与测试稳定性，2026-10-02 用户决策启动） |
 | 已完成阶段归档 | [todo-archive.md](todo-archive.md)（主窗口 + [archive/](archive/) 分片；M0-M35 全部已归档） |
 | 未排期 / 延期 / 远期 / 长期主线 / 已知边界 | [backlog.md](backlog.md) |
-| 里程碑与阶段交付 | [roadmap.md](roadmap.md)（M0-M35 已归档） |
+| 里程碑与阶段交付 | [roadmap.md](roadmap.md)（M0-M35 已归档 + M36 进行中） |
 | 历史归档索引 | [archive/index.md](archive/index.md) |
 
 ---
 
 ## 当前阶段
 
-> 当前无活跃阶段。M35（批量运行终态兜底对账 + 进度可见性修复）6 原子条目已于 2026-10-02 完整闭环并归档，详见 [todo-archive.md §M35](todo-archive.md#m35-批量运行终态兜底对账--进度可见性修复m351m356-全部已闭环--2026-10-02-归档)。
+### M36: 治理债清仓 + 可观测性与测试稳定性（M36.1~M36.5）
+
+> **阶段摘要**：承接 M35 完整闭环归档后的 backlog 候选池，2026-10-02 用户决策**方案 A（治理债清仓）**——从 backlog 中可立即启动的候选中上收 5 项，一次性清空长期沉积的存量治理债（C81 孤立规划编号清理）并收口两处正确性 / 可观测性缺口与一处 e2e 顺序偶发。本批候选均经 [规划规范 §3.4](../standards/planning.md#34-阶段启动决策前置交叉核验硬要求m271-重复评估教训--2026-09-10) 三重交叉核验通过（0 项重复评估）。
 >
-> 下一阶段启动由用户明确决策后另行规划——候选池见 [backlog.md](backlog.md)，上收规则见 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement)。
+> **5 原子条目**（类型平衡 🛡️ 2 / 📚 1 / 🚀 1 / 🧪 1）：
+>
+> - **M36.1** [P3 🛡️ 技术债] C81 源码 / 配置注释孤立规划编号存量清理（分批）
+> - **M36.2** [P3 📚 文档治理] 设计与索引文档同类陈旧状态清理（存量）
+> - **M36.3** [P2 🛡️ 技术债] BatchRun 写回非原子竞态收敛（三处写回统一条件更新）
+> - **M36.4** [P3 🚀 可观测性] 告警源「未启用 + 其余源全失败」判据修正
+> - **M36.5** [P3 🧪 测试基建] api-i18n「重复仓库」用例顺序偶发定位与治理
+>
+> **类型平衡复核**：[规划规范 §1.1](../standards/planning.md#11-硬性约束) 建议 🎨 用户体验 + 🛡️ 技术债 + 🚀 能力扩展 + 🧪 测试覆盖：本批 🛡️ 2 + 📚 1 + 🚀 1 + 🧪 1；**🎨 用户体验无独立条目**（候选池无 UX 类候选，与 M28–M32 同型），缺口显式标注。
+>
+> **§3.4 三重交叉核验结论**（本批为 backlog 上收：「评估 → 用户决策 → 上收」路径）：
+>
+> - ① **todo-archive 表格扫描**：`rg -n "C81|孤立规划编号|文档.*陈旧|BatchRun.*竞态|非原子|告警源|审计性|api-i18n|重复仓库" docs/plan/todo-archive.md docs/plan/archive/todo-archive-phases-*.md` 仅命中 M35 遗留观察项（登记，非闭环）/ M34.5 记录 / M29.x 注册，**无候选已闭环**。
+> - ② **git log 历史核验**：C81 仅 `d5558d2`（登记）/ `50fdfa3` / `9ba9572` / `9ebb4df`（口径修正），无实现 commit；文档陈旧仅 `64bdb79`（M34.5 仅处理索引 `:25` + `architecture.md`）；BatchRun 写回 `041b4df` / `222ca6d`（M35 已落共享写回，竞态点尚存）；告警源 `00a11ff`（C89 / M32.3 区分「未启用 vs 获取失败」，判据未改；C78 / M29.5 `6fd6aad` 为其前置）；api-i18n `ace07a8`（建用例）后无修复 commit。
+> - ③ **代码侧 anchor 实证**：`packages/core/src/alerts/index.ts:48` / `sample-collector.mjs:5` / `stats.get.ts:10`（C81 样例存在）；`docs/design/governance/index.md:23/:24` + `platform-ai-integration.md:366` + `docs-and-readme-i18n.md:542`（陈旧仍存）；`[id].get.ts:47` `batchRepo.save(batchRun)`；`repo-alerts.ts:97` 判据；`api-i18n.e2e.test.ts:61/:88/:116` 三例。
+> - ④ **决策前提矛盾核验**（「参考 NNN 实施」等自相矛盾表述）：本批无此类表述，N/A。
+> - ⑤ **backlog 描述同步**：已按 backlog 维护规则 5 从 backlog 移除 5 项上收候选（§候选评估中 2 项 + §开发工具链 C81 整段 + §已知边界 2 项）。
+>
+> 结论：**5 项全部有效，0 项重复评估**。
+>
+> **关键决策（待用户在执行期细化）**：
+>
+> - **D1**（2026-10-02 用户决策）：组合定型——方案 A（治理债清仓），5 原子条目；🎨 UX 缺口显式标注。
+> - **D2**：M36.1 判定口径默认取「注释块级 + 真常量白名单（HTTP 错误码等）+ 优先改写为带文档指针的导航指针，无法归指者删编号留正文」；批量替换遵守 [AI 协作规范 §1.2 第 6 条](../standards/ai-collaboration.md) 分批纪律（每子批次 < 10 文件）。
+> - **D3**：M36.3 以「条件写回下沉共享层」为主，保持 GET「对非 running 批次仍对齐计数」既有契约；不引入悲观锁。
+> - **D4**：M36.4 判据改为「无任何成功源且存在失败源」；明确 `repoResults` / 报告「扫描成功」连锁语义。
+> - **执行顺序建议**：M36.3（P2）优先 → M36.1 分批独立 → M36.2 / M36.4 / M36.5 相互独立可并行。
+>
+> **范围边界（不做什么）**：不做 UX 强补候选；不启动需外部基建 / token 的候选（C15 / C68）；不动 migration 前缀统一（触发条件未到）与长期观察项。
+
+#### M36.1 [P3 🛡️ 技术债] C81 源码 / 配置注释孤立规划编号存量清理（分批）
+
+- **目标**：清理全仓库非 `docs/` 源码 / 配置 / 脚本注释中「无文档指针的孤立规划编号」，使其符合 [开发规范 §3 注释规范](../standards/development.md)「禁止开发流程编号标记」（例外仅两类：代码内真实常量、带文档路径 / 章节名的导航指针）。
+- **优先级**：P3（非阻塞治理债；规则由 D 阶段自检 + A 阶段必查项强制，但仅作用于新增 / 修改文件，故存量长期沉积）。
+- **范围**：全仓库非 `docs/` 的源码 / 配置 / 脚本注释（**扫描面量级 600–1000 文件 / 孤立命中量级 300–430 行**，为 M29.9 双源扫描口径——执行角色与 A 阶段审计独立扫描各得一份行口径量级；行级判定 skip `node_modules` / `dist` / `.nuxt` / `pnpm-lock`，扩展名白名单随包浮动；**可复现检测命令随本条目首个子批次固化的脚本产出**）；按包 / 目录切分子批次，**每子批次 < 10 文件**；示例落点 `packages/core/src/alerts/index.ts:48`、`packages/engine/src/code-scanning/scripts/sample-collector.mjs:5`、`apps/platform/server/api/dashboard/stats.get.ts:10`。
+- **验收标准**：
+  - [ ] 固化检测命令或脚本（含真常量白名单 + 注释块级判定），输出可复现的孤立命中清单（量级区间 + 测量方 + 命令）
+  - [ ] 按子批次清理至孤立命中 0（带文档指针的导航指针保留）
+  - [ ] 批量替换遵守 [AI 协作规范 §1.2 第 6 条](../standards/ai-collaboration.md)（先改 1 个代表性文件 → typecheck + diff 审查 → 再铺开）
+  - [ ] 每子批次 `pnpm lint` + `pnpm typecheck` + 定向测试通过，且不丢失编号后的解释正文
+  - [ ] 复扫证据：孤立命中 0 + 误报白名单命中保留
+- **不做什么**：不清理带文档路径 / 章节名的导航指针（合规例外）；不清理代码内真实常量（HTTP 错误码等）；不改 `docs/` 下的规划与治理文档编号；不在本条目内改动 D / A 阶段自检规则本身。
+- **依赖**：关联 M29.9（A 阶段审计触发）+ [开发规范 §3](../standards/development.md) + [经验归档 §十六](../design/governance/experience-archive-§1-§21-spec-compliance.md)（历史违规案例）；关联既有清理先例 commit `1dcfc3c`。
+- **交付物**：预计 3–6 子批次（每子批次 1 atomic commit）+ 1 个检测脚本（或固化命令）；files 清单按子批次产出。
+- **风险与缓解**：批量删除编号丢失可追溯性；缓解：优先「改写为导航指针」而非纯删除，保留编号后的解释正文；另防批量替换误伤（按 §1.2 第 6 条纪律执行）。
+
+#### M36.2 [P3 📚 文档治理] 设计与索引文档同类陈旧状态清理（存量）
+
+- **目标**：消除 `docs/` 中与 M31.5（PrimeVue 全链卸载）及 M25.2a / M26.1 实施结果不一致的同类残留陈述（M34.5 只处理了索引 `:25` + `architecture.md` 现行陈述）。
+- **优先级**：P3。
+- **范围**（2026-10-02 实测）：
+  - `docs/design/governance/index.md:23` + `docs/i18n/en-US/design/governance/index.md:23`（`platform-ai-integration` 仍标「设计先行稿 / 未上收」，而 M25.2a 基础层 + M26.1 应用层已落地）
+  - `docs/design/governance/index.md:24` + en 镜像 `:24`（`docs-and-readme-i18n` 仍标「未上收」，而 `docs/i18n/en-US/**` 已存在）
+  - `docs/design/governance/platform-ai-integration.md:366`（PrimeVue DataTable）+ en 镜像 `:274`（ToggleSwitch）/ `:281`（Select）/ `:289`（PrimeVue DataTable）
+  - `docs/design/governance/docs-and-readme-i18n.md:542`（状态口径「未上收」）
+- **验收标准**：
+  - [ ] 逐条与「M31.5 卸载 + M25.2a / M26.1 实施结果」对齐，每条先 commit / 代码 / 现存文件三重实证再落笔
+  - [ ] `pnpm run check:docs` EXIT 0
+  - [ ] `pnpm docs:check:i18n` 通过 + `pnpm lint:md` 通过
+  - [ ] zh-CN / en-US 两侧**行数与链接级**一致（M34.5 审计 RG-W1 教训：仅行数相等不足以证明镜像等价）
+- **不做什么**：不改写历史归档段与设计稿历史正文；不处理已归档文档（`docs/plan/archive/**` / `experience-archive*`）；不把「未上收」机械改写为「已实施」——每条须先实证实施状态。
+- **依赖**：M34.5（已处理索引 `:25` + `architecture.md`）；backlog §候选评估中条目；A 阶段审计 `suggest`（`artifacts/review-gate/2026-10-01-m34.5-primeui-status.md`，gitignored）。
+- **交付物**：预计 2–3 commits（索引 + 设计稿 + 文档状态口径）；files 清单见范围。
+- **风险与缓解**：批量改写状态描述易误判「未上收 vs 已实施」；缓解：每条先以 commit / 代码 / 现存文件三重实证，再落笔。
+
+#### M36.3 [P2 🛡️ 技术债] BatchRun 写回非原子竞态收敛
+
+- **目标**：把详情 GET 与 sync 批量执行尾部的「读内存态 → 整行 `save()`」改为条件更新（或把条件写回下沉共享层），消除 admin `force-fail` 并发窗口内把库中 `failed` 回写成 `completed` + `finishedAt` 的竞态（对账只扫 `running`，一旦错标永久无法纠正）。
+- **优先级**：P2。
+- **范围**：`apps/platform/server/api/batch-runs/[id].get.ts`（`:47` 现为 `batchRepo.save(batchRun)`）+ sync 批量执行尾部（`apps/platform/server/services/batch/`）+ 共享写回层 `apps/platform/server/services/batch/batch-writeback.ts`；回归用例 `[id].get.test.ts` + 新增并发交错用例。
+- **验收标准**：
+  - [ ] 三处写回统一为条件更新（`update({ id, status: ... }, …)`）或把条件写回下沉共享层
+  - [ ] 补并发回归用例（`force-fail` 与 GET / sync 交错，断言不覆盖 `failed` 终态）
+  - [ ] 保持 GET「对非 running 批次仍对齐计数」既有契约（`[id].get.test.ts` 断言 failed 批次 counts 会被写回）
+  - [ ] `pnpm --filter @dependfix/platform run typecheck` exit 0 + 定向 vitest 全过
+- **不做什么**：不改变 `force-fail` 语义；不引入悲观锁（SQLite 支持有限）；不改详情接口返回结构。
+- **依赖**：M35.1 / M35.2（共享写回 `applyBatchAggregation` 已落地）；M35.1 A 阶段 RG-W01R 登记。
+- **交付物**：预计 2–3 commits（写回层 + 接线 + 用例）；files 清单见范围。
+- **风险与缓解**：窄竞态、需 admin 同时操作，触发概率低；缓解：条件写回 + 并发用例锁定行为边界。
+
+#### M36.4 [P3 🚀 可观测性] 告警源「未启用 + 其余源全失败」判据修正
+
+- **目标**：把「全部源失败才抛错」的判据从 `failedSources.length === totalSources` 改为「无任何成功源且存在失败源」（或按 attempted 源数判定），消除「1 源未启用 + 其余源全失败」时仓库以 0 告警「成功」写入 `repoResults` 的偏乐观粒度。
+- **优先级**：P3。
+- **范围**：`packages/engine/src/app/repo-alerts.ts`（`:90-97` 判据）+ 报告生成侧「扫描成功」语义（`packages/engine/src/report*`）+ 现有 `packages/engine/src/app/repo-alerts.test.ts`（含「1 未启用 + 2 真实失败」N=3 组合用例）。
+- **验收标准**：
+  - [ ] 判据改为「无任何成功源且存在失败源」或按 attempted 源数判定
+  - [ ] 明确并落文档：`repoResults` 写入语义与报告「扫描成功」口径的连锁影响
+  - [ ] 现有 N=3 组合用例更新为期望新语义（含 1 未启用 + 其余全失败 → 仓库失败）
+  - [ ] `pnpm --filter @dependfix/engine test` 全过 + `pnpm lint` / `pnpm typecheck` 0 error
+- **不做什么**：不改退出码语义（失败信号已完整暴露在 `RunResult.errors` + exitCode + 报告 errors 段）；不改 A/B/C 分层结构。
+- **依赖**：C78（M29.5 `6fd6aad` / `cb241bf` / `b801cef`）+ C89（M32.3 `00a11ff`，Code Scanning / Code Quality 纳入同口径）的历史形态说明；backlog §已知边界条目（M36 启动批次已上收移除）。
+- **交付物**：预计 2 commits（判据 + 语义文档 / 测试）；files 清单见范围。
+- **风险与缓解**：改动影响仓库级成功率与报告语义；缓解：锁定 N=3 组合用例 + 保留 `RunResult.errors` 完整信号。
+
+#### M36.5 [P3 🧪 测试基建] api-i18n「重复仓库」用例顺序偶发定位与治理
+
+- **目标**：定位 `api-i18n.e2e.test.ts` 的「重复仓库」三例在全量顺序运行下偶发语言断言失败（期望英文返回中文）的前置状态依赖，消除顺序偶发。
+- **优先级**：P3。
+- **范围**：`apps/platform/tests/e2e/api-i18n.e2e.test.ts`（`:61` zh / `:88` en / `:116` cookie 优先三例）+ 可能的前置 seed / 清理（`apps/platform/tests/e2e/` fixtures）。
+- **验收标准**：
+  - [ ] 定位前置状态依赖（是否被其它用例先行创建同名仓库从而走到不同错误分支）
+  - [ ] 补前置清理或显式 seed，消除顺序偶发
+  - [ ] `pnpm --filter @dependfix/platform test:e2e` 全量连跑两遍全绿（`--workers=1`）
+  - [ ] 单文件运行 7/7 通过不回归
+- **不做什么**：不改 i18n 解析逻辑；不改用例断言语义（除非确认是测试隔离缺陷）。
+- **依赖**：M34.2 会话内 2/3 复现记录；backlog §已知边界条目；[AI 协作规范 §4.7 CI 偶发错误三阶段协议](../standards/ai-collaboration.md)。
+- **交付物**：预计 1–2 commits（定位证据 + 隔离修复）；files 清单见范围。
+- **风险与缓解**：偶发难以复现；缓解：先按 §4.7 三阶段协议取证，必要时加确定性 seed。
+
+---
+
+> **阶段启动批次**（2026-10-02）：本批仅登记规划（`docs/plan/*` + 文档首页口径），按 [AI 协作规范 §1.4 P 阶段规划暂停协议](../standards/ai-collaboration.md#14-p-阶段规划暂停协议user-driven) 提交后暂停，等待用户指令进入 D 阶段。上收候选已按 backlog 维护规则 5 从 [backlog.md](backlog.md) 移除。

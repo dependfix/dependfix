@@ -59,24 +59,7 @@
 
 ### 候选评估中（待评估，暂未进入用户决策面）
 
-- **设计与索引文档的同类陈旧状态清理（存量）** —— 2026-10-01 M34.5 执行期范围穷举发现（P 阶段发现 + A 阶段 `suggest` 建议登记）；**范围与验收待评估**；按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) **不带 M\d+ 阶段编号**。
-  - **目标**：消除 `docs/` 中与 M31.5（PrimeVue 全链卸载）后的现状不一致的**同类残留陈述**（M34.5 只处理了索引 `:25` PrimeUI 行 + `architecture.md` 的现行技术栈陈述；下列条目经 A 阶段审计确认按 AC 排除，未在本批改动）。
-  - **已定位残留**（2026-10-01 实测）：
-    - `docs/design/governance/index.md:23` 与 `docs/i18n/en-US/design/governance/index.md:23`（`platform-ai-integration` 仍标「🔶 设计先行稿（backlog 候选，未上收）」，而 M25.2a「基础层」+ M26.1「应用层」已落地）
-    - `docs/design/governance/index.md:24` 与 en 镜像 `:24`（`docs-and-readme-i18n` 仍标「未上收」，而 `docs/i18n/en-US/**` 已存在）
-    - `docs/design/governance/platform-ai-integration.md:366` 及 en 镜像 `:274` / `:281` / `:289`（现行 PrimeVue / ToggleSwitch 表述未随卸载更新）
-    - `docs/design/governance/docs-and-readme-i18n.md:542`（同类状态口径）
-  - **验收方向**：逐条与「M31.5 卸载 + 各文档实施结果」对齐；`pnpm run check:docs` EXIT 0；`pnpm docs:check:i18n` 通过；zh-CN / en-US 两侧**行数与链接级**一致（M34.5 审计 RG-W1 教训：仅比对行数不足以证明镜像等价）。
-  - **不做什么**：不改写历史归档段与设计稿历史正文；不处理已归档文档（`docs/plan/archive/**` / `experience-archive*`）；不把「未上收」机械改写为「已实施」——每条须先实证实施状态。
-  - **依赖**：M34.5（本批已处理的索引 `:25` + `architecture.md` 现行陈述）；A 阶段审计 `suggest`（记录 `artifacts/review-gate/2026-10-01-m34.5-primeui-status.md`，gitignored）。
-  - **风险与缓解**：批量改写状态描述易误判「未上收 vs 已实施」；缓解：每条先以 commit / 代码 / 现存文件三重实证，再落笔。
-
-- **BatchRun 写回的非原子竞态（详情 GET / sync 尾部 vs 并发 force-fail）** —— 2026-10-02 M35.1 A 阶段第 2 轮审计 RG-W01R 登记（warning；经主审判定不升级 blocker）；**范围与验收待评估**；按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) **不带 M\d+ 阶段编号**。
-  - **现状**：周期对账通道已改条件写回（`batchRepo.update({ id, status:'running' }, …)`），但详情 `GET /api/batch-runs/[id]` 与 sync 批量执行尾部仍为「读内存态 → 整行 `save()`」。admin `force-fail` 在这两处异步窗口内提交时，可能把库中 `failed` 回写成 `completed` + `finishedAt`（对账只扫 `running`，一旦错标永久无法纠正）。
-  - **验收方向**：三处写回统一为条件更新（或把条件写回下沉到共享层）；补并发回归用例；同时保持 GET「对非 running 批次仍对齐计数」的既有契约（现有 `[id].get.test.ts` 断言 failed 批次 counts 会被写回）。
-  - **不做什么**：不改变 `force-fail` 语义；不引入悲观锁（SQLite 支持有限）。
-  - **依赖**：M35.1 / M35.2（共享写回 `applyBatchAggregation`）。
-  - **风险与缓解**：窄竞态、需 admin 同时操作，触发概率低；缓解：登记为已知边界，后续与写回层重构一并处理。
+> 当前无可立即上收的候选——两项候选已于 2026-10-02 经用户决策上收至 M36 阶段（方案 A），按维护规则 5 从本文件移除（登记位置见 [todo.md §M36](todo.md#m36-治理债清仓--可观测性与测试稳定性m361m365)）：① 设计与索引文档的同类陈旧状态清理（存量）；② BatchRun 写回的非原子竞态（详情 GET / sync 尾部 vs 并发 `force-fail`）。
 
 ### 待上收候选（评估完成，等待用户决策）
 
@@ -132,34 +115,6 @@
 #### 工作流
 
 - **T905** git worktree 并行开发预案（触发条件：多 agent 并行开发成为常态；当前单 agent 工作流无需启用）
-
-#### 开发工具链
-
-- **C81 源码 / 配置注释中的孤立规划编号清理（存量）** —— 2026-09-21 M29.9 A 阶段审计 B1 衍生；评估完成待上收；按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) **不带 M\d+ 阶段编号**。
-  - **目标**：清理存量源码 / 配置 / 脚本注释中**无文档指针的孤立规划编号**，使其符合 [开发规范 §3 注释规范](../standards/development.md)「禁止开发流程编号标记」（例外仅两类：代码内真实常量、带文档路径或章节名的导航指针）。
-  - **优先级**：P3（非阻塞；属治理债——规则本身由 D 阶段自检 + A 阶段必查项强制，但**仅作用于新增 / 修改文件**，故存量长期沉积）
-  - **范围**：全仓库非 `docs/` 的源码 / 配置 / 脚本注释（扫描面量级约 600 至 1000 文件，随 skip 集与扩展名白名单浮动：`.github/workflows` / `packages` / `apps` / `scripts` / 根与包级 eslint 配置）
-  - **现状实证**（2026-09-21 启发式扫描；**量级估算，不复述单一精确数字**）：
-    - **判定口径**：扫描「非 `docs/` 的源码 / 配置 / 脚本」（skip：`node_modules` / `dist` / `.nuxt` / `pnpm-lock`），行级判定「同行是否含 `docs/` / `.md` / `§` / `todo.md` 等文档指针」——带指针者为合规例外，无指针者为孤立疑似违规。
-    - **两组独立扫描（行口径，量级一致）**：执行角色扫描得孤立疑似违规 **427** 行；A 阶段审计独立扫描得 **310** 行。两者 skip 集与扩展名白名单不同，文件基数在数百至千余量级浮动。
-    - **量级结论**：孤立命中约在 **300 至 430** 区间浮动；**任一量级均远超 [§1.1 任务粒度约束](../standards/planning.md#11-硬性约束) 单批阈值**，故「必须分批」的结论不依赖精确值。上收首步即产出可复现的检测脚本并固化口径（见决策点与验收标准）。
-    - **样例**（位置与文本已核对）：`packages/core/src/alerts/index.ts:48`「上游告警唯一 ID（M20 新增）」；`packages/engine/src/code-scanning/scripts/sample-collector.mjs:5`「（M28.3 / C15）」；`apps/platform/server/api/dashboard/stats.get.ts:10`「M20.5 调整（todo.md §M20.5）」——末例首段孤立、后段合规，说明需按**注释块粒度**而非行级判定。
-    - **已知误报来源**：真实常量（如 HTTP 错误码 `E401`）、非规划语义的短编号；上收时须先固化白名单与判定粒度。
-  - **决策点（待上收时敲定）**：
-    - **判定粒度**：行级 vs 注释块级。
-    - **真常量白名单**：如何区分规划编号与代码内真实常量（HTTP 错误码 `E401` 等）。
-    - **分批策略**：孤立命中（300 至 430 量级）远超 [§1.1 任务粒度约束](../standards/planning.md#11-硬性约束) 单批阈值 → 需按包 / 目录切分子批次（每批 < 10 文件）。
-    - **清理方式**：仅删除编号保留解释正文，或改写为带文档路径的导航指针（后者保留可追溯性）。
-  - **验收标准**：
-    - [ ] 固化检测命令或脚本（含白名单 + 注释块级判定），输出可复现的孤立命中清单
-    - [ ] 按子批次清理至孤立命中 0（带文档指针的导航指针保留）
-    - [ ] 批量替换遵守 [AI 协作规范 §1.2 第 6 条批量替换纪律](../standards/ai-collaboration.md)（先改 1 个代表性文件 → typecheck + diff 审查 → 再铺开）
-    - [ ] 每子批次 `pnpm lint` + `pnpm typecheck` + 定向测试通过，且不丢失编号后的解释正文
-  - **不做什么**：不清理带文档路径 / 章节名的导航指针（合规例外）；不清理代码内真实常量；不改 `docs/` 下的规划与治理文档（编号在其语境中合法）；不在本候选内改动 D / A 阶段自检规则本身
-  - **依赖**：关联 M29.9（A 阶段审计触发）；关联 [开发规范 §3 注释规范](../standards/development.md) + [经验归档 §十六](../design/governance/experience-archive-§1-§21-spec-compliance.md#十六规范存在--被执行编号标记重复违规3c714cc1--t405-回归)（历史违规案例）；关联既有清理先例 commit `1dcfc3c`（源码注释与脚本登记的失效规划文档指针修复）
-  - **交付物**：待分批方案敲定后评估（预计 3-6 子批次，每子批次 1 atomic commit）
-  - **风险与缓解**：批量删除编号可能丢失可追溯性；缓解：优先「改写为导航指针」而非纯删除，并保留编号后的解释正文；另需防批量替换误伤（按 §1.2 第 6 条纪律执行）
-  - **复杂度估算**：注释 300 至 430 量级（跨多包，必须分批）；测试 0（注释类，以 lint + typecheck + 复扫 0 命中为证据）；文档 0
 
 ## 待人工验收（真实环境，随可用性推进）
 
@@ -236,29 +191,14 @@
 - **触发条件**：① 用户报告某字段在 `DATABASE_MIGRATIONS_RUN=true` 后仍未生效；② 出现自定义 `DATABASE_ENTITY_PREFIX` 的部署；③ 生产库迁移链正式启用排期（关联延期项 T705）。
 - **规范挂接**：[platform.md §3.8](../standards/platform.md#38-仓库级自定义验证命令verifycommands-m321-c76)（前缀感知实现说明）
 
-### 告警源「未启用 + 其余源全失败」时仓库仍记 0 告警成功（可审计性粒度，持续观察）
-
-- **现象**：`fetchRepoAlerts` 的「全部源失败才抛错」判据为 `failedSources.length === totalSources`；未启用（`ALERTS_DISABLED`）的源计入 `alertsDisabled` 而**不计失败源** → 当「1 源未启用 + 其余源全部真实失败」时判据不成立，函数返回 `[]`，仓库以 **0 告警「成功」** 写入 `repoResults`。
-- **影响**：仅**仓库级粒度**偏乐观（该仓库实际无任何有效数据）；失败信号仍完整暴露在 `RunResult.errors`（`allErrors`）+ exitCode 非 0 + 报告 errors 段落，**不影响退出码正确性**。
-- **性质**：自 C78（Dependabot alerts 未启用）起即存在的形态；C89 把 Code Scanning / Code Quality 纳入同一口径后触发面扩大。当前口径已在 `packages/engine/src/app/repo-alerts.test.ts` 显式锁定（含「1 未启用 + 2 真实失败」的 N=3 组合用例）。
-- **待治理**：把判据改为「无任何成功源且存在失败源」或按 attempted 源数判定；需同时评估对 `repoResults` 与报告「扫描成功」语义的连锁影响。
-- **触发条件**：① 用户反馈「报告显示某仓库 0 告警但实际有告警」；② 平台侧按仓库汇总成功率时暴露偏差。
-
-### api-i18n「重复仓库」用例在全量顺序运行下偶发语言断言失败（持续观察）
-
-- **现象**：`pnpm --filter @dependfix/platform test:e2e` 全量顺序运行时，`tests/e2e/api-i18n.e2e.test.ts` 的「POST /api/repos 重复仓库：Accept-Language: en-US → 英文 message」与「i18n_locale cookie=en 优先」两例偶发失败——期望英文 message，实际返回中文（`该仓库已存在`）。2026-10-01 M34.2 会话内 3 次全量运行中 2 次出现（首次 2 例、已逐一取证；第二次 1 例未逐一取证，复跑即绿、`175 passed`）。
-- **性质**：该组为**纯 API 用例**（不加载客户端组件库），与 caomei-ui 升级无因果关系；单文件运行 7/7 通过、二次全量运行 175/175 通过 → 判为共享 SQLite / 前置用例状态导致的顺序偶发。
-- **待治理**：定位「重复仓库」前置状态依赖（是否被其它用例先行创建同名仓库从而走到不同错误分支），必要时为该组补前置清理或改为显式 seed。
-- **触发条件**：CI 端到端运行再现同类失败时，按 [AI 协作规范 §4.7 CI 偶发错误三阶段协议](../standards/ai-collaboration.md) 排查。
-
 ---
 
 ## 文档位置速查
 
 | 内容类型 | 位置 |
 |:--|:--|
-| 当前阶段活跃任务 | **当前无活跃阶段**——M35 已于 2026-10-02 完整闭环归档（下一阶段启动待用户明确决策） |
+| 当前阶段活跃任务 | **M36 进行中**（治理债清仓 + 可观测性与测试稳定性，2026-10-02 用户决策方案 A 启动） |
 | 已完成阶段归档 | [todo-archive.md](todo-archive.md)（主窗口保留最近阶段完整段 + 指针段；M0-M35 已归档；早期阶段见 [archive/](archive/)） |
-| 里程碑与阶段交付 | [roadmap.md](roadmap.md)（M0-M35 已归档） |
+| 里程碑与阶段交付 | [roadmap.md](roadmap.md)（M0-M35 已归档 + M36 进行中） |
 | 长期主线 / 候选 / 待人工验收 / 已知边界 | 本文档（按四象限结构） |
 | 历史归档索引 | [archive/index.md](archive/index.md) |

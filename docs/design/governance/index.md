@@ -27,6 +27,7 @@
 | [overrides 保护名单](./override-protect-policy.md) | 方案 B / A1 载体（按仓库粒度） | ✅ 已实施（M29.4） |
 | [C22 PAT 无感升级评估](./c22-pat-backward-compat.md) | 评估报告（M18.0 P0 docs only 子阶段） | ✅ 已落地（2026-08-29，Review Gate Pass） |
 | [规范与文档治理设计](./spec-and-doc-governance.md) | 专项设计（文档治理边界 + modules/governance 分流依据 + 写作规范 + 实施计划） | ✅ 已落地（2026-09-09，G1 P 阶段产出） |
+| [运行失败分类与筛选设计](./run-failure-taxonomy.md) | 专项设计（运行失败阶段分类 + 可重试判定 + 筛选 / 重试入口） | 🔶 设计先行稿（[backlog](../../plan/backlog.md) 候选，未上收） |
 
 ## 使用约定
 

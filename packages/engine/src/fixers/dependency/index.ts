@@ -13,6 +13,10 @@ import {
     rollbackOverrideWrite,
     writeWorkspaceOverride,
 } from './overrides-io'
+import { upsertOverride } from './override-key'
+
+export { normalizeOverrideKey, normalizeOverrideSelector, upsertOverride } from './override-key'
+export type { OverrideUpsert } from './override-key'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -429,7 +433,9 @@ export async function applyVersionedOverrides(
     }
 
     // ---- 3. 记录旧值并写入版本化 overrides ----
+    // 语义等价 key 复用已有写法（如已有 `pkg@^1` 时不再新增 `pkg@1`，见 override-key.ts）
     const oldValues = new Map<string, string | undefined>()
+    const writtenKeys = new Set<string>()
     let pkgJsonOverrideWarning: string | undefined
 
     if (usesWorkspaceYaml) {
@@ -442,8 +448,12 @@ export async function applyVersionedOverrides(
         }
         const overrides = (doc.overrides ?? {}) as Record<string, string>
         for (const [key, target] of entries) {
-            oldValues.set(key, overrides[key])
-            overrides[key] = target
+            const { key: actualKey, oldValue } = upsertOverride(overrides, key, target)
+            // 同一批内多 key 归一化到同一 actualKey 时保留首次旧值（回滚依据）
+            if (!oldValues.has(actualKey)) {
+                oldValues.set(actualKey, oldValue)
+            }
+            writtenKeys.add(actualKey)
         }
         doc.overrides = overrides
         writeFileSync(workspaceYamlPath, YAML.stringify(doc), 'utf-8')
@@ -454,8 +464,11 @@ export async function applyVersionedOverrides(
         }
         const overrides = ensurePnpmOverrides(pkg)
         for (const [key, target] of entries) {
-            oldValues.set(key, overrides[key])
-            overrides[key] = target
+            const { key: actualKey, oldValue } = upsertOverride(overrides, key, target)
+            if (!oldValues.has(actualKey)) {
+                oldValues.set(actualKey, oldValue)
+            }
+            writtenKeys.add(actualKey)
         }
         writeFileSync(pkgPath, `${JSON.stringify(pkg, null, 2)}\n`, 'utf-8')
     }
@@ -469,7 +482,7 @@ export async function applyVersionedOverrides(
         // 既有 key 恢复旧值，其余保留原样。
         const restoreOverrides = (map: Record<string, string>): Record<string, string> => {
             const removed = new Set(
-                entries.filter(([key]) => oldValues.get(key) === undefined).map(([key]) => key),
+                [...writtenKeys].filter((key) => oldValues.get(key) === undefined),
             )
             const next: Record<string, string> = {}
             for (const [key, value] of Object.entries(map)) {

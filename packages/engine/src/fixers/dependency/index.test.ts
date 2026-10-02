@@ -591,6 +591,51 @@ describe('applyVersionedOverrides', () => {
         expect(yamlContent).toContain('packages/*')
     })
 
+    it('reuses existing equivalent override key instead of adding a duplicate (PR #298)', async () => {
+        mockExecSync.mockReturnValue('Done')
+        const workspaceYamlPath = join(dir, 'pnpm-workspace.yaml')
+        writeFileSync(workspaceYamlPath, [
+            'packages:',
+            '  - "packages/*"',
+            'overrides:',
+            '  brace-expansion@^1: ^1.1.16',
+            '',
+        ].join('\n'))
+
+        const result = await applyVersionedOverrides({
+            packageName: 'brace-expansion',
+            versionedOverrides: { 'brace-expansion@1': '^1.1.21' },
+            workDir: dir,
+        })
+
+        expect(result.success).toBe(true)
+        const yamlContent = readFileSync(workspaceYamlPath, 'utf-8')
+        // 语义等价的 `@1` 复用已有 `@^1` 写法，不新增第二种
+        expect(yamlContent).toContain('brace-expansion@^1: ^1.1.21')
+        expect(yamlContent).not.toContain('brace-expansion@1:')
+    })
+
+    it('rolls back cleanly when a batch contains equivalent keys (dedup by normalized key)', async () => {
+        mockExecSync.mockImplementation(() => {
+            throw new Error('install boom')
+        })
+        const workspaceYamlPath = join(dir, 'pnpm-workspace.yaml')
+        writeFileSync(workspaceYamlPath, 'packages:\n  - "packages/*"\n')
+
+        const result = await applyVersionedOverrides({
+            packageName: 'brace-expansion',
+            versionedOverrides: {
+                'brace-expansion@1': '^1.1.21',
+                'brace-expansion@^1': '^1.1.22',
+            },
+            workDir: dir,
+        })
+
+        expect(result.success).toBe(false)
+        // 两个等价 key 归一化到同一写入 key，回滚后不残留
+        expect(readFileSync(workspaceYamlPath, 'utf-8')).not.toContain('brace-expansion')
+    })
+
     it('rolls back versioned overrides and lockfile when pnpm install fails', async () => {
         mockExecSync.mockImplementation(() => {
             throw new Error('ERESOLVE')

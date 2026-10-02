@@ -315,4 +315,80 @@ describe('buildVersionedOverrides', () => {
     it('returns empty when no alerts provided', () => {
         expect(buildVersionedOverrides(lockfilePath, [])).toEqual({})
     })
+
+    // -----------------------------------------------------------------------
+    // 已有 override key 写法归一化（nuxt-latest-template#298 复盘）
+    // 已有 `brace-expansion@^1` 时不得再新增语义等价的 `brace-expansion@1`
+    // -----------------------------------------------------------------------
+    it('reuses existing caret-major key instead of adding bare-major duplicate (PR #298)', () => {
+        writeFileSync(lockfilePath, [
+            'lockfileVersion: \'9.0\'',
+            '',
+            '  brace-expansion@1.1.12:',
+            '    resolution: {integrity: sha512-a}',
+            '',
+            '  brace-expansion@2.0.3:',
+            '    resolution: {integrity: sha512-b}',
+            '',
+            '  brace-expansion@5.0.1:',
+            '    resolution: {integrity: sha512-c}',
+            '',
+        ].join('\n'))
+        const existing = {
+            'brace-expansion@^1': '^1.1.16',
+            'brace-expansion@^5': '^5.0.8',
+        }
+        const result = buildVersionedOverrides(lockfilePath, [
+            alert('brace-expansion', '1.1.21'),
+            alert('brace-expansion', '2.1.7'),
+            alert('brace-expansion', '5.0.12'),
+        ], existing)
+
+        // 语义等价的 `@^1` / `@1` 只保留一种写法：沿用已有 `@^1`，不新增 `@1`
+        expect(result).toEqual({
+            'brace-expansion@^1': '^1.1.21',
+            'brace-expansion@2': '^2.1.7',
+            'brace-expansion@^5': '^5.0.12',
+        })
+        expect(result['brace-expansion@1']).toBeUndefined()
+        expect(result['brace-expansion@5']).toBeUndefined()
+    })
+
+    it('keeps existing caret-major override untouched when already >= target', () => {
+        writeFileSync(lockfilePath, [
+            'lockfileVersion: \'9.0\'',
+            '',
+            '  brace-expansion@1.1.12:',
+            '    resolution: {integrity: sha512-a}',
+            '',
+            '  brace-expansion@2.0.3:',
+            '    resolution: {integrity: sha512-b}',
+            '',
+        ].join('\n'))
+        const result = buildVersionedOverrides(lockfilePath, [
+            alert('brace-expansion', '1.1.21'),
+        ], { 'brace-expansion@^1': '^1.1.21' })
+
+        expect(result['brace-expansion@^1']).toBeUndefined()
+        expect(result['brace-expansion@1']).toBeUndefined()
+    })
+
+    it('reuses existing bare-major key when writing versioned override', () => {
+        writeFileSync(lockfilePath, [
+            'lockfileVersion: \'9.0\'',
+            '',
+            '  brace-expansion@1.1.12:',
+            '    resolution: {integrity: sha512-a}',
+            '',
+            '  brace-expansion@2.0.3:',
+            '    resolution: {integrity: sha512-b}',
+            '',
+        ].join('\n'))
+        const result = buildVersionedOverrides(lockfilePath, [
+            alert('brace-expansion', '1.1.21'),
+        ], { 'brace-expansion@1': '^1.1.16' })
+
+        expect(result).toEqual({ 'brace-expansion@1': '^1.1.21' })
+        expect(result['brace-expansion@^1']).toBeUndefined()
+    })
 })

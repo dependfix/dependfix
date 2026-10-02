@@ -22,6 +22,7 @@ import {
     readLockfileVersions,
     upgradeDependency,
     overrideTransitiveDependency,
+    normalizeOverrideKey,
     type DependencyFixResult,
 } from '../fixers/dependency'
 import { repairLockfile, type LockfileRepairResult } from '../fixers/pnpm'
@@ -203,11 +204,27 @@ export function buildVersionedOverrides(
 
     // 大版本冲突判定：多 major 共存才用版本化 key；单 major 已有版本化条目则沿用
     const majors = [...new Set(versions.map((v) => String(parseMajorVersion(v))))]
+    // 已有 overrides 按归一化 key 建索引：`pkg@^1` 与 `pkg@1` 视为同一 selector（override-key.ts）
+    const existingKeyByNormalized = new Map<string, string>()
+    for (const key of Object.keys(existingOverrides)) {
+        const normalized = normalizeOverrideKey(key)
+        // 文件已存在重复等价 key 时取首个（与 upsertOverride 的首次命中策略一致）
+        if (!existingKeyByNormalized.has(normalized)) {
+            existingKeyByNormalized.set(normalized, key)
+        }
+    }
     const useVersionedKey = majors.length > 1
-        || existingOverrides[`${packageName}@${majors[0] ?? ''}`] !== undefined
+        || existingKeyByNormalized.has(normalizeOverrideKey(`${packageName}@${majors[0] ?? ''}`))
+    // 命中已有等价 key 时沿用其原写法，避免同一 selector 并存两种写法（2026-10-02 PR #298 复盘）
+    const resolveWriteKey = (canonicalKey: string): string =>
+        existingKeyByNormalized.get(normalizeOverrideKey(canonicalKey)) ?? canonicalKey
     // 剥离 ^ / ~ 前缀后比较（compareSemver 不处理前缀）
-    const existingTarget = (key: string): string | undefined =>
-        existingOverrides[key]?.replace(/^\s*[\^~>=<]*\s*/, '')
+    const existingTarget = (canonicalKey: string): string | undefined => {
+        const actualKey = existingKeyByNormalized.get(normalizeOverrideKey(canonicalKey))
+        return actualKey === undefined
+            ? undefined
+            : existingOverrides[actualKey]?.replace(/^\s*[\^~>=<]*\s*/, '')
+    }
 
     const overrides: Record<string, string> = {}
     for (const version of versions) {
@@ -215,11 +232,11 @@ export function buildVersionedOverrides(
         const target = targetByMajor.get(major)
         // 该大版本线存在推荐目标且实例低于目标 → 脆弱，覆盖整条线
         if (target && compareSemver(version, target) < 0) {
-            const key = useVersionedKey ? `${packageName}@${major}` : packageName
+            const canonicalKey = useVersionedKey ? `${packageName}@${major}` : packageName
             // 与已有条目协同：目标取 max，已有 >= 推荐则无需写入
-            const existing = existingTarget(key)
+            const existing = existingTarget(canonicalKey)
             if (!existing || compareSemver(target, existing) > 0) {
-                overrides[key] = `^${target}`
+                overrides[resolveWriteKey(canonicalKey)] = `^${target}`
             }
         }
     }
@@ -251,7 +268,7 @@ export function buildVersionedOverrides(
     for (const [pathKey, target] of pathTargetByKey) {
         const existing = existingTarget(pathKey)
         if (!existing || compareSemver(target, existing) > 0) {
-            overrides[pathKey] = `^${target}`
+            overrides[resolveWriteKey(pathKey)] = `^${target}`
         }
     }
     return overrides

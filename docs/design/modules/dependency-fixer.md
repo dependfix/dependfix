@@ -426,8 +426,9 @@ T108 (报告生成器)
 ### 12.3 多版本共存 → 版本化 overrides
 
 - 同一包在 lockfile 共存多个大版本时，单一 `pkg: version` 全局覆盖会误伤根声明
-- 做法：对每个脆弱实例生成 `pkg@version: ^target`，只影响对应实例
+- 做法：对每个脆弱实例生成 `pkg@<major>: ^target`（版本化 key），只影响对应大版本线
 - 约束：**只覆盖与 target 同 major 且低于目标的实例**（跨 major 会破坏子工作区且根验证无法覆盖）；同包多告警取 recommendedVersion 最高者；单版本根直接依赖维持 sub
+- **既有 overrides 协同**（2026-08-09 复盘 + 2026-10-02 PR #298 修正）：目标与已有同 selector 条目取 max（剥离前缀比较），已有条目不删除、不改写形式；key 判定按**归一化 selector**——pnpm 把 selector 当 semver range 解析，`pkg@1` 与 `pkg@^1` 语义等价，命中已有等价 key 时沿用其原写法，避免同一 selector 并存两种写法（否则会同时写出 `brace-expansion@^1` 与 `brace-expansion@1`）；归一化只收敛裸 major / caret major / major 通配等价类，`~1`、`^1.2`、精确版本等保持区分。
 
 ### 12.4 单版本根直接依赖：推荐版本 >= 锁定版本时可安全修复（C10）
 

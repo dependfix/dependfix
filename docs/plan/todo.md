@@ -18,11 +18,11 @@
 
 ## 当前阶段
 
-### M36: 治理债清仓 + 可观测性与测试稳定性（M36.1~M36.6）
+### M36: 治理债清仓 + 可观测性与测试稳定性（M36.1~M36.7）
 
-> **阶段摘要**：承接 M35 完整闭环归档后的 backlog 候选池，2026-10-02 用户决策**方案 A（治理债清仓）**——从 backlog 中可立即启动的候选中上收 5 项，一次性清空长期沉积的存量治理债（C81 孤立规划编号清理）并收口两处正确性 / 可观测性缺口与一处 e2e 顺序偶发；同日用户直接指令追加 1 项镜像体积治理（M36.6，属 [规划规范 §3.4](../standards/planning.md#34-阶段启动决策前置交叉核验硬要求m271-重复评估教训--2026-09-10) 承认的「用户直接决策」路径，非 backlog 候选）。backlog 上收的 5 项候选均经 §3.4 三重交叉核验通过（0 项重复评估）。
+> **阶段摘要**：承接 M35 完整闭环归档后的 backlog 候选池，2026-10-02 用户决策**方案 A（治理债清仓）**——从 backlog 中可立即启动的候选中上收 5 项，一次性清空长期沉积的存量治理债（C81 孤立规划编号清理）并收口两处正确性 / 可观测性缺口与一处 e2e 顺序偶发；同日用户直接指令追加 1 项镜像体积治理（M36.6，属 [规划规范 §3.4](../standards/planning.md#34-阶段启动决策前置交叉核验硬要求m271-重复评估教训--2026-09-10) 承认的「用户直接决策」路径，非 backlog 候选）；另用户报告依赖升级 overrides key 重复写法缺陷并追加修复（M36.7，同属「用户直接决策」路径）。backlog 上收的 5 项候选均经 §3.4 三重交叉核验通过（0 项重复评估）。
 >
-> **6 原子条目**（类型平衡 🛡️ 3 / 📚 1 / 🚀 1 / 🧪 1）：
+> **7 原子条目**（类型平衡 🛡️ 4 / 📚 1 / 🚀 1 / 🧪 1）：
 >
 > - **M36.1** [P3 🛡️ 技术债] C81 源码 / 配置注释孤立规划编号存量清理（分批）
 > - **M36.2** [P3 📚 文档治理] 设计与索引文档同类陈旧状态清理（存量）
@@ -30,8 +30,9 @@
 > - **M36.4** [P3 🚀 可观测性] 告警源「未启用 + 其余源全失败」判据修正
 > - **M36.5** [P3 🧪 测试基建] api-i18n「重复仓库」用例顺序偶发定位与治理
 > - **M36.6** [P2 🛡️ 技术债] dependfix-platform 镜像体积治理（去除冗余 node_modules 打包）
+> - **M36.7** [P2 🛡️ 技术债] pnpm overrides key 语义归一化（消除 `pkg@^1` / `pkg@1` 重复写法）
 >
-> **类型平衡复核**：[规划规范 §1.1](../standards/planning.md#11-硬性约束) 建议 🎨 用户体验 + 🛡️ 技术债 + 🚀 能力扩展 + 🧪 测试覆盖：本批 🛡️ 3 + 📚 1 + 🚀 1 + 🧪 1；**🎨 用户体验无独立条目**（候选池无 UX 类候选，与 M28–M32 同型），缺口显式标注。
+> **类型平衡复核**：[规划规范 §1.1](../standards/planning.md#11-硬性约束) 建议 🎨 用户体验 + 🛡️ 技术债 + 🚀 能力扩展 + 🧪 测试覆盖：本批 🛡️ 4 + 📚 1 + 🚀 1 + 🧪 1；**🎨 用户体验无独立条目**（候选池无 UX 类候选，与 M28–M32 同型），缺口显式标注。
 >
 > **§3.4 三重交叉核验结论**（本批为 backlog 上收：「评估 → 用户决策 → 上收」路径）：
 >
@@ -41,16 +42,17 @@
 > - ④ **决策前提矛盾核验**（「参考 NNN 实施」等自相矛盾表述）：本批无此类表述，N/A。
 > - ⑤ **backlog 描述同步**：已按 backlog 维护规则 5 从 backlog 移除 5 项上收候选（§候选评估中 2 项 + §开发工具链 C81 整段 + §已知边界 2 项）。
 >
-> 结论：backlog 上收的 **5 项全部有效，0 项重复评估**（M36.6 属 §3.4「用户直接决策」路径，其三重核验结论见下文 §M36.6）。
+> 结论：backlog 上收的 **5 项全部有效，0 项重复评估**（M36.6 / M36.7 属 §3.4「用户直接决策」路径，其三重核验结论分别见下文 §M36.6 / §M36.7）。
 >
 > **关键决策（待用户在执行期细化）**：
 >
-> - **D1**（2026-10-02 用户决策）：组合定型——方案 A（治理债清仓），5 原子条目；🎨 UX 缺口显式标注。**同日追加 M36.6（用户直接指令）**，合计 6 原子条目。
+> - **D1**（2026-10-02 用户决策）：组合定型——方案 A（治理债清仓），5 原子条目；🎨 UX 缺口显式标注。**同日追加 M36.6（用户直接指令）+ M36.7（用户报告缺陷修复）**，合计 7 原子条目。
 > - **D2**：M36.1 判定口径默认取「注释块级 + 真常量白名单（HTTP 错误码等）+ 优先改写为带文档指针的导航指针，无法归指者删编号留正文」；批量替换遵守 [AI 协作规范 §1.2 第 6 条](../standards/ai-collaboration.md) 分批纪律（每子批次 < 10 文件）。
 > - **D3**：M36.3 以「条件写回下沉共享层」为主，保持 GET「对非 running 批次仍对齐计数」既有契约；不引入悲观锁。
 > - **D4**：M36.4 判据改为「无任何成功源且存在失败源」；明确 `repoResults` / 报告「扫描成功」连锁语义。
 > - **D5**（2026-10-02 用户决策）：M36.6 镜像体积治理——对齐 momei / caomei-auth 的 `.output`-only 形态，移除 runtime 冗余 `node_modules` / workspace dist 复制；保持容器内 `DependfixApp` 程序化执行链路可用（引擎已由 Nitro 打包）；sandbox 未来独立入口须自包含，不得依赖 workspace `node_modules`。
-> - **执行顺序建议**：M36.6（已实施 + 实证）→ M36.3（P2）优先 → M36.1 分批独立 → M36.2 / M36.4 / M36.5 相互独立可并行。
+> - **D6**（2026-10-02 用户决策）：M36.7 overrides key 归一化——按语义等价类（`1`/`^1`/`1.x`/`^1.0.0`）比对已有 override，命中时沿用其原写法；只收敛可证明等价的等价类，major-0 caret（`^0.0` ≠ `^0`）等保持区分，不引入 `semver` 依赖。
+> - **执行顺序建议**：M36.6 / M36.7（已实施 + 实证）→ M36.3（P2）优先 → M36.1 分批独立 → M36.2 / M36.4 / M36.5 相互独立可并行。
 >
 > **范围边界（不做什么）**：不做 UX 强补候选；不启动需外部基建 / token 的候选（C15 / C68）；不动 migration 前缀统一（触发条件未到）与长期观察项。
 
@@ -160,6 +162,27 @@
 - **交付物**：2 commits（① 镜像瘦身 + 文档口径 + 计划登记；② docker-compose 默认拉镜像 + PUID/PGID 权限控制 + entrypoint）。
 - **风险与缓解**：`.output` 若缺运行时依赖 → 容器启动 500；缓解：构建后镜像内依赖完整性（166/166）+ HTTP 冒烟 + 原生模块 PRAGMA 实证；sandbox 未来独立执行入口曾依赖 workspace `node_modules` 的假设已移除并在设计文档登记自包含要求。
 - **残余风险（A 阶段 RG-W2，2026-10-02）**：容器内执行链路「可用」以**静态 + 启动实证**闭合（引擎打包 / 依赖 166/166 / HTTP 200 / SQLite PRAGMA），未在新镜像内实跑一次 `DependfixApp.run()` 全链路（需真实 GitHub 凭据；T801 旧镜像实证不可复用）；静态证据判定风险低，留待 sandbox / 真实扫描场景补跑。
+
+#### M36.7 [P2 🛡️ 技术债] pnpm overrides key 语义归一化（消除 `pkg@^1` / `pkg@1` 重复写法）
+
+- **目标**：修复依赖升级写 `pnpm-workspace.yaml#overrides`（及 `package.json#pnpm.overrides`）时同一 selector 并存两种写法——已有 `brace-expansion@^1: ^1.1.16` 时又新增 `brace-expansion@1: ^1.1.21`（用户报告 nuxt-latest-template#298）。生成侧与写入侧按**语义归一化 key** 比对，命中已有等价写法时复用，只保留一种。
+- **优先级**：P2（不阻断修复链路，但产生冗余 / 可能冲突的 override 配置，影响配置整洁与人工 review）。
+- **范围**：新增 `packages/engine/src/fixers/dependency/override-key.ts`（`normalizeOverrideSelector` / `normalizeOverrideKey` / `upsertOverride`）；`fixers/dependency/index.ts`（`applyVersionedOverrides` 改用 upsert + 回滚 `writtenKeys`）；`app/helpers.ts`（`buildVersionedOverrides` 等价 key 检测 + `resolveWriteKey`）；测试 3 文件；`docs/design/modules/dependency-fixer.md §12.3` 口径。
+- **验收标准**（2026-10-02 已全部实证）：
+  - [x] 复现用例：已有 `{@^1: ^1.1.16, @^5: ^5.0.8}` + 多 major lockfile（1.x/2.x/5.x）+ 推荐 1.1.21/2.1.7/5.0.12 → 输出 `{@^1: ^1.1.21, @2: ^2.1.7, @^5: ^5.0.12}`，**无 `@1` / `@5`**
+  - [x] 归一化只收敛可证明等价的等价类（`1`/`^1`/`1.x`/`1.x.x`/`^1.0`/`^1.0.0`）；`~1`、`^1.2`、精确版本、major-0 caret（`^0.0` ≠ `^0`）保持区分
+  - [x] 写入侧 `upsertOverride` 复用已有等价写法；install 失败回滚不残留（含同批等价 key 场景）
+  - [x] engine 全量 63 files / 1195 passed | 1 skipped；root typecheck exit 0；root lint exit 0
+- **不做什么**：不改跨 major 保护语义；不改路径级 key 生成（`parent>child` 无 selector，非本缺陷形态）；不引入 `semver` 依赖（自实现聚焦等价类）。
+- **依赖**：用户报告 [nuxt-latest-template#298](https://github.com/CaoMeiYouRen/nuxt-latest-template/pull/298)（属 [规划规范 §3.4](../standards/planning.md#34-阶段启动决策前置交叉核验硬要求m271-重复评估教训--2026-09-10)「用户直接决策」路径）；`docs/design/modules/dependency-fixer.md §12.3`。
+- **§3.4 三重交叉核验**（属「用户直接决策」路径）：
+  - ① **todo-archive 表格扫描**：`rg -n "overrides 归一|override key 归一|brace-expansion@|pkg@major" docs/plan/todo-archive.md docs/plan/archive/todo-archive-phases-*.md` **无命中**，无既有闭环条目。
+  - ② **git log 历史核验**：`git log --oneline -- packages/engine/src/app/helpers.ts` 最近为 `4ed008e`/`9226ddd`/`61acfae`/`e8e5f32`/`4e04090`（路径级 override 等，均非 key 归一化）；无重复修复 commit。
+  - ③ **代码侧 anchor 实证**：`git show HEAD:packages/engine/src/app/helpers.ts` 确认变更前为精确字符串 key 比对（`:207` `existingOverrides[<pkg>@<major>]` / `:210` `existingOverrides[<key>]`），`index.ts:446/458` 为精确 key 写入——即 `pkg@^1` 与 `pkg@1` 被判为不同 key。
+  - 结论：**0 项重复评估**，可进入 D 阶段。
+- **交付物**：1 commit（override-key + 接线 + 测试 + 设计口径）。
+- **风险与缓解**：归一化过度合并会误改 selector 作用域；缓解：仅收敛可证明等价的等价类 + major-0 caret 守卫 + A 阶段用 node-semver 交叉核对；保守欠合并（`^0` ↔ `0` 等罕用形态不合并）为安全方向，已登记为已知边界。
+- **残余风险**：`^0` ↔ `0` 等罕用等价形态保守欠合并（可能仍存同类重复写法，但不会产生错误 selector 作用域）；历史遗留的重复 key 不会自动清理（仅阻止新增）。
 
 ---
 

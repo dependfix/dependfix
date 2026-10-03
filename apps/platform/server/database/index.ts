@@ -211,7 +211,8 @@ const warnIfSchemaMissing = async (ds: DataSource): Promise<void> => {
     if (currentDatabaseType() !== 'sqlite') {
         return
     }
-    if (process.env.DATABASE_MIGRATIONS_RUN === 'true') {
+    // 用 DataSource 生效值判定（含 createMigrateDataSource 强制 false 等场景），避免二次读 env 漂移
+    if (ds.options.migrationsRun) {
         return
     }
     try {

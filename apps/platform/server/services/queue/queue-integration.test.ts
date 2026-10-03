@@ -4,8 +4,9 @@
  * 覆盖队列验收项：入队 → worker 消费闭环、jobId 去重、终态重建、无冒号限制。
  */
 import { describe, expect, it } from 'vitest'
+import { Queue } from 'bullmq'
 import { createRedisClient, probeRedis } from './redis'
-import { createScanQueue } from './scan-queue'
+import { createScanQueue, SCAN_QUEUE_NAME } from './scan-queue'
 import { createScanWorker } from './scan-worker'
 
 const REDIS_URL = 'redis://127.0.0.1:6379'
@@ -89,6 +90,87 @@ describe.skipIf(!enabled)('scan queue real-redis integration', () => {
         await queue.close()
         queueConnection.disconnect()
     }, 15_000)
+
+    it('孤儿 job 释放：remove 按归属校验后释放去重键，hasLiveJob 状态同步', async () => {
+        const queueConnection = createRedisClient(REDIS_URL)
+        const queue = createScanQueue(queueConnection, {})
+        const repoId = `integration-repo-4-${Date.now()}`
+        const firstRunId = `integration-run-4-${Date.now()}`
+        // 无 worker 消费 → job 保持 waiting（模拟孤儿占用去重键）
+        const first = await queue.add(repoId, {
+            mode: 'report-only',
+            severityThreshold: 'high',
+        }, { runId: firstRunId })
+        expect(first.reused).toBe(false)
+        expect(await queue.hasLiveJob(repoId)).toBe(true)
+
+        // 归属校验：expectedRunId 不匹配（同仓库已换成新 run 的 job）→ 不误删
+        await expect(queue.remove(repoId, 'other-run-id')).resolves.toEqual({ removed: false })
+        expect(await queue.hasLiveJob(repoId)).toBe(true)
+
+        // 归属匹配 → 释放去重键，重新触发可创建新 job（不再被 SCAN_PENDING_MERGED 合并）
+        await expect(queue.remove(repoId, firstRunId)).resolves.toEqual({ removed: true })
+        expect(await queue.hasLiveJob(repoId)).toBe(false)
+        const secondRunId = `integration-run-4b-${Date.now()}`
+        const second = await queue.add(repoId, {
+            mode: 'report-only',
+            severityThreshold: 'high',
+        }, { runId: secondRunId })
+        expect(second.reused).toBe(false)
+
+        await queue.remove(repoId, secondRunId)
+        await queue.close()
+        queueConnection.disconnect()
+    }, 15_000)
+
+    it('active job 被 worker 锁定 → remove 返回 removed=false（不抛错，交由 worker 收尾）', async () => {
+        const queueConnection = createRedisClient(REDIS_URL)
+        const workerConnection = createRedisClient(REDIS_URL)
+        const inspectorConnection = createRedisClient(REDIS_URL)
+        const queue = createScanQueue(queueConnection, {})
+        const inspector = new Queue(SCAN_QUEUE_NAME, { connection: inspectorConnection })
+        const repoId = `integration-repo-5-${Date.now()}`
+        let releaseGate!: () => void
+        const gate = new Promise<void>((resolve) => {
+            releaseGate = resolve
+        })
+        const worker = createScanWorker(workerConnection, {
+            processor: async (data) => {
+                // 仅阻塞本用例的 job；前面用例可能残留 waiting job，避免被 gate 卡住
+                if ('repositoryId' in data && data.repositoryId === repoId) {
+                    await gate
+                }
+                return { ok: true }
+            },
+        })
+
+        try {
+            const result = await queue.add(repoId, {
+                mode: 'report-only',
+                severityThreshold: 'high',
+            }, { runId: `integration-run-5-${Date.now()}` })
+            expect(result.reused).toBe(false)
+
+            // 等 worker 真正拿到锁（active）
+            await waitFor(async () => {
+                const job = await inspector.getJob(result.jobId)
+                return (await job?.getState()) === 'active'
+            }, 10_000, 'job active')
+            expect(await queue.hasLiveJob(repoId)).toBe(true)
+
+            // active 且锁定 → BullMQ 拒绝 remove，wrapper 吞错返回 removed=false
+            await expect(queue.remove(repoId)).resolves.toEqual({ removed: false })
+        } finally {
+            // 无论断言成败都释放 processor 并关闭连接，避免残留 active job 污染后续运行
+            releaseGate()
+            await worker.close()
+            await inspector.close()
+            await queue.close()
+            queueConnection.disconnect()
+            workerConnection.disconnect()
+            inspectorConnection.disconnect()
+        }
+    }, 20_000)
 
     it('终态重建：完成后再次触发返回新 job（reused=false，可立即重新扫描）', async () => {
         const queueConnection = createRedisClient(REDIS_URL)

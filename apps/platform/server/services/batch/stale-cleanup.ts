@@ -24,13 +24,28 @@ export interface CleanupOptions {
     scanRunTimeoutMs?: number
     /** BatchRun stale 阈值（ms）；默认 30 分钟 */
     batchRunTimeoutMs?: number
+    /**
+     * pending run（createdAt 已超 scanRunTimeoutMs）的孤儿判定回调：
+     * - 返回 true → 视为孤儿（force failed + orphan_run）
+     * - 返回 false → 仍在队列中排队 / 执行，跳过（避免串行队列排队被误杀）
+     * 缺省时一律视为孤儿（保留无队列 / 同步场景的既有语义）。
+     */
+    isPendingOrphan?: (run: ScanRun) => Promise<boolean>
 }
 
 export interface CleanupResult {
     scanRunsFailed: number
     batchRunsFailed: number
+    /** 被 force failed 的孤儿 run（供调用方按 run 归属释放队列去重键） */
+    orphanedRuns: OrphanedRunRef[]
     /** 检查时刻（ISO 字符串，便于审计） */
     checkedAt: string
+}
+
+/** 孤儿 run 引用：repositoryId 定位队列 jobId，runId 用于归属校验 */
+export interface OrphanedRunRef {
+    repositoryId: string
+    runId: string
 }
 
 const DEFAULT_SCAN_RUN_TIMEOUT_MS = 30 * 60 * 1000
@@ -47,9 +62,10 @@ export const cleanupStaleRuns = async (options: CleanupOptions = {}): Promise<Cl
     const scanRepo = ds.getRepository(ScanRun)
     const batchRepo = ds.getRepository(BatchRun)
 
-    // 1. 找出 stale ScanRun（status in [running, pending] 且 startedAt < cutoff）
-    // 注：pending 无 startedAt 但 pending → running 由 worker 同步触发（scan-orchestrator.ts:122），
-    // pending 状态的卡死通常是入队后 worker 没消费 — 用 createdAt 兜底（BatchRun 同理）
+    // 1. 找出 stale ScanRun（status in [running, pending] 且超阈值）
+    // 注：running 用 startedAt、pending 用 createdAt 判断是否超阈值；pending → running 由 worker
+    // 触发（scan-orchestrator），是否孤儿由 isPendingOrphan 判定——async 队列下 job 仍在排队 /
+    // 执行 → 非孤儿，避免串行队列排队被误杀；缺省回调时按孤儿处理（保留同步场景既有语义）
     const staleScanRuns = await scanRepo.find({
         where: [
             { status: 'running', startedAt: LessThan(scanCutoff) },
@@ -58,7 +74,23 @@ export const cleanupStaleRuns = async (options: CleanupOptions = {}): Promise<Cl
     })
 
     let scanRunsFailed = 0
+    const failedRuns: ScanRun[] = []
     for (const run of staleScanRuns) {
+        // pending 的孤儿判定：回调返回 false（或查询失败保守跳过）视为仍在队列中合法等待，
+        // 跳过且不参与 BatchRun 孤儿判定
+        if (run.status === 'pending' && options.isPendingOrphan) {
+            let orphan = true
+            try {
+                orphan = await options.isPendingOrphan(run)
+            } catch (error) {
+                // 队列状态查询失败（Redis 抖动）：保守判定为"仍在队列中"，避免误杀合法排队 run
+                console.warn(`[stale-cleanup] pending run ${run.id} 队列状态查询失败，跳过:`, error)
+                orphan = false
+            }
+            if (!orphan) {
+                continue
+            }
+        }
         run.status = 'failed'
         run.finishedAt = now
         run.errorJson = JSON.stringify({
@@ -66,13 +98,19 @@ export const cleanupStaleRuns = async (options: CleanupOptions = {}): Promise<Cl
             message: `超过 ${Math.round(scanRunTimeoutMs / 60000)} 分钟未到达终态，已被 stale cleanup 自动标记为失败`,
         })
         await scanRepo.save(run)
+        failedRuns.push(run)
         scanRunsFailed++
     }
+
+    const orphanedRuns: OrphanedRunRef[] = failedRuns.map((run) => ({
+        repositoryId: run.repositoryId,
+        runId: run.id,
+    }))
 
     // 2. 找出 stale BatchRun（status='running' 且 createdAt < batchCutoff 且至少有一个下属 stale run）
     // 注：仅当下属确实存在 stale run 时才认为该 BatchRun 是孤儿 — 避免误杀"运行中但慢"的合法批次
     const staleBatchRunIds = new Set<string>()
-    for (const run of staleScanRuns) {
+    for (const run of failedRuns) {
         if (run.batchRunId) {
             staleBatchRunIds.add(run.batchRunId)
         }
@@ -101,6 +139,7 @@ export const cleanupStaleRuns = async (options: CleanupOptions = {}): Promise<Cl
     return {
         scanRunsFailed,
         batchRunsFailed,
+        orphanedRuns,
         checkedAt: now.toISOString(),
     }
 }

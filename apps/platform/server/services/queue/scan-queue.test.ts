@@ -106,6 +106,102 @@ describe('createScanQueue', () => {
         )
     })
 
+    describe('remove（孤儿 run 释放去重键）', () => {
+        it('job 不存在 → removed=false', async () => {
+            const queue = createScanQueue(makeConnection(), {})
+            const instance = currentInstance()
+            instance.getJob.mockResolvedValue(null)
+            await expect(queue.remove('repo-1')).resolves.toEqual({ removed: false })
+            expect(instance.getJob).toHaveBeenCalledWith('scan-repo-1')
+        })
+
+        it('waiting job 可移除（无归属校验）→ removed=true', async () => {
+            const existing = {
+                data: { runId: 'run-1' },
+                getState: vi.fn().mockResolvedValue('waiting'),
+                remove: vi.fn().mockResolvedValue(undefined),
+            }
+            const queue = createScanQueue(makeConnection(), {})
+            currentInstance().getJob.mockResolvedValue(existing)
+            await expect(queue.remove('repo-1')).resolves.toEqual({ removed: true })
+            expect(existing.remove).toHaveBeenCalled()
+        })
+
+        it('expectedRunId 匹配 → removed=true', async () => {
+            const existing = {
+                data: { runId: 'run-1' },
+                getState: vi.fn().mockResolvedValue('waiting'),
+                remove: vi.fn().mockResolvedValue(undefined),
+            }
+            const queue = createScanQueue(makeConnection(), {})
+            currentInstance().getJob.mockResolvedValue(existing)
+            await expect(queue.remove('repo-1', 'run-1')).resolves.toEqual({ removed: true })
+            expect(existing.remove).toHaveBeenCalled()
+        })
+
+        it('expectedRunId 不匹配（job 归属用户重新触发的新 run）→ 跳过，不误删', async () => {
+            const existing = {
+                data: { runId: 'run-2' },
+                getState: vi.fn().mockResolvedValue('waiting'),
+                remove: vi.fn().mockResolvedValue(undefined),
+            }
+            const queue = createScanQueue(makeConnection(), {})
+            currentInstance().getJob.mockResolvedValue(existing)
+            await expect(queue.remove('repo-1', 'run-1')).resolves.toEqual({ removed: false })
+            expect(existing.remove).not.toHaveBeenCalled()
+        })
+
+        it('expectedRunId 不匹配但 job 归属其它 run 且已终态 → 仍跳过（归属优先）', async () => {
+            const existing = {
+                data: { runId: 'run-2' },
+                getState: vi.fn().mockResolvedValue('completed'),
+                remove: vi.fn().mockResolvedValue(undefined),
+            }
+            const queue = createScanQueue(makeConnection(), {})
+            currentInstance().getJob.mockResolvedValue(existing)
+            await expect(queue.remove('repo-1', 'run-1')).resolves.toEqual({ removed: false })
+            expect(existing.remove).not.toHaveBeenCalled()
+        })
+
+        it('active 且被 worker 锁定 → remove 抛错被吞，removed=false', async () => {
+            const existing = {
+                data: { runId: 'run-1' },
+                getState: vi.fn().mockResolvedValue('active'),
+                remove: vi.fn().mockRejectedValue(new Error('Job scan-repo-1 could not be removed because it is locked by another worker')),
+            }
+            const queue = createScanQueue(makeConnection(), {})
+            currentInstance().getJob.mockResolvedValue(existing)
+            await expect(queue.remove('repo-1', 'run-1')).resolves.toEqual({ removed: false })
+            expect(existing.remove).toHaveBeenCalled()
+        })
+    })
+
+    describe('hasLiveJob（pending 孤儿判定）', () => {
+        it('job 不存在 → false', async () => {
+            const queue = createScanQueue(makeConnection(), {})
+            currentInstance().getJob.mockResolvedValue(null)
+            await expect(queue.hasLiveJob('repo-1')).resolves.toBe(false)
+        })
+
+        it('终态（completed / failed）→ false', async () => {
+            const queue = createScanQueue(makeConnection(), {})
+            const instance = currentInstance()
+            instance.getJob.mockResolvedValue({ getState: vi.fn().mockResolvedValue('completed') })
+            await expect(queue.hasLiveJob('repo-1')).resolves.toBe(false)
+            instance.getJob.mockResolvedValue({ getState: vi.fn().mockResolvedValue('failed') })
+            await expect(queue.hasLiveJob('repo-1')).resolves.toBe(false)
+        })
+
+        it('非终态（waiting / active / delayed / prioritized / unknown）→ true', async () => {
+            const queue = createScanQueue(makeConnection(), {})
+            const instance = currentInstance()
+            for (const state of ['waiting', 'active', 'delayed', 'prioritized', 'unknown']) {
+                instance.getJob.mockResolvedValue({ getState: vi.fn().mockResolvedValue(state) })
+                await expect(queue.hasLiveJob('repo-1')).resolves.toBe(true)
+            }
+        })
+    })
+
     it('passes through scheduler and close operations', async () => {
         const queue = createScanQueue(makeConnection(), {})
         const instance = currentInstance()

@@ -18,11 +18,11 @@
 
 ## 当前阶段
 
-### M36: 治理债清仓 + 可观测性与测试稳定性（M36.1~M36.8）
+### M36: 治理债清仓 + 可观测性与测试稳定性（M36.1~M36.9）
 
 > **阶段摘要**：承接 M35 完整闭环归档后的 backlog 候选池，2026-10-02 用户决策**方案 A（治理债清仓）**——从 backlog 中可立即启动的候选中上收 5 项，一次性清空长期沉积的存量治理债（C81 孤立规划编号清理）并收口两处正确性 / 可观测性缺口与一处 e2e 顺序偶发；同日用户直接指令追加 1 项镜像体积治理（M36.6，属 [规划规范 §3.4](../standards/planning.md#34-阶段启动决策前置交叉核验硬要求m271-重复评估教训--2026-09-10) 承认的「用户直接决策」路径，非 backlog 候选）；另用户报告依赖升级 overrides key 重复写法缺陷并追加修复（M36.7，同属「用户直接决策」路径）。backlog 上收的 5 项候选均经 §3.4 三重交叉核验通过（0 项重复评估）。
 >
-> **8 原子条目**（类型平衡 🛡️ 5 / 📚 1 / 🚀 1 / 🧪 1；M36.8 含 🎨 用户体验修复）：
+> **9 原子条目**（类型平衡 🛡️ 6 / 📚 1 / 🚀 1 / 🧪 1；M36.8 含 🎨 用户体验修复）：
 >
 > - **M36.1** [P3 🛡️ 技术债] C81 源码 / 配置注释孤立规划编号存量清理（分批）
 > - **M36.2** [P3 📚 文档治理] 设计与索引文档同类陈旧状态清理（存量）
@@ -32,8 +32,9 @@
 > - **M36.6** [P2 🛡️ 技术债] dependfix-platform 镜像体积治理（去除冗余 node_modules 打包）
 > - **M36.7** [P2 🛡️ 技术债] pnpm overrides key 语义归一化（消除 `pkg@^1` / `pkg@1` 重复写法）
 > - **M36.8** [P1 🛡️ 缺陷修复 / 🎨 体验] Docker 首次启动数据库初始化 + 一键初始化脚本 + 部署文档
+> - **M36.9** [P1 🛡️ 缺陷修复] 扫描队列孤儿 job 释放 + pending 排队误杀修正
 >
-> **类型平衡复核**：[规划规范 §1.1](../standards/planning.md#11-硬性约束) 建议 🎨 用户体验 + 🛡️ 技术债 + 🚀 能力扩展 + 🧪 测试覆盖：本批 🛡️ 5 + 📚 1 + 🚀 1 + 🧪 1；**🎨 用户体验由 M36.8 承载**（Docker 首次启动即用体验 + 部署文档缺口）。
+> **类型平衡复核**：[规划规范 §1.1](../standards/planning.md#11-硬性约束) 建议 🎨 用户体验 + 🛡️ 技术债 + 🚀 能力扩展 + 🧪 测试覆盖：本批 🛡️ 6 + 📚 1 + 🚀 1 + 🧪 1；**🎨 用户体验由 M36.8 承载**（Docker 首次启动即用体验 + 部署文档缺口）。
 >
 > **§3.4 三重交叉核验结论**（本批为 backlog 上收：「评估 → 用户决策 → 上收」路径）：
 >
@@ -47,14 +48,14 @@
 >
 > **关键决策（待用户在执行期细化）**：
 >
-> - **D1**（2026-10-02 用户决策）：组合定型——方案 A（治理债清仓），5 原子条目；🎨 UX 缺口显式标注。**同日追加 M36.6（用户直接指令）+ M36.7（用户报告缺陷修复）**；后续再追加 **M36.8（用户报告 Docker 首次启动缺陷 + 部署文档 / 初始化脚本需求）**，合计 8 原子条目。
+> - **D1**（2026-10-02 用户决策）：组合定型——方案 A（治理债清仓），5 原子条目；🎨 UX 缺口显式标注。**同日追加 M36.6（用户直接指令）+ M36.7（用户报告缺陷修复）**；后续再追加 **M36.8（用户报告 Docker 首次启动缺陷 + 部署文档 / 初始化脚本需求）** 与 **M36.9（2026-10-03 用户报告超时后重新触发被 `SCAN_PENDING_MERGED` 永久合并的可用性缺陷）**，合计 9 原子条目。
 > - **D2**：M36.1 判定口径默认取「注释块级 + 真常量白名单（HTTP 错误码等）+ 优先改写为带文档指针的导航指针，无法归指者删编号留正文」；批量替换遵守 [AI 协作规范 §1.2 第 6 条](../standards/ai-collaboration.md) 分批纪律（每子批次 < 10 文件）。
 > - **D3**：M36.3 以「条件写回下沉共享层」为主，保持 GET「对非 running 批次仍对齐计数」既有契约；不引入悲观锁。
 > - **D4**：M36.4 判据改为「无任何成功源且存在失败源」；明确 `repoResults` / 报告「扫描成功」连锁语义。
 > - **D5**（2026-10-02 用户决策）：M36.6 镜像体积治理——对齐 momei / caomei-auth 的 `.output`-only 形态，移除 runtime 冗余 `node_modules` / workspace dist 复制；保持容器内 `DependfixApp` 程序化执行链路可用（引擎已由 Nitro 打包）；sandbox 未来独立入口须自包含，不得依赖 workspace `node_modules`。
 > - **D6**（2026-10-02 用户决策）：M36.7 overrides key 归一化——按语义等价类（`1`/`^1`/`1.x`/`^1.0.0`）比对已有 override，命中时沿用其原写法；只收敛可证明等价的等价类，major-0 caret（`^0.0` ≠ `^0`）等保持区分，不引入 `semver` 依赖。
 > - **D7**（2026-10-02 用户决策）：M36.8 Docker 首次启动初始化——① 基线迁移采用**实体元数据运行时生成**（`Table.create`，前缀感知 + 跨方言），存量增量迁移改幂等守卫；② compose 部署层默认 `DATABASE_MIGRATIONS_RUN=true`（应用默认仍 false，符合 [development.md §5.1.19](../standards/development.md)）；③ 保留手动 / 一键初始化脚本 + 补齐 Docker 部署文档。
-> - **执行顺序建议**：M36.6 / M36.7（已实施 + 实证）→ M36.8（P1，用户报告可用性缺陷，优先）→ M36.3（P2）→ M36.1 分批独立 → M36.2 / M36.4 / M36.5 相互独立可并行。
+> - **执行顺序建议**：M36.6 / M36.7（已实施 + 实证）→ M36.8 / M36.9（P1，用户报告可用性缺陷，优先）→ M36.3（P2）→ M36.1 分批独立 → M36.2 / M36.4 / M36.5 相互独立可并行。
 >
 > **范围边界（不做什么）**：不做 UX 强补候选；不启动需外部基建 / token 的候选（C15 / C68）；M36.8 一并处理迁移前缀感知（其 backlog 触发条件 ③「生产库迁移链正式启用排期」已由本次满足），但不做 Postgres 多写者迁移排期与长期观察项。
 
@@ -229,6 +230,33 @@
     - [x] `docker.yml` 冒烟步骤先于镜像推送（YAML 解析通过；步骤顺序 build-load → smoke → push）
     - [x] 平台 vitest `server/database` 186 passed；平台 lint / typecheck exit 0；`check:docs`（links 146）/ `lint:md` / `docs:check:i18n` 通过
   - **不做什么**：不改应用源码默认 `migrationsRun=false`（非 Docker 仍 opt-in）；不引入运行期自动 synchronize。
+
+#### M36.9 [P1 🛡️ 缺陷修复] 扫描队列孤儿 job 释放 + pending 排队误杀修正
+
+- **目标**：修复「扫描超时 / 卡死被 stale cleanup 判孤后，重新触发被 `SCAN_PENDING_MERGED` 永久合并」与「串行队列中合法排队的 pending run 被误判孤儿」两处缺陷，使 DB 孤儿收尾与 BullMQ 去重键释放联动。
+- **优先级**：P1（用户报告：超时任务失败后重新触发即报「已有进行中的扫描任务」并失败，属[规划规范 §3.1 插队例外](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement)第 3 类「直接影响可用性的 blocker 级功能缺失」+ §3.4「用户直接决策」路径）。
+- **根因（2026-10-03 排查）**：
+  - R1 表层：`stale-cleanup` 只把 DB `ScanRun` 置 `failed (orphan_run)`，从不触碰 `scan-<repositoryId>` 的 BullMQ job；`scan-queue.add` 仅对 `completed/failed` 终态释放去重键，`waiting/active` 一律 `reused=true` → 新建 pending run 被置 `SCAN_PENDING_MERGED`，该仓库被永久占位。
+  - R2 触发：worker 崩溃留下 active job（锁过期前无法自愈）；或 `createScanWorker` 默认 `concurrency=1`，批量多仓库时后续 job 长时间 waiting，而 stale cleanup 仅凭 `pending + createdAt>30min` 即判孤 → 误杀合法排队 run（job 仍在 waiting，重试被合并）。
+  - R3：`orphan_run` 文案对 running（真超时）与 pending（排队）不区分。
+- **范围**：`services/queue/scan-queue.ts` 新增 `remove(repositoryId, expectedRunId?)`（按 run 归属校验）/ `hasLiveJob`；`services/batch/stale-cleanup.ts` 新增 `isPendingOrphan` 回调（查询失败保守跳过）+ 返回 `orphanedRuns`（run 级引用）；`plugins/stale-cleanup.ts` 接线队列感知的 pending 孤儿判定 + 按 run 归属释放孤儿 job；测试同步（`scan-queue` 单测 / `stale-cleanup` 单测 / `stale-cleanup` 插件单测 / `queue-integration` 真实 Redis）。
+- **验收标准**：
+  - [x] stale cleanup 判孤后按 run 归属释放对应仓库队列去重键，重新触发 `reused=false`（`queue-integration` 真实 Redis：归属匹配释放 / 归属不匹配跳过 / `hasLiveJob` 语义 / active 锁定返回 removed=false）
+  - [x] 归属收敛回归：同仓库 run1 孤儿 + 用户重新触发的新 run2 job → 不误删（`scan-queue.test` expectedRunId 不匹配用例）
+  - [x] async 模式下 pending 超时但仍有非终态 job → 不误杀（`stale-cleanup.test` `isPendingOrphan=false` 用例）
+  - [x] running 超时仍强制 failed，回调不作用于 running（`isPendingOrphan` 仅作用 pending 用例）
+  - [x] 队列状态查询失败保守跳过（`isPendingOrphan` 抛错用例）；插件编排 5 用例（async 接线 / sync 降级 / 队列初始化失败 / 清理抛错续跑 / 单 run 释放失败不阻断）
+  - [x] 平台 vitest 全量（109 files / 1415 passed | 9 skipped）；`pnpm lint` / `typecheck` exit 0；`nuxt build` 通过；构建产物 runtime smoke（Redis 异步模式下插件首次 run 成功初始化队列，无初始化失败日志）
+- **不做什么**：不改 `scan-queue.add` 既有 `waiting/active → reused` 去重语义（合法排队仍合并）；不引入 Worker 回调；不改 pending 与 running 的 `orphan_run` 文案（文案区分登记已知边界）；不改 BatchRun 状态集合。
+- **依赖**：用户报告（直接指令）；关联 M35.1（stale-cleanup 补偿机制）/ M7.2（T702 队列基础设施）；`docs/design/governance/platform-scheduled-batch.md`。
+- **§3.4 三重交叉核验**（属「用户直接决策 + 插队例外」路径）：
+  - ① **todo-archive 表格扫描**：`rg -n "SCAN_PENDING_MERGED|orphan_run|去重键" docs/plan/todo-archive.md docs/plan/archive/*.md` 仅命中 M16.3（code 死代码修复）/ M35.1（BatchRun 对账），无「队列 job 释放」闭环。
+  - ② **git log 历史核验**：`git log --oneline -- apps/platform/server/services/queue apps/platform/server/services/batch/stale-cleanup.ts` 无释放 job / pending 误杀修复 commit。
+  - ③ **代码侧 anchor 实证**：`scan-queue.ts:79-90` 仅终态释放；`stale-cleanup.ts:53-70` 无队列调用；全仓无 job 释放兜底逻辑。
+  - 结论：**0 项重复评估**，可进入 D 阶段。
+- **交付物**：1 commit（队列层 + 服务层 + 插件 + 测试 + 计划登记）。
+- **风险与缓解**：`remove` 对 active 锁定 job 会抛错并退化为 removed=false（BullMQ `removeJob` 对 locked 返回 0）——仅告警不阻断，锁随 worker 存活续期 / 死亡后过期；实际「活 worker + 超 30min active」在 `withTimeout` 下不可达；缓解：try/catch + 真实 Redis active 锁定用例。释放误删风险由 run 归属校验（`job.data.runId === 孤儿 runId`）收敛，补 `scan-queue` 不匹配用例 + 真实 Redis 不匹配用例。
+- **残余风险**：active 锁定 job 本轮释放失败后不再重试（依赖后续触发时 `add` 的终态重建兜底）；`hasLiveJob` 对 `unknown` 状态保守判为 live（宁可漏杀不可误杀）。
 
 ---
 

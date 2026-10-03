@@ -183,7 +183,7 @@ docker compose start platform
 | Symptom | Cause / fix |
 |:---|:---|
 | Startup log `no such table: dependfix_*` | Migrations were not applied. New images migrate automatically; if it still appears, make sure it is not overridden by `DATABASE_MIGRATIONS_RUN=false`, run `./docker/init-db.sh`, and upgrade to the latest image |
-| Startup log `数据库为空且未开启迁移` | Empty database with migrations explicitly disabled. Set `DATABASE_MIGRATIONS_RUN=true` or run `./docker/init-db.sh` |
+| Startup log `数据库为空且未开启迁移` | Empty database with migrations explicitly disabled. Set `DATABASE_MIGRATIONS_RUN=true`, or run `./docker/init-db.sh` (from source: `pnpm db:init`) |
 | Container restarts / permission errors | `PUID` / `PGID` mismatch with volume ownership; set them to the host user uid:gid, or let the entrypoint chown (default root start path) |
 | Cannot register the first user | `REGISTRATION_DISABLED=true` and the database has no user; register the first admin while registration is open |
 | Credential save fails with a key error | `NUXT_ENCRYPTION_KEY` is not set (32 random bytes) |

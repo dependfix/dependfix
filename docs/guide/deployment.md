@@ -183,7 +183,7 @@ docker compose start platform
 | 现象 | 原因 / 处理 |
 |:---|:---|
 | 启动日志 `no such table: dependfix_*` | 迁移未执行。新版镜像已默认自动迁移；若仍出现，确认未被 `DATABASE_MIGRATIONS_RUN=false` 覆盖，或执行 `./docker/init-db.sh`，并升级到最新镜像 |
-| 启动日志 `数据库为空且未开启迁移` | 空库 + 迁移被显式关闭。设 `DATABASE_MIGRATIONS_RUN=true` 或执行 `./docker/init-db.sh` |
+| 启动日志 `数据库为空且未开启迁移` | 空库 + 迁移被显式关闭。设 `DATABASE_MIGRATIONS_RUN=true`，或执行 `./docker/init-db.sh`（源码环境 `pnpm db:init`） |
 | 容器反复重启 / 权限错误 | `PUID` / `PGID` 与数据卷归属不匹配；设为宿主用户 uid:gid，或让入口自动 chown（默认 root 启动路径） |
 | 无法注册首个用户 | `REGISTRATION_DISABLED=true` 且库中无用户；开放注册期完成首个管理员注册后再关闭 |
 | 凭据保存报密钥错误 | 未设置 `NUXT_ENCRYPTION_KEY`（32 字节随机值） |

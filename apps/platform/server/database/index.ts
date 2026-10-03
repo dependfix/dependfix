@@ -8,6 +8,7 @@ import mysql2 from 'mysql2'
 import pg from 'pg'
 import { SnakeCaseNamingStrategy } from './naming-strategy'
 import { resolveDatabaseType, type DatabaseType } from './type'
+import { isEmptySqliteDatabase } from './schema-guard'
 import { CreateInitialSchema1600000000000 } from './migrations/1600000000000-CreateInitialSchema'
 import { CreateAuditEventTable1700000000000 } from './migrations/1700000000000-CreateAuditEventTable'
 import { AddScanResultIdentifiers1750000000000 } from './migrations/1750000000000-AddScanResultIdentifiers'
@@ -199,6 +200,32 @@ const applySqlitePragmas = async (ds: DataSource): Promise<void> => {
     }
 }
 
+/**
+ * 空库 + 未开启迁移的启动告警。
+ *
+ * 全新部署若忘记开启迁移（`DATABASE_MIGRATIONS_RUN` 非 true），`DataSource.initialize()` 不会建表，
+ * 首次业务请求才报 `no such table`（用户侧表现为 Server Error，排查成本高）。此处提前给出明确提示。
+ * 仅 SQLite + 未开启迁移时执行；fail-open，不影响启动。
+ */
+const warnIfSchemaMissing = async (ds: DataSource): Promise<void> => {
+    if (currentDatabaseType() !== 'sqlite') {
+        return
+    }
+    if (process.env.DATABASE_MIGRATIONS_RUN === 'true') {
+        return
+    }
+    try {
+        if (await isEmptySqliteDatabase(ds)) {
+            console.error(
+                '[database] 数据库为空且未开启迁移：请设置 DATABASE_MIGRATIONS_RUN=true 或执行 pnpm db:init 初始化 schema',
+            )
+        }
+    } catch (error) {
+        // 告警查询失败不阻塞启动
+        console.warn('[database] 检查数据库 schema 状态失败（非致命）:', error)
+    }
+}
+
 export const ensureDatabaseInitialized = async (): Promise<DataSource> => {
     // 启动期备份（once 保护；详见 docs/standards/development.md §5.1.18）
     // 注：ensureDatabaseInitialized 是 hot path，每次调用都会执行；备份仅在首次调用时执行一次
@@ -222,6 +249,7 @@ export const ensureDatabaseInitialized = async (): Promise<DataSource> => {
             // PRAGMA 应用必须在 initialize 之后（连接已建立）
             if (ds.isInitialized) {
                 await applySqlitePragmas(ds)
+                await warnIfSchemaMissing(ds)
             }
         } catch (error) {
             console.error('[database] initialization failed:', error)

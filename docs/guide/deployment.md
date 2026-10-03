@@ -31,7 +31,9 @@ docker compose logs -f platform
 
 浏览器访问 `http://<host>:3000`，首个用户可注册为管理员（`REGISTRATION_DISABLED` 默认 `false`；注册完成后建议设为 `true`）。
 
-**首次启动会自动建表**：`docker-compose.yml` 默认注入 `DATABASE_MIGRATIONS_RUN=true`，应用启动时执行 pending migration（全新库由基线迁移创建全部业务表），无需手动初始化。日志中应出现 `[database] 启动期初始化完成`。
+**首次启动会自动建表**：镜像内置 `DATABASE_MIGRATIONS_RUN=true`（不依赖 compose 是否注入），应用启动时执行 pending migration（全新库由基线迁移创建全部业务表），无需手动初始化。日志中应出现 `[database] 启动期初始化完成`。
+
+> ⚠️ **请使用与本版本匹配的 `apps/platform/docker-compose.yml`**。即使使用旧版 compose（未注入 `DATABASE_MIGRATIONS_RUN`）或直接 `docker run`，镜像也会自动建表；但旧 compose 可能缺少 `PUID`/`PGID`、`NUXT_REDIS_URL` 等其他变量。若你曾用旧 compose 启动过空库导致 `no such table`，升级镜像后重建容器即可自动补建表。
 
 ## 镜像与版本
 
@@ -49,6 +51,12 @@ DEPENDFIX_IMAGE=caomeiyouren/dependfix:v0.3.0 docker compose up -d
 docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
 ```
 
+> 可用仓库内脚本对任意镜像做「首次启动可用性」自检（验证自动建表 + HTTP 200 + 13 张业务表）：
+>
+> ```bash
+> SMOKE_IMAGE=caomeiyouren/dependfix:latest sh apps/platform/docker/smoke-test.sh
+> ```
+
 ## 环境变量
 
 Compose 从 `apps/platform/.env` 读取变量并注入容器。核心项：
@@ -61,7 +69,7 @@ Compose 从 `apps/platform/.env` 读取变量并注入容器。核心项：
 | `REGISTRATION_DISABLED` | 建议 | `false` | 首个管理员注册完成后设为 `true` |
 | `PORT` | 否 | `3000` | 宿主机映射端口 |
 | `PUID` / `PGID` | 否 | `100` / `101` | 容器运行身份（见下节） |
-| `DATABASE_MIGRATIONS_RUN` | 否 | `true`（compose 注入） | 启动时自动执行迁移；设 `false` 改为手动初始化 |
+| `DATABASE_MIGRATIONS_RUN` | 否 | `true`（镜像内默认） | 启动时自动执行迁移；设 `false` 改为手动初始化（再用 `docker/init-db.sh`） |
 | `DATABASE_PATH` | 否 | `/app/data/dependfix.sqlite` | SQLite 文件路径（在数据卷内） |
 
 > ⚠️ **Compose 变量名与容器变量名不同**：`AUTH_SECRET` 经 compose 映射为容器内 `NUXT_AUTH_SECRET`；`REGISTRATION_DISABLED` → `NUXT_REGISTRATION_DISABLED`；`QUEUE_ENABLED` → `NUXT_QUEUE_ENABLED` 等。Nuxt `runtimeConfig` 运行时覆盖只认 `NUXT_` 前缀。
@@ -174,7 +182,8 @@ docker compose start platform
 
 | 现象 | 原因 / 处理 |
 |:---|:---|
-| 启动日志 `no such table: dependfix_*` | 迁移未执行。确认 `DATABASE_MIGRATIONS_RUN=true`（compose 默认）或执行 `./docker/init-db.sh`；旧版本镜像请升级 |
+| 启动日志 `no such table: dependfix_*` | 迁移未执行。新版镜像已默认自动迁移；若仍出现，确认未被 `DATABASE_MIGRATIONS_RUN=false` 覆盖，或执行 `./docker/init-db.sh`，并升级到最新镜像 |
+| 启动日志 `数据库为空且未开启迁移` | 空库 + 迁移被显式关闭。设 `DATABASE_MIGRATIONS_RUN=true` 或执行 `./docker/init-db.sh` |
 | 容器反复重启 / 权限错误 | `PUID` / `PGID` 与数据卷归属不匹配；设为宿主用户 uid:gid，或让入口自动 chown（默认 root 启动路径） |
 | 无法注册首个用户 | `REGISTRATION_DISABLED=true` 且库中无用户；开放注册期完成首个管理员注册后再关闭 |
 | 凭据保存报密钥错误 | 未设置 `NUXT_ENCRYPTION_KEY`（32 字节随机值） |

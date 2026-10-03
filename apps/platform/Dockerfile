@@ -51,6 +51,10 @@ COPY --from=builder /app/apps/platform/.output ./.output
 # 阶段四：生产
 FROM runtime
 ENV NODE_ENV=production
+# 首次启动自动执行 pending migration（镜像级默认，不依赖部署侧 compose 是否注入 env）：
+# 基线迁移 CreateInitialSchema 建全部业务表，迁移幂等；直接 docker run 或用旧版 compose 也能自建 schema。
+# 需完全手动控制时用 -e DATABASE_MIGRATIONS_RUN=false 覆盖（再用 docker/init-db.sh 初始化）。
+ENV DATABASE_MIGRATIONS_RUN=true
 # 容器工具链（ContainerExecutor 依赖）：git（clone）+ pnpm（install/audit）——
 # unzip：B mode result fetch（ActionResultFetcher unzip artifact）需要
 # git 随 alpine 滚动 index（与 unzip/su-exec 同惯例，实证版本 2.54.0）；可复现性以基础镜像 digest 为基线

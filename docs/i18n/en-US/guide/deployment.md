@@ -31,7 +31,9 @@ docker compose logs -f platform
 
 Open `http://<host>:3000`; the first user can register as admin (`REGISTRATION_DISABLED` defaults to `false`; set it to `true` after registering).
 
-**Tables are created automatically on first startup**: `docker-compose.yml` injects `DATABASE_MIGRATIONS_RUN=true` by default, so the application runs pending migrations at startup (on a fresh database the baseline migration creates all business tables). No manual initialization is required. The log should contain `[database] 启动期初始化完成`.
+**Tables are created automatically on first startup**: the image has `DATABASE_MIGRATIONS_RUN=true` baked in (independent of whether compose injects it), so the application runs pending migrations at startup (on a fresh database the baseline migration creates all business tables). No manual initialization is required. The log should contain `[database] 启动期初始化完成`.
+
+> ⚠️ **Use the `apps/platform/docker-compose.yml` that matches this version.** Even with an older compose file (which does not inject `DATABASE_MIGRATIONS_RUN`) or a plain `docker run`, the image initializes the database automatically; but an old compose file may lack other variables such as `PUID`/`PGID` and `NUXT_REDIS_URL`. If you previously started an empty database with an old compose file and saw `no such table`, upgrade the image and recreate the container to let it create the tables.
 
 ## Image and version
 
@@ -49,6 +51,12 @@ DEPENDFIX_IMAGE=caomeiyouren/dependfix:v0.3.0 docker compose up -d
 docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
 ```
 
+> You can smoke-test any image for first-startup usability (auto table creation + HTTP 200 + 13 business tables) with the in-repo script:
+>
+> ```bash
+> SMOKE_IMAGE=caomeiyouren/dependfix:latest sh apps/platform/docker/smoke-test.sh
+> ```
+
 ## Environment variables
 
 Compose reads `apps/platform/.env` and injects variables into the container. Core settings:
@@ -61,7 +69,7 @@ Compose reads `apps/platform/.env` and injects variables into the container. Cor
 | `REGISTRATION_DISABLED` | Recommended | `false` | Set to `true` after the first admin registers |
 | `PORT` | No | `3000` | Host port mapping |
 | `PUID` / `PGID` | No | `100` / `101` | Container run identity (see below) |
-| `DATABASE_MIGRATIONS_RUN` | No | `true` (injected by compose) | Run migrations at startup; set `false` for manual initialization |
+| `DATABASE_MIGRATIONS_RUN` | No | `true` (baked into the image) | Run migrations at startup; set `false` for manual initialization (then use `docker/init-db.sh`) |
 | `DATABASE_PATH` | No | `/app/data/dependfix.sqlite` | SQLite file path (inside the data volume) |
 
 > ⚠️ **Compose variable names differ from container variable names**: `AUTH_SECRET` is mapped by compose to `NUXT_AUTH_SECRET`; `REGISTRATION_DISABLED` → `NUXT_REGISTRATION_DISABLED`; `QUEUE_ENABLED` → `NUXT_QUEUE_ENABLED`. Nuxt `runtimeConfig` runtime overrides only honor the `NUXT_` prefix.
@@ -174,7 +182,8 @@ docker compose start platform
 
 | Symptom | Cause / fix |
 |:---|:---|
-| Startup log `no such table: dependfix_*` | Migrations were not applied. Confirm `DATABASE_MIGRATIONS_RUN=true` (compose default) or run `./docker/init-db.sh`; upgrade an old image |
+| Startup log `no such table: dependfix_*` | Migrations were not applied. New images migrate automatically; if it still appears, make sure it is not overridden by `DATABASE_MIGRATIONS_RUN=false`, run `./docker/init-db.sh`, and upgrade to the latest image |
+| Startup log `数据库为空且未开启迁移` | Empty database with migrations explicitly disabled. Set `DATABASE_MIGRATIONS_RUN=true` or run `./docker/init-db.sh` |
 | Container restarts / permission errors | `PUID` / `PGID` mismatch with volume ownership; set them to the host user uid:gid, or let the entrypoint chown (default root start path) |
 | Cannot register the first user | `REGISTRATION_DISABLED=true` and the database has no user; register the first admin while registration is open |
 | Credential save fails with a key error | `NUXT_ENCRYPTION_KEY` is not set (32 random bytes) |

@@ -219,6 +219,15 @@
   - `migration-helpers.createIndexIfMissing` 的去重只看索引名与列集合，未含 `unique` / `where`；当前用法均为普通索引，未来复用于唯一 / 部分索引需扩展。
   - 增量迁移的 raw `CREATE INDEX IF NOT EXISTS` 沿用项目既有 SQLite / PostgreSQL 语法（MySQL 不支持该子句）；本批不排期 MySQL 全新部署，基线本身经 `Table.create` 方言感知。
   - 迁移专用模式 `DEPENDFIX_MIGRATIONS_ONLY=true` 会初始化后退出进程；仅 `docker/init-db.sh` 注入，勿用于常规部署。
+- **第二轮（2026-10-03 用户报告：拉取最新镜像后仍 `no such table` / 注册失败 Server Error）**：
+  - **根因**：镜像本身不内置迁移默认值，首次启动依赖部署侧 compose 注入 `DATABASE_MIGRATIONS_RUN`。用户使用的 compose 未注入（日志 `migrationsRun=false (DATABASE_MIGRATIONS_RUN=unset)`）→ 0 张业务表 → 首次请求报 `no such table`。同批镜像已含启动引导插件（日志出现 `启动期初始化完成`），但 `migrationsRun=false` 使其只初始化空库。`.output` 实测复现：不注入 env → 0 表 + `GET /api/auth/get-session` 500 + 9 处 `no such table`。
+  - **修复**：① `Dockerfile` 运行时 `ENV DATABASE_MIGRATIONS_RUN=true`（镜像级默认：`docker run` / 旧 compose 也自动建表，可用 `-e …=false` 覆盖）；② 新增 `docker/smoke-test.sh` 镜像冒烟（不注入 env 首启 → 日志 `migrationsRun=true` + HTTP 200 + 13 张业务表 + 无 `no such table`；并验证 migrate-only 一次性容器 exit 0）；③ `docker.yml` 推送前以 amd64 本地镜像跑冒烟作为发布门禁；④ 新增 `schema-guard.isEmptySqliteDatabase` + `warnIfSchemaMissing`：空库且未开迁移时启动 `console.error` 明确告警；⑤ 部署文档同步镜像级默认与故障排查。
+  - **验收标准（第二轮）**：
+    - [ ] 镜像冒烟通过：不注入 `DATABASE_MIGRATIONS_RUN` 首启 `/` 200 + `/api/auth/get-session` 200 + 13 张业务表 + 0 处 `no such table`（`SMOKE_IMAGE=… sh apps/platform/docker/smoke-test.sh`）
+    - [ ] 空库 + 未开迁移启动出现明确告警（单测覆盖 `isEmptySqliteDatabase`）
+    - [ ] `docker.yml` 冒烟步骤先于镜像推送（YAML 校验 + 步骤顺序）
+    - [ ] 平台 vitest / lint / typecheck + `check:docs` / `lint:md` / `docs:check:i18n` 通过
+  - **不做什么**：不改应用源码默认 `migrationsRun=false`（非 Docker 仍 opt-in）；不引入运行期自动 synchronize。
 
 ---
 

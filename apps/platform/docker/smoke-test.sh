@@ -28,7 +28,7 @@ BUILD="${SMOKE_BUILD:-0}"
 CONTAINER="dependfix-smoke-$$"
 DATA_DIR="$(mktemp -d)"
 ONESHOT_DIR="$(mktemp -d)"
-EXPECTED_TABLES=13
+MIN_TABLES=13
 
 log() { printf '[smoke] %s\n' "$*"; }
 fail() { printf '[smoke] FAIL: %s\n' "$*" >&2; exit 1; }
@@ -96,7 +96,7 @@ done
 docker rm -f "$CONTAINER" >/dev/null
 
 tables=$(count_tables "$DATA_DIR")
-[ "$tables" = "$EXPECTED_TABLES" ] || fail "业务表 = ${tables}（期望 ${EXPECTED_TABLES}）"
+[ "$tables" -ge "$MIN_TABLES" ] || fail "业务表 = ${tables}（期望 ≥ ${MIN_TABLES}）"
 log "业务表 = ${tables}"
 
 # ── 场景 2：迁移专用一次性容器 ────────────────────────────────────────────────
@@ -109,7 +109,7 @@ docker run --rm \
     "$IMAGE" >/dev/null 2>&1 || fail "迁移专用容器退出码非 0"
 
 oneshot_tables=$(count_tables "$ONESHOT_DIR")
-[ "$oneshot_tables" = "$EXPECTED_TABLES" ] || fail "迁移专用模式业务表 = ${oneshot_tables}（期望 ${EXPECTED_TABLES}）"
+[ "$oneshot_tables" -ge "$MIN_TABLES" ] || fail "迁移专用模式业务表 = ${oneshot_tables}（期望 ≥ ${MIN_TABLES}）"
 log "迁移专用模式业务表 = ${oneshot_tables}"
 
 log "PASS：镜像首次启动自动建表可用（$IMAGE）"

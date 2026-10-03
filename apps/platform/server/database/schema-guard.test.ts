@@ -54,6 +54,15 @@ describe('isEmptySqliteDatabase', () => {
         await expect(isEmptySqliteDatabase(ds)).resolves.toBe(true)
     })
 
+    it('ignores the sqlite_sequence internal table', async () => {
+        const ds = await makeDataSource()
+        await ds.query('CREATE TABLE auto_inc (id INTEGER PRIMARY KEY AUTOINCREMENT)')
+        await ds.query('INSERT INTO auto_inc DEFAULT VALUES')
+        await ds.query('DROP TABLE auto_inc')
+        // sqlite_sequence 是 AUTOINCREMENT 内部表，不应被当作业务表
+        await expect(isEmptySqliteDatabase(ds)).resolves.toBe(true)
+    })
+
     it('returns false for non-sqlite backends without querying', async () => {
         const ds = new DataSource({ type: 'mysql', url: 'mysql://user:pass@localhost:3306/db' } as DataSourceOptions)
         await expect(isEmptySqliteDatabase(ds)).resolves.toBe(false)

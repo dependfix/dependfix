@@ -42,7 +42,7 @@
     "@lucide/vue": "^1.49.0",
     "@nuxtjs/i18n": "^10.6.0",
     "@octokit/rest": "^22.0.1",
-    "better-auth": "^1.7.6",
+    "better-auth": "^1.7.7",
     "better-sqlite3": "^13.0.3",
     "bullmq": "^6.3.9",
     "caomei-ui": "0.5.0",

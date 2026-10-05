@@ -400,7 +400,7 @@ export const batchScanSchema = z.object({
 ### 7.2 仓库页面扩展
 
 - `repos.vue` 表格加复选框列 + 「批量扫描」按钮（勾选后激活）
-- 仓库编辑表单加 tags 输入（PrimeVue Chips 组件，输入标签回车添加）
+- 仓库编辑表单加 tags 输入（caomei TagsInput 组件，输入标签回车添加）
 
 ### 7.3 导航
 

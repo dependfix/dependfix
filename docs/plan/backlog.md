@@ -57,28 +57,17 @@
 
 > 共享说明：本区块条目当前均处于"候选评估中"或"延期暂缓"状态；正式上收阶段后从 backlog 移除并归档至 [todo-archive.md](todo-archive.md)。评估为"暂不实现"的候选直接关闭。
 
-### 候选评估中（待评估，暂未进入用户决策面）
+### 候选评估中（待评估 / 本阶段延后项）
 
-> 存量候选说明：两项候选已于 2026-10-02 经用户决策上收至 M36 阶段（方案 A），并随 2026-10-05 M36 归档批次完整闭环归档（见 [todo-archive.md §M36](todo-archive.md#m36-治理债清仓--可观测性与测试稳定性m361m3610-全部已闭环--2026-10-05-归档)）：① 设计与索引文档的同类陈旧状态清理（存量）；② BatchRun 写回的非原子竞态（详情 GET / sync 尾部 vs 并发 `force-fail`）。**另**：2026-10-02 用户直接指令追加 dependfix-platform 镜像体积治理（M36.6）、依赖升级 overrides key 重复写法修复（M36.7，用户报告 nuxt-latest-template#298）与 Docker 首次启动数据库初始化 + 部署文档 / 一键初始化脚本（M36.8，用户报告可用性缺陷），后续追加扫描队列孤儿 job 释放（M36.9）与队列消费者维度降级（M36.10）——均随 M36 归档闭环。
+> **2026-10-06 M37 启动批次上收（方案 B）**：本区块原有 6 项候选全部经用户决策上收至 M37 阶段（见 [roadmap.md §M37](roadmap.md#m37-运行可观测性与体验记忆2026-10-06-用户决策方案-b--进行中) + [todo.md §M37](todo.md)），按维护规则 5「短期候选正式上收阶段后从 backlog 移除」清出：① 运行失败分类与筛选 → M37.1；② 扫描 / 批量扫描记住上次选择 → M37.2；③ 批量写回反向竞态与 stale-cleanup 无条件 save → M37.3；④ 详情 GET 瞬时不一致 → M37.3；⑤ 部分源失败汇总重复信号 → M37.3；⑥ caomei-ui 版本陈旧 → M37.4。另 M36.1 检测脚本未接入 CI 门禁（此前仅登记于 [archive/index.md §4 保留清单](archive/index.md)）随本批上收为 M37.5。按 [规划规范 §3.4](../standards/planning.md#34-阶段启动决策前置交叉核验硬要求m271-重复评估教训--2026-09-10) 三重交叉核验 0 项重复评估。
+>
+> 存量候选说明：更早批次（M36 方案 A）已随 2026-10-05 M36 归档批次完整闭环归档，见 [todo-archive.md §M36](todo-archive.md#m36-治理债清仓--可观测性与测试稳定性m361m3610-全部已闭环--2026-10-05-归档)。
 
-- **运行失败分类与筛选（失败阶段 + 可重试判定 + 重试入口）** —— 运行列表（`/scans` 全部运行）只显示粗粒度「失败」，无法区分失败阶段（告警获取 / clone / install / 修复 / 验证 / 交付 / 运行时 / 清理），也无法区分网络类可重试失败与 `VERIFICATION_FAILED` 等需重点研判失败（2026-10-02 用户报告）。**研判与设计先行稿已产出**：[run-failure-taxonomy.md](../design/governance/run-failure-taxonomy.md)。待评估上收；触发条件：① 用户需要按失败阶段筛选 / 受约束重试；② 失败运行量增长到人工逐条排查成本显著。
+- **运行失败「受约束重试入口」（本阶段延后）** —— M37.1 本阶段仅落地「分类 + 筛选 + 展示」（`failureStage` / `failureKind`）；设计稿 §5.5 的「仅 `transient` 可一键重试」入口（含非终态守卫 / 同仓库去重 / `retriedFromRunId` 审计来源）按用户 2026-10-06 决策自 M37.1 范围延后。**现状锚点**：[run-failure-taxonomy.md §5.5](../design/governance/run-failure-taxonomy.md)。触发条件：① 分类 + 筛选上线后确认重试诉求；② 用户明确要求受约束重试。
 
-- **扫描 / 批量扫描记住上次选择 + 自定义默认操作**（2026-10-05 用户报告，关联 [#136](https://github.com/dependfix/dependfix/issues/136)）—— 单仓库扫描配置弹窗与批量扫描弹窗每次打开都重置为硬编码默认（`mode=report-only` / `severity=high`），用户每次触发都要重复选择，既无法记住上次选择，也没有「自定义默认操作」入口。**需求分析**：
-  - **R1 记住上次选择**：单仓库扫描（`scan-config-dialog`）与批量扫描（`use-repo-batch-scan`）的 `mode` / `severity`（是否含 AI override 待定）在会话间保留。
-  - **R2 自定义默认操作**：用户可配置「默认扫描操作」，作为尚未产生「上次选择」时的初始值；两者优先级（显式默认 vs 上次实际选择）需定义。
-  - **现状锚点**：`apps/platform/app/pages/repos.vue:205-206`（`scanConfigMode` / `scanConfigSeverity` 硬编码 ref + `openScanConfig` 每次重置）、`apps/platform/app/composables/use-repo-batch-scan.ts:30-31,37-39`（`batchMode` / `batchSeverityThreshold` 硬编码 + `openBatchScan` 重置）、`apps/platform/app/components/scan-config-dialog.vue`（AI override 默认继承仓库级 `aiEnabled` / `aiTrigger`）；全站仅 `use-color-mode.ts` 使用 localStorage，扫描选择无任何持久化。
-  - **候选方案**：A 纯前端记忆（localStorage，改动小、设备级、不跨端）；B 服务端用户 / 组织级默认偏好（跨设备、可管理，需实体 / API / 设置页；按设计文档硬阈值预计触发 governance 文档）；C 混合（localStorage 记「上次选择」+ 可选的配置化默认）。方案选择、字段范围（是否含 AI override）与单仓库 / 批量是否共用偏好待用户决策。
-  - **验收标准（草案）**：① 重开弹窗 / 刷新页面后 mode / severity 保留上次选择；② 无偏好时回退既有硬编码默认（report-only / high）；③ 若采纳方案 B/C，明确「显式默认 > 上次选择 > 硬编码兜底」优先级并提供设置入口与重置能力；④ zh / en-US i18n 同步；⑤ 相关 vitest（composable / 组件）覆盖。
-  - **不做什么**：不改扫描执行语义与 `/api/repos/{id}/scan`、`/api/repos/batch-scan` 契约；不改仓库级 `aiEnabled` / `aiTrigger` 继承语义；不将偏好沿用至计划（schedule）默认（其默认值独立维护）。
-  - **触发条件**：① 用户确认持久化载体（设备级记忆 vs 跨设备默认）与字段范围；② 单仓库 / 批量弹窗「每次重选」的实际使用痛点被确认。
+- **扫描偏好服务端跨设备默认（本阶段延后）** —— M37.2 采用方案 C 混合（localStorage 设备级：上次选择 + 可选配置化默认 + 重置）；服务端用户 / 组织级默认偏好（跨设备、可管理，需实体 / API / 设置页，预计触发 governance 文档）按用户 2026-10-06 决策自 M37.2 范围延后。**现状锚点**：`apps/platform/app/composables/use-scan-preferences.ts`（M37.2 新增后）。触发条件：① 用户实测多设备切换痛点；② 组织级统一默认诉求。
 
-- **批量写回反向竞态与 stale-cleanup 无条件 save（批量写回竞态审计残余）** —— 批量写回竞态收敛已消除「`failed` 被回写成 `completed`」方向的三处聚合写回；审计穷举平台侧剩余 `BatchRun` 无条件写点后发现反向竞态：`batch-executor.ts` 的「async 全部入队失败」分支用 stale 内存实体 `save`（可能在详情 GET 已把批次收敛为 `completed` 后覆盖回 `failed`，并覆盖并发写入的计数）；`stale-cleanup.ts` 对批次的写回亦为无条件 `save`（先置 `failed`，不产生上述方向覆盖）。均属既有设计、触发概率低。**现状锚点**：`apps/platform/server/services/batch/batch-executor.ts:105-108`（async 全部入队失败 `save`）、`apps/platform/server/services/batch/stale-cleanup.ts:129-135`（批次 `save`）。触发条件：出现实测计数错乱 / 终态反复。
-
-- **详情 GET 计数无变化时并发 force-fail 的响应瞬时不一致（批量写回竞态审计残余）** —— 详情 GET 在聚合与库计数完全一致（无字段变化）时不写库；若此刻 admin `force-fail` 已把库改为 `failed`，本次响应仍按内存状态返回，与库短时不一致（下一次读取即自愈，无数据腐蚀，仅只读瞬时窗口）。**现状锚点**：`apps/platform/server/api/batch-runs/[id].get.ts:46-50`。触发条件：客户端需要对同一次 GET 的强一致保证。
-
-- **部分源失败汇总的仓库级错误重复信号（告警源失败判据审计残余）** —— `fetchRepoAlerts` 抛错路径下 `allErrors` 同时含 per-source `FETCH_FAILED`（带 `source`）与调用方 catch 追加的仓库级 `FETCH_FAILED`（无 `source`）；当另有仓库成功时，`logPartialSourceFailureSummary` 会把后者归入 `unknown` 组，产生重复 / 归组不当的提示信号（`repo-fix.ts` catch 的 token hint 亦未含 `codeQualityAlertsTokenHint`）。该行为在既有「启用源全失败」路径已存在，非告警源失败判据改动引入。**现状锚点**：`packages/engine/src/app/repo-alerts.ts:69-89`（per-source 记录）、`packages/engine/src/app/index.ts:437-444`（catch 追加仓库级错误）+ `:142`（分组 `unknown`）、`packages/engine/src/app/repo-fix.ts:147`（fix 模式 catch hint 缺 codeQuality）。触发条件：出现用户反馈部分失败汇总重复 / `unknown` 归组困惑，或统一错误信号排期。
-
-- **设计与规范文档中的 caomei-ui 版本陈旧（M36.2 审计残余）** —— `docs/guide/tech-stack.md:36` 与 `docs/standards/platform.md:16` 仍标 caomei-ui `0.3.0`，实际 `apps/platform/package.json` 为 `0.5.0`（M34.2 升级后未同步这两处版本号）。属版本类陈旧，与 M31.5 PrimeVue 卸载口径无关，未纳入 M36.2（其范围为「未上收」状态类）。**现状锚点**：`docs/guide/tech-stack.md:36`、`docs/standards/platform.md:16`。触发条件：文档版本口径漂移影响读者信任或依赖核对。
+> 本区块当前仅保留 M37 执行期延后项；M37 启动前原有 6 项候选已全部上收（见上方批次说明）。
 
 ### 待上收候选（评估完成，等待用户决策）
 
@@ -212,8 +201,8 @@
 
 | 内容类型 | 位置 |
 |:--|:--|
-| 当前阶段活跃任务 | **当前无活跃阶段**（M36 已于 2026-10-05 完整闭环归档；下一阶段启动待用户明确决策） |
-| 已完成阶段归档 | [todo-archive.md](todo-archive.md)（主窗口保留最近阶段完整段 + 指针段；M0-M35 已归档；早期阶段见 [archive/](archive/)） |
-| 里程碑与阶段交付 | [roadmap.md](roadmap.md)（M0-M35 已归档 + M36 进行中） |
+| 当前阶段活跃任务 | [todo.md §M37](todo.md)（**M37 进行中**——运行可观测性与体验记忆 / 2026-10-06 用户决策方案 B） |
+| 已完成阶段归档 | [todo-archive.md](todo-archive.md)（主窗口保留最近阶段完整段 + 指针段；M0-M36 已归档；早期阶段见 [archive/](archive/)） |
+| 里程碑与阶段交付 | [roadmap.md](roadmap.md)（M0-M36 已归档 + M37 进行中） |
 | 长期主线 / 候选 / 待人工验收 / 已知边界 | 本文档（按四象限结构） |
 | 历史归档索引 | [archive/index.md](archive/index.md) |

@@ -1,6 +1,6 @@
 # 运行失败分类与筛选设计（设计先行稿）
 
-> 状态：🔶 设计先行稿（[backlog](../../plan/backlog.md) 候选，未上收）
+> 状态：🔶 已上收 M37.1（实施中；本阶段仅覆盖「分类 + 筛选 + 展示」，§5.5 受约束重试入口延后并登记 backlog）
 > 提出：2026-10-02（用户报告 —— 运行列表只显示「失败」，无法区分失败阶段；网络类失败可考虑重试，验证类失败需重点研判）
 > 范围：`apps/platform`（实体 / API / UI）+ 可选 `packages/core` 分类常量；不改引擎修复逻辑
 > 关联：[executor-sandbox.md §7.8 降级状态机契约](./executor-sandbox.md)、[platform.md](../../standards/platform.md)、`apps/platform/server/services/scan-run-state.ts`、`apps/platform/server/entities/scan-run.ts`
@@ -72,7 +72,7 @@
 
 - 统一失败分类模型：`failureStage`（阶段）+ `failureKind`（处置建议：可重试 / 需研判 / 未知）。
 - 列表支持按状态 / 失败阶段筛选；状态列呈现失败阶段；汇总计数扩展到阶段维度。
-- 失败记录可提供受约束的**重试**入口（仅 transient）。
+- 失败记录可提供受约束的**重试**入口（仅 transient）——**本阶段延后**（见 §5.5）。
 - 分类逻辑单一事实源 + 可单测；历史记录可回填（无法判定则 `unknown`）。
 
 **非目标**
@@ -124,7 +124,7 @@
 
 - **选项 A：读取时派生**（无 schema 变更）。在 API 层用纯函数 `classifyRunFailure(status, errorJson, result/summaryJson)` 计算。优点：零迁移、向后兼容；缺点：无法 SQL 索引过滤、逻辑散落读路径。
 - **选项 B：落库（推荐）**。在 run 终结时（`scan-orchestrator.service.ts` 调用 `resolveScanRunState` 之后）计算并写入新列；历史行由迁移回填（可判定则填，否则 `unknown`）。优点：可索引 / 可聚合 / 稳定可审计；缺点：需迁移 + 回填。
-- **建议**：选项 B 落库 `failure_code` + `failure_stage`（确定性事实），`failure_kind`（策略）可落库也可读取派生，以支持策略演进。
+- **建议**：选项 B 落库 `failure_code` + `failure_stage`（确定性事实），`failure_kind`（策略）可落库也可读取派生，以支持策略演进（本项已由 §7 决策收敛为「三列均落库」）。
 
 ### 5.2 数据模型（草案）
 
@@ -164,12 +164,12 @@
 - [ ] 迁移 + 回填（幂等 + dry-run）；存量 `failed` / `dispatched` 行尽力回填。
 - [ ] `/api/runs` 过滤参数生效且与分页组合正确；组织隔离不回退。
 - [ ] `scans.vue` 筛选控件 + 状态列阶段展示 + 汇总计数；i18n 双侧一致。
-- [ ] 重试入口仅对 `transient` 可见可用；非终态不可重试。
+- [ ] （本阶段延后）重试入口仅对 `transient` 可见可用；非终态不可重试。
 - [ ] 文档同步 + Review Gate Pass。
 
 ## 7. 风险与开放问题
 
-- **开放**：`failure_kind` 落库还是读取派生？（落库利于筛选，但策略变更需回填 / 双写）。
+- **已决策（M37.1 / 2026-10-06）**：`failure_code` / `failure_stage` / `failure_kind` 三列均落库，以支持 SQL 筛选与后续重试入口；策略变更经回填脚本重算。
 - **开放**：`execution_timeout` 归 `transient` 还是 `unknown`？（大仓库 / 慢网络可重试，但也可能是真实挂死）。
 - **开放**：`push_failed` 的细分（网络 vs 权限）是否值得从 message 解析？解析脆弱，倾向 `unknown` + 人工。
 - **开放**：`dispatched`（PR 失败但分支已推）是否也纳入「失败阶段」筛选？（建议是，`deliver` + `deterministic`）。
@@ -181,5 +181,5 @@
 
 - [executor-sandbox.md §7.8 降级状态机契约](./executor-sandbox.md)
 - [platform.md](../../standards/platform.md)
-- [backlog.md](../../plan/backlog.md)（候选登记）
-- [todo.md](../../plan/todo.md)（上收后登记）
+- [backlog.md](../../plan/backlog.md)（受约束重试入口延后登记）
+- [todo.md](../../plan/todo.md)（M37.1 已登记）

@@ -8,7 +8,7 @@
 
 | 内容类型 | 位置 |
 |:--|:--|
-| 当前阶段任务 | **当前无活跃阶段**——M36 已于 2026-10-05 完整闭环归档（下一阶段启动待用户明确决策） |
+| 当前阶段任务 | **M37 进行中**——运行可观测性与体验记忆（2026-10-06 用户决策方案 B / 5 原子条目） |
 | 已完成阶段归档 | [todo-archive.md](todo-archive.md)（主窗口 + [archive/](archive/) 分片；M0-M36 全部已归档） |
 | 未排期 / 延期 / 远期 / 长期主线 / 已知边界 | [backlog.md](backlog.md) |
 | 里程碑与阶段交付 | [roadmap.md](roadmap.md)（M0-M36 已归档） |
@@ -16,8 +16,93 @@
 
 ---
 
-## 当前阶段
+## M37: 运行可观测性与体验记忆（2026-10-06 用户决策方案 B / M37.1~M37.5）
 
-> 当前无活跃阶段。M36（治理债清仓 + 可观测性与测试稳定性）10 原子条目已于 2026-10-05 完整闭环并归档，详见 [todo-archive.md §M36](todo-archive.md#m36-治理债清仓--可观测性与测试稳定性m361m3610-全部已闭环--2026-10-05-归档)。
->
-> 下一阶段启动由用户明确决策后另行规划——候选池见 [backlog.md](backlog.md)，上收规则见 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement)。
+> **阶段定位**：承接 M36 完整闭环归档后的 backlog 候选池，2026-10-06 用户明确决策**方案 B（可观测性能力优先）**——从 backlog §候选评估中上收 6 项候选（另 1 项 M36.1 CI 门禁自 archive §4 保留清单上收），收敛为 5 原子条目，以「运行失败分类与筛选」（[设计先行稿](../design/governance/run-failure-taxonomy.md)）为主线，配套 UX 偏好记忆 + 治理债残余清仓 + 文档口径 + CI 防护。
+> **类型平衡**：🚀 1 + 🎨 1 + 🛡️ 1 + 📚 1 + 🛠️ 1 = 5 原子，符合 [规划规范 §1.1 类型平衡原则](../standards/planning.md#11-硬性约束)（UX 独立条目 1 项，低于建议值 2，显式标注缺口；M37.1 含 UI 筛选与阶段展示，实际承载 UX）。
+> **§3.4 三重交叉核验**（2026-10-06 启动批次实测，0 项重复评估）：① todo-archive 扫描——5 候选均仅以「M36 衍生候选 / 未完成项」形式登记，无闭环标注；② git log——`1b981ee`（运行失败分类设计稿）/ `52d38dc`（扫描偏好候选登记）均为登记 commit，无实现 commit；③ 代码 anchor——`failureStage`/`failureKind` 0 命中、`repos.vue:205-206` + `use-repo-batch-scan.ts:30-31` 硬编码仍在、`batch-executor.ts:105-108` 无条件 `save` 仍在、`tech-stack.md:36` + `platform.md:16` 仍标 `0.3.0`、`check:orphan-ids` 未接入任何 CI workflow。
+> **用户决策点**：① 扫描偏好载体采用**方案 C 混合**（localStorage 上次选择 + 可选配置化默认，含设置入口 / 重置，无服务端实体）；② M37.1 本阶段**仅分类 + 筛选 + 展示**，受约束重试入口延后（登记 backlog）。
+> **不做什么（阶段级）**：不改引擎修复 / 验证逻辑；不引入新执行后端；不改鉴权 / 组织隔离；不做服务端跨设备偏好；不实现重试入口。
+
+- **M37.1**（P2，🚀 能力扩展）运行失败分类与筛选 + 落库回填（3 子任务 a/b/c）
+  - **目标**：`/scans` 运行列表能按失败阶段筛选、失败态显示「失败 · {阶段}」，并建立 `failureStage` / `failureKind` 分类的单一事实源（历史运行可回填），使用户一眼区分「网络可重试」与「验证需研判」失败。
+  - **优先级**：P2
+  - **范围**：
+    - **M37.1a** 分类模型 + 落库 + 回填：`apps/platform/server/services/run-failure-classify.ts`（新增纯函数 `classifyRunFailure`）/ `apps/platform/server/entities/scan-run.ts`（新增 `failure_code` / `failure_stage` / `failure_kind` 三列）/ 新增前缀感知 migration / `apps/platform/server/database/scripts/backfill-run-failure.ts`（新增，dry-run 默认）
+    - **M37.1b** API：`apps/platform/server/api/runs/index.get.ts`（`status` / `failureStage` / `failureKind` 多值 query + 响应三字段）/ `apps/platform/server/api/scan-history/summary.get.ts`（新增 `byFailureStage`）
+    - **M37.1c** UI + i18n：`apps/platform/app/pages/scans.vue`（筛选条 + 状态列阶段 Tag + 汇总口径）+ zh-CN / en-US `runs.failureStage.*` / `runs.failureKind.*` 键
+  - **验收标准**：
+    - [ ] `classifyRunFailure` 纯函数覆盖设计稿 §4 全部已知 code / category（含 `unknown` 兜底）；单测覆盖全映射 + 兜底分支
+    - [ ] migration 前缀感知 + 幂等（非默认 `entityPrefix` 下不静默 no-op）；回填脚本 `--apply` 前默认 dry-run + 幂等 + 无法判定写 `unknown`
+    - [ ] `GET /api/runs` 三类筛选参数生效且与分页组合正确；组织隔离不回退
+    - [ ] `GET /api/scan-history/summary` 返回 `byFailureStage`（受同一时间窗约束）
+    - [ ] `scans.vue` 筛选控件 + 状态列「失败 · {阶段}」Tag + 汇总计数；zh / en-US i18n 双侧键齐全
+    - [ ] 定向 vitest 全过；`pnpm lint` + `pnpm typecheck` 0 error；`pnpm check:orphan-ids` 0 命中
+  - **不做什么**：不含受约束重试入口（`POST /api/repos/[id]/scan` 重试接线延后登记 backlog）；不改引擎修复 / 验证逻辑与跨 major 保护语义；不改 `/api/runs` 既有 `repositoryId` / `ids` / 分页契约；不追求 100% 精确归因（无信息显式 `unknown`）。
+  - **依赖**：[run-failure-taxonomy.md §4 分类模型 + §5.2 数据模型 + §5.6 回填](../design/governance/run-failure-taxonomy.md)（2026-10-02 设计先行稿，2026-10-06 上收 M37.1）；M36.3 条件写回层（`persistBatchAggregation`）为终结时写分类的同源上下文。
+  - **交付物**：预计 3-5 commits（a / b / c + 闭环登记）；文件约 15；文档 `run-failure-taxonomy.md` 状态复核（启动批次已登记「已上收 M37.1（实施中）」，实现完成后更新为「已落地」）+ `platform.md` 运行口径同步。
+  - **风险与缓解措施**：① 分类漂移（新错误码未纳入映射）→ 集中映射表 + `unknown` 兜底 + 单测守护；② 回填误判 → 仅保守推断，无法判定一律 `unknown`；③ 元数据基线使迁移列在存量库缺列 → 依 [platform.md §3.3](../standards/platform.md) 存量库迁移补齐路径验证。
+- **M37.2**（P2，🎨 用户体验）扫描 / 批量扫描记住上次选择 + 自定义默认操作（方案 C 混合）
+  - **目标**：单仓库扫描配置弹窗与批量扫描弹窗在会话间保留上次 `mode` / `severity`，并提供可配置「默认扫描操作」与一键重置，消除每次重选的重复操作。
+  - **优先级**：P2
+  - **范围**：`apps/platform/app/composables/use-scan-preferences.ts`（新增，localStorage 持久化 + 优先级解析）/ `apps/platform/app/pages/repos.vue`（`scanConfigMode` / `scanConfigSeverity` 改由 composable 提供）/ `apps/platform/app/composables/use-repo-batch-scan.ts`（`batchMode` / `batchSeverityThreshold` 同上）/ `apps/platform/app/components/scan-config-dialog.vue`（无硬编码默认依赖）/ 设置入口（`apps/platform/app/pages/settings.vue` 或对应表单组件）+ zh-CN / en-US i18n。
+  - **验收标准**：
+    - [ ] 单仓库 + 批量弹窗 `mode` / `severity` 会话间保留（localStorage，刷新与重开均生效）
+    - [ ] 无偏好时回退既有硬编码默认（`report-only` / `high`）
+    - [ ] 「显式配置默认 > 上次选择 > 硬编码兜底」优先级实现 + 提供重置能力
+    - [ ] zh-CN / en-US i18n 双侧同步
+    - [ ] composable 单测覆盖优先级解析 / 回退 / 重置三类路径；SSR 首渲染无 hydration 不一致
+  - **不做什么**：不改 `/api/repos/{id}/scan` 与 `/api/repos/batch-scan` 契约；不改仓库级 `aiEnabled` / `aiTrigger` 继承语义；不将偏好沿用至 schedule（计划）默认；不做服务端跨设备偏好（方案 B 登记 backlog）。
+  - **依赖**：backlog §候选评估中「扫描 / 批量扫描记住上次选择 + 自定义默认操作」条目（2026-10-05 登记，关联 [#136](https://github.com/dependfix/dependfix/issues/136)）；复用 `use-color-mode.ts` 既有 localStorage 模式。
+  - **交付物**：预计 2-3 commits；文件约 6；i18n 双侧。
+  - **风险与缓解措施**：localStorage 为设备级、SSR 首渲染与客户端初始值可能不一致 → composable 采用 client-only 初始化（`onMounted` 后回填）+ 单测锁定回退分支。
+- **M37.3**（P3，🛡️ 治理债）批量写回与告警源错误信号残余治理（2 子任务 a/b）
+  - **目标**：消除 M36 审计穷举出的 BatchRun 写回反向竞态 + `stale-cleanup` 对批次的无条件 `save`，并修正「部分源失败」汇总时仓库级错误重复 / 归组不当信号。
+  - **优先级**：P3
+  - **范围**：
+    - **M37.3a** BatchRun 写回残余：`apps/platform/server/services/batch/batch-executor.ts:105-108`（「async 全部入队失败」分支 stale 内存实体 `save` 改条件写回）/ `apps/platform/server/services/batch/stale-cleanup.ts:129-135`（批次无条件 `save` 先置 `failed`，改为与聚合写回同源的条件更新）/ `apps/platform/server/api/batch-runs/[id].get.ts:46-50`（详情 GET 计数无变化时并发 `force-fail` 的响应瞬时不一致，补强响应一致口径）
+    - **M37.3b** 告警源错误信号：`packages/engine/src/app/repo-alerts.ts:69-89` + `packages/engine/src/app/index.ts:437-444`（per-source `FETCH_FAILED` 与 catch 追加的仓库级 `FETCH_FAILED` 重复 / 归 `unknown` 组，收敛为无重复信号）+ `packages/engine/src/app/repo-fix.ts:147`（fix 模式 catch token hint 补 codeQuality）
+  - **验收标准**：
+    - [ ] `batch-executor.ts` 全部入队失败分支改用条件写回（读取时状态为乐观锁），并发详情 GET 已收敛为 `completed` 时不再覆盖回 `failed`
+    - [ ] `stale-cleanup.ts` 批次写回改条件更新，不覆盖并发终态
+    - [ ] 详情 GET 在「无字段变化 + 并发 `force-fail`」场景下响应与库一致（或用例锁定可接受的瞬时窗口语义）
+    - [ ] 部分源失败汇总不再产生重复仓库级 `FETCH_FAILED` 信号；`unknown` 归组仅保留真实未归类错误
+    - [ ] 定向 vitest（batch / repo-alerts / index）全过；`pnpm lint` + `pnpm typecheck` 0 error
+  - **不做什么**：不改 BatchRun 终态语义与 `force-fail` 契约；不改引擎修复 / 验证链；不重构报告生成器整体。
+  - **依赖**：M36.3 共享条件写回层（`persistBatchAggregation` / `persistBatchIfRunning`）；M36.4 告警源判据（`failedSources.length > 0 && successfulSources === 0`）；backlog §候选评估中三项残余条目。
+  - **交付物**：预计 2-3 commits（a / b + 闭环登记）；文件约 5。
+  - **风险与缓解措施**：条件写回条件选取不当可能漏写终态 → 复用 M36.3 已验证的「读取时状态」乐观锁模式 + 并发用例（反向 mutation 核验非假绿）。
+- **M37.4**（P3，📚 文档）设计与规范文档 caomei-ui 版本口径同步
+  - **目标**：消除设计与规范文档中 caomei-ui 版本陈旧（文档标 `0.3.0`，实际 `apps/platform/package.json` 为 `0.5.0`）。
+  - **优先级**：P3
+  - **范围**：`docs/guide/tech-stack.md:36`（版本号 `0.3.0` → `0.5.0`）+ `docs/standards/platform.md:16`（同）+ 必要的版本口径一致性复核（同段落相关表述）。
+  - **验收标准**：
+    - [ ] 两处版本号更新为 `0.5.0`，与 `apps/platform/package.json` 一致
+    - [ ] `rg -n "caomei-ui.*0\.3\.0" docs/**` 0 命中（版本类陈旧）
+    - [ ] `pnpm check:docs` + `pnpm lint:md` 通过
+  - **不做什么**：不改 M31 迁移历史叙述（历史 commit 引用保留 `0.3.0` 上下文）；不扩到其他版本类陈旧（如有则单独登记候选）。
+  - **依赖**：M34.2（caomei-ui `0.3.0 → 0.5.0` 升级，`56c1290` + `7363a8d` + `a8e28b5` + `2f10eed`）；M36.2 审计残余记录。
+  - **交付物**：1 commit；文件 2（+ 可能的同源复核）。
+  - **风险与缓解措施**：版本口径散落 → 同步时用 `rg` 结构化复扫（含双语镜像与设计文档），避免只改命中两处。
+- **M37.5**（P3，🛠️ CI 防护）孤立编号检测脚本接入 CI 门禁
+  - **目标**：把 `pnpm check:orphan-ids` 纳入 CI 质量门，防止已清理的孤立规划编号回流（M36.1 检测脚本已就绪但未接线）。
+  - **优先级**：P3
+  - **范围**：`.github/workflows/test.yml`（Test job 增加 `pnpm check:orphan-ids` 步骤）+ 必要的脚本退出码 / 输出文档说明（`scripts/check-orphan-ids.mjs` 已实现，无需改动行为）。
+  - **验收标准**：
+    - [ ] CI Test job 含 `pnpm check:orphan-ids` 步骤且失败时阻断
+    - [ ] 本地 `pnpm check:orphan-ids` 0 命中（627 文件基线）
+    - [ ] 负例实证：临时植入一处孤立编号 → 检测 exit 非 0（跑后删除脚手架）
+    - [ ] workflow YAML 解析通过 + 与既有步骤顺序不冲突
+  - **不做什么**：不改检测脚本判定口径（块级 / 白名单 / 豁免规则维持 M36.1 稳定版）；不扩到 CI 之外的 hook。
+  - **依赖**：M36.1 检测脚本（`43ce253` + `9bfcf2c`，22 用例；627 文件 0 命中基线）；M33.2 视觉回归 CI 转阻断的接线模式。
+  - **交付物**：1 commit；文件 2（workflow + 可能的文档说明）。
+  - **风险与缓解措施**：新增阻断步骤可能因存量豁免误报拉红 CI → 接线前本地全量跑通（0 命中）+ 负例标定退出码语义。
+
+---
+
+## 当前阶段收口清单（阶段进行中，用于归档前自检）
+
+- [ ] M37.1 / M37.2 / M37.3 / M37.4 / M37.5 全部闭环
+- [ ] 每条目 A 阶段 Review Gate Pass（planning / 阶段启动批次按 `standard` 送审）
+- [ ] `pnpm lint` / `pnpm typecheck` / 定向测试 / `pnpm check:docs` / `pnpm lint:md` / `pnpm check:orphan-ids` 通过
+- [ ] 归档时按 [archive/index.md](archive/index.md) 阈值与主窗口 3-5 段策略评估预防性分片

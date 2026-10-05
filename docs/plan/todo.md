@@ -86,14 +86,18 @@
   - `docs/design/governance/index.md:24` + en 镜像 `:24`（`docs-and-readme-i18n` 仍标「未上收」，而 `docs/i18n/en-US/**` 已存在）
   - `docs/design/governance/platform-ai-integration.md:366`（PrimeVue DataTable）+ en 镜像 `:274`（ToggleSwitch）/ `:281`（Select）/ `:289`（PrimeVue DataTable）
   - `docs/design/governance/docs-and-readme-i18n.md:542`（状态口径「未上收」）
-- **验收标准**：
-  - [ ] 逐条与「M31.5 卸载 + M25.2a / M26.1 实施结果」对齐，每条先 commit / 代码 / 现存文件三重实证再落笔
-  - [ ] `pnpm run check:docs` EXIT 0
-  - [ ] `pnpm docs:check:i18n` 通过 + `pnpm lint:md` 通过
-  - [ ] zh-CN / en-US 两侧**行数与链接级**一致（M34.5 审计 RG-W1 教训：仅行数相等不足以证明镜像等价）
+- **验收标准**（2026-10-05 全部实证）：
+  - [x] 逐条与「M31.5 卸载 + M25.2a / M26.1 实施结果」对齐，每条先 commit / 代码 / 现存文件三重实证再落笔
+  - [x] `pnpm run check:docs` EXIT 0（links 146 / vue-interp 82，新增 zh 相对锚点校验通过）
+  - [x] `pnpm docs:check:i18n` 通过 + `pnpm lint:md` 通过 + `pnpm --filter dependfix-docs build` 通过
+  - [x] zh-CN / en-US 两侧**行数与链接级**一致（索引 21/21 行；en 补 Run Failure Taxonomy 行恢复 parity）
+- **闭环记录（2026-10-05）**：
+  - 显式 4 项 + 用户授权同源项（「显式 4 项 + 同源状态 / 组件名一并清理」）一并落地：① 索引 23/24 双侧状态改已落地 / 已实施；② `platform-ai-integration` 状态横幅 + §13 元数据 + §7 组件名（ToggleSwitch → Switch、PrimeVue DataTable → caomei DataTable）zh/en；③ `docs-and-readme-i18n` 状态横幅 + §13 元数据；④ `architecture.md:477` ToggleSwitch → Switch；⑤ `platform-scheduled-batch.md:403` PrimeVue Chips → caomei TagsInput；⑥ 订正 3 处 M26 归档绝对链接锚点拼写（`m264m264b` → `m264am264b`，A 阶段复审 suggest）。
+  - A 阶段审计：standard 第 1 轮 Reject（RG-B1 同文件 §13「关联阶段」仍「未上收」自相矛盾）→ 修复 → quick 复审 Pass（RG-B1/RG-S1 关闭，RG-S2 决策可接受）。
+  - 范围外残余登记：`tech-stack.md:36` / `platform.md:16` caomei-ui 版本陈旧 `0.3.0`（实际 `0.5.0`）属版本类，未纳入本批。
 - **不做什么**：不改写历史归档段与设计稿历史正文；不处理已归档文档（`docs/plan/archive/**` / `experience-archive*`）；不把「未上收」机械改写为「已实施」——每条须先实证实施状态。
 - **依赖**：M34.5（已处理索引 `:25` + `architecture.md`）；backlog §候选评估中条目；A 阶段审计 `suggest`（`artifacts/review-gate/2026-10-01-m34.5-primeui-status.md`，gitignored）。
-- **交付物**：预计 2–3 commits（索引 + 设计稿 + 文档状态口径）；files 清单见范围。
+- **交付物**（已闭环）：4 commits —— `a5711f3` 索引状态与 en 镜像补行 / `241f2a2` 平台 AI 研判状态与组件名 / `d0cbb81` 文档 i18n 状态 / `47af033` 同源组件名与 M26 归档锚点订正。
 - **风险与缓解**：批量改写状态描述易误判「未上收 vs 已实施」；缓解：每条先以 commit / 代码 / 现存文件三重实证，再落笔。
 
 #### M36.3 [P2 🛡️ 技术债] BatchRun 写回非原子竞态收敛

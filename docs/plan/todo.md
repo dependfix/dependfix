@@ -101,16 +101,16 @@
 - **M37.6**（P1，🛡️ 交付可靠性）目标仓库 git hooks 隔离（自动 commit 不再被 husky 阻断）
   - **目标**：dependfix 在被修复仓库执行自动 commit 时不再触发目标仓库的 husky / lint-staged 钩子，消除 `npx: not found (code 127)` → `COMMIT_FAILED` → 改动回滚的交付失败链。
   - **优先级**：P1（2026-10-06 用户授权按 [§3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 可用性插队例外追加）
-  - **范围**：`packages/engine/src/github/pr-creator.ts:216-228`（`stageAndCommit` 注入 hooks 隔离参数）+ `packages/engine/src/github/git-signing.ts`（新增 hooks 隔离参数常量，对齐 `GIT_COMMIT_SIGNING_ISOLATION_ARGS` 单一事实源范式）+ `packages/engine/src/github/pr-creator.test.ts`（回归用例）。
+  - **范围**：`packages/engine/src/github/pr-creator.ts:216-228`（`stageAndCommit` 注入 hooks 隔离参数）+ `packages/engine/src/github/git-signing.ts`（新增 hooks 隔离参数常量，对齐 `GIT_COMMIT_SIGNING_ISOLATION_ARGS` 单一事实源范式）+ `packages/engine/src/github/pr-creator.test.ts`（hooks 隔离回归用例）+ `packages/engine/src/github/git-signing.test.ts`（常量契约断言）。
   - **验收标准**：
-    - [ ] `stageAndCommit` 对目标仓库 hook 完全隔离（`core.hooksPath` 指向空目录或等效方案；实现时验证 Linux / Windows 双平台语义）
-    - [ ] 新增回归用例：临时仓库植入调用 `npx` 的 `.husky/pre-commit` 且 PATH 无 npx → commit 成功
-    - [ ] 签名隔离不回归（`git-signing.test.ts` 既有用例全过）
-    - [ ] `pnpm --filter @dependfix/engine test` 全过 + `pnpm lint` + `pnpm typecheck` 0 error
-  - **不做什么**：不注入 PATH / 不安装目标仓库依赖；不改 push / PR 交付链；不执行目标仓库 hook（语义为「自动提交不受目标仓库本地开发钩子约束」）；不改 host 全局 git 配置。
+    - [x] `stageAndCommit` 对目标仓库 hook 完全隔离——落地为 `--no-verify`（`GIT_COMMIT_HOOKS_ISOLATION_ARGS`，置于 `commit` 子命令后）；选型理由：跨平台无需构造目录且覆盖 husky `core.hooksPath` 重定向（Linux 实测 + 选型消解 Windows 路径语义；`post-commit` 不在跳过范围，见常量 JSDoc 边界说明）
+    - [x] 新增回归用例：临时仓库植入非 0 退出 pre-commit（写标记 + `exit 1`，比 `npx` 形态更强且不依赖 PATH 构造）→ `stageAndCommit` 成功且标记文件不存在；同环境裸 commit 作反例必失败（防恒真）
+    - [x] 签名隔离不回归（`git-signing.test.ts` 既有用例全过）+ 新增常量契约断言
+    - [x] `pnpm --filter @dependfix/engine test` 全过（执行角色实测：63 files / 1197 passed）+ `pnpm lint` + `pnpm run typecheck`（7 项目）0 error + `pnpm --filter @dependfix/engine build` 成功
+  - **不做什么**：不注入 PATH / 不安装目标仓库依赖；不改 push / PR 交付链（push 侧 `pre-push` 隔离登记 backlog）；不执行目标仓库 hook（语义为「自动提交不受目标仓库本地开发钩子约束」）；不改 host 全局 git 配置；不新增 `docs/standards/git.md` hooks 规范锚点（范围外治理改动，登记 backlog）。
   - **依赖**：`git-signing.ts` 隔离范式（commit `fd2280b`）；2026-10-05 生产日志（多仓库 `COMMIT_FAILED`）。
-  - **交付物**：预计 1-2 commits；文件 3（`pr-creator.ts` / `git-signing.ts` / `pr-creator.test.ts`）。
-  - **风险与缓解措施**：① `--no-verify` 语义过宽（跳过全部 hook）→ 优先 `core.hooksPath` 空目录精确禁用；② 跨平台路径语义差异 → 双平台用例 + 实现时实测；③ 目标仓库依赖缺失时 hook 本就会失败 → 隔离后该场景与本缺陷解耦。
+  - **交付物**：2 commits（fix(engine) 实现 + docs(plan) 收口）；文件 4（`pr-creator.ts` / `git-signing.ts` / `pr-creator.test.ts` / `git-signing.test.ts`）。
+  - **风险与缓解措施**：① hooks 隔离选型——最终采用 `--no-verify`（跳过 `pre-commit` / `commit-msg` / `prepare-commit-msg`），比 `core.hooksPath` 空目录更窄且跨平台无路径依赖；`post-commit` 不跳过（其失败不影响 commit 结果）；② Windows 语义未实测（仓库 CI 仅 ubuntu）→ 选型不含路径构造，风险消解；如后续支持原生 Windows 测试需平台化 hook 形态；③ 目标仓库依赖缺失时 hook 本就会失败 → 隔离后该场景与本缺陷解耦。
 
 ---
 

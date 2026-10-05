@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { GIT_COMMIT_SIGNING_ISOLATION_ARGS, GIT_PUSH_SIGNING_ISOLATION_ARGS } from './git-signing'
+import { GIT_COMMIT_HOOKS_ISOLATION_ARGS, GIT_COMMIT_SIGNING_ISOLATION_ARGS, GIT_PUSH_SIGNING_ISOLATION_ARGS } from './git-signing'
 import { pushBranch } from './pr-creator'
 
 /**
@@ -68,6 +68,7 @@ afterEach(() => {
 describe('git 签名隔离常量', () => {
     it('commit 侧与 push 侧隔离参数取值固定（跨 engine / 平台共用的单一事实源）', () => {
         expect([...GIT_COMMIT_SIGNING_ISOLATION_ARGS]).toEqual(['-c', 'commit.gpgsign=false'])
+        expect([...GIT_COMMIT_HOOKS_ISOLATION_ARGS]).toEqual(['--no-verify'])
         expect([...GIT_PUSH_SIGNING_ISOLATION_ARGS]).toEqual(['-c', 'push.gpgSign=false'])
     })
 })

@@ -1,6 +1,6 @@
-/* eslint-disable max-lines -- 测试层补强 stageAndCommit author / 签名隔离路径回归 + 既有 955 行；按职责不拆分（范围见 docs/plan/archive/todo-archive-phases-m18.md §M18.4） */
+/* eslint-disable max-lines -- 测试层补强 stageAndCommit author / 签名 / hooks 隔离路径回归 + 既有 955 行；按职责不拆分（范围见 docs/plan/archive/todo-archive-phases-m18.md §M18.4） */
 import { execSync } from 'node:child_process'
-import { mkdtempSync, writeFileSync, rmSync } from 'node:fs'
+import { chmodSync, existsSync, mkdtempSync, writeFileSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -429,7 +429,7 @@ describe('addLabelToPullRequest', () => {
  * @see [C22 PAT 无感升级评估 §5.1 兼容性](../../../../docs/design/governance/c22-pat-backward-compat.md)
  * @see [docs/plan/archive/todo-archive-phases-m18.md §M18.4（测试层）](../../../../docs/plan/archive/todo-archive-phases-m18.md)
  */
-describe('stageAndCommit (author 路径回归)', () => {
+describe('stageAndCommit 回归（author / 签名 / hooks 隔离）', () => {
     const tempDirs: string[] = []
 
     /** execSync helper for git command in test tempDir（不屏蔽 host global，避免 `git init` 抛 `bad config line 1 in file /dev/null`） */
@@ -751,6 +751,59 @@ describe('stageAndCommit (author 路径回归)', () => {
         expect(localConfig).not.toContain('commit.gpgsign')
         // 前置校验：local config 确有内容（ensureGitConfig 写入的 user.*），证明 --list 走的是成功路径
         expect(localConfig).toContain('user.name=')
+    }, 15_000)
+
+    /**
+     * 回归：stageAndCommit 显式传 `--no-verify`，隔离被修复仓库的 git hooks。
+     *
+     * 根因：目标仓库常安装 husky / lint-staged（`.husky/pre-commit` → `npx lint-staged`），dependfix 的
+     * 自动 commit 会触发它；隔离执行环境无 `npx`、目标仓库 `node_modules` 也未必完整 →
+     * hook 非 0 退出（生产实证 `npx: not found` exit 127）→ `COMMIT_FAILED` → 修复回滚。
+     *
+     * 本用例植入「写标记文件 + exit 1」的 husky 风格 pre-commit：
+     * - 反例：同环境裸 commit 必被拦截（证明 hook 真实生效，避免正例退化为恒真）
+     * - 正例：stageAndCommit 成功，且标记文件不存在（证明 hook 未执行）
+     */
+    it('目标仓库 pre-commit hook 非 0 退出 → stageAndCommit 仍成功且 hook 未执行', () => {
+        const hooksGlobalDir = mkdtempSync(join(tmpdir(), 'dependfix-hooks-global-'))
+        const hooksGlobalConfig = join(hooksGlobalDir, 'gitconfig')
+        writeFileSync(hooksGlobalConfig, '')
+        // 隔离 host 全局配置（避免 host `core.hooksPath` 等干扰本用例的 hook 安装点）
+        vi.stubEnv('GIT_CONFIG_GLOBAL', hooksGlobalConfig)
+        vi.stubEnv('GIT_CONFIG_NOSYSTEM', '1')
+
+        try {
+            const dir = createGitRepoWithoutGitConfig()
+            const hookPath = join(dir, '.git', 'hooks', 'pre-commit')
+            writeFileSync(hookPath, '#!/bin/sh\ntouch .hook-ran\nexit 1\n')
+            chmodSync(hookPath, 0o755)
+            writeFileSync(join(dir, 'change.txt'), 'fixed\n')
+
+            // 反例对照：同环境裸 commit 被 hook 拦截（exit 非 0 → execSync 抛错）
+            git('add .', dir)
+            expect(() => execSync('git -c user.name=x -c user.email=x@example.com commit -m bare', {
+                cwd: dir,
+                stdio: 'pipe',
+            })).toThrow()
+            expect(existsSync(join(dir, '.hook-ran'))).toBe(true)
+
+            // 清理反例副作用（标记文件），再制造新变更供正例提交
+            rmSync(join(dir, '.hook-ran'), { force: true })
+            writeFileSync(join(dir, 'change.txt'), 'fixed-2\n')
+
+            // 被测实现：`--no-verify` 隔离后 commit 成功且 hook 未执行
+            stageAndCommit('fix: dependabot', dir)
+
+            expect(existsSync(join(dir, '.hook-ran'))).toBe(false)
+            expect(git('log -1 --format=%s', dir)).toBe('fix: dependabot')
+        } finally {
+            vi.unstubAllEnvs()
+            try {
+                rmSync(hooksGlobalDir, { recursive: true, force: true })
+            } catch {
+                /* ignore */
+            }
+        }
     }, 15_000)
 })
 

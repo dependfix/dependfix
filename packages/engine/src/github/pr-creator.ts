@@ -7,7 +7,7 @@ import {
     collectCodeScanningSuggestions,
     isAlertFixedByActions,
 } from '@dependfix/core'
-import { GIT_COMMIT_SIGNING_ISOLATION_ARGS, GIT_PUSH_SIGNING_ISOLATION_ARGS } from './git-signing'
+import { GIT_COMMIT_HOOKS_ISOLATION_ARGS, GIT_COMMIT_SIGNING_ISOLATION_ARGS, GIT_PUSH_SIGNING_ISOLATION_ARGS } from './git-signing'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -208,6 +208,11 @@ export function createFixBranch(branchName: string, workDir: string): FixBranchR
  * 参数取自 `GIT_COMMIT_SIGNING_ISOLATION_ARGS`（单一事实源，见 ./git-signing.ts）。
  * 仅关签名开关，不注入 `GIT_CONFIG_GLOBAL` / `GIT_CONFIG_NOSYSTEM`（会连带屏蔽 host 代理等配置）。
  *
+ * hooks 隔离：显式传 `--no-verify`（`GIT_COMMIT_HOOKS_ISOLATION_ARGS`），跳过被修复仓库的
+ * `pre-commit` / `commit-msg`（含 husky 的 `core.hooksPath` 重定向）。目标仓库钩子依赖 `npx` 与完整
+ * `node_modules`，在隔离执行环境下通常不可用——生产实证会以 `npx: not found`（非 0 退出）中断
+ * 自动 commit。自动提交不应受目标仓库本地开发钩子约束。
+ *
  * @param author - 可选 commit author 信息；不传时使用 PAT 默认值（保持现有 PAT 路径行为零变化）。
  *   GitHub App 路径接入后会传入动态生成的 `{app_id}+{bot_login}[bot]` author。
  *
@@ -223,6 +228,8 @@ export function stageAndCommit(message: string, workDir: string, author?: { name
         // 关闭签名：避免 host `commit.gpgsign=true` 导致的签名污染与 commit 失败（见上方 JSDoc）
         ...GIT_COMMIT_SIGNING_ISOLATION_ARGS,
         'commit',
+        // 跳过目标仓库 hooks（husky / lint-staged / core.hooksPath 重定向）——须位于子命令之后
+        ...GIT_COMMIT_HOOKS_ISOLATION_ARGS,
         '-m', message,
     ], { cwd: workDir, stdio: 'pipe' })
 }

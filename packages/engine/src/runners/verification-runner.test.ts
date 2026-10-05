@@ -343,7 +343,7 @@ describe('runVerification', () => {
     })
 
     it('treats empty-string NUXT_TELEMETRY_DISABLED as unset and injects default', async () => {
-        // W1 边界锁定：`export NUXT_TELEMETRY_DISABLED=`（显式空字符串）等价于未设置，
+        // 边界锁定：`export NUXT_TELEMETRY_DISABLED=`（显式空字符串）等价于未设置，
         // buildSpawnEnv 按"未设置"处理并注入默认 '1'。避免语义模糊导致 subprocess
         // 误继承父进程"开启 telemetry"的状态
         const original = process.env.NUXT_TELEMETRY_DISABLED
@@ -368,7 +368,7 @@ describe('runVerification', () => {
     })
 
     it('still injects telemetry-disable env when network audit is disabled', async () => {
-        // W2 锁定：telemetry 注入与审计代理注入正交；`networkAuditDisabled: true` 时
+        // 锁定：telemetry 注入与审计代理注入正交；`networkAuditDisabled: true` 时
         // 审计代理被禁用（deny-by-default 不生效），但 telemetry 注入仍必须生效——
         // telemetry 是依赖工具自身行为，不应被 networkAuditDisabled 一并关闭
         const original = process.env.NUXT_TELEMETRY_DISABLED

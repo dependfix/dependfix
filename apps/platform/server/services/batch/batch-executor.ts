@@ -15,7 +15,7 @@ import { getQueueService } from '../queue/queue.service'
 import { SCAN_JOB_PRIORITY } from '../queue/queue-mode'
 import { createPendingScanRun, runScanForRepository, type ScanRequest } from '../scan-orchestrator.service'
 import { aggregateScanRuns, EMPTY_BATCH_SUMMARY } from './batch-aggregate'
-import { applyBatchAggregation } from './batch-writeback'
+import { persistBatchAggregation } from './batch-writeback'
 import { ScanResult } from '#server/entities/scan-result'
 import { ScanRun } from '#server/entities/scan-run'
 import { BatchRun, type BatchRunSource } from '#server/entities/batch-run'
@@ -119,9 +119,10 @@ export const executeBatchRun = async (input: ExecuteBatchInput): Promise<Execute
         const results = runs.length > 0
             ? await ds.getRepository(ScanResult).find({ where: { scanRunId: In(runs.map((run) => run.id)) } })
             : []
-        // 零子项时不在此终结（异常场景交由周期对账按孤儿处理，避免误标 completed）
-        if (runs.length > 0 && applyBatchAggregation(batchRun, aggregateScanRuns(runs, results), runs)) {
-            await batchRepo.save(batchRun)
+        // 零子项时不在此终结（异常场景交由周期对账按孤儿处理，避免误标 completed）；
+        // 条件写回：并发 admin force-fail 抢先时跳过，不把 failed 覆盖回 completed
+        if (runs.length > 0) {
+            await persistBatchAggregation(batchRepo, batchRun, aggregateScanRuns(runs, results), runs)
         }
     }
 

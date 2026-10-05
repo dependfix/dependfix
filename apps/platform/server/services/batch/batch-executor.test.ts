@@ -59,6 +59,7 @@ const mockDataSource = () => {
             savedBatchRuns.push(saved)
             return saved
         }),
+        update: vi.fn(async () => ({ affected: 1 })),
     }
     const scanRunRepo = {
         save: vi.fn(async (run: ScanRun) => run),
@@ -248,6 +249,26 @@ describe('executeBatchRun（批量执行服务）', () => {
 
         expect(savedBatchRuns[0]!.status).toBe('completed')
         expect(savedBatchRuns[0]!.finishedAt?.toISOString()).toBe(realFinishedAt.toISOString())
+    })
+
+    it('sync：并发 force-fail 抢先（条件写回 affected=0）时不追加 save 覆盖终态', async () => {
+        mockQueueService('sync')
+        const { batchRunRepo, scanRunRepo } = mockDataSource()
+        scanRunRepo.find.mockResolvedValueOnce([
+            { id: 'run-1', status: 'completed', finishedAt: new Date('2026-09-04T04:00:00Z'), batchRunId: 'batch-1', summaryJson: null } as ScanRun,
+        ])
+        // 模拟条件写回条件不匹配（库中已被并发改为 failed）
+        batchRunRepo.update.mockResolvedValueOnce({ affected: 0 })
+
+        await executeBatchRun(baseInput)
+
+        // 以读取时状态 running 为乐观锁条件，payload 写聚合终态 completed
+        expect(batchRunRepo.update).toHaveBeenCalledWith(
+            expect.objectContaining({ id: 'batch-1', status: 'running' }),
+            expect.objectContaining({ status: 'completed' }),
+        )
+        // affected=0 → 不追加 save 覆盖（仅创建时 1 次 save）
+        expect(batchRunRepo.save).toHaveBeenCalledTimes(1)
     })
 
     it('空批次：立即 completed + 零值 summary（终态兜底，避免永久 running）', async () => {

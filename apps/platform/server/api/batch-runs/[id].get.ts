@@ -6,7 +6,7 @@ import { ensureDatabaseInitialized } from '#server/database'
 import { requireAuth, requireOrgResource } from '#server/utils/guard'
 import { createLocalizedError } from '#server/utils/localized-error'
 import { aggregateScanRuns, isUndecidedZeroChildRunning } from '#server/services/batch/batch-aggregate'
-import { applyBatchAggregation } from '#server/services/batch/batch-writeback'
+import { persistBatchAggregation } from '#server/services/batch/batch-writeback'
 
 /**
  * GET /api/batch-runs/[id]：批量运行详情（含聚合统计 + 下属 ScanRun 列表）。
@@ -24,7 +24,7 @@ export default defineEventHandler(async (event) => {
 
     const ds = await ensureDatabaseInitialized()
     const batchRepo = ds.getRepository(BatchRun)
-    const batchRun = await batchRepo.findOne({ where: { id } })
+    let batchRun = await batchRepo.findOne({ where: { id } })
     if (!batchRun) {
         throw createLocalizedError(event, { statusCode: 404, code: 'BATCH_RUN_NOT_FOUND' })
     }
@@ -39,12 +39,14 @@ export default defineEventHandler(async (event) => {
         ? await ds.getRepository(ScanResult).find({ where: { scanRunId: In(runs.map((r) => r.id)) } })
         : []
 
-    // 实时聚合 → 写回（用户查看时收敛；周期兜底见 batch-reconciler.ts，两者共用 applyBatchAggregation）
+    // 实时聚合 → 条件写回（用户查看时收敛；周期兜底见 batch-reconciler.ts，两者共用 persistBatchAggregation）
     // failed 终态保护：failed 是 executor 显式落库的终态（async 全部入队失败，无下属 run），
-    // 聚合只产出 completed/running——由 applyBatchAggregation 内部复用 shouldWriteBackStatus 判定流转
+    // 条件写回以「读取时状态」为乐观锁——并发 admin force-fail 抢先时跳过，不覆盖 failed
     const aggregation = aggregateScanRuns(runs, results)
-    if (applyBatchAggregation(batchRun, aggregation, runs)) {
-        await batchRepo.save(batchRun)
+    const { changed, persisted } = await persistBatchAggregation(batchRepo, batchRun, aggregation, runs)
+    if (changed && !persisted) {
+        // 条件写回被保护性跳过（库中状态已被并发改为终态）：以库中实际状态为准，避免响应与库不一致
+        batchRun = await batchRepo.findOne({ where: { id } }) ?? batchRun
     }
 
     // 对外状态：failed 终态取存储值（聚合无法表达）；「零子项 + running」是终态未定

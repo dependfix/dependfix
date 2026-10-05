@@ -1,10 +1,10 @@
 /**
- * PEM 私钥客户端格式校验（M18.3 GitHub App 路径）。
+ * PEM 私钥客户端格式校验（GitHub App 路径）。
  *
  * 用途：credentials.vue 表单上传 PEM 文件时，浏览器端校验格式合法性 +
  * 私钥类型识别（RSA / EC）。
  *
- * 范围限制（M18.3 锁定方案）：
+ * 范围限制：
  * - **不**计算公钥 SHA256 指纹（与 GitHub App 设置页对照需 ASN.1 解析提取公钥 SPKI DER，超出本阶段范围）
  * - 用户需自行用 openssl 命令比对 GitHub 指纹：
  *   `openssl rsa -in PATH_TO_PEM_FILE -pubout -outform DER | openssl sha256 -binary | openssl base64`
@@ -68,7 +68,7 @@ export function computePemFingerprint(pem: string): PemParseResult {
         keyType = 'ec'
     }
     // BEGIN PRIVATE KEY（PKCS#8 格式）需要 ASN.1 解析才能判断 key type；
-    // 此处简化为 unknown；服务端 credential.service 可做精确校验（M19+ 实施）
+    // 此处简化为 unknown；服务端 credential.service 可做精确校验
 
     return {
         valid: true,
@@ -110,6 +110,6 @@ export function validateGithubAppId(value: string, fieldName: string): { valid: 
 // ---------------------------------------------------------------------------
 // Internal helpers
 // ---------------------------------------------------------------------------
-// （base64ToBytes / bytesToBase64 已在 M18.3 commit 1 audit reject 后清理——
+// （base64ToBytes / bytesToBase64 已在审计 reject 后清理——
 // 当前 computePemFingerprint 仅做格式校验 + 类型识别，不需要 ASN.1 解析或 SHA256 计算；
 // 公钥指纹需用 openssl 命令（见模块 JSDoc）由用户自行计算与 GitHub 对照）

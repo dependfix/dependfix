@@ -36,7 +36,7 @@ interface Props {
     options?: ChartConfiguration['options']
     width?: string | number
     height?: string | number
-    /** RG-W04 修复：canvas 元素无文本替代，aria-label 让屏幕阅读器可读图表内容 */
+    /** canvas 元素无文本替代，aria-label 让屏幕阅读器可读图表内容 */
     ariaLabel?: string
 }
 

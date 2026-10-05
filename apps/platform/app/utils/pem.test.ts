@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { computePemFingerprint, validateGithubAppId, validatePemSize } from './pem'
 
 /**
- * PEM utility 单测（M18.3 commit 1 audit 反馈 W1）。
+ * PEM utility 单测。
  *
  * 覆盖：
  * - `computePemFingerprint`：合法 PEM（PKCS#1 / PKCS#8 / SEC1）→ valid=true + keyType；非法 header / 空 base64 / 超 16KB → valid=false + error

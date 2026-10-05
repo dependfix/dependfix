@@ -20,7 +20,7 @@ vi.mock('../server/utils/guard', () => ({
  * 4. M23.3 C66-A1 新增的 ghsa_id / cve_ids 列 + 复合索引 (repository_id, ghsa_id) 存在
  *    （migration raw SQL 必须用 snake_case 列名，详见 [todo.md §M24 follow-up #6](../plan/todo.md)）
  */
-describe('M20.3 ScanResult entity DDL validation', () => {
+describe('ScanResult entity DDL validation', () => {
     it('composite unique index (repositoryId, upstreamId) is created at table level', async () => {
         setupMemoryDatabase()
         try {
@@ -52,7 +52,7 @@ describe('M20.3 ScanResult entity DDL validation', () => {
     })
 
     /**
-     * M23.3 C66-A1 DDL 回归测试（2026-09-03 加固）：
+     * DDL 回归测试（2026-09-03 加固）：
      * 验证 ghsa_id / cve_ids 列 + 复合索引 `(repository_id, ghsa_id)` 正确生成。
      *
      * 背景：原 migration 1750000000000-AddScanResultIdentifiers raw SQL 用 camelCase 列名
@@ -60,7 +60,7 @@ describe('M20.3 ScanResult entity DDL validation', () => {
      * 实际表是 snake_case，导致 `no such column: repositoryId` 报错。
      * 修复后 raw SQL 改为 snake_case，本测试断言列名 + 索引按 snake_case 落地。
      */
-    it('M23.3 ghsa_id / cve_ids columns + composite index (repository_id, ghsa_id) exist (snake_case regression)', async () => {
+    it('ghsa_id / cve_ids columns + composite index (repository_id, ghsa_id) exist (snake_case regression)', async () => {
         setupMemoryDatabase()
         try {
             const ds = await ensureDatabaseInitialized()

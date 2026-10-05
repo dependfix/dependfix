@@ -2,7 +2,7 @@
 /**
  * apps/platform/scripts/set-cookie-trace.mjs
  *
- * better-auth 中间件 Set-Cookie 路径扫描脚本（M22.8 follow-up ② / M28.5）。
+ * better-auth 中间件 Set-Cookie 路径扫描脚本。
  *
  * 两种扫描模式：
  * - MODE=static（默认）：静态扫描 apps/platform/server/ 下 setCookie 调用点 +
@@ -17,9 +17,9 @@
  *
  * 输出：stdout JSON（默认）或 markdown 报告（SET_COOKIE_TRACE_FORMAT=md）。
  *
- * 关联：M28.5 P 阶段评估 — better-auth 中间件是否对非 /api/auth/* 端点设置 Set-Cookie。
- * 关联：M22.8 hotfix (commit bdcd900) — Playwright fixture pool cookie 注入已修复。
- * 关联：M22.8 follow-up ② — 治本修复（本脚本验证 better-auth 中间件不会污染下游 context）。
+ * 关联：better-auth 中间件是否对非 /api/auth/* 端点设置 Set-Cookie。
+ * 关联：Playwright fixture pool cookie 注入已修复（commit bdcd900）。
+ * 关联：治本修复（本脚本验证 better-auth 中间件不会污染下游 context）。
  */
 
 import { readFileSync, readdirSync, statSync } from 'node:fs'

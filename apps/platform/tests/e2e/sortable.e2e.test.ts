@@ -9,7 +9,7 @@ import { waitForHydration } from './helpers/hydration.helper'
  */
 test.use({ storageState: 'tests/e2e/.auth/admin.json' })
 
-test.describe('C60 平台表格 sortable', () => {
+test.describe('平台表格 sortable', () => {
     test('alerts 页面 severity 列可点击排序（三态循环 asc → desc → 移除）', async ({ page }) => {
         await page.goto('/alerts')
         await waitForHydration(page)
@@ -41,7 +41,7 @@ test.describe('C60 平台表格 sortable', () => {
         await expect(ownerSort).toBeVisible()
         await ownerSort.click()
         await expect(ownerHeader).toHaveAttribute('aria-sort', 'ascending', { timeout: 5000 })
-        // 排序后批量选择 checkbox 仍可用（PR1 W10 教训：selectedRows 不应被排序重置）
+        // 排序后批量选择 checkbox 仍可用（教训：selectedRows 不应被排序重置）
         const checkboxes = page.locator('.caomei-data-table .caomei-checkbox__control')
         await expect(checkboxes.first()).toBeVisible()
     })

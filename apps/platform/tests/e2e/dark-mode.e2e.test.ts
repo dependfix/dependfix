@@ -21,7 +21,7 @@ import { waitForHydration } from './helpers/hydration.helper'
  */
 test.use({ storageState: 'tests/e2e/.auth/admin.json' })
 
-test.describe('暗色模式（C59 修复防护）', () => {
+test.describe('暗色模式（修复防护）', () => {
     test('切换 dark mode 后，自定义 SCSS 容器（html / body / header）跟随 .dark 切换', async ({ page, context }) => {
         page.on('console', (msg) => {
             if (msg.type() === 'error') {
@@ -46,7 +46,7 @@ test.describe('暗色模式（C59 修复防护）', () => {
         // 4) 跳过 0.2s 颜色过渡等待（避免 transition 中间态 getComputedStyle 报旧色）
         await page.waitForTimeout(300)
 
-        // 5) 实测自定义 SCSS 容器 computed style（C59 修复前 header/body 是浅色，修复后是深色）
+        // 5) 实测自定义 SCSS 容器 computed style（修复前 header/body 是浅色，修复后是深色）
         const computedBackgrounds = await page.evaluate(() => {
             const html = document.documentElement
             const body = document.body
@@ -61,7 +61,7 @@ test.describe('暗色模式（C59 修复防护）', () => {
             }
         })
 
-        // 关键断言（C59 修复前：html.hasDark=true 但 bodyBackground=rgb(255,255,255)；
+        // 关键断言（修复前：html.hasDark=true 但 bodyBackground=rgb(255,255,255)；
         // 修复后：bodyBackground 必须是深色 #0f172a = rgb(15, 23, 42)）
         expect(computedBackgrounds.htmlHasDark).toBe(true)
         expect(computedBackgrounds.htmlColorScheme).toBe('dark')

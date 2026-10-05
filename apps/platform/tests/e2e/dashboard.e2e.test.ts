@@ -9,14 +9,14 @@ import { waitForHydration } from './helpers/hydration.helper'
  */
 test.use({ storageState: 'tests/e2e/.auth/admin.json' })
 
-test.describe('C61 仪表板图表', () => {
+test.describe('仪表板图表', () => {
     test('3 个 Chart canvas 在 dashboard 渲染（含 aria-label）', async ({ page }) => {
         await page.goto('/dashboard')
         await waitForHydration(page)
         // 等待 ClientOnly 包裹的图表 canvas 出现（chart.js 客户端注册需 hydration 后）
         const canvases = page.locator('.dashboard__chart-canvas canvas[role="img"]')
         await expect(canvases).toHaveCount(3, { timeout: 20000 })
-        // 每个 canvas 都有 aria-label（RG-W04 可访问性）
+        // 每个 canvas 都有 aria-label（可访问性）
         const severityCanvas = page.locator('.dashboard__chart-card:has-text("告警分布") canvas')
         const fixRateCanvas = page.locator('.dashboard__chart-card:has-text("修复率") canvas')
         const topPackagesCanvas = page.locator('.dashboard__chart-card:has-text("Top-10") canvas')
@@ -40,7 +40,7 @@ test.describe('C61 仪表板图表', () => {
     test('暗色模式切换图表区域仍正常渲染', async ({ page }) => {
         await page.goto('/dashboard')
         await waitForHydration(page)
-        // 切到暗色（C59 修复的 .dark 类）
+        // 切到暗色（.dark 类）
         await page.evaluate(() => document.documentElement.classList.add('dark'))
         // 图表 canvas 仍存在（不白屏）
         await expect(page.locator('.dashboard__chart-canvas canvas[role="img"]').first()).toBeVisible({ timeout: 10000 })

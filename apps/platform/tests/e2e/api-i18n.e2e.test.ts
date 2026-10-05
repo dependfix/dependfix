@@ -57,7 +57,7 @@ async function createRepoOnce(page: Page, owner: string): Promise<void> {
     expect(response.status()).toBe(200)
 }
 
-test.describe('服务端 API 错误响应 i18n（M16.3 C36）', () => {
+test.describe('服务端 API 错误响应 i18n', () => {
     test('POST /api/repos 重复仓库：Accept-Language: zh-CN → 中文 message + data.code: REPO_DUPLICATE', async ({ page }) => {
         await page.goto('/dashboard')
         await clearI18nCookie(page) // 让 Accept-Language 起作用（清掉 storageState 默认 cookie）

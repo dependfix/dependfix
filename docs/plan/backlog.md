@@ -72,6 +72,10 @@
   - **不做什么**：不改扫描执行语义与 `/api/repos/{id}/scan`、`/api/repos/batch-scan` 契约；不改仓库级 `aiEnabled` / `aiTrigger` 继承语义；不将偏好沿用至计划（schedule）默认（其默认值独立维护）。
   - **触发条件**：① 用户确认持久化载体（设备级记忆 vs 跨设备默认）与字段范围；② 单仓库 / 批量弹窗「每次重选」的实际使用痛点被确认。
 
+- **批量写回反向竞态与 stale-cleanup 无条件 save（批量写回竞态审计残余）** —— 批量写回竞态收敛已消除「`failed` 被回写成 `completed`」方向的三处聚合写回；审计穷举平台侧剩余 `BatchRun` 无条件写点后发现反向竞态：`batch-executor.ts` 的「async 全部入队失败」分支用 stale 内存实体 `save`（可能在详情 GET 已把批次收敛为 `completed` 后覆盖回 `failed`，并覆盖并发写入的计数）；`stale-cleanup.ts` 对批次的写回亦为无条件 `save`（先置 `failed`，不产生上述方向覆盖）。均属既有设计、触发概率低。**现状锚点**：`apps/platform/server/services/batch/batch-executor.ts:105-108`（async 全部入队失败 `save`）、`apps/platform/server/services/batch/stale-cleanup.ts:129-135`（批次 `save`）。触发条件：出现实测计数错乱 / 终态反复。
+
+- **详情 GET 计数无变化时并发 force-fail 的响应瞬时不一致（批量写回竞态审计残余）** —— 详情 GET 在聚合与库计数完全一致（无字段变化）时不写库；若此刻 admin `force-fail` 已把库改为 `failed`，本次响应仍按内存状态返回，与库短时不一致（下一次读取即自愈，无数据腐蚀，仅只读瞬时窗口）。**现状锚点**：`apps/platform/server/api/batch-runs/[id].get.ts:46-50`。触发条件：客户端需要对同一次 GET 的强一致保证。
+
 ### 待上收候选（评估完成，等待用户决策）
 
 > 当前无待上收候选——4 项（本地 devEx `data/` 产物污染 / 视觉回归容差对同明度色相与灰度替换不敏感 / 非弹窗表单 label↔控件间距 / PrimeUI 设计先行稿与索引陈旧）已于 2026-09-30 经用户决策上收，按维护规则 5 从本文件移除（登记位置见 [todo-archive.md §M34](todo-archive.md#m34-治理与体验收口--组件库升级与巡检基建m341m347-全部已闭环--2026-10-01-归档)）。

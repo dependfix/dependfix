@@ -105,14 +105,18 @@
 - **目标**：把详情 GET 与 sync 批量执行尾部的「读内存态 → 整行 `save()`」改为条件更新（或把条件写回下沉共享层），消除 admin `force-fail` 并发窗口内把库中 `failed` 回写成 `completed` + `finishedAt` 的竞态（对账只扫 `running`，一旦错标永久无法纠正）。
 - **优先级**：P2。
 - **范围**：`apps/platform/server/api/batch-runs/[id].get.ts`（`:47` 现为 `batchRepo.save(batchRun)`）+ sync 批量执行尾部（`apps/platform/server/services/batch/`）+ 共享写回层 `apps/platform/server/services/batch/batch-writeback.ts`；回归用例 `[id].get.test.ts` + 新增并发交错用例。
-- **验收标准**：
-  - [ ] 三处写回统一为条件更新（`update({ id, status: ... }, …)`）或把条件写回下沉共享层
-  - [ ] 补并发回归用例（`force-fail` 与 GET / sync 交错，断言不覆盖 `failed` 终态）
-  - [ ] 保持 GET「对非 running 批次仍对齐计数」既有契约（`[id].get.test.ts` 断言 failed 批次 counts 会被写回）
-  - [ ] `pnpm --filter @dependfix/platform run typecheck` exit 0 + 定向 vitest 全过
+- **验收标准**（2026-10-05 全部实证）：
+  - [x] 三处聚合写回统一为条件更新并下沉共享层：`batch-writeback.ts` 新增 `persistBatchAggregation`（以读取时状态 `{ id, status: storedStatus }` 为乐观锁）与 `persistBatchIfRunning`；详情 GET / sync 执行尾部 / 周期对账三处全部改用
+  - [x] 补并发回归用例：`[id].get.test.ts` 注入并发 force-fail 断言库与响应均保持 `failed` 且 `finishedAt` 不被聚合覆盖；`batch-executor.test.ts` 验证 sync 尾部条件写回受影响为 0 时不追加 save；`batch-writeback.test.ts` 6 个单测锁定 WHERE 与 changed / persisted 语义
+  - [x] 保持 GET「对非 running 批次仍对齐计数」既有契约（`preserves failed terminal status` 用例条件命中 `failed` 仍写回 counts）
+  - [x] `pnpm --filter @dependfix/platform typecheck` exit 0（grep `error TS` 无命中）+ 平台全量 vitest 110 文件 passed | 2 文件 skipped（1435 用例 passed | 9 用例 skipped）
+- **闭环记录（2026-10-05）**：
+  - 根因：详情 GET 与 sync 执行尾部在内存聚合后整行 `batchRepo.save()`，与 admin `force-fail` 并发时把库中 `failed` 回写成 `completed` + `finishedAt`；周期对账只扫 `running`，错标后永久无法纠正。
+  - 修复：条件写回以**读取时状态**为乐观锁（`affected = 0` 即跳过），三处统一；GET 在写回被跳过时重读库中状态避免响应不一致。
+  - A 阶段审计：standard 第 1 轮 **Pass**（0 blocker / 2 warning / 2 suggest）；warning RG-W1（`changed=false` 只读瞬时不一致，自愈）、RG-W2（反向竞态与 stale-cleanup 无条件 save，非本 AC）登记 backlog；suggest RG-S1（JSDoc 过期）/ RG-S2（用例注入式模拟性质标注）已应用。
 - **不做什么**：不改变 `force-fail` 语义；不引入悲观锁（SQLite 支持有限）；不改详情接口返回结构。
 - **依赖**：M35.1 / M35.2（共享写回 `applyBatchAggregation` 已落地）；M35.1 A 阶段 RG-W01R 登记。
-- **交付物**：预计 2–3 commits（写回层 + 接线 + 用例）；files 清单见范围。
+- **交付物**（已闭环）：3 个代码 commit —— `fe0326f` 共享条件更新层 + 单测 / `3fb9cde` 周期对账复用共享层 / `f232d68` 详情与 sync 尾部改条件写回 + 并发用例；+ 1 个 docs(plan) 闭环登记 commit。
 - **风险与缓解**：窄竞态、需 admin 同时操作，触发概率低；缓解：条件写回 + 并发用例锁定行为边界。
 
 #### M36.4 [P3 🚀 可观测性] 告警源「未启用 + 其余源全失败」判据修正

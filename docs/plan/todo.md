@@ -65,15 +65,16 @@
 - **目标**：清理全仓库非 `docs/` 源码 / 配置 / 脚本注释中「无文档指针的孤立规划编号」，使其符合 [开发规范 §3 注释规范](../standards/development.md)「禁止开发流程编号标记」（例外仅两类：代码内真实常量、带文档路径 / 章节名的导航指针）。
 - **优先级**：P3（非阻塞治理债；规则由 D 阶段自检 + A 阶段必查项强制，但仅作用于新增 / 修改文件，故存量长期沉积）。
 - **范围**：全仓库非 `docs/` 的源码 / 配置 / 脚本注释（**扫描面量级 600–1000 文件 / 孤立命中量级 300–430 行**，为 M29.9 双源扫描口径——执行角色与 A 阶段审计独立扫描各得一份行口径量级；行级判定 skip `node_modules` / `dist` / `.nuxt` / `pnpm-lock`，扩展名白名单随包浮动；**可复现检测命令随本条目首个子批次固化的脚本产出**）；按包 / 目录切分子批次，**每子批次 < 10 文件**；示例落点 `packages/core/src/alerts/index.ts:48`、`packages/engine/src/code-scanning/scripts/sample-collector.mjs:5`、`apps/platform/server/api/dashboard/stats.get.ts:10`。
-- **验收标准**：
-  - [ ] 固化检测命令或脚本（含真常量白名单 + 注释块级判定），输出可复现的孤立命中清单（量级区间 + 测量方 + 命令）
-  - [ ] 按子批次清理至孤立命中 0（带文档指针的导航指针保留）
-  - [ ] 批量替换遵守 [AI 协作规范 §1.2 第 6 条](../standards/ai-collaboration.md)（先改 1 个代表性文件 → typecheck + diff 审查 → 再铺开）
-  - [ ] 每子批次 `pnpm lint` + `pnpm typecheck` + 定向测试通过，且不丢失编号后的解释正文
-  - [ ] 复扫证据：孤立命中 0 + 误报白名单命中保留
+- **验收标准**（2026-10-05 全部实证）：
+  - [x] 固化检测脚本 `scripts/check-orphan-ids.mjs`（`check:orphan-ids` 命令；注释块级判定 + 文档指针豁免 + 真常量白名单 + 行内尾随注释识别），覆盖 T / P / C / G / R / M / B + UX-R / RG / D / S / W 编号；配套 `scripts/check-orphan-ids.test.mjs`
+  - [x] 按子批次清理至孤立命中 0：子批次 0/1 清理 `packages/**` + `scripts/**` 46 行；本批清理 `apps/platform/**` 157 行 + `packages/engine` 2 行（其中旧口径命中 139 行，检测口径扩展后新暴露 20 行，合计 159 行）
+  - [x] 批量替换遵守 [AI 协作规范 §1.2 第 6 条](../standards/ai-collaboration.md)（先改代表性文件 → typecheck + diff 审查 → 再铺开）；全批仅注释与测试名文本变更，无运行时逻辑改动
+  - [x] 各子批次 `pnpm lint` + `pnpm typecheck` + 定向测试通过，且不丢失编号后的解释正文
+  - [x] 复扫证据：`node scripts/check-orphan-ids.mjs` 孤立命中 0（扫描 627 文件）+ 真常量白名单规则保留
+- **闭环记录（2026-10-05）**：A 阶段审计发现检测脚本 `PLANNING_ID_RE` 仅匹配 `S-\d`、漏裸 `W\d` / `S\d`，致「0 命中」为假阴性；扩展正则覆盖裸 W / S 编号 + 补回归用例 + 新增「裸 `PR\d+` 不在检测面」边界声明后复扫归零。残余：检测脚本未接入 CI 门禁（当前依赖 D / A 阶段自检），长期防回流另行评估。
 - **不做什么**：不清理带文档路径 / 章节名的导航指针（合规例外）；不清理代码内真实常量（HTTP 错误码等）；不改 `docs/` 下的规划与治理文档编号；不在本条目内改动 D / A 阶段自检规则本身。
 - **依赖**：关联 M29.9（A 阶段审计触发）+ [开发规范 §3](../standards/development.md) + [经验归档 §十六](../design/governance/experience-archive-§1-§21-spec-compliance.md)（历史违规案例）；关联既有清理先例 commit `1dcfc3c`。
-- **交付物**：预计 3–6 子批次（每子批次 1 atomic commit）+ 1 个检测脚本（或固化命令）；files 清单按子批次产出。
+- **交付物**（已闭环）：2 个工具 commit（`43ce253` 检测脚本与用例 / `9bfcf2c` 裸 W / S 覆盖增强）+ 9 个清理 commit（`4dc64a1` packages 与 scripts / `37f3bde` engine / `d1ad890` / `bf332c7` / `63ae9cf` / `d096d5e` / `c2644cc` / `eaed2f9` / `04bcfff` platform）；每 commit ≤ 10 文件。
 - **风险与缓解**：批量删除编号丢失可追溯性；缓解：优先「改写为导航指针」而非纯删除，保留编号后的解释正文；另防批量替换误伤（按 §1.2 第 6 条纪律执行）。
 
 #### M36.2 [P3 📚 文档治理] 设计与索引文档同类陈旧状态清理（存量）

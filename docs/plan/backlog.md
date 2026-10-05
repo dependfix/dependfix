@@ -67,11 +67,22 @@
 
 - **扫描偏好服务端跨设备默认（本阶段延后）** —— M37.2 采用方案 C 混合（localStorage 设备级：上次选择 + 可选配置化默认 + 重置）；服务端用户 / 组织级默认偏好（跨设备、可管理，需实体 / API / 设置页，预计触发 governance 文档）按用户 2026-10-06 决策自 M37.2 范围延后。**现状锚点**：`apps/platform/app/composables/use-scan-preferences.ts`（M37.2 新增后）。触发条件：① 用户实测多设备切换痛点；② 组织级统一默认诉求。
 
-> 本区块当前仅保留 M37 执行期延后项；M37 启动前原有 6 项候选已全部上收（见上方批次说明）。
+- **push 侧 `pre-push` 钩子隔离（待评估）** —— M37.6 A 阶段审计 RG-S1 衍生：M37.6 仅隔离 commit 侧 hooks（`--no-verify` 不作用于 `git push`），被修复仓库若安装依赖 `npx` 的 `pre-push` 钩子，理论上可在 push 阶段复现同类失败（`packages/engine/src/github/pr-creator.ts` 的 `pushBranch` 与平台侧 `pushFixBranch` 均未加隔离）。M37.6 边界显式排除 push / PR 交付链，故未在本批处理。
+  - **待评估点**：① 生产日志中是否存在 `pre-push` 导致的交付失败实例（当前已观测失败均为 `pre-commit` / `commit-msg`）；② 若存在，隔离选型（`git push --no-verify`）与 commit 侧是否共用常量。
+  - **触发条件**：生产日志出现 `pre-push` 失败，或用户要求 push 侧一并隔离。
+  - **按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
+
+> 本区块保留 M37 执行期延后项 + M37.6 审计衍生待评估候选；M37 启动前原有 6 项候选已全部上收（见上方批次说明）。
 
 ### 待上收候选（评估完成，等待用户决策）
 
-> **当前无待上收候选**。本节为「评估完成、等待用户决策」候选的暂存区（历史形态）；候选**不含 `M\d+` 阶段编号**（[规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement)）。
+> 本节为「评估完成、等待用户决策」候选的暂存区；候选**不含 `M\d+` 阶段编号**（[规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement)）。
+
+- **hooks 隔离的规范锚点与单一事实源命名收敛**（P3，🛡️ 治理）—— M37.6 A 阶段审计 RG-W1 衍生：`packages/engine/src/github/git-signing.ts` 已扩展为「签名 + hooks」双语义（新增导出 `GIT_COMMIT_HOOKS_ISOLATION_ARGS`，经 `github/index.ts` re-export 属公开 API），但 `docs/standards/git.md` §3.8 仍仅声明两个签名常量，规范面与实现面出现职责漂移；文件名亦不再与「签名 + hooks」双语义一致。
+  - **决策点（待用户裁定）**：① 是否在 `docs/standards/git.md` §3.8 扩展 hooks 隔离子节（或新建独立锚点）；② 是否将 `git-signing.ts` 更名为 `git-isolation.ts` 并同步 §3.8 路径引用（含 engine `github/index.ts` re-export 与平台侧 import）。
+  - **现状锚点**：`packages/engine/src/github/git-signing.ts:2`（JSDoc 双语义）+ `docs/standards/git.md:168`（§3.8 标题仅签名）。
+  - **不做什么**：不改隔离参数取值与行为；不改 `--no-verify` 选型。
+  - **按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 不带 `M\d+` 阶段编号**：等待用户明确决策启动。
 
 > **2026-10-06 上收批次（2 项，本小节清空）**：来源为 2026-10-05 / 10-06 生产运行日志根因分析（BullMQ 锁续期失败 / 目标仓库 husky 阻断自动 commit）。2 项候选为同批次评估产出并**即时上收，未在本文件留存候选条目**（故无「移出前」条目可对照；完整评估证据见 [todo.md §M37](todo.md) M37.6 条目与 [roadmap.md](roadmap.md) M38 段关键依据 anchor）。经用户明确授权，按维护规则 5「短期候选正式上收阶段后从 backlog 移除」清出并留本批次说明：①「目标仓库 git hooks 隔离（自动 commit 不再被 husky 阻断）」→ **M37.6**（P1，按 §3.1 可用性插队例外追加至进行中阶段 M37；三重交叉核验 0 项重复）；②「平台队列执行隔离（消除引擎同步阻塞导致的 BullMQ 锁续期失败）」→ **M38 独立阶段**（2026-10-06 用户授权开阶段，首个交付为方案 ①/②/③ 选型设计先行稿；实施条目待设计稿定稿后按类型平衡补齐）。
 

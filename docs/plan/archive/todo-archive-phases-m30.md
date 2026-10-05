@@ -44,13 +44,13 @@
 >
 > **未完成项 / 已知边界**：
 >
-> - **M30.5 残留 2 分支**（恢复后 `integrity_check` 失败注入 / sidecar `unlinkSync` 部分失败 `removedSidecars` 状态一致性）—— ESM 模块 mock 受限，已登记 backlog C90（后于 2026-09-28 上收 [M31.6](../todo-archive.md#m31-appsplatform-ui-组件库迁移primevue--caomei-ui-m311m316-全部已闭环--2026-09-29-归档)）
+> - **M30.5 残留 2 分支**（恢复后 `integrity_check` 失败注入 / sidecar `unlinkSync` 部分失败 `removedSidecars` 状态一致性）—— ESM 模块 mock 受限，已登记 backlog C90（后于 2026-09-28 上收 [M31.6](todo-archive-phases-m31.md#m31-appsplatform-ui-组件库迁移primevue--caomei-ui-m311m316-全部已闭环--2026-09-29-归档)）
 > - **M30.6 V1 验证产物保留**：`apps/platform/app/pages/__migration-validation/` 验证页 + `caomei-ui@0.3.0` 依赖保留，供 M31 迁移参考（M31 已于 2026-09-28 启动）
 >
 > **审计**：本归档批次经 A 阶段 code-auditor standard depth 审计（结论见本批次 commit message）。
 >
 > **ahead commits 实证**：M30 全部 commits 已推送 `origin/master`（`git rev-list HEAD ^origin/master --count` 归档时实测 = 0）。
 >
-> **关联**：[roadmap.md §M30](../roadmap.md#m30-治理债清理--迁移可行性验证--能力扩展--测试补强2026-09-27-启动--2026-09-28-已闭环--归档) + [backlog.md](../backlog.md)（C90 已上收 [§M31](../todo-archive.md#m31-appsplatform-ui-组件库迁移primevue--caomei-ui-m311m316-全部已闭环--2026-09-29-归档)；C91 保留于 §规范与治理）+ [archive/index.md §5 批次登记](index.md) + 经验归档（tsdown dts 冲突 / vue-demi allowBuilds / ESM mock 受限）
+> **关联**：[roadmap.md §M30](../roadmap.md#m30-治理债清理--迁移可行性验证--能力扩展--测试补强2026-09-27-启动--2026-09-28-已闭环--归档) + [backlog.md](../backlog.md)（C90 已上收 [§M31](todo-archive-phases-m31.md#m31-appsplatform-ui-组件库迁移primevue--caomei-ui-m311m316-全部已闭环--2026-09-29-归档)；C91 保留于 §规范与治理）+ [archive/index.md §5 批次登记](index.md) + 经验归档（tsdown dts 冲突 / vue-demi allowBuilds / ESM mock 受限）
 
 ---

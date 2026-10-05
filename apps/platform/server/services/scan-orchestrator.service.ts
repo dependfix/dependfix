@@ -127,7 +127,7 @@ const runScanInternal = async (
     const ds = await ensureDatabaseInitialized()
     const repoRepo = ds.getRepository(Repository)
     const runRepo = ds.getRepository(ScanRun)
-    // M20.3 per-alert 模型下不再需要 resultRepo 直接 INSERT；
+    // per-alert 模型下不再需要 resultRepo 直接 INSERT；
     // reconcileAlerts 内部管理 ScanResult 写入（INSERT / UPDATE 活跃 / supersede）
 
     const repository = await repoRepo.findOne({
@@ -179,12 +179,12 @@ const runScanInternal = async (
         // reuse=true 时重置终态字段：让既有 record 复用为新执行的载体（finishedAt / errorJson /
         // summaryJson 来自上一次执行，重置以避免新执行的 summaryJson 与旧 finishedAt 时间戳错位）
         if (options.reuse) {
-            // M20.3 per-alert 模型下不再需要清空该 run 的 ScanResult：reconcile 函数
+            // per-alert 模型下不再需要清空该 run 的 ScanResult：reconcile 函数
             // 会按 upstreamId 复用现有行（保留 fixStatus='success' 的修复记录，决策 1）；
             // 而新出现的告警会 INSERT；上游消失的告警会 supersede。
             // 旧 ScanResult 行无需删除 —— 让 reconcile 自然处理。
-            // 注意：M20.3 之前 `resultRepo.delete({ scanRunId })` 是为避免"按 scanRunId JOIN
-            // 出现旧 + 新并存"——但 M20.3 后 ScanResult 不再按 scanRunId JOIN（每行是独立告警），
+            // 注意：per-alert 模型之前 `resultRepo.delete({ scanRunId })` 是为避免"按 scanRunId JOIN
+            // 出现旧 + 新并存"——但 per-alert 模型下 ScanResult 不再按 scanRunId JOIN（每行是独立告警），
             // 此删除逻辑已无意义。
             existing.finishedAt = null
             existing.errorJson = null

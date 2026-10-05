@@ -33,7 +33,7 @@ const execFileAsync = promisify(execFile)
  * - action='skip'：平台不动作；runUrl 指向同指纹已存在的 PR；status 走 `completed`（幂等交付）
  * - action='create'：平台按 plan.branchName / plan.supersedePRs 推进 push + create + close
  *
- * 错误码语义（与 C53 状态机契约对齐）：
+ * 错误码语义（与状态机契约对齐）：
  * - 推 push 前查询 open PR 失败（GitHub API 4xx/5xx/网络）→ 降级为「假设无 open PR」，继续 create 路径
  *   （GitHub createPullRequest 在 head 已存在 open PR 时会返回 422，兜底归为 pr_creation_failed 状态）
  * - 失败回退：仅记录 warn，不阻断——避免单次 API 调用失败阻塞整个交付

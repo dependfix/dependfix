@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { credentialSchema, credentialUpdateSchema } from './credential'
 
-describe('credentialSchema + ownerLogin 字段（M26.2 C67）', () => {
+describe('credentialSchema + ownerLogin 字段', () => {
     describe('credentialSchema 创建路径', () => {
         it('classic-pat 接受 ownerLogin（可选）', () => {
             const result = credentialSchema.safeParse({

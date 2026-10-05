@@ -74,8 +74,8 @@ vi.mock('./notification', () => ({
     notifyEnvEvent: (...args: unknown[]) => notifyEnvEvent(...args),
 }))
 
-// M20.1 引擎侧注入 upstreamId 字段；测试 fixtures 必须同步（否则 reconcileAlerts 防御性 TypeError）
-// M20.3 reconcile 模型下，upstreamId 跨测试持久化（in-memory DB 共享 beforeAll/afterAll），
+// 引擎侧注入 upstreamId 字段；测试 fixtures 必须同步（否则 reconcileAlerts 防御性 TypeError）
+// reconcile 模型下，upstreamId 跨测试持久化（in-memory DB 共享 beforeAll/afterAll），
 // 使用 random 唯一化避免 occurrenceCount 跨测试污染（前面测试 INSERT 后本测试 reconcile 会 UPDATE）
 let upstreamCounter = 0
 const makeResult = (overrides: Record<string, unknown> = {}) => {
@@ -120,7 +120,7 @@ describe('scan-orchestrator.service', () => {
 
     beforeAll(async () => {
         setupMemoryDatabase()
-        // 注：M18.x 治理批次 S-5 — 删除 `process.env.ENCRYPTION_KEY` 死代码；
+        // 注：删除 `process.env.ENCRYPTION_KEY` 死代码；
         // stub 默认值由 `apps/platform/tests/setup-nuxt-server.ts:26` 全局 useRuntimeConfig 提供
         const ds = await ensureDatabaseInitialized()
         const cred = await ds.getRepository(Credential).save(ds.getRepository(Credential).create({
@@ -135,7 +135,7 @@ describe('scan-orchestrator.service', () => {
 
     afterAll(() => {
         teardownMemoryDatabase()
-        // 注：M18.x 治理批次 S-5 — 删除 `delete process.env.ENCRYPTION_KEY` 死代码
+        // 注：删除 `delete process.env.ENCRYPTION_KEY` 死代码
     })
 
     beforeEach(() => {
@@ -319,7 +319,7 @@ describe('scan-orchestrator.service', () => {
                 errorJson: null,
                 runUrl: null,
             }))
-            // seed 旧 ScanResult 模拟 report-only 模式留下的告警（M20.3 per-alert 模型：
+            // seed 旧 ScanResult 模拟 report-only 模式留下的告警（per-alert 模型：
             // repositoryId / upstreamId / firstSeenAt / lastSeenAt / occurrenceCount 必填）
             const seededNow = new Date('2026-08-12T00:01:00Z')
             await ds.getRepository(ScanResult).save([
@@ -494,8 +494,8 @@ describe('scan-orchestrator.service', () => {
             expect(containerExecute).not.toHaveBeenCalled()
         })
 
-        it('passes repository.sandboxLimits to SandboxExecutor (M11 T1005-B 透传)', async () => {
-            // M11 T1005-B：仓库级 sandboxLimits 透传到 SandboxExecutor 实例化选项
+        it('passes repository.sandboxLimits to SandboxExecutor (透传)', async () => {
+            // 仓库级 sandboxLimits 透传到 SandboxExecutor 实例化选项
             // 限额优先级：仓库级 > 沙箱级 > 平台默认（sandbox-executor.ts:107）
             const repoId = await createRepo({
                 executorKind: 'sandbox',
@@ -512,7 +512,7 @@ describe('scan-orchestrator.service', () => {
         })
 
         it('passes undefined sandboxLimits when repository has none (走平台 SANDBOX_DEFAULTS)', async () => {
-            // M11 T1005-B：仓库级 sandboxLimits 缺省 → parseSandboxLimits 返回 undefined
+            // 仓库级 sandboxLimits 缺省 → parseSandboxLimits 返回 undefined
             // SandboxExecutor 收到 undefined → 走 sandbox-executor.ts:61 `?? {}` → 内部 spec 不带限额
             // runtime-adapter.ts:180 走 `?? SANDBOX_DEFAULTS.memoryMb` 平台默认
             const repoId = await createRepo({

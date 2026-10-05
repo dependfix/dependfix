@@ -35,7 +35,7 @@ describe('repository schemas', () => {
         expect(repositoryUpdateSchema.safeParse({ actionWorkflowFile: 'ci.yml' }).success).toBe(true)
     })
 
-    describe('sandboxLimits（M11 T1005-B 沙箱资源限额覆盖）', () => {
+    describe('sandboxLimits（沙箱资源限额覆盖）', () => {
         it('创建：sandboxLimits 缺省 → 默认 undefined（走平台 SANDBOX_DEFAULTS）', () => {
             const ok = repositorySchema.safeParse({ owner: 'a', name: 'b' })
             expect(ok.success).toBe(true)
@@ -128,7 +128,7 @@ describe('repository schemas', () => {
         })
     })
 
-    describe('parseSandboxLimits（实体辅助函数，M11 T1005-B）', () => {
+    describe('parseSandboxLimits（实体辅助函数）', () => {
         it('null / undefined / 空串 → undefined（走平台 SANDBOX_DEFAULTS）', () => {
             expect(parseSandboxLimits(null)).toBeUndefined()
             expect(parseSandboxLimits(undefined)).toBeUndefined()

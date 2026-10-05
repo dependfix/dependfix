@@ -75,7 +75,7 @@ describe('renderTemplate', () => {
             expect(result.html).toContain('&quot;')
         })
 
-        describe('URL scheme 白名单（W1 防御纵深）', () => {
+        describe('URL scheme 白名单（防御纵深）', () => {
             it('javascript: scheme → 抛错 MAIL_TEMPLATE_INVALID（fail-closed）', () => {
                 expect(() => renderTemplate('en-US', 'verification', {
                     email: 'user@example.com',
@@ -116,7 +116,7 @@ describe('renderTemplate', () => {
             })
         })
 
-        it('html lang 属性跟随 locale（W3 i18n 可访问性）', () => {
+        it('html lang 属性跟随 locale（i18n 可访问性）', () => {
             const en = renderTemplate('en-US', 'verification', {
                 email: 'user@example.com',
                 url: 'https://example.com',

@@ -47,7 +47,7 @@ export class ActionStatusMonitor {
     /**
      * 单轮 polling：拉取 target 仓库的所有目标 PR check 状态 → 落库。
      *
-     * @param options.organizationId 组织 id（per-org scope，关键决策 D6）
+     * @param options.organizationId 组织 id（per-org scope）
      * @param options.repositoryIds 限定仓库 id 列表（undefined = 当前组织全部仓库；Phase 2 scheduler 触发时会传入 schedule 解析后的 id 列表）
      * @returns 处理汇总（processed = 落库快照数；errors = 失败快照数）
      */
@@ -85,7 +85,7 @@ export class ActionStatusMonitor {
     }
 
     /**
-     * 加载目标仓库列表（关键决策 D6 per-org scope）：
+     * 加载目标仓库列表（per-org scope）：
      * - 显式传 repositoryIds 时 → 仅监测该列表（schedule explicit 策略解析结果）
      * - 未传时 → 加载当前组织全部仓库（schedule all / organization 策略解析结果）
      */

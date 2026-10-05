@@ -1,5 +1,5 @@
 /**
- * ContainerExecutor 补单测（M27.4 W4 / 2026-09-10）
+ * ContainerExecutor 补单测（2026-09-10）
  *
  * 现有 container-executor.test.ts 仅覆盖基础场景（isAvailable + report-only + 超时）
  * + sanitizeErrorMessage + parsePositiveInt + extractGitErrorMessage + clone config 环境变量。

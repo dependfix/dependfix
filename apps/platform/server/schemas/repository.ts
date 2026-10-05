@@ -31,7 +31,7 @@ export const repositoryBase = z.object({
      * 沙箱资源限额覆盖（可选；缺省走平台 SANDBOX_DEFAULTS：2048MB / 1.0 CPU）。
      * 字段范围：memoryMb [64, 32768] 整数 MB / cpu [0.1, 16]。
      * 限额优先级（sandbox-executor.ts:107 注释）：仓库级 sandboxLimits > 沙箱级 > SANDBOX_DEFAULTS。
-     * UI 不暴露该字段（M11 T1005-B 决策），仅 API 层透传；演进路径：未来可加折叠面板批量配置。
+     * UI 不暴露该字段，仅 API 层透传；演进路径：未来可加折叠面板批量配置。
      */
     sandboxLimits: z.object({
         memoryMb: z.number().int().min(64, 'memoryMb 至少 64MB').max(32768, 'memoryMb 至多 32768MB (32GB)').optional(),

@@ -9,7 +9,7 @@ vi.mock('nodemailer', () => ({
 }))
 
 // mock templates.renderTemplate：测试需让 renderTemplate 抛非 Error 触发 String(error) fallback
-// （审计回执标记 [B2]，详见本测试套件同名 it 用例的注释）
+// （审计回执补强项，详见本测试套件同名 it 用例的注释）
 // sync vi.hoisted 提供共享 mock 引用（vi.mock factory 不允许 capture top-level variables，
 // 但 vi.hoisted 返回值在 factory 执行前已就绪，factory 通过闭包延迟引用）
 const templatesMockRef = vi.hoisted(() => ({

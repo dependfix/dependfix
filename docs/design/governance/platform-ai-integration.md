@@ -2,7 +2,7 @@
 
 > 本文档为 **apps/platform 管理平台集成 AI breaking change 研判能力**的专项设计先行稿。引擎层（`packages/engine/src/ai/`）的 AI 研判能力已在 T502 / M5 闭环（commit 3475e6e），CLI / MCP / GitHub Action 三条用户路径全部支持；本设计聚焦于 **apps/platform（Nuxt 管理平台）作为执行入口时，AI 研判的端到端联通**。
 >
-> **状态**：设计先行稿，未进入阶段实施面（挂载到 [backlog.md 短期/一次性候选任务](../../plan/backlog.md)）。
+> **状态**：✅ 已闭环（2026-09-10）。原挂载于 [backlog.md 短期/一次性候选任务](../../plan/backlog.md) 候选，M26 阶段进入实施并闭环（见 [todo-archive.md §M26](../../plan/todo-archive.md#m26-平台-ai-研判应用层--批量导入-resource-owner-化--文档站-i18n--license-收口--经验沉淀m261m262m263m264am264bm264cm265-全部已闭环--2026-09-10-归档) + [archive/todo-archive-phases-m26.md §M26.1](../../plan/archive/todo-archive-phases-m26.md#m261-p1--能力--ux-m252b-应用层10-commits--1130-行--standard-depth-audit)）。
 
 ## 1. 背景与目标
 
@@ -348,8 +348,8 @@ aiTrigger!: 'failure' | 'major' | 'both'
 
 ### 7.2 仓库 AI 配置（仓库详情页）
 
-- AI 研判开关（ToggleSwitch）
-- Trigger 选择（Select）：failure / major / both
+- AI 研判开关（Switch）
+- Trigger 选择：failure / major / both
 - 当 Organization 未配 Key 时显示警告："Organization 未配置 AI Key，启用前请先配置"
 
 ### 7.3 扫描对话框（repos.vue）
@@ -363,7 +363,7 @@ aiTrigger!: 'failure' | 'major' | 'both'
 
 - 在 run meta 区加 "AI 用量" section：
   - calls / inputTokens / outputTokens / totalTokens / estimatedCostUsd
-  - 表格展示（PrimeVue DataTable）
+  - 表格展示（caomei DataTable）
 - 当未启用 AI 时该 section 隐藏
 
 ### 7.5 alerts 视图
@@ -466,5 +466,5 @@ aiTrigger!: 'failure' | 'major' | 'both'
 
 - **设计先行稿创建时间**：2026-09-08
 - **触发**：用户调研"如何在 apps/platform 中补充 AI 研判"
-- **关联阶段**：未上收（仅挂 backlog）；候选阶段待用户决策（与 M7.2 平台能力深化衔接）
+- **关联阶段**：M25.2a 基础层 + M26.1 应用层 已实施并归档（见 [todo-archive.md §M26](../../plan/todo-archive.md#m26-平台-ai-研判应用层--批量导入-resource-owner-化--文档站-i18n--license-收口--经验沉淀m261m262m263m264am264bm264cm265-全部已闭环--2026-09-10-归档)）
 - **审计依据**：本文档作为 P0 落地的设计依据，未走 A 阶段 audit（与 design docs 治理惯例一致）

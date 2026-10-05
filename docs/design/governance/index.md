@@ -20,8 +20,8 @@
 | [MCP Server 设计](./mcp-server.md) | 未来规划（M6） | 🔶 未开始 |
 | [平台认证与用户体系设计](./platform-auth-users.md) | 专项设计（M7.1 T701/T707 设计先行） | ✅ 已落地（2026-08-09，Review Gate Pass） |
 | [定时扫描与批量处理设计](./platform-scheduled-batch.md) | 专项设计（M7.2 T704 设计先行） | 🔶 设计中（2026-08-10） |
-| [平台 AI 研判集成设计](./platform-ai-integration.md) | 专项设计（apps/platform AI 研判端到端联通） | 🔶 设计先行稿（[backlog](../../plan/backlog.md) 候选，未上收） |
-| [文档站 + 包 README 多语言实施设计](./docs-and-readme-i18n.md) | 专项设计（en-US 接入，参照 momei） | 🔶 设计先行稿（[backlog](../../plan/backlog.md) 候选，未上收） |
+| [平台 AI 研判集成设计](./platform-ai-integration.md) | 专项设计（apps/platform AI 研判端到端联通） | ✅ 已落地（M25.2a 基础层 + M26.1 应用层，见 [todo-archive.md §M26](../../plan/todo-archive.md#m26-平台-ai-研判应用层--批量导入-resource-owner-化--文档站-i18n--license-收口--经验沉淀m261m262m263m264am264bm264cm265-全部已闭环--2026-09-10-归档)） |
+| [文档站 + 包 README 多语言实施设计](./docs-and-readme-i18n.md) | 专项设计（en-US 接入，参照 momei） | ✅ 已实施（M26.3 文档站 + 包 README en-US P0，见 [todo-archive.md §M26](../../plan/todo-archive.md#m26-平台-ai-研判应用层--批量导入-resource-owner-化--文档站-i18n--license-收口--经验沉淀m261m262m263m264am264bm264cm265-全部已闭环--2026-09-10-归档)） |
 | [apps/platform PrimeUI 主题库降级设计](./primeui-themes-v2-downgrade.md) | 专项设计（@primeuix/themes 3.x → 2.x MIT 降级） | ✅ 已实施（M25.1 完成 3.x → 2.x MIT 降级；M31.5 全链卸载 PrimeVue 后本方案载体退役，主题能力见 [caomei-ui 迁移评估](./caomei-ui-migration.md)） |
 | [apps/platform UI 组件库迁移评估（PrimeVue → caomei-ui）](./caomei-ui-migration.md) | 迁移方案（规避 PrimeUI 商业许可 + 下游组件库统一） | ✅ 已实施（M31 迁移闭环 / 2026-09-29 归档，见 [todo-archive.md §M31](../../plan/todo-archive.md#m31-appsplatform-ui-组件库迁移primevue--caomei-ui-m311m316-全部已闭环--2026-09-29-归档)） |
 | [overrides 保护名单](./override-protect-policy.md) | 方案 B / A1 载体（按仓库粒度） | ✅ 已实施（M29.4） |

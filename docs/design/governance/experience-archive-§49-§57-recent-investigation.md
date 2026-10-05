@@ -1292,3 +1292,103 @@ todo.md §M27.1 任务段（L17-48）所有 8 要素（目标 / 范围 / 验收 
 ### 准入标准复核
 
 本案例符合准入标准第 1 条"教训未落入规范"（tsdown dts 冲突 / ESM mock 受限 / 提交态自洽 均已迁移 `docs/standards/`）+ 第 4 条"工具/环境陷阱"（tsdown `hash:false` 产物错位、pnpm 11 `allowBuilds` 严格校验，均为真实运行才暴露）。
+
+## 六十六、M36 归档批次经验沉淀（运行时 / 部署 / 并发写 / 三态判定 / e2e cookie）
+
+> 2026-10-05 M36 归档批次。本阶段为 M36 队列 / 迁移 / 启动引导 / 并发写 / e2e 治理闭环，衍生暴露运行时部署、并发终态写、多源判定与测试时序四类教训。
+
+### 案例一：队列 `auto` 模式缺「消费者维度」形成静默黑洞
+
+- **现象**：Redis 可用即异步的降级矩阵下，job 入队后无人消费 → pending 永远挂起 → stale cleanup 约 30 分钟后判 `orphan_run`，重触发被 BullMQ 去重键合并为 `SCAN_PENDING_MERGED`。
+- **根因**：降级矩阵只判「Redis 可用」，未判「是否存在消费者」。
+- **修法**：`auto` 仅在「Redis 可用且本进程消费队列（`inProcessWorker`）」时异步，否则降级 `sync`；独立 worker 进程未实现时 `inProcessWorker=false` 无合法消费者。
+- **沉淀**：[platform.md §10.4](../../standards/platform.md#104-队列模式自动降级必须含消费者维度)。
+
+### 案例二：镜像自足性优先于部署侧 env + runtime 只含 `.output`
+
+- **现象**：仅改 compose 默认值时，用户沿用旧 compose / 直接 `docker run` 仍 `no such table`（插件已执行但 `migrationsRun=false`）；runtime 阶段额外复制根 `node_modules` + workspace dist 曾使镜像达约 1.1GB。
+- **修法**：关键启动默认值用 Dockerfile runtime `ENV` 固化 + 发布前对真实镜像跑首启冒烟（不注入 env）作为推送门禁 + 空库未开迁移时启动告警；runtime 阶段只 `COPY .output`（Nitro trace 自包含，engine 打包进 `.output/server/chunks`），移除后约 239MB。
+- **沉淀**：[platform.md §10.1 / §10.2](../../standards/platform.md#101-镜像自足性优先于部署侧-env)。
+
+### 案例三：Nitro 插件不阻塞监听 + 迁移专用模式退出语义
+
+- **现象**：`defineNitroPlugin(() => { void asyncInit() })` 不 await，`Listening on …` 早于初始化完成；一次性容器 `.catch` 未按 env 补 `process.exit(1)` 时遇异常挂起而非失败退出。
+- **修法**：启动引导注释说明与首次请求共享 single-flight promise，不写「对外服务前就绪」；`DEPENDFIX_MIGRATIONS_ONLY=true` 的 `.catch` 补 `process.exit(1)`。
+- **沉淀**：[platform.md §10.3](../../standards/platform.md#103-nitro-插件不阻塞监听启动引导语义)。
+
+### 案例四：TypeORM 基线迁移自举（`Table.create` 不含外键）
+
+- **现象**：全新空库无法通过既有增量迁移链建基表，首个 `ALTER TABLE` 报 `no such table`。
+- **根因**：`Table.create(metadata, driver)` 不含外键；SQLite `createForeignKeys` 会重建整表。
+- **修法**：对 `metadata.foreignKeys` 逐个 `TableForeignKey.create` 后 `addForeignKey`，再 `createTable(..., true, true, true)` 内联 FK；按 `referencedEntityMetadata` 拓扑排序；`hasTable` 整表跳过保证幂等。
+- **沉淀**：[platform.md §3.3 基线迁移自举实现口径](../../standards/platform.md#33-datasource-初始化)。
+
+### 案例五：并发终态写用条件 UPDATE（乐观锁 = 读取时状态）
+
+- **现象**：聚合写回 `repo.save(entity)`（整行 UPDATE 含 status）与 admin `force-fail` 并发，把库中 `failed` 回写成 `completed`；对账只扫 `running`，错标永久无法纠正。
+- **修法**：条件更新 `update({ id, status: <读取时状态> }, payload)`，`affected === 0` 跳过；乐观锁取读取时状态而非固定 `'running'`；`update()` 不触发 `@UpdateDateColumn`，payload 显式写 `updatedAt`。
+- **沉淀**：[development.md §5.1.36](../../standards/development.md)。
+
+### 案例六：存在「第三态」时「全部失败」判据不能用「失败数 == 总数」
+
+- **现象**：`ALERTS_DISABLED`（未启用）既非成功也非失败；原判据 `failedSources.length === totalSources`（总数=启用源数）在「1 源未启用 + 其余启用源全失败」时不成立，仓库被当成功以 0 告警写入 `repoResults`。
+- **修法**：判据改为「失败数 > 0 且成功数 === 0」；抛错前 per-source 状态完整写入；成功与失败并存仍 per-source 隔离保留成功数据。
+- **沉淀**：[development.md §5.1.37](../../standards/development.md)；平台侧实例见 [platform.md §6.1](../../standards/platform.md#61-错误码与告警状态口径平台展示消费-engine-错误码)。
+
+### 案例七：e2e 控制服务端 locale 用显式 cookie header
+
+- **现象**：操作浏览器上下文 cookie 决定服务端 locale 时，`@nuxtjs/i18n` `detectBrowserLanguage.useCookie` 在 `goto` 后约 300ms 异步回写，覆盖接受语言 → 全量顺序运行偶发「期望英文返回中文」。
+- **修法**：请求 header 内显式剥离 / 附加目标 cookie；Playwright `APIRequestContext` 显式传 `cookie` header 时不再合并上下文 cookie jar。
+- **沉淀**：[testing.md §6.4](../../standards/testing.md#64-e2e-网络抗性--未认证-api-调用标准模式)。
+
+### 案例八：多 commit 隔离用 complement-stash（补集非空判断）
+
+- **现象**：lint-staged 无 pathspec `git add` 会连带暂存其它已改文件；用补集 stash 隔离时若目标是当前全部改动（补集为空），`git stash push -m x --`（无路径）会暂存全部，随后 `git add` 落空、commit 报 `nothing to commit`。
+- **修法**：stash 前判断补集数组非空，为空时直接 `git add` 目标并提交；补集经 `git status --porcelain` + `comm -23` 求出。
+- **沉淀**：[git.md §3.7.1](../../standards/git.md)（与既有 lint-staged 暂存副作用条款合并为两点配套）。
+
+### 案例九：跨阶段 commit 归属须回读归档实证
+
+- **现象**：规划批次凭同域描述把 C89 / M32.3 的 `00a11ff` 误标为 C78 / M29，A 阶段审计 RG-W2 命中后订正。
+- **修法**：标注历史 commit 的「C 编号 / M 阶段」前，`git show --stat <hash>` + 归档分片核实归属。
+- **沉淀**：[planning.md §3.4 第 4 项](../../standards/planning.md#34-阶段启动决策前置交叉核验硬要求m271-重复评估教训--2026-09-10)。
+
+### 案例十：编号检测正则必须同时覆盖裸写法与带连字符写法
+
+- **现象**：检测正则只写 `S-\d+` 漏裸 `W\d` / `S\d`，全仓复扫报「0 命中」成为假阴性；补 `W\d{1,2}` / `S-?\d{1,2}` 后真正归零，且发现 6 文件 21 处漏网。
+- **修法**：正则用可选连字符形式覆盖两形态；脚本头部显式声明未覆盖形态；存量清理批次须审查检测口径本身。
+- **沉淀**：[development.md §3](../../standards/development.md)。
+
+### 案例十一：文档状态口径清理必须三向扫描
+
+- **现象**：改了文档状态横幅却漏同文档 §关联阶段字段，被 A 阶段判 blocker；zh 侧未同步 en 已更新的横幅；绝对 GitHub URL 锚点拼写错误（`m264m264b` 缺 `a` 且重复）不受 `check:docs` 校验。
+- **修法**：① 扫同文档全部状态字段；② zh/en 镜像成对核对；③ 索引行状态 + 行数 / 链接级 parity；绝对 URL 锚点人工核对。
+- **沉淀**：[documentation.md §6](../../standards/documentation.md)。
+
+### 与既有教训的关联
+
+- 案例一 / 案例二 / 案例三同属「部署形态与运行时契约，只有真实容器 / 旧编排才暴露」类环境陷阱，与 [§三十一 BullMQ 集成三坑](./experience-archive-§29-§35-integration.md) 一脉相承（队列基础设施的静默降级）。
+- 案例五 / 案例六同属「并发与判定逻辑，单测难以覆盖终态」类核心逻辑陷阱，与 [development.md §5.1.24 多 key 预聚合](./experience-archive-§49-§57-recent-investigation.md) 的 last-write-wins 主题相邻。
+- 案例七与 [testing.md §6.4 未认证 API 调用标准模式](../../standards/testing.md#64-e2e-网络抗性--未认证-api-调用标准模式) 同属「Playwright 上下文 cookie / fixture 隐式传播」类测试时序陷阱。
+- 案例九与 [§六十四 M27.1 重复评估教训](#六十四m271c66告警视图增强重复评估教训阶段启动决策时未对照已闭环清单导致规划无效工作20260910commit决策d2错误) 同属「阶段启动前未对照归档 / 历史实证」类规划失误。
+
+### 挂接治理检查点
+
+| 教训 | 规范条款 | Review 检查点挂接状态 |
+|:--|:--|:--|
+| 队列消费者维度 | [platform.md §10.4](../../standards/platform.md) | ✅ 已挂 code-quality-checklist「规范条款 review 检查点矩阵」 |
+| 镜像自足性 + 首启冒烟 | [platform.md §10.1](../../standards/platform.md) | ✅ 同上 |
+| runtime 只含 `.output` | [platform.md §10.2](../../standards/platform.md) | ✅ 同上 |
+| Nitro 启动引导 / 迁移专用退出 | [platform.md §10.3](../../standards/platform.md) | ✅ 同上（合并入运行时行） |
+| TypeORM 基线迁移自举 | [platform.md §3.3](../../standards/platform.md) | ✅ 合并入既有 platform.md §3.3 矩阵行 |
+| 并发终态写条件 UPDATE | [development.md §5.1.36](../../standards/development.md) | ✅ 已挂矩阵 |
+| 三态「全部失败」判据 | [development.md §5.1.37](../../standards/development.md) | ✅ 已挂矩阵 |
+| e2e locale 显式 cookie header | [testing.md §6.4](../../standards/testing.md) | ✅ 已挂矩阵 |
+| complement-stash 补集非空 | [git.md §3.7.1](../../standards/git.md) | ✅ 已挂矩阵 |
+| 跨阶段 commit 归属回读 | [planning.md §3.4](../../standards/planning.md) | ✅ 已挂矩阵 |
+| 编号检测正则形态覆盖 | [development.md §3](../../standards/development.md) | ✅ 合并入既有 development.md §3 矩阵行 |
+| 文档状态三向扫描 | [documentation.md §6](../../standards/documentation.md) | ✅ 合并入既有 documentation.md §6 矩阵行 |
+
+### 准入标准复核
+
+本案例符合准入标准第 1 条"教训未落入规范"（案例四至十一的可执行方法论均已迁移 `docs/standards/`）+ 第 3 条"重复违规预警"（编号检测形态漏网、文档状态同源字段漏改均为同类复发模式，用于证明必须挂检查点）+ 第 4 条"工具/环境陷阱"（案例一至三、案例七均为真实容器 / 运行时才暴露）。

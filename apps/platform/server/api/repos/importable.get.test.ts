@@ -84,13 +84,13 @@ describe('GET /api/repos/importable', () => {
 
     beforeAll(async () => {
         setupMemoryDatabase()
-        // 注：M18.x 治理批次 S-5 — 删除 `process.env.ENCRYPTION_KEY` 死代码；
+        // 注：删除 `process.env.ENCRYPTION_KEY` 死代码；
         // stub 默认值由 `apps/platform/tests/setup-nuxt-server.ts:26` 全局 useRuntimeConfig 提供
         const created = await credentialsIndexHandler(makeEvent('POST', '/api/credentials', {
             name: 'github-pat',
             type: 'classic-pat',
             token: 'ghp_importable-test-token',
-            // M26.2 C67：credential.ownerLogin 用于 Fine-grained PAT 兜底 + 单端点契约 owner 过滤
+            // credential.ownerLogin 用于 Fine-grained PAT 兜底 + 单端点契约 owner 过滤
             ownerLogin: 'demo',
         })) as { id: string }
         credentialId = created.id
@@ -98,7 +98,7 @@ describe('GET /api/repos/importable', () => {
 
     afterAll(() => {
         teardownMemoryDatabase()
-        // 注：M18.x 治理批次 S-5 — 删除 `delete process.env.ENCRYPTION_KEY` 死代码
+        // 注：删除 `delete process.env.ENCRYPTION_KEY` 死代码
     })
 
     beforeEach(() => {
@@ -106,7 +106,7 @@ describe('GET /api/repos/importable', () => {
         vi.clearAllMocks()
         listForAuthenticatedUser.mockReset()
         listForAuthenticatedUser.mockResolvedValue(sampleRepos())
-        // M26.2 C67：默认 discoverOwners 行为：personal = 'demo' + 空 orgs
+        // 默认 discoverOwners 行为：personal = 'demo' + 空 orgs
         getAuthenticated.mockReset()
         getAuthenticated.mockResolvedValue({ data: { login: 'demo', avatar_url: 'https://example.com/avatar' } })
         listForAuthenticatedOrgs.mockReset()
@@ -255,8 +255,8 @@ describe('GET /api/repos/importable', () => {
         expect(err.data?.code).toBe('GITHUB_API_FETCH_FAILED')
     })
 
-    // M26.2 C67：include=owners 路径
-    describe('include=owners（M26.2 C67 Resource owner 化）', () => {
+    // include=owners 路径
+    describe('include=owners（Resource owner 化）', () => {
         it('返回 personal owner + 空 orgs（Classic PAT 默认路径）', async () => {
             listForAuthenticatedOrgs.mockResolvedValue({ data: [] })
             const result = await call(`/api/repos/importable?credentialId=${credentialId}&include=owners`) as { owners: { login: string, type: string }[] }
@@ -308,8 +308,8 @@ describe('GET /api/repos/importable', () => {
         })
     })
 
-    // M26.2 C67：owner 过滤路径
-    describe('?owner=X 过滤（M26.2 C67 单端点契约）', () => {
+    // owner 过滤路径
+    describe('?owner=X 过滤（单端点契约）', () => {
         it('返回 ?owner=demo 的过滤结果', async () => {
             const result = await call(`/api/repos/importable?credentialId=${credentialId}&owner=demo`) as ImportableResponse
             expect(result.repos).toHaveLength(2)

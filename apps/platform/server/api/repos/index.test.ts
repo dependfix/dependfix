@@ -105,8 +105,8 @@ describe('GET /api/repos', () => {
         expect(item?.tags).toEqual(['prod', 'core'])
     })
 
-    it('persists sandboxLimits object as JSON column and reads back (M11 T1005-B)', async () => {
-        // M11 T1005-B：POST 路径序列化 sandboxLimits → toView 反序列化读取
+    it('persists sandboxLimits object as JSON column and reads back', async () => {
+        // POST 路径序列化 sandboxLimits → toView 反序列化读取
         await call('POST', '/api/repos', {
             owner: 'sb-limits',
             name: 'repo',

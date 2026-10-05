@@ -79,8 +79,8 @@ describe('GET /api/repos/[id]', () => {
         await expectError(callId('PUT', `/api/repos/${id}`, { executorKind: 'nope' }, { id }), 400)
     })
 
-    it('persists sandboxLimits JSON via PUT (M11 T1005-B)', async () => {
-        // M11 T1005-B：仓库级 sandboxLimits 序列化 + 更新语义（undefined=不修改 / null 或 object=更新）
+    it('persists sandboxLimits JSON via PUT', async () => {
+        // 仓库级 sandboxLimits 序列化 + 更新语义（undefined=不修改 / null 或 object=更新）
         const result = await callId('PUT', `/api/repos/${id}`, { sandboxLimits: { memoryMb: 4096, cpu: 2.0 } }, { id }) as { updated: boolean }
         expect(result).toEqual({ id, updated: true })
 

@@ -81,7 +81,7 @@ const seedResults = async (runId: string, count: number, fixable: boolean) => {
     const items = Array.from({ length: count }, (_, i) => repo.create({
         scanRunId: runId,
         repositoryId: run.repositoryId,
-        // M20.3 unique index (repositoryId, upstreamId) 强制不同 upstreamId：
+        // unique index (repositoryId, upstreamId) 强制不同 upstreamId：
         // 用 pkg-${i} + runId 后缀保证唯一（同 run 下不同 upstreamId）
         upstreamId: `dependabot:${runId.slice(-4)}-${i}`,
         source: 'dependabot',

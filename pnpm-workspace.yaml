@@ -38,3 +38,14 @@ overrides:
   vitest: ^4.1.11
   undici: ^8.10.2
   devalue: ^5.9.3
+
+# 依赖审计豁免：advisory 声明的 patched 版本尚未发布，overrides / pnpm update 无法修复。
+# 机制与复核条件见 docs/standards/security.md §5.7；修复版本发布后必须移除对应条目。
+audit:
+  ignore:
+    # node-forge <= 1.4.0（RSA PKCS#1 v1.5 签名校验）；
+    # 路径 apps/platform > nuxt > @nuxt/cli / nitropack > listhen
+    - GHSA-86w9-cpqp-85rv
+    # braces <= 3.0.3（嵌套模式栈耗尽 DoS）；
+    # 路径 apps/platform > nuxt / @nuxtjs/i18n > … > fast-glob > micromatch
+    - GHSA-vfj7-8cjw-p6xm

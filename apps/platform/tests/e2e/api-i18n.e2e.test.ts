@@ -1,5 +1,4 @@
 import { type Page, expect, test } from '@playwright/test'
-import { authedCookieHeader } from './helpers/auth-cookie.helper'
 
 /**
  * 服务端 API 错误响应 i18n 闭环 e2e（todo.md §M16.3 C36）：
@@ -19,30 +18,32 @@ import { authedCookieHeader } from './helpers/auth-cookie.helper'
  * 注意点：
  * - e2e webServer 跑 HTTP，但 better-auth session cookie 是 __Secure- + secure=true，
  *   浏览器在 HTTP 下不自动发送 → 用 page.context().cookies() 取全部 cookie 后手工拼接 Cookie header
- * - admin storageState 默认带 i18n_locale=zh-CN cookie，会覆盖 Accept-Language；
- *   每个测试用 clearI18nCookie / setI18nCookie 显式控制 locale 来源
+ * - locale 来源由**本文件显式构造的请求 Cookie header** 决定，不依赖可变的上文 cookie：
+ *   @nuxtjs/i18n `detectBrowserLanguage.useCookie` 会在页面加载后**异步改写** `i18n_locale`
+ *   （实测 goto 后约 300ms 内回写默认 zh-CN），与测试设置的 locale 竞争 → 全量顺序运行偶发
+ *   「期望英文返回中文」。故 requestCookieHeader 统一剥离 `i18n_locale`（需要时再显式附加），
+ *   使 locale 断言与上下文 cookie 时序解耦。
  */
 
 test.use({ storageState: 'tests/e2e/.auth/admin.json' })
 
-/** 移除 admin storageState 默认带上的 i18n_locale cookie，让 Accept-Language 起作用 */
-async function clearI18nCookie(page: Page): Promise<void> {
-    await page.context().clearCookies({ name: 'i18n_locale' })
-}
-
-/** 显式覆盖 i18n_locale cookie（验证 cookie 优先级时用） */
-async function setI18nCookie(page: Page, value: 'en' | 'zh-CN'): Promise<void> {
-    await page.context().addCookies([{
-        name: 'i18n_locale',
-        value,
-        domain: '127.0.0.1',
-        path: '/',
-    }])
+/**
+ * 构造请求 Cookie header：剥离上下文中的 `i18n_locale`（客户端 i18n 会异步改写它），
+ * 按需附加显式值。返回的 header 只含认证 cookie（+ 可选显式 locale），与上下文 cookie 时序解耦。
+ */
+async function requestCookieHeader(page: Page, locale?: 'en' | 'zh-CN'): Promise<string> {
+    const cookies = (await page.context().cookies())
+        .filter((cookie) => cookie.name !== 'i18n_locale')
+        .map((cookie) => `${cookie.name}=${cookie.value}`)
+    if (locale) {
+        cookies.push(`i18n_locale=${locale}`)
+    }
+    return cookies.join('; ')
 }
 
 /** 触发 /api/repos POST 409 重复（先创建一次，再用同一 payload 创建第二次） */
 async function createRepoOnce(page: Page, owner: string): Promise<void> {
-    const cookieHeader = await authedCookieHeader(page)
+    const cookieHeader = await requestCookieHeader(page)
     const response = await page.request.post('/api/repos', {
         headers: { cookie: cookieHeader },
         data: {
@@ -60,11 +61,10 @@ async function createRepoOnce(page: Page, owner: string): Promise<void> {
 test.describe('服务端 API 错误响应 i18n', () => {
     test('POST /api/repos 重复仓库：Accept-Language: zh-CN → 中文 message + data.code: REPO_DUPLICATE', async ({ page }) => {
         await page.goto('/dashboard')
-        await clearI18nCookie(page) // 让 Accept-Language 起作用（清掉 storageState 默认 cookie）
         const owner = `dup-zh-${Date.now()}`
         await createRepoOnce(page, owner)
 
-        const cookieHeader = await authedCookieHeader(page)
+        const cookieHeader = await requestCookieHeader(page)
         const response = await page.request.post('/api/repos', {
             headers: {
                 cookie: cookieHeader,
@@ -87,11 +87,10 @@ test.describe('服务端 API 错误响应 i18n', () => {
 
     test('POST /api/repos 重复仓库：Accept-Language: en-US → 英文 message + data.code 不变', async ({ page }) => {
         await page.goto('/dashboard')
-        await clearI18nCookie(page)
         const owner = `dup-en-${Date.now()}`
         await createRepoOnce(page, owner)
 
-        const cookieHeader = await authedCookieHeader(page)
+        const cookieHeader = await requestCookieHeader(page)
         const response = await page.request.post('/api/repos', {
             headers: {
                 cookie: cookieHeader,
@@ -115,11 +114,10 @@ test.describe('服务端 API 错误响应 i18n', () => {
 
     test('POST /api/repos 重复仓库：i18n_locale cookie=en 优先于 Accept-Language: zh-CN', async ({ page }) => {
         await page.goto('/dashboard')
-        await setI18nCookie(page, 'en')
         const owner = `dup-cookie-${Date.now()}`
         await createRepoOnce(page, owner)
 
-        const cookieHeader = await authedCookieHeader(page)
+        const cookieHeader = await requestCookieHeader(page, 'en')
         const response = await page.request.post('/api/repos', {
             headers: {
                 cookie: cookieHeader,
@@ -143,11 +141,10 @@ test.describe('服务端 API 错误响应 i18n', () => {
 
     test('POST /api/repos 重复仓库：未知 locale (ja-JP) → 默认 zh-CN', async ({ page }) => {
         await page.goto('/dashboard')
-        await clearI18nCookie(page)
         const owner = `dup-ja-${Date.now()}`
         await createRepoOnce(page, owner)
 
-        const cookieHeader = await authedCookieHeader(page)
+        const cookieHeader = await requestCookieHeader(page)
         const response = await page.request.post('/api/repos', {
             headers: {
                 cookie: cookieHeader,
@@ -171,9 +168,8 @@ test.describe('服务端 API 错误响应 i18n', () => {
 
     test('GET /api/runs/[id]：不存在 → 404 + SCAN_RUN_NOT_FOUND 双语对称', async ({ page }) => {
         await page.goto('/dashboard')
-        await clearI18nCookie(page)
         const nonexistentId = '00000000-0000-0000-0000-000000000000'
-        const cookieHeader = await authedCookieHeader(page)
+        const cookieHeader = await requestCookieHeader(page)
 
         // zh-CN
         const zhRes = await page.request.get(`/api/runs/${nonexistentId}`, {
@@ -196,8 +192,7 @@ test.describe('服务端 API 错误响应 i18n', () => {
 
     test('PUT /api/repos：405 Method Not Allowed + METHOD_NOT_ALLOWED 双语', async ({ page }) => {
         await page.goto('/dashboard')
-        await clearI18nCookie(page)
-        const cookieHeader = await authedCookieHeader(page)
+        const cookieHeader = await requestCookieHeader(page)
         const response = await page.request.put('/api/repos', {
             headers: { cookie: cookieHeader, 'accept-language': 'en-US' },
             data: {},
@@ -210,8 +205,7 @@ test.describe('服务端 API 错误响应 i18n', () => {
 
     test('POST /api/repos：Zod 验证失败 → 静态 "Request validation failed" + data.code + data.issues 透传', async ({ page }) => {
         await page.goto('/dashboard')
-        await clearI18nCookie(page)
-        const cookieHeader = await authedCookieHeader(page)
+        const cookieHeader = await requestCookieHeader(page)
         const response = await page.request.post('/api/repos', {
             headers: { cookie: cookieHeader, 'accept-language': 'en-US' },
             // 故意缺少必填字段 owner/name 等

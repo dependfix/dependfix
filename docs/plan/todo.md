@@ -8,7 +8,8 @@
 
 | 内容类型 | 位置 |
 |:--|:--|
-| 当前阶段任务 | **M37 进行中**——运行可观测性与体验记忆（2026-10-06 用户决策方案 B / 5 原子条目） |
+| 当前阶段任务 | **M37 进行中**——运行可观测性与体验记忆（2026-10-06 用户决策方案 B / 6 原子条目，含补充授权追加 M37.6） |
+| 下一阶段（已授权，设计先行，未进入本文件） | **M38 平台执行模型隔离**——2026-10-06 用户授权开阶段，首个交付为方案选型设计先行稿；见 [roadmap.md §M38](roadmap.md) |
 | 已完成阶段归档 | [todo-archive.md](todo-archive.md)（主窗口 + [archive/](archive/) 分片；M0-M36 全部已归档） |
 | 未排期 / 延期 / 远期 / 长期主线 / 已知边界 | [backlog.md](backlog.md) |
 | 里程碑与阶段交付 | [roadmap.md](roadmap.md)（M0-M36 已归档） |
@@ -16,13 +17,13 @@
 
 ---
 
-## M37: 运行可观测性与体验记忆（2026-10-06 用户决策方案 B / M37.1~M37.5）
+## M37: 运行可观测性与体验记忆（2026-10-06 用户决策方案 B / M37.1~M37.6）
 
-> **阶段定位**：承接 M36 完整闭环归档后的 backlog 候选池，2026-10-06 用户明确决策**方案 B（可观测性能力优先）**——从 backlog §候选评估中上收 6 项候选（另 1 项 M36.1 CI 门禁自 archive §4 保留清单上收），收敛为 5 原子条目，以「运行失败分类与筛选」（[设计先行稿](../design/governance/run-failure-taxonomy.md)）为主线，配套 UX 偏好记忆 + 治理债残余清仓 + 文档口径 + CI 防护。
-> **类型平衡**：🚀 1 + 🎨 1 + 🛡️ 1 + 📚 1 + 🛠️ 1 = 5 原子，符合 [规划规范 §1.1 类型平衡原则](../standards/planning.md#11-硬性约束)（UX 独立条目 1 项，低于建议值 2，显式标注缺口；M37.1 含 UI 筛选与阶段展示，实际承载 UX）。
-> **§3.4 三重交叉核验**（2026-10-06 启动批次实测，0 项重复评估）：① todo-archive 扫描——5 候选均仅以「M36 衍生候选 / 未完成项」形式登记，无闭环标注；② git log——`1b981ee`（运行失败分类设计稿）/ `52d38dc`（扫描偏好候选登记）均为登记 commit，无实现 commit；③ 代码 anchor——`failureStage`/`failureKind` 0 命中、`repos.vue:205-206` + `use-repo-batch-scan.ts:30-31` 硬编码仍在、`batch-executor.ts:105-108` 无条件 `save` 仍在、`tech-stack.md:36` + `platform.md:16` 仍标 `0.3.0`、`check:orphan-ids` 未接入任何 CI workflow。
-> **用户决策点**：① 扫描偏好载体采用**方案 C 混合**（localStorage 上次选择 + 可选配置化默认，含设置入口 / 重置，无服务端实体）；② M37.1 本阶段**仅分类 + 筛选 + 展示**，受约束重试入口延后（登记 backlog）。
-> **不做什么（阶段级）**：不改引擎修复 / 验证逻辑；不引入新执行后端；不改鉴权 / 组织隔离；不做服务端跨设备偏好；不实现重试入口。
+> **阶段定位**：承接 M36 完整闭环归档后的 backlog 候选池，2026-10-06 用户明确决策**方案 B（可观测性能力优先）**——从 backlog §候选评估中上收 6 项候选（另 1 项 M36.1 CI 门禁自 archive §4 保留清单上收），收敛为 5 原子条目，以「运行失败分类与筛选」（[设计先行稿](../design/governance/run-failure-taxonomy.md)）为主线，配套 UX 偏好记忆 + 治理债残余清仓 + 文档口径 + CI 防护；**同日补充授权追加第 6 项 M37.6**（P1，按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 可用性插队例外——生产交付 blocker），来源为 2026-10-05 / 10-06 生产日志根因分析。
+> **类型平衡**：🚀 1 + 🎨 1 + 🛡️ 2 + 📚 1 + 🛠️ 1 = 6 原子，符合 [规划规范 §1.1 类型平衡原则](../standards/planning.md#11-硬性约束)（UX 独立条目 1 项，低于建议值 2，显式标注缺口；M37.1 含 UI 筛选与阶段展示，实际承载 UX）。
+> **§3.4 三重交叉核验**（2026-10-06 启动批次实测，0 项重复评估）：① todo-archive 扫描——5 候选均仅以「M36 衍生候选 / 未完成项」形式登记，无闭环标注；② git log——`1b981ee`（运行失败分类设计稿）/ `52d38dc`（扫描偏好候选登记）均为登记 commit，无实现 commit；③ 代码 anchor——`failureStage`/`failureKind` 0 命中、`repos.vue:205-206` + `use-repo-batch-scan.ts:30-31` 硬编码仍在、`batch-executor.ts:105-108` 无条件 `save` 仍在、`tech-stack.md:36` + `platform.md:16` 仍标 `0.3.0`、`check:orphan-ids` 未接入任何 CI workflow。**M37.6 追加批次三重核验**（同日）：① archive 仅含 dependfix 自身仓库 husky identity guard（`f482708`），无目标仓库 hooks 隔离；② git log 仅签名隔离 `fd2280b` / `f6150b0`，无 hooks 隔离 commit；③ `rg -n "core\.hooksPath|--no-verify" packages/engine/src` 0 命中。
+> **用户决策点**：① 扫描偏好载体采用**方案 C 混合**（localStorage 上次选择 + 可选配置化默认，含设置入口 / 重置，无服务端实体）；② M37.1 本阶段**仅分类 + 筛选 + 展示**，受约束重试入口延后（登记 backlog）；③ 2026-10-06 授权追加 M37.6（目标仓库 git hooks 隔离），同批次授权 backlog 候选 B（队列执行隔离）开独立阶段先行设计稿（见 roadmap §M38）。
+> **不做什么（阶段级）**：不改引擎修复 / 验证逻辑；不引入新执行后端；不改鉴权 / 组织隔离；不做服务端跨设备偏好；不实现重试入口。M37.6 仅隔离目标仓库 git hooks（交付阶段），不改修复 / 验证语义与 push / PR 链路。
 
 - **M37.1**（P2，🚀 能力扩展）运行失败分类与筛选 + 落库回填（3 子任务 a/b/c）
   - **目标**：`/scans` 运行列表能按失败阶段筛选、失败态显示「失败 · {阶段}」，并建立 `failureStage` / `failureKind` 分类的单一事实源（历史运行可回填），使用户一眼区分「网络可重试」与「验证需研判」失败。
@@ -97,12 +98,25 @@
   - **依赖**：M36.1 检测脚本（`43ce253` + `9bfcf2c`，22 用例；627 文件 0 命中基线）；M33.2 视觉回归 CI 转阻断的接线模式。
   - **交付物**：1 commit；文件 2（workflow + 可能的文档说明）。
   - **风险与缓解措施**：新增阻断步骤可能因存量豁免误报拉红 CI → 接线前本地全量跑通（0 命中）+ 负例标定退出码语义。
+- **M37.6**（P1，🛡️ 交付可靠性）目标仓库 git hooks 隔离（自动 commit 不再被 husky 阻断）
+  - **目标**：dependfix 在被修复仓库执行自动 commit 时不再触发目标仓库的 husky / lint-staged 钩子，消除 `npx: not found (code 127)` → `COMMIT_FAILED` → 改动回滚的交付失败链。
+  - **优先级**：P1（2026-10-06 用户授权按 [§3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 可用性插队例外追加）
+  - **范围**：`packages/engine/src/github/pr-creator.ts:216-228`（`stageAndCommit` 注入 hooks 隔离参数）+ `packages/engine/src/github/git-signing.ts`（新增 hooks 隔离参数常量，对齐 `GIT_COMMIT_SIGNING_ISOLATION_ARGS` 单一事实源范式）+ `packages/engine/src/github/pr-creator.test.ts`（回归用例）。
+  - **验收标准**：
+    - [ ] `stageAndCommit` 对目标仓库 hook 完全隔离（`core.hooksPath` 指向空目录或等效方案；实现时验证 Linux / Windows 双平台语义）
+    - [ ] 新增回归用例：临时仓库植入调用 `npx` 的 `.husky/pre-commit` 且 PATH 无 npx → commit 成功
+    - [ ] 签名隔离不回归（`git-signing.test.ts` 既有用例全过）
+    - [ ] `pnpm --filter @dependfix/engine test` 全过 + `pnpm lint` + `pnpm typecheck` 0 error
+  - **不做什么**：不注入 PATH / 不安装目标仓库依赖；不改 push / PR 交付链；不执行目标仓库 hook（语义为「自动提交不受目标仓库本地开发钩子约束」）；不改 host 全局 git 配置。
+  - **依赖**：`git-signing.ts` 隔离范式（commit `fd2280b`）；2026-10-05 生产日志（多仓库 `COMMIT_FAILED`）。
+  - **交付物**：预计 1-2 commits；文件 3（`pr-creator.ts` / `git-signing.ts` / `pr-creator.test.ts`）。
+  - **风险与缓解措施**：① `--no-verify` 语义过宽（跳过全部 hook）→ 优先 `core.hooksPath` 空目录精确禁用；② 跨平台路径语义差异 → 双平台用例 + 实现时实测；③ 目标仓库依赖缺失时 hook 本就会失败 → 隔离后该场景与本缺陷解耦。
 
 ---
 
 ## 当前阶段收口清单（阶段进行中，用于归档前自检）
 
-- [ ] M37.1 / M37.2 / M37.3 / M37.4 / M37.5 全部闭环
+- [ ] M37.1 / M37.2 / M37.3 / M37.4 / M37.5 / M37.6 全部闭环
 - [ ] 每条目 A 阶段 Review Gate Pass（planning / 阶段启动批次按 `standard` 送审）
 - [ ] `pnpm lint` / `pnpm typecheck` / 定向测试 / `pnpm check:docs` / `pnpm lint:md` / `pnpm check:orphan-ids` 通过
 - [ ] 归档时按 [archive/index.md](archive/index.md) 阈值与主窗口 3-5 段策略评估预防性分片

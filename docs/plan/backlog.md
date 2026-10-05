@@ -63,6 +63,15 @@
 
 - **运行失败分类与筛选（失败阶段 + 可重试判定 + 重试入口）** —— 运行列表（`/scans` 全部运行）只显示粗粒度「失败」，无法区分失败阶段（告警获取 / clone / install / 修复 / 验证 / 交付 / 运行时 / 清理），也无法区分网络类可重试失败与 `VERIFICATION_FAILED` 等需重点研判失败（2026-10-02 用户报告）。**研判与设计先行稿已产出**：[run-failure-taxonomy.md](../design/governance/run-failure-taxonomy.md)。待评估上收；触发条件：① 用户需要按失败阶段筛选 / 受约束重试；② 失败运行量增长到人工逐条排查成本显著。
 
+- **扫描 / 批量扫描记住上次选择 + 自定义默认操作**（2026-10-05 用户报告，关联 [#136](https://github.com/dependfix/dependfix/issues/136)）—— 单仓库扫描配置弹窗与批量扫描弹窗每次打开都重置为硬编码默认（`mode=report-only` / `severity=high`），用户每次触发都要重复选择，既无法记住上次选择，也没有「自定义默认操作」入口。**需求分析**：
+  - **R1 记住上次选择**：单仓库扫描（`scan-config-dialog`）与批量扫描（`use-repo-batch-scan`）的 `mode` / `severity`（是否含 AI override 待定）在会话间保留。
+  - **R2 自定义默认操作**：用户可配置「默认扫描操作」，作为尚未产生「上次选择」时的初始值；两者优先级（显式默认 vs 上次实际选择）需定义。
+  - **现状锚点**：`apps/platform/app/pages/repos.vue:205-206`（`scanConfigMode` / `scanConfigSeverity` 硬编码 ref + `openScanConfig` 每次重置）、`apps/platform/app/composables/use-repo-batch-scan.ts:30-31,37-39`（`batchMode` / `batchSeverityThreshold` 硬编码 + `openBatchScan` 重置）、`apps/platform/app/components/scan-config-dialog.vue`（AI override 默认继承仓库级 `aiEnabled` / `aiTrigger`）；全站仅 `use-color-mode.ts` 使用 localStorage，扫描选择无任何持久化。
+  - **候选方案**：A 纯前端记忆（localStorage，改动小、设备级、不跨端）；B 服务端用户 / 组织级默认偏好（跨设备、可管理，需实体 / API / 设置页；按设计文档硬阈值预计触发 governance 文档）；C 混合（localStorage 记「上次选择」+ 可选的配置化默认）。方案选择、字段范围（是否含 AI override）与单仓库 / 批量是否共用偏好待用户决策。
+  - **验收标准（草案）**：① 重开弹窗 / 刷新页面后 mode / severity 保留上次选择；② 无偏好时回退既有硬编码默认（report-only / high）；③ 若采纳方案 B/C，明确「显式默认 > 上次选择 > 硬编码兜底」优先级并提供设置入口与重置能力；④ zh / en-US i18n 同步；⑤ 相关 vitest（composable / 组件）覆盖。
+  - **不做什么**：不改扫描执行语义与 `/api/repos/{id}/scan`、`/api/repos/batch-scan` 契约；不改仓库级 `aiEnabled` / `aiTrigger` 继承语义；不将偏好沿用至计划（schedule）默认（其默认值独立维护）。
+  - **触发条件**：① 用户确认持久化载体（设备级记忆 vs 跨设备默认）与字段范围；② 单仓库 / 批量弹窗「每次重选」的实际使用痛点被确认。
+
 ### 待上收候选（评估完成，等待用户决策）
 
 > 当前无待上收候选——4 项（本地 devEx `data/` 产物污染 / 视觉回归容差对同明度色相与灰度替换不敏感 / 非弹窗表单 label↔控件间距 / PrimeUI 设计先行稿与索引陈旧）已于 2026-09-30 经用户决策上收，按维护规则 5 从本文件移除（登记位置见 [todo-archive.md §M34](todo-archive.md#m34-治理与体验收口--组件库升级与巡检基建m341m347-全部已闭环--2026-10-01-归档)）。

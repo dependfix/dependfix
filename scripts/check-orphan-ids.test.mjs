@@ -118,6 +118,25 @@ describe('analyzeContent', () => {
         expect(analyzeContent('// 关键决策 D6 per-org scope\n', '.ts').hits).toHaveLength(1)
         expect(analyzeContent('// S-5 治理批次删除死代码\n', '.ts').hits).toHaveLength(1)
     })
+
+    it('检测裸警告 / 建议编号（W / S，兼容带连字符与裸写法）', () => {
+        expect(analyzeContent('// W2 大小写兼容：URL query\n', '.ts').hits).toHaveLength(1)
+        expect(analyzeContent('it(\'W10 教训：selectedRows 不被排序重置\', () => {})\n', '.ts').hits).toHaveLength(1)
+        expect(analyzeContent('// S2 回归：locale 优先级\n', '.ts').hits).toHaveLength(1)
+        expect(analyzeContent('// S-5 治理批次删除死代码\n', '.ts').hits).toHaveLength(1)
+    })
+
+    it('不误伤 RG 前缀项与 W3C 等单词', () => {
+        expect(analyzeContent('// RG-W04 修复：aria-label\n', '.ts').hits).toHaveLength(1)
+        expect(analyzeContent('// RG-W04 修复：aria-label\n', '.ts').hits[0].ids).toEqual(['RG-W04'])
+        expect(analyzeContent('// 遵循 W3C 规范\n', '.ts').hits).toHaveLength(0)
+    })
+
+    it('已知边界：裸 PR 编号不在检测面', () => {
+        const { hits } = analyzeContent('// PR1 W10 教训\n', '.ts')
+        expect(hits).toHaveLength(1)
+        expect(hits[0].ids).toEqual(['W10'])
+    })
 })
 
 describe('collectFiles / findOrphanIds', () => {

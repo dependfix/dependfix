@@ -36,6 +36,7 @@
 - **禁止无效或过量注释**: 不机械给每行、每个变量加注释。
 - **注释必须随实现同步**: 修改逻辑时同步更新或删除过时注释。
 - **禁止开发流程编号标记**: 注释与测试名中一律不得出现 `C1:`、`T303`、`G2`、`M4+`、`R2`、`P0` 这类规划 / 任务 / 审计 / backlog 编号（含 `C1：xxx` 与 `it('C1: xxx')` 形式）。阶段与编号是规划文档（`docs/plan/`）中区分进度的概念，代码中无意义且无法反查；追溯用 `git blame` / 审计记录。例外：代码内真实存在的常量（如 HTTP 错误码 `E401`），以及**指向规划文档的导航说明**（如"背景详见 `docs/plan/todo.md`「已知缺口 G2」"、"见 todo.md G3"、"见 backlog B1"）——导航指针内的规划编号属例外，因为它们提供真实可查的文档锚点，但必须同时写明文档路径或章节名，不得只写孤立编号。**执行挂接**：D 阶段自检（Full Stack Master (全栈大师) agent）与 A 阶段 Review Gate 必查项（Code Auditor (代码审计员) agent）均含本检查。违反案例见 [经验归档 §十六](../design/governance/experience-archive.md)。 **扫描范围口径**：范围必须按**本次改动文件**取（`git diff --name-only` + `git status --porcelain`，含新增文件），并同时扫新增行（`git diff -U0 | grep "^+"`）；只照抄规范里的示例路径（如 `packages/cli/src packages/core/src`）会漏掉新增模块——M34.6 即因此漏检新增 `verify-project.ts` 的编号，被 Review Gate 判 blocker（该规则第 4 次同类复发）。
+- **编号检测正则必须同时覆盖「裸写法」与「带连字符写法」**：本仓审计编号存在 `S-5`（带连字符）与 `S2` / `W2` / `W10`（裸）两种真实形态，检测正则只写 `S-\d+` 会漏裸 `W\d` / `S\d`，令检测脚本全仓复扫报「0 命中」成为**假阴性**。**要求**：检测正则（如 `scripts/check-orphan-ids.mjs` 的 `PLANNING_ID_RE`）用 `S-?\d{1,2}` 一类可选连字符形式同时覆盖两形态，并在脚本头部**显式声明未覆盖形态**（如裸 `PR\d+` 歧义高、需人工处理），避免把「0 命中」误读为规范 100% 达成；存量清理批次除清理命中行外，还须审查「检测口径本身」是否漏形态。执行挂接：D 阶段自检与 A 阶段 Review Gate 均核对本批正则 / 脚本改动。
 - **i18n locale 文件 insert anchor 必须用目标 locale 实际文本**：locale 文件多段对称（`apps/platform/i18n/locales/zh-CN.json` + `en-US.json`），edit 工具 insert anchor 必须用**目标 locale 实际文本**。自动检测：`pnpm i18n:check:anchor`（`scripts/i18n/i18n-anchor-check.mjs`）对比 zh-CN + en-US locale 文件，检测同一 key 在两边取值完全相等且 en-US locale 值含中文的错位污染（结构化本地化数据 + i18n 复合格式占位符 + 纯 ASCII 字符串视为合理相等，自动跳过）。CI test job 已添加该步骤作为 blocker。详见 [经验归档 §五十六 M24.1 教训 2](../design/governance/experience-archive.md) + `scripts/i18n/i18n-anchor-check.mjs` 注释。
 - **同一解释只写一处**: 相同背景说明（平台坑、口径、设计取舍）在仓库内只保留一处，通常放在首次出现或语义最贴近的位置；其他位置要么不写，要么用一句话指向文档。
 - **详细解释放文档，代码只留短指针**: 完整设计背景、复盘结论、口径变更写入 `docs/design/`、`docs/research/` 或复盘文档；代码注释只保留一句"为什么"或文档指针，不展开长文。
@@ -427,6 +428,14 @@ tsdown `hash:false` 下多 entry 构建时，entry 与共享 dts chunk 会争用
 #### 5.1.35 `rg -r` 是 `--replace` 而非递归（输出替换陷阱）
 
 ripgrep 的 `-r` / `--replace` 会把**匹配片段替换为给定文本**再输出（不改文件，但输出被改写）。误写 `rg -rn "<pattern>"` 时，`-rn` 被解析为「替换为 `n`」→ 输出里出现 `Caomein`（`Caomei` + `Select` 被替换）、`artifacts/n/` 之类的**假象**，极易据此误判内容（本项目一次会话内复发 2 次）。**做法**：多文件搜索只用 `rg -n`（递归是默认行为）；确需替换语义时才显式写 `-r`。
+
+#### 5.1.36 并发终态写必须用条件 UPDATE（乐观锁 = 读取时状态）
+
+「读内存态 → 整行 `save`」在并发终态写场景是竞态温床：聚合写回若用 `repo.save(entity)`（整行 UPDATE，含 `status`），与另一入口（如 admin `force-fail`）并发时会把库中已改的 `failed` 回写成 `completed`；且对账只扫 `running` 时，错标状态永久无法纠正。**做法**：改用条件更新 `update({ id, status: <读取时状态> }, payload)`，`affected === 0` 即跳过写回；乐观锁条件取**读取时状态**而非写死 `'running'`，以同时满足「非 `running` 批次（`failed`）仍按契约对齐计数」（条件与库一致时命中）。**配套**：`update()` 不触发 `@UpdateDateColumn`，payload 须显式写 `updatedAt`；写回被跳过时调用方应重读库中状态，避免响应与库不一致。
+
+#### 5.1.37 存在「第三态」时「全部失败」判据不能用「失败数 == 总数」
+
+多源 / 多分支判定只要存在**第三态**（既非成功也非失败，如 `ALERTS_DISABLED` 表示「未启用」），「全部失败」就**不能**写成 `失败数 === 总数`——总数含第三态时判据恒假，会把「未真正评估」误判为成功。**正确判据**：失败数 > 0 且成功数 === 0（或按 attempted 源数判定）。**配套**：抛错前 per-source 状态（成功 / 失败 / 第三态明细）必须已完整写入，避免抛错丢失；成功与失败并存时仍按 per-source 隔离保留成功数据。平台侧具体实例见 [平台开发规范 §6.1 仓库级失败判据](./platform.md#61-错误码与告警状态口径平台展示消费-engine-错误码)。
 
 ## 6. 样式规范（平台阶段适用）
 

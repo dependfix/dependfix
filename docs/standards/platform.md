@@ -1,6 +1,6 @@
 # 平台开发规范（apps/platform）
 
-> 状态: 已确认（2026-08-07 人工审查通过，6 项决策全部确认，见 §11）
+> 状态: 已确认（2026-08-07 人工审查通过，6 项决策全部确认，见 §12）
 > 适用范围: `apps/platform/`（Nuxt 4 全栈管理平台）的代码、配置、实体、API、样式与测试。
 > 基础规范: 本规范是 [开发规范](./development.md)、[API 规范](./api.md)、[测试规范](./testing.md)、[安全规范](./security.md) 在平台子系统的细化与补充；冲突时以本规范（平台专属）为准。
 > 参考蓝本: [momei 平台实现参考分析](../research/2026-08-07-momei-platform-reference.md)
@@ -117,8 +117,9 @@ export const getDateType = (dbType?: string): string => {
 - 初始化失败不抛致命错误：日志告警 + 功能降级（对齐 momei `reportDatabaseInitializationFailure` 语义）
 - 幂等单例 + 并发初始化锁（`ensureDatabaseInitialized`）
 
-- **新增迁移必须前缀感知**：`entityPrefix` 默认 `dependfix_`。统一用 [`migration-helpers.ts`](../../apps/platform/server/database/migrations/migration-helpers.ts)（`resolveTableName` 先试 `dataSource.options.entityPrefix + 表名`、再回退无前缀，配 `addColumnIfMissing` / `dropColumnIfExists` / `createIndexIfMissing` 幂等守卫），并配「两种前缀 + 两者同时存在（前缀优先）+ up/down 幂等 + 表缺失」用例；`queryRunner.connection` 在 TypeORM 1.x 已 deprecated，改用 `queryRunner.dataSource`。存量迁移已统一前缀感知 + 幂等（M36.8 闭环），背景与实证见 [backlog.md §已知边界](../plan/backlog.md)。
+- **新增迁移必须前缀感知**：`entityPrefix` 默认 `dependfix_`。统一用 [`migration-helpers.ts`](../../apps/platform/server/database/migrations/migration-helpers.ts)（`resolveTableName` 先试 `dataSource.options.entityPrefix + 表名`、再回退无前缀，配 `addColumnIfMissing` / `dropColumnIfExists` / `createIndexIfMissing` 幂等守卫），并配「两种前缀 + 两者同时存在（前缀优先）+ up/down 幂等 + 表缺失」用例；`queryRunner.connection` 在 TypeORM 1.x 已 deprecated，改用 `queryRunner.dataSource`。存量迁移已统一前缀感知 + 幂等（M36.8 闭环），背景与实证见 [经验归档 §六十六](../design/governance/experience-archive-§49-§57-recent-investigation.md#六十六m36-归档批次经验沉淀运行时--部署--并发写--三态判定--e2e-cookie)。
 - **基线迁移与空库自举**：迁移链首条 `CreateInitialSchema1600000000000` 从实体元数据（`Table.create`）建全部基础表 / 索引 / 外键，前缀感知 + 跨方言 + 幂等（存量库整表跳过）。全新部署可直接 `pnpm db:init` 或由 Docker compose 默认 `DATABASE_MIGRATIONS_RUN=true` 在启动时自动建表；`db:init` 为幂等一键初始化入口。**注意**：基线由实体元数据生成，新增实体列若忘记写独立迁移，全新库 / CI 会带上该列（全绿）而存量库永久缺列——约定任何列 / 表变更必须编写独立迁移。见 [server/database/scripts/README.md §db-init](../../apps/platform/server/database/scripts/README.md#db-init一键初始化)。
+- **基线迁移自举实现口径**：`Table.create(metadata, driver)` **不含外键**——须对 `metadata.foreignKeys` 逐个 `TableForeignKey.create(fk, driver)` 后 `table.addForeignKey(fk)`，再 `queryRunner.createTable(table, true, true, true)`（内联 FK）。SQLite 的 `createForeignKeys` 会**重建整表**，故建表时内联优于事后 `addForeignKey`；PostgreSQL / MySQL 外键前置按 `metadata.foreignKeys[].referencedEntityMetadata` 拓扑排序；存量库用 `hasTable` 整表跳过保证幂等；配套 `pnpm db:migrate` 空库实测。
 - **schema 漂移的排查与修复序（双 opt-in 下）**：`synchronize` / `migrationsRun` 双 opt-in 下 schema 漂移会静默累积，直到运行时查询报 `no such column`。修复序：① 复制 dev 库到临时目录、以独立 DataSource 跑完整迁移链验证；② 读 `migrations` 表比对已注册迁移；③ 再对真实库执行（执行前确认启动期自动备份已生成）。**判断某迁移是否生效要查物理表列**（非默认前缀下需靠前缀感知解析，`migrations` 记录不代表加列成功）。**手动入口**：`pnpm db:init` / `pnpm db:migrate`（`db:migrate:show` 只读预览 / `db:migrate:revert -- --yes` 回退），见 [server/database/scripts/README.md](../../apps/platform/server/database/scripts/README.md)。
 
 ### 3.4 实体规范
@@ -416,7 +417,33 @@ fixtures.delete / fixtures.post 在双门控通过后调用 `fixturesRateLimit()
 - 提交走 [conventional-committer 流程](./git.md)，scope 用 `platform`（如 `feat(platform): ...`）
 - 注释禁止规划编号标记（T601 等），违反即清理（[开发规范 §3](./development.md)）
 
-## 10. 环境变量总表（.env.example 对齐）
+## 10. 运行时与部署（容器镜像 / 启动 / 队列降级）
+
+> 镜像构建产物与运行契约；容器编排文件见 [§2 目录结构](#2-目录结构nuxt-4)。案例见 [经验归档 §六十六](../design/governance/experience-archive-§49-§57-recent-investigation.md)。
+
+### 10.1 镜像自足性优先于部署侧 env
+
+- Docker 镜像的关键启动默认值（如 `DATABASE_MIGRATIONS_RUN=true`）**必须**用 Dockerfile runtime `ENV` 固化，不能只靠 compose 注入——用户可能沿用旧 compose 或直接 `docker run`，导致镜像「能启动但功能不可用（`no such table`）」。
+- **发布门禁**：推送前对**真实构建镜像**跑首启冒烟（不注入该 env），断言 HTTP 200 + 业务表数下限 + 无 `no such table`（`apps/platform/docker/smoke-test.sh`，已接入 `docker.yml`）。
+- 空库 + 未开迁移时启动须打明确告警（`server/database/index.ts`），避免首次请求才报 `no such table`。
+
+### 10.2 runtime 镜像只含 `.output`（Nitro trace 自包含）
+
+- `nuxt build` 产出的 `.output/server/node_modules` 由 Nitro trace 自带全部运行时依赖（含 better-sqlite3 的 musl prebuild）；workspace 包（如 `@dependfix/engine`）会被打包进 `.output/server/chunks`——**runtime 阶段只 `COPY .output`**，**不得**再复制根 `node_modules` + workspace dist（后者曾使镜像膨胀至约 1.1GB，移除后约 239MB）。
+- **校验口径**：`rg "from ['\"]@dependfix" apps/platform/.output/server` 应 0 命中（排除注释）；`.output/server/package.json` 声明依赖逐项 `existsSync` 全命中 + 容器 HTTP 冒烟 + 原生模块 PRAGMA。
+
+### 10.3 Nitro 插件不阻塞监听（启动引导语义）
+
+- `defineNitroPlugin(() => { void asyncInit() })` **不会 await**，日志顺序为 `Listening on …` 早于初始化完成——启动引导注释不得写「对外服务前就绪」，应说明与首次请求共享 single-flight promise。
+- 一次性 / 迁移专用模式（`DEPENDFIX_MIGRATIONS_ONLY=true`）用 `process.exit` 退出；`.catch` 中**必须**按该 env 补 `process.exit(1)`，否则一次性容器遇异常会挂起而非失败退出。
+
+### 10.4 队列模式自动降级必须含「消费者维度」
+
+- 「Redis 可用即异步」的降级矩阵若不含「是否存在消费者」，会形成静默黑洞：job 入队后无人消费 → pending 永远挂起 → stale cleanup 约 30 分钟后判 `orphan_run`，重触发被 BullMQ 去重键合并为 `SCAN_PENDING_MERGED`。
+- `auto` 模式**必须**仅在「Redis 可用**且**本进程消费队列（`inProcessWorker`）」时异步；单容器唯一消费者是进程内 worker，独立 worker 进程未实现时 `inProcessWorker=false` 没有合法消费者，须降级 `sync`。
+- **env 口径**：Nuxt runtimeConfig 运行时覆盖只认 `NUXT_` 前缀，容器需 `NUXT_IN_PROCESS_WORKER`；`.env.example` 的无前缀 `IN_PROCESS_WORKER` 只是 compose 插值源，直接注入容器无效。
+
+## 11. 环境变量总表（.env.example 对齐）
 
 | 变量 | 必需 | 默认值 | 说明 |
 |:--|:--:|:--|:--|
@@ -432,7 +459,7 @@ fixtures.delete / fixtures.post 在双门控通过后调用 `fixturesRateLimit()
 | `NUXT_PUBLIC_BETTER_AUTH_URL` | 反向代理时 | 自动推断 | 认证基础 URL |
 | `MACHINE_ID` | 否 | `pid % 1024` | 雪花机器位 |
 
-## 11. 决策记录（2026-08-07 人工审查确认）
+## 12. 决策记录（2026-08-07 人工审查确认）
 
 1. **多后端时机**：M6 默认 SQLite 交付，`getDateType()` + driver 注入 + `DATABASE_URL` 推断一次性做对（避免 T601 后返工）；MySQL/PG 真实部署验证延后到 M7 —— ✅ 确认
 2. **表前缀**：默认 `dependfix_`（`DATABASE_ENTITY_PREFIX` 可配）—— ✅ 确认（需要前缀）
@@ -441,7 +468,7 @@ fixtures.delete / fixtures.post 在双门控通过后调用 `fixturesRateLimit()
 5. **首用户 admin**：首个注册用户自动 `role=admin`（`databaseHooks.user.create.before`）—— ✅ 确认
 6. **文件命名**：文件与 Vue 组件统一 **kebab-case**（Nuxt 自动导入 `use-session.ts` → `useSession`）—— ✅ 确认；全局 [开发规范 §2](./development.md) 已同步修订（Vue 组件由 PascalCase 改为 kebab-case）
 
-## 12. 相关文档
+## 13. 相关文档
 
 - [开发规范](./development.md)
 - [API 规范](./api.md)

@@ -155,7 +155,7 @@
 当 todo.md §当前阶段新增条目（无论是 backlog 候选上收 / 插队例外 / 用户直接决策），**必须**执行以下三重交叉核验，**未通过任何一项**不得进入 D 阶段：
 
 1. **todo-archive.md 历史阶段表格核验**：`rg -n "已闭环|不计入本批|不计入 M\d+|ahead=0.*已推" docs/plan/todo-archive.md docs/plan/archive/todo-archive-phases-*.md` 扫描最近 3-5 个阶段表格，验证候选对应 backlog 条目的子任务是否已 ahead=0 闭环；若发现"已闭环"标注，必须从 todo.md §当前阶段任务段删除对应子任务范围。
-2. **git log 历史核验**：`git log --oneline -- <候选相关路径>` + `git log --all --grep="<候选标识>"` 验证候选对应 commit hash 是否已 ahead=0 推 origin/master；若发现已推，必须从 todo.md §当前阶段任务段删除对应范围。
+2. **git log 历史核验**：`git log --oneline -- <候选相关路径>` + `git log --all --grep="<候选标识>"` 验证候选对应 commit hash 是否已 ahead=0 推 origin/master；若发现已推，必须从 todo.md §当前阶段任务段删除对应范围。**标注历史 commit 的「C 编号 / M 阶段」时不能凭同域描述推断**，必须 `git show --stat <hash>` + 归档分片（`docs/plan/archive/todo-archive-phases-*.md` / `todo-archive.md`）核实归属（反例：某规划批次把 C89 / M32.3 的 `00a11ff` 误标为 C78 / M29，A 阶段审计命中后订正；详见 [经验归档 §六十四](../design/governance/experience-archive-§49-§57-recent-investigation.md)）。
 3. **实际代码侧 anchor 实证**：打开候选相关代码文件（`apps/platform/app/pages/alerts.vue` / `apps/platform/app/composables/use-fix-now.ts` 等），验证候选描述的状态与实际代码一致；若发现已实现，必须从 todo.md §当前阶段任务段删除对应范围。
 
 **触发条件**：

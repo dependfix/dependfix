@@ -147,6 +147,13 @@
 - **CI 失败时间模式诊断**：global-setup 失败 → 后续测试不运行 → 掩盖后续测试真实状态。CI 修复需走完整链路（global-setup → setup → tests → teardown），单一节点失败掩盖下游问题
 - **未来扩展**：建立 helper `tests/e2e/helpers/unauth-request.helper.ts` 抽取重复模式（audit suggest 候选）
 
+#### e2e 控制服务端 locale 用显式 cookie header（不操作浏览器上下文 cookie）
+
+- **问题**：用 `clearI18nCookie` / `setI18nCookie` 操作浏览器上下文 cookie 来决定服务端 locale 时，客户端框架（如 `@nuxtjs/i18n` 的 `detectBrowserLanguage.useCookie`）可能在 `goto` 后**异步回写**该 cookie，与测试设置竞争 → 全量顺序运行偶发断言失败（期望英文返回中文）。
+- **修复模式**：在请求 header 内**显式剥离 / 附加**目标 cookie，使断言与上下文 cookie 时序结构性解耦。
+- **配套**：Playwright `APIRequestContext` 在显式传入 `cookie` header 时**不再合并**上下文 cookie jar（`_updateRequestCookieHeader` 短路），故从 jar 读取后过滤即等价「以显式 header 为准」。
+- **归因反例**：不要把 e2e 语言偶发归因为「共享 SQLite 同名仓库」——先核对唯一键与 owner 生成方式（重复判据含 owner 时间戳时不成立）。
+
 ### 6.5 断言禁用恒真写法（裸数字 / 短字符串）
 
 `expect(x).toContain('3')` / `toContain(3)` 等短断言会被 fixture 数据（日期 `2026-07-30` 含字符 `3`、ID、计数字段）污染**恒真**，计数错误 / 缺失无法拦截。**修复模式**：表格 / 结构化输出断言用**完整行**（如 `toContain('| Alerts disabled (repos) | 3 |')` 含标签与管道符）或 `toMatch` 正则锚定边界；数字断言优先 `toBe(n)` 直接测数据层而非渲染文本。反例：M29.5 报告计数测试 `expect(md).toContain('3')` 在计数=0 时仍通过。

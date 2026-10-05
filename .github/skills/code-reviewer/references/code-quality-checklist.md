@@ -279,7 +279,7 @@ if (value) { ... }  // 对 0, "", false 失效
 | [testing.md §6.8](../../../../docs/standards/testing.md) | 审计 / 文档引用**取证工件** | 工件是否与冻结代码**同批生成**；文档数字是否只在验证链尾部落笔 |
 | [security.md §2](../../../../docs/standards/security.md) | 读取外部可控配置文件（如目标仓库 `.github/*.yml`） | 外部可控配置**防护矩阵**五要素：错误摘要截断 / 原型链风险键过滤在 schema 之前 / 未知键 `Object.hasOwn` / 非普通文件不跟随符号链接 / 大小上限（完整矩阵以 [dependency-fixer.md §12.7](../../../../docs/design/modules/dependency-fixer.md) 为唯一权威） |
 | [security.md §5.7](../../../../docs/standards/security.md) | 改动 `pnpm-workspace.yaml` 的 `audit.ignore` / CI 或 npm script 的 `pnpm audit` 命令 | 是否禁止 `--ignore` / `--ignore-unfixable` 入脚本（只写配置、不审计，会使门禁恒绿）；豁免条目是否含 GHSA + 依赖路径 + 复核条件；上游发布修复版本后是否移除豁免 |
-| [platform.md §3.3](../../../../docs/standards/platform.md) | 新增 `apps/platform` migration | 是否**前缀感知**（先 `entityPrefix + 表名`、再回退无前缀）；用例是否覆盖两种前缀 + up/down 幂等 + 目标表缺失 |
+| [platform.md §3.3](../../../../docs/standards/platform.md) | 新增 `apps/platform` migration | 是否**前缀感知**（先 `entityPrefix + 表名`、再回退无前缀）；用例是否覆盖两种前缀 + up/down 幂等 + 目标表缺失；**基线迁移**是否对 `metadata.foreignKeys` 逐个 `TableForeignKey.create` 内联（`Table.create` 不含 FK；SQLite 建表内联优于事后 `addForeignKey`）、`hasTable` 整表跳过保证幂等 |
 | [platform.md §3.8](../../../../docs/standards/platform.md) | `Repository.verifyCommands` 字段 / 仓库级自定义验证命令 | 「命令执行面 + 写入门槛 + 审计留痕」三条安全边界是否保持（详细检查点分别落在 code-auditor 主责边界「修复执行安全基线」与「shell 命令安全」必查项，本条不重复其条目内容） |
 | [platform.md §3.9](../../../../docs/standards/platform.md) | `.github/dependfix.yml` 读取 / 合并 | **中央优先**（防目标仓库绕过）与**不提供 UI 入口**两条约束是否保持 |
 | [planning.md §2.3](../../../../docs/standards/planning.md) | 候选上收 / 关闭 | 父段标题括号枚举是否同步收敛；已失效候选是否清理 |
@@ -289,11 +289,18 @@ if (value) { ... }  // 对 0, "", false 失效
 | [planning.md §4.4 第 3 条](../../../../docs/standards/planning.md) | 跨目录相对路径 / 批量替换相对路径前缀 | old 片段是否**从路径字符（`../`）起写、未带上 `](`**（防吞 `]` 使链接退化）；改完是否做 malformed 检测（精确形态 `rg -n "\[[^]\n]*\((\.\.?/|/)"` 0 命中）并人工确认每处 `](` 与 `)` 成对（自建校验器对坏语法静默跳过，不能作为唯一证据） |
 | [ai-collaboration.md §1.3 分级审计执行协议](../../../../docs/standards/ai-collaboration.md) | 规划 / 阶段启动批次 | 是否声明 `standard`（非 `quick`）；审计 prompt 是否携带 audit-depth + 变更清单 + 已验证证据 |
 | [git.md §3.8](../../../../docs/standards/git.md) | `git commit` / `git push` 调用点 | 是否复用单一常量 `GIT_*_SIGNING_ISOLATION_ARGS`（无字面量漂移）；是否擅自提供签名 opt-in |
-| [development.md §3](../../../../docs/standards/development.md) | 新增 / 修改源码注释或测试名（含新增文件） | 编号标记扫描是否**覆盖本批全部改动文件**（`git diff --name-only` + `git status --porcelain` + `git diff -U0` 新增行），而非只跑规范示例路径；命中是否为带文档路径的合规导航指针 |
-| [documentation.md §6](../../../../docs/standards/documentation.md) | 文档状态口径改写 / 双语镜像同步 | 反向改写是否有三重实证（commit + 代码现状 + 现存产物）、是否只改状态与元数据而未改写历史正文；镜像是否做到**链接级**一致（非仅行数） |
+| [development.md §3](../../../../docs/standards/development.md) | 新增 / 修改源码注释或测试名（含新增文件） | 编号标记扫描是否**覆盖本批全部改动文件**（`git diff --name-only` + `git status --porcelain` + `git diff -U0` 新增行），而非只跑规范示例路径；命中是否为带文档路径的合规导航指针；**检测正则**是否同时覆盖裸写法与带连字符写法（如 `S-?\d`）、脚本头部是否声明未覆盖形态 |
+| [documentation.md §6](../../../../docs/standards/documentation.md) | 文档状态口径改写 / 双语镜像同步 | 反向改写是否有三重实证（commit + 代码现状 + 现存产物）、是否只改状态与元数据而未改写历史正文；镜像是否做到**链接级**一致（非仅行数）；状态口径清理是否**三向扫描**（同文档全状态字段 + zh/en 镜像成对 + 索引行 parity）；绝对 GitHub URL 锚点拼写是否人工核对 |
 | [development.md §5.1.34](../../../../docs/standards/development.md) | 依赖升级差异 / 等价性结论、上游变更说明缺失 | 是否按语义级 diff（剥 hash 与 scope，md5 判同文件）而非归一化近似；无 release 时是否以产物（tarball / dist）为权威 |
 | [planning.md §4.4 第 15 条](../../../../docs/standards/planning.md) | 执行期发现 AC 范围外的同源陈旧 / 同构遗漏 | 是否带 `file:line` 证据提请用户决策（未自行扩范围）；用户授权后是否在条目「范围」段与 commit 说明记录授权来源；AC 排除项是否以**无阶段编号**候选登记且登记位置与区块定义自洽；复扫面是否覆盖 `packages/**/*.ts` + `scripts/**/*.mjs` 注释 |
 | [development.md §5.1.33](../../../../docs/standards/development.md) | 「统一同类写法 / 复用化」类改动的范围穷举 | 是否用**构建产物**穷举（合并同选择器规则；注意 `server/chunks/build/*styles*.mjs`），而非只靠源码 grep（只能发现「值不同」的站点）；「范围已穷举」的结论是否经得起「筛选条件是否只命中目标一部分」的追问 |
+| [platform.md §10.1 / §10.2](../../../../docs/standards/platform.md) | `apps/platform/Dockerfile` / `docker-compose*.yml` / `.github/workflows/docker.yml` 或 runtime 镜像改动 | 关键启动默认值（如 `DATABASE_MIGRATIONS_RUN`）是否用 Dockerfile runtime `ENV` 固化（非仅 compose）；推送门禁是否含真实镜像首启冒烟（不注入该 env，断言 HTTP 200 + 业务表数下限 + 无 `no such table`）；空库且未开迁移时启动是否打明确告警；runtime 阶段是否只 `COPY .output`（未复制根 `node_modules` / workspace dist）、`.output/server/package.json` 依赖是否逐项 `existsSync` 命中 |
+| [platform.md §10.3 / §10.4](../../../../docs/standards/platform.md) | `server/services/queue/**` / `server/plugins/database-bootstrap.ts` / 队列 env 改动 | `auto` 模式是否含消费者维度（Redis 可用且 `inProcessWorker` 才 async，无合法消费者降级 sync）；容器 env 是否用 `NUXT_` 前缀；`DEPENDFIX_MIGRATIONS_ONLY=true` 的 `.catch` 是否补 `process.exit(1)` |
+| [development.md §5.1.36](../../../../docs/standards/development.md) | 并发终态写 / 聚合状态写回 / 条件更新 | 是否用条件 `update({ id, status: <读取时状态> }, payload)` 而非整行 `save`；乐观锁条件是否取读取时状态（非固定 `'running'`）；`affected === 0` 是否跳过；payload 是否显式写 `updatedAt` |
+| [development.md §5.1.37](../../../../docs/standards/development.md) | 多源 / 多分支「全部失败」判定 | 存在第三态（如 `ALERTS_DISABLED`）时判据是否为「失败数 > 0 且成功数 === 0」（非 `失败数 === 总数`）；抛错前 per-source 状态是否完整写入 |
+| [testing.md §6.4](../../../../docs/standards/testing.md) | e2e 控制服务端 locale / 操作请求 cookie header | 是否用显式 `cookie` header 剥离 / 附加（而非操作浏览器上下文 cookie，避免客户端框架异步回写竞态）；未认证 API 是否显式空 `storageState` |
+| [git.md §3.7.1](../../../../docs/standards/git.md) | 多 atomic commit 隔离 / complement-stash | stash 补集前是否判断补集非空（为空直接 `git add` 目标，防 `git stash push --` 无路径暂存全部）；提交后 `git show --stat HEAD` 是否核对文件数 |
+| [planning.md §3.4](../../../../docs/standards/planning.md) | 规划条目标注历史 commit 的 C 编号 / M 阶段 | 是否 `git show --stat <hash>` + 归档分片核实归属（非凭同域描述推断） |
 
 > **维护纪律**：本矩阵为严格约束检查点的**单点落点**，其他文档 / skill / agent 只做一行链接引用（见上方「规范单点声明」）。矩阵行与条款一一对应；条款废弃 / 合并时同步删行。
 

@@ -1,6 +1,6 @@
 import { In } from 'typeorm'
 import { aggregateScanRuns, EMPTY_BATCH_SUMMARY } from './batch-aggregate'
-import { applyBatchAggregation } from './batch-writeback'
+import { persistBatchAggregation, persistBatchIfRunning } from './batch-writeback'
 import { ensureDatabaseInitialized } from '#server/database'
 import { BatchRun } from '#server/entities/batch-run'
 import { ScanResult } from '#server/entities/scan-result'
@@ -105,28 +105,10 @@ export const reconcileRunningBatchRuns = async (options: ReconcileOptions = {}):
     }
 
     /**
-     * 条件写回：仅当库中该批次仍为 `running` 时更新。
-     * 对账预加载 running 批次后逐条处理，期间 admin 可能 `force-fail`——无条件 save 会把
-     * `failed` 终态覆盖回 `completed`；条件更新保证 `failed` 幂等保护。
-     * 显式写 `updatedAt` 以驱动前端增量 reconcile。
-     * @returns 是否确实更新（affected > 0）
+     * 条件写回统一下沉至 `batch-writeback.ts`（persistBatchIfRunning / persistBatchAggregation）：
+     * 对账预加载 running 批次后逐条处理，期间 admin 可能 `force-fail`——条件更新保证
+     * `failed` 终态幂等保护，不被覆盖回 `completed` / `running`。
      */
-    const persistRunningBatch = async (batch: BatchRun): Promise<boolean> => {
-        const result = await batchRepo.update(
-            { id: batch.id, status: 'running' },
-            {
-                status: batch.status,
-                finishedCount: batch.finishedCount,
-                completedCount: batch.completedCount,
-                failedCount: batch.failedCount,
-                pendingCount: batch.pendingCount,
-                summaryJson: batch.summaryJson,
-                finishedAt: batch.finishedAt,
-                updatedAt: new Date(),
-            },
-        )
-        return (result.affected ?? 0) > 0
-    }
 
     let completed = 0
     let progressUpdated = 0
@@ -143,7 +125,7 @@ export const reconcileRunningBatchRuns = async (options: ReconcileOptions = {}):
                 if (!batch.summaryJson) {
                     batch.summaryJson = JSON.stringify(EMPTY_BATCH_SUMMARY)
                 }
-                if (await persistRunningBatch(batch)) {
+                if (await persistBatchIfRunning(batchRepo, batch)) {
                     orphaned++
                 }
             }
@@ -152,10 +134,8 @@ export const reconcileRunningBatchRuns = async (options: ReconcileOptions = {}):
 
         const batchResults = batchRuns.flatMap((run) => resultsByRun.get(run.id) ?? [])
         const aggregation = aggregateScanRuns(batchRuns, batchResults)
-        if (!applyBatchAggregation(batch, aggregation, batchRuns)) {
-            continue
-        }
-        if (await persistRunningBatch(batch)) {
+        const { persisted } = await persistBatchAggregation(batchRepo, batch, aggregation, batchRuns)
+        if (persisted) {
             if (aggregation.status === 'completed') {
                 completed++
             } else {

@@ -25,7 +25,7 @@ const validBody = {
 describe('GET /api/credentials', () => {
     beforeAll(() => {
         setupMemoryDatabase()
-        // 注：M18.x 治理批次 S-5 — 删除 `process.env.ENCRYPTION_KEY` 死代码；
+        // 注：删除 `process.env.ENCRYPTION_KEY` 死代码；
         // stub 默认值由 `apps/platform/tests/setup-nuxt-server.ts:26` `useRuntimeConfig = () => ({ encryptionKey: 'test-encryption-key-32-bytes!!' })` 提供
     })
 
@@ -68,7 +68,7 @@ describe('GET /api/credentials', () => {
  */
 describe('/api/credentials 三角色鉴权（todo.md §M16.5）', () => {
     beforeAll(() => {
-        // 注：M18.x 治理批次 S-5 — 删除 `process.env.ENCRYPTION_KEY` 死代码；
+        // 注：删除 `process.env.ENCRYPTION_KEY` 死代码；
         // stub 默认值由 `apps/platform/tests/setup-nuxt-server.ts:26` 全局 useRuntimeConfig 提供
     })
 
@@ -114,7 +114,7 @@ describe('/api/credentials 三角色鉴权（todo.md §M16.5）', () => {
 })
 
 /**
- * GitHub App 路径（M18.3 commit 1 audit 反馈 W2）：覆盖 createCredential 的 github-app 分支。
+ * GitHub App 路径：覆盖 createCredential 的 github-app 分支。
  *
  * 验证：
  * - 创建 github-app 凭据：appId/installationId/botLogin 明文 + encryptedPrivateKey 加密
@@ -137,7 +137,7 @@ YxJ0gQjQJYxJ0gQjQJYxJ0gQjQJYxJ0gQjQJYxJ0gQjQJYxJ0gQjQJYxJ0gQjQJ
     }
 
     beforeAll(() => {
-        // 注：M18.x 治理批次 S-5 — 删除 `process.env.ENCRYPTION_KEY` 死代码；
+        // 注：删除 `process.env.ENCRYPTION_KEY` 死代码；
         // stub 默认值由 `apps/platform/tests/setup-nuxt-server.ts:26` 全局 useRuntimeConfig 提供
     })
 

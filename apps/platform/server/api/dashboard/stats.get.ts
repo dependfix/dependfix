@@ -26,10 +26,10 @@ export default defineEventHandler(async (event) => {
     const runRepo = ds.getRepository(ScanRun)
     const resultRepo = ds.getRepository(ScanResult)
 
-    // 仓库数（统计所有仓库；M20.5 不变）
+    // 仓库数（统计所有仓库；口径不变）
     const repositoryCount = await repoRepo.count()
 
-    // M20.5：alertsTotal + severityCounts 仅数活跃告警（supersededAt IS NULL）
+    // alertsTotal + severityCounts 仅数活跃告警（supersededAt IS NULL）
     // 用 QueryBuilder + 一次查询避免 N+1（fetchAll 后应用层过滤也可行，但 SQL 层过滤更高效）
     const activeResults = await resultRepo.find({
         where: { supersededAt: IsNull() },
@@ -42,7 +42,7 @@ export default defineEventHandler(async (event) => {
         unknown: 0,
     }
     let alertsTotal = 0
-    // RG-W02 修复：未识别 severity（如未来扩展 'info'/'warning'）归入 unknown 段，
+    // 未识别 severity（如未来扩展 'info'/'warning'）归入 unknown 段，
     // 避免 alertsTotal 与 severityCounts 总和不一致
     const KNOWN_SEVERITIES = new Set(['critical', 'high', 'medium', 'low', 'unknown'])
     for (const r of activeResults) {
@@ -53,7 +53,7 @@ export default defineEventHandler(async (event) => {
 
     // 已修复数（fixStatus 计数：success 视为已修复）
     // 决策 1：fixStatus='success' 永不被 supersede，所以"已修复"行 supersededAt 永远是 NULL
-    // 数全表 fixStatus='success' 等价于数活跃告警中的 success 行（M20.3 后语义统一）
+    // 数全表 fixStatus='success' 等价于数活跃告警中的 success 行（per-alert 模型下语义统一）
     const fixedCount = activeResults.filter((r) => r.fixStatus === 'success').length
 
     // Top-10 包告警（按 packageName 聚合 count DESC + packageName ASC tie-break LIMIT 10）

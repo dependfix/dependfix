@@ -29,7 +29,7 @@ const seedOrg = async (overrides: { aiApiKeyEncrypted?: string | null } = {}) =>
     } as unknown as Organization))
 }
 
-describe('GET /api/organizations/[id]/ai-config（M26.1 re-audit fix B1）', () => {
+describe('GET /api/organizations/[id]/ai-config（re-audit 修复）', () => {
     beforeAll(() => {
         setupMemoryDatabase()
     })

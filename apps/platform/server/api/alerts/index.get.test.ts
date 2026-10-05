@@ -366,7 +366,7 @@ describe('GET /api/alerts', () => {
             expect(superseded).toBeUndefined()
         })
 
-        it('默认响应包含 M20.3 新增字段（upstreamId / occurrenceCount / firstSeenAt / lastSeenAt / supersededAt）', async () => {
+        it('默认响应包含新增字段（upstreamId / occurrenceCount / firstSeenAt / lastSeenAt / supersededAt）', async () => {
             const list = await call('/api/alerts') as Record<string, unknown>[]
             expect(list.length).toBeGreaterThan(0)
             for (const row of list) {
@@ -380,15 +380,15 @@ describe('GET /api/alerts', () => {
         })
     })
 
-    describe('M20.5 dedupe 参数移除（向后兼容：dedupe=true 静默忽略）', () => {
-        // M20.5 移除 dedupe 参数的处理：
-        // - 后端不再处理 dedupe query（应用层指纹聚合已无意义——M20.3 per-alert 模型）
+    describe('dedupe 参数移除（向后兼容：dedupe=true 静默忽略）', () => {
+        // dedupe 参数移除的处理：
+        // - 后端不再处理 dedupe query（应用层指纹聚合已无意义——per-alert 模型）
         // - dedupe=true 静默忽略（旧前端的兼容请求，不会 400）
         // - 返回全量活跃告警（不再按 fingerprint 聚合）
 
         beforeAll(async () => {
             // 在已有的 lodash (dependabot:1) 基础上追加 lodash 第二次插入
-            // （M20.3 unique index 强制不同 upstreamId；模拟同 packageName 跨次扫描的"实际业务"）
+            // （unique index 强制不同 upstreamId；模拟同 packageName 跨次扫描的"实际业务"）
             const ds = await ensureDatabaseInitialized()
             const run = await ds.getRepository(ScanRun).findOne({ where: { repositoryId } })
             if (!run) {
@@ -417,7 +417,7 @@ describe('GET /api/alerts', () => {
 
         it('dedupe=true 静默忽略，返回全量活跃告警（含重复 lodash）', async () => {
             const list = await call('/api/alerts?dedupe=true') as Record<string, unknown>[]
-            // M20.3 后每行独立告警：活跃告警中含 lodash 两次（demo/app run 下的不同 upstreamId）
+            // per-alert 模型下每行独立告警：活跃告警中含 lodash 两次（demo/app run 下的不同 upstreamId）
             expect(list.length).toBeGreaterThanOrEqual(5)
             // 验证 lodash 出现 2 次（不同 upstreamId，依赖 occurrenceCount 区分）
             const lodashRows = list.filter((a) => a.packageName === 'lodash')
@@ -443,7 +443,7 @@ describe('GET /api/alerts', () => {
 
         it('dependabot 告警：ghsaId 非 null + cveIds 反序列化为数组', async () => {
             // 锁定 fixture 中预置 GHSA 的那条 lodash 行（upstreamId='dependabot:1'）：
-            // 同 describe 下 M20.5 dedupe beforeAll 另插一条 lodash（无 ghsaId），
+            // 同 describe 下 dedupe beforeAll 另插一条 lodash（无 ghsaId），
             // 跨 worker 还可能被其他测试文件（如 stats.get / runs/[id].get / scan-orchestrator）通过
             // globalThis singleton DataSource 注入更多 lodash；按 upstreamId 精确匹配避免依赖
             // 列表顺序（createdAt DESC 在 SQLite rowid 同毫秒下不稳定，且会被后插入的无 ghsaId 行污染）。

@@ -15,7 +15,7 @@ vi.mock('#server/utils/guard', () => ({
 
 const call = () => statsHandler(makeEvent('GET', '/api/dashboard/stats'))
 
-/** 测试 fixture：仓储 repositoryId 缓存（用于 M20.5 describe 内复用） */
+/** 测试 fixture：仓储 repositoryId 缓存（用于 describe 内复用） */
 let testRepositoryId = ''
 
 /** 仓库 ID 辅助：m20.5 describe 内的 repositoryId 获取（直接查询数据库） */
@@ -160,7 +160,7 @@ describe('GET /api/dashboard/stats', () => {
         }))
 
         const stats = await call() as Record<string, unknown>
-        // RG-W02 修复：未识别 severity 归入 unknown 段，避免 alertsTotal 与 severityCounts 总和不一致
+        // 未识别 severity 归入 unknown 段，避免 alertsTotal 与 severityCounts 总和不一致
         expect((stats.severityCounts as Record<string, number>)).toMatchObject({
             critical: 0, high: 0, medium: 0, low: 0, unknown: 1,
         })
@@ -178,7 +178,7 @@ describe('GET /api/dashboard/stats', () => {
                 defaultBranch: 'main',
                 executorKind: 'container',
             })) as { id: string }
-            // 缓存 repositoryId（供 M20.5 describe 复用）
+            // 缓存 repositoryId（供 describe 复用）
             testRepositoryId = created.id
             const ds = await ensureDatabaseInitialized()
             const run = await ds.getRepository(ScanRun).save(ds.getRepository(ScanRun).create({
@@ -191,7 +191,7 @@ describe('GET /api/dashboard/stats', () => {
             return run.id
         }
 
-        /** 辅助：给 run 加一条 ScanResult（M20.3 unique index 强制不同 upstreamId → counter 单调递增） */
+        /** 辅助：给 run 加一条 ScanResult（unique index 强制不同 upstreamId → counter 单调递增） */
         let addResultCounter = 0
         const addResult = async (scanRunId: string, packageName: string, severity: string): Promise<void> => {
             addResultCounter++
@@ -283,8 +283,8 @@ describe('GET /api/dashboard/stats', () => {
             ])
         })
 
-        describe('M20.5 supersededAt 过滤（alertsTotal 数活跃告警）', () => {
-        // 验证 M20.5 dashboard 调整：
+        describe('supersededAt 过滤（alertsTotal 数活跃告警）', () => {
+        // 验证 dashboard 调整：
         // 1. alertsTotal 仅数 supersededAt IS NULL 的活跃告警
         // 2. severityCounts 仅数活跃告警的严重级别
         // 3. fixedCount 数 fixStatus='success'（决策 1：success 永不被 supersede，等价数活跃 success）

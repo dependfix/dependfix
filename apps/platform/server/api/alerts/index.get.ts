@@ -58,7 +58,7 @@ export default defineEventHandler(async (event) => {
         .leftJoinAndSelect('scanRun.repository', 'repository')
         .take(500)
     if (repositoryId && repositoryId !== 'all') {
-        // M20.3 新增 repositoryId 列后直接走 result.repositoryId 过滤（无需再 JOIN scanRun 推断）
+        // 新增 repositoryId 列后直接走 result.repositoryId 过滤（无需再 JOIN scanRun 推断）
         qb.andWhere('result.repositoryId = :repositoryId', { repositoryId })
     }
     if (severity && severity !== 'all') {
@@ -67,8 +67,8 @@ export default defineEventHandler(async (event) => {
     if (source && source !== 'all') {
         qb.andWhere('result.source = :source', { source })
     }
-    // 默认 supersededAt IS NULL（M20.5）：alerts 视图只显示活跃告警
-    // includeSuperseded=true 时不过滤（前端"显示已解决"开关使用——M20.6）
+    // 默认 supersededAt IS NULL：alerts 视图只显示活跃告警
+    // includeSuperseded=true 时不过滤（前端"显示已解决"开关使用）
     if (!includeSuperseded) {
         qb.andWhere('result.supersededAt IS NULL')
     }
@@ -84,8 +84,8 @@ export default defineEventHandler(async (event) => {
 
     const results = await qb.getMany()
 
-    // M20.3 per-alert 模型：每行已是独立告警，occurrenceCount/firstSeenAt/lastSeenAt 字段直接来自 ScanResult，
-    // 无需应用层 fingerprint 聚合（旧 M13.2 跨次扫描去重逻辑由 M20.3 per-alert 模型替代）
+    // per-alert 模型：每行已是独立告警，occurrenceCount/firstSeenAt/lastSeenAt 字段直接来自 ScanResult，
+    // 无需应用层 fingerprint 聚合（旧的跨次扫描去重逻辑由 per-alert 模型替代）
     return results.map((r) => ({
         id: r.id,
         runId: r.scanRunId,
@@ -102,7 +102,7 @@ export default defineEventHandler(async (event) => {
         htmlUrl: r.htmlUrl,
         fixStatus: r.fixStatus,
         errorMessage: r.errorMessage,
-        // M20.3 新增字段（直接来自 ScanResult）
+        // 新增字段（直接来自 ScanResult）
         upstreamId: r.upstreamId,
         occurrenceCount: r.occurrenceCount,
         firstSeenAt: r.firstSeenAt.toISOString(),

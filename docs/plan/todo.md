@@ -143,15 +143,19 @@
 - **目标**：定位 `api-i18n.e2e.test.ts` 的「重复仓库」三例在全量顺序运行下偶发语言断言失败（期望英文返回中文）的前置状态依赖，消除顺序偶发。
 - **优先级**：P3。
 - **范围**：`apps/platform/tests/e2e/api-i18n.e2e.test.ts`（`:61` zh / `:88` en / `:116` cookie 优先三例）+ 可能的前置 seed / 清理（`apps/platform/tests/e2e/` fixtures）。
-- **验收标准**：
-  - [ ] 定位前置状态依赖（是否被其它用例先行创建同名仓库从而走到不同错误分支）
-  - [ ] 补前置清理或显式 seed，消除顺序偶发
-  - [ ] `pnpm --filter @dependfix/platform test:e2e` 全量连跑两遍全绿（`--workers=1`）
-  - [ ] 单文件运行 7/7 通过不回归
-- **不做什么**：不改 i18n 解析逻辑；不改用例断言语义（除非确认是测试隔离缺陷）。
-- **依赖**：M34.2 会话内 2/3 复现记录；backlog §已知边界条目；[AI 协作规范 §4.7 CI 偶发错误三阶段协议](../standards/ai-collaboration.md)。
-- **交付物**：预计 1–2 commits（定位证据 + 隔离修复）；files 清单见范围。
-- **风险与缓解**：偶发难以复现；缓解：先按 §4.7 三阶段协议取证，必要时加确定性 seed。
+- **验收标准**（2026-10-05 全部实证）：
+  - [x] 定位前置状态依赖：**证伪**「同名仓库」假设（POST 重复判据为 `owner+name+platform`，用例 owner 带 `Date.now()` 唯一）；**实测根因**=客户端 `@nuxtjs/i18n`（`detectBrowserLanguage.useCookie`）在页面加载后异步回写 `i18n_locale` cookie，与测试 `clearI18nCookie`/`setI18nCookie` 竞争 → header 可能带 `zh-CN` 覆盖 Accept-Language
+  - [x] 隔离修复：请求 Cookie header 改由文件内 `requestCookieHeader` 显式剥离 `i18n_locale`（需要时按用例显式附加），使 locale 断言与上下文 cookie 时序结构性解耦；断言未改
+  - [x] `pnpm --filter @dependfix/platform test:e2e` 全量连跑两遍全绿（`--workers=1`：175 passed ×2，0 failed / 0 flaky）
+  - [x] 单文件运行 7/7 通过不回归
+- **闭环记录（2026-10-05）**：
+  - 根因证据（探针实证，`TMPDIR=/dev/shm`）：`goto /dashboard` 后 `i18n_locale=zh-CN`（storageState）→ `setI18nCookie('en')` 后立即 `en` → 约 300ms / 1000ms / 2000ms 均**回写为 zh-CN**；`@nuxtjs/i18n` `setCookieLocale` 客户端落地时写回。旧代码经 `authedCookieHeader` 读 jar（显式 cookie header 时 Playwright 不再合并 jar），回写后即被带入 → 顺序偶发「期望英文返回中文」。
+  - 隔离修复后各用例 locale 确定：zh/en/ja/runs/405/zod 用 Accept-Language，cookie 优先例显式 `i18n_locale=en`。
+  - A 阶段审计：standard 第 1 轮 **Pass**（0 blocker / 1 warning RG-W1 / 3 suggest）；RG-W1（todo 状态与 AC 措辞）由本闭环 commit 关闭；RG-S1（helper JSDoc 精确化）已应用；RG-S2（探针已删，机制留档于测试文件 JSDoc + session wisdom，判定一次性不再单独归档）；RG-S3（`'zh-CN'` 可选参数无调用者）保留作扩展点。
+- **不做什么**：不改 i18n 解析逻辑；不改用例断言语义（本次仅改 Cookie header 构造，断言不变）。
+- **依赖**：M34.2 会话内 2/3 复现记录；backlog §已知边界条目（M36 启动批次已上收移除）；[AI 协作规范 §4.7 CI 偶发错误三阶段协议](../standards/ai-collaboration.md)。
+- **交付物**（已闭环）：`test(platform)` api-i18n 隔离修复 + 1 个 docs(plan) 闭环登记 commit。
+- **风险与缓解**：偶发难以复现；缓解：按 §4.7 三阶段协议取证（探针定位 + 结构性消除）+ 全量连跑两遍验证。
 
 #### M36.6 [P2 🛡️ 技术债] dependfix-platform 镜像体积治理（去除冗余 node_modules 打包）
 

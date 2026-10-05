@@ -76,6 +76,8 @@
 
 - **详情 GET 计数无变化时并发 force-fail 的响应瞬时不一致（批量写回竞态审计残余）** —— 详情 GET 在聚合与库计数完全一致（无字段变化）时不写库；若此刻 admin `force-fail` 已把库改为 `failed`，本次响应仍按内存状态返回，与库短时不一致（下一次读取即自愈，无数据腐蚀，仅只读瞬时窗口）。**现状锚点**：`apps/platform/server/api/batch-runs/[id].get.ts:46-50`。触发条件：客户端需要对同一次 GET 的强一致保证。
 
+- **部分源失败汇总的仓库级错误重复信号（告警源失败判据审计残余）** —— `fetchRepoAlerts` 抛错路径下 `allErrors` 同时含 per-source `FETCH_FAILED`（带 `source`）与调用方 catch 追加的仓库级 `FETCH_FAILED`（无 `source`）；当另有仓库成功时，`logPartialSourceFailureSummary` 会把后者归入 `unknown` 组，产生重复 / 归组不当的提示信号（`repo-fix.ts` catch 的 token hint 亦未含 `codeQualityAlertsTokenHint`）。该行为在既有「启用源全失败」路径已存在，非告警源失败判据改动引入。**现状锚点**：`packages/engine/src/app/repo-alerts.ts:69-89`（per-source 记录）、`packages/engine/src/app/index.ts:437-444`（catch 追加仓库级错误）+ `:142`（分组 `unknown`）、`packages/engine/src/app/repo-fix.ts:147`（fix 模式 catch hint 缺 codeQuality）。触发条件：出现用户反馈部分失败汇总重复 / `unknown` 归组困惑，或统一错误信号排期。
+
 ### 待上收候选（评估完成，等待用户决策）
 
 > 当前无待上收候选——4 项（本地 devEx `data/` 产物污染 / 视觉回归容差对同明度色相与灰度替换不敏感 / 非弹窗表单 label↔控件间距 / PrimeUI 设计先行稿与索引陈旧）已于 2026-09-30 经用户决策上收，按维护规则 5 从本文件移除（登记位置见 [todo-archive.md §M34](todo-archive.md#m34-治理与体验收口--组件库升级与巡检基建m341m347-全部已闭环--2026-10-01-归档)）。

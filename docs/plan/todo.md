@@ -124,14 +124,18 @@
 - **目标**：把「全部源失败才抛错」的判据从 `failedSources.length === totalSources` 改为「无任何成功源且存在失败源」（或按 attempted 源数判定），消除「1 源未启用 + 其余源全失败」时仓库以 0 告警「成功」写入 `repoResults` 的偏乐观粒度。
 - **优先级**：P3。
 - **范围**：`packages/engine/src/app/repo-alerts.ts`（`:90-97` 判据）+ 报告生成侧「扫描成功」语义（`packages/engine/src/report*`）+ 现有 `packages/engine/src/app/repo-alerts.test.ts`（含「1 未启用 + 2 真实失败」N=3 组合用例）。
-- **验收标准**：
-  - [ ] 判据改为「无任何成功源且存在失败源」或按 attempted 源数判定
-  - [ ] 明确并落文档：`repoResults` 写入语义与报告「扫描成功」口径的连锁影响
-  - [ ] 现有 N=3 组合用例更新为期望新语义（含 1 未启用 + 其余全失败 → 仓库失败）
-  - [ ] `pnpm --filter @dependfix/engine test` 全过 + `pnpm lint` / `pnpm typecheck` 0 error
+- **验收标准**（2026-10-05 全部实证）：
+  - [x] 判据改为「无任何成功源且存在失败源」：`failedSources.length > 0 && successfulSources === 0`，删除 `totalSources` 累加；未启用源（ALERTS_DISABLED）既不计成功也不计失败
+  - [x] 明确并落文档：`docs/standards/platform.md §6.1` 新增「仓库级失败判据（多源并行）」+ 连锁影响（`repoResults` 失败分支 / 退出码方向不变 / `logPartialSourceFailureSummary` 的 `isAnyRepoSuccessful`）
+  - [x] N=3 组合用例更新为新语义（1 未启用 + 其余全失败 → `rejects` 仓库失败），并补「单未启用 + 单失败 → 抛」「三源全未启用 → 不抛」用例（定向 11 passed）
+  - [x] `pnpm --filter @dependfix/engine test` 全过（63 files / 1196 passed | 1 skipped）+ `pnpm -r build` + `pnpm -r typecheck` exit 0 + eslint 0 error
+- **闭环记录（2026-10-05）**：
+  - 根因：判据用 `failedSources.length === totalSources`（totalSources=启用源数），当某源 `ALERTS_DISABLED`（不计失败）而其余启用源全失败时，等式不成立 → 仓库经成功路径以 0 告警写入 `repoResults`，掩盖「从未真正完成告警评估」。
+  - 修复：改判「无任何成功源且存在失败源」；per-source 状态仍在抛错前完整写入 `allErrors` / `alertsDisabled`；success + fail 并存仍按 per-source 隔离保留成功数据。
+  - A 阶段审计：standard 第 1 轮 **Pass**（0 blocker / 2 warning / 3 suggest）；RG-W1（文档 `FETCH_FAILED` 未区分报告 / 修复模式）、RG-S1（`logPartialSourceFailureSummary` 旧措辞）、RG-S2（补三源全未启用用例）已应用；RG-W2（todo 状态未同步）由本闭环登记 commit 关闭；RG-S3（抛错路径仓库级错误与 per-source 错误重复信号，预存在）登记 backlog。
 - **不做什么**：不改退出码语义（失败信号已完整暴露在 `RunResult.errors` + exitCode + 报告 errors 段）；不改 A/B/C 分层结构。
 - **依赖**：C78（M29.5 `6fd6aad` / `cb241bf` / `b801cef`）+ C89（M32.3 `00a11ff`，Code Scanning / Code Quality 纳入同口径）的历史形态说明；backlog §已知边界条目（M36 启动批次已上收移除）。
-- **交付物**：预计 2 commits（判据 + 语义文档 / 测试）；files 清单见范围。
+- **交付物**（已闭环）：`1b947ad` fix(engine) 判据 + 用例 + 措辞 / `0ddc117` docs(standards) 口径 / 1 个 docs(plan) 闭环登记 commit。
 - **风险与缓解**：改动影响仓库级成功率与报告语义；缓解：锁定 N=3 组合用例 + 保留 `RunResult.errors` 完整信号。
 
 #### M36.5 [P3 🧪 测试基建] api-i18n「重复仓库」用例顺序偶发定位与治理

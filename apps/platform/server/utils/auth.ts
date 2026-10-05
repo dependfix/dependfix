@@ -15,7 +15,7 @@ import { sendTemplateMail, MailerError } from '#server/services/mailer'
  * - 会话数据库持久化 30 天，每 1 天续期
  * - 雪花 ID 与实体 @BeforeInsert 同源
  * - 角色模型：admin / org_admin / viewer（默认注册 viewer；首个注册用户自动 admin）
- * - admin 插件：adminRoles 仅 'admin'（org_admin/viewer 无用户管理权限，设计决策 D7）；
+ * - admin 插件：adminRoles 仅 'admin'（org_admin/viewer 无用户管理权限）；
  *   roles 显式声明三角色，保证 setRole 类型面与运行时权限语义一致
  * - 注册开关：`REGISTRATION_DISABLED=true` 时禁用注册（better-auth disableSignUp，
  *   登录不受影响；首个管理员需在开放期注册，之后可关闭）

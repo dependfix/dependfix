@@ -92,7 +92,7 @@ export function detectServerLocale(event: H3Event): ServerLocale {
     if (!reqHeaders) {
         return DEFAULT_LOCALE
     }
-    // 优先级：URL query (?locale=en/zh-CN) > cookie > Accept-Language > 默认（M18.x 治理批次 S2 — 与 localeDetector.ts:15 tryQueryLocale 对齐）
+    // 优先级：URL query (?locale=en/zh-CN) > cookie > Accept-Language > 默认（与 localeDetector.ts:15 tryQueryLocale 对齐）
     // 注意：URL 前缀路由（/en/...）由 @nuxtjs/i18n 路由层处理，本 helper 只补 query 形式；
     // query 解析用 URLSearchParams（Node 22+ 内置，零依赖）
     if (reqUrl) {

@@ -14,7 +14,7 @@
  * - AXIOM_DATASET：Axiom 数据集名称（可选）
  * - AXIOM_TOKEN：Axiom API token（可选）
  *
- * 重构（M27.3 / 2026-09-10）：
+ * 重构（2026-09-10）：
  * - 顶层副作用（fs 检测 + winstonLogger 创建）封装到 initLogger() 函数
  * - 拆分 createWinstonLogger 为可测纯函数（readEnv / resolveLogDir / tryInitLogDir /
  *   buildFileFormat / buildConsoleFormat / tryLoadAxiomTransport）
@@ -106,7 +106,7 @@ export function tryInitLogDir(logDir: string, fsModule: typeof fs = fs): boolean
 
 /**
  * 文件格式 meta 行（无 meta 返回 ''，否则 ' {...}'）。
- * 独立可测函数（M27.3 重构——避免 printf 闭包逻辑不可覆盖）。
+ * 独立可测函数（重构——避免 printf 闭包逻辑不可覆盖）。
  */
 export function buildFileMetaLine(meta: Record<string, unknown>): string {
     return Object.keys(meta).length > 0 ? ` ${JSON.stringify(meta)}` : ''
@@ -114,7 +114,7 @@ export function buildFileMetaLine(meta: Record<string, unknown>): string {
 
 /**
  * 控制台格式 meta 行（无 meta 返回 ''，否则 ' k1=v1 k2=v2'）。
- * 独立可测函数（M27.3 重构）。
+ * 独立可测函数（重构）。
  */
 export function buildConsoleMetaLine(meta: Record<string, unknown>): string {
     return Object.keys(meta).length > 0
@@ -124,7 +124,7 @@ export function buildConsoleMetaLine(meta: Record<string, unknown>): string {
 
 /**
  * 文件格式日志行组装（winston format.printf callback）。
- * 独立可测函数（M27.3 重构）——mock winston printf 不实际调用 callback，
+ * 独立可测函数（重构）——mock winston printf 不实际调用 callback，
  * 提取为顶层函数让 coverage 工具能跟踪。
  */
 export function buildFileFormatLine(info: Record<string, unknown>): string {
@@ -134,7 +134,7 @@ export function buildFileFormatLine(info: Record<string, unknown>): string {
 
 /**
  * 控制台格式日志行组装（winston format.printf callback）。
- * 独立可测函数（M27.3 重构）。
+ * 独立可测函数（重构）。
  */
 export function buildConsoleFormatLine(info: Record<string, unknown>): string {
     const { timestamp, level, message, ...meta } = info as { timestamp?: unknown, level?: unknown, message?: unknown }

@@ -31,11 +31,11 @@ export interface ReconcileAlertsParams {
     repositoryId: string
     /** 当前 scanRun.id（写入新行 / 刷新活跃行） */
     newRunId: string
-    /** 当前扫描结果中的所有告警（已含 upstreamId 字段；M20.1 引擎侧注入） */
+    /** 当前扫描结果中的所有告警（已含 upstreamId 字段；引擎侧注入） */
     newAlerts: readonly NormalizedSecurityAlert[]
     /** TypeORM EntityManager（可选；提供时事务化 reconcile + 后续 INSERT） */
     manager?: EntityManager
-    /** 当前 reconcile 时间（M20.7 backfill 复用需要传入固定时间便于幂等测试） */
+    /** 当前 reconcile 时间（backfill 复用需要传入固定时间便于幂等测试） */
     now?: Date
 }
 
@@ -71,7 +71,7 @@ export const reconcileAlerts = async (params: ReconcileAlertsParams): Promise<Re
     const ds = await ensureDatabaseInitialized()
     const resultRepo = (params.manager?.getRepository(ScanResult) ?? ds.getRepository(ScanResult)) as Repository<ScanResult>
 
-    // 防御：upstreamId 必须存在（M20.1 引擎侧注入 + 类型保证；运行时防御兜底）
+    // 防御：upstreamId 必须存在（引擎侧注入 + 类型保证；运行时防御兜底）
     for (const alert of newAlerts) {
         if (!alert.upstreamId) {
             throw new TypeError(
@@ -119,7 +119,7 @@ export const reconcileAlerts = async (params: ReconcileAlertsParams): Promise<Re
                 fixStrategy: alert.fixStrategy,
                 recommendedVersion: alert.recommendedVersion,
                 htmlUrl: alert.htmlUrl,
-                // M23.3 C66-A1：透传 GitHub Advisory ID + CVE 列表（JSON 序列化）
+                // 透传 GitHub Advisory ID + CVE 列表（JSON 序列化）
                 ghsaId: alert.ghsaId ?? null,
                 cveIds: alert.cveIds && alert.cveIds.length > 0 ? JSON.stringify(alert.cveIds) : null,
                 fixStatus: 'not-tried',
@@ -160,7 +160,7 @@ export const reconcileAlerts = async (params: ReconcileAlertsParams): Promise<Re
         existing.fixStrategy = alert.fixStrategy
         existing.recommendedVersion = alert.recommendedVersion
         existing.htmlUrl = alert.htmlUrl
-        // M23.3 C66-A1：透传 GitHub Advisory ID + CVE 列表（活跃告警每次刷新）
+        // 透传 GitHub Advisory ID + CVE 列表（活跃告警每次刷新）
         existing.ghsaId = alert.ghsaId ?? null
         existing.cveIds = alert.cveIds && alert.cveIds.length > 0 ? JSON.stringify(alert.cveIds) : null
         // firstSeenAt 不变（首次发现时间固定）

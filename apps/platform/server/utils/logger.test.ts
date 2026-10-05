@@ -1,5 +1,5 @@
 /**
- * logger.ts 单测（M27.3 / 2026-09-10）
+ * logger.ts 单测（2026-09-10）
  *
  * 重构后 logger.ts 暴露纯函数 + mockable 副作用入口；本测试覆盖所有 export。
  *

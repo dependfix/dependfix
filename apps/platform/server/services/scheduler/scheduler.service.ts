@@ -242,7 +242,7 @@ const triggerPrCheckSchedule = async (
             continue
         }
 
-        // 仅 PAT 路径（M24.1 Phase 2）；GitHub App 路径留作后续阶段
+        // 仅 PAT 路径；GitHub App 路径留作后续阶段
         if (credential.type !== 'classic-pat' && credential.type !== 'fine-grained-pat') {
             console.warn(
                 `[scheduler] credential ${credentialId} 类型 ${credential.type} 在 M24.1 Phase 2 不支持，仅 classic-pat / fine-grained-pat；`

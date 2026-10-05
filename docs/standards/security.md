@@ -100,7 +100,7 @@ AI 生成的代码与自动化引入的依赖/工具是独立投毒面，引入�
 - **钉版本 + 锁文件**: 新增依赖必须锁定精确版本并提交锁文件（pnpm-lock.yaml 等）；CI 中 GitHub Actions 必须钉不可变版本（如 setup-uv v8 起无 major tag）。
 - **外部工具/技能来源可信**: 引入 MCP server、agent、skill 或 `git+https` 依赖前，核对来源仓库 URL 与维护组织，只装官方组织或自有仓库；警惕"伪装成有用文档/技能"的诱导信任（TrustFall 模式）。
 - **最小权限**: MCP server 与自动化 agent 不运行于 root、不挂载全盘、数据库端口不暴露公网。
-- **依赖审计进 CI**: 依赖审计（pnpm audit 等）必须进入 CI 门禁，本地抽查不能代替。**当前强度为信号级**（`|| true`，不阻断 Test workflow）——阻断语义的转正条件与配套见 [§5.6](#56-依赖审计阻断语义信号级--阻断的转正条件2026-09-30-用户决策方案-c)。
+- **依赖审计进 CI**: 依赖审计（pnpm audit 等）必须进入 CI 门禁，本地抽查不能代替。**当前强度为信号级**（`|| true`，不阻断 Test workflow）——阻断语义的转正条件与配套见 [§5.6](#56-依赖审计阻断语义信号级--阻断的转正条件2026-09-30-用户决策方案-c)；无可用修复版本漏洞的显式豁免见 [§5.7](#57-无可用修复版本漏洞的审计豁免auditignore2026-10-05)。
 
 ### 5.3 修复执行安全（dependfix 自身不得成为漏洞扩散工具）
 
@@ -201,7 +201,7 @@ verification 阶段（依赖修复后的 `pnpm install --frozen-lockfile` / `pnp
 `test.yml` 的 `pnpm audit (all deps, moderate+)` 步骤当前以 `|| true` 运行——**信号级，不阻断**。这是 2026-09-30 用户决策的**方案 C（观察期）**：上游新披露 devDeps 漏洞时不应突然把 Test workflow 变红、阻塞无关 PR。
 
 - **口径权威**：本节为转正条件的权威声明；`.github/workflows/test.yml` 的 audit 步骤注释承载**可复现统计命令**（面向 CI 操作者）。
-- **观察期条件（可判定）**：自存量清零（2026-09-30 M33.11：audit 由 13 条〔5 moderate / 8 high〕降为 0）起，**连续 3 次 `master` push 的 Test workflow** 中该步骤输出 clean——判据为步骤日志含 `No known vulnerabilities found`（该串为 pnpm audit 的 clean 输出，出现即蕴含无 `vulnerabilities found` 行）。任一 run 不 clean 则计数归零，自其后首个 clean run 重新起算。
+- **观察期条件（可判定）**：自存量清零（2026-09-30 M33.11：audit 由 13 条〔5 moderate / 8 high〕降为 0）起，**连续 3 次 `master` push 的 Test workflow** 中该步骤输出 clean——判据为步骤日志含 `No known vulnerabilities found`（该串为 pnpm audit 的 clean 输出，出现即蕴含无 `vulnerabilities found` 行）。任一 run 不 clean 则计数归零，自其后首个 clean run 重新起算。**豁免提示**：当 `pnpm-workspace.yaml` 存在 `audit.ignore` 条目时该 clean 字面串不可达（见 [§5.7](#57-无可用修复版本漏洞的审计豁免auditignore2026-10-05)），观察期计数挂起，转阻断前须先移除豁免。
 - **统计命令**（第三方可复现，需 `gh` 已认证）：
   ```bash
   for id in $(gh run list --workflow test.yml --branch master --event push --limit 3 --json databaseId --jq '.[].databaseId'); do
@@ -216,6 +216,30 @@ verification 阶段（依赖修复后的 `pnpm install --frozen-lockfile` / `pnp
 **审计必查项（Code Auditor 必查）**：
 
 - 触发改动 = 移除 audit 步骤的 `|| true`（转阻断）：必须同时追加 `--ignore-registry-errors`，并在本节与 `.github/workflows/test.yml` 注释记录转正日期与作为依据的 3 个 run id（不得只删 `|| true`）
+
+### 5.7 无可用修复版本漏洞的审计豁免（audit.ignore，2026-10-05）
+
+当 advisory 声明的 patched 版本**尚未发布**（registry 上不存在可安装版本）时，overrides / `pnpm update` / `pnpm audit --fix` 均无法修复，`pnpm audit` 会持续失败并阻断周期性回归。此时按以下方式**显式豁免**，而非放宽或关闭门禁。
+
+- **配置位置**：`pnpm-workspace.yaml` 顶层 `audit.ignore`（GHSA 列表），脚本命令维持 `pnpm audit --prod --audit-level=moderate` 不变。
+- **禁止用 `--ignore` / `--ignore-unfixable` 进脚本**：pnpm 的 `--ignore` 是「一次性配置写入器」——只把编号写回 `pnpm-workspace.yaml` 并直接 exit 0（官方文档："no audit report is printed"），**不执行审计**。写进 CI 或 npm script 会使审计步骤恒为 exit 0、门禁彻底失效（2026-10-05 实测 pnpm 11.17.0 与 11.23.0 一致；`--ignore <不存在的 GHSA>` 亦 exit 0）。`--ignore-unfixable` 还依赖 advisory 的 patched 元数据，对「声明了 patched 版本但未发布」的条目判为**可修复**，实际不写入任何编号（输出 `No new vulnerabilities were ignored`，只留空 `auditConfig: {}`）。
+- **保留阻断强度**：`audit.ignore` 仅过滤列表内编号，未列入的新漏洞仍使 `pnpm audit` exit 1（实测只忽略 1 条时输出 `Severity: 2 high (1 ignored)` 且 exit 1）。
+- **对 §5.6 观察期计数的影响**：`audit.ignore` 对 [`test.yml`](../../.github/workflows/test.yml) 的信号级 audit 同样生效。豁免在册时 `pnpm audit --audit-level=moderate` 输出为 `2 vulnerabilities found` / `Severity: 2 high (2 ignored)`，**不含** [§5.6](#56-依赖审计阻断语义信号级--阻断的转正条件2026-09-30-用户决策方案-c) 所依赖的字面串 `No known vulnerabilities found` → 观察期 clean 计数在豁免移除前不可达；转阻断动作前**必须先移除豁免**（或修订该 clean 判据），不得在豁免在册状态下触达转正条件。
+
+**当前豁免清单与依据**（每条必须登记 GHSA + 依赖路径 + 复核条件，禁止只写编号）：
+
+| GHSA | 包 / 受影响范围 | 依赖路径 | 复核条件（满足即移除） |
+|:--|:--|:--|:--|
+| GHSA-86w9-cpqp-85rv | node-forge ≤ 1.4.0 | `apps/platform > nuxt > @nuxt/cli / nitropack > listhen > node-forge` | node-forge 发布 > 1.4.0 |
+| GHSA-vfj7-8cjw-p6xm | braces ≤ 3.0.3 | `apps/platform > nuxt / @nuxtjs/i18n > … > fast-glob > micromatch > braces` | braces 发布 > 3.0.3 |
+
+- **复核节奏**：条目同步登记于 [backlog.md 已知边界](../plan/backlog.md)（持续观察）；每周回归或依赖升级时复查上游是否已发布修复版本，发布后立即移除豁免并复跑 `pnpm audit`。
+
+**审计必查项（Code Auditor 必查）**：
+
+- 新增 `audit.ignore` 条目必须同时给出 GHSA + 依赖路径 + 复核条件，禁止只写编号
+- 禁止把 `--ignore` / `--ignore-unfixable` 写入任何 CI workflow 或 npm script（会使审计门禁失效）
+- 上游发布修复版本后必须移除对应豁免条目，不得长期挂账
 
 ## 6. 终端命令与自动化安全 (CLI & Automation)
 

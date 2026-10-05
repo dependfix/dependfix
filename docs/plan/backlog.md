@@ -192,6 +192,14 @@
 - **规范挂接**：[platform.md §3.3](../standards/platform.md) + [§3.8](../standards/platform.md#38-仓库级自定义验证命令verifycommands-m321-c76) + [development.md §5.1.19](../standards/development.md)。
 - **移出**：随 M36 阶段归档批次从 backlog 移出，并同步 [archive/index.md §4](archive/index.md) 基线「保留」清单与前向描述。
 
+### 依赖审计豁免复核（node-forge / braces，持续观察）
+
+- **背景**：2026-10-05 weekly regression 因 `security:audit-deps` 阻断失败——node-forge ≤ 1.4.0（GHSA-86w9-cpqp-85rv）与 braces ≤ 3.0.3（GHSA-vfj7-8cjw-p6xm）为 high，但 advisory 声明的 patched 版本（1.4.1 / 3.0.4）**尚未发布**，overrides / `pnpm update` 无法解析。经用户决策（方案 A，调整为配置文件实现）在 [pnpm-workspace.yaml](../../pnpm-workspace.yaml) `audit.ignore` 显式豁免。
+- **机制与复核**：以 `pnpm-workspace.yaml` `audit.ignore` 显式豁免（只过滤列表内编号，未列入的新漏洞仍使 `pnpm audit` exit 1）；机制、禁止项与复核条件以 [security.md §5.7](../standards/security.md#57-无可用修复版本漏洞的审计豁免auditignore2026-10-05) 为唯一权威，本条不重复。
+- **复核条件**：node-forge 发布 > 1.4.0 或 braces 发布 > 3.0.3 后，移除 `pnpm-workspace.yaml` 对应条目并复跑 `pnpm audit --prod --audit-level=moderate --registry=https://registry.npmjs.org`。
+- **触发条件**：每周回归 / 依赖升级 / 上游发布修复版本时复查。
+- **可选增强**：以调度任务自动比对 `npm view node-forge version` / `npm view braces version` 探测上游修复发布，避免豁免长期挂账（暂未实现）。
+
 ---
 
 ## 文档位置速查

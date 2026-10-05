@@ -278,6 +278,7 @@ if (value) { ... }  // 对 0, "", false 失效
 | [testing.md §6.7](../../../../docs/standards/testing.md) | **视觉回归**用例 / 基线 / 主题 token 改动 | 取证前先 build；加遮蔽须重生成基线；**反例验证纪律**（注入样式改动 → 用例如期失败 → 还原后全绿）；基线覆盖 fixtures 时须**写入路径锚定**（先断言行数 / 关键文案 / 标签色调再截图）+ 覆盖声明逐列核对；色板 / 间距类改动按内容核验（重建 + 逐像素 diff），不只看"用例通过" |
 | [testing.md §6.8](../../../../docs/standards/testing.md) | 审计 / 文档引用**取证工件** | 工件是否与冻结代码**同批生成**；文档数字是否只在验证链尾部落笔 |
 | [security.md §2](../../../../docs/standards/security.md) | 读取外部可控配置文件（如目标仓库 `.github/*.yml`） | 外部可控配置**防护矩阵**五要素：错误摘要截断 / 原型链风险键过滤在 schema 之前 / 未知键 `Object.hasOwn` / 非普通文件不跟随符号链接 / 大小上限（完整矩阵以 [dependency-fixer.md §12.7](../../../../docs/design/modules/dependency-fixer.md) 为唯一权威） |
+| [security.md §5.7](../../../../docs/standards/security.md) | 改动 `pnpm-workspace.yaml` 的 `audit.ignore` / CI 或 npm script 的 `pnpm audit` 命令 | 是否禁止 `--ignore` / `--ignore-unfixable` 入脚本（只写配置、不审计，会使门禁恒绿）；豁免条目是否含 GHSA + 依赖路径 + 复核条件；上游发布修复版本后是否移除豁免 |
 | [platform.md §3.3](../../../../docs/standards/platform.md) | 新增 `apps/platform` migration | 是否**前缀感知**（先 `entityPrefix + 表名`、再回退无前缀）；用例是否覆盖两种前缀 + up/down 幂等 + 目标表缺失 |
 | [platform.md §3.8](../../../../docs/standards/platform.md) | `Repository.verifyCommands` 字段 / 仓库级自定义验证命令 | 「命令执行面 + 写入门槛 + 审计留痕」三条安全边界是否保持（详细检查点分别落在 code-auditor 主责边界「修复执行安全基线」与「shell 命令安全」必查项，本条不重复其条目内容） |
 | [platform.md §3.9](../../../../docs/standards/platform.md) | `.github/dependfix.yml` 读取 / 合并 | **中央优先**（防目标仓库绕过）与**不提供 UI 入口**两条约束是否保持 |

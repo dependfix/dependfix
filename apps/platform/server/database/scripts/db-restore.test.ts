@@ -285,9 +285,9 @@ describe('db-restore', () => {
         })
     })
 
-    // M30.5: M22.2 A 阶段审计未采纳项补测
-    describe('M22.2 审计未采纳分支补测', () => {
-        describe('S-1 第 2 项：inspectSqliteFile 能打开但 integrity_check != ok', () => {
+    // 审计未采纳项补测
+    describe('审计未采纳分支补测', () => {
+        describe('inspectSqliteFile 能打开但 integrity_check != ok', () => {
             it('rejects a SQLite file that opens but has corrupted integrity_check', () => {
                 createSeedDatabase(dbPath, 'v1')
                 copyFileSync(dbPath, backupPath)
@@ -307,7 +307,7 @@ describe('db-restore', () => {
             })
         })
 
-        describe('S-1 第 3 项：恢复后 integrity_check 失败分支', () => {
+        describe('恢复后 integrity_check 失败分支', () => {
             it('throws when post-restore integrity_check fails', () => {
                 createSeedDatabase(dbPath, 'current')
                 createSeedDatabase(backupPath, 'from-backup')
@@ -328,7 +328,7 @@ describe('db-restore', () => {
             })
         })
 
-        describe('S-1 第 4 项：sidecar unlinkSync 部分失败的 removedSidecars 状态一致性', () => {
+        describe('sidecar unlinkSync 部分失败的 removedSidecars 状态一致性', () => {
             it('keeps on-disk sidecar state consistent when a deletion fails midway', () => {
                 createSeedDatabase(dbPath, 'current')
                 createSeedDatabase(backupPath, 'from-backup')
@@ -357,7 +357,7 @@ describe('db-restore', () => {
             })
         })
 
-        describe('S-2 第 1 项：--from / --to 未做路径规范化（校验 .. / 符号链接）', () => {
+        describe('--from / --to 未做路径规范化（校验 .. / 符号链接）', () => {
             it('does NOT reject --from with path traversal (..) - current behavior', () => {
                 createSeedDatabase(dbPath, 'v1')
                 copyFileSync(dbPath, backupPath)

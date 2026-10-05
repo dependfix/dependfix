@@ -31,8 +31,8 @@ import { snowflake } from '#server/utils/snowflake'
  * - 事务回调提供 consumeOne / incrementOne（一次性消费 / 原子计数），
  *   避免 better-auth 内部事务路径缺失方法。
  *
- * M27.5 / 2026-09-10：transaction 回调包 [auth] trace（捕获 begin / callback resolve /
- * commit / rollback 时间戳 + 连接释放 elapsed）—— M22.7 ECONNRESET 根因候选 ①
+ * 2026-09-10：transaction 回调包 [auth] trace（捕获 begin / callback resolve /
+ * commit / rollback 时间戳 + 连接释放 elapsed）—— ECONNRESET 根因候选 ①
  * （better-auth 1.7 transaction 关闭时序）诊断基础设施；trace 仅在
  * E2E_TEST / ECONNRESET 错误触发 / AUTH_TRACE=1 时输出，避免生产环境性能开销。
  */
@@ -242,8 +242,8 @@ export const typeormAdapter = (dataSource: DataSource): ReturnType<typeof create
         transaction: <R>(callback: (trx: DBTransactionAdapter) => Promise<R>) =>
             dataSource.transaction(async (manager) => {
                 const trx = createTypeormAdapter(dataSource, manager) as DBTransactionAdapter
-                // M27.5 / 2026-09-10：transaction trace —— 记录 begin/callback-resolve/commit 时序
-                // 用于诊断 M22.7 ECONNRESET 根因候选 ①（better-auth 1.7 transaction 关闭时序）。
+                // 2026-09-10：transaction trace —— 记录 begin/callback-resolve/commit 时序
+                // 用于诊断 ECONNRESET 根因候选 ①（better-auth 1.7 transaction 关闭时序）。
                 // trace 触发条件：E2E_TEST 模式 / AUTH_TRACE=1 / ECONNRESET 错误冒泡时。
                 // 性能：开启时仅 console.log，无额外 IO；关闭时为单一 if 早返回。
                 const shouldTrace = process.env.E2E_TEST === 'true'

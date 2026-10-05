@@ -110,7 +110,7 @@ export class Repository extends BaseEntity {
      * 沙箱资源限额覆盖（JSON 字符串，可选；与 sandbox-executor.ts SandboxExecutorOptions.sandboxLimits 对齐）：
      * `{ memoryMb?: number, cpu?: number }` —— 缺省走平台 SANDBOX_DEFAULTS（2048MB/1.0）。
      * 限额优先级：仓库级 > 沙箱级 > 平台默认（见 sandbox-executor.ts:107 注释）。
-     * UI 暂不暴露该字段（M11 T1005-B 决策：UI 仅做执行方式选择，限额覆盖走 API 层；与 M10 决策 D5「仓库级可选」一致）。
+     * UI 暂不暴露该字段（UI 仅做执行方式选择，限额覆盖走 API 层；仓库级可选）。
      * 演进路径：未来若需要批量仓库限额 UI（如 monorepo 大仓库统一调高 memoryMb），可在执行方式 Dropdown 旁加折叠面板。
      */
     @Column({ type: 'text', nullable: true })

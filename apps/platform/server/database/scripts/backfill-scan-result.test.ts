@@ -26,7 +26,7 @@ vi.mock('../../utils/guard', () => ({
  * 每个用例用独立 Repository / upstreamId / ScanRun，避免 per-alert 模型跨测试污染。
  */
 
-describe('M20.7 backfill-scan-result', () => {
+describe('backfill-scan-result', () => {
     let repositoryId: string
     let runId: string
 

@@ -37,7 +37,7 @@ export class ScanResult extends BaseEntity {
     @JoinColumn({ name: 'scan_run_id' })
     scanRun!: ScanRun | null
 
-    /** 仓库 id（M20.3 新增冗余列；便于唯一索引 + dashboard 统计无需 JOIN ScanRun） */
+    /** 仓库 id（新增冗余列；便于唯一索引 + dashboard 统计无需 JOIN ScanRun） */
     @Column({ type: 'varchar', length: 36 })
     repositoryId!: string
 
@@ -46,7 +46,7 @@ export class ScanResult extends BaseEntity {
     repository!: Repository | null
 
     /**
-     * 上游告警唯一 ID（M20 新增）。
+     * 上游告警唯一 ID。
      * 由引擎侧 `normalizeUpstreamId(source, raw)` 注入；格式详见
      * [`packages/core/src/alerts/upstream-id.ts`](../../../../packages/core/src/alerts/upstream-id.ts)。
      * 平台 ScanResult 唯一索引第二段（与 repositoryId 组成复合唯一键）。
@@ -99,7 +99,7 @@ export class ScanResult extends BaseEntity {
     ghsaId!: string | null
 
     /**
-     * CVE ID 列表（M23.3 C66-A1 新增）。
+     * CVE ID 列表。
      * SQLite 不支持 string[]，存 JSON 序列化字符串（如 `'["CVE-2021-23337"]'`）。
      * - dependabot：从 `security_advisory.identifiers[]` 提取 type === 'CVE' 列表
      * - pnpm-audit：从 `advisory.cves[]` 字符串数组
@@ -117,20 +117,20 @@ export class ScanResult extends BaseEntity {
     errorMessage!: string | null
 
     /**
-     * 首次发现时间（M20.3 新增；reconcile 函数在 INSERT 时填 new Date()，
+     * 首次发现时间（reconcile 函数在 INSERT 时填 new Date()，
      * 后续扫描该告警存在时该字段不变）。
      */
     @Column({ type: 'datetime' })
     firstSeenAt!: Date
 
     /**
-     * 最近一次见到时间（M20.3 新增；reconcile 函数每次 UPDATE 活跃告警时刷新）。
+     * 最近一次见到时间（reconcile 函数每次 UPDATE 活跃告警时刷新）。
      */
     @Column({ type: 'datetime' })
     lastSeenAt!: Date
 
     /**
-     * 跨次扫描累计出现次数（M20.3 新增；reconcile 函数每次活跃时 +1）。
+     * 跨次扫描累计出现次数（reconcile 函数每次活跃时 +1）。
      * 注意：fixStatus='success' 行的 occurrenceCount 持续累加（业务语义："曾出现 N 次"），
      * 即使该告警被 supersede 也不减（决策 1：fixStatus='success' 永不被 supersede，
      * 所以 N 不会减；superseded 后该告警仍显示 occurrenceCount 历史值）。

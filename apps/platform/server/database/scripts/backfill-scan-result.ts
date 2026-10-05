@@ -98,7 +98,7 @@ const buildAggregateKey = (row: ScanResult): AggregateKey =>
  * 合成 backfill 行 upstreamId（命名空间隔离，避免与未来真实 upstreamId 冲突）
  *
  * 设计取舍：
- * - 不用 `${source}:${packageName}:${ruleId}`：与 M20.1 normalizeUpstreamId 输出格式不兼容
+ * - 不用 `${source}:${packageName}:${ruleId}`：与 normalizeUpstreamId 输出格式不兼容
  *   （pnpm-audit 双冒号格式），且 ruleId=null fallback 难以保证唯一
  * - 改用 `${source}:backfill-${rowId}`：rowId 唯一保证 + "backfill-" 命名空间前缀
  *   明确标识"这是 backfill 合成的 upstream ID，不是真实上游 ID"
@@ -166,7 +166,7 @@ export const computeBackfillPlan = async (
 
             // keeper 处理：
             // 1. 总是替换 upstreamId 为 `${source}:backfill-${rowId}` 命名空间隔离
-            //    （M20.3 schema 加列后旧数据可能是 fixtures auto- 占位符或 backfill-${rowId} 再次处理；
+            //    （schema 加列后旧数据可能是 fixtures auto- 占位符或 backfill-${rowId} 再次处理；
             //    总是替换保证命名空间一致 + 唯一索引 (repositoryId, upstreamId) 命中）
             //    注意：未来 reconcile 用真实 upstreamId 创建新行（unique 索引不同），
             //    backfill 行与真 ID 行并存，最终效果 = 旧的聚合行被 supersede + 新的真实 ID 行活跃

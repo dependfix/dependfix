@@ -177,8 +177,8 @@ describe('ensureDatabaseInitialized', () => {
         expect(afterCount).toBe(beforeCount)
     })
 
-    it('applies SQLite WAL mode and busy_timeout PRAGMA after initialization (M23.1)', async () => {
-        // M23.1 根因排查落地：SQLite WAL 模式 + busy_timeout 5000ms 优化
+    it('applies SQLite WAL mode and busy_timeout PRAGMA after initialization', async () => {
+        // SQLite WAL 模式 + busy_timeout 5000ms 优化
         // 验证 ensureDatabaseInitialized 初始化后 journal_mode=wal + busy_timeout=5000
         vi.resetModules()
         const { ensureDatabaseInitialized: ensureFresh } = await import('./index')

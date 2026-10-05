@@ -58,7 +58,7 @@ export class Credential extends BaseEntity {
     @Column({ type: 'text' })
     encryptedToken!: string
 
-    // ----- GitHub App 路径字段（M18.3 接入）-----
+    // ----- GitHub App 路径字段 -----
 
     /** GitHub App ID（公开信息，明文存储；type='github-app' 时必填） */
     @Column({ type: 'varchar', length: 32, nullable: true })

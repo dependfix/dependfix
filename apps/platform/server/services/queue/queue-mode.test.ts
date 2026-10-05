@@ -8,24 +8,32 @@ import {
 } from './queue-mode'
 
 describe('resolveQueueMode（队列模式决策/降级矩阵）', () => {
-    it('auto + Redis 可用 → async', () => {
-        expect(resolveQueueMode({ enabled: 'auto', redisAvailable: true })).toBe('async')
+    it('auto + Redis 可用 + 进程内 worker → async', () => {
+        expect(resolveQueueMode({ enabled: 'auto', redisAvailable: true, inProcessWorker: true })).toBe('async')
+    })
+
+    it('auto + Redis 可用 + 无进程内 worker → sync（消费者维度自动降级，避免无人消费挂起）', () => {
+        expect(resolveQueueMode({ enabled: 'auto', redisAvailable: true, inProcessWorker: false })).toBe('sync')
     })
 
     it('auto + Redis 不可用 → sync（无 Redis 降级同步）', () => {
-        expect(resolveQueueMode({ enabled: 'auto', redisAvailable: false })).toBe('sync')
+        expect(resolveQueueMode({ enabled: 'auto', redisAvailable: false, inProcessWorker: true })).toBe('sync')
     })
 
-    it('显式 true + Redis 可用 → async', () => {
-        expect(resolveQueueMode({ enabled: 'true', redisAvailable: true })).toBe('async')
+    it('显式 true + Redis 可用 → async（强制异步，外部 worker 拓扑预留）', () => {
+        expect(resolveQueueMode({ enabled: 'true', redisAvailable: true, inProcessWorker: false })).toBe('async')
+    })
+
+    it('显式 true + Redis 可用 + 进程内 worker → async', () => {
+        expect(resolveQueueMode({ enabled: 'true', redisAvailable: true, inProcessWorker: true })).toBe('async')
     })
 
     it('显式 true + Redis 不可用 → sync（可用性优先 failover）', () => {
-        expect(resolveQueueMode({ enabled: 'true', redisAvailable: false })).toBe('sync')
+        expect(resolveQueueMode({ enabled: 'true', redisAvailable: false, inProcessWorker: true })).toBe('sync')
     })
 
-    it('显式 false → 强制 sync（即使 Redis 可用）', () => {
-        expect(resolveQueueMode({ enabled: 'false', redisAvailable: true })).toBe('sync')
+    it('显式 false → 强制 sync（即使 Redis 可用 + 有 worker）', () => {
+        expect(resolveQueueMode({ enabled: 'false', redisAvailable: true, inProcessWorker: true })).toBe('sync')
     })
 })
 

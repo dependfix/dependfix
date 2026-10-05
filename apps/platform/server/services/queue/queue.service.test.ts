@@ -83,14 +83,28 @@ describe('getQueueService', () => {
         expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('Redis 版本 3.0.0 低于 BullMQ'))
     })
 
-    it('creates async queue without worker when in-process worker disabled', async () => {
-        stubConfig({ queueEnabled: 'auto' })
+    it('degrades to sync (with warn) when auto mode has no in-process worker', async () => {
+        stubConfig({ queueEnabled: 'auto', inProcessWorker: false })
         probeRedis.mockResolvedValue({ available: true, reason: null, version: '7.4.1' })
+        const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+        const service = await getQueueService()
+        expect(service.mode).toBe('sync')
+        expect(service.queue).toBeNull()
+        expect(createScanQueue).not.toHaveBeenCalled()
+        expect(createScanWorker).not.toHaveBeenCalled()
+        expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('自动模式降级同步'))
+    })
+
+    it('keeps async (with warn) when QUEUE_ENABLED=true forces async without in-process worker', async () => {
+        stubConfig({ queueEnabled: 'true', inProcessWorker: false })
+        probeRedis.mockResolvedValue({ available: true, reason: null, version: '7.4.1' })
+        const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
         const service = await getQueueService()
         expect(service.mode).toBe('async')
         expect(service.queue).not.toBeNull()
-        expect(createScanQueue).toHaveBeenCalledWith(expect.anything(), { retriesRaw: undefined, backoffMsRaw: undefined })
+        expect(createScanQueue).toHaveBeenCalled()
         expect(createScanWorker).not.toHaveBeenCalled()
+        expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('强制异步但未启用进程内 worker'))
     })
 
     it('starts in-process worker when IN_PROCESS_WORKER=true', async () => {

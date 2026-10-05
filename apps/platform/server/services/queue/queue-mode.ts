@@ -1,12 +1,17 @@
 /**
  * 队列模式决策（渐进式降级，决策见 docs/plan/todo.md §T702 实现决策 D2/D3）。
  *
- * 降级矩阵：
- * - async：Redis 可用 → BullMQ 队列异步执行（worker 独立进程或 in-process）
- * - sync：Redis 不可用 / QUEUE_ENABLED=false → 直调 runScanForRepository（既有同步模型）
+ * 降级矩阵（含消费者维度）：
+ * - async：Redis 可用且存在消费者 → BullMQ 队列异步执行。当前阶段唯一消费者是进程内 worker
+ *   （IN_PROCESS_WORKER=true）；独立 worker 进程形态（多容器）尚未实现。
+ * - sync：Redis 不可用 / QUEUE_ENABLED=false / auto 且本进程不消费队列 →
+ *   直调 runScanForRepository（既有同步模型）。
  *
- * 语义：QUEUE_ENABLED=auto（默认）时 Redis 可用即异步；显式 true 但 Redis 不可用时
- * 降级同步 + warn（可用性优先，failover 而非抛错）；显式 false 强制同步。
+ * 语义：
+ * - QUEUE_ENABLED=auto（默认）：Redis 可用且本进程消费队列才异步；否则同步——含「无消费者自动降级」，
+ *   避免「入队后无人消费」的静默挂起（job 永远 waiting → 30 分钟后被判孤儿）。
+ * - QUEUE_ENABLED=true：显式强制异步（为多容器外部 worker 拓扑预留）；Redis 不可用时降级同步 + warn。
+ * - QUEUE_ENABLED=false：强制同步。
  */
 
 export type QueueMode = 'async' | 'sync'
@@ -18,17 +23,28 @@ export interface QueueModeInput {
     enabled: QueueEnabled
     /** Redis ping 探测结果 */
     redisAvailable: boolean
+    /**
+     * 本进程是否消费队列（IN_PROCESS_WORKER=true → 创建进程内 worker）。
+     * auto 模式下作为「消费者可用性」判据：无消费者时降级 sync，避免 async 队列无人消费的静默挂起。
+     * 独立 worker 进程形态（多容器）当前阶段未实现，故唯一消费者是进程内 worker。
+     */
+    inProcessWorker: boolean
 }
 
 export const resolveQueueMode = (input: QueueModeInput): QueueMode => {
     if (input.enabled === 'false') {
         return 'sync'
     }
-    if (input.enabled === 'true' && !input.redisAvailable) {
-        // 显式启用但 Redis 不可用：降级同步（可用性优先），上层负责 warn
+    // Redis 不可用：无论 auto / 显式 true 一律降级同步（可用性优先；显式 true 由上层额外 warn）
+    if (!input.redisAvailable) {
         return 'sync'
     }
-    return input.redisAvailable ? 'async' : 'sync'
+    // Redis 可用：auto 仅在本进程消费队列时异步；无消费者时降级同步
+    // （否则入队后无人消费 → job 永远 waiting → 静默挂起）
+    if (input.enabled === 'auto' && !input.inProcessWorker) {
+        return 'sync'
+    }
+    return 'async'
 }
 
 /**

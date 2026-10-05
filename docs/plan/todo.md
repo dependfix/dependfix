@@ -18,11 +18,11 @@
 
 ## 当前阶段
 
-### M36: 治理债清仓 + 可观测性与测试稳定性（M36.1~M36.9）
+### M36: 治理债清仓 + 可观测性与测试稳定性（M36.1~M36.10）
 
 > **阶段摘要**：承接 M35 完整闭环归档后的 backlog 候选池，2026-10-02 用户决策**方案 A（治理债清仓）**——从 backlog 中可立即启动的候选中上收 5 项，一次性清空长期沉积的存量治理债（C81 孤立规划编号清理）并收口两处正确性 / 可观测性缺口与一处 e2e 顺序偶发；同日用户直接指令追加 1 项镜像体积治理（M36.6，属 [规划规范 §3.4](../standards/planning.md#34-阶段启动决策前置交叉核验硬要求m271-重复评估教训--2026-09-10) 承认的「用户直接决策」路径，非 backlog 候选）；另用户报告依赖升级 overrides key 重复写法缺陷并追加修复（M36.7，同属「用户直接决策」路径）。backlog 上收的 5 项候选均经 §3.4 三重交叉核验通过（0 项重复评估）。
 >
-> **9 原子条目**（类型平衡 🛡️ 6 / 📚 1 / 🚀 1 / 🧪 1；M36.8 含 🎨 用户体验修复）：
+> **10 原子条目**（类型平衡 🛡️ 7 / 📚 1 / 🚀 1 / 🧪 1；M36.8 含 🎨 用户体验修复）：
 >
 > - **M36.1** [P3 🛡️ 技术债] C81 源码 / 配置注释孤立规划编号存量清理（分批）
 > - **M36.2** [P3 📚 文档治理] 设计与索引文档同类陈旧状态清理（存量）
@@ -33,8 +33,9 @@
 > - **M36.7** [P2 🛡️ 技术债] pnpm overrides key 语义归一化（消除 `pkg@^1` / `pkg@1` 重复写法）
 > - **M36.8** [P1 🛡️ 缺陷修复 / 🎨 体验] Docker 首次启动数据库初始化 + 一键初始化脚本 + 部署文档
 > - **M36.9** [P1 🛡️ 缺陷修复] 扫描队列孤儿 job 释放 + pending 排队误杀修正
+> - **M36.10** [P1 🛡️ 缺陷修复] 队列模式决策纳入消费者维度（auto 无进程内 worker 时自动降级同步）
 >
-> **类型平衡复核**：[规划规范 §1.1](../standards/planning.md#11-硬性约束) 建议 🎨 用户体验 + 🛡️ 技术债 + 🚀 能力扩展 + 🧪 测试覆盖：本批 🛡️ 6 + 📚 1 + 🚀 1 + 🧪 1；**🎨 用户体验由 M36.8 承载**（Docker 首次启动即用体验 + 部署文档缺口）。
+> **类型平衡复核**：[规划规范 §1.1](../standards/planning.md#11-硬性约束) 建议 🎨 用户体验 + 🛡️ 技术债 + 🚀 能力扩展 + 🧪 测试覆盖：本批 🛡️ 7 + 📚 1 + 🚀 1 + 🧪 1；**🎨 用户体验由 M36.8 承载**（Docker 首次启动即用体验 + 部署文档缺口）。
 >
 > **§3.4 三重交叉核验结论**（本批为 backlog 上收：「评估 → 用户决策 → 上收」路径）：
 >
@@ -48,7 +49,7 @@
 >
 > **关键决策（待用户在执行期细化）**：
 >
-> - **D1**（2026-10-02 用户决策）：组合定型——方案 A（治理债清仓），5 原子条目；🎨 UX 缺口显式标注。**同日追加 M36.6（用户直接指令）+ M36.7（用户报告缺陷修复）**；后续再追加 **M36.8（用户报告 Docker 首次启动缺陷 + 部署文档 / 初始化脚本需求）** 与 **M36.9（2026-10-03 用户报告超时后重新触发被 `SCAN_PENDING_MERGED` 永久合并的可用性缺陷）**，合计 9 原子条目。
+> - **D1**（2026-10-02 用户决策）：组合定型——方案 A（治理债清仓），5 原子条目；🎨 UX 缺口显式标注。**同日追加 M36.6（用户直接指令）+ M36.7（用户报告缺陷修复）**；后续再追加 **M36.8（用户报告 Docker 首次启动缺陷 + 部署文档 / 初始化脚本需求）**、**M36.9（2026-10-03 用户报告超时后重新触发被 `SCAN_PENDING_MERGED` 永久合并的可用性缺陷）** 与 **M36.10（2026-10-04 用户报告 Docker 单容器 `IN_PROCESS_WORKER=false` + `QUEUE_ENABLED=auto` 时任务入队无人消费的静默挂起缺陷）**，合计 10 原子条目。
 > - **D2**：M36.1 判定口径默认取「注释块级 + 真常量白名单（HTTP 错误码等）+ 优先改写为带文档指针的导航指针，无法归指者删编号留正文」；批量替换遵守 [AI 协作规范 §1.2 第 6 条](../standards/ai-collaboration.md) 分批纪律（每子批次 < 10 文件）。
 > - **D3**：M36.3 以「条件写回下沉共享层」为主，保持 GET「对非 running 批次仍对齐计数」既有契约；不引入悲观锁。
 > - **D4**：M36.4 判据改为「无任何成功源且存在失败源」；明确 `repoResults` / 报告「扫描成功」连锁语义。
@@ -257,6 +258,32 @@
 - **交付物**：1 commit（队列层 + 服务层 + 插件 + 测试 + 计划登记）。
 - **风险与缓解**：`remove` 对 active 锁定 job 会抛错并退化为 removed=false（BullMQ `removeJob` 对 locked 返回 0）——仅告警不阻断，锁随 worker 存活续期 / 死亡后过期；实际「活 worker + 超 30min active」在 `withTimeout` 下不可达；缓解：try/catch + 真实 Redis active 锁定用例。释放误删风险由 run 归属校验（`job.data.runId === 孤儿 runId`）收敛，补 `scan-queue` 不匹配用例 + 真实 Redis 不匹配用例。
 - **残余风险**：active 锁定 job 本轮释放失败后不再重试（依赖后续触发时 `add` 的终态重建兜底）；`hasLiveJob` 对 `unknown` 状态保守判为 live（宁可漏杀不可误杀）。
+
+#### M36.10 [P1 🛡️ 缺陷修复] 队列模式决策纳入消费者维度（auto 无进程内 worker 时自动降级同步）
+
+- **目标**：让 `QUEUE_ENABLED=auto`（默认）真正「自动降级」——异步队列仅在「Redis 可用且存在消费者」时启用；单容器部署下未启用进程内 worker（`IN_PROCESS_WORKER=false`）时自动降级同步，消除「任务入队后无人消费 → pending 挂起 → 约 30 分钟后 `orphan_run` / 重触发 `SCAN_PENDING_MERGED`」的静默黑洞。
+- **优先级**：P1（用户报告 Docker 单容器 `NUXT_IN_PROCESS_WORKER=false` + `NUXT_QUEUE_ENABLED=auto` 时任务永不执行、约 30 分钟后失败，属[规划规范 §3.1 插队例外](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement)第 3 类「直接影响可用性的 blocker 级功能缺失」+ §3.4「用户直接决策」路径）。
+- **根因（2026-10-04 排查）**：
+  - R1 表层：`resolveQueueMode` 只吃 `{ enabled, redisAvailable }`，不含消费者维度；Redis 可用 + auto → async，无论是否有 worker。
+  - R2 深层：worker 仅在 `inProcessWorker=true` 时创建，且该判断发生在模式已定 async 之后 → `auto` + Redis 可用 + `IN_PROCESS_WORKER=false` = async 队列零消费者，job 永远 waiting。
+  - R3：独立 worker 进程（多容器）当前阶段未实现（SQLite 多写者锁 + 无独立 worker 镜像），故 `IN_PROCESS_WORKER=false` 在单容器下没有任何合法消费者。
+  - R4：`queue.service.test` 存在用例 `creates async queue without worker when in-process worker disabled`，把「async 无消费者」固化为已知行为；故障排查文档只覆盖「Redis 不可达」，未覆盖「Redis 可达但无消费者」。
+- **范围**：`server/services/queue/queue-mode.ts`（`QueueModeInput` 增 `inProcessWorker` + `resolveQueueMode` 消费者维度降级 + 头注释矩阵）；`server/services/queue/queue.service.ts`（传入 `inProcessWorker` + sync 降级 warn + 强制 async 无 worker warn）；测试 `queue-mode.test.ts` / `queue.service.test.ts`；文档 `.env.example` / `docs/guide/deployment.md`（+ `docs/i18n/en-US/guide/deployment.md`）/ `docs/design/governance/platform-scheduled-batch.md §9`。
+- **验收标准**：
+  - [ ] `auto` + Redis 可用 + `inProcessWorker=false` → sync（消费者维度自动降级）+ warn
+  - [ ] `auto` + Redis 可用 + `inProcessWorker=true` → async（进程内 worker 消费）
+  - [ ] `auto` + Redis 不可用 → sync；`QUEUE_ENABLED=false` → sync；`QUEUE_ENABLED=true` + Redis 可用 → async（强制，外部 worker 预留）
+  - [ ] 文档同步：`.env.example` / 部署指南（zh + en-US 行级一致）/ 设计文档降级矩阵
+  - [ ] `pnpm lint` / `pnpm typecheck` exit 0；平台队列 / 批量 / 调度定向 vitest 全过
+- **不做什么**：不实现独立 worker 进程 / 多容器拓扑（PostgreSQL 迁移后排期）；不改 `QUEUE_ENABLED=true` 的强制语义（保留外部 worker 逃生口）；不改 BullMQ 去重与 stale-cleanup 语义（M36.9 已闭环）。
+- **依赖**：用户报告（直接指令，2026-10-04）；关联 M36.9（孤儿释放）/ M7.2 T702（队列基础设施）；`docs/design/governance/platform-scheduled-batch.md`。
+- **§3.4 三重交叉核验**（属「用户直接决策 + 插队例外」路径）：
+  - ① **todo-archive 表格扫描**：`rg -n "inProcessWorker|IN_PROCESS_WORKER|消费者维度|自动降级" docs/plan/todo-archive.md docs/plan/archive/*.md` 仅命中 T702 队列基础设施 / 经验归档 destr 布尔陷阱案例，无「消费者维度降级」闭环。
+  - ② **git log 历史核验**：`git log --oneline -- apps/platform/server/services/queue/queue-mode.ts` 无消费者维度决策变更 commit。
+  - ③ **代码侧 anchor 实证**：`queue-mode.ts:23-32` `resolveQueueMode` 仅 `{ enabled, redisAvailable }`；`queue.service.ts:75` worker 创建在 async 判定之后；`queue.service.test.ts:86` 固化「async without worker」。
+  - 结论：**0 项重复评估**，可进入 D 阶段。
+- **交付物**：1 commit（队列模式决策 + 接线 + 测试 + 文档）。
+- **风险与缓解**：`auto` 语义变化可能影响依赖「auto 必异步」的自定义部署；缓解：单容器推荐形态本就是 `IN_PROCESS_WORKER=true`（compose 默认），无 worker 的 async 本就是黑洞；多容器外部 worker 拓扑要求显式 `QUEUE_ENABLED=true`（保留逃生口），并在设计文档登记独立 worker 未实现。
 
 ---
 

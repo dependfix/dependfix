@@ -103,14 +103,15 @@ export default defineNuxtConfig({
         oidcTokenUrl: process.env.OIDC_TOKEN_URL || '',
         oidcUserInfoUrl: process.env.OIDC_USERINFO_URL || '',
         oidcScopes: process.env.OIDC_SCOPES || '',
-        // 扫描任务队列（渐进式降级）：REDIS_URL 可用时异步队列；不可用自动降级同步
+        // 扫描任务队列（渐进式降级，含消费者维度）：Redis 可用且存在消费者时才异步；否则自动降级同步
         redisUrl: process.env.REDIS_URL || 'redis://127.0.0.1:6379',
-        // auto（默认）：Redis 探测决定 async/sync；true：强制队列（不可用降级同步 warn）；false：强制同步
+        // auto（默认）：Redis 可用且本进程消费队列（inProcessWorker）才 async，否则 sync；
+        // true：强制异步（Redis 不可用降级同步 + warn）；false：强制同步
         queueEnabled: process.env.QUEUE_ENABLED || 'auto',
         // 失败重试：次数 + 指数退避起点 ms（BullMQ backoff）
         queueJobRetries: process.env.QUEUE_JOB_RETRIES || '',
         queueBackoffMs: process.env.QUEUE_BACKOFF_MS || '',
-        // 单容器部署：Nuxt 进程内消费队列（无需独立 worker 进程）
+        // 单容器部署：Nuxt 进程内消费队列（当前阶段唯一消费者；auto 模式下 false 会降级同步）
         inProcessWorker: process.env.IN_PROCESS_WORKER === 'true',
         // e2e/fixtures 端点放行开关（hard requirement：platform.md §3.6 + security.md §2.1.4）：
         // 生产构建默认 false（NUXT_E2E_FIXTURES_ALLOWED 未设）；仅 e2e webServer 启动时显式开启。

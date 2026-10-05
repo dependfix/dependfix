@@ -71,6 +71,10 @@ Compose 从 `apps/platform/.env` 读取变量并注入容器。核心项：
 | `PUID` / `PGID` | 否 | `100` / `101` | 容器运行身份（见下节） |
 | `DATABASE_MIGRATIONS_RUN` | 否 | `true`（镜像内默认） | 启动时自动执行迁移；设 `false` 改为手动初始化（再用 `docker/init-db.sh`） |
 | `DATABASE_PATH` | 否 | `/app/data/dependfix.sqlite` | SQLite 文件路径（在数据卷内） |
+| `QUEUE_ENABLED` | 否 | `auto` | 扫描队列模式：`auto` 自动判定 / `true` 强制异步 / `false` 强制同步 |
+| `IN_PROCESS_WORKER` | 否 | `true`（compose 内） | 进程内消费扫描队列（当前阶段单容器的唯一消费者）；见下方说明 |
+
+> ⚠️ **扫描队列的消费者**：`auto`（默认）模式下 Redis 可达**且有消费者**时才走异步（入队立即返回 + 前端轮询），但**必须有消费者**才会真正执行。当前阶段唯一消费者是 **进程内 worker**（compose `IN_PROCESS_WORKER` → 容器 `NUXT_IN_PROCESS_WORKER`，默认 `true`）；独立 worker 进程（多容器）尚未实现。`QUEUE_ENABLED=auto`（默认）在**未启用进程内 worker 时会自动降级同步**（日志出现 `自动模式降级同步`），避免任务入队后无人消费而挂起。若自行编排容器，务必注入 `NUXT_IN_PROCESS_WORKER=true`（或 `NUXT_QUEUE_ENABLED=false` 走同步）。
 
 > ⚠️ **Compose 变量名与容器变量名不同**：`AUTH_SECRET` 经 compose 映射为容器内 `NUXT_AUTH_SECRET`；`REGISTRATION_DISABLED` → `NUXT_REGISTRATION_DISABLED`；`QUEUE_ENABLED` → `NUXT_QUEUE_ENABLED` 等。Nuxt `runtimeConfig` 运行时覆盖只认 `NUXT_` 前缀。
 >
@@ -189,6 +193,7 @@ docker compose start platform
 | 凭据保存报密钥错误 | 未设置 `NUXT_ENCRYPTION_KEY`（32 字节随机值） |
 | 登录回调 404 / 重定向异常 | `NUXT_PUBLIC_BETTER_AUTH_URL` 与反代对外地址不一致，或反代未透传 `Host` |
 | 队列未生效 | Redis 不可达 / 版本 < 5.0 时自动降级同步；查看日志 `version_too_old` 等提示 |
+| 扫描任务一直 `pending` / 批量批次约 30 分钟后失败 `orphan_run`，且日志无执行记录 | 异步队列无消费者：确认容器有 `NUXT_IN_PROCESS_WORKER=true`（compose `IN_PROCESS_WORKER` 默认 true），日志应出现 `IN_PROCESS_WORKER=true，当前进程消费扫描队列`。`auto` 模式下未启用进程内 worker 会自动降级同步（日志 `自动模式降级同步`）；若手动编排容器漏注入该变量，异步任务将无人消费。若显式设了 `QUEUE_ENABLED=true` 则不会自动降级，需配置消费者或改回 `auto` |
 
 数据库自检（源码环境）：`pnpm --filter @dependfix/platform db:doctor`，可输出文件元信息、PRAGMA、各表行数与「数据正常 / 被清空 / schema 从未建立」结论。
 

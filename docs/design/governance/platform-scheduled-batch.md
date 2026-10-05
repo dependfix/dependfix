@@ -217,7 +217,7 @@ batchRunId!: string | null
 | Redis | 调度机制 | 持久化 | 多实例安全 | 降级说明 |
 |:---|:---|:---|:---|:---|
 | ✅ async | BullMQ `upsertJobScheduler` | Redis 持久化 | ✅ 多实例只一个触发 | BullMQ 原生 repeat job，到点自动 add 新 job |
-| ❌ sync | 进程内 `node-cron` + DB | DB（Schedule 实体） | ⚠️ 单实例（多实例会重复触发） | 降级单实例可用；多实例部署需配 `QUEUE_ENABLED=true`（强制 Redis） |
+| ❌ sync | 进程内 `node-cron` + DB | DB（Schedule 实体） | ⚠️ 单实例（多实例会重复触发） | 降级单实例可用；多实例部署需配 `QUEUE_ENABLED=true`（强制 Redis）+ 存在消费者 |
 
 ### 4.2 async 模式：BullMQ Job Scheduler
 
@@ -265,7 +265,7 @@ const scheduledTasks = new Map<string, cron.ScheduledTask>()  // scheduleId → 
 
 **降级约束**：
 - sync 模式下扫描仍为同步执行（复用 T702 同步降级路径），定时触发会在进程内逐仓库串行扫描
-- 多实例部署时 sync 模式会重复触发（每个实例都跑 cron）——文档明确提示：多实例部署必须配置 `QUEUE_ENABLED=true` + Redis 可用
+- 多实例部署时 sync 模式会重复触发（每个实例都跑 cron）——文档明确提示：多实例部署必须配置 `QUEUE_ENABLED=true` + Redis 可用，且需存在消费者（当前阶段为进程内 worker）
 - BullMQ `upsertJobScheduler` 与 node-cron 共存策略：`getQueueService().mode === 'async'` 时用 BullMQ，否则用 node-cron；两者不混用
 
 ---
@@ -446,14 +446,16 @@ export const batchScanSchema = z.object({
 
 ### 9.1 降级矩阵（对齐 T702）
 
-| Redis | 定时调度 | 批量执行 | 聚合报告 |
-|:---|:---|:---|:---|
-| ✅ async | BullMQ upsertJobScheduler | 逐仓库入队（priority=scheduled） | 详情实时聚合 + 周期兜底对账 |
-| ❌ sync | node-cron 进程内 | 逐仓库同步串行 runScanForRepository | 串行结束立即聚合 + 详情实时聚合 + 周期兜底对账 |
+`auto`（默认）异步需同时满足「Redis 可用」+「存在消费者」——当前阶段唯一消费者是进程内 worker（`IN_PROCESS_WORKER=true`），独立 worker 进程（多容器）尚未实现；`auto` 在无进程内 worker 时自动降级 sync，避免入队后无人消费的静默挂起（见 §9.2）。`QUEUE_ENABLED=true` 为显式强制异步，不受消费者判据约束（无 worker 时仅 warn，为多容器外部 worker 拓扑预留）。
+
+| 模式 | 触发条件 | 定时调度 | 批量执行 | 聚合报告 |
+|:---|:---|:---|:---|:---|
+| ✅ async | Redis 可用 +（auto 有消费者 / true 强制） | BullMQ upsertJobScheduler | 逐仓库入队（priority=scheduled） | 详情实时聚合 + 周期兜底对账 |
+| ❌ sync | Redis 不可用 / `QUEUE_ENABLED=false` / auto 且无进程内 worker | node-cron 进程内 | 逐仓库同步串行 runScanForRepository | 串行结束立即聚合 + 详情实时聚合 + 周期兜底对账 |
 
 ### 9.2 多实例约束
 
-- sync 模式（无 Redis）：多实例部署会重复触发定时任务——**文档明确提示**多实例部署必须 `QUEUE_ENABLED=true` + Redis 可用
+- sync 模式（无 Redis）：多实例部署会重复触发定时任务——**文档明确提示**多实例部署必须 `QUEUE_ENABLED=true` + Redis 可用，且需存在消费者（当前阶段为进程内 worker；独立 worker 进程尚未实现）
 - async 模式：BullMQ job scheduler 多实例只一个触发（Redis 原子操作），安全
 
 ### 9.3 cron 表达式安全

@@ -71,6 +71,10 @@ Compose reads `apps/platform/.env` and injects variables into the container. Cor
 | `PUID` / `PGID` | No | `100` / `101` | Container run identity (see below) |
 | `DATABASE_MIGRATIONS_RUN` | No | `true` (baked into the image) | Run migrations at startup; set `false` for manual initialization (then use `docker/init-db.sh`) |
 | `DATABASE_PATH` | No | `/app/data/dependfix.sqlite` | SQLite file path (inside the data volume) |
+| `QUEUE_ENABLED` | No | `auto` | Scan queue mode: `auto` / `true` (force async) / `false` (force sync) |
+| `IN_PROCESS_WORKER` | No | `true` (in compose) | Consume the scan queue in-process (the only consumer for a single container at this stage); see the note below |
+
+> ⚠️ **Scan queue consumer**: in `auto` (default) mode the queue runs asynchronously (enqueue returns immediately + frontend polling) only when Redis is reachable **and a consumer is present**, and it only executes with a consumer present. At this stage the only consumer is the **in-process worker** (compose `IN_PROCESS_WORKER` → container `NUXT_IN_PROCESS_WORKER`, default `true`); a standalone worker process (multi-container) is not implemented yet. `QUEUE_ENABLED=auto` (default) **automatically falls back to synchronous when no in-process worker is enabled** (log line `自动模式降级同步`), preventing jobs from hanging with no consumer. If you orchestrate the container yourself, make sure to inject `NUXT_IN_PROCESS_WORKER=true` (or `NUXT_QUEUE_ENABLED=false` for synchronous).
 
 > ⚠️ **Compose variable names differ from container variable names**: `AUTH_SECRET` is mapped by compose to `NUXT_AUTH_SECRET`; `REGISTRATION_DISABLED` → `NUXT_REGISTRATION_DISABLED`; `QUEUE_ENABLED` → `NUXT_QUEUE_ENABLED`. Nuxt `runtimeConfig` runtime overrides only honor the `NUXT_` prefix.
 >
@@ -189,6 +193,7 @@ docker compose start platform
 | Credential save fails with a key error | `NUXT_ENCRYPTION_KEY` is not set (32 random bytes) |
 | Login callback 404 / redirect issues | `NUXT_PUBLIC_BETTER_AUTH_URL` differs from the public proxy URL, or the proxy does not forward `Host` |
 | Queue inactive | Redis unreachable / version < 5.0 → automatically falls back to synchronous; look for `version_too_old` in logs |
+| Scan stays `pending` / batch fails with `orphan_run` after ~30 min and logs show no execution | The async queue has no consumer: ensure the container has `NUXT_IN_PROCESS_WORKER=true` (compose `IN_PROCESS_WORKER` defaults to true); logs should show `IN_PROCESS_WORKER=true，当前进程消费扫描队列`. In `auto` mode without an in-process worker it degrades to synchronous (log `自动模式降级同步`); if you hand-roll the container and omit this variable, async jobs will never be consumed. If `QUEUE_ENABLED=true` is set explicitly it will not degrade — configure a consumer or switch back to `auto` |
 
 Database self-check (source environment): `pnpm --filter @dependfix/platform db:doctor` prints file metadata, PRAGMAs, per-table row counts and a "data normal / cleared / schema never created" verdict.
 

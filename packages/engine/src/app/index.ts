@@ -113,10 +113,10 @@ export interface DependfixRunResult {
 /**
  * 输出"部分源拉取失败"汇总（todo.md §M19.5 C8 per-source 错误隔离）。
  *
- * 触发条件（必须全部满足，避免与"全部源失败"语义重叠）：
+ * 触发条件（必须全部满足，避免与"仓库失败"（无任何成功源）语义重叠）：
  * 1. allErrors 至少包含一个 `stage='fetch' + category='FETCH_FAILED'` 错误（per-source 失败）
  * 2. **至少一个仓库成功拉取了部分告警**（isAnyRepoSuccessful = true）——
- *    否则就是"全部源失败"语义，已由 processRepoForReport catch + logger.error 单独处理，
+ *    否则该仓库已按失败处理（无任何成功源），由 processRepoForReport catch + logger.error 单独处理，
  *    本函数聚焦"warn + 保留成功源"场景的汇总输出，避免重复提示。
  *
  * 汇总按 source 分组（'dependabot' / 'code-scanning' / 'code-quality' / 'pnpm-audit'），
@@ -132,7 +132,7 @@ export function logPartialSourceFailureSummary(
         return
     }
     if (!isAnyRepoSuccessful) {
-        // 全部源失败：避免与 fetchRepoAlerts 抛错路径的 logger.error 重复提示
+        // 无成功仓库（仓库失败）：避免与 fetchRepoAlerts 抛错路径的 logger.error 重复提示
         return
     }
 

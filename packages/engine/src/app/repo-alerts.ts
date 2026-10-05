@@ -37,8 +37,9 @@ export interface FetchAlertsDeps {
  * - `pnpm-audit`：本地 `pnpm audit --json` 回退（无 token；repository 已由 resolveAlertRepositories 解析）
  *
  * per-source 错误隔离：并行源任一失败 → 记录该源 FETCH_FAILED 错误
- * （退出码保持非 0）并保留成功源数据继续处理；**全部源失败**才抛错
- * （调用方 catch 记录仓库失败，保持 hint 语义）。
+ * （退出码保持非 0）并保留成功源数据继续处理；**无任何成功源且存在失败源**才抛错
+ * （调用方 catch 记录仓库失败，保持 hint 语义）。未启用源（ALERTS_DISABLED）既不计成功
+ * 也不计失败，但若其余源全部失败则判定仓库失败（避免以 0 告警冒充扫描成功）。
  */
 export async function fetchRepoAlerts(deps: FetchAlertsDeps, repo: string): Promise<NormalizedSecurityAlert[]> {
     const { config, workDir } = deps
@@ -60,9 +61,11 @@ export async function fetchRepoAlerts(deps: FetchAlertsDeps, repo: string): Prom
 
     const alerts: NormalizedSecurityAlert[] = []
     const failedSources: string[] = []
+    let successfulSources = 0
 
     if (dependabotResult.status === 'fulfilled') {
         alerts.push(...dependabotResult.value)
+        successfulSources++
     } else if (!recordAlertSourceError(deps, repo, 'dependabot', dependabotResult.reason)) {
         // 未启用（ALERTS_DISABLED）不算失败源；真实失败才推入
         failedSources.push('dependabot')
@@ -71,6 +74,7 @@ export async function fetchRepoAlerts(deps: FetchAlertsDeps, repo: string): Prom
     if (config.codeScanningEnabled) {
         if (codeScanningResult.status === 'fulfilled') {
             alerts.push(...codeScanningResult.value)
+            successfulSources++
             deps.logger.info(`Fetched ${codeScanningResult.value.length} code scanning alerts for ${repo}`)
         } else if (!recordAlertSourceError(deps, repo, 'code-scanning', codeScanningResult.reason)) {
             failedSources.push('code-scanning')
@@ -80,21 +84,16 @@ export async function fetchRepoAlerts(deps: FetchAlertsDeps, repo: string): Prom
     if (config.codeQualityEnabled) {
         if (codeQualityResult.status === 'fulfilled') {
             alerts.push(...codeQualityResult.value)
+            successfulSources++
             deps.logger.info(`Fetched ${codeQualityResult.value.length} code quality findings for ${repo}`)
         } else if (!recordAlertSourceError(deps, repo, 'code-quality', codeQualityResult.reason)) {
             failedSources.push('code-quality')
         }
     }
 
-    // 全部源失败 → 抛第一个失败（调用方 catch 保持仓库失败语义 + token hint）
-    let totalSources = 1
-    if (config.codeScanningEnabled) {
-        totalSources++
-    }
-    if (config.codeQualityEnabled) {
-        totalSources++
-    }
-    if (failedSources.length === totalSources) {
+    // 无任何成功源且存在失败源 → 抛第一个失败（调用方 catch 保持仓库失败语义 + token hint）。
+    // 未启用源不计失败，但若其余启用源全失败，仓库仍应按失败处理（避免以 0 告警冒充扫描成功）。
+    if (failedSources.length > 0 && successfulSources === 0) {
         let firstReason: unknown
         if (dependabotResult.status === 'rejected') {
             firstReason = dependabotResult.reason

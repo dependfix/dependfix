@@ -59,7 +59,7 @@
 
 ### 候选评估中（待评估，暂未进入用户决策面）
 
-> 存量候选说明：两项候选已于 2026-10-02 经用户决策上收至 M36 阶段（方案 A），按维护规则 5 从本文件移除（登记位置见 [todo.md §M36](todo.md)）：① 设计与索引文档的同类陈旧状态清理（存量）；② BatchRun 写回的非原子竞态（详情 GET / sync 尾部 vs 并发 `force-fail`）。**另**：2026-10-02 用户直接指令追加 dependfix-platform 镜像体积治理（M36.6）、依赖升级 overrides key 重复写法修复（M36.7，用户报告 nuxt-latest-template#298）与 Docker 首次启动数据库初始化 + 部署文档 / 一键初始化脚本（M36.8，用户报告可用性缺陷）——三者均非 backlog 候选，未在本文件评估，登记位置见 [todo.md §M36](todo.md)。
+> 存量候选说明：两项候选已于 2026-10-02 经用户决策上收至 M36 阶段（方案 A），并随 2026-10-05 M36 归档批次完整闭环归档（见 [todo-archive.md §M36](todo-archive.md#m36-治理债清仓--可观测性与测试稳定性m361m3610-全部已闭环--2026-10-05-归档)）：① 设计与索引文档的同类陈旧状态清理（存量）；② BatchRun 写回的非原子竞态（详情 GET / sync 尾部 vs 并发 `force-fail`）。**另**：2026-10-02 用户直接指令追加 dependfix-platform 镜像体积治理（M36.6）、依赖升级 overrides key 重复写法修复（M36.7，用户报告 nuxt-latest-template#298）与 Docker 首次启动数据库初始化 + 部署文档 / 一键初始化脚本（M36.8，用户报告可用性缺陷），后续追加扫描队列孤儿 job 释放（M36.9）与队列消费者维度降级（M36.10）——均随 M36 归档闭环。
 
 - **运行失败分类与筛选（失败阶段 + 可重试判定 + 重试入口）** —— 运行列表（`/scans` 全部运行）只显示粗粒度「失败」，无法区分失败阶段（告警获取 / clone / install / 修复 / 验证 / 交付 / 运行时 / 清理），也无法区分网络类可重试失败与 `VERIFICATION_FAILED` 等需重点研判失败（2026-10-02 用户报告）。**研判与设计先行稿已产出**：[run-failure-taxonomy.md](../design/governance/run-failure-taxonomy.md)。待评估上收；触发条件：① 用户需要按失败阶段筛选 / 受约束重试；② 失败运行量增长到人工逐条排查成本显著。
 
@@ -77,6 +77,8 @@
 - **详情 GET 计数无变化时并发 force-fail 的响应瞬时不一致（批量写回竞态审计残余）** —— 详情 GET 在聚合与库计数完全一致（无字段变化）时不写库；若此刻 admin `force-fail` 已把库改为 `failed`，本次响应仍按内存状态返回，与库短时不一致（下一次读取即自愈，无数据腐蚀，仅只读瞬时窗口）。**现状锚点**：`apps/platform/server/api/batch-runs/[id].get.ts:46-50`。触发条件：客户端需要对同一次 GET 的强一致保证。
 
 - **部分源失败汇总的仓库级错误重复信号（告警源失败判据审计残余）** —— `fetchRepoAlerts` 抛错路径下 `allErrors` 同时含 per-source `FETCH_FAILED`（带 `source`）与调用方 catch 追加的仓库级 `FETCH_FAILED`（无 `source`）；当另有仓库成功时，`logPartialSourceFailureSummary` 会把后者归入 `unknown` 组，产生重复 / 归组不当的提示信号（`repo-fix.ts` catch 的 token hint 亦未含 `codeQualityAlertsTokenHint`）。该行为在既有「启用源全失败」路径已存在，非告警源失败判据改动引入。**现状锚点**：`packages/engine/src/app/repo-alerts.ts:69-89`（per-source 记录）、`packages/engine/src/app/index.ts:437-444`（catch 追加仓库级错误）+ `:142`（分组 `unknown`）、`packages/engine/src/app/repo-fix.ts:147`（fix 模式 catch hint 缺 codeQuality）。触发条件：出现用户反馈部分失败汇总重复 / `unknown` 归组困惑，或统一错误信号排期。
+
+- **设计与规范文档中的 caomei-ui 版本陈旧（M36.2 审计残余）** —— `docs/guide/tech-stack.md:36` 与 `docs/standards/platform.md:16` 仍标 caomei-ui `0.3.0`，实际 `apps/platform/package.json` 为 `0.5.0`（M34.2 升级后未同步这两处版本号）。属版本类陈旧，与 M31.5 PrimeVue 卸载口径无关，未纳入 M36.2（其范围为「未上收」状态类）。**现状锚点**：`docs/guide/tech-stack.md:36`、`docs/standards/platform.md:16`。触发条件：文档版本口径漂移影响读者信任或依赖核对。
 
 ### 待上收候选（评估完成，等待用户决策）
 
@@ -196,17 +198,6 @@
 - **影响**：类型侧由 `nuxt typecheck` 覆盖；但涉及 `packages/*/dist`（如 engine chunk 结构）变更后，容器 / 运行时冒烟前需重建 `apps/platform/.output`，否则可能引用旧产物。
 - **触发条件**：① 需要容器 / 运行时冒烟验证依赖 `packages/*/dist` 的变更时；② 跑 `apps/platform` e2e 或**视觉回归**（`pnpm --filter @dependfix/platform test:visual`，M32.5）前——两者都跑 `.output` 产物，源码改动不重建则验证的是旧产物（假绿；M32.1 / M32.5 均实证）。
 
-### apps/platform migration 前缀与自举（M36.8 已闭环，随 M36 归档批次移出）
-
-- **背景（历史）**：`createDataSourceOptions` 默认 `entityPrefix='dependfix_'`（`DATABASE_ENTITY_PREFIX` 可配），但早期迁移表名处理不统一：4 个硬编码 `dependfix_` 前缀（`1700000000000` / `1750000000000` / `1800000000000` / `1800000000001`）、3 个硬编码无前缀（`1800000000002` / `1900000000000` / `2000000000000`）→ 非预期前缀组合下 `queryRunner.getTable()` 返回 `undefined`、迁移静默 no-op。另有更深问题：迁移链无基线迁移，空库执行首个 `ALTER TABLE` 即报 `no such table`（无法自举）。
-- **闭环（M36.8）**：
-  - 新增基线迁移 `CreateInitialSchema1600000000000`（实体元数据运行时生成，前缀感知 + 跨方言 + 幂等）；
-  - 早期迁移统一改前缀感知 + 幂等守卫（新增 `migration-helpers.ts`：`resolveTableName` / `prefixedTableName` / `addColumnIfMissing` / `dropColumnIfExists` / `createIndexIfMissing`）；
-  - 实证：空库 `pnpm db:migrate` 建 13 张业务表（含索引 / 外键）、二次执行 0 条；自定义前缀 `myapp_` 下同样生效且 0 张 `dependfix_` 误建表；存量库基线 no-op、数据不变。
-- **手动入口**：`pnpm db:migrate` / `db:init`（一键初始化）/ `db:migrate:show` / `db:migrate:revert -- --yes`；Docker 用 `docker/init-db.sh`，见 [server/database/scripts/README.md](../../apps/platform/server/database/scripts/README.md)。
-- **规范挂接**：[platform.md §3.3](../standards/platform.md) + [§3.8](../standards/platform.md#38-仓库级自定义验证命令verifycommands-m321-c76) + [development.md §5.1.19](../standards/development.md)。
-- **移出**：随 M36 阶段归档批次从 backlog 移出，并同步 [archive/index.md §4](archive/index.md) 基线「保留」清单与前向描述。
-
 ### 依赖审计豁免复核（node-forge / braces，持续观察）
 
 - **背景**：2026-10-05 weekly regression 因 `security:audit-deps` 阻断失败——node-forge ≤ 1.4.0（GHSA-86w9-cpqp-85rv）与 braces ≤ 3.0.3（GHSA-vfj7-8cjw-p6xm）为 high，但 advisory 声明的 patched 版本（1.4.1 / 3.0.4）**尚未发布**，overrides / `pnpm update` 无法解析。经用户决策（方案 A，调整为配置文件实现）在 [pnpm-workspace.yaml](../../pnpm-workspace.yaml) `audit.ignore` 显式豁免。
@@ -221,7 +212,7 @@
 
 | 内容类型 | 位置 |
 |:--|:--|
-| 当前阶段活跃任务 | **M36 进行中**（治理债清仓 + 可观测性与测试稳定性，2026-10-02 用户决策方案 A 启动） |
+| 当前阶段活跃任务 | **当前无活跃阶段**（M36 已于 2026-10-05 完整闭环归档；下一阶段启动待用户明确决策） |
 | 已完成阶段归档 | [todo-archive.md](todo-archive.md)（主窗口保留最近阶段完整段 + 指针段；M0-M35 已归档；早期阶段见 [archive/](archive/)） |
 | 里程碑与阶段交付 | [roadmap.md](roadmap.md)（M0-M35 已归档 + M36 进行中） |
 | 长期主线 / 候选 / 待人工验收 / 已知边界 | 本文档（按四象限结构） |

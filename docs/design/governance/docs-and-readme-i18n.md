@@ -2,7 +2,7 @@
 
 > 本文档为 **dependfix 文档站（VitePress docs）+ 包 README 多语言实施**的专项设计先行稿。`docs/standards/i18n.md`（191 行）已建立完整的多语言规范与回归门禁，平台 UI 国际化（`apps/platform/i18n/locales/` zh-CN / en-US）已落地；本文档聚焦于**补齐文档站 + 包 README 两条尚未实施链路**，实施方式参照 [momei](https://github.com/CaoMeiYouRen/momei) 项目的多语言架构（`docs/i18n/<locale>/` + VitePress locales + 顶部切换链接）。
 >
-> **状态**：设计先行稿，未进入阶段实施面（挂载到 [backlog.md 短期/一次性候选任务](../../plan/backlog.md)）。
+> **状态**：✅ 已实施（M26.3 文档站 + 包 README en-US P0）。原挂载于 [backlog.md 短期/一次性候选任务](../../plan/backlog.md)，已由 M26 阶段实施并归档（见 [todo-archive.md §M26](../../plan/todo-archive.md#m26-平台-ai-研判应用层--批量导入-resource-owner-化--文档站-i18n--license-收口--经验沉淀m261m262m263m264am264bm264cm265-全部已闭环--2026-09-10-归档)）。
 
 ## 1. 背景与目标
 
@@ -539,5 +539,5 @@ pnpm typecheck
 
 - **设计先行稿创建时间**：2026-09-08
 - **触发**：用户调研"文档国际化的需求，主要支持 zh-CN 和 en-US，具体范围包括文档站和每个包的 README.md，做法也参照墨梅项目"
-- **关联阶段**：未上收（仅挂 backlog）；候选阶段待用户决策（阶段编号由用户分配）
+- **关联阶段**：M26.3 已实施并归档（文档站 + 包 README en-US P0；见 [todo-archive.md §M26](../../plan/todo-archive.md#m26-平台-ai-研判应用层--批量导入-resource-owner-化--文档站-i18n--license-收口--经验沉淀m261m262m263m264am264bm264cm265-全部已闭环--2026-09-10-归档)）
 - **审计依据**：本文档作为 P0 落地的设计依据，未走 A 阶段 audit（与 design docs 治理惯例一致）

@@ -39,12 +39,12 @@
 | M29: 修复交付链路正确性 + 能力扩展 | C73 git 配置污染隔离 + C75 验证链纳入 test + C77 override 复发防护 + C78 alerts 未启用/获取失败区分 + C71 pnpm 路径级 overrides + C72 批量导入 archived/disabled 过滤 + vite 漏洞插队 hotfix + C79 devEx 配置缺口 + C80-A CI 审计覆盖（M29.8/M29.9 为 M29.1 衍生） | P2-P3 | 已完成（已归档，2026-10-01 M34 归档批次预防性分片迁出至 [archive/todo-archive-phases-m29.md §M29](archive/todo-archive-phases-m29.md#m29-修复交付链路正确性--能力扩展m291m299-全部已闭环--2026-09-27-归档)） |
 | M30: 治理债清理 + 迁移可行性验证 + 能力扩展 + 测试补强 | C87 跳过类审计退出码 + C86 max-lines 拆分 + C84 文档对齐 + C74 getCommitAuthor 接线（App 路径）+ db-restore 补测 + UI 组件库迁移可行性验证 V1-V3 | P2-P3 | 已完成（[archive/todo-archive-phases-m30.md §M30](archive/todo-archive-phases-m30.md#m30-治理债清理--迁移可行性验证--能力扩展--测试补强m301m306-全部已闭环--2026-09-28-归档)） |
 | M31: apps/platform UI 组件库迁移（PrimeVue → caomei-ui） | B0 基线与双库并存接线 + B1a/B1b DataTable 迁移 + B2 表单/浮层切换 + B3 收尾卸载与回归 + C90 db-restore 补强 | P2-P3 | 已完成（[todo-archive.md §M31](archive/todo-archive-phases-m31.md#m31-appsplatform-ui-组件库迁移primevue--caomei-ui-m311m316-全部已闭环--2026-09-29-归档)） |
-| M32: 能力扩展优先 | C76 平台验证命令配置 + C85 目标仓库专属配置 + C89 Code Scanning 未启用区分 + C82 git 签名语义边界 + C92 视觉回归最小集 | P3 | 已完成（[todo-archive.md §M32](todo-archive.md#m32-能力扩展优先m321m325-全部已闭环--2026-09-30-归档)） |
+| M32: 能力扩展优先 | C76 平台验证命令配置 + C85 目标仓库专属配置 + C89 Code Scanning 未启用区分 + C82 git 签名语义边界 + C92 视觉回归最小集 | P3 | 已完成（[todo-archive.md §M32](archive/todo-archive-phases-m32.md#m32-能力扩展优先m321m325-全部已闭环--2026-09-30-归档)） |
 | M33: 治理债收口 + 测试基建扩展 | C91 review 检查点补挂 + 视觉回归 CI 转阻断 + M31 dependabot 死配置清理 + C93/C94 视觉回归覆盖扩展 + C80 观察期阻断语义 + M33.7 迁移入口 + M33.8–M33.10 UI 修复 + M33.11 存量漏洞治理 | P3 | 已完成（[todo-archive.md §M33](todo-archive.md#m33-治理债收口--测试基建扩展m331m3311-全部已闭环--2026-09-30-归档)；2026-09-30 归档） |
 | M34: 治理与体验收口 + 组件库升级与巡检基建 | devEx `data/` 产物污染治理 + caomei-ui 0.5.0 升级（弹窗 Select 裁剪/层级） + 视觉回归灵敏度与弹窗覆盖 + 上游组件问题归因流程 + label 间距统一 + 字段堆叠口径复用化 + PrimeUI 文档同步 + C83 验证链失败基线 | P2-P3 | 已完成（[todo-archive.md §M34](todo-archive.md#m34-治理与体验收口--组件库升级与巡检基建m341m347-全部已闭环--2026-10-01-归档)；2026-10-01 归档） |
 | M35: 批量运行终态兜底对账 + 进度可见性修复 | 周期兜底对账服务 + 写回逻辑收敛 + `finishedAt` 真实化 + sync 立即终结 + 前端口径修正 + 存量订正脚本 + 设计口径同步 | P2-P3 | 已完成（[todo-archive.md §M35](todo-archive.md#m35-批量运行终态兜底对账--进度可见性修复m351m356-全部已闭环--2026-10-02-归档)；2026-10-02 归档） |
 | M36: 治理债清仓 + 可观测性与测试稳定性 | C81 孤立规划编号存量清理（分批）+ 文档陈旧状态清理 + BatchRun 写回竞态收敛 + 告警源可审计性判据 + api-i18n e2e 顺序偶发 + dependfix-platform 镜像体积治理 + pnpm overrides key 语义归一化 + Docker 首次启动数据库初始化与部署文档 + 扫描队列孤儿 job 释放 + 队列消费者维度自动降级 | P1-P3 | 已完成（[todo-archive.md §M36](todo-archive.md#m36-治理债清仓--可观测性与测试稳定性m361m3610-全部已闭环--2026-10-05-归档)；2026-10-05 归档） |
-| M37: 运行可观测性与体验记忆 | 运行失败分类与筛选 + 落库回填（failureStage / failureKind，不含重试入口）+ 扫描 / 批量扫描偏好记忆（方案 C 混合）+ BatchRun 写回与告警源错误信号残余治理 + caomei-ui 版本口径同步 + 孤立编号检测脚本接入 CI 门禁 | P2-P3 | 进行中（2026-10-06 用户决策方案 B；见 [todo.md §M37](todo.md)） |
+| M37: 运行可观测性与体验记忆 | 运行失败分类与筛选 + 落库回填（failureStage / failureKind，不含重试入口）+ 扫描 / 批量扫描偏好记忆（方案 C 混合）+ BatchRun 写回与告警源错误信号残余治理 + caomei-ui 版本口径同步 + 孤立编号检测脚本接入 CI 门禁 + 目标仓库 git hooks 隔离 | P1-P3 | 已完成（2026-10-06 用户决策方案 B + 同日授权追加 M37.6；2026-10-08 已闭环归档，见 [todo-archive.md §M37](todo-archive.md#m37-运行可观测性与体验记忆m371m376-全部已闭环--2026-10-08-归档)） |
 
 > **本路线图定位**：按 [规划规范 §2.1](../standards/planning.md) 仅维护阶段概览（目标 / 优先级 / 状态）。详细实施记录 / commit 引用 / 关键决策 / 经验教训见对应归档段（详见下方"## 详细任务"索引）。
 
@@ -462,7 +462,7 @@ per-alert 模型 + reconcile + API 简化 + UI 调整 + backfill 脚本。5 子�
 - 落地差异：M32.2 读取走**工作区本地文件**（不走 contents API）；M32.5 视觉套件跑**独立 SQLite 库** + CI job 初期非阻断（转阻断条件已固化）
 - 衍生候选保留 backlog：C93（pr-checks 行级覆盖）/ C94（alerts 右端列盲区）/ 视觉 CI 转阻断待办（三项均已 2026-09-30 上收 M33.4 / M33.5 / M33.2）
 
-> 详细任务与 8 要素见归档段 [todo-archive.md §M32](todo-archive.md#m32-能力扩展优先m321m325-全部已闭环--2026-09-30-归档)
+> 详细任务与 8 要素见归档段 [todo-archive.md §M32](archive/todo-archive-phases-m32.md#m32-能力扩展优先m321m325-全部已闭环--2026-09-30-归档)
 
 ---
 
@@ -610,7 +610,7 @@ per-alert 模型 + reconcile + API 简化 + UI 调整 + backfill 脚本。5 子�
 
 ---
 
-## M37: 运行可观测性与体验记忆（2026-10-06 用户决策方案 B / 进行中）
+## M37: 运行可观测性与体验记忆（2026-10-06 用户决策方案 B / 2026-10-08 已闭环 + 归档）
 
 承接 M36 完整闭环归档后的 backlog 候选池。2026-10-06 用户决策**方案 B（可观测性能力优先）**——从 backlog §候选评估中上收 6 项候选（另 1 项 M36.1 CI 门禁自 archive §4 保留清单上收），收敛为 5 原子条目，以「运行失败分类与筛选」（[设计先行稿](../design/governance/run-failure-taxonomy.md)）为主线（拆 a/b/c 三子任务：分类模型 + 落库回填 / API / UI + i18n），配套新鲜 UX 诉求（扫描 / 批量扫描偏好记忆，关联 [#136](https://github.com/dependfix/dependfix/issues/136)）+ M36 审计残余治理债（BatchRun 写回 + 告警源错误信号）+ 文档版本口径 + CI 防护。**同日补充授权追加第 6 项 M37.6**（P1，目标仓库 git hooks 隔离，按 [§3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 可用性插队例外，来源 2026-10-05 / 10-06 生产日志根因分析）。**6 原子条目**，覆盖 🚀 1 + 🎨 1 + 🛡️ 2 + 📚 1 + 🛠️ 1（UX 独立条目 1 项，低于建议值 2，显式标注缺口；M37.1 含 UI 筛选与阶段展示，实际承载 UX），符合 [规划规范 §1.1 L12 类型平衡原则](../standards/planning.md#11-硬性约束)。
 
@@ -620,6 +620,16 @@ per-alert 模型 + reconcile + API 简化 + UI 调整 + backfill 脚本。5 子�
 - **M37.4** [P3 📚 文档] 设计与规范文档 caomei-ui 版本口径同步（`tech-stack.md:36` + `platform.md:16`：`0.3.0` → `0.5.0`）
 - **M37.5** [P3 🛠️ CI 防护] 孤立编号检测脚本接入 CI 门禁（`pnpm check:orphan-ids` 纳入 Test job）
 - **M37.6** [P1 🛡️ 交付可靠性] 目标仓库 git hooks 隔离（`stageAndCommit` 不再触发目标仓库 husky / lint-staged；消除 `npx: not found (code 127)` → `COMMIT_FAILED` → 回滚）
+
+**闭环 commits**（自 M36 归档末 `c4d623e` 起 `git log master --first-parent` 去重统计 **19 commits**）：
+
+- **M37.6**（阶段启动前序批次）：`cb5c146` + `ae0eacf`
+- **M37.1**：`1ea7c27` + `b40db65` + `e14edc8` + `367a286` + `4b48f7c` + `b1f62fc`（分类模型 + 列 + 迁移 / 落库接线 / 回填脚本 / 读取 API / UI + i18n / 闭环登记）
+- **M37.2**：`d86e461` + `a012773` + `c77c437`（偏好 composable + 选项工具 / 弹窗与设置页接线 / 闭环登记）
+- **M37.3**：`5382e67` + `340ca85` + `fb3ff1d`（失败路径条件写回 / 信号去重 + 指引三源合一 / 闭环登记）
+- **M37.4**：`fc966c2` + `6ec48f0`（版本口径同步 / 复扫证据收口）
+- **M37.5**：`4003e5c`（CI 门禁接线）
+- 阶段启动与授权登记：`dffa6a0`（M37.6 上收 + M38 授权）+ `166315c`（M37 阶段启动）
 
 **关键决策 D1-D5**（2026-10-06 用户裁定）：
 
@@ -633,11 +643,11 @@ per-alert 模型 + reconcile + API 简化 + UI 调整 + backfill 脚本。5 子�
 
 **范围边界（不做什么）**：不改引擎修复 / 验证逻辑；不引入新执行后端（M38 独立阶段承接）；不改鉴权 / 组织隔离；不做服务端跨设备偏好；不实现重试入口；不启动需外部基建 / token 的候选（C15 / C68）；M37.6 仅隔离目标仓库 git hooks，不改 push / PR 交付链。
 
-**§3.4 交叉核验**：backlog 上收的 6 项候选（+ archive §4 保留清单 1 项）经 todo-archive 表格扫描 + git log + 代码 anchor 三重核验，**0 项重复评估**（结论见 [todo.md §M37](todo.md) 启动说明）；M37.6 追加批次三重核验（archive 仅 dependfix 自身 husky guard `f482708` / git log 仅签名隔离 `fd2280b` + `f6150b0` / `rg "core\.hooksPath|--no-verify"` 0 命中）**0 项重复**。
+**§3.4 交叉核验**：backlog 上收的 6 项候选（+ archive §4 保留清单 1 项）经 todo-archive 表格扫描 + git log + 代码 anchor 三重核验，**0 项重复评估**（结论见 [todo-archive.md §M37](todo-archive.md#m37-运行可观测性与体验记忆m371m376-全部已闭环--2026-10-08-归档) 阶段启动说明）；M37.6 追加批次三重核验（archive 仅 dependfix 自身 husky guard `f482708` / git log 仅签名隔离 `fd2280b` + `f6150b0` / `rg "core\.hooksPath|--no-verify"` 0 命中）**0 项重复**。
 
-**ahead commits 实证**：阶段启动前 `git rev-list HEAD ^origin/master --count` 实测 = 0（M36 全部 commits 已推送 `origin/master`）。
+**ahead commits 实证**：阶段启动前 `git rev-list HEAD ^origin/master --count` 实测 = 0（M36 全部 commits 已推送 `origin/master`）；归档时实测 = **19**（`git rev-list origin/master ^HEAD --count` = 0，双向核验），本归档 + 蒸馏批次 commits 另计，均待用户推送确认。
 
-> 详细任务与 8 要素见 [todo.md §M37](todo.md)。
+> 详细任务与 8 要素见 [todo-archive.md §M37](todo-archive.md#m37-运行可观测性与体验记忆m371m376-全部已闭环--2026-10-08-归档)（2026-10-08 已闭环归档）。
 
 ---
 
@@ -653,14 +663,14 @@ per-alert 模型 + reconcile + API 简化 + UI 调整 + backfill 脚本。5 子�
 
 **关键依据 anchor**（2026-10-06 执行角色实证；设计稿须逐条引用可复现证据）：`apps/platform/server/services/executor/container-executor.ts:284`（同进程 `await withTimeout(app.run(), ...)`）+ `packages/engine/src/fixers/dependency/overrides-io.ts:22` / `packages/engine/src/fixers/pnpm/index.ts:81/144/337` / `packages/engine/src/github/pr-creator.ts:189-238`（同步子进程调用；`rg -n "execSync\(|execFileSync\(" packages/engine/src --glob '!*.test.ts'` 计 18 处）+ `apps/platform/server/services/queue/scan-worker.ts:59-62`（Worker 无 `lockDuration` / sandboxed processor）+ `bullmq@6.3.11` 默认 `lockDuration=30000` / `lockRenewTime=15000`（主线程 `setTimeout` 驱动）+ 生产 `[stale-cleanup]` 5 分钟节拍漂移 2~3 倍实证（`apps/platform/server/plugins/stale-cleanup.ts:124`）。
 
-> 详细任务与 8 要素待设计先行稿定稿后登记；当前阶段任务见 [todo.md §M37](todo.md)。
+> 详细任务与 8 要素待设计先行稿定稿后登记；上一阶段（M37）已闭环归档，见 [todo-archive.md §M37](todo-archive.md#m37-运行可观测性与体验记忆m371m376-全部已闭环--2026-10-08-归档)。
 
 ---
 
 ## 详细任务
 
-- 当前阶段任务：**M37 进行中**——运行可观测性与体验记忆（2026-10-06 用户决策方案 B / 6 原子条目；含同日补充授权追加 M37.6）；见 [todo.md](todo.md)
-- 已归档阶段：[todo-archive.md](todo-archive.md)（主窗口保留最近阶段完整段 + 指针段；M0-M36 全部已归档；早期阶段见 [archive/index.md](archive/index.md) 分片索引）
+- 当前阶段任务：**无活跃阶段**——M37（运行可观测性与体验记忆）6 原子条目全部闭环并于 2026-10-08 归档；见 [todo-archive.md §M37](todo-archive.md#m37-运行可观测性与体验记忆m371m376-全部已闭环--2026-10-08-归档) 与 [todo.md](todo.md)
+- 已归档阶段：[todo-archive.md](todo-archive.md)（主窗口保留最近阶段完整段 + 指针段；M0-M37 全部已归档；早期阶段见 [archive/index.md](archive/index.md) 分片索引）
 - 下一阶段（已授权，设计先行，未进入 `todo.md`）：**M38 平台执行模型隔离**——2026-10-06 用户授权开阶段，首个交付为方案选型设计先行稿；见上文 §M38
 - 后续阶段任务（延期项 + 未排期增强候选）：[backlog.md](backlog.md)
 

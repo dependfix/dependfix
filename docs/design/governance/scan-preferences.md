@@ -3,7 +3,7 @@
 > 状态：✅ 已落地（2026-10-07，M37.2；Review Gate Pass）
 > 提出：2026-10-05（用户诉求 —— 单仓库 / 批量扫描每次都要重选 `mode` / `severity`，重复操作多）
 > 范围：`apps/platform` 前端（composable + 单仓库 / 批量弹窗接线 + 设置页卡片）；**不改**扫描 API 契约与任何服务端实体
-> 关联：[todo.md §M37.2](../../plan/todo.md)、[roadmap.md §M37](../../plan/roadmap.md)、[platform.md §7.3](../../standards/platform.md#73-utility-抽取与跨组件共享)、[backlog.md](../../plan/backlog.md)（服务端跨设备偏好延后）
+> 关联：[todo-archive.md §M37](../../plan/todo-archive.md#m37-运行可观测性与体验记忆m371m376-全部已闭环--2026-10-08-归档)（M37.2 已闭环归档）、[roadmap.md §M37](../../plan/roadmap.md#m37-运行可观测性与体验记忆2026-10-06-用户决策方案-b--2026-10-08-已闭环--归档)、[platform.md §7.3](../../standards/platform.md#73-utility-抽取与跨组件共享)、[backlog.md](../../plan/backlog.md)（服务端跨设备偏好延后）
 
 ## 1. 背景与问题
 

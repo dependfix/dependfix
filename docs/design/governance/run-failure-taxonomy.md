@@ -187,4 +187,4 @@
 - [executor-sandbox.md §7.8 降级状态机契约](./executor-sandbox.md)
 - [platform.md](../../standards/platform.md)
 - [backlog.md](../../plan/backlog.md)（受约束重试入口延后登记）
-- [todo.md](../../plan/todo.md)（M37.1 已登记）
+- [todo-archive.md §M37](../../plan/todo-archive.md#m37-运行可观测性与体验记忆m371m376-全部已闭环--2026-10-08-归档)（M37.1 已闭环归档）

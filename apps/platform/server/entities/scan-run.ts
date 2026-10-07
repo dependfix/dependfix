@@ -5,6 +5,7 @@ import {
     JoinColumn,
     ManyToOne,
 } from 'typeorm'
+import type { RunFailureKind, RunFailureStage } from '../services/run-failure-classify'
 import { BaseEntity } from './base-entity'
 import { Repository } from './repository'
 
@@ -61,6 +62,21 @@ export class ScanRun extends BaseEntity {
     /** 执行级错误（executor error.code/message，非业务失败） */
     @Column({ type: 'text', nullable: true })
     errorJson!: string | null
+
+    /**
+     * 失败归一化码（`failure_code`）：原始 `error.code` 或引擎 `FixError.category`，
+     * 便于审计；非失败终态为 null。见 [run-failure-taxonomy.md §5.2](../design/governance/run-failure-taxonomy.md)。
+     */
+    @Column({ type: 'varchar', length: 64, nullable: true })
+    failureCode!: string | null
+
+    /** 失败阶段（`failure_stage`）：source / clone / install / fix / verify / deliver / runtime / cleanup / unknown */
+    @Column({ type: 'varchar', length: 32, nullable: true })
+    failureStage!: RunFailureStage | null
+
+    /** 处置建议（`failure_kind`）：transient（可重试）/ deterministic（需研判）/ unknown */
+    @Column({ type: 'varchar', length: 16, nullable: true })
+    failureKind!: RunFailureKind | null
 
     /** 执行日志（JSON 数组：[{timestamp, level, message, context}]） */
     @Column({ type: 'text', nullable: true })

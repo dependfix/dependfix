@@ -18,6 +18,7 @@ import { AddScanRunLogs1800000000002 } from './migrations/1800000000002-AddScanR
 import { AddAiConfigFields1900000000000 } from './migrations/1900000000000-AddAiConfigFields'
 import { AddCredentialOwnerLogin2000000000000 } from './migrations/2000000000000-AddCredentialOwnerLogin'
 import { AddRepositoryVerifyCommands2100000000000 } from './migrations/2100000000000-AddRepositoryVerifyCommands'
+import { AddScanRunFailureColumns2200000000000 } from './migrations/2200000000000-AddScanRunFailureColumns'
 import { runStartupBackup } from './backup'
 import { Account } from '#server/entities/account'
 import { Session } from '#server/entities/session'
@@ -88,6 +89,7 @@ export const createDataSourceOptions = (): DataSourceOptions => {
             AddAiConfigFields1900000000000,
             AddCredentialOwnerLogin2000000000000,
             AddRepositoryVerifyCommands2100000000000,
+            AddScanRunFailureColumns2200000000000,
         ],
         migrationsRun,
         synchronize,

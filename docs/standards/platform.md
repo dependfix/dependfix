@@ -13,7 +13,7 @@
 |:--|:--|:--|
 | 框架 | Nuxt 4（全栈 SSR + API Routes） | `app/` + `server/` 目录结构 |
 | 语言 | TypeScript（strict 逐步收紧） | 平台独立 tsconfig（`nuxt typecheck`） |
-| UI | caomei-ui 0.3.0（`caomei-ui/nuxt` 模块，精确锁版本） | 自建组件库；2026-09-29 M31 完成 PrimeVue 4 迁移并卸载其 5 个依赖 |
+| UI | caomei-ui 0.5.0（`caomei-ui/nuxt` 模块，精确锁版本） | 自建组件库；2026-09-29 M31 完成 PrimeVue 4 迁移并卸载其 5 个依赖，2026-10-01 M34.2 升级至 0.5.0 |
 | 主题 | caomei-ui `theme` 配置 + `_caomei-tokens.scss` 明暗 token 覆盖 | 暗色模式 `caomeiUI.darkMode: 'class'`（`.dark` 挂 `<html>`） |
 | 图标 | `@lucide/vue`（经 `CaomeiIcon` 的 `icon` prop 传入图标组件） | 迁移前 30 个 `pi pi-*` 用法已全量替换 |
 | 样式 | 纯 SCSS + BEM，无 CSS-in-JS / Tailwind | 全局变量 + mixin |
@@ -349,7 +349,7 @@ fixtures.delete / fixtures.post 在双门控通过后调用 `fixturesRateLimit()
 
 ### 7.1 caomei-ui 集成实践
 
-> 平台组件库已从 PrimeVue 4 迁移到 caomei-ui 0.3.0（M31 迁移完成，PrimeVue 依赖已卸载）。具体接线约定（token 覆盖 / 图标 / 选择器 / 受控状态 / 密度）见 [§7.4](#74-caomei-ui-接线约定)；本节只登记**与组件库无关的通用实践**。迁移前的组件库实现契约（sortable 用 data attribute / `default-sort-order` / `sort-mode="multiple"` 的 `multiSortMeta` 约定 / `:sort-meta` 静默忽略 / `Select` disabled 渲染等 9 条陷阱）已随卸载退役：多列排序与受控状态部分见[迁移评估 §15.10-§15.13](../design/governance/caomei-ui-migration.md)，其余（如 `Select` disabled 渲染、`:sort-meta` 静默忽略）正文仅存于归档页与 git 历史。
+> 平台组件库已从 PrimeVue 4 迁移到 caomei-ui 0.5.0（M31 迁移完成，PrimeVue 依赖已卸载；2026-10-01 M34.2 由 0.3.0 升级，修复弹窗内 Select 面板层叠）。具体接线约定（token 覆盖 / 图标 / 选择器 / 受控状态 / 密度）见 [§7.4](#74-caomei-ui-接线约定)；本节只登记**与组件库无关的通用实践**。迁移前的组件库实现契约（sortable 用 data attribute / `default-sort-order` / `sort-mode="multiple"` 的 `multiSortMeta` 约定 / `:sort-meta` 静默忽略 / `Select` disabled 渲染等 9 条陷阱）已随卸载退役：多列排序与受控状态部分见[迁移评估 §15.10-§15.13](../design/governance/caomei-ui-migration.md)，其余（如 `Select` disabled 渲染、`:sort-meta` 静默忽略）正文仅存于归档页与 git 历史。
 
 - **派生字段运行时修改路径必须同步**：派生字段（`_severityRank` / `_statusRank` / `_roleRank`）的首次注入（fetch 时 `withXxxRank`）不能覆盖后续运行时修改路径——必须每次同步（如 `updateStatusRank` / `updateRoleRank`）。否则 fetchDetail 修改 row.status 后没更新 _statusRank，DataTable 排序引用陈旧 rank → 业务语义错位。
 - **图表组件体积**：引入第三方图表包装组件前先 grep 其内部是否 `import('chart.js/auto')` 等全量依赖。本项目自实现 `chart-canvas.vue`（仅注册用到的 controllers / elements / scales / plugins 子集），实测 bundle < 50KB gzip（第三方包装约 200KB，节省 ~75%）。`<ClientOnly>` 包裹避免 SSR `window is not defined`。

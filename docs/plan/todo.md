@@ -77,14 +77,14 @@
 - **M37.4**（P3，📚 文档）设计与规范文档 caomei-ui 版本口径同步
   - **目标**：消除设计与规范文档中 caomei-ui 版本陈旧（文档标 `0.3.0`，实际 `apps/platform/package.json` 为 `0.5.0`）。
   - **优先级**：P3
-  - **范围**：`docs/guide/tech-stack.md:36`（版本号 `0.3.0` → `0.5.0`）+ `docs/standards/platform.md:16`（同）+ 必要的版本口径一致性复核（同段落相关表述）。
+  - **范围**：`docs/guide/tech-stack.md:36`（版本号 `0.3.0` → `0.5.0`）+ `docs/standards/platform.md:16`（同）+ `docs/standards/platform.md` §7.1（现状陈述中的 `caomei-ui 0.3.0`，同为版本类当前口径）+ 版本口径一致性复核（结构化复扫，见下）
   - **验收标准**：
-    - [ ] 两处版本号更新为 `0.5.0`，与 `apps/platform/package.json` 一致
-    - [ ] `rg -n "caomei-ui.*0\.3\.0" docs/**` 0 命中（版本类陈旧）
-    - [ ] `pnpm check:docs` + `pnpm lint:md` 通过
+    - [x] 版本号更新为 `0.5.0`，与 `apps/platform/package.json` 一致（实际 3 处：tech-stack 表 + platform 选型表 + platform §7.1 现状陈述）
+    - [x] `rg -n "caomei-ui.*0\.3\.0" docs/**` **无「版本类当前口径」命中**——该复扫在 docs 全量共 **34 处 / 10 文件**命中，逐处分类后**全部为历史 / 迁移 / from-version 叙述**，无当前版本口径：① 迁移评估 `caomei-ui-migration.md`（§15 `0.3.0` 重新评估补记、§16 `0.3.0 → 0.5.0` 升级实证、§5 待迁移清单的当时口径）；② 经验归档 `experience-archive-§49-§57`（M30 caomei-ui `0.3.0` 接入教训）；③ 规划归档与规划文档 `roadmap.md`（M31 D3 精确锁定 `0.3.0`、M34.2 升级条目）、`todo-archive.md` + `archive/index.md` + `archive/todo-archive-phases-m30/m31.md`、`backlog.md`（「原精确锁定 `0.3.0`」历史语境）；④ 本条目自身 `todo.md` 与本次改动的 from-version 子句（`platform.md` §7.1「由 `0.3.0` 升级」）。**判定口径**：目标三处当前版本口径已全部为 `0.5.0`，且 `rg "caomei-ui[@ ]?0\.[0-9]" docs`（排除 `0.2.0`/`0.3.0`/`0.5.0` 历史与现行版本号）**0 命中** → 无其他版本类陈旧残留
+    - [x] `pnpm run check:docs` + `pnpm run lint:md:check`（本仓库 `lint:md` 为 `--fix` 变体，校验用 `:check`）通过
   - **不做什么**：不改 M31 迁移历史叙述（历史 commit 引用保留 `0.3.0` 上下文）；不扩到其他版本类陈旧（如有则单独登记候选）。
   - **依赖**：M34.2（caomei-ui `0.3.0 → 0.5.0` 升级，`56c1290` + `7363a8d` + `a8e28b5` + `2f10eed`）；M36.2 审计残余记录。
-  - **交付物**：1 commit；文件 2（+ 可能的同源复核）。
+  - **交付物**：1 commit；文件 4（`tech-stack.md` / `platform.md` / `todo.md` / `backlog.md`）。同源复核另发现 tech-stack 平台依赖表与 `apps/platform/package.json` 的**依赖行级不一致**（`@lucide/vue` 行 `^1.48` vs 声明 `^1.49.0`；`pinia` / `@vueuse/core` / `@vueuse/nuxt` / `@sentry/nuxt` / `@vite-pwa/nuxt` 5 行在本仓库无任何声明与 `nuxt.config` 模块引用）——按「不做什么」未在本批处理，登记 backlog §候选评估中。
   - **风险与缓解措施**：版本口径散落 → 同步时用 `rg` 结构化复扫（含双语镜像与设计文档），避免只改命中两处。
 - **M37.5**（P3，🛠️ CI 防护）孤立编号检测脚本接入 CI 门禁
   - **目标**：把 `pnpm check:orphan-ids` 纳入 CI 质量门，防止已清理的孤立规划编号回流（M36.1 检测脚本已就绪但未接线）。

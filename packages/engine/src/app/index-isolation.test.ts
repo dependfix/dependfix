@@ -237,6 +237,34 @@ describe('DependfixApp per-source error isolation', () => {
         expect(result.errors.length).toBeGreaterThanOrEqual(1)
         expect(exitCode).not.toBe(0)
     })
+
+    it('全部启用源失败：只保留 per-source FETCH_FAILED，不追加无 source 的仓库级重复信号', async () => {
+        nock('https://api.github.com')
+            .get('/repos/foo/bar/dependabot/alerts')
+            .query({ state: 'open', per_page: '100' })
+            .reply(500, { message: 'boom' })
+        nock('https://api.github.com')
+            .get('/repos/foo/bar/code-scanning/alerts')
+            .query({ state: 'open', per_page: '100' })
+            .reply(500, { message: 'boom' })
+
+        const config = resolveRuntimeConfig({
+            env: {
+                GITHUB_TOKEN: 'main-token-value',
+                DEPENDFIX_REPOSITORIES: 'foo/bar',
+                DEPENDFIX_CODE_SCANNING: 'true',
+            },
+        })
+
+        const app = new DependfixApp({ config, workDir, reportOutputDir: join(workDir, 'reports') })
+        const { result } = await app.run()
+
+        const fetchErrors = result.errors.filter((e) => e.stage === 'fetch' && e.category === 'FETCH_FAILED')
+        // 两个启用源各一条（带 source）；不含无 source 的仓库级重复信号（否则日志汇总会归入 unknown 分组）
+        expect(fetchErrors.map((e) => e.source).sort()).toEqual(['code-scanning', 'dependabot'])
+        expect(fetchErrors.every((e) => Boolean(e.source))).toBe(true)
+        expect(result.errors.filter((e) => e.stage === 'fetch' && !e.source)).toHaveLength(0)
+    })
 })
 
 // ---------------------------------------------------------------------------

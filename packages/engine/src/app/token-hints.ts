@@ -128,3 +128,16 @@ export function codeQualityAlertsTokenHint(error: unknown): string | null {
     }
     return null
 }
+
+/**
+ * 告警拉取失败的 token 指引（三源合一）：按 Dependabot → Code Scanning → Code Quality 顺序返回首个命中。
+ *
+ * 用于「不知道失败来自哪个源」的 catch 兜底路径（报告 / 修复模式的仓库级 catch）——
+ * 避免各处重复书写提示链导致某一源缺指引（如修复模式曾漏 Code Quality）。
+ * 各源内部仍按精确 message context 匹配，不会误命中其他源。
+ */
+export function alertsFetchTokenHint(error: unknown): string | null {
+    return dependabotAlertsTokenHint(error)
+        ?? codeScanningAlertsTokenHint(error)
+        ?? codeQualityAlertsTokenHint(error)
+}

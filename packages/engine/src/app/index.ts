@@ -45,7 +45,7 @@ import { enforceVerificationGate } from '../runners/verification-gate'
 import { collectSupplyChainWarnings } from '../supply-chain'
 import { loadRulesConfigFromEnv, resetActiveRulesConfig, setActiveRulesConfig } from '../code-scanning/rule-config'
 import type { CommandResult } from '../runners/verification-runner'
-import { fetchRepoAlerts, fetchDefaultBranch, truncatedWarning } from './repo-alerts'
+import { fetchRepoAlerts, fetchDefaultBranch, hasSourceScopedFetchFailure, truncatedWarning } from './repo-alerts'
 import { processRepoFix, type AiUsageRef } from './repo-fix'
 import { applyRepoConfig } from './repo-config'
 import {
@@ -64,7 +64,7 @@ import {
     runBranchCleanupForRepo,
     type AppContext,
 } from './helpers'
-import { codeScanningAlertsTokenHint, dependabotAlertsTokenHint, pullRequestCreationHint } from './token-hints'
+import { alertsFetchTokenHint, pullRequestCreationHint } from './token-hints'
 
 // 仅 re-export 平台直接调用的辅助函数（PR 创建在平台 A 模式复用）
 export { buildPrTitle } from './helpers'
@@ -434,14 +434,18 @@ export class DependfixApp {
             this.logger.info(`Fetched ${limited.length} alerts for ${repo}`)
         } catch (error: unknown) {
             const message = toErrorMessage(error)
-            const hint = dependabotAlertsTokenHint(error) ?? codeScanningAlertsTokenHint(error)
+            const hint = alertsFetchTokenHint(error)
             this.logger.error(`Failed to fetch alerts for ${repo}: ${message}${hint ? ` — ${hint}` : ''}`)
-            this.allErrors.push({
-                repository: repo,
-                stage: 'fetch',
-                category: 'FETCH_FAILED',
-                message: hint ? `${message}（${hint}）` : message,
-            })
+            // 仓库级错误只在「没有 per-source 信号」时补记：全部启用源失败时 fetchRepoAlerts 已写入
+            // 带 source 的 FETCH_FAILED，再追加无 source 的同类会形成重复信号并落入日志汇总的 unknown 分组
+            if (!hasSourceScopedFetchFailure(this.allErrors, repo)) {
+                this.allErrors.push({
+                    repository: repo,
+                    stage: 'fetch',
+                    category: 'FETCH_FAILED',
+                    message: hint ? `${message}（${hint}）` : message,
+                })
+            }
             this.repoResults.push({
                 repository: repo,
                 defaultBranch: '',

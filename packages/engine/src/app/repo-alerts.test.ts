@@ -1,7 +1,7 @@
 import { describe, expect, it, afterEach, vi } from 'vitest'
 import nock from 'nock'
 import { AppError } from '@dependfix/core'
-import { fetchRepoAlerts, type FetchAlertsDeps } from './repo-alerts'
+import { fetchRepoAlerts, hasSourceScopedFetchFailure, type FetchAlertsDeps } from './repo-alerts'
 
 const API_BASE = 'https://api.github.com'
 const REPO = 'foo/bar'
@@ -126,6 +126,9 @@ describe('fetchRepoAlerts (three-source parallel + per-source error isolation)',
         expect(deps.allErrors[0].repository).toBe(REPO)
         // 验证 source 字段（todo.md §M19.5 C8：用于 CLI 分组汇总）
         expect(deps.allErrors[0].source).toBe('code-quality')
+        // 调用点接线守护：per-source 错误消息必须带 Code Quality token 指引
+        // （三源合一 alertsFetchTokenHint 的 Code Quality 分支；旧两源链会丢失该指引）
+        expect(deps.allErrors[0].message).toContain('Code quality')
     })
 
     it('isolates code-scanning failure: dependabot still returned, error recorded', async () => {
@@ -299,5 +302,23 @@ describe('fetchRepoAlerts (three-source parallel + per-source error isolation)',
         // 断言 hint 自身：子串取自按源开启路径文案（不会由 403 error message 命中）
         expect(warnMessages.some((m) => m.includes('开启 GitHub Advanced Security 并配置 code scanning'))).toBe(true)
         expect(warnMessages.some((m) => m.includes('Dependabot alerts disabled'))).toBe(false)
+    })
+})
+
+describe('hasSourceScopedFetchFailure（仓库级 catch 去重判据）', () => {
+    const base = { repository: REPO, stage: 'fetch' as const, category: 'FETCH_FAILED', message: 'boom' }
+
+    it('存在带 source 的 FETCH_FAILED → true', () => {
+        expect(hasSourceScopedFetchFailure([{ ...base, source: 'dependabot' }], REPO)).toBe(true)
+    })
+
+    it('无 source（仓库级信号）→ false', () => {
+        expect(hasSourceScopedFetchFailure([base], REPO)).toBe(false)
+    })
+
+    it('其他仓库 / 其他 category / 空列表 → false', () => {
+        expect(hasSourceScopedFetchFailure([{ ...base, source: 'dependabot' }], 'other/repo')).toBe(false)
+        expect(hasSourceScopedFetchFailure([{ ...base, source: 'dependabot', category: 'PROCESS_FAILED' }], REPO)).toBe(false)
+        expect(hasSourceScopedFetchFailure([], REPO)).toBe(false)
     })
 })

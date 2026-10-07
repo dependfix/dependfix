@@ -5,6 +5,7 @@ import { AppError } from '@dependfix/core'
 import {
     alertSourceLabel,
     alertsDisabledHint,
+    alertsFetchTokenHint,
     codeQualityAlertsTokenHint,
     codeScanningAlertsTokenHint,
     dependabotAlertsTokenHint,
@@ -150,6 +151,38 @@ describe('codeQualityAlertsTokenHint', () => {
     it('returns null for non-AppError values', () => {
         expect(codeQualityAlertsTokenHint(new Error('boom'))).toBeNull()
         expect(codeQualityAlertsTokenHint('string error')).toBeNull()
+    })
+})
+
+describe('alertsFetchTokenHint（三源合一）', () => {
+    it('Dependabot 失败命中 Dependabot 指引', () => {
+        const hint = alertsFetchTokenHint(new AppError(
+            'PERMISSION_DENIED',
+            'fetch dependabot alerts for foo/bar: Resource not accessible by integration',
+        ))
+        expect(hint).toContain('Dependabot alerts 读取权限')
+    })
+
+    it('Code Scanning 失败命中 Code Scanning 指引', () => {
+        const hint = alertsFetchTokenHint(new AppError(
+            'PERMISSION_DENIED',
+            'fetch code scanning alerts for foo/bar: Resource not accessible by integration',
+        ))
+        expect(hint).toContain('security-events')
+    })
+
+    it('Code Quality 失败命中 Code Quality 指引（修复路径此前缺失该源）', () => {
+        const hint = alertsFetchTokenHint(new AppError(
+            'PERMISSION_DENIED',
+            'fetch code quality findings for foo/bar: Resource not accessible by integration',
+        ))
+        expect(hint).toContain('Code quality')
+    })
+
+    it('非拉取上下文 / 非 AppError → null', () => {
+        expect(alertsFetchTokenHint(new AppError('PERMISSION_DENIED', 'some other failure for foo/bar'))).toBeNull()
+        expect(alertsFetchTokenHint(new Error('boom'))).toBeNull()
+        expect(alertsFetchTokenHint('string error')).toBeNull()
     })
 })
 

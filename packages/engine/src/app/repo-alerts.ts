@@ -12,9 +12,7 @@ import {
 import {
     alertSourceLabel,
     alertsDisabledHint,
-    codeQualityAlertsTokenHint,
-    codeScanningAlertsTokenHint,
-    dependabotAlertsTokenHint,
+    alertsFetchTokenHint,
     isAlertsDisabledError,
 } from './token-hints'
 
@@ -129,6 +127,21 @@ function createAlertsClientFromConfig(config: RuntimeConfig): Octokit {
 }
 
 /**
+ * 该仓库是否已记录「带 `source` 的 `FETCH_FAILED`」（per-source 信号）。
+ *
+ * 供仓库级 catch 去重：全部启用源失败时 `fetchRepoAlerts` 已逐源记录错误，
+ * 再追加无 `source` 的仓库级同类信号会造成重复（日志汇总还会把它归入 unknown 分组）。
+ */
+export function hasSourceScopedFetchFailure(errors: readonly FixError[], repo: string): boolean {
+    return errors.some(
+        (error) => error.repository === repo
+            && error.stage === 'fetch'
+            && error.category === 'FETCH_FAILED'
+            && Boolean(error.source),
+    )
+}
+
+/**
  * 记录单个告警源的拉取结果（不中断另一源的处理）。
  *
  * 方案 A：`ALERTS_DISABLED`（alerts 功能未启用）≠ 获取失败——
@@ -147,9 +160,7 @@ function recordAlertSourceError(deps: FetchAlertsDeps, repo: string, source: str
     }
 
     const message = toErrorMessage(error)
-    const hint = dependabotAlertsTokenHint(error)
-        ?? codeScanningAlertsTokenHint(error)
-        ?? codeQualityAlertsTokenHint(error)
+    const hint = alertsFetchTokenHint(error)
     deps.logger.error(`Failed to fetch ${source} alerts for ${repo}: ${message}${hint ? ` — ${hint}` : ''}`)
     deps.allErrors.push({
         repository: repo,

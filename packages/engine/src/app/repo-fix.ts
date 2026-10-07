@@ -41,7 +41,7 @@ import {
 } from './helpers'
 import { sampleVerificationBaseline, verifyProject } from './verify-project'
 import { fetchDefaultBranch, fetchRepoAlerts, truncatedWarning } from './repo-alerts'
-import { codeScanningAlertsTokenHint, dependabotAlertsTokenHint } from './token-hints'
+import { alertsFetchTokenHint } from './token-hints'
 
 // ---------------------------------------------------------------------------
 // 单仓库修复管线（fix / fix-and-pr 模式共用）
@@ -144,7 +144,7 @@ export async function processRepoFix(
         await finalizeRepoFix(ctx, repo, progress)
     } catch (error: unknown) {
         const message = toErrorMessage(error)
-        const hint = dependabotAlertsTokenHint(error) ?? codeScanningAlertsTokenHint(error)
+        const hint = alertsFetchTokenHint(error)
         ctx.logger.error(`Failed to process ${repo}: ${message}${hint ? ` — ${hint}` : ''}`)
         ctx.allErrors.push({
             repository: repo,

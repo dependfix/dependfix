@@ -64,7 +64,7 @@
 - **坑 3（String.Replace 全局替换误伤既有内容，最严重）**：为修复坑 1/2 执行 `$raw.Replace('反引号+n', ...)`——把文件中**所有"反引号+n"字符序列**替换为换行。既有内容中被误伤：`npm_config_registry`（C35 条目，行内代码前的反引号+n 被拆成换行 + "pm_config_registry"）、`nuxt.config.ts`（C29 条目）等——**大范围内容损坏**，且损坏表面"可读"（换行破坏语义）。
 - **同族小坑**：`$_ -split ':'` 在 Windows 盘符（`D:` 后接路径）下拆出孤立 'D'；`Select-String -Recurse` 参数名错误；终端 GBK 乱码显示 ≠ 文件损坏（§二十七 已记录）。
 - **根因**：PowerShell 的转义体系（反引号）、字符串字面语义（单引号完全字面）、`-replace` 替换文本特殊语义（无转义解释、`$` 引用）与 Node/JS 的正则-字符串模型差异巨大；批量文件内容操作叠加编码/换行处理（GBK 管道 §三十八）后误伤概率显著高于 JS 脚本。
-- **修复路径（安全恢复）**：`git checkout -- <file>` 恢复 HEAD 版本（本次恢复的 HEAD 是已提交的干净版本）→ 用**精确 edit 工具**（字符串级替换）重新应用目标修改 → `git diff --stat` 核对 diff 收敛到预期行数 → Node 字节抽查关键内容完整性（如 `npm_config_registry` 存在性）。
+- **修复路径（安全恢复）**：`git checkout -- <file>` 恢复 HEAD 版本（本次恢复的 HEAD 是已提交的干净版本）→ 用**精确 edit 工具**（字符串级替换）重新应用目标修改 → `git diff --stat` 核对 diff 收敛到预期行数 → Node 字节抽查关键内容完整性（如 `npm_config_registry` 存在性）。**（2026-10-08 更新）**：本条案例当时工作区已提交、`git checkout --` 无害；但对**未提交**工作区该手段已禁用（会整文件回退抹掉本次实现）——改用备份回写 / 反向 patch，口径见 [git.md §3.7.2](../../standards/git.md)。
 - **启示**：
   - **文件内容批量修改（替换/插入/行尾转换）一律优先 JS 脚本**（`node -e` 单行或写临时 .cjs，读取→处理→写回全在 Node 语义内），PowerShell 只承担命令执行（git/docker/pnpm 等工具调用）。**非必要不使用 PowerShell 执行批量替换**。
   - **批量文本操作后必须内容级验证**：lint/check:links/docs:build 均不检测文本语义——必须 Node 字节抽查（字面量残留扫描 + 关键内容存在性）+ `git diff` 审查（既有内容是否被意外改动，diff 应只含预期行）。

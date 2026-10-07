@@ -346,6 +346,7 @@ fixtures.delete / fixtures.post 在双门控通过后调用 `fixturesRateLimit()
 - composables / utils 文件 **kebab-case**；Vue 组件 **kebab-case.vue**；样式类 BEM
 - 页面组件默认导出为空（布局/路由由 Nuxt 管理），业务状态放 composables 或组件内
 - 禁止 `any`；模板中不写复杂逻辑（抽到 computed / 函数）
+- **列表并发守卫不得静默丢弃用户输入**：`if (inflight) return` 型短路守卫下，请求在途期间的筛选 / 分页变更会被**静默丢弃**，UI 停在旧数据（「下拉已选、列表未过滤」）且不会自愈。做法：在途时记录**最后一次**待补跑参数，当前请求 `finally` 收尾后补跑一次（实例：`scans.vue` 的 `queuedRunFetch`）；写入型操作的并发守卫同理不得吞掉用户动作。
 
 ### 7.1 caomei-ui 集成实践
 

@@ -165,6 +165,14 @@ commit message 应聚焦于"当次提交的改动"+"可供事后复查的信息"
 
 **多 commit 隔离用 complement-stash（补集非空判断 + 补集数组）**：多 atomic commit 场景需隔离其它改动时——① **stash 前必须判断补集数组非空**：若目标是当前全部改动（补集为空），`git stash push -m x --`（无路径）会**暂存全部改动**，随后 `git add` 落空、commit 报 `nothing to commit`（`git stash pop` 后无数据丢失）；补集为空时直接 `git add` 目标并提交。② 求补集：`git status --porcelain` 取全量路径 → `comm -23` 求补集 → `git stash push -u -- <补集>` 隔离，提交后 `git stash pop`（目标与补集不相交，pop 无冲突），再 `git show --stat HEAD` 核对文件数。
 
+### 3.7.2 未提交工作区做变更 / 还原：禁用 `git checkout --` / `git restore`（M37.2 实证）
+
+在**未提交**的工作区上做临时变更（如 mutation 验证、探针植入）后还原时，**不得**使用 `git checkout -- <file>` / `git restore <file>`——这两条会把文件**整文件回退到 HEAD**，把尚未提交的**本次实现**一并抹掉（M37.2 审计实测踩中：settings.vue 未提交改动被回退，靠审计开始时捕获的完整 diff 逐字重建 + `git hash-object` 校验才复原）。
+
+**做法**：变更前先留可还原凭据——`cp <file> /tmp/...`（或 `git diff > patch`）；还原时从备份 `cp` 回来（或 `git apply -R patch`），随后 `git diff --stat` / `git status` 确认工作区与变更前一致。**探针 / 脚手架文件**用明确路径一次删除一个，禁止递归删除。
+
+**边界**：本禁令只针对**工作区内容**的还原；`git restore --staged <file>`（仅把路径移出索引，不改工作区内容，用于 §3.2 / §3.4 / §3.7.1 的 staged diff 治理）不受约束。
+
 ### 3.8 git 签名语义：commit / push 双向隔离，不提供 opt-in（M29.2 + M32.4）
 
 dependfix 的 commit / push 必须**不受宿主 git 签名配置污染**，否则行为不可复现。两类污染与隔离方式：

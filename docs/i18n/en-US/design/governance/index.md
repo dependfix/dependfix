@@ -28,6 +28,7 @@
 | [C22 PAT Backward Compat Assessment](https://github.com/dependfix/dependfix/blob/master/docs/design/governance/c22-pat-backward-compat.md) | Assessment report (M18.0 P0 docs only sub-phase) | ✅ Landed (2026-08-29, Review Gate Pass) |
 | [Spec & Doc Governance Design](./spec-and-doc-governance.md) | Special design (doc governance boundary + modules/governance split + writing spec + implementation plan) | ✅ Landed (2026-09-09, G1 P-phase output) |
 | [Run Failure Taxonomy Design](https://github.com/dependfix/dependfix/blob/master/docs/design/governance/run-failure-taxonomy.md) | Special design (run failure stage classification + retry decision + filter / retry entry) | ✅ Landed (2026-10-07: classification + backfill + filter + display; constrained retry entry deferred) |
+| [Scan Preferences (device-level) Design](https://github.com/dependfix/dependfix/blob/master/docs/design/governance/scan-preferences.md) | Special design (device-level localStorage preferences: priority / write timing / SSR & testability) | ✅ Landed (2026-10-07, M37.2) |
 
 ## Usage conventions
 

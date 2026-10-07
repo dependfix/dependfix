@@ -77,7 +77,12 @@
   - **触发条件**：生产日志出现 failover 降级 + 终态冲突报错；或用户要求。
   - **按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
 
-> 本区块保留 M37 执行期延后项 + M37.6 / M37.1 审计衍生待评估候选；M37 启动前原有 6 项候选已全部上收（见上方批次说明）。
+- **schedule 表单与 run-view 复用扫描选项口径（待评估）** —— M37.2 A 阶段审计的**范围外 suggest**：`apps/platform/app/pages/schedules.vue` 仍内联模式 / 严重级别选项数组（与 `apps/platform/app/utils/scan-options.ts` 重复），`run-view.ts` 的 `runModeLabel` 为同源标签映射。M37.2 显式「不将偏好沿用至 schedule 默认」，故未纳入本批。
+  - **待评估点**：是否把 schedule 表单选项切到 `utils/scan-options.ts`（纯口径复用，不改计划默认值语义与表单行为）。
+  - **触发条件**：计划表单选项需变更（避免两处漂移）时，或用户要求统一。
+  - **按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
+
+> 本区块保留 M37 执行期延后项 + M37.6 / M37.1 / M37.2 审计衍生待评估候选；M37 启动前原有 6 项候选已全部上收（见上方批次说明）。
 
 ### 待上收候选（评估完成，等待用户决策）
 

@@ -46,16 +46,16 @@
 - **M37.2**（P2，🎨 用户体验）扫描 / 批量扫描记住上次选择 + 自定义默认操作（方案 C 混合）
   - **目标**：单仓库扫描配置弹窗与批量扫描弹窗在会话间保留上次 `mode` / `severity`，并提供可配置「默认扫描操作」与一键重置，消除每次重选的重复操作。
   - **优先级**：P2
-  - **范围**：`apps/platform/app/composables/use-scan-preferences.ts`（新增，localStorage 持久化 + 优先级解析）/ `apps/platform/app/pages/repos.vue`（`scanConfigMode` / `scanConfigSeverity` 改由 composable 提供）/ `apps/platform/app/composables/use-repo-batch-scan.ts`（`batchMode` / `batchSeverityThreshold` 同上）/ `apps/platform/app/components/scan-config-dialog.vue`（无硬编码默认依赖）/ 设置入口（`apps/platform/app/pages/settings.vue` 或对应表单组件）+ zh-CN / en-US i18n。
+  - **范围**：`apps/platform/app/composables/use-scan-preferences.ts`（新增，localStorage 持久化 + 优先级解析 + 管理入口）/ `apps/platform/app/pages/repos.vue`（`scanConfigMode` / `scanConfigSeverity` 改由 composable 提供）/ `apps/platform/app/composables/use-repo-batch-scan.ts`（`batchMode` / `batchSeverityThreshold` 同上）/ `apps/platform/app/components/scan-config-dialog.vue`（无硬编码默认依赖——实现期确认该组件默认值全部来自父级 prop，无需改动）/ 设置入口（`apps/platform/app/pages/settings.vue` 新增「扫描偏好」卡片）+ zh-CN / en-US i18n。
   - **验收标准**：
-    - [ ] 单仓库 + 批量弹窗 `mode` / `severity` 会话间保留（localStorage，刷新与重开均生效）
-    - [ ] 无偏好时回退既有硬编码默认（`report-only` / `high`）
-    - [ ] 「显式配置默认 > 上次选择 > 硬编码兜底」优先级实现 + 提供重置能力
-    - [ ] zh-CN / en-US i18n 双侧同步
-    - [ ] composable 单测覆盖优先级解析 / 回退 / 重置三类路径；SSR 首渲染无 hydration 不一致
+    - [x] 单仓库 + 批量弹窗 `mode` / `severity` 会话间保留（localStorage，刷新与重开均生效）
+    - [x] 无偏好时回退既有硬编码默认（`report-only` / `high`）
+    - [x] 「显式配置默认 > 上次选择 > 硬编码兜底」优先级实现 + 提供重置能力
+    - [x] zh-CN / en-US i18n 双侧同步
+    - [x] composable 单测覆盖优先级解析 / 回退 / 重置三类路径；SSR 首渲染无 hydration 不一致
   - **不做什么**：不改 `/api/repos/{id}/scan` 与 `/api/repos/batch-scan` 契约；不改仓库级 `aiEnabled` / `aiTrigger` 继承语义；不将偏好沿用至 schedule（计划）默认；不做服务端跨设备偏好（方案 B 登记 backlog）。
   - **依赖**：backlog §候选评估中「扫描 / 批量扫描记住上次选择 + 自定义默认操作」条目（2026-10-05 登记，关联 [#136](https://github.com/dependfix/dependfix/issues/136)）；复用 `use-color-mode.ts` 既有 localStorage 模式。
-  - **交付物**：预计 2-3 commits；文件约 6；i18n 双侧。
+  - **交付物**：实际 **3 commits**（composable + 单测 / 接线 + 设置页 / 闭环登记）；文件 15 / 新增约 1000 行 —— **超 [设计文档硬阈值](../design/governance/spec-and-doc-governance.md)（> 10 文件 / > 800 行）→ 已补 [scan-preferences.md](../design/governance/scan-preferences.md) 治理设计稿**（偏好数据模型 / 优先级 / 写入时机 / SSR 与可测性 / 非目标）并登记治理索引 zh / en；模式 / 严重级别选项抽到 `utils/scan-options.ts` 三处共用（[§7.3 复用边界](../standards/platform.md#73-utility-抽取与跨组件共享)）；偏好语义与 SSR / 可测性约定落入 [platform.md §7.3](../standards/platform.md#73-utility-抽取与跨组件共享) 与 §7.4（caomei Select 空串 value 约束）；e2e 新增两个偏好用例（记忆 + 刷新生效 / 显式默认优先于上次选择 + 「未设置」清除 / 批量弹窗同源 / 重置回退）。
   - **风险与缓解措施**：localStorage 为设备级、SSR 首渲染与客户端初始值可能不一致 → composable 采用 client-only 初始化（`onMounted` 后回填）+ 单测锁定回退分支。
 - **M37.3**（P3，🛡️ 治理债）批量写回与告警源错误信号残余治理（2 子任务 a/b）
   - **目标**：消除 M36 审计穷举出的 BatchRun 写回反向竞态 + `stale-cleanup` 对批次的无条件 `save`，并修正「部分源失败」汇总时仓库级错误重复 / 归组不当信号。

@@ -28,6 +28,7 @@
 | [C22 PAT 无感升级评估](./c22-pat-backward-compat.md) | 评估报告（M18.0 P0 docs only 子阶段） | ✅ 已落地（2026-08-29，Review Gate Pass） |
 | [规范与文档治理设计](./spec-and-doc-governance.md) | 专项设计（文档治理边界 + modules/governance 分流依据 + 写作规范 + 实施计划） | ✅ 已落地（2026-09-09，G1 P 阶段产出） |
 | [运行失败分类与筛选设计](./run-failure-taxonomy.md) | 专项设计（运行失败阶段分类 + 可重试判定 + 筛选 / 重试入口） | ✅ 已落地（2026-10-07：分类 + 落库回填 + 筛选 + 展示；重试入口延后） |
+| [扫描偏好（设备级）设计](./scan-preferences.md) | 专项设计（设备级 localStorage 偏好：优先级 / 写入时机 / SSR 与可测性） | ✅ 已落地（2026-10-07，M37.2） |
 
 ## 使用约定
 

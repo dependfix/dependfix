@@ -40,6 +40,10 @@ const seedRun = async (repositoryId: string, overrides: {
     severityThreshold?: string
     status?: 'pending' | 'running' | 'completed' | 'failed' | 'dispatched' | 'degraded'
     summaryJson?: string | null
+    errorJson?: string | null
+    failureCode?: string | null
+    failureStage?: 'source' | 'clone' | 'install' | 'fix' | 'verify' | 'deliver' | 'runtime' | 'cleanup' | 'unknown' | null
+    failureKind?: 'transient' | 'deterministic' | 'unknown' | null
 } = {}) => {
     const ds = await ensureDatabaseInitialized()
     const entity = ds.getRepository(ScanRun).create({
@@ -49,6 +53,10 @@ const seedRun = async (repositoryId: string, overrides: {
         executorKind: 'container',
         status: overrides.status ?? 'completed',
         summaryJson: overrides.summaryJson ?? JSON.stringify({ alertsTotal: 2 }),
+        errorJson: overrides.errorJson ?? null,
+        failureCode: overrides.failureCode ?? null,
+        failureStage: overrides.failureStage ?? null,
+        failureKind: overrides.failureKind ?? null,
     })
     const saved = await ds.getRepository(ScanRun).save(entity)
     // TypeORM save 返回 Entity | Entity[]；单条保存断言为 ScanRun
@@ -297,5 +305,101 @@ describe('GET /api/runs', () => {
         // 应包含基线 run（未被过滤掉）
         const ids = res.items.map((r) => r.id as string)
         expect(ids).toContain(seeded.id)
+    })
+
+    it('响应包含失败分类三字段（非失败终态为 null）', async () => {
+        const completed = await seedRun(repositoryId, { status: 'completed' })
+        const failed = await seedRun(repositoryId, {
+            status: 'failed',
+            failureCode: 'VERIFICATION_FAILED',
+            failureStage: 'verify',
+            failureKind: 'deterministic',
+        })
+
+        const res = await call('GET', '/api/runs') as PaginatedRunsResponse
+        const completedItem = res.items.find((r) => r.id === completed.id)
+        expect(completedItem).toMatchObject({ failureCode: null, failureStage: null, failureKind: null })
+        const failedItem = res.items.find((r) => r.id === failed.id)
+        expect(failedItem).toMatchObject({
+            failureCode: 'VERIFICATION_FAILED',
+            failureStage: 'verify',
+            failureKind: 'deterministic',
+        })
+    })
+
+    it('filters by status query (single + multi value)', async () => {
+        const failed = await seedRun(repositoryId, { status: 'failed' })
+        const dispatched = await seedRun(repositoryId, { status: 'dispatched' })
+
+        const single = await call('GET', '/api/runs?status=failed') as PaginatedRunsResponse
+        expect(single.items.every((r) => r.status === 'failed')).toBe(true)
+        expect(single.items.map((r) => r.id)).toContain(failed.id)
+
+        const multi = await call('GET', '/api/runs?status=failed,dispatched') as PaginatedRunsResponse
+        const ids = multi.items.map((r) => r.id)
+        expect(ids).toContain(failed.id)
+        expect(ids).toContain(dispatched.id)
+        expect(multi.items.every((r) => r.status === 'failed' || r.status === 'dispatched')).toBe(true)
+    })
+
+    it('filters by failureStage / failureKind query', async () => {
+        const verifyFailed = await seedRun(repositoryId, {
+            status: 'failed',
+            failureStage: 'verify',
+            failureKind: 'deterministic',
+        })
+        const cloneFailed = await seedRun(repositoryId, {
+            status: 'failed',
+            failureStage: 'clone',
+            failureKind: 'transient',
+        })
+
+        const byStage = await call('GET', '/api/runs?failureStage=verify') as PaginatedRunsResponse
+        const stageIds = byStage.items.map((r) => r.id)
+        expect(stageIds).toContain(verifyFailed.id)
+        expect(stageIds).not.toContain(cloneFailed.id)
+
+        const byKind = await call('GET', '/api/runs?failureKind=transient') as PaginatedRunsResponse
+        const kindIds = byKind.items.map((r) => r.id)
+        expect(kindIds).toContain(cloneFailed.id)
+        expect(kindIds).not.toContain(verifyFailed.id)
+
+        // 维度组合（AND）：clone + transient 仅命中 cloneFailed
+        const combined = await call('GET', '/api/runs?failureStage=clone&failureKind=transient') as PaginatedRunsResponse
+        expect(combined.items.map((r) => r.id)).toEqual([cloneFailed.id])
+    })
+
+    it('多值分类过滤与分页组合正确', async () => {
+        await seedRun(repositoryId, { status: 'failed', failureStage: 'verify', failureKind: 'deterministic' })
+        await seedRun(repositoryId, { status: 'failed', failureStage: 'verify', failureKind: 'deterministic' })
+
+        const first = await call('GET', '/api/runs?failureStage=verify&page=1&pageSize=1') as PaginatedRunsResponse
+        expect(first.items).toHaveLength(1)
+        expect(first.total).toBeGreaterThanOrEqual(2)
+        expect(first.pageSize).toBe(1)
+
+        const second = await call('GET', '/api/runs?failureStage=verify&page=2&pageSize=1') as PaginatedRunsResponse
+        expect(second.items).toHaveLength(1)
+        expect(second.items[0]?.id).not.toBe(first.items[0]?.id)
+    })
+
+    it('throws 400 on invalid status / failureStage / failureKind enum value', async () => {
+        await expect(call('GET', '/api/runs?status=not-a-status')).rejects.toMatchObject({ statusCode: 400 })
+        await expect(call('GET', '/api/runs?failureStage=not-a-stage')).rejects.toMatchObject({ statusCode: 400 })
+        await expect(call('GET', '/api/runs?failureKind=maybe')).rejects.toMatchObject({ statusCode: 400 })
+        // 合法多值组合不应报错
+        await expect(call('GET', '/api/runs?status=failed,dispatched&failureKind=deterministic,unknown')).resolves.toBeTruthy()
+    })
+
+    it('throws 400 on over-long multi-value query (原始串限长)', async () => {
+        const longValue = 'failed,'.repeat(100)
+        await expect(call('GET', `/api/runs?status=${longValue}`)).rejects.toMatchObject({ statusCode: 400 })
+    })
+
+    it('仅分隔符的 status / failureStage 不应用过滤（等价于缺省）', async () => {
+        await seedRun(repositoryId, { status: 'completed' })
+        const baseline = await call('GET', '/api/runs') as PaginatedRunsResponse
+        const sep = await call('GET', '/api/runs?status=,&failureStage=%20&failureKind=,,') as PaginatedRunsResponse
+        expect(sep.total).toBe(baseline.total)
     })
 })

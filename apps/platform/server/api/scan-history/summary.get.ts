@@ -2,6 +2,7 @@ import { In, IsNull, Not, type DataSource } from 'typeorm'
 import { Repository } from '#server/entities/repository'
 import { ScanResult } from '#server/entities/scan-result'
 import { ScanRun, type ScanRunStatus } from '#server/entities/scan-run'
+import { RUN_FAILURE_STAGES, type RunFailureStage } from '#server/services/run-failure-classify'
 import { ensureDatabaseInitialized } from '#server/database'
 import { requireAuth } from '#server/utils/guard'
 import { resolveOrganizationId } from '#server/utils/organization'
@@ -49,13 +50,18 @@ interface RepositorySummary {
     fixedCount: number
     lastRunAt: string | null
     lastStatus: ScanRunStatus | null
+    /** 最近一次运行的失败阶段（lastStatus 非失败终态时为 null）——byRepo「最近状态」与 runList 同口径 */
+    lastFailureStage: RunFailureStage | null
 }
 
 /**
  * 单组织范围内按仓库聚合 run 统计（应用层 reduce；SQLite 无窗口函数兼容路径，
  * 且单组织 run 量较小，reduce 性能可接受——若未来 run 量爆炸再考虑窗口函数）。
+ *
+ * 导出仅为单测直测「lastRunAt / lastFailureStage 替换分支」：handler 按 `createdAt DESC`
+ * 取数时首见即最新，替换分支在集成路径不可达，需以乱序输入显式覆盖。
  */
-const aggregateByRepository = (
+export const aggregateByRepository = (
     runs: (ScanRun & { repository?: Repository | null })[],
     resultsByRun: Map<string, ScanResult[]>,
 ): RepositorySummary[] => {
@@ -80,6 +86,7 @@ const aggregateByRepository = (
                 fixedCount: alertsFixed,
                 lastRunAt: run.createdAt instanceof Date ? run.createdAt.toISOString() : String(run.createdAt),
                 lastStatus: run.status,
+                lastFailureStage: run.failureStage ?? null,
             })
         } else {
             existing.runCount += 1
@@ -91,6 +98,7 @@ const aggregateByRepository = (
             if (createdAtMs > existingMs) {
                 existing.lastRunAt = run.createdAt instanceof Date ? run.createdAt.toISOString() : String(run.createdAt)
                 existing.lastStatus = run.status
+                existing.lastFailureStage = run.failureStage ?? null
             }
         }
     }
@@ -114,8 +122,9 @@ const aggregateByRepository = (
  *
  * 返回形状：
  * - byStatus: { pending, running, completed, failed, dispatched, degraded } 全计数
+ * - byFailureStage: 失败阶段全计数（受同一时间窗约束；与 runList 筛选同源口径）
  * - totals: { runs, totalAlerts, totalFixed } —— 与 byStatus 互补的总量统计
- * - repositories: 按仓库聚合列表（runCount/alertCount/fixedCount/lastRunAt/lastStatus）
+ * - repositories: 按仓库聚合列表（runCount/alertCount/fixedCount/lastRunAt/lastStatus/lastFailureStage）
  * - window: { start, end, included } —— 统计窗口（最近 N 条 run 的 createdAt 起止 + 实际纳入数）
  *
  * repositoryId query 参数：可选，按仓库过滤汇总（scans?repository=xxx 时调用）。
@@ -156,10 +165,21 @@ export default defineEventHandler(async (event) => {
         },
         {} as Record<ScanRunStatus, number>,
     )
+    // byFailureStage 全计数（失败阶段维度；null 阶段不计入，键集恒定便于前端渲染）
+    const byFailureStage = RUN_FAILURE_STAGES.reduce(
+        (acc, key) => {
+            acc[key] = 0
+            return acc
+        },
+        {} as Record<RunFailureStage, number>,
+    )
     let totalAlerts = 0
     let totalFixed = 0
     for (const run of runs) {
         byStatus[run.status] = (byStatus[run.status] ?? 0) + 1
+        if (run.failureStage) {
+            byFailureStage[run.failureStage] = (byFailureStage[run.failureStage] ?? 0) + 1
+        }
         const summary = safeParseSummary(run.summaryJson)
         totalAlerts += readNumber(summary, 'alertsFound')
         totalFixed += readNumber(summary, 'alertsFixed')
@@ -189,6 +209,7 @@ export default defineEventHandler(async (event) => {
 
     return {
         byStatus,
+        byFailureStage,
         totals: {
             runs: runs.length,
             totalAlerts,

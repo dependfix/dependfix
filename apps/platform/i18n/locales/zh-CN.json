@@ -369,6 +369,16 @@
         "languageCard": "语言偏好",
         "languageLabel": "界面语言",
         "languageHint": "多语言切换即写入偏好，刷新后保持",
+        "scanPreferencesCard": "扫描偏好",
+        "scanDefaultMode": "默认扫描模式",
+        "scanDefaultSeverity": "默认严重级别",
+        "scanDefaultAuto": "未设置（跟随上次选择）",
+        "scanPreferencesReset": "重置扫描偏好",
+        "scanPreferencesHint": "生效顺序：显式默认 > 上次选择 > 系统兜底（仅报告 / 高级）。偏好保存在本设备；重置后恢复系统兜底。",
+        "scanPreferencesEffective": "当前生效：{mode}（{modeSource}）· {severity}（{severitySource}）",
+        "scanPreferenceSourceDefault": "显式默认",
+        "scanPreferenceSourceLast": "上次选择",
+        "scanPreferenceSourceFallback": "系统兜底",
         "unlink": "解绑",
         "credentialProvider": "邮箱密码",
         "errors": {
@@ -383,7 +393,8 @@
             "profileUpdated": "个人资料已更新",
             "passwordChanged": "密码已修改，其他设备会话已失效",
             "emailChanged": "邮箱已修改",
-            "unlinked": "已解绑 {provider}"
+            "unlinked": "已解绑 {provider}",
+            "scanPreferencesReset": "已重置扫描偏好"
         },
         "confirm": {
             "unlinkAccount": "确认解绑 {provider} 账号？"

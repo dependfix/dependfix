@@ -3,6 +3,8 @@
 import { Check, List, Pencil, Play, Plus, RotateCcwClock, Trash, Upload } from '@lucide/vue'
 import type { DataTableColumn } from 'caomei-ui'
 import type { RepoView } from '~/types/platform'
+import { DEFAULT_SCAN_MODE, DEFAULT_SCAN_SEVERITY } from '~/composables/use-scan-preferences'
+import { scanModeOptions, scanSeverityOptions } from '~/utils/scan-options'
 
 definePageMeta({
     middleware: 'auth',
@@ -185,25 +187,19 @@ watch(toastMessage, (v) => {
     }
 })
 
-// 扫描模式/严重级别选项（批量 + 单仓库 Dialog 共享）
-const modeOptions = computed(() => [
-    { label: t('common.scanMode.reportOnly'), value: 'report-only' },
-    { label: t('common.scanMode.fix'), value: 'fix' },
-    { label: t('common.scanMode.fixAndPr'), value: 'fix-and-pr' },
-])
+// 扫描模式/严重级别选项（批量 + 单仓库 Dialog + 设置页共享；标签口径单一事实源见 utils/scan-options.ts）
+const modeOptions = computed(() => scanModeOptions(t))
 
-const severityOptions = computed(() => [
-    { label: 'Critical', value: 'critical' },
-    { label: 'High', value: 'high' },
-    { label: 'Medium', value: 'medium' },
-    { label: t('common.severity.all'), value: 'all' },
-])
+const severityOptions = computed(() => scanSeverityOptions(t))
 
 // 单仓库扫描配置 Dialog state
 const scanConfigDialogVisible = ref(false)
 const scanConfigRepo = ref<RepoView | null>(null)
-const scanConfigMode = ref('report-only')
-const scanConfigSeverity = ref('high')
+// 扫描偏好（设备级：显式默认 > 上次选择 > 硬编码兜底；见 use-scan-preferences.ts）
+// 打开弹窗时解析当前生效默认；提交时记录「上次选择」
+const scanPreferences = useScanPreferences()
+const scanConfigMode = ref<string>(DEFAULT_SCAN_MODE)
+const scanConfigSeverity = ref<string>(DEFAULT_SCAN_SEVERITY)
 // AI 研判 override state（AI 集成设计见 ../design/governance/platform-ai-integration.md）：
 // 默认从仓库级 aiEnabled / aiTrigger 继承；用户可在 Dialog 中临时 override（不写回 repo）
 const scanConfigAiEnabled = ref(false)
@@ -212,8 +208,10 @@ const scanConfigHasOrgAiKey = ref(false)
 
 const openScanConfig = (repo: RepoView) => {
     scanConfigRepo.value = repo
-    scanConfigMode.value = 'report-only'
-    scanConfigSeverity.value = 'high'
+    // 默认值：设备级偏好（显式默认 > 上次选择 > report-only / high 兜底）
+    const defaults = scanPreferences.resolveDefaults()
+    scanConfigMode.value = defaults.mode
+    scanConfigSeverity.value = defaults.severity
     // 默认值：继承仓库级 aiEnabled / aiTrigger；Organization Key 状态由 fetchData 期间缓存的 hasOrgAiKey 提供
     scanConfigAiEnabled.value = repo.aiEnabled
     scanConfigAiTrigger.value = repo.aiTrigger
@@ -236,6 +234,8 @@ const submitScanConfig = () => {
     const repo = scanConfigRepo.value
     if (!repo) return
     scanConfigDialogVisible.value = false
+    // 记录「上次选择」（设备级偏好；下次打开弹窗作为默认值来源之一）
+    scanPreferences.rememberChoice(scanConfigMode.value, scanConfigSeverity.value)
     void triggerScan(
         repo,
         scanConfigMode.value,

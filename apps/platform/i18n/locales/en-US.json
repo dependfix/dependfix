@@ -369,6 +369,16 @@
         "languageCard": "Language preference",
         "languageLabel": "Language",
         "languageHint": "Changing the language saves your preference and persists across refreshes",
+        "scanPreferencesCard": "Scan preferences",
+        "scanDefaultMode": "Default scan mode",
+        "scanDefaultSeverity": "Default severity",
+        "scanDefaultAuto": "Not set (follow last choice)",
+        "scanPreferencesReset": "Reset scan preferences",
+        "scanPreferencesHint": "Priority: explicit default > last choice > system fallback (report-only / high). Preferences are stored on this device; reset restores the system fallback.",
+        "scanPreferencesEffective": "Currently in effect: {mode} ({modeSource}) · {severity} ({severitySource})",
+        "scanPreferenceSourceDefault": "explicit default",
+        "scanPreferenceSourceLast": "last choice",
+        "scanPreferenceSourceFallback": "system fallback",
         "unlink": "Unlink",
         "credentialProvider": "Email & password",
         "errors": {
@@ -383,7 +393,8 @@
             "profileUpdated": "Profile updated",
             "passwordChanged": "Password changed, sessions on other devices have been invalidated",
             "emailChanged": "Email changed",
-            "unlinked": "Unlinked {provider}"
+            "unlinked": "Unlinked {provider}",
+            "scanPreferencesReset": "Scan preferences reset"
         },
         "confirm": {
             "unlinkAccount": "Unlink the {provider} account?"

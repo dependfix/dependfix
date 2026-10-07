@@ -3,6 +3,8 @@
 // 全部操作走 better-auth 原生端点（/api/auth/*，经 authClient 封装），不自建代理 API
 import { Check, Lock, Mail, X } from '@lucide/vue'
 import { authClient } from '~/utils/auth-client'
+import { resolveScanDefaults, type ScanMode, type ScanSeverity } from '~/composables/use-scan-preferences'
+import { scanModeOptions as buildScanModeOptions, scanSeverityOptions as buildScanSeverityOptions } from '~/utils/scan-options'
 
 definePageMeta({
     middleware: 'auth',
@@ -15,6 +17,54 @@ const switchLocale = async (code: string | number | null | undefined) => {
     if (typeof code !== 'string') return
     await setLocale(code as typeof locale.value)
 }
+
+// 扫描偏好（设备级 localStorage：显式默认 > 上次选择 > 硬编码兜底；见 use-scan-preferences.ts）
+// 「未设置」用哨兵值（caomei SelectItem 不接受空串 value），选中哨兵即清除该维度的显式默认
+const SCAN_PREFERENCE_AUTO = '__auto__'
+const scanPreferences = useScanPreferences()
+const scanDefaultModeValue = computed(() => scanPreferences.preferences.value.defaultMode ?? SCAN_PREFERENCE_AUTO)
+const scanDefaultSeverityValue = computed(() => scanPreferences.preferences.value.defaultSeverity ?? SCAN_PREFERENCE_AUTO)
+const scanModeOptions = computed(() => [
+    { label: t('settings.scanDefaultAuto'), value: SCAN_PREFERENCE_AUTO },
+    ...buildScanModeOptions(t),
+])
+const scanSeverityOptions = computed(() => [
+    { label: t('settings.scanDefaultAuto'), value: SCAN_PREFERENCE_AUTO },
+    ...buildScanSeverityOptions(t),
+])
+const onScanDefaultModeChange = (value: string | number | null | undefined) => {
+    if (typeof value !== 'string') return
+    scanPreferences.setDefaults({ mode: value === SCAN_PREFERENCE_AUTO ? null : value as ScanMode })
+}
+const onScanDefaultSeverityChange = (value: string | number | null | undefined) => {
+    if (typeof value !== 'string') return
+    scanPreferences.setDefaults({ severity: value === SCAN_PREFERENCE_AUTO ? null : value as ScanSeverity })
+}
+const resetScanPreferences = () => {
+    scanPreferences.reset()
+    success.value = t('settings.success.scanPreferencesReset')
+}
+
+/** 来源文案（显式默认 / 上次选择 / 系统兜底） */
+const scanPreferenceSourceLabels = computed(() => ({
+    default: t('settings.scanPreferenceSourceDefault'),
+    last: t('settings.scanPreferenceSourceLast'),
+    fallback: t('settings.scanPreferenceSourceFallback'),
+}))
+
+/** 当前生效默认（含来源），让设备级偏好的实际取值可见——否则「跟随上次选择」是隐式的 */
+const scanEffectiveHint = computed(() => {
+    const resolved = resolveScanDefaults(scanPreferences.preferences.value)
+    const modeLabel = scanModeOptions.value.find((option) => option.value === resolved.mode)?.label ?? resolved.mode
+    const severityLabel = scanSeverityOptions.value.find((option) => option.value === resolved.severity)?.label ?? resolved.severity
+    const sources = scanPreferenceSourceLabels.value
+    return t('settings.scanPreferencesEffective', {
+        mode: modeLabel,
+        modeSource: sources[resolved.modeSource],
+        severity: severityLabel,
+        severitySource: sources[resolved.severitySource],
+    })
+})
 
 // 解绑账号二次确认（provider 由 CaomeiConfirmDialog 承接）
 const confirm = useConfirm()
@@ -217,6 +267,10 @@ const loadCurrentOrganization = async () => {
     }
 }
 onMounted(loadCurrentOrganization)
+// 扫描偏好为设备级（localStorage）：挂载后再读，避免 SSR 首帧与客户端值不一致
+onMounted(() => {
+    scanPreferences.refresh()
+})
 </script>
 
 <template>
@@ -396,6 +450,45 @@ onMounted(loadCurrentOrganization)
                         @update:model-value="switchLocale"
                     />
                     <small class="text-muted">{{ t('settings.languageHint') }}</small>
+                </div>
+            </CaomeiCard>
+
+            <CaomeiCard :title="t('settings.scanPreferencesCard')">
+                <div class="settings-form">
+                    <div class="settings-form__field">
+                        <label for="scanDefaultMode">{{ t('settings.scanDefaultMode') }}</label>
+                        <CaomeiSelect
+                            id="scanDefaultMode"
+                            :model-value="scanDefaultModeValue"
+                            :options="scanModeOptions"
+                            option-label="label"
+                            option-value="value"
+                            @update:model-value="onScanDefaultModeChange"
+                        />
+                    </div>
+                    <div class="settings-form__field">
+                        <label for="scanDefaultSeverity">{{ t('settings.scanDefaultSeverity') }}</label>
+                        <CaomeiSelect
+                            id="scanDefaultSeverity"
+                            :model-value="scanDefaultSeverityValue"
+                            :options="scanSeverityOptions"
+                            option-label="label"
+                            option-value="value"
+                            @update:model-value="onScanDefaultSeverityChange"
+                        />
+                    </div>
+                    <CaomeiButton
+                        tone="neutral"
+                        variant="ghost"
+                        @click="resetScanPreferences"
+                    >
+                        <template #icon>
+                            <CaomeiIcon :icon="X" />
+                        </template>
+                        {{ t('settings.scanPreferencesReset') }}
+                    </CaomeiButton>
+                    <small class="text-muted">{{ t('settings.scanPreferencesHint') }}</small>
+                    <small class="text-muted">{{ scanEffectiveHint }}</small>
                 </div>
             </CaomeiCard>
 

@@ -59,7 +59,7 @@ const mockDataSource = () => {
             savedBatchRuns.push(saved)
             return saved
         }),
-        update: vi.fn(async () => ({ affected: 1 })),
+        update: vi.fn<(criteria?: unknown, partial?: unknown) => Promise<{ affected: number }>>(async () => ({ affected: 1 })),
     }
     const scanRunRepo = {
         save: vi.fn(async (run: ScanRun) => run),
@@ -215,17 +215,40 @@ describe('executeBatchRun（批量执行服务）', () => {
         expect(savedBatchRuns[0]!.status).toBe('running')
     })
 
-    it('async 全部入队失败：批次直接 failed 终态（避免永久 running）', async () => {
+    it('async 全部入队失败：批次条件写回 failed 终态（避免永久 running）', async () => {
         mockQueueService('async')
-        const { savedBatchRuns } = mockDataSource()
+        const { batchRunRepo, savedBatchRuns } = mockDataSource()
         createPendingRunMock.mockRejectedValue(new Error('队列不可用'))
 
         await expect(executeBatchRun(baseInput)).resolves.toMatchObject({ repositoryCount: 2 })
 
-        const batch = savedBatchRuns[0]!
-        expect(batch.status).toBe('failed')
-        expect(batch.finishedAt).not.toBeNull()
+        // 条件写回（乐观锁 = 读取时 running）；payload 仅失败终态 + finishedAt，不含计数
+        expect(batchRunRepo.update).toHaveBeenCalledWith(
+            { id: 'batch-1', status: 'running' },
+            expect.objectContaining({ status: 'failed', finishedAt: expect.any(Date) }),
+        )
+        const [, payload] = vi.mocked(batchRunRepo.update).mock.calls[0]!
+        expect(payload).not.toHaveProperty('finishedCount')
+        expect(payload).not.toHaveProperty('summaryJson')
+        // 仅创建时整行 save；失败路径不再整行 save（避免覆盖并发聚合计数）
+        expect(savedBatchRuns).toHaveLength(1)
+        expect(batchRunRepo.save).toHaveBeenCalledTimes(1)
         expect(queueAddMock).not.toHaveBeenCalled()
+    })
+
+    it('async 全部入队失败 + 并发 force-fail 抢先（affected=0）：不追加整行 save 覆盖终态', async () => {
+        mockQueueService('async')
+        const { batchRunRepo, savedBatchRuns } = mockDataSource()
+        createPendingRunMock.mockRejectedValue(new Error('队列不可用'))
+        // 模拟条件写回条件不匹配（库中已被并发改为终态）
+        batchRunRepo.update.mockResolvedValueOnce({ affected: 0 })
+
+        await expect(executeBatchRun(baseInput)).resolves.toMatchObject({ repositoryCount: 2 })
+
+        expect(batchRunRepo.update).toHaveBeenCalledTimes(1)
+        // 失败路径全程无整行 save（仅最初的创建写入）
+        expect(savedBatchRuns).toHaveLength(1)
+        expect(batchRunRepo.save).toHaveBeenCalledTimes(1)
     })
 
     it('sync：逐仓库串行 runScanForRepository（带 batchRunId 关联），不创建 pending run', async () => {

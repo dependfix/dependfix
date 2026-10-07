@@ -275,6 +275,75 @@ describe('cleanupStaleRuns', () => {
         expect(reloadedFresh?.status).toBe('running') // 未被误杀
     })
 
+    it('BatchRun 写回为条件更新（乐观锁 = 读取时 running），不再整行 save', async () => {
+        const ds = await ensureDatabaseInitialized()
+        const organizationId = await resolveOrganizationId(ds)
+        const batchRepo = ds.getRepository(BatchRun)
+        await createRepo('repo-cond')
+        const batch = await createBatchRun(organizationId, 'running', 1)
+        const stale = await createScanRun({
+            repositoryId: 'repo-cond', batchRunId: batch.id, status: 'running', startedAt: new Date(),
+        })
+        await backdateScanRun(stale.id, new Date(Date.now() - 31 * 60 * 1000))
+        await backdateBatchRun(batch.id, new Date(Date.now() - 31 * 60 * 1000))
+
+        const updateSpy = vi.spyOn(batchRepo, 'update')
+        const saveSpy = vi.spyOn(batchRepo, 'save')
+        const result = await cleanupStaleRuns()
+
+        expect(result.batchRunsFailed).toBe(1)
+        // 条件写回：WHERE id + status='running'，payload 仅失败终态 + finishedAt + 空 summary 兜底
+        expect(updateSpy).toHaveBeenCalledWith(
+            { id: batch.id, status: 'running' },
+            expect.objectContaining({ status: 'failed', finishedAt: expect.any(Date) }),
+        )
+        const [, payload] = updateSpy.mock.calls[0]!
+        expect(payload).not.toHaveProperty('finishedCount')
+        expect(payload).not.toHaveProperty('completedCount')
+        // 失败路径不再整行 save（构造阶段之外的写库只走条件 update）
+        expect(saveSpy).not.toHaveBeenCalled()
+
+        updateSpy.mockRestore()
+        saveSpy.mockRestore()
+    })
+
+    it('并发 force-fail 抢先（批次条件写回 affected=0）：batchRunsFailed 不计数，库保持并发终态', async () => {
+        const ds = await ensureDatabaseInitialized()
+        const organizationId = await resolveOrganizationId(ds)
+        const batchRepo = ds.getRepository(BatchRun)
+        await createRepo('repo-race')
+        const batch = await createBatchRun(organizationId, 'running', 1)
+        const stale = await createScanRun({
+            repositoryId: 'repo-race', batchRunId: batch.id, status: 'running', startedAt: new Date(),
+        })
+        await backdateScanRun(stale.id, new Date(Date.now() - 31 * 60 * 1000))
+        await backdateBatchRun(batch.id, new Date(Date.now() - 31 * 60 * 1000))
+
+        const concurrentAt = new Date('2026-10-08T00:00:00Z')
+        const originalUpdate = batchRepo.update.bind(batchRepo)
+        // 在批次条件写回落库前注入并发 admin force-fail（走 query builder，避免包裹自身递归）
+        batchRepo.update = (async (criteria: unknown, partial: unknown) => {
+            await batchRepo.createQueryBuilder()
+                .update(BatchRun)
+                .set({ status: 'failed', finishedAt: concurrentAt })
+                .where('id = :id', { id: batch.id })
+                .execute()
+            return originalUpdate(criteria as never, partial as never)
+        }) as typeof batchRepo.update
+
+        try {
+            const result = await cleanupStaleRuns()
+            expect(result.scanRunsFailed).toBe(1)
+            // 条件不匹配 → 不计入 batchRunsFailed（不虚报），且不覆盖并发终态
+            expect(result.batchRunsFailed).toBe(0)
+            const reloaded = await batchRepo.findOne({ where: { id: batch.id } })
+            expect(reloaded?.status).toBe('failed')
+            expect(reloaded?.finishedAt?.toISOString()).toBe(concurrentAt.toISOString())
+        } finally {
+            batchRepo.update = originalUpdate
+        }
+    })
+
     it('BatchRun 下属都合法：BatchRun 不被 force fail（避免误杀慢批次）', async () => {
         const ds = await ensureDatabaseInitialized()
         const organizationId = await resolveOrganizationId(ds)

@@ -1,5 +1,6 @@
-import type { Repository } from 'typeorm'
+import type { QueryDeepPartialEntity, Repository } from 'typeorm'
 import {
+    EMPTY_BATCH_SUMMARY,
     type BatchAggregation,
     isUndecidedZeroChildRunning,
     resolveBatchFinishedAt,
@@ -74,17 +75,44 @@ const toUpdatePayload = (batchRun: BatchRun) => ({
 })
 
 /**
- * 条件写回（仅当库中该批次仍为 `running`）：供状态流转与孤儿 `failed` 落库使用。
- * 若并发 admin `force-fail` 已把库中状态改为 `failed`，条件不匹配（affected = 0），
- * 不会把 `failed` 覆盖回 `completed` / `running`。
+ * 条件失败写回（仅当库中该批次仍为 `running`）：**只写** `status` / `finishedAt` / `updatedAt`
+ * （可选填充空 `summaryJson`），不写计数与 summary 快照。
+ *
+ * 用于**持有创建期 / 读取期内存实体**的失败路径（batch-executor「全部入队失败」、stale-cleanup 孤儿批次、
+ * batch-reconciler 零子项孤儿）：那些实体的计数为初值或旧快照，整行 `save()`（或写回整份聚合载荷）
+ * 会把并发详情 GET 已聚合的计数覆盖回旧值。
+ *
+ * 并发 admin `force-fail` 抢先时条件不匹配（affected = 0）→ 不改库、不改内存实体（保持库中终态）。
+ *
+ * 注：聚合通道的整份载荷写回由 `persistBatchAggregation` 承担（以读取时状态为乐观锁），
+ * 失败通道不再提供「整份载荷」变体，避免误用。
+ *
  * @returns 是否确实更新（affected > 0）
  */
-export const persistBatchIfRunning = async (
+export const persistBatchFailedIfRunning = async (
     batchRepo: Repository<BatchRun>,
     batchRun: BatchRun,
+    options: { finishedAt?: Date, fillEmptySummary?: boolean } = {},
 ): Promise<boolean> => {
-    const result = await batchRepo.update({ id: batchRun.id, status: 'running' }, toUpdatePayload(batchRun))
-    return (result.affected ?? 0) > 0
+    const finishedAt = options.finishedAt ?? batchRun.finishedAt ?? new Date()
+    const payload: QueryDeepPartialEntity<BatchRun> = {
+        status: 'failed',
+        finishedAt,
+        updatedAt: new Date(),
+    }
+    if (options.fillEmptySummary && !batchRun.summaryJson) {
+        payload.summaryJson = JSON.stringify(EMPTY_BATCH_SUMMARY)
+    }
+    const result = await batchRepo.update({ id: batchRun.id, status: 'running' }, payload)
+    if ((result.affected ?? 0) === 0) {
+        return false
+    }
+    batchRun.status = 'failed'
+    batchRun.finishedAt = finishedAt
+    if (typeof payload.summaryJson === 'string') {
+        batchRun.summaryJson = payload.summaryJson
+    }
+    return true
 }
 
 /**

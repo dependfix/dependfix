@@ -16,7 +16,7 @@ import { SCAN_JOB_PRIORITY } from '../queue/queue-mode'
 import { createPendingScanRun, runScanForRepository, type ScanRequest } from '../scan-orchestrator.service'
 import { applyFailureClassification } from '../run-failure-classify'
 import { aggregateScanRuns, EMPTY_BATCH_SUMMARY } from './batch-aggregate'
-import { persistBatchAggregation } from './batch-writeback'
+import { persistBatchAggregation, persistBatchFailedIfRunning } from './batch-writeback'
 import { ScanResult } from '#server/entities/scan-result'
 import { ScanRun } from '#server/entities/scan-run'
 import { BatchRun, type BatchRunSource } from '#server/entities/batch-run'
@@ -106,11 +106,10 @@ export const executeBatchRun = async (input: ExecuteBatchInput): Promise<Execute
                 }
             }
         }
-        // 全部入队失败 → 批次直接 failed 终态（避免永久 running）
+        // 全部入队失败 → 批次直接 failed 终态（避免永久 running）；条件写回（乐观锁 = 读取时 running），
+        // 不整行 save，避免把并发详情 GET 已聚合的计数 / summary 覆盖回创建期初值
         if (enqueued === 0) {
-            batchRun.status = 'failed'
-            batchRun.finishedAt = new Date()
-            await batchRepo.save(batchRun)
+            await persistBatchFailedIfRunning(batchRepo, batchRun, { finishedAt: new Date() })
         }
     } else {
         // sync 降级：逐仓库同步串行。runScanForRepository 内部把「执行失败」兜底为 failed run；

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { Repository } from 'typeorm'
-import { applyBatchAggregation, persistBatchAggregation, persistBatchIfRunning } from './batch-writeback'
+import { applyBatchAggregation, persistBatchAggregation, persistBatchFailedIfRunning } from './batch-writeback'
 import type { BatchAggregation } from './batch-aggregate'
 import type { BatchRun } from '#server/entities/batch-run'
 import type { ScanRun } from '#server/entities/scan-run'
@@ -105,7 +105,7 @@ const makeRepo = (affected: number): Repository<BatchRun> => ({
     update: vi.fn(async () => ({ affected })),
 }) as unknown as Repository<BatchRun>
 
-describe('persistBatchAggregation / persistBatchIfRunning（条件写回）', () => {
+describe('persistBatchAggregation（聚合条件写回）', () => {
     it('running → completed：以读取时状态为乐观锁条件，payload 写终态 + finishedAt', async () => {
         const batch = makeBatch({ id: 'b1', status: 'running', finishedCount: 1 })
         const repo = makeRepo(1)
@@ -159,20 +159,69 @@ describe('persistBatchAggregation / persistBatchIfRunning（条件写回）', ()
         expect(result).toEqual({ changed: false, persisted: false })
         expect(repo.update).not.toHaveBeenCalled()
     })
+})
 
-    it('persistBatchIfRunning：固定条件 status=running，返回 affected>0', async () => {
+describe('persistBatchFailedIfRunning（失败终态条件写回）', () => {
+    it('只写 status / finishedAt / updatedAt，不写计数或 summary 快照（避免覆盖并发聚合）', async () => {
+        const batch = makeBatch({
+            id: 'b1',
+            status: 'running',
+            finishedCount: 3,
+            completedCount: 2,
+            failedCount: 1,
+            pendingCount: 0,
+            summaryJson: JSON.stringify({ alertsTotal: 7 }),
+        })
         const repo = makeRepo(1)
-        const persisted = await persistBatchIfRunning(repo, makeBatch({ id: 'b1', status: 'failed' }))
+        const finishedAt = new Date('2026-10-07T10:00:00Z')
+
+        const persisted = await persistBatchFailedIfRunning(repo, batch, { finishedAt })
 
         expect(persisted).toBe(true)
-        expect(repo.update).toHaveBeenCalledWith(
-            { id: 'b1', status: 'running' },
-            expect.objectContaining({ status: 'failed', updatedAt: expect.any(Date) }),
-        )
+        const [, payload] = vi.mocked(repo.update).mock.calls[0]!
+        expect(payload).toEqual({ status: 'failed', finishedAt, updatedAt: expect.any(Date) })
+        expect(payload).not.toHaveProperty('finishedCount')
+        expect(payload).not.toHaveProperty('completedCount')
+        expect(payload).not.toHaveProperty('summaryJson')
+        // 内存实体同步为失败终态
+        expect(batch.status).toBe('failed')
+        expect(batch.finishedAt).toBe(finishedAt)
     })
 
-    it('persistBatchIfRunning：affected=0 返回 false（并发终态保护）', async () => {
+    it('fillEmptySummary：summary 为空时补零值 summary，非空时不覆盖', async () => {
+        const repoEmpty = makeRepo(1)
+        const emptyBatch = makeBatch({ id: 'b-empty', summaryJson: null })
+        await persistBatchFailedIfRunning(repoEmpty, emptyBatch, { fillEmptySummary: true })
+        const [, emptyPayload] = vi.mocked(repoEmpty.update).mock.calls[0]!
+        expect(emptyPayload.summaryJson).toBe(JSON.stringify({ alertsTotal: 0, severityCounts: {}, fixedCount: 0 }))
+        expect(emptyBatch.summaryJson).toBe(emptyPayload.summaryJson)
+
+        const repoFilled = makeRepo(1)
+        const filledBatch = makeBatch({ id: 'b-filled', summaryJson: JSON.stringify({ alertsTotal: 5 }) })
+        await persistBatchFailedIfRunning(repoFilled, filledBatch, { fillEmptySummary: true })
+        const [, filledPayload] = vi.mocked(repoFilled.update).mock.calls[0]!
+        expect(filledPayload).not.toHaveProperty('summaryJson')
+    })
+
+    it('并发 force-fail 抢先（affected=0）：返回 false，库与内存实体均不改写', async () => {
+        const batch = makeBatch({ id: 'b1', status: 'running', finishedAt: null })
         const repo = makeRepo(0)
-        expect(await persistBatchIfRunning(repo, makeBatch({ id: 'b1' }))).toBe(false)
+
+        const persisted = await persistBatchFailedIfRunning(repo, batch, { finishedAt: new Date() })
+
+        expect(persisted).toBe(false)
+        expect(batch.status).toBe('running')
+        expect(batch.finishedAt).toBeNull()
+    })
+
+    it('未传 finishedAt 且实体无值时回退当前时间（不写 null）', async () => {
+        const batch = makeBatch({ id: 'b1', finishedAt: null })
+        const repo = makeRepo(1)
+
+        await persistBatchFailedIfRunning(repo, batch)
+
+        const [, payload] = vi.mocked(repo.update).mock.calls[0]!
+        expect(payload.finishedAt).toBeInstanceOf(Date)
+        expect(batch.finishedAt).toBeInstanceOf(Date)
     })
 })

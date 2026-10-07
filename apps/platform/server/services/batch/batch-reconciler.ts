@@ -1,6 +1,6 @@
 import { In } from 'typeorm'
-import { aggregateScanRuns, EMPTY_BATCH_SUMMARY } from './batch-aggregate'
-import { persistBatchAggregation, persistBatchIfRunning } from './batch-writeback'
+import { aggregateScanRuns } from './batch-aggregate'
+import { persistBatchAggregation, persistBatchFailedIfRunning } from './batch-writeback'
 import { ensureDatabaseInitialized } from '#server/database'
 import { BatchRun } from '#server/entities/batch-run'
 import { ScanResult } from '#server/entities/scan-result'
@@ -105,7 +105,8 @@ export const reconcileRunningBatchRuns = async (options: ReconcileOptions = {}):
     }
 
     /**
-     * 条件写回统一下沉至 `batch-writeback.ts`（persistBatchIfRunning / persistBatchAggregation）：
+     * 条件写回统一下沉至 `batch-writeback.ts`：聚合走 `persistBatchAggregation`，
+     * 失败终态（孤儿批次）走 `persistBatchFailedIfRunning`（与 stale-cleanup / batch-executor 同源，只写终态字段）。
      * 对账预加载 running 批次后逐条处理，期间 admin 可能 `force-fail`——条件更新保证
      * `failed` 终态幂等保护，不被覆盖回 `completed` / `running`。
      */
@@ -120,12 +121,9 @@ export const reconcileRunningBatchRuns = async (options: ReconcileOptions = {}):
         if (batchRuns.length === 0) {
             // 零子项：超阈值 → 孤儿 failed；未超阈值（async 正在建子项）保持不动
             if (batch.createdAt < cutoff) {
-                batch.status = 'failed'
-                batch.finishedAt = now
-                if (!batch.summaryJson) {
-                    batch.summaryJson = JSON.stringify(EMPTY_BATCH_SUMMARY)
-                }
-                if (await persistBatchIfRunning(batchRepo, batch)) {
+                // 与 stale-cleanup / batch-executor 同源：失败终态条件写回（只写 status / finishedAt，
+                // 不动计数与 summary 快照），避免「整行 save」类写法在并发下覆盖聚合结果
+                if (await persistBatchFailedIfRunning(batchRepo, batch, { finishedAt: now, fillEmptySummary: true })) {
                     orphaned++
                 }
             }

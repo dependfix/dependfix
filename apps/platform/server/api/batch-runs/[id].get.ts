@@ -41,11 +41,13 @@ export default defineEventHandler(async (event) => {
 
     // 实时聚合 → 条件写回（用户查看时收敛；周期兜底见 batch-reconciler.ts，两者共用 persistBatchAggregation）
     // failed 终态保护：failed 是 executor 显式落库的终态（async 全部入队失败，无下属 run），
-    // 条件写回以「读取时状态」为乐观锁——并发 admin force-fail 抢先时跳过，不覆盖 failed
+    // 条件写回以「读取时状态」为乐观锁——并发 admin force-fail 抢先时跳过，不覆盖 failed。
+    // 未落库（含「无字段变化」）一律重读库中状态，保证响应与库一致（含瞬时窗口）。
     const aggregation = aggregateScanRuns(runs, results)
-    const { changed, persisted } = await persistBatchAggregation(batchRepo, batchRun, aggregation, runs)
-    if (changed && !persisted) {
-        // 条件写回被保护性跳过（库中状态已被并发改为终态）：以库中实际状态为准，避免响应与库不一致
+    const { persisted } = await persistBatchAggregation(batchRepo, batchRun, aggregation, runs)
+    if (!persisted) {
+        // 未落库（无字段变化，或条件写回被并发终态保护性跳过）：以库中实际状态为准。
+        // 否则「无字段变化 + 并发 force-fail」下响应会停留在读取时的旧状态（库已 failed，响应仍 running）
         batchRun = await batchRepo.findOne({ where: { id } }) ?? batchRun
     }
 

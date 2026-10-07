@@ -1,6 +1,6 @@
 import { LessThan, In } from 'typeorm'
 import { applyFailureClassification } from '../run-failure-classify'
-import { EMPTY_BATCH_SUMMARY } from './batch-aggregate'
+import { persistBatchFailedIfRunning } from './batch-writeback'
 import { ScanRun } from '#server/entities/scan-run'
 import { BatchRun } from '#server/entities/batch-run'
 import { ensureDatabaseInitialized } from '#server/database'
@@ -130,13 +130,15 @@ export const cleanupStaleRuns = async (options: CleanupOptions = {}): Promise<Cl
 
     let batchRunsFailed = 0
     for (const batch of staleBatchCandidates) {
-        batch.status = 'failed'
-        batch.finishedAt = now
-        if (!batch.summaryJson) {
-            batch.summaryJson = JSON.stringify(EMPTY_BATCH_SUMMARY)
+        // 条件失败写回（乐观锁 = 读取时 running）：只写 status / finishedAt（+ 空 summary 兜底），
+        // 不整行 save —— 候选实体为读取期快照，整行写会把并发聚合的计数覆盖回旧值
+        const persisted = await persistBatchFailedIfRunning(batchRepo, batch, {
+            finishedAt: now,
+            fillEmptySummary: true,
+        })
+        if (persisted) {
+            batchRunsFailed++
         }
-        await batchRepo.save(batch)
-        batchRunsFailed++
     }
 
     return {

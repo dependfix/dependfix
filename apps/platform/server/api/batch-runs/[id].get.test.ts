@@ -270,6 +270,49 @@ describe('GET /api/batch-runs/[id]', () => {
             batchRepo.update = originalUpdate
         }
     })
+
+    /**
+     * 「无字段变化 + 并发 force-fail」：零子项 running 批次的聚合无字段变化（终态未定 → 不发起条件 UPDATE），
+     * 但并发 admin force-fail 已把库置 failed。响应必须与库一致。
+     * 修复前仅在 `changed && !persisted` 时重读 → 该场景响应停留在 running。
+     *
+     * 注入方式：包裹 `batchRepo.findOne`（读取批次后立即改库），模拟「读取之后、响应之前」并发终态。
+     */
+    it('concurrent force-fail with no field change: response reflects stored failed', async () => {
+        const ds = await ensureDatabaseInitialized()
+        const organizationId = await resolveOrganizationId(ds)
+        const batchRepo = ds.getRepository(BatchRun)
+        const emptyBatch = await batchRepo.save(batchRepo.create({
+            organizationId,
+            source: 'manual',
+            mode: 'fix',
+            severityThreshold: 'high',
+            repositoryCount: 0,
+            status: 'running',
+        }))
+
+        const failedAt = new Date('2026-10-07T00:00:00Z')
+        const originalFindOne = batchRepo.findOne.bind(batchRepo)
+        const originalUpdate = batchRepo.update.bind(batchRepo)
+        let injected = false
+        batchRepo.findOne = (async (...args: Parameters<typeof originalFindOne>) => {
+            const found = await originalFindOne(...args)
+            if (!injected) {
+                injected = true
+                await originalUpdate({ id: emptyBatch.id }, { status: 'failed', finishedAt: failedAt })
+            }
+            return found
+        }) as typeof batchRepo.findOne
+
+        try {
+            const detail = await call('GET', `/api/batch-runs/${emptyBatch.id}`, { id: emptyBatch.id }) as Record<string, unknown>
+            expect(detail.status).toBe('failed')
+            expect((detail.finishedAt as Date | null)?.toISOString()).toBe(failedAt.toISOString())
+        } finally {
+            batchRepo.findOne = originalFindOne
+            batchRepo.update = originalUpdate
+        }
+    })
 })
 
 /**

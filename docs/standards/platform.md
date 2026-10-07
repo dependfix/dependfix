@@ -310,7 +310,7 @@ fixtures.delete / fixtures.post 在双门控通过后调用 `fixturesRateLimit()
 
 **关键区分**：`ALERTS_DISABLED` ≠ `PERMISSION_DENIED`。前者是仓库设置问题（非 token 权限），不应误导用户排查 token。未启用仓库计入 `RunSummary.reposWithAlertsDisabled` 单列计数 + `RunResult.alertsDisabled`（含 `source`）明细，不影响 exitCode。
 
-**仓库级失败判据（多源并行）**：`fetchRepoAlerts`（engine）在「**无任何成功源且存在失败源**」时抛错。即某源 `ALERTS_DISABLED`（未启用，不计失败）而**其余启用源全部真实失败**时，该仓库按**仓库失败**处理——不再以「0 告警」经成功路径写入 `repoResults`；成功源（含返回空数组）与失败源并存时仍按 per-source 隔离保留成功数据、不抛错。**连锁影响**：失败仓库的 `repoResults` 条目走失败分支（`defaultBranch` 为空串、`alertsCount` 为 0，并追加仓库级错误——报告模式为 `FETCH_FAILED` / 修复模式为 `PROCESS_FAILED`）；退出码仍由 `allErrors` 非空判定（判据不改变退出码方向）；`logPartialSourceFailureSummary` 的 `isAnyRepoSuccessful` 依据 `repoResults`，全失败仓库不计入成功。
+**仓库级失败判据（多源并行）**：`fetchRepoAlerts`（engine）在「**无任何成功源且存在失败源**」时抛错。即某源 `ALERTS_DISABLED`（未启用，不计失败）而**其余启用源全部真实失败**时，该仓库按**仓库失败**处理——不再以「0 告警」经成功路径写入 `repoResults`；成功源（含返回空数组）与失败源并存时仍按 per-source 隔离保留成功数据、不抛错。**连锁影响**：失败仓库的 `repoResults` 条目走失败分支（`defaultBranch` 为空串、`alertsCount` 为 0）；错误信号由每源 `FETCH_FAILED`（带 `source`）记录，报告模式的仓库级 catch **不再追加**无 `source` 的同类信号（多源 GitHub 拉取路径；`pnpm-audit` 本地回退失败无 per-source 信号，仍记仓库级 `FETCH_FAILED`）——避免重复信号，也避免日志汇总把仓库级信号归入 `unknown` 分组；修复模式的仓库级 catch 记 `PROCESS_FAILED`（per-source `FETCH_FAILED` 同时保留），token 指引统一走 `alertsFetchTokenHint`（Dependabot → Code Scanning → Code Quality 三源合一）；退出码仍由 `allErrors` 非空判定（判据不改变退出码方向）；`logPartialSourceFailureSummary` 的 `isAnyRepoSuccessful` 依据 `repoResults`，全失败仓库不计入成功。
 
 **文案落点（区分两层）**：
 - **报告**：`Alerts Disabled` 段用**源无关的通用开启指引** + `Source` 列区分来源（报告层不逐源给路径，避免 core 反向依赖 engine 文案）。

@@ -300,6 +300,8 @@ BatchRun 的 `finishedCount / completedCount / failedCount / summaryJson / statu
 - 状态流转复用 `shouldWriteBackStatus`：仅 `running` 允许流转，`failed` 终态受保护（executor 显式落库的 async 全部入队失败）。
 - **零子项兜底**：`running` 且无任何下属 ScanRun，创建超过 30 分钟 → 判定为孤儿 `failed`（触发进程在建子项前异常 / 子仓库级联删除）；未超阈值（async 正在逐个建子项）保持不动。
 - **sync 模式**：逐仓库串行结束后立即聚合终态化，不等周期对账；零子项时不在此终结（异常场景交由周期对账按孤儿处理，避免误标 completed）。
+- **失败路径条件写回**：`persistBatchFailedIfRunning`（仅 `running` 命中）用于两处持有**创建期 / 读取期内存实体**的失败写回——「async 全部入队失败」与 `stale-cleanup` 孤儿批次；只写 `status` / `finishedAt` / `updatedAt`（可选空 `summaryJson` 兜底），**不写计数与 summary 快照**，避免整行 `save()` 把并发详情 GET 已聚合的计数覆盖回初值；并发 admin `force-fail` 抢先时条件不匹配 → 不改库、也不改内存实体。
+- **详情 GET 响应一致性**：条件写回未落库（无字段变化，或并发终态保护跳过）时一律重读库中状态再组装响应，消除「无字段变化 + 并发 `force-fail`」下响应停留在旧状态的瞬时窗口。
 
 **兼容性说明**：历史 `finished_at` 可能被旧的「查看时刻」口径污染；存量订正由 `database/scripts/` 一次性脚本按 `max(子项 finishedAt)` 重算（详见 [M35.5](../../plan/todo-archive.md#m35-批量运行终态兜底对账--进度可见性修复m351m356-全部已闭环--2026-10-02-归档)）。
 

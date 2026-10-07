@@ -61,17 +61,18 @@
   - **目标**：消除 M36 审计穷举出的 BatchRun 写回反向竞态 + `stale-cleanup` 对批次的无条件 `save`，并修正「部分源失败」汇总时仓库级错误重复 / 归组不当信号。
   - **优先级**：P3
   - **范围**：
-    - **M37.3a** BatchRun 写回残余：`apps/platform/server/services/batch/batch-executor.ts:105-108`（「async 全部入队失败」分支 stale 内存实体 `save` 改条件写回）/ `apps/platform/server/services/batch/stale-cleanup.ts:129-135`（批次无条件 `save` 先置 `failed`，改为与聚合写回同源的条件更新）/ `apps/platform/server/api/batch-runs/[id].get.ts:46-50`（详情 GET 计数无变化时并发 `force-fail` 的响应瞬时不一致，补强响应一致口径）
-    - **M37.3b** 告警源错误信号：`packages/engine/src/app/repo-alerts.ts:69-89` + `packages/engine/src/app/index.ts:437-444`（per-source `FETCH_FAILED` 与 catch 追加的仓库级 `FETCH_FAILED` 重复 / 归 `unknown` 组，收敛为无重复信号）+ `packages/engine/src/app/repo-fix.ts:147`（fix 模式 catch token hint 补 codeQuality）
+    - **M37.3a** BatchRun 写回残余：`apps/platform/server/services/batch/batch-writeback.ts`（新增 `persistBatchFailedIfRunning`：失败终态条件写回，仅写 `status` / `finishedAt` / `updatedAt`，不动计数与 summary）/ `apps/platform/server/services/batch/batch-executor.ts`（「async 全部入队失败」分支改条件写回）/ `apps/platform/server/services/batch/stale-cleanup.ts`（批次无条件 `save` 改同源条件写回）/ `apps/platform/server/api/batch-runs/[id].get.ts`（未落库一律重读库中状态，覆盖「无字段变化 + 并发 force-fail」瞬时窗口）
+    - **M37.3b** 告警源错误信号：`packages/engine/src/app/token-hints.ts`（新增 `alertsFetchTokenHint` 三源合一）/ `packages/engine/src/app/index.ts`（报告模式仓库级 catch 对已有 per-source 信号去重；hint 链同源补全 Code Quality）/ `packages/engine/src/app/repo-fix.ts`（修复模式 catch 改用三源合一 hint）/ `packages/engine/src/app/repo-alerts.ts`（既有 hint 链改用三源合一，行为不变）
   - **验收标准**：
-    - [ ] `batch-executor.ts` 全部入队失败分支改用条件写回（读取时状态为乐观锁），并发详情 GET 已收敛为 `completed` 时不再覆盖回 `failed`
-    - [ ] `stale-cleanup.ts` 批次写回改条件更新，不覆盖并发终态
-    - [ ] 详情 GET 在「无字段变化 + 并发 `force-fail`」场景下响应与库一致（或用例锁定可接受的瞬时窗口语义）
-    - [ ] 部分源失败汇总不再产生重复仓库级 `FETCH_FAILED` 信号；`unknown` 归组仅保留真实未归类错误
-    - [ ] 定向 vitest（batch / repo-alerts / index）全过；`pnpm lint` + `pnpm typecheck` 0 error
+    - [x] `batch-executor.ts` 全部入队失败分支改用条件写回（读取时状态为乐观锁），并发详情 GET 已收敛为 `completed` 时不再覆盖回 `failed`
+    - [x] `stale-cleanup.ts` 批次写回改条件更新，不覆盖并发终态
+    - [x] 详情 GET 在「无字段变化 + 并发 `force-fail`」场景下响应与库一致（或用例锁定可接受的瞬时窗口语义）
+    - [x] 部分源失败汇总不再产生重复仓库级 `FETCH_FAILED` 信号；`unknown` 归组仅保留真实未归类错误
+    - [x] 定向 vitest（batch / repo-alerts / index）全过；`pnpm lint` + `pnpm typecheck` 0 error
   - **不做什么**：不改 BatchRun 终态语义与 `force-fail` 契约；不改引擎修复 / 验证链；不重构报告生成器整体。
-  - **依赖**：M36.3 共享条件写回层（`persistBatchAggregation` / `persistBatchIfRunning`）；M36.4 告警源判据（`failedSources.length > 0 && successfulSources === 0`）；backlog §候选评估中三项残余条目。
-  - **交付物**：预计 2-3 commits（a / b + 闭环登记）；文件约 5。
+  - **依赖**：M36.3 共享条件写回层（`persistBatchAggregation`；本批新增失败通道 `persistBatchFailedIfRunning` 并取代原 `persistBatchIfRunning`——后者随三处失败路径收敛后无生产调用方已删除）；M36.4 告警源判据（`failedSources.length > 0 && successfulSources === 0`）；backlog §候选评估中三项残余条目。
+  - **交付物**：实际 **3 commits**（a 写回残余 / b 告警源信号 + hint 合一 / 闭环登记）；**文件 19 / 新增 402 行 / 删除 76 行** —— 变更落在既有治理设计稿范围内（[platform-scheduled-batch.md §5.2](../design/governance/platform-scheduled-batch.md#52-聚合更新策略) 增量登记失败路径条件写回与响应一致性；[platform.md §6.1](../standards/platform.md#61-错误码与告警状态口径平台展示消费-engine-错误码) 同步 per-source 去重口径），未新增独立设计稿；三处失败路径（batch-executor / stale-cleanup / batch-reconciler）收敛到同一 `persistBatchFailedIfRunning`，原 `persistBatchIfRunning` 无生产调用方随之删除；新增并发 / 去重用例均经反向 mutation 核验非假绿。
+  - **已知边界（审计确认，无需动作）**：报告 / 修复模式仓库级 catch 的 Code Quality 指引属**防御性补全**——`fetchRepoAlerts` 抛错时首个失败源必为 Dependabot（成功源数为 0 意味着 Dependabot 未成功），故 catch 内 hint 恒命中 Dependabot 分支；可达的 Code Quality 指引路径是「部分源失败」时的 per-source 记录（`recordAlertSourceError`），已由 `repo-alerts.test.ts` 的调用点断言守护（message 含 Code Quality 指引）。孤儿批次失败写回已与 stale-cleanup / batch-executor 收敛到同一 `persistBatchFailedIfRunning`（审计 RG-S01 关闭）。
   - **风险与缓解措施**：条件写回条件选取不当可能漏写终态 → 复用 M36.3 已验证的「读取时状态」乐观锁模式 + 并发用例（反向 mutation 核验非假绿）。
 - **M37.4**（P3，📚 文档）设计与规范文档 caomei-ui 版本口径同步
   - **目标**：消除设计与规范文档中 caomei-ui 版本陈旧（文档标 `0.3.0`，实际 `apps/platform/package.json` 为 `0.5.0`）。

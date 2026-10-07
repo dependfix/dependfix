@@ -87,18 +87,18 @@
   - **交付物**：1 commit；文件 4（`tech-stack.md` / `platform.md` / `todo.md` / `backlog.md`）。同源复核另发现 tech-stack 平台依赖表与 `apps/platform/package.json` 的**依赖行级不一致**（`@lucide/vue` 行 `^1.48` vs 声明 `^1.49.0`；`pinia` / `@vueuse/core` / `@vueuse/nuxt` / `@sentry/nuxt` / `@vite-pwa/nuxt` 5 行在本仓库无任何声明与 `nuxt.config` 模块引用）——按「不做什么」未在本批处理，登记 backlog §候选评估中。
   - **风险与缓解措施**：版本口径散落 → 同步时用 `rg` 结构化复扫（含双语镜像与设计文档），避免只改命中两处。
 - **M37.5**（P3，🛠️ CI 防护）孤立编号检测脚本接入 CI 门禁
-  - **目标**：把 `pnpm check:orphan-ids` 纳入 CI 质量门，防止已清理的孤立规划编号回流（M36.1 检测脚本已就绪但未接线）。
+  - **目标**：把 `pnpm check:orphan-ids` 纳入 CI 质量门，防止已清理的孤立规划编号回流（M36.1 检测脚本已就绪但未接线；本批完成接线）。
   - **优先级**：P3
-  - **范围**：`.github/workflows/test.yml`（Test job 增加 `pnpm check:orphan-ids` 步骤）+ 必要的脚本退出码 / 输出文档说明（`scripts/check-orphan-ids.mjs` 已实现，无需改动行为）。
+  - **范围**：`.github/workflows/test.yml`（Test job 增加 `pnpm run check:orphan-ids` 步骤，置于静态检查簇内、`docs:build` / `typecheck` / `test` 之前）+ 文档说明（`scripts/README.md` 新增「代码注释治理」命令表行 + `docs/standards/development.md §3` 执行挂接补 CI 接线 + `scripts/check-orphan-ids.mjs` 头注释补 CI 说明）；检测脚本行为未改
   - **验收标准**：
-    - [ ] CI Test job 含 `pnpm check:orphan-ids` 步骤且失败时阻断
-    - [ ] 本地 `pnpm check:orphan-ids` 0 命中（627 文件基线）
-    - [ ] 负例实证：临时植入一处孤立编号 → 检测 exit 非 0（跑后删除脚手架）
-    - [ ] workflow YAML 解析通过 + 与既有步骤顺序不冲突
+    - [x] CI Test job 含 `pnpm run check:orphan-ids` 步骤且失败时阻断（无 `|| true`；脚本命中即 `exit 1`）
+    - [x] 本地 `pnpm run check:orphan-ids` 0 命中（当前基线 **637 文件**，非条目撰写时的 627——存量清理后新增测试与文档脚本文件所致）
+    - [x] 负例实证：植入 `// T9999` 孤立编号探针文件 → 报告 1 文件 / 1 处命中 + **exit 1**（CI 等效阻断）；探针删除后复跑 0 命中 / exit 0
+    - [x] workflow YAML 解析通过（4 job 完整，test job 20 步，新步骤位于 `check:readme-i18n` 之后 / `docs:build` 之前，与既有步骤顺序无冲突）
   - **不做什么**：不改检测脚本判定口径（块级 / 白名单 / 豁免规则维持 M36.1 稳定版）；不扩到 CI 之外的 hook。
   - **依赖**：M36.1 检测脚本（`43ce253` + `9bfcf2c`，22 用例；627 文件 0 命中基线）；M33.2 视觉回归 CI 转阻断的接线模式。
-  - **交付物**：1 commit；文件 2（workflow + 可能的文档说明）。
-  - **风险与缓解措施**：新增阻断步骤可能因存量豁免误报拉红 CI → 接线前本地全量跑通（0 命中）+ 负例标定退出码语义。
+  - **交付物**：1 commit；文件 4（`test.yml` / `scripts/README.md` / `development.md` / `check-orphan-ids.mjs` 头注释）+ `todo.md` 登记。
+  - **风险与缓解措施**：新增阻断步骤可能因存量豁免误报拉红 CI → 接线前本地全量跑通（0 命中）+ 负例标定退出码语义；检测口径（块级 / 白名单 / 文档指针豁免）维持稳定版未改，故 CI 与本地结论一致。
 - **M37.6**（P1，🛡️ 交付可靠性）目标仓库 git hooks 隔离（自动 commit 不再被 husky 阻断）
   - **目标**：dependfix 在被修复仓库执行自动 commit 时不再触发目标仓库的 husky / lint-staged 钩子，消除 `npx: not found (code 127)` → `COMMIT_FAILED` → 改动回滚的交付失败链。
   - **优先级**：P1（2026-10-06 用户授权按 [§3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 可用性插队例外追加）

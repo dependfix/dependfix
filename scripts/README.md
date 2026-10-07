@@ -28,6 +28,12 @@
 | `pnpm check:docs` | `check-docs.mjs` | 校验仓库内 .md 文件规范（links：路径存在、锚点 slug、拒绝绝对路径/目录越界；vue-interp：docs/ 行内代码不触发 VitePress 编译失败）；`--only=<links\|vue-interp>` 单跑 |
 | `pnpm docs:check:i18n` | `docs/check-i18n-duplicates.mjs` | 检查 docs 翻译页是否同时存在于旧目录（`docs/<locale>/`）与 `docs/i18n/<locale>/`（回流即报错；详见 [i18n 规范](../docs/standards/i18n.md)） |
 
+### 代码注释治理
+
+| pnpm 命令 | 脚本 | 用途 |
+|---|---|---|
+| `pnpm check:orphan-ids` | `check-orphan-ids.mjs` | 检测非 `docs/` 源码 / 配置 / 脚本注释中的孤立规划编号（无文档指针即违规；判定口径与已知边界见脚本头注释 + [开发规范 §3](../docs/standards/development.md#3-注释规范)）；`--json` 机读；**已接入 CI Test job（命中即阻断）** |
+
 ### i18n 审计
 
 > 平台 locale 资源位于 `apps/platform/i18n/locales/`（脚本已参数化 `--locale-root`，兼容单文件与模块化两种形态）；治理规范见 [i18n 规范](../docs/standards/i18n.md)。

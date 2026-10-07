@@ -63,6 +63,11 @@ jobs:
       # README 双向链接 + 章节结构一致性门禁（依赖中文 README + README.en-US.md 同存在；
       # 背景见 docs/plan/archive/todo-archive-phases-m26.md）
       - run: pnpm run check:readme-i18n
+      # 孤立规划编号门禁（开发规范 §3 注释规范）：扫描非 docs/ 源码 / 配置 / 脚本注释中的无文档指针
+      # 规划编号，命中即 exit 1 阻断——防止存量清理后回流。脚本零依赖，故置于静态检查簇内、
+      # docs:build / typecheck / test 之前，尽早失败（输出为文件:行:编号明细，便于直接定位）。
+      # 阻断强度：workflow 级阻断信号（仓库未配置 required status checks，与 visual job 同口径）
+      - run: pnpm run check:orphan-ids
       # docs 构建前置：VitePress 会把 markdown 中的裸 HTML 当作 Vue 模板编译（缺结束标签即失败），
       # lint-md/check-docs 均不检查标签配对——docs 构建失败必须尽早暴露，不等 typecheck/test/build 跑完
       # （教训见经验归档 §三十三：release.md 裸 <path> 导致 Test/Pages 双 workflow 在末尾构建才失败）

@@ -23,6 +23,8 @@
  * 用法：
  *   node scripts/check-orphan-ids.mjs            # 人读报告
  *   node scripts/check-orphan-ids.mjs --json     # 机读 JSON
+ *
+ * CI：Test job 已接入该命令（命中即 exit 1 阻断），见 scripts/README.md。
  */
 
 import { readdirSync, readFileSync } from 'node:fs'

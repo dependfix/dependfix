@@ -70,6 +70,37 @@ pnpm db:backfill
   保留修复记录:     5  (fixStatus='success' 永不被 supersede)
   标记已关闭:       8
 ```
+## backfill-run-failure（运行失败分类回填）
+
+### 背景
+
+运行列表支持按失败阶段筛选后，`ScanRun` 新增 `failure_code` / `failure_stage` / `failure_kind` 三列
+（见 [platform.md §6.2](../../../../../docs/standards/platform.md)）。新增列对存量行为 NULL，
+本脚本按落库的 `errorJson` 尽力归一：`failed` / `dispatched` 行写阶段与处置建议，无法判定一律写
+`unknown`（不猜测）；`completed` / `running` / `pending` / `degraded` 行若残留分类则清空。
+
+### 用法
+
+```bash
+# 1. 预览订正计划（默认模式，不写库）
+pnpm db:backfill:run-failure:dry-run
+
+# 2. 实跑（必须 --apply + y/N 二次确认）
+pnpm db:backfill:run-failure
+```
+
+### 安全门
+
+1. **默认 dry-run**：未传 `--apply` 时只打印计划（含阶段分布与逐行明细前 50 条）。
+2. **y/N 二次确认**：apply 模式必须交互式确认。
+3. **整批事务化**：所有 UPDATE 包在一个事务里，失败回滚。
+4. **幂等**：仅写与当前列值不同的行，二次运行 0 变更。
+
+### 边界
+
+引擎 `result.errors` 未落库，无法直接按类别细分；细分依赖 `engine_delivery_failed` 的 message 中
+回读的 `（CATEGORY）`，其余一律 `unknown`。
+
 ## db-restore（运维脚本）
 
 ### 背景

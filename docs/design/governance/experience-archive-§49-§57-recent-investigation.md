@@ -1392,3 +1392,81 @@ todo.md §M27.1 任务段（L17-48）所有 8 要素（目标 / 范围 / 验收 
 ### 准入标准复核
 
 本案例符合准入标准第 1 条"教训未落入规范"（案例四至十一的可执行方法论均已迁移 `docs/standards/`）+ 第 3 条"重复违规预警"（编号检测形态漏网、文档状态同源字段漏改均为同类复发模式，用于证明必须挂检查点）+ 第 4 条"工具/环境陷阱"（案例一至三、案例七均为真实容器 / 运行时才暴露）。
+
+## 六十七、M37 归档批次经验沉淀（分类落库 / 设备级偏好 / 失败写回 / 信号去重 / 口径分治 / 门禁接线）
+
+> 2026-10-08 M37 归档批次。本阶段为运行可观测性与体验记忆闭环（失败分类 + 筛选 / 偏好记忆 / 治理债残余 / 文档口径 / CI 门禁），衍生暴露分类模型落地、设备级偏好 SSR、失败写回载荷、错误信号去重、文档口径分治与阻断门禁接线六类教训。
+
+### 案例一：失败分类「落库 + unknown 兜底 + 回填幂等」三件套
+
+- **现象**：`ScanRun.status='failed'` 语义过载（网络可重试 / 验证需研判），UI 只能显示「失败」；三套失败信号（平台 `error.code`、引擎 `FixError.category`、GitHub 错误码）碎片化。
+- **修法**：集中映射表 + `unknown` 兜底（未映射码保留 `code` 供审计）；`engine_delivery_failed` 从 message 的类别括号回读细分；落库三列 + 前缀感知幂等迁移 + 回填脚本（dry-run 默认、无法判定写 `unknown`、幂等）；落库点穷举**全部失败写路径**（含复用既有 run 时清空三列）。
+- **沉淀**：[run-failure-taxonomy.md §4/§5](../../design/governance/run-failure-taxonomy.md)（设计稿，已落地）+ [platform.md §6.2 运行失败分类口径](../../standards/platform.md#62-运行失败分类口径)。
+
+### 案例二：caomei SelectItem 不接受空串 value（e2e 首轮捕获 500）
+
+- **现象**：筛选控件「全部」项用 `value: ''` → SSR 渲染抛错（页面 500：「`<SelectItem />` must have a value prop that is not an empty string」）。仅靠单测 / lint / typecheck 全绿，首轮 e2e 才暴露。
+- **修法**：哨兵值（`__all__` / `__auto__`）承载「全部 / 未设置」，对外提交前映射为「不传该参数」或 `null`；哨兵**不得落盘**（否则枚举校验会丢弃该次写入、旧值残留）。
+- **沉淀**：[platform.md §7.4 caomei-ui 接线约定](../../standards/platform.md#74-caomei-ui-接线约定)。
+
+### 案例三：设备级偏好 composable 的 SSR 与可测性
+
+- **现象**：localStorage 偏好若在构造期读取，SSR 首帧与客户端值不一致 → hydration 错配；`localStorage` 在 SSR / 隐私策略 / 配额下不可用或**访问即抛错**，若位于 try 之外，「提交前记录偏好」会抛错打断扫描触发（弹窗已关但未触发）。
+- **修法**：`preferences` 初始为空对象、由 `onMounted` 或打开弹窗时 `refresh()` 填充；存储以可选参数注入（缺省解析 `localStorage`），**存储解析与读写全路径纳入 try/catch**；单测用内存实现 + 抛错 getter 覆盖（vitest node 环境无 `localStorage`）。
+- **沉淀**：[platform.md §7.3 Utility 抽取与跨组件共享](../../standards/platform.md#73-utility-抽取与跨组件共享) + [scan-preferences.md](../../design/governance/scan-preferences.md)（设计稿）。
+
+### 案例四：失败路径写回只写终态字段（内存实体为初值 / 旧快照）
+
+- **现象**：三处失败路径（executor「全部入队失败」/ cleanup 孤儿批次 / 对账零子项孤儿）持有创建期或读取期内存实体，整行 `save()` 会把并发详情 GET 已聚合的计数与 `summary` 覆盖回旧值。
+- **修法**：失败通道单独 helper 只写 `status` / `finishedAt` / `updatedAt`（可选补空 summary），乐观锁取读取时状态；`affected === 0` 时不改库不改实体且调用方不计数；三条路径收敛到同一 helper，收敛后无生产调用方的「整份载荷」变体删除。
+- **沉淀**：[development.md §5.1.38](../../standards/development.md) + [platform-scheduled-batch.md §5.2](../../design/governance/platform-scheduled-batch.md#52-聚合更新策略)。
+
+### 案例五：错误信号去重 + 提示链三源合一（含「不可达分支」处置）
+
+- **现象**：全部启用源失败时，既有 per-source `FETCH_FAILED`（带 `source`）与 catch 追加的仓库级 `FETCH_FAILED`（无 `source`）重复，且后者在日志汇总中落入 `unknown` 分组；同类提示链在三处 catch 重复书写（修复模式漏 Code Quality）。
+- **修法**：仓库级 catch 追加前判「该仓库是否已有带 `source` 的同类信号」；提示链抽出三源合一函数；**不可达的防御性分支不强求测试守护**——登记「已知边界」+ 为可达调用点补断言（mutation 验证可击杀）。
+- **沉淀**：[development.md §5.1.37](../../standards/development.md)（信号去重）+ [testing.md §6.5](../../standards/testing.md)（不可达分支处置）+ [platform.md §6.1](../../standards/platform.md#61-错误码与告警状态口径平台展示消费-engine-错误码)。
+
+### 案例六：文档「版本类当前口径」与「历史叙述」分治 + 复扫账目必须可复现
+
+- **现象**：文档当前版本口径（技术栈表 / 选型表 / 现状陈述）滞后于实际依赖版本；而迁移评估补记、升级实证、规划归档中的同版本号属历史叙述，不可一并改写。
+- **修法**：结构化复扫枚举全部站点后**逐处分类**（当前口径 → 改；历史 / from-version → 保留），并在验收标准中留下**可复现的账目**（总命中数 + 文件清单 + 判定口径命令）。**教训**：首轮账目写「排除部分文件后 0 命中」不可复现（实测仍有残留），被审计判 warning 后重写为「无版本类当前口径命中 + 完整分类」。
+- **沉淀**：[documentation.md §6](../../standards/documentation.md) + [planning.md §4.4 第 13 条](../../standards/planning.md#44-大批量归档批次操作规范)（结构化复扫）。
+
+### 案例七：接入阻断式 CI 门禁的三件套（负例标定 / 自指面 / 阻断强度）
+
+- **现象**：检测脚本已就绪但未接线，门禁长期缺失；若只加步骤不标定，无法区分「真绿」与「命令写错 / 脚本失效」；步骤所在文件自身也受该脚本扫描（自指面）；仓库未配 required status checks 时「变红」不等于禁止合并。
+- **修法**：植入 `// T9999` 探针确认退出码非 0（跑后删脚手架）+ 新增 workflow 注释不得含无指针编号 + 步骤注释写明「workflow 级信号」。
+- **沉淀**：[testing.md §6.9 CI 阻断门禁接线](../../standards/testing.md#69-ci-阻断门禁接线负例标定--自指面--阻断强度)。
+
+### 环境注记：本机 `pnpm exec` 解析过期 store hash
+
+- **现象**：`pnpm exec vitest` / `pnpm exec <bin>` 报 `MODULE_NOT_FOUND`（路径指向旧 pnpm store hash），与代码无关；三个 session + 多轮审计均复现。
+- **处置**：直连 `node_modules/.bin/<bin>`（或包内 `apps/platform/node_modules/.bin/<bin>`）绕开；`pnpm install` 可根治。不构成规范条款（环境噪声），仅作排查注记。
+
+### 与既有教训的关联
+
+- 案例一与 [§六十六 案例六（三态判据）](#六十六m36-归档批次经验沉淀运行时--部署--并发写--三态判定--e2e-cookie) 同属「多源 / 多态判定」主题：前者分类落库，后者失败判据，二者在 M37.3 的信号去重上交汇。
+- 案例四与 [§六十六 案例五（并发终态写）](#六十六m36-归档批次经验沉淀运行时--部署--并发写--三态判定--e2e-cookie) 同族（§5.1.36 → §5.1.38），差别在触发面是「载荷来源」而非「并发入口」。
+- 案例二与 [§六十六 案例十一（文档状态三向扫描）](#六十六m36-归档批次经验沉淀运行时--部署--并发写--三态判定--e2e-cookie) 同属「UI / 文档层的静默失真，只有真实渲染 / 真实扫描才暴露」类。
+- 案例六与 [planning.md §4.4 第 13 条](../../standards/planning.md#44-大批量归档批次操作规范) 同属「口径复扫必须结构化 + 账目可复现」类（M29.3 首轮漏检的同源复发形态）。
+
+### 挂接治理检查点
+
+| 教训 | 规范条款 | Review 检查点挂接状态 |
+|:--|:--|:--|
+| 失败分类落库 + unknown 兜底 | [platform.md §6.2](../../standards/platform.md#62-运行失败分类口径) | ✅ 已挂 code-quality-checklist「规范条款 review 检查点矩阵」 |
+| caomei SelectItem 空串 value | [platform.md §7.4](../../standards/platform.md#74-caomei-ui-接线约定) | ✅ 已挂矩阵 |
+| 设备级偏好 composable SSR | [platform.md §7.3](../../standards/platform.md#73-utility-抽取与跨组件共享) | ◻ 做法级（不新增检查点；挂接矩阵的严格约束限于 §7 列表并发守卫 bullet 与 §7.4 空串 value） |
+| 失败路径只写终态字段 | [development.md §5.1.38](../../standards/development.md) | ✅ 已挂矩阵（新增行） |
+| 错误信号去重 | [development.md §5.1.37](../../standards/development.md) | ✅ 合并入既有 §5.1.37 矩阵行 |
+| 不可达分支处置 | [testing.md §6.5](../../standards/testing.md) | ✅ 合并入既有 testing.md §6.5 矩阵行 |
+| 版本口径分治 + 账目可复现 | [documentation.md §6](../../standards/documentation.md) | ✅ 合并入既有 documentation.md §6 矩阵行 |
+| CI 阻断门禁三件套 | [testing.md §6.9](../../standards/testing.md#69-ci-阻断门禁接线负例标定--自指面--阻断强度) | ✅ 已挂矩阵（新增行） |
+| 列表并发守卫不丢弃输入 | [platform.md §7](../../standards/platform.md) | ✅ 已挂矩阵（新增行） |
+| 未提交工作区变更 / 还原纪律 | [git.md §3.7.2](../../standards/git.md) | ✅ 已挂矩阵（新增行） |
+
+### 准入标准复核
+
+本案例符合准入标准第 1 条「教训未落入规范」（案例一至七的可执行方法论均已迁移 `docs/standards/` 或设计稿 + 治理索引）+ 第 3 条「重复违规预警」（案例六的口径账目不可复现是 M29.3 同源形态复发；案例五的不可达分支处置是「mutation 存活」判据的延伸）+ 第 4 条「工具 / 环境陷阱」（案例二的 SSR 渲染 500、案例三的存储访问抛错、环境注记的 store hash 均为真实环境才暴露）。
+

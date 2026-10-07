@@ -79,6 +79,69 @@ test.describe('/scans 独立页面', () => {
         await expect(page.locator('.caomei-dialog__content')).toBeVisible({ timeout: 15000 })
         await expect(page.locator('.caomei-dialog__header')).toContainText('扫描历史')
     })
+
+    /**
+     * 运行失败分类筛选：状态列「失败 · {阶段}」+ 失败阶段筛选生效。
+     * 用 e2e fixtures 端点注入两条确定性失败 run（verify / clone），避免依赖无 token 扫描的真实分类。
+     */
+    test('case 4: /scans 失败阶段筛选 — 状态列显示阶段 + 筛选命中 / 排除', async ({ page }) => {
+        const stamp = Date.now()
+        const verifyOwner = `e2e-scans-fail-verify-${stamp}`
+        const cloneOwner = `e2e-scans-fail-clone-${stamp}`
+        const cookies = (await page.context().cookies()).map((c) => `${c.name}=${c.value}`).join('; ')
+
+        const seeded = await page.request.post('/api/e2e/fixtures', {
+            headers: { cookie: cookies },
+            data: {
+                repos: [
+                    { owner: verifyOwner, name: 'app' },
+                    { owner: cloneOwner, name: 'app' },
+                ],
+                scanRuns: [
+                    {
+                        repositoryOwner: verifyOwner,
+                        repositoryName: 'app',
+                        status: 'failed',
+                        failureCode: 'VERIFICATION_FAILED',
+                        failureStage: 'verify',
+                        failureKind: 'deterministic',
+                    },
+                    {
+                        repositoryOwner: cloneOwner,
+                        repositoryName: 'app',
+                        status: 'failed',
+                        failureCode: 'clone_timeout',
+                        failureStage: 'clone',
+                        failureKind: 'transient',
+                    },
+                ],
+            },
+        })
+        expect(seeded.status()).toBe(200)
+
+        await page.goto('/scans')
+        await waitForHydration(page)
+
+        const runList = page.locator('.scans__run-list')
+        // 未筛选：两条失败 run 均在列表内，状态列显示「失败 · {阶段}」
+        await expect(runList.getByText(`${verifyOwner}/app`).first()).toBeVisible({ timeout: 15000 })
+        await expect(runList.getByText(`${cloneOwner}/app`).first()).toBeVisible()
+        await expect(runList.getByText('失败 · 验证门禁').first()).toBeVisible()
+        await expect(runList.getByText('失败 · 仓库克隆').first()).toBeVisible()
+
+        // 阶段分布计数（byFailureStage）标签可见
+        await expect(page.getByText('失败阶段分布：').first()).toBeVisible()
+
+        // 失败阶段筛选 = 验证门禁 → 命中 verify 行、排除 clone 行
+        await page.locator('#run-failure-stage').click()
+        await page.locator('.caomei-select__content .caomei-select__item:has-text("验证门禁")').click()
+        await expect(runList.getByText(`${verifyOwner}/app`).first()).toBeVisible({ timeout: 15000 })
+        await expect(runList.getByText(`${cloneOwner}/app`)).toHaveCount(0)
+
+        // 清除筛选 → clone 行重新可见
+        await page.getByRole('button', { name: '清除筛选' }).click()
+        await expect(runList.getByText(`${cloneOwner}/app`).first()).toBeVisible({ timeout: 15000 })
+    })
 })
 
 /**

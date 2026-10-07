@@ -28,6 +28,55 @@ export const runThresholdLabel = (severityThreshold: string, t: Translator) => (
     severityThreshold === 'all' ? t('common.severity.all') : severityThreshold
 )
 
+/**
+ * 失败阶段下拉选项顺序（与 `server/services/run-failure-classify.ts` 的 `RUN_FAILURE_STAGES` 同序；
+ * 分类口径单一事实源在服务端，前端仅复制枚举词汇用于筛选控件）。
+ */
+export const RUN_FAILURE_STAGE_OPTIONS = [
+    'source',
+    'clone',
+    'install',
+    'fix',
+    'verify',
+    'deliver',
+    'runtime',
+    'cleanup',
+    'unknown',
+] as const
+
+/** 处置建议下拉选项顺序（同上） */
+export const RUN_FAILURE_KIND_OPTIONS = ['transient', 'deterministic', 'unknown'] as const
+
+/** 失败阶段 i18n 标签（null → null；未知阶段原样返回） */
+export const failureStageLabel = (stage: string | null | undefined, t: Translator): string | null => {
+    if (!stage) {
+        return null
+    }
+    return ({
+        source: t('runs.failureStage.source'),
+        clone: t('runs.failureStage.clone'),
+        install: t('runs.failureStage.install'),
+        fix: t('runs.failureStage.fix'),
+        verify: t('runs.failureStage.verify'),
+        deliver: t('runs.failureStage.deliver'),
+        runtime: t('runs.failureStage.runtime'),
+        cleanup: t('runs.failureStage.cleanup'),
+        unknown: t('runs.failureStage.unknown'),
+    } as Record<string, string>)[stage] ?? stage
+}
+
+/** 处置建议 i18n 标签（null → null；未知值原样返回） */
+export const failureKindLabel = (kind: string | null | undefined, t: Translator): string | null => {
+    if (!kind) {
+        return null
+    }
+    return ({
+        transient: t('runs.failureKind.transient'),
+        deterministic: t('runs.failureKind.deterministic'),
+        unknown: t('runs.failureKind.unknown'),
+    } as Record<string, string>)[kind] ?? kind
+}
+
 export const formatRunDuration = (
     startedAt: string | null,
     finishedAt: string | null,

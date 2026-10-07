@@ -20,6 +20,10 @@ import { Eye, Funnel, RefreshCw, X } from '@lucide/vue'
 import type { DataTableColumn, DataTablePageEvent } from 'caomei-ui'
 import {
     alertsFound,
+    failureKindLabel,
+    failureStageLabel,
+    RUN_FAILURE_KIND_OPTIONS,
+    RUN_FAILURE_STAGE_OPTIONS,
     runExecutorLabel,
     runModeLabel,
 } from '~/utils/run-view'
@@ -46,6 +50,7 @@ const summaryError = ref('')
 
 interface SummaryResponse {
     byStatus: Record<string, number>
+    byFailureStage: Record<string, number>
     totals: { runs: number, totalAlerts: number, totalFixed: number }
     repositories: Array<{
         repositoryId: string
@@ -56,6 +61,7 @@ interface SummaryResponse {
         fixedCount: number
         lastRunAt: string | null
         lastStatus: string | null
+        lastFailureStage: string | null
     }>
     window: { start: string | null, end: string | null, included: number, limit: number }
     filtered: { repositoryId: string | null }
@@ -81,6 +87,71 @@ interface RunView {
     runUrl: string | null
     summary: Record<string, unknown> | null
     error: { code: string, message: string } | null
+    failureCode: string | null
+    failureStage: string | null
+    failureKind: string | null
+}
+
+/**
+ * 运行列表筛选：状态 / 失败阶段 / 处置建议三维度。
+ * 「全部」用哨兵值而非空串——caomei Select 的 SelectItem 不允许 `value` 为空字符串
+ * （空串被组件保留用于「清除选择显示占位符」，传入会直接抛错）；提交查询前哨兵值不传递。
+ * 阶段与建议选项由 `~/utils/run-view` 提供（与服务端分类枚举同序）。
+ */
+const FILTER_ALL = '__all__'
+
+const filters = reactive({
+    status: FILTER_ALL,
+    failureStage: FILTER_ALL,
+    failureKind: FILTER_ALL,
+})
+
+/** 状态下拉选项（顺序与 `SCAN_RUN_STATUSES` 一致；哨兵值 = 全部） */
+const SCAN_RUN_STATUS_OPTIONS = ['pending', 'running', 'completed', 'failed', 'dispatched', 'degraded'] as const
+
+const statusFilterOptions = computed(() => [
+    { label: t('scans.runList.filterAll'), value: FILTER_ALL },
+    ...SCAN_RUN_STATUS_OPTIONS.map((status) => ({ label: statusLabel(status), value: status })),
+])
+
+const failureStageFilterOptions = computed(() => [
+    { label: t('scans.runList.filterAll'), value: FILTER_ALL },
+    ...RUN_FAILURE_STAGE_OPTIONS.map((stage) => ({
+        label: failureStageLabel(stage, t) ?? stage,
+        value: stage,
+    })),
+])
+
+const failureKindFilterOptions = computed(() => [
+    { label: t('scans.runList.filterAll'), value: FILTER_ALL },
+    ...RUN_FAILURE_KIND_OPTIONS.map((kind) => ({
+        label: failureKindLabel(kind, t) ?? kind,
+        value: kind,
+    })),
+])
+
+/** 阶段分布汇总（仅展示非零项，计数降序）——与「阶段」下拉同源口径 */
+const failureStageCounts = computed(() => {
+    const byStage = summary.value?.byFailureStage
+    if (!byStage) {
+        return []
+    }
+    return RUN_FAILURE_STAGE_OPTIONS
+        .map((stage) => ({ stage, label: failureStageLabel(stage, t) ?? stage, count: byStage[stage] ?? 0 }))
+        .filter((item) => item.count > 0)
+        .sort((a, b) => b.count - a.count)
+})
+
+/** 状态 / 失败阶段 / 处置建议三维筛选是否有任一激活（用于「清除筛选」按钮可见性） */
+const hasActiveFilters = computed(() => (
+    filters.status !== FILTER_ALL || filters.failureStage !== FILTER_ALL || filters.failureKind !== FILTER_ALL
+))
+
+/** 清除运行列表筛选（变更由 watch(filters) 统一驱动重新拉取并回到第 1 页） */
+const clearRunFilters = () => {
+    filters.status = FILTER_ALL
+    filters.failureStage = FILTER_ALL
+    filters.failureKind = FILTER_ALL
 }
 
 const runs = ref<RunView[]>([])
@@ -137,9 +208,16 @@ const fetchSummary = async () => {
     }
 }
 
+/**
+ * 请求在途时的并发调用不静默丢弃（如快速切换筛选）：记录最后一次请求参数，当前请求收尾后补跑一次。
+ * 否则 in-flight 短路会让「下拉已选、列表未过滤」持续到用户下一次交互。
+ */
+let queuedRunFetch: { page: number, rows: number } | null = null
+
 /** runs 列表加载（paginated /api/runs） */
 const fetchRuns = async (page = 1, rows = pageSize.value) => {
     if (inflight.value) {
+        queuedRunFetch = { page, rows }
         return
     }
     inflight.value = true
@@ -153,6 +231,16 @@ const fetchRuns = async (page = 1, rows = pageSize.value) => {
         if (repositoryIdQuery.value) {
             query.repositoryId = repositoryIdQuery.value
         }
+        // 失败分类筛选：哨兵值（全部）不传，服务端按逗号分隔多值解析
+        if (filters.status !== FILTER_ALL) {
+            query.status = filters.status
+        }
+        if (filters.failureStage !== FILTER_ALL) {
+            query.failureStage = filters.failureStage
+        }
+        if (filters.failureKind !== FILTER_ALL) {
+            query.failureKind = filters.failureKind
+        }
         const res = await $fetch('/api/runs', { query })
         const data = res as { items: RunView[], total: number }
         runs.value = data.items
@@ -163,6 +251,11 @@ const fetchRuns = async (page = 1, rows = pageSize.value) => {
         loading.value = false
         inflight.value = false
         firstLoad.value = false
+        const queued = queuedRunFetch
+        queuedRunFetch = null
+        if (queued) {
+            await fetchRuns(queued.page, queued.rows)
+        }
     }
 }
 
@@ -203,6 +296,16 @@ const statusLabel = (status: string) => ({
     pending: t('common.status.pending'),
     degraded: t('runs.statusDegraded'),
 })[status] ?? status
+
+/**
+ * 状态文案：`failed` 且有失败阶段时追加「· {阶段}」（如「失败 · 验证门禁」），
+ * 使用户一眼区分网络可重试失败与验证 / 交付类需研判失败；其余状态保持原文案。
+ */
+const statusLabelWithStage = (status: string, stage: string | null | undefined) => {
+    const base = statusLabel(status)
+    const stageText = failureStageLabel(stage, t)
+    return status === 'failed' && stageText ? `${base} · ${stageText}` : base
+}
 
 /** 进入 run 详情（list 行点击 → 跳 /scans?run=） */
 const openRunDetail = (runId: string) => {
@@ -255,6 +358,12 @@ watch(repositoryIdQuery, async () => {
     first.value = 0
     pageSize.value = 10
     await refresh()
+})
+
+// 失败分类三维筛选变化：回到第 1 页并重新拉取列表（不动 summary 全量窗口）
+watch(filters, async () => {
+    first.value = 0
+    await fetchRuns(1, pageSize.value)
 })
 
 onMounted(refresh)
@@ -379,7 +488,7 @@ onMounted(refresh)
                         v-if="row.lastStatus"
                         :tone="statusTone(row.lastStatus)"
                     >
-                        {{ statusLabel(row.lastStatus) }}
+                        {{ statusLabelWithStage(row.lastStatus, row.lastFailureStage) }}
                     </CaomeiTag>
                     <span v-else class="text-muted">—</span>
                 </template>
@@ -405,7 +514,65 @@ onMounted(refresh)
         <h3 class="scans__section-title">
             {{ t('scans.runList.title') }}
         </h3>
-        <CaomeiCard v-if="!firstLoad">
+        <!-- 失败分类筛选条：状态 / 失败阶段 / 处置建议三维度 + 阶段分布计数 -->
+        <CaomeiCard class="scans__run-filters">
+            <div class="scans__run-filter-row">
+                <div class="scans__run-filter-field">
+                    <label for="run-status">{{ t('scans.runList.filterStatus') }}</label>
+                    <CaomeiSelect
+                        id="run-status"
+                        v-model="filters.status"
+                        :options="statusFilterOptions"
+                        option-label="label"
+                        option-value="value"
+                    />
+                </div>
+                <div class="scans__run-filter-field">
+                    <label for="run-failure-stage">{{ t('scans.runList.filterFailureStage') }}</label>
+                    <CaomeiSelect
+                        id="run-failure-stage"
+                        v-model="filters.failureStage"
+                        :options="failureStageFilterOptions"
+                        option-label="label"
+                        option-value="value"
+                    />
+                </div>
+                <div class="scans__run-filter-field">
+                    <label for="run-failure-kind">{{ t('scans.runList.filterFailureKind') }}</label>
+                    <CaomeiSelect
+                        id="run-failure-kind"
+                        v-model="filters.failureKind"
+                        :options="failureKindFilterOptions"
+                        option-label="label"
+                        option-value="value"
+                    />
+                </div>
+                <div v-if="hasActiveFilters" class="scans__run-filter-field scans__run-filter-field--action">
+                    <CaomeiButton
+                        tone="neutral"
+                        variant="ghost"
+                        size="sm"
+                        @click="clearRunFilters"
+                    >
+                        <template #icon>
+                            <CaomeiIcon :icon="X" />
+                        </template>
+                        {{ t('scans.runList.clearFilters') }}
+                    </CaomeiButton>
+                </div>
+            </div>
+            <div v-if="failureStageCounts.length > 0" class="scans__failure-summary">
+                <span class="text-muted">{{ t('scans.runList.failureStageSummary') }}</span>
+                <CaomeiTag
+                    v-for="item in failureStageCounts"
+                    :key="item.stage"
+                    tone="neutral"
+                >
+                    {{ item.label }} · {{ item.count }}
+                </CaomeiTag>
+            </div>
+        </CaomeiCard>
+        <CaomeiCard v-if="!firstLoad" class="scans__run-list">
             <CaomeiDataTable
                 :data="runs"
                 :columns="runListColumns"
@@ -432,14 +599,14 @@ onMounted(refresh)
                         :title="row.error.message"
                     >
                         <CaomeiTag :tone="statusTone(row.status)">
-                            {{ statusLabel(row.status) }}
+                            {{ statusLabelWithStage(row.status, row.failureStage) }}
                         </CaomeiTag>
                     </span>
                     <CaomeiTag
                         v-else
                         :tone="statusTone(row.status)"
                     >
-                        {{ statusLabel(row.status) }}
+                        {{ statusLabelWithStage(row.status, row.failureStage) }}
                     </CaomeiTag>
                 </template>
                 <template #cell-mode="{row}">
@@ -552,6 +719,41 @@ onMounted(refresh)
         margin: $space-5 0 $space-3;
         font-size: $font-size-lg;
         font-weight: 600;
+    }
+
+    &__run-filters {
+        margin-bottom: $space-3;
+    }
+
+    &__run-filter-row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-end;
+        gap: $space-3;
+    }
+
+    &__run-filter-field {
+        display: flex;
+        flex-direction: column;
+        gap: $space-1;
+        min-width: 180px;
+
+        label {
+            font-size: $font-size-sm;
+        }
+
+        &--action {
+            min-width: 0;
+        }
+    }
+
+    &__failure-summary {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: $space-2;
+        margin-top: $space-3;
+        font-size: $font-size-sm;
     }
 
     &__status-wrap {

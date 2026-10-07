@@ -5,6 +5,7 @@ import fixturesPostHandler from './fixtures.post'
 import { ensureDatabaseInitialized } from '#server/database'
 import { PRCheck } from '#server/entities/pr-check'
 import { Repository } from '#server/entities/repository'
+import { ScanRun } from '#server/entities/scan-run'
 
 /**
  * POST /api/e2e/fixtures 双门控（todo.md §M22.6 + docs/standards/platform.md §3.6）：
@@ -115,6 +116,53 @@ describe('POST /api/e2e/fixtures 双门控（todo.md §M22.6）', () => {
         expect(rows[0]!.conclusion).toBe('failure')
         expect(rows[0]!.alertFiring).toBe(true)
         expect(rows[0]!.lastPolledAt.toISOString()).toBe('2026-08-28T02:00:00.000Z')
+    })
+
+    /**
+     * scanRuns[].failure*：运行失败筛选 e2e 基线需要确定性失败分类
+     * （与 ScanRun.failureCode / failureStage / failureKind 对齐；缺省写 null）。
+     */
+    it('scanRuns[].failure* 落库为分类三列，缺省写 null', async () => {
+        vi.stubEnv('E2E_TEST', 'true')
+        vi.stubGlobal('useRuntimeConfig', () => ({ encryptionKey: 'test-encryption-key-32-bytes!!', e2eFixturesAllowed: true }))
+        await fixturesPostHandler(makeEvent('POST', '/api/e2e/fixtures', {
+            repos: [{ owner: 'fixture-run', name: 'classified' }],
+            scanRuns: [
+                {
+                    repositoryOwner: 'fixture-run',
+                    repositoryName: 'classified',
+                    status: 'failed',
+                    failureCode: 'clone_timeout',
+                    failureStage: 'clone',
+                    failureKind: 'transient',
+                },
+                { repositoryOwner: 'fixture-run', repositoryName: 'classified', status: 'completed' },
+            ],
+        }))
+
+        const ds = await ensureDatabaseInitialized()
+        const repo = await ds.getRepository(Repository).findOneByOrFail({ owner: 'fixture-run', name: 'classified' })
+        const runs = await ds.getRepository(ScanRun).find({ where: { repositoryId: repo.id } })
+        const classified = runs.find((r) => r.status === 'failed')
+        expect(classified?.failureCode).toBe('clone_timeout')
+        expect(classified?.failureStage).toBe('clone')
+        expect(classified?.failureKind).toBe('transient')
+        const plain = runs.find((r) => r.status === 'completed')
+        expect(plain?.failureStage).toBeNull()
+        expect(plain?.failureKind).toBeNull()
+    })
+
+    it('scanRuns[].failureStage 非法值 → 400', async () => {
+        vi.stubEnv('E2E_TEST', 'true')
+        vi.stubGlobal('useRuntimeConfig', () => ({ encryptionKey: 'test-encryption-key-32-bytes!!', e2eFixturesAllowed: true }))
+        await expectError(fixturesPostHandler(makeEvent('POST', '/api/e2e/fixtures', {
+            repos: [{ owner: 'fixture-run', name: 'bad-stage' }],
+            scanRuns: [{
+                repositoryOwner: 'fixture-run',
+                repositoryName: 'bad-stage',
+                failureStage: 'not-a-stage',
+            }],
+        })), 400)
     })
 
     it('prChecks 引用未在 repos 载荷中的仓库 → 400', async () => {

@@ -661,6 +661,22 @@
         "statusDispatched": "Dispatched",
         "statusRunning": "Running",
         "statusDegraded": "Degraded",
+        "failureStage": {
+            "source": "Alert fetch",
+            "clone": "Clone",
+            "install": "Install",
+            "fix": "Fix",
+            "verify": "Verification",
+            "deliver": "Delivery",
+            "runtime": "Runtime",
+            "cleanup": "Cleanup",
+            "unknown": "Unknown stage"
+        },
+        "failureKind": {
+            "transient": "Retryable",
+            "deterministic": "Needs review",
+            "unknown": "Unclear"
+        },
         "actionViewActionRun": "View Action run",
         "actionViewDetail": "View details",
         "backToList": "Back to list",
@@ -711,6 +727,12 @@
         "runList": {
             "title": "All runs",
             "empty": "No scan runs in this scope",
+            "filterStatus": "Status",
+            "filterFailureStage": "Failure stage",
+            "filterFailureKind": "Suggested action",
+            "filterAll": "All",
+            "clearFilters": "Clear filters",
+            "failureStageSummary": "Failure stage distribution:",
             "errors": {
                 "loadFailed": "Failed to load: {message}",
                 "summaryFailed": "Failed to load summary: {message}"

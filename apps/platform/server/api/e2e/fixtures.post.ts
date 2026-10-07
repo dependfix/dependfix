@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { ensureDatabaseInitialized } from '#server/database'
 import { Repository } from '#server/entities/repository'
 import { ScanRun, SCAN_RUN_STATUSES } from '#server/entities/scan-run'
+import { RUN_FAILURE_KINDS, RUN_FAILURE_STAGES } from '#server/services/run-failure-classify'
 import { ScanResult } from '#server/entities/scan-result'
 import { PRCheck, PR_CHECK_CONCLUSIONS } from '#server/entities/pr-check'
 import { resolveOrganizationId } from '#server/utils/organization'
@@ -69,6 +70,10 @@ const scanRunSchema = z.object({
         alertsFound: z.number().int().min(0),
         alertsFixed: z.number().int().min(0),
     }).optional(),
+    /** 失败分类（运行失败筛选 e2e 基线；与 ScanRun.failureCode / failureStage / failureKind 对齐） */
+    failureCode: z.string().max(64).optional(),
+    failureStage: z.enum(RUN_FAILURE_STAGES).optional(),
+    failureKind: z.enum(RUN_FAILURE_KINDS).optional(),
 })
 
 const scanResultSchema = z.object({
@@ -226,6 +231,9 @@ export default defineEventHandler(async (event) => {
                 startedAt: sr.status === 'pending' ? null : now,
                 finishedAt: sr.status === 'completed' || sr.status === 'failed' ? now : null,
                 summaryJson: sr.summary ? JSON.stringify(sr.summary) : null,
+                failureCode: sr.failureCode ?? null,
+                failureStage: sr.failureStage ?? null,
+                failureKind: sr.failureKind ?? null,
             }))
             runResults.push({
                 index: i,

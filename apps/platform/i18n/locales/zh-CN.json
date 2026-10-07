@@ -661,6 +661,22 @@
         "statusDispatched": "已触发",
         "statusRunning": "执行中",
         "statusDegraded": "已降级",
+        "failureStage": {
+            "source": "告警获取",
+            "clone": "仓库克隆",
+            "install": "依赖安装",
+            "fix": "修复应用",
+            "verify": "验证门禁",
+            "deliver": "交付",
+            "runtime": "运行时",
+            "cleanup": "清理",
+            "unknown": "未知阶段"
+        },
+        "failureKind": {
+            "transient": "可重试",
+            "deterministic": "需研判",
+            "unknown": "待确认"
+        },
         "actionViewActionRun": "查看 Action 运行",
         "actionViewDetail": "查看详情",
         "backToList": "返回列表",
@@ -711,6 +727,12 @@
         "runList": {
             "title": "全部运行",
             "empty": "该范围内暂无扫描运行",
+            "filterStatus": "状态",
+            "filterFailureStage": "失败阶段",
+            "filterFailureKind": "处置建议",
+            "filterAll": "全部",
+            "clearFilters": "清除筛选",
+            "failureStageSummary": "失败阶段分布：",
             "errors": {
                 "loadFailed": "加载失败：{message}",
                 "summaryFailed": "汇总加载失败：{message}"

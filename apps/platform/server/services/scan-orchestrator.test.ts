@@ -195,6 +195,10 @@ describe('scan-orchestrator.service', () => {
             expect(run.status).toBe('completed')
             expect(run.summaryJson).toContain('alertsTotal')
             expect(run.finishedAt).toBeTruthy()
+            // 非失败终态不写失败分类三列
+            expect(run.failureCode).toBeNull()
+            expect(run.failureStage).toBeNull()
+            expect(run.failureKind).toBeNull()
 
             // 结果明细落库
             const ds = await ensureDatabaseInitialized()
@@ -231,6 +235,10 @@ describe('scan-orchestrator.service', () => {
             const run = await runScanForRepository(repositoryId, { mode: 'fix', severityThreshold: 'high' })
             expect(run.status).toBe('failed')
             expect(run.errorJson).toContain('exec_failed')
+            // 失败分类落库：未映射码保留 code，阶段 / 处置建议归 unknown
+            expect(run.failureCode).toBe('exec_failed')
+            expect(run.failureStage).toBe('unknown')
+            expect(run.failureKind).toBe('unknown')
         })
 
         it('captures runUrl from container executor (fix mode push succeed)', async () => {
@@ -256,6 +264,10 @@ describe('scan-orchestrator.service', () => {
             expect(run.status).toBe('failed')
             expect(run.errorJson).toContain('push_failed')
             expect(run.runUrl).toBeNull()
+            // push_failed 细分需看 message（网络 vs 权限），保守归 deliver + unknown
+            expect(run.failureCode).toBe('push_failed')
+            expect(run.failureStage).toBe('deliver')
+            expect(run.failureKind).toBe('unknown')
         })
 
         it('marks dispatched when container pr_creation_failed (branch pushed, PR failed)', async () => {
@@ -270,6 +282,9 @@ describe('scan-orchestrator.service', () => {
             expect(run.status).toBe('dispatched')
             expect(run.runUrl).toBe('https://github.com/demo/app/tree/dependfix/auto-fix-abc12345')
             expect(run.errorJson).toContain('pr_creation_failed')
+            // dispatched（分支已推、PR 未建）计入失败分类：deliver + deterministic
+            expect(run.failureStage).toBe('deliver')
+            expect(run.failureKind).toBe('deterministic')
         })
 
         it('marks run failed with orchestration error when executor throws', async () => {
@@ -279,6 +294,10 @@ describe('scan-orchestrator.service', () => {
             expect(run.status).toBe('failed')
             expect(run.errorJson).toContain('orchestration_failed')
             expect(run.errorJson).toContain('disk full')
+            // 编排 catch-all 失败同样落分类：runtime + unknown
+            expect(run.failureCode).toBe('orchestration_failed')
+            expect(run.failureStage).toBe('runtime')
+            expect(run.failureKind).toBe('unknown')
         })
 
         it('throws 404 when runId references missing run', async () => {
@@ -318,6 +337,10 @@ describe('scan-orchestrator.service', () => {
                 summaryJson: JSON.stringify({ alertsFound: 3 }),
                 errorJson: null,
                 runUrl: null,
+                // 上次执行残留的失败分类（reuse 时应被清空）
+                failureCode: 'VERIFICATION_FAILED',
+                failureStage: 'verify',
+                failureKind: 'deterministic',
             }))
             // seed 旧 ScanResult 模拟 report-only 模式留下的告警（per-alert 模型：
             // repositoryId / upstreamId / firstSeenAt / lastSeenAt / occurrenceCount 必填）
@@ -386,6 +409,10 @@ describe('scan-orchestrator.service', () => {
             expect(summary.alertsTotal).toBe(1)
             // errorJson 重置为 null
             expect(result.errorJson).toBeNull()
+            // 失败分类三列随复用清空（不残留上次执行的 stage / kind）
+            expect(result.failureCode).toBeNull()
+            expect(result.failureStage).toBeNull()
+            expect(result.failureKind).toBeNull()
             // M20.3 reconcile 行为（todo.md §M20.3 决策 1-4）：
             // - 新 alert（mock executor 输出 dependabot:<counter>）→ INSERT（scanRunId=terminal.id, occurrenceCount=1）
             // - 旧 2 条 alert（fixStatus=pending，未在新告警列表中）→ supersededAt=NOW()（仍保留行，scanRunId 仍指向 terminal）

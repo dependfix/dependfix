@@ -5,6 +5,7 @@ import { ensureDatabaseInitialized } from '#server/database'
 import { requireAuth, requireRole, requireOrgResource } from '#server/utils/guard'
 import { createLocalizedError } from '#server/utils/localized-error'
 import { EMPTY_BATCH_SUMMARY } from '#server/services/batch/batch-aggregate'
+import { applyFailureClassification } from '#server/services/run-failure-classify'
 
 /**
  * POST /api/batch-runs/[id]/force-fail：手动强制结束批量运行。
@@ -59,10 +60,12 @@ export default defineEventHandler(async (event) => {
     for (const run of staleRuns) {
         run.status = 'failed'
         run.finishedAt = now
-        run.errorJson = JSON.stringify({
+        const forceFailure = {
             code: 'force_failed',
             message: 'admin 手动强制结束',
-        })
+        }
+        run.errorJson = JSON.stringify(forceFailure)
+        applyFailureClassification(run, { status: 'failed', error: forceFailure })
     }
     if (staleRuns.length > 0) {
         await scanRepo.save(staleRuns)

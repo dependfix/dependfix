@@ -221,6 +221,10 @@ describe('cleanupStaleRuns', () => {
         expect(reloaded?.status).toBe('failed')
         expect(reloaded?.finishedAt).toBeInstanceOf(Date)
         expect(JSON.parse(reloaded?.errorJson ?? '{}')).toMatchObject({ code: 'orphan_run' })
+        // 孤儿清理是最常见的失败来源，同样落失败分类（runtime + transient，可重试）
+        expect(reloaded?.failureCode).toBe('orphan_run')
+        expect(reloaded?.failureStage).toBe('runtime')
+        expect(reloaded?.failureKind).toBe('transient')
     })
 
     it('pending ScanRun（无 startedAt）+ createdAt backdated >30min：force failed', async () => {

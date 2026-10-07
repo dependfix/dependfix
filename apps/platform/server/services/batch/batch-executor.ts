@@ -14,6 +14,7 @@ import { In } from 'typeorm'
 import { getQueueService } from '../queue/queue.service'
 import { SCAN_JOB_PRIORITY } from '../queue/queue-mode'
 import { createPendingScanRun, runScanForRepository, type ScanRequest } from '../scan-orchestrator.service'
+import { applyFailureClassification } from '../run-failure-classify'
 import { aggregateScanRuns, EMPTY_BATCH_SUMMARY } from './batch-aggregate'
 import { persistBatchAggregation } from './batch-writeback'
 import { ScanResult } from '#server/entities/scan-result'
@@ -78,10 +79,12 @@ export const executeBatchRun = async (input: ExecuteBatchInput): Promise<Execute
                     // 置 failed + duplicate 标记，保证聚合终态收敛（与单仓库 scan.post.ts 语义一致）
                     run.status = 'failed'
                     run.finishedAt = new Date()
-                    run.errorJson = JSON.stringify({
+                    const mergedFailure = {
                         code: 'SCAN_PENDING_MERGED', // 与 ServerErrorCode 联合类型对齐
                         message: '该仓库已有进行中的扫描任务，本次触发已合并',
-                    })
+                    }
+                    run.errorJson = JSON.stringify(mergedFailure)
+                    applyFailureClassification(run, { status: 'failed', error: mergedFailure })
                     await ds.getRepository(ScanRun).save(run)
                 } else {
                     enqueued++
@@ -93,7 +96,9 @@ export const executeBatchRun = async (input: ExecuteBatchInput): Promise<Execute
                     // 避免孤儿 pending run 无法被 worker 消费 → 聚合永远 pending → 批次永久 running
                     run.status = 'failed'
                     run.finishedAt = new Date()
-                    run.errorJson = JSON.stringify({ code: 'enqueue_failed', message })
+                    const enqueueFailure = { code: 'enqueue_failed', message }
+                    run.errorJson = JSON.stringify(enqueueFailure)
+                    applyFailureClassification(run, { status: 'failed', error: enqueueFailure })
                     await ds.getRepository(ScanRun).save(run)
                 } else {
                     // pending run 创建失败（如仓库并发删除）：无残留，跳过继续（不中断批次）

@@ -117,6 +117,8 @@ describe('POST /api/batch-runs/[id]/force-fail', () => {
         const r1 = await scanRepo.findOne({ where: { id: runningRun.id } })
         expect(r1?.status).toBe('failed')
         expect(JSON.parse(r1?.errorJson ?? '{}')).toMatchObject({ code: 'force_failed' })
+        expect(r1?.failureStage).toBe('runtime')
+        expect(r1?.failureKind).toBe('deterministic')
 
         const r2 = await scanRepo.findOne({ where: { id: pendingRun.id } })
         expect(r2?.status).toBe('failed')

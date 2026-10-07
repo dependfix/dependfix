@@ -2,6 +2,7 @@ import { scanRequestSchema } from '#server/schemas/scan'
 import { createPendingScanRun, runScanForRepository } from '#server/services/scan-orchestrator.service'
 import { getQueueService } from '#server/services/queue/queue.service'
 import { SCAN_JOB_PRIORITY } from '#server/services/queue/queue-mode'
+import { applyFailureClassification } from '#server/services/run-failure-classify'
 import { requireOrgResource, requireRole } from '#server/utils/guard'
 import { createLocalizedError } from '#server/utils/localized-error'
 import { Repository } from '#server/entities/repository'
@@ -90,10 +91,12 @@ export default defineEventHandler(async (event) => {
                 // 避免前端轮询 10 分钟后误报"扫描仍在进行"
                 pendingRun.status = 'failed'
                 pendingRun.finishedAt = new Date()
-                pendingRun.errorJson = JSON.stringify({
+                const mergedFailure = {
                     code: 'SCAN_PENDING_MERGED', // 与 ServerErrorCode 联合类型对齐（已定义 SCAN_PENDING_MERGED 但 throw 路径未使用）
                     message: '该仓库已有进行中的扫描任务，本次触发已合并',
-                })
+                }
+                pendingRun.errorJson = JSON.stringify(mergedFailure)
+                applyFailureClassification(pendingRun, { status: 'failed', error: mergedFailure })
                 await ds.getRepository(ScanRun).save(pendingRun)
             }
         } catch (error) {

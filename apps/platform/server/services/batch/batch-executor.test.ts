@@ -171,6 +171,9 @@ describe('executeBatchRun（批量执行服务）', () => {
         expect(failedRun.finishedAt).not.toBeNull()
         const errorJson = JSON.parse(failedRun.errorJson ?? '{}') as { code: string }
         expect(errorJson.code).toBe('SCAN_PENDING_MERGED')
+        // 去重合并标记同样落分类（runtime + deterministic）
+        expect(failedRun.failureStage).toBe('runtime')
+        expect(failedRun.failureKind).toBe('deterministic')
     })
 
     it('async 单仓库入队失败：跳过继续（其余仓库正常入队，批次不中断）', async () => {
@@ -206,6 +209,9 @@ describe('executeBatchRun（批量执行服务）', () => {
         expect(failedRun.finishedAt).not.toBeNull()
         const errorJson = JSON.parse(failedRun.errorJson ?? '{}') as { code: string }
         expect(errorJson.code).toBe('enqueue_failed')
+        expect(failedRun.failureCode).toBe('enqueue_failed')
+        expect(failedRun.failureStage).toBe('runtime')
+        expect(failedRun.failureKind).toBe('transient')
         expect(savedBatchRuns[0]!.status).toBe('running')
     })
 

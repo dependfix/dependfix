@@ -1,5 +1,6 @@
 import type { RunResult } from '@dependfix/core'
 import { resolveScanRunState } from './scan-run-state'
+import { applyFailureClassification } from './run-failure-classify'
 import { withRepoLock } from './repo-lock'
 import { decryptToken, getEncryptionKey } from './credential.service'
 import { ContainerExecutor } from './executor/container-executor'
@@ -190,6 +191,10 @@ const runScanInternal = async (
             existing.errorJson = null
             existing.summaryJson = null
             existing.runUrl = null
+            // 复用既有记录时一并清空上次执行的失败分类（避免旧 stage/kind 残留到新执行）
+            existing.failureCode = null
+            existing.failureStage = null
+            existing.failureKind = null
             // 同时更新 mode / severityThreshold 以匹配本次请求（用户从 report-only 切到 fix）
             existing.mode = request.mode
             existing.severityThreshold = request.severityThreshold
@@ -362,6 +367,14 @@ const runScanInternal = async (
         // - sandbox 启动时降级（A 场景，详见 executor-sandbox.md §7.8）：degraded + summaryJson + runUrl + errorJson
         //   （业务结果完整，路径偏离；errorJson 保留 sandbox_unavailable 错误码便于审计）
         const decision = resolveScanRunState(executorKind, error, result, degradedReason, exitCode)
+        // 失败分类落库（单一事实源 run-failure-classify）：failed / dispatched 写三列，其余清空。
+        // errorJson 口径与下方落库一致（优先状态机决策的 errorJson，回退执行器 error）；
+        // engineCategories 供「errorJson 缺失但引擎已产出 result.errors」时回退细分。
+        applyFailureClassification(savedRun, {
+            status: decision.status,
+            error: decision.errorJson ?? error ?? null,
+            engineCategories: result?.errors?.map((engineError) => engineError.category),
+        })
         if (decision.status === 'dispatched') {
             savedRun.status = 'dispatched'
             savedRun.runUrl = runUrl
@@ -429,10 +442,13 @@ const runScanInternal = async (
     } catch (error) {
         savedRun.status = 'failed'
         savedRun.finishedAt = new Date()
-        savedRun.errorJson = JSON.stringify({
+        const orchestrationFailure = {
             code: 'orchestration_failed',
             message: error instanceof Error ? error.message : String(error),
-        })
+        }
+        savedRun.errorJson = JSON.stringify(orchestrationFailure)
+        // 编排 catch-all 失败同样落失败分类（与状态机失败路径同源）
+        applyFailureClassification(savedRun, { status: 'failed', error: orchestrationFailure })
         return await runRepo.save(savedRun)
     }
 }

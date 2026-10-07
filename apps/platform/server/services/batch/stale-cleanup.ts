@@ -1,4 +1,5 @@
 import { LessThan, In } from 'typeorm'
+import { applyFailureClassification } from '../run-failure-classify'
 import { EMPTY_BATCH_SUMMARY } from './batch-aggregate'
 import { ScanRun } from '#server/entities/scan-run'
 import { BatchRun } from '#server/entities/batch-run'
@@ -93,10 +94,12 @@ export const cleanupStaleRuns = async (options: CleanupOptions = {}): Promise<Cl
         }
         run.status = 'failed'
         run.finishedAt = now
-        run.errorJson = JSON.stringify({
+        const orphanFailure = {
             code: 'orphan_run',
             message: `超过 ${Math.round(scanRunTimeoutMs / 60000)} 分钟未到达终态，已被 stale cleanup 自动标记为失败`,
-        })
+        }
+        run.errorJson = JSON.stringify(orphanFailure)
+        applyFailureClassification(run, { status: 'failed', error: orphanFailure })
         await scanRepo.save(run)
         failedRuns.push(run)
         scanRunsFailed++

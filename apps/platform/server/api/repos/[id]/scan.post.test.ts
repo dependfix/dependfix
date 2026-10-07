@@ -125,6 +125,10 @@ describe('POST /api/repos/[id]/scan', () => {
         const result = await call({ mode: 'fix', severityThreshold: 'high' }, { id: repositoryId }) as Record<string, unknown>
         expect(result).toMatchObject({ id: 'pending-2', status: 'failed' })
         expect(result.error).toMatchObject({ code: 'SCAN_PENDING_MERGED' })
+        // 落库的失败分类（去重合并 → runtime + deterministic）
+        const persisted = await ds.getRepository(ScanRun).findOne({ where: { id: 'pending-2' } })
+        expect(persisted?.failureStage).toBe('runtime')
+        expect(persisted?.failureKind).toBe('deterministic')
     })
 
     it('fails over to synchronous execution when queue add throws', async () => {

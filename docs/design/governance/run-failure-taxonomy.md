@@ -1,6 +1,6 @@
 # 运行失败分类与筛选设计（设计先行稿）
 
-> 状态：🔶 已上收 M37.1（实施中；本阶段仅覆盖「分类 + 筛选 + 展示」，§5.5 受约束重试入口延后并登记 backlog）
+> 状态：✅ 已落地（2026-10-07 —— 分类模型 + 落库回填 + API 筛选 + UI 展示全部实现；§5.5 受约束重试入口仍延后并登记 backlog）
 > 提出：2026-10-02（用户报告 —— 运行列表只显示「失败」，无法区分失败阶段；网络类失败可考虑重试，验证类失败需重点研判）
 > 范围：`apps/platform`（实体 / API / UI）+ 可选 `packages/core` 分类常量；不改引擎修复逻辑
 > 关联：[executor-sandbox.md §7.8 降级状态机契约](./executor-sandbox.md)、[platform.md](../../standards/platform.md)、`apps/platform/server/services/scan-run-state.ts`、`apps/platform/server/entities/scan-run.ts`
@@ -97,6 +97,8 @@
 | `cleanup` | 分支 / PR 清理（best-effort） | `BRANCH_DELETE_FAILED`、`PR_CLOSE_FAILED`、`CLEANUP_*` |
 | `unknown` | 无法判定 | `engine_delivery_failed` 无细分、缺失信息 |
 
+> **实现期补充映射**（完整权威表见 `apps/platform/server/services/run-failure-classify.ts` 的 `FAILURE_CODE_MAP`，未命中的码一律归 `unknown`）：`workflow_not_configured` → `runtime` + `deterministic`；`enqueue_failed` / `orphan_run` → `runtime` + `transient`；`force_failed` / `SCAN_PENDING_MERGED` → `runtime` + `deterministic`；`supersede_failed` → `cleanup` + `unknown`；`engine_delivery_failed`（message 无法细分类别时）→ `unknown` + `deterministic`。
+
 ### 4.2 `failureKind`（处置建议）
 
 | kind | 含义 | 处置 |
@@ -124,9 +126,9 @@
 
 - **选项 A：读取时派生**（无 schema 变更）。在 API 层用纯函数 `classifyRunFailure(status, errorJson, result/summaryJson)` 计算。优点：零迁移、向后兼容；缺点：无法 SQL 索引过滤、逻辑散落读路径。
 - **选项 B：落库（推荐）**。在 run 终结时（`scan-orchestrator.service.ts` 调用 `resolveScanRunState` 之后）计算并写入新列；历史行由迁移回填（可判定则填，否则 `unknown`）。优点：可索引 / 可聚合 / 稳定可审计；缺点：需迁移 + 回填。
-- **建议**：选项 B 落库 `failure_code` + `failure_stage`（确定性事实），`failure_kind`（策略）可落库也可读取派生，以支持策略演进（本项已由 §7 决策收敛为「三列均落库」）。
+- **已采纳（M37.1 实现期）：选项 B 落库**，三列均落库（§7 决策收敛）。落点覆盖全部失败写路径：orchestrator（状态机决策 + catch-all）/ batch-executor（去重合并 / 入队失败）/ stale-cleanup（孤儿清理）/ scan.post（去重合并）/ force-fail（admin 强终）。
 
-### 5.2 数据模型（草案）
+### 5.2 数据模型（已落地）
 
 `ScanRun` 新增（均可空，兼容存量）：
 
@@ -135,17 +137,20 @@
 - `failure_kind` varchar(16)：`transient | deterministic | unknown`。
 - 保留 `errorJson`（message 与向后兼容）。
 
-### 5.3 API 扩展
+迁移 `2200000000000-AddScanRunFailureColumns`（前缀感知 + 幂等）；不建索引（单组织 run 量级小，summary 窗口上限 500 下顺序扫描成本可忽略，且避免与基线元数据驱动索引同名漂移）。
 
-- `GET /api/runs` 增加 `status`（多值）/ `failureStage`（多值）/ `failureKind` query，参与 `where`；响应 `items[]` 增加 `failureStage` / `failureKind` / `failureCode`。
-- `GET /api/scan-history/summary` 的 `byStatus` 之外增加 `byFailureStage`（受同一时间窗约束）。
+### 5.3 API 扩展（已落地）
 
-### 5.4 UI（`scans.vue` runList）
+- `GET /api/runs` 增加 `status`（多值）/ `failureStage`（多值）/ `failureKind` query，参与 `where`；响应 `items[]` 增加 `failureStage` / `failureKind` / `failureCode`。多值取值为逗号分隔，非法枚举值返回 400。
+- `GET /api/scan-history/summary` 的 `byStatus` 之外增加 `byFailureStage`（受同一时间窗约束）；`repositories[]` 增加 `lastFailureStage`（与 `lastStatus` 同源）。
 
-- 顶部筛选条：状态下拉（全部 / 进行中 / 已完成 / 失败 / 已派发 / 降级）+ 失败阶段下拉（失败时启用）+「仅可重试」开关。
-- 状态列：失败时显示「失败 · {阶段}」Tag（如「失败 · 验证未通过」「失败 · 克隆超时」），tooltip 保留 message。
-- 汇总卡片 / byRepo 的「最近状态」同步阶段口径。
-- i18n：zh-CN / en-US 双侧新增 `runs.failureStage.*` / `runs.failureKind.*` 键。
+### 5.4 UI（`scans.vue` runList）（已落地）
+
+- 运行列表上方筛选条：状态下拉 + 失败阶段下拉 + 处置建议下拉 +「清除筛选」。
+- 阶段分布计数：`byFailureStage` 非零项以标签行展示（与阶段下拉同源口径）。
+- 状态列：`failed` 且有阶段时显示「失败 · {阶段}」（如「失败 · 验证门禁」「失败 · 仓库克隆」），tooltip 保留 message。
+- byRepo「最近状态」同步阶段口径（`lastFailureStage`）。
+- i18n：zh-CN / en-US 双侧新增 `runs.failureStage.*` / `runs.failureKind.*` / `scans.runList.filter*` 键。
 
 ### 5.5 重试语义与安全边界
 
@@ -158,24 +163,24 @@
 - 新增列迁移（TypeORM）；回填脚本按历史 `errorJson.code` / `summaryJson` / `RunResult.errors` 尽力推断 `failure_stage` / `failure_kind`，无法判定写 `unknown`。
 - 回填为**幂等**且可 dry-run（对齐 `db:backfill` 既有脚本模式）。
 
-## 6. 验收标准（草案）
+## 6. 验收标准（草案 → 实现结果）
 
-- [ ] `classifyRunFailure` 纯函数 + 单测覆盖全部已知 code / category（含 `unknown` 兜底）。
-- [ ] 迁移 + 回填（幂等 + dry-run）；存量 `failed` / `dispatched` 行尽力回填。
-- [ ] `/api/runs` 过滤参数生效且与分页组合正确；组织隔离不回退。
-- [ ] `scans.vue` 筛选控件 + 状态列阶段展示 + 汇总计数；i18n 双侧一致。
-- [ ] （本阶段延后）重试入口仅对 `transient` 可见可用；非终态不可重试。
-- [ ] 文档同步 + Review Gate Pass。
+- [x] `classifyRunFailure` 纯函数 + 单测覆盖全部已知 code / category（含 `unknown` 兜底）——`server/services/run-failure-classify.ts` + 全映射表逐码用例。
+- [x] 迁移 + 回填（幂等 + dry-run）；存量 `failed` / `dispatched` 行尽力回填——`2200000000000-AddScanRunFailureColumns.ts` + `scripts/backfill-run-failure.ts`（默认 dry-run、`--apply` + y/N、无法判定写 `unknown`）。
+- [x] `/api/runs` 过滤参数生效且与分页组合正确；组织隔离不回退——`status` / `failureStage` / `failureKind` 多值 query（白名单校验，非法值 400）。
+- [x] `scans.vue` 筛选控件 + 状态列阶段展示 + 汇总计数；i18n 双侧一致——`scans.runList.filter*` + `runs.failureStage.*` / `runs.failureKind.*`（zh-CN / en-US）。
+- [ ] （本阶段延后）重试入口仅对 `transient` 可见可用；非终态不可重试——登记 backlog §候选评估中。
+- [x] 文档同步 + Review Gate Pass。
 
 ## 7. 风险与开放问题
 
 - **已决策（M37.1 / 2026-10-06）**：`failure_code` / `failure_stage` / `failure_kind` 三列均落库，以支持 SQL 筛选与后续重试入口；策略变更经回填脚本重算。
-- **开放**：`execution_timeout` 归 `transient` 还是 `unknown`？（大仓库 / 慢网络可重试，但也可能是真实挂死）。
-- **开放**：`push_failed` 的细分（网络 vs 权限）是否值得从 message 解析？解析脆弱，倾向 `unknown` + 人工。
-- **开放**：`dispatched`（PR 失败但分支已推）是否也纳入「失败阶段」筛选？（建议是，`deliver` + `deterministic`）。
-- **风险**：分类漂移（新错误码未纳入映射）→ 用集中映射表 + `unknown` 兜底 + 单测守护。
-- **风险**：回填误判 → 仅做保守推断，无法判定一律 `unknown`。
-- **风险**：重试被滥用 → 仅 transient + 审计来源 + 非终态守卫。
+- **已决策（M37.1 实现期）**：`execution_timeout` 归 `runtime` + `transient`（大仓库 / 慢网络可重试；真实挂死场景由人工在详情研判）。
+- **已决策（M37.1 实现期）**：`push_failed` 保持 `deliver` + `unknown`，不解析 message 区分网络 / 权限（解析脆弱，交人工）。
+- **已决策（M37.1 实现期）**：`dispatched`（PR 创建失败 / 结果未就绪）纳入失败分类——`pr_creation_failed` → `deliver` + `deterministic`；`result_fetch_failed` / `run_url_not_resolved` → `runtime` + `transient`。`degraded`（业务完成 + 路径偏离）**不**参与失败分类；`dispatched` 且**无任何错误码**（B 模式已受理待回执）亦不分类，避免把进行中的派发记录混入 `byFailureStage.unknown`。
+- **风险**：分类漂移（新错误码未纳入映射）→ 用集中映射表 + `unknown` 兜底 + 单测守护；未映射码保留 `code` 供审计。
+- **风险**：回填误判 → 仅做保守推断，无法判定一律 `unknown`（引擎 `result.errors` 未落库，细分依赖 `engine_delivery_failed` message 回读）。
+- **风险**：重试被滥用 → 仅 transient + 审计来源 + 非终态守卫（入口延后，风险当前不适用）。
 
 ## 8. 关联文档
 

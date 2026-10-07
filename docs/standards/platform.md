@@ -318,6 +318,25 @@ fixtures.delete / fixtures.post 在双门控通过后调用 `fixturesRateLimit()
 
 **匹配口径**：`ALERTS_DISABLED` 覆盖 `dependabot` / `code-scanning` / `code-quality`；403 判定的权威说明见 [github-client.md §5.3](../design/modules/github-client.md)（Dependabot 精确文案 / GHAS 容忍匹配 / 匹配失败退回 `PERMISSION_DENIED`）。
 
+### 6.2 运行失败分类口径（`failure_code` / `failure_stage` / `failure_kind`）
+
+`ScanRun.status='failed'` 语义过载（网络 / 环境类可重试，验证 / 交付类需人工研判），因此平台落库三列支持筛选与汇总：
+
+- **`failure_code`**：归一化原始码（`error.code` 或引擎 `FixError.category`）；`engine_delivery_failed` 会从 message 的 `（CATEGORY）` 回读细分，无法解析时保留兜底码供审计。
+- **`failure_stage`**：`source` / `clone` / `install` / `fix` / `verify` / `deliver` / `runtime` / `cleanup` / `unknown`。
+- **`failure_kind`**：`transient`（可重试）/ `deterministic`（需研判）/ `unknown`（信息不足）。
+
+**单一事实源**：`server/services/run-failure-classify.ts` 的集中映射表 + `unknown` 兜底（抗分类漂移）。前端 `app/utils/run-view.ts` 仅复制枚举词汇用于筛选控件，标签经 i18n 渲染。
+
+**覆盖范围**：
+- 参与分类的终态 = `failed` + `dispatched`（PR 创建失败 / 结果未就绪属交付未完成）；`degraded`（业务完成 + 路径偏离）与成功态不参与，三列为 null。`dispatched` 且**无任何错误码**（已受理待回执）不分类，避免把进行中的派发记录混入 `byFailureStage.unknown`。
+- 落点覆盖全部失败写路径：`scan-orchestrator.service.ts`（状态机决策 + 编排 catch-all）/ `batch-executor.ts`（去重合并 / 入队失败）/ `stale-cleanup.ts`（孤儿清理）/ `repos/[id]/scan.post.ts`（去重合并）/ `batch-runs/[id]/force-fail.post.ts`（admin 强终）。
+- 存量行回填：`pnpm db:backfill:run-failure:dry-run`（默认预览）→ `pnpm db:backfill:run-failure`（`--apply` + y/N）；幂等，无法判定写 `unknown`。
+- **复用既有 run 记录**（`reuse=true`）时三列随 `errorJson` / `summaryJson` 一并清空，避免上次执行的分类残留。
+- 前端筛选（`/scans`）：状态 / 失败阶段 / 处置建议三维下拉，选项枚举与服务端常量由单测断言严格一致；「全部」用哨兵值（caomei `SelectItem` 不接受空串 `value`）。筛选变更在列表请求在途时记入待补跑参数、当前请求收尾后补一次，避免「已选未过滤」滞留。
+
+**不建索引**：单组织 run 量级小（summary 窗口上限 500），按 `failure_stage` 顺序扫描成本可忽略；新增实体级索引会与基线迁移（实体元数据驱动）产生同名漂移。完整分类模型与开放问题见 [run-failure-taxonomy.md](../design/governance/run-failure-taxonomy.md)。
+
 ## 7. 前端规范（app/）
 
 - Vue 3 Composition API + `<script setup lang="ts">`

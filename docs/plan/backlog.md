@@ -72,7 +72,12 @@
   - **触发条件**：生产日志出现 `pre-push` 失败，或用户要求 push 侧一并隔离。
   - **按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
 
-> 本区块保留 M37 执行期延后项 + M37.6 审计衍生待评估候选；M37 启动前原有 6 项候选已全部上收（见上方批次说明）。
+- **scan.post 队列 failover 降级同步执行未透传 reuse（待评估）** —— M37.1 A 阶段审计的**范围外观察**（非本批引入）：`apps/platform/server/api/repos/[id]/scan.post.ts:110` 在入队失败降级 `runScanForRepository` 时只传 `{ runId: pendingRun.id }`，未透传 `reuse: true`；当本次请求走 `reuseScanRunId` 复用**终态** run（入队前校验允许）且 `queue.add` 失败时，orchestrator 的终态校验会抛「已处于终态」，与同步路径（`scan.post.ts:118-120` 显式透传 reuse）语义不一致。
+  - **待评估点**：① 线上可复现性（需「reuse 终态 run」+「queue.add 失败」叠加）；② 修复选型（failover 分支透传 `reuse: !!reuseExisting` vs orchestrator 放宽终态校验）。
+  - **触发条件**：生产日志出现 failover 降级 + 终态冲突报错；或用户要求。
+  - **按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
+
+> 本区块保留 M37 执行期延后项 + M37.6 / M37.1 审计衍生待评估候选；M37 启动前原有 6 项候选已全部上收（见上方批次说明）。
 
 ### 待上收候选（评估完成，等待用户决策）
 

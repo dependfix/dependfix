@@ -29,19 +29,19 @@
   - **目标**：`/scans` 运行列表能按失败阶段筛选、失败态显示「失败 · {阶段}」，并建立 `failureStage` / `failureKind` 分类的单一事实源（历史运行可回填），使用户一眼区分「网络可重试」与「验证需研判」失败。
   - **优先级**：P2
   - **范围**：
-    - **M37.1a** 分类模型 + 落库 + 回填：`apps/platform/server/services/run-failure-classify.ts`（新增纯函数 `classifyRunFailure`）/ `apps/platform/server/entities/scan-run.ts`（新增 `failure_code` / `failure_stage` / `failure_kind` 三列）/ 新增前缀感知 migration / `apps/platform/server/database/scripts/backfill-run-failure.ts`（新增，dry-run 默认）
+    - **M37.1a** 分类模型 + 落库 + 回填：`apps/platform/server/services/run-failure-classify.ts`（新增纯函数 `classifyRunFailure` + `applyFailureClassification`）/ `apps/platform/server/entities/scan-run.ts`（新增 `failure_code` / `failure_stage` / `failure_kind` 三列）/ 新增前缀感知 migration / `apps/platform/server/database/scripts/backfill-run-failure.ts`（新增，dry-run 默认）——实现期落库覆盖**全部失败写路径**（orchestrator 状态机 + catch-all / `batch-executor.ts` 去重与入队失败 / `stale-cleanup.ts` 孤儿清理 / `scan.post.ts` 去重 / `force-fail.post.ts` 强终），复用既有 run 记录时清空三列
     - **M37.1b** API：`apps/platform/server/api/runs/index.get.ts`（`status` / `failureStage` / `failureKind` 多值 query + 响应三字段）/ `apps/platform/server/api/scan-history/summary.get.ts`（新增 `byFailureStage`）
     - **M37.1c** UI + i18n：`apps/platform/app/pages/scans.vue`（筛选条 + 状态列阶段 Tag + 汇总口径）+ zh-CN / en-US `runs.failureStage.*` / `runs.failureKind.*` 键
   - **验收标准**：
-    - [ ] `classifyRunFailure` 纯函数覆盖设计稿 §4 全部已知 code / category（含 `unknown` 兜底）；单测覆盖全映射 + 兜底分支
-    - [ ] migration 前缀感知 + 幂等（非默认 `entityPrefix` 下不静默 no-op）；回填脚本 `--apply` 前默认 dry-run + 幂等 + 无法判定写 `unknown`
-    - [ ] `GET /api/runs` 三类筛选参数生效且与分页组合正确；组织隔离不回退
-    - [ ] `GET /api/scan-history/summary` 返回 `byFailureStage`（受同一时间窗约束）
-    - [ ] `scans.vue` 筛选控件 + 状态列「失败 · {阶段}」Tag + 汇总计数；zh / en-US i18n 双侧键齐全
-    - [ ] 定向 vitest 全过；`pnpm lint` + `pnpm typecheck` 0 error；`pnpm check:orphan-ids` 0 命中
+    - [x] `classifyRunFailure` 纯函数覆盖设计稿 §4 全部已知 code / category（含 `unknown` 兜底）；单测覆盖全映射 + 兜底分支
+    - [x] migration 前缀感知 + 幂等（非默认 `entityPrefix` 下不静默 no-op）；回填脚本 `--apply` 前默认 dry-run + 幂等 + 无法判定写 `unknown`
+    - [x] `GET /api/runs` 三类筛选参数生效且与分页组合正确；组织隔离不回退
+    - [x] `GET /api/scan-history/summary` 返回 `byFailureStage`（受同一时间窗约束）
+    - [x] `scans.vue` 筛选控件 + 状态列「失败 · {阶段}」Tag + 汇总计数；zh / en-US i18n 双侧键齐全
+    - [x] 定向 vitest 全过；`pnpm lint` + `pnpm typecheck` 0 error；`pnpm check:orphan-ids` 0 命中
   - **不做什么**：不含受约束重试入口（`POST /api/repos/[id]/scan` 重试接线延后登记 backlog）；不改引擎修复 / 验证逻辑与跨 major 保护语义；不改 `/api/runs` 既有 `repositoryId` / `ids` / 分页契约；不追求 100% 精确归因（无信息显式 `unknown`）。
   - **依赖**：[run-failure-taxonomy.md §4 分类模型 + §5.2 数据模型 + §5.6 回填](../design/governance/run-failure-taxonomy.md)（2026-10-02 设计先行稿，2026-10-06 上收 M37.1）；M36.3 条件写回层（`persistBatchAggregation`）为终结时写分类的同源上下文。
-  - **交付物**：预计 3-5 commits（a / b / c + 闭环登记）；文件约 15；文档 `run-failure-taxonomy.md` 状态复核（启动批次已登记「已上收 M37.1（实施中）」，实现完成后更新为「已落地」）+ `platform.md` 运行口径同步。
+  - **交付物**：实际 **6 commits**（分类模型+列+迁移 / 落库接线 / 回填脚本 / 读取 API / UI+i18n / 闭环登记）；**实际 38 文件 / 1951 行新增 —— 超 [规划规范 §1.1 任务粒度约束](../standards/planning.md#11-硬性约束) 阈值，拆分依据：本条目已按 a/b/c 三子任务拆分（各有独立验收点与提交批次），且 `run-failure-taxonomy.md` 治理设计先行稿在案 + A 阶段 `deep` 2 分区并发审计**；落库接线覆盖面超出预估（原列 4 个文件，实现期穷举补全 `batch-executor` / `stale-cleanup` / `scan.post` / `force-fail` 全部失败写路径），增量主要来自测试与 i18n 双语；文档 `run-failure-taxonomy.md` 状态更新为「已落地」+ `platform.md §6.2` 运行失败分类口径 + `scripts/README.md` 回填脚本段 + 治理索引双语状态行。
   - **风险与缓解措施**：① 分类漂移（新错误码未纳入映射）→ 集中映射表 + `unknown` 兜底 + 单测守护；② 回填误判 → 仅保守推断，无法判定一律 `unknown`；③ 元数据基线使迁移列在存量库缺列 → 依 [platform.md §3.3](../standards/platform.md) 存量库迁移补齐路径验证。
 - **M37.2**（P2，🎨 用户体验）扫描 / 批量扫描记住上次选择 + 自定义默认操作（方案 C 混合）
   - **目标**：单仓库扫描配置弹窗与批量扫描弹窗在会话间保留上次 `mode` / `severity`，并提供可配置「默认扫描操作」与一键重置，消除每次重选的重复操作。

@@ -334,17 +334,37 @@ test.describe('用户管理（admin）', () => {
 })
 
 test.describe('个人设置', () => {
-    // 全页 7 张卡片：.settings__grid 内 6 张（个人资料 / 修改密码 / 邮箱 / 绑定账号 /
-    // 语言偏好 / 扫描偏好）+ <ai-config-form> 1 张（Organization AI 配置）
-    test('7 张卡片渲染', async ({ page }) => {
+    /**
+     * 逐卡片标题清单断言（**不锁定全页卡片总数**）：
+     * - 新增卡片属正常能力演进 → 本用例保持通过（清单语义为「必须包含」而非「恰好等于」）
+     * - 删除 / 替换任一既有卡片 → 对应标题缺失 → 必报红
+     * 断言限定在 `.caomei-card__title` 并做文本比对，避免 `filter({ hasText })` 对卡片正文的子串误匹配；
+     * 与 dashboard 的区域计数断言（`.dashboard__stats` / `.dashboard__charts`）口径互补。
+     * 边界：本用例只校验**卡片存在性**（标题维度），不校验卡片内容——同名卡片的内容级替换不可检出
+     * （旧的全页计数断言对同场景同样不可检出，非检出能力退化）。
+     * 背景：全页 `.caomei-card` 计数断言已因卡片集合正常演进（5→6→7）确定性失败两次。
+     */
+    test('设置页各功能卡片渲染', async ({ page }) => {
         await page.goto('/settings')
         await waitForHydration(page)
         await expect(page.locator('h2')).toContainText('个人设置')
-        await expect(page.locator('.caomei-card')).toHaveCount(7, { timeout: 15000 })
-        // 语义化抽样：ai-config-form 卡片标题存在（防 ai-config-form 后续被改回 5 张时回归）
-        await expect(page.locator('.caomei-card').filter({ hasText: 'Organization AI 配置' })).toHaveCount(1)
-        // 语义化抽样：扫描偏好卡片标题存在（与计数断言互补——计数看不出"换了哪张卡"）
-        await expect(page.locator('.caomei-card').filter({ hasText: '扫描偏好' })).toHaveCount(1)
+
+        // `.settings__grid` 六张（个人资料 / 修改密码 / 邮箱 / 绑定账号 / 语言偏好 / 扫描偏好）
+        // + `<ai-config-form>` 一张（Organization AI 配置）
+        for (const title of [
+            '个人资料',
+            '修改密码',
+            '邮箱',
+            '绑定账号',
+            '语言偏好',
+            '扫描偏好',
+            'Organization AI 配置',
+        ]) {
+            await expect(
+                page.locator('.caomei-card__title').filter({ hasText: title }),
+                `设置页应渲染「${title}」卡片`,
+            ).toHaveCount(1, { timeout: 15000 })
+        }
     })
 
     test('修改显示名并同步头部', async ({ page }) => {

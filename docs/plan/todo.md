@@ -90,19 +90,19 @@
   - **依赖**：M38 设计先行稿 A 阶段审计发现（2026-10-08）。
   - **交付物**：实际 **1 commit**；文件 1（`scan-queue.ts` 注释）——与预估一致。
   - **风险与缓解措施**：注释级改动风险极低；顺带核查范围限定为同文件以免扩面。审计 suggest（「禁止含冒号」表述略绝对——BullMQ 实际存在 3 段 job scheduler 例外）判定为**与仓库既有同源注释（`queue-mode.ts:72` / `scheduler.service.ts:34`）一致的既定口径**，保持现状（精确化需三处一并调整，超出本条范围）。
-- **M38.6**（P3，🎨 用户体验）schedule 表单与 run-view 复用扫描选项口径
+- **M38.6**（P3，🎨 用户体验）schedule 表单与 run-view 复用扫描选项口径 —— **已闭环**
   - **目标**：把 `schedules.vue` 内联的模式 / 严重级别选项数组切到 `utils/scan-options.ts` 单一事实源，消除与扫描弹窗口径漂移的风险。
   - **优先级**：P3
-  - **范围**：`apps/platform/app/pages/schedules.vue`（`modeOptions` / `severityOptions` 改引用 `utils/scan-options.ts`）+ `apps/platform/app/utils/run-view.ts`（`runModeLabel` 同源标签映射，仅在有同源关系时收敛）+ 定向单测 / e2e。
+  - **范围**：`apps/platform/app/pages/schedules.vue`（`modeOptions` / `severityOptions` 改引用 `utils/scan-options.ts`）+ `apps/platform/app/utils/run-view.ts`（`runModeLabel` 收敛为 `scanModeOptions` 查找）+ `apps/platform/app/pages/batch-runs.vue`（同源点穷举后一并收敛 `modeLabel`）+ 定向单测 / e2e。
   - **验收标准**：
-    - [ ] `schedules.vue` 不再内联模式 / 严重级别选项数组，改复用 `scanModeOptions` / `scanSeverityOptions`
-    - [ ] 选项取值与 `SCAN_MODES` / `SCAN_SEVERITIES` 一致（断言守护）
-    - [ ] 表单行为与计划默认值语义不变（既有 schedule e2e 全过）
-    - [ ] `pnpm lint` + `pnpm typecheck` 0 error
+    - [x] `schedules.vue` 不再内联模式 / 严重级别选项数组，改复用 `scanModeOptions` / `scanSeverityOptions`（`rg` 实证 0 内联命中）
+    - [x] 选项取值与 `SCAN_MODES` / `SCAN_SEVERITIES` 一致（既有 `tests/unit/scan-options.test.ts` 断言守护，含顺序）
+    - [x] 表单行为与计划默认值语义不变（`emptyForm` 默认值未改、schedule API 契约未改）；e2e `schedules` + `schedules-crud` + `batch` **12 passed**（重建 `.output` + 本地临时 config）
+    - [x] `pnpm lint` 0 error / 0 warning + `pnpm typecheck` 7 包 Done；定向单测 26 passed；`check:orphan-ids` 0 + 改动文件编号扫描 0 未豁免命中
   - **不做什么**：不改计划默认值语义与表单行为；不将扫描偏好沿用至 schedule 默认（M37.2 显式边界）；不改 schedule API 契约。
   - **依赖**：M37.2 `utils/scan-options.ts`（`d86e461`）；M37.2 A 阶段审计范围外 suggest。
-  - **交付物**：1 commit；文件 2-3（`schedules.vue` / `run-view.ts` / 测试）。
-  - **风险与缓解措施**：`runModeLabel` 与 `scan-options` 标签语义可能不完全同源 → 仅在有同源关系时收敛，否则保留并注释边界。
+  - **交付物**：实际 **2 commits**（重构 + 闭环登记）；文件 **4**（`schedules.vue` / `run-view.ts` / `batch-runs.vue` / `backlog.md`）——超预估 2-3，扩展依据：**同根因穷举**（[development.md §5.1.25](../standards/development.md)）发现 `batch-runs.vue` 的 `modeLabel` 与 `runModeLabel` 逐字同构，一并收敛（零行为变更）；仍 < 10 文件拆分阈值。
+  - **风险与缓解措施**：`runModeLabel` 与 `scan-options` 标签语义可能不完全同源 → 仅收敛**等价**项（`runModeLabel` / `batch-runs.modeLabel`），等价性经审计逐处比对（已知模式 / 未知模式 / 空串三场景结果一致）；**保留**非等价项并注释边界——`runThresholdLabel` / `batch-runs.severityLabel` / `scans.vue` 阈值列（大小写展示策略不同，收敛会改行为）；同源点穷举结果与「严重级别展示策略统一」候选登记 [backlog.md](backlog.md)（含非同源排除项 `env-events.vue` / `alerts.vue` 的判定依据）。
 
 ---
 

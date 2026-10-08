@@ -99,7 +99,16 @@
   - **触发条件**：生产出现「复用 + 去重合并」误标 failed 实例；或用户要求。
   - **按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
 
-> 本区块保留 M37 执行期延后项（受约束重试入口 / 服务端跨设备偏好）+ 审计与复核衍生的待评估候选（push 侧 hooks 隔离 / tech-stack 依赖表行级不一致 / `distill-wisdom` 计数假阴性）+ M38.1 独立 worker 形态衍生候选（按 role 跳过周期插件 / worker 崩溃自动重启）+ M38.3 审计范围外观察（reuse 路径与去重合并叠加误置 failed）；2026-10-08 M38 启动批次已上收 4 项（`scan.post` failover / e2e 卡片计数 / `scan-queue.ts` 注释 / schedule 选项口径），M37 启动前原有 6 项已随 M37 闭环归档（见上方批次说明）。
+- **严重级别展示策略统一（`Critical` vs `critical`）（待评估）** —— M38.6 同源点穷举发现（**预存差异，非本批引入**）：同一 `severityThreshold` 值在各界面展示策略不一致——
+  - **大驼峰 + `all` 走 i18n**：`scanSeverityOptions`（选项单一事实源）/ `batch-runs.vue` 的 `severityLabel`；
+  - **小写直通 + `all` 走 i18n**：`run-view.ts` 的 `runThresholdLabel` / `scans.vue` 运行列表的阈值列（2 处）；
+  - **raw 直通（连 `all` 都不翻译）**：`alert-run-sidebar.vue` 的 `row.severityThreshold` 渲染 / `repos/[id]/runs.vue` 的阈值列（legacy 页，保留兼容）/ `repo-history-dialog.vue` 的历史 run 阈值列（**在用**，`scans.vue` 挂载）（共 3 处）。
+  - **非同源（已排除）**：`env-events.vue` 的 `severityOptions`（词表 `all/info/warn/error/critical` + 独立 `envEvents.*` i18n 命名空间，属环境事件严重度而非扫描阈值）；`alerts.vue` 的 `severityOptions`（词表含 `Low` / `Unknown`，`all` 在首位）。
+  - **待评估点**：① 是否统一为大驼峰（对齐选项口径）；② 是否统一走 `scanSeverityOptions` 查找（单一事实源）；③ 若差异属有意（不同 UI 语境）则需在规范中显式声明而非隐式保留。
+  - **触发条件**：UI 一致性巡查；或用户反馈级别展示不统一。
+  - **按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
+
+> 本区块保留 M37 执行期延后项（受约束重试入口 / 服务端跨设备偏好）+ 审计与复核衍生的待评估候选（push 侧 hooks 隔离 / tech-stack 依赖表行级不一致 / `distill-wisdom` 计数假阴性）+ M38.1 独立 worker 形态衍生候选（按 role 跳过周期插件 / worker 崩溃自动重启）+ M38.3 审计范围外观察（reuse 路径与去重合并叠加误置 failed）+ M38.6 同源点穷举候选（严重级别展示策略统一）；2026-10-08 M38 启动批次已上收 4 项（`scan.post` failover / e2e 卡片计数 / `scan-queue.ts` 注释 / schedule 选项口径），M37 启动前原有 6 项已随 M37 闭环归档（见上方批次说明）。
 
 ### 待上收候选（评估完成，等待用户决策）
 

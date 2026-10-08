@@ -8,6 +8,7 @@ import type {
     SupplyChainWarning,
 } from '@dependfix/core'
 import type { AiUsage } from '../ai/usage'
+import { isRepoVerificationBlocked } from '../runners/verification-gate'
 import type { AppContext } from './helpers'
 
 // ---------------------------------------------------------------------------
@@ -137,10 +138,19 @@ export function mergeAiUsage(
     return next
 }
 
-/** "跳过类"审计条目 category 白名单：这些是预期内的跳过行为，不应影响 exit code。 */
+/**
+ * "跳过类"审计条目 category 白名单：这些是预期内、**不归因本次运行**的行为，不应影响 exit code。
+ *
+ * - `OVERRIDE_PROTECTED`：保护名单命中，主动跳过 override 写入
+ * - `SCRIPT_NOT_FOUND`：无对应 `package.json#scripts`，跳过该验证命令
+ * - `PRE_EXISTING_FAILURE`：修复前即红的既有基线失败（`verificationBlocking === false`），
+ *   目标仓库本就如此，不归因本次改动（口径见 [isRepoVerificationBlocked] 与
+ *   [docs/design/modules/dependency-fixer.md 既有失败基线]）
+ */
 const SKIPPED_AUDIT_CATEGORIES = new Set<string>([
     'OVERRIDE_PROTECTED', // 保护名单命中，主动跳过 override 写入
     'SCRIPT_NOT_FOUND', // 无 test 脚本，跳过 pnpm test 验证
+    'PRE_EXISTING_FAILURE', // 既有基线失败（本次改动前即为红），不归因本次运行
 ])
 
 /**
@@ -162,12 +172,19 @@ export function computeExitCode(
     const { config, allErrors, allActions, repoResults } = ctx
     const nonSkippedErrors = allErrors.filter((e) => !SKIPPED_AUDIT_CATEGORIES.has(e.category ?? ''))
     const hasErrors = nonSkippedErrors.length > 0
-    const hasFailures = allActions.some((a) => !a.success)
+    // 既有失败（`preExisting`，仅验证 action 携带）不归因本次运行，不计入失败动作——
+    // 否则「仅既有失败且无告警/修复产出」的单仓库运行仍会被判 exit 2
+    const hasFailures = allActions.some((a) => !a.success && !a.preExisting)
     // 保守判定：dry-run 下成功仓库的 verificationPassed 为 undefined、alertsCount 可能为 0，
     // 与失败仓库并存时会被判为"无成功"（返回 2 而非 1）——fail-safe 方向可接受
-    // （验证失败 verificationPassed === false 不算成功交付，改动已回滚）
+    //
+    // 归因口径：只有「本次改动引入的验证失败」（`verificationBlocking === true`）才让该仓库不算成功；
+    // **既有基线失败**（`verificationBlocking === false` 且 `verificationPassed === false`）不归因本次
+    // 改动，不得据此判该仓库失败——与交付门禁 [findVerificationFailedRepos] 同源
+    // （原实现直接用原始口径 `verificationPassed !== false`，会把「仅既有失败」的仓库判为失败 → exit 2 →
+    //  平台 `engine_exit_2` 误标整次运行为失败）
     const hasRepoSuccess = repoResults.length > 0
-        && repoResults.some((r) => r.verificationPassed !== false
+        && repoResults.some((r) => !isRepoVerificationBlocked(r)
             && (r.alertsCount > 0 || r.fixed > 0 || r.verificationPassed === true))
     const hasCleanupSuccess = config.mode === 'cleanup-branches' // 该模式不填充 repoResults，以成功 branch-cleanup 判定
         && allActions.some((a) => a.success && a.type === 'branch-cleanup')

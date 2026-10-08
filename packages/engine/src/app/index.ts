@@ -328,6 +328,8 @@ export class DependfixApp {
         }
         // 部分源拉取失败汇总（todo.md §M19.5 C8）：
         // 仅当至少 1 个源成功 + 至少 1 个源失败时输出（避免与"全部源失败"语义重叠）。
+        // 注：此处 `verificationPassed === true` 是「该仓库产出了结果」的启发式（仅用于日志汇总门控），
+        // 不是失败判定——与 `computeExitCode` 的归因口径（`isRepoVerificationBlocked`）分工不同，刻意保留原始口径。
         const isAnyRepoSuccessful = this.repoResults.some((r) =>
             r.alertsCount > 0 || r.fixed > 0 || r.verificationPassed === true,
         )

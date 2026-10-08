@@ -248,4 +248,103 @@ describe('computeExitCode', () => {
         }))
         expect(exitCode).toBe(2)
     })
+
+    // 回归：既有基线失败（PRE_EXISTING_FAILURE）不归因本次运行，不得影响 exit code
+    // （2026-10-08 定时扫描「全部失败」根因：仅既有失败的仓库被判 exit 2 → 平台 engine_exit_2 误标 failed）
+    it('returns 0 when only PRE_EXISTING_FAILURE audits exist (既有失败不归因本次运行)', () => {
+        const exitCode = computeExitCode(makeCtx({
+            allErrors: [{
+                repository: 'CaoMeiYouRen/rss-impact-server',
+                target: 'pnpm install --frozen-lockfile',
+                stage: 'verify',
+                category: 'PRE_EXISTING_FAILURE',
+                message: 'Pre-existing failure (already failing before this run; not caused by this change): pnpm install --frozen-lockfile',
+            } as never],
+            repoResults: [{
+                alertsCount: 0,
+                fixed: 0,
+                verificationPassed: false,
+                verificationBlocking: false,
+            } as never],
+        }))
+        expect(exitCode).toBe(0)
+    })
+
+    // 回归：既有失败仓库仍计为「成功仓库」→ 与真实失败仓库并存时返回 1（而非 2）
+    // 判定用归因口径 verificationBlocking，而非原始口径 verificationPassed
+    it('counts a pre-existing-only verification failure as repo success (exit 1, not 2)', () => {
+        const exitCode = computeExitCode(makeCtx({
+            config: { mode: 'fix-and-pr' } as AppContext['config'],
+            allErrors: [{
+                repository: 'foo/bar',
+                stage: 'fix',
+                category: 'PROCESS_FAILED',
+                message: 'fetch dependabot alerts for foo/bar: Resource not accessible by integration',
+            } as never],
+            repoResults: [{
+                alertsCount: 5,
+                fixed: 0,
+                verificationPassed: false,
+                verificationBlocking: false,
+            } as never],
+        }))
+        expect(exitCode).toBe(1)
+    })
+
+    // 反例防护：本次改动引入的验证失败（verificationBlocking=true）仍判该仓库失败（exit 2，不因修复而放宽）
+    it('still returns 2 when the verification failure is attributed (verificationBlocking=true)', () => {
+        const exitCode = computeExitCode(makeCtx({
+            config: { mode: 'fix-and-pr' } as AppContext['config'],
+            allErrors: [{
+                repository: 'foo/bar',
+                stage: 'verify',
+                category: 'VERIFICATION_FAILED',
+                message: 'Verification failed for foo/bar; commit skipped',
+            } as never],
+            allActions: [{
+                type: 'verification',
+                repository: 'foo/bar',
+                target: 'pnpm test',
+                success: false,
+                error: 'exit code 1',
+            } as never],
+            repoResults: [{
+                alertsCount: 5,
+                fixed: 0,
+                verificationPassed: false,
+                verificationBlocking: true,
+            } as never],
+        }))
+        expect(exitCode).toBe(2)
+    })
+
+    // 回归：仅有既有失败、且失败动作全部为既有失败验证 → 无真实失败 → 返回 0
+    // （无告警/修复产出时，失败验证 action 也不得把运行判为失败）
+    it('returns 0 when the only failed actions are pre-existing verification failures', () => {
+        const exitCode = computeExitCode(makeCtx({
+            config: { mode: 'fix-and-pr' } as AppContext['config'],
+            allErrors: [{
+                repository: 'CaoMeiYouRen/rss-impact-server',
+                target: 'pnpm install --frozen-lockfile',
+                stage: 'verify',
+                category: 'PRE_EXISTING_FAILURE',
+                message: 'Pre-existing failure (already failing before this run; not caused by this change): pnpm install --frozen-lockfile',
+            } as never],
+            allActions: [{
+                type: 'verification',
+                repository: 'CaoMeiYouRen/rss-impact-server',
+                target: 'pnpm install --frozen-lockfile',
+                success: false,
+                preExisting: true,
+                error: 'exit code 1',
+            } as never],
+            repoResults: [{
+                alertsCount: 0,
+                fixed: 0,
+                verificationPassed: false,
+                verificationBlocking: false,
+            } as never],
+        }))
+        expect(exitCode).toBe(0)
+    })
 })

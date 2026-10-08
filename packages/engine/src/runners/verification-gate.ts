@@ -7,17 +7,25 @@ import { toErrorMessage, type RepositoryResult } from '@dependfix/core'
 import type { AppContext } from '../app/helpers'
 
 /**
- * 返回需要阻断交付（回滚）的仓库列表。
+ * 单仓库是否被「本次改动引入的验证失败」阻断。
  *
- * 判定口径（既有失败基线）：
+ * 判定口径（既有失败基线，**单一事实源**——交付门禁与退出码共用，避免同一字段在两处被
+ * 解读为相反语义）：
  * - 优先用 `verificationBlocking`（**本次改动引入**的验证失败）：既有基线失败（目标仓库
  *   修复前即为红，如长期失败的测试套件）不归因本次改动，因此不阻断交付
  * - `verificationBlocking` 未提供（旧数据 / 非本版本产物）时回退 `verificationPassed === false`
  *   ——保持既有语义，避免调用方漏传字段时静默放过
  */
+export function isRepoVerificationBlocked(
+    repo: Pick<RepositoryResult, 'verificationPassed' | 'verificationBlocking'>,
+): boolean {
+    return repo.verificationBlocking ?? (repo.verificationPassed === false)
+}
+
+/** 返回需要阻断交付（回滚）的仓库列表（判定口径见 [isRepoVerificationBlocked]）。 */
 export function findVerificationFailedRepos(repoResults: RepositoryResult[]): string[] {
     return repoResults
-        .filter((r) => (r.verificationBlocking ?? (r.verificationPassed === false)))
+        .filter((r) => isRepoVerificationBlocked(r))
         .map((r) => r.repository)
 }
 

@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import { execSync } from 'node:child_process'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { FixError } from '@dependfix/core'
-import { enforceVerificationGate, findVerificationFailedRepos, rollbackChanges } from './verification-gate'
+import { enforceVerificationGate, findVerificationFailedRepos, isRepoVerificationBlocked, rollbackChanges } from './verification-gate'
 
 // ---------------------------------------------------------------------------
 // findVerificationFailedRepos（验证门禁：失败仓库清单）
@@ -43,6 +43,29 @@ describe('findVerificationFailedRepos', () => {
             { repository: 'foo/a', verificationPassed: false, verificationBlocking: undefined } as never,
             { repository: 'foo/b', verificationPassed: undefined, verificationBlocking: undefined } as never,
         ])).toEqual(['foo/a'])
+    })
+})
+
+// ---------------------------------------------------------------------------
+// isRepoVerificationBlocked（归因口径单一事实源，退出码与门禁共用）
+// ---------------------------------------------------------------------------
+
+describe('isRepoVerificationBlocked', () => {
+    it('verificationBlocking 优先于 verificationPassed（既有失败不阻断）', () => {
+        expect(isRepoVerificationBlocked({
+            verificationPassed: false,
+            verificationBlocking: false,
+        })).toBe(false)
+        expect(isRepoVerificationBlocked({
+            verificationPassed: true,
+            verificationBlocking: true,
+        })).toBe(true)
+    })
+
+    it('verificationBlocking 未提供时回退原始口径（verificationPassed === false）', () => {
+        expect(isRepoVerificationBlocked({ verificationPassed: false, verificationBlocking: undefined })).toBe(true)
+        expect(isRepoVerificationBlocked({ verificationPassed: true, verificationBlocking: undefined })).toBe(false)
+        expect(isRepoVerificationBlocked({ verificationPassed: undefined, verificationBlocking: undefined })).toBe(false)
     })
 })
 

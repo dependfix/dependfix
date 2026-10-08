@@ -107,7 +107,12 @@ export default defineEventHandler(async (event) => {
                 throw createLocalizedError(event, { statusCode: 409, code: 'SCAN_ALREADY_COMPLETED' })
             }
             console.warn(`[scan] 入队失败，降级同步执行：${message}`)
-            const run = await runScanForRepository(id, parsed.data, { runId: pendingRun.id })
+            // 降级路径须与入队成功路径（`reuse: !!reuseExisting`）及同步路径同源透传 reuse——
+            // 否则「复用终态 run」+ 入队失败叠加时，orchestrator 终态校验会抛「已处于终态」
+            const run = await runScanForRepository(id, parsed.data, {
+                runId: pendingRun.id,
+                reuse: !!reuseExisting,
+            })
             return serializeRun(run)
         }
         return serializeRun(pendingRun)

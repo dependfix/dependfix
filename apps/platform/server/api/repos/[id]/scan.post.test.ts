@@ -142,7 +142,48 @@ describe('POST /api/repos/[id]/scan', () => {
 
         const result = await call({ mode: 'fix', severityThreshold: 'high' }, { id: repositoryId }) as Record<string, unknown>
         expect(result).toMatchObject({ id: 'run-1', status: 'completed' })
-        expect(runScanForRepository).toHaveBeenCalledWith(repositoryId, { mode: 'fix', severityThreshold: 'high' }, { runId: 'pending-3' })
+        expect(runScanForRepository).toHaveBeenCalledWith(
+            repositoryId,
+            { mode: 'fix', severityThreshold: 'high' },
+            { runId: 'pending-3', reuse: false },
+        )
+    })
+
+    /**
+     * 入队失败 failover 降级路径须透传 reuse（与入队成功路径 / 同步路径同源）。
+     * 场景：复用「终态 run」（入队前校验允许 status != running）+ `queue.add` 抛错 → 降级同步执行。
+     * 若未透传 reuse，orchestrator 的终态校验会抛「已处于终态」（该 message 会被上游转 409），
+     * 与同步路径 / 入队成功路径语义不一致。本用例锁定三条路径同源透传。
+     */
+    it('fails over with reuse flag when queue add throws on a reused terminal run', async () => {
+        const ds = await ensureDatabaseInitialized()
+        const existing = await ds.getRepository(ScanRun).save(ds.getRepository(ScanRun).create({
+            repositoryId,
+            mode: 'report-only',
+            severityThreshold: 'high',
+            executorKind: 'container',
+            status: 'completed',
+            summaryJson: JSON.stringify({ alertsFound: 1, alertsFixed: 0 }),
+        }))
+        const queue = { add: vi.fn().mockRejectedValue(new Error('queue down')) }
+        getQueueService.mockResolvedValue({ mode: 'async', queue })
+        runScanForRepository.mockResolvedValue(mockRun({ id: existing.id, status: 'completed' }))
+
+        const result = await call({
+            mode: 'fix',
+            severityThreshold: 'high',
+            reuseScanRunId: existing.id,
+        }, { id: repositoryId }) as Record<string, unknown>
+
+        expect(result).toMatchObject({ id: existing.id, status: 'completed' })
+        // 关键断言：降级路径透传 reuse=true（与入队成功路径 queue.add 的 reuse 取值同源）
+        expect(runScanForRepository).toHaveBeenCalledWith(
+            repositoryId,
+            { mode: 'fix', severityThreshold: 'high', reuseScanRunId: existing.id },
+            { runId: existing.id, reuse: true },
+        )
+        // 复用路径不新建 pending run
+        expect(createPendingScanRun).not.toHaveBeenCalled()
     })
 
     /**

@@ -19,28 +19,28 @@
 
 ## M38: 平台执行模型隔离（2026-10-06 用户授权 / 2026-10-08 设计先行稿定稿 / M38.1~M38.6）
 
-> **阶段定位**：承接 M37 完整闭环归档后的独立治理阶段。2026-10-06 用户基于生产运行日志根因分析授权开阶段——消除平台 in-process BullMQ Worker 因引擎同步子进程调用阻塞主线程 event loop 导致的 `could not renew lock` / `Missing lock (code -2)`（锁过期 → job 被判 stalled 重排 → 潜在重复执行）。首个交付为方案 ①/②/③ 选型设计先行稿（[executor-process-isolation.md](../design/governance/executor-process-isolation.md)，2026-10-08 定稿）；经用户裁定方案 ①（BullMQ sandboxed processor）为主线 + 方案 ③（锁参数与观测）阶段内止血，方案 ②（独立子进程执行引擎）登记 backlog 长期演进。
+> **阶段定位**：承接 M37 完整闭环归档后的独立治理阶段。2026-10-06 用户基于生产运行日志根因分析授权开阶段——消除平台 in-process BullMQ Worker 因引擎同步子进程调用阻塞主线程 event loop 导致的 `could not renew lock` / `Missing lock (code -2)`（锁过期 → job 被判 stalled 重排 → 潜在重复执行）。首个交付为方案 ①/②/③ 选型设计先行稿（[executor-process-isolation.md](../design/governance/executor-process-isolation.md)，2026-10-08 定稿）；经用户裁定方案 ① 为主线 + 方案 ③（锁参数与观测）阶段内止血，方案 ②（独立子进程执行引擎）登记 backlog 长期演进。**M38.1 D 阶段前置实证发现方案 ①（BullMQ sandboxed processor）在本仓库 Nitro 单 bundle 构建体系下无法原样落地**（平台业务代码内联 `chunks/nitro/nitro.mjs`、产物导入即顶层 listen、Nitro 无额外入口机制；详见 [设计稿 §3.1](../design/governance/executor-process-isolation.md)），经用户再次裁定改用**方案 ①′（独立 worker 进程）**——隔离层级为独立 Node 进程，根因同样消除且无需新增构建产物。
 > **类型平衡**：🛡️ 技术债与可靠性 2（M38.1 + M38.3）+ 🛠️ 可观测性 1（M38.2）+ 🧪 测试基建 1（M38.4）+ 📚 文档 1（M38.5）+ 🎨 用户体验 1（M38.6）= 6 原子，整体符合 [规划规范 §1.1 类型平衡原则](../standards/planning.md#11-硬性约束)（UX 独立条目 1 项，低于建议值 2，缺口已显式标注）。
 > **§3.4 三重交叉核验**（2026-10-08 启动批次实测，**0 项重复评估**）：① **todo-archive 扫描**——4 项上收候选（`scan.post` failover / e2e 卡片计数 / `scan-queue.ts` 注释 / schedule 选项口径）在 `todo-archive.md` + `archive/*.md` 无已闭环标注（archive 中仅 `todo-archive-phases-m16-m17.md:183` 记录 reuse 参数**引入**实现 `d656dc3`，非本次"failover 透传 reuse"修复）；② **git log**——`git log --all --grep="reuse" / "卡片"` 无对应修复 commit，`f48bb74` 仅为候选登记；③ **代码 anchor**——`scan.post.ts:110` 未透传 reuse（同文件 118-120 同步路径显式透传）、`admin.e2e.test.ts:343` 仍为全页 `toHaveCount(7)` 计数断言、`scan-queue.ts:3` 注释仍写 `scan:{repositoryId}`、`schedules.vue:59/65` 仍为内联选项数组。
-> **用户决策点**（2026-10-08 裁定）：① **D1 主线方案 = ①（sandboxed processor）为主线 + ③（锁参数与观测）止血**；② 方案 ② 登记 backlog 长期演进（依赖自包含 subprocess 入口缺口，见 [executor-sandbox.md §7.2](../design/governance/executor-sandbox.md)）；③ 条目容量控制 5-6 项——上收 4 项候选（①②⑤④），移出 ③ `distill-wisdom` 计数假阴性与 ⑥ `tech-stack` 依赖表行级不一致（留 [backlog.md](backlog.md)）。
+> **用户决策点**（2026-10-08 裁定）：① **D1 主线方案 = ① 主线 + ③（锁参数与观测）止血**；**D4（同日追加）M38.1 实现路径调整为 ①′ 独立 worker 进程**（方案 ① 经前置实证不可落地，见设计稿 §3.1）；② 方案 ② 登记 backlog 长期演进（依赖自包含 subprocess 入口缺口，见 [executor-sandbox.md §7.2](../design/governance/executor-sandbox.md)）；③ 条目容量控制 5-6 项——上收 4 项候选（①②⑤④），移出 ③ `distill-wisdom` 计数假阴性与 ⑥ `tech-stack` 依赖表行级不一致（留 [backlog.md](backlog.md)）。
 > **不做什么（阶段级）**：不改引擎修复 / 验证业务语义；不改 `/api/runs` 等接口契约；不做执行器整体重构；不把引擎全部同步调用改异步（改由进程隔离兜底）；不在本阶段内改动 M37 交付面；不引入本设计未选定的新执行后端。
 
-- **M38.1**（P1，🛡️ 可靠性）BullMQ sandboxed processor 执行隔离（2 子任务 a/b）
-  - **目标**：消除平台 in-process Worker 因引擎同步子进程调用阻塞 event loop 导致的 BullMQ 锁续期失败，使 `scan` / `scheduled-scan` 两类 job 不再因主线程占满而被判 stalled 重排。
+- **M38.1**（P1，🛡️ 可靠性）队列执行进程隔离（方案 ①′ 独立 worker 进程，2 子任务 a/b）—— **已闭环**
+  - **目标**：让扫描执行完全不在 HTTP 进程的 event loop 上运行，消除 BullMQ 锁续期失败根因，且不引入新构建产物。
   - **优先级**：P1
   - **范围**：
-    - **M38.1a** 隔离接线与打包路径：`apps/platform/server/services/queue/scan-worker.ts`（Worker 构造由内联 processor 改为 processor 文件路径，默认 `spawn`，`useWorkerThreads` 作可配项）+ 新增 processor 入口文件（承载 `defaultProcessor` 的 `job.name` 分发：`scan` → `runScanForRepository`；`scheduled-scan` → `triggerSchedule`）+ Nitro `.output` 打包配置（确保 processor 入口进入产物 + runtime 绝对路径解析）
-    - **M38.1b** 子进程运行时与回传：processor 子进程应用上下文初始化（TypeORM 数据源 / Redis 连接 / `@dependfix/engine` 导入，每 Worker 一次复用）+ 日志与错误跨进程回传（job 返回值可序列化）+ `scan` / `scheduled-scan` 端到端回归
+    - **M38.1a** 部署拓扑与接线：`apps/platform/docker/entrypoint.sh`（`DEPENDFIX_QUEUE_WORKER=1` 时启动队列 worker 进程；worker 经 `NITRO_UNIX_SOCKET` 收敛 HTTP 监听——不占端口 / 不对外；主进程强制 `NUXT_IN_PROCESS_WORKER=false` + `NUXT_QUEUE_ENABLED=true`）+ `docker-compose.yml` / `.env.example` 同步 env + `queue.service.ts`（独立 worker 就绪后的 warn 文案更新）
+    - **M38.1b** 语义与文档 + 运行期验证：`queue-mode.ts` / `queue.service.ts` 降级语义确认（Redis 不可用时两进程各自降级 `sync`，`auto` 与开发环境不受影响）+ `platform.md` 新增部署拓扑口径 + `docker-deployment.md` 双进程说明 + 运行期实证
   - **验收标准**：
-    - [ ] processor 入口文件进入 `apps/platform/.output` 产物且 runtime 绝对路径正确解析（构建产物实证）
-    - [ ] **对照实证**：构造长时同步阻塞（模拟 `pnpm install` 级占用）时，旧形态（内联 processor）复现 `could not renew lock` / `Missing lock`，新形态同期无锁续期失败
-    - [ ] `scan` + `scheduled-scan` 端到端结果与落库字段与现状一致（既有单测 / e2e 全过，无行为回归）
-    - [ ] 子进程日志与错误可回传（失败归类不回归）；子进程异常退出归入 `execution_failed`
-    - [ ] `pnpm lint` + `pnpm typecheck` 0 error；`pnpm --filter @dependfix/platform test` 全过
-  - **不做什么**：不改引擎修复 / 验证业务语义；不改 `/api/runs` 等接口契约；不改 job 数据形状（`ScanJobData` / `ScheduledScanJobData`）；不做执行器整体重构；不把引擎同步调用改异步；不实现方案 ②（独立子进程执行引擎，登记 backlog）。
-  - **依赖**：[executor-process-isolation.md §2.1 + §5 验证计划](../design/governance/executor-process-isolation.md)（2026-10-08 定稿）；M38.2（观测先行，提供对照基线）；BullMQ 官方 [Sandboxed processors](https://docs.bullmq.io/guide/workers/sandboxed-processors) 文档。
-  - **交付物**：预期 3-4 commits（processor 入口 + Worker 接线 / 打包路径实证 / 上下文初始化 + 回传 + 回归 / 闭环登记）；预估 **5-8 文件 / ~350-550 行**（新领域 + 跨模块骨架任务，超 [规划规范 §1.1 任务粒度约束](../standards/planning.md#11-硬性约束)「> 5 文件即考虑拆分」线）→ 故拆 a（接线 + 打包路径）/ b（运行时 + 回传 + 回归），两子任务各有独立验收点与提交批次；文档 `platform.md` 队列执行拓扑口径 + 设计稿状态更新。
-  - **风险与缓解措施**：① Nitro `.output` 打包路径解析为本条最大不确定点 → D 阶段前置实证（§5.1，先跑通单条链路再批量）；② 子进程 DB / Redis 连接数增加 → 单容器部署可接受 + BullMQ 每 Worker 复用子进程池；③ 子进程冷启动成本 → 每 Worker 一次而非每 job 一次。
+    - [x] `DEPENDFIX_QUEUE_WORKER=1` 时容器内启动两进程：HTTP 进程 `NUXT_IN_PROCESS_WORKER=false`、worker 进程 `=true`；worker 经 unix socket 监听，不占端口、不对外暴露（entrypoint 分支实测 + docker 拓扑实证：3 进程 / `Listening on unix socket` 与 `http://[::]:3000` 分离）
+    - [x] 向后兼容：入口层不设 `DEPENDFIX_QUEUE_WORKER` 时保持单进程（实测 exec 单进程）；`NUXT_QUEUE_ENABLED=false` 时跳过 worker 启动并 warn（实测）；compose 默认设 `QUEUE_WORKER=1` 且可通过 `QUEUE_WORKER=0` 回退
+    - [x] **运行期实证**：HTTP 200 + worker 日志确认消费队列 + 提交扫描 job 由 worker 进程执行（HTTP 进程无扫描痕迹）—— 重建 `.output` 后双进程实测：worker 打 `IN_PROCESS_WORKER=true，当前进程消费扫描队列`，HTTP 打 `强制异步但本进程不消费队列`；注入 scan job 后由 worker 消费（failedReason=仓库不存在，证明经扫描编排）
+    - [x] SQLite 两进程并发访问无失败（`PRAGMA applied` 两进程各一次、全程无 `SQLITE_BUSY`）；Redis 不可用降级语义未改动（沿用既有 §10.4 矩阵）
+    - [x] `pnpm lint` 0 error / 0 warning；`pnpm typecheck` 7 包 Done；平台定向 `server/services/queue/` 全过；`check:docs` / `lint:md` / `check:orphan-ids` 通过；`docker compose config` 校验通过
+  - **不做什么**：不改引擎修复 / 验证业务语义；不改 `/api/runs` 等接口契约；不改 job 数据形状（`ScanJobData` / `ScheduledScanJobData`）；不做执行器整体重构；不把引擎同步调用改异步；**不实现 BullMQ sandboxed processor**（前置实证不可落地，见设计稿 §3.1）；不实现方案 ②（独立子进程执行引擎，登记 backlog）。
+  - **依赖**：[executor-process-isolation.md §3.1 实现路径调整 + §5 验证计划](../design/governance/executor-process-isolation.md)；M38.2（锁参数与观测，已闭环，提供对照基线）；`queue-mode.ts` 既有 `inProcessWorker` 开关与 M36.10 auto 降级矩阵。
+  - **交付物**：实际 **3 commits**（实现 / 文档口径 / 规划与设计登记）；文件 **10**（`docker/entrypoint.sh` / `docker-compose.yml` / `.env.example` / `queue.service.ts` / `queue-mode.ts` / `queue.service.test.ts` / `platform.md` / `deployment.md` / `executor-process-isolation.md` / `todo.md`）——与预估区间一致，未触及 `packages/*`，无需拆分。
+  - **风险与缓解措施**：① SQLite 多进程写冲突 → 复用 M23.1 落地的 WAL + `busy_timeout`，运行期并发写实证；② worker 进程重复启动周期插件（`stale-cleanup` / 启动期备份，均幂等，代价为重复查询）→ 文档登记，按 role 跳过的增强登记 backlog；③ worker 进程崩溃无自动重启（容器内 `&`）→ 队列由 `stale-cleanup` 兜底，自动重启增强登记 backlog；④ unix socket 路径不可写 → Nitro `listen` 失败即 `exit(1)`（fail-fast），文档给出默认路径约定（`/tmp`）。
 - **M38.2**（P2，🛠️ 可观测性）Worker 锁参数显式化与锁问题事件观测 —— **已闭环**
   - **目标**：把 BullMQ 隐式默认锁参数显式化并对齐执行器超时，补齐锁问题事件监听与结构化日志，把"静默锁过期"变为可告警事件（方案 ③ 止血，兼作 M38.1 对照基线）。
   - **优先级**：P2

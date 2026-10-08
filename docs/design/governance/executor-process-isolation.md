@@ -1,6 +1,6 @@
 # 平台执行模型隔离设计（设计先行稿）
 
-> 状态：🔶 设计先行稿（P 阶段选型待用户决策，2026-10-08）
+> 状态：🔶 实现中（2026-10-08 选型裁定：方案 ①′ 独立 worker 进程 + 方案 ③ 已落地；见 §3.1 实现路径调整）
 > 提出：2026-10-06（生产运行日志根因分析）
 > 范围：`apps/platform`（队列执行拓扑 / 执行器路由）；不触碰引擎修复与验证业务语义
 > 关联：[executor-sandbox.md §7.2 / §7.4 / §7.8](./executor-sandbox.md)、[platform.md §3.3 / §10](../../standards/platform.md)、`apps/platform/server/services/queue/scan-worker.ts`、`apps/platform/server/services/executor/container-executor.ts`、`docs/plan/roadmap.md` §M38
@@ -150,6 +150,36 @@ scan-queue.add(jobId = scan-<repositoryId>)   [scan-queue.ts]
 3. 方案 ② 的隔离强度与演进价值最高，但其依赖的自包含 subprocess 入口与 M10 独立沙箱共享同一未闭环缺口（runtime 镜像不含 workspace `node_modules`），作为本阶段主线的落地风险过高。建议在 ① 落地并验证后，将其作为独立候选重新评估（届时可与独立 worker 进程拓扑一并切片）。
 
 > **决策留白**：若用户更看重"引擎崩溃不影响平台主进程"的强隔离，或希望一步到位对齐未来多容器拓扑，可改选方案 ② 为主线、方案 ① 降级为过渡；两者在"消除锁续期失败"上等效，差异在隔离层级与实现成本。
+
+### 3.1 实现路径调整（2026-10-08 前置实证后）
+
+**背景**：2026-10-08 用户裁定方案 ① 为主线后，D 阶段前置实证（§5.1「打包路径实证」）在本仓库的 Nitro 构建体系下**未能通过**——方案 ① 无法原样落地。据实证结论，经用户再次裁定改用**方案 ①′（独立 worker 进程）**。
+
+**实证结论（4 条硬事实，均可复现）**：
+
+1. **Nitro 产物是单 server bundle**：平台业务代码（含 `createScanWorker` / `runScanForRepository`）全部内联进 `chunks/nitro/nitro.mjs`，无稳定可指向的 processor 模块。
+   - 复现：`rg -l "createScanWorker" apps/platform/.output/server/`
+2. **导入平台产物会顶层启动 HTTP server**，故产物不能作为纯模块加载（无法当作 BullMQ processor 入口）。
+   - 复现：`apps/platform/.output/server/chunks/nitro/nitro.mjs` 顶层 `server.listen(...)`；`.output/server/index.mjs` 仅 `export { aF as default } from './chunks/nitro/nitro.mjs'`
+3. **BullMQ sandboxed processor 要求 processor 文件 `export default fn`**，而 Nitro 不提供"额外入口"机制。
+   - 复现：`bullmq/dist/esm/classes/child-processor.js`（`const { default: processorFn } = await import(processorFile)`）
+4. **`packages/cli/dist` 不自包含**：`bin.mjs` external 了 `@dependfix/core`，当前产物不能直接放进 runtime 镜像（runtime 镜像只含 `.output`）当子进程入口。
+
+**因此方案 ① 原样落地需**「额外构建链」（复刻 Nitro alias / `#imports` shim / runtimeConfig 解析）或「processor 薄壳 + 平台 exec 模式」（每个 job 起一个完整平台进程，会 listen + 跑全套 plugins），成本远超本稿 §2.4 预估。
+
+**调整后路径（方案 ①′：独立 worker 进程）**：
+
+- **拓扑**：同一镜像启动**两个进程**——HTTP 进程（`NUXT_IN_PROCESS_WORKER=false`，不消费队列）与队列 worker 进程（`NUXT_IN_PROCESS_WORKER=true`）。扫描在 worker 进程执行，**HTTP 进程的 event loop 完全不承载引擎同步调用**，锁续期不再被阻塞。
+- **开关**：entrypoint 新增 `DEPENDFIX_QUEUE_WORKER=1`（默认 0，向后兼容）；启用时主进程强制 `NUXT_QUEUE_ENABLED=true` + `NUXT_IN_PROCESS_WORKER=false`，worker 进程 `NUXT_QUEUE_ENABLED=true` + `NUXT_IN_PROCESS_WORKER=true`。
+- **worker 进程 HTTP 监听收敛**：经 `NITRO_UNIX_SOCKET` 收敛到容器内 socket（不占端口、不对外暴露），避免与主进程端口冲突。
+- **降级语义不变**：Redis 不可用时两进程各自按既有矩阵降级 `sync`（可用性优先）；`auto` 模式与开发环境不受影响（不设开关即保持现状）。
+- **与方案 ① 的差异**：隔离层级从"BullMQ processor 子进程"变为"独立 Node 进程"。根因（主进程 event loop 被引擎同步调用占满 → 锁续期失败）**同样消除**，且**无需新增任何构建产物**（CI / Docker 构建链不变，仅 entrypoint 启两进程），并与 `queue-mode.ts` 既有 `inProcessWorker` 开关天然契合。
+
+**残余边界（登记，不阻断）**：
+
+- 两进程共享 SQLite（多进程写）——依赖既有 WAL + `busy_timeout`（M23.1 落地）；需运行期验证。
+- worker 进程会重复启动周期插件（`stale-cleanup` / 启动期备份），均为幂等操作，代价为重复查询。
+- worker 进程崩溃后无自动重启（容器内单进程 `&`），队列由 `stale-cleanup` 兜底；自动重启增强登记 backlog。
 
 ## 4. 决策点（待用户裁定）
 

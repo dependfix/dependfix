@@ -78,18 +78,18 @@
   - **依赖**：`5ba3bad`（本轮同步修复）+ `f48bb74`（候选登记）+ `be74d21`（首次复发）。
   - **交付物**：实际 **1 commit**；文件 1（`admin.e2e.test.ts`）——与预估一致；`.output` 重建用于取证，为 gitignored 产物。
   - **风险与缓解措施**：语义化抽样可能遗漏「卡片被替换」场景 → mutation 双向标定（删除必红 / 新增必绿）；标题清单为「必须包含」语义（新增卡片不入清单也不报红）；`filter({ hasText })` 子串误匹配 → 断言限定标题元素（`.caomei-card__title`），7 个标题经审计核对两两非子串；`.caomei-card__title` 为 caomei-ui 内部 class（与旧 `.caomei-card` 同属内部耦合，fail-closed 可接受；库若提供语义属性可再降耦）。
-- **M38.5**（P3，📚 文档）`scan-queue.ts` 文件头注释 jobId 口径订正
+- **M38.5**（P3，📚 文档）`scan-queue.ts` 文件头注释 jobId 口径订正 —— **已闭环**
   - **目标**：修正 `scan-queue.ts` 文件头注释 `jobId = scan:{repositoryId}`（冒号）与实际 `buildScanJobId` = `scan-<repositoryId>`（连字符）的不一致，消除误导。
   - **优先级**：P3
   - **范围**：`apps/platform/server/services/queue/scan-queue.ts`（文件头注释 jobId 口径订正 + 顺带核查同文件其他注释口径）。
   - **验收标准**：
-    - [ ] 文件头注释 jobId 口径与 `buildScanJobId` 实现一致
-    - [ ] 同文件其他注释口径核查无同类不一致
-    - [ ] `pnpm lint` + `pnpm typecheck` 0 error + `pnpm check:orphan-ids` 0 命中
+    - [x] 文件头注释 jobId 口径与 `buildScanJobId` 实现一致（`queue-mode.ts:74` = `` `scan-${repositoryId}` ``）；补注「BullMQ 6 自定义 jobId 禁止含冒号」依据
+    - [x] 同文件其他注释口径核查——**发现并订正第 2 处过时口径**：`优先级` 行原写「webhook/定时为后续调度任务预留，当前仅手动触发使用」，实际 `scheduled` 已使用（scheduler job scheduler 模板 + batch-executor scheduled 源）、`webhook` 无使用点；其余注释（去重语义 / 清理策略 / 各接口 JSDoc / 终态判定）经审计逐条核对与实现一致
+    - [x] `pnpm lint` 0 error / 0 warning + `pnpm typecheck` 7 包 Done + `pnpm check:orphan-ids` 0 命中（637 文件）+ 改动文件编号扫描 0 未豁免命中；queue 定向 61 passed
   - **不做什么**：不改 `buildScanJobId` 实现；不改 `scan-queue.ts` 既有逻辑与契约。
   - **依赖**：M38 设计先行稿 A 阶段审计发现（2026-10-08）。
-  - **交付物**：1 commit；文件 1（`scan-queue.ts` 注释）。
-  - **风险与缓解措施**：注释级改动风险极低；顺带核查范围限定为同文件以免扩面。
+  - **交付物**：实际 **1 commit**；文件 1（`scan-queue.ts` 注释）——与预估一致。
+  - **风险与缓解措施**：注释级改动风险极低；顺带核查范围限定为同文件以免扩面。审计 suggest（「禁止含冒号」表述略绝对——BullMQ 实际存在 3 段 job scheduler 例外）判定为**与仓库既有同源注释（`queue-mode.ts:72` / `scheduler.service.ts:34`）一致的既定口径**，保持现状（精确化需三处一并调整，超出本条范围）。
 - **M38.6**（P3，🎨 用户体验）schedule 表单与 run-view 复用扫描选项口径
   - **目标**：把 `schedules.vue` 内联的模式 / 严重级别选项数组切到 `utils/scan-options.ts` 单一事实源，消除与扫描弹窗口径漂移的风险。
   - **优先级**：P3

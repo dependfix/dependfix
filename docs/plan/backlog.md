@@ -108,7 +108,62 @@
   - **触发条件**：UI 一致性巡查；或用户反馈级别展示不统一。
   - **按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
 
-> 本区块保留 M37 执行期延后项（受约束重试入口 / 服务端跨设备偏好）+ 审计与复核衍生的待评估候选（push 侧 hooks 隔离 / tech-stack 依赖表行级不一致 / `distill-wisdom` 计数假阴性）+ M38.1 独立 worker 形态衍生候选（按 role 跳过周期插件 / worker 崩溃自动重启）+ M38.3 审计范围外观察（reuse 路径与去重合并叠加误置 failed）+ M38.6 同源点穷举候选（严重级别展示策略统一）；2026-10-08 M38 启动批次已上收 4 项（`scan.post` failover / e2e 卡片计数 / `scan-queue.ts` 注释 / schedule 选项口径），M37 启动前原有 6 项已随 M37 闭环归档（见上方批次说明）。
+> **2026-10-09 运行失败根因评估批次（9 项登记，未上收）**：来源为 2026-10-08 定时扫描批量失败的用户报告与逐项排查。其中「既有失败被误判为运行失败（exit code 归因口径）」按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 可用性插队例外已于本批修复（`packages/engine/src/app/result-assembly.ts` + `runners/verification-gate.ts`，口径见 [dependency-fixer.md §12.6](../design/modules/dependency-fixer.md)）；其余 9 项为评估结论登记，候选**不含 `M\d+` 阶段编号**，等待用户决策。
+
+- **扫描页筛选与分页优化（待评估）** —— 现状：「全部运行」表已有 状态 / 失败阶段 / 处理建议 三筛选 + 服务端分页（页大小 `[10,25,50]`）；但「按仓库聚合」表**无任何筛选、无分页**（`scans.vue:476-482`），数据源 `/api/scan-history/summary` 只接受 `repositoryId` 且窗口为「最近 500 条 run」的聚合（仓库数无上限），筛选器也只喂 runs 列表、不喂 summary（`scans.vue:186-190` vs `364-367`）；两表上下堆叠导致单屏信息量大。
+  - **待评估点**：① byRepo 表补状态筛选（含 summary 端点参数扩展）与分页 / 上限；② 两表改 Tab 切换（仓库视图 / 运行视图）替代堆叠；③ summary 聚合窗口是否改为独立分页口径。
+  - **现状锚点**：`apps/platform/app/pages/scans.vue:471-647`、`apps/platform/server/api/scan-history/summary.get.ts:135-138`。
+  - **触发条件**：用户要求优化扫描页筛选 / 分页；或仓库数增长导致页面不可用。
+  - **按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
+
+- **运行日志下载与批量下载（待评估）** —— 现状：执行日志仅在 `GET /api/runs/[id]` 以 `logs[]`（结构化）与 `logsText`（已格式化文本）返回；列表端点 `GET /api/runs` 不返回日志；前端两个详情弹窗（`run-detail-dialog.vue` / `repo-history-dialog.vue`）只有「复制」，**平台全仓无任何下载 / Blob / 导出实现**；每 run 日志上限 1000 条（`MemoryLogger.maxEntries`）。
+  - **待评估点**：① 单 run 下载形态（前端由 `logsText` 生成 Blob vs 新增 `GET /api/runs/[id]/logs` 端点带 `Content-Disposition`）；② 批量下载形态（按当前筛选打包 zip / 多文件，需 streaming 与体积上限）；③ 内存日志与落盘日志的边界（当前按 run 落 `logs_json`，无独立文件）。
+  - **现状锚点**：`apps/platform/server/api/runs/[id].get.ts:35-68`、`apps/platform/app/components/repo-history-dialog.vue:369-399`。
+  - **触发条件**：用户要求下载日志 / 归档审计证据。
+  - **按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
+
+- **扫描历史弹窗体验（冗余关闭按钮 + 日志区高度）（待评估）** —— 现状：`repo-history-dialog.vue` 在 `queryKey === 'run'`（`/scans` 页固定）时同时渲染弹窗 header 的 `×` 与 body 的「× 关闭」按钮（`331-342`，冗余）；日志滚动区写死 `height: 200px`（`385`），弹窗 body 上限 85vh，告警 / 结果较多时日志可视区域过小。
+  - **待评估点**：① 移除 body 冗余关闭按钮（保留 header `×` + Esc）；② 日志区改自适应高度（min-height / flex / 可拖拽 / 按内容与视口比例）。
+  - **现状锚点**：`apps/platform/app/components/repo-history-dialog.vue:283-292,331-342,385`。
+  - **触发条件**：UI 体验巡查；或用户再次反馈。
+  - **按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
+
+- **告警视图「按包」聚合跨 severity 重复分组（待评估）** —— 根因：表格为**相邻行分组**（caomei-ui `displayEntries`：仅当分组字段与上一行不同才开新组），而默认排序键只有 `_severityRank` 降序（`alerts.vue:327-329`）——同一包跨多档 severity 时被拆到不同区块、中间夹入其它包，包名不再相邻 → 出现多个同名 subheader（如 nodemailer 同时出现在 high 与 medium）。分组键本身不含 severity；`groupCounts` / `expandedPackages` 也按包名，两个 subheader 共享计数与展开态。现被文档记为「既有行为」（`apps/platform/tests/visual/helpers/fixtures.ts:15-19`、`docs/standards/testing.md`、`docs/design/governance/caomei-ui-migration.md §15.10`）。
+  - **待评估点**：① 让包名成为主排序键（severity 作次键 / 组内展示最高级别）vs 服务端按包聚合为单行；② 聚合语义应为「一个包一组」还是「按 severity 分区」；③ 修复需同步视觉基线 + `alerts-rowgroup.e2e.test.ts` 断言 + 三处文档口径。
+  - **现状锚点**：`apps/platform/app/pages/alerts.vue:288-355`、`apps/platform/server/api/alerts/index.get.ts:76-77`。
+  - **触发条件**：用户要求修正聚合语义；或告警视图改版。
+  - **按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
+
+- **PR Check 监测启用链路打通（待评估）** —— 现状：三重闸门使 pr-check 无法启用——① 表单无 `kind` 字段（`schedules.vue`）；② **API 也建不出来**：`kind` 虽在 `scheduleSchema`（`schemas/schedule.ts:148`）但 create / patch handler 未落库（`api/schedules/index.ts:56-67`、`api/schedules/[id].ts:63-73`），`toView` 亦不返回 `kind`；③ 总开关 `ACTION_STATUS_MONITOR_ENABLED` 默认 false（`scheduler.service.ts:205`）且无 UI 入口，仅 `.env`。
+  - **待评估点**：① `kind` 落库 + `toView` 返回 + 表单选择器；② 总开关形态（env + 校验提示 vs admin 设置项）；③ [platform.md §11](../standards/platform.md) 环境变量表补 `ACTION_STATUS_MONITOR_ENABLED`。
+  - **现状锚点**：`apps/platform/server/services/scheduler/scheduler.service.ts:200-270`、`apps/platform/server/api/schedules/index.ts`。
+  - **触发条件**：用户要求启用 PR Check 监测。
+  - **按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
+
+- **环境事件覆盖扩展（待评估）** —— 现状：`recordEnvAuditEvent`（`scan-orchestrator.service.ts:467-532`）仅在 sandbox 启动降级（A）/ 运行时失败（B）写 `sandbox_degraded` / `sandbox_unavailable`；默认执行器为 `container`（`resolveExecutorKind` 默认 container、`Repository.executorKind` 默认 `container`），永不产生事件；事件枚举中的 `docker_daemon_down` **无任何写入点**（`audit-event.ts:17` 标注「预扩展，当前未自动触发」）。页面文案定位为「sandbox / docker / runtime 环境变化」，但共享的 `audit_event` 表还承载 `ai_config_update` / `verify_commands_update`。
+  - **待评估点**：① 是否给 container 执行器补「运行时 / 环境异常」事件（如 clone 超时 / install 失败 / 执行超时），及其事件类型边界；② `docker_daemon_down` 启动探测是否落地；③ 页面类型下拉（仅 3 类）与共享表全量类型（5 类）的口径统一。
+  - **现状锚点**：`apps/platform/server/services/scan-orchestrator.service.ts:467-532`、`apps/platform/server/entities/audit-event.ts:25-39`、`apps/platform/app/pages/env-events.vue:53-58`。
+  - **触发条件**：用户要求环境事件有实际记录；或引入 sandbox 执行形态。
+  - **按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
+
+- **部署产物版本戳 / 陈旧校验（待评估）** —— 背景：2026-10-08 一批 `COMMIT_FAILED` 的失败命令缺少 M37.6 引入的 `--no-verify`（`packages/engine/src/github/pr-creator.ts:221-235`），证明运行时产物早于该修复（陈旧镜像）。当前无任何手段在运行时确认「部署产物对应哪个 commit」：无健康端点、无版本戳、构建流水线未注入 build arg。
+  - **待评估点**：① 构建期注入 commit / 版本（Docker `ARG` + 运行时 ENV / 端点返回）；② `/api/health` 或启动日志暴露；③ 是否作为发布流水线门禁（镜像内 engine 产物核对关键隔离参数）。
+  - **触发条件**：再次出现「已修复但线上仍复现」的陈旧产物误判。
+  - **按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
+
+- **失败 run 落 summary 快照（列表告警数误导）（待评估）** —— 现状：`scan-orchestrator.service.ts` 仅在 `completed` / `degraded` 分支写 `summaryJson`；`failed` run 不落 summary，导致「全部运行」列表的「告警数 / 已修复」恒显示 0，掩盖失败前实际扫到的告警（本次排查中即被该现象干扰）。
+  - **待评估点**：① failed run 是否落一份 summary 快照（引擎已产出 `result.summary`）用于展示；② 与「失败不写半截结果」原则的边界（summary 快照 vs 结果明细）。
+  - **现状锚点**：`apps/platform/server/services/scan-orchestrator.service.ts:378-422`。
+  - **触发条件**：用户要求失败 run 展示扫描到的告警数。
+  - **按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
+
+- **执行超时可配置化（待评估）** —— 现状：单仓库执行超时写死 30 分钟（`container-executor.ts:40` `DEFAULT_EXECUTION_TIMEOUT_MS`），无 env 可调（仅 `CLONE_TIMEOUT_MS` 可调）；队列 Worker 锁时长与之对齐（`SCAN_WORKER_LOCK_OPTIONS`）。2026-10-08 有 caomei-ui 因超 30 分钟判 `execution_timeout`。另：`withTimeout` 超时后底层 `app.run()` 含同步 `execFileSync`，不可取消，workDir 在 finally 被清理，存在僵尸执行窗口。
+  - **待评估点**：① 是否引入 `EXECUTION_TIMEOUT_MS`（env + 锁时长联动）或仓库级覆盖；② 超时后的执行 / 清理语义；③ 是否优先依赖 M38 worker 进程隔离消除锁续期根因后再评估。
+  - **现状锚点**：`apps/platform/server/services/executor/container-executor.ts:40,291,527-537`、`apps/platform/server/services/queue/scan-worker.ts:59-71`。
+  - **触发条件**：重负载仓库超时成为常态；或用户要求放宽上限。
+  - **按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
+
+> 本区块保留 M37 执行期延后项（受约束重试入口 / 服务端跨设备偏好）+ 审计与复核衍生的待评估候选（push 侧 hooks 隔离 / tech-stack 依赖表行级不一致 / `distill-wisdom` 计数假阴性）+ M38.1 独立 worker 形态衍生候选（按 role 跳过周期插件 / worker 崩溃自动重启）+ M38.3 审计范围外观察（reuse 路径与去重合并叠加误置 failed）+ M38.6 同源点穷举候选（严重级别展示策略统一）+ 2026-10-09 运行失败根因评估批次 9 项（扫描页筛选分页 / 日志下载 / 弹窗体验 / 告警按包聚合 / PR Check 启用链路 / 环境事件覆盖 / 部署版本戳 / 失败 run summary 快照 / 执行超时可配置）；2026-10-08 M38 启动批次已上收 4 项（`scan.post` failover / e2e 卡片计数 / `scan-queue.ts` 注释 / schedule 选项口径），M37 启动前原有 6 项已随 M37 闭环归档（见上方批次说明）。
 
 ### 待上收候选（评估完成，等待用户决策）
 

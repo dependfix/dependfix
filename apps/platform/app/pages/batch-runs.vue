@@ -14,6 +14,7 @@ import { CircleStop, RefreshCw } from '@lucide/vue'
 import type { DataTableColumn } from 'caomei-ui'
 import type { BatchRunRun, BatchRunSummary, BatchRunView } from '~/types/platform'
 import { reconcileBatchRuns } from '~/utils/reconcile-batch-runs'
+import { runModeLabel } from '~/utils/run-view'
 import { updateStatusRank, withStatusRank } from '~/utils/sort-helpers'
 
 definePageMeta({
@@ -55,12 +56,11 @@ const detailMap = ref<Record<string, {
     runs: BatchRunRun[]
 }>>({})
 
-const modeLabel = (mode: string) => ({
-    'report-only': t('common.scanMode.reportOnly'),
-    fix: t('common.scanMode.fix'),
-    'fix-and-pr': t('common.scanMode.fixAndPr'),
-})[mode] ?? mode
+// 模式标签复用 `utils/run-view` 的 `runModeLabel`（单一事实源，见 platform.md §7.3）
+const modeLabel = (mode: string) => runModeLabel(mode, t)
 
+// 严重级别标签：与 `run-view` 的 `runThresholdLabel`（小写直通）策略不同（此处大驼峰，对齐
+// 扫描选项的展示口径），故保留独立实现；统一展示策略属独立议题（已登记 backlog）。
 const severityLabel = (severity: string) => ({
     critical: 'Critical',
     high: 'High',

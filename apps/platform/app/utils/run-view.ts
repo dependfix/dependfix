@@ -1,3 +1,5 @@
+import { scanModeOptions } from './scan-options'
+
 type Translator = (key: string, params?: Record<string, string | number>) => string
 
 export const shortRunId = (id: string) => id.slice(0, 8)
@@ -7,11 +9,12 @@ export const alertsFound = (summary: Record<string, unknown> | null) => {
     return typeof value === 'number' && Number.isFinite(value) ? value : 0
 }
 
-export const runModeLabel = (mode: string, t: Translator) => ({
-    'report-only': t('common.scanMode.reportOnly'),
-    fix: t('common.scanMode.fix'),
-    'fix-and-pr': t('common.scanMode.fixAndPr'),
-})[mode] ?? mode
+/**
+ * 运行模式标签：复用 `scan-options` 的选项单一事实源（标签口径漂移防护）。
+ * 未知模式（历史数据 / 未来枚举扩展）原样返回，故用 `find` + 兜底。
+ */
+export const runModeLabel = (mode: string, t: Translator) =>
+    scanModeOptions(t).find((option) => option.value === mode)?.label ?? mode
 
 export const runExecutorLabel = (executorKind: string, t: Translator) => {
     switch (executorKind) {
@@ -24,6 +27,11 @@ export const runExecutorLabel = (executorKind: string, t: Translator) => {
     }
 }
 
+/**
+ * 阈值标签：`all` 走 i18n；其余级别（critical / high / medium）为专有名词**原样小写直通**。
+ * 与 `scanSeverityOptions` 的展示标签（`Critical` / `High` / `Medium`，首字母大写）**策略不同**，
+ * 故此处**不收敛**到选项数组——收敛会改变运行列表的展示大小写，属行为变更（口径见 platform.md §7.3）。
+ */
 export const runThresholdLabel = (severityThreshold: string, t: Translator) => (
     severityThreshold === 'all' ? t('common.severity.all') : severityThreshold
 )

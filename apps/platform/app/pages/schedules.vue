@@ -4,6 +4,7 @@ import { Check, CirclePlay, Pause, Pencil, Play, Plus, Trash } from '@lucide/vue
 import type { DataTableColumn } from 'caomei-ui'
 import type { RepoView, ScheduleSelectorKind, ScheduleView } from '~/types/platform'
 import { previewCron } from '~/utils/cron-preview'
+import { scanModeOptions, scanSeverityOptions } from '~/utils/scan-options'
 
 definePageMeta({
     middleware: 'auth',
@@ -56,18 +57,11 @@ const selectorOptions = computed(() => [
     { label: t('schedules.selector.explicit'), value: 'explicit' },
 ])
 
-const modeOptions = computed(() => [
-    { label: t('common.scanMode.reportOnly'), value: 'report-only' },
-    { label: t('common.scanMode.fix'), value: 'fix' },
-    { label: t('common.scanMode.fixAndPr'), value: 'fix-and-pr' },
-])
+// 模式 / 严重级别选项复用 utils/scan-options 单一事实源（与扫描弹窗、设置页默认值口径一致，
+// 避免多处漂移；抽取边界见 docs/standards/platform.md §7.3）
+const modeOptions = computed(() => scanModeOptions(t))
 
-const severityOptions = computed(() => [
-    { label: 'Critical', value: 'critical' },
-    { label: 'High', value: 'high' },
-    { label: 'Medium', value: 'medium' },
-    { label: t('common.severity.all'), value: 'all' },
-])
+const severityOptions = computed(() => scanSeverityOptions(t))
 
 const selectorLabel = (kind: string) =>
     selectorOptions.value.find((o) => o.value === kind)?.label ?? kind

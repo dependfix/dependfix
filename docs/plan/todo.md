@@ -54,18 +54,18 @@
   - **依赖**：[executor-process-isolation.md §2.3](../design/governance/executor-process-isolation.md)；`apps/platform/server/services/executor/container-executor.ts`（`timeoutMs` 默认 30 分钟）。
   - **交付物**：实际 **2 commits**（实现 + 闭环登记）；文件 9 —— 超预估 3，扩展依据：`runId` 补全需 `ScanQueue.getJob` + `queue.service` 注入（2 文件）、单一事实源 `DEFAULT_EXECUTION_TIMEOUT_MS`（1 文件）、A 阶段审计 RG-B1 要求挂接 review 检查点（1 文件）；仍 < 10 文件拆分阈值。文档口径落 `platform.md §10.5`（锁参数显式化 / 锁问题观测 / 同根因去重）+ 检查点矩阵行扩为 `§10.3-§10.5`。
   - **风险与缓解措施**：`lockDuration` 取值过大会拉长真崩溃时的 stalled 检测窗口 → 与执行器超时对齐 + 注释与文档披露边界；M38.1 落地后 event loop 不再被业务阻塞，长 `lockDuration` 仅作兜底；queue→executor 模块耦合（引用执行器常量）当前无环，M38.1 拆包时可评估抽独立 `constants.ts`。
-- **M38.3**（P3，🛡️ 缺陷修复）`scan.post` 队列 failover 降级未透传 `reuse`
-  - **目标**：修正 `scan.post.ts` 入队失败降级同步执行时未透传 `reuse`，与同步路径 / worker 路径语义一致，消除「复用终态 run + `queue.add` 失败」叠加时的终态冲突报错。
+- **M38.3**（P3，🛡️ 缺陷修复）`scan.post` 队列 failover 降级未透传 `reuse` —— **已闭环**
+  - **目标**：修正 `scan.post.ts` 入队失败降级同步执行时未透传 `reuse`，与同步路径 / 入队成功路径语义一致，消除「复用终态 run + `queue.add` 失败」叠加时的终态冲突报错。
   - **优先级**：P3
-  - **范围**：`apps/platform/server/api/repos/[id]/scan.post.ts`（failover 降级分支透传 `reuse: !!reuseExisting`，对齐同文件同步路径） + 定向单测（复用终态 run + `queue.add` 抛错场景）。
+  - **范围**：`apps/platform/server/api/repos/[id]/scan.post.ts`（failover 降级分支透传 `reuse: !!reuseExisting`，对齐同文件入队成功路径与同步路径） + 定向单测（复用终态 run + `queue.add` 抛错场景）。
   - **验收标准**：
-    - [ ] failover 降级分支透传 `reuse: !!reuseExisting`，与同步路径（`scan.post.ts:118-120`）和 worker 路径语义一致
-    - [ ] 新增用例：复用终态 run + `queue.add` 抛错 → 降级路径不抛「已处于终态」
-    - [ ] `pnpm --filter @dependfix/platform test` 全过；`pnpm lint` + `pnpm typecheck` 0 error
+    - [x] failover 降级分支透传 `reuse: !!reuseExisting`，与入队成功路径（`queue.add` 的 reuse）和同步路径（`{ runId, reuse: true }`）语义一致（orchestrator 侧 `options.reuse` 为 truthy 判定，`false` 与不传等价——已由审计实地核对 `:174` / `:182` 两处读取点）
+    - [x] 新增用例：复用终态 run + `queue.add` 抛错 → 降级路径向 orchestrator 透传 `reuse: true`（不触发其终态校验；orchestrator 侧「拒绝终态续用」与「reuse=true 复用终态」双向语义已由既有用例覆盖），并断言不新建 pending run
+    - [x] `pnpm --filter @dependfix/platform test` 全过（平台全量 115 files / 1620 passed | 9 skipped）；`pnpm lint` 0 error / 0 warning + `pnpm typecheck` 7 包 Done；`pnpm check:orphan-ids` 0 命中（修复轮清理新增注释中的孤立编号）
   - **不做什么**：不放宽 orchestrator 终态校验；不改 reuse 三态校验（404 / 400 / 409）语义；不改 worker 侧透传。
   - **依赖**：M37.1 A 阶段审计范围外观察记录；M16.2 C66-D（reuse 参数引入，`5b81142` + `d656dc3`）。
-  - **交付物**：1 commit；文件 2（`scan.post.ts` + 单测）。
-  - **风险与缓解措施**：透传后复用终态 run 语义需与 worker 路径一致 → 用例同时覆盖 worker 与同步两条路径的同源断言。
+  - **交付物**：实际 **1 commit**；文件 2（`scan.post.ts` + 单测）——与预估一致；**mutation 核验**：移除降级路径的 reuse 透传 → 2 failed（新用例 + 既有 failover 断言），还原后 15 passed。
+  - **风险与缓解措施**：透传后复用终态 run 语义需与 worker 路径一致 → 用例与既有同步路径 / 入队成功路径断言构成三路同源覆盖；同根因调用点已穷举（`batch-executor` 无 reuse 语义、`scan-worker` 由 job data 透传）。
 - **M38.4**（P3，🧪 测试基建）e2e 全页卡片计数断言与页面卡片集合变更解耦
   - **目标**：消除「个人设置」e2e 全页 `.caomei-card` 计数断言随页面卡片集合正常演进而确定性失败（已 2 次复发：5→6、6→7），使**新增卡片为绿、删除 / 替换既有卡片为红**。
   - **优先级**：P3

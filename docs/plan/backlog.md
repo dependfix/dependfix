@@ -94,7 +94,12 @@
   - **触发条件**：出现 worker 崩溃导致任务挂起实例；或用户要求。
   - **按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
 
-> 本区块保留 M37 执行期延后项（受约束重试入口 / 服务端跨设备偏好）+ 审计与复核衍生的待评估候选（push 侧 hooks 隔离 / tech-stack 依赖表行级不一致 / `distill-wisdom` 计数假阴性）+ M38.1 独立 worker 形态衍生候选（按 role 跳过周期插件 / worker 崩溃自动重启）；2026-10-08 M38 启动批次已上收 4 项（`scan.post` failover / e2e 卡片计数 / `scan-queue.ts` 注释 / schedule 选项口径），M37 启动前原有 6 项已随 M37 闭环归档（见上方批次说明）。
+- **reuse 路径与同仓库去重合并叠加时误置既有 run 为 failed（待评估）** —— M38.3 A 阶段审计的**范围外观察**（**非本批引入**）：`scan.post.ts` 的 reuse 路径若 `queue.add` 返回 `reused: true`（同仓库已有进行中任务 → 去重合并），会把被复用的 `pendingRun`（即用户指定的既有终态 run）置 `status='failed'` 并落库；而 reuse 校验只拒绝「被复用 run 自身 running」，不检查仓库是否存在其他进行中任务，故该组合可复现（用户指定的历史 run 被意外标记失败）。
+  - **待评估点**：① `reused: true` 且走 reuse 路径时是否改为「不改既有 run 状态，仅提示已合并」；② 或在 reuse 校验阶段前置拒绝「同仓库存在进行中任务」（409）。
+  - **触发条件**：生产出现「复用 + 去重合并」误标 failed 实例；或用户要求。
+  - **按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
+
+> 本区块保留 M37 执行期延后项（受约束重试入口 / 服务端跨设备偏好）+ 审计与复核衍生的待评估候选（push 侧 hooks 隔离 / tech-stack 依赖表行级不一致 / `distill-wisdom` 计数假阴性）+ M38.1 独立 worker 形态衍生候选（按 role 跳过周期插件 / worker 崩溃自动重启）+ M38.3 审计范围外观察（reuse 路径与去重合并叠加误置 failed）；2026-10-08 M38 启动批次已上收 4 项（`scan.post` failover / e2e 卡片计数 / `scan-queue.ts` 注释 / schedule 选项口径），M37 启动前原有 6 项已随 M37 闭环归档（见上方批次说明）。
 
 ### 待上收候选（评估完成，等待用户决策）
 

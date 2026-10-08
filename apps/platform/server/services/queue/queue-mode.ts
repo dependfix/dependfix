@@ -2,8 +2,9 @@
  * 队列模式决策（渐进式降级，决策见 docs/plan/todo.md §T702 实现决策 D2/D3）。
  *
  * 降级矩阵（含消费者维度）：
- * - async：Redis 可用且存在消费者 → BullMQ 队列异步执行。当前阶段唯一消费者是进程内 worker
- *   （IN_PROCESS_WORKER=true）；独立 worker 进程形态（多容器）尚未实现。
+ * - async：Redis 可用且存在消费者 → BullMQ 队列异步执行。消费者有两种形态：进程内 worker
+ *   （IN_PROCESS_WORKER=true，单进程部署）或独立 worker 进程（容器部署经 DEPENDFIX_QUEUE_WORKER=1
+ *   由入口启动，见 docs/standards/platform.md §10.6）。
  * - sync：Redis 不可用 / QUEUE_ENABLED=false / auto 且本进程不消费队列 →
  *   直调 runScanForRepository（既有同步模型）。
  *
@@ -26,7 +27,7 @@ export interface QueueModeInput {
     /**
      * 本进程是否消费队列（IN_PROCESS_WORKER=true → 创建进程内 worker）。
      * auto 模式下作为「消费者可用性」判据：无消费者时降级 sync，避免 async 队列无人消费的静默挂起。
-     * 独立 worker 进程形态（多容器）当前阶段未实现，故唯一消费者是进程内 worker。
+     * 消费者形态：进程内 worker（单进程部署）或独立 worker 进程（DEPENDFIX_QUEUE_WORKER=1，见 platform.md §10.6）。
      */
     inProcessWorker: boolean
 }

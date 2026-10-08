@@ -68,8 +68,10 @@ export const getQueueService = async (): Promise<QueueService> => {
     // async 模式：队列连接（与探测连接分离；BullMQ 自管重连）
     console.info(`[queue] 异步模式（queueEnabled=${enabled}，Redis ${probe.version ?? '未知版本'}）`)
     if (!inProcessWorker) {
-        // 仅 QUEUE_ENABLED=true 强制异步可到达（auto + 无消费者已降级 sync）
-        console.warn('[queue] QUEUE_ENABLED=true 强制异步但未启用进程内 worker（NUXT_IN_PROCESS_WORKER=true），需确保存在独立 worker 进程消费队列；当前阶段未实现独立 worker，任务可能挂起。可设 NUXT_IN_PROCESS_WORKER=true，或改回 NUXT_QUEUE_ENABLED=auto 自动降级同步')
+        // 仅 QUEUE_ENABLED=true 强制异步可到达（auto + 无消费者已降级 sync）。
+        // 独立 worker 进程形态已支持：容器部署可设 DEPENDFIX_QUEUE_WORKER=1 由入口启动 worker 进程
+        // （本进程为纯 producer，口径见 docs/standards/platform.md §10.6）。
+        console.warn('[queue] QUEUE_ENABLED=true 强制异步但本进程不消费队列（NUXT_IN_PROCESS_WORKER 未启用）；需确保存在独立 worker 进程消费队列（容器可设 DEPENDFIX_QUEUE_WORKER=1，见 platform.md §10.6），否则任务可能挂起。可设 NUXT_IN_PROCESS_WORKER=true，或改回 NUXT_QUEUE_ENABLED=auto 自动降级同步')
     }
     const queueConnection = createRedisClient(config.redisUrl)
     const queue = createScanQueue(queueConnection, {

@@ -71,10 +71,62 @@ check_dir_path() {
 DATA_DIR_CANON="$(check_dir_path DATA_DIR "$DATA_DIR")"
 HOME_DIR_CANON="$(check_dir_path HOME "$HOME_DIR")"
 
+# ---- 队列执行进程隔离（独立 worker 进程形态）----
+# DEPENDFIX_QUEUE_WORKER=1 时启动双进程形态：
+#   worker 进程：NUXT_IN_PROCESS_WORKER=true 消费扫描队列（扫描与引擎同步调用均在此进程）；
+#   HTTP 进程：NUXT_IN_PROCESS_WORKER=false 不消费队列，event loop 不再被扫描执行阻塞。
+# worker 的 Nitro HTTP 监听收敛到 unix socket（不占端口、不对外暴露），避免与主进程端口冲突；
+# 迁移仅由主进程执行（worker 侧 DATABASE_MIGRATIONS_RUN=false），避免两进程迁移竞争。
+# 口径见 docs/standards/platform.md §10.6。默认 0 = 单进程形态（行为与既有一致）。
+WORKER_ENABLED="${DEPENDFIX_QUEUE_WORKER:-0}"
+WORKER_SOCKET="${DEPENDFIX_QUEUE_WORKER_SOCKET:-/tmp/dependfix-queue-worker.sock}"
+QUEUE_WORKER_PID=""
+MAIN_PID=""
+
+# 启动平台进程：$1 = 运行前缀（"" 或 "su-exec uid:gid"），其余为命令（容器 CMD）。
+run_platform() {
+    prefix="$1"; shift
+
+    if [ "$WORKER_ENABLED" = "1" ] && [ "${NUXT_QUEUE_ENABLED:-auto}" = "false" ]; then
+        echo "warn: DEPENDFIX_QUEUE_WORKER=1 与 NUXT_QUEUE_ENABLED=false（强制同步）冲突，跳过独立 worker 进程" >&2
+        WORKER_ENABLED=0
+    fi
+
+    if [ "$WORKER_ENABLED" != "1" ]; then
+        # 单进程形态（向后兼容）：入口替换为平台进程
+        # shellcheck disable=SC2086
+        exec $prefix "$@"
+    fi
+
+    # 双进程形态：先起 worker，再起主进程（由 wait 托管）
+    rm -f "$WORKER_SOCKET"
+    # shellcheck disable=SC2086
+    $prefix env HOME="$HOME_DIR" \
+        NUXT_QUEUE_ENABLED=true \
+        NUXT_IN_PROCESS_WORKER=true \
+        DATABASE_MIGRATIONS_RUN=false \
+        NITRO_UNIX_SOCKET="$WORKER_SOCKET" \
+        "$@" &
+    QUEUE_WORKER_PID=$!
+
+    # shellcheck disable=SC2086
+    $prefix env NUXT_QUEUE_ENABLED=true NUXT_IN_PROCESS_WORKER=false "$@" &
+    MAIN_PID=$!
+
+    echo "[entrypoint] 队列 worker 进程 pid=${QUEUE_WORKER_PID}（socket=${WORKER_SOCKET}）；HTTP 进程 pid=${MAIN_PID} 不消费队列"
+
+    # 容器停止：PID 1 为本 shell，需把信号转发给两个子进程
+    trap 'kill -TERM "$MAIN_PID" 2>/dev/null || true; kill -TERM "$QUEUE_WORKER_PID" 2>/dev/null || true' TERM INT
+    wait "$MAIN_PID"
+    STATUS=$?
+    kill -TERM "$QUEUE_WORKER_PID" 2>/dev/null || true
+    exit "$STATUS"
+}
+
 # 非 root 启动（compose user: 已指定身份）：无法 chown / setuid，直接执行
 if [ "$(id -u)" != "0" ]; then
     [ -w "$HOME_DIR_CANON" ] || echo "warn: $HOME_DIR_CANON not writable by uid $(id -u); pnpm/npm cache may fail (pre-authorize the volume + HOME)" >&2
-    exec "$@"
+    run_platform "" "$@"
 fi
 
 for canon in "$DATA_DIR_CANON" "$HOME_DIR_CANON"; do
@@ -86,7 +138,7 @@ done
 
 # 降权执行；su-exec 缺失属构建损坏（构建期 apk add 固定安装），fail-closed 拒绝以 root 运行
 if command -v su-exec > /dev/null 2>&1; then
-    exec su-exec "$RUN_IDENTITY" "$@"
+    run_platform "su-exec $RUN_IDENTITY" "$@"
 fi
 echo "error: su-exec not found, refusing to run as root (降权链路损坏)" >&2
 exit 1

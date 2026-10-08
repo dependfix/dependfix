@@ -104,7 +104,9 @@ describe('getQueueService', () => {
         expect(service.queue).not.toBeNull()
         expect(createScanQueue).toHaveBeenCalled()
         expect(createScanWorker).not.toHaveBeenCalled()
-        expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('强制异步但未启用进程内 worker'))
+        // 独立 worker 进程形态（DEPENDFIX_QUEUE_WORKER=1）下本进程为纯 producer，warn 指引该开关
+        expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('强制异步但本进程不消费队列'))
+        expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('DEPENDFIX_QUEUE_WORKER=1'))
     })
 
     it('starts in-process worker when IN_PROCESS_WORKER=true', async () => {

@@ -42,11 +42,15 @@ services:
       # 扫描任务队列（渐进式降级）：Redis 可达且版本 >= 5.0 时异步队列，否则自动降级同步。
       # 运行时覆盖需 NUXT_ 前缀（构建产物烘焙默认值）
       NUXT_REDIS_URL: redis://redis:6379
-      NUXT_QUEUE_ENABLED: ${QUEUE_ENABLED:-auto}
+      NUXT_QUEUE_ENABLED: ${QUEUE_ENABLED:-true}
       NUXT_QUEUE_JOB_RETRIES: ${QUEUE_JOB_RETRIES:-}
       NUXT_QUEUE_BACKOFF_MS: ${QUEUE_BACKOFF_MS:-}
-      # 单容器直接部署形态：Nuxt 进程内消费队列（SQLite 单写者安全）。
-      # 独立 worker 进程形态（多容器）需等 PostgreSQL 迁移（SQLite 多进程写不兼容）后启用
+      # 队列执行进程隔离（默认开启）：入口启动独立 worker 进程消费队列，本进程（HTTP）不消费 →
+      # HTTP event loop 不再被扫描执行（引擎同步子进程调用）阻塞，消除 BullMQ 锁续期失败（stalled 重排）。
+      # 设 0 回退单进程形态（此时由 NUXT_IN_PROCESS_WORKER=true 在本进程内消费）。口径见 platform.md §10.6。
+      DEPENDFIX_QUEUE_WORKER: ${QUEUE_WORKER:-1}
+      # 单进程形态专用（DEPENDFIX_QUEUE_WORKER=0 时生效）：Nuxt 进程内消费队列。
+      # 启用独立 worker 进程后，入口会分别覆盖两进程的 NUXT_IN_PROCESS_WORKER 取值（worker=true / HTTP=false）。
       NUXT_IN_PROCESS_WORKER: ${IN_PROCESS_WORKER:-true}
     depends_on:
       - redis
@@ -54,14 +58,16 @@ services:
       - dependfix-data:/app/data
     restart: unless-stopped
 
-  # 独立 worker 进程（预留，PostgreSQL 生产迁移后启用）：
-  # SQLite 下多容器共享 DB 存在写锁冲突，当前阶段使用单容器 in-process worker 形态。
+  # 多容器独立 worker 形态（预留）：当前容器内已默认启同镜像双进程隔离（DEPENDFIX_QUEUE_WORKER=1），
+  # 本段仅在需要"worker 与 HTTP 分属不同容器/主机"时启用——要求数据库支持多写者（PostgreSQL），
+  # SQLite 多进程写依赖 WAL 且不推荐跨主机。启用时可删除主服务的 worker 开关（QUEUE_WORKER=0）。
   # worker:
   #   image: ${DEPENDFIX_IMAGE:-caomeiyouren/dependfix:latest}
   #   environment:
   #     PUID: ${PUID:-100}
   #     PGID: ${PGID:-101}
   #     NUXT_REDIS_URL: redis://redis:6379
+  #     NUXT_QUEUE_ENABLED: "true"
   #     NUXT_IN_PROCESS_WORKER: "true"
   #     DATABASE_PATH: /app/data/dependfix.sqlite
   #     NUXT_ENCRYPTION_KEY: ${NUXT_ENCRYPTION_KEY:-}

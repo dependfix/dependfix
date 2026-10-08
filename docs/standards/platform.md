@@ -472,6 +472,16 @@ fixtures.delete / fixtures.post 在双门控通过后调用 `fixturesRateLimit()
 - **锁问题观测**：Worker **必须**注册 `stalled` / `lockRenewalFailed` / `error` 事件并输出结构化日志（`[scan-worker] {json}`），把「静默锁过期」变为可告警事件。`stalled` / `lockRenewalFailed` 载荷含 `jobId` 并经注入的 `queue.getJob` 补全 `runId`（未解析时显式 `null`，区分「已尝试解析但未得」与「无此字段」）；`error` 载荷不含 job 上下文（`event` / `message`，续期类另带 `duplicateOf` 去重标记，见下条）——其 job 上下文由配对的 `lockRenewalFailed` 承载（BullMQ `error` 事件签名 `(failedReason: Error)` 不含 job 上下文）。
 - **同根因去重**：BullMQ LockManager 续期失败时**同时** emit `lockRenewalFailed` 与 `error`（message 前缀为 `could not renew lock for job`，含尾随空格）——同一根因两条信号；`error` 日志对续期类标注 `duplicateOf: 'lockRenewalFailed'` 供聚合去重（与 [§6.1](#61-错误码与告警状态口径平台展示消费-engine-错误码) 同类的「同一根因不重复告警」去重思路）。
 
+### 10.6 队列执行进程隔离（独立 worker 进程）
+
+- **形态**：容器部署**默认**启动双进程（`DEPENDFIX_QUEUE_WORKER=1`，由 `docker/entrypoint.sh` 实现）——独立 worker 进程 `NUXT_IN_PROCESS_WORKER=true` 消费扫描队列，HTTP 进程 `NUXT_IN_PROCESS_WORKER=false` 不消费。扫描执行（含引擎同步子进程调用）完全在 worker 进程，**HTTP 进程 event loop 不被阻塞**，从根上消除 BullMQ 锁续期失败（`could not renew lock` → stalled 重排；锁参数与观测见 [§10.5](#105-队列锁参数显式化与锁问题观测)）。
+- **监听收敛**：worker 进程的 Nitro HTTP 监听经 `NITRO_UNIX_SOCKET`（默认 `/tmp/dependfix-queue-worker.sock`）收敛——不占端口、不对外暴露，避免与主进程端口冲突。
+- **迁移唯一执行者**：worker 进程侧 `DATABASE_MIGRATIONS_RUN=false`，迁移只由主进程执行，避免两进程迁移竞争。
+- **Redis 不可用**：两进程各自按 [§10.4](#104-队列模式自动降级必须含消费者维度) 降级矩阵降级 `sync`（可用性优先）——此时 HTTP 进程同步执行扫描（既有行为，不劣化）。
+- **向后兼容与回退**：入口层不设 `DEPENDFIX_QUEUE_WORKER` 时默认 `0`（保持单进程，行为与既有一致）；`docker-compose.yml` 默认设 `QUEUE_WORKER=1`（治本默认启用），设 `QUEUE_WORKER=0` 可回退单进程；`NUXT_QUEUE_ENABLED=false`（强制同步）时入口跳过 worker 进程启动并输出 warn。
+- **非容器形态**：本地 `pnpm dev` 与自定义 `node .output/server/index.mjs` 不经过 entrypoint，仍用进程内 worker（`NUXT_IN_PROCESS_WORKER=true`），不受影响。
+- **已知边界**：① 两进程共享 SQLite（多进程写）——依赖 WAL + `busy_timeout`（见 [§3.3 DataSource 初始化](#33-datasource-初始化)）；② worker 进程重复启动周期插件（`stale-cleanup` / 启动期备份，均幂等，代价为重复查询）；③ worker 进程崩溃无自动重启（容器内后台进程），队列由 `stale-cleanup` 兜底。
+
 ## 11. 环境变量总表（.env.example 对齐）
 
 | 变量 | 必需 | 默认值 | 说明 |
@@ -487,6 +497,7 @@ fixtures.delete / fixtures.post 在双门控通过后调用 `fixturesRateLimit()
 | `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASS` / `SMTP_FROM` | 否 | 空 | 配置后启用邮件验证 |
 | `NUXT_PUBLIC_BETTER_AUTH_URL` | 反向代理时 | 自动推断 | 认证基础 URL |
 | `MACHINE_ID` | 否 | `pid % 1024` | 雪花机器位 |
+| `DEPENDFIX_QUEUE_WORKER` | 否 | 入口 `0` / compose `1` | 队列执行进程隔离（仅容器入口消费）：`1` 启动独立 worker 进程消费队列、HTTP 进程不消费（消除锁续期失败，见 [§10.6](#106-队列执行进程隔离独立-worker-进程)）；`0` 单进程形态 |
 
 ## 12. 决策记录（2026-08-07 人工审查确认）
 

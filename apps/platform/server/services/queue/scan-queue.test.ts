@@ -202,6 +202,20 @@ describe('createScanQueue', () => {
         })
     })
 
+    describe('getJob（事件观测补全 runId）', () => {
+        it('命中返回精简 { data }；不存在返回 undefined', async () => {
+            const queue = createScanQueue(makeConnection(), {})
+            const instance = currentInstance()
+
+            const data = { repositoryId: 'repo-1', request: { mode: 'fix' as const, severityThreshold: 'high' as const }, runId: 'run-1' }
+            instance.getJob.mockResolvedValueOnce({ data })
+            await expect(queue.getJob('scan-repo-1')).resolves.toEqual({ data })
+
+            instance.getJob.mockResolvedValueOnce(undefined)
+            await expect(queue.getJob('scan-repo-2')).resolves.toBeUndefined()
+        })
+    })
+
     it('passes through scheduler and close operations', async () => {
         const queue = createScanQueue(makeConnection(), {})
         const instance = currentInstance()

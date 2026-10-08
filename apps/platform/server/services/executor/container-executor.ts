@@ -33,6 +33,13 @@ const DEFAULT_CLONE_MAX_RETRIES = 3
 const CLONE_RETRY_BASE_DELAY_MS = 2000
 
 /**
+ * 单仓库执行超时默认值（30 分钟）。
+ * 作为 `ContainerExecutor.timeoutMs` 的缺省；queue 层 Worker 锁时长与之对齐
+ * （`SCAN_WORKER_LOCK_OPTIONS.lockDuration`，见 scan-worker.ts 与 platform.md §10.5）。
+ */
+export const DEFAULT_EXECUTION_TIMEOUT_MS = 30 * 60 * 1000
+
+/**
  * 解析环境变量为正整数（NaN / 负数 / 0 → 返回默认值）。
  * 对齐 queue-mode.ts:79-84 的 parseRetryConfig 模式。
  */
@@ -200,7 +207,7 @@ export class ContainerExecutor implements ScanExecutor {
 
     constructor(options: { workRoot: string, timeoutMs?: number, cloneTimeoutMs?: number, cloneMaxRetries?: number } = { workRoot: process.env.DATABASE_PATH ? join(process.env.DATABASE_PATH, '..', 'runs') : 'data/runs' }) {
         this.workRoot = options.workRoot
-        this.timeoutMs = options.timeoutMs ?? 30 * 60 * 1000
+        this.timeoutMs = options.timeoutMs ?? DEFAULT_EXECUTION_TIMEOUT_MS
         // clone 超时：优先构造参数 > 环境变量 > 默认值
         this.cloneTimeoutMs = options.cloneTimeoutMs
             ?? parsePositiveInt(process.env.CLONE_TIMEOUT_MS, DEFAULT_CLONE_TIMEOUT_MS)

@@ -68,6 +68,11 @@ export interface ScanQueue {
      * pending run 的孤儿判定依据——真正排队 / 执行中的 run 不应被 stale cleanup 误杀。
      */
     hasLiveJob: (repositoryId: string) => Promise<boolean>
+    /**
+     * job 查询（stalled / lockRenewalFailed 事件补全 runId 用）：
+     * 不存在 → undefined；只暴露 `data`（不泄漏 BullMQ Job 实例）。
+     */
+    getJob: (jobId: string) => Promise<{ data?: ScanJobData } | undefined>
     /** BullMQ job scheduler 透传：注册/更新定时调度（定时扫描能力） */
     upsertJobScheduler: (
         schedulerId: string,
@@ -140,6 +145,10 @@ export const createScanQueue = (connection: Redis, options: { retriesRaw?: strin
                 return false
             }
             return !isTerminalJobState(await existing.getState())
+        },
+        getJob: async (jobId) => {
+            const job = await queue.getJob(jobId)
+            return job ? { data: job.data } : undefined
         },
         upsertJobScheduler: async (schedulerId, repeatOpts, template) => {
             // 模板 data 形状与 scan job 不同（scheduleId 而非 repositoryId），断言透传

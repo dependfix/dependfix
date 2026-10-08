@@ -37,7 +37,7 @@ describe('getQueueService', () => {
         resetSingleton()
         vi.clearAllMocks()
         createRedisClient.mockReturnValue({ disconnect: vi.fn() })
-        createScanQueue.mockReturnValue({ close: vi.fn(), add: vi.fn() })
+        createScanQueue.mockReturnValue({ close: vi.fn(), add: vi.fn(), getJob: vi.fn() })
         createScanWorker.mockReturnValue({ close: vi.fn() })
     })
 
@@ -113,6 +113,9 @@ describe('getQueueService', () => {
         const service = await getQueueService()
         expect(service.mode).toBe('async')
         expect(createScanWorker).toHaveBeenCalledOnce()
+        // 注入 queue.getJob 供事件观测补全 runId（BullMQ Worker 不暴露 getJob）
+        const injected = createScanWorker.mock.calls[0]?.[1] as { getJob?: unknown } | undefined
+        expect(typeof injected?.getJob).toBe('function')
     })
 
     it('close cleans up queue, worker and connections', async () => {

@@ -84,7 +84,10 @@ export const getQueueService = async (): Promise<QueueService> => {
     let workerConnection: Redis | null = null
     if (inProcessWorker) {
         workerConnection = createRedisClient(config.redisUrl)
-        worker = createScanWorker(workerConnection)
+        worker = createScanWorker(workerConnection, {
+            // stalled / lockRenewalFailed 事件补全 runId（BullMQ Worker 不暴露 getJob，用 queue 查）
+            getJob: (jobId) => queue.getJob(jobId),
+        })
         console.info('[queue] IN_PROCESS_WORKER=true，当前进程消费扫描队列')
     }
 

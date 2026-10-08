@@ -465,6 +465,13 @@ fixtures.delete / fixtures.post 在双门控通过后调用 `fixturesRateLimit()
 - `auto` 模式**必须**仅在「Redis 可用**且**本进程消费队列（`inProcessWorker`）」时异步；单容器唯一消费者是进程内 worker，独立 worker 进程未实现时 `inProcessWorker=false` 没有合法消费者，须降级 `sync`。
 - **env 口径**：Nuxt runtimeConfig 运行时覆盖只认 `NUXT_` 前缀，容器需 `NUXT_IN_PROCESS_WORKER`；`.env.example` 的无前缀 `IN_PROCESS_WORKER` 只是 compose 插值源，直接注入容器无效。
 
+### 10.5 队列锁参数显式化与锁问题观测
+
+- **锁参数显式化**：in-process Worker **必须**显式配置 `lockDuration` / `lockRenewTime`（`SCAN_WORKER_LOCK_OPTIONS`，见 `server/services/queue/scan-worker.ts`），不得依赖 BullMQ 隐式默认（30 秒）——引擎同步子进程调用会阻塞主线程 event loop，使锁续期定时器延后执行，30 秒默认值下极易触发 `could not renew lock` / `Missing lock`，job 被判 stalled 重排（存在重复执行风险）。
+- **取值口径**：`lockDuration` 取容器执行器默认单次执行超时 `DEFAULT_EXECUTION_TIMEOUT_MS`（30 分钟），`lockRenewTime` 取其一半（BullMQ 官方推荐；LockManager 以 `lockRenewTime / 2` 为周期扫描并续期）。两处口径**须同步**——执行器默认超时变更时须同步锁时长（单测锁定该对齐关系）。若仓库级执行超时被配置为超过该默认值，锁可能在执行完成前过期。
+- **锁问题观测**：Worker **必须**注册 `stalled` / `lockRenewalFailed` / `error` 事件并输出结构化日志（`[scan-worker] {json}`），把「静默锁过期」变为可告警事件。`stalled` / `lockRenewalFailed` 载荷含 `jobId` 并经注入的 `queue.getJob` 补全 `runId`（未解析时显式 `null`，区分「已尝试解析但未得」与「无此字段」）；`error` 载荷不含 job 上下文（`event` / `message`，续期类另带 `duplicateOf` 去重标记，见下条）——其 job 上下文由配对的 `lockRenewalFailed` 承载（BullMQ `error` 事件签名 `(failedReason: Error)` 不含 job 上下文）。
+- **同根因去重**：BullMQ LockManager 续期失败时**同时** emit `lockRenewalFailed` 与 `error`（message 前缀为 `could not renew lock for job`，含尾随空格）——同一根因两条信号；`error` 日志对续期类标注 `duplicateOf: 'lockRenewalFailed'` 供聚合去重（与 [§6.1](#61-错误码与告警状态口径平台展示消费-engine-错误码) 同类的「同一根因不重复告警」去重思路）。
+
 ## 11. 环境变量总表（.env.example 对齐）
 
 | 变量 | 必需 | 默认值 | 说明 |

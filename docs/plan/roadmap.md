@@ -40,12 +40,12 @@
 | M30: 治理债清理 + 迁移可行性验证 + 能力扩展 + 测试补强 | C87 跳过类审计退出码 + C86 max-lines 拆分 + C84 文档对齐 + C74 getCommitAuthor 接线（App 路径）+ db-restore 补测 + UI 组件库迁移可行性验证 V1-V3 | P2-P3 | 已完成（[archive/todo-archive-phases-m30.md §M30](archive/todo-archive-phases-m30.md#m30-治理债清理--迁移可行性验证--能力扩展--测试补强m301m306-全部已闭环--2026-09-28-归档)） |
 | M31: apps/platform UI 组件库迁移（PrimeVue → caomei-ui） | B0 基线与双库并存接线 + B1a/B1b DataTable 迁移 + B2 表单/浮层切换 + B3 收尾卸载与回归 + C90 db-restore 补强 | P2-P3 | 已完成（[todo-archive.md §M31](archive/todo-archive-phases-m31.md#m31-appsplatform-ui-组件库迁移primevue--caomei-ui-m311m316-全部已闭环--2026-09-29-归档)） |
 | M32: 能力扩展优先 | C76 平台验证命令配置 + C85 目标仓库专属配置 + C89 Code Scanning 未启用区分 + C82 git 签名语义边界 + C92 视觉回归最小集 | P3 | 已完成（[todo-archive.md §M32](archive/todo-archive-phases-m32.md#m32-能力扩展优先m321m325-全部已闭环--2026-09-30-归档)） |
-| M33: 治理债收口 + 测试基建扩展 | C91 review 检查点补挂 + 视觉回归 CI 转阻断 + M31 dependabot 死配置清理 + C93/C94 视觉回归覆盖扩展 + C80 观察期阻断语义 + M33.7 迁移入口 + M33.8–M33.10 UI 修复 + M33.11 存量漏洞治理 | P3 | 已完成（[todo-archive.md §M33](todo-archive.md#m33-治理债收口--测试基建扩展m331m3311-全部已闭环--2026-09-30-归档)；2026-09-30 归档） |
+| M33: 治理债收口 + 测试基建扩展 | C91 review 检查点补挂 + 视觉回归 CI 转阻断 + M31 dependabot 死配置清理 + C93/C94 视觉回归覆盖扩展 + C80 观察期阻断语义 + M33.7 迁移入口 + M33.8–M33.10 UI 修复 + M33.11 存量漏洞治理 | P3 | 已完成（[archive/todo-archive-phases-m33.md §M33](archive/todo-archive-phases-m33.md#m33-治理债收口--测试基建扩展m331m3311-全部已闭环--2026-09-30-归档)；2026-09-30 归档） |
 | M34: 治理与体验收口 + 组件库升级与巡检基建 | devEx `data/` 产物污染治理 + caomei-ui 0.5.0 升级（弹窗 Select 裁剪/层级） + 视觉回归灵敏度与弹窗覆盖 + 上游组件问题归因流程 + label 间距统一 + 字段堆叠口径复用化 + PrimeUI 文档同步 + C83 验证链失败基线 | P2-P3 | 已完成（[todo-archive.md §M34](todo-archive.md#m34-治理与体验收口--组件库升级与巡检基建m341m347-全部已闭环--2026-10-01-归档)；2026-10-01 归档） |
 | M35: 批量运行终态兜底对账 + 进度可见性修复 | 周期兜底对账服务 + 写回逻辑收敛 + `finishedAt` 真实化 + sync 立即终结 + 前端口径修正 + 存量订正脚本 + 设计口径同步 | P2-P3 | 已完成（[todo-archive.md §M35](todo-archive.md#m35-批量运行终态兜底对账--进度可见性修复m351m356-全部已闭环--2026-10-02-归档)；2026-10-02 归档） |
 | M36: 治理债清仓 + 可观测性与测试稳定性 | C81 孤立规划编号存量清理（分批）+ 文档陈旧状态清理 + BatchRun 写回竞态收敛 + 告警源可审计性判据 + api-i18n e2e 顺序偶发 + dependfix-platform 镜像体积治理 + pnpm overrides key 语义归一化 + Docker 首次启动数据库初始化与部署文档 + 扫描队列孤儿 job 释放 + 队列消费者维度自动降级 | P1-P3 | 已完成（[todo-archive.md §M36](todo-archive.md#m36-治理债清仓--可观测性与测试稳定性m361m3610-全部已闭环--2026-10-05-归档)；2026-10-05 归档） |
 | M37: 运行可观测性与体验记忆 | 运行失败分类与筛选 + 落库回填（failureStage / failureKind，不含重试入口）+ 扫描 / 批量扫描偏好记忆（方案 C 混合）+ BatchRun 写回与告警源错误信号残余治理 + caomei-ui 版本口径同步 + 孤立编号检测脚本接入 CI 门禁 + 目标仓库 git hooks 隔离 | P1-P3 | 已完成（2026-10-06 用户决策方案 B + 同日授权追加 M37.6；2026-10-08 已闭环归档，见 [todo-archive.md §M37](todo-archive.md#m37-运行可观测性与体验记忆m371m376-全部已闭环--2026-10-08-归档)） |
-| M38: 平台执行模型隔离 | BullMQ sandboxed processor 执行隔离（治本）+ Worker 锁参数显式化与 stalled/error 观测（止血）+ `scan.post` failover 透传 reuse + e2e 全页卡片计数断言解耦 + `scan-queue.ts` 注释 jobId 口径订正 + schedule 表单复用 scan-options 口径 | P1-P3 | 进行中（2026-10-06 用户授权 / 2026-10-08 设计先行稿定稿 + 正式规划；实施条目见 [todo.md §M38](todo.md)） |
+| M38: 平台执行模型隔离 | 队列执行进程隔离（方案 ①′ 独立 worker 进程，治本）+ Worker 锁参数显式化与锁问题事件观测（止血）+ `scan.post` failover 透传 reuse + e2e 全页卡片计数断言解耦 + `scan-queue.ts` 注释 jobId 口径订正 + schedule 表单复用 scan-options 口径 | P1-P3 | 已完成（2026-10-06 用户授权 / 2026-10-09 已闭环归档，见 [todo-archive.md §M38](todo-archive.md#m38-平台执行模型隔离m381m386-全部已闭环--2026-10-09-归档)） |
 
 > **本路线图定位**：按 [规划规范 §2.1](../standards/planning.md) 仅维护阶段概览（目标 / 优先级 / 状态）。详细实施记录 / commit 引用 / 关键决策 / 经验教训见对应归档段（详见下方"## 详细任务"索引）。
 
@@ -501,7 +501,7 @@ per-alert 模型 + reconcile + API 简化 + UI 调整 + backfill 脚本。5 子�
 
 **闭环实证摘要**：20 commits（阶段启动 `e6c5502` + 11 原子条目的实现与闭环登记）全部已推送 `origin/master`（`git rev-list HEAD ^origin/master --count` 归档时实测 = 0）；11 轮独立 Review Gate（含 M33.7 / M33.9 的 Reject → 修复 → Pass）。
 
-> 详细任务与 8 要素见归档段 [todo-archive.md §M33](todo-archive.md#m33-治理债收口--测试基建扩展m331m3311-全部已闭环--2026-09-30-归档)
+> 详细任务与 8 要素见归档段 [archive/todo-archive-phases-m33.md §M33](archive/todo-archive-phases-m33.md#m33-治理债收口--测试基建扩展m331m3311-全部已闭环--2026-09-30-归档)
 
 ---
 
@@ -652,44 +652,57 @@ per-alert 模型 + reconcile + API 简化 + UI 调整 + backfill 脚本。5 子�
 
 ---
 
-## M38: 平台执行模型隔离（2026-10-06 用户授权 / 2026-10-08 设计先行稿定稿 + 正式规划）
+## M38: 平台执行模型隔离（2026-10-06 用户授权 / 2026-10-09 已闭环 + 归档）
 
 承接 M37 之外的独立治理阶段。2026-10-06 用户基于生产运行日志根因分析明确授权**开独立阶段**——消除平台 in-process BullMQ Worker 因引擎同步子进程调用阻塞主线程 event loop 导致的 `could not renew lock` / `Missing lock (code -2)`（锁过期 → job 被判 stalled 重排 → 潜在重复执行）。与 M37 阶段边界「不引入新执行后端」互斥，故独立成阶段；来源候选见 [backlog.md](backlog.md) 2026-10-06 上收批次说明。
 
-**设计先行交付**：[executor-process-isolation.md](../design/governance/executor-process-isolation.md)（2026-10-08 定稿；跨模块 + 执行模型变更，触发设计文档硬阈值）——根因链 7 环证据锚点 + 三方案对比（① BullMQ sandboxed processor / ② 独立子进程执行引擎 / ③ `lockDuration` 与 stalled / error 观测缓解）+ 推荐路径 + 决策点。
+**设计先行交付**：[executor-process-isolation.md](../design/governance/executor-process-isolation.md)（2026-10-08 定稿；跨模块 + 执行模型变更，触发设计文档硬阈值）——根因链 7 环证据锚点 + 三方案对比（① BullMQ sandboxed processor / ② 独立子进程执行引擎 / ③ `lockDuration` 与 stalled / error 观测缓解）+ 推荐路径 + 决策点。**M38.1 D 阶段前置实证否证方案 ①**（Nitro 单 bundle 下无法原样落地：业务代码内联 `chunks/nitro/nitro.mjs` / 产物导入即顶层 listen / Nitro 无额外入口 / `packages/cli/dist` 不自包含），经用户裁定改**方案 ①′ 独立 worker 进程**（见 [设计稿 §3.1](../design/governance/executor-process-isolation.md)）。
 
 **6 原子条目**（覆盖 🛡️ 2 + 🛠️ 1 + 🧪 1 + 📚 1 + 🎨 1，整体符合 [规划规范 §1.1 L12 类型平衡原则](../standards/planning.md#11-硬性约束)；UX 独立条目 1 项，低于建议值 2，缺口已显式标注）：
 
-- **M38.1** [P1 🛡️ 可靠性] BullMQ sandboxed processor 执行隔离（2 子任务 a/b；治本）
-- **M38.2** [P2 🛠️ 可观测性] Worker 锁参数显式化与 stalled / error 事件观测（止血 + 对照基线）
-- **M38.3** [P3 🛡️ 缺陷修复] `scan.post` 队列 failover 降级未透传 `reuse`
+- **M38.1** [P1 🛡️ 可靠性] 队列执行进程隔离（方案 ①′ 独立 worker 进程；2 子任务 a/b）
+- **M38.2** [P2 🛠️ 可观测性] Worker 锁参数显式化与锁问题事件观测（止血 + 对照基线）
+- **M38.3** [P3 🛡️ 缺陷修复] `scan.post` 队列 failover 降级透传 `reuse`
 - **M38.4** [P3 🧪 测试基建] e2e 全页卡片计数断言与页面卡片集合变更解耦
 - **M38.5** [P3 📚 文档] `scan-queue.ts` 文件头注释 jobId 口径订正
 - **M38.6** [P3 🎨 用户体验] schedule 表单与 run-view 复用扫描选项口径
 
-**关键决策 D1-D3**（2026-10-08 用户裁定）：
+**闭环 commits**（自 M37 归档末 `5a5c99b` 起 `git log master --first-parent` 去重统计 **16 commits**）：
 
-- **D1**：主线方案选型 = 方案 ①（BullMQ sandboxed processor）为主线 + 方案 ③（锁参数与 stalled / error 观测）阶段内止血。
-- **D2**：方案 ②（独立子进程执行引擎）登记 backlog 长期演进候选——隔离最强，但依赖当前未闭环的自包含 subprocess 入口（[executor-sandbox.md §7.2](../design/governance/executor-sandbox.md) 已登记缺口），本阶段不实施。
-- **D3**：条目容量控制 5-6 项——上收 4 项 backlog 候选（`scan.post` failover / e2e 卡片计数 / `scan-queue.ts` 注释 / schedule 选项口径），移出 2 项（`distill-wisdom` 计数假阴性 / `tech-stack` 依赖表行级不一致）留 backlog。
+- **设计先行稿**：`194a558`
+- **阶段启动规划**：`8c5c71c`
+- **M38.1**：`e5412cd` + `374940b` + `f75cb81` + `d436992`
+- **M38.2**：`431e8ec` + `074e76d`
+- **M38.3**：`9f9d067` + `d92a301`
+- **M38.4**：`4b43c29` + `9ce7289`
+- **M38.5**：`392f9b0` + `d03122f`
+- **M38.6**：`1b856ac` + `8b9d95d`
+
+> 同区间另有 2 个 **M37 收尾** commits（`5ba3bad` 个人设置 e2e 卡片断言同步 + `f48bb74` backlog 候选登记），不计入 M38。
+
+**关键决策**（2026-10-08 用户裁定 + 执行期追加）：
+
+- **主线方案**：方案 ① + 方案 ③（锁参数与观测）阶段内止血；方案 ②（独立子进程执行引擎）登记 backlog 长期演进（依赖未闭环的自包含 subprocess 入口，见 [executor-sandbox.md §7.2](../design/governance/executor-sandbox.md)）。
+- **路径调整决策**（同日追加，独立命名以避免与设计稿 §4 的 D1-D5 编号混淆）：M38.1 实现路径调整为方案 ①′ 独立 worker 进程。
+- **条目容量控制**：5-6 项——上收 4 项 backlog 候选（`scan.post` failover / e2e 卡片计数 / `scan-queue.ts` 注释 / schedule 选项口径），移出 2 项（`distill-wisdom` 计数假阴性 / `tech-stack` 依赖表行级不一致）留 backlog。
 
 **类型平衡复核**：🛡️ 技术债与可靠性 2（M38.1 / M38.3）/ 🛠️ 可观测性 1（M38.2）/ 🧪 测试基建 1（M38.4）/ 📚 文档 1（M38.5）/ 🎨 用户体验 1（M38.6）；UX 独立条目 1 项低于建议值 2，显式标注缺口。
 
 **范围边界（不做什么）**：不改引擎修复 / 验证业务语义；不改 `/api/runs` 等接口契约；不做执行器整体重构；不把引擎全部同步调用改异步（大范围改造，改由进程隔离兜底）；不在本阶段内改动 M37 交付面；不引入本设计未选定的新执行后端。
 
-**§3.4 交叉核验**：4 项上收候选经 todo-archive 表格扫描 + git log + 代码 anchor 三重核验，**0 项重复评估**（逐项结论见 [todo.md §M38](todo.md) 阶段定位段）；M38 编号由用户 2026-10-06 授权开阶段（[§3.4](../standards/planning.md#34-阶段启动决策前置交叉核验硬要求m271-重复评估教训--2026-09-10) 承认的「用户直接决策」路径，非 [§3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 插队例外）。
+**§3.4 交叉核验**：4 项上收候选经 todo-archive 表格扫描 + git log + 代码 anchor 三重核验，**0 项重复评估**（逐项结论见 [todo-archive.md §M38](todo-archive.md#m38-平台执行模型隔离m381m386-全部已闭环--2026-10-09-归档) 阶段摘要）；M38 编号由用户 2026-10-06 授权开阶段（[§3.4](../standards/planning.md#34-阶段启动决策前置交叉核验硬要求m271-重复评估教训--2026-09-10) 承认的「用户直接决策」路径，非 [§3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 插队例外）。
 
-**ahead commits 实证**：阶段启动前 `git rev-list HEAD ^origin/master --count` 实测 = 2（CI E2E 修复 2 提交待推送；后续设计稿等提交使 ahead 递增，以 `git rev-list` 实时实测为准；M37 全流程 23 提交已由用户推送 `origin/master`，`git rev-list origin/master ^HEAD --count` = 0 双向核验）。
+**ahead commits 实证**：归档时 `git rev-list HEAD ^origin/master --count` 实测 = **18**（含 M37 收尾 2；`git rev-list origin/master ^HEAD --count` = 0 双向核验），待用户推送确认。
 
-> 详细任务与 8 要素见 [todo.md §M38](todo.md)（进行中）；上一阶段（M37）已闭环归档，见 [todo-archive.md §M37](todo-archive.md#m37-运行可观测性与体验记忆m371m376-全部已闭环--2026-10-08-归档)。
+> 详细任务与 8 要素见 [todo-archive.md §M38](todo-archive.md#m38-平台执行模型隔离m381m386-全部已闭环--2026-10-09-归档)（2026-10-09 已闭环归档）；上一阶段（M37）见 [todo-archive.md §M37](todo-archive.md#m37-运行可观测性与体验记忆m371m376-全部已闭环--2026-10-08-归档)。
 
 ---
 
 ## 详细任务
 
-- 当前阶段任务：**M38 平台执行模型隔离**（2026-10-06 用户授权 / 2026-10-08 设计先行稿定稿 + 正式规划，6 原子条目进行中）；见 [todo.md §M38](todo.md) 与上文 §M38
-- 已归档阶段：[todo-archive.md](todo-archive.md)（主窗口保留最近阶段完整段 + 指针段；M0-M37 全部已归档；早期阶段见 [archive/index.md](archive/index.md) 分片索引）
-- 下一阶段（未授权）：无——M38 闭环后再按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 评估 backlog 候选池
+- 当前阶段任务：**无活跃阶段**——M38（平台执行模型隔离）6 原子条目全部闭环并于 2026-10-09 归档；见 [todo-archive.md §M38](todo-archive.md#m38-平台执行模型隔离m381m386-全部已闭环--2026-10-09-归档) 与 [todo.md](todo.md)
+- 已归档阶段：[todo-archive.md](todo-archive.md)（主窗口保留最近阶段完整段 + 指针段；M0-M38 全部已归档；早期阶段见 [archive/index.md](archive/index.md) 分片索引）
+- 下一阶段（未授权）：无——按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 评估 backlog 候选池后由用户决策
 - 后续阶段任务（延期项 + 未排期增强候选）：[backlog.md](backlog.md)
 
 ## 交付原则

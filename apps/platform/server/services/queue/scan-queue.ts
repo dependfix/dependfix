@@ -1,12 +1,13 @@
 /**
  * 扫描任务队列（BullMQ Queue 封装）。
- * 去重语义（BullMQ 6 实测）：jobId = scan:{repositoryId}。
+ * 去重语义（BullMQ 6 实测）：jobId = scan-<repositoryId>（连字符；BullMQ 6 自定义 jobId 禁止含冒号——Redis key 分隔符）。
  * - 等待/活跃/延迟中重复 add：返回已有 job，不重复执行（同仓库未完成扫描合并）
  * - completed/failed 终态 job：key 在 removeOnComplete(1h)/removeOnFail(24h) 清理前仍占用，
  *   add 会被幂等吞掉（不创建新 job）——本封装在 add 时检测终态并 remove 后重新入队，
  *   保证"扫描完成后可立即再次触发"
  * 重试：指数退避（默认 5s 起），attempts 可配（QUEUE_JOB_RETRIES）。
- * 优先级：手动 1 > webhook 5 > 定时 10（webhook/定时为后续调度任务预留，当前仅手动触发使用）。
+ * 优先级：手动 1 > webhook 5 > 定时 10（手动经触发 API、定时经 scheduler 的 job scheduler 模板与
+ * 批量调度均已使用；webhook 为后续 webhook 触发预留）。
  */
 import { Queue } from 'bullmq'
 import type { Redis } from 'ioredis'

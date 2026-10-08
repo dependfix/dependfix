@@ -1,6 +1,6 @@
 # 平台执行模型隔离设计（设计先行稿）
 
-> 状态：🔶 实现中（2026-10-08 选型裁定：方案 ①′ 独立 worker 进程 + 方案 ③ 已落地；见 §3.1 实现路径调整）
+> 状态：✅ 已落地（2026-10-09 M38 闭环归档；选型 2026-10-08：方案 ①′ 独立 worker 进程 + 方案 ③ 已落地；见 §3.1 实现路径调整）
 > 提出：2026-10-06（生产运行日志根因分析）
 > 范围：`apps/platform`（队列执行拓扑 / 执行器路由）；不触碰引擎修复与验证业务语义
 > 关联：[executor-sandbox.md §7.2 / §7.4 / §7.8](./executor-sandbox.md)、[platform.md §3.3 / §10](../../standards/platform.md)、`apps/platform/server/services/queue/scan-worker.ts`、`apps/platform/server/services/executor/container-executor.ts`、`docs/plan/roadmap.md` §M38
@@ -212,4 +212,4 @@ scan-queue.add(jobId = scan-<repositoryId>)   [scan-queue.ts]
 - [executor-sandbox.md](./executor-sandbox.md)：§3 接口契约 / §7.2 镜像策略（自包含入口缺口）/ §7.4 执行器并存路由 / §7.8 降级状态机契约
 - [platform.md](../../standards/platform.md)：§3.3 迁移与数据库口径 / §10 运行时与部署
 - 代码锚点：`apps/platform/server/services/queue/queue.service.ts`、`scan-worker.ts`、`scan-queue.ts`、`apps/platform/server/services/executor/container-executor.ts`、`apps/platform/server/plugins/stale-cleanup.ts`
-- 规划：`docs/plan/roadmap.md` §M38（本稿为 M38 首个交付，实施条目待本稿定稿后按类型平衡补齐）
+- 规划：`docs/plan/roadmap.md` §M38（2026-10-09 已闭环归档，见 [todo-archive.md §M38](../../plan/todo-archive.md#m38-平台执行模型隔离m381m386-全部已闭环--2026-10-09-归档)）+ [platform.md §10.5 / §10.6](../../standards/platform.md)

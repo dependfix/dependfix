@@ -45,6 +45,7 @@
 | M35: 批量运行终态兜底对账 + 进度可见性修复 | 周期兜底对账服务 + 写回逻辑收敛 + `finishedAt` 真实化 + sync 立即终结 + 前端口径修正 + 存量订正脚本 + 设计口径同步 | P2-P3 | 已完成（[todo-archive.md §M35](todo-archive.md#m35-批量运行终态兜底对账--进度可见性修复m351m356-全部已闭环--2026-10-02-归档)；2026-10-02 归档） |
 | M36: 治理债清仓 + 可观测性与测试稳定性 | C81 孤立规划编号存量清理（分批）+ 文档陈旧状态清理 + BatchRun 写回竞态收敛 + 告警源可审计性判据 + api-i18n e2e 顺序偶发 + dependfix-platform 镜像体积治理 + pnpm overrides key 语义归一化 + Docker 首次启动数据库初始化与部署文档 + 扫描队列孤儿 job 释放 + 队列消费者维度自动降级 | P1-P3 | 已完成（[todo-archive.md §M36](todo-archive.md#m36-治理债清仓--可观测性与测试稳定性m361m3610-全部已闭环--2026-10-05-归档)；2026-10-05 归档） |
 | M37: 运行可观测性与体验记忆 | 运行失败分类与筛选 + 落库回填（failureStage / failureKind，不含重试入口）+ 扫描 / 批量扫描偏好记忆（方案 C 混合）+ BatchRun 写回与告警源错误信号残余治理 + caomei-ui 版本口径同步 + 孤立编号检测脚本接入 CI 门禁 + 目标仓库 git hooks 隔离 | P1-P3 | 已完成（2026-10-06 用户决策方案 B + 同日授权追加 M37.6；2026-10-08 已闭环归档，见 [todo-archive.md §M37](todo-archive.md#m37-运行可观测性与体验记忆m371m376-全部已闭环--2026-10-08-归档)） |
+| M38: 平台执行模型隔离 | BullMQ sandboxed processor 执行隔离（治本）+ Worker 锁参数显式化与 stalled/error 观测（止血）+ `scan.post` failover 透传 reuse + e2e 全页卡片计数断言解耦 + `scan-queue.ts` 注释 jobId 口径订正 + schedule 表单复用 scan-options 口径 | P1-P3 | 进行中（2026-10-06 用户授权 / 2026-10-08 设计先行稿定稿 + 正式规划；实施条目见 [todo.md §M38](todo.md)） |
 
 > **本路线图定位**：按 [规划规范 §2.1](../standards/planning.md) 仅维护阶段概览（目标 / 优先级 / 状态）。详细实施记录 / commit 引用 / 关键决策 / 经验教训见对应归档段（详见下方"## 详细任务"索引）。
 
@@ -651,27 +652,44 @@ per-alert 模型 + reconcile + API 简化 + UI 调整 + backfill 脚本。5 子�
 
 ---
 
-## M38: 平台执行模型隔离（2026-10-06 用户授权 / 设计先行稿先行）
+## M38: 平台执行模型隔离（2026-10-06 用户授权 / 2026-10-08 设计先行稿定稿 + 正式规划）
 
-承接 M37 之外的独立治理阶段。2026-10-06 用户基于生产运行日志根因分析明确授权**开独立阶段**——消除平台 in-process BullMQ worker 因引擎同步子进程调用阻塞主线程 event loop 导致的 `could not renew lock` / `Missing lock (code -2)`（锁过期 → job 被判 stalled 重排 → 潜在重复执行）。与 M37 阶段边界「不引入新执行后端」互斥，故独立成阶段；来源候选见 [backlog.md §待上收候选](backlog.md) 2026-10-06 上收批次说明。
+承接 M37 之外的独立治理阶段。2026-10-06 用户基于生产运行日志根因分析明确授权**开独立阶段**——消除平台 in-process BullMQ Worker 因引擎同步子进程调用阻塞主线程 event loop 导致的 `could not renew lock` / `Missing lock (code -2)`（锁过期 → job 被判 stalled 重排 → 潜在重复执行）。与 M37 阶段边界「不引入新执行后端」互斥，故独立成阶段；来源候选见 [backlog.md](backlog.md) 2026-10-06 上收批次说明。
 
-**首个交付（P 阶段先行）**：方案 ①/②/③ 选型设计先行稿，落于 `docs/design/governance/`（跨模块 + 执行模型变更，触发设计文档硬阈值）——① Worker 改用 BullMQ sandboxed processor（独立子进程承载 job）；② A 模式改为以独立子进程执行引擎（复用既有 executor 抽象）；③ 缓解（显式提高 `lockDuration` + 注册 worker `error` / `stalled` 监听，仅治标）。
+**设计先行交付**：[executor-process-isolation.md](../design/governance/executor-process-isolation.md)（2026-10-08 定稿；跨模块 + 执行模型变更，触发设计文档硬阈值）——根因链 7 环证据锚点 + 三方案对比（① BullMQ sandboxed processor / ② 独立子进程执行引擎 / ③ `lockDuration` 与 stalled / error 观测缓解）+ 推荐路径 + 决策点。
 
-**阶段边界（不做什么）**：不改引擎修复 / 验证业务语义；不改 `/api/runs` 等接口契约；不做执行器整体重构；不把引擎全部同步调用改异步（大范围改造，改由进程隔离兜底）；不在本阶段内改动 M37 交付面。
+**6 原子条目**（覆盖 🛡️ 2 + 🛠️ 1 + 🧪 1 + 📚 1 + 🎨 1，整体符合 [规划规范 §1.1 L12 类型平衡原则](../standards/planning.md#11-硬性约束)；UX 独立条目 1 项，低于建议值 2，缺口已显式标注）：
 
-**实施条目与类型平衡**：待设计先行稿定稿后按 [§1.1](../standards/planning.md#11-硬性约束) 类型平衡原则补齐；当前**未定义原子条目**，不进入 `todo.md` §当前阶段——M37 收口后再按 §3.4 三重交叉核验走启动批次登记。**本段为授权登记（非 [§1.2](../standards/planning.md#12-阶段归档流程) 正式规划）**：M37 归档未完成前不开 M38 正式规划，仅保留授权决策与设计先行入口。
+- **M38.1** [P1 🛡️ 可靠性] BullMQ sandboxed processor 执行隔离（2 子任务 a/b；治本）
+- **M38.2** [P2 🛠️ 可观测性] Worker 锁参数显式化与 stalled / error 事件观测（止血 + 对照基线）
+- **M38.3** [P3 🛡️ 缺陷修复] `scan.post` 队列 failover 降级未透传 `reuse`
+- **M38.4** [P3 🧪 测试基建] e2e 全页卡片计数断言与页面卡片集合变更解耦
+- **M38.5** [P3 📚 文档] `scan-queue.ts` 文件头注释 jobId 口径订正
+- **M38.6** [P3 🎨 用户体验] schedule 表单与 run-view 复用扫描选项口径
 
-**关键依据 anchor**（2026-10-06 执行角色实证；设计稿须逐条引用可复现证据）：`apps/platform/server/services/executor/container-executor.ts:284`（同进程 `await withTimeout(app.run(), ...)`）+ `packages/engine/src/fixers/dependency/overrides-io.ts:22` / `packages/engine/src/fixers/pnpm/index.ts:81/144/337` / `packages/engine/src/github/pr-creator.ts:189-238`（同步子进程调用；`rg -n "execSync\(|execFileSync\(" packages/engine/src --glob '!*.test.ts'` 计 18 处）+ `apps/platform/server/services/queue/scan-worker.ts:59-62`（Worker 无 `lockDuration` / sandboxed processor）+ `bullmq@6.3.11` 默认 `lockDuration=30000` / `lockRenewTime=15000`（主线程 `setTimeout` 驱动）+ 生产 `[stale-cleanup]` 5 分钟节拍漂移 2~3 倍实证（`apps/platform/server/plugins/stale-cleanup.ts:124`）。
+**关键决策 D1-D3**（2026-10-08 用户裁定）：
 
-> 详细任务与 8 要素待设计先行稿定稿后登记；上一阶段（M37）已闭环归档，见 [todo-archive.md §M37](todo-archive.md#m37-运行可观测性与体验记忆m371m376-全部已闭环--2026-10-08-归档)。
+- **D1**：主线方案选型 = 方案 ①（BullMQ sandboxed processor）为主线 + 方案 ③（锁参数与 stalled / error 观测）阶段内止血。
+- **D2**：方案 ②（独立子进程执行引擎）登记 backlog 长期演进候选——隔离最强，但依赖当前未闭环的自包含 subprocess 入口（[executor-sandbox.md §7.2](../design/governance/executor-sandbox.md) 已登记缺口），本阶段不实施。
+- **D3**：条目容量控制 5-6 项——上收 4 项 backlog 候选（`scan.post` failover / e2e 卡片计数 / `scan-queue.ts` 注释 / schedule 选项口径），移出 2 项（`distill-wisdom` 计数假阴性 / `tech-stack` 依赖表行级不一致）留 backlog。
+
+**类型平衡复核**：🛡️ 技术债与可靠性 2（M38.1 / M38.3）/ 🛠️ 可观测性 1（M38.2）/ 🧪 测试基建 1（M38.4）/ 📚 文档 1（M38.5）/ 🎨 用户体验 1（M38.6）；UX 独立条目 1 项低于建议值 2，显式标注缺口。
+
+**范围边界（不做什么）**：不改引擎修复 / 验证业务语义；不改 `/api/runs` 等接口契约；不做执行器整体重构；不把引擎全部同步调用改异步（大范围改造，改由进程隔离兜底）；不在本阶段内改动 M37 交付面；不引入本设计未选定的新执行后端。
+
+**§3.4 交叉核验**：4 项上收候选经 todo-archive 表格扫描 + git log + 代码 anchor 三重核验，**0 项重复评估**（逐项结论见 [todo.md §M38](todo.md) 阶段定位段）；M38 编号由用户 2026-10-06 授权开阶段（[§3.4](../standards/planning.md#34-阶段启动决策前置交叉核验硬要求m271-重复评估教训--2026-09-10) 承认的「用户直接决策」路径，非 [§3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 插队例外）。
+
+**ahead commits 实证**：阶段启动前 `git rev-list HEAD ^origin/master --count` 实测 = 2（CI E2E 修复 2 提交待推送；后续设计稿等提交使 ahead 递增，以 `git rev-list` 实时实测为准；M37 全流程 23 提交已由用户推送 `origin/master`，`git rev-list origin/master ^HEAD --count` = 0 双向核验）。
+
+> 详细任务与 8 要素见 [todo.md §M38](todo.md)（进行中）；上一阶段（M37）已闭环归档，见 [todo-archive.md §M37](todo-archive.md#m37-运行可观测性与体验记忆m371m376-全部已闭环--2026-10-08-归档)。
 
 ---
 
 ## 详细任务
 
-- 当前阶段任务：**无活跃阶段**——M37（运行可观测性与体验记忆）6 原子条目全部闭环并于 2026-10-08 归档；见 [todo-archive.md §M37](todo-archive.md#m37-运行可观测性与体验记忆m371m376-全部已闭环--2026-10-08-归档) 与 [todo.md](todo.md)
+- 当前阶段任务：**M38 平台执行模型隔离**（2026-10-06 用户授权 / 2026-10-08 设计先行稿定稿 + 正式规划，6 原子条目进行中）；见 [todo.md §M38](todo.md) 与上文 §M38
 - 已归档阶段：[todo-archive.md](todo-archive.md)（主窗口保留最近阶段完整段 + 指针段；M0-M37 全部已归档；早期阶段见 [archive/index.md](archive/index.md) 分片索引）
-- 下一阶段（已授权，设计先行，未进入 `todo.md`）：**M38 平台执行模型隔离**——2026-10-06 用户授权开阶段，首个交付为方案选型设计先行稿；见上文 §M38
+- 下一阶段（未授权）：无——M38 闭环后再按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 评估 backlog 候选池
 - 后续阶段任务（延期项 + 未排期增强候选）：[backlog.md](backlog.md)
 
 ## 交付原则

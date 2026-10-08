@@ -59,6 +59,8 @@
 
 ### 候选评估中（待评估 / 本阶段延后项）
 
+> **2026-10-08 M38 启动批次上收**：M38（平台执行模型隔离）设计先行稿定稿后正式规划，经用户决策从本区块上收 4 项候选——① `scan.post` failover 未透传 reuse → **M38.3**；② e2e 全页卡片计数断言解耦 → **M38.4**；③ `scan-queue.ts` 注释 jobId 口径 → **M38.5**；④ schedule 表单复用 `scan-options` 口径 → **M38.6**，按维护规则 5「短期候选正式上收阶段后从 backlog 移除」清出。`distill-wisdom` 计数假阴性与 `tech-stack` 依赖表行级不一致按条目容量控制（5-6 项）保留待评估。按 [规划规范 §3.4](../standards/planning.md#34-阶段启动决策前置交叉核验硬要求m271-重复评估教训--2026-09-10) 三重交叉核验 0 项重复评估（结论见 [todo.md §M38](todo.md)）。
+>
 > **2026-10-06 M37 启动批次上收（方案 B）**：本区块原有 6 项候选全部经用户决策上收至 M37 阶段（**M37 已于 2026-10-08 闭环归档**，见 [roadmap.md §M37](roadmap.md#m37-运行可观测性与体验记忆2026-10-06-用户决策方案-b--2026-10-08-已闭环--归档) + [todo-archive.md §M37](todo-archive.md#m37-运行可观测性与体验记忆m371m376-全部已闭环--2026-10-08-归档)），按维护规则 5「短期候选正式上收阶段后从 backlog 移除」清出：① 运行失败分类与筛选 → M37.1；② 扫描 / 批量扫描记住上次选择 → M37.2；③ 批量写回反向竞态与 stale-cleanup 无条件 save → M37.3；④ 详情 GET 瞬时不一致 → M37.3；⑤ 部分源失败汇总重复信号 → M37.3；⑥ caomei-ui 版本陈旧 → M37.4。另 M36.1 检测脚本未接入 CI 门禁（此前仅登记于 [archive/index.md §4 保留清单](archive/index.md)）随本批上收为 M37.5。按 [规划规范 §3.4](../standards/planning.md#34-阶段启动决策前置交叉核验硬要求m271-重复评估教训--2026-09-10) 三重交叉核验 0 项重复评估。
 >
 > 存量候选说明：更早批次（M36 方案 A）已随 2026-10-05 M36 归档批次完整闭环归档，见 [todo-archive.md §M36](todo-archive.md#m36-治理债清仓--可观测性与测试稳定性m361m3610-全部已闭环--2026-10-05-归档)。
@@ -72,16 +74,6 @@
   - **触发条件**：生产日志出现 `pre-push` 失败，或用户要求 push 侧一并隔离。
   - **按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
 
-- **scan.post 队列 failover 降级同步执行未透传 reuse（待评估）** —— M37.1 A 阶段审计的**范围外观察**（非本批引入）：`apps/platform/server/api/repos/[id]/scan.post.ts:110` 在入队失败降级 `runScanForRepository` 时只传 `{ runId: pendingRun.id }`，未透传 `reuse: true`；当本次请求走 `reuseScanRunId` 复用**终态** run（入队前校验允许）且 `queue.add` 失败时，orchestrator 的终态校验会抛「已处于终态」，与同步路径（`scan.post.ts:118-120` 显式透传 reuse）语义不一致。
-  - **待评估点**：① 线上可复现性（需「reuse 终态 run」+「queue.add 失败」叠加）；② 修复选型（failover 分支透传 `reuse: !!reuseExisting` vs orchestrator 放宽终态校验）。
-  - **触发条件**：生产日志出现 failover 降级 + 终态冲突报错；或用户要求。
-  - **按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
-
-- **schedule 表单与 run-view 复用扫描选项口径（待评估）** —— M37.2 A 阶段审计的**范围外 suggest**：`apps/platform/app/pages/schedules.vue` 仍内联模式 / 严重级别选项数组（与 `apps/platform/app/utils/scan-options.ts` 重复），`run-view.ts` 的 `runModeLabel` 为同源标签映射。M37.2 显式「不将偏好沿用至 schedule 默认」，故未纳入本批。
-  - **待评估点**：是否把 schedule 表单选项切到 `utils/scan-options.ts`（纯口径复用，不改计划默认值语义与表单行为）。
-  - **触发条件**：计划表单选项需变更（避免两处漂移）时，或用户要求统一。
-  - **按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
-
 - **tech-stack 平台依赖表与 `apps/platform/package.json` 行级不一致（待评估）** —— M37.4 同源复核发现：`docs/guide/tech-stack.md` 核心框架表按 `^X.x` 粗粒度声明平台依赖，但其中 `@lucide/vue` 行写 `^1.48`（声明为 `^1.49.0`，区间仍覆盖但口径不同步）；`pinia` / `@vueuse/core` / `@vueuse/nuxt` / `@sentry/nuxt` / `@vite-pwa/nuxt` 5 行在 `apps/platform/package.json` 与 `nuxt.config.ts` 模块列表中**均无对应声明与引用**（疑似模板期占位行）。M37.4 范围仅限 caomei-ui 版本口径（其余「不做什么」显式排除），故未在本批处理。
   - **待评估点**：① 逐行核对整表与 `package.json` / `nuxt.config` 的对应关系；② 删除无引用行 vs 补声明（若确为规划中的能力）；③ 是否统一为「不写具体版本号，指向 package.json」以减少同类漂移。
   - **触发条件**：依赖变更需要核对文档时；或用户要求清理文档依赖表。
@@ -92,18 +84,7 @@
   - **触发条件**：下次 session 写入活跃条目时（沿用日期+类型写法即复现）；或用户要求加固脚本。
   - **按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
 
-- **e2e 全页卡片计数断言与页面卡片集合变更解耦（待评估）** —— CI E2E job 失败复盘发现（run 37661730922，head `5a5c99b`）：`apps/platform/tests/e2e/admin.e2e.test.ts` 的「个人设置 › N 张卡片渲染」以全页 `.caomei-card` 计数断言锁定卡片集合，`settings.vue` 新增扫描偏好卡片后计数由 6 变 7，该用例确定性失败（连续重试均解析出 7 个元素，排除偶发；同文件其余用例全部通过，排除页面重复渲染缺陷）。**同一模式第 2 次复发**：上次为 `<ai-config-form>` 挂载时的卡片断言由 5 改 6。
-  - **待评估点**：① 全页计数断言 vs 逐卡片标题清单断言——新增卡片属正常能力演进，是否应让用例变红；删除 / 替换卡片必须变红；② 是否增设静态门禁（沿用 `check:orphan-ids` 的「脚本 + CI 步骤」形态，在页面卡片增删时提示同步 e2e 断言）；③ 适用范围是否推广至 dashboard 区域计数断言（该处已按 `.dashboard__stats` / `.dashboard__charts` 作用域收敛，脆弱度低于全页计数）。
-  - **现状锚点**：`apps/platform/tests/e2e/admin.e2e.test.ts` 的「个人设置」describe（本次同步修复见 commit `5ba3bad`）。
-  - **触发条件**：同类失同步再次发生（第 3 次）；或用户要求治理 e2e 断言脆弱性。
-  - **按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
-
-- **`scan-queue.ts` 文件头注释 jobId 口径与实现不一致（待评估）** —— M38 设计先行稿 A 阶段审计发现的**范围外预存**问题：`apps/platform/server/services/queue/scan-queue.ts:3` 文件头注释写 `jobId = scan:{repositoryId}`（冒号），而实际 `buildScanJobId`（`queue-mode.ts:73`）= `scan-<repositoryId>`（连字符；BullMQ 6 自定义 jobId 禁止包含冒号）。仅注释与实现口径不一致，无行为影响。
-  - **待评估点**：注释订正为连字符口径（单行修正）；是否顺带核查同文件其他注释口径。
-  - **触发条件**：下次触碰 `scan-queue.ts` 时；或用户要求清理队列层注释口径。
-  - **按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
-
-> 本区块保留 M37 执行期延后项（受约束重试入口 / 服务端跨设备偏好）+ M37.1~M37.6 审计与复核衍生的待评估候选 + 归档批次反思候选（`distill-wisdom` 计数假阴性）+ CI 失败复盘衍生候选（e2e 全页卡片计数断言解耦）+ M38 设计先行稿审计衍生候选（`scan-queue.ts` 注释口径）；M37 启动前原有 6 项候选已全部上收并随 M37 闭环归档（见上方批次说明）。
+> 本区块保留 M37 执行期延后项（受约束重试入口 / 服务端跨设备偏好）+ 审计与复核衍生的待评估候选（push 侧 hooks 隔离 / tech-stack 依赖表行级不一致 / `distill-wisdom` 计数假阴性）；2026-10-08 M38 启动批次已上收 4 项（`scan.post` failover / e2e 卡片计数 / `scan-queue.ts` 注释 / schedule 选项口径），M37 启动前原有 6 项已随 M37 闭环归档（见上方批次说明）。
 
 ### 待上收候选（评估完成，等待用户决策）
 
@@ -247,9 +228,9 @@
 
 | 内容类型 | 位置 |
 |:--|:--|
-| 当前阶段活跃任务 | **无活跃阶段**——M37（运行可观测性与体验记忆）6 原子条目全部闭环并于 2026-10-08 归档，见 [todo-archive.md §M37](todo-archive.md#m37-运行可观测性与体验记忆m371m376-全部已闭环--2026-10-08-归档)；[todo.md](todo.md) 为占位态 |
-| 下一阶段（已授权，设计先行） | [roadmap.md §M38](roadmap.md)（**M38 平台执行模型隔离**——2026-10-06 用户授权开阶段；首个交付为方案选型设计先行稿，实施条目待定，未进入 `todo.md`） |
+| 当前阶段活跃任务 | **M38 平台执行模型隔离** 进行中——2026-10-06 用户授权 / 2026-10-08 设计先行稿定稿 + 正式规划，6 原子条目；见 [todo.md §M38](todo.md) |
+| 下一阶段（未授权） | 无——M38 闭环后再按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 评估本文档候选池 |
 | 已完成阶段归档 | [todo-archive.md](todo-archive.md)（主窗口保留最近阶段完整段 + 指针段；M0-M37 已归档；早期阶段见 [archive/](archive/)） |
-| 里程碑与阶段交付 | [roadmap.md](roadmap.md)（M0-M37 已归档；M38 已授权、设计先行） |
+| 里程碑与阶段交付 | [roadmap.md](roadmap.md)（M0-M37 已归档；M38 进行中） |
 | 长期主线 / 候选 / 待人工验收 / 已知边界 | 本文档（按四象限结构） |
 | 历史归档索引 | [archive/index.md](archive/index.md) |

@@ -93,6 +93,9 @@ describe('getQueueService', () => {
         expect(createScanQueue).not.toHaveBeenCalled()
         expect(createScanWorker).not.toHaveBeenCalled()
         expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('自动模式降级同步'))
+        // 降级提示须指向两条可用路径（单进程 in-process / 容器独立 worker 进程）
+        expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('未启用独立 worker 进程'))
+        expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('DEPENDFIX_QUEUE_WORKER=1'))
     })
 
     it('keeps async (with warn) when QUEUE_ENABLED=true forces async without in-process worker', async () => {

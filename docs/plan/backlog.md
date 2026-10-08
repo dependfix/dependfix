@@ -84,7 +84,17 @@
   - **触发条件**：下次 session 写入活跃条目时（沿用日期+类型写法即复现）；或用户要求加固脚本。
   - **按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
 
-> 本区块保留 M37 执行期延后项（受约束重试入口 / 服务端跨设备偏好）+ 审计与复核衍生的待评估候选（push 侧 hooks 隔离 / tech-stack 依赖表行级不一致 / `distill-wisdom` 计数假阴性）；2026-10-08 M38 启动批次已上收 4 项（`scan.post` failover / e2e 卡片计数 / `scan-queue.ts` 注释 / schedule 选项口径），M37 启动前原有 6 项已随 M37 闭环归档（见上方批次说明）。
+- **队列 worker 进程按 role 跳过周期插件（待评估）** —— M38.1 独立 worker 进程形态的已知边界：worker 与 HTTP 进程共享同一 Nitro 产物，会重复启动 `stale-cleanup` / 启动期备份等周期插件（均幂等，代价为重复 DB 查询与日志）。
+  - **待评估点**：引入 `DEPENDFIX_ROLE`（server / worker）让 worker 跳过 HTTP-only 插件；或按 `inProcessWorker` 条件跳过（注意单进程形态下该值为 true，不能跳过）。
+  - **触发条件**：周期插件重复造成可观测噪声或资源浪费时；或用户要求。
+  - **按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
+
+- **队列 worker 进程崩溃自动重启（待评估）** —— M38.1 独立 worker 进程形态的已知边界：worker 为容器内后台进程（entrypoint `&`），崩溃后无自动重启，队列任务由 `stale-cleanup` 兜底（窗口约 30 分钟）。
+  - **待评估点**：entrypoint 侧看护循环（等待后拉起）；或改用进程管理器（s6-overlay / supervisord）；或拆为多容器 + `restart: unless-stopped`（需 DB 支持多写者）。
+  - **触发条件**：出现 worker 崩溃导致任务挂起实例；或用户要求。
+  - **按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
+
+> 本区块保留 M37 执行期延后项（受约束重试入口 / 服务端跨设备偏好）+ 审计与复核衍生的待评估候选（push 侧 hooks 隔离 / tech-stack 依赖表行级不一致 / `distill-wisdom` 计数假阴性）+ M38.1 独立 worker 形态衍生候选（按 role 跳过周期插件 / worker 崩溃自动重启）；2026-10-08 M38 启动批次已上收 4 项（`scan.post` failover / e2e 卡片计数 / `scan-queue.ts` 注释 / schedule 选项口径），M37 启动前原有 6 项已随 M37 闭环归档（见上方批次说明）。
 
 ### 待上收候选（评估完成，等待用户决策）
 

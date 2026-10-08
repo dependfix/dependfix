@@ -462,7 +462,7 @@ fixtures.delete / fixtures.post 在双门控通过后调用 `fixturesRateLimit()
 ### 10.4 队列模式自动降级必须含「消费者维度」
 
 - 「Redis 可用即异步」的降级矩阵若不含「是否存在消费者」，会形成静默黑洞：job 入队后无人消费 → pending 永远挂起 → stale cleanup 约 30 分钟后判 `orphan_run`，重触发被 BullMQ 去重键合并为 `SCAN_PENDING_MERGED`。
-- `auto` 模式**必须**仅在「Redis 可用**且**本进程消费队列（`inProcessWorker`）」时异步；单容器唯一消费者是进程内 worker，独立 worker 进程未实现时 `inProcessWorker=false` 没有合法消费者，须降级 `sync`。
+- `auto` 模式**必须**仅在「Redis 可用**且**本进程消费队列（`inProcessWorker`）」时异步；本进程不消费且无独立 worker 进程消费时须降级 `sync`（容器默认形态由独立 worker 进程消费，见 [§10.6](#106-队列执行进程隔离独立-worker-进程)——该形态应显式 `QUEUE_ENABLED=true`，`auto` 会因本进程不消费而降级）。
 - **env 口径**：Nuxt runtimeConfig 运行时覆盖只认 `NUXT_` 前缀，容器需 `NUXT_IN_PROCESS_WORKER`；`.env.example` 的无前缀 `IN_PROCESS_WORKER` 只是 compose 插值源，直接注入容器无效。
 
 ### 10.5 队列锁参数显式化与锁问题观测
@@ -480,7 +480,7 @@ fixtures.delete / fixtures.post 在双门控通过后调用 `fixturesRateLimit()
 - **Redis 不可用**：两进程各自按 [§10.4](#104-队列模式自动降级必须含消费者维度) 降级矩阵降级 `sync`（可用性优先）——此时 HTTP 进程同步执行扫描（既有行为，不劣化）。
 - **向后兼容与回退**：入口层不设 `DEPENDFIX_QUEUE_WORKER` 时默认 `0`（保持单进程，行为与既有一致）；`docker-compose.yml` 默认设 `QUEUE_WORKER=1`（治本默认启用），设 `QUEUE_WORKER=0` 可回退单进程；`NUXT_QUEUE_ENABLED=false`（强制同步）时入口跳过 worker 进程启动并输出 warn。
 - **非容器形态**：本地 `pnpm dev` 与自定义 `node .output/server/index.mjs` 不经过 entrypoint，仍用进程内 worker（`NUXT_IN_PROCESS_WORKER=true`），不受影响。
-- **已知边界**：① 两进程共享 SQLite（多进程写）——依赖 WAL + `busy_timeout`（见 [§3.3 DataSource 初始化](#33-datasource-初始化)）；② worker 进程重复启动周期插件（`stale-cleanup` / 启动期备份，均幂等，代价为重复查询）；③ worker 进程崩溃无自动重启（容器内后台进程），队列由 `stale-cleanup` 兜底。
+- **已知边界**：① 两进程共享 SQLite（多进程写）——WAL + `busy_timeout` 由 `server/database/index.ts` 的 DataSource 初始化落地（`PRAGMA journal_mode = WAL` + `busy_timeout = 5000`）；② worker 进程重复启动周期插件（`stale-cleanup` / 启动期备份，均幂等，代价为重复查询）；③ worker 进程崩溃无自动重启（容器内后台进程），队列由 `stale-cleanup` 兜底；④ **空库首启时序**：worker 先于主进程迁移完成启动且自身 `DATABASE_MIGRATIONS_RUN=false`，其插件首次查询可能命中未建表——由 `stale-cleanup` 首跑 30 秒延迟 + 幂等重试承担，影响窗口为迁移完成前数秒。
 
 ## 11. 环境变量总表（.env.example 对齐）
 

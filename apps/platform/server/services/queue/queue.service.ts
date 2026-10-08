@@ -50,8 +50,8 @@ export const getQueueService = async (): Promise<QueueService> => {
         } else if (probe.reason === 'version_too_old') {
             console.warn(`[queue] Redis 版本 ${probe.version} 低于 BullMQ 要求的 5.0，降级同步执行（可用性优先）`)
         } else if (enabled === 'auto' && redisAvailable && !inProcessWorker) {
-            // 消费者维度自动降级：Redis 可用但本进程不消费队列，且当前阶段无独立 worker 进程可消费
-            console.warn('[queue] 自动模式降级同步：Redis 可用但未启用进程内 worker（NUXT_IN_PROCESS_WORKER=true），当前阶段无独立 worker 进程消费队列；如需异步请设 NUXT_IN_PROCESS_WORKER=true')
+            // 消费者维度自动降级：Redis 可用但本进程不消费队列，且未启用独立 worker 进程
+            console.warn('[queue] 自动模式降级同步：Redis 可用但本进程不消费队列（NUXT_IN_PROCESS_WORKER 未启用），且未启用独立 worker 进程；如需异步请设 NUXT_IN_PROCESS_WORKER=true（单进程），或容器设 DEPENDFIX_QUEUE_WORKER=1 由入口启动独立 worker 进程（见 platform.md §10.6）')
         }
         // 同步模式：不创建队列（探测连接已在 probeRedis 内断开）
         scope[GLOBAL_QUEUE_KEY] = {

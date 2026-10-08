@@ -87,9 +87,15 @@ MAIN_PID=""
 run_platform() {
     prefix="$1"; shift
 
-    if [ "$WORKER_ENABLED" = "1" ] && [ "${NUXT_QUEUE_ENABLED:-auto}" = "false" ]; then
-        echo "warn: DEPENDFIX_QUEUE_WORKER=1 与 NUXT_QUEUE_ENABLED=false（强制同步）冲突，跳过独立 worker 进程" >&2
-        WORKER_ENABLED=0
+    if [ "$WORKER_ENABLED" = "1" ]; then
+        # 冲突判定归一化（容忍大小写与 0/false 变体），避免变体未被识别时静默改为 async
+        QUEUE_ENABLED_NORM="$(printf '%s' "${NUXT_QUEUE_ENABLED:-auto}" | tr '[:upper:]' '[:lower:]')"
+        case "$QUEUE_ENABLED_NORM" in
+            false|0)
+                echo "warn: DEPENDFIX_QUEUE_WORKER=1 与 NUXT_QUEUE_ENABLED=$NUXT_QUEUE_ENABLED（强制同步）冲突，跳过独立 worker 进程" >&2
+                WORKER_ENABLED=0
+                ;;
+        esac
     fi
 
     if [ "$WORKER_ENABLED" != "1" ]; then
@@ -117,8 +123,9 @@ run_platform() {
 
     # 容器停止：PID 1 为本 shell，需把信号转发给两个子进程
     trap 'kill -TERM "$MAIN_PID" 2>/dev/null || true; kill -TERM "$QUEUE_WORKER_PID" 2>/dev/null || true' TERM INT
-    wait "$MAIN_PID"
-    STATUS=$?
+    # set -e 下 wait 非零会中断脚本，须用 || 捕获退出码——否则下方 worker 清理成为不可达死代码
+    STATUS=0
+    wait "$MAIN_PID" || STATUS=$?
     kill -TERM "$QUEUE_WORKER_PID" 2>/dev/null || true
     exit "$STATUS"
 }

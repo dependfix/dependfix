@@ -66,18 +66,18 @@
   - **依赖**：M37.1 A 阶段审计范围外观察记录；M16.2 C66-D（reuse 参数引入，`5b81142` + `d656dc3`）。
   - **交付物**：实际 **1 commit**；文件 2（`scan.post.ts` + 单测）——与预估一致；**mutation 核验**：移除降级路径的 reuse 透传 → 2 failed（新用例 + 既有 failover 断言），还原后 15 passed。
   - **风险与缓解措施**：透传后复用终态 run 语义需与 worker 路径一致 → 用例与既有同步路径 / 入队成功路径断言构成三路同源覆盖；同根因调用点已穷举（`batch-executor` 无 reuse 语义、`scan-worker` 由 job data 透传）。
-- **M38.4**（P3，🧪 测试基建）e2e 全页卡片计数断言与页面卡片集合变更解耦
+- **M38.4**（P3，🧪 测试基建）e2e 全页卡片计数断言与页面卡片集合变更解耦 —— **已闭环**
   - **目标**：消除「个人设置」e2e 全页 `.caomei-card` 计数断言随页面卡片集合正常演进而确定性失败（已 2 次复发：5→6、6→7），使**新增卡片为绿、删除 / 替换既有卡片为红**。
   - **优先级**：P3
-  - **范围**：`apps/platform/tests/e2e/admin.e2e.test.ts`（「个人设置」describe 的全页计数断言改为逐卡片语义化抽样或作用域收敛，保留卡片集合变更的检出能力）。
+  - **范围**：`apps/platform/tests/e2e/admin.e2e.test.ts`（「个人设置」describe：`7 张卡片渲染` → `设置页各功能卡片渲染`，全页计数断言改为逐卡片标题清单断言，断言限定 `.caomei-card__title`）。
   - **验收标准**：
-    - [ ] 新增卡片场景断言保持通过；删除 / 替换既有卡片场景断言必报红
-    - [ ] mutation 标定：删除一张卡片 → 用例失败；新增一张卡片 → 用例通过
-    - [ ] `pnpm --filter @dependfix/platform exec playwright test --workers=1` 全过（CI 等价）
+    - [x] 新增卡片场景断言保持通过；删除 / 替换既有卡片场景断言必报红（mutation 双向标定见下）
+    - [x] mutation 标定：临时删除「语言偏好」卡片 + 重建 `.output` → 定向 e2e **1 failed**（断言在 `.toHaveCount(1)` 处失败）；临时新增 `mutation probe card` + 重建 → 定向 e2e **1 passed**；两次均从备份还原
+    - [x] e2e 全量（本地 CI 等价：`--workers=1` + 临时 config 绕开本机 `pnpm exec` store hash 问题，跑后删除）→ `admin.e2e.test.ts` **18 passed**
   - **不做什么**：不改 dashboard 区域计数断言（已按 `.dashboard__stats` / `.dashboard__charts` 作用域收敛，脆弱度低）；不新增静态门禁（本次仅断言形态改造）。
   - **依赖**：`5ba3bad`（本轮同步修复）+ `f48bb74`（候选登记）+ `be74d21`（首次复发）。
-  - **交付物**：1 commit；文件 1（`admin.e2e.test.ts`）。
-  - **风险与缓解措施**：语义化抽样可能遗漏"卡片被替换"场景 → mutation 标定「删除必红 / 新增必绿」双向。
+  - **交付物**：实际 **1 commit**；文件 1（`admin.e2e.test.ts`）——与预估一致；`.output` 重建用于取证，为 gitignored 产物。
+  - **风险与缓解措施**：语义化抽样可能遗漏「卡片被替换」场景 → mutation 双向标定（删除必红 / 新增必绿）；标题清单为「必须包含」语义（新增卡片不入清单也不报红）；`filter({ hasText })` 子串误匹配 → 断言限定标题元素（`.caomei-card__title`），7 个标题经审计核对两两非子串；`.caomei-card__title` 为 caomei-ui 内部 class（与旧 `.caomei-card` 同属内部耦合，fail-closed 可接受；库若提供语义属性可再降耦）。
 - **M38.5**（P3，📚 文档）`scan-queue.ts` 文件头注释 jobId 口径订正
   - **目标**：修正 `scan-queue.ts` 文件头注释 `jobId = scan:{repositoryId}`（冒号）与实际 `buildScanJobId` = `scan-<repositoryId>`（连字符）的不一致，消除误导。
   - **优先级**：P3

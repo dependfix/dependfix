@@ -41,19 +41,19 @@
   - **依赖**：[executor-process-isolation.md §2.1 + §5 验证计划](../design/governance/executor-process-isolation.md)（2026-10-08 定稿）；M38.2（观测先行，提供对照基线）；BullMQ 官方 [Sandboxed processors](https://docs.bullmq.io/guide/workers/sandboxed-processors) 文档。
   - **交付物**：预期 3-4 commits（processor 入口 + Worker 接线 / 打包路径实证 / 上下文初始化 + 回传 + 回归 / 闭环登记）；预估 **5-8 文件 / ~350-550 行**（新领域 + 跨模块骨架任务，超 [规划规范 §1.1 任务粒度约束](../standards/planning.md#11-硬性约束)「> 5 文件即考虑拆分」线）→ 故拆 a（接线 + 打包路径）/ b（运行时 + 回传 + 回归），两子任务各有独立验收点与提交批次；文档 `platform.md` 队列执行拓扑口径 + 设计稿状态更新。
   - **风险与缓解措施**：① Nitro `.output` 打包路径解析为本条最大不确定点 → D 阶段前置实证（§5.1，先跑通单条链路再批量）；② 子进程 DB / Redis 连接数增加 → 单容器部署可接受 + BullMQ 每 Worker 复用子进程池；③ 子进程冷启动成本 → 每 Worker 一次而非每 job 一次。
-- **M38.2**（P2，🛠️ 可观测性）Worker 锁参数显式化与 stalled / error 事件观测
-  - **目标**：把 BullMQ 隐式默认锁参数显式化并对齐执行器超时，补齐 `stalled` / `error` 事件监听与结构化日志，把"静默锁过期"变为可告警事件（方案 ③ 止血，兼作 M38.1 对照基线）。
+- **M38.2**（P2，🛠️ 可观测性）Worker 锁参数显式化与锁问题事件观测 —— **已闭环**
+  - **目标**：把 BullMQ 隐式默认锁参数显式化并对齐执行器超时，补齐锁问题事件监听与结构化日志，把"静默锁过期"变为可告警事件（方案 ③ 止血，兼作 M38.1 对照基线）。
   - **优先级**：P2
-  - **范围**：`apps/platform/server/services/queue/scan-worker.ts`（Worker 选项显式 `lockDuration` / `lockRenewTime` + `worker.on('stalled')` / `worker.on('error')` 结构化日志）+ `apps/platform/server/services/queue/scan-worker.test.ts`（事件注册与日志载荷用例）+ `docs/standards/platform.md`（队列执行拓扑与锁参数口径）。
+  - **范围**：`apps/platform/server/services/queue/scan-worker.ts`（`SCAN_WORKER_LOCK_OPTIONS` 显式锁参数 + `stalled` / `lockRenewalFailed` / `error` 三事件 + 结构化日志 + 注入式 `getJob`）+ `scan-worker.test.ts`（事件注册与日志载荷用例）+ `scan-queue.ts` / `scan-queue.test.ts`（`ScanQueue.getJob` 暴露）+ `queue.service.ts` / `queue.service.test.ts`（注入 `queue.getJob`）+ `container-executor.ts`（抽取导出 `DEFAULT_EXECUTION_TIMEOUT_MS` 单一事实源）+ `docs/standards/platform.md §10.5` + `.github/skills/code-reviewer/references/code-quality-checklist.md`（检查点矩阵挂接）。
   - **验收标准**：
-    - [ ] `lockDuration` / `lockRenewTime` 显式配置，取值与 `ContainerExecutor.timeoutMs`（默认 30 分钟）对齐并注释理由
-    - [ ] `stalled` / `error` 事件注册并输出结构化日志（含 jobId / runId / 事件类型）
-    - [ ] 单测覆盖事件监听注册与日志载荷，经 mutation 核验非恒真
-    - [ ] `pnpm lint` + `pnpm typecheck` 0 error；平台 vitest 全过
+    - [x] `lockDuration` / `lockRenewTime` 显式配置（`SCAN_WORKER_LOCK_OPTIONS`，不再走 BullMQ 隐式默认 30 秒）；`lockDuration` 引用 `DEFAULT_EXECUTION_TIMEOUT_MS` 单一事实源（与执行器默认 30 分钟对齐，单测锁定）并注释理由与已知边界
+    - [x] `stalled` / `error` 事件注册并输出结构化日志；`stalled` / `lockRenewalFailed` 载荷含 `jobId` 并经注入 `queue.getJob` 补全 `runId`（未解析显式 `null`），`error` 载荷含 `event` / `message`（脱敏；job 上下文由配对 `lockRenewalFailed` 承载）；额外注册 `lockRenewalFailed`（`could not renew lock` 精确信号，合理扩展）
+    - [x] 单测覆盖事件监听注册与日志载荷（`server/services/queue/` 61 passed | 6 skipped）；mutation 3 项全击杀（`lockDuration` 退回 30s → 2 failed / 不注册 `stalled` → 1 failed / 去 `duplicateOf` → 1 failed）
+    - [x] `pnpm lint` 0 error / 0 warning；`pnpm typecheck` 7 包 Done；平台全量 vitest 115 files / 1618 passed | 9 skipped
   - **不做什么**：不引入外部告警系统集成（仅结构化日志）；不改 job 数据形状；不改队列降级矩阵语义。
   - **依赖**：[executor-process-isolation.md §2.3](../design/governance/executor-process-isolation.md)；`apps/platform/server/services/executor/container-executor.ts`（`timeoutMs` 默认 30 分钟）。
-  - **交付物**：1-2 commits；文件 3（`scan-worker.ts` / `scan-worker.test.ts` / `platform.md`）。
-  - **风险与缓解措施**：`lockDuration` 取值过大会拉长真崩溃时的 stalled 检测窗口 → 与执行器超时对齐 + 注释披露边界；M38.1 落地后 event loop 不再被业务阻塞，长 `lockDuration` 仅作兜底。
+  - **交付物**：实际 **2 commits**（实现 + 闭环登记）；文件 9 —— 超预估 3，扩展依据：`runId` 补全需 `ScanQueue.getJob` + `queue.service` 注入（2 文件）、单一事实源 `DEFAULT_EXECUTION_TIMEOUT_MS`（1 文件）、A 阶段审计 RG-B1 要求挂接 review 检查点（1 文件）；仍 < 10 文件拆分阈值。文档口径落 `platform.md §10.5`（锁参数显式化 / 锁问题观测 / 同根因去重）+ 检查点矩阵行扩为 `§10.3-§10.5`。
+  - **风险与缓解措施**：`lockDuration` 取值过大会拉长真崩溃时的 stalled 检测窗口 → 与执行器超时对齐 + 注释与文档披露边界；M38.1 落地后 event loop 不再被业务阻塞，长 `lockDuration` 仅作兜底；queue→executor 模块耦合（引用执行器常量）当前无环，M38.1 拆包时可评估抽独立 `constants.ts`。
 - **M38.3**（P3，🛡️ 缺陷修复）`scan.post` 队列 failover 降级未透传 `reuse`
   - **目标**：修正 `scan.post.ts` 入队失败降级同步执行时未透传 `reuse`，与同步路径 / worker 路径语义一致，消除「复用终态 run + `queue.add` 失败」叠加时的终态冲突报错。
   - **优先级**：P3

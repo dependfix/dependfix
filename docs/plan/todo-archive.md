@@ -52,6 +52,7 @@
 > **归档日期**：2026-10-09
 > **阶段摘要**：承接 M37 完整闭环归档后的独立治理阶段。2026-10-06 用户基于生产运行日志根因分析授权开阶段——消除平台 in-process BullMQ Worker 因引擎同步子进程调用阻塞主线程 event loop 导致的 `could not renew lock` / `Missing lock (code -2)`（锁过期 → job 被判 stalled 重排 → 潜在重复执行）。首个交付为方案 ①/②/③ 选型设计先行稿（[executor-process-isolation.md](../design/governance/executor-process-isolation.md)，2026-10-08 定稿）；经用户裁定方案 ① 为主线 + 方案 ③（锁参数与观测）阶段内止血。**M38.1 D 阶段前置实证发现方案 ①（BullMQ sandboxed processor）在本仓库 Nitro 单 bundle 构建体系下无法原样落地**（4 条硬事实：业务代码内联 `chunks/nitro/nitro.mjs` / 产物导入即顶层 listen / Nitro 无额外入口 / `packages/cli/dist` 不自包含；详见 [设计稿 §3.1](../design/governance/executor-process-isolation.md)），经用户再次裁定改用**方案 ①′（独立 worker 进程）**。**6 原子条目全部闭环**，覆盖 🛡️ 2 + 🛠️ 1 + 🧪 1 + 📚 1 + 🎨 1。
 >
+> - **设计先行稿 + 阶段启动规划**：`194a558`（executor-process-isolation.md 三方案选型）+ `8c5c71c`（阶段启动登记与上收）
 > - **M38.1** [P1 🛡️] 队列执行进程隔离（方案 ①′ 独立 worker 进程；entrypoint 双进程 + unix socket 收敛 + 迁移唯一执行者 + compose/env 接线）—— `e5412cd` + `374940b` + `f75cb81` + `d436992`
 > - **M38.2** [P2 🛠️] Worker 锁参数显式化与锁问题事件观测（`SCAN_WORKER_LOCK_OPTIONS` 引用 `DEFAULT_EXECUTION_TIMEOUT_MS` + `stalled`/`lockRenewalFailed`/`error` 结构化日志 + `ScanQueue.getJob` 注入 + 检查点矩阵挂接）—— `431e8ec` + `074e76d`
 > - **M38.3** [P3 🛡️] `scan.post` failover 降级透传 `reuse`（入队成功 / 同步 / 降级三路同源）—— `9f9d067` + `d92a301`

@@ -29,7 +29,7 @@
 | [Spec & Doc Governance Design](./spec-and-doc-governance.md) | Special design (doc governance boundary + modules/governance split + writing spec + implementation plan) | ✅ Landed (2026-09-09, G1 P-phase output) |
 | [Run Failure Taxonomy Design](https://github.com/dependfix/dependfix/blob/master/docs/design/governance/run-failure-taxonomy.md) | Special design (run failure stage classification + retry decision + filter / retry entry) | ✅ Landed (2026-10-07: classification + backfill + filter + display; constrained retry entry deferred) |
 | [Scan Preferences (device-level) Design](https://github.com/dependfix/dependfix/blob/master/docs/design/governance/scan-preferences.md) | Special design (device-level localStorage preferences: priority / write timing / SSR & testability) | ✅ Landed (2026-10-07, M37.2) |
-| [Platform Execution Model Isolation Design](https://github.com/dependfix/dependfix/blob/master/docs/design/governance/executor-process-isolation.md) | Special design (M38 design first: BullMQ lock renewal failure root cause + three-option selection) | 🔶 Design draft (2026-10-08, selection pending user decision) |
+| [Platform Execution Model Isolation Design](https://github.com/dependfix/dependfix/blob/master/docs/design/governance/executor-process-isolation.md) | Special design (M38 design first: BullMQ lock renewal failure root cause + three-option selection) | ✅ Landed (2026-10-09, M38 archived; option ①′ standalone worker process) |
 
 ## Usage conventions
 

@@ -30,14 +30,16 @@
   - **优先级**：P2
   - **范围**：`apps/platform/app/pages/scans.vue`（byRepo 表新增状态筛选 + 分页或上限 + 两表分区 / Tab 展示）；`apps/platform/server/api/scan-history/summary.get.ts`（新增状态查询参数 + 分页 / 上限口径）；`apps/platform/i18n/locales/{zh-CN,en-US}.json`；`apps/platform/tests/e2e/`（scans 用例）。
   - **验收标准**：
-    - [ ] `GET /api/scan-history/summary` 支持按 `lastStatus` 过滤（非法值返回 400），筛选后 `repositories` 与该状态的仓库集合一致（定向单测断言）
-    - [ ] byRepo 表不再一次性渲染全部仓库：实现分页或显式上限（口径与实现方式在 D 阶段前定稿并写入本条证据）
-    - [ ] 两表改 Tab 切换或等价分区展示；runs 表既有 状态 / 失败阶段 / 建议 三筛选与服务端分页语义不变（e2e 回归通过）
-    - [ ] i18n 双语 key parity（`pnpm run i18n:audit` 无新增差异）；新增筛选 / 分页 e2e 用例通过
-    - [ ] `pnpm lint` + `pnpm typecheck` 0 error；`pnpm --filter @dependfix/platform test`（定向）全过
+    - [x] `GET /api/scan-history/summary` 支持按 `lastStatus` 过滤（非法值 400）；过滤作用于**聚合结果**（每个仓库最近一次运行状态），筛选后 `repositories` 与全量中该状态的集合**精确相等**（定向单测：集合一致性 + 专用仓库前置 + `totals` / `window` 不受影响 + `repositoryId` 组合 AND）
+    - [x] byRepo 表不再一次性渲染全部仓库：**口径定稿 = 客户端分页**（受控 `page` / `rows`，默认 10、可选 10/25/50）；聚合列表窗口有界（≤ 500 run），无需服务端分页
+    - [x] 两表改 **CaomeiTabs** 分区（「全部运行」/「按仓库」，默认「全部运行」）；runs 表既有 状态 / 失败阶段 / 建议 三筛选与服务端分页语义不变（全量 e2e 180 passed 回归通过）
+    - [x] i18n 双语 key parity（`pnpm run i18n:audit`：Missing parity 0）；新增筛选 / 分页 e2e 用例通过（scans case 5）
+    - [x] `pnpm lint`（0 error）+ `pnpm typecheck`（7 包 Done）0 error；`pnpm --filter @dependfix/platform test` 全量 1628 passed | 9 skipped
+  - **D 阶段决策留痕（2026-10-09，用户裁定）**：① byRepo 分页 = **客户端分页**（不引入服务端 page/total，API 形状最小）；② 两表布局 = **CaomeiTabs 分区、默认「全部运行」**（与既有首屏 e2e 语义一致）；③ 窗口耦合口径 = 筛选仅作用于聚合结果、`byStatus`/`totals`/`window` 保持窗口全量，并在 UI 加「统计窗口」提示（`scans.byRepo.windowHint`）显式标注边界；④ 「仅查看此仓库」行操作切到「全部运行」分区（不改变 `?repository=` 深链语义）。
   - **不做什么**：不改 runs 列表三筛选与分页；不改 500 run 聚合窗口口径本身（仅在其上叠加筛选 / 分页）；不新增服务端实体或迁移；不改 `?repository=` / `?run=` 深链语义。
   - **依赖**：M37.1 失败分类三列与三维筛选（已闭环）；`scan-history/summary` 现有 `byStatus` / `totals` 口径。
   - **交付物**：预计 2-3 commits（feat(platform) summary 参数 + 前端筛选分页 / 分区 + docs(plan) 收口）；文件 4-5（`summary.get.ts` / `scans.vue` / e2e / i18n ×2）。
+  - **实际交付（2026-10-09）**：拆 3 commits——`feat(platform)` 后端（`summary` 端点 `lastStatus` 筛选 + 错误码 + i18n + 单测，单测随修复点入库）/ `feat(platform)` 前端（`scans` 页 Tabs 分区 + byRepo 筛选 + 客户端分页 + 窗口提示 + e2e）/ `docs(plan)` 收口；文件 9（`summary.get.ts` / `summary.get.test.ts` / `localized-error.ts` / `localized-error.test.ts` / i18n ×2 / `scans.vue` / `scans.e2e.test.ts`）。
   - **风险与缓解措施**：① 筛选与「最近 500 run 聚合窗口」耦合，窗口外仓库不可见 → D 阶段前定稿口径并在 UI 显式标注窗口边界；② byRepo 分页需定义稳定排序 → 复用既有 `runCount DESC, lastRunAt DESC`；③ 改 Tab 属结构变更 → 当前视觉基线未覆盖 scans 页（仅 alerts / repos / pr-checks / dialog-import-repos / login），无需重建基线，须在实现时复核。
 
 - **M39.2**（P3，🎨 用户体验）扫描历史弹窗体验（冗余关闭按钮 + 日志区高度）

@@ -176,7 +176,7 @@ Vitest 对 ESM 命名导出（如 `node:fs` 的 `unlinkSync`）无法用 `vi.spy
 
 - **环境固定（可复现前提）**：chromium / 1440×900 / deviceScaleFactor 1 / locale `zh-CN` / 时区 `Asia/Shanghai` / `colorScheme: 'light'`；`animations: 'disabled'` + `caret: 'hide'`；`workers: 1` + `retries: 0`（不稳定即失败并归因，不用重试掩盖抖动）。
 - **主题以确定性方式注入**：写 localStorage `dependfix-color-mode`，不依赖系统 `prefers-color-scheme`（CI 无系统偏好、本地可能是深色偏好）；用例内另断言 `<html class="dark">` 兜底键名漂移。
-- **数据确定性**：视觉套件跑独立库，globalSetup 每次**先清理再注入**专属 fixtures（`tests/visual/helpers/fixtures.ts`）。e2e 数据集**不可复用**——缺仓库标签，且 `firstSeenAt` / `lastSeenAt` 缺省时端点填 `now()`。e2e 库还会被用例累积写入（`repos-crud` 留记录、`scanRuns` 每次新建）→ 直接拿 e2e 库采基线必然漂移。视觉数据集需为「每个包单一 severity」（alerts 页分组键是包名、默认排序按 severity 降序，跨档 severity 会把同包行拆到不同区块、分组头重复出现）。
+- **数据确定性**：视觉套件跑独立库，globalSetup 每次**先清理再注入**专属 fixtures（`tests/visual/helpers/fixtures.ts`）。e2e 数据集**不可复用**——缺仓库标签，且 `firstSeenAt` / `lastSeenAt` 缺省时端点填 `now()`。e2e 库还会被用例累积写入（`repos-crud` 留记录、`scanRuns` 每次新建）→ 直接拿 e2e 库采基线必然漂移。视觉数据集含一个**跨 severity 的包**（`nodemailer` = high + medium）作为「一个包一组」的防回归锚点：alerts 页「按包」分组下「严重级别」列以**组排序键**（组内最高级别 rank × 步长 − 包名升序序号，组间唯一）为排序取值；若退回按行级 severity 排序，跨档包会被拆到不同区块、分组头重复出现 → 该基线即失败。
 - **动态区域显式遮蔽**：运行时派生值（时间戳等）标 `data-visual-mask`，由 `dynamicMask()` 在截图前遮蔽，不用像素容差兜底。注意：**加遮蔽会改变基线像素**（Playwright 用实心色块覆盖），必须重新生成该页基线。
 - **阈值口径**：`maxDiffPixels: 100` + `threshold: 0.1`（绝对像素上限，不用比例兜底）。两个数值对应两条互相独立、各自可逃逸的盲区轴（2026-10-01 收紧，取证与前后对照见下方各条）：
     - **色阈值轴**：pixelmatch 的 `maxDelta = 35215 × threshold²`（0.1 → 352）。原 0.2 档（1409）会把「同明度色相 / 灰度替换」判为同色——实测 `#52525b → #0f766e`（实底 neutral 按钮）色对 delta ≈ 1084（内置 `colorDelta` 实算 1083.6）：0.2 档判「同色」（整块按钮色变逃逸），0.1 档判「不同色」。

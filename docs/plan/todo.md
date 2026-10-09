@@ -57,16 +57,18 @@
 - **M39.3**（P2，🎨 用户体验）告警视图「按包」聚合跨 severity 重复分组修正
   - **目标**：同一包跨多档 severity 时不再出现多个同名分组头（现状 nodemailer 同时出现在 high 与 medium），并把聚合语义定稿为「一个包一组」或「按 severity 分区」之一。
   - **优先级**：P2
-  - **范围**：`apps/platform/app/pages/alerts.vue`（分组 / 排序口径：`groupRowsBy` / `multiSortMeta` / `groupCounts` / `expandedPackages`）；`apps/platform/tests/visual/helpers/fixtures.ts`（数据集改可表达跨档 severity）+ 受影响视觉基线重建；`apps/platform/tests/e2e/alerts-rowgroup.e2e.test.ts` + `apps/platform/tests/e2e/helpers/fixtures.helper.ts`；文档口径三处（`docs/standards/testing.md`、`docs/design/governance/caomei-ui-migration.md §15.10`、`fixtures.ts` 注释）。
+  - **范围**：`apps/platform/app/pages/alerts.vue`（分组 / 排序口径：`groupRowsBy` / `multiSortMeta` / `groupCounts` / `expandedPackages` / 组头 Tag）；`apps/platform/app/utils/alerts-view.ts` + `alerts-view.test.ts`（组排序键纯函数 `summarizePackageGroups` + 单测，自 `alerts.vue` 抽离以避免其继续膨胀）；`apps/platform/tests/visual/helpers/fixtures.ts`（数据集改可表达跨档 severity）+ 受影响视觉基线重建；`apps/platform/tests/e2e/alerts-rowgroup.e2e.test.ts` + `apps/platform/tests/e2e/helpers/fixtures.helper.ts`；文档口径三处（`docs/standards/testing.md`、`docs/design/governance/caomei-ui-migration.md §15.10`、`fixtures.ts` 注释）并同步同源 `docs/standards/platform.md §7`。
   - **验收标准**：
-    - [ ] 同一包跨档 severity 时只出现一个分组头（若判据定为「按 severity 分区」则必须在文档显式声明为有意设计并给出理由）；判据 D 阶段前定稿
-    - [ ] 分组头计数与展开 / 折叠状态在同一包内自洽（不再出现两个同名 subheader 共享计数）
-    - [ ] e2e `alerts-rowgroup` 新增跨档用例断言（不再只校验 subheader 的最大 severity 单调性）；视觉数据集支持跨档 severity 并按 `--update-snapshots=all` 口径重建受影响基线
-    - [ ] 三处文档口径同步，不再把该现象描述为「既有行为」
-    - [ ] `pnpm --filter @dependfix/platform test`（定向 alerts）+ 定向 e2e 全过；`pnpm lint` + `pnpm typecheck` 0 error
+    - [x] 同一包跨档 severity 时只出现一个分组头；**判据定稿（2026-10-09 D 阶段）=「一个包一组」**——组按该包最高 severity 降序（同级按包名升序），组内 severity 降序；组头展示包名 + 告警数 + 最高级别 Tag（另一档「按 severity 分区」未采用：不消除用户报告的同名分组头）
+    - [x] 分组头计数与展开 / 折叠状态在同一包内自洽（`groupCounts` 按包键计数，一组一键）
+    - [x] e2e `alerts-rowgroup` 新增跨档用例（`同一包跨 severity 只渲染一个分组头`：断言唯一 lodash 分组头 + 计数自洽 + 组头 Tag + 用户按其它列排序后仍连续）；视觉数据集新增跨档包 `nodemailer`（high + medium）并按 `--update-snapshots=all` 重建 alerts 4 张基线
+    - [x] 三处文档口径同步（`testing.md` §6.7 数据确定性 / `caomei-ui-migration.md` §15.10 第 7 条 / `fixtures.ts` 注释），并同步 §同源 `platform.md` §7 分组连续性条款；不再将跨档拆组描述为「既有行为」
+    - [x] `pnpm --filter @dependfix/platform test`（全量 1625 passed | 9 skipped）+ 定向 e2e（alerts-rowgroup 12 + sortable 4 = 16 passed）+ 视觉 11 passed；`pnpm lint`（0 error）+ `pnpm typecheck`（7 包 Done）0 error
+  - **D 阶段决策留痕（2026-10-09）**：① 聚合语义 = 一个包一组（见上）；② 实现 = 不新增列 / 不改后端，改为「严重级别」列在按包模式返回**组排序键** `最高级别 rank × STRIDE − 包名升序序号`（组间唯一）——同包行共享同值且键唯一 → 任何排序下同包相邻（`summarizePackageGroups` 纯函数 + 单测；`onUpdateMultiSortMeta` 在按包模式把组键固定为第一排序键，等价迁移前 PrimeVue 自动保留 `groupRowsBy` 首键的行为）；③ 视觉基线 `--update-snapshots=all` 重建 + mutation 标定（3 处全击杀：M1 严重级别列 accessor 改回行级 rank → 新 e2e 渲染出 2 个 lodash 分组头 + 视觉 alerts light/dark 基线失败；M2 `onUpdateMultiSortMeta` 去掉补键 → 新 e2e「按其它列排序后仍唯一」断言失败；M3 组排序键去掉包名序号 → 新 e2e 失败；复现口径：每处 `pnpm --filter @dependfix/platform build` 后 `TMPDIR=/dev/shm playwright test alerts-rowgroup -g 跨 severity`，视觉用 `--config=playwright.visual.config.ts -g alerts`）。
   - **不做什么**：不改 alerts 后端查询与 `take(500)` 口径；不改 per-alert 模型与 `scan-reconcile`；不引入新组件库；不改「按仓库」视图分组（仅修「按包」）。
   - **依赖**：M31.2 alerts rowGroup 迁移（`69ecad1`，已归档）；caomei-ui 0.5.0 的相邻行分组实现（`displayEntries`）。
   - **交付物**：预计 2-3 commits（fix(platform) 聚合口径 + test(platform) 视觉 / e2e 基线 + docs 收口）；文件 4-6。
+  - **实际交付（2026-10-09）**：3 commits（`fix(platform)` 组排序键口径 + `test(platform)` e2e / 视觉 fixture 与 4 张基线 + `docs(plan/standards)` 收口）；文件 15（含 4 张基线 PNG）——超 §1.1「10 文件」阈值，拆分依据：fix / test / docs 三类改动各自独立可回滚（测试与基线同 commit 以保证「提交态自洽」，docs 与实现解耦）；源码逻辑仅 2 文件（`alerts.vue` + `alerts-view.ts`），无服务端改动。
   - **风险与缓解措施**：① 「一个包一组」与「severity 降序」UX 目标存在张力（severity 为主键必然拆组）→ D 阶段前定稿（包为主键 + 组内展示最高级别）；② 外部库为相邻行分组，若无法在不改库前提下实现值分组，需评估服务端聚合或客户端自行分组（决策留痕）；③ 视觉基线重建须用 `=all` 口径并做 mutation 标定（防假绿）。
 
 - **M39.4**（P2，🚀 能力扩展）运行日志下载与批量下载

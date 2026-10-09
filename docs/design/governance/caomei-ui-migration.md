@@ -420,7 +420,8 @@ PrimeTek 已公告 PrimeVue 5.x 起转入 PrimeUI 商业许可（Community 免�
 - **更新记录**：
   - 2026-09-27：新增 §15（caomei-ui 0.3.0 重新评估补记）
   - 2026-09-28（M31.1 B0 接线）：新增 [§15.8 选择器映射表更正](#158-选择器映射表更正2026-09-28b0-接线实证) + [§15.9 B0 接线暴露的验证覆盖缺口](#159-b0-接线暴露的验证覆盖缺口m31-各批次须补齐)；§15.1「全绿」结论按 §15.9 修订为「能力存在、验证覆盖不足」
-  - 2026-09-28（M31.2 DataTable 核心页迁移）：新增 [§15.10 DataTable 核心页迁移实证](#1510-datatable-核心页迁移实证m3122026-09-28)（含排序机制修正 / 分组列过滤 / 服务端排序依赖 / 密度对齐 / 选择器与取证口径）；§15.1「降序优先」行按该节修订机制描述
+  - 2026-09-28（M31.2 DataTable 核心页迁移）：新增 [§15.10 DataTable 核心页迁移实证](#1510-datatable-核心页迁移实证m3122026-09-28)（含排序机制修正 / 分组列过滤 / 分组连续性 / 密度对齐 / 选择器与取证口径）；§15.1「降序优先」行按该节修订机制描述
+  - 2026-10-09（M39.3 告警「按包」聚合修正）：[§15.10 第 7 条](#1510-datatable-核心页迁移实证m3122026-09-28) 由「服务端排序保证分组连续」修订为「组排序键」口径——「按包」下一个包一组，不再依赖服务端 `orderBy`
   - 2026-09-28（M31.3 其余表页迁移）：新增 [§15.11 其余表页迁移实证](#1511-其余表页迁移实证m3132026-09-28)（覆盖清单 / 行选择 / 内建与 lazy 分页 / 独立 Paginator / scrollable 与 ScrollPanel / 无表级 `#header` 槽的结构变化 / 遗留项）
  
 ---
@@ -576,14 +577,13 @@ PrimeVue `<Column expander>` → caomei `columns` 中的 `{ expander: true }`（
 | 分组折叠按钮 | `.caomei-data-table__row-group-toggle`（`aria-expanded`） |
 | 行展开按钮 / 展开区 | `.caomei-data-table__row-expander` / `.caomei-data-table__row-expansion` |
 
-**7）分组连续性依赖服务端排序（不是客户端次排序键）**
+**7）分组连续性依赖组级排序键（M39.3 修订）**
 
-分组字段列被剔出 `columns` 后，TanStack 只对「列模型中存在的列」排序（`createSortedRowModel` 以 `getColumn(sort.id)` 为门槛），传入分组字段的排序键会被**静默丢弃**。故本批不设 `packageName` / `repository` 次排序键，改为依赖：
+分组字段列被剔出 `columns` 后，TanStack 只对「列模型中存在的列」排序（`createSortedRowModel` 以 `getColumn(sort.id)` 为门槛），传入分组字段的排序键会被**静默丢弃**；且 caomei 的相邻行分组要求同组行相邻，任何**行级**排序键都会把同包跨 severity 行拆到不同区块 → 同名分组头重复出现（M31.2 迁移期用「服务端 `orderBy(groupBy)` + 行级 severity 稳定排序」兜底，仅在「每个包单一 severity」的数据集下看不出问题）。
 
-- `/api/alerts?groupBy=` 服务端 `orderBy(groupBy)`（`server/api/alerts/index.get.ts`）
-- 客户端仅按严重级别降序，稳定排序在同 severity 内保持服务端的分组字段升序
+M39.3 定稿「一个包一组」后改用**组排序键**：`alerts.vue` 让「严重级别」列在「按包」模式下的排序取值返回**组排序键** `最高级别 rank × 步长 − 包名升序序号`（`accessor` 指向 `summarizePackageGroups` 的 `sortKey`，组间唯一）——同包所有行共享同一排序值且键组间唯一 → 相邻性由排序本身保证（任何次排序键只在组内生效），不依赖服务端顺序；再配合①`alerts` 预排序（包名升序 → 组内 severity 降序）提供无排序键时的稳定基线②`onUpdateMultiSortMeta` 在「按包」模式把严重级别固定为第一排序键（用户移除但保留其它键时补回），等价迁移前组件库「自动保留 `groupRowsBy` 为首键」的行为。展示不受影响（`#cell-_severityRank` 槽仍读行级 `severity`），组头另渲染该组最高级别 Tag。
 
-实测结果与 PrimeVue 双键 `[_severityRank desc, packageName asc]` 完全一致（分组标签序列与各组行内容逐项相同）。**B1b 若沿用「剔除分组字段列」的做法，必须同样确认服务端已按分组字段排序。**
+> 「按仓库」视图沿用既有口径（服务端 `orderBy` + 行级 severity 降序），M39.3 仅修「按包」。**结论**：分组连续性不靠服务端排序，改由组级排序键保证——服务端只需保证数据完整（`take(500)`），其顺序仅作为同排序值内的稳定基线。
 
 **8）单元格密度对齐 PrimeVue `size="small"`**
 

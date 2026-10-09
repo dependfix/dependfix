@@ -6,12 +6,13 @@
 // 详情侧栏已抽出为 components/alert-run-sidebar.vue（audit 触发的 max-lines 抽取）
 // 一键修复状态机抽出为 composables/use-fix-now.ts
 import { Funnel, List } from '@lucide/vue'
-import { withFixStatusRank, withSeverityRank } from '~/utils/sort-helpers'
+import { SEVERITY_RANK, withFixStatusRank, withSeverityRank } from '~/utils/sort-helpers'
 import {
     alertsRuleIdTone,
     alertsSeverityTone,
     alertsStatusLabel,
     buildAlertsQuery,
+    summarizePackageGroups,
     type AlertsFilters,
     type AlertsViewMode,
 } from '~/utils/alerts-view'
@@ -190,7 +191,33 @@ const repositories = computed<{ id: string, name: string }[]>(() => [
 ])
 
 /** alerts 派生：排序键派生（severity / fixStatus 走业务语义排序，非字典序） */
-const alerts = computed<AlertView[]>(() => withFixStatusRank(withSeverityRank(alertsData.value ?? [])))
+const rankedAlerts = computed(() => withFixStatusRank(withSeverityRank(alertsData.value ?? [])))
+
+/**
+ * 「按包」组信息：包名 → 组内最高 severity + 组排序键（聚合逻辑见 `summarizePackageGroups`）。
+ * 数据源为**过滤后**的 `alertsData`：组信息应反映当前可见集合，而非全量。
+ */
+const packageGroupSummary = computed(() => summarizePackageGroups(alertsData.value ?? []))
+
+/**
+ * 告警数组派生（含业务语义排序键）。
+ *
+ * 「按包」模式预排序为「包名升序 → 组内 severity 降序」：作为「无排序键」（用户清空排序）时的
+ * 展示基线，并为组内稳定排序提供行级 severity 降序的基线顺序（组排序键组间唯一，同包各行同值 →
+ * 稳定保留本顺序）。其它视图模式（repository / none）保持服务端原始顺序，行为不变。
+ */
+const alerts = computed<AlertView[]>(() => {
+    const rows = rankedAlerts.value
+    if (viewMode.value !== 'package') {
+        return rows
+    }
+    return [...rows].sort((a, b) => {
+        if (a.packageName !== b.packageName) {
+            return a.packageName < b.packageName ? -1 : 1
+        }
+        return (b._severityRank ?? 0) - (a._severityRank ?? 0)
+    })
+})
 
 /** loading / error 派生自 useAsyncData 状态（保持现有模板契约） */
 const loading = computed(() => alertsPending.value)
@@ -211,10 +238,10 @@ const error = computed(() => {
  * 默认严重级别优先（severity desc）：
  * - 业务依据：docs/standards/platform.md §7.1（severity Rank 是 highest-first 设计，desc 才符合
  *   「critical 优先」的业务期望）
- * - 分组连续性由服务端负责（详见下方 multiSortMeta 注释），客户端不设分组字段次排序键
+ * - 分组连续性由**组排序键**保证（详见下方 multiSortMeta 注释），客户端不设分组字段次排序键
  */
 const onViewModeChange = () => {
-    // 仅严重级别降序；分组字段的相邻性由服务端 orderBy(groupBy) 保证（见 multiSortMeta 注释）
+    // 仅严重级别降序；「按包」的组内相邻性由组排序键保证（见 multiSortMeta 注释）
     multiSortMeta.value = [{ field: '_severityRank', order: -1 }]
     expandedPackages.value = []
 }
@@ -308,6 +335,8 @@ const groupHeaderLabel = (data: AlertView): string => {
     }
     return data.packageName
 }
+/** 「按包」模式该组的最高严重级别（组头 Tag 展示）；非按包模式不展示。 */
+const groupMaxSeverity = (data: AlertView): string | null => packageGroupSummary.value.get(data.packageName)?.severity ?? null
 
 // 行分组（rowGroup）与排序状态说明：
 // - 折叠状态用 `string[]` 跟踪（分组键数组）；caomei 受控模式经 `@update:expanded-row-groups` 回写，
@@ -315,13 +344,15 @@ const groupHeaderLabel = (data: AlertView): string => {
 // - caomei 在 `expandableRowGroups` 下会在 `#groupheader` 槽之前渲染内建折叠按钮
 //   （`.caomei-data-table__row-group-toggle`，含 aria-expanded），槽内不再叠加自定义 chevron，避免双 chevron
 /**
- * 默认排序：仅严重级别降序。
+ * 默认排序：严重级别降序。
  *
- * 分组连续性不靠客户端次排序键保证——caomei 的分组字段列已从 `columns` 中剔除，
- * TanStack 只对「列模型中存在的列」排序（`createSortedRowModel` 以 `getColumn(sort.id)` 为门槛），
- * 传入分组字段（packageName / repository）会被静默丢弃。分组所需的同组相邻由**服务端**保证：
- * `/api/alerts?groupBy=` 会 `orderBy(groupBy)`，客户端再按严重级别做稳定排序后，同 severity 内
- * 仍保持服务端的分组字段升序（等价迁移前组件库双键 `[_severityRank desc, packageName asc]` 的结果）。
+ * 分组连续性由**组排序键**保证：caomei 的相邻行分组要求同组行相邻，而分组字段列已从
+ * `columns` 剔除，TanStack 只对「列模型中存在的列」排序（`createSortedRowModel` 以 `getColumn(sort.id)`
+ * 为门槛），无法直接以 `packageName` 作排序键。改为让「严重级别」列在「按包」模式下返回**组排序键**
+ * （组间唯一，含最高级别 rank 与包名序号，见 `packageGroupSummary`）→ 同包所有行共享同一排序值且
+ * 键组间唯一，任何排序下同包行都相邻 → 「一个包一组」为硬不变量。`alerts` 预排序提供同值内的稳定基线
+ * （包名升序 → 组内 severity 降序）。「按仓库」视图沿用既有口径（服务端 `orderBy` + 行级 severity 降序），
+ * 本条目不改其分组行为。
  * 详见 docs/design/governance/caomei-ui-migration.md §15.10
  */
 const multiSortMeta = ref<DataTableSortMeta[]>([
@@ -355,19 +386,35 @@ const dataTableAttrs = computed(() => {
 })
 
 /**
+ * 「严重级别」列的排序取值。
+ *
+ * 「按包」分组模式取**组排序键** `packageGroupSummary.sortKey`（组间唯一，见其上注释）——这是
+ * 「一个包一组」的关键：行级 severity 排序会把同包跨档行拆到不同 severity 区块，相邻性破坏后
+ * 同名分组头重复出现；组间唯一键则保证任何排序下同包行都相邻。非分组模式（repository / none）
+ * 仍取行级 rank。展示不受影响：`#cell-_severityRank` 槽读行级 `severity`。
+ * 注：`??` 回退为防御性分支——行数据均来自 `alertsData`，其包名必在 `packageGroupSummary` 中（当前不可达）。
+ */
+const groupSeveritySortValue = (row: AlertView): number => {
+    if (viewMode.value === 'package') {
+        return packageGroupSummary.value.get(row.packageName)?.sortKey ?? (SEVERITY_RANK[row.severity] ?? 0)
+    }
+    return SEVERITY_RANK[row.severity] ?? 0
+}
+
+/**
  * 列定义：caomei DataTable 用 `columns` 数组 + `#cell-{key}` 插槽替代迁移前的 `<Column>`。
  *
  * 等价性要点（由迁移前 `<Column>` 迁移而来）：
  * - `key` 同时是排序字段，故严重级别 / 状态列用 rank 字段作 key（与 `multiSortMeta.field` 一致）
  * - **分组模式下剔除分组字段列**：迁移前组件库渲染 subheader 模式时省略 `groupRowsBy` 同名列
  *   （表头与单元格都不渲染，实测 14 列 / colspan=14）；caomei 对分组同名列保留单元格位但不渲染内容，
- *   为保持列数与表结构等价，这里按当前分组字段过滤（分组连续性改由服务端排序保证，见 `multiSortMeta` 注释）
+ *   为保持列数与表结构等价，这里按当前分组字段过滤（「按包」的组内相邻改由组排序键保证，见 `multiSortMeta` 注释）
  * - 原迁移前组件库 `:export="false"` 是无效 prop（迁移前组件库无该字段），按迁移评估 §5.3 直接删除
  */
 const columns = computed<DataTableColumn<AlertView>[]>(() => {
     const all: DataTableColumn<AlertView>[] = [
         { key: 'repository', header: t('alerts.colRepository'), sortable: true },
-        { key: '_severityRank', header: t('alerts.colSeverity'), sortable: true },
+        { key: '_severityRank', header: t('alerts.colSeverity'), sortable: true, accessor: groupSeveritySortValue },
         { key: 'packageName', header: t('alerts.colPackage'), sortable: true },
         { key: 'source', header: t('alerts.colSource'), sortable: true },
         { key: 'identifiers', header: t('alerts.colIdentifiers'), width: '180px' },
@@ -392,10 +439,23 @@ const columns = computed<DataTableColumn<AlertView>[]>(() => {
  *
  * 不用 caomei 的全局 `sort-desc-first`：实测该开关会把列头点击循环变成「desc → asc → 移除」，
  * 与迁移前组件库的「asc → desc → 移除」不一致（且叠加首次点击纠正后 desc 状态不可达）。
- * 默认排序方向仅由 `multiSortMeta` 初值承载（severity desc）；分组连续性见上方注释，与迁移前组件库逐项一致。
+ * 默认排序方向仅由 `multiSortMeta` 初值承载（severity desc）。
+ *
+ * 「按包」模式：把严重级别（组排序键）固定为第一排序键——迁移前组件库在多列排序下会自动
+ * 保留 `groupRowsBy` 为首键以免分组被打散，本仓库以「严重级别列排序取值 = 组排序键（组间唯一）」
+ * 等价实现。用户移除严重级别键但保留其它键时补回默认降序（保证「一个包一组」）；全部清空时交由
+ * `alerts` 预排序基线（同包同值稳定），分组仍连续。
  */
 const onUpdateMultiSortMeta = (meta: DataTableSortMeta[]) => {
-    multiSortMeta.value = meta
+    if (viewMode.value !== 'package') {
+        multiSortMeta.value = meta
+        return
+    }
+    const severity = meta.find((item) => item.field === '_severityRank')
+    const others = meta.filter((item) => item.field !== '_severityRank')
+    multiSortMeta.value = others.length > 0
+        ? [{ field: '_severityRank', order: severity?.order ?? -1 }, ...others]
+        : meta
 }
 
 /** 受控分组展开回写（等价 `v-model:expanded-row-groups`；不回写则内建折叠按钮点击无效果） */
@@ -530,6 +590,12 @@ const alertCveUrl = (cveId: string): string => `https://nvd.nist.gov/vuln/detail
                         @keydown.space.prevent="togglePackage(groupHeaderLabel(data))"
                     >
                         <strong>{{ groupHeaderLabel(data) }}</strong>
+                        <CaomeiTag
+                            v-if="viewMode === 'package' && groupMaxSeverity(data)"
+                            :tone="alertsSeverityTone(groupMaxSeverity(data) ?? 'unknown')"
+                        >
+                            {{ groupMaxSeverity(data) }}
+                        </CaomeiTag>
                         <span class="alerts__group-count text-muted">
                             {{ t('alerts.groupHeaderCount', {count: groupCounts.get(groupHeaderLabel(data)) ?? 0}) }}
                         </span>

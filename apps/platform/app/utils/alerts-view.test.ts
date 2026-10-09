@@ -6,6 +6,7 @@ import {
     alertsSeverityTone,
     alertsStatusLabel,
     buildAlertsQuery,
+    summarizePackageGroups,
     type AlertsFilters,
 } from './alerts-view'
 
@@ -217,6 +218,60 @@ describe('alerts-view 纯函数', () => {
             // 防御：API 老数据可能不带 supersededAt 字段（undefined）
             expect(alertsStatusLabel({ fixStatus: 'skipped' }, t))
                 .toBe('t(common.fixStatus.skipped)')
+        })
+    })
+
+    describe('summarizePackageGroups（按包分组：组内最高 severity + 组排序键）', () => {
+        it('跨档 severity 取组内最高（lodash high + medium → high / rank 4）', () => {
+            const summary = summarizePackageGroups([
+                { packageName: 'lodash', severity: 'medium' },
+                { packageName: 'lodash', severity: 'high' },
+                { packageName: 'lodash', severity: 'medium' },
+            ])
+            expect(summary.get('lodash')?.severity).toBe('high')
+            expect(summary.get('lodash')?.rank).toBe(4)
+        })
+
+        it('组排序键按 desc 排序 = 最高级别降序 → 包名升序（默认契约）', () => {
+            const summary = summarizePackageGroups([
+                { packageName: 'lodash', severity: 'high' },
+                { packageName: 'axios', severity: 'critical' },
+                { packageName: 'node-fetch', severity: 'medium' },
+                { packageName: 'nodemailer', severity: 'high' },
+                { packageName: 'minimist', severity: 'low' },
+            ])
+            // 模拟「严重级别」列 desc 排序：按 sortKey 降序
+            const order = [...summary.entries()]
+                .sort((a, b) => b[1].sortKey - a[1].sortKey)
+                .map(([name]) => name)
+            // axios(critical) → lodash/nodemailer(high, 包名升序) → node-fetch(medium) → minimist(low)
+            expect(order).toEqual(['axios', 'lodash', 'nodemailer', 'node-fetch', 'minimist'])
+        })
+
+        it('组排序键组间唯一（同 rank 不同包 key 不同 → 次排序键只在组内生效）', () => {
+            const summary = summarizePackageGroups([
+                { packageName: 'lodash', severity: 'high' },
+                { packageName: 'nodemailer', severity: 'high' },
+            ])
+            expect(summary.get('lodash')?.rank).toBe(summary.get('nodemailer')?.rank)
+            expect(summary.get('lodash')?.sortKey).not.toBe(summary.get('nodemailer')?.sortKey)
+            // 序号差值 = 1（同 rank 内相邻包）
+            expect(Math.abs((summary.get('lodash')?.sortKey ?? 0) - (summary.get('nodemailer')?.sortKey ?? 0)))
+                .toBe(1)
+        })
+
+        it('包名序号使 rank 主导：低 rank 的高序号包仍排在更低 rank 之前', () => {
+            const summary = summarizePackageGroups([
+                { packageName: 'high-pkg', severity: 'high' },
+                { packageName: 'critical-pkg', severity: 'critical' },
+            ])
+            // critical(rank 5) 即使包名序号大，sortKey 仍高于 high(rank 4)
+            expect(summary.get('critical-pkg')?.sortKey).toBeGreaterThan(summary.get('high-pkg')?.sortKey ?? 0)
+        })
+
+        it('未知 severity → rank 0；空输入 → 空 Map', () => {
+            expect(summarizePackageGroups([{ packageName: 'x', severity: 'n/a' }]).get('x')?.rank).toBe(0)
+            expect(summarizePackageGroups([]).size).toBe(0)
         })
     })
 })

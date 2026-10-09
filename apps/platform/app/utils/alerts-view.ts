@@ -1,4 +1,5 @@
 import type { ComponentTone } from 'caomei-ui'
+import { SEVERITY_RANK } from './sort-helpers'
 
 type Translator = (key: string, params?: Record<string, string | number>) => string
 
@@ -133,4 +134,56 @@ export const buildAlertsQuery = (viewMode: AlertsViewMode, filters: AlertsFilter
         query.includeSuperseded = 'true'
     }
     return query
+}
+
+/**
+ * 「按包」组排序键的 rank 步长（见 `summarizePackageGroups`）。
+ * 取远大于包数量的常量，使 rank 数值主导顺序、包名序号仅在同 rank 内区分，并保证组键组间唯一。
+ */
+const PACKAGE_GROUP_STRIDE = 1_000_000
+
+/** 单个包的聚合信息（按包分组模式：组排序 + 组头展示）。 */
+export interface PackageGroupSummary {
+    /** 组内最高 severity 的 rank（`SEVERITY_RANK` 口径） */
+    rank: number
+    /** 组内最高 severity 取值（组头 Tag 展示） */
+    severity: string
+    /**
+     * 组排序键：`rank × PACKAGE_GROUP_STRIDE − 包名升序序号`。
+     *
+     * 「严重级别」列在按包分组模式下以它作排序取值：`desc` 即「最高级别降序 → 包名升序」（默认契约）；
+     * 键组间唯一 → 任何次排序键只在组内生效，同包行不会被拆散（「一个包一组」硬不变量）。
+     */
+    sortKey: number
+}
+
+/**
+ * 按包聚合「最高 severity」与组排序键（alerts「按包」分组的排序依据）。
+ *
+ * 抽取动机：caomei 的相邻行分组靠稳定排序维持同组相邻，而分组字段列已从 `columns` 剔除
+ * （TanStack 只对列模型内的列排序，分组字段排序键会被静默丢弃），无法直接以 `packageName` 排序 →
+ * 改为让「严重级别」列返回组排序键，把排序单位从「行」变成「组」。纯函数便于单测覆盖组键的排序与唯一性。
+ */
+export const summarizePackageGroups = (
+    rows: readonly { packageName: string, severity: string }[],
+): Map<string, PackageGroupSummary> => {
+    const ranks = new Map<string, { rank: number, severity: string }>()
+    for (const row of rows) {
+        const rank = SEVERITY_RANK[row.severity] ?? 0
+        const current = ranks.get(row.packageName)
+        if (!current || rank > current.rank) {
+            ranks.set(row.packageName, { rank, severity: row.severity })
+        }
+    }
+    const summary = new Map<string, PackageGroupSummary>()
+    // 包名升序序号参与 sortKey（保证组键组间唯一），并决定同级别组之间的默认展示顺序
+    const names = [...ranks.keys()].sort()
+    names.forEach((name, index) => {
+        const entry = ranks.get(name)
+        if (!entry) {
+            return
+        }
+        summary.set(name, { ...entry, sortKey: entry.rank * PACKAGE_GROUP_STRIDE - index })
+    })
+    return summary
 }

@@ -78,6 +78,18 @@ test.describe('/scans 独立页面', () => {
         // Dialog 应自动打开（`repo-history-dialog` watch ?run= query）
         await expect(page.locator('.caomei-dialog__content')).toBeVisible({ timeout: 15000 })
         await expect(page.locator('.caomei-dialog__header')).toContainText('扫描历史')
+        // run 模式 body 不再渲染冗余「× 关闭」按钮：关闭仅走弹窗 header「×」与 Esc
+        await expect(page.locator('.caomei-dialog__header .caomei-dialog__close')).toBeVisible()
+        await expect(page.locator('.repo-history__detail-header').getByRole('button', { name: '关闭' })).toHaveCount(0)
+        // 日志滚动区高度自适应（视口比例 clamp）：可视高度显著大于原固定 200px
+        const logsScroll = page.locator('.repo-history__logs-scroll')
+        await expect(logsScroll).toBeVisible()
+        const logsHeight = await logsScroll.evaluate((el) => el.getBoundingClientRect().height)
+        expect(logsHeight).toBeGreaterThan(200)
+        // 宽屏（默认 1280 视口）：面板宽度 = 720px（--caomei-dialog-width 钩子，非窄视口不收缩）
+        const dialogBox = await page.locator('.caomei-dialog__content').boundingBox()
+        expect(dialogBox).not.toBeNull()
+        expect(Math.round(dialogBox!.width)).toBe(720)
     })
 
     /**
@@ -212,6 +224,29 @@ test.describe('/scans 独立页面', () => {
         await rows.first().getByRole('button', { name: '仅查看此仓库' }).click()
         await expect(page.getByRole('tab', { name: '全部运行' })).toHaveAttribute('aria-selected', 'true')
         await expect(page).toHaveURL(/repository=/)
+    })
+
+    test('case 6: 扫描历史弹窗窄视口不溢出（响应式宽度覆盖 720px）', async ({ page }) => {
+        const stamp = Date.now()
+        const owner = `e2e-scans-narrow-${stamp}`
+        const name = `e2e-scans-narrow-name-${stamp}`
+        const repoId = await scanRunRepository(page, owner, name)
+        const cookies = (await page.context().cookies()).map((c) => `${c.name}=${c.value}`).join('; ')
+        const runsRes = await page.request.get(`/api/runs?repositoryId=${repoId}`, { headers: { cookie: cookies } })
+        expect(runsRes.status()).toBe(200)
+        const { items } = (await runsRes.json()) as { items: { id: string }[] }
+        expect(items.length).toBeGreaterThan(0)
+        const runId = items[0]!.id
+
+        // 窄视口（≤ 640px）：弹窗宽度由 caomei 基类 min(90vw, --caomei-dialog-width) + ≤640px 全宽规则覆盖 720px，不溢出
+        await page.setViewportSize({ width: 480, height: 720 })
+        await page.goto(`/scans?run=${runId}`)
+        await waitForHydration(page)
+        const dialog = page.locator('.caomei-dialog__content')
+        await expect(dialog).toBeVisible({ timeout: 15000 })
+        const box = await dialog.boundingBox()
+        expect(box).not.toBeNull()
+        expect(box!.width).toBeLessThanOrEqual(480)
     })
 })
 

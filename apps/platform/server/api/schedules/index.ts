@@ -11,6 +11,7 @@ import { registerSchedule } from '#server/services/scheduler/scheduler.service'
 const toView = (s: Schedule) => ({
     id: s.id,
     name: s.name,
+    kind: s.kind,
     cron: s.cron,
     timezone: s.timezone,
     selectorKind: s.selectorKind,
@@ -56,6 +57,7 @@ const createSchedule = async (event: H3Event) => {
     const saved = await repo.save(repo.create({
         organizationId,
         name: parsed.data.name,
+        kind: parsed.data.kind,
         cron: parsed.data.cron,
         // 空串归一化为 null（空 = 服务器本地时区契约；node-cron 对空 timezone 抛 Invalid timezone）
         timezone: parsed.data.timezone || null,

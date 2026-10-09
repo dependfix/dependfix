@@ -136,6 +136,13 @@ export type ScheduleTriggerResult =
     | { kind: 'pr-check', processed: number, errors: number, skipped?: boolean }
 
 /**
+ * PR Check 状态监测总开关（进程级 env，只读、不可热更）。
+ * 供触发链路门控与前端状态提示共用，避免多处直接读 env 造成口径漂移。
+ */
+export const isActionStatusMonitorEnabled = (): boolean =>
+    process.env.ACTION_STATUS_MONITOR_ENABLED === 'true'
+
+/**
  * 统一触发：按 schedule.kind 分支。
  * - kind='scan'：解析仓库列表 → executeBatchRun → 回填触发信息
  * - kind='pr-check'：解析仓库列表 → ActionStatusMonitor.pollOnce → 回填触发信息（env 关闭时跳过更新 lastTriggeredAt）
@@ -202,7 +209,7 @@ const triggerPrCheckSchedule = async (
     schedule: Schedule,
     repositoryIds: string[],
 ): Promise<PrCheckTriggerResult> => {
-    if (process.env.ACTION_STATUS_MONITOR_ENABLED !== 'true') {
+    if (!isActionStatusMonitorEnabled()) {
         console.warn(
             `[scheduler] pr-check schedule ${schedule.id} 跳过触发：ACTION_STATUS_MONITOR_ENABLED 未启用（默认 false）。`
             + '设置 ACTION_STATUS_MONITOR_ENABLED=true 后重启进程。',

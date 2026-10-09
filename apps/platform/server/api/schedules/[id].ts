@@ -10,6 +10,7 @@ import { registerSchedule, unregisterSchedule } from '#server/services/scheduler
 const toView = (s: Schedule) => ({
     id: s.id,
     name: s.name,
+    kind: s.kind,
     cron: s.cron,
     timezone: s.timezone,
     selectorKind: s.selectorKind,
@@ -62,6 +63,7 @@ const updateSchedule = async (event: H3Event, id: string) => {
 
     Object.assign(found, {
         name: parsed.data.name ?? found.name,
+        kind: parsed.data.kind ?? found.kind,
         cron: parsed.data.cron ?? found.cron,
         // 空串归一化为 null（空 = 服务器本地时区契约；node-cron 对空 timezone 抛 Invalid timezone）
         timezone: parsed.data.timezone !== undefined ? parsed.data.timezone || null : found.timezone,

@@ -51,10 +51,21 @@ describe('GET/POST /api/schedules', () => {
     it('creates enabled schedule and registers it with scheduler service', async () => {
         const created = await call('POST', '/api/schedules', validBody) as Record<string, unknown>
         expect(created).toMatchObject({ name: '每日扫描', cron: '0 2 * * *', enabled: true, selectorKind: 'all' })
+        // 未传 kind → 默认 scan（向后兼容）
+        expect(created.kind).toBe('scan')
         expect(registerSchedule).toHaveBeenCalledOnce()
 
         const list = await call('GET', '/api/schedules') as Record<string, unknown>[]
         expect(list).toHaveLength(1)
+        expect(list[0]!.kind).toBe('scan')
+    })
+
+    it('persists and reads back kind=pr-check', async () => {
+        const created = await call('POST', '/api/schedules', { ...validBody, name: 'PR Check 轮询', kind: 'pr-check' }) as Record<string, unknown>
+        expect(created.kind).toBe('pr-check')
+
+        const list = await call('GET', '/api/schedules') as Record<string, unknown>[]
+        expect(list.find((s) => s.id === created.id)!.kind).toBe('pr-check')
     })
 
     it('does not register disabled schedule', async () => {

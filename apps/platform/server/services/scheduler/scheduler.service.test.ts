@@ -15,6 +15,7 @@ const {
     removeSchedulerMock,
     resolveRepositoryIdsMock,
     executeBatchRunMock,
+    monitorPollOnceMock,
 } = vi.hoisted(() => ({
     scheduleMock: vi.fn(),
     destroyMock: vi.fn(),
@@ -22,6 +23,7 @@ const {
     removeSchedulerMock: vi.fn(),
     resolveRepositoryIdsMock: vi.fn(),
     executeBatchRunMock: vi.fn(),
+    monitorPollOnceMock: vi.fn(),
 }))
 
 vi.mock('node-cron', () => ({
@@ -49,6 +51,26 @@ vi.mock('./selector', () => ({
     resolveRepositoryIds: resolveRepositoryIdsMock,
 }))
 
+// pr-check 链路依赖（仅在 kind='pr-check' 且总开关启用时触达）
+vi.mock('../monitor/action-status-monitor', () => ({
+    ActionStatusMonitor: class {
+        pollOnce = monitorPollOnceMock
+    },
+}))
+vi.mock('../monitor/polling-source', () => ({
+    PollingSource: class {},
+}))
+vi.mock('@dependfix/engine', () => ({
+    createGitHubClient: vi.fn(() => ({})),
+}))
+vi.mock('@dependfix/engine/auth', () => ({
+    fromPat: vi.fn(() => ({})),
+}))
+vi.mock('../credential.service', () => ({
+    decryptToken: vi.fn(() => 'token'),
+    getEncryptionKey: vi.fn(() => 'key'),
+}))
+
 vi.mock('#server/database', () => ({
     ensureDatabaseInitialized: vi.fn(),
 }))
@@ -57,12 +79,15 @@ vi.mock('#server/database', () => ({
 import { getQueueService } from '../queue/queue.service'
 import {
     buildSchedulerId,
+    isActionStatusMonitorEnabled,
     registerSchedule,
     shutdownScheduler,
     triggerSchedule,
     unregisterSchedule,
 } from './scheduler.service'
 import { Schedule } from '#server/entities/schedule'
+import { Repository } from '#server/entities/repository'
+import { Credential } from '#server/entities/credential'
 import { ensureDatabaseInitialized } from '#server/database'
 import { resolveOrganizationId } from '#server/utils/organization'
 
@@ -82,27 +107,47 @@ const mockQueueService = (mode: 'async' | 'sync') => {
     } as never)
 }
 
-/** 构建 mock DataSource：scheduler 只消费 Schedule repo（批量执行已委托 executeBatchRun） */
-const mockDataSource = (scheduleRow: Partial<Schedule> | null) => {
+/** 构建 mock DataSource：scheduler 只消费 Schedule repo（批量执行已委托 executeBatchRun）；
+ * pr-check 链路额外消费 Repository / Credential repo（仅在其被触达时需要提供） */
+const mockDataSource = (
+    scheduleRow: Partial<Schedule> | null,
+    opts: {
+        repositoryRows?: { id: string, credentialId: string | null }[]
+        credentialRow?: { id: string, type: string, encryptedToken: string } | null
+    } = {},
+) => {
     const scheduleRepo = {
         findOne: vi.fn(async () => scheduleRow ? makeSchedule(scheduleRow) : null),
         save: vi.fn(async (s: Schedule) => s),
         find: vi.fn(async () => []),
+    }
+    const repositoryRepo = {
+        find: vi.fn(async () => opts.repositoryRows ?? []),
+    }
+    const credentialRepo = {
+        findOne: vi.fn(async () => opts.credentialRow ?? null),
     }
     vi.mocked(ensureDatabaseInitialized).mockResolvedValue({
         getRepository: (entity: unknown) => {
             if (entity === Schedule) {
                 return scheduleRepo
             }
+            if (entity === Repository) {
+                return repositoryRepo
+            }
+            if (entity === Credential) {
+                return credentialRepo
+            }
             throw new Error(`unexpected entity: ${String(entity)}`)
         },
     } as never)
-    return { scheduleRepo }
+    return { scheduleRepo, repositoryRepo, credentialRepo }
 }
 
 const makeSchedule = (overrides: Partial<Schedule> = {}): Schedule => Object.assign({
     id: 'schedule-1',
     name: '测试计划',
+    kind: 'scan',
     cron: '0 2 * * 1',
     timezone: null,
     selectorKind: 'tag',
@@ -130,6 +175,7 @@ describe('scheduler.service（双模调度注册/注销/触发）', () => {
 
     afterEach(() => {
         shutdownScheduler()
+        vi.unstubAllEnvs()
     })
 
     describe('buildSchedulerId', () => {
@@ -264,6 +310,53 @@ describe('scheduler.service（双模调度注册/注销/触发）', () => {
             resolveRepositoryIdsMock.mockResolvedValue([])
             mockDataSource({ selectorJson: 'not-json' })
             await expect(triggerSchedule('schedule-1')).resolves.toMatchObject({ repositoryCount: 0 })
+        })
+
+        it('kind=pr-check 且总开关未启用 → 返回 skipped 且不走扫描链路（不回填 lastTriggeredAt）', async () => {
+            mockQueueService('sync')
+            const { scheduleRepo } = mockDataSource({ kind: 'pr-check' })
+
+            const result = await triggerSchedule('schedule-1')
+
+            expect(result).toEqual({ kind: 'pr-check', processed: 0, errors: 0, skipped: true })
+            expect(executeBatchRunMock).not.toHaveBeenCalled()
+            expect(scheduleRepo.save).not.toHaveBeenCalled()
+        })
+
+        it('kind=pr-check 且总开关启用 → 走 ActionStatusMonitor.pollOnce（不调用 executeBatchRun）→ 回填触发信息', async () => {
+            mockQueueService('sync')
+            vi.stubEnv('ACTION_STATUS_MONITOR_ENABLED', 'true')
+            monitorPollOnceMock.mockResolvedValue({ processed: 3, errors: 0 })
+            resolveRepositoryIdsMock.mockResolvedValue(['repo-1'])
+            const { scheduleRepo, repositoryRepo, credentialRepo } = mockDataSource({ kind: 'pr-check' }, {
+                repositoryRows: [{ id: 'repo-1', credentialId: 'cred-1' }],
+                credentialRow: { id: 'cred-1', type: 'classic-pat', encryptedToken: 'enc' },
+            })
+
+            const result = await triggerSchedule('schedule-1')
+
+            expect(result).toEqual({ kind: 'pr-check', processed: 3, errors: 0 })
+            expect(executeBatchRunMock).not.toHaveBeenCalled()
+            expect(repositoryRepo.find).toHaveBeenCalledTimes(1)
+            expect(credentialRepo.findOne).toHaveBeenCalledTimes(1)
+            expect(monitorPollOnceMock).toHaveBeenCalledTimes(1)
+            expect(monitorPollOnceMock.mock.calls[0]![0]).toEqual({
+                organizationId: 'org-a',
+                repositoryIds: ['repo-1'],
+            })
+            // 实际运行（非 skip）→ 回填 lastTriggeredAt
+            const savedSchedule = scheduleRepo.save.mock.calls[0]![0] as Schedule
+            expect(savedSchedule.lastTriggeredAt).not.toBeNull()
+        })
+    })
+
+    describe('isActionStatusMonitorEnabled', () => {
+        it('仅当 ACTION_STATUS_MONITOR_ENABLED === "true" 时为真', () => {
+            expect(isActionStatusMonitorEnabled()).toBe(false)
+            vi.stubEnv('ACTION_STATUS_MONITOR_ENABLED', 'true')
+            expect(isActionStatusMonitorEnabled()).toBe(true)
+            vi.stubEnv('ACTION_STATUS_MONITOR_ENABLED', '1')
+            expect(isActionStatusMonitorEnabled()).toBe(false)
         })
     })
 })

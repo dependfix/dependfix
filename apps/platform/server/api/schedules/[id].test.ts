@@ -64,7 +64,7 @@ describe('GET/PATCH/DELETE /api/schedules/[id] + POST /trigger', () => {
 
     it('returns schedule detail', async () => {
         const detail = await callId('GET', `/api/schedules/${id}`, undefined, { id }) as Record<string, unknown>
-        expect(detail).toMatchObject({ id, name: '每日扫描', enabled: true })
+        expect(detail).toMatchObject({ id, name: '每日扫描', enabled: true, kind: 'scan' })
     })
 
     it('returns 404 for unknown schedule', async () => {
@@ -76,6 +76,19 @@ describe('GET/PATCH/DELETE /api/schedules/[id] + POST /trigger', () => {
         expect(result).toMatchObject({ name: '改名', cron: '0 3 * * *' })
         expect(unregisterSchedule).toHaveBeenCalledWith(id)
         expect(registerSchedule).toHaveBeenCalledOnce()
+    })
+
+    it('updates kind (scan → pr-check) and reads it back', async () => {
+        const created = await callIndex('POST', '/api/schedules', { ...validBody, name: 'kind 更新' }) as Record<string, unknown>
+        expect(created.kind).toBe('scan')
+
+        const patched = await callId('PATCH', `/api/schedules/${created.id}`, { kind: 'pr-check' }, { id: created.id as string }) as Record<string, unknown>
+        expect(patched.kind).toBe('pr-check')
+
+        const detail = await callId('GET', `/api/schedules/${created.id}`, undefined, { id: created.id as string }) as Record<string, unknown>
+        expect(detail.kind).toBe('pr-check')
+
+        await callId('DELETE', `/api/schedules/${created.id}`, undefined, { id: created.id as string })
     })
 
     it('unregisters without re-registering when disabled', async () => {

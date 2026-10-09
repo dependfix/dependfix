@@ -1,10 +1,12 @@
+import { z } from 'zod'
 import { In, IsNull, Not, type DataSource } from 'typeorm'
 import { Repository } from '#server/entities/repository'
 import { ScanResult } from '#server/entities/scan-result'
-import { ScanRun, type ScanRunStatus } from '#server/entities/scan-run'
+import { ScanRun, SCAN_RUN_STATUSES, type ScanRunStatus } from '#server/entities/scan-run'
 import { RUN_FAILURE_STAGES, type RunFailureStage } from '#server/services/run-failure-classify'
 import { ensureDatabaseInitialized } from '#server/database'
 import { requireAuth } from '#server/utils/guard'
+import { createLocalizedError } from '#server/utils/localized-error'
 import { resolveOrganizationId } from '#server/utils/organization'
 
 /** 汇总窗口（最近 N 次 run 纳入统计；与服务端 pageSize 无关，单次聚合控制上限） */
@@ -112,7 +114,26 @@ export const aggregateByRepository = (
 }
 
 /**
- * GET /api/scan-history/summary：扫描历史汇总（按当前组织 + 可选 repositoryId 过滤）。
+ * 查询参数 schema：
+ * - `repositoryId`：可选，按仓库过滤汇总（scans?repository=xxx 时调用）；空串视作缺省（既有口径）
+ * - `lastStatus`：可选，按聚合后的「最近状态」过滤 `repositories`；取值须在 `SCAN_RUN_STATUSES`
+ *   白名单内（非法值 400，不静默丢弃）；空串 / 缺省视作不过滤。
+ *
+ * 注：`lastStatus` 过滤作用于**聚合结果**（每个仓库的最近一次运行状态），而非 DB 层的 run 过滤——
+ * 后者会改变各仓库的 runCount / 窗口口径，违反「仅在其上叠加筛选」的边界。
+ */
+const querySchema = z.object({
+    repositoryId: z.string().optional()
+        .transform((v) => (v && v.length > 0 ? v : undefined)),
+    lastStatus: z.string().max(64).optional()
+        .transform((v) => (v && v.length > 0 ? v : undefined))
+        .refine((v) => v === undefined || (SCAN_RUN_STATUSES as readonly string[]).includes(v), {
+            message: 'invalid lastStatus value',
+        }),
+})
+
+/**
+ * GET /api/scan-history/summary：扫描历史汇总（按当前组织 + 可选 repositoryId / lastStatus 过滤）。
  *
  * 应用场景（todo.md §M16.1）：/scans 页面顶部 4 块汇总卡片 + 按仓库聚合列表。
  * 与 /api/runs 列表契约对齐：viewer 可见、organizationId 隐式注入、单组织模型下默认 `dependfix-default`。
@@ -124,18 +145,23 @@ export const aggregateByRepository = (
  * - byStatus: { pending, running, completed, failed, dispatched, degraded } 全计数
  * - byFailureStage: 失败阶段全计数（受同一时间窗约束；与 runList 筛选同源口径）
  * - totals: { runs, totalAlerts, totalFixed } —— 与 byStatus 互补的总量统计
- * - repositories: 按仓库聚合列表（runCount/alertCount/fixedCount/lastRunAt/lastStatus/lastFailureStage）
- * - window: { start, end, included } —— 统计窗口（最近 N 条 run 的 createdAt 起止 + 实际纳入数）
- *
- * repositoryId query 参数：可选，按仓库过滤汇总（scans?repository=xxx 时调用）。
+ * - repositories: 按仓库聚合列表（runCount/alertCount/fixedCount/lastRunAt/lastStatus/lastFailureStage）；
+ *   受 `lastStatus` 过滤（仅返回最近状态命中该值的仓库），但 byStatus / totals / window 仍为**窗口全量**
+ * - window: { start, end, included, limit } —— 统计窗口（最近 N 条 run 的 createdAt 起止 + 实际纳入数）
+ * - filtered: { repositoryId, lastStatus } —— 回显生效的过滤条件
  */
 export default defineEventHandler(async (event) => {
     await requireAuth(event)
 
-    const query = getQuery(event)
-    const repositoryId = typeof query.repositoryId === 'string' && query.repositoryId.length > 0
-        ? query.repositoryId
-        : undefined
+    const parsed = querySchema.safeParse(getQuery(event))
+    if (!parsed.success) {
+        throw createLocalizedError(event, {
+            statusCode: 400,
+            code: 'SCAN_HISTORY_VALIDATION_FAILED',
+            data: { issues: parsed.error.issues },
+        })
+    }
+    const { repositoryId, lastStatus } = parsed.data
 
     const ds: DataSource = await ensureDatabaseInitialized()
     const organizationId = await resolveOrganizationId(ds)
@@ -202,7 +228,11 @@ export default defineEventHandler(async (event) => {
         }
     }
 
-    const repositories = aggregateByRepository(runs as (ScanRun & { repository?: Repository | null })[], resultsByRun)
+    const aggregated = aggregateByRepository(runs as (ScanRun & { repository?: Repository | null })[], resultsByRun)
+    // lastStatus 过滤作用于聚合结果（每个仓库最近一次运行状态），不改变窗口 / totals / byStatus 口径
+    const repositories = lastStatus
+        ? aggregated.filter((repo) => repo.lastStatus === lastStatus)
+        : aggregated
 
     const windowEnd = runs[0]?.createdAt ?? null
     const windowStart = runs[runs.length - 1]?.createdAt ?? null
@@ -224,6 +254,7 @@ export default defineEventHandler(async (event) => {
         },
         filtered: {
             repositoryId: repositoryId ?? null,
+            lastStatus: lastStatus ?? null,
         },
     }
 })

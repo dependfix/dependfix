@@ -733,7 +733,9 @@
             "colLastRun": "最近运行",
             "colLastStatus": "最近状态",
             "colActions": "操作",
-            "actionFilterThis": "仅查看此仓库"
+            "actionFilterThis": "仅查看此仓库",
+            "filterStatus": "最近状态",
+            "windowHint": "统计窗口：最近 {included} 次运行（上限 {limit}）；更早的运行不计入"
         },
         "runList": {
             "title": "全部运行",
@@ -791,6 +793,10 @@
             "en": "Run id is required"
         },
         "RUNS_VALIDATION_FAILED": {
+            "zh-CN": "查询参数校验失败",
+            "en": "Invalid query parameters"
+        },
+        "SCAN_HISTORY_VALIDATION_FAILED": {
             "zh-CN": "查询参数校验失败",
             "en": "Invalid query parameters"
         },

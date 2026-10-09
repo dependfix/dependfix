@@ -733,7 +733,9 @@
             "colLastRun": "Last run",
             "colLastStatus": "Last status",
             "colActions": "Actions",
-            "actionFilterThis": "Filter this repository"
+            "actionFilterThis": "Filter this repository",
+            "filterStatus": "Last status",
+            "windowHint": "Aggregation window: last {included} runs (limit {limit}); earlier runs are excluded"
         },
         "runList": {
             "title": "All runs",
@@ -791,6 +793,10 @@
             "en": "Run id is required"
         },
         "RUNS_VALIDATION_FAILED": {
+            "zh-CN": "查询参数校验失败",
+            "en": "Invalid query parameters"
+        },
+        "SCAN_HISTORY_VALIDATION_FAILED": {
             "zh-CN": "查询参数校验失败",
             "en": "Invalid query parameters"
         },

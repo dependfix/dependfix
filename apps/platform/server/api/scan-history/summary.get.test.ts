@@ -34,7 +34,7 @@ interface SummaryResponse {
         lastFailureStage: string | null
     }[]
     window: { start: string | null, end: string | null, included: number, limit: number }
-    filtered: { repositoryId: string | null }
+    filtered: { repositoryId: string | null, lastStatus: string | null }
 }
 
 const createRepo = async (overrides: { owner?: string, name?: string } = {}) => {
@@ -155,9 +155,63 @@ describe('GET /api/scan-history/summary', () => {
         })
         expect(res.totals).toEqual({ runs: 0, totalAlerts: 0, totalFixed: 0 })
         expect(res.repositories).toEqual([])
-        expect(res.filtered).toEqual({ repositoryId: null })
+        expect(res.filtered).toEqual({ repositoryId: null, lastStatus: null })
         expect(res.window.limit).toBe(500)
         expect(res.window.included).toBe(0)
+    })
+
+    it('rejects invalid lastStatus with 400 (不静默丢弃非法值)', async () => {
+        // 锁定公开错误码契约（data.code）与状态码
+        await expect(call('GET', '/api/scan-history/summary?lastStatus=not-a-status'))
+            .rejects.toMatchObject({ statusCode: 400, data: { code: 'SCAN_HISTORY_VALIDATION_FAILED' } })
+        await expect(call('GET', '/api/scan-history/summary?lastStatus=COMPLETED'))
+            .rejects.toMatchObject({ statusCode: 400 })
+        // 超长值（> max(64)）同样 400（防御异常输入）
+        await expect(call('GET', `/api/scan-history/summary?lastStatus=${'x'.repeat(80)}`))
+            .rejects.toMatchObject({ statusCode: 400 })
+    })
+
+    it('filters repositories by lastStatus (集合与「最近状态」一致，totals / window 不受影响)', async () => {
+        // 专用仓库（显式 createdAt 保证 lastStatus 确定）：
+        // - filter-failed：较新 run = failed → lastStatus = failed
+        // - filter-ok：单条 completed → lastStatus = completed
+        const repoFailed = await createRepo({ owner: 'demo', name: 'filter-failed' })
+        await seedRun(repoFailed, { status: 'completed', createdAt: new Date('2026-01-01T00:00:00Z') })
+        await seedRun(repoFailed, { status: 'failed', createdAt: new Date('2026-02-01T00:00:00Z') })
+        const repoOk = await createRepo({ owner: 'demo', name: 'filter-ok' })
+        await seedRun(repoOk, { status: 'completed', createdAt: new Date('2026-01-15T00:00:00Z') })
+
+        const all = await call('GET', '/api/scan-history/summary') as SummaryResponse
+        const expected = all.repositories
+            .filter((repo) => repo.lastStatus === 'failed')
+            .map((repo) => repo.repositoryId)
+            .sort()
+        // 前置：至少命中专用仓库，避免空集假绿
+        expect(expected).toContain(repoFailed)
+
+        const filtered = await call('GET', '/api/scan-history/summary?lastStatus=failed') as SummaryResponse
+        // 集合一致性：过滤后的 repositories === 全量中 lastStatus=failed 的集合（精确相等）
+        expect(filtered.repositories.map((repo) => repo.repositoryId).sort()).toEqual(expected)
+        expect(filtered.repositories.every((repo) => repo.lastStatus === 'failed')).toBe(true)
+        expect(filtered.repositories.map((repo) => repo.repositoryId)).not.toContain(repoOk)
+        // 回显过滤条件
+        expect(filtered.filtered.lastStatus).toBe('failed')
+        // 窗口口径不变（lastStatus 只过滤聚合结果，不改 DB 层取数）
+        expect(filtered.totals).toEqual(all.totals)
+        expect(filtered.window).toEqual(all.window)
+    })
+
+    it('lastStatus 与 repositoryId 组合过滤（AND 语义）', async () => {
+        const repoBoth = await createRepo({ owner: 'demo', name: 'filter-both' })
+        await seedRun(repoBoth, { status: 'degraded', createdAt: new Date('2026-03-01T00:00:00Z') })
+
+        const res = await call('GET', `/api/scan-history/summary?repositoryId=${repoBoth}&lastStatus=degraded`) as SummaryResponse
+        expect(res.repositories.map((repo) => repo.repositoryId)).toEqual([repoBoth])
+        expect(res.filtered).toEqual({ repositoryId: repoBoth, lastStatus: 'degraded' })
+
+        // 组合不命中：仓库存在但最近状态不是该值 → 空列表（不报错）
+        const miss = await call('GET', `/api/scan-history/summary?repositoryId=${repoBoth}&lastStatus=completed`) as SummaryResponse
+        expect(miss.repositories).toEqual([])
     })
 
     it('aggregates byFailureStage across classified ScanRuns', async () => {

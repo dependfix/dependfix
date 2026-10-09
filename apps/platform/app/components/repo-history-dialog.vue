@@ -2,14 +2,14 @@
 // 扫描历史 Dialog（应用层修复：替代 unrouting 0.2.x 子路由 /repos/[id]/runs，
 // 用 query 传仓库 id，绕开 `:id()` dynamic segment 与 path-to-regexp 8.x 不兼容的根因）。
 //
-// 当前由两种调用方消费：
-// - repos.vue 老路径 `/repos?history={id}`：保留 queryKey='history' 默认值兼容
-// - scans.vue 新路径 `/scans?run={id}`：通过 :query-key="'run'" 注入
+// 当前唯一挂载点：scans.vue 的 `/scans?run={id}`（`:query-key="'run'"`）。
+// history 模式（list 视图 / 「返回列表」）实现保留，但 `repos.vue` 的历史入口已改为跳
+// `/scans?repository=`，故当前无 history 挂载点（去留见 docs/plan/backlog.md 候选）。
 //
 // 分页：服务端分页（lazy DataTable + Paginator）。
 // 默认 pageSize=10，rows-per-page-options=[10, 25, 50]，最大 200 由 server 钳制。
 import type { DataTableColumn, DataTablePageEvent } from 'caomei-ui'
-import { ArrowLeft, Copy, ExternalLink, Eye, X } from '@lucide/vue'
+import { ArrowLeft, Copy, ExternalLink, Eye } from '@lucide/vue'
 
 const props = withDefaults(defineProps<{
     /**
@@ -287,7 +287,7 @@ watch(() => route.query[props.queryKey], async (newVal) => {
         modal
         :closable="!detail || queryKey === 'run'"
         :close-on-esc="!detail || queryKey === 'run'"
-        :style="{width: '720px'}"
+        :style="{'--caomei-dialog-width': '720px'}"
         @hide="closeDialog"
     >
         <div v-if="loading && runs.length === 0 && !detailMode" class="text-muted">
@@ -312,11 +312,11 @@ watch(() => route.query[props.queryKey], async (newVal) => {
         </CaomeiMessage>
         <!-- 实测反馈：detail.status === 'failed' 时在 results 表格上方展示执行级 Error Banner，
              即使 detail.error 为空（数据损坏 / 旧数据迁移 / 后端 errorJson 缺失）也显示降级提示。
-             caomei DataTable 无表级 #header 插槽，故原 #header 内容（返回/关闭按钮 + Error Banner + PR 链接）
+             caomei DataTable 无表级 #header 插槽，故原 #header 内容（返回按钮 + Error Banner + PR 链接）
              与日志区一并上移到表格容器前（仍处于 v-else-if="detail" 分支）。 -->
         <template v-else-if="detail">
             <div class="repo-history__detail-header">
-                <!-- list mode：返回列表按钮 -->
+                <!-- list mode：返回列表按钮；run mode 关闭走弹窗 header「×」与 Esc（不再渲染冗余 body 关闭按钮） -->
                 <CaomeiButton
                     v-if="!detailMode"
                     variant="ghost"
@@ -327,18 +327,6 @@ watch(() => route.query[props.queryKey], async (newVal) => {
                         <CaomeiIcon :icon="ArrowLeft" />
                     </template>
                     {{ t('runs.backToList') }}
-                </CaomeiButton>
-                <!-- run mode（queryKey='run'）：列表不可用，提供关闭按钮；history mode 但已无列表上下文时也降级到关闭 -->
-                <CaomeiButton
-                    v-else-if="queryKey === 'run'"
-                    variant="ghost"
-                    size="sm"
-                    @click="closeDialog"
-                >
-                    <template #icon>
-                        <CaomeiIcon :icon="X" />
-                    </template>
-                    {{ t('common.actions.close') }}
                 </CaomeiButton>
                 <CaomeiMessage
                     v-if="detail.status === 'failed'"
@@ -382,7 +370,7 @@ watch(() => route.query[props.queryKey], async (newVal) => {
                         </template>
                     </CaomeiButton>
                 </div>
-                <div class="repo-history__logs-scroll" style="height: 200px; overflow: auto">
+                <div class="repo-history__logs-scroll">
                     <div class="repo-history__logs-content">
                         <div
                             v-for="(entry, index) in detail.logs"
@@ -568,6 +556,13 @@ watch(() => route.query[props.queryKey], async (newVal) => {
     &__logs-title {
         font-weight: 600;
         font-size: $font-size-sm;
+    }
+
+    /* 日志滚动区高度自适应（原固定 200px）：视口比例 clamp —— 下限 240px 保证可视区不小于旧值，
+       上限 520px 避免大屏过高；中档 40vh 随弹窗可用空间（85vh 预算）缩放。 */
+    &__logs-scroll {
+        height: clamp(240px, 40vh, 520px);
+        overflow: auto;
     }
 
     &__logs-content {

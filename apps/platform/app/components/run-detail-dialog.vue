@@ -183,8 +183,7 @@ watch(() => props.runId, (runId) => {
         v-model:open="visible"
         :title="dialogTitle"
         modal
-        :style="{width: '720px'}"
-        :breakpoints="{'1199px': '75vw', '575px': '90vw'}"
+        :style="{'--caomei-dialog-width': '720px'}"
         @hide="reset"
     >
         <div v-if="loading" class="text-muted">
@@ -302,7 +301,7 @@ watch(() => props.runId, (runId) => {
                         </template>
                     </CaomeiButton>
                 </div>
-                <div class="run-detail__logs-scroll" style="height: 200px; overflow: auto">
+                <div class="run-detail__logs-scroll">
                     <div class="run-detail__logs-content">
                         <div
                             v-for="(entry, index) in detail.logs"
@@ -416,6 +415,13 @@ watch(() => props.runId, (runId) => {
     &__logs-title {
         font-weight: 600;
         font-size: $font-size-sm;
+    }
+
+    /* 日志滚动区高度自适应（原固定 200px）：视口比例 clamp —— 下限 240px 保证可视区不小于旧值，
+       上限 520px 避免大屏过高；中档 40vh 随弹窗可用空间（85vh 预算）缩放（与 repo-history-dialog 同口径）。 */
+    &__logs-scroll {
+        height: clamp(240px, 40vh, 520px);
+        overflow: auto;
     }
 
     &__logs-content {

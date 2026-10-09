@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { waitForHydration } from './helpers/hydration.helper'
+import { unauthenticatedApiContext } from './helpers/unauthenticated-api.helper'
 
 /**
  * /scans 独立页面端到端测试：
@@ -247,6 +248,38 @@ test.describe('/scans 独立页面', () => {
         const box = await dialog.boundingBox()
         expect(box).not.toBeNull()
         expect(box!.width).toBeLessThanOrEqual(480)
+    })
+
+    test('case 7: 批量日志导出入口 + 已认证导出命中静态路由 + 未认证被拒', async ({ page, browser }) => {
+        const stamp = Date.now()
+        const owner = `e2e-export-${stamp}`
+        const repositoryId = await scanRunRepository(page, owner, `e2e-export-repo-${stamp}`)
+
+        await page.goto('/scans')
+        await waitForHydration(page)
+        // 运行列表筛选工具栏的批量导出按钮（默认「全部运行」tab）
+        await expect(page.locator('button:has-text("导出当前筛选日志")')).toBeVisible({ timeout: 15000 })
+
+        // 已认证导出：命中静态路由 /api/runs/logs-export（证明优先于 /api/runs/[id] 的假 id 分支）
+        const cookies = (await page.context().cookies()).map((c) => `${c.name}=${c.value}`).join('; ')
+        const authed = await page.request.get(`/api/runs/logs-export?repositoryId=${repositoryId}`, {
+            headers: { cookie: cookies },
+        })
+        expect(authed.status()).toBe(200)
+        expect(authed.headers()['content-type']).toContain('text/plain')
+        expect(authed.headers()['content-disposition']).toContain('runs-logs-')
+        const body = await authed.text()
+        expect(body).toContain('# dependfix 执行日志导出')
+        expect(body).toContain(`# 筛选：repositoryId=${repositoryId}`)
+
+        // 未认证请求（强制空 storageState 的独立 context）→ 401
+        const context = await unauthenticatedApiContext(browser)
+        try {
+            const unauth = await context.request.get('/api/runs/logs-export')
+            expect(unauth.status()).toBe(401)
+        } finally {
+            await context.close()
+        }
     })
 })
 

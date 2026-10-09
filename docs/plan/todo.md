@@ -80,15 +80,17 @@
   - **优先级**：P2
   - **范围**：单 run 导出形态（新增 `apps/platform/server/api/runs/[id]/logs.get.ts` 带 `Content-Disposition`，或前端由 `logsText` 生成 Blob，D 阶段前定稿）；批量导出（新增端点或前端聚合，D 阶段前定稿）；`apps/platform/app/components/repo-history-dialog.vue` / `run-detail-dialog.vue`（下载入口）；i18n 双语；文档。
   - **验收标准**：
-    - [ ] 单 run 可下载日志（txt 或 json，附件名含 runId），内容与 `logsText` / `logs[]` 一致（定向端点单测断言）
-    - [ ] 批量下载按当前筛选条件导出（多文件打包或合并单文件，形态定稿后落证据），含体积上限与超限提示（不 OOM）
-    - [ ] 未认证 / 跨组织访问被拒（复用 `requireAuth` + 组织隔离，与 `/api/runs/[id]` 同口径）
-    - [ ] i18n 双语 parity；前端下载入口在无日志时禁用或隐藏
-    - [ ] `pnpm lint` + `pnpm typecheck` 0 error；`pnpm --filter @dependfix/platform test`（定向）全过
+    - [x] 单 run 可下载日志（**服务端端点** `GET /api/runs/[id]/logs`，txt 附件名 `run-<id>.txt`），内容与 `logsText` 同源（同一 `parseLogEntries` / `formatLogEntries`；定向端点单测断言正文 + `Content-Disposition`）
+    - [x] 批量下载按当前筛选条件导出（**服务端端点** `GET /api/runs/logs-export`，与 `/api/runs` 共用 `runsFilterSchema` + `buildRunsWhere`，合并单 txt）；**硬上限**（运行数 100 / 总字节 5 MiB）+ 超限 **413** 明确报错（定向单测：超运行数 / 超字节两分支）
+    - [x] 未认证 / 跨组织访问被拒（`requireAuth` + 单 run `requireOrgResource`；批量经 `buildRunsWhere` 注入 `repository.organizationId` 隔离；e2e 未认证 401 + 单测组织隔离用例）
+    - [x] i18n 双语 parity；前端下载入口在无日志时隐藏（两弹窗日志区已由 `v-if="detail.logs.length > 0"` 包裹，下载按钮随之隐藏）
+    - [x] `pnpm lint`（0 error）+ `pnpm typecheck`（7 包 Done）0 error；`pnpm --filter @dependfix/platform test` 全量 1648 passed | 9 skipped
+  - **D 阶段决策留痕（2026-10-10，用户裁定）**：① 单 run 导出 = **服务端端点**（txt 附件，非前端 Blob）；② 批量导出 = **服务端端点 + 合并单 txt**（不引入 zip 依赖、不做前端聚合）；③ 超限 = **硬上限 + 明确报错（413）**（运行数 100 / 总字节 5 MiB，提示缩小筛选）。
   - **不做什么**：不改日志采集（`MemoryLogger.maxEntries` 1000）与落库形态（`logs_json`）；不引入对象存储或异步大导出任务队列；不动 `GET /api/runs` 列表契约。
   - **依赖**：`ScanRun.logsJson`（迁移 `1800000000002`）；`GET /api/runs/[id]` 的 `logs` / `logsText` 口径。
-  - **交付物**：预计 2-3 commits（feat(platform) 单 run 下载 + 批量导出 + docs(plan)）；文件 4-6（API ×2 / 前端 ×2 / e2e / i18n）。
-  - **风险与缓解措施**：① 批量体积（每 run 上限 1000 条 × N run）→ 设上限 + streaming / 逐 run 追加；② 新增端点属接口新增（非契约重写）——若 D 阶段判定触发设计先行闸门，则先落设计稿；③ 浏览器大响应下载 → 优先服务端流式或分页拉取。
+  - **实际交付（2026-10-10）**：拆 4 commits——`feat(platform)`（后端：`runs-query.ts` 共享筛选层 + `/api/runs` 改用共享层 + 单 run / 批量导出端点 + 错误码 + 413 statusMessage + 端点单测 + vitest `setHeader` stub + i18n）/ `feat(platform)`（前端：`utils/download.ts` 下载 helper + 两弹窗下载入口 + scans 批量导出按钮）/ `test(platform)`（scans e2e 导出入口 + 未认证 401）/ `docs(plan)`（todo 闭环 + backlog 登记 scans.vue 体量候选）；共 16 文件（后端 7 + 前端 4 + i18n 2 + e2e 1 + 文档 2）。**拆分依据**：超 §1.1「10 文件」阈值，按 后端 / 前端 / e2e / 文档 四类独立可回滚拆分（各 commit ≤ 10 文件）；属单模块（`apps/platform`）增量、无架构变更、净增 < 800 行，未触发 governance 设计稿硬阈值。
+  - **审计（2026-10-10）**：standard 2 分区并发 Pass（parA 后端/测试 0B/3W/6S；parB 前端/e2e/文档 0B/1W/5S；evidence：`artifacts/review-gate/2026-10-10-m39.4-parA.md` / `-parB.md`）→ 收口 4 warning（RG-W01 parA 批量组织隔离用例改为无 `repositoryId` 导出真正依赖组织维度 / RG-W02 parA 单 run 守卫断言第二参 = 仓库 `organizationId` + 补 403 透传用例 / RG-W03 parA `codeSet` 改 `satisfies Record<ServerErrorCode, true>` 强制穷举 / RG-W01 parB 补 `download.test.ts` 单测 + e2e 已认证导出断言）+ 应用 suggest（`repositoryId.max(64)`、去冗余导出、`download.ts` 注释与 `revokeObjectURL` 时点、组织守卫口径注释）→ R2 quick Pass（4 warning 修复点全关闭，含 mutation 击杀；evidence：`-r2.md`）。
+  - **风险与缓解措施**：① 批量体积（每 run 上限 1000 条 × N run）→ 运行数 + 总字节双硬上限 + 逐 run 追加即早停（413 不 OOM）；② 新增端点属接口新增（非契约重写）→ 复用 `requireAuth` / `requireOrgResource` / 共享筛选层，未触发设计先行闸门；③ 浏览器大响应下载 → 服务端生成、前端 `fetch` + Blob 触发下载（读 `Content-Disposition` 附件名）。
 
 - **M39.5**（P2，🚀 能力扩展）PR Check 监测启用链路打通
   - **目标**：让 `pr-check` 类型 schedule 可被创建与启用，使「PR Checks」页产生数据（现状三重闸门导致从未启用：表单无 `kind`、API 未落库 `kind`、`ACTION_STATUS_MONITOR_ENABLED` 无入口）。

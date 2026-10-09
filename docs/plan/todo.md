@@ -95,15 +95,17 @@
   - **优先级**：P2
   - **范围**：`apps/platform/server/api/schedules/index.ts` + `[id].ts`（落库并回读 `kind`）；同文件 `toView`；`apps/platform/app/pages/schedules.vue`（`kind` 选择器）；`apps/platform/app/types/platform.ts`（`ScheduleView`）；`apps/platform/server/services/scheduler/scheduler.service.ts`（总开关形态）；`apps/platform/.env.example` + `docs/standards/platform.md §11`（env 表）；e2e（schedules-crud）。
   - **验收标准**：
-    - [ ] `POST` / `PATCH /api/schedules` 落库 `kind`，`GET` 回读 `kind`（含 `pr-check`）；e2e 覆盖 `kind` 往返
-    - [ ] schedules 表单可选择 `kind`；`pr-check` 保存后 `triggerSchedule` 走 `ActionStatusMonitor` 链路（`ACTION_STATUS_MONITOR_ENABLED=true` 时，定向单测断言）
-    - [ ] 总开关启用路径明确：env 文档化 + 未启用时的可观测提示（UI 或日志）；是否新增 admin 设置项在 D 阶段前定稿
-    - [ ] `docs/standards/platform.md §11` 补 `ACTION_STATUS_MONITOR_ENABLED` 行（含默认值与前提）
-    - [ ] `pnpm lint` + `pnpm typecheck` 0 error；定向 test + e2e（schedules-crud）全过
+    - [x] `POST` / `PATCH /api/schedules` 落库 `kind`，`GET` 回读 `kind`（含 `pr-check`）；e2e 覆盖 `kind` 往返（创建 `pr-check` → 详情回读 → PATCH 改回 `scan`；未传 `kind` 默认 `scan` 向后兼容）
+    - [x] schedules 表单可选择 `kind`（CaomeiSelect；`pr-check` 时隐藏扫描模式 / 严重级别并显示说明）；`pr-check` 保存后 `triggerSchedule` 走 `ActionStatusMonitor` 链路（定向单测：`ACTION_STATUS_MONITOR_ENABLED=true` → `ActionStatusMonitor.pollOnce` 被调用且不触发 `executeBatchRun`）
+    - [x] 总开关启用路径明确：**D 阶段定稿 = 仅 env + 文档（不新增 admin 设置项）** + 未启用时 UI 提示（只读端点 `GET /api/schedules/monitor-status` 暴露开关状态，schedules 页在存在 pr-check 计划且开关关闭时展示警示横幅；手动触发返回 `skipped` 时给出 warning 提示）
+    - [x] `docs/standards/platform.md §11` 补 `ACTION_STATUS_MONITOR_ENABLED` 行（含默认值 `false`、启用前提与「需重启」口径）
+    - [x] `pnpm lint`（0 error）+ `pnpm typecheck`（7 包 Done）0 error；定向 test + e2e（schedules-crud + schedules）全过
+  - **D 阶段决策留痕（2026-10-09，用户裁定）**：① 总开关启用路径 = **仅 env + 文档**（维持进程级 env 单一事实源，不新增 admin 设置项 / 不引入 DB 持久化与迁移——与条目「不改 `ActionStatusMonitor` 实体」一致）；② 未启用可观测提示 = **UI banner + 触发时提示**（经服务端只读端点暴露，而非公开 runtimeConfig——避免「构建期烘焙的公开配置」与「运行时 `process.env`」口径漂移）。
   - **不做什么**：不实现 GitHub App 凭据的 pr-check（当前仅 classic / fine-grained PAT，留后续阶段）；不改 `ActionStatusMonitor` 轮询与 `PRCheck` 实体；不改 CI check 判定规则；不改既有 schedule 默认 `kind='scan'` 的向后兼容。
   - **依赖**：M24.1 PR Check MVP（已归档）；`Schedule.kind` 列（迁移 `1800000000001`）；`resolveRepositoryIds` 选择器。
-  - **交付物**：预计 2-3 commits（feat(platform) `kind` 落库 + 表单 + env 文档 + e2e + docs(plan)）；文件 5-7。
-  - **风险与缓解措施**：① 总开关为进程 env、不可热更 → 文档明确需重启，并在未启用时输出可定位日志（现状已有 warn，需在 UI 侧可见）；② `kind` 落库后须保证既有 schedule 不受影响（默认值 + e2e 回归）；③ pr-check schedule 的仓库范围语义须与 scan 一致（复用 `resolveRepositoryIds`）。
+  - **实际交付（2026-10-10）**：拆 4 commits——`feat(platform)`（后端：`kind` 落库 / 回读 + 总开关 helper + monitor-status 只读端点 + 单测）/ `feat(platform)`（前端：`kind` 选择器 + `ScheduleTriggerResult` 共享类型 + 列表 `kind` 列 + 未启用 banner / 触发提示 + i18n 双语 + e2e）/ `docs(standards)`（`platform.md §11` env 行）/ `docs(plan)`（todo 闭环 + backlog 登记设计快照陈旧候选）；源码 6 文件（`schedules/index.ts` / `schedules/[id].ts` / `monitor-status.get.ts` / `scheduler.service.ts` / `schedules.vue` / `types/platform.ts`）+ 测试 4（单测 ×2 文件 + 新端点单测 + e2e ×2）+ i18n ×2 + 文档 2（`platform.md` / `backlog.md`）。
+  - **审计（2026-10-10）**：standard 2 分区并发 Pass（parA 后端/文档 0B/0W/3S；parB 前端/i18n/e2e 0B/1W/3S；evidence：`artifacts/review-gate/2026-10-10-m39.5-parA.md` / `-parB.md`）→ 收口 RG-W01（共享 `ScheduleTriggerResult` + 显式 `scan` 分支 + 未识别 kind 兜底提示）、RG-S1（monitor-status 单测补 `requireRole(['admin','org_admin'])` 断言）、RG-S01/S02（e2e 头注释 + popover 显式可见性等待）、RG-S3（backlog 登记 `platform-scheduled-batch.md` 设计快照陈旧候选）；RG-S2 以「同批入库提交态自洽」满足，RG-S03（`PR check` 大小写）维持仓库既有口径。
+  - **风险与缓解措施**：① 总开关为进程 env、不可热更 → D 阶段定稿 env-only + 文档明确需重启，并在 UI 侧可见（已落地）；② `kind` 落库后须保证既有 schedule 不受影响（默认值 + e2e 回归）；③ pr-check schedule 的仓库范围语义须与 scan 一致（复用 `resolveRepositoryIds`，单测覆盖）。
 
 - **M39.6**（P3，🛡️ 可观测与治理）环境事件覆盖扩展
   - **目标**：让「环境事件」页在默认 container 执行器下也能记录真实环境 / 运行时事件；消除无写入点的事件类型。

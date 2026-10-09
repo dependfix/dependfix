@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { DataTableColumn } from 'caomei-ui'
-import { Copy } from '@lucide/vue'
+import { Copy, Download } from '@lucide/vue'
 import {
     alertsFound,
     formatRunDuration,
@@ -9,6 +9,7 @@ import {
     runThresholdLabel,
     shortRunId,
 } from '~/utils/run-view'
+import { downloadFile } from '~/utils/download'
 
 interface RunResultView {
     id: string
@@ -75,6 +76,7 @@ const resultColumns = computed<DataTableColumn<RunResultView>[]>(() => [
 const detail = ref<RunDetailView | null>(null)
 const loading = ref(false)
 const error = ref('')
+const downloadingLogs = ref(false)
 let requestSequence = 0
 
 const visible = computed({
@@ -131,6 +133,25 @@ const copyLogs = async () => {
         textarea.select()
         document.execCommand('copy')
         document.body.removeChild(textarea)
+    }
+}
+
+/** 下载单个 run 的执行日志（服务端 txt 附件；无日志时入口隐藏） */
+const downloadLogs = async () => {
+    const run = detail.value
+    if (!run) {
+        return
+    }
+    downloadingLogs.value = true
+    error.value = ''
+    try {
+        await downloadFile(`/api/runs/${run.id}/logs`, `run-${run.id}.txt`)
+    } catch (e: unknown) {
+        error.value = t('runs.errors.logsDownloadFailed', {
+            message: e instanceof Error ? e.message : t('common.errors.unknown'),
+        })
+    } finally {
+        downloadingLogs.value = false
     }
 }
 
@@ -298,6 +319,19 @@ watch(() => props.runId, (runId) => {
                     >
                         <template #icon>
                             <CaomeiIcon :icon="Copy" />
+                        </template>
+                    </CaomeiButton>
+                    <CaomeiButton
+                        variant="ghost"
+                        rounded
+                        size="sm"
+                        :loading="downloadingLogs"
+                        :aria-label="t('runs.logsDownload')"
+                        :title="t('runs.logsDownload')"
+                        @click="downloadLogs"
+                    >
+                        <template #icon>
+                            <CaomeiIcon :icon="Download" />
                         </template>
                     </CaomeiButton>
                 </div>

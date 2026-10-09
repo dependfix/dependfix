@@ -9,7 +9,8 @@
 // 分页：服务端分页（lazy DataTable + Paginator）。
 // 默认 pageSize=10，rows-per-page-options=[10, 25, 50]，最大 200 由 server 钳制。
 import type { DataTableColumn, DataTablePageEvent } from 'caomei-ui'
-import { ArrowLeft, Copy, ExternalLink, Eye } from '@lucide/vue'
+import { ArrowLeft, Copy, Download, ExternalLink, Eye } from '@lucide/vue'
+import { downloadFile } from '~/utils/download'
 
 const props = withDefaults(defineProps<{
     /**
@@ -74,6 +75,7 @@ interface DetailView {
 const detail = ref<DetailView | null>(null)
 const detailLoading = ref(false)
 const detailError = ref('')
+const downloadingLogs = ref(false)
 
 /**
  * detail.results 行的显式形状（value 曾以内联 `as` 断言；抽出接口供 `columns` 复用，避免断言与列定义类型漂移）。
@@ -165,6 +167,25 @@ const copyLogs = async () => {
         textarea.select()
         document.execCommand('copy')
         document.body.removeChild(textarea)
+    }
+}
+
+/** 下载当前 run 的执行日志（服务端 txt 附件；无日志时入口隐藏） */
+const downloadLogs = async () => {
+    const run = detail.value
+    if (!run) {
+        return
+    }
+    downloadingLogs.value = true
+    detailError.value = ''
+    try {
+        await downloadFile(`/api/runs/${run.id}/logs`, `run-${run.id}.txt`)
+    } catch (e: unknown) {
+        detailError.value = t('runs.errors.logsDownloadFailed', {
+            message: e instanceof Error ? e.message : t('common.errors.unknown'),
+        })
+    } finally {
+        downloadingLogs.value = false
     }
 }
 
@@ -367,6 +388,19 @@ watch(() => route.query[props.queryKey], async (newVal) => {
                     >
                         <template #icon>
                             <CaomeiIcon :icon="Copy" />
+                        </template>
+                    </CaomeiButton>
+                    <CaomeiButton
+                        variant="ghost"
+                        rounded
+                        size="sm"
+                        :loading="downloadingLogs"
+                        :aria-label="t('runs.logsDownload')"
+                        :title="t('runs.logsDownload')"
+                        @click="downloadLogs"
+                    >
+                        <template #icon>
+                            <CaomeiIcon :icon="Download" />
                         </template>
                     </CaomeiButton>
                 </div>

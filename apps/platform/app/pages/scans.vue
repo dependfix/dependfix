@@ -16,7 +16,7 @@
 // 非目标：
 // - 不引入多组织；不重写后端聚合；不动 dashboard.vue；不动 batch-runs 跨仓库视图
 // - 不破坏既有 alerts-rowgroup / history-dialog / 视图切换 / dedupe 行为
-import { Eye, Funnel, RefreshCw, X } from '@lucide/vue'
+import { Download, Eye, Funnel, RefreshCw, X } from '@lucide/vue'
 import type { DataTableColumn, DataTablePageEvent } from 'caomei-ui'
 import {
     alertsFound,
@@ -27,6 +27,7 @@ import {
     runExecutorLabel,
     runModeLabel,
 } from '~/utils/run-view'
+import { downloadFile } from '~/utils/download'
 
 definePageMeta({
     middleware: 'auth',
@@ -42,6 +43,8 @@ const router = useRouter()
 // - inflight: 实际请求是否 in-flight（并发守卫）
 const firstLoad = ref(true)
 const loading = ref(false)
+/** 批量日志导出进行中（工具栏按钮 loading 反馈） */
+const exporting = ref(false)
 const inflight = ref(false)
 const summaryLoading = ref(false)
 const summaryInflight = ref(false)
@@ -172,6 +175,38 @@ const clearRunFilters = () => {
     filters.status = FILTER_ALL
     filters.failureStage = FILTER_ALL
     filters.failureKind = FILTER_ALL
+}
+
+/**
+ * 批量导出当前筛选条件下的执行日志（合并单 txt 附件）。
+ * 筛选口径与 runs 列表一致（repositoryId + 失败分类三维度）；服务端对超限返回 413。
+ */
+const exportLogs = async () => {
+    exporting.value = true
+    error.value = ''
+    try {
+        const query = new URLSearchParams()
+        if (repositoryIdQuery.value) {
+            query.set('repositoryId', repositoryIdQuery.value)
+        }
+        if (filters.status !== FILTER_ALL) {
+            query.set('status', filters.status)
+        }
+        if (filters.failureStage !== FILTER_ALL) {
+            query.set('failureStage', filters.failureStage)
+        }
+        if (filters.failureKind !== FILTER_ALL) {
+            query.set('failureKind', filters.failureKind)
+        }
+        const suffix = query.toString()
+        await downloadFile(`/api/runs/logs-export${suffix ? `?${suffix}` : ''}`, 'runs-logs.txt')
+    } catch (e: unknown) {
+        error.value = t('scans.runList.errors.exportFailed', {
+            message: e instanceof Error ? e.message : t('common.errors.unknown'),
+        })
+    } finally {
+        exporting.value = false
+    }
 }
 
 const runs = ref<RunView[]>([])
@@ -638,6 +673,20 @@ onMounted(refresh)
                                     <CaomeiIcon :icon="X" />
                                 </template>
                                 {{ t('scans.runList.clearFilters') }}
+                            </CaomeiButton>
+                        </div>
+                        <div class="scans__run-filter-field scans__run-filter-field--action">
+                            <CaomeiButton
+                                tone="neutral"
+                                variant="ghost"
+                                size="sm"
+                                :loading="exporting"
+                                @click="exportLogs"
+                            >
+                                <template #icon>
+                                    <CaomeiIcon :icon="Download" />
+                                </template>
+                                {{ t('scans.runList.exportLogs') }}
                             </CaomeiButton>
                         </div>
                     </div>

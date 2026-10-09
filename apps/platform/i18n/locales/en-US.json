@@ -719,10 +719,12 @@
         "paginatorInfo": "Showing {first} to {last} of {total}",
         "logsTitle": "Execution Logs",
         "logsCopy": "Copy Logs",
+        "logsDownload": "Download logs",
         "logsEmpty": "No execution logs",
         "errors": {
             "loadFailed": "Failed to load: {message}",
-            "detailLoadFailed": "Failed to load details: {message}"
+            "detailLoadFailed": "Failed to load details: {message}",
+            "logsDownloadFailed": "Failed to download logs: {message}"
         }
     },
     "scans": {
@@ -760,9 +762,11 @@
             "filterAll": "All",
             "clearFilters": "Clear filters",
             "failureStageSummary": "Failure stage distribution:",
+            "exportLogs": "Export filtered logs",
             "errors": {
                 "loadFailed": "Failed to load: {message}",
-                "summaryFailed": "Failed to load summary: {message}"
+                "summaryFailed": "Failed to load summary: {message}",
+                "exportFailed": "Failed to export logs: {message}"
             }
         },
         "errors": {
@@ -805,6 +809,14 @@
         "RUN_ID_MISSING": {
             "zh-CN": "缺少运行 id",
             "en": "Run id is required"
+        },
+        "RUN_LOGS_NOT_FOUND": {
+            "zh-CN": "没有可导出的执行日志",
+            "en": "No exportable execution logs"
+        },
+        "RUN_LOGS_EXPORT_TOO_LARGE": {
+            "zh-CN": "导出内容超出上限，请缩小筛选范围后重试",
+            "en": "Export exceeds the size limit; narrow the filters and retry"
         },
         "RUNS_VALIDATION_FAILED": {
             "zh-CN": "查询参数校验失败",

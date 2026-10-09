@@ -22,6 +22,8 @@ export type ServerErrorCode =
     | 'REPO_VALIDATION_FAILED'
     | 'SCAN_RUN_NOT_FOUND'
     | 'RUN_ID_MISSING'
+    | 'RUN_LOGS_NOT_FOUND'
+    | 'RUN_LOGS_EXPORT_TOO_LARGE'
     | 'RUNS_VALIDATION_FAILED'
     | 'SCAN_HISTORY_VALIDATION_FAILED'
     | 'REUSE_RUN_NOT_IN_REPO'
@@ -183,6 +185,7 @@ const STATUS_MESSAGES: Record<number, string> = {
     '404': 'Not Found',
     '405': 'Method Not Allowed',
     '409': 'Conflict',
+    '413': 'Payload Too Large',
     '500': 'Internal Server Error',
 }
 

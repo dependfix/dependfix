@@ -1,4 +1,4 @@
-import { createError, eventHandler, getQuery, getRequestURL, getRouterParam, readBody } from 'h3'
+import { createError, eventHandler, getQuery, getRequestURL, getRouterParam, readBody, setHeader } from 'h3'
 
 /**
  * Nuxt server auto-import 模拟（vitest 环境）：
@@ -13,6 +13,7 @@ g.readBody = readBody
 g.createError = createError
 g.getQuery = getQuery
 g.getRouterParam = getRouterParam
+g.setHeader = setHeader
 // getRequestURL：vitest 环境 getRequestURL 用于 middleware（如 auth-self-guard.ts），
 // 创建 event 后 createEvent 会自动从 req.url 推断 event.path（getter-only，不可外部赋值），
 // getRequestURL 内部走 event.node.req.originalUrl || event.path，无需额外 stub 即可工作。

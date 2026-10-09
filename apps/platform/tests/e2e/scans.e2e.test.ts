@@ -142,6 +142,77 @@ test.describe('/scans 独立页面', () => {
         await page.getByRole('button', { name: '清除筛选' }).click()
         await expect(runList.getByText(`${cloneOwner}/app`).first()).toBeVisible({ timeout: 15000 })
     })
+
+    /**
+     * 「按仓库」分区：Tabs 切换 + 「最近状态」筛选 + 客户端分页。
+     * 数据由 e2e fixtures 端点注入（每仓库单 run → lastStatus 确定）；额外注入 12 个 completed 仓库
+     * 保证聚合列表超过单页 10 行，从而触发客户端分页。
+     */
+    test('case 5: 按仓库分区 — 最近状态筛选 + 客户端分页', async ({ page }) => {
+        const stamp = Date.now()
+        const cookies = (await page.context().cookies()).map((c) => `${c.name}=${c.value}`).join('; ')
+        const failedOwner = `e2e-scans-byrepo-failed-${stamp}`
+        const okOwner = `e2e-scans-byrepo-ok-${stamp}`
+        const fillerOwners = Array.from({ length: 12 }, (_, i) => `e2e-scans-page-${stamp}-${i}`)
+        const seeded = await page.request.post('/api/e2e/fixtures', {
+            headers: { cookie: cookies },
+            data: {
+                repos: [
+                    ...fillerOwners.map((owner) => ({ owner, name: 'app' })),
+                    { owner: failedOwner, name: 'app' },
+                    { owner: okOwner, name: 'app' },
+                ],
+                scanRuns: [
+                    ...fillerOwners.map((owner) => ({ repositoryOwner: owner, repositoryName: 'app', status: 'completed' })),
+                    {
+                        repositoryOwner: failedOwner,
+                        repositoryName: 'app',
+                        status: 'failed',
+                        failureCode: 'clone_timeout',
+                        failureStage: 'clone',
+                        failureKind: 'transient',
+                    },
+                    { repositoryOwner: okOwner, repositoryName: 'app', status: 'completed' },
+                ],
+            },
+        })
+        expect(seeded.status()).toBe(200)
+
+        await page.goto('/scans')
+        await waitForHydration(page)
+        // 默认「全部运行」分区：runs 列表可见（Tabs 分区不破坏既有首屏语义）
+        await expect(page.locator('.scans__run-list')).toBeVisible({ timeout: 15000 })
+        // 切到「按仓库」分区
+        await page.getByRole('tab', { name: '按仓库' }).click()
+        const byRepoTable = page.locator('.caomei-data-table')
+        await expect(byRepoTable).toBeVisible({ timeout: 15000 })
+        // 统计窗口提示（窗口边界显式标注）
+        await expect(page.locator('.scans__window-hint')).toContainText('统计窗口')
+
+        // 客户端分页：单页 10 行（聚合仓库数 > 10）
+        const rows = byRepoTable.locator('tbody .caomei-data-table__row')
+        await expect(rows).toHaveCount(10)
+        const firstRowBefore = await rows.first().innerText()
+        await page.getByRole('button', { name: '下一页' }).click()
+        // 翻页后首行内容变化（证明分页真正切片）
+        await expect.poll(async () => rows.first().innerText()).not.toBe(firstRowBefore)
+
+        // 「最近状态」筛选 = 失败 → 每行最近状态均为失败，且 completed 仓库被排除
+        await page.locator('#byrepo-status').click()
+        await page.locator('.caomei-select__content .caomei-select__item:has-text("失败")').click()
+        // 等待筛选生效（refetch 完成后每行最近状态均为失败；避免读到筛选前的行）
+        await expect.poll(async () => {
+            const texts = await rows.allInnerTexts()
+            return texts.length > 0 && texts.every((text) => text.includes('失败'))
+        }).toBe(true)
+        // completed 仓库被排除（按行文本匹配 owner，非 owner/name 组合子串——两列为独立单元格）
+        await expect(rows.filter({ hasText: okOwner })).toHaveCount(0)
+
+        // 行操作「仅查看此仓库」→ 切到「全部运行」分区 + URL 携带 repository（深链语义不变）
+        await rows.first().getByRole('button', { name: '仅查看此仓库' }).click()
+        await expect(page.getByRole('tab', { name: '全部运行' })).toHaveAttribute('aria-selected', 'true')
+        await expect(page).toHaveURL(/repository=/)
+    })
 })
 
 /**

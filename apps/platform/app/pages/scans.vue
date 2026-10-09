@@ -64,7 +64,7 @@ interface SummaryResponse {
         lastFailureStage: string | null
     }>
     window: { start: string | null, end: string | null, included: number, limit: number }
-    filtered: { repositoryId: string | null }
+    filtered: { repositoryId: string | null, lastStatus: string | null }
 }
 
 interface SummaryView extends SummaryResponse {
@@ -130,6 +130,26 @@ const failureKindFilterOptions = computed(() => [
     })),
 ])
 
+/**
+ * 页面分区（Tabs）：默认「全部运行」——与既有首屏语义（runs 列表可见）一致；
+ * 「按仓库」聚合列表的「最近状态」筛选与分页状态独立于 runs 列表的三维筛选。
+ * 类型放宽到 `string | number | undefined` 以匹配 `CaomeiTabs` 的受控 `modelValue`（Tab 值恒为字符串）。
+ */
+const activeTab = ref<string | number | undefined>('runs')
+
+/** byRepo「最近状态」筛选（哨兵值 = 全部）：命中时仅过滤聚合列表，不改 runs 列表筛选 */
+const byRepoStatus = ref(FILTER_ALL)
+
+/** byRepo 客户端分页（受控）：聚合列表窗口有界（≤ SUMMARY_RUN_LIMIT 条 run），客户端分页足够 */
+const byRepoPage = ref(1)
+const byRepoRows = ref(10)
+
+/** byRepo「最近状态」下拉选项（状态集与 runs 列表同源，仅文案/用途不同） */
+const byRepoStatusOptions = computed(() => [
+    { label: t('scans.runList.filterAll'), value: FILTER_ALL },
+    ...SCAN_RUN_STATUS_OPTIONS.map((status) => ({ label: statusLabel(status), value: status })),
+])
+
 /** 阶段分布汇总（仅展示非零项，计数降序）——与「阶段」下拉同源口径 */
 const failureStageCounts = computed(() => {
     const byStage = summary.value?.byFailureStage
@@ -174,9 +194,17 @@ const repositoryIdQuery = computed(() => {
 
 const filteredRepository = ref<{ id: string, owner: string, name: string } | null>(null)
 
-/** summary 聚合加载（顶部 4 卡 + byRepo 表） */
+/**
+ * summary 聚合加载（顶部 4 卡 + byRepo 表）。
+ *
+ * 请求在途时的并发调用不静默丢弃（与 `fetchRuns` 的 `queuedRunFetch` 同模式）：否则
+ * `summaryInflight` 短路会让「最近状态」筛选 / repositoryId 变更的刷新被吞掉，列表停留在旧结果。
+ */
+let queuedSummaryFetch = false
+
 const fetchSummary = async () => {
     if (summaryInflight.value) {
+        queuedSummaryFetch = true
         return
     }
     summaryInflight.value = true
@@ -186,6 +214,10 @@ const fetchSummary = async () => {
         const query: Record<string, string> = {}
         if (repositoryIdQuery.value) {
             query.repositoryId = repositoryIdQuery.value
+        }
+        // byRepo「最近状态」筛选（哨兵值不传；服务端白名单校验非法值 400）
+        if (byRepoStatus.value !== FILTER_ALL) {
+            query.lastStatus = byRepoStatus.value
         }
         const res = await $fetch('/api/scan-history/summary', { query })
         const data = res as SummaryResponse
@@ -205,6 +237,10 @@ const fetchSummary = async () => {
     } finally {
         summaryLoading.value = false
         summaryInflight.value = false
+        if (queuedSummaryFetch) {
+            queuedSummaryFetch = false
+            await fetchSummary()
+        }
     }
 }
 
@@ -272,6 +308,12 @@ const onPage = async (event: DataTablePageEvent) => {
     await fetchRuns(event.page, event.rows)
 }
 
+/** byRepo 客户端分页：受控 page / rows 回写（「最近状态」筛选变化时由 watch 重置到第 1 页） */
+const onByRepoPage = (event: DataTablePageEvent) => {
+    byRepoPage.value = event.page
+    byRepoRows.value = event.rows
+}
+
 /** 状态 Tag 颜色 + 文案（与 `repo-history-dialog` 风格一致） */
 const statusTone = (status: string) => {
     switch (status) {
@@ -312,8 +354,9 @@ const openRunDetail = (runId: string) => {
     void router.push({ path: '/scans', query: { ...route.query, run: runId } })
 }
 
-/** 按仓库过滤（byRepo 行点击"仅查看此仓库"按钮） */
+/** 按仓库过滤（byRepo 行点击"仅查看此仓库"按钮）：切到「全部运行」分区查看该仓库运行列表 */
 const filterByRepository = (repo: { id: string }) => {
+    activeTab.value = 'runs'
     void router.push({ path: '/scans', query: { repository: repo.id } })
 }
 
@@ -357,6 +400,7 @@ const runListColumns = computed<DataTableColumn<RunView>[]>(() => [
 watch(repositoryIdQuery, async () => {
     first.value = 0
     pageSize.value = 10
+    byRepoPage.value = 1
     await refresh()
 })
 
@@ -364,6 +408,12 @@ watch(repositoryIdQuery, async () => {
 watch(filters, async () => {
     first.value = 0
     await fetchRuns(1, pageSize.value)
+})
+
+// byRepo「最近状态」筛选变化：重置聚合列表分页到第 1 页并仅刷新 summary（不动 runs 列表筛选）
+watch(byRepoStatus, async () => {
+    byRepoPage.value = 1
+    await fetchSummary()
 })
 
 onMounted(refresh)
@@ -468,189 +518,221 @@ onMounted(refresh)
             </CaomeiCard>
         </div>
 
-        <!-- 按仓库聚合（byRepo DataTable，可点击"仅查看此仓库"过滤） -->
-        <h3 class="scans__section-title">
-            {{ t('scans.byRepo.title') }}
-        </h3>
-        <CaomeiCard>
-            <CaomeiDataTable
-                :data="summary?.repositories ?? []"
-                :columns="byRepoColumns"
-                row-key="repositoryId"
-                striped
-                :empty-text="t('scans.byRepo.empty')"
-            >
-                <template #cell-lastRun="{row}">
-                    {{ row.lastRunAt ? d(new Date(row.lastRunAt), 'short') : '—' }}
-                </template>
-                <template #cell-lastStatus="{row}">
-                    <CaomeiTag
-                        v-if="row.lastStatus"
-                        :tone="statusTone(row.lastStatus)"
-                    >
-                        {{ statusLabelWithStage(row.lastStatus, row.lastFailureStage) }}
-                    </CaomeiTag>
-                    <span v-else class="text-muted">—</span>
-                </template>
-                <template #cell-actions="{row}">
-                    <CaomeiButton
-                        variant="ghost"
-                        rounded
-                        size="sm"
-                        :label="t('scans.byRepo.actionFilterThis')"
-                        :title="t('scans.byRepo.actionFilterThis')"
-                        :disabled="!!repositoryIdQuery && repositoryIdQuery === row.repositoryId"
-                        @click="filterByRepository({id: row.repositoryId})"
-                    >
-                        <template #icon>
-                            <CaomeiIcon :icon="Funnel" />
-                        </template>
-                    </CaomeiButton>
-                </template>
-            </CaomeiDataTable>
-        </CaomeiCard>
+        <CaomeiTabs v-model="activeTab" class="scans__tabs">
+            <CaomeiTabList>
+                <CaomeiTabTrigger value="runs">
+                    {{ t('scans.runList.title') }}
+                </CaomeiTabTrigger>
+                <CaomeiTabTrigger value="repo">
+                    {{ t('scans.byRepo.title') }}
+                </CaomeiTabTrigger>
+            </CaomeiTabList>
 
-        <!-- 全运行列表（paginated DataTable；点击行进入 ?run= 详情） -->
-        <h3 class="scans__section-title">
-            {{ t('scans.runList.title') }}
-        </h3>
-        <!-- 失败分类筛选条：状态 / 失败阶段 / 处置建议三维度 + 阶段分布计数 -->
-        <CaomeiCard class="scans__run-filters">
-            <div class="scans__run-filter-row">
-                <div class="scans__run-filter-field">
-                    <label for="run-status">{{ t('scans.runList.filterStatus') }}</label>
-                    <CaomeiSelect
-                        id="run-status"
-                        v-model="filters.status"
-                        :options="statusFilterOptions"
-                        option-label="label"
-                        option-value="value"
-                    />
-                </div>
-                <div class="scans__run-filter-field">
-                    <label for="run-failure-stage">{{ t('scans.runList.filterFailureStage') }}</label>
-                    <CaomeiSelect
-                        id="run-failure-stage"
-                        v-model="filters.failureStage"
-                        :options="failureStageFilterOptions"
-                        option-label="label"
-                        option-value="value"
-                    />
-                </div>
-                <div class="scans__run-filter-field">
-                    <label for="run-failure-kind">{{ t('scans.runList.filterFailureKind') }}</label>
-                    <CaomeiSelect
-                        id="run-failure-kind"
-                        v-model="filters.failureKind"
-                        :options="failureKindFilterOptions"
-                        option-label="label"
-                        option-value="value"
-                    />
-                </div>
-                <div v-if="hasActiveFilters" class="scans__run-filter-field scans__run-filter-field--action">
-                    <CaomeiButton
-                        tone="neutral"
-                        variant="ghost"
-                        size="sm"
-                        @click="clearRunFilters"
+            <!-- 按仓库聚合（byRepo DataTable，可点击"仅查看此仓库"过滤）：
+                 「最近状态」筛选 + 客户端分页 + 统计窗口提示 -->
+            <CaomeiTabContent value="repo">
+                <CaomeiCard class="scans__byrepo-toolbar">
+                    <div class="scans__run-filter-row">
+                        <div class="scans__run-filter-field">
+                            <label for="byrepo-status">{{ t('scans.byRepo.filterStatus') }}</label>
+                            <CaomeiSelect
+                                id="byrepo-status"
+                                v-model="byRepoStatus"
+                                :options="byRepoStatusOptions"
+                                option-label="label"
+                                option-value="value"
+                            />
+                        </div>
+                    </div>
+                    <p class="scans__window-hint text-muted">
+                        {{ t('scans.byRepo.windowHint', {included: summary?.window.included ?? 0, limit: summary?.window.limit ?? 0}) }}
+                    </p>
+                </CaomeiCard>
+                <CaomeiCard>
+                    <CaomeiDataTable
+                        :data="summary?.repositories ?? []"
+                        :columns="byRepoColumns"
+                        row-key="repositoryId"
+                        striped
+                        paginator
+                        :page="byRepoPage"
+                        :rows="byRepoRows"
+                        :rows-per-page-options="[10, 25, 50]"
+                        :empty-text="t('scans.byRepo.empty')"
+                        @page="onByRepoPage"
                     >
-                        <template #icon>
-                            <CaomeiIcon :icon="X" />
+                        <template #cell-lastRun="{row}">
+                            {{ row.lastRunAt ? d(new Date(row.lastRunAt), 'short') : '—' }}
                         </template>
-                        {{ t('scans.runList.clearFilters') }}
-                    </CaomeiButton>
-                </div>
-            </div>
-            <div v-if="failureStageCounts.length > 0" class="scans__failure-summary">
-                <span class="text-muted">{{ t('scans.runList.failureStageSummary') }}</span>
-                <CaomeiTag
-                    v-for="item in failureStageCounts"
-                    :key="item.stage"
-                    tone="neutral"
-                >
-                    {{ item.label }} · {{ item.count }}
-                </CaomeiTag>
-            </div>
-        </CaomeiCard>
-        <CaomeiCard v-if="!firstLoad" class="scans__run-list">
-            <CaomeiDataTable
-                :data="runs"
-                :columns="runListColumns"
-                row-key="id"
-                lazy
-                paginator
-                :page="page"
-                :rows="pageSize"
-                :total-records="total"
-                :rows-per-page-options="[10, 25, 50]"
-                :loading="loading"
-                striped
-                :empty-text="t('scans.runList.empty')"
-                @page="onPage"
-            >
-                <template #cell-repo="{row}">
-                    <span v-if="row.owner && row.name">{{ row.owner }}/{{ row.name }}</span>
-                    <span v-else class="text-muted">—</span>
-                </template>
-                <template #cell-status="{row}">
-                    <span
-                        v-if="row.error"
-                        class="scans__status-wrap"
-                        :title="row.error.message"
-                    >
-                        <CaomeiTag :tone="statusTone(row.status)">
-                            {{ statusLabelWithStage(row.status, row.failureStage) }}
+                        <template #cell-lastStatus="{row}">
+                            <CaomeiTag
+                                v-if="row.lastStatus"
+                                :tone="statusTone(row.lastStatus)"
+                            >
+                                {{ statusLabelWithStage(row.lastStatus, row.lastFailureStage) }}
+                            </CaomeiTag>
+                            <span v-else class="text-muted">—</span>
+                        </template>
+                        <template #cell-actions="{row}">
+                            <CaomeiButton
+                                variant="ghost"
+                                rounded
+                                size="sm"
+                                :label="t('scans.byRepo.actionFilterThis')"
+                                :title="t('scans.byRepo.actionFilterThis')"
+                                :disabled="!!repositoryIdQuery && repositoryIdQuery === row.repositoryId"
+                                @click="filterByRepository({id: row.repositoryId})"
+                            >
+                                <template #icon>
+                                    <CaomeiIcon :icon="Funnel" />
+                                </template>
+                            </CaomeiButton>
+                        </template>
+                    </CaomeiDataTable>
+                </CaomeiCard>
+            </CaomeiTabContent>
+
+            <!-- 全部运行（paginated DataTable；点击行进入 ?run= 详情）：
+                 失败分类筛选条（状态 / 失败阶段 / 处置建议三维度 + 阶段分布计数） -->
+            <CaomeiTabContent value="runs">
+                <CaomeiCard class="scans__run-filters">
+                    <div class="scans__run-filter-row">
+                        <div class="scans__run-filter-field">
+                            <label for="run-status">{{ t('scans.runList.filterStatus') }}</label>
+                            <CaomeiSelect
+                                id="run-status"
+                                v-model="filters.status"
+                                :options="statusFilterOptions"
+                                option-label="label"
+                                option-value="value"
+                            />
+                        </div>
+                        <div class="scans__run-filter-field">
+                            <label for="run-failure-stage">{{ t('scans.runList.filterFailureStage') }}</label>
+                            <CaomeiSelect
+                                id="run-failure-stage"
+                                v-model="filters.failureStage"
+                                :options="failureStageFilterOptions"
+                                option-label="label"
+                                option-value="value"
+                            />
+                        </div>
+                        <div class="scans__run-filter-field">
+                            <label for="run-failure-kind">{{ t('scans.runList.filterFailureKind') }}</label>
+                            <CaomeiSelect
+                                id="run-failure-kind"
+                                v-model="filters.failureKind"
+                                :options="failureKindFilterOptions"
+                                option-label="label"
+                                option-value="value"
+                            />
+                        </div>
+                        <div v-if="hasActiveFilters" class="scans__run-filter-field scans__run-filter-field--action">
+                            <CaomeiButton
+                                tone="neutral"
+                                variant="ghost"
+                                size="sm"
+                                @click="clearRunFilters"
+                            >
+                                <template #icon>
+                                    <CaomeiIcon :icon="X" />
+                                </template>
+                                {{ t('scans.runList.clearFilters') }}
+                            </CaomeiButton>
+                        </div>
+                    </div>
+                    <div v-if="failureStageCounts.length > 0" class="scans__failure-summary">
+                        <span class="text-muted">{{ t('scans.runList.failureStageSummary') }}</span>
+                        <CaomeiTag
+                            v-for="item in failureStageCounts"
+                            :key="item.stage"
+                            tone="neutral"
+                        >
+                            {{ item.label }} · {{ item.count }}
                         </CaomeiTag>
-                    </span>
-                    <CaomeiTag
-                        v-else
-                        :tone="statusTone(row.status)"
+                    </div>
+                </CaomeiCard>
+                <CaomeiCard v-if="!firstLoad" class="scans__run-list">
+                    <CaomeiDataTable
+                        :data="runs"
+                        :columns="runListColumns"
+                        row-key="id"
+                        lazy
+                        paginator
+                        :page="page"
+                        :rows="pageSize"
+                        :total-records="total"
+                        :rows-per-page-options="[10, 25, 50]"
+                        :loading="loading"
+                        striped
+                        :empty-text="t('scans.runList.empty')"
+                        @page="onPage"
                     >
-                        {{ statusLabelWithStage(row.status, row.failureStage) }}
-                    </CaomeiTag>
-                </template>
-                <template #cell-mode="{row}">
-                    {{ runModeLabel(row.mode, t) }}
-                </template>
-                <template #cell-threshold="{row}">
-                    {{ row.severityThreshold === 'all' ? t('common.severity.all') : row.severityThreshold }}
-                </template>
-                <template #cell-executor="{row}">
-                    <CaomeiTag tone="neutral">
-                        {{ runExecutorLabel(row.executorKind, t) }}
-                    </CaomeiTag>
-                </template>
-                <template #cell-startedAt="{row}">
-                    {{ row.startedAt ? d(new Date(row.startedAt), 'long') : '—' }}
-                </template>
-                <template #cell-alerts="{row}">
-                    {{ alertsFound(row.summary) }}
-                </template>
-                <template #cell-fixed="{row}">
-                    {{ (row.summary as Record<string, number> | null)?.alertsFixed ?? 0 }}
-                </template>
-                <template #cell-actions="{row}">
-                    <CaomeiButton
-                        variant="ghost"
-                        rounded
-                        size="sm"
-                        :label="t('runs.actionViewDetail')"
-                        :title="t('runs.actionViewDetail')"
-                        @click="openRunDetail(row.id)"
-                    >
-                        <template #icon>
-                            <CaomeiIcon :icon="Eye" />
+                        <template #cell-repo="{row}">
+                            <span v-if="row.owner && row.name">{{ row.owner }}/{{ row.name }}</span>
+                            <span v-else class="text-muted">—</span>
                         </template>
-                    </CaomeiButton>
-                </template>
-            </CaomeiDataTable>
-        </CaomeiCard>
-        <p
-            v-else
-            class="text-muted"
-        >
-            {{ t('common.empty.loading') }}
-        </p>
+                        <template #cell-status="{row}">
+                            <span
+                                v-if="row.error"
+                                class="scans__status-wrap"
+                                :title="row.error.message"
+                            >
+                                <CaomeiTag :tone="statusTone(row.status)">
+                                    {{ statusLabelWithStage(row.status, row.failureStage) }}
+                                </CaomeiTag>
+                            </span>
+                            <CaomeiTag
+                                v-else
+                                :tone="statusTone(row.status)"
+                            >
+                                {{ statusLabelWithStage(row.status, row.failureStage) }}
+                            </CaomeiTag>
+                        </template>
+                        <template #cell-mode="{row}">
+                            {{ runModeLabel(row.mode, t) }}
+                        </template>
+                        <template #cell-threshold="{row}">
+                            {{ row.severityThreshold === 'all' ? t('common.severity.all') : row.severityThreshold }}
+                        </template>
+                        <template #cell-executor="{row}">
+                            <CaomeiTag tone="neutral">
+                                {{ runExecutorLabel(row.executorKind, t) }}
+                            </CaomeiTag>
+                        </template>
+                        <template #cell-startedAt="{row}">
+                            {{ row.startedAt ? d(new Date(row.startedAt), 'long') : '—' }}
+                        </template>
+                        <template #cell-alerts="{row}">
+                            {{ alertsFound(row.summary) }}
+                        </template>
+                        <template #cell-fixed="{row}">
+                            {{ (row.summary as Record<string, number> | null)?.alertsFixed ?? 0 }}
+                        </template>
+                        <template #cell-actions="{row}">
+                            <CaomeiButton
+                                variant="ghost"
+                                rounded
+                                size="sm"
+                                :label="t('runs.actionViewDetail')"
+                                :title="t('runs.actionViewDetail')"
+                                @click="openRunDetail(row.id)"
+                            >
+                                <template #icon>
+                                    <CaomeiIcon :icon="Eye" />
+                                </template>
+                            </CaomeiButton>
+                        </template>
+                    </CaomeiDataTable>
+                </CaomeiCard>
+                <p
+                    v-else
+                    class="text-muted"
+                >
+                    {{ t('common.empty.loading') }}
+                </p>
+            </CaomeiTabContent>
+        </CaomeiTabs>
 
         <!-- 详情 dialog 兜底（/scans?run=xxx 触发；queryKey='run' 直接打开 detail） -->
         <repo-history-dialog query-key="run" />
@@ -715,10 +797,17 @@ onMounted(refresh)
         font-size: $font-size-sm;
     }
 
-    &__section-title {
-        margin: $space-5 0 $space-3;
-        font-size: $font-size-lg;
-        font-weight: 600;
+    &__tabs {
+        margin-top: $space-2;
+    }
+
+    &__byrepo-toolbar {
+        margin-bottom: $space-3;
+    }
+
+    &__window-hint {
+        margin: $space-3 0 0;
+        font-size: $font-size-sm;
     }
 
     &__run-filters {

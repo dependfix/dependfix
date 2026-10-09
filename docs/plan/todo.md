@@ -47,13 +47,15 @@
   - **优先级**：P3
   - **范围**：`apps/platform/app/components/repo-history-dialog.vue`（移除 `331-342` 的 body 关闭按钮 + `385` 的 `height: 200px` 固定日志区改自适应）；同构的 `apps/platform/app/components/run-detail-dialog.vue`（若日志区实现同构则一并收敛口径）。
   - **验收标准**：
-    - [ ] run 模式不再渲染 body「× 关闭」按钮（仅保留弹窗 header `×` 与 Esc 关闭）；history 模式「返回列表」不受影响
-    - [ ] 日志滚动区高度自适应（min-height + flex / 视口比例 / 可拖拽三选一，D 阶段前定稿）：结果与告警较多时日志可视高度显著大于现状
-    - [ ] 窄视口（≤ 640px）下 `:style width: 720px` 覆盖响应式的问题一并评估——在本条范围内则修复，否则登记 backlog
-    - [ ] `pnpm lint` + `pnpm typecheck` 0 error；相关 e2e 全过
+    - [x] run 模式不再渲染 body「× 关闭」按钮（移除 `repo-history-dialog` 的 body 关闭按钮；关闭仅走弹窗 header `×` 与 Esc）；history 模式「返回列表」不受影响（e2e case 3 断言 body 无「关闭」按钮 + header × 可见）。**执行期发现**：`repo-history-dialog` 当前仅被 `scans.vue` 以 `query-key='run'` 挂载 → history 模式（list 视图 / 「返回列表」）**不可达**（`repos.vue` 历史入口已改为跳 `/scans?repository=`），该项以「未触碰 + 不可达」满足；已修正组件陈旧注释并登记 backlog 候选（history 模式 / legacy 页去留）
+    - [x] 日志滚动区高度自适应：**口径定稿 = 视口比例 clamp**（`height: clamp(240px, 40vh, 520px)`，两弹窗同口径）——下限 240px 保证可视区不小于旧 200px，上限 520px 避免大屏过高，中档 40vh 随弹窗 85vh 预算缩放（e2e case 3 断言可视高度 > 200）
+    - [x] 窄视口问题**在本条内修复**：根因 = inline `:style="{width:'720px'}"` 压过 `:breakpoints` 的样式表规则（inline 恒胜，故既有 breakpoints 为死代码）→ 改用 caomei 设计钩子 `--caomei-dialog-width: 720px`（基类 `width: min(90vw, var(--caomei-dialog-width, 480px))` + `@media (width<=640px)` 全宽规则天然响应式），两弹窗一并收敛并移除失效的 `:breakpoints`（e2e case 6 断言 480px 视口下弹窗宽度 ≤ 480）
+    - [x] `pnpm lint`（0 error）+ `pnpm typecheck`（7 包 Done）0 error；相关 e2e 全过（scans 8 passed；全量 e2e 见证据）
+  - **D 阶段决策留痕（2026-10-09，用户裁定）**：① 日志区自适应 = 视口比例 clamp（非 min-height+flex / 非可拖拽）；② 窄视口 `:style width` 问题在本条内修复。**执行期修正留痕**：用户选项描述设想「复用 run-detail-dialog 的 breakpoints」，实测发现 inline `:style` 宽度优先级压过 breakpoints 样式表规则（两个弹窗的 breakpoints 均为死代码）→ 改为 caomei 设计钩子 `--caomei-dialog-width`（单调响应、无 breakpoints 语义突变），达成同一目标「窄视口不溢出」。**同源衍生**：门禁脚本未排除 Playwright 产物（`playwright-report` / `test-results`）致本地误报 → 按 §3.1 登记 backlog §候选评估中（不带阶段编号），不在本条扩范围。
   - **不做什么**：不改日志的数据获取与格式化（`GET /api/runs/[id]` 的 `logs[]` / `logsText`）；不改 history 模式的分页与列表；不新增下载入口（属 M39.4）。
   - **依赖**：无（纯前端）；`CaomeiDialog` 0.5.0 的 `85vh` 上限与 body 滚动语义（`node_modules/caomei-ui` dialog 样式）。
   - **交付物**：预计 1-2 commits（fix(platform) 弹窗体验 + 必要时 docs(plan)）；文件 1-2。
+  - **实际交付（2026-10-09）**：拆 4 commits——`fix(platform)`（两弹窗：移除 body 关闭按钮 + 日志区 clamp 自适应 + `--caomei-dialog-width` 响应式宽度）/ `test(platform)`（scans e2e case 3 扩展 + case 6 窄视口）/ `docs(plan)`（todo 闭环 + backlog 登记门禁产物排除缺口与弹窗 history 模式死代码）/ `docs(standards)`（platform.md §7.4 登记 `--caomei-dialog-width` 钩子）；文件 6（`repo-history-dialog.vue` / `run-detail-dialog.vue` / `scans.e2e.test.ts` / `todo.md` / `backlog.md` / `platform.md`）。
   - **风险与缓解措施**：自适应高度可能与弹窗既有 85vh 预算交互 → 以「日志区可伸缩、结果表不被挤压」为验收锚点，配合手动尺寸核验；若改动触及 alerts 弹窗视觉基线则同步重建。
 
 - **M39.3**（P2，🎨 用户体验）告警视图「按包」聚合跨 severity 重复分组修正

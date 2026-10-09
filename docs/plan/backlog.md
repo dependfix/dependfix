@@ -127,7 +127,17 @@
   - **触发条件**：重负载仓库超时成为常态；或用户要求放宽上限。
   - **按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
 
-> 本区块保留 M37 执行期延后项（受约束重试入口 / 服务端跨设备偏好）+ 审计与复核衍生的待评估候选（push 侧 hooks 隔离 / tech-stack 依赖表行级不一致 / `distill-wisdom` 计数假阴性）+ M38.1 独立 worker 形态衍生候选（按 role 跳过周期插件 / worker 崩溃自动重启）+ M38.3 审计范围外观察（reuse 路径与去重合并叠加误置 failed）+ M38.6 同源点穷举候选（严重级别展示策略统一）+ 2026-10-09 运行失败根因评估批次未上收 3 项（部署版本戳陈旧校验 / 失败 run 落 summary 快照 / 执行超时可配置化）；该批次其余 6 项已于 2026-10-09 上收 M39（扫描页筛选分页 / 日志下载 / 弹窗体验 / 告警按包聚合 / PR Check 启用链路 / 环境事件覆盖，见上方批次说明）；2026-10-08 M38 启动批次已上收 4 项（`scan.post` failover / e2e 卡片计数 / `scan-queue.ts` 注释 / schedule 选项口径），M37 启动前原有 6 项已随 M37 闭环归档（见上方批次说明）。
+- **代码门禁脚本未排除 Playwright 生成产物（待评估）** —— 现象（2026-10-09 本地验证实测）：`scripts/check-orphan-ids.mjs` 的 `EXCLUDED_DIRS` 未包含 `playwright-report` / `test-results`，本地跑过 e2e 后 HTML 报告内的 minified 依赖 bundle（`playwright-report/trace/assets/codeMirrorModule-*.js`）被纳入扫描并误报规划编号形态；`scripts/check-docs.mjs` 同理把 `test-results/**/error-context.md`（Playwright 失败产物）计入 md 扫描面（本地实测 148 → 152）。CI 因门禁步骤先于 e2e 产物生成而不受影响，但本地验证会被产物污染（须先清理产物才能取得干净门禁）。
+  - **待评估点**：① 两个脚本的产物排除面是否统一补 `playwright-report` / `test-results`（与既有 `.output` / `coverage` / `dist` 同类）；② 是否改为统一「尊重 `.gitignore`」的排除策略以避免逐个补目录。
+  - **触发条件**：本地跑过 e2e 后执行门禁脚本出现产物误报；或用户要求加固脚本。
+  - **按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
+
+- **`repo-history-dialog` history 模式与 legacy `/repos/[id]/runs` 页疑似无入口死代码（待评估）** —— 现象：全仓仅 `scans.vue` 以 `:query-key="'run'"` 挂载 `repo-history-dialog`；`repos.vue` 的历史入口已改为跳 `/scans?repository=`，故组件的 history 模式（list 视图 / 「返回列表」分支 / `queryKey='history'` 默认值）当前**不可达**；legacy 页 `app/pages/repos/[id]/runs.vue` 亦无站内链接（其注释引用的 backlog 删除候选已不存在）。二者由本次弹窗体验改动的「history 模式不受影响」验收口径间接暴露。
+  - **待评估点**：① 删除 history 模式分支 + 收敛组件为单一 run 模式（减法）；② 或恢复 history 挂载点（若确有按仓库浏览历史的需求，可复用扫描页 `/scans?repository=` 路径）；③ legacy `/repos/[id]/runs` 页是否随 history 模式一并删除。
+  - **触发条件**：组件 / 页面维护（如再次改动 `repo-history-dialog`）；或用户要求清理死代码。
+  - **按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
+
+> 本区块保留 M37 执行期延后项（受约束重试入口 / 服务端跨设备偏好）+ 审计与复核衍生的待评估候选（push 侧 hooks 隔离 / tech-stack 依赖表行级不一致 / `distill-wisdom` 计数假阴性 / 门禁脚本产物排除缺口 / 弹窗 history 模式与 legacy 页死代码）+ M38.1 独立 worker 形态衍生候选（按 role 跳过周期插件 / worker 崩溃自动重启）+ M38.3 审计范围外观察（reuse 路径与去重合并叠加误置 failed）+ M38.6 同源点穷举候选（严重级别展示策略统一）+ 2026-10-09 运行失败根因评估批次未上收 3 项（部署版本戳陈旧校验 / 失败 run 落 summary 快照 / 执行超时可配置化）；该批次其余 6 项已于 2026-10-09 上收 M39（扫描页筛选分页 / 日志下载 / 弹窗体验 / 告警按包聚合 / PR Check 启用链路 / 环境事件覆盖，见上方批次说明）；2026-10-08 M38 启动批次已上收 4 项（`scan.post` failover / e2e 卡片计数 / `scan-queue.ts` 注释 / schedule 选项口径），M37 启动前原有 6 项已随 M37 闭环归档（见上方批次说明）。
 
 ### 待上收候选（评估完成，等待用户决策）
 

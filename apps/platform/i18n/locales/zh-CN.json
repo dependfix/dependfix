@@ -209,6 +209,7 @@
         "empty": "暂无定时计划，点击右上角新建",
         "newPlan": "新建计划",
         "colName": "名称",
+        "colKind": "类型",
         "colCron": "cron 表达式",
         "colStrategy": "仓库策略",
         "colMode": "模式",
@@ -227,6 +228,14 @@
         "dialogCreateTitle": "新建定时计划",
         "fieldName": "计划名称 *",
         "fieldNamePlaceholder": "如 每周一凌晨扫描",
+        "fieldKind": "计划类型",
+        "fieldKindHint": "定时批量扫描，或依赖更新 PR check 状态监测（后者需服务端启用 ACTION_STATUS_MONITOR_ENABLED）",
+        "kind": {
+            "scan": "定时批量扫描",
+            "prCheck": "PR Check 监测"
+        },
+        "prCheckHint": "PR Check 监测按 cron 轮询依赖更新 PR 的 check 状态并生成告警，不使用扫描模式 / 严重级别阈值。",
+        "monitorDisabledBanner": "存在 PR Check 类型的定时计划，但监测总开关未启用（ACTION_STATUS_MONITOR_ENABLED=false），触发将被跳过。请在服务端设置 ACTION_STATUS_MONITOR_ENABLED=true 并重启进程。",
         "fieldCron": "cron 表达式 *",
         "fieldCronHint": "5 段（分 时 日 月 周）或 6 段（含秒），如 0 2 * * 1 = 每周一 02:00；建议间隔不小于 1 小时",
         "cronPreviewTitle": "下次触发（按当前时区，next 3）",
@@ -260,6 +269,7 @@
             "created": "定时计划已创建",
             "deleted": "定时计划已删除",
             "triggered": "已触发批量扫描（{count} 个仓库），可在批量运行页查看进度",
+            "prCheckTriggered": "已触发 PR Check 监测（处理 {processed} 个，错误 {errors} 个）",
             "disabled": "定时计划已禁用",
             "enabled": "定时计划已启用"
         },
@@ -271,6 +281,10 @@
             "operationFailed": "操作失败：{message}",
             "tagRequired": "按标签策略需要填写标签",
             "reposRequired": "手动指定策略需要至少选择一个仓库"
+        },
+        "warnings": {
+            "prCheckSkipped": "PR Check 监测总开关未启用（ACTION_STATUS_MONITOR_ENABLED=false），本次触发已跳过。",
+            "unknownTriggerResult": "触发返回了未识别的结果类型，请刷新页面或联系管理员。"
         }
     },
     "index": {

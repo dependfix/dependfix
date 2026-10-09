@@ -74,10 +74,21 @@ export interface UserView {
 /** 仓库选择策略（与 server ScheduleSelectorKind 对齐） */
 export type ScheduleSelectorKind = 'all' | 'organization' | 'tag' | 'explicit'
 
+/** 计划业务类型（与 server ScheduleKind 对齐：scan=定时批量扫描 / pr-check=PR Check 状态监测） */
+export type ScheduleKind = 'scan' | 'pr-check'
+
+/**
+ * 手动触发返回（与 server `ScheduleTriggerResult` 判别联合对齐）。
+ * 服务端新增 `kind` 时须同步此处——前端 `trigger()` 按此联合分支消费。
+ */
+export type ScheduleTriggerResult = { kind: 'scan', batchRunId: string, repositoryCount: number }
+    | { kind: 'pr-check', processed: number, errors: number, skipped?: boolean }
+
 /** 定时计划视图（server/api/schedules 返回结构） */
 export interface ScheduleView {
     id: string
     name: string
+    kind: ScheduleKind
     cron: string
     timezone: string | null
     selectorKind: ScheduleSelectorKind

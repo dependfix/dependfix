@@ -209,6 +209,7 @@
         "empty": "No schedules yet, click Create in the top right",
         "newPlan": "Create",
         "colName": "Name",
+        "colKind": "Type",
         "colCron": "cron expression",
         "colStrategy": "Repository strategy",
         "colMode": "Mode",
@@ -227,6 +228,14 @@
         "dialogCreateTitle": "Create schedule",
         "fieldName": "Name *",
         "fieldNamePlaceholder": "e.g. Weekly Monday scan",
+        "fieldKind": "Plan type",
+        "fieldKindHint": "Scheduled batch scan, or dependabot PR check status monitoring (the latter requires ACTION_STATUS_MONITOR_ENABLED on the server)",
+        "kind": {
+            "scan": "Scheduled scan",
+            "prCheck": "PR Check monitor"
+        },
+        "prCheckHint": "PR Check monitoring polls dependabot PR check status on cron and raises alerts; scan mode / severity threshold do not apply.",
+        "monitorDisabledBanner": "A PR Check schedule exists but the monitor switch is off (ACTION_STATUS_MONITOR_ENABLED=false), so triggers will be skipped. Set ACTION_STATUS_MONITOR_ENABLED=true on the server and restart the process.",
         "fieldCron": "cron expression *",
         "fieldCronHint": "5 fields (min hour day month weekday) or 6 fields (with seconds), e.g. 0 2 * * 1 = every Monday 02:00; keep interval at least 1 hour",
         "cronPreviewTitle": "Next triggers (current timezone, next 3)",
@@ -260,6 +269,7 @@
             "created": "Schedule created",
             "deleted": "Schedule deleted",
             "triggered": "Batch scan triggered ({count} repositories), progress available on the batch runs page",
+            "prCheckTriggered": "PR Check monitoring triggered ({processed} processed, {errors} errors)",
             "disabled": "Schedule disabled",
             "enabled": "Schedule enabled"
         },
@@ -271,6 +281,10 @@
             "operationFailed": "Operation failed: {message}",
             "tagRequired": "Tag strategy requires a tag",
             "reposRequired": "Manual selection requires at least one repository"
+        },
+        "warnings": {
+            "prCheckSkipped": "PR Check monitor switch is off (ACTION_STATUS_MONITOR_ENABLED=false); this trigger was skipped.",
+            "unknownTriggerResult": "Trigger returned an unrecognized result type; refresh the page or contact an administrator."
         }
     },
     "index": {

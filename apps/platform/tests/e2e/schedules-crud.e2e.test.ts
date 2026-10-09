@@ -61,6 +61,8 @@ test.describe('定时计划 CRUD + 触发（docs/plan/todo.md §M21.5 T704 async
         expect(response.status()).toBe(200)
         const body = await response.json()
         expect(body.name).toBe(name)
+        // 未传 kind → 默认 scan（向后兼容）
+        expect(body.kind).toBe('scan')
         expect(body.cron).toBe('0 2 * * 1')
         expect(body.timezone).toBe('Asia/Shanghai')
         expect(body.selectorKind).toBe('all')
@@ -121,6 +123,37 @@ test.describe('定时计划 CRUD + 触发（docs/plan/todo.md §M21.5 T704 async
         expect(body.severityThreshold).toBe('medium')
         expect(body.createdAt).toBeTruthy()
         expect(body.updatedAt).toBeTruthy()
+
+        await apiDelete(page, `/api/schedules/${created.id}`)
+    })
+
+    test('POST /api/schedules 创建 pr-check schedule → kind 往返（创建 → 详情 → PATCH 改回 scan）', async ({ page }) => {
+        const name = uniqueName('kind')
+        const create = await apiPost(page, '/api/schedules', {
+            name,
+            kind: 'pr-check',
+            cron: '0 8 * * *',
+            selectorKind: 'all',
+            enabled: true,
+        })
+        expect(create.status()).toBe(200)
+        const created = await create.json()
+        expect(created.kind).toBe('pr-check')
+
+        // 详情回读 pr-check
+        const detail = await apiGet(page, `/api/schedules/${created.id}`)
+        expect(detail.status()).toBe(200)
+        expect((await detail.json()).kind).toBe('pr-check')
+
+        // PATCH 改回 scan
+        const patch = await apiPatch(page, `/api/schedules/${created.id}`, { kind: 'scan' })
+        expect(patch.status()).toBe(200)
+        expect((await patch.json()).kind).toBe('scan')
+
+        // 列表回读 scan
+        const list = await apiGet(page, '/api/schedules')
+        const items = await list.json() as { id: string, kind: string }[]
+        expect(items.find((s) => s.id === created.id)?.kind).toBe('scan')
 
         await apiDelete(page, `/api/schedules/${created.id}`)
     })

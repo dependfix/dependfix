@@ -2,7 +2,7 @@
 // 定时计划管理：新建/编辑/删除/启用禁用/手动触发（cron 到点自动触发批量扫描）
 import { Check, CirclePlay, Pause, Pencil, Play, Plus, Trash } from '@lucide/vue'
 import type { DataTableColumn } from 'caomei-ui'
-import type { RepoView, ScheduleSelectorKind, ScheduleView } from '~/types/platform'
+import type { RepoView, ScheduleKind, ScheduleSelectorKind, ScheduleTriggerResult, ScheduleView } from '~/types/platform'
 import { previewCron } from '~/utils/cron-preview'
 import { scanModeOptions, scanSeverityOptions } from '~/utils/scan-options'
 
@@ -14,6 +14,7 @@ const { t, d } = useI18n()
 
 interface ScheduleForm {
     name: string
+    kind: ScheduleKind
     cron: string
     timezone: string
     selectorKind: ScheduleSelectorKind
@@ -33,11 +34,19 @@ const dialogVisible = ref(false)
 const editingId = ref<string | null>(null)
 const error = ref('')
 const success = ref('')
+/** 非阻断提示（如 pr-check 计划触达但总开关未启用 → 触发被跳过） */
+const warning = ref('')
+/**
+ * PR Check 监测总开关状态（进程级 env，经 /api/schedules/monitor-status 读取）。
+ * null = 未加载；用于在存在 pr-check 计划但开关未启用时给出提示。
+ */
+const monitorEnabled = ref<boolean | null>(null)
 /** 浏览器解析的 IANA 时区（时区选择框默认选项 + cron 预览 fallback） */
 const browserTimezone = ref('')
 
 const emptyForm = (): ScheduleForm => ({
     name: '',
+    kind: 'scan',
     cron: '0 2 * * 1',
     timezone: '',
     selectorKind: 'all',
@@ -57,6 +66,18 @@ const selectorOptions = computed(() => [
     { label: t('schedules.selector.explicit'), value: 'explicit' },
 ])
 
+/** 计划业务类型选项（scan=定时批量扫描 / pr-check=PR Check 状态监测） */
+const kindOptions = computed(() => [
+    { label: t('schedules.kind.scan'), value: 'scan' },
+    { label: t('schedules.kind.prCheck'), value: 'pr-check' },
+])
+
+/** 是否存在 pr-check 计划（决定总开关关闭时是否展示提示横幅） */
+const hasPrCheckSchedule = computed(() => schedules.value.some((s) => s.kind === 'pr-check'))
+
+/** 展示「总开关未启用」提示：存在 pr-check 计划且已确认开关关闭 */
+const showMonitorDisabledHint = computed(() => hasPrCheckSchedule.value && monitorEnabled.value === false)
+
 // 模式 / 严重级别选项复用 utils/scan-options 单一事实源（与扫描弹窗、设置页默认值口径一致，
 // 避免多处漂移；抽取边界见 docs/standards/platform.md §7.3）
 const modeOptions = computed(() => scanModeOptions(t))
@@ -65,6 +86,9 @@ const severityOptions = computed(() => scanSeverityOptions(t))
 
 const selectorLabel = (kind: string) =>
     selectorOptions.value.find((o) => o.value === kind)?.label ?? kind
+
+const kindLabel = (kind: string) =>
+    kindOptions.value.find((o) => o.value === kind)?.label ?? kind
 
 const fetchSchedules = async () => {
     loading.value = true
@@ -86,9 +110,19 @@ const fetchRepos = async () => {
     }
 }
 
+/** 拉取 PR Check 监测总开关状态（失败时保持 null → 不展示提示，避免误导） */
+const fetchMonitorStatus = async () => {
+    try {
+        const status = await $fetch<{ actionStatusMonitorEnabled: boolean }>('/api/schedules/monitor-status')
+        monitorEnabled.value = status.actionStatusMonitorEnabled
+    } catch {
+        monitorEnabled.value = null
+    }
+}
+
 onMounted(async () => {
     browserTimezone.value = Intl.DateTimeFormat().resolvedOptions().timeZone
-    await Promise.all([fetchSchedules(), fetchRepos()])
+    await Promise.all([fetchSchedules(), fetchRepos(), fetchMonitorStatus()])
 })
 
 /** Intl.supportedValuesOf('timeZone') 时区列表（运行时探测，旧 Node 不可用时兜底） */
@@ -166,6 +200,7 @@ const openEdit = (schedule: ScheduleView) => {
     const data = parseSelectorData(schedule)
     form.value = {
         name: schedule.name,
+        kind: schedule.kind,
         cron: schedule.cron,
         timezone: schedule.timezone ?? '',
         selectorKind: schedule.selectorKind,
@@ -212,6 +247,7 @@ const submit = async () => {
     try {
         const payload = {
             name: form.value.name,
+            kind: form.value.kind,
             cron: form.value.cron,
             timezone: form.value.timezone.trim() || null,
             selectorKind: form.value.selectorKind,
@@ -255,10 +291,22 @@ const remove = async (schedule: ScheduleView) => {
 
 const trigger = async (schedule: ScheduleView) => {
     error.value = ''
+    warning.value = ''
     triggering.value = schedule.id
     try {
-        const result = await $fetch<{ batchRunId: string, repositoryCount: number }>(`/api/schedules/${schedule.id}/trigger`, { method: 'POST' })
-        success.value = t('schedules.success.triggered', { count: result.repositoryCount })
+        const result = await $fetch<ScheduleTriggerResult>(`/api/schedules/${schedule.id}/trigger`, { method: 'POST' })
+        if (result.kind === 'pr-check') {
+            if (result.skipped) {
+                warning.value = t('schedules.warnings.prCheckSkipped')
+            } else {
+                success.value = t('schedules.success.prCheckTriggered', { processed: result.processed, errors: result.errors })
+            }
+        } else if (result.kind === 'scan') {
+            success.value = t('schedules.success.triggered', { count: result.repositoryCount })
+        } else {
+            // 防御性兜底：服务端新增 kind 而前端未同步时，避免静默按 scan 渲染 count=undefined
+            warning.value = t('schedules.warnings.unknownTriggerResult')
+        }
         await fetchSchedules()
     } catch (e: any) {
         error.value = t('schedules.errors.triggerFailed', { message: e?.data?.message ?? e?.message ?? t('common.errors.unknown') })
@@ -287,6 +335,7 @@ const toggleEnabled = async (schedule: ScheduleView) => {
  */
 const columns = computed<DataTableColumn<ScheduleView>[]>(() => [
     { key: 'name', header: t('schedules.colName'), sortable: true },
+    { key: 'kind', header: t('schedules.colKind'), sortable: true },
     { key: 'cron', header: t('schedules.colCron'), sortable: true },
     { key: 'selectorKind', header: t('schedules.colStrategy'), sortable: true },
     { key: 'mode', header: t('schedules.colMode'), sortable: true },
@@ -336,6 +385,20 @@ watch(toastMessage, (v) => {
         >
             {{ success }}
         </CaomeiMessage>
+        <CaomeiMessage
+            v-if="warning"
+            tone="warning"
+            :closable="false"
+        >
+            {{ warning }}
+        </CaomeiMessage>
+        <CaomeiMessage
+            v-if="showMonitorDisabledHint"
+            tone="warning"
+            :closable="false"
+        >
+            {{ t('schedules.monitorDisabledBanner') }}
+        </CaomeiMessage>
 
         <CaomeiCard v-if="!loading">
             <CaomeiDataTable
@@ -352,11 +415,19 @@ watch(toastMessage, (v) => {
                         class="text-muted"
                     >{{ t('schedules.timezoneSuffix', {timezone: row.timezone}) }}</small>
                 </template>
+                <template #cell-kind="{row}">
+                    <CaomeiTag :tone="row.kind === 'pr-check' ? 'primary' : 'neutral'">
+                        {{ kindLabel(row.kind) }}
+                    </CaomeiTag>
+                </template>
                 <template #cell-selectorKind="{row}">
                     {{ selectorLabel(row.selectorKind) }}
                 </template>
                 <template #cell-mode="{row}">
-                    <CaomeiTag>{{ modeOptions.find((m) => m.value === row.mode)?.label ?? row.mode }}</CaomeiTag>
+                    <CaomeiTag v-if="row.kind === 'scan'">
+                        {{ modeOptions.find((m) => m.value === row.mode)?.label ?? row.mode }}
+                    </CaomeiTag>
+                    <span v-else class="text-muted">—</span>
                 </template>
                 <template #cell-status="{row}">
                     <CaomeiTag :tone="row.enabled ? 'success' : 'warning'">
@@ -437,6 +508,19 @@ watch(toastMessage, (v) => {
                         :placeholder="t('schedules.fieldNamePlaceholder')"
                         required
                     />
+                </div>
+                <div class="schedule-form__field">
+                    <label for="kind">{{ t('schedules.fieldKind') }}</label>
+                    <CaomeiSelect
+                        id="kind"
+                        v-model="form.kind"
+                        :options="kindOptions"
+                        option-label="label"
+                        option-value="value"
+                    />
+                    <small class="text-muted">
+                        {{ t('schedules.fieldKindHint') }}
+                    </small>
                 </div>
                 <div class="schedule-form__field">
                     <label for="cron">{{ t('schedules.fieldCron') }}</label>
@@ -535,7 +619,7 @@ watch(toastMessage, (v) => {
                     </small>
                 </div>
 
-                <div class="schedule-form__row">
+                <div v-if="form.kind === 'scan'" class="schedule-form__row">
                     <div class="schedule-form__field">
                         <label for="mode">{{ t('schedules.fieldMode') }}</label>
                         <CaomeiSelect
@@ -557,6 +641,13 @@ watch(toastMessage, (v) => {
                         />
                     </div>
                 </div>
+                <CaomeiMessage
+                    v-else
+                    tone="neutral"
+                    :closable="false"
+                >
+                    {{ t('schedules.prCheckHint') }}
+                </CaomeiMessage>
                 <div class="schedule-form__field">
                     <div class="schedule-form__switch">
                         <span>{{ t('schedules.enableTrigger') }}</span>

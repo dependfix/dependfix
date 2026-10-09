@@ -9,6 +9,7 @@ import { waitForHydration } from './helpers/hydration.helper'
  * - 非法 cron 反馈：字段数非法或语法非法时显示 cronInvalid 错误提示
  * - 时区选择器：CaomeiAutoComplete 载入 Intl.supportedValuesOf 全量时区，输入关键字过滤，
  *   默认浏览器时区排在首位
+ * - 计划类型选择器：默认 scan 显示扫描模式 / 严重级别，切换 PR Check 监测后隐藏二者并显示说明
  * - i18n locale 切换不影响时区列表（IANA 与 locale 无关）
  *
  * 不覆盖：cron-parser next() 计算精度（vitest 单测覆盖）；后端 cron 触发执行（待真实环境验证）。
@@ -81,5 +82,27 @@ test.describe('定时计划增强', () => {
         // 清空关键字回到完整列表；Tokyo 应再次出现（验证过滤可逆）
         await timezoneInput.fill('')
         await expect(items.filter({ hasText: 'Asia/Tokyo' }).first()).toBeVisible({ timeout: 5000 })
+    })
+
+    test('计划类型选择器：默认含扫描模式；切换 PR Check 监测隐藏扫描模式并显示说明', async ({ page }) => {
+        await page.goto('/schedules')
+        await waitForHydration(page)
+        await page.locator('button:has-text("新建计划")').click()
+        await expect(page.locator('.caomei-dialog__header')).toContainText('新建定时计划', { timeout: 15000 })
+
+        // 默认 scan：类型选择器可见，扫描模式 / 严重级别阈值可见
+        await expect(page.locator('#kind')).toBeVisible({ timeout: 15000 })
+        await expect(page.locator('#mode')).toBeVisible()
+        await expect(page.locator('#severityThreshold')).toBeVisible()
+
+        // 切换为 PR Check 监测
+        await page.locator('#kind').click()
+        await expect(page.locator('.caomei-select__content')).toBeVisible()
+        await page.locator('.caomei-select__content .caomei-select__item:has-text("PR Check 监测")').click()
+
+        // 扫描模式 / 严重级别阈值隐藏，显示 pr-check 行为说明
+        await expect(page.locator('#mode')).toHaveCount(0)
+        await expect(page.locator('#severityThreshold')).toHaveCount(0)
+        await expect(page.locator('.caomei-dialog__content .caomei-message').filter({ hasText: 'PR Check 监测' })).toBeVisible()
     })
 })

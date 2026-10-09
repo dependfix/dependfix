@@ -499,6 +499,7 @@ fixtures.delete / fixtures.post 在双门控通过后调用 `fixturesRateLimit()
 | `NUXT_PUBLIC_BETTER_AUTH_URL` | 反向代理时 | 自动推断 | 认证基础 URL |
 | `MACHINE_ID` | 否 | `pid % 1024` | 雪花机器位 |
 | `DEPENDFIX_QUEUE_WORKER` | 否 | 入口 `0` / compose `1` | 队列执行进程隔离（仅容器入口消费）：`1` 启动独立 worker 进程消费队列、HTTP 进程不消费（消除锁续期失败，见 [§10.6](#106-队列执行进程隔离独立-worker-进程)）；`0` 单进程形态 |
+| `ACTION_STATUS_MONITOR_ENABLED` | 否 | `false` | PR Check 状态监测服务总开关（`kind='pr-check'` 计划的触发门控）：关闭时 `triggerPrCheckSchedule` log warn 后跳过（不更新 `lastTriggeredAt`）。启用前需至少一个 PAT credential（classic-pat / fine-grained-pat）且组织内有 dependfix / dependabot PR 活动（避免空轮询）。进程级 env、不可热更，**设置后需重启进程生效**；前端在组织内存在 `pr-check` 计划但总开关关闭时展示提示（数据源 `GET /api/schedules/monitor-status`）。 |
 
 ## 12. 决策记录（2026-08-07 人工审查确认）
 

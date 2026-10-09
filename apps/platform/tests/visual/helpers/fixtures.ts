@@ -9,13 +9,14 @@ import { type FixturesPayload, seedCustomFixtures } from '../../e2e/helpers/fixt
  * - e2e 数据集的 `firstSeenAt` / `lastSeenAt` 缺省 → fixtures 端点填 `now()`，每次运行不同；
  *   视觉基线需要**逐像素可复现**，故本数据集显式钉死时间戳。
  *
- * 数据规模遵循 minimum fixture 原则：3 仓库（2 个带标签 + 1 个无标签）+ 3 次扫描 + 7 条告警
+ * 数据规模遵循 minimum fixture 原则：3 仓库（2 个带标签 + 1 个无标签）+ 3 次扫描 + 9 条告警
  * + 5 条 PRCheck（pr-checks 页行级基线）。
  *
- * 数据集刻意让**每个包只有一档 severity**（lodash=high / node-fetch=medium / axios=critical /
- * minimist=low）：alerts 页分组键是包名，而默认排序按 severity 降序——同一包跨多档 severity 时，
- * 排序会把这些行拆到不同 severity 区块，分组头随之重复出现（既有行为，非本批引入）。
- * 视觉基线取「分组连续」的形态，以覆盖分组头 + 展开行 + 4 档 severity 标签 + 4 种 source +
+ * 数据集含一个**跨 severity 的包**（nodemailer = high + medium），用于锁定「一个包一组」契约：
+ * alerts 页默认按 severity 降序，若按**行级** severity 排序，同包跨档行会被拆到不同 severity 区块、
+ * 分组头重复出现（修复前的缺陷）。修复后「严重级别」列排序取值 = 组排序键，nodemailer
+ * 只渲染一个分组头。其余包保持单档（lodash=high / node-fetch=medium / axios=critical / minimist=low），
+ * 视觉基线取「分组连续」的形态，覆盖分组头 + 展开行 + 4 档 severity 标签 + 4 种 source +
  * 5 种 fixStatus 呈现。不要扩展本集合，除非新增视觉用例确实需要。
  */
 export const VISUAL_FIXTURES: FixturesPayload = {
@@ -172,6 +173,41 @@ export const VISUAL_FIXTURES: FixturesPayload = {
             occurrenceCount: 1,
             firstSeenAt: '2026-08-07T02:00:00.000Z',
             lastSeenAt: '2026-08-26T02:00:00.000Z',
+        },
+        // run 0 / web-app：nodemailer 跨档（high + medium）——锁定「一个包一组」契约
+        {
+            scanRunIndex: 0,
+            upstreamId: 'dependabot:nodemailer-001',
+            source: 'dependabot',
+            severity: 'high',
+            packageName: 'nodemailer',
+            manifestPath: 'package.json',
+            ruleId: null,
+            summary: 'SMTP command injection',
+            fixable: true,
+            fixStrategy: 'upgrade',
+            recommendedVersion: '6.9.9',
+            fixStatus: 'pending',
+            occurrenceCount: 1,
+            firstSeenAt: '2026-08-08T02:00:00.000Z',
+            lastSeenAt: '2026-08-27T02:00:00.000Z',
+        },
+        {
+            scanRunIndex: 0,
+            upstreamId: 'pnpm-audit:nodemailer-001',
+            source: 'pnpm-audit',
+            severity: 'medium',
+            packageName: 'nodemailer',
+            manifestPath: 'package.json',
+            ruleId: null,
+            summary: 'CVE-2026-0002',
+            fixable: true,
+            fixStrategy: 'upgrade',
+            recommendedVersion: '6.9.9',
+            fixStatus: 'not-tried',
+            occurrenceCount: 1,
+            firstSeenAt: '2026-08-09T02:00:00.000Z',
+            lastSeenAt: '2026-08-28T02:00:00.000Z',
         },
     ],
     /**

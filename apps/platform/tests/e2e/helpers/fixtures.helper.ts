@@ -112,12 +112,18 @@ export interface FixturesPayload {
  * - scanResults: 6 个（todo.md §M20.6 增加 2 条用于验证"显示已解决"开关 + 状态列 superseded 显示）
  *   - lodash × 2 in foo/bar run 0（high dependabot + medium code-scanning）
  *   - lodash × 1 in foo/bar run 1（high dependabot，跨 run 用于 occurrenceCount 断言）
+ *     注：lodash 三条 occurrenceCount 取 2 / 1 / 3（跨档跨 run 各异）——既覆盖「跨次累计」语义，
+ *     也是「用户按其它列排序后分组仍连续」断言的区分度来源（全部相同则排序后无法暴露拆组回归）。
  *   - axios × 1 in foo/baz run 2（low pnpm-audit）
  *   - minimist × 1 in foo/bar run 1（high dependabot，supersededAt 非空 → 测试"显示已解决"开关）
  *   - node-fetch × 1 in foo/bar run 0（high dependabot，fixStatus=success → 测试"已修复"始终显示）
  *
  * 覆盖 rowGroup by packageName（4 个 packageName） + repository（2 个 repo） +
  * 视图切换 + occurrenceCount + 展开/折叠 + includeSuperseded 开关 + 状态列 superseded 显示
+ *
+ * **跨 severity 契约**：lodash 在同一仓库（foo/bar run 0）同时含 high（dependabot）与
+ * medium（code-scanning），是「一个包一组」的断言数据源——修复前按行 severity 降序会把两档拆到
+ * 不同区块、渲染重复分组头；`alerts-rowgroup` 的「同一包跨 severity 只渲染一个分组头」用例据此断言。
  *
  * 不要扩展这个集合除非新测试需要；保持 minimum fixture 避免污染其他 e2e 文件
  */
@@ -171,6 +177,7 @@ export const ALERTS_ROWGROUP_FIXTURES: FixturesPayload = {
             recommendedVersion: '4.18.0',
             htmlUrl: null,
             fixStatus: 'pending',
+            occurrenceCount: 2,
         },
         {
             scanRunIndex: 0,
@@ -218,6 +225,7 @@ export const ALERTS_ROWGROUP_FIXTURES: FixturesPayload = {
             recommendedVersion: '4.18.0',
             htmlUrl: null,
             fixStatus: 'pending',
+            occurrenceCount: 3,
         },
         // minimist in foo/bar run 1（supersededAt 非空，验证"显示已解决"开关）
         {

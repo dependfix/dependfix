@@ -45,7 +45,7 @@ async function openAlerts(page: Page): Promise<void> {
     // 两列均参与排序 → 表头渲染排序优先级角标（1 / 2）
     await expect(page.locator('.caomei-data-table__sort-index')).toHaveCount(2)
 
-    // 展开全部分组，让 4 个分组下的 7 行明细（severity / source / 状态 / 时间列）进入基线。
+    // 展开全部分组，让 5 个分组下的 9 行明细（severity / source / 状态 / 时间列）进入基线。
     // 逐次点击「尚未展开」的第一个分组开关：展开会插入行，固定下标会错位。
     for (let guard = 0; guard < 10; guard++) {
         const collapsed = page.locator('.caomei-data-table__row-group-toggle[aria-expanded="false"]').first()

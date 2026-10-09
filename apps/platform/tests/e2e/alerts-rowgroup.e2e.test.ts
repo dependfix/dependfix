@@ -127,6 +127,49 @@ test.describe('alerts rowGroup + 视图切换', () => {
         await expect(customChevron).toHaveCount(0)
     })
 
+    /**
+     * 跨 severity 契约：同一包跨多档 severity 只渲染一个分组头（「一个包一组」）。
+     *
+     * fixtures 中 lodash 同时含 high（dependabot ×2）与 medium（code-scanning ×1）——
+     * 修复前「按行 severity 降序」会把两档拆到不同 severity 区块，渲染出两个同名 lodash 分组头，
+     * 且二者共享同一计数（`groupCounts` 为全局 Map）。修复后「严重级别」列排序取值改为组排序键，
+     * 同包行相邻 → 只出现一个分组头，计数与展开状态自洽。
+     */
+    test('同一包跨 severity 只渲染一个分组头（一个包一组，计数自洽）', async ({ page }) => {
+        await page.goto('/alerts')
+        await waitForHydration(page)
+        await page.waitForSelector('.alerts__group-header', { timeout: 15000 })
+
+        const groupLabels = async () => (await page.locator('.alerts__group-header strong').allTextContents()).map((s) => s.trim())
+        const expectOneGroupPerPackage = async () => {
+            const labels = await groupLabels()
+            expect(labels.filter((label) => label === 'lodash')).toHaveLength(1)
+            expect(new Set(labels).size).toBe(labels.length)
+        }
+
+        // lodash 跨 high（2 行）+ medium（1 行）→ 修复前会渲染 2 个同名分组头
+        await expectOneGroupPerPackage()
+
+        // 计数自洽：lodash 组显示 3 条告警（active 集合；minimist 已 superseded 默认被过滤）
+        const lodashHeader = page.locator('.alerts__group-header').filter({ hasText: 'lodash' }).first()
+        await expect(lodashHeader.locator('strong')).toHaveText('lodash')
+        await expect(lodashHeader).toContainText('3 条告警')
+        // 组头严重级别 Tag = 组内最高级别（lodash = high）
+        await expect(lodashHeader.locator('.caomei-tag__content')).toHaveText('high')
+
+        // 分支①「无排序键」：点击严重级别列（初值 desc → 移除）→ 无排序键时仍按预排序基线保持一组一包
+        const severityHeader = page.locator('.caomei-data-table th:has-text("严重级别")').first()
+        await severityHeader.locator('.caomei-data-table__sort').click()
+        await expect(severityHeader).toHaveAttribute('aria-sort', 'none', { timeout: 5000 })
+        await expectOneGroupPerPackage()
+
+        // 分支②「其它列排序」：用户按出现次数排序后，严重级别（组排序键）仍被补回第一排序键 → 分组不被打散
+        const occHeader = page.locator('.caomei-data-table th:has-text("出现次数")').first()
+        await occHeader.locator('.caomei-data-table__sort').click()
+        await expect(occHeader).toHaveAttribute('aria-sort', 'ascending', { timeout: 5000 })
+        await expectOneGroupPerPackage()
+    })
+
     test('视图切换：顶部 Select 三选一（按包 / 按项目 / 原始列表）', async ({ page }) => {
         await page.goto('/alerts')
         await waitForHydration(page)

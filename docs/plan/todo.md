@@ -45,21 +45,23 @@
 
 - **实际交付**：本条目以 `380e8f4`（feat(engine)：`registry-discovery.ts` / `.test.ts` 新增 + `network-audit.ts` / `.test.ts` + `verification-runner.ts` / `.test.ts`，共 6 文件）、`47f7c42`（docs(standards)：4 文档）与本次登记 commit 收口。**质量门**：engine lint / typecheck 0 error；engine 全量 64 文件 / 1236 passed | 1 skipped；定向 105 passed；根 typecheck 7 包 Done；engine build OK；check:docs / lint:md / check:doc-size / check:orphan-ids / check:standards-redundant / check:experience-landing 全通过。**审计**：standard 2 分区并发 R1 均 Pass（代码面 2 warning + 3 suggest / 文档面 2 warning + 5 suggest，无 blocker）→ 全量收口（接线测试锁定、缓存上限、失败说明脱敏、治理登记补全）→ R2 quick Pass（11 点全关闭，0 新增）；R1 实测 763 秒 / R2 实测 314 秒。**mutation 标定**：M1 去 `extraAllowedDomains` 合并 / M2 去 registry 键过滤 / M3 host 校验恒真 / M4 去接线传递，四者全击杀。**残余**：完整 `fix-and-pr` 端到端未复现（本机无 `GITHUB_TOKEN`，AC ③ 以真实 registry 外联链路 + 同环境反例对照替代）；企业私服自带独立 CDN 域仍需显式 `DEPENDFIX_ALLOWED_DOMAINS`（已知限制）；`roadmap.md` M8 历史段的「G1-G7」为历史快照表述，未改。
 
-### M42.2 [P2 🐛] 目标仓库 `.gitignore` 幂等判定归一化（消除重复追加）
+### M42.2 [P2 🐛] 目标仓库 `.gitignore` 幂等判定归一化（消除重复追加）（**已闭环** `6a258d8`）
 
 - **目标**：让 `ensureGitignore()` 的幂等判定识别语义等价的忽略写法，消除目标仓库 `.gitignore` 被重复追加 `dependfix-reports/` 的问题。
 - **优先级**：P2
 - **范围**：`packages/engine/src/app/helpers.ts:651-670`（幂等判定归一化；canonical 写法选型）+ `packages/engine/src/app/helpers.test.ts`（当前对该函数零覆盖，需补幂等 + 多等价形态单测）。
 - **验收标准**：
-  - [ ] ① **单测**（`pnpm --filter @dependfix/engine exec vitest run src/app/helpers.test.ts`）：语义等价写法（`/dependfix-reports`、`dependfix-reports`、`/dependfix-reports/`、`**/dependfix-reports/`、带行内注释）判定为「已忽略」不追加。
-  - [ ] ② **单测**：真正未忽略的 `.gitignore`（完全无该条目）仍追加 canonical 条目一次，且 canonical 写法与各仓库既有条目对齐口径一致。
-  - [ ] ③ **幂等**：连续调用 `ensureGitignore` 两次后 `.gitignore` 内容字节级不变（新增单测）。
-  - [ ] ④ **实测**：在复现场景（`/root/projects/caomei-ui` 的 `.gitignore` 已含人工条目 `/dependfix-reports`）跑一次后无重复条目（人工核对）。
-  - [ ] ⑤ `pnpm lint` 0 error + `pnpm typecheck` 0 error。
+  - [ ] ① **单测**（`pnpm --filter @dependfix/engine exec vitest run src/app/helpers.test.ts`）：与 git 语义一致的等价写法（`/dependfix-reports`、`dependfix-reports`、`/dependfix-reports/`、`**/dependfix-reports/`、`dependfix-reports/**`、`dependfix-reports/*`）判定为「已忽略」不追加；**订正（2026-10-11，审计 RG-B1）**：原 AC 所列「带行内注释」**不构成 git 忽略**（git 仅把行首 `#` 当注释，`dir/ # note` 是字面模式）——该形态及 `dir#suffix`、前导空白、`dir/**/` 均**必须追加**（漏追加会让报告被 `git add .` 提交），已由「仍追加」参数化用例与真实 `git check-ignore` 逐形态实测锁定。
+  - [x] ② **单测**：真正未忽略的 `.gitignore`（完全无该条目）仍追加 canonical 条目一次，且 canonical 写法与各仓库既有条目对齐口径一致。
+  - [x] ③ **幂等**：连续调用 `ensureGitignore` 两次后 `.gitignore` 内容字节级不变（新增单测）。
+  - [x] ④ **实测**：复现场景产物（`/root/projects/caomei-ui/.gitignore` 的人工条目 `/dependfix-reports`，**以只读复制到临时 git 仓库的方式复现，不改动目标仓库**）跑一次后 **内容字节级不变 / 新增行 0**。
+  - [x] ⑤ `pnpm lint` 0 error + `pnpm typecheck` 0 error。
 - **不做什么**：不改 `run()` 收尾（`app/index.ts:316`）与本地提交前（`helpers.ts:623`）两个调用点；不引入 `.gitignore` 完整语法解析依赖；不做「删除既有重复条目」的清理（仅防新增）。
 - **依赖**：实测复现证据（`/root/projects/caomei-ui/.gitignore` 第 47-50 行人工条目 `/dependfix-reports` + 工具运行后追加 `dependfix-reports/`）；调用点 `helpers.ts:623` + `app/index.ts:316` 各执行一次，任一 run 即复现。
 - **交付物**：预计 1-2 commits——① engine 修复 + 单测（`helpers.ts` + `helpers.test.ts`）；② 规范登记（如需，`development.md` 或经验登记）。1-2 文件 / 40-80 行。
 - **风险与缓解**：**R1 归一化过宽 → 误判**（如 `dependfix-reports/*` 仅忽略内容却被判为等价）——明确 `.gitignore` 语义等价集 + 误报面单测；**R2 canonical 写法与各仓库既有条目不一致**——首次追加写法与既有约定对齐并单测锁定。
+
+- **实际交付**：`fix(engine)` commit（`helpers.ts` 新增导出 `normalizeGitignoreEntry` / `isGitignoreEntryIgnored` + `ensureGitignore` 幂等判定归一化；`helpers.test.ts` 补该函数零覆盖）+ 本条登记 commit。**质量门**：engine lint / typecheck 0 error；engine 全量 64 文件 / 1260 passed | 1 skipped；定向 `helpers.test.ts` 34 passed；engine build OK；根 typecheck 7 包 Done；check:docs / lint:md / check:doc-size 全通过；编号标记与不规则空白扫描 0 命中。**语义对齐实证**：临时 git 仓库逐形态实测 15 种写法（7 IGNORED / 8 NOT-IGNORED）与本实现判定**完全一致**；尾随空格与 CR 剥离、尾随 tab 保留、行中 `#` 属字面字符、前导空白属模式本身、以斜杠结尾的内容通配不忽略目录自身。**审计**：quick R1 **Reject**（RG-B1 blocker：行中 `#` 被误当注释剥离 → 漏追加 → 报告可能随提交入库，属安全方向回归）→ 修复（含 RG-W1 前导空白 / RG-W2 内容通配假命中）→ R2 quick Pass → 顺带收窄尾随 tab 处理（RG-S3）→ R3 quick Pass；R1 实测 453 秒。**mutation 标定**：M1 恢复行中 `#` 剥离 / M2 归一化失效 / M3 前导空白归一化 / M4 尾随 tab 误剥离，四者全击杀（5 / 10 / 2 / 2 failed）。**已知边界（接受不改，非本次引入）**：取反行不构成忽略（`!dir/` 单行时仍追加）；`\r\r`、`\ \` 等反斜杠转义形态未建模——触发需手写几乎不可能的字节串，方向均为「多追加」冗余而非漏追加；canonical 写法保持 `dependfix-reports/`（不改既有已写入条目）。
 
 ### M42.3 [P2 🛡️] 扫描复用路径与同仓库去重合并叠加时误置既有 run 为 failed 修复
 

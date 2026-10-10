@@ -104,18 +104,22 @@
   - **风险与缓解措施**：① 导航收敛致读者找不到内容 → 保留 guide / standards / plan / roadmap 入口 + 直链可访问；② config 改动致 `docs:build` 失败 → 本地 `docs:build` 实证；③ zh / en 侧栏不对称 → 双侧逐条核对。
 
 - **M41.5**（P3，🛡️ 治理同步）阈值与事实源唯一化
-  - **目标**：`documentation.md §3` 成为**唯一阈值权威**（补齐 standards `≤ 200 / 201-400 / > 400` 与 design `modules ≤ 300 / governance ≤ 400` 行），`spec-and-doc-governance.md §2.3` 的重复完整阈值表收敛为一行引用，消除双事实源漂移。
+  - **目标**：`documentation.md §3` 成为**唯一阈值权威**（补齐 standards / design / research / guide 等全部文档类型行），`spec-and-doc-governance.md §2.3` 与归档索引的重复阈值声明收敛为一行引用，消除多处事实源漂移。
   - **优先级**：P3
   - **范围**：`docs/standards/documentation.md §3`（阈值表补齐为全量唯一表）；`docs/design/governance/spec-and-doc-governance.md §2.3`（改为一行引用）。
   - **验收标准**：
-    - [ ] `documentation.md §3` 覆盖全部文档类型行（README / standards / design modules / design governance / roadmap / todo / todo-archive / backlog / research / guide），为唯一完整阈值表
-    - [ ] `spec-and-doc-governance.md §2.3` 无第二处完整阈值表（收敛为一行引用）
-    - [ ] `rg -n "201-400|301-500|401-700|801-900" docs/` 复扫确认无第三处阈值表（命中仅允许指向 §3 的引用行）
-    - [ ] `pnpm run check:docs` + `pnpm run lint:md` 0 error
+    - [x] `documentation.md §3` 覆盖全部文档类型行（README / standards / design modules / design governance / roadmap / todo / todo-archive / backlog / research / guide 共 10 行），为唯一完整阈值表；`check-doc-size` 实测计量 74 个文档（健康 60 / warning 13 / 豁免 1 / 超阈值 0）
+    - [x] `spec-and-doc-governance.md §2.3` 无第二处完整阈值表（收敛为一行引用）；归档索引 §1 的同类声明一并收敛（决策 ② 判定为同源）
+    - [x] `rg` 复扫确认无第二处阈值声明（`documentation.md §3` 外的命中仅余「引用 §3 的当前基线测量行」，无独立阈值表）
+    - [x] `check:docs`（149/85）+ `lint:md:check` + `check:orphan-ids`（0/660）+ `docs:build` 全部通过
   - **D 阶段决策留痕（待裁定）**：① 两表合并口径（以 §3 行序为准）；② 是否同步 `archive/index.md §1` 的阈值段（其为归档治理自有阈值，需判定是否属同源）。
   - **不做什么**：不改阈值**取值**本身（仅统一声明位置）；不修改 `AGENTS.md`（实测其硬阈值异源，无需同步；如确需提及须用户明确确认）；不改规则内容。
   - **依赖**：M41.1（A 批达标后阈值才有计量对象与意义）；设计稿 §3.5 + §4 批 E。
   - **交付物**：1 commit（`docs(standards)` + `docs(governance)`）；文件 2。
+  - **D 阶段决策留痕（已裁定）**：① 两表合并口径 = **以 `documentation.md §3` 行为序**，共 10 类文档（取值逐行一致，不改任何阈值）并补「强制分片执行规则」；② 归档索引 §1 的同类阈值段判定为**同源** → 一并收敛为一行引用（标题同步改为「阈值引用」）；③ 存量超标 = **豁免表显式登记 + 理由**（`caomei-ui-migration.md`），不以缩小计量面代替。
+  - **闭环记录**：`f27575b`（8 文件，单次原子提交——脚本适配与新表形态互为依赖）；A 阶段 standard R1 **Pass**（0 blocker / 0 warning / 4 suggest）→ 4 条处置（设计稿残留取值再收敛 / 归档索引标题语义 / 证据计数更正 / 豁免检查点由 L1 门禁承接）→ R2 quick **Pass**。
+  - **实测证据**：`check-doc-size` 计量 **74 个文档**（健康 60 / warning 13 / 豁免 1 / 超阈值 0）exit 0；唯一权威外独立阈值声明 **0**（残留命中均为引用 §3 的测量行）；`scripts/` 630 passed；`pnpm lint` 0 error + `pnpm typecheck` 0 error TS；`check:docs` / `lint:md` / `check:orphan-ids` / `docs:build` 全过。
+  - **延后登记**（AC 排除项，无阶段编号）：设计文档存量超健康窗口（warning 带 13 + 强制分片线豁免 1）拆分 → backlog 候选。
   - **风险与缓解措施**：① 阈值取值分歧 → 以 `documentation.md §3` 为准（用户已裁定唯一权威）；② 漏改第三处 → `rg` 复扫 + `check:docs` 兜底；③ `archive/index.md §1` 判定分歧 → D 阶段显式裁定并在条目内留痕。
 
 ---

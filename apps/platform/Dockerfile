@@ -51,6 +51,13 @@ COPY --from=builder /app/apps/platform/.output ./.output
 # 阶段四：生产
 FROM runtime
 ENV NODE_ENV=production
+# 部署产物版本戳：构建期由 CI `--build-arg BUILD_COMMIT/BUILD_VERSION` 注入（commit / 版本），
+# 未注入时缺省 unknown（不阻断启动）；运行时经 NUXT_ 前缀覆盖 runtimeConfig.buildVersion/buildCommit，
+# 供 GET /api/health 与启动日志核对运行态产物。口径见 docs/standards/platform.md §10.7。
+ARG BUILD_COMMIT=unknown
+ARG BUILD_VERSION=unknown
+ENV NUXT_BUILD_COMMIT=${BUILD_COMMIT} \
+    NUXT_BUILD_VERSION=${BUILD_VERSION}
 # 首次启动自动执行 pending migration（镜像级默认，不依赖部署侧 compose 是否注入 env）：
 # 基线迁移 CreateInitialSchema 建全部业务表，迁移幂等；直接 docker run 或用旧版 compose 也能自建 schema。
 # 需完全手动控制时用 -e DATABASE_MIGRATIONS_RUN=false 覆盖（再用 docker/init-db.sh 初始化）。

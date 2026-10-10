@@ -14,17 +14,21 @@
 #   SMOKE_IMAGE   被测镜像（默认 dependfix-smoke:local）
 #   SMOKE_BUILD   非空且为 1 时先 docker build（默认 0）
 #   SMOKE_PORT    宿主探测端口（默认 3999）
+#   SMOKE_EXPECT_VERSION / SMOKE_EXPECT_COMMIT  期望的版本戳（非空时校验 /api/health 端到端注入值；默认空，仅校验字段存在）
 #
 # 断言：
 #   1. 正常启动（不注入 DATABASE_MIGRATIONS_RUN）→ 日志 migrationsRun=true、无 no such table
-#   2. GET / = 200 且 GET /api/auth/get-session = 200
-#   3. 业务表 = 13（经容器内 better-sqlite3 读取）
-#   4. 迁移专用模式（DEPENDFIX_MIGRATIONS_ONLY=true）一次性容器退出码 0 且建表成功
+#   2. GET / = 200 且 GET /api/auth/get-session = 200 且 GET /api/health = 200（JSON 含 version/commit/startedAt）
+#   3. 启动日志含版本戳行 `[build] version=...`
+#   4. 业务表 = 13（经容器内 better-sqlite3 读取）
+#   5. 迁移专用模式（DEPENDFIX_MIGRATIONS_ONLY=true）一次性容器退出码 0 且建表成功
 set -eu
 
 IMAGE="${SMOKE_IMAGE:-dependfix-smoke:local}"
 PORT="${SMOKE_PORT:-3999}"
 BUILD="${SMOKE_BUILD:-0}"
+EXPECT_VERSION="${SMOKE_EXPECT_VERSION:-}"
+EXPECT_COMMIT="${SMOKE_EXPECT_COMMIT:-}"
 CONTAINER="dependfix-smoke-$$"
 DATA_DIR="$(mktemp -d)"
 ONESHOT_DIR="$(mktemp -d)"
@@ -87,11 +91,27 @@ if printf '%s\n' "$logfile" | grep -q 'no such table'; then
     fail "日志出现 no such table"
 fi
 
-for path in / /api/auth/get-session; do
+for path in / /api/auth/get-session /api/health; do
     code=$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:${PORT}${path}")
     [ "$code" = "200" ] || { docker logs "$CONTAINER" 2>&1 | tail -40; fail "GET ${path} = ${code}（期望 200）"; }
     log "GET ${path} = ${code}"
 done
+
+# 版本戳健康端点：返回 JSON 且含 version / commit / startedAt（构建期未注入时为 unknown）
+health_json=$(curl -fsS "http://127.0.0.1:${PORT}/api/health")
+printf '%s\n' "$health_json" | grep -q '"version"' || fail "/api/health 缺 version：$health_json"
+printf '%s\n' "$health_json" | grep -q '"commit"' || fail "/api/health 缺 commit：$health_json"
+printf '%s\n' "$health_json" | grep -q '"startedAt"' || fail "/api/health 缺 startedAt：$health_json"
+# 端到端注入校验：构建期 --build-arg → 容器 ENV → runtimeConfig → 端点返回值。
+# 仅当调用方给出期望值（CI 用固定哨兵 build-arg）时校验，避免本地 SMOKE_BUILD 无 arg 时误判。
+if [ -n "$EXPECT_VERSION" ]; then
+    printf '%s\n' "$health_json" | grep -q "\"version\":\"${EXPECT_VERSION}\"" || fail "version 期望 ${EXPECT_VERSION}，实际：$health_json"
+fi
+if [ -n "$EXPECT_COMMIT" ]; then
+    printf '%s\n' "$health_json" | grep -q "\"commit\":\"${EXPECT_COMMIT}\"" || fail "commit 期望 ${EXPECT_COMMIT}，实际：$health_json"
+fi
+printf '%s\n' "$logfile" | grep -q '\[build\] version=' || { printf '%s\n' "$logfile" | tail -40; fail "启动日志缺版本戳行"; }
+log "GET /api/health = ${health_json}"
 
 docker rm -f "$CONTAINER" >/dev/null
 

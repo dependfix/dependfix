@@ -143,9 +143,16 @@ jobs:
           load: true
           tags: dependfix-smoke:ci
           platforms: linux/amd64
+          # 固定哨兵 build-arg：让冒烟能端到端校验「ARG → ENV → runtimeConfig → /api/health」注入链路
+          build-args: |
+            BUILD_COMMIT=smoke-commit
+            BUILD_VERSION=smoke-version
           cache-from: type=gha
           cache-to: type=gha,mode=max
       - name: Smoke test built image
+        env:
+          SMOKE_EXPECT_VERSION: smoke-version
+          SMOKE_EXPECT_COMMIT: smoke-commit
         run: SMOKE_IMAGE=dependfix-smoke:ci sh apps/platform/docker/smoke-test.sh
       # 镜像分两批推送：Docker Hub / GHCR 保留 provenance attestation（build-push-action@v7
       # 默认 --attest type=provenance,mode=max）；阿里云 ACR 个人版不支持 OCI attestation
@@ -161,6 +168,9 @@ jobs:
           tags: ${{ steps.metadata.outputs.tags }}
           labels: ${{ steps.metadata.outputs.labels }}
           platforms: linux/amd64,linux/arm64
+          build-args: |
+            BUILD_COMMIT=${{ github.sha }}
+            BUILD_VERSION=${{ steps.platform-version.outputs.platform_version }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
       - name: Build and push Docker images (Alibaba Cloud ACR)
@@ -172,6 +182,9 @@ jobs:
           tags: ${{ steps.metadata-acr.outputs.tags }}
           labels: ${{ steps.metadata-acr.outputs.labels }}
           platforms: linux/amd64,linux/arm64
+          build-args: |
+            BUILD_COMMIT=${{ github.sha }}
+            BUILD_VERSION=${{ steps.platform-version.outputs.platform_version }}
           provenance: false
           sbom: false
           cache-from: type=gha

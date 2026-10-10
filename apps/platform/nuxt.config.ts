@@ -67,6 +67,11 @@ export default defineNuxtConfig({
     ],
     runtimeConfig: {
         // 服务端私有配置（NUXT_ 前缀环境变量可覆盖）
+        // 部署产物版本戳（构建期 Docker ARG → 运行时 NUXT_BUILD_VERSION/NUXT_BUILD_COMMIT 覆盖）：
+        // 构建期未注入时缺省 unknown（不阻断启动）；供 GET /api/health 与启动日志核对运行态产物。
+        // 口径见 docs/standards/platform.md §10.7。
+        buildVersion: process.env.NUXT_BUILD_VERSION || 'unknown',
+        buildCommit: process.env.NUXT_BUILD_COMMIT || 'unknown',
         // 构建期默认值仅用于开发；生产必须通过 NUXT_AUTH_SECRET 注入（getAuth 启动校验强制）
         authSecret: process.env.AUTH_SECRET || 'dev-secret-change-me',
         encryptionKey: process.env.NUXT_ENCRYPTION_KEY || '',

@@ -77,11 +77,84 @@ HOME_DIR_CANON="$(check_dir_path HOME "$HOME_DIR")"
 #   HTTP 进程：NUXT_IN_PROCESS_WORKER=false 不消费队列，event loop 不再被扫描执行阻塞。
 # worker 的 Nitro HTTP 监听收敛到 unix socket（不占端口、不对外暴露），避免与主进程端口冲突；
 # 迁移仅由主进程执行（worker 侧 DATABASE_MIGRATIONS_RUN=false），避免两进程迁移竞争。
+# worker 由看护循环托管：异常退出后按指数退避自动重启；连续重启超过上限则放弃（HTTP 进程不受影响，
+# 队列由 stale-cleanup 兜底）；容器停止（TERM / INT）时终止看护循环与 worker，不再重启。
 # 口径见 docs/standards/platform.md §10.6。默认 0 = 单进程形态（行为与既有一致）。
 WORKER_ENABLED="${DEPENDFIX_QUEUE_WORKER:-0}"
 WORKER_SOCKET="${DEPENDFIX_QUEUE_WORKER_SOCKET:-/tmp/dependfix-queue-worker.sock}"
-QUEUE_WORKER_PID=""
+# worker pid 落文件供父 shell 的信号处理读取（worker 由后台看护子 shell 托管，pid 不跨进程可见）
+WORKER_PID_FILE="${WORKER_SOCKET}.pid"
+WORKER_BACKOFF_INIT=1     # 首次重启退避（秒），随后指数增长
+WORKER_BACKOFF_MAX=30     # 退避上限（秒）；当前上限 5 次下实际最大 16s，保留 30s 上界以便调整上限时仍封顶
+WORKER_MAX_RESTARTS=5     # 连续重启上限：超过则停止重启（防重启风暴）
+WORKER_STABLE_SECONDS=60  # 运行时长达到该值视为稳定，连续重启计数归零
+SUPERVISOR_PID=""
 MAIN_PID=""
+
+# 终止看护循环与 worker（幂等，供信号 trap 与主进程退出后清理复用）
+# worker pid 来自文件，读取后校验为纯数字再 kill，避免空值 / 多值 / 负数被误解释为信号组
+stop_queue_worker() {
+    kill -TERM "$SUPERVISOR_PID" 2>/dev/null || true
+    if [ -f "$WORKER_PID_FILE" ]; then
+        worker_pid="$(cat "$WORKER_PID_FILE" 2>/dev/null || true)"
+        case "$worker_pid" in
+            ''|*[!0-9]*) : ;;
+            *) kill -TERM "$worker_pid" 2>/dev/null || true ;;
+        esac
+    fi
+}
+
+# 队列 worker 看护循环：启动 worker → 等待退出 → 按指数退避重启；连续重启超上限则放弃。
+# 运行在后台子 shell，worker 崩溃不影响前台 HTTP 主进程生命周期。
+supervise_queue_worker() {
+    worker_prefix="$1"; shift
+    # 看护自身收 TERM/INT：终止当前 worker 并退出（父 shell 亦经 pid 文件兜底，双保险）
+    trap 'kill -TERM "$QUEUE_WORKER_PID" 2>/dev/null || true; exit 0' TERM INT
+    restart_count=0
+    while :; do
+        # shellcheck disable=SC2086
+        $worker_prefix env HOME="$HOME_DIR" \
+            NUXT_QUEUE_ENABLED=true \
+            NUXT_IN_PROCESS_WORKER=true \
+            DATABASE_MIGRATIONS_RUN=false \
+            NITRO_UNIX_SOCKET="$WORKER_SOCKET" \
+            "$@" &
+        QUEUE_WORKER_PID=$!
+        echo "$QUEUE_WORKER_PID" > "$WORKER_PID_FILE"
+        if [ "$restart_count" = "0" ]; then
+            echo "[entrypoint] 队列 worker 进程 pid=${QUEUE_WORKER_PID}（socket=${WORKER_SOCKET}）"
+        fi
+
+        worker_started="$(date -u +%s)"
+        worker_status=0
+        # set -e 下 wait 非零会中断子 shell，须用 || 捕获退出码
+        wait "$QUEUE_WORKER_PID" || worker_status=$?
+
+        # 运行足够久视为稳定，连续重启计数归零（避免长期运行容器偶发崩溃累积触发上限）
+        worker_elapsed=$(( $(date -u +%s) - worker_started ))
+        if [ "$worker_elapsed" -ge "$WORKER_STABLE_SECONDS" ]; then
+            restart_count=0
+        fi
+        restart_count=$(( restart_count + 1 ))
+        if [ "$restart_count" -gt "$WORKER_MAX_RESTARTS" ]; then
+            echo "[entrypoint] 队列 worker 连续重启 ${WORKER_MAX_RESTARTS} 次仍失败（最近退出码 ${worker_status}），停止自动重启；队列由 stale-cleanup 兜底" >&2
+            exit 0
+        fi
+
+        # 指数退避：INIT * 2^(restart_count-1)，封顶 MAX
+        backoff="$WORKER_BACKOFF_INIT"
+        step=1
+        while [ "$step" -lt "$restart_count" ] && [ "$backoff" -lt "$WORKER_BACKOFF_MAX" ]; do
+            backoff=$(( backoff * 2 ))
+            step=$(( step + 1 ))
+        done
+        if [ "$backoff" -gt "$WORKER_BACKOFF_MAX" ]; then
+            backoff="$WORKER_BACKOFF_MAX"
+        fi
+        echo "[entrypoint] 队列 worker 异常退出（exit=${worker_status}），$(date -u +%Y-%m-%dT%H:%M:%SZ) 第 ${restart_count} 次重启，退避 ${backoff}s" >&2
+        sleep "$backoff"
+    done
+}
 
 # 启动平台进程：$1 = 运行前缀（"" 或 "su-exec uid:gid"），其余为命令（容器 CMD）。
 run_platform() {
@@ -104,29 +177,26 @@ run_platform() {
         exec $prefix "$@"
     fi
 
-    # 双进程形态：先起 worker，再起主进程（由 wait 托管）
-    rm -f "$WORKER_SOCKET"
-    # shellcheck disable=SC2086
-    $prefix env HOME="$HOME_DIR" \
-        NUXT_QUEUE_ENABLED=true \
-        NUXT_IN_PROCESS_WORKER=true \
-        DATABASE_MIGRATIONS_RUN=false \
-        NITRO_UNIX_SOCKET="$WORKER_SOCKET" \
-        "$@" &
-    QUEUE_WORKER_PID=$!
+    # 双进程形态：worker 由后台看护循环托管（崩溃自动重启），主进程前台托管
+    rm -f "$WORKER_SOCKET" "$WORKER_PID_FILE"
+    supervise_queue_worker "$prefix" "$@" &
+    SUPERVISOR_PID=$!
 
     # shellcheck disable=SC2086
     $prefix env NUXT_QUEUE_ENABLED=true NUXT_IN_PROCESS_WORKER=false "$@" &
     MAIN_PID=$!
 
-    echo "[entrypoint] 队列 worker 进程 pid=${QUEUE_WORKER_PID}（socket=${WORKER_SOCKET}）；HTTP 进程 pid=${MAIN_PID} 不消费队列"
+    echo "[entrypoint] HTTP 进程 pid=${MAIN_PID} 不消费队列；队列 worker 看护进程 pid=${SUPERVISOR_PID}（socket=${WORKER_SOCKET}）"
 
-    # 容器停止：PID 1 为本 shell，需把信号转发给两个子进程
-    trap 'kill -TERM "$MAIN_PID" 2>/dev/null || true; kill -TERM "$QUEUE_WORKER_PID" 2>/dev/null || true' TERM INT
+    # 容器停止：PID 1 为本 shell，需把信号转发给主进程与看护循环（看护收到 TERM 即终止，不再重启 worker）
+    trap 'kill -TERM "$MAIN_PID" 2>/dev/null || true; stop_queue_worker' TERM INT
     # set -e 下 wait 非零会中断脚本，须用 || 捕获退出码——否则下方 worker 清理成为不可达死代码
     STATUS=0
     wait "$MAIN_PID" || STATUS=$?
-    kill -TERM "$QUEUE_WORKER_PID" 2>/dev/null || true
+    stop_queue_worker
+    # 回收看护子 shell（达上限自行退出 / 被终止后转僵尸），避免残留 defunct
+    wait "$SUPERVISOR_PID" 2>/dev/null || true
+    rm -f "$WORKER_PID_FILE"
     exit "$STATUS"
 }
 

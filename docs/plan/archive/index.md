@@ -2,25 +2,9 @@
 
 本文档负责定义 `roadmap.md`、`todo.md` 与 `todo-archive.md` 的深度归档管理规则。
 
-## 1. 阈值定义
+## 1. 阈值引用（指向文档规范 §3）
 
-### `todo.md`
-
-- 健康窗口: `<= 500` 行。
-- warning 触发: `501 - 600` 行。
-- 强制分片: `> 600` 行。
-
-### `roadmap.md`
-
-- 健康窗口: `<= 800` 行。
-- warning 触发: `801 - 900` 行。
-- 强制分片: `> 900` 行。
-
-### `todo-archive.md`
-
-- 健康窗口: `<= 500` 行。
-- warning 触发: `501 - 700` 行。
-- 强制分片: `> 700` 行。
+本目录涉及文档的行数阈值以 [文档规范 §3 文档行数阈值](../../standards/documentation.md#3-文档行数阈值) 为**唯一权威**（`todo.md` / `roadmap.md` / `todo-archive.md` 的取值见该表，本文件不再重复声明）。
 
 ## 2. 主窗口保留策略
 
@@ -36,9 +20,9 @@
 5. 更新 `archive/index.md` 索引
 ## 4. 当前基线（2026-10-10 M41 启动规划批次后）
 
-- `roadmap.md`: **warning 触发带（802 行，位于 §1 定义的 801-900；未触 900 强制分片阈值）**。M0-M40 全部归档；Milestone 概述表按时间顺序排列（M0→M41）；**§M41 段标记为「2026-10-10 用户决策方案 B」**（5 原子条目：规范去实现化瘦身 / 经验体系三层收敛与精简 / 规范·经验门禁落地 / 文档站导航分层 / 阈值与事实源唯一化；设计依据 [standards-experience-refactor.md](../../design/governance/standards-experience-refactor.md)）；**§M40 段标记为「2026-10-10 已闭环 + 归档」**；§详细任务指针更新为「M41 进行中」+「下一阶段未授权」。
+- `roadmap.md`: **warning 触发带（802 行，位于 §3 阈值表的 801-900 带；未触 900 强制分片阈值）**。M0-M40 全部归档；Milestone 概述表按时间顺序排列（M0→M41）；**§M41 段标记为「2026-10-10 用户决策方案 B」**（5 原子条目：规范去实现化瘦身 / 经验体系三层收敛与精简 / 规范·经验门禁落地 / 文档站导航分层 / 阈值与事实源唯一化；设计依据 [standards-experience-refactor.md](../../design/governance/standards-experience-refactor.md)）；**§M40 段标记为「2026-10-10 已闭环 + 归档」**；§详细任务指针更新为「M41 进行中」+「下一阶段未授权」。
 - `todo.md`: **健康窗口（119 行，< 500 阈值）**。**M41 进行中**（5 原子条目 × 8 要素）；下一阶段由用户按 [规划规范 §3.1](../../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 在 M41 闭环后评估 [backlog.md](../backlog.md) 候选池后决策。
-- `todo-archive.md`: **warning 触发带（约 531 行，位于 §1 定义的 501-700；未触 700 强制分片阈值）**。主窗口顶部保留 5 个完整段（**M40** + M39 + M38 + M37 + M36，按时间倒序）+ 早期阶段指针段；**M35 完整段随 2026-10-10 M40 归档批次预防性迁出**至 [archive/todo-archive-phases-m35.md](todo-archive-phases-m35.md)（M40 段新增后完整段将达 6 个，超 §2 定义的 3-5 阶段上界；M35 为主窗口最早完整段，按该健康策略迁出）；M34 已于 2026-10-10 M39 归档批次预防性迁出至 [archive/todo-archive-phases-m34.md](todo-archive-phases-m34.md)；M33 已于 2026-10-09 M38 归档批次预防性迁出至 [archive/todo-archive-phases-m33.md](todo-archive-phases-m33.md)；M32 已于 2026-10-08 M37 归档批次预防性迁出至 [archive/todo-archive-phases-m32.md](todo-archive-phases-m32.md)；M31 已于 2026-10-05 M36 归档批次预防性迁出至 [archive/todo-archive-phases-m31.md](todo-archive-phases-m31.md)。
+- `todo-archive.md`: **warning 触发带（约 531 行，位于 §3 阈值表的 501-700 带；未触 700 强制分片阈值）**。主窗口顶部保留 5 个完整段（**M40** + M39 + M38 + M37 + M36，按时间倒序）+ 早期阶段指针段；**M35 完整段随 2026-10-10 M40 归档批次预防性迁出**至 [archive/todo-archive-phases-m35.md](todo-archive-phases-m35.md)（M40 段新增后完整段将达 6 个，超 §2 定义的 3-5 阶段上界；M35 为主窗口最早完整段，按该健康策略迁出）；M34 已于 2026-10-10 M39 归档批次预防性迁出至 [archive/todo-archive-phases-m34.md](todo-archive-phases-m34.md)；M33 已于 2026-10-09 M38 归档批次预防性迁出至 [archive/todo-archive-phases-m33.md](todo-archive-phases-m33.md)；M32 已于 2026-10-08 M37 归档批次预防性迁出至 [archive/todo-archive-phases-m32.md](todo-archive-phases-m32.md)；M31 已于 2026-10-05 M36 归档批次预防性迁出至 [archive/todo-archive-phases-m31.md](todo-archive-phases-m31.md)。
 - `backlog.md`: **健康窗口（279 行，< 500 阈值）**。长期主线 #1（network-audit 白名单）/ 周期性回归验证层 / 短期候选（延期暂缓项 + 远期登记 + 候选评估中）/ 待人工验收 / 已知边界保持活跃；长期主线 #1 已按 [规划规范 §4.4 第 11 条](../../standards/planning.md)「长期主线任务章节硬性规则」清出已落地批次记录（只保留目标 / 状态 / 下一次可切片方向 / 验收）。
   - **2026-10-10 M41 启动批次上收**：「规范与经验管理体系重构（设计先行稿已出）」整卡经用户决策（方案 B）从 §候选评估中上收至 M41 阶段（A-E 五批 → M41.1~M41.5），按 backlog 维护规则 5「短期候选正式上收阶段后从 backlog 移除」清出；三重交叉核验 0 项重复评估。同步 `roadmap.md`（里程碑表新增 M41 行 + §M41 正式规划段 + 详细任务指针）+ `todo.md`（占位态 → M41 五条目 8 要素）+ 设计稿状态回填（先行稿 → 已上收 M41 + §7 决策记录 D4）+ 文档速查（`docs/index.md` + `docs/i18n/en-US/index.md` + `todo.md` + `roadmap.md` + `backlog.md`）。
   - **2026-10-10 backlog / todo 治理清理（用户要求）**：清出 backlog.md 全部批次上收 / 归档摘要块引用（M36-M40 批次）与条目内「已闭环 / 已归档 / 上收」措辞、todo.md M40 归档摘要与速查表归档口径（依 [规划规范 §4.4 第 11 条](../../standards/planning.md)「归档后 backlog.md / todo.md 必清理」）；行数 backlog 281→279 / todo 24→22。

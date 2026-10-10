@@ -56,6 +56,15 @@ describe('parseThresholdTable', () => {
         expect(rows[0].split).toBe(900)
     })
 
+    it('剥离文档列的类型括注（如 `x.md`（规范））并跳过表头「文档类型」', () => {
+        const rows = parseThresholdTable(table([
+            '| 文档类型 | 健康窗口 | warning 触发 | 强制分片 |',
+            '',
+            '| `docs/standards/*.md`（规范） | <= 200 行 | 201-400 | > 400 行 |',
+        ]))
+        expect(rows).toEqual([{ doc: 'docs/standards/*.md', warning: 200, split: 400 }])
+    })
+
     it('缺少阈值表标题时抛错', () => {
         expect(() => parseThresholdTable('# 无表')).toThrow(/未找到阈值表标题/)
     })
@@ -120,6 +129,7 @@ describe('checkDocSize 四态', () => {
         setup(['| README | <= 300 行 | 301-400 | > 400 行 |'], { 'README.md': 500 })
         const results = checkDocSize(root, [{ path: 'README.md', reason: '存量待拆分' }])
         expect(results[0].verdict).toBe('exempt')
+        expect(formatReport(results)).toContain('豁免 1')
     })
 
     it('glob 行覆盖多文件（文档站分片场景）', () => {

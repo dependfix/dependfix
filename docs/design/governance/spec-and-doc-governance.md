@@ -86,23 +86,9 @@
 - `governance/security.md`（安全治理）—— governance/ 因为跨模块安全决策
 - `governance/experience-archive.md`（经验归档）—— governance/ 因为跨模块跨阶段的经验沉淀
 
-### 2.3 文档健康窗口（统一阈值表）
+### 2.3 文档健康窗口（阈值引用）
 
-> 与 `documentation.md §3` 一致，本表作为项目级权威阈值引用源。
-
-| 文档类型 | 健康窗口 | warning 触发 | 强制分片 |
-|---|:---:|:---:|:---:|
-| `docs/standards/*.md`（规范）| ≤ 200 行 | 201-400 | > 400 行 |
-| `docs/design/modules/*.md`（模块设计）| ≤ 300 行 | 301-500 | > 500 行 |
-| `docs/design/governance/*.md`（治理）| ≤ 400 行 | 401-700 | > 700 行 |
-| `docs/plan/roadmap.md`（路线图）| ≤ 800 行 | 801-900 | > 900 行 |
-| `docs/plan/todo.md`（当前阶段）| ≤ 500 行 | 501-600 | > 600 行 |
-| `docs/plan/todo-archive.md`（归档主窗口）| ≤ 500 行 | 501-700 | > 700 行 |
-| `docs/plan/backlog.md`（积压）| ≤ 500 行 | 501-700 | > 700 行 |
-| `docs/research/*.md`（调研）| ≤ 500 行 | 501-800 | > 800 行 |
-| `docs/guide/*.md`（使用指南）| ≤ 500 行 | 501-800 | > 800 行 |
-
-**强制分片执行规则**：超阈值文档必须按内容逻辑拆分（如 todo-archive.md 按阶段分片 → `archive/todo-archive-phases-m{xx}.md`；experience-archive.md 按章节分片 → `experience-archive-§{xx}-{slug}.md`），主文档保留近线窗口 + 索引入口。分片方案参见 §4。
+文档行数阈值以 [文档规范 §3 文档行数阈值](../../standards/documentation.md#3-文档行数阈值) 为**唯一权威**（本文件不再重复声明阈值表）；计量脚本 `scripts/check-doc-size.mjs` 直接解析该表。
 
 ### 2.4 设计文档硬阈值（hard requirement）
 

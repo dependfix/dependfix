@@ -12,7 +12,7 @@
 | 维度 | 实测 | 判定 |
 |:--|:--|:--|
 | 规范混入实现 / 教训 | `docs/standards/` 14 文件 3211 行（`wc -l` 口径）；`check:standards-redundant` 命中 166 处（经验 72 / 实证 59 / 教训 27 / 背景 8，跨 9 文件）；13 行类代码 + 113 处文件路径引用 + 12 处 commit hash | ❌ 违背"只写做什么 / 不做什么" |
-| 规范超自身阈值 | 硬分片阈值 > 400 行，实超 3 个：`platform` 544 / `development` 512 / `ai-collaboration` 494 | ❌ 自身规则未执行 |
+| 规范超自身阈值 | 硬分片阈值（取值见 [文档规范 §3](../../standards/documentation.md#3-文档行数阈值)）实超 3 个：`platform` 544 / `development` 512 / `ai-collaboration` 494 | ❌ 自身规则未执行 |
 | 经验体系体量 | 7 文件 2409 行 / 68 节；单分片 `§49-§57` 1540 行 | ❌ 大归档极少被查阅 |
 | 经验落点缺失 | `check:standards-redundant` 仅报告（`exit 0`）、CI 未接线；无行数阈值脚本；经验无"转脚本 / 检查点"的强制路径 | ❌ 无可执行落点 |
 | 导航未分层 | VitePress 侧栏挂载 `design/governance/**`（6 篇设计稿）；首页卡片引导内部页 | ❌ 设计稿与用户指南同列 |
@@ -59,7 +59,7 @@
 
 **判定口径**：一段内容若"换一个项目就不成立"，属实现细节 → 迁出；若"换一个项目仍成立"，属方法论 → 保留。
 
-**达标线**：单文件 ≤ 200 行（健康窗口）；201-400 warning；> 400 强制分片（阈值权威见 `documentation.md §3`；E 批补齐后本节收敛为纯指针）。
+**达标线**：单文件落至健康窗口（阈值取值见 [文档规范 §3 文档行数阈值](../../standards/documentation.md#3-文档行数阈值)，本稿不重复声明）。
 
 ### 3.2 经验三层体系
 
@@ -98,7 +98,7 @@
 
 ### 3.5 阈值与事实源统一
 
-- `documentation.md §3` 为**唯一阈值权威**，补齐 `docs/standards/*.md`（≤ 200 / 201-400 / > 400）与 `docs/design/**/*.md`（modules ≤ 300 / governance ≤ 400）行。
+- **已落地**（M41.5）：`documentation.md §3` 为唯一阈值权威，已补齐 `docs/standards/*.md` 与 `docs/design/**/*.md` 等全部文档类型行；本稿不再重复取值。
 - `spec-and-doc-governance.md §2.3` 的重复阈值表**改为一行引用**（消除双事实源）。
 - 阈值计量转脚本（见 §3.6）。
 
@@ -116,8 +116,8 @@
 
 | ID | 类型 | 目标 | 范围 | 验收 | 依赖 |
 |:--|:--|:--|:--|:--|:--|
-| **A** | 📚 规范瘦身 | standards 去实现化、剥离教训 / 实证 | `docs/standards/*.md`（重点 platform / development / ai-collaboration，三超阈值文件）| `check:standards-redundant --strict` 归零；全部 ≤ 200 行（或已分片）；无代码片段 / commit hash | — |
-| **B** | 🛠️ 经验重构 | 三层收敛 + 大幅精简 + L3 索引化 | `experience-archive*.md` + `session-wisdom-distillation.md` + `.session/wisdom.md` | 单分片 ≤ 400 行；删除偶发 / 一次性条目并留决策记录；L3 索引可搜索 | A（迁移目标就位）|
+| **A** | 📚 规范瘦身 | standards 去实现化、剥离教训 / 实证 | `docs/standards/*.md`（重点 platform / development / ai-collaboration，三超阈值文件）| `check:standards-redundant --strict` 归零；全部落至 [文档规范 §3](../../standards/documentation.md#3-文档行数阈值) 健康窗口（或已分片）；无代码片段 / commit hash | — |
+| **B** | 🛠️ 经验重构 | 三层收敛 + 大幅精简 + L3 索引化 | `experience-archive*.md` + `session-wisdom-distillation.md` + `.session/wisdom.md` | 单分片落至 [文档规范 §3](../../standards/documentation.md#3-文档行数阈值) 对应健康窗口；删除偶发 / 一次性条目并留决策记录；L3 索引可搜索 | A（迁移目标就位）|
 | **C** | 🧪 门禁落地 | 规则转可执行 | `scripts/check-standards-redundant.mjs`（--strict）+ 新增 doc-size 脚本 + `.github/workflows/test.yml` | CI 阻断生效（负例标定）；本地可复现 | A / B |
 | **D** | 🎨 导航分层 | 站点导航受众切分 | `docs/.vitepress/config.ts`（nav / sidebar）+ `docs/index.md`（首页卡片）+ `docs/i18n/en-US/index.md` | 侧栏不挂 `design/governance/**`（除 `architecture` + `governance/index`）与 `plan/archive/**`；其余按需保留；首页仅引导对外可读入口；未挂载页仍可直链；docs:build 通过 | — |
 | **E** | 🛡️ 治理同步 | 阈值 / 事实源唯一化 | `documentation.md §3` + `spec-and-doc-governance.md §2.3` + `AGENTS.md`（如需，**修改前需用户明确确认**）| 单一阈值权威；无重复阈值表 | A |
@@ -135,8 +135,8 @@
 ## 5. 验收标准（整体）
 
 1. `check:standards-redundant --strict` 在 CI 阻断且本地归零。
-2. 全部 `docs/standards/*.md` ≤ 200 行（或已分片至健康窗口）。
-3. 经验体系单分片 ≤ 400 行；L3 索引条目均具备"四者之一"准入依据；无"只留条目、不留落点"。
+2. 全部 `docs/standards/*.md` 落至 [文档规范 §3](../../standards/documentation.md#3-文档行数阈值) 健康窗口（或已分片）。
+3. 经验体系单分片落至 [文档规范 §3](../../standards/documentation.md#3-文档行数阈值) 对应健康窗口；L3 索引条目均具备"四者之一"准入依据；无"只留条目、不留落点"。
 4. 文档站侧栏不挂载 `design/governance/**`（`architecture` + `governance/index` 除外）与 `plan/archive/**`；首页（`docs/index.md` + en 镜像）不引导至非挂载页。
 5. `documentation.md §3` 为唯一阈值权威，无第二处完整阈值表。
 6. 全链 `lint` / `lint:md` / `check:docs` / `docs:build` / `check:orphan-ids` 通过。

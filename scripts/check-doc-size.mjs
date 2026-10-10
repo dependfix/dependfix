@@ -35,7 +35,12 @@ export const EXCLUDED_DIRS = new Set([
  * 计量面不为豁免让路：豁免只是「本期不阻断」，不改变其超标事实。
  * @type {Array<{path: string, reason: string}>}
  */
-export const SIZE_EXEMPTIONS = []
+export const SIZE_EXEMPTIONS = [
+    {
+        path: 'docs/design/governance/caomei-ui-migration.md',
+        reason: '阈值入表时的存量超标（> 强制分片线）；拆分属独立内容治理批次（入链面广且 §15 迁移实证需保序），待该批次落地后移除此条',
+    },
+]
 
 /** 从 `documentation.md §3` 解析阈值表。 */
 export function parseThresholdTable(markdown) {
@@ -57,8 +62,9 @@ export function parseThresholdTable(markdown) {
         if (cells.length < 4 || /^:?-+:?$/.test(cells[1])) {
             continue
         }
-        const doc = cells[0].replace(/`/g, '').trim()
-        if (!doc || doc === '文档') {
+        // 文档列可能带类型括注（如 `docs/standards/*.md`（规范））→ 去掉括注后取路径
+        const doc = cells[0].replace(/`/g, '').replace(/[（(][^）)]*[）)]\s*$/, '').trim()
+        if (!doc || doc === '文档' || doc === '文档类型') {
             continue
         }
         // 健康窗口 `<= 300 行` → warning 阈值 300；warning 触发 `301-400` → split 阈值 400
@@ -182,9 +188,13 @@ export function formatReport(results) {
     for (const r of over) {
         out.push(`[check-doc-size] error: ${r.path}:${r.lines}: 超强制分片阈值（>${r.split}），须拆分到 archive/ 分片`)
     }
+    const exempt = results.filter((r) => r.verdict === 'exempt')
+    for (const r of exempt) {
+        out.push(`[check-doc-size] 豁免（存量超标，理由见脚本内豁免表）: ${r.path}:${r.lines}`)
+    }
     out.push(
-        `[check-doc-size] 计量 ${results.length} 个文档：健康 ${results.length - warn.length - over.length - missing.length}`
-        + ` / warning ${warn.length} / 超阈值 ${over.length} / 未匹配 ${missing.length}`,
+        `[check-doc-size] 计量 ${results.length} 个文档：健康 ${results.length - warn.length - over.length - missing.length - exempt.length}`
+        + ` / warning ${warn.length} / 豁免 ${exempt.length} / 超阈值 ${over.length} / 未匹配 ${missing.length}`,
     )
     return out.join('\n')
 }

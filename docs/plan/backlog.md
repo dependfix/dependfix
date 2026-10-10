@@ -83,6 +83,11 @@
   - **触发条件**：用户反馈语言切换落 404；或推进 en 翻译覆盖时。
   - **按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
 
+- **设计文档存量超健康窗口（阈值表入表后暴露）（待评估）** —— 现象：文档行数阈值表统一（[文档规范 §3](../standards/documentation.md#3-文档行数阈值)）并接入计量脚本后，**存量**暴露为 warning 带 13 个文件 + 强制分片线豁免 1 个文件（`docs/design/governance/caomei-ui-migration.md`；清单以 `pnpm run check:doc-size` 输出为准，量级：warning 带 11 个设计文档 + `plan/roadmap.md` + `plan/todo-archive.md`）。
+  - **待评估点**：① 是否按内容逻辑分批拆分至健康窗口（设计模块 / 治理设计 / 规划三类可分批）；② `caomei-ui-migration.md` 拆分方案（入链面广且 §15 迁移实证需保序）；③ 拆到 `archive/` 分片的命名与索引口径。
+  - **触发条件**：用户要求清理文档体量；或某文件继续增长触发「强制分片」线时。
+  - **按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
+
 - **运行失败「受约束重试入口」（延后，保留待评估）** —— 「分类 + 筛选 + 展示」（`failure_code` / `failure_stage` / `failure_kind` 三列 + 三维筛选 + 阶段展示）已落地；设计稿 §5.5 的「仅 `transient` 可一键重试」入口（含非终态守卫 / 同仓库去重 / `retriedFromRunId` 审计来源）按用户 2026-10-06 决策延后。**现状锚点**：[run-failure-taxonomy.md §5.5](../design/governance/run-failure-taxonomy.md)。触发条件：① 分类 + 筛选上线后确认重试诉求；② 用户明确要求受约束重试。
 
 - **扫描偏好服务端跨设备默认（延后，保留待评估）** —— 设备级方案 C 混合（localStorage：上次选择 + 可选配置化默认 + 重置）已落地；服务端用户 / 组织级默认偏好（跨设备、可管理，需实体 / API / 设置页，预计触发 governance 文档）按用户 2026-10-06 决策延后。**现状锚点**：`apps/platform/app/composables/use-scan-preferences.ts`。触发条件：① 用户实测多设备切换痛点；② 组织级统一默认诉求。

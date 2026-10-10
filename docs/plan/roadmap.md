@@ -41,12 +41,12 @@
 | M31: apps/platform UI 组件库迁移（PrimeVue → caomei-ui） | B0 基线与双库并存接线 + B1a/B1b DataTable 迁移 + B2 表单/浮层切换 + B3 收尾卸载与回归 + C90 db-restore 补强 | P2-P3 | 已完成（[todo-archive.md §M31](archive/todo-archive-phases-m31.md#m31-appsplatform-ui-组件库迁移primevue--caomei-ui-m311m316-全部已闭环--2026-09-29-归档)） |
 | M32: 能力扩展优先 | C76 平台验证命令配置 + C85 目标仓库专属配置 + C89 Code Scanning 未启用区分 + C82 git 签名语义边界 + C92 视觉回归最小集 | P3 | 已完成（[todo-archive.md §M32](archive/todo-archive-phases-m32.md#m32-能力扩展优先m321m325-全部已闭环--2026-09-30-归档)） |
 | M33: 治理债收口 + 测试基建扩展 | C91 review 检查点补挂 + 视觉回归 CI 转阻断 + M31 dependabot 死配置清理 + C93/C94 视觉回归覆盖扩展 + C80 观察期阻断语义 + M33.7 迁移入口 + M33.8–M33.10 UI 修复 + M33.11 存量漏洞治理 | P3 | 已完成（[archive/todo-archive-phases-m33.md §M33](archive/todo-archive-phases-m33.md#m33-治理债收口--测试基建扩展m331m3311-全部已闭环--2026-09-30-归档)；2026-09-30 归档） |
-| M34: 治理与体验收口 + 组件库升级与巡检基建 | devEx `data/` 产物污染治理 + caomei-ui 0.5.0 升级（弹窗 Select 裁剪/层级） + 视觉回归灵敏度与弹窗覆盖 + 上游组件问题归因流程 + label 间距统一 + 字段堆叠口径复用化 + PrimeUI 文档同步 + C83 验证链失败基线 | P2-P3 | 已完成（[todo-archive.md §M34](todo-archive.md#m34-治理与体验收口--组件库升级与巡检基建m341m347-全部已闭环--2026-10-01-归档)；2026-10-01 归档） |
+| M34: 治理与体验收口 + 组件库升级与巡检基建 | devEx `data/` 产物污染治理 + caomei-ui 0.5.0 升级（弹窗 Select 裁剪/层级） + 视觉回归灵敏度与弹窗覆盖 + 上游组件问题归因流程 + label 间距统一 + 字段堆叠口径复用化 + PrimeUI 文档同步 + C83 验证链失败基线 | P2-P3 | 已完成（[todo-archive-phases-m34.md §M34](archive/todo-archive-phases-m34.md#m34-治理与体验收口--组件库升级与巡检基建m341m347-全部已闭环--2026-10-01-归档)；2026-10-01 归档） |
 | M35: 批量运行终态兜底对账 + 进度可见性修复 | 周期兜底对账服务 + 写回逻辑收敛 + `finishedAt` 真实化 + sync 立即终结 + 前端口径修正 + 存量订正脚本 + 设计口径同步 | P2-P3 | 已完成（[todo-archive.md §M35](todo-archive.md#m35-批量运行终态兜底对账--进度可见性修复m351m356-全部已闭环--2026-10-02-归档)；2026-10-02 归档） |
 | M36: 治理债清仓 + 可观测性与测试稳定性 | C81 孤立规划编号存量清理（分批）+ 文档陈旧状态清理 + BatchRun 写回竞态收敛 + 告警源可审计性判据 + api-i18n e2e 顺序偶发 + dependfix-platform 镜像体积治理 + pnpm overrides key 语义归一化 + Docker 首次启动数据库初始化与部署文档 + 扫描队列孤儿 job 释放 + 队列消费者维度自动降级 | P1-P3 | 已完成（[todo-archive.md §M36](todo-archive.md#m36-治理债清仓--可观测性与测试稳定性m361m3610-全部已闭环--2026-10-05-归档)；2026-10-05 归档） |
 | M37: 运行可观测性与体验记忆 | 运行失败分类与筛选 + 落库回填（failureStage / failureKind，不含重试入口）+ 扫描 / 批量扫描偏好记忆（方案 C 混合）+ BatchRun 写回与告警源错误信号残余治理 + caomei-ui 版本口径同步 + 孤立编号检测脚本接入 CI 门禁 + 目标仓库 git hooks 隔离 | P1-P3 | 已完成（2026-10-06 用户决策方案 B + 同日授权追加 M37.6；2026-10-08 已闭环归档，见 [todo-archive.md §M37](todo-archive.md#m37-运行可观测性与体验记忆m371m376-全部已闭环--2026-10-08-归档)） |
 | M38: 平台执行模型隔离 | 队列执行进程隔离（方案 ①′ 独立 worker 进程，治本）+ Worker 锁参数显式化与锁问题事件观测（止血）+ `scan.post` failover 透传 reuse + e2e 全页卡片计数断言解耦 + `scan-queue.ts` 注释 jobId 口径订正 + schedule 表单复用 scan-options 口径 | P1-P3 | 已完成（2026-10-06 用户授权 / 2026-10-09 已闭环归档，见 [todo-archive.md §M38](todo-archive.md#m38-平台执行模型隔离m381m386-全部已闭环--2026-10-09-归档)） |
-| M39: 平台视图体验与可观测补强 | 扫描页筛选与分页优化 + 扫描历史弹窗体验 + 告警视图「按包」聚合跨 severity 重复分组修正 + 运行日志下载与批量下载 + PR Check 监测启用链路打通 + 环境事件覆盖扩展 | P2-P3 | 进行中（2026-10-09 用户决策方案 A；[todo.md §M39](todo.md#m39-平台视图体验与可观测补强2026-10-09-用户决策方案-a--m391m396)） |
+| M39: 平台视图体验与可观测补强 | 扫描页筛选与分页优化 + 扫描历史弹窗体验 + 告警视图「按包」聚合跨 severity 重复分组修正 + 运行日志下载与批量下载 + PR Check 监测启用链路打通 + 环境事件覆盖扩展 | P2-P3 | 已完成（2026-10-09 用户决策方案 A / 2026-10-10 已闭环归档，见 [todo-archive.md §M39](todo-archive.md#m39-平台视图体验与可观测补强m391m396-全部已闭环--2026-10-10-归档)） |
 
 > **本路线图定位**：按 [规划规范 §2.1](../standards/planning.md) 仅维护阶段概览（目标 / 优先级 / 状态）。详细实施记录 / commit 引用 / 关键决策 / 经验教训见对应归档段（详见下方"## 详细任务"索引）。
 
@@ -537,13 +537,13 @@ per-alert 模型 + reconcile + API 简化 + UI 调整 + backfill 脚本。5 子�
 
 **未纳入本批（保留 backlog）**：C81（注释孤立编号清理，存量 300-430 量级，须 3-6 子批次）/ C15 第二阶段（需 `GITHUB_TOKEN`）/ C68（需代理基建）/ C37 / D1 / D3 / D8 / B2 / SAML SSO / T905 / T701 / T702 / T704（触发条件未到或需真实环境）/ 已知边界各条（平台早期 migration 前缀不统一 / 告警源可审计性粒度 / SQLite 与 TypeORM 观察 / ECONNRESET 剩余候选 / tsdown hash:false）。
 
-**§3.4 / §1.7 交叉核验**：6 项候选经 todo-archive 表格扫描 + git log + 代码 anchor 三重核验，**0 项重复评估**；2026-10-01 追加的 M34.7 另经同法核验（无 `field-stack` 实现 commit、M33.8 只处理同文件 `repo-form` 段），**0 项重复评估**（结论详见归档段 [todo-archive.md §M34](todo-archive.md#m34-治理与体验收口--组件库升级与巡检基建m341m347-全部已闭环--2026-10-01-归档)）。
+**§3.4 / §1.7 交叉核验**：6 项候选经 todo-archive 表格扫描 + git log + 代码 anchor 三重核验，**0 项重复评估**；2026-10-01 追加的 M34.7 另经同法核验（无 `field-stack` 实现 commit、M33.8 只处理同文件 `repo-form` 段），**0 项重复评估**（结论详见归档段 [todo-archive-phases-m34.md §M34](archive/todo-archive-phases-m34.md#m34-治理与体验收口--组件库升级与巡检基建m341m347-全部已闭环--2026-10-01-归档)）。
 
 **ahead commits 实证**：阶段启动前 `git rev-list HEAD ^origin/master --count` 实测 = 2（M33 归档批次 `15ca500` + `6035313` 待用户推送；M0-M33 实现 commits 已全部推送）；**归档时实测 = 28**（M33 尾部归档 2 commits `15ca500` + `6035313` + M34 阶段 25 commits + 本批 wisdom 蒸馏 commit）。
 
 **闭环实证摘要**：25 commits（阶段启动 `86283e2` + 7 原子条目的实现与闭环登记）；7 个原子条目合计 **21 轮**独立 Review Gate（M34.1 1 + 1 轮 / M34.2 2 轮 / M34.3 2 分区 × 2 轮 / M34.4 1 轮 / M34.5 3 轮 / M34.6 2 分区 × 2-3 轮 / M34.7 2 分区 × 2 轮），全部 Reject / Pass 收敛后放行。
 
-> 详细任务与 8 要素见归档段 [todo-archive.md §M34](todo-archive.md#m34-治理与体验收口--组件库升级与巡检基建m341m347-全部已闭环--2026-10-01-归档)
+> 详细任务与 8 要素见归档段 [todo-archive-phases-m34.md §M34](archive/todo-archive-phases-m34.md#m34-治理与体验收口--组件库升级与巡检基建m341m347-全部已闭环--2026-10-01-归档)
 
 ---
 
@@ -699,7 +699,7 @@ per-alert 模型 + reconcile + API 简化 + UI 调整 + backfill 脚本。5 子�
 
 ---
 
-## M39: 平台视图体验与可观测补强（2026-10-09 用户决策方案 A / M39.1~M39.6）
+## M39: 平台视图体验与可观测补强（2026-10-09 用户决策方案 A / 2026-10-10 已闭环 + 归档）
 
 承接 M38 平台执行模型隔离归档后的平台视图体验与可观测阶段。2026-10-08 定时扫描批量失败的排查过程中，用户在同一批反馈 8 项平台问题，经 2026-10-09 用户决策（方案 A）归并为 6 原子进入本阶段；同批排查另有「既有基线失败被误判为运行失败」的引擎口径缺陷 1 项，已按 [§3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 可用性插队例外先行修复（`e5c59b8`，口径见 [dependency-fixer.md §12.6](../design/modules/dependency-fixer.md)），不计入本阶段；其衍生的 3 项运行时可靠性候选（部署产物版本戳陈旧校验 / 失败 run 落 summary 快照 / 执行超时可配置化）留 [backlog.md](backlog.md) 待评估。
 
@@ -718,19 +718,19 @@ per-alert 模型 + reconcile + API 简化 + UI 调整 + backfill 脚本。5 子�
 
 **范围边界（不做什么）**：不改引擎修复 / 验证业务语义；不改 `/api/runs` 既有契约与 runs 列表三筛选语义；不引入新组件库 / 对象存储 / 外部告警系统；不实现 GitHub App 的 pr-check 路径（当前仅 PAT）；不改 sandbox 执行器行为。
 
-**§3.4 交叉核验**：6 项候选经 todo-archive 表格扫描 + git log + 代码 anchor 三重核验，**0 项重复评估**（逐项证据见 [todo.md §M39](todo.md#m39-平台视图体验与可观测补强2026-10-09-用户决策方案-a--m391m396) banner）。
+**§3.4 交叉核验**：6 项候选经 todo-archive 表格扫描 + git log + 代码 anchor 三重核验，**0 项重复评估**（逐项证据见 [todo-archive.md §M39](todo-archive.md#m39-平台视图体验与可观测补强m391m396-全部已闭环--2026-10-10-归档) 阶段摘要）。
 
-**commits 状态**：阶段启动前已有 `e5c59b8`（运行时口径修复）+ `da148f8`（候选登记）随 `origin/master` 推送（实证：`git rev-list HEAD ^origin/master --count` 与 `git rev-list origin/master ^HEAD --count` 双向核验，均为 0）；本阶段启动规划批次提交后按同法双向核验。
+**commits 状态**：阶段启动前的 `e5c59b8`（运行时口径修复）+ `da148f8`（候选登记）已随 `origin/master` 推送（实证：双向核验均为 0）；本阶段全部 commits 归档时为本地 ahead——`git rev-list HEAD ^origin/master --count` 实测 = **23**（`git rev-list origin/master ^HEAD --count` = 0 双向核验），待用户推送确认。
 
-> 详细任务与 8 要素见 [todo.md §M39](todo.md#m39-平台视图体验与可观测补强2026-10-09-用户决策方案-a--m391m396)（进行中）；上一阶段（M38）见 [todo-archive.md §M38](todo-archive.md#m38-平台执行模型隔离m381m386-全部已闭环--2026-10-09-归档)。
+> 详细任务与 8 要素见 [todo-archive.md §M39](todo-archive.md#m39-平台视图体验与可观测补强m391m396-全部已闭环--2026-10-10-归档)（2026-10-10 已闭环归档）；上一阶段（M38）见 [todo-archive.md §M38](todo-archive.md#m38-平台执行模型隔离m381m386-全部已闭环--2026-10-09-归档)。
 
 ---
 
 ## 详细任务
 
-- 当前阶段任务：**M39 平台视图体验与可观测补强（进行中）**——6 原子条目见 [todo.md §M39](todo.md#m39-平台视图体验与可观测补强2026-10-09-用户决策方案-a--m391m396)
-- 已归档阶段：[todo-archive.md](todo-archive.md)（主窗口保留最近阶段完整段 + 指针段；M0-M38 全部已归档；早期阶段见 [archive/index.md](archive/index.md) 分片索引）
-- 下一阶段（未授权）：无——M39 闭环后按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 评估 backlog 候选池后由用户决策
+- 当前阶段任务：**无活跃阶段**——M39 平台视图体验与可观测补强已闭环归档，6 原子条目见 [todo-archive.md §M39](todo-archive.md#m39-平台视图体验与可观测补强m391m396-全部已闭环--2026-10-10-归档)
+- 已归档阶段：[todo-archive.md](todo-archive.md)（主窗口保留最近阶段完整段 + 指针段；M0-M39 全部已归档；早期阶段见 [archive/index.md](archive/index.md) 分片索引）
+- 下一阶段（未授权）：无——按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 评估 backlog 候选池后由用户决策
 - 后续阶段任务（延期项 + 未排期增强候选）：[backlog.md](backlog.md)
 
 ## 交付原则

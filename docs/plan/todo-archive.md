@@ -23,20 +23,22 @@
   - **M30**：[archive/todo-archive-phases-m30.md](archive/todo-archive-phases-m30.md)（**2026-10-02 M35 归档批次预防性分片迁出**——M35 段新增前主窗口 573 行，M35 段新增后完整段将达 6 个，超 [archive/index.md §2](archive/index.md) 定义的「3-5 个已归档阶段」上界；M30 是主窗口最早的完整段，按该健康策略迁出；M30 全部 commits 已推送 `origin/master`）
   - **M32**：[archive/todo-archive-phases-m32.md](archive/todo-archive-phases-m32.md)（**2026-10-08 M37 归档批次预防性分片迁出**——M37 段新增后完整段将达 6 个，超 [archive/index.md §2](archive/index.md) 定义的「3-5 个已归档阶段」上界；M32 是主窗口最早的完整段，按该健康策略迁出；M32 全部 commits 已推送 `origin/master`）
   - **M33**：[archive/todo-archive-phases-m33.md](archive/todo-archive-phases-m33.md)（**2026-10-09 M38 归档批次预防性分片迁出**——M38 段新增后完整段将达 6 个，超 [archive/index.md §2](archive/index.md) 定义的「3-5 个已归档阶段」上界；M33 是主窗口最早的完整段，按该健康策略迁出；M33 全部 commits 已推送 `origin/master`）
+  - **M34**：[archive/todo-archive-phases-m34.md](archive/todo-archive-phases-m34.md)（**2026-10-10 M39 归档批次预防性分片迁出**——M39 段新增后完整段将达 6 个，超 [archive/index.md §2](archive/index.md) 定义的「3-5 个已归档阶段」上界；M34 是主窗口最早的完整段，按该健康策略迁出；M34 全部 commits 已推送 `origin/master`）
 
 ## 主窗口保留范围
 
-- 主文档保留最近 3-5 个完整段的近线归档块（当前 5 个，处 [archive/index.md §2](archive/index.md) 定义区间上界：M38 完整段 + M37 完整段 + M36 完整段 + M35 完整段 + M34 完整段，按时间倒序排列在顶部）+ 早期阶段指针段；各阶段 ahead 状态以各段 commit 列表 + `git rev-list HEAD ^origin/master --count` 实证为准，不写死具体数字。**预防性分片同步记录**：M33 已于 2026-10-09 M38 归档批次预防性迁出至 [archive/todo-archive-phases-m33.md](archive/todo-archive-phases-m33.md)（M38 段新增后完整段将达 6 个，超「3-5 个已归档阶段」上界，M33 为主窗口最早完整段）；M31 已于 2026-10-05 M36 归档批次预防性迁出至 [archive/todo-archive-phases-m31.md](archive/todo-archive-phases-m31.md)（M36 段新增后完整段达 6 个，超「3-5 个已归档阶段」上界，M31 为主窗口最早完整段）；M32 已于 2026-10-08 M37 归档批次预防性迁出至 [archive/todo-archive-phases-m32.md](archive/todo-archive-phases-m32.md)（M37 段新增后完整段将达 6 个，超「3-5 个已归档阶段」上界，M32 为主窗口最早完整段）；M30 已于 2026-10-02 M35 归档批次预防性迁出至 [archive/todo-archive-phases-m30.md](archive/todo-archive-phases-m30.md)（M35 段新增前主窗口 573 行，M35 段新增后完整段将达 6 个，超「3-5 个已归档阶段」上界，M30 为主窗口最早完整段）；M29 已于 2026-10-01 M34 归档批次预防性迁出至 [archive/todo-archive-phases-m29.md](archive/todo-archive-phases-m29.md)（M34 段新增前主窗口 648 行 + M34 段新增将超 700 强制分片阈值，M29 为主窗口最早完整段）；M23 已于 2026-09-30 M33 归档批次预防性迁出至 [archive/todo-archive-phases-m23.md](archive/todo-archive-phases-m23.md)；M28.6 归档批次（2026-09-11）已预防性迁出至 [archive/todo-archive-phases-m28.md](archive/todo-archive-phases-m28.md)；M26 已于 2026-09-10 M26 归档批次迁出至 [archive/todo-archive-phases-m26.md](archive/todo-archive-phases-m26.md)；M24 / M25 已于 2026-09-08 迁出至 [archive/todo-archive-phases-m24.md](archive/todo-archive-phases-m24.md) + [archive/todo-archive-phases-m25.md](archive/todo-archive-phases-m25.md)；M19 / M20 / M21 已于 2026-09-10 M26 归档批次预防性分片迁出至 [archive/todo-archive-phases-m19-m21.md](archive/todo-archive-phases-m19-m21.md)；M14 + M15 已于 2026-08-31 迁出至 [archive/todo-archive-phases-m14-m15.md](archive/todo-archive-phases-m14-m15.md)；M16 + M17 已于 2026-08-31 迁出至 [archive/todo-archive-phases-m16-m17.md](archive/todo-archive-phases-m16-m17.md)；M18 已于 2026-09-01 M22 归档批次预防性迁出至 [archive/todo-archive-phases-m18.md](archive/todo-archive-phases-m18.md)；M22 已于 2026-09-28 M30 归档批次预防性迁出至 [archive/todo-archive-phases-m22.md](archive/todo-archive-phases-m22.md)。
+- 主文档保留最近 3-5 个完整段的近线归档块（当前 5 个，处 [archive/index.md §2](archive/index.md) 定义区间上界：M39 完整段 + M38 完整段 + M37 完整段 + M36 完整段 + M35 完整段，按时间倒序排列在顶部）+ 早期阶段指针段；各阶段 ahead 状态以各段 commit 列表 + `git rev-list HEAD ^origin/master --count` 实证为准，不写死具体数字。**预防性分片同步记录**：M34 已于 2026-10-10 M39 归档批次预防性迁出至 [archive/todo-archive-phases-m34.md](archive/todo-archive-phases-m34.md)（M39 段新增后完整段将达 6 个，超「3-5 个已归档阶段」上界，M34 为主窗口最早完整段）；M33 已于 2026-10-09 M38 归档批次预防性迁出至 [archive/todo-archive-phases-m33.md](archive/todo-archive-phases-m33.md)（M38 段新增后完整段将达 6 个，超「3-5 个已归档阶段」上界，M33 为主窗口最早完整段）；M31 已于 2026-10-05 M36 归档批次预防性迁出至 [archive/todo-archive-phases-m31.md](archive/todo-archive-phases-m31.md)（M36 段新增后完整段达 6 个，超「3-5 个已归档阶段」上界，M31 为主窗口最早完整段）；M32 已于 2026-10-08 M37 归档批次预防性迁出至 [archive/todo-archive-phases-m32.md](archive/todo-archive-phases-m32.md)（M37 段新增后完整段将达 6 个，超「3-5 个已归档阶段」上界，M32 为主窗口最早完整段）；M30 已于 2026-10-02 M35 归档批次预防性迁出至 [archive/todo-archive-phases-m30.md](archive/todo-archive-phases-m30.md)（M35 段新增前主窗口 573 行，M35 段新增后完整段将达 6 个，超「3-5 个已归档阶段」上界，M30 为主窗口最早完整段）；M29 已于 2026-10-01 M34 归档批次预防性迁出至 [archive/todo-archive-phases-m29.md](archive/todo-archive-phases-m29.md)（M34 段新增前主窗口 648 行 + M34 段新增将超 700 强制分片阈值，M29 为主窗口最早完整段）；M23 已于 2026-09-30 M33 归档批次预防性迁出至 [archive/todo-archive-phases-m23.md](archive/todo-archive-phases-m23.md)；M28.6 归档批次（2026-09-11）已预防性迁出至 [archive/todo-archive-phases-m28.md](archive/todo-archive-phases-m28.md)；M26 已于 2026-09-10 M26 归档批次迁出至 [archive/todo-archive-phases-m26.md](archive/todo-archive-phases-m26.md)；M24 / M25 已于 2026-09-08 迁出至 [archive/todo-archive-phases-m24.md](archive/todo-archive-phases-m24.md) + [archive/todo-archive-phases-m25.md](archive/todo-archive-phases-m25.md)；M19 / M20 / M21 已于 2026-09-10 M26 归档批次预防性分片迁出至 [archive/todo-archive-phases-m19-m21.md](archive/todo-archive-phases-m19-m21.md)；M14 + M15 已于 2026-08-31 迁出至 [archive/todo-archive-phases-m14-m15.md](archive/todo-archive-phases-m14-m15.md)；M16 + M17 已于 2026-08-31 迁出至 [archive/todo-archive-phases-m16-m17.md](archive/todo-archive-phases-m16-m17.md)；M18 已于 2026-09-01 M22 归档批次预防性迁出至 [archive/todo-archive-phases-m18.md](archive/todo-archive-phases-m18.md)；M22 已于 2026-09-28 M30 归档批次预防性迁出至 [archive/todo-archive-phases-m22.md](archive/todo-archive-phases-m22.md)。
+- **2026-10-10 M39 归档批次**：M39 段（6 原子条目 **23 commits**（阶段启动 1 + M39.3 3 + M39.1 3 + M39.2 4 + M39.5 4 + M39.4 4 + M39.6 4；`git log master --first-parent --oneline origin/master..HEAD` 去重统计，实证见 [commit 数量](#m39-平台视图体验与可观测补强m391m396-全部已闭环--2026-10-10-归档)））新增至主窗口顶部；主窗口保留范围相应调整为 **M39/M38/M37/M36/M35 共 5 个完整段**（位于 [archive/index.md §2](archive/index.md) 定义的 3-5 个阶段区间上界）；**M34 完整段随 M39 新增预防性迁出**至 [archive/todo-archive-phases-m34.md](archive/todo-archive-phases-m34.md)（M39 段新增后完整段将达 6 个，超区间上界，M34 为主窗口最早完整段）；M39 全部 commits 归档时为本地 ahead（`git rev-list HEAD ^origin/master --count` 实测 = 23，`origin/master ^HEAD` = 0 双向核验），待用户推送确认。同期同步 `M0-M38` → `M0-M39` 里程碑口径（`docs/index.md` + `docs/i18n/en-US/index.md` + `backlog.md` + `todo.md`）。
 - **2026-10-09 M38 归档批次**：M38 段（6 原子条目 **16 commits**（自 M37 归档末 `5a5c99b` 起 `git log master --first-parent` 去重统计：设计先行稿 1 + 阶段启动规划 1 + M38.1 4 + M38.2 2 + M38.3 2 + M38.4 2 + M38.5 2 + M38.6 2，实证见 [commit 数量](#m38-平台执行模型隔离m381m386-全部已闭环--2026-10-09-归档)））新增至主窗口顶部；主窗口保留范围相应调整为 **M38/M37/M36/M35/M34 共 5 个完整段**（位于 [archive/index.md §2](archive/index.md) 定义的 3-5 个阶段区间上界）；**M33 完整段随 M38 新增预防性迁出**至 [archive/todo-archive-phases-m33.md](archive/todo-archive-phases-m33.md)（M38 段新增后完整段将达 6 个，超区间上界，M33 为主窗口最早完整段）；M38 全部 commits 归档时为本地 ahead（`git rev-list HEAD ^origin/master --count` 实测 = 18（含 M37 收尾 2），`origin/master ^HEAD` = 0 双向核验），待用户推送确认。同期同步 `M0-M37` → `M0-M38` 里程碑口径（`docs/index.md` + `docs/i18n/en-US/index.md` + `backlog.md` + `todo.md`）。
 - **2026-10-05 M36 归档批次**：M36 段（10 原子条目 **42 commits** 实证见 [commit 数量](#m36-治理债清仓--可观测性与测试稳定性m361m3610-全部已闭环--2026-10-05-归档)）新增至主窗口顶部；主窗口保留范围相应调整为 **M36/M35/M34/M33/M32 共 5 个完整段**（位于 [archive/index.md §2](archive/index.md) 定义的 3-5 个阶段区间上界）；**M31 完整段随 M36 新增预防性迁出**至 [archive/todo-archive-phases-m31.md](archive/todo-archive-phases-m31.md)（M36 段新增后完整段达 6 个，超区间上界，M31 为主窗口最早完整段）；M36 全部 commits 已推送 `origin/master`（`git rev-list HEAD ^origin/master --count` 归档时实测 = 0）。同期同步 `M0-M35` → `M0-M36` 里程碑口径（`docs/index.md` + `docs/i18n/en-US/index.md` + `backlog.md` + `todo.md`）。
 - **2026-10-02 M35 归档批次**：M35 段（6 原子条目 **7 commits** 实证见 [commit 数量](#m35-批量运行终态兜底对账--进度可见性修复m351m356-全部已闭环--2026-10-02-归档)）新增至主窗口顶部；主窗口保留范围相应调整为 **M35/M34/M33/M32/M31 共 5 个完整段**（位于 [archive/index.md §2](archive/index.md) 定义的 3-5 个阶段区间上界）；**M30 完整段随 M35 新增预防性迁出**至 [archive/todo-archive-phases-m30.md](archive/todo-archive-phases-m30.md)（M35 段新增后完整段将达 6 个，超区间上界，M30 为主窗口最早完整段）；M35 全部 commits 已推送 `origin/master`（`git rev-list HEAD ^origin/master --count` 归档时实测 = 0）。同期同步 `M0-M34` → `M0-M35` 里程碑口径（`docs/index.md` + `docs/i18n/en-US/index.md` + `backlog.md` + `todo.md`）。
-- **2026-10-01 M34 归档批次**：M34 段（7 原子条目 **25 commits** 实证见 [commit 数量](#m34-治理与体验收口--组件库升级与巡检基建m341m347-全部已闭环--2026-10-01-归档)）新增至主窗口顶部；M34 段实增 40 行（主窗口 648 → 迁出 M29 后 533 → 新增 M34 段与批次说明后 573 行），**未触及 700 强制分片阈值**；**M29 完整段随 M34 新增预防性迁出**至 [archive/todo-archive-phases-m29.md](archive/todo-archive-phases-m29.md)；同期同步 `M0-M33` → `M0-M34` 里程碑口径（`docs/index.md` + `docs/i18n/en-US/index.md` + `backlog.md` + `todo.md`）。M34 commits 归档时为本地 ahead（`git rev-list HEAD ^origin/master --count` 实证，待用户推送）。
+- **2026-10-01 M34 归档批次**：M34 段（7 原子条目 **25 commits** 实证见 [commit 数量](archive/todo-archive-phases-m34.md#m34-治理与体验收口--组件库升级与巡检基建m341m347-全部已闭环--2026-10-01-归档)）新增至主窗口顶部；M34 段实增 40 行（主窗口 648 → 迁出 M29 后 533 → 新增 M34 段与批次说明后 573 行），**未触及 700 强制分片阈值**；**M29 完整段随 M34 新增预防性迁出**至 [archive/todo-archive-phases-m29.md](archive/todo-archive-phases-m29.md)；同期同步 `M0-M33` → `M0-M34` 里程碑口径（`docs/index.md` + `docs/i18n/en-US/index.md` + `backlog.md` + `todo.md`）。M34 commits 归档时为本地 ahead（`git rev-list HEAD ^origin/master --count` 实证，待用户推送）。
 - **2026-09-30 M33 归档批次**：M33 段（11 原子条目 **20 commits** 实证见 [commit 数量](archive/todo-archive-phases-m33.md#m33-治理债收口--测试基建扩展m331m3311-全部已闭环--2026-09-30-归档)）新增至主窗口顶部；M33 全部 commits 已推送 `origin/master`（`git rev-list HEAD ^origin/master --count` 归档时实测 = 0）。主窗口保留范围相应调整为 **M33/M32/M31/M30/M29 共 5 个完整段**（位于 [archive/index.md §2](archive/index.md) 定义的 3-5 个阶段区间上界）+ M23 / M27 / M26 / M22 等指针段；**M23 完整段随 M33 新增预防性迁出**至 [archive/todo-archive-phases-m23.md](archive/todo-archive-phases-m23.md)（M33 段新增前主窗口 655 行 + M33 段新增将超 700 强制分片阈值）；段新增后主窗口 648 行，**未触及 700 强制分片阈值**（位于 [archive/index.md §1](archive/index.md) 定义的 501-700 warning 带）；同期同步 `M0-M32` → `M0-M33` 里程碑口径（`docs/index.md` + `docs/i18n/en-US/index.md` + `backlog.md`）。
 - **2026-09-30 M32 归档批次**：M32 段（5 原子条目 **26 commits** 实证见 [commit 数量](archive/todo-archive-phases-m32.md#m32-能力扩展优先m321m325-全部已闭环--2026-09-30-归档) + 1 merge commit `300e833`）新增至主窗口顶部；阶段启动 2 commits（`6315119` + `f3e6423`）已在 `origin/master`，M32 全部 commits 已推送 `origin/master`（本批核验：`git merge-base --is-ancestor 0c79845 origin/master` 成立）。主窗口保留范围相应调整为 **M32/M31/M30/M29/M23 共 5 个完整段**（位于 [archive/index.md §2](archive/index.md) 定义的 3-5 个阶段区间上界）+ M27/M26 指针段；段新增后主窗口 655 行，**未触及 700 强制分片阈值**（位于 [archive/index.md §1](archive/index.md) 定义的 501-700 warning 带），故本批次无预防性迁出；同期同步 `M0-M31` → `M0-M32` 里程碑口径（`docs/index.md` + `docs/i18n/en-US/index.md` + `backlog.md` + `todo.md`）。
 - **2026-09-27 M29 归档批次**：M29 段（9 原子条目 35 atomic commits = **35 commits 全部 ahead=0 已推送至 origin/master**）新增至主窗口顶部；主窗口保留范围相应调整为 M29/M28/M27/M26/M23 共 5 个阶段（M22 完整段于 2026-09-28 M30 归档批次预防性迁出，见下条）。
 - **2026-09-28 M30 归档批次**：M30 段（6 原子条目 7 commits + 2 docs 收口 + 6 衍生治理 = **15 commits 全部 ahead=0 已推送至 origin/master**）新增至主窗口顶部；主窗口保留范围相应调整为 M30/M29/M27/M26/M23 共 5 个阶段；**M22 完整段随 M30 新增预防性迁出**至 [archive/todo-archive-phases-m22.md](archive/todo-archive-phases-m22.md)（M30 段新增前主窗口 682 行 + M30 段新增将超 700 强制分片阈值）。
 - **2026-09-29 M31 归档批次**：M31 段（6 原子条目 **17 commits** 实证见 [commit 数量](archive/todo-archive-phases-m31.md#m31-appsplatform-ui-组件库迁移primevue--caomei-ui-m311m316-全部已闭环--2026-09-29-归档) + 1 启动决策 commit `a05ac3b`）新增至主窗口顶部；其中 M31.1-M31.4（11 commits）已推送 `origin/master`，M31.5-M31.6（6 commits）归档时为本地 ahead（`git rev-list HEAD ^origin/master --count` 实证）。主窗口保留范围相应调整为 **M31/M30/M29/M23 共 4 个完整段** + M27/M26 指针段；段新增后主窗口 607 行，**未触及 700 强制分片阈值**（位于 [archive/index.md §1](archive/index.md) 定义的 501-700 warning 带），故本批次无预防性迁出；同期同步 `M0-M30` → `M0-M31` 里程碑口径（`docs/index.md` + `docs/i18n/en-US/index.md` + `backlog.md`）。
-- 当 `todo-archive.md` 超过 700 行时，将早期阶段迁入分片归档（最近一次迁出于 2026-10-09 M38 归档批次预防性迁出 M33 至新分片 `todo-archive-phases-m33.md`，主窗口完整段保持 5 个）。
+- 当 `todo-archive.md` 超过 700 行时，将早期阶段迁入分片归档（最近一次迁出于 2026-10-10 M39 归档批次预防性迁出 M34 至新分片 `todo-archive-phases-m34.md`，主窗口完整段保持 5 个）。
 - **2026-08-20 归档批次**：M9 / 2026-08-19 PR1-PR3 / 2026-08-19 C54+C55 / M11 推进批次迁入分片 [archive/todo-archive-phases-m11.md](archive/todo-archive-phases-m11.md)。
 - **2026-08-25 归档批次**：M12 9 子任务完整闭环，**所有 19 commits 已推送至 `origin/master`**（ahead=0，git rev-list HEAD ^origin/master --count 核验）。详见 [archive/todo-archive-phases-m12.md](archive/todo-archive-phases-m12.md)（**2026-08-28 M17 归档批次预防性分片迁出**）。
 - **2026-08-26 归档批次（M13）**：M13.1+M13.2+M13.3+M13.4 全部 12 子任务完整闭环，**26 commits 已推送至 `origin/master`**（含 T1310 部分 ahead commit；git rev-list HEAD ^origin/master --count 实证：ahead=3，仅 M13.4 三 commits 当时待推送（后续已推送 origin/master）：T1401 `2dce01d` + T1402+T1403 `bb3b49a` + todo.md 收口 `8762a4b`）。详见 [archive/todo-archive-phases-m13.md](archive/todo-archive-phases-m13.md)（**2026-08-30 M18 归档批次预防性迁出**）。
@@ -46,6 +48,31 @@
 - **2026-08-26 同期动作（已迁出）**：M14.1 / M14.2 / M14.3 / M14.x / M14.y + M15.1 详见 [archive/todo-archive-phases-m14-m15.md](archive/todo-archive-phases-m14-m15.md)（2026-08-31 M19 归档批次预防性迁出）。M14.1 / M14.2 / M14.x / M14.y 阶段 commits 已全部推送至 `origin/master`（ahead=0 `git rev-list HEAD ^origin/master --count` 2026-08-26 实测）；M15.1 3 commits 落地 + release.yml CI 修复 1 commit 同期落地（后续已推送 origin/master；ahead commits 按 [规划规范 §4.4 §5 ahead 实证](../../docs/standards/planning.md) 动态核验）。
 
 ---
+
+## M39: 平台视图体验与可观测补强（M39.1~M39.6 全部已闭环 / 2026-10-10 归档）
+
+> **归档日期**：2026-10-10
+> **阶段摘要**：承接 M38 平台执行模型隔离归档后的平台视图体验与可观测阶段。来源为 2026-10-08 定时扫描批量失败排查中用户在同一批反馈的 8 项平台问题（扫描页按状态筛选与聚合分页 / 扫描历史弹窗关闭按钮与日志区高度 / 告警视图按包聚合 / 运行日志下载 / PR Check 启用 / 环境事件覆盖）——8 项按类型平衡归并为 6 原子（M39.1~M39.6）。同批排查另有「既有基线失败被误判为运行失败（exit code 归因口径）」的引擎口径缺陷 1 项，已按 [§3.1 可用性插队例外](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement)先行修复（`e5c59b8`，口径见 [dependency-fixer.md §12.6](../design/modules/dependency-fixer.md)），不计入本阶段；其衍生的 3 项运行时可靠性候选（部署产物版本戳陈旧校验 / 失败 run 落 summary 快照 / 执行超时可配置化）留 [backlog.md](backlog.md)。**6 原子条目全部闭环**，覆盖 🎨 3 + 🚀 2 + 🛡️ 1。
+>
+> - **阶段启动规划**：`60575b2`
+> - **M39.3** [P2 🎨 用户体验] 告警视图「按包」聚合跨 severity 重复分组修正（组排序键「最高级别 rank × 步长 − 包名序号」保证同包相邻 + 视觉 4 基线重建 + 三处文档口径）—— `b6c5026` + `24708e2` + `de4c3cb`
+> - **M39.1** [P2 🎨 用户体验] 扫描页筛选与分页优化（`scan-history/summary` 按 `lastStatus` 过滤 + 两表 CaomeiTabs 分区 + byRepo 客户端分页 + 统计窗口提示）—— `be2af89` + `a41ea33` + `110d691`
+> - **M39.2** [P3 🎨 用户体验] 扫描历史弹窗体验（移除冗余 body 关闭按钮 + 日志区 `clamp` 自适应 + `--caomei-dialog-width` 响应式宽度）—— `b97f0f0` + `b241687` + `f9535e1` + `a19d1dc`
+> - **M39.5** [P2 🚀 能力扩展] PR Check 监测启用链路打通（`kind` 落库 / 回读 + 表单 `kind` 选择器 + `monitor-status` 只读总开关端点 + env 文档）—— `3b8e322` + `9526fe3` + `9b534fc` + `1d33ec5`
+> - **M39.4** [P2 🚀 能力扩展] 运行日志下载与批量下载（`runs-query.ts` 共享筛选层 + 单 run / 批量导出端点 + 413 硬上限 + `download.ts` + 两弹窗入口）—— `70c801e` + `27f7cbe` + `21d1895` + `b4a4af4`
+> - **M39.6** [P3 🛡️ 可观测与治理] 环境事件覆盖扩展（`container_unavailable` 事件 + 移除死类型 `docker_daemon_down` + 类型下拉全量对齐 + 通知白名单）—— `e80b7b0` + `723ae5b` + `7bff818` + `e34d157`
+>
+> **commit 数量实证**：`git log master --first-parent --oneline origin/master..HEAD` 去重统计 = **23 commits**（阶段启动 1 + M39.3 3 + M39.1 3 + M39.2 4 + M39.5 4 + M39.4 4 + M39.6 4；每个 commit 仅归属一条目，无重复计数）。阶段前的 `e5c59b8`（引擎口径插队修复）+ `da148f8`（候选登记）已随 M38 归档末推送 `origin/master`，不计入本阶段。
+>
+> **关键决策**（2026-10-09 用户决策方案 A + 各原子 D 阶段裁定，完整记录见 [roadmap.md §M39](roadmap.md#m39-平台视图体验与可观测补强2026-10-09-用户决策方案-a--2026-10-10-已闭环--归档)）：6 原子 D 阶段定稿——① M39.1 byRepo 客户端分页 + CaomeiTabs 分区（筛选仅作用于聚合结果，UI 显式标注窗口边界）；② M39.2 视口比例 `clamp` 日志区 + 设计钩子 `--caomei-dialog-width`（inline `:style` 恒胜 `:breakpoints`，既有 breakpoints 为死代码）；③ M39.3「一个包一组」组排序键；④ M39.4 服务端端点导出（单 run txt / 批量合并单 txt / 运行数 100 + 字节 5 MiB 硬上限 413）；⑤ M39.5 env-only 总开关 + 只读状态端点 `monitor-status`（避免构建期烘焙的公开配置漂移）；⑥ M39.6 环境事件 / 运行失败分类边界 + `docker_daemon_down` 移除 + 通知类型白名单。
+>
+> **类型平衡复核**：🎨 用户体验 3（M39.1 / M39.2 / M39.3）/ 🚀 能力扩展 2（M39.4 / M39.5）/ 🛡️ 可观测与治理 1（M39.6）；🧪 无独立条目（测试随各条目内嵌与 M39.3 视觉基线重建），缺口显式标注，接近 [规划规范 §1.1 类型平衡建议](../standards/planning.md#11-硬性约束)。
+>
+> **审计**：A 阶段覆盖全部 6 原子条目（M39.3 / M39.1 / M39.2 / M39.5 与 M39.4 / M39.6 均为 `standard` 2 分区并发）—— 全部 R1 Pass → 收口 warning / suggest → R2 quick Pass，记录在 `artifacts/review-gate/`（gitignored）。
+>
+> **ahead commits 实证**：归档时 `git rev-list HEAD ^origin/master --count` 实测 = **23**（`git rev-list origin/master ^HEAD --count` = 0 双向核验），全部为本阶段 commits，待用户推送确认。
+>
+> **关联**：[roadmap.md §M39](roadmap.md#m39-平台视图体验与可观测补强2026-10-09-用户决策方案-a--2026-10-10-已闭环--归档) + [archive/index.md](archive/index.md) + [platform.md §7 / §11](../standards/platform.md) + [backlog.md](backlog.md)（M39 衍生候选）
 
 ## M38: 平台执行模型隔离（M38.1~M38.6 全部已闭环 / 2026-10-09 归档）
 
@@ -186,41 +213,9 @@
 
 ---
 
-## M34: 治理与体验收口 + 组件库升级与巡检基建（M34.1~M34.7 全部已闭环 / 2026-10-01 归档）
+## M34: 治理与体验收口 + 组件库升级与巡检基建（M34.1~M34.7 全部已闭环 / 2026-10-01 归档 → 2026-10-10 M39 归档批次预防性分片迁出）
 
-> **归档日期**：2026-10-01
-> **阶段摘要**：承接 M33 完整闭环归档后的 backlog 候选池。2026-09-30 用户决策：以 M33 期评估完成的「方案 A」（4 项 backlog 待上收候选 + C83 能力扩展）为主并作适当能力扩展——追加 caomei-ui `0.3.0 → 0.5.0` 升级（弹窗内 Select 面板层级缺陷）与「视觉回归灵敏度 + 弹窗组件覆盖 + 上游组件问题归因流程」；阶段内 M34.7（表单字段堆叠口径复用化）经用户直接决策追加（[规划规范 §3.4](../standards/planning.md#34-阶段启动决策前置交叉核验硬要求m271-重复评估教训--2026-09-10) 承认的「用户直接决策」路径）。**7 原子条目全部闭环**，覆盖 🛠️ 1 + 📦 1 + 🧪 1 + 🎨 1 + 📚 1 + 🚀 1 + 🛡️ 1。
->
-> - **M34.1** [P3 🛠️ 工具链治理] 本地 devEx：运行时 `data/` 产物污染 vitest 与 check-docs（`test.exclude` 双 root 覆盖 + `check-docs` 遍历下降前剪枝 + 回归用例）—— `d315840` + `1dc1cd1`
-> - **M34.2** [P2 📦 依赖升级] caomei-ui `0.3.0 → 0.5.0`（面板层级缺陷修复 + 三版 tarball 语义级比对 + 防复发用例 + 视觉基线重建）—— `56c1290` + `7363a8d` + `a8e28b5` + `2f10eed`
-> - **M34.3** [P3 🧪 测试基建] 视觉门禁双轴收紧（色阈值 + 面积预算）+ 弹窗 Select 展开态基线 + 上游归因上报流程 —— `e24b85b` + `b8e8ca1` + `30f9c27` + `8dbd7a1`
-> - **M34.4** [P3 🎨 用户体验] 非弹窗表单 label↔控件间距统一（范围判定后实改 4 处 + 基线纯偏移归因）—— `3dcc341` + `4919329`
-> - **M34.5** [P3 📚 文档治理] PrimeUI 设计先行稿与索引状态同步（含用户授权的同源陈旧一并同步）—— `64bdb79` + `6d2374f`
-> - **M34.6** [P3 🚀 能力扩展] C83 验证链「既有失败基线」判定（命令级归因 + 报告双口径 + 验证链模块拆分）—— `dbf9066` + `4ed008e` + `5a544da` + `b6161a7`
-> - **M34.7** [P3 🛡️ 技术债] 表单字段堆叠口径复用化（`field-stack` mixin + 13 处同构字段复用 + 弹窗遗漏补齐）—— `4e62f29` + `c56fb8d` + `3888d29` + `9875967` + `9fc83ed` + `2b7e613`
->
-> **commit 数量实证**：`git log master --first-parent --oneline` 自 M33 归档末 `6035313` 起按上列条目去重统计 = **25 commits**（阶段启动 `86283e2` + 7 原子条目的实现与闭环登记）；本归档批次另含 wisdom 蒸馏 `5c84dc2` 与归档 commits。归档时 `git rev-list HEAD ^origin/master --count` 实测 = 28（含本批归档 commits，待用户推送）。
->
-> **关键决策 D1-D12**（2026-09-30 用户裁定 + 执行期追加；完整记录见 [roadmap.md §M34](roadmap.md#m34-治理与体验收口--组件库升级与巡检基建2026-09-30-用户决策启动--2026-10-01-已闭环--归档)）：
->
-> - **D1**：组合定型（方案 A + 适当能力扩展）——6 原子条目，类型平衡 🛠️ 1 + 📦 1 + 🧪 1 + 🎨 1 + 📚 1 + 🚀 1
-> - **D2**：M34.2 目标版本 = `0.5.0`（用户指定，npm `latest` 实测一致）
-> - **D3**：「视觉回归容差」与「组件巡检 + 上游 issue 流程」合并为 M34.3（受 5-6 项上限约束按「进一出一」）
-> - **D4**：弹窗内 Select 缺陷由用户确认为「面板被裁剪 / 层级错误」，D 阶段首步须在 `0.3.0` 下复现——实测推翻「裁剪」假设，缺陷实际轴为**层级 z 序**
-> - **D5**（原建议执行顺序）：M34.2 → M34.4 → M34.3（先落组件库与间距，最后动容差与新基线）；M34.1 / M34.5 / M34.6 可并行
-> - **D6**：阶段启动 commit 仅改规划与文档指针（P 阶段规划暂停协议）
-> - **D7**：P 阶段 `standard` 审计 Pass；RG-W1（代码侧陈旧指针）落点登记 M34.6
-> - **D8**（执行期用户拍板）：视觉门禁双轴收紧（色阈值 + 面积预算）；浮层覆盖取弹窗内 Select 展开态 light / dark
-> - **D9**（执行期范围判定）：M34.4 排除 `__summary-byconclusion`（横向标签行），实改 4 处
-> - **D10**（用户授权）：追加 M34.7（字段堆叠口径复用化），显示型 `label↔值` 堆叠不纳入口径
-> - **D11**（用户授权）：M34.5 范围扩展（同源陈旧一并同步；AC 排除项登记候选）
-> - **D12**（执行期敲定）：M34.6 三项决策点——修复前一次性采样 / 命令级判定 / `PRE_EXISTING_FAILURE` + `preExisting` 双口径
->
-> **类型平衡复核**：🛠️ 工具链治理 1（M34.1）/ 📦 依赖升级 1（M34.2）/ 🧪 测试基建 1（M34.3）/ 🎨 用户体验 1（M34.4，缺口显式标注）/ 📚 文档治理 1（M34.5）/ 🚀 能力扩展 1（M34.6）/ 🛡️ 技术债 1（M34.7）。
->
-> **审计轮次**：M34.1（1 + 1 轮）/ M34.2（2 轮）/ M34.3（2 分区 × 2 轮）/ M34.4（1 轮）/ M34.5（3 轮）/ M34.6（2 分区 × 2-3 轮）/ M34.7（2 分区 × 2 轮）——全部收敛后放行，记录在 `artifacts/review-gate/`（gitignored）。
->
-> **遗留观察项**：① 视觉门禁双轴收紧（M34.3）推送后须观察 1-2 次真实 CI visual run；② `data/` 包级模式排除（M34.1）的残余风险以 `vitest.config.ts` inline 注释登记；③ `verificationBlocking` 未在 MCP / 平台展示层透出（M34.6 已披露边界）；④ backlog §候选评估中 保留「设计与索引文档的同类陈旧状态清理（存量）」待评估候选。
+> 详见 [archive/todo-archive-phases-m34.md §M34](archive/todo-archive-phases-m34.md#m34-治理与体验收口--组件库升级与巡检基建m341m347-全部已闭环--2026-10-01-归档)。
 
 ---
 

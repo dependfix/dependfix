@@ -29,6 +29,23 @@ test.describe('C-ENV env-events UI', () => {
         await expect(filters).toHaveCount(5)
     })
 
+    test('类型下拉与 audit_event 全量 5 类口径一致（含 container_unavailable / 配置留痕类，不含已移除的 docker_daemon_down）', async ({ page }) => {
+        // 必须在 goto 前注册：env-events.vue 在 onMounted 立即调用 fetchEvents()
+        await page.route('**/api/audit-events*', (route) => route.fulfill({
+            status: 200, contentType: 'application/json', body: JSON.stringify([]),
+        }))
+        await page.goto('/env-events')
+        await waitForHydration(page)
+        await page.locator('#type').click()
+        const items = page.locator('.caomei-select__item')
+        await expect(items).toHaveCount(6) // 全部类型 + 5 类
+        const optionsText = (await items.allInnerTexts()).join('\n')
+        expect(optionsText).toContain('容器执行器不可用')
+        expect(optionsText).toContain('AI 配置更新')
+        expect(optionsText).toContain('验证命令更新')
+        expect(optionsText).not.toContain('Docker 守护进程停止')
+    })
+
     test('导航菜单对 admin 可见 env-events 链接', async ({ page }) => {
         await page.goto('/dashboard')
         await waitForHydration(page)
@@ -58,6 +75,22 @@ test.describe('C-ENV env-events UI', () => {
         await page.waitForSelector('.env-events__table tbody tr', { timeout: 10000 })
         const rows = page.locator('.env-events__table tbody tr')
         await expect(rows.first()).toContainText('沙箱降级')
+    })
+
+    test('类型标签渲染：container_unavailable 显示中文文案', async ({ page }) => {
+        await page.route('**/api/audit-events*', (route) => route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify([
+                { id: 'evt-c1', type: 'container_unavailable', severity: 'error', repository: 'demo/app', scanRunId: null, payloadJson: JSON.stringify({ code: 'container_unavailable', executor: 'container', message: '工作根目录不可写' }), notified: false, notifiedVia: null, createdAt: new Date().toISOString() },
+            ]),
+        }))
+        await page.goto('/env-events')
+        await waitForHydration(page)
+        await page.waitForSelector('.env-events__table tbody tr', { timeout: 10000 })
+        const firstRow = page.locator('.env-events__table tbody tr').first()
+        await expect(firstRow).toContainText('容器执行器不可用')
+        await expect(firstRow).toContainText('工作根目录不可写')
     })
 
     test('详情展开：点击展开按钮显示完整 payloadJson', async ({ page }) => {

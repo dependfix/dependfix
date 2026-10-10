@@ -141,4 +141,45 @@ describe('notifyEnvEvent', () => {
         expect(updated?.notified).toBe(false)
         expect(updated?.notifiedVia).toBe(null)
     })
+
+    it('配置留痕类事件（ai_config_update）经策略跳过，不触达渠道', async () => {
+        // 注册一个「始终可用」的探针渠道，区分「策略跳过」与「渠道不可用跳过」
+        const send = vi.fn(async () => ({ delivered: true, channel: 'spy' }))
+        unregisterNotificationChannel('email')
+        registerNotificationChannel({ name: 'spy', isAvailable: () => true, send })
+        try {
+            process.env.DEPENDFIX_ENV_ALERT_RECIPIENTS = 'admin@x.com'
+            await notifyEnvEvent({
+                id: 'evt-config-only',
+                type: 'ai_config_update',
+                severity: 'info',
+                message: 'AI 配置更新',
+                createdAt: new Date(),
+            })
+            expect(send).not.toHaveBeenCalled()
+        } finally {
+            unregisterNotificationChannel('spy')
+            registerNotificationChannel(new EmailNotificationChannel())
+        }
+    })
+
+    it('执行器异常类事件（container_unavailable）触达可用渠道', async () => {
+        const send = vi.fn(async () => ({ delivered: true, channel: 'spy' }))
+        unregisterNotificationChannel('email')
+        registerNotificationChannel({ name: 'spy', isAvailable: () => true, send })
+        try {
+            process.env.DEPENDFIX_ENV_ALERT_RECIPIENTS = 'admin@x.com'
+            await notifyEnvEvent({
+                id: 'evt-container-down',
+                type: 'container_unavailable',
+                severity: 'error',
+                message: '容器执行器不可用',
+                createdAt: new Date(),
+            })
+            expect(send).toHaveBeenCalledOnce()
+        } finally {
+            unregisterNotificationChannel('spy')
+            registerNotificationChannel(new EmailNotificationChannel())
+        }
+    })
 })

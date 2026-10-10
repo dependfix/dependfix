@@ -14,11 +14,12 @@ import { AuditEvent } from '#server/entities/audit-event'
 // 外部执行器 mock（真实执行会跑引擎/触发 GitHub Action）
 // class 实例的 execute/fetch 字段指向共享 mock（实例在 runScanForRepository 执行时才创建，
 // 测试须在调用前即可设置行为）
-const { ContainerExecutorMock, SandboxExecutorMock, ActionTriggerExecutorMock, ActionResultFetcherMock, containerExecute, sandboxExecute, sandboxIsAvailable, actionExecute, fetcherFetch, notifyEnvEvent } = vi.hoisted(() => ({
+const { ContainerExecutorMock, SandboxExecutorMock, ActionTriggerExecutorMock, ActionResultFetcherMock, containerIsAvailable, containerExecute, sandboxExecute, sandboxIsAvailable, actionExecute, fetcherFetch, notifyEnvEvent } = vi.hoisted(() => ({
     ContainerExecutorMock: vi.fn(),
     SandboxExecutorMock: vi.fn(),
     ActionTriggerExecutorMock: vi.fn(),
     ActionResultFetcherMock: vi.fn(),
+    containerIsAvailable: vi.fn(),
     containerExecute: vi.fn(),
     sandboxExecute: vi.fn(),
     sandboxIsAvailable: vi.fn(),
@@ -32,6 +33,7 @@ vi.mock('./executor/container-executor', () => ({
             ContainerExecutorMock(...args)
         }
 
+        isAvailable = containerIsAvailable
         execute = containerExecute
     },
 }))
@@ -141,6 +143,9 @@ describe('scan-orchestrator.service', () => {
     beforeEach(() => {
         vi.clearAllMocks()
         // 共享 mock 需重置实现，防止新用例漏设时静默复用上一用例行为
+        // container.isAvailable 默认 true（多数用例关注 execute；环境不可用场景显式设 false）
+        containerIsAvailable.mockReset()
+        containerIsAvailable.mockResolvedValue(true)
         containerExecute.mockReset()
         sandboxExecute.mockReset()
         sandboxIsAvailable.mockReset()
@@ -681,6 +686,57 @@ describe('scan-orchestrator.service', () => {
             // payload 应包含 errno + message（B 场景补 code/adapter）
             expect(payload.errno).toBe('sandbox_unavailable')
             expect(payload.message).toContain('docker daemon')
+
+            // 验证 notify 触发
+            expect(notifyEnvEvent).toHaveBeenCalledOnce()
+        })
+
+        it('A 场景降级目标 container 亦不可用 → audit_event container_unavailable 落库（不落 sandbox_degraded）', async () => {
+            const repoId = await sandboxRepo()
+            sandboxIsAvailable.mockResolvedValue(false)
+            containerIsAvailable.mockResolvedValue(false)
+
+            const run = await runScanForRepository(repoId, { mode: 'fix', severityThreshold: 'high' })
+            expect(run.status).toBe('failed')
+            expect(run.errorJson).toContain('container_unavailable')
+            // 降级目标环境不可用 → 不进入 execute
+            expect(containerExecute).not.toHaveBeenCalled()
+
+            const ds = await ensureDatabaseInitialized()
+            const events = await ds.getRepository(AuditEvent).find({ where: { scanRunId: run.id } })
+            expect(events).toHaveLength(1)
+            // 根因为 container 环境不可用（而非 sandbox 降级）
+            expect(events[0]?.type).toBe('container_unavailable')
+            expect(events[0]?.severity).toBe('error')
+            expect(notifyEnvEvent).toHaveBeenCalledOnce()
+        })
+
+        it('C 场景 container.isAvailable()=false → audit_event container_unavailable 落库 + notify 触发 + run failed', async () => {
+            const repoId = await createRepo()
+            containerIsAvailable.mockResolvedValue(false)
+
+            const run = await runScanForRepository(repoId, { mode: 'fix', severityThreshold: 'high' })
+            expect(run.status).toBe('failed')
+            expect(run.errorJson).toContain('container_unavailable')
+            // 环境不可用 → 不进入 execute（避免以 execution_failed 掩盖环境根因）
+            expect(containerExecute).not.toHaveBeenCalled()
+            // 失败分类落 runtime / transient
+            expect(run.failureCode).toBe('container_unavailable')
+            expect(run.failureStage).toBe('runtime')
+            expect(run.failureKind).toBe('transient')
+
+            // 验证 audit_event 落库（C 场景）
+            const ds = await ensureDatabaseInitialized()
+            const events = await ds.getRepository(AuditEvent).find({
+                where: { scanRunId: run.id },
+            })
+            expect(events).toHaveLength(1)
+            expect(events[0]?.type).toBe('container_unavailable')
+            expect(events[0]?.severity).toBe('error')
+            const payload = JSON.parse(events[0]?.payloadJson ?? '{}') as Record<string, unknown>
+            expect(payload.code).toBe('container_unavailable')
+            expect(payload.executor).toBe('container')
+            expect(String(payload.message)).toContain('工作根')
 
             // 验证 notify 触发
             expect(notifyEnvEvent).toHaveBeenCalledOnce()

@@ -162,6 +162,11 @@
   - **执行口径（照 [迁移评估 §15.14](../design/governance/caomei-ui-migration.md#1514-caomei-ui-050-升级实证m3422026-10-01)）**：package.json + lockfile → 迁移评估新增 §15.15 + `tech-stack.md` + `platform.md` 版本口径同步 → 重建 `apps/platform/.output` → 全量 lint / typecheck / test / e2e / 视觉基线 `--update-snapshots=all` 重建（预期 alerts / pr-checks 因排序序号变化）。
   - **触发条件**：用户要求升级；或平台需跟进 0.6.0 新能力（多列排序序号）。与下方延期项「caomei-ui 0.x → 1.0 升级回归」的恢复条件①（用户指定版本）同源，但本条为 `0.6.0` 增量升级，非 1.0 分支。
 
+- **`ensureGitignore()` 幂等检查对语义等价的忽略写法失效导致重复追加（待评估）** —— 现象：`packages/engine/src/app/helpers.ts:651` 的 `ensureGitignore()` 以精确字符串比较做幂等（`lines.some((l) => l.trim() === 'dependfix-reports/')`），目标仓库 `.gitignore` 若已用语义等价写法（如 `/dependfix-reports`、`dependfix-reports`、`/dependfix-reports/`、`**/dependfix-reports/` 等）忽略该目录，则判定为「未忽略」并追加 `# dependfix` + `dependfix-reports/`，产生重复条目。实测命中：`/root/projects/caomei-ui/.gitignore` 第 47-50 行（人工条目 `/dependfix-reports` 已提交于 commit `e1b2641`，工具运行后又追加 `dependfix-reports/`，未提交工作区改动）。触发面：`run()` 收尾（`packages/engine/src/app/index.ts:316`）与本地提交前（`helpers.ts:623`）各执行一次，任一 run 即复现。
+  - **待评估点**：① 幂等判定的归一化口径——是否在比较前去除前导 `/`、尾部 `/`、`**/` 前缀与行内注释（需定义 `.gitignore` 语义等价集与误报面，如 `dependfix-reports/**` / `dependfix-reports/*` 等仅忽略内容的写法是否算等价）；② 首次追加的 canonical 写法选型（`dependfix-reports/` vs `/dependfix-reports`）与各仓库既有条目对齐；③ `packages/engine/src/app/helpers.test.ts` 当前对该函数零覆盖，是否补幂等 + 多等价形态单测防回归。
+  - **触发条件**：目标仓库以非 canonical 写法手写过忽略项（用户手动添加 / 其他工具生成）；或用户要求加固 `.gitignore` 自动管理。
+  - **按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
+
 ### 待上收候选（评估完成，等待用户决策）
 
 > 本节为「评估完成、等待用户决策」候选的暂存区；候选**不含 `M\d+` 阶段编号**（[规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement)）。

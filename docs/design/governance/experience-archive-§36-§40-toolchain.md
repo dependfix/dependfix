@@ -1,8 +1,6 @@
-# 经验归档分片（§36 - §40）：工具链与编码陷阱（§三十六 - §四十）
+# 经验归档分片（§三十六 - §四十）：工具链与编码陷阱
 
-> 本分片从 [experience-archive.md](./experience-archive.md) §准入标准 分流而出（5 章，~76 行）。章节编号全局唯一，跨文件保持稳定；外链引用按 §编号 命中，与主窗口一致。
-
----
+> 本分片从 [experience-archive.md](./experience-archive.md) 分流而出（章节编号全局唯一、跨文件稳定，外链按 `§编号` 命中）。**正文只写结论与落点**；过程叙事不写入本体系。
 
 ## 三十六、CI 双 run 失败：锚点漂移 + dependfix 验证链缺 nuxt prepare（2026-08-12）
 > 两个独立 run 同日失败，各暴露一类"检查通过 ≠ 可运行"的缺口：check:links 的锚点校验规则与文档实际改动不同步；dependfix 默认验证链对 Nuxt 消费仓库不成立且失败信息不可见。
@@ -15,7 +13,7 @@
   - **CI 每个 job 的验证链要与该 job 的实际执行环境自洽**：dependfix 这类"修完即验"的工具，默认验证链对 Nuxt/VitePress 等需要 prepare/生成物的项目不成立——要么暴露自定义验证命令（action `commands` 输入），要么在默认链中探测 prepare 需求。
   - **验证失败必须携带可定位证据**：验证门只报 `exit code 1` 时，用户无法区分"lint 语法错误 / 缺生成物 / 环境问题"——失败 action 附 stdout/stderr 摘要（脱敏后）是验证门的基本可观测性要求。
   - **工具"吃自己狗粮"的价值**：dependfix 扫描自身仓库即暴露 action 接口缺口（commands 未透传）与验证链盲区，dogfooding 是产品缺陷的第一发现者。
-
+- **落点**：planning.md §4.4（锚点实证）+ testing.md §6.1（webServer rebuild）
 
 ## 三十七、CI git tag 需要显式 committer identity + 发布流程必须可重入自愈（2026-08-12）
 > 教训形态：**"环境前提缺失" + "中间态被 skip 逻辑吞掉"**。与 §二十六（tag 创建与推送分离）同属发布链路 CI 教训族。
@@ -25,14 +23,14 @@
 - **启示**：
   - **CI 脚本依赖 git 写操作（commit/tag）时，identity 必须由 workflow 显式配置**——不能依赖"某个条件步骤顺带配置"（schedule-only 步骤在手动触发时被跳过即中招）；github-actions[bot] 身份是标准选择。
   - **发布/打 tag 是连续副作用，必须可重入**："发布成功、tag 失败"的中间态一旦被 skip 判定吞掉，就变成永久缺口；检测中间态并补完（幂等自愈）优先于"失败后手动补"，重跑即恢复是发布工具的基本要求。
-
+- **落点**：guide/release.md（git tag committer identity）
 
 ## 三十八、PowerShell 文本管道按 GBK 解码损坏 UTF-8 + tsconfig exclude 掩盖测试类型错误（2026-08-12，T710 归档转接）
 > 来源：T710 CI lint 警告清理（10 → 0）附带经验，归档 M7.2 时从 todo.md 转接沉淀。
 
 - **经验一：git show | Set-Content 文本管道按 GBK 解码会损坏 UTF-8（写入侧）**——Windows PowerShell 文本管道默认按系统代码页（GBK）解码，`git show <hash> | Set-Content file` 会把 UTF-8 内容读成乱码再写回。**正确做法**：用 cmd 重定向字节安全导出（`cmd /c "git show <hash> > file"`）或直接 `git show <hash> -o file`（git 原生写文件）。
 - **经验二：tsconfig exclude `*.test.ts` 会掩盖测试文件类型错误**——被 exclude 的测试文件不参与 `tsc --noEmit`，其中类型错误（缺失字段/来源错误）静默通过；test-helpers 提取（T710 批次 4）暴露该问题后，已修正来源与缺失字段。**教训**：测试文件必须纳入类型检查范围（可用 `tsconfig.test.json` 单独包含，或依赖 vitest 的转换期类型校验），禁止用 exclude 排除测试文件。
-
+- **落点**：ai-collaboration.md §1.2 第 6 条（PowerShell 文本管道）
 
 ## 三十九、CI 双 run 同时失败：裸标签坑二次复现 + scripts 入口守卫缺失（2026-08-13）
 > 教训形态：**"登记 ≠ 防御"**——§三十三 裸标签教训已入档但未落规范/未挂检查点，同坑二次复现；同时暴露 scripts 新增脚本未对齐既有 main 守卫模式。
@@ -52,7 +50,7 @@
   - **教训入档 ≠ 防御生效**：同一模式第二次复现（裸标签）后，必须把教训落成"可执行检查点"（规范条款 + A 阶段必查项），否则归档只是故事。检查点形态见 [documentation.md §2 裸 HTML 标签禁令](../../standards/documentation.md) 与 code-auditor 必查项。
   - **新增 scripts/*.mjs 必须对齐既有 main 守卫模式**：`process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href` 包裹 main()——vitest 单测 import 模块时不执行入口副作用；新脚本复制旧脚本骨架时守卫是最容易被漏掉的一行。
   - **测试不得依赖 git 忽略工作区文件的存在性**：.session/ 下的文件本地存在、CI 不存在，依赖它的测试必须模拟缺失场景（移走文件）验证，或把依赖注入为参数。
-
+- **落点**：documentation.md §2 + development.md §5.1.5（脚本入口守卫）
 
 ## 四十、PowerShell 批量替换三连坑 + 审计字节级扫描价值 + 容器实证三层发现（2026-08-14，M8 安全治理）
 > 教训形态：**批量/脚本化编辑误伤族第三次复现（§十七 2026-08-07 JS 正则宽泛 → §二十一 2026-08-08 PowerShell 内联 node -e → §四十 2026-08-14 PowerShell 批量替换）**——其中两次与 PowerShell 转义体系直接相关，本次正式落成规范禁令：**非必要不使用 PowerShell 执行批量替换，优先 JS 脚本**。同时记录"验证工具不覆盖内容语义"与"文档宣称 ≠ 真实运行"两类发现。
@@ -79,3 +77,4 @@
   - **宣称的能力必须有真实运行实证**：容器/部署/集成类能力，验收必须包含"在真实目标环境执行一次完整链路"，单测 mock 会掩盖环境缺失（与 §三十一"真实基础设施验证"同族）。
   - **版本解析函数对 range/前缀输入必须防御**：`compareSemver` 对 `>=x.y.z` 静默退化为 `[0,0,0]`——解析失败应显式失败或归一化，不能静默"已达标"（安全相关路径尤其危险：假跳过 = 漏洞不修）。
   - **实证驱动的发现是排期任务的最大增量价值**：T801 名义是"装两个工具"，实证带出 node_modules 打包 + range bug 两个深层问题（C45 登记时均未预见）。
+- **落点**：ai-collaboration.md §1.2 第 6 条 + code-auditor 主责边界（字节级扫描）

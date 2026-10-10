@@ -3,6 +3,8 @@
 > 将 `.session/wisdom.md` 中的临时知识点定期提纯为永久文档，解决跨机器丢失、内容膨胀与过时残留问题。
 > 参照 momei [session-wisdom-distillation](https://github.com/CaoMeiYouRen/momei/blob/master/docs/design/governance/session-wisdom-distillation.md) 机制，按 dependfix 目录结构适配。
 
+> **与经验三层体系的关系**：本机制的产物（pattern / principle）属 L3 经验索引层；收敛出口（复现 >= 2 次 → L1 脚本或 L2 检查点）与准入标准见 [经验归档](./experience-archive.md#1-经验三层体系)。
+
 ## 1. 背景
 
 `.session/wisdom.md` 存储跨 session 值得复用的发现（pattern / bug / decision / env / test / baseline），已融入 `Full Stack Master (全栈大师)` agent 的 Session 感知协议（`.github/agents/full-stack-master.agent.md`）。

@@ -1,40 +1,60 @@
 # 经验归档（Experience Archive）
 
-> 本文档保存跨 Session 经验教训的**详细前因后果**，持续追加、不设结束日期。
-> 规范文档只保留可执行方法论；需要追溯具体案例时查阅本文档 + 6 个分片。
-> 蒸馏机制见 [session-wisdom-distillation.md](./session-wisdom-distillation.md)。
+> **定位**：L3 经验索引——承载「未落规范 + 需溯源 + 重复 ≥ 2 次 + 工具/环境陷阱」四者之一的经验条目；**可搜索、可裁剪、可收敛**。
+> **准入标准（四者之一，缺一不收）**：① 可执行方法论**尚未**迁移到 `docs/standards/` 或 skill / agent 定义；② 决策需要溯源（未来需回答「为什么当时这么做」）；③ 同类问题已复现 >= 2 次（收敛预警）；④ 工具 / 环境陷阱（本地不可测、跨平台差异、工具默认值覆盖）。
+> **收敛判据**：同一模式第 2 次复现 → 本批**必须**产出 L1（脚本 + CI 阻断）或 L2（评审检查点）落点，否则该条目降级删除。
 
-## 准入标准（新增条目前必读）
+## 1. 经验三层体系
 
-不是每条经验都值得写入。满足以下**至少一条**才追加新章节（编号连续，按分片追加）：
+| 层 | 形态 | 载体 | 保留判据 |
+|:--|:--|:--|:--|
+| **L1 自动门禁** | 脚本 + CI 阻断 | `scripts/*.mjs` + `.github/workflows/*.yml` | 模式可机检 → 必须 L1 |
+| **L2 评审检查点** | checklist / 必查项 | `.github/skills/code-reviewer/**` + `.github/agents/code-auditor.agent.md` | 需人工判定且有明确触发面 |
+| **L3 经验索引** | 精简可搜索索引（本文件 + 分片） | `experience-archive*.md` | 四者之一（见上「准入标准」） |
 
-1. **教训未落入规范**：可执行方法论尚未迁移到 `docs/standards/` 或 skill/agent 定义（本文件只存案例，规范吸收后案例仍保留作溯源）。
-2. **决策需要溯源**：产品/技术方向的关键决策（跨线升级、全 ESM、防护策略等），未来需回答"为什么当时这么做"。
-3. **重复违规预警**：同一模式已违规 ≥ 2 次（如编号标记、行尾、脚本化编辑），案例用于证明"必须挂检查点"。
-4. **工具/环境陷阱**：本地不可测、跨平台差异、工具默认值覆盖等只有真实运行才能暴露的问题。
+**L3 保留准则**：**留**——新版依赖超出模型记忆的校正（如 pnpm 11 `allowBuilds`、better-auth 1.7 adapter、reka-ui z-index 档位、TypeORM 1.x 复合索引）、工具 / 环境陷阱、需溯源的关键决策；**删**——流程细枝末节、本项目自身历史失误的过程细节、纯环境噪音、已完全内化且无溯源价值的一次性偶发。
 
-**不值得写入**：教训已完全内化且无决策溯源价值的一次性偶发；纯环境噪音（无普适启示）；泛泛而谈无具体案例/硬数据（run ID、commit、文件数）的"心得"。
+## 2. 分片索引
 
-## 章节编号硬性规则
+| 分片 | 范围 | 主题 |
+|:--|:--|:--|
+| [§1-§21](./experience-archive-§1-§21-spec-compliance.md) | §一 - §二十一 | 规范执行与测试断言 |
+| [§22-§28](./experience-archive-§22-§28-ci-environment.md) | §二十二 - §二十八 | CI 与开发环境 |
+| [§29-§35](./experience-archive-§29-§35-integration.md) | §二十九 - §三十五 | 集成与基础设施 |
+| [§36-§40](./experience-archive-§36-§40-toolchain.md) | §三十六 - §四十 | 工具链 |
+| [§41-§48](./experience-archive-§41-§48-archive-batch.md) | §四十一 - §四十八 | 归档批次与集成深化 |
+| [§49-§57](./experience-archive-§49-§57-recent-investigation.md) | §四十九 - §六十八 | 近期排查与归档沉淀 |
 
-- 章节编号（§一、§十六 等）跨整个经验归档全局唯一，**不**重新编号，跨文件保持稳定。
-- 已删除章节编号不重用（避免外链漂移）。
-- 新增章节取当前最大编号 + 1；按内容逻辑写入对应分片。
+> 章节编号**全局唯一、跨文件稳定**（分片仅按范围切分，不影响锚点）；外链引用按 `§编号` 命中。
 
-## 分片索引（按内容逻辑 / 关联性拆分）
+## 3. 主题索引（可检索）
 
-| 分片文件 | 章节范围 | 主题 |
-|---|---|---|
-| [experience-archive-§1-§21-spec-compliance.md](./experience-archive-§1-§21-spec-compliance.md) | §一 - §二十一 | 规范执行与测试断言（编号标记 / 批量替换 / 防护正则 / 测试断言 / 脚本编辑等）|
-| [experience-archive-§22-§28-ci-environment.md](./experience-archive-§22-§28-ci-environment.md) | §二十二 - §二十八 | CI 环境与 monorepo 拆包（CI 链式 / 统一行尾 / 单次大 diff / 包清单 / git tag / monorepo CI / CI 修复洋葱）|
-| [experience-archive-§29-§35-integration.md](./experience-archive-§29-§35-integration.md) | §二十九 - §三十五 | 集成测试与外部库（e2e 基建 / TypeORM 复合索引 / BullMQ / HTML 标签 / destr / workspace 依赖）|
-| [experience-archive-§36-§40-toolchain.md](./experience-archive-§36-§40-toolchain.md) | §三十六 - §四十 | 工具链与编码陷阱（锚点漂移 / git tag committer / PowerShell 文本 / 入口守卫 / 批量替换）|
-| [experience-archive-§41-§48-archive-batch.md](./experience-archive-§41-§48-archive-batch.md) | §四十一 - §四十八 | 归档批次与设计取舍（cgroup 集成测试 / Coverage 阈值 / 集成外部库 / Code Scanning / 删过头 / PrimeVue v-model / over-engineering / 断链）|
-| [experience-archive-§49-§57-recent-investigation.md](./experience-archive-§49-§57-recent-investigation.md) | §四十九 - §六十三（本文件另含 §六十四 / §六十五 / §六十六 单独行） | 近期根因排查与治理 + M25/M26 阶段治理（atomic commit / SQLite 清空 / E2E / Playwright / fixture / M23.3 / M24.1 PR Check / M22.7+M22.8 根因 / PrimeUI License 降级 / 三执行器同步透传 / baseline lint 治理 / i18n-anchor-check 工具化 / 25 commits 文档治理批次 / M26 git config user 错位事故）|
-| [experience-archive-§49-§57-recent-investigation.md](./experience-archive-§49-§57-recent-investigation.md) | §六十四 | M27.1 C66 告警视图增强 重复评估教训（commit `0ddd4e2` 决策 D2 错误归类 → 5 处根因 → 5 项教训 → 治理检查点挂接 planning.md §3.4 / ai-collaboration.md §X / code-auditor 主责边界扩展 / wisdom governance check point）|
-| [experience-archive-§49-§57-recent-investigation.md](./experience-archive-§49-§57-recent-investigation.md) | §六十五 | M30 归档批次经验沉淀（tsdown `hash:false` dts 入口与共享 chunk 同名冲突 / pnpm 11 `allowBuilds` 占位串阻断安装 / ESM mock 受限失败分支 / 提交态自洽）|
-| [experience-archive-§49-§57-recent-investigation.md](./experience-archive-§49-§57-recent-investigation.md) | §六十六 | M36 归档批次经验沉淀（队列消费者维度 / 镜像自足性与 runtime 只含 `.output` / Nitro 启动引导 / TypeORM 基线迁移自举 / 并发终态写条件 UPDATE / 三态「全部失败」判据 / e2e locale 显式 cookie header / complement-stash / commit 归属回读 / 编号检测形态覆盖 / 文档状态三向扫描）|
+> 按主题分组列出全部条目 → 用于「遇错先查」；每条目的具体内容与落点见对应分片正文（正文含 `落点：` / `沉淀：` / `挂接治理检查点` 标记）。
 
-**外链引用规范**：所有跨文件 / 跨文档引用按 §编号 命中（如 `#四十三集成外部库必须读-readme-标准用法--e2e-真实路径冒烟测试2026-08-29m18.4-audit-round-1-reject-后补修`）。锚点 slug 规则见 [documentation.md §2 链接检查](../../standards/documentation.md)。
+**A. 规范执行与治理流程**：§五（Review Gate 独立验证）· §六（dry-run 纪律）· §七（交付检查所有暴露层）· §九（不可行证明优先）· §十一（里程碑收口同步用户可见文档）· §十六（规范存在 ≠ 被执行）· §十八（防护正则按全集核对）· §十九（新增维度字段检查全部消费点）· §二十四（单次大 diff 成本失控）· §二十五（包清单单点声明）· §三十五（workspace 依赖同步构建链）· §四十五（归档区分已归档内容与必要信息）· §四十八（预防性分片与 cross-reference）· §五十五（编号标记扫描 + stale 修正）· §六十二（文档治理批次）· §六十四（阶段启动重复评估）
 
-**新增章节流程**：判断归属分片 → 在对应分片末尾追加新章节（编号 = 主窗口最大 + 1）→ 在主窗口"分片索引"表更新章节范围。
+**B. 工具链与环境陷阱**：§十（Windows 行尾纪律）· §十七（批量替换误伤链）· §二十一（脚本化编辑必须回读验证）· §二十三（行尾检测 / 特殊字符脚本）· §三十八（PowerShell GBK 解码 + tsconfig exclude）· §四十（PowerShell 批量替换三连坑）
+
+**C. CI / 构建 / 发布**：§二十二（CI 链式暴露）· §二十六（git tag 创建与推送分离）· §二十七（monorepo CI 类型解析链）· §二十八（CI 修复是剥洋葱）· §三十二（「已发布」判定不得依赖 npm CLI）· §三十六（锚点漂移 + nuxt prepare）· §三十七（git tag committer identity）· §三十九（裸标签二次复现 + 脚本入口守卫）· §六十（baseline lint 治本路径）· §六十五（M30 批次沉淀）
+
+**D. 集成与基础设施**：§二十九（e2e 基建幂等）· §三十（TypeORM 1.x 列级复合索引 + better-auth 细节）· §三十一（BullMQ 集成三坑 + 进程内集成测试）· §三十三（裸 HTML 标签破坏 VitePress）· §三十四（NUXT_ 前缀 destr 布尔陷阱）· §四十一（cgroup 集成测试门控）· §四十二（Coverage 阈值对 refactor 顺序敏感）· §四十三（集成外部库读 README + 真实路径冒烟）· §四十四（execFileSync 替代 execSync）· §四十六（v-model 嵌套字段 + useAsyncData 浅监听）· §四十七（一次性脚本 over-engineering）· §五十三（SQLite WAL + busy_timeout）· §五十四（Playwright fixture pool 隐式行为）· §五十九（AI 研判三执行器同步透传）
+
+**E. 运行时 / 部署 / 并发与判定**：§五十（SQLite 数据清空事故与防护）· §五十一（ECONNRESET 网络抗性）· §五十二（test.use 存储状态传染）· §五十六（PR Check MVP 闭环）· §五十七（ECONNRESET 残留候选源码追溯）· §五十八（PrimeUI License 降级治理）· §六十一（i18n-anchor-check 工具化）· §六十三（git config user 错位防护）· §六十六（M36 批次沉淀）· §六十七（M37 批次沉淀）· §六十八（M39 批次沉淀）
+
+**F. 需求评估与判定逻辑**：§一（外部平台限制先探针验证）· §二（真实运行复盘驱动演进）· §三（精确修复而非扩大跳过）· §四（pnpm overrides 版本化 key）· §八（改名 / 迁移全局排查命名残留）· §十二（工程实现细节早期合集）· §十三（产物格式先问消费面）· §十四（跨线修复判定与不误标）· §十五（跨线升级假设证伪）· §二十（断言精确到链路身份）· §四十九（atomic commit 边界）
+
+## 4. M41.2 精简与收敛决策记录（2026-10-10）
+
+M41.2（规范与经验管理体系重构批 B）对经验体系执行三层收敛与精简，处置如下：
+
+- **过程叙事剥离**（非删除条目，删「案例 / 根因 / 修复路径 / 实施路径 / 验证矩阵 / A 阶段审计 / 准入标准复核 / 与既有教训的关联」等过程段）：`§41-§48` 与 `§49-§57` 两分片，保留「教训 + 落点」骨架。行数 §41-§48 376 → 152，§49-§57 1540 → 371。
+- **落点补齐**：`§1-§40` 原缺显式落点标记，统一补 `落点：` 行（指向 L1 脚本 / L2 检查点 / 规范条款）；`§41-§68` 原有 `挂接治理检查点` / `沉淀：` 保留，其中 `§49-§58` / `§61` 的落点由「挂接」段折为单行具体指针（指向瘦身后的规范小节）。全部 68 条均有具体落点，无占位符。
+- **未删除条目**：本轮**无整条删除**——逐条按「四者之一」复核后，全部 68 条均满足「需溯源 / 工具环境陷阱 / 未完全内化」之一（旧条目的可执行方法论虽多已迁入 `docs/standards/`，但其**溯源价值**（决策理由、证伪过程）与**环境陷阱**属性仍成立）。若后续判定某条已完全内化且无溯源价值，按「留 / 删准则」删除并在此登记。
+- **检索入口**：新增 §3 主题索引（六类分组，覆盖全部 68 条），供「遇错先查」按主题命中。
+- **收敛出口**：条目内的可执行方法论已在 `docs/standards/*` / `scripts/*` / `.github/skills|agents/*` 落位（见各条 `落点`）；复发模式按「准入标准 ③ + 收敛判据」收敛为 L1 / L2。
+
+## 5. 维护约定
+
+- 新增条目必须同时给出：**准入依据**（四者之一）+ **落点**（L1 / L2 / L3 指向）+ 章节编号（全局连续）。
+- 条目正文**只写结论与落点**；过程叙事（案例时间线 / 审计轮次明细 / commit 序列）不写入本体系，需要时用 `git log` / 归档分片回溯。
+- 分片单文件行数上限 400（超限按范围切分，编号不变）。

@@ -59,6 +59,11 @@
 
 ### 候选评估中（待评估 / 本阶段延后项）
 
+- **`architecture.md` 存在畸形 markdown 链接（未成对 `](`）（待评估）** —— 现象：`docs/design/governance/architecture.md` 的「监测系统 vs 自动合并解耦」表行末残留一处未成对的链接片段（`…experience-archive-§49-§57-recent-investigation.md#五十六) + …`），`check:docs` 因无法识别 `](` 而成对性静默跳过（不报错）。
+  - **待评估点**：① 是否为重复拼接残留；② 自建链接校验器是否需补「未成对 `](` / `)` 计数」检测（当前只匹配合规 `](`）。
+  - **触发条件**：下次改动该文件时；或加固 check-docs 链接校验口径时。
+  - **按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
+
 - **运行失败「受约束重试入口」（延后，保留待评估）** —— 「分类 + 筛选 + 展示」（`failure_code` / `failure_stage` / `failure_kind` 三列 + 三维筛选 + 阶段展示）已落地；设计稿 §5.5 的「仅 `transient` 可一键重试」入口（含非终态守卫 / 同仓库去重 / `retriedFromRunId` 审计来源）按用户 2026-10-06 决策延后。**现状锚点**：[run-failure-taxonomy.md §5.5](../design/governance/run-failure-taxonomy.md)。触发条件：① 分类 + 筛选上线后确认重试诉求；② 用户明确要求受约束重试。
 
 - **扫描偏好服务端跨设备默认（延后，保留待评估）** —— 设备级方案 C 混合（localStorage：上次选择 + 可选配置化默认 + 重置）已落地；服务端用户 / 组织级默认偏好（跨设备、可管理，需实体 / API / 设置页，预计触发 governance 文档）按用户 2026-10-06 决策延后。**现状锚点**：`apps/platform/app/composables/use-scan-preferences.ts`。触发条件：① 用户实测多设备切换痛点；② 组织级统一默认诉求。

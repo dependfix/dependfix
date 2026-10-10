@@ -1,8 +1,6 @@
-# 经验归档分片（§29 - §35）：集成测试与外部库（§二十九 - §三十五）
+# 经验归档分片（§二十九 - §三十五）：集成测试与外部库
 
-> 本分片从 [experience-archive.md](./experience-archive.md) §准入标准 分流而出（7 章，~82 行）。章节编号全局唯一，跨文件保持稳定；外链引用按 §编号 命中，与主窗口一致。
-
----
+> 本分片从 [experience-archive.md](./experience-archive.md) 分流而出（章节编号全局唯一、跨文件稳定，外链按 `§编号` 命中）。**正文只写结论与落点**；过程叙事不写入本体系。
 
 ## 三十二、"已发布"判定不能依赖 npm CLI：Windows 下 execSync 超时必失效（2026-08-10）
 - **案例**：发布管线自研化时实测 `isPublishedOnRegistry`（`execSync('npm view <pkg>@<version> version --json', { timeout: 10_000 })`）在 Windows 本地**每次都在 10s 整超时**（ETIMEDOUT，err.stderr 为空、status null），导致判定恒返回 null（保守跳过）——tag:released / release:publish 的"已发布判定"在本地完全失效。而同进程 Node fetch 直连 registry.npmjs.org 实测 1-2s 完成（E404 正确识别）。
@@ -12,7 +10,7 @@
   - **registry 状态查询优先直连 API，不绕 npm CLI**：fetch 直连 registry.npmjs.org 无 CLI 启动开销、超时可控（AbortSignal）、无跨平台 shell 差异——发布/版本判定的标准实现。
   - **超时类缺陷要用"恰好在超时点失败"的模式识别**：10s 超时、每次都 10.0-10.2s 失败 = 稳定超时而非网络抖动；再对比同进程内其他网络操作耗时，即可定位"CLI 开销"还是"网络慢"。
   - **保守方向语义要保留**：查询失败返回 null（调用方跳过）比误判安全——漏发可重试，误发不可逆；重试逻辑只覆盖网络瞬态，不覆盖确定状态（404）。
-
+- **落点**：guide/release.md（「已发布」判定不得依赖 npm CLI 输出）
 
 ## 二十九、e2e 测试基建：Playwright 落地模式与幂等设计（2026-08-10）
 > 平台阶段启用 e2e（参考 momei 项目模式），22 用例覆盖全部页面关键功能点。
@@ -25,7 +23,7 @@
   - **CI 单 worker 串行**：共享 SQLite 库下并行写会互相干扰；CI `workers: 1` + retry 2 + blob 报告；本地可并行。
   - **vitest 与 playwright 目录隔离**：e2e 文件命名 `*.e2e.test.ts` 会被 vitest 默认扫描（Playwright Test did not expect...），vitest.config `exclude: ['**/tests/e2e/**']` 必须显式排除。
   - **e2e 驱动发现生产缺陷**：二次运行暴露 TypeORM 复合索引 bug（§三十），说明 e2e"重复运行"本身是回归验证手段。
-
+- **落点**：testing.md §6.1（E2E 实践模式）
 
 ## 三十、TypeORM 1.x 列级复合索引 bug + better-auth 限流/生产细节（2026-08-10）
 - **案例**：e2e 二次运行"添加仓库"用例 500（UNIQUE constraint failed: dependfix_repository.platform）——实体声明 `@Index(['owner','name','platform'], { unique: true })` 在列级，实测 SQLite DDL 生成 `UNIQUE ("platform")`（仅末列！），第二个仓库（platform='github'）插入必 500；单仓库场景永不暴露。修复：复合索引移到类级 `@Entity` 上 + organization.test.ts 回归用例（3 仓库共存 + 同 owner/name 冲突），DDL 实证 `UNIQUE ("owner","name","platform")`。
@@ -34,7 +32,7 @@
   - **better-auth 1.6.26 内置限流特殊规则优先于 customRules**：sign-in/sign-up 默认 10s/3 次，`/sign-in/*` customRules 不生效；无代理 IP 头时回退共享桶（并行测试必 429）。豁免：`advanced.ipAddress.disableIpTracking: true` 完全跳过限流（e2e 用 E2E_TEST=true 条件注入）。
   - **better-auth 生产模式细节**：Set-Cookie 带 `__Secure-` 前缀（Secure cookie）；无 Origin 头的 Node fetch 请求被拒（MISSING_OR_NULL_ORIGIN）——手动 API 复现需带 origin 头 + 完整 cookie 名。
   - **手动复现纪律**：复现 500 前先清理测试库残留（同库重复创建必 500 干扰归因），server 日志（stderr）是定位第一手证据。
-
+- **落点**：platform.md §3.4（实体规范）+ 本分片正文（TypeORM 列级复合索引）
 
 ## 三十一、BullMQ 任务队列集成三坑 + 进程内集成测试方法论（2026-08-10）
 > T702 任务队列（BullMQ 6 + ioredis 6 + Redis 7.4.1）真实环境验收暴露的三连坑，以及"后台服务冒烟不可靠 → 进程内集成测试"的方案演进。
@@ -51,7 +49,7 @@
   - **pnpm 11 allowBuilds 审批**：新增依赖带构建脚本（msgpackr-extract）时，pnpm-workspace.yaml `allowBuilds` 未审批 → `pnpm install` 报 ERR_PNPM_IGNORED_BUILDS（且 verifyDepsBeforeRun 自动 install 失败会阻断后续命令）——占位值（`set this to true or false`）必须显式赋值。
   - **ESLint 9 flat config 不读 .gitignore**：Playwright 生成物（playwright-report/ / test-results/ / blob-report/）被全量 lint 报海量错误（生成 JS 被当源码）——必须显式 ignores。e2e 运行后立即检查 lint 回归。
   - **Nuxt runtimeConfig 运行时覆盖只认 NUXT_ 前缀**（再印证 §三十 better-auth 案例）：构建期烘焙默认值，启动时无前缀 env（REDIS_URL 等）不生效——部署/验证环境一律 NUXT_ 前缀。
-
+- **落点**：platform.md §10.4-§10.6 + testing.md §6.2（进程内集成测试）
 
 ## 三十三、markdown 裸 HTML 标签破坏 VitePress 构建：lint 绿 ≠ docs build 绿（2026-08-10）
 > 本条目与 §二十二 / §二十八 的第三次实证：**"检查全绿"只对"已跑过的检查"成立，未覆盖的环节（docs build）照样挂。**
@@ -63,7 +61,7 @@
   - **表格/正文中的 `<占位符>` 必须反引号包裹**：markdown 中反引号内内容才会被转义为 `&lt;...&gt;`；裸 `<tag>` 会被当 raw HTML 透传进 Vue 模板。代码块（fenced code block）内不受影响（审计核实 133-137 行 `<core-anchor>` 等在 ```bash 块内安全），但若未来移出代码块（如改表格）必须补反引号。
   - **CI 全绿 ≠ 交付就绪**：检查矩阵之外仍有真实失败面（docs build 与 Pages 部署）。docs 变更的本地验证必须包含 `docs:build`，不能只跑 `lint:md` + `check:links`；CI 侧把高频失败面前置（docs build 提前），让失败在 1 分钟内暴露而不是等 test/typecheck 跑完。
   - **裸标签排查方法**：`rg '<[a-z][a-z0-9-]*>' | rg -v '`'` 扫描正文/表格裸标签 + 用 vitepress `createMarkdownRenderer` 渲染断言转义结果，是 docs 变更的可复用验证手段。
-
+- **落点**：documentation.md §2（裸 HTML 标签禁令）
 
 ## 三十四、NUXT_ 前缀 env 的 destr 布尔陷阱 + 轮询聚合写回必须保护既有终态（2026-08-11）
 > 批量扫描 e2e 闭环暴露的两个生产级坑，均被"真实执行"而非单测拦截。与 §三十一（NUXT_ 前缀）互为补充：前缀解决了"读不读得到"，本条解决"读到的值形态"。
@@ -74,7 +72,7 @@
   - **runtimeConfig 运行时覆盖值形态不可假设**：NUXT_ 前缀 env 经 destr 解析——`true/false` 变布尔、`123` 变 number、JSON 变对象。消费方（parse/校验）必须声明联合类型并逐形态处理，且**布尔形态必须有单测**（字符串测试全绿 ≠ 运行时形态正确）。
   - **轮询/后台收敛逻辑写回状态时必须尊重显式终态**：凡"推导值"（聚合、心跳、探活）写回"权威值"（executor/worker 显式落库），必须定义写回判定函数（何时允许覆盖），否则推导模型覆盖不了的状态（failed 兜底、人工置终态）会被推导值"修复"成错误终态。判定函数进领域模块 + 单测，比散落在 API 层更易审计。
   - **e2e"真实执行"是运行时形态类 bug 的最后防线**：单测 mock 的是字符串形态（构建期烘焙），运行时 destr 转换只在实际 server 进程 + 真实 env 注入下出现——e2e 必须跑真实 env 注入（NUXT_ 前缀）而不是只靠构建烘焙默认值。
-
+- **落点**：platform.md §10.4（NUXT_ 前缀 env 口径）/ §6.2（轮询聚合写回保护既有终态）
 
 ## 三十五、新增 workspace 运行时依赖包必须同步所有构建链入口（2026-08-11）
 > 教训形态：**"漏同步"**——新增包 + 既有入口清单未更新，CI/生产首跑才暴露。与 §二十六（依赖版本更新触发端到端验证）同族。
@@ -85,3 +83,4 @@
   - **新增 workspace 运行时依赖（被 import 的包）后，必须全局搜索并同步所有"显式构建链"入口**：`rg -n "filter.*build|--filter" .github action.yml Dockerfile* package.json`——pnpm install 会按拓扑链接，但 `pnpm --filter X build` 不会自动带依赖构建（test.yml 注释已明示这一点，action.yml 是同类清单里的漏网者）。
   - **tsdown external 依赖的构建缺口要到"运行期加载"才暴露**：lint/typecheck/build 全绿不代表可运行——复合 action 的 smoke check（构建后立即执行 bin --help）是拦截此类问题的关键关卡，应保留。
   - **"新增包"的提交必须连带检查清单**：CI 构建链（test.yml）、部署构建链（Dockerfile）、action 构建链（action.yml）、release 构建链——四者各自维护 filter 清单时容易不同步；至少让新增运行时依赖包出现时逐个核对。
+- **落点**：development.md §7 + AGENTS.md（pnpm workspace 依赖同步）

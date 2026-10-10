@@ -59,6 +59,8 @@
 
 ### 候选评估中（待评估 / 本阶段延后项）
 
+> **2026-10-10 M40 启动批次上收（6 项，本小节相应清出）**：M40（运行时可靠性与可观测性深化）经用户决策（方案 A）从本区块上收 6 项候选——① 部署产物版本戳 / 陈旧校验 → M40.1；② 失败 run 落 summary 快照 → M40.2；③ 执行超时可配置化 → M40.3；④ 队列 worker 进程崩溃自动重启 → M40.4；⑤ sandbox 降级回退路径不落执行日志 → M40.5；⑥ 代码门禁脚本未排除 Playwright 生成产物 → M40.6。按维护规则 5「短期候选正式上收阶段后从 backlog 移除」清出。来源跨越 2026-10-09 运行失败根因评估批次未上收 3 项（版本戳 / summary 快照 / 超时）+ M38.1 衍生 1 项（worker 崩溃重启）+ M39.6 复审衍生 1 项（sandbox 降级日志）+ M39.2 衍生 1 项（门禁脚本产物排除），按 [规划规范 §3.4](../standards/planning.md#34-阶段启动决策前置交叉核验硬要求m271-重复评估教训--2026-09-10) 三重交叉核验 0 项重复评估（逐项证据见 [todo.md §M40](todo.md#m40-运行时可靠性与可观测性深化2026-10-10-用户决策方案-a--m401m406) 阶段定位段）。
+>
 > **2026-10-08 M38 启动批次上收（已随 2026-10-09 M38 归档）**：M38（平台执行模型隔离）从本区块上收 4 项候选——① `scan.post` failover 未透传 reuse → M38.3；② e2e 全页卡片计数断言解耦 → M38.4；③ `scan-queue.ts` 注释 jobId 口径 → M38.5；④ schedule 表单复用 `scan-options` 口径 → M38.6（按维护规则 5「短期候选正式上收阶段后从 backlog 移除」清出）。`distill-wisdom` 计数假阴性与 `tech-stack` 依赖表行级不一致按条目容量控制（5-6 项）保留待评估。按 [规划规范 §3.4](../standards/planning.md#34-阶段启动决策前置交叉核验硬要求m271-重复评估教训--2026-09-10) 三重交叉核验 0 项重复评估（见 [todo-archive.md §M38](todo-archive.md#m38-平台执行模型隔离m381m386-全部已闭环--2026-10-09-归档)）。
 >
 > **2026-10-06 M37 启动批次上收（方案 B，已随 2026-10-08 M37 归档）**：本区块原有 6 项候选全部上收至 M37（M37.1 运行失败分类与筛选 / M37.2 扫描偏好记忆 / M37.3 写回与信号残余 / M37.4 版本口径），另 M36.1 检测脚本未接入 CI 门禁随批上收为 M37.5；三重交叉核验 0 项重复评估。详见 [todo-archive.md §M37](todo-archive.md#m37-运行可观测性与体验记忆m371m376-全部已闭环--2026-10-08-归档)。
@@ -89,11 +91,6 @@
   - **触发条件**：周期插件重复造成可观测噪声或资源浪费时；或用户要求。
   - **按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
 
-- **队列 worker 进程崩溃自动重启（待评估）** —— M38.1 独立 worker 进程形态的已知边界：worker 为容器内后台进程（entrypoint `&`），崩溃后无自动重启，队列任务由 `stale-cleanup` 兜底（窗口约 30 分钟）。
-  - **待评估点**：entrypoint 侧看护循环（等待后拉起）；或改用进程管理器（s6-overlay / supervisord）；或拆为多容器 + `restart: unless-stopped`（需 DB 支持多写者）。
-  - **触发条件**：出现 worker 崩溃导致任务挂起实例；或用户要求。
-  - **按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
-
 - **reuse 路径与同仓库去重合并叠加时误置既有 run 为 failed（待评估）** —— M38.3 A 阶段审计的**范围外观察**（**非本批引入**）：`scan.post.ts` 的 reuse 路径若 `queue.add` 返回 `reused: true`（同仓库已有进行中任务 → 去重合并），会把被复用的 `pendingRun`（即用户指定的既有终态 run）置 `status='failed'` 并落库；而 reuse 校验只拒绝「被复用 run 自身 running」，不检查仓库是否存在其他进行中任务，故该组合可复现（用户指定的历史 run 被意外标记失败）。
   - **待评估点**：① `reused: true` 且走 reuse 路径时是否改为「不改既有 run 状态，仅提示已合并」；② 或在 reuse 校验阶段前置拒绝「同仓库存在进行中任务」（409）。
   - **触发条件**：生产出现「复用 + 去重合并」误标 failed 实例；或用户要求。
@@ -108,29 +105,7 @@
   - **触发条件**：UI 一致性巡查；或用户反馈级别展示不统一。
   - **按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
 
-> **2026-10-09 运行失败根因评估批次（共登记 9 项候选 → 上收 6 项 M39）**：来源为 2026-10-08 定时扫描批量失败的用户报告与逐项排查。该批次共登记 9 项候选——6 项源自用户报告的 8 项平台问题（扫描页筛选分页 / 日志下载 / 弹窗体验 / 告警按包聚合 / PR Check 启用链路 / 环境事件覆盖），3 项由引擎归因口径缺陷排查衍生（部署版本戳陈旧校验 / 失败 run 落 summary 快照 / 执行超时可配置化）；「既有基线失败被误判为运行失败（exit code 归因口径）」的引擎缺陷已按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 可用性插队例外先行修复（`e5c59b8`，口径见 [dependency-fixer.md §12.6](../design/modules/dependency-fixer.md)）。2026-10-09 用户决策（方案 A）上收上述 6 项至 M39（扫描页筛选分页 → M39.1 / 扫描历史弹窗 → M39.2 / 告警按包聚合 → M39.3 / 运行日志下载 → M39.4 / PR Check 启用链路 → M39.5 / 环境事件覆盖 → M39.6），按维护规则 5 从本文件清出（三重交叉核验 0 项重复评估，见 [todo-archive.md §M39](todo-archive.md#m39-平台视图体验与可观测补强m391m396-全部已闭环--2026-10-10-归档)）；未上收 3 项保留待评估。该批次 6 项已随 2026-10-10 M39 归档批次闭环归档。
-
-- **部署产物版本戳 / 陈旧校验（待评估）** —— 背景：2026-10-08 一批 `COMMIT_FAILED` 的失败命令缺少 M37.6 引入的 `--no-verify`（`packages/engine/src/github/pr-creator.ts:221-235`），证明运行时产物早于该修复（陈旧镜像）。当前无任何手段在运行时确认「部署产物对应哪个 commit」：无健康端点、无版本戳、构建流水线未注入 build arg。
-  - **待评估点**：① 构建期注入 commit / 版本（Docker `ARG` + 运行时 ENV / 端点返回）；② `/api/health` 或启动日志暴露；③ 是否作为发布流水线门禁（镜像内 engine 产物核对关键隔离参数）。
-  - **触发条件**：再次出现「已修复但线上仍复现」的陈旧产物误判。
-  - **按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
-
-- **失败 run 落 summary 快照（列表告警数误导）（待评估）** —— 现状：`scan-orchestrator.service.ts` 仅在 `completed` / `degraded` 分支写 `summaryJson`；`failed` run 不落 summary，导致「全部运行」列表的「告警数 / 已修复」恒显示 0，掩盖失败前实际扫到的告警（本次排查中即被该现象干扰）。
-  - **待评估点**：① failed run 是否落一份 summary 快照（引擎已产出 `result.summary`）用于展示；② 与「失败不写半截结果」原则的边界（summary 快照 vs 结果明细）。
-  - **现状锚点**：`apps/platform/server/services/scan-orchestrator.service.ts:378-422`。
-  - **触发条件**：用户要求失败 run 展示扫描到的告警数。
-  - **按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
-
-- **执行超时可配置化（待评估）** —— 现状：单仓库执行超时写死 30 分钟（`container-executor.ts:40` `DEFAULT_EXECUTION_TIMEOUT_MS`），无 env 可调（仅 `CLONE_TIMEOUT_MS` 可调）；队列 Worker 锁时长与之对齐（`SCAN_WORKER_LOCK_OPTIONS`）。2026-10-08 有 caomei-ui 因超 30 分钟判 `execution_timeout`。另：`withTimeout` 超时后底层 `app.run()` 含同步 `execFileSync`，不可取消，workDir 在 finally 被清理，存在僵尸执行窗口。
-  - **待评估点**：① 是否引入 `EXECUTION_TIMEOUT_MS`（env + 锁时长联动）或仓库级覆盖；② 超时后的执行 / 清理语义；③ 是否优先依赖 M38 worker 进程隔离消除锁续期根因后再评估。
-  - **现状锚点**：`apps/platform/server/services/executor/container-executor.ts:40,291,527-537`、`apps/platform/server/services/queue/scan-worker.ts:59-71`。
-  - **触发条件**：重负载仓库超时成为常态；或用户要求放宽上限。
-  - **按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
-
-- **代码门禁脚本未排除 Playwright 生成产物（待评估）** —— 现象（2026-10-09 本地验证实测）：`scripts/check-orphan-ids.mjs` 的 `EXCLUDED_DIRS` 未包含 `playwright-report` / `test-results`，本地跑过 e2e 后 HTML 报告内的 minified 依赖 bundle（`playwright-report/trace/assets/codeMirrorModule-*.js`）被纳入扫描并误报规划编号形态；`scripts/check-docs.mjs` 同理把 `test-results/**/error-context.md`（Playwright 失败产物）计入 md 扫描面（本地实测 148 → 152）。CI 因门禁步骤先于 e2e 产物生成而不受影响，但本地验证会被产物污染（须先清理产物才能取得干净门禁）。
-  - **待评估点**：① 两个脚本的产物排除面是否统一补 `playwright-report` / `test-results`（与既有 `.output` / `coverage` / `dist` 同类）；② 是否改为统一「尊重 `.gitignore`」的排除策略以避免逐个补目录。
-  - **触发条件**：本地跑过 e2e 后执行门禁脚本出现产物误报；或用户要求加固脚本。
-  - **按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
+> **2026-10-09 运行失败根因评估批次（共登记 9 项候选 → 上收 6 项 M39）**：来源为 2026-10-08 定时扫描批量失败的用户报告与逐项排查。该批次共登记 9 项候选——6 项源自用户报告的 8 项平台问题（扫描页筛选分页 / 日志下载 / 弹窗体验 / 告警按包聚合 / PR Check 启用链路 / 环境事件覆盖），3 项由引擎归因口径缺陷排查衍生（部署版本戳陈旧校验 / 失败 run 落 summary 快照 / 执行超时可配置化）；「既有基线失败被误判为运行失败（exit code 归因口径）」的引擎缺陷已按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 可用性插队例外先行修复（`e5c59b8`，口径见 [dependency-fixer.md §12.6](../design/modules/dependency-fixer.md)）。2026-10-09 用户决策（方案 A）上收上述 6 项至 M39（扫描页筛选分页 → M39.1 / 扫描历史弹窗 → M39.2 / 告警按包聚合 → M39.3 / 运行日志下载 → M39.4 / PR Check 启用链路 → M39.5 / 环境事件覆盖 → M39.6），按维护规则 5 从本文件清出（三重交叉核验 0 项重复评估，见 [todo-archive.md §M39](todo-archive.md#m39-平台视图体验与可观测补强m391m396-全部已闭环--2026-10-10-归档)）；未上收 3 项保留待评估（**后于 2026-10-10 M40 启动批次上收**，见本小节顶部 M40 批次说明）。该批次 6 项已随 2026-10-10 M39 归档批次闭环归档。
 
 - **`repo-history-dialog` history 模式与 legacy `/repos/[id]/runs` 页疑似无入口死代码（待评估）** —— 现象：全仓仅 `scans.vue` 以 `:query-key="'run'"` 挂载 `repo-history-dialog`；`repos.vue` 的历史入口已改为跳 `/scans?repository=`，故组件的 history 模式（list 视图 / 「返回列表」分支 / `queryKey='history'` 默认值）当前**不可达**；legacy 页 `app/pages/repos/[id]/runs.vue` 亦无站内链接（其注释引用的 backlog 删除候选已不存在）。二者由本次弹窗体验改动的「history 模式不受影响」验收口径间接暴露。
   - **待评估点**：① 删除 history 模式分支 + 收敛组件为单一 run 模式（减法）；② 或恢复 history 挂载点（若确有按仓库浏览历史的需求，可复用扫描页 `/scans?repository=` 路径）；③ legacy `/repos/[id]/runs` 页是否随 history 模式一并删除。
@@ -147,13 +122,7 @@
   - **触发条件**：两页继续增长致 warning 逼近上限；或用户要求清理。
   - **按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
 
-- **sandbox 降级回退路径不落执行日志（待评估）** —— M39.6 A 阶段复审 RG-S4 观察（**非本批引入**，HEAD 同源）：`scan-orchestrator.service.ts` 的 sandbox A 场景（sandbox 不可用 → 降级 container）回退路径未把 `ContainerExecutor` 返回的 `logsJson` 落 `ScanRun.logsJson`，故 degraded 状态 run 在「运行日志」弹窗 / 下载中无日志可看；container 主路由已捕获日志，仅回退路径存在缺口。
-  - **待评估点**：① 回退路径补 `logsJson` 落库（与主路由一致）；② 或明确 degraded 回退 run 不提供日志的边界并在 UI 说明。
-  - **现状锚点**：`apps/platform/server/services/scan-orchestrator.service.ts`（M39.6 抽出的 `runContainerExecutor` 已返回 `logsJson`，sandbox 回退调用点未消费）。
-  - **触发条件**：用户反馈 sandbox 降级 run 无日志；或再次改动 `scan-orchestrator` 执行路由。
-  - **按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
-
-> 本区块保留 M37 执行期延后项（受约束重试入口 / 服务端跨设备偏好）+ 审计与复核衍生的待评估候选（push 侧 hooks 隔离 / tech-stack 依赖表行级不一致 / `distill-wisdom` 计数假阴性 / 门禁脚本产物排除缺口 / 弹窗 history 模式与 legacy 页死代码 / `platform-scheduled-batch.md` 设计快照端点表陈旧 / 页面体量超 `max-lines` / sandbox 降级回退路径未落执行日志）+ M38.1 独立 worker 形态衍生候选（按 role 跳过周期插件 / worker 崩溃自动重启）+ M38.3 审计范围外观察（reuse 路径与去重合并叠加误置 failed）+ M38.6 同源点穷举候选（严重级别展示策略统一）+ 2026-10-09 运行失败根因评估批次未上收 3 项（部署版本戳陈旧校验 / 失败 run 落 summary 快照 / 执行超时可配置化）；该批次其余 6 项已于 2026-10-09 上收 M39（扫描页筛选分页 / 日志下载 / 弹窗体验 / 告警按包聚合 / PR Check 启用链路 / 环境事件覆盖，见上方批次说明）；2026-10-08 M38 启动批次已上收 4 项（`scan.post` failover / e2e 卡片计数 / `scan-queue.ts` 注释 / schedule 选项口径），M37 启动前原有 6 项已随 M37 闭环归档（见上方批次说明）。
+> 本区块保留 M37 执行期延后项（受约束重试入口 / 服务端跨设备偏好）+ 审计与复核衍生的待评估候选（push 侧 hooks 隔离 / tech-stack 依赖表行级不一致 / `distill-wisdom` 计数假阴性 / 弹窗 history 模式与 legacy 页死代码 / `platform-scheduled-batch.md` 设计快照端点表陈旧 / 页面体量超 `max-lines`）+ M38.1 独立 worker 形态衍生候选（按 role 跳过周期插件）+ M38.3 审计范围外观察（reuse 路径与去重合并叠加误置 failed）+ M38.6 同源点穷举候选（严重级别展示策略统一）。**2026-10-10 M40 启动批次已上收 6 项**（部署版本戳陈旧校验 / 失败 run 落 summary 快照 / 执行超时可配置化 / worker 崩溃自动重启 / sandbox 降级回退路径落执行日志 / 门禁脚本产物排除，见上方 M40 批次说明）；2026-10-09 运行失败根因评估批次其余 6 项已于 2026-10-09 上收 M39（扫描页筛选分页 / 日志下载 / 弹窗体验 / 告警按包聚合 / PR Check 启用链路 / 环境事件覆盖，见上方批次说明）；2026-10-08 M38 启动批次已上收 4 项（`scan.post` failover / e2e 卡片计数 / `scan-queue.ts` 注释 / schedule 选项口径），M37 启动前原有 6 项已随 M37 闭环归档（见上方批次说明）。
 
 ### 待上收候选（评估完成，等待用户决策）
 
@@ -297,7 +266,7 @@
 
 | 内容类型 | 位置 |
 |:--|:--|
-| 当前阶段活跃任务 | **无活跃阶段**——M39（平台视图体验与可观测补强）6 原子条目已闭环归档（2026-10-10），见 [todo-archive.md §M39](todo-archive.md#m39-平台视图体验与可观测补强m391m396-全部已闭环--2026-10-10-归档)；上一阶段 M38 见 [todo-archive.md §M38](todo-archive.md#m38-平台执行模型隔离m381m386-全部已闭环--2026-10-09-归档) |
+| 当前阶段活跃任务 | **M40 进行中**——运行时可靠性与可观测性深化（2026-10-10 用户决策方案 A / 6 原子条目），见 [todo.md §M40](todo.md#m40-运行时可靠性与可观测性深化2026-10-10-用户决策方案-a--m401m406)；上一阶段 M39 见 [todo-archive.md §M39](todo-archive.md#m39-平台视图体验与可观测补强m391m396-全部已闭环--2026-10-10-归档) |
 | 下一阶段（未授权） | 无——按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 评估本文档候选池后由用户决策 |
 | 已完成阶段归档 | [todo-archive.md](todo-archive.md)（主窗口保留最近阶段完整段 + 指针段；M0-M39 已归档；早期阶段见 [archive/](archive/)） |
 | 里程碑与阶段交付 | [roadmap.md](roadmap.md)（M0-M39 已归档） |

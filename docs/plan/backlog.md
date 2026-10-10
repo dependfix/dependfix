@@ -220,6 +220,14 @@
   - **触发条件**：用户授权启动（评估已完成）；复现场景 = registry 非官方源的机器（镜像站 / 企业私服 / GHES npm registry）上跑 `fix-and-pr` / `fix --commit`（门禁回滚仅这两条路径触发，纯 `fix` 不回滚）或平台扫描。
   - **按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 不带 `M\d+` 阶段编号**：等待用户明确决策启动。
 
+- **PR 构建 / 部署错误多源采集（扩展现有 PR Check）**（P2，🚀 能力）—— 现象：现有 `ActionStatusMonitor` 仅抓单个 `Test` check，目标仓库修复 PR 的**完整构建 / 部署信号**（GitHub Actions 其它 workflow、Cloudflare Workers Builds、Vercel 预览部署等）不可见；「代码已修但预览部署失败」无法第一时间发现。
+  - **评估结论（2026-10-10，设计先行稿已完成）**：方案 = 把 PR Check 扩展为「PR 构建 / 部署信号聚合层」——① 采集面 = GitHub 三源（Checks + Commit Statuses + Deployments），provider 无关、零新增凭据（`repo` scope PAT 即可读到 Cloudflare / Vercel 的落点）；② provider 原生 API（Vercel / Cloudflare）作为可选「日志富化」层；③ 检测先轮询（复用 `PRCheckSyncSource`）、预留 webhook。详见 [设计先行稿](../design/governance/pr-build-deploy-signals.md)。
+  - **决策点（设计先行稿 §5 待裁定）**：D1 数据模型（扩展 `PRCheck` / 规范化新表）；D2 provider 日志富化是否首批；D3「阻断关注集」配置形态；D4 provider 凭据承载。
+  - **现状锚点**：`apps/platform/server/services/monitor/action-status-monitor.ts`、`polling-source.ts`、`types.ts`；`apps/platform/server/entities/pr-check.ts`。
+  - **成本 / 价值**：成本中（采集 + 聚合 + UI 多源展示 + 迁移，预计 3 原子）；价值中高（补齐 PR Check 的部署盲区，第一时间发现部署错误）。
+  - **触发条件**：用户要求启动；或线上出现「修复 PR 部署 / 预览失败未被发现」实例。
+  - **按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 不带 `M\d+` 阶段编号**：等待用户明确决策启动。
+
 ### 延期 / 暂缓项
 
 - **T705 生产级部署**（PostgreSQL + Helm + Sentry）—— 2026-08-12 用户指示暂缓排期

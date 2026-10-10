@@ -31,6 +31,7 @@
 | [运行失败分类与筛选设计](./run-failure-taxonomy.md) | 专项设计（运行失败阶段分类 + 可重试判定 + 筛选 / 重试入口） | ✅ 已落地（2026-10-07：分类 + 落库回填 + 筛选 + 展示；重试入口延后） |
 | [扫描偏好（设备级）设计](./scan-preferences.md) | 专项设计（设备级 localStorage 偏好：优先级 / 写入时机 / SSR 与可测性） | ✅ 已落地（2026-10-07，M37.2） |
 | [平台执行模型隔离设计](./executor-process-isolation.md) | 专项设计（M38 设计先行：BullMQ 锁续期失败根因 + 三方案选型） | ✅ 已落地（2026-10-09 M38 闭环归档，选型 ①′ 独立 worker 进程） |
+| [PR 构建与部署信号采集设计](./pr-build-deploy-signals.md) | 专项设计（PR 构建 / 部署多源聚合：GitHub Checks + Commit Statuses + Deployments，可选 provider 日志富化） | 🔶 设计先行稿（backlog 候选，2026-10-10） |
 
 ## 使用约定
 

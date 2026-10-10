@@ -31,6 +31,7 @@
 | [Run Failure Taxonomy Design](https://github.com/dependfix/dependfix/blob/master/docs/design/governance/run-failure-taxonomy.md) | Special design (run failure stage classification + retry decision + filter / retry entry) | ✅ Landed (2026-10-07: classification + backfill + filter + display; constrained retry entry deferred) |
 | [Scan Preferences (device-level) Design](https://github.com/dependfix/dependfix/blob/master/docs/design/governance/scan-preferences.md) | Special design (device-level localStorage preferences: priority / write timing / SSR & testability) | ✅ Landed (2026-10-07, M37.2) |
 | [Platform Execution Model Isolation Design](https://github.com/dependfix/dependfix/blob/master/docs/design/governance/executor-process-isolation.md) | Special design (M38 design first: BullMQ lock renewal failure root cause + three-option selection) | ✅ Landed (2026-10-09, M38 archived; option ①′ standalone worker process) |
+| [PR Build & Deploy Signals Design](https://github.com/dependfix/dependfix/blob/master/docs/design/governance/pr-build-deploy-signals.md) | Special design (PR build / deploy multi-source aggregation: GitHub Checks + Commit Statuses + Deployments, optional provider log enrichment) | 🔶 Design draft (backlog candidate, 2026-10-10) |
 
 ## Usage conventions
 

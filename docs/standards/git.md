@@ -102,13 +102,12 @@
 - 当 commit 误把跨子批次改动纳入（如 commit 1 含 commit 2 应有的 i18n key）时，可 `git reset --soft HEAD~1` 回滚到 commit 前状态、重新分两次提交——比 `git commit --amend` 更彻底地保持原子粒度。
 - **仅在 commit 未推送（ahead of remote）时适用**；已推送的 commit 必须靠后续 commit 修复或 revert，不能 reset（会与其他开发者历史冲突）。
 - stage 前先 `git diff --staged` 确认本次 commit 内容边界——避免误把跨子批次改动纳入同一 commit。
-- 与 [§3.2 单文件跨 type 改动需提前规划 commit 拆分](#32-单文件跨-type-改动需提前规划-commit-拆分) 配套——§3.2 处理 staged diff 误纳（`git restore --staged`），§3.4 处理已 commit 但未推送的误纳（`git reset --soft`）。
-- 详见 [经验归档 §二十四](../design/governance/experience-archive.md)
+- 与 [§3.2 单文件跨 type 改动需提前规划 commit 拆分](#32-单文件跨-type-改动需提前规划-commit-拆分) 配套——§3.2 处理 staged diff 误纳（`git restore --staged`），§3.4 处理已 commit 但未推送的误纳（`git reset --soft`）；详见 [归档 §二十四](../design/governance/experience-archive.md)。
 
 ### 3.5 lint auto-fix 接受策略（不要回滚，独立 chore commit 接受）
 
 - ESLint `--fix` 自动修改（如 `@typescript-eslint/array-type` 规则偏好 `T[]` 写法替换 `Array<T>`、`@typescript-eslint/consistent-type-imports` 加 `type` 关键字等）是合规修改——两种写法 TypeScript 等价，规则要求即合规。**应该接受 + 独立 `chore` commit**——不要回滚。
-- 详见 [经验归档 §四十二](../design/governance/experience-archive.md)
+- 详见 [归档 §四十二](../design/governance/experience-archive.md)
 - 修正：lint auto-fix 是合规修改，**不要回滚**。如不希望与 docs 提交混杂，应在 commit 前 `git restore --staged <file>` 排除；如已 uncommitted，作为 standalone chore commit 独立接受。
 - 实操：在每次 commit 前过一遍 lint（`pnpm lint` / `pnpm run lint:md` / `pnpm typecheck`）确认 0 error；如发现 working tree 有未提交 lint auto-fix 改动，按本节策略处理（接受并独立 commit）。
 
@@ -127,7 +126,7 @@ commit message 应聚焦于"当次提交的改动"+"可供事后复查的信息"
 - 改动总览（哪些文件/模块，改了什么）
 - 关联 todo 条目（M\d+\.\d+ / T\d+ 等）
 - 关键决策（多路径选择 + 为什么选这条）
-- 问题原因 / 经验教训（事后复查视角，含关联 commit 引用）
+- 问题原因 / 结论（事后复查视角，含关联 commit 引用）
 - 跨模块影响时说明关联模块与同步关系
 
 **不应包含**（git diff / CI 实测输出已涵盖，堆砌无增量价值）：
@@ -135,12 +134,12 @@ commit message 应聚焦于"当次提交的改动"+"可供事后复查的信息"
 - 执行了哪些命令（如 `pnpm run check:docs` / `pnpm lint` / `pnpm typecheck` 等）
 - 执行结果数字（如 "links: 103" / "lint:md 0 error" / "1001/1008 passed"）
 - 改动行数（如 "+189/-3"）
-- 没实证的废话（如"确切路径需源码进一步实证"——没实证就别写）
-- 与本 commit 实际改动关联度低的教训段（教训应归属在 hotfix 修复 commit 而非 docs 登记 commit）
+- 无依据的表述（如「确切路径需源码进一步确认」——无依据就别写）
+- 与本 commit 实际改动关联度低的结论段（应归属在 hotfix 修复 commit 而非 docs 登记 commit）
 
 **硬约束自动拦截**：`scripts/commitlint/` 提供 4 个 commitlint plugins 在 `.husky/commit-msg` hook 阶段自动拦截上述违规：
 
-- 规则集与正文硬性约束一一对应（不写执行命令 / 不写执行结果数字 / 不写改动行数 / 不写没实证废话与关联度低教训段）
+- 规则集与正文硬性约束一一对应（不写执行命令 / 不写执行结果数字 / 不写改动行数 / 不写无依据表述与关联度低的结论段）
 - 拦截失败时返回 exit=1，git commit 直接拒绝
 - 规则实现 + 单测详见 [scripts/commitlint/](../../scripts/commitlint/) 目录
 - **`no-diff-stats` 的误伤**：规则 `[+-]\d+(?=\s|$|[,，])` 会把**日期**（`2026-09-30` → 命中 `-30`）、**色号**（`teal-700` → 命中 `-700`）与**带连字符的代码 token**（`$space-1` → 命中 `-1`）判为 diff 行数 → 被 husky 拦截。**规避**：主题 / 正文避免「连字符 + 数字」紧跟空白；日期改写为「2026 年 9 月 30 日」，色号改写为 token 名（如 `primary-solid`）或让数字后紧跟非空白字符，代码常量改写为自然语言（如「4px 档 / 8px 档」）。**补充（2026-10-09 M38 归档批次蒸馏）**：除「连字符 + 数字」外，规则还会命中「**数字 + 可选空白 + diff 统计量词**」形态（量词为 `行` / `files` / `commits` 等，空白可缺省）——如 `M38 行` / `M38行`（编号尾部数字 + 量词「行」）、`19 commits`（数量 + `commits`）；非 diff 统计量词（如「5 个」）不受影响。**规避**：编号与量词避免紧邻（改写为「M38 条目」「19 条提交」），或调整语序让数字后紧跟非空白字符。
@@ -148,24 +147,24 @@ commit message 应聚焦于"当次提交的改动"+"可供事后复查的信息"
 
 **commit 前轻量级审核**：执行方 self-check 4 项必查 + 触发 code-auditor quick depth 条件详见 [ai-collaboration.md §1.6 commit 前轻量级审核流程](./ai-collaboration.md)。
 
-### 3.7 提交态自洽：amend / 提交前必须核对全部关联文件入库（M29.7 实证）
+### 3.7 提交态自洽：amend / 提交前必须核对全部关联文件入库
 
 修复一个功能点时，**支撑文件必须与修复点同 commit 入库**——类型扩展 / 字段透传 / i18n key / 测试 mock 等任一项留在工作区未暂存，都会造成"提交态不自洽"（类型谎言 / i18n 裸 key / 测试断链），工作区看似正常但提交后运行时半失效。
 
 - **执行**：`git commit` / `git commit --amend` 前先 `git status`，逐项确认所有关联文件已暂存（不只修复点文件）。
 - **审计口径**：Review Gate 以「提交态自洽」而非「工作区自洽」为准。
 - **反例**：M29.7 修复 commit 只含 4 文件（纯函数 + 组件 + 测试 + e2e 注释），`disabled` 透传 + i18n key 未暂存 → A 阶段审计 RG-B3 Reject。
-- 详见 [经验归档 §六十五](../design/governance/experience-archive-§49-§57-recent-investigation.md#六十五m30-归档批次经验沉淀)
+- 详见 [归档 §六十五](../design/governance/experience-archive-§49-§57-recent-investigation.md)
 
 ### 3.7.1 lint-staged 的 `git add` 任务会连带暂存工作区其它已改文件
 
-本仓 `package.json` 的 lint-staged 段的 `*.{js,ts}` / `*.<style>` / `*.md` 规则里第二个任务是无 pathspec 的 `git add`（lint-staged 自身会打印告警「Some of your tasks use `git add` command」）→ 在一个工作区里存在**多个不相关改动**时，提交其中一个文件会把**其它已修改文件**一并暂存进本次 commit（实证：`test(platform)` 提交误入 `docs/standards/testing.md`，直到 `git show --stat` 才暴露）。
+本仓 `package.json` 的 lint-staged 段的 `*.{js,ts}` / `*.<style>` / `*.md` 规则里第二个任务是无 pathspec 的 `git add`（lint-staged 自身会打印告警「Some of your tasks use `git add` command」）→ 在一个工作区里存在**多个不相关改动**时，提交其中一个文件会把**其它已修改文件**一并暂存进本次 commit（实测：`test(platform)` 提交误入 `docs/standards/testing.md`，直到 `git show --stat` 才暴露）。
 
 **做法**：① 提交前 `git stash push -- <其它文件>` 隔离（或先提交再改）；② 每次提交后 `git show --stat HEAD` 逐条核对文件清单；③ 误入时用 `git reset --soft HEAD~1` + `git restore --staged .` 重做（重做前重新隔离工作区）。
 
 **多 commit 隔离用 complement-stash（补集非空判断 + 补集数组）**：多 atomic commit 场景需隔离其它改动时——① **stash 前必须判断补集数组非空**：若目标是当前全部改动（补集为空），`git stash push -m x --`（无路径）会**暂存全部改动**，随后 `git add` 落空、commit 报 `nothing to commit`（`git stash pop` 后无数据丢失）；补集为空时直接 `git add` 目标并提交。② 求补集：`git status --porcelain` 取全量路径 → `comm -23` 求补集 → `git stash push -u -- <补集>` 隔离，提交后 `git stash pop`（目标与补集不相交，pop 无冲突），再 `git show --stat HEAD` 核对文件数。
 
-### 3.7.2 未提交工作区做变更 / 还原：禁用 `git checkout --` / `git restore`（M37.2 实证）
+### 3.7.2 未提交工作区做变更 / 还原：禁用 `git checkout --` / `git restore`
 
 在**未提交**的工作区上做临时变更（如 mutation 验证、探针植入）后还原时，**不得**使用 `git checkout -- <file>` / `git restore <file>`——这两条会把文件**整文件回退到 HEAD**，把尚未提交的**本次实现**一并抹掉（M37.2 审计实测踩中：settings.vue 未提交改动被回退，靠审计开始时捕获的完整 diff 逐字重建 + `git hash-object` 校验才复原）。
 

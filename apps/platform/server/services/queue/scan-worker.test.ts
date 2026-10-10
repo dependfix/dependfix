@@ -52,7 +52,7 @@ vi.mock('bullmq', () => ({
 }))
 
 // ---------- 被测模块 ----------
-import { DEFAULT_EXECUTION_TIMEOUT_MS } from '../executor/container-executor'
+import { DEFAULT_EXECUTION_TIMEOUT_MS, resolveExecutionTimeoutMs } from '../executor/container-executor'
 import { SCHEDULED_JOB_NAME } from '../scheduler/scheduler.service'
 import {
     createScanWorker,
@@ -122,11 +122,11 @@ describe('scan-worker（job 分发 + worker 封装 + 锁观测）', () => {
     })
 
     describe('锁参数（SCAN_WORKER_LOCK_OPTIONS）', () => {
-        it('lockDuration 对齐容器执行器默认执行超时，lockRenewTime 为其一半', () => {
-            // 执行器默认超时口径（container-executor.ts）：改此值须同步锁时长与 platform.md §10.5
+        it('lockDuration 对齐执行超时解析器（EXECUTION_TIMEOUT_MS 联动），lockRenewTime 为其一半', () => {
+            // 执行器超时口径（container-executor.ts resolveExecutionTimeoutMs）：默认 30 分钟，可经 EXECUTION_TIMEOUT_MS 覆盖
             expect(DEFAULT_EXECUTION_TIMEOUT_MS).toBe(30 * 60 * 1000)
-            expect(SCAN_WORKER_LOCK_OPTIONS.lockDuration).toBe(DEFAULT_EXECUTION_TIMEOUT_MS)
-            expect(SCAN_WORKER_LOCK_OPTIONS.lockRenewTime).toBe(DEFAULT_EXECUTION_TIMEOUT_MS / 2)
+            expect(SCAN_WORKER_LOCK_OPTIONS.lockDuration).toBe(resolveExecutionTimeoutMs())
+            expect(SCAN_WORKER_LOCK_OPTIONS.lockRenewTime).toBe(Math.floor(resolveExecutionTimeoutMs() / 2))
         })
 
         it('createScanWorker 把锁参数透传给 BullMQ Worker（不再走隐式默认 30 秒）', () => {

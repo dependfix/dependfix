@@ -36,12 +36,16 @@ const CLONE_RETRY_BASE_DELAY_MS = 2000
  * 单仓库执行超时默认值（30 分钟）。
  * 作为 `ContainerExecutor.timeoutMs` 的缺省；queue 层 Worker 锁时长与之对齐
  * （`SCAN_WORKER_LOCK_OPTIONS.lockDuration`，见 scan-worker.ts 与 platform.md §10.5）。
+ * 可通过 `EXECUTION_TIMEOUT_MS` 覆盖（见 {@link resolveExecutionTimeoutMs}）。
  */
 export const DEFAULT_EXECUTION_TIMEOUT_MS = 30 * 60 * 1000
 
 /**
  * 解析环境变量为正整数（NaN / 负数 / 0 → 返回默认值）。
  * 对齐 queue-mode.ts:79-84 的 parseRetryConfig 模式。
+ *
+ * 已知边界：基于 `parseInt`，尾随非数字字符会被截断接受（如 `'600ms'` → 600）——env 为运维持有，
+ * 保持与 `CLONE_TIMEOUT_MS` 等复用同一函数的一致性，不做严格 `/^\d+$/` 校验。
  */
 export function parsePositiveInt(raw: string | undefined, defaultValue: number): number {
     if (!raw) {
@@ -49,6 +53,26 @@ export function parsePositiveInt(raw: string | undefined, defaultValue: number):
     }
     const value = parseInt(raw, 10)
     return Number.isInteger(value) && value > 0 ? value : defaultValue
+}
+
+/** 单仓库执行超时下限（1 分钟）：低于此值视为非法 → 回退默认 */
+export const MIN_EXECUTION_TIMEOUT_MS = 60_000
+
+/** 单仓库执行超时上限（24 小时）：超出视为非法 → 回退默认（防锁窗口 / 资源占用过长） */
+export const MAX_EXECUTION_TIMEOUT_MS = 24 * 60 * 60 * 1000
+
+/**
+ * 解析单仓库执行超时（`EXECUTION_TIMEOUT_MS` env）。
+ *
+ * 缺省 / 非法（非正整数）/ 越界（< {@link MIN_EXECUTION_TIMEOUT_MS} 或 > {@link MAX_EXECUTION_TIMEOUT_MS}）
+ * → fail-closed 回退 {@link DEFAULT_EXECUTION_TIMEOUT_MS}（30 分钟）。container 执行器构造期读取、
+ * queue Worker 锁参数在模块加载期读取同一解析器 → 二者联动；env 变更需重启进程。
+ */
+export function resolveExecutionTimeoutMs(raw: string | undefined = process.env.EXECUTION_TIMEOUT_MS): number {
+    const value = parsePositiveInt(raw, DEFAULT_EXECUTION_TIMEOUT_MS)
+    return value >= MIN_EXECUTION_TIMEOUT_MS && value <= MAX_EXECUTION_TIMEOUT_MS
+        ? value
+        : DEFAULT_EXECUTION_TIMEOUT_MS
 }
 
 /**
@@ -207,7 +231,7 @@ export class ContainerExecutor implements ScanExecutor {
 
     constructor(options: { workRoot: string, timeoutMs?: number, cloneTimeoutMs?: number, cloneMaxRetries?: number } = { workRoot: process.env.DATABASE_PATH ? join(process.env.DATABASE_PATH, '..', 'runs') : 'data/runs' }) {
         this.workRoot = options.workRoot
-        this.timeoutMs = options.timeoutMs ?? DEFAULT_EXECUTION_TIMEOUT_MS
+        this.timeoutMs = options.timeoutMs ?? resolveExecutionTimeoutMs()
         // clone 超时：优先构造参数 > 环境变量 > 默认值
         this.cloneTimeoutMs = options.cloneTimeoutMs
             ?? parsePositiveInt(process.env.CLONE_TIMEOUT_MS, DEFAULT_CLONE_TIMEOUT_MS)

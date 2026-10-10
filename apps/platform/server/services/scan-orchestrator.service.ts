@@ -345,6 +345,8 @@ const runScanInternal = async (
                 error = execResult.error
                 exitCode = execResult.exitCode
                 runUrl = execResult.runUrl
+                // 降级回退同样走 ContainerExecutor + MemoryLogger，落 logsJson 让 degraded run 可查执行日志（与主路由同口径）
+                logsJson = execResult.logsJson
             }
         } else {
             const executor = new ContainerExecutor({

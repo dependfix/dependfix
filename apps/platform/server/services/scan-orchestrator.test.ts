@@ -510,6 +510,24 @@ describe('scan-orchestrator.service', () => {
             expect(run.errorJson).toContain('sandbox_unavailable')
         })
 
+        it('persists logsJson from ContainerExecutor fallback in degraded state (回退路径可见执行日志)', async () => {
+            const repoId = await sandboxRepo()
+            sandboxIsAvailable.mockResolvedValue(false)
+            containerExecute.mockResolvedValue({
+                result: makeResult(),
+                error: undefined,
+                logsJson: JSON.stringify({ logs: ['[container] fallback log line'] }),
+            })
+
+            vi.spyOn(console, 'warn').mockImplementation(() => { /* 静默降级 warn */ })
+
+            const run = await runScanForRepository(repoId, { mode: 'fix', severityThreshold: 'high' })
+            expect(run.status).toBe('degraded')
+            // 回退路径与 container 主路由同口径落 logsJson，degraded run 在「运行日志」入口可见
+            expect(run.logsJson).toContain('fallback log line')
+            expect(containerExecute).toHaveBeenCalledTimes(1)
+        })
+
         it('propagates sandbox_unavailable error from sandbox.execute (runtime failure, no fallback)', async () => {
             // 运行时偶发故障：isAvailable() 通过 → sandbox.execute() 失败（sandbox_unavailable）
             // 此场景不静默降级（避免掩盖真实错误）—— 标记 failed

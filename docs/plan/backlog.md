@@ -59,6 +59,13 @@
 
 ### 候选评估中（待评估 / 本阶段延后项）
 
+- **规范与经验管理体系重构（设计先行稿已出）（待评估）** —— 现象：规范混入实现 / 教训（`check:standards-redundant` 命中 166 处，`platform` 545 / `development` 513 / `ai-collaboration` 495 行超 >400 硬阈值）；经验 7 文件 2409 行 / 68 节（单分片 1540 行）；门禁未接线（`check:standards-redundant` 仅报告、CI 未挂）；对外 / 对内未分层；阈值双事实源。根因：有规则无门禁 → 必 drift。
+  - **设计先行稿**：[standards-experience-refactor.md](../design/governance/standards-experience-refactor.md)（v2，承接 spec-and-doc-governance；含目标架构 + A-E 分批计划 + 验收标准）。
+  - **评估结论（2026-10-10，已完成）**：方案已定稿（用户裁定：① 先出设计先行稿；② 对外 / 对内**仍发布、仅不进顶栏 / 侧栏**；③ 经验**三层收敛 + 大幅精简**），待评审通过后按 A-E 分批执行。
+  - **现状锚点**：`docs/standards/*.md`（14 文件 3225 行）/ `docs/design/governance/experience-archive*.md`（7 文件 2409 行）/ `scripts/check-standards-redundant.mjs`（仅报告）/ `docs/.vitepress/config.ts`（侧栏挂载设计稿）。
+  - **触发条件**：用户评审通过设计稿；或 standards / 经验体量继续膨胀。
+  - **按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 不带 `M\d+` 阶段编号**：等待用户决策启动。
+
 - **运行失败「受约束重试入口」（延后，保留待评估）** —— 「分类 + 筛选 + 展示」（`failure_code` / `failure_stage` / `failure_kind` 三列 + 三维筛选 + 阶段展示）已落地；设计稿 §5.5 的「仅 `transient` 可一键重试」入口（含非终态守卫 / 同仓库去重 / `retriedFromRunId` 审计来源）按用户 2026-10-06 决策延后。**现状锚点**：[run-failure-taxonomy.md §5.5](../design/governance/run-failure-taxonomy.md)。触发条件：① 分类 + 筛选上线后确认重试诉求；② 用户明确要求受约束重试。
 
 - **扫描偏好服务端跨设备默认（延后，保留待评估）** —— 设备级方案 C 混合（localStorage：上次选择 + 可选配置化默认 + 重置）已落地；服务端用户 / 组织级默认偏好（跨设备、可管理，需实体 / API / 设置页，预计触发 governance 文档）按用户 2026-10-06 决策延后。**现状锚点**：`apps/platform/app/composables/use-scan-preferences.ts`。触发条件：① 用户实测多设备切换痛点；② 组织级统一默认诉求。

@@ -3,6 +3,7 @@
 > **Status**: Special design first draft (landed 2026-09-09)
 > **Scope**: Governance boundaries, writing conventions and maintenance rules for three doc categories — `docs/standards/` / `docs/design/` / `docs/plan/`
 > **Goal**: Eliminate current spec file bloat (ai-collaboration 448 lines / development 447 lines / platform 350 lines / planning 242 lines) + research / archive mixing + modules / governance boundary blur, and establish an auditable doc governance baseline
+> **Successor (v2, 2026-10-10)**: After G1-G6 landed the spec drifted again; a refactor has started — standards methodology layering + experience three-tier convergence + navigation layering + threshold/gate unification. The G-batch plan in §7 is succeeded by [Standards & Experience System Refactor Design §4](https://github.com/dependfix/dependfix/blob/master/docs/design/governance/standards-experience-refactor.md).
 
 ## 1. Background & problems
 

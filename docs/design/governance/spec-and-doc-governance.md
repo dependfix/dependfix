@@ -3,6 +3,7 @@
 > **状态**：专项设计先行稿（2026-09-09 落地）
 > **范围**：`docs/standards/` / `docs/design/` / `docs/plan/` 三类文档的治理边界、写作规范与维护规则
 > **目标**：消除当前规范文件膨胀（ai-collaboration 448 行 / development 447 行 / platform 350 行 / planning 242 行）+ 调研/归档混杂 + modules/governance 边界模糊等问题，建立可审计的文档治理基线
+> **后续演进（v2，2026-10-10）**：G1-G6 落地后再次 drift，已启动重构 —— 规范方法论层化 + 经验三层收敛 + 导航分层 + 阈值/门禁统一；本文件 §7 的 G 批次计划由 [规范与经验管理体系重构设计 §4](./standards-experience-refactor.md) 承接。
 
 ## 1. 背景与问题
 

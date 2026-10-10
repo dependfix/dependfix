@@ -129,7 +129,25 @@
   - **触发条件**：两页继续增长致 warning 逼近上限；或用户要求清理。
   - **按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
 
-> 本区块保留 M37 执行期延后项（受约束重试入口 / 服务端跨设备偏好）+ 审计与复核衍生的待评估候选（push 侧 hooks 隔离 / tech-stack 依赖表行级不一致 / `distill-wisdom` 计数假阴性 / 弹窗 history 模式与 legacy 页死代码 / `platform-scheduled-batch.md` 设计快照端点表陈旧 / 页面体量超 `max-lines` / 门禁脚本产物排除）+ M38.1 独立 worker 形态衍生候选（按 role 跳过周期插件）+ M38.3 审计范围外观察（reuse 路径与去重合并叠加误置 failed）+ M38.6 同源点穷举候选（严重级别展示策略统一）。**2026-10-10 M40 启动批次上收 6 项**（部署版本戳陈旧校验 / 失败 run 落 summary 快照 / 执行超时可配置化 / worker 崩溃自动重启 / sandbox 降级回退路径落执行日志 / 门禁脚本产物排除→原 M40.6），其中**门禁脚本产物排除已随同日 D2 替换回退本区块**（平台环境变量文档完整性治理替换为 M40.6，见上方 M40 批次说明）；该批 6 项已随后于 2026-10-10 M40 阶段闭环归档（门禁脚本产物排除除外，仍保留本区块待评估，见下条）；2026-10-09 运行失败根因评估批次其余 6 项已于 2026-10-09 上收 M39（扫描页筛选分页 / 日志下载 / 弹窗体验 / 告警按包聚合 / PR Check 启用链路 / 环境事件覆盖，见上方批次说明）；2026-10-08 M38 启动批次已上收 4 项（`scan.post` failover / e2e 卡片计数 / `scan-queue.ts` 注释 / schedule 选项口径），M37 启动前原有 6 项已随 M37 闭环归档（见上方批次说明）。
+> **2026-10-10 用户直接提出批次登记（3 项，用户决策「仅登记 backlog，暂不实施」）**：本轮完成可行性评估后登记 3 项候选——①「PR Check 手动触发」②「平台列表页表格基础能力补强（repos / batch-runs）」③「caomei-ui `0.5.0` → `0.6.0` 升级回归」；三项均按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 不带 `M\d+` 阶段编号，等待用户后续决策启动（评估结论见各条目）。
+
+- **PR Check 手动触发（同步端点 + 总开关门控）（待评估）** —— 现象：PR Check 数据由定时计划 `schedule.kind='pr-check'` 驱动（cron → `triggerSchedule` → `triggerPrCheckSchedule` → `ActionStatusMonitor.pollOnce`），现有手动触发仅为**计划维度**（`POST /api/schedules/[id]/trigger`；M39.5 打通 `pr-check` 计划的 `kind` 落库与启用链路）；页面 `apps/platform/app/pages/pr-checks.vue` 本身只有 ack 操作，无「立即跑一轮 polling」入口，无 pr-check 计划时列表无法即时刷新（仅 DB 缓存值）。
+  - **评估结论（2026-10-10，已完成）**：建议采纳，形态 = **同步端点 + 总开关门控**（用户裁定）——新增 `POST /api/pr-checks/poll`（`requireRole` admin / org_admin + `requireOrgResource` 组织隔离），把 `triggerPrCheckSchedule` 的「按 credential 聚合 → Octokit → `pollOnce`」抽为共享函数复用；受 `ACTION_STATUS_MONITOR_ENABLED` env 门控（未启用返回 skipped + 提示，与 schedules 语义一致）；前端加「立即检查」按钮 + 结果 toast（processed / errors）。风险：请求路径内调 GitHub API，仓库多时耗时长，先做**同步 + 上限 / 超时**（异步入队为重方案，暂不采纳）。
+  - **现状锚点**：`apps/platform/server/services/scheduler/scheduler.service.ts`（`triggerPrCheckSchedule`）/ `apps/platform/server/services/monitor/action-status-monitor.ts`（`pollOnce`）/ `apps/platform/app/pages/pr-checks.vue`。
+  - **成本 / 价值**：成本低（复用现有 service）/ 价值中（即时刷新 + 手动验证监测链路）。
+  - **触发条件**：无 pr-check 计划场景的即时刷新诉求；或用户要求手动验证监测链路。
+
+- **平台列表页表格基础能力补强（repos / batch-runs 的筛选 / 搜索 / 分页）（待评估）** —— 现象：`apps/platform/app/pages/repos.vue` 与 `apps/platform/app/pages/batch-runs.vue` 的 `CaomeiDataTable` 目前仅支持部分列排序，**无筛选 / 搜索 / 分页**，行数较多时查询不便。约束：caomei `DataTable` **不提供内建 filters / globalFilter**（仅排序 / 分页 / 选择 / 分组 / 展开，实测 `types.d.ts`），筛选 + 搜索须页面侧实现。
+  - **评估结论（2026-10-10，已完成）**：推荐**客户端实现**（`/api/repos` 返回全量、`/api/batch-runs` 服务端已 `take: 50`），与 M39.1「byRepo 客户端分页」口径一致 —— repos：搜索（owner / name / tags / credential）+ 筛选（executorKind / packageManager / credential）+ 分页（10/25/50）；batch-runs：筛选（source / status，可选 mode / severity）+ 分页；两页保留现有排序。可选抽轻量 `useClientTableFilter` 复用（需权衡减法原则，避免过度抽象）。
+  - **现状锚点**：`repos.vue`（`columns` 仅部分 `sortable`，无 `paginator`）/ `batch-runs.vue`（同）。
+  - **触发条件**：仓库 / 批量运行规模增长致列表查询不便；或用户要求统一表格交互。原则上可延伸至 `users` / `credentials` / `env-events` / `schedules` 等表（本条目范围先限用户点名的两页，启动时可按页拆为独立原子）。
+
+- **caomei-ui `0.5.0` → `0.6.0` 升级回归（待评估）** —— 现象：`apps/platform/package.json` 精确锁定 `caomei-ui` `0.5.0`，npm `latest` 已为 `0.6.0`（2026-10-08 发布）。
+  - **评估结论（2026-10-10，已完成语义级比对）**：**低风险 minor 升级，无破坏性契约** —— ① 公开组件集 `81 → 81`（`as Caomei*` 口径，零增删）；② 基础 token（`styles/index.css`）零变更（`_caomei-tokens.scss` 覆盖继续成立）；③ 实质变更：`DataTable` 多列排序新增**优先级序号 + 全列保留占位**（影响 `sort-mode="multiple"` 的 alerts / pr-checks 视觉基线，属 UX 改进）、`Drawer` 背景 `bg → bg-elevated`、`Popover` 圆角 `radius-md → radius-lg` + 背景 `bg → bg-elevated`、`Tabs` 列表 overflow / 分隔线重写（修 1px 纵向多余滚动条）、其余局部内部调整（未见使用面类名破坏性变更）。
+  - **执行口径（照 [迁移评估 §15.14](../design/governance/caomei-ui-migration.md#1514-caomei-ui-050-升级实证m3422026-10-01)）**：package.json + lockfile → 迁移评估新增 §15.15 + `tech-stack.md` + `platform.md` 版本口径同步 → 重建 `apps/platform/.output` → 全量 lint / typecheck / test / e2e / 视觉基线 `--update-snapshots=all` 重建（预期 alerts / pr-checks 因排序序号变化）。
+  - **触发条件**：用户要求升级；或平台需跟进 0.6.0 新能力（多列排序序号）。与下方延期项「caomei-ui 0.x → 1.0 升级回归」的恢复条件①（用户指定版本）同源，但本条为 `0.6.0` 增量升级，非 1.0 分支。
+
+> 本区块保留 M37 执行期延后项（受约束重试入口 / 服务端跨设备偏好）+ 审计与复核衍生的待评估候选（push 侧 hooks 隔离 / tech-stack 依赖表行级不一致 / `distill-wisdom` 计数假阴性 / 弹窗 history 模式与 legacy 页死代码 / `platform-scheduled-batch.md` 设计快照端点表陈旧 / 页面体量超 `max-lines` / 门禁脚本产物排除）+ M38.1 独立 worker 形态衍生候选（按 role 跳过周期插件）+ M38.3 审计范围外观察（reuse 路径与去重合并叠加误置 failed）+ M38.6 同源点穷举候选（严重级别展示策略统一）。**2026-10-10 M40 启动批次上收 6 项**（部署版本戳陈旧校验 / 失败 run 落 summary 快照 / 执行超时可配置化 / worker 崩溃自动重启 / sandbox 降级回退路径落执行日志 / 门禁脚本产物排除→原 M40.6），其中**门禁脚本产物排除已随同日 D2 替换回退本区块**（平台环境变量文档完整性治理替换为 M40.6，见上方 M40 批次说明）；该批 6 项已随后于 2026-10-10 M40 阶段闭环归档（门禁脚本产物排除除外，仍保留本区块待评估，见下条）；2026-10-09 运行失败根因评估批次其余 6 项已于 2026-10-09 上收 M39（扫描页筛选分页 / 日志下载 / 弹窗体验 / 告警按包聚合 / PR Check 启用链路 / 环境事件覆盖，见上方批次说明）；2026-10-08 M38 启动批次已上收 4 项（`scan.post` failover / e2e 卡片计数 / `scan-queue.ts` 注释 / schedule 选项口径），M37 启动前原有 6 项已随 M37 闭环归档（见上方批次说明）。**2026-10-10 用户直接提出批次登记 3 项**（PR Check 手动触发 / 平台列表页表格基础能力补强 repos + batch-runs / caomei-ui `0.5.0` → `0.6.0` 升级回归），用户决策「仅登记 backlog，暂不实施」，评估结论见上方各条目。
 
 ### 待上收候选（评估完成，等待用户决策）
 

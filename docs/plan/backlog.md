@@ -64,6 +64,11 @@
   - **触发条件**：下次改动该文件时；或加固 check-docs 链接校验口径时。
   - **按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
 
+- **锚点回填的「链接文本 §N ↔ 锚点 §N」一致性缺少机检（待评估）** —— 现象：`check:docs` 只校验锚点**存在**，不校验链接文本声明的章节号与锚点所属章节是否一致；故「链接文本写 §五十六、锚点却指向 §五十」这类漂移在 `check:docs` 下**静默通过**（本次门禁落地批次的锚点回填实测命中 2 处，由审查阶段判 blocker 后发现）。
+  - **待评估点**：① 是否在 `check-docs.mjs` 增补「`[x §N](target#anchor)` 形式的链接文本章节号须与锚点首段编号一致」断言（需处理中文数字 → 阿拉伯数字、`§5.1.x` 等复合形态与误报面）；② 或独立脚本 `check-anchor-text-consistency.mjs`；③ 误报面收敛策略。
+  - **触发条件**：再次出现锚点回填 / 批量链接改写批次时；或加固 `check-docs` 校验口径时。
+  - **按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
+
 - **运行失败「受约束重试入口」（延后，保留待评估）** —— 「分类 + 筛选 + 展示」（`failure_code` / `failure_stage` / `failure_kind` 三列 + 三维筛选 + 阶段展示）已落地；设计稿 §5.5 的「仅 `transient` 可一键重试」入口（含非终态守卫 / 同仓库去重 / `retriedFromRunId` 审计来源）按用户 2026-10-06 决策延后。**现状锚点**：[run-failure-taxonomy.md §5.5](../design/governance/run-failure-taxonomy.md)。触发条件：① 分类 + 筛选上线后确认重试诉求；② 用户明确要求受约束重试。
 
 - **扫描偏好服务端跨设备默认（延后，保留待评估）** —— 设备级方案 C 混合（localStorage：上次选择 + 可选配置化默认 + 重置）已落地；服务端用户 / 组织级默认偏好（跨设备、可管理，需实体 / API / 设置页，预计触发 governance 文档）按用户 2026-10-06 决策延后。**现状锚点**：`apps/platform/app/composables/use-scan-preferences.ts`。触发条件：① 用户实测多设备切换痛点；② 组织级统一默认诉求。

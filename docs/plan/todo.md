@@ -68,16 +68,19 @@
   - **目标**：把「有规则无门禁」根因结构性消除——规范冗余关键词检查转 CI 阻断（`--strict`）、新增文档行数阈值计量脚本、经验条目「挂接检查点」字段非空校验，使规则与执行不再分离。
   - **优先级**：P2
   - **范围**：`scripts/check-standards-redundant.mjs`（`--strict` 已有，接 CI）；新增 `scripts/check-doc-size.mjs` + `scripts/check-doc-size.test.mjs`（行数阈值计量：超强制分片阈值阻断 / warning 上报）；`.github/workflows/test.yml`（Test job 接线）；经验条目模板「挂接检查点」字段校验（`check-standards-redundant` 扩展或独立脚本）。
-  - **验收标准**：
-    - [ ] CI Test job 接入 `check:standards-redundant --strict`（**负例标定**：构造违规样本必须 exit 1，实证阻断生效）
-    - [ ] `check-doc-size.mjs` 按 [documentation.md §3](../standards/documentation.md) 阈值表计量（超强制分片阈值阻断 / warning 带上报），单测覆盖「健康 / warning / 超阈值 / 分片豁免」四态
-    - [ ] 经验条目「挂接检查点」字段非空校验（L1 / L2 二选一），负例标定违规条目被检出
-    - [ ] 本地可复现：`pnpm run check:standards-redundant:strict` + `check-doc-size` + `check:orphan-ids` + `check:docs` 全部 exit 0
-    - [ ] `pnpm lint` 0 error + `pnpm typecheck` 0 error（实测 `2>&1 | grep -E "error TS"` 无命中，不信「Done」宣称）；门禁接线按 [测试规范 §6.9 三件套自检](../standards/testing.md)（负例标定 / 自指面核对 / 阻断强度声明）
+  - **验收标准**（2026-10-10 全部达成）：
+    - [x] CI Test job 接入三项阻断门禁（`check:standards-redundant:strict` / `check:doc-size` / `check:experience-landing`），每步注释含 §6.9 三件套（负例标定 / 自指面核对 / 阻断强度声明）；**负例标定**实测：植入关键词 / 超阈值行数 / 无落点条目（含段内占位符）各 exit 1，跑后还原
+    - [x] `check-doc-size.mjs` 按 [documentation.md §3](../standards/documentation.md) 阈值表计量（**脚本不硬编码阈值**，表内新增行自动纳入；超强制分片阈值阻断 / warning 带上报）；单测覆盖「健康 / warning / 超阈值 / 豁免」四态 + glob 行 + root 优先
+    - [x] `check-experience-landing.mjs` 校验每条经验条目「落点」非空（显式 `落点：` 或挂接 / 沉淀段），**占位符判空**（含段内占位符）；负例标定 exit 1
+    - [x] 本地可复现：`check:standards-redundant:strict` + `check-doc-size` + `check-experience-landing` + `check:orphan-ids` + `check:docs` 全部 exit 0
+    - [x] `pnpm lint` 0 error（2 处存量 max-lines warning）+ `pnpm typecheck` 0 error；`scripts/` 629 passed；根全量 245 files / 3832 passed（10 skipped）；`docs:build` 通过
   - **D 阶段决策留痕（待裁定）**：① 行数阈值脚本的阻断强度（warning 仅报告 vs 超强制分片阈值阻断）；② 经验落点校验并入既有脚本 vs 独立脚本；③ 分片豁免白名单形态。
   - **不做什么**：不改门禁脚本的**检测判定口径本身**（仅接线 + 计量）；不引入新工具链；不在 M41.1 / M41.2 达标前接线（避免阻断既有 CI）。
   - **依赖**：M41.1 + M41.2（达标后才接线，先报告模式跑全量确认真业务）；设计稿 §3.6 门禁落地表。
   - **交付物**：2-3 commits（`feat(scripts)` 计量脚本 + `ci` 接线 + 单测）；文件 3-4。
+  - **D 阶段决策留痕（已裁定）**：① **阻断强度** = 超强制分片阈值阻断 / warning 带仅报告（健康窗口静默）；② **落点校验** = **独立脚本**（`check-experience-landing.mjs`，与关键词扫描职责分离）；③ **豁免形态** = 脚本内 `SIZE_EXEMPTIONS`（`{ path, reason }` 显式登记，当前为空；禁止用「缩小计量面」代替豁免）。
+  - **闭环记录**：C1 门禁落地（6 个 scripts + `package.json` + `test.yml` + 经验分片 §四十一 / §四十二 落点规范化）/ C2 锚点回填（7 个 `docs/standards/*.md`，共 24 处精确锚点）/ C3 闭环登记；A 阶段 deep 审计：R1 **Reject**（CI 三件套声明不全）→ 修复 → R2 **Reject**（回填锚点前缀贪婪匹配致 2 处 §五十六 误指 §五十）→ 修复（含 8 处锚点「文本 §N ↔ 锚点 §N」逐条核对）→ R3 quick Pass。
+  - **延后登记**：① 「链接文本 §N ↔ 锚点 §N」一致性机检 → 已登记 backlog 候选（无阶段编号）；② `check-doc-size` 覆盖 standards / design 行依赖 M41.5 补齐阈值表行（届时 glob 行自动生效）。
   - **风险与缓解措施**：① 门禁误伤阻断既有 CI → 先报告模式跑全量、确认命中均为真业务后转阻断 + 负例标定；② 脚本与规范二次漂移 → 阈值以 `documentation.md §3` 为单一事实源（M41.5 同步收敛）；③ 阈值阻断强度过严 → 分片豁免白名单 + warning 带保持非阻断。
 
 - **M41.4**（P3，🎨 文档体验）文档站导航分层

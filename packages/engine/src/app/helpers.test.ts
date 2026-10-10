@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -47,7 +47,7 @@ vi.mock('../helpers', async (importOriginal) => {
     }
 })
 
-import { runCodeScanningFixes } from './helpers'
+import { ensureGitignore, normalizeGitignoreEntry, runCodeScanningFixes } from './helpers'
 
 // ---------------------------------------------------------------------------
 // 测试辅助
@@ -256,5 +256,145 @@ describe('runCodeScanningFixes batch processing', () => {
         // 仅 2 个 cs 告警（cs-0 + cs-1）→ 末尾 flushBatch 触发 1 次 lint
         expect(mockQuickVerifyProject).toHaveBeenCalledTimes(1)
         expect(result).toEqual({ fixed: 2, failed: 0 })
+    })
+})
+
+// ---------------------------------------------------------------------------
+// ensureGitignore / .gitignore 幂等判定归一化
+// ---------------------------------------------------------------------------
+
+describe('normalizeGitignoreEntry', () => {
+    it('normalizes equivalent directory-ignore forms to the plain name', () => {
+        const equivalents = [
+            'dependfix-reports',
+            '/dependfix-reports',
+            'dependfix-reports/',
+            '/dependfix-reports/',
+            '**/dependfix-reports/',
+            'dependfix-reports/**',
+            'dependfix-reports/*',
+            '/dependfix-reports/**',
+        ]
+        for (const line of equivalents) {
+            expect(normalizeGitignoreEntry(line)).toBe('dependfix-reports')
+        }
+    })
+
+    it('treats a mid-line hash as a literal character (git only treats a leading hash as a comment)', () => {
+        // `dir/ # note` 与 `dir#suffix` 在 git 中并不生效（行中 `#` 属模式本身）→ 不得判为已忽略
+        expect(normalizeGitignoreEntry('dependfix-reports/ # report dir')).toBe('dependfix-reports/ # report dir')
+        expect(normalizeGitignoreEntry('dependfix-reports#suffix')).toBe('dependfix-reports#suffix')
+    })
+
+    it('does not normalize leading whitespace (git only strips trailing whitespace)', () => {
+        expect(normalizeGitignoreEntry(' dependfix-reports/')).toBe(' dependfix-reports')
+    })
+
+    it('strips trailing spaces and CR but keeps a trailing tab (matching git)', () => {
+        expect(normalizeGitignoreEntry('dependfix-reports/ ')).toBe('dependfix-reports')
+        expect(normalizeGitignoreEntry('dependfix-reports/\r')).toBe('dependfix-reports')
+        // git 不把尾随 tab 视为空白 → 保留后不再是「目录标记」形态，不得判为已忽略
+        expect(normalizeGitignoreEntry('dependfix-reports/\t')).toBe('dependfix-reports/\t')
+    })
+
+    it('does not treat a slash-wrapped content glob as the directory itself', () => {
+        // `dir/**/` 只忽略目录内层级、不忽略目录自身 → 不得判为已忽略
+        expect(normalizeGitignoreEntry('dependfix-reports/**/')).toBe('dependfix-reports/**')
+    })
+
+    it('returns undefined for lines that do not ignore anything', () => {
+        expect(normalizeGitignoreEntry('')).toBeUndefined()
+        expect(normalizeGitignoreEntry('   ')).toBeUndefined()
+        expect(normalizeGitignoreEntry('# dependfix')).toBeUndefined()
+        // 取反行不构成忽略
+        expect(normalizeGitignoreEntry('!dependfix-reports/')).toBeUndefined()
+    })
+
+    it('keeps unrelated entries intact', () => {
+        expect(normalizeGitignoreEntry('node_modules')).toBe('node_modules')
+        expect(normalizeGitignoreEntry('/dist/')).toBe('dist')
+    })
+})
+
+describe('ensureGitignore', () => {
+    let dir: string
+
+    beforeEach(() => {
+        dir = mkdtempSync(join(tmpdir(), 'dependfix-gitignore-'))
+        mkdirSync(join(dir, '.git'))
+    })
+
+    afterEach(() => {
+        rmSync(dir, { recursive: true, force: true })
+    })
+
+    const readGitignore = () => readFileSync(join(dir, '.gitignore'), 'utf-8')
+
+    it.each([
+        '/dependfix-reports',
+        'dependfix-reports',
+        '/dependfix-reports/',
+        '**/dependfix-reports/',
+        'dependfix-reports/**',
+        'dependfix-reports/*',
+    ])('skips appending when "%s" already ignores the directory', (line) => {
+        writeFileSync(join(dir, '.gitignore'), `node_modules\n${line}\n`, 'utf-8')
+        const before = readGitignore()
+
+        ensureGitignore(dir)
+
+        // 语义等价写法 → 幂等跳过（原内容字节级不变）
+        expect(readGitignore()).toBe(before)
+    })
+
+    it.each([
+        'dependfix-reports/ # keep reports out',
+        'dependfix-reports#suffix',
+        ' dependfix-reports/',
+        'dependfix-reports/**/',
+        'my-dependfix-reports/',
+        'foo/dependfix-reports/',
+        'dependfix-reports/\t',
+    ])('still appends when "%s" does not actually ignore the directory', (line) => {
+        writeFileSync(join(dir, '.gitignore'), `node_modules\n${line}\n`, 'utf-8')
+
+        ensureGitignore(dir)
+
+        // 这些写法在 git 中并不忽略目标目录 → 必须追加（漏追加会让报告被 git add 提交）
+        expect(readGitignore()).toContain('# dependfix\ndependfix-reports/\n')
+    })
+
+    it('appends the canonical entry once when the directory is not ignored', () => {
+        writeFileSync(join(dir, '.gitignore'), 'node_modules\n', 'utf-8')
+
+        ensureGitignore(dir)
+
+        expect(readGitignore()).toBe('node_modules\n# dependfix\ndependfix-reports/\n')
+    })
+
+    it('creates .gitignore when missing', () => {
+        ensureGitignore(dir)
+        expect(readGitignore()).toBe('# dependfix\ndependfix-reports/\n')
+    })
+
+    it('is idempotent across repeated calls', () => {
+        writeFileSync(join(dir, '.gitignore'), 'node_modules', 'utf-8')
+
+        ensureGitignore(dir)
+        const once = readGitignore()
+        ensureGitignore(dir)
+
+        expect(readGitignore()).toBe(once)
+        expect(once.match(/dependfix-reports\//g)).toHaveLength(1)
+    })
+
+    it('does nothing outside a git repository', () => {
+        const plain = mkdtempSync(join(tmpdir(), 'dependfix-nogit-'))
+        try {
+            ensureGitignore(plain)
+            expect(existsSync(join(plain, '.gitignore'))).toBe(false)
+        } finally {
+            rmSync(plain, { recursive: true, force: true })
+        }
     })
 })

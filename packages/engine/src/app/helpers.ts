@@ -642,10 +642,59 @@ export function hasGitChanges(workDir: string): boolean {
 }
 
 /**
+ * `.gitignore` 行的归一化形态（判定「目标目录是否已被忽略」的等价类）。
+ *
+ * 处理顺序：去尾随空格与 `\r`（CRLF 行结束符；**保留尾随 tab**，与 git 一致）→ 行首 `#`（注释）/ `!`（取反）
+ * → 前导 globstar 前缀（双星号加斜杠）与根路径斜杠 → 尾部内容通配（斜杠 + 双星号 / 斜杠 + 星号）→ 尾部 `/`（目录标记）。
+ *
+ * 与 git 语义对齐的三条边界（**安全方向优先：宁可多追加，不可漏追加**——漏追加会让报告目录
+ * 未被忽略而被 `git add .` 一并提交）：
+ * - **行中 `#` 是字面字符**（git 仅把行首 `#` 当注释）——`dir/ # note` 在 git 中并不生效，不视为已忽略；
+ * - **前导空白属于模式本身**（git 仅忽略尾随空白）——` dir/` 不视为已忽略；
+ * - **以「斜杠 + 双星号 + 斜杠」结尾的形态只忽略目录内层级**，不忽略目录自身，不视为已忽略。
+ *
+ * 返回 `undefined` 表示该行不构成对目标目录的忽略（空行 / 注释行 / 取反行 / 首尾处理后为空）。
+ */
+export function normalizeGitignoreEntry(line: string): string | undefined {
+    // git 只剥离尾随空格与行结束符 `\r`（**不**剥离尾随 tab）；仅行首 `#` / `!` 有特殊含义
+    const trimmedEnd = line.replace(/[ \r]+$/, '')
+    if (!trimmedEnd || trimmedEnd.startsWith('#') || trimmedEnd.startsWith('!')) {
+        return undefined
+    }
+    let t = trimmedEnd
+    if (t.startsWith('**/')) {
+        t = t.slice(3)
+    }
+    if (t.startsWith('/')) {
+        t = t.slice(1)
+    }
+    if (t.endsWith('/**') || t.endsWith('/*')) {
+        t = t.slice(0, t.lastIndexOf('/'))
+    } else if (t.endsWith('/')) {
+        t = t.slice(0, -1)
+    }
+    return t || undefined
+}
+
+/**
+ * 判定 `.gitignore` 内容中是否已存在对 `entry` 的等价忽略条目。
+ *
+ * 语义等价集见 [normalizeGitignoreEntry]——用户已用 `/dependfix-reports`、`dependfix-reports`、
+ * globstar 前缀 + 目录名、目录名 + 双星号通配等等价写法忽略时，均视为已忽略，不再重复追加。
+ */
+export function isGitignoreEntryIgnored(content: string, entry: string): boolean {
+    const target = normalizeGitignoreEntry(entry)
+    if (!target) {
+        return false
+    }
+    return content.split('\n').some((line) => normalizeGitignoreEntry(line) === target)
+}
+
+/**
  * 确保目标仓库的 `.gitignore` 中包含 `dependfix-reports/`。
  *
  * - 仅在 workDir 是 git 仓库时执行
- * - 已存在该条目时幂等跳过
+ * - 已存在该条目时幂等跳过（**语义等价写法**亦视为存在，见 [isGitignoreEntryIgnored]）
  * - 失败（权限、磁盘满等）静默降级
  */
 export function ensureGitignore(workDir: string): void {
@@ -663,9 +712,8 @@ export function ensureGitignore(workDir: string): void {
             content = readFileSync(gitignorePath, 'utf-8')
         }
 
-        // 幂等检查
-        const lines = content.split('\n')
-        if (lines.some((l) => l.trim() === entry)) {
+        // 幂等检查：精确写法与语义等价写法（前导 `/`、尾部 `/`、`**/` 前缀、`/**` 与 `/*` 通配、行内注释）均视为已忽略
+        if (isGitignoreEntryIgnored(content, entry)) {
             return
         }
 

@@ -1133,7 +1133,7 @@ $ git rev-list HEAD ^origin/master --count
 
 1. **pre-commit guard**：[`.husky/pre-commit-identity-guard.sh`](../../../.husky/pre-commit-identity-guard.sh) + `.husky/pre-commit` 第一步
 2. **wisdom 沉淀**：`.session/wisdom.md` 当前条目段 `pattern-git-config-user-identity-mismatch`（路径不入库，gitignored）
-3. **规范挂接**：[docs/standards/development.md §5.1.23](../../standards/development.md#5123gitconfiguseridentity一致性guardm26阶段20260909实证)
+3. **规范挂接**：[docs/standards/development.md §5.1.23](../../standards/development.md#51-工程实践规则)
 
 ### 准入标准复核
 
@@ -1198,7 +1198,7 @@ todo.md §M27.1 任务段（L17-48）所有 8 要素（目标 / 范围 / 验收 
 
 ### 教训（5 项）
 
-1. **教训 1（阶段启动决策必须对照"已闭环清单"三重交叉核验）**：M27.1 重复评估根本原因是 commit `0ddd4e2` 决策 D2 未做"已闭环检查"——决策 backlog 候选时必须三重交叉核验：(a) `todo-archive.md §当前 + 历史阶段表格` + (b) `git log <候选相关路径>` + (c) **实际打开候选相关代码文件验证现状**。三项中任意一项均可发现 C66-C / C66-D 已闭环。**fix 模式**：(a) 决策 D 阶段前用 `git log --oneline -- <相关路径>` 5 分钟实证；(b) `rg -n "已闭环|不计入本批" docs/plan/todo-archive.md` 扫描已 ahead=0 闭环条目；(c) 对每个候选都打开实际代码 1 分钟确认状态。**wisdom 蒸馏**：新增 principle `principle-stage-launch-must-cross-verify-recent-archive` → 挂 [planning.md §3.4 决策前置交叉核验硬要求](../../standards/planning.md#34-阶段启动决策前置交叉核验硬要求m271-重复评估教训--2026-09-10) + [ai-collaboration.md §1.7 阶段启动重复评估自检流程（PDTFC+ P 阶段必经）](../../standards/ai-collaboration.md#17-阶段启动重复评估自检流程pdtfc-p-阶段必经--m271-重复评估教训)。
+1. **教训 1（阶段启动决策必须对照"已闭环清单"三重交叉核验）**：M27.1 重复评估根本原因是 commit `0ddd4e2` 决策 D2 未做"已闭环检查"——决策 backlog 候选时必须三重交叉核验：(a) `todo-archive.md §当前 + 历史阶段表格` + (b) `git log <候选相关路径>` + (c) **实际打开候选相关代码文件验证现状**。三项中任意一项均可发现 C66-C / C66-D 已闭环。**fix 模式**：(a) 决策 D 阶段前用 `git log --oneline -- <相关路径>` 5 分钟实证；(b) `rg -n "已闭环|不计入本批" docs/plan/todo-archive.md` 扫描已 ahead=0 闭环条目；(c) 对每个候选都打开实际代码 1 分钟确认状态。**wisdom 蒸馏**：新增 principle `principle-stage-launch-must-cross-verify-recent-archive` → 挂 [planning.md §3.4 决策前置交叉核验硬要求](../../standards/planning.md#34-阶段启动决策前置交叉核验硬要求m271-重复评估教训--2026-09-10) + [ai-collaboration.md §1.7 阶段启动重复评估自检流程（PDTFC+ P 阶段必经）](../../standards/ai-collaboration.md#17-阶段启动重复评估自检流程pdtfc-p-阶段必经--m271-重复评估问题)。
 
 2. **教训 2（backlog 描述与实际状态漂移治理）**：backlog.md C66 L143「保留为后续增强候选」+ L144 无明确闭环标注 = 描述与实际状态漂移。**fix 模式**：backlog 候选每次被上收至 todo.md §当前阶段时，必须同步：(a) backlog 候选描述追加"已闭环子任务"明确标注（✅ A1/A2/C/D 已闭环 ahead=0 推 origin/master + ⏸️ B 暂缓）；(b) 关联 commit hash 回填；(c) 「保留为后续增强候选」措辞必须基于"当前未落地"前提，否则删除。本批已修订 backlog.md C66 5 子任务状态标注。**wisdom 蒸馏**：新增 pattern `pattern-backlog-state-must-sync-with-archive-table`。
 

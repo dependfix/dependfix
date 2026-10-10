@@ -1,22 +1,18 @@
 # 开发规范
 
+> 定位：项目级开发规则（做什么 / 不做什么 + 可迁移方法）。与 [AGENTS.md](../../AGENTS.md) 冲突时以 AGENTS.md 为准。
+
 ## 1. 核心原则
 
-- **模块化与组件化**: 遵循高内聚低耦合，公共逻辑迁移到 `utils/` 或可复用模块。
-- **降低耦合度**: 纯函数与副作用代码分层；核心模块依赖方向单向、可注入。
-- **提升复用率**: 重复逻辑抽象为工具函数，删减样板代码。
-- **类型安全**: 全面使用 TypeScript。严禁使用 `any`，不确定类型时优先使用 `unknown` + 类型守卫。
-- **显式假设原则**: 需求、边界不清晰时，必须先暴露假设并澄清，禁止靠默认猜测推进实现。
-- **搜索优先原则**: 当需要外部信息或根因不明确时，优先搜索获取一手信息。详见 [AI 协作规范](./ai-collaboration.md)。
-- **最小变更原则**: 聚焦目标本身，减少对无关代码的触动。
-- **实用性优先**: 避免过度设计。引入新功能前评估真实价值与成本。
-- **决策梯子原则**: 实现前按顺序判断 —
-  1. 真的需要做吗？不需要就跳过（YAGNI）
-  2. 代码库里已经有了？复用，别重写
-  3. 已安装的依赖能解决？用现有依赖
-  4. 能用 util 封装？封装复用
-  5. 能一行搞定？一行
-  6. 实在不行：写最少能工作的代码
+- **模块化与组件化**：高内聚低耦合，公共逻辑迁移到 `utils/` 或可复用模块。
+- **降低耦合度**：纯函数与副作用代码分层；核心模块依赖方向单向、可注入。
+- **提升复用率**：重复逻辑抽象为工具函数，删减样板代码。
+- **类型安全**：全面 TypeScript；严禁 `any`，不确定类型时用 `unknown` + 类型守卫。
+- **显式假设原则**：需求 / 边界不清时先暴露假设并澄清，禁止靠默认猜测推进。
+- **搜索优先原则**：需外部信息或根因不明时优先搜索一手信息，见 [AI 协作规范](./ai-collaboration.md)。
+- **最小变更原则**：聚焦目标本身，减少对无关代码的触动。
+- **实用性优先**：避免过度设计，引入新功能前评估真实价值与成本。
+- **决策梯子原则**：实现前按序判断——① 真的需要做吗（YAGNI）→ ② 代码库已有则复用 → ③ 现有依赖能解决则用 → ④ 能用 util 封装则封装 → ⑤ 能一行搞定则一行 → ⑥ 写最少能工作的代码。
 
 ## 2. 命名约定
 
@@ -24,489 +20,129 @@
 |------|------|------|
 | 文件 | `kebab-case.ts` | `app-error.ts`、`runtime-config.ts` |
 | Vue 组件 | `kebab-case.vue` | `app-header.vue`、`dashboard-view.vue` |
-| 类型/接口 | `PascalCase`，优先 `interface` | `NormalizedSecurityAlert`、`RuntimeConfig` |
-| 函数/变量 | `camelCase` | `resolveRuntimeConfig`、`isValidRepoIdentifier` |
+| 类型 / 接口 | `PascalCase`，优先 `interface` | `NormalizedSecurityAlert`、`RuntimeConfig` |
+| 函数 / 变量 | `camelCase` | `resolveRuntimeConfig`、`isValidRepoIdentifier` |
 | 常量 | `UPPER_SNAKE_CASE` | `RUNTIME_MODES`、`SEVERITY_THRESHOLDS` |
 
 ## 3. 注释规范
 
-- **注释只解释关键点**: 优先说明"为什么这样写""边界条件""隐含约束/副作用"，不把代码表面行为复述一遍。
-- **复杂逻辑必须补注释**: 涉及复杂分支、状态切换、兼容性兜底、协议契约、性能或安全取舍的代码必须加注释。
-- **导出函数默认应有 JSDoc**: 简要说明用途、边界、返回语义与副作用。
-- **禁止无效或过量注释**: 不机械给每行、每个变量加注释。
-- **注释必须随实现同步**: 修改逻辑时同步更新或删除过时注释。
-- **禁止开发流程编号标记**: 注释与测试名中一律不得出现 `C1:`、`T303`、`G2`、`M4+`、`R2`、`P0` 这类规划 / 任务 / 审计 / backlog 编号（含 `C1：xxx` 与 `it('C1: xxx')` 形式）。阶段与编号是规划文档（`docs/plan/`）中区分进度的概念，代码中无意义且无法反查；追溯用 `git blame` / 审计记录。例外：代码内真实存在的常量（如 HTTP 错误码 `E401`），以及**指向规划文档的导航说明**（如"背景详见 `docs/plan/todo.md`「已知缺口 G2」"、"见 todo.md G3"、"见 backlog B1"）——导航指针内的规划编号属例外，因为它们提供真实可查的文档锚点，但必须同时写明文档路径或章节名，不得只写孤立编号。**执行挂接**：D 阶段自检（Full Stack Master (全栈大师) agent）与 A 阶段 Review Gate 必查项（Code Auditor (代码审计员) agent）均含本检查；**CI 亦已接线**——Test job 运行 `pnpm run check:orphan-ids`（命中即阻断，脚本与命令见 [scripts/README.md](../../scripts/README.md)）。违反案例见 [经验归档 §十六](../design/governance/experience-archive.md)。 **扫描范围口径**：范围必须按**本次改动文件**取（`git diff --name-only` + `git status --porcelain`，含新增文件），并同时扫新增行（`git diff -U0 | grep "^+"`）；只照抄规范里的示例路径（如 `packages/cli/src packages/core/src`）会漏掉新增模块——M34.6 即因此漏检新增 `verify-project.ts` 的编号，被 Review Gate 判 blocker（该规则第 4 次同类复发）。
-- **编号检测正则必须同时覆盖「裸写法」与「带连字符写法」**：本仓审计编号存在 `S-5`（带连字符）与 `S2` / `W2` / `W10`（裸）两种真实形态，检测正则只写 `S-\d+` 会漏裸 `W\d` / `S\d`，令检测脚本全仓复扫报「0 命中」成为**假阴性**。**要求**：检测正则（如 `scripts/check-orphan-ids.mjs` 的 `PLANNING_ID_RE`）用 `S-?\d{1,2}` 一类可选连字符形式同时覆盖两形态，并在脚本头部**显式声明未覆盖形态**（如裸 `PR\d+` 歧义高、需人工处理），避免把「0 命中」误读为规范 100% 达成；存量清理批次除清理命中行外，还须审查「检测口径本身」是否漏形态。执行挂接：D 阶段自检与 A 阶段 Review Gate 均核对本批正则 / 脚本改动。
-- **i18n locale 文件 insert anchor 必须用目标 locale 实际文本**：locale 文件多段对称（`apps/platform/i18n/locales/zh-CN.json` + `en-US.json`），edit 工具 insert anchor 必须用**目标 locale 实际文本**。自动检测：`pnpm i18n:check:anchor`（`scripts/i18n/i18n-anchor-check.mjs`）对比 zh-CN + en-US locale 文件，检测同一 key 在两边取值完全相等且 en-US locale 值含中文的错位污染（结构化本地化数据 + i18n 复合格式占位符 + 纯 ASCII 字符串视为合理相等，自动跳过）。CI test job 已添加该步骤作为 blocker。详见 [经验归档 §五十六 M24.1 教训 2](../design/governance/experience-archive.md) + `scripts/i18n/i18n-anchor-check.mjs` 注释。
-- **同一解释只写一处**: 相同背景说明（平台坑、口径、设计取舍）在仓库内只保留一处，通常放在首次出现或语义最贴近的位置；其他位置要么不写，要么用一句话指向文档。
-- **详细解释放文档，代码只留短指针**: 完整设计背景、复盘结论、口径变更写入 `docs/design/`、`docs/research/` 或复盘文档；代码注释只保留一句"为什么"或文档指针，不展开长文。
-- **简化标记约定**: 主动选择简化实现时使用 `// lean:` 标记：
-  ```typescript
-  // lean: global lock, per-account locks if throughput matters
-  // lean: single query, batch if > 1000 items
-  ```
+- **只解释关键点**：说明「为什么这样写」「边界条件」「隐含约束 / 副作用」，不复述代码表面行为。
+- **复杂逻辑必须补注释**：复杂分支、状态切换、兼容性兜底、协议契约、性能或安全取舍。
+- **导出函数默认应有 JSDoc**：说明用途、边界、返回语义与副作用。
+- **禁止无效或过量注释**，也不机械给每行 / 每个变量加注释。
+- **注释必须随实现同步**：修改逻辑时同步更新或删除过时注释；同一解释只写一处，同一缘由在仓库内仅保留一个位置，其他位置一句话指向文档。
+- **详细解释放文档，代码只留短指针**：完整设计缘由、复盘结论、口径变更写入 `docs/design/` / `docs/research/`；代码注释只留一句「为什么」或文档指针。
+- **禁止开发流程编号标记**：注释与测试名一律不得出现 `C1:` / `T303` / `G2` / `M4+` / `R2` / `P0` 这类规划 / 任务 / 审计 / backlog 编号（含 `C1：xxx` 与 `it('C1: xxx')` 形式）；追溯用 `git blame` / 审计记录。**例外**：代码内真实常量（如 HTTP 码 `E401`）与**指向规划文档的导航说明**（须同时写明文档路径或章节名，不得只写孤立编号）。**执行挂接**：D 阶段自检（Full Stack Master (全栈大师)）与 A 阶段 Review Gate（Code Auditor (代码审计员) 必查项）均含本检查；CI Test job 运行 `pnpm run check:orphan-ids`（命中即阻断，见 [scripts/README.md](../../scripts/README.md)）。**扫描范围口径**：按**本次改动文件**取（`git diff --name-only` + `git status --porcelain`，含新增文件）并同时扫新增行（`git diff -U0 | grep "^+"`）——只照抄规范里的示例路径会漏掉新增模块。
+- **编号检测正则必须同时覆盖「裸写法」与「带连字符写法」**：本仓存在 `S-5` 与 `S2` / `W2` / `W10` 两种形态，正则只写 `S-\d+` 会漏裸形式，令全仓复扫报「0 命中」成为假阴性。要求 `PLANNING_ID_RE` 用 `S-?\d{1,2}` 一类可选连字符形式，并在脚本头部**显式声明未覆盖形态**（如裸 `PR\d+` 歧义高、需人工处理）；存量清理批次还须审查「检测口径本身」是否漏形态。
+- **i18n locale 文件 insert anchor 必须用目标 locale 实际文本**：locale 文件多段对称（`zh-CN.json` + `en-US.json`），edit 工具 insert anchor 须用**目标 locale 实际文本**；`pnpm i18n:check:anchor`（`scripts/i18n/i18n-anchor-check.mjs`）检测同一 key 两边取值相等且 en-US 含中文的错位污染（结构化本地化数据 / 占位符 / 纯 ASCII 视为合理相等而跳过），CI test job 已作 blocker。
+- **简化标记约定**：主动选择简化实现时用 `// lean:` 标记（如 `// lean: global lock, per-account locks if throughput matters`）。
 
 ## 4. 目录约束
 
-```
-packages/core/src/           # 核心域层，不依赖任何运行时环境
-├── alerts/                  # 告警标准化模型
-├── errors/                  # 错误模型（AppError）
-├── filters/                 # 告警过滤引擎
-├── logger/                  # 日志工具
-├── planner/                 # 修复规划模型
-├── report/                  # 报告模型
-├── toolchain/               # 工具链策略
-└── utils/                   # 纯函数工具（不依赖外部服务）
-
-packages/engine/src/         # 共享执行引擎（DependfixApp），cli / mcp / platform 共同依赖
-├── ai/                      # AI 研判（breaking change 分析、patch 生成）
-├── alerts/                  # 告警处理
-├── app/                     # DependfixApp 应用骨架
-├── code-scanning/           # Code Scanning 集成
-├── config/                  # 配置层（多源合并、校验）
-├── fixers/                  # 修复器（dependency / pnpm / code-scanning）
-├── github/                  # GitHub API 集成
-├── grouping/                # 依赖分组升级
-├── helpers/                 # 公共辅助
-├── multirepo/               # 多仓库治理
-├── report/                  # 报告模型
-├── runners/                 # 执行器
-└── verification/            # 验证链（install / lint / build / test）
-
-packages/cli/src/            # CLI 入口（薄壳），编排依赖 engine
-├── app/                     # pipeline（本地执行编排）
-├── cli/                     # 参数解析与运行入口
-└── skills/                  # skill 编排（agents / doctor / installer / source）
-
-packages/mcp/src/            # MCP Server，能力复用 engine
-├── bin.ts                   # 进程入口
-└── tools/                   # MCP tools（run_scan / fix_dependency 等）
-
-packages/skills/             # 产品 skill 权威源（dependfix-remediator，发布 npm）
-├── dependfix-remediator/    # skill 内容（SKILL.md / REFERENCES.md）
-└── test/                    # 一致性测试
-
-apps/platform/               # Nuxt 全栈平台
-├── app/                     # 前端（pages / components / composables / utils / layouts / middleware）
-├── server/                  # API 路由、数据库、服务
-└── data/                    # 运行时数据（不入库内容）
-```
-
-### 依赖约束
-
-- `packages/core/` 不依赖任何运行时环境（Node / 浏览器 API）与任何内部包
-- `packages/engine/` 承载共享执行能力（`DependfixApp`），内部包依赖仅 `@dependfix/core`
-- `packages/cli/` 为薄壳，依赖 engine 编排
-- **禁止 cli / mcp / platform 应用层之间互相依赖**：mcp 曾依赖 cli（`dependfix` 包）导致应用层互相依赖 + 连带安装膨胀 + 版本耦合，engine 拆包解决（见 [todo.md](../plan/todo.md)「已完成任务：@dependfix/engine 拆包」）；`packages/mcp/` 与 `apps/platform/` 均只依赖 `@dependfix/engine` + `@dependfix/core`
-- `packages/skills/` 为资源包（无运行时依赖），仅被 cli 消费
-- 依赖方向单向：`core` ← `engine` ← `{cli, mcp, platform}`；禁止反向与循环引用
-- 共享能力一律下沉 engine 后在应用层复用，禁止应用层复制实现或直连 core 内部模块
-
-**执行挂接**：本依赖约束的合规核验由 A 阶段 Review Gate 必查项执行（见 [code-quality-checklist 包依赖约束](../../.github/skills/code-reviewer/references/code-quality-checklist.md) 与 `Code Auditor (代码审计员)` 必查项）。
+- **包职责**：`packages/core`（核心域层，无运行时依赖）/ `packages/engine`（共享执行引擎 `DependfixApp`）/ `packages/cli`（薄壳 CLI）/ `packages/mcp`（MCP Server）/ `packages/skills`（产品 skill 资源包）/ `apps/platform`（Nuxt 全栈平台）；逐目录结构见各包 README 与 [模块设计索引](../design/modules/index.md)。
+- `packages/core/` 不依赖任何运行时环境（Node / 浏览器 API）与任何内部包。
+- `packages/engine/` 承载共享执行能力，内部包依赖仅 `@dependfix/core`。
+- `packages/cli/` 为薄壳，依赖 engine 编排；`packages/skills/` 为资源包（无运行时依赖），仅被 cli 消费。
+- **禁止 cli / mcp / platform 应用层之间互相依赖**：`packages/mcp/` 与 `apps/platform/` 均只依赖 `@dependfix/engine` + `@dependfix/core`（mcp 曾依赖 cli 导致应用层互相依赖 + 连带安装膨胀 + 版本耦合，engine 拆包解决）。
+- 依赖方向单向：`core` ← `engine` ← `{cli, mcp, platform}`；禁止反向与循环引用；共享能力一律下沉 engine 后在应用层复用，禁止应用层复制实现或直连 core 内部模块。
+- **执行挂接**：依赖约束的合规核验由 A 阶段 Review Gate 必查项执行（见 [code-quality-checklist 包依赖约束](../../.github/skills/code-reviewer/references/code-quality-checklist.md)）。
 
 ## 5. TypeScript
 
-- 严格模式逐步收紧（当前 `noImplicitAny: false` 为过渡状态）
-- `tsc --noEmit` 必须通过
-- 禁止 `any` 逃逸（逐步清零）
-- 优先使用 `interface` 定义类型，需要联合类型时使用 `type`
-
-### 5.1 工程经验
-
-#### 5.1.1 错误路径 helper 自身不抛异常
-
-- 统一用 `toErrorMessage(value)` 提取错误消息（Error→message、string→原样、可序列化→JSON、其余→类型描述），禁止在 catch 块手写 `instanceof` 分支。
-- 错误路径 helper 必须 try/catch 包裹 `JSON.stringify`（循环引用会 throw，掩盖原始错误），且必须有单测锚定。
-
-#### 5.1.2 日志输出人读/机读双模
-
-- 所有输出考虑"人读 vs 机读"双路径：`process.stdout.isTTY` 检测 → TTY 输出格式化彩色文本，非 TTY（CI/管道）输出 JSON。
-
-#### 5.1.3 截断带固定前缀的 ID 先去除前缀
-
-- 对 `prefix-<唯一段>` 形式的 ID，禁止直接 `slice(0, N)`（唯一部分会被丢光）；先去掉固定前缀再截断，或取最后一个分隔段。
-- 文件名/分支名采用 `YYYYMMDD-HHmmss-{唯一尾段}`（字典序==时间序且唯一）。
-
-#### 5.1.4 改名/迁移全局排查命名残留
-
-- 命名前缀抽为统一常量 + 封装读取辅助，所有读取必须走它（防漏网）。
-- 改名后全局搜索旧名（含 env 前缀、错误消息、注释、示例），不只看文件引用。
-
-#### 5.1.5 Node 脚本 main 入口守卫（必须）
-
-- `scripts/*.mjs` 等可执行脚本**必须**用入口守卫包裹 `main()` 调用：
-
-  ```javascript
-  if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-      main().catch(...)
-  }
-  ```
-
-- 守卫是入口副本中最容易被漏的一行——完成新脚本后 grep `process.argv[1]` 确认。详见 [经验归档 §三十九](../design/governance/experience-archive.md)。
-
-#### 5.1.7 容器拼装类代码注释必须准确区分 `execFile` 与 `exec`
-
-- docker 拼装类代码注释禁止写"防 argv 回显"等不准确表述。`execFile` 不经过 shell，**不会**回显 argv（与 `exec` 不同）。
-- 准确语义：`spec.env` 隔离，避免 cmd/test 日志、git URL、daemon config 可见 token（凭据走 `http.extraheader` 等带外通道，与 argv 无关）。
-- 注释必须真实反映防御机制，错把"防 argv 回显"当成威胁模型会导致后续审计按错误方向找漏洞。
-
-#### 5.1.8 JSDoc 注释必须与可见性声明一致
-
-- `private` 方法 + JSDoc 写"导出便于 snapshot 测试"自相矛盾。若实际不导出，改注释或改 `public` / `internal`。
-- 拼装类函数（如 `buildRunArgs`、`buildSpawnArgs`）应在测试中 snapshot 验证——拼装 bug 在真起容器前难暴露，靠运行时回显只能发现一半问题。
-- 注释与实现脱节会被 audit 作为 warning 处置；统一规范后减少文档维护成本。
-
-#### 5.1.9 测试 Spy 与生产实现同模块时必须 `@internal` 标注
-
-- `SpyAdapter` 与生产 `Adapter` 同模块导出时，必须在 Spy 类上加 `@internal` JSDoc + 文件级注释"生产代码禁止导入"，避免业务模块误用 spy 路径导致测试覆盖率虚高、运行时行为错位。
-- 强约束：eslint `no-restricted-imports` 规则限制生产代码 import spy 路径是最稳护栏，新写 Spy 模块时同步配置。
-- 已有项目内案例：`packages/engine/src/runners/*.ts` 中 Docker adapter 与 spy 同模块导出（commit `b189aaa` 落地）。
-
-#### 5.1.10 删除"自动状态赋值"时必须搜遍所有被动接收路径
-
-- 删除状态自动赋值逻辑（如 `selectedRepos.value = ...filter(...)`）前，必须审视所有调用路径是否依赖该自动行为收敛。
-- 被动接收态举例：成功提交后重新调用 `loadImportable()` 时，已删的自动赋值语句留下的旧 selectedRepos 会让 checkbox 呈 disabled+checked 态、计数过期、按钮仍可点——误导用户。
-- 修复范式：在 `emit('success')` 后 `await reload()` 前主动 `selectedRepos.value = []`，让"删除"与"主动重置"形成完整闭环。
-- 原则：**删"自动逻辑"必须搜遍所有"被动接收该状态的路径"**——单点删除会留下隐式不一致。
-
-#### 5.1.11 调试临时代码必须在 commit 前清理
-
-- 任何调试临时代码（`// DEBUG` 注释、`console.log('[debug]', ...)`、`// TODO` 未跟踪项、`alert(...)` 弹窗、`debugger` 语句）必须在 `conventional-committer` 提交前手动清理。
-- 不能依赖 lint（`no-console` 等规则仅限服务端日志场景，无法拦截浏览器端调试输出），code-auditor 会作为 blocker Reject。
-- 调试完成后立即清理，不要等到 commit 前——`git diff --staged` 容易遗漏单行 `console.log`，养成实时清理习惯。
-- 范围扩展：ui-validator agent 视觉验证时自建的截图脚本（如 `*-visual-verify.e2e.test.ts`）属同类——`git status` 不应有 untracked 临时文件。
-
-#### 5.1.6 测试不得依赖 git 忽略工作区文件的存在性
-
-- 测试/脚本不得隐式依赖 `.session/`、`temp/` 等 git 忽略目录下文件的存在性（本地有、CI 无 → 行为分叉，CI 挂、本地过）。
-- 必须依赖时：把路径/内容作为参数注入，或模拟缺失场景（临时移走文件）验证两分支。
-
-#### 5.1.12 调试临时代码触发 TDZ（Temporal Dead Zone）陷阱
-
-- `script setup` 顶部加临时调试 `console.log` 引用**尚未声明的 ref/computed** 会触发 TDZ `Cannot access 'X' before initialization` SSR 500 错误——即使 `console.log` 只是 debug 也会让整个 SSR 阶段失败（不是 hydration warning 而是真错误）。
-- 临时调试代码引用变量前必须确认其在执行前已声明，或放在 `watchEffect` / `onMounted` 里。
-- 调试完成后立刻清理不留痕（与 §5.1.11 调试临时代码清理规则配合）。
-- 详见 [经验归档 §四十二](../design/governance/experience-archive.md)
-
-#### 5.1.13 已测试文件补测胜于新建（CI 覆盖率阈值回归修复模式）
-
-- CI Coverage 阈值回归（差 7 分支）时，**优先在已有测试文件加 case**，而不是新建 test 文件或临时修改 vitest 阈值。
-- 判断标准：diff 文件数 = 1 / 风险扩散 = 0 / 价值密度 = 高（覆盖核心聚合更新策略 / 失败终态保护 / 多状态流转等业务关键路径）。
-- 实证见 [经验归档 §四十二（M13.3 + 0c57211）](../design/governance/experience-archive.md)。
-
-#### 5.1.14 OR 链触发条件精确追踪（`if (a || b || c || d || e)` 写回决策测试模式）
-
-- `if (a || b || c || d || e)` 写回决策的 OR 链必须**逐项追踪每个条件真假**才能准确断言测试用例。
-- 常见错误：以为 "statusWriteBack=false 就完全不写回"，但 counts 差异仍会触发 OR 链进入写回块（只跳过 status 赋值，counts/summaryJson 仍更新）。
-- 修复模式：调试 case 时打开真实 SQL 数据看 `batchRepo.save` 后的状态字段；不要"想当然"按 statusWriteBack 反推。
-- 实证见 [经验归档 §四十二（CI Coverage 修复批次 commit 0c57211）](../design/governance/experience-archive.md)。
-
-#### 5.1.15 集成外部库前必须读 README 标准用法 + 落地真实路径 e2e 冒烟测试（hard requirement）
-
-集成任何外部库（`@octokit/*`、Vue 插件、TypeORM、Playwright、better-auth 等）前**必须**先查 README 官方示例（installation / authentication / getting started 章节的契约代码）。
-
-**集成层测试不 mock 真实被集成库**：mock 仅替换被测单元边界；mock 形态永远无法完整模拟真实 dispatch 行为。**真实路径冒烟测试必须用真实 RSA / 真实私钥 / 真实 nock 拦截**，不能仅凭单测通过即认为集成完成。
-
-**「单测全过 + typecheck 0 error」≠ 集成 Done**：必须有「真实路径调用 + 断言关键行为」的可执行验证；A 阶段 code-auditor 主责边界已挂「集成外部库时验证 README 标准用法引用 + e2e 真实路径测试存在」必查项（[code-auditor.agent.md 主责边界](../../.github/agents/code-auditor.agent.md)）。
-
-详见 [经验归档 §四十三（M18.4 audit round 1 Reject 实证）](../design/governance/experience-archive.md)
-
-#### 5.1.16 v-model 修改嵌套字段必须用 reactive + deep watch（hard requirement）
-
-Nuxt `useAsyncData` 内置 `watch` 默认浅监听（reference equality），对 nested field mutation（如 v-model 改 `filters.includeSuperseded = true`）不响应——任何 v-model 嵌套字段修改需要用 `reactive` 而非 `ref`，配合 `deep: true` watch。
-
-**错误模式**：
-```ts
-const filters = ref<Filters>({...})  // ref + watch 浅监听不响应 nested field mutation
-watch: [viewMode, filters], // 对 ref 浅比较
-```
-
-**正确模式**：
-```ts
-const filters = reactive<Filters>({...})  // reactive 字段级修改
-watch: [viewMode, () => filters, { deep: true }],  // getter source + deep watch
-
-// 或显式兜底
-watch(filters, () => { void refreshAlerts() }, { deep: true })
-```
-
-**依赖 Nuxt useAsyncData 默认 `dedupe: 'cancel'` 抑制双触发**：内置 watch + 显式 watch 都可能触发 refresh，但 abortController 会取消旧 execute；改 dedupe 策略前需重新评估。
-
-**调试技巧**：用 `page.on('request')` 跟踪浏览器侧 `/api/alerts` 请求数（而不是 Vue devtools），直接判断 refetch 是否触发。
-
-详见 [经验归档 §四十六](../design/governance/experience-archive-§41-§48-archive-batch.md#四十六primevuetoggleswitchvmodel嵌套字段触发useasyncdatawatch浅监听失效20260831m206)
-
-#### 5.1.17 一次性脚本 TypeScript 价值评估（避免 over-engineering）
-
-不要为了"项目完整性"添加不必要的 dev 依赖：一次性脚本 + 永久 devDep 代价不匹配价值；评估价值 / 成本比。
-
-**Node 运行时支持矩阵**（影响 .ts 脚本运行）：
-- Node 20 LTS：不支持 .ts 直接运行；需 tsx / ts-node / esbuild-register 等中间层
-- Node 22.6+ `--experimental-strip-types`：**只剥离类型注解**，不处理装饰器
-- Node 23.6+ / 24 `--experimental-transform-types`：转换 enum / namespace，**仍不处理装饰器**
-- 装饰器依赖 `emitDecoratorMetadata`（TS 编译器专属能力），Node 内置 TS 支持均无法替代
-
-**TypeORM 装饰器需要 emitDecoratorMetadata**：`@Entity('table_name')` + `@Column({...})` 装饰器运行后必须 emit 元数据到 `reflect-metadata`，否则 DataSource 构造时找不到 entity metadata → `EntityMetadataNotFoundError`。
-
-**何时必须 TypeScript**（一次性脚本场景）：
-- ✅ TypeORM / Prisma / Drizzle 等装饰器密集型 ORM
-- ✅ 类型安全严格（DB schema → API 契约同步）
-- ❌ 纯 SQL / 简单业务逻辑（改 JavaScript 即可）
-
-**CLI 端 entity metadata 必须显式 import 触发装饰器**：tsx / vitest CLI 路径不走 Nitro auto-load，需在脚本入口处显式 import 触发 `@Entity` / `@Column` 装饰器注册。
-
-**helper 文件模式**（避免 ESLint unused-vars warning）：
-```ts
-// register-entities.ts 文件级 eslint-disable
-/* eslint-disable @typescript-eslint/no-unused-vars -- TypeORM 装饰器注册用 side-effect import */
-import { ScanResult } from '../../entities/scan-result'
-import { Repository } from '../../entities/repository'
-// ... 其他 entity imports
-void ScanResult
-void Repository
-// ...
-/* eslint-enable @typescript-eslint/no-unused-vars */
-```
-
-**engines 应该与 Node LTS 实际部署版本对齐**：Node 20 已 EOL（2026-04-30），engines `>=20` 是历史遗留，实际部署是 Node 22+ 或 Node 24+。建议升级到 `>=22`（兼容 Node 22 LTS）+ 注释说明 Node 22.6+ 内置 strip-types 仍不处理装饰器（tsx 仍必须）。
-
-详见 [经验归档 §四十七](../design/governance/experience-archive-§41-§48-archive-batch.md#四十七一次性脚本不应-over-engineeringtsx-cli-装饰器依赖-vs-node-22-strip-types2026-08-31m20.7)
-
-#### 5.1.18 SQLite 数据库启动期自动备份（引用 security.md §2.1 + 开发角度差异化信息）
-
-> 权威完整声明（备份路径 / fsync / 保留策略 / 命令式恢复 / 自检工具等）见 [security.md §2.1](./security.md)。本节仅保留开发角度差异化信息（应用范围 / 禁止 / D 阶段自检 + A 阶段 Review Gate）。
-
-**应用范围**：所有 better-sqlite3 部署形态（dev / e2e / prod / Docker 容器）。e2e.sqlite 与 dependfix.sqlite 各自独立（不交叉备份）。
-
-**禁止**：
-- 禁用 `--no-verify-backup` 跳过备份（无备份时应用启动期打印醒目 WARN 但仍允许启动——这是 fail-open 而非 fail-closed）
-- 禁用备份目录走 `.gitignore` 之外的位置（避免误提交）
-- 禁用备份过程阻塞启动超过 5 秒（超过视为备份实现有问题，需审计）
-
-**D 阶段自检（Full Stack Master (全栈大师) agent）**：必须验证 apps/platform/server/database/backup.ts 存在 + 含 backup-on-startup 调用 + 含 fsync + 含保留策略清理逻辑
-
-**A 阶段 Review Gate 必查项**：apps/platform/server/database/backup.ts 文件存在 + 含 fsync 证据 + 含保留策略
-
-实证（2026-09-01 dependfix.sqlite 数据清空事故）见 [经验归档 §五十](../design/governance/experience-archive-§49-§57-recent-investigation.md#五十sqlite-数据库业务数据被清空开发环境不可恢复事故2026-09-01)。
-
-#### 5.1.19 TypeORM 1.x synchronize 与 migrationsRun 反模式禁止（hard requirement）
-
-`apps/platform/server/database/index.ts` 配置必须遵守以下约束：
-
-**禁止组合**：
-- ❌ `synchronize: true` **同时** `migrationsRun: true`（TypeORM 1.x 文档明文警告的反模式）
-- ❌ dev 模式下 `synchronize` 硬编码自动开启（如 `|| isDev`）
-
-**强制组合**：
-- ✅ **dev 模式**：`synchronize: DATABASE_SYNCHRONIZE === 'true'`（显式 opt-in，不自动开启）+ `migrationsRun: false`
-- ✅ **prod 构建**：`synchronize: DATABASE_SYNCHRONIZE === 'true'`（默认关闭）+ `migrationsRun: DATABASE_MIGRATIONS_RUN === 'true' || false`
-- ✅ **e2e 测试**：`synchronize: true`（独立数据库，schema 同步可接受）+ `migrationsRun: false`
-
-**启动期日志强制项**：
-- 必须打印当前生效的 `synchronize` 值 + `migrationsRun` 值 + 触发来源（环境变量或默认）
-- 例：`[database] synchronize=false (DATABASE_SYNCHRONIZE unset, NODE_ENV=production), migrationsRun=false`
-- 便于排查"为什么数据库 schema 没更新"或"为什么数据库被自动改写"
-
-**NOT NULL 列无 default 时同步失败的恢复路径**：
-- 当 schema 升级需要给已有数据的表新增 NOT NULL 列且无 default value，TypeORM 1.x synchronize 在 SQLite 上会失败（`SqliteError: NOT NULL constraint failed`）
-- 事务回滚保证数据不丢（`RdbmsSchemaBuilder.build()` 内嵌 startTransaction / commitTransaction / rollbackTransaction）
-- 启动期需打印明确错误：`[database] synchronize FAILED: ...请写 migration 而非改 entity`
-- D 阶段自检必须验证：涉及 NOT NULL 列无 default 的 schema 变更必须走 migration 路径，不可仅靠 synchronize
-
-#### 5.1.21 zod `.optional()` 接受 undefined 为合法值（陷阱模式）
-
-zod `z.enum([...]).optional()` 接受 `undefined` 为合法值（`safeParse(undefined).success = true, data = undefined`），但区分「未传字段」与「传 undefined」需**显式** `data !== undefined` 判断，否则 `data === 'some-value'` 三元永远为 false（因 `data` 是 `undefined`）。
-
-**防御**（防 future zod 0.x 升级或 .optional() 行为变更）：
-- 写 query 参数解析时，对 `boolean` 字段必须保留 `data !== undefined` 区分（`false` 是合法值）
-- 对 `string` 字段可简化为单层 `safeParse.success ? data : undefined`（下方 `if (conclusion)` 自动过滤 falsy）
-
-**zod-helpers helper**：`apps/platform/server/utils/zod-helpers.ts` 提供 `parseOptional<T>(schema, value): { success: boolean, value?: T, isProvided: boolean }` helper，强制三态语义区分（success / value / isProvided），避免原 `data !== undefined` 死代码陷阱。
-
-详见 [经验归档 §五十六 M24.1 教训 4](../design/governance/experience-archive.md)。
-
-#### 5.1.20 atomic commit 边界（重构支撑 vs 业务行为变更必须分 commit）
-
-**核心规则**：
-- 重构支撑 = 不改变行为，只改善代码结构（提取 const / 改命名 / 删除冗余分支）
-- 业务行为变更 = 改变默认行为（默认值反转 / 逻辑反转 / 新增功能）——两者必须分 commit
-
-**安全做法**：
-- 启动日志要打印某变量时，**临时用内联表达式**（`console.log(\`migrationsRun=${process.env.DATABASE_MIGRATIONS_RUN !== 'false'}\`)`），不提取 const
-- 业务行为变更的 commit（如默认值反转）时再统一提取 + 改计算
-
-**规范支撑**：[AGENTS.md §提交规范](../../AGENTS.md) 第 4 条"原子粒度——一个提交对应一个逻辑变更" + [规划规范 §1.1 任务粒度约束](./planning.md)
-
-详见 [经验归档 §四十九（M22.4 教训沉淀）](../design/governance/experience-archive.md) + §五十（2026-09-01 dependfix.sqlite 事故关联风险）
-
-#### 5.1.22 baseline lint 治理路径：删除占位符 vs 改写为 `void X` 的治本决策（M25.3 阶段实证）
-
-ESLint 双重禁止规则：
-- `@typescript-eslint/no-unused-expressions` 禁止未使用表达式（如 `someCondition && doSomething()`）
-- `@typescript-eslint/no-meaningless-void-operator` 禁止 `void X` 无意义用法
-
-**修复方向选择**：
-- **方向 A（删除占位符）**：删除冗余表达式（`void someValue` → 完全删除该行；`condition && doSomething()` → 改为 `if (condition) { doSomething() }`）—— **本项目标准做法**
-- **方向 B（改写为 `void X`）**：保留表达式但用 `void` 前缀 —— 与 `no-meaningless-void-operator` 冲突，**禁止**
-
-**M25.3 实证**：baseline 16 errors 全部走方向 A 治本（12 个 `void X` 直接删除，4 个 `condition && doSomething()` 改写为 `if` 块，0 个使用 eslint-disable 抑制）。**`max-warnings` 临时方案同样禁止**——CI 触发 ESLint 临界值是"信号"而非"阈值调整"，治理方向是"清空 warnings"而非"提高阈值"。
-
-**M26.4b 延伸实证**：22 warnings → 0 warnings 全部治本（不扩展 `max-warnings` 临时方案）。具体修复策略：
-- `await-thenable`（9 个）→ 去除冗余 await
-- `no-invalid-void-type`（1 个）→ `void` union 改 `undefined`
-- `max-params`（1 个）→ 合并相邻可选参数到 options 对象
-- `no-empty-function`（1 个）→ 保留 + 加注释说明设计意图
-- `only-throw-error`（1 个）→ 仅测试代码必须 throw 非 Error 覆盖 fallback 时加 eslint-disable 注释
-- `max-statements-per-line`（4 个）→ 拆分多语句到多行
-- `no-unused-vars`（3 个）→ 删除未使用 import / 冗余 import
-- `no-deprecated`（2 个）→ TypeORM 1.x `connection` 改 `dataSource`
-- `require-await`（1 个）→ `async function` 改 `function`（返回 `Promise.resolve(...)` 显式包装 fetch API 契约）
-
-**规范支撑**：[规划规范 §4.4 治本 vs 临时](../standards/planning.md#44-大批量归档批次操作规范) + D 阶段自检三向验证纪律（[AI 协作规范 §2.0](../standards/ai-collaboration.md#20-d-阶段自检三向验证纪律)）
-
-详见 [经验归档 §六十 M25.3 baseline lint 修复方向](../design/governance/experience-archive-§49-§57-recent-investigation.md#六十m253baselinelint治理双重禁止的治本路径20260908commits) + §六十二 教训 2（M25 → 当前 25 commits 文档治理批次）
-
-#### 5.1.23 git config user identity 一致性 guard（M26 阶段 2026-09-09 实证）
-
-git config 优先级 `local > global > system`，`.git/config [user]` 会**静默**覆盖 global user（无任何提示）。M26 阶段 33 commits 误用 `dependfix[bot]` 而非 `CaoMeiYouRen` 即此现象实证。**修复模式**：
-
-1. **pre-commit guard 治本**：检测 `.git/config [user]` 与 `git config --global user.*` 一致性，不一致阻断 commit（项目内已落地 `.husky/pre-commit-identity-guard.sh` + `.husky/pre-commit` 第一步）
-2. **session 启动时第一件事**：`.session/current-task.yaml` 段对齐 `git config --local user.*` 与 `git config --global user.*`
-3. **严禁批量改 commit author**（除非用户显式同意 + `git rebase -i HEAD~N --exec 'git commit --amend --no-edit --author=...'` + 强制 push）——历史 commit 改 author 风险高
-
-详见 [经验归档 §六十三 M26 阶段 git config user 错位事故与防护](../design/governance/experience-archive-§49-§57-recent-investigation.md#六十三m26-阶段-git-config-user-错位事故与防护2026-09-09)
-
-#### 5.1.24 多 key 生成循环必须按 key 预聚合取 max（last-write-wins 陷阱）
-
-生成 overrides / 映射 / 统计等「多输入 → 同 key」场景时，若在循环内直接 `map[key] = value` 会产生 last-write-wins——同 key 多输入时最终值取决于遍历顺序而非语义正确值。**修复模式**：先 `Map<key, value>` 预聚合（如 `compareSemver` 取 max），再统一写入输出；对齐同模块已有的聚合模式（如顶层 `targetByMajor`）。反例：M29.6 路径级 override 同 pathKey 多告警时后写覆盖先写，可能写入低于修复所需版本。
-
-#### 5.1.25 声明范围前必须全仓库穷举同根因调用点
-
-声明「修复点单一 / 影响范围」前，必须以**行为特征**（如 git 子命令 argv、环境变量读取）而非「包路径」为锚点全仓库扫描，把跨包（尤其平台侧）同根因命中逐条列入范围或显式排除。反例①（同根因缺口）：M29.2 只改 engine 的 `stageAndCommit`，漏了 push 侧 4 处未隔离调用点（含平台接管交付路径 3 处）；反例②（范围声明失误）：M29.2 范围行误称"git commit 调用仅此一处"，被 release 链路的 `git commit -F` 反例推翻。
-
-**同根因判定要改在共用层，不要下沉到各调用方**：多个调用方共用同一映射 / 判定函数时（如三个 fetcher 共用 `mapGitHubError` 的错误分类），改动必须集中在共用层一处；在各 fetcher 内重复实现会漂移。同时检查**下游消费方**是否硬编码了单一场景文案（实证：未启用分支把提示写死为某一告警源，多源场景会误导）。
-
-#### 5.1.26 构建产物 dts 入口与共享 chunk 文件名冲突（tsdown `hash:false`）
-
-tsdown `hash:false` 下多 entry 构建时，entry 与共享 dts chunk 会争用同名文件（如 `index.d.mts`），入口声明被挤出 `index2.d.mts`，而 `package.json#types` 仍指向 `index.d.mts` → 下游解析不到导出（TS2305）。**修复模式**：用 `outputOptions.chunkFileNames` 把 chunk 统一隔离到 `chunks/` 子目录，entry 名保持稳定。**排查**：构建后 `dist/` 出现 `index2.d.mts` / `index2.mjs` 即命中。详见 [backlog.md §已知边界](../plan/backlog.md#tsdown-hashfalse-下-entry-与共享-chunk-文件名冲突持续观察)。
-
-#### 5.1.27 迁移 / 等价性判断前必须回读迁移前源码
-
-判断「迁移前后行为是否等价」、或为组件默认值 / 属性语义下结论前，必须用 `git show HEAD:<file>`（或迁移前 commit）**回读迁移前的实际源码**；库文档只用于解释**差异成因**，不得用于推断仓库现状。反例：据组件库文档「`feedback` 默认由 true 变 false」推断迁移前存在密码强度条，实际仓库 6 处该组件全部显式传了关闭值 → 把「收敛重复噪声」误写成「新增可见 UI」，被审计以文档 blocker 退回。
-
-#### 5.1.28 「依赖卸载 + 引用归零」类任务的规模口径
-
-此类任务的规模不在依赖数，而在**引用面**：卸载 5 个依赖可能牵出数十文件（含注释中性化）。规划阶段必须同时定义 `rg` 归零口径——「是否含注释」「是否含文档 / 归档」「是否含历史编号」，否则验收标准与规模估算都会失准；包体 / 体积对比的基线还需**回溯到迁移前的 commit 现场构建**（仓库内通常无落盘基线）。
-
-#### 5.1.29 配置优先级口径必须写明「字段级 / 逐条合并」并配证伪用例
-
-写「A 优先于 B」这类配置优先级时，只写「优先」会让实现与测试各自漂移（整体覆盖 vs 逐条合并）。**口径必须写全**（如「中央一旦指定该字段即整体忽略目标仓库声明，不按 glob 逐条合并」），并配**证伪用例**：构造「高优先级来源存在但未覆盖该对象」的场景——覆盖实现下该对象不受影响（断言正常路径发生），合并实现下会被影响（断言失败）。实测：把优先级翻转为低优先级优先后 3 个用例失败（含证伪用例）。
-
-#### 5.1.30 构造期合并配置：保持 `readonly` 单次赋值
-
-需要在构造期用外部数据（如目标仓库配置文件）合并出一个 effective config 时，不要把 `private readonly config` 改成可写：把依赖该字段的初始化块**后移**，改为单次赋值（logger → 合并 config → 依赖 config 的块）。这样既保持不可变语义，也避免引入第二份 effectiveConfig（双来源漂移）。
-
-#### 5.1.31 声明「与环境开关解耦」必须穷举同族开关
-
-代码路径声明「只读 / 与环境解耦」时，只锁一个开关不足以成立——必须**一次性穷举同族开关**（典型：`migrationsRun` + `synchronize` 双 opt-in），并为每个开关配断言。反例：M33.7 `db-migrate --show` 只锁 `migrationsRun: false`，但 `DATABASE_SYNCHRONIZE=true` 时 `DataSource.initialize()` 仍会同步 schema，令对外声明"只读"的命令实际写库。**配套**：打印 effective 覆盖行（打印**实际生效值**而非按 env 打印的开关值），消解"声明值 vs 生效值"的错位。
-
-#### 5.1.32 pnpm overrides 的「通用钉定」会压过「版本化覆盖」
-
-同一包同时存在**无版本限定的通用覆盖**（如 `fast-uri: 3.1.6`）与**版本化覆盖**（如 `fast-uri@3: ^3.1.7`）时，通用钉定胜出 → 解析版本被压回旧版，使版本化覆盖的升级（与 dependabot 的 bump commit）双双失效，漏洞反复出现且看似"已升级"。**排查**：出现「升级了但漏洞还在」时先列 `pnpm-workspace.yaml` 的 overrides，检查同包是否同时存在通用与版本化两条；**清理**保留一条（版本化优先），再用 `pnpm audit` 复验计数。
-
----
-
-#### 5.1.33 同构站点穷举必须用「构建产物」，源码 grep 只能发现「值不同」的
-
-做「把同类写法统一 / 复用化」这类任务时，先用源码 grep 穷举命中的只是**值不同**的站点（如 `rg -F 'gap: $space-1'`）；**结构同构但取值已一致**的站点会被整体漏掉——M34.7 漏掉 3 处（`settings-form__field` / `auth-form__field` ×2），由 A 阶段审计用产物穷举补出（站点数 10 → 13）。**做法**：构建后扫 `.output/**` 的 CSS，**合并同一选择器的多条规则**再按特征筛（同一选择器的声明可能被拆成多条规则，甚至落在 `server/chunks/build/*styles*.mjs`）。通用提问：声明「范围已穷举」前先自问「我的筛选条件是否只能命中目标的一部分？」。
-
-#### 5.1.34 依赖升级的差异口径：语义级 diff + 无 release 时以 tarball 为权威
-
-判断「升级前后是否等价 / 有哪些破坏性变更」时，两条口径必须同时成立：① **口径**——剥掉文件名 hash 与 `[data-v-*]` scope 后逐文件**语义级** diff（`grep -o` + `sort -u` 这类归一化近似会掩盖同名规则的取值差异，曾据此误判「CSS 逐字节相同」；优先用 md5 判断是否同文件），传递依赖版本要**逐版核对**（本项目三版同锁 `reka-ui`，说明差异必来自库自身）；② **权威来源**——上游无 release / changelog 时以**产物本身**为权威（`npm pack` 后对 `dist` 做全量比对：文件集 + d.ts 公开面 + token 值集合），比猜测 changelog 更可复现。
-
-#### 5.1.35 `rg -r` 是 `--replace` 而非递归（输出替换陷阱）
-
-ripgrep 的 `-r` / `--replace` 会把**匹配片段替换为给定文本**再输出（不改文件，但输出被改写）。误写 `rg -rn "<pattern>"` 时，`-rn` 被解析为「替换为 `n`」→ 输出里出现 `Caomein`（`Caomei` + `Select` 被替换）、`artifacts/n/` 之类的**假象**，极易据此误判内容（本项目一次会话内复发 2 次）。**做法**：多文件搜索只用 `rg -n`（递归是默认行为）；确需替换语义时才显式写 `-r`。
-
-#### 5.1.36 并发终态写必须用条件 UPDATE（乐观锁 = 读取时状态）
-
-「读内存态 → 整行 `save`」在并发终态写场景是竞态温床：聚合写回若用 `repo.save(entity)`（整行 UPDATE，含 `status`），与另一入口（如 admin `force-fail`）并发时会把库中已改的 `failed` 回写成 `completed`；且对账只扫 `running` 时，错标状态永久无法纠正。**做法**：改用条件更新 `update({ id, status: <读取时状态> }, payload)`，`affected === 0` 即跳过写回；乐观锁条件取**读取时状态**而非写死 `'running'`，以同时满足「非 `running` 批次（`failed`）仍按契约对齐计数」（条件与库一致时命中）。**配套**：`update()` 不触发 `@UpdateDateColumn`，payload 须显式写 `updatedAt`；写回被跳过时调用方应重读库中状态，避免响应与库不一致。
-
-#### 5.1.37 存在「第三态」时「全部失败」判据不能用「失败数 == 总数」
-
-多源 / 多分支判定只要存在**第三态**（既非成功也非失败，如 `ALERTS_DISABLED` 表示「未启用」），「全部失败」就**不能**写成 `失败数 === 总数`——总数含第三态时判据恒假，会把「未真正评估」误判为成功。**正确判据**：失败数 > 0 且成功数 === 0（或按 attempted 源数判定）。**配套**：抛错前 per-source 状态（成功 / 失败 / 第三态明细）必须已完整写入，避免抛错丢失；成功与失败并存时仍按 per-source 隔离保留成功数据。**信号去重**：仓库级 catch 追加的信号若与 per-source 信号同 `category`，须先判「该仓库是否已有带 source 的同类信号」再决定是否追加，否则形成重复信号、且日志汇总会把无 `source` 的仓库级信号归入 `unknown` 分组（详见 [平台开发规范 §6.1 仓库级失败判据](./platform.md#61-错误码与告警状态口径平台展示消费-engine-错误码)）。平台侧具体实例见 [平台开发规范 §6.1 仓库级失败判据](./platform.md#61-错误码与告警状态口径平台展示消费-engine-错误码)。
-
-#### 5.1.38 失败路径写回只写终态字段（不得整行 save / 整份载荷条件写回）
-
-**失败路径**（executor 判定「全部入队失败」、cleanup 判定孤儿批次、对账判定零子项孤儿）持有的是**创建期或读取期内存实体**——其计数为初值或旧快照。此时整行 `save()` 或复用「写回整份聚合载荷」的条件更新，会把并发详情 GET 已聚合的计数 / `summary` 覆盖回旧值（与 §5.1.36 同族，但触发面是「载荷来源」而非「并发入口」）。**做法**：失败通道单独提供只写 `status` / `finishedAt` / `updatedAt`（可选补空 `summary`）的条件写回 helper，乐观锁条件仍以读取时状态为准（本场景三处调用方的读取态恒为 `running`，故条件字面即 `{ id, status: 'running' }`）；`affected === 0` 时**不改库也不改内存实体**，调用方据此不计数（避免虚报）。**配套**：同一子系统内多条失败路径应共用该 helper（收敛前若存在「整份载荷」变体，收敛后无生产调用方即删除，避免误用）。
+- 严格模式逐步收紧（当前 `noImplicitAny: false` 为过渡状态）；`tsc --noEmit` 必须通过；禁止 `any` 逃逸（逐步清零）。
+- 优先 `interface` 定义类型，需联合类型时用 `type`。
+
+### 5.1 工程实践规则
+
+- **5.1.1 错误路径 helper 自身不抛异常**：统一用 `toErrorMessage(value)` 提取消息（Error→message / string→原样 / 可序列化→JSON / 其余→类型描述），禁止在 catch 手写 `instanceof` 分支；helper 内 `JSON.stringify` 必须 try/catch（循环引用会 throw 并掩盖原始错误）且有单测锚定。
+- **5.1.2 日志输出人读 / 机读双模**：`process.stdout.isTTY` 检测 → TTY 输出格式化彩色文本，非 TTY（CI / 管道）输出 JSON。
+- **5.1.3 截断带固定前缀的 ID 先去除前缀**：禁止对 `prefix-<唯一段>` 直接 `slice(0, N)`（唯一部分会被丢光）；先去掉固定前缀再截断或取最后分隔段；文件名 / 分支名采用 `YYYYMMDD-HHmmss-{唯一尾段}`（字典序 == 时间序且唯一）。
+- **5.1.4 改名 / 迁移全局排查命名残留**：前缀抽为统一常量 + 封装读取辅助，所有读取必须走它；改名后全局搜索旧名（含 env 前缀、错误消息、注释、示例），不只看文件引用。
+- **5.1.5 Node 脚本 main 入口守卫（必须）**：`scripts/*.mjs` 等可执行脚本**必须**用入口守卫包裹 `main()` 调用（`process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href`）；新脚本完成后 grep `process.argv[1]` 确认。
+- **5.1.6 测试不得依赖 git 忽略工作区文件的存在性**：不得隐式依赖 `.session/` / `temp/` 等 git 忽略目录下文件（本地有、CI 无 → 行为分叉）；必须依赖时把路径 / 内容作为参数注入，或模拟缺失场景验证两分支。
+- **5.1.7 容器拼装类注释必须准确区分 `execFile` 与 `exec`**：`execFile` 不经过 shell、**不会**回显 argv；准确语义是 `spec.env` 隔离（避免 cmd/test 日志、git URL、daemon config 可见 token）；注释必须真实反映防御机制，错写威胁模型会把后续审计引向错误方向。
+- **5.1.8 JSDoc 必须与可见性声明一致**：`private` 方法不得写「导出便于 snapshot 测试」；拼装类函数（`buildRunArgs` / `buildSpawnArgs`）应在测试中 snapshot 验证（拼装 bug 在真起容器前难暴露）。
+- **5.1.9 测试 Spy 与生产实现同模块时必须 `@internal` 标注**：Spy 类加 `@internal` JSDoc + 文件级「生产代码禁止导入」；用 eslint `no-restricted-imports` 限制生产 import spy 路径作最稳护栏。
+- **5.1.10 删除「自动状态赋值」时必须搜遍所有被动接收路径**：单点删除会留下隐式不一致（如已删自动赋值后旧 `selectedRepos` 让 checkbox 呈 disabled+checked、计数过期）；删除后须在 `emit('success')` 后、`await reload()` 前主动重置状态，形成闭环。
+- **5.1.11 调试临时代码必须在 commit 前清理**：`// DEBUG` / `console.log('[debug]', …)` / `debugger` / `alert(…)` / 未跟踪 `// TODO` 一律清理（lint 拦不住浏览器端调试输出，code-auditor 会作 blocker Reject）；ui-validator 视觉验证时自建的截图脚本属同类，`git status` 不应有 untracked 临时文件。
+- **5.1.12 `script setup` 顶部调试代码触发 TDZ 陷阱**：引用**尚未声明的 ref / computed** 会触发 `Cannot access 'X' before initialization` SSR 500（真错误，非 hydration warning）；引用前确认声明顺序，或放进 `watchEffect` / `onMounted`。
+- **5.1.13 覆盖率阈值回归优先在既有测试文件补 case**：不新建 test 文件、不临时修改 vitest 阈值；判断标准是 diff 文件数小 + 风险扩散低 + 价值密度高。
+- **5.1.14 OR 链写回决策须逐项追踪条件真假**：`if (a || b || c || d || e)` 写回决策必须逐项追踪每个条件才能准确断言；常见错误是以为某标志为 false 就完全不写回；调试时打开真实 SQL 数据看写回后字段，不按单一标志反推。
+- **5.1.15 集成外部库前必须读 README 标准用法 + 落地真实路径 e2e 冒烟（hard requirement）**：集成前必须查 README 官方示例；**集成层测试不 mock 真实被集成库**（真实路径冒烟须用真实密钥 / 真实拦截）；「单测全过 + typecheck 0 error」≠ 集成 Done，必须有「真实路径调用 + 关键行为断言」的可执行验证（已挂 code-auditor 必查项）。
+- **5.1.16 v-model 修改嵌套字段必须用 `reactive` + deep watch（hard requirement）**：Nuxt `useAsyncData` 内置 watch 为浅监听（reference equality），对 nested field mutation 不响应；v-model 嵌套字段须用 `reactive` 而非 `ref`，配 getter source + `{ deep: true }`；依赖默认 `dedupe: 'cancel'` 抑制双触发，改 dedupe 策略前须重新评估。
+- **5.1.17 一次性脚本 TypeScript 价值评估（避免 over-engineering）**：不为「项目完整性」添加不必要 devDep；装饰器密集型 ORM（TypeORM / Prisma / Drizzle）必须 TS（Node 内置 strip-types / transform-types 均不处理装饰器，需 `emitDecoratorMetadata`）；CLI 端 entity metadata 必须显式 import 触发装饰器注册；`engines` 应与实际部署的 Node LTS 版本对齐。
+- **5.1.18 SQLite 数据库启动期自动备份**：应用范围 = 所有 better-sqlite3 部署形态（dev / e2e / prod / 容器），e2e 库与业务库各自独立（不交叉备份）；**禁止**用 `--no-verify-backup` 跳过、禁止备份目录走 `.gitignore` 之外位置、禁止备份阻塞启动超 5 秒；D 阶段自检与 A 阶段 Review Gate 均须验证 `backup.ts` 含 fsync + 保留策略。权威完整声明见 [security.md §2.1](./security.md)。
+- **5.1.19 TypeORM 1.x `synchronize` 与 `migrationsRun` 反模式禁止（hard requirement）**：禁止二者同时为 `true`，禁止 dev 模式硬编码自动开启 synchronize；dev 走显式 opt-in + `migrationsRun: false`，prod 默认关闭，e2e 用 `synchronize: true` + `migrationsRun: false`；启动期日志必须打印生效值与来源；涉及 NOT NULL 列无 default 的 schema 变更**必须**走 migration（synchronize 在 SQLite 会失败）。
+- **5.1.20 atomic commit 边界（重构支撑 vs 业务行为变更必须分 commit）**：重构支撑（不改行为，仅改善结构）与业务行为变更（默认值反转 / 逻辑反转 / 新增功能）必须分 commit；需打印某变量时先临时用内联表达式，行为变更 commit 时再统一提取。
+- **5.1.21 zod `.optional()` 接受 `undefined` 为合法值（陷阱模式）**：区分「未传字段」与「传 undefined」需**显式** `data !== undefined` 判断，否则 `data === 'value'` 三元恒为 false；对 `boolean` 字段必须保留该区分（`false` 是合法值）；统一用 `apps/platform/server/utils/zod-helpers.ts` 的 `parseOptional`（强制三态 success / value / isProvided）。
+- **5.1.22 baseline lint 治理路径：删除占位符而非改写为 `void X`**：`no-unused-expressions` 与 `no-meaningless-void-operator` 双重禁止；治本方向为删除冗余表达式或改写为 `if` 块（本项目标准做法），禁止 `void X` 改写、禁止 eslint-disable 抑制、禁止提高 `max-warnings` 临时方案——CI 触发 ESLint 临界值是「信号」而非「阈值调整」。
+- **5.1.23 git config user identity 一致性 guard**：git config 优先级 `local > global > system`，`.git/config [user]` 会**静默**覆盖 global；以 `.husky/pre-commit-identity-guard.sh`（pre-commit 第一步）检测不一致并阻断 commit；session 启动时对齐 `.session/current-task.yaml` 段与 local / global user；**严禁批量改历史 commit author**（除非用户显式同意并走 rebase + 强制 push）。
+- **5.1.24 多 key 生成循环必须按 key 预聚合取 max（last-write-wins 陷阱）**：循环内直接 `map[key] = value` 会让最终值取决于遍历顺序；先 `Map<key, value>` 预聚合（如 `compareSemver` 取 max）再统一写入。
+- **5.1.25 声明范围前必须全仓库穷举同根因调用点**：以**行为特征**（git 子命令 argv、环境变量读取）而非「包路径」为锚点全仓库扫描，跨包（尤其平台侧）命中逐条列入范围或显式排除；**同根因判定要改在共用层**，不要下沉到各调用方；同时检查下游消费方是否硬编码了单一场景文案。
+- **5.1.26 构建产物 dts 入口与共享 chunk 文件名冲突（tsdown `hash:false`）**：多 entry 构建时用 `outputOptions.chunkFileNames` 把 chunk 隔离到 `chunks/` 子目录，entry 名保持稳定；构建后 `dist/` 出现 `index2.d.mts` / `index2.mjs` 即命中（详见 [backlog.md §已知边界](../plan/backlog.md#tsdown-hashfalse-下-entry-与共享-chunk-文件名冲突持续观察)）。
+- **5.1.27 迁移 / 等价性判断前必须回读迁移前源码**：用 `git show HEAD:<file>`（或迁移前 commit）回读实际源码；库文档只用于解释**差异成因**，不得用于推断仓库现状。
+- **5.1.28 「依赖卸载 + 引用归零」类任务的规模口径**：规模不在依赖数而在**引用面**；规划阶段必须定义 `rg` 归零口径（是否含注释 / 文档 / 历史编号），体积对比基线须回溯到迁移前 commit 现场构建。
+- **5.1.29 配置优先级口径必须写明「字段级 / 逐条合并」并配证伪用例**：只写「优先」会让实现与测试各自漂移；口径须写全（如「中央一旦指定该字段即整体忽略目标仓库声明，不按 glob 逐条合并」），并配「高优先级来源存在但未覆盖该对象」的证伪用例。
+- **5.1.30 构造期合并配置：保持 `readonly` 单次赋值**：不要为构造期合并把 `private readonly config` 改成可写；把依赖该字段的初始化块**后移**做单次赋值，避免引入第二份 effectiveConfig（双来源漂移）。
+- **5.1.31 声明「与环境开关解耦」必须穷举同族开关**：只锁一个开关不足以成立，必须一次性穷举同族开关（典型 `migrationsRun` + `synchronize` 双 opt-in）并为每个开关配断言；配套打印**实际生效值**（而非按 env 打印的开关值）以消解「声明值 vs 生效值」错位。
+- **5.1.32 pnpm overrides 的「通用钉定」会压过「版本化覆盖」**：同包同时存在无版本限定的通用覆盖与版本化覆盖时，通用钉定胜出 → 解析版本被压回旧版，令升级失效。**排查**：出现「升级了但漏洞还在」时先列 `pnpm-workspace.yaml` 的 overrides；**清理**保留版本化一条，再用 `pnpm audit` 复验计数。
+- **5.1.33 同构站点穷举必须用「构建产物」**：源码 grep 只能发现**值不同**的站点，结构同构但取值已一致的站点会被整体漏掉；构建后扫 `.output/**` 的 CSS 并**合并同一选择器的多条规则**再按特征筛。通用提问：声明「范围已穷举」前先自问「我的筛选条件是否只能命中目标的一部分？」。
+- **5.1.34 依赖升级的差异口径：语义级 diff + 无 release 时以 tarball 为权威**：① 剥掉文件名 hash 与 `[data-v-*]` scope 后逐文件**语义级** diff，传递依赖版本逐版核对；② 上游无 release / changelog 时以**产物本身**为权威（`npm pack` 后比对文件集 + d.ts 公开面 + token 值集合），比猜测 changelog 更可复现。
+- **5.1.35 `rg -r` 是 `--replace` 而非递归（输出替换陷阱）**：`-r` / `--replace` 会把匹配片段替换为给定文本再输出（不改文件），误写 `rg -rn` 会产出**假象**输出；多文件搜索只用 `rg -n`（递归是默认行为），确需替换语义时才显式写 `-r`。
+- **5.1.36 并发终态写必须用条件 UPDATE（乐观锁 = 读取时状态）**：禁止「读内存态 → 整行 `save`」；改用 `update({ id, status: <读取时状态> }, payload)`，`affected === 0` 即跳过写回；乐观锁条件取**读取时状态**而非写死 `'running'`。**配套**：`update()` 不触发 `@UpdateDateColumn`，payload 须显式写 `updatedAt`；写回被跳过时调用方应重读库中状态。
+- **5.1.37 存在「第三态」时「全部失败」判据不能用「失败数 == 总数」**：多源 / 多分支判定只要存在第三态（既非成功也非失败，如 `ALERTS_DISABLED`），「全部失败」不能用 `失败数 === 总数`（总数含第三态时判据恒假）；**正确判据**为「失败数 > 0 且成功数 === 0」。**配套**：抛错前 per-source 状态必须已完整写入；仓库级 catch 追加信号前先判「该仓库是否已有带 `source` 的同类信号」，否则形成重复信号。平台侧实例见 [platform.md §6.1](./platform.md#61-错误码与告警状态口径平台展示消费-engine-错误码)。
+- **5.1.38 失败路径写回只写终态字段（不得整行 save / 整份载荷条件写回）**：失败路径持有的是创建期或读取期内存实体，整行 `save()` 或复用整份聚合载荷会把并发详情 GET 已聚合的计数 / `summary` 覆盖回旧值（与 5.1.36 同族）；**做法**为失败通道单独提供只写 `status` / `finishedAt` / `updatedAt` 的条件写回 helper，`affected === 0` 时**不改库也不改内存实体**；同一子系统内多条失败路径应共用该 helper。
 
 ## 6. 样式规范（平台阶段适用）
 
-- **纯 SCSS**: 禁止 CSS-in-JS、Tailwind。所有样式以纯 SCSS 编写。
-- **SCSS 复用**: 优先使用全局变量（Variables）和混合宏（Mixins）。
-- **BEM 命名**: 组件样式遵循 `block__element--modifier` 规范。
-- **禁止 `!important`**: 破坏 CSS 层级结构。
-- **暗色模式**: 通过 `:global(.dark) .selector` 覆盖样式（**注意**：`main.scss` 是全局 CSS 无 scope，原 `:global(.dark) &` 编译失败，正确写法 `.dark &`，让 mixin 自动工作；详见 [平台开发规范 §7](./platform.md)）。
-- **响应式基线（768px）**: dashboard / 列表 / 表格页都应默认支持 768px 响应式（不是 mobile-specific feature 而是响应式基线）——`@media (max-width: 768px)` 切换 `grid-template-columns: 1fr`、表格水平滚动、侧栏折叠。V 阶段 ui-validator 自动检测 768px 适配遗漏，遗漏会被列为 Blocker。
-- **跨 Dialog i18n label key 共享**: 共享选项数据（mode / severity / batch-start 等）时，i18n label key 也应共享（如 `repos.batchMode` / `repos.batchSeverity` 同时用于批量与单仓库 Dialog），避免冗余 key（如 `repos.scanConfigMode` 与批量 Dialog 相同 label 但不同 key）。仅在 Dialog 标题 / 目标信息等真正差异处新增 key。
-- **子组件抽取时 scoped 样式必须随迁**: 从父页拆出子组件（表单弹窗等）时，父页 `<style scoped>` 里的同名规则**不会穿透子组件**（scoped 只作用于本组件模板 + 子组件根元素）→ 规则整段静默失效（label 贴输入框、操作区落到左下角），构建与 lint 全绿无报错。**判据**：子组件内 `grep -c "<style"` = 0 而同名类名只在父页样式里出现 → 迁移遗漏。**做法**：把同名样式段整段搬到子组件（自带 `<style scoped>`）并删除父页副本，用"构建产物 CSS 含子组件 scope id + 元素类名"复核生效。反例：M32.1 拆出 `repo-form-dialog.vue` 时样式段留在 `repos.vue`，直至 M33.8 才修复。
-- **同行 `flex-end` 对齐下矮控件会压矮整字段**: 同一行 `align-items: flex-end` 排列 label + 控件时，矮控件（如 22px Switch vs 36px 控件档）会把整字段盒压矮、label 随之下移。**做法**：为控件区补足控制档高度并垂直居中（如 `.xx__filter-control { min-height: var(--caomei-control-height-md); display: flex; align-items: center; }`），而不是改行对齐方式——对 wrap 换行场景同样成立。反例：M33.10 告警筛选行「显示已解决」标签比同排靠下。
-- **复用抽取前先确认「已全局注入的复用载体」**: 平台 SCSS 的 `_variables.scss` / `_mixins.scss` 已通过 `vite.css.preprocessorOptions.scss.additionalData` 全局注入，SFC `<style scoped>` 内可直接使用变量与 `@include`（先例：`dark-mode` / `respond-to`），抽 mixin **无需任何 import**。两个坑：① **mixin 默认参数在定义侧求值**，不能引用调用方注入的变量层 → `_mixins.scss` 需自行 `@use './variables' as *`（`_caomei-tokens.scss` 同款先例）；② 只抽「口径」不抽「样式细节」（各站点 label 规则不同，吸收进来即过度抽象）。
-- **表单字段堆叠口径（label↔控件）**: 「label 在上、控件在下」的垂直堆叠字段，间距取间距刻度第二档（`$space-2` = 8px），弹窗内外一致。**做法**：统一 `@include field-stack`（`app/assets/styles/_mixins.scss`），而不是在每个字段块内重复 `display` / `flex-direction` / `gap` 三行——口径变更时只改 mixin 一处；mixin 不吸收 label 样式（各字段 label 规则不同）。**边界**：显示型 `label↔值` 堆叠（统计卡 / 指纹盒 / 弹窗 meta 项）语义不同，不适用本口径。反例：M33.8 统一弹窗字段时漏掉同文件弹窗内的 `.batch-form__field`（沿用 4px 档），直至 M34.7 复用化时补齐。
+- **纯 SCSS**：禁止 CSS-in-JS、Tailwind；优先复用全局变量（Variables）与混合宏（Mixins）。
+- **BEM 命名**：组件样式遵循 `block__element--modifier`；禁止 `!important`（破坏 CSS 层级结构）。
+- **暗色模式**：通过 `.dark &` 覆盖（`main.scss` 是全局 CSS 无 scope，`:global(.dark) &` 编译失败），详见 [平台开发规范 §7](./platform.md)。
+- **响应式基线（768px）**：dashboard / 列表 / 表格页默认支持 768px（`@media (max-width: 768px)` 切换 `grid-template-columns: 1fr`、表格水平滚动、侧栏折叠）；V 阶段 ui-validator 自动检测遗漏，遗漏判 Blocker。
+- **跨 Dialog i18n label key 共享**：共享选项数据（mode / severity / batch-start 等）的 i18n label key 也应共享，仅在 Dialog 标题 / 目标信息等真正差异处新增 key。
+- **子组件抽取时 scoped 样式必须随迁**：父页 `<style scoped>` 的同名规则**不会穿透子组件** → 规则整段静默失效且构建 / lint 全绿。**判据**：子组件 `grep -c "<style"` = 0 而同名类名只在父页样式出现 → 迁移遗漏；**做法**为整段搬到子组件并删除父页副本，用构建产物 CSS 复核生效。
+- **同行 `flex-end` 对齐下矮控件会压矮整字段**：同一行 `align-items: flex-end` 排列 label + 控件时，矮控件会把整字段盒压矮；**做法**是为控件区补足控制档高度并垂直居中，而不是改行对齐方式。
+- **复用抽取前先确认「已全局注入的复用载体」**：`_variables.scss` / `_mixins.scss` 已通过 Vite `additionalData` 全局注入，SFC `<style scoped>` 内可直接用变量与 `@include`（抽 mixin 无需 import）；两坑：① mixin 默认参数在**定义侧**求值，`_mixins.scss` 需自行 `@use './variables' as *`；② 只抽「口径」不抽「样式细节」。
+- **表单字段堆叠口径（label↔控件）**：垂直堆叠字段间距取第二档（`$space-2` = 8px），弹窗内外一致，统一 `@include field-stack`（`_mixins.scss`）；**边界**为显示型 `label↔值` 堆叠（统计卡 / 指纹盒 / 弹窗 meta 项）语义不同，不适用本口径。
 
 ## 7. 包命名规范
 
 | 子包 | npm 名 | 类型 | 说明 |
 |------|--------|------|------|
 | `packages/core` | `@dependfix/core` | 内部库 | 核心领域模型，被其他包消费 |
-| `packages/engine` | `@dependfix/engine` | 内部库 | 共享执行引擎（DependfixApp），cli / mcp / platform 共同依赖 |
+| `packages/engine` | `@dependfix/engine` | 内部库 | 共享执行引擎（`DependfixApp`），cli / mcp / platform 共同依赖 |
 | `packages/skills` | `@dependfix/skills` | 内部库 | 产品 skill 权威源（dependfix-remediator） |
 | `packages/cli` | `dependfix` | CLI 工具 | 用户通过 `npx dependfix` 调用 |
 | `packages/mcp` | `@dependfix/mcp` | MCP Server | MCP 协议服务 |
 | `apps/platform` | `@dependfix/platform` | 应用（Nuxt 全栈） | 管理平台，非库；归 `apps/` 目录体系 |
 
-> 可发布包清单单点权威声明见 [packages.config.mjs](../../scripts/packages.config.mjs)；新增发布包须登记并同步 README / release.md / CI 引用（见 [code-quality-checklist 新增发布包链路完整性](../../.github/skills/code-reviewer/references/code-quality-checklist.md)）。`packages/github`、`packages/action` 为规划中未实现的包，按需添加（见 [AGENTS.md 项目简介](../../AGENTS.md)）。
-
-- CLI / 可执行入口使用 **unscoped** `dependfix` 名称
-- 内部库使用 **scoped** `@dependfix/*` 前缀
-- 应用（`apps/*`）使用 **scoped** `@dependfix/*` 前缀，仅限工作区内部消费，不发布 npm
+- CLI / 可执行入口用 **unscoped** `dependfix`；内部库与应用（`apps/*`）用 **scoped** `@dependfix/*`，仅限工作区内部消费、不发布 npm。
+- 可发布包清单单点权威见 [packages.config.mjs](../../scripts/packages.config.mjs)；新增发布包须登记并同步 README / release.md / CI 引用（见 [code-quality-checklist 新增发布包链路完整性](../../.github/skills/code-reviewer/references/code-quality-checklist.md)）。
 
 ## 8. 提交规范
 
-遵循 [Conventional Commits](https://www.conventionalcommits.org/)：
-
-- 提交类型（`feat` / `fix` / `docs` / `refactor` / `test` / `ci` / `chore` / `perf` / `style` / `build` / `revert`）、主题行与正文的完整编写规则见 [Git 规范 §3.1 提交消息格式](./git.md)。
-
-提交语言使用中文或用户使用的语言。单次提交对应一个逻辑变更，避免"大杂烩"提交。
+- 遵循 [Conventional Commits](https://www.conventionalcommits.org/)；type / 主题行 / 正文的完整规则见 [Git 规范 §3.1](./git.md)。
+- 提交语言使用中文或用户使用的语言；单次提交对应一个逻辑变更，避免「大杂烩」提交。
 
 ## 9. 提交前检查
 
-在 `git commit` 之前必须通过以下检查：
-
-1. **Review Gate**: 所有改动必须经过至少一轮 review，且 A 阶段（`Code Auditor (代码审计员)`）已放行。
-2. **Lint**: `pnpm lint` 零 error。
-3. **Typecheck**: `pnpm typecheck` 零 error。
-4. **测试**: 定向测试通过；命中全量测试条件时执行 `pnpm test`。
-5. **提交执行**: 必须通过 `conventional-committer` skill 提交（禁止裸 `git commit -m`），详见 [Git 规范](./git.md) 与 [AGENTS.md 提交规范](../../AGENTS.md#提交规范-commit-convention)。
+1. **Review Gate**：所有改动必须经至少一轮 review 且 A 阶段（`Code Auditor (代码审计员)`）放行。
+2. **Lint**：`pnpm lint` 零 error。
+3. **Typecheck**：`pnpm typecheck` 零 error。
+4. **测试**：定向测试通过；命中全量测试条件时执行 `pnpm test`。
+5. **提交执行**：必须通过 `conventional-committer` skill 提交（禁止裸 `git commit -m`），见 [Git 规范](./git.md)。
 
 ## 10. Code Scanning 告警处理流程
 
-当 GitHub Code Scanning 报告安全告警时，按以下流程处理：
-
-1. **获取告警详情**：使用 `gh api repos/owner/repo/code-scanning/alerts` 获取告警类型、位置和描述
-2. **根因分析 + 搜索优先**：使用搜索优先模式确认是否为误报，避免不必要的修复
-3. **制定修复方案**：根据告警类型制定针对性修复方案（如命令注入 → 使用 `execFileSync` 替代 `execSync`）
-4. **质量门验证**：运行 lint + typecheck + test 确保修复不引入回归
-5. **深度审计**：安全修复应使用 `deep` 级别审计，确保全面覆盖
-6. **提交**：使用 `conventional-committer` skill 提交，消息格式为 `fix(scope): 描述`
+1. **获取告警详情**：`gh api repos/owner/repo/code-scanning/alerts` 取告警类型、位置与描述。
+2. **根因分析 + 搜索优先**：确认是否误报，避免不必要修复。
+3. **制定修复方案**：按告警类型针对性修复（如命令注入 → `execFileSync` 替代 `execSync`）。
+4. **质量门验证**：lint + typecheck + test 确保不引入回归；**安全修复用 `deep` 级别审计**。
+5. **提交**：经 `conventional-committer` 提交，消息格式 `fix(scope): 描述`。
 
 ## 11. 相关文档
 
-- [测试规范](./testing.md)
-- [API 规范](./api.md)
-- [安全规范](./security.md)
-- [文档规范](./documentation.md)
-- [项目规划规范](./planning.md)
+- [测试规范](./testing.md) / [API 规范](./api.md) / [安全规范](./security.md) / [文档规范](./documentation.md) / [项目规划规范](./planning.md)
+- [AI 协作规范](./ai-collaboration.md) / [Git 规范](./git.md) / [平台开发规范](./platform.md)
 
-> 本文档在 1.0.0 前参考 momei 项目的成熟做法完成继承与适配；1.0.0 后按项目自身实践持续演进，形成自有规范。
+> 本文档在 1.0.0 前参考 momei 项目的成熟做法完成继承与适配；1.0.0 后按项目自身实践持续演进。

@@ -20,7 +20,7 @@
 |:--|:--|:--|
 | 1 | **pnpm 10+/11 默认忽略依赖 lifecycle scripts**（仅 `allowBuilds`/`onlyBuiltDependencies` 显式批准的包才执行 install 脚本）——最大天然防线，任何执行路径不得关闭该语义 | 全部 `pnpm install` 调用（`execPnpmInstall`、验证 runner），未传 `--ignore-scripts` 之外的破坏性开关 |
 | 2 | **凭据最小化**：平台密钥（`ENCRYPTION_KEY`/`AUTH_SECRET`）永不传入执行子进程；凭据解密后仅注入本次执行、用完即弃；clone 凭据走 `http.extraheader` 不进 argv；错误消息与命令输出脱敏 | `ContainerExecutor`、`verification-runner` |
-| 3 | **执行边界**：工作目录限定 `runs/{runId}/` 临时目录且执行后清理；总超时 30 分钟；结构化结果白名单回传 | `ContainerExecutor` |
+| 3 | **执行边界**：工作目录限定 `runs/{runId}/` 临时目录且执行后清理；总超时缺省 30 分钟（`EXECUTION_TIMEOUT_MS` 可配置，上限 24 小时）；结构化结果白名单回传 | `ContainerExecutor` |
 | 4 | **Action 注入防护**：input 先赋变量 + bash 数组展开，token/AI key 经环境变量传递 | `action.yml` |
 | 5 | **AI 输入沙箱化**：changelog 结构化校验、输出 schema 约束（防 Prompt 注入） | engine ai 链路 |
 

@@ -479,7 +479,7 @@ fixtures.delete / fixtures.post 在双门控通过后调用 `fixturesRateLimit()
 ### 10.5 队列锁参数显式化与锁问题观测
 
 - **锁参数显式化**：in-process Worker **必须**显式配置 `lockDuration` / `lockRenewTime`（`SCAN_WORKER_LOCK_OPTIONS`，见 `server/services/queue/scan-worker.ts`），不得依赖 BullMQ 隐式默认（30 秒）——引擎同步子进程调用会阻塞主线程 event loop，使锁续期定时器延后执行，30 秒默认值下极易触发 `could not renew lock` / `Missing lock`，job 被判 stalled 重排（存在重复执行风险）。
-- **取值口径**：`lockDuration` 取容器执行器默认单次执行超时 `DEFAULT_EXECUTION_TIMEOUT_MS`（30 分钟），`lockRenewTime` 取其一半（BullMQ 官方推荐；LockManager 以 `lockRenewTime / 2` 为周期扫描并续期）。两处口径**须同步**——执行器默认超时变更时须同步锁时长（单测锁定该对齐关系）。若仓库级执行超时被配置为超过该默认值，锁可能在执行完成前过期。
+- **取值口径**：`lockDuration` 取执行超时解析器 `resolveExecutionTimeoutMs()`（缺省 30 分钟，可经 `EXECUTION_TIMEOUT_MS` 覆盖），`lockRenewTime` 取其一半（BullMQ 官方推荐；LockManager 以 `lockRenewTime / 2` 为周期扫描并续期）。两处口径**同源联动**——队列锁参数与容器执行器共用同一解析器 `resolveExecutionTimeoutMs()`（单测锁定该对齐关系），`EXECUTION_TIMEOUT_MS` 变更时锁窗口随之同步（env 变更需重启进程）。
 - **锁问题观测**：Worker **必须**注册 `stalled` / `lockRenewalFailed` / `error` 事件并输出结构化日志（`[scan-worker] {json}`），把「静默锁过期」变为可告警事件。`stalled` / `lockRenewalFailed` 载荷含 `jobId` 并经注入的 `queue.getJob` 补全 `runId`（未解析时显式 `null`，区分「已尝试解析但未得」与「无此字段」）；`error` 载荷不含 job 上下文（`event` / `message`，续期类另带 `duplicateOf` 去重标记，见下条）——其 job 上下文由配对的 `lockRenewalFailed` 承载（BullMQ `error` 事件签名 `(failedReason: Error)` 不含 job 上下文）。
 - **同根因去重**：BullMQ LockManager 续期失败时**同时** emit `lockRenewalFailed` 与 `error`（message 前缀为 `could not renew lock for job`，含尾随空格）——同一根因两条信号；`error` 日志对续期类标注 `duplicateOf: 'lockRenewalFailed'` 供聚合去重（与 [§6.1](#61-错误码与告警状态口径平台展示消费-engine-错误码) 同类的「同一根因不重复告警」去重思路）。
 
@@ -508,6 +508,7 @@ fixtures.delete / fixtures.post 在双门控通过后调用 `fixturesRateLimit()
 | `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASS` / `SMTP_FROM` | 否 | 空 | 配置后启用邮件验证 |
 | `NUXT_PUBLIC_BETTER_AUTH_URL` | 反向代理时 | 自动推断 | 认证基础 URL |
 | `MACHINE_ID` | 否 | `pid % 1024` | 雪花机器位 |
+| `EXECUTION_TIMEOUT_MS` | 否 | `1800000`（30 分钟） | 单仓库执行超时；容器执行器与队列 Worker 锁时长**同源**（`resolveExecutionTimeoutMs()`，见 [§10.5](#105-队列锁参数显式化与锁问题观测)）。非法值 / 越界（< 1 分钟或 > 24 小时）fail-closed 回退默认；env 变更需重启进程 |
 | `DEPENDFIX_QUEUE_WORKER` | 否 | 入口 `0` / compose `1` | 队列执行进程隔离（仅容器入口消费）：`1` 启动独立 worker 进程消费队列、HTTP 进程不消费（消除锁续期失败，见 [§10.6](#106-队列执行进程隔离独立-worker-进程)）；`0` 单进程形态 |
 | `ACTION_STATUS_MONITOR_ENABLED` | 否 | `false` | PR Check 状态监测服务总开关（`kind='pr-check'` 计划的触发门控）：关闭时 `triggerPrCheckSchedule` log warn 后跳过（不更新 `lastTriggeredAt`）。启用前需至少一个 PAT credential（classic-pat / fine-grained-pat）且组织内有 dependfix / dependabot PR 活动（避免空轮询）。进程级 env、不可热更，**设置后需重启进程生效**；前端在组织内存在 `pr-check` 计划但总开关关闭时展示提示（数据源 `GET /api/schedules/monitor-status`）。 |
 

@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 /**
- * 启动期版本戳插件单测（任务登记见 docs/plan/todo.md §M40.1）：
+ * 启动期版本戳插件单测（任务登记见 docs/plan/todo-archive.md §M40.1）：
  * 验证启动时向 stdout 打印含 version / commit / startedAt 的日志行。
  */
 vi.mock('nitropack/runtime', () => ({

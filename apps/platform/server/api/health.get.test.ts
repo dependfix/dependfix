@@ -3,7 +3,7 @@ import { makeEvent } from '../../tests/api-helper'
 import healthHandler from './health.get'
 
 /**
- * GET /api/health 端点单测（任务登记见 docs/plan/todo.md §M40.1）：
+ * GET /api/health 端点单测（任务登记见 docs/plan/todo-archive.md §M40.1）：
  * 公开只读（不触发鉴权守卫）、返回 version/commit/startedAt、未注入回退 unknown。
  */
 interface HealthResponse {

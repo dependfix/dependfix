@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url'
 import { afterEach, describe, expect, it } from 'vitest'
 
 /**
- * entrypoint.sh 队列 worker 看护行为测试（任务登记见 docs/plan/todo.md §M40.4）。
+ * entrypoint.sh 队列 worker 看护行为测试（任务登记见 docs/plan/todo-archive.md §M40.4）。
  *
  * 以真实 shell 执行 entrypoint.sh，通过 PATH 注入 id / sleep / date 桩：
  * - id 桩固定返回非 root（100/101），绕过降权链路，聚焦进程编排；

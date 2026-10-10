@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { formatBuildInfoLine, resolveBuildInfo, resolveStartedAt } from './build-info'
 
 /**
- * 部署产物版本戳工具单测（任务登记见 docs/plan/todo.md §M40.1）：
+ * 部署产物版本戳工具单测（任务登记见 docs/plan/todo-archive.md §M40.1）：
  * 覆盖注入值透传、缺省 / 空串 / 非字符串回退 unknown、启动时间反推与日志行格式。
  */
 describe('build-info', () => {

@@ -219,5 +219,6 @@ The management platform (`apps/platform`) is configured via env vars injected by
 | `DEPENDFIX_ALLOW_ANY_DIR` | — | `0` | Allow chown scope outside `/app` and `/home` (advanced) |
 | `DEPENDFIX_IMAGE` / `DEPENDFIX_BUILD_IMAGE` | — | `caomeiyouren/dependfix:latest` / `:local` | Image selection / local build image name |
 | `DEPENDFIX_USE_LOCAL_BUILD` | — | `0` | Deployment script uses the locally built image |
+| `NUXT_BUILD_VERSION` / `NUXT_BUILD_COMMIT` | — | `unknown` | Deployment artifact version stamp (injected via `--build-arg` at build time, read-only at runtime, verified through `GET /api/health` and the startup log; usually no need to set on the deploy side) |
 
 > **Internal / test variables** (do not set in production): `NODE_ENV` / `E2E_TEST` / `NUXT_E2E_FIXTURES_ALLOWED` / `AUTH_TRACE` / `CI` — see `apps/platform/.env.full.example` §10. CLI and MCP variables (`DEPENDFIX_GITHUB_TOKEN` / `DEPENDFIX_MCP_REPORT_DIR` / `PNPM_VERSION`, etc.) are covered earlier in this document and in the respective package READMEs.

@@ -337,5 +337,6 @@ export DEPENDFIX_ALERTS_SOURCE=pnpm-audit
 | `DEPENDFIX_ALLOW_ANY_DIR` | — | `0` | 放开 chown 作用域到 `/app` 与 `/home` 之外（高级用法） |
 | `DEPENDFIX_IMAGE` / `DEPENDFIX_BUILD_IMAGE` | — | `caomeiyouren/dependfix:latest` / `:local` | 镜像选择 / 本地构建镜像名 |
 | `DEPENDFIX_USE_LOCAL_BUILD` | — | `0` | 部署脚本使用本地构建镜像 |
+| `NUXT_BUILD_VERSION` / `NUXT_BUILD_COMMIT` | — | `unknown` | 部署产物版本戳（构建期 `--build-arg` 注入，运行时只读，经 `GET /api/health` 与启动日志核对；部署侧一般无需设置） |
 
 > **内部 / 测试变量**（生产勿设）：`NODE_ENV` / `E2E_TEST` / `NUXT_E2E_FIXTURES_ALLOWED` / `AUTH_TRACE` / `CI`——口径见 `apps/platform/.env.full.example` §10。CLI 与 MCP 的变量（`DEPENDFIX_GITHUB_TOKEN` / `DEPENDFIX_MCP_REPORT_DIR` / `PNPM_VERSION` 等）见本文档前文与对应包 README。

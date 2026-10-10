@@ -494,6 +494,16 @@ fixtures.delete / fixtures.post 在双门控通过后调用 `fixturesRateLimit()
 - **崩溃自愈（看护循环）**：`docker/entrypoint.sh` 以看护子 shell 托管 worker——异常退出后按指数退避自动重启（退避 1s 起翻倍、封顶 30s），日志记录退出码 / 重启次数 / 时间（`[entrypoint] 队列 worker 异常退出（exit=…）… 第 N 次重启，退避 …s`）。连续重启超过上限（5 次）则停止重启并输出告警，**HTTP 主进程继续服务**（队列由 `stale-cleanup` 兜底）；worker 运行达到稳定窗口（60s）后连续重启计数归零，避免长期运行容器偶发崩溃累积触发上限。容器停止（TERM / INT）时终止看护循环与 worker，不再重启。
 - **已知边界**：① 两进程共享 SQLite（多进程写）——WAL + `busy_timeout` 由 `server/database/index.ts` 的 DataSource 初始化落地（`PRAGMA journal_mode = WAL` + `busy_timeout = 5000`）；② worker 进程重复启动周期插件（`stale-cleanup` / 启动期备份，均幂等，代价为重复查询）；③ worker 进程崩溃由看护循环自动重启（见「崩溃自愈」），连续重启超上限后由 `stale-cleanup` 兜底；④ **空库首启时序**：worker 先于主进程迁移完成启动且自身 `DATABASE_MIGRATIONS_RUN=false`，其插件首次查询可能命中未建表——由 `stale-cleanup` 首跑 30 秒延迟 + 幂等重试承担，影响窗口为迁移完成前数秒。
 
+### 10.7 部署产物版本戳（构建期注入 + 运行时核对）
+
+- **链路**：CI 构建镜像时 `--build-arg BUILD_COMMIT/BUILD_VERSION` → Dockerfile `ARG` → `ENV NUXT_BUILD_COMMIT/NUXT_BUILD_VERSION` → Nuxt 以 `NUXT_` 前缀在运行时覆盖 `runtimeConfig.buildVersion/buildCommit`；未注入时缺省 `unknown`（不阻断启动）。
+- **暴露面**：
+  - `GET /api/health`（**公开只读，无鉴权**）返回 `{ version, commit, startedAt }`——仅部署产物标识 + 进程启动时间，不含凭据 / 环境变量；供编排器与运维直接 `curl` 核对运行态产物。
+  - 启动日志输出 `[build] version=… commit=… startedAt=…`，`docker logs` 可直接核对。
+- **用途**：消除「代码已修复但线上仍复现」的陈旧产物误判（运行态 `commit` 与目标修复不一致即可判定运行为旧产物）。
+- **CI 接线**：`.github/workflows/docker.yml` 三个构建步骤（冒烟 / Hub+GHCR / ACR）均传 `--build-arg`（commit = `github.sha`、version = `platform_version`）；镜像可用性冒烟（`apps/platform/docker/smoke-test.sh`）额外断言 `/api/health` 200 + JSON 字段与启动版本戳行。
+- **env 命名**：构建元数据用 `NUXT_BUILD_*`（对齐 Nuxt 运行时覆盖通道，避免 esbuild define 折叠，与 [§3.6](#36-e2e--fixtures-端点双门控规范) 同源原则）。生产由镜像 `ENV` 提供，部署侧一般无需设置；本地调试可设 `NUXT_BUILD_VERSION` / `NUXT_BUILD_COMMIT` 覆盖。
+
 ## 11. 环境变量总表（.env.example 对齐）
 
 | 变量 | 必需 | 默认值 | 说明 |
@@ -511,6 +521,8 @@ fixtures.delete / fixtures.post 在双门控通过后调用 `fixturesRateLimit()
 | `MACHINE_ID` | 否 | `pid % 1024` | 雪花机器位 |
 | `EXECUTION_TIMEOUT_MS` | 否 | `1800000`（30 分钟） | 单仓库执行超时；容器执行器与队列 Worker 锁时长**同源**（`resolveExecutionTimeoutMs()`，见 [§10.5](#105-队列锁参数显式化与锁问题观测)）。非法值 / 越界（< 1 分钟或 > 24 小时）fail-closed 回退默认；env 变更需重启进程 |
 | `DEPENDFIX_QUEUE_WORKER` | 否 | 入口 `0` / compose `1` | 队列执行进程隔离（仅容器入口消费）：`1` 启动独立 worker 进程消费队列、HTTP 进程不消费（消除锁续期失败，见 [§10.6](#106-队列执行进程隔离独立-worker-进程)）；`0` 单进程形态 |
+| `NUXT_BUILD_COMMIT` | 否 | `unknown` | 部署产物 commit（构建期 `--build-arg BUILD_COMMIT` 注入，运行时只读；供 `GET /api/health` 与启动日志核对运行态产物，见 [§10.7](#107-部署产物版本戳构建期注入--运行时核对)） |
+| `NUXT_BUILD_VERSION` | 否 | `unknown` | 部署产物版本（构建期 `--build-arg BUILD_VERSION` 注入，运行时只读；同上） |
 | `ACTION_STATUS_MONITOR_ENABLED` | 否 | `false` | PR Check 状态监测服务总开关（`kind='pr-check'` 计划的触发门控）：关闭时 `triggerPrCheckSchedule` log warn 后跳过（不更新 `lastTriggeredAt`）。启用前需至少一个 PAT credential（classic-pat / fine-grained-pat）且组织内有 dependfix / dependabot PR 活动（避免空轮询）。进程级 env、不可热更，**设置后需重启进程生效**；前端在组织内存在 `pr-check` 计划但总开关关闭时展示提示（数据源 `GET /api/schedules/monitor-status`）。 |
 
 ## 12. 决策记录（2026-08-07 人工审查确认）

@@ -64,15 +64,17 @@
   - **优先级**：P2
   - **范围**：`apps/platform/server/services/executor/container-executor.ts`（`DEFAULT_EXECUTION_TIMEOUT_MS` → env `EXECUTION_TIMEOUT_MS` + 解析 / 校验）；`apps/platform/server/services/queue/scan-worker.ts`（`SCAN_WORKER_LOCK_OPTIONS` 与超时联动，去冻结常量引用）；单测；`docs/standards/platform.md`（env 总表 / 队列章）。
   - **验收标准**：
-    - [ ] `EXECUTION_TIMEOUT_MS` env 生效（缺省保留 30min；非法值 / 越界 fail-closed 回退缺省）——单测覆盖 env 覆盖 / 缺省 / 非法 / 上界
-    - [ ] 队列 worker 锁参数与执行超时联动（不再引用冻结常量或显式说明保持不变的理由）
-    - [ ] `pnpm lint` 0 error + `pnpm typecheck` 0 error（实测 `2>&1 | grep -E "error TS"` 无命中，不信「Done」宣称） + 定向测试全过
-    - [ ] 文档登记（`platform.md` env 总表 + 队列章 `EXECUTION_TIMEOUT_MS` 口径）
-  - **D 阶段决策留痕（待裁定）**：① env-only vs 仓库级覆盖；② 超时后执行 / 清理语义（`withTimeout` 不可取消的僵尸窗口是否缓解）；③ 是否随 M38 独立 worker 进程已消除锁续期根因后再评估联动。
+    - [x] `EXECUTION_TIMEOUT_MS` env 生效（缺省保留 30min；非法值 / 越界 fail-closed 回退缺省）——单测覆盖 env 覆盖 / 缺省 / 非法 / 上界
+    - [x] 队列 worker 锁参数与执行超时联动（不再引用冻结常量或显式说明保持不变的理由）
+    - [x] `pnpm lint` 0 error + `pnpm typecheck` 0 error（实测 `2>&1 | grep -E "error TS"` 无命中，不信「Done」宣称） + 定向测试全过
+    - [x] 文档登记（`platform.md` env 总表 + 队列章 `EXECUTION_TIMEOUT_MS` 口径）
+  - **D 阶段决策留痕（2026-10-10）**：① **env-only**（不做仓库级覆盖——避免实体 / 迁移 / UI 扩张，且验收仅要求 env）；② 超时后执行 / 清理语义**不变**（`withTimeout` 底层 `execFileSync` 不可取消，属既有边界）；③ 保留锁联动（`scan-worker` 复用同源解析器）。
   - **不做什么**：不实现执行可取消（`execFileSync` 不可取消，属既有边界）；不改 `CLONE_TIMEOUT_MS`；不改引擎内部超时语义。
   - **依赖**：M38.2 锁参数显式化（`431e8ec`）；backlog 候选（现状锚点 `container-executor.ts:40` + `scan-worker.ts:59-71`）。
   - **交付物**：预计 2-3 commits（feat(platform) env 接线 + 锁联动 + docs）；文件 4-6。
-  - **风险与缓解措施**：① env 过大 → 锁窗口过长 / 资源占用 → 设上界校验 + 文档；② env 过小 → 频繁超时 → 保留下界 + 缺省 30min；③ 超时后资源清理 → 复用既有 `finally` 语义，本批不改。
+  - **实际交付（2026-10-10）**：3 commits（`0b7ac45` feat：解析器 `resolveExecutionTimeoutMs`（MIN 1 分钟 / MAX 24 小时 / fail-closed）+ 执行器与队列锁同源接线 + 新增 `execution-timeout.test.ts`；`34b905a` fix：**审计衍生** stale-cleanup 孤儿阈值同源联动；`45a4437` docs：platform.md §10.5/§11 + configuration.md(zh+en) + `.env.full.example` + code-quality-checklist + sandbox-security-governance）；文件 11（含 1 新增测试文件）——超 §1.1「10 文件」阈值，拆 3 commits 依据：feat(executor/queue) / fix(孤儿清理衍生) / docs 三类各自独立可回滚。
+  - **审计（2026-10-10）**：A 阶段 standard **2 分区并发** R1（P1 代码 Pass 0B/1W/3S；P2 文档 Pass 但报 **W1 跨分区 blocker：stale-cleanup 孤儿阈值未联动**）→ 修复 W1 + P1 RG-W1（检查点矩阵）+ S1（env 确定性）/S2（parse 边界注）/S3（Math.floor）/P2 S1（安全边界文档注）→ R2 quick Pass（6 修复点全关闭，0 新增）。mutation 3 处全击杀（M1 解析器恒返回默认 / M2 去越界校验 / M3 去孤儿阈值联动）。全量 platform 1685 passed | 9 skipped。
+  - **风险与缓解措施**：① env 过大 → 锁窗口过长 / 资源占用 → 设上界校验（24h）+ 文档；② env 过小 → 频繁超时 → 保留下界（1 分钟）+ 缺省 30min；③ 超时后资源清理 → 复用既有 `finally` 语义，本批不改；④ **孤儿清理阈值错配**（审计 W1 实际命中）→ ScanRun 孤儿阈值与执行超时同源联动（`scanRunTimeoutMs: resolveExecutionTimeoutMs()`），`batchRunTimeoutMs` 因「须有 stale 下属 run」条件受 scan 阈值支配；⑤ compose 默认白名单未含 `EXECUTION_TIMEOUT_MS` → 与 `CLONE_TIMEOUT_MS` 同属「白名单外需自行追加」，`.env.example` 已声明。
 
 - **M40.4**（P2，🛡️ 可靠性）队列 worker 进程崩溃自动重启
   - **目标**：独立 worker 进程（entrypoint 双进程 `&` 形态）崩溃后自动拉起，避免队列任务长时间挂起直至 `stale-cleanup` 兜底（窗口约 30 分钟）。

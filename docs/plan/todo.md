@@ -81,16 +81,18 @@
   - **优先级**：P2
   - **范围**：`apps/platform/docker/entrypoint.sh`（worker 看护循环 / 重启 + 日志 + 与 TERM 信号协同）；必要时 `apps/platform/Dockerfile`；脚本级验证；`docs/standards/platform.md`（§10.6 队列进程形态章）。
   - **验收标准**：
-    - [ ] worker 进程崩溃后自动重启（看护循环），日志可观测（重启次数 / 时间 / 退出码）
-    - [ ] 容器停止（TERM / INT）时 worker **不再重启**、干净退出（既有 trap 语义保持）
-    - [ ] 脚本级验证（entrypoint 分支：默认单进程 / 冲突 warn 跳过 / 双进程 / 崩溃重启）或单测
-    - [ ] `pnpm lint` 0 error + `pnpm typecheck` 0 error（实测 `2>&1 | grep -E "error TS"` 无命中，不信「Done」宣称）（若涉及 TS）
-    - [ ] 文档登记（`platform.md`）
-  - **D 阶段决策留痕（待裁定）**：① 看护循环（`while` + `wait`）vs s6-overlay / supervisord vs 拆多容器 + `restart`；② 是否加退避 / 重启上限（防重启风暴）；③ worker 崩溃是否影响主进程退出语义。
+    - [x] worker 进程崩溃后自动重启（看护循环），日志可观测（重启次数 / 时间 / 退出码）
+    - [x] 容器停止（TERM / INT）时 worker **不再重启**、干净退出（既有 trap 语义保持）
+    - [x] 脚本级验证（entrypoint 分支：默认单进程 / 冲突 warn 跳过 / 双进程 / 崩溃重启）+ 新增 `apps/platform/docker/entrypoint.test.mjs`（6 用例）
+    - [x] `pnpm lint` 0 error + `pnpm typecheck` 0 error（实测 `2>&1 | grep -E "error TS"` 无命中，不信「Done」宣称）（本批无 TS 改动，typecheck exit 0）
+    - [x] 文档登记（`platform.md` §10.6 + `executor-process-isolation.md` 残余边界同步）
+  - **D 阶段决策留痕（2026-10-10 用户裁定）**：① 形态 = **shell 看护循环**（非 s6-overlay / supervisord、非拆多容器）；② 重启策略 = **指数退避（1s 起翻倍、封顶 30s）+ 连续重启上限 5 次**，运行达稳定窗口 60s 后连续计数归零；③ worker 崩溃**不影响 HTTP 主进程**，仅重启 worker（超上限后停止重启、由 `stale-cleanup` 兜底）。
   - **不做什么**：不拆多容器（除非 D 阶段裁定）；不改 HTTP 主进程生命周期；不改队列消费语义。
   - **依赖**：M38.1 独立 worker 进程 entrypoint（`e5412cd`）；backlog 候选（现状锚点 `entrypoint.sh:110-130`）。
   - **交付物**：预计 1-2 commits（fix(platform) entrypoint 看护 + docs）；文件 2-4（entrypoint.sh / 必要时 Dockerfile / docs / 验证脚本）。
-  - **风险与缓解措施**：① 无限重启风暴 → D 阶段评估退避 / 上限 + 日志限频；② 信号转发回归（`trap` → 双进程） → 保留既有 trap 结构 + 分支验证；③ 看护循环 + `set -e` 交互 → 显式 `||` 捕获退出码（M38.1 同类教训）。
+  - **实际交付（2026-10-10）**：3 文件——`apps/platform/docker/entrypoint.sh`（改为后台看护子 shell 托管 worker：指数退避重启 + 连续上限 + 稳定窗口归零；`stop_queue_worker` / `supervise_queue_worker` 新函数；pid 文件跨子 shell 握手 + 纯数字校验；看护自身 TERM trap + 收尾 `wait` 回收僵尸）；`apps/platform/docker/entrypoint.test.mjs`（新增 6 用例）；`docs/standards/platform.md` §10.6（新增「崩溃自愈」条款 + 已知边界 ③ 订正）+ `docs/design/governance/executor-process-isolation.md`（残余边界同步）。
+  - **审计（2026-10-10）**：A 阶段 standard 单分区 R1 Pass（0 blocker / 2 warning / 4 suggest；evidence: `artifacts/review-gate/2026-10-10-m40.4-audit.md`）→ 收口 RG-W1（设计稿残余边界 stale 描述订正）/ RG-W2（双进程用例补看护 pid 退出 + 无重启断言）与 S1（pid 数字校验 + 看护 TERM trap）/ S2（收尾回收看护僵尸）/ S3（去死变量 `QUEUE_WORKER_PID` 父作用域声明）/ S4（退避上界可达性注记）。mutation 4 处全击杀（M1 去上限 / M2 去稳定归零 / M3 stop 不杀看护 → 用例 3+4 转红 / M5 去重启导致循环空转）。全量 `pnpm test` 3795 passed | 10 skipped。
+  - **风险与缓解措施**：① 无限重启风暴 → 指数退避 + 连续上限 5 次 + 稳定窗口归零；② 信号转发回归（`trap` → 双进程 + 看护） → 保留既有 trap 结构 + 分支验证（脚本级测试覆盖 TERM 路径）；③ 看护循环 + `set -e` 交互 → `wait` 用 `||` 捕获退出码；④ pid 文件读取注入 / 空值 → 纯数字 `case` 校验后再 kill；⑤ 看护达上限自行退出成僵尸 → 主进程收尾 `wait` 回收。
 
 - **M40.5**（P2，🐛 缺陷修复）sandbox 降级回退路径落执行日志
   - **目标**：sandbox 启动时降级到 container 的回退路径同样落 `logsJson`，让 degraded run 在「运行日志」弹窗 / 下载中可查看执行日志（现状回退路径无日志）。

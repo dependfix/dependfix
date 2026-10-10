@@ -179,7 +179,7 @@ scan-queue.add(jobId = scan-<repositoryId>)   [scan-queue.ts]
 
 - 两进程共享 SQLite（多进程写）——依赖既有 WAL + `busy_timeout`（M23.1 落地）；需运行期验证。
 - worker 进程会重复启动周期插件（`stale-cleanup` / 启动期备份），均为幂等操作，代价为重复查询。
-- worker 进程崩溃后无自动重启（容器内单进程 `&`），队列由 `stale-cleanup` 兜底；自动重启增强登记 backlog。
+- worker 进程崩溃后由 entrypoint 看护循环自动重启（M40.4 落地，指数退避 + 连续重启上限，口径见 [platform.md §10.6](../../standards/platform.md#106-队列执行进程隔离独立-worker-进程)）；连续重启超上限后由 `stale-cleanup` 兜底。
 
 ## 4. 决策点（待用户裁定）
 

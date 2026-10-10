@@ -491,7 +491,8 @@ fixtures.delete / fixtures.post 在双门控通过后调用 `fixturesRateLimit()
 - **Redis 不可用**：两进程各自按 [§10.4](#104-队列模式自动降级必须含消费者维度) 降级矩阵降级 `sync`（可用性优先）——此时 HTTP 进程同步执行扫描（既有行为，不劣化）。
 - **向后兼容与回退**：入口层不设 `DEPENDFIX_QUEUE_WORKER` 时默认 `0`（保持单进程，行为与既有一致）；`docker-compose.yml` 默认设 `QUEUE_WORKER=1`（治本默认启用），设 `QUEUE_WORKER=0` 可回退单进程；`NUXT_QUEUE_ENABLED=false`（强制同步）时入口跳过 worker 进程启动并输出 warn。
 - **非容器形态**：本地 `pnpm dev` 与自定义 `node .output/server/index.mjs` 不经过 entrypoint，仍用进程内 worker（`NUXT_IN_PROCESS_WORKER=true`），不受影响。
-- **已知边界**：① 两进程共享 SQLite（多进程写）——WAL + `busy_timeout` 由 `server/database/index.ts` 的 DataSource 初始化落地（`PRAGMA journal_mode = WAL` + `busy_timeout = 5000`）；② worker 进程重复启动周期插件（`stale-cleanup` / 启动期备份，均幂等，代价为重复查询）；③ worker 进程崩溃无自动重启（容器内后台进程），队列由 `stale-cleanup` 兜底；④ **空库首启时序**：worker 先于主进程迁移完成启动且自身 `DATABASE_MIGRATIONS_RUN=false`，其插件首次查询可能命中未建表——由 `stale-cleanup` 首跑 30 秒延迟 + 幂等重试承担，影响窗口为迁移完成前数秒。
+- **崩溃自愈（看护循环）**：`docker/entrypoint.sh` 以看护子 shell 托管 worker——异常退出后按指数退避自动重启（退避 1s 起翻倍、封顶 30s），日志记录退出码 / 重启次数 / 时间（`[entrypoint] 队列 worker 异常退出（exit=…）… 第 N 次重启，退避 …s`）。连续重启超过上限（5 次）则停止重启并输出告警，**HTTP 主进程继续服务**（队列由 `stale-cleanup` 兜底）；worker 运行达到稳定窗口（60s）后连续重启计数归零，避免长期运行容器偶发崩溃累积触发上限。容器停止（TERM / INT）时终止看护循环与 worker，不再重启。
+- **已知边界**：① 两进程共享 SQLite（多进程写）——WAL + `busy_timeout` 由 `server/database/index.ts` 的 DataSource 初始化落地（`PRAGMA journal_mode = WAL` + `busy_timeout = 5000`）；② worker 进程重复启动周期插件（`stale-cleanup` / 启动期备份，均幂等，代价为重复查询）；③ worker 进程崩溃由看护循环自动重启（见「崩溃自愈」），连续重启超上限后由 `stale-cleanup` 兜底；④ **空库首启时序**：worker 先于主进程迁移完成启动且自身 `DATABASE_MIGRATIONS_RUN=false`，其插件首次查询可能命中未建表——由 `stale-cleanup` 首跑 30 秒延迟 + 幂等重试承担，影响窗口为迁移完成前数秒。
 
 ## 11. 环境变量总表（.env.example 对齐）
 

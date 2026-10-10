@@ -17,11 +17,11 @@
 ### 主线 #1：network-audit 默认白名单持续扩展问题（G1）
 
 - **目标**：把 network-audit 默认白名单从"按次新增"演进为"按域名 / SRI 哈希 / 输出区分"的可持续治理方案，避免每次构建工具跨 major 升级都需补白名单。
-- **状态**：观察中（**已有评估完成、待用户决策上收的候选**：见 §待上收候选「network-audit 出站白名单：预置常见镜像源 + 动态发现生效 registry」）。
+- **状态**：观察中（**「注册表域预置 + 动态发现生效 registry」方向已由用户 2026-10-10 裁定并上收 M42.1，本阶段执行中**；其余方向保留待评估）。
 - **下一次可切片方向**（任一触发时重新评估）：
   1. 构建工具生态文档站类目预置白名单（rolldown.rs / swc.rs / rust-lang.org 等）—— 新增白名单诉求应转为"真实注册表域"申请而非"构建工具文档站"
   2. 按 SRI 哈希钉资源（推荐域动态发现）
-  3. **注册表域预置 + 动态发现生效 registry**（镜像站 / 企业私服被 deny-by-default 拦死 → install 失败 + 全量回滚）—— 方案已由用户 2026-10-10 裁定并登记为 §待上收候选条目，本方向由该条目承接
+  3. ~~**注册表域预置 + 动态发现生效 registry**（镜像站 / 企业私服被 deny-by-default 拦死 → install 失败 + 全量回滚）~~ —— **已上收 M42.1**（2026-10-10 用户决策方案 A+B 混合）；M42.1 闭环后按 [规划规范 §4.4 第 11 条](../standards/planning.md#44-大批量归档批次操作规范)「长期主线卡闭环同步」收敛本条
 - **验收**：默认白名单不再按次新增；verification 阶段合法外联不被误判；剩余候选方向（SRI 哈希钉定等）任一实施或主线整体评估为长期保留后关闭本主线条目
 
 ## 周期性回归验证层
@@ -123,20 +123,6 @@
   - **触发条件**：周期插件重复造成可观测噪声或资源浪费时；或用户要求。
   - **按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
 
-- **reuse 路径与同仓库去重合并叠加时误置既有 run 为 failed（待评估）** —— `scan.post.ts` 的 reuse 路径若 `queue.add` 返回 `reused: true`（同仓库已有进行中任务 → 去重合并），会把被复用的 `pendingRun`（即用户指定的既有终态 run）置 `status='failed'` 并落库；而 reuse 校验只拒绝「被复用 run 自身 running」，不检查仓库是否存在其他进行中任务，故该组合可复现（用户指定的历史 run 被意外标记失败）。
-  - **待评估点**：① `reused: true` 且走 reuse 路径时是否改为「不改既有 run 状态，仅提示已合并」；② 或在 reuse 校验阶段前置拒绝「同仓库存在进行中任务」（409）。
-  - **触发条件**：生产出现「复用 + 去重合并」误标 failed 实例；或用户要求。
-  - **按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
-
-- **严重级别展示策略统一（`Critical` vs `critical`）（待评估）** —— 同一 `severityThreshold` 值在各界面展示策略不一致——
-  - **大驼峰 + `all` 走 i18n**：`scanSeverityOptions`（选项单一事实源）/ `batch-runs.vue` 的 `severityLabel`；
-  - **小写直通 + `all` 走 i18n**：`run-view.ts` 的 `runThresholdLabel` / `scans.vue` 运行列表的阈值列（2 处）；
-  - **raw 直通（连 `all` 都不翻译）**：`alert-run-sidebar.vue` 的 `row.severityThreshold` 渲染 / `repos/[id]/runs.vue` 的阈值列（legacy 页，保留兼容）/ `repo-history-dialog.vue` 的历史 run 阈值列（**在用**，`scans.vue` 挂载）（共 3 处）。
-  - **非同源（已排除）**：`env-events.vue` 的 `severityOptions`（词表 `all/info/warn/error/critical` + 独立 `envEvents.*` i18n 命名空间，属环境事件严重度而非扫描阈值）；`alerts.vue` 的 `severityOptions`（词表含 `Low` / `Unknown`，`all` 在首位）。
-  - **待评估点**：① 是否统一为大驼峰（对齐选项口径）；② 是否统一走 `scanSeverityOptions` 查找（单一事实源）；③ 若差异属有意（不同 UI 语境）则需在规范中显式声明而非隐式保留。
-  - **触发条件**：UI 一致性巡查；或用户反馈级别展示不统一。
-  - **按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
-
 - **代码门禁脚本未排除 Playwright 生成产物（待评估）** —— 现象：`scripts/check-orphan-ids.mjs` 的 `EXCLUDED_DIRS` 未包含 `playwright-report` / `test-results`，本地跑过 e2e 后 HTML 报告内的 minified 依赖 bundle（`playwright-report/trace/assets/codeMirrorModule-*.js`）被纳入扫描并误报规划编号形态；`scripts/check-docs.mjs` 同理把 `test-results/**/error-context.md`（Playwright 失败产物）计入 md 扫描面（本地实测 148 → 152）。CI 因门禁步骤先于 e2e 产物生成而不受影响，但本地验证会被产物污染（须先清理产物才能取得干净门禁）。
   - **待评估点**：① 两个脚本的产物排除面是否统一补 `playwright-report` / `test-results`（与既有 `.output` / `coverage` / `dist` 同类）；② 是否改为统一「尊重 `.gitignore`」的排除策略以避免逐个补目录。
   - **触发条件**：本地跑过 e2e 后执行门禁脚本出现产物误报；或用户要求加固脚本。
@@ -157,26 +143,10 @@
   - **触发条件**：两页继续增长致 warning 逼近上限；或用户要求清理。
   - **按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
 
-- **PR Check 手动触发（同步端点 + 总开关门控）（待评估）** —— 现象：PR Check 数据由定时计划 `schedule.kind='pr-check'` 驱动（cron → `triggerSchedule` → `triggerPrCheckSchedule` → `ActionStatusMonitor.pollOnce`），现有手动触发仅为**计划维度**（`POST /api/schedules/[id]/trigger`）；页面 `apps/platform/app/pages/pr-checks.vue` 本身只有 ack 操作，无「立即跑一轮 polling」入口，无 pr-check 计划时列表无法即时刷新（仅 DB 缓存值）。
-  - **评估结论（2026-10-10，已完成）**：建议采纳，形态 = **同步端点 + 总开关门控**（用户裁定）——新增 `POST /api/pr-checks/poll`（`requireRole` admin / org_admin + `requireOrgResource` 组织隔离），把 `triggerPrCheckSchedule` 的「按 credential 聚合 → Octokit → `pollOnce`」抽为共享函数复用；受 `ACTION_STATUS_MONITOR_ENABLED` env 门控（未启用返回 skipped + 提示，与 schedules 语义一致）；前端加「立即检查」按钮 + 结果 toast（processed / errors）。风险：请求路径内调 GitHub API，仓库多时耗时长，先做**同步 + 上限 / 超时**（异步入队为重方案，暂不采纳）。
-  - **现状锚点**：`apps/platform/server/services/scheduler/scheduler.service.ts`（`triggerPrCheckSchedule`）/ `apps/platform/server/services/monitor/action-status-monitor.ts`（`pollOnce`）/ `apps/platform/app/pages/pr-checks.vue`。
-  - **成本 / 价值**：成本低（复用现有 service）/ 价值中（即时刷新 + 手动验证监测链路）。
-  - **触发条件**：无 pr-check 计划场景的即时刷新诉求；或用户要求手动验证监测链路。
-
-- **平台列表页表格基础能力补强（repos / batch-runs 的筛选 / 搜索 / 分页）（待评估）** —— 现象：`apps/platform/app/pages/repos.vue` 与 `apps/platform/app/pages/batch-runs.vue` 的 `CaomeiDataTable` 目前仅支持部分列排序，**无筛选 / 搜索 / 分页**，行数较多时查询不便。约束：caomei `DataTable` **不提供内建 filters / globalFilter**（仅排序 / 分页 / 选择 / 分组 / 展开，实测 `types.d.ts`），筛选 + 搜索须页面侧实现。
-  - **评估结论（2026-10-10，已完成）**：推荐**客户端实现**（`/api/repos` 返回全量、`/api/batch-runs` 服务端已 `take: 50`）—— repos：搜索（owner / name / tags / credential）+ 筛选（executorKind / packageManager / credential）+ 分页（10/25/50）；batch-runs：筛选（source / status，可选 mode / severity）+ 分页；两页保留现有排序。可选抽轻量 `useClientTableFilter` 复用（需权衡减法原则，避免过度抽象）。
-  - **现状锚点**：`repos.vue`（`columns` 仅部分 `sortable`，无 `paginator`）/ `batch-runs.vue`（同）。
-  - **触发条件**：仓库 / 批量运行规模增长致列表查询不便；或用户要求统一表格交互。原则上可延伸至 `users` / `credentials` / `env-events` / `schedules` 等表（本条目范围先限用户点名的两页，启动时可按页拆为独立原子）。
-
 - **caomei-ui `0.5.0` → `0.6.0` 升级回归（待评估）** —— 现象：`apps/platform/package.json` 精确锁定 `caomei-ui` `0.5.0`，npm `latest` 已为 `0.6.0`（2026-10-08 发布）。
   - **评估结论（2026-10-10，已完成语义级比对）**：**低风险 minor 升级，无破坏性契约** —— ① 公开组件集 `81 → 81`（`as Caomei*` 口径，零增删）；② 基础 token（`styles/index.css`）零变更（`_caomei-tokens.scss` 覆盖继续成立）；③ 实质变更：`DataTable` 多列排序新增**优先级序号 + 全列保留占位**（影响 `sort-mode="multiple"` 的 alerts / pr-checks 视觉基线，属 UX 改进）、`Drawer` 背景 `bg → bg-elevated`、`Popover` 圆角 `radius-md → radius-lg` + 背景 `bg → bg-elevated`、`Tabs` 列表 overflow / 分隔线重写（修 1px 纵向多余滚动条）、其余局部内部调整（未见使用面类名破坏性变更）。
   - **执行口径（照 [迁移评估 §15.14](../design/governance/caomei-ui-migration.md#1514-caomei-ui-050-升级实证m3422026-10-01)）**：package.json + lockfile → 迁移评估新增 §15.15 + `tech-stack.md` + `platform.md` 版本口径同步 → 重建 `apps/platform/.output` → 全量 lint / typecheck / test / e2e / 视觉基线 `--update-snapshots=all` 重建（预期 alerts / pr-checks 因排序序号变化）。
   - **触发条件**：用户要求升级；或平台需跟进 0.6.0 新能力（多列排序序号）。与下方延期项「caomei-ui 0.x → 1.0 升级回归」的恢复条件①（用户指定版本）同源，但本条为 `0.6.0` 增量升级，非 1.0 分支。
-
-- **`ensureGitignore()` 幂等检查对语义等价的忽略写法失效导致重复追加（待评估）** —— 现象：`packages/engine/src/app/helpers.ts:651` 的 `ensureGitignore()` 以精确字符串比较做幂等（`lines.some((l) => l.trim() === 'dependfix-reports/')`），目标仓库 `.gitignore` 若已用语义等价写法（如 `/dependfix-reports`、`dependfix-reports`、`/dependfix-reports/`、`**/dependfix-reports/` 等）忽略该目录，则判定为「未忽略」并追加 `# dependfix` + `dependfix-reports/`，产生重复条目。实测命中：`/root/projects/caomei-ui/.gitignore` 第 47-50 行（人工条目 `/dependfix-reports` 已提交于 commit `e1b2641`，工具运行后又追加 `dependfix-reports/`，未提交工作区改动）。触发面：`run()` 收尾（`packages/engine/src/app/index.ts:316`）与本地提交前（`helpers.ts:623`）各执行一次，任一 run 即复现。
-  - **待评估点**：① 幂等判定的归一化口径——是否在比较前去除前导 `/`、尾部 `/`、`**/` 前缀与行内注释（需定义 `.gitignore` 语义等价集与误报面，如 `dependfix-reports/**` / `dependfix-reports/*` 等仅忽略内容的写法是否算等价）；② 首次追加的 canonical 写法选型（`dependfix-reports/` vs `/dependfix-reports`）与各仓库既有条目对齐；③ `packages/engine/src/app/helpers.test.ts` 当前对该函数零覆盖，是否补幂等 + 多等价形态单测防回归。
-  - **触发条件**：目标仓库以非 canonical 写法手写过忽略项（用户手动添加 / 其他工具生成）；或用户要求加固 `.gitignore` 自动管理。
-  - **按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
 
 ### 待上收候选（评估完成，等待用户决策）
 
@@ -186,38 +156,6 @@
   - **决策点（待用户裁定）**：① 是否在 `docs/standards/git.md` §3.8 扩展 hooks 隔离子节（或新建独立锚点）；② 是否将 `git-signing.ts` 更名为 `git-isolation.ts` 并同步 §3.8 路径引用（含 engine `github/index.ts` re-export 与平台侧 import）。
   - **现状锚点**：`packages/engine/src/github/git-signing.ts:2`（JSDoc 双语义）+ `docs/standards/git.md:168`（§3.8 标题仅签名）。
   - **不做什么**：不改隔离参数取值与行为；不改 `--no-verify` 选型。
-  - **按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 不带 `M\d+` 阶段编号**：等待用户明确决策启动。
-
-- **network-audit 出站白名单：预置常见镜像源 + 动态发现生效 registry（P2，🛡️ 安全治理）**
-  - **背景与根因（2026-10-10 根因排查，用户已裁定方案）**：verification 阶段向子进程注入 network-audit deny-by-default 拦截代理，白名单预置 `*.npmjs.org` / GitHub API 域 / `rolldown.rs`（`packages/engine/src/runners/network-audit.ts:65-72`）；而国内镜像 / 企业私服场景下 registry 常为镜像源（本机 `~/.npmrc` = `https://registry.npmmirror.com/`）。非白名单的 `CONNECT registry.npmmirror.com:443` 被代理直接返回 502（**不建上游连接**，记 `network_violations`）→ `pnpm install --frozen-lockfile` 失败 / 超时 → **修复前基线在 install 处中断（残缺）** → 修复后失败的命令若不在基线中，按「基线缺失命令保守归因」计入本次改动（实测被引 run 的实际阻断命令是 `pnpm test`，install 本身已因基线同命令失败而豁免）→ 验证门禁 `git reset --hard HEAD` **全量回滚、零残留**（用户观测表象即「无法访问镜像源 → pnpm install 失败 → 完整回滚、未产生任何改动」）。即：镜像被拦**既直接弄挂 install，又通过打残基线放大归因面**。
-  - **改动方案（用户 2026-10-10 裁定：预置常见可信镜像源 + 支持动态获取镜像源 + 用户设置的镜像源默认可信；不额外防范恶意镜像源——防范责任不在本项目，恶意代码执行风险由沙箱控制，整体风险可控）**：
-    1. **预置清单扩充**（`DEFAULT_ALLOWED_DOMAINS`）。建议集如下（取舍由用户确认；`*.npmmirror.com` 用通配是**必需**而非偷懒——镜像 tarball 会 302 到独立 CDN 域，只放 registry 域会退化为「metadata 通、tarball 仍被拦」）：
-
-       | 域名 | 类型 | 依据 |
-       |:--|:--|:--|
-       | `*.npmmirror.com` | 阿里 npmmirror（registry + tarball CDN） | 实测 `registry.npmmirror.com/...tgz` → 302 `cdn.npmmirror.com/packages/...`；本机 `~/.npmrc` 即此源 |
-       | `registry.yarnpkg.com` | Yarn 官方 registry（npm 兼容） | 2026-10-10 实测 `GET /` 200 |
-       | `npm.jsr.io` | JSR registry | 本机 pnpm 全局配置 `@jsr:registry=https://npm.jsr.io/`（在用）；实测 200 |
-       | `mirrors.cloud.tencent.com` | 腾讯云 npm 镜像 | 实测 200 |
-       | `repo.huaweicloud.com` | 华为云 npm 镜像 | 实测 301 |
-       | `npm.pkg.github.com` | GitHub Packages npm registry | 实测 301；已属 GitHub 生态信任面 |
-
-    2. **动态发现生效 registry**：在 `workDir` 内执行 `pnpm config list --json`（只读本地配置、不联网），抽取键名匹配 `(^|:)registry$` 的项（默认 `registry` + 全部 `@scope:registry`）→ 取 host 并入白名单。**实测**该命令已返回 project / user / global 合并结果（含 scoped 项），故无需自研 `.npmrc` 解析、不引入 ini 解析依赖。**回退链**：`pnpm` 不可用 / 输出非 JSON / 超时 → `npm_config_registry`｜`NPM_CONFIG_REGISTRY` env → 仅预置清单（fail-open 到预置清单，仅 warn、不阻断）。**接入点**：复用 `startNetworkAudit({ allowedDomains })` 既有入参（`network-audit.ts:152-163`）+ `runVerification` 已有的 `workDir`，改动面收敛在 engine runners 一层，run 内按 workDir 缓存。**已知限制（不掩盖）**：发现面只含「配置面 registry 键的 host」——若该 registry 的 tarball **302 到独立 CDN 域**且该域不在预置清单内，仍会被 deny-by-default 拦（如企业私服自带 CDN）；此类需显式补 `DEPENDFIX_ALLOWED_DOMAINS`。「按 302 `Location` 自动补录 CDN 域」列为可选后续增强（可从 audit entries 观测补录），本次不做。
-    3. **信任模型（用户裁定）**：用户 / 目标仓库**显式配置**的 registry 视为可信——不校验镜像来源真实性，不做签名 / SRI / TLS 钉定 / 域所有权校验，不因「镜像不可信」阻断。**不放松的部分**：未列举域名仍 deny-by-default 502 + 记 `network_violations`；白名单不因「命令输出里出现的 URL」扩展（输出 URL 仍只记录不阻断，防绕过配置面扩白名单）；沙箱（Docker rootless + 非 root + 无 `docker.sock` + cgroup + 结果白名单回传）仍是恶意代码执行风险的承接层，本地 CLI 无沙箱形态沿用既有执行风险警告。
-  - **范围（拟改动文件）**：`packages/engine/src/runners/network-audit.ts`（预置清单 + 发现逻辑接线，或抽 `registry-discovery.ts`）+ `packages/engine/src/runners/verification-runner.ts`（按 workDir 发现并传入）+ `network-audit.test.ts` / `verification-runner.test.ts` + `docs/standards/security.md`（§5.3 网络外联审计口径）+ `docs/design/governance/sandbox-security-governance.md`（§2.2 缺口表 / §4.4 准入评审记录 / §5 治理登记）+ `docs/design/governance/executor-sandbox.md`（§2.2 风险表「网络外联」缓解列回填）+ `docs/guide/quick-start.md`（§安全注意事项：镜像源口径与 `DEPENDFIX_ALLOWED_DOMAINS` 说明订正）。预计 **8-10 文件 / 300-450 行**（单模块 engine + 文档），治理面更新**既有** governance 文档、不新建——处于 [设计文档硬阈值](../design/governance/spec-and-doc-governance.md#24-设计文档硬阈值hard-requirement)「> 5 文件 / > 350 行 → 建议有 governance 文档」档。
-  - **验收标准**：① **单测**：预置清单命中镜像域（registry + CDN）+ 动态发现纳入 `registry` 与 `@scope:registry` 的 host + 非法值（`*` / 含 `/` / 空值 / 超长）被拒 + `evil.example.com` 仍不在白名单（`pnpm --filter @dependfix/engine exec vitest run src/runners/network-audit.test.ts`）；② **行为回归**：既有「非白名单域名 502 + violation」用例不回归，新增「镜像域 CONNECT 不记 violation」用例（同包 `verification-runner.test.ts`）；③ **真实环境（镜像站）**：在 registry 指向镜像源的机器上跑一次 `dependfix fix-and-pr`（或平台扫描；注意门禁回滚只在 `fix --commit` / `fix-and-pr` 触发，纯 `fix` 不触发、不能用于验证回滚是否消除）→ 运行日志 **0** 条 `outbound blocked by allowlist: CONNECT registry.npmmirror.com:443`、基线 `pnpm install --frozen-lockfile` 不再 `timed out`、不再出现 `Changes rolled back`；④ **真实环境（非预置私服）**：把 `.npmrc` 指向一个非预置清单的私服 registry（如本地 Verdaccio）→ 不经 `DEPENDFIX_ALLOWED_DOMAINS` 即可完成安装（验证动态发现路径生效；若该私服 tarball 302 到独立 CDN 域，按方案 2「已知限制」显式补白名单后再验证）；⑤ **文档门禁**：`pnpm run check:docs` 0 error + `pnpm run lint:md:check` 通过 + `pnpm run check:doc-size` 无新增 warning。
-  - **不做什么**：不放开 deny-by-default（未知域仍拦）；不做镜像源真实性 / 完整性校验与镜像源审批流程（用户裁定）；不放行非安装链路的第三方前端 CDN（`cdn.jsdelivr.net` / `unpkg.com` 等）；不把代理覆盖到 fix 阶段的 `pnpm install`（现状不经代理，另案观察，见风险 R5）；不改 `pnpm-audit-fetcher` 强制官方 registry 的口径（漏洞数据准确性需求，与本方案正交）；不改沙箱网络模式（bridge）与 cgroup 限额；不处理 GitHub 侧 clone / push 不可达（见下文 §远期登记 / 未排期增强候选「网络优化」C68）。
-  - **依赖 / 前置门禁**：本改动**改变执行期网络边界** → 依 [security.md §5.3（修复执行安全）](../standards/security.md) + [sandbox-security-governance.md §4.4 准入流程](../design/governance/sandbox-security-governance.md#44-准入流程)，**必须**对照 [executor-sandbox.md §2.2 风险定级与缓解](../design/governance/executor-sandbox.md#22-风险定级与缓解) 逐项评估并记录缓解措施，评审结论登记 [§5 治理决议与登记](../design/governance/sandbox-security-governance.md#5-治理决议与登记)（硬前置，未过评审不得进 D 阶段）；治理定义改动 → A 阶段强制审计（建议 `standard`）；无数据库 / 平台实体改动；无新增运行时依赖。
-  - **交付物**：预计 2-3 commits——① engine 实现 + 单测；② 规范 / 治理 / guide 文档同步；③ 真实环境验证结论回填（可选）。files 见「范围」。**闭环同步**：实施完成后须按 backlog 维护规则 3 + [规划规范 §4.4 第 11 条](../standards/planning.md#44-大批量归档批次操作规范)「长期主线卡闭环同步」收敛 §主线 #1 的状态与切片方向，避免单侧闭环后主线 stale。
-  - **风险与缓解**：**R1 白名单扩大 → 攻击面扩大**（第三方镜像被投毒 / 劫持）——缓解：仅 host 粒度 + 预置清单收敛 + 动态来源限「配置面」+ violation 记录与报告披露不回退 + 沙箱为执行前提；**R2 动态解析过宽**（把通配 / 异常值当 host）——缓解：严格 host 正则 + 单测覆盖非法值；**R3 302 CDN 漏放行**（看似修好实则仍拦）——缓解：预置清单 registry + CDN 成对登记 + 验收 ③ 真实 install 实证；**残余**：非预置私服自带的独立 CDN 域需显式补 `DEPENDFIX_ALLOWED_DOMAINS`（方案 2「已知限制」，验收 ④ 覆盖）；**R4 发现子进程失败 / 超时**——缓解：fail-open 到预置清单，仅 warn 不阻断；**R5 fix 阶段 `pnpm install` 不经代理**（该阶段外联无审计记录，既有缺口、非本方案引入）——缓解：登记独立观察项候选，不在本方案范围；**R6 规范与实现口径漂移**——缓解：以 `docs/standards/security.md` 为唯一事实源 + 审计必查项。
-  - **证据（2026-10-10 执行角色排查，可复现）**：
-    - **平台库命中（测量方：执行角色；口径见下复现命令）**：`apps/platform/data/dependfix.sqlite`（133 个 run，2026-09-03 ~ 2026-10-10）中，`dependfix_scan_run.logs_json` 同时含 `outbound blocked by allowlist` 与 `npmmirror` 的 run = **5 个**（2026-10-02 15:28 / 15:29 / 16:17 / 16:27 / 16:50）；其中 **1 个**（`683f617ba4794d95`，status `failed`）复现完整链：日志 1000 条含 **989×** `[baseline] outbound blocked by allowlist … CONNECT registry.npmmirror.com:443` + `"pnpm install --frozen-lockfile" already failing before this run (timed out)` + 修复后 `Verification failed …: pnpm test — exit code 1` + `Changes rolled back`，`error_json` = `engine_delivery_failed（VERIFICATION_FAILED）`。**复现命令**：`python3` + `sqlite3.connect('file:apps/platform/data/dependfix.sqlite?mode=ro',uri=True)` → `select id,created_at,status,logs_json from dependfix_scan_run` → 对 `logs_json` 做子串过滤（只读，不改库）。
-    - **旁证（非 allowlist 命中，原因未定）**：全部 15 个「基线命令已失败」run 中有 12 个是 `timed out`——其中 **4 个**伴随 allowlist 拦截、**8 个**无拦截记录。那 8 个的超时原因**未定**（非 allowlist 拦截；提示镜像源 / 网络侧另有独立超时来源，待后续复现时再归因——下方 curl 实测仅证明「本机当下」镜像源与 CDN 可达，不构成因果证据）。两类叠加会放大失败面，故本方案同时覆盖「预置镜像域名」与「CDN 成对登记」。
-    - **排除「沙箱无网」**：`curl -s -o /dev/null -w '%{http_code}' https://registry.npmmirror.com/vite` → 200；`…/is-odd/-/is-odd-3.0.1.tgz` → 302 `cdn.npmmirror.com/packages/is-odd/3.0.1/is-odd-3.0.1.tgz` → 200（本机实测，镜像源与 CDN 均可达）。
-    - **代理有效性**：`HTTPS_PROXY=http://127.0.0.1:9 pnpm view is-even version` → `ECONNREFUSED` 且重试失败（证明 pnpm 11 消费代理 env、502 会真实打断 install）；顺带订正 `network-audit.ts:10` 注释中「pnpm 11 undici 直连不走代理 env」的失真断言。
-    - **回滚放大机制**：`packages/engine/src/app/verify-project.ts:144-147`（既有失败豁免只认「同命令」）+ `:161-171`（违规落报告）→ `packages/engine/src/runners/verification-gate.ts:41-44`（`git reset --hard HEAD`）。
-  - **现状锚点**：`packages/engine/src/runners/network-audit.ts:65-72`、`:152-215`；`packages/engine/src/runners/verification-runner.ts:167-179`、`:231-243`；`packages/engine/src/app/verify-project.ts:144-147`、`:161-171`；`packages/engine/src/runners/verification-gate.ts:41-44`（门禁调用点：`packages/engine/src/app/index.ts:474-476` 的 `fix --commit`、`:537` 的 `fix-and-pr`）。
-  - **触发条件**：用户授权启动（评估已完成）；复现场景 = registry 非官方源的机器（镜像站 / 企业私服 / GHES npm registry）上跑 `fix-and-pr` / `fix --commit`（门禁回滚仅这两条路径触发，纯 `fix` 不回滚）或平台扫描。
   - **按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 不带 `M\d+` 阶段编号**：等待用户明确决策启动。
 
 - **PR 构建 / 部署错误多源采集（扩展现有 PR Check）**（P2，🚀 能力）—— 现象：现有 `ActionStatusMonitor` 仅抓单个 `Test` check，目标仓库修复 PR 的**完整构建 / 部署信号**（GitHub Actions 其它 workflow、Cloudflare Workers Builds、Vercel 预览部署等）不可见；「代码已修但预览部署失败」无法第一时间发现。
@@ -356,8 +294,8 @@
 
 | 内容类型 | 位置 |
 |:--|:--|
-| 当前阶段活跃任务 | **暂无进行中阶段**——下一阶段按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 评估本文件候选池后由用户决策；最近闭环阶段 M41（规范与经验管理体系重构，2026-10-10 归档）见 [todo-archive.md §M41](todo-archive.md#m41-规范与经验管理体系重构m411m415-全部已闭环--2026-10-10-归档) |
-| 下一阶段（未授权） | 无——按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 评估本文件候选池后由用户决策 |
+| 当前阶段活跃任务 | **M42 进行中**（修复交付正确性 + 平台能力与体验补强，6 原子）见 [todo.md §M42](todo.md#m42-修复交付正确性--平台能力与体验补强2026-10-10-用户决策方案-ab-混合)；最近闭环阶段 M41（规范与经验管理体系重构，2026-10-10 归档）见 [todo-archive.md §M41](todo-archive.md#m41-规范与经验管理体系重构m411m415-全部已闭环--2026-10-10-归档) |
+| 下一阶段（未授权） | 无——本阶段闭环后按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 评估本文件候选池后由用户决策 |
 | 已完成阶段归档 | [todo-archive.md](todo-archive.md)（主窗口 + [archive/](archive/) 分片） |
 | 里程碑与阶段交付 | [roadmap.md](roadmap.md) |
 | 长期主线 / 候选 / 待人工验收 / 已知边界 | 本文档（按四象限结构） |

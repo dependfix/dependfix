@@ -49,6 +49,7 @@
 | M39: 平台视图体验与可观测补强 | 扫描页筛选与分页优化 + 扫描历史弹窗体验 + 告警视图「按包」聚合跨 severity 重复分组修正 + 运行日志下载与批量下载 + PR Check 监测启用链路打通 + 环境事件覆盖扩展 | P2-P3 | 已完成（2026-10-09 用户决策方案 A / 2026-10-10 已闭环归档，见 [todo-archive.md §M39](todo-archive.md#m39-平台视图体验与可观测补强m391m396-全部已闭环--2026-10-10-归档)） |
 | M40: 运行时可靠性与可观测性深化 | 部署产物版本戳陈旧校验 + 失败 run 落 summary 快照 + 执行超时可配置化 + 队列 worker 崩溃自动重启 + sandbox 降级回退路径落执行日志 + 平台环境变量文档完整性治理 | P2 | 已完成（2026-10-10 用户决策方案 A / D2 以环境变量文档治理替换 M40.6；2026-10-10 已闭环归档，见 [todo-archive.md §M40](todo-archive.md#m40-运行时可靠性与可观测性深化m401m406-全部已闭环--2026-10-10-归档)） |
 | M41: 规范与经验管理体系重构 | standards 去实现化瘦身 + 经验体系三层收敛与精简 + 规范/经验门禁落地（CI 阻断）+ 文档站导航分层 + 阈值与事实源唯一化 | P2-P3 | 已完成（2026-10-10 用户决策方案 B / 2026-10-10 已闭环归档，见 [todo-archive.md §M41](todo-archive.md#m41-规范与经验管理体系重构m411m415-全部已闭环--2026-10-10-归档)） |
+| M42: 修复交付正确性 + 平台能力与体验补强 | network-audit 出站白名单镜像源扩充与动态发现 + `.gitignore` 幂等判定归一化 + 扫描复用路径误置既有 run 为 failed 修复 + PR Check 手动触发 + 平台列表页表格基础能力补强 + 严重级别展示策略统一 | P2-P3 | 进行中（2026-10-10 用户决策方案 A+B 混合 / 6 原子条目，见 [todo.md §M42](todo.md#m42-修复交付正确性--平台能力与体验补强2026-10-10-用户决策方案-ab-混合)） |
 
 > **本路线图定位**：按 [规划规范 §2.1](../standards/planning.md) 仅维护阶段概览（目标 / 优先级 / 状态）。详细实施记录 / commit 引用 / 关键决策 / 经验教训见对应归档段（详见下方"## 详细任务"索引）。
 
@@ -757,6 +758,37 @@ per-alert 模型 + reconcile + API 简化 + UI 调整 + backfill 脚本。5 子�
 
 ---
 
+## M42: 修复交付正确性 + 平台能力与体验补强（2026-10-10 用户决策方案 A+B 混合 / 进行中）
+
+承接 M41 规范与经验管理体系重构归档后的「缺陷修复 + 平台补强」阶段。阶段定位为贯穿两条线——**修复被 dependfix 管理仓库的实际受害面**（验证阶段镜像源被 deny-by-default 拦死 → `pnpm install` 失败 → 门禁全量回滚；目标仓库 `.gitignore` 幂等判定失效致重复追加；扫描复用路径与同仓库去重合并叠加时误置既有 run 为 failed）与**平台能力/体验补强**（PR Check 手动触发；列表页表格筛选/搜索/分页；严重级别展示口径统一）。经 2026-10-10 用户决策（方案 A+B 混合）从 [backlog.md](backlog.md) §待上收候选 + §候选评估中上收 6 项，砍掉门禁脚本产物排除与 hooks 隔离锚点（P3 小项）换入 PL（平台）能力项。
+
+**6 原子条目**（覆盖 🛡️ 2 + 🐛 1 + 🚀 1 + 🎨 2；🧪 独立条目缺口已显式标注，测试随条目内嵌）：
+
+- **M42.1** [P2 🛡️ 安全治理] network-audit 出站白名单：预置常见镜像源 + 动态发现生效 registry（消除镜像源被 deny-by-default 拦死 → install 失败 → 全量回滚链路）
+- **M42.2** [P2 🐛 缺陷] 目标仓库 `.gitignore` 幂等判定归一化（语义等价写法识别，消除重复追加 `dependfix-reports/`）
+- **M42.3** [P2 🛡️ 数据正确性] 扫描复用路径与同仓库去重合并叠加时误置既有 run 为 failed 修复
+- **M42.4** [P2 🚀 能力扩展] PR Check 手动触发（同步端点 + 总开关门控）
+- **M42.5** [P2 🎨 体验] 平台列表页表格基础能力补强（repos / batch-runs 筛选 + 搜索 + 分页）
+- **M42.6** [P3 🎨 体验] 严重级别展示策略统一（收敛到 `scanSeverityOptions` 单一事实源）
+
+**类型平衡复核**：🛡️ 2（M42.1 / M42.3）+ 🐛 1（M42.2）+ 🚀 1（M42.4）+ 🎨 2（M42.5 / M42.6）；🧪 独立条目缺口显式标注（测试随各条目内嵌）——符合 [规划规范 §1.1 L12 类型平衡建议](../standards/planning.md#11-硬性约束)。
+
+**建议顺序**：M42.1（安全治理，治理评审硬前置）→ M42.2 / M42.3（缺陷修复）→ M42.4（能力扩展）→ M42.5 / M42.6（体验收敛，可并行）。
+
+**条目容量**：6 原子符合 [规划规范 §1.1](../standards/planning.md#11-硬性约束) 的 5-6 项上限；M42.5 预估 5-8 文件 / 200-350 行未超单条 > 10 文件 / > 800 行阈值。
+
+**范围边界（不做什么）**：不放开 network-audit deny-by-default（未知域仍拦）；不做镜像源真实性校验与审批流程（用户裁定，恶意代码执行风险由沙箱承接）；不引入 `.gitignore` 完整语法解析依赖；不做「同仓库有进行中任务 → 409 前置拒绝」新方案；不做 PR Check 异步入队（重方案）；不改列表页服务端契约（客户端实现）；不改 env-events / alerts 的严重级别选项表（非同源）；不删除 legacy `/repos/[id]/runs` 页（死代码候选另登记）。
+
+**§3.4 交叉核验**：6 项候选经 todo-archive 表格扫描（`rg` 关键词零命中已闭环修复）+ git log（无对应修复 commit：network-audit 最近 `2104b9f` 追加 `rolldown.rs` / `helpers.ts` 无幂等修复 / `scan.post.ts` 最近 `9f9d067` 降级路径透传 reuse）+ 代码 anchor（`network-audit.ts:65` 白名单 6 域无 `npmmirror` / `helpers.ts:668` 精确字符串比较 / `scan.post.ts:89-105` reused 置 failed / 无 `pr-checks/poll.post.ts` / `repos.vue:280` / `batch-runs.vue:245` 无分页筛选 / `run-view.ts:35` 等 3 类展示面并存）三重核验，**0 项重复评估**。
+
+**审计 depth 预告**：M42.1 改变执行期网络边界 + 治理定义改动（[security.md §5.3](../standards/security.md) + [sandbox-security-governance.md §4.4](../design/governance/sandbox-security-governance.md) 治理评审为硬前置）→ `standard`（建议 2 分区并发）；M42.3 涉及 run 状态写路径 → `standard`；M42.4 新增公开 API 端点 → `standard`；M42.2 / M42.5 / M42.6 按规模 `quick`。
+
+**commits 状态**：阶段启动规划 commit 落地后实测（`git rev-list HEAD ^origin/master --count` 双向核验），本阶段 commits 归档前均为本地 ahead，待用户推送确认。
+
+> 详细任务与 8 要素见 [todo.md §M42](todo.md#m42-修复交付正确性--平台能力与体验补强2026-10-10-用户决策方案-ab-混合)；上一阶段（M41）见 [todo-archive.md §M41](todo-archive.md#m41-规范与经验管理体系重构m411m415-全部已闭环--2026-10-10-归档)。
+
+---
+
 ## M41: 规范与经验管理体系重构（2026-10-10 用户决策方案 B / 2026-10-10 已闭环 + 归档）
 
 承接 M40 运行时可靠性与可观测性深化归档后的治理体系重构阶段。根因为「**有规则无门禁 → 必 drift**」——规范混入实现与教训、经验体系体量膨胀且无退出路径、阈值声明双事实源且无脚本计量、规则与执行分离。设计依据为 [standards-experience-refactor.md](../design/governance/standards-experience-refactor.md)（v2 先行稿，170 行；承接 [spec-and-doc-governance.md](../design/governance/spec-and-doc-governance.md) 的未竟部分）。经 2026-10-10 用户决策（方案 B）从 [backlog.md](backlog.md) §候选评估中上收整卡，A-E 五批对应 M41.1~M41.5。
@@ -791,9 +823,9 @@ per-alert 模型 + reconcile + API 简化 + UI 调整 + backfill 脚本。5 子�
 
 ## 详细任务
 
-- 当前阶段任务：**无进行中阶段**——下一阶段按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 评估 [backlog.md](backlog.md) 候选池后由用户决策；最近闭环阶段 M41（规范与经验管理体系重构）见 [todo-archive.md §M41](todo-archive.md#m41-规范与经验管理体系重构m411m415-全部已闭环--2026-10-10-归档)
+- 当前阶段任务：**M42 进行中**（修复交付正确性 + 平台能力与体验补强，6 原子条目）见 [todo.md §M42](todo.md#m42-修复交付正确性--平台能力与体验补强2026-10-10-用户决策方案-ab-混合)；最近闭环阶段 M41（规范与经验管理体系重构）见 [todo-archive.md §M41](todo-archive.md#m41-规范与经验管理体系重构m411m415-全部已闭环--2026-10-10-归档)
 - 已归档阶段：[todo-archive.md](todo-archive.md)（主窗口保留最近阶段完整段 + 指针段；M0-M41 全部已归档；早期阶段见 [archive/index.md](archive/index.md) 分片索引）
-- 下一阶段（未授权）：无——按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 评估 backlog 候选池后由用户决策
+- 下一阶段（未授权）：无——本阶段闭环后按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 评估 backlog 候选池后由用户决策
 - 后续阶段任务（延期项 + 未排期增强候选）：[backlog.md](backlog.md)
 
 ## 交付原则

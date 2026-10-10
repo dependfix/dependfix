@@ -398,6 +398,16 @@ const runScanInternal = async (
             } else {
                 savedRun.errorJson = null
             }
+            // 失败前引擎已扫到的告警快照：failed 且引擎已产出 result（engine_delivery_failed / exitCode=2）
+            // 时落 summaryJson，供运行列表「告警数」展示，避免恒显 0 掩盖失败前扫描结果。
+            // alertsFixed 归零：失败 run 未交付，且状态机契约声明 rollback / verification 失败后
+            // fixStatus 不可信，避免「已修复 N」误导；alertsFound 如实。仅写快照，不 reconcile 告警明细。
+            // 边界：其余字段（alertsFailed / verificationsPassed 等）沿用引擎值——当前消费方仅
+            // `/api/scan-history/summary`（alertsFound / alertsFixed 两键）与运行列表（同两键），无暴露；
+            // 未来若新增消费者，需复检 rollback / verification 场景下这些字段的可信度。
+            if (result) {
+                savedRun.summaryJson = JSON.stringify({ ...result.summary, alertsFixed: 0 })
+            }
         } else if (decision.status === 'degraded') {
             // degraded：业务结果完整 + 路径偏离（与 completed 等价写 summaryJson + runUrl）
             savedRun.status = 'degraded'

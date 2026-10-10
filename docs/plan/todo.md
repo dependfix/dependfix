@@ -93,14 +93,16 @@
   - **优先级**：P2
   - **范围**：`apps/platform/server/services/scan-orchestrator.service.ts`（sandbox 回退分支 `332-348` 消费 `runContainerExecutor` 返回的 `logsJson`）；单测。
   - **验收标准**：
-    - [ ] sandbox 降级回退分支赋值 `logsJson = execResult.logsJson`（与 container 主路由 `:364` 同口径）
-    - [ ] 定向单测覆盖回退路径 `logsJson` 落库（degraded run 有日志）
-    - [ ] degraded run 在运行日志入口可获取日志（单测或 e2e 断言）
-    - [ ] `pnpm lint` 0 error + `pnpm typecheck` 0 error（实测 `2>&1 | grep -E "error TS"` 无命中，不信「Done」宣称）
-  - **D 阶段决策留痕（待裁定）**：① 回退路径补 `logsJson`（推荐） vs 明确 degraded 回退 run 不提供日志并在 UI 说明。
+    - [x] sandbox 降级回退分支赋值 `logsJson = execResult.logsJson`（与 container 主路由 `:364` 同口径）
+    - [x] 定向单测覆盖回退路径 `logsJson` 落库（degraded run 有日志）
+    - [x] degraded run 在运行日志入口可获取日志（单测断言 `run.logsJson` 含回退日志；消费端 `[id]/logs.get.ts` 等经 `parseLogEntries` 不按 status 门控）
+    - [x] `pnpm lint` 0 error + `pnpm typecheck` 0 error（实测 `2>&1 | grep -E "error TS"` 无命中，不信「Done」宣称）
+  - **D 阶段决策留痕（2026-10-10）**：采纳方案 ①（回退路径补 `logsJson`，与 container 主路由同口径）；不采用方案 ②（明确 degraded 回退 run 不提供日志）。
   - **不做什么**：不改 sandbox 主路径（启动可用分支）；不改 degraded 状态语义与 `sandbox_degraded` 事件口径；不改日志格式化。
   - **依赖**：M39.6 抽出的 `runContainerExecutor` helper（`runContainerExecutor` 已返回 `logsJson`，回退调用点未消费，`e80b7b0`）。
   - **交付物**：预计 1-2 commits（fix(platform) 回退日志 + 单测）；文件 2-3。
+  - **实际交付（2026-10-10）**：1 commit `72013c6`（`fix(platform)` 回退分支补 `logsJson` + 新用例，2 文件同 commit 以保提交态自洽）。
+  - **审计（2026-10-10）**：A 阶段 quick R1 Pass（0 blocker / 0 warning / 2 suggest：console.warn spy 未 restore 属既有模式登记测试规范化批次、注释压缩已应用）；mutation M1（删 `logsJson` 赋值 → 新用例失败）kill 成立；全量 platform 单测 1673 passed | 9 skipped。实测用时约 3 分钟。
   - **风险与缓解措施**：低；回退路径日志体量 → 复用既有 `logsJson` 落库口径（与 container 主路由一致）；单测以探针日志验证赋值。
 
 - **M40.6**（P2，📚 文档治理）平台环境变量文档完整性与配置结构治理

@@ -48,6 +48,7 @@
 | M38: 平台执行模型隔离 | 队列执行进程隔离（方案 ①′ 独立 worker 进程，治本）+ Worker 锁参数显式化与锁问题事件观测（止血）+ `scan.post` failover 透传 reuse + e2e 全页卡片计数断言解耦 + `scan-queue.ts` 注释 jobId 口径订正 + schedule 表单复用 scan-options 口径 | P1-P3 | 已完成（2026-10-06 用户授权 / 2026-10-09 已闭环归档，见 [todo-archive.md §M38](todo-archive.md#m38-平台执行模型隔离m381m386-全部已闭环--2026-10-09-归档)） |
 | M39: 平台视图体验与可观测补强 | 扫描页筛选与分页优化 + 扫描历史弹窗体验 + 告警视图「按包」聚合跨 severity 重复分组修正 + 运行日志下载与批量下载 + PR Check 监测启用链路打通 + 环境事件覆盖扩展 | P2-P3 | 已完成（2026-10-09 用户决策方案 A / 2026-10-10 已闭环归档，见 [todo-archive.md §M39](todo-archive.md#m39-平台视图体验与可观测补强m391m396-全部已闭环--2026-10-10-归档)） |
 | M40: 运行时可靠性与可观测性深化 | 部署产物版本戳陈旧校验 + 失败 run 落 summary 快照 + 执行超时可配置化 + 队列 worker 崩溃自动重启 + sandbox 降级回退路径落执行日志 + 平台环境变量文档完整性治理 | P2 | 已完成（2026-10-10 用户决策方案 A / D2 以环境变量文档治理替换 M40.6；2026-10-10 已闭环归档，见 [todo-archive.md §M40](todo-archive.md#m40-运行时可靠性与可观测性深化m401m406-全部已闭环--2026-10-10-归档)） |
+| M41: 规范与经验管理体系重构 | standards 去实现化瘦身 + 经验体系三层收敛与精简 + 规范/经验门禁落地（CI 阻断）+ 文档站导航分层 + 阈值与事实源唯一化 | P2-P3 | 进行中（2026-10-10 用户决策方案 B，设计先行稿已定稿；任务见 [todo.md §M41](todo.md#m41-规范与经验管理体系重构2026-10-10-用户决策方案-b--m411m415)） |
 
 > **本路线图定位**：按 [规划规范 §2.1](../standards/planning.md) 仅维护阶段概览（目标 / 优先级 / 状态）。详细实施记录 / commit 引用 / 关键决策 / 经验教训见对应归档段（详见下方"## 详细任务"索引）。
 
@@ -756,11 +757,43 @@ per-alert 模型 + reconcile + API 简化 + UI 调整 + backfill 脚本。5 子�
 
 ---
 
+## M41: 规范与经验管理体系重构（2026-10-10 用户决策方案 B / M41.1~M41.5）
+
+承接 M40 运行时可靠性与可观测性深化归档后的治理体系重构阶段。根因为「**有规则无门禁 → 必 drift**」——规范混入实现与教训、经验体系体量膨胀且无退出路径、阈值声明双事实源且无脚本计量、规则与执行分离。设计依据为 [standards-experience-refactor.md](../design/governance/standards-experience-refactor.md)（v2 先行稿，170 行；承接 [spec-and-doc-governance.md](../design/governance/spec-and-doc-governance.md) 的未竟部分）。经 2026-10-10 用户决策（方案 B）从 [backlog.md](backlog.md) §候选评估中上收整卡，A-E 五批对应 M41.1~M41.5。
+
+**5 原子条目**（覆盖 📚 1 + 🛠️ 1 + 🧪 1 + 🎨 1 + 🛡️ 1；🎨 独立条目 1 项低于 [规划规范 §1.1 L12 类型平衡建议](../standards/planning.md#11-硬性约束) 建议值 2，且无能力扩展独立条目，缺口已显式标注）：
+
+- **M41.1** [P2 📚 规范治理] 规范去实现化瘦身（standards 剥离实现细节 / 教训 / 实证 → 代码注释 / 设计文档 / L3 索引；`--strict` 归零 + 全部 ≤ 200 行或分片）
+- **M41.2** [P2 🛠️ 经验治理] 经验体系三层收敛与精简（L1 门禁 / L2 检查点 / L3 索引；单分片 ≤ 400 行 + 「四者之一」准入）
+- **M41.3** [P2 🧪 测试基建] 规范 / 经验门禁落地（`--strict` 接 CI 阻断 + `check-doc-size` 阈值计量 + 经验落点字段校验）
+- **M41.4** [P3 🎨 文档体验] 文档站导航分层（侧栏不挂 `design/governance/**` 与 `plan/archive/**`；首页仅引导对外入口）
+- **M41.5** [P3 🛡️ 治理同步] 阈值与事实源唯一化（`documentation.md §3` 为唯一权威；`spec-and-doc-governance §2.3` 收敛为一行引用）
+
+**类型平衡复核**：📚 规范治理 1（M41.1）+ 🛠️ 经验治理 1（M41.2）+ 🧪 测试基建 1（M41.3）+ 🎨 文档体验 1（M41.4）+ 🛡️ 治理同步 1（M41.5）；🎨 独立条目 1 项低于建议值 2 且无能力扩展独立条目，本阶段以治理主线优先，缺口显式标注。
+
+**建议顺序**：M41.1（规范瘦身，A1 → A2 → A3）→ M41.2（经验收敛，迁移目标就位后）→ M41.3（门禁接线，依赖 A/B 达标）→ M41.4（导航分层，可与 A 并行）∥ M41.5（阈值统一，依赖 A 达标）。
+
+**批次粒度**：M41.1 预估 8-14 文件 / 净瘦 ~1200 行，超过 [规划规范 §1.1](../standards/planning.md#11-硬性约束) 的 > 10 文件 / > 800 行阈值 → 内部拆 3 个可独立提交批次（A1 `platform.md` / A2 `development.md` + `ai-collaboration.md` / A3 其余 11 文件），每批独立验收 + 独立审计。
+
+**条目调整**：无（整卡上收，无替换 / 无追加）。
+
+**范围边界（不做什么）**：不做 `srcExclude` 物理隔离 / 不拆双站点（发布策略不变）；不删除历史归档原始信息；不改规则的事实权威（单点声明保留）；不修改 `AGENTS.md`（实测其「硬阈值」为设计文档必要性阈值、与文档行数阈值表异源，如确需改动须用户明确确认）；不引入新工具链。
+
+**§3.4 交叉核验**：整卡候选经 todo-archive 表格扫描（`rg` 0 命中）+ git log（无瘦身 / 经验重构 / 接线 commit）+ 代码 anchor（standards 3211 行 / experience-archive 2409 行 / `check:standards-redundant` 166 处命中且 CI 未接线 / `documentation.md §3` 缺 standards·design 行 / `spec-and-doc-governance §2.3` 双事实源 / 侧栏仍挂 6 篇治理设计稿）三重核验，**0 项重复评估**。
+
+**审计 depth 预告**：本阶段为治理定义改动，按 [AGENTS.md §审计触发](../../AGENTS.md) + [spec-and-doc-governance §2.4](../design/governance/spec-and-doc-governance.md#24-设计文档硬阈值hard-requirement) 触发强制审计；M41.1（A 批 > 10 文件 / ~1200 行）适用 `deep`，建议 2 分区并发。
+
+**commits 状态**：阶段启动规划 commit 落地后实测（`git rev-list HEAD ^origin/master --count` 双向核验），本阶段 commits 归档前均为本地 ahead，待用户推送确认。
+
+> 详细任务与 8 要素见 [todo.md §M41](todo.md#m41-规范与经验管理体系重构2026-10-10-用户决策方案-b--m411m415)；上一阶段（M40）见 [todo-archive.md §M40](todo-archive.md#m40-运行时可靠性与可观测性深化m401m406-全部已闭环--2026-10-10-归档)。
+
+---
+
 ## 详细任务
 
-- 当前阶段任务：**无进行中阶段**——下一阶段按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 评估 [backlog.md](backlog.md) 候选池后由用户决策；最近闭环阶段 M40（运行时可靠性与可观测性深化）见 [todo-archive.md §M40](todo-archive.md#m40-运行时可靠性与可观测性深化m401m406-全部已闭环--2026-10-10-归档)
+- 当前阶段任务：**M41 进行中**——规范与经验管理体系重构（2026-10-10 用户决策方案 B / 5 原子条目），任务与 8 要素见 [todo.md §M41](todo.md#m41-规范与经验管理体系重构2026-10-10-用户决策方案-b--m411m415)；上一阶段 M40（运行时可靠性与可观测性深化）见 [todo-archive.md §M40](todo-archive.md#m40-运行时可靠性与可观测性深化m401m406-全部已闭环--2026-10-10-归档)
 - 已归档阶段：[todo-archive.md](todo-archive.md)（主窗口保留最近阶段完整段 + 指针段；M0-M40 全部已归档；早期阶段见 [archive/index.md](archive/index.md) 分片索引）
-- 下一阶段（未授权）：无——按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 评估 backlog 候选池后由用户决策
+- 下一阶段（未授权）：无——M41 闭环后再按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 评估 backlog 候选池后由用户决策
 - 后续阶段任务（延期项 + 未排期增强候选）：[backlog.md](backlog.md)
 
 ## 交付原则

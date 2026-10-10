@@ -42,7 +42,7 @@ features:
       details: Module boundaries, dependency-group upgrades, dependency graph and execution matrix; system design in architecture docs.
       link: /en-US/design/governance/architecture
     - title: Roadmap
-      details: M0-M40 all archived (M40, runtime reliability and observability hardening, closed on 2026-10-10; M39, platform view experience and observability hardening, closed on 2026-10-10; M38, platform execution model isolation, closed on 2026-10-09; M37, run observability and experience memory, closed on 2026-10-08); the next phase will follow the standards after evaluating the backlog candidate pool and user decision; future plans in roadmap and backlog.
+      details: M0-M40 all archived (M40, runtime reliability and observability hardening, closed on 2026-10-10; M39, platform view experience and observability hardening, closed on 2026-10-10; M38, platform execution model isolation, closed on 2026-10-09; M37, run observability and experience memory, closed on 2026-10-08); M41, standards and experience governance refactor, is in progress (2026-10-10 user decision, option B); future plans in roadmap and backlog.
       link: /en-US/plan/roadmap
     - title: Standards
       details: "10 standards index entry: AI collaboration, development, testing, documentation, security, Git, planning, API and more."

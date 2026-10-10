@@ -1,6 +1,6 @@
 # 规范与经验管理体系重构设计（standards-experience-refactor）
 
-> **状态**：专项设计先行稿（2026-10-10）
+> **状态**：专项设计先行稿（2026-10-10）→ **已上收 M41**（2026-10-10 用户决策方案 B；A-E 分批对应 M41.1~M41.5，任务与 8 要素见 [todo.md §M41](../../plan/todo.md#m41-规范与经验管理体系重构2026-10-10-用户决策方案-b--m411m415)）
 > **范围**：`docs/standards/`（规范方法论层）/ 经验体系（experience-archive + wisdom + 评审检查点）/ 文档站导航分层 / 阈值与门禁
 > **上游**：承接 [规范与文档治理设计](./spec-and-doc-governance.md) 的未竟部分——其 G1-G6（2026-09-09）落地后再次 drift；本文档为其 **v2 先行稿**，G 批次计划由本文 §4 承接
 > **触发**：用户 2026-10-10 指令（规范去实现化 / 经验落点化 / 细节删减 / 遇错查询与复发收敛 / 对外对内文档分层）
@@ -112,13 +112,13 @@
 
 ## 4. 分批计划（A-E）
 
-> 编号 A-E 为**设计稿内部批次标识**（非 `M\d+` 阶段编号）；正式上收时由用户按 [规划规范 §3.1](../../standards/planning.md) 决策阶段编号与原子条目。
+> 编号 A-E 为**设计稿内部批次标识**（非 `M\d+` 阶段编号）；**上收结果（2026-10-10 用户决策方案 B）**：A → M41.1 / B → M41.2 / C → M41.3 / D → M41.4 / E → M41.5（决策见 [规划规范 §3.1](../../standards/planning.md) 与本节 §7）。
 
 | ID | 类型 | 目标 | 范围 | 验收 | 依赖 |
 |:--|:--|:--|:--|:--|:--|
 | **A** | 📚 规范瘦身 | standards 去实现化、剥离教训 / 实证 | `docs/standards/*.md`（重点 platform / development / ai-collaboration，三超阈值文件）| `check:standards-redundant --strict` 归零；全部 ≤ 200 行（或已分片）；无代码片段 / commit hash | — |
 | **B** | 🛠️ 经验重构 | 三层收敛 + 大幅精简 + L3 索引化 | `experience-archive*.md` + `session-wisdom-distillation.md` + `.session/wisdom.md` | 单分片 ≤ 400 行；删除偶发 / 一次性条目并留决策记录；L3 索引可搜索 | A（迁移目标就位）|
-| **C** | 🛠️ 门禁落地 | 规则转可执行 | `scripts/check-standards-redundant.mjs`（--strict）+ 新增 doc-size 脚本 + `.github/workflows/test.yml` | CI 阻断生效（负例标定）；本地可复现 | A / B |
+| **C** | 🧪 门禁落地 | 规则转可执行 | `scripts/check-standards-redundant.mjs`（--strict）+ 新增 doc-size 脚本 + `.github/workflows/test.yml` | CI 阻断生效（负例标定）；本地可复现 | A / B |
 | **D** | 🎨 导航分层 | 站点导航受众切分 | `docs/.vitepress/config.ts`（nav / sidebar）+ `docs/index.md`（首页卡片）+ `docs/i18n/en-US/index.md` | 侧栏不挂 `design/governance/**`（除 `architecture` + `governance/index`）与 `plan/archive/**`；其余按需保留；首页仅引导对外可读入口；未挂载页仍可直链；docs:build 通过 | — |
 | **E** | 🛡️ 治理同步 | 阈值 / 事实源唯一化 | `documentation.md §3` + `spec-and-doc-governance.md §2.3` + `AGENTS.md`（如需，**修改前需用户明确确认**）| 单一阈值权威；无重复阈值表 | A |
 
@@ -158,6 +158,7 @@
 | D1 | 推进形式 | 先出治理设计先行稿（本文档）→ 评审后按 A-E 分批执行 |
 | D2 | 导航分层形态 | **仍发布，仅不进顶栏 / 侧栏**；不挂载范围**收敛为** `design/governance/**`（除 `architecture` + `governance/index`）+ `plan/archive/**`，其余按需保留；首页同步调整（2026-10-10 二次收敛）|
 | D3 | 经验体系目标 | 三层收敛 + 大幅精简 |
+| D4 | 上收决策（2026-10-10，方案 B） | 设计稿评审通过 → 整卡上收为 **M41 阶段**（A→M41.1 / B→M41.2 / C→M41.3 / D→M41.4 / E→M41.5）；M41.1 因超 [规划规范 §1.1](../../standards/planning.md) 粒度阈值（> 10 文件 / > 800 行）内部拆 3 提交批次（A1 `platform.md` / A2 `development.md` + `ai-collaboration.md` / A3 其余） |
 
 ## 8. 相关文档
 

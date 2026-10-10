@@ -15,6 +15,7 @@
 import { EmailNotificationChannel } from './email-channel'
 import { SlackStubChannel, WebhookStubChannel } from './stub-channels'
 import { resolveNotificationRecipients } from './notification-recipients'
+import { shouldNotifyEnvEvent } from './policy'
 import { NotificationError, type NotificationChannel, type NotificationEvent } from './channel'
 import { ensureDatabaseInitialized } from '#server/database'
 import { AuditEvent } from '#server/entities/audit-event'
@@ -39,13 +40,21 @@ export const listNotificationChannels = (): NotificationChannel[] => Array.from(
 
 /**
  * fire-and-forget 通知入口：
- * 1. 解析收件人（admin 邮箱 / env 覆盖）
- * 2. 遍历已注册渠道：可用 → send；不可用 → skip
- * 3. 任一异常仅日志 + 更新 audit_event.notified=false，不抛错阻塞调用方
+ * 1. 通知策略判定（policy.ts）：仅「执行器 / 环境异常类」事件发通知，配置留痕类跳过
+ * 2. 解析收件人（admin 邮箱 / env 覆盖）
+ * 3. 遍历已注册渠道：可用 → send；不可用 → skip
+ * 4. 任一异常仅日志 + 更新 audit_event.notified=false，不抛错阻塞调用方
  *
  * 注意：本批次仅实现 EmailNotificationChannel，其他渠道（Slack/Webhook）留接口待后续接入。
  */
 export const notifyEnvEvent = async (event: NotificationEvent): Promise<void> => {
+    if (!shouldNotifyEnvEvent(event.type)) {
+        // 配置留痕类事件（audit-only）：按策略本就不发通知，notified 保持 false
+        // （语义 = 设计上无通知，非投递失败 / 待重试；list 页 ?notified=false 过滤会包含此类）
+        console.warn(`[notification] event type '${event.type}' is audit-only; skip notify for event ${event.id}`)
+        return
+    }
+
     const recipients = await resolveNotificationRecipients()
     if (recipients.length === 0) {
         console.warn(`[notification] no recipients configured for event ${event.id}; skip`)

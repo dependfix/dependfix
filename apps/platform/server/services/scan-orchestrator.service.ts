@@ -16,7 +16,7 @@ import { Repository, parseSandboxLimits, parseVerifyCommands } from '#server/ent
 import { Credential } from '#server/entities/credential'
 import { ScanRun } from '#server/entities/scan-run'
 import { Organization } from '#server/entities/organization'
-import { AuditEvent } from '#server/entities/audit-event'
+import { AuditEvent, type AuditEventType } from '#server/entities/audit-event'
 import { ensureDatabaseInitialized } from '#server/database'
 
 /**
@@ -338,25 +338,30 @@ const runScanInternal = async (
                 const executor = new ContainerExecutor({
                     workRoot: process.env.RUN_WORK_ROOT ?? 'data/runs',
                 })
-                const execResult = await executor.execute(ctx)
+                // 降级目标（container）同样先探测环境可用性：二者皆不可用 → container_unavailable
+                // 环境事件（与 container 路由同口径，避免以 orchestration_failed 掩盖环境根因）
+                const execResult = await runContainerExecutor(executor, ctx)
                 result = execResult.result
                 error = execResult.error
                 exitCode = execResult.exitCode
-                runUrl = execResult.runUrl ?? null
+                runUrl = execResult.runUrl
             }
         } else {
             const executor = new ContainerExecutor({
                 workRoot: process.env.RUN_WORK_ROOT ?? 'data/runs',
             })
-            const execResult = await executor.execute(ctx)
+            // 执行环境健康探测：container 无更底层回退，工作根不可写（磁盘满 / 只读 FS）
+            // 属「环境不可用」而非单次运行结果 → 记 container_unavailable 环境事件（recordEnvAuditEvent）
+            // 并让该 run failed（不进入 execute，避免以 execution_failed 掩盖环境根因）。
+            const execResult = await runContainerExecutor(executor, ctx)
             result = execResult.result
             error = execResult.error
             exitCode = execResult.exitCode
             // A 模式（container）：fix / fix-and-pr 完成后 executor 端推送修复分支，
             // runUrl 指向 GitHub branch tree 页（参见 container-executor.pushFixBranch 后置）
-            runUrl = execResult.runUrl ?? null
+            runUrl = execResult.runUrl
             // 捕获执行日志（MemoryLogger 输出）
-            logsJson = execResult.logsJson ?? null
+            logsJson = execResult.logsJson
         }
 
         // 落库（状态机决策见 scan-run-state.ts 纯函数）：
@@ -454,15 +459,59 @@ const runScanInternal = async (
 }
 
 /**
- * 环境事件审计：sandbox 启动降级（A 场景）或运行时失败（B 场景）
- * 时落 AuditEvent + fire-and-forget 通知。
+ * 探测 container 执行器环境可用性并执行。
+ *
+ * container 是最底层执行器（无回退空间）：工作根不可写（磁盘满 / 只读 FS）属「执行环境不可用」，
+ * 返回结构化 `container_unavailable` 错误而不进入 `execute`（避免以 execution_failed 掩盖环境根因）。
+ * container 路由与 sandbox 降级回退点共用本 helper，保证两处的环境事件口径一致。
+ */
+async function runContainerExecutor(
+    executor: ContainerExecutor,
+    ctx: ScanExecutorContext,
+): Promise<{
+    result: RunResult | undefined
+    error: { code: string, message: string } | undefined
+    exitCode: number | undefined
+    runUrl: string | null
+    logsJson: string | null
+}> {
+    if (!(await executor.isAvailable())) {
+        return {
+            result: undefined,
+            error: {
+                code: 'container_unavailable',
+                message: '容器执行器环境不可用（工作根目录不可写），无法执行扫描',
+            },
+            exitCode: undefined,
+            runUrl: null,
+            logsJson: null,
+        }
+    }
+    const execResult = await executor.execute(ctx)
+    return {
+        result: execResult.result,
+        error: execResult.error,
+        exitCode: execResult.exitCode,
+        runUrl: execResult.runUrl ?? null,
+        logsJson: execResult.logsJson ?? null,
+    }
+}
+
+/**
+ * 环境事件审计：执行器 / 执行环境异常时落 AuditEvent + fire-and-forget 通知。
+ *
+ * 触发场景（与「运行失败分类」边界见 audit-event.ts 类型注释）：
+ * - A 场景（sandbox 启动降级）→ sandbox_degraded / warn
+ * - B 场景（sandbox 运行时失败）→ sandbox_unavailable / error
+ * - C 场景（container 执行器环境不可用）→ container_unavailable / error
+ *
+ * 单次运行结果类错误（execution_timeout / clone_timeout / execution_failed 等）
+ * 不在此落事件——它们由 failure_code / failure_stage / failure_kind 承载。
  *
  * 设计要点：
  * - 不抛错（fail-closed）：审计失败仅日志，不影响扫描主流程
- * - 通知 fire-and-forget：notifyEnvEvent 内部已捕获 channel 异常
- * - A 场景与 B 场景的事件类型与 severity 区分：
- *   - A 场景 sandbox_degraded / warn（业务结果完整，UI info 提示）
- *   - B 场景 sandbox_unavailable / error（环境变化但 UI warn 提示）
+ * - 通知 fire-and-forget：notifyEnvEvent 内部已捕获 channel 异常 + 按类型策略判定（policy.ts）
+ * - A 场景沙箱降级但业务结果完整（degraded），B / C 场景环境不可用（failed）
  */
 async function recordEnvAuditEvent(
     persistedRun: ScanRun,
@@ -470,7 +519,7 @@ async function recordEnvAuditEvent(
     degradedReason: { code: string, message: string } | undefined,
     error: { code: string, message: string } | undefined,
 ): Promise<void> {
-    let eventType: 'sandbox_unavailable' | 'sandbox_degraded' | null = null
+    let eventType: AuditEventType | null = null
     let severity: 'info' | 'warn' | 'error' | 'critical' = 'warn'
     let payload: Record<string, unknown> = {}
 
@@ -479,6 +528,11 @@ async function recordEnvAuditEvent(
         eventType = 'sandbox_degraded'
         severity = 'warn'
         payload = { degradedReason, fallback: 'container' }
+    } else if (decision.status === 'failed' && error?.code === 'container_unavailable') {
+        // C 场景：container 执行器环境不可用（工作根不可写 / 磁盘满 / 只读 FS）——默认部署下的环境健康信号
+        eventType = 'container_unavailable'
+        severity = 'error'
+        payload = { code: error.code, executor: 'container', message: error.message }
     } else if (decision.status === 'failed' && error?.code === 'sandbox_unavailable') {
         // B 场景：sandbox 运行时偶发故障，不静默降级（避免掩盖真实错误）
         eventType = 'sandbox_unavailable'

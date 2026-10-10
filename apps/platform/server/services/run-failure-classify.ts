@@ -137,6 +137,7 @@ const FAILURE_CODE_MAP: Readonly<Record<string, FailureCodeMapping>> = {
     execution_timeout: { stage: 'runtime', kind: 'transient' },
     execution_failed: { stage: 'runtime', kind: 'unknown' },
     sandbox_unavailable: { stage: 'runtime', kind: 'transient' },
+    container_unavailable: { stage: 'runtime', kind: 'transient' },
     orchestration_failed: { stage: 'runtime', kind: 'unknown' },
     engine_exit_2: { stage: 'runtime', kind: 'deterministic' },
     FATAL: { stage: 'runtime', kind: 'unknown' },

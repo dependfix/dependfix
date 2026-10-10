@@ -656,7 +656,7 @@ per-alert 模型 + reconcile + API 简化 + UI 调整 + backfill 脚本。5 子�
 
 ## M38: 平台执行模型隔离（2026-10-06 用户授权 / 2026-10-09 已闭环 + 归档）
 
-承接 M37 之外的独立治理阶段。2026-10-06 用户基于生产运行日志根因分析明确授权**开独立阶段**——消除平台 in-process BullMQ Worker 因引擎同步子进程调用阻塞主线程 event loop 导致的 `could not renew lock` / `Missing lock (code -2)`（锁过期 → job 被判 stalled 重排 → 潜在重复执行）。与 M37 阶段边界「不引入新执行后端」互斥，故独立成阶段；来源候选见 [backlog.md](backlog.md) 2026-10-06 上收批次说明。
+承接 M37 之外的独立治理阶段。2026-10-06 用户基于生产运行日志根因分析明确授权**开独立阶段**——消除平台 in-process BullMQ Worker 因引擎同步子进程调用阻塞主线程 event loop 导致的 `could not renew lock` / `Missing lock (code -2)`（锁过期 → job 被判 stalled 重排 → 潜在重复执行）。与 M37 阶段边界「不引入新执行后端」互斥，故独立成阶段；来源候选见 [archive/index.md](archive/index.md) 2026-10-06 上收登记。
 
 **设计先行交付**：[executor-process-isolation.md](../design/governance/executor-process-isolation.md)（2026-10-08 定稿；跨模块 + 执行模型变更，触发设计文档硬阈值）——根因链 7 环证据锚点 + 三方案对比（① BullMQ sandboxed processor / ② 独立子进程执行引擎 / ③ `lockDuration` 与 stalled / error 观测缓解）+ 推荐路径 + 决策点。**M38.1 D 阶段前置实证否证方案 ①**（Nitro 单 bundle 下无法原样落地：业务代码内联 `chunks/nitro/nitro.mjs` / 产物导入即顶层 listen / Nitro 无额外入口 / `packages/cli/dist` 不自包含），经用户裁定改**方案 ①′ 独立 worker 进程**（见 [设计稿 §3.1](../design/governance/executor-process-isolation.md)）。
 

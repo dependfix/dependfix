@@ -66,7 +66,21 @@
 
 - **锚点回填的「链接文本 §N ↔ 锚点 §N」一致性缺少机检（待评估）** —— 现象：`check:docs` 只校验锚点**存在**，不校验链接文本声明的章节号与锚点所属章节是否一致；故「链接文本写 §五十六、锚点却指向 §五十」这类漂移在 `check:docs` 下**静默通过**（本次门禁落地批次的锚点回填实测命中 2 处，由审查阶段判 blocker 后发现）。
   - **待评估点**：① 是否在 `check-docs.mjs` 增补「`[x §N](target#anchor)` 形式的链接文本章节号须与锚点首段编号一致」断言（需处理中文数字 → 阿拉伯数字、`§5.1.x` 等复合形态与误报面）；② 或独立脚本 `check-anchor-text-consistency.mjs`；③ 误报面收敛策略。
+  - **同族盲区（并入评估）**：VitePress 的**站点绝对链接**（`config.ts` 的 nav / sidebar `link:` 与 index frontmatter `link:`）`check:docs` 不校验，且 `ignoreDeadLinks: true` 下构建也不报错——该类死链只能靠人工 / 脚本核对（导航分层批次已用脚本逐条核对 0 死链）；建议同批评估是否一并纳入机检口径。
   - **触发条件**：再次出现锚点回填 / 批量链接改写批次时；或加固 `check-docs` 校验口径时。
+  - **按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
+
+- **`design/packages/` → `design/modules/` 重命名的非导航面残留（待评估）** —— 背景：`docs/design/packages/` 已重命名为 `docs/design/modules/`，导航面（站点配置 + 首页卡片）已在门禁批次同步，但仍有非导航面残留未同步：
+  - `scripts/distill-wisdom.mjs` 的迁移目标推荐串仍写 `docs/design/packages/`（蒸馏输出会把落点指向已不存在的目录）；
+  - `docs/design/governance/docs-and-readme-i18n.md` 的现行陈述用旧目录名；
+  - `docs/design/modules/index.md` 的 H1 仍为「模块设计（packages）」。
+  - **待评估点**：① 三处一并订正（含脚本串 + 可能的单测断言）；② 是否与 [spec-and-doc-governance.md §1.2 问题 C](../design/governance/spec-and-doc-governance.md) 的既有记录合并处置。
+  - **触发条件**：下次改动蒸馏脚本 / 设计文档索引时；或用户要求清理重命名残留。
+  - **按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
+
+- **站点语言切换器对未翻译页指向不存在的 en 页（待评估）** —— 现象：VitePress 内建语言菜单按「当前路径 → 目标 locale 同路径」映射；对无 en 译文的页面（如 `plan/roadmap.md` / `plan/todo.md` / `standards/*` / `design/modules/*`）会生成 `/en-US/<同路径>` 链接，该页不存在 → 点「English」落 404（`ignoreDeadLinks: true` 下不报错，构建产物实测 `dist/plan/roadmap.html` 含该链接）。导航面（nav / 侧栏 / 首页卡片）已在门禁批次收敛为仅指向真实页面，本项为**剩余唯一非导航面死链来源**。
+  - **待评估点**：① 是否为未翻译页提供 locale 兜底页（如指向 `/en-US/` 或 `/en-US/design/governance/architecture`）；② 还是接受现状（部分翻译站点常见行为）并在 i18n 规范中显式声明；③ 若需修，选型 = 主题层覆写 locale 菜单 vs 生成占位译文页。
+  - **触发条件**：用户反馈语言切换落 404；或推进 en 翻译覆盖时。
   - **按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
 
 - **运行失败「受约束重试入口」（延后，保留待评估）** —— 「分类 + 筛选 + 展示」（`failure_code` / `failure_stage` / `failure_kind` 三列 + 三维筛选 + 阶段展示）已落地；设计稿 §5.5 的「仅 `transient` 可一键重试」入口（含非终态守卫 / 同仓库去重 / `retriedFromRunId` 审计来源）按用户 2026-10-06 决策延后。**现状锚点**：[run-failure-taxonomy.md §5.5](../design/governance/run-failure-taxonomy.md)。触发条件：① 分类 + 筛选上线后确认重试诉求；② 用户明确要求受约束重试。

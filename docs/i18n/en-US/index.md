@@ -29,9 +29,6 @@ features:
     - title: Standalone management platform
       details: "Nuxt full-stack Web UI: repo / credential management, scan triggering, dashboard, RunDetailDialog, PR Check monitoring; deployable with one Docker command."
       link: /en-US/design/governance/architecture
-    - title: Agent Skill / MCP Server
-      details: dependfix-remediator skill lets AI assistants (Claude Code / Copilot / Cursor) drive fixes conversationally; MCP Server exposes scan/fix capabilities to AI tools.
-      link: /en-US/design/governance/architecture
     - title: Auto-fix frozen-lockfile
       details: Seven categories of pnpm i --frozen-lockfile failures with multi-strategy repair chain (disclosure-driven per docs audit and supply-chain signal).
       link: /en-US/design/governance/architecture
@@ -41,9 +38,6 @@ features:
     - title: Architecture & data model
       details: Module boundaries, dependency-group upgrades, dependency graph and execution matrix; system design in architecture docs.
       link: /en-US/design/governance/architecture
-    - title: Roadmap
-      details: M0-M40 all archived (M40, runtime reliability and observability hardening, closed on 2026-10-10; M39, platform view experience and observability hardening, closed on 2026-10-10; M38, platform execution model isolation, closed on 2026-10-09; M37, run observability and experience memory, closed on 2026-10-08); M41, standards and experience governance refactor, is in progress (2026-10-10 user decision, option B); future plans in roadmap and backlog.
-      link: /en-US/plan/roadmap
     - title: Standards
       details: "10 standards index entry: AI collaboration, development, testing, documentation, security, Git, planning, API and more."
       link: /en-US/standards/i18n

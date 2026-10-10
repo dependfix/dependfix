@@ -26,19 +26,16 @@ features:
       link: /guide/quick-start
     - title: 本地无 token 回退
       details: 无 GITHUB_TOKEN 时自动回退 pnpm audit 数据源（--alerts-source pnpm-audit），单机离线即可扫描。
-      link: /design/packages/pnpm-audit-fallback
+      link: /design/modules/pnpm-audit-fallback
     - title: 独立管理平台
       details: Nuxt 全栈 Web UI：仓库/凭据管理、扫描触发、仪表板、RunDetailDialog、PR Check 监测；支持 Docker 一键部署。
-      link: /design/governance/architecture#平台架构-apps-platform
-    - title: Agent Skill / MCP Server
-      details: dependfix-remediator skill 让 AI 助手（Claude Code / Copilot / Cursor）对话式驱动修复；MCP Server 暴露扫描/修复能力给 AI 工具。
-      link: /design/governance/mcp-server
+      link: /design/governance/architecture
     - title: 自动修复 frozen-lockfile
       details: 7 类 pnpm i --frozen-lockfile 失败分类 + 多策略修复链（按文档审计与供应链信号披露）。
-      link: /design/packages/pnpm-lockfile-fixer
+      link: /design/modules/pnpm-lockfile-fixer
     - title: 安全与治理
-      details: PR 内容指纹去重（关旧开新）+ Token 不落盘 + 凭据最小权限注入 + 出子白名单审计 + 危险 PR 阈值阻断。
-      link: /design/governance/security
+      details: PR 内容指纹去重（关旧开新）+ Token 不落盘 + 凭据最小权限注入 + 出子白名单审计 + 危险 PR 阈值阻断；安全设计入口见治理索引。
+      link: /design/governance/index
     - title: 架构与数据模型
       details: 模块边界、依赖分组升级、依赖图与执行矩阵；系统级设计见架构文档。
       link: /design/governance/architecture

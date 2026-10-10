@@ -18,7 +18,6 @@ const enNav = [
     { text: 'Home', link: '/en-US/' },
     { text: 'Quick Start', link: '/en-US/guide/quick-start' },
     { text: 'Architecture', link: '/en-US/design/governance/architecture' },
-    { text: 'Roadmap', link: '/en-US/plan/roadmap' },
 ]
 
 const zhSidebar = {
@@ -38,24 +37,24 @@ const zhSidebar = {
     ],
     '/design/': [
         {
-            text: '模块设计（packages）',
+            text: '模块设计',
             items: [
-                { text: '模块索引', link: '/design/packages/index' },
+                { text: '模块索引', link: '/design/modules/index' },
                 { text: '系统架构', link: '/design/governance/architecture' },
-                { text: '数据模型', link: '/design/packages/data-model' },
-                { text: '依赖分组升级', link: '/design/packages/dependency-grouping' },
-                { text: 'pnpm audit fallback', link: '/design/packages/pnpm-audit-fallback' },
+                { text: '数据模型', link: '/design/modules/data-model' },
+                { text: 'Dependabot 拉取', link: '/design/modules/dependabot-fetcher' },
+                { text: '依赖升级修复器', link: '/design/modules/dependency-fixer' },
+                { text: '依赖分组升级', link: '/design/modules/dependency-grouping' },
+                { text: 'GitHub 客户端', link: '/design/modules/github-client' },
+                { text: 'pnpm audit fallback', link: '/design/modules/pnpm-audit-fallback' },
+                { text: 'pnpm lockfile 修复器', link: '/design/modules/pnpm-lockfile-fixer' },
+                { text: '报告生成器', link: '/design/modules/report-generator' },
             ],
         },
         {
             text: '专项设计与治理（governance）',
             items: [
                 { text: '治理索引', link: '/design/governance/index' },
-                { text: '安全设计', link: '/design/governance/security' },
-                { text: 'GitHub Action 工作流', link: '/design/governance/github-action-workflow' },
-                { text: 'MCP Server 设计（M6）', link: '/design/governance/mcp-server' },
-                { text: '平台 AI 研判集成设计', link: '/design/governance/platform-ai-integration' },
-                { text: 'UI 组件库迁移评估（PrimeVue → caomei-ui）', link: '/design/governance/caomei-ui-migration' },
             ],
         },
     ],
@@ -83,6 +82,9 @@ const zhSidebar = {
                 { text: 'Git 规范', link: '/standards/git' },
                 { text: '规划规范', link: '/standards/planning' },
                 { text: 'API 规范', link: '/standards/api' },
+                { text: '平台规范', link: '/standards/platform' },
+                { text: 'i18n 规范', link: '/standards/i18n' },
+                { text: '外部 Skills 准入', link: '/standards/external-skills-intake' },
                 { text: '性能规范', link: '/standards/performance' },
             ],
         },
@@ -93,10 +95,10 @@ const zhSidebar = {
             items: [
                 { text: '调研规范', link: '/research/README' },
                 { text: '竞品分析（2026-07）', link: '/research/2026-07-26-competitive-research' },
-                { text: 'GITHUB_TOKEN 调研（2026-08）', link: '/research/2026-08-04-github-token-dependabot-bug-or-design' },
                 { text: '发布工具对比（2026-08）', link: '/research/2026-08-02-release-tools-comparison' },
-                { text: '成本估算（2026-06）', link: '/research/2026-06-01-cost-estimate' },
-                { text: '战略思考（2026-07）', link: '/research/2026-07-26-strategy' },
+                { text: 'momei 平台参考（2026-08）', link: '/research/2026-08-07-momei-platform-reference' },
+                { text: 'better-auth cookie 路径审计', link: '/research/better-auth-set-cookie-path-audit' },
+                { text: 'Code Scanning B 类样本', link: '/research/code-scanning-b-class-samples' },
             ],
         },
     ],
@@ -120,16 +122,6 @@ const enSidebar = {
             items: [
                 { text: 'Governance Index', link: '/en-US/design/governance/index' },
                 { text: 'Architecture', link: '/en-US/design/governance/architecture' },
-                { text: 'Spec & Doc Governance', link: '/en-US/design/governance/spec-and-doc-governance' },
-                { text: 'Platform AI Integration', link: '/en-US/design/governance/platform-ai-integration' },
-            ],
-        },
-    ],
-    '/en-US/plan/': [
-        {
-            text: 'Planning',
-            items: [
-                { text: 'Roadmap', link: '/en-US/plan/roadmap' },
             ],
         },
     ],

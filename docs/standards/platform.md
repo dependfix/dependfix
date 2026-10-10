@@ -404,7 +404,7 @@ fixtures.delete / fixtures.post 在双门控通过后调用 `fixturesRateLimit()
 - **分组列与分组连续性**：本仓库做法是从 `columns` 剔除 `groupRowsBy` 同名列（迁移前组件库在 subheader 模式本就省略该列），**不要保留分组字段的客户端排序键**（TanStack 只对列模型中存在的列排序，会被静默丢弃）。「按包」分组连续性改由**组排序键**保证：`alerts.vue` 让「严重级别」列在「按包」模式下以**组排序键**（组内最高级别 rank × 步长 − 包名升序序号，组间唯一；`summarizePackageGroups`）为排序取值 → 同包所有行共享同一排序值且键组间唯一，任何排序下同包行都相邻（「一个包一组」），不再依赖服务端 `orderBy` 顺序（无排序键时的展示基线由客户端 `alerts` 预排序提供，服务端顺序仅作同排序值内的稳定 tiebreaker）。「按仓库」视图沿用既有口径（服务端 `orderBy` + 行级 severity 降序）。详见[迁移评估 §15.10](../design/governance/caomei-ui-migration.md#1510-datatable-核心页迁移实证m3122026-09-28)。
 - **验证命令**：`pnpm --filter @dependfix/platform typecheck` + `lint` + `test` + `build`；样式类改动必须跑 `build`（见上）；浏览器侧证据（截图与断言脚本）留在 gitignored 的 `artifacts/`。
 
-> 执行分层说明：以上为接线约定，其中「影响打包 / 入口 / 产物时必跑 `build`」由 [AGENTS.md 必要检查](../../AGENTS.md) 第 3 条（既有强制门禁）承接；其余条目为执行层指引，不新增 review 检查点。
+> 执行分层说明：以上为 caomei-ui 接线约定。其中「影响打包 / 入口 / 产物时必跑 `build`」由 [AGENTS.md 必要检查](../../AGENTS.md) 第 3 条（既有强制门禁）承接；「`SelectItem` 不接受空串 `value`」与「需要响应式宽度时用 `--caomei-dialog-width` 钩子」两条为**严格约束**，已在 [code-quality-checklist 规范条款 review 检查点矩阵](../../.github/skills/code-reviewer/references/code-quality-checklist.md#规范条款-review-检查点矩阵严格约束逐条挂接)登记行；其余条目为执行层指引。
 
 ### 7.5 上游组件问题归因与 issue 上报流程
 
@@ -421,6 +421,16 @@ fixtures.delete / fixtures.post 在双门控通过后调用 `fixturesRateLimit()
 - **第 5 步 · 本仓侧处置**：在 [backlog](../plan/backlog.md) 登记「已上报上游 + 影响面 + 临时措施」；**不在本仓为上游缺陷做二次封装兜底**（需兜底时由用户明确决策并单独登记）。上游修复后随依赖升级回归，并按 [测试规范 §6.7](./testing.md#67-视觉回归截图识别层appsplatform) 核验基线。
 
 > 执行分层说明：以上为**执行层指引**（判定顺序 / 取证要求 / 上报路径 / 模板要素）；其中「不写入本仓私有代码、内部数据或凭据」属 [安全规范](./security.md) 与 [AGENTS.md 安全与行为红线](../../AGENTS.md) 既有禁令的适用面，不新增 review 检查点。
+
+### 7.6 运行时 env 开关的 UI 状态暴露用只读端点
+
+> 适用：UI 需要反映服务端**运行时** env 开关状态（如 `ACTION_STATUS_MONITOR_ENABLED`）时的取数方式。
+
+- **不要用 `runtimeConfig.public`**：`nuxt.config` 求值发生在**构建期**；非 `NUXT_PUBLIC_` 前缀的根级 env 只在构建时烘焙，容器运行时 `-e` 注入不会刷新公开配置 → 公开配置与 `process.env` 口径漂移（运行时改了 env，UI 仍显示构建期旧值）。
+- **做法**：由服务端**只读端点**按请求读取 `process.env` 返回状态（如 `GET /api/schedules/monitor-status`），前端据此渲染提示（banner / 状态标签），与服务端开关**同源、无烘焙漂移**。
+- 进程级 env 不可热更 → 端点返回值随进程生命周期固定；UI 文案应说明「设置后需重启进程生效」（如 M39.5 PR Check 总开关的未启用横幅）。详见 [§11 环境变量总表](#11-环境变量总表env-example-对齐) 对应行。
+
+> 执行分层说明：本条为**严格约束**（运行时开关须经只读端点暴露，不得依赖构建期烘焙的公开配置）——已在 [code-quality-checklist 规范条款 review 检查点矩阵](../../.github/skills/code-reviewer/references/code-quality-checklist.md#规范条款-review-检查点矩阵严格约束逐条挂接)登记。
 
 ## 8. 测试规范
 

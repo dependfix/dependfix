@@ -87,16 +87,20 @@
   - **目标**：站点按受众切分导航（发布策略不变，文档仍公开）——顶栏 / 侧栏不挂 `design/governance/**`（除 `architecture` + `governance/index`）+ `plan/archive/**`，首页同步仅引导对外可读入口，降低对外读者的信息噪声。
   - **优先级**：P3
   - **范围**：`docs/.vitepress/config.ts`（nav / sidebar，zh + en 双侧）；`docs/index.md`（首页卡片）；`docs/i18n/en-US/index.md`（en 镜像同步）。
-  - **验收标准**：
-    - [ ] zh + en 侧栏均不挂 `design/governance/**`（`architecture` + `governance/index` 除外）与 `plan/archive/**`（逐条 `rg` 核对 config.ts 挂载项）
-    - [ ] `guide/**` / `standards/**` / `plan/**`（roadmap / todo / backlog）/ `design/modules/**` / `research/*` 按需保留（不搞「一刀切」卸载）
-    - [ ] 首页（`docs/index.md` + en 镜像）仅引导对外可读入口——移除 / 改写指向非挂载页的卡片（如 `design/governance/security` / `mcp-server`）
-    - [ ] 未挂载页仍可直链访问（`ignoreDeadLinks` 语义保持；`check:docs` 0 error 实证外链未失效）
-    - [ ] `pnpm --filter dependfix-docs build` 通过（`docs:build`）
+  - **验收标准**（2026-10-10 全部达成）：
+    - [x] zh + en 侧栏与导航均不挂 `design/governance/**`（仅 `architecture` + `governance/index`）与 `plan/archive/**`——`rg` 实测 config.ts 治理挂载恰 6 处（architecture ×3 + index ×3），归档 0 挂载
+    - [x] `guide/**`（7 项）/ `standards/**`（补齐至 14 项全覆盖）/ `plan/**`（roadmap · todo · backlog）/ `design/modules/**`（9 项全挂）/ `research/*`（6 项 = 目录真实文件）按需保留；**未一刀切卸载**
+    - [x] 首页仅引导对外可读入口——删除未挂载页卡片（MCP Server 设计）；「安全与治理」卡改指治理索引；架构卡去掉失效锚点；en 镜像同步删除同卡
+    - [x] 未挂载页仍可直链（`ignoreDeadLinks: true` 保持）；`check:docs` 0 error；**站点绝对链接逐条存在性核对 0 死链**（config 57 / 首页 13 / en 首页 11）
+    - [x] `docs:build` 通过（7.01s）；产物实测：已卸治理页仅出现在自身页面，保留导航项出现于全部 112 页 → 裁剪生效
   - **D 阶段决策留痕（待裁定）**：① 非挂载页卡片改写方向（改指 overview vs 移除）；② en 侧栏是否与 zh 完全对齐（现状 en 侧栏条目与 zh 不一致）；③ 是否补 `governance/index` 目录页入口。
   - **不做什么**：不做 `srcExclude` 物理隔离 / 不拆双站点；不改变文档公开性；不删除任何页面（仅调整导航挂载与首页引导）。
   - **依赖**：无（可与 M41.1 并行）；设计稿 §3.4 导航分层表。
-  - **交付物**：1-2 commits（`docs(governance)` config + 首页 zh / en）；文件 2-3。
+  - **交付物**：1-2 commits（`docs(site)` config + 首页 zh / en）；文件 2-3。
+  - **D 阶段决策留痕（已裁定）**：① 非挂载页卡片 = **改写为目标语义更贴的已挂载页**（安全与治理 → 治理索引）**或移除**（MCP 设计稿），不指向未挂载页；② en 侧栏 = **按 en 实际译文裁剪**（非强行对齐 zh 条目）；en 首页卡片差异（缺失 zh 的路线图 / 当前任务）因无 en 译文，属可解释差异；③ **保留** `governance/index` 目录页入口（zh + en 双侧）。
+  - **闭环记录**：站点导航 4 文件（config.ts / zh 首页 / en 首页 / 候选登记）；A 阶段 standard R1 **Pass**（0 blocker / 0 warning / 4 suggest）→ 全部处置（3 修 + 1 并入既有候选）→ R2 quick **Pass**。
+  - **同期收敛的真实死链（重命名残留）**：`design/packages/` → `design/modules/` 重命名后 config.ts 侧栏 4 项 + 首页 2 张卡片仍指旧目录；research 侧栏 3 项指向不存在文件；en 导航「Roadmap」+ en 侧栏 plan 组指向无译文的页面——均已收敛。
+  - **延后登记**（AC 排除项，无阶段编号）：① `design/packages → modules` 非导航面残留（蒸馏脚本推荐串 / 设计文档现行陈述 / 模块索引 H1）；② 站点语言切换器对未翻译页指向不存在的 en 页（VitePress 内建映射，非导航面）；③ 站点绝对链接机检盲区 → 并入既有「链接 / 锚点一致性机检」候选评估。
   - **风险与缓解措施**：① 导航收敛致读者找不到内容 → 保留 guide / standards / plan / roadmap 入口 + 直链可访问；② config 改动致 `docs:build` 失败 → 本地 `docs:build` 实证；③ zh / en 侧栏不对称 → 双侧逐条核对。
 
 - **M41.5**（P3，🛡️ 治理同步）阈值与事实源唯一化

@@ -19,11 +19,12 @@
 
 ## M40: 运行时可靠性与可观测性深化（2026-10-10 用户决策方案 A / M40.1~M40.6）
 
-> **阶段定位**：承接 M39 平台视图体验与可观测补强归档后的运行时可靠性阶段。来源为 2026-10-08 定时扫描批量失败排查中暴露、且经 M38/M39 归档后仍保留在 [backlog.md](backlog.md) 的运行时缺口，以及同批次审计 / 复核衍生的门禁工具缺口。经 2026-10-10 用户决策（方案 A）从 backlog §候选评估中上收 6 项候选，聚焦「让运行时状态可确认、失败可解释、超时可调、进程可自愈、日志可追溯、门禁可信」。
-> **类型平衡**：🚀 能力扩展 1（M40.1）+ 🎨 用户体验 1（M40.2）+ 🛠️ 技术债 1（M40.3）+ 🛡️ 可靠性 1（M40.4）+ 🐛 缺陷修复 1（M40.5）+ 🧪 测试基建 1（M40.6）= 6 原子；🎨 用户体验独立条目 1 项低于 [规划规范 §1.1 类型平衡建议](../standards/planning.md#11-硬性约束)（建议 ≥ 2），本阶段以可靠性主线优先，缺口显式标注。
-> **§3.4 三重交叉核验**（2026-10-10 启动批次实测，**0 项重复评估**）：① **todo-archive 扫描**——6 项候选在 `todo-archive.md` + `archive/*.md` 无对应已闭环标注（历史命中均为邻近主题或候选登记本身：`todo-archive.md:55` M39 摘要将「部署产物版本戳陈旧校验 / 失败 run 落 summary 快照 / 执行超时可配置化」记为「留 backlog」；`archive/index.md:43-45` 将「sandbox 降级回退路径 / 门禁脚本产物排除」及 worker 崩溃自动重启记为「保留待评估」；`archive/todo-archive-phases-m11.md:376-379` 的 `test-results` / `playwright-report` 命中的是根 `.gitignore` 治理，与本批「门禁脚本扫描面排除」非同一事项）；② **git log**——`git log --all --grep` 对「版本戳 / version-stamp / summary 快照 / EXECUTION_TIMEOUT / worker 崩溃 / playwright-report」无对应修复 commit（`da148f8` 仅为候选登记 docs；`431e8ec` 为 M38.2 锁参数显式化，与「执行超时可配置化」非同一事项；`5382e67` 为 M37.3 写回竞态，仅正文出现 summary 字样；`3290ee5` 仅根 `.gitignore`）；③ **代码 anchor**——`apps/platform/Dockerfile` 无 `ARG`/`HEALTHCHECK` 且无 `/api/health` 路由；`scan-orchestrator.service.ts:387-398` failed 分支不写 `summaryJson`（仅 degraded:405 / completed:418）；`container-executor.ts` `DEFAULT_EXECUTION_TIMEOUT_MS` = 30min 写死无 env；`docker/entrypoint.sh:110-130` worker 以 `&` 启动且仅 `wait MAIN_PID` 无看护；`scan-orchestrator.service.ts:332-348` sandbox 回退分支未取 `logsJson`（container 主路由:364 已取）；`check-orphan-ids.mjs` `EXCLUDED_DIRS` 与 `check-docs.mjs` `RUNTIME_EXCLUDED_PATHS` 均无 `playwright-report`/`test-results`。
-> **用户决策点**（2026-10-10 裁定）：**D1 候选组合 = 方案 A**——从 backlog 上收 6 项（部署产物版本戳陈旧校验 / 失败 run summary 快照 / 执行超时可配置化 / 队列 worker 崩溃自动重启 / sandbox 降级回退日志 / 门禁脚本产物排除）。
-> **不做什么（阶段级）**：不改引擎修复 / 验证业务语义与告警模型；不改 `/api/runs` 既有契约；不引入完整 versioning 框架 / 进程管理器（除非 M40.4 D 阶段裁定）；不实现执行可取消（`withTimeout` 底层 `execFileSync` 不可取消，属既有边界）；不改门禁脚本的检测判定口径本身。
+> **阶段定位**：承接 M39 平台视图体验与可观测补强归档后的运行时可靠性阶段。来源为 2026-10-08 定时扫描批量失败排查中暴露、且经 M38/M39 归档后仍保留在 [backlog.md](backlog.md) 的运行时缺口，以及同批次审计 / 复核衍生的门禁工具缺口。经 2026-10-10 用户决策（方案 A）从 backlog §候选评估中上收 6 项候选；同日追加用户决策（D2）：以「平台环境变量文档完整性治理」（用户直接提出的配置/文档治理需求）**替换**原 M40.6（门禁脚本排除 Playwright 产物 → 回退 [backlog.md](backlog.md)），维持本阶段 6 原子容量。聚焦「让运行时状态可确认、失败可解释、超时可调、进程可自愈、日志可追溯、配置文档可信」。
+> **类型平衡**：🚀 能力扩展 1（M40.1）+ 🎨 用户体验 1（M40.2）+ 🛠️ 技术债 1（M40.3）+ 🛡️ 可靠性 1（M40.4）+ 🐛 缺陷修复 1（M40.5）+ 📚 文档治理 1（M40.6）= 6 原子；🎨 用户体验独立条目 1 项低于 [规划规范 §1.1 类型平衡建议](../standards/planning.md#11-硬性约束)（建议 ≥ 2），本阶段以可靠性主线优先，缺口显式标注。
+> **§3.4 三重交叉核验**（2026-10-10 启动批次实测，**0 项重复评估**）：① **todo-archive 扫描**——6 项候选在 `todo-archive.md` + `archive/*.md` 无对应已闭环标注（历史命中均为邻近主题或候选登记本身：`todo-archive.md:55` M39 摘要将「部署产物版本戳陈旧校验 / 失败 run 落 summary 快照 / 执行超时可配置化」记为「留 backlog」；`archive/index.md:43-45` 将「sandbox 降级回退路径 / 门禁脚本产物排除」及 worker 崩溃自动重启记为「保留待评估」；`archive/todo-archive-phases-m11.md:376-379` 的 `test-results` / `playwright-report` 命中的是根 `.gitignore` 治理，与本批「门禁脚本扫描面排除」非同一事项）；② **git log**——`git log --all --grep` 对「版本戳 / version-stamp / summary 快照 / EXECUTION_TIMEOUT / worker 崩溃 / playwright-report」无对应修复 commit（`da148f8` 仅为候选登记 docs；`431e8ec` 为 M38.2 锁参数显式化，与「执行超时可配置化」非同一事项；`5382e67` 为 M37.3 写回竞态，仅正文出现 summary 字样；`3290ee5` 仅根 `.gitignore`）；③ **代码 anchor**——`apps/platform/Dockerfile` 无 `ARG`/`HEALTHCHECK` 且无 `/api/health` 路由；`scan-orchestrator.service.ts:387-398` failed 分支不写 `summaryJson`（仅 degraded:405 / completed:418）；`container-executor.ts` `DEFAULT_EXECUTION_TIMEOUT_MS` = 30min 写死无 env；`docker/entrypoint.sh:110-130` worker 以 `&` 启动且仅 `wait MAIN_PID` 无看护；`scan-orchestrator.service.ts:332-348` sandbox 回退分支未取 `logsJson`（container 主路由:364 已取）；`check-orphan-ids.mjs` `EXCLUDED_DIRS` 与 `check-docs.mjs` `RUNTIME_EXCLUDED_PATHS` 均无 `playwright-report`/`test-results`（其中 ⑥ 门禁脚本产物排除已随同日 D2 回退 backlog，上述 check-orphan-ids / check-docs 证据为历史批次实测记录，保留供追溯）。
+> **D2 替换项（新 M40.6）三重交叉核验**（2026-10-10）：① todo-archive 无「环境变量文档完整性」对应已闭环；② git log 无对应修复 commit；③ 代码 anchor 实证缺口存在——执行角色以 `rg -o 'process\.env\.[A-Z_]+' apps/platform packages` + `nuxt.config` runtimeConfig + `docker/entrypoint.sh` + `docker-compose.yml` 汇总实际使用变量，减去 `HEAD:.env.example` 声明集，得缺失量级 **20-25 个**（审计方独立复算 = **22**），如 `DATABASE_TYPE`/`SANDBOX_IMAGE`/`BACKUP_RETENTION_COUNT`/`NUXT_PUBLIC_BASE_URL` 等；`configuration.md` 平台段仅指针。**0 项重复评估**；该项属文档 / 配置治理（非新功能），为用户 2026-10-10 直接提出并经明确授权上收当前阶段。
+> **用户决策点**（2026-10-10 裁定）：**D1 候选组合 = 方案 A**——从 backlog 上收 6 项（部署产物版本戳陈旧校验 / 失败 run summary 快照 / 执行超时可配置化 / 队列 worker 崩溃自动重启 / sandbox 降级回退日志 / 门禁脚本产物排除）；**D2 = 以「平台环境变量文档完整性治理」替换原 M40.6**（门禁脚本产物排除回退 backlog；`NUXT_PUBLIC_BETTER_AUTH_URL` 不一致按「修代码兼容两者」处置）。
+> **不做什么（阶段级）**：不改引擎修复 / 验证业务语义与告警模型；不改 `/api/runs` 既有契约；不引入完整 versioning 框架 / 进程管理器（除非 M40.4 D 阶段裁定）；不实现执行可取消（`withTimeout` 底层 `execFileSync` 不可取消，属既有边界）；不改 CLI（`DEPENDFIX_*`）配置项语义与平台 env 的既有权重默认值。
 
 - **M40.1**（P2，🚀 能力扩展）部署产物版本戳 / 陈旧校验
   - **目标**：让运行时能确认部署产物对应的 commit / 版本，消除「代码已修复但线上仍复现」的陈旧产物误判（2026-10-08 `COMMIT_FAILED` 缺 M37.6 `--no-verify` 即因运行时产物早于该修复，当前无任何手段核实）。
@@ -102,20 +103,21 @@
   - **交付物**：预计 1-2 commits（fix(platform) 回退日志 + 单测）；文件 2-3。
   - **风险与缓解措施**：低；回退路径日志体量 → 复用既有 `logsJson` 落库口径（与 container 主路由一致）；单测以探针日志验证赋值。
 
-- **M40.6**（P3，🧪 测试基建）门禁脚本排除 Playwright 生成产物
-  - **目标**：本地跑过 e2e 后，门禁脚本不再把 `playwright-report` / `test-results` 产物纳入扫描而误报，使本地门禁结果与清理产物前一致、可信。
-  - **优先级**：P3
-  - **范围**：`scripts/check-orphan-ids.mjs`（`EXCLUDED_DIRS` 补 `playwright-report` / `test-results`）；`scripts/check-docs.mjs`（`RUNTIME_EXCLUDED_PATHS` 或等价排除面）；脚本单测；必要时 `docs/standards/planning.md §4.4`（门禁产物排除口径）。
+- **M40.6**（P2，📚 文档治理）平台环境变量文档完整性与配置结构治理
+  - **目标**：消除 `apps/platform/.env.example` / `docs/guide/configuration.md` 与代码实际读取的环境变量之间的缺口，使部署者据此可完整配置平台；并修正 `NUXT_PUBLIC_BETTER_AUTH_URL` 文档-代码不一致（按用户 2026-10-10 裁定：修代码兼容两者）。
+  - **优先级**：P2
+  - **范围**：`apps/platform/.env.example`（改为极简 / 快速启动版）；`apps/platform/.env.full.example`（新增，完整分节版）；`docs/guide/configuration.md` + `docs/i18n/en-US/guide/configuration.md`（平台配置段重构 + 变量总表）；`apps/platform/server/utils/auth.ts`（`trustedOrigins` 读取 `NUXT_PUBLIC_BETTER_AUTH_URL`，兼容回退 `NUXT_PUBLIC_BASE_URL`）+ 单测；必要时 `apps/platform/docker-compose.yml` / `docs/guide/deployment.md` 口径同步。
   - **验收标准**：
-    - [ ] 两脚本排除 `playwright-report` / `test-results`（或统一「尊重 `.gitignore`」策略）
-    - [ ] 本地跑过 e2e 后 `pnpm check:orphan-ids` / `pnpm check:docs` 结果与清理产物前一致（实证：产物存在时 0 误报）
-    - [ ] 脚本单测（负例：产物目录内文件被排除、正常源文件仍被扫描）
-    - [ ] `pnpm lint` 0 error + `pnpm typecheck` 0 error（实测 `2>&1 | grep -E "error TS"` 无命中，不信「Done」宣称）
-  - **D 阶段决策留痕（待裁定）**：① 逐一补目录（最小改动） vs 统一「尊重 `.gitignore`」排除策略（治本但行为面更大）。
-  - **不做什么**：不改门禁脚本的检测判定口径本身（仅排除面）；不改 CI 门禁步骤顺序 / 阻断强度。
-  - **依赖**：M39.2 实证（本地 `check:docs` 148 → 152、`check-orphan-ids` 误报 minified bundle）；backlog 候选（现状锚点 `scripts/check-orphan-ids.mjs:50-51` + `scripts/check-docs.mjs:47`）。
-  - **交付物**：预计 1-2 commits（fix(scripts) 排除面 + 单测 + docs）；文件 3-5。
-  - **风险与缓解措施**：① 改为尊重 `.gitignore` 可能引入行为差异（如 ignored 但本应扫描的目录） → D 阶段评估，优先最小补目录；② 排除过宽漏扫 → 单测负例标定。
+    - [ ] 清点代码实际读取的全部平台 env（`nuxt.config` runtimeConfig + `process.env` 直读 + `docker/entrypoint.sh` + `docker-compose.yml`），形成清单并与示例 / 文档 100% 对齐（内部 / 测试变量显式排除并说明）
+    - [ ] `.env.example` 仅保留「必填 + 快速启动必需」项，按重要性分区；`.env.full.example` 覆盖清点清单全部变量，按逻辑分节，每项标注 `[必填]` / `[可选]` + 默认值
+    - [ ] `docs/guide/configuration.md`（zh + en-US）平台段按分节列出变量总表（含必填标记）并指向两个示例文件；CLI 段与平台段明确切分
+    - [ ] `auth.ts` 的 `trustedOrigins` 读取 `NUXT_PUBLIC_BETTER_AUTH_URL`（`NUXT_PUBLIC_BASE_URL` 兼容回退）；单测覆盖「两变量分别命中 / 均缺省走通配兜底」分支
+    - [ ] `pnpm lint` 0 error + `pnpm typecheck` 0 error（实测 `2>&1 | grep -E "error TS"` 无命中）+ 定向测试（`auth` 相关）全过；`pnpm run check:docs` OK；`pnpm run i18n:audit` parity 0
+  - **D 阶段决策留痕（2026-10-10 用户裁定）**：① 示例文件形态 = **极简 `.env.example` + 完整 `.env.full.example` 双文件**（参考 momei 约定）；② 不一致修正方向 = **修代码兼容两者**（compose / 文档 / 示例统一以 `NUXT_PUBLIC_BETTER_AUTH_URL` 为准）。
+  - **不做什么**：不改平台其他 env 的语义 / 默认值；不引入 dotenv 校验库或运行时 env schema 强校验；不改 CLI（`DEPENDFIX_*`）配置项本身（CLI 段仅复用既有内容）；不新增 `.env` 之外的配置通道。
+  - **依赖**：用户 2026-10-10 直接提出（非 backlog 候选）；参考 momei `.env.example`（极简）+ `.env.full.example`（完整分节）约定；现状 anchor `auth.ts:103` 读 `NUXT_PUBLIC_BASE_URL`。
+  - **交付物**：预计 3-4 commits（fix(platform) `trustedOrigins` 变量 + 单测 / docs(platform) 示例双文件 / docs(guide) 配置说明 zh+en / docs(plan) 闭环）；文件 5-8。
+  - **风险与缓解措施**：① 变量清单遗漏 → 以代码清点（`rg process.env` + runtimeConfig + entrypoint/compose）为准并交叉核对；② 极简版漏必填导致启动失败 → 必填项显式列出 + 缺省回退说明；③ 改 `auth.ts` 影响登录 `trustedOrigins`（安全敏感） → 单测覆盖 + 保留通配兜底 + 不改其他 auth 逻辑；④ en-US 镜像不同步 → `check:i18n` parity 门禁。
 
 ---
 

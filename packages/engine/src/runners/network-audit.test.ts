@@ -46,6 +46,20 @@ describe('isDomainAllowed', () => {
         expect(isDomainAllowed('npmjs.org', ['*.npmjs.org'])).toBe(false)
     })
 
+    it('matches common mirror registries and their CDN in defaults', () => {
+        // 镜像站 registry + tarball CDN（302 目标域）成对登记：只放 registry 域会让 tarball 仍被拦
+        expect(isDomainAllowed('registry.npmmirror.com', DEFAULT_ALLOWED_DOMAINS)).toBe(true)
+        expect(isDomainAllowed('cdn.npmmirror.com', DEFAULT_ALLOWED_DOMAINS)).toBe(true)
+        expect(isDomainAllowed('registry.yarnpkg.com', DEFAULT_ALLOWED_DOMAINS)).toBe(true)
+        expect(isDomainAllowed('npm.jsr.io', DEFAULT_ALLOWED_DOMAINS)).toBe(true)
+        expect(isDomainAllowed('mirrors.cloud.tencent.com', DEFAULT_ALLOWED_DOMAINS)).toBe(true)
+        expect(isDomainAllowed('repo.huaweicloud.com', DEFAULT_ALLOWED_DOMAINS)).toBe(true)
+        expect(isDomainAllowed('npm.pkg.github.com', DEFAULT_ALLOWED_DOMAINS)).toBe(true)
+        // 相似域 / 裸域不被通配放行
+        expect(isDomainAllowed('evil-npmmirror.com', DEFAULT_ALLOWED_DOMAINS)).toBe(false)
+        expect(isDomainAllowed('npmmirror.com', DEFAULT_ALLOWED_DOMAINS)).toBe(false)
+    })
+
     it('rejects lookalike domains (boundary guaranteed by leading dot)', () => {
         expect(isDomainAllowed('evilnpmjs.org', ['*.npmjs.org'])).toBe(false)
         expect(isDomainAllowed('notnpmjs.org.evil.com', ['*.npmjs.org'])).toBe(false)
@@ -411,6 +425,21 @@ describe('startNetworkAudit', () => {
 
         expect(status).toBe(502)
         expect(audit.violations.some((v) => extractHostname(v.target) === 'github.com')).toBe(true)
+    })
+
+    it('merges extraAllowedDomains with defaults (registry discovery path)', async () => {
+        // 动态发现路径：extraAllowedDomains 与「默认清单 + 环境变量扩展」合并
+        audit = await startNetworkAudit({ extraAllowedDomains: ['mirror.internal.example.com'] })
+
+        expect(audit.allowedDomains).toContain('mirror.internal.example.com')
+        expect(audit.allowedDomains).toContain('*.npmjs.org')
+        expect(audit.allowedDomains).toContain('*.npmmirror.com')
+        // 显式传 allowedDomains 时以它为准（extraAllowedDomains 不叠加）
+        const explicit = await startNetworkAudit({ allowedDomains: ['only.example.com'], extraAllowedDomains: ['ignored.example.com'] })
+        expect(explicit.allowedDomains).toEqual(['only.example.com'])
+        await explicit.stop().catch(() => { /* 幂等 */ })
+        // 动态发现不放开未知域：未列举域名仍 deny-by-default
+        expect(isDomainAllowed('evil.example.com', audit.allowedDomains)).toBe(false)
     })
 })
 

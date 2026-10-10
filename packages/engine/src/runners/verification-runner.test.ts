@@ -11,14 +11,37 @@ interface MockChildProcess extends EventEmitter {
     kill: ReturnType<typeof vi.fn>
 }
 
-const { mockSpawn, mockSpawnSync } = vi.hoisted(() => ({
+const { mockSpawn, mockSpawnSync, capturedAuditOptions } = vi.hoisted(() => ({
     mockSpawn: vi.fn(),
     mockSpawnSync: vi.fn(),
+    // 记录 runner → startNetworkAudit 的实参（用于锁定白名单组装接线）
+    capturedAuditOptions: [] as Array<{ allowedDomains?: string[], extraAllowedDomains?: string[] }>,
 }))
 
 vi.mock('node:child_process', () => ({
     spawn: mockSpawn,
     spawnSync: mockSpawnSync,
+}))
+
+// 部分 mock：记录实参后仍委托真实实现（保留真实拦截代理行为，既有用例不受影响）
+vi.mock('./network-audit', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('./network-audit')>()
+    return {
+        ...actual,
+        startNetworkAudit: async (options?: { allowedDomains?: string[], extraAllowedDomains?: string[] }) => {
+            capturedAuditOptions.push(options ?? {})
+            return actual.startNetworkAudit(options)
+        },
+    }
+})
+
+const { mockDiscoverRegistryHosts } = vi.hoisted(() => ({
+    mockDiscoverRegistryHosts: vi.fn(),
+}))
+
+// registry 动态发现被 mock：真实实现会按 workDir 执行 `pnpm config list`（依赖宿主机环境，不确定）
+vi.mock('./registry-discovery', () => ({
+    discoverRegistryHosts: mockDiscoverRegistryHosts,
 }))
 
 import {
@@ -159,6 +182,40 @@ describe('runVerification', () => {
     beforeEach(() => {
         mockSpawn.mockReset()
         mockSpawnSync.mockReset()
+        mockDiscoverRegistryHosts.mockReset()
+        capturedAuditOptions.length = 0
+        // 默认：未发现任何 registry（等价于预置清单行为）
+        mockDiscoverRegistryHosts.mockReturnValue({ hosts: [], source: 'none' })
+    })
+
+    it('passes workDir to registry discovery and surfaces degraded-discovery warning', async () => {
+        const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => { /* 静音 */ })
+        mockDiscoverRegistryHosts.mockReturnValue({
+            hosts: ['mirror.internal.example.com'],
+            source: 'pnpm-config',
+            warning: '读取 pnpm 配置失败（ENOENT），回退环境变量与预置白名单',
+        })
+        mockSpawn.mockImplementation(() => createMockCp({ stdout: 'ok', exitCode: 0 }))
+
+        const result = await runVerification({ workDir: '/tmp/wired-repo', commands: ['pnpm install'] })
+
+        expect(result.success).toBe(true)
+        // 接线锁定：discovery 以 workDir 调用，发现域进入拦截代理白名单，降级 warning 进运行日志（fail-open 可见性）
+        expect(mockDiscoverRegistryHosts).toHaveBeenCalledWith('/tmp/wired-repo')
+        expect(capturedAuditOptions.at(-1)?.extraAllowedDomains).toEqual(['mirror.internal.example.com'])
+        expect(capturedAuditOptions.at(-1)?.allowedDomains).toBeUndefined()
+        expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('ENOENT'))
+        warnSpy.mockRestore()
+    })
+
+    it('skips registry discovery when network audit is disabled', async () => {
+        mockSpawn.mockImplementation(() => createMockCp({ stdout: 'ok', exitCode: 0 }))
+
+        await runVerification({ workDir: '/tmp/no-audit', commands: ['pnpm install'], networkAuditDisabled: true })
+
+        // 审计关闭时不起无谓的配置读取子进程，也不启动拦截代理
+        expect(mockDiscoverRegistryHosts).not.toHaveBeenCalled()
+        expect(capturedAuditOptions).toHaveLength(0)
     })
 
     it('aborts command on timeout with timed out classification', async () => {

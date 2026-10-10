@@ -53,17 +53,29 @@ export interface NetworkAudit {
 const CONNECT_TIMEOUT_MS = 10_000
 
 /**
- * 默认出站白名单（网络白名单治理决策：仅 registry + GitHub API/资产域 + 受信任构建工具文档站）。
+ * 默认出站白名单（网络白名单治理决策：registry + 常见镜像站 + GitHub API/资产域 + 受信任构建工具文档站）。
  * - `*.npmjs.org` 覆盖 npm registry 全子域（含 registry.npmjs.org 的 tarball 下载域）
+ * - **常见镜像站 / 企业 registry**（`*.npmmirror.com` / `registry.yarnpkg.com` / `npm.jsr.io` /
+ *   `mirrors.cloud.tencent.com` / `repo.huaweicloud.com` / `npm.pkg.github.com`）：
+ *   registry 指向镜像源时 tarball 会 302 到独立 CDN 域（如 `registry.npmmirror.com` → `cdn.npmmirror.com`），
+ *   registry 域与 CDN 域必须**成对登记**——只放 registry 域会退化为「metadata 通、tarball 仍被拦」。
+ *   `*.npmmirror.com` 用通配是必需而非偷懒（registry 与 CDN 同属该域）；企业私服自带的独立 CDN 域
+ *   需显式补 `DEPENDFIX_ALLOWED_DOMAINS`（动态发现只覆盖配置面 registry 键的 host）。
  * - GitHub 相关：REST API（api.github.com）、git clone/网页（github.com）、
  *   release 资产（objects.githubusercontent.com）、raw 文件（raw.githubusercontent.com）
  * - `rolldown.rs` = vite 6/7 Rust 实现官方文档站；vite 跨 major 升级 verification 阶段命令输出
  *   会出现 `https://rolldown.rs/reference/...` 链接（verification-runner 命令输出 URL 提取会捕获），
  *   不放行则合法 verification 被误判 network_violation → run exitCode=1
- * 需要更多域时通过环境变量扩展（见 readAllowedDomains）。
+ * 需要更多域时通过环境变量扩展（见 readAllowedDomains）或 workDir 配置面动态发现（见 discoverRegistryHosts）。
  */
 export const DEFAULT_ALLOWED_DOMAINS = [
     '*.npmjs.org',
+    '*.npmmirror.com',
+    'registry.yarnpkg.com',
+    'npm.jsr.io',
+    'mirrors.cloud.tencent.com',
+    'repo.huaweicloud.com',
+    'npm.pkg.github.com',
     'api.github.com',
     'github.com',
     'objects.githubusercontent.com',
@@ -150,8 +162,13 @@ export function redactUrlForReport(target: string): string {
 }
 
 export interface StartNetworkAuditOptions {
-    /** 出站白名单（deny-by-default 判定）；缺省 = 默认清单 + 环境变量扩展 */
+    /** 出站白名单（deny-by-default 判定）；缺省 = 默认清单 + 环境变量扩展 + extraAllowedDomains */
     allowedDomains?: string[]
+    /**
+     * 追加域（如从 workDir 配置面动态发现的 registry host）。
+     * 仅在与 `allowedDomains` 同时缺省时与「默认清单 + 环境变量扩展」合并；显式传 `allowedDomains` 时以它为准。
+     */
+    extraAllowedDomains?: string[]
 }
 
 /**
@@ -161,7 +178,8 @@ export interface StartNetworkAuditOptions {
  * （转发失败仍返回 502，不挂死调用方）。停止后服务器关闭。
  */
 export async function startNetworkAudit(options?: StartNetworkAuditOptions): Promise<NetworkAudit> {
-    const allowedDomains = options?.allowedDomains ?? readAllowedDomains()
+    const allowedDomains = options?.allowedDomains
+        ?? [...new Set([...readAllowedDomains(), ...(options?.extraAllowedDomains ?? [])])]
     const entries: NetworkAuditEntry[] = []
     const violations: NetworkAuditEntry[] = []
     const server: Server = createServer()

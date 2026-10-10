@@ -5,6 +5,7 @@ import {
     type NetworkAudit,
     type NetworkAuditEntry,
 } from './network-audit'
+import { discoverRegistryHosts } from './registry-discovery'
 
 /**
  * 单条命令的执行结果
@@ -162,10 +163,17 @@ export async function runVerification(params: VerificationParams): Promise<Verif
     const commands = params.commands ?? DEFAULT_VERIFY_COMMANDS
     const commandResults: CommandResult[] = []
 
-    // 执行期网络外联审计（默认开启；代理仅在环境无既有代理时注入，防覆盖用户代理）
+    // 执行期网络外联审计（默认开启；代理仅在环境无既有代理时注入，防覆盖用户代理）。
+    // 白名单 = 默认清单 + 环境变量扩展 + workDir 配置面动态发现的 registry host——
+    // registry 指向镜像源 / 企业私服时，非白名单 registry 的 CONNECT 被拒会弄挂
+    // `pnpm install` 并触发门禁全量回滚（安装链路的合法外联不应被误拦）。
     let audit: NetworkAudit | undefined
     if (!params.networkAuditDisabled) {
-        audit = await startNetworkAudit().catch(() => undefined)
+        const discovery = discoverRegistryHosts(params.workDir)
+        if (discovery.warning) {
+            console.warn(`[network-audit] registry 动态发现降级（fail-open）：${discovery.warning}`)
+        }
+        audit = await startNetworkAudit({ extraAllowedDomains: discovery.hosts }).catch(() => undefined)
     }
     const hasExistingProxy = Boolean(
         process.env.HTTP_PROXY || process.env.HTTPS_PROXY || process.env.ALL_PROXY

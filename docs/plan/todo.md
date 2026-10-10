@@ -47,15 +47,17 @@
   - **优先级**：P2
   - **范围**：`apps/platform/server/services/scan-orchestrator.service.ts`（failed 分支：`result` 存在时落 `summaryJson` 快照）；必要时 `apps/platform/server/services/scan-run-state.ts`（决策载荷）；单测；若前端列表未读 `summaryJson` 则同步前端。
   - **验收标准**：
-    - [ ] failed 且引擎已产出 `result.summary` 时 `summaryJson` 落库（定向单测：构造 failed + result → 列值等于 summary）
-    - [ ] 与「失败不写半截结果」原则边界明确：**仅 summary 快照**，不写 alerts 明细 / 不 reconcile（单测断言 alerts 表无写入）
-    - [ ] 失败 run 列表展示非 0 告警数（e2e 或前端单测）
-    - [ ] `pnpm lint` 0 error + `pnpm typecheck` 0 error（实测 `2>&1 | grep -E "error TS"` 无命中，不信「Done」宣称） + 定向测试全过
-  - **D 阶段决策留痕（待裁定）**：① failed run 是否落 summary（推荐是，限快照）；② 快照是否加「partial / 未完成」标记供 UI 区分；③ 与 degraded / completed 的 summary 语义差异。
+    - [x] failed 且引擎已产出 `result.summary` 时 `summaryJson` 落库（定向单测：构造 failed + result → 列值等于 summary）
+    - [x] 与「失败不写半截结果」原则边界明确：**仅 summary 快照**，不写 alerts 明细 / 不 reconcile（单测断言 `ScanResult` 无写入）
+    - [x] 失败 run 列表展示非 0 告警数（前端单测锁定 `alertsFound` 读取契约 + 后端单测证明快照落库；`/api/runs` 返回 `summary` 已由前端消费）
+    - [x] `pnpm lint` 0 error + `pnpm typecheck` 0 error（实测 `2>&1 | grep -E "error TS"` 无命中，不信「Done」宣称） + 定向测试全过
+  - **D 阶段决策留痕（2026-10-10 用户裁定）**：采纳方案 A——写 `{ ...result.summary, alertsFixed: 0 }`：`alertsFound` 如实展示（含纳入 `/api/scan-history/summary` 的 `totalAlerts`），`alertsFixed` 归零（失败 run 未交付，且状态机契约声明 rollback / verification 失败后 `fixStatus` 不可信，避免「已修复 N」误导）；不加 `partial` 标记（状态列已显示「失败」，且不引入未使用键）。
   - **不做什么**：不改 completed / degraded 分支；不改 `reconcileAlerts`；不引入新列（复用既有 `summaryJson`）。
   - **依赖**：backlog 候选（现状锚点 `scan-orchestrator.service.ts:378-422`）。
   - **交付物**：预计 1-2 commits（feat(platform) failed summary 快照 + 单测）；文件 2-4（orchestrator / 单测 / 必要时前端）。
-  - **风险与缓解措施**：① summary 与失败状态被解读为「扫描完成」 → D 阶段定稿是否加 partial 标记 + UI 提示；② 落库路径与既有失败分类写点顺序 → 复用既有分支结构，单测覆盖。
+  - **实际交付（2026-10-10）**：1 commit `c6fe50d`（`fix(platform)`：orchestrator failed 分支落快照 + 2 用例（含 exitCode=2 分支与 `ScanResult` 无写入断言）+ 新增 `app/utils/run-view.test.ts` 读取契约用例）；前端无需改（`scans.vue` 已读 `row.summary.alertsFound/alertsFixed`）。
+  - **审计（2026-10-10）**：A 阶段 standard R1 Pass（0 blocker / 0 warning / 3 suggest；S1 拆 exitCode=2 用例 + S2 边界注已应用；S3 端到端强化用例非阻塞）；mutation 2 处全击杀（M1 删写入 / M2 去归零）；全量 platform 单测 1677 passed | 9 skipped（改动后 40 定向 passed）。实测用时约 3 分钟。
+  - **风险与缓解措施**：① summary 与失败状态被解读为「扫描完成」 → 状态列显示「失败」区分 + `alertsFixed` 归零（不显示虚构修复数）；② 落库路径与既有失败分类写点顺序 → 复用既有分支结构，单测覆盖；③ `summaryJson` 连带影响 `/api/scan-history/summary` totals → 经 D 决策受控（`totalFixed` 因 `alertsFixed=0` 不被污染；`totalAlerts` 纳入 failed run 的 `alertsFound` 为预期）。
 
 - **M40.3**（P2，🛠️ 技术债）执行超时可配置化
   - **目标**：单仓库执行超时由 env 可调（可选仓库级覆盖），并与队列 worker 锁时长联动；消除 30 分钟写死导致的「重负载仓库必然超时」与锁窗口错配。

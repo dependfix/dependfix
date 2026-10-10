@@ -15,7 +15,7 @@
 | 规范超自身阈值 | 硬分片阈值 > 400 行，实超 3 个：`platform` 544 / `development` 512 / `ai-collaboration` 494 | ❌ 自身规则未执行 |
 | 经验体系体量 | 7 文件 2409 行 / 68 节；单分片 `§49-§57` 1540 行 | ❌ 大归档极少被查阅 |
 | 经验落点缺失 | `check:standards-redundant` 仅报告（`exit 0`）、CI 未接线；无行数阈值脚本；经验无"转脚本 / 检查点"的强制路径 | ❌ 无可执行落点 |
-| 对外 / 对内未分层 | VitePress 全量构建 `docs/**`；设计稿（含经验归档）挂载 `/design/` 侧栏 | ❌ 内部细节与用户指南同列 |
+| 导航未分层 | VitePress 侧栏挂载 `design/governance/**`（6 篇设计稿）；首页卡片引导内部页 | ❌ 设计稿与用户指南同列 |
 | 事实源矛盾 | [spec-and-doc-governance §2.3](./spec-and-doc-governance.md) 称"与 [documentation.md §3](../../standards/documentation.md) 一致"，后者阈值表**不含** standards / design | ❌ 双事实源漂移 |
 
 ### 1.2 根因（5-Why 收敛）
@@ -35,7 +35,7 @@
 1. **规范方法论层化**：`docs/standards/*.md` 只保留"规则 + 通用方法 + 极少数项目个性化偏好 + 一行外链"，剥离具体代码实现与长段教训。
 2. **经验三层收敛**：L1 自动门禁（脚本 + CI 阻断）/ L2 评审检查点（checklist / 必查项）/ L3 精简可搜索索引；删除偶发与一次性经验。
 3. **经验应用机制闭环**：遇错先查 → 复发（≥ 2 次）必须收敛为 L1 或 L2。
-4. **导航分层**：发布策略不变（文档仍公开），但**顶栏 / 侧栏只挂"对外可读"页面**，设计稿 / 内部细节不挂载（常规用户点不进）。
+4. **导航分层**：发布策略不变（文档仍公开），但**顶栏 / 侧栏不挂 `design/governance/**`（除 `architecture` + `governance/index` 目录页）与 `plan/archive/**`**，其余按需保留；首页同步调整。
 5. **阈值与事实源唯一化**：`documentation.md §3` 为唯一阈值权威（补齐 standards / design 行）；行数阈值转脚本计量。
 
 ### 2.2 非目标 / 不做
@@ -85,15 +85,16 @@
 
 ### 3.4 文档站导航分层
 
-**发布策略不变**（`docs/**` 仍全量构建 / 公开可访问）——用户 2026-10-10 裁定：公开访问不是问题，且站点同时面向用户与开发者。**变更点在导航**：
+**发布策略不变**（`docs/**` 仍全量构建 / 公开可访问）——用户 2026-10-10 裁定：公开访问不是问题，且站点同时面向用户与开发者。**变更点在导航挂载范围**（用户 2026-10-10 二次收敛）：
 
-| 面向 | 导航处理 | 目录 |
+| 处理 | 范围 | 理由 |
 |:--|:--|:--|
-| 对外可读（挂载顶栏 / 侧栏） | ✅ 挂载 | `guide/**`、`design/governance/architecture.md`、`plan/roadmap.md`、`research/*`（精选） |
-| 内部（不挂载，常规用户点不进） | ❌ 不挂载 | `standards/**`、`plan/**`（除 roadmap）、`design/governance/**`（除 architecture）、`design/modules/**` |
+| **不挂载**（确无必要） | `design/governance/**`（除 `architecture.md`）+ `plan/archive/**` | 设计稿可读性差 / 易过期 / 数量多；归档为历史记录，非导航对象 |
+| **保留必要内容**（逐页判断） | `guide/**`、`standards/**`、`plan/**`（roadmap / todo / backlog）、`design/modules/**`、`research/*` | 不搞"一刀切"卸载；保留对外可读的入口 |
 
-- **设计稿不挂侧栏**：设计稿可读性差、易过期、数量多（当前侧栏 `/design/governance/` 挂 6 篇）→ 收敛为仅挂 `architecture` 概览 + `governance/index` 目录页。
-- 保留 `ignoreDeadLinks` 语义：未挂载页面可从正文内链访问（开发者路径）。
+- **设计稿不挂侧栏**：`/design/governance/` 当前挂 6 篇 → 收敛为仅挂 `architecture` 概览 + `governance/index` 目录页。
+- **首页（`docs/index.md`）同步调整**：按同一判定移除 / 改写指向非挂载页的卡片（如 `design/governance/security` / `mcp-server` 等），首页只引导对外可读入口；en 镜像 `docs/i18n/en-US/index.md` 同步。
+- 保留 `ignoreDeadLinks` 语义：未挂载页面仍可从正文内链访问（开发者路径）。
 
 ### 3.5 阈值与事实源统一
 
@@ -118,7 +119,7 @@
 | **A** | 📚 规范瘦身 | standards 去实现化、剥离教训 / 实证 | `docs/standards/*.md`（重点 platform / development / ai-collaboration，三超阈值文件）| `check:standards-redundant --strict` 归零；全部 ≤ 200 行（或已分片）；无代码片段 / commit hash | — |
 | **B** | 🛠️ 经验重构 | 三层收敛 + 大幅精简 + L3 索引化 | `experience-archive*.md` + `session-wisdom-distillation.md` + `.session/wisdom.md` | 单分片 ≤ 400 行；删除偶发 / 一次性条目并留决策记录；L3 索引可搜索 | A（迁移目标就位）|
 | **C** | 🛠️ 门禁落地 | 规则转可执行 | `scripts/check-standards-redundant.mjs`（--strict）+ 新增 doc-size 脚本 + `.github/workflows/test.yml` | CI 阻断生效（负例标定）；本地可复现 | A / B |
-| **D** | 🎨 导航分层 | 站点导航受众切分 | `docs/.vitepress/config.ts`（nav / sidebar） | 侧栏仅挂对外可读页；内部页仍可通过直链访问；docs:build 通过 | — |
+| **D** | 🎨 导航分层 | 站点导航受众切分 | `docs/.vitepress/config.ts`（nav / sidebar）+ `docs/index.md`（首页卡片）+ `docs/i18n/en-US/index.md` | 侧栏不挂 `design/governance/**`（除 `architecture` + `governance/index`）与 `plan/archive/**`；其余按需保留；首页仅引导对外可读入口；未挂载页仍可直链；docs:build 通过 | — |
 | **E** | 🛡️ 治理同步 | 阈值 / 事实源唯一化 | `documentation.md §3` + `spec-and-doc-governance.md §2.3` + `AGENTS.md`（如需，**修改前需用户明确确认**）| 单一阈值权威；无重复阈值表 | A |
 
 **执行顺序**：A → B → C（C 依赖 A/B 达标）并行 D / E；每批独立 commit + A 阶段审计（治理定义改动类）。
@@ -128,7 +129,7 @@
 - A：8-14 文件 / 净瘦 ~1200 行（standards 剥离）
 - B：3-5 文件 / 净瘦 ~1200 行（经验收敛）
 - C：3-4 文件 / ~250 行（脚本 + CI）
-- D：1-2 文件 / ~60 行（config）
+- D：2-3 文件 / ~80 行（config + 首页 zh / en）
 - E：2-3 文件 / ~80 行（阈值表统一）
 
 ## 5. 验收标准（整体）
@@ -136,7 +137,7 @@
 1. `check:standards-redundant --strict` 在 CI 阻断且本地归零。
 2. 全部 `docs/standards/*.md` ≤ 200 行（或已分片至健康窗口）。
 3. 经验体系单分片 ≤ 400 行；L3 索引条目均具备"四者之一"准入依据；无"只留条目、不留落点"。
-4. 文档站侧栏不含设计稿 / 内部细节（`architecture` + `governance/index` 目录页除外）。
+4. 文档站侧栏不挂载 `design/governance/**`（`architecture` + `governance/index` 除外）与 `plan/archive/**`；首页（`docs/index.md` + en 镜像）不引导至非挂载页。
 5. `documentation.md §3` 为唯一阈值权威，无第二处完整阈值表。
 6. 全链 `lint` / `lint:md` / `check:docs` / `docs:build` / `check:orphan-ids` 通过。
 
@@ -155,7 +156,7 @@
 | # | 决策点 | 裁定 |
 |:--|:--|:--|
 | D1 | 推进形式 | 先出治理设计先行稿（本文档）→ 评审后按 A-E 分批执行 |
-| D2 | 对外 / 对内分层形态 | **仍发布，仅不进顶栏 / 侧栏**（公开访问非问题；站点同时面向用户与开发者；设计稿过多且可读性差 / 过期，故不挂载）|
+| D2 | 导航分层形态 | **仍发布，仅不进顶栏 / 侧栏**；不挂载范围**收敛为** `design/governance/**`（除 `architecture` + `governance/index`）+ `plan/archive/**`，其余按需保留；首页同步调整（2026-10-10 二次收敛）|
 | D3 | 经验体系目标 | 三层收敛 + 大幅精简 |
 
 ## 8. 相关文档

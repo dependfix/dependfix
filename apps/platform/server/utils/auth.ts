@@ -85,22 +85,24 @@ const buildRateLimit = () => {
  * 默认从 baseURL 派生，但项目未配置静态 baseURL（依赖运行时请求 host 推断），
  * 因此显式声明：
  * - E2E_TEST: 固定 `http://127.0.0.1:3101`（与 playwright.config 一致）
- * - 生产: 从 NUXT_PUBLIC_BASE_URL 或 BETTER_AUTH_TRUSTED_ORIGINS 读取 origin 列表
+ * - 生产: 从 NUXT_PUBLIC_BETTER_AUTH_URL（兼容回退 NUXT_PUBLIC_BASE_URL）或 BETTER_AUTH_TRUSTED_ORIGINS 读取 origin 列表
  * - 兜底: 当上述均未配置时，加 `http://*` 与 `https://*` 通配符覆盖所有 http(s) origin
  *   （匹配模式 `wildcardMatch`，见 better-auth trusted-origins.mjs）
  *
  * 注意：通配兜底放宽了 origin 校验，但项目此前依赖运行时请求 host 推断（无 baseURL 配置），
  * better-auth 1.7 默认 trustedOrigins 为空 → 升级后所有 sign-up/sign-in 立即 403。
  * 兜底模式保持与 1.6 的"默认放行 Origin"行为对齐，避免升级阻塞；生产部署应
- * 显式设置 BETTER_AUTH_TRUSTED_ORIGINS 或 NUXT_PUBLIC_BASE_URL 以收紧。
+ * 显式设置 BETTER_AUTH_TRUSTED_ORIGINS 或 NUXT_PUBLIC_BETTER_AUTH_URL 以收紧。
  */
-const buildTrustedOrigins = (_options: { authSecret: string }): string[] => {
+export const buildTrustedOrigins = (_options: { authSecret: string }): string[] => {
     const origins = new Set<string>()
     if (process.env.E2E_TEST === 'true') {
         origins.add('http://127.0.0.1:3101')
         return [...origins]
     }
-    const base = process.env.NUXT_PUBLIC_BASE_URL
+    // 对外访问地址：优先 NUXT_PUBLIC_BETTER_AUTH_URL（compose / 文档 / 示例统一口径），
+    // 兼容回退 NUXT_PUBLIC_BASE_URL（历史变量名——2026-10-10 前代码仅读此项，文档/compose 却用前者）。
+    const base = process.env.NUXT_PUBLIC_BETTER_AUTH_URL || process.env.NUXT_PUBLIC_BASE_URL
     if (base) {
         try {
             origins.add(new URL(base).origin)
@@ -159,7 +161,7 @@ const buildAuth = (ds: Awaited<ReturnType<typeof ensureDatabaseInitialized>>, op
         // 是否在 trustedOrigins 中；默认 trustedOrigins 为空（从 baseURL 派生），
         // 未配置时所有 Origin 请求被拒，导致 e2e（http://127.0.0.1:3101）+ 生产同源
         // 登录全部失效。显式声明 trustedOrigins 列表：e2e 固定 127.0.0.1，生产从
-        // NUXT_PUBLIC_BASE_URL（或同源 origin）兜底
+        // NUXT_PUBLIC_BETTER_AUTH_URL（回退 NUXT_PUBLIC_BASE_URL，或同源 origin）兜底
         trustedOrigins: buildTrustedOrigins(options),
         rateLimit: buildRateLimit(),
         plugins: [

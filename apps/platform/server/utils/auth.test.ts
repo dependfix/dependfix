@@ -1,7 +1,7 @@
 import 'reflect-metadata'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { setupMemoryDatabase, teardownMemoryDatabase } from '../../tests/api-helper'
-import { getAuth, getAuthInstance, type AuthInstance } from './auth'
+import { buildTrustedOrigins, getAuth, getAuthInstance, type AuthInstance } from './auth'
 import { ensureDatabaseInitialized } from '#server/database'
 
 // mock mailer 模块（验证三回调触发 mailer.sendTemplateMail）
@@ -298,5 +298,70 @@ describe('邮件回调（sendVerificationEmail / sendResetPassword / sendChangeE
         )
 
         consoleErrorSpy.mockRestore()
+    })
+})
+
+describe('buildTrustedOrigins', () => {
+    const ENV_KEYS = [
+        'E2E_TEST',
+        'NUXT_PUBLIC_BETTER_AUTH_URL',
+        'NUXT_PUBLIC_BASE_URL',
+        'BETTER_AUTH_TRUSTED_ORIGINS',
+    ] as const
+    const saved: Record<string, string | undefined> = {}
+
+    beforeEach(() => {
+        for (const key of ENV_KEYS) {
+            saved[key] = process.env[key]
+            delete process.env[key]
+        }
+    })
+
+    afterEach(() => {
+        for (const key of ENV_KEYS) {
+            if (saved[key] === undefined) {
+                delete process.env[key]
+            } else {
+                process.env[key] = saved[key]
+            }
+        }
+    })
+
+    it('NUXT_PUBLIC_BETTER_AUTH_URL 命中 → 其 origin 进入列表且不触发通配兜底', () => {
+        process.env.NUXT_PUBLIC_BETTER_AUTH_URL = 'https://dependfix.example.com/app'
+        const origins = buildTrustedOrigins({ authSecret: 'x' })
+        expect(origins).toContain('https://dependfix.example.com')
+        expect(origins).not.toContain('https://*')
+    })
+
+    it('回退兼容旧变量 NUXT_PUBLIC_BASE_URL', () => {
+        process.env.NUXT_PUBLIC_BASE_URL = 'https://legacy.example.com'
+        expect(buildTrustedOrigins({ authSecret: 'x' })).toContain('https://legacy.example.com')
+    })
+
+    it('NUXT_PUBLIC_BETTER_AUTH_URL 优先于 NUXT_PUBLIC_BASE_URL', () => {
+        process.env.NUXT_PUBLIC_BETTER_AUTH_URL = 'https://new.example.com'
+        process.env.NUXT_PUBLIC_BASE_URL = 'https://legacy.example.com'
+        const origins = buildTrustedOrigins({ authSecret: 'x' })
+        expect(origins).toContain('https://new.example.com')
+        expect(origins).not.toContain('https://legacy.example.com')
+    })
+
+    it('两者均未设置 → 通配兜底（http://* 与 https://*）', () => {
+        const origins = buildTrustedOrigins({ authSecret: 'x' })
+        expect(origins).toEqual(expect.arrayContaining(['http://*', 'https://*']))
+    })
+
+    it('BETTER_AUTH_TRUSTED_ORIGINS 追加（逗号分隔 + 去空白）', () => {
+        process.env.BETTER_AUTH_TRUSTED_ORIGINS = 'https://a.example.com, https://b.example.com'
+        const origins = buildTrustedOrigins({ authSecret: 'x' })
+        expect(origins).toContain('https://a.example.com')
+        expect(origins).toContain('https://b.example.com')
+    })
+
+    it('E2E_TEST=true → 仅返回固定 127.0.0.1（忽略其余配置）', () => {
+        process.env.E2E_TEST = 'true'
+        process.env.NUXT_PUBLIC_BETTER_AUTH_URL = 'https://ignored.example.com'
+        expect(buildTrustedOrigins({ authSecret: 'x' })).toEqual(['http://127.0.0.1:3101'])
     })
 })

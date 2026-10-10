@@ -541,8 +541,8 @@
     },
     "envEvents": {
         "title": "环境事件",
-        "subtitle": "sandbox / docker / runtime 环境变化告警（含通知状态）",
-        "empty": "暂无环境事件（sandbox 启动降级或运行时失败时自动记录）",
+        "subtitle": "执行器 / 环境异常与配置留痕审计（含通知状态）",
+        "empty": "暂无环境事件（执行器异常、环境变化或配置变更时自动记录）",
         "filterType": "事件类型",
         "filterSeverity": "严重级别",
         "filterNotified": "通知状态",
@@ -566,7 +566,9 @@
         "severityCritical": "严重",
         "typeSandboxUnavailable": "沙箱不可用",
         "typeSandboxDegraded": "沙箱降级",
-        "typeDockerDaemonDown": "Docker 守护进程停止",
+        "typeContainerUnavailable": "容器执行器不可用",
+        "typeAiConfigUpdate": "AI 配置更新",
+        "typeVerifyCommandsUpdate": "验证命令更新",
         "expand": "展开",
         "collapse": "收起",
         "errors": {

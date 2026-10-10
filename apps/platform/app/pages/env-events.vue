@@ -1,7 +1,8 @@
 <script setup lang="ts">
 // 环境/容器审计事件视图（env-events）
-// 数据源：GET /api/audit-events（sandbox 启动降级 / 运行时失败事件 + 通知状态）
+// 数据源：GET /api/audit-events（执行器/环境异常 + 配置留痕事件 + 通知状态）
 // 过滤维度：type / severity / notified / repositoryId
+// 类型下拉与共享 audit_event 全量类型（AUDIT_EVENT_TYPES）口径一致（5 类）
 import { computed } from 'vue'
 import { ChevronDown, ChevronUp, Funnel } from '@lucide/vue'
 import type { DataTableColumn, InputType } from 'caomei-ui'
@@ -54,7 +55,9 @@ const typeOptions = computed(() => [
     { label: t('envEvents.typeAll'), value: 'all' },
     { label: t('envEvents.typeSandboxUnavailable'), value: 'sandbox_unavailable' },
     { label: t('envEvents.typeSandboxDegraded'), value: 'sandbox_degraded' },
-    { label: t('envEvents.typeDockerDaemonDown'), value: 'docker_daemon_down' },
+    { label: t('envEvents.typeContainerUnavailable'), value: 'container_unavailable' },
+    { label: t('envEvents.typeAiConfigUpdate'), value: 'ai_config_update' },
+    { label: t('envEvents.typeVerifyCommandsUpdate'), value: 'verify_commands_update' },
 ])
 
 const severityOptions = computed(() => [
@@ -92,8 +95,12 @@ const typeLabel = (type: string) => {
             return t('envEvents.typeSandboxUnavailable')
         case 'sandbox_degraded':
             return t('envEvents.typeSandboxDegraded')
-        case 'docker_daemon_down':
-            return t('envEvents.typeDockerDaemonDown')
+        case 'container_unavailable':
+            return t('envEvents.typeContainerUnavailable')
+        case 'ai_config_update':
+            return t('envEvents.typeAiConfigUpdate')
+        case 'verify_commands_update':
+            return t('envEvents.typeVerifyCommandsUpdate')
         default:
             return type
     }

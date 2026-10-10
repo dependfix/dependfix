@@ -541,8 +541,8 @@
     },
     "envEvents": {
         "title": "Env Events",
-        "subtitle": "Sandbox / docker / runtime environment alerts (with notification status)",
-        "empty": "No env events (auto-recorded on sandbox startup degradation or runtime failure)",
+        "subtitle": "Executor / environment faults and config-change audit (with notification status)",
+        "empty": "No env events (auto-recorded on executor faults, environment changes, or config updates)",
         "filterType": "Event Type",
         "filterSeverity": "Severity",
         "filterNotified": "Notification",
@@ -566,7 +566,9 @@
         "severityCritical": "Critical",
         "typeSandboxUnavailable": "Sandbox unavailable",
         "typeSandboxDegraded": "Sandbox degraded",
-        "typeDockerDaemonDown": "Docker daemon down",
+        "typeContainerUnavailable": "Container executor unavailable",
+        "typeAiConfigUpdate": "AI config updated",
+        "typeVerifyCommandsUpdate": "Verify commands updated",
         "expand": "Expand",
         "collapse": "Collapse",
         "errors": {

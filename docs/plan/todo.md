@@ -31,16 +31,18 @@
   - **优先级**：P2
   - **范围**：`apps/platform/Dockerfile`（构建期 `ARG` → 运行时 `ENV` 注入 commit / 版本）；`.github/workflows/`（镜像发布 workflow 传入 `--build-arg`）；`apps/platform/server/api/health.get.ts`（新增只读健康端点，返回 `{ version, commit, startedAt }`）；`apps/platform/server/plugins/`（启动日志打印版本戳）；单测；`docs/standards/platform.md`（部署章 / env 总表）。
   - **验收标准**：
-    - [ ] 镜像构建期可注入 commit / 版本（Docker `ARG` + `ENV`，发布 workflow 传 `--build-arg`）；未注入时优雅缺省（如 `unknown`，不阻断启动）
-    - [ ] 健康端点（`GET /api/health` 或既有等价路径）返回 `{ version, commit, startedAt }`（curl 实证 200 + JSON），鉴权口径与既有只读端点一致
-    - [ ] 启动日志打印版本 / commit，便于 `docker logs` 核对运行态产物
-    - [ ] 单测覆盖端点形状与「未注入 → 缺省回退」分支
-    - [ ] `pnpm lint` 0 error + `pnpm typecheck` 0 error（实测 `2>&1 | grep -E "error TS"` 无命中，不信「Done」宣称）；文档登记（`platform.md`）
-  - **D 阶段决策留痕（待裁定）**：① 暴露形态 = 健康端点 / 仅启动日志 / 二者；② 是否作为发布流水线门禁（核对镜像内 engine 产物关键隔离参数）；③ 版本来源 = 构建 arg / OCI label / `package.json` version。
+    - [x] 镜像构建期可注入 commit / 版本（Docker `ARG` + `ENV`，发布 workflow 传 `--build-arg`）；未注入时优雅缺省 `unknown`（不阻断启动）
+    - [x] 健康端点（`GET /api/health`）**公开只读（无鉴权）**返回 `{ version, commit, startedAt }`（curl 实证 200 + JSON；仅暴露产物标识 + 启动时间，不含凭据 / 环境变量）
+    - [x] 启动日志打印版本 / commit，便于 `docker logs` 核对运行态产物（`[build] version=… commit=… startedAt=…`）
+    - [x] 单测覆盖端点形状与「未注入 → 缺省回退」分支（3 文件 10 用例）
+    - [x] `pnpm lint` 0 error + `pnpm typecheck` 0 error（实测 `2>&1 | grep -E "error TS"` 无命中，不信「Done」宣称）；文档登记（`platform.md` §10.7 / §11）
+  - **D 阶段决策留痕（2026-10-10 用户裁定）**：① 暴露形态 = **健康端点 + 启动日志（二者）**；② 版本来源 = **构建 arg**（CI `--build-arg BUILD_COMMIT/BUILD_VERSION`，未注入缺省 `unknown`；非 OCI label / package.json）；③ 健康端点 **公开无鉴权**（仅 version / commit / startedAt）；④ **不接发布流水线门禁**（门禁属独立评估，本批仅暴露可确认性）。
   - **不做什么**：不引入完整 versioning / 更新检查框架；不改镜像发布流程本身；不暴露构建环境细节（仅 commit + 语义版本）。
   - **依赖**：backlog 候选（现状锚点 `apps/platform/Dockerfile` + 无 health 路由）；事件背景 M37.6（`cb5c146`）运行时产物陈旧。
   - **交付物**：预计 2-3 commits（feat(platform) 端点 + 构建注入 + docs）；文件 4-6（Dockerfile / workflow / health 端点 + 单测 / plugin / platform.md）。
-  - **风险与缓解措施**：① 构建 arg 未传导致版本缺失 → 缺省回退 + 文档 + 启动告警；② 健康端点暴露信息量 → 仅 commit / 版本 / 启动时间，无凭据 / 环境变量；③ workflow 与 Dockerfile 联动遗漏 → 验收标准显式列出 `--build-arg` 接线。
+  - **实际交付（2026-10-10）**：3 commits——`fb6f3e9` feat(platform)（健康端点 + 启动日志 + runtimeConfig 通道 + Dockerfile ARG/ENV + CI build-args + 冒烟端到端断言，10 文件）、`ee22e76` docs(platform)（platform.md §10.7/§11 + configuration.md zh/en + .env.full.example，4 文件）、本条 `docs(plan)` 闭环登记。文件 15——超 §1.1「10 文件」阈值，拆 3 commits 依据：feat（代码/构建）/ docs（文档）/ docs(plan)（闭环）三类各自独立可回滚，feat commit ≤ 10 文件。
+  - **审计（2026-10-10）**：A 阶段 standard **2 分区并发** R1 Pass（P1 实现/构建 0B/2W/3S，evidence `artifacts/review-gate/2026-10-10-m40.1-parA.md`；P2 文档/规范 0B/0W/1S，evidence `-parB.md`）→ 收口 P1-W1（冒烟改固定哨兵 `--build-arg` + `SMOKE_EXPECT_*` 端到端注入断言）/ P1-W2（本条 AC-2 口径修订 + D 决策回填）/ P1-S1（去对同步 handler 的多余 `await`）/ P2-S1（`.env.full.example` NUXT_BUILD_* 移至部署段）→ R2 quick Pass（4 修复点全关闭，0 新增；evidence `-r2.md`）。mutation 3 处全击杀（M1 空串不回退 unknown / M2 startedAt 符号翻转 / M3 端点漏 commit）。运行时双路径实证：设 `NUXT_BUILD_*` → 200 注入值；不设 → 200 `unknown`；启动日志同步一致。全量 `pnpm test` 3805 passed | 10 skipped。
+  - **风险与缓解措施**：① 构建 arg 未传导致版本缺失 → 缺省回退 `unknown` + 文档说明 + 冒烟断言（CI 固定哨兵端到端校验）；② 健康端点暴露信息量 → 仅 commit / 版本 / 启动时间，无凭据 / 环境变量（用户裁定公开无鉴权）；③ workflow 与 Dockerfile 联动遗漏 → 三处 build-push-action 均显式传 `--build-arg` + 冒烟端到端断言兜底；④ runtimeConfig 运行时覆盖通道 → 用 `NUXT_BUILD_*` 前缀（规避 esbuild define 折叠，与 [platform.md §3.6](../standards/platform.md#36-e2e--fixtures-端点双门控规范) 同源），构建产物 grep 与运行时 curl 双实证。
 
 - **M40.2**（P2，🎨 用户体验）失败 run 落 summary 快照
   - **目标**：failed run 在「全部运行」列表中不再恒显「告警数 0 / 已修复 0」，改为展示失败前引擎已扫到的告警数，消除误导（本次排查中即被该现象干扰）。

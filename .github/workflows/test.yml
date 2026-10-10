@@ -68,6 +68,24 @@ jobs:
       # docs:build / typecheck / test 之前，尽早失败（输出为文件:行:编号明细，便于直接定位）。
       # 阻断强度：workflow 级阻断信号（仓库未配置 required status checks，与 visual job 同口径）
       - run: pnpm run check:orphan-ids
+      # 规范冗余关键词门禁（开发/文档规范）：docs/standards 只写规则，不写"案例/教训/实证"类
+      # 叙事；豁免行内代码、fenced code block 与 markdown 链接整体（链接是导航而非散文）。
+      # 负例标定：在 docs/standards 任一文件植入关键词即 exit 1（本地已验），修复后删除脚手架。
+      # 自指面：本文件为 yml，不在脚本扫描面（仅 md）内，新增注释不参与扫描。
+      # 阻断强度：workflow 级阻断信号（仓库未配置 required status checks，与 visual job 同口径）
+      - run: pnpm run check:standards-redundant:strict
+      # 文档行数阈值门禁：阈值取自 docs/standards/documentation.md §3（单一事实源，脚本不硬编码）；
+      # 超「强制分片」阈值 exit 1，warning 带仅报告不阻断；存量超标以脚本内豁免表显式登记。
+      # 负例标定：向声明行命中的文档追加超阈值行数即 exit 1（本地已验），修复后还原。
+      # 自指面：本文件为 yml，不在脚本扫描面（仅 md）内，新增注释不参与扫描。
+      # 阻断强度：workflow 级阻断信号（仓库未配置 required status checks，与 visual job 同口径）。
+      - run: pnpm run check:doc-size
+      # 经验条目落点门禁：每个经验归档条目必须含非空「落点」（L1 脚本 / L2 检查点 / 规范条款），
+      # 占位符视为空——对治「只留条目、不留落点」反模式。脚本零依赖，置于静态检查簇内。
+      # 负例标定：新增无落点条目即 exit 1（本地已验），修复后删除脚手架。
+      # 自指面：本文件为 yml，不在脚本扫描面（仅 md）内，新增注释不参与扫描。
+      # 阻断强度：workflow 级阻断信号（仓库未配置 required status checks，与 visual job 同口径）。
+      - run: pnpm run check:experience-landing
       # docs 构建前置：VitePress 会把 markdown 中的裸 HTML 当作 Vue 模板编译（缺结束标签即失败），
       # lint-md/check-docs 均不检查标签配对——docs 构建失败必须尽早暴露，不等 typecheck/test/build 跑完
       # （教训见经验归档 §三十三：release.md 裸 <path> 导致 Test/Pages 双 workflow 在末尾构建才失败）

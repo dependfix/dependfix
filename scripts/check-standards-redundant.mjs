@@ -16,7 +16,10 @@
  *
  * 例外（不视为违规）：
  * - fenced code block 内（教学示例可能含"教训"等关键词）
- * - 行内代码 `` `经验` `` 内（已通过 `inCode` 标志处理）
+ * - 行内代码 `` `经验` `` 内
+ * - markdown 链接 / 图片整体（`[文本](目标)` 与 `[ref]: url`）——链接是**导航**而非散文：
+ *   文本多为章节名 / 归档名，目标为 URL / 锚点（锚点常由目标标题生成，标题含关键词时
+ *   不应连带命中）。散文中的关键词仍会被扫到（如「这不是一条教训」）
  */
 
 import { readFileSync, readdirSync } from 'node:fs'
@@ -34,6 +37,46 @@ const STANDARDS_DIR = join(REPO_ROOT, 'docs/standards')
  */
 export const DEFAULT_KEYWORDS = ['教训', '经验', '实证', '实战', '背景']
 export const OPTIONAL_KEYWORDS = ['沉淀']
+
+
+/**
+ * 将被豁免的片段替换为**等长空白**（保持列号不变，便于报告定位）：
+ * 行内代码 span 与 markdown 链接 / 图片目标（URL / 锚点）。
+ * @param {string} line
+ * @returns {string}
+ */
+export function sanitizeLine(line) {
+    return line
+        .replace(/`[^`]*`/g, (m) => ' '.repeat(m.length))
+        .replace(/!?\[[^\]]*\]\([^)]*\)/g, (m) => ' '.repeat(m.length))
+        .replace(/^\s*\[[^\]]+\]:\s*\S+/, (m) => ' '.repeat(m.length))
+}
+
+/**
+ * 扫描单行文本（已应用豁免口径），返回命中清单——供单测与复用。
+ * @param {string} line
+ * @param {string[]} [keywords]
+ * @returns {Array<{line: number, col: number, keyword: string, snippet: string}>}
+ */
+export function scanText(line, keywords = DEFAULT_KEYWORDS) {
+    const scanned = sanitizeLine(line)
+    const hits = []
+    for (const kw of keywords) {
+        const re = new RegExp(kw, 'g')
+        let m
+        while ((m = re.exec(scanned)) !== null) {
+            const start = Math.max(0, m.index - 10)
+            const end = Math.min(line.length, m.index + kw.length + 20)
+            hits.push({
+                line: 1,
+                col: m.index + 1,
+                keyword: kw,
+                snippet: line.slice(start, end).trim(),
+            })
+        }
+    }
+    return hits
+}
 
 /**
  * 扫描单个 markdown 文件，返回命中清单（跳过 fenced code block）。
@@ -53,10 +96,11 @@ export function scanFile(file, keywords = DEFAULT_KEYWORDS) {
         if (inCode) {
             return
         }
+        const scanned = sanitizeLine(line)
         for (const kw of keywords) {
             const re = new RegExp(kw, 'g')
             let m
-            while ((m = re.exec(line)) !== null) {
+            while ((m = re.exec(scanned)) !== null) {
                 const start = Math.max(0, m.index - 10)
                 const end = Math.min(line.length, m.index + kw.length + 20)
                 hits.push({

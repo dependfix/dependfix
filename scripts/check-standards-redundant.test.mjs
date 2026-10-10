@@ -5,7 +5,14 @@ import { mkdtempSync, writeFileSync, mkdirSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, it, expect } from 'vitest'
-import { scanFile, scanStandards, DEFAULT_KEYWORDS, OPTIONAL_KEYWORDS } from './check-standards-redundant.mjs'
+import {
+    DEFAULT_KEYWORDS,
+    OPTIONAL_KEYWORDS,
+    sanitizeLine,
+    scanFile,
+    scanStandards,
+    scanText,
+} from './check-standards-redundant.mjs'
 
 describe('scanFile', () => {
     it('returns empty for clean file', () => {
@@ -114,5 +121,31 @@ describe('scanStandards', () => {
         } finally {
             rmSync(tmp, { recursive: true })
         }
+    })
+})
+
+describe('sanitizeLine / 豁免口径', () => {
+    it('豁免行内代码 span', () => {
+        expect(sanitizeLine('- 见 `经验` 与 `教训`')).not.toMatch(/经验|教训/)
+    })
+
+    it('豁免 markdown 链接整体（文本 + 目标锚点）', () => {
+        expect(sanitizeLine('详见 [经验归档 §五十](../x.md#教训-锚点)')).not.toMatch(/经验|教训/)
+        expect(sanitizeLine('![经验](../img/实证.png)')).not.toMatch(/经验|实证/)
+    })
+
+    it('豁免引用式链接定义', () => {
+        expect(sanitizeLine('[arch]: ../design/经验.md')).not.toMatch(/经验/)
+    })
+
+    it('散文中的关键词仍被扫到', () => {
+        const hits = scanText('- 这不是一条教训，只是背景说明')
+        expect(hits.map((h) => h.keyword).sort()).toEqual(['教训', '背景'])
+    })
+
+    it('豁免后不误伤同行普通文本（列号保持）', () => {
+        const hits = scanText('前段 `经验` 后段 教训')
+        expect(hits).toHaveLength(1)
+        expect(hits[0]).toMatchObject({ col: 12, keyword: '教训' })
     })
 })

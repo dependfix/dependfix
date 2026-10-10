@@ -29,6 +29,8 @@
     "check:orphan-ids:json": "node scripts/check-orphan-ids.mjs --json",
     "check:standards-redundant": "node scripts/check-standards-redundant.mjs",
     "check:standards-redundant:strict": "node scripts/check-standards-redundant.mjs --strict",
+    "check:doc-size": "node scripts/check-doc-size.mjs",
+    "check:experience-landing": "node scripts/check-experience-landing.mjs",
     "i18n:audit": "node scripts/i18n/audit-locale-keys.mjs",
     "i18n:audit:missing": "node scripts/i18n/audit-locale-keys.mjs --only=missing --fail-on-missing",
     "i18n:audit:unused": "node scripts/i18n/audit-locale-keys.mjs --only=unused",

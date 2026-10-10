@@ -1470,3 +1470,71 @@ todo.md §M27.1 任务段（L17-48）所有 8 要素（目标 / 范围 / 验收 
 
 本案例符合准入标准第 1 条「教训未落入规范」（案例一至七的可执行方法论均已迁移 `docs/standards/` 或设计稿 + 治理索引）+ 第 3 条「重复违规预警」（案例六的口径账目不可复现是 M29.3 同源形态复发；案例五的不可达分支处置是「mutation 存活」判据的延伸）+ 第 4 条「工具 / 环境陷阱」（案例二的 SSR 渲染 500、案例三的存储访问抛错、环境注记的 store hash 均为真实环境才暴露）。
 
+## 六十八、M39 归档批次经验沉淀（信号边界 / 通知白名单 / 分组连续性 / 弹窗宽度钩子 / 口径同源 / 运行时开关只读端点）
+
+> 2026-10-10 M39 归档批次。本阶段为「平台视图体验与可观测补强」闭环（扫描页筛选分页 / 扫描历史弹窗 / 告警按包聚合 / 日志下载 / PR Check 启用链路 / 环境事件覆盖），衍生暴露信号语义边界、通知策略单一入口、行分组连续性、弹窗响应式宽度、跨文档量化口径与运行时开关取数六类教训。
+
+### 案例一：环境事件与运行失败分类的语义边界 + 通知策略下沉单一入口
+
+- **现象**：`AuditEvent`（环境事件）与 `ScanRun.failure_code/stage/kind`（运行失败分类）都会记录「失败」，若不做边界，同一现象会被双重记录；通知此前靠「调用方是否调用 `notifyEnvEvent`」隐式决定是否发信，缺显式策略，易随新事件类型放大通知量。
+- **修法**：**边界定稿**——环境事件 = 执行器 / 执行环境健康信号（`sandbox_unavailable` / `sandbox_degraded` / `container_unavailable`，可跨 run 反映环境健康）；单次运行结果类（`execution_timeout` / `clone_timeout` / `execution_failed` / `push_failed`）只记失败分类，不额外记环境事件。**通知策略下沉**到 `notifyEnvEvent` 入口的 `shouldNotifyEnvEvent(type)` 白名单（环境异常类发 / 配置留痕类仅留痕不发；**未白名单默认不发** = fail-safe），而非散落在各调用方。
+- **沉淀**：代码注释（`audit-event.ts` 类型注释 + `notification/policy.ts`）为事实源；通知白名单 + fail-safe 属设计决策（暂未抽为独立 strict 条款，复发则蒸馏）。
+
+### 案例二：告警「一个包一组」靠组排序键（组间唯一）而非行级排序
+
+- **现象**：caomei/TanStack DataTable 为**相邻行分组**；`groupRowsBy` 字段列被剔除后无法以其排序，默认行级 severity 降序会把同包跨档行拆到不同区块 → 同名分组头重复。
+- **修法**：让「严重级别」列在按包模式返回**组排序键**（组内最高级别 rank × 步长 − 包名升序序号，组间唯一）→ 同包所有行共享同一排序值且键组间唯一，任何排序下同包相邻；组键固定为第一排序键。视觉基线 `--update-snapshots=all` 重建 + mutation 标定。
+- **沉淀**：[platform.md §7.4「分组列与分组连续性」](../../standards/platform.md#74-caomei-ui-接线约定)。
+
+### 案例三：`CaomeiDialog` inline `:style` 宽度压过 `:breakpoints`（死代码）
+
+- **现象**：`:style="{width:'720px'}"` 的 inline 样式优先级**恒高于**样式表规则（含 `:breakpoints` 生成的媒体查询）→ 既有 `:breakpoints` 成死代码，窄视口不生效。
+- **修法**：改用 caomei 设计钩子 `:style="{'--caomei-dialog-width':'720px'}"`（自定义属性是「值」而非宽度声明，不参与优先级竞争）；基类自带 `min(90vw, var(...))` + `@media (width<=640px)` 全宽规则天然响应式。定宽且无 breakpoint 需求者仍可用 inline。
+- **沉淀**：[platform.md §7.4](../../standards/platform.md#74-caomei-ui-接线约定) + 检查点矩阵新增行（弹窗响应式宽度写法）。
+
+### 案例四：跨文档引用同一批需求须区分「用户报告项数 / 登记候选数 / 上收原子数」
+
+- **现象**：同一批需求在 `todo.md` / `roadmap.md` / `backlog.md` 三处出现互相矛盾的数字（8 项 vs 9 项），A 阶段审计命中。
+- **修法**：分三类计数并给换算关系（用户 8 项平台问题 → 归并 6 原子；backlog 批次 9 项候选 = 6 项上收 + 3 项保留），并标注测量方与可复现口径。
+- **沉淀**：[planning.md §2.5 跨文档量化口径同源区分](../../standards/planning.md#25-任务详细度要求) + 检查点矩阵既有行扩展。
+
+### 案例五：运行时 env 开关的 UI 状态暴露用只读端点
+
+- **现象**：需要在 UI 反映服务端**运行时** env 开关（如 `ACTION_STATUS_MONITOR_ENABLED`）时，若用 Nuxt `runtimeConfig.public`——`nuxt.config` 求值在**构建期**，非 `NUXT_PUBLIC_` 前缀的根级 env 只在构建时烘焙，容器运行时 `-e` 注入不刷新公开配置 → 公开配置与 `process.env` 口径漂移。
+- **修法**：由服务端**只读端点**按请求读 `process.env` 返回状态（如 `GET /api/schedules/monitor-status`），前端据此渲染提示；UI 文案说明「设置后需重启」。
+- **沉淀**：[platform.md §7.6 运行时 env 开关的 UI 状态暴露用只读端点](../../standards/platform.md#76-运行时-env-开关的-ui-状态暴露用只读端点) + 检查点矩阵新增行。
+
+### 案例六：新增前端 e2e 断言同样需要 mutation 标定
+
+- **现象**：UI 口径类改动（如下拉选项全量对齐）缺少后端断言，A 阶段审计指出「断言非恒真但『会失败』的因果链未实测」。
+- **修法**：对 e2e 断言做 mutation——移除被断言的选项后重建 `.output` 复跑，确认断言如期失败（本例计数 6→5），再还原。
+- **沉淀**：[testing.md §6.5](../../standards/testing.md)（现有「新增 / 修改断言须 mutation 标定」条款的适用面扩展到 e2e）。
+
+### 环境注记：本机 `pnpm exec` 过期 store hash + e2e 需重建 `.output` 与临时 config
+
+- **现象**：`pnpm exec vitest` / `pnpm exec cross-env` / `pnpm exec playwright` 报 `MODULE_NOT_FOUND`（路径指向旧 pnpm store hash），Playwright `webServer.command`（`pnpm exec cross-env ...`）因此无法启动；平台 e2e 用预构建 `.output`。
+- **处置**：直连 `node_modules/.pnpm/vitest@.../vitest.mjs` 与 `apps/platform/node_modules/.bin/playwright`；e2e 前重建 `.output` + 删 gitignored `data/e2e.sqlite` + `TMPDIR=/tmp/opencode/chrome-tmp`，并以临时 local config 覆盖 `webServer.command`（运行后删除）。不构成规范条款（环境噪声）。
+- **边界**：本地 root 容器可正常 `chromium.launch()`（无需 `--no-sandbox`），与早期记录不同——按当前环境实测为准。
+
+### 与既有教训的关联
+
+- 案例一与 [§六十七 案例一（失败分类落库）](#六十七m37-归档批次经验沉淀分类落库--设备级偏好--失败写回--信号去重--口径分治--门禁接线) 同属「失败 / 信号语义建模」主题：M37.1 建失败分类模型，M39.6 划清它与环境事件的边界。
+- 案例三与 [§六十七 案例二（caomei SelectItem 空串 value）](#六十七m37-归档批次经验沉淀分类落库--设备级偏好--失败写回--信号去重--口径分治--门禁接线) 同属「caomei 接线陷阱，只有真实渲染才暴露」类，共同沉淀进 [platform.md §7.4](../../standards/platform.md#74-caomei-ui-接线约定)。
+- 案例四与 [§六十七 案例六（口径账目可复现）](#六十七m37-归档批次经验沉淀分类落库--设备级偏好--失败写回--信号去重--口径分治--门禁接线) 同属「跨文档口径一致性」主题，且都曾由 A 阶段审计命中后修正。
+- 案例五与 [§六十六 案例五（并发终态写）](#六十六m36-归档批次经验沉淀运行时--部署--并发写--三态判定--e2e-cookie) 无直接关系，但同属「构建期 vs 运行时」语义落差类（前者 env 烘焙，后者内存快照）。
+
+### 挂接治理检查点
+
+| 教训 | 规范条款 | Review 检查点挂接状态 |
+|:--|:--|:--|
+| 跨文档量化口径同源区分 | [planning.md §2.5](../../standards/planning.md#25-任务详细度要求) | ✅ 合并入既有矩阵行（扩展） |
+| 运行时 env 开关 UI 用只读端点 | [platform.md §7.6](../../standards/platform.md#76-运行时-env-开关的-ui-状态暴露用只读端点) | ✅ 已挂矩阵（新增行） |
+| CaomeiDialog 响应式宽度设计钩子 | [platform.md §7.4](../../standards/platform.md#74-caomei-ui-接线约定) | ✅ 已挂矩阵（新增行） |
+| 分组连续性组排序键 | [platform.md §7.4](../../standards/platform.md#74-caomei-ui-接线约定) | ✅ 已在 §7.4 条款内（无独立矩阵行） |
+| 环境事件 / 失败分类边界 + 通知白名单 | 代码注释（`audit-event.ts` / `notification/policy.ts`） | ◻ 设计决策留痕（未抽 strict 条款；复发则蒸馏） |
+| e2e 断言 mutation 标定 | [testing.md §6.5](../../standards/testing.md) | ✅ 合并入既有矩阵行（适用面已覆盖） |
+
+### 准入标准复核
+
+本案例符合准入标准第 1 条「教训未落入规范」（案例二 / 三 / 四 / 五的可执行方法论均已迁移 `docs/standards/`）+ 第 3 条「重复违规预警」（案例三与 §六十七 案例二同属 caomei 接线陷阱；案例四与 §六十七 案例六同属跨文档口径一致性，均属同类复发模式）+ 第 4 条「工具 / 环境陷阱」（环境注记的 store hash 与 `.output` 重建为真实环境才暴露）。
+

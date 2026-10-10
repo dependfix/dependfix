@@ -27,7 +27,7 @@
 - **2.1.2 命令式恢复**：`server/database/scripts/db-restore.ts` 存在且含 CLI 入口守卫；用法 `pnpm db:restore --from=<backup-file>`；必须 `--yes` 二次确认；恢复前自动备份当前库（`data/backups/auto.${timestamp}-${ms}.bak`，纳入保留策略）；恢复后删除属于旧库的 `-wal` / `-shm` / `-journal` 旁文件。
 - **2.1.3 数据库自检工具**：`server/database/scripts/db-doctor.ts` 存在且含入口守卫（`pnpm db:doctor`）；输出各表行数 + `freelist_count` + `page_count` + `schema_version` + `journal_mode` + `integrity_check` + `sqlite_sequence` + 文件大小与时间戳；**判定逻辑**——`schema_version = 0` + 各表空 → 全新库；`schema_version > 0` + 各表空 → 数据被清空或从未注入；`freelist_count > 0` → 有数据被删未 VACUUM；`integrity_check != 'ok'` → 数据库损坏。
 - **2.1.4 与 e2e / fixtures 端点的关系**：`server/api/e2e/*` 端点双门控（`E2E_TEST` + `runtimeConfig.e2eFixturesAllowed` 兜底）也是数据保护的一环；**不能**用 `process.env.NODE_ENV === 'production'` 作第二门控（构建期静态替换致表达式折叠，prod build 恒 404，详见 [platform.md §3.6](./platform.md)）。
-- **2.1.5 防御措施挂接**：本节防御加固由 2026-09-01 `dependfix.sqlite` 数据清空事故触发（事故根因与应急响应见 [归档 §五十](../design/governance/experience-archive.md) + [development.md §5.1.18](./development.md) + [platform.md §3.7](./platform.md)）。
+- **2.1.5 防御措施挂接**：本节防御加固由 2026-09-01 `dependfix.sqlite` 数据清空事故触发（事故根因与应急响应见 [归档 §五十](../design/governance/experience-archive-§49-§57-recent-investigation.md#五十sqlite-数据库业务数据被清空开发环境不可恢复事故2026-09-01) + [development.md §5.1.18](./development.md#51-工程实践规则) + [platform.md §3.7](./platform.md)）。
 
 ## 3. Web 安全防护 (Web Protection)
 

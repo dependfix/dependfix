@@ -19,7 +19,7 @@ Nuxt 4（全栈 SSR + API Routes，`app/` + `server/`）/ TypeScript strict / UI
 
 ## 3. 数据库规范（多后端兼容 + 时区）
 
-- **3.1 环境变量（DATABASE_* 族）**：`DATABASE_TYPE` · `DATABASE_URL` · `DATABASE_PATH` · `DATABASE_SSL` · `DATABASE_ENTITY_PREFIX` · `DATABASE_SYNCHRONIZE` · `MACHINE_ID`——默认值与口径以 [平台配置指南](../guide/configuration.md) + [`.env.full.example`](../../apps/platform/.env.full.example) 为准（[§11](#11-环境变量总表env-example-对齐) 只列平台差异点）；`DATABASE_SYNCHRONIZE` 的反模式禁止见 [development.md §5.1.19](./development.md)。
+- **3.1 环境变量（DATABASE_* 族）**：`DATABASE_TYPE` · `DATABASE_URL` · `DATABASE_PATH` · `DATABASE_SSL` · `DATABASE_ENTITY_PREFIX` · `DATABASE_SYNCHRONIZE` · `MACHINE_ID`——默认值与口径以 [平台配置指南](../guide/configuration.md) + [`.env.full.example`](../../apps/platform/.env.full.example) 为准（[§11](#11-环境变量总表env-example-对齐) 只列平台差异点）；`DATABASE_SYNCHRONIZE` 的反模式禁止见 [development.md §5.1.19](./development.md#51-工程实践规则)。
 - **3.2 时区与列类型（关键约束）**：时间列**必须**经 `getDateType()` 取列类型（`server/database/type.ts`），**禁止**硬编码 `'datetime'` / `'timestamp'`（PostgreSQL 会静默产生时区偏移）；`postgres` 映射 `timestamp with time zone`；`CreateDateColumn` / `UpdateDateColumn` / 日期字段统一 `{ type: getDateType() }`，代码一律用 `Date` 对象。
 
 ### 3.3 DataSource 初始化
@@ -87,7 +87,7 @@ Nuxt 4（全栈 SSR + API Routes，`app/` + `server/`）/ TypeScript strict / UI
 
 - 派生字段（`_severityRank` / `_statusRank` / `_roleRank`）的**运行时修改路径必须同步**（每次 `updateXxxRank`），否则排序引用陈旧 rank → 业务语义错位。
 - 图表组件：优先自实现 `chart-canvas.vue`（仅注册用到的 controllers / elements / scales / plugins，避免全量 `chart.js/auto` 体积）；用 `<ClientOnly>` 包裹避免 SSR `window is not defined`。
-- **类型 vs 运行时契约核验**：编写 v-model / ref / callback 契约时**必须直读依赖包源码**（`node_modules/<pkg>/dist/*.mjs`）——Vue 对未知 prop / 事件**静默忽略**，类型声明可能滞后或过宽；bugfix 可用一次性 smoke 脚本（`tests/e2e/_smoke-xxx.mjs`，跑完即删）监听 `pageerror` / `console.error`、过滤已知噪声（如 preload warnings）并断言关键错误文本，比单纯 typecheck 更具说服力，验证后清理不留痕（[开发规范 §5.1.11](./development.md)）。
+- **类型 vs 运行时契约核验**：编写 v-model / ref / callback 契约时**必须直读依赖包源码**（`node_modules/<pkg>/dist/*.mjs`）——Vue 对未知 prop / 事件**静默忽略**，类型声明可能滞后或过宽；bugfix 可用一次性 smoke 脚本（`tests/e2e/_smoke-xxx.mjs`，跑完即删）监听 `pageerror` / `console.error`、过滤已知噪声（如 preload warnings）并断言关键错误文本，比单纯 typecheck 更具说服力，验证后清理不留痕（[开发规范 §5.1.11](./development.md#51-工程实践规则)）。
 
 ### 7.2 i18n 配置单点声明
 
@@ -188,7 +188,7 @@ Nuxt 4（全栈 SSR + API Routes，`app/` + `server/`）/ TypeScript strict / UI
 ## 12. 决策记录（2026-08-07 人工审查确认）
 
 - **多后端时机**：默认 SQLite 交付，`getDateType()` + driver 注入 + `DATABASE_URL` 推断一次性做对，MySQL / PG 真实部署验证延后。—— ✅ 确认
-- **表前缀**：默认 `dependfix_`（`DATABASE_ENTITY_PREFIX` 可配）；**synchronize 策略**：后续统一演进为 `synchronize` / `migrationsRun` 均显式 opt-in（见 [development.md §5.1.19](./development.md)）。—— ✅ 确认
+- **表前缀**：默认 `dependfix_`（`DATABASE_ENTITY_PREFIX` 可配）；**synchronize 策略**：后续统一演进为 `synchronize` / `migrationsRun` 均显式 opt-in（见 [development.md §5.1.19](./development.md#51-工程实践规则)）。—— ✅ 确认
 - **雪花 ID**：48 位时间戳 + 10 位机器 + 12 位序列（hex 输出），全局统一；**首用户 admin**：首个注册用户自动 `role=admin`；**文件命名**：文件与 Vue 组件统一 kebab-case（已同步 [开发规范 §2](./development.md)）。—— ✅ 确认
 
 ## 13. 相关文档

@@ -114,14 +114,17 @@
   - **优先级**：P3
   - **范围**：`apps/platform/server/services/scan-orchestrator.service.ts`（`recordEnvAuditEvent` 事件源扩展）；`apps/platform/server/entities/audit-event.ts`（事件类型 / 写入点）；`apps/platform/app/pages/env-events.vue`（类型下拉与共享 `audit_event` 全量类型口径统一）；`apps/platform/server/services/notification/`（新事件通知策略）；定向测试。
   - **验收标准**：
-    - [ ] container 执行器下的「环境 / 运行时异常」按定稿口径落 `AuditEvent`（事件集与「运行失败分类」的边界在 D 阶段前定稿，避免同一现象双重记录）
-    - [ ] `docker_daemon_down` 二选一：落地启动探测写入，或从事件枚举移除（不保留无写入点的死类型）
-    - [ ] `env-events.vue` 类型下拉与共享 `audit_event` 全量类型（含 `ai_config_update` / `verify_commands_update`）口径一致（展示或显式过滤，二者择一并在页面说明）
-    - [ ] 新事件的通知策略明确（发 / 不发及级别），`notifyEnvEvent` 行为有定向测试守护
-    - [ ] `pnpm lint` + `pnpm typecheck` 0 error；`pnpm --filter @dependfix/platform test`（定向）全过
+    - [x] container 执行器下的「环境 / 运行时异常」按定稿口径落 `AuditEvent`（**判据定稿**：环境事件 = 执行器 / 执行环境健康信号；单次运行结果类（`execution_timeout` / `clone_timeout` / `execution_failed` / `push_failed`）只记失败分类，不额外记环境事件）→ 新增 `container_unavailable`（container 路由与 sandbox 降级回退点共用 `runContainerExecutor` helper 先探测 `isAvailable()`，false → 事件 + run failed）
+    - [x] `docker_daemon_down` 二选一 → **判据定稿 = 从事件枚举移除**（无写入点死类型；sandbox daemon 不可用已由 per-run `sandbox_degraded` 覆盖）；从 `AuditEventType` / `AUDIT_EVENT_TYPES` / 前端下拉 / i18n 清出（`type` 列 `varchar(64)` 无 DB 枚举约束，无需迁移）
+    - [x] `env-events.vue` 类型下拉与 `audit_event` 全量类型口径一致 → **判据定稿 = 展示全量 5 类**（`sandbox_unavailable` / `sandbox_degraded` / `container_unavailable` / `ai_config_update` / `verify_commands_update`，与实体 / API 同源）
+    - [x] 新事件的通知策略明确 → **判据定稿 = 类型白名单**（环境异常类 `sandbox_unavailable` / `sandbox_degraded` / `container_unavailable` 发通知；配置留痕类 `ai_config_update` / `verify_commands_update` 仅落库不发）；抽出 `notification/policy.ts` 的 `shouldNotifyEnvEvent`（`notifyEnvEvent` 入口判定，未白名单默认不发），单测 + 探针渠道用例双重守护
+    - [x] `pnpm lint`（0 error）+ `pnpm typecheck`（7 包 Done）0 error；`pnpm --filter @dependfix/platform test`（定向）全过（167 passed）；全量 vitest 237 passed | 2 skipped；coverage 4 维全过（branches 82.56%）；env-events e2e 11 passed
   - **不做什么**：不改 sandbox 执行器行为；不引入新通知渠道；不改 `audit_event` 既有字段语义（如新增类型需加迁移）；不改执行器选择 / 降级链。
   - **依赖**：`scan-orchestrator` executorKind 路由与降级链（M11 T1005 已闭环）；`notifyEnvEvent` 通知链（M11 已闭环）。
-  - **交付物**：预计 2-3 commits（feat(platform) 事件覆盖 + 前端口径统一 + docs(plan)）；文件 4-6。
+  - **D 阶段决策留痕（2026-10-10，用户裁定）**：① 边界 = 环境事件聚焦「执行器 / 执行环境健康」，单次运行结果类只记失败分类（不双重记录）；② container 事件源 = run 前探测 `ContainerExecutor.isAvailable()`，false → `container_unavailable`(error) + run failed；③ `docker_daemon_down` **从枚举移除**（不保留无写入点死类型）；④ 类型下拉展示全量 5 类（与实体 / API 同源）；⑤ 通知策略 = 类型白名单（环境异常类发 / 配置留痕类仅留痕不发）。
+  - **实际交付（2026-10-10）**：拆 4 commits——`feat(platform)`（后端：`audit-event` 枚举收敛 + `notification/policy.ts` 白名单 + `notifyEnvEvent` 入口判定 + `scan-orchestrator` 抽 `runContainerExecutor` helper 并覆盖 container / sandbox 回退两点 + `run-failure-classify` 补码）/ `feat(platform)`（前端：`env-events.vue` 下拉全量 + i18n 双语）/ `test(platform)`（单测 ×3 文件 + e2e）/ `docs(plan)`（todo 闭环 + backlog）；共 13 文件（后端 5 + 前端 3 + 测试 5）+ backlog。**拆分依据**：超 §1.1「10 文件」阈值，按 后端 / 前端+i18n / 测试 / 文档 四类独立可回滚拆分（各 commit ≤ 10 文件）；属单模块增量、净增 < 800 行，未触发 governance 硬阈值。
+  - **审计（2026-10-10）**：standard 2 分区并发 R1 Pass（parA 后端/单测 0B/2W/3S；parB 前端/i18n/e2e 0B/1W/2S；evidence：`artifacts/review-gate/2026-10-10-m39.6-parA.md` / `-parB.md`）→ 收口 RG-W1（补跑 coverage 4 维）/ RG-W2（sandbox 降级回退点未探测 container → 抽 `runContainerExecutor` helper 统一 + 补单测）/ RG-S2（`repositoryId` 注释去已移除类型举例）/ RG-S3（audit-only 分支注释语义）/ parB RG-W01（typeOptions mutation 击杀 e2e）/ parB RG-S02（补类型标签渲染 e2e）→ R2 quick Pass（0B/0W；新增 1 条非阻塞观察 RG-S4「sandbox 回退路径未落 `logsJson`，HEAD 同源非回归」已登记 backlog）；RG-S1（块级合规）/ parB RG-S01（下拉口径无单一事实源，由 e2e 计数 + 文案守护）接受不改。
+  - **交付物**：2-3 commits（预估）；**实际 4 commits / 13 文件**（拆分为 后端 / 前端+i18n / 测试 / 文档）。
   - **风险与缓解措施**：① 事件语义与「运行失败分类」重叠（如 `clone_timeout` 已属 `failure_stage=clone`）→ D 阶段前定稿边界（环境事件聚焦执行环境健康，失败分类聚焦单次运行结果）；② 通知量放大 → info / warn 级默认不发通知或聚合并去重；③ 类型下拉与全量类型口径统一可能改变既有页面行为 → 页面文案显式说明过滤口径。
 
 ---

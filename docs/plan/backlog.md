@@ -147,7 +147,13 @@
   - **触发条件**：两页继续增长致 warning 逼近上限；或用户要求清理。
   - **按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
 
-> 本区块保留 M37 执行期延后项（受约束重试入口 / 服务端跨设备偏好）+ 审计与复核衍生的待评估候选（push 侧 hooks 隔离 / tech-stack 依赖表行级不一致 / `distill-wisdom` 计数假阴性 / 门禁脚本产物排除缺口 / 弹窗 history 模式与 legacy 页死代码 / `platform-scheduled-batch.md` 设计快照端点表陈旧 / 页面体量超 `max-lines`）+ M38.1 独立 worker 形态衍生候选（按 role 跳过周期插件 / worker 崩溃自动重启）+ M38.3 审计范围外观察（reuse 路径与去重合并叠加误置 failed）+ M38.6 同源点穷举候选（严重级别展示策略统一）+ 2026-10-09 运行失败根因评估批次未上收 3 项（部署版本戳陈旧校验 / 失败 run 落 summary 快照 / 执行超时可配置化）；该批次其余 6 项已于 2026-10-09 上收 M39（扫描页筛选分页 / 日志下载 / 弹窗体验 / 告警按包聚合 / PR Check 启用链路 / 环境事件覆盖，见上方批次说明）；2026-10-08 M38 启动批次已上收 4 项（`scan.post` failover / e2e 卡片计数 / `scan-queue.ts` 注释 / schedule 选项口径），M37 启动前原有 6 项已随 M37 闭环归档（见上方批次说明）。
+- **sandbox 降级回退路径不落执行日志（待评估）** —— M39.6 A 阶段复审 RG-S4 观察（**非本批引入**，HEAD 同源）：`scan-orchestrator.service.ts` 的 sandbox A 场景（sandbox 不可用 → 降级 container）回退路径未把 `ContainerExecutor` 返回的 `logsJson` 落 `ScanRun.logsJson`，故 degraded 状态 run 在「运行日志」弹窗 / 下载中无日志可看；container 主路由已捕获日志，仅回退路径存在缺口。
+  - **待评估点**：① 回退路径补 `logsJson` 落库（与主路由一致）；② 或明确 degraded 回退 run 不提供日志的边界并在 UI 说明。
+  - **现状锚点**：`apps/platform/server/services/scan-orchestrator.service.ts`（M39.6 抽出的 `runContainerExecutor` 已返回 `logsJson`，sandbox 回退调用点未消费）。
+  - **触发条件**：用户反馈 sandbox 降级 run 无日志；或再次改动 `scan-orchestrator` 执行路由。
+  - **按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
+
+> 本区块保留 M37 执行期延后项（受约束重试入口 / 服务端跨设备偏好）+ 审计与复核衍生的待评估候选（push 侧 hooks 隔离 / tech-stack 依赖表行级不一致 / `distill-wisdom` 计数假阴性 / 门禁脚本产物排除缺口 / 弹窗 history 模式与 legacy 页死代码 / `platform-scheduled-batch.md` 设计快照端点表陈旧 / 页面体量超 `max-lines` / sandbox 降级回退路径未落执行日志）+ M38.1 独立 worker 形态衍生候选（按 role 跳过周期插件 / worker 崩溃自动重启）+ M38.3 审计范围外观察（reuse 路径与去重合并叠加误置 failed）+ M38.6 同源点穷举候选（严重级别展示策略统一）+ 2026-10-09 运行失败根因评估批次未上收 3 项（部署版本戳陈旧校验 / 失败 run 落 summary 快照 / 执行超时可配置化）；该批次其余 6 项已于 2026-10-09 上收 M39（扫描页筛选分页 / 日志下载 / 弹窗体验 / 告警按包聚合 / PR Check 启用链路 / 环境事件覆盖，见上方批次说明）；2026-10-08 M38 启动批次已上收 4 项（`scan.post` failover / e2e 卡片计数 / `scan-queue.ts` 注释 / schedule 选项口径），M37 启动前原有 6 项已随 M37 闭环归档（见上方批次说明）。
 
 ### 待上收候选（评估完成，等待用户决策）
 

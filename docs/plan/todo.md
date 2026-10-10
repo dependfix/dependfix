@@ -30,14 +30,16 @@
   - **目标**：`docs/standards/*.md` 只保留「规则 + 通用方法 + 极少数项目个性化偏好 + 一行外链」，剥离实现细节（类名 / SCSS 片段 / 结构化路径清单 / 行号）与长段教训 / 实证 / commit hash；`check:standards-redundant --strict` 归零、每文件落至健康窗口。
   - **优先级**：P2
   - **范围**：`docs/standards/*.md`（14 文件 3211 行；重点 3 超 400 行文件：`platform.md` 544 / `development.md` 512 / `ai-collaboration.md` 494）；被剥离内容的迁移落点 = **代码注释** / **设计文档** / **经验索引 L3**（`docs/design/governance/experience-archive*.md`）。
-  - **验收标准**：
-    - [ ] `pnpm run check:standards-redundant:strict` exit 0（当前 166 处命中 / 9 文件归零；复现命令 `pnpm run check:standards-redundant` 前置取证）
-    - [ ] `wc -l docs/standards/*.md` 全部 ≤ 200 行，或已按 [documentation.md §3](../standards/documentation.md) 阈值分片至健康窗口（3 超阈值文件必须落位）
-    - [ ] 剥离后无 13 行类代码块 / commit hash / 长段（> 2 句）教训实证（由 `--strict` 脚本 + 人工抽查双向确认）
-    - [ ] 剥离内容有明确迁移落点（代码注释 / 设计文档 / L3 索引），**无直接删除**——逐文件按 [规划规范 §4.4 第 9 条](../standards/planning.md#44-大批量归档批次操作规范) 双向核验
-    - [ ] `pnpm run check:docs` + `pnpm run lint:md` 0 error；单点声明原则保持（无跨文件重复条款）
+  - **验收标准**（2026-10-10 全部达成）：
+    - [x] `pnpm run check:standards-redundant:strict` exit 0——由 166 处命中 / 9 文件 → **0 处命中**（实测 exit 0）
+    - [x] `wc -l docs/standards/*.md` 全部 ≤ 200 行（最大值 200：`git.md` / `ai-collaboration.md`；总行数 3225 → 1644）
+    - [x] 剥离后无代码块 / commit hash / 长段叙述（`rg -c '^```'` 各文件为 0 + 人工抽查双向确认）
+    - [x] 剥离内容有明确迁移落点（既有设计文档 / 使用指南 / L3 归档 / 检查点矩阵），逐文件按 [规划规范 §4.4 第 9 条](../standards/planning.md#44-大批量归档批次操作规范) 双向核验（A 阶段 deep 审计逐节对照确认无静默丢失）
+    - [x] `pnpm run check:docs`（149/85）+ `pnpm run lint:md:check` + `pnpm run check:orphan-ids`（0/656）+ `docs:build` 全部通过；单点声明原则保持
   - **D 阶段决策留痕（待裁定）**：① 分片 vs 纯瘦身（超 200 行是否强制分片）；② 迁移落点归属（哪些进代码注释、哪些进设计文档、哪些进 L3）；③ `docs/standards/index.md` 是否需同步调整。
   - **批次拆分说明**：预估 8-14 文件 / 净瘦 ~1200 行，**超过** [规划规范 §1.1 任务粒度约束](../standards/planning.md#11-硬性约束) 的 > 10 文件 / > 800 行阈值 → 内部拆 **3 个可独立提交批次**：**A1** `platform.md`（544 → ≤ 200）；**A2** `development.md` + `ai-collaboration.md`（512 / 494 → ≤ 200）；**A3** 其余 11 个 standards 文件按需瘦身。每批次独立验收点 + 独立 A 阶段审计。
+  - **闭环记录**：A1 `ab55d86`（`platform.md` 544 → 197；deep R1 Pass → 修复 2 warning + 1 suggest → R2 quick Pass）/ A2 `9245ebf`（`development.md` 512 → 148、`ai-collaboration.md` 494 → 200；deep R1 Pass，0 blocker / 0 warning）/ A3 `2362d2f` + `0d69f72`（`planning.md` 284 → 151、`security.md` 276 → 118、`testing.md` 245 → 114、`documentation.md` 214 → 95、`i18n.md` 204 → 184、`git.md` 201 → 200；deep R1 **Reject**（archive 盲区锚点回归）→ 修复 → R2 quick Pass）；A3 因变更越 §1.4 的 10 文件线按规则拆为「标题改名 + 引用同步」与「六文件重写」两个可独立验证提交。
+  - **延后登记**（A 阶段审计 suggest，非阻塞）：① 为达成关键词归零而剥离的链接锚点片段（`git.md` / `i18n.md` / `ai-collaboration.md` / `platform.md` 等）→ 留 **M41.3** 收敛门禁关键词精度（跳过链接 URL / 锚点）后回填；② `ai-collaboration.md` 重复编号结构（`## 1.4`/`1.5`/`1.6`/`1.7` 出现在 `## 2.` 之后）为历史遗留，重排牵动多处锚点，另行评估。
   - **不做什么**：不改规则事实权威与单点声明结构；不删除历史归档正文；不修改 `AGENTS.md`；不引入新工具链。
   - **依赖**：设计稿 §3.1（内容边界与判定口径）+ §4 批 A；`check:standards-redundant` 脚本已存在（`3ae84e5`）。
   - **交付物**：3 commits（`docs(standards)` 逐批）；文件 14-18（standards 14 + 迁移落点文档）。

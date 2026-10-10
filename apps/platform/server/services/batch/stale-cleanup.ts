@@ -21,7 +21,7 @@ import { ensureDatabaseInitialized } from '#server/database'
  * - 失败路径走 save() 抛错 → 抛出给调用方记录日志，下次重试。
  */
 export interface CleanupOptions {
-    /** ScanRun stale 阈值（ms）；默认 30 分钟 = ContainerExecutor.timeoutMs 默认 */
+    /** ScanRun stale 阈值（ms）；缺省 30 分钟 = `DEFAULT_EXECUTION_TIMEOUT_MS`。生产调用方（stale-cleanup 插件）传 `resolveExecutionTimeoutMs()` 保持与执行超时同源 */
     scanRunTimeoutMs?: number
     /** BatchRun stale 阈值（ms）；默认 30 分钟 */
     batchRunTimeoutMs?: number

@@ -4,6 +4,7 @@ import { reconcileRunningBatchRuns } from '#server/services/batch/batch-reconcil
 import { cleanupPendingWorkdirs } from '#server/services/batch/cleanup-pending-workdirs'
 import { getQueueService, type QueueService } from '#server/services/queue/queue.service'
 import type { ScanQueue } from '#server/services/queue/scan-queue'
+import { resolveExecutionTimeoutMs } from '#server/services/executor/container-executor'
 
 /**
  * 周期清理孤儿 ScanRun / BatchRun + 周期兜底对账 + `_pending/` 过期 workDir：
@@ -18,7 +19,8 @@ import type { ScanQueue } from '#server/services/queue/scan-queue'
  * 3. `_pending/` 过期 workDir（cleanupPendingWorkdirs——PR 失败保留的 24h 诊断目录）
  *
  * 顺序说明：先清孤儿（把卡死子 run 落 failed），再对账（把刚落 failed 的子项聚合成父批次终态）。
- * 阈值与 ContainerExecutor.timeoutMs（30 分钟）对齐——running 超过该阈值的 run 必然是孤儿；
+ * ScanRun 阈值取执行超时解析器 `resolveExecutionTimeoutMs()`（缺省 30 分钟，可经 `EXECUTION_TIMEOUT_MS`
+ * 覆盖）——与容器执行器超时**同源联动**，避免提高执行超时后合法长任务被误判 orphan_run；
  * pending 是否孤儿由队列状态判定（async 下仍有非终态 job → 排队 / 执行中，不误杀）。
  * 间隔可通过 STALE_CLEANUP_INTERVAL_MS 覆盖（生产保持默认；测试可缩短为毫秒级）。
  */
@@ -72,6 +74,9 @@ export const runStaleCleanupOnce = async (): Promise<void> => {
 
     try {
         const result = await cleanupStaleRuns({
+            // ScanRun 孤儿阈值与容器执行器超时同源（缺省 30 分钟，可经 EXECUTION_TIMEOUT_MS 覆盖）——
+            // 否则提高执行超时后，合法长任务会在 30 分钟被误判 orphan_run
+            scanRunTimeoutMs: resolveExecutionTimeoutMs(),
             // async 队列模式：pending 超时但仍有非终态 job（排队 / 执行中）→ 合法等待，不误杀；
             // 其余（job 缺失或已终态）→ 孤儿
             isPendingOrphan: scanQueue

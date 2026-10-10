@@ -21,6 +21,7 @@ vi.mock('#server/services/batch/cleanup-pending-workdirs', () => ({ cleanupPendi
 vi.mock('#server/services/queue/queue.service', () => ({ getQueueService: getQueueServiceMock }))
 
 import { runStaleCleanupOnce } from './stale-cleanup'
+import { resolveExecutionTimeoutMs } from '#server/services/executor/container-executor'
 
 const syncQueueService = () => ({ mode: 'sync', queue: null, close: vi.fn() })
 
@@ -51,7 +52,7 @@ describe('stale-cleanup 插件 runStaleCleanupOnce', () => {
 
         await runStaleCleanupOnce()
 
-        expect(cleanupStaleRunsMock).toHaveBeenCalledWith({ isPendingOrphan: expect.any(Function) })
+        expect(cleanupStaleRunsMock).toHaveBeenCalledWith({ scanRunTimeoutMs: resolveExecutionTimeoutMs(), isPendingOrphan: expect.any(Function) })
         const options = cleanupStaleRunsMock.mock.calls[0]![0] as { isPendingOrphan: (run: { repositoryId: string }) => Promise<boolean> }
         // hasLiveJob=true → isPendingOrphan 返回 false（非孤儿，不误杀）
         await expect(options.isPendingOrphan({ repositoryId: 'repo-1' })).resolves.toBe(false)
@@ -71,7 +72,7 @@ describe('stale-cleanup 插件 runStaleCleanupOnce', () => {
 
         await runStaleCleanupOnce()
 
-        expect(cleanupStaleRunsMock).toHaveBeenCalledWith({ isPendingOrphan: undefined })
+        expect(cleanupStaleRunsMock).toHaveBeenCalledWith({ scanRunTimeoutMs: resolveExecutionTimeoutMs(), isPendingOrphan: undefined })
         expect(remove).not.toHaveBeenCalled()
     })
 
@@ -87,7 +88,7 @@ describe('stale-cleanup 插件 runStaleCleanupOnce', () => {
 
         await runStaleCleanupOnce()
 
-        expect(cleanupStaleRunsMock).toHaveBeenCalledWith({ isPendingOrphan: undefined })
+        expect(cleanupStaleRunsMock).toHaveBeenCalledWith({ scanRunTimeoutMs: resolveExecutionTimeoutMs(), isPendingOrphan: undefined })
         expect(errSpy).toHaveBeenCalled()
         errSpy.mockRestore()
     })
@@ -125,5 +126,17 @@ describe('stale-cleanup 插件 runStaleCleanupOnce', () => {
         expect(remove).toHaveBeenCalledTimes(2)
         expect(errSpy).toHaveBeenCalled()
         errSpy.mockRestore()
+    })
+
+    it('ScanRun 孤儿阈值与执行超时同源联动（EXECUTION_TIMEOUT_MS 覆盖生效）', async () => {
+        process.env.EXECUTION_TIMEOUT_MS = '900000'
+        try {
+            await runStaleCleanupOnce()
+            expect(cleanupStaleRunsMock).toHaveBeenCalledWith(
+                expect.objectContaining({ scanRunTimeoutMs: 900_000 }),
+            )
+        } finally {
+            delete process.env.EXECUTION_TIMEOUT_MS
+        }
     })
 })

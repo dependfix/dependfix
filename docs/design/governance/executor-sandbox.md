@@ -43,7 +43,7 @@ dependfix 的核心动作是**升级第三方依赖**，本质是"拉取并执�
 |:--|:--|:--|:--|
 | install scripts 代码执行 | **高**（本工具必然触发） | ① 非 root 用户运行（镜像 `USER` 降权）② 独立临时工作目录 ③ 超时/资源上限 ④ 执行结果白名单回传 | 独立容器 + 网络出站限制（默认 deny，白名单 registry 域名） |
 | 凭据泄露 | **高**（执行环境持有平台密钥） | ① 凭据仅解密到执行进程内存，绝不落盘 ② 环境变量最小集注入（只传本仓库所需 token）③ 平台密钥（ENCRYPTION_KEY/AUTH_SECRET）不传入执行子进程 | 每任务独立密钥、无宿主 env 继承 |
-| 网络外联 | 中 | 记录执行期外联日志（备查）；M6 容器内默认放行（registry 需要） | 出站白名单（npm/pnpm registry + GitHub API） |
+| 网络外联 | 中 | 记录执行期外联日志（备查）；M6 容器内默认放行（registry 需要） | 出站白名单（deny-by-default）：官方 registry + 常见镜像站（registry 与其 tarball CDN 域成对）+ GitHub API/资产域 + `rolldown.rs`，并**从 `workDir` 配置面动态发现生效 registry host**（`pnpm config list --json`，host 粒度 + fail-open）；未列举域仍拦，企业私服自带独立 CDN 域需显式 `DEPENDFIX_ALLOWED_DOMAINS`（2026-10-10 落地，评审登记见 [sandbox-security-governance.md §5](./sandbox-security-governance.md#5-治理决议与登记)） |
 | 文件系统破坏 | 中 | 工作目录限定在平台数据卷下的 `runs/{runId}/` 临时目录，执行后清理 | 只读根文件系统 + tmpfs 工作目录 |
 | 资源耗尽 | 中 | 子进程超时（默认 30 分钟可配）+ 磁盘配额随数据卷 | cgroup 内存/CPU 限制 |
 | 提权逃逸 | 低（单租户自托管） | 非 root + 不挂载 docker.sock + 容器只读部分 | 独立容器 + seccomp/apparmor 加固 |

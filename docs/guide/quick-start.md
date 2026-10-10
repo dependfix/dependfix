@@ -252,7 +252,10 @@ curl -X PUT /api/repos/{id} \
   -H 'Content-Type: application/json' \
   -d '{"executorKind": "sandbox"}'
 
-# 环境变量扩展白名单（按需添加私有 registry / GitHub Enterprise）
+# 出站白名单：默认已含官方 registry + 常见镜像站 + GitHub API/资产域 + rolldown.rs
+# （权威默认清单与判定口径见 安全规范 §5.3.1：docs/standards/security.md）；并自动从 workDir 的
+# pnpm 配置面发现生效 registry host（pnpm config list --json，仅读本地不联网、异常时回退预置清单）。
+# 以下仅用于「预置清单未覆盖」的场景——例如企业私服自带独立 CDN 域（tarball 302 到非预置域）。
 # 生效进程：平台 Node 进程内的拦截代理判定（packages/engine/src/runners/network-audit.ts）；
 # sandbox 容器走 Docker bridge 直出网（本 env 不透传给 sandbox 容器内部）
 export DEPENDFIX_ALLOWED_DOMAINS="registry.internal.example.com,artifacts.example.com"

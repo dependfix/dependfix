@@ -8,128 +8,15 @@
 
 | 内容类型 | 位置 |
 |:--|:--|
-| 当前阶段任务 | **M41 进行中**——规范与经验管理体系重构（2026-10-10 用户决策方案 B / 5 原子条目） |
-| 下一阶段（未授权） | 无——M41 闭环后再按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 评估 backlog 候选池 |
-| 已完成阶段归档 | [todo-archive.md](todo-archive.md)（主窗口 + [archive/](archive/) 分片；M0-M40 全部已归档） |
+| 当前阶段任务 | **暂无进行中阶段**——下一阶段按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 评估 [backlog.md](backlog.md) 候选池后由用户决策 |
+| 下一阶段（未授权） | 无 |
+| 已完成阶段归档 | [todo-archive.md](todo-archive.md)（主窗口 + [archive/](archive/) 分片；M0-M41 全部已归档） |
 | 未排期 / 延期 / 远期 / 长期主线 / 已知边界 | [backlog.md](backlog.md) |
-| 里程碑与阶段交付 | [roadmap.md](roadmap.md)（M0-M40 已归档；M41 进行中） |
+| 里程碑与阶段交付 | [roadmap.md](roadmap.md)（M0-M41 已归档） |
 | 历史归档索引 | [archive/index.md](archive/index.md) |
 
 ---
 
-## M41: 规范与经验管理体系重构（2026-10-10 用户决策方案 B / M41.1~M41.5）
+## 待激活阶段
 
-> **阶段定位**：承接 M40 运行时可靠性与可观测性深化归档后的治理体系重构阶段。根因为「**有规则无门禁 → 必 drift**」——规范混入实现与教训、经验体系体量膨胀且无退出路径、阈值声明双事实源且无脚本计量、规则与执行分离（`check:standards-redundant` 仅报告、CI 未接线）。经 2026-10-10 用户决策（方案 B，先出设计先行稿 → 评审通过后按 A-E 分批执行）从 [backlog.md](backlog.md) §候选评估中上收整卡，聚焦「规范方法论层化 / 经验三层收敛 / 规则转可执行 / 导航受众切分 / 阈值事实源唯一化」。
-> **设计依据**：[standards-experience-refactor.md](../design/governance/standards-experience-refactor.md)（v2 先行稿，170 行；用户 2026-10-10 决策 D1 推进形式 / D2 导航分层形态 / D3 经验体系目标）。
-> **类型平衡**：📚 规范治理 1（M41.1）+ 🛠️ 经验治理 1（M41.2）+ 🧪 测试基建 1（M41.3）+ 🎨 文档体验 1（M41.4）+ 🛡️ 治理同步 1（M41.5）= 5 原子；本阶段以治理主线优先，**🎨 独立条目 1 项低于 [规划规范 §1.1 类型平衡建议](../standards/planning.md#11-硬性约束)（建议 ≥ 2）+ 无能力扩展独立条目**，缺口显式标注。
-> **§3.4 三重交叉核验**（2026-10-10 启动批次实测，**0 项重复评估**）：① **todo-archive 扫描**——`rg -n "规范与经验|standards-experience-refactor|规范瘦身|经验重构|导航分层|阈值.*事实源" docs/plan/todo-archive.md docs/plan/archive/*.md docs/plan/roadmap.md` **0 命中**；② **git log**——`git log --all --grep` 对「规范瘦身 / 经验重构 / standards-experience」无 commit，`scripts/check-standards-redundant.mjs` 仅 `3ae84e5`（建脚本）/ `cab3710`（lint-staged）两次历史提交，无后续瘦身 / 接线动作；③ **代码 anchor**——`wc -l docs/standards/*.md` = 3211 行（3 文件超 400：platform 544 / development 512 / ai-collaboration 494）；`wc -l docs/design/governance/experience-archive*.md` = 2409 行（§49-§57 单分片 1540 行）；`pnpm run check:standards-redundant` 实测 **166 处命中 / 9 文件**且默认报告不阻断、`--strict` 未接 `.github/workflows/*.yml`；`docs/standards/documentation.md §3` 阈值表**不含** standards / design 行而 `spec-and-doc-governance.md §2.3` 存**重复完整表**（双事实源）；`docs/.vitepress/config.ts` 侧栏仍挂 6 篇 `design/governance/**` 且 `docs/index.md` 卡片指向 `mcp-server` / `security`。
-> **用户决策点**（2026-10-10 裁定）：**D1 推进形式** = 先出治理设计先行稿 → 评审后按 A-E 分批执行；**D2 导航分层形态** = 仍发布，仅不进顶栏 / 侧栏（不挂载范围收敛为 `design/governance/**`（除 `architecture` + `governance/index`）+ `plan/archive/**`）；**D3 经验体系目标** = 三层收敛 + 大幅精简。
-> **不做什么（阶段级）**：不做 `srcExclude` 物理隔离 / 不拆双站点（发布策略不变）；不删除历史归档原始信息（`todo-archive.md` 等已闭环正文保持原文）；不改规则的事实权威（单点声明原则保留）；不修改 `AGENTS.md`（实测其「硬阈值」为设计文档必要性阈值、与文档行数阈值表异源；如确需改动须用户明确确认）；不引入新工具链（复用既有 vitest / node 脚本与 `scripts/*.mjs` 约定）。
-
-- **M41.1**（P2，📚 规范治理）规范去实现化瘦身
-  - **目标**：`docs/standards/*.md` 只保留「规则 + 通用方法 + 极少数项目个性化偏好 + 一行外链」，剥离实现细节（类名 / SCSS 片段 / 结构化路径清单 / 行号）与长段教训 / 实证 / commit hash；`check:standards-redundant --strict` 归零、每文件落至健康窗口。
-  - **优先级**：P2
-  - **范围**：`docs/standards/*.md`（14 文件 3211 行；重点 3 超 400 行文件：`platform.md` 544 / `development.md` 512 / `ai-collaboration.md` 494）；被剥离内容的迁移落点 = **代码注释** / **设计文档** / **经验索引 L3**（`docs/design/governance/experience-archive*.md`）。
-  - **验收标准**（2026-10-10 全部达成）：
-    - [x] `pnpm run check:standards-redundant:strict` exit 0——由 166 处命中 / 9 文件 → **0 处命中**（实测 exit 0）
-    - [x] `wc -l docs/standards/*.md` 全部 ≤ 200 行（最大值 200：`git.md` / `ai-collaboration.md`；总行数 3225 → 1644）
-    - [x] 剥离后无代码块 / commit hash / 长段叙述（`rg -c '^```'` 各文件为 0 + 人工抽查双向确认）
-    - [x] 剥离内容有明确迁移落点（既有设计文档 / 使用指南 / L3 归档 / 检查点矩阵），逐文件按 [规划规范 §4.4 第 9 条](../standards/planning.md#44-大批量归档批次操作规范) 双向核验（A 阶段 deep 审计逐节对照确认无静默丢失）
-    - [x] `pnpm run check:docs`（149/85）+ `pnpm run lint:md:check` + `pnpm run check:orphan-ids`（0/656）+ `docs:build` 全部通过；单点声明原则保持
-  - **D 阶段决策留痕（待裁定）**：① 分片 vs 纯瘦身（超 200 行是否强制分片）；② 迁移落点归属（哪些进代码注释、哪些进设计文档、哪些进 L3）；③ `docs/standards/index.md` 是否需同步调整。
-  - **批次拆分说明**：预估 8-14 文件 / 净瘦 ~1200 行，**超过** [规划规范 §1.1 任务粒度约束](../standards/planning.md#11-硬性约束) 的 > 10 文件 / > 800 行阈值 → 内部拆 **3 个可独立提交批次**：**A1** `platform.md`（544 → ≤ 200）；**A2** `development.md` + `ai-collaboration.md`（512 / 494 → ≤ 200）；**A3** 其余 11 个 standards 文件按需瘦身。每批次独立验收点 + 独立 A 阶段审计。
-  - **闭环记录**：A1 `ab55d86`（`platform.md` 544 → 197；deep R1 Pass → 修复 2 warning + 1 suggest → R2 quick Pass）/ A2 `9245ebf`（`development.md` 512 → 148、`ai-collaboration.md` 494 → 200；deep R1 Pass，0 blocker / 0 warning）/ A3 `2362d2f` + `0d69f72`（`planning.md` 284 → 151、`security.md` 276 → 118、`testing.md` 245 → 114、`documentation.md` 214 → 95、`i18n.md` 204 → 184、`git.md` 201 → 200；deep R1 **Reject**（archive 盲区锚点回归）→ 修复 → R2 quick Pass）；A3 因变更越 §1.4 的 10 文件线按规则拆为「标题改名 + 引用同步」与「六文件重写」两个可独立验证提交。
-  - **延后登记**（A 阶段审计 suggest，非阻塞）：① 为达成关键词归零而剥离的链接锚点片段（`git.md` / `i18n.md` / `ai-collaboration.md` / `platform.md` 等）→ 留 **M41.3** 收敛门禁关键词精度（跳过链接 URL / 锚点）后回填；② `ai-collaboration.md` 重复编号结构（`## 1.4`/`1.5`/`1.6`/`1.7` 出现在 `## 2.` 之后）为历史遗留，重排牵动多处锚点，另行评估。
-  - **不做什么**：不改规则事实权威与单点声明结构；不删除历史归档正文；不修改 `AGENTS.md`；不引入新工具链。
-  - **依赖**：设计稿 §3.1（内容边界与判定口径）+ §4 批 A；`check:standards-redundant` 脚本已存在（`3ae84e5`）。
-  - **交付物**：3 commits（`docs(standards)` 逐批）；文件 14-18（standards 14 + 迁移落点文档）。
-  - **风险与缓解措施**：① 删过头丢信息 → 逐文件「换一个项目是否成立」判定 + 迁移而非删除 + [§4.4 第 9 条](../standards/planning.md#44-大批量归档批次操作规范) 双向核验；② 迁移落点缺失致外链失效 → `check:docs` 实证 + 全仓 `rg` 追踪引用；③ 3 文件体量大导致单批 diff 超限 → 已按批次拆分。
-
-- **M41.2**（P2，🛠️ 经验治理）经验体系三层收敛与精简
-  - **目标**：经验体系按 L1 自动门禁 / L2 评审检查点 / L3 精简索引三层收敛并大幅精简；单分片 ≤ 400 行；保留条目均具备「四者之一」准入依据（未落规范 + 需溯源 + 重复 ≥ 2 + 环境陷阱），删除项留决策记录。
-  - **优先级**：P2
-  - **范围**：`docs/design/governance/experience-archive*.md`（7 文件 2409 行 / 68 节；`§49-§57` 单分片 1540 行）+ `docs/design/governance/session-wisdom-distillation.md` + `.session/wisdom.md`（如涉及）。
-  - **验收标准**（2026-10-10 全部达成）：
-    - [x] 单分片 ≤ 400 行——实测 166 / 118 / 86 / 80 / 156 / 375（`§49-§57` 分片 1540 → **375**；总 2409 → 1017）
-    - [x] 删除 / 收敛决策记录——本轮**未整条删除**；过程叙事剥离 + 逐条「四者之一」复核的结论登记于 [experience-archive.md §4](../design/governance/experience-archive.md)（含留 / 删准则与后续处置口径）
-    - [x] 每条保留条目具备 L1 / L2 / L3 落点——`§1-§40` 统一补具体 `落点：` 行（指向脚本 / 检查点 / 规范条款），`§41-§68` 保留「挂接 / 沉淀」并折为单行具体指针；全 68 条无占位符
-    - [x] L3 索引可按主题检索——索引重写为「三层体系 + 分片索引 + 六类主题索引（覆盖 68 条）」；蒸馏机制文档新增与三层体系的交叉引用
-    - [x] 门禁通过——`check:docs`（149/85）+ `lint:md:check` + `check:orphan-ids`（0/656）+ `docs:build` 全部通过；跨文件外链（锚点型）零变化（`## §NN` 标题未改）
-  - **D 阶段决策留痕（待裁定）**：① 再分片 vs 纯精简；② 删除条目的决策记录载体（专项段落 / backlog 决策记录）；③ L3 索引形态（单索引文件 vs 主题分片）。
-  - **不做什么**：不删除历史归档原始记录（`todo-archive.md` 等保持原文）；不重写已闭环阶段的规划 / 设计记录；不改规则事实权威。
-  - **依赖**：M41.1（迁移目标就位，避免经验内容无处可落）。
-  - **交付物**：2-3 commits（`docs(governance)`）；文件 3-5（experience-archive 分片 / 索引 / 蒸馏机制文档）。
-  - **风险与缓解措施**：① 信息丢失 → 删除前按「四者之一」复核 + 决策记录 + commit 历史可查；② 段删除导致跨文件外链失效 → 按 [§4.4 第 2/6 条](../standards/planning.md#44-大批量归档批次操作规范) 全仓 `rg` 追踪改指；③ 精简后检索性下降 → L3 索引化作为同步交付物。
-  - **D 阶段决策留痕（已裁定）**：① **纯精简（不重分片）**——避免文件名变更牵动全仓引用（`## §NN` 标题与编号全部未改，锚点零变化）；② 决策记录载体 = 索引文件 `experience-archive.md` §4；③ L3 索引形态 = 单索引文件（三层体系 + 分片索引 + 主题索引）。
-  - **闭环记录**：`95b20cf`（9 文件 / +132 −1494）；A 阶段 deep R1 **Reject**（`§49-§58`/`§61` 落点被折为占位符 + 6 分片 H1 被误删）→ 修复（落点具体化 / H1 复位 / 宽泛落点收紧 / 索引断言订正 / 蒸馏机制接线 / 范围外畸形链接登记 backlog）→ R2 quick Pass。
-  - **延后登记**（R2 判定可接受）：`§49-§57` 分片文件名与内容范围（至 §六十八）不符，属历史遗留，重命名牵动全仓引用 → 另行评估。
-
-- **M41.3**（P2，🧪 测试基建）规范 / 经验门禁落地（CI 阻断）
-  - **目标**：把「有规则无门禁」根因结构性消除——规范冗余关键词检查转 CI 阻断（`--strict`）、新增文档行数阈值计量脚本、经验条目「挂接检查点」字段非空校验，使规则与执行不再分离。
-  - **优先级**：P2
-  - **范围**：`scripts/check-standards-redundant.mjs`（`--strict` 已有，接 CI）；新增 `scripts/check-doc-size.mjs` + `scripts/check-doc-size.test.mjs`（行数阈值计量：超强制分片阈值阻断 / warning 上报）；`.github/workflows/test.yml`（Test job 接线）；经验条目模板「挂接检查点」字段校验（`check-standards-redundant` 扩展或独立脚本）。
-  - **验收标准**（2026-10-10 全部达成）：
-    - [x] CI Test job 接入三项阻断门禁（`check:standards-redundant:strict` / `check:doc-size` / `check:experience-landing`），每步注释含 §6.9 三件套（负例标定 / 自指面核对 / 阻断强度声明）；**负例标定**实测：植入关键词 / 超阈值行数 / 无落点条目（含段内占位符）各 exit 1，跑后还原
-    - [x] `check-doc-size.mjs` 按 [documentation.md §3](../standards/documentation.md) 阈值表计量（**脚本不硬编码阈值**，表内新增行自动纳入；超强制分片阈值阻断 / warning 带上报）；单测覆盖「健康 / warning / 超阈值 / 豁免」四态 + glob 行 + root 优先
-    - [x] `check-experience-landing.mjs` 校验每条经验条目「落点」非空（显式 `落点：` 或挂接 / 沉淀段），**占位符判空**（含段内占位符）；负例标定 exit 1
-    - [x] 本地可复现：`check:standards-redundant:strict` + `check-doc-size` + `check-experience-landing` + `check:orphan-ids` + `check:docs` 全部 exit 0
-    - [x] `pnpm lint` 0 error（2 处存量 max-lines warning）+ `pnpm typecheck` 0 error；`scripts/` 629 passed；根全量 245 files / 3832 passed（10 skipped）；`docs:build` 通过
-  - **D 阶段决策留痕（待裁定）**：① 行数阈值脚本的阻断强度（warning 仅报告 vs 超强制分片阈值阻断）；② 经验落点校验并入既有脚本 vs 独立脚本；③ 分片豁免白名单形态。
-  - **不做什么**：不改门禁脚本的**检测判定口径本身**（仅接线 + 计量）；不引入新工具链；不在 M41.1 / M41.2 达标前接线（避免阻断既有 CI）。
-  - **依赖**：M41.1 + M41.2（达标后才接线，先报告模式跑全量确认真业务）；设计稿 §3.6 门禁落地表。
-  - **交付物**：2-3 commits（`feat(scripts)` 计量脚本 + `ci` 接线 + 单测）；文件 3-4。
-  - **D 阶段决策留痕（已裁定）**：① **阻断强度** = 超强制分片阈值阻断 / warning 带仅报告（健康窗口静默）；② **落点校验** = **独立脚本**（`check-experience-landing.mjs`，与关键词扫描职责分离）；③ **豁免形态** = 脚本内 `SIZE_EXEMPTIONS`（`{ path, reason }` 显式登记，当前为空；禁止用「缩小计量面」代替豁免）。
-  - **闭环记录**：C1 门禁落地（6 个 scripts + `package.json` + `test.yml` + 经验分片 §四十一 / §四十二 落点规范化）/ C2 锚点回填（7 个 `docs/standards/*.md`，共 24 处精确锚点）/ C3 闭环登记；A 阶段 deep 审计：R1 **Reject**（CI 三件套声明不全）→ 修复 → R2 **Reject**（回填锚点前缀贪婪匹配致 2 处 §五十六 误指 §五十）→ 修复（含 8 处锚点「文本 §N ↔ 锚点 §N」逐条核对）→ R3 quick Pass。
-  - **延后登记**：① 「链接文本 §N ↔ 锚点 §N」一致性机检 → 已登记 backlog 候选（无阶段编号）；② `check-doc-size` 覆盖 standards / design 行依赖 M41.5 补齐阈值表行（届时 glob 行自动生效）。
-  - **风险与缓解措施**：① 门禁误伤阻断既有 CI → 先报告模式跑全量、确认命中均为真业务后转阻断 + 负例标定；② 脚本与规范二次漂移 → 阈值以 `documentation.md §3` 为单一事实源（M41.5 同步收敛）；③ 阈值阻断强度过严 → 分片豁免白名单 + warning 带保持非阻断。
-
-- **M41.4**（P3，🎨 文档体验）文档站导航分层
-  - **目标**：站点按受众切分导航（发布策略不变，文档仍公开）——顶栏 / 侧栏不挂 `design/governance/**`（除 `architecture` + `governance/index`）+ `plan/archive/**`，首页同步仅引导对外可读入口，降低对外读者的信息噪声。
-  - **优先级**：P3
-  - **范围**：`docs/.vitepress/config.ts`（nav / sidebar，zh + en 双侧）；`docs/index.md`（首页卡片）；`docs/i18n/en-US/index.md`（en 镜像同步）。
-  - **验收标准**（2026-10-10 全部达成）：
-    - [x] zh + en 侧栏与导航均不挂 `design/governance/**`（仅 `architecture` + `governance/index`）与 `plan/archive/**`——`rg` 实测 config.ts 治理挂载恰 6 处（architecture ×3 + index ×3），归档 0 挂载
-    - [x] `guide/**`（7 项）/ `standards/**`（补齐至 14 项全覆盖）/ `plan/**`（roadmap · todo · backlog）/ `design/modules/**`（9 项全挂）/ `research/*`（6 项 = 目录真实文件）按需保留；**未一刀切卸载**
-    - [x] 首页仅引导对外可读入口——删除未挂载页卡片（MCP Server 设计）；「安全与治理」卡改指治理索引；架构卡去掉失效锚点；en 镜像同步删除同卡
-    - [x] 未挂载页仍可直链（`ignoreDeadLinks: true` 保持）；`check:docs` 0 error；**站点绝对链接逐条存在性核对 0 死链**（config 57 / 首页 13 / en 首页 11）
-    - [x] `docs:build` 通过（7.01s）；产物实测：已卸治理页仅出现在自身页面，保留导航项出现于全部 112 页 → 裁剪生效
-  - **D 阶段决策留痕（待裁定）**：① 非挂载页卡片改写方向（改指 overview vs 移除）；② en 侧栏是否与 zh 完全对齐（现状 en 侧栏条目与 zh 不一致）；③ 是否补 `governance/index` 目录页入口。
-  - **不做什么**：不做 `srcExclude` 物理隔离 / 不拆双站点；不改变文档公开性；不删除任何页面（仅调整导航挂载与首页引导）。
-  - **依赖**：无（可与 M41.1 并行）；设计稿 §3.4 导航分层表。
-  - **交付物**：1-2 commits（`docs(site)` config + 首页 zh / en）；文件 2-3。
-  - **D 阶段决策留痕（已裁定）**：① 非挂载页卡片 = **改写为目标语义更贴的已挂载页**（安全与治理 → 治理索引）**或移除**（MCP 设计稿），不指向未挂载页；② en 侧栏 = **按 en 实际译文裁剪**（非强行对齐 zh 条目）；en 首页卡片差异（缺失 zh 的路线图 / 当前任务）因无 en 译文，属可解释差异；③ **保留** `governance/index` 目录页入口（zh + en 双侧）。
-  - **闭环记录**：站点导航 4 文件（config.ts / zh 首页 / en 首页 / 候选登记）；A 阶段 standard R1 **Pass**（0 blocker / 0 warning / 4 suggest）→ 全部处置（3 修 + 1 并入既有候选）→ R2 quick **Pass**。
-  - **同期收敛的真实死链（重命名残留）**：`design/packages/` → `design/modules/` 重命名后 config.ts 侧栏 4 项 + 首页 2 张卡片仍指旧目录；research 侧栏 3 项指向不存在文件；en 导航「Roadmap」+ en 侧栏 plan 组指向无译文的页面——均已收敛。
-  - **延后登记**（AC 排除项，无阶段编号）：① `design/packages → modules` 非导航面残留（蒸馏脚本推荐串 / 设计文档现行陈述 / 模块索引 H1）；② 站点语言切换器对未翻译页指向不存在的 en 页（VitePress 内建映射，非导航面）；③ 站点绝对链接机检盲区 → 并入既有「链接 / 锚点一致性机检」候选评估。
-  - **风险与缓解措施**：① 导航收敛致读者找不到内容 → 保留 guide / standards / plan / roadmap 入口 + 直链可访问；② config 改动致 `docs:build` 失败 → 本地 `docs:build` 实证；③ zh / en 侧栏不对称 → 双侧逐条核对。
-
-- **M41.5**（P3，🛡️ 治理同步）阈值与事实源唯一化
-  - **目标**：`documentation.md §3` 成为**唯一阈值权威**（补齐 standards / design / research / guide 等全部文档类型行），`spec-and-doc-governance.md §2.3` 与归档索引的重复阈值声明收敛为一行引用，消除多处事实源漂移。
-  - **优先级**：P3
-  - **范围**：`docs/standards/documentation.md §3`（阈值表补齐为全量唯一表）；`docs/design/governance/spec-and-doc-governance.md §2.3`（改为一行引用）。
-  - **验收标准**：
-    - [x] `documentation.md §3` 覆盖全部文档类型行（README / standards / design modules / design governance / roadmap / todo / todo-archive / backlog / research / guide 共 10 行），为唯一完整阈值表；`check-doc-size` 实测计量 74 个文档（健康 60 / warning 13 / 豁免 1 / 超阈值 0）
-    - [x] `spec-and-doc-governance.md §2.3` 无第二处完整阈值表（收敛为一行引用）；归档索引 §1 的同类声明一并收敛（决策 ② 判定为同源）
-    - [x] `rg` 复扫确认无第二处阈值声明（`documentation.md §3` 外的命中仅余「引用 §3 的当前基线测量行」，无独立阈值表）
-    - [x] `check:docs`（149/85）+ `lint:md:check` + `check:orphan-ids`（0/660）+ `docs:build` 全部通过
-  - **D 阶段决策留痕（待裁定）**：① 两表合并口径（以 §3 行序为准）；② 是否同步 `archive/index.md §1` 的阈值段（其为归档治理自有阈值，需判定是否属同源）。
-  - **不做什么**：不改阈值**取值**本身（仅统一声明位置）；不修改 `AGENTS.md`（实测其硬阈值异源，无需同步；如确需提及须用户明确确认）；不改规则内容。
-  - **依赖**：M41.1（A 批达标后阈值才有计量对象与意义）；设计稿 §3.5 + §4 批 E。
-  - **交付物**：1 commit（`docs(standards)` + `docs(governance)`）；文件 2。
-  - **D 阶段决策留痕（已裁定）**：① 两表合并口径 = **以 `documentation.md §3` 行为序**，共 10 类文档（取值逐行一致，不改任何阈值）并补「强制分片执行规则」；② 归档索引 §1 的同类阈值段判定为**同源** → 一并收敛为一行引用（标题同步改为「阈值引用」）；③ 存量超标 = **豁免表显式登记 + 理由**（`caomei-ui-migration.md`），不以缩小计量面代替。
-  - **闭环记录**：`f27575b`（8 文件，单次原子提交——脚本适配与新表形态互为依赖）；A 阶段 standard R1 **Pass**（0 blocker / 0 warning / 4 suggest）→ 4 条处置（设计稿残留取值再收敛 / 归档索引标题语义 / 证据计数更正 / 豁免检查点由 L1 门禁承接）→ R2 quick **Pass**。
-  - **实测证据**：`check-doc-size` 计量 **74 个文档**（健康 60 / warning 13 / 豁免 1 / 超阈值 0）exit 0；唯一权威外独立阈值声明 **0**（残留命中均为引用 §3 的测量行）；`scripts/` 630 passed；`pnpm lint` 0 error + `pnpm typecheck` 0 error TS；`check:docs` / `lint:md` / `check:orphan-ids` / `docs:build` 全过。
-  - **延后登记**（AC 排除项，无阶段编号）：设计文档存量超健康窗口（warning 带 13 + 强制分片线豁免 1）拆分 → backlog 候选。
-  - **风险与缓解措施**：① 阈值取值分歧 → 以 `documentation.md §3` 为准（用户已裁定唯一权威）；② 漏改第三处 → `rg` 复扫 + `check:docs` 兜底；③ `archive/index.md §1` 判定分歧 → D 阶段显式裁定并在条目内留痕。
-
----
-
-## 阶段收口清单
-
-- [ ] M41.1~M41.5 全部闭环（各条目 8 要素验收标准勾选）
-- [ ] M41.1 三个内部提交批次（A1 / A2 / A3）各自独立验收 + 独立 A 阶段审计
-- [ ] 每原子条目独立 commit（`conventional-committer`），A 阶段 Review Gate 放行；治理定义改动按 [AGENTS.md §审计触发](../../AGENTS.md) 强制审计
-- [ ] `pnpm lint` + `pnpm typecheck` + 定向测试全过；M41.3 / M41.4 补 `docs:build` 或 CI 阻断负例标定实证
-- [ ] `check:standards-redundant:strict` / `check-doc-size` / `check:orphan-ids` / `check:docs` 全部 exit 0
-- [ ] `todo.md` 状态收口 + `todo-archive.md` 归档段 + `roadmap.md` 状态同步 + `backlog.md` 候选清出 + 设计稿状态回填
-- [ ] 阶段归档批次执行 [规划规范 §4.4](../standards/planning.md#44-大批量归档批次操作规范) 12 项必查
+> 当前无进行中阶段；下一阶段由用户按 [规划规范 §3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 评估 [backlog.md](backlog.md) 候选池后决策（候选上收时按类型平衡原则选取 4-6 项，本文件登记 8 要素条目）。

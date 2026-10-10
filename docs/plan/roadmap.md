@@ -693,7 +693,7 @@ per-alert 模型 + reconcile + API 简化 + UI 调整 + backfill 脚本。5 子�
 
 **范围边界（不做什么）**：不改引擎修复 / 验证业务语义；不改 `/api/runs` 等接口契约；不做执行器整体重构；不把引擎全部同步调用改异步（大范围改造，改由进程隔离兜底）；不在本阶段内改动 M37 交付面；不引入本设计未选定的新执行后端。
 
-**§3.4 交叉核验**：4 项上收候选经 todo-archive 表格扫描 + git log + 代码 anchor 三重核验，**0 项重复评估**（逐项结论见 [todo-archive.md §M38](todo-archive.md#m38-平台执行模型隔离m381m386-全部已闭环--2026-10-09-归档) 阶段摘要）；M38 编号由用户 2026-10-06 授权开阶段（[§3.4](../standards/planning.md#34-阶段启动决策前置交叉核验硬要求m271-重复评估教训--2026-09-10) 承认的「用户直接决策」路径，非 [§3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 插队例外）。
+**§3.4 交叉核验**：4 项上收候选经 todo-archive 表格扫描 + git log + 代码 anchor 三重核验，**0 项重复评估**（逐项结论见 [todo-archive.md §M38](todo-archive.md#m38-平台执行模型隔离m381m386-全部已闭环--2026-10-09-归档) 阶段摘要）；M38 编号由用户 2026-10-06 授权开阶段（[§3.4](../standards/planning.md#34-阶段启动决策前置交叉核验硬要求m271-重复评估问题--2026-09-10) 承认的「用户直接决策」路径，非 [§3.1](../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 插队例外）。
 
 **ahead commits 实证**：归档时 `git rev-list HEAD ^origin/master --count` 实测 = **18**（含 M37 收尾 2；`git rev-list origin/master ^HEAD --count` = 0 双向核验），待用户推送确认。
 

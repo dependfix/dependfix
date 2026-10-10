@@ -9,6 +9,8 @@
 
 ## 全部配置项
 
+> **范围说明**：本节为 **CLI（`dependfix` 命令 / GitHub Action）** 的配置项。**管理平台（`apps/platform`）** 的环境变量（数据库 / 认证 / 队列 / 执行器沙箱 / 备份 / 通知等）见文末 [平台配置](#平台配置appsplatform) 段。
+
 | 配置项 | 环境变量 | 类型 | 默认值 | 说明 |
 |:-------|:---------|:-----|:-------|:-----|
 | `mode` | `DEPENDFIX_MODE` | `string` | `report-only` | 运行模式：`report-only` / `fix` / `fix-and-pr` |
@@ -231,8 +233,108 @@ export DEPENDFIX_ALERTS_SOURCE=pnpm-audit
 
 > `GITHUB_TOKEN` 环境变量会被自动识别，无需额外配置前缀。`DEPENDFIX_GITHUB_TOKEN` 优先级高于 `GITHUB_TOKEN`。
 
-## 平台部署配置（Docker）
+## 平台配置（apps/platform）
 
-管理平台（`apps/platform`）的配置通过 compose 从 `apps/platform/.env` 注入，核心变量（`AUTH_SECRET` / `NUXT_ENCRYPTION_KEY` / `NUXT_PUBLIC_BETTER_AUTH_URL` / `PUID` / `PGID` / `DATABASE_MIGRATIONS_RUN` 等）见 `apps/platform/.env.example`。**首次启动自动建表**（compose 默认 `DATABASE_MIGRATIONS_RUN=true`）；完整部署步骤见 [Docker 部署](./deployment.md)。
+管理平台（`apps/platform`）通过 compose 的 `apps/platform/.env` 注入环境变量。
 
-> 平台是 Nuxt 应用，运行时覆盖只认 `NUXT_` 前缀：compose 变量 `AUTH_SECRET` → 容器 `NUXT_AUTH_SECRET`，`REGISTRATION_DISABLED` → `NUXT_REGISTRATION_DISABLED`。注意不要混用前缀导致静默回退默认值。
+- **快速启动（极简）**：`cp apps/platform/.env.example .env` → 至少设置 `AUTH_SECRET`（+ 用凭据功能时 `NUXT_ENCRYPTION_KEY`）。
+- **完整变量**：`apps/platform/.env.full.example`（含全部变量 + 默认值 + 分节）。
+- **完整部署步骤**：见 [Docker 部署](./deployment.md)。
+
+> ⚠️ **注入方式（关键）**：默认 `docker-compose.yml` **无 `env_file`**，仅把一组白名单变量经 `${...}` 插值转发进容器（**compose 名 → 容器名**）：
+> `PORT` · `PUID`/`PGID` · `AUTH_SECRET`→`NUXT_AUTH_SECRET` · `DATABASE_PATH` · `DATABASE_MIGRATIONS_RUN` · `NUXT_ENCRYPTION_KEY` · `REGISTRATION_DISABLED`→`NUXT_REGISTRATION_DISABLED` · `NUXT_PUBLIC_BETTER_AUTH_URL` · `NUXT_REDIS_URL`（硬编码） · `QUEUE_ENABLED`/`QUEUE_JOB_RETRIES`/`QUEUE_BACKOFF_MS`→`NUXT_*` · `QUEUE_WORKER`→`DEPENDFIX_QUEUE_WORKER` · `IN_PROCESS_WORKER`→`NUXT_IN_PROCESS_WORKER` · `DEPENDFIX_IMAGE`/`DEPENDFIX_BUILD_IMAGE`。
+> 下方表中**白名单之外**的变量（邮件 / OAuth / OIDC / `AUTH_MODE` / `DATABASE_TYPE|URL|SSL|SYNCHRONIZE` / `BACKUP_*` / `RUN_WORK_ROOT` / `SANDBOX_*` / `DEPENDFIX_AI_*` / `ACTION_STATUS_MONITOR_ENABLED` / 通知类等）**默认不会进容器**，需自行追加到 compose 的 `environment:`（Nuxt runtimeConfig 变量须用 `NUXT_` 前缀）或用 `docker run -e` 注入。
+>
+> ⚠️ **Nuxt 运行时覆盖前缀**：平台是 Nuxt 应用，`runtimeConfig` 运行时覆盖**只认 `NUXT_` 前缀**——compose 变量 `AUTH_SECRET` → 容器 `NUXT_AUTH_SECRET`；`REGISTRATION_DISABLED` → `NUXT_REGISTRATION_DISABLED`。构建期烘焙的 env（如 `AUTH_MODE`）运行期须用 `NUXT_` 前缀覆盖，否则静默回退默认值。直读 `process.env` 的服务端变量（`DATABASE_*` / `CLONE_*` / `DEPENDFIX_*` 等）按原名注入。
+
+### 基础与必填
+
+| 变量（compose / 容器名） | 必填 | 默认值 | 说明 |
+|:---|:---:|:---|:---|
+| `AUTH_SECRET` → `NUXT_AUTH_SECRET` | ✅ 生产 | `change-me-to-a-random-secret` | better-auth 会话签名密钥；生产必须设为强随机值（`openssl rand -hex 32`） |
+| `NUXT_ENCRYPTION_KEY` | ✅ 用凭据功能 | 空 | 凭据 AES-256-GCM 加密密钥（32 字节随机值）；留空禁用凭据管理功能 |
+| `PORT` | — | `3000` | 平台监听端口 |
+| `NUXT_PUBLIC_BETTER_AUTH_URL` | 建议（反代 / HTTPS 必填） | `http://localhost:3000` | 对外访问地址；OAuth 回调与 better-auth `trustedOrigins` 收紧依赖它（未设置走通配兜底） |
+| `NUXT_PUBLIC_BASE_URL` | — | 空 | 兼容旧变量名（`trustedOrigins` 读取回退）；新部署统一用 `NUXT_PUBLIC_BETTER_AUTH_URL` |
+| `NUXT_PUBLIC_DEFAULT_BRANCH` / `DEFAULT_BRANCH` | — | `main` | 新建仓库默认分支（构建期注入） |
+| `MACHINE_ID` | — | 进程 PID % 1024 | 雪花 ID 机器 ID（0-1023）；多实例建议显式指定 |
+
+### 数据库与备份
+
+| 变量 | 必填 | 默认值 | 说明 |
+|:---|:---:|:---|:---|
+| `DATABASE_PATH` | — | `data/dependfix.sqlite` | SQLite 数据库文件路径（compose 注入 `/app/data/dependfix.sqlite`） |
+| `DATABASE_TYPE` / `DATABASE_URL` | — | 自动推断 | 非 SQLite 后端（PostgreSQL 等） |
+| `DATABASE_SSL` / `DATABASE_CHARSET` / `DATABASE_TIMEZONE` / `DATABASE_ENTITY_PREFIX` | — | 空 | 数据库连接调节 |
+| `DATABASE_SYNCHRONIZE` | — | `false` | TypeORM 自动同步；⚠️ 生产禁止开启（[开发规范 §5.1.19](../standards/development.md)） |
+| `DATABASE_MIGRATIONS_RUN` | — | 镜像内 `true` | 启动时自动执行 pending migration（全新库自动建表） |
+| `DEPENDFIX_MIGRATIONS_ONLY` | — | `false` | 内部：迁移专用模式（`docker/init-db.sh` 使用） |
+| `BACKUP_SKIP` | — | `false` | 跳过启动期备份（仅 e2e 等场景） |
+| `BACKUP_RETENTION_COUNT` | — | `5` | 启动期备份保留份数 |
+
+### 认证与社交登录
+
+| 变量 | 必填 | 默认值 | 说明 |
+|:---|:---:|:---|:---|
+| `AUTH_MODE` | — | `public` | 认证模式：`enterprise`（OIDC SSO + 邮箱域名白名单）/ `public`（GitHub/Google OAuth + 邮箱域名黑名单） |
+| `REGISTRATION_DISABLED` | — | `false` | 关闭注册（保留登录）；首个管理员注册后再设为 `true` |
+| `ALLOWED_EMAIL_DOMAINS` | — | 空 | enterprise 白名单（逗号分隔）；空 = 关闭自动开通 |
+| `BLOCKED_EMAIL_DOMAINS` | — | 空 | public 黑名单（逗号分隔） |
+| `NUXT_PUBLIC_ALLOWED_EMAIL_DOMAINS` | — | 空 | 前端白名单提示（黑名单不暴露） |
+| `BETTER_AUTH_TRUSTED_ORIGINS` | — | 空 | trustedOrigins 显式列表（逗号分隔，反代 / 多域） |
+| `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | — | 空 | GitHub OAuth（public 模式；两者齐备才启用） |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | — | 空 | Google OAuth（public 模式；两者齐备才启用） |
+| `OIDC_DISCOVERY_URL` / `OIDC_ISSUER` | — | 空 | OIDC SSO（enterprise；discovery/issuer + clientId + clientSecret 齐备才启用） |
+| `OIDC_CLIENT_ID` / `OIDC_CLIENT_SECRET` | — | 空 | OIDC 客户端凭据 |
+| `OIDC_AUTHORIZATION_URL` / `OIDC_TOKEN_URL` / `OIDC_USERINFO_URL` / `OIDC_SCOPES` | — | 空 / `openid,profile,email` | 无 discovery 的 IdP 手动端点覆盖 |
+
+### 邮件（SMTP）
+
+| 变量 | 必填 | 默认值 | 说明 |
+|:---|:---:|:---|:---|
+| `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASS` / `SMTP_FROM` | — | 空 / `587` | 配置后启用邮箱验证与密码重置；未配置自动跳过 |
+
+### 扫描队列与 Redis
+
+| 变量 | 必填 | 默认值 | 说明 |
+|:---|:---:|:---|:---|
+| `REDIS_URL` | — | `redis://127.0.0.1:6379` | BullMQ 队列；Redis 可达 + 版本 ≥ 5.0 + 有消费者时异步，否则降级同步。默认 compose 将容器内 `NUXT_REDIS_URL` 硬编码为 `redis://redis:6379`（指向内置 redis），本变量仅自行编排 / 直连进程时生效 |
+| `QUEUE_ENABLED` | — | `auto` | `auto` / `true`（强制异步）/ `false`（强制同步）。compose 白名单内（→ `NUXT_QUEUE_ENABLED`） |
+| `QUEUE_JOB_RETRIES` / `QUEUE_BACKOFF_MS` | — | 空 | 队列任务重试次数 / 退避毫秒（compose 白名单内 → `NUXT_*`） |
+| `QUEUE_WORKER` → `DEPENDFIX_QUEUE_WORKER` | — | compose `1` / 入口 `0` | 独立 worker 进程消费队列（消除 BullMQ 锁续期失败）；`0` 回退单进程。⚠️ **compose 侧名为 `QUEUE_WORKER`** |
+| `DEPENDFIX_QUEUE_WORKER_SOCKET` | — | `/tmp/dependfix-queue-worker.sock` | worker 内部 socket 路径（白名单外，容器内名） |
+| `IN_PROCESS_WORKER` → `NUXT_IN_PROCESS_WORKER` | — | `true`（compose）/ `false`（直连进程） | 进程内 worker（单进程部署唯一消费者）；默认值以 compose 转发为准 |
+| `STALE_CLEANUP_INTERVAL_MS` | — | `300000` | 孤儿任务清理节拍（毫秒） |
+
+### 执行器 / 沙箱 / 扫描
+
+| 变量 | 必填 | 默认值 | 说明 |
+|:---|:---:|:---|:---|
+| `RUN_WORK_ROOT` | — | `data/runs` | 运行工作根目录（clone / 执行产物） |
+| `CLONE_TIMEOUT_MS` | — | `300000` | git clone 超时（毫秒） |
+| `CLONE_MAX_RETRIES` | — | `3` | clone 最大重试次数 |
+| `SANDBOX_RUNTIME` | — | `runc` | 沙箱 OCI runtime |
+| `SANDBOX_IMAGE` | — | `dependfix-platform:latest` | 沙箱镜像 |
+| `HTTP_PROXY` / `HTTPS_PROXY` / `ALL_PROXY` | — | 空 | 出站代理（引擎验证阶段） |
+| `DEPENDFIX_SUPPRESS_LOCAL_EXECUTION_WARNING` | — | `false` | 抑制「本地非容器执行」安全警告（仅本地排障） |
+| `ACTION_STATUS_MONITOR_ENABLED` | — | `false` | 依赖更新 PR check 状态监测总开关；启用前需 PAT credential + 有 PR 活动 |
+| `DEPENDFIX_AI_PROVIDER` / `_MODEL` / `_BASE_URL` / `_API_URL` / `_API_KEY` / `_TRIGGER` | — | 空 | 平台扫描内引擎的 AI 研判配置（按组织级 AI 配置注入） |
+
+### 通知
+
+| 变量 | 必填 | 默认值 | 说明 |
+|:---|:---:|:---|:---|
+| `DEPENDFIX_ENV_ALERT_RECIPIENTS` | — | 组织内 admin/org_admin 邮箱 | 环境告警邮件收件人（逗号分隔，覆盖默认） |
+| `DEPENDFIX_LOCALE` | — | `zh-CN` | 通知邮件语言（`zh-CN` / `en-US`） |
+
+### Docker / 部署
+
+| 变量 | 必填 | 默认值 | 说明 |
+|:---|:---:|:---|:---|
+| `PUID` / `PGID` | — | `100` / `101` | 运行身份（数据卷与 `$HOME` 所有权）；为 `0` 时入口 fail-closed 拒绝启动 |
+| `RUN_USER` | — | `dependfix` | 运行用户名 |
+| `DEPENDFIX_ALLOW_ANY_DIR` | — | `0` | 放开 chown 作用域到 `/app` 与 `/home` 之外（高级用法） |
+| `DEPENDFIX_IMAGE` / `DEPENDFIX_BUILD_IMAGE` | — | `caomeiyouren/dependfix:latest` / `:local` | 镜像选择 / 本地构建镜像名 |
+| `DEPENDFIX_USE_LOCAL_BUILD` | — | `0` | 部署脚本使用本地构建镜像 |
+
+> **内部 / 测试变量**（生产勿设）：`NODE_ENV` / `E2E_TEST` / `NUXT_E2E_FIXTURES_ALLOWED` / `AUTH_TRACE` / `CI`——口径见 `apps/platform/.env.full.example` §10。CLI 与 MCP 的变量（`DEPENDFIX_GITHUB_TOKEN` / `DEPENDFIX_MCP_REPORT_DIR` / `PNPM_VERSION` 等）见本文档前文与对应包 README。

@@ -79,7 +79,7 @@ Compose 从 `apps/platform/.env` 读取变量并注入容器。核心项：
 
 > ⚠️ **Compose 变量名与容器变量名不同**：`AUTH_SECRET` 经 compose 映射为容器内 `NUXT_AUTH_SECRET`；`REGISTRATION_DISABLED` → `NUXT_REGISTRATION_DISABLED`；`QUEUE_ENABLED` → `NUXT_QUEUE_ENABLED` 等。Nuxt `runtimeConfig` 运行时覆盖只认 `NUXT_` 前缀。
 >
-> SMTP、OAuth、OIDC、Redis 队列等完整变量见 `apps/platform/.env.example` 与[配置说明](./configuration.md)。
+> SMTP、OAuth、OIDC、Redis 队列等完整变量见 `apps/platform/.env.full.example`（完整分节）与[配置说明 → 平台配置](./configuration.md#平台配置appsplatform)。
 
 ## 数据卷与权限
 

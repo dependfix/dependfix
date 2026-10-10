@@ -79,7 +79,7 @@ Compose reads `apps/platform/.env` and injects variables into the container. Cor
 
 > ⚠️ **Compose variable names differ from container variable names**: `AUTH_SECRET` is mapped by compose to `NUXT_AUTH_SECRET`; `REGISTRATION_DISABLED` → `NUXT_REGISTRATION_DISABLED`; `QUEUE_ENABLED` → `NUXT_QUEUE_ENABLED`. Nuxt `runtimeConfig` runtime overrides only honor the `NUXT_` prefix.
 >
-> Full variables (SMTP, OAuth, OIDC, Redis queue, ...) are in `apps/platform/.env.example` and [Configuration](./configuration.md).
+> Full variables (SMTP, OAuth, OIDC, Redis queue, ...) are in `apps/platform/.env.full.example` (full, sectioned) and [Configuration → Platform configuration](./configuration.md#platform-configuration-appsplatform).
 
 ## Volumes and permissions
 

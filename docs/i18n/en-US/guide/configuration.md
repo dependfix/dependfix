@@ -9,6 +9,8 @@
 
 ## All configuration items
 
+> **Scope**: this section covers the **CLI** (`dependfix` command / GitHub Action). The **platform** (`apps/platform`) environment variables (database / auth / queue / executor sandbox / backup / notification, etc.) are listed in the [Platform configuration](#platform-configuration-appsplatform) section at the end.
+
 | Option | Environment variable | Type | Default | Description |
 |:-------|:---------------------|:-----|:--------|:------------|
 | `mode` | `DEPENDFIX_MODE` | `string` | `report-only` | Run mode: `report-only` / `fix` / `fix-and-pr` |
@@ -113,3 +115,108 @@
 3. Use a script wrapper that injects env vars
 
 After M4 lands, you can use a JSON / YAML config file (merging order: defaults → file → env vars → CLI flags, with later sources overriding earlier).
+## Platform configuration (apps/platform)
+
+The management platform (`apps/platform`) is configured via env vars injected by compose from `apps/platform/.env`.
+
+- **Quick start (minimal)**: `cp apps/platform/.env.example .env` → set at least `AUTH_SECRET` (+ `NUXT_ENCRYPTION_KEY` when using the credentials feature).
+- **Full variables**: `apps/platform/.env.full.example` (all variables + defaults + sections).
+- **Full deployment steps**: see [Docker deployment](./deployment.md).
+
+> ⚠️ **Injection model (important)**: the default `docker-compose.yml` has **no `env_file`** — it forwards only a whitelist of variables via `${...}` interpolation into the container (**compose name → container name**):
+> `PORT` · `PUID`/`PGID` · `AUTH_SECRET`→`NUXT_AUTH_SECRET` · `DATABASE_PATH` · `DATABASE_MIGRATIONS_RUN` · `NUXT_ENCRYPTION_KEY` · `REGISTRATION_DISABLED`→`NUXT_REGISTRATION_DISABLED` · `NUXT_PUBLIC_BETTER_AUTH_URL` · `NUXT_REDIS_URL` (hard-coded) · `QUEUE_ENABLED`/`QUEUE_JOB_RETRIES`/`QUEUE_BACKOFF_MS`→`NUXT_*` · `QUEUE_WORKER`→`DEPENDFIX_QUEUE_WORKER` · `IN_PROCESS_WORKER`→`NUXT_IN_PROCESS_WORKER` · `DEPENDFIX_IMAGE`/`DEPENDFIX_BUILD_IMAGE`.
+> Variables **outside** the whitelist below (email / OAuth / OIDC / `AUTH_MODE` / `DATABASE_TYPE|URL|SSL|SYNCHRONIZE` / `BACKUP_*` / `RUN_WORK_ROOT` / `SANDBOX_*` / `DEPENDFIX_AI_*` / `ACTION_STATUS_MONITOR_ENABLED` / notification, etc.) are **not injected by default** — add them to the compose `environment:` (Nuxt runtimeConfig vars need the `NUXT_` prefix) or via `docker run -e`.
+>
+> ⚠️ **Nuxt runtime override prefix**: the platform is a Nuxt app; `runtimeConfig` runtime overrides **only honor the `NUXT_` prefix** — compose var `AUTH_SECRET` → container `NUXT_AUTH_SECRET`; `REGISTRATION_DISABLED` → `NUXT_REGISTRATION_DISABLED`. Build-time-baked env (e.g. `AUTH_MODE`) needs the `NUXT_` prefix at runtime, otherwise it silently falls back to the default. Server vars read directly via `process.env` (`DATABASE_*` / `CLONE_*` / `DEPENDFIX_*`, etc.) are injected under their original names.
+
+### Essential
+
+| Variable (compose / container name) | Required | Default | Description |
+|:---|:---:|:---|:---|
+| `AUTH_SECRET` → `NUXT_AUTH_SECRET` | ✅ prod | `change-me-to-a-random-secret` | better-auth session signing key; set a strong random value in production (`openssl rand -hex 32`) |
+| `NUXT_ENCRYPTION_KEY` | ✅ when using credentials | empty | Credentials AES-256-GCM key (32 random bytes); empty disables the credentials feature |
+| `PORT` | — | `3000` | Platform listen port |
+| `NUXT_PUBLIC_BETTER_AUTH_URL` | recommended (required for reverse proxy / HTTPS) | `http://localhost:3000` | Public URL; OAuth callbacks and better-auth `trustedOrigins` tightening depend on it (falls back to wildcard if unset) |
+| `NUXT_PUBLIC_BASE_URL` | — | empty | Legacy alias (read as a `trustedOrigins` fallback); use `NUXT_PUBLIC_BETTER_AUTH_URL` for new deployments |
+| `NUXT_PUBLIC_DEFAULT_BRANCH` / `DEFAULT_BRANCH` | — | `main` | Default branch for new repos (build-time injected) |
+| `MACHINE_ID` | — | PID % 1024 | Snowflake machine ID (0-1023); set explicitly for multi-instance |
+
+### Database & backup
+
+| Variable | Required | Default | Description |
+|:---|:---:|:---|:---|
+| `DATABASE_PATH` | — | `data/dependfix.sqlite` | SQLite file path (compose injects `/app/data/dependfix.sqlite`) |
+| `DATABASE_TYPE` / `DATABASE_URL` | — | inferred | Non-SQLite backend (PostgreSQL, etc.) |
+| `DATABASE_SSL` / `DATABASE_CHARSET` / `DATABASE_TIMEZONE` / `DATABASE_ENTITY_PREFIX` | — | empty | Connection tuning |
+| `DATABASE_SYNCHRONIZE` | — | `false` | TypeORM auto-sync; ⚠️ forbidden in production ([development §5.1.19](https://github.com/dependfix/dependfix/blob/master/docs/standards/development.md)) |
+| `DATABASE_MIGRATIONS_RUN` | — | `true` in image | Run pending migrations on startup (fresh DB auto-creates tables) |
+| `DEPENDFIX_MIGRATIONS_ONLY` | — | `false` | Internal: migration-only mode (used by `docker/init-db.sh`) |
+| `BACKUP_SKIP` | — | `false` | Skip startup backup (e2e only) |
+| `BACKUP_RETENTION_COUNT` | — | `5` | Startup backup retention count |
+
+### Authentication & social login
+
+| Variable | Required | Default | Description |
+|:---|:---:|:---|:---|
+| `AUTH_MODE` | — | `public` | Auth mode: `enterprise` (OIDC SSO + email domain allowlist) / `public` (GitHub/Google OAuth + email domain blocklist) |
+| `REGISTRATION_DISABLED` | — | `false` | Disable registration (keep login); set `true` after the first admin registers |
+| `ALLOWED_EMAIL_DOMAINS` | — | empty | Enterprise allowlist (comma-separated); empty disables auto-provisioning |
+| `BLOCKED_EMAIL_DOMAINS` | — | empty | Public blocklist (comma-separated) |
+| `NUXT_PUBLIC_ALLOWED_EMAIL_DOMAINS` | — | empty | Frontend allowlist hint (blocklist not exposed) |
+| `BETTER_AUTH_TRUSTED_ORIGINS` | — | empty | Explicit trustedOrigins list (comma-separated, reverse proxy / multi-domain) |
+| `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | — | empty | GitHub OAuth (public mode; enabled only when both are set) |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | — | empty | Google OAuth (public mode; enabled only when both are set) |
+| `OIDC_DISCOVERY_URL` / `OIDC_ISSUER` | — | empty | OIDC SSO (enterprise; enabled when discovery/issuer + clientId + clientSecret are set) |
+| `OIDC_CLIENT_ID` / `OIDC_CLIENT_SECRET` | — | empty | OIDC client credentials |
+| `OIDC_AUTHORIZATION_URL` / `OIDC_TOKEN_URL` / `OIDC_USERINFO_URL` / `OIDC_SCOPES` | — | empty / `openid,profile,email` | Manual endpoint overrides for IdPs without discovery |
+
+### Email (SMTP)
+
+| Variable | Required | Default | Description |
+|:---|:---:|:---|:---|
+| `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASS` / `SMTP_FROM` | — | empty / `587` | Configuring it enables email verification and password reset; otherwise skipped |
+
+### Scan queue & Redis
+
+| Variable | Required | Default | Description |
+|:---|:---:|:---|:---|
+| `REDIS_URL` | — | `redis://127.0.0.1:6379` | BullMQ queue; async when Redis reachable + version ≥ 5.0 + a consumer exists, otherwise sync. The default compose hard-codes the container's `NUXT_REDIS_URL` to `redis://redis:6379` (built-in redis); this var applies only to custom orchestration / direct process |
+| `QUEUE_ENABLED` | — | `auto` | `auto` / `true` (force async) / `false` (force sync). In the compose whitelist (→ `NUXT_QUEUE_ENABLED`) |
+| `QUEUE_JOB_RETRIES` / `QUEUE_BACKOFF_MS` | — | empty | Job retries / backoff (ms); in the compose whitelist (→ `NUXT_*`) |
+| `QUEUE_WORKER` → `DEPENDFIX_QUEUE_WORKER` | — | compose `1` / entrypoint `0` | Independent worker process consuming the queue (removes BullMQ lock-renewal failures); `0` reverts to single-process. ⚠️ **compose-side name is `QUEUE_WORKER`** |
+| `DEPENDFIX_QUEUE_WORKER_SOCKET` | — | `/tmp/dependfix-queue-worker.sock` | Worker internal socket path (outside the whitelist; container name) |
+| `IN_PROCESS_WORKER` → `NUXT_IN_PROCESS_WORKER` | — | `true` (compose) / `false` (direct process) | In-process worker (sole consumer in single-process deployments); the effective default follows compose forwarding |
+| `STALE_CLEANUP_INTERVAL_MS` | — | `300000` | Orphan task cleanup cadence (ms) |
+
+### Executor / sandbox / scan
+
+| Variable | Required | Default | Description |
+|:---|:---:|:---|:---|
+| `RUN_WORK_ROOT` | — | `data/runs` | Run working root (clone / execution artifacts) |
+| `CLONE_TIMEOUT_MS` | — | `300000` | git clone timeout (ms) |
+| `CLONE_MAX_RETRIES` | — | `3` | Max clone retries |
+| `SANDBOX_RUNTIME` | — | `runc` | Sandbox OCI runtime |
+| `SANDBOX_IMAGE` | — | `dependfix-platform:latest` | Sandbox image |
+| `HTTP_PROXY` / `HTTPS_PROXY` / `ALL_PROXY` | — | empty | Egress proxy (engine verification phase) |
+| `DEPENDFIX_SUPPRESS_LOCAL_EXECUTION_WARNING` | — | `false` | Suppress the "local non-container execution" security warning (local debugging only) |
+| `ACTION_STATUS_MONITOR_ENABLED` | — | `false` | Dependabot PR-check status monitor master switch; requires a PAT credential and PR activity |
+| `DEPENDFIX_AI_PROVIDER` / `_MODEL` / `_BASE_URL` / `_API_URL` / `_API_KEY` / `_TRIGGER` | — | empty | AI triage config for the engine inside platform scans (injected from org-level AI config) |
+
+### Notification
+
+| Variable | Required | Default | Description |
+|:---|:---:|:---|:---|
+| `DEPENDFIX_ENV_ALERT_RECIPIENTS` | — | org admin/org_admin emails | Environment alert email recipients (comma-separated, overrides default) |
+| `DEPENDFIX_LOCALE` | — | `zh-CN` | Notification email language (`zh-CN` / `en-US`) |
+
+### Docker / deployment
+
+| Variable | Required | Default | Description |
+|:---|:---:|:---|:---|
+| `PUID` / `PGID` | — | `100` / `101` | Run identity (data volume and `$HOME` ownership); `0` makes the entrypoint fail-closed |
+| `RUN_USER` | — | `dependfix` | Run user name |
+| `DEPENDFIX_ALLOW_ANY_DIR` | — | `0` | Allow chown scope outside `/app` and `/home` (advanced) |
+| `DEPENDFIX_IMAGE` / `DEPENDFIX_BUILD_IMAGE` | — | `caomeiyouren/dependfix:latest` / `:local` | Image selection / local build image name |
+| `DEPENDFIX_USE_LOCAL_BUILD` | — | `0` | Deployment script uses the locally built image |
+
+> **Internal / test variables** (do not set in production): `NODE_ENV` / `E2E_TEST` / `NUXT_E2E_FIXTURES_ALLOWED` / `AUTH_TRACE` / `CI` — see `apps/platform/.env.full.example` §10. CLI and MCP variables (`DEPENDFIX_GITHUB_TOKEN` / `DEPENDFIX_MCP_REPORT_DIR` / `PNPM_VERSION`, etc.) are covered earlier in this document and in the respective package READMEs.

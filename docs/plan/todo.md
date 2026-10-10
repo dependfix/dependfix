@@ -108,16 +108,18 @@
   - **优先级**：P2
   - **范围**：`apps/platform/.env.example`（改为极简 / 快速启动版）；`apps/platform/.env.full.example`（新增，完整分节版）；`docs/guide/configuration.md` + `docs/i18n/en-US/guide/configuration.md`（平台配置段重构 + 变量总表）；`apps/platform/server/utils/auth.ts`（`trustedOrigins` 读取 `NUXT_PUBLIC_BETTER_AUTH_URL`，兼容回退 `NUXT_PUBLIC_BASE_URL`）+ 单测；必要时 `apps/platform/docker-compose.yml` / `docs/guide/deployment.md` 口径同步。
   - **验收标准**：
-    - [ ] 清点代码实际读取的全部平台 env（`nuxt.config` runtimeConfig + `process.env` 直读 + `docker/entrypoint.sh` + `docker-compose.yml`），形成清单并与示例 / 文档 100% 对齐（内部 / 测试变量显式排除并说明）
-    - [ ] `.env.example` 仅保留「必填 + 快速启动必需」项，按重要性分区；`.env.full.example` 覆盖清点清单全部变量，按逻辑分节，每项标注 `[必填]` / `[可选]` + 默认值
-    - [ ] `docs/guide/configuration.md`（zh + en-US）平台段按分节列出变量总表（含必填标记）并指向两个示例文件；CLI 段与平台段明确切分
-    - [ ] `auth.ts` 的 `trustedOrigins` 读取 `NUXT_PUBLIC_BETTER_AUTH_URL`（`NUXT_PUBLIC_BASE_URL` 兼容回退）；单测覆盖「两变量分别命中 / 均缺省走通配兜底」分支
-    - [ ] `pnpm lint` 0 error + `pnpm typecheck` 0 error（实测 `2>&1 | grep -E "error TS"` 无命中）+ 定向测试（`auth` 相关）全过；`pnpm run check:docs` OK；`pnpm run i18n:audit` parity 0
+    - [x] 清点代码实际读取的全部平台 env（`nuxt.config` runtimeConfig + `process.env` 直读 + `docker/entrypoint.sh` + `docker-compose.yml`），形成清单并与示例 / 文档 100% 对齐（内部 / 测试变量显式排除并说明）
+    - [x] `.env.example` 仅保留「必填 + 快速启动必需」项，按重要性分区；`.env.full.example` 覆盖清点清单全部变量，按逻辑分节，每项标注 `[必填]` / `[可选]` + 默认值
+    - [x] `docs/guide/configuration.md`（zh + en-US）平台段按分节列出变量总表（含必填标记）并指向两个示例文件；CLI 段与平台段明确切分
+    - [x] `auth.ts` 的 `trustedOrigins` 读取 `NUXT_PUBLIC_BETTER_AUTH_URL`（`NUXT_PUBLIC_BASE_URL` 兼容回退）；单测覆盖「两变量分别命中 / 均缺省走通配兜底」分支
+    - [x] `pnpm lint` 0 error + `pnpm typecheck` 0 error（实测 `2>&1 | grep -E "error TS"` 无命中）+ 定向测试（`auth` 相关 20 passed）全过；`pnpm run check:docs` OK（148/84）；`pnpm run i18n:audit` parity 0
   - **D 阶段决策留痕（2026-10-10 用户裁定）**：① 示例文件形态 = **极简 `.env.example` + 完整 `.env.full.example` 双文件**（参考 momei 约定）；② 不一致修正方向 = **修代码兼容两者**（compose / 文档 / 示例统一以 `NUXT_PUBLIC_BETTER_AUTH_URL` 为准）。
   - **不做什么**：不改平台其他 env 的语义 / 默认值；不引入 dotenv 校验库或运行时 env schema 强校验；不改 CLI（`DEPENDFIX_*`）配置项本身（CLI 段仅复用既有内容）；不新增 `.env` 之外的配置通道。
   - **依赖**：用户 2026-10-10 直接提出（非 backlog 候选）；参考 momei `.env.example`（极简）+ `.env.full.example`（完整分节）约定；现状 anchor `auth.ts:103` 读 `NUXT_PUBLIC_BASE_URL`。
   - **交付物**：预计 3-4 commits（fix(platform) `trustedOrigins` 变量 + 单测 / docs(platform) 示例双文件 / docs(guide) 配置说明 zh+en / docs(plan) 闭环）；文件 5-8。
-  - **风险与缓解措施**：① 变量清单遗漏 → 以代码清点（`rg process.env` + runtimeConfig + entrypoint/compose）为准并交叉核对；② 极简版漏必填导致启动失败 → 必填项显式列出 + 缺省回退说明；③ 改 `auth.ts` 影响登录 `trustedOrigins`（安全敏感） → 单测覆盖 + 保留通配兜底 + 不改其他 auth 逻辑；④ en-US 镜像不同步 → `check:i18n` parity 门禁。
+  - **实际交付（2026-10-10）**：5 commits（`8224291` docs(plan) M40.6 替换 + `d0e4a49` fix(platform) trustedOrigins 兼容 + `f3f31ba` docs(platform) 示例双文件 + `c3a5bbf` docs(guide) 配置说明 + 本条闭环登记）；文件 12（`.env.example` / `.env.full.example`（新增） / `auth.ts` / `auth.test.ts` / `configuration.md` zh+en / `deployment.md` zh+en / `todo.md` / `roadmap.md` / `backlog.md` / `archive/index.md`）——超 §1.1「10 文件」阈值，拆 5 commits 依据：planning / fix / docs(platform) / docs(guide) 四类各自独立可回滚，单 commit ≤ 4 文件。
+  - **审计（2026-10-10）**：A 阶段 standard 2 分区并发 R1（P1 实现 2 blocker + 2 warning + 3 suggest / P2 规划 Pass 2 warning + 3 suggest）→ 收口 RG-B1（QUEUE_WORKER compose 命名）/ RG-B2（补 docs build）/ RG-W1（auth 注释同步）/ RG-W2（compose 注入面边界说明）/ S1-S3（§10 内部变量 / REDIS_URL 生效面 / IN_PROCESS_WORKER 默认差异）与 P2 W1/W2 + S1-S3 → R2 quick Pass（13 修复点全关闭）+ 应用 R2 N1/N2（QUEUE_WORKER 默认值 compose 1 / 入口 0、白名单枚举补齐）→ 实测用时 R1 约 8 分钟 / R2 约 3 分钟。mutation 2 处全击杀（M1 去 `|| BASE_URL` 回退 → `回退兼容旧变量` 失败；M2 去通配兜底 → `均未设置 → 通配兜底` 失败）。
+  - **风险与缓解措施**：① 变量清单遗漏 → 以代码清点（`rg process.env` + runtimeConfig + entrypoint/compose）为准并交叉核对；② 极简版漏必填导致启动失败 → 必填项显式列出 + 缺省回退说明；③ 改 `auth.ts` 影响登录 `trustedOrigins`（安全敏感） → 单测覆盖 + 保留通配兜底 + 不改其他 auth 逻辑；④ en-US 镜像不同步 → `check:i18n` parity 门禁；⑤ compose 无 `env_file`、仅白名单转发（R1 RG-W2） → 已在示例 / 文档显式标注白名单与自行追加路径。
 
 ---
 

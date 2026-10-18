@@ -79,6 +79,6 @@
     "stylelint": "17.16.0",
     "stylelint-config-cmyr": "^1.0.0",
     "tsx": "^4.23.15",
-    "vue-tsc": "^3.3.12"
+    "vue-tsc": "^3.3.13"
   }
 }

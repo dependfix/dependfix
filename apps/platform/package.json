@@ -48,7 +48,7 @@
     "better-sqlite3": "^13.0.3",
     "bullmq": "^6.3.15",
     "caomei-ui": "0.6.0",
-    "chart.js": "^4.5.1",
+    "chart.js": "^4.6.1",
     "cron-parser": "^5.10.2",
     "h3": "^1.15.11",
     "ioredis": "^6.0.0",

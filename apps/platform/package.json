@@ -74,7 +74,7 @@
     "@types/nodemailer": "^8.0.2",
     "@types/pg": "^8.23.1",
     "cross-env": "^10.0.0",
-    "nock": "^15.0.1",
+    "nock": "^15.0.5",
     "postcss": "^8.5.31",
     "stylelint": "17.16.0",
     "stylelint-config-cmyr": "^1.0.0",

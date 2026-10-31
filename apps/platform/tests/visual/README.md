@@ -44,7 +44,7 @@
 若后续看到这些位置的像素变化，先对照裁定依据，而不是直接当作新回归上报。
 
 **M31.5 裁定 8 项（7 项接受 + 1 项已修复）**——逐项依据（含测量方式与截图索引）见
-[caomei-ui-migration.md §15.13 第 6 条](../../../../docs/design/governance/caomei-ui-migration.md#1513-b3-收尾实证m3152026-09-29)：
+[caomei-ui-migration.md §15.13 第 6 条](../../../../docs/design/governance/caomei-ui-migration.md#_15-13-b3-收尾实证-m31-5-2026-09-29)：
 
 | 项 | 结论 |
 | :--- | :--- |
@@ -60,13 +60,13 @@
 **另一处跨页形态**（同属迁移期裁定）：
 
 - `env-events` 表格改为外层容器滚动后**表头不再吸顶**（迁移前组件库曾固定表头）→ 接受；依据见
-  [§15.11 第 5 条](../../../../docs/design/governance/caomei-ui-migration.md#1511-其余表页迁移实证m3132026-09-28)。
+  [§15.11 第 5 条](../../../../docs/design/governance/caomei-ui-migration.md#_15-11-其余表页迁移实证-m31-3-2026-09-28)。
 - 6 处 `tone="neutral"` 实底次要动作按钮的实测计算样式（`--caomei-color-neutral-solid` + 白字）见
-  [§15.13 第 5 条](../../../../docs/design/governance/caomei-ui-migration.md#1513-b3-收尾实证m3152026-09-29)；
+  [§15.13 第 5 条](../../../../docs/design/governance/caomei-ui-migration.md#_15-13-b3-收尾实证-m31-5-2026-09-29)；
   `Message` soft 档无边框即上表第 4 项。
 
 **上游版本升级带来的基线刷新（caomei-ui 0.6.0，2026-10-12）**——依据见
-[§15.15](../../../../docs/design/governance/caomei-ui-migration.md#1515-caomei-ui-060-升级回归实证插队热修2026-10-12)：
+[§15.15](../../../../docs/design/governance/caomei-ui-migration.md#_15-15-caomei-ui-0-6-0-升级回归实证-插队热修-2026-10-12)：
 
 | 项 | 结论 |
 | :--- | :--- |

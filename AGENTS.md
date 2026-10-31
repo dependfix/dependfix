@@ -69,7 +69,7 @@ momei 仅作为 1.0.0 前的参考蓝本，1.0.0 后按本项目自身实践演�
 - `M\d+.\d+` 子阶段：阶段内原子条目（如 M25.1 / M25.2a），按类型平衡原则选取 4-6 个独立闭环
 - `M\d+.\d+.\d+` 任务/工作流：子阶段内具体任务
 
-**约束**：backlog 候选不得包含 `M\d+` 阶段编号（除非经用户明确授权上收）。完整规则见 [规划规范 §3.1](./docs/standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement)。
+**约束**：backlog 候选不得包含 `M\d+` 阶段编号（除非经用户明确授权上收）。完整规则见 [规划规范 §3.1](./docs/standards/planning.md#_3-1-新需求默认走-评估-→-backlog-原则-hard-requirement)。
 
 ## 设计文档架构
 
@@ -78,7 +78,7 @@ momei 仅作为 1.0.0 前的参考蓝本，1.0.0 后按本项目自身实践演�
 - **`modules/`** —— 单 monorepo 包总设计（`packages/core`、`packages/engine`、`packages/cli`、`packages/mcp`、`packages/skills`、`apps/platform`）
 - **`governance/`** —— 跨模块 / 治理 / 重大变更专项设计 + 经验归档（`architecture.md` / `security.md` / `experience-archive.md` 等）
 
-**硬阈值**：改动预计 > 10 文件 / > 800 行 → **必须有** governance 文档；> 5 文件 / > 350 行 → 建议有；跨 ≥ 2 个独立模块 → 必须有。完整规则见 [规范与文档治理设计 §2.4](./docs/design/governance/spec-and-doc-governance.md#24-设计文档硬阈值hard-requirement)。
+**硬阈值**：改动预计 > 10 文件 / > 800 行 → **必须有** governance 文档；> 5 文件 / > 350 行 → 建议有；跨 ≥ 2 个独立模块 → 必须有。完整规则见 [规范与文档治理设计 §2.4](./docs/design/governance/spec-and-doc-governance.md#_2-4-设计文档硬阈值-hard-requirement)。
 
 ## 审计触发
 
@@ -89,7 +89,7 @@ A 阶段 `code-auditor` 审计必须触发的场景：
 - 跨 ≥ 2 个独立模块的代码改动
 - 公开 API / 鉴权 / 数据写入 / 外部调用
 
-未触发审计的 F 阶段 commit 视为不合规，由 code-auditor Reject 退回。完整规则见 [规范与文档治理设计 §6.1](./docs/design/governance/spec-and-doc-governance.md#61-a-阶段-audit-required-触发判定hard-requirement)。
+未触发审计的 F 阶段 commit 视为不合规，由 code-auditor Reject 退回。完整规则见 [规范与文档治理设计 §6.1](./docs/design/governance/spec-and-doc-governance.md#_6-1-a-阶段-audit-required-触发判定-hard-requirement)。
 
 ## 必要检查
 
@@ -132,7 +132,7 @@ A 阶段 `code-auditor` 审计必须触发的场景：
 
 ## 新需求处理原则（hard requirement）
 
-按 [规划规范 §3.1 新需求默认走"评估 → backlog"原则](docs/standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) + [AI 协作规范 §2.1.1 新需求总原则](docs/standards/ai-collaboration.md#211新需求总原则跨工作流适用)：
+按 [规划规范 §3.1 新需求默认走"评估 → backlog"原则](docs/standards/planning.md#_3-1-新需求默认走-评估-→-backlog-原则-hard-requirement) + [AI 协作规范 §2.1.1 新需求总原则](docs/standards/ai-collaboration.md#_2-1-1-新需求总原则-跨工作流适用)：
 
 1. **默认路径**：新需求（功能 / 模块 / 集成 / 监控 / 重构 / 体验优化等）的处理路径是 **先评估 → 进入 backlog.md → 等待用户明确决策阶段**。
 2. **不自动升级**：未经用户明确授权，backlog 候选**不得**进入 todo.md §当前阶段；候选条目**不包含** `M\d+` 阶段编号（如 `M23.1`、`M24` 等）。
@@ -141,7 +141,7 @@ A 阶段 `code-auditor` 审计必须触发的场景：
    - **安全问题**：已确认的安全漏洞（Code Scanning 告警、Snyk/Dependabot critical、有 PoC 的安全 issue）
    - **漏洞问题**：依赖链中高危漏洞（critical CVE、GHSA 标识 critical/high 且影响 dependfix 自身或被 dependfix 管理的仓库）
    - **直接影响可用性的任务**：生产环境故障、P0/P1 事故恢复、CI 主链路阻塞、用户报告的 blocker 级功能缺失
-5. **清单外经用户授权的追加通道**：清单外事项经用户明确授权后可写入 `todo.md` 当前阶段，但须按 [规划规范 §3.1](docs/standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement)「**追加临时待办（不占阶段条目编号）**」标记口径处理。标记形态、位置与编号规则以 `planning.md §3.1` 为唯一权威声明，本条仅作指针。
+5. **清单外经用户授权的追加通道**：清单外事项经用户明确授权后可写入 `todo.md` 当前阶段，但须按 [规划规范 §3.1](docs/standards/planning.md#_3-1-新需求默认走-评估-→-backlog-原则-hard-requirement)「**追加临时待办（不占阶段条目编号）**」标记口径处理。标记形态、位置与编号规则以 `planning.md §3.1` 为唯一权威声明，本条仅作指针。
 6. **合规核验**：本原则由 [code-auditor 主责边界「新需求未默认升级为下一阶段 todo」必查项](.github/agents/code-auditor.agent.md) 强制检查，违规即 Reject 退回。
 
 ## 审查要求

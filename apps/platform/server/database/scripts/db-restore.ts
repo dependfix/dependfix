@@ -19,12 +19,16 @@
  * - WAL / SHM 清理：恢复后删除属于旧数据库的 `-wal` / `-shm` 旁文件，避免陈旧 WAL 回放
  *   污染刚恢复的主库
  *
- * 与启动期自动备份的关系：复用 `backup.ts` 的 `writeFileAtomicSync` / `formatTimestamp` /
+ * 与启动期自动备份的关系：复用 `backup.ts` 的 `formatTimestamp` /
  * `BACKUP_DIR_NAME`，保证备份文件命名与写入语义单点声明。
+ *
+ * **覆盖前自动备份必须走在线备份**：应用强制 `journal_mode=wal`，进程退出可能不触发 checkpoint
+ * （实测停止后主文件仍 4KB、数据全在 `-wal`）；裸复制主库会得到空备份，而本脚本随后会删除
+ * `-wal` / `-shm`——那份空备份就成了「撤销恢复」的唯一凭据（数据不可恢复）。
  *
  * 测试覆盖：apps/platform/server/database/scripts/db-restore.test.ts
  */
-import { copyFileSync, existsSync, mkdirSync, readFileSync, statSync, unlinkSync } from 'node:fs'
+import { copyFileSync, existsSync, mkdirSync, statSync, unlinkSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import betterSqlite3 from 'better-sqlite3'
@@ -34,7 +38,6 @@ import {
     cleanupOldBackups,
     DEFAULT_RETENTION_COUNT,
     formatTimestamp,
-    writeFileAtomicSync,
 } from '../backup'
 
 /** 默认 SQLite 数据库路径（与 createDataSourceOptions 保持一致） */
@@ -184,7 +187,14 @@ export const restoreDatabase = (options: {
         //   前一份 auto 备份（那是"撤销恢复"的唯一凭据）
         const ms = now.getUTCMilliseconds().toString().padStart(3, '0')
         autoBackup = join(backupDir, `${AUTO_BACKUP_PREFIX}.${formatTimestamp(now)}-${ms}${BACKUP_FILE_EXTENSION}`)
-        writeFileAtomicSync(autoBackup, readFileSync(to))
+        // 一致性快照必须包含 WAL 中未 checkpoint 的数据：用 `VACUUM INTO`（同步、等价于在线备份）。
+        // 目标名唯一（含毫秒），VACUUM INTO 遇到已存在文件会报错 → 覆盖前失败即 fail-closed（不动源库）。
+        const db = new betterSqlite3(to)
+        try {
+            db.exec(`VACUUM INTO '${autoBackup.replaceAll('\'', '\'\'')}'`)
+        } finally {
+            db.close()
+        }
         cleanupOldBackups(backupDir, AUTO_BACKUP_PREFIX, retentionCount)
     } else {
         // 目标库不存在或为空：仍需保证父目录存在，否则 copyFileSync 会失败

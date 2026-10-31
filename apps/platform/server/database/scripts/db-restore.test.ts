@@ -140,23 +140,49 @@ describe('db-restore', () => {
             expect(readValues(target)).toEqual(['from-backup'])
         })
 
-        it('removes stale -wal / -shm / -journal sidecar files belonging to the old database', () => {
+        it('leaves no stale -wal / -shm / -journal sidecars behind after restore', () => {
             createSeedDatabase(dbPath, 'current')
             createSeedDatabase(backupPath, 'from-backup')
+            // 陈旧旁文件（内容无所谓）：覆盖前快照会打开目标库，SQLite 可能自行丢弃无效 WAL；
+            // 无论由谁删除，恢复后都不得留下属于旧库的旁文件（陈旧 WAL 回放会污染新库）
             writeFileSync(`${dbPath}-wal`, 'stale wal')
             writeFileSync(`${dbPath}-shm`, 'stale shm')
             writeFileSync(`${dbPath}-journal`, 'stale journal')
 
             const result = restoreDatabase({ from: backupPath, to: dbPath })
 
-            expect(result.removedSidecars).toEqual([
-                `${dbPath}-wal`,
-                `${dbPath}-shm`,
-                `${dbPath}-journal`,
-            ])
             expect(existsSync(`${dbPath}-wal`)).toBe(false)
             expect(existsSync(`${dbPath}-shm`)).toBe(false)
             expect(existsSync(`${dbPath}-journal`)).toBe(false)
+            // 审计面：脚本自身删除的旁文件（若 SQLite 打开时已丢弃，则清单为空）
+            expect(result.removedSidecars.every((path) => path.startsWith(dbPath))).toBe(true)
+            expect(readValues(dbPath)).toEqual(['from-backup'])
+        })
+
+        it('auto-backup includes data still sitting in -wal (regression: raw copy gave an empty backup)', () => {
+            // 构造「活库数据全在 WAL」的现场：主文件只有头页，写入仍在 -wal
+            const writer = betterSqlite3(`${workDir}/data/dependfix.sqlite`)
+            writer.pragma('journal_mode = wal')
+            writer.exec('CREATE TABLE demo (id INTEGER PRIMARY KEY AUTOINCREMENT, value TEXT NOT NULL)')
+            writer.prepare('INSERT INTO demo (value) VALUES (?)').run('from-wal')
+            writer.close()
+
+            // 连旁文件一起复制成恢复目标（模拟「应用停止后仍留 WAL」的现场）
+            mkdirSync(join(workDir, 'data'), { recursive: true })
+            copyFileSync(`${workDir}/data/dependfix.sqlite`, dbPath)
+            for (const suffix of ['-wal', '-shm']) {
+                if (existsSync(`${workDir}/data/dependfix.sqlite${suffix}`)) {
+                    copyFileSync(`${workDir}/data/dependfix.sqlite${suffix}`, `${dbPath}${suffix}`)
+                }
+            }
+            createSeedDatabase(backupPath, 'from-backup')
+
+            const result = restoreDatabase({ from: backupPath, to: dbPath })
+
+            // 覆盖前自动备份必须包含 WAL 中的已提交数据（裸复制主库会得到空库）
+            expect(result.autoBackup).toBeDefined()
+            expect(readValues(result.autoBackup!)).toEqual(['from-wal'])
+            expect(readValues(dbPath)).toEqual(['from-backup'])
         })
 
         it('keeps distinct auto backups when two restores land in the same second', () => {
@@ -328,32 +354,30 @@ describe('db-restore', () => {
             })
         })
 
-        describe('sidecar unlinkSync 部分失败的 removedSidecars 状态一致性', () => {
-            it('keeps on-disk sidecar state consistent when a deletion fails midway', () => {
+        describe('旁文件损坏时覆盖前快照失败（fail-closed，不动目标库）', () => {
+            it('aborts before replacing the target when a sidecar cannot be opened', () => {
                 createSeedDatabase(dbPath, 'current')
                 createSeedDatabase(backupPath, 'from-backup')
-                // 真实文件系统故障注入：`-shm` 建成目录 → unlinkSync 对其抛错（EISDIR / EPERM）。
-                // 遍历顺序为 ['-wal', '-shm', '-journal']，故 -wal 在失败前已删除、-journal 未被处理。
+                // `-journal` 建成目录：覆盖前快照要打开目标库，SQLite 无法把它当作回滚日志 → 抛错。
+                // 语义是 fail-closed：快照失败即中止，源库与旁文件原样保留（不得先删除旁文件再丢快照）。
                 writeFileSync(`${dbPath}-wal`, 'stale wal')
-                mkdirSync(`${dbPath}-shm`)
-                writeFileSync(`${dbPath}-journal`, 'stale journal')
+                writeFileSync(`${dbPath}-shm`, 'stale shm')
+                mkdirSync(`${dbPath}-journal`)
+                const targetBytes = readFileSync(dbPath)
 
                 expect(() => restoreDatabase({
                     from: backupPath,
                     to: dbPath,
-                    // 注入恒 ok 的自检：使本用例唯一可能的抛错来源只能是 unlinkSync 失败。
-                    // 否则残留的陈旧 -journal 会让下游 inspect(to) 以「只读打开尝试回滚」报错，
-                    // 恰好满足无参 toThrow()，从而掩盖「清理循环被 try/catch 吞错」这类回归。
+                    // 注入恒 ok 的自检：排除「恢复后自检失败」这条无关抛错来源
                     inspect: () => ({ integrity: 'ok', schemaVersion: 1 }),
                 })).toThrow()
 
-                // 磁盘状态一致：已删除的确实删除，失败点及其后的保留（fail-closed，不静默跳过）
-                expect(existsSync(`${dbPath}-wal`)).toBe(false)
+                // 目标库未被替换（按字节比对：残留的伪 WAL 让 SQLite 无法打开该文件做查询）；
+                // 旁文件未被清理（全部原样保留）
+                expect(readFileSync(dbPath)).toEqual(targetBytes)
+                expect(existsSync(`${dbPath}-wal`)).toBe(true)
                 expect(existsSync(`${dbPath}-shm`)).toBe(true)
                 expect(existsSync(`${dbPath}-journal`)).toBe(true)
-                // 主库已恢复：copyFileSync 在 sidecar 清理之前完成，故目标库字节等于备份
-                // （不用 SQLite 打开校验：残留的陈旧 -journal 会让只读打开尝试回滚恢复而报错）
-                expect(readFileSync(dbPath)).toEqual(readFileSync(backupPath))
             })
         })
 

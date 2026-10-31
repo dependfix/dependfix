@@ -67,22 +67,34 @@ export interface BackupResult {
  * 为什么不用 `readFileSync` 复制主库文件：WAL 模式下已提交数据可能仍只在 `-wal` 里，
  * 主文件可能只是一个 4KB 头页。在线备份由 SQLite 自己按页读取，得到的是一致性快照。
  *
+ * 写入原子性：先写 `<dest>.tmp` → fsync → rename，SIGKILL / 断电不会在目标路径留下半成品。
+ * 以读写方式打开源库（而非 `readonly`）：WAL 库在缺少 `-shm` 时只读连接无法建立。
+ *
+ * 复用方：启动期备份、`db:restore` 的「覆盖前自动备份」（同一反模式，禁止裸复制）。
+ *
  * @param sourcePath 源数据库路径
  * @param destPath 目标文件路径（会被覆盖）
  */
-const createSnapshot = async (sourcePath: string, destPath: string): Promise<void> => {
-    const db = new Database(sourcePath)
+export const createSnapshot = async (sourcePath: string, destPath: string): Promise<void> => {
+    const tempPath = `${destPath}${TEM_FILE_EXTENSION}`
     try {
-        await db.backup(destPath)
-    } finally {
-        db.close()
-    }
-    // 刷盘，保证断电时目标文件不是半成品（rename 前完成）
-    const fd = openSync(destPath, 'r+')
-    try {
-        fsyncSync(fd)
-    } finally {
-        closeSync(fd)
+        const db = new Database(sourcePath)
+        try {
+            await db.backup(tempPath)
+        } finally {
+            db.close()
+        }
+        // 刷盘，保证断电时目标文件不是半成品（rename 前完成）
+        const fd = openSync(tempPath, 'r+')
+        try {
+            fsyncSync(fd)
+        } finally {
+            closeSync(fd)
+        }
+        renameSync(tempPath, destPath)
+    } catch (error) {
+        removeFileQuietly(tempPath)
+        throw error
     }
 }
 
@@ -143,20 +155,11 @@ export const backupDatabaseIfNeeded = async (
     const backupName = `${baseFileName}.${timestamp}${BACKUP_FILE_EXTENSION}`
     const backupPath = join(backupDir, backupName)
 
-    // 4. 在线备份到临时文件 → fsync → 原子 rename
-    //    在线备份 API 会把 WAL 中已提交但未 checkpoint 的页一并写出，避免「备份是空库」
-    const tempPath = `${backupPath}${TEM_FILE_EXTENSION}`
+    // 4. 在线备份（WAL 中已提交但未 checkpoint 的页一并写出，避免「备份是空库」）
+    //    内部先写 .tmp → fsync → 原子 rename
     try {
-        await createSnapshot(dbPath, tempPath)
+        await createSnapshot(dbPath, backupPath)
     } catch (error) {
-        removeFileQuietly(tempPath)
-        return { error: error as Error }
-    }
-
-    try {
-        renameSync(tempPath, backupPath)
-    } catch (error) {
-        removeFileQuietly(tempPath)
         return { error: error as Error }
     }
 
@@ -246,7 +249,13 @@ export const cleanupOldBackups = (
     }
     const prefix = `${baseFileName}.`
     const suffix = BACKUP_FILE_EXTENSION
-    const entries = readdirSync(backupDir)
+    const tmpSuffix = `${BACKUP_FILE_EXTENSION}${TEM_FILE_EXTENSION}`
+    // 先回收中断残留的 .bak.tmp（备份写入过程中被 SIGKILL 的残片，永不可能是有效备份）
+    const entries = readdirSync(backupDir).filter((name) => name.startsWith(prefix) && name.endsWith(tmpSuffix))
+    for (const entry of entries) {
+        removeFileQuietly(join(backupDir, entry))
+    }
+    const backups = readdirSync(backupDir)
         .filter((name) => name.startsWith(prefix) && name.endsWith(suffix))
         .map((name) => ({
             name,
@@ -255,7 +264,7 @@ export const cleanupOldBackups = (
         }))
         .sort((a, b) => b.mtime - a.mtime) // 降序：最新的在前
 
-    const toRemove = entries.slice(retentionCount) // 超出保留份数的老备份
+    const toRemove = backups.slice(retentionCount) // 超出保留份数的老备份
     let removed = 0
     for (const entry of toRemove) {
         try {

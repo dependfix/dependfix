@@ -49,14 +49,33 @@ export async function expectThemeApplied(page: Page, theme: VisualTheme): Promis
 }
 
 /**
- * 等待渲染稳定：网络空闲 + 字体就绪。
- * 不额外 sleep——过渡动画由 `animations: 'disabled'` 在截图瞬间禁用。
+ * 等待画面进入稳定帧：networkidle + 字体就绪 + **连续两帧截图逐字节相同**。
+ *
+ * 最后一条是 `--update-snapshots` 路径的必要条件：比对路径由 `toHaveScreenshot` 自己重试到
+ * 连续两帧一致，而 update 路径不做比对、直接落盘首帧——若首帧落在动画 / 门户定位 / 字体替换
+ * 的中间态，写出的基线在下一轮比对时必然失配（实测 1218-1313 px）。这里把「两帧一致」前移到
+ * 用例侧，让 update 与 compare 落同一帧。
  */
-export async function waitForVisualStable(page: Page): Promise<void> {
+export async function waitForVisualStable(page: Page, { attempts = 12, intervalMs = 120 } = {}): Promise<void> {
     await page.waitForLoadState('networkidle')
     await page.evaluate(async () => {
         await document.fonts?.ready
     })
+    let previous: Buffer | null = null
+    for (let attempt = 0; attempt < attempts; attempt++) {
+        /* 口径说明：这里是**视口级**取帧（与 `expectViewportScreenshot` 同口径）。
+           `fullPage` 基线（settings / notifications / alerts 等）在折叠线以下的区域
+           不受本检查约束，仍由 `toHaveScreenshot` 自身的比对重试兜底。 */
+        const shot = await page.screenshot({ animations: 'disabled', caret: 'hide' })
+        if (previous !== null && Buffer.compare(previous, shot) === 0) {
+            return
+        }
+        previous = shot
+        await page.waitForTimeout(intervalMs)
+    }
+    /* 上限内仍未收敛：不静默放行——update 路径会照常落盘，落到的就是非稳定帧。
+       这里只告警不抛错（避免把慢机器变成假红），但日志可定位「本轮基线可能非稳定帧」。 */
+    console.warn(`[visual] waitForVisualStable 在 ${attempts} 次取帧（间隔 ${intervalMs}ms）内未收敛，本轮基线可能落的是非稳定帧`)
 }
 
 /** 动态区域掩码：所有标记 `data-visual-mask` 的元素。 */

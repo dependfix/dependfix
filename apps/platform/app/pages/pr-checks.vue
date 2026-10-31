@@ -524,6 +524,7 @@ const handleAck = async (row: PRCheckView) => {
                                 </CaomeiTag>
                                 <CaomeiTag
                                     v-if="shouldShowAttribution(signal)"
+                                    class="pr-checks__signal-attribution"
                                     :tone="checkAttributionTone(signal.attribution)"
                                 >
                                     {{ t(checkAttributionI18nKey(signal.attribution)) }}

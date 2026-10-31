@@ -219,6 +219,16 @@ test.describe('平台页面视觉基线', () => {
         await expect(panel).toContainText('构建 / 部署信号')
         await expect(panel.locator('.pr-checks__signal')).toHaveCount(2)
         await expect(panel).toContainText('vercel')
+        /* 归因标签：失败信号的「归因文案 + 色调 class」两档都要锁住。
+           fixtures 里 check 信号 = self_caused（danger）、deployment 信号 = external_noise（neutral）；
+           只断文案会漏掉色调映射改革，只断 class 会漏掉 i18n 键漂移，两者一起才锁得住。 */
+        /* 断言必须落在归因标签自身（`.pr-checks__signal-attribution`）上：
+           行内另有 kind（neutral）与 state（failure → danger）标签，直接查 `.caomei-tag--danger`
+           会被它们满足，色调映射回归就拦不住。 */
+        const attributionTags = panel.locator('.pr-checks__signal-attribution')
+        await expect(attributionTags).toHaveCount(2)
+        await expect(panel.locator('.pr-checks__signal-attribution.caomei-tag--danger')).toHaveText('本次改动导致')
+        await expect(panel.locator('.pr-checks__signal-attribution.caomei-tag--neutral')).toHaveText('外部噪音')
         await waitForVisualStable(page)
         await expectThemeApplied(page, 'light')
         await expectPageScreenshot(page, 'pr-checks-light.png')

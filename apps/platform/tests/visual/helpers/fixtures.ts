@@ -313,6 +313,11 @@ export const VISUAL_FIXTURES: FixturesPayload = {
                     sourceId: '900000101',
                     targetUrl: 'https://github.com/acme/web-app/runs/900000101',
                     summary: 'Test workflow failed on shard 2',
+                    /* 归因标签基线：failure + self_caused → danger 档；与下面 deployment 信号的
+                       external_noise（neutral 档）一起锁「两档色调 + 两段文案」的渲染。
+                       注：平台侧当前不会产出 `self_caused`（生产只产出 external_noise / cancelled /
+                       unknown），这里是纯渲染档位样本，用于覆盖 danger 槽位，不代表生产会展示该文案 */
+                    attribution: 'self_caused',
                 },
                 {
                     kind: 'deployment',
@@ -324,6 +329,7 @@ export const VISUAL_FIXTURES: FixturesPayload = {
                     targetUrl: 'https://web-app-git-preview.vercel.app',
                     logUrl: 'https://vercel.com/acme/web-app/logs',
                     summary: 'Deployment failed',
+                    attribution: 'external_noise',
                 },
             ],
         },

@@ -73,6 +73,14 @@ describe('checkAttributionI18nKey', () => {
         }
     })
 
+    it('五类归因映射到互不相同的键（防止把某类改指到另一类的文案）', () => {
+        const attributions = ['self_caused', 'pre_existing', 'external_noise', 'cancelled', 'unknown'] as const
+        const keys = attributions.map((attribution) => checkAttributionI18nKey(attribution))
+        expect(new Set(keys).size).toBe(attributions.length)
+        expect(checkAttributionI18nKey('self_caused')).toBe('prChecks.signalAttribution.selfCaused')
+        expect(checkAttributionI18nKey('external_noise')).toBe('prChecks.signalAttribution.externalNoise')
+    })
+
     it('未知归因回退 unknown 键', () => {
         expect(checkAttributionI18nKey('something_else')).toBe('prChecks.signalAttribution.unknown')
     })

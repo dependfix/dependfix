@@ -42,6 +42,14 @@
 - **tag 推送纪律**：git 默认不推送 tag——本地开发建议 `git config --global push.followTags true`（日常 push 自动带 annotated tag）；补打 tag 后必须显式 `--tags` 推送并核验（教训见 [经验归档 §二十六](../design/governance/experience-archive.md)）。
 - 版本号由自研 release 脚本管理：`pnpm release:plan` 基于 git log 自动推导各包 bump 级别（见"release:plan 生成规则"），可人工修正；`pnpm release:version` 执行版本提升（含依赖传导）；CHANGELOG 由 `pnpm changelog` 基于 conventional commits 生成（见"CHANGELOG 策略"）。设计文档见 [release-pipeline.md](../design/governance/release-pipeline.md)。
 
+## 1.0 契约冻结与迁移
+
+`1.0.0` 起对外契约冻结：**CLI 参数与运行模式 / Action inputs / 运行时配置与环境变量 / 报告 JSON 字段 / 平台 DB 表列**，1.x 内只增不改不删。完整清单、机检口径、弃用策略与 0.x→1.0 迁移步骤见[契约冻结清单与迁移指南](contract-freeze.md)。
+
+- **机检**：`pnpm run check:contract-freeze`（已接入 `gates:docs`，Test / Release / 周回归同一集合）——键位从 `argsDef` / `action.yml` / `RuntimeConfig` / `RunResult` / 实体元数据抽取，与清单比对，差异即失败；同时校验 zh / en quick-start 的 CLI 参数表。
+- **发布前确认**：发 `1.0.0` 前该门禁必须为绿，且迁移指南已覆盖本轮全部已发生的行为变更（0.x 期间的破坏性变更集中在引擎交付链导出异步化与 `--version` 元数据缺陷）。
+- **弃用**：标记后至少保留 1 个 minor，移除只在 `2.0.0`（与[1.0 发布门槛与就绪度台账](../design/governance/release-1.0-readiness.md)的 semver 承诺一致）。
+
 ## 发布架构
 
 | 阶段 | 触发方式 | 认证方式 | 发布命令 |

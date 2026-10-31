@@ -39,11 +39,12 @@
 
 - **目标**：把「1.0 起不再变」的五类对外契约写成清单并机检，给出弃用策略与 0.x→1.0 迁移指南；范围同时含 zh quick-start CLI 表补齐（M52 残余，独立 commit）。
 - **优先级**：P0（1.0 契约，发布前置）。
-- **范围**：`docs/guide/release.md`（新增「1.0 契约冻结清单」「0.x→1.0 迁移指南」两章）+ `docs/guide/quick-start.md` 与 `docs/i18n/en-US/guide/quick-start.md`（CLI 表补齐 `--ai*` 等）；新增 `scripts/docs/check-contract-freeze.mjs` + 单测（从 `argsDef` / `action.yml` / 配置类型 / 实体元数据 / `RunResult` 抽取实际键，与 `release.md` 清单比对）；`package.json` + `DOC_GATES` + `test.yml` 接线；`docs/standards/documentation.md` 或 release.md 记机检口径。
+- **范围**：新增 `docs/guide/contract-freeze.md`（五类清单 + 弃用策略 + 0.x→1.0 迁移指南）+ `docs/guide/release.md`（「1.0 契约冻结与迁移」小节：策略摘要 + 指针）+ `docs/guide/quick-start.md`（zh CLI 表补齐 `--ai*` 7 行；en 侧 M52 已齐）+ `docs/i18n/en-US/guide/quick-start.md`（`--ai-api-url` 默认值表述对齐）；新增 `scripts/docs/check-contract-freeze.mjs` + 单测（从 `argsDef` / `action.yml` / `RuntimeConfig` / `DEPENDFIX_*` / 报告接口 / 实体元数据抽取实际键，与清单比对）；`package.json` + `DOC_GATES` + `test.yml` 接线；`docs/standards/documentation.md` §6 记机检口径 + review 检查点矩阵挂接。
+  > **范围变更（执行期，2026-10-31）**：原计划把两份清单写进 `docs/guide/release.md` 两章；实测 release.md 317 行，加两份清单后 630+ 行进 guide warning 带（健康窗口 ≤500），改为独立页 `contract-freeze.md`（366 行，健康带）+ release.md 保留策略摘要与指针，`docs:check:fallback` / 侧边栏 / 台账 G2 证据同步更新。核实测 16 文件 / +1400 行，超原预估 8-10 文件 / 600-800 行 → 按「门禁脚本 + 单测 / 契约文档 / 指南与接线」三段提交。
 - **验收标准**：① 五类清单（CLI 参数与模式 / Action inputs / 配置项 / 报告 JSON 字段 / DB 表列）逐项列出，脚本比对 0 差异；①′ 弃用策略成文（弃用窗口、提前通告的 minor 数、移除条件、`deprecation` 标注方式），且 1.0 后变更须 2.0 的约束与台账 §G2 一致；② 机检负例：临时新增一个 CLI 参数不登记 → exit 1，跑后还原；③ 迁移指南逐条覆盖已发生的行为变更（`--version` 元数据缺陷、M51.5 交付链导出同步→异步、`--allow-major-upgrade` 无 env 通道、M51.4 交付降级默认 `skip`、`signalsJson` 存收敛后信号）；④ zh / en CLI 表与 `argsDef` 三方键位一致——证据由本原子新增的 `check-contract-freeze.mjs` 给出（`docs:check:guides` 只做 `en ⊇ zh` 平价、不读 `argsDef`，不能单独作为该结论的依据）；⑤ `gates:docs` 全绿。
 - **不做什么**：不改运行时行为；不做版本号提升；不翻译设计文档。
 - **依赖**：M52 已归档（指南平价脚本与锚点门禁可复用）。
-- **交付物**：预估 3-4 commits / 8-10 文件 / 600-800 行；**拆分依据**：清单章节（含机检脚本）、迁移指南章节、zh/en CLI 表补齐三段各自独立提交，文字量为主、单文件改动多为表格行，不构成逻辑耦合；若实测超 10 文件**或超 800 行**即在清单 / 迁移指南之间再拆。
+- **交付物**：预估 3-4 commits / 8-10 文件 / 600-800 行；**拆分依据**：清单章节（含机检脚本）、迁移指南章节、zh/en CLI 表补齐三段各自独立提交，文字量为主、单文件改动多为表格行，不构成逻辑耦合；若实测超 10 文件**或超 800 行**即在清单 / 迁移指南之间再拆。**实测（2026-10-31）**：3 commits / 16 文件 / +1400 −10 行——独立成页后按「门禁脚本 + 单测（+`DOC_GATES` / `test.yml` / `documentation.md`）」「契约文档（清单 + 弃用策略 + 迁移指南）」「指南与接线（zh·en 表格 + release 指针 + 侧边栏 + 台账）」三段提交。
 - **风险与缓解**：清单与代码漂移 → 键位一律从代码抽取比对（不手抄），并把机检接入 `gates:docs`；迁移指南写成空话 → 每条附「受影响对象 + 迁移动作 + 验证命令」。
 
 ### M53.2 [P1 🛠️] G7 运维实测与发布自动化预演

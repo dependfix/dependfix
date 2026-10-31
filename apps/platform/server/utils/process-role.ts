@@ -28,12 +28,13 @@ export type HttpOnlyPluginName = (typeof HTTP_ONLY_PLUGINS)[number]
 
 /**
  * 非 HTTP-only 插件（两进程共用，worker **不**跳过）：`database-bootstrap` 提供两进程都需要的
- * 数据源引导（迁移唯一执行者已由 `DATABASE_MIGRATIONS_RUN` 隔离）；`resource-probe` 在 worker
- * 侧同样需要输出执行面内存 / 并发信号；`logger` 在 worker 侧同样需要安装致命错误钩子与启动行
- * （worker 崩溃信息必须能落到错误文件）。判定理由见 platform.md §10.6。
+ * 数据源引导（迁移唯一执行者已由 `DATABASE_MIGRATIONS_RUN` 隔离）；`queue-consumer` 在
+ * `inProcessWorker=true` 时初始化队列消费者（worker 侧的消费端唯一启动点，HTTP 主进程为 no-op）；
+ * `resource-probe` 在 worker 侧同样需要输出执行面内存 / 并发信号；`logger` 在 worker 侧同样需要
+ * 安装致命错误钩子与启动行（worker 崩溃信息必须能落到错误文件）。判定理由见 platform.md §10.6。
  * 与 `HTTP_ONLY_PLUGINS` 一起构成「插件目录内每个 nitro 插件都已分类」的机检面。
  */
-export const NON_HTTP_ONLY_PLUGINS = ['database-bootstrap', 'resource-probe', 'logger'] as const
+export const NON_HTTP_ONLY_PLUGINS = ['database-bootstrap', 'queue-consumer', 'resource-probe', 'logger'] as const
 
 /** 可注入的日志接口（默认 console；单测注入捕获器）。 */
 export interface ProcessRoleLog {

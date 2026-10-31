@@ -40,7 +40,7 @@ features:
       details: 模块边界、依赖分组升级、依赖图与执行矩阵；系统级设计见架构文档。
       link: /design/governance/architecture
     - title: 路线图
-      details: M0-M52 已全部闭环归档（M52 文档平价与验证收口，1.0-F2，四原子 + 4 批追加，2026-10-31 归档）；当前无活跃阶段，G 发布工程（M53）待规划；1.0 发布门槛（G1-G8）与批次计划见 design/governance/release-1.0-readiness；插队容量治理规则见规划规范 §3.1.1。
+      details: M0-M52 已全部闭环归档（M52 文档平价与验证收口，1.0-F2，2026-10-31 归档）；当前阶段 M53 发布工程（1.0-G，5 原子，2026-10-31 规划：契约冻结 / 运维实测与发布预演 / 指标与 mutation / 发布链预演 / G3 执行框架）；1.0 发布门槛（G1-G8）与批次计划见 design/governance/release-1.0-readiness；插队容量治理规则见规划规范 §3.1.1。
       link: /plan/roadmap
     - title: 当前任务
       details: 查看下一阶段规划与归档历史、验收指标与依赖；待办积压与已知边界。

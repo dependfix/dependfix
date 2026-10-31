@@ -17,6 +17,7 @@
     "release:github": "node scripts/create-github-release.mjs",
     "release:push-tags": "node scripts/push-release-tags.mjs",
     "release:auto-version": "node scripts/auto-version.mjs",
+    "release:preflight": "node scripts/release/preflight.mjs",
     "verify:changelog": "node scripts/verify-changelog.mjs",
     "check:release-security": "node scripts/check-release-security-alerts.mjs",
     "changelog": "node scripts/changelog.mjs",

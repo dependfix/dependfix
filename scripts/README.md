@@ -19,6 +19,7 @@
 | `pnpm release:publish` | `release-publish.mjs` | 按 `publishOrder` 发布"本地版本未在 npm registry"的包（`pnpm publish`，OIDC 直通）+ 创建 `<pkg>@<version>` annotated tag + `v<锚版本>` 聚合 tag + 写 `release-publish-result.json`。`--dry-run` 预览；`--otp <6-8 位>` 透传本地 2FA；发布 registry 固定官方（`--registry` 可覆盖）；HEAD 锚点校验防误发布 |
 | `pnpm release:push-tags` | `push-release-tags.mjs` | 发布 tag 推送 + 核验（CI）：显式 token URL push → 本地/远程集合对比，缺失即报错（教训见 [经验归档 §二十六](../docs/design/governance/experience-archive.md)） |
 | `pnpm release:github` | `create-github-release.mjs` | 创建本轮聚合 GitHub Release（消费 `release-publish-result.json`：版本矩阵 + 根 CHANGELOG 段，core-only 取锚包包级段；0.x 标 prerelease；幂等 + 失败 warn 不阻断）。`--dry-run` 预览 notes |
+| `pnpm release:preflight` | `release/preflight.mjs` | 发布前预演：全部 npm 发布包 `pnpm pack` → 临时工程用本地 tarball 安装（`pnpm-workspace.yaml` overrides，pnpm 11 不读 package.json 的 `pnpm` 字段）→ 断言 `dependfix --version` == 包版本；同时校验 tarball 内无 `workspace:` 协议、`bin`/`main`/`exports` 入口齐全、预演前后工作区不变。`--no-install` 仅做离线 tarball 校验；已接入 `release.yml`（build 之后） |
 | `pnpm tag:released` | `tag-released-versions.mjs` | 为"npm 已发布但本地无 tag"的版本补打锚点 tag（手动发布辅助）。`--dry-run` / `--at <commit>` |
 
 ### 文档与链接

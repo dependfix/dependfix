@@ -36,6 +36,7 @@ import {
     BACKUP_DIR_NAME,
     BACKUP_FILE_EXTENSION,
     cleanupOldBackups,
+    createSnapshotSync,
     DEFAULT_RETENTION_COUNT,
     formatTimestamp,
 } from '../backup'
@@ -63,6 +64,8 @@ export interface RestoreArgs {
     help: boolean
     /** `--to=<path>` 恢复目标（默认取 DATABASE_PATH env 或 data/dependfix.sqlite） */
     to?: string
+    /** `--skip-auto-backup` 跳过覆盖前自动备份（仅目标库已损坏 / 无法打开时的逃生门） */
+    skipAutoBackup: boolean
 }
 
 /** 数据库自检信息（恢复后校验用） */
@@ -94,12 +97,14 @@ export interface RestoreResult {
  * 避免"下一个 token 到底是值还是 flag"的歧义。
  */
 export const parseRestoreArgs = (argv: string[]): RestoreArgs => {
-    const args: RestoreArgs = { yes: false, help: false }
+    const args: RestoreArgs = { yes: false, help: false, skipAutoBackup: false }
     for (const arg of argv) {
         if (arg === '--yes') {
             args.yes = true
         } else if (arg === '--help' || arg === '-h') {
             args.help = true
+        } else if (arg === '--skip-auto-backup') {
+            args.skipAutoBackup = true
         } else if (arg.startsWith('--from=')) {
             args.from = arg.slice('--from='.length)
         } else if (arg.startsWith('--to=')) {
@@ -149,6 +154,8 @@ export const restoreDatabase = (options: {
     now?: Date
     retentionCount?: number
     inspect?: (dbPath: string) => DatabaseInspection
+    /** 跳过覆盖前自动备份（目标库已损坏无法打开时的逃生门，CLI `--skip-auto-backup`） */
+    skipAutoBackup?: boolean
 }): RestoreResult => {
     const {
         from,
@@ -156,6 +163,7 @@ export const restoreDatabase = (options: {
         now = new Date(),
         retentionCount = Number(process.env.BACKUP_RETENTION_COUNT) || DEFAULT_RETENTION_COUNT,
         inspect = inspectSqliteFile,
+        skipAutoBackup = false,
     } = options
 
     // 1. 源备份预校验：存在 + 非空 + 是可读的 SQLite 库
@@ -178,7 +186,10 @@ export const restoreDatabase = (options: {
     // 2. 覆盖前自动备份当前数据库（走 backup.ts 的原子写入路径）
     const backupDir = join(dirname(to), BACKUP_DIR_NAME)
     let autoBackup: string | undefined
-    if (existsSync(to) && statSync(to).size > 0) {
+    if (skipAutoBackup) {
+        // 显式跳过（目标库已损坏时无法生成快照）；仍保证父目录存在
+        mkdirSync(dirname(to), { recursive: true })
+    } else if (existsSync(to) && statSync(to).size > 0) {
         mkdirSync(backupDir, { recursive: true })
         // 文件名 `auto.<ts>-<ms>.bak`：
         // - `auto.` 前缀让 cleanupOldBackups(backupDir, 'auto', n) 能匹配到这批文件，
@@ -187,13 +198,15 @@ export const restoreDatabase = (options: {
         //   前一份 auto 备份（那是"撤销恢复"的唯一凭据）
         const ms = now.getUTCMilliseconds().toString().padStart(3, '0')
         autoBackup = join(backupDir, `${AUTO_BACKUP_PREFIX}.${formatTimestamp(now)}-${ms}${BACKUP_FILE_EXTENSION}`)
-        // 一致性快照必须包含 WAL 中未 checkpoint 的数据：用 `VACUUM INTO`（同步、等价于在线备份）。
-        // 目标名唯一（含毫秒），VACUUM INTO 遇到已存在文件会报错 → 覆盖前失败即 fail-closed（不动源库）。
-        const db = new betterSqlite3(to)
+        // 一致性快照必须包含 WAL 中未 checkpoint 的数据：复用 backup.ts 的同步快照助手
+        // （`VACUUM INTO` + `.tmp` → fsync → rename；裸复制主库会得到空库）
         try {
-            db.exec(`VACUUM INTO '${autoBackup.replaceAll('\'', '\'\'')}'`)
-        } finally {
-            db.close()
+            createSnapshotSync(to, autoBackup)
+        } catch (error) {
+            throw new Error(
+                `覆盖前自动备份失败（目标库无法生成一致性快照）：${(error as Error).message}；`
+                + '若目标库已损坏，请先人工移走损坏文件（含 -wal / -shm），再用 --skip-auto-backup 重试',
+            )
         }
         cleanupOldBackups(backupDir, AUTO_BACKUP_PREFIX, retentionCount)
     } else {
@@ -246,11 +259,14 @@ db-restore：SQLite 数据库命令式恢复
   --from=<path>   必填。备份文件路径（如 data/backups/dependfix.sqlite.2026-09-01T12-00-00.bak）
   --yes           必填。显式确认覆盖当前数据库（双门控之一）
   --to=<path>     可选。恢复目标（默认 DATABASE_PATH env 或 data/dependfix.sqlite）
+  --skip-auto-backup  可选。跳过覆盖前自动备份（**仅当目标库已损坏、无法生成快照时**使用；
+                      使用前应人工移走损坏的主库与 -wal / -shm 旁文件）
   --help, -h      显示帮助
 
 安全说明：
   - 覆盖前会把当前数据库自动备份到 data/backups/auto.<timestamp>.bak（保留最近
-    BACKUP_RETENTION_COUNT 份，默认 5）
+    BACKUP_RETENTION_COUNT 份，默认 5）；快照为一致性快照（含 WAL 未 checkpoint 数据），
+    目标库无法打开时恢复会中止并要求人工处置（或用 --skip-auto-backup）
   - 备份文件先跑 integrity_check，未通过则拒绝恢复
   - 恢复后清理 -wal / -shm / -journal 旁文件并再次自检
 `.trim()
@@ -281,14 +297,14 @@ export const main = (
 
     const to = args.to ?? env.DATABASE_PATH ?? DEFAULT_DATABASE_PATH
     try {
-        const result = restoreDatabase({ from: args.from, to })
+        const result = restoreDatabase({ from: args.from, to, skipAutoBackup: args.skipAutoBackup })
         console.log(formatRestoreResult(result))
         return 0
     } catch (error) {
         // 措辞保守：预校验阶段失败时目标库确实未被触碰，但 copyFileSync / 旁文件清理阶段
         // 失败可能留下半恢复状态，必须提示人工核对而不是宣告"未被破坏"
         console.error('恢复未完成：', (error as Error).message)
-        console.error('请核对目标库状态；若已被覆盖，可用 data/backups/auto.*.bak 中最新一份撤销本次恢复。')
+        console.error('请核对目标库状态；若已被覆盖，可用 data/backups/auto.*.bak 中最新一份撤销本次恢复（--skip-auto-backup 跳过的轮次没有 auto 备份）。')
         return 1
     }
 }

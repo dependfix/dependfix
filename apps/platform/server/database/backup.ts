@@ -98,6 +98,38 @@ export const createSnapshot = async (sourcePath: string, destPath: string): Prom
     }
 }
 
+/**
+ * 同步一致性快照（`VACUUM INTO`）：供同步调用方复用（当前为 `db:restore` 的覆盖前自动备份）。
+ *
+ * 与 {@link createSnapshot} 等价（都包含 WAL 中未 checkpoint 的数据），差别只是 SQLite 的两种
+ * 实现路径：本函数同步（VACUUM INTO），{@link createSnapshot} 异步（在线备份 API）。
+ * 写入同样 `.tmp` → `fsync` → `rename`，SIGKILL 不会在目标路径留下半成品。
+ *
+ * @param sourcePath 源数据库路径
+ * @param destPath 目标文件路径（必须不存在；VACUUM INTO 遇到已存在文件会报错）
+ */
+export const createSnapshotSync = (sourcePath: string, destPath: string): void => {
+    const tempPath = `${destPath}${TEM_FILE_EXTENSION}`
+    try {
+        const db = new Database(sourcePath)
+        try {
+            db.exec(`VACUUM INTO '${tempPath.replaceAll('\'', '\'\'')}'`)
+        } finally {
+            db.close()
+        }
+        const fd = openSync(tempPath, 'r+')
+        try {
+            fsyncSync(fd)
+        } finally {
+            closeSync(fd)
+        }
+        renameSync(tempPath, destPath)
+    } catch (error) {
+        removeFileQuietly(tempPath)
+        throw error
+    }
+}
+
 /** 删除文件（不存在 / 删除失败都不抛，用于失败路径清理临时文件） */
 const removeFileQuietly = (path: string): void => {
     try {

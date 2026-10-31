@@ -69,13 +69,15 @@ describe('db-restore', () => {
                 to: 'b.sqlite',
                 yes: true,
                 help: false,
+                skipAutoBackup: false,
             })
-            expect(parseRestoreArgs(['--help'])).toEqual({ yes: false, help: true })
-            expect(parseRestoreArgs(['-h'])).toEqual({ yes: false, help: true })
+            expect(parseRestoreArgs(['--help'])).toEqual({ yes: false, help: true, skipAutoBackup: false })
+            expect(parseRestoreArgs(['-h'])).toEqual({ yes: false, help: true, skipAutoBackup: false })
+            expect(parseRestoreArgs(['--skip-auto-backup']).skipAutoBackup).toBe(true)
         })
 
         it('defaults from/to to undefined and yes to false', () => {
-            expect(parseRestoreArgs([])).toEqual({ yes: false, help: false })
+            expect(parseRestoreArgs([])).toEqual({ yes: false, help: false, skipAutoBackup: false })
         })
 
         it('ignores space-separated values (only --key=value supported)', () => {
@@ -160,28 +162,47 @@ describe('db-restore', () => {
         })
 
         it('auto-backup includes data still sitting in -wal (regression: raw copy gave an empty backup)', () => {
-            // 构造「活库数据全在 WAL」的现场：主文件只有头页，写入仍在 -wal
-            const writer = betterSqlite3(`${workDir}/data/dependfix.sqlite`)
+            // 构造「活库数据全在 WAL」的现场：写连接保持打开，把主库 + 旁文件整体复制成恢复目标，
+            // 再关闭写连接（此时主文件只有头页，数据仍在目标库的 -wal 里）
+            const live = join(workDir, 'data', 'live.sqlite')
+            mkdirSync(join(workDir, 'data'), { recursive: true })
+            const writer = betterSqlite3(live)
             writer.pragma('journal_mode = wal')
             writer.exec('CREATE TABLE demo (id INTEGER PRIMARY KEY AUTOINCREMENT, value TEXT NOT NULL)')
             writer.prepare('INSERT INTO demo (value) VALUES (?)').run('from-wal')
-            writer.close()
 
-            // 连旁文件一起复制成恢复目标（模拟「应用停止后仍留 WAL」的现场）
-            mkdirSync(join(workDir, 'data'), { recursive: true })
-            copyFileSync(`${workDir}/data/dependfix.sqlite`, dbPath)
+            copyFileSync(live, dbPath)
             for (const suffix of ['-wal', '-shm']) {
-                if (existsSync(`${workDir}/data/dependfix.sqlite${suffix}`)) {
-                    copyFileSync(`${workDir}/data/dependfix.sqlite${suffix}`, `${dbPath}${suffix}`)
+                if (existsSync(`${live}${suffix}`)) {
+                    copyFileSync(`${live}${suffix}`, `${dbPath}${suffix}`)
                 }
             }
+            writer.close()
             createSeedDatabase(backupPath, 'from-backup')
+
+            // 现场成立：主文件小于 WAL（数据尚未 checkpoint）
+            expect(existsSync(`${dbPath}-wal`)).toBe(true)
+            expect(statSync(dbPath).size).toBeLessThan(statSync(`${dbPath}-wal`).size)
 
             const result = restoreDatabase({ from: backupPath, to: dbPath })
 
-            // 覆盖前自动备份必须包含 WAL 中的已提交数据（裸复制主库会得到空库）
+            // 覆盖前自动备份必须包含 WAL 中的已提交数据（裸复制主库会得到空库，读不到 demo 表）
             expect(result.autoBackup).toBeDefined()
             expect(readValues(result.autoBackup!)).toEqual(['from-wal'])
+            expect(readValues(dbPath)).toEqual(['from-backup'])
+        })
+
+        it('refuses to overwrite a corrupt target unless --skip-auto-backup is given', () => {
+            // 目标库损坏（VACUUM INTO 无法打开）→ 中止并提示逃生门，不得静默跳过快照
+            writeFileSync(dbPath, 'not a sqlite database')
+            createSeedDatabase(backupPath, 'from-backup')
+
+            expect(() => restoreDatabase({ from: backupPath, to: dbPath }))
+                .toThrow(/覆盖前自动备份失败.*--skip-auto-backup/s)
+
+            // 逃生门：显式跳过快照后仍可恢复（事故现场目标库已不可用）
+            const result = restoreDatabase({ from: backupPath, to: dbPath, skipAutoBackup: true })
+            expect(result.autoBackup).toBeUndefined()
             expect(readValues(dbPath)).toEqual(['from-backup'])
         })
 

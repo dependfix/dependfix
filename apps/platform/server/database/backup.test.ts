@@ -1,4 +1,4 @@
-import { chmodSync, existsSync, mkdirSync, readdirSync, rmSync, statSync, utimesSync } from 'node:fs'
+import { chmodSync, existsSync, mkdirSync, readdirSync, rmSync, statSync, utimesSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import Database from 'better-sqlite3'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -173,6 +173,17 @@ describe('backupDatabaseIfNeeded', () => {
             expect(result.error).toBeUndefined()
             expect(result.cleaned).toBe(2)
             expect(readdirSync(backupDir).filter((name) => name.endsWith('.bak')).length).toBe(2)
+        })
+
+        it('回收中断残留的 .bak.tmp 残片', async () => {
+            createSqliteDb(dbPath)
+            mkdirSync(backupDir, { recursive: true })
+            const staleTmp = join(backupDir, 'test.sqlite.2026-01-01T00-00-00.bak.tmp')
+            writeFileSync(staleTmp, 'partial snapshot')
+
+            await backupDatabaseIfNeeded(dbPath, { retentionCount: 5 })
+
+            expect(existsSync(staleTmp)).toBe(false)
         })
 
         it('备份成功时同步回收超期备份（cleanup 与创建同一次调用内完成）', async () => {

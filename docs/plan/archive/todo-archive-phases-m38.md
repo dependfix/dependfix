@@ -38,4 +38,4 @@
 >
 > **ahead commits 实证**：归档时 `git rev-list HEAD ^origin/master --count` 实测 = **18**（`git rev-list origin/master ^HEAD --count` = 0 双向核验；含 M37 收尾 2 + M38 阶段 16），待用户推送确认。
 >
-> **关联**：[roadmap.md §M38](roadmap-phases-m0-m38.md#m38-平台执行模型隔离2026-10-06-用户授权--2026-10-09-已闭环--归档) + [archive/index.md](../archive/index.md) + [executor-process-isolation.md](../../design/governance/executor-process-isolation.md) + [platform.md §10.5 / §10.6](../../standards/platform.md) + [backlog.md](../backlog.md)（M38 衍生候选）
+> **关联**：[roadmap.md §M38](roadmap-phases-m0-m38.md#m38-平台执行模型隔离-2026-10-06-用户授权-2026-10-09-已闭环-归档) + [archive/index.md](../archive/index.md) + [executor-process-isolation.md](../../design/governance/executor-process-isolation.md) + [platform.md §10.5 / §10.6](../../standards/platform.md) + [backlog.md](../backlog.md)（M38 衍生候选）

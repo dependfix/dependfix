@@ -51,4 +51,4 @@
 >
 > **ahead commits 实证**：M31 的 17 commits 中 M31.1-M31.4（11 commits）已推送 `origin/master`；M31.5-M31.6（6 commits）归档时为本地 ahead（`git rev-list HEAD ^origin/master --count` 实测），待用户推送确认。
 >
-> **关联**：[roadmap.md §M31](roadmap-phases-m0-m38.md#m31-appsplatform-ui-组件库迁移primevue--caomei-ui2026-09-28-用户决策方案-b--2026-09-29-已闭环--归档) + [backlog.md](backlog.md)（C88 / C90 上收后已移除）+ [archive/index.md](archive/index.md) + [caomei-ui-migration.md](../design/governance/caomei-ui-migration.md)（§15 全部实施期实证）+ [platform.md §7.1 / §7.4](../standards/platform.md)（接线约定）
+> **关联**：[roadmap.md §M31](roadmap-phases-m0-m38.md#m31-apps-platform-ui-组件库迁移-primevue-→-caomei-ui-2026-09-28-用户决策方案-b-2026-09-29-已闭环-归档) + [backlog.md](backlog.md)（C88 / C90 上收后已移除）+ [archive/index.md](archive/index.md) + [caomei-ui-migration.md](../design/governance/caomei-ui-migration.md)（§15 全部实施期实证）+ [platform.md §7.1 / §7.4](../standards/platform.md)（接线约定）

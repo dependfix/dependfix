@@ -24,7 +24,7 @@
 >
 > **commit 数量实证**：`git log master --first-parent --oneline` 按 `M33` 去重统计 = **20 commits**（阶段启动 `e6c5502` + 11 原子条目的实现与闭环登记 commits），全部已推送 `origin/master`。
 >
-> **关键决策 D1-D9**（2026-09-30 用户裁定；完整记录见 [roadmap.md §M33](roadmap-phases-m0-m38.md#m33-治理债收口--测试基建扩展2026-09-30-用户决策方案-a--2026-09-30-已闭环--归档)）：
+> **关键决策 D1-D9**（2026-09-30 用户裁定；完整记录见 [roadmap.md §M33](roadmap-phases-m0-m38.md#m33-治理债收口-测试基建扩展-2026-09-30-用户决策方案-a-2026-09-30-已闭环-归档)）：
 >
 > - **D1**：方案 A（治理 + 测试基建收口）——6 原子条目，类型平衡 📚 1 + 🛠️ 3 + 🧪 2
 > - **D2**：C80 采用**方案 C（观察期）**——维持 `|| true` + 标注可判定转阻断条件（存量清零后连续 3 次 `master` push clean）
@@ -32,7 +32,7 @@
 > - **D4**：**不纳入** C81（注释孤立编号清理，须分批）与 C83（验证链既有失败基线判定，方案未定）
 > - **D5**：阶段启动 commit 仅改 `docs/plan/*`（P 阶段规划暂停协议）
 > - **D6**（P 阶段 A 阶段审计收敛）：第 1 轮 `standard` Pass（0 blocker / 4 warning / 6 suggest）；warning 落点登记到对应条目交付物
-> - **D7**：M33.7「现在就补齐迁移入口」经用户直接决策追加（属 [规划规范 §3.1](../../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement)「用户直接决策」路径，非插队例外 3 类）
+> - **D7**：M33.7「现在就补齐迁移入口」经用户直接决策追加（属 [规划规范 §3.1](../../standards/planning.md#_3-1-新需求默认走-评估-→-backlog-原则-hard-requirement)「用户直接决策」路径，非插队例外 3 类）
 > - **D8**：M33.8–M33.10 UI 修复批次经用户直接决策追加；执行顺序 M33.9 → M33.8 → M33.10（先落全局色板以免基线二次改写）
 > - **D9**：M33.11 devDeps 存量漏洞治理经用户明确授权按插队例外清单第 2 类追加；执行顺序 M33.11（清存量）→ M33.6（落阻断语义口径，观察期以存量清零为起点）
 >
@@ -60,4 +60,4 @@
 >
 > **ahead commits 实证**：M33 全部 commits 已推送 `origin/master`（`git rev-list HEAD ^origin/master --count` 归档时实测 = 0；期间含远端 dependabot bump 与合并 commit）。
 >
-> **关联**：[roadmap.md §M33](roadmap-phases-m0-m38.md#m33-治理债收口--测试基建扩展2026-09-30-用户决策方案-a--2026-09-30-已闭环--归档) + [backlog.md](../backlog.md)（M33 衍生候选）+ [archive/index.md](index.md)
+> **关联**：[roadmap.md §M33](roadmap-phases-m0-m38.md#m33-治理债收口-测试基建扩展-2026-09-30-用户决策方案-a-2026-09-30-已闭环-归档) + [backlog.md](../backlog.md)（M33 衍生候选）+ [archive/index.md](index.md)

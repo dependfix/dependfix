@@ -13,6 +13,6 @@ M51 承接 1.0 台账批次 F1 九项（[release-1.0-readiness.md](../../design/
 
 **执行特点**：每原子按「实现 → 审计收口 → 边界用例 → 文档」多段提交，阶段首父链 35 commits / 唯一 diff 136 文件 / +6598 −503（基线 49-62 文件 / 1800-2600 行 / 14-16 commits）；跨 core / engine / platform 三模块，首个通过前分区 Reject 共 10 次，收口后全部 Pass。
 
-**阶段期间插队 1 批**：CI run `41057170959` 的 E2E 因新增两类审计事件导致 `env-events` 下拉计数断言失配（按 [规划规范 §3.1](../../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 例外清单第 3 类处理，1 commit，不占条目编号）。
+**阶段期间插队 1 批**：CI run `41057170959` 的 E2E 因新增两类审计事件导致 `env-events` 下拉计数断言失配（按 [规划规范 §3.1](../../standards/planning.md#_3-1-新需求默认走-评估-→-backlog-原则-hard-requirement) 例外清单第 3 类处理，1 commit，不占条目编号）。
 
 **收口口径**：6 原子全部闭环；残余（平台执行链不创建交付载体、预算跳过可观测性、4 处列表查询并列次键、平台 typecheck 未覆盖 nuxt node 项目）已登记 backlog；1.0 台账 F1 标注闭环，下一阶段 F2（M52）待规划。

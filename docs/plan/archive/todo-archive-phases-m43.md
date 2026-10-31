@@ -6,7 +6,7 @@
 ## M43: PR Check 能力补强 + 运行时可靠性与工程治理（2026-10-12 用户决策方案 A / 2026-10-14 归档）
 
 > **归档日期**：2026-10-14
-> **阶段摘要**：承接 M42 归档后的「平台能力补强 + 运行时可靠性」两条线。2026-10-12 用户裁定**方案 A**：从 backlog §候选评估中上收 4 项 + §待上收候选上收 2 项（其中两条各合并为 1 原子），收敛为 **6 原子条目**；阶段期间发生 **caomei-ui `0.6.0` 升级回归插队热修**（不占阶段编号，按 [规划规范 §3.1](../../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 插队例外清单第 3 类「CI 主链路阻塞」+ 用户授权处置）。**6 原子条目全部闭环**，覆盖 🎨 2 + 🚀 1 + 🛡️ 2 + 🛠️ 1。
+> **阶段摘要**：承接 M42 归档后的「平台能力补强 + 运行时可靠性」两条线。2026-10-12 用户裁定**方案 A**：从 backlog §候选评估中上收 4 项 + §待上收候选上收 2 项（其中两条各合并为 1 原子），收敛为 **6 原子条目**；阶段期间发生 **caomei-ui `0.6.0` 升级回归插队热修**（不占阶段编号，按 [规划规范 §3.1](../../standards/planning.md#_3-1-新需求默认走-评估-→-backlog-原则-hard-requirement) 插队例外清单第 3 类「CI 主链路阻塞」+ 用户授权处置）。**6 原子条目全部闭环**，覆盖 🎨 2 + 🚀 1 + 🛡️ 2 + 🛠️ 1。
 >
 > - **前置插队热修（不占阶段编号）**：caomei-ui `0.6.0` 升级回归（排序角标全列保留占位 / 弹窗底色改 `bg-elevated` / 样式基线漂移）—— `b7bb300` + `fed1c9a` + `3c99a09`
 > - **阶段启动规划**：`68ad47f`
@@ -27,7 +27,7 @@
 > - **M43.5 D1-D3**：非仓库语义 = **源头收口 + 门禁守卫**（`hasGitChanges` 非仓库返回 `false` + 门禁非仓库跳过回滚）；push 隔离覆盖面 = **全量 4 处**（含 `push --delete`）；backlog「hooks 隔离规范锚点与命名收敛」= **扩展 `git.md §3.8`、不做改名**（改名单独登记为候选）。
 > - **M43.6 D1-D2**：产物排除 = **目录名精确排除**（不采用统一 `.gitignore` 策略）；计数格式面 = **两种日期+类型形态都兼容** + 疑似条目 stderr 告警（stdout 契约与退出码语义不变）。
 >
-> **类型平衡复核**：🎨 用户体验 2（M43.1 / M43.4）/ 🚀 能力扩展 1（M43.2）/ 🛡️ 技术债与可观测性 2（M43.3 / M43.5）/ 🛠️ devEx 1（M43.6）——符合 [规划规范 §1.1](../../standards/planning.md#11-硬性约束) 类型平衡建议；🧪 独立条目缺口显式标注。
+> **类型平衡复核**：🎨 用户体验 2（M43.1 / M43.4）/ 🚀 能力扩展 1（M43.2）/ 🛡️ 技术债与可观测性 2（M43.3 / M43.5）/ 🛠️ devEx 1（M43.6）——符合 [规划规范 §1.1](../../standards/planning.md#_1-1-硬性约束) 类型平衡建议；🧪 独立条目缺口显式标注。
 >
 > **关键实证**（细节见各条目闭环记录与相关设计文档）：
 > - **前置热修**：根因 = dependabot 仅改版本号与 lockfile 未做迁移实证 → master `Test` job（E2E + 视觉回归）阻塞；机制 = 排序角标在 `sort-mode=multiple` 下全列渲染占位（断言 `toHaveCount(2)` 失效）/ 弹窗底色改 `bg-elevated`（暗色断言失效）/ Drawer · Popover 底色与圆角变更（基线漂移）；处置 = 断言适配 + `--update-snapshots=all` 强制重建 10 张基线 + 逐基线量化 + 依赖升级合并门禁前置写入规范。
@@ -42,4 +42,4 @@
 >
 > **ahead commits 实证**：归档前 `git rev-list HEAD ^origin/master --count` 实测 = **11**（`git rev-list origin/master ^HEAD --count` = 0 双向核验）；M43.1 / M43.2 / M43.3 及其前已由用户推送（归档前 `origin/master` = `1a6aca1`），剩余 M43.4 / M43.5 / M43.6 共 11 commits 待推送确认；**本归档 + 沉淀批次 commits 另计**，均待用户推送确认。
 >
-> **关联**：[roadmap.md §M43](roadmap-phases-m39-m48.md#m43-pr-check-能力补强--运行时可靠性与工程治理2026-10-12-用户决策方案-a--2026-10-14-已闭环--归档) + [archive/index.md](index.md) + [pr-build-deploy-signals.md](../../design/governance/pr-build-deploy-signals.md) + [caomei-ui-migration.md §15.15](../../design/governance/caomei-ui-migration.md) + [run-failure-taxonomy.md](../../design/governance/run-failure-taxonomy.md) + [pnpm-lockfile-fixer.md §2.4](../../design/modules/pnpm-lockfile-fixer.md) + [git.md §3.8](../../standards/git.md) + [session-wisdom-distillation.md §6](../../design/governance/session-wisdom-distillation.md) + [backlog.md](../backlog.md)（M43 衍生候选）
+> **关联**：[roadmap.md §M43](roadmap-phases-m39-m48.md#m43-pr-check-能力补强-运行时可靠性与工程治理-2026-10-12-用户决策方案-a-2026-10-14-已闭环-归档) + [archive/index.md](index.md) + [pr-build-deploy-signals.md](../../design/governance/pr-build-deploy-signals.md) + [caomei-ui-migration.md §15.15](../../design/governance/caomei-ui-migration.md) + [run-failure-taxonomy.md](../../design/governance/run-failure-taxonomy.md) + [pnpm-lockfile-fixer.md §2.4](../../design/modules/pnpm-lockfile-fixer.md) + [git.md §3.8](../../standards/git.md) + [session-wisdom-distillation.md §6](../../design/governance/session-wisdom-distillation.md) + [backlog.md](../backlog.md)（M43 衍生候选）

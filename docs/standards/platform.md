@@ -19,7 +19,7 @@ Nuxt 4（全栈 SSR + API Routes，`app/` + `server/`）/ TypeScript strict / UI
 
 ## 3. 数据库规范（多后端兼容 + 时区）
 
-- **3.1 环境变量（DATABASE_* 族）**：`DATABASE_TYPE` · `DATABASE_URL` · `DATABASE_PATH` · `DATABASE_SSL` · `DATABASE_ENTITY_PREFIX` · `DATABASE_SYNCHRONIZE` · `MACHINE_ID`——默认值与口径以 [平台配置指南](../guide/configuration.md) + [`.env.full.example`](../../apps/platform/.env.full.example) 为准（[§11](#11-环境变量总表env-example-对齐) 只列平台差异点）；`DATABASE_SYNCHRONIZE` 的反模式禁止见 [工程实践判例 EP-17](../design/governance/engineering-practice-notes.md)。
+- **3.1 环境变量（DATABASE_* 族）**：`DATABASE_TYPE` · `DATABASE_URL` · `DATABASE_PATH` · `DATABASE_SSL` · `DATABASE_ENTITY_PREFIX` · `DATABASE_SYNCHRONIZE` · `MACHINE_ID`——默认值与口径以 [平台配置指南](../guide/configuration.md) + [`.env.full.example`](../../apps/platform/.env.full.example) 为准（[§11](#_11-环境变量总表-env-example-对齐) 只列平台差异点）；`DATABASE_SYNCHRONIZE` 的反模式禁止见 [工程实践判例 EP-17](../design/governance/engineering-practice-notes.md)。
 - **3.2 时区与列类型（关键约束）**：时间列**必须**经 `getDateType()` 取列类型（`server/database/type.ts`），**禁止**硬编码 `'datetime'` / `'timestamp'`（PostgreSQL 会静默产生时区偏移）；`postgres` 映射 `timestamp with time zone`；`CreateDateColumn` / `UpdateDateColumn` / 日期字段统一 `{ type: getDateType() }`，代码一律用 `Date` 对象。
 
 ### 3.3 DataSource 初始化
@@ -39,7 +39,7 @@ Nuxt 4（全栈 SSR + API Routes，`app/` + `server/`）/ TypeScript strict / UI
 - fixtures handler **默认无节流 / debounce / rate-limit**，依赖调用方（`tests/e2e/global-setup.ts` 与各 suite）顺序串行调用；调用频次低（global-setup ≤ 2 次），不存在并发资源竞态。**触发条件**：CI 偶现 fixtures DELETE 502/503 + 资源释放竞态时，先复现再启用轻量节流（`server/utils/fixtures-throttle.ts`，100ms；超限 429），不加复杂锁。
 
 - **3.8 仓库级自定义验证命令（verifyCommands，M32.1 C76）**：`Repository.verifyCommands`（text 列，JSON 数组字符串）声明该仓库验证命令链，覆盖引擎默认链，语义与 CLI `--commands` 对齐（空数组 / null 走默认链）。**单一事实源链路**：存储 `server/entities/repository.ts`（`parseVerifyCommands` 容错）→ 校验 `server/schemas/repository.ts`（≤ 20 条 / 每条非空且 ≤ 500 字符 / 禁换行与控制字符）→ 写入口 `POST /api/repos` + `PUT /api/repos/[id]`（`undefined` 不改 / `null` 或 `[]` 清空）→ 审计 `repository-audit.ts`（仅实际变化时记 `verify_commands_update`）→ 执行 `scan-orchestrator` → `ContainerExecutor` → 引擎 `{ commands }`。**安全边界（hard requirement）**：该字段等价于远程命令执行面（引擎以 `spawn(command, { shell: true })` 执行，不做脚本存在性校验）；写操作走 `requireRole(['admin', 'org_admin'])`（viewer 403）；变更登记 `AuditEvent`（审计失败仅日志不阻断保存）；**不**提供自由 shell 会话、**不**放宽单命令超时、**不**得当作沙箱已缓解该风险（`sandbox-executor.ts` 为最小占位；2026-10-27 起 sandbox 入口临时关闭——UI 禁用 / API 拒绝新写入 / 存量仓库强制降级 `container` + degraded，本配置仅对容器执行器生效）。**UI** 为仓库新增 / 编辑弹窗 `repo-form-dialog.vue`（多行文本一行一条）；review 检查点已由 code-auditor 必查项「修复执行安全基线」+「shell 命令安全」覆盖。
-- **3.9 目标仓库配置文件 `.github/dependfix.yml`（C85）**：目标仓库自声明配置（与 `dependabot.yml` 同范式），首批仅 `overrideProtect`；读取 / 合并 / 降级矩阵以 [依赖升级修复器 §12.7](../design/modules/dependency-fixer-records.md) 为唯一权威，本节只记平台侧接线。**平台侧无需额外接线**（`container-executor.ts` 在 fix / fix-and-pr 下先 clone 再构造引擎实例，引擎构造期读取 `<workDir>/.github/dependfix.yml`；报告模式（report-only）不 clone、不 commit → 行为不变）；**不提供 UI 入口**（随目标仓库走，平台不落库、不暴露表单，与 3.8 的「平台字段」形态刻意区分）；**中央优先**（平台透传的中央 `overrideProtect`（env / CLI）一旦指定，目标仓库声明即整体被忽略）；**可观测性**（生效 / 被中央覆盖 / 降级告警均写引擎日志，平台 `MemoryLogger` 捕获并展示在执行日志；命中保护记 `OVERRIDE_PROTECTED`，见 [override-protect-policy.md](../design/governance/override-protect-policy.md)）；**review 检查点挂接**——「中央优先（防绕过）」与「不提供 UI 入口」两条已挂 [review 检查点矩阵](../../.github/skills/code-reviewer/references/code-quality-checklist.md#规范条款-review-检查点矩阵严格约束逐条挂接)。
+- **3.9 目标仓库配置文件 `.github/dependfix.yml`（C85）**：目标仓库自声明配置（与 `dependabot.yml` 同范式），首批仅 `overrideProtect`；读取 / 合并 / 降级矩阵以 [依赖升级修复器 §12.7](../design/modules/dependency-fixer-records.md) 为唯一权威，本节只记平台侧接线。**平台侧无需额外接线**（`container-executor.ts` 在 fix / fix-and-pr 下先 clone 再构造引擎实例，引擎构造期读取 `<workDir>/.github/dependfix.yml`；报告模式（report-only）不 clone、不 commit → 行为不变）；**不提供 UI 入口**（随目标仓库走，平台不落库、不暴露表单，与 3.8 的「平台字段」形态刻意区分）；**中央优先**（平台透传的中央 `overrideProtect`（env / CLI）一旦指定，目标仓库声明即整体被忽略）；**可观测性**（生效 / 被中央覆盖 / 降级告警均写引擎日志，平台 `MemoryLogger` 捕获并展示在执行日志；命中保护记 `OVERRIDE_PROTECTED`，见 [override-protect-policy.md](../design/governance/override-protect-policy.md)）；**review 检查点挂接**——「中央优先（防绕过）」与「不提供 UI 入口」两条已挂 [review 检查点矩阵](../../.github/skills/code-reviewer/references/code-quality-checklist.md#规范条款-review-检查点矩阵-严格约束逐条挂接)。
 
 ## 4. 认证规范（better-auth）
 
@@ -55,7 +55,7 @@ Nuxt 4（全栈 SSR + API Routes，`app/` + `server/`）/ TypeScript strict / UI
 
 - 平台级密钥 `NUXT_ENCRYPTION_KEY`（AES-256-GCM，32 字节 base64 或 hex）；未配置时**禁用凭据功能并明确报错**（不静默降级为明文）。服务经 `useRuntimeConfig().encryptionKey` 读取（无 inline fallback）。
 - Credential 实体字段：`type`（classic-pat / fine-grained-pat / github-app）、`encryptedToken` / `encryptedPrivateKey`、`appId` / `installationId` / `botLogin`、`name`、`repoId`。
-- 加解密（`server/services/credential.service.ts`）：AES-256-GCM + 随机 IV（12 字节），密文 `{iv}.{authTag}.{ciphertext}`；解密仅在执行时 worker 内存中，用完即弃（算法细节与审计必查项见 [security.md §5.5](./security.md#55-凭据加密存储c28-已闭环2026-08-20)）。
+- 加解密（`server/services/credential.service.ts`）：AES-256-GCM + 随机 IV（12 字节），密文 `{iv}.{authTag}.{ciphertext}`；解密仅在执行时 worker 内存中，用完即弃（算法细节与审计必查项见 [security.md §5.5](./security.md#_5-5-凭据加密存储-c28-已闭环-2026-08-20)）。
 - **禁止** token / privateKey 明文落库、进日志、进前端响应（API 只返回 `hasToken` 布尔）；Dependabot alerts 读取必须显式凭据（`GITHUB_TOKEN` 不可用）；测试用独立随机密钥。
 
 ## 6. API 规范（server/api）
@@ -93,7 +93,7 @@ Nuxt 4（全栈 SSR + API Routes，`app/` + `server/`）/ TypeScript strict / UI
 
 - **配置中心** = `apps/platform/i18n/`：`nuxt-i18n-config.ts`（模块层 locales / strategy / langDir / defaultLocale / detector，被 `nuxt.config.ts` 顶层 import 后 spread）+ `i18n.config.ts`（vue-i18n 构建期配置，按文件路径加载）+ `localeDetector.ts`（`resolveLocale` 纯函数）。
 - **jiti 加载边界（关键约束）**：`nuxt.config.ts` 顶层只能 import `nuxt-i18n-config.ts`（仅 named export const、无顶层副作用），**不能** import `i18n.config.ts`（其 default export 会触发 jiti 顶层求值 `defineI18nConfig` → `is not defined`）；这是双文件拆分的唯一根因。`nuxtI18n = { ... } as const` 必需（防 spread 后字面量类型宽化引发模块字段契约检查报错）。
-- **`nuxt.config.ts` 的 i18n 块 ≤ 10 行**（仅引用 + 必要 override），超出即视为散落配置点回归；**新增语言流程**仅改 `nuxt-i18n-config.ts` 一处 + 在 `i18n/locales/` 复制对应 `.json` 并补翻译。语言标识规范 / fallback 链 / 文案归属见 [i18n.md §3](./i18n.md#3-平台-ui-国际化)。
+- **`nuxt.config.ts` 的 i18n 块 ≤ 10 行**（仅引用 + 必要 override），超出即视为散落配置点回归；**新增语言流程**仅改 `nuxt-i18n-config.ts` 一处 + 在 `i18n/locales/` 复制对应 `.json` 并补翻译。语言标识规范 / fallback 链 / 文案归属见 [i18n.md §3](./i18n.md#_3-平台-ui-国际化)。
 - **禁止**：i18n 块内重复声明 `locales` / `strategy` / `langDir`；把 `vueI18n` 写成内联对象；把 `i18n.config.ts` 的 named export 放到会被 jiti 顶层 import 的位置；detector 内 hard-code locale 列表。
 
 ### 7.3 Utility 抽取与跨组件共享
@@ -120,26 +120,26 @@ Nuxt 4（全栈 SSR + API Routes，`app/` + `server/`）/ TypeScript strict / UI
 - **DataTable 密度与分组**：无 `size` prop，仓库在 `_caomei-tokens.scss` 统一收敛为 small 档（覆盖单元格须用 `.caomei-data-table__table th.caomei-data-table__th` 级选择器），`pr-checks.vue` 例外（用户裁定恢复 caomei 默认密度）；从 `columns` 剔除 `groupRowsBy` 同名列且**不保留分组字段的客户端排序键**，「按包」连续性由**组排序键**保证（组内最高级别 rank × 步长 − 包名升序序号，`summarizePackageGroups`），不依赖服务端 `orderBy`。
 - **验证命令**：`pnpm --filter @dependfix/platform typecheck` + `lint` + `test`；样式类改动必须跑 `build`（唯 `build` 编译 SCSS）。
 
-> 执行分层说明：「影响打包 / 入口 / 产物时必跑 `build`」由 [AGENTS.md 必要检查](../../AGENTS.md) 第 3 条承接；「`SelectItem` 不接受空串 `value`」与「响应式宽度用 `--caomei-dialog-width` 钩子」两条为**严格约束**，已登记 [review 检查点矩阵](../../.github/skills/code-reviewer/references/code-quality-checklist.md#规范条款-review-检查点矩阵严格约束逐条挂接)；其余为执行层指引。
+> 执行分层说明：「影响打包 / 入口 / 产物时必跑 `build`」由 [AGENTS.md 必要检查](../../AGENTS.md) 第 3 条承接；「`SelectItem` 不接受空串 `value`」与「响应式宽度用 `--caomei-dialog-width` 钩子」两条为**严格约束**，已登记 [review 检查点矩阵](../../.github/skills/code-reviewer/references/code-quality-checklist.md#规范条款-review-检查点矩阵-严格约束逐条挂接)；其余为执行层指引。
 
 ### 7.5 上游组件问题归因与 issue 上报流程
 
 > 适用：平台页面 / 组件行为异常，且怀疑根因在组件库（`caomei-ui`）或其传递依赖，而非本仓代码。
 
-- **第 1 步 · 归因判定（三条全过才按上游问题上报）**：① 移除本仓样式覆盖 / 容器约束 / 受控状态写法后仍复现；② 库自带 demo 同样复现；③ 版本与 prop 未越界（存在性以已安装版本 `node_modules/<pkg>/dist/**` 源码为准）；仅在叠加本仓覆盖后才出现 → 回 [§7.4](#74-caomei-ui-接线约定) 排查。
-- **第 2–4 步 · 取证与上报**：最小复现片段 + 浏览器侧实测值（`getComputedStyle` / `getBoundingClientRect` / `elementFromPoint`）+ 截图，且**与冻结代码同批生成**（[测试规范 §6.8](./testing.md#68-取证工件必须与冻结代码同批生成)）；上报路径以目标仓库 `.github/ISSUE_TEMPLATE/` 模板优先（无模板按其通用 bug 结构提交，**不因缺模板而放弃**）；模板要素（环境版本 + 最小复现 + 期望与实际 + 截图）缺一不可，**不写入**本仓私有代码 / 内部数据 / 凭据。
+- **第 1 步 · 归因判定（三条全过才按上游问题上报）**：① 移除本仓样式覆盖 / 容器约束 / 受控状态写法后仍复现；② 库自带 demo 同样复现；③ 版本与 prop 未越界（存在性以已安装版本 `node_modules/<pkg>/dist/**` 源码为准）；仅在叠加本仓覆盖后才出现 → 回 [§7.4](#_7-4-caomei-ui-接线约定) 排查。
+- **第 2–4 步 · 取证与上报**：最小复现片段 + 浏览器侧实测值（`getComputedStyle` / `getBoundingClientRect` / `elementFromPoint`）+ 截图，且**与冻结代码同批生成**（[测试规范 §6.8](./testing.md#_6-8-取证工件必须与冻结代码同批生成)）；上报路径以目标仓库 `.github/ISSUE_TEMPLATE/` 模板优先（无模板按其通用 bug 结构提交，**不因缺模板而放弃**）；模板要素（环境版本 + 最小复现 + 期望与实际 + 截图）缺一不可，**不写入**本仓私有代码 / 内部数据 / 凭据。
 - **第 5 步 · 本仓侧处置**：在 [backlog](../plan/backlog.md) 登记「已上报上游 + 影响面 + 临时措施」；**不在本仓为上游缺陷做二次封装兜底**（需兜底时由用户明确决策并单独登记）。
 
 ### 7.6 运行时 env 开关的 UI 状态暴露用只读端点
 
 - **不要用 `runtimeConfig.public`**：`nuxt.config` 求值发生在**构建期**，非 `NUXT_PUBLIC_` 前缀的根级 env 只在构建时烘焙，容器运行时 `-e` 注入不会刷新 → 公开配置与 `process.env` 口径漂移。
-- **做法**：由服务端**只读端点**按请求读取 `process.env` 返回状态（如 `GET /api/schedules/monitor-status`），前端据此渲染提示，与服务端开关**同源、无烘焙漂移**；进程级 env 不可热更 → UI 文案须说明「设置后需重启进程生效」。本条为**严格约束**，已登记 [review 检查点矩阵](../../.github/skills/code-reviewer/references/code-quality-checklist.md#规范条款-review-检查点矩阵严格约束逐条挂接)。
+- **做法**：由服务端**只读端点**按请求读取 `process.env` 返回状态（如 `GET /api/schedules/monitor-status`），前端据此渲染提示，与服务端开关**同源、无烘焙漂移**；进程级 env 不可热更 → UI 文案须说明「设置后需重启进程生效」。本条为**严格约束**，已登记 [review 检查点矩阵](../../.github/skills/code-reviewer/references/code-quality-checklist.md#规范条款-review-检查点矩阵-严格约束逐条挂接)。
 
 ## 8. 测试规范
 
 - server 层纯逻辑（加密 / adapter / 服务）用 Vitest node 环境，位于 `server/**/*.test.ts`；涉及 Nuxt runtime（`useRuntimeConfig` / API 路由）的集成测试放 `tests/` 或 `server/api/**/*.test.ts`，经 `@nuxt/test-utils` 启动。
 - 数据库测试用 SQLite `:memory:` + `DATABASE_TYPE=sqlite`，每个测试独立 DataSource（`beforeEach` 重建）；时间列断言用 `getDateType('sqlite')` 期望值，避免硬编码。
-- 命令：`pnpm --filter @dependfix/platform test`；视觉回归 `pnpm --filter @dependfix/platform test:visual`（更新基线加 `--update-snapshots`），口径见 [测试规范 §6.7](./testing.md#67-视觉回归截图识别层appsplatform)。
+- 命令：`pnpm --filter @dependfix/platform test`；视觉回归 `pnpm --filter @dependfix/platform test:visual`（更新基线加 `--update-snapshots`），口径见 [测试规范 §6.7](./testing.md#_6-7-视觉回归-截图识别层-apps-platform)。
 
 ## 9. 质量门禁
 
@@ -150,7 +150,7 @@ Nuxt 4（全栈 SSR + API Routes，`app/` + `server/`）/ TypeScript strict / UI
 
 ## 10. 运行时与部署（容器镜像 / 启动 / 队列降级）
 
-> 镜像构建产物与运行契约；容器编排文件见 [§2](#2-目录结构nuxt-4)。完整选型与依据见 [平台执行模型隔离设计](../design/governance/executor-process-isolation.md)。
+> 镜像构建产物与运行契约；容器编排文件见 [§2](#_2-目录结构-nuxt-4)。完整选型与依据见 [平台执行模型隔离设计](../design/governance/executor-process-isolation.md)。
 
 ### 10.1 镜像自足性优先于部署侧 env
 
@@ -166,18 +166,18 @@ Nuxt 4（全栈 SSR + API Routes，`app/` + `server/`）/ TypeScript strict / UI
 ### 10.4 队列模式自动降级必须含「消费者维度」
 
 - 「Redis 可用即异步」的降级矩阵若不含「是否存在消费者」，会形成静默黑洞：job 入队后无人消费 → pending 永远挂起 → stale cleanup 约 30 分钟后判 `orphan_run`。
-- `auto` 模式**必须**仅在「Redis 可用**且**本进程消费队列（`inProcessWorker`）」时异步；本进程不消费且无独立 worker 消费时须降级 `sync`（容器默认形态由独立 worker 进程消费，见 [§10.6](#106-队列执行进程隔离独立-worker-进程)——该形态应显式 `QUEUE_ENABLED=true`）。
+- `auto` 模式**必须**仅在「Redis 可用**且**本进程消费队列（`inProcessWorker`）」时异步；本进程不消费且无独立 worker 消费时须降级 `sync`（容器默认形态由独立 worker 进程消费，见 [§10.6](#_10-6-队列执行进程隔离-独立-worker-进程)——该形态应显式 `QUEUE_ENABLED=true`）。
 - **env 口径**：Nuxt runtimeConfig 运行时覆盖只认 `NUXT_` 前缀（容器需 `NUXT_IN_PROCESS_WORKER`）；`.env.example` 的无前缀名只是 compose 插值源，直接注入容器无效。
 
-- **10.5 队列锁参数显式化与锁问题观测**：in-process Worker **必须**显式配置 `lockDuration` / `lockRenewTime`（`SCAN_WORKER_LOCK_OPTIONS`，见 `server/services/queue/scan-worker.ts`），不得依赖 BullMQ 隐式默认（30 秒）——引擎同步子进程会阻塞 event loop 使续期定时器延后，易触发 `could not renew lock` / `Missing lock`，job 被判 stalled 重排（存在重复执行风险）。**取值口径**：`lockDuration` 取 `resolveExecutionTimeoutMs()`（缺省 30 分钟，可经 `EXECUTION_TIMEOUT_MS` 覆盖），`lockRenewTime` 取其一半；两处口径**同源联动**（单测锁定该对齐关系），env 变更需重启进程。**锁问题观测**：Worker **必须**注册 `stalled` / `lockRenewalFailed` / `error` 事件并输出结构化日志（`[scan-worker] {json}`）；`stalled` / `lockRenewalFailed` 载荷含 `jobId` 并经注入的 `queue.getJob` 补全 `runId`（未解析显式 `null`）；`error` 载荷无 job 上下文（由配对的 `lockRenewalFailed` 承载）。**同根因去重**：LockManager 续期失败会同时 emit `lockRenewalFailed` 与 `error`（message 前缀 `could not renew lock for job`）——`error` 日志须标 `duplicateOf: 'lockRenewalFailed'` 供聚合去重（与 [§6.1](#61-错误码与告警状态口径平台展示消费-engine-错误码) 同类的「同一根因不重复告警」思路）。
+- **10.5 队列锁参数显式化与锁问题观测**：in-process Worker **必须**显式配置 `lockDuration` / `lockRenewTime`（`SCAN_WORKER_LOCK_OPTIONS`，见 `server/services/queue/scan-worker.ts`），不得依赖 BullMQ 隐式默认（30 秒）——引擎同步子进程会阻塞 event loop 使续期定时器延后，易触发 `could not renew lock` / `Missing lock`，job 被判 stalled 重排（存在重复执行风险）。**取值口径**：`lockDuration` 取 `resolveExecutionTimeoutMs()`（缺省 30 分钟，可经 `EXECUTION_TIMEOUT_MS` 覆盖），`lockRenewTime` 取其一半；两处口径**同源联动**（单测锁定该对齐关系），env 变更需重启进程。**锁问题观测**：Worker **必须**注册 `stalled` / `lockRenewalFailed` / `error` 事件并输出结构化日志（`[scan-worker] {json}`）；`stalled` / `lockRenewalFailed` 载荷含 `jobId` 并经注入的 `queue.getJob` 补全 `runId`（未解析显式 `null`）；`error` 载荷无 job 上下文（由配对的 `lockRenewalFailed` 承载）。**同根因去重**：LockManager 续期失败会同时 emit `lockRenewalFailed` 与 `error`（message 前缀 `could not renew lock for job`）——`error` 日志须标 `duplicateOf: 'lockRenewalFailed'` 供聚合去重（与 [§6.1](#_6-1-错误码与告警状态口径-平台展示消费-engine-错误码) 同类的「同一根因不重复告警」思路）。
 
 ### 10.6 队列执行进程隔离（独立 worker 进程）
 
-- **形态与监听收敛**：容器部署**默认**启动双进程（`DEPENDFIX_QUEUE_WORKER=1`，由 `docker/entrypoint.sh` 实现）——独立 worker 进程 `NUXT_IN_PROCESS_WORKER=true` 消费队列，HTTP 进程 `=false` 不消费；扫描执行完全在 worker，**HTTP 进程 event loop 不被阻塞**，从根上消除锁续期失败（锁参数与观测见 10.5）。worker 的 Nitro HTTP 监听经 `NITRO_UNIX_SOCKET`（默认 `/tmp/dependfix-queue-worker.sock`）收敛，不占端口、不对外暴露。**迁移唯一执行者**：worker 侧 `DATABASE_MIGRATIONS_RUN=false`，迁移只由主进程执行。**Redis 不可用**：两进程各自按 [§10.4](#104-队列模式自动降级必须含消费者维度) 降级 `sync`。
+- **形态与监听收敛**：容器部署**默认**启动双进程（`DEPENDFIX_QUEUE_WORKER=1`，由 `docker/entrypoint.sh` 实现）——独立 worker 进程 `NUXT_IN_PROCESS_WORKER=true` 消费队列，HTTP 进程 `=false` 不消费；扫描执行完全在 worker，**HTTP 进程 event loop 不被阻塞**，从根上消除锁续期失败（锁参数与观测见 10.5）。worker 的 Nitro HTTP 监听经 `NITRO_UNIX_SOCKET`（默认 `/tmp/dependfix-queue-worker.sock`）收敛，不占端口、不对外暴露。**迁移唯一执行者**：worker 侧 `DATABASE_MIGRATIONS_RUN=false`，迁移只由主进程执行。**Redis 不可用**：两进程各自按 [§10.4](#_10-4-队列模式自动降级必须含「消费者维度」) 降级 `sync`。
 - **进程角色与 HTTP-only 插件**：入口向两进程分别注入 `DEPENDFIX_ROLE`（worker 子进程 `worker` / HTTP 主进程 `server`；单进程形态由入口归一化为 `server`，外部误设 `worker` 不生效），worker 侧据此**跳过 HTTP-only 插件**——`stale-cleanup`（周期清理：30 秒首跑 + 5 分钟节拍，含孤儿清理 / 批次对账 / `_pending/` 目录删除）、`build-info`（部署产物版本戳，容器级一条即可，见 10.7）与 `weekly-digest`（周汇总）。判定由 `server/utils/process-role.ts` 单点实现（`HTTP_ONLY_PLUGINS` / `NON_HTTP_ONLY_PLUGINS` 清单为单一事实源，单测锁定「插件目录内每个 nitro 插件都已分类」）。**非 HTTP-only**：`database-bootstrap` 两进程均保留——worker 自身依赖数据源引导，且迁移唯一执行者已由 `DATABASE_MIGRATIONS_RUN=false` 隔离；`resource-probe` 两进程均保留——worker 需要输出执行面内存 / 并发探测（只读、不阻断）；`logger` 亦两进程共用（见 10.9）。**缺省与回退**：容器单进程形态由入口归一化为 `server`；未设置（本地 `pnpm dev` / 直连 `node .output/server/index.mjs`）与 `=server` 行为一致，不跳过任何插件；未识别值按 `server` 处理并告警（**fail-safe**：宁可多跑一次幂等清理，也不静默停用孤儿清理）。**为何不用 `IN_PROCESS_WORKER` 作判据**：双进程形态下 worker 子进程与单进程形态都是 `true`（唯一为 `false` 的是 HTTP 主进程，语义恰好相反）。机检落点：`server/utils/process-role.test.ts`（三态 + 未识别值方向）+ `server/plugins/*.test.ts`（注册守卫）+ `docker/entrypoint.test.mjs`（角色注入）。
 - **向后兼容与回退**：入口层不设 `DEPENDFIX_QUEUE_WORKER` 时默认 `0`（单进程）；compose 默认 `QUEUE_WORKER=1`，设 `0` 回退；`NUXT_QUEUE_ENABLED=false` 时入口跳过 worker 并 warn；本地 `pnpm dev` / 直接 `node .output/server/index.mjs` 不经 entrypoint，仍用进程内 worker。
 - **崩溃自愈（看护循环）**：entrypoint 以看护子 shell 托管 worker——异常退出按指数退避自动重启（1s 起翻倍、封顶 30s，记录退出码 / 次数 / 时间）；连续快速失败超上限（5 次）后**转为慢重试**（`DEPENDFIX_QUEUE_WORKER_SLOW_RETRY_SECONDS`，缺省 300s，日志降噪），**不得永久停止重启**——`stale-cleanup` 只能改 DB、不能消费队列，worker 永久退出会让所有任务无声挂起；**HTTP 主进程始终继续服务**；稳定运行 60s 后快速计数与慢重试状态归零；容器停止（TERM / INT）时终止看护循环与 worker。**退避等待必须可被信号打断**：用 `sleep N & wait $!`（前台 `sleep` 会阻塞 trap，容器 `docker stop` 宽限内被 SIGKILL 成 137，破坏约定的 143 退出语义），并以真实 `sleep` + `TERM` 计时用例锁定。
-- **信号处置顺序**：双进程形态下，容器停止（TERM / INT）的转发 trap **必须**先于「启动子进程」与「输出就绪行」安装（本条为**严格约束**，已登记 [review 检查点矩阵](../../.github/skills/code-reviewer/references/code-quality-checklist.md#规范条款-review-检查点矩阵严格约束逐条挂接)）。就绪行是外部观测方（容器编排 / 健康检查 / 行为测试）唯一的同步点，落在 trap 安装之前的信号按默认处置直接终止 PID 1——看护循环与 worker 因此失去父进程，观测方读到的也是 signal 终止而非约定的 143 退出码；主进程尚未启动（`MAIN_PID` 未赋值）时无主进程可转发，应直接退出（看护进程仍由 `stop_queue_worker` 兜底）而非吞掉停止信号后照旧启动。机检落点为 `apps/platform/docker/entrypoint.test.mjs` 的源码顺序断言。
+- **信号处置顺序**：双进程形态下，容器停止（TERM / INT）的转发 trap **必须**先于「启动子进程」与「输出就绪行」安装（本条为**严格约束**，已登记 [review 检查点矩阵](../../.github/skills/code-reviewer/references/code-quality-checklist.md#规范条款-review-检查点矩阵-严格约束逐条挂接)）。就绪行是外部观测方（容器编排 / 健康检查 / 行为测试）唯一的同步点，落在 trap 安装之前的信号按默认处置直接终止 PID 1——看护循环与 worker 因此失去父进程，观测方读到的也是 signal 终止而非约定的 143 退出码；主进程尚未启动（`MAIN_PID` 未赋值）时无主进程可转发，应直接退出（看护进程仍由 `stop_queue_worker` 兜底）而非吞掉停止信号后照旧启动。机检落点为 `apps/platform/docker/entrypoint.test.mjs` 的源码顺序断言。
 - **已知边界**：① 两进程共享 SQLite（WAL + `busy_timeout` 由 DataSource 初始化落地）；② **插件面已按进程角色收敛**：worker 侧不再重复启动 HTTP-only 插件（周期清理 / 版本戳），仅保留两进程共用的启动期数据源引导与资源探测（判定与清单见上「进程角色与 HTTP-only 插件」）；③ 连续快速重启超上限后转慢重试（消费者不会永久消失，见 [队列僵尸任务终结与去重键释放设计](../design/governance/queue-stale-recovery.md)）；④ **空库首启时序**——worker 插件首次查询可能命中未建表，由 `stale-cleanup` 首跑延迟 + 幂等重试承担；⑤ **入口脚本前导段**（权限 / 路径校验等 `run_platform` 之前的步骤）尚无 trap，此窗口内的 TERM / INT 仍按默认处置终止 PID 1，但此时子进程尚未创建，无孤儿面；⑥ **子进程启动窗口**——trap 已生效但 `SUPERVISOR_PID` / `MAIN_PID` 尚未捕获的极窄窗口内到达的 TERM / INT 无变量可转发（仅 `stop_queue_worker` 的 pid 文件兜底），未命中部分短暂孤儿化，由容器运行时随 PID 1 退出一并回收；⑦ **启动期备份的双份副作用**——双进程各自备份一次（[EP-16](../design/governance/engineering-practice-notes.md)，hard requirement），保留份数（`BACKUP_RETENTION_COUNT`）的实际覆盖窗口减半；治本属独立条目。
 
 - **10.7 部署产物版本戳（构建期注入 + 运行时核对）**：链路为 CI `--build-arg BUILD_COMMIT/BUILD_VERSION` → Dockerfile `ARG` → `ENV NUXT_BUILD_COMMIT/NUXT_BUILD_VERSION` → Nuxt 以 `NUXT_` 前缀运行时覆盖 `runtimeConfig`（未注入缺省 `unknown`，不阻断启动）。**暴露面**：`GET /api/health`（**公开只读，无鉴权**）返回 `{ version, commit, startedAt }`，启动日志输出 `[build] version=… commit=… startedAt=…`；用途是消除「代码已修复但线上仍复现」的陈旧产物误判。**CI 接线**：`docker.yml` 三个构建步骤均传 `--build-arg`；镜像冒烟额外断言 `/api/health` 200 + JSON 字段与启动版本戳行；env 命名用 `NUXT_BUILD_*`（对齐 Nuxt 运行时覆盖通道，避免 esbuild define 折叠，与 3.6 同源原则）。**运行级回执**：同一值经 `server/utils/run-build-info.ts` 写入每次 run 的 `scan_run.build_version` / `build_commit` 并透传 `RuntimeConfig.buildVersion/buildCommit`，引擎在 run 日志中输出 `[build] dependfix version=… commit=… source=host|engine-package`（`source=engine-package` 为 CLI / MCP 无宿主注入时的包版本回退）；`github-action` 模式两列记录受理 / 派发本次 run 的平台构建，实际执行镜像在目标仓库 runner。口径与降级见 [run-failure-taxonomy.md §5.11](../design/governance/run-failure-taxonomy.md)。
@@ -188,7 +188,7 @@ Nuxt 4（全栈 SSR + API Routes，`app/` + `server/`）/ TypeScript strict / UI
 
 > 默认值与完整说明以 [`apps/platform/.env.full.example`](../../apps/platform/.env.full.example) + [平台配置指南](../guide/configuration.md) 为唯一权威；本节只列平台差异点。
 
-- 运行与部署类：`EXECUTION_TIMEOUT_MS`（缺省 `1800000`，非法 / 越界 fail-closed 回退；与队列锁时长**同源**，见 10.5）、`DEPENDFIX_QUEUE_WORKER`（入口 `0` / compose `1`）与 `DEPENDFIX_ROLE`（入口按进程注入 `worker` / `server`，worker 跳过 HTTP-only 插件；均见 [§10.6](#106-队列执行进程隔离独立-worker-进程)）、`DEPENDFIX_QUEUE_WORKER_SLOW_RETRY_SECONDS`（worker 慢重试间隔，缺省 300，见 [§10.6](#106-队列执行进程隔离独立-worker-进程)）、`STALE_CLEANUP_RUNNING_GRACE_MS` / `STALE_CLEANUP_PENDING_GRACE_MS`（孤儿清理宽限，缺省 300000，见 [队列僵尸任务终结与去重键释放设计](../design/governance/queue-stale-recovery.md)）、`NUXT_BUILD_COMMIT` / `NUXT_BUILD_VERSION`（构建期注入、运行时只读，见 10.7）、`PNPM_CONFIG_STORE_DIR`（pnpm store 目录，入口默认 `/app/data/pnpm-store`，见 10.8）、`LOG_*`（见 10.9）、`DEPENDFIX_WEEKLY_DIGEST_HOUR`（周报触发小时，缺省 `9`，0-23，见 [platform-notification.md §6.5](../design/governance/platform-notification.md#_6-5-周汇总触发)）、`ACTION_STATUS_MONITOR_ENABLED`（PR Check 状态监测总开关；进程级、不可热更，前端提示经只读端点，见 [§7.6](#76-运行时-env-开关的-ui-状态暴露用只读端点)）。**数据与认证类**：`DATABASE_*` 族见 [§3](#3-数据库规范多后端兼容--时区) 与 [平台配置指南](../guide/configuration.md)；`NUXT_ENCRYPTION_KEY` 见 [§5](#5-凭据安全规范t602-起生效)；`AUTH_SECRET` / `SMTP_*` / `NUXT_PUBLIC_BETTER_AUTH_URL` / `PORT` / `MACHINE_ID` 见 `.env.full.example`。
+- 运行与部署类：`EXECUTION_TIMEOUT_MS`（缺省 `1800000`，非法 / 越界 fail-closed 回退；与队列锁时长**同源**，见 10.5）、`DEPENDFIX_QUEUE_WORKER`（入口 `0` / compose `1`）与 `DEPENDFIX_ROLE`（入口按进程注入 `worker` / `server`，worker 跳过 HTTP-only 插件；均见 [§10.6](#_10-6-队列执行进程隔离-独立-worker-进程)）、`DEPENDFIX_QUEUE_WORKER_SLOW_RETRY_SECONDS`（worker 慢重试间隔，缺省 300，见 [§10.6](#_10-6-队列执行进程隔离-独立-worker-进程)）、`STALE_CLEANUP_RUNNING_GRACE_MS` / `STALE_CLEANUP_PENDING_GRACE_MS`（孤儿清理宽限，缺省 300000，见 [队列僵尸任务终结与去重键释放设计](../design/governance/queue-stale-recovery.md)）、`NUXT_BUILD_COMMIT` / `NUXT_BUILD_VERSION`（构建期注入、运行时只读，见 10.7）、`PNPM_CONFIG_STORE_DIR`（pnpm store 目录，入口默认 `/app/data/pnpm-store`，见 10.8）、`LOG_*`（见 10.9）、`DEPENDFIX_WEEKLY_DIGEST_HOUR`（周报触发小时，缺省 `9`，0-23，见 [platform-notification.md §6.5](../design/governance/platform-notification.md#_6-5-周汇总触发)）、`ACTION_STATUS_MONITOR_ENABLED`（PR Check 状态监测总开关；进程级、不可热更，前端提示经只读端点，见 [§7.6](#_7-6-运行时-env-开关的-ui-状态暴露用只读端点)）。**数据与认证类**：`DATABASE_*` 族见 [§3](#_3-数据库规范-多后端兼容-时区) 与 [平台配置指南](../guide/configuration.md)；`NUXT_ENCRYPTION_KEY` 见 [§5](#_5-凭据安全规范-t602-起生效)；`AUTH_SECRET` / `SMTP_*` / `NUXT_PUBLIC_BETTER_AUTH_URL` / `PORT` / `MACHINE_ID` 见 `.env.full.example`。
 
 ## 12. 决策记录（2026-08-07 人工审查确认）
 

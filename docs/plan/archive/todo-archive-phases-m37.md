@@ -7,7 +7,7 @@
 ## M37: 运行可观测性与体验记忆（M37.1~M37.6 全部已闭环 / 2026-10-08 归档）
 
 > **归档日期**：2026-10-08
-> **阶段摘要**：承接 M36 完整闭环归档后的 backlog 候选池，2026-10-06 用户决策**方案 B（可观测性能力优先）**——从 backlog §候选评估中上收 6 项候选（另 1 项 M36.1 CI 门禁自 archive §4 保留清单上收），收敛为 5 原子条目，以「运行失败分类与筛选」为主线；同日补充授权按 [§3.1](../../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement) 可用性插队例外追加 M37.6（目标仓库 git hooks 隔离，生产交付 blocker），并授权开 M38（设计先行，见 [roadmap §M38](../roadmap.md)）。**6 原子条目全部闭环**，覆盖 🚀 1 + 🎨 1 + 🛡️ 2 + 📚 1 + 🛠️ 1。
+> **阶段摘要**：承接 M36 完整闭环归档后的 backlog 候选池，2026-10-06 用户决策**方案 B（可观测性能力优先）**——从 backlog §候选评估中上收 6 项候选（另 1 项 M36.1 CI 门禁自 archive §4 保留清单上收），收敛为 5 原子条目，以「运行失败分类与筛选」为主线；同日补充授权按 [§3.1](../../standards/planning.md#_3-1-新需求默认走-评估-→-backlog-原则-hard-requirement) 可用性插队例外追加 M37.6（目标仓库 git hooks 隔离，生产交付 blocker），并授权开 M38（设计先行，见 [roadmap §M38](../roadmap.md)）。**6 原子条目全部闭环**，覆盖 🚀 1 + 🎨 1 + 🛡️ 2 + 📚 1 + 🛠️ 1。
 >
 > - **M37.6** [P1 🛡️] 目标仓库 git hooks 隔离（`--no-verify` 单一常量 + 回归用例 + 常量契约断言）—— `cb5c146` + `ae0eacf`
 > - **M37.1** [P2 🚀] 运行失败分类与筛选 + 落库回填（分类纯函数 + 三列 + 前缀感知迁移 + 回填脚本 + API 三维筛选 + UI 阶段展示）—— `1ea7c27` + `b40db65` + `e14edc8` + `367a286` + `4b48f7c` + `b1f62fc`
@@ -42,4 +42,4 @@
 >
 > **ahead commits 实证**：归档时 `git rev-list HEAD ^origin/master --count` 实测 = **19**（`git rev-list origin/master ^HEAD --count` = 0，双向核验）；本归档 + 蒸馏批次 commits 另计，均待用户推送确认。
 >
-> **关联**：[roadmap.md §M37](roadmap-phases-m0-m38.md#m37-运行可观测性与体验记忆2026-10-06-用户决策方案-b--2026-10-08-已闭环--归档) + [archive/index.md](../archive/index.md) + [run-failure-taxonomy.md](../../design/governance/run-failure-taxonomy.md) + [scan-preferences.md](../../design/governance/scan-preferences.md) + [backlog.md](../backlog.md)（M37 执行期延后项与审计衍生候选）
+> **关联**：[roadmap.md §M37](roadmap-phases-m0-m38.md#m37-运行可观测性与体验记忆-2026-10-06-用户决策方案-b-2026-10-08-已闭环-归档) + [archive/index.md](../archive/index.md) + [run-failure-taxonomy.md](../../design/governance/run-failure-taxonomy.md) + [scan-preferences.md](../../design/governance/scan-preferences.md) + [backlog.md](../backlog.md)（M37 执行期延后项与审计衍生候选）

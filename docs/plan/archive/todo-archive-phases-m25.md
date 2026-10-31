@@ -146,7 +146,7 @@
 ---
 
 > **关键导航**：
-> - **roadmap 状态**：[roadmap.md §M25](roadmap-phases-m0-m38.md#m25-primeui-license-治理--平台-ai-研判集成--lint-baseline-治理--m24-follow-up-工具化已完成-2026-09-08-归档) + Milestone 概述表 M25 行
+> - **roadmap 状态**：[roadmap.md §M25](roadmap-phases-m0-m38.md#m25-primeui-license-治理-平台-ai-研判集成-lint-baseline-治理-m24-follow-up-工具化-已完成-2026-09-08-归档) + Milestone 概述表 M25 行
 > - **archive 索引**：[archive/index.md §4 当前基线](archive/index.md) + §5 近期归档批次登记 M25 行
 > - **关键 commit 实证**：`9bf640c` §1.4 规范修正 / `482438d` 方案 A 规划 / `35e4935` PrimeUI License 降级 / `4c51d19` platform.md §3.7 同步 / `1c65582` 数据模型 / `f174cce` Schema+Service / `7250ec1` 三执行器透传 / `49480a6` typecheck 修复 / `782fa27` M25.2a 收口 / `57f3b88` baseline lint 修复 / `4030f3b` packages/cli 修复 / `c88379e` M25.3 收口 / `80912c2` i18n-anchor-check / `65a8ec1` zod-helpers / `66c02ff` M25.4 收口 / `3947279` 锚点修正 + `4818e5d` M25.1 收口
 > - **ahead commits 实证**：`git rev-list HEAD ^origin/master --count` = **17**（已推送 origin/master）

@@ -225,7 +225,7 @@ CI Test workflow #664 Coverage job Branches 79.7% < 80% 失败。PDTFC+ 修复�
 
 `commit 4c51d19` message 标题写 `docs(standards): platform.md §3.7 主题引擎版本号 + 协议 + 降级时间戳同步`，实际写入到 §1 技术选型表——`docs/standards/platform.md` §3 段是「数据库规范」，不存在 §3.7。
 
-**教训**：(a) commit message 引用文档段时 `rg -n "^## " <目标文件>` 实证锚点真实存在；(b) todo.md 验收清单引用文档段时同步实证；(c) 错误引用在后续 commit 中显式纠正 + commit message 注明"修正 NNN 引用"。已挂 [规划规范 §4.4 大批量归档批次操作规范](../../standards/planning.md#44-大批量归档批次操作规范)。
+**教训**：(a) commit message 引用文档段时 `rg -n "^## " <目标文件>` 实证锚点真实存在；(b) todo.md 验收清单引用文档段时同步实证；(c) 错误引用在后续 commit 中显式纠正 + commit message 注明"修正 NNN 引用"。已挂 [规划规范 §4.4 大批量归档批次操作规范](../../standards/planning.md#_4-4-大批量归档批次操作规范)。
 
 ## 阶段治理记录
 

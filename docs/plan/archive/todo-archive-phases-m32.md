@@ -48,4 +48,4 @@
 >
 > **ahead commits 实证**：`git rev-list HEAD ^origin/master --count` 归档时实测 = **27**（26 原子条目内容 commits + 1 merge commit `300e833`；阶段启动 2 commits 已在 `origin/master`），归档时为本地 ahead，待用户推送确认。
 >
-> **关联**：[roadmap.md §M32](roadmap-phases-m0-m38.md#m32-能力扩展优先2026-09-29-用户决策方案-b--2026-09-30-已闭环--归档) + [backlog.md](../backlog.md)（C93 / C94 / 视觉 CI 转阻断待办等本阶段衍生候选）+ [archive/index.md](index.md)
+> **关联**：[roadmap.md §M32](roadmap-phases-m0-m38.md#m32-能力扩展优先-2026-09-29-用户决策方案-b-2026-09-30-已闭环-归档) + [backlog.md](../backlog.md)（C93 / C94 / 视觉 CI 转阻断待办等本阶段衍生候选）+ [archive/index.md](index.md)

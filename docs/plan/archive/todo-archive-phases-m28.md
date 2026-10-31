@@ -3,7 +3,7 @@
 > **2026-09-11 M28.6 归档批次预防性分片迁出**：M28 段（5 候选完整闭环 + 11 commits + M28.6 归档批次 1 commit，commits 已推送 origin/master）已从 `todo-archive.md` 主窗口迁入本分片。主窗口仅保留导航指针（与 M26 / M27 归档批次同源策略）。
 >
 > **关键导航**：
-> - **roadmap 状态**：[roadmap.md §M28](roadmap-phases-m0-m38.md#m28-治理债清理--能力扩展2026-09-11-用户决策方案-m28-a--m281-重编号--m286-归档已落地)（Milestone 概述表 M28 行 + §M28 段 D6 决策增补 + commits 关联表）
+> - **roadmap 状态**：[roadmap.md §M28](roadmap-phases-m0-m38.md#m28-治理债清理-能力扩展-2026-09-11-用户决策方案-m28-a-m28-1-重编号-m28-6-归档已落地)（Milestone 概述表 M28 行 + §M28 段 D6 决策增补 + commits 关联表）
 > - **archive 索引**：[archive/index.md §4 当前基线](index.md) + §5 近期归档批次登记 M28 行
 > - **todo.md 同步**：[todo.md](../todo.md)（当前无活跃阶段；M28 已归档，下一阶段启动待用户明确决策）
 > - **backlog.md 同步**：[backlog.md](../backlog.md)（M28 归档批次同步清理 C14 / C15 / C33 3 个已闭环候选，健康窗口 ~229 行）

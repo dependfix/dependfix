@@ -10,7 +10,7 @@
 > **阶段摘要**：承接 M35 完整闭环归档后的 backlog 候选池，2026-10-02 用户决策**方案 A（治理债清仓）**——从 backlog 上收可立即启动的 5 项候选（C81 孤立规划编号存量清理 / 设计与索引文档陈旧状态 / BatchRun 写回竞态 / 告警源可审计性判据 / api-i18n e2e 顺序偶发）；同期用户直接指令与用户报告缺陷相继追加 M36.6（镜像体积治理）/ M36.7（pnpm overrides key 归一化）/ M36.8（Docker 首次启动数据库初始化 + 部署文档）/ M36.9（扫描队列孤儿 job 释放）/ M36.10（队列模式消费者维度降级）。**10 原子条目全部闭环**，覆盖 🛡️ 7 + 📚 1 + 🚀 1 + 🧪 1。
 > **commit 数量实证**：`git log master --first-parent --oneline` 自 M35 归档末 `9596b14` 起去重统计 = **42 commits**（阶段启动 `dbe2547` + 10 原子条目的实现与闭环登记）；另含非本阶段远端 commit（dependabot bump `5722929` / merge `0980e2f` / CI 豁免 `97c8056` + `be35700`）与独立研判批次（`1b981ee` 运行失败分类设计先行稿 / `52d38dc` 扫描偏好候选登记）。归档时 `git rev-list HEAD ^origin/master --count` 实测 = 0（M36 全部 commits 已推送 `origin/master`）。
 > **关键决策 D1-D7**（2026-10-02~04 用户裁定 + 执行期追加）：
-> - **D1**：组合定型方案 A（治理债清仓，5 原子条目）；🎨 UX 缺口显式标注。同期追加 M36.6~M36.10——M36.6 / M36.7 属 [规划规范 §3.4](../../standards/planning.md#34-阶段启动决策前置交叉核验硬要求m271-重复评估问题--2026-09-10)「用户直接决策」路径，M36.8~M36.10 属 [§3.1 插队例外](../../standards/planning.md#31-新需求默认走评估--backlog原则hard-requirement)第 3 类「直接影响可用性」。
+> - **D1**：组合定型方案 A（治理债清仓，5 原子条目）；🎨 UX 缺口显式标注。同期追加 M36.6~M36.10——M36.6 / M36.7 属 [规划规范 §3.4](../../standards/planning.md#_3-4-阶段启动决策前置交叉核验硬要求-m27-1-重复评估问题-2026-09-10)「用户直接决策」路径，M36.8~M36.10 属 [§3.1 插队例外](../../standards/planning.md#_3-1-新需求默认走-评估-→-backlog-原则-hard-requirement)第 3 类「直接影响可用性」。
 > - **D2**：M36.1 判定口径「注释块级 + 真常量白名单 + 优先改写为带文档指针的导航指针，无法归指者删编号留正文」；批量替换每子批次 < 10 文件。
 > - **D3**：M36.3 条件写回下沉共享层，保持 GET「对非 running 批次仍对齐计数」既有契约；不引入悲观锁。
 > - **D4**：M36.4 判据改为「无任何成功源且存在失败源」；明确 `repoResults` / 报告「扫描成功」连锁语义。
@@ -32,4 +32,4 @@
 > **审计轮次**：A 阶段覆盖全部 10 原子条目（M36.1 2 分区 standard → quick；M36.2 standard Reject → quick；M36.3 standard Pass；M36.4 standard Pass；M36.5 standard Pass；M36.6 多轮 standard → quick；M36.7 standard → quick ×2；M36.8 3 分区 standard + 2 分区 quick；M36.9 standard Reject → quick Pass；M36.10 standard → quick），全部收敛后放行，记录在 `artifacts/review-gate/`（gitignored）。
 > **未完成项 / 已知边界**（均登记 backlog §候选评估中，不随本阶段闭环）：① BatchRun 反向竞态（async 全部入队失败 stale save）与 stale-cleanup 无条件 save；② 详情 GET 计数无变化时并发响应瞬时不一致；③ 部分源失败汇总的仓库级错误重复信号；④ caomei-ui 版本陈旧（`tech-stack.md:36` / `platform.md:16` 标 `0.3.0`，实际 `0.5.0`）；⑤ M36.1 检测脚本未接入 CI 门禁；⑥ M36.6 未在新镜像实跑一次 `DependfixApp.run()` 全链路（需真实 GitHub 凭据）；⑦ M36.7 `^0 ↔ 0` 等罕用等价形态保守欠合并。
 > **ahead commits 实证**：`git rev-list HEAD ^origin/master --count` 归档时实测 = 0（M36 全部 commits 已推送 `origin/master`）。
-> **关联**：[roadmap.md §M36](roadmap-phases-m0-m38.md#m36-治理债清仓--可观测性与测试稳定性2026-10-02-用户决策方案-a--2026-10-05-已闭环--归档) + [backlog.md](../backlog.md)（M36 衍生候选）+ [archive/index.md](../archive/index.md)
+> **关联**：[roadmap.md §M36](roadmap-phases-m0-m38.md#m36-治理债清仓-可观测性与测试稳定性-2026-10-02-用户决策方案-a-2026-10-05-已闭环-归档) + [backlog.md](../backlog.md)（M36 衍生候选）+ [archive/index.md](../archive/index.md)

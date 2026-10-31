@@ -6,7 +6,7 @@
 >
 > **关键导航**：
 > - **backlog 历史归档指针段**：详见 [todo-archive.md](../todo-archive.md)
-> - **roadmap 状态**：[roadmap.md §M14](roadmap-phases-m0-m38.md#m14-platform-release-通道--ux-反馈跟进已完成-2026-08-26-归档) + [§M15](roadmap-phases-m0-m38.md#m15-扫描历史详情侧栏增强-ux-r2已完成-2026-08-26-归档) + Milestone 概述表 M14/M15 行
+> - **roadmap 状态**：[roadmap.md §M14](roadmap-phases-m0-m38.md#m14-platform-release-通道-ux-反馈跟进-已完成-2026-08-26-归档) + [§M15](roadmap-phases-m0-m38.md#m15-扫描历史详情侧栏增强-ux-r2-已完成-2026-08-26-归档) + Milestone 概述表 M14/M15 行
 > - **archive 索引**：[archive/index.md §4 当前基线](index.md) + §5 近期归档批次登记 M14/M15 行
 > - **M14 关键 commit 实证**：T1310 `300b318` / `1819b59` / `733e198` / `7b40a2c` / `a74d07d` / `1fd38c1` / M14.1 收口 / M14.2 `81bd8d2` `581e1a9` `1a9eddf` 收口 + `17b5643` / M14.3 `5ccaaf4` / M14.x `92cc348` `ea0e24f` `84b4e1a` `b45f55e` / M14.y dependabot PR commits
 > - **M15 关键 commit 实证**：`5c65177` P 阶段 docs + `1112017` UX-R2 实施（5 文件 / +425/-12）+ `0a60e3d` test 覆盖（2 文件 / +251）+ `d517a7f` release.yml CI 修复（不计入 M15 总投入）
@@ -55,7 +55,7 @@
 - [x] M14.2 UX-R1 扫描历史分页 —— 完整本地验证全绿（lint/typecheck 0 error / test 2236 passed + 5 skipped / coverage 4 维度 ≥80% / @dependfix/platform exec playwright test history-dialog 3/3 passed / @dependfix/platform build 成功 23.1 MB）
 - [x] M14.3 M13.4 T1403 follow-up —— 完整本地验证全绿（lint/typecheck 0 error / @dependfix/platform exec playwright test alerts-rowgroup 7/7 passed 第 1 次 32.0s + 第 2 次 31.0s 幂等通过 / @dependfix/platform build 成功）
 - [x] M14.x neat-freak 批次 —— 完整本地验证全绿（check:docs 99 links + 55 vue-interp OK / lint:md 0 error / typecheck 0 error / lint 0 error / @dependfix/platform exec playwright test admin i18n 22/22 passed / @dependfix/platform build 成功 23.1 MB / distill:wisdom WISDOM_OK 14 ≤ 15 阈值 / 编号标记扫描 0 命中）
-- [x] M14.y 依赖批量治理（4 个 dependabot major PR）—— #31 octokit/request-error 5→7 rebase 后自动合 / #32 better-auth 1.6→1.7 + generic OAuth 重写适配已闭 + 新 PR #53 / #39 conventional-changelog 7→8 加 dependabot major ignore / #49 PrimeVue 4→5 暂缓已闭登记 [backlog.md §延期 / 暂缓项](../backlog.md#延期--暂缓项)；commit `bcafa71` M14.y 依赖批量治理进度登记 + 多个 dependabot PR commits
+- [x] M14.y 依赖批量治理（4 个 dependabot major PR）—— #31 octokit/request-error 5→7 rebase 后自动合 / #32 better-auth 1.6→1.7 + generic OAuth 重写适配已闭 + 新 PR #53 / #39 conventional-changelog 7→8 加 dependabot major ignore / #49 PrimeVue 4→5 暂缓已闭登记 [backlog.md §延期 / 暂缓项](../backlog.md#延期-暂缓项)；commit `bcafa71` M14.y 依赖批量治理进度登记 + 多个 dependabot PR commits
 - [x] `pnpm check:docs` 全过（实测验证 OK）
 
 ### 阶段治理记录（M14.1/2/3/x/y）
@@ -169,7 +169,7 @@
 - **审计覆盖**: 2 轮独立 Review Gate quick depth Pass（Round 1 1 blocker + Round 2 0 blocker / 0 warning 新增 / 4 suggest）；按 [AI 协作规范 §1.3 分级审计执行协议](../../docs/standards/ai-collaboration.md) 选 quick depth（理由：M15 不涉及架构 / 不跨模块 / 不涉及安全敏感代码，但涉及 utility 抽取 + 跨文件调用方类型契约 → 审计不可降级到最低 depth）
 - **ahead commits 实证**: `git rev-list HEAD ^origin/master --count` 当前值为 M15 实施 3 commits + release.yml CI 修复 1 commit 共 4 commits ahead；按 [规划规范 §4.4 §5 ahead 实证](../../docs/standards/planning.md#44-大批量归档批次操作规范) ahead 数字动态核验（不写死具体数字以免 staleness）
 - **文档落盘**: `docs/plan/todo-archive.md` §M15 段（原主窗口；2026-08-31 M19 归档批次预防性分片迁出至本文件 §M15）+ `docs/plan/todo.md` 顶部 M15 任务清单 → M15 已闭环切换 + `docs/plan/roadmap.md` M15 行/段状态更新（M15 已闭环）+ `docs/plan/backlog.md` §扫描历史与详情 UX UX-R2 闭环迁出至历史归档指针段 + 文档位置速查同步 + `docs/plan/archive/index.md` 基线更新 + M15 归档批次登记
-- **本次归档批次附加动作**: §2026-08-20 e2e 修复批次（C62+C63+C64+chore）从 todo-archive.md 主窗口迁出至 [archive/todo-archive-phases-m11.md §2026-08-20 e2e 修复批次](todo-archive-phases-m11.md#2026-08-20-e2e-修复批次c62--c63--c64--chore)（主窗口 700 行分片阈值前的预防性迁出，与 §2026-08-20 平台 UI 增强 C59-C61 同源——属 M11 关联批次）
+- **本次归档批次附加动作**: §2026-08-20 e2e 修复批次（C62+C63+C64+chore）从 todo-archive.md 主窗口迁出至 [archive/todo-archive-phases-m11.md §2026-08-20 e2e 修复批次](todo-archive-phases-m11.md#_2026-08-20-e2e-修复批次-c62-c63-c64-chore)（主窗口 700 行分片阈值前的预防性迁出，与 §2026-08-20 平台 UI 增强 C59-C61 同源——属 M11 关联批次）
 
 ### 关键决策（M15）
 

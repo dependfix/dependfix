@@ -31,16 +31,18 @@
 > **原子间依赖**：M52.1（锚点门禁先收紧）→ M52.2 / M52.3（新增链接必须用新形态）；M52.4 ← 追加批次（升级会重建 pr-checks 基线）。
 > **交付顺序**：追加批次（caomei-ui 升级）→ M52.1 → M52.2 → M52.3 → M52.4。
 
-### M52.1 [P1 🧪] 归档锚点按产物 id 迁移 + 门禁归一化补强
+### M52.1 [P1 🧪] 归档锚点按产物 id 迁移 + 门禁归一化补强（已完成 2026-10-31）
 
 - **目标**：站内锚点真正可跳转——把文档侧 `--` / 数字前缀写法迁移为 VitePress 产物 id，并让门禁能拦住旧形态。
 - **已核缺口（2026-10-30 实测）**：`docs/**` 中 `--` 形态锚点 **306 处 / 54 文件**（`rg -o` 实测）；VitePress 产物侧非词字符收敛为单连字符、数字开头章节带 `_` 前缀；`scripts/check-docs.mjs` 的 `normAnchor` 剥离全部标点（含 `-`）→ 门禁不报；本项合并原 backlog 两条候选（`--` 死锚家族 + M0-M48 存量锚点与产物 id 失配）。
-- **范围**：`docs/plan/**`（含 `archive/` 分片）与 `docs/design/**` 的跨文档锚点；`scripts/check-docs.mjs`（新增「产物 id 形态」校验或修正归一化）+ 单测负例；`docs/standards/documentation.md` 锚点书写口径（以 `docs:build` 产物 id 为权威的条款补执行方式）。
+- **范围**：`docs/plan/**`（含 `archive/` 分片）与 `docs/design/**` 的跨文档锚点；`scripts/check-docs.mjs`（新增「产物 id 形态」校验或修正归一化）+ 单测负例；`docs/standards/documentation.md` 锚点书写口径（以 `docs:build` 产物 id 为权威的条款补执行方式）。**范围扩围（2026-10-31 用户明确授权）**：站点外 md 一并迁移以消除双口径——`AGENTS.md`（5 行 / 6 处）、`.github/agents/**`（2 文件 / 13 处）、`.github/skills/**`（2 文件 / 12 处，经软链同步到 `.opencode/skills`）、根 `README.md`（1 处）、`scripts/README.md`（4 处）、`apps/platform/tests/visual/README.md`（4 处）；其余 `docs/**`（`standards` 9 / `i18n` 5 / `research` 2 等）因站点构建面本就覆盖而随本批迁移。
 - **验收标准**：① 迁移脚本生成改写清单，逐文件 diff 可审计（不手改 300+ 处）；② `docs:build` 后抽样 ≥20 个锚点在 dist HTML 中命中（脚本比对 id）；③ 新增门禁负例（写入旧形态 → exit 1，跑后还原）；④ 全部门禁绿。
 - **不做什么**：不改 heading 文本（避免影响其他链接）；不改归档正文语义；不打开 `ignoreDeadLinks`。
 - **依赖**：无（应先于 M52.2 / M52.3 完成）。
-- **交付物**：预估 3 commits / 15-25 文件 / 120-220 行（含脚本约 80 行）；**拆分依据**：文件数由「54 个文件各改若干链接」的机械迁移决定，单文件改动通常 <10 行，不构成逻辑耦合。
+- **交付物**：预估 3 commits / 15-25 文件 / 120-220 行（含脚本约 80 行）；**拆分依据**：文件数由「54 个文件各改若干链接」的机械迁移决定，单文件改动通常 <10 行，不构成逻辑耦合。**实测规模（2026-10-31）**：脚本 6 个（含 4 个测试）/ 锚点迁移 96 个 md（`+614 −610`，单文件最多 11 行）/ 5 处人工改指；行数低于 800 行硬阈值，拆分结论不变（plan / design / 站点外文档 / 工具与门禁四段提交）。
 - **风险与缓解**：产物 id 规则随 VitePress 升级变化 → 门禁以「构建产物实测 id」为权威而非硬编码规则；迁移面广 → 脚本 + 抽样实证 + 逐文件 diff，分 plan / design 两批提交。
+- **已核缺口修正（2026-10-31 实测）**：真实缺口远大于预估的 306 处 `--` 形态——按产物 id 全量比对后需改写 **696 处 / 97 个文件**（除 `--` 家族外还有「数字开头缺 `_` 前缀」「行内代码参与 slug」「标题截断的历史锚点」三类）。
+- **闭环（2026-10-31）**：口径下沉 `scripts/docs/vitepress-slug.mjs`（对齐 VitePress 1.6.4 slugify：NFKD 全角归一、`--` 收敛、数字开头 `_` 前缀、`{#custom}` 自定义锚点、重复标题 used-id 自增去重，行内 HTML 标签剥离而标签内文本保留），157 个页面的推算 id 与 `docs:build` 产物**逐个一致（0 差异，已由 `docs:check:anchors` 的 slug 口径自校验固化进 CI）**；`scripts/docs/migrate-anchors.mjs` 机械迁移（精确 id → 宽松唯一 → 唯一前缀三级判定，歧义 / 未命中不擅自改，plan 与 apply 共用 `fenceMask` 跳过代码块），`--write` 后重跑为空（幂等）；新增 `check:docs` 第 8 条规则 `anchor-id`（锚点逐字符等于产物 id，报错带目标文件与应改成的 id）、`docs:check:anchors`（`docs/verify-anchor-dist.mjs`，以产物 HTML 的真实 `id` 复核，已接入 `gates:docs` 紧随 `docs:build`）+ 4 份单测（迁移脚本字符级保留 / 代码块不改写 / 幂等回归）；`collectTitles` 与 VitePress 同源（行内代码内容参与 slug，否则新形态锚点会被宽松比较误判）。门禁负例实测：把一处锚点写回 `#2-四条基本原则` → `anchor-id` exit 1 并给出 `#_2-四条基本原则`，同一输入在 `links` 规则下仍为绿（口径差异的直接证据）。5 处无法机械判定的历史锚点（2 处同名标题歧义 + 3 处标题文本已变）人工改指。证据：`gates:docs` 17 项、`scripts` 单测 924 passed、`docs:check:anchors` 783/783（157 页，slug 自校验 157/157）、`migrate-anchors` 幂等 0 处、`lint:check` 0 error（0 error / 11 warning）、`typecheck` 7 包。
 
 ### M52.2 [P1 📚] en-US 指南平价（配置指南 + quick-start）+ 平价机检
 

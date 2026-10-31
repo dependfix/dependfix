@@ -73,7 +73,7 @@
 - **附**：本批另修复 master Test 红（契约门禁子进程用例在 CI 并发 + coverage 下超时），属 M53.1 用例的 CI 修复，不计入本原子交付物计数。
 - **审计**：R1 standard **Reject**（2 blocker：`reopened` 在 open / merged 形态恒为 0；`--source=file` 契约不校验 → 静默 0 读数 / 假误关）→ R2 quick **Pass**（4 项 W：`closureRate` 可超 100%、`state` 未校验、`humanAuthored` 表述、时间基准文字）→ R3 quick **Pass**（四项关闭，`--out-dir` 快照回灌实测一致）。
 
-### M53.4 [P1 🚀] 发布链预演与安装/升级实测（不发版）
+### M53.4 [P1 🚀] 发布链预演与安装/升级实测（不发版）（**已闭环** `40e82b6a` + `ad7299e4` + `99090187` + `937b19cd`）
 
 - **目标**：真发前把发布链走通——本地打包产物验证 `--version` 修复、三路安装 smoke、Docker 多架构 tag 复核，并产出 0.6.1 发布清单（不执行）。
 - **优先级**：P1（发布前置彩排）。
@@ -83,6 +83,11 @@
 - **依赖**：M53.1 / M53.2（清单与运维证据）。
 - **交付物**：预估 2-3 commits / 5-8 文件 / 200-400 行（release.md 预演章节 + preflight 脚本 + 证据）。
 - **风险与缓解**：本地 registry / 网络不可达 → 记录失败点与重试条件；预演脚本污染工作区 → 全部在临时目录执行并断言 `git status` 干净。
+- **实测（2026-11-01）**：4 commits + 收口 / 16 文件 / **+1046 −29**（预演脚本与单测 772 + 发布链修复 135 + 安全修复 25 + 文档与台账 112）。超预估（2-3 commits / 5-8 文件 / 200-400 行）原因：实测命中 3 处发布链缺陷（Docker 预算 / 派发判据 / 发布前守卫）+ 1 条 code scanning high。
+- **实测证据**：① `pnpm release:preflight`（build 后）→ 5 包 tarball / `dependfix --version = 0.6.0`（= 包版本）/ 工作区不变，exit 0；② 三条安装路径各一条证据——tarball 临时工程安装（`file:` 解析经 lockfile 复核）、`npx --yes -p <tarball> dependfix --version`、`npm i -g --prefix <tmp>` → 均为 `0.6.0`；③ 发布链 dry-run 全通：`release:plan` → `release:version --dry-run`（platform 0.4→0.5 / dependfix 0.6→0.7 / engine 0.5→0.6 / core 0.6→0.7 / mcp 传导 0.3.1）、`release:publish --dry-run`（6 包全部本地 tag 已存在、无发布）、`release:github --dry-run`（复现 v0.6.0 notes）、`verify:changelog` 绿；④ Docker：`buildx --check` 无告警；**0.6.0 的 `platform-0.4.0` 镜像 tag 缺失已定位**——build job 触及 120 分钟上限被 kill（run `40745976335`，build step 115.5 分钟），已把预算提到四小时、派发改钉 `v<锚版本>` 且判据为 `git tag --points-at HEAD`；远端镜像复核仍阻断（GHCR 私有 + 本地 token 缺 `read:packages`，Docker Hub 不可达），重试条件写入手册；⑤ 发布前安全门禁实测发现 code scanning high（alert 30，`scripts/docs/vitepress-slug.mjs`）并本批修复。
+- **未执行发布动作（AC⑤）**：无 `npm publish` / 无新 tag / 包版本未变——`git diff origin/master..HEAD -- 'packages/*/package.json' 'apps/platform/package.json'` 无版本行，`git tag` 仍止于 0.6.0 批次，工作区干净。
+- **审计**：A 分区（预演脚本）R1 standard **Reject**（RG-B1：lockfile 断言命中 importers 的 specifier 回显而非解析结果，overrides 失效时仍判绿）→ R2 **Pass**；B 分区（发布链）R1 **Reject**（0.6.0 归因误判为并发取消，真实为两小时 job 上限）→ R2 **Reject**（anchor 判据用 tag 存在性而非 HEAD 归属）→ R3 **Pass**；C 分区（文档）**Pass**（3 项 warning 已收口：`--ref master` 补发限定 / 清单 preflight 顺序 / 首次发布 prerelease 口径）。
+- **残余**：① 安全告警 alert 30 需推送后复扫确认关闭（未关闭则按 §5.9 登记 `false-positive` 台账）；② Docker 远端镜像（`platform-x.y.z` 多架构 + health）待具备 `read:packages` 的环境复核；③ 四小时预算待首个发布实测（>180 分钟须按 backlog 拆分 per-arch job）；④ 0.6.1 发布动作本身未执行（清单见 [release.md](../guide/release.md#_0-6-1-发布清单-待执行-本节只列步骤)）。
 
 ### M53.5 [P2 🧪] G3 真实环境矩阵执行框架（实跑待外部资源）
 

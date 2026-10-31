@@ -15,7 +15,7 @@
 pnpm add -g dependfix
 
 # 或直接运行（无需安装）
-npx dependfix report --repo owner/repo --github-token $GITHUB_TOKEN
+npx dependfix report-only --repo owner/repo --github-token $GITHUB_TOKEN
 ```
 
 ## 基本使用
@@ -186,6 +186,13 @@ jobs:
 | `github-token` | 是 | — | GitHub Token（commit/push/PR 等操作；Dependabot alerts 读取不可用，见下行） |
 | `dependabot-alerts-token` | 否 | `''` | Dependabot alerts 专用最小权限 token（fine-grained PAT，仅 `Dependabot alerts: read`；缺省回退 `github-token`。GITHUB_TOKEN 恒 403） |
 | `code-scanning` | 否 | `false` | 同时拉取 Code Scanning alerts（与 Dependabot 并行源，默认关闭；需 token 具备 `security-events: read`，GITHUB_TOKEN 默认具备） |
+| `max-repos` | 否 | `100` | 发现规模上限：最多保留的仓库数（0 表示不限制；大 org 场景防一次性全量发现） |
+| `commands` | 否 | `''` | 自定义验证命令（逗号分隔，整链替换默认链——不合并，默认链内的条目须显式保留） |
+| `mirror-ci-scripts` | 否 | `false` | 把目标仓库 CI 独有脚本追加到验证链（最多 3 条、首失败即停；只校验命令形态与脚本存在性，不审计脚本体） |
+| `retry-failed` | 否 | `false` | 忽略同告警尝试上限并强制再试（仅 fix-and-pr） |
+| `wait-pr-checks` | 否 | `false` | 创建 PR 后等待 check 终态（失败评论摘要，不改变 exit code） |
+| `close-failed-pr` | 否 | `false` | check 失败且归因 self_caused 时关闭 PR 并删除分支（需同时开启 wait-pr-checks） |
+| `on-baseline-red` | 否 | `skip` | 基线红（修复后仍为既有失败）时的交付降级：skip / issue / draft，不改变 exit code |
 | `ai` | 否 | `false` | 开启 AI breaking change 研判（需配置 `ai-api-key`；dry-run 不触发、不产生费用） |
 | `ai-api-key` | 否 | `''` | AI API Key（在 workflow 中引用 `secrets.DEEPSEEK_API_KEY` 等 GitHub Secrets 传入；经环境变量传递自动打码） |
 | `ai-provider` | 否 | `openai-compatible` | AI 提供商：`openai-compatible`（默认，DeepSeek 等）/ `anthropic` |
@@ -282,7 +289,7 @@ A/B 场景差异化见 [executor-sandbox.md §7.8.1](../design/governance/execut
 **反模式（绝对禁止）**：
 
 - **挂宿主 `/var/run/docker.sock`**：等价于授予宿主 root 权限（任意用户可起特权容器接管宿主）——违反 [sandbox-security-governance.md §3 路径 D](../design/governance/sandbox-security-governance.md)，属设计使然的等价提权（**不依赖具体漏洞**）
-- **DinD `--privileged` 启动 sandbox**：[CVE-2019-5736](https://unit42.paloaltonetworks.com/cve-2019-5736/) runc 覆写 `/proc/self/exe` 逃逸 + [CVE-2024-21626](https://github.com/advisories/GHSA-xfj7-4fh9-h89v) runc `WORKDIR` 文件描述符泄漏——这两条 CVE 与 `--privileged` 强绑定，rootless mode 默认关闭
+- **DinD `--privileged` 启动 sandbox**：[CVE-2019-5736](https://unit42.paloaltonetworks.com/cve-2019-5736/) runc 覆写 `/proc/self/exe` 逃逸 + [CVE-2024-21626](https://github.com/advisories/GHSA-xr7r-f8xq-vfvv) runc `WORKDIR` 文件描述符泄漏——这两条 CVE 与 `--privileged` 强绑定，rootless mode 默认关闭
 - **平台容器启动 rootless daemon 自身作为 sandbox**：破坏"独立 PID/Mount namespace"目的，平台漏洞直接蔓延到 sandbox
 
 完整设计、RuntimeAdapter 抽象、K8s+Helm 部署预留见 [executor-sandbox.md §7](../design/governance/executor-sandbox-implementation.md#_7-sandbox-执行器设计)；威胁模型与治理登记见 [sandbox-security-governance.md §5 G5](../design/governance/sandbox-security-governance.md#_5-治理决议与登记)。
@@ -325,6 +332,15 @@ A/B 场景差异化见 [executor-sandbox.md §7.8.1](../design/governance/execut
 | `--commands` | — | 自定义验证命令（逗号分隔）；整链替换默认链（不做合并），默认链内的条目须显式保留 | — |
 | `--rollback-granularity` | — | 验证失败回滚粒度：`unit`（默认，回退最近一个已通过 probe 的变更单元并重验一次）/ `repo`（整仓 `git reset --hard` 逃生） | `DEPENDFIX_ROLLBACK_GRANULARITY`（`unit`） |
 | `--override-protect` | — | overrides 保护名单（按仓库粒度，格式 `repo-glob:pkg1,pkg2;...`）；命中则不写入该包的 override 并记 `OVERRIDE_PROTECTED` 审计（防历史被人工移除的破坏性 override 复发） | —（env `DEPENDFIX_OVERRIDE_PROTECT`） |
+| `--max-backoff-ms` | — | 限流退避单次等待上限毫秒（100-120000，含 Retry-After / reset / 指数退避） | `30000`（env `DEPENDFIX_MAX_BACKOFF_MS`） |
+| `--max-repos` | — | 发现规模上限（`0` 表示不限制；负数会被拒绝） | `100`（env `DEPENDFIX_MAX_REPOS`） |
+| `--upgrade-groups` | — | 用户显式分组（覆盖自动分组），格式 `name1:pkg1,pkg2;name2:pkg3` | —（env `DEPENDFIX_UPGRADE_GROUPS`） |
+| `--toolchain-pnpm-version` | — | lockfile 修复用的 pnpm 版本（缺省从 `packageManager` 解析） | —（env `DEPENDFIX_TOOLCHAIN_PNPM_VERSION`） |
+| `--code-quality` | — | 同时拉取 Code Quality findings（需 `Code quality: read`） | `false`（env `DEPENDFIX_CODE_QUALITY`） |
+| `--mirror-ci-scripts` | — | 把目标仓库 CI 独有脚本追加到验证链（最多 3 条、首失败即停） | `false`（env `DEPENDFIX_MIRROR_CI_SCRIPTS`） |
+| `--retry-failed` | — | 忽略同告警尝试上限并强制再试（仅 fix-and-pr） | `false`（env `DEPENDFIX_RETRY_FAILED`） |
+| `--wait-pr-checks` | — | 创建 PR 后等待 check 终态（不改变 exit code） | `false`（env `DEPENDFIX_WAIT_PR_CHECKS`） |
+| `--close-failed-pr` | — | check 失败且归因 self_caused 时关闭 PR 并删分支（需 `--wait-pr-checks`） | `false`（env `DEPENDFIX_CLOSE_FAILED_PR`） |
 | `--verbose` | — | 详细日志 | `false` |
 
 ### ⚠️ 跨大版本升级（实验性，风险须知）

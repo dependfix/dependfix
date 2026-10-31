@@ -112,11 +112,11 @@ Coverage reports are output to `coverage/` (lcov + html + json formats), uploade
 
 - **GitHub Actions**: `.github/workflows/test.yml` (lint + typecheck + test + coverage + build + e2e + check:docs + i18n:audit), `.github/workflows/release.yml` (auto-version + publish)
 - **Docker image**: `Dockerfile` multi-stage build (apps/platform base, includes engine + cli). Push to `docker.io` + `ghcr.io`
-- **Self-hosting**: see [Platform Auth Users design](https://github.com/dependfix/dependfix/blob/master/docs/design/governance/platform-auth-users)
+- **Self-hosting**: see [Platform Auth Users design](https://github.com/dependfix/dependfix/blob/master/docs/design/governance/platform-auth-users.md)
 
 ## Key design decisions
 
-For full architectural rationale, see [Architecture design](https://github.com/dependfix/dependfix/blob/master/docs/design/governance/architecture) (English version pending — see [Chinese source](https://github.com/dependfix/dependfix/blob/master/docs/design/governance/architecture)). Key decisions summary:
+For full architectural rationale, see [Architecture design](https://github.com/dependfix/dependfix/blob/master/docs/design/governance/architecture.md) (English version pending — see [Chinese source](https://github.com/dependfix/dependfix/blob/master/docs/design/governance/architecture.md)). Key decisions summary:
 
 - **Resource owner abstraction**: align with GitHub official user / org concept, single source of truth (Resource owner), supports multi-org scenarios (C67)
 - **Mode state machine**: `report-only` → `fix` → `fix-and-pr` → `cleanup-branches` (progressive execution; each mode is a refinement over the previous, no mode-jump)

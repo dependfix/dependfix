@@ -4,7 +4,7 @@
 
 1. CLI 参数
 2. 环境变量（`DEPENDFIX_*` + `GITHUB_TOKEN`）
-3. 配置文件（`dependfix.config.json` / `dependfix.config.yaml`，计划中 M4+）
+3. 配置文件（`dependfix.config.json` / `dependfix.config.yaml`，**尚未支持**）
 4. 默认值
 
 ## 全部配置项
@@ -166,7 +166,7 @@ curl -X POST -H "Authorization: Bearer $GITHUB_TOKEN" \
 |:---|:---|:---|
 | `403 / Resource not accessible by integration` | Token 缺 `Dependabot alerts: Read` 或仓库不在 token 范围 | 重新创建 PAT，确认勾选 Dependabot alerts:Read + 仓库授权 |
 | `401 / Bad credentials` | Token 过期 / 撤销 / 拼写错误 | 重新生成 + 核对 `ghp_xxx` / `github_pat_xxx` 前缀 |
-| `git push` 卡在 `Username for 'https://github.com':` | 缺 HTTPS credential；dependfix 用 `stdio: 'pipe'`（详见 [engine/src/github/pr-creator.ts:201](../../packages/engine/src/github/pr-creator.ts)）导致 stdin 不可达 → 永久挂起 | 设置 `GITHUB_TOKEN` 环境变量或配置 git credential helper（不推荐交互式输入） |
+| `git push` 卡在 `Username for 'https://github.com':` | 缺 HTTPS credential；dependfix 用 `stdio: 'pipe'`（详见 [engine/src/runners/process-control.ts](../../packages/engine/src/runners/process-control.ts)）导致 stdin 不可达 → 永久挂起 | 设置 `GITHUB_TOKEN` 环境变量或配置 git credential helper（不推荐交互式输入） |
 | `pulls.create` 报 `422 Validation Failed: head` | token 缺 Contents:Write 或分支已存在 | 升级 Contents:Read+write 或换不同分支名 |
 | `secondary rate limit` 403/429 | 短时间内高频 API 调用 | 调整 `DEPENDFIX_MAX_CONCURRENCY`（默认 1 保守串行）+ `DEPENDFIX_MAX_RETRIES`（默认 3 次指数退避）|
 
@@ -193,7 +193,7 @@ curl -X POST -H "Authorization: Bearer $GITHUB_TOKEN" \
 
 ## 配置文件示例
 
-> **计划中（M4+）**：配置文件支持尚未实现，当前仅支持 CLI 参数和环境变量。
+> **尚未支持**：配置文件加载器未实现、也未排期，当前仅支持 CLI 参数和环境变量。
 
 ```yaml
 # dependfix.config.yaml

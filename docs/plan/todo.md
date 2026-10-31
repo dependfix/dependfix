@@ -47,16 +47,16 @@
 - **交付物**：预估 3-4 commits / 8-10 文件 / 600-800 行；**拆分依据**：清单章节（含机检脚本）、迁移指南章节、zh/en CLI 表补齐三段各自独立提交，文字量为主、单文件改动多为表格行，不构成逻辑耦合；若实测超 10 文件**或超 800 行**即在清单 / 迁移指南之间再拆。**实测（2026-10-31）**：3 commits / 16 文件 / +1400 −10 行——独立成页后按「门禁脚本 + 单测（+`DOC_GATES` / `test.yml` / `documentation.md`）」「契约文档（清单 + 弃用策略 + 迁移指南）」「指南与接线（zh·en 表格 + release 指针 + 侧边栏 + 台账）」三段提交。
 - **风险与缓解**：清单与代码漂移 → 键位一律从代码抽取比对（不手抄），并把机检接入 `gates:docs`；迁移指南写成空话 → 每条附「受影响对象 + 迁移动作 + 验证命令」。
 
-### M53.2 [P1 🛠️] G7 运维实测与发布自动化预演（**已闭环** `9b3b946d` + `eb4bb49e` + `6fa611a3` + `14c815a4`）
+### M53.2 [P1 🛠️] G7 运维实测与发布自动化预演（**已闭环** `9b3b946d` + `eb4bb49e` + `6fa611a3` + `14c815a4` + `4d8e5532` + `8cffc838` + `538cb1ba` + `7d62ddf1`）
 
 - **目标**：把「文档说可用」变成「实测过并有证据」：镜像启动 / SQLite 备份恢复 / 迁移前滚回滚 / 队列重启收敛各留一条证据；给出自动发布启用前的开关清单与预演。
 - **优先级**：P1（发布前运维证据）。
 - **范围**：`docs/guide/deployment.md` 与 `en-US` 镜像（新增「运维实测记录（2026-10-31）」：R1 镜像启动 / R2 report-only 扫描 / R3 备份恢复 / R4 迁移三态 / R5 队列重启收敛 / R7 缺陷修复）+ `docs/guide/release.md`（自动发布启用清单 + 本地 dry-run）；原始日志留在 `artifacts/ops/`（gitignored，不入库）；**不另建演练脚本**——命令与实际输出直接写入文档，保证文档即证据。
-  > **执行期扩展（用户 2026-10-31 授权）**：实测命中两处阻断缺陷并本批修复——**F1** 双进程 worker 从不初始化队列消费者（默认 compose 部署下扫描全挂，job 停在 `bull:scan:prioritized`）→ 新增 `server/plugins/queue-consumer.ts`（+5 例单测，`process-role` 分类同步）；**F2** 启动备份在 WAL 下是 4KB 空库（恢复即丢数据）→ `backup.ts` 改 SQLite 在线备份 API + 仅 HTTP 主进程执行（`backup.test.ts` 重写为真实库 + WAL 一致性回归，`index.test.ts` 修正 `PRAGMA busy_timeout` 取值口径）。
+  > **执行期扩展（用户 2026-10-31 授权）**：实测命中两处阻断缺陷并本批修复——**F1** 双进程 worker 从不初始化队列消费者（默认 compose 部署下扫描全挂，job 停在 `bull:scan:prioritized`）→ 新增 `server/plugins/queue-consumer.ts`（启动点 + 配置错误 fail-loud，单测 7 例，`process-role` 分类同步）；**F2** 启动备份在 WAL 下是 4KB 空库（恢复即丢数据）→ `backup.ts` 改 SQLite 在线备份 API + 仅 HTTP 主进程执行（`backup.test.ts` 重写为真实库 + WAL 一致性回归，`index.test.ts` 修正 `PRAGMA busy_timeout` 取值口径）。**审计驱动追加**：`db:restore` 的覆盖前备份同一反模式（裸复制 + 删旁文件）→ 改 `VACUUM INTO` 一致性快照；插件层失败退出补接线单测；`security.md §2.1` / 检查点矩阵 / 多容器拓扑 compose 同步。
 - **验收标准**：① Docker 镜像启动 + `/api/health` + 一次 report-only 扫描 smoke 的证据（run id / 日志片段）；② SQLite 备份 → 恢复到新路径 → 关键表行数比对一致；③ 迁移前滚 → `db:migrate:revert` → 再前滚，三态证据齐全；④ 队列重启后 pending/running 收敛（复用 `queue-stale-recovery` 口径）；⑤ `release.yml` 自动触发（`schedule` / `push`）启用清单 + 本地 dry-run 预演记录；⑥ 文档内链接与证据路径可达。
 - **不做什么**：不启用自动发布（只产出启用清单）；不改生产配置；不引入 Postgres / Helm（G7 记为可选）。
 - **依赖**：M53.1（发布说明引用冻结清单）。
-- **交付物**：预估 3-4 commits / 6-10 文件 / 400-700 行（deployment / release 文档 + 证据工件为主）。**实测（2026-10-31）**：5 commits / 15 文件 / +686 −349（文档 4 + 代码 4 + 测试 2 + 标准 2 + 台账·待办·积压 3），超出预估主因是两处阻断缺陷修复（F1 / F2）与配套回归用例。
+- **交付物**：预估 3-4 commits / 6-10 文件 / 400-700 行（deployment / release 文档 + 证据工件为主）。**实测（2026-10-31）**：**10 commits / 22 文件 / +846 −390**（含审计驱动追加修复），超出预估（3-4 commits / 6-10 文件 / 400-700 行）主因是两处阻断缺陷修复 + 一处同源反模式（`db:restore`）+ 配套回归用例与治理同步；交付物分三段：代码修复 4 commits / 实测与清单文档 2 / 台账·待办·积压·经验 4。
 - **风险与缓解**：本地 Docker 与 CI 环境差异 → 证据里记录镜像 digest 与命令；失败项不得静默跳过，登记为残余并写触发条件。
 
 ### M53.3 [P1 🧪] G8 产品指标采集脚本 + G5 mutation 扩面

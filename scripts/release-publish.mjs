@@ -173,6 +173,24 @@ export function publishOne(planItem, publishOptions = {}) {
 }
 
 /**
+ * 发布前工作区校验（纯函数，注入 `git status --porcelain` 输出）：
+ * 发布物来自工作区文件、tag 指向 HEAD 提交——工作区脏即意味着「发出去的代码 ≠ 打 tag 的代码」。
+ * 只对真实发布生效（dry-run 允许在脏工作区预演）。
+ *
+ * @param {string} statusText `git status --porcelain` 输出
+ * @throws 有未提交变更时抛错（列出前若干项，避免刷屏）
+ */
+export function ensureCleanWorkspace(statusText) {
+    const dirty = statusText.split('\n').filter((line) => line.trim())
+    if (dirty.length === 0) {
+        return
+    }
+    const shown = dirty.slice(0, 10).join('\n')
+    const more = dirty.length > 10 ? `\n…另有 ${dirty.length - 10} 项` : ''
+    throw new Error(`工作区存在未提交变更，发布物会与 tag 指向的提交不一致：\n${shown}${more}\n请先提交后再发布`)
+}
+
+/**
  * 仅打 tag 不发 npm（npmPublishable === false 包专用，见 §T1310）。
  * 锚点约束与 publishOne 一致：HEAD 必须 touch 该包路径，否则拒绝打 tag。
  * deps 注入便于单测（headTouches / tag）。
@@ -288,6 +306,9 @@ function finalizeRelease(tagged) {
 
 export async function main() {
     const { dryRun, otp, registry } = parsePublishArgs()
+    if (!dryRun) {
+        ensureCleanWorkspace(git('status --porcelain'))
+    }
     // registry 查询并行化（每包一次 fetch，isPublishedOnRegistry 为异步实现）
     const publishedByPkg = new Map()
     await Promise.all(

@@ -17,8 +17,13 @@ on:
 
 # 仅取消针对当前工作流正在进行的作业或运行
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  # 发布构建（带 platform_version）单列分组且禁用取消：多架构 QEMU 构建耗时长，被后续 push 取代
+  # 会白烧算力；普通 push 之间仍互相取代。
+  # 注：0.6.0 的 platform-0.4.0 tag 缺失**不是**并发取消造成的——那次 dispatch 运行的 build job
+  # 触及 120 分钟 job 上限被 kill（step 已跑 115.5 分钟；同窗反向取消的是更早的 push run）。
+  # 对应修复是下方 build job 的 timeout-minutes 提到 240 分钟。
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ inputs.platform_version || 'push' }}
+  cancel-in-progress: ${{ inputs.platform_version == '' }}
 
 jobs:
   # 质量门：lint / typecheck / test 全绿后才允许构建镜像
@@ -54,7 +59,10 @@ jobs:
   build:
     needs: qa
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    # 多架构（amd64 + arm64 QEMU）完整构建实测单 step 已达 115.5 分钟：0.6.0 的发布派发运行
+    # 40745976335 因此在 120 分钟上限被 kill，platform-0.4.0 tag 从未产出。提到 240 分钟留余量；
+    # 根治方向（原生 arm runner / 拆分 per-arch job）已登记 backlog。
+    timeout-minutes: 240
     permissions:
       packages: write
       contents: read

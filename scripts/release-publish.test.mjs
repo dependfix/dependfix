@@ -7,6 +7,7 @@ import {
     buildPublishArgs,
     buildPublishCommand,
     buildPublishPlan,
+    ensureCleanWorkspace,
     main,
     parsePublishArgs,
     resolveAnchorVersion,
@@ -111,6 +112,23 @@ describe('buildPublishPlan', () => {
         const core = plan.find((p) => p.pkg === '@dependfix/core')
         expect(core?.version).toBe('0.4.0')
         expect(core?.tagName).toBe('@dependfix/core@0.4.0')
+    })
+})
+
+describe('ensureCleanWorkspace', () => {
+    it('干净工作区通过', () => {
+        expect(() => ensureCleanWorkspace('')).not.toThrow()
+        expect(() => ensureCleanWorkspace('\n\n')).not.toThrow()
+    })
+
+    it('有未提交变更时拒绝发布，并列出变更', () => {
+        expect(() => ensureCleanWorkspace(' M packages/cli/src/index.ts\n?? scripts/release/new.mjs'))
+            .toThrow(/未提交变更[\s\S]*packages\/cli\/src\/index\.ts[\s\S]*scripts\/release\/new\.mjs/)
+    })
+
+    it('变更超过十项时截断并给出剩余数量', () => {
+        const status = Array.from({ length: 12 }, (_, index) => ` M file-${index}.ts`).join('\n')
+        expect(() => ensureCleanWorkspace(status)).toThrow(/另有 2 项/)
     })
 })
 
@@ -285,6 +303,26 @@ describe('main', () => {
         process.argv = realArgv
         vi.unstubAllGlobals()
         vi.restoreAllMocks()
+    })
+
+    it('refuses to publish from a dirty workspace before any side effect', async () => {
+        vi.mocked(execSync).mockImplementation((cmd) => {
+            const c = String(cmd)
+            if (c.includes('status --porcelain')) {
+                return ' M packages/cli/src/index.ts'
+            }
+            if (c.includes('rev-parse HEAD')) {
+                return 'abc1234'
+            }
+            return ''
+        })
+        process.argv = ['node', 'release-publish.mjs']
+
+        await expect(main()).rejects.toThrow(/未提交变更/)
+        // 前置守卫必须发生在 publish / tag 之前（不留半发布态）
+        expect(vi.mocked(execFileSync).mock.calls).toHaveLength(0)
+        const commands = vi.mocked(execSync).mock.calls.map(([cmd]) => String(cmd))
+        expect(commands.some((cmd) => cmd.includes('tag -a'))).toBe(false)
     })
 
     it('dry-run prints would-publish lines without executing publish', async () => {

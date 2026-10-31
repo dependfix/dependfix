@@ -7,7 +7,9 @@
  *   本脚本只关联、不创建/不推送 tag）
  * - notes：本轮发布版本矩阵 + 项目 changelog 段（优先根 CHANGELOG 最新段，
  *   core-only 等根段为空时取锚包包级 CHANGELOG 段）
- * - 0.x 阶段统一 --prerelease
+ * - prerelease 仅用于 alpha / beta / rc 版本（0.x 正式版与 npm `latest` 一致，不标 prerelease；
+ *   0.6.0 的 GitHub Release 实测即为 Latest）。rc 必须算作 prerelease：npm 对 `1.0.0-rc.1`
+ *   默认写 `next` dist-tag，Release 若标 Latest 会与用户默认安装到的版本不一致
  *
  * 幂等与失败语义：
  * - 无发布列表 / 无 changelog 段 → 不创建（安全退出）
@@ -36,7 +38,7 @@ const ROOT_CHANGELOG = 'CHANGELOG.md'
  * 返回该版本段全文（版本标题行到下一个版本段前），无匹配返回 null。
  */
 export function extractSection(content, version) {
-    const lineRe = /^#{1,2} \[?(\d+\.\d+\.\d+(?:-(?:alpha|beta)(?:\.\d+)?)?)\]?(?:\([^)]*\))?\s/
+    const lineRe = /^#{1,2} \[?(\d+\.\d+\.\d+(?:-(?:alpha|beta|rc)(?:\.\d+)?)?)\]?(?:\([^)]*\))?\s/
     const lines = content.split('\n')
     let start = -1
     for (let i = 0; i < lines.length; i++) {
@@ -83,7 +85,9 @@ export function buildReleasePlan(result, files, deps) {
     }
     const matrix = published.map((p) => `- ${p.pkg}@${p.version}`).join('\n')
     const notes = `## 本轮发布包\n\n${matrix}\n\n## 变更日志（${source}）\n\n${section}\n`
-    const hasPreReleaseTag = /(alpha|beta)/i.test(anchorVersion)
+    // 0.x 不标 prerelease：npm publish 默认写 latest dist-tag，GitHub Release 若标 prerelease
+    // 会与「用户实际默认安装到的版本」不一致（0.6.0 实测为 Latest）。rc 则必须标（npm 写 next）。
+    const hasPreReleaseTag = /(alpha|beta|rc)/i.test(anchorVersion)
     return {
         tag: `v${anchorVersion}`,
         notes,

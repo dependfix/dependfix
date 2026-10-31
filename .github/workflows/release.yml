@@ -99,6 +99,14 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: pnpm run check:release-security
 
+      # 发布前预演（pack → 临时工程安装 → `dependfix --version` 断言 → 工作区留痕检查）：
+      # 0.6.0 曾发出 `--version` 报 0.1.0 的产物，发布后再发现只能补发；本步骤用真实 tarball
+      # 复核同一路径，同时校验 tarball 内无 workspace 协议、bin / main / exports 入口齐全、
+      # 必需 payload（skills）存在。放在便宜门禁之后：被门禁拦下的轮次不必付安装成本。
+      - name: Release preflight (pack + install + version assertion)
+        timeout-minutes: 15
+        run: pnpm release:preflight --out-dir=artifacts/release-preflight
+
       # git tag 需要 committer identity：annotated tag 创建依赖 user.name/user.email。
       # runner 全局 git config 为空（教训 2026-08-12，经验归档 §三十七），而 identity
       # 配置此前仅存在于 Auto version 步骤（schedule-only，手动触发时被跳过导致
@@ -151,16 +159,39 @@ jobs:
       # workflow_dispatch docker.yml 传 platform_version 入参，docker 在 build
       # 阶段打 platform-x.y.z tag。触发条件 = release.yml 手动/定时触发；仅当
       # apps/platform 的 version 不为空时执行（防御 platform 未登记空 string）。
-      - name: Read platform version for docker tag
-        if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
-        id: read-platform-version
+      # 发布锚版本与 platform 版本：docker 构建必须钉在 release tag 上（`--ref v<锚版本>`），
+      # 否则用 master 的当前 HEAD 构建会混入发布后的提交，platform-x.y.z 镜像内容与版本不符。
+      # 锚版本取自 release:publish 写出的 release-publish-result.json（本轮有发布才有值）。
+      # 是否派发 docker：判据为「HEAD 上有 v<锚版本> tag」而不是事件类型——
+      # ① 无发布轮次（result.json 的 anchorVersion 为 null）时回退到 cli 包版本；
+      # ② 重跑同一发布提交（tag 已在 HEAD）时仍能补出镜像；注意构建使用的是**该 tag 上的
+      #    workflow 文件**，故对修复前创建的旧 tag（如 v0.6.0）不成立，补发须新 tag 或手工 --ref master；
+      # ③ 未来 1.0 启用 push 触发后，普通提交（HEAD 无 v tag）不会白跑一次多小时多架构构建。
+      - name: Read release anchor for docker tag
+        id: read-release-anchor
         run: |
-          VERSION=$(node -p "require('./apps/platform/package.json').version")
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          ANCHOR=$(node -p "try { require('./release-publish-result.json').anchorVersion || '' } catch { '' }")
+          if [ -z "$ANCHOR" ]; then
+            ANCHOR=$(node -p "require('./packages/cli/package.json').version")
+          fi
+          # 判据必须是「tag 指向 HEAD」而不是「tag 存在」：后者在后续 push 上恒为真，会让每次 push
+          # 都派发一次多架构构建并钉在旧 tag 上（且与 push 直构的 latest 竞争）。
+          if [ -n "$(git tag --points-at HEAD --list "v$ANCHOR")" ]; then
+            # 构建 ref 与版本来源结构性一致：平台版本从 tag 内容读，不取工作树。
+            # 读不到即显式报错（好过用错版本打 tag 发镜像）。
+            VERSION=$(git show "v$ANCHOR:apps/platform/package.json" | node -e "let s='';process.stdin.on('data',(d)=>{s+=d}).on('end',()=>process.stdout.write(JSON.parse(s).version))") || { echo "::error::无法从 v$ANCHOR 读取 apps/platform/package.json"; exit 1; }
+            echo "anchor=$ANCHOR" >> "$GITHUB_OUTPUT"
+            echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::HEAD 上没有 v$ANCHOR tag（本轮无发布或非发布提交），跳过 docker 派发"
+            echo "anchor=" >> "$GITHUB_OUTPUT"
+            echo "version=" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Trigger Docker build with platform-x.y.z tag
-        if: steps.read-platform-version.outputs.version != ''
+        if: steps.read-release-anchor.outputs.version != '' && steps.read-release-anchor.outputs.anchor != ''
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PLATFORM_VERSION: ${{ steps.read-platform-version.outputs.version }}
-        run: gh workflow run docker.yml --ref master -f platform_version="$PLATFORM_VERSION"
+          PLATFORM_VERSION: ${{ steps.read-release-anchor.outputs.version }}
+          ANCHOR_VERSION: ${{ steps.read-release-anchor.outputs.anchor }}
+        run: gh workflow run docker.yml --ref "v$ANCHOR_VERSION" -f platform_version="$PLATFORM_VERSION"

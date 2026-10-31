@@ -133,7 +133,25 @@ describe('buildReleasePlan', () => {
             { readFile: (path) => (path === files.root ? alphaChangelog : readFile(path)) },
         )
 
+        const rcChangelog = [
+            '# dependfix',
+            '',
+            '## [1.0.0-rc.1](https://github.com/dependfix/dependfix/compare/0.9.0...1.0.0-rc.1) (2026-12-01)',
+            '',
+            '### ✨ 新功能',
+            '',
+            '* **cli:** rc 能力',
+            '',
+        ].join('\n')
+        const rc = buildReleasePlan(
+            { published: [{ pkg: 'dependfix', version: '1.0.0-rc.1' }], anchorVersion: '1.0.0-rc.1', anchorPkg: 'dependfix' },
+            files,
+            { readFile: (path) => (path === files.root ? rcChangelog : readFile(path)) },
+        )
+
         expect(stable.prerelease).toBe(false)
+        expect(rc.action).toBe('create')
+        expect(rc.prerelease).toBe(true)
         expect(beta.action).toBe('create')
         expect(beta.prerelease).toBe(true)
         expect(alpha.action).toBe('create')

@@ -57,7 +57,7 @@
 - **已核缺口修正（2026-10-31 实测）**：实际漂移比预估更大——`configuration` en 侧缺整节「环境变量」（21 个 `DEPENDFIX_*`）+ 8 行配置项表；`quick-start` en 侧 H3 4/15、CLI 参数 12/35，且**旧 en 正文含不存在的能力**（`--keep-last` / `--pr-title` / `--pr-body` / `defineConfig` 配置 API /「fix 模式默认建分支并推送」/ `--alerts-source github`），已按中文事实源与代码整体重写。
 - **闭环（2026-10-31）**：新增 `scripts/docs/check-guide-parity.mjs`（四类比对：env 全量 `UPPER_SNAKE` + 常量 denylist / `--flag` / Action 输入表首列 / H2 逐条标题映射 + H3 数量；`en ⊇ zh`，取不到键位即 fail-closed，豁免需理由且未命中会被点名）+ 17 例单测（含 `--root` 夹具端到端 exit 1）+ `docs:check:guides` 接入 `gates:docs`（18 项）。en 侧补齐：`configuration` 环境变量整节 + 配置项 8 行 + 5 个 H3；`quick-start` 全篇按 zh 结构重写（Action 输入 32 键、CLI 参数 44 行、sandbox 安全、跨版本升级、GitHub App、Exit codes / Next steps）。zh 侧仅做事实订正：CVE-2024-21626 的 GHSA 链接（原 id 404）、`npx dependfix report` → `report-only`、`M4+`/`C52` 过期表述、`pr-creator.ts` 指针漂移、Action 输入表补 7 行、CLI 表补 9 行。代码侧订正 `--ai-api-key` 优先级口径（help 文案与注释原写「env 优先」，实现是 CLI 优先，`index.ts` 与 `config/index.ts` 三处同改）与 `--max-repos` 的负数语义（原注释说「负数不限制」，实现拒绝负数）。审计：R1 两分区（A **Pass** 6 warning / B **Reject** 2 blocker）→ 全收口 → R2（A 全 closed / B **Reject** 1 blocker：`DEPENDFIX_VERIFY_TIMEOUT_MS` 行插错表且少一列）→ 收口 → R3 **Pass**（0 blocker；2 warning 的 partial 面已在本批修完：代码 4 处「0 或负数」措辞、en tech-stack 第二处 404 外链）。证据：`gates:docs` 18 项、`scripts` 单测 941 passed、`packages/cli` 168 passed、`typecheck` 7 包、`check:docs` 8 条规则、`lint:md:check` 0 违规。
 
-### M52.3 [P1 📚] 设计镜像与台账平价（结构映射 + 索引补全）
+### M52.3 [P1 📚] 设计镜像与台账平价（结构映射 + 索引补全）（已完成 2026-10-31）
 
 - **目标**：zh 设计文档拆分后，en 镜像不再是「过期全量」——已有 4 篇镜像与 zh 结构可映射，治理索引与 1.0 台账入口在 en 侧可达；未重译部分有显式映射清单。
 - **已核缺口（2026-10-30 实测）**：en design 仅 4 篇（`architecture` 212 / `index` 41 / `platform-ai-integration` 386 / `spec-and-doc-governance` 137），zh design 67 篇（含 M44.4 拆分分片；`spec-and-doc-governance` zh 已 332 行并拆出 `doc-governance`）；en 治理索引无 `release-1.0-readiness` 台账行。
@@ -67,6 +67,7 @@
 - **依赖**：M52.2（平价脚本可扩展为 design 结构检查）；M52.1（锚点形态）。
 - **交付物**：预估 2 commits / 6-8 文件 / 250-450 行。
 - **风险与缓解**：镜像对齐成本失控 → 交付物是「映射清单 + 入口可达」，逐项判定「对齐 / 登记」；不复制 zh 分片以免双维护。
+- **闭环（2026-10-31）**：新增 `docs/i18n/en-US/design/mirror-manifest.md` 作**唯一登记处**（4 篇镜像各带 `zh H2 → en H2` 映射表、`English-side sections` 三列登记英文侧小节的 zh 落点、63 篇未镜像 zh 分片逐条附理由）+ `docs/design/mirror-manifest.md` 中文入口页（站点要求 en 页有根 locale 对应页）；`scripts/docs/check-design-mirror.mjs` 做三方一致校验（zh 分片集 ↔ 清单 ↔ en 页面集）并逐条核对 H2 映射与两侧真实标题、`—` 去向、理由非空、重复登记、English-side 第三列的 zh 分片 / 章节真实性；16 例单测。en 治理索引补 `release-1.0-readiness` 等 10 行（含 2 处状态订正），并在 zh 治理索引加入口行。**范围扩写说明**：本批实际 13 文件 / 约 630 行（预估 6-8 文件 / 250-450 行），扩写项为 en 索引的 10 行补全（原范围只列 readiness 一行）——按「索引补全」目标执行，逐行核对 zh 落点后保留；拆分为「脚本与接线」「清单与索引」两段提交。审计：R1 **Reject**（2 blocker：English-side 表 8/10 行把 zh 已有章节误标为英文独有、`repo-execution-limits` 把未上收写成已落地）→ 全收口 → R2 **Reject**（1 blocker：两页跨 locale 链接在站点产物里 404，`check:docs` 只查磁盘路径故假绿）→ 改为 zh 页外链 + en 页正确相对深度并在 dist 实测 href 目标 → **R3 Pass**。证据：`gates:docs` 19 项、`scripts` 单测 957 passed、`check:docs` 8 条规则（links 158 / anchor-id 205）、`check:design-mirror` 4/64、`docs:build` 后两页互链 href 目标实测存在、eslint 0 error。
 
 ### M52.4 [P2 🧪] 视觉确定性与归因证据补强 + G5 覆盖率复测
 

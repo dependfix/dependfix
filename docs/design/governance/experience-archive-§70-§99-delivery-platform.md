@@ -345,3 +345,55 @@
 - **现象**：`deadlineAt = Date.now() + MIN_STEP_BUDGET_MS` 在构造时算、`budgetAllows` 的 `now` 在调用时取，间隔 ≥1ms 就把余量吃到 59999ms，全量并发下偶发失败（单文件连跑多轮才复现）。
 - **手法**：优先给被测函数注入 `now`；无法注入时边界值留明确余量（阈值 + 足够大的常数），并另用显式常量断言边界（`= 阈值` 允许 / `阈值 - 1` 拒绝），不要让真实时钟充当边界。
 - **落点**：[testing.md §6.14](../../standards/testing.md) + 检查点矩阵 testing §6.14 行 + `packages/engine/src/app/budget.test.ts`。
+
+## 七十八、M52 归档批次经验沉淀（门禁口径自校验 / 取证副作用 / 契约字段落库 / 断言收敛）
+
+> **批次**：M52 文档平价与验证收口（2026-10-31，四原子 + 4 批追加临时待办）。**准入依据**：④ 工具 / 环境陷阱（Playwright `updateSnapshots` 的写盘语义、VitePress 跨 locale 链接解析、fixtures 端点 schema 与写入映射不同源）+ ② 决策需溯源（为何把 slug 模拟器做成可自校验、为何视觉断言必须收敛到目标元素）。落点见各条目末行。
+
+### 1. 「宽松归一化」的锚点校验等于没校验
+
+- **现象**：`check:docs` 的 `normAnchor` 为兼容三种 slug 规则剥离了全部标点（含 `-`），于是 GitHub 口径的 `31-新需求默认走评估--backlog原则` 与 VitePress 产物 id `_3-1-…` 被判为「同一标题」——站点上点不动的死锚全部绿；实测缺口 696 处 / 97 文件，是预估的 2 倍多。
+- **手法**：多渲染器兼容只能用于「是否有这个标题」的宽松判断；「能不能跳转」必须另立**精确**规则（逐字符等于产物 id），并在报错里直接给出应改成什么。两者并存：宽松规则保留历史形态的容错，精确规则负责形态正确。
+- **落点**：`check-docs` 第 8 条规则 `anchor-id` + [documentation.md §2](../../standards/documentation.md)（Markdown 约定：锚点以产物 id 为准）+ 检查点矩阵 `documentation.md §2` 行。
+
+### 2. 渲染口径的模拟器必须能被构建产物自校验
+
+- **现象**：slug 规则靠「行正则模拟 markdown-it」实现，一旦 VitePress 升级改规则，模拟器与产物会一起错，而错的方向是「把正确写法判红」。
+- **手法**：模拟器之外再留一条**以产物为权威**的校验（`docs:check:anchors` 读 dist 里的 `<h*-id>`），并把「每页推算 id 序列 == 产物 id 序列」也纳入其中；该自校验只作 warning（未覆盖的合法标题形态不应把文档判红），锚点未命中才是阻断项。
+- **落点**：`scripts/docs/verify-anchor-dist.mjs` + [documentation.md §2](../../standards/documentation.md)（产物复核口径）+ `gates:docs` + 检查点矩阵 `documentation.md §2` 行。
+
+### 3. 「重复生成 N 轮」必须验证副作用才算证据
+
+- **现象**：用 `--update-snapshots`（不带值）连跑 10 轮记录 sha256 恒定，被判为「字节稳定」；实际该 preset 是 `changed`——**比较通过时不写盘**，10 轮读的是同一个文件。mtime 一直没变是唯一线索。
+- **手法**：任何「重复生成 / 重建」的取证，先确认**副作用**是否发生（mtime 前进、字节数变化、日志写明写入），再比较产物；只比较内容而不验证写入，等于比较输入。
+- **落点**：[testing.md §6.7](../../standards/testing.md) + `apps/platform/tests/visual/README.md`「运行间确定性取证」。
+
+### 4. update 与 compare 走的是两条取帧路径
+
+- **现象**：`toHaveScreenshot` 比对时会重试到连续两帧一致，而 `--update-snapshots` **不比对、直接落首帧**；于是「重写后的基线」经常不是「比对时的稳定帧」——`=all` 重写后立即比对，4 例失配 1218-1313 px。
+- **手法**：把「稳定」前移到用例侧（连续两帧截图逐字节相同才返回），让两条路径落同一帧；上限内未收敛时告警而不是静默放行（否则 update 仍会写出非稳定帧且无从察觉）。
+- **落点**：[testing.md §6.7](../../standards/testing.md) + `apps/platform/tests/visual/helpers/visual.ts`。
+
+### 5. schema 接受 ≠ 落库：契约字段要追到写入映射与视图
+
+- **现象**：e2e fixtures 端点的 Zod schema 允许 `attribution`，注释还写着「供视觉基线构造带标签的信号」，但写入映射逐字段重建对象时漏了这一项，fixture 类型也没声明——注入的归因静默丢失，视觉基线永远是「无标签」形态，断言看着有覆盖实际没数据。
+- **手法**：新增契约字段时沿「schema → 写入映射 → 实体列 / JSON → 视图映射 → 前端渲染」逐段核对，任何一段手工重建对象都可能漏字段；fixtures 之类测试基础设施同样适用（它也是生产链路的镜像）。
+- **落点**：[development.md §5.1.45](../../standards/development.md)（契约字段端到端）+ 检查点矩阵 `development.md §5.1.45` 行。
+
+### 6. 视觉断言要收敛到目标元素，不能靠泛化选择器
+
+- **现象**：断言 `.caomei-tag--danger` 存在时，同行另有 `state` 标签（failure → danger）与 `kind` 标签（neutral），归因色调映射改坏了断言仍然绿——只有像素基线兜底，而基线一 update 就失去判别力。
+- **手法**：给被检元素加稳定 class / `data-testid`，断言「该元素 + 该属性 + 文案」三者成对；新断言必须用 mutation 验证能拦住对应回归（本案把色调 danger → warning，断言立刻失败）。
+- **落点**：[testing.md §6.7](../../standards/testing.md)（视觉断言判别力）+ 检查点矩阵同项 + `platform-pages.visual.test.ts`。
+
+### 7. 结构平价要按「身份」比，不能按「数量」比
+
+- **现象**：中英指南只比 H2/H3 数量时，「删掉「环境变量」整节 + 加一节无关小节」仍能通过——正是这条规则要防的漂移形态。
+- **手法**：跨语言无法比标题文本，就维护**显式映射表**（zh 标题 → en 标题），两侧改名都 fail-closed；数量只作为 H3 的兜底。键位（env / CLI / Action 输入）按集合比，且「取不到键位」也 fail-closed（否则表格改名即静默关掉门禁）。
+- **落点**：[documentation.md §6](../../standards/documentation.md)（指南平价）+ `scripts/docs/check-guide-parity.mjs` + 检查点矩阵。
+
+### 8. 跨 locale 的相对链接按站点路由解析，不按磁盘路径
+
+- **现象**：`docs/i18n/en-US/design/x.md` 在站点上的路由是 `/en-US/design/x`。从 zh 页用 `../i18n/en-US/design/x.md` 指向它，磁盘路径存在（`check:docs` 绿），站点却渲染成 `/i18n/en-US/design/x` → 404；`ignoreDeadLinks: true` 把构建告警也吞了。
+- **手法**：跨 locale 链接要么写站点路由可解析的相对层级（并在 dist 里实测 href 目标存在），要么改用 GitHub 外链；构建后抽查新页面的正文 href，而不是只看 `check:docs` 的磁盘存在性。
+- **落点**：[documentation.md §2](../../standards/documentation.md)（跨 locale 链接条款）+ 检查点矩阵 `documentation.md §2` 行。

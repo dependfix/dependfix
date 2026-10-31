@@ -191,6 +191,13 @@ if (value) { ... }  // 对 0, "", false 失效
 
 规范见 [documentation.md §2 裸 HTML 标签禁令](../../../../docs/standards/documentation.md)，详见 [经验归档 §三十九](../../../../docs/design/governance/experience-archive.md)（§三十三 `<path>` 后二次复现：登记 ≠ 防御，教训必须落成检查点）。
 
+### 契约字段端到端（必查项）
+
+- **五段核对**：新增 / 修改契约字段（schema / 实体列 / JSON 列）时，是否沿「schema → 写入映射 → 实体 / JSON 列 → 视图 → 渲染」逐段核对？任一段手工重建对象都可能漏字段（实测：e2e fixtures 的 schema 接受 `attribution`，写入映射漏透传 → 注入值静默丢失，视觉断言长期假绿）。
+- **测试基础设施同口径**：fixtures / 工厂 / 种子数据也是生产链路的镜像，字段透传同样要核。
+- **端到端断言**：测试是否证明该字段真的落库并出现在响应 / 渲染里（而非仅 schema 接受）？
+- 落点：[development.md §5.1.45](../../../../docs/standards/development.md)
+
 ### 本地 md 链接与锚点 check:docs 验证（必查项）
 
 修改 `docs/**/*.md` / `.github/skills/**/*.md` / `.github/agents/**/*.md` / `docs/plan/**/*.md` 等含本地链接的 md 文件时，检查：
@@ -293,6 +300,10 @@ if (value) { ... }  // 对 0, "", false 失效
 | [development.md §5.1.57](../../../../docs/standards/development.md) | 新增 / 调整供应链与工具链配置（成熟窗口、审计、镜像源） | 数值配置的**单位与默认值**是否按官方文档核对（如 `minimumReleaseAge` 以分钟计）？为绕开某条策略加例外前是否有**最小对照实验**证明原策略确实挡住目标？例外范围是否精确到版本、附移除条件且未放宽整体门禁？ |
 | [development.md §5.1.58](../../../../docs/standards/development.md) | 改测试文件 / 异步回调内赋值 | 改动是否落在 typecheck 的 include 面（`tests/**` 亦在内）且**实跑** typecheck（exit 0 且 `error TS` 0 命中）？闭包内给外部变量赋值是否用对象持有而非非空断言？ |
 | [development.md §5.1.59](../../../../docs/standards/development.md) | 新增 / 修改 `setInterval` 类周期插件 | 是否有 `running` 重入守卫（慢执行不并发进入）？状态是否按结果驱动（终态 / 可重试 / 退避 / 尝试上界）？退避是否以**完成时刻**计？配置关闭是否只清退避不清计数（避免关一下再开绕过上界）？ |
+| [documentation.md §2](../../../../docs/standards/documentation.md) | 改 md 站内锚点 / 新增跨 locale 链接 | 锚点是否逐字符等于 VitePress 产物 id（`node scripts/check-docs.mjs --only=anchor-id`）？构建后是否跑 `docs:check:anchors`（锚点命中 + slug 自校验）？跨 locale 链接是否在 dist 里实测 href 目标存在（站点按路由解析，`check:docs` 只查磁盘路径） |
+| [documentation.md §6](../../../../docs/standards/documentation.md) | 新增 / 调整指南镜像或设计分片 | 指南改动是否跑 `docs:check:guides`（env / CLI / Action 输入键位 + H2 映射表）？设计分片增删是否同批更新 `mirror-manifest` 并跑 `docs:check:mirror`？ |
+| [testing.md §6.7](../../../../docs/standards/testing.md) | 新增 / 更新视觉基线、写「重建稳定」取证 | 重建是否验证了**副作用**（mtime / 字节变化或用 `=all`），而非只比未改写文件的哈希？断言是否收敛到**目标元素**（专属 class + 属性 + 文案成对）并用 mutation 证明能拦回归？`waitForVisualStable` 是否要求连续两帧一致？残余抖动是否量化登记（像素 / maxΔ / bbox / 与门禁余量） |
+| [development.md §5.1.45](../../../../docs/standards/development.md) | 新增 / 修改契约字段、fixtures 写入路径 | 是否沿「schema → 写入映射 → 实体 / JSON 列 → 视图 → 渲染」逐段核对字段（任一段手工重建对象都可能漏）？端到端断言是否证明该字段真的落库并出现在响应里（而非仅 schema 接受） |
 | [platform.md §3.9](../../../../docs/standards/platform.md) | `.github/dependfix.yml` 读取 / 合并 | **中央优先**（防目标仓库绕过）与**不提供 UI 入口**两条约束是否保持 |
 | [planning.md §2.3](../../../../docs/standards/planning.md) | 候选上收 / 关闭 | 父段标题括号枚举是否同步收敛；已失效候选是否清理 |
 | [planning.md §2.5](../../../../docs/standards/planning.md) | 条目含统计数字 / 跨文档引用同一批需求 | **量化断言**可复现口径：量级区间 + 测量方 + 可复现命令（第三方可复现）；**跨文档同源区分**：用户报告项数 / 登记候选数 / 上收原子数是否给出一致换算（无互相矛盾数字） |

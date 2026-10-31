@@ -449,6 +449,9 @@ export default defineEventHandler(async (event) => {
                 targetUrl: signal.targetUrl ?? null,
                 logUrl: signal.logUrl ?? null,
                 summary: signal.summary ?? null,
+                /* 归因字段必须透传：schema 允许构造带归因的信号（供视觉基线覆盖标签渲染），
+                   早期写入映射漏了这一项，导致 fixture 里的 attribution 静默丢失、基线无标签 */
+                attribution: signal.attribution,
                 observedAt: new Date(),
             }))
             const failureSources = pc.failureSources

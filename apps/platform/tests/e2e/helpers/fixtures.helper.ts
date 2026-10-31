@@ -134,6 +134,8 @@ export interface PRCheckSignalFixture {
     targetUrl?: string | null
     logUrl?: string | null
     summary?: string | null
+    /** 失败归因（供视觉基线构造带归因标签的信号；缺省不写该字段） */
+    attribution?: 'self_caused' | 'pre_existing' | 'external_noise' | 'cancelled' | 'unknown'
 }
 
 /** 失败源条目（写入 `failure_sources_json`；缺省时按 `signals` 派生） */

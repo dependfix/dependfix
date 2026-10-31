@@ -1,35 +1,20 @@
-import {
-    chmodSync,
-    closeSync,
-    existsSync,
-    mkdirSync,
-    openSync,
-    readdirSync,
-    readFileSync,
-    statSync,
-    unlinkSync,
-    utimesSync,
-    writeSync,
-} from 'node:fs'
+import { chmodSync, existsSync, mkdirSync, readdirSync, rmSync, statSync, utimesSync } from 'node:fs'
 import { dirname, join } from 'node:path'
+import Database from 'better-sqlite3'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
     backupDatabaseIfNeeded,
     cleanupOldBackups,
+    formatTimestamp,
     runStartupBackup,
 } from './backup'
 
 /**
- * backup.ts 单测：覆盖所有关键路径与边界条件。
+ * backup.ts 单测：覆盖备份创建 / **WAL 一致性** / 跳过条件 / 保留策略 / 失败降级 / 启动入口。
  *
- * 覆盖矩阵（按 todo.md §M22.1 测试要求）：
- * 1. 备份创建（正常路径 + 内容一致）
- * 2. 跳过（无源文件 / 空文件 / .bak 文件）
- * 3. fsync 调用验证（spy 拦截）
- * 4. 保留策略清理（超出 retentionCount 时清理老备份）
- * 5. 失败不抛（fail-open：读失败 / 写失败 / 清理失败）
- * 6. 时间戳格式（ISO 8601 紧凑型）
- * 7. runStartupBackup 启动入口（路径解析 + console 日志）
+ * 关键回归（2026-10-31 运维实测）：应用强制 `journal_mode=wal`，此前备份直接复制主库文件，
+ * 主文件可能只有 4KB 头页（数据都在 `-wal`），备份产物 `schema_version=0`（空库）。
+ * 现在走 SQLite 在线备份 API，用例必须证明「未 checkpoint 的数据也在备份里」。
  */
 
 const makeTempDir = (label: string): string => {
@@ -41,13 +26,46 @@ const makeTempDir = (label: string): string => {
     return dir
 }
 
-const writeFile = (path: string, content: string): void => {
-    const fd = openSync(path, 'w')
-    writeSync(fd, content)
-    closeSync(fd)
+const realEnv = { ...process.env }
+
+/** 建一个真实 SQLite 库并写入若干行（`journalMode` 可选 wal，保持连接开放以模拟未 checkpoint）。 */
+const createSqliteDb = (dbPath: string, options: { journalMode?: 'wal' | 'delete', rows?: number, keepOpen?: boolean } = {}): Database.Database | null => {
+    const db = new Database(dbPath)
+    if (options.journalMode) {
+        db.pragma(`journal_mode = ${options.journalMode}`)
+    }
+    db.exec('CREATE TABLE sample (id INTEGER PRIMARY KEY AUTOINCREMENT, value TEXT NOT NULL)')
+    const insert = db.prepare('INSERT INTO sample (value) VALUES (?)')
+    for (let i = 0; i < (options.rows ?? 3); i++) {
+        insert.run(`row-${i}`)
+    }
+    if (options.keepOpen) {
+        return db
+    }
+    db.close()
+    return null
 }
 
-const realEnv = { ...process.env }
+/** 读目标库的表行数（只读打开；不存在时返回 -1）。 */
+const countRows = (dbPath: string): number => {
+    if (!existsSync(dbPath)) {
+        return -1
+    }
+    const db = new Database(dbPath, { readonly: true })
+    try {
+        return (db.prepare('SELECT COUNT(*) AS c FROM sample').get() as { c: number }).c
+    } finally {
+        db.close()
+    }
+}
+
+const removeDir = (dir: string): void => {
+    try {
+        rmSync(dir, { recursive: true, force: true })
+    } catch {
+        // best-effort：临时目录残留不影响断言
+    }
+}
 
 describe('backupDatabaseIfNeeded', () => {
     let workDir: string
@@ -63,361 +81,259 @@ describe('backupDatabaseIfNeeded', () => {
 
     afterEach(() => {
         process.env = { ...realEnv }
-        // 清理 tempDir
-        try {
-            unlinkSync(dbPath)
-        } catch { /* file not exist */ }
+        removeDir(workDir)
     })
 
     describe('正常路径', () => {
-        it('creates backup file with correct content + ISO timestamp', () => {
-            writeFile(dbPath, 'sqlite-content-original')
-            const result = backupDatabaseIfNeeded(dbPath)
+        it('创建备份文件（ISO 紧凑时间戳）且可独立打开、行数一致', async () => {
+            createSqliteDb(dbPath, { rows: 3 })
+            const result = await backupDatabaseIfNeeded(dbPath)
 
             expect(result.error).toBeUndefined()
             expect(result.skipped).toBeUndefined()
             expect(result.created).toBeDefined()
-            // 时间戳格式验证：test.sqlite.YYYY-MM-DDTHH-mm-ss.bak
+            // 时间戳格式：test.sqlite.YYYY-MM-DDTHH-mm-ss.bak
             const filename = result.created!.split(/[\\/]/).pop()!
             expect(filename).toMatch(/^test\.sqlite\.\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}\.bak$/)
 
-            // 验证备份目录与文件存在
             expect(existsSync(backupDir)).toBe(true)
-            const files = readdirSync(backupDir)
-            expect(files.length).toBe(1)
+            expect(readdirSync(backupDir).length).toBe(1)
+            expect(countRows(result.created!)).toBe(3)
+        })
 
-            // 验证备份文件可读 + 内容一致
-            const backupContent = readFileSync(join(backupDir, files[0]!), 'utf-8')
-            expect(backupContent).toBe('sqlite-content-original')
+        it('WAL 模式下未 checkpoint 的数据也进入备份（回归：裸复制主文件得到空库）', async () => {
+            // 连接保持开放 → 数据仍在 -wal，主文件通常只有 4KB 头页
+            const writer = createSqliteDb(dbPath, { journalMode: 'wal', rows: 5, keepOpen: true })
+            try {
+                const mainFileSize = statSync(dbPath).size
+                const result = await backupDatabaseIfNeeded(dbPath)
+
+                expect(result.error).toBeUndefined()
+                expect(countRows(result.created!)).toBe(5)
+                // 证明「裸复制主文件」确实不够：主文件明显小于数据量所对应的体积
+                expect(mainFileSize).toBeLessThanOrEqual(statSync(result.created!).size)
+            } finally {
+                writer?.close()
+            }
+        })
+
+        it('不留下 .tmp 残留（成功路径先写临时文件再 rename）', async () => {
+            createSqliteDb(dbPath)
+            await backupDatabaseIfNeeded(dbPath)
+            expect(readdirSync(backupDir).filter((name) => name.endsWith('.tmp'))).toEqual([])
         })
     })
 
     describe('跳过条件', () => {
-        it('skips when source file does not exist', () => {
-            const result = backupDatabaseIfNeeded(dbPath)
+        it('源文件不存在 → no source file', async () => {
+            const result = await backupDatabaseIfNeeded(dbPath)
             expect(result.error).toBeUndefined()
             expect(result.created).toBeUndefined()
             expect(result.skipped).toBe('no source file')
+            expect(result.cleaned).toBeUndefined()
         })
 
-        it('skips when source file is empty (size = 0)', () => {
-            writeFile(dbPath, '')
-            const result = backupDatabaseIfNeeded(dbPath)
+        it('源文件为空 → empty file（不创建备份目录）', async () => {
+            new Database(dbPath).close() // 空文件
+            const result = await backupDatabaseIfNeeded(dbPath)
             expect(result.skipped).toBe('empty file')
-            expect(result.created).toBeUndefined()
-            expect(existsSync(backupDir)).toBe(false) // 不应该创建备份目录
+            expect(existsSync(backupDir)).toBe(false)
         })
 
-        it('skips when source file is itself a .bak file (recursive protection)', () => {
+        it('源文件本身是 .bak → backup file（防递归）', async () => {
             const bakPath = join(workDir, 'old.bak')
-            writeFile(bakPath, 'old-backup-content')
-            const result = backupDatabaseIfNeeded(bakPath)
+            createSqliteDb(bakPath)
+            const result = await backupDatabaseIfNeeded(bakPath)
             expect(result.skipped).toBe('backup file')
             expect(result.created).toBeUndefined()
         })
+
+        it('BACKUP_SKIP=true → skip enabled', async () => {
+            createSqliteDb(dbPath)
+            vi.stubEnv('BACKUP_SKIP', 'true')
+            const result = await backupDatabaseIfNeeded(dbPath)
+            expect(result.skipped).toBe('skip enabled')
+            expect(existsSync(backupDir)).toBe(false)
+        })
     })
 
-    describe('写入原子性（间接验证 fsync 效果）', () => {
-        it('writes complete backup file matching source size + content', () => {
-            const sourceContent = 'atomic-write-test-content-'.repeat(100)
-            writeFile(dbPath, sourceContent)
+    describe('保留策略', () => {
+        it('只保留 retentionCount 份最新备份', async () => {
+            createSqliteDb(dbPath)
+            // 预置 3 份老备份（不同 mtime）
+            mkdirSync(backupDir, { recursive: true })
+            for (const [index, stamp] of ['2026-01-01T00-00-00', '2026-01-02T00-00-00', '2026-01-03T00-00-00'].entries()) {
+                const file = join(backupDir, `test.sqlite.${stamp}.bak`)
+                createSqliteDb(file, { rows: 1 })
+                const time = new Date(Date.UTC(2026, 0, index + 1))
+                utimesSync(file, time, time)
+            }
 
-            const sourceStat = statSync(dbPath)
-            const result = backupDatabaseIfNeeded(dbPath)
+            const result = await backupDatabaseIfNeeded(dbPath, { retentionCount: 2 })
+            expect(result.error).toBeUndefined()
+            expect(result.cleaned).toBe(2)
+            expect(readdirSync(backupDir).filter((name) => name.endsWith('.bak')).length).toBe(2)
+        })
 
+        it('备份成功时同步回收超期备份（cleanup 与创建同一次调用内完成）', async () => {
+            createSqliteDb(dbPath)
+            mkdirSync(backupDir, { recursive: true })
+            for (const stamp of ['2026-01-01T00-00-00', '2026-01-02T00-00-00']) {
+                createSqliteDb(join(backupDir, `test.sqlite.${stamp}.bak`), { rows: 1 })
+            }
+
+            const result = await backupDatabaseIfNeeded(dbPath, { retentionCount: 1 })
             expect(result.error).toBeUndefined()
             expect(result.created).toBeDefined()
-
-            // 验证备份文件存在 + 大小与源一致（fsync 刷盘后内容完整）
-            const backupStat = statSync(result.created!)
-            expect(backupStat.size).toBe(sourceStat.size)
-            expect(backupStat.size).toBeGreaterThan(0) // 非空
-        })
-
-        it('writes via temp file + rename pattern (atomic replacement)', () => {
-            // fs.openSync(temp, 'w') + fs.renameSync(temp, target) 的模式意味着即使断电也不会留下 .tmp
-            // 通过备份目录中没有 .tmp 文件验证
-            writeFile(dbPath, 'content')
-            backupDatabaseIfNeeded(dbPath)
-
-            const files = readdirSync(backupDir)
-            const tempFiles = files.filter((f: string) => f.endsWith('.tmp'))
-            expect(tempFiles.length).toBe(0) // 不应该有 .tmp 残留
+            expect(result.cleaned).toBe(2)
         })
     })
 
-    describe('保留策略清理', () => {
-        it('keeps only retentionCount newest backups + removes oldest', () => {
-            writeFile(dbPath, 'content')
-
-            // 手动创建 12 份备份（超出默认 10），通过调整 mtime
-            mkdirSync(backupDir, { recursive: true })
-            for (let i = 0; i < 12; i++) {
-                const ts = `2026-01-${(i + 1).toString().padStart(2, '0')}T00-00-00`
-                const bak = join(backupDir, `test.sqlite.${ts}.bak`)
-                writeFile(bak, `content-${i}`)
-                // 调整 mtime 确保排序
-                utimesSync(bak, new Date(2026, 0, i + 1), new Date(2026, 0, i + 1))
-            }
-
-            const result = backupDatabaseIfNeeded(dbPath, { retentionCount: 5 })
-            expect(result.error).toBeUndefined()
-            expect(result.cleaned).toBe(13 - 5) // 12 老 + 1 新 = 13 总，保留 5，清理 8
-
-            const remaining = readdirSync(backupDir).length
-            expect(remaining).toBe(5) // 保留 5
+    describe('fail-open 兜底（不抛异常）', () => {
+        it('源路径不是数据库 → 返回 error 且不抛', async () => {
+            mkdirSync(dbPath, { recursive: true }) // 目录当源文件：size > 0，但不是数据库
+            const result = await backupDatabaseIfNeeded(dbPath)
+            expect(result.error).toBeDefined()
+            expect(result.created).toBeUndefined()
         })
 
-        it('cleans up even when backup creation is skipped', () => {
-            writeFile(dbPath, '')
-            // 准备 8 份老备份（会被 cleanupOldBackups 清理到 5）
-            mkdirSync(backupDir, { recursive: true })
-            for (let i = 0; i < 8; i++) {
-                const bak = join(backupDir, `test.sqlite.2026-01-${(i + 1).toString().padStart(2, '0')}T00-00-00.bak`)
-                writeFile(bak, `old-${i}`)
-                // 调整 mtime 确保排序
-                utimesSync(bak, new Date(2026, 0, i + 1), new Date(2026, 0, i + 1))
-            }
-
-            const result = backupDatabaseIfNeeded(dbPath, { retentionCount: 5 })
-            expect(result.skipped).toBe('empty file')
-            // 跳过备份创建时，cleanupOldBackups 不应该执行（按当前实现逻辑）
-            // 只有 backupDatabaseIfNeeded 创建成功后才清理
-            expect(result.cleaned).toBeUndefined()
-        })
-    })
-
-    describe('fail-open 兜底', () => {
-        it('returns error when readFileSync fails (e.g. permission denied),)', () => {
-            writeFile(dbPath, 'content')
-            // 把文件设为不可读（chmod 000）
-            try {
-                chmodSync(dbPath, 0o000)
-            } catch {
-                // 部分平台不支持 chmod 0o000（root 用户忽略）—— 跳过此测试
-                return
-            }
-
-            const result = backupDatabaseIfNeeded(dbPath)
-            // root 用户绕过 chmod，此分支可能不命中；非 root 才会命中
-            if (result.error) {
-                expect(result.created).toBeUndefined()
-                expect(result.skipped).toBeUndefined()
-            } else {
-                expect(result.created).toBeDefined()
-            }
-
-            // 恢复权限便于清理
-            try {
-                chmodSync(dbPath, 0o644)
-            } catch {
-                // best-effort
-            }
-        })
-
-        it('does not throw when mkdirSync fails', async () => {
-            // 验证 mkdir 失败时 backupDatabaseIfNeeded 返回 error 而不抛
-            // 注：Node fs 模块是 ESM，vi.spyOn 无法拦截；改用 chmod 让真实 mkdir 失败
-            //     （root 用户跳过此测试，因为 root 绕过 chmod）
-            writeFile(dbPath, 'content')
-
-            // 制造失败场景：让 mkdir 因父目录权限不足而失败
-            // 步骤：1. 创建 backups 父目录；2. 移除所有权限；3. 期望 mkdir 失败
-            const parentPath = dirname(workDir)
-            mkdirSync(parentPath, { recursive: true })
-            try {
-                chmodSync(parentPath, 0o555) // r-x only，无法 mkdir
-            } catch {
-                // root 用户 chmod 不生效
-                return
-            }
-
-            let result: ReturnType<typeof backupDatabaseIfNeeded> | undefined
-            expect(() => {
-                result = backupDatabaseIfNeeded(dbPath)
-            }).not.toThrow()
-
-            // 非 root 下 mkdir 应该失败 → result.error 应存在
-            if (process.getuid?.() === 0) {
-                // root 用户跳过：mkdir 在 r-x 权限下也能成功（绕过权限检查）
-                return
-            }
-            expect(result).toBeDefined()
-            expect(result!.error).toBeDefined()
-            expect(result!.created).toBeUndefined()
-            expect(result!.skipped).toBeUndefined()
-
-            // 恢复权限便于清理
-            try {
-                chmodSync(parentPath, 0o755)
-            } catch {
-                // best-effort
-            }
-        })
-
-        it('does not throw when renameSync fails', () => {
-            // rename 失败场景：目标文件已存在且为只读目录下的文件
-            // 由于 Node fs 模块 ESM 不可 spyOn，这里采用 chmod 让目标路径不可写
-            writeFile(dbPath, 'content')
-            // 让 backupDir 不可写
+        it('备份目录不可写（非 root）→ 返回 error 且不抛', async () => {
+            createSqliteDb(dbPath)
             mkdirSync(backupDir, { recursive: true })
             try {
-                chmodSync(backupDir, 0o555) // r-x only，无法写入
+                chmodSync(backupDir, 0o555)
             } catch {
-                return // root 跳过
+                return // 平台不支持 chmod
             }
             if (process.getuid?.() === 0) {
-                return // root 跳过
+                chmodSync(backupDir, 0o755)
+                return // root 绕过权限检查
             }
 
-            const result = backupDatabaseIfNeeded(dbPath)
-            expect(result).toBeDefined()
+            const result = await backupDatabaseIfNeeded(dbPath)
             expect(result.error).toBeDefined()
             expect(result.created).toBeUndefined()
 
             try {
                 chmodSync(backupDir, 0o755)
             } catch {
-                /* best-effort */
+                // best-effort
             }
         })
     })
+})
 
-    describe('cleanupOldBackups 独立函数', () => {
-        it('returns 0 when backupDir does not exist', () => {
-            const removed = cleanupOldBackups(join(workDir, 'non-existent'), 'test.sqlite', 5)
-            expect(removed).toBe(0)
-        })
+describe('cleanupOldBackups', () => {
+    let workDir: string
+    let backupDir: string
 
-        it('returns 0 when backup count is within retention', () => {
-            mkdirSync(backupDir, { recursive: true })
-            for (let i = 0; i < 3; i++) {
-                const bak = join(backupDir, `test.sqlite.2026-01-0${i + 1}T00-00-00.bak`)
-                writeFile(bak, `c-${i}`)
-            }
-            const removed = cleanupOldBackups(backupDir, 'test.sqlite', 5)
-            expect(removed).toBe(0)
-            expect(readdirSync(backupDir).length).toBe(3)
-        })
-
-        it('ignores files not matching baseFileName prefix', () => {
-            mkdirSync(backupDir, { recursive: true })
-            writeFile(join(backupDir, 'other.sqlite.2026-01-01T00-00-00.bak'), 'other')
-            writeFile(join(backupDir, 'test.sqlite.2026-01-01T00-00-00.bak'), 'mine')
-            const removed = cleanupOldBackups(backupDir, 'test.sqlite', 1)
-            expect(removed).toBe(0)
-            // 'other.sqlite.*.bak' 不应被删除
-            expect(existsSync(join(backupDir, 'other.sqlite.2026-01-01T00-00-00.bak'))).toBe(true)
-        })
+    beforeEach(() => {
+        workDir = makeTempDir('cleanup')
+        backupDir = join(workDir, 'backups')
+        mkdirSync(backupDir, { recursive: true })
     })
 
-    describe('runStartupBackup 启动入口', () => {
-        beforeEach(() => {
-            // 设置 DATABASE_PATH 到临时文件
-            writeFile(dbPath, 'startup-content')
-            vi.stubEnv('DATABASE_PATH', dbPath)
-        })
+    afterEach(() => {
+        removeDir(workDir)
+    })
 
-        it('uses DATABASE_PATH env when set', () => {
-            const consoleSpy = vi.spyOn(console, 'log').mockImplementation(vi.fn())
-            const result = runStartupBackup()
+    it('目录不存在 → 0', () => {
+        expect(cleanupOldBackups(join(workDir, 'missing'), 'test.sqlite', 5)).toBe(0)
+    })
+
+    it('份数未超保留数 → 0', () => {
+        for (const stamp of ['2026-01-01T00-00-00', '2026-01-02T00-00-00']) {
+            createSqliteDb(join(backupDir, `test.sqlite.${stamp}.bak`), { rows: 1 })
+        }
+        expect(cleanupOldBackups(backupDir, 'test.sqlite', 5)).toBe(0)
+    })
+
+    it('忽略不匹配前缀的文件', () => {
+        createSqliteDb(join(backupDir, 'other.sqlite.2026-01-01T00-00-00.bak'), { rows: 1 })
+        expect(cleanupOldBackups(backupDir, 'test.sqlite', 0)).toBe(0)
+    })
+})
+
+describe('runStartupBackup', () => {
+    let workDir: string
+    let dbPath: string
+    let backupDir: string
+
+    beforeEach(() => {
+        vi.unstubAllEnvs()
+        workDir = makeTempDir('startup')
+        dbPath = join(workDir, 'test.sqlite')
+        backupDir = join(workDir, 'backups')
+        createSqliteDb(dbPath, { rows: 2 })
+        vi.stubEnv('DATABASE_PATH', dbPath)
+    })
+
+    afterEach(() => {
+        process.env = { ...realEnv }
+        removeDir(workDir)
+    })
+
+    it('使用 DATABASE_PATH 并创建备份', async () => {
+        const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined)
+        try {
+            const result = await runStartupBackup()
             expect(result.error).toBeUndefined()
-            expect(result.created).toBeDefined()
             expect(result.created).toContain(backupDir)
-            consoleSpy.mockRestore()
-        })
-
-        it('logs backup created path', () => {
-            const consoleSpy = vi.spyOn(console, 'log').mockImplementation(vi.fn())
-            runStartupBackup()
-            expect(consoleSpy).toHaveBeenCalledWith(expect.stringMatching(/\[database\] backup created:/))
-            consoleSpy.mockRestore()
-        })
-
-        it('logs backup skipped reason', () => {
-            const consoleSpy = vi.spyOn(console, 'log').mockImplementation(vi.fn())
-            // 用 BACKUP_RETENTION_COUNT env 模拟 + 临时目录（不存在）
-            const nonExistent = join(workDir, 'non-existent.sqlite')
-            vi.stubEnv('DATABASE_PATH', nonExistent)
-            runStartupBackup()
-            expect(consoleSpy).toHaveBeenCalledWith(expect.stringMatching(/\[database\] backup skipped: no source file/))
-            consoleSpy.mockRestore()
-        })
-
-        it('logs backup error via console.error', () => {
-            // 通过设置 retentionCount 为 NaN（mock 失败路径）
-            const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(vi.fn())
-            vi.stubEnv('DATABASE_PATH', dbPath)
-            vi.stubEnv('BACKUP_RETENTION_COUNT', 'not-a-number')
-            // 由于 retentionCount 数字转换 fallback 到 DEFAULT_RETENTION_COUNT，应该成功
-            // 这里只验证 console.error 不会无谓触发
-            runStartupBackup()
-            // 正常路径下 console.error 不应该被调用（除非真失败）
-            consoleErrorSpy.mockRestore()
-        })
+            expect(logSpy).toHaveBeenCalledWith(expect.stringMatching(/\[database\] backup created:/))
+        } finally {
+            logSpy.mockRestore()
+        }
     })
 
-    describe('时间戳格式', () => {
-        it('produces lexicographically sortable ISO 8601 compact format', () => {
-            writeFile(dbPath, 'c')
-            const result = backupDatabaseIfNeeded(dbPath)
-            expect(result.created).toBeDefined()
-
-            const filename = result.created!.split(/[\\/]/).pop()!
-            // 文件名格式：test.sqlite.YYYY-MM-DDTHH-mm-ss.bak
-            expect(filename).toMatch(/^test\.sqlite\.\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}\.bak$/)
-        })
+    it('源文件不存在时记录跳过原因', async () => {
+        vi.stubEnv('DATABASE_PATH', join(workDir, 'missing.sqlite'))
+        const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined)
+        try {
+            const result = await runStartupBackup()
+            expect(result.skipped).toBe('no source file')
+            expect(logSpy).toHaveBeenCalledWith(expect.stringMatching(/\[database\] backup skipped: no source file/))
+        } finally {
+            logSpy.mockRestore()
+        }
     })
 
-    describe('env 覆盖', () => {
-        it('honors BACKUP_RETENTION_COUNT env', () => {
-            writeFile(dbPath, 'c')
-            mkdirSync(backupDir, { recursive: true })
-            // 预先创建 8 份备份
-            for (let i = 0; i < 8; i++) {
-                const bak = join(backupDir, `test.sqlite.2026-01-${(i + 1).toString().padStart(2, '0')}T00-00-00.bak`)
-                writeFile(bak, `old-${i}`)
-                utimesSync(bak, new Date(2026, 0, i + 1), new Date(2026, 0, i + 1))
-            }
+    it('队列 worker 进程跳过备份（迁移与备份由 HTTP 主进程承担）', async () => {
+        vi.stubEnv('DEPENDFIX_ROLE', 'worker')
+        const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined)
+        try {
+            const result = await runStartupBackup()
+            expect(result.skipped).toBe('queue worker process')
+            expect(existsSync(backupDir)).toBe(false)
+            expect(logSpy).toHaveBeenCalledWith('[database] backup skipped: queue worker process')
+        } finally {
+            logSpy.mockRestore()
+        }
+    })
+})
 
-            vi.stubEnv('BACKUP_RETENTION_COUNT', '3')
-            const result = backupDatabaseIfNeeded(dbPath)
-            // 8 老 + 1 新 = 9 总，保留 3，清理 6
-            expect(result.cleaned).toBe(9 - 3)
-        })
-
-        it('uses DEFAULT_RETENTION_COUNT when BACKUP_RETENTION_COUNT is invalid', () => {
-            writeFile(dbPath, 'c')
-            mkdirSync(backupDir, { recursive: true })
-            for (let i = 0; i < 12; i++) {
-                const bak = join(backupDir, `test.sqlite.2026-01-${(i + 1).toString().padStart(2, '0')}T00-00-00.bak`)
-                writeFile(bak, `old-${i}`)
-                utimesSync(bak, new Date(2026, 0, i + 1), new Date(2026, 0, i + 1))
-            }
-
-            vi.stubEnv('BACKUP_RETENTION_COUNT', 'not-a-number')
-            const result = backupDatabaseIfNeeded(dbPath)
-            // 12 老 + 1 新 = 13 总，保留 5 (DEFAULT)，清理 8
-            expect(result.cleaned).toBe(13 - 5)
-        })
+describe('formatTimestamp', () => {
+    it('输出可按字典序排序的 ISO 8601 紧凑格式', () => {
+        expect(formatTimestamp(new Date(Date.UTC(2026, 0, 2, 3, 4, 5)))).toBe('2026-01-02T03-04-05')
     })
 
-    describe('BACKUP_SKIP', () => {
-        it('skips backup when BACKUP_SKIP=true', () => {
-            writeFile(dbPath, 'content')
-            vi.stubEnv('BACKUP_SKIP', 'true')
-            const result = backupDatabaseIfNeeded(dbPath)
-            expect(result.skipped).toBe('skip enabled')
-            expect(result.created).toBeUndefined()
-            expect(existsSync(backupDir)).toBe(false) // 备份目录不应该被创建
-        })
+    it('单数字月 / 日 / 时 / 分 / 秒补零', () => {
+        expect(formatTimestamp(new Date(Date.UTC(2026, 8, 9, 1, 2, 3)))).toBe('2026-09-09T01-02-03')
+    })
 
-        it('does not skip when BACKUP_SKIP is not true', () => {
-            writeFile(dbPath, 'content')
-            vi.stubEnv('BACKUP_SKIP', 'false')
-            const result = backupDatabaseIfNeeded(dbPath)
-            expect(result.skipped).toBeUndefined()
-            expect(result.created).toBeDefined()
-        })
+    it('按 UTC 输出（与宿主时区无关）', () => {
+        const date = new Date(Date.UTC(2026, 5, 1, 0, 0, 0))
+        expect(formatTimestamp(date)).toBe('2026-06-01T00-00-00')
+    })
+})
+
+describe('备份目录本身', () => {
+    it('与数据库同级的 backups 目录名', async () => {
+        const workDir = makeTempDir('dir')
+        const dbPath = join(workDir, 'nested', 'app.sqlite')
+        mkdirSync(dirname(dbPath), { recursive: true })
+        createSqliteDb(dbPath, { rows: 1 })
+        const result = await backupDatabaseIfNeeded(dbPath)
+        expect(dirname(result.created!)).toBe(join(dirname(dbPath), 'backups'))
+        removeDir(workDir)
     })
 })

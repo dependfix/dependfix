@@ -29,6 +29,7 @@ import { AddScanRunBuildColumns2900000000000 } from './migrations/2900000000000-
 import { AddScanRunPrNumber2900000000001 } from './migrations/2900000000001-AddScanRunPrNumber'
 import { AddRepositoryPrFeedback2900000000002 } from './migrations/2900000000002-AddRepositoryPrFeedback'
 import { runStartupBackup } from './backup'
+import { isQueueWorkerProcess } from '#server/utils/process-role'
 import { Account } from '#server/entities/account'
 import { Session } from '#server/entities/session'
 import { User } from '#server/entities/user'
@@ -196,10 +197,11 @@ export const getDataSource = (): DataSource => {
  * 启动期自动备份（hard requirement，规范见 docs/standards/security.md §2.1.1 + todo.md §M22.1）：
  * - 仅 SQLite 数据库生效（其他数据库类型由 runStartupBackup 内部跳过）
  * - fail-open：备份失败不阻塞启动（恢复依赖用户的本地副本或外部备份）
- * - 仅应用启动时执行一次（once 保护）：ensureDatabaseInitialized 是 hot path idempotent 函数
- *   （60+ 处 API endpoint / service 引用），备份必须在 schema 同步 / 数据写入前完成但不能在每次调用时执行
+ * - 仅应用启动时执行一次（single-flight）：ensureDatabaseInitialized 是 hot path 幂等函数
+ *   （60+ 处 API endpoint / service 引用），备份必须在 schema 同步 / 数据写入前完成但不能在每次调用时执行。
+ *   用 Promise 而非布尔标记：并发首调时全部等待同一次快照完成，避免「第二个调用者越过备份直接初始化」
  */
-let startupBackupRan = false
+let startupBackupPromise: Promise<unknown> | null = null
 
 /**
  * SQLite 启动期 PRAGMA 优化：
@@ -235,6 +237,11 @@ const warnIfSchemaMissing = async (ds: DataSource): Promise<void> => {
     if (currentDatabaseType() !== 'sqlite') {
         return
     }
+    // 队列 worker 进程跳过：迁移由 HTTP 主进程执行（worker 侧 DATABASE_MIGRATIONS_RUN 恒 false），
+    // 双进程同时启动时 worker 会先于迁移打开空库，此处告警属误报（2026-10-31 运维实测命中）。
+    if (isQueueWorkerProcess()) {
+        return
+    }
     // 用 DataSource 生效值判定（含 createMigrateDataSource 强制 false 等场景），避免二次读 env 漂移
     if (ds.options.migrationsRun) {
         return
@@ -254,10 +261,10 @@ const warnIfSchemaMissing = async (ds: DataSource): Promise<void> => {
 export const ensureDatabaseInitialized = async (): Promise<DataSource> => {
     // 启动期备份（once 保护；详见 docs/standards/development.md §5.1.18）
     // 注：ensureDatabaseInitialized 是 hot path，每次调用都会执行；备份仅在首次调用时执行一次
-    if (!startupBackupRan) {
-        runStartupBackup()
-        startupBackupRan = true
+    if (!startupBackupPromise) {
+        startupBackupPromise = runStartupBackup()
     }
+    await startupBackupPromise
 
     const ds = getDataSource()
     if (ds.isInitialized) {

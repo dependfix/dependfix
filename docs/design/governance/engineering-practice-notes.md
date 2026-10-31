@@ -135,7 +135,7 @@ Nuxt `useAsyncData` 内置 watch 为浅监听（reference equality），对 nest
 
 ### EP-16 SQLite 数据库启动期自动备份（原 5.1.18）
 
-应用范围 = 所有 better-sqlite3 部署形态（dev / e2e / prod / 容器），e2e 库与业务库各自独立（不交叉备份）；**禁止**用 `--no-verify-backup` 跳过、禁止备份目录走 `.gitignore` 之外位置、禁止备份阻塞启动超 5 秒；D 阶段自检与 A 阶段 Review Gate 均须验证 `backup.ts` 含 fsync + 保留策略。权威完整声明见 [security.md §2.1](../../standards/security.md#_2-1-sqlite-数据库防护-不可恢复数据事故防线)。
+应用范围 = 所有 better-sqlite3 部署形态（dev / e2e / prod / 容器），e2e 库与业务库各自独立（不交叉备份）；**禁止**用 `--no-verify-backup` 跳过、禁止备份目录走 `.gitignore` 之外位置、禁止备份阻塞启动超 5 秒；备份必须走 **SQLite 在线备份**（`db.backup` 或等价 checkpoint）——应用强制 `journal_mode=wal`，裸复制主库文件会得到空库 / 旧库（2026-10-31 实测：主文件 4KB、数据全在 `-wal`，备份产物 `schema_version=0`）；容器双进程形态下只由 HTTP 主进程备份（worker 跳过）。D 阶段自检与 A 阶段 Review Gate 均须验证 `backup.ts` 含在线备份 + fsync + 保留策略，且备份用例覆盖「未 checkpoint 的 WAL 数据」。权威完整声明见 [security.md §2.1](../../standards/security.md#_2-1-sqlite-数据库防护-不可恢复数据事故防线)。
 
 ### EP-17 TypeORM 1.x `synchronize` 与 `migrationsRun` 反模式禁止（hard requirement）（原 5.1.19）
 

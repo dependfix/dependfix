@@ -54,7 +54,7 @@
 
 ### 候选评估中（待评估 / 本阶段延后项）
 
-> **候选池概览（2026-10-31 实测）**：本区 57 项（2026-10-30 上收 M51 九项 / F2 七项后实测；含 M50.2 / M50.3 复审衍生候选 + 2026-10-29 批量运行超时复盘派生 4 项 + 2026-10-30 用户实测派生 2 项（PR 正文 `From` 恒空、扫描页排序与时间区间）+ M51 收口登记 2 项（G8 指标采集脚本、PR 回环有界重试）；F2 上收 7 项见 [M52](todo.md)；另 1 项设计定稿后按用户裁定转入 §延期 / 暂缓项）；P 标签覆盖不全（未标注者评估时补 P 标签，不默认升级）；本文件不维护分档统计，1.0 分档只见 [release-1.0-readiness.md](../design/governance/release-1.0-readiness.md)；未标注候选评估时补 P 标签，不默认升级。
+> **候选池概览（2026-10-31 实测）**：本区 57 项（2026-10-30 上收 M51 九项 / F2 七项后实测；含 M50.2 / M50.3 复审衍生候选 + 2026-10-29 批量运行超时复盘派生 4 项 + 2026-10-30 用户实测派生 2 项（PR 正文 `From` 恒空、扫描页排序与时间区间）+ M51 收口登记 2 项（G8 指标采集脚本、PR 回环有界重试）+ M52 收口登记 2 项（门户面板边缘抖动、zh quick-start CLI 表缺口）；F2 上收 7 项已随 [M52 分片](archive/todo-archive-phases-m52.md) 归档；另 1 项设计定稿后按用户裁定转入 §延期 / 暂缓项）；P 标签覆盖不全（未标注者评估时补 P 标签，不默认升级）；本文件不维护分档统计，1.0 分档只见 [release-1.0-readiness.md](../design/governance/release-1.0-readiness.md)；未标注候选评估时补 P 标签，不默认升级。
 > **1.0 门槛与分档**：P0 23 / P1 8 / 1.0 后 15 的分档、门槛判定与批次计划见 [release-1.0-readiness.md](../design/governance/release-1.0-readiness.md)；本区候选在未上收前保持候选状态，上收后按批次从本表移除。
 
 - **PR 回环有界重试（P2 🚀，2026-10-30 M51.3 用户裁定延后）** —— 设计稿 `pr-feedback-loop.md` §8 保留 `FeedbackRetryDispatcher` 契约（同 PR 失败后重新触发既有修复链，需配额与触发面）；平台当前无「同 PR 重试」入口，`retryFailed` 开启时每仓库每进程只 warn 一次。待评估：补触发面（API / UI）+ 配额后再实施。触发：出现「PR 红后无人处理、需自动重试」的实际需求时。
@@ -425,9 +425,9 @@
 
 | 内容类型 | 位置 |
 |:--|:--|
-| 当前阶段活跃任务 | **M52 文档平价与验证收口（1.0-F2）** — 4 原子 + 1 批追加临时待办，见 [todo.md](todo.md)；插队容量治理见 [planning.md §3.1.1](../standards/planning.md) |
+| 当前阶段活跃任务 | **无活跃阶段**（M52 已闭环归档，见 [M52 分片](archive/todo-archive-phases-m52.md)）；插队容量治理见 [planning.md §3.1.1](../standards/planning.md) |
 | 下一阶段（已授权，待规划） | **G 发布工程**（M53；台账见 [release-1.0-readiness.md](../design/governance/release-1.0-readiness.md)） |
 | 已完成阶段归档 | [todo-archive.md](todo-archive.md)（阶段索引 + [archive/](archive/) 分片） |
-| 里程碑与阶段交付 | [roadmap.md](roadmap.md)（M0-M51 已归档；M52 进行中；G 待规划） |
+| 里程碑与阶段交付 | [roadmap.md](roadmap.md)（M0-M52 已归档；G 待规划） |
 | 长期主线 / 候选 / 待人工验收 / 已知边界 | 本文档（按四象限结构） |
 | 历史归档索引 | [archive/index.md](archive/index.md) |

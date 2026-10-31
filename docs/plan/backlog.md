@@ -54,13 +54,11 @@
 
 ### 候选评估中（待评估 / 本阶段延后项）
 
-> **候选池概览（2026-10-31 实测）**：本区 57 项（2026-10-30 上收 M51 九项 / F2 七项后实测；含 M50.2 / M50.3 复审衍生候选 + 2026-10-29 批量运行超时复盘派生 4 项 + 2026-10-30 用户实测派生 2 项（PR 正文 `From` 恒空、扫描页排序与时间区间）+ M51 收口登记 2 项（G8 指标采集脚本、PR 回环有界重试）+ M52 收口登记 2 项（门户面板边缘抖动、zh quick-start CLI 表缺口）；F2 上收 7 项已随 [M52 分片](archive/todo-archive-phases-m52.md) 归档；另 1 项设计定稿后按用户裁定转入 §延期 / 暂缓项）；P 标签覆盖不全（未标注者评估时补 P 标签，不默认升级）；本文件不维护分档统计，1.0 分档只见 [release-1.0-readiness.md](../design/governance/release-1.0-readiness.md)；未标注候选评估时补 P 标签，不默认升级。
+> **候选池概览（2026-10-31 实测）**：本区 55 项（2026-10-30 上收 M51 九项 / F2 七项后实测；含 M50.2 / M50.3 复审衍生候选 + 2026-10-29 批量运行超时复盘派生 4 项 + 2026-10-30 用户实测派生 2 项（PR 正文 `From` 恒空、扫描页排序与时间区间）+ M51 收口登记 2 项（G8 指标采集脚本、PR 回环有界重试）+ M52 收口登记 2 项（门户面板边缘抖动、zh quick-start CLI 表缺口）；F2 上收 7 项已随 [M52 分片](archive/todo-archive-phases-m52.md) 归档；M53 上收 2 项（G8 指标采集脚本、zh CLI 表补齐）见 [todo.md](todo.md) §M53；另 1 项设计定稿后按用户裁定转入 §延期 / 暂缓项）；P 标签覆盖不全（未标注者评估时补 P 标签，不默认升级）；本文件不维护分档统计，1.0 分档只见 [release-1.0-readiness.md](../design/governance/release-1.0-readiness.md)；未标注候选评估时补 P 标签，不默认升级。
 > **1.0 门槛与分档**：P0 23 / P1 8 / 1.0 后 15 的分档、门槛判定与批次计划见 [release-1.0-readiness.md](../design/governance/release-1.0-readiness.md)；本区候选在未上收前保持候选状态，上收后按批次从本表移除。
 
 - **PR 回环有界重试（P2 🚀，2026-10-30 M51.3 用户裁定延后）** —— 设计稿 `pr-feedback-loop.md` §8 保留 `FeedbackRetryDispatcher` 契约（同 PR 失败后重新触发既有修复链，需配额与触发面）；平台当前无「同 PR 重试」入口，`retryFailed` 开启时每仓库每进程只 warn 一次。待评估：补触发面（API / UI）+ 配额后再实施。触发：出现「PR 红后无人处理、需自动重试」的实际需求时。
-- **1.0 G8 产品指标采集脚本（P1 🛠️，2026-10-30 M51 收口登记）** —— 台账 G8（近 30 个 PR 的 CI 绿率 / 人工介入率 / 误关率）原归属「F1 采集实现 + G 引用」，但 M51 六原子未产出统计脚本，F1 已闭环后该前置悬空。待评估：在 F2 或 G 前补统计脚本 + 证据口径（取数来源 `ScanRun` / `PRCheck` / 关闭原因字段）。触发：F2/G 规划时。
 - **门户面板左缘亚像素抖动（P2 🧪，2026-10-31 M52.4 收口登记）** —— `dialog-select-open-dark` 基线在连续 `--update-snapshots=all` 下约 1/10 轮出现 99 px / maxΔ2 的边缘窄带差异（bbox x 476-483 × y 303-723，位于门户面板左缘），低于门禁（`maxDiffPixels` 100 / `threshold` 0.1 → maxDelta 352）但仅剩 1 px 预算。已排除「update 落帧不稳定」这一主因（`waitForVisualStable` 已加两帧一致检查，全量集合 3/3 恒定）。待评估：定位面板定位的亚像素来源（门户定位取整 / 滚动条宽度），或对该基线改用元素级取景。触发：该基线偶发红，或差异放大到接近 / 超过 100 px。
-- **zh quick-start CLI 表缺 `--ai*` 等已实现参数（P2 📚，2026-10-31 M52.2 收口登记）** —— en 侧已按代码补齐 `--ai` / `--ai-api-key` / `--ai-provider` / `--ai-model` / `--ai-base-url` / `--ai-api-url` / `--ai-trigger` 等行（`packages/cli/src/cli/index.ts` 实际存在），但 zh 事实源 `docs/guide/quick-start.md` 的 CLI 表未列（M52.2 约定不改 zh 事实源内容，只在 en 侧保留事实）。影响：中文读者看不到 AI 研判相关参数，两侧表格体例分叉。待评估：在下一批中文事实源更新中补齐（同时核对 Action 输入表与 CLI 表的一致性）。触发：中文文档下一轮更新时。
 - **列表查询缺并列次键（P2 🛠️，2026-10-30 同 pattern 扫描）** —— alerts 原始列表已补 `result.id DESC` 次键（M51.6）；同一 pattern 已确认 6 处：`api/runs/index.get.ts`（分页 `skip/take` + 仅 `createdAt DESC`，翻页可能重复 / 丢失）、`api/runs/[id].get.ts`（`order: { severity }`，扫描详情弹窗有视觉基线）、`api/audit-events/index.get.ts`（`createdAt DESC` + `take(500)`）、`api/pr-checks/index.get.ts`、`api/notifications/index.get.ts`、`api/batch-runs/index.get.ts`（`createdAt DESC` + `take(50)`）；`repos` / `schedules` / `credentials` 等其余列表待逐处评估。影响：主排序键并列时行序取决于数据库返回顺序，同一查询两次可能不同（视觉基线 / 截断集合抖动，当前未暴露属潜伏）。待评估：统一口径「列表查询必须显式次键（唯一列 DESC）」并逐处补齐。触发：任一列表页出现视觉抖动或分页重复 / 丢失时。
 - **平台 typecheck 未覆盖 `.nuxt/tsconfig.node.json`（P2 🛠️，2026-10-30 审计发现）** —— `pnpm --filter @dependfix/platform typecheck`（`nuxt typecheck`）静默 exit 0，未覆盖 `.nuxt/tsconfig.json` 引用的 node 项目；实测该路径下 `nuxt.config.ts` 有 2 个既有类型错误（icon `rel: 'alternate icon'` 不在允许联合、i18n `locales` 声明为 readonly 与可变 `LocaleObject[]` 不兼容），另有 `.nuxt/tsconfig.node.json` 自身的 `emitDecoratorMetadata` / `experimentalDecorators` 组合告警。影响：`nuxt.config.ts` 一类配置错误长期不在门禁内。待评估：修掉 2 个错误后把该 project 纳入 typecheck 脚本（`vue-tsc -p .nuxt/tsconfig.json`）。触发：下次修改 `nuxt.config.ts` 或平台门禁治理批次。
 - **预算跳过的交付可观测性（P2 🎨）** —— 运行预算不足导致终验跳过时，引擎已写 `BUDGET_EXHAUSTED` 审计并置 `RepositoryResult.verificationSkipped='budget'`，但 Markdown 报告不单独渲染该字段、平台运行详情也不展示；「修了 N 条、交付 0 条」只能从 Errors 表追溯。待评估：报告与平台展示「验证跳过（预算）」并在 `deliverySkips` 家族里登记该跳过原因。触发：出现「预算耗尽但用户不知道为何没交付」的反馈时。
@@ -216,7 +214,7 @@
 
 - **本地发布通道不执行发布前安全门禁（P1 🛡️，M49.5 发现）** —— `check:release-security` 只接在 `release.yml`；本地备用通道 `pnpm release:publish --otp` 无门禁调用，0.6.0 即经该通道发布（门禁脚本存在但未执行）。**目标**：任一路径发布前都跑同一门禁。**范围**：`release-publish` 内调用门禁（或拒绝无 `--skip-security` 之外的绕过），[release.md](../guide/release.md) 备用通道步骤同步。**验收**：① 无 token / 有 critical 时本地发布中止；② `--skip-security` 需显式且记录理由；③ CI 通道行为不变。
 
-- **0.6.0 发布物 `--version` 报 0.1.0（P0 🛡️，随 0.6.1 修复）** —— `packages/cli/src/cli/runner.ts` 的 `meta.version` 曾硬编码 `0.1.0`，`npx dependfix@0.6.0 --version` 实测返回 0.1.0；修复 `8fd83fc3`（读 `package.json` + 包名校验 + 兜底 `0.0.0-unknown` + 一致性用例）已提交、未推送未发布。**触发**：0.6.1 发布后复核 `npx dependfix@latest --version` 与全局安装。
+- **0.6.0 发布物 `--version` 报 0.1.0（P0 🛡️，随 0.6.1 修复）** —— `packages/cli/src/cli/runner.ts` 的 `meta.version` 曾硬编码 `0.1.0`，`npx dependfix@0.6.0 --version` 实测返回 0.1.0；修复 `8fd83fc3`（读 `package.json` + 包名校验 + 兜底 `0.0.0-unknown` + 一致性用例）已推送（`8fd83fc3` 为 origin/master 祖先），但未随任何版本发布。**触发**：0.6.1 发布后复核 `npx dependfix@latest --version` 与全局安装。（**2026-10-31 订正**：本地打包预演与 `--version` 断言已由 M53.4 覆盖；本条残余 = 正式发布后对 `@latest` 的复核）
 
 - **0.6.0 发布后 master 3 连绿窗口未完成（P0 📚，G4 起点）** —— 发布提交 `efaa555f` 的 Test run `40744772890` success（E2E / Coverage / Visual 同步 success），但此后仅 1 次；G4 要求连续 20 次 push 绿或 2 周无红。**触发**：后续 push 累计；任一次红需按 §5.6 / G4 口径记录归因。
 
@@ -425,9 +423,9 @@
 
 | 内容类型 | 位置 |
 |:--|:--|
-| 当前阶段活跃任务 | **无活跃阶段**（M52 已闭环归档，见 [M52 分片](archive/todo-archive-phases-m52.md)）；插队容量治理见 [planning.md §3.1.1](../standards/planning.md) |
-| 下一阶段（已授权，待规划） | **G 发布工程**（M53；台账见 [release-1.0-readiness.md](../design/governance/release-1.0-readiness.md)） |
+| 当前阶段活跃任务 | **M53 发布工程（1.0-G）** — 5 原子，见 [todo.md](todo.md)；插队容量治理见 [planning.md §3.1.1](../standards/planning.md) |
+| 下一阶段（未规划） | **1.0.0 发布窗口决策**（待 M53 收口与 G1-G8 读数；台账见 [release-1.0-readiness.md](../design/governance/release-1.0-readiness.md)） |
 | 已完成阶段归档 | [todo-archive.md](todo-archive.md)（阶段索引 + [archive/](archive/) 分片） |
-| 里程碑与阶段交付 | [roadmap.md](roadmap.md)（M0-M52 已归档；G 待规划） |
+| 里程碑与阶段交付 | [roadmap.md](roadmap.md)（M0-M52 已归档；M53 进行中） |
 | 长期主线 / 候选 / 待人工验收 / 已知边界 | 本文档（按四象限结构） |
 | 历史归档索引 | [archive/index.md](archive/index.md) |

@@ -19,13 +19,13 @@
 | 门槛 | 达标条件（可判定） | 证据物 | 当前读数（最近更新 2026-10-31） | 批次 |
 |:--|:--|:--|:--|:--|
 | **G1 安全清零** | ① 发布物（5 npm 包 + platform 镜像）无**未被 §5.7 豁免的** critical / high 生产漏洞；② code scanning 0 条未处置告警；③ 存在 **prod 阻断步骤**（`pnpm audit --prod --audit-level=moderate --ignore-registry-errors --registry=https://registry.npmjs.org`，无 `|| true`，见 security.md §5.6）+ 全量依赖信号步骤；周回归使用同一 prod 阻断命令；④ 周回归最近 3 次`security:audit-deps` 均通过且日志含审计结果行（记录 run id；M49.3 只要求 1 次，3 次为 1.0 G1 口径） | 全工作区 `pnpm audit --prod --registry=https://registry.npmjs.org` + 按发布包审计记录；code scanning API（analysis id）；`test.yml` 步骤；周回归 run | ◐ 全工作区 23 条（4 high / 15 moderate / 4 low，1 ignored；`2026-10-25` 实测，含 dev；10-23 周回归 prod 口径为 11 条〔2 high / 8 moderate / 1 low，1 ignored〕）；Dependabot 31 条（2 critical / 5 high，其中 node-forge 属 §5.7 豁免）；code scanning 2 条；（M49.3 前）审计步骤仍 `|| true`；周回归连续 4 周红。**M49.2a/2b 后（`2026-10-26`）**：全量 audit 0 条 advisory（0 critical / 0 moderate / 0 low；另 1 high ignored = node-forge），prod audit 0 条；Dependabot critical / high 6 条可修复项已关闭 + node-forge 豁免；medium / low 已清零（`2026-10-26T12:41Z` 关闭），开放项仅 node-forge high；code scanning 已复扫 0 条（analysis `2026499469`）。**M49.3 后（2026-10-27）**：prod 阻断步骤已上线（无`|| true`，含`--registry` + `--ignore-registry-errors`），全量信号保留；3 次 master push run id（翻转后，日志含审计结果行）已回填：`40372808067` / `40466448172` / `40690157020`（步骤均 success；`40690157020` 整体因文档字符预算失败，与审计无关，已由 `ea89e7ec` 修复）；周回归 `40693124400`success（gate 日志含审计结果行）。M49.3 闭环。**M49.5 后（`2026-10-29`）**：版本已复核（5 npm 包发布 + 7 个 tag + GitHub Release）；**发布物安全复核未执行**（待 Docker run 收尾 + 按发布包 audit）；发布前安全告警门禁已落地（`check:release-security`，critical 含 dismissed 一律阻断、high 需台账）并接在`release.yml`；**本地备用通道未执行该门禁**（0.6.0 经该通道发布，已登记 backlog）。G1 ④「周回归最近 3 次」仍待累计 | M49 + F2 |
-| **G2 契约冻结** | CLI 参数与模式、Action inputs、报告 JSON schema、配置键、平台 DB schema 五类冻结清单成文；弃用策略与 0.x→1.0 迁移指南成文 | `docs/guide/release.md` 新增「1.0 契约冻结清单」章节 + 迁移指南章节 | ❌ 尚无清单与迁移指南 | G |
-| **G3 真实环境 E2E** | G3.0–G3.8 九条独立路径各留 1 条证据 + G3.9 AI 横切另计（2 家 × 5 场景） | run id / 截图 / 日志 / 报告产物 | ❌ 全部仅有 mock / 单元证据 | G（依赖外部资源） |
+| **G2 契约冻结** | CLI 参数与模式、Action inputs、报告 JSON schema、配置键、平台 DB schema 五类冻结清单成文；弃用策略与 0.x→1.0 迁移指南成文 | `docs/guide/release.md` 新增「1.0 契约冻结清单」章节 + 迁移指南章节 | ❌ 尚无清单与迁移指南 · **已上收 M53.1** | G |
+| **G3 真实环境 E2E** | G3.0–G3.8 九条独立路径各留 1 条证据 + G3.9 AI 横切另计（2 家 × 5 场景） | run id / 截图 / 日志 / 报告产物 | ❌ 全部仅有 mock / 单元证据 · **M53.5 先做执行框架**（实跑待用户提供 OAuth / IdP / staging / 测试仓 / AI Key） | G（依赖外部资源） |
 | **G4 CI 稳定性** | `master` 连续 20 次 push 绿或连续 2 周无红；flake 率 < 2%；无 P0 事故 30 天 | `gh run list --limit 100` 统计（分子 = 非绿 run 数，分母 = 窗口内 run 数） | ◐ 近 40 次 34 绿（3 失败 / 3 取消）；失败含 dependabot 分支 2 次与 master「Dependabot Updates」1 次，取消为 Docker 被后续 push 取代。**0.6.0 发布后窗口起点（`2026-10-29`）**：`efaa555f` Test 全绿 1 次（`40744772890`，E2E / Coverage / Visual 同步 success），后续 push 继续累计 | G（观察窗口） |
 | **G5 测试与覆盖率** | 四维 ≥ 80%（现阈值）；关键模块 mutation 全覆盖；全量测试无 flaky 复发 | `pnpm test` + `pnpm test:coverage`（报告口径：四维百分比）+ mutation 工件 | ◐ 覆盖率已复测（2026-10-31）：Statements 89.51% / Branches 84.14% / Functions 89.97% / Lines 89.62%（`pnpm test:coverage` exit 0）；mutation 仅覆盖归因模块 3/3（工件 `artifacts/review-gate/2026-10-31-m52-4-mutation.md`），**关键模块全覆盖未达成**；flaky 面：`budget.test.ts` 时间边界连跑 10 次全绿、视觉比对 20/20 ×2，全量 `pnpm test` 与已知 e2e flaky（scan-config / repos-crud）待 G 批次；剩余分档见 [M52.4 闭环](../../plan/archive/todo-archive-phases-m52.md) | F2 部分闭环（M52.4）+ G 引用 |
 | **G6 文档与可发现性** | 五入口指南完整；关键文档 en-US 平价（含本台账）；0.x→1.0 迁移指南；`@v1` 滚动 tag 可用 | 文档站构建 + `@v1` tag | ◐ M49 发版面 6 处漂移已闭环（AI 输入名 / M5 遗留 / MCP tool 数 / 设计索引 3 行，2026-10-26）；用户可见入口（quick-start / 首页 / README）的 Action 示例已回填 `v0.6.0`（2026-10-29）；版本引用已全部回填（用户可见 4 + 设计文档 4 + en-US 镜像 2）；指南与设计镜像结构平价已由 M52 收口（本台账 en 入口行已补）；剩余 = 设计文档全量英译（1.0 后评估）+ 无迁移指南 + 无 `@v1` | M49（发版面）+ F2（已闭环）+ G |
 | **G7 运维与发布** | 镜像 / 备份恢复 / 启动迁移 / 回滚均实测；发布自动化可启用（`schedule` / `push` 开关就绪）；Postgres+Helm 记为可选并文档化 | deployment.md 实测记录 + release workflow | ◐ Docker / SQLite 备份恢复可用；Postgres+Helm 暂缓；自动化未启用（0.x 设计如此） | G |
-| **G8 产品指标** | 采集并公开「近 30 个 dependfix PR 的 CI 绿率 / 人工介入率 / 误关率」，且在 1.0 发布说明中引用 | 统计脚本 + 发布说明 | ⬜ 无采集（F1 已闭环但未产出统计脚本，M52 未纳入，候选在 backlog） | G（采集实现与引用；待 G 规划决策） |
+| **G8 产品指标** | 采集并公开「近 30 个 dependfix PR 的 CI 绿率 / 人工介入率 / 误关率」，且在 1.0 发布说明中引用 | 统计脚本 + 发布说明 | ⬜ 无采集（F1 已闭环但未产出统计脚本）· **已上收 M53.3**（脚本先行，读数待 30 天窗口） | G |
 
 ## 3. 工作分档（1.0 scope cut，2026-10-25 用户初步确认）
 
@@ -46,7 +46,7 @@
 
 ### 3.3 1.0 后（候选 15 条 + 暂缓 / 远期 8 项；2026-10-25 用户初步确认）
 
-> `#N` = [backlog §候选评估中](../../plan/backlog.md) 自上而下第 N 条（**2026-10-30 台账冻结时实测 53 项** = 10-29 的 58 项 − F1 上收 9 项〔已转 M51〕+ 2026-10-30 复盘派生 4 项；其后阶段内新增 8 项〔用户实测派生 2 + 复审衍生 4 + 收口登记 2〕、上收 F2 七项、再登记全量镜像 1 项，backlog 概览现为 57 项（M52 收口登记 2 项后），既有条目的前置位置序号随之变化）。其中「`ai-collaboration.md` 健康上界」与 §3.2 的「规范文件瘦身」同源归并（前者属后者子集）；台账分档（19 + 8 + 15 = 43 条候选 / 42 个主题）不因上收收缩，1.0 scope 不变；上收后 `#N` 整体前移，引用以条目主题为准。
+> `#N` = [backlog §候选评估中](../../plan/backlog.md) 自上而下第 N 条（**2026-10-30 台账冻结时实测 53 项** = 10-29 的 58 项 − F1 上收 9 项〔已转 M51〕+ 2026-10-30 复盘派生 4 项；其后阶段内新增 8 项〔用户实测派生 2 + 复审衍生 4 + 收口登记 2〕、上收 F2 七项、再登记全量镜像 1 项，backlog 概览现为 55 项（M53 上收 2 项后），既有条目的前置位置序号随之变化）。其中「`ai-collaboration.md` 健康上界」与 §3.2 的「规范文件瘦身」同源归并（前者属后者子集）；台账分档（19 + 8 + 15 = 43 条候选 / 42 个主题）不因上收收缩，1.0 scope 不变；上收后 `#N` 整体前移，引用以条目主题为准。
 >
 > **位置序号脆弱性提示**：`#N` 为文档位置序号，任何候选增删都会使其后条目前移（2026-10-29 上收 4 条即发生）。引用候选时以「条目主题」为准，`#N` 仅作当次实测的定位辅助。
 >
@@ -97,7 +97,7 @@
 | **E** | 通知可信度（= M50） | §3.1 E 四项 | R 完成（2026-10-29 已规划 / 2026-10-30 已归档，任务正文见 [M50 归档分片](../../plan/archive/todo-archive-phases-m50.md)） |
 | **F1** | 语义与数据（= M51） | §3.1 F1 九项（①③ 优先），按语义聚类为 6 原子 | M50 已闭环（2026-10-30）；**已闭环 + 归档（2026-10-30，任务正文见 [M51 归档分片](../../plan/archive/todo-archive-phases-m51.md)）** |
 | **F2** | 文档与验证（= M52） | §3.1 F2 六项 + G5 复测（G8 采集顺延 G 决策） | **2026-10-31 已闭环归档**（4 原子 + 4 批追加临时待办；[M52 归档分片](../../plan/archive/todo-archive-phases-m52.md)；`gates:docs` 16 → 19 项） |
-| **G** | 1.0 发布（= M53） | G2 冻结与迁移指南、G3 矩阵证据、G4 窗口、G7 运维实测、`@v1`、发布自动化启用、发布说明 | M51/M52 + 外部资源 |
+| **G** | 1.0 发布（= M53） | G2 契约冻结与迁移指南 + G7 运维实测与发布预演 + G8 指标脚本 + G5 mutation 扩面 + G3 执行框架（实跑待资源）；G4 窗口与 `@v1` 保持观察 | **2026-10-31 已上收 M53**（5 原子，用户决策：不真发 0.6.1 / 不启用自动发布 / 不承诺 1.0.0 本阶段发布；见 [todo.md](../../plan/todo.md)） |
 
 **M49 内部顺序**：M49.1 → M49.2a → M49.2b → M49.4 → M49.3 → M49.5（M49.3 改为**先翻转、后取证**：原「翻转前累积 3 次 clean」口径因 node-forge 豁免使字面串不可达而未达成，按 §5.7 末句「修订 clean 判据」通道转正；翻转后连续 3 次 `master` push 的 prod 阻断步骤 `conclusion=success` 且日志含审计结果行，回填为证据；回填前不闭环，任一 run 失败则回退 `|| true` 或按 §5.7 评估）。
 

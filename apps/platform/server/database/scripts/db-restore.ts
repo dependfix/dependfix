@@ -188,10 +188,11 @@ export const restoreDatabase = (options: {
     // 2. 覆盖前自动备份当前数据库（走 backup.ts 的原子写入路径）
     const backupDir = join(dirname(to), BACKUP_DIR_NAME)
     let autoBackup: string | undefined
-    let autoBackupSkipped = false
+    let autoBackupSkipped: boolean | undefined
+    const targetExists = existsSync(to) && statSync(to).size > 0
     if (skipAutoBackup) {
         // 安全闸门：目标库可正常打开（integrity ok）时拒绝跳过——否则会静默丢弃唯一撤销快照
-        if (existsSync(to) && statSync(to).size > 0) {
+        if (targetExists) {
             let healthy = false
             try {
                 healthy = inspect(to).integrity === 'ok'
@@ -206,8 +207,11 @@ export const restoreDatabase = (options: {
         }
         // 显式跳过（目标库已损坏时无法生成快照）；仍保证父目录存在
         mkdirSync(dirname(to), { recursive: true })
-        autoBackupSkipped = true
-    } else if (existsSync(to) && statSync(to).size > 0) {
+        // 目标库原本不存在时没有「旧数据」可丢弃，文案仍按「原本不存在」表达
+        if (targetExists) {
+            autoBackupSkipped = true
+        }
+    } else if (targetExists) {
         mkdirSync(backupDir, { recursive: true })
         // 文件名 `auto.<ts>-<ms>.bak`：
         // - `auto.` 前缀让 cleanupOldBackups(backupDir, 'auto', n) 能匹配到这批文件，
@@ -259,7 +263,7 @@ export const formatRestoreResult = (result: RestoreResult): string => [
     '[RESTORE] 数据库恢复完成',
     `  来源备份:       ${result.from}`,
     `  恢复目标:       ${result.to}`,
-    `  覆盖前备份:     ${result.autoBackup ?? (result.autoBackupSkipped ? '(已跳过：--skip-auto-backup，本轮无撤销凭据)' : '(目标库原本不存在，未备份)')}`,
+    `  覆盖前备份:     ${result.autoBackup ?? (result.autoBackupSkipped ? '(已跳过：--skip-auto-backup，损坏主库已被覆盖且本轮无撤销凭据)' : '(目标库原本不存在，未备份)')}`,
     `  清理旁文件:     ${result.removedSidecars.length > 0 ? result.removedSidecars.join(', ') : '(无)'}`,
     `  integrity_check: ${result.inspection.integrity}`,
     `  schema_version:  ${result.inspection.schemaVersion}`,
@@ -277,8 +281,9 @@ db-restore：SQLite 数据库命令式恢复
   --from=<path>   必填。备份文件路径（如 data/backups/dependfix.sqlite.2026-09-01T12-00-00.bak）
   --yes           必填。显式确认覆盖当前数据库（双门控之一）
   --to=<path>     可选。恢复目标（默认 DATABASE_PATH env 或 data/dependfix.sqlite）
-  --skip-auto-backup  可选。跳过覆盖前自动备份（**仅当目标库已损坏、无法生成快照时**使用；
-                      使用前应人工移走损坏的主库与 -wal / -shm 旁文件）
+  --skip-auto-backup  可选。跳过覆盖前自动备份（**仅当目标库已损坏、无法生成快照时**使用）；
+                      使用前**必须**人工移走损坏的主库与 -wal / -shm（覆盖后其中的残余数据不可恢复），
+                      且该轮没有「撤销恢复」凭据
   --help, -h      显示帮助
 
 安全说明：

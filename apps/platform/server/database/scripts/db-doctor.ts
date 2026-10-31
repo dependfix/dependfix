@@ -213,7 +213,7 @@ export const diagnose = (
     const freelistCount = Number(pragmas.freelist_count)
 
     if (pragmas.integrity_check !== 'ok') {
-        verdicts.push(`数据库损坏：integrity_check = ${pragmas.integrity_check}（立即用 pnpm db:restore 从备份恢复）`)
+        verdicts.push(`数据库损坏：integrity_check = ${pragmas.integrity_check}（先人工移走损坏主库与 -wal / -shm，再用 pnpm db:restore --skip-auto-backup 从备份恢复）`)
     }
 
     if (businessTables.length === 0) {

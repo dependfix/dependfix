@@ -208,6 +208,17 @@ describe('db-restore', () => {
             expect(readValues(dbPath)).toEqual(['from-backup'])
         })
 
+        it('does not report "skipped" when the target never existed', () => {
+            // 目标库原本不存在时没有旧数据可丢：文案仍按「原本不存在」表达
+            createSeedDatabase(backupPath, 'from-backup')
+            const target = join(workDir, 'data', 'brand-new.sqlite')
+
+            const result = restoreDatabase({ from: backupPath, to: target, skipAutoBackup: true })
+
+            expect(result.autoBackupSkipped).toBeUndefined()
+            expect(formatRestoreResult(result)).toContain('目标库原本不存在')
+        })
+
         it('refuses --skip-auto-backup when the target database is healthy', () => {
             // 安全闸门：健康库上跳过快照会丢掉唯一撤销凭据，必须拒绝
             createSeedDatabase(dbPath, 'current')

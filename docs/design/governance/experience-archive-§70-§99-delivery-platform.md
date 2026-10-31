@@ -419,3 +419,25 @@
 - **现象**：`PRAGMA busy_timeout` 断言读的是 `rows[0].busy_timeout`（SQLite 实际列名是 `timeout`），恒为 0；而同一用例前面有 `if (!ds?.isInitialized) return`——初始化在测试夹具里长期失败，断言从未真正执行，回归被掩盖了整个批次。
 - **手法**：测试中的跳过分支必须是**显式且带原因**的（或直接断言前置条件成立），禁止用 `return` 把「环境没准备好」变成绿灯；修断言时同步核对 SQLite 返回列名等外部契约。
 - **落点**：`server/database/index.test.ts`（改为显式断言初始化成功）+ [testing.md §6.9](../../standards/testing.md) 检查点（负例 / 守卫有效性）。
+
+## 八十、发布链预演批次经验沉淀（并发取消 / overrides 位置 / npx tarball）
+
+> **批次**：M53.4 发布链预演与安装实测（2026-11-01）。**准入依据**：④ 工具 / 环境陷阱（Actions 并发语义、pnpm 11 配置迁移、npx 参数形态）+ ② 决策需溯源（为何发布构建单列并发组、为何镜像钉 release tag）。落点见各条目末行。
+
+### 1. 版本化产物的构建不能被普通 push 的并发组取消
+
+- **现象**：0.6.0 发布后派发的 docker 运行（`40745976335`）的 build job 触及 **120 分钟 job 上限**被 kill（build step 已跑 115.5 分钟，arm64 QEMU 构建尚未结束）→ `platform-0.4.0` 镜像 tag 从未推送。CI 侧无告警（发布链其余步骤全绿），归档对账时仅登记为「推送中 / 疑似挂起、待复核」，未定位到 job 上限。归因初判曾写成「被后续 push 并发取消」，复核 run annotation（`The job has exceeded the maximum execution time of 2h0m0s`）后订正：并发取消方向相反（更早的 push run 被该 dispatch 取消）。
+- **手法**：① 提高 build job 预算（120 → 240 分钟）并记录首个发布的 step 时长（根治方向：原生 arm runner / 按架构拆 job）；② 发布构建单列并发组并禁用取消（防被 push 取代白烧算力）；③ 版本化镜像钉在**发布 tag**（`gh workflow run --ref v<锚版本>`）而不是 master HEAD，且派发判据用 `git tag --points-at HEAD`（「tag 存在」在后续 push 上恒真，会让每次 push 都白跑并钉在旧 tag）。版本化产物缺失要能被「事后复核」发现，不能只依赖当次 job 结论。
+- **落点**：`.github/workflows/docker.yml` 并发声明 + `.github/workflows/release.yml` 派发步骤 + [release.md Docker 镜像复核](../../guide/release.md#docker-镜像复核-0-6-0-遗留项)。
+
+### 2. pnpm 11 起 `pnpm.overrides` 只读 `pnpm-workspace.yaml`
+
+- **现象**：预演脚本在临时工程 `package.json` 写 `pnpm.overrides` 指向本地 tarball，pnpm 11 只发一条 warning（`The "pnpm" field ... is no longer read`）就**静默忽略**，内部包回落到 registry 上已发布的同名版本——安装成功、`--version` 正确，但测的根本不是本地产物。
+- **手法**：overrides 写到 `pnpm-workspace.yaml`；安装后断言 lockfile 中出现 `file:` specifier，否则判失败（「装上了」不等于「装的是本地包」）。
+- **落点**：[release.md 发布链预演](../../guide/release.md#发布链预演与安装实测-本地-不发版) + `scripts/release/preflight.mjs` 的 `checkLockfileUsesTarballs`。
+
+### 3. `npx <tarball>` 不是「运行 tarball 里的 bin」
+
+- **现象**：`npx ./dependfix-0.6.0.tgz --version` 把 tarball 当命令执行（`Permission denied`），不是安装后运行。
+- **手法**：`npx --yes -p <tarball> <bin> --version`；「全局安装」用 `npm i -g --prefix <临时目录>` 隔离，避免污染用户全局环境；三条安装路径各留一条证据（脚本内 / npx / 全局）。
+- **落点**：[release.md 发布链预演](../../guide/release.md#发布链预演与安装实测-本地-不发版) 的实测表。

@@ -182,8 +182,8 @@ npm view @dependfix/mcp version     # 期望 0.1.0
 npm view dependfix dependencies     # 期望 @dependfix/core 与 @dependfix/skills 为具体版本（非 workspace:*）
 npm i -g dependfix && dependfix --version   # 或临时目录 npx dependfix --help
 
-# 8.（可选）GitHub Release（预览版标记 pre-release）
-gh release create v0.1.0 --generate-notes --prerelease
+# 8.（可选）GitHub Release（仅 alpha / beta / rc 加 --prerelease；0.x 正式版不标，与 npm latest 一致）
+gh release create v0.1.0 --generate-notes
 
 # 9. 在 npmjs.com 为五个包配置 Trusted Publisher（见"前置配置"）
 ```
@@ -239,7 +239,81 @@ git push origin master
 
 > **本地手动发布（备用通道）**：`pnpm release:publish --otp <6-8 位数字>`。脚本固定 `--registry https://registry.npmjs.org/`（不继承本机 pnpm / npm registry 配置，避免被只读镜像配置带偏），并把 OTP 透传给每个包的 `pnpm publish`；发布成功后需用户自行 `git push` + `git push --tags`。CI OIDC 仍是默认通道，本地发布仅用于 CI 不可用时的兜底。OTP 有时效（约 30 秒），过期直接生成新码重跑即可，脚本不缓存 OTP。
 
-### 定时自动发布（1.0.0+ 启用）
+#### 发布链预演与安装实测（本地，不发版）
+
+发布前用**真实 tarball** 走一遍「打包 → 安装 → 版本断言」，把 0.6.0 那类「发出去才发现 `--version` 报 0.1.0」的返工挡在发布前：
+
+```bash
+pnpm release:preflight                 # 打包 5 个 npm 包 → 临时工程安装 → 断言 dependfix --version == 包版本
+pnpm release:preflight --no-install    # 仅打包 + tarball 内容校验（离线可用）
+pnpm release:preflight --out-dir=artifacts/release-preflight   # 额外写 preflight.json
+```
+
+脚本断言（`scripts/release/preflight.mjs`）：tarball 内版本 == `package.json`、无残留 `workspace:` 协议、
+`bin` / `main` / `exports` 入口都在包内、安装确实用本地 tarball（lockfile 含 `file:` 而非 registry 版本）、
+预演前后 `git status` 不变。实测（2026-11-01，HEAD `0ebed2b2`）：
+
+| 路径 | 命令 | 结果 |
+|:--|:--|:--|
+| tarball 安装 | `pnpm release:preflight` | `dependfix --version` = `0.6.0`（= cli 包版本，元数据修复在打包产物上成立） |
+| npx（本地 tarball） | `npx --yes -p ./dependfix-0.6.0.tgz dependfix --version` | `0.6.0` |
+| 全局安装 | `npm i -g --prefix <tmp> ./dependfix-0.6.0.tgz` → `<tmp>/bin/dependfix --version` | `0.6.0` |
+| Docker | 见下「Docker 镜像复核」 | 本环境不可复核（凭据 / 网络），已记录重试条件 |
+
+已知边界：`pnpm pack` 打包的是当前 `dist`，必须先 `pnpm run build`（`release.yml` 已把 preflight 放在 build 之后）；
+外部依赖仍需 registry（默认官方，临时工程用 `.npmrc` 钉住），离线环境用 `--no-install` 只做 tarball 校验。
+安装使用 `--ignore-scripts`（当前 5 个包无原生依赖）；若未来引入需构建的原生依赖，应对 cli 补一次不带
+`--ignore-scripts` 的安装。脚本依赖系统 `tar`（Linux / macOS / Windows 10+ 自带）；CI 仅在 `ubuntu-latest` 验证。
+
+#### Docker 镜像复核（0.6.0 遗留项）
+
+- **静态检查**：`docker buildx build --check -f apps/platform/Dockerfile .` → `Check complete, no warnings found`。
+- **`platform-x.y.z` tag 未落地（已定位）**：0.6.0 的 docker `workflow_dispatch` 运行 `40745976335`（2026-10-28T18:31Z）的 build job 触及 **120 分钟 job 上限**被 kill（build step 已跑 115.5 分钟），`platform-0.4.0` 从未推送。修复：build job `timeout-minutes` 提到 240 分钟（**待下次发布实测确认余量**）；发布构建单列并发组并禁用取消（多架构 QEMU 构建耗时长，被后续 push 取代会白烧算力）；`release.yml` 改为 `--ref v<锚版本>` 派发，镜像内容钉在发布提交上。根治方向（原生 arm runner / 按架构拆 job）已登记 backlog。
+- **补发旧版本镜像的约束**：`release.yml` 以 `--ref v<锚版本>` 派发，GitHub 按**该 tag 上的 workflow 文件**执行。对修复前创建的旧 tag（如 `v0.6.0`，其 `docker.yml` 仍是 120 分钟上限 + `cancel-in-progress: true`）不能用该路径补发；也不要用 `--ref master`（构建的是 master HEAD 内容，与版本不对应）——须新建指向该发布提交的临时分支后 `--ref <branch>`，或直接发新 tag。
+- **本环境无法复核远端镜像**：GHCR 包为私有且本地 token 缺 `read:packages`；`registry-1.docker.io` 连接超时。重试条件：拿到 `read:packages` token 或 Docker Hub 可达后执行
+  `docker buildx imagetools inspect ghcr.io/dependfix/dependfix:platform-<平台版本>`（应见 `linux/amd64` + `linux/arm64`），再以 `docker run --rm` 拉起镜像核对 `/api/health` 的 `version` / `commit`。
+
+### 0.6.1 发布清单（待执行，本节只列步骤）
+
+> 目的：补发 `--version` 元数据修复与本次发布链修正。**本清单未执行任何发布动作**（无 `npm publish` / 无新 tag / 未改版本号）。
+
+**发布前门禁**
+
+1. `pnpm run check:release-security` 绿。当前为**红**：code scanning high `js/incomplete-multi-character-sanitization`（`scripts/docs/vitepress-slug.mjs`）。本批已把行内标签剥离改为迭代到不动点；推送后复扫确认告警关闭，若仍命中则按安全规范 §5.9 以 `false-positive` 登记台账后再发。
+2. `pnpm verify:changelog` / `pnpm run gates:docs` / `pnpm run lint:check` / `pnpm typecheck` / `pnpm test` 全绿。
+3. 工作区干净（`release:publish` 已内置守卫，脏工作区直接拒绝发布；本地应急口径：`git stash` → 发布 → `git stash pop`）。
+
+**版本与日志**（在 master 上执行）
+
+4. `pnpm release:plan` → 人工 review `release-plan.md`（bump 级别 / 包清单 / 未标注的破坏性变更）。
+5. `pnpm release:version --dry-run` 确认后 `pnpm release:version`。
+6. `pnpm changelog` → 审查六份日志 → 提交并推送（`chore(release): x.y.z`）。
+7. **产物断言必须在版本提升之后**：`pnpm run build`（`pnpm pack` 打包的是当前 `dist`，`dist` 已 gitignore）→ `pnpm release:preflight`，断言 tarball 安装后的 `dependfix --version` 等于**新版本**。在版本提升前跑只能验证旧版本产物。
+
+**发布（CI OIDC 为默认通道）**
+
+8. GitHub Actions → Release → Run workflow；本地备用通道：`pnpm release:publish --otp <6-8 位>`（OTP 约 30 秒有效，过期重新生成；本地发布后需自行 `git push` + `git push --tags`）。
+9. 观察 `release:publish` → `release:push-tags` → `release:github` 全绿；docker 派发运行应带 `platform-x.y.z` tag。注意 build job 预算已提到 240 分钟（0.6.0 曾在 120 分钟上限被 kill），首个发布后记录 build step 实际时长以确认余量。
+
+**发布后复核（0.6.0 的教训：缺陷是发布后才发现的）**
+
+- `npx --yes dependfix@<v> --version` 从 registry 实装复核（应等于 `<v>`）。
+- GitHub Release 应为 Latest 且非 prerelease（0.x 正式版口径）；alpha / beta / rc 才标 prerelease。
+- 裁定 `dependfix@0.6.0` 是否 `npm deprecate`（`--version` 报 0.1.0 属用户可感知缺陷，建议在 0.6.1 发布说明中指引升级）。
+
+**回滚**
+
+- npm：`npm deprecate dependfix@<bad> "<说明>"` 后发修复版；**不要** `npm unpublish`（24 小时限制且破坏已有安装）。
+- git tag / Release：删除错 tag（`git push origin :refs/tags/<tag>`）后按修复提交重打；Release 用 `gh release delete` 重建。
+- Docker：用 `docker buildx imagetools create` 把 `latest` / `platform-x.y.z` 重指旧 digest，再重跑 docker workflow。
+- 数据库：本轮无迁移，不需要备份恢复。
+
+**产物校验和（发布后填写）**
+
+- `npm view dependfix@<v> dist.integrity` 与 `dist.tarball`（逐个包记录）。
+- 五个 tarball 的 `sha256sum` 与镜像 `RepoDigests`（`docker buildx imagetools inspect`），随发布说明归档。
+
+## 定时自动发布（1.0.0+ 启用）
 
 `release.yml` 已内嵌 `schedule` 定时发布（每周六 UTC+0 12:00 = UTC+8 20:00，参照 momei），**1.0.0 正式版发布后取消 `schedule` 注释即启用**（安全告警门禁已内置于 `release.yml`，见「发布前安全检查」）。定时触发时 CI 自动完成：
 
@@ -252,9 +326,9 @@ git push origin master
 
 > **现状（2026-10-31）**：`release.yml` 的 `on:` 只有 `workflow_dispatch`；`schedule`（每周六 UTC+0 12:00）与 `push`（master）两段**保留为注释**，0.x 阶段刻意不启用（预览期发布节奏由人控制）。启用前逐项确认下表，**缺一项就不要取消注释**。
 
-| # | 前置项 | 要求 | 现状（2026-10-31） |
+| # | 前置项 | 要求 | 现状（2026-11-01 复核） |
 |:--|:--|:--|:--|
-| 1 | 1.0 门槛 | G1-G8 全绿（见[就绪度台账](../design/governance/release-1.0-readiness.md)） | G2 ✅；G1 · G4 · G5 · G6 · G7 ◐（G7 运维四项已实测，但第 5 项「直推 master」未验证、发布级回滚未演练）；G3 ❌（待外部资源）；G8 ⬜（脚本已就绪，读数待窗口） |
+| 1 | 1.0 门槛 | G1-G8 全绿（见[就绪度台账](../design/governance/release-1.0-readiness.md)） | G2 ✅；G1 · G4 · G5 · G6 · G7 ◐（G7 运维四项已实测，但第 5 项「直推 master」未验证、发布级回滚未演练）；G3 ❌（待外部资源）；G8 ◐（脚本已就绪，读数待窗口） |
 | 2 | 安全告警门禁 | 仓库 secret `GH_PAT` 存在（Dependabot alerts 只读）；`check:release-security` 在 release 流程绿 | 已配置并在 `release.yml` 强制（fail-closed） |
 | 3 | 发布凭据 | 5 个 npm 包的 Trusted Publisher 指向 `release.yml`；`id-token: write` 就位 | 已配置（首次手动发布后） |
 | 4 | Workflow 权限 | `contents: write` / `actions: write` / `security-events: read` | 已就位（`release.yml` permissions） |
@@ -292,22 +366,23 @@ git status --porcelain           # 空（无版本 / 日志副作用）
 3. lint → **文档与治理门禁**（`pnpm run gates:docs`，与 `test.yml` 同集合，单点声明见 `scripts/run-doc-gates.mjs`）→ typecheck → test → build（质量门，任一失败即中止）；
 4. `Verify changelog is up to date`：校验六份 CHANGELOG（根级 + `packages/cli` / `packages/core` / `packages/engine` / `packages/skills` / `packages/mcp`）已包含当前版本段（防止漏跑 `pnpm changelog` 直接发布；普通提交版本未变时自动通过）；
 5. `Check release security alerts`：发布前安全告警门禁（`pnpm run check:release-security`）——critical 一律阻断（含 dismissed）、high 需台账豁免、API / token 异常 fail-closed（口径见 [安全规范 §5.9](../standards/security.md#_5-9-发布前安全告警门禁-dependabot-alerts-code-scanning-2026-10-29-用户决策)）；
-6. `pnpm release:publish`：
+6. `Release preflight`：`pnpm release:preflight` 用真实 tarball 安装并断言 `dependfix --version` 等于包版本（放在便宜门禁之后：被拦下的轮次不必付安装成本；见「发布链预演与安装实测」）；
+7. `pnpm release:publish`：
    - **只发布"本地版本未出现在 npm registry"的包**（fetch 直连 registry 对比，见 [经验归档 §三十二](../design/governance/experience-archive.md)），无待发布版本时安全退出（天然处理包版本不同步）；
    - 在 pnpm 项目内部调用 `pnpm publish`：自动替换 `workspace:*` 为实际版本，发布顺序按 `publishOrder`（`@dependfix/core` / `@dependfix/engine` / `@dependfix/skills` 先于 `dependfix` / `@dependfix/mcp`）；
    - 通过 **OIDC trusted publishing** 认证（`id-token: write` + npmjs.com 的 Trusted Publisher 配置），无需 `NPM_TOKEN`；
    - 发布前校验 **HEAD 锚点**（HEAD 必须 touch 待发布包路径，防误在非发布提交执行）；
    - 发布成功后本地创建 `<pkg>@<version>` 格式的 annotated git tag（如 `dependfix@0.1.1`）+ `v<锚版本>` 聚合 tag（锚 = 主交付物优先，见"GitHub Release 自动化"）；
    - **幂等自愈**：npm 已发布但本地无 tag（上次发布中途失败等中间态）时自动补 annotated tag（HEAD 锚点校验通过才打，否则安全跳过），并计入 v tag 锚点解析——重跑 CI 即可全链路恢复，无需手动补打（见"tag 策略与包版本不同步"）；
-7. `Push release tags`：将 `release:publish` 创建的本地 tag 推送到 GitHub（`git push <url> --tags`，显式 token URL + 推送后核验，通过 `GITHUB_TOKEN` 认证）；
-8. `Create GitHub Release`（`pnpm release:github`）：读 `release-publish-result.json` 为本轮发布创建聚合 GitHub Release——tag 为 `v<锚版本>`，notes 为版本矩阵 + 根 CHANGELOG 最新段（core-only 轮次取锚包包级段），0.x 阶段标 pre-release；Release 已存在则跳过，创建失败仅警告不阻断（npm 已发布完成，可后补 `gh release create`）。
+8. `Push release tags`：将 `release:publish` 创建的本地 tag 推送到 GitHub（`git push <url> --tags`，显式 token URL + 推送后核验，通过 `GITHUB_TOKEN` 认证）；
+9. `Create GitHub Release`（`pnpm release:github`）：读 `release-publish-result.json` 为本轮发布创建聚合 GitHub Release——tag 为 `v<锚版本>`，notes 为版本矩阵 + 根 CHANGELOG 最新段（core-only 轮次取锚包包级段）；**alpha / beta 标 pre-release，0.x 正式版不标**（与 npm `latest` 一致）；**追加**：`Trigger Docker build with platform-x.y.z tag` 以 `--ref v<锚版本>` 派发 docker workflow（镜像内容钉在发布提交上，见「Docker 镜像复核」）；Release 已存在则跳过，创建失败仅警告不阻断（npm 已发布完成，可后补 `gh release create`）。
 
 ### GitHub Release 自动化
 
 - **每轮发布创建一个聚合 GitHub Release**（非每包一个）：锚版本 = 主交付物优先（`dependfix` → `@dependfix/core` → `@dependfix/engine` → `@dependfix/skills` → `@dependfix/mcp`，即本轮实际发布列表中 rootChangelog 锚包优先、其余按 publishOrder）；
 - **v tag**：`release:publish` 在全部包发布成功后创建 `v<锚版本>` annotated tag（指向发布提交，幂等不覆盖），随 `Push release tags` 全量推送并核验；
 - **notes**：本轮发布包版本矩阵 + 根 CHANGELOG 最新版本段（与 release commit body 同源格式）；根段为空（core-only）时取锚包的包级 CHANGELOG 段；两处均无则跳过创建；
-- **pre-release**：0.x 阶段所有 Release 标记 pre-release（与版本策略一致）；
+- **pre-release**：仅 alpha / beta / rc 版本标记 pre-release（rc 也必须标：npm 对它写 `next` dist-tag）；0.x 正式版不标（npm publish 默认写 `latest`，标 pre-release 会与用户默认安装到的版本不一致，0.6.0 实测为 Latest）；
 - **幂等与失败**：Release 已存在（重跑）跳过；创建失败 `::warning::` 不阻断 CI（可后补 `gh release create v<版本> --notes-file <file>`）；
 - 首次手动发布（0.1.0）仍按上文手动 `gh release create`（CI 发布链路自此自动创建）。
 
@@ -351,7 +426,7 @@ git status --porcelain           # 空（无版本 / 日志副作用）
 | 包级 CHANGELOG 非增量（0.2.0 段吞掉全部历史） | `<pkg>@<version>` 锚点 tag 缺失，或指向的 commit 未 touch 该包路径（path 过滤后看不到锚点）。处理：补打/移动 tag 到 touch 该包路径的 commit 后重跑 `pnpm changelog` |
 | `release:publish` 报 "Committer identity unknown" | CI runner 全局 git config 无 user.name/user.email（annotated tag 创建需要 identity；此前 identity 仅在 schedule-only 的 Auto version 步骤中配置，手动触发时缺失）。处理：release.yml 已在 Release Publish 前显式配置 github-actions[bot] 身份；旧 run 遗留的中间态（npm 已发布但 tag 缺失）直接重跑即可自愈补 tag |
 | `release:publish` 报"HEAD 不是 touch `<path>` 的提交" | 在非发布提交上执行了发布（未走 release:version + changelog 提交）。处理：完成版本提升与 changelog 提交后再发布 |
-| GitHub Release 未创建（CI 仅警告） | 创建失败不阻断发布（npm 已发布完成）。处理：手动补建 `gh release create v<版本> --notes-file <notes.md> --prerelease`，notes 可从根/包级 CHANGELOG 对应版本段截取 |
+| GitHub Release 未创建（CI 仅警告） | 创建失败不阻断发布（npm 已发布完成）。处理：手动补建 `gh release create v<版本> --notes-file <notes.md>`（仅 alpha / beta 加 `--prerelease`），notes 可从根/包级 CHANGELOG 对应版本段截取 |
 | GitHub Release 显示旧版本号 | `v<锚版本>` 以主交付物优先（dependfix 未发布时取 core 等）；core-only 轮次的 Release 版本号代表该轮核心变更包，属预期行为 |
 
 ## 关于 provenance

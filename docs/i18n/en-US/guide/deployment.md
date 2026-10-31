@@ -243,7 +243,7 @@ docker compose up -d
 
 ## Backup and restore
 
-- **Automatic backup**: before each startup, SQLite is snapshotted into `/app/data/backups/` (last 5 retained by default; override with `BACKUP_RETENTION_COUNT`).
+- **Automatic backup**: before each startup, SQLite is snapshotted into `/app/data/backups/` (last 5 retained by default; override with `BACKUP_RETENTION_COUNT`). The snapshot uses the **SQLite online backup API** (`db.backup`), so it includes committed data still sitting in `-wal` — **never** replace it with "copy the main database file" (under `journal_mode=wal` the main file can be a 4 KB header page; copying it yields an empty database — see drill R2 below). In the two-process container form the backup runs only in the HTTP process (the worker skips it).
 - **Volume-level backup** (recommended for cross-machine migration / disaster recovery):
 
 ```bash
@@ -265,6 +265,97 @@ docker compose start platform
 ```
 
 > After a restore, remove stale `-wal` / `-shm` sidecar files in the same directory before starting (so stale WAL is not replayed as crash-recovery data). For accidental-change recovery, prefer replacing the database with a snapshot under `/app/data/backups/`.
+
+## Operations drill record (2026-10-31)
+
+> **Purpose**: turn "the docs say it works" into "it was measured" — one recorded drill each for image startup, backup/restore, migration forward/back, and queue restart (1.0 gate G7). The subject is a locally built image (`BUILD_COMMIT` / `BUILD_VERSION` injected); raw logs are not committed (`artifacts/` is gitignored), so this page keeps commands plus key output only. Two blocking defects found during the drills were fixed in the same batch (R7).
+
+### R1 Image startup and health check
+
+```bash
+# Build (use a registry mirror when the official npm registry is unreachable; CI uses the official one, artifacts are equivalent)
+docker build -f apps/platform/Dockerfile -t dependfix-m532:local \
+  --build-arg BUILD_COMMIT=05719601 --build-arg BUILD_VERSION=0.4.0 .
+# Start (compose default two-process form: QUEUE_WORKER=1 + QUEUE_ENABLED=true)
+docker compose -p m532 --env-file env -f apps/platform/docker-compose.yml \
+  -f apps/platform/docker-compose.build.yml up -d
+curl -s http://127.0.0.1:3999/api/health
+```
+
+- Image: `sha256:1f49080f5cf2…` / 811 MB (includes git + python3/make/g++ toolchain; the earlier `.output`-only variant was ~239 MB without the toolchain)
+- `/api/health` → `200 {"version":"0.4.0","commit":"05719601","startedAt":"2026-10-31T12:38:45.894Z"}`
+- First start migrates automatically; `db:doctor` on a snapshot reports **17 tables** (15 business tables + `migrations` + `sqlite_sequence`)
+- Two-process logs: `[entrypoint] queue worker pid=37` + `[queue] consumer ready (IN_PROCESS_WORKER=true, this process consumes the scan queue)`
+
+### R2 report-only scan (default two-process form)
+
+```bash
+curl -X POST .../api/auth/sign-up/email -d '{"email":"…","password":"…","name":"…"}'
+curl -X POST .../api/credentials -d '{"name":"ops-drill-pat","type":"classic-pat","token":"<PAT>"}'
+curl -X POST .../api/repos -d '{"owner":"dependfix","name":"dependfix","defaultBranch":"master","credentialId":"<id>"}'
+curl -X POST .../api/repos/<repoId>/scan -d '{"mode":"report-only","severityThreshold":"high"}'
+```
+
+- Run `68647e2b00824e3b` → `pending → running → completed`, `exitCode=0`, ~1.7 s, `summary.alertsFound=1`
+- Engine log: `[dependfix] Fetched 1 alerts for dependfix/dependfix` / `Run dependfix-mvwe1b1p-81ll4f completed { exitCode: 0 }`
+
+### R3 Automatic backup → restore → row-count comparison
+
+```bash
+docker compose stop platform          # stop before the next startup creates the snapshot
+docker compose start platform         # startup log: backup created: /app/data/backups/dependfix.sqlite.<ts>.bak
+pnpm --filter @dependfix/platform db:restore --from=<bak> --to=/tmp/restored.sqlite --yes
+pnpm --filter @dependfix/platform db:doctor --path=<file> --json
+```
+
+- Snapshot: **323,584 bytes / 79 pages** (before the fix the same scenario produced a 4,096-byte empty database — see R7); `integrity_check: ok`
+- Restore: `[RESTORE] database restored` + `integrity_check: ok`; 17 tables
+- Row counts across live / backup / restored: **identical table by table, 0 differences**; key tables `user=1 credential=2 repository=1 scan_run=1`
+- Note: `db:doctor`'s `schema_version` differs between the source (56) and the backup / restored copy (1) — it is SQLite's schema cookie, not a data-plane criterion; `page_count` (79) / `journal_mode` (wal) / per-table rows / `integrity_check` are.
+
+### R4 Migration forward → revert → forward
+
+```bash
+export DATABASE_PATH=/tmp/mig.sqlite
+pnpm --filter @dependfix/platform db:migrate:show          # file missing → everything pending (no write)
+pnpm --filter @dependfix/platform db:migrate               # forward
+pnpm --filter @dependfix/platform db:migrate:revert -- --yes
+pnpm --filter @dependfix/platform db:migrate               # forward again
+```
+
+| Stage | `db:migrate:show` reading |
+|:--|:--|
+| Empty path (before) | `database file does not exist … treated as all migrations pending` (no file created) |
+| After forward | `total 19, pending 0` |
+| After revert | `reverted the most recent migration: AddRepositoryPrFeedback2900000000002` → `pending 1` |
+| After forward again | `executed 1` → `pending 0` |
+
+### R5 Pending convergence after a queue restart
+
+```bash
+# Control: no consumer (QUEUE_WORKER=0 + IN_PROCESS_WORKER=false, QUEUE_ENABLED=true forces async)
+# Trigger a scan → the run stays pending and the job sits in bull:scan:prioritized
+docker exec <redis> redis-cli zcard bull:scan:prioritized   # 1
+# Restart with a consumer (IN_PROCESS_WORKER=true or QUEUE_WORKER=1)
+docker compose up -d
+```
+
+- Without a consumer: run `68647ea408001f68` stayed `pending` for 30 s (6 polls), `bull:scan:prioritized=1`
+- After the restart: the job was picked up within 1 s → `startedAt 12:42:01.074Z` / `finishedAt 12:42:02.817Z` → `completed`, `exitCode=0`
+- Semantics match [queue-stale-recovery](../../../design/governance/queue-stale-recovery.md): when no consumer recovers within 2 × `STALE_CLEANUP_PENDING_GRACE_MS`, stale-cleanup marks the pending run `failed` (`orphan_run`) and releases the dedupe key
+
+### R6 Release automation dry run
+
+See the [release guide](../../../guide/release.md) "Auto-release enablement checklist": the actual `pnpm release:plan` + `pnpm release:version --dry-run` output and the "no publish / tag / push" boundary. `schedule` / `push` triggers remain **disabled**.
+
+### R7 Two blocking defects fixed during the drills
+
+| ID | Symptom (measured before the fix) | Root cause | Fix |
+|:--|:--|:--|:--|
+| F1 | In the default two-process deployment every scan run stayed `pending`; the job sat in `bull:scan:prioritized` and Redis had no `bull:*` worker connection | The queue service is a lazy singleton; its only eager initializer (the `stale-cleanup` plugin) is skipped in the worker by process role → the worker never created a consumer | New `queue-consumer` plugin (initializes the consumer when `inProcessWorker=true`; failure exits so the entrypoint restarts it); `platform.md §10.6` updated |
+| F2 | The startup backup was 4,096 bytes and `db:doctor` reported `schema_version=0 / 0 tables` (restoring gave an empty database) | The backup copied the main database file, while the app enforces `journal_mode=wal` — data may live entirely in `-wal` | Backup now uses the SQLite online backup API (includes un-checkpointed WAL data), writes `.tmp` then fsync + rename, and runs only in the HTTP process |
+
+> **Reproduction scope**: F1 requires the two-process form (`QUEUE_WORKER=1`, the compose default); F2 requires "un-checkpointed data in WAL at backup time" — a graceful stop may already have cleared the WAL, so the unit test constructs that state by keeping a write connection open (`backup.test.ts`).
 
 ## Troubleshooting
 

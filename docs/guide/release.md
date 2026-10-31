@@ -248,6 +248,41 @@ git push origin master
 
 手动发布（`workflow_dispatch`）时跳过自动版本提升步骤（版本已在本地提升并提交）。
 
+### 自动发布启用清单（1.0.0 后）
+
+> **现状（2026-10-31）**：`release.yml` 的 `on:` 只有 `workflow_dispatch`；`schedule`（每周六 UTC+0 12:00）与 `push`（master）两段**保留为注释**，0.x 阶段刻意不启用（预览期发布节奏由人控制）。启用前逐项确认下表，**缺一项就不要取消注释**。
+
+| # | 前置项 | 要求 | 现状（2026-10-31） |
+|:--|:--|:--|:--|
+| 1 | 1.0 门槛 | G1-G8 全绿（见[就绪度台账](../design/governance/release-1.0-readiness.md)） | G2 ✅ / G7 ✅；G1 · G4 · G5 · G6 ◐；G3 ❌（待外部资源）；G8 ⬜（脚本已就绪，读数待窗口） |
+| 2 | 安全告警门禁 | 仓库 secret `GH_PAT` 存在（Dependabot alerts 只读）；`check:release-security` 在 release 流程绿 | 已配置并在 `release.yml` 强制（fail-closed） |
+| 3 | 发布凭据 | 5 个 npm 包的 Trusted Publisher 指向 `release.yml`；`id-token: write` 就位 | 已配置（首次手动发布后） |
+| 4 | Workflow 权限 | `contents: write` / `actions: write` / `security-events: read` | 已就位（`release.yml` permissions） |
+| 5 | 直推 master | 自动版本的 `chore(release): x.y.z [skip ci]` 提交需能直推 master（或改为 PR + 自动合并） | **未验证**：仓库当前无 required status checks，直推可行；若日后开启保护需改流程 |
+| 6 | 版本与日志一致 | `pnpm verify:changelog` 绿；`release:plan` 能推导计划（无变更时自动 no-op） | 已绿（release 前置步骤 + 本地预演见下） |
+| 7 | 回滚预案 | 镜像 tag / npm 版本 / git tag 均可回退；发布后 3 天观察窗口 | 见本文「tag 策略与包版本不同步」与「已知限制与排查」 |
+| 8 | `@v1` 滚动 tag | 仅 `1.0.0` 发布后启用；启用前 Action 引用保持具体版本 | 未启用（保持 `v0.6.0`） |
+
+启用步骤：
+
+1. 取消 `on.schedule` 注释 → 合入 master（`workflow_dispatch` 保留为手动入口）。
+2. 观察首个定时窗口：`gh run list --workflow=release.yml --limit 5` 应出现 `schedule` 事件 run；`Auto version & changelog` 步骤产出 `chore(release): x.y.z [skip ci]` 提交，后续步骤走完整质量门与 OIDC 发布。
+3. 确认「无待发布变更」轮次是 no-op（日志 `::notice::没有待发布的版本变更`，job 不红）。
+4. 需要「提交即发布」时再取消 `on.push` 注释；建议 `schedule` 稳定运行 2 周后再开 `push`（`push` 会让每个 master 提交都尝试发布，无变更时 no-op 但占用 CI 时间）。
+5. 回滚开关：先注释掉 `push`，再注释 `schedule`，推送后即恢复手动发布；已发布的版本按「已知限制与排查」回滚（镜像 tag 回退 / `npm deprecate`）。
+
+本地 dry-run 预演（2026-10-31，HEAD `05719601`，未推送）：
+
+```bash
+pnpm release:plan                # 基线 tag：@dependfix/mcp@0.3.0 → 计划 @dependfix/{platform,core,engine} minor + dependfix minor
+pnpm release:version --dry-run   # platform 0.4.0→0.5.0 / dependfix 0.6.0→0.7.0 / engine 0.5.0→0.6.0
+                                 # core 0.6.0→0.7.0 / mcp 0.3.0→0.3.1（传导 patch）
+rm release-plan.md               # 计划文件为 gitignore 临时产物；dry-run 不写回任何版本
+git status --porcelain           # 空（无版本 / 日志副作用）
+```
+
+> **预演范围说明**：`pnpm release:auto-version` 内含 `git commit` + 直推 master，**本地不执行**（会污染远端）；`publish` / tag / GitHub Release 同样不在预演内。因此上表第 5 项的「直推可行性」仍标注未验证，实测证据由首个定时窗口 run 提供。
+
 ### CI 发布行为
 
 `release.yml`（`workflow_dispatch` 手动触发；1.0.0 后增加 `schedule` 定时触发）依次执行：

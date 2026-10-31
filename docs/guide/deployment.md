@@ -243,7 +243,7 @@ docker compose up -d
 
 ## 备份与恢复
 
-- **自动备份**：每次应用启动前，SQLite 快照写入 `/app/data/backups/`（默认保留最近 5 份，`BACKUP_RETENTION_COUNT` 可覆盖）。
+- **自动备份**：每次应用启动前，SQLite 快照写入 `/app/data/backups/`（默认保留最近 5 份，`BACKUP_RETENTION_COUNT` 可覆盖）。快照走 **SQLite 在线备份**（`db.backup`），因此包含 `-wal` 里尚未 checkpoint 的已提交数据——**不要**用「复制主库文件」替代（WAL 模式下主文件可能只有 4KB 头页，拷出来是空库，见下方实测记录 R2）。容器双进程形态下备份只由 HTTP 主进程执行（worker 侧跳过）。
 - **卷级备份**（推荐跨机器迁移 / 灾备）：
 
 ```bash
@@ -265,6 +265,99 @@ docker compose start platform
 ```
 
 > 恢复后若数据库出现异常，删除同目录陈旧的 `-wal` / `-shm` 旁文件，再启动（避免陈旧 WAL 被当作崩溃恢复数据回放）。误操作场景优先用 `/app/data/backups/` 内的快照替换。
+
+## 运维实测记录（2026-10-31）
+
+> **目的**：把「文档说可用」变成「实测过」——镜像启动 / 备份恢复 / 迁移前后滚 / 队列重启各留一条可复算证据（1.0 门槛 G7）。被测对象是本地构建的镜像（`BUILD_COMMIT` / `BUILD_VERSION` 注入），原始日志不入库（`artifacts/` 在 `.gitignore`），本页只保留命令与关键输出。实测中发现的两处阻断缺陷已在本批修复，见文末 R7。
+
+### R1 镜像启动与健康检查
+
+```bash
+# 构建（本机 npm 官方 registry 不可达时用镜像源；CI 走官方 registry，构建产物等效）
+docker build -f apps/platform/Dockerfile -t dependfix-m532:local \
+  --build-arg BUILD_COMMIT=05719601 --build-arg BUILD_VERSION=0.4.0 .
+# 启动（compose 默认双进程形态：QUEUE_WORKER=1 + QUEUE_ENABLED=true）
+docker compose -p m532 --env-file env -f apps/platform/docker-compose.yml \
+  -f apps/platform/docker-compose.build.yml up -d
+curl -s http://127.0.0.1:3999/api/health
+```
+
+- 镜像：`sha256:1f49080f5cf2…` / 811 MB（含 git + python3/make/g++ 工具链；早期 `.output`-only 精简档约 239 MB，不含工具链）
+- `/api/health` → `200 {"version":"0.4.0","commit":"05719601","startedAt":"2026-10-31T12:38:45.894Z"}`
+- 首次启动自动建表；库快照 `db:doctor` 输出 **17 张表**（15 张业务表 + `migrations` + `sqlite_sequence`）
+- 双进程日志：`[entrypoint] 队列 worker 进程 pid=37` + `[queue] 消费者已就绪（IN_PROCESS_WORKER=true，当前进程消费扫描队列）`
+
+### R2 report-only 扫描（默认双进程形态）
+
+```bash
+# 注册管理员 → 建凭据 → 建仓库 → 触发扫描（Origin 头必需，better-auth 校验同源）
+curl -X POST .../api/auth/sign-up/email -d '{"email":"…","password":"…","name":"…"}'
+curl -X POST .../api/credentials -d '{"name":"ops-drill-pat","type":"classic-pat","token":"<PAT>"}'
+curl -X POST .../api/repos -d '{"owner":"dependfix","name":"dependfix","defaultBranch":"master","credentialId":"<id>"}'
+curl -X POST .../api/repos/<repoId>/scan -d '{"mode":"report-only","severityThreshold":"high"}'
+```
+
+- run `68647e2b00824e3b` → `pending → running → completed`，`exitCode=0`，耗时约 1.7 s，`summary.alertsFound=1`
+- 引擎日志：`[dependfix] Fetched 1 alerts for dependfix/dependfix` / `Run dependfix-mvwe1b1p-81ll4f completed { exitCode: 0 }`
+
+### R3 自动备份 → 恢复 → 行数比对
+
+```bash
+docker compose stop platform          # 触发下一次启动的备份前，先停库
+docker compose start platform         # 启动日志：backup created: /app/data/backups/dependfix.sqlite.<ts>.bak
+# 取出快照与活库，恢复到一个新路径，再做三方行数比对
+pnpm --filter @dependfix/platform db:restore --from=<bak> --to=/tmp/restored.sqlite --yes
+pnpm --filter @dependfix/platform db:doctor --path=<file> --json
+```
+
+- 备份产物 **323,584 字节 / 79 页**（修复前同一场景是 4,096 字节空库，见 R7）；`integrity_check: ok`
+- 恢复：`[RESTORE] 数据库恢复完成` + `integrity_check: ok`；17 张表
+- 三方行数（活库 / 备份 / 恢复后）**逐表一致，差异 0**；关键表 `user=1 credential=2 repository=1 scan_run=1`
+- 说明：`db:doctor` 的 `schema_version` 在源库（56）与备份 / 恢复库（1）不同——该值是 SQLite 写入侧的 schema cookie，不进入数据面判据；`page_count`（79）/ `journal_mode`（wal）/ 逐表行数 / `integrity_check` 才是判据
+
+### R4 迁移前滚 → 回退 → 再前滚
+
+```bash
+export DATABASE_PATH=/tmp/mig.sqlite
+pnpm --filter @dependfix/platform db:migrate:show          # 文件不存在 → 全部待执行（不写库）
+pnpm --filter @dependfix/platform db:migrate               # 前滚
+pnpm --filter @dependfix/platform db:migrate:revert -- --yes
+pnpm --filter @dependfix/platform db:migrate               # 再前滚
+```
+
+| 阶段 | `db:migrate:show` 读数 |
+|:--|:--|
+| 空路径（前滚前） | `数据库文件不存在 … 视为全部迁移待执行`（未创建文件） |
+| 前滚后 | `合计 19 条，待执行 0 条` |
+| 回退后 | `已回退最近一次迁移：AddRepositoryPrFeedback2900000000002` → `待执行 1 条` |
+| 再前滚后 | `本次执行 1 条` → `待执行 0 条` |
+
+### R5 队列重启后 pending 收敛
+
+```bash
+# 无消费者对照：QUEUE_WORKER=0 + IN_PROCESS_WORKER=false（QUEUE_ENABLED=true 强制异步）
+# 触发扫描 → run 一直 pending，Redis 里 job 停在 bull:scan:prioritized
+docker exec <redis> redis-cli zcard bull:scan:prioritized   # 1
+# 恢复消费者后重启（IN_PROCESS_WORKER=true 或 QUEUE_WORKER=1）
+docker compose up -d
+```
+
+- 无消费者：run `68647ea408001f68` 连续 30 s `pending`（6 次轮询），`bull:scan:prioritized=1`
+- 重启带消费者：启动 1 s 内 job 被接管 → `startedAt 12:42:01.074Z` / `finishedAt 12:42:02.817Z` → `completed`，`exitCode=0`
+- 口径与 [队列僵尸任务终结与去重键释放](../design/governance/queue-stale-recovery.md) 一致：无消费者时若超过 2 × `STALE_CLEANUP_PENDING_GRACE_MS` 未恢复，stale-cleanup 会把 pending run 判 `failed`（`orphan_run`）并释放去重键
+
+### R6 发布自动化 dry-run
+
+见[发布指南](release.md)「自动发布启用清单」：`pnpm release:plan` + `pnpm release:version --dry-run` 的实际输出与「不执行 publish / tag / push」的边界说明。**未**启用 `schedule` / `push` 触发。
+
+### R7 实测中修复的两处阻断缺陷
+
+| 编号 | 现象（修复前实测） | 根因 | 修复 |
+|:--|:--|:--|:--|
+| F1 | 默认双进程部署下所有扫描 run 卡 `pending`，job 停在 `bull:scan:prioritized`，Redis 无 `bull:*` worker 连接 | 队列服务是惰性单例，唯一主动初始化者 `stale-cleanup` 插件按角色在 worker 侧被跳过 → worker 进程从不创建消费者 | 新增 `queue-consumer` 插件（`inProcessWorker=true` 时初始化消费者，失败退出交由入口重启）；`platform.md §10.6` 同步 |
+| F2 | 启动备份产物 4,096 字节，`db:doctor` 报 `schema_version=0 / 0 张表`（恢复即空库） | 备份直接 `readFileSync` 主库文件，而应用强制 `journal_mode=wal`——数据可能全在 `-wal` | 备份改走 SQLite 在线备份 API（含 WAL 未 checkpoint 数据），先写 `.tmp` 再 fsync + rename；只由 HTTP 主进程执行 |
+
+> **复现边界**：F1 的双进程形态用 `QUEUE_WORKER=1`（compose 默认）；F2 的关键是「备份时刻 WAL 内有未 checkpoint 数据」——优雅停止后 WAL 可能已清零，故单测用「写连接保持打开」构造该状态（`backup.test.ts`）。
 
 ## 故障排查
 

@@ -195,6 +195,7 @@ if (value) { ... }  // 对 0, "", false 失效
 
 修改 `docs/**/*.md` / `.github/skills/**/*.md` / `.github/agents/**/*.md` / `docs/plan/**/*.md` 等含本地链接的 md 文件时，检查：
 
+- **设计镜像结构映射**：diff 触及 `docs/design/**` 或 `docs/i18n/en-US/design/**` 时，是否同批更新 `docs/i18n/en-US/design/mirror-manifest.md`（新增 / 删除分片、en 页面、H2 映射）并跑 `pnpm run docs:check:mirror`？「英文侧小节」行的第三列是否写清 zh 落点或显式声明英文独有？
 - **本地 check:docs 执行证据**：是否本地执行 `pnpm run check:docs`（`scripts/check-docs.mjs`，零依赖统一入口，覆盖 `links` / `vue-interp` / `link-text` / `link-syntax` / `emphasis` / `site-links` / `archive-anchors` / `anchor-id` 八类规则；锚点形态可用 `node scripts/check-docs.mjs --only=anchor-id` 单跑）并提供通过证据？CI 是兜底，但提交前自检可避免 PR 失败往返
 - **五类「合法文本但语义漂移」信号（新规则面）**：① `link-text`——链接文本 `§N` 与目标锚点编号**不互为前缀**（锚点可指向父级章节，属合法）；② `link-syntax`——残留 `](` 或「`.md` 片段 + `#锚点` + 孤立 `)`」（文本被截断 / 就地改写错误）；③ `emphasis`——`**` 在段落 / 表格行内计数为奇数（渲染出字面 `**`）；④ `site-links`——站点静态绝对链接（nav / sidebar / 首页 frontmatter）无对应源文件（`ignoreDeadLinks: true` 会静默放过）；⑤ `archive-anchors`——归档文档的自锚点 / 跨文档锚点无对应标题（file-dead 维持豁免）。出现即检查该行是否被截断或批量替换误伤
 - **CI check:docs 步骤**：CI Test job `Run pnpm run check:docs` 步骤是否通过？该步骤失败 → Test job 后续 `docs:build` / `typecheck` / `test` / `build` 共 5 步被 skipped（GitHub Actions 默认行为），盲区极大（run 32396605272 实证：Test job step 12 失败 → step 13-17 全部 skipped；其他类型如 `lint` / `lint:i18n` / `i18n:audit:missing` / `docs:check:i18n` / `lint:md:check` 在该 run 中均通过，唯 check:docs 卡住后续全部盲区）

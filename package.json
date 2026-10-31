@@ -45,6 +45,7 @@
     "docs:check:fallback": "node scripts/docs/check-i18n-fallback.mjs",
     "docs:check:anchors": "node scripts/docs/verify-anchor-dist.mjs",
     "docs:check:guides": "node scripts/docs/check-guide-parity.mjs",
+    "docs:check:mirror": "node scripts/docs/check-design-mirror.mjs",
     "lint:i18n": "cross-env NODE_ENV=production ESLINT_I18N=true eslint apps/platform --quiet",
     "lint": "cross-env NODE_ENV=production eslint . --fix --max-warnings 10",
     "lint:check": "cross-env NODE_ENV=production eslint . --max-warnings 10 && pnpm --filter @dependfix/platform lint:check",

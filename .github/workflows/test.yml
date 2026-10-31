@@ -66,6 +66,8 @@ jobs:
       - run: pnpm run check:docs
       # 中英指南平价：env 变量 / CLI 参数 / Action 输入 / 章节骨架（en ⊇ zh），文案措辞不在面内
       - run: pnpm run docs:check:guides
+      # en 设计镜像结构映射：zh 分片 / en 镜像 / mirror-manifest 三方一致 + 每页 H2 映射逐条校验
+      - run: pnpm run docs:check:mirror
       # README 双向链接 + 章节结构一致性门禁（依赖中文 README + README.en-US.md 同存在；
       # 背景见 docs/plan/archive/todo-archive-phases-m26.md）
       - run: pnpm run check:readme-i18n

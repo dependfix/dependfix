@@ -36,6 +36,7 @@ export const DOC_GATES = [
     'check:verify-chain',
     'check:docs',
     'docs:check:guides',
+    'docs:check:mirror',
     'check:readme-i18n',
     'docs:check:i18n',
     'i18n:check:anchor',

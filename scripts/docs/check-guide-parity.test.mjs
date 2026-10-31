@@ -89,8 +89,8 @@ describe('comparePair', () => {
         HEADING_PAIRS.demo = [['A', 'A']]
         try {
             const result = comparePair(pair, read({
-            'zh.md': '## A\n`DEPENDFIX_MODE` `--repo` `--history`\n',
-            'en.md': '## A\n`DEPENDFIX_MODE` `--repo`\n',
+                'zh.md': '## A\n`DEPENDFIX_MODE` `--repo` `--history`\n',
+                'en.md': '## A\n`DEPENDFIX_MODE` `--repo`\n',
             }))
             expect(result.missing).toEqual([{ kind: 'flag', key: '--history' }])
         } finally {

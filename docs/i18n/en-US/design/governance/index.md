@@ -1,6 +1,7 @@
 # Special Design & Governance (governance)
 
 > This directory contains **special design, governance boundaries, migration plans and cross-module miscellaneous** documents, not split by module.
+> Only 4 pages are mirrored in English; the full zh → en mapping (and the list of pages without an English version) lives in [mirror-manifest.md](../mirror-manifest.md).
 > For module designs that are implemented / in progress see [modules](https://github.com/dependfix/dependfix/blob/master/docs/design/modules/index.md).
 
 ## Document index
@@ -15,9 +16,9 @@
 | [Session Wisdom Distillation](https://github.com/dependfix/dependfix/blob/master/docs/design/governance/session-wisdom-distillation.md) | AI governance (knowledge accumulation) | ✅ Landed (2026-08-06) |
 | [Experience Archive](https://github.com/dependfix/dependfix/blob/master/docs/design/governance/experience-archive.md) | Experience backup (continuously appended, see file head for entry criteria; §1-§57 split into 6 fragment files by content logic, chapter numbering globally unique) | ✅ Continuously appended |
 | [Skill Distribution](https://github.com/dependfix/dependfix/blob/master/docs/design/governance/skill-distribution.md) | Special governance (M5.5 Skill orchestration) | ✅ Landed (2026-08-07) |
-| [Executor Design & Sandbox Assessment](https://github.com/dependfix/dependfix/blob/master/docs/design/governance/executor-sandbox.md) | Special design (T607 design first) | 🔶 Designing (2026-08-08) |
+| [Executor Design & Sandbox Assessment](https://github.com/dependfix/dependfix/blob/master/docs/design/governance/executor-sandbox.md) | Special design (T607 design first) | ✅ Design landed (M10 isolation + M38 process isolation; real engine execution inside the sandbox is a placeholder; platform entry temporarily disabled 2026-10-27) |
 | [Sandbox & Malicious Dependency Defense](https://github.com/dependfix/dependfix/blob/master/docs/design/governance/sandbox-security-governance.md) | Special governance (2026-08-14 security assessment) | ✅ Filed (2026-08-14) |
-| [MCP Server Design](https://github.com/dependfix/dependfix/blob/master/docs/design/governance/mcp-server.md) | Future planning (M6) | 🔶 Not started |
+| [MCP Server Design](https://github.com/dependfix/dependfix/blob/master/docs/design/governance/mcp-server.md) | Special design (M6) | ✅ Landed (`@dependfix/mcp` published, 8 tools) |
 | [Platform Auth & Users Design](https://github.com/dependfix/dependfix/blob/master/docs/design/governance/platform-auth-users.md) | Special design (M7.1 T701/T707 design first) | ✅ Landed (2026-08-09, Review Gate Pass) |
 | [Scheduled Scan & Batch Design](https://github.com/dependfix/dependfix/blob/master/docs/design/governance/platform-scheduled-batch.md) | Special design (M7.2 T704 design first) | 🔶 Designing (2026-08-10) |
 | [Platform AI Integration Design](https://github.com/dependfix/dependfix/blob/master/docs/design/governance/platform-ai-integration.md) | Special design (apps/platform AI assessment end-to-end) | ✅ Landed (M25.2a base layer + M26.1 application layer; see [todo-archive.md §M26](../../../../plan/archive/todo-archive-phases-m26.md)) |
@@ -33,6 +34,16 @@
 | [Platform Execution Model Isolation Design](https://github.com/dependfix/dependfix/blob/master/docs/design/governance/executor-process-isolation.md) | Special design (M38 design first: BullMQ lock renewal failure root cause + three-option selection) | ✅ Landed (2026-10-09, M38 archived; option ①′ standalone worker process) |
 | [PR Build & Deploy Signals Design](https://github.com/dependfix/dependfix/blob/master/docs/design/governance/pr-build-deploy-signals.md) | Special design (PR build / deploy multi-source aggregation: GitHub Checks + Commit Statuses + Deployments, optional provider log enrichment) | 🔶 Design draft (backlog candidate, 2026-10-10) |
 | [Queue Stale Recovery Design](https://github.com/dependfix/dependfix/blob/master/docs/design/governance/queue-stale-recovery.md) | Special design (pending/running convergence after host restart + BullMQ dedupe key release + trigger self-healing + worker slow retry) | ✅ Landed (2026-10-18, Review Gate R2 Pass) |
+| [Document Governance Execution Spec](https://github.com/dependfix/dependfix/blob/master/docs/design/governance/doc-governance.md) | Governance (char/rule budgets + disposition matrix + 8-step flow + archive invariants) | ✅ Landed (2026-10-26; checked by `check:doc-governance`) |
+| [Engineering Practice Notes](https://github.com/dependfix/dependfix/blob/master/docs/design/governance/engineering-practice-notes.md) | Spec companion (implementation details moved out of `development.md §5.1`) | ✅ Continuously appended (reference only, not a release gate) |
+| [Verification Chain / Target CI Alignment Design](https://github.com/dependfix/dependfix/blob/master/docs/design/governance/verification-ci-alignment.md) | Special design (M47.1: workflow command parsing / diff disclosure / default-branch health precheck) | ✅ Landed (2026-10-23, M47.1) |
+| [Platform Local Logging Design](https://github.com/dependfix/dependfix/blob/master/docs/design/governance/platform-logging.md) | Special design (process-level unified logging + local rotation + fatal error persistence) | ✅ Implemented (2026-10-28, M49 appended work item) |
+| [PR Delivery Closure Design](https://github.com/dependfix/dependfix/blob/master/docs/design/governance/pr-delivery-closure.md) | Special design (commit whitelist / attempt identity / PR check loop / delivery downgrade) | ✅ Landed (M48.1-M48.6; M51.4 delivered downgrade tiers) |
+| [PR Feedback Loop Design](https://github.com/dependfix/dependfix/blob/master/docs/design/governance/pr-feedback-loop.md) | Special design (post-PR-check observation window / idempotent comment / close on failure; retry deferred by user decision, contract kept in §8) | ✅ Landed (2026-10-30, M51.3) |
+| [Release Security Gate](https://github.com/dependfix/dependfix/blob/master/docs/design/governance/release-security-gate.md) | Release governance (Dependabot / Code Scanning gate before publish) | ✅ Landed (2026-10-29) |
+| [Repository Execution Limits](https://github.com/dependfix/dependfix/blob/master/docs/design/governance/repo-execution-limits.md) | Special design (timeout soft-cancel / budget guard) | 🔶 Design finalized (2026-10-30; not adopted — see backlog) |
+| [Alert Outcome Writeback](https://github.com/dependfix/dependfix/blob/master/docs/design/governance/alert-outcome-writeback.md) | Special design (ScanResult outcome writeback: success / converged / failed / skipped) | ✅ Landed (2026-10-30, M51.1) |
+| [1.0 Release Readiness Ledger](https://github.com/dependfix/dependfix/blob/master/docs/design/governance/release-1.0-readiness.md) | Release governance (G1-G8 gates / P0-P1 tiers / real-environment matrix / batch plan) | 🔶 In progress (2026-10-25; target 1.0.0) |
 | [Platform Notification & Email Delivery Design](https://github.com/dependfix/dependfix/blob/master/docs/design/governance/platform-notification.md) | Special design (event tiers + org / personal configuration + recipient routing + merge and noise reduction; issue #190) | ✅ Landed (2026-10-22, M46 archived; B1-B4 closed, B5 weekly digest deferred) |
 
 ## Usage conventions

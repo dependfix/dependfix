@@ -375,14 +375,14 @@ git status --porcelain           # 空（无版本 / 日志副作用）
    - 发布成功后本地创建 `<pkg>@<version>` 格式的 annotated git tag（如 `dependfix@0.1.1`）+ `v<锚版本>` 聚合 tag（锚 = 主交付物优先，见"GitHub Release 自动化"）；
    - **幂等自愈**：npm 已发布但本地无 tag（上次发布中途失败等中间态）时自动补 annotated tag（HEAD 锚点校验通过才打，否则安全跳过），并计入 v tag 锚点解析——重跑 CI 即可全链路恢复，无需手动补打（见"tag 策略与包版本不同步"）；
 8. `Push release tags`：将 `release:publish` 创建的本地 tag 推送到 GitHub（`git push <url> --tags`，显式 token URL + 推送后核验，通过 `GITHUB_TOKEN` 认证）；
-9. `Create GitHub Release`（`pnpm release:github`）：读 `release-publish-result.json` 为本轮发布创建聚合 GitHub Release——tag 为 `v<锚版本>`，notes 为版本矩阵 + 根 CHANGELOG 最新段（core-only 轮次取锚包包级段）；**alpha / beta 标 pre-release，0.x 正式版不标**（与 npm `latest` 一致）；**追加**：`Trigger Docker build with platform-x.y.z tag` 以 `--ref v<锚版本>` 派发 docker workflow（镜像内容钉在发布提交上，见「Docker 镜像复核」）；Release 已存在则跳过，创建失败仅警告不阻断（npm 已发布完成，可后补 `gh release create`）。
+9. `Create GitHub Release`（`pnpm release:github`）：读 `release-publish-result.json` 为本轮发布创建聚合 GitHub Release——tag 为 `v<锚版本>`，notes 为版本矩阵 + 根 CHANGELOG 最新段（core-only 轮次取锚包包级段）；**alpha / beta / rc 标 pre-release，0.x 正式版不标**（与 npm `latest` 一致）；**追加**：`Trigger Docker build with platform-x.y.z tag` 以 `--ref v<锚版本>` 派发 docker workflow（镜像内容钉在发布提交上，见「Docker 镜像复核」）；Release 已存在则跳过，创建失败仅警告不阻断（npm 已发布完成，可后补 `gh release create`）。
 
 ### GitHub Release 自动化
 
 - **每轮发布创建一个聚合 GitHub Release**（非每包一个）：锚版本 = 主交付物优先（`dependfix` → `@dependfix/core` → `@dependfix/engine` → `@dependfix/skills` → `@dependfix/mcp`，即本轮实际发布列表中 rootChangelog 锚包优先、其余按 publishOrder）；
 - **v tag**：`release:publish` 在全部包发布成功后创建 `v<锚版本>` annotated tag（指向发布提交，幂等不覆盖），随 `Push release tags` 全量推送并核验；
 - **notes**：本轮发布包版本矩阵 + 根 CHANGELOG 最新版本段（与 release commit body 同源格式）；根段为空（core-only）时取锚包的包级 CHANGELOG 段；两处均无则跳过创建；
-- **pre-release**：仅 alpha / beta / rc 版本标记 pre-release（rc 也必须标：npm 对它写 `next` dist-tag）；0.x 正式版不标（npm publish 默认写 `latest`，标 pre-release 会与用户默认安装到的版本不一致，0.6.0 实测为 Latest）；
+- **pre-release**：仅 alpha / beta / rc 版本标记 pre-release（rc 也必须标：npm 对它写 `next` dist-tag）；0.x 正式版不标（npm publish 默认写 `latest`，标 pre-release 会与用户默认安装到的版本不一致，0.6.0 实测为 Latest）。判定式是 `/(alpha|beta|rc)/i`——**其他 pre-release 标识（canary / next 等）暂不识别**，引入时须同步判据与 CHANGELOG 段抽取正则；
 - **幂等与失败**：Release 已存在（重跑）跳过；创建失败 `::warning::` 不阻断 CI（可后补 `gh release create v<版本> --notes-file <file>`）；
 - 首次手动发布（0.1.0）仍按上文手动 `gh release create`（CI 发布链路自此自动创建）。
 
@@ -426,7 +426,7 @@ git status --porcelain           # 空（无版本 / 日志副作用）
 | 包级 CHANGELOG 非增量（0.2.0 段吞掉全部历史） | `<pkg>@<version>` 锚点 tag 缺失，或指向的 commit 未 touch 该包路径（path 过滤后看不到锚点）。处理：补打/移动 tag 到 touch 该包路径的 commit 后重跑 `pnpm changelog` |
 | `release:publish` 报 "Committer identity unknown" | CI runner 全局 git config 无 user.name/user.email（annotated tag 创建需要 identity；此前 identity 仅在 schedule-only 的 Auto version 步骤中配置，手动触发时缺失）。处理：release.yml 已在 Release Publish 前显式配置 github-actions[bot] 身份；旧 run 遗留的中间态（npm 已发布但 tag 缺失）直接重跑即可自愈补 tag |
 | `release:publish` 报"HEAD 不是 touch `<path>` 的提交" | 在非发布提交上执行了发布（未走 release:version + changelog 提交）。处理：完成版本提升与 changelog 提交后再发布 |
-| GitHub Release 未创建（CI 仅警告） | 创建失败不阻断发布（npm 已发布完成）。处理：手动补建 `gh release create v<版本> --notes-file <notes.md>`（仅 alpha / beta 加 `--prerelease`），notes 可从根/包级 CHANGELOG 对应版本段截取 |
+| GitHub Release 未创建（CI 仅警告） | 创建失败不阻断发布（npm 已发布完成）。处理：手动补建 `gh release create v<版本> --notes-file <notes.md>`（仅 alpha / beta / rc 加 `--prerelease`），notes 可从根/包级 CHANGELOG 对应版本段截取 |
 | GitHub Release 显示旧版本号 | `v<锚版本>` 以主交付物优先（dependfix 未发布时取 core 等）；core-only 轮次的 Release 版本号代表该轮核心变更包，属预期行为 |
 
 ## 关于 provenance

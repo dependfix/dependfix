@@ -350,7 +350,7 @@ The full design, the RuntimeAdapter abstraction and the reserved K8s+Helm deploy
 | `--ai-provider` | — | AI provider: `openai-compatible` (default; DeepSeek etc. work via `--ai-base-url`) / `anthropic` | `openai-compatible` |
 | `--ai-model` | — | AI model name | `deepseek-v4-flash` |
 | `--ai-base-url` | — | OpenAI-compatible endpoint base URL (pairs with the default model; for official OpenAI models set `https://api.openai.com/v1` + `--ai-model`) | `https://api.deepseek.com` |
-| `--ai-api-url` | — | Anthropic-compatible endpoint (only effective with `--ai-provider anthropic`; set it explicitly for self-hosted / gateway setups) | empty (Anthropic official endpoint) |
+| `--ai-api-url` | — | Anthropic-compatible endpoint (only effective with `--ai-provider anthropic`; set it explicitly for self-hosted / gateway setups) | empty (falls back to `https://api.anthropic.com/v1/messages`) |
 | `--ai-api-key` | — | AI API key (the CLI flag takes precedence; `DEPENDFIX_AI_API_KEY` is the fallback — a command-line value shows up in the process list / shell history, so prefer the env var for sensitive setups) | `DEPENDFIX_AI_API_KEY` env |
 | `--ai-trigger` | — | AI trigger scope: `failure` (upgrade verification failed) / `major` (major upgrade) / `both` | `both` |
 

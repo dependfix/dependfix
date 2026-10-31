@@ -342,6 +342,13 @@ A/B 场景差异化见 [executor-sandbox.md §7.8.1](../design/governance/execut
 | `--wait-pr-checks` | — | 创建 PR 后等待 check 终态（不改变 exit code） | `false`（env `DEPENDFIX_WAIT_PR_CHECKS`） |
 | `--close-failed-pr` | — | check 失败且归因 self_caused 时关闭 PR 并删分支（需 `--wait-pr-checks`） | `false`（env `DEPENDFIX_CLOSE_FAILED_PR`） |
 | `--verbose` | — | 详细日志 | `false` |
+| `--ai` | — | 开启 AI breaking change 研判（默认关闭；需配置 AI API Key。触发范围见 `--ai-trigger`；dry-run 不触发、不产生费用） | `false` |
+| `--ai-provider` | — | AI 提供商：`openai-compatible`（默认，DeepSeek 等指定 `--ai-base-url` 兼容）/ `anthropic` | `openai-compatible` |
+| `--ai-model` | — | AI 模型名 | `deepseek-v4-flash` |
+| `--ai-base-url` | — | OpenAI 兼容端点基地址（与默认模型配套；使用 OpenAI 官方模型时指定 `https://api.openai.com/v1` + `--ai-model`） | `https://api.deepseek.com` |
+| `--ai-api-url` | — | Anthropic 兼容端点（仅 `--ai-provider anthropic` 生效；自托管 / 网关可显式指定） | 空（回落 `https://api.anthropic.com/v1/messages`） |
+| `--ai-api-key` | — | AI API Key（命令行参数优先，`DEPENDFIX_AI_API_KEY` 兜底——命令行参数会出现在进程列表 / shell history，敏感环境请用 env） | `DEPENDFIX_AI_API_KEY` 环境变量 |
+| `--ai-trigger` | — | AI 研判触发范围：`failure`（升级验证失败）/ `major`（major 升级）/ `both` | `both` |
 
 ### ⚠️ 跨大版本升级（实验性，风险须知）
 

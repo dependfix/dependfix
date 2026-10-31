@@ -31,6 +31,7 @@ export interface QueueConsumerRuntimeConfig {
 export interface QueueConsumerDeps {
     getQueueService?: typeof getQueueService
     log?: Pick<typeof logger, 'info' | 'error'>
+    isWorkerProcess?: typeof isQueueWorkerProcess
 }
 
 /**
@@ -44,8 +45,14 @@ export const startQueueConsumer = async (
 ): Promise<boolean> => {
     const resolveQueueService = deps.getQueueService ?? getQueueService
     const log = deps.log ?? logger
+    const isWorkerProcess = deps.isWorkerProcess ?? isQueueWorkerProcess
 
     if (!config.inProcessWorker) {
+        // 角色=worker 却未启用 IN_PROCESS_WORKER：配置错误，本进程没有消费者（正是要消灭的静默形态）
+        if (isWorkerProcess()) {
+            log.error('[queue] 队列 worker 进程未启用 IN_PROCESS_WORKER：本进程没有消费者，队列任务将无人消费')
+            throw new Error('queue worker process started with inProcessWorker=false')
+        }
         // 双进程形态的 HTTP 主进程：只做 producer，消费由 worker 进程承担
         return false
     }

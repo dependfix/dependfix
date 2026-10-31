@@ -85,6 +85,11 @@ services:
   #   environment:
   #     PUID: ${PUID:-100}
   #     PGID: ${PGID:-101}
+  #     # 必须显式声明角色：否则入口按 server 处理 → 该容器会重复执行启动备份
+  #     # （与主服务共享 dependfix-data 卷，同秒启动会写同名 .bak.tmp）
+  #     DEPENDFIX_ROLE: worker
+  #     # 迁移只由主服务执行（否则两容器并发迁移 / 快照争用同一数据卷）
+  #     DATABASE_MIGRATIONS_RUN: "false"
   #     NUXT_REDIS_URL: redis://redis:6379
   #     NUXT_QUEUE_ENABLED: "true"
   #     NUXT_IN_PROCESS_WORKER: "true"

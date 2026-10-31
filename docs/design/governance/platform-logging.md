@@ -73,7 +73,7 @@
 本批接入 5 类边界：
 
 1. 进程级：新增 `server/plugins/logger.ts`（HTTP + worker 都执行，登记为 `NON_HTTP_ONLY_PLUGINS`）。
-2. Nitro 启动插件：`build-info` / `resource-probe` / `database-bootstrap` / `stale-cleanup` / `weekly-digest`（`shouldSkipHttpOnlyPlugin` 注入统一 logger，跳过日志也进文件）。
+2. Nitro 启动插件：`build-info` / `resource-probe` / `database-bootstrap` / `queue-consumer` / `stale-cleanup` / `weekly-digest`（`shouldSkipHttpOnlyPlugin` 注入统一 logger，跳过日志也进文件；`queue-consumer` 在 worker / 单进程形态启动消费端，双进程的 HTTP 主进程为 no-op）。
 3. 队列 worker：`queue.service` / `scan-worker` / `scan-queue` / `orphan-job-release`。
 4. 执行器：`container-executor`（进程级行，与 `MemoryLogger` 的运行级行并存）/ `scan-orchestrator.service`（通知与审计失败）。
 5. 通知：`notification/index` / `delivery` / `weekly-digest.service` / `mailer`。

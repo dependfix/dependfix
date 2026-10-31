@@ -262,7 +262,9 @@ export const ensureDatabaseInitialized = async (): Promise<DataSource> => {
     // 启动期备份（once 保护；详见 docs/standards/development.md §5.1.18）
     // 注：ensureDatabaseInitialized 是 hot path，每次调用都会执行；备份仅在首次调用时执行一次
     if (!startupBackupPromise) {
-        startupBackupPromise = runStartupBackup()
+        // 兜住同步异常（如 statSync 竞态）：缓存 rejected promise 会让后续所有调用方永久失败，
+        // 与「备份 fail-open」语义相反；一次失败只影响本次快照，下次调用不再重试（single-flight 语义）
+        startupBackupPromise = runStartupBackup().catch(() => undefined)
     }
     await startupBackupPromise
 

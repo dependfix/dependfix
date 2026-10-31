@@ -185,14 +185,11 @@ describe('ensureDatabaseInitialized', () => {
         vi.resetModules()
         const { ensureDatabaseInitialized: ensureFresh } = await import('./index')
 
-        const ds = await ensureFresh().catch(() =>
-            // 测试环境可能 DataSource 初始化失败，跳过断言
-            null)
+        const ds = await ensureFresh()
 
-        if (!ds?.isInitialized) {
-            // 测试环境 DataSource 初始化失败（无 better-sqlite3 native binding 等），跳过
-            return
-        }
+        // 显式断言初始化成功：早退守卫会让「PRAGMA 未生效」类回归静默通过
+        // （此前 busy_timeout 断言因取错列名恒为 0，正是被早退掩盖）
+        expect(ds.isInitialized).toBe(true)
 
         // 验证 journal_mode = wal
         const journalModeRows = await ds.query('PRAGMA journal_mode')

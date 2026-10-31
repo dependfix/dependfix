@@ -44,7 +44,7 @@
 - **已核缺口修正（2026-10-31 实测）**：真实缺口远大于预估的 306 处 `--` 形态——按产物 id 全量比对后需改写 **696 处 / 97 个文件**（除 `--` 家族外还有「数字开头缺 `_` 前缀」「行内代码参与 slug」「标题截断的历史锚点」三类）。
 - **闭环（2026-10-31）**：口径下沉 `scripts/docs/vitepress-slug.mjs`（对齐 VitePress 1.6.4 slugify：NFKD 全角归一、`--` 收敛、数字开头 `_` 前缀、`{#custom}` 自定义锚点、重复标题 used-id 自增去重，行内 HTML 标签剥离而标签内文本保留），157 个页面的推算 id 与 `docs:build` 产物**逐个一致（0 差异，已由 `docs:check:anchors` 的 slug 口径自校验固化进 CI）**；`scripts/docs/migrate-anchors.mjs` 机械迁移（精确 id → 宽松唯一 → 唯一前缀三级判定，歧义 / 未命中不擅自改，plan 与 apply 共用 `fenceMask` 跳过代码块），`--write` 后重跑为空（幂等）；新增 `check:docs` 第 8 条规则 `anchor-id`（锚点逐字符等于产物 id，报错带目标文件与应改成的 id）、`docs:check:anchors`（`docs/verify-anchor-dist.mjs`，以产物 HTML 的真实 `id` 复核，已接入 `gates:docs` 紧随 `docs:build`）+ 4 份单测（迁移脚本字符级保留 / 代码块不改写 / 幂等回归）；`collectTitles` 与 VitePress 同源（行内代码内容参与 slug，否则新形态锚点会被宽松比较误判）。门禁负例实测：把一处锚点写回 `#2-四条基本原则` → `anchor-id` exit 1 并给出 `#_2-四条基本原则`，同一输入在 `links` 规则下仍为绿（口径差异的直接证据）。5 处无法机械判定的历史锚点（2 处同名标题歧义 + 3 处标题文本已变）人工改指。提交：`60a70415`（plan 文档迁移）、`20c4ba3d`（design / standards 迁移 + 八类口径）、`45ad719e`（站点外文档与治理定义）、`3cc6dbc0`（工具与门禁）。审计：R1 两分区 **Reject**（A：代码块内同形链接被改写；B：4 处治理文档仍写「七类」）→ 全收口 → R2 **Pass**（新增 fence 缩进 warning）→ 收口 → R3 **Pass**（R2 的 8 条新问题全部处置：自校验降为 warning、`check-docs` fence 语义收口、`.opencode` 去重下沉）。证据：`gates:docs` 17 项、`scripts` 单测 924 passed、`docs:check:anchors` 783/783（157 页，slug 自校验 157/157）、`migrate-anchors` 幂等 0 处、`lint:check` 0 error（0 error / 11 warning）、`typecheck` 7 包。
 
-### M52.2 [P1 📚] en-US 指南平价（配置指南 + quick-start）+ 平价机检
+### M52.2 [P1 📚] en-US 指南平价（配置指南 + quick-start）+ 平价机检（已完成 2026-10-31）
 
 - **目标**：两篇英文指南与 zh 事实源同源（章节结构 + 配置键 / 参数键位），并加 L1 机检防止再次漂移。
 - **已核缺口（2026-10-30 实测）**：`configuration.md` zh 6 节 / en 5 节（en 缺「环境变量」整节；zh 该节 20 条 `export`）；已复核 `retryFailed` / `waitPrChecks` / `closeFailedPr` / `onBaselineRed` 四键 en 侧 0 命中（backlog 2026-10-26 口径记 16 行漂移，实测以脚本首次运行为准）；`quick-start.md` zh 417 行 / 参数表 26 行 vs en 133 行 / 11 行（缺 `--commands` / `--history` / `--verbose` / `--commit` 等）。
@@ -54,6 +54,8 @@
 - **依赖**：M52.1（锚点形态门禁先收紧，新增链接按新形态书写）。
 - **交付物**：预估 2-3 commits / 6-8 文件 / 500-800 行（翻译为主）。
 - **风险与缓解**：翻译引入语义偏差 → 键位以配置 / CLI 代码为权威，只译说明不改事实；机检首跑存量豁免 → 清单显式登记并注明移除条件。
+- **已核缺口修正（2026-10-31 实测）**：实际漂移比预估更大——`configuration` en 侧缺整节「环境变量」（21 个 `DEPENDFIX_*`）+ 8 行配置项表；`quick-start` en 侧 H3 4/15、CLI 参数 12/35，且**旧 en 正文含不存在的能力**（`--keep-last` / `--pr-title` / `--pr-body` / `defineConfig` 配置 API /「fix 模式默认建分支并推送」/ `--alerts-source github`），已按中文事实源与代码整体重写。
+- **闭环（2026-10-31）**：新增 `scripts/docs/check-guide-parity.mjs`（四类比对：env 全量 `UPPER_SNAKE` + 常量 denylist / `--flag` / Action 输入表首列 / H2 逐条标题映射 + H3 数量；`en ⊇ zh`，取不到键位即 fail-closed，豁免需理由且未命中会被点名）+ 17 例单测（含 `--root` 夹具端到端 exit 1）+ `docs:check:guides` 接入 `gates:docs`（18 项）。en 侧补齐：`configuration` 环境变量整节 + 配置项 8 行 + 5 个 H3；`quick-start` 全篇按 zh 结构重写（Action 输入 32 键、CLI 参数 44 行、sandbox 安全、跨版本升级、GitHub App、Exit codes / Next steps）。zh 侧仅做事实订正：CVE-2024-21626 的 GHSA 链接（原 id 404）、`npx dependfix report` → `report-only`、`M4+`/`C52` 过期表述、`pr-creator.ts` 指针漂移、Action 输入表补 7 行、CLI 表补 9 行。代码侧订正 `--ai-api-key` 优先级口径（help 文案与注释原写「env 优先」，实现是 CLI 优先，`index.ts` 与 `config/index.ts` 三处同改）与 `--max-repos` 的负数语义（原注释说「负数不限制」，实现拒绝负数）。审计：R1 两分区（A **Pass** 6 warning / B **Reject** 2 blocker）→ 全收口 → R2（A 全 closed / B **Reject** 1 blocker：`DEPENDFIX_VERIFY_TIMEOUT_MS` 行插错表且少一列）→ 收口 → R3 **Pass**（0 blocker；2 warning 的 partial 面已在本批修完：代码 4 处「0 或负数」措辞、en tech-stack 第二处 404 外链）。证据：`gates:docs` 18 项、`scripts` 单测 941 passed、`packages/cli` 168 passed、`typecheck` 7 包、`check:docs` 8 条规则、`lint:md:check` 0 违规。
 
 ### M52.3 [P1 📚] 设计镜像与台账平价（结构映射 + 索引补全）
 

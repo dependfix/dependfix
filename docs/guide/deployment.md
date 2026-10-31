@@ -243,7 +243,7 @@ docker compose up -d
 
 ## 备份与恢复
 
-- **自动备份**：每次应用启动前，SQLite 快照写入 `/app/data/backups/`（默认保留最近 5 份，`BACKUP_RETENTION_COUNT` 可覆盖）。快照走 **SQLite 在线备份**（`db.backup`），因此包含 `-wal` 里尚未 checkpoint 的已提交数据——**不要**用「复制主库文件」替代（WAL 模式下主文件可能只有 4KB 头页，拷出来是空库，见下方实测记录 R2）。容器双进程形态下备份只由 HTTP 主进程执行（worker 侧跳过）。
+- **自动备份**：每次应用启动前，SQLite 快照写入 `/app/data/backups/`（默认保留最近 5 份，`BACKUP_RETENTION_COUNT` 可覆盖）。快照走 **SQLite 在线备份**（`db.backup`），因此包含 `-wal` 里尚未 checkpoint 的已提交数据——**不要**用「复制主库文件」替代（WAL 模式下主文件可能只有 4KB 头页，拷出来是空库，见下方实测记录 R3 / R7）。容器双进程形态下备份只由 HTTP 主进程执行（worker 侧跳过）。
 - **卷级备份**（推荐跨机器迁移 / 灾备）：
 
 ```bash
@@ -283,6 +283,7 @@ curl -s http://127.0.0.1:3999/api/health
 ```
 
 - 镜像：`sha256:1f49080f5cf2…` / 811 MB（含 git + python3/make/g++ 工具链；早期 `.output`-only 精简档约 239 MB，不含工具链）
+- **构建来源**：被测镜像由「含本轮 F1 / F2 修复的工作区」构建（`BUILD_COMMIT=05719601` 为当时 HEAD，修复随后提交为 `9b3b946d` / `eb4bb49e`）；在干净检出的这些提交上按上述命令重建可复现。本机 npm 官方 registry 不可达，构建期改用镜像源（仅 builder 层 ENV，不进 runtime）；CI 走官方 registry
 - `/api/health` → `200 {"version":"0.4.0","commit":"05719601","startedAt":"2026-10-31T12:38:45.894Z"}`
 - 首次启动自动建表；库快照 `db:doctor` 输出 **17 张表**（15 张业务表 + `migrations` + `sqlite_sequence`）
 - 双进程日志：`[entrypoint] 队列 worker 进程 pid=37` + `[queue] 消费者已就绪（IN_PROCESS_WORKER=true，当前进程消费扫描队列）`
@@ -344,6 +345,7 @@ docker compose up -d
 
 - 无消费者：run `68647ea408001f68` 连续 30 s `pending`（6 次轮询），`bull:scan:prioritized=1`
 - 重启带消费者：启动 1 s 内 job 被接管 → `startedAt 12:42:01.074Z` / `finishedAt 12:42:02.817Z` → `completed`，`exitCode=0`
+- **running 态收敛（执行中被杀）**：`fix` 模式 run `68648bbb3f828d3f` 在 `running` 时 `docker kill` 容器 → 重启后 `stale-cleanup` 在 `startedAt + 64 s`（`EXECUTION_TIMEOUT_MS=60000` + `STALE_CLEANUP_RUNNING_GRACE_MS=2000`，演练时为缩短等待显式调小）判 `failed`，`failureCode=orphan_run` / `failureStage=runtime` / `failureKind=transient`，同轮释放孤儿 job（日志 `释放孤儿队列 job：removed=1 skipped=0/1`）
 - 口径与 [队列僵尸任务终结与去重键释放](../design/governance/queue-stale-recovery.md) 一致：无消费者时若超过 2 × `STALE_CLEANUP_PENDING_GRACE_MS` 未恢复，stale-cleanup 会把 pending run 判 `failed`（`orphan_run`）并释放去重键
 
 ### R6 发布自动化 dry-run

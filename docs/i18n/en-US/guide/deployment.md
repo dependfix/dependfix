@@ -243,7 +243,7 @@ docker compose up -d
 
 ## Backup and restore
 
-- **Automatic backup**: before each startup, SQLite is snapshotted into `/app/data/backups/` (last 5 retained by default; override with `BACKUP_RETENTION_COUNT`). The snapshot uses the **SQLite online backup API** (`db.backup`), so it includes committed data still sitting in `-wal` — **never** replace it with "copy the main database file" (under `journal_mode=wal` the main file can be a 4 KB header page; copying it yields an empty database — see drill R2 below). In the two-process container form the backup runs only in the HTTP process (the worker skips it).
+- **Automatic backup**: before each startup, SQLite is snapshotted into `/app/data/backups/` (last 5 retained by default; override with `BACKUP_RETENTION_COUNT`). The snapshot uses the **SQLite online backup API** (`db.backup`), so it includes committed data still sitting in `-wal` — **never** replace it with "copy the main database file" (under `journal_mode=wal` the main file can be a 4 KB header page; copying it yields an empty database — see drills R3 / R7 below). In the two-process container form the backup runs only in the HTTP process (the worker skips it).
 - **Volume-level backup** (recommended for cross-machine migration / disaster recovery):
 
 ```bash
@@ -283,6 +283,7 @@ curl -s http://127.0.0.1:3999/api/health
 ```
 
 - Image: `sha256:1f49080f5cf2…` / 811 MB (includes git + python3/make/g++ toolchain; the earlier `.output`-only variant was ~239 MB without the toolchain)
+- **Build provenance**: the tested image was built from the working tree containing this batch's F1 / F2 fixes (`BUILD_COMMIT=05719601` was HEAD at build time; the fixes were committed afterwards as `9b3b946d` / `eb4bb49e`). Rebuilding from a clean checkout of those commits reproduces it. The official npm registry was unreachable from this host, so the build used a registry mirror (builder-layer ENV only, never in the runtime layer); CI uses the official registry
 - `/api/health` → `200 {"version":"0.4.0","commit":"05719601","startedAt":"2026-10-31T12:38:45.894Z"}`
 - First start migrates automatically; `db:doctor` on a snapshot reports **17 tables** (15 business tables + `migrations` + `sqlite_sequence`)
 - Two-process logs: `[entrypoint] queue worker pid=37` + `[queue] consumer ready (IN_PROCESS_WORKER=true, this process consumes the scan queue)`
@@ -290,7 +291,8 @@ curl -s http://127.0.0.1:3999/api/health
 ### R2 report-only scan (default two-process form)
 
 ```bash
-curl -X POST .../api/auth/sign-up/email -d '{"email":"…","password":"…","name":"…"}'
+# Origin header is required (better-auth rejects same-origin requests without it)
+curl -X POST .../api/auth/sign-up/email -H 'Origin: http://127.0.0.1:3999' -d '{"email":"…","password":"…","name":"…"}'
 curl -X POST .../api/credentials -d '{"name":"ops-drill-pat","type":"classic-pat","token":"<PAT>"}'
 curl -X POST .../api/repos -d '{"owner":"dependfix","name":"dependfix","defaultBranch":"master","credentialId":"<id>"}'
 curl -X POST .../api/repos/<repoId>/scan -d '{"mode":"report-only","severityThreshold":"high"}'
@@ -342,6 +344,7 @@ docker compose up -d
 
 - Without a consumer: run `68647ea408001f68` stayed `pending` for 30 s (6 polls), `bull:scan:prioritized=1`
 - After the restart: the job was picked up within 1 s → `startedAt 12:42:01.074Z` / `finishedAt 12:42:02.817Z` → `completed`, `exitCode=0`
+- **Running-state convergence (killed mid-run)**: `fix`-mode run `68648bbb3f828d3f` was `running` when the container was killed with `docker kill`; after the restart `stale-cleanup` marked it `failed` at `startedAt + 64 s` (`EXECUTION_TIMEOUT_MS=60000` + `STALE_CLEANUP_RUNNING_GRACE_MS=2000`, both lowered for the drill), `failureCode=orphan_run` / `failureStage=runtime` / `failureKind=transient`, and released the orphan job in the same pass (log `released orphan queue job: removed=1 skipped=0/1`)
 - Semantics match [queue-stale-recovery](../../../design/governance/queue-stale-recovery.md): when no consumer recovers within 2 × `STALE_CLEANUP_PENDING_GRACE_MS`, stale-cleanup marks the pending run `failed` (`orphan_run`) and releases the dedupe key
 
 ### R6 Release automation dry run

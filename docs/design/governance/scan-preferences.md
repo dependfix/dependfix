@@ -4,7 +4,7 @@
 > 提出：2026-10-05（用户诉求 —— 单仓库 / 批量扫描每次都要重选 `mode` / `severity`，重复操作多）
 > 来源：[issue #136](https://github.com/dependfix/dependfix/issues/136)（2026-10-15 已关闭 —— 设备级「记住上次选择 + 自定义默认」随 M37.2 交付；跨设备 / 组织级默认延后，见 [backlog](../../plan/backlog.md)）
 > 范围：`apps/platform` 前端（composable + 单仓库 / 批量弹窗接线 + 设置页卡片）；**不改**扫描 API 契约与任何服务端实体
-> 关联：[M37](../../plan/archive/todo-archive-phases-m37.md#m37-运行可观测性与体验记忆m371m376-全部已闭环--2026-10-08-归档)（M37.2 已闭环归档）、[roadmap.md §M37](../../plan/archive/roadmap-phases-m0-m38.md#m37-运行可观测性与体验记忆2026-10-06-用户决策方案-b--2026-10-08-已闭环--归档)、[platform.md §7.3](../../standards/platform.md#73-utility-抽取与跨组件共享)、[backlog.md](../../plan/backlog.md)（服务端跨设备偏好延后）
+> 关联：[M37](../../plan/archive/todo-archive-phases-m37.md#m37-运行可观测性与体验记忆-m37-1-m37-6-全部已闭环-2026-10-08-归档)（M37.2 已闭环归档）、[roadmap.md §M37](../../plan/archive/roadmap-phases-m0-m38.md#m37-运行可观测性与体验记忆-2026-10-06-用户决策方案-b-2026-10-08-已闭环-归档)、[platform.md §7.3](../../standards/platform.md#_7-3-utility-抽取与跨组件共享)、[backlog.md](../../plan/backlog.md)（服务端跨设备偏好延后）
 
 ## 1. 背景与问题
 
@@ -84,6 +84,6 @@
 
 ## 6. 关联文档
 
-- [platform.md §7.3 Utility 抽取与跨组件共享](../../standards/platform.md#73-utility-抽取与跨组件共享)（有状态 composable 的 SSR 与可测性约定）
-- [platform.md §7.4 caomei-ui 接线约定](../../standards/platform.md#74-caomei-ui-接线约定)（`SelectItem` 不接受空串 `value`）
+- [platform.md §7.3 Utility 抽取与跨组件共享](../../standards/platform.md#_7-3-utility-抽取与跨组件共享)（有状态 composable 的 SSR 与可测性约定）
+- [platform.md §7.4 caomei-ui 接线约定](../../standards/platform.md#_7-4-caomei-ui-接线约定)（`SelectItem` 不接受空串 `value`）
 - [backlog.md §候选评估中](../../plan/backlog.md)（服务端跨设备默认延后项）

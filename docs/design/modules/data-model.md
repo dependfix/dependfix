@@ -1,8 +1,8 @@
 # 数据模型
 
-> 状态: ✅ M20 已完成（2026-08-31）——ScanResult 已从"per-scan×per-alert"改为"per-alert"，新增 upstreamId / firstSeenAt / lastSeenAt / occurrenceCount / supersededAt 字段；详见 [archive/todo-archive-phases-m19-m21.md §M20](../../plan/archive/todo-archive-phases-m19-m21.md#m20-scanresult-数据模型重构m201m203m205m206m207-全部已闭环--2026-08-31-归档)
+> 状态: ✅ M20 已完成（2026-08-31）——ScanResult 已从"per-scan×per-alert"改为"per-alert"，新增 upstreamId / firstSeenAt / lastSeenAt / occurrenceCount / supersededAt 字段；详见 [archive/todo-archive-phases-m19-m21.md §M20](../../plan/archive/todo-archive-phases-m19-m21.md#m20-scanresult-数据模型重构-m20-1-m20-3-m20-5-m20-6-m20-7-全部已闭环-2026-08-31-归档)
 >
-> ✅ 2026-10-30（M51.1）：`ScanResult.fixStatus` 不再是固定 `not-tried`——引擎报告新增 `alertOutcomes`，平台按同一键回写四态结果；见 [§告警级修复结果回写](#告警级修复结果回写m511)
+> ✅ 2026-10-30（M51.1）：`ScanResult.fixStatus` 不再是固定 `not-tried`——引擎报告新增 `alertOutcomes`，平台按同一键回写四态结果；见 [§告警级修复结果回写](#告警级修复结果回写-m51-1)
 >
 > 历史：✅ 2026-08-05 修正——`AlertSource` 扩展 `'pnpm-audit'`、`FixStrategy` 增加 `override`，对齐当前实现
 

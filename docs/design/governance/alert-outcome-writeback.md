@@ -3,7 +3,7 @@
 > 状态：✅ 已实施（2026-10-30，M51.1；Review Gate R1 deep 两分区 Reject → R2 quick Pass）
 >
 > 跨模块设计（`packages/core` 契约 → `packages/engine` 产出 → `apps/platform` 落库 → 通知口径），
-> 字段与表结构见 [data-model.md §告警级修复结果回写](../modules/data-model.md#告警级修复结果回写m511)。
+> 字段与表结构见 [data-model.md §告警级修复结果回写](../modules/data-model.md#告警级修复结果回写-m51-1)。
 
 ## 1. 问题
 

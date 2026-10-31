@@ -97,11 +97,11 @@ Compose 从 `apps/platform/.env` 读取变量并注入容器。核心项：
 | `QUEUE_ENABLED` | 否 | `true`（compose 内） | 扫描队列模式：`auto` 自动判定 / `true` 强制异步 / `false` 强制同步 |
 | `IN_PROCESS_WORKER` | 否 | `true`（compose 内） | 单进程形态（`QUEUE_WORKER=0`）下进程内消费扫描队列；见下方说明 |
 
-> ⚠️ **扫描队列的消费者**：异步队列（入队立即返回 + 前端轮询）**必须有消费者**才会真正执行。容器部署默认由入口启动**独立 worker 进程**消费队列（compose `QUEUE_WORKER=1` → 容器 `DEPENDFIX_QUEUE_WORKER=1`）——扫描执行（含引擎同步子进程调用）在 worker 进程，**HTTP 进程 event loop 不被阻塞**，消除 BullMQ 锁续期失败（`could not renew lock` → stalled 重排）。设 `QUEUE_WORKER=0` 回退**单进程形态**，此时由进程内 worker 消费（compose `IN_PROCESS_WORKER` → 容器 `NUXT_IN_PROCESS_WORKER`，默认 `true`）。若自行编排容器（不经入口脚本），务必注入 `NUXT_IN_PROCESS_WORKER=true`（或 `NUXT_QUEUE_ENABLED=false` 走同步），否则异步任务无人消费而挂起；`auto` 模式下未启用进程内 worker 会自动降级同步（日志 `自动模式降级同步`）。入口同时按进程注入角色 `DEPENDFIX_ROLE`（worker 子进程 `worker` / HTTP 主进程 `server`；单进程形态归一化为 `server`），worker 侧据此跳过 HTTP-only 插件（周期清理 / 版本戳）——日志中可见 `跳过 HTTP-only 插件`。**worker 崩溃自愈**：连续快速失败超上限（5 次）后入口转为慢重试（`DEPENDFIX_QUEUE_WORKER_SLOW_RETRY_SECONDS`，缺省 300s），不再永久停止重启——`stale-cleanup` 只能改 DB，不能消费队列。宿主机重启 / 容器停止后遗留的任务由 `stale-cleanup` 收敛：`running` 在「执行超时 + 5 分钟宽限」后、`pending` 在「创建 + 5 分钟宽限」后（无消费者分支额外要求 job 年龄 ≥ 10 分钟）判 `orphan_run`，并释放 BullMQ 去重键，避免新触发被 `SCAN_PENDING_MERGED` 永久合并；完整口径见 [platform.md §10.6](../standards/platform.md#106-队列执行进程隔离独立-worker-进程) 与 [队列僵尸任务终结与去重键释放设计](../design/governance/queue-stale-recovery.md)。
+> ⚠️ **扫描队列的消费者**：异步队列（入队立即返回 + 前端轮询）**必须有消费者**才会真正执行。容器部署默认由入口启动**独立 worker 进程**消费队列（compose `QUEUE_WORKER=1` → 容器 `DEPENDFIX_QUEUE_WORKER=1`）——扫描执行（含引擎同步子进程调用）在 worker 进程，**HTTP 进程 event loop 不被阻塞**，消除 BullMQ 锁续期失败（`could not renew lock` → stalled 重排）。设 `QUEUE_WORKER=0` 回退**单进程形态**，此时由进程内 worker 消费（compose `IN_PROCESS_WORKER` → 容器 `NUXT_IN_PROCESS_WORKER`，默认 `true`）。若自行编排容器（不经入口脚本），务必注入 `NUXT_IN_PROCESS_WORKER=true`（或 `NUXT_QUEUE_ENABLED=false` 走同步），否则异步任务无人消费而挂起；`auto` 模式下未启用进程内 worker 会自动降级同步（日志 `自动模式降级同步`）。入口同时按进程注入角色 `DEPENDFIX_ROLE`（worker 子进程 `worker` / HTTP 主进程 `server`；单进程形态归一化为 `server`），worker 侧据此跳过 HTTP-only 插件（周期清理 / 版本戳）——日志中可见 `跳过 HTTP-only 插件`。**worker 崩溃自愈**：连续快速失败超上限（5 次）后入口转为慢重试（`DEPENDFIX_QUEUE_WORKER_SLOW_RETRY_SECONDS`，缺省 300s），不再永久停止重启——`stale-cleanup` 只能改 DB，不能消费队列。宿主机重启 / 容器停止后遗留的任务由 `stale-cleanup` 收敛：`running` 在「执行超时 + 5 分钟宽限」后、`pending` 在「创建 + 5 分钟宽限」后（无消费者分支额外要求 job 年龄 ≥ 10 分钟）判 `orphan_run`，并释放 BullMQ 去重键，避免新触发被 `SCAN_PENDING_MERGED` 永久合并；完整口径见 [platform.md §10.6](../standards/platform.md#_10-6-队列执行进程隔离-独立-worker-进程) 与 [队列僵尸任务终结与去重键释放设计](../design/governance/queue-stale-recovery.md)。
 
 > ⚠️ **Compose 变量名与容器变量名不同**：`AUTH_SECRET` 经 compose 映射为容器内 `NUXT_AUTH_SECRET`；`REGISTRATION_DISABLED` → `NUXT_REGISTRATION_DISABLED`；`QUEUE_ENABLED` → `NUXT_QUEUE_ENABLED` 等。Nuxt `runtimeConfig` 运行时覆盖只认 `NUXT_` 前缀。
 >
-> SMTP、OAuth、OIDC、Redis 队列等完整变量见 `apps/platform/.env.full.example`（完整分节）与[配置说明 → 平台配置](./configuration.md#平台配置appsplatform)。
+> SMTP、OAuth、OIDC、Redis 队列等完整变量见 `apps/platform/.env.full.example`（完整分节）与[配置说明 → 平台配置](./configuration.md#平台配置-apps-platform)。
 
 ## 数据卷与权限
 
@@ -147,7 +147,7 @@ docker compose exec -u 100:101 platform rm -rf /app/data/pnpm-store
 - **优先级**：pnpm 11+ 的 `storeDir` 只从命令行 / 环境变量 / `pnpm-workspace.yaml` / 全局配置读取（项目 `.npmrc` 只作用于认证与 registry），环境变量优先级最高——平台因此固定缓存位置，目标仓库在 `pnpm-workspace.yaml` 声明的 `storeDir` 不再生效（缓存位置属执行环境基础设施）。`pnpm store path` 的返回值带版本后缀（如 `/app/data/pnpm-store/v11`）。
 - **容量建议（经验值）**：store 随目标仓库依赖数量增长，中等规模仓库通常约 0.5-1.5 GB / 个；与数据库 / 备份共用 `dependfix-data` 卷，建议先预留 10 GB 并观察 `docker system df -v`，再按仓库数量调整。定期 `pnpm store prune` 清理无引用条目。
 - **备份注意**：卷级备份（下方「备份与恢复」的 tar 示例）会连同 store 一起打包；只需数据库时给 tar 加 `--exclude=./pnpm-store`。
-- **提交卫生**：安装产物不会进入交付提交——`fix` / `fix-and-pr`（且非 dry-run）运行开始时，引擎把 `.pnpm-store/` 与 `node_modules/` 写入目标仓库的 `.git/info/exclude`（幂等，不修改目标仓库的 `.gitignore`），交付提交本身按白名单与 fixer 声明路径收集（安装产物不在集合内，见 [pr-delivery-closure §7](../design/governance/pr-delivery-closure.md#7-m484-提交面白名单与-yaml-定点编辑)），排除条目另外保证它们不污染「无变更」判定；写入失败会 warn 但继续运行。
+- **提交卫生**：安装产物不会进入交付提交——`fix` / `fix-and-pr`（且非 dry-run）运行开始时，引擎把 `.pnpm-store/` 与 `node_modules/` 写入目标仓库的 `.git/info/exclude`（幂等，不修改目标仓库的 `.gitignore`），交付提交本身按白名单与 fixer 声明路径收集（安装产物不在集合内，见 [pr-delivery-closure §7](../design/governance/pr-delivery-closure.md#_7-m48-4-提交面白名单与-yaml-定点编辑)），排除条目另外保证它们不污染「无变更」判定；写入失败会 warn 但继续运行。
 
 ## 日志文件
 

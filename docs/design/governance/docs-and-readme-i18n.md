@@ -19,7 +19,7 @@ dependfix 是面向**全球开发者社区**的 GitHub 安全告警自动修复�
 ### 1.2 目标
 
 1. **文档站支持 en-US 切换**：参照 momei 的 `docs/i18n/<locale>/` 结构 + VitePress `locales` + `rewrites` 模式，对外 URL 保持 `/<locale>/...` 形式。
-2. **包 README 双语**：每个 `packages/*/README.md` 配套 `README.en-US.md`，顶部含语言切换链接，遵循 [`docs/standards/i18n.md §4` README 多语言规范](../../standards/i18n.md#4-readme-多语言规范)。
+2. **包 README 双语**：每个 `packages/*/README.md` 配套 `README.en-US.md`，顶部含语言切换链接，遵循 [`docs/standards/i18n.md §4` README 多语言规范](../../standards/i18n.md#_4-readme-多语言规范)。
 3. **纳入 CI 回归门禁**：依赖现有 `pnpm docs:check:i18n` + 新增 README 双语链接检查（防止 `README.md` / `README.en-US.md` 不同步）。
 4. **过渡期策略**：首批 `ui-ready` 仅覆盖"高频公开入口"（首页 / 快速开始 / 部署 / 翻译治理），深层 Standards 与低频 Guide 保持 `source-only`（按 §2.1 分层治理）。
 
@@ -75,7 +75,7 @@ export default defineConfig({
 | `packages/mcp/README.md` | ✅ | ❌ | ❌ |
 | `packages/skills/README.md` | ✅ | ❌ | ❌ |
 
-**缺口**：所有包 README 单语，违背 [`docs/standards/i18n.md §4` README 多语言规范](../../standards/i18n.md#4-readme-多语言规范)（"中文原版固定为 `README.md`，翻译版使用 `README.<locale>.md`"）。
+**缺口**：所有包 README 单语，违背 [`docs/standards/i18n.md §4` README 多语言规范](../../standards/i18n.md#_4-readme-多语言规范)（"中文原版固定为 `README.md`，翻译版使用 `README.<locale>.md`"）。
 
 ### 2.3 已有基础设施（可复用）
 
@@ -216,7 +216,7 @@ export default defineConfig({
 ```
 
 **不选的方案**：
-- **`docs/en-US/` 平行结构** —— 已被 [`docs/standards/i18n.md §6.2` 第 4 条](../../standards/i18n.md#6-贡献流程) 明确禁止（"旧目录回流或重复翻译页即阻塞"）
+- **`docs/en-US/` 平行结构** —— 已被 [`docs/standards/i18n.md §6.2` 第 4 条](../../standards/i18n.md#_6-贡献流程) 明确禁止（"旧目录回流或重复翻译页即阻塞"）
 - **URL 前缀 `i18n/en-US/`** —— URL 暴露内部组织，违反 momei 实践
 
 ### 4.2 包 README 双语命名
@@ -224,7 +224,7 @@ export default defineConfig({
 **决策**：**`README.md`（中文原版）+ `README.en-US.md`（英文翻译版）** + 顶部切换链接 `[简体中文](./README.md) | [English](./README.en-US.md)`（与 momei 完全一致）。
 
 **理由**：
-- 遵循 [`docs/standards/i18n.md §4`](../../standards/i18n.md#4-readme-多语言规范)（"中文原版固定为 `README.md`，翻译版使用 `README.<locale>.md`"）
+- 遵循 [`docs/standards/i18n.md §4`](../../standards/i18n.md#_4-readme-多语言规范)（"中文原版固定为 `README.md`，翻译版使用 `README.<locale>.md`"）
 - 与 momei 模板一致（[packages/cli/README.md](https://github.com/CaoMeiYouRen/momei/blob/master/packages/cli/README.md)）
 - npm registry 显示 README 渲染（GitHub 直接渲染仓库根 `README.md`）
 
@@ -235,7 +235,7 @@ export default defineConfig({
 
 ### 4.3 语言范围与发布阶段
 
-**决策**：**首批仅 en-US**，按 [`docs/standards/i18n.md §2` 语言发布分级](../../standards/i18n.md#2-语言发布分级) 三阶段准入：
+**决策**：**首批仅 en-US**，按 [`docs/standards/i18n.md §2` 语言发布分级](../../standards/i18n.md#_2-语言发布分级) 三阶段准入：
 
 | Locale | 阶段 | 首批范围 |
 |:---|:---|:---|
@@ -245,7 +245,7 @@ export default defineConfig({
 
 **不立即多语言并进**：先验证 en-US 流程跑通，再评估其他语言。
 
-### 4.4 freshness 分层映射（直接采用 [i18n 规范 §2.1](../../standards/i18n.md#21-文档翻译-freshness-分层)）
+### 4.4 freshness 分层映射（直接采用 [i18n 规范 §2.1](../../standards/i18n.md#_2-1-文档翻译-freshness-分层)）
 
 | 文档 | Tier | freshness 软上限 |
 |:---|:---|:---|

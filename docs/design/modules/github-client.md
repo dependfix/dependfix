@@ -182,7 +182,7 @@ export function mapGitHubError(error: unknown, context: string): AppError {
 
 两类均**匹配失败即退回 `PERMISSION_DENIED`**（不把未知 403 误判为「未启用」）；判定按 message 而非调用来源，故 Code Quality 若返回同一文案同样归为「未启用」。判定顺序：未启用 → 限流（`X-RateLimit-Remaining: 0`）→ 权限不足。
 
-> 未启用 ≠ 获取失败：`fetchRepoAlerts` 将其记入 `RunResult.alertsDisabled`（含 `source`）单列计数，不计入 `allErrors`、不影响 exitCode；提示文案由 `alertsDisabledHint(source)` 按源给出（见 [platform.md §6.1](../../standards/platform.md#61-错误码与告警状态口径平台展示消费-engine-错误码)）。
+> 未启用 ≠ 获取失败：`fetchRepoAlerts` 将其记入 `RunResult.alertsDisabled`（含 `source`）单列计数，不计入 `allErrors`、不影响 exitCode；提示文案由 `alertsDisabledHint(source)` 按源给出（见 [platform.md §6.1](../../standards/platform.md#_6-1-错误码与告警状态口径-平台展示消费-engine-错误码)）。
 
 ---
 

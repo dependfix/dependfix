@@ -8,7 +8,7 @@
 
 - **M6（最小平台 MVP）**：仓库 CRUD + 凭据管理 + 手动扫描 + 仪表板 + 单用户 + Docker Compose/SQLite（已交付 2026-08-08）
 - **M7.1（认证与用户体系）**：RBAC 三角色（admin/org_admin/viewer）+ 用户管理 + 个人界面 + 认证扩展（AUTH_MODE 互斥：OIDC SSO / GitHub·Google OAuth / 域名黑白名单）；单组织模型（默认组织）——规划定稿 + 设计先行完成（2026-08-09）
-- **M7.2（平台能力深化）**：BullMQ/Redis 任务队列 + 定时批量 + i18n + 生产部署（PostgreSQL/Helm/Sentry）+ 跨平台 Git + MCP 发布（见 [archive/todo-archive-phases-m6-m7-t711.md §M7.2](../../plan/archive/todo-archive-phases-m6-m7-t711.md#m72-平台能力深化已归档)）
+- **M7.2（平台能力深化）**：BullMQ/Redis 任务队列 + 定时批量 + i18n + 生产部署（PostgreSQL/Helm/Sentry）+ 跨平台 Git + MCP 发布（见 [archive/todo-archive-phases-m6-m7-t711.md §M7.2](../../plan/archive/todo-archive-phases-m6-m7-t711.md#m7-2-平台能力深化-已归档)）
 
 ### 分层架构
 
@@ -119,7 +119,7 @@ packages/core (@dependfix/core)
 - URL 策略：`prefix_and_default`（zh-CN 无前缀，en-US 加 `/en`）
 - 语言检测：Cookie + 浏览器偏好 + URL
 
-> M7.2 T708 任务定义与验收见 [M7.2](../../plan/archive/todo-archive-phases-m6-m7-t711.md#m72-平台能力深化已归档)。
+> M7.2 T708 任务定义与验收见 [M7.2](../../plan/archive/todo-archive-phases-m6-m7-t711.md#m7-2-平台能力深化-已归档)。
 
 ### 认证
 

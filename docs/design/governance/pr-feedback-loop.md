@@ -2,7 +2,7 @@
 
 > 状态：✅ 已实施（2026-10-30）——a（观察态）`2d0c9930` + b（评论与关闭）；重试（retry）按用户 2026-10-30 裁定延后（§8）
 >
-> 依赖：[M51.2 结论口径](./pr-build-deploy-signals.md#310-结论口径统一与同-ref-多轮收敛m512-2026-10-30)、
+> 依赖：[M51.2 结论口径](./pr-build-deploy-signals.md#_3-10-结论口径统一与同-ref-多轮收敛-m51-2-2026-10-30)、
 > [对外 PR 交付闭环](./pr-delivery-closure.md)、[平台通知与邮件推送](./platform-notification.md)。
 
 ## 1. 问题

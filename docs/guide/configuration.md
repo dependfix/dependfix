@@ -9,7 +9,7 @@
 
 ## 全部配置项
 
-> **范围说明**：本节为 **CLI（`dependfix` 命令 / GitHub Action）** 的配置项。**管理平台（`apps/platform`）** 的环境变量（数据库 / 认证 / 队列 / 执行器沙箱 / 备份 / 通知等）见文末 [平台配置](#平台配置appsplatform) 段。
+> **范围说明**：本节为 **CLI（`dependfix` 命令 / GitHub Action）** 的配置项。**管理平台（`apps/platform`）** 的环境变量（数据库 / 认证 / 队列 / 执行器沙箱 / 备份 / 通知等）见文末 [平台配置](#平台配置-apps-platform) 段。
 
 | 配置项 | 环境变量 | 类型 | 默认值 | 说明 |
 |:-------|:---------|:-----|:-------|:-----|
@@ -41,9 +41,9 @@
 | `commands` | — | `string[]` | — | 自定义验证命令（仅 CLI `--commands`）；**整链替换**默认链，不做合并 |
 | `rollbackGranularity` | `DEPENDFIX_ROLLBACK_GRANULARITY` | `unit` / `repo` | `unit` | 验证失败回滚粒度：`unit` 回退最近一个已通过 probe 的变更单元并重验一次（保留更早单元）；`repo` 保持整仓 `git reset --hard` 逃生语义。对应 CLI `--rollback-granularity` |
 | `mirrorCiScripts` | `DEPENDFIX_MIRROR_CI_SCRIPTS` | `boolean` | `false` | 把目标仓库 CI 独有的 `pnpm` / `npm` / `yarn` 脚本追加到验证链（CLI `--mirror-ci-scripts`；Action `mirror-ci-scripts`）。开启后在默认链**之后**执行，最多 3 条、首失败即停；`docker build` / `gh` / 任意 shell 与非单一形态片段（flag / env 赋值 / 额外参数；install 类命令视为已覆盖）只记 `mirrorSkipped` 不执行；**只校验命令形态与脚本存在性，不审计脚本体**（脚本内命令与 `pre`/`post` 钩子照常执行）；与默认链共用同一超时（`DEPENDFIX_VERIFY_TIMEOUT_MS`）与运行级取消面，并同样纳入修复前基线采样（基线已红 → 既有失败，不回滚、不改 exit code）。显式 `commands` 整链替换，**不与 mirror 叠加**；平台沿用默认关闭。详见 [对外 PR 交付闭环设计 §5](../design/governance/pr-delivery-closure.md) |
-| `retryFailed` | `DEPENDFIX_RETRY_FAILED` | `boolean` | `false` | 忽略同告警尝试上限并强制再试（CLI `--retry-failed`；Action `retry-failed`）。仅 `fix-and-pr` 生效：同一告警 / 同一目标版本 / 同一修复策略连续两次关闭后，第 3 次起**不执行升级、不建 PR**，落 `alertsSkippedByReason['repeated-failure']`（报告 `Skipped: Repeated failure`）；开启后仍执行并在报告 `Repeated Failure Attempts` 段标注 `forced (manual retry)`。计数载体是 PR 正文 HTML 注释（只计未合并的关闭 PR，最近 50 条，读取失败 fail-open）；全部命中时与零告警仓库同语义（不采样修复前基线）。详见 [对外 PR 交付闭环设计 §6](../design/governance/pr-delivery-closure.md#6-m483-同告警尝试指纹去重) |
-| `onBaselineRed` | `DEPENDFIX_ON_BASELINE_RED` | `skip` / `issue` / `draft` | `skip` | 修复后安装验证仍为既有失败（基线红）时的交付降级档位。`skip` 回滚并留痕（默认，行为与引入前一致）；`issue` 按「仓库集 + 失败命令集」指纹开 issue（同一指纹只开一次，关闭后不重开，需 `issues: write`），改动仍回滚；`draft` 不回滚，照常提交并创建**草稿** PR（正文带既有失败说明，`--wait-pr-checks` 不等待）。仅 `fix-and-pr` 生效；平台执行链只记录 `summary.deliverySkipped` 并在运行列表 / 详情展示「交付跳过」。三档均不改变 exit code（`PRE_EXISTING_FAILURE` 仍在跳过类白名单）。详见 [对外 PR 交付闭环设计 §16](../design/governance/pr-delivery-closure.md#16-m514-基线红--安装失败的交付降级2026-10-30) |
-| `waitPrChecks` | `DEPENDFIX_WAIT_PR_CHECKS` | `boolean` | `false` | 创建 PR 后等待 check 终态（CLI `--wait-pr-checks`；Action `wait-pr-checks`）。仅 `fix-and-pr` 生效：失败时默认评论失败 job 名 + URL + 尝试标记；宽限期（≥60s 且至少两轮）后仍无 check → `no_ci_detected`，**绝不判通过**；轮询 / 评论 / 关闭失败只记录，不改变修复结果与 exit code。详见 [对外 PR 交付闭环设计 §8](../design/governance/pr-delivery-closure.md#8-m485-pr-创建后-ci-回环cliaction-侧) |
+| `retryFailed` | `DEPENDFIX_RETRY_FAILED` | `boolean` | `false` | 忽略同告警尝试上限并强制再试（CLI `--retry-failed`；Action `retry-failed`）。仅 `fix-and-pr` 生效：同一告警 / 同一目标版本 / 同一修复策略连续两次关闭后，第 3 次起**不执行升级、不建 PR**，落 `alertsSkippedByReason['repeated-failure']`（报告 `Skipped: Repeated failure`）；开启后仍执行并在报告 `Repeated Failure Attempts` 段标注 `forced (manual retry)`。计数载体是 PR 正文 HTML 注释（只计未合并的关闭 PR，最近 50 条，读取失败 fail-open）；全部命中时与零告警仓库同语义（不采样修复前基线）。详见 [对外 PR 交付闭环设计 §6](../design/governance/pr-delivery-closure.md#_6-m48-3-同告警尝试指纹去重) |
+| `onBaselineRed` | `DEPENDFIX_ON_BASELINE_RED` | `skip` / `issue` / `draft` | `skip` | 修复后安装验证仍为既有失败（基线红）时的交付降级档位。`skip` 回滚并留痕（默认，行为与引入前一致）；`issue` 按「仓库集 + 失败命令集」指纹开 issue（同一指纹只开一次，关闭后不重开，需 `issues: write`），改动仍回滚；`draft` 不回滚，照常提交并创建**草稿** PR（正文带既有失败说明，`--wait-pr-checks` 不等待）。仅 `fix-and-pr` 生效；平台执行链只记录 `summary.deliverySkipped` 并在运行列表 / 详情展示「交付跳过」。三档均不改变 exit code（`PRE_EXISTING_FAILURE` 仍在跳过类白名单）。详见 [对外 PR 交付闭环设计 §16](../design/governance/pr-delivery-closure.md#_16-m51-4-基线红-安装失败的交付降级-2026-10-30) |
+| `waitPrChecks` | `DEPENDFIX_WAIT_PR_CHECKS` | `boolean` | `false` | 创建 PR 后等待 check 终态（CLI `--wait-pr-checks`；Action `wait-pr-checks`）。仅 `fix-and-pr` 生效：失败时默认评论失败 job 名 + URL + 尝试标记；宽限期（≥60s 且至少两轮）后仍无 check → `no_ci_detected`，**绝不判通过**；轮询 / 评论 / 关闭失败只记录，不改变修复结果与 exit code。详见 [对外 PR 交付闭环设计 §8](../design/governance/pr-delivery-closure.md#_8-m48-5-pr-创建后-ci-回环-cli-action-侧) |
 | `closeFailedPr` | `DEPENDFIX_CLOSE_FAILED_PR` | `boolean` | `false` | check 失败且聚合归因 `self_caused` 时关闭 PR 并删除分支（CLI `--close-failed-pr`；Action `close-failed-pr`）。需同时开启 `waitPrChecks`（配置校验拒绝单独开启）；`unknown` / `external_noise` / `pre_existing` 只评论不关闭，混合归因按 `unknown` 处理 |
 | `prCheckTimeoutMs` | `DEPENDFIX_PR_CHECK_TIMEOUT_MS` | `number` | `900000` | 单个 PR 的 check 等待上限（毫秒；60000-1800000）。超时记 `checksTimedOut`，保留 PR 交给后续运行 / 平台 |
 | `prCheckRunBudgetMs` | `DEPENDFIX_PR_CHECK_RUN_BUDGET_MS` | `number` | `1200000` | 运行级等待总预算（毫秒；60000-1800000），实际等待还受「剩余 job 预算 × 70%」约束 |
@@ -121,7 +121,7 @@
 
 ### 特殊场景
 
-- **GitHub Actions 内运行**：默认 `secrets.GITHUB_TOKEN` 自带 Contents:Write + Pull requests:Write，但**无 Dependabot alerts:Read**（详见 [roadmap.md M2 段](../plan/roadmap.md)，或 [archive/todo-archive-phases-m2-m55.md G2 处置记录](../plan/archive/todo-archive-phases-m2-m55.md#g2-处置记录github_token-无法访问-dependabot-alerts)）。两种方案：
+- **GitHub Actions 内运行**：默认 `secrets.GITHUB_TOKEN` 自带 Contents:Write + Pull requests:Write，但**无 Dependabot alerts:Read**（详见 [roadmap.md M2 段](../plan/roadmap.md)，或 [archive/todo-archive-phases-m2-m55.md G2 处置记录](../plan/archive/todo-archive-phases-m2-m55.md#g2-处置记录-github-token-无法访问-dependabot-alerts)）。两种方案：
   1. 额外配置 `DEPENDFIX_ALERTS_TOKEN` 使用 Fine-grained PAT（仅 Dependabot alerts:Read，最小权限）
   2. 切换到 `pnpm-audit` 数据源（`DEPENDFIX_ALERTS_SOURCE=pnpm-audit`，不依赖 token 读 alerts）
 - **SAML SSO 组织**：classic PAT 需在 GitHub 网页对组织逐个 **Enable SSO**；Fine-grained PAT 需组织管理员在 org 设置中预授权仓库范围。私有 org 仓库仅返回 token 可见范围内的仓库——`--owner` 发现不保证覆盖全部私有仓库，需按仓库授权
@@ -321,7 +321,7 @@ export DEPENDFIX_RETRY_FAILED=false
 | `QUEUE_WORKER` → `DEPENDFIX_QUEUE_WORKER` | — | compose `1` / 入口 `0` | 独立 worker 进程消费队列（消除 BullMQ 锁续期失败）；`0` 回退单进程。⚠️ **compose 侧名为 `QUEUE_WORKER`** |
 | `DEPENDFIX_QUEUE_WORKER_SOCKET` | — | `/tmp/dependfix-queue-worker.sock` | worker 内部 socket 路径（白名单外，容器内名） |
 | `DEPENDFIX_QUEUE_WORKER_SLOW_RETRY_SECONDS` | — | `300` | worker 连续快速失败超上限后的慢重试间隔（秒，范围 1-3600，非法 / 0 回退 300）；不永久放弃重启，避免任务无声挂起。compose 已转发 |
-| `DEPENDFIX_ROLE` | — | 入口按进程注入（worker / server） | 进程角色：`worker` 跳过 HTTP-only 插件（周期清理 / 版本戳），避免重复 DB 查询与日志噪声；单进程形态由入口归一化为 `server`（等价于未设置：不跳过任何插件）；直连进程不设置。白名单外，容器内名；口径见 [platform.md §10.6](../standards/platform.md#106-队列执行进程隔离独立-worker-进程) |
+| `DEPENDFIX_ROLE` | — | 入口按进程注入（worker / server） | 进程角色：`worker` 跳过 HTTP-only 插件（周期清理 / 版本戳），避免重复 DB 查询与日志噪声；单进程形态由入口归一化为 `server`（等价于未设置：不跳过任何插件）；直连进程不设置。白名单外，容器内名；口径见 [platform.md §10.6](../standards/platform.md#_10-6-队列执行进程隔离-独立-worker-进程) |
 | `IN_PROCESS_WORKER` → `NUXT_IN_PROCESS_WORKER` | — | `true`（compose）/ `false`（直连进程） | 进程内 worker（单进程部署唯一消费者）；默认值以 compose 转发为准 |
 | `STALE_CLEANUP_INTERVAL_MS` | — | `300000` | 孤儿任务清理节拍（毫秒） |
 | `STALE_CLEANUP_RUNNING_GRACE_MS` | — | `300000` | running run 超过执行超时后的宽限期（毫秒，> 0；非法 / 0 回退默认）；超过即判 `orphan_run`。compose 已转发 |

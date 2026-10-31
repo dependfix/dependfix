@@ -233,7 +233,7 @@ AND fixStatus IN ('not-tried', 'failed', 'skipped')
 AND scanRunId IN (<scope run ids>)
 ```
 
-- 「未修复」包含 `not-tried` / `failed` / `skipped`（覆盖跨 major 跳过与交付跳过）；`converged` 表示「本地已满足、无需升级」，不计入引擎的 `alertsUnfixed` 口径。**明细与汇总同源（M51.1）**：引擎报告的 `alertOutcomes` 会按同一键回写 `ScanResult.fixStatus`，因此按明细聚合的通知（`security_critical` / `security_high` / `weekly_digest`）不再把 converged 告警计入活跃明细；回写规则见 [data-model.md §告警级修复结果回写](../modules/data-model.md#告警级修复结果回写m511)。
+- 「未修复」包含 `not-tried` / `failed` / `skipped`（覆盖跨 major 跳过与交付跳过）；`converged` 表示「本地已满足、无需升级」，不计入引擎的 `alertsUnfixed` 口径。**明细与汇总同源（M51.1）**：引擎报告的 `alertOutcomes` 会按同一键回写 `ScanResult.fixStatus`，因此按明细聚合的通知（`security_critical` / `security_high` / `weekly_digest`）不再把 converged 告警计入活跃明细；回写规则见 [data-model.md §告警级修复结果回写](../modules/data-model.md#告警级修复结果回写-m51-1)。
   - **触发前提**：`success` / `converged` / `failed` 只在修复链路（`fix` / `fix-and-pr`）产生；`report-only` 运行无修复动作，其告警仍按既有口径计入明细（不可修复的会落 `skipped`，与 `not-tried` 同属未修复集合），故默认 `schedule.mode` 为 `report-only` 的部署不受本口径影响（此前已有 `success` 结论的行保持原值，不被 `report-only` 重置）。
   - **`success` 口径首次真正生效**：此前生产路径恒写 `not-tried`，「已修复不计入」形同虚设；回写落地后 `fix` / `fix-and-pr` 运行一旦产出修复，该告警即退出未修复明细（即使上游尚未关闭），后续运行给出新结论时按最新结论重新判定。这是本契约的**行为变更**，发布说明需披露。
   - 存量 run（回写前落库）行仍为 `not-tried`，不回填。

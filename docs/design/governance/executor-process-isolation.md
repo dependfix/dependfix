@@ -179,8 +179,8 @@ scan-queue.add(jobId = scan-<repositoryId>)   [scan-queue.ts]
 **残余边界（登记，不阻断）**：
 
 - 两进程共享 SQLite（多进程写）——依赖既有 WAL + `busy_timeout`（M23.1 落地）；需运行期验证。
-- worker 进程会重复启动周期插件（`stale-cleanup` / 启动期备份），均为幂等操作，代价为重复查询。**实施结果（2026-10-16）**：周期清理与部署产物版本戳已按进程角色收敛为 HTTP 主进程单点执行——入口向两进程分别注入 `DEPENDFIX_ROLE`（worker / server），worker 侧据此跳过 HTTP-only 插件；worker 侧仅保留两进程共用的启动期数据源引导；启动期备份的双份副作用（保留窗口减半）登记为已知边界。口径见 [platform.md §10.6](../../standards/platform.md#106-队列执行进程隔离独立-worker-进程)。
-- worker 进程崩溃后由 entrypoint 看护循环自动重启（M40.4 落地，指数退避 + 连续重启上限，口径见 [platform.md §10.6](../../standards/platform.md#106-队列执行进程隔离独立-worker-进程)）；连续重启超上限后由 `stale-cleanup` 兜底。
+- worker 进程会重复启动周期插件（`stale-cleanup` / 启动期备份），均为幂等操作，代价为重复查询。**实施结果（2026-10-16）**：周期清理与部署产物版本戳已按进程角色收敛为 HTTP 主进程单点执行——入口向两进程分别注入 `DEPENDFIX_ROLE`（worker / server），worker 侧据此跳过 HTTP-only 插件；worker 侧仅保留两进程共用的启动期数据源引导；启动期备份的双份副作用（保留窗口减半）登记为已知边界。口径见 [platform.md §10.6](../../standards/platform.md#_10-6-队列执行进程隔离-独立-worker-进程)。
+- worker 进程崩溃后由 entrypoint 看护循环自动重启（M40.4 落地，指数退避 + 连续重启上限，口径见 [platform.md §10.6](../../standards/platform.md#_10-6-队列执行进程隔离-独立-worker-进程)）；连续重启超上限后由 `stale-cleanup` 兜底。
 
 ## 4. 决策点（待用户裁定）
 
@@ -213,7 +213,7 @@ scan-queue.add(jobId = scan-<repositoryId>)   [scan-queue.ts]
 - [executor-sandbox.md](./executor-sandbox.md)：§3 接口契约；[沙箱执行器设计与推送机制分片](./executor-sandbox-implementation.md)：§7.2 镜像策略（自包含入口缺口）/ §7.4 执行器并存路由 / §7.8 降级状态机契约
 - [platform.md](../../standards/platform.md)：§3.3 迁移与数据库口径 / §10 运行时与部署
 - 代码锚点：`apps/platform/server/services/queue/queue.service.ts`、`scan-worker.ts`、`scan-queue.ts`、`apps/platform/server/services/executor/container-executor.ts`、`apps/platform/server/plugins/stale-cleanup.ts`
-- 规划：`docs/plan/roadmap.md` §M38（2026-10-09 已闭环归档，见 [M38](../../plan/archive/todo-archive-phases-m38.md#m38-平台执行模型隔离m381m386-全部已闭环--2026-10-09-归档)）+ [platform.md §10.5 / §10.6](../../standards/platform.md)
+- 规划：`docs/plan/roadmap.md` §M38（2026-10-09 已闭环归档，见 [M38](../../plan/archive/todo-archive-phases-m38.md#m38-平台执行模型隔离-m38-1-m38-6-全部已闭环-2026-10-09-归档)）+ [platform.md §10.5 / §10.6](../../standards/platform.md)
 
 ## 8. 执行超时与运行级取消（2026-10-17）
 

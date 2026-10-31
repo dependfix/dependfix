@@ -4,7 +4,7 @@
 
 - Node.js ^22.23.4 || ^24.22.1（2026-10-21 Node 安全公告基线，低于该版本存在未修复的 High 级漏洞；20.x 已 EOL）
 - pnpm（推荐最新稳定版）
-- GitHub Token（用于告警拉取和 PR 创建；**本地无 token 也可用 `--alerts-source pnpm-audit` 回退**，见 [本地无 token 场景](#本地无-token-场景pnpm-audit-回退)）
+- GitHub Token（用于告警拉取和 PR 创建；**本地无 token 也可用 `--alerts-source pnpm-audit` 回退**，见 [本地无 token 场景](#本地无-token-场景-pnpm-audit-回退)）
   - `report-only` / `fix` 模式：需 `security-events: read` 权限
   - `fix-and-pr` 模式：额外需 `contents: write` + `pull-requests: write` 权限
 
@@ -215,7 +215,7 @@ jobs:
 >
 > **历史状态**：M11 T1005 路由接线已就位（2026-08-20）；平台 Web UI 曾暴露 sandbox 选项（仓库管理 → 添加/编辑 → 执行方式下拉）。以下为真实执行闭环后的设计适用范围。
 >
-> **适用范围（真实执行闭环后）**：owner/org 多仓库扫描、`--allow-major-upgrade` 跨线升级、对不可信仓库 owner 模式修复——这些场景下恶意依赖脚本在容器内执行的风险显著高于单可信仓库场景，sandbox 执行把执行隔离在独立 rootless 容器内（与平台容器解耦），详见 [executor-sandbox.md §7](../design/governance/executor-sandbox-implementation.md#7-sandbox-执行器设计)。
+> **适用范围（真实执行闭环后）**：owner/org 多仓库扫描、`--allow-major-upgrade` 跨线升级、对不可信仓库 owner 模式修复——这些场景下恶意依赖脚本在容器内执行的风险显著高于单可信仓库场景，sandbox 执行把执行隔离在独立 rootless 容器内（与平台容器解耦），详见 [executor-sandbox.md §7](../design/governance/executor-sandbox-implementation.md#_7-sandbox-执行器设计)。
 >
 > **不启用**：单可信仓库 + 本地开发场景下默认 `ContainerExecutor` 即可，无 rootless daemon 启动成本。
 
@@ -277,7 +277,7 @@ docker --context rootless info --format '{{.SecurityOptions}}'
 - 若平台容器也不可用 → **run 标 `failed`**（`container_unavailable`）。
 - 旧 §7.8 的 `sandbox_unavailable` A/B 场景在入口关闭期间不再发生；真实执行闭环、入口恢复后按 §7.8 契约执行。
 
-A/B 场景差异化见 [executor-sandbox.md §7.8.1](../design/governance/executor-sandbox-implementation.md)（恢复后适用）；治理登记见 [sandbox-security-governance.md §5 G5](../design/governance/sandbox-security-governance.md#5-治理决议与登记) + [§7.1 验收段](../design/governance/sandbox-security-governance.md)。
+A/B 场景差异化见 [executor-sandbox.md §7.8.1](../design/governance/executor-sandbox-implementation.md)（恢复后适用）；治理登记见 [sandbox-security-governance.md §5 G5](../design/governance/sandbox-security-governance.md#_5-治理决议与登记) + [§7.1 验收段](../design/governance/sandbox-security-governance.md)。
 
 **反模式（绝对禁止）**：
 
@@ -285,7 +285,7 @@ A/B 场景差异化见 [executor-sandbox.md §7.8.1](../design/governance/execut
 - **DinD `--privileged` 启动 sandbox**：[CVE-2019-5736](https://unit42.paloaltonetworks.com/cve-2019-5736/) runc 覆写 `/proc/self/exe` 逃逸 + [CVE-2024-21626](https://github.com/advisories/GHSA-xfj7-4fh9-h89v) runc `WORKDIR` 文件描述符泄漏——这两条 CVE 与 `--privileged` 强绑定，rootless mode 默认关闭
 - **平台容器启动 rootless daemon 自身作为 sandbox**：破坏"独立 PID/Mount namespace"目的，平台漏洞直接蔓延到 sandbox
 
-完整设计、RuntimeAdapter 抽象、K8s+Helm 部署预留见 [executor-sandbox.md §7](../design/governance/executor-sandbox-implementation.md#7-sandbox-执行器设计)；威胁模型与治理登记见 [sandbox-security-governance.md §5 G5](../design/governance/sandbox-security-governance.md#5-治理决议与登记)。
+完整设计、RuntimeAdapter 抽象、K8s+Helm 部署预留见 [executor-sandbox.md §7](../design/governance/executor-sandbox-implementation.md#_7-sandbox-执行器设计)；威胁模型与治理登记见 [sandbox-security-governance.md §5 G5](../design/governance/sandbox-security-governance.md#_5-治理决议与登记)。
 
 ### Action 输出
 

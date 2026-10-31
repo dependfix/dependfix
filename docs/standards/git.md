@@ -23,7 +23,7 @@
 2. **格式要求**：提交消息必须符合 Conventional Commits 规范，格式：`<type>(<scope>): <description>`，且 `description` 统一使用**中文或用户使用的语言**。
 3. **质量前置**：提交前必须确认 A 阶段（`Code Auditor (代码审计员)`）已放行，且 `pnpm run lint:check`（无 `--fix` 的门禁命令；涉及 CSS / SCSS / Vue 样式时另跑 `pnpm run lint:css:check`）、`pnpm typecheck` 和必要的定向测试均已通过。质量门禁未通过时不得提交。
 4. **原子粒度**：一个提交对应一个逻辑变更，关联且仅关联 `todo.md` 中的一个原子条目。
-5. **分批提交（长任务强制）**：单次提交规模建议与拆分规则见 [规划规范 §1.1 任务粒度约束](./planning.md#11-硬性约束)；按"可独立验证"的顺序分批次提交，每批独立过 Review Gate；锁文件（pnpm-lock.yaml）等随其所属批次提交。
+5. **分批提交（长任务强制）**：单次提交规模建议与拆分规则见 [规划规范 §1.1 任务粒度约束](./planning.md#_1-1-硬性约束)；按"可独立验证"的顺序分批次提交，每批独立过 Review Gate；锁文件（pnpm-lock.yaml）等随其所属批次提交。
 6. **推送禁令**：`git commit` 后不得自动执行 `git push`，推送仅限用户明确要求时执行。提交完成后应告知用户"已提交到本地，等待推送确认"。
 
 ### 3.1 提交消息格式
@@ -32,7 +32,7 @@
 
 **提交策略（先评估后提交）**：
 
-1. 先评估改动规模，决定单次提交还是分批提交（分批规则见 [规划规范 §1.1 任务粒度约束](./planning.md#11-硬性约束)）。
+1. 先评估改动规模，决定单次提交还是分批提交（分批规则见 [规划规范 §1.1 任务粒度约束](./planning.md#_1-1-硬性约束)）。
 2. 再判断类型：**默认单类型提交**；多类型提交仅用于改动互相关联较大、不宜拆分的情况。
 3. 最后选择最合适的类型生成提交消息。
 
@@ -102,12 +102,12 @@
 - 当 commit 误把跨子批次改动纳入（如 commit 1 含 commit 2 应有的 i18n key）时，可 `git reset --soft HEAD~1` 回滚到 commit 前状态、重新分两次提交——比 `git commit --amend` 更彻底地保持原子粒度。
 - **仅在 commit 未推送（ahead of remote）时适用**；已推送的 commit 必须靠后续 commit 修复或 revert，不能 reset（会与其他开发者历史冲突）。
 - stage 前先 `git diff --staged` 确认本次 commit 内容边界——避免误把跨子批次改动纳入同一 commit。
-- 与 [§3.2 单文件跨 type 改动需提前规划 commit 拆分](#32-单文件跨-type-改动需提前规划-commit-拆分) 配套——§3.2 处理 staged diff 误纳（`git restore --staged`），§3.4 处理已 commit 但未推送的误纳（`git reset --soft`）；详见 [归档 §二十四](../design/governance/experience-archive.md)。
+- 与 [§3.2 单文件跨 type 改动需提前规划 commit 拆分](#_3-2-单文件跨-type-改动需提前规划-commit-拆分) 配套——§3.2 处理 staged diff 误纳（`git restore --staged`），§3.4 处理已 commit 但未推送的误纳（`git reset --soft`）；详见 [归档 §二十四](../design/governance/experience-archive.md)。
 
 ### 3.5 lint auto-fix 接受策略（不要回滚，独立 chore commit 接受）
 
 - ESLint `--fix` 自动修改（如 `@typescript-eslint/array-type` 规则偏好 `T[]` 写法替换 `Array<T>`、`@typescript-eslint/consistent-type-imports` 加 `type` 关键字等）是合规修改——两种写法 TypeScript 等价，规则要求即合规。**应该接受 + 独立 `chore` commit**——不要回滚。
-- 详见 [归档 §四十二](../design/governance/experience-archive-§41-§48-archive-batch.md#四十二coverage-阈值对-refactor-顺序敏感纯-rename-commit-可触发无关覆盖债务清算2026-08-27ci-run-33068271005-修复)
+- 详见 [归档 §四十二](../design/governance/experience-archive-§41-§48-archive-batch.md#四十二、coverage-阈值对-refactor-顺序敏感-纯-rename-commit-可触发无关覆盖债务清算-2026-08-27-ci-run-33068271005-修复)
 - 修正：lint auto-fix 是合规修改，**不要回滚**。如不希望与 docs 提交混杂，应在 commit 前 `git restore --staged <file>` 排除；如已 uncommitted，作为 standalone chore commit 独立接受。
 - 实操：在每次 commit 前过一遍 lint（门禁用 `pnpm run lint:check`，本地自动修复用 `pnpm lint`；另 `pnpm run lint:md` / `pnpm typecheck`）确认 0 error；如发现 working tree 有未提交 lint auto-fix 改动，按本节策略处理（接受并独立 commit）。
 
@@ -154,7 +154,7 @@ commit message 应聚焦于"当次提交的改动"+"可供事后复查的信息"
 - **执行与审计口径**：`git commit` / `git commit --amend` 前先 `git status` 逐项确认关联文件已暂存（不只修复点文件）；Review Gate 以「提交态自洽」而非「工作区自洽」为准。
 - **反例**：M29.7 修复 commit 只含 4 文件（纯函数 + 组件 + 测试 + e2e 注释），`disabled` 透传 + i18n key 未暂存 → A 阶段审计 RG-B3 Reject。
 - **锁文件随安装连带升级**：为新增依赖跑 `pnpm install` 会把其它包 range 内的依赖一并升到最新（`--frozen-lockfile` 拦不住）。提交前 `git diff -U0 pnpm-lock.yaml` 逐 hunk 核验，只保留目标依赖的 importer / packages / snapshots 条目，其余还原后再跑 `--frozen-lockfile` 验证。
-- 详见 [归档 §六十五](../design/governance/experience-archive-§49-§69-recent-investigation.md#六十五m30-归档批次经验沉淀)
+- 详见 [归档 §六十五](../design/governance/experience-archive-§49-§69-recent-investigation.md#六十五、m30-归档批次经验沉淀)
 
 ### 3.7.1 lint-staged 的 `git add` 任务会连带暂存工作区其它已改文件
 

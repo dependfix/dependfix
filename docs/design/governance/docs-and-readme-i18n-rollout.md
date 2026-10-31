@@ -102,7 +102,7 @@ CI test job 增加步骤：`pnpm check:readme-i18n`（与现有 `pnpm docs:check
 
 ## 8. 翻译流程与质量门禁
 
-### 8.1 翻译流程（参照 [`docs/standards/i18n.md §6`](../../standards/i18n.md#6-贡献流程)）
+### 8.1 翻译流程（参照 [`docs/standards/i18n.md §6`](../../standards/i18n.md#_6-贡献流程)）
 
 **翻译前**：
 1. 明确目标语言（en-US）+ 阶段目标（`ui-ready` 首批）
@@ -126,7 +126,7 @@ pnpm lint
 pnpm typecheck
 ```
 
-### 8.2 术语约束（沿用 [`docs/standards/i18n.md §5`](../../standards/i18n.md#5-术语约束)）
+### 8.2 术语约束（沿用 [`docs/standards/i18n.md §5`](../../standards/i18n.md#_5-术语约束)）
 
 - 保留产品名：`dependfix` /`Dependabot` /`Code Scanning` /`GitHub` /`pnpm` /`TypeORM`
 - 治理术语：`locale` /`fallback` /`readiness` 优先与现有英文一致
@@ -175,9 +175,9 @@ pnpm typecheck
 ### 9.3 治理验收
 
 - 文档站 i18n 与 [`docs/standards/i18n.md`](../../standards/i18n.md) 规范对齐
-- 包 README 双语与 [`docs/standards/i18n.md §4`](../../standards/i18n.md#4-readme-多语言规范) 对齐
-- 翻译流程与 [`docs/standards/i18n.md §6`](../../standards/i18n.md#6-贡献流程) 对齐
-- 术语约束与 [`docs/standards/i18n.md §5`](../../standards/i18n.md#5-术语约束) 对齐
+- 包 README 双语与 [`docs/standards/i18n.md §4`](../../standards/i18n.md#_4-readme-多语言规范) 对齐
+- 翻译流程与 [`docs/standards/i18n.md §6`](../../standards/i18n.md#_6-贡献流程) 对齐
+- 术语约束与 [`docs/standards/i18n.md §5`](../../standards/i18n.md#_5-术语约束) 对齐
 
 ## 10. 上收触发条件（何时纳入 [todo.md](../../plan/todo.md) 当前阶段）
 
@@ -196,7 +196,7 @@ pnpm typecheck
 - **目录结构**：`docs/i18n/<locale>/` 镜像结构（vs `docs/<locale>/` 平行结构 / 共享单文件结构）
 - **包 README**：手动翻译 + 人工 review（vs AI 自动翻译 / GitHub Action 自动翻译）
 - **首批范围**：仅 en-US（vs 同时 zh-TW / ja-JP / ko-KR）
-- **freshness 策略**：直接沿用 [`docs/standards/i18n.md §2.1`](../../standards/i18n.md#21-文档翻译-freshness-分层) 三层（vs 全部 must-sync / 全部 source-only）
+- **freshness 策略**：直接沿用 [`docs/standards/i18n.md §2.1`](../../standards/i18n.md#_2-1-文档翻译-freshness-分层) 三层（vs 全部 must-sync / 全部 source-only）
 - **同步门禁**：新增 `pnpm check:readme-i18n`（vs 仅靠人工 review / 仅 lint:md）
 - **本次只文档**：先文档沉淀 + 评估（与 C68 决策一致，避免一次性大改动）
 

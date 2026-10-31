@@ -110,7 +110,7 @@
 ### 4.3 映射要点
 
 - `VERIFICATION_FAILED` → `verify` + `deterministic`：升级后验证链失败（可能破坏性更新），需重点研判；**不提供一键重试**。
-- `UNEXPECTED_CHANGES` / `NO_CHANGES` → `deliver` + `deterministic`：交付提交集合不合法（存在未声明的已跟踪改动 / 只有生成物与未跟踪文件）→ 远程未落地，需人工清理工作区后重跑（口径见 [pr-delivery-closure.md §7](./pr-delivery-closure.md#7-m484-提交面白名单与-yaml-定点编辑)）。两者均进 `scan-run-state` 的引擎交付失败类别，不误判 `completed`。
+- `UNEXPECTED_CHANGES` / `NO_CHANGES` → `deliver` + `deterministic`：交付提交集合不合法（存在未声明的已跟踪改动 / 只有生成物与未跟踪文件）→ 远程未落地，需人工清理工作区后重跑（口径见 [pr-delivery-closure.md §7](./pr-delivery-closure.md#_7-m48-4-提交面白名单与-yaml-定点编辑)）。两者均进 `scan-run-state` 的引擎交付失败类别，不误判 `completed`。
 - `PRE_EXISTING_FAILURE` → `verify` + `deterministic`：修复前基线即红，非本次引入（已有 `FixAction.preExisting` 信号可复用）。
 - `network_violation` → `verify` + `deterministic`：执行期外联审计命中黑名单（验证链外联违规），需研判；不提供一键重试。
 - `engine_exit_2` → `runtime` + `deterministic`（进程级全仓库失败 / 全量回滚）。
@@ -195,7 +195,7 @@
 ### 5.8 跳过与截断披露
 
 - **数据模型**：`RunSummary.alertsUnfixed` 为告警级未修复数（逐条 `isAlertFixedByActions` 判定，converged 不计入；不能直接用 `alertsFixed` action 数做减法）。`RunSummary.alertsSkippedByReason` 按 `subdirectory-manifest` / `cross-major` / `not-fixable` / `override-protected` / `repeated-failure` 分组，满足 `sum(values) === alertsSkipped`；`RunSummary.alertsTruncatedBySeverity` 按 `critical` / `high` / `medium` / `low` / `unknown` 分组，满足 `sum(values) === alertsTruncated`。枚举唯一源为 `SKIP_REASONS` / `ALERT_SEVERITIES`；所有累加点经 `addSkipped` / `addTruncatedBySeverity`，禁止直接自增。
-- **累加点**：`repo-fix.ts` 的子目录 / 根直接依赖 lockfile 桶 → `subdirectory-manifest`；跨大版本人工 review（含收敛判定后的低实例残留）→ `cross-major`；常规链路不可自动修复 / 缺推荐版本 → `not-fixable`；`override-protect.ts` 命中保护名单 → `override-protected`；`app/repeated-failure.ts` 的尝试上限命中 → `repeated-failure`（判定在安装与验证之前，读取失败 fail-open，口径见 [pr-delivery-closure.md §6](./pr-delivery-closure.md#6-m483-同告警尝试指纹去重)）。`limitAlerts` 丢弃集合在 fix / report 两条抓取路径统一按 severity 累计。
+- **累加点**：`repo-fix.ts` 的子目录 / 根直接依赖 lockfile 桶 → `subdirectory-manifest`；跨大版本人工 review（含收敛判定后的低实例残留）→ `cross-major`；常规链路不可自动修复 / 缺推荐版本 → `not-fixable`；`override-protect.ts` 命中保护名单 → `override-protected`；`app/repeated-failure.ts` 的尝试上限命中 → `repeated-failure`（判定在安装与验证之前，读取失败 fail-open，口径见 [pr-delivery-closure.md §6](./pr-delivery-closure.md#_6-m48-3-同告警尝试指纹去重)）。`limitAlerts` 丢弃集合在 fix / report 两条抓取路径统一按 severity 累计。
 - **展示口径**：UI 详情显示 `未修复 X / 总数 Y · 截断 Z（未评估）· 跳过 W`，其中 `Y = alertsFound + alertsTruncated`、`X` 取 `alertsUnfixed`；分组 chips 固定顺序。列表只显示紧凑总数。PR 正文与 Markdown 报告输出 `Not Fixed / Skipped` 表，含跳过原因、截断严重级别与 `Failed / other not fixed` 残差；`Unfixed` 的分子分母按「已评估告警」表述，截断明确标注未评估。
 - **旧数据降级**：缺分组字段时按 `total - sum(known)` 补 `other` 行，不抛错且总数不丢；分组和大于总数时不再补 `other`（分组优先，异常数据原样展示）。
 - **不做什么**：不改跳过策略 / 跨 major 判定 / `allowMajorUpgrade`；不改 PR 指纹与去重；截断告警不伪造逐条明细，只披露分组计数。
@@ -251,4 +251,4 @@
 - [executor-sandbox.md §7.8 降级状态机契约](./executor-sandbox-implementation.md)
 - [platform.md](../../standards/platform.md)
 - [M45.4](../../plan/todo-archive.md)（受约束重试入口落地条目）
-- [M37](../../plan/archive/todo-archive-phases-m37.md#m37-运行可观测性与体验记忆m371m376-全部已闭环--2026-10-08-归档)（M37.1 已闭环归档）
+- [M37](../../plan/archive/todo-archive-phases-m37.md#m37-运行可观测性与体验记忆-m37-1-m37-6-全部已闭环-2026-10-08-归档)（M37.1 已闭环归档）

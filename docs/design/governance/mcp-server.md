@@ -164,7 +164,7 @@ Skill: dependfix-remediator
 Agent: 用户对话 → Skill 编排 → MCP 执行 → 报告
 ```
 
-产品 skill `dependfix-remediator`（规划见 [archive/todo-archive-phases-m2-m55.md §M5.5](../../plan/archive/todo-archive-phases-m2-m55.md#m55-skill-编排cli-先行已归档)）以 **CLI 为先行执行后端**（M5.5 T506/T507），MCP 为增强后端：配置了 MCP 的环境走 tool 调用（T605 验证一致性、T706 发布），未配置的环境回退 CLI 命令。
+产品 skill `dependfix-remediator`（规划见 [archive/todo-archive-phases-m2-m55.md §M5.5](../../plan/archive/todo-archive-phases-m2-m55.md#m5-5-skill-编排-cli-先行-已归档)）以 **CLI 为先行执行后端**（M5.5 T506/T507），MCP 为增强后端：配置了 MCP 的环境走 tool 调用（T605 验证一致性、T706 发布），未配置的环境回退 CLI 命令。
 
 ---
 
@@ -172,7 +172,7 @@ Agent: 用户对话 → Skill 编排 → MCP 执行 → 报告
 
 | 阶段 | 内容 |
 |:-----|:-----|
-| **M6 T605** | MCP Server（`@dependfix/mcp`）：骨架 + `fetch_alerts` / `get_last_report` 只读 tool + `run_scan` / `fix_dependency` 写入 tool + CLI 一致性断言（2026-08-07 规划：原 T605/T606 合并，见 [M6 规划决策](../../plan/archive/todo-archive-phases-m6-m7-t711.md#m6-最小平台-mvp已归档)） |
+| **M6 T605** | MCP Server（`@dependfix/mcp`）：骨架 + `fetch_alerts` / `get_last_report` 只读 tool + `run_scan` / `fix_dependency` 写入 tool + CLI 一致性断言（2026-08-07 规划：原 T605/T606 合并，见 [M6 规划决策](../../plan/archive/todo-archive-phases-m6-m7-t711.md#m6-最小平台-mvp-已归档)） |
 | **M7 T706** | MCP Server 发布 npm + 集成到 `dependfix-remediator` skill 双后端 |
 
 ---

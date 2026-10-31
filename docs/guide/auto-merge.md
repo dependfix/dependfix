@@ -74,7 +74,7 @@ pull_request_rules:
 >
 > mergify 仍以 `check-success` 全绿作为**唯一**合并条件：dependfix 的 check 归因
 > （`self_caused` / `external_noise` / `pre_existing` ……）只用于解释失败来源与评论，
-> **不构成合并豁免**（见 [对外 PR 交付闭环设计 §9](../design/governance/pr-delivery-closure.md#9-m486-外部作业归因与自动合并门禁)）。
+> **不构成合并豁免**（见 [对外 PR 交付闭环设计 §9](../design/governance/pr-delivery-closure.md#_9-m48-6-外部作业归因与自动合并门禁)）。
 
 ### 3. 验证
 

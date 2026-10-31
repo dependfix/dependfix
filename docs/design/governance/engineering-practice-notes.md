@@ -1,13 +1,13 @@
 # 工程实践判例（engineering-practice-notes）
 
 > **状态**：✅ 持续追加（2026-10-26 首版，承接 `development.md §5.1` 分层治理）
-> **定位**：保存规则的**实现细节、原因与判例**，不是规范。强制规则只存在于 [开发规范 §5.1](../../standards/development.md#51-工程实践规则) 的规则表；本文件不作为放行依据。
+> **定位**：保存规则的**实现细节、原因与判例**，不是规范。强制规则只存在于 [开发规范 §5.1](../../standards/development.md#_5-1-工程实践规则) 的规则表；本文件不作为放行依据。
 > **准入**：只收录已从规范迁出的条目、需要溯源的设计取舍、以及审查时值得对照的判例。新增内容必须有旧编号或明确来源，禁止在此另立新规则。
 > **执行方式**：审查时先查 [review 检查点矩阵](../../../.github/skills/code-reviewer/references/code-quality-checklist.md)；矩阵指向本文件的锚点仅用于理解实现，不替代检查动作。
 
 ## 1. 使用边界
 
-- 规则与判例冲突时，以 [开发规范 §5.1](../../standards/development.md#51-工程实践规则) 的规则表为准。
+- 规则与判例冲突时，以 [开发规范 §5.1](../../standards/development.md#_5-1-工程实践规则) 的规则表为准。
 - 本文件条目可被压缩、合并或删除；删除前确认其判例价值已由设计文档或经验归档承接。
 - 旧编号保留在标题中，便于 `rg "5\.1\.N"` 追溯；新引用一律使用 `EP-xx` 锚点。
 - `docs/design/governance/experience-archive*.md` 与 `spec-and-doc-governance.md` 中的旧 `§5.1.N` 引用是历史记录，保留原样；需要现行规则时以本文件 §6 映射表为准。
@@ -61,7 +61,7 @@ git config 优先级 `local > global > system`，`.git/config [user]` 会**静�
 
 ### EP-22 构建产物 dts 入口与共享 chunk 文件名冲突（tsdown `hash:false`）（原 5.1.26）
 
-多 entry 构建时用 `outputOptions.chunkFileNames` 把 chunk 隔离到 `chunks/` 子目录，entry 名保持稳定；构建后 `dist/` 出现 `index2.d.mts` / `index2.mjs` 即命中（详见 [backlog.md §已知边界](../../plan/backlog.md#tsdown-hashfalse-下-entry-与共享-chunk-文件名冲突持续观察)）。
+多 entry 构建时用 `outputOptions.chunkFileNames` 把 chunk 隔离到 `chunks/` 子目录，entry 名保持稳定；构建后 `dist/` 出现 `index2.d.mts` / `index2.mjs` 即命中（详见 [backlog.md §已知边界](../../plan/backlog.md#tsdown-hash-false-下-entry-与共享-chunk-文件名冲突-持续观察)）。
 
 ### EP-23 迁移 / 等价性判断前必须回读迁移前源码（原 5.1.27）
 
@@ -85,7 +85,7 @@ git config 优先级 `local > global > system`，`.git/config [user]` 会**静�
 
 ### EP-28 存在「第三态」时「全部失败」判据不能用「失败数 == 总数」（原 5.1.37）
 
-多源 / 多分支判定只要存在第三态（既非成功也非失败，如 `ALERTS_DISABLED`），「全部失败」不能用 `失败数 === 总数`（总数含第三态时判据恒假）；**正确判据**为「失败数 > 0 且成功数 === 0」。**配套**：抛错前 per-source 状态必须已完整写入；仓库级 catch 追加信号前先判「该仓库是否已有带 `source` 的同类信号」，否则形成重复信号。平台侧实例见 [platform.md §6.1](../../standards/platform.md#61-错误码与告警状态口径平台展示消费-engine-错误码)。
+多源 / 多分支判定只要存在第三态（既非成功也非失败，如 `ALERTS_DISABLED`），「全部失败」不能用 `失败数 === 总数`（总数含第三态时判据恒假）；**正确判据**为「失败数 > 0 且成功数 === 0」。**配套**：抛错前 per-source 状态必须已完整写入；仓库级 catch 追加信号前先判「该仓库是否已有带 `source` 的同类信号」，否则形成重复信号。平台侧实例见 [platform.md §6.1](../../standards/platform.md#_6-1-错误码与告警状态口径-平台展示消费-engine-错误码)。
 
 ### EP-29 失败路径写回只写终态字段（不得整行 save / 整份载荷条件写回）（原 5.1.38）
 
@@ -135,7 +135,7 @@ Nuxt `useAsyncData` 内置 watch 为浅监听（reference equality），对 nest
 
 ### EP-16 SQLite 数据库启动期自动备份（原 5.1.18）
 
-应用范围 = 所有 better-sqlite3 部署形态（dev / e2e / prod / 容器），e2e 库与业务库各自独立（不交叉备份）；**禁止**用 `--no-verify-backup` 跳过、禁止备份目录走 `.gitignore` 之外位置、禁止备份阻塞启动超 5 秒；D 阶段自检与 A 阶段 Review Gate 均须验证 `backup.ts` 含 fsync + 保留策略。权威完整声明见 [security.md §2.1](../../standards/security.md#21-sqlite-数据库防护不可恢复数据事故防线)。
+应用范围 = 所有 better-sqlite3 部署形态（dev / e2e / prod / 容器），e2e 库与业务库各自独立（不交叉备份）；**禁止**用 `--no-verify-backup` 跳过、禁止备份目录走 `.gitignore` 之外位置、禁止备份阻塞启动超 5 秒；D 阶段自检与 A 阶段 Review Gate 均须验证 `backup.ts` 含 fsync + 保留策略。权威完整声明见 [security.md §2.1](../../standards/security.md#_2-1-sqlite-数据库防护-不可恢复数据事故防线)。
 
 ### EP-17 TypeORM 1.x `synchronize` 与 `migrationsRun` 反模式禁止（hard requirement）（原 5.1.19）
 
@@ -169,26 +169,26 @@ Nuxt `useAsyncData` 内置 watch 为浅监听（reference equality），对 nest
 
 | 旧编号 | 去向 | 说明 |
 |:--|:--|:--|
-| 5.1.15 | [开发规范 §5.1 规则表](../../standards/development.md#51-工程实践规则) | 保留（规则表第 1 行） |
-| 5.1.20 | [开发规范 §5.1 规则表](../../standards/development.md#51-工程实践规则) | 保留（规则表第 2 行） |
-| 5.1.25 | [开发规范 §5.1 规则表](../../standards/development.md#51-工程实践规则) | 保留（规则表第 3 行） |
-| 5.1.29 | [开发规范 §5.1 规则表](../../standards/development.md#51-工程实践规则) | 保留（规则表第 4 行） |
-| 5.1.31 | [开发规范 §5.1 规则表](../../standards/development.md#51-工程实践规则) | 保留（规则表第 5 行） |
-| 5.1.32 | [开发规范 §5.1 规则表](../../standards/development.md#51-工程实践规则) | 保留（规则表第 6 行） |
-| 5.1.34 | [开发规范 §5.1 规则表](../../standards/development.md#51-工程实践规则) | 保留（规则表第 7 行） |
-| 5.1.36 | [开发规范 §5.1 规则表](../../standards/development.md#51-工程实践规则) | 保留（规则表第 8 行） |
-| 5.1.40 | [开发规范 §5.1 规则表](../../standards/development.md#51-工程实践规则) | 保留（规则表第 9 行） |
-| 5.1.41 | [开发规范 §5.1 规则表](../../standards/development.md#51-工程实践规则) | 保留（规则表第 10 行） |
-| 5.1.43 | [开发规范 §5.1 规则表](../../standards/development.md#51-工程实践规则) | 保留（规则表第 11 行） |
-| 5.1.44 | [开发规范 §5.1 规则表](../../standards/development.md#51-工程实践规则) | 保留（规则表第 12 行） |
-| 5.1.45 | [开发规范 §5.1 规则表](../../standards/development.md#51-工程实践规则) | 保留（规则表第 13 行） |
-| 5.1.47 | [开发规范 §5.1 规则表](../../standards/development.md#51-工程实践规则) | 保留（规则表第 14 行） |
-| 5.1.48 | [开发规范 §5.1 规则表](../../standards/development.md#51-工程实践规则) | 保留（规则表第 15 行） |
-| 5.1.49 | [开发规范 §5.1 规则表](../../standards/development.md#51-工程实践规则) | 保留（规则表第 16 行） |
-| 5.1.52 | [开发规范 §5.1 规则表](../../standards/development.md#51-工程实践规则) | 保留（规则表第 17 行） |
-| 5.1.53 | [开发规范 §5.1 规则表](../../standards/development.md#51-工程实践规则) | 保留（规则表第 18 行） |
-| 5.1.54 | [开发规范 §5.1 规则表](../../standards/development.md#51-工程实践规则) | 保留（规则表第 19 行） |
-| 5.1.55 | [开发规范 §5.1 规则表](../../standards/development.md#51-工程实践规则) | 保留（规则表第 20 行） |
+| 5.1.15 | [开发规范 §5.1 规则表](../../standards/development.md#_5-1-工程实践规则) | 保留（规则表第 1 行） |
+| 5.1.20 | [开发规范 §5.1 规则表](../../standards/development.md#_5-1-工程实践规则) | 保留（规则表第 2 行） |
+| 5.1.25 | [开发规范 §5.1 规则表](../../standards/development.md#_5-1-工程实践规则) | 保留（规则表第 3 行） |
+| 5.1.29 | [开发规范 §5.1 规则表](../../standards/development.md#_5-1-工程实践规则) | 保留（规则表第 4 行） |
+| 5.1.31 | [开发规范 §5.1 规则表](../../standards/development.md#_5-1-工程实践规则) | 保留（规则表第 5 行） |
+| 5.1.32 | [开发规范 §5.1 规则表](../../standards/development.md#_5-1-工程实践规则) | 保留（规则表第 6 行） |
+| 5.1.34 | [开发规范 §5.1 规则表](../../standards/development.md#_5-1-工程实践规则) | 保留（规则表第 7 行） |
+| 5.1.36 | [开发规范 §5.1 规则表](../../standards/development.md#_5-1-工程实践规则) | 保留（规则表第 8 行） |
+| 5.1.40 | [开发规范 §5.1 规则表](../../standards/development.md#_5-1-工程实践规则) | 保留（规则表第 9 行） |
+| 5.1.41 | [开发规范 §5.1 规则表](../../standards/development.md#_5-1-工程实践规则) | 保留（规则表第 10 行） |
+| 5.1.43 | [开发规范 §5.1 规则表](../../standards/development.md#_5-1-工程实践规则) | 保留（规则表第 11 行） |
+| 5.1.44 | [开发规范 §5.1 规则表](../../standards/development.md#_5-1-工程实践规则) | 保留（规则表第 12 行） |
+| 5.1.45 | [开发规范 §5.1 规则表](../../standards/development.md#_5-1-工程实践规则) | 保留（规则表第 13 行） |
+| 5.1.47 | [开发规范 §5.1 规则表](../../standards/development.md#_5-1-工程实践规则) | 保留（规则表第 14 行） |
+| 5.1.48 | [开发规范 §5.1 规则表](../../standards/development.md#_5-1-工程实践规则) | 保留（规则表第 15 行） |
+| 5.1.49 | [开发规范 §5.1 规则表](../../standards/development.md#_5-1-工程实践规则) | 保留（规则表第 16 行） |
+| 5.1.52 | [开发规范 §5.1 规则表](../../standards/development.md#_5-1-工程实践规则) | 保留（规则表第 17 行） |
+| 5.1.53 | [开发规范 §5.1 规则表](../../standards/development.md#_5-1-工程实践规则) | 保留（规则表第 18 行） |
+| 5.1.54 | [开发规范 §5.1 规则表](../../standards/development.md#_5-1-工程实践规则) | 保留（规则表第 19 行） |
+| 5.1.55 | [开发规范 §5.1 规则表](../../standards/development.md#_5-1-工程实践规则) | 保留（规则表第 20 行） |
 | 5.1.1 | 本文件 EP-35 | 错误路径 helper 自身不抛异常 |
 | 5.1.2 | 本文件 EP-01 | 日志输出人读 / 机读双模 |
 | 5.1.3 | 本文件 EP-02 | 截断带固定前缀的 ID 先去除前缀 |

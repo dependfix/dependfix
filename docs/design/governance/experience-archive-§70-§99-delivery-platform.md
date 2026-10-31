@@ -120,7 +120,7 @@
 
 - **现象**：容器入口脚本先打印「进程 pid」就绪行、后安装 TERM / INT 转发 trap → 以该行同步发停止信号的观测方（容器编排 / 健康检查 / 行为测试）可能落在窗口内，内核按默认处置终止 PID 1：退出码为 signal 终止而非约定值，看护循环与 worker 亦短暂失去父进程。
 - **手法**：把「对外可观测的就绪声明」与「进程编排已就绪」绑定为同一顺序不变量——先装 trap，再启动子进程，最后打印就绪行；主进程尚未启动时补 fail-safe 退出（防吞掉停止信号后照旧启动）。
-- **落点**：[platform.md §10.6](../../standards/platform.md#106-队列执行进程隔离独立-worker-进程)（严格约束 + 已知边界 ⑤⑥）+ 检查点矩阵行 + L1 源码顺序断言（`apps/platform/docker/entrypoint.test.mjs`）。
+- **落点**：[platform.md §10.6](../../standards/platform.md#_10-6-队列执行进程隔离-独立-worker-进程)（严格约束 + 已知边界 ⑤⑥）+ 检查点矩阵行 + L1 源码顺序断言（`apps/platform/docker/entrypoint.test.mjs`）。
 
 ### 2. 偶发红的取证路径：重跑定性 → 负例标定 → 静态守卫固化
 
@@ -138,13 +138,13 @@
 
 - **现象**：M45 原计划 6 原子，阶段期间累计插入 9 批临时任务（生产故障 / CI 双红 / 安装失败取证 / 交付正确性等），执行窗口与验证预算被反复挤压；「追加临时待办（不占阶段条目编号）」的标记口径只解决编号与位置，未约束**执行容量**。
 - **手法**：批准插队后先做容量影响评估（插队工作量 + 剩余原子 + 验证 / 审计预算）；命中阈值（累计 ≥ 3 批 / 插队 ≥ 原计划 50% / 窗口内无法完成验证）时**移出优先级最低的原子到 backlog**（保留 8 要素并标注移出原因），不得以压缩验收、跳过 Review Gate 或缩短审计替代；结论写入 todo 阶段头、插队条目与 archive 批次记录三处，归档时统计「插队批次 / 再平衡移出」数量。
-- **落点**：[planning.md §3.1.1](../../standards/planning.md#_3-1-1-插队后的阶段容量再平衡-hard-requirement-2026-10-19) + [review 检查点矩阵](../../../.github/skills/code-reviewer/references/code-quality-checklist.md#规范条款-review-检查点矩阵严格约束逐条挂接) 新增行。
+- **落点**：[planning.md §3.1.1](../../standards/planning.md#_3-1-1-插队后的阶段容量再平衡-hard-requirement-2026-10-19) + [review 检查点矩阵](../../../.github/skills/code-reviewer/references/code-quality-checklist.md#规范条款-review-检查点矩阵-严格约束逐条挂接) 新增行。
 
 ### 2. 审计 / 探针不得向共享测试库写入业务数据
 
 - **现象**：审计子智能体为验证「仓库表单 → API → 列表」链路，在视觉测试库（`apps/platform/data/visual.sqlite`，gitignored）创建了 3 个 `parp3-*` 仓库；随后视觉套件的 `/repos` 与弹窗类**视口级**基线出现与代码无关的整表差异（15067 / 56733 px），排查成本高。
 - **手法**：视觉库与 e2e 库均只允许 fixtures 写入——审计 / 探针一律只读或复制到 `/tmp` 操作；本地视觉复跑前核对「库内仓库集合 == fixtures 集合」，出现整表差异时先查残留而不是重建基线；清理按主键逐条删除（CASCADE 带走关联行）。
-- **落点**：[testing.md §6.7](../../standards/testing.md#67-视觉回归截图识别层apps-platform)（测试库隔离与污染核验）+ 检查点矩阵行扩展 + backlog 候选「视觉套件测试库残留非 fixtures 仓库导致基线失配」。
+- **落点**：[testing.md §6.7](../../standards/testing.md#_6-7-视觉回归-截图识别层-apps-platform)（测试库隔离与污染核验）+ 检查点矩阵行扩展 + backlog 候选「视觉套件测试库残留非 fixtures 仓库导致基线失配」。
 
 ### 3. 内核 SIGKILL 日志与业务日志按时间戳对齐，是 OOM 归因的最强证据
 
@@ -162,7 +162,7 @@
 
 - **现象**：按行号切片把下一个 `##` 标题一并纳入，产生重复 / 空壳段；`todo.md` 速查表重建时丢表头与分隔行，产物渲染 0 `<table>` 而 `check:docs` / `lint:md` / `docs:build` 全绿不报。
 - **手法**：切片按 `^##` 边界定位；骨架化重写表格必须保留表头 + 分隔行，并以产物 `<table>` 计数兜底；里程碑收口同步面显式包含 `docs/index.md` 首页卡片。
-- **落点**：[planning.md §4.4 第 23/24 条](../../standards/planning.md#44-大批量归档批次操作规范) + 检查点矩阵行。
+- **落点**：[planning.md §4.4 第 23/24 条](../../standards/planning.md#_4-4-大批量归档批次操作规范) + 检查点矩阵行。
 
 ### 6. 「未配置路径逐字段等价」需要逐字段冲突 fixture
 

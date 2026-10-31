@@ -3,7 +3,7 @@
 > 将 `.session/wisdom.md` 中的临时知识点定期提纯为永久文档，解决跨机器丢失、内容膨胀与过时残留问题。
 > 参照 momei [session-wisdom-distillation](https://github.com/CaoMeiYouRen/momei/blob/master/docs/design/governance/session-wisdom-distillation.md) 机制，按 dependfix 目录结构适配。
 
-> **与经验三层体系的关系**：本机制的产物（pattern / principle）属 L3 经验索引层；收敛出口（复现 >= 2 次 → L1 脚本或 L2 检查点）与准入标准见 [经验归档](./experience-archive.md#1-经验三层体系)。
+> **与经验三层体系的关系**：本机制的产物（pattern / principle）属 L3 经验索引层；收敛出口（复现 >= 2 次 → L1 脚本或 L2 检查点）与准入标准见 [经验归档](./experience-archive.md#_1-经验三层体系)。
 
 ## 1. 背景
 
@@ -209,7 +209,7 @@ Full Stack Master (全栈大师) 压缩 wisdom.md，删除/精简已迁移条目
 | 已蒸馏摘要 | `- [YYYY-MM-DD] [type] 单行摘要 → docs/path/to/doc.md` | 历史区写法（`详见` / `已迁移至` 前缀可省） |
 | 已蒸馏摘要 | `- **[type-N]** 摘要 → 详见 <target>` | 早期历史区写法（type-id 形态） |
 
-> stdout / 退出码契约见 [§4.3 脚本辅助](#43-脚本辅助)：`--check` 退出码恒为 0（供 hook 无脑调用）、是否需要蒸馏只读 stdout 的 `WISDOM_OK:` / `WISDOM_NEEDS_DISTILL:` 行；本节新增的**告警一律走 stderr**，与上述契约互不污染。
+> stdout / 退出码契约见 [§4.3 脚本辅助](#_4-3-脚本辅助)：`--check` 退出码恒为 0（供 hook 无脑调用）、是否需要蒸馏只读 stdout 的 `WISDOM_OK:` / `WISDOM_NEEDS_DISTILL:` 行；本节新增的**告警一律走 stderr**，与上述契约互不污染。
 >
 > **`→` 为保留分隔符**：解析器在**首个** `→` 处切分「摘要 / 指针」，故条目标题正文内不要出现裸 `→`（否则其后内容会被并入 target）。
 

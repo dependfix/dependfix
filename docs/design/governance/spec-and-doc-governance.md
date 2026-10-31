@@ -88,7 +88,7 @@
 
 ### 2.3 文档健康窗口（阈值引用）
 
-文档行数阈值以 [文档规范 §3 文档行数阈值](../../standards/documentation.md#3-文档行数阈值) 为**唯一权威**（本文件不再重复声明阈值表）；计量脚本 `scripts/check-doc-size.mjs` 直接解析该表。
+文档行数阈值以 [文档规范 §3 文档行数阈值](../../standards/documentation.md#_3-文档行数阈值) 为**唯一权威**（本文件不再重复声明阈值表）；计量脚本 `scripts/check-doc-size.mjs` 直接解析该表。
 
 ### 2.4 设计文档硬阈值（hard requirement）
 
@@ -289,19 +289,19 @@ M18.4 audit round 1 Reject 实证：M18.1 commit 4 凭直觉写 `auth: createApp
 
 ### 6.2 commit 时 audit-gate 检查
 
-按 [AI 协作规范 §2 PDTFC+ 工作流](../../standards/ai-collaboration.md#2-pdtfc-工作流) 已落地 F 阶段验证三件套（typecheck + lint + test）。本规范补强：
+按 [AI 协作规范 §2 PDTFC+ 工作流](../../standards/ai-collaboration.md#_2-pdtfc-工作流) 已落地 F 阶段验证三件套（typecheck + lint + test）。本规范补强：
 
 - **治理定义改动类 commit**：必须额外运行 `pnpm run check:docs` + `pnpm run lint:md`
 - **设计文档硬阈值触发类 commit**：commit message 必须显式声明 governance 文档引用 + audit-depth
 
 ### 6.3 与既有规范的关系
 
-- **§3 文档行数阈值**：[documentation.md §3](../../standards/documentation.md#3-文档行数阈值) 表为本规范的统一阈值表（§2.3）权威源
-- **§4 事实源层次**：[documentation.md §4](../../standards/documentation.md#4-事实源层次) 单点声明原则
-- **§5 设计文档分层**：[documentation.md §5](../../standards/documentation.md#5-设计文档分层) 给出 modules/governance 边界，本规范补强硬阈值
+- **§3 文档行数阈值**：[documentation.md §3](../../standards/documentation.md#_3-文档行数阈值) 表为本规范的统一阈值表（§2.3）权威源
+- **§4 事实源层次**：[documentation.md §4](../../standards/documentation.md#_4-事实源层次) 单点声明原则
+- **§5 设计文档分层**：[documentation.md §5](../../standards/documentation.md#_5-设计文档分层) 给出 modules/governance 边界，本规范补强硬阈值
 - **§7 plan/ 文档范围**：[documentation.md](../../standards/documentation.md) §7 给出四文档分流规则
-- **§1.4 单次提交审计阈值**：[ai-collaboration.md §1.4](../../standards/ai-collaboration.md#14-单次提交审计阈值10-文件--800-行) commit 维度，本规范扩展到**任务/改动**维度
-- **§2 PDTFC+ 工作流**：[ai-collaboration.md §2](../../standards/ai-collaboration.md#2-pdtfc-工作流) D 阶段自检 + A 阶段审计触发
+- **§1.4 单次提交审计阈值**：[ai-collaboration.md §1.4](../../standards/ai-collaboration.md#_1-4-单次提交审计阈值-10-文件-800-行) commit 维度，本规范扩展到**任务/改动**维度
+- **§2 PDTFC+ 工作流**：[ai-collaboration.md §2](../../standards/ai-collaboration.md#_2-pdtfc-工作流) D 阶段自检 + A 阶段审计触发
 
 ## 7. 实施计划（治理批次 G1-G6）
 

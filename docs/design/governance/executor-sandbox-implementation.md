@@ -4,8 +4,8 @@
 
 ## 7. Sandbox 执行器设计
 
-> 状态：🔶 设计落盘（M10，2026-08-19 决策会议 / 2026-08-20 收口归档）——T1001-T1004 实施规划已在 [todo-archive-phases-m10-c53-c59c61.md §M10](../../plan/archive/todo-archive-phases-m10-c53-c59c61.md#m10-独立沙箱容器-c26-实施规划已归档) 落地；本文档定义接口契约与部署形态，详细任务拆解见 todo-archive 实施规划。
-> **决策依据**：Docker rootless mode + 应用层白名单代理 + cgroup v2 双层；Executor 抽象不与 rootless 强绑定；自托管 docker-compose 优先；与 `ContainerExecutor` 并存保留单机场景。一手调研依据见 [todo-archive-phases-m10-c53-c59c61.md §M10 决策依据](../../plan/archive/todo-archive-phases-m10-c53-c59c61.md#m10-独立沙箱容器-c26-实施规划已归档)。
+> 状态：🔶 设计落盘（M10，2026-08-19 决策会议 / 2026-08-20 收口归档）——T1001-T1004 实施规划已在 [todo-archive-phases-m10-c53-c59c61.md §M10](../../plan/archive/todo-archive-phases-m10-c53-c59c61.md#m10-独立沙箱容器-c26-实施规划-已归档) 落地；本文档定义接口契约与部署形态，详细任务拆解见 todo-archive 实施规划。
+> **决策依据**：Docker rootless mode + 应用层白名单代理 + cgroup v2 双层；Executor 抽象不与 rootless 强绑定；自托管 docker-compose 优先；与 `ContainerExecutor` 并存保留单机场景。一手调研依据见 [todo-archive-phases-m10-c53-c59c61.md §M10 决策依据](../../plan/archive/todo-archive-phases-m10-c53-c59c61.md#m10-独立沙箱容器-c26-实施规划-已归档)。
 
 ### 7.1 抽象边界（不强绑定 Docker rootless）
 
@@ -75,7 +75,7 @@ export interface SandboxHandle {
 
 ### 7.4 与 ContainerExecutor 并存
 
-按 [todo-archive-phases-m10-c53-c59c61.md §M10 D6 决策（Q6 并存）](../../plan/archive/todo-archive-phases-m10-c53-c59c61.md#m10-独立沙箱容器-c26-实施规划已归档)：两 Executor 同时注册，**默认 `container`**（向后兼容单机场景不破坏）：
+按 [todo-archive-phases-m10-c53-c59c61.md §M10 D6 决策（Q6 并存）](../../plan/archive/todo-archive-phases-m10-c53-c59c61.md#m10-独立沙箱容器-c26-实施规划-已归档)：两 Executor 同时注册，**默认 `container`**（向后兼容单机场景不破坏）：
 
 | 触发条件 | 走向 | 备注 |
 |:--|:--|:--|
@@ -102,11 +102,11 @@ CLI 启动时（`@dependfix/cli` entrypoint）探测 SandboxRuntimeAdapter 可�
 
 **预留接口**：`SandboxRuntimeAdapter` 抽象兼容 K8s（通过 Kubernetes RuntimeClass + Pod sandbox securityContext 实现，无需 runc/dockerd 依赖）。`Repository.executorKind='sandbox'` 在 K8s 场景下走 `KubernetesRuntimeAdapter`（未来 TBD），接口签名保持 §7.1 不变。
 
-**Helm Chart** 留 backlog：需 `values.yaml`（sandbox resource limits 默认 / RBAC 不挂 docker.sock / PodSecurityContext 非 root）/ `templates/deployment.yaml`（rootless daemon sidecar）/ `templates/servicemonitor.yaml`（[sandbox-security-governance.md §7 验收持续治理](./sandbox-security-governance.md#7-验收与持续治理)）。
+**Helm Chart** 留 backlog：需 `values.yaml`（sandbox resource limits 默认 / RBAC 不挂 docker.sock / PodSecurityContext 非 root）/ `templates/deployment.yaml`（rootless daemon sidecar）/ `templates/servicemonitor.yaml`（[sandbox-security-governance.md §7 验收持续治理](./sandbox-security-governance.md#_7-验收与持续治理)）。
 
 ### 7.6 验收对照（链接权威条款）
 
-实施时按 [sandbox-security-governance.md §4 安全基线](./sandbox-security-governance.md#4-安全基线不可简化作为后续开发安全指导) 与 [安全规范 §5.3](../../standards/security.md) 逐项核验：
+实施时按 [sandbox-security-governance.md §4 安全基线](./sandbox-security-governance.md#_4-安全基线-不可简化-作为后续开发安全指导) 与 [安全规范 §5.3](../../standards/security.md) 逐项核验：
 
 - **非 root 执行** → SandboxRuntimeAdapter 注入 `--user=100:100`（C38 路径延续）
 - **超时兜底** → T802 单命令超时（已落地）+ SandboxHandle.waitForExit 透传外层 30 分钟超时
@@ -351,7 +351,7 @@ C53 引入 A 模式 `fix-and-pr` 链路完成的关键代价是 **凭据权限�
 - A 模式 fix-and-pr 适用于"自托管平台 + 强可控 PAT"场景（如专用 CI 账户）
 - 平台 UI 触发时显式提示当前所选凭据的权限范围（待 C28 设计落地）
 
-完整凭据安全条款见 [security.md §5.3 修复执行安全](../../standards/security.md#5-依赖与供应链安全-dependency--supply-chain-security)（凭据基线 + 权限阶）。
+完整凭据安全条款见 [security.md §5.3 修复执行安全](../../standards/security.md#_5-依赖与供应链安全-dependency-supply-chain-security)（凭据基线 + 权限阶）。
 
 ### 8.5 后续 backlog（依赖追踪）
 

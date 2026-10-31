@@ -2,7 +2,7 @@
 
 > **状态**：✅ 已落地（2026-10-23，M47.1；Review Gate R1 Reject → R2 Pass → R3 Pass（2026-10-23，R3 仅复审修复点）；证据见 `artifacts/review-gate/2026-10-23-m47-1-ci-alignment-*.md`，该目录已 gitignored）
 > **范围**：`packages/core`（口径模型与文案）+ `packages/engine`（workflow 解析 / 比对 / 默认分支健康预检 / 报告与 PR 正文）。`apps/platform` **本批零代码改动**：平台在 `container-executor` 内进程化执行引擎，仓库与默认分支上下文（`fetchDefaultBranch`）已由引擎提供，`RunResult.ciAlignment` 随结果回到 `platform-delivery.generatePRBody`，无需新增透传面（与 Todo 中「平台只透传」的原始假设相比为范围收窄）。
-> **关联**：[依赖修复记录设计](../modules/dependency-fixer-records.md#1214-验证链与目标仓库-ci-口径对齐m4712026-10-23)、[运行失败分类与筛选设计](./run-failure-taxonomy.md)、[验证链与既有失败基线](../modules/dependency-fixer-records.md#129-验证链与既有失败基线默认链--既有失败归因--零告警按需采样)
+> **关联**：[依赖修复记录设计](../modules/dependency-fixer-records.md#_12-14-验证链与目标仓库-ci-口径对齐-m47-1-2026-10-23)、[运行失败分类与筛选设计](./run-failure-taxonomy.md)、[验证链与既有失败基线](../modules/dependency-fixer-records.md#_12-9-验证链与既有失败基线-默认链-既有失败归因-零告警按需采样)
 
 ## 1. 背景与问题
 
@@ -120,8 +120,8 @@ PR 正文的 `### ✅ Verification` 区块来自 engine 的**本地验证链**�
 
 ## 9. 关联文档
 
-- [依赖修复记录设计 §12.14](../modules/dependency-fixer-records.md#1214-验证链与目标仓库-ci-口径对齐m4712026-10-23)（实现落点）
-- [依赖修复记录设计 §12.9](../modules/dependency-fixer-records.md#129-验证链与既有失败基线默认链--既有失败归因--零告警按需采样)（默认链与既有失败归因）
+- [依赖修复记录设计 §12.14](../modules/dependency-fixer-records.md#_12-14-验证链与目标仓库-ci-口径对齐-m47-1-2026-10-23)（实现落点）
+- [依赖修复记录设计 §12.9](../modules/dependency-fixer-records.md#_12-9-验证链与既有失败基线-默认链-既有失败归因-零告警按需采样)（默认链与既有失败归因）
 - [对外 PR 交付闭环 §5](./pr-delivery-closure.md) + [依赖修复记录 §12.18](../modules/dependency-fixer-records.md)（M48.2 的 `--mirror-ci-scripts`：只在默认链后**追加** CI 独有脚本，不替换 `verifyCommands`）
 - [数据模型](../modules/data-model.md)（`RunResult` 契约）
 - [平台规范](../../standards/platform.md)（平台执行链与 verifyCommands）

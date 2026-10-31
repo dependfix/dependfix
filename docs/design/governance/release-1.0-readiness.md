@@ -113,7 +113,7 @@
 ## 7. 发布工程清单（G2 / G7）
 
 - [ ] **冻结清单**：CLI 参数 / 模式、Action inputs、报告 JSON schema（`RunResult` / `FixAction` / `RunSummary`）、配置键（`DEPENDFIX_*` + 平台 `NUXT_*`）、平台 DB schema（实体 + 迁移）五类，落在 `docs/guide/release.md` 新增「1.0 契约冻结清单」章节，并标注「1.0 后变更须 2.0」。
-  - **1.0 前已发生的 schema 增量（须并入冻结清单）**：`RunResult.alertOutcomes?`（M51.1，告警级处置结果，平台据此回写 `ScanResult.fixStatus`）。可选字段、缺省即 `not-tried`，对旧消费方向后兼容，但冻结后任何字段增删都按 2.0 处理。契约见 [data-model.md §告警级修复结果回写](../modules/data-model.md#告警级修复结果回写m511)。
+  - **1.0 前已发生的 schema 增量（须并入冻结清单）**：`RunResult.alertOutcomes?`（M51.1，告警级处置结果，平台据此回写 `ScanResult.fixStatus`）。可选字段、缺省即 `not-tried`，对旧消费方向后兼容，但冻结后任何字段增删都按 2.0 处理。契约见 [data-model.md §告警级修复结果回写](../modules/data-model.md#告警级修复结果回写-m51-1)。
 - [ ] **迁移指南** 0.x → 1.0：Node 基线、pnpm 版本、环境变量、平台数据迁移、Action 引用（`@v1`）。
 - [ ] **`@v1` 滚动 tag**：1.0 发布后创建并验证 `uses: dependfix/dependfix@v1`。
 - [ ] **发布自动化**：按 [release.md](../../guide/release.md) 的 1.0 规划启用 `schedule`（或 `push`）触发，首个 cron 由人工裁决。

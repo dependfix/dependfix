@@ -51,6 +51,13 @@ describe('headingSlugText（对齐 VitePress 的标题 token 集）', () => {
     it('结尾闭合 `##` 不计入', () => {
         expect(headingSlugText('标题 ##')).toBe('标题')
     })
+
+    it('嵌套 / 截断的标签构造迭代到不动点（不留半截标签）', () => {
+        // 单次 replace 只会删掉内层，留下 `<script>`（CodeQL incomplete-multi-character-sanitization 的触发形态）
+        expect(headingSlugText('<scr<script>ipt>告警')).toBe('ipt>告警')
+        expect(headingSlugText('<scr<script>ipt>x')).not.toContain('<')
+        expect(headingSlugText('标题 <span a="1>2">x</span> 尾')).not.toContain('<')
+    })
 })
 
 describe('collectHeadings', () => {

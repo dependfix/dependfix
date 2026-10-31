@@ -40,6 +40,23 @@ const SETEXT_RE = /^ {0,3}(=+|-+)\s*$/
 const IMAGE_RE = /!\[[^\]]*\]\([^)]*\)/g
 /** 行内 HTML 标签（VitePress 的标题 token 集不含 html_inline，标签本身不参与 slug，标签内文本参与） */
 const INLINE_TAG_RE = /<\/?[a-zA-Z][^>]*>/g
+
+/**
+ * 剥离行内 HTML 标签（**迭代到不动点**）。
+ *
+ * 单次 `replace` 会漏掉嵌套 / 截断构造：`<scr<script>ipt>` 删掉内层 `<script>` 后仍留
+ * `<script>`，CodeQL `js/incomplete-multi-character-sanitization` 即按此报警（alert 30）。
+ * 输出只用于锚点 id，但仍按「一次剥离不彻底」修正为循环，直到文本不再变化。
+ */
+const stripInlineTags = (value) => {
+    let current = value
+    let previous
+    do {
+        previous = current
+        current = current.replace(INLINE_TAG_RE, '')
+    } while (current !== previous)
+    return current
+}
 /** 行内代码占位符定界符（Unicode 私用区，正文不会出现） */
 const CODE_SLOT_OPEN = '\uE000'
 const CODE_SLOT_CLOSE = '\uE001'
@@ -89,7 +106,7 @@ export function headingSlugText(heading) {
         codes.push(span)
         return `${CODE_SLOT_OPEN}${codes.length - 1}${CODE_SLOT_CLOSE}`
     })
-    const stripped = masked.replace(INLINE_TAG_RE, '')
+    const stripped = stripInlineTags(masked)
     let restored = stripped
     for (const [index, span] of codes.entries()) {
         restored = restored.replace(`${CODE_SLOT_OPEN}${index}${CODE_SLOT_CLOSE}`, () => span)

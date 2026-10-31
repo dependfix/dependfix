@@ -25,6 +25,10 @@ import {
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '../..')
 const SCRIPT = join(repoRoot, 'scripts/docs/check-contract-freeze.mjs')
 
+// 子进程用例会跑完整抽取链（读若干源文件 + 解析）；CI 并发 + coverage 插桩下实测超过
+// vitest 默认 5s 上限（run 41212333855 因此判红），单独放宽避免把慢环境误判成门禁失败。
+const SPAWN_TEST_TIMEOUT = 60_000
+
 const tempDirs = []
 
 afterEach(() => {
@@ -274,21 +278,21 @@ describe('checkContractFreeze', () => {
         expect(runResult.error).toContain('未找到小节')
     })
 
-    it('CLI 子进程：差异存在时 exit 1 并给出明细', () => {
+    it('CLI 子进程：差异存在时 exit 1 并给出明细', { timeout: SPAWN_TEST_TIMEOUT }, () => {
         const root = copyRealSources(editFile(PATHS.contractDoc, (doc) => doc.replace('ai-api-key\n', '')))
         const run = spawnSync(process.execPath, [SCRIPT, `--root=${root}`], { encoding: 'utf8' })
         expect(run.status).toBe(1)
         expect(run.stderr).toContain('清单缺少键位（代码已有）: ai-api-key')
     })
 
-    it('CLI 子进程：quick-start 表格缺参数同样 exit 1（导出仅看 lists 的变异会被击杀）', () => {
+    it('CLI 子进程：quick-start 表格缺参数同样 exit 1（导出仅看 lists 的变异会被击杀）', { timeout: SPAWN_TEST_TIMEOUT }, () => {
         const root = copyRealSources(editFile(PATHS.quickStartZh, (doc) => doc.replace('| `--ai-trigger` |', '| `--ai-trigger-renamed` |')))
         const run = spawnSync(process.execPath, [SCRIPT, `--root=${root}`], { encoding: 'utf8' })
         expect(run.status).toBe(1)
         expect(run.stderr).toContain('表格缺少参数（argsDef 已有）: ai-trigger')
     })
 
-    it('CLI 子进程：DB 清单缺列同样 exit 1', () => {
+    it('CLI 子进程：DB 清单缺列同样 exit 1', { timeout: SPAWN_TEST_TIMEOUT }, () => {
         const root = copyRealSources(editFile(PATHS.contractDoc, (doc) => doc.replace(
             'repository: id, created_at, updated_at, organization_id,',
             'repository: id, created_at, updated_at,',
@@ -298,7 +302,7 @@ describe('checkContractFreeze', () => {
         expect(run.stderr).toContain('repository: 缺少列 organization_id')
     })
 
-    it('CLI 子进程：出现抽取器未覆盖的写法同样 exit 1', () => {
+    it('CLI 子进程：出现抽取器未覆盖的写法同样 exit 1', { timeout: SPAWN_TEST_TIMEOUT }, () => {
         const root = copyRealSources((target) => {
             const file = join(target, PATHS.engineConfig)
             writeFileSync(file, `${readFileSync(file, 'utf8')}\nconst { DEPENDFIX_PROBE } = process.env\n`)
@@ -310,7 +314,7 @@ describe('checkContractFreeze', () => {
         expect(run.stderr).toContain('extractor-coverage')
     })
 
-    it('CLI 子进程：真实仓库 exit 0 且输出逐类 OK', () => {
+    it('CLI 子进程：真实仓库 exit 0 且输出逐类 OK', { timeout: SPAWN_TEST_TIMEOUT }, () => {
         const run = spawnSync(process.execPath, [SCRIPT], { encoding: 'utf8' })
         expect(run.status).toBe(0)
         expect(run.stdout).toContain('[check-contract-freeze] OK: db-tables')

@@ -254,7 +254,7 @@ git push origin master
 
 | # | 前置项 | 要求 | 现状（2026-10-31） |
 |:--|:--|:--|:--|
-| 1 | 1.0 门槛 | G1-G8 全绿（见[就绪度台账](../design/governance/release-1.0-readiness.md)） | G2 ✅ / G7 ✅；G1 · G4 · G5 · G6 ◐；G3 ❌（待外部资源）；G8 ⬜（脚本已就绪，读数待窗口） |
+| 1 | 1.0 门槛 | G1-G8 全绿（见[就绪度台账](../design/governance/release-1.0-readiness.md)） | G2 ✅；G1 · G4 · G5 · G6 · G7 ◐（G7 运维四项已实测，启用清单第 5 项「直推 master」未验证）；G3 ❌（待外部资源）；G8 ⬜（脚本已就绪，读数待窗口） |
 | 2 | 安全告警门禁 | 仓库 secret `GH_PAT` 存在（Dependabot alerts 只读）；`check:release-security` 在 release 流程绿 | 已配置并在 `release.yml` 强制（fail-closed） |
 | 3 | 发布凭据 | 5 个 npm 包的 Trusted Publisher 指向 `release.yml`；`id-token: write` 就位 | 已配置（首次手动发布后） |
 | 4 | Workflow 权限 | `contents: write` / `actions: write` / `security-events: read` | 已就位（`release.yml` permissions） |

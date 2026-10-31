@@ -265,6 +265,8 @@ docker compose start platform
 ```
 
 > After a restore, remove stale `-wal` / `-shm` sidecar files in the same directory before starting (so stale WAL is not replayed as crash-recovery data). For accidental-change recovery, prefer replacing the database with a snapshot under `/app/data/backups/`.
+>
+> `pnpm db:restore` takes a consistent snapshot before overwriting (`VACUUM INTO`, including un-checkpointed WAL data). If the **target database is corrupt and cannot be opened**, the restore aborts: move the corrupt main file plus `-wal` / `-shm` aside and retry with `--skip-auto-backup` (that round has no auto snapshot to undo).
 
 ## Operations drill record (2026-10-31)
 

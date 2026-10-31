@@ -265,6 +265,8 @@ docker compose start platform
 ```
 
 > 恢复后若数据库出现异常，删除同目录陈旧的 `-wal` / `-shm` 旁文件，再启动（避免陈旧 WAL 被当作崩溃恢复数据回放）。误操作场景优先用 `/app/data/backups/` 内的快照替换。
+>
+> `pnpm db:restore` 覆盖前会生成一致性快照（`VACUUM INTO`，含 WAL 未 checkpoint 数据）。**目标库已损坏、无法打开时恢复会中止**：先人工移走损坏的主库与 `-wal` / `-shm`，再带 `--skip-auto-backup` 重试（该轮没有 auto 快照可撤销）。
 
 ## 运维实测记录（2026-10-31）
 

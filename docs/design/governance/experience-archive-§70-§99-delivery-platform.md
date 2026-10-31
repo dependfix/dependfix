@@ -397,3 +397,25 @@
 - **现象**：`docs/i18n/en-US/design/x.md` 在站点上的路由是 `/en-US/design/x`。从 zh 页用 `../i18n/en-US/design/x.md` 指向它，磁盘路径存在（`check:docs` 绿），站点却渲染成 `/i18n/en-US/design/x` → 404；`ignoreDeadLinks: true` 把构建告警也吞了。
 - **手法**：跨 locale 链接要么写站点路由可解析的相对层级（并在 dist 里实测 href 目标存在），要么改用 GitHub 外链；构建后抽查新页面的正文 href，而不是只看 `check:docs` 的磁盘存在性。
 - **落点**：[documentation.md §2](../../standards/documentation.md)（跨 locale 链接条款）+ 检查点矩阵 `documentation.md §2` 行。
+
+## 七十九、M53.2 运维实测批次经验沉淀（惰性单例启动点 / WAL 备份 / 早退守卫）
+
+> **批次**：M53.2 G7 运维实测与发布自动化预演（2026-10-31）。**准入依据**：④ 工具 / 环境陷阱（Nitro 插件启动时机、SQLite WAL 快照语义、测试早退守卫）+ ② 决策需溯源（为何把消费端做成显式插件、为何备份必须在线快照）。落点见各条目末行。
+
+### 1. 惰性单例的「唯一初始化点」不能挂在按角色跳过的插件副作用上
+
+- **现象**：队列服务是惰性单例，唯一主动调用 `getQueueService()` 的启动插件 `stale-cleanup` 按进程角色在 worker 侧被跳过 → 默认双进程部署（compose `QUEUE_WORKER=1`）下 worker 从不创建消费者，所有扫描 run 永久 `pending`，job 停在 `bull:scan:prioritized`，直到 20 分钟后被判孤儿。功能单测与 e2e 全绿（e2e 强制 `NUXT_QUEUE_ENABLED=false`，走同步路径，从不触发该形态）。
+- **手法**：把「本进程要消费」做成**显式启动点**（`queue-consumer` 插件），并对「角色=worker 但没有消费者」判为配置错误直接失败（退出进程由入口看护重启），不留静默降级；插件分类清单与「每个插件都已分类」机检同步。运维证据以容器实测为唯一裁决——单元 / e2e 覆盖不到「进程角色 × 队列模式」组合。
+- **落点**：[platform.md §10.6](../../standards/platform.md#_10-6-队列执行进程隔离-独立-worker-进程) + `server/plugins/queue-consumer.ts` 与其单测 + 检查点矩阵 `platform.md §10.6` 行。
+
+### 2. WAL 模式下「复制主库文件」得到的不是备份
+
+- **现象**：应用强制 `journal_mode=wal`；启动备份与 `db:restore` 的覆盖前备份都用 `readFileSync` 复制主库。实测优雅停止后主文件仍 4KB、数据全在 `-wal`，备份产物 `schema_version=0 / 0 张表`；`db:restore` 随后还会删除 `-wal`/`-shm`，于是「撤销恢复」的唯一凭据被换成空库。
+- **手法**：所有快照走 SQLite 一致性快照（`db.backup` / `VACUUM INTO`），写入 `.tmp` → `fsync` → `rename`；备份失败即中止（不得先删旁文件）；生产写连接保持打开构造回归用例（裸复制实现在该用例下必然失败）。
+- **落点**：[security.md §2.1.1 / §2.1.2](../../standards/security.md) + [EP-16](engineering-practice-notes.md) + 检查点矩阵 `security.md §2.1` 行 + `backup.test.ts` / `db-restore.test.ts`。
+
+### 3. 测试里的「跳过守卫」会把断言失败变成静默通过
+
+- **现象**：`PRAGMA busy_timeout` 断言读的是 `rows[0].busy_timeout`（SQLite 实际列名是 `timeout`），恒为 0；而同一用例前面有 `if (!ds?.isInitialized) return`——初始化在测试夹具里长期失败，断言从未真正执行，回归被掩盖了整个批次。
+- **手法**：测试中的跳过分支必须是**显式且带原因**的（或直接断言前置条件成立），禁止用 `return` 把「环境没准备好」变成绿灯；修断言时同步核对 SQLite 返回列名等外部契约。
+- **落点**：`server/database/index.test.ts`（改为显式断言初始化成功）+ [testing.md §6.9](../../standards/testing.md) 检查点（负例 / 守卫有效性）。

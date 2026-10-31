@@ -43,6 +43,7 @@
     "check:readme-i18n": "node scripts/i18n/check-readme-i18n.mjs",
     "docs:check:i18n": "node scripts/docs/check-i18n-duplicates.mjs",
     "docs:check:fallback": "node scripts/docs/check-i18n-fallback.mjs",
+    "docs:check:anchors": "node scripts/docs/verify-anchor-dist.mjs",
     "lint:i18n": "cross-env NODE_ENV=production ESLINT_I18N=true eslint apps/platform --quiet",
     "lint": "cross-env NODE_ENV=production eslint . --fix --max-warnings 10",
     "lint:check": "cross-env NODE_ENV=production eslint . --max-warnings 10 && pnpm --filter @dependfix/platform lint:check",

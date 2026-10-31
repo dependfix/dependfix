@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import {
     _internals,
     anchorLeadingNumber,
+    checkAnchorIds,
     checkArchiveAnchors,
     checkEmphasis,
     checkLinkSyntax,
@@ -64,7 +65,7 @@ describe('normAnchor', () => {
 })
 
 describe('collectTitles', () => {
-    it('collects heading titles with inline code and link syntax stripped', () => {
+    it('标题文本与 VitePress 同源：行内代码内容参与、链接取文本、强调标记剥离', () => {
         write('t.md', [
             '# 标题 一',
             '## 标题 `code` 二',
@@ -74,8 +75,10 @@ describe('collectTitles', () => {
         ].join('\n'))
         const titles = collectTitles(join(root, 't.md'))
         expect(titles.has('标题一')).toBe(true)
-        expect(titles.has('标题二')).toBe(true)
-        expect(titles.has('标题三')).toBe(true)
+        // 行内代码的内容参与 slug（历史实现整体剥离，会让产物 id 锚点反被判死）
+        expect(titles.has('标题code二')).toBe(true)
+        expect(titles.has('标题链接三')).toBe(true)
+        // 强调标记属标点，宽松归一化后消失
         expect(titles.has('标题强调斜体删除四')).toBe(true)
     })
 
@@ -429,6 +432,12 @@ describe('anchorLeadingNumber', () => {
         expect(anchorLeadingNumber('44%20规则')).toBe('44')
     })
 
+    it('兼容产物 id：剥 `_` 前缀并合并 `-` 分隔的编号段', () => {
+        expect(anchorLeadingNumber('_5-1-15-工程实践规则')).toBe('5115')
+        expect(anchorLeadingNumber('_3-1-新需求默认走-评估-backlog-原则-hard-requirement')).toBe('31')
+        expect(anchorLeadingNumber('_6-2-运行失败分类口径-failure-code')).toBe('62')
+    })
+
     it('无前导编号返回 null', () => {
         expect(anchorLeadingNumber('主要风险与应对')).toBeNull()
         expect(anchorLeadingNumber('')).toBeNull()
@@ -730,8 +739,9 @@ describe('checkArchiveAnchors', () => {
 // ============================================================
 
 describe('_internals 正则常量回归', () => {
-    it('RULES 暴露七条规则', () => {
+    it('RULES 暴露八条规则', () => {
         expect(Object.keys(_internals.RULES).sort()).toEqual([
+            'anchor-id',
             'archive-anchors',
             'emphasis',
             'link-syntax',
@@ -760,5 +770,46 @@ describe('_internals 正则常量回归', () => {
         expect(re.test('{{.x}}')).toBe(true)
         expect(re.test('}}')).toBe(true)
         expect(re.test('plain text')).toBe(false)
+    })
+})
+
+// ============================================================
+// ============       anchor-id 规则测试              =========
+// ============================================================
+
+describe('checkAnchorIds', () => {
+    it('锚点等于产物 id：通过（含数字前缀与行内代码）', () => {
+        write('t.md', [
+            '## 3.1 新需求默认走"评估 → backlog"原则（hard requirement）',
+            '## 6.2 运行失败分类口径（`failure_code` / `failure_stage`）',
+        ].join('\n'))
+        write('a.md', [
+            '[一](t.md#_3-1-新需求默认走-评估-→-backlog-原则-hard-requirement)',
+            '[二](t.md#_6-2-运行失败分类口径-failure-code-failure-stage)',
+            '# 本文件标题',
+        ].join('\n'))
+        expect(checkAnchorIds(root).errors).toEqual([])
+    })
+
+    it('GitHub 口径的 `--` 锚点：报错并给出产物 id 建议', () => {
+        write('t.md', '## 3.1 新需求默认走评估 -- backlog 原则\n')
+        write('a.md', '[一](t.md#31-新需求默认走评估--backlog原则)\n')
+        const { errors } = checkAnchorIds(root)
+        expect(errors).toHaveLength(1)
+        expect(errors[0]).toContain('不是 t.md 的产物 id 形态')
+        expect(errors[0]).toContain('"#_3-1-新需求默认走评估-backlog-原则"')
+    })
+
+    it('数字开头缺 `_` 前缀：报错（宽松比较会判绿，本规则负责拦）', () => {
+        write('t.md', '## 5.6 交付闸门\n')
+        write('a.md', '[一](t.md#5-6-交付闸门)\n')
+        expect(checkAnchorIds(root).errors).toHaveLength(1)
+        // 同一份输入在 links 规则下仍是绿的（口径差异的证据）
+        expect(checkLinks(root).errors).toEqual([])
+    })
+
+    it('非 md 目标与 file-dead 目标跳过（无标题 id 可比）', () => {
+        write('a.md', ['[图](x.png#frag)', '[死链](missing.md#whatever)'].join('\n'))
+        expect(checkAnchorIds(root).errors).toEqual([])
     })
 })

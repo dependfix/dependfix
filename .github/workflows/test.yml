@@ -57,9 +57,10 @@ jobs:
       - run: pnpm run i18n:check:anchor
       - run: pnpm run docs:check:i18n
       - run: pnpm run lint:md:check
-      # check:docs 规则面七类：links（路径/锚点/绝对路径/穿越/gitignore/正文机器路径）+
+      # check:docs 规则面八类：links（路径/锚点/绝对路径/穿越/gitignore/正文机器路径）+
       # vue-interp（Vue 插值）+ link-text（链接文本 §N ↔ 锚点编号）+ link-syntax（畸形链接）+
-      # emphasis（** 未配对）+ site-links（站点静态绝对链接）+ archive-anchors（归档锚点子集，file-dead 豁免）；
+      # emphasis（** 未配对）+ site-links（站点静态绝对链接）+ archive-anchors（归档锚点子集，file-dead 豁免）+
+      # anchor-id（站内锚点必须是 VitePress 产物 id）；
       # 覆盖面与边界（含运行期生成链接不在静态面内）见 docs/standards/documentation.md §2。
       # 负例标定：五类各植入 1 个最小负例 → exit 1 且输出 文件:行:明细；还原后 exit 0（2026-10-14 本地已验）。
       - run: pnpm run check:docs
@@ -117,6 +118,9 @@ jobs:
       # lint-md/check-docs 均不检查标签配对——docs 构建失败必须尽早暴露，不等 typecheck/test/build 跑完
       # （教训见经验归档 §三十三：release.md 裸 <path> 导致 Test/Pages 双 workflow 在末尾构建才失败）
       - run: pnpm run docs:build
+      # 锚点实证：以刚构建出的产物 HTML 的 id 复核全部站内锚点（check:docs 的 anchor-id 用内置
+      # slugify 推算，本步用真实产物兜底——VitePress 升级若改 slug 规则，两者会一起显形）。
+      - run: pnpm run docs:check:anchors
       # 未翻译页的语言切换目标必须可用（构建期生成的兜底入口页 + 目标标记 + 点击补丁）：
       # 复用上一步同一份 dist，零额外构建成本；依据 [i18n 规范 §2.1](../../docs/standards/i18n.md)。
       - run: pnpm run docs:check:fallback

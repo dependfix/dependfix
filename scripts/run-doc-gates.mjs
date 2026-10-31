@@ -43,6 +43,7 @@ export const DOC_GATES = [
     // 较慢的 i18n lint 与 docs 构建在后；fallback 依赖构建产物
     'lint:i18n',
     'docs:build',
+    'docs:check:anchors',
     'docs:check:fallback',
 ]
 

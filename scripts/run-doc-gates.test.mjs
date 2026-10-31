@@ -52,6 +52,8 @@ describe('DOC_GATES', () => {
     it('docs 构建先于 fallback 检查（依赖 dist）', () => {
         expect(DOC_GATES.indexOf('docs:build')).toBeLessThan(DOC_GATES.indexOf('docs:check:fallback'))
         expect(DOC_GATES.indexOf('docs:build')).toBeGreaterThanOrEqual(0)
+        // 锚点实证依赖刚构建出的产物：必须在 docs:build 之后、fallback 之前
+        expect(DOC_GATES.indexOf('docs:check:anchors')).toBe(DOC_GATES.indexOf('docs:build') + 1)
     })
 })
 

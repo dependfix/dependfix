@@ -12,6 +12,9 @@
  * - **emphasis**：强调标记 `**` 未配对（渲染级盲区：lint / links / docs:build 均不报）
  * - **site-links**：VitePress 站点绝对链接（nav / sidebar / 首页 frontmatter）指向的源文件
  * - **archive-anchors**：`docs/plan/archive/**` 锚点子集（自锚点 + 跨文档锚点；file-dead 豁免）
+ * - **anchor-id**：站内锚点必须是目标页面的 VitePress 产物 id（逐字符相等；
+ *   宽松归一化会把 GitHub 口径的错锚判绿，见 `docs/standards/documentation.md`；
+ *   slug 口径的单一事实源是 `scripts/docs/vitepress-slug.mjs`）
  *
  * 覆盖边界：`links` 面排除 `docs/plan/archive/**`（归档动作会让历史相对链接指向预期外
  * 位置，file-dead 属独立批次）；锚点子集 / 强调标记 / 畸形链接三类与路径漂移无关，覆盖归档文档。
@@ -41,33 +44,21 @@ import { existsSync, readFileSync, statSync } from 'node:fs'
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import { getCliArgs, isDirectExecution } from './shared/cli.mjs'
 import { isGitIgnored, isInsideGitWorkTree, REPO_ROOT, walkMdFiles } from './shared/md-walk.mjs'
+import { EXTERNAL_LINK_RE, FENCE_RE, LINK_RE, fenceMask, looseNorm, forEachProseLine, RUNTIME_EXCLUDED_PATHS } from './docs/md-scan.mjs'
+import { collectFileHeadings } from './docs/vitepress-slug.mjs'
 
 const repoRoot = REPO_ROOT
-
-/**
- * 仓库内不参与文档检查的运行时目录（相对仓库根的 POSIX 前缀，必须与实参 repoRoot 一致）。
- *
- * `apps/platform/data`：平台运行时数据（由 `apps/platform/.gitignore` 排除）。扫描 run 会把
- * 目标仓库克隆与产物落在 `data/runs/<runId>/` 下（含大量 `.md`），若不剪枝，这些「本仓不存在」
- * 的文件会被当成仓库文档参与链接 / 插值检查，本地报出成百上千与环境无关的错误
- * （CI 为干净检出，不受影响）。按路径前缀而非目录名 `data`：`data` 是通用名，按名排除会误伤同名正常目录。
- */
-const RUNTIME_EXCLUDED_PATHS = ['apps/platform/data']
 
 // ============================================================
 // ============      links 规则（来自 check-links.mjs）      =========
 // ============================================================
 
-const LINK_RE = /\[([^\]]*)\]\(([^)]+)\)/g
 // 本地绝对路径：POSIX（/xxx）、Windows 盘符（C:/xxx / C:\xxx）、UNC（\\server）
 const ABS_PATH_RE = /^(?:[a-zA-Z]:[\\/]|\\\\|\/)/
 // 正文中的个人机器路径（高特征）：Windows 盘符 + 分隔符、UNC 双反斜杠前缀
 const BODY_ABS_PATH_RE = /(?<![a-zA-Z])(?:[a-zA-Z]:[\\/][^\s`)'"，。；：！？、`]+|\\\\[^\s`)'"，。；：！？、`]+)/g
 
-/** 宽松规范化：小写 + 移除标点/符号（含 emoji）/空白，用于跨平台锚点比较 */
-export function looseNorm(str) {
-    return str.toLowerCase().replace(/[\p{P}\p{S}\s]+/gu, '')
-}
+export { looseNorm }
 
 /** 锚点规范化：兼容原文与 URL 编码两种写法 */
 export function normAnchor(anchor) {
@@ -78,29 +69,19 @@ export function normAnchor(anchor) {
     }
 }
 
-/** 提取文件的标题集合（跳过 fenced code block），返回宽松规范化后的形式 */
+/**
+ * 提取文件的标题集合（跳过 fenced code block），返回宽松规范化后的形式。
+ *
+ * 标题文本抽取与 VitePress 同源（`vitepress-slug.mjs`）：行内代码 / 内联 HTML 的
+ * **内容参与** slug。历史实现把行内代码整体剥离，导致「按产物 id 书写的新锚点」在
+ * 宽松比较下反而找不到标题（如 `## 6.2 …（`failure_code` …）` 的产物 id 含
+ * `failure-code`）——两套口径必须同源，否则门禁会惩罚正确写法。
+ */
 export function collectTitles(file) {
-    const lines = readFileSync(file, 'utf8').split(/\r?\n/)
     const titles = new Set()
-    let inCode = false
-    for (const line of lines) {
-        if (/^\s*```/.test(line)) {
-            inCode = !inCode
-            continue
-        }
-        if (inCode) {
-            continue
-        }
-        const m = line.match(/^(#{1,6})\s+(.+)$/)
-        if (!m) {
-            continue
-        }
-        const title = m[2]
-            .replace(/`[^`]*`/g, '')
-            .replace(/\[[^\]]*\]\([^)]*\)/g, '')
-            .replace(/[#*_~]/g, '')
-            .trim()
-        titles.add(looseNorm(title))
+    for (const heading of collectFileHeadings(file)) {
+        titles.add(looseNorm(heading.text))
+        titles.add(looseNorm(heading.id))
     }
     return titles
 }
@@ -118,14 +99,10 @@ export function checkLinks(repoRoot) {
     for (const file of files) {
         const lines = readFileSync(file, 'utf8').split(/\r?\n/)
         const selfTitles = collectTitles(file)
-        let inCode = false
+        const codeMask = fenceMask(lines)
 
         lines.forEach((line, idx) => {
-            if (/^\s*```/.test(line)) {
-                inCode = !inCode
-                return
-            }
-            if (inCode) {
+            if (codeMask[idx]) {
                 return
             }
             const rel = relative(repoRoot, file)
@@ -201,8 +178,6 @@ const MUSTACHE_RE = /\{\{|\}\}/
 // v-pre span 开始 / 结束标签
 const V_PRE_OPEN_RE = /<span\s+v-pre(?:\s[^>]*)?>/g
 const V_PRE_CLOSE_RE = /<\/span>/g
-// fenced code block 边界
-const FENCE_RE = /^\s*```/
 // HTML 注释（行内或多行）；未配对的 `<!--` 也截到行尾，避免残留触发 Vue 插值误判
 const HTML_COMMENT_RE = /<!--[\s\S]*?(?:-->|$)/g
 
@@ -218,18 +193,14 @@ const HTML_COMMENT_RE = /<!--[\s\S]*?(?:-->|$)/g
 export function scanVueInterp(content, relPath) {
     const errors = []
     const lines = content.split(/\r?\n/)
-    let inFence = false
+    const codeMask = fenceMask(lines)
     let vPreDepth = 0
 
     for (let i = 0; i < lines.length; i++) {
         const line = lines[i]
         const lineNum = i + 1
 
-        if (FENCE_RE.test(line)) {
-            inFence = !inFence
-            continue
-        }
-        if (inFence) {
+        if (codeMask[i]) {
             continue
         }
 
@@ -345,22 +316,6 @@ function emphasisMarkCount(line) {
     return (line.replace(HTML_COMMENT_RE, '').replace(/`[^`]*`/g, '').match(/\*\*/g) || []).length
 }
 
-/** 逐行遍历 md 的正文（跳过 fenced code block），回调拿到 (行内容, 行号) */
-function forEachProseLine(file, fn) {
-    const lines = readFileSync(file, 'utf8').split(/\r?\n/)
-    let inFence = false
-    lines.forEach((line, idx) => {
-        if (/^\s*```/.test(line)) {
-            inFence = !inFence
-            return
-        }
-        if (inFence) {
-            return
-        }
-        fn(line, idx + 1)
-    })
-}
-
 // ============================================================
 // ====  link-text 规则（链接文本 §N ↔ 锚点编号一致性）   =======
 // ============================================================
@@ -414,14 +369,20 @@ export function textSectionNumbers(text) {
     return numbers
 }
 
-/** 锚点前导编号 → 规范化数字串（`44-大批量…` → `44`；`五十六m24…` → `56`；无编号 → null） */
+/**
+ * 锚点前导编号 → 规范化数字串（`44-大批量…` → `44`；`五十六m24…` → `56`；无编号 → null）。
+ * 兼容 VitePress 产物 id：数字开头的标题带 `_` 前缀且 `.` 被拆成 `-`
+ * （`_5-1-15-标题` → `5115`），故先剥 `_` 再按 `.` / `-` 连接的数字串解析。
+ */
 export function anchorLeadingNumber(anchor) {
-    const m = decodeURIComponentSafe(anchor).match(/^([0-9]+(?:\.[0-9]+)*|[零一二两三四五六七八九十百]+)/)
+    const m = decodeURIComponentSafe(anchor)
+        .replace(/^_/, '')
+        .match(/^([0-9]+(?:[.-][0-9]+)*|[零一二两三四五六七八九十百]+)/)
     if (!m) {
         return null
     }
     if (/^[0-9]/.test(m[1])) {
-        return m[1].replace(/\./g, '')
+        return m[1].replace(/[.-]/g, '')
     }
     const value = chineseNumeralToNumber(m[1])
     return value === null ? null : String(value)
@@ -553,7 +514,7 @@ export function checkEmphasis(repoRoot) {
     for (const file of files) {
         const rel = relative(repoRoot, file)
         const lines = readFileSync(file, 'utf8').split(/\r?\n/)
-        let inFence = false
+        const codeMask = fenceMask(lines)
         let count = 0
         let lastOddLine = null
 
@@ -574,12 +535,8 @@ export function checkEmphasis(repoRoot) {
 
         lines.forEach((line, idx) => {
             const lineNum = idx + 1
-            if (/^\s*```/.test(line)) {
+            if (codeMask[idx]) {
                 flush()
-                inFence = !inFence
-                return
-            }
-            if (inFence) {
                 return
             }
             if (line.trim() === '' || HR_RE.test(line)) {
@@ -752,6 +709,78 @@ export function checkArchiveAnchors(repoRoot) {
     return { files, errors }
 }
 
+
+// ============================================================
+// ====  anchor-id 规则（锚点必须是 VitePress 产物 id）   =======
+// ============================================================
+
+/**
+ * 站内锚点必须是目标页面的 VitePress 产物 id（`vitepress-slug.mjs` 的单一事实源）。
+ *
+ * 为什么需要独立规则：`links` / `archive-anchors` 用宽松归一化比较锚点（剥离全部
+ * 标点含 `-`），GitHub 口径的 `--` 连字符、数字开头缺 `_` 前缀、全角标点残留等
+ * 形态都会被判绿——在站点上却是死锚（点击不跳转）。本规则要求锚点**逐字符等于**
+ * 产物 id，把「能跳转」这件事真正纳入门禁。
+ *
+ * 覆盖边界（显式声明，均属静默跳过）：
+ * - 只校验 `.md` 目标（其它资源没有标题 id）；目标文件不存在时维持既有 file-dead 豁免
+ * - 外部链接（http / mailto / …）与本文件内锚点同等对待（后者以自身标题为准）
+ * - 链接正则只认 `[文本](目标)`：带 title 的 `[a](t.md#a "t")`、引用式 `[a][r]`、
+ *   裸 `<a href="#a">`、站点绝对 `/x.md#a`、带 query `t.md?x=1#a`、百分号编码路径
+ *   都不进比对（这类形态在本仓库文档面为零；若引入需扩展 LINK_RE 并补用例）
+ * - 报错附建议目标：锚点的宽松形态唯一命中某个产物 id 时给出该 id
+ */
+export function checkAnchorIds(repoRoot) {
+    const files = walkMdFiles(repoRoot, [], RUNTIME_EXCLUDED_PATHS, { includeDirs: ['archive'] })
+    const errors = []
+    const headingCache = new Map()
+
+    const headingsOf = (file) => {
+        if (!headingCache.has(file)) {
+            headingCache.set(file, collectFileHeadings(file))
+        }
+        return headingCache.get(file)
+    }
+
+    for (const file of files) {
+        const rel = relative(repoRoot, file)
+        forEachProseLine(file, (line, lineNum) => {
+            const clean = line.replace(/`[^`]*`/g, '')
+            for (const m of clean.matchAll(LINK_RE)) {
+                const target = m[2]
+                if (!target || EXTERNAL_LINK_RE.test(target)) {
+                    continue
+                }
+                const hashIndex = target.indexOf('#')
+                if (hashIndex < 0 || hashIndex === target.length - 1) {
+                    continue
+                }
+                const pathPart = target.slice(0, hashIndex)
+                if (pathPart && !pathPart.endsWith('.md')) {
+                    continue
+                }
+                const targetFile = pathPart ? resolve(dirname(file), pathPart) : file
+                if (pathPart && (!existsSync(targetFile) || !statSync(targetFile).isFile())) {
+                    continue // file-dead：归档豁免面（与 archive-anchors 同口径）
+                }
+                const anchor = target.slice(hashIndex + 1)
+                const headings = headingsOf(targetFile)
+                const decoded = decodeURIComponentSafe(anchor)
+                if (headings.some((h) => h.id === decoded)) {
+                    continue
+                }
+                const key = looseNorm(decoded)
+                const suggestion = headings.filter((h) => looseNorm(h.id) === key)
+                const hint = suggestion.length === 1 ? `（目标标题的产物 id 为 "#${suggestion[0].id}"）` : ''
+                const where = relative(repoRoot, targetFile)
+                errors.push(`${rel}:${lineNum} 锚点 "#${anchor}" 不是 ${where} 的产物 id 形态，站点上无法跳转${hint}`)
+            }
+        })
+    }
+
+    return { files, errors }
+}
+
 // ============================================================
 // ============                CLI 入口                   =========
 // ============================================================
@@ -764,6 +793,7 @@ const RULES = {
     emphasis: { run: checkEmphasis, label: 'emphasis' },
     'site-links': { run: checkSiteLinks, label: 'site-links' },
     'archive-anchors': { run: checkArchiveAnchors, label: 'archive-anchors' },
+    'anchor-id': { run: checkAnchorIds, label: 'anchor-id' },
 }
 
 function parseOnly(argv) {

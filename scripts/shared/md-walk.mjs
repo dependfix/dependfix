@@ -51,6 +51,9 @@ export const MD_EXCLUDED_DIRS = new Set([
     'archive',
     '.agents',
     '.claude',
+    // opencode 的 agent / skill 目录（`.opencode/skills` 是指向 `.github/skills` 的符号链接）：
+    // 跟随软链会把同一份内容扫两遍——本地计数虚高、错误重复报，与 CI（无软链）不一致
+    '.opencode',
     '.session',
     'artifacts',
     // Playwright 产物（gitignored）：`test-results/**/error-context.md` 会污染 md 扫描面

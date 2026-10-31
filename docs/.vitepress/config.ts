@@ -37,6 +37,7 @@ const zhSidebar = {
                 { text: 'Docker 部署', link: '/guide/deployment' },
                 { text: 'PR 自动合并配置', link: '/guide/auto-merge' },
                 { text: '发布指南', link: '/guide/release' },
+                { text: '1.0 契约冻结与迁移', link: '/guide/contract-freeze' },
                 { text: 'AI 协同开发', link: '/guide/ai-development' },
             ],
         },

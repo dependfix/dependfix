@@ -96,6 +96,14 @@ jobs:
       # 自指面：本文件为 yml，不在脚本扫描面（仅 md）内，新增注释不参与扫描。
       # 阻断强度：workflow 级阻断信号（仓库未配置 required status checks，与 visual job 同口径）。
       - run: pnpm run check:doc-governance
+      # 1.0 契约冻结门禁：五类对外契约（CLI 参数与模式 / Action inputs / RuntimeConfig 与 DEPENDFIX_* /
+      # 报告 JSON 字段 / 平台 DB 表列）由 AST / YAML 从代码事实源抽取，与
+      # docs/guide/contract-freeze.md 的清单逐项比对（集合语义）；同时校验 zh / en quick-start
+      # 的 CLI 参数表 == argsDef（防文档漏参数回流）。
+      # 负例标定：向 argsDef 临时加一个未登记的 flag 即 exit 1（本地已验），还原后 exit 0。
+      # 自指面：本文件为 yml，不在脚本扫描面内，新增注释不参与判定。
+      # 阻断强度：workflow 级阻断信号（仓库未配置 required status checks，与 visual job 同口径）。
+      - run: pnpm run check:contract-freeze
       # 经验条目落点门禁：每个经验归档条目必须含非空「落点」（L1 脚本 / L2 检查点 / 规范条款），
       # 占位符视为空——对治「只留条目、不留落点」反模式。脚本零依赖，置于静态检查簇内。
       # 负例标定：新增无落点条目即 exit 1（本地已验），修复后删除脚手架。

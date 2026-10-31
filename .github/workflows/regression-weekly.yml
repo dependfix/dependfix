@@ -21,8 +21,8 @@ permissions:
 #    - 本工作流: 每周定时，深度检查（基线约 5-8min），不阻断合并，监测趋势
 #
 #  超时与步骤说明：
-#    weekly profile = test:coverage + security:audit-deps + DOC_GATES（16 项，单点声明见
-#    scripts/run-doc-gates.mjs，与 test.yml / release.yml 同集合）+ lint / typecheck / build，共 21 步。
+#    weekly profile = test:coverage + security:audit-deps + DOC_GATES（20 项，单点声明见
+#    scripts/run-doc-gates.mjs，与 test.yml / release.yml 同集合）+ lint / typecheck / build，共 26 步。
 #    各 step 的 timeoutBudget（每步 10m，覆盖 / 审计 30m / 10m）是**展示元数据**（runner 不据此中断），
 #    实际基线约 5-8min；job 上限 120min 保留弹性，不以 step 预算累加作为余量依据。
 
@@ -99,8 +99,8 @@ jobs:
         run: pnpm --filter @dependfix/platform exec nuxt prepare
 
       # ── Phase 1: 核心回归（regression:weekly profile） ─────────────────
-      #  包含：test:coverage + security:audit-deps + DOC_GATES（16 项文档/治理门禁）
-      #  + lint + typecheck + build（共 21 步，组成以 profile 为准）
+      #  包含：test:coverage + security:audit-deps + DOC_GATES（20 项文档/治理门禁）
+      #  + lint + typecheck + build（共 26 步，组成以 profile 为准）
       - name: Run weekly regression gate
         run: pnpm run regression:weekly
         env:

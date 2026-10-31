@@ -29,6 +29,7 @@ export const DOC_GATES = [
     // 便宜且稳定的静态检查优先（失败最早暴露）
     'check:doc-governance',
     'check:doc-size',
+    'check:contract-freeze',
     'check:mergify',
     'check:orphan-ids',
     'check:standards-redundant:strict',

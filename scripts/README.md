@@ -28,10 +28,11 @@
 | `pnpm check:docs` | `check-docs.mjs` | 校验仓库内 .md 文件规范（八类规则：links：路径存在、锚点 slug、拒绝绝对路径/目录越界；vue-interp：docs/ 行内代码不触发 VitePress 编译失败；link-text：链接文本 §N ↔ 目标锚点编号；link-syntax：畸形链接；emphasis：`**` 未配对；site-links：站点静态绝对链接；archive-anchors：归档文档锚点子集；anchor-id：站内锚点必须是 VitePress 产物 id）；`--only=<links\|vue-interp\|link-text\|link-syntax\|emphasis\|site-links\|archive-anchors\|anchor-id>` 单跑（覆盖面与边界见 [文档规范 §2](../docs/standards/documentation.md#_2-markdown-约定)） |
 | `pnpm docs:check:anchors` | `docs/verify-anchor-dist.mjs` | 以 `docs:build` 产物 HTML 的 `id` 为权威复核：① 全部站内锚点命中产物 id；② 每页推算的标题 id 序列与产物逐个比对（slug 口径自校验，warning 不阻断）；源页缺产物或未构建时非零退出；已接入 `gates:docs`（紧跟 `docs:build`） |
 | — | `docs/migrate-anchors.mjs` | 站内锚点机械迁移为 VitePress 产物 id：默认 dry-run（逐文件计数 + 歧义 / 未命中清单），`--write` 落盘、`--json` 机读；以 `docs/vitepress-slug.mjs` 的 slug 为唯一权威（口径见 [文档规范](../docs/standards/documentation.md)） |
+| `pnpm docs:check:guides` | `docs/check-guide-parity.mjs` | 中英指南平价：`configuration` / `quick-start` 的 env 变量、CLI 参数、Action 输入键位与 H2/H3 骨架（en ⊇ zh），文案措辞不在面内 |
 | `pnpm docs:check:i18n` | `docs/check-i18n-duplicates.mjs` | 检查 docs 翻译页是否同时存在于旧目录（`docs/<locale>/`）与 `docs/i18n/<locale>/`（回流即报错；详见 [i18n 规范](../docs/standards/i18n.md)） |
 | `pnpm check:experience-landing` | `check-experience-landing.mjs` | 校验归档条目落点非空（编号子条目逐条校验；无编号子条目的 `##` 整体校验；占位符与自指落点判空）；**已接入 CI Test job（命中即阻断）** |
 | `pnpm check:doc-size` | `check-doc-size.mjs` | 按 [文档规范 §3](../docs/standards/documentation.md#_3-文档行数阈值) 的阈值表计量文档行数（单一事实源，脚本不硬编码）；超强制分片阈值阻断，warning 带仅报告；**已接入 CI Test job** |
-| `pnpm gates:docs` | `run-doc-gates.mjs` | 文档与治理门禁总入口（`DOC_GATES` 单点声明）：顺序执行 i18n / markdown / 链接 / 编号 / 规范 / 机制一致性 / docs 构建 / 锚点产出实证等 17 项；`release.yml` 与 weekly / pre-release / phase-close 回归 profile 共用（与 `test.yml` 同集合）；任一失败非零退出 |
+| `pnpm gates:docs` | `run-doc-gates.mjs` | 文档与治理门禁总入口（`DOC_GATES` 单点声明）：顺序执行 i18n / markdown / 链接 / 指南平价 / 编号 / 规范 / 机制一致性 / docs 构建 / 锚点产出实证等 18 项；`release.yml` 与 weekly / pre-release / phase-close 回归 profile 共用（与 `test.yml` 同集合）；任一失败非零退出 |
 | `pnpm check:doc-governance` | `check-doc-governance.mjs` | 文档治理结构与密度机检：字符/规则条数预算（[文档治理执行规范 §4.2](../docs/design/governance/doc-governance.md#_4-2-字符与密度预算)）+ 归档索引不变量 + freshness warning；**已接入 CI Test job（阻断项命中即失败）** |
 
 ### 代码注释治理

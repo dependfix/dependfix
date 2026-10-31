@@ -35,6 +35,7 @@ export const DOC_GATES = [
     'check:experience-landing',
     'check:verify-chain',
     'check:docs',
+    'docs:check:guides',
     'check:readme-i18n',
     'docs:check:i18n',
     'i18n:check:anchor',

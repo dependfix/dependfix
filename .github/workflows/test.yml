@@ -64,6 +64,8 @@ jobs:
       # 覆盖面与边界（含运行期生成链接不在静态面内）见 docs/standards/documentation.md §2。
       # 负例标定：五类各植入 1 个最小负例 → exit 1 且输出 文件:行:明细；还原后 exit 0（2026-10-14 本地已验）。
       - run: pnpm run check:docs
+      # 中英指南平价：env 变量 / CLI 参数 / Action 输入 / 章节骨架（en ⊇ zh），文案措辞不在面内
+      - run: pnpm run docs:check:guides
       # README 双向链接 + 章节结构一致性门禁（依赖中文 README + README.en-US.md 同存在；
       # 背景见 docs/plan/archive/todo-archive-phases-m26.md）
       - run: pnpm run check:readme-i18n

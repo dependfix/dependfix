@@ -69,6 +69,12 @@
 | `pnpm distill:wisdom` | `distill-wisdom.mjs` | Session Wisdom 蒸馏分析：读取 `.session/wisdom.md` 输出结构化报告与迁移建议；`--check` 供 hook 检查条目数是否超阈值（详见 [Session Wisdom 蒸馏机制](../docs/design/governance/session-wisdom-distillation.md)） |
 | `pnpm sync:skills` | `sync-skills.mjs` | 产品 skill 权威源镜像同步（`packages/skills/dependfix-remediator/` → `skills/dependfix-remediator/`，供 npx skills 生态发现；详见 [skill 分发设计](../docs/design/governance/skill-distribution.md)） |
 
+### 产品指标（G8）
+
+| pnpm 命令 | 脚本 | 用途 |
+|---|---|---|
+| `pnpm metrics:pr-health` | `metrics/pr-health.mjs` | G8 产品指标采集：窗口内 PR 的 CI 绿率 / 人工介入率 / 误关率，输出 Markdown + JSON。`--source=api`（需 `GITHUB_TOKEN` / `GH_PAT`）或 `--source=file --input=<snapshot.json>`（`--out-dir` 会落同名 `.snapshot.json` 供回灌复算）；口径（分子 / 分母 / 窗口）与 [1.0 就绪度台账 §2.1 G8](../docs/design/governance/release-1.0-readiness.md) 同源，夹具 `metrics/__fixtures__/pr-health.sample.json` 锁定三指标确定值。窗口内 0 个 PR 默认失败（`--allow-empty` 放行）；需 token + 网络，**不纳入 `gates:docs`** |
+
 ### 配置单点
 
 | 文件 | 用途 |
@@ -93,3 +99,4 @@
 - 发布链路脚本必须复用 `packages.config.mjs` 单点配置，禁止硬编码包列表；
 - 涉及 git / registry 副作用操作的脚本提供 `--dry-run` 预览；
 - 新增脚本后同步更新本 README 命令速查表。
+- 采集 / 统计类脚本**缺凭据时直接失败**，不得输出 0 值读数（避免把「没取到数」误读成「指标为零」）。

@@ -1,0 +1,146 @@
+{
+  "schemaVersion": 1,
+  "repo": "dependfix/dependfix",
+  "note": "合成夹具（非真实数据）：锁定 pr-health 的三指标口径，改动指标定义须同步更新本文件与台账 §G8。",
+  "pulls": [
+    {
+      "number": 106,
+      "state": "open",
+      "merged": false,
+      "createdAt": "2026-10-25T10:00:00.000Z",
+      "closedAt": null,
+      "mergedAt": null,
+      "headRef": "fix/pending-checks",
+      "author": { "login": "dependfix[bot]", "type": "Bot" },
+      "commits": [
+        { "sha": "a106", "committedAt": "2026-10-25T10:05:00.000Z", "author": { "login": "dependfix[bot]", "type": "Bot" } }
+      ],
+      "reviews": [
+        { "state": "COMMENTED", "submittedAt": "2026-10-25T12:00:00.000Z", "author": { "login": "CaoMeiYouRen", "type": "User" } }
+      ],
+      "checks": [
+        { "name": "Test", "conclusion": "pending" },
+        { "name": "Docs", "conclusion": "success" }
+      ],
+      "reopened": false
+    },
+    {
+      "number": 101,
+      "state": "closed",
+      "merged": true,
+      "createdAt": "2026-10-30T10:00:00.000Z",
+      "closedAt": "2026-10-30T11:00:00.000Z",
+      "mergedAt": "2026-10-30T11:00:00.000Z",
+      "headRef": "fix/clean-run",
+      "author": { "login": "dependfix[bot]", "type": "Bot" },
+      "commits": [
+        { "sha": "a101", "committedAt": "2026-10-30T10:05:00.000Z", "author": { "login": "dependfix[bot]", "type": "Bot" } }
+      ],
+      "reviews": [],
+      "checks": [
+        { "name": "Test", "conclusion": "success" },
+        { "name": "Docs", "conclusion": "success" }
+      ],
+      "reopened": false
+    },
+    {
+      "number": 104,
+      "state": "closed",
+      "merged": false,
+      "createdAt": "2026-10-27T10:00:00.000Z",
+      "closedAt": "2026-10-27T11:00:00.000Z",
+      "mergedAt": null,
+      "headRef": "fix/relanded",
+      "author": { "login": "dependfix[bot]", "type": "Bot" },
+      "commits": [
+        { "sha": "a104", "committedAt": "2026-10-27T10:05:00.000Z", "author": { "login": "dependfix[bot]", "type": "Bot" } }
+      ],
+      "reviews": [],
+      "checks": [{ "name": "Test", "conclusion": "success" }],
+      "reopened": false
+    },
+    {
+      "number": 100,
+      "state": "closed",
+      "merged": true,
+      "createdAt": "2026-08-01T10:00:00.000Z",
+      "closedAt": "2026-08-01T11:00:00.000Z",
+      "mergedAt": "2026-08-01T11:00:00.000Z",
+      "headRef": "fix/out-of-window",
+      "author": { "login": "dependfix[bot]", "type": "Bot" },
+      "commits": [
+        { "sha": "a100", "committedAt": "2026-08-01T10:05:00.000Z", "author": { "login": "dependfix[bot]", "type": "Bot" } }
+      ],
+      "reviews": [],
+      "checks": [{ "name": "Test", "conclusion": "success" }],
+      "reopened": false
+    },
+    {
+      "number": 103,
+      "state": "closed",
+      "merged": false,
+      "createdAt": "2026-10-28T10:00:00.000Z",
+      "closedAt": "2026-10-28T18:00:00.000Z",
+      "mergedAt": null,
+      "headRef": "fix/reopened",
+      "author": { "login": "dependfix[bot]", "type": "Bot" },
+      "commits": [
+        { "sha": "a103", "committedAt": "2026-10-28T10:05:00.000Z", "author": { "login": "dependfix[bot]", "type": "Bot" } }
+      ],
+      "reviews": [],
+      "checks": [{ "name": "Test", "conclusion": "success" }],
+      "reopened": true
+    },
+    {
+      "number": 102,
+      "state": "closed",
+      "merged": true,
+      "createdAt": "2026-10-29T10:00:00.000Z",
+      "closedAt": "2026-10-29T15:00:00.000Z",
+      "mergedAt": "2026-10-29T15:00:00.000Z",
+      "headRef": "fix/human-commit",
+      "author": { "login": "dependfix[bot]", "type": "Bot" },
+      "commits": [
+        { "sha": "a1021", "committedAt": "2026-10-29T10:05:00.000Z", "author": { "login": "dependfix[bot]", "type": "Bot" } },
+        { "sha": "a1022", "committedAt": "2026-10-29T13:00:00.000Z", "author": { "login": "CaoMeiYouRen", "type": "User" } }
+      ],
+      "reviews": [],
+      "checks": [{ "name": "Test", "conclusion": "failure" }],
+      "reopened": false
+    },
+    {
+      "number": 105,
+      "state": "closed",
+      "merged": true,
+      "createdAt": "2026-10-26T10:00:00.000Z",
+      "closedAt": "2026-10-30T12:30:00.000Z",
+      "mergedAt": "2026-10-30T12:30:00.000Z",
+      "headRef": "fix/relanded",
+      "author": { "login": "dependfix[bot]", "type": "Bot" },
+      "commits": [
+        { "sha": "a105", "committedAt": "2026-10-26T10:05:00.000Z", "author": { "login": "dependfix[bot]", "type": "Bot" } }
+      ],
+      "reviews": [],
+      "checks": [{ "name": "Test", "conclusion": "success" }],
+      "reopened": false
+    },
+    {
+      "number": 107,
+      "state": "closed",
+      "merged": true,
+      "createdAt": "2026-10-24T10:00:00.000Z",
+      "closedAt": "2026-10-24T12:00:00.000Z",
+      "mergedAt": "2026-10-24T12:00:00.000Z",
+      "headRef": "fix/bot-review",
+      "author": { "login": "dependfix[bot]", "type": "Bot" },
+      "commits": [
+        { "sha": "a107", "committedAt": "2026-10-24T10:05:00.000Z", "author": { "login": "dependfix[bot]", "type": "Bot" } }
+      ],
+      "reviews": [
+        { "state": "APPROVED", "submittedAt": "2026-10-24T11:00:00.000Z", "author": { "login": "reviewer[bot]", "type": "Bot" } }
+      ],
+      "checks": [{ "name": "Test", "conclusion": "success" }],
+      "reopened": false
+    }
+  ]
+}

@@ -82,8 +82,10 @@ export interface RestoreResult {
     from: string
     /** 恢复目标数据库路径 */
     to: string
-    /** 覆盖前自动备份路径（目标库原本不存在时为 undefined） */
+    /** 覆盖前自动备份路径（目标库原本不存在 / 显式跳过时为 undefined） */
     autoBackup?: string
+    /** 是否因 `--skip-auto-backup` 跳过了覆盖前快照（区别于「目标库原本不存在」） */
+    autoBackupSkipped?: boolean
     /** 清理的 WAL / SHM 旁文件路径 */
     removedSidecars: string[]
     /** 恢复后自检结果 */
@@ -186,9 +188,25 @@ export const restoreDatabase = (options: {
     // 2. 覆盖前自动备份当前数据库（走 backup.ts 的原子写入路径）
     const backupDir = join(dirname(to), BACKUP_DIR_NAME)
     let autoBackup: string | undefined
+    let autoBackupSkipped = false
     if (skipAutoBackup) {
+        // 安全闸门：目标库可正常打开（integrity ok）时拒绝跳过——否则会静默丢弃唯一撤销快照
+        if (existsSync(to) && statSync(to).size > 0) {
+            let healthy = false
+            try {
+                healthy = inspect(to).integrity === 'ok'
+            } catch {
+                healthy = false // 打不开 = 损坏，正是该参数的用途
+            }
+            if (healthy) {
+                throw new Error(
+                    `目标库可正常打开（integrity_check=ok）：拒绝 --skip-auto-backup（该参数仅用于目标库已损坏、无法生成快照的场景）`,
+                )
+            }
+        }
         // 显式跳过（目标库已损坏时无法生成快照）；仍保证父目录存在
         mkdirSync(dirname(to), { recursive: true })
+        autoBackupSkipped = true
     } else if (existsSync(to) && statSync(to).size > 0) {
         mkdirSync(backupDir, { recursive: true })
         // 文件名 `auto.<ts>-<ms>.bak`：
@@ -233,7 +251,7 @@ export const restoreDatabase = (options: {
         throw new Error(`恢复后 integrity_check 未通过：${inspection.integrity}`)
     }
 
-    return { from, to, autoBackup, removedSidecars, inspection }
+    return { from, to, autoBackup, autoBackupSkipped, removedSidecars, inspection }
 }
 
 /** 格式化恢复结果为 CLI 可读输出 */
@@ -241,7 +259,7 @@ export const formatRestoreResult = (result: RestoreResult): string => [
     '[RESTORE] 数据库恢复完成',
     `  来源备份:       ${result.from}`,
     `  恢复目标:       ${result.to}`,
-    `  覆盖前备份:     ${result.autoBackup ?? '(目标库原本不存在，未备份)'}`,
+    `  覆盖前备份:     ${result.autoBackup ?? (result.autoBackupSkipped ? '(已跳过：--skip-auto-backup，本轮无撤销凭据)' : '(目标库原本不存在，未备份)')}`,
     `  清理旁文件:     ${result.removedSidecars.length > 0 ? result.removedSidecars.join(', ') : '(无)'}`,
     `  integrity_check: ${result.inspection.integrity}`,
     `  schema_version:  ${result.inspection.schemaVersion}`,

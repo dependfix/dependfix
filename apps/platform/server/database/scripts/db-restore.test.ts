@@ -203,7 +203,19 @@ describe('db-restore', () => {
             // 逃生门：显式跳过快照后仍可恢复（事故现场目标库已不可用）
             const result = restoreDatabase({ from: backupPath, to: dbPath, skipAutoBackup: true })
             expect(result.autoBackup).toBeUndefined()
+            expect(result.autoBackupSkipped).toBe(true)
+            expect(formatRestoreResult(result)).toContain('已跳过：--skip-auto-backup')
             expect(readValues(dbPath)).toEqual(['from-backup'])
+        })
+
+        it('refuses --skip-auto-backup when the target database is healthy', () => {
+            // 安全闸门：健康库上跳过快照会丢掉唯一撤销凭据，必须拒绝
+            createSeedDatabase(dbPath, 'current')
+            createSeedDatabase(backupPath, 'from-backup')
+
+            expect(() => restoreDatabase({ from: backupPath, to: dbPath, skipAutoBackup: true }))
+                .toThrow(/可正常打开.*拒绝 --skip-auto-backup/s)
+            expect(readValues(dbPath)).toEqual(['current'])
         })
 
         it('keeps distinct auto backups when two restores land in the same second', () => {

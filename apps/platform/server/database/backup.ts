@@ -8,7 +8,6 @@ import {
     renameSync,
     statSync,
     unlinkSync,
-    writeSync,
 } from 'node:fs'
 import { dirname, join } from 'node:path'
 import Database from 'better-sqlite3'
@@ -205,44 +204,6 @@ export const backupDatabaseIfNeeded = async (
     }
 
     return { created: backupPath, cleaned }
-}
-
-/**
- * 原子写入文件：写临时文件 → fsync 刷盘 → rename 到目标路径。
- * 断电 / 进程被杀时不会在目标路径留下半成品（rename 是文件系统原子操作）。
- * 失败时清理残留临时文件并向上抛出，由调用方决定 fail-open 还是 fail-closed。
- *
- * 单独 export 供 db-restore 脚本复用（覆盖前自动备份走同一原子写入路径）。
- *
- * @param destPath 目标文件路径（父目录必须已存在）
- * @param data 待写入内容
- */
-export const writeFileAtomicSync = (destPath: string, data: Buffer): void => {
-    const tempPath = `${destPath}${TEM_FILE_EXTENSION}`
-    let fd: number | undefined
-    try {
-        fd = openSync(tempPath, 'w')
-        writeSync(fd, data)
-        fsyncSync(fd) // 强制刷盘，确保断电时不会留下半成品
-        closeSync(fd)
-        fd = undefined
-        renameSync(tempPath, destPath)
-    } catch (error) {
-        if (fd !== undefined) {
-            try {
-                closeSync(fd)
-            } catch {
-                // close 失败不阻断主流程
-            }
-        }
-        // 清理残留的临时文件
-        try {
-            unlinkSync(tempPath)
-        } catch {
-            // 临时文件清理失败不阻断
-        }
-        throw error
-    }
 }
 
 /**

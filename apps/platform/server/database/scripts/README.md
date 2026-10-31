@@ -127,16 +127,19 @@ pnpm db:restore --help
 - `--from=<path>`：必填。备份文件路径。
 - `--yes`：必填。显式确认覆盖当前数据库。
 - `--to=<path>`：可选。恢复目标，默认取 `DATABASE_PATH` 环境变量，回退 `data/dependfix.sqlite`。
+- `--skip-auto-backup`：可选。**仅当目标库已损坏、无法生成快照时**使用；使用前应人工移走损坏的
+  主库与 `-wal` / `-shm`。该轮没有 auto 快照可撤销。目标库可正常打开时该 flag 会被拒绝。
 
 ### 安全门
 
 1. **双门控**：`--from` 与 `--yes` 缺任一个即拒绝执行，不猜测"最新备份"。
 2. **源备份预校验**：恢复前对备份文件跑 `PRAGMA integrity_check`，文件缺失 / 为空 / 非 SQLite /
    校验未通过时直接拒绝，当前数据库不被触碰。
-3. **覆盖前自动备份**：当前数据库先原子备份到 `data/backups/auto.<timestamp>-<ms>.bak`（复用
-   `backup.ts` 的 `writeFileAtomicSync`），这份文件是"撤销恢复"的唯一凭据。文件名带毫秒，
-   同一秒内二次恢复不会互相覆盖；这批文件同样受保留策略约束（默认最近 5 份，
-   `BACKUP_RETENTION_COUNT` 环境变量可覆盖）。
+3. **覆盖前自动备份**：当前数据库先生成一致性快照到 `data/backups/auto.<timestamp>-<ms>.bak`
+   （复用 `backup.ts` 的 `createSnapshotSync`：`VACUUM INTO` + `.tmp` → fsync → rename，
+   含 WAL 未 checkpoint 数据），这份文件是"撤销恢复"的唯一凭据。文件名带毫秒，同一秒内二次恢复
+   不会互相覆盖；这批文件同样受保留策略约束（默认最近 5 份，`BACKUP_RETENTION_COUNT` 可覆盖）。
+   **目标库无法打开时中止恢复**（`--skip-auto-backup` 为逃生门，见参数说明）。
 4. **旁文件清理**：恢复后删除属于旧数据库的 `-wal` / `-shm` / `-journal` 文件，避免陈旧 WAL 或
    回滚日志被当作新库的崩溃恢复数据回放。
 5. **恢复后自检**：再跑一次 `integrity_check` + 打印 `schema_version`，未通过则报错。
@@ -194,7 +197,7 @@ pnpm db:doctor --path=data/backups/dependfix.sqlite.2026-09-01T12-00-00.bak
 
 | 条件 | 结论 |
 | --- | --- |
-| `integrity_check != 'ok'` | 数据库损坏（应立即 `pnpm db:restore` 恢复） |
+| `integrity_check != 'ok'` | 数据库损坏：先人工移走损坏主库与 `-wal` / `-shm`，再用 `pnpm db:restore --skip-auto-backup` 从备份恢复（直接恢复会因无法生成覆盖前快照而中止） |
 | 无业务表 | schema 从未建立 |
 | `schema_version = 0` + 业务表全空 | 全新数据库（首次启动的正常状态） |
 | `schema_version > 0` + 业务表全空 | 数据被清空或从未注入 |

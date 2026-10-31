@@ -38,6 +38,7 @@ const zhSidebar = {
                 { text: 'PR 自动合并配置', link: '/guide/auto-merge' },
                 { text: '发布指南', link: '/guide/release' },
                 { text: '1.0 契约冻结与迁移', link: '/guide/contract-freeze' },
+                { text: '1.0 真实环境验证矩阵', link: '/guide/real-env-matrix' },
                 { text: 'AI 协同开发', link: '/guide/ai-development' },
             ],
         },

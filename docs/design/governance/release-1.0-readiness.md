@@ -16,11 +16,11 @@
 
 > 量化断言均附测量命令与时点；无法当次复现的历史读数标注来源。
 
-| 门槛 | 达标条件（可判定） | 证据物 | 当前读数（最近更新 2026-10-31） | 批次 |
+| 门槛 | 达标条件（可判定） | 证据物 | 当前读数（最近更新 2026-11-01） | 批次 |
 |:--|:--|:--|:--|:--|
 | **G1 安全清零** | ① 发布物（5 npm 包 + platform 镜像）无**未被 §5.7 豁免的** critical / high 生产漏洞；② code scanning 0 条未处置告警；③ 存在 **prod 阻断步骤**（`pnpm audit --prod --audit-level=moderate --ignore-registry-errors --registry=https://registry.npmjs.org`，无 `|| true`，见 security.md §5.6）+ 全量依赖信号步骤；周回归使用同一 prod 阻断命令；④ 周回归最近 3 次`security:audit-deps` 均通过且日志含审计结果行（记录 run id；M49.3 只要求 1 次，3 次为 1.0 G1 口径） | 全工作区 `pnpm audit --prod --registry=https://registry.npmjs.org` + 按发布包审计记录；code scanning API（analysis id）；`test.yml` 步骤；周回归 run | ◐ 全工作区 23 条（4 high / 15 moderate / 4 low，1 ignored；`2026-10-25` 实测，含 dev；10-23 周回归 prod 口径为 11 条〔2 high / 8 moderate / 1 low，1 ignored〕）；Dependabot 31 条（2 critical / 5 high，其中 node-forge 属 §5.7 豁免）；code scanning 2 条；（M49.3 前）审计步骤仍 `|| true`；周回归连续 4 周红。**M49.2a/2b 后（`2026-10-26`）**：全量 audit 0 条 advisory（0 critical / 0 moderate / 0 low；另 1 high ignored = node-forge），prod audit 0 条；Dependabot critical / high 6 条可修复项已关闭 + node-forge 豁免；medium / low 已清零（`2026-10-26T12:41Z` 关闭），开放项仅 node-forge high；code scanning 已复扫 0 条（analysis `2026499469`）。**M49.3 后（2026-10-27）**：prod 阻断步骤已上线（无`|| true`，含`--registry` + `--ignore-registry-errors`），全量信号保留；3 次 master push run id（翻转后，日志含审计结果行）已回填：`40372808067` / `40466448172` / `40690157020`（步骤均 success；`40690157020` 整体因文档字符预算失败，与审计无关，已由 `ea89e7ec` 修复）；周回归 `40693124400`success（gate 日志含审计结果行）。M49.3 闭环。**M49.5 后（`2026-10-29`）**：版本已复核（5 npm 包发布 + 7 个 tag + GitHub Release）；**发布物安全复核未执行**（待 Docker run 收尾 + 按发布包 audit）；发布前安全告警门禁已落地（`check:release-security`，critical 含 dismissed 一律阻断、high 需台账）并接在`release.yml`；**本地备用通道未执行该门禁**（0.6.0 经该通道发布，已登记 backlog）。G1 ④「周回归最近 3 次」仍待累计 | M49 + F2 |
 | **G2 契约冻结** | CLI 参数与模式、Action inputs、报告 JSON schema、配置键、平台 DB schema 五类冻结清单成文；弃用策略与 0.x→1.0 迁移指南成文 | `docs/guide/contract-freeze.md`（五类清单 + 弃用策略 + 迁移指南）+ `pnpm run check:contract-freeze`（`gates:docs`） | ✅ **2026-10-31 M53.1 闭环**：五类清单逐项成文（CLI 43 / 运行模式 4 / Action 31 / `RuntimeConfig` 41 / `DEPENDFIX_*` 48 / 报告 17+11 / DB 15 表）；弃用策略（1 minor 提前期、移除只在 2.0）与 5 条迁移指南（`--version` 元数据缺陷 / 引擎交付链导出异步化 / `--allow-major-upgrade` 无 env / `on-baseline-red` 默认 skip / `signalsJson` 收敛后语义）成文；机检 11 类比对全绿并接入 `gates:docs`（含 zh·en quick-start 参数表 == `argsDef`） | G |
-| **G3 真实环境 E2E** | G3.0–G3.8 九条独立路径各留 1 条证据 + G3.9 AI 横切另计（2 家 × 5 场景） | run id / 截图 / 日志 / 报告产物 | ❌ 全部仅有 mock / 单元证据 · **M53.5 先做执行框架**（实跑待用户提供 OAuth / IdP / staging / 测试仓 / AI Key） | G（依赖外部资源） |
+| **G3 真实环境 E2E** | G3.0–G3.8 九条独立路径各留 1 条证据 + G3.9 AI 横切另计（2 家 × 5 场景） | run id / 截图 / 日志 / 报告产物 | ❌ **执行框架已就绪（2026-11-01 M53.5）**：十条路径的四要素 + 最小命令见 [真实环境矩阵指南](../../guide/real-env-matrix.md)，证据模板 / 字段校验（`pnpm check:real-env`）可用；**G3.8 有本地预演 `partial` 证据**（三条安装路径 + Docker 静态检查；`@latest`、远端镜像与 0.5.x→1.0 升级另计）。其余九条仍只有 mock / 单元证据，实跑待用户提供 OAuth / IdP / staging / 测试仓 / AI Key；全部 `passed` 后由 `pnpm check:real-env --require-all` 作 1.0 发布前专项检查。 | G（依赖外部资源） |
 | **G4 CI 稳定性** | `master` 连续 20 次 push 绿或连续 2 周无红；flake 率 < 2%；无 P0 事故 30 天 | `gh run list --limit 100` 统计（分子 = 非绿 run 数，分母 = 窗口内 run 数） | ◐ 近 40 次 34 绿（3 失败 / 3 取消）；失败含 dependabot 分支 2 次与 master「Dependabot Updates」1 次，取消为 Docker 被后续 push 取代。**0.6.0 发布后窗口起点（`2026-10-29`）**：`efaa555f` Test 全绿 1 次（`40744772890`，E2E / Coverage / Visual 同步 success），后续 push 继续累计 | G（观察窗口） |
 | **G5 测试与覆盖率** | 四维 ≥ 80%（现阈值）；关键模块 mutation 全覆盖；全量测试无 flaky 复发 | `pnpm test` + `pnpm test:coverage`（报告口径：四维百分比）+ mutation 工件 | ◐ 覆盖率已复测（2026-10-31，含本批新增采集脚本）：Statements 89.44% / Branches 84.04% / Functions 90.21% / Lines 89.55%（`pnpm test:coverage` exit 0）；mutation 累计 11/11（归因 3 + `core/report` 4 + `engine/app` 4；工件 `artifacts/review-gate/2026-10-31-m52-4-mutation.md` + `artifacts/review-gate/2026-10-31-m53-3-mutation.md`），**关键模块全覆盖未达成**（engine 判定链仅覆盖 `delivery`）；flaky 面：`budget.test.ts` 时间边界连跑 10 次全绿、视觉比对 20/20 ×2，全量 `pnpm test` 与已知 e2e flaky（scan-config / repos-crud）待 G 批次；剩余分档见 [M52.4 闭环](../../plan/archive/todo-archive-phases-m52.md) | F2 部分闭环（M52.4）+ G 引用 |
 | **G6 文档与可发现性** | 五入口指南完整；关键文档 en-US 平价（含本台账）；0.x→1.0 迁移指南；`@v1` 滚动 tag 可用 | 文档站构建 + `@v1` tag | ◐ M49 发版面 6 处漂移已闭环（AI 输入名 / M5 遗留 / MCP tool 数 / 设计索引 3 行，2026-10-26）；用户可见入口（quick-start / 首页 / README）的 Action 示例已回填 `v0.6.0`（2026-10-29）；版本引用已全部回填（用户可见 4 + 设计文档 4 + en-US 镜像 2）；指南与设计镜像结构平价已由 M52 收口（本台账 en 入口行已补）；剩余 = 设计文档全量英译（1.0 后评估）+ 无 `@v1`（0.x→1.0 迁移指南已由 M53.1 落地） | M49（发版面）+ F2（已闭环）+ G |
@@ -80,19 +80,35 @@
 ## 4. 真实环境验证矩阵（G3）
 
 > 源清单：[backlog.md §待人工验收](../../plan/backlog.md#待人工验收-真实环境-随可用性推进)。本表把 T701（真实凭据 3 项）映射为 G3.0（登录）、T702 / T704 映射到 G3.4、PR Check polling 映射到 G3.5、发布管线收尾映射到 G3.8，并补充 AI（G3.9）与安装升级（G3.8）两条路径。
+> **执行框架已就绪（2026-11-01 M53.5）**：每条路径的「前置资源 / 最小可执行命令 / 证据字段 / 验收判据」见 [真实环境矩阵指南](../../guide/real-env-matrix.md)；证据模板由 `pnpm check:real-env --init` 生成到 `artifacts/real-env/`（gitignored），`pnpm check:real-env` 校验字段完整性（缺字段 / 证据文件不存在即失败），`--require=...` / `--require-all` 作发布前门禁。**模板就绪与 `pending` 都不等于通过**。
 
-| # | 路径 | 现状 | 1.0 需留证据 | 前置 | backlog 条目 |
-|:--|:--|:--|:--|:--|:--|
-| G3.0 | 平台登录（GitHub / Google OAuth、IdP OIDC、构建期凭据按钮） | 单测 + e2e | 三种登录各一次真实闭环 + 按钮显示路径实测 | OAuth App / IdP / 构建期凭据 | T701 |
-| G3.1 | CLI `report-only`（GitHub + pnpm-audit） | 单测 / nock | 一次真实仓库报告（含告警数与 MD / JSON 报告） | GitHub token | —（新增） |
-| G3.2 | CLI `fix` / `fix-and-pr` | 单测 / app 级用例 | 一次真实分支 + commit + PR（含验证链与报告） | 可写测试仓库 | —（新增） |
-| G3.3 | GitHub Action | 本仓库 dogfooding（已停，见 §6） | 消费者仓库一次 `workflow_dispatch` 全绿 + PR | 测试仓库 + secrets | —（新增） |
-| G3.4 | 平台：扫描 / 批量 / 定时 | e2e + docker smoke | staging 一次真实扫描 + 一次定时触发（跑状态流转） | staging + Redis | T702 / T704 |
-| G3.5 | 平台：PR Check / 通知 | 单测 + e2e | 一次真实 polling 落库 + 一次真实邮件投递 | 真实凭据 + 邮箱 | PR Check 真实 polling |
-| G3.6 | MCP Server（8 tool） | 包已发布 + 单测 | 真实客户端（Claude / Copilot / Cursor 任一）调用扫描与修复 | MCP 客户端 | —（新增） |
-| G3.7 | Agent Skill | 包已发布 + 内容测试 | 一次安装 + 对话式修复闭环 | AI 编码工具 | —（新增） |
-| G3.8 | 安装与升级 | 0.6.0 已发布（npm 5 包 + 7 个 tag + GitHub Release，2026-10-29 本地 / 2026-10-28T18:24Z；`--version` 缺陷待 0.6.1；Docker 镜像待复核） | `npx` / 全局安装 / Docker 三条路径 + 0.5.x→1.0 升级 | npm + Docker | 发布管线收尾 |
-| G3.9 | AI 研判（横切 G3.1-G3.5） | 全链 mock | 2 家 provider × 5 场景（成功 / 限流 / 超时 / 非法 JSON / 未配密钥） | AI Key + 预算 | —（新增） |
+| # | 路径 | 现状 | 前置资源 | 执行步骤（最小） | 证据字段 | 验收判据 | backlog |
+|:--|:--|:--|:--|:--|:--|:--|:--|
+| G3.0 | 平台登录（GitHub / Google OAuth、IdP OIDC、构建期凭据按钮） | 单测 + e2e | OAuth App / Google 凭据（`AUTH_MODE=public`）；IdP OIDC（`AUTH_MODE=enterprise`） | 两种模式各启动一次，各登录 → 登出 → 再登录 | 截图 + `/api/auth/get-session` 脱敏响应 + 启动日志 | 三种入口各成功一次；未登录页面重定向 `/login`、受保护 API 401 | T701 |
+| G3.1 | CLI `report-only`（GitHub + pnpm-audit） | 单测 / nock | 只读 token（`Dependabot alerts: read`；带 `--code-scanning` 另需 `security-events: read`） | `report-only --repo=… --code-scanning` | stdout 摘要 + `dependfix-report-*.md` / `.json` + 告警计数 | 退出码 0；MD 与 JSON 的 `alertsFound` 一致 | —（新增） |
+| G3.2 | CLI `fix` / `fix-and-pr` | 单测 / app 级用例 | 可写仓 token（+ `contents: write` / `pull_requests: write`） | `fix-and-pr --repo=… --max-alerts-per-repository=1` | 分支 / commit / PR URL + 验证链输出（install→lint→build→typecheck→test） | PR 真实创建且 CI 绿；失败路径可回滚 | —（新增） |
+| G3.3 | GitHub Action | 本仓库 dogfooding（已停，见 §6） | 消费者测试仓 + `github-token` / `dependabot-alerts-token` | 测试仓 `workflow_dispatch` 一次 | run id + 步骤日志 + PR | run 全绿并产出 PR；仅 `github-token` 时硬失败并提示切换数据源 | —（新增） |
+| G3.4 | 平台：扫描 / 批量 / 定时 | e2e + docker smoke | staging + Redis + admin / org_admin 会话 | `POST /api/repos/{id}/scan`、`POST /api/repos/batch-scan`、`POST /api/schedules/{id}/trigger` | run id + 状态流转 + 队列日志 + 批量聚合进度 | 单仓与批量各一次；定时触发一次；`running` 被杀后收敛 `orphan_run` | T702 / T704 |
+| G3.5 | 平台：PR Check / 通知 | 单测 + e2e | 真实 PR + `ACTION_STATUS_MONITOR_ENABLED=true` + SMTP / 邮箱 | `POST /api/pr-checks/poll` + 触发一次通知 | 落库记录 + 邮件原文（脱敏）+ 开关生效日志 | 结论与 GitHub 一致；邮件真实送达；重试仅对周报路径要求 | PR Check 真实 polling |
+| G3.6 | MCP Server（8 tool） | 包已发布 + 单测 | MCP 客户端 + `GITHUB_TOKEN` + `fix_dependency` 的 `workDir` | 客户端调用 `run_scan` / `fix_dependency` 各一次 | 配置片段（脱敏）+ tool 调用记录 | 两个 tool 成功；缺 token 返回结构化错误 | —（新增） |
+| G3.7 | Agent Skill | 包已发布 + 内容测试 | AI 编码工具 + 可写仓 | `npx skills add dependfix/dependfix -s dependfix-remediator -g` 后对话触发 | 安装输出 + 对话记录 + PR | 一次安装 + 一次闭环 | —（新增） |
+| G3.8 | 安装与升级 | **本地预演 `partial`（M53.4）**；0.6.0 已发布（npm 5 包 + 7 tag + Release），`--version` 缺陷待 0.6.1；Docker 远端镜像与 0.5.x→1.0 升级未验证 | npm + Docker registry（`read:packages`） | build → preflight → 三路径安装 → `docker run` 核对 health → `@latest` → 0.5.x→1.0 升级 | `preflight.json` + 版本输出 + 镜像 manifest + health | 三路径版本一致；双架构镜像存在；**0.5.x→1.0** 升级可用（0.6.1 仅中间验证） | 发布管线收尾 |
+| G3.9 | AI 研判（横切 G3.1-G3.5） | 全链 mock | 2 家 provider Key + 预算 | **2 家 × 5 场景 = 10 次**（限流 / 超时 / 非法 JSON 用 stub 注入） | 耗时 / token / 费用 + 降级行为 | 10 次可复现；单次 ≤ ¥20；无 Key 不影响主流程 | —（新增） |
+
+**需要用户提供的资源（未提供则对应路径保持 `pending` / `blocked`，不影响其他路径实跑）**
+
+| 资源 | 影响路径 | 状态（2026-11-01） |
+|:--|:--|:--|
+| GitHub OAuth App / Google OAuth 凭据 | G3.0（public） | 未提供 |
+| IdP OIDC client | G3.0（enterprise） | 未提供 |
+| GitHub token（只读 + `security-events: read`） | G3.1 / G3.6 | 未提供 |
+| GitHub token（+ 写权限） | G3.2 | 未提供 |
+| 测试仓（可写）+ Action 输入 token | G3.2 / G3.3 / G3.5 | 未提供 |
+| staging + Redis + admin 会话 | G3.4 / G3.5 | 未提供 |
+| 收件邮箱 / SMTP | G3.5 | 未提供 |
+| MCP 客户端 / AI 编码工具 | G3.6 / G3.7 | 部分可用 |
+| AI Key × 2 + 预算（单次 ≤ ¥20） | G3.9 | 未提供 |
+| Docker registry 读权限（`read:packages`） | G3.8 | 未提供 |
 
 > 资源前置（2026-10-25 用户确认「应当提供」）：OAuth / OIDC 凭据、staging + Redis、AI API Key 与预算在 G 批次前提供；未提供则 G3 不判定，1.0 不发布。
 > AI 预算：单次上限 ≤ ¥20，超限即中止本次验证并记录（不自动追加预算）。

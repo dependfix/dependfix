@@ -40,7 +40,7 @@ features:
       details: 模块边界、依赖分组升级、依赖图与执行矩阵；系统级设计见架构文档。
       link: /design/governance/architecture
     - title: 路线图
-      details: M0-M51 已全部闭环归档；当前阶段 M52 文档平价与验证收口（1.0-F2，四原子 + 1 批追加，2026-10-30 规划，含 caomei-ui 1.0.0-rc.1 升级）；G 发布工程（M53）待规划；1.0 发布门槛（G1-G8）与批次计划见 design/governance/release-1.0-readiness；插队容量治理规则见规划规范 §3.1.1。
+      details: M0-M52 已全部闭环归档（M52 文档平价与验证收口，1.0-F2，四原子 + 4 批追加，2026-10-31 归档）；当前无活跃阶段，G 发布工程（M53）待规划；1.0 发布门槛（G1-G8）与批次计划见 design/governance/release-1.0-readiness；插队容量治理规则见规划规范 §3.1.1。
       link: /plan/roadmap
     - title: 当前任务
       details: 查看下一阶段规划与归档历史、验收指标与依赖；待办积压与已知边界。

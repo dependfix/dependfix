@@ -217,7 +217,7 @@ export interface RuntimeConfig {
     toolchainPnpmVersion?: string
     /**
      * 发现规模上限（`--max-repos` / `DEPENDFIX_MAX_REPOS`）：最多保留的仓库数。
-     * 默认 100；设为 0 或负数表示不限制。大 org 场景下防止一次性全量发现。
+     * 默认 100；设为 0 表示不限制（负数会被拒绝）。大 org 场景下防止一次性全量发现。
      */
     maxRepos: number
     /**
@@ -333,7 +333,7 @@ export interface CliConfigOverrides {
     toolchainPnpmVersion?: string
     /**
      * 发现规模上限（`--max-repos` / `DEPENDFIX_MAX_REPOS`）：最多保留的仓库数。
-     * 默认 100；设为 0 或负数表示不限制。大 org 场景下防止一次性全量发现。
+     * 默认 100；设为 0 表示不限制（负数会被拒绝）。大 org 场景下防止一次性全量发现。
      */
     maxRepos?: number
     /** AI 研判总开关（`--ai`） */
@@ -346,7 +346,7 @@ export interface CliConfigOverrides {
     aiBaseUrl?: string
     /** AI Anthropic 兼容端点（`--ai-api-url`，仅 provider=anthropic 生效） */
     aiApiUrl?: string
-    /** AI API Key（`--ai-api-key`；优先 DEPENDFIX_AI_API_KEY env） */
+    /** AI API Key（`--ai-api-key`；CLI 参数优先，DEPENDFIX_AI_API_KEY 环境变量兜底） */
     aiApiKey?: string
     /** AI 触发范围（`--ai-trigger`：failure / major / both） */
     aiTrigger?: AiTriggerKind

@@ -151,7 +151,7 @@ export const argsDef = {
     },
     'max-repos': {
         type: 'string' as const,
-        description: '发现规模上限：最多保留的仓库数（默认 100；0 或负数表示不限制；大 org 场景下防止一次性全量发现）',
+        description: '发现规模上限：最多保留的仓库数（默认 100；0 表示不限制，负数会被拒绝；大 org 场景下防止一次性全量发现）',
         default: '100' as const,
     },
     history: {
@@ -217,7 +217,7 @@ export const argsDef = {
     },
     'ai-api-key': {
         type: 'string' as const,
-        description: 'AI API Key（优先 DEPENDFIX_AI_API_KEY env；注意命令行参数会出现在进程列表/shell history，敏感环境请用 env）',
+        description: 'AI API Key（命令行参数优先，DEPENDFIX_AI_API_KEY 环境变量兜底；注意命令行参数会出现在进程列表/shell history，敏感环境请用 env）',
     },
     'ai-trigger': {
         type: 'string' as const,
@@ -514,7 +514,7 @@ function parsedArgsToCliOverrides(parsed: ParsedArgs<typeof argsDef>): CliConfig
         overrides.toolchainPnpmVersion = toolchainPnpmVersion
     }
 
-    // AI 研判（--ai 系列；--ai-api-key 为敏感参数，env 优先）
+    // AI 研判（--ai 系列；--ai-api-key 为敏感参数：CLI 参数优先、env 兜底，敏感环境建议用 env）
     if (parsed.ai !== undefined) {
         overrides.aiEnabled = parsed.ai
     }

@@ -32,7 +32,7 @@ export interface RepositoryDiscoveryOptions {
     probeConcurrency?: number
     /**
      * 发现规模上限：最多保留的仓库数（按 fullName 字典序排序后截断）。
-     * 默认 100；设为 0 或负数表示不限制。
+     * 默认 100；设为 0 表示不限制（负数会被拒绝）。
      * 大 org 场景下防止一次性全量发现导致 API 配额不可控消耗和超时。
      */
     maxRepos?: number

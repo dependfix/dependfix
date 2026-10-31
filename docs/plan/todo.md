@@ -89,7 +89,7 @@
 - **审计**：A 分区（预演脚本）R1 standard **Reject**（RG-B1：lockfile 断言命中 importers 的 specifier 回显而非解析结果，overrides 失效时仍判绿）→ R2 **Pass**；B 分区（发布链）R1 **Reject**（0.6.0 归因误判为并发取消，真实为两小时 job 上限）→ R2 **Reject**（anchor 判据用 tag 存在性而非 HEAD 归属）→ R3 **Pass**；C 分区（文档）**Pass**（3 项 warning 已收口：`--ref master` 补发限定 / 清单 preflight 顺序 / 首次发布 prerelease 口径）。
 - **残余**：① 安全告警 alert 30 需推送后复扫确认关闭（未关闭则按 §5.9 登记 `false-positive` 台账）；② Docker 远端镜像（`platform-x.y.z` 多架构 + health）待具备 `read:packages` 的环境复核；③ 四小时预算待首个发布实测（>180 分钟须按 backlog 拆分 per-arch job）；④ 0.6.1 发布动作本身未执行（清单见 [release.md](../guide/release.md#_0-6-1-发布清单-待执行-本节只列步骤)）。
 
-### M53.5 [P2 🧪] G3 真实环境矩阵执行框架（实跑待外部资源）
+### M53.5 [P2 🧪] G3 真实环境矩阵执行框架（实跑待外部资源）（**已闭环** `8153bd84` + `2a32287a`）
 
 - **目标**：把 G3.0–G3.9 从「只有 mock」推进到「执行清单 + 证据模板 + 可回填」，M53.4 产出后先行回填 G3.8（证据类型：本地 tarball 安装 / 0.6.0 镜像；发布后 `@latest` 复核另计）。
 - **优先级**：P2（依赖外部资源）。
@@ -99,6 +99,11 @@
 - **依赖**：M53.4（G3.8 证据）；其余待资源。
 - **交付物**：预估 2 commits / 4-6 文件 / 200-400 行。
 - **风险与缓解**：模板与实跑脱节 → 每条附最小可执行命令，并要求实跑时回填命令实际输出。
+- **实测（2026-11-01）**：3 commits（含收口）/ 8 文件 / **+1039 −16**（校验脚本 449 + 单测 349 + 指南 201 + 台账 46 + 侧边栏 / 命令 / README 3 + 收口 6）。
+- **实测证据**：① `pnpm check:real-env --init` 生成 10 条模板（`artifacts/real-env/`，gitignored）；② 默认校验 exit 0（9 `pending` + **G3.8 `partial`**，证据 `preflight.json` 与安装路径输出均真实存在且经默认存在性校验）；③ 负例：空文件 / 非法 YAML 目录 → exit 1，`--require=` 空值 → exit 2，`--require=G3.8`（partial）→ exit 1，`--dir=<文件> --json` → 可解析 JSON + exit 1；④ 25 例单测（模板与指南 `### G3.x` 集合单测锁定全等；临时目录用系统 tmpdir，移走 `artifacts/` 后仍全绿）；⑤ 全量 `pnpm test` 5709 passed（连续三次复跑全绿；首跑曾出现一次未捕获明细的失败，按既有 flaky 面观察）；`gates:docs` 20 项、lint exit 0、typecheck 7 包。
+- **未把框架写成通过**：台账 G3 仍为 ❌，仅把 G3.8 记为 `partial`；指南与脚本都显式声明「`pending` / `partial` 不是 G3 通过」，`--require-all` 明确为 **1.0 发布前**专项检查（0.6.1 不适用）。
+- **审计**：A 分区 R1 **Reject**（非法 YAML 二次解析崩栈致 `--json` 空输出 / `--require=` 空值静默放行）→ R2 **Reject**（单测依赖 gitignored `artifacts/` 会让 CI 必红 / `--no-check-files` 静默 / `--json` IO 错误空 stdout）→ R3 **Reject**（`repoRoot` 尾分隔符使所有仓库内相对证据路径被误拒）→ R4 **Pass**；B 分区 R1 **Reject**（4 处执行口径与仓库实际能力不符：G3.4 扫描端点不存在 / G3.6 tool 名错误 / G3.8 命令不可串行 / G3.0 三种登录不可同实例）→ R2 **Pass**（8 项 warning 收口，另 3 项 W 已修）。
+- **残余**：① 九条路径实跑待用户资源（OAuth / IdP / staging+Redis / 测试仓 / AI Key × 2，清单见台账 §4）；② G3.8 的 `@latest`、Docker 远端多架构与 0.5.x→1.0 升级未执行；③ G3.9 的限流 / 超时 / 非法 JSON 需 stub 注入通道（已写入指南，未实现 stub）；④ alert 30 复扫（M53.4 遗留）。
 
 ## 阶段收口要求
 

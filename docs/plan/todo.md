@@ -51,11 +51,12 @@
 
 - **目标**：把「文档说可用」变成「实测过并有证据」：镜像启动 / SQLite 备份恢复 / 迁移前滚回滚 / 队列重启收敛各留一条证据；给出自动发布启用前的开关清单与预演。
 - **优先级**：P1（发布前运维证据）。
-- **范围**：`docs/guide/deployment.md`（新增「实测记录」段与命令）+ `docs/guide/release.md`（自动触发启用清单）；`artifacts/ops/`（证据：命令输出 / 截图 / 校验和）；**不另建演练脚本**——各演练的命令与实际输出直接写入 `deployment.md` 的「实测记录」段，保证文档即证据。
+- **范围**：`docs/guide/deployment.md` 与 `en-US` 镜像（新增「运维实测记录（2026-10-31）」：R1 镜像启动 / R2 report-only 扫描 / R3 备份恢复 / R4 迁移三态 / R5 队列重启收敛 / R7 缺陷修复）+ `docs/guide/release.md`（自动发布启用清单 + 本地 dry-run）；原始日志留在 `artifacts/ops/`（gitignored，不入库）；**不另建演练脚本**——命令与实际输出直接写入文档，保证文档即证据。
+  > **执行期扩展（用户 2026-10-31 授权）**：实测命中两处阻断缺陷并本批修复——**F1** 双进程 worker 从不初始化队列消费者（默认 compose 部署下扫描全挂，job 停在 `bull:scan:prioritized`）→ 新增 `server/plugins/queue-consumer.ts`（+5 例单测，`process-role` 分类同步）；**F2** 启动备份在 WAL 下是 4KB 空库（恢复即丢数据）→ `backup.ts` 改 SQLite 在线备份 API + 仅 HTTP 主进程执行（`backup.test.ts` 重写为真实库 + WAL 一致性回归，`index.test.ts` 修正 `PRAGMA busy_timeout` 取值口径）。
 - **验收标准**：① Docker 镜像启动 + `/api/health` + 一次 report-only 扫描 smoke 的证据（run id / 日志片段）；② SQLite 备份 → 恢复到新路径 → 关键表行数比对一致；③ 迁移前滚 → `db:migrate:revert` → 再前滚，三态证据齐全；④ 队列重启后 pending/running 收敛（复用 `queue-stale-recovery` 口径）；⑤ `release.yml` 自动触发（`schedule` / `push`）启用清单 + 本地 dry-run 预演记录；⑥ 文档内链接与证据路径可达。
 - **不做什么**：不启用自动发布（只产出启用清单）；不改生产配置；不引入 Postgres / Helm（G7 记为可选）。
 - **依赖**：M53.1（发布说明引用冻结清单）。
-- **交付物**：预估 3-4 commits / 6-10 文件 / 400-700 行（deployment / release 文档 + 证据工件为主）。
+- **交付物**：预估 3-4 commits / 6-10 文件 / 400-700 行（deployment / release 文档 + 证据工件为主）。**实测（2026-10-31）**：6 commits / 18 文件（文档 4 + 代码 5 + 测试 3 + 标准 2 + 台账/待办 2 + 侧栏/脚本 2），超出预估主因是两处阻断缺陷修复（F1 / F2）与配套回归用例。
 - **风险与缓解**：本地 Docker 与 CI 环境差异 → 证据里记录镜像 digest 与命令；失败项不得静默跳过，登记为残余并写触发条件。
 
 ### M53.3 [P1 🧪] G8 产品指标采集脚本 + G5 mutation 扩面

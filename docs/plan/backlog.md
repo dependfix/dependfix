@@ -346,7 +346,7 @@
 
 平台 OAuth / OIDC / 凭据配置相关真实环境验证：
 
-- 真实 GitHub / Google OAuth 登录闭环（需 OAuth App 凭据）
+- 真实 GitHub OAuth 登录闭环（需 OAuth App 凭据）；**Google 暂不可测**：无可用 Google 账号、无法登录 Google Cloud Console 取凭据（2026-11-01 用户说明）→ `retry_condition` = 获得可用 Google 账号；1.0 是否接受 Google 未测由用户决策后回填 G3.0（G3.0 在此之前保持 `partial`）
 - 真实 IdP OIDC 登录闭环（需 RFC 9207 iss 回显支持）
 - 构建期配置凭据后按钮显示路径实测
 

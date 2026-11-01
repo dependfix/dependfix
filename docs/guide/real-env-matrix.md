@@ -1,7 +1,7 @@
 # 真实环境验证矩阵（G3）
 
 > **定位**：1.0 门槛 G3 的**执行清单与证据规范**。本页回答「每条路径要准备什么、怎么跑、留什么证据、算不算通过」，不替代实跑。
-> **现状（2026-11-01）**：执行框架已就绪（本页 + `pnpm check:real-env` + `artifacts/real-env/` 模板），G3.8 有本地预演证据（`partial`）；**其余九条仍待外部资源，G3 整体未通过**。模板就绪 / `pending` 不等于通过。
+> **现状（2026-11-01）**：执行框架已就绪（本页 + `pnpm check:real-env` + `artifacts/real-env/` 模板），G3.8 有本地预演证据（`partial`）；**其余九条仍待外部资源**（其中 G3.0 的 Google 入口因无可用 Google 账号暂不可测，先只跑 GitHub），**G3 整体未通过**。模板就绪 / `pending` 不等于通过。
 > **台账**：[1.0 就绪度台账 §4](../design/governance/release-1.0-readiness.md#_4-真实环境验证矩阵-g3)。
 
 ## 1. 状态语义
@@ -57,10 +57,11 @@ pnpm check:real-env --require-all          # 十条全部 passed（1.0 发布前
 
 ### G3.0 平台登录（GitHub / Google OAuth、IdP OIDC、构建期凭据按钮）
 
-- **前置资源**：GitHub OAuth App、Google OAuth 凭据（`AUTH_MODE=public`）；IdP OIDC client（`AUTH_MODE=enterprise` + `ALLOWED_EMAIL_DOMAINS`）。两种模式**互斥**，需两次启动。
+- **前置资源**：GitHub OAuth App、Google OAuth 凭据（**当前不可用**，见下）（`AUTH_MODE=public`）；IdP OIDC client（`AUTH_MODE=enterprise` + `ALLOWED_EMAIL_DOMAINS`）。两种模式**互斥**，需两次启动。
+- **当前可测范围（2026-11-01 用户说明）**：**Google OAuth 凭据不可用**——缺少可正常使用的 Google 账号，无法登录 Google Cloud Console 创建 / 验证凭据，故第三方登录当前**只测 GitHub**。Google 入口在凭据就绪前保持未验证；执行 G3.0 时按路径级 `partial` 记录，并在 `result` 写明「GitHub 通过 / Google 未验证（凭据不可用，待补测）」。**不要**把 Google 子项写成路径级 `status: blocked`——§1 的 `blocked` 会免除 `evidence` 要求，连 GitHub 证据也丢掉。**1.0 是否接受 Google 未测属用户决策**：未决策前 G3.0 保持 `partial`，`pnpm check:real-env --require-all` 不会通过。
 - **最小可执行命令**：
   ```bash
-  # 第一轮：public（GitHub / Google）
+  # 第一轮：public（GitHub；Google 凭据就绪后补测）
   AUTH_MODE=public <OAuth env> pnpm --filter @dependfix/platform dev
   # 第二轮：enterprise（OIDC）
   AUTH_MODE=enterprise <OIDC env> pnpm --filter @dependfix/platform dev
@@ -68,7 +69,7 @@ pnpm check:real-env --require-all          # 十条全部 passed（1.0 发布前
   每轮浏览器分别登录一次 → 登出 → 再登录。
 - **部署形态注意**：`AUTH_MODE` 是**构建期**配置——预构建镜像上再用 `AUTH_MODE=…` 二次启动会静默回退 `public`；容器形态须用 `NUXT_AUTH_MODE` / `NUXT_PUBLIC_AUTH_MODE` 覆盖运行期读值，且登录按钮的可用性是构建期布尔（`githubAvailable` / `googleAvailable` / `oidcAvailable`），换模式需重建镜像。
 - **证据字段**：启动命令（含模式）+ 登录页截图（可见实际登录方式）+ `GET /api/auth/get-session` 脱敏响应。**不需要**「启动日志含 AUTH_MODE」——仓库没有该日志行。
-- **验收判据**：GitHub / Google / OIDC 各成功一次；未登录访问受保护**页面**重定向 `/login`、受保护 **API** 返回 401；构建期凭据按钮仅在配置齐全时出现。
+- **验收判据**：GitHub / OIDC 各成功一次；Google 入口在凭据就绪后补测（当前未验证：无可用 Google 账号）；未登录访问受保护**页面**重定向 `/login`、受保护 **API** 返回 401；构建期凭据按钮仅在配置齐全时出现。
 
 ### G3.1 CLI report-only（GitHub + pnpm-audit）
 
@@ -171,7 +172,7 @@ pnpm check:real-env --require-all          # 十条全部 passed（1.0 发布前
 | 资源 | 影响的路径 | 获取方式 | 状态 |
 |:--|:--|:--|:--|
 | GitHub OAuth App（client id/secret） | G3.0（`AUTH_MODE=public`） | GitHub → Settings → Developer settings → OAuth Apps | 未提供 |
-| Google OAuth 凭据 | G3.0（`AUTH_MODE=public`） | Google Cloud Console → Credentials | 未提供 |
+| Google OAuth 凭据 | G3.0（`AUTH_MODE=public`） | Google Cloud Console → Credentials | 不可用（无可用 Google 账号，无法登录 Cloud Console 获取凭据） |
 | IdP OIDC client（issuer / client id / secret） | G3.0（`AUTH_MODE=enterprise`） | 自建 IdP（Keycloak / Auth0 等） | 未提供 |
 | GitHub token（只读：`Dependabot alerts: read` + `security-events: read`） | G3.1 / G3.6 | PAT（fine-grained） | 未提供 |
 | GitHub token（可写：+ `contents: write` / `pull_requests: write`） | G3.2 | PAT（fine-grained） | 未提供 |

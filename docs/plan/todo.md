@@ -32,7 +32,7 @@
 > - DB 实体 **15** 个 `@Entity` 类（目录 17 文件，含 `base-entity.ts` 与 1 个测试）：`rg -c "@Entity\(" apps/platform/server/entities/ | awk -F: '{s+=$2} END {print s}'`
 > - 报告契约 `RunResult` / `RepositoryResult`（`packages/core/src/report/`，字段数量级 20-40/接口）
 > **容量评估（§1.1）**：阶段 **5 原子 = 台账缺口 4 项映射（G2→M53.1、G7→M53.2、G8+G5 mutation→M53.3、G3 框架→M53.5）+ 非缺口项 M53.4**（G3.8 预演 + M49.5 发布遗留），上限内。类型分布 📚 1 + 🛠️ 1 + 🧪 2 + 🚀 1。预估 **31-44 文件 / 1900-3050 行 / 13-17 commits**（由下方逐原子预估相加得出，不另取整）。
-> **§3.1.1 插队再平衡**：本阶段启动时插队 **0 批**，不触发阈值。
+> **§3.1.1 插队再平衡**：本阶段启动时插队 **0 批**；2026-11-01 用户授权追加 **1 批**（登录页第三方登录按钮品牌化，实测 20 文件 / +234 −44 / 4 commits，含两张视觉基线与 G3 文档口径），原 5 原子已全部闭环，不触发再平衡阈值。
 > **原子间依赖与交付顺序**：M53.1（契约冻结，发布说明与实测的输入）→ M53.2（运维实测）→ M53.4（发布链预演）→ M53.5（G3 框架回填）；M53.3（指标 + mutation）独立，可并行。
 
 ### M53.1 [P0 📚] 1.0 契约冻结清单、迁移指南与 CLI 表补齐（**已闭环** `8133a62e` + `8b6dd9eb` + `a728ae0d`）
@@ -103,7 +103,17 @@
 - **实测证据**：① `pnpm check:real-env --init` 生成 10 条模板（`artifacts/real-env/`，gitignored）；② 默认校验 exit 0（9 `pending` + **G3.8 `partial`**，证据 `preflight.json` 与安装路径输出均真实存在且经默认存在性校验）；③ 负例：空文件 / 非法 YAML 目录 → exit 1，`--require=` 空值 → exit 2，`--require=G3.8`（partial）→ exit 1，`--dir=<文件> --json` → 可解析 JSON + exit 1；④ 25 例单测（模板与指南 `### G3.x` 集合单测锁定全等；临时目录用系统 tmpdir，移走 `artifacts/` 后仍全绿）；⑤ 全量 `pnpm test` 5709 passed（连续三次复跑全绿；首跑曾出现一次未捕获明细的失败，按既有 flaky 面观察）；`gates:docs` 20 项、lint exit 0、typecheck 7 包。
 - **未把框架写成通过**：台账 G3 仍为 ❌，仅把 G3.8 记为 `partial`；指南与脚本都显式声明「`pending` / `partial` 不是 G3 通过」，`--require-all` 明确为 **1.0 发布前**专项检查（0.6.1 不适用）。
 - **审计**：A 分区 R1 **Reject**（非法 YAML 二次解析崩栈致 `--json` 空输出 / `--require=` 空值静默放行）→ R2 **Reject**（单测依赖 gitignored `artifacts/` 会让 CI 必红 / `--no-check-files` 静默 / `--json` IO 错误空 stdout）→ R3 **Reject**（`repoRoot` 尾分隔符使所有仓库内相对证据路径被误拒）→ R4 **Pass**；B 分区 R1 **Reject**（4 处执行口径与仓库实际能力不符：G3.4 扫描端点不存在 / G3.6 tool 名错误 / G3.8 命令不可串行 / G3.0 三种登录不可同实例）→ R2 **Pass**（8 项 warning 收口，另 3 项 W 已修）。
-- **残余**：① 九条路径实跑待用户资源（OAuth / IdP / staging+Redis / 测试仓 / AI Key × 2，清单见台账 §4）；② G3.8 的 `@latest`、Docker 远端多架构与 0.5.x→1.0 升级未执行；③ G3.9 的限流 / 超时 / 非法 JSON 需 stub 注入通道（已写入指南，未实现 stub）；④ alert 30 复扫（M53.4 遗留）。
+- **残余**：① 九条路径实跑待用户资源（OAuth / IdP / staging+Redis / 测试仓 / AI Key × 2，清单见台账 §4）；② G3.8 的 `@latest`、Docker 远端多架构与 0.5.x→1.0 升级未执行；③ G3.9 的限流 / 超时 / 非法 JSON 需 stub 注入通道（已写入指南，未实现 stub）；④ alert 30 复扫（M53.4 遗留）；⑤ **G3.0 的 Google 入口暂不可测**：用户 2026-11-01 说明无可用 Google 账号（无法登录 Google Cloud Console 取凭据），第三方登录先只测 GitHub，Google 与 OIDC 保持未验证。
+
+### 追加临时待办（不占阶段条目编号）：登录页第三方登录按钮品牌化（2026-11-01 用户授权）
+
+- **目标**：登录页第三方登录按钮从「ghost 文本态 + 通用用户图标」改为**目标平台官方标识**（GitHub mark / Google 四色 G / SSO 盾牌）+ 描边按钮基座，避免第三方入口被误读为文本链接、也让 provider 一眼可辨。
+- **范围**：`social-providers.ts` 补品牌展示名（`GitHub` / `Google`，不直接回显 provider id）；新增 `social-login-button.vue` 承载品牌图标与按钮形态；`login.vue` 改用新组件与品牌文案；zh 文案改「使用 {provider} 登录」；视觉基线补登录页明暗两态（视觉环境用 `NUXT_PUBLIC_*_AVAILABLE` 模拟凭据已配置）；G3.0 文档记录 Google 暂不可测。
+- **不做什么**：不改变第三方登录的显隐条件与服务端 provider 配置；不引入新依赖或品牌色 token；不把 Google 按钮的渲染证据当作 G3.0 登录实测。
+- **验收标准**：① 登录页 GitHub / Google 按钮使用官方标识（Google 四色 path 保留），文案为 `使用 GitHub 登录` / `使用 Google 登录`；② 未配置凭据时第三方区仍整体隐藏（既有 e2e 保持绿）；③ 明暗两态视觉基线重建并连续两轮比对通过；④ `lint:check` / `lint:css:check` / `typecheck` / 定向单测通过；⑤ 文档明确 Google OAuth 暂不可测、只测 GitHub。
+- **风险与依赖**：Google 品牌图标为静态四色，暗色档需目检对比度；视觉环境以 public 布尔模拟可用性，不接线真实 OAuth（点击路径不在本批验证面）。
+- **§3.1.1 容量评估**：阶段基线 1900-3050 行，本批约 200 行 ≈ 7-11%（< 50%）；累计插队 1 批（< 3）；剩余原子 0 → 三项阈值均未命中，不触发再平衡。
+- **实测（2026-11-01）**：20 文件 / **+234 −44** / 4 commits（重构 / 实现+基线 / 脚本 / 文档）；视觉 21 例连续两轮全绿（新增 `login-dark`，`login-light` 重建）；auth e2e 9 例全绿；platform 单测 2396 passed（与门禁并发时曾出现 1 次未定位 flake，串行连跑两次全绿）；`lint:check` 0 error（11 存量 warning）/ `lint:css:check` / i18n lint / typecheck 7 包 / `gates:docs` 20 项全绿；**反例标定**：把品牌图标与文案间距由 8px 注入为 16px → `login-light` 失败 1559 px（约为 `maxDiffPixels 100` 的 15.6 倍），还原重建后两例通过。
 
 ## 阶段收口要求
 

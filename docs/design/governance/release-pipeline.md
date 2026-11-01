@@ -42,12 +42,14 @@
      → pnpm changelog（生成/更新根级 + 包级日志）
      → git commit → push master
 CI（workflow_dispatch）：质量门（lint/typecheck/test/build）
-     → changelog 校验（六份日志已含当前版本段）
+     → changelog 校验（七份日志已含当前版本段）
      → release:publish（按序发布 + 创建 tag，OIDC 认证）
      → push tags（显式 URL + 本地/远程集合核验）
 ```
 
 ### 2.2 B 模式（未来，1.0.0+ 定时自动发布）
+
+> **启用前置（2026-11-01 M54 决策）**：1.0.0 发布本身**不启用** B 模式；须用户另行授权，并按 [release.md](../../guide/release.md)「自动发布启用清单」逐项确认后再取消注释。
 
 版本提升在 **CI 内**自动完成（semantic-release 式全自动），**唯一写回动作**为 release commit + tags：
 

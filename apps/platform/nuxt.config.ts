@@ -1,4 +1,5 @@
 import { parseDomainList } from './server/utils/email-domain'
+import { hasOAuthCredentials } from './server/utils/oauth-availability'
 import { localeDetectorFile, nuxtI18n } from './i18n/nuxt-i18n-config'
 
 // https://nuxt.com/docs/api/configuration/nuxt-config
@@ -142,8 +143,8 @@ export default defineNuxtConfig({
                 || process.env.REGISTRATION_DISABLED === 'true',
             // OAuth 可用性布尔（仅基于根级 env 判断，与服务端 runtimeConfig 私有侧读取通道
             // 严格一致，避免 NUXT_PUBLIC_ 通道导致前后端显示不一致：凭据不通过 NUXT_PUBLIC_ 注入）
-            githubAvailable: !!(process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET),
-            googleAvailable: !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET),
+            githubAvailable: hasOAuthCredentials(process.env.GITHUB_CLIENT_ID, process.env.GITHUB_CLIENT_SECRET),
+            googleAvailable: hasOAuthCredentials(process.env.GOOGLE_CLIENT_ID, process.env.GOOGLE_CLIENT_SECRET),
             // OIDC 可用性布尔（enterprise 模式；OIDC_DISCOVERY_URL + clientId/clientSecret 均配置才 true）
             oidcAvailable: !!(
                 (process.env.OIDC_DISCOVERY_URL || process.env.OIDC_ISSUER)

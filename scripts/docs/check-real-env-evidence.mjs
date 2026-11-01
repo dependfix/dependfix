@@ -47,7 +47,7 @@ const NEXT_ACTIONS = {
     'G3.5': '用真实凭据触发 PR Check polling 与一次邮件投递，回填落库记录与邮件原文（脱敏）',
     'G3.6': '在 Claude / Copilot / Cursor 任一客户端配置 MCP Server，回填 tool 调用记录',
     'G3.7': '安装 Agent Skill 并完成一次对话式修复，回填安装输出与 PR',
-    'G3.8': '按指南复核 @latest 安装 / Docker 多架构与 health / 0.5.x→1.0 升级（0.6.1 仅作中间验证；本地预演已作为 partial 证据）',
+    'G3.8': '按指南复核 @latest 安装 / Docker 多架构与 health / 0.5.x→1.0 升级（0.7.0 仅作中间验证；本地预演已作为 partial 证据）',
     'G3.9': '准备 2 家 AI provider 的 Key 与预算（单次 ≤ ¥20），按 5 场景各跑一次并回填费用',
 }
 

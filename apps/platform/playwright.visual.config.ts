@@ -31,6 +31,11 @@ const visualServerEnv = [
     'DATABASE_SYNCHRONIZE=true',
     'NUXT_QUEUE_ENABLED=false',
     'BACKUP_SKIP=true',
+    // 登录页第三方登录区：视觉环境用 public 可用性布尔模拟「凭据已配置」状态，
+    // 覆盖品牌图标与描边按钮形态（真实 OAuth 凭据不入测试环境；provider 服务端未启用，
+    // 本套件只截图 + 断言渲染，不点击登录按钮）。
+    'NUXT_PUBLIC_GITHUB_AVAILABLE=true',
+    'NUXT_PUBLIC_GOOGLE_AVAILABLE=true',
 ].join(' ')
 
 export default defineConfig({

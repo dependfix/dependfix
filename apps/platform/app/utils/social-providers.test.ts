@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { resolveSocialProviders } from './social-providers'
+import { resolveSocialProviderName, resolveSocialProviders } from './social-providers'
 
 describe('resolveSocialProviders（登录页第三方登录方式决策）', () => {
     it('public + GitHub 配置：仅 github', () => {
@@ -54,5 +54,16 @@ describe('resolveSocialProviders（登录页第三方登录方式决策）', () 
             googleAvailable: true,
             oidcAvailable: false,
         })).toEqual([])
+    })
+})
+
+describe('resolveSocialProviderName（按钮品牌展示名）', () => {
+    it('使用目标平台官方大小写，不直接回显 provider id', () => {
+        expect(resolveSocialProviderName('github')).toBe('GitHub')
+        expect(resolveSocialProviderName('google')).toBe('Google')
+    })
+
+    it('OIDC 回退为通用缩写', () => {
+        expect(resolveSocialProviderName('oidc')).toBe('SSO')
     })
 })

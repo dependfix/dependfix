@@ -21,7 +21,7 @@ import {
  * （独立 SQLite 库 + 固定时间戳，见 helpers/fixtures.ts）。
  *
  * 覆盖：亮色 5 张（alerts / repos / pr-checks / dialog-import-repos / login）+
- * 暗色 2 张（alerts / repos）+ 浮层落点页 5 张（todo.md §M45.5：schedules 表单浮层 light / dark、
+ * 暗色 3 张（alerts / repos / login）+ 浮层落点页 5 张（todo.md §M45.5：schedules 表单浮层 light / dark、
  * scans 运行详情弹窗、alerts 运行抽屉、pr-checks Toast）。基线快照入仓库（`tests/visual/__screenshots__/`）。
  *
  * 不做的：不做全量页面 × 多浏览器 × 多 viewport 矩阵；不替代 ui-validator 的交互 /
@@ -388,13 +388,30 @@ test.describe('平台页面视觉基线', () => {
 test.describe('登录页视觉基线（未认证）', () => {
     test.use({ storageState: { cookies: [], origins: [] } })
 
-    test('login（light）', async ({ page }) => {
-        await applyTheme(page, 'light')
-        await page.goto('/login')
-        await waitForHydration(page)
-        await expect(page.locator('input#email')).toBeVisible({ timeout: 15000 })
-        await waitForVisualStable(page)
-        await expectThemeApplied(page, 'light')
-        await expectPageScreenshot(page, 'login-light.png')
-    })
+    for (const theme of VISUAL_THEMES) {
+        test(`login（${theme}）`, async ({ page }) => {
+            await applyTheme(page, theme)
+            await page.goto('/login')
+            await waitForHydration(page)
+            await expect(page.locator('input#email')).toBeVisible({ timeout: 15000 })
+
+            /* 第三方登录区（视觉环境由 `NUXT_PUBLIC_*_AVAILABLE` 模拟凭据已配置）：
+               前置断言锁住「品牌图标 + 官方文案」形态，避免图标回退成通用用户图标时
+               基线只差几十像素而被阈值吞掉，也避免按钮整体缺失时截成无第三方区的旧形态。 */
+            const githubButton = page.locator('.auth__social button[data-provider="github"]')
+            await expect(githubButton).toBeVisible()
+            await expect(githubButton).toHaveText('使用 GitHub 登录')
+            await expect(githubButton.locator('svg path')).toHaveAttribute('fill', 'currentColor')
+
+            const googleButton = page.locator('.auth__social button[data-provider="google"]')
+            await expect(googleButton).toBeVisible()
+            await expect(googleButton).toHaveText('使用 Google 登录')
+            await expect(googleButton.locator('svg path')).toHaveCount(4)
+            await expect(googleButton.locator('svg path').first()).toHaveAttribute('fill', '#EA4335')
+
+            await waitForVisualStable(page)
+            await expectThemeApplied(page, theme)
+            await expectPageScreenshot(page, `login-${theme}.png`)
+        })
+    }
 })

@@ -43,6 +43,12 @@ const e2eServerEnv = [
     'DATABASE_SYNCHRONIZE=true',
     'NUXT_QUEUE_ENABLED=false',
     'BACKUP_SKIP=true', // e2e 测试无需创建启动备份（测试库是临时的，备份无意义且累积磁盘）
+    // 第三方登录可用性钉死为 false：`githubAvailable` 等是**构建期**布尔，构建机若存在
+    // `.env` 凭据会被烘焙进产物，让「未配置凭据时第三方登录区隐藏」用例在本地必红
+    // （CI 干净检出无此问题）。运行时 `NUXT_PUBLIC_*` 覆盖把断言前提固定下来。
+    'NUXT_PUBLIC_GITHUB_AVAILABLE=false',
+    'NUXT_PUBLIC_GOOGLE_AVAILABLE=false',
+    'NUXT_PUBLIC_OIDC_AVAILABLE=false',
 ].join(' ')
 
 /** CI 强制串行（共享 SQLite 库）；本地默认并行 */

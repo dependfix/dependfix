@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { Moon, Sun, User } from '@lucide/vue'
+import { Moon, Sun } from '@lucide/vue'
 import { useColorMode } from '~/composables/use-color-mode'
 import { authClient } from '~/utils/auth-client'
-import { resolveSocialProviders } from '~/utils/social-providers'
+import { type SocialProvider, resolveSocialProviderName, resolveSocialProviders } from '~/utils/social-providers'
 
 definePageMeta({
     layout: false,
@@ -22,12 +22,17 @@ const authMode = publicConfig.authMode
 const registrationClosed = publicConfig.registrationDisabled === true
 // 第三方登录方式（public：GitHub/Google；enterprise：OIDC SSO；凭据配置才可用）
 // authMode 运行时收窄：服务端 assertAuthMode 已保证只可能是 public|enterprise
-const socialProviders = computed<string[]>(() => resolveSocialProviders({
+const socialProviders = computed<SocialProvider[]>(() => resolveSocialProviders({
     authMode: publicConfig.authMode as 'public' | 'enterprise',
     githubAvailable: publicConfig.githubAvailable === true,
     googleAvailable: publicConfig.googleAvailable === true,
     oidcAvailable: publicConfig.oidcAvailable === true,
 }))
+
+/** 按钮文案：GitHub / Google 用品牌大小写，OIDC 沿用「企业 SSO 登录」专用键。 */
+const socialProviderLabel = (provider: SocialProvider) => provider === 'oidc'
+    ? t('auth.login.ssoLogin')
+    : t('auth.login.socialLogin', { provider: resolveSocialProviderName(provider) })
 
 // auth 页品牌 mark：跟随 .dark class 动态切换（与主题切换逻辑一致）
 // 之前用 <picture media="(prefers-color-scheme: dark)"> 只跟随系统偏好，
@@ -39,7 +44,7 @@ const password = ref('')
 const loading = ref(false)
 const error = ref('')
 
-const onSocialSignIn = async (provider: string) => {
+const onSocialSignIn = async (provider: SocialProvider) => {
     error.value = ''
     const { error: socialError } = await authClient.signIn.social({
         provider,
@@ -128,18 +133,13 @@ const onSubmit = async () => {
                         {{ t('auth.login.or') }}
                     </div>
                     <div class="auth__social-buttons">
-                        <CaomeiButton
+                        <SocialLoginButton
                             v-for="provider in socialProviders"
                             :key="provider"
-                            variant="ghost"
-                            block
-                            @click="onSocialSignIn(provider)"
-                        >
-                            <template #icon>
-                                <CaomeiIcon :icon="User" />
-                            </template>
-                            {{ provider === 'oidc' ? t('auth.login.ssoLogin') : t('auth.login.socialLogin', {provider}) }}
-                        </CaomeiButton>
+                            :provider="provider"
+                            :label="socialProviderLabel(provider)"
+                            @select="onSocialSignIn(provider)"
+                        />
                     </div>
                 </div>
                 <div v-if="!registrationClosed" class="auth__switch">

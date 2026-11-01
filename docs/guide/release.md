@@ -33,7 +33,7 @@
 
 ## 版本策略
 
-> **1.0 门槛**：1.0.0 的发布条件（G1-G8：安全清零 / 契约冻结 / 真实环境 E2E / CI 稳定性 / 覆盖率 / 文档 / 运维 / 产品指标）与批次计划见 [1.0 发布门槛与就绪度台账](../design/governance/release-1.0-readiness.md)。
+> **1.0 门槛**：1.0.0 的发布条件（G1-G8：安全清零 / 契约冻结 / 真实环境 E2E / CI 稳定性 / 覆盖率 / 文档 / 运维 / 产品指标）与批次计划见 [1.0 发布门槛与就绪度台账](../design/governance/release-1.0-readiness.md)。1.0.0 的**差异清单与发布说明骨架**见 [1.0.0 发布清单与发布说明骨架](release-1.0.md)（版本锚点 / 门禁 / 回滚 / 校验和 / 已知限制）。
 
 - **0.x 即预览版**：当前处于开发阶段，`0.1.0` 及后续 `0.x` 版本直接作为 `latest` 发布，**不加 `beta` 等预发布后缀**。理由：
   - `0.x` 在 semver 中本身就是"初始开发、API 不稳定"语义，已充分表达预览状态；
@@ -56,9 +56,9 @@
 |------|----------|----------|----------|
 | 首次发布 `0.1.0` | 手动（一次性） | npm 账号登录（`npm login`） | `pnpm publish`（本地） |
 | 后续版本 `0.1.1+`（0.x 阶段） | **`workflow_dispatch` 手动触发** | **OIDC Trusted Publishing**（无 `NPM_TOKEN`） | `pnpm release:publish`（CI） |
-| `1.0.0+`（正式版，规划） | 手动 + `schedule` 定时自动发布（可选 `push`） | OIDC Trusted Publishing | `pnpm release:publish`（CI） |
+| `1.0.0+`（正式版） | **手动 `workflow_dispatch`**；定时自动发布需用户另行授权 | OIDC Trusted Publishing | `pnpm release:publish`（CI） |
 
-> **0.x 阶段仅手动发布**：`release.yml` 未启用 `on.push` / `on.schedule` 自动触发（每次推送触发 release 不符合 0.x 预览期的发布节奏）。定时自动发布配置已按 momei 模式内嵌（每周六 UTC+0 12:00 = UTC+8 20:00），1.0.0 正式版发布后取消 `schedule` 注释即可启用；发布前安全告警门禁已在 `release.yml` 内强制执行（见「发布前安全检查」），定时发布同样受约束。自动发布逻辑（版本提升 + 日志生成 + 提交推送）无需额外配置。
+> **0.x 阶段仅手动发布**：`release.yml` 未启用 `on.push` / `on.schedule` 自动触发（每次推送触发 release 不符合 0.x 预览期的发布节奏）。定时自动发布配置已按 momei 模式内嵌（每周六 UTC+0 12:00 = UTC+8 20:00），但**1.0.0 发布后仍需用户另行授权**才可取消 `schedule` 注释（M54 明确不启用自动发布；启用前置见「自动发布启用清单」）；发布前安全告警门禁已在 `release.yml` 内强制执行（见「发布前安全检查」），定时发布同样受约束。自动发布逻辑（版本提升 + 日志生成 + 提交推送）无需额外配置。
 >
 > 发布底层始终是 **`pnpm publish`**（`release:publish` 内部调用它），它会自动把 `workspace:*` 依赖替换为实际版本号，保证发布产物可被消费者正常安装。**不要改用裸 `npm publish`**：npm 不会替换 `workspace:*`，会把字面量发布到 registry。
 
@@ -225,7 +225,7 @@ pnpm release:plan
 pnpm release:version --dry-run   # 预览
 pnpm release:version             # 确认后执行
 
-# 4. 生成 CHANGELOG（基于 conventional commits 重新生成六份日志，见"CHANGELOG 策略"）
+# 4. 生成 CHANGELOG（基于 conventional commits 重新生成七份日志，见"CHANGELOG 策略"）
 pnpm changelog
 
 # 5. 审查并提交（含包级 CHANGELOG.md 与 package.json 版本变更）
@@ -275,11 +275,11 @@ pnpm release:preflight --out-dir=artifacts/release-preflight   # 额外写 prefl
 
 ### 0.6.1 发布清单（待执行，本节只列步骤）
 
-> 目的：补发 `--version` 元数据修复与本次发布链修正。**本清单未执行任何发布动作**（无 `npm publish` / 无新 tag / 未改版本号）。
+> 目的：补发 `--version` 元数据修复与本次发布链修正。**本清单未执行任何发布动作**（无 `npm publish` / 无新 tag / 未改版本号）。1.0.0 的差异清单与发布说明骨架见 [1.0.0 发布清单与发布说明骨架](release-1.0.md)。
 
 **发布前门禁**
 
-1. `pnpm run check:release-security` 绿。当前为**红**：code scanning high `js/incomplete-multi-character-sanitization`（`scripts/docs/vitepress-slug.mjs`）。本批已把行内标签剥离改为迭代到不动点；推送后复扫确认告警关闭，若仍命中则按安全规范 §5.9 以 `false-positive` 登记台账后再发。
+1. `pnpm run check:release-security` 绿。**2026-11-01 复扫读数**：Code Scanning 开放告警 **0 条**（M53.4 命中的 high `js/incomplete-multi-character-sanitization` = alert 30 已 `fixed`，行内标签剥离已改为迭代到不动点）；Dependabot 开放 2 条 moderate / low（不阻断）。复核命令：`gh api "repos/dependfix/dependfix/code-scanning/alerts?state=open" --jq length`。若发布前重新命中，按安全规范 §5.9 修复或登记 `false-positive` 台账后再发。
 2. `pnpm verify:changelog` / `pnpm run gates:docs` / `pnpm run lint:check` / `pnpm typecheck` / `pnpm test` 全绿。
 3. 工作区干净（`release:publish` 已内置守卫，脏工作区直接拒绝发布；本地应急口径：`git stash` → 发布 → `git stash pop`）。
 
@@ -287,7 +287,7 @@ pnpm release:preflight --out-dir=artifacts/release-preflight   # 额外写 prefl
 
 4. `pnpm release:plan` → 人工 review `release-plan.md`（bump 级别 / 包清单 / 未标注的破坏性变更）。
 5. `pnpm release:version --dry-run` 确认后 `pnpm release:version`。
-6. `pnpm changelog` → 审查六份日志 → 提交并推送（`chore(release): x.y.z`）。
+6. `pnpm changelog` → 审查七份日志 → 提交并推送（`chore(release): x.y.z`）。
 7. **产物断言必须在版本提升之后**：`pnpm run build`（`pnpm pack` 打包的是当前 `dist`，`dist` 已 gitignore）→ `pnpm release:preflight`，断言 tarball 安装后的 `dependfix --version` 等于**新版本**。在版本提升前跑只能验证旧版本产物。
 
 **发布（CI OIDC 为默认通道）**
@@ -313,9 +313,9 @@ pnpm release:preflight --out-dir=artifacts/release-preflight   # 额外写 prefl
 - `npm view dependfix@<v> dist.integrity` 与 `dist.tarball`（逐个包记录）。
 - 五个 tarball 的 `sha256sum` 与镜像 `RepoDigests`（`docker buildx imagetools inspect`），随发布说明归档。
 
-## 定时自动发布（1.0.0+ 启用）
+## 定时自动发布（1.0.0+ 可启用，需用户另行授权）
 
-`release.yml` 已内嵌 `schedule` 定时发布（每周六 UTC+0 12:00 = UTC+8 20:00，参照 momei），**1.0.0 正式版发布后取消 `schedule` 注释即启用**（安全告警门禁已内置于 `release.yml`，见「发布前安全检查」）。定时触发时 CI 自动完成：
+`release.yml` 已内嵌 `schedule` 定时发布（每周六 UTC+0 12:00 = UTC+8 20:00，参照 momei），**1.0.0 正式版发布后不会自动启用**——须用户另行授权后再取消 `schedule` 注释（M54.6 明确不启用自动发布；安全告警门禁已内置于 `release.yml`，见「发布前安全检查」）。定时触发时 CI 自动完成：
 
 1. `release:plan`（推导计划，无推导结果则跳过）+ `release:version`（消费计划提升版本）+ `pnpm changelog`（生成日志）+ 提交并推送 master（semantic-release 风格提交：`chore(release): x.y.z [skip ci]` + 根 CHANGELOG 版本段全文）——全流程由 `pnpm release:auto-version` 脚本化执行（无变更安全 no-op，见 [scripts/README.md](../../scripts/README.md)）；
 2. 随后执行与手动发布相同的完整流程：质量门 → changelog 校验 → `release:publish`（OIDC）→ push tags。
@@ -324,11 +324,11 @@ pnpm release:preflight --out-dir=artifacts/release-preflight   # 额外写 prefl
 
 ### 自动发布启用清单（1.0.0 后）
 
-> **现状（2026-10-31）**：`release.yml` 的 `on:` 只有 `workflow_dispatch`；`schedule`（每周六 UTC+0 12:00）与 `push`（master）两段**保留为注释**，0.x 阶段刻意不启用（预览期发布节奏由人控制）。启用前逐项确认下表，**缺一项就不要取消注释**。
+> **现状（2026-11-01）**：`release.yml` 的 `on:` 只有 `workflow_dispatch`；`schedule`（每周六 UTC+0 12:00）与 `push`（master）两段**保留为注释**，0.x 阶段刻意不启用（预览期发布节奏由人控制），1.0.0 发布后也须另行授权。启用前逐项确认下表，**缺一项就不要取消注释**。
 
 | # | 前置项 | 要求 | 现状（2026-11-01 复核） |
 |:--|:--|:--|:--|
-| 1 | 1.0 门槛 | G1-G8 全绿（见[就绪度台账](../design/governance/release-1.0-readiness.md)） | G2 ✅；G1 · G4 · G5 · G6 · G7 ◐（G7 运维四项已实测，但第 5 项「直推 master」未验证、发布级回滚未演练）；G3 ❌（待外部资源）；G8 ◐（脚本已就绪，读数待窗口） |
+| 1 | 1.0 门槛 | G1-G8 全绿（见[就绪度台账](../design/governance/release-1.0-readiness.md)） | G2 ✅；G1 · G4 · G5 · G6 · G7 ◐（G7 运维四项已实测，但第 5 项「直推 master」未验证、发布级回滚未演练；G4 为 1.0 发布豁免，0.6.0 后 15 次 push 中 4 次 Test 失败）；G3 ❌（待外部资源，1.0 发布豁免）；G8 ◐（2026-11-01 真实读数：30 PR / 绿率 24/30 · 介入 0% · 误关 0%；发布说明引用后转 ✅） |
 | 2 | 安全告警门禁 | 仓库 secret `GH_PAT` 存在（Dependabot alerts 只读）；`check:release-security` 在 release 流程绿 | 已配置并在 `release.yml` 强制（fail-closed） |
 | 3 | 发布凭据 | 5 个 npm 包的 Trusted Publisher 指向 `release.yml`；`id-token: write` 就位 | 已配置（首次手动发布后） |
 | 4 | Workflow 权限 | `contents: write` / `actions: write` / `security-events: read` | 已就位（`release.yml` permissions） |
@@ -364,7 +364,7 @@ git status --porcelain           # 空（无版本 / 日志副作用）
 1. `Pre-check release security alerts`：安全告警只读预检（在自动版本提升之前，避免先提升版本再被拦下）；
 2. （仅 `schedule` 触发）`Auto version & changelog`：自动版本提升 + CHANGELOG 生成 + 提交推送（`pnpm release:auto-version` 脚本化执行）；
 3. lint → **文档与治理门禁**（`pnpm run gates:docs`，与 `test.yml` 同集合，单点声明见 `scripts/run-doc-gates.mjs`）→ typecheck → test → build（质量门，任一失败即中止）；
-4. `Verify changelog is up to date`：校验六份 CHANGELOG（根级 + `packages/cli` / `packages/core` / `packages/engine` / `packages/skills` / `packages/mcp`）已包含当前版本段（防止漏跑 `pnpm changelog` 直接发布；普通提交版本未变时自动通过）；
+4. `Verify changelog is up to date`：校验七份 CHANGELOG（根级 + `packages/cli` / `packages/core` / `packages/engine` / `packages/skills` / `packages/mcp` / `apps/platform`）已包含当前版本段（防止漏跑 `pnpm changelog` 直接发布；普通提交版本未变时自动通过）；
 5. `Check release security alerts`：发布前安全告警门禁（`pnpm run check:release-security`）——critical 一律阻断（含 dismissed）、high 需台账豁免、API / token 异常 fail-closed（口径见 [安全规范 §5.9](../standards/security.md#_5-9-发布前安全告警门禁-dependabot-alerts-code-scanning-2026-10-29-用户决策)）；
 6. `Release preflight`：`pnpm release:preflight` 用真实 tarball 安装并断言 `dependfix --version` 等于包版本（放在便宜门禁之后：被拦下的轮次不必付安装成本；见「发布链预演与安装实测」）；
 7. `pnpm release:publish`：

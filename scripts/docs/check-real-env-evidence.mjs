@@ -39,7 +39,7 @@ export const STATUSES = ['pending', 'partial', 'passed', 'blocked', 'failed']
 
 /** 每条路径的下一次动作（模板里直接可执行，避免空模板）。 */
 const NEXT_ACTIONS = {
-    'G3.0': '准备 GitHub / Google OAuth App 与 IdP OIDC client，按指南 G3.0 三种登录各跑一次并回填截图与会话字段',
+    'G3.0': '准备 GitHub OAuth App 与 IdP OIDC client（Google 凭据暂不可用——无可用 Google 账号，跳过并待补测），按指南 G3.0 跑 GitHub / OIDC 各一次并回填截图与会话字段',
     'G3.1': '用只读 token 对测试仓跑一次 report-only，回填告警数与 MD / JSON 报告路径',
     'G3.2': '用可写测试仓跑一次 fix-and-pr，回填分支 / commit / PR URL 与验证链输出',
     'G3.3': '在消费者测试仓配置 Action 并 workflow_dispatch，回填 run id / 日志 / PR',

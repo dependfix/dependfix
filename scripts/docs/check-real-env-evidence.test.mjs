@@ -281,6 +281,12 @@ describe('parseCli / main', () => {
         const dir = makeTempDir()
         expect(main(['--init', `--dir=${dir}`], quiet)).toBe(0)
         expect(existsSync(path.join(dir, 'G3.0.md'))).toBe(true)
+        /* G3.0 的下一步动作必须与指南同步：Google 凭据当前不可用，不能继续引导操作者去跑三种登录。
+           （同源口径：docs/guide/real-env-matrix.md 的 G3.0「当前可测范围」） */
+        const g30 = readFileSync(path.join(dir, 'G3.0.md'), 'utf8')
+        expect(g30).toContain('GitHub OAuth App')
+        expect(g30).toContain('Google 凭据暂不可用')
+        expect(g30).toContain('GitHub / OIDC 各一次')
         expect(main([`--dir=${dir}`, '--no-check-files'], quiet)).toBe(0)
         expect(main([`--dir=${dir}`, '--no-check-files', '--require-all'], quiet)).toBe(1)
     })

@@ -3,10 +3,10 @@ on:
   # 0.x 阶段仅手动发布（workflow_dispatch）；1.0.0 正式版发布前不启用任何自动触发
   workflow_dispatch:
   # 定时自动发布（参照 momei）：每周六 UTC+0 12:00 = UTC+8 20:00
-  # 1.0.0 正式版发布后取消注释即可启用（自动发布逻辑已内嵌于 Auto version 步骤）
+  # 1.0.0 发布后**不会自动启用**：须用户另行授权并逐项核对发布指南「自动发布启用清单」后再取消注释
   # schedule:
   #   - cron: "0 12 * * 6"
-  # 1.0.0 正式版发布后如需提交即发布，可取消注释：
+  # 1.0.0 发布后如需提交即发布，同样须用户另行授权后再取消注释：
   # push:
   #   branches:
   #     - master
@@ -63,7 +63,7 @@ jobs:
       # - 无待发布变更时脚本内部安全 no-op（notice 退出，job 不红）；
       # - 提交推送使用显式 token URL（不依赖 insteadOf，见经验归档 §二十六）；
       #   详细行为见 scripts/auto-version.mjs。
-      # 1.0.0 正式版发布后取消上方 schedule 注释即启用。
+      # 1.0.0 发布后不会自动启用：须用户另行授权后再取消上方 schedule 注释。
       - name: Auto version & changelog (schedule only)
         if: github.event_name == 'schedule'
         env:

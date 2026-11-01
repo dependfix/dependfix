@@ -219,7 +219,7 @@
 
 - **本地发布通道不执行发布前安全门禁（P1 🛡️，M49.5 发现）** —— `check:release-security` 只接在 `release.yml`；本地备用通道 `pnpm release:publish --otp` 无门禁调用，0.6.0 即经该通道发布（门禁脚本存在但未执行）。**目标**：任一路径发布前都跑同一门禁。**范围**：`release-publish` 内调用门禁（或拒绝无 `--skip-security` 之外的绕过），[release.md](../guide/release.md) 备用通道步骤同步。**验收**：① 无 token / 有 critical 时本地发布中止；② `--skip-security` 需显式且记录理由；③ CI 通道行为不变。
 
-- **0.6.0 发布物 `--version` 报 0.1.0（P0 🛡️，随 0.6.1 修复）** —— `packages/cli/src/cli/runner.ts` 的 `meta.version` 曾硬编码 `0.1.0`，`npx dependfix@0.6.0 --version` 实测返回 0.1.0；修复 `8fd83fc3`（读 `package.json` + 包名校验 + 兜底 `0.0.0-unknown` + 一致性用例）已推送（`8fd83fc3` 为 origin/master 祖先），但未随任何版本发布。**触发**：0.6.1 发布后复核 `npx dependfix@latest --version` 与全局安装。（**2026-10-31 订正**：本地打包预演与 `--version` 断言已由 M53.4 覆盖；本条残余 = 正式发布后对 `@latest` 的复核）
+- **0.6.0 发布物 `--version` 报 0.1.0（P0 🛡️，原定随 0.6.1 / 实际随 0.7.0 修复）** —— `packages/cli/src/cli/runner.ts` 的 `meta.version` 曾硬编码 `0.1.0`，`npx dependfix@0.6.0 --version` 实测返回 0.1.0；修复 `8fd83fc3`（读 `package.json` + 包名校验 + 兜底 `0.0.0-unknown` + 一致性用例）已推送（`8fd83fc3` 为 origin/master 祖先），但未随任何版本发布。**触发**：0.7.0 发布后复核 `npx dependfix@latest --version` 与全局安装。（**2026-10-31 订正**：本地打包预演与 `--version` 断言已由 M53.4 覆盖；本条残余 = 正式发布后对 `@latest` 的复核）
 
 - **0.6.0 发布后 master 3 连绿窗口未完成（P0 📚，G4 起点）** —— 发布提交 `efaa555f` 的 Test run `40744772890` success（E2E / Coverage / Visual 同步 success），但此后仅 1 次；G4 要求连续 20 次 push 绿或 2 周无红。**触发**：后续 push 累计；任一次红需按 §5.6 / G4 口径记录归因。
 

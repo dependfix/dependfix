@@ -53,7 +53,7 @@ pnpm check:real-env --require-all          # 十条全部 passed（1.0 发布前
 
 证据路径相对**仓库根**解析：越出仓库根（如 `../x`）会被拒绝；也接受绝对路径（便于临时证据），但落在仓库外时会打 WARN（干净检出无法复核，发布说明不得引用）。`--no-check-files` / frontmatter `check_files: false` 只用于迁移场景，命中时输出 WARN 且**不得作为通过依据**。
 
-**本脚本不接入 `gates:docs`**（证据在 gitignored 目录，CI 无内容可校验）；`--require-all` 属 **1.0 发布前**的 G3 专项检查，0.6.1 发布不适用。
+**本脚本不接入 `gates:docs`**（证据在 gitignored 目录，CI 无内容可校验）；`--require-all` 属 **1.0 发布前**的 G3 专项检查，0.7.0 发布不适用。
 
 ## 3. 各路径（前置资源 / 最小可执行命令 / 证据字段 / 验收判据）
 
@@ -159,7 +159,7 @@ pnpm check:real-env --require-all          # 十条全部 passed（1.0 发布前
   curl -fsS localhost:3000/api/health && docker logs dependfix-upgrade | tail -20
   ```
 - **证据字段**：`artifacts/release-preflight/preflight.json`、三条安装路径的 `--version` 输出、镜像 manifest（amd64 + arm64）、`/api/health` 响应、0.5.x→1.0 升级后的配置与 DB 兼容记录。
-- **验收判据**：三条安装路径 `--version` 均等于包版本；镜像双架构存在且 `/api/health` 版本戳与发布一致；**0.5.x→1.0 升级**可用（0.6.1 只作中间验证，不据此判 G3.8 通过）。
+- **验收判据**：三条安装路径 `--version` 均等于包版本；镜像双架构存在且 `/api/health` 版本戳与发布一致；**0.5.x→1.0 升级**可用（0.7.0 只作中间验证，不据此判 G3.8 通过）。
 - **现状**：本地预演 `partial`（见 §5）；`@latest`、Docker 远端镜像与升级三项未完成。
 
 ### G3.9 AI 研判（横切 G3.1–G3.5）
@@ -198,7 +198,7 @@ M53.4 的发布链预演已产出以下可复核证据（详见 `artifacts/real-
 | `npm i -g --prefix <tmp>` | `0.6.0` | 同上 |
 | Dockerfile 静态检查 | `Check complete, no warnings found` | `docker buildx build --check` 输出 |
 | Docker 远端多架构镜像 + `/api/health` | **未复核**（GHCR 私有 + 无 `read:packages`；Docker Hub 不可达） | — |
-| 发布后 `@latest` 复核 | **未执行**（0.6.1 未发布） | — |
+| 发布后 `@latest` 复核 | **未执行**（0.7.0 未发布） | — |
 | 0.5.x→1.0 升级 | **未执行** | — |
 
 > 因此 G3.8 记 `partial`：**本地 tarball / 安装路径已实证，镜像、`@latest` 与升级三项未完成，不构成 G3.8 通过**。

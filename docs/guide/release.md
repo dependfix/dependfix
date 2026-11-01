@@ -273,9 +273,9 @@ pnpm release:preflight --out-dir=artifacts/release-preflight   # 额外写 prefl
 - **本环境无法复核远端镜像**：GHCR 包为私有且本地 token 缺 `read:packages`；`registry-1.docker.io` 连接超时。重试条件：拿到 `read:packages` token 或 Docker Hub 可达后执行
   `docker buildx imagetools inspect ghcr.io/dependfix/dependfix:platform-<平台版本>`（应见 `linux/amd64` + `linux/arm64`），再以 `docker run --rm` 拉起镜像核对 `/api/health` 的 `version` / `commit`。
 
-### 0.6.1 发布清单（待执行，本节只列步骤）
+### 0.7.0 发布清单（M54.2 待执行，本节只列步骤）
 
-> 目的：补发 `--version` 元数据修复与本次发布链修正。**本清单未执行任何发布动作**（无 `npm publish` / 无新 tag / 未改版本号）。1.0.0 的差异清单与发布说明骨架见 [1.0.0 发布清单与发布说明骨架](release-1.0.md)。
+> 目的：补发 `--version` 元数据修复与本次发布链修正；锚版本 `0.7.0` 由 `release:plan` 推导（不人工降级为 patch）。**本清单未执行任何发布动作**（无 `npm publish` / 无新 tag / 未改版本号）。1.0.0 的差异清单与发布说明骨架见 [1.0.0 发布清单与发布说明骨架](release-1.0.md)。
 
 **发布前门禁**
 
@@ -299,7 +299,7 @@ pnpm release:preflight --out-dir=artifacts/release-preflight   # 额外写 prefl
 
 - `npx --yes dependfix@<v> --version` 从 registry 实装复核（应等于 `<v>`）。
 - GitHub Release 应为 Latest 且非 prerelease（0.x 正式版口径）；alpha / beta / rc 才标 prerelease。
-- 裁定 `dependfix@0.6.0` 是否 `npm deprecate`（`--version` 报 0.1.0 属用户可感知缺陷，建议在 0.6.1 发布说明中指引升级）。
+- 裁定 `dependfix@0.6.0` 是否 `npm deprecate`（`--version` 报 0.1.0 属用户可感知缺陷，建议在 0.7.0 发布说明中指引升级）。
 
 **回滚**
 
@@ -311,7 +311,7 @@ pnpm release:preflight --out-dir=artifacts/release-preflight   # 额外写 prefl
 **产物校验和（发布后填写）**
 
 - `npm view dependfix@<v> dist.integrity` 与 `dist.tarball`（逐个包记录）。
-- 五个 tarball 的 `sha256sum` 与镜像 `RepoDigests`（`docker buildx imagetools inspect`），随发布说明归档。
+- 本轮**发布包** tarball 的 `sha256sum`（core / engine / mcp / dependfix，共四个）+ `@dependfix/skills` 预演 tarball（不发布，仅校验内容），与镜像 `RepoDigests`（`docker buildx imagetools inspect`）随发布说明归档。
 
 ## 定时自动发布（1.0.0+ 可启用，需用户另行授权）
 

@@ -2,7 +2,7 @@
 
 > **状态**：骨架（2026-11-01 M54.1 建立），**未执行任何发布动作**（无 `npm publish` / 无新 tag / 未改版本号）；执行归 [todo.md](../plan/todo.md) 的 M54.6。
 > **口径**：**有条件发布**——G3 实跑 / G4 窗口按已披露豁免降级（见[就绪度台账 §2](../design/governance/release-1.0-readiness.md)），G5 / G6 / G7 可执行项补齐，G8 引用真实读数。**豁免不等于通过**：发布说明必须照实披露，不得写成 G3 / G4 已验收。
-> **决策来源**：[就绪度台账 §2.2](../design/governance/release-1.0-readiness.md) + 用户 2026-11-01 四项决策（先 `0.6.1` 再 `1.0.0` / 有条件发布 / 接受 Google OAuth 未测 / 目标窗口 2026-11-15）。
+> **决策来源**：[就绪度台账 §2.2](../design/governance/release-1.0-readiness.md) + 用户 2026-11-01 四项决策（先中间版本再 `1.0.0` / 有条件发布 / 接受 Google OAuth 未测 / 目标窗口 2026-11-15）+ 当日执行期裁定第 ⑤ 条（中间版本按 `release:plan` 推导，落地为 `0.7.0`）。
 > **通用机制**：`release:plan` → `release:version` → `changelog` → CI 发布链见[发布指南](release.md)；本页只列 1.0.0 的差异面与发布说明骨架。
 
 ## 1. 版本与锚点
@@ -34,7 +34,7 @@
 3. `pnpm changelog` → 审查七份日志 → 提交（`chore(release): 1.0.0`）→ push master。
 4. `pnpm run build` → `pnpm release:preflight`（断言新版本）。
 5. GitHub Actions → Release → Run workflow（OIDC 为默认通道；本地备用通道需 OTP，且两侧都要求工作区干净）。
-6. 观察 `release:publish` → `release:push-tags` → `release:github` 全绿；docker 派发运行应带 `platform-<版本>` tag。build job 预算 240 分钟，`0.6.1` 发布的实测时长用于确认余量（见发布指南「Docker 镜像复核」）。
+6. 观察 `release:publish` → `release:push-tags` → `release:github` 全绿；docker 派发运行应带 `platform-<版本>` tag。build job 预算 240 分钟，`0.7.0` 发布的实测时长用于确认余量（见发布指南「Docker 镜像复核」）。
 7. 创建 `v1` 滚动标签（Action 引用写作 `@v1`）指向 `1.0.0` 的发布提交，并在文档中核验 `uses: dependfix/dependfix@v1` 可用。移动已有标签属破坏性操作，只在确认无其它消费者时执行。
 
 ## 4. 发布后复核
@@ -58,8 +58,8 @@
 
 ## 6. 产物校验和
 
-- `npm view dependfix@1.0.0 dist.integrity` 与 `dist.tarball`（五个包逐个记录）。
-- 五个 tarball 的 `sha256sum` 与镜像 `RepoDigests`（`docker buildx imagetools inspect`），随发布说明归档。
+- `npm view dependfix@1.0.0 dist.integrity` 与 `dist.tarball`（**本轮实际发布的每个包**逐个记录；未变更未发布的包不记录）。
+- 已发布包 tarball 的 `sha256sum` 与镜像 `RepoDigests`（`docker buildx imagetools inspect`），随发布说明归档。
 - 校验和清单随 GitHub Release notes 归档，不写进 CHANGELOG。
 
 ## 7. 发布说明骨架（GitHub Release `v1.0.0`）

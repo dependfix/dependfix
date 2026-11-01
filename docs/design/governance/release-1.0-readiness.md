@@ -40,7 +40,8 @@
 | 决策 | 结论 | 判定语义 |
 |:--|:--|:--|
 | 规划 commit | `3a95f2e5`（2026-11-01 `docs(plan): 规划 M54 1.0.0 发布窗口`） | 本表为决策落盘位置；执行清单与发布说明骨架见 [1.0.0 发布清单与发布说明骨架](../../guide/release-1.0.md)（M54.1） |
-| 发布目标 | **先 0.6.1 再 1.0.0** | 0.6.1 验证 M53 修复后的发布链（Docker 预算 / tag 派发 / `--version`）；1.0.0 目标窗口 **2026-11-15** |
+| 发布目标 | **先 0.7.0 再 1.0.0**（原定 0.6.1，2026-11-01 执行期改为按脚本推导的 0.7.0，见下行） | 0.7.0（= `dependfix` 锚版本）验证 M53 修复后的发布链（Docker 预算 / tag 派发 / `--version`）；1.0.0 目标窗口 **2026-11-15** |
+| 中间版本口径（用户 2026-11-01 执行期裁定） | **按 `release:plan` 推导发布** | `dependfix` 0.7.0 / `@dependfix/core` 0.7.0 / `@dependfix/engine` 0.6.0 / `@dependfix/mcp` 0.3.1（传导）/ `@dependfix/platform` 0.5.0；`@dependfix/skills` 无改动不发布。不人工降级为 0.6.1——0.x 的 feat 与破坏性变更按仓库规则进 minor |
 | 门禁口径 | **有条件发布** | G3 实跑 / G4 窗口按已披露豁免降级；G5 关键模块 mutation、G6 发版文档、G7 回滚演练等可执行项补齐；G8 引用真实读数 |
 | Google OAuth | **接受未测并披露** | G3.0 保持 `pending`（**无 G3.0 证据**），发布说明「已知限制」写明无可用 Google 账号；GitHub / OIDC 通道亦未实跑，资源到位后补测 |
 | G4 降级判据 | **最近 10 次 master push 的 Test 0 失败** | 未达成则记录实际读数与豁免，不得写成 20 连绿 / 2 周无红 |
@@ -103,7 +104,7 @@
 | G3.5 | 平台：PR Check / 通知 | 单测 + e2e | 真实 PR + `ACTION_STATUS_MONITOR_ENABLED=true` + SMTP / 邮箱 | `POST /api/pr-checks/poll` + 触发一次通知 | 落库记录 + 邮件原文（脱敏）+ 开关生效日志 | 结论与 GitHub 一致；邮件真实送达；重试仅对周报路径要求 | PR Check 真实 polling |
 | G3.6 | MCP Server（8 tool） | 包已发布 + 单测 | MCP 客户端 + `GITHUB_TOKEN` + `fix_dependency` 的 `workDir` | 客户端调用 `run_scan` / `fix_dependency` 各一次 | 配置片段（脱敏）+ tool 调用记录 | 两个 tool 成功；缺 token 返回结构化错误 | —（新增） |
 | G3.7 | Agent Skill | 包已发布 + 内容测试 | AI 编码工具 + 可写仓 | `npx skills add dependfix/dependfix -s dependfix-remediator -g` 后对话触发 | 安装输出 + 对话记录 + PR | 一次安装 + 一次闭环 | —（新增） |
-| G3.8 | 安装与升级 | **本地预演 `partial`（M53.4）**；0.6.0 已发布（npm 5 包 + 7 tag + Release），`--version` 缺陷待 0.6.1；Docker 远端镜像与 0.5.x→1.0 升级未验证 | npm + Docker registry（`read:packages`） | build → preflight → 三路径安装 → `docker run` 核对 health → `@latest` → 0.5.x→1.0 升级 | `preflight.json` + 版本输出 + 镜像 manifest + health | 三路径版本一致；双架构镜像存在；**0.5.x→1.0** 升级可用（0.6.1 仅中间验证） | 发布管线收尾 |
+| G3.8 | 安装与升级 | **本地预演 `partial`（M53.4）**；0.6.0 已发布（npm 5 包 + 7 tag + Release），`--version` 缺陷待 0.7.0；Docker 远端镜像与 0.5.x→1.0 升级未验证 | npm + Docker registry（`read:packages`） | build → preflight → 三路径安装 → `docker run` 核对 health → `@latest` → 0.5.x→1.0 升级 | `preflight.json` + 版本输出 + 镜像 manifest + health | 三路径版本一致；双架构镜像存在；**0.5.x→1.0** 升级可用（0.7.0 仅中间验证） | 发布管线收尾 |
 | G3.9 | AI 研判（横切 G3.1-G3.5） | 全链 mock | 2 家 provider Key + 预算 | **2 家 × 5 场景 = 10 次**（限流 / 超时 / 非法 JSON 用 stub 注入） | 耗时 / token / 费用 + 降级行为 | 10 次可复现；单次 ≤ ¥20；无 Key 不影响主流程 | —（新增） |
 
 **需要用户提供的资源（未提供则对应路径保持 `pending` / `blocked`，不影响其他路径实跑）**
@@ -133,7 +134,7 @@
 | **F1** | 语义与数据（= M51） | §3.1 F1 九项（①③ 优先），按语义聚类为 6 原子 | M50 已闭环（2026-10-30）；**已闭环 + 归档（2026-10-30，任务正文见 [M51 归档分片](../../plan/archive/todo-archive-phases-m51.md)）** |
 | **F2** | 文档与验证（= M52） | §3.1 F2 六项 + G5 复测（G8 采集顺延 G 决策） | **2026-10-31 已闭环归档**（4 原子 + 4 批追加临时待办；[M52 归档分片](../../plan/archive/todo-archive-phases-m52.md)；`gates:docs` 16 → 19 项） |
 | **G** | 1.0 发布（= M53） | G2 契约冻结与迁移指南 + G7 运维实测与发布预演 + G8 指标脚本 + G5 mutation 扩面 + G3 执行框架（实跑待资源）；G4 窗口与 `@v1` 保持观察 | **2026-11-01 已闭环归档**（5 原子 + 1 批追加临时待办；任务正文见 [M53 归档分片](../../plan/archive/todo-archive-phases-m53.md)；G3 仅执行框架 + G3.8 partial） |
-| **M54** | 1.0.0 发布窗口执行 | M54.1 决策台账 / M54.2 0.6.1 / M54.3 G5 mutation / M54.4 G4+G8 / M54.5 G7 回滚 / M54.6 1.0.0 + `@v1` | **2026-11-01 规划**（目标窗口 2026-11-15；见 [todo.md](../../plan/todo.md) §M54） |
+| **M54** | 1.0.0 发布窗口执行 | M54.1 决策台账 / M54.2 0.7.0 / M54.3 G5 mutation / M54.4 G4+G8 / M54.5 G7 回滚 / M54.6 1.0.0 + `@v1` | **2026-11-01 规划**（目标窗口 2026-11-15；见 [todo.md](../../plan/todo.md) §M54） |
 
 **M49 内部顺序**：M49.1 → M49.2a → M49.2b → M49.4 → M49.3 → M49.5（M49.3 改为**先翻转、后取证**：原「翻转前累积 3 次 clean」口径因 node-forge 豁免使字面串不可达而未达成，按 §5.7 末句「修订 clean 判据」通道转正；翻转后连续 3 次 `master` push 的 prod 阻断步骤 `conclusion=success` 且日志含审计结果行，回填为证据；回填前不闭环，任一 run 失败则回退 `|| true` 或按 §5.7 评估）。
 

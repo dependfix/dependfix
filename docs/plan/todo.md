@@ -8,7 +8,7 @@
 
 | 内容类型 | 位置 |
 |:--|:--|
-| 当前阶段任务 | **M54 1.0.0 发布窗口决策与发布执行** — 6 原子，2026-11-01 规划；先 0.6.1 再 1.0.0（目标窗口 2026-11-15），有条件发布 |
+| 当前阶段任务 | **M54 1.0.0 发布窗口决策与发布执行** — 6 原子，2026-11-01 规划；先发 `0.7.0`（按 release:plan 推导）再 1.0.0（目标窗口 2026-11-15），有条件发布 |
 | 下一阶段（未规划） | **1.0.x 发布后观察（补丁号待定）**（发布后 issue / 指标观察；台账见 [release-1.0-readiness.md](../design/governance/release-1.0-readiness.md)） |
 | 已完成阶段归档 | [todo-archive.md](todo-archive.md)（阶段索引 + [archive/](archive/) 分片；M0-M53 全部已归档） |
 | 里程碑与阶段交付 | [roadmap.md](roadmap.md)（M0-M53 已归档；M54 进行中） |
@@ -19,16 +19,16 @@
 
 ## M54: 1.0.0 发布窗口决策与发布执行（2026-11-01 规划）
 
-> **阶段目标**：把 2026-11-01 的发布窗口决策落成可执行批次——先发 `0.6.1` 验证 M53 修复后的发布链，再在 **2026-11-15** 目标窗口发布 `1.0.0`；采用**有条件发布**（G3 实跑 / G4 窗口按已披露豁免降级，G5 关键模块 mutation / G6 发版文档 / G7 回滚演练等可执行项补齐），G8 产品指标用真实读数并在发布说明引用。
+> **阶段目标**：把 2026-11-01 的发布窗口决策落成可执行批次——先发 `0.7.0`（dependfix 锚版本，按 `release:plan` 推导）验证 M53 修复后的发布链，再在 **2026-11-15** 目标窗口发布 `1.0.0`；采用**有条件发布**（G3 实跑 / G4 窗口按已披露豁免降级，G5 关键模块 mutation / G6 发版文档 / G7 回滚演练等可执行项补齐），G8 产品指标用真实读数并在发布说明引用。
 > **来源**：[release-1.0-readiness.md](../design/governance/release-1.0-readiness.md) §2 G1-G8 读数（2026-11-01 实测）+ 2026-11-01 用户发布窗口决策。
-> **用户决策（2026-11-01）**：① 目标 = **先 0.6.1 再 1.0.0**；② 门禁 = **有条件发布**（G3 实跑 / G4 窗口豁免并披露，其余可执行项补齐）；③ **接受 Google OAuth 未测**并在发布说明「已知限制」披露；④ 1.0.0 目标窗口 **2026-11-15**。
+> **用户决策（2026-11-01）**：① 目标 = **先 0.7.0 再 1.0.0**；② 门禁 = **有条件发布**（G3 实跑 / G4 窗口豁免并披露，其余可执行项补齐）；③ **接受 Google OAuth 未测**并在发布说明「已知限制」披露；④ 1.0.0 目标窗口 **2026-11-15**。**⑤（同日执行期裁定）**：中间版本**按 `release:plan` 推导口径发布**（dependfix 0.7.0 / core 0.7.0 / engine 0.6.0 / platform 0.5.0 / mcp 0.3.1 传导；skills 无改动不发布），不人工降级为 0.6.1——避免把 0.x 的 feat 与破坏性变更塞进 patch。
 > **发布窗口读数（2026-11-01 实测）**：G1 ◐（prod 审计 1 low + 1 ignored moderate；Dependabot 2 条 medium/low；code scanning 0；周回归 3 次待累计）；G2 ✅；G3 ❌（0/10 实跑，G3.8 `partial`）；G4 ◐（0.6.0 后 15 次 push 中 4 次 Test 红，20 连绿 / 2 周未达成）；G5 ◐（覆盖率四维达标；mutation 11/11，关键模块全覆盖未达成）；G6 ◐（指南平价完成；无 `@v1`，设计文档全量英译不在 1.0）；G7 ◐（运维实测完成；发布级回滚未演练，远端多架构 / health 未复核）；G8 **可回填**（30 天窗口 30 个 PR：CI 绿率 24/30 = 80%、人工介入 0%、误关 0%）。
 > **G4 降级判据**：1.0.0 发布前最近 **10 次 master push 的 Test 0 失败**（允许非 Test workflow 因并发取消）；未达成则按豁免记录实际读数，**不得**声称 20 连绿或 2 周无红；`flake 率 < 2%` 与「30 天无 P0」保留为观察项，不作为 1.0 阻断。
 > **G3 豁免边界**：G3.0–G3.9 实跑未完成、G3.8 仅 `partial`，1.0.0 **不宣称 G3 通过**；发布说明披露「真实环境矩阵待资源补测」，Google OAuth 未测同列已知限制；获得资源后按 [真实环境矩阵](../guide/real-env-matrix.md) 补测。
-> **阶段启动交叉核验（§3.4，2026-11-01 实测）**：① 归档扫描 `发布窗口决策|M54` → 无历史闭环（仅 backlog / todo 指针）；② `git log --all --grep="发布窗口"` → 0 命中；③ 代码 / 文档 anchor：`release.md` 已有 0.6.1 清单但无 1.0.0 清单、无 `@v1` tag、`v0.6.0` 为最新 tag、无发布级回滚演练记录；④ G8 脚本真实读数已可取（30 PR 窗口）；⑤ backlog 中「发布级回滚演练」候选在列，本阶段上收。
+> **阶段启动交叉核验（§3.4，2026-11-01 实测）**：① 归档扫描 `发布窗口决策|M54` → 无历史闭环（仅 backlog / todo 指针）；② `git log --all --grep="发布窗口"` → 0 命中；③ 代码 / 文档 anchor：`release.md` 已有中间版本发布清单（当时为 0.6.1，后按脚本推导改 0.7.0）但无 1.0.0 清单、无 `@v1` tag、`v0.6.0` 为最新 tag、无发布级回滚演练记录；④ G8 脚本真实读数已可取（30 PR 窗口）；⑤ backlog 中「发布级回滚演练」候选在列，本阶段上收。
 > **容量评估（§1.1）**：6 原子，类型分布 📚 1 + 🚀 2 + 🧪 2 + 🛠️ 1；预估 **33-52 文件 / 1900-3400 行 / 15-19 commits**（含 mutation 补测与发布文档；发布动作不计行数）。
 > **§3.1.1 插队再平衡**：阶段启动插队 **0 批**，不触发阈值。
-> **原子间依赖与交付顺序**：M54.1（决策台账）→ M54.2（0.6.1 发布）→ M54.3 / M54.4 / M54.5 可并行 → M54.6（1.0.0 发布，依赖全部）。
+> **原子间依赖与交付顺序**：M54.1（决策台账）→ M54.2（0.7.0 发布）→ M54.3 / M54.4 / M54.5 可并行 → M54.6（1.0.0 发布，依赖全部）。
 
 ### M54.1 [P0 📚] 发布窗口决策台账与发版文档骨架（**已闭环** `fbcccd42` + `d0c563eb` + `425da284`）
 
@@ -44,16 +44,17 @@
 - **执行记录（2026-11-01）**：`fbcccd42` 发布清单页 + release.md / 侧边栏指针与同源口径；`d0c563eb` 台账回填；`425da284` release.yml 注释。审计 R1 quick Pass（4 warning / 6 suggest）→ 全部收口 → R2 quick Pass（9 项 + 附加项 closed，0 blocker / 0 warning）。证据：`gates:docs` 20 项通过；`check:doc-size` 计量 105 文档、无新增 warning；`lint:md:check` 通过；`lint:check` 0 error（11 存量 warning）；未跑 typecheck / test / build（无运行时改动，`docs/.vitepress/config.ts` 不入 tsconfig project，由 `docs:build` 实际执行）。
 - **§2.6 五步自检（范围变更触发）**：① 归档扫描「发布清单 / 发布说明骨架」→ 无 1.0.0 历史闭环（M53.4 仅 0.6.1 清单）；② `git log -- docs/guide/release.md` 与 `--grep="发布清单"` 无重复批次；③ 代码侧 anchor 实测：`release:plan` 对 0.x 的 BREAKING 只给 minor、`verify:changelog` 校验七份、`DOC_GATES` 二十项、`metrics:pr-health` 参数名；④ 规划批次已落 §2.2 决策表，执行面只补文档，无前提矛盾；⑤ backlog 无对应候选需同步。
 
-### M54.2 [P0 🚀] 0.6.1 补丁发布与发布后验证
+### M54.2 [P0 🚀] 0.7.0 发布与发布后验证
 
-- **目标**：发布 `0.6.1`，验证 M53 修复后的发布链（Docker 四小时预算 / tag 派发判据 / `--version` 元数据），为 1.0.0 排除发布链风险。
+- **目标**：发布 `dependfix@0.7.0`（锚 `v0.7.0`），验证 M53 修复后的发布链（Docker 四小时预算 / tag 派发判据 / `--version` 元数据），为 1.0.0 排除发布链风险。
 - **优先级**：P0（1.0 的前置演练）。
-- **范围**：锚版本 0.6.1，逐包按 `release:plan` bump（core / cli / engine / mcp / skills 与 platform 镜像各自版本）、CHANGELOG、tag / GitHub Release、npm 发布、Docker 镜像、发布说明版本引用；`release:preflight` + `check:release-security` 门禁。
-- **验收标准**：① 版本号与 CHANGELOG 同步，`verify:changelog` 通过；② `release:preflight` PASS（三路安装 `--version = 0.6.1`）；③ `check:release-security` 通过；④ npm 5 包 + tag + GitHub Release + platform 镜像 tag / health 实测；⑤ 发布后按包 audit / code scanning 无非豁免 critical / high；⑥ `npx dependfix@0.6.1 --version` = 0.6.1（关闭 `--version` 候选）；⑦ 用户可见文档版本引用按 G6 口径统一回填（1.0 前不逐版散改）。
-- **不做什么**：不发 1.0.0、不启用 `schedule` / `push` 自动发布、不改 1.0 契约。
+- **范围**：锚版本 `0.7.0`（= `dependfix` 版本，按 `release:plan` 推导），逐包按脚本 bump——`@dependfix/core` 0.7.0 / `@dependfix/engine` 0.6.0 / `@dependfix/mcp` 0.3.1（传导）/ `@dependfix/platform` 0.5.0（镜像 `platform-0.5.0`）；`@dependfix/skills` 无改动不发布。CHANGELOG（七份）、tag / GitHub Release、npm 发布、Docker 镜像、发布说明版本引用；`release:preflight` + `check:release-security` 门禁。
+- **验收标准**：① 版本号与 CHANGELOG 同步，`verify:changelog` 通过；② `release:preflight` PASS（临时工程安装 `--version = 0.7.0`；三路安装按真实环境矩阵复核）；③ `check:release-security` 通过；④ 本轮发布包（core / engine / mcp / dependfix）+ tag + GitHub Release + platform 镜像 `platform-0.5.0` tag / health 实测；⑤ 发布后按包 audit / code scanning 无非豁免 critical / high；⑥ `npx dependfix@0.7.0 --version` = 0.7.0（关闭 `--version` 候选）；⑦ 用户可见文档版本引用按 G6 口径统一回填（1.0 前不逐版散改）。
+- **不做什么**：不发 1.0.0、不启用 `schedule` / `push` 自动发布、不改 1.0 契约、不为凑 patch 人工压低 bump。
 - **依赖**：M54.1。
-- **交付物**：预估 3-4 commits / 8-12 文件 / 200-400 行（发布动作不计行数）。**拆分依据**：版本号 + CHANGELOG（1 commit）/ 发布执行与证据（1-2）/ 发布后文档复核（1），拆分后单提交 ≤ 10 文件。
+- **交付物**：预估 4-5 commits / 20-26 文件 / 250-450 行（发布动作不计行数；含口径同步追加批次）。**拆分依据**：口径同步（2 commits：发布口径 / 归档索引基线）/ 版本号 + CHANGELOG（1 commit）/ 发布执行与证据（1-2）/ 发布后文档复核（1），拆分后单提交 ≤ 10 文件。
 - **风险与缓解**：发布链仍失败 → 记录失败点并在 1.0 前修复；镜像预算超时 → 按 backlog 拆 per-arch job，不在 1.0 窗口硬扛。
+- **§2.6 五步自检（口径同步触发）**：① 归档扫描「0.6.1 / 发布清单」→ 仅 M49 / M53 历史正文命中，无待办闭环项；② `git log -- docs/guide/release.md` 与 `--grep="发布清单"` 无重复批次；③ 代码侧 anchor：`release:plan` + `release:version --dry-run` 实测 0.7.0 / 0.7.0 / 0.6.0 / 0.3.1 / 0.5.0，`@dependfix/skills@0.3.0` tag 已存在 → 发布走 tag 跳过；④ 决策前提由用户 2026-11-01 执行期裁定第⑤条厘清（0.6.1 → 0.7.0 属口径修正，非新需求）；⑤ backlog `--version` 条目触发条件与标题已同步改指 0.7.0。
 
 ### M54.3 [P1 🧪] G5 关键模块 mutation 补全
 
@@ -81,10 +82,10 @@
 
 - **目标**：把「发布级回滚」从 backlog 候选变成演练记录（镜像 tag 回退 / npm `deprecate` / GitHub Release 撤回 / `@v1` 回退），并复核远端多架构镜像 / health。
 - **优先级**：P1。
-- **范围**：用 0.6.0 / 0.6.1 已有产物做 dry-run（不真删生产 Release、不破坏现有 tag）；`release.md` 回滚章节；Docker manifest / health 复核证据；`release-1.0-readiness.md` G7 行回填。
+- **范围**：用 0.6.0 / 0.7.0 已有产物做 dry-run（不真删生产 Release、不破坏现有 tag）；`release.md` 回滚章节；Docker manifest / health 复核证据；`release-1.0-readiness.md` G7 行回填。
 - **验收标准**：① 回滚演练四类动作各有命令、预期与实测结果（dry-run 或测试 tag）；② 远端镜像双架构 manifest 与 `/api/health` 版本戳复核，缺 `read:packages` 时记录 blocked + retry_condition；③ 文档写明「不执行的破坏性步骤」；④ G7 行不再把回滚列为未演练（或明确保留残余）。
 - **不做什么**：不撤回 0.6.0 生产 Release；不删除远端 tag；不执行不可逆 `npm unpublish`。
-- **依赖**：M54.2（0.6.1 产物）。
+- **依赖**：M54.2（0.7.0 产物）。
 - **交付物**：预估 2-3 commits / 4-6 文件 / 300-500 行。
 - **风险与缓解**：registry 权限不足 → 用测试 tag / 本地 manifest 模拟并登记重试条件；演练脚本加 dry-run 默认与显式确认。
 
@@ -97,7 +98,7 @@
 - **不做什么**：不启用自动发布（除非用户另行授权）；不宣称 G3 通过；不把 G6 全量英译塞进 1.0。
 - **依赖**：M54.1-M54.5 全部闭环。
 - **交付物**：预估 2-3 commits / 6-10 文件 / 200-400 行（发布动作不计行数）。
-- **风险与缓解**：1.0 发布链失败 → 用 0.6.1 已验证链路回退并记录；窗口超期 → 以门禁完成度为准，不静默改日期；回滚 → 按 M54.5 演练步骤执行。
+- **风险与缓解**：1.0 发布链失败 → 用 0.7.0 已验证链路回退并记录；窗口超期 → 以门禁完成度为准，不静默改日期；回滚 → 按 M54.5 演练步骤执行。
 
 ## 阶段收口要求
 

@@ -334,7 +334,7 @@ verification: id, created_at, updated_at, identifier, value, expires_at
 
 - **受影响对象**：用 `dependfix --version` 做版本探测的脚本与 CI。
 - **变更**：`0.6.0` 及更早版本的版本号是硬编码常量，`--version` 恒输出 `0.1.0`（与 npm 包版本脱节）；修复后改为读包 `package.json`，输出与 npm 版本一致。
-- **迁移动作**：升级到含该修复的版本（**下一个发布版本，计划 `0.6.1`**；`0.6.0` 及更早均受影响）。依赖 `--version` 判版本下限的脚本，改为读取 `npm view dependfix version` 或解析自身 `package.json` 依赖版本。
+- **迁移动作**：升级到含该修复的版本（**含该修复的发布版本：`0.7.0`**；`0.6.0` 及更早均受影响）。依赖 `--version` 判版本下限的脚本，改为读取 `npm view dependfix version` 或解析自身 `package.json` 依赖版本。
 - **验证**：`npx dependfix --version` 与 `npm view dependfix version` 一致。
 
 ### 8.2 `@dependfix/engine` 导出函数由同步改为异步

@@ -30,16 +30,19 @@
 > **§3.1.1 插队再平衡**：阶段启动插队 **0 批**，不触发阈值。
 > **原子间依赖与交付顺序**：M54.1（决策台账）→ M54.2（0.6.1 发布）→ M54.3 / M54.4 / M54.5 可并行 → M54.6（1.0.0 发布，依赖全部）。
 
-### M54.1 [P0 📚] 发布窗口决策台账与发版文档骨架
+### M54.1 [P0 📚] 发布窗口决策台账与发版文档骨架（**已闭环** `fbcccd42` + `d0c563eb` + `425da284`）
 
 - **目标**：把四项用户决策、G3 / G4 豁免边界、G8 引用要求写进 1.0 台账与发布文档，形成 1.0.0 发布说明骨架（含已知限制）。
 - **优先级**：P0（后续发布的判定依据）。
-- **范围**：本批规划已落 `release-1.0-readiness.md §2.2` 与 G3 / G4 / G8 行、`docs/plan/*` / `docs/index.md` 同步（回填规划 commit）；M54.1 执行只补 `docs/guide/release.md` 的 1.0.0 发布清单（版本 / 门禁 / 回滚 / 校验和）、发布说明骨架与已知限制段，并修正已失效指引（alert 30 已 fixed / code scanning 0 / G8 已产出）。
-- **验收标准**：① 四项决策在 §2.2 可检索且含规划 commit 回填；② G3 / G4 标「1.0 发布豁免」而非 `passed`，含 retry_condition；③ G8 真实读数（24/30 · 0% · 0%）已写入并要求发布说明引用；④ `release.md` 1.0.0 清单 + 发布说明骨架含「已知限制」（G3 实跑 / Google / G6 英译），并清除已失效的红 / 待窗口指引；⑤ `gates:docs` 通过。
+- **范围**：本批规划已落 `release-1.0-readiness.md §2.2` 与 G3 / G4 / G8 行、`docs/plan/*` / `docs/index.md` 同步（回填规划 commit）；M54.1 执行只补 1.0.0 发布清单（版本 / 门禁 / 回滚 / 校验和）、发布说明骨架与已知限制段，并修正已失效指引（alert 30 已 fixed / code scanning 0 / G8 已产出）。
+  > **范围变更（执行期，2026-11-01）**：原计划在 `docs/guide/release.md` 内追加 1.0.0 章节；实测该文件 435 行，追加正文与发布说明骨架会进 guide warning 带（501-800），按 M53.1 先例独立成页 [1.0.0 发布清单与发布说明骨架](../guide/release-1.0.md)，release.md 保留指针与同源口径修正。验收④的「`release.md` 清单」按「release.md 指针 + 新页正文」判读。
+- **验收标准**：① 四项决策在 §2.2 可检索且含规划 commit 回填；② G3 / G4 标「1.0 发布豁免」而非 `passed`，含 retry_condition；③ G8 真实读数（24/30 · 0% · 0%）已写入并要求发布说明引用；④ 发布清单 + 发布说明骨架含「已知限制」（G3 实跑 / Google / G6 英译），并清除已失效的红 / 待窗口指引；⑤ `gates:docs` 通过。
 - **不做什么**：不发布、不改版本号、不创建 tag、不把豁免写成通过。
 - **依赖**：无。
-- **交付物**：预估 3 commits / 6-9 文件 / 400-700 行。
-- **风险与缓解**：豁免被后续读者误读为已验收 → 统一使用「1.0 发布豁免（不构成 G3/G4 通过）」标签并附 retry_condition。
+- **交付物**：预估 3 commits / 6-9 文件 / 400-700 行。**实测（2026-11-01）**：3 commits + 本登记 / 7 文件（新增 1）/ +123 −25。新增页覆盖版本锚点、发布前门禁（含非豁免门槛终态核对与本地备用通道口径）、发布步骤、发布后复核、回滚四类、产物校验和、发布说明骨架；台账补 §2.2 回填与 G3 / G4 retry_condition、G8 引用要求、§7 清单勾选与失效指向修正；`release.yml` 三处注释对齐「不启用自动发布」。
+- **风险与缓解**：豁免被后续读者误读为已验收 → 统一使用「1.0 发布豁免（不构成 G3/G4 通过）」标签并附 retry_condition（台账、新页、发布说明骨架三处同口径）。
+- **执行记录（2026-11-01）**：`fbcccd42` 发布清单页 + release.md / 侧边栏指针与同源口径；`d0c563eb` 台账回填；`425da284` release.yml 注释。审计 R1 quick Pass（4 warning / 6 suggest）→ 全部收口 → R2 quick Pass（9 项 + 附加项 closed，0 blocker / 0 warning）。证据：`gates:docs` 20 项通过；`check:doc-size` 计量 105 文档、无新增 warning；`lint:md:check` 通过；`lint:check` 0 error（11 存量 warning）；未跑 typecheck / test / build（无运行时改动，`docs/.vitepress/config.ts` 不入 tsconfig project，由 `docs:build` 实际执行）。
+- **§2.6 五步自检（范围变更触发）**：① 归档扫描「发布清单 / 发布说明骨架」→ 无 1.0.0 历史闭环（M53.4 仅 0.6.1 清单）；② `git log -- docs/guide/release.md` 与 `--grep="发布清单"` 无重复批次；③ 代码侧 anchor 实测：`release:plan` 对 0.x 的 BREAKING 只给 minor、`verify:changelog` 校验七份、`DOC_GATES` 二十项、`metrics:pr-health` 参数名；④ 规划批次已落 §2.2 决策表，执行面只补文档，无前提矛盾；⑤ backlog 无对应候选需同步。
 
 ### M54.2 [P0 🚀] 0.6.1 补丁发布与发布后验证
 

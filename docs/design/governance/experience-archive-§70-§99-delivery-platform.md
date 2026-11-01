@@ -441,3 +441,55 @@
 - **现象**：`npx ./dependfix-0.6.0.tgz --version` 把 tarball 当命令执行（`Permission denied`），不是安装后运行。
 - **手法**：`npx --yes -p <tarball> <bin> --version`；「全局安装」用 `npm i -g --prefix <临时目录>` 隔离，避免污染用户全局环境；三条安装路径各留一条证据（脚本内 / npx / 全局）。
 - **落点**：[release.md 发布链预演](../../guide/release.md#发布链预演与安装实测-本地-不发版) 的实测表。
+
+## 八十一、M53 归档批次经验沉淀（测试前提 / 视觉标定 / 模板重建 / 品牌按钮 / 交付纪律）
+
+> **批次**：M53 阶段归档 + 沉淀（2026-11-01，含登录页第三方登录按钮品牌化追加批次）。**准入依据**：④ 工具 / 环境陷阱（构建期布尔与本地 `.env`、证据模板全量重建、视觉基线标定）+ ② 决策需溯源（门禁干净 HEAD 验证、测试文件同名、跨提交合批、归档计数与先例核验）。落点见各条目末行。
+
+### 1. 构建期布尔会被本地 `.env` 染色，测试前提要在用例侧钉死
+
+- **现象**：`githubAvailable` / `googleAvailable` 等在 `nuxt.config.ts` 按构建期 env 烘焙；开发机存在 OAuth 凭据时，e2e「未配置第三方凭据 → 第三方区隐藏」用例本地必红，CI 干净检出却绿。登录页视觉基线同样会随构建机环境变化。
+- **手法**：e2e 用 `NUXT_PUBLIC_*_AVAILABLE=false` 钉「隐藏」前提，视觉环境钉 `true` 模拟「凭据已配置展示态」；两端都写，只钉一侧仍留环境依赖。
+- **落点**：[testing.md §6.15](../../standards/testing.md#_6-15-构建期布尔-本地-env-的测试前提) + `playwright.config.ts` / `playwright.visual.config.ts` env 注释。
+
+### 2. `--init --init-force` 会重写全部证据模板
+
+- **现象**：为同步 G3.0 的 `next_action` 执行 `--init --init-force`，10 条模板全部重建，G3.8 已填的 `partial` frontmatter 被覆盖；`--init-force` 单独使用不生效（必须与 `--init` 同时给）。
+- **手法**：带证据的条目重建前先备份目标文件，或只删除目标单条后 `--init`；重建后复跑 `check:real-env` 并核对 `status` / `evidence` 未回退（本次按原证据回填并在正文注明「未新增实测」）。
+- **落点**：[real-env-matrix.md §2](../../guide/real-env-matrix.md#_2-证据格式与校验)。
+
+### 3. 视觉反例标定按 token 实际像素写，注入与还原都要重建
+
+- **现象**：以 `$space-2` → `$space-4` 做反例标定，若口头记成「4px→16px」会高估灵敏度（`$space-2` 实为 8px）；注入后不 `build` 就比对，测的是旧 `.output`。
+- **手法**：标定记录写实际像素值（8px→16px）与差异像素 / 闸值倍数（1559 px ≈ 15.6× `maxDiffPixels`）；注入与还原各自 `build` 后重跑，还原态再连续两轮比对确认。
+- **落点**：[testing.md §6.7](../../standards/testing.md#_6-7-视觉回归-截图识别层-apps-platform) 反例验证纪律。
+
+### 4. 第三方登录按钮用官方标识 + 品牌文案
+
+- **现象**：统一 `User` 图标 + ghost 按钮会让 GitHub / Google 入口退化成「看不出是哪个平台」的文本链接。
+- **手法**：GitHub mark 用官方单色路径 + `currentColor`（暗色自动反转），Google 用官方四色 G（不随主题改色），OIDC 用盾牌；文案用品牌官方大小写（`使用 GitHub 登录`），不回显 provider id；基座用 `secondary` 描边态。
+- **落点**：[platform-auth-users.md §7](../../design/governance/platform-auth-users.md#_7-前端设计) + `app/components/social-login-button.vue`。
+
+### 5. 门禁类改动提交后在干净 HEAD 复跑
+
+- **现象**：`--fix` 修好但未写回索引 / 工作区与提交态不一致时，工作区跑绿不代表 HEAD 绿；门禁改造批次只跑工作区会把「fix 通道刚修好」误判为通过。
+- **手法**：提交后 `git status` 清空再跑 `lint:check` / `gates:docs` / typecheck，作为门禁证据。
+- **落点**：[git.md §3.7](../../standards/git.md#_3-7-提交态自洽-amend-提交前必须核对全部关联文件入库)。
+
+### 6. 新建测试文件前先查同名
+
+- **现象**：直接写 `foo.test.ts` 可能覆盖已存在的同名文件（本仓曾整文件覆盖回滚语义用例，测试数变化被新用例掩盖）。
+- **手法**：写文件前 `git ls-files | grep foo.test`；扩展既有语义用新文件名 + 独立 describe，不复用同名路径。
+- **落点**：[testing.md §7](../../standards/testing.md#_7-测试代码质量)。
+
+### 7. 跨提交依赖要合批，可独立编译优先于文件数
+
+- **现象**：类型 / 参数先被后续编排消费、或正文说明依赖新模块时，拆成两个提交会留下不可编译的中间提交。
+- **手法**：拆分前逐个提交核对可编译性；存在跨提交依赖就合批，并在正文说明原因，不以「文件数超阈值」为由硬拆。文件已顶格 `max-lines` 时要落行为变更，先把纯搬迁 / 日志辅助拆成独立提交（搬迁提交声明唯一差异），再落行为。
+- **落点**：[git.md §3.2](../../standards/git.md#_3-2-单文件跨-type-改动需提前规划-commit-拆分)。
+
+### 8. 归档计数取终态；先例必须可检索；候选追加放尾部
+
+- **现象**：沿用中间态数字会让 todo / 归档 / 审计三方不一致；引用「同类问题已复现」但全仓搜不到会被判依据失真；候选池前置插入会让既有 `#N` 引用整体漂移。
+- **手法**：容量 / 文件 / 行数在收口动作完成后用 `git diff --shortstat` 重取（登录页品牌化批次 `c46fb7c7^..4c2920ea` 实测 20 文件 / +234 −44；本 M53 归档批次实测 18 文件 / +243 −140）；引用先例前 `rg` 确认；候选新增追加到列表尾部，必须前置时引用改主题名。
+- **落点**：[planning.md §4.4](../../standards/planning.md#_4-4-大批量归档批次操作规范) 第 22 / 26 / 27 条。

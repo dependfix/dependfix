@@ -49,6 +49,8 @@ pnpm check:real-env --require-all          # 十条全部 passed（1.0 发布前
 
 校验脚本 `scripts/docs/check-real-env-evidence.mjs`：缺 frontmatter、`path` 与文件名不一致、状态非法、必填字段为空、`executed_at` 不是 2000–2100 年间的 ISO 时间、证据路径不存在 / 是目录 / 是空文件 → 非零退出。
 
+**模板重建会覆盖已填内容**：`--init-force` 只与 `--init` 同时生效；`--init --init-force` 会重写**全部 10 条**模板（含已填 `partial` / `passed` frontmatter，实测 G3.8 证据被覆盖后需按原证据回填）。带证据的条目重建前先备份目标文件，或只删除目标单条后 `--init` 重建；重建后复跑 `pnpm check:real-env` 并核对 `status` / `evidence` 未回退。
+
 证据路径相对**仓库根**解析：越出仓库根（如 `../x`）会被拒绝；也接受绝对路径（便于临时证据），但落在仓库外时会打 WARN（干净检出无法复核，发布说明不得引用）。`--no-check-files` / frontmatter `check_files: false` 只用于迁移场景，命中时输出 WARN 且**不得作为通过依据**。
 
 **本脚本不接入 `gates:docs`**（证据在 gitignored 目录，CI 无内容可校验）；`--require-all` 属 **1.0 发布前**的 G3 专项检查，0.6.1 发布不适用。

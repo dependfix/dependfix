@@ -311,6 +311,8 @@ if (value) { ... }  // 对 0, "", false 失效
 | [planning.md §4.4 第 21-24 条](../../../../docs/standards/planning.md#_4-4-大批量归档批次操作规范) | 阶段归档 / 大批量文档迁移 / 批次闭环登记 | 「见 X」指针是否实测有落点？计数是否取**全部收口动作后的终态**并写明时点？切片是否按 `^##` H2 边界、骨架表是否保留表头 + 分隔行（产物 `<table>` 计数兜底）？是否同步 `docs/index.md` 等用户可见文档状态？ |
 | [planning.md §4.4 第 13 条](../../../../docs/standards/planning.md) | 跨文件同步事实性口径 + 同源断言全仓改净 | 复扫是否用**结构化查询**（语义站点清单 + 组合 `rg`）而非字面 pattern；双语镜像是否单独扫 |
 | [planning.md §4.4 第 14 条](../../../../docs/standards/planning.md) | 已知边界条目闭环 | 除 backlog 整段删除外，是否同步 `archive/index.md` §4 的「保留」清单与「当前基线」前向描述（`rg` 确认全部落点） |
+| [planning.md §4.4 第 26 条](../../../../docs/standards/planning.md#_4-4-大批量归档批次操作规范) | 准入依据 / 复盘结论引用「先例 / 同类问题」 | 写入前是否 `rg` 全仓确认该说法真实存在且语义一致？不可检索的先例是否已删除、改为本次实测证据？ |
+| [planning.md §4.4 第 27 条](../../../../docs/standards/planning.md#_4-4-大批量归档批次操作规范) | 往 backlog 候选池新增条目 | 是否追加在列表末尾？必须前置插入时，所有跨文档引用是否改为主题名、未保留 `#N` 序号？ |
 | [planning.md §4.4 第 3 条](../../../../docs/standards/planning.md) | 跨目录相对路径 / 批量替换相对路径前缀 | old 片段是否**从路径字符（`../`）起写、未带上 `](`**（防吞 `]` 使链接退化）；改完是否做 malformed 检测（精确形态 `rg -n "\[[^]\n]*\((\.\.?/|/)"` 0 命中）并人工确认每处 `](` 与 `)` 成对（自建校验器对坏语法静默跳过，不能作为唯一证据） |
 | [ai-collaboration.md §1.3 分级审计执行协议](../../../../docs/standards/ai-collaboration.md) | 规划 / 阶段启动批次 | 是否声明 `standard`（非 `quick`）；审计 prompt 是否携带 audit-depth + 变更清单 + 已验证证据 |
 | [security.md §2.1](../../../../docs/standards/security.md) | 新增 / 修改 SQLite 备份、恢复或快照路径 | 快照是否走在线备份（`db.backup` / `VACUUM INTO`）而非裸复制主库文件（WAL 下会得到空库）？写入是否 `.tmp` → `fsync` → `rename`？容器双进程形态下是否只由一个进程执行？恢复路径删旁文件前是否确认快照已包含 WAL 数据？是否有「写连接保持打开、数据仍在 WAL」的回归用例（删掉在线备份应失败）？若提供「跳过快照」逃生门，健康库是否被拒绝（防止静默丢弃唯一撤销凭据）？ |
@@ -369,9 +371,13 @@ if (value) { ... }  // 对 0, "", false 失效
 | [testing.md §6.10](../../../../docs/standards/testing.md) | 脚本级测试中的 shell 管道 / 退出码断言 | 管道 + tail 后接双竖线 fail 在 dash（无 `pipefail`）下是否为死代码（管道状态取末命令）？是否拆分为「捕获输出（带失败判定）」与「解析输出」两步并单独断言关键日志行？ |
 | [testing.md §6.14](../../../../docs/standards/testing.md) | 新增 / 修改时间敏感断言（`Date.now()` / timer / deadline / 预算余量） | 是否优先注入 `now`？无法注入时构造值是否留明确余量（而非「恰好等于阈值」）？边界两侧是否用显式常量断言（`= 阈值` 通过 / `阈值 - 1` 拒绝），而非让真实时钟充当边界？单文件连跑仅作 smoke，稳定性是否以注入 / 常量断言证明？ |
 | [testing.md §6.13](../../../../docs/standards/testing.md) | 新增脚本 / CLI 入口 / 依赖环境变量的用例 | 默认参数箭头函数与 `isDirectExecution` 守卫是否拉低 patch 覆盖率（显式参数 seam + 真实最便宜命令；守卫 `v8 ignore` 是否注明理由）？依赖 `GITHUB_ACTIONS` 等变量的用例是否 `vi.stubEnv` + `finally vi.unstubAllEnvs()` 隔离（本地绿 ≠ CI 绿）？ |
+| [testing.md §6.15](../../../../docs/standards/testing.md#_6-15-构建期布尔-本地-env-的测试前提) | e2e / 视觉断言依赖构建期 public 布尔（如 OAuth 可用性）或本地 `.env` | 前提是否在用例侧用运行时 `NUXT_PUBLIC_*` **两端都钉死**（隐藏态 false / 展示态 true）？是否核对 `nuxt.config.ts` 的派生条件与测试 env 一致？本地有凭据时是否显式跑过「钉 false」路径，未以 CI 绿替代？ |
+| [testing.md §7](../../../../docs/standards/testing.md#_7-测试代码质量) | 新建 / 覆盖测试文件 | 写文件前是否 `git ls-files | grep <name>.test` 查同名？同名文件是否可能是既有语义（整文件覆盖会丢用例且被新用例数量掩盖）？扩展既有语义是否改用新文件名 + 独立 describe？ |
 | [testing.md §6.8](../../../../docs/standards/testing.md) | mutation / 审计取证工件 | 是否逐项记录**文件、变异前 md5、失败用例名、复现命令**，而非只写「N/N 击杀」汇总？还原后是否 md5 核对一致？ |
 | [git.md §3.7.1](../../../../docs/standards/git.md) | 拆批提交 / lint-staged 文件级任务 | 拆批前是否先把**未暂存文档** stash / 还原到 HEAD（lint-staged 的 updateIndex 会按任务前后 diff 重暂存，未暂存文档可能被带入 feat commit）？每组 `git add` 后是否 `git diff --cached --name-only` 核对、提交后 `git show --stat HEAD` 复核？ |
 | [git.md §3.7](../../../../docs/standards/git.md) | 为新增依赖跑过 `pnpm install`（lockfile 变更） | 是否 `git diff -U0 pnpm-lock.yaml` 逐 hunk 核验，只保留目标依赖的 importer / packages / snapshots 条目；非目标依赖的 range 内顺手升级是否已还原；还原后是否复跑 `--frozen-lockfile` |
+| [git.md §3.7](../../../../docs/standards/git.md#_3-7-提交态自洽-amend-提交前必须核对全部关联文件入库) | 门禁脚本 / `lint:check` / `gates:docs` 类改动 | 提交后是否在 `git status` 干净的 HEAD 上复跑一次门禁？是否避免用「工作区跑绿」证明提交态通过（`--fix` 修掉但未写回索引会出现本地绿 / HEAD 红）？ |
+| [git.md §3.2](../../../../docs/standards/git.md#_3-2-单文件跨-type-改动需提前规划-commit-拆分) | 拆分多 commit / 顶格文件落行为变更 | 拆分前是否逐个提交核对可独立编译？跨提交依赖（类型 / 参数 / 正文说明）是否合批？顶格 `max-lines` 时是否先纯搬迁再落行为、并在搬迁提交声明唯一差异？ |
 | [documentation.md §2](../../../../docs/standards/documentation.md) | Markdown 表格单元格含双竖线 | 是否用「反斜杠 + 双竖线」转义？`check:docs` / `lint-md` / `docs:build` 都不校验列数（门禁全绿但渲染丢列），改完是否解析产物 HTML 复核列数？ |
 | [documentation.md §6](../../../../docs/standards/documentation.md) | 实现形态反转（如「先建后 chown」→「以运行身份创建」） | 检查点矩阵行是否与条款**同批更新**？矩阵仍写旧形态会让后续审计按矩阵「整改」重新引入缺陷 |
 | [planning.md §2.5](../../../../docs/standards/planning.md) | 设计 / 验收中出现计数 | 是否写明**单位与分母**（如「安装尝试数」而非「故障事件数」）？同一故障在多链路各落一条审计时，按事件理解会误判重复计数 |

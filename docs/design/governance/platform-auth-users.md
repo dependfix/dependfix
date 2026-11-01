@@ -171,6 +171,8 @@ REGISTRATION_DISABLED=true: 拒绝所有注册渠道——邮箱密码路径由
 
 > **原生端点优先原则**：个人界面与用户管理的所有操作均优先使用 better-auth 原生 API（`authClient.*` / `authClient.admin.*`），仅当 better-auth 无法完成任务时才新增自定义 API（对齐 momei 项目实践与 better-auth 官方文档建议）。
 
+**第三方登录按钮 UI 约定（2026-11-01）**：图标使用目标平台官方标识——GitHub mark（单色，`currentColor` 跟随明暗主题）、Google 四色「G」（不随主题改色）、OIDC 用通用盾牌；文案用品牌官方大小写（`使用 GitHub 登录` / `使用 Google 登录`），不直接回显 provider id；按钮基座用 `secondary` 描边态，不用 `ghost`（无边界时会与下方注册文本链接混淆）。按钮显隐由 `resolveSocialProviders` 先按 `authMode` 选出候选（public：GitHub / Google；enterprise：OIDC），再以 `public.githubAvailable` / `googleAvailable` / `oidcAvailable` 过滤；视觉回归的构建期布尔前提见 [测试规范 §6.15](../../standards/testing.md#_6-15-构建期布尔-本地-env-的测试前提)。
+
 ## 8. 迁移与兼容
 
 ### organizationId 生命周期（B1 修复后定稿）

@@ -1,5 +1,56 @@
 # @dependfix/platform
 
+# [0.5.0](https://github.com/dependfix/dependfix/compare/@dependfix/platform@0.4.0...@dependfix/platform@0.5.0) (2026-11-01)
+
+
+### ✨ 新功能
+
+* **core:** 交付跳过契约与报告段 ([aa90062](https://github.com/dependfix/dependfix/commit/aa90062))
+* **engine:** 交付类 git 调用改为受管异步 ([860e275](https://github.com/dependfix/dependfix/commit/860e275))
+* **monorepo:** 统一 PR Check 结论口径并按 workflow run 收敛同名轮次 ([2a9a588](https://github.com/dependfix/dependfix/commit/2a9a588))
+* **platform:** PR 回环失败反馈（幂等评论与按配置关闭） ([d10748f](https://github.com/dependfix/dependfix/commit/d10748f))
+* **platform:** 周报在窗口内按结果退避重试 ([3268e68](https://github.com/dependfix/dependfix/commit/3268e68))
+* **platform:** 回写 ScanResult 告警级修复结果 ([564755a](https://github.com/dependfix/dependfix/commit/564755a))
+* **platform:** 拆分必选 Critical 通知类别与收件人路由 ([374954b](https://github.com/dependfix/dependfix/commit/374954b))
+* **platform:** 接入必选 Critical 投递与独立计数桶 ([ffb6023](https://github.com/dependfix/dependfix/commit/ffb6023))
+* **platform:** 收口仓库标签与沙箱限额写入闸门 ([2d702cd](https://github.com/dependfix/dependfix/commit/2d702cd))
+* **platform:** 新增周报尝试状态机与退避常量 ([142cb79](https://github.com/dependfix/dependfix/commit/142cb79))
+* **platform:** 登录页第三方登录按钮品牌化 ([ca0f82e](https://github.com/dependfix/dependfix/commit/ca0f82e))
+* **platform:** 记录交付 PR 编号并判定回环观察态（M51.3a） ([2d0c993](https://github.com/dependfix/dependfix/commit/2d0c993))
+* **platform:** 运行列表与详情展示交付跳过 ([1a85f41](https://github.com/dependfix/dependfix/commit/1a85f41))
+* **platform:** 适配组件库全选语义并微调暗色控件边界 ([9bc7c67](https://github.com/dependfix/dependfix/commit/9bc7c67))
+* **platform:** 透传运行截止时间并映射预算跳过 ([5391676](https://github.com/dependfix/dependfix/commit/5391676))
+* **platform:** 通知页展示必选 Critical 行并同步设计稿 ([4748818](https://github.com/dependfix/dependfix/commit/4748818))
+
+
+### 🐛 Bug 修复
+
+* **platform:** alerts 原始列表补主键并列兜底 ([962c610](https://github.com/dependfix/dependfix/commit/962c610))
+* **platform:** 修复 fixtures 端点丢失信号归因字段 ([4d4b7c8](https://github.com/dependfix/dependfix/commit/4d4b7c8))
+* **platform:** 修正面板打开重试并修复类型检查红 ([ba8b66e](https://github.com/dependfix/dependfix/commit/ba8b66e))
+* **platform:** 列表刷新后按 id 保住已选仓库 ([12bb03d](https://github.com/dependfix/dependfix/commit/12bb03d))
+* **platform:** 备份改用 SQLite 在线备份并只由主进程执行 ([eb4bb49](https://github.com/dependfix/dependfix/commit/eb4bb49))
+* **platform:** 对齐恢复逃生门的操作面口径 ([1a4d974](https://github.com/dependfix/dependfix/commit/1a4d974))
+* **platform:** 恢复前的自动备份改为一致性快照 ([4d8e553](https://github.com/dependfix/dependfix/commit/4d8e553))
+* **platform:** 恢复快照原子化并补损坏库逃生门 ([fafb2fa](https://github.com/dependfix/dependfix/commit/fafb2fa))
+* **platform:** 收口周报重试的并发与计数口径 ([b43864f](https://github.com/dependfix/dependfix/commit/b43864f))
+* **platform:** 收口恢复逃生门的治理与输出面 ([ae746fc](https://github.com/dependfix/dependfix/commit/ae746fc))
+* **platform:** 空筛选下不再渲染全选入口 ([45b8399](https://github.com/dependfix/dependfix/commit/45b8399))
+* **platform:** 补齐 resource-usage 的数组类型修复 ([86f704a](https://github.com/dependfix/dependfix/commit/86f704a))
+* **platform:** 补齐 worker 进程的队列消费者启动点 ([9b3b946](https://github.com/dependfix/dependfix/commit/9b3b946))
+* **platform:** 通知邮件标题改用 Critical 与 High 专有名词 ([059208e](https://github.com/dependfix/dependfix/commit/059208e))
+* **platform:** 队列消费端启动失败必须可见 ([8cffc83](https://github.com/dependfix/dependfix/commit/8cffc83))
+* **platform:** 面板重试前先确认是否已打开 ([9bff1f9](https://github.com/dependfix/dependfix/commit/9bff1f9))
+
+
+### 📦 代码重构
+
+* **platform:** 抽取 OAuth 凭据齐备性判定纯函数 ([c46fb7c](https://github.com/dependfix/dependfix/commit/c46fb7c))
+* **platform:** 收敛必选 Critical 收件人边界并移除死代码 ([3beb73d](https://github.com/dependfix/dependfix/commit/3beb73d))
+* **platform:** 收敛控件边界变量并补选择栏无障碍 ([dd99677](https://github.com/dependfix/dependfix/commit/dd99677))
+* **platform:** 清理平台独立 lint 规则的存量问题 ([5a0da48](https://github.com/dependfix/dependfix/commit/5a0da48))
+* **platform:** 通知页严重级别术语收敛到扫描侧口径 ([6c1001d](https://github.com/dependfix/dependfix/commit/6c1001d))
+
 # [0.4.0](https://github.com/dependfix/dependfix/compare/@dependfix/platform@0.3.0...@dependfix/platform@0.4.0) (2026-10-28)
 
 

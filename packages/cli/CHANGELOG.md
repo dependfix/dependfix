@@ -1,5 +1,18 @@
 # dependfix
 
+# [0.7.0](https://github.com/dependfix/dependfix/compare/dependfix@0.6.0...dependfix@0.7.0) (2026-11-01)
+
+
+### ✨ 新功能
+
+* **engine:** 基线红交付降级配置项（skip / issue / draft） ([2cfa1c1](https://github.com/dependfix/dependfix/commit/2cfa1c1))
+
+
+### 🐛 Bug 修复
+
+* **cli:** 版本号改为读取 package.json ([8fd83fc](https://github.com/dependfix/dependfix/commit/8fd83fc))
+* **cli:** 订正 ai-api-key 优先级与 max-repos 负数口径 ([def958b](https://github.com/dependfix/dependfix/commit/def958b))
+
 # [0.6.0](https://github.com/dependfix/dependfix/compare/dependfix@0.5.0...dependfix@0.6.0) (2026-10-28)
 
 

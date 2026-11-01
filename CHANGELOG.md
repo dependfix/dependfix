@@ -1,5 +1,77 @@
 # dependfix
 
+# [0.7.0](https://github.com/dependfix/dependfix/compare/dependfix@0.6.0...dependfix@0.7.0) (2026-11-01)
+
+
+### ✨ 新功能
+
+* **core:** 交付跳过契约与报告段 ([aa90062](https://github.com/dependfix/dependfix/commit/aa90062))
+* **core:** 新增告警级修复结果契约与引擎产出 ([1d5e187](https://github.com/dependfix/dependfix/commit/1d5e187))
+* **engine:** 交付类 git 调用改为受管异步 ([860e275](https://github.com/dependfix/dependfix/commit/860e275))
+* **engine:** 回滚与单元 checkpoint 走受管异步并定义取消期语义 ([62d232f](https://github.com/dependfix/dependfix/commit/62d232f))
+* **engine:** 基线红交付降级配置项（skip / issue / draft） ([2cfa1c1](https://github.com/dependfix/dependfix/commit/2cfa1c1))
+* **engine:** 基线红的交付降级（草稿 PR API + 记录与载体） ([67a7596](https://github.com/dependfix/dependfix/commit/67a7596))
+* **engine:** 运行级剩余预算检查 ([4651f22](https://github.com/dependfix/dependfix/commit/4651f22))
+* **metrics:** 新增 G8 PR 健康度采集脚本 ([2b29f92](https://github.com/dependfix/dependfix/commit/2b29f92))
+* **monorepo:** 统一 PR Check 结论口径并按 workflow run 收敛同名轮次 ([2a9a588](https://github.com/dependfix/dependfix/commit/2a9a588))
+* **platform:** PR 回环失败反馈（幂等评论与按配置关闭） ([d10748f](https://github.com/dependfix/dependfix/commit/d10748f))
+* **platform:** 周报在窗口内按结果退避重试 ([3268e68](https://github.com/dependfix/dependfix/commit/3268e68))
+* **platform:** 回写 ScanResult 告警级修复结果 ([564755a](https://github.com/dependfix/dependfix/commit/564755a))
+* **platform:** 拆分必选 Critical 通知类别与收件人路由 ([374954b](https://github.com/dependfix/dependfix/commit/374954b))
+* **platform:** 接入必选 Critical 投递与独立计数桶 ([ffb6023](https://github.com/dependfix/dependfix/commit/ffb6023))
+* **platform:** 收口仓库标签与沙箱限额写入闸门 ([2d702cd](https://github.com/dependfix/dependfix/commit/2d702cd))
+* **platform:** 新增周报尝试状态机与退避常量 ([142cb79](https://github.com/dependfix/dependfix/commit/142cb79))
+* **platform:** 登录页第三方登录按钮品牌化 ([ca0f82e](https://github.com/dependfix/dependfix/commit/ca0f82e))
+* **platform:** 记录交付 PR 编号并判定回环观察态（M51.3a） ([2d0c993](https://github.com/dependfix/dependfix/commit/2d0c993))
+* **platform:** 运行列表与详情展示交付跳过 ([1a85f41](https://github.com/dependfix/dependfix/commit/1a85f41))
+* **platform:** 适配组件库全选语义并微调暗色控件边界 ([9bc7c67](https://github.com/dependfix/dependfix/commit/9bc7c67))
+* **platform:** 透传运行截止时间并映射预算跳过 ([5391676](https://github.com/dependfix/dependfix/commit/5391676))
+* **platform:** 通知页展示必选 Critical 行并同步设计稿 ([4748818](https://github.com/dependfix/dependfix/commit/4748818))
+* **release:** 新增发布前预演并复核发布产物 ([40e82b6](https://github.com/dependfix/dependfix/commit/40e82b6))
+* **scripts:** 新增 1.0 契约冻结门禁与清单文档 ([8b6dd9e](https://github.com/dependfix/dependfix/commit/8b6dd9e))
+* **scripts:** 新增 G3 证据模板与字段校验 ([8153bd8](https://github.com/dependfix/dependfix/commit/8153bd8))
+* **scripts:** 新增中英指南平价门禁 ([6cb1e53](https://github.com/dependfix/dependfix/commit/6cb1e53))
+* **scripts:** 新增设计镜像结构映射门禁 ([6000e81](https://github.com/dependfix/dependfix/commit/6000e81))
+* **scripts:** 新增锚点产物 id 门禁、迁移与产物复核工具 ([3cc6dbc](https://github.com/dependfix/dependfix/commit/3cc6dbc))
+
+
+### 🐛 Bug 修复
+
+* **cli:** 版本号改为读取 package.json ([8fd83fc](https://github.com/dependfix/dependfix/commit/8fd83fc))
+* **cli:** 订正 ai-api-key 优先级与 max-repos 负数口径 ([def958b](https://github.com/dependfix/dependfix/commit/def958b))
+* **docs:** 契约门禁子进程用例按 CI 负载放宽超时 ([0ebed2b](https://github.com/dependfix/dependfix/commit/0ebed2b))
+* **engine:** 区分已启动后被取消的 git 失败文案 ([f6d8911](https://github.com/dependfix/dependfix/commit/f6d8911))
+* **engine:** 收口交付异步化的取消、预算与编码边界 ([11c1427](https://github.com/dependfix/dependfix/commit/11c1427))
+* **platform:** alerts 原始列表补主键并列兜底 ([962c610](https://github.com/dependfix/dependfix/commit/962c610))
+* **platform:** 修复 fixtures 端点丢失信号归因字段 ([4d4b7c8](https://github.com/dependfix/dependfix/commit/4d4b7c8))
+* **platform:** 修正面板打开重试并修复类型检查红 ([ba8b66e](https://github.com/dependfix/dependfix/commit/ba8b66e))
+* **platform:** 列表刷新后按 id 保住已选仓库 ([12bb03d](https://github.com/dependfix/dependfix/commit/12bb03d))
+* **platform:** 备份改用 SQLite 在线备份并只由主进程执行 ([eb4bb49](https://github.com/dependfix/dependfix/commit/eb4bb49))
+* **platform:** 对齐恢复逃生门的操作面口径 ([1a4d974](https://github.com/dependfix/dependfix/commit/1a4d974))
+* **platform:** 恢复前的自动备份改为一致性快照 ([4d8e553](https://github.com/dependfix/dependfix/commit/4d8e553))
+* **platform:** 恢复快照原子化并补损坏库逃生门 ([fafb2fa](https://github.com/dependfix/dependfix/commit/fafb2fa))
+* **platform:** 收口周报重试的并发与计数口径 ([b43864f](https://github.com/dependfix/dependfix/commit/b43864f))
+* **platform:** 收口恢复逃生门的治理与输出面 ([ae746fc](https://github.com/dependfix/dependfix/commit/ae746fc))
+* **platform:** 空筛选下不再渲染全选入口 ([45b8399](https://github.com/dependfix/dependfix/commit/45b8399))
+* **platform:** 补齐 resource-usage 的数组类型修复 ([86f704a](https://github.com/dependfix/dependfix/commit/86f704a))
+* **platform:** 补齐 worker 进程的队列消费者启动点 ([9b3b946](https://github.com/dependfix/dependfix/commit/9b3b946))
+* **platform:** 通知邮件标题改用 Critical 与 High 专有名词 ([059208e](https://github.com/dependfix/dependfix/commit/059208e))
+* **platform:** 队列消费端启动失败必须可见 ([8cffc83](https://github.com/dependfix/dependfix/commit/8cffc83))
+* **platform:** 面板重试前先确认是否已打开 ([9bff1f9](https://github.com/dependfix/dependfix/commit/9bff1f9))
+* **release:** 收口发布链的守卫、派发与镜像预算 ([ad7299e](https://github.com/dependfix/dependfix/commit/ad7299e))
+* **scripts:** 同步 G3.0 证据模板的下一步动作 ([54c7d5f](https://github.com/dependfix/dependfix/commit/54c7d5f))
+* **security:** 行内标签剥离迭代到不动点 ([9909018](https://github.com/dependfix/dependfix/commit/9909018))
+
+
+### 📦 代码重构
+
+* **engine:** 拆分 git 身份与部分源汇总辅助模块 ([1313774](https://github.com/dependfix/dependfix/commit/1313774))
+* **platform:** 抽取 OAuth 凭据齐备性判定纯函数 ([c46fb7c](https://github.com/dependfix/dependfix/commit/c46fb7c))
+* **platform:** 收敛必选 Critical 收件人边界并移除死代码 ([3beb73d](https://github.com/dependfix/dependfix/commit/3beb73d))
+* **platform:** 收敛控件边界变量并补选择栏无障碍 ([dd99677](https://github.com/dependfix/dependfix/commit/dd99677))
+* **platform:** 清理平台独立 lint 规则的存量问题 ([5a0da48](https://github.com/dependfix/dependfix/commit/5a0da48))
+* **platform:** 通知页严重级别术语收敛到扫描侧口径 ([6c1001d](https://github.com/dependfix/dependfix/commit/6c1001d))
+
 # [0.6.0](https://github.com/dependfix/dependfix/compare/dependfix@0.5.0...dependfix@0.6.0) (2026-10-28)
 
 

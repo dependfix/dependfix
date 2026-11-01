@@ -1,5 +1,30 @@
 # @dependfix/engine
 
+# [0.6.0](https://github.com/dependfix/dependfix/compare/@dependfix/engine@0.5.0...@dependfix/engine@0.6.0) (2026-11-01)
+
+
+### ✨ 新功能
+
+* **core:** 新增告警级修复结果契约与引擎产出 ([1d5e187](https://github.com/dependfix/dependfix/commit/1d5e187))
+* **engine:** 交付类 git 调用改为受管异步 ([860e275](https://github.com/dependfix/dependfix/commit/860e275))
+* **engine:** 回滚与单元 checkpoint 走受管异步并定义取消期语义 ([62d232f](https://github.com/dependfix/dependfix/commit/62d232f))
+* **engine:** 基线红交付降级配置项（skip / issue / draft） ([2cfa1c1](https://github.com/dependfix/dependfix/commit/2cfa1c1))
+* **engine:** 基线红的交付降级（草稿 PR API + 记录与载体） ([67a7596](https://github.com/dependfix/dependfix/commit/67a7596))
+* **engine:** 运行级剩余预算检查 ([4651f22](https://github.com/dependfix/dependfix/commit/4651f22))
+* **monorepo:** 统一 PR Check 结论口径并按 workflow run 收敛同名轮次 ([2a9a588](https://github.com/dependfix/dependfix/commit/2a9a588))
+
+
+### 🐛 Bug 修复
+
+* **cli:** 订正 ai-api-key 优先级与 max-repos 负数口径 ([def958b](https://github.com/dependfix/dependfix/commit/def958b))
+* **engine:** 区分已启动后被取消的 git 失败文案 ([f6d8911](https://github.com/dependfix/dependfix/commit/f6d8911))
+* **engine:** 收口交付异步化的取消、预算与编码边界 ([11c1427](https://github.com/dependfix/dependfix/commit/11c1427))
+
+
+### 📦 代码重构
+
+* **engine:** 拆分 git 身份与部分源汇总辅助模块 ([1313774](https://github.com/dependfix/dependfix/commit/1313774))
+
 # [0.5.0](https://github.com/dependfix/dependfix/compare/@dependfix/engine@0.4.0...@dependfix/engine@0.5.0) (2026-10-28)
 
 

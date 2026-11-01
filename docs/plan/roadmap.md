@@ -60,30 +60,30 @@
 | M50: 通知可信度收口（1.0-E） | `critical` 告警必选不可关闭 + 通知严重级别术语与阈值命名收敛 + 周报投递重试与窗口锁 + `/settings` 与通知页 dark 视觉覆盖 | P1-P3 | 已完成（2026-10-29 用户决策 / 2026-10-30 已闭环归档，见 [M50 详情分片](archive/roadmap-phases-m50.md) + [M50 归档分片](archive/todo-archive-phases-m50.md)） |
 | M51: 语义与数据收口（1.0-F1） | 告警级修复结果回写 + PR Check 结论统一与同 ref 收敛 + 平台 PR 回环 + 基线红交付降级 + 取消面与单仓剩余预算 + 配置写入闸门与 alerts 排序兜底 | P0-P2 | 已完成（2026-10-30 用户决策 / 2026-10-30 已闭环归档，见 [M51 详情分片](archive/roadmap-phases-m51.md) + [M51 归档分片](archive/todo-archive-phases-m51.md)） |
 | M52: 文档平价与验证收口（1.0-F2） | en-US 指南与设计镜像平价 + 归档锚点按产物 id 迁移 + pr-checks 归因渲染与视觉确定性 + G5 覆盖率复测 + caomei-ui 1.0.0-rc.1 升级（用户追加） | P1-P2 | 已完成（2026-10-30 规划 / 2026-10-31 已闭环归档，见 [M52 详情分片](archive/roadmap-phases-m52.md) + [M52 归档分片](archive/todo-archive-phases-m52.md)） |
-| 1.0: 发布门槛收口 | E 通知可信度（= M50，已归档）+ F1 语义与数据（= M51，已归档）+ F2 文档与验证（= M52，已归档）+ G 发布工程（M53：契约冻结 / 迁移指南 / 运维实测与发布预演 / 指标与 mutation / G3 执行框架） | P0-P1 | 进行中（E / F1 / F2 已闭环；G 已规划 M53〔2026-10-31〕；台账见 [release-1.0-readiness.md](../design/governance/release-1.0-readiness.md)） |
-| M53: 发布工程（1.0-G） | 契约冻结清单与迁移指南 + 运维实测与发布自动化预演 + 指标脚本与 mutation 扩面 + 发布链预演（不发版）+ G3 真实环境矩阵执行框架（实跑待资源） | P0-P2 | 进行中（2026-10-31 规划，5 原子；见 [todo.md](todo.md)） |
+| M53: 发布工程（1.0-G） | 契约冻结清单与迁移指南 + 运维实测与发布自动化预演 + 指标脚本与 mutation 扩面 + 发布链预演（不发版）+ G3 真实环境矩阵执行框架（实跑待资源）+ 登录页第三方登录按钮品牌化（用户追加） | P0-P2 | 已完成（2026-10-31 规划 / 2026-11-01 已闭环归档，见 [M53 详情分片](archive/roadmap-phases-m53.md) + [M53 归档分片](archive/todo-archive-phases-m53.md)） |
+| 1.0: 发布门槛收口 | E 通知可信度（= M50）+ F1 语义与数据（= M51）+ F2 文档与验证（= M52）+ G 发布工程（M53） | P0-P1 | 进行中（E / F1 / F2 / G 批次工程已闭环并归档；**G3 实跑 / G4 / G5 关键模块 mutation / G6 英译与 @v1 / G7 发布级回滚 / G8 窗口读数未达成**，待 1.0.0 发布窗口决策；台账见 [release-1.0-readiness.md](../design/governance/release-1.0-readiness.md)） |
 
 > **本路线图定位**：按 [规划规范 §2.1](../standards/planning.md) 仅维护阶段概览（目标 / 优先级 / 状态）。详细实施记录 / commit 引用 / 关键决策 / 经验教训见对应归档段（详见下方"## 详细任务"索引）。
 
 > **M0 - M38 阶段详情已迁出**：见 [archive/roadmap-phases-m0-m38.md](archive/roadmap-phases-m0-m38.md)（2026-10-15 M44.4 批次③ 迁出；主文档保留概述表与最近阶段）。
 
-> **M39-M52 阶段详情已迁出**：M39-M48 见 [archive/roadmap-phases-m39-m48.md](archive/roadmap-phases-m39-m48.md)（2026-10-26 文档治理批次迁出）；M49 见 [archive/roadmap-phases-m49.md](archive/roadmap-phases-m49.md)（2026-10-29 归档批次迁出）；M50 见 [archive/roadmap-phases-m50.md](archive/roadmap-phases-m50.md)（2026-10-30 归档批次迁出）；M51 见 [archive/roadmap-phases-m51.md](archive/roadmap-phases-m51.md)（2026-10-30 归档批次迁出）；M52 见 [archive/roadmap-phases-m52.md](archive/roadmap-phases-m52.md)（2026-10-31 归档批次迁出）。主文档保留里程碑概述表与当前阶段状态。
+> **M39-M53 阶段详情已迁出**：M39-M48 见 [archive/roadmap-phases-m39-m48.md](archive/roadmap-phases-m39-m48.md)（2026-10-26 文档治理批次迁出）；M49 见 [archive/roadmap-phases-m49.md](archive/roadmap-phases-m49.md)（2026-10-29 归档批次迁出）；M50 见 [archive/roadmap-phases-m50.md](archive/roadmap-phases-m50.md)（2026-10-30 归档批次迁出）；M51 见 [archive/roadmap-phases-m51.md](archive/roadmap-phases-m51.md)（2026-10-30 归档批次迁出）；M52 见 [archive/roadmap-phases-m52.md](archive/roadmap-phases-m52.md)（2026-10-31 归档批次迁出）；M53 见 [archive/roadmap-phases-m53.md](archive/roadmap-phases-m53.md)（2026-11-01 归档批次迁出）。主文档保留里程碑概述表与当前阶段状态。
 
-## 当前阶段：M53 发布工程（1.0-G 批次，2026-10-31 规划）
+## 当前阶段：无（M53 已归档，下一阶段待规划）
 
-M53 承接 1.0 台账 G 批次的**可提前执行部分**：G2 契约冻结与迁移指南（M53.1）、G7 运维实测与发布自动化预演（M53.2）、G8 指标脚本 + G5 mutation 扩面（M53.3）、发布链预演与安装/升级实测（M53.4，**不真发**）、G3 真实环境矩阵执行框架（M53.5，实跑待外部资源）。用户 2026-10-31 决策：范围取 5 原子，`0.6.1` 只预演不真发，M52 残余只并入 zh CLI 表。
+M53 发布工程（1.0-G 批次）已于 2026-11-01 归档，5 原子 + 1 批追加临时待办全部闭环。当前没有进行中的阶段；下一阶段为 **1.0.0 发布窗口决策**，需先取得 G1-G8 读数并完成用户决策（1.0 是否接受 Google OAuth 未测 / 0.6.1 是否真发 / 发布窗口与版本号）。
 
-**不在本阶段闭环**：G3 实跑（OAuth / IdP / staging / 测试仓 / AI Key 与预算待用户提供）、G4 CI 窗口（20 连绿或 2 周无红，时间项）、`@v1`（需 1.0.0 已发布）、1.0.0 发布本身。
+**不在 M53 闭环、进入发布窗口前仍需确认**：G3 九条真实环境实跑（OAuth / IdP / staging / 测试仓 / AI Key 与预算待用户提供；Google 入口暂不可用）、G4 CI 窗口（20 连绿或 2 周无红）、G5 关键模块 mutation 全覆盖、G6 设计文档英译与 `@v1`、G7 发布级回滚与远端镜像复核、G8 30 天窗口。读数与资源清单见 [release-1.0-readiness.md](../design/governance/release-1.0-readiness.md)。
 
-**后续**：G 批次收口后按台账读数决定 1.0.0 发布窗口；残余候选见 [backlog.md](backlog.md)。
+**后续**：发布窗口决策后按台账读数规划 1.0.0 发布；残余候选见 [backlog.md](backlog.md)。
 
 ---
 
 ## 详细任务
 
-- 当前阶段任务：[M53 发布工程（1.0-G）](todo.md)（5 原子，2026-10-31 规划）
-- 已归档阶段：[todo-archive.md](todo-archive.md)（阶段索引 + 分片；M0-M52 全部已归档；分片治理见 [archive/index.md](archive/index.md)）
-- 下一阶段（未规划）：**1.0.0 发布窗口决策**（待 M53 收口与 G1-G8 读数；台账见 [release-1.0-readiness.md](../design/governance/release-1.0-readiness.md)）
+- 当前阶段任务：无（M53 已归档；[todo.md](todo.md) 仅保留下一阶段规划说明）
+- 已归档阶段：[todo-archive.md](todo-archive.md)（阶段索引 + 分片；M0-M53 全部已归档；分片治理见 [archive/index.md](archive/index.md)）
+- 下一阶段（未规划）：**1.0.0 发布窗口决策**（待 G1-G8 读数；台账见 [release-1.0-readiness.md](../design/governance/release-1.0-readiness.md)）
 - 后续阶段任务（延期项 + 未排期增强候选）：[backlog.md](backlog.md)
 
 ## 交付原则

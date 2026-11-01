@@ -22,10 +22,10 @@
 6. 运行 `check:docs` + `check:doc-governance` + `check:doc-size`，全绿后提交。
 ## 4. 当前基线（2026-11-01 实测）
 
-- `roadmap.md`：里程碑概览 + 当前阶段（**无活跃阶段；M53 已于 2026-11-01 归档，下一阶段 1.0.0 发布窗口决策待规划**）；M0-M38 详情见 [roadmap-phases-m0-m38.md](roadmap-phases-m0-m38.md)，M39-M48 见 [roadmap-phases-m39-m48.md](roadmap-phases-m39-m48.md)，M49 见 [roadmap-phases-m49.md](roadmap-phases-m49.md)，M50 见 [roadmap-phases-m50.md](roadmap-phases-m50.md)，M51 见 [roadmap-phases-m51.md](roadmap-phases-m51.md)，M52 见 [roadmap-phases-m52.md](roadmap-phases-m52.md)，M53 见 [roadmap-phases-m53.md](roadmap-phases-m53.md)。行数与字符预算见 [文档规范 §3](../../standards/documentation.md#_3-文档行数阈值) / [文档治理执行规范 §4.2](../../design/governance/doc-governance.md#_4-2-字符与密度预算)。
-- `todo.md`：**无活跃阶段**（18 行；下一阶段《1.0.0 发布窗口决策》指向台账与真实环境矩阵，未展开正文）；1.0 门槛台账见 [release-1.0-readiness.md](../../design/governance/release-1.0-readiness.md)。
+- `roadmap.md`：里程碑概览 + 当前阶段（**M54 1.0.0 发布窗口决策与发布执行，2026-11-01 规划**）；M0-M38 详情见 [roadmap-phases-m0-m38.md](roadmap-phases-m0-m38.md)，M39-M48 见 [roadmap-phases-m39-m48.md](roadmap-phases-m39-m48.md)，M49 见 [roadmap-phases-m49.md](roadmap-phases-m49.md)，M50 见 [roadmap-phases-m50.md](roadmap-phases-m50.md)，M51 见 [roadmap-phases-m51.md](roadmap-phases-m51.md)，M52 见 [roadmap-phases-m52.md](roadmap-phases-m52.md)，M53 见 [roadmap-phases-m53.md](roadmap-phases-m53.md)。行数与字符预算见 [文档规范 §3](../../standards/documentation.md#_3-文档行数阈值) / [文档治理执行规范 §4.2](../../design/governance/doc-governance.md#_4-2-字符与密度预算)。
+- `todo.md`：**活跃阶段 M54**（105 行，6 原子：决策台账 / 0.6.1 发布 / G5 mutation / G4+G8 读数 / G7 回滚 / 1.0.0 发布；有条件发布，目标窗口 2026-11-15）；1.0 门槛台账见 [release-1.0-readiness.md](../../design/governance/release-1.0-readiness.md)。
 - `todo-archive.md`：**只保留阶段索引**（42 个阶段索引行，文件 53 行，覆盖 `archive/todo-archive-phases-*.md` 全部分片，倒序）；正文按阶段存放于分片，索引由 `check-doc-governance` 校验。
-- `backlog.md`：长期主线 / 周期性回归验证层 / 短期候选 / 待人工验收 / 已知边界保持活跃；M53 残余（G3 实跑资源与 Google 未测决策、Docker 远端镜像复核、G4 / G8 窗口）已在 §待人工验收与候选池登记；字符数超健康线（warning，非阻断）；候选条目数 66（`### 候选评估中` 段内 `^- \*\*` 机械复算），分档统计不在此维护。
+- `backlog.md`：长期主线 / 周期性回归验证层 / 短期候选 / 待人工验收 / 已知边界保持活跃；M53 残余（G3 实跑资源与 Google 未测决策、Docker 远端镜像复核、G4 / G8 窗口）已在 §待人工验收与候选池登记；字符数超健康线（warning，非阻断）；候选条目数 65（`### 候选评估中` 段内 `^- \*\*` 机械复算；M54 上收「发布级回滚演练」1 项），分档统计不在此维护。
 - `archive-log.md`：追加型批次日志；本文件与 `todo-archive.md` 不再承载批次流水账。
 
 ## 5. 批次记录

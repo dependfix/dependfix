@@ -60,7 +60,7 @@ pnpm check:real-env --require-all          # 十条全部 passed（1.0 发布前
 ### G3.0 平台登录（GitHub / Google OAuth、IdP OIDC、构建期凭据按钮）
 
 - **前置资源**：GitHub OAuth App、Google OAuth 凭据（**当前不可用**，见下）（`AUTH_MODE=public`）；IdP OIDC client（`AUTH_MODE=enterprise` + `ALLOWED_EMAIL_DOMAINS`）。两种模式**互斥**，需两次启动。
-- **当前可测范围（2026-11-01 用户说明）**：**Google OAuth 凭据不可用**——缺少可正常使用的 Google 账号，无法登录 Google Cloud Console 创建 / 验证凭据，故第三方登录当前**只测 GitHub**。Google 入口在凭据就绪前保持未验证；执行 G3.0 时按路径级 `partial` 记录，并在 `result` 写明「GitHub 通过 / Google 未验证（凭据不可用，待补测）」。**不要**把 Google 子项写成路径级 `status: blocked`——§1 的 `blocked` 会免除 `evidence` 要求，连 GitHub 证据也丢掉。**1.0 是否接受 Google 未测属用户决策**：未决策前 G3.0 保持 `partial`，`pnpm check:real-env --require-all` 不会通过。
+- **当前可测范围（2026-11-01 用户说明）**：**Google OAuth 凭据不可用**——缺少可正常使用的 Google 账号，无法登录 Google Cloud Console 创建 / 验证凭据，故第三方登录当前**只测 GitHub**。**G3.0 当前为 `pending`（无证据）**；未来执行时若 GitHub 通过而 Google 未测，按路径级 `partial` 记录并在 `result` 写明「GitHub 通过 / Google 未验证（凭据不可用，待补测）」。**不要**把 Google 子项写成路径级 `status: blocked`——§1 的 `blocked` 会免除 `evidence` 要求，连 GitHub 证据也丢掉。**1.0 是否接受 Google 未测已于 2026-11-01 决策：接受并披露**；但 G3.0 仍不得写成通过，`pnpm check:real-env --require-all` 不会通过。
 - **最小可执行命令**：
   ```bash
   # 第一轮：public（GitHub；Google 凭据就绪后补测）

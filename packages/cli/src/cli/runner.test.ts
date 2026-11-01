@@ -48,7 +48,7 @@ describe('runCli', () => {
     })
 })
 
-// 发布产物布局（`../package.json`）由 backlog「0.6.0 发布物 --version」在 0.6.1 发布后实测承接。
+// 发布产物布局（`../package.json`）由 backlog「0.6.0 发布物 --version」在 0.7.0 发布后实测承接。
 describe('dependfixCommand 版本', () => {
     it('版本取自 package.json（发布后 --version 与 npm 版本一致）', async () => {
         const { readFileSync } = await import('node:fs')

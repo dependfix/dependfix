@@ -47,7 +47,7 @@
     "@octokit/rest": "^22.0.1",
     "better-auth": "^1.7.12",
     "better-sqlite3": "^13.0.3",
-    "bullmq": "^6.4.0",
+    "bullmq": "^6.5.1",
     "caomei-ui": "1.0.0-rc.1",
     "chart.js": "^4.6.1",
     "cron-parser": "^5.10.2",

@@ -368,6 +368,93 @@ describe('verifyProject', () => {
         })])
     })
 
+    // 回归：pristine 安装失败会在收尾阶段（recordInstallBaselineFailure）先写一条审计；
+    // 修复后验证再遇同一命令失败时不得重复记第二条（否则报告把同一根因渲染两次）。
+    it('基线安装失败已先记录 → 修复后同命令只保留一条 PRE_EXISTING_FAILURE', async () => {
+        writePkg({ lint: 'eslint .', build: 'tsc', typecheck: 'tsc --noEmit', test: 'vitest run' })
+        verificationRunnerMock.runVerification.mockResolvedValue({
+            success: false,
+            failedCommand: 'pnpm install --frozen-lockfile',
+            commandResults: [{
+                command: 'pnpm install --frozen-lockfile',
+                exitCode: 1,
+                durationMs: 1,
+                stdout: '',
+                stderr: 'ERR_PNPM_BROKEN_LOCKFILE',
+            }],
+        })
+        const ctx = makeVerifyCtx(undefined)
+        ctx.allErrors.push({
+            repository: 'foo/bar',
+            target: 'pnpm install --frozen-lockfile',
+            stage: 'verify',
+            category: 'PRE_EXISTING_FAILURE',
+            message: 'Pre-existing failure (already failing before this run; not caused by this change): '
+                + 'pnpm install --frozen-lockfile — ERR_PNPM_BROKEN_LOCKFILE',
+        })
+
+        const actions = await verifyProject(ctx, 'foo/bar', {
+            baseline: [{
+                command: 'pnpm install --frozen-lockfile',
+                exitCode: 1,
+                durationMs: 1,
+                stdout: '',
+                stderr: 'ERR_PNPM_BROKEN_LOCKFILE',
+            }],
+        })
+
+        expect(actions[0]).toMatchObject({
+            target: 'pnpm install --frozen-lockfile',
+            success: false,
+            preExisting: true,
+        })
+        // 去重判据：仓库 + 命令 + 类别 命中即视为已记录
+        expect(ctx.allErrors).toHaveLength(1)
+        expect(ctx.allErrors[0]).toMatchObject({
+            category: 'PRE_EXISTING_FAILURE',
+            target: 'pnpm install --frozen-lockfile',
+        })
+    })
+
+    // 反向守卫：去重谓词必须三键同时命中。若退化为只比命令 / 只比类别，
+    // 多仓运行会把「仓库 B 的同命令既有失败」吞进仓库 A 的记录，报告静默丢条目。
+    it('其它仓库的同命令既有失败不被去重吞掉（仓库维度参与判定）', async () => {
+        writePkg({ lint: 'eslint .', build: 'tsc', typecheck: 'tsc --noEmit', test: 'vitest run' })
+        verificationRunnerMock.runVerification.mockResolvedValue({
+            success: false,
+            failedCommand: 'pnpm install --frozen-lockfile',
+            commandResults: [{
+                command: 'pnpm install --frozen-lockfile',
+                exitCode: 1,
+                durationMs: 1,
+                stdout: '',
+                stderr: 'ERR_PNPM_BROKEN_LOCKFILE',
+            }],
+        })
+        const ctx = makeVerifyCtx(undefined)
+        ctx.allErrors.push({
+            repository: 'other/repo',
+            target: 'pnpm install --frozen-lockfile',
+            stage: 'verify',
+            category: 'PRE_EXISTING_FAILURE',
+            message: 'Pre-existing failure (already failing before this run; not caused by this change): '
+                + 'pnpm install --frozen-lockfile — ERR_PNPM_BROKEN_LOCKFILE',
+        })
+
+        await verifyProject(ctx, 'foo/bar', {
+            baseline: [{
+                command: 'pnpm install --frozen-lockfile',
+                exitCode: 1,
+                durationMs: 1,
+                stdout: '',
+                stderr: 'ERR_PNPM_BROKEN_LOCKFILE',
+            }],
+        })
+
+        expect(ctx.allErrors.map((error) => error.repository)).toEqual(['other/repo', 'foo/bar'])
+        expect(ctx.allErrors.every((error) => error.category === 'PRE_EXISTING_FAILURE')).toBe(true)
+    })
+
     it('基线绿 + 修复后红 → 归因本次改动（不标记 preExisting，交由门禁回滚）', async () => {
         writePkg({ lint: 'eslint .', build: 'tsc', typecheck: 'tsc --noEmit', test: 'vitest run' })
         mockTestFailureAtEnd()

@@ -252,7 +252,7 @@
 
 - **现象**：M49.5 五项验收中 `--version`、3 连绿窗口、Docker tag health 三项在归档时点未完全达成；若按「阶段已完成」笼统收口，会把未验证项写成已通过。
 - **手法**：归档正文按 AC 逐条标注 ✅ / ◐ / ❌ 并附证据；未达标项转 backlog 并写恢复条件（发布 0.6.1 / 后续 push 累计 / run 收尾复核），不修改验收口径。
-- **落点**：[release-1.0-readiness.md](./release-1.0-readiness.md#_2-门槛与判定-g1-g8) 的 G1 / G4 未达标标注 + [backlog.md](../../plan/backlog.md) 0.6.1 / 3 连绿窗口条目。
+- **落点**：[release-1.0-readiness.md](./release-1.0-readiness.md#_2-门槛与判定-g1-g8) 的 G1 / G4 未达标标注 + [backlog.md](../../plan/backlog.md) 0.6.1 / 3 连绿窗口条目（两条目已于 2026-11-02 分别闭环 / 转台账追踪后移除，见该台账 G1 / G4）。
 
 ### 5. 发布后必须回填用户可见文档的版本引用
 
@@ -428,7 +428,7 @@
 
 - **现象**：0.6.0 发布后派发的 docker 运行（`40745976335`）的 build job 触及 **120 分钟 job 上限**被 kill（build step 已跑 115.5 分钟，arm64 QEMU 构建尚未结束）→ `platform-0.4.0` 镜像 tag 从未推送。CI 侧无告警（发布链其余步骤全绿），归档对账时仅登记为「推送中 / 疑似挂起、待复核」，未定位到 job 上限。归因初判曾写成「被后续 push 并发取消」，复核 run annotation（`The job has exceeded the maximum execution time of 2h0m0s`）后订正：并发取消方向相反（更早的 push run 被该 dispatch 取消）。
 - **手法**：① 提高 build job 预算（120 → 240 分钟）并记录首个发布的 step 时长（根治方向：原生 arm runner / 按架构拆 job）；② 发布构建单列并发组并禁用取消（防被 push 取代白烧算力）；③ 版本化镜像钉在**发布 tag**（`gh workflow run --ref v<锚版本>`）而不是 master HEAD，且派发判据用 `git tag --points-at HEAD`（「tag 存在」在后续 push 上恒真，会让每次 push 都白跑并钉在旧 tag）。版本化产物缺失要能被「事后复核」发现，不能只依赖当次 job 结论。
-- **落点**：`.github/workflows/docker.yml` 并发声明 + `.github/workflows/release.yml` 派发步骤 + [release.md Docker 镜像复核](../../guide/release.md#docker-镜像复核-0-6-0-遗留项)。
+- **落点**：`.github/workflows/docker.yml` 并发声明 + `.github/workflows/release.yml` 派发步骤 + [release.md Docker 镜像复核](../../guide/release.md#docker-镜像复核-0-6-0-0-7-0)。
 
 ### 2. pnpm 11 起 `pnpm.overrides` 只读 `pnpm-workspace.yaml`
 

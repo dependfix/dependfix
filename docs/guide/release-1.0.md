@@ -25,16 +25,31 @@
 5. `pnpm release:preflight`：真实 tarball 三路安装，断言 `dependfix --version` 等于新版本；**必须在 `build` 之后执行**（`pnpm pack` 打包当前 `dist`）。
 6. **豁免读数复核**：G3 保持 `pending`（无 G3.0–G3.9 实跑证据，G3.8 仅 `partial`）；G4 按「最近 10 次 master push 的 Test 0 失败」判据取值——**2026-11-02 冻结读数 9/10（未达成）**，唯一红为测试隔离缺陷（`scripts/release/preflight.test.mjs` 工作区留痕断言），0.6.0 以来 30/38（不含 0.6.0 发布自身 1 次；含则 31/39）。两者的实际读数写入发布说明「已知限制」，**不得**改写成 20 连绿 / 2 周无红。
 7. **G8 读数**：`GITHUB_TOKEN=<token> pnpm metrics:pr-health --repo=dependfix/dependfix --days=30 --limit=30`。**2026-11-02 复算：30 个 PR / CI 绿率 25/30 = 83.3% / 人工介入 0% / 误关 0%**（11-01 为 24/30 = 80%，窗口滚动已变化）。发布说明必须引用**发布当日**复算值与取数命令；缺 token 时脚本直接失败，不得把「没取到数」写成 0% 绿率。
-8. **非豁免门槛终态核对**：G1 / G5 / G6 / G7 按[就绪度台账 §2](../design/governance/release-1.0-readiness.md)逐项核对终态。其中 **G1 ④ 要求「周回归最近 3 次 `security:audit-deps` 通过」**，当前累计 **1 次**（run `40693124400`）；窗口内凑满 3 次前不得声称 G1 达标，提前发布需用户显式裁决并记入豁免。
+8. **非豁免门槛终态核对**：G1 / G5 / G6 / G7 按[就绪度台账 §2](../design/governance/release-1.0-readiness.md)逐项核对终态。其中 **G1 ④ 要求「周回归最近 3 次 `security:audit-deps` 通过」**，当前累计 **2 次**（`40693124400` 10-28 dispatch + `41101319146` 10-30 schedule；下一次计划 11-06）；窗口内凑满 3 次前不得声称 G1 达标，提前发布需用户显式裁决并记入豁免。
 
 ## 3. 发布步骤（master，人工触发）
 
-1. `pnpm release:plan` → review `release-plan.md`（按 §1 把 `dependfix` 改为 `1.0.0`，确认 breaking 标注完整）。
+1. **发布计划须手工落盘**：0.7.0 之后若只有 docs / chore 类提交，`pnpm release:plan` 会提示「未发现需要提升版本的变更」且**不生成** `release-plan.md`（2026-11-03 预发布检查实测），`release:version` 因此会直接报缺计划。此时按 §1 手写 `release-plan.md`（frontmatter 逐包给 bump，正文写本轮摘要），例如：
+
+   > 以下为**格式示意**（版本方案未定，勿直接照抄）：
+
+   ```text
+   ---
+   'dependfix': major
+   '@dependfix/core': major
+   '@dependfix/engine': major
+   '@dependfix/mcp': minor
+   '@dependfix/platform': minor
+   ---
+   1.0.0 首个稳定版
+   ```
+
+   > **待用户确认的版本方案**：是否把 `core` / `engine` / `mcp` 一并抬到 `1.0.0`（与 CLI 对齐），还是保持各自独立递增（`mcp` 0.4.0、`engine` 1.0.0 等）；`@dependfix/skills`（纯内容包，0.7.0 未发）是否随 1.0.0 发布、按什么 bump；`platform` 走独立递增（tag-only + 镜像 tag `platform-<版本>`，0.5.0 → 0.6.0）。方案确定后再写 frontmatter。
 2. `pnpm release:version --dry-run`（预览版本与传导）→ `pnpm release:version`。
 3. `pnpm changelog` → 审查七份日志 → 提交（`chore(release): 1.0.0`）→ push master。
 4. `pnpm run build` → `pnpm release:preflight`（断言新版本）。
 5. GitHub Actions → Release → Run workflow（OIDC 为默认通道；本地备用通道需 OTP，且两侧都要求工作区干净）。
-6. 观察 `release:publish` → `release:push-tags` → `release:github` 全绿；docker 派发运行应带 `platform-<版本>` tag。build job 预算 240 分钟，**`0.7.0` 未触发 docker 构建，预算余量仍待 1.0.0 首次派发实测**（见发布指南「Docker 镜像复核」）。
+6. 观察 `release:publish` → `release:push-tags` → `release:github` 全绿；docker 派发运行应带 `platform-<版本>` tag。本地发布通道**不会自动派发**，须手动 `gh workflow run docker.yml --ref v<锚版本> -f platform_version=<平台版本>`（0.7.0 即如此补齐 `platform-0.5.0`，运行 `41439905381`，build 22m03s，预算余量充足）；派发后确认运行里出现 `workflow_dispatch` 且带 `platform_version` 入参（见发布指南「Docker 镜像复核」）。
 7. 创建 `v1` 滚动标签（Action 引用写作 `@v1`）指向 `1.0.0` 的发布提交，并在文档中核验 `uses: dependfix/dependfix@v1` 可用。移动已有标签属破坏性操作，只在确认无其它消费者时执行。
 
 ## 4. 发布后复核
@@ -69,11 +84,11 @@
 | git tag | `git tag -a drill-rollback-20261102-1 -m ... HEAD` → `git cat-file -t` → `git tag -d` | 本地一次性 tag 可创建、是 tag 对象、删除后无残留；生产 tag 不受影响 | `tag` 类型确认；删除后 `git tag -l 'drill-rollback-*'` 计数 0；六个 0.7.0 tag 仍指向 `a049a561` → **通过（drill）**（远端删除 `git push origin :refs/tags/<tag>` 未执行） |
 | GitHub Release | `gh release view v0.7.0`（只读核对）；`gh release delete` **未执行** | 能判定当前 Release 归属与 Latest 状态；删除后可按修复提交重建 | `v0.7.0` 为 Latest、非 prerelease、tag 指向发布提交 → **判据可用**；删除与重建**未演练**（破坏性，保留残余） |
 | `@v1` | 未执行（`v1` 尚未创建） | 创建后可用 `git tag -f v1 <commit>` 回退并 `--force` 推送 | **延后（M54.6）**：1.0.0 发布后创建 `v1`，其回滚随 M54.6 / 1.0.1 演练 |
-| Docker | `docker buildx imagetools inspect ghcr.io/dependfix/dependfix:platform-0.5.0` / `caomeiyouren/dependfix:platform-0.5.0` | 得到双架构 manifest 与 digest，可据此把 tag 重指旧 digest | **blocked（且复核对象未证实）**：0.7.0 未触发 docker 构建，GHCR 报 `401`（token 缺 `read:packages`）、Docker Hub 报 `i/o timeout` → manifest 与 `/api/health` 均未执行，不记为通过 |
+| Docker | `docker buildx imagetools inspect ghcr.io/dependfix/dependfix:platform-0.5.0` / `caomeiyouren/dependfix:platform-0.5.0` | 得到双架构 manifest 与 digest，可据此把 tag 重指旧 digest | **部分完成**：`platform-0.5.0` 已由 dispatch `41439905381` 发布（日志显示四标签 + 双架构 manifest `sha256:71f6633…a244f1`）；客户端 `imagetools inspect` 与 `/api/health` 仍 **blocked**（GHCR 401 / Docker Hub 超时），不记为通过 |
 | 数据库 | 本轮无迁移，不触发；路径引用 [deployment.md](deployment.md) 备份恢复 | 迁移前滚后可回退 | 备份 / 恢复路径已在 M53.2 实测（备份 323,584 字节 → `db:restore` → 三方逐表 0 差异、`integrity_check: ok`）→ **通过（引用既有实测）** |
 
-- **逐面状态**：npm / git tag / 数据库 = drill 实测通过；GitHub Release = 仅判据核对（删除 / 重建未执行）；Docker = blocked 且对象未证实；`@v1` = 延后至 1.0.0 发布后。**不得**把本表读成「全部面已演练」。
-- **Docker 面 retry_condition**：**先确认镜像已构建并推送**（0.7.0 无构建记录；1.0.0 走 `release.yml` 派发产出 `platform-<版本>`），再在具备 `read:packages` token 或 Docker Hub 可达时执行 `docker buildx imagetools inspect ghcr.io/dependfix/dependfix:platform-<版本>`（应见 `linux/amd64` + `linux/arm64`）→ 核对 `imagetools create` 重指旧 digest 的判据 → `docker run --rm` 核对 `/api/health` 的 `version` / `commit`。
+- **逐面状态**：npm / git tag / 数据库 = drill 实测通过；GitHub Release = 仅判据核对（删除 / 重建未执行）；Docker = 镜像已发布（四标签 + 双架构），未完成项仅客户端 `imagetools inspect` 与 `/api/health` 版本戳；`@v1` = 延后至 1.0.0 发布后。**不得**把本表读成「全部面已演练」。
+- **Docker 面 retry_condition**：镜像已由 `41439905381` 发布，仅缺客户端复核——在具备 `read:packages` token 或 Docker Hub 可达时执行 `docker buildx imagetools inspect ghcr.io/dependfix/dependfix:platform-<版本>`（应见 `linux/amd64` + `linux/arm64`）→ 核对 `imagetools create` 重指旧 digest 的判据 → `docker run --rm` 核对 `/api/health` 的 `version` / `commit`。
 - **残余**：Release 删除 / 重建与远端 tag 删除属破坏性，仅按命令与判据演练；npm 真实 `deprecate` 未对任何已发布版本执行（`0.6.0` 是否弃用属用户决策，见[发布指南](release.md)「0.7.0 发布记录」）。
 
 ## 6. 产物校验和

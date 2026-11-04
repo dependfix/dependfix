@@ -1,6 +1,21 @@
 import { describe, expect, it, vi } from 'vitest'
 import { cleanupUnreleasedSections, computeDependencyChanges, compareSemverDesc, findPrevTag, mergeUnreleased, renderBaselineSection, renderDependencySection, versionLt } from './changelog.mjs'
 
+describe('模块导入副作用', () => {
+    it('导入本模块不触发生成 / 写盘（CLI 入口由 isDirectExecution 守卫）', async () => {
+        const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+        vi.resetModules()
+        try {
+            const mod = await import('./changelog.mjs')
+            expect(typeof mod.main).toBe('function')
+            // 生成流程若在导入期执行，会逐目标打印 generated / updated / unchanged
+            expect(log).not.toHaveBeenCalled()
+        } finally {
+            log.mockRestore()
+        }
+    }, 60_000)
+})
+
 describe('renderBaselineSection', () => {
     it('渲染运行时基线段（供无包内 commit 的版本提升通过 changelog 校验）', () => {
         const section = renderBaselineSection({

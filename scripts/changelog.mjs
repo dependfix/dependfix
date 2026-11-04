@@ -21,6 +21,9 @@
  * - 版本标题日期固定为 HEAD commit 日期（而非生成当天）：保证 CI 重跑幂等，
  *   避免跨天产生无关 diff（release.yml 的 changelog 校验依赖此行为）
  * - 依赖 conventional-changelog@^7（8.x 模板引擎与 cmyr-config 3.x 不兼容）
+ * - 入口守卫：生成流程收敛在 `main()`，仅 `isDirectExecution` 时执行——`import` 本模块
+ *   （单测、其它脚本复用纯函数）不得产生生成 / 写盘副作用，否则会与并行测试的工作区
+ *   状态断言互相干扰（曾使 preflight 的「工作区不留痕」断言在 CI 偶发红）
  */
 import { execSync } from 'node:child_process'
 import { readFile, writeFile } from 'node:fs/promises'
@@ -28,6 +31,7 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { ConventionalChangelog, defaultCommitTransform } from 'conventional-changelog'
 import { PACKAGES, PUBLISHABLE_PACKAGES, ROOT_PACKAGE } from './packages.config.mjs'
+import { isDirectExecution } from './shared/cli.mjs'
 import { isPublishedOnRegistry } from './tag-released-versions.mjs'
 
 const repoRoot = fileURLToPath(new URL('..', import.meta.url))
@@ -454,88 +458,95 @@ function buildBaselineFallback({ prefix, version, repo, headDate }) {
     return renderBaselineSection({ version, prevVersion, prefix, repo, headDate })
 }
 
-for (const target of targets) {
-    const dest = join(repoRoot, target.file)
-    const pkgJsonPath = join(repoRoot, target.pkg)
-    const currentPkgJson = JSON.parse(await readFile(pkgJsonPath, 'utf8'))
-    const version = currentPkgJson.version
-    let existing = null
-    try {
-        existing = await readFile(dest, 'utf8')
-    } catch (err) {
-        if (err?.code !== 'ENOENT') {
-            throw err
-        }
-        // 文件不存在：首次生成，输出完整历史
-    }
-    if (existing === null) {
-        const content = await generate({ ...target, releaseCount: 0 })
-        const full = `# ${target.title}\n\n${content}`
-        await writeFile(dest, full, 'utf8')
-        console.log(`generated ${target.file} (${full.length} bytes)`)
-        continue
-    }
-    // 清理残留未发布段（发布中断恢复防重复，经验归档 §三十七）：上次发布中断遗留的
-    // "版本低于当前版本、无 tag、npm 未发布"旧段（如 0.3.0 段残留后提升到 0.3.1），
-    // 不清理会产生覆盖相同 commit 范围的重复日志。清理独立于发布判定执行——
-    // 即使当前版本已发布（下方 unchanged 短路），残留段同样需要删除。
-    const cleaned = await cleanupUnreleasedSections(existing, {
-        version,
-        prefix: target.tags.prefix,
-        pkgName: target.title,
-        hasTag: (tagName) => {
-            try {
-                execSync(`git rev-parse --verify --quiet "${tagName}"`, { cwd: repoRoot, stdio: 'pipe' })
-                return true
-            } catch {
-                return false
+export async function main() {
+    for (const target of targets) {
+        const dest = join(repoRoot, target.file)
+        const pkgJsonPath = join(repoRoot, target.pkg)
+        const currentPkgJson = JSON.parse(await readFile(pkgJsonPath, 'utf8'))
+        const version = currentPkgJson.version
+        let existing = null
+        try {
+            existing = await readFile(dest, 'utf8')
+        } catch (err) {
+            if (err?.code !== 'ENOENT') {
+                throw err
             }
-        },
-        isPublished: (pkgName, ver) => isPublishedOnRegistry(pkgName, ver),
-    })
-    if (cleaned !== existing) {
-        await writeFile(dest, cleaned, 'utf8')
-        console.log(`updated ${target.file}（清理残留未发布段）`)
-        existing = cleaned
-    }
-    // 版本已发布（存在 <prefix><version> tag 或 npm registry 已发布）：无未发布内容，
-    // 且 releaseCount: 1 会输出自引用 compare 的同版本段，直接跳过写入，保证已发布段不被改写
-    if (isVersionTagged(target.tags.prefix, version, target.title)) {
-        console.log(`unchanged ${target.file}`)
-        continue
-    }
-    // 增量追加：仅重算未发布版本段（releaseCount: 1 = 最新 tag 之后）
-    let unreleased = await generate({ ...target, releaseCount: 1 })
-    if (!unreleased) {
-        // fallback：path-filter 空 + 版本未发布 → 可能是"被动依赖升级"（依赖传导触发的 patch 跟随，
-        // 该包路径下从上次 tag 后无自身 commit）。构造 Dependencies 段填充空段，让 verify-changelog 通过。
-        // 边界：仅在历史 tag 存在且 workspace 依赖确实有版本变化时输出空串以外的内容（重跑幂等语义保留）。
-        unreleased = await buildDependencyFallback({
-            pkgPath: target.path,
-            currentPkgJson,
-            prefix: target.tags.prefix,
+            // 文件不存在：首次生成，输出完整历史
+        }
+        if (existing === null) {
+            const content = await generate({ ...target, releaseCount: 0 })
+            const full = `# ${target.title}\n\n${content}`
+            await writeFile(dest, full, 'utf8')
+            console.log(`generated ${target.file} (${full.length} bytes)`)
+            continue
+        }
+        // 清理残留未发布段（发布中断恢复防重复，经验归档 §三十七）：上次发布中断遗留的
+        // "版本低于当前版本、无 tag、npm 未发布"旧段（如 0.3.0 段残留后提升到 0.3.1），
+        // 不清理会产生覆盖相同 commit 范围的重复日志。清理独立于发布判定执行——
+        // 即使当前版本已发布（下方 unchanged 短路），残留段同样需要删除。
+        const cleaned = await cleanupUnreleasedSections(existing, {
             version,
-            repo,
-            headDate,
+            prefix: target.tags.prefix,
+            pkgName: target.title,
+            hasTag: (tagName) => {
+                try {
+                    execSync(`git rev-parse --verify --quiet "${tagName}"`, { cwd: repoRoot, stdio: 'pipe' })
+                    return true
+                } catch {
+                    return false
+                }
+            },
+            isPublished: (pkgName, ver) => isPublishedOnRegistry(pkgName, ver),
         })
+        if (cleaned !== existing) {
+            await writeFile(dest, cleaned, 'utf8')
+            console.log(`updated ${target.file}（清理残留未发布段）`)
+            existing = cleaned
+        }
+        // 版本已发布（存在 <prefix><version> tag 或 npm registry 已发布）：无未发布内容，
+        // 且 releaseCount: 1 会输出自引用 compare 的同版本段，直接跳过写入，保证已发布段不被改写
+        if (isVersionTagged(target.tags.prefix, version, target.title)) {
+            console.log(`unchanged ${target.file}`)
+            continue
+        }
+        // 增量追加：仅重算未发布版本段（releaseCount: 1 = 最新 tag 之后）
+        let unreleased = await generate({ ...target, releaseCount: 1 })
         if (!unreleased) {
-            unreleased = buildBaselineFallback({
+            // fallback：path-filter 空 + 版本未发布 → 可能是"被动依赖升级"（依赖传导触发的 patch 跟随，
+            // 该包路径下从上次 tag 后无自身 commit）。构造 Dependencies 段填充空段，让 verify-changelog 通过。
+            // 边界：仅在历史 tag 存在且 workspace 依赖确实有版本变化时输出空串以外的内容（重跑幂等语义保留）。
+            unreleased = await buildDependencyFallback({
+                pkgPath: target.path,
+                currentPkgJson,
                 prefix: target.tags.prefix,
                 version,
                 repo,
                 headDate,
             })
+            if (!unreleased) {
+                unreleased = buildBaselineFallback({
+                    prefix: target.tags.prefix,
+                    version,
+                    repo,
+                    headDate,
+                })
+            }
+            if (!unreleased) {
+                console.log(`unchanged ${target.file}`)
+                continue
+            }
         }
-        if (!unreleased) {
+        const merged = mergeUnreleased(existing, version, unreleased)
+        if (merged === existing) {
             console.log(`unchanged ${target.file}`)
             continue
         }
+        await writeFile(dest, merged, 'utf8')
+        console.log(`updated ${target.file} (${merged.length} bytes)`)
     }
-    const merged = mergeUnreleased(existing, version, unreleased)
-    if (merged === existing) {
-        console.log(`unchanged ${target.file}`)
-        continue
-    }
-    await writeFile(dest, merged, 'utf8')
-    console.log(`updated ${target.file} (${merged.length} bytes)`)
+}
+
+/* v8 ignore next 3 -- CLI 入口守卫：进程级副作用不可在单测内触发（与其它脚本同惯例） */
+if (isDirectExecution(import.meta.url)) {
+    await main()
 }

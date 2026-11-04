@@ -219,8 +219,6 @@
 
 - **本地发布通道不执行发布前安全门禁（P1 🛡️，M49.5 发现）** —— `check:release-security` 只接在 `release.yml`；本地备用通道 `pnpm release:publish --otp` 无门禁调用，0.6.0 即经该通道发布（门禁脚本存在但未执行）。**目标**：任一路径发布前都跑同一门禁。**范围**：`release-publish` 内调用门禁（或拒绝无 `--skip-security` 之外的绕过），[release.md](../guide/release.md) 备用通道步骤同步。**验收**：① 无 token / 有 critical 时本地发布中止；② `--skip-security` 需显式且记录理由；③ CI 通道行为不变。
 
-- **`scripts/release/preflight.test.mjs` 工作区留痕断言在 CI 并行下偶发红（待评估，P2 🧪，2026-11-02 M54.4 发现）** —— 现象：Test run `41347144192`（`5bbebc9f`，`2026-11-01T20:29:57Z`）单例失败 `AssertionError: expected [ Array(1) ] to deeply equal []`，diff 只有 `M apps/platform/CHANGELOG.md`；该断言比较预演前后 `git status --porcelain`（`scripts/release/preflight.mjs` 的「工作区不留痕」步骤），本地全量复跑（372 文件 / 5715 passed）未复现，同日后一次 push 立即回绿。**待评估点**：① 定位并发写入方（复现时打印 `git status` 前后快照与写入方文件诊断）；② 断言是否收窄为「预演自身产出的路径集合不变」而非全仓状态；③ 另一可能成因是发布相关脚本在测试内真实落盘（如 `release-publish-result.json`）未被 mock 覆盖。**验收标准（草案）**：构造并发写入 → 断言给出写入方或被收窄后仍能捕获真实留痕；正常路径不误报。**触发条件**：再次在 CI 命中同一断言。
-
 - **Docker `platform-0.4.0` tag 与镜像 health 待复核（P2 🚀，M49.5 残余）** —— `workflow_dispatch` `40745976335` 的 QA 与 smoke 步骤 success（哨兵 build-arg → `/api/health` 端到端），多架构推送与 ACR / Jenkins 步骤在归档时仍在执行，`updatedAt` 停滞于 2026-10-28T18:35:56Z（疑似挂起）。**目标**：确认 `platform-0.4.0` tag 存在且镜像可启动。**验收**：① 三 registry 均有该 tag；② `docker run` 后 `/api/health` 200；③ run 结论 success。
 
 - **通知严重级别标签的跨 runtime 单点化（待评估，P3 🛠️）** —— 现象：`Critical` / `High` 标签存在三处口径——`apps/platform/app/utils/scan-options.ts`（前端单一事实源）、`apps/platform/server/services/notification/business-templates.ts`（邮件模板 zh / en 各一份）与 i18n 模板占位符；服务端无法直接 import app 层 util，M50.2 只能保证前端与 i18n 侧同源。**待评估点**：① 是否下沉到 `packages/core` 共享常量并让邮件模板消费；② 或维持现状（前端单点 + 服务端注释互指 + 用例锁定）；③ 与 i18n 占位符拼接口径的关系。**触发条件**：再次改动通知文案，或新增第三处严重级别消费方。

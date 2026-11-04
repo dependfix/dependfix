@@ -493,3 +493,14 @@
 - **现象**：沿用中间态数字会让 todo / 归档 / 审计三方不一致；引用「同类问题已复现」但全仓搜不到会被判依据失真；候选池前置插入会让既有 `#N` 引用整体漂移。
 - **手法**：容量 / 文件 / 行数在收口动作完成后用 `git diff --shortstat` 重取（登录页品牌化批次 `c46fb7c7^..4c2920ea` 实测 20 文件 / +234 −44；本 M53 归档批次实测 18 文件 / +243 −140）；引用先例前 `rg` 确认；候选新增追加到列表尾部，必须前置时引用改主题名。
 - **落点**：[planning.md §4.4](../../standards/planning.md#_4-4-大批量归档批次操作规范) 第 22 / 26 / 27 条。
+
+## 八十二、preflight「工作区不留痕」CI 偶发红：模块导入副作用 + 浅克隆无 tag（2026-11-05）
+
+> 教训形态：**测试导入即执行的生产脚本** + **把「registry 查不到」当未发布证据**。同一断言第 2 次在 CI 红（2026-11-01 / 2026-11-03），backlog 触发条件命中后收口。
+
+- **现象**：`scripts/release/preflight.test.mjs`「真实打包（离线）」用例比较预演前后 `git status --porcelain`，CI 偶发 `expected [ Array(1) ] to deeply equal []`，diff 仅 `M apps/platform/CHANGELOG.md`；本地全量复跑不复现，下一次 push 又回绿。
+- **根因一（并发写者）**：`scripts/changelog.mjs` 的生成流程写在模块顶层、无 `isDirectExecution` 守卫——`scripts/changelog.test.mjs` 静态导入即对真实仓库跑一遍七份 CHANGELOG 生成。CI 日志把 `updated apps/platform/CHANGELOG.md（清理残留未发布段）` 打印在该测试文件下，时间与 preflight 的 `git status` 快照窗口重叠。**本地不复现的原因**：本地 tag 齐全 → 残留段判定不命中，只打印 `unchanged`（导入期仍执行生成，只是不写盘）。
+- **根因二（为何被判残留）**：清理判据是「版本低于当前 + 无 tag + npm 未发布」；`apps/platform` 的 `npmPublishable: false` 使它永远查不到 registry 版本（恒 `false`），叠加 CI `actions/checkout` 默认浅克隆不带 tag → 全部历史段被判为残留段删除。
+- **手法**：① 生成流程收敛到 `main()` + 入口守卫，导入零副作用（`headDate` / `repo` 的 git 子进程一并惰性化到 `main()` 内）；② 非 npm 发布包改用「未知 → 保留」的发布探针（返回 `null`），只信任 tag 证据，并让 `isVersionTagged` 对这类包跳过 registry 查询；③ 回归用例用 `vi.resetModules()` 重导入断言无 stdout（旧版导入会打印 7 行 `unchanged`，负例已实证），另加「浅克隆 + 非 npm 包 → 全部历史段保留」组合例。
+- **启示**：CI 里「本地不复现」的偶发红，先在同一次 run 的 stdout 里找并发写者（vitest 把模块/子进程输出归属到执行中的测试文件），再比对本地与 CI 的**环境前提差异**（tag / 浅克隆 / registry 可达性），不要先收窄断言本身——收窄只会掩盖写者。
+- **落点**：`scripts/changelog.test.mjs`（导入零副作用 + 发布探针用例，L1）+ [code-auditor 必查项「Node 脚本 main 入口守卫」](../../../.github/agents/code-auditor.agent.md)（L2；存量脚本不在其触发面，故以模块级用例固化）。

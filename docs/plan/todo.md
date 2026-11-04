@@ -27,7 +27,7 @@
 > **G3 豁免边界**：G3.0–G3.9 实跑未完成、G3.8 仅 `partial`，1.0.0 **不宣称 G3 通过**；发布说明披露「真实环境矩阵待资源补测」，Google OAuth 未测同列已知限制；获得资源后按 [真实环境矩阵](../guide/real-env-matrix.md) 补测。
 > **阶段启动交叉核验（§3.4，2026-11-01 实测）**：① 归档扫描 `发布窗口决策|M54` → 无历史闭环（仅 backlog / todo 指针）；② `git log --all --grep="发布窗口"` → 0 命中；③ 代码 / 文档 anchor：`release.md` 已有中间版本发布清单（当时为 0.6.1，后按脚本推导改 0.7.0）但无 1.0.0 清单、无 `@v1` tag、`v0.6.0` 为最新 tag、无发布级回滚演练记录；④ G8 脚本真实读数已可取（30 PR 窗口）；⑤ backlog 中「发布级回滚演练」候选在列，本阶段上收。
 > **容量评估（§1.1）**：6 原子，类型分布 📚 1 + 🚀 2 + 🧪 2 + 🛠️ 1；预估 **33-52 文件 / 1900-3400 行 / 15-19 commits**（含 mutation 补测与发布文档；发布动作不计行数）。
-> **§3.1.1 插队再平衡**：阶段启动插队 **0 批**，不触发阈值。
+> **§3.1.1 插队再平衡**：阶段启动插队 **0 批**；执行期追加 1 批（2026-11-05，preflight 工作区留痕 CI 偶发红收口）——7 文件 / +192 −85（192 行）、3 commits，未达再平衡阈值（1 < 3 批、192 行 < 阶段基线 50%），剩余原子 M54.6，不触发容量重排。
 > **原子间依赖与交付顺序**：M54.1（决策台账）→ M54.2（0.7.0 发布）→ M54.3 / M54.4 / M54.5 可并行 → M54.6（1.0.0 发布，依赖全部）。
 
 ### M54.1 [P0 📚] 发布窗口决策台账与发版文档骨架（**已闭环** `fbcccd42` + `d0c563eb` + `425da284`）
@@ -104,6 +104,16 @@
 - **交付物**：预估 2-3 commits / 6-10 文件 / 200-400 行（发布动作不计行数）。
 - **风险与缓解**：1.0 发布链失败 → 用 0.7.0 已验证链路回退并记录；窗口超期 → 以门禁完成度为准，不静默改日期；回滚 → 按 M54.5 演练步骤执行。
 - **预发布检查（2026-11-03，`regression:pre-release`）**：**全绿**——`test:coverage`（372 文件 / 5715 passed；89.53 / 84.10 / 90.28 / 89.64）、`security:audit-deps`、二十项文档门禁、`lint:check`（0 error / 11 存量 warning）、`lint:css:check`、`typecheck`、`build`、`verify:changelog` 全 PASS（`Review Gate: Pass`，证据 `artifacts/review-gate/2026-11-03-pre-release-regression.md` + `artifacts/m54-6-precheck/pre-release.log`）；`check:release-security` PASS（critical 0 / high 0 / moderate 1 / low 1，输出 `artifacts/m54-6-precheck/release-security.txt`）；`release:preflight` PASS（`--version = 0.7.0`）；platform e2e **210 passed / 2 flaky / 0 failed**（4.6 分钟，flaky = scan-config「扫描偏好记住上次选择」+ schedules-crud「trigger → BatchRun + lastTriggeredAt 回填」，均重试通过，CI 侧 retries=2）与视觉 **21 passed**。读数：G8 25/30 · 0% · 0%（`artifacts/m54-6-precheck/pr-health-20261103.md`）、G4 9/10（2026-11-02 冻结读数）、G3 9 pending + G3.8 partial、G1 ④ 2/3（10-28 + 10-30，下一次计划 11-06）。**新增障碍**：① `release:plan` 对仅含 docs 的窗口不产计划，1.0.0 的 `release-plan.md` 须手工落盘；② 1.0 各包版本方案待用户确认；③ 镜像 `/api/health` 与客户端 manifest 校验仍 blocked（缺 `read:packages` / Docker Hub 不可达）；④ G1 ④ 还差 1 次周回归。
+
+### 追加临时待办（不占阶段条目编号）：preflight「工作区不留痕」CI 偶发红收口（2026-11-05；插队例外清单第 3 类「CI 主链路阻塞」）
+
+- **触发与授权（2026-11-05）**：用户在会话中直接给出失败 run 链接 `https://github.com/dependfix/dependfix/actions/runs/41676955410`（`f1b71666`，2026-11-03），要求处置该红。该失败再次命中 `scripts/release/preflight.test.mjs` 的「预演前后工作区状态不一致」，diff 仅 `M apps/platform/CHANGELOG.md`——同一断言第 2 次在 CI 红（首次 `41347144192` / `5bbebc9f`，2026-11-01，当时登记为 backlog 候选，其触发条件即「再次在 CI 命中」）。按插队例外清单第 3 类「直接影响可用性：CI 主链路阻塞」处理；backlog 候选已随本批移除（64 → 63）。
+- **根因（两层，均已实证）**：① `scripts/changelog.mjs` 的生成流程写在模块顶层、无 `isDirectExecution` 守卫——`scripts/changelog.test.mjs` 导入模块即对真实仓库跑一遍生成（CI 日志中 `updated apps/platform/CHANGELOG.md（清理残留未发布段）` 由该测试文件在 `16:45:36` 打印，与 preflight 的 `git status` 前后快照窗口重叠）；② 残留段清理把「npm registry 查不到」当作未发布证据，而 `apps/platform` 是 `npmPublishable: false`（从不发 npm）→ 查询恒为 false，叠加 CI `actions/checkout` 默认浅克隆不带 tag，历史段被整段判为残留并删除。
+- **处置**：① 生成流程收敛为 `export async function main()` + `isDirectExecution` 守卫（导入零副作用，与 `check-docs` / `check-doc-governance` 等脚本同形）；② 新增 `createPublishedProbe`：`npmPublishable: false` 的包不采信 registry（返回 `null` = 未知 → 保留），只信任本地 tag 证据；③ 回归用例——`vi.resetModules()` 重导入断言无 `console.log` 且 `main` 已导出 + probe 两例 + 「浅克隆 + 非 npm 包保留历史段」组合一例。
+- **验收标准**：① 导入 `scripts/changelog.mjs` 无 stdout、不写仓库文件（旧版导入打印 7 行 `unchanged` 已实证）；② `node scripts/changelog.mjs` 行为不变（七份 `unchanged`）；③ 非 npm 发布包在无 tag 环境不再删除历史段；④ 全量 `pnpm test` / `lint:check` / `typecheck` 通过且工作区无留痕。
+- **风险与依赖**：`main` 收敛新增两个导出（`main` / `createPublishedProbe`），无外部消费者；浅克隆下其余 npm 包仍以 registry 为证据，查询失败本就保守保留。
+- **执行记录（2026-11-05）**：`scripts/changelog.mjs` 入口守卫 + `createPublishedProbe` + 惰性 `headDate` / `repo` 求值 + 非 npm 包跳过 registry 查询、`scripts/changelog.test.mjs` 回归用例四例；证据：导入零输出、`node scripts/changelog.mjs` 七份 `unchanged`、定向 66 passed、全量 372 文件 / 5719 passed · 10 skipped、`lint:check` 0 error（11 存量 warning）、`typecheck` exit 0、`gates:docs` 20 项。
+- **§3.4 / §2.6 五步自检（插队登记触发，2026-11-05 实测）**：① 归档扫描 `preflight.*工作区|工作区留痕|模块导入副作用|changelog.*入口守卫` → 命中 [release-1.0-readiness.md](../design/governance/release-1.0-readiness.md) G4 行（M54.4 冻结读数）、[todo-archive-phases-m53.md](archive/todo-archive-phases-m53.md)（M53.2 的「工作区不变」实测证据）、[archive/index.md](archive/index.md)（候选计数行）与本批新增的经验条目——四者均非同题修复批次，无历史闭环重复；② `git log --all --grep="preflight" --grep="工作区留痕" --grep="changelog.*守卫"` → 仅 `40e82b6a`（新增 preflight 本身）与两条文档提交，无同题修复批次；③ 代码 / 文档 anchor 实证：`scripts/shared/cli.mjs:101` `isDirectExecution`、`scripts/release/preflight.mjs:235/244/299` 工作区快照、`scripts/packages.config.mjs:91` `npmPublishable: false`；④ 决策前提：backlog 候选的触发条件（再次在 CI 命中同一断言）已由 run `41676955410` 满足，处置方向与该候选「定位并发写入方」的待评估点一致；⑤ backlog 同步：候选移除，计数 64 → 63，[archive/index.md](archive/index.md) 摘要行追加本次读数。
 
 ## 阶段收口要求
 

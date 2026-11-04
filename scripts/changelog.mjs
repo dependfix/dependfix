@@ -38,10 +38,13 @@ const repoRoot = fileURLToPath(new URL('..', import.meta.url))
 
 // 版本标题日期：HEAD commit 的 UTC 日期（yyyy-mm-dd），保证任意时刻重跑输出一致。
 // 注意转 UTC：writer 对已发布版本段使用 commit 日期的 UTC 形式（formatDate → toISOString），
-// 这里统一为 UTC，避免发布后重跑时已发布段日期被改写产生无关 diff
-const headDate = new Date(
-    execSync('git log -1 --format=%cI', { cwd: repoRoot }).toString().trim(),
-).toISOString().slice(0, 10)
+// 这里统一为 UTC，避免发布后重跑时已发布段日期被改写产生无关 diff。
+// 惰性求值：导入本模块（单测 / 其它脚本复用纯函数）不跑 git 子进程。
+function headDateOf() {
+    return new Date(
+        execSync('git log -1 --format=%cI', { cwd: repoRoot }).toString().trim(),
+    ).toISOString().slice(0, 10)
+}
 
 // 包级 CHANGELOG targets：从单点配置派生（包级日志 = 各发布包；根级 = 主交付物）
 const targets = [
@@ -52,6 +55,7 @@ const targets = [
         tags: ROOT_PACKAGE.tags,
         // 根级版本锚 = 主交付物包版本（与其 tag 序列同步，由 release:version 维护）
         pkg: `${ROOT_PACKAGE.path}/package.json`,
+        npmPublishable: ROOT_PACKAGE.npmPublishable !== false,
     },
     ...PACKAGES.filter((p) => p.changelog).map((p) => ({
         file: p.changelog,
@@ -59,10 +63,11 @@ const targets = [
         commits: { path: p.path },
         tags: p.tags,
         pkg: `${p.path}/package.json`,
+        npmPublishable: p.npmPublishable !== false,
     })),
 ]
 
-async function generate({ commits, tags, pkg, releaseCount = 0 }) {
+async function generate({ commits, tags, pkg, releaseCount = 0, headDate }) {
     let out = ''
     const cc = new ConventionalChangelog(repoRoot)
         .loadPreset('conventional-changelog-cmyr-config')
@@ -222,6 +227,27 @@ export function renderBaselineSection({ version, prevVersion, prefix, repo, head
 }
 
 /**
+ * 构造「该版本是否已发布到 npm」探针，供残留段清理使用。
+ *
+ * 非 npm 发布包（`npmPublishable: false`，如 `apps/platform`）在 registry 上没有任何版本，
+ * 查询恒为 false——若据此判定「未发布」，浅克隆（无 tag，如 CI 默认 checkout）下会把全部
+ * 历史段当成残留段删除。此类包缺乏 registry 证据，保守返回 `null`（未知 → 保留），
+ * 只信任本地 tag 证据。
+ *
+ * 代价：非 npm 包发布中断遗留的残留段不会被自动清理（`null` 只会保留），需人工删除；
+ * 换取的是「无 tag 环境下绝不误删已发布历史段」。
+ *
+ * @param {{ npmPublishable?: boolean, probe?: (pkgName: string, version: string) => Promise<boolean | null> }} input
+ * @returns {(pkgName: string, version: string) => Promise<boolean | null>}
+ */
+export function createPublishedProbe({ npmPublishable, probe = isPublishedOnRegistry }) {
+    if (npmPublishable === false) {
+        return async () => null
+    }
+    return (pkgName, version) => probe(pkgName, version)
+}
+
+/**
  * 清理残留未发布段（发布中断恢复的防重复增强，经验归档 §三十七）：
  * 上次发布中断会遗留"版本低于当前版本、无对应 tag、npm 未发布"的旧版本段
  * （如 0.3.0 段未发布残留，本轮提升到 0.3.1 后旧段不再被 mergeUnreleased 管理），
@@ -299,8 +325,9 @@ export { mergeUnreleased }
  *    导致该版本被误判为未发布段、重算时污染既有 CHANGELOG 段）。
  * 注意：npm 查询有网络开销，命中 tag 时短路跳过；查询失败（离线/限流）保守视为未发布
  * （宁可多生成一次未发布段也不改写已发布段——由 mergeUnreleased 的版本匹配兜底，同版本段会被整段替换）。
+ * 非 npm 发布包（`npmPublishable: false`）无 registry 证据，跳过查询直接按「本地无 tag = 未发布」处理。
  */
-function isVersionTagged(prefix, version, pkgName) {
+function isVersionTagged(prefix, version, pkgName, npmPublishable = true) {
     try {
         execSync(`git rev-parse --verify --quiet "${prefix}${version}"`, {
             cwd: repoRoot,
@@ -308,6 +335,9 @@ function isVersionTagged(prefix, version, pkgName) {
         })
         return true
     } catch {
+        if (npmPublishable === false) {
+            return false
+        }
         // 本地无 tag：查 npm registry 确认是否已发布
         // 注意：不能拼 `2>/dev/null`（Windows shell 不支持该重定向，npm 直接报路径错误）；
         // 统一用 stdio 捕获 stderr，失败时 execSync 抛错走 catch。
@@ -342,8 +372,6 @@ function resolveRepoFromOrigin() {
         return null
     }
 }
-
-const repo = resolveRepoFromOrigin()
 
 /**
  * 找某包当前版本之前的最新发布 tag（`<prefix><prevVersion>` 完整形式）。
@@ -459,6 +487,8 @@ function buildBaselineFallback({ prefix, version, repo, headDate }) {
 }
 
 export async function main() {
+    const headDate = headDateOf()
+    const repo = resolveRepoFromOrigin()
     for (const target of targets) {
         const dest = join(repoRoot, target.file)
         const pkgJsonPath = join(repoRoot, target.pkg)
@@ -474,7 +504,7 @@ export async function main() {
             // 文件不存在：首次生成，输出完整历史
         }
         if (existing === null) {
-            const content = await generate({ ...target, releaseCount: 0 })
+            const content = await generate({ ...target, releaseCount: 0, headDate })
             const full = `# ${target.title}\n\n${content}`
             await writeFile(dest, full, 'utf8')
             console.log(`generated ${target.file} (${full.length} bytes)`)
@@ -496,7 +526,7 @@ export async function main() {
                     return false
                 }
             },
-            isPublished: (pkgName, ver) => isPublishedOnRegistry(pkgName, ver),
+            isPublished: createPublishedProbe({ npmPublishable: target.npmPublishable }),
         })
         if (cleaned !== existing) {
             await writeFile(dest, cleaned, 'utf8')
@@ -505,12 +535,12 @@ export async function main() {
         }
         // 版本已发布（存在 <prefix><version> tag 或 npm registry 已发布）：无未发布内容，
         // 且 releaseCount: 1 会输出自引用 compare 的同版本段，直接跳过写入，保证已发布段不被改写
-        if (isVersionTagged(target.tags.prefix, version, target.title)) {
+        if (isVersionTagged(target.tags.prefix, version, target.title, target.npmPublishable)) {
             console.log(`unchanged ${target.file}`)
             continue
         }
         // 增量追加：仅重算未发布版本段（releaseCount: 1 = 最新 tag 之后）
-        let unreleased = await generate({ ...target, releaseCount: 1 })
+        let unreleased = await generate({ ...target, releaseCount: 1, headDate })
         if (!unreleased) {
             // fallback：path-filter 空 + 版本未发布 → 可能是"被动依赖升级"（依赖传导触发的 patch 跟随，
             // 该包路径下从上次 tag 后无自身 commit）。构造 Dependencies 段填充空段，让 verify-changelog 通过。

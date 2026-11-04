@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { cleanupUnreleasedSections, computeDependencyChanges, compareSemverDesc, findPrevTag, mergeUnreleased, renderBaselineSection, renderDependencySection, versionLt } from './changelog.mjs'
+import { cleanupUnreleasedSections, computeDependencyChanges, compareSemverDesc, createPublishedProbe, findPrevTag, mergeUnreleased, renderBaselineSection, renderDependencySection, versionLt } from './changelog.mjs'
 
 describe('模块导入副作用', () => {
     it('导入本模块不触发生成 / 写盘（CLI 入口由 isDirectExecution 守卫）', async () => {
@@ -14,6 +14,25 @@ describe('模块导入副作用', () => {
             log.mockRestore()
         }
     }, 60_000)
+})
+
+describe('createPublishedProbe', () => {
+    it('非 npm 发布包（如 apps/platform）不采信 registry：返回 null 以保留历史段', async () => {
+        const probe = vi.fn(async () => false)
+        const isPublished = createPublishedProbe({ npmPublishable: false, probe })
+
+        // registry 上不存在该包 → 查询恒为 false；若采信会把浅克隆（无 tag）下的全部历史段当残留删除
+        expect(await isPublished('@dependfix/platform', '0.4.0')).toBeNull()
+        expect(probe).not.toHaveBeenCalled()
+    })
+
+    it('npm 发布包透传 registry 查询结果', async () => {
+        const probe = vi.fn(async () => false)
+        const isPublished = createPublishedProbe({ npmPublishable: true, probe })
+
+        expect(await isPublished('dependfix', '0.6.0')).toBe(false)
+        expect(probe).toHaveBeenCalledWith('dependfix', '0.6.0')
+    })
 })
 
 describe('renderBaselineSection', () => {
@@ -93,6 +112,19 @@ describe('cleanupUnreleasedSections', () => {
         // 0.3.0 查过 npm；0.2.0 因本地 tag 短路不查
         expect(isPublished).toHaveBeenCalledWith('dependfix', '0.3.0')
         expect(isPublished).toHaveBeenCalledTimes(1)
+    })
+
+    it('浅克隆（无 tag）下的非 npm 发布包：历史段全部保留（不判为残留）', async () => {
+        // 复现 CI 场景：actions/checkout 默认不带 tag + @dependfix/platform 不发 npm
+        const out = await cleanupUnreleasedSections(sample, {
+            version: '0.5.0',
+            prefix: '@dependfix/platform@',
+            pkgName: '@dependfix/platform',
+            hasTag: () => false,
+            isPublished: createPublishedProbe({ npmPublishable: false, probe: async () => false }),
+        })
+
+        expect(out).toBe(sample)
     })
 
     it('keeps section when npm already published (manual publish without tag)', async () => {

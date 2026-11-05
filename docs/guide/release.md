@@ -272,13 +272,14 @@ pnpm release:preflight --out-dir=artifacts/release-preflight   # 额外写 prefl
 - **补发旧版本镜像的约束**：`release.yml` 以 `--ref v<锚版本>` 派发，GitHub 按**该 tag 上的 workflow 文件**执行。对修复前创建的旧 tag（如 `v0.6.0`，其 `docker.yml` 仍是 120 分钟上限 + `cancel-in-progress: true`）不能用该路径补发；也不要用 `--ref master`（构建的是 master HEAD 内容，与版本不对应）——须新建指向该发布提交的临时分支后 `--ref <branch>`，或直接发新 tag。
 - **本环境无法复核远端镜像**：GHCR 包为私有且本地 token 缺 `read:packages`；`registry-1.docker.io` 连接超时。重试条件：拿到 `read:packages` token 或 Docker Hub 可达后执行
   `docker buildx imagetools inspect ghcr.io/dependfix/dependfix:platform-<平台版本>`（应见 `linux/amd64` + `linux/arm64`），再以 `docker run --rm` 拉起镜像核对 `/api/health` 的 `version` / `commit`。
-- **0.7.0 镜像已由 `workflow_dispatch` 发布，`platform-0.5.0` 存在（2026-11-03 复核）**：运行 `41439905381`（`--ref v0.7.0`，`platform_version=0.5.0`，success）产出四标签 `latest` / `2026-11-02` / `platform-0.5.0` / `sha-a049a56`，Docker Hub 与 GHCR 同步（ACR 同策略）；`BUILD_VERSION=0.5.0` 随构建注入；多架构导出 manifest list `sha256:71f6633…a244f1`（`linux/amd64` + `linux/arm64`）。**build job 实测 22m03s**（11:54:24→12:16:27，预算 240 分钟余量充足，0.6.0 的 115.5 分钟不再复现）。注意：push 路径本身只产 `latest` / 日期 / `sha-*`，**`platform-x.y.z` 必须由 dispatch 带 `platform_version` 产生**。
-- **远端 manifest / health 复核仍 blocked**：本环境无法直连 registry——GHCR `failed to fetch anonymous token ... 401 Unauthorized`（token 缺 `read:packages`），Docker Hub `dial tcp ...:443: i/o timeout`；上面的标签与 digest 取自运行日志（metadata 步骤与 buildx 导出），**不是**客户端 `imagetools inspect` 实测。**前置条件**：具备 `read:packages` token 或 Docker Hub 可达后按上条命令复核。
-- **对 1.0.0 的含义**：1.0.0 的 `platform-1.0.0` 同样**必须走 `release.yml` 派发**（本地发布通道不会自动派发）；本次 22 分钟的实测说明预算与多架构链路可用，1.0 沿用同一路径即可。
+- **0.7.0 镜像已由 `workflow_dispatch` 发布，`platform-0.5.0` 存在（2026-11-03 复核）**：运行 `41439905381`（`--ref v0.7.0`，`platform_version=0.5.0`，success）产出四标签 `latest` / `2026-11-02` / `platform-0.5.0` / `sha-a049a56`，Docker Hub 与 GHCR 同步；ACR 为 amd64-only tag（见下）；`BUILD_VERSION=0.5.0` 随构建注入；多架构导出 manifest list `sha256:71f6633…a244f1`（`linux/amd64` + `linux/arm64`）。**build job 实测 22m03s**（11:54:24→12:16:27，预算 240 分钟余量充足，0.6.0 的 115.5 分钟不再复现）。注意：push 路径本身只产 `latest` / 日期 / `sha-*`，**`platform-x.y.z` 必须由 dispatch 带 `platform_version` 产生**。
+- **阿里云 ACR 复核（2026-11-05，用户指定通道）**：公开仓库 `registry.cn-hangzhou.aliyuncs.com/caomeiyouren/dependfix:platform-0.5.0` 可匿名拉取，`docker run` 冒烟 **PASS**——`/api/health` 返回 `{"version":"0.5.0","commit":"a049a561…"}`、15 张业务表、迁移专用模式通过。**但该 tag 在 ACR 解析为单一 amd64 manifest**（`sha256:a6d5c93…`）：index `sha256:71f6633…` 虽按 digest 可取（内含 amd64 `6f3231a` + arm64 `df1d5a2`），标准客户端按 tag 拉取只得到 amd64（ACR 个人版行为）→ **ACR 不能作为双架构证据**；双架构需 GHCR（需 `read:packages`）或 ACR 企业版。
+- **GHCR / Docker Hub 复核仍 blocked**：GHCR `failed to fetch anonymous token ... 401 Unauthorized`（token 缺 `read:packages`），Docker Hub `dial tcp ...:443: i/o timeout`；标签与 digest 取自运行日志（metadata 步骤与 buildx 导出），**不是**客户端 `imagetools inspect` 实测。**前置条件**：具备 `read:packages` token 或 Docker Hub 可达。
+- **对 1.0.0 的含义**：1.0.0 的 `platform-1.0.0` 同样**必须走 `release.yml` 派发**（本地发布通道不会自动派发）；本次 22 分钟的实测说明预算与多架构链路可用，1.0 沿用同一路径即可。注意 ACR 侧仍会是 amd64-only tag，arm64 用户应使用 GHCR。
 
 ### 0.7.0 发布记录（M54.2，2026-11-02 已执行）
 
-> 目的：补发 `--version` 元数据修复并演练 M53 修正后的发布链；锚版本 `0.7.0` 由 `release:plan` 推导（不人工降级为 patch）。**执行方式 = 本地手动发布**（用户 2026-11-02 执行）：发布 4 个 npm 包 + 六个 tag + GitHub Release；镜像另经 `docker.yml` 派发（`--ref v0.7.0`，`platform_version=0.5.0`，运行 `41439905381` success）补齐 `platform-0.5.0`，客户端 manifest / health 复核仍 blocked（见上节）。1.0.0 的差异清单与发布说明骨架见 [1.0.0 发布清单与发布说明骨架](release-1.0.md)。
+> 目的：补发 `--version` 元数据修复并演练 M53 修正后的发布链；锚版本 `0.7.0` 由 `release:plan` 推导（不人工降级为 patch）。**执行方式 = 本地手动发布**（用户 2026-11-02 执行）：发布 4 个 npm 包 + 六个 tag + GitHub Release；镜像另经 `docker.yml` 派发（`--ref v0.7.0`，`platform_version=0.5.0`，运行 `41439905381` success）补齐 `platform-0.5.0`，GHCR / Docker Hub 客户端复核仍 blocked；ACR health 已通过（见下节）。1.0.0 的差异清单与发布说明骨架见 [1.0.0 发布清单与发布说明骨架](release-1.0.md)。
 
 **发布前门禁（2026-11-01 实测）**
 
@@ -294,7 +295,7 @@ pnpm release:preflight --out-dir=artifacts/release-preflight   # 额外写 prefl
 | `@dependfix/core` | `0.7.0` | `@dependfix/core@0.7.0` |
 | `@dependfix/engine` | `0.6.0` | `@dependfix/engine@0.6.0` |
 | `@dependfix/mcp` | `0.3.1`（传导） | `@dependfix/mcp@0.3.1` |
-| `@dependfix/platform` | `0.5.0`（tag-only） | `@dependfix/platform@0.5.0`；镜像 `platform-0.5.0` 已由 dispatch `41439905381` 发布（含 `latest` / 日期 / `sha-a049a56`），health 未复核 |
+| `@dependfix/platform` | `0.5.0`（tag-only） | `@dependfix/platform@0.5.0`；镜像 `platform-0.5.0` 已由 dispatch `41439905381` 发布（含 `latest` / 日期 / `sha-a049a56`）；health 已由 ACR 验证，双架构未验证 |
 | `@dependfix/skills` | 无改动不发布 | — |
 
 六个 tag 均指向发布提交 `a049a561`（`chore(release): 0.7.0`）；GitHub Release `v0.7.0` 为 Latest、非 prerelease（`gh release view` `createdAt` = `2026-11-02T10:33:46Z`）。
@@ -303,7 +304,7 @@ pnpm release:preflight --out-dir=artifacts/release-preflight   # 额外写 prefl
 
 - `npx --yes dependfix@0.7.0 --version` → `0.7.0`，**关闭** 0.6.0 的 `--version` 报 `0.1.0` 缺陷候选（tarball / 全局两路由见上方 preflight 与 2026-11-01 预演）。
 - 发布物审计：`pnpm audit --prod --audit-level=moderate --ignore-registry-errors --registry=https://registry.npmjs.org` → exit 0（1 low + 1 被忽略的 moderate = `minimatch`，见[安全规范 §5.7](../standards/security.md#_5-7-无可用修复版本漏洞的审计豁免-audit-ignore-2026-10-05)）；Dependabot 开放 2 条（`minimatch` medium #126 / `deepmerge` low #125）；Code Scanning 开放 **0** 条 → **非豁免 critical / high = 0**。
-- 远端镜像：**`platform-0.5.0` 已发布**（dispatch `41439905381`，`--ref v0.7.0` + `platform_version=0.5.0`；四标签、双架构 manifest `sha256:71f6633…a244f1`、build 22m03s）；本环境无法直连 registry（GHCR 401 / Docker Hub 超时），**`/api/health` 版本戳与客户端 manifest 校验仍未复核，不记为通过**（证据来自运行日志）。
+- 远端镜像：**`platform-0.5.0` 已发布**（dispatch `41439905381`，`--ref v0.7.0` + `platform_version=0.5.0`；四标签、双架构 manifest `sha256:71f6633…a244f1`、build 22m03s）；本环境无法直连 GHCR / Docker Hub（401 / 超时）；`/api/health` 已经 ACR 冒烟验证，**双架构与客户端 manifest 校验未通过**（ACR tag 单架构，见下节），不记为通过。
 - `dependfix@0.6.0` 是否 `npm deprecate`：**未执行**（属用户决策项）。0.7.0 的 Release 正文只含「本轮发布包 + 根 CHANGELOG」，**未包含** 0.6.0 `--version` 缺陷说明与升级指引，也不含指标段。
 
 **产物校验和（`npm view <pkg> dist.integrity`，2026-11-02）**

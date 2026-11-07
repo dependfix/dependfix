@@ -1,4 +1,4 @@
 {
-  "description": "发布前安全告警门禁的 high 豁免台账（权威口径见 docs/standards/security.md §5.9）。critical 一律不得登记；high 仅在「无可用修复版本」或「修复难度大」时登记，并须同步 docs/plan/backlog.md 追踪。",
+  "description": "发布前安全告警门禁的 high 豁免台账（权威口径见 docs/standards/security.md §5.9）。critical 一律不得登记；high 仅在「无可用修复版本」或「修复难度大」时登记，并须同步 docs/plan/backlog.md 追踪。新增条目须维护者批准（AI 不得自行豁免）。",
   "exemptions": []
 }

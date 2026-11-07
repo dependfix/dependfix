@@ -69,7 +69,7 @@
 - **CI 强制**：`release.yml` 在 `Auto version` 之前做只读预检、在 `release:publish` 之前做阻断判定（均为 `pnpm run check:release-security`）；critical 一律阻断（含 dismissed，禁止豁免），high 只有登记在 [`.github/release-security-exemptions.json`](../../.github/release-security-exemptions.json) 台账才放行（dismissed 同样需要），moderate / low 不阻断。token 缺失 / API 401·403·404 / 超时 / 级别无法判定均 fail-closed，不会当作「无告警」。
 - **本地早期核对**（可选，提前暴露问题）：`GH_PAT=<token> pnpm run check:release-security`，仓库 slug 自动取 `GITHUB_REPOSITORY` 或 `origin` remote。
 - **前置 secret**：Dependabot alerts 无法用 `GITHUB_TOKEN` 读取（恒 403），仓库需配置 `GH_PAT`（fine-grained 仅 `Dependabot alerts: read`，classic 需 `security_events`）；Code Scanning 用 workflow 的 `GITHUB_TOKEN` + `security-events: read` 权限，不要求 PAT 具备该权限。
-- **豁免**：high 需在台账登记 9 个字段并同步 [backlog.md](../plan/backlog.md)；open 告警用 `no-fix` / `hard-fix`，dismissed 误报用 `false-positive`，Code Scanning 必须按实例 `location` 登记（同一 rule 不同文件分别登记）。复核条件满足（如上游发布修复版本）后立即移除；stale 台账只告警不阻断。
+- **豁免**：high 需在台账登记 9 个字段并同步 [backlog.md](../plan/backlog.md)；open 告警用 `no-fix` / `hard-fix`，dismissed 误报用 `false-positive`，Code Scanning 必须按实例 `location` 登记（同一 rule 不同文件分别登记）。新增条目须维护者批准（AI 不得自行豁免），见 [§5.9](../standards/security.md#_5-9-发布前安全告警门禁-dependabot-alerts-code-scanning-2026-10-29-用户决策)。复核条件满足（如上游发布修复版本）后立即移除；stale 台账只告警不阻断。
 
 ## 前置配置（一次性）
 

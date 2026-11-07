@@ -19,7 +19,7 @@ features:
       details: report-only / fix / fix-and-pr / cleanup-branches 四类命令，npx 零依赖上手，支持 owner / topic 多仓库治理。
       link: /guide/quick-start
     - title: GitHub Action 集成
-      details: "通过 uses: dependfix/dependfix@v0.6.0 一行接入 CI，支持定时、手动、PR 触发，可自定义验证命令。"
+      details: "通过 uses: dependfix/dependfix@v1 一行接入 CI，支持定时、手动、PR 触发，可自定义验证命令。"
       link: /guide/quick-start
     - title: AI 研判 breaking change
       details: 跨大版本升级时自动采集 Changelog，多 provider 研判（DeepSeek / OpenAI），输出结构化 patch 与安全门建议。

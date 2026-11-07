@@ -38,7 +38,7 @@
 - **0.x 即预览版**：当前处于开发阶段，`0.1.0` 及后续 `0.x` 版本直接作为 `latest` 发布，**不加 `beta` 等预发布后缀**。理由：
   - `0.x` 在 semver 中本身就是"初始开发、API 不稳定"语义，已充分表达预览状态；
   - npm 默认不安装带预发布后缀的版本（需显式 `dependfix@beta`），会给预览测试设置障碍。
-- **稳定信号来自 `1.0.0`**：API 稳定后发布 `1.0.0`，届时再启用 `@v1` 滚动 tag（GitHub Action 引用）。
+- **稳定信号来自 `1.0.0`**：`1.0.0` 已于 2026-11-07 发布，`@v1` 滚动 tag 已启用（GitHub Action 引用写作 `@v1`）。
 - **tag 推送纪律**：git 默认不推送 tag——本地开发建议 `git config --global push.followTags true`（日常 push 自动带 annotated tag）；补打 tag 后必须显式 `--tags` 推送并核验（教训见 [经验归档 §二十六](../design/governance/experience-archive.md)）。
 - 版本号由自研 release 脚本管理：`pnpm release:plan` 基于 git log 自动推导各包 bump 级别（见"release:plan 生成规则"），可人工修正；`pnpm release:version` 执行版本提升（含依赖传导）；CHANGELOG 由 `pnpm changelog` 基于 conventional commits 生成（见"CHANGELOG 策略"）。设计文档见 [release-pipeline.md](../design/governance/release-pipeline.md)。
 
@@ -327,6 +327,52 @@ dependfix@0.7.0          sha512-1yaQaIJ0jr1EeOLS5pXfCN+pHEoYFaWahlQwtIkW87dZOwcD
 
 回滚面（npm / git tag / GitHub Release / `@v1` / Docker / 数据库）的逐面演练记录见 [1.0.0 发布清单 §5.1](release-1.0.md#_5-1-演练记录-m54-5-2026-11-02)（M54.5）。
 
+### 1.0.0 发布记录（M54.6，2026-11-07 已执行）
+
+> 目的：发布首个稳定版（semver 承诺生效）。**执行方式 = `release.yml` 的 OIDC dispatch**（用户 2026-11-05 决策），不使用本地手动通道；差异面与发布说明骨架见 [1.0.0 发布清单](release-1.0.md)。
+
+**发布链两次失败与修复（过程记录）**
+
+| run | 失败点 | 归因 | 处置 |
+|:--|:--|:--|:--|
+| `42332948238` | `Pre-check release security alerts` | 仓库 secret `GH_PAT` 无法读取 Dependabot alerts（HTTP 403 `Resource not accessible by personal access token`，fine-grained 缺 `Dependabot alerts: read`） | 用户重配 `GH_PAT` 后门禁通过 |
+| `42350661632` | `Run pnpm run test` | 版本提升后 `scripts/create-release-plan.test.mjs` 的「仓库当前为 0.x」断言失效（用例绑定仓库状态） | `f90c11b7`：`isPreMajor(version?)` 支持显式入参，用例按真实版本推导期望值并显式覆盖 0.x / 1.x |
+
+发布提交链：`86108b60`（`chore(release): 1.0.0`，六包版本 + 七份日志）→ `f90c11b7`（用例修复）→ `83c966fd`（1.0.0 日志补首个稳定版 / 契约与迁移 / G8 / 已知限制，同时满足 `release:publish` 的 HEAD 锚点）。发布 run：`42351775424`（success）。
+
+**版本与 tag（2026-11-07）**
+
+| 通道 | 版本 | tag / 产物 |
+|:--|:--|:--|
+| `dependfix`（锚版本） | `1.0.0` | `dependfix@1.0.0` + `v1.0.0` |
+| `@dependfix/core` | `1.0.0` | `@dependfix/core@1.0.0` |
+| `@dependfix/engine` | `1.0.0` | `@dependfix/engine@1.0.0` |
+| `@dependfix/skills` | `1.0.0` | `@dependfix/skills@1.0.0` |
+| `@dependfix/mcp` | `1.0.0` | `@dependfix/mcp@1.0.0` |
+| `@dependfix/platform` | `1.0.0`（tag-only，不发 npm） | `@dependfix/platform@1.0.0`；镜像 `platform-1.0.0` 由 dispatch `42352117141`（`--ref v1.0.0`、`platform_version=1.0.0`）构建 |
+
+六个包 tag + `v1.0.0` 均指向 `83c966fd`；`v1` 滚动标签（annotated `097723a7`）同样解引用到 `83c966fd`，`uses: dependfix/dependfix@v1` 自此可用。GitHub Release `v1.0.0` 为 Latest、非 prerelease（`publishedAt` = `2026-11-07T07:38:22Z`），正文含发布包矩阵 + 根 CHANGELOG 1.0.0 段（首个稳定版 / 入口 / 契约与迁移 / G8 当日复算 / 已知限制 / 已知非目标）。
+
+**发布后复核（2026-11-07）**
+
+- 三路安装：`npx --yes --registry=https://registry.npmjs.org dependfix@1.0.0 --version` → `1.0.0`；全局安装（隔离 prefix）→ `1.0.0`；tarball 路由由 `release:preflight` 覆盖（发布前 `PASS`，`--version = 1.0.0`）。
+- 发布物审计：`pnpm audit --prod --audit-level=moderate --registry=https://registry.npmjs.org` → 2 条（1 low + 1 条 §5.7 豁免 moderate = `minimatch`）；`pnpm run check:release-security` → **PASS**（critical 0 / high 0 / moderate 1 / low 1）。口径：该命令审计工作区生产依赖图，不是逐包 tarball 审计；镜像面归 G7 复核。
+- 本机 `npm` 默认 registry 为 `registry.npmmirror.com`，发布后短时间内尚未同步 1.0.0（`npm view` 404）；官方 registry 已是最新，复核须显式 `--registry=https://registry.npmjs.org`。
+
+**产物校验和（官方 registry `dist.integrity`，2026-11-07）**
+
+```text
+dependfix@1.0.0          sha512-F3KrS2AQjio1kG49zlchTudnr+j8yEq09rcbCfUL804TSt6cUJMUywIWzsYG6x/GP7pyofQWeh90GoHXwYg1GQ==
+@dependfix/core@1.0.0    sha512-OBTEZe6MBdoKk54XkhUB2mcLS26sMyii7AMz8iC4Dy7ct+aldiaT/1PhO7TjGpmyqtVHpd/gvmnfAqb6q31z9g==
+@dependfix/engine@1.0.0  sha512-Kz9LF1NPzT7lM5OCZtCfFRFL7jEGcu84sk5PZAlkom4ns1TduyhI5oem+LAv/KpG93IYm7PI9ViZz65YiniG9Q==
+@dependfix/skills@1.0.0  sha512-dfntb5ntotpnfnR8GBgKDHLhJfgI3nq8g2PERuEFUYLnvZHnIp17FPPOJb6YIbKvMaJf1tPw2yJghVMa6AUwbw==
+@dependfix/mcp@1.0.0     sha512-jxwzrIKjuD+kuMn3zWrvreCuNUEWPrcrecsEQU5RHKEM1Lh6Rxp/yzr+dQ69axy3SRUqhvigeDNcMRvmmWiOtA==
+```
+
+**归档范围说明**：0.7.0 段承诺「tarball `sha256sum` / `@dependfix/skills` 预演 tarball / 客户端 `RepoDigests` 随 1.0.0 一并归档」，本轮改为以官方 registry 的 5 条 `dist.integrity` 作发布物指纹；tarball `sha256sum` 与 `RepoDigests` 未采集（本地发布通道不产 tarball 归档，镜像客户端 manifest 受 GHCR / ACR 权限限制）。
+
+**镜像**：`platform-1.0.0` 走 `docker.yml` dispatch（`--ref v1.0.0`、`platform_version=1.0.0`、`BUILD_VERSION=1.0.0`），标签集与双架构 manifest 以该 run 日志为准；ACR 个人版仍会把 tag 解析为单 amd64 manifest，双架构证明须 GHCR（`read:packages`）或 ACR 企业版。
+
 ## 定时自动发布（1.0.0+ 可启用，需用户另行授权）
 
 `release.yml` 已内嵌 `schedule` 定时发布（每周六 UTC+0 12:00 = UTC+8 20:00，参照 momei），**1.0.0 正式版发布后不会自动启用**——须用户另行授权后再取消 `schedule` 注释（M54.6 明确不启用自动发布；安全告警门禁已内置于 `release.yml`，见「发布前安全检查」）。定时触发时 CI 自动完成：
@@ -349,7 +395,7 @@ dependfix@0.7.0          sha512-1yaQaIJ0jr1EeOLS5pXfCN+pHEoYFaWahlQwtIkW87dZOwcD
 | 5 | 直推 master | 自动版本的 `chore(release): x.y.z [skip ci]` 提交需能直推 master（或改为 PR + 自动合并） | **未验证**：仓库当前无 required status checks，直推可行；若日后开启保护需改流程 |
 | 6 | 版本与日志一致 | `pnpm verify:changelog` 绿；`release:plan` 能推导计划（无变更时自动 no-op） | 已绿（release 前置步骤 + 本地预演见下） |
 | 7 | 回滚预案 | 镜像 tag / npm 版本 / git tag 均可回退；发布后 3 天观察窗口 | 见本文「tag 策略与包版本不同步」与「已知限制与排查」 |
-| 8 | `@v1` 滚动 tag | 仅 `1.0.0` 发布后启用；启用前 Action 引用保持具体版本 | 未启用（保持 `v0.6.0`） |
+| 8 | `@v1` 滚动 tag | 仅 `1.0.0` 发布后启用；启用前 Action 引用保持具体版本 | **已创建（2026-11-07，`097723a7` → `83c966fd`）**；用户可见示例的引用切换随 M54.6 收口 |
 
 启用步骤：
 
@@ -406,7 +452,7 @@ git status --porcelain           # 空（无版本 / 日志副作用）
 - `release:publish` 成功后会为每个发布的包创建 `<pkg>@<version>` 格式的 git tag（changesets / lerna 生态惯例，沿用），由 CI 的 `Push release tags` 步骤推送到 GitHub，供 GitHub Release 关联与后续精确回溯；
 - `v<锚版本>` 聚合 tag 用于 GitHub Release 关联（锚版本 = 主交付物优先，见"GitHub Release 自动化"）；与 1.0.0 后规划的 `v1` 滚动 tag 命名空间兼容（固定 tag + 移动 tag 共存）；
 - 注意：若发布成功但后续步骤失败导致重跑（如 CI git identity 缺失致 tag 创建失败，见 [经验归档 §三十七](../design/governance/experience-archive.md)），`release:publish` 会自动检测"npm 已发布但本地无 tag"的中间态并补打 annotated tag（HEAD 锚点校验通过时，校验失败则安全跳过）——重跑即可全链路恢复（`<pkg>@<version>` tag + `v<锚版本>` tag + GitHub Release）；仅当 HEAD 不 touch 包路径时才需手动 `pnpm tag:released` 补打；
-- 首次发布的 `v0.1.0` tag 仅用于 GitHub Release 展示与 Action 引用；文档中的 `uses: dependfix/dependfix@v1` 滚动 tag 待 `1.0.0` 稳定版发布后再启用。
+- 首次发布的 `v0.1.0` tag 仅用于 GitHub Release 展示；`uses: dependfix/dependfix@v1` 滚动 tag 已于 `1.0.0` 发布后创建（2026-11-07），用户可见示例已切到 `@v1`。
 
 ## CHANGELOG 策略
 

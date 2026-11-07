@@ -1,6 +1,6 @@
 # 1.0.0 发布清单与发布说明骨架
 
-> **状态**：骨架（2026-11-01 M54.1 建立），**未执行任何发布动作**（无 `npm publish` / 无新 tag / 未改版本号）；执行归 [todo.md](../plan/todo.md) 的 M54.6。
+> **状态**：**已执行（2026-11-07，M54.6）**——六个发布包 `1.0.0` 已发布（npm 5 包 + `@dependfix/platform` tag-only + `v1.0.0`），`@v1` 滚动标签已创建，镜像 `platform-1.0.0` 由 dispatch `42352117141` 构建；发布链、校验和与复核结果见[发布指南的 1.0.0 发布记录](release.md#_1-0-0-发布记录-m54-6-2026-11-07-已执行)，台账回填见[就绪度台账](../design/governance/release-1.0-readiness.md) §2。
 > **口径**：**有条件发布**——G3 实跑 / G4 窗口按已披露豁免降级（见[就绪度台账 §2](../design/governance/release-1.0-readiness.md)），G5 / G6 / G7 可执行项补齐，G8 引用真实读数。**豁免不等于通过**：发布说明必须照实披露，不得写成 G3 / G4 已验收。
 > **决策来源**：[就绪度台账 §2.2](../design/governance/release-1.0-readiness.md) + 用户 2026-11-01 四项决策（先中间版本再 `1.0.0` / 有条件发布 / 接受 Google OAuth 未测 / 目标窗口 2026-11-15）+ 当日执行期裁定第 ⑤ 条（中间版本按 `release:plan` 推导，落地为 `0.7.0`）。
 > **通用机制**：`release:plan` → `release:version` → `changelog` → CI 发布链见[发布指南](release.md)；本页只列 1.0.0 的差异面与发布说明骨架。
@@ -82,7 +82,7 @@
 | npm | `npm deprecate dependfix@0.6.0 "<说明>" --dry-run` | 只打印计划、不改 registry | `npm notice deprecating dependfix@0.6.0 with message ...`；随后 `npm view dependfix@0.6.0 deprecated` 为空 → **无副作用，通过**（drill）：真实执行后该字段返回说明文案，并在下一个修复版发布说明中指引升级 |
 | git tag | `git tag -a drill-rollback-20261102-1 -m ... HEAD` → `git cat-file -t` → `git tag -d` | 本地一次性 tag 可创建、是 tag 对象、删除后无残留；生产 tag 不受影响 | `tag` 类型确认；删除后 `git tag -l 'drill-rollback-*'` 计数 0；六个 0.7.0 tag 仍指向 `a049a561` → **通过（drill）**（远端删除 `git push origin :refs/tags/<tag>` 未执行） |
 | GitHub Release | `gh release view v0.7.0`（只读核对）；`gh release delete` **未执行** | 能判定当前 Release 归属与 Latest 状态；删除后可按修复提交重建 | `v0.7.0` 为 Latest、非 prerelease、tag 指向发布提交 → **判据可用**；删除与重建**未演练**（破坏性，保留残余） |
-| `@v1` | 未执行（`v1` 尚未创建） | 创建后可用 `git tag -f v1 <commit>` 回退并 `--force` 推送 | **延后（M54.6）**：1.0.0 发布后创建 `v1`，其回滚随 M54.6 / 1.0.1 演练 |
+| `@v1` | **已创建（2026-11-07，`097723a7` → `83c966fd`）**；回退命令未演练 | `git tag -f v1 <commit>` 后 `--force` 推送 | 回退属破坏性操作，随 1.0.1 演练 |
 | Docker | `docker run --rm registry.cn-hangzhou.aliyuncs.com/caomeiyouren/dependfix:platform-0.5.0` + `/api/health` | 版本戳与发布提交一致 | **health 通过**（2026-11-05 ACR 匿名拉取 + 冒烟：`0.5.0` / `a049a561`，15 张表）；**双架构未验证**——ACR tag 解析为单一 amd64 manifest，GHCR 缺 `read:packages`，故 Docker 面仍留残余 |
 | 数据库 | 本轮无迁移，不触发；路径引用 [deployment.md](deployment.md) 备份恢复 | 迁移前滚后可回退 | 备份 / 恢复路径已在 M53.2 实测（备份 323,584 字节 → `db:restore` → 三方逐表 0 差异、`integrity_check: ok`）→ **通过（引用既有实测）** |
 

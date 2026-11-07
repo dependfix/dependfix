@@ -54,16 +54,14 @@
 
 ### 候选评估中（待评估 / 本阶段延后项）
 
-> **候选池概览（2026-11-08 机械复算）**：本区 **66 项**（`### 候选评估中` 段内 `^- \*\*` 逐行计数）；P 标签覆盖不全（未标注者评估时补 P 标签，不默认升级）；本文件不维护分档统计，1.0 分档只见 [release-1.0-readiness.md](../design/governance/release-1.0-readiness.md)。
+> **候选池概览（2026-11-08 机械复算）**：本区 **62 项**（`### 候选评估中` 段内 `^- \*\*` 逐行计数）；P 标签覆盖不全（未标注者评估时补 P 标签，不默认升级）；本文件不维护分档统计，1.0 分档只见 [release-1.0-readiness.md](../design/governance/release-1.0-readiness.md)。
 > **1.0 门槛与分档**：P0 23 / P1 8 / 1.0 后 15 的分档、门槛判定与批次计划见 [release-1.0-readiness.md](../design/governance/release-1.0-readiness.md)。
 
 - **备份 `.tmp` 清扫缺年龄门槛（P3 🛠️，2026-10-31 M53.2 收口登记）** —— `cleanupOldBackups` 对 `*.bak.tmp` 无条件回收；单实例串行路径不可达冲突，但并发 `db:restore` 或多实例共卷启动时可能删掉对端正在写的临时文件（rename ENOENT → 该轮快照丢失，fail-open 后仅剩日志）。待评估：加入 `mtime < now - 10min` 年龄门槛或按 PID 命名临时文件。触发：启用多实例 / 多容器共享数据卷，或出现并发恢复需求时。
-- **`check:release-security` 输出缺少采集时点（P3 🛠️，2026-11-03 预发布检查发现）** —— 输出的告警汇总行与 PASS 行都不带采集时间，落盘为发布证据时无法自证时点（只能靠文件 mtime 推断）。**范围**：输出首行加 ISO 时间戳（`--json` 同字段）。**验收**：输出与 JSON 均含采集时点，单测锁定。**不做**：不改告警判定与 fail-closed 语义。**触发条件**：下次改动该脚本，或再次需要以该输出作为发布证据。
-- **发布后镜像 tag / health 自动复核（P2 🚀，2026-11-01 登记；2026-11-07 部分落地）** —— 已有双架构回读门禁与 `push.paths` 过滤；1.0.0 health 已人工复核。残余：① 发布后自动 smoke（release 后置步骤用 `read:packages` token 拉 `platform-x.y.z` 跑 `/api/health`，失败告警不阻断）；② 历史 tag 巡检。触发：下一次发布前。
+- **`check:release-security` 输出缺少采集时点（P3 🛠️，2026-11-03 预发布检查发现；2026-11-08 复核）** —— 告警汇总行与 PASS / FAIL 行都不带采集时间，落盘为发布证据时无法自证时点（只能靠文件 mtime 推断）；脚本当前无 `--json` 模式。**范围**：输出首行加 ISO 时间戳。**验收**：输出含采集时点，单测锁定。**不做**：不改告警判定与 fail-closed 语义、不新增 `--json`。**触发条件**：下次改动该脚本，或再次需要以该输出作为发布证据。
+- **发布后镜像运行时冒烟（P2 🚀 / 🧪，2026-11-01 登记；2026-11-08 合并「arm64 未冒烟」）** —— 已落地：双架构 manifest 回读门禁（`docker.yml` merge 后 `imagetools inspect` 断言 amd64 + arm64）、`push.paths` 过滤、1.0.0 health 人工复核。残余：① 发布后自动 smoke（release 后置步骤用 `read:packages` token 拉 `platform-x.y.z` 跑 `/api/health`，失败告警不阻断）；② 历史 tag 巡检；③ arm64 运行时冒烟——现有冒烟仅 amd64，回读只证存在不证可启动，待评估 arm 矩阵跑同一脚本。触发：下一次发布前。
 - **镜像构建冗余（P2 🚀，2026-11-07）** —— ① 每架构对三 registry 各构建一次（digest 相同，冷缓存最慢 41m32s）；② 发布提交被 push 与派发各构建一次。待评估：单次多 name 推送 / 复用 digest / push 腿跳过 release 提交。
-- **arm64 镜像未冒烟（P3 🧪，2026-11-07）** —— 冒烟仅 amd64，回读只证存在不证可启动；待评估 arm 矩阵跑同一脚本。
 - **经验归档 §70-§99 分片超出健康窗口（P3 📚，2026-10-31 M53.2 收口登记）** —— 该分片由 399 行增至 **495 行**（2026-11-01 M53 归档沉淀 §八十一 后实测）（阈值：健康 ≤400 / warning 401-700 / 强制分片 >700），M53.2 与 M53 归档经验已使其进入 warning 带。待评估：按 `^## §N` 边界拆为 §70-§78 与 §79-§99 两片（属大批量归档批次，须按 [规划规范 §4.4](../standards/planning.md#_4-4-大批量归档批次操作规范) 执行锚点与外链追踪）。触发：M53 阶段归档批次（2026-11-01 已触发，拆分仍未执行），或该分片继续增长时。
-- **`platform.md` 字符预算逼近阻断线（P2 📚，2026-10-31 M53.2 收口登记）** —— 29,798 / 30,000（阻断线），下一次编辑即可能触发 `check:doc-governance` 阻断。待评估：外移 §10.6 细则（队列隔离 / 插件清单 / 已知边界）到独立 governance 文档，`platform.md` 保留摘要与指针。触发：下一次 `platform.md` 触及该段，或预算余量 < 50 字符。
 - **PR 回环有界重试（P2 🚀，2026-10-30 M51.3 用户裁定延后）** —— 设计稿 `pr-feedback-loop.md` §8 保留 `FeedbackRetryDispatcher` 契约（同 PR 失败后重新触发既有修复链，需配额与触发面）；平台当前无「同 PR 重试」入口，`retryFailed` 开启时每仓库每进程只 warn 一次。待评估：补触发面（API / UI）+ 配额后再实施。触发：出现「PR 红后无人处理、需自动重试」的实际需求时。
 - **门户面板左缘亚像素抖动（P2 🧪，2026-10-31 M52.4 收口登记）** —— `dialog-select-open-dark` 基线在连续 `--update-snapshots=all` 下约 1/10 轮出现 99 px / maxΔ2 的边缘窄带差异（bbox x 476-483 × y 303-723，位于门户面板左缘），低于门禁（`maxDiffPixels` 100 / `threshold` 0.1 → maxDelta 352）但仅剩 1 px 预算。已排除「update 落帧不稳定」这一主因（`waitForVisualStable` 已加两帧一致检查，全量集合 3/3 恒定）。待评估：定位面板定位的亚像素来源（门户定位取整 / 滚动条宽度），或对该基线改用元素级取景。触发：该基线偶发红，或差异放大到接近 / 超过 100 px。
 - **列表查询缺并列次键（P2 🛠️，2026-10-30 同 pattern 扫描）** —— alerts 原始列表已补 `result.id DESC` 次键（M51.6）；同一 pattern 已确认 6 处：`api/runs/index.get.ts`（分页 `skip/take` + 仅 `createdAt DESC`，翻页可能重复 / 丢失）、`api/runs/[id].get.ts`（`order: { severity }`，扫描详情弹窗有视觉基线）、`api/audit-events/index.get.ts`（`createdAt DESC` + `take(500)`）、`api/pr-checks/index.get.ts`、`api/notifications/index.get.ts`、`api/batch-runs/index.get.ts`（`createdAt DESC` + `take(50)`）；`repos` / `schedules` / `credentials` 等其余列表待逐处评估。影响：主排序键并列时行序取决于数据库返回顺序，同一查询两次可能不同（视觉基线 / 截断集合抖动，当前未暴露属潜伏）。待评估：统一口径「列表查询必须显式次键（唯一列 DESC）」并逐处补齐。触发：任一列表页出现视觉抖动或分页重复 / 丢失时。
@@ -72,7 +70,7 @@
 - **平台侧交付载体（issue / 草稿 PR，P2 🎨）** —— 引擎 `fix-and-pr` 已按基线红档位产出载体（issue / 草稿 PR），平台执行链（`fix + commit` + `platform-delivery`）目前只记录 `summary.deliverySkipped*` 并在运行列表 / 详情展示；待评估：平台在交付决策处复用同一失败指纹开 issue / 创建草稿 PR，并补仓库级配置写入面（当前仅 env `DEPENDFIX_ON_BASELINE_RED`，UI / API 不暴露）。触发：平台用户反馈「基线红只有标签、没有可跟踪载体」时。口径见 [pr-delivery-closure.md §16.7](../design/governance/pr-delivery-closure.md#_16-7-已知边界)。
 - **镜像脚本只覆盖根 scripts 单一形态**（M48.2 边界）—— `pnpm --filter` / 递归 / env 前缀 / corepack 钉定只披露不执行；触发：目标仓库 CI 大量使用这些形态导致「本地假绿」再现。
 - **白名单内运行前未提交改动的归属**（M48.4 边界）—— 白名单内文件（典型 `package.json`）若在运行前已有用户改动，会与本次修复一并提交；触发：出现「PR 混入无关改动」的用户反馈时评估。
-- **`dependfix-remediator` REFERENCES 的 MCP 状态与入参映射过期**（M49.4 边界）—— `skills/` 与 `packages/skills/` 两份同文 `REFERENCES.md` 仍写「当前 MCP Server 未发布」，能力映射表入参名（`owner` / `severityThreshold` / `includeCodeScanning`）与当前 MCP schema（`repo` / `severity` / `code_scanning`）不一致；4 tool 检测子集为刻意最小集，保留。触发：F2 技能文档批次，或下次修改 MCP schema 时。
+- **`dependfix-remediator` REFERENCES 的 MCP 状态与入参映射过期（M49.4 边界；2026-11-08 复核）** —— `@dependfix/mcp` 已发布 1.0.0，但 `skills/` 与 `packages/skills/` 两份同文 `REFERENCES.md` 仍写「当前 MCP Server 未发布」；4 tool 能力映射表入参名已过期（文档 `owner` / `severityThreshold` / `includeCodeScanning`、`repo` / `createPr`、`dryRun` / `repo` ↔ 实际 `repo` / `severity` / `code_scanning`、`workDir` / `packageName` / `fix_type`、`dry_run` / 空 schema）；另有 4 个已注册 tool（`discover_repos` / `cleanup_branches` / `history` / `pnpm_audit`）完全未出现在 REFERENCES 中（原 4 tool 子集为刻意保留的最小集，扩面需决策）。触发：F2 技能文档批次，或下次修改 MCP schema 时。
 - **`SandboxExecutor` 真实引擎执行仍为占位（P1 🛡️，恢复 sandbox 入口前必须闭环）**—— `apps/platform/server/services/executor/sandbox-executor.ts` 的 `buildCmd` 仅回显最小 `RunResult`（exitCode 0 / 0 告警），不启动 dependfix 引擎；M10 T1001 已落隔离基础设施、M38 已落执行进程隔离。影响：选择 `executorKind=sandbox` 的扫描曾为假成功。**平台入口已于 2026-10-27 临时关闭**（UI 禁用 / API 拒绝新写入 / 存量仓库强制降级 `container` + degraded `sandbox_entry_disabled`）；真实执行闭环后恢复入口。待办：实现 sandbox 内自包含 CLI 入口 + git clone / pnpm install / 引擎执行 / 结果回传，补真实容器 e2e。触发：恢复 sandbox 入口前必须完成。**复用 / 弃用判据**：恢复入口前决定「复用（补自包含入口 + 真实 e2e）」或「弃用（删除 executor / 沙箱 env / UI 残留）」；未决定前保持入口关闭。
 - **`pnpm_audit` 的 token-free 回退意图与实现不一致（P2 🛡️）**—— `pnpm-audit.tool.ts` 注释与产品意图是「无 GitHub token 或 403 场景」的本地回退，但实现保留 `requireToken()`，缺失 `GITHUB_TOKEN` 时直接返回 `ok:false`；当前 README / tool description 已按实际行为修正。待评估：移除 `requireToken()`（或改为可选 token），补无 token 用例，恢复真正回退。触发：无 token 环境需要 pnpm-audit 回退时。
 - **周回归审计在 registry 故障时假绿（M49.3 边界，P2 🛡️）**—— 阻断命令按 AC1 在 registry 故障时 exit 0；`security:audit-deps` 在周回归仅按 exit code 判过，若 registry 故障且日志无审计结果行，run 会 success 但未实际审计。当前 §5.6 / 检查点已要求「证据 run 须含审计结果行」；待评估：为 `security:audit-deps` 增加输出断言（无结果行则非零）或落盘校验。触发：出现 registry 故障窗口或周回归连续 success 但日志无审计结果时。
@@ -146,7 +144,6 @@
   - **触发条件**：出现企业私服 CDN 域被拦的实例；或用户要求自动化。
   - **按 [规划规范 §3.1](../standards/planning.md#_3-1-新需求默认走-评估-→-backlog-原则-hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
 
-- **归档索引表格行的成对错位强调（`**；**` 形态，待评估）** —— 现象：`docs/plan/archive/index.md` 的 M16 / M17 等历史归档行内含 `` `**；**` ``（成对但无强调语义，渲染为加粗分号），系早期批次书写惯例遗留；此类 `**` 计数为**偶数**，`check-docs` 的 `emphasis` 规则按定义只覆盖**未配对**（奇数计数）形态（[文档规范 §2](../standards/documentation.md) 已把「成对但语义错位」声明为显式盲区）。
   - **待评估点**：① 是否统一清理（涉及多行同形，宜独立批次以保持归档排版一致）；② 或维持现状并在规范注释中作为盲区实例保留。
   - **触发条件**：归档索引再次批量编辑时；或用户要求清理归档排版。
   - **按 [规划规范 §3.1](../standards/planning.md#_3-1-新需求默认走-评估-→-backlog-原则-hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
@@ -171,11 +168,9 @@
   - **触发条件**：下次改动 `architecture.md` 或技术选型复核批次。
   - **按 [规划规范 §3.1](../standards/planning.md#_3-1-新需求默认走-评估-→-backlog-原则-hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
 
-- **`docs/standards/ai-collaboration.md` 已处 200 行健康上界（待评估）** —— 现象：该文档当前 200 行（`docs/standards/*.md` 阈值：≤200 健康 / 201-400 warning），M44 归档批次新增审计条款时因越界被迫改落 `testing.md §6.12`。**待评估点**：① 下次需扩条时先做结构压缩（合并同源小节）；② 或按 [文档规范 §3](../standards/documentation.md#_3-文档行数阈值) 拆分子文档（如「审计协议」独立篇）。**触发条件**：下次需向该文档新增条款时。
-  - **按 [规划规范 §3.1](../standards/planning.md#_3-1-新需求默认走-评估-→-backlog-原则-hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
 
-- **M44 蒸馏新增条款的检查点挂接与配套收敛（待评估）** —— 现象：M44 阶段归档批次蒸馏新增 12 条严格约束（`planning.md §4.4` 第 16-20 条 / `testing.md §6.12` / `documentation.md §6` 五条），但 `code-quality-checklist.md` 的「规范条款 review 检查点矩阵」与 `code-auditor.agent.md` 必查项**均无对应行**（R1 分区 B 审计标记为「待补挂」）；另有 2 条 pattern 未落任何权威文档（「门禁规则扩面前先跑一次性探针量化分布」「E2E 取证临时仓库不要软链 node_modules」），及 3 处新条与既有条款主题重叠（`documentation.md §6` 量化断言 ↔ `planning.md §2.5`；`documentation.md §6` 引用范围措辞 ↔ 同节覆盖面声明；`planning.md §4.4` 第 18 条 ↔ 第 3 条）。
-  - **待评估点**：① 矩阵 / agent 必查项补挂（建议至少覆盖 §4.4 第 16/18 条、`testing.md §6.12`、`documentation.md §6`「断言复现运行期真实条件」「非门禁面缺陷」）；② 2 条未落点 pattern 补写落点（或改判废弃）；③ 3 处重叠改为交叉引用收窄。
+- **M44 蒸馏新增条款的检查点挂接与配套收敛（待评估；2026-11-08 复核）** —— 矩阵已挂接 §4.4 第 3 / 13-15 / 21-24 / 26 / 27 条，**仍缺** §4.4 第 16-20 条、`testing.md §6.12`、`documentation.md §6`（「断言复现运行期真实条件」「非门禁面缺陷」）三类行，`code-auditor.agent.md` 必查项同样缺；另有 2 条 pattern 未落任何权威文档（「门禁规则扩面前先跑一次性探针量化分布」「E2E 取证临时仓库不要软链 node_modules」），及 3 处新条与既有条款主题重叠（`documentation.md §6` 量化断言 ↔ `planning.md §2.5`；`documentation.md §6` 引用范围措辞 ↔ 同节覆盖面声明；`planning.md §4.4` 第 18 条 ↔ 第 3 条）。
+  - **待评估点**：① 补挂缺失的三类检查点行；② 2 条未落点 pattern 补写落点（或改判废弃）；③ 3 处重叠改为交叉引用收窄。
   - **触发条件**：下次改动上述规范文件 / 文档门禁扩面 / 阶段归档批次。
   - **按 [规划规范 §3.1](../standards/planning.md#_3-1-新需求默认走-评估-→-backlog-原则-hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
 
@@ -184,7 +179,7 @@
   - **触发条件**：镜像体积 / 安全评审要求收敛编译面；或再次出现「预编译包下载失败 + 缺 headers / 工具链」的原生构建失败。
   - **按 [规划规范 §3.1](../standards/planning.md#_3-1-新需求默认走-评估-→-backlog-原则-hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
 
-- **`ai-collaboration.md` / `platform.md` / `git.md` 均处 200 行上限的瘦身（待评估）** —— 现象：三文件行数均恰为 200（规范健康窗口上限），本批增补未越线但已零余量，任何后续增补都会进入 warning 带。**待评估点**：① 逐文件找可合并 / 可下沉段（重复表述、历史注记、可由设计稿承载的实现细节）；② 是否把长期稳定段迁入 design 后留一行指针；③ 瘦身不得删除 hard requirement 的唯一权威声明。**触发条件**：任一文件需再次增补时（先瘦身再增补）。
+- **规范三文件贴近上限的瘦身（待评估，P2 📚）** —— 现状（2026-11-08 实测）：`ai-collaboration.md` 200 行、`git.md` 200 行（健康窗口上限，零余量）；`platform.md` 201 行且 **29,744 / 30,000 字符**（阻断线）、密度 225 > 220，下一次编辑即可能触发 `check:doc-governance` 阻断。**待评估点**：① 外移 `platform.md §10.6` 细则（队列隔离 / 插件清单 / 已知边界）到独立 governance 文档，主文档留摘要 + 指针；② 其余文件逐段找可合并 / 可下沉内容（重复表述、历史注记、可由设计稿承载的实现细节）；行数零余量且无法压缩时按 [文档规范 §3](../standards/documentation.md#_3-文档行数阈值) 拆分子文档（如「审计协议」独立篇，`ai-collaboration` 因 M44 增补越界已先改落 `testing.md §6.12`）；③ 瘦身不得删除 hard requirement 的唯一权威声明。**触发条件**：任一文件需再次增补时（先瘦身再增补），或 `platform.md` 预算余量 < 50 字符。
   - **按 [规划规范 §3.1](../standards/planning.md#_3-1-新需求默认走-评估-→-backlog-原则-hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
 
 - **仓库级 `allowMajorUpgrade` 开关（待评估，P2 🚀）** —— 现象：平台侧硬编码 `false`（`scan-orchestrator.service.ts:301`），跨 major 告警一律跳过；M46.2 已做披露但未放开升级（源候选在 M46 上收时保留的残余点）。通道现状：CLI `--allow-major-upgrade`（默认关，刻意无 env 通道、Action 禁用）、MCP `run_scan` 的 `allow_major_upgrade` 入参已存在（`fix_dependency` 无该入参），平台无该开关的设置面。
@@ -290,7 +285,6 @@
 - **T705 生产级部署**（PostgreSQL + Helm；Sentry 已拆出为独立候选，见上文）—— 2026-08-12 用户指示暂缓排期
 - **自托管 Umami 流量统计**（P3 🎨，1.0 后暂缓）—— 管理台用户量小，Sentry 路由 transaction 已覆盖页面访问与性能；流量来源 / 留存价值不足以抵消额外服务与脚本成本。触发：需要产品级使用分析且 Sentry 数据不足，或平台转为多租户 SaaS。详见 [评估](../research/2026-10-27-third-party-observability-evaluation.md)。
 - **T703 跨平台 Git**（GitLab + Bitbucket）—— 2026-08-12 用户指示暂缓排期
-- **C30 Publish Docker build job 失败排查** —— 2026-08-18 用户决策暂缓（双平台构建 23m 2s 成功证明当前 docker.yml 可稳定工作）；恢复条件：① master 分支 push 频率显著提升；② 镜像实际发布成为强需求（v1.0.0 正式发布前）；③ 用户明确恢复
 - **caomei-ui 0.x → 1.0 升级回归** —— 库处于 0.x（平台当前 `0.6.0`，2026-10-11 由 dependabot 升级、2026-10-12 完成升级回归，见 [caomei-ui-migration.md §15.15](../design/governance/caomei-ui-migration.md#_15-15-caomei-ui-0-6-0-升级回归实证-插队热修-2026-10-12)）。**剩余观察**：`1.0.0` 发布后的正式升级回归与「平台需跟进新组件能力」「用户明确恢复」两条触发条件。届时按 M31 迁移期实证索引（[caomei-ui-migration.md §15](../design/governance/caomei-ui-migration.md)）做回归；**升级回归的像素兜底已就位**（视觉回归基线 `apps/platform/tests/visual/`，覆盖 alerts / repos / pr-checks / dialog-import-repos / login，口径见 [测试规范 §6.7](../standards/testing.md)）
 - **ScanResult 数据层去重（upsert 唯一索引）** —— 决策暂缓：应用层去重（fingerprint + occurrenceCount / firstSeenAt / lastSeenAt / affectedRunIds）已实施且满足当前业务需求；恢复条件：出现"fix 复用同一 `scan_run_id` 跨次刷新"或"历史 fixStatus 跨次保留"需求时迁移到数据层 upsert
 

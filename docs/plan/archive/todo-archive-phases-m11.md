@@ -398,7 +398,7 @@
 
 ## 已知边界 / 移交后续阶段
 
-- **C30 Publish Docker build job**：2026-08-18 用户决策暂缓——原 M6 归档 CI 端到端裁决登记。恢复条件见 [backlog.md C30](../../backlog.md)。
+- **C30 Publish Docker build job**：2026-08-18 用户决策暂缓——原 M6 归档 CI 端到端裁决登记。处置记录见 [2026-11-08 backlog 清理记录](./archive-log.md)。
 - **C36 / C37**：服务端 API 错误消息 i18n / 语言偏好多设备同步——T708 非目标登记；触发条件：英文用户实际使用平台并反馈。
 - **T701 真实凭据 3 项**：OAuth App / IdP OIDC / 构建期配置——需真实环境验证，详见 [todo.md §待人工验收](../../todo.md)。
 - **T702 / T704 / 发布管线收尾**：BullMQ 队列 / 定时触发 / release:auto-version——需后台服务/staging 或 CI redis service。

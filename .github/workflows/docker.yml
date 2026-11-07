@@ -337,6 +337,29 @@ jobs:
             docker buildx imagetools create -t "${tag}" ${sources}
             echo "::endgroup::"
           done <<< "${TAGS}"
+      # 双架构门禁：manifest 由 digest 合成后回读 index，确认 amd64 + arm64 都在
+      # （0.4.0 曾出现 tag 从未产出、1.0.0 首轮 QEMU 构建被取消，均属「以为发了其实没有」；
+      # 这里用 registry 回读做终态断言，失败即红，不留静默单架构 tag）。
+      - name: Verify multi-arch manifests
+        env:
+          TAGS_DOCKERHUB: ${{ steps.metadata-dockerhub.outputs.tags }}
+          TAGS_GHCR: ${{ steps.metadata-ghcr.outputs.tags }}
+          TAGS_ACR: ${{ steps.metadata-acr.outputs.tags }}
+        run: |
+          set -euo pipefail
+          verify() {
+            tag="$1"
+            [ -z "$tag" ] && return 0
+            plats=$(docker buildx imagetools inspect "${tag}" --raw \
+              | jq -r '.manifests[].platform | "\(.os)/\(.architecture)"' | sort -u | tr '\n' ' ')
+            echo "inspect ${tag} → ${plats}"
+            case "${plats}" in
+              *"linux/amd64"*"linux/arm64"*|*"linux/arm64"*"linux/amd64"*) ;;
+              *) echo "::error::${tag} 不是双架构（${plats}）"; exit 1 ;;
+            esac
+          }
+          for t in ${TAGS_DOCKERHUB} ${TAGS_GHCR} ${TAGS_ACR}; do verify "$t"; done
+
       - name: Docker Hub README & description sync
         uses: meeDamian/sync-readme@v1.0.6
         with:

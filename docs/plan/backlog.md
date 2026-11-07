@@ -54,12 +54,14 @@
 
 ### 候选评估中（待评估 / 本阶段延后项）
 
-> **候选池概览（2026-11-06 机械复算）**：本区 **63 项**（`### 候选评估中` 段内 `^- \*\*` 逐行计数；近期链条：2026-11-02 M54.2 闭环「0.6.0 `--version` 报 0.1.0」与 M54.4「3 连绿窗口」转台账 → 64；11-03 预发布检查关闭「多架构 Docker 构建触及 job 上限」（实测 22m03s）并新增「check:release-security 输出缺采集时点」→ 64；11-05 收口「preflight 工作区留痕断言偶发红」（CI 再次命中，根因为 changelog 模块导入副作用）→ 63；同日镜像复核关闭「Docker platform-0.4.0 tag 待复核」（从未推送，改以 0.5.0 ACR 冒烟覆盖）并新增「ACR 个人版多架构 tag 解析为单架构」→ 63；11-06 用户诉求并入「仓库级 `allowMajorUpgrade` 开关」候选（不新增条目，仍 63））；P 标签覆盖不全（未标注者评估时补 P 标签，不默认升级）；本文件不维护分档统计，1.0 分档只见 [release-1.0-readiness.md](../design/governance/release-1.0-readiness.md)。
+> **候选池概览（2026-11-07 机械复算）**：本区 **65 项**（`### 候选评估中` 段内 `^- \*\*` 逐行计数；链条：11-05 → 63；11-06 并入「仓库级 `allowMajorUpgrade`」不入新条；11-07 镜像复核项收窄并新增镜像构建冗余 / arm64 未冒烟 → 65）；P 标签覆盖不全（未标注者评估时补 P 标签，不默认升级）；本文件不维护分档统计，1.0 分档只见 [release-1.0-readiness.md](../design/governance/release-1.0-readiness.md)。
 > **1.0 门槛与分档**：P0 23 / P1 8 / 1.0 后 15 的分档、门槛判定与批次计划见 [release-1.0-readiness.md](../design/governance/release-1.0-readiness.md)；本区候选在未上收前保持候选状态，上收后按批次从本表移除。
 
 - **备份 `.tmp` 清扫缺年龄门槛（P3 🛠️，2026-10-31 M53.2 收口登记）** —— `cleanupOldBackups` 对 `*.bak.tmp` 无条件回收；单实例串行路径不可达冲突，但并发 `db:restore` 或多实例共卷启动时可能删掉对端正在写的临时文件（rename ENOENT → 该轮快照丢失，fail-open 后仅剩日志）。待评估：加入 `mtime < now - 10min` 年龄门槛或按 PID 命名临时文件。触发：启用多实例 / 多容器共享数据卷，或出现并发恢复需求时。
 - **`check:release-security` 输出缺少采集时点（P3 🛠️，2026-11-03 预发布检查发现）** —— 输出的告警汇总行与 PASS 行都不带采集时间，落盘为发布证据时无法自证时点（本轮 `artifacts/m54-6-precheck/release-security.txt` 只能靠文件 mtime 推断）。**范围**：输出首行加 ISO 时间戳（`--json` 同字段）。**验收**：输出与 JSON 均含采集时点，单测锁定。**不做**：不改告警判定与 fail-closed 语义。**触发条件**：下次改动该脚本，或再次需要以该输出作为发布证据。
-- **发布后镜像 tag / health 自动复核（P2 🚀，2026-11-01 M53.4 收口登记）** —— 发布链已修复「build job 触及 120 分钟上限被 kill」与「派发钉 release tag（`--points-at HEAD`）」，但镜像是否真的推送成功、健康端点版本戳是否与发布一致仍靠人工。待评估：release 后置步骤用 `read:packages` token 调 GHCR API 校验 `platform-x.y.z` manifest（amd64 + arm64）并拉取镜像跑 `/api/health`；失败时告警而非阻断（npm 已发布）。触发：1.0 发布前，或再次出现镜像 tag 缺失时。
+- **发布后镜像 tag / health 自动复核（P2 🚀，2026-11-01 登记；2026-11-07 部分落地）** —— 已有双架构回读门禁与 `push.paths` 过滤；1.0.0 health 已人工复核。残余：① 发布后自动 smoke（release 后置步骤用 `read:packages` token 拉 `platform-x.y.z` 跑 `/api/health`，失败告警不阻断）；② 历史 tag 巡检。触发：下一次发布前。
+- **镜像构建冗余（P2 🚀，2026-11-07）** —— ① 每架构对三 registry 各构建一次（digest 相同，冷缓存最慢 41m32s）；② 发布提交被 push 与派发各构建一次。待评估：单次多 name 推送 / 复用 digest / push 腿跳过 release 提交。
+- **arm64 镜像未冒烟（P3 🧪，2026-11-07）** —— 冒烟仅 amd64，回读只证存在不证可启动；待评估 arm 矩阵跑同一脚本。
 - **经验归档 §70-§99 分片超出健康窗口（P3 📚，2026-10-31 M53.2 收口登记）** —— 该分片由 399 行增至 **495 行**（2026-11-01 M53 归档沉淀 §八十一 后实测）（阈值：健康 ≤400 / warning 401-700 / 强制分片 >700），M53.2 与 M53 归档经验已使其进入 warning 带。待评估：按 `^## §N` 边界拆为 §70-§78 与 §79-§99 两片（属大批量归档批次，须按 [规划规范 §4.4](../standards/planning.md#_4-4-大批量归档批次操作规范) 执行锚点与外链追踪）。触发：M53 阶段归档批次（2026-11-01 已触发，拆分仍未执行），或该分片继续增长时。
 - **`platform.md` 字符预算逼近阻断线（P2 📚，2026-10-31 M53.2 收口登记）** —— 29,798 / 30,000（阻断线），本批已压缩 §10.6 文案换余量；下一次编辑即可能触发 `check:doc-governance` 阻断。待评估：外移 §10.6 细则（队列隔离 / 插件清单 / 已知边界）到独立 governance 文档，`platform.md` 保留摘要与指针。触发：下一次 `platform.md` 触及该段，或预算余量 < 50 字符。
 - **PR 回环有界重试（P2 🚀，2026-10-30 M51.3 用户裁定延后）** —— 设计稿 `pr-feedback-loop.md` §8 保留 `FeedbackRetryDispatcher` 契约（同 PR 失败后重新触发既有修复链，需配额与触发面）；平台当前无「同 PR 重试」入口，`retryFailed` 开启时每仓库每进程只 warn 一次。待评估：补触发面（API / UI）+ 配额后再实施。触发：出现「PR 红后无人处理、需自动重试」的实际需求时。
@@ -443,9 +445,9 @@
 
 | 内容类型 | 位置 |
 |:--|:--|
-| 当前阶段活跃任务 | **M54 1.0.0 发布窗口决策与发布执行** — 6 原子，见 [todo.md](todo.md)；插队容量治理见 [planning.md §3.1.1](../standards/planning.md) |
+| 当前阶段活跃任务 | **无进行中阶段**（M54 已于 2026-11-07 归档，见 [todo.md](todo.md)）；插队容量治理见 [planning.md §3.1.1](../standards/planning.md) |
 | 下一阶段（未规划） | **1.0.x 发布后观察（补丁号待定）**（台账见 [release-1.0-readiness.md](../design/governance/release-1.0-readiness.md)） |
 | 已完成阶段归档 | [todo-archive.md](todo-archive.md)（阶段索引 + [archive/](archive/) 分片） |
-| 里程碑与阶段交付 | [roadmap.md](roadmap.md)（M0-M53 已归档；M54 进行中） |
+| 里程碑与阶段交付 | [roadmap.md](roadmap.md)（M0-M54 已归档） |
 | 长期主线 / 候选 / 待人工验收 / 已知边界 | 本文档（按四象限结构） |
 | 历史归档索引 | [archive/index.md](archive/index.md) |

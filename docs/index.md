@@ -40,7 +40,7 @@ features:
       details: 模块边界、依赖分组升级、依赖图与执行矩阵；系统级设计见架构文档。
       link: /design/governance/architecture
     - title: 路线图
-      details: M0-M53 已全部闭环归档（M53 发布工程，1.0-G，2026-11-01 归档）；当前阶段 M54 1.0.0 发布窗口执行（先 0.7.0 再 1.0.0，有条件发布，目标 2026-11-15）；1.0 发布门槛与批次计划见 design/governance/release-1.0-readiness；插队容量治理规则见规划规范 §3.1.1。
+      details: M0-M54 已全部闭环归档；**1.0.0 已于 2026-11-07 发布**（npm 5 包 + `v1.0.0` + `@v1` + 镜像 `platform-1.0.0`）；下一阶段 1.0.x 观察期待规划；1.0 门槛终态见 design/governance/release-1.0-readiness，插队容量治理规则见规划规范 §3.1.1。
       link: /plan/roadmap
     - title: 当前任务
       details: 查看下一阶段规划与归档历史、验收指标与依赖；待办积压与已知边界。

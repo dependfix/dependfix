@@ -9,6 +9,7 @@
 
 | 阶段 | 主题 | 归档文件 | 归档日期 |
 |:--|:--|:--|:--|
+| M54 | 1.0.0 发布窗口决策与发布执行 | [M54](archive/todo-archive-phases-m54.md) | 2026-11-07 |
 | M53 | 发布工程（1.0-G 批次） | [M53](archive/todo-archive-phases-m53.md) | 2026-11-01 |
 | M52 | 文档平价与验证收口（1.0-F2 批次） | [M52](archive/todo-archive-phases-m52.md) | 2026-10-31 |
 | M51 | 语义与数据收口（1.0-F1 批次） | [M51](archive/todo-archive-phases-m51.md) | 2026-10-30 |

@@ -344,12 +344,8 @@ dependfix@0.7.0          sha512-1yaQaIJ0jr1EeOLS5pXfCN+pHEoYFaWahlQwtIkW87dZOwcD
 
 | 通道 | 版本 | tag / 产物 |
 |:--|:--|:--|
-| `dependfix`（锚版本） | `1.0.0` | `dependfix@1.0.0` + `v1.0.0` |
-| `@dependfix/core` | `1.0.0` | `@dependfix/core@1.0.0` |
-| `@dependfix/engine` | `1.0.0` | `@dependfix/engine@1.0.0` |
-| `@dependfix/skills` | `1.0.0` | `@dependfix/skills@1.0.0` |
-| `@dependfix/mcp` | `1.0.0` | `@dependfix/mcp@1.0.0` |
-| `@dependfix/platform` | `1.0.0`（tag-only，不发 npm） | `@dependfix/platform@1.0.0`；镜像 `platform-1.0.0` 由 dispatch `42352117141`（`--ref v1.0.0`、`platform_version=1.0.0`）构建 |
+| `dependfix`（锚版本）+ `@dependfix/core` / `engine` / `skills` / `mcp` | `1.0.0` | 各自的 `<pkg>@1.0.0`；`dependfix@1.0.0` 另打 `v1.0.0` |
+| `@dependfix/platform`（tag-only，不发 npm） | `1.0.0` | `@dependfix/platform@1.0.0` + 镜像 `platform-1.0.0` |
 
 六个包 tag + `v1.0.0` 均指向 `83c966fd`；`v1` 滚动标签（annotated `097723a7`）同样解引用到 `83c966fd`，`uses: dependfix/dependfix@v1` 自此可用。GitHub Release `v1.0.0` 为 Latest、非 prerelease（`publishedAt` = `2026-11-07T07:38:22Z`），正文含发布包矩阵 + 根 CHANGELOG 1.0.0 段（首个稳定版 / 入口 / 契约与迁移 / G8 当日复算 / 已知限制 / 已知非目标）。
 
@@ -377,8 +373,7 @@ dependfix@1.0.0          sha512-F3KrS2AQjio1kG49zlchTudnr+j8yEq09rcbCfUL804TSt6c
 - **方案改为原生多架构**（参照 caomei-auth，`c13f1714`）：amd64 用 `ubuntu-latest`、arm64 用 `ubuntu-24.04-arm` 原生构建，各自 `push-by-digest`，再由 `merge` job 用 `buildx imagetools create` 合成三个 registry 的 manifest。
 - **发布 run 链（镜像流水线三次迭代）**：`42371180834`（三仓库 manifest 均产出，merge 的 README 同步因缺 `actions/checkout` 红）→ `42372575641`（补 checkout 后全绿）→ `42373335914`（新增双架构回读门禁 `f7917cab`，全绿）→ `42375268994`（无 `platform_version` 的验证派发暴露 `imagetools create` 不支持 `--annotation`）→ `42376062304`（改为构建阶段写 OCI 标签后，无版本派发全绿：3 tag × 3 仓库 9/9 双架构、无 `platform-` 标签）→ `42376735406`（全绿，但 OCI `version` 仍取 ref 名 `master`）→ **`42381362295`（最终发布 run，全绿，`version=1.0.0`）**。
 - **双架构证据**：`42381362295` 中三个 registry × 4 个 tag（`latest` / `2026-11-07` / `platform-1.0.0` / `sha-5c81058`）经 `imagetools inspect --raw` 回读，**12/12 均为 `linux/amd64 + linux/arm64`**；镜像配置 `org.opencontainers.image.version = 1.0.0`（构建日志实测）。
-- 镜像 `BUILD_COMMIT = 5c810587…`（派发时 master HEAD，平台代码即 1.0.0）；`BUILD_VERSION = 1.0.0`。
-- 耗时（`42381362295`）：QA 4m09s / arm64 5m09s / amd64 3m38s / merge 1m45s；同流程其他轮次为 `42373335914` 3m30s / 1m10s / 2m21s / 1m50s，`42376735406` amd64 **41m32s**（未命中缓存）——**单架构耗时波动约 1m-42m**，故 `timeout-minutes` 取 90 分钟。
+- 镜像 `BUILD_COMMIT = 5c810587…`（派发时 master HEAD，平台代码即 1.0.0）、`BUILD_VERSION = 1.0.0`；耗时（`42381362295`）：QA 4m09s / arm64 5m09s / amd64 3m38s / merge 1m45s；同流程其他轮次为 `42373335914` 3m30s / 1m10s / 2m21s / 1m50s，`42376735406` amd64 **41m32s**（未命中缓存）——**单架构耗时波动约 1m-42m**，故 `timeout-minutes` 取 90 分钟。
 - **已知限制**：ACR 个人版按 tag 解析仍表现为单一 amd64 manifest（index 已生成并回读为双平台，客户端按 tag 拉取行为受平台限制）；provenance 三仓库统一关闭（ACR 拒绝 OCI attestation，`imagetools create` 无法跨 registry 传递），1.0.0 起 GHCR 镜像不带 provenance 证明。
 
 ## 定时自动发布（1.0.0+ 可启用，需用户另行授权）

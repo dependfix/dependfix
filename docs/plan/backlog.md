@@ -15,7 +15,7 @@
 - **下一次可切片方向**（任一触发时重新评估）：
   1. 构建工具生态文档站类目预置白名单（rolldown.rs / swc.rs / rust-lang.org 等）—— 新增白名单诉求应转为"真实注册表域"申请而非"构建工具文档站"
   2. 按 SRI 哈希钉资源（推荐域动态发现）
-  3. ~~**注册表域预置 + 动态发现生效 registry**（镜像站 / 企业私服被 deny-by-default 拦死 → install 失败 + 全量回滚）~~ —— **已随 2026-10-11 M42 阶段闭环（M42.1：`380e8f4` + `47f7c42` + `39df76d`，预置常见镜像源 + 从配置面动态发现生效 registry + 治理决议登记）**；剩余方向（构建工具生态文档站类目 / SRI 哈希钉定）保留待评估。
+  3. ~~**注册表域预置 + 动态发现生效 registry**（镜像站 / 企业私服被 deny-by-default 拦死 → install 失败 + 全量回滚）~~ —— **已随 2026-10-11 M42 阶段闭环（M42.1：`380e8f4` + `47f7c42` + `39df76d`）**；剩余方向保留待评估。
 - **验收**：默认白名单不再按次新增；verification 阶段合法外联不被误判；剩余候选方向（SRI 哈希钉定等）任一实施或主线整体评估为长期保留后关闭本主线条目
 
 ## 周期性回归验证层
@@ -54,20 +54,20 @@
 
 ### 候选评估中（待评估 / 本阶段延后项）
 
-> **候选池概览（2026-11-07 机械复算）**：本区 **65 项**（`### 候选评估中` 段内 `^- \*\*` 逐行计数；链条：11-05 → 63；11-06 并入「仓库级 `allowMajorUpgrade`」不入新条；11-07 镜像复核项收窄并新增镜像构建冗余 / arm64 未冒烟 → 65）；P 标签覆盖不全（未标注者评估时补 P 标签，不默认升级）；本文件不维护分档统计，1.0 分档只见 [release-1.0-readiness.md](../design/governance/release-1.0-readiness.md)。
-> **1.0 门槛与分档**：P0 23 / P1 8 / 1.0 后 15 的分档、门槛判定与批次计划见 [release-1.0-readiness.md](../design/governance/release-1.0-readiness.md)；本区候选在未上收前保持候选状态，上收后按批次从本表移除。
+> **候选池概览（2026-11-08 机械复算）**：本区 **66 项**（`### 候选评估中` 段内 `^- \*\*` 逐行计数）；P 标签覆盖不全（未标注者评估时补 P 标签，不默认升级）；本文件不维护分档统计，1.0 分档只见 [release-1.0-readiness.md](../design/governance/release-1.0-readiness.md)。
+> **1.0 门槛与分档**：P0 23 / P1 8 / 1.0 后 15 的分档、门槛判定与批次计划见 [release-1.0-readiness.md](../design/governance/release-1.0-readiness.md)。
 
 - **备份 `.tmp` 清扫缺年龄门槛（P3 🛠️，2026-10-31 M53.2 收口登记）** —— `cleanupOldBackups` 对 `*.bak.tmp` 无条件回收；单实例串行路径不可达冲突，但并发 `db:restore` 或多实例共卷启动时可能删掉对端正在写的临时文件（rename ENOENT → 该轮快照丢失，fail-open 后仅剩日志）。待评估：加入 `mtime < now - 10min` 年龄门槛或按 PID 命名临时文件。触发：启用多实例 / 多容器共享数据卷，或出现并发恢复需求时。
-- **`check:release-security` 输出缺少采集时点（P3 🛠️，2026-11-03 预发布检查发现）** —— 输出的告警汇总行与 PASS 行都不带采集时间，落盘为发布证据时无法自证时点（本轮 `artifacts/m54-6-precheck/release-security.txt` 只能靠文件 mtime 推断）。**范围**：输出首行加 ISO 时间戳（`--json` 同字段）。**验收**：输出与 JSON 均含采集时点，单测锁定。**不做**：不改告警判定与 fail-closed 语义。**触发条件**：下次改动该脚本，或再次需要以该输出作为发布证据。
+- **`check:release-security` 输出缺少采集时点（P3 🛠️，2026-11-03 预发布检查发现）** —— 输出的告警汇总行与 PASS 行都不带采集时间，落盘为发布证据时无法自证时点（只能靠文件 mtime 推断）。**范围**：输出首行加 ISO 时间戳（`--json` 同字段）。**验收**：输出与 JSON 均含采集时点，单测锁定。**不做**：不改告警判定与 fail-closed 语义。**触发条件**：下次改动该脚本，或再次需要以该输出作为发布证据。
 - **发布后镜像 tag / health 自动复核（P2 🚀，2026-11-01 登记；2026-11-07 部分落地）** —— 已有双架构回读门禁与 `push.paths` 过滤；1.0.0 health 已人工复核。残余：① 发布后自动 smoke（release 后置步骤用 `read:packages` token 拉 `platform-x.y.z` 跑 `/api/health`，失败告警不阻断）；② 历史 tag 巡检。触发：下一次发布前。
 - **镜像构建冗余（P2 🚀，2026-11-07）** —— ① 每架构对三 registry 各构建一次（digest 相同，冷缓存最慢 41m32s）；② 发布提交被 push 与派发各构建一次。待评估：单次多 name 推送 / 复用 digest / push 腿跳过 release 提交。
 - **arm64 镜像未冒烟（P3 🧪，2026-11-07）** —— 冒烟仅 amd64，回读只证存在不证可启动；待评估 arm 矩阵跑同一脚本。
 - **经验归档 §70-§99 分片超出健康窗口（P3 📚，2026-10-31 M53.2 收口登记）** —— 该分片由 399 行增至 **495 行**（2026-11-01 M53 归档沉淀 §八十一 后实测）（阈值：健康 ≤400 / warning 401-700 / 强制分片 >700），M53.2 与 M53 归档经验已使其进入 warning 带。待评估：按 `^## §N` 边界拆为 §70-§78 与 §79-§99 两片（属大批量归档批次，须按 [规划规范 §4.4](../standards/planning.md#_4-4-大批量归档批次操作规范) 执行锚点与外链追踪）。触发：M53 阶段归档批次（2026-11-01 已触发，拆分仍未执行），或该分片继续增长时。
-- **`platform.md` 字符预算逼近阻断线（P2 📚，2026-10-31 M53.2 收口登记）** —— 29,798 / 30,000（阻断线），本批已压缩 §10.6 文案换余量；下一次编辑即可能触发 `check:doc-governance` 阻断。待评估：外移 §10.6 细则（队列隔离 / 插件清单 / 已知边界）到独立 governance 文档，`platform.md` 保留摘要与指针。触发：下一次 `platform.md` 触及该段，或预算余量 < 50 字符。
+- **`platform.md` 字符预算逼近阻断线（P2 📚，2026-10-31 M53.2 收口登记）** —— 29,798 / 30,000（阻断线），下一次编辑即可能触发 `check:doc-governance` 阻断。待评估：外移 §10.6 细则（队列隔离 / 插件清单 / 已知边界）到独立 governance 文档，`platform.md` 保留摘要与指针。触发：下一次 `platform.md` 触及该段，或预算余量 < 50 字符。
 - **PR 回环有界重试（P2 🚀，2026-10-30 M51.3 用户裁定延后）** —— 设计稿 `pr-feedback-loop.md` §8 保留 `FeedbackRetryDispatcher` 契约（同 PR 失败后重新触发既有修复链，需配额与触发面）；平台当前无「同 PR 重试」入口，`retryFailed` 开启时每仓库每进程只 warn 一次。待评估：补触发面（API / UI）+ 配额后再实施。触发：出现「PR 红后无人处理、需自动重试」的实际需求时。
 - **门户面板左缘亚像素抖动（P2 🧪，2026-10-31 M52.4 收口登记）** —— `dialog-select-open-dark` 基线在连续 `--update-snapshots=all` 下约 1/10 轮出现 99 px / maxΔ2 的边缘窄带差异（bbox x 476-483 × y 303-723，位于门户面板左缘），低于门禁（`maxDiffPixels` 100 / `threshold` 0.1 → maxDelta 352）但仅剩 1 px 预算。已排除「update 落帧不稳定」这一主因（`waitForVisualStable` 已加两帧一致检查，全量集合 3/3 恒定）。待评估：定位面板定位的亚像素来源（门户定位取整 / 滚动条宽度），或对该基线改用元素级取景。触发：该基线偶发红，或差异放大到接近 / 超过 100 px。
 - **列表查询缺并列次键（P2 🛠️，2026-10-30 同 pattern 扫描）** —— alerts 原始列表已补 `result.id DESC` 次键（M51.6）；同一 pattern 已确认 6 处：`api/runs/index.get.ts`（分页 `skip/take` + 仅 `createdAt DESC`，翻页可能重复 / 丢失）、`api/runs/[id].get.ts`（`order: { severity }`，扫描详情弹窗有视觉基线）、`api/audit-events/index.get.ts`（`createdAt DESC` + `take(500)`）、`api/pr-checks/index.get.ts`、`api/notifications/index.get.ts`、`api/batch-runs/index.get.ts`（`createdAt DESC` + `take(50)`）；`repos` / `schedules` / `credentials` 等其余列表待逐处评估。影响：主排序键并列时行序取决于数据库返回顺序，同一查询两次可能不同（视觉基线 / 截断集合抖动，当前未暴露属潜伏）。待评估：统一口径「列表查询必须显式次键（唯一列 DESC）」并逐处补齐。触发：任一列表页出现视觉抖动或分页重复 / 丢失时。
-- **平台 typecheck 未覆盖 `.nuxt/tsconfig.node.json`（P2 🛠️，2026-10-30 审计发现）** —— `pnpm --filter @dependfix/platform typecheck`（`nuxt typecheck`）静默 exit 0，未覆盖 `.nuxt/tsconfig.json` 引用的 node 项目；实测该路径下 `nuxt.config.ts` 有 2 个既有类型错误（icon `rel: 'alternate icon'` 不在允许联合、i18n `locales` 声明为 readonly 与可变 `LocaleObject[]` 不兼容），另有 `.nuxt/tsconfig.node.json` 自身的 `emitDecoratorMetadata` / `experimentalDecorators` 组合告警。影响：`nuxt.config.ts` 一类配置错误长期不在门禁内。待评估：修掉 2 个错误后把该 project 纳入 typecheck 脚本（`vue-tsc -p .nuxt/tsconfig.json`）。触发：下次修改 `nuxt.config.ts` 或平台门禁治理批次。
+- **平台 typecheck 未覆盖 `.nuxt/tsconfig.node.json`（P2 🛠️，2026-10-30 审计发现）** —— `pnpm --filter @dependfix/platform typecheck`（`nuxt typecheck`）静默 exit 0，未覆盖 `.nuxt/tsconfig.json` 引用的 node 项目；实测该路径下 `nuxt.config.ts` 有 2 个既有类型错误（icon `rel` 联合不含 `'alternate icon'`、i18n `locales` readonly 不兼容），另有 `.nuxt/tsconfig.node.json` 自身的 `emitDecoratorMetadata` / `experimentalDecorators` 组合告警。影响：`nuxt.config.ts` 一类配置错误长期不在门禁内。待评估：修掉 2 个错误后把该 project 纳入 typecheck 脚本（`vue-tsc -p .nuxt/tsconfig.json`）。触发：下次修改 `nuxt.config.ts` 或平台门禁治理批次。
 - **预算跳过的交付可观测性（P2 🎨）** —— 运行预算不足导致终验跳过时，引擎已写 `BUDGET_EXHAUSTED` 审计并置 `RepositoryResult.verificationSkipped='budget'`，但 Markdown 报告不单独渲染该字段、平台运行详情也不展示；「修了 N 条、交付 0 条」只能从 Errors 表追溯。待评估：报告与平台展示「验证跳过（预算）」并在 `deliverySkips` 家族里登记该跳过原因。触发：出现「预算耗尽但用户不知道为何没交付」的反馈时。
 - **平台侧交付载体（issue / 草稿 PR，P2 🎨）** —— 引擎 `fix-and-pr` 已按基线红档位产出载体（issue / 草稿 PR），平台执行链（`fix + commit` + `platform-delivery`）目前只记录 `summary.deliverySkipped*` 并在运行列表 / 详情展示；待评估：平台在交付决策处复用同一失败指纹开 issue / 创建草稿 PR，并补仓库级配置写入面（当前仅 env `DEPENDFIX_ON_BASELINE_RED`，UI / API 不暴露）。触发：平台用户反馈「基线红只有标签、没有可跟踪载体」时。口径见 [pr-delivery-closure.md §16.7](../design/governance/pr-delivery-closure.md#_16-7-已知边界)。
 - **镜像脚本只覆盖根 scripts 单一形态**（M48.2 边界）—— `pnpm --filter` / 递归 / env 前缀 / corepack 钉定只披露不执行；触发：目标仓库 CI 大量使用这些形态导致「本地假绿」再现。
@@ -262,6 +262,8 @@
 
 - **取消后引擎未在宽限期落定 + 工作目录清理竞态（待评估，P2 🛡️）** —— 现象：`rss-resources-download` 在基线阶段被 30 分钟上限中止后，`[executor] ... 引擎在 10000ms 宽限期内未落定（不再等待）`，随后 `finally` 仍 `rm -rf` 工作目录；同批 `momei` 则在宽限期内落定。**根因未定位**（候选：重命令子进程未随进程组退出 / 管道未关闭 / 非受管 await）。**待评估点**：① 未落定的具体原因（重命令子进程未随进程组退出 / 管道未关闭 / 非受管 await），需在取消路径记录「仍有存活受管子进程数 + 最后启动命令」；② 宽限期是否按「是否仍有受管子进程存活」动态延长（而非固定 10s）；③ 未落定时是否延迟清理 workDir（保留诊断）或先强杀进程组再清理；④ 与 `executor-process-isolation.md` 取消契约的一致性。**验收标准（草案）**：构造「基线阶段被中止」→ 日志给出未落定原因；workDir 清理不早于子进程全部退出。**不做**：不改 30 分钟上限口径。**触发条件**：再次出现「宽限期内未落定」（本页 1 例）。
   - **按 [规划规范 §3.1](../standards/planning.md#_3-1-新需求默认走-评估-→-backlog-原则-hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
+
+- **AI 基建机检补强（P2 🛠️，2026-11-08 上游提案研判登记）** —— skill frontmatter / `metadata.internal`、`references` 索引、镜像符号链接、技能文档死链均已合规但**无机检**。**待评估**：① 新增 `check-ai-governance`（frontmatter 必填 + `references` / 镜像链接可达）并注册 `DOC_GATES` 复用 `gates:docs` 单入口，不另开 `ai:check` CI job；② `cmyr-skills-agents` 的 `docs/proposals/2026-11-02-governance-check-alignment.md` 中 #5 弃用引用 / #6 能力标记 optOut（无机器可读 deprecated 清单；跨仓读台账成第二事实源）。**触发**：新增或合并 skill、`references` 调整、回写上游台账时。
 
 ### 待上收候选（评估完成，等待用户决策）
 

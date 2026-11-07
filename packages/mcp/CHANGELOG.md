@@ -1,5 +1,12 @@
 # @dependfix/mcp
 
+## [1.0.0](https://github.com/dependfix/dependfix/compare/@dependfix/mcp@0.3.1...@dependfix/mcp@1.0.0) (2026-11-06)
+
+### ⚙️ 依赖更新
+
+* bump `@dependfix/core` to 1.0.0 (was 0.7.0)
+* bump `@dependfix/engine` to 1.0.0 (was 0.6.0)
+
 ## [0.3.1](https://github.com/dependfix/dependfix/compare/@dependfix/mcp@0.3.0...@dependfix/mcp@0.3.1) (2026-11-01)
 
 ### ⚙️ 依赖更新

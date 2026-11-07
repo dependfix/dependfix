@@ -1,5 +1,12 @@
 # @dependfix/platform
 
+## [1.0.0](https://github.com/dependfix/dependfix/compare/@dependfix/platform@0.5.0...@dependfix/platform@1.0.0) (2026-11-06)
+
+### ⚙️ 依赖更新
+
+* bump `@dependfix/core` to 1.0.0 (was 0.7.0)
+* bump `@dependfix/engine` to 1.0.0 (was 0.6.0)
+
 # [0.5.0](https://github.com/dependfix/dependfix/compare/@dependfix/platform@0.4.0...@dependfix/platform@0.5.0) (2026-11-01)
 
 

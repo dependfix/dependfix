@@ -1,5 +1,17 @@
 # dependfix
 
+# [1.0.0](https://github.com/dependfix/dependfix/compare/dependfix@0.7.0...dependfix@1.0.0) (2026-11-06)
+
+
+### 🐛 Bug 修复
+
+* **scripts:** 非 npm 发布包不再按 registry 判定未发布 ([b4eccd5](https://github.com/dependfix/dependfix/commit/b4eccd5))
+
+
+### 📦 代码重构
+
+* **scripts:** changelog 生成流程收敛到 main 入口守卫 ([874ffab](https://github.com/dependfix/dependfix/commit/874ffab))
+
 # [0.7.0](https://github.com/dependfix/dependfix/compare/dependfix@0.6.0...dependfix@0.7.0) (2026-11-01)
 
 

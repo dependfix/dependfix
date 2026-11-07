@@ -1,5 +1,5 @@
 import { execSync } from 'node:child_process'
-import { existsSync, writeFileSync } from 'node:fs'
+import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { buildReleasePlan, isPreMajor, main, parseCommit, pathToPkg, renderPlan, stripDevTags, toBump } from './create-release-plan.mjs'
 
@@ -134,8 +134,14 @@ describe('stripDevTags', () => {
 })
 
 describe('isPreMajor', () => {
-    it('returns true for current 0.x version (real package.json)', () => {
-        expect(isPreMajor()).toBe(true)
+    it('按仓库真实版本判定（0.x 期间为 true，1.x 起为 false）', () => {
+        const { version } = JSON.parse(readFileSync(new URL('../packages/core/package.json', import.meta.url), 'utf8'))
+        expect(isPreMajor()).toBe(version.startsWith('0.'))
+    })
+
+    it('显式版本入参覆盖两个分支', () => {
+        expect(isPreMajor('0.7.0')).toBe(true)
+        expect(isPreMajor('1.0.0')).toBe(false)
     })
 })
 

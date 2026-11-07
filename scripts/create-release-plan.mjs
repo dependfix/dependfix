@@ -147,10 +147,13 @@ function collectCommits(base) {
     return commits
 }
 
-/** 读取包版本判断 preMajor（0.x 阶段）。假设三发布包版本同步（当前均为 0.1.0），以 core 为基准 */
-export function isPreMajor() {
-    const pkg = JSON.parse(readFileSync(join(repoRoot, 'packages/core/package.json'), 'utf8'))
-    return typeof pkg.version === 'string' && pkg.version.startsWith('0.')
+/**
+ * 判断 preMajor（0.x 阶段）：入参缺省时读 core 的 package.json（发布包版本同步，以 core 为基准）。
+ * 显式传入版本便于单测覆盖 0.x / 1.x 两个分支，避免用例绑定仓库当前所处阶段。
+ */
+export function isPreMajor(version) {
+    const resolved = version ?? JSON.parse(readFileSync(join(repoRoot, 'packages/core/package.json'), 'utf8')).version
+    return typeof resolved === 'string' && resolved.startsWith('0.')
 }
 
 export function main() {

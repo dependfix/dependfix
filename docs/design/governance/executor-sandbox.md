@@ -157,7 +157,7 @@ GitHub `dispatches` API 成功返回 204 即触发受理，但不返回 run id�
 
 ### 5.1 使用方式
 
-1. 目标仓库添加依赖：在其 `.github/workflows/security-auto-fix.yml` 中 `uses: dependfix/dependfix@v0.6.0`（复用根 action.yml，M2 已落地），`on: workflow_dispatch` 声明。
+1. 目标仓库添加依赖：在其 `.github/workflows/security-auto-fix.yml` 中 `uses: dependfix/dependfix@v1`（复用根 action.yml，M2 已落地），`on: workflow_dispatch` 声明。
 2. 平台仓库配置：`actionWorkflowFile` 填入该文件路径，凭据选择具备 `actions: write` 的 Credential。
 3. 用户触发：平台 Web UI 点击扫描（执行后端选择 GitHub Action）→ 平台触发 dispatch → **用户跳转目标仓库 Actions 页面查看执行**。
 

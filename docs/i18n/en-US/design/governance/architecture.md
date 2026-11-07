@@ -49,7 +49,7 @@ The dependency direction is top-down (UI / entry → engine → core), and lower
 ### Entry layer
 
 - **CLI** (`packages/cli`): commander-based CLI, four modes (`report-only` / `fix` / `fix-and-pr` / `cleanup-branches`), flags via Commander
-- **GitHub Action** (root `action.yml`, composite): wraps CLI, exposes `uses: dependfix/dependfix@v0.6.0` to GitHub Actions
+- **GitHub Action** (root `action.yml`, composite): wraps CLI, exposes `uses: dependfix/dependfix@v1` to GitHub Actions
 - **MCP Server** (`packages/mcp`): exposes scan / fix tools to AI agents (Claude Code / Copilot / Cursor) via Model Context Protocol
 - **Skill** (`packages/skills`): Markdown + YAML frontmatter, lets AI agents converse and drive fixes
 

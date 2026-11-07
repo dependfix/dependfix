@@ -63,6 +63,7 @@
 | M53: 发布工程（1.0-G） | 契约冻结清单与迁移指南 + 运维实测与发布自动化预演 + 指标脚本与 mutation 扩面 + 发布链预演（不发版）+ G3 真实环境矩阵执行框架（实跑待资源）+ 登录页第三方登录按钮品牌化（用户追加） | P0-P2 | 已完成（2026-10-31 规划 / 2026-11-01 已闭环归档，见 [M53 详情分片](archive/roadmap-phases-m53.md) + [M53 归档分片](archive/todo-archive-phases-m53.md)） |
 | M54: 1.0.0 发布窗口决策与发布执行 | 0.7.0 发布与发布链验证 + 1.0.0 有条件发布（G3 / G4 豁免披露、G5 / G6 / G7 补齐、G8 指标引用）+ `@v1` | P0-P1 | 已归档（2026-11-07 发布 1.0.0；6 原子闭环；[详情](archive/roadmap-phases-m54.md)） |
 | 1.0: 发布门槛收口 | E 通知可信度（= M50）+ F1 语义与数据（= M51）+ F2 文档与验证（= M52）+ G 发布工程（M53）+ 发布执行（M54） | P0-P1 | 已完成（2026-11-07 发布 1.0.0；G3 / G4 按已披露豁免、G7 残留面，不代表门槛全绿；E / F1 / F2 / G 批次工程与发布执行均已闭环并归档；**1.0.0 发布窗口已决策（M54，2026-11-01）**：先 0.7.0 再 1.0.0、有条件发布、目标 2026-11-15；台账见 [release-1.0-readiness.md](../design/governance/release-1.0-readiness.md)） |
+| M55: 1.0.x 修复有效性与执行边界收口 | 版本化 override 生效校验与交付展示同源 + 运行预算夹取与双跑成本收敛 + 失败路径可观测性 + 仓库级执行预算与超时配置（含 PUT partial 修复）+ 仓库级跨 major 开关 | P1-P2 | 进行中（2026-11-08 规划） |
 
 > **本路线图定位**：按 [规划规范 §2.1](../standards/planning.md) 仅维护阶段概览（目标 / 优先级 / 状态）。详细实施记录 / commit 引用 / 关键决策 / 经验教训见对应归档段（详见下方"## 详细任务"索引）。
 
@@ -70,20 +71,19 @@
 
 > **M39-M54 阶段详情已迁出**：M39-M48 见 [archive/roadmap-phases-m39-m48.md](archive/roadmap-phases-m39-m48.md)（2026-10-26 文档治理批次迁出）；M49 见 [archive/roadmap-phases-m49.md](archive/roadmap-phases-m49.md)（2026-10-29 归档批次迁出）；M50 见 [archive/roadmap-phases-m50.md](archive/roadmap-phases-m50.md)（2026-10-30 归档批次迁出）；M51 见 [archive/roadmap-phases-m51.md](archive/roadmap-phases-m51.md)（2026-10-30 归档批次迁出）；M52 见 [archive/roadmap-phases-m52.md](archive/roadmap-phases-m52.md)（2026-10-31 归档批次迁出）；M53 见 [archive/roadmap-phases-m53.md](archive/roadmap-phases-m53.md)（2026-11-01 归档批次迁出）；M54 见 [archive/roadmap-phases-m54.md](archive/roadmap-phases-m54.md)（2026-11-07 归档批次迁出）。主文档保留里程碑概述表与当前阶段状态。
 
-## 当前阶段：无（M54 已归档）
+## 当前阶段：M55（1.0.x 修复有效性与执行边界收口）
 
+> 2026-11-08 用户决策：引擎修复有效性优先（版本化 override 生效校验 / 运行预算夹取 / 失败可观测性），并追加两项平台需求（仓库级执行超时配置、仓库级跨 major 开关）。5 原子 / 20-26 commits / 53-60 文件 / 2950-4400 行（逐原子求和口径）；执行顺序 M55.1 → M55.2 → M55.3 → M55.4 → M55.5。任务正文见 [todo.md](todo.md)。
 
 M54（1.0.0 发布窗口决策与发布执行）已于 2026-11-07 归档，详情见 [archive/roadmap-phases-m54.md](archive/roadmap-phases-m54.md)；执行记录见 [archive/todo-archive-phases-m54.md](archive/todo-archive-phases-m54.md)。
-
-下一阶段（1.0.x 发布后观察）尚未规划，候选见 [backlog.md](backlog.md)。
 
 ---
 
 ## 详细任务
 
-- 当前阶段任务：无（M54 已归档；见 [todo.md](todo.md)）
+- 当前阶段任务：M55（1.0.x 修复有效性与执行边界收口；见 [todo.md](todo.md)）
 - 已归档阶段：[todo-archive.md](todo-archive.md)（阶段索引 + 分片；M0-M54 全部已归档；分片治理见 [archive/index.md](archive/index.md)）
-- 下一阶段（未规划）：**1.0.x 发布后观察（补丁号待定）**（发布后 issue / 指标观察；台账见 [release-1.0-readiness.md](../design/governance/release-1.0-readiness.md)）
+- 下一阶段（未规划）：待 M55 收口后按 [规划规范 §3.1](../standards/planning.md#_3-1-新需求默认走-评估-→-backlog-原则-hard-requirement) 评估
 - 后续阶段任务（延期项 + 未排期增强候选）：[backlog.md](backlog.md)
 
 ## 交付原则

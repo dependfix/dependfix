@@ -4,8 +4,8 @@ on:
   workflow_dispatch:
     inputs:
       # §T1310: release.yml 完成后主动 workflow_dispatch docker.yml，传 platform_version
-      # 触发条件 = 仅 build job（push:master 触发时 inputs.platform_version 为空，跳过
-      # platform-x.y.z tag，保持 latest+date+sha 三元组）
+      # 触发条件 = 仅 merge job 的 platform-x.y.z tag（push:master 触发时 inputs.platform_version
+      # 为空，跳过该 tag，保持 latest+date+sha 三元组）
       platform_version:
         description: '依赖 platform 包版本号（仅 release.yml 主动触发时填）'
         type: string
@@ -14,15 +14,24 @@ on:
   push:
     branches:
       - master
+    # 仅镜像内容相关路径才触发 push 构建：文档 / 计划 / 脚本改动不产生镜像差异，
+    # 触发构建只会白烧算力并与 release 派发争用（1.0.0 实测两路 QEMU 构建各触 240 分钟上限）。
+    # 注意：不含 .github/workflows/docker.yml —— 工作流本身的改动不改变镜像内容，
+    # 纳入过滤会为一次 workflow 提交白跑一轮构建；需要立即验证工作流时用 workflow_dispatch。
+    paths:
+      - 'apps/platform/**'
+      - 'packages/**'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
 
-# 仅取消针对当前工作流正在进行的作业或运行
+# 发布派发（带 platform_version）与普通 push 分属不同分组：
+# - 发布构建禁取消（多架构构建耗时长，被后续 push 取代会白烧算力）；
+# - 普通 push 之间互相取代（后一次 push 的镜像覆盖前一次）。
+# 原生 arm runner 后单架构构建约 15-30 分钟，同一提交上「push 构建 + release 派发」仍会各跑一次，
+# 但已不再互相拖慢到超时。
 concurrency:
-  # 发布构建（带 platform_version）单列分组且禁用取消：多架构 QEMU 构建耗时长，被后续 push 取代
-  # 会白烧算力；普通 push 之间仍互相取代。
-  # 注：0.6.0 的 platform-0.4.0 tag 缺失**不是**并发取消造成的——那次 dispatch 运行的 build job
-  # 触及 120 分钟 job 上限被 kill（step 已跑 115.5 分钟；同窗反向取消的是更早的 push run）。
-  # 对应修复是下方 build job 的 timeout-minutes 提到 240 分钟。
-  group: ${{ github.workflow }}-${{ github.ref }}-${{ inputs.platform_version || 'push' }}
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ inputs.platform_version && 'release' || 'push' }}
   cancel-in-progress: ${{ inputs.platform_version == '' }}
 
 jobs:
@@ -56,13 +65,24 @@ jobs:
       - run: pnpm run typecheck
       - run: pnpm run test
 
+  # 原生多架构构建：amd64 / arm64 分别在对应架构的 runner 上构建，避免 QEMU 模拟下从源码
+  # 编译 better-sqlite3 与打包 Nuxt client（1.0.0 实测 QEMU 下「Bundling client」单步 3h51m 未完成，
+  # 两路构建均触 240 分钟上限被取消）。各架构按 digest 推送，由 merge job 合成多架构 manifest。
   build:
+    name: Build (${{ matrix.arch }})
     needs: qa
-    runs-on: ubuntu-latest
-    # 多架构（amd64 + arm64 QEMU）完整构建实测单 step 已达 115.5 分钟：0.6.0 的发布派发运行
-    # 40745976335 因此在 120 分钟上限被 kill，platform-0.4.0 tag 从未产出。提到 240 分钟留余量；
-    # 根治方向（原生 arm runner / 拆分 per-arch job）已登记 backlog。
-    timeout-minutes: 240
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-latest
+            arch: amd64
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
+            arch: arm64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
     permissions:
       packages: write
       contents: read
@@ -72,12 +92,10 @@ jobs:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
-      - name: Get short commit hash
-        run: echo "TAG=sha-${GITHUB_SHA::7}" >>${GITHUB_ENV}
       # ── §T1310 platform version 提取 ───────────────────────
       # release.yml 主动触发时（workflow_dispatch inputs.platform_version 非空），
       # 直接把入参当作 platform_version 输出；push:master 触发时入参为空，输出空，
-      # 下游 metadata-action tag 的 enable=false → 不打 platform-x.y.z tag。
+      # merge job 的 metadata tag 相应 enable=false → 不打 platform-x.y.z tag。
       - name: Extract platform version
         id: platform-version
         run: |
@@ -86,12 +104,6 @@ jobs:
           else
             echo "platform_version=" >> "$GITHUB_OUTPUT"
           fi
-      # ── 原生多架构构建 ─────────────────────────────────────
-      # 直接使用原始 Dockerfile，让 Buildx + QEMU 在各目标平台上
-      # 完整执行 pnpm install → build，确保原生模块（better-sqlite3）
-      # 针对各架构正确编译，避免预构建 x86_64 产物跨平台兼容问题。
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v4
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
       - name: Login to GitHub Container Registry
@@ -111,44 +123,15 @@ jobs:
           registry: registry.cn-hangzhou.aliyuncs.com
           username: ${{ secrets.ALIYUN_USERNAME }}
           password: ${{ secrets.ALIYUN_PASSWORD }}
-      # 镜像命名：Docker Hub / 阿里云暂用 caomeiyouren/dependfix（dependfix/dependfix 未注册）；
-      # GitHub 用 dependfix/dependfix。metadata 按 registry 分组拆成两步，使各推送步骤
-      # 直接消费对应 tags，避免在表达式内做 filter/split 过滤（GitHub 表达式解析器不支持
-      # `=>` 箭头函数，filter 亦不在官方函数列表，2026-08 实证 422：Unexpected symbol '='）。
-      # 注意：两个步骤的 tags 策略需保持同步。
-      - name: Extract Docker metadata (Docker Hub & GHCR)
-        id: metadata
-        uses: docker/metadata-action@v6
-        with:
-          images: |
-            caomeiyouren/dependfix
-            ghcr.io/dependfix/dependfix
-          tags: |
-            type=raw,value=latest,enable=true
-            type=raw,value={{date 'YYYY-MM-DD' tz='Asia/Shanghai'}},enable=true
-            type=sha,format=short,prefix=sha-,enable=true
-            type=raw,value=platform-${{ steps.platform-version.outputs.platform_version }},enable=${{ steps.platform-version.outputs.platform_version != '' }}
-          flavor: latest=false
-      - name: Extract Docker metadata (Alibaba Cloud ACR)
-        id: metadata-acr
-        uses: docker/metadata-action@v6
-        with:
-          images: |
-            registry.cn-hangzhou.aliyuncs.com/caomeiyouren/dependfix
-          tags: |
-            type=raw,value=latest,enable=true
-            type=raw,value={{date 'YYYY-MM-DD' tz='Asia/Shanghai'}},enable=true
-            type=sha,format=short,prefix=sha-,enable=true
-            type=raw,value=platform-${{ steps.platform-version.outputs.platform_version }},enable=${{ steps.platform-version.outputs.platform_version != '' }}
-          flavor: latest=false
-      # ── 镜像可用性冒烟（推送前门禁）─────────────────────────────
-      # 先构建单架构（amd64）本地镜像并加载到 runner，跑 apps/platform/docker/smoke-test.sh：
+      # ── 镜像可用性冒烟（推送前门禁，仅 amd64）─────────────────────
+      # 先构建单架构本地镜像并加载到 runner，跑 apps/platform/docker/smoke-test.sh：
       # 验证「不依赖部署侧 compose 注入 env」时首次启动自动建表（HTTP 200 + 13 业务表 + 无 no such table）。
-      # 冒烟失败则后续 push 步骤不执行（同 job 顺序），避免发布不可用镜像。
-      # 基础镜像从 Docker Hub 拉取（Dockerfile FROM 的字面引用）：本 job 的 `Login to Docker Hub`
-      # 必须保持在三个构建步骤之前——移除或前移该步骤会让拉取退回匿名通道（100 次/6h 按出口 IP，
+      # 冒烟失败则后续按 digest 推送不执行（同 job 顺序），避免发布不可用镜像。
+      # 基础镜像从 Docker Hub 拉取（Dockerfile FROM 的字面引用）：上面的 `Login to Docker Hub`
+      # 必须保持在构建步骤之前——移除或前移该步骤会让拉取退回匿名通道（100 次/6h 按出口 IP，
       # 共享 runner 上易 429）。口径详见 Dockerfile 顶部注释。
       - name: Build local image for smoke test (amd64)
+        if: ${{ matrix.arch == 'amd64' }}
         uses: docker/build-push-action@v7
         with:
           context: .
@@ -161,48 +144,195 @@ jobs:
           build-args: |
             BUILD_COMMIT=smoke-commit
             BUILD_VERSION=smoke-version
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.arch }}
       - name: Smoke test built image
+        if: ${{ matrix.arch == 'amd64' }}
         env:
           SMOKE_EXPECT_VERSION: smoke-version
           SMOKE_EXPECT_COMMIT: smoke-commit
         run: SMOKE_IMAGE=dependfix-smoke:ci sh apps/platform/docker/smoke-test.sh
-      # 镜像分两批推送：Docker Hub / GHCR 保留 provenance attestation（build-push-action@v7
-      # 默认 --attest type=provenance,mode=max）；阿里云 ACR 个人版不支持 OCI attestation
-      # artifact（推送 application/vnd.oci.empty.v1+json 被拒：unknown manifest class），
-      # 必须关闭 attestation 单独推送。两次构建共用同一 Buildx 实例与 gha 层缓存，成本可忽略。
-      - name: Build and push Docker images (Docker Hub & GHCR)
-        uses: docker/build-push-action@v7
-        with:
-          # 使用原始 Dockerfile，Buildx + QEMU 为各平台原生编译
-          context: .
-          file: apps/platform/Dockerfile
-          push: true
-          tags: ${{ steps.metadata.outputs.tags }}
-          labels: ${{ steps.metadata.outputs.labels }}
-          platforms: linux/amd64,linux/arm64
-          build-args: |
-            BUILD_COMMIT=${{ github.sha }}
-            BUILD_VERSION=${{ steps.platform-version.outputs.platform_version }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-      - name: Build and push Docker images (Alibaba Cloud ACR)
+      # ── 按 digest 推送（每个 registry 一次，共用层缓存）─────────────────
+      # 三个 registry 的镜像名不同（Docker Hub / ACR 为 caomeiyouren/dependfix，GHCR 为
+      # dependfix/dependfix），digest 各自独立，故每个 registry 各推一次并在 merge job
+      # 用各自的 digest 组装 manifest list。
+      # provenance 统一关闭：ACR 个人版拒绝 OCI attestation artifact
+      # （application/vnd.oci.empty.v1+json → unknown manifest class），
+      # 且 `imagetools create` 不支持跨 registry 传递 attestation，三处口径保持一致。
+      - name: Build and push by digest (Docker Hub)
+        id: build-dockerhub
         uses: docker/build-push-action@v7
         with:
           context: .
           file: apps/platform/Dockerfile
-          push: true
-          tags: ${{ steps.metadata-acr.outputs.tags }}
-          labels: ${{ steps.metadata-acr.outputs.labels }}
-          platforms: linux/amd64,linux/arm64
-          build-args: |
-            BUILD_COMMIT=${{ github.sha }}
-            BUILD_VERSION=${{ steps.platform-version.outputs.platform_version }}
+          platforms: ${{ matrix.platform }}
+          outputs: type=image,name=caomeiyouren/dependfix,push-by-digest=true,name-canonical=true,push=true
           provenance: false
-          sbom: false
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          build-args: |
+            BUILD_COMMIT=${{ github.sha }}
+            BUILD_VERSION=${{ steps.platform-version.outputs.platform_version }}
+          cache-from: type=gha,scope=${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.arch }}
+      - name: Build and push by digest (GHCR)
+        id: build-ghcr
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: apps/platform/Dockerfile
+          platforms: ${{ matrix.platform }}
+          outputs: type=image,name=ghcr.io/dependfix/dependfix,push-by-digest=true,name-canonical=true,push=true
+          provenance: false
+          build-args: |
+            BUILD_COMMIT=${{ github.sha }}
+            BUILD_VERSION=${{ steps.platform-version.outputs.platform_version }}
+          cache-from: type=gha,scope=${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.arch }}
+      - name: Build and push by digest (Alibaba Cloud ACR)
+        id: build-acr
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: apps/platform/Dockerfile
+          platforms: ${{ matrix.platform }}
+          outputs: type=image,name=registry.cn-hangzhou.aliyuncs.com/caomeiyouren/dependfix,push-by-digest=true,name-canonical=true,push=true
+          provenance: false
+          build-args: |
+            BUILD_COMMIT=${{ github.sha }}
+            BUILD_VERSION=${{ steps.platform-version.outputs.platform_version }}
+          cache-from: type=gha,scope=${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.arch }}
+      - name: Export digests
+        run: |
+          set -euo pipefail
+          mkdir -p "${RUNNER_TEMP}/digests"
+          printf '%s' "${{ steps.build-dockerhub.outputs.digest }}" > "${RUNNER_TEMP}/digests/dockerhub-${{ matrix.arch }}.digest"
+          printf '%s' "${{ steps.build-ghcr.outputs.digest }}" > "${RUNNER_TEMP}/digests/ghcr-${{ matrix.arch }}.digest"
+          printf '%s' "${{ steps.build-acr.outputs.digest }}" > "${RUNNER_TEMP}/digests/acr-${{ matrix.arch }}.digest"
+          ls -l "${RUNNER_TEMP}/digests"
+      - name: Upload digests
+        uses: actions/upload-artifact@v7
+        with:
+          name: digests-${{ matrix.arch }}
+          path: ${{ runner.temp }}/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  # 合成多架构 manifest 并打 tag：只做 registry manifest 操作，不重复构建。
+  merge:
+    name: Publish multi-arch manifests
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      packages: write
+      contents: read
+    steps:
+      - name: Download digests
+        uses: actions/download-artifact@v8
+        with:
+          path: ${{ runner.temp }}/digests
+          pattern: digests-*
+          merge-multiple: true
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Login to Docker Hub
+        uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+      - name: Login to Alibaba Cloud Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: registry.cn-hangzhou.aliyuncs.com
+          username: ${{ secrets.ALIYUN_USERNAME }}
+          password: ${{ secrets.ALIYUN_PASSWORD }}
+      - name: Get short commit hash
+        run: echo "TAG=sha-${GITHUB_SHA::7}" >>${GITHUB_ENV}
+      # 三个 registry 分别生成 tag 列表（镜像名不同）。tags 策略需与下方 manifest 组装保持同步。
+      - name: Extract Docker metadata (Docker Hub)
+        id: metadata-dockerhub
+        uses: docker/metadata-action@v6
+        with:
+          images: caomeiyouren/dependfix
+          tags: |
+            type=raw,value=latest,enable=true
+            type=raw,value={{date 'YYYY-MM-DD' tz='Asia/Shanghai'}},enable=true
+            type=sha,format=short,prefix=sha-,enable=true
+            type=raw,value=platform-${{ inputs.platform_version }},enable=${{ inputs.platform_version != '' }}
+          flavor: latest=false
+      - name: Extract Docker metadata (GHCR)
+        id: metadata-ghcr
+        uses: docker/metadata-action@v6
+        with:
+          images: ghcr.io/dependfix/dependfix
+          tags: |
+            type=raw,value=latest,enable=true
+            type=raw,value={{date 'YYYY-MM-DD' tz='Asia/Shanghai'}},enable=true
+            type=sha,format=short,prefix=sha-,enable=true
+            type=raw,value=platform-${{ inputs.platform_version }},enable=${{ inputs.platform_version != '' }}
+          flavor: latest=false
+      - name: Extract Docker metadata (Alibaba Cloud ACR)
+        id: metadata-acr
+        uses: docker/metadata-action@v6
+        with:
+          images: registry.cn-hangzhou.aliyuncs.com/caomeiyouren/dependfix
+          tags: |
+            type=raw,value=latest,enable=true
+            type=raw,value={{date 'YYYY-MM-DD' tz='Asia/Shanghai'}},enable=true
+            type=sha,format=short,prefix=sha-,enable=true
+            type=raw,value=platform-${{ inputs.platform_version }},enable=${{ inputs.platform_version != '' }}
+          flavor: latest=false
+      - name: Create and push multi-arch manifests (Docker Hub)
+        env:
+          IMAGE: caomeiyouren/dependfix
+          TAGS: ${{ steps.metadata-dockerhub.outputs.tags }}
+        run: |
+          set -euo pipefail
+          digest_dir="${RUNNER_TEMP}/digests"
+          sources="${IMAGE}@$(cat "${digest_dir}/dockerhub-amd64.digest") ${IMAGE}@$(cat "${digest_dir}/dockerhub-arm64.digest")"
+          echo "sources: ${sources}"
+          while IFS= read -r tag; do
+            [ -z "$tag" ] && continue
+            echo "::group::docker buildx imagetools create -t ${tag}"
+            docker buildx imagetools create -t "${tag}" ${sources}
+            echo "::endgroup::"
+          done <<< "${TAGS}"
+      - name: Create and push multi-arch manifests (GHCR)
+        env:
+          IMAGE: ghcr.io/dependfix/dependfix
+          TAGS: ${{ steps.metadata-ghcr.outputs.tags }}
+        run: |
+          set -euo pipefail
+          digest_dir="${RUNNER_TEMP}/digests"
+          sources="${IMAGE}@$(cat "${digest_dir}/ghcr-amd64.digest") ${IMAGE}@$(cat "${digest_dir}/ghcr-arm64.digest")"
+          echo "sources: ${sources}"
+          while IFS= read -r tag; do
+            [ -z "$tag" ] && continue
+            echo "::group::docker buildx imagetools create -t ${tag}"
+            docker buildx imagetools create -t "${tag}" ${sources}
+            echo "::endgroup::"
+          done <<< "${TAGS}"
+      - name: Create and push multi-arch manifests (Alibaba Cloud ACR)
+        env:
+          IMAGE: registry.cn-hangzhou.aliyuncs.com/caomeiyouren/dependfix
+          TAGS: ${{ steps.metadata-acr.outputs.tags }}
+        run: |
+          set -euo pipefail
+          digest_dir="${RUNNER_TEMP}/digests"
+          sources="${IMAGE}@$(cat "${digest_dir}/acr-amd64.digest") ${IMAGE}@$(cat "${digest_dir}/acr-arm64.digest")"
+          echo "sources: ${sources}"
+          while IFS= read -r tag; do
+            [ -z "$tag" ] && continue
+            echo "::group::docker buildx imagetools create -t ${tag}"
+            docker buildx imagetools create -t "${tag}" ${sources}
+            echo "::endgroup::"
+          done <<< "${TAGS}"
       - name: Docker Hub README & description sync
         uses: meeDamian/sync-readme@v1.0.6
         with:

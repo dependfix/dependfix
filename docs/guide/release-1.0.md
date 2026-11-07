@@ -49,7 +49,7 @@
 4. `pnpm run build` → `pnpm release:preflight`（断言新版本）。
 5. **发布通道（用户 2026-11-05 决策）：GitHub Actions → Release → Run workflow（`release.yml` 的 OIDC dispatch）**；本地备用通道仅作应急，需 OTP 且不内置安全门禁、也不会自动派发镜像。
 6. 观察 `release:publish` → `release:push-tags` → `release:github` 全绿；`release.yml` 末尾会以 `--ref v1.0.0` 派发 `docker.yml` 并带 `platform_version=1.0.0`，应产出 `platform-1.0.0`（参照 0.7.0 的手动派发 `41439905381`：四标签 + 双架构，build 22m03s）。**若改用本地通道，必须手动补一次同样的派发**，否则没有 `platform-1.0.0`。
-7. 创建 `v1` 滚动标签（Action 引用写作 `@v1`）指向 `1.0.0` 的发布提交，并在文档中核验 `uses: dependfix/dependfix@v1` 可用。移动已有标签属破坏性操作，只在确认无其它消费者时执行。
+7. 创建 `v1` 滚动标签（Action 引用写作 `@v1`）指向 `1.0.0` 的发布提交，并在文档中核验 `uses: dependfix/dependfix@v1` 可用。**已完成（2026-11-07，annotated `097723a7` → `83c966fd`），用户可见示例已切到 `@v1`**。移动已有标签属破坏性操作，只在确认无其它消费者时执行。
 
 ## 4. 发布后复核
 

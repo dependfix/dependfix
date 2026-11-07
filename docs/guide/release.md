@@ -375,7 +375,7 @@ dependfix@1.0.0          sha512-F3KrS2AQjio1kG49zlchTudnr+j8yEq09rcbCfUL804TSt6c
 
 - **原 QEMU 方案失败**：`docker.yml` 原在单 job 内用 QEMU 跨架构构建，`42351771958`（push 自动触发）与 `42352117141`（release 派发）同时卡在 Nuxt `Bundling client` 近 4 小时，双双触 240 分钟上限被取消，**未产出任何镜像 tag**。
 - **方案改为原生多架构**（参照 caomei-auth，`c13f1714`）：amd64 用 `ubuntu-latest`、arm64 用 `ubuntu-24.04-arm` 原生构建，各自 `push-by-digest`，再由 `merge` job 用 `buildx imagetools create` 合成三个 registry 的 manifest。
-- **发布 run 链（镜像流水线三次迭代）**：`42371180834`（三仓库 manifest 均产出，merge 的 README 同步因缺 `actions/checkout` 红）→ `42372575641`（补 checkout 后全绿）→ `42373335914`（新增双架构回读门禁 `f7917cab`，全绿）→ `42375268994`（非发布分支验证时暴露 `imagetools create` 不支持 `--annotation`）→ `42376062304`（改为构建阶段写 OCI 标签后，非发布分支全绿：3 tag × 3 仓库 9/9 双架构、无 `platform-` 标签）→ **`42376735406`（最终发布 run，全绿）**。
+- **发布 run 链（镜像流水线三次迭代）**：`42371180834`（三仓库 manifest 均产出，merge 的 README 同步因缺 `actions/checkout` 红）→ `42372575641`（补 checkout 后全绿）→ `42373335914`（新增双架构回读门禁 `f7917cab`，全绿）→ `42375268994`（无 `platform_version` 的验证派发暴露 `imagetools create` 不支持 `--annotation`）→ `42376062304`（改为构建阶段写 OCI 标签后，无版本派发全绿：3 tag × 3 仓库 9/9 双架构、无 `platform-` 标签）→ **`42376735406`（最终发布 run，全绿）**。
 - **双架构证据**：`42376735406` 中三个 registry × 4 个 tag（`latest` / `2026-11-07` / `platform-1.0.0` / `sha-df2a63b`）经 `imagetools inspect --raw` 回读，**12/12 均为 `linux/amd64 + linux/arm64`**。
 - 镜像 `BUILD_COMMIT = df2a63b9…`（派发时 master HEAD，平台代码即 1.0.0）；`BUILD_VERSION = 1.0.0`。
 - 耗时（`42376735406`）：QA 3m43s / arm64 1m11s / amd64 41m32s（本轮未命中缓存，最慢实测）/ merge 1m41s；`42373335914` 同流程热缓存为 3m30s / 2m21s / 1m10s / 1m50s——**单架构耗时波动 1m-42m**，故 `timeout-minutes` 取 90 分钟（原 60 分钟对冷缓存偏紧）。

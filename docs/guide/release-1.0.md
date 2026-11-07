@@ -1,6 +1,6 @@
 # 1.0.0 发布清单与发布说明骨架
 
-> **状态**：**已执行（2026-11-07，M54.6）**——六个发布包 `1.0.0` 已发布（npm 5 包 + `@dependfix/platform` tag-only + `v1.0.0`），`@v1` 滚动标签已创建，镜像 `platform-1.0.0` 由 dispatch `42373335914` 发布（原生多架构，三仓库 12/12 tag 回读双架构）；发布链、校验和与复核结果见[发布指南的 1.0.0 发布记录](release.md#_1-0-0-发布记录-m54-6-2026-11-07-已执行)，台账回填见[就绪度台账](../design/governance/release-1.0-readiness.md) §2。
+> **状态**：**已执行（2026-11-07，M54.6）**——六个发布包 `1.0.0` 已发布（npm 5 包 + `@dependfix/platform` tag-only + `v1.0.0`），`@v1` 滚动标签已创建，镜像 `platform-1.0.0` 由 dispatch `42376735406` 发布（`42373335914` 为首个通过回读门禁的 run）（原生多架构，三仓库 12/12 tag 回读双架构）；发布链、校验和与复核结果见[发布指南的 1.0.0 发布记录](release.md#_1-0-0-发布记录-m54-6-2026-11-07-已执行)，台账回填见[就绪度台账](../design/governance/release-1.0-readiness.md) §2。
 > **口径**：**有条件发布**——G3 实跑 / G4 窗口按已披露豁免降级（见[就绪度台账 §2](../design/governance/release-1.0-readiness.md)），G5 / G6 / G7 可执行项补齐，G8 引用真实读数。**豁免不等于通过**：发布说明必须照实披露，不得写成 G3 / G4 已验收。
 > **决策来源**：[就绪度台账 §2.2](../design/governance/release-1.0-readiness.md) + 用户 2026-11-01 四项决策（先中间版本再 `1.0.0` / 有条件发布 / 接受 Google OAuth 未测 / 目标窗口 2026-11-15）+ 当日执行期裁定第 ⑤ 条（中间版本按 `release:plan` 推导，落地为 `0.7.0`）。
 > **通用机制**：`release:plan` → `release:version` → `changelog` → CI 发布链见[发布指南](release.md)；本页只列 1.0.0 的差异面与发布说明骨架。
@@ -87,7 +87,7 @@
 | 数据库 | 本轮无迁移，不触发；路径引用 [deployment.md](deployment.md) 备份恢复 | 迁移前滚后可回退 | 备份 / 恢复路径已在 M53.2 实测（备份 323,584 字节 → `db:restore` → 三方逐表 0 差异、`integrity_check: ok`）→ **通过（引用既有实测）** |
 
 - **逐面状态**：npm / git tag / 数据库 = drill 实测通过；GitHub Release = 仅判据核对（删除 / 重建未执行）；Docker = 标签 / 构建已实测，health 已于 2026-11-05 经 ACR 通过；双架构已回读验证（三 registry × 4 tag = 12/12 `linux/amd64 + linux/arm64`）；**ACR 个人版按 tag 解析仍为单 amd64 manifest**（平台限制未变）；1.0.0 镜像 `/api/health` 版本戳未复核；`@v1` = 已创建（`097723a7` → `83c966fd`），回退命令未演练。**不得**把本表读成「全部面已演练」。
-- **Docker 面 retry_condition**：镜像已由 `41439905381` 发布且 health 已通过；剩余 = 双架构 / 客户端 manifest 证明——在具备 `read:packages` token 或 Docker Hub 可达时执行 `docker buildx imagetools inspect ghcr.io/dependfix/dependfix:platform-<版本>`（应见 `linux/amd64` + `linux/arm64`）→ 核对 `imagetools create` 重指旧 digest 的判据 → `docker run --rm` 核对 `/api/health` 的 `version` / `commit`。
+- **Docker 面 retry_condition**：0.7.0 面（`platform-0.5.0`）剩余 = 双架构 / 客户端 manifest 证明（需 `read:packages` 或 Docker Hub 可达）。**1.0.0 面已推进**：`imagetools inspect` 回读三 registry × 4 tag = **12/12 双架构**（run `42376735406`）；剩余 = **1.0.0 镜像 `/api/health` 版本戳复核**与 **ACR 按 tag 单 amd64 解析**（平台限制）。
 - **残余**：Release 删除 / 重建与远端 tag 删除属破坏性，仅按命令与判据演练；npm 真实 `deprecate` 未对任何已发布版本执行（`0.6.0` 是否弃用属用户决策，见[发布指南](release.md)「0.7.0 发布记录」）。
 
 ## 6. 产物校验和

@@ -34,7 +34,7 @@ on:
 # - 发布构建禁取消（多架构构建耗时长，被后续 push 取代会白烧算力）；
 # - 普通 push 之间互相取代（后一次 push 的镜像覆盖前一次）。
 # 原生 arm runner 实测（2026-11-07）：冷缓存 amd64 9m37s / arm64 3m43s，热缓存 amd64 2m21s / arm64 1m10s；
-# 单架构预算 60 分钟按「冷缓存 + runner 争用」留余量。同一提交上「push 构建 + release 派发」仍会各跑一次，
+# 单架构预算 90 分钟按「冷缓存 + runner 争用」留余量（实测最慢 41m32s）。同一提交上「push 构建 + release 派发」仍会各跑一次，
 # 但已不再互相拖慢到超时。
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}-${{ inputs.platform_version && 'release' || 'push' }}
@@ -138,6 +138,10 @@ jobs:
         uses: docker/metadata-action@v6
         with:
           images: caomeiyouren/dependfix
+          # 显式给 tag，使 org.opencontainers.image.version 等于发布版本（缺省会取 ref 名 = master）；
+          # 该 tag 仅用于生成 labels，不参与推送（推送发生在 merge job）。
+          tags: |
+            type=raw,value=${{ steps.platform-version.outputs.platform_version || github.sha }}
       # ── 镜像可用性冒烟（推送前门禁，仅 amd64）─────────────────────
       # 先构建单架构本地镜像并加载到 runner，跑 apps/platform/docker/smoke-test.sh：
       # 验证「不依赖部署侧 compose 注入 env」时首次启动自动建表（HTTP 200 + 13 业务表 + 无 no such table）。

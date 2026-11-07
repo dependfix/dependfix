@@ -129,6 +129,14 @@ jobs:
           registry: registry.cn-hangzhou.aliyuncs.com
           username: ${{ secrets.ALIYUN_USERNAME }}
           password: ${{ secrets.ALIYUN_PASSWORD }}
+      # 镜像配置里的 OCI 标签（source / revision / version / created）由构建阶段写入，
+      # 不能靠 manifest 合成阶段补（`imagetools create` 不支持 annotation，实测报
+      # `annotations are not supported yet`）。images 仅用于生成 labels，忽略其 tags。
+      - name: Extract Docker metadata (labels)
+        id: metadata
+        uses: docker/metadata-action@v6
+        with:
+          images: caomeiyouren/dependfix
       # ── 镜像可用性冒烟（推送前门禁，仅 amd64）─────────────────────
       # 先构建单架构本地镜像并加载到 runner，跑 apps/platform/docker/smoke-test.sh：
       # 验证「不依赖部署侧 compose 注入 env」时首次启动自动建表（HTTP 200 + 13 业务表 + 无 no such table）。
@@ -173,6 +181,7 @@ jobs:
           file: apps/platform/Dockerfile
           platforms: ${{ matrix.platform }}
           outputs: type=image,name=caomeiyouren/dependfix,push-by-digest=true,name-canonical=true,push=true
+          labels: ${{ steps.metadata.outputs.labels }}
           provenance: false
           build-args: |
             BUILD_COMMIT=${{ github.sha }}
@@ -187,6 +196,7 @@ jobs:
           file: apps/platform/Dockerfile
           platforms: ${{ matrix.platform }}
           outputs: type=image,name=ghcr.io/dependfix/dependfix,push-by-digest=true,name-canonical=true,push=true
+          labels: ${{ steps.metadata.outputs.labels }}
           provenance: false
           build-args: |
             BUILD_COMMIT=${{ github.sha }}
@@ -201,6 +211,7 @@ jobs:
           file: apps/platform/Dockerfile
           platforms: ${{ matrix.platform }}
           outputs: type=image,name=registry.cn-hangzhou.aliyuncs.com/caomeiyouren/dependfix,push-by-digest=true,name-canonical=true,push=true
+          labels: ${{ steps.metadata.outputs.labels }}
           provenance: false
           build-args: |
             BUILD_COMMIT=${{ github.sha }}
@@ -314,10 +325,7 @@ jobs:
           while IFS= read -r tag; do
             [ -z "$tag" ] && continue
             echo "::group::docker buildx imagetools create -t ${tag}"
-            docker buildx imagetools create -t "${tag}" \
-              --annotation "org.opencontainers.image.source=https://github.com/dependfix/dependfix" \
-              --annotation "org.opencontainers.image.revision=${GITHUB_SHA}" \
-              ${sources}
+            docker buildx imagetools create -t "${tag}" ${sources}
             echo "::endgroup::"
           done <<< "${TAGS}"
       - name: Create and push multi-arch manifests (GHCR)
@@ -332,10 +340,7 @@ jobs:
           while IFS= read -r tag; do
             [ -z "$tag" ] && continue
             echo "::group::docker buildx imagetools create -t ${tag}"
-            docker buildx imagetools create -t "${tag}" \
-              --annotation "org.opencontainers.image.source=https://github.com/dependfix/dependfix" \
-              --annotation "org.opencontainers.image.revision=${GITHUB_SHA}" \
-              ${sources}
+            docker buildx imagetools create -t "${tag}" ${sources}
             echo "::endgroup::"
           done <<< "${TAGS}"
       - name: Create and push multi-arch manifests (Alibaba Cloud ACR)
@@ -350,10 +355,7 @@ jobs:
           while IFS= read -r tag; do
             [ -z "$tag" ] && continue
             echo "::group::docker buildx imagetools create -t ${tag}"
-            docker buildx imagetools create -t "${tag}" \
-              --annotation "org.opencontainers.image.source=https://github.com/dependfix/dependfix" \
-              --annotation "org.opencontainers.image.revision=${GITHUB_SHA}" \
-              ${sources}
+            docker buildx imagetools create -t "${tag}" ${sources}
             echo "::endgroup::"
           done <<< "${TAGS}"
       # 双架构门禁：manifest 由 digest 合成后回读 index，确认 amd64 + arm64 都在

@@ -24,11 +24,17 @@ on:
       - 'package.json'
       - 'pnpm-lock.yaml'
       - 'pnpm-workspace.yaml'
+      # 以下三项分别是 Dockerfile 的 COPY 输入、workspace tsconfig 链的根、构建上下文过滤规则：
+      # 改动会改变镜像内容，必须纳入触发面
+      - '.npmrc'
+      - 'tsconfig.json'
+      - '.dockerignore'
 
 # 发布派发（带 platform_version）与普通 push 分属不同分组：
 # - 发布构建禁取消（多架构构建耗时长，被后续 push 取代会白烧算力）；
 # - 普通 push 之间互相取代（后一次 push 的镜像覆盖前一次）。
-# 原生 arm runner 后单架构构建约 15-30 分钟，同一提交上「push 构建 + release 派发」仍会各跑一次，
+# 原生 arm runner 实测（2026-11-07）：冷缓存 amd64 9m37s / arm64 3m43s，热缓存 amd64 2m21s / arm64 1m10s；
+# 单架构预算 60 分钟按「冷缓存 + runner 争用」留余量。同一提交上「push 构建 + release 派发」仍会各跑一次，
 # 但已不再互相拖慢到超时。
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}-${{ inputs.platform_version && 'release' || 'push' }}
@@ -208,6 +214,10 @@ jobs:
           printf '%s' "${{ steps.build-dockerhub.outputs.digest }}" > "${RUNNER_TEMP}/digests/dockerhub-${{ matrix.arch }}.digest"
           printf '%s' "${{ steps.build-ghcr.outputs.digest }}" > "${RUNNER_TEMP}/digests/ghcr-${{ matrix.arch }}.digest"
           printf '%s' "${{ steps.build-acr.outputs.digest }}" > "${RUNNER_TEMP}/digests/acr-${{ matrix.arch }}.digest"
+          # 空 digest 会让 merge 阶段拼出 `image@` 的晦涩报错，这里提前失败
+          for f in "${RUNNER_TEMP}"/digests/*.digest; do
+            [ -s "$f" ] || { echo "::error::digest 为空：${f}"; exit 1; }
+          done
           ls -l "${RUNNER_TEMP}/digests"
       - name: Upload digests
         uses: actions/upload-artifact@v7
@@ -304,7 +314,10 @@ jobs:
           while IFS= read -r tag; do
             [ -z "$tag" ] && continue
             echo "::group::docker buildx imagetools create -t ${tag}"
-            docker buildx imagetools create -t "${tag}" ${sources}
+            docker buildx imagetools create -t "${tag}" \
+              --annotation "org.opencontainers.image.source=https://github.com/dependfix/dependfix" \
+              --annotation "org.opencontainers.image.revision=${GITHUB_SHA}" \
+              ${sources}
             echo "::endgroup::"
           done <<< "${TAGS}"
       - name: Create and push multi-arch manifests (GHCR)
@@ -319,7 +332,10 @@ jobs:
           while IFS= read -r tag; do
             [ -z "$tag" ] && continue
             echo "::group::docker buildx imagetools create -t ${tag}"
-            docker buildx imagetools create -t "${tag}" ${sources}
+            docker buildx imagetools create -t "${tag}" \
+              --annotation "org.opencontainers.image.source=https://github.com/dependfix/dependfix" \
+              --annotation "org.opencontainers.image.revision=${GITHUB_SHA}" \
+              ${sources}
             echo "::endgroup::"
           done <<< "${TAGS}"
       - name: Create and push multi-arch manifests (Alibaba Cloud ACR)
@@ -334,7 +350,10 @@ jobs:
           while IFS= read -r tag; do
             [ -z "$tag" ] && continue
             echo "::group::docker buildx imagetools create -t ${tag}"
-            docker buildx imagetools create -t "${tag}" ${sources}
+            docker buildx imagetools create -t "${tag}" \
+              --annotation "org.opencontainers.image.source=https://github.com/dependfix/dependfix" \
+              --annotation "org.opencontainers.image.revision=${GITHUB_SHA}" \
+              ${sources}
             echo "::endgroup::"
           done <<< "${TAGS}"
       # 双架构门禁：manifest 由 digest 合成后回读 index，确认 amd64 + arm64 都在

@@ -395,7 +395,7 @@ dependfix@1.0.0          sha512-F3KrS2AQjio1kG49zlchTudnr+j8yEq09rcbCfUL804TSt6c
 | 5 | 直推 master | 自动版本的 `chore(release): x.y.z [skip ci]` 提交需能直推 master（或改为 PR + 自动合并） | **未验证**：仓库当前无 required status checks，直推可行；若日后开启保护需改流程 |
 | 6 | 版本与日志一致 | `pnpm verify:changelog` 绿；`release:plan` 能推导计划（无变更时自动 no-op） | 已绿（release 前置步骤 + 本地预演见下） |
 | 7 | 回滚预案 | 镜像 tag / npm 版本 / git tag 均可回退；发布后 3 天观察窗口 | 见本文「tag 策略与包版本不同步」与「已知限制与排查」 |
-| 8 | `@v1` 滚动 tag | 仅 `1.0.0` 发布后启用；启用前 Action 引用保持具体版本 | **已创建（2026-11-07，`097723a7` → `83c966fd`）**；用户可见示例的引用切换随 M54.6 收口 |
+| 8 | `@v1` 滚动 tag | 仅 `1.0.0` 发布后启用；启用前 Action 引用保持具体版本 | **已创建（2026-11-07，`097723a7` → `83c966fd`）**；用户可见示例已切换（README / 首页 / quick-start 中英） |
 
 启用步骤：
 

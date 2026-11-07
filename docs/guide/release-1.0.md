@@ -14,7 +14,7 @@
 | 其余 npm 包 | **用户决策（2026-11-05）：`@dependfix/core` / `@dependfix/engine` / `@dependfix/mcp` / `@dependfix/skills` 全部随 1.0.0 发布**，版本统一 `1.0.0`；依赖范围由 `release:version` 的传导闭包更新 |
 | `@dependfix/platform` | 版本独立递增（tag-only 通道），**本次同样从 `0.5.0` 抬到 `1.0.0`**（用户决策），镜像 tag 为 `platform-1.0.0` |
 | CHANGELOG | **七份**：根级 + 5 个 npm 包 + `apps/platform`（`pnpm verify:changelog` 按 6 个发布包 + 根级校验）；由 `pnpm changelog` 生成并提交 |
-| `v1` 滚动标签 | 发布后创建 `v1`（Action 引用写作 `@v1`）并指向 `1.0.0` 的发布提交；此前 Action 引用保持具体版本 |
+| `v1` 滚动标签 | **已创建（2026-11-07，annotated `097723a7` → `83c966fd`）**；Action 引用写作 `@v1`，回退命令未演练 |
 
 ## 2. 发布前门禁
 
@@ -69,7 +69,7 @@
 | npm | `npm deprecate dependfix@<版本> "<说明>"` → 发修复版 | **不** `npm unpublish`（24 小时限制且破坏已有安装） |
 | git tag | `git push origin :refs/tags/<tag>` → 按修复提交重打并推送 | 生产 tag 不作为演练对象（仅本地一次性 tag） |
 | GitHub Release | `gh release delete <tag>` → 按修复后的提交重建（notes 重新生成） | 生产 Release 不作为演练对象 |
-| `@v1` 滚动标签 | `git tag -f v1 <上一稳定发布提交> && git push -f origin v1`（移动标签属破坏性） | 仅在已有 `v1` 消费者时评估；1.0.0 发布后才创建（M54.6） |
+| `@v1` 滚动标签 | `git tag -f v1 <上一稳定发布提交> && git push -f origin v1`（移动标签属破坏性） | 已创建并指向 1.0.0 发布提交；移动 / 回退属破坏性操作，随 1.0.1 演练 |
 | Docker | `docker buildx imagetools create` 把 `latest` / `platform-<版本>` 重指旧 digest → 重跑 docker workflow | 需镜像写权限 |
 | 数据库 | 按[部署指南](deployment.md)的备份恢复路径 | 迁移前滚后回退依赖发布前备份 |
 
@@ -86,7 +86,7 @@
 | Docker | `docker run --rm registry.cn-hangzhou.aliyuncs.com/caomeiyouren/dependfix:platform-0.5.0` + `/api/health` | 版本戳与发布提交一致 | **health 通过**（2026-11-05 ACR 匿名拉取 + 冒烟：`0.5.0` / `a049a561`，15 张表）；**双架构未验证**——ACR tag 解析为单一 amd64 manifest，GHCR 缺 `read:packages`，故 Docker 面仍留残余 |
 | 数据库 | 本轮无迁移，不触发；路径引用 [deployment.md](deployment.md) 备份恢复 | 迁移前滚后可回退 | 备份 / 恢复路径已在 M53.2 实测（备份 323,584 字节 → `db:restore` → 三方逐表 0 差异、`integrity_check: ok`）→ **通过（引用既有实测）** |
 
-- **逐面状态**：npm / git tag / 数据库 = drill 实测通过；GitHub Release = 仅判据核对（删除 / 重建未执行）；Docker = 标签 / 构建已实测，health 已于 2026-11-05 经 ACR 通过；**双架构未验证**（ACR tag 为单 amd64 manifest，GHCR blocked）；`@v1` = 延后至 1.0.0 发布后。**不得**把本表读成「全部面已演练」。
+- **逐面状态**：npm / git tag / 数据库 = drill 实测通过；GitHub Release = 仅判据核对（删除 / 重建未执行）；Docker = 标签 / 构建已实测，health 已于 2026-11-05 经 ACR 通过；**双架构未验证**（ACR tag 为单 amd64 manifest，GHCR blocked）；`@v1` = 已创建（`097723a7` → `83c966fd`），回退命令未演练。**不得**把本表读成「全部面已演练」。
 - **Docker 面 retry_condition**：镜像已由 `41439905381` 发布且 health 已通过；剩余 = 双架构 / 客户端 manifest 证明——在具备 `read:packages` token 或 Docker Hub 可达时执行 `docker buildx imagetools inspect ghcr.io/dependfix/dependfix:platform-<版本>`（应见 `linux/amd64` + `linux/arm64`）→ 核对 `imagetools create` 重指旧 digest 的判据 → `docker run --rm` 核对 `/api/health` 的 `version` / `commit`。
 - **残余**：Release 删除 / 重建与远端 tag 删除属破坏性，仅按命令与判据演练；npm 真实 `deprecate` 未对任何已发布版本执行（`0.6.0` 是否弃用属用户决策，见[发布指南](release.md)「0.7.0 发布记录」）。
 

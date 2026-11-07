@@ -18,7 +18,7 @@ features:
       details: Four command modes (report-only / fix / fix-and-pr / cleanup-branches), runnable via npx with no dependencies, supports owner / topic multi-repo management.
       link: /en-US/guide/quick-start
     - title: GitHub Action integration
-      details: "Wire into CI with a single line: uses: dependfix/dependfix@v0.6.0. Supports scheduled, manual and PR-triggered runs with customizable verification commands."
+      details: "Wire into CI with a single line: uses: dependfix/dependfix@v1. Supports scheduled, manual and PR-triggered runs with customizable verification commands."
       link: /en-US/guide/quick-start
     - title: AI breaking-change assessment
       details: Automatically fetch Changelog on major upgrades, multi-provider assessment (DeepSeek / OpenAI), structured patches with safety-gated recommendations.

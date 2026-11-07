@@ -268,14 +268,14 @@ pnpm release:preflight --out-dir=artifacts/release-preflight   # 额外写 prefl
 #### Docker 镜像复核（0.6.0 / 0.7.0）
 
 - **静态检查**：`docker buildx build --check -f apps/platform/Dockerfile .` → `Check complete, no warnings found`。
-- **`platform-x.y.z` tag 未落地（已定位）**：0.6.0 的 docker `workflow_dispatch` 运行 `40745976335`（2026-10-28T18:31Z）的 build job 触及 **120 分钟 job 上限**被 kill（build step 已跑 115.5 分钟），`platform-0.4.0` 从未推送。修复：build job `timeout-minutes` 提到 240 分钟（**已由 0.7.0 派发确认：build 22m03s，余量充足**）；发布构建单列并发组并禁用取消（多架构 QEMU 构建耗时长，被后续 push 取代会白烧算力）；`release.yml` 改为 `--ref v<锚版本>` 派发，镜像内容钉在发布提交上。根治方向（原生 arm runner / 按架构拆 job）已登记 backlog。
+- **`platform-x.y.z` tag 未落地（已定位）**：0.6.0 的 docker `workflow_dispatch` 运行 `40745976335`（2026-10-28T18:31Z）的 build job 触及 **120 分钟 job 上限**被 kill（build step 已跑 115.5 分钟），`platform-0.4.0` 从未推送。修复：build job `timeout-minutes` 提到 240 分钟（**已由 0.7.0 派发确认：build 22m03s，余量充足**）；发布构建单列并发组并禁用取消（多架构 QEMU 构建耗时长，被后续 push 取代会白烧算力）；`release.yml` 改为 `--ref v<锚版本>` 派发，镜像内容钉在发布提交上。根治方向（原生 arm runner / 按架构拆 job）已于 1.0.0 实施，见「1.0.0 发布记录」镜像段。
 - **补发旧版本镜像的约束**：`release.yml` 以 `--ref v<锚版本>` 派发，GitHub 按**该 tag 上的 workflow 文件**执行。对修复前创建的旧 tag（如 `v0.6.0`，其 `docker.yml` 仍是 120 分钟上限 + `cancel-in-progress: true`）不能用该路径补发；也不要用 `--ref master`（构建的是 master HEAD 内容，与版本不对应）——须新建指向该发布提交的临时分支后 `--ref <branch>`，或直接发新 tag。
 - **本环境无法复核远端镜像**：GHCR 包为私有且本地 token 缺 `read:packages`；`registry-1.docker.io` 连接超时。重试条件：拿到 `read:packages` token 或 Docker Hub 可达后执行
   `docker buildx imagetools inspect ghcr.io/dependfix/dependfix:platform-<平台版本>`（应见 `linux/amd64` + `linux/arm64`），再以 `docker run --rm` 拉起镜像核对 `/api/health` 的 `version` / `commit`。
 - **0.7.0 镜像已由 `workflow_dispatch` 发布，`platform-0.5.0` 存在（2026-11-03 复核）**：运行 `41439905381`（`--ref v0.7.0`，`platform_version=0.5.0`，success）产出四标签 `latest` / `2026-11-02` / `platform-0.5.0` / `sha-a049a56`，Docker Hub 与 GHCR 同步；ACR 为 amd64-only tag（见下）；`BUILD_VERSION=0.5.0` 随构建注入；多架构导出 manifest list `sha256:71f6633…a244f1`（`linux/amd64` + `linux/arm64`）。**build job 实测 22m03s**（11:54:24→12:16:27，预算 240 分钟余量充足，0.6.0 的 115.5 分钟不再复现）。注意：push 路径本身只产 `latest` / 日期 / `sha-*`，**`platform-x.y.z` 必须由 dispatch 带 `platform_version` 产生**。
 - **阿里云 ACR 复核（2026-11-05，用户指定通道）**：公开仓库 `registry.cn-hangzhou.aliyuncs.com/caomeiyouren/dependfix:platform-0.5.0` 可匿名拉取，`docker run` 冒烟 **PASS**——`/api/health` 返回 `{"version":"0.5.0","commit":"a049a561…"}`、15 张业务表、迁移专用模式通过。**但该 tag 在 ACR 解析为单一 amd64 manifest**（`sha256:a6d5c93…`）：index `sha256:71f6633…` 虽按 digest 可取（内含 amd64 `6f3231a` + arm64 `df1d5a2`），标准客户端按 tag 拉取只得到 amd64（ACR 个人版行为）→ **ACR 不能作为双架构证据**；双架构需 GHCR（需 `read:packages`）或 ACR 企业版。
 - **GHCR / Docker Hub 复核仍 blocked**：GHCR `failed to fetch anonymous token ... 401 Unauthorized`（token 缺 `read:packages`），Docker Hub `dial tcp ...:443: i/o timeout`；标签与 digest 取自运行日志（metadata 步骤与 buildx 导出），**不是**客户端 `imagetools inspect` 实测。**前置条件**：具备 `read:packages` token 或 Docker Hub 可达。
-- **对 1.0.0 的含义**：1.0.0 的 `platform-1.0.0` 同样**必须走 `release.yml` 派发**（本地发布通道不会自动派发）；本次 22 分钟的实测说明预算与多架构链路可用，1.0 沿用同一路径即可。注意 ACR 侧仍会是 amd64-only tag，arm64 用户应使用 GHCR。
+- **对 1.0.0 的含义**：1.0.0 的 `platform-1.0.0` 同样**必须走 `release.yml` 派发**（本地发布通道不会自动派发）。**注意**：0.7.0 这次 22 分钟**不能**作为 1.0.0 的预算证明——1.0.0 首次 QEMU 构建实测 4 小时超时被取消，已改为原生多架构（见下方「1.0.0 发布记录」）。ACR 侧按 tag 拉取仍表现为单 amd64 manifest，arm64 用户应使用 GHCR。
 
 ### 0.7.0 发布记录（M54.2，2026-11-02 已执行）
 
@@ -371,7 +371,14 @@ dependfix@1.0.0          sha512-F3KrS2AQjio1kG49zlchTudnr+j8yEq09rcbCfUL804TSt6c
 
 **归档范围说明**：0.7.0 段承诺「tarball `sha256sum` / `@dependfix/skills` 预演 tarball / 客户端 `RepoDigests` 随 1.0.0 一并归档」，本轮改为以官方 registry 的 5 条 `dist.integrity` 作发布物指纹；tarball `sha256sum` 与 `RepoDigests` 未采集（本地发布通道不产 tarball 归档，镜像客户端 manifest 受 GHCR / ACR 权限限制）。
 
-**镜像**：`platform-1.0.0` 走 `docker.yml` dispatch（`--ref v1.0.0`、`platform_version=1.0.0`、`BUILD_VERSION=1.0.0`），标签集与双架构 manifest 以该 run 日志为准；ACR 个人版仍会把 tag 解析为单 amd64 manifest，双架构证明须 GHCR（`read:packages`）或 ACR 企业版。
+**镜像（`platform-1.0.0`，2026-11-07 发布）**
+
+- **原 QEMU 方案失败**：`docker.yml` 原在单 job 内用 QEMU 跨架构构建，`42351771958`（push 自动触发）与 `42352117141`（release 派发）同时卡在 Nuxt `Bundling client` 近 4 小时，双双触 240 分钟上限被取消，**未产出任何镜像 tag**。
+- **方案改为原生多架构**（参照 caomei-auth，`c13f1714`）：amd64 用 `ubuntu-latest`、arm64 用 `ubuntu-24.04-arm` 原生构建，各自 `push-by-digest`，再由 `merge` job 用 `buildx imagetools create` 合成三个 registry 的 manifest。
+- **发布 run 链**：`42371180834`（三仓库 manifest 均产出，merge 的 README 同步因缺 `actions/checkout` 红，`TAG: sha-c13f171`）→ `42372575641`（补 checkout 后全绿）→ `42373335914` **全绿且含双架构回读门禁**（`f7917cab`）：QA 3m30s / amd64 2m21s / arm64 1m10s / merge 1m50s。
+- **双架构证据**：三个 registry × 4 个 tag（`latest` / `2026-11-07` / `platform-1.0.0` / `sha-f7917ca`）经 `imagetools inspect --raw` 回读，**12/12 均为 `linux/amd64 + linux/arm64`**。
+- 镜像 `BUILD_COMMIT = f7917cab…`（派发时 master HEAD，平台代码即 1.0.0）；`BUILD_VERSION = 1.0.0`。
+- **已知限制**：ACR 个人版按 tag 解析仍表现为单一 amd64 manifest（index 已生成并回读为双平台，客户端按 tag 拉取行为受平台限制）；provenance 三仓库统一关闭（ACR 拒绝 OCI attestation，`imagetools create` 无法跨 registry 传递），1.0.0 起 GHCR 镜像不带 provenance 证明。
 
 ## 定时自动发布（1.0.0+ 可启用，需用户另行授权）
 

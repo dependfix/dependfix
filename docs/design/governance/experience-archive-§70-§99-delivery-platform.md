@@ -504,3 +504,15 @@
 - **手法**：① 生成流程收敛到 `main()` + 入口守卫，导入零副作用（`headDate` / `repo` 的 git 子进程一并惰性化到 `main()` 内）；② 非 npm 发布包改用「未知 → 保留」的发布探针（返回 `null`），只信任 tag 证据，并让 `isVersionTagged` 对这类包跳过 registry 查询；③ 回归用例用 `vi.resetModules()` 重导入断言无 stdout（旧版导入会打印 7 行 `unchanged`，负例已实证），另加「浅克隆 + 非 npm 包 → 全部历史段保留」组合例。
 - **启示**：CI 里「本地不复现」的偶发红，先在同一次 run 的 stdout 里找并发写者（vitest 把模块/子进程输出归属到执行中的测试文件），再比对本地与 CI 的**环境前提差异**（tag / 浅克隆 / registry 可达性），不要先收窄断言本身——收窄只会掩盖写者。
 - **落点**：`scripts/changelog.test.mjs`（导入零副作用 + 发布探针用例，L1）+ [code-auditor 必查项「Node 脚本 main 入口守卫」](../../../.github/agents/code-auditor.agent.md)（L2；存量脚本不在其触发面，故以模块级用例固化）。
+
+## 八十三、QEMU 跨架构镜像构建 4 小时不完成：改原生 arm runner + digest 合成（2026-11-07）
+
+> 教训形态：**把「跨架构编译」交给 QEMU 模拟** + **认为同一构建参数上次 22 分钟这次也会 22 分钟**。1.0.0 发布时两路并发构建同时撞上，均触 240 分钟上限被取消。
+
+- **现象**：`docker.yml` 单 job 内 `build-push-action` 以 `platforms: linux/amd64,linux/arm64` + QEMU 构建。release 派发 `42352117141` 的 build job 跑满 4h00m19s 被取消，push 自动触发 `42351771958` 同样 4h00m41s 被取消；日志末段 `#50 ● Bundling client (3h 51m …)` 连续 3h51m 无进展，未产出任何镜像 tag。**0.7.0（`41439905381`）同参数只用了 22m03s**，且 `apps/platform/Dockerfile` 自 v0.7.0 起无改动——即失败与代码无关，是模拟执行环境的耗时不可预期。
+- **根因**：arm64 目标在 amd64 runner 上经 QEMU 模拟执行 `pnpm install` 与 Nuxt/Vite 前端打包，CPU 密集阶段被放大到不可完成；两路构建并行（`push` 与 release 派发分属不同 concurrency 分组，互不取消）进一步争用，把本来"刚好能过"的路径推过上限。
+- **手法**（参照 caomei-auth）：① 构建拆矩阵——`linux/amd64` 用 `ubuntu-latest`、`linux/arm64` 用 `ubuntu-24.04-arm` 原生执行；② 各架构 `outputs: type=image,…,push-by-digest=true`，按 registry 各推一次（三个 registry 镜像名不同，digest 不可跨 registry 复用），digest 落 artifact；③ `merge` job 下载 digest 后用 `docker buildx imagetools create -t <tag> <repo>@<amd64> <repo>@<arm64>` 合成 manifest，tag 由 metadata-action 生成；④ 合成后新增回读门禁：`imagetools inspect --raw | jq` 断言 `linux/amd64` 与 `linux/arm64` 同时在，缺失即红；⑤ `push` 触发加 `paths` 过滤（`apps/platform/**`、`packages/**`、依赖清单），文档/计划/工作流提交不再起镜像构建。provenance 统一关闭（ACR 拒绝 OCI attestation，`imagetools create` 也无法跨 registry 传递）。
+- **验证**：run `42373335914` 全绿——QA 3m30s / amd64 2m21s / arm64 1m10s / merge 1m50s；三 registry × 4 tag 回读 **12/12 双架构**。首轮 `42372575641` 唯一失败点是 `sync-readme` 缺 `actions/checkout`（`ERR: './README.md' file doesn't exit`），补 checkout 即绿。
+- **启示**：多架构构建不要依赖 QEMU 跑完整构建链，尤其中间有前端打包 / 原生编译；原生 arm runner 把 4 小时压到 1 分钟级。另：那条"上次 22 分钟"的对照只能证明链路可用，**不能**证明下次也在预算内——并行度、共享 runner 负载都会改变结果，预算与拆分要按最坏情况设计。
+- **边界**：`ubuntu-24.04-arm` 需仓库为公开或已开通 arm runner 额度；`imagetools create` 生成的是新 index，**原单架构 manifest 上的 attestation 不会保留**（provenance 需单独设计，见 security.md 供应链条目）。
+- **落点**：`.github/workflows/docker.yml`（原生 amd64/arm64 矩阵 + digest 合成 + 双架构回读门禁，L1 机检）；[发布指南 §1.0.0 发布记录](../../guide/release.md#_1-0-0-发布记录-m54-6-2026-11-07-已执行)（L2 记录与限制）。后续新增多架构发布单元照此矩阵模板实现，不再回到单 job QEMU。

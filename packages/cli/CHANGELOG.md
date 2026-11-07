@@ -8,6 +8,10 @@
 * bump `@dependfix/engine` to 1.0.0 (was 0.6.0)
 * bump `@dependfix/skills` to 1.0.0 (was 0.3.0)
 
+### 首个稳定版
+
+* 1.0.0 首个稳定版：本包随 1.0 契约冻结一并发布（迁移说明见仓库根 `docs/guide/contract-freeze.md`）
+
 # [0.7.0](https://github.com/dependfix/dependfix/compare/dependfix@0.6.0...dependfix@0.7.0) (2026-11-01)
 
 

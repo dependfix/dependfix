@@ -12,6 +12,34 @@
 
 * **scripts:** changelog 生成流程收敛到 main 入口守卫 ([874ffab](https://github.com/dependfix/dependfix/commit/874ffab))
 
+### 首个稳定版
+
+semver 承诺生效：1.x 只增不改不删，破坏性变更留到 2.0.0。
+
+### 入口
+
+* CLI（report-only / fix / fix-and-pr）、GitHub Action、MCP Server、Agent Skill、管理平台（镜像 `platform-1.0.0`）
+
+### 契约与迁移
+
+0.x → 1.0 的 5 条行为变更（完整清单见 `docs/guide/contract-freeze.md` §8）：`--version` 缺陷修复、`@dependfix/engine` 导出异步化、`--allow-major-upgrade` 无 env 通道、`on-baseline-red` 默认 skip、`signalsJson` 收敛语义。另需披露：`alertOutcome` 回写后「已修复」告警退出未修复明细；critical 邮件对存量组织新增。
+
+### 指标（G8，2026-11-07 复算）
+
+* 近 30 个 dependfix PR（窗口 2026-10-08 → 2026-11-07）：CI 绿率 25/30 = 83.3%、人工介入 0.0%、误关 0.0%
+* 取数命令：`GITHUB_TOKEN=<token> pnpm metrics:pr-health --repo=dependfix/dependfix --days=30 --limit=30`
+
+### 已知限制
+
+* 真实环境矩阵（G3）未实跑（缺 OAuth / IdP / staging / 测试仓 / AI Key 资源），保持 pending，资源到位后补测
+* Google OAuth 登录未验证（无可用 Google 账号）
+* CI 稳定性（G4）未达 20 连绿 / 2 周无红，降级判据（最近 10 次 master push 的 Test 0 失败）实测 9/10，按豁免披露
+* 设计文档全量英译不在 1.0（指南平价已完成）
+
+### 已知非目标
+
+* 运行面漏洞检测、独立 installer 容器、仓库级 `allowMajorUpgrade`、PostgreSQL + Helm 等 1.0 后项
+
 # [0.7.0](https://github.com/dependfix/dependfix/compare/dependfix@0.6.0...dependfix@0.7.0) (2026-11-01)
 
 

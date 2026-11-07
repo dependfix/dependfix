@@ -6,6 +6,10 @@
 
 * 本版本仅随仓库基线调整（依赖 / 运行时 / 构建配置）提升，无包内功能变更；对照根 CHANGELOG 同版本段。
 
+### 首个稳定版
+
+* 1.0.0 首个稳定版：本包随 1.0 契约冻结一并发布（迁移说明见仓库根 `docs/guide/contract-freeze.md`）
+
 # [0.7.0](https://github.com/dependfix/dependfix/compare/@dependfix/core@0.6.0...@dependfix/core@0.7.0) (2026-11-01)
 
 

@@ -7,6 +7,10 @@
 * bump `@dependfix/core` to 1.0.0 (was 0.7.0)
 * bump `@dependfix/engine` to 1.0.0 (was 0.6.0)
 
+### 首个稳定版
+
+* 1.0.0 首个稳定版：本包随 1.0 契约冻结一并发布（迁移说明见仓库根 `docs/guide/contract-freeze.md`）
+
 ## [0.3.1](https://github.com/dependfix/dependfix/compare/@dependfix/mcp@0.3.0...@dependfix/mcp@0.3.1) (2026-11-01)
 
 ### ⚙️ 依赖更新

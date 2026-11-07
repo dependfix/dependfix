@@ -227,6 +227,10 @@ jobs:
       packages: write
       contents: read
     steps:
+      # 需要工作区的 README.md 做 Docker Hub 描述同步（sync-readme 读本地文件）
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - name: Download digests
         uses: actions/download-artifact@v8
         with:

@@ -31,6 +31,9 @@ export const ARCHIVE_LOG = 'docs/plan/archive/archive-log.md'
 export const PHASE_FILE_PATTERN = /^todo-archive-phases-.*\.md$/
 const FRESHNESS_SCOPES = ['docs/standards/*.md', 'docs/guide/*.md']
 
+/** `主约束` 允许取值（文档约定，用于校验预算表不被写错）。 */
+const PRIMARY_CONSTRAINTS = ['字符', '行数', '两者']
+
 /** 遍历时跳过的目录。 */
 export const EXCLUDED_DIRS = new Set([
     'node_modules', '.git', '.nuxt', '.output', 'coverage', 'dist', 'temp', 'artifacts', '.session', '.opencode',
@@ -46,6 +49,8 @@ export function parseBudgetTables(markdown) {
     const charBudgets = []
     const sectionBudgets = []
     let current = null
+    /** 字符预算表表头 → 列下标（按列名取值，允许列顺序调整）。 */
+    let charHeader = null
     for (let i = start + 1; i < lines.length; i += 1) {
         const line = lines[i]
         if (/^#{2,4} /.test(line) && !line.trim().startsWith('####')) {
@@ -61,6 +66,7 @@ export function parseBudgetTables(markdown) {
         }
         if (cells.includes('健康字符')) {
             current = 'char'
+            charHeader = Object.fromEntries(cells.map((cell, index) => [cell, index]))
             continue
         }
         if (cells.includes('健康条数')) {
@@ -68,10 +74,26 @@ export function parseBudgetTables(markdown) {
             continue
         }
         if (current === 'char') {
+            const header = charHeader ?? {}
+            const pick = (name) => {
+                const matched = Object.keys(header).find((key) => key === name || key.startsWith(name))
+                return matched === undefined ? null : (cells[header[matched]] ?? null)
+            }
+            const densityKey = Object.keys(charHeader ?? {}).find((key) => key.startsWith('密度'))
+            const pattern = stripCode(pick('文档') ?? cells[0] ?? '')
+            if (!pattern) {
+                continue
+            }
+            const primary = stripCode(pick('主约束') ?? '两者') || '两者'
+            if (!PRIMARY_CONSTRAINTS.includes(primary)) {
+                throw new Error(`预算表「主约束」取值非法: ${primary}（允许 ${PRIMARY_CONSTRAINTS.join(' / ')}）`)
+            }
             charBudgets.push({
-                pattern: stripCode(cells[0]),
-                healthy: toNumber(cells[1]),
-                block: toNumber(cells[2]),
+                pattern,
+                primary,
+                healthy: toNumber(pick('健康字符') ?? ''),
+                block: toNumber(pick('阻断字符') ?? ''),
+                density: parseDensityBand(densityKey ? cells[charHeader[densityKey]] : null),
             })
         } else if (current === 'section') {
             sectionBudgets.push({
@@ -113,6 +135,19 @@ function stripCode(value) {
 function toNumber(value) {
     const nums = String(value).replace(/,/g, '').match(/\d+/g)
     return nums ? Number(nums[nums.length - 1]) : null
+}
+
+/**
+ * 解析密度上限（`字符 / 非空行`）：`200` → `{ max: 200 }`；`—` 或空 → null（不检查）。
+ * 只设上限：清单 / 表格密集文档天然行短，设下限只会产生噪声。
+ * 密度只做 warning（段落未换行 / 单行过长），不参与阻断判定。
+ */
+export function parseDensityBand(value) {
+    if (value === null || value === undefined) {
+        return null
+    }
+    const numbers = String(value).replace(/,/g, '').match(/\d+/g)
+    return numbers ? { max: Number(numbers[numbers.length - 1]) } : null
 }
 
 /** 递归收集 md 文件（posix 相对路径）。 */
@@ -158,14 +193,18 @@ export function checkCharBudgets(root, budgets, files = collectMarkdownFiles(roo
             continue
         }
         for (const path of targets) {
-            const chars = countChars(readFileSync(join(root, path), 'utf8'))
+            const content = readFileSync(join(root, path), 'utf8')
+            const chars = countChars(content)
+            const nonEmptyLines = content.split(/\r?\n/).filter((line) => line.trim()).length
             let verdict = 'healthy'
             if (budget.block !== null && chars > budget.block) {
                 verdict = 'block'
             } else if (budget.healthy !== null && chars > budget.healthy) {
                 verdict = 'warning'
             }
-            results.push({ ...budget, path, chars, verdict })
+            const ratio = nonEmptyLines > 0 ? chars / nonEmptyLines : null
+            const densityVerdict = budget.density && ratio !== null && ratio > budget.density.max ? 'high' : null
+            results.push({ ...budget, path, chars, nonEmptyLines, ratio, densityVerdict, verdict })
         }
     }
     return results
@@ -404,6 +443,9 @@ export function formatReport({ charResults, sectionResults, archiveResult, gover
         } else if (result.verdict === 'missing-row-target') {
             out.push(`[check-doc-governance] error: 预算行「${result.pattern}」未匹配到任何 md 文件`)
         }
+        if (result.densityVerdict) {
+            out.push(`[check-doc-governance] warning: ${result.path}: 密度 ${Math.round(result.ratio)} 字符/非空行，超上限 ${result.density.max}（段落未换行 / 单行过长）`)
+        }
     }
     for (const result of sectionResults) {
         const label = `${result.file} §${result.section}`
@@ -425,6 +467,7 @@ export function formatReport({ charResults, sectionResults, archiveResult, gover
         + sectionResults.filter((r) => r.verdict !== 'healthy' && r.verdict !== 'warning').length
         + archiveResult.errors.length + governanceErrors.length
     const warnCount = charResults.filter((r) => r.verdict === 'warning').length
+        + charResults.filter((r) => r.densityVerdict).length
         + sectionResults.filter((r) => r.verdict === 'warning').length
         + freshness.length
     out.push(`[check-doc-governance] 计量 ${charResults.length} 个字符预算目标 / ${sectionResults.length} 个规则章节：阻断 ${blockCount} / warning ${warnCount} / 归档索引 ${archiveResult.rowCount} 行`)

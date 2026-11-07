@@ -13,6 +13,7 @@ import {
     measureRuleTable,
     parseArchiveIndex,
     parseBudgetTables,
+    parseDensityBand,
     parseFreshnessDays,
     resolveBudgetTargets,
     validateArchiveGovernance,
@@ -23,10 +24,10 @@ const BUDGET_FIXTURE = `# 文档治理
 
 ### 4.2 字符与密度预算
 
-| 文档 | 健康字符 | 阻断字符 | 说明 |
-|:--|:--:|:--:|:--|
-| \`docs/standards/*.md\` | 24,000 | 30,000 | 规范 |
-| \`docs/plan/todo-archive.md\` | 8,000 | 12,000 | 索引 |
+| 文档 | 主约束 | 健康字符 | 阻断字符 | 密度上限（字符/非空行） | 说明 |
+|:--|:--:|:--:|:--:|:--:|:--|
+| \`docs/standards/*.md\` | 字符 | 24,000 | 30,000 | 220 | 规范 |
+| \`docs/plan/todo-archive.md\` | 两者 | 8,000 | 12,000 | — | 索引 |
 
 **规则条数预算**：
 
@@ -51,7 +52,8 @@ describe('parseBudgetTables', () => {
     it('解析字符与规则条数预算', () => {
         const { charBudgets, sectionBudgets } = parseBudgetTables(BUDGET_FIXTURE)
         expect(charBudgets).toHaveLength(2)
-        expect(charBudgets[0]).toMatchObject({ pattern: 'docs/standards/*.md', healthy: 24000, block: 30000 })
+        expect(charBudgets[0]).toMatchObject({ pattern: 'docs/standards/*.md', healthy: 24000, block: 30000, primary: '字符', density: { max: 220 } })
+        expect(charBudgets[1]).toMatchObject({ pattern: 'docs/plan/todo-archive.md', primary: '两者', density: null })
         expect(sectionBudgets[0]).toMatchObject({
             file: 'docs/standards/development.md',
             section: '工程实践规则',
@@ -86,6 +88,77 @@ describe('parseFreshnessDays', () => {
     })
 })
 
+describe('parseDensityBand', () => {
+    it('解析上限、列表与空值', () => {
+        expect(parseDensityBand('220')).toEqual({ max: 220 })
+        expect(parseDensityBand('1,200')).toEqual({ max: 1200 })
+        expect(parseDensityBand('80-200')).toEqual({ max: 200 })
+        expect(parseDensityBand('—')).toBeNull()
+        expect(parseDensityBand('')).toBeNull()
+        expect(parseDensityBand(null)).toBeNull()
+    })
+})
+
+describe('parseBudgetTables 列顺序', () => {
+    it('按表头名取值，列顺序调整后仍正确', () => {
+        const shuffled = `### 4.2 字符与密度预算
+
+| 说明 | 密度上限（字符/非空行） | 阻断字符 | 健康字符 | 主约束 | 文档 |
+|:--|:--:|:--:|:--:|:--:|:--|
+| 规范 | 220 | 30,000 | 24,000 | 字符 | \`docs/standards/*.md\` |
+
+**规则条数预算**：
+
+| 文件 | 章节 | 健康条数 | 阻断条数 | 单条最大字符 |
+|:--|:--|:--:|:--:|:--:|
+| \`docs/standards/development.md\` | 工程实践规则 | 24 | 32 | 260 |
+`
+        const { charBudgets } = parseBudgetTables(shuffled)
+        expect(charBudgets[0]).toMatchObject({
+            pattern: 'docs/standards/*.md',
+            primary: '字符',
+            healthy: 24000,
+            block: 30000,
+            density: { max: 220 },
+        })
+    })
+
+    it('主约束取值非法时抛错', () => {
+        const invalid = `### 4.2 字符与密度预算
+
+| 文档 | 主约束 | 健康字符 | 阻断字符 | 密度上限（字符/非空行） | 说明 |
+|:--|:--:|:--:|:--:|:--:|:--|
+| \`docs/standards/*.md\` | 体积 | 24,000 | 30,000 | 220 | 规范 |
+
+**规则条数预算**：
+
+| 文件 | 章节 | 健康条数 | 阻断条数 | 单条最大字符 |
+|:--|:--|:--:|:--:|:--:|
+| \`docs/standards/development.md\` | 工程实践规则 | 24 | 32 | 260 |
+`
+        expect(() => parseBudgetTables(invalid)).toThrow('主约束')
+    })
+})
+
+describe('parseBudgetTables 向后兼容', () => {
+    it('缺主约束/密度列时按默认值兜底', () => {
+        const legacy = `### 4.2 字符与密度预算
+
+| 文档 | 健康字符 | 阻断字符 | 说明 |
+|:--|:--:|:--:|:--|
+| \`docs/standards/*.md\` | 24,000 | 30,000 | 规范 |
+
+**规则条数预算**：
+
+| 文件 | 章节 | 健康条数 | 阻断条数 | 单条最大字符 |
+|:--|:--|:--:|:--:|:--:|
+| \`docs/standards/development.md\` | 工程实践规则 | 24 | 32 | 260 |
+`
+        const { charBudgets } = parseBudgetTables(legacy)
+        expect(charBudgets[0]).toMatchObject({ primary: '两者', density: null })
+    })
+})
+
 describe('checkCharBudgets', () => {
     it('区分 healthy / warning / block / missing', () => {
         const root = makeRepo({ 'docs/standards/a.md': 'x'.repeat(120) })
@@ -97,6 +170,33 @@ describe('checkCharBudgets', () => {
         ]
         const results = checkCharBudgets(root, budgets, ['docs/standards/a.md'])
         expect(results.map((r) => r.verdict)).toEqual(['healthy', 'warning', 'block', 'missing-row-target'])
+    })
+
+    it('密度等于上限不告警（严格大于）', () => {
+        const root = makeRepo({ 'docs/standards/a.md': 'x'.repeat(200) })
+        const [result] = checkCharBudgets(
+            root,
+            [{ pattern: 'docs/standards/*.md', healthy: 1000, block: 2000, primary: '字符', density: { max: 200 } }],
+            ['docs/standards/a.md'],
+        )
+        expect(result).toMatchObject({ nonEmptyLines: 1, ratio: 200, densityVerdict: null })
+    })
+
+    it('密度超上限只出 high，不影响 block 判定', () => {
+        // 1 个非空行 + 300 字符 → 密度 300；字符本身低于阻断线
+        const root = makeRepo({ 'docs/standards/a.md': 'x'.repeat(300) })
+        const [dense] = checkCharBudgets(
+            root,
+            [{ pattern: 'docs/standards/*.md', healthy: 1000, block: 2000, primary: '字符', density: { max: 200 } }],
+            ['docs/standards/a.md'],
+        )
+        expect(dense).toMatchObject({ verdict: 'healthy', nonEmptyLines: 1, ratio: 300, densityVerdict: 'high' })
+        const [normal] = checkCharBudgets(
+            root,
+            [{ pattern: 'docs/standards/*.md', healthy: 1000, block: 2000, primary: '字符', density: { max: 400 } }],
+            ['docs/standards/a.md'],
+        )
+        expect(normal.densityVerdict).toBeNull()
     })
 })
 

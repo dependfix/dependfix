@@ -274,8 +274,8 @@ importers:
         specifier: ^4.18.1
         version: 4.18.1
       tslib:
-        specifier: ^2.8.1
-        version: 2.8.1
+        specifier: ^2.9.1
+        version: 2.9.1
       yaml:
         specifier: ^2.9.1
         version: 2.9.1
@@ -320,8 +320,8 @@ importers:
   packages/core:
     dependencies:
       tslib:
-        specifier: ^2.8.1
-        version: 2.8.1
+        specifier: ^2.9.1
+        version: 2.9.1
     devDependencies:
       rimraf:
         specifier: ^6.1.4
@@ -354,8 +354,8 @@ importers:
         specifier: ^7.8.6
         version: 7.8.6
       tslib:
-        specifier: ^2.8.1
-        version: 2.8.1
+        specifier: ^2.9.1
+        version: 2.9.1
       yaml:
         specifier: ^2.9.1
         version: 2.9.1

@@ -321,4 +321,12 @@ scan-queue.add(jobId = scan-<repositoryId>)   [scan-queue.ts]
 - **信号处置顺序**：双进程形态下，容器停止（TERM / INT）的转发 trap **必须**先于「启动子进程」与「输出就绪行」安装（本条为**严格约束**，已登记 [review 检查点矩阵](../../../.github/skills/code-reviewer/references/code-quality-checklist.md#规范条款-review-检查点矩阵-严格约束逐条挂接)）。就绪行是外部观测方（容器编排 / 健康检查 / 行为测试）唯一的同步点，落在 trap 安装之前的信号按默认处置直接终止 PID 1——看护循环与 worker 因此失去父进程，观测方读到的也是 signal 终止而非约定的 143 退出码；主进程尚未启动（`MAIN_PID` 未赋值）时无主进程可转发，应直接退出（看护进程仍由 `stop_queue_worker` 兜底）而非吞掉停止信号后照旧启动。机检落点为 `apps/platform/docker/entrypoint.test.mjs` 的源码顺序断言。
 - **已知边界**：① 两进程共享 SQLite（WAL + `busy_timeout` 由 DataSource 初始化落地）；② **插件面已按进程角色收敛**：worker 侧不再重复启动 HTTP-only 插件（周期清理 / 版本戳），仅保留两进程共用的启动期数据源引导与资源探测（判定与清单见上「进程角色与 HTTP-only 插件」）；③ 连续快速重启超上限后转慢重试（消费者不会永久消失，见 [队列僵尸任务终结与去重键释放设计](./queue-stale-recovery.md)）；④ **空库 / 升级窗口时序**——消费端随 worker 启动即就绪；空库或迁移进行中若残留历史 job，job 会先失败并按队列重试预算（默认 3 次 / 指数退避）重试，迁移完成后即成功；⑤ **入口脚本前导段**（`run_platform` 之前的权限 / 路径校验）无 trap，此窗口 TERM / INT 按默认处置终止 PID 1，但子进程尚未创建，无孤儿面；⑥ **子进程启动窗口**——trap 已生效但 pid 变量尚未捕获的极窄窗口内 TERM / INT 无变量可转发（仅 pid 文件兜底），短暂孤儿化由容器运行时随 PID 1 退出回收；⑦ **备份只由 HTTP 主进程执行**（worker 跳过），且走在线备份 API 覆盖 WAL 未 checkpoint 数据（[EP-16](./engineering-practice-notes.md)）；预留多容器拓扑不在本次实测面内（入口单进程路径会把角色归一化为 server）。
 
-- **迁入补充**：`lockDuration` / `lockRenewTime` 的取值口径仍见 [平台规范 §10.5](../../standards/platform.md)（队列锁参数显式化与锁问题观测），本节只承载进程形态与插件分类。
+- **迁入补充**：`lockDuration` / `lockRenewTime` 的取值口径见本节 §9.1（2026-11-09 自平台规范 §10.5 迁入），本节其余内容只承载进程形态与插件分类。
+
+### 9.1 队列锁参数与观测
+
+- in-process Worker **必须**显式配置 `lockDuration` / `lockRenewTime`（`SCAN_WORKER_LOCK_OPTIONS`，见 `server/services/queue/scan-worker.ts`），不得依赖 BullMQ 隐式默认（30 秒）——引擎同步子进程会阻塞 event loop 使续期定时器延后，易触发 `could not renew lock` / `Missing lock`，job 被判 stalled 重排（存在重复执行风险）。
+- **取值口径**：`lockDuration` 取平台执行**封顶值** `resolveExecutionCeilingMs()`（缺省 60 分钟，可经 `DEPENDFIX_MAX_EXECUTION_TIMEOUT_MS` 覆盖，范围 30 分钟–4 小时），`lockRenewTime` 取其一半；两处口径**同源联动**（单测锁定该对齐关系），env 变更需重启进程。
+- **为何取封顶而非全局默认**：仓库级执行上限可高于全局默认（见平台规范 §10.4），锁若按全局默认会被长预算运行耗到被判 stalled；代价是崩溃恢复窗口随封顶变长（`lockRenewTime` 取半缓解）。
+- **锁问题观测**：Worker **必须**注册 `stalled` / `lockRenewalFailed` / `error` 事件并输出结构化日志（`[scan-worker] {json}`）；`stalled` / `lockRenewalFailed` 载荷含 `jobId` 并经注入的 `queue.getJob` 补全 `runId`（未解析显式 `null`）；`error` 载荷无 job 上下文（由配对的 `lockRenewalFailed` 承载）。
+- **同根因去重**：LockManager 续期失败会同时 emit `lockRenewalFailed` 与 `error`（message 前缀 `could not renew lock for job`）——`error` 日志须标 `duplicateOf: 'lockRenewalFailed'` 供聚合去重（与平台规范 §6.1「同一根因不重复告警」同思路）。

@@ -1059,3 +1059,15 @@ e2e 侧共改写 14 个 spec（`.p-dialog*` / `.p-select*` / `.p-drawer` / `.p-c
 - 选择栏只服务 `repos`；若后续新增多选表，可把「筛选集合全选」提取为 composable。
 - `全选全部` 是整集合替换：被筛选隐藏的已选行会被移出（与 DataTable 回写语义一致，已在页面注释记录）。
 - 暗色 elevated 若继续调亮需重算 `control-border`；调深则对比度只升不降。
+
+## 16. caomei-ui 接线细则
+
+> 本节是接线细节的唯一完整声明；[平台规范 §7.4](../../standards/platform.md#_7-4-caomei-ui-接线约定) 保留 hard requirement 摘要 + 回链。迁移缘由与逐批结论见 §15。
+
+- **token 覆盖分两处，不可合并**：`caomeiUI.theme` 只生成一条跨明暗的 `:root` 声明（适合跨明暗稳定实底色）；随明暗自适应的 token 必须落在 `app/assets/styles/_caomei-tokens.scss`，暗色档用 `:root.dark`（特异性 0,2,0）压过库内 `:is(.dark, …)`（0,1,0）。`_caomei-tokens.scss` **必须显式 `@use './variables' as *`**（漏写时唯 `build` 能暴露 `Undefined variable`）。
+- **主色 token 取值**：`--caomei-color-primary-solid: #0f766e`（teal-700）配白实测 5.47:1（≥ AA 4.5:1）；`--caomei-color-primary` 亮 `#0d9488` / 暗 `#5eead4`，其作底须配 `--caomei-color-primary-foreground: #0b0b0d`（库默认白字不达标）。
+- **图标与 provider**：`CaomeiIcon` 的 prop 是 `icon: Component`（`@lucide/vue`），**不存在** `name` 字符串 prop，一律写 `<CaomeiIcon :icon="X" />`（默认 `size="1em"`；直接写 `<X />` 会按 24px 渲染偏大）；`app/app.vue` 用 `CaomeiConfigProvider`（`:locale` 单点映射平台 i18n）→ `CaomeiToastProvider` → `CaomeiConfirmDialog` 包裹应用，`useToast()` / `useConfirm()` 自动导入，原生 `confirm()` 一律改 `useConfirm().open({ tone: 'danger' })`。
+- **选择器家族**：Select / MultiSelect / AutoComplete 默认上限 `20rem`，仓库统一覆盖 `--caomei-select-max-width: none`（覆盖必须用 `:root:root`（0,2,0）压过后加载的库 `:root`）；`CaomeiSelect` 的可见根是 Reka `SelectTrigger` 按钮，页面 scoped 与全局样式都会被库 scoped 规则（0,2,0）压过 → 单个选择器限宽须用外层容器（`display: inline-block` + 定宽）或 `:deep()`（`CaomeiInput` 根是普通 div，不受此限）。
+- **组件差异速查**：`CaomeiSelect` 无 `#value` 槽与 `loading` prop；`CaomeiDrawer` 只 emit `update:open`（无 `hide`）；`CaomeiCheckbox` 根是 `role="checkbox"` 按钮（不可嵌在 `<label>` 内，文案走 `text` prop）；`CaomeiInput` 的 `type` 不含 `datetime-local`；`CaomeiInput` / `CaomeiTextarea` 透传的 `@input` **先于** v-model 写回 → 依赖新值的同步 handler 必须用 `@update:model-value`。
+- **受控状态必须回写**：`expandedRowGroups` / `expandedRows` / `multiSortMeta` / `page` 等须配 `@update:*` 回写，只声明 prop 不回写会出现「内建按钮点了没反应」。
+- **DataTable 密度与分组**：无 `size` prop，仓库在 `_caomei-tokens.scss` 统一收敛为 small 档（覆盖单元格须用 `.caomei-data-table__table th.caomei-data-table__th` 级选择器），`pr-checks.vue` 例外（用户裁定恢复 caomei 默认密度）；从 `columns` 剔除 `groupRowsBy` 同名列且**不保留分组字段的客户端排序键**，「按包」连续性由**组排序键**保证（组内最高级别 rank × 步长 − 包名升序序号，`summarizePackageGroups`），不依赖服务端 `orderBy`。

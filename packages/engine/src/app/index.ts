@@ -100,6 +100,8 @@ export interface DependfixAppOptions {
     verbose?: boolean
     /** 自定义验证命令（覆盖默认命令链） */
     commands?: string[]
+    /** 仓库级验证命令超时（毫秒；缺省走 env / 内置默认，见 execute-limits） */
+    verifyCommandTimeoutMs?: number
     /**
      * 执行环境：`local`（CLI/MCP 等用户机器直接执行）| `container`（平台容器沙箱）。
      * 默认 `local`。容器内执行属于设计内隔离行为（非 root + 临时目录），
@@ -134,6 +136,7 @@ export class DependfixApp {
     private readonly logger: Logger
     private readonly verbose: boolean
     private readonly customCommands?: string[]
+    private readonly verifyCommandTimeoutMs?: number
     private readonly executionEnvironment: 'local' | 'container'
     private readonly runId: string
     /** GitHub App 认证提供者（用于 commit author 真实 bot 身份；仅 fix/fix-and-pr 模式生效） */
@@ -181,6 +184,7 @@ export class DependfixApp {
         this.reportOutputDir = options.reportOutputDir ?? './dependfix-reports'
         this.verbose = options.verbose ?? false
         this.customCommands = options.commands
+        this.verifyCommandTimeoutMs = options.verifyCommandTimeoutMs
         this.executionEnvironment = options.executionEnvironment ?? 'local'
         this.runId = `dependfix-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
 
@@ -247,6 +251,7 @@ export class DependfixApp {
             workDir: this.workDir,
             logger: this.logger,
             customCommands: this.customCommands,
+            verifyCommandTimeoutMs: this.verifyCommandTimeoutMs,
             runId: this.runId,
             allAlerts: this.allAlerts,
             allActions: this.allActions,

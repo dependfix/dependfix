@@ -131,6 +131,8 @@ export interface AppContext {
     workDir: string
     logger: Logger
     customCommands?: string[]
+    /** 仓库级验证命令超时（毫秒；缺省走 env / 内置默认） */
+    verifyCommandTimeoutMs?: number
     runId: string
     allAlerts: NormalizedSecurityAlert[]
     allActions: FixAction[]

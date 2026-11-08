@@ -88,6 +88,7 @@ const createScanRun = async (params: {
     startedAt?: Date | null
     finishedAt?: Date | null
     errorJson?: string | null
+    executionTimeoutMs?: number | null
 }): Promise<ScanRun> => {
     const ds = await ensureDatabaseInitialized()
     const repo = ds.getRepository(ScanRun)
@@ -101,6 +102,7 @@ const createScanRun = async (params: {
         startedAt: params.startedAt ?? null,
         finishedAt: params.finishedAt ?? null,
         errorJson: params.errorJson ?? null,
+        executionTimeoutMs: params.executionTimeoutMs ?? null,
     }))
 }
 
@@ -125,6 +127,37 @@ describe('cleanupStaleRuns', () => {
             orphanedRuns: [],
             checkedAt: expect.any(String),
         })
+    })
+
+    it('running 按自身执行上限快照精判：60 分钟快照在 40 分钟时不算孤儿', async () => {
+        // 查询下界用全局默认（30 分钟），但逐 run 精判应按快照（60 分钟）→ 不得误杀长预算运行
+        const ds = await ensureDatabaseInitialized()
+        const organizationId = await resolveOrganizationId(ds)
+        await createRepo('repo-long')
+        const batch = await createBatchRun(organizationId)
+        const run = await createScanRun({
+            repositoryId: 'repo-long', batchRunId: batch.id, status: 'running',
+            startedAt: new Date(), executionTimeoutMs: 60 * 60 * 1000,
+        })
+        await backdateScanRun(run.id, new Date(Date.now() - 40 * 60 * 1000))
+
+        const result = await runCleanup()
+        expect(result.scanRunsFailed).toBe(0)
+    })
+
+    it('running 无快照时回退全局默认：40 分钟前启动仍判孤儿', async () => {
+        const ds = await ensureDatabaseInitialized()
+        const organizationId = await resolveOrganizationId(ds)
+        await createRepo('repo-legacy')
+        const batch = await createBatchRun(organizationId)
+        const run = await createScanRun({
+            repositoryId: 'repo-legacy', batchRunId: batch.id, status: 'running',
+            startedAt: new Date(), executionTimeoutMs: null,
+        })
+        await backdateScanRun(run.id, new Date(Date.now() - 40 * 60 * 1000))
+
+        const result = await runCleanup()
+        expect(result.scanRunsFailed).toBe(1)
     })
 
     it('orphanedRuns：返回被清理 run 的仓库 + runId（供按归属释放队列 job）', async () => {

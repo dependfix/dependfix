@@ -13,6 +13,7 @@ import { notifyRunTerminal } from './notification/run-notification.service'
 import type { NotificationEvent } from './notification/channel'
 import { reconcileAlerts } from './scan-reconcile'
 import { resolveAiConfig } from './ai-config-resolver'
+import { resolveExecutionLimits } from '#server/utils/execution-limits'
 import { Repository, parseVerifyCommands } from '#server/entities/repository'
 import { Credential } from '#server/entities/credential'
 import { ScanRun } from '#server/entities/scan-run'
@@ -179,6 +180,13 @@ const runScanInternal = async (
     // 执行器选择：显式指定优先，其次按 actionWorkflowFile 自动（B 模式）
     const executorKind = resolveExecutorKind(repository, request)
 
+    // 仓库级执行预算与超时（M55.4）：仓库值 > env > 内置默认，执行上限受平台封顶约束；
+    // 解析在启动执行之前完成，快照随 scan_run 落库（stale-cleanup 据此逐 run 精判）。
+    const executionLimits = resolveExecutionLimits(repository, process.env)
+    for (const warning of executionLimits.warnings) {
+        logger.warn(`[execution-limits] ${repository.owner}/${repository.name}: ${warning}`)
+    }
+
     // 预创建/续用 ScanRun（队列模式续用 pending run；同步模式新建 running run——失败时更新为 failed 保持一条记录可追溯）
     let savedRun: ScanRun
     if (options?.runId) {
@@ -198,6 +206,8 @@ const runScanInternal = async (
         // 记录「本次实际执行者」而不是「最初入队者」
         existing.buildVersion = buildStamp.buildVersion
         existing.buildCommit = buildStamp.buildCommit
+        // 本次实际生效的执行上限快照（启动前写入；进程中途死亡时 stale-cleanup 仍能按它判定）
+        existing.executionTimeoutMs = executionLimits.executionTimeoutMs
         // reuse=true 时重置终态字段：让既有 record 复用为新执行的载体（finishedAt / errorJson /
         // summaryJson 来自上一次执行，重置以避免新执行的 summaryJson 与旧 finishedAt 时间戳错位）
         if (options.reuse) {
@@ -244,6 +254,7 @@ const runScanInternal = async (
             executorKind,
             status: 'running',
             startedAt: new Date(),
+            executionTimeoutMs: executionLimits.executionTimeoutMs,
             batchRunId: options?.batchRunId ?? null,
             retriedFromRunId: options?.retriedFromRunId ?? null,
             triggeredByUserId: options?.triggeredByUserId ?? null,
@@ -371,6 +382,9 @@ const runScanInternal = async (
             }
             const executor = new ContainerExecutor({
                 workRoot: process.env.RUN_WORK_ROOT ?? 'data/runs',
+                // 有效执行上限 / 验证命令超时：仓库值 > env > 默认，且已按封顶夹取
+                timeoutMs: executionLimits.executionTimeoutMs,
+                verifyCommandTimeoutMs: executionLimits.verifyCommandTimeoutMs,
             })
             // 执行环境健康探测：container 无更底层回退，工作根不可写（磁盘满 / 只读 FS）
             // 属「环境不可用」而非单次运行结果 → 记 container_unavailable 环境事件（recordEnvAuditEvent）

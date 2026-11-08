@@ -95,6 +95,7 @@ export async function quickVerifyProject(
         & {
             allErrors?: FixError[]
             deadlineAt?: number
+            verifyCommandTimeoutMs?: number
             budgetSkips?: Set<string>
             /** 本次运行的修复前基线（按仓库归属校验；已红命令不重跑） */
             verificationBaseline?: { repo?: string, value?: CommandResult[] }
@@ -140,7 +141,11 @@ export async function quickVerifyProject(
         return true
     }
 
-    const result = await runVerification({ workDir, commands: commandsToRun })
+    const result = await runVerification({
+        workDir,
+        commands: commandsToRun,
+        ...(ctx.verifyCommandTimeoutMs !== undefined ? { commandTimeoutMs: ctx.verifyCommandTimeoutMs } : {}),
+    })
     if (!result.success) {
         // 留痕必须带「失败在哪一段 + 为什么」：有自定义链时 `valid` 是**整链**
         // （install → setup → lint → build → typecheck → test），失败点可以落在任何一段，

@@ -241,16 +241,26 @@ export class ContainerExecutor implements ScanExecutor {
     private readonly workRoot: string
     private readonly timeoutMs: number
     private readonly cloneTimeoutMs: number
+    private readonly verifyCommandTimeoutMs?: number
     private readonly cloneMaxRetries: number
     /** 超时取消后等待引擎落定的宽限期（见 `engine-run.ts` 的 `ABORT_GRACE_MS`）。 */
     private readonly abortGraceMs: number
 
-    constructor(options: { workRoot: string, timeoutMs?: number, cloneTimeoutMs?: number, cloneMaxRetries?: number, abortGraceMs?: number } = { workRoot: process.env.DATABASE_PATH ? join(process.env.DATABASE_PATH, '..', 'runs') : 'data/runs' }) {
+    constructor(options: {
+        workRoot: string
+        timeoutMs?: number
+        cloneTimeoutMs?: number
+        cloneMaxRetries?: number
+        abortGraceMs?: number
+        /** 仓库级验证命令超时（毫秒；缺省走引擎 env / 内置默认） */
+        verifyCommandTimeoutMs?: number
+    } = { workRoot: process.env.DATABASE_PATH ? join(process.env.DATABASE_PATH, '..', 'runs') : 'data/runs' }) {
         this.workRoot = options.workRoot
         this.timeoutMs = options.timeoutMs ?? resolveExecutionTimeoutMs()
         // clone 超时：优先构造参数 > 环境变量 > 默认值
         this.cloneTimeoutMs = options.cloneTimeoutMs
             ?? parsePositiveInt(process.env.CLONE_TIMEOUT_MS, DEFAULT_CLONE_TIMEOUT_MS)
+        this.verifyCommandTimeoutMs = options.verifyCommandTimeoutMs
         // clone 重试次数：优先构造参数 > 环境变量 > 默认值
         this.cloneMaxRetries = options.cloneMaxRetries
             ?? parsePositiveInt(process.env.CLONE_MAX_RETRIES, DEFAULT_CLONE_MAX_RETRIES)
@@ -349,6 +359,8 @@ export class ContainerExecutor implements ScanExecutor {
                 commands: ctx.repository.verifyCommands?.length ? ctx.repository.verifyCommands : undefined,
                 // 容器内执行属设计内沙箱（非 root + 临时目录），不触发本地模式风险警告
                 executionEnvironment: 'container',
+                // 仓库级验证命令超时（M55.4）：与执行上限同源解析，未配置时走引擎 env / 默认
+                ...(this.verifyCommandTimeoutMs !== undefined ? { verifyCommandTimeoutMs: this.verifyCommandTimeoutMs } : {}),
                 // 注入 MemoryLogger 用于捕获执行日志
                 logger: memLogger,
             })

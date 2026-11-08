@@ -12,10 +12,10 @@
  */
 import { Worker } from 'bullmq'
 import type { Redis } from 'ioredis'
-import { resolveExecutionTimeoutMs } from '../executor/container-executor'
 import { runScanForRepository } from '../scan-orchestrator.service'
 import { SCHEDULED_JOB_NAME, triggerSchedule } from '../scheduler/scheduler.service'
 import { SCAN_QUEUE_NAME, type ScanJobData } from './scan-queue'
+import { resolveExecutionCeilingMs } from '#server/utils/execution-limits'
 import { sanitizeString } from '#server/utils/sanitize'
 import { DEFAULT_SCAN_CONCURRENCY } from '#server/utils/resource-budget'
 import { logger } from '#server/utils/logger'
@@ -58,8 +58,8 @@ export const defaultProcessor: ScanJobProcessor = async (data, jobName) => {
 /**
  * Worker 锁参数（显式化 BullMQ 隐式默认，见 docs/standards/platform.md §10.5）。
  *
- * - `lockDuration`：BullMQ 默认 30 秒 → 提升至容器执行器单次执行超时
- *   （`resolveExecutionTimeoutMs()`，缺省 30 分钟、可经 `EXECUTION_TIMEOUT_MS` 覆盖），
+ * - `lockDuration`：BullMQ 默认 30 秒 → 提升至平台执行**封顶值**
+ *   （`resolveExecutionCeilingMs()`，缺省 60 分钟、可经 `DEPENDFIX_MAX_EXECUTION_TIMEOUT_MS` 覆盖），
  *   使锁在整个执行窗口内不因主线程 event loop 被引擎同步子进程调用占满（续期定时器延后）而过期。
  * - `lockRenewTime`：保持 lockDuration 的一半（BullMQ 官方推荐值）；LockManager 以
  *   `lockRenewTime / 2` 为周期扫描并续期。
@@ -68,8 +68,9 @@ export const defaultProcessor: ScanJobProcessor = async (data, jobName) => {
  * 本值随 `EXECUTION_TIMEOUT_MS` 联动（同源解析器，模块加载期读取），env 变更需重启进程。
  */
 export const SCAN_WORKER_LOCK_OPTIONS = {
-    lockDuration: resolveExecutionTimeoutMs(),
-    lockRenewTime: Math.floor(resolveExecutionTimeoutMs() / 2),
+    // 仓库级执行上限可高于全局默认（至多封顶值）：锁时长必须按封顶取，否则长预算运行会被判 stalled
+    lockDuration: resolveExecutionCeilingMs(),
+    lockRenewTime: Math.floor(resolveExecutionCeilingMs() / 2),
 } as const
 
 /** job 查询签名（补全 runId 用）：Worker 不暴露 getJob，由 queue.service 注入 queue.getJob */

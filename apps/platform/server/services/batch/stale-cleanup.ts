@@ -143,6 +143,18 @@ export const cleanupStaleRuns = async (options: CleanupOptions = {}): Promise<Cl
         ],
     })
 
+    // 逐 run 精判（仓库级执行上限快照）：查询下界用全局默认（保守、走索引），
+    // 候选集里可能包含「按自身 60 分钟上限仍在执行」的运行，必须剔除——否则长预算运行被误杀。
+    const nowMs = now.getTime()
+    const effectiveStaleScanRuns = staleScanRuns.filter((run) => {
+        if (run.status !== 'running') {
+            return true
+        }
+        const startedMs = (run.startedAt ?? run.createdAt).getTime()
+        const effectiveTimeoutMs = run.executionTimeoutMs ?? scanRunTimeoutMs
+        return startedMs < nowMs - effectiveTimeoutMs - runningGraceMs
+    })
+
     let scanRunsFailed = 0
     const failedRuns: ScanRun[] = []
 
@@ -187,7 +199,7 @@ export const cleanupStaleRuns = async (options: CleanupOptions = {}): Promise<Cl
         return false
     }
 
-    for (const run of staleScanRuns) {
+    for (const run of effectiveStaleScanRuns) {
         if (run.status === 'pending') {
             let orphan = true
             try {

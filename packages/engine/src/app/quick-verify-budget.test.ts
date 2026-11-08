@@ -120,6 +120,23 @@ describe('quickVerifyProject 预算与基线跳过', () => {
         expect(mockRunVerification).not.toHaveBeenCalled()
     })
 
+    it('passes the repository verify timeout to the verification runner', async () => {
+        mockRunVerification.mockResolvedValue({
+            success: true,
+            commandResults: [commandResult('pnpm lint', 0)],
+            failedCommand: undefined,
+        })
+
+        await quickVerifyProject({
+            logger: makeLogger(),
+            workDir,
+            verifyCommandTimeoutMs: 120_000,
+        }, 'foo/bar')
+
+        const params = mockRunVerification.mock.calls[0][0] as { commandTimeoutMs?: number }
+        expect(params.commandTimeoutMs).toBe(120_000)
+    })
+
     it('ignores a baseline that belongs to another repository', async () => {
         mockRunVerification.mockResolvedValue({
             success: true,

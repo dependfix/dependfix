@@ -5,10 +5,11 @@
 import { existsSync, readdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { parse as parseYaml } from 'yaml'
-import type { NormalizedSecurityAlert } from '@dependfix/core'
+import type { FixError, NormalizedSecurityAlert } from '@dependfix/core'
 import { compareSemver, readLockfileVersions, isCrossMajorFixRequired } from '../fixers/dependency'
-import { formatVerificationError, runVerification } from '../runners/verification-runner'
+import { formatVerificationError, runVerification, type CommandResult } from '../runners/verification-runner'
 import { validateVerifyCommands } from '../verification/validate-commands'
+import { hasBudgetForNextStep, recordBudgetExhausted } from '../app/budget'
 import type { AppContext } from '../app/helpers'
 
 /**
@@ -90,10 +91,30 @@ export function restoreTrackedFiles(workDir: string, snapshot: Record<string, st
  * `pnpm install` 在 node_modules 已就绪时近乎空操作，性能影响可忽略。
  */
 export async function quickVerifyProject(
-    ctx: Pick<AppContext, 'logger' | 'workDir' | 'customCommands'>,
+    ctx: Pick<AppContext, 'logger' | 'workDir' | 'customCommands'>
+        & {
+            allErrors?: FixError[]
+            deadlineAt?: number
+            budgetSkips?: Set<string>
+            /** 本次运行的修复前基线（按仓库归属校验；已红命令不重跑） */
+            verificationBaseline?: { repo?: string, value?: CommandResult[] }
+        },
     repo: string,
 ): Promise<boolean> {
     const { logger, workDir, customCommands } = ctx
+    // 预算夹取：剩余预算低于最小步骤预算时不再启动已知会超时的验证，
+    // 保留已应用的修复（交付门禁仍由终验结果决定，不会把「跳过」当成通过）。
+    if (!hasBudgetForNextStep(ctx.deadlineAt)) {
+        if (ctx.allErrors) {
+            recordBudgetExhausted({ ...ctx, allErrors: ctx.allErrors }, {
+                repository: repo,
+                stage: 'verify',
+                work: 'quick verification',
+            })
+        }
+        logger.warn(`[quick-verify] ${repo}: remaining budget below step minimum — quick verification skipped`)
+        return true
+    }
     const rawCommands = customCommands ?? ['pnpm lint']
     const { valid, skipped } = validateVerifyCommands(rawCommands, workDir)
 
@@ -104,7 +125,22 @@ export async function quickVerifyProject(
         return true
     }
 
-    const result = await runVerification({ workDir, commands: valid })
+    // 基线已红的命令不再重跑：失败的修复前工作区命令重复执行只会再红一次并可能回滚正确升级
+    // （momei 在剩余预算内仍启动已知 OOM 的 lint 即为该形态）。跳过项由基线归因在报告中披露。
+    const baseline = ctx.verificationBaseline?.repo === repo ? ctx.verificationBaseline.value ?? [] : []
+    const baselineFailed = new Set(
+        baseline.filter((command) => command.exitCode !== 0 || command.timedOut).map((command) => command.command),
+    )
+    const commandsToRun = valid.filter((command) => !baselineFailed.has(command))
+    if (commandsToRun.length === 0) {
+        logger.info(
+            `[quick-verify] ${repo}: every command already failed in the pre-fix baseline — skipped `
+            + '(existing failures are not attributed to this change)',
+        )
+        return true
+    }
+
+    const result = await runVerification({ workDir, commands: commandsToRun })
     if (!result.success) {
         // 留痕必须带「失败在哪一段 + 为什么」：有自定义链时 `valid` 是**整链**
         // （install → setup → lint → build → typecheck → test），失败点可以落在任何一段，

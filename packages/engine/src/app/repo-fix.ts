@@ -138,9 +138,18 @@ export async function processRepoFix(
         // 告警分区 + 同告警尝试判定（纯读）：在基线采样之前完成，使「全部命中尝试上限」与
         // 零告警仓库同语义（无任何写操作 ⇒ 不必付一次完整基线验证链）
         const planned = await planRepoFixAlerts(ctx, client, repo, alertInputs)
+        // 可执行工作判定：lockfile 告警全部需要跨 major 且未授权时，本次不会有任何写操作
+        // （「有告警但 0 写入」形态），不付基线采样成本；未授权跨 major 的告警在后续链路记跳过。
+        const lockfileTargets = planned.rootManifestAlerts.filter((alert) =>
+            alert.source !== 'code-scanning' && alert.source !== 'code-quality'
+            && alert.manifestPath.trim().replace(/\\/g, '/') === 'pnpm-lock.yaml'
+            && alert.fixable && alert.recommendedVersion)
+        const crossMajorOnly = lockfileTargets.length > 0
+            && !ctx.config.allowMajorUpgrade
+            && lockfileTargets.every((alert) => isCrossMajorFixRequired(join(ctx.workDir, 'pnpm-lock.yaml'), alert))
         // 修复前按需采样验证基线（首个有工作的仓库处采样，在任何改动之前；用于区分「本次引入」与「既有」失败）
         const { exemptAttribution, baseline } = await ensureVerificationBaseline(ctx, repo, {
-            hasWork: alertInputs.length - planned.skippedCount > 0,
+            hasWork: alertInputs.length - planned.skippedCount > 0 && !crossMajorOnly,
         })
         // pristine 安装失败 ⇒ overrides 安装必然同因失败；逐包重试只会耗尽预算，写盘前快速失败
         const installBaselineFailure = recordInstallBaselineFailure(ctx, repo, baseline)

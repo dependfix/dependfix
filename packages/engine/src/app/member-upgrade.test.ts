@@ -426,7 +426,9 @@ describe('DependfixApp member upgrade (2.0.3)', () => {
         writeSingleVersionLockfile(workDir)
         nockAlerts([makeViteMemberAlert(1, '5.4.20')])
         mockUpgradeMemberWritingManifest('vite', '5.4.20')
-        mockRunVerification.mockResolvedValue(verificationResult(false))
+        // 基线（stopOnFailure=false）成功、修复后 quick 验证失败：失败来自本次改动，应回滚
+        mockRunVerification.mockImplementation(async (params: { stopOnFailure?: boolean }) =>
+            verificationResult(params.stopOnFailure === false))
 
         const { result } = await runApp()
 

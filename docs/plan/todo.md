@@ -143,6 +143,7 @@
   4. 全仓引用（含 `en-US` 镜像与检查点矩阵）重指后 `gates:docs` 20 项通过。
 - **不做什么**：不删除 hard requirement 的唯一权威声明；不为瘦身改语义或放宽阈值；不新增规则条目。
 - **依赖**：M55.4 批 0 已完成 `platform.md §10.6` 外移（本次继续找可下沉段）。
+- **执行记录（2026-11-09）**：实际 11 文件 / 4 commits；`platform.md` 27,995 → 23,495 字符（低于 24,000 健康上限，0 warning）、`ai-collaboration.md` 200 → 188 行、`git.md` 200 → 185 行。落点：平台 caomei 接线细则 → `caomei-ui-migration.md §16`；队列锁参数与观测 → `executor-process-isolation.md §9.1`；failure_* 写入 / 回填与部署版本戳 → `run-failure-taxonomy.md §5.12`；AI 阶段归档 / 自检 / 审计校准 / CI 修复 / git 隔离 → 新增 `ai-delivery-protocols.md`。另将 M56.1 引入的 `pr-build-deploy-signals.md` 401 行压回 400 行。`development.md §5.1` 条数未变（未新增规则），`gates:docs` 20 项通过。
 - **交付物**：2 commits / 3-5 文件 / 150-250 行。
 - **风险与缓解**：下沉造成双写 → 按「规范单点声明」只留一行指针；引用遗漏 → 改后 `rg` 全仓复扫 + `check:docs`。
 

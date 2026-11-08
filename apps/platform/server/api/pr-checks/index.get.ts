@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { PRCheck, PR_CHECK_CONCLUSIONS } from '#server/entities/pr-check'
 import { ensureDatabaseInitialized } from '#server/database'
 import { requireAuth } from '#server/utils/guard'
+import { createLocalizedError } from '#server/utils/localized-error'
 import { parseOptional } from '#server/utils/zod-helpers'
 import { toPRCheckView } from '#server/utils/pr-check-view'
 
@@ -18,9 +19,9 @@ import { toPRCheckView } from '#server/utils/pr-check-view'
  *
  * 过滤参数：
  * - `repositoryId`（可选）：限定仓库 id
- * - `conclusion`（可选）：限定 check 结论（success / failure / pending 等）
+ * - `conclusion`（可选）：限定 check 结论（success / failure / pending 等）；**非法枚举值返回 400**
  * - `alertFiring`（可选）：true = 仅 alert firing 的失败 PR；false = 仅 ack 后的 / 其他
- * - 不传 / 非法：返回当前组织全部 PRCheck（默认按 createdAt DESC 排序）
+ * - 不传：返回当前组织全部 PRCheck（默认按 createdAt DESC 排序）
  *
  * 注意：PRCheck 表已天然 per-PR-head 去重（复合唯一索引），无需应用层 fingerprint 聚合。
  * 与 ScanResult 的查询路径互不影响——两条链路共用 alerts-rowgroup UI 视觉但不共享数据源。
@@ -35,6 +36,14 @@ const listHandler = async (event: H3Event) => {
     const query = getQuery(event)
     const repositoryId = typeof query.repositoryId === 'string' ? query.repositoryId : undefined
     const conclusionParsed = conclusionSchema.safeParse(query.conclusion)
+    // 严格枚举：非法结论不再静默退回全量——前端筛选与 URL 复现必须给出同一语义
+    if (query.conclusion !== undefined && !conclusionParsed.success) {
+        throw createLocalizedError(event, {
+            statusCode: 400,
+            code: 'PR_CHECK_VALIDATION_FAILED',
+            data: { issues: conclusionParsed.error.issues },
+        })
+    }
     // zod .optional() 接受 undefined 为合法值（data=undefined）；下方 if (conclusion) 已过滤 falsy
     const conclusion = conclusionParsed.success ? conclusionParsed.data : undefined
     // alertFiring 三态：未传 → undefined / 'true' → true / 'false' → false / 非法 → undefined

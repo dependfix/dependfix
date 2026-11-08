@@ -14,6 +14,7 @@ import { matchesPRCheckFocus, parsePRCheckFocus } from '#server/utils/pr-check-f
  *   调用方须加载 `repository` 关系，否则回退 `null`）
  * - `overallStatus` / `signals` / `failureSources`：三源聚合字段；JSON 列解析，
  *   列值缺失或损坏时回退 `null`（不抛错）
+ * - `prState`：PR 生命周期（`open` / `closed` / `merged` / `unknown`）
  * - `focusConfigured`：该仓库是否配置了 PR Check 告警关注集（`false` = 全量只报警不阻断）
  * - `signals[].focused`：该信号是否命中关注集（未配置时恒为 `true`）。未命中的信号仍返回
  *   （审计面），由前端标注「未关注」；`overallStatus` / `failureSources` 只反映命中项。
@@ -55,6 +56,7 @@ export const toPRCheckView = (row: PRCheck) => {
         headSha: row.headSha,
         authorLogin: row.authorLogin,
         conclusion: row.conclusion,
+        prState: row.prState,
         overallStatus: row.overallStatus,
         // 逐信号标注是否命中关注集：未配置时全为 true；未命中的信号仍在列表中（审计面）
         focusConfigured: focus !== null,

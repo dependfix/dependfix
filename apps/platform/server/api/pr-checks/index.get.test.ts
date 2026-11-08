@@ -95,6 +95,18 @@ describe('GET /api/pr-checks', () => {
         expect(list.every((r) => r.repository === 'demo/app')).toBe(true)
     })
 
+    it('视图暴露 prState（存量行默认 unknown）', async () => {
+        const list = await call('/api/pr-checks') as { prNumber: number, prState: string }[]
+        const target = list.find((r) => r.prNumber === 1)!
+        expect(target.prState).toBe('unknown')
+    })
+
+    it('非法 conclusion → 400（不再静默退回全量）', async () => {
+        await expect(call('/api/pr-checks?conclusion=not-a-conclusion')).rejects.toMatchObject({
+            statusCode: 400,
+        })
+    })
+
     it('repositoryId 过滤：限定仓库', async () => {
         const ds = await ensureDatabaseInitialized()
         await ds.getRepository(Repository).save(ds.getRepository(Repository).create({

@@ -90,6 +90,43 @@ describe('GET /api/pr-checks/summary', () => {
         expect(summary.firing).toBe(1)
     })
 
+    it('关闭 / 合并的 firing 行不计入 firing；unknown 保持 fail-open 计入', async () => {
+        const ds = await ensureDatabaseInitialized()
+        const repo = ds.getRepository(PRCheck)
+        const repositoryId = (await repo.findOne({ where: { prNumber: 1 } }))!.repositoryId
+        const rows = [
+            { prNumber: 5, prState: 'closed' as const, acknowledgedAt: new Date('2026-09-05T00:00:00Z') },
+            { prNumber: 6, prState: 'merged' as const, acknowledgedAt: new Date('2026-09-06T00:00:00Z') },
+            { prNumber: 7, prState: 'unknown' as const, acknowledgedAt: null },
+        ]
+        for (const row of rows) {
+            await repo.save(repo.create({
+                repositoryId,
+                prNumber: row.prNumber,
+                headSha: String(row.prNumber).repeat(40).slice(0, 40),
+                authorLogin: 'dependfix[bot]',
+                conclusion: 'failure',
+                prState: row.prState,
+                alertFiring: true,
+                acknowledgedAt: row.acknowledgedAt,
+                acknowledgedByUserId: row.acknowledgedAt ? 'u1' : null,
+                lastPolledAt: new Date('2026-09-04T00:00:00Z'),
+            }))
+        }
+
+        try {
+            const summary = await call() as { firing: number, acknowledged: number }
+            // 原有 1 条 open firing + unknown 1 条；closed / merged 各 1 条被排除
+            expect(summary.firing).toBe(2)
+            // 已 ack 计数同样排除终态：closed / merged 行即使有 acknowledgedAt 也不计入
+            expect(summary.acknowledged).toBe(1)
+        } finally {
+            for (const row of rows) {
+                await repo.delete({ prNumber: row.prNumber })
+            }
+        }
+    })
+
     it('acknowledged = 1（alertFiring=false 且 acknowledgedAt 非空）', async () => {
         const summary = await call() as { acknowledged: number }
         expect(summary.acknowledged).toBe(1)

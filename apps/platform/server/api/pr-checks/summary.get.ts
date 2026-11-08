@@ -1,6 +1,6 @@
 import type { H3Event } from 'h3'
-import { IsNull, Not, type DataSource } from 'typeorm'
-import { PRCheck } from '#server/entities/pr-check'
+import { In, IsNull, Not, type DataSource } from 'typeorm'
+import { PRCheck, PR_CHECK_TERMINAL_PR_STATES } from '#server/entities/pr-check'
 import { ensureDatabaseInitialized } from '#server/database'
 import { requireAuth } from '#server/utils/guard'
 
@@ -9,7 +9,7 @@ import { requireAuth } from '#server/utils/guard'
  *
  * 输出：
  * - `total`：当前组织 PRCheck 总数（per-PR-head 模型；不含历史已 superseded 行——MVP 不做）
- * - `firing`：alertFiring=true 的失败 PR 数（前端 dashboard 红色徽标）
+ * - `firing`：alertFiring=true 的失败 PR 数（前端 dashboard 红色徽标；关闭 / 合并的 PR 不计入）
  * - `acknowledged`：已 ack 但仍未回归 success 的 PR 数（alertFiring=false + acknowledgedAt 非空）
  * - `byConclusion`：按结论分组统计（success / failure / pending / ...）
  *
@@ -30,12 +30,19 @@ const summarize = async (ds: DataSource): Promise<PrCheckSummary> => {
     // 总数
     const total = await ds.getRepository(PRCheck).count()
 
-    // firing 数（alertFiring=true 即失败未 ack）
-    const firing = await ds.getRepository(PRCheck).count({ where: { alertFiring: true } })
+    // firing 数（alertFiring=true 即失败未 ack）；关闭 / 合并的 PR 不再计入
+    const firing = await ds.getRepository(PRCheck).count({
+        where: { alertFiring: true, prState: Not(In([...PR_CHECK_TERMINAL_PR_STATES])) },
+    })
 
-    // acknowledged 数（已 ack 但未回归 success；alertFiring=false 且 acknowledgedAt 非空）
+    // acknowledged 数（已 ack 但未回归 success；alertFiring=false 且 acknowledgedAt 非空）；
+    // 关闭 / 合并的 PR 不会「回归 success」，与 firing 同口径排除终态
     const acknowledged = await ds.getRepository(PRCheck).count({
-        where: { alertFiring: false, acknowledgedAt: Not(IsNull()) },
+        where: {
+            alertFiring: false,
+            acknowledgedAt: Not(IsNull()),
+            prState: Not(In([...PR_CHECK_TERMINAL_PR_STATES])),
+        },
     })
 
     // 按 conclusion 分组（GROUP BY）

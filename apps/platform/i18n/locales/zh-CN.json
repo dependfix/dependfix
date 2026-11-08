@@ -635,10 +635,13 @@
         "alertFiringAll": "全部",
         "alertFiringTrue": "仅 firing",
         "alertFiringFalse": "仅已 ack",
+        "filterConclusion": "结论",
+        "conclusionAll": "全部结论",
         "colRepository": "仓库",
         "colPrNumber": "PR",
         "colAuthor": "作者",
         "colConclusion": "结论",
+        "colPrState": "PR 状态",
         "colLastPolledAt": "最近采集",
         "colStatus": "Alert",
         "colLink": "链接",
@@ -694,6 +697,12 @@
             "externalNoise": "外部噪音",
             "cancelled": "已取消 / 跳过",
             "unknown": "未判定"
+        },
+        "prState": {
+            "open": "开启",
+            "closed": "已关闭",
+            "merged": "已合并",
+            "unknown": "未知"
         }
     },
     "envEvents": {
@@ -1110,6 +1119,10 @@
         "PR_CHECK_ACK_VALIDATION_FAILED": {
             "zh-CN": "参数校验失败",
             "en": "Request validation failed"
+        },
+        "PR_CHECK_VALIDATION_FAILED": {
+            "zh-CN": "查询参数校验失败",
+            "en": "Invalid query parameters"
         },
         "BATCH_RUN_ID_MISSING": {
             "zh-CN": "缺少批量运行 id",

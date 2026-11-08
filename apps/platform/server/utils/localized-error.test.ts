@@ -163,6 +163,7 @@ describe('createLocalizedError', () => {
         PR_CHECK_NOT_FOUND: true,
         PR_CHECK_ID_MISSING: true,
         PR_CHECK_ACK_VALIDATION_FAILED: true,
+        PR_CHECK_VALIDATION_FAILED: true,
         BATCH_RUN_ID_MISSING: true,
         BATCH_RUN_NOT_FOUND: true,
         REPOS_BATCH_VALIDATION_FAILED: true,

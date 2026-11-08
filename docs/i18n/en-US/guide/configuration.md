@@ -323,7 +323,8 @@ The management platform (`apps/platform`) is configured via env vars injected by
 | Variable | Required | Default | Description |
 |:---|:---:|:---|:---|
 | `RUN_WORK_ROOT` | — | `data/runs` | Run working root (clone / execution artifacts) |
-| `EXECUTION_TIMEOUT_MS` | — | `1800000` (30 min) | Single-repo execution timeout; the container executor and queue Worker lock duration share one resolver (`resolveExecutionTimeoutMs()`). Out-of-range (< 1 min / > 24 h) or invalid falls back to default |
+| `EXECUTION_TIMEOUT_MS` | — | `1800000` (30 min) | **Global default** execution timeout; a repository may override it under "Execution budget (advanced)", and overrides are capped by `DEPENDFIX_MAX_EXECUTION_TIMEOUT_MS`. Out-of-range (< 1 min / > 24 h) or invalid falls back to default |
+| `DEPENDFIX_MAX_EXECUTION_TIMEOUT_MS` | — | `3600000` (60 min) | Execution **ceiling** (range 30 min–4 h, out-of-range falls back to default); queue Worker lock duration follows this value (`lockRenewTime` is half), env changes require a process restart |
 | `DEPENDFIX_INSTALL_TIMEOUT_MS` | — | `300000` (5 min) | Install-class command timeout (dependency install and lockfile repair chain share one resolver); out-of-range (< 10 s / > 30 min) or invalid falls back to default. On timeout the engine cancels the run and terminates the child process tree |
 | `DEPENDFIX_VERIFY_TIMEOUT_MS` | — | `600000` (10 min) | Timeout for a single verification command (ms; strict positive integer, 10 s-30 min, out-of-range / invalid values fall back to the default). Shared by the default chain and mirrored CI scripts; the `pnpm install` inside the default chain is still timed by this value. The fixer's install chain is unaffected |
 | `CLONE_TIMEOUT_MS` | — | `300000` | git clone timeout (ms) |

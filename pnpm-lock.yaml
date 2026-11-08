@@ -51,8 +51,8 @@ importers:
         specifier: 4.5.1
         version: 4.5.1(eslint@9.39.2(jiti@2.7.0)(supports-color@10.2.2))(jsonc-eslint-parser@2.3.0)(supports-color@10.2.2)(vue-eslint-parser@10.4.1(eslint@9.39.2(jiti@2.7.0)(supports-color@10.2.2))(supports-color@10.2.2))(yaml-eslint-parser@1.2.2)
       '@lint-md/cli':
-        specifier: 2.5.0
-        version: 2.5.0(supports-color@10.2.2)
+        specifier: 2.5.1
+        version: 2.5.1(supports-color@10.2.2)
       '@types/node':
         specifier: ^26.6.6
         version: 26.6.6
@@ -1336,8 +1336,9 @@ packages:
   '@kurkle/color@0.3.4':
     resolution: {integrity: sha512-M5UknZPHRu3DEDWoipU6sE8PdkZ6Z/S+v4dD+Ke8IaNlpdSQah50lz1KtcFBa2vsdOnwbbnxJwVM4wty6udA5w==}
 
-  '@lint-md/cli@2.5.0':
-    resolution: {integrity: sha512-+BLEbjN28drWmaBvhRxOjouBadlNGbaULDUccAa8pW15OEXtF2tY03CrSxJYHdcvWV/RjuYlHDo3DEds/bwXzw==}
+  '@lint-md/cli@2.5.1':
+    resolution: {integrity: sha512-9145tHJbwp/6rw/Jz1UA7hZr4U0UZZgxQMDOXPfnr4kVP0xMI8yUt5ARVnb6l5dDSIuP0xWufE4syIG5OgMswA==}
+    engines: {node: '>=20'}
     hasBin: true
 
   '@lint-md/core@2.5.3':
@@ -9334,7 +9335,7 @@ snapshots:
 
   '@kurkle/color@0.3.4': {}
 
-  '@lint-md/cli@2.5.0(supports-color@10.2.2)':
+  '@lint-md/cli@2.5.1(supports-color@10.2.2)':
     dependencies:
       '@lint-md/core': 2.6.0(supports-color@10.2.2)
       chalk: 4.1.2

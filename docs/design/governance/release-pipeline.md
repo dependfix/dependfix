@@ -129,6 +129,8 @@ CI（schedule）：release:plan → release:version → pnpm changelog
 
 手写纯函数 `incVersion('0.2.0', 'minor') → '0.3.0'`（patch/minor/major 三态），不引入 semver 依赖（pnpm 严格模式无法直接 import 传递依赖）。
 
+**版本口径以 `release:plan` 推导为准（严格约束）**：中间版本若只为验证发布链，仍按脚本的真实 bump 发布（0.6.0 → 0.7.0），不得人工把 0.x 的 feat / 破坏性变更降成 patch——降级会让 CHANGELOG 与语义脱节，并稀释后续 1.0.0 的 major 语义。裁定变更须同时落 todo 决策条与就绪度台账，并全仓改净旧版本号（含脚本提示串与用例注释）。
+
 ### 4.4 GitHub Release 自动化（聚合 Release + 项目 changelog notes）
 
 **目标**：`release:publish` 完成 npm 发布后，CI 自动为**本轮发布**创建一个聚合 GitHub Release（每轮一个，非每包一个），notes 使用项目 changelog 格式。解决"多包版本不同步 × GitHub Release 单 tag 锚"的矛盾。
@@ -250,6 +252,9 @@ release.yml Push release tags（全量推送，含 v tag，推送后核验）
 | GitHub Release 创建失败 | 低 | warn 不阻断（Release 为展示辅助，npm 发布已完成，可后补 `gh release create`）；幂等跳过已存在 Release |
 | v tag 命名冲突（锚版本与历史 v tag 重复） | 低 | 跳过打 tag + Release 复用已存在 v tag 或跳过；warn 提示 |
 | 本地无法端到端验证 gh release create | 低 | 纯函数单测 + dry-run；CI 端到端为最终裁决（同发布链路惯例） |
+| 发布提交不是 master tip | 高 | `release:publish` 的 HEAD 锚点要求「HEAD 自身 touch 待发布包路径」，push 后再落任何提交都会让发布中止。顺序刚性：commit → push → 核验 `origin/master` 即发布提交 → 立即 `workflow_dispatch`；发布窗口内冻结 master。tags 推送后若 Release 创建失败，重跑不会补建，需 `gh release create` 手工兜底 |
+| 发布物存在性误判 | 中 | 「已手动发布」不等于每类产物都存在：npm 看 `npm view`、tag 看 `git tag --points-at`、Release 看 `gh release view`、镜像看构建 run + digest；缺哪项写「未证实」并给前置条件，不把 401 / 超时误读成「没权限」 |
+| 预发布 profile 不覆盖发版专属门禁 | 中 | `regression:pre-release` 只跑测试 / 审计 / 文档 / lint / typecheck / build / changelog，不含 `check:release-security`、`release:preflight`、platform e2e / 视觉；发版前须补跑四类并分别落盘，不得用 profile 的 Pass 代替发版结论 |
 
 ## 7. 执行顺序与提交拆分
 

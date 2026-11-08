@@ -516,3 +516,21 @@
 - **启示**：多架构构建不要依赖 QEMU 跑完整构建链，尤其中间有前端打包 / 原生编译；原生 arm runner 把 4 小时压到 1 分钟级。另：那条"上次 22 分钟"的对照只能证明链路可用，**不能**证明下次也在预算内——并行度、共享 runner 负载都会改变结果，预算与拆分要按最坏情况设计。
 - **边界**：`ubuntu-24.04-arm` 需仓库为公开或已开通 arm runner 额度；`imagetools create` 生成的是新 index，**原单架构 manifest 上的 attestation 不会保留**（provenance 需单独设计，见 security.md 供应链条目）。
 - **落点**：`.github/workflows/docker.yml`（原生 amd64/arm64 矩阵 + digest 合成 + 双架构回读门禁，L1 机检）；[发布指南 §1.0.0 发布记录](../../guide/release.md#_1-0-0-发布记录-m54-6-2026-11-07-已执行)（L2 记录与限制）。后续新增多架构发布单元照此矩阵模板实现，不再回到单 job QEMU。
+
+## 八十四、M55 归档批次经验沉淀（引擎判定真实形态 / schema 默认值 / 预算夹取 / 状态口径）
+
+> 教训形态：**把「写盘成功」当「生效」** + **`partial()` 不会去掉默认值** + **阶段头容量手写** + **状态翻转只改一处**。
+
+- **版本化 override 的生效判定要按真实形态**：`overrides` 里有「父级限定键（`parent>child`）」与「peer-only 实例」两种真实形态——前者会遮蔽通用键，后者没有可写的实例；只校验「写盘成功」会把它们判成 `override did not take effect` 并整仓回滚。做法：改写只动「同包且仍低于目标」的键；peer-only 保守返回 `manual review: peer-only` 并保留工作区；PR 正文与报告的 `From` / `Strategy` 同源（`versioned-override` 独立文案）。
+- **Zod `schema.partial()` 不会移除默认值**：对带 `.default()` 的字段做 `partial()`，PUT 只改 `note` 也会把执行器字段写回默认值——新列落库前必须先拆 create / update 两套 schema（update 走无默认字段基线）。
+- **预算夹取按「剩余预算」分配，跳过必须单列**：基线链按剩余预算收缩单命令超时；quick-verify 跳过「基线已红」命令；「有告警但 0 写入」跳过基线采样。跳过项必须进报告单列，且仍不交付 / 不回滚——把跳过折叠成通过会让 0 产出被读成成功。
+- **失败路径的日志要在 `try` 外持有引用**：执行器在 `push_failed` / `pr_creation_failed` 早退分支返回 `logsJson`，编排 catch-all 若在 `try` 内声明引用就拿不到——在 `try` 外持有可变引用，并用「抛错路径仍有日志」用例锁定。
+- **孤儿判定按 run 快照精判**：上限可配后，`stale-cleanup` 不能再用全局常量判孤儿；保留「下界查询 + JS 精判」两步结构，逐 run 按 `scan_run` 快照判定（60 min 运行在 40 min 不判孤儿、30 min 判孤儿）。
+- **阶段头容量必须逐条求和**：手写区间明显偏小（M55 规划实测 2400-3400 行 vs 逐条求和 2950-4400 行，下界比约 +23% / 上界比约 +29%），会把「插队 ≥ 原计划 50%」的强制再平衡推迟；分母必须由各原子「交付物」逐条相加并随拆分重算，且容量基线不设倍数口径（归档容量校准的倍数口径见 [planning.md §4.4 第 25 条](../../standards/planning.md#_4-4-大批量归档批次操作规范)）。
+- **验收标签沿用设计稿编号**：设计稿用 `AC1-AC9` + `AC4b` 时，规划条目直接用该标签、新增续编 `AC10` 起；重排成枚举序号会让映射行指向不存在的条款。
+- **状态翻转要扫全部承载位**：除 `todo.md` 速查表与 `roadmap.md`，还必须扫 `archive/index.md §4 当前基线` 与 `docs/index.md` 首页里程碑；「归档目录不用改」是最常见的漏改理由。
+- **豁免不等于证据且三处同源**：接受「未测」只改发布口径，不改证据状态；豁免须附 `retry_condition`，并在就绪度台账 / 执行清单 / 发布说明三处同口径。
+- **发布三则（复认 + 补强）**：① 版本口径以 `release:plan` 推导为准，不人工把 feat / 破坏性变更降成 patch；② 发布提交必须是 master tip（push 后落任何提交都会让 HEAD 锚点校验中止），发布窗口内冻结 master；③ 发布物存在性按类分别取证（npm / tag / Release / 镜像构建 run），缺项写「未证实」；`regression:pre-release` 不含发版专属门禁（安全门禁 / preflight / e2e / 视觉），不得用其 Pass 代替发版结论。
+- **去重 / 跳过谓词要配反向用例**：改宽谓词（丢掉任一判定键）时正向用例仍全绿，行为从「重复记录」变成「静默丢记录」；为每个判定键补「另一实体同值仍各自记录」的反向例并用单键变异标定。
+- **lint-md 长表格会误配对行内代码**：一行同时含粗体 / 全角括号 / 多个行内代码时，`no-space-in-inline-code` 会把空格报在相邻正常代码段上，整文件 `--fix` 会静默丢空格；用「行拆分 + 前缀二分」定位最小触发片段再改写。
+- **落点**：[development.md §5.1.40 / §5.1.41 / §5.1.45 / §5.1.47](../../standards/development.md) + [testing.md §6.9](../../standards/testing.md) + [planning.md §2.5 / §3.1.1](../../standards/planning.md) + [documentation.md §2 / §6](../../standards/documentation.md) + [release-pipeline.md §4.3 / §6](release-pipeline.md) + [queue-stale-recovery.md](queue-stale-recovery.md) + 检查点矩阵（新增 7 行 + 扩展 1 行）。

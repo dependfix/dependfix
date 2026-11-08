@@ -56,14 +56,58 @@ export const describeExportScope = (
     ? `# 导出范围：第 ${scope.page} 页（每页 ${scope.pageSize} 条，共 ${scope.total} 条）`
     : `# 导出范围：全部筛选结果（共 ${scope.total} 条）`)
 
-/** 单个 run 的导出小节（标题行含 runId / 仓库 / 状态 / 开始时间；无日志给占位说明） */
+/**
+ * 失败归因摘要（错误码 / 失败阶段与类别 / 资源信号）。
+ *
+ * 离线复盘曾因导出只有日志而无法区分 `orchestration_failed` / `push_failed`，
+ * 无日志运行更只剩「（无执行日志）」；这些字段体积远小于日志正文，随小节标题输出。
+ */
+export const describeRunAttribution = (run: ScanRun): string | null => {
+    const parts: string[] = []
+    const error = parseJsonObject(run.errorJson)
+    if (typeof error?.code === 'string' && error.code) {
+        parts.push(`错误码：${error.code}`)
+    }
+    if (run.failureStage) {
+        parts.push(`失败阶段：${run.failureStage}`)
+    }
+    if (run.failureKind) {
+        parts.push(`失败类别：${run.failureKind}`)
+    }
+    if (run.oomKilled === true) {
+        parts.push('OOM 终止：是')
+    }
+    if (typeof run.peakRssBytes === 'number' && run.peakRssBytes > 0) {
+        parts.push(`峰值 RSS：${Math.round(run.peakRssBytes / 1024 / 1024)} MB`)
+    }
+    return parts.length > 0 ? `# 失败归因：${parts.join(' | ')}` : null
+}
+
+/** 安全解析 JSON 对象列（缺失 / 非对象 / 解析失败回退 null，不抛错）。 */
+const parseJsonObject = (value: string | null | undefined): Record<string, unknown> | null => {
+    if (!value) {
+        return null
+    }
+    try {
+        const parsed: unknown = JSON.parse(value)
+        return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+            ? parsed as Record<string, unknown>
+            : null
+    } catch {
+        return null
+    }
+}
+
+/** 单个 run 的导出小节（标题行含 runId / 仓库 / 状态 / 开始时间；无日志时附失败归因） */
 export const buildRunSection = (run: ScanRun): string => {
     const entries = parseLogEntries(run.logsJson)
     const body = entries.length > 0 ? formatLogEntries(entries) : '（无执行日志）'
     const repo = run.repository ? `${run.repository.owner}/${run.repository.name}` : '—'
     const startedAt = run.startedAt ? run.startedAt.toISOString() : '—'
     const title = `# Run ${run.id} | ${repo} | ${run.status} | ${startedAt}`
-    return `\n${SEPARATOR}\n${title}\n${SEPARATOR}\n${body}\n`
+    const attribution = describeRunAttribution(run)
+    const header = attribution ? `${title}\n${attribution}` : title
+    return `\n${SEPARATOR}\n${header}\n${SEPARATOR}\n${body}\n`
 }
 
 /** 附件名时间戳（`runs-logs-YYYYMMDD-HHmmss.txt`） */

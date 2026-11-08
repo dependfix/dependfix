@@ -418,6 +418,8 @@ export class ContainerExecutor implements ScanExecutor {
                                 // 此处使用 ctx.runId 兜底（虽然不是真分支名，但 user 可点进 run 详情查 workDir 状态）；
                                 // 实际场景下 platform-delivery PR 失败时仍可重新从 _pending 目录恢复
                                 runUrl: `https://github.com/${owner}/${name}/tree/dependfix/auto-fix-${runIdFingerprint(result)}`,
+                                // 失败也要带执行日志：否则运行详情 / 导出只剩「（无执行日志）」，无法离线归因
+                                logsJson: memLogger.toJson(),
                             }
                         }
                         // push_failed：分支未推
@@ -429,6 +431,7 @@ export class ContainerExecutor implements ScanExecutor {
                             },
                             startedAt,
                             finishedAt: new Date().toISOString(),
+                            logsJson: memLogger.toJson(),
                         }
                     }
                     // 未预期的非 PlatformDeliveryError → 走 execution_failed 兜底

@@ -318,6 +318,9 @@ const runScanInternal = async (
 
     // 执行窗口资源快照：catch-all 也需保留已采集的真实值（不因后续落库失败清空审计事实）
     let resource: ExecutorResourceUsage | undefined
+    // 执行日志（MemoryLogger 输出，仅 container 执行器支持）：声明在 try 外，
+    // 使 catch-all（reconcile / 落库抛错）也能把已采集的日志落库
+    let logsJson: string | undefined | null
     try {
         // 执行器路由
         let result: RunResult | undefined
@@ -330,9 +333,6 @@ const runScanInternal = async (
         // 降级信号（todo.md §M11 T1005-C）：sandbox 启动时不可用 → 自动降级 ContainerExecutor → degradedReason 记录原 sandbox_unavailable
         // 范围：try 块顶层，确保 decision 处理块可见（degraded 状态机决策的输入）
         let degradedReason: { code: string, message: string } | undefined
-        // 执行日志（MemoryLogger 输出，仅 container 执行器支持）
-        let logsJson: string | undefined | null
-
         if (executorKind === 'github-action') {
             const executor = new ActionTriggerExecutor(token ?? '')
             const execResult = await executor.execute(ctx)
@@ -516,6 +516,11 @@ const runScanInternal = async (
         savedRun.peakRssBytes = resourceSnapshot.peakRssBytes
         savedRun.oomKilled = resourceSnapshot.oomKilled
         savedRun.resourceJson = JSON.stringify(resourceSnapshot)
+        // 编排 catch-all 也要保留执行日志（logsJson 在 try 外声明并已赋值）：
+        // 否则 reconcile / 落库抛错时日志全丢，运行详情只剩「（无执行日志）」
+        if (logsJson) {
+            savedRun.logsJson = logsJson
+        }
         // 编排 catch-all 失败同样落失败分类（与状态机失败路径同源）
         applyFailureClassification(savedRun, { status: 'failed', error: orchestrationFailure })
         const persisted = await runRepo.save(savedRun)

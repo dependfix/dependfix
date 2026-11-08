@@ -270,7 +270,6 @@ interface UnifiedBuildSignal {
 
 **UI**：列表新增「PR 状态」列（`open` / `closed` / `merged` / `unknown` 标签），筛选区新增结论下拉；
 关闭 / 合并行仍可展开查看历史信号（只读，不新增写路径）。
-
 **成本与边界**：
 
 - 每仓每轮：信号采集固定 1 次 open 列表分页；存在待解析编号时再加 1 次 open 列表分页

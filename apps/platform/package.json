@@ -48,7 +48,7 @@
     "better-auth": "^1.7.18",
     "better-sqlite3": "^13.0.3",
     "bullmq": "^6.7.0",
-    "caomei-ui": "1.0.0-rc.1",
+    "caomei-ui": "1.0.0",
     "chart.js": "^4.6.1",
     "cron-parser": "^5.10.3",
     "h3": "^1.15.11",

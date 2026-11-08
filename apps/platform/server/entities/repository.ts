@@ -144,6 +144,30 @@ export class Repository extends BaseEntity {
     @Column({ type: 'text', nullable: true })
     prCheckFocus!: string | null
 
+    // ---------------------------------------------------------------------
+    // 仓库级执行预算与超时（2026-11-08 M55.4；`null` = 继承全局）
+    //
+    // 口径见 [repo-execution-limits.md](../../../../docs/design/governance/repo-execution-limits.md) §4.1：
+    // 库内一律毫秒（与引擎常量同源），前端输入 / 展示一律分钟。
+    // 解析优先级与边界在 `server/utils/execution-limits.ts`（单一事实源）。
+    // ---------------------------------------------------------------------
+
+    /** 单仓执行上限（覆盖 `EXECUTION_TIMEOUT_MS`；另受平台封顶约束） */
+    @Column({ type: 'integer', nullable: true, name: 'execution_timeout_ms' })
+    executionTimeoutMs!: number | null
+
+    /** 单条验证命令超时（覆盖 `DEPENDFIX_VERIFY_TIMEOUT_MS`） */
+    @Column({ type: 'integer', nullable: true, name: 'verify_command_timeout_ms' })
+    verifyCommandTimeoutMs!: number | null
+
+    /** 安装类命令超时（覆盖 `DEPENDFIX_INSTALL_TIMEOUT_MS`） */
+    @Column({ type: 'integer', nullable: true, name: 'install_timeout_ms' })
+    installTimeoutMs!: number | null
+
+    /** clone 超时（覆盖 `CLONE_TIMEOUT_MS`） */
+    @Column({ type: 'integer', nullable: true, name: 'clone_timeout_ms' })
+    cloneTimeoutMs!: number | null
+
     /**
      * PR 回环反馈配置（JSON 文本；`null` = 全默认）。
      *

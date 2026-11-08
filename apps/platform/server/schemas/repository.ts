@@ -10,6 +10,16 @@ import {
     MAX_REPOSITORY_TAG_LENGTH,
     normalizeRepositoryTags,
 } from '#server/utils/repository-tags'
+import {
+    MAX_CLONE_TIMEOUT_MS,
+    MAX_COMMAND_TIMEOUT_MS,
+    MAX_INSTALL_TIMEOUT_MS,
+    MAX_MAX_EXECUTION_TIMEOUT_MS,
+    MIN_CLONE_TIMEOUT_MS,
+    MIN_COMMAND_TIMEOUT_MS,
+    MIN_EXECUTION_TIMEOUT_MS,
+    MIN_INSTALL_TIMEOUT_MS,
+} from '#server/utils/execution-limits'
 
 /**
  * 是否含换行 / 控制字符（含 DEL）。
@@ -51,38 +61,36 @@ export const repositoryTagsSchema = z.array(
         `最多 ${MAX_REPOSITORY_TAGS} 个标签（去重后）`,
     )
 
-/** 仓库创建基础校验（Zod）。owner/name 为必填，其余有默认或可选。 */
-export const repositoryBase = z.object({
+/**
+ * 仓库字段基线（**不含默认值**）。
+ *
+ * 拆出理由（repo-execution-limits.md 决策 D3）：`repositoryUpdateSchema` 直接用
+ * `.partial()`——若字段带 `.default()`，Zod 的 partial 仍会在缺省字段上注入默认值，
+ * 导致「PUT 只改 note」把 `executorKind` / `defaultBranch` / `packageManager` 静默重置。
+ * create 侧在 {@link repositoryBase} 中显式补默认值。
+ */
+export const repositoryFieldShape = {
     owner: z.string().trim().min(1, 'owner 不能为空').max(100).regex(/^[A-Za-z0-9_.-]+$/, 'owner 含非法字符'),
     name: z.string().trim().min(1, '仓库名不能为空').max(100).regex(/^[A-Za-z0-9_.-]+$/, '仓库名含非法字符'),
-    platform: z.enum(['github']).default('github'),
-    defaultBranch: z.string().trim().min(1).max(100).default('main'),
-    packageManager: z.enum(['pnpm', 'npm', 'yarn']).default('pnpm'),
+    platform: z.enum(['github']),
+    defaultBranch: z.string().trim().min(1).max(100),
+    packageManager: z.enum(['pnpm', 'npm', 'yarn']),
     credentialId: z.string().trim().max(36).nullable().optional(),
     actionWorkflowFile: z.string().trim().max(255).nullable().optional(),
-    executorKind: z.enum(['container', 'github-action', 'sandbox']).default('container'),
+    executorKind: z.enum(['container', 'github-action', 'sandbox']),
     note: z.string().max(500).nullable().optional(),
     /** 仓库标签（数组形式输入；空数组在 API 层转 null 存储；更新语义：undefined=不修改 / null 或 [] = 清空） */
     tags: repositoryTagsSchema.nullable().optional(),
     /**
      * 沙箱资源限额覆盖（可选；缺省走平台 SANDBOX_DEFAULTS：2048MB / 1.0 CPU）。
-     * 字段范围：memoryMb [64, 32768] 整数 MB / cpu [0.1, 16]。
-     * 限额优先级（sandbox-executor.ts:107 注释）：仓库级 sandboxLimits > 沙箱级 > SANDBOX_DEFAULTS。
-     * UI 不暴露该字段，仅 API 层透传；演进路径：未来可加折叠面板批量配置。
-     * `.strict()`：未知键（如 `gpu`）直接 400——否则会被 Zod 静默剥离，形成「配了但不生效」。
+     * `.strict()`：未知键直接 400，避免 Zod 静默剥离造成「配了不生效」。
      */
     sandboxLimits: z.object({
         memoryMb: z.number().int().min(64, 'memoryMb 至少 64MB').max(32768, 'memoryMb 至多 32768MB (32GB)').optional(),
         cpu: z.number().min(0.1, 'cpu 至少 0.1').max(16, 'cpu 至多 16').optional(),
     }).strict().nullable().optional(),
     /**
-     * 仓库级自定义验证命令（覆盖引擎默认验证链 `DEFAULT_VERIFY_COMMANDS`）。
-     * 语义与 CLI `--commands` 对齐：数组每项为一条命令；缺省（undefined / null / []）走默认链。
-     * 限制：最多 20 条、每条非空且 ≤ 500 字符、不含换行 / 控制字符（保持「一项 = 一条命令行」不变量）。
-     *
-     * 安全边界：该字段等价于「远程命令执行面」（单条命令按 CLI 语义经 shell 执行）——写入门槛由
-     * API 层 `requireRole(['admin', 'org_admin'])` 保证，变更登记 AuditEvent 留痕。
-     * 详见 [entities/repository.ts Repository.verifyCommands] 字段注释。
+     * 仓库级自定义验证命令（覆盖引擎默认验证链）；安全边界与语义见实体字段注释。
      */
     verifyCommands: z.array(
         z.string().trim().min(1, '验证命令不能为空').max(500, '单条验证命令最长 500 字符')
@@ -90,12 +98,7 @@ export const repositoryBase = z.object({
     ).max(20, '最多 20 条验证命令').nullable().optional(),
     /**
      * PR Check 告警关注集（仓库级白名单；null / 三维全空 = 未配置 = 全量只报警不阻断）。
-     *
-     * 语义见 `server/utils/pr-check-focus.ts` 与
-     * [pr-build-deploy-signals.md §9](../../../../docs/design/governance/pr-build-deploy-signals.md)。
-     * 限制：每维度最多 20 项；provider ≤ 100 字符、name ≤ 200 字符；kind 仅接受三源枚举。
-     * `.strict()`：未知维度（如 `state`）直接 400，避免「配了但静默不生效」的误解
-     * （模式见 `pr-check-focus.ts` 的注释：关注集只回答「哪些信号算数」，不回答「哪些状态算失败」）。
+     * 语义见 `server/utils/pr-check-focus.ts`；`.strict()` 拒绝未知维度。
      */
     prCheckFocus: z.object({
         providers: z.array(
@@ -106,18 +109,60 @@ export const repositoryBase = z.object({
             z.string().trim().min(1, '关注集 name 不能为空')
                 .max(MAX_PR_CHECK_FOCUS_NAME_LENGTH, `关注集 name 最长 ${MAX_PR_CHECK_FOCUS_NAME_LENGTH} 字符`),
         ).max(MAX_PR_CHECK_FOCUS_ENTRIES, `关注集 name 最多 ${MAX_PR_CHECK_FOCUS_ENTRIES} 项`).optional(),
-        // 先 trim 再收敛枚举：与 providers / names 的「宽容输入、写入归一」口径一致
-        // （`' check '` 属合法输入）；重复项交由 `normalizePRCheckFocus` 去重，故上限沿用条目数常量
         kinds: z.array(
             z.string().trim().pipe(z.enum(PR_CHECK_FOCUS_KINDS)),
         ).max(MAX_PR_CHECK_FOCUS_ENTRIES, `关注集 kind 最多 ${MAX_PR_CHECK_FOCUS_ENTRIES} 项`).optional(),
     }).strict().nullable().optional(),
+    // -----------------------------------------------------------------
+    // 仓库级执行预算与超时（毫秒；null / undefined = 继承全局）
+    // 运行期优先级与封顶见 server/utils/execution-limits.ts
+    // -----------------------------------------------------------------
+    executionTimeoutMs: z.number().int().min(MIN_EXECUTION_TIMEOUT_MS, '执行上限至少 1 分钟')
+        .max(MAX_MAX_EXECUTION_TIMEOUT_MS, '执行上限超出平台允许范围').nullable().optional(),
+    verifyCommandTimeoutMs: z.number().int().min(MIN_COMMAND_TIMEOUT_MS, '验证命令超时至少 10 秒')
+        .max(MAX_COMMAND_TIMEOUT_MS, '验证命令超时超出允许范围').nullable().optional(),
+    installTimeoutMs: z.number().int().min(MIN_INSTALL_TIMEOUT_MS, '安装超时至少 10 秒')
+        .max(MAX_INSTALL_TIMEOUT_MS, '安装超时超出允许范围').nullable().optional(),
+    cloneTimeoutMs: z.number().int().min(MIN_CLONE_TIMEOUT_MS, 'clone 超时至少 1 分钟')
+        .max(MAX_CLONE_TIMEOUT_MS, 'clone 超时超出允许范围').nullable().optional(),
+} as const
+
+/** 子项超时不得超过执行上限（写入时交叉校验，错误挂在子项字段）。 */
+const validateExecutionLimitInvariant = (
+    data: { executionTimeoutMs?: number | null, verifyCommandTimeoutMs?: number | null, installTimeoutMs?: number | null, cloneTimeoutMs?: number | null },
+    ctx: z.RefinementCtx,
+): void => {
+    const execution = data.executionTimeoutMs
+    if (execution === undefined || execution === null) {
+        return
+    }
+    const children: [keyof typeof data, string][] = [
+        ['verifyCommandTimeoutMs', '验证命令超时'],
+        ['installTimeoutMs', '安装超时'],
+        ['cloneTimeoutMs', 'clone 超时'],
+    ]
+    for (const [field, label] of children) {
+        const value = data[field]
+        if (typeof value === 'number' && value > execution) {
+            ctx.addIssue({
+                code: 'custom',
+                path: [field],
+                message: `${label}不能大于执行上限（${execution}ms）`,
+            })
+        }
+    }
+}
+
+/** 仓库创建校验（含默认值与交叉校验）。 */
+export const repositoryBase = z.object({
+    ...repositoryFieldShape,
+    platform: repositoryFieldShape.platform.default('github'),
+    defaultBranch: repositoryFieldShape.defaultBranch.default('main'),
+    packageManager: repositoryFieldShape.packageManager.default('pnpm'),
+    executorKind: repositoryFieldShape.executorKind.default('container'),
 })
 
-/**
- * 仓库创建校验（含交叉校验：github-action 必须声明 actionWorkflowFile）。
- * owner/name 为必填，其余有默认或可选。
- */
+/** 创建：沙箱入口关闭 + github-action 必须声明 workflow + 执行超时不变量。 */
 export const repositorySchema = repositoryBase.superRefine((data, ctx) => {
     if (data.executorKind === 'sandbox') {
         ctx.addIssue({
@@ -133,13 +178,18 @@ export const repositorySchema = repositoryBase.superRefine((data, ctx) => {
             message: '选择 GitHub Action 执行时必须填写目标 workflow 文件路径',
         })
     }
+    validateExecutionLimitInvariant(data, ctx)
 })
 
 /**
- * 仓库更新：允许部分字段（含同一交叉校验，仅当字段存在时生效）。
- * 注意：Zod v4 不允许对含 refinement 的 schema 调用 .partial()，故先 partial 再挂 superRefine。
+ * 仓库更新：允许部分字段。
+ *
+ * 注意：基线 `repositoryFieldShape` **不带默认值**——`.partial()` 只对缺省字段放行，
+ * 不会注入 `platform` / `defaultBranch` / `packageManager` / `executorKind`（否则只改 note 的
+ * PUT 会静默重置执行器与分支）。含 refinement 的 schema 不能直接 `.partial()`（Zod v4 限制），
+ * 故先 partial 再挂 superRefine。
  */
-export const repositoryUpdateSchema = repositoryBase.partial().superRefine((data, ctx) => {
+export const repositoryUpdateSchema = z.object(repositoryFieldShape).partial().superRefine((data, ctx) => {
     if (data.executorKind === 'sandbox') {
         ctx.addIssue({
             code: 'custom',
@@ -154,6 +204,7 @@ export const repositoryUpdateSchema = repositoryBase.partial().superRefine((data
             message: '选择 GitHub Action 执行时必须填写目标 workflow 文件路径',
         })
     }
+    validateExecutionLimitInvariant(data, ctx)
 })
 
 export type RepositoryInput = z.infer<typeof repositorySchema>

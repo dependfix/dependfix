@@ -22,6 +22,36 @@ describe('repository schemas', () => {
         expect(ok.success).toBe(true)
     })
 
+    it('更新：部分字段不注入默认值（PUT 只改 note 不重置执行器与分支）', () => {
+        // 历史缺陷：repositoryBase 带 .default()，.partial() 仍会注入默认值 →
+        // 只改 note 的 PUT 把 github-action 仓库重置为 container。基线字段集不带默认后不再发生。
+        const parsed = repositoryUpdateSchema.parse({ note: 'x' })
+        expect(parsed).toEqual({ note: 'x' })
+        expect(parsed).not.toHaveProperty('executorKind')
+        expect(parsed).not.toHaveProperty('defaultBranch')
+        expect(parsed).not.toHaveProperty('packageManager')
+        expect(parsed).not.toHaveProperty('platform')
+    })
+
+    it('创建/更新：执行超时字段边界与交叉校验', () => {
+        const ok = repositorySchema.safeParse({
+            owner: 'a',
+            name: 'b',
+            executionTimeoutMs: 2_700_000,
+            verifyCommandTimeoutMs: 1_200_000,
+        })
+        expect(ok.success).toBe(true)
+
+        // 子项大于执行上限 → 拒绝（错误挂在子项字段）
+        const cross = repositoryUpdateSchema.safeParse({ executionTimeoutMs: 120_000, verifyCommandTimeoutMs: 600_000 })
+        expect(cross.success).toBe(false)
+        expect(cross.error?.issues[0]?.path).toEqual(['verifyCommandTimeoutMs'])
+
+        // 下限 / 上限
+        expect(repositoryUpdateSchema.safeParse({ executionTimeoutMs: 1_000 }).success).toBe(false)
+        expect(repositoryUpdateSchema.safeParse({ cloneTimeoutMs: 10_000 }).success).toBe(false)
+    })
+
     it('更新：允许部分字段（空对象合法）', () => {
         expect(repositoryUpdateSchema.safeParse({}).success).toBe(true)
         expect(repositoryUpdateSchema.safeParse({ note: 'x' }).success).toBe(true)

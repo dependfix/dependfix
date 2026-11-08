@@ -201,4 +201,14 @@ export class ScanRun extends BaseEntity {
     @Index()
     @Column({ type: 'varchar', length: 36, nullable: true })
     batchRunId!: string | null
+
+    /**
+     * 本次运行**实际生效**的执行上限快照（毫秒；`null` = 本列上线前的存量行）。
+     *
+     * 写入时点：编排层在启动执行**之前**与 `status = running` / `startedAt` 同一次 save 写入，
+     * 不得等执行结束回填——否则执行中进程死亡会让 `stale-cleanup` 退回全局默认并误杀长预算运行。
+     * 口径见 [repo-execution-limits.md §4.2](../../../../docs/design/governance/repo-execution-limits.md)。
+     */
+    @Column({ type: 'integer', nullable: true, name: 'execution_timeout_ms' })
+    executionTimeoutMs!: number | null
 }

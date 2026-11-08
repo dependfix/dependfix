@@ -322,6 +322,41 @@ export function buildVersionedOverrides(
             overrides[resolveWriteKey(pathKey)] = `^${target}`
         }
     }
+
+    // 父级限定键遮蔽（2026-11-01 cmyr-skills-agents undici 实证）：已有的 `parent>pkg` 规则
+    // 优先于通用 / 版本化键，通用键升级后 pnpm 不重新解析 → 实例不变。这里把「同包且仍低于
+    // 本次目标」的父级键一并提升（保持原 key 写法，只改值），不新增条目、不删既有条目。
+    // 目标必须与键自身的版本线一致：有 selector 用 selector 的 major；无 selector 用当前值的
+    // major。对应线没有本次目标时跳过——不做未授权的跨 major 改写（由校验失败消息披露遮蔽键）。
+    if (Object.keys(overrides).length > 0) {
+        for (const [key, value] of Object.entries(existingOverrides)) {
+            if (!key.includes('>')) {
+                continue
+            }
+            const segments = key.trim().split('>')
+            const lastSegment = segments[segments.length - 1].trim()
+            const atIndex = lastSegment.startsWith('@') ? lastSegment.indexOf('@', 1) : lastSegment.indexOf('@')
+            const keyPackage = atIndex > 0 ? lastSegment.slice(0, atIndex) : lastSegment
+            if (keyPackage !== packageName) {
+                continue
+            }
+            const selectorMajor = atIndex > 0
+                ? /^[^\d]*(\d+)/.exec(lastSegment.slice(atIndex + 1))?.[1]
+                : undefined
+            const current = value.replace(/^\s*[\^~>=<]*\s*/, '')
+            const lineMajor = selectorMajor ?? /^(\d+)/.exec(current)?.[1]
+            if (lineMajor === undefined) {
+                continue
+            }
+            const target = targetByMajor.get(lineMajor)
+            if (!target) {
+                continue
+            }
+            if (compareSemver(current, target) < 0) {
+                overrides[key] = `^${target}`
+            }
+        }
+    }
     return overrides
 }
 

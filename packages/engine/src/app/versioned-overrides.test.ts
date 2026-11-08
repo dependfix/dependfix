@@ -391,4 +391,69 @@ describe('buildVersionedOverrides', () => {
         expect(result).toEqual({ 'brace-expansion@1': '^1.1.21' })
         expect(result['brace-expansion@^1']).toBeUndefined()
     })
+
+    it('raises parent-scoped override keys for the same package when still below target', () => {
+        // 2026-11-01 cmyr-skills-agents undici 实证：已有 `parent>undici` 规则优先于通用键，
+        // 只改通用键时 pnpm 不重新解析 → 实例不变（生效校验随后误判未生效）。
+        writeFileSync(lockfilePath, [
+            'lockfileVersion: \'9.0\'',
+            '',
+            '  undici@7.28.0:',
+            '    resolution: {integrity: sha512-a}',
+            '',
+        ].join('\n'))
+        const result = buildVersionedOverrides(lockfilePath, [alert('undici', '7.30.1')], {
+            '@actions/http-client>undici': '^7.28.0',
+            '@semantic-release/github>undici': '^7.28.0',
+            // 已达标 → 不改写
+            'other-parent>undici': '^7.31.0',
+            // 其它包 → 不触碰
+            '@actions/http-client>fast-uri': '^3.0.1',
+        })
+
+        expect(result.undici).toBe('^7.30.1')
+        expect(result['@actions/http-client>undici']).toBe('^7.30.1')
+        expect(result['@semantic-release/github>undici']).toBe('^7.30.1')
+        expect(result['other-parent>undici']).toBeUndefined()
+        expect(result['@actions/http-client>fast-uri']).toBeUndefined()
+    })
+
+    it('leaves parent-scoped keys untouched when no vulnerable instance requires a write', () => {
+        // 实例已达标 → 本次无写入，父级键不应被无意义改写
+        writeFileSync(lockfilePath, [
+            'lockfileVersion: \'9.0\'',
+            '',
+            '  undici@7.30.1:',
+            '    resolution: {integrity: sha512-a}',
+            '',
+        ].join('\n'))
+        const result = buildVersionedOverrides(lockfilePath, [alert('undici', '7.30.1')], {
+            '@actions/http-client>undici': '^7.28.0',
+        })
+
+        expect(result).toEqual({})
+    })
+
+    it('does not rewrite parent-scoped keys across major lines without a matching target', () => {
+        // 只有 7 线告警目标；6 线 scoped 键不得被提升到 7（未授权的跨 major 改写）
+        writeFileSync(lockfilePath, [
+            'lockfileVersion: \'9.0\'',
+            '',
+            '  undici@6.19.0:',
+            '    resolution: {integrity: sha512-a}',
+            '',
+            '  undici@7.28.0:',
+            '    resolution: {integrity: sha512-b}',
+            '',
+        ].join('\n'))
+        const result = buildVersionedOverrides(lockfilePath, [alert('undici', '7.30.1')], {
+            '@actions/http-client>undici@6': '^6.19.0',
+            '@semantic-release/github>undici': '^6.19.0',
+        })
+
+        // 7 线通用 key 正常写入；两个父级键（selector 6 / 当前值 6.x）均无 6 线目标 → 保持原样
+        expect(result['undici@7']).toBe('^7.30.1')
+        expect(result['@actions/http-client>undici@6']).toBeUndefined()
+        expect(result['@semantic-release/github>undici']).toBeUndefined()
+    })
 })

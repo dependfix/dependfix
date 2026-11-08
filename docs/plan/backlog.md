@@ -54,7 +54,7 @@
 
 ### 候选评估中（待评估 / 本阶段延后项）
 
-> **候选池概览（2026-11-08 机械复算）**：本区 **56 项**（`### 候选评估中` 段内 `^- \*\*` 逐行计数；M55 规划上收 7 项后读数 + 同日 PR Check 需求评估登记 1 项，另从「延期 / 暂缓项」上收 1 项）；P 标签覆盖不全（未标注者评估时补 P 标签，不默认升级）；本文件不维护分档统计，1.0 分档只见 [release-1.0-readiness.md](../design/governance/release-1.0-readiness.md)。
+> **候选池概览（2026-11-08 机械复算）**：本区 **57 项**（`### 候选评估中` 段内 `^- \*\*` 逐行计数；M55 规划上收 7 项后读数 + 同日 PR Check 需求评估登记 1 项 + M55.2 收口登记 1 项，另从「延期 / 暂缓项」上收 1 项）；P 标签覆盖不全（未标注者评估时补 P 标签，不默认升级）；本文件不维护分档统计，1.0 分档只见 [release-1.0-readiness.md](../design/governance/release-1.0-readiness.md)。
 > **1.0 门槛与分档**：P0 23 / P1 8 / 1.0 后 15 的分档、门槛判定与批次计划见 [release-1.0-readiness.md](../design/governance/release-1.0-readiness.md)。
 
 - **备份 `.tmp` 清扫缺年龄门槛（P3 🛠️，2026-10-31 M53.2 收口登记）** —— `cleanupOldBackups` 对 `*.bak.tmp` 无条件回收；单实例串行路径不可达冲突，但并发 `db:restore` 或多实例共卷启动时可能删掉对端正在写的临时文件（rename ENOENT → 该轮快照丢失，fail-open 后仅剩日志）。待评估：加入 `mtime < now - 10min` 年龄门槛或按 PID 命名临时文件。触发：启用多实例 / 多容器共享数据卷，或出现并发恢复需求时。
@@ -230,6 +230,9 @@
 **2026-11-01 批量运行失败复盘派生**（来源：`runs-logs-20261101-062859.txt` 第 1 页 50 条运行：5 条 failed〔3 条 `execution_timeout` + 2 条无日志〕+ 2 条 `exitCode=1`；不占阶段编号；原 4 项中 3 项已上收 M55（版本化 override 生效校验 / 运行预算夹取 / 失败路径日志），剩余 1 项见下）：
 
 - **取消后引擎未在宽限期落定 + 工作目录清理竞态（待评估，P2 🛡️）** —— 现象：`rss-resources-download` 在基线阶段被 30 分钟上限中止后，`[executor] ... 引擎在 10000ms 宽限期内未落定（不再等待）`，随后 `finally` 仍 `rm -rf` 工作目录；同批 `momei` 则在宽限期内落定。**根因未定位**（候选：重命令子进程未随进程组退出 / 管道未关闭 / 非受管 await）。**待评估点**：① 未落定的具体原因（重命令子进程未随进程组退出 / 管道未关闭 / 非受管 await），需在取消路径记录「仍有存活受管子进程数 + 最后启动命令」；② 宽限期是否按「是否仍有受管子进程存活」动态延长（而非固定 10s）；③ 未落定时是否延迟清理 workDir（保留诊断）或先强杀进程组再清理；④ 与 `executor-process-isolation.md` 取消契约的一致性。**验收标准（草案）**：构造「基线阶段被中止」→ 日志给出未落定原因；workDir 清理不早于子进程全部退出。**不做**：不改 30 分钟上限口径。**触发条件**：再次出现「宽限期内未落定」（本页 1 例）。
+  - **按 [规划规范 §3.1](../standards/planning.md#_3-1-新需求默认走-评估-→-backlog-原则-hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
+
+- **0 写入运行的后验证短路需三态门禁（待评估，P2 🚀，2026-11-08 M55.2 收口登记）** —— 现象：M55.2 已让「全部跨 major 且未授权」的仓库跳过基线采样，但「有告警但 0 写入」的后验证全链仍会执行（基线 4 分钟 + 后验证 4 分钟量级）。根因：`verificationPassed` 同时承担「零告警仓库的处理成功信号」（多仓 exit code 误归因守卫），直接跳过终验会让该信号缺失。待评估：把 `verificationPassed` 拆成 `verified` / `skipped(reason)` 三态并同步 exit code 与平台展示（影响 `verification-gate` / `result-assembly` / 平台运行详情）。触发：再次出现 0 写入运行耗尽单仓预算，或调整验证门禁语义时。
   - **按 [规划规范 §3.1](../standards/planning.md#_3-1-新需求默认走-评估-→-backlog-原则-hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
 
 - **AI 基建机检补强（P2 🛠️，2026-11-08 上游提案研判登记）** —— skill frontmatter / `metadata.internal`、`references` 索引、镜像符号链接、技能文档死链均已合规但**无机检**。**待评估**：① 新增 `check-ai-governance`（frontmatter 必填 + `references` / 镜像链接可达）并注册 `DOC_GATES` 复用 `gates:docs` 单入口，不另开 `ai:check` CI job；② `cmyr-skills-agents` 的 `docs/proposals/2026-11-02-governance-check-alignment.md` 中 #5 弃用引用 / #6 能力标记 optOut（无机器可读 deprecated 清单；跨仓读台账成第二事实源）。**触发**：新增或合并 skill、`references` 调整、回写上游台账时。

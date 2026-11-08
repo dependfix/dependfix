@@ -165,6 +165,98 @@ test.describe('PR Check 构建 / 部署信号详情', () => {
     })
 })
 
+test.describe('PR Check 结论筛选与生命周期标签', () => {
+    test('按结论筛选 → 请求带 conclusion=failure；关闭态行标注「已关闭」', async ({ page }) => {
+        // 自包含：先清理同名仓库（e2e 库跨 run 复用，旧行会被 fixtures 端点按幂等语义跳过）
+        await page.request.delete('/api/e2e/fixtures', {
+            data: { repos: [{ owner: 'lifecycle-e2e', name: 'repo' }] },
+            maxRetries: 2,
+        })
+        await seedCustomFixtures(page.request, {
+            repos: [{ owner: 'lifecycle-e2e', name: 'repo' }],
+            scanRuns: [],
+            scanResults: [],
+            prChecks: [
+                {
+                    repositoryOwner: 'lifecycle-e2e',
+                    repositoryName: 'repo',
+                    prNumber: 401,
+                    headSha: '1'.repeat(40),
+                    authorLogin: 'dependfix[bot]',
+                    conclusion: 'failure',
+                    prState: 'open',
+                    alertFiring: true,
+                    lastPolledAt: '2026-09-01T02:00:00.000Z',
+                },
+                {
+                    repositoryOwner: 'lifecycle-e2e',
+                    repositoryName: 'repo',
+                    prNumber: 402,
+                    headSha: '2'.repeat(40),
+                    authorLogin: 'dependfix[bot]',
+                    conclusion: 'failure',
+                    prState: 'closed',
+                    alertFiring: false,
+                    overallStatus: 'failure',
+                    signals: [
+                        {
+                            kind: 'check',
+                            provider: 'github-actions',
+                            name: 'Legacy Test',
+                            state: 'failure',
+                            rawState: 'failure',
+                            sourceId: '9402',
+                            summary: 'historical failure',
+                        },
+                    ],
+                    lastPolledAt: '2026-09-02T02:00:00.000Z',
+                },
+                {
+                    repositoryOwner: 'lifecycle-e2e',
+                    repositoryName: 'repo',
+                    prNumber: 403,
+                    headSha: '3'.repeat(40),
+                    authorLogin: 'dependfix[bot]',
+                    conclusion: 'success',
+                    prState: 'open',
+                    alertFiring: false,
+                    lastPolledAt: '2026-09-03T02:00:00.000Z',
+                },
+            ],
+        })
+
+        await page.goto('/pr-checks')
+        await waitForHydration(page)
+
+        const table = page.locator('.caomei-data-table')
+        await expect(table).toBeVisible({ timeout: 15000 })
+        await expect(table.locator('tbody .caomei-data-table__row').filter({ hasText: '#401' })).toBeVisible()
+
+        // 选择结论 = failure → client refetch 必须带 conclusion=failure
+        const filtered = page.waitForResponse(
+            (resp) => resp.url().includes('/api/pr-checks') && resp.url().includes('conclusion=failure'),
+        )
+        await page.locator('#pr-check-conclusion').click()
+        await page.locator('.caomei-select__content .caomei-select__item').filter({ hasText: /^failure$/ }).click()
+        await filtered
+
+        // 结果与所选结论一致：#403（success）被筛掉；关闭态行保留且标注「已关闭」
+        const rows = table.locator('tbody .caomei-data-table__row')
+        await expect(rows.filter({ hasText: '#401' })).toBeVisible()
+        const closedRow = rows.filter({ hasText: '#402' })
+        await expect(closedRow).toBeVisible()
+        await expect(closedRow).toContainText('已关闭')
+        await expect(rows.filter({ hasText: '#403' })).toHaveCount(0)
+
+        // 关闭态仍可展开查看历史信号（只读：无 ack 入口）
+        await closedRow.locator('button.caomei-data-table__row-expander').click()
+        const panel = table.locator('.pr-checks__signals')
+        await expect(panel).toBeVisible()
+        await expect(panel).toContainText('Legacy Test')
+        await expect(closedRow.locator('button', { hasText: 'Ack' })).toHaveCount(0)
+    })
+})
+
 test.describe('PR Check 列表行内仓库辨识度', () => {
     test('仓库列：跨仓库同号 PR 并存时行内可区分归属', async ({ page }) => {
         // 复用 global-setup 已注入的仓库（foo/bar + foo/baz，幂等），构造「跨仓库同号 PR（#390）」

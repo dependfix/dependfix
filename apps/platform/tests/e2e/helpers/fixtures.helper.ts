@@ -153,6 +153,8 @@ export interface PRCheckFixture {
     headSha: string
     authorLogin: string
     conclusion?: 'success' | 'failure' | 'neutral' | 'cancelled' | 'timed_out' | 'action_required' | 'stale' | 'pending' | 'skipped'
+    /** PR 生命周期状态（缺省 = 生命周期列上线前的存量行 unknown） */
+    prState?: 'open' | 'closed' | 'merged' | 'unknown'
     checkRunId?: string | null
     detailsUrl?: string | null
     errorMessage?: string | null

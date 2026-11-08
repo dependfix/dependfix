@@ -54,7 +54,7 @@
 
 ### 候选评估中（待评估 / 本阶段延后项）
 
-> **候选池概览（2026-11-08 机械复算）**：本区 **55 项**（`### 候选评估中` 段内 `^- \*\*` 逐行计数；M55 规划上收 7 项后读数，另从「延期 / 暂缓项」上收 1 项）；P 标签覆盖不全（未标注者评估时补 P 标签，不默认升级）；本文件不维护分档统计，1.0 分档只见 [release-1.0-readiness.md](../design/governance/release-1.0-readiness.md)。
+> **候选池概览（2026-11-08 机械复算）**：本区 **56 项**（`### 候选评估中` 段内 `^- \*\*` 逐行计数；M55 规划上收 7 项后读数 + 同日 PR Check 需求评估登记 1 项，另从「延期 / 暂缓项」上收 1 项）；P 标签覆盖不全（未标注者评估时补 P 标签，不默认升级）；本文件不维护分档统计，1.0 分档只见 [release-1.0-readiness.md](../design/governance/release-1.0-readiness.md)。
 > **1.0 门槛与分档**：P0 23 / P1 8 / 1.0 后 15 的分档、门槛判定与批次计划见 [release-1.0-readiness.md](../design/governance/release-1.0-readiness.md)。
 
 - **备份 `.tmp` 清扫缺年龄门槛（P3 🛠️，2026-10-31 M53.2 收口登记）** —— `cleanupOldBackups` 对 `*.bak.tmp` 无条件回收；单实例串行路径不可达冲突，但并发 `db:restore` 或多实例共卷启动时可能删掉对端正在写的临时文件（rename ENOENT → 该轮快照丢失，fail-open 后仅剩日志）。待评估：加入 `mtime < now - 10min` 年龄门槛或按 PID 命名临时文件。触发：启用多实例 / 多容器共享数据卷，或出现并发恢复需求时。
@@ -233,6 +233,17 @@
   - **按 [规划规范 §3.1](../standards/planning.md#_3-1-新需求默认走-评估-→-backlog-原则-hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
 
 - **AI 基建机检补强（P2 🛠️，2026-11-08 上游提案研判登记）** —— skill frontmatter / `metadata.internal`、`references` 索引、镜像符号链接、技能文档死链均已合规但**无机检**。**待评估**：① 新增 `check-ai-governance`（frontmatter 必填 + `references` / 镜像链接可达）并注册 `DOC_GATES` 复用 `gates:docs` 单入口，不另开 `ai:check` CI job；② `cmyr-skills-agents` 的 `docs/proposals/2026-11-02-governance-check-alignment.md` 中 #5 弃用引用 / #6 能力标记 optOut（无机器可读 deprecated 清单；跨仓读台账成第二事实源）。**触发**：新增或合并 skill、`references` 调整、回写上游台账时。
+- **PR Check 监测的 PR 生命周期状态与结论筛选（待评估，P2 🎨🛠️，2026-11-08 用户实测提出）** —— 来源：用户对 `/pr-checks` 页截图提出三点——① 已关闭的 PR 也应有对应状态；② 筛选支持按结论；③ 按作者筛选理论需要，但绝大多数是 dependabot，暂延后。
+  - **目标**：关闭 / 合并的 PR 不再伪装成「firing」告警，列表能区分 PR 生命周期状态，并可按结论筛选。
+  - **范围与现状（代码级，2026-11-08 已核）**：① `apps/platform/server/services/monitor/polling-source.ts:34` / `:66-70` 只拉 `pulls.list({ state: 'open' })`，PR 关闭 / 合并后不再采集；`apps/platform/server/entities/pr-check.ts` 无 PR 生命周期列，`apps/platform/server/utils/pr-check-view.ts` 不返回 PR 生命周期状态（`open` / `closed` / `merged`）→ 关闭后该行停在最后一次采集（可能 `alertFiring=true`），`apps/platform/server/api/pr-checks/summary.get.ts:34` 的 `firing` 计数继续包含它们；② `apps/platform/server/api/pr-checks/index.get.ts:28` / `:37-39` / `:61-62` **已支持** `conclusion` 查询参数，但 `apps/platform/app/pages/pr-checks.vue:93-130` 的 `filters` 只有 `repositoryId` / `alertFiring`，未接线；③ 作者筛选无既有实现（`author_login` 索引由迁移 `apps/platform/server/database/migrations/1800000000000-CreatePrCheckTable.ts:86` 提供，synchronize 路径不含该索引）。
+  - **待评估点**：① 关闭态采集通道——额外拉 `state: 'closed'`（按 updated 倒序 limit N）回写，还是列表渲染时惰性查询（热路径过重，倾向前者）；② 状态枚举与落点——`prState` 取 `open` / `closed` / `merged`（merged 由 `merged_at` 派生），落在该 PR 最新 head 行还是所有 head 行；③ 告警语义——PR 关闭后 `alertFiring` 是否强制置 false（推荐是）与 `acknowledgedAt` 是否保留；④ 存量回填——迁移后既有行如何补状态（首轮 polling 自然回写 vs 一次性脚本）；⑤ 结论筛选口径——沿用 API 的 9 值枚举全量列出，还是只列失败类 / 非失败类；⑥ 顶部统计是否随筛选收窄（默认保持全局并在文案标注，避免「列表已筛、卡片未筛」的口径分裂）；⑦ 作者筛选本次不纳入（用户 2026-11-08 明确延后），保留后续增量。
+  - **验收标准（草案）**：① 关闭 / 合并的 PR 在列表中显示对应状态标签，且不再计入 `firing`（`summary` 与列表口径一致）；② 构造「PR 关闭时 CI 红」→ 下一次 polling 后状态为 `closed` 且 `alertFiring=false`；③ 按结论筛选（如 `failure`）→ 请求带 `conclusion=failure`、列表结果与所选结论一致；④ 关闭 PR 仍可展开查看历史信号（只读）；⑤ 定向单测 + 一条 e2e（筛选 → 关闭态标签）。
+  - **不做什么**：本次不纳入按作者筛选（保留后续增量）；不改三源信号归一化与归因口径；不改 per-PR-head 数据模型；不做 webhook 实时通道。
+  - **依赖**：PR Check 监测三源采集与 `pr-check-view` 单一视图口径；与 G3.5「PR Check 真实 polling」验证路径同域。
+  - **交付物**：预估 3-5 commits / 8-12 文件 / 400-700 行（评估确认后细化；含实体 + 迁移、polling 源、视图、API、页面与 i18n、单测 / e2e）。
+  - **风险与缓解**：额外拉 closed PR 增加 GitHub API 调用 → limit + 节流（复用 `TERMINAL_REPOLL_QUIET_MS` 思路）；存量行状态回填失败留下 `unknown` 态 → 视图 fail-open 展示并标注；截图读数（239 总数 / 200 firing）为**用户截图观察值（2026-11-08，测量方 = 用户），执行角色未复算**，存量关闭 PR 占比以 `SELECT COUNT(*) FROM pr_check` 与 `SELECT COUNT(*) FROM pr_check WHERE alert_firing = 1` 实测为准。
+  - **触发条件**：用户要求处理该交互（**2026-11-08 已提出，等待决策是否上收**）；或 PR Check 告警噪声影响日常处理时。
+  - **按 [规划规范 §3.1](../standards/planning.md#_3-1-新需求默认走-评估-→-backlog-原则-hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
 
 ### 待上收候选（评估完成，等待用户决策）
 

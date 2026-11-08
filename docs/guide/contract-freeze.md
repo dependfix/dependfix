@@ -289,7 +289,7 @@ credential: id, created_at, updated_at, organization_id, name, type, encrypted_t
 notification_log: id, created_at, updated_at, delivery_key, category, scope_type, scope_id, channel, fingerprint, recipient_user_id, recipients_json, status, error_message, sent_at
 notification_preference: id, created_at, updated_at, user_id, category, channel, enabled
 organization: id, created_at, updated_at, name, ai_api_key_encrypted, ai_provider, ai_model, ai_base_url, ai_api_url, notification_settings_json
-pr_check: id, created_at, updated_at, repository_id, pr_number, head_sha, author_login, conclusion, check_run_id, details_url, error_message, signals_json, overall_status, failure_sources_json, alert_firing, acknowledged_at, acknowledged_by_user_id, last_polled_at
+pr_check: id, created_at, updated_at, repository_id, pr_number, head_sha, author_login, conclusion, pr_state, check_run_id, details_url, error_message, signals_json, overall_status, failure_sources_json, alert_firing, acknowledged_at, acknowledged_by_user_id, last_polled_at
 repository: id, created_at, updated_at, organization_id, owner, name, platform, default_branch, package_manager, credential_id, action_workflow_file, executor_kind, ai_enabled, ai_trigger, note, last_scan_at, tags, sandbox_limits, verify_commands, pr_check_focus, pr_feedback, execution_timeout_ms, verify_command_timeout_ms, install_timeout_ms, clone_timeout_ms, allow_major_upgrade
 scan_result: id, created_at, updated_at, scan_run_id, repository_id, upstream_id, source, severity, package_name, manifest_path, rule_id, summary, fixable, fix_strategy, recommended_version, html_url, ghsa_id, cve_ids, fix_status, error_message, first_seen_at, last_seen_at, occurrence_count, superseded_at
 scan_run: id, created_at, updated_at, repository_id, mode, severity_threshold, executor_kind, build_version, build_commit, status, started_at, finished_at, summary_json, exit_code, environmental_failure_count, memory_max_bytes, peak_rss_bytes, oom_killed, resource_json, error_json, failure_code, failure_stage, failure_kind, retried_from_run_id, triggered_by_user_id, logs_json, ai_config_snapshot, run_url, pr_number, batch_run_id, execution_timeout_ms
@@ -364,3 +364,10 @@ verification: id, created_at, updated_at, identifier, value, expires_at
 - **变更**：`signalsJson` 保存**收敛后的信号**——同一组键只保留最新一轮（被覆盖的旧轮次不保留）：`status` 的组键是 provider + context、`deployment` 是 provider + environment、`check` 额外要求**同一条 workflow run 血缘**（取详情链接里的 Actions run id，取不到时用 `sourceId` 作边界）——因此 `push` 与 `pull_request` 触发产生的两个同名 check 属于不同 run，**不会**互相合并。每条信号带 `roundAt` 用于判断轮次可比性，历史行（该列上线前采集）无 `roundAt`，按「不可比」处理。另提供 `overallStatus`（最坏派生状态）与 `failureSourcesJson`（失败源清单）供筛选直接消费。
 - **迁移动作**：需要历史轮次的消费者改为自建快照（按 `last_polled_at` 增量落库）；读 `overallStatus` / `failureSourcesJson` 而非自行遍历全量信号。
 - **验证**：对同一 PR 连续两轮采集后，`signalsJson` 中同组键只有一条且 `roundAt` 为最新轮次。
+
+### 8.6 `PRCheck` 新增生命周期列 `pr_state` 与视图字段 `prState`
+
+- **受影响对象**：直接读平台库 `pr_check.pr_state` / `GET /api/pr-checks` 返回 `prState` 的消费者。
+- **变更**：新增列 `pr_state`（`open` / `closed` / `merged` / `unknown`，非空，迁移默认 `unknown`）；列表 / 详情视图新增 `prState` 字段。`closed` / `merged` 行的 `alertFiring` 强制为 false，且 `summary.firing` / `summary.acknowledged` 不再统计这些行；`unknown` 为迁移存量行 / 解析未完成的 fail-open 值（仍按原 `alertFiring` 计数）。
+- **迁移动作**：无强制动作。依赖 `alertFiring` 判断「活跃失败」的消费者应同时排除 `prState ∈ {closed, merged}`；需要历史 PR 状态时按 `pr_state` 读取，不要用 `alert_firing` 反推。
+- **验证**：关闭一个失败 PR 后下一轮 polling，`pr_state=closed` 且 `alert_firing=false`、`acknowledged_at` 保留；`GET /api/pr-checks/summary` 的 `firing` 不包含该行。

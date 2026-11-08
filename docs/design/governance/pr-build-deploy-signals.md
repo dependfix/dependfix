@@ -236,6 +236,50 @@ interface UnifiedBuildSignal {
      4. 非 Actions check（无 run id）不收敛，重跑仍可能双报（保守方向，不掩蔽失败）。
      5. 平台未配置关注集时不重新收敛（沿用采集层派生值）——监控器只在**关注面**路径兜底。
 
+### 3.11 PR 生命周期（M56.1，2026-11-09）
+
+**问题**：轮询源只拉 `state: 'open'`，PR 关闭 / 合并后既有行不再被采集，`alertFiring` 停在失败态 →
+`summary.firing` 与列表把「已关闭的失败 PR」继续当作活跃告警；列表也无法区分 PR 生命周期。
+
+**数据模型**：`PRCheck` 新增 `prState`（`open` / `closed` / `merged` / `unknown`）。
+
+- 新行由轮询写入 `open`；关闭 / 合并由生命周期解析写入。
+- 存量行迁移默认 `unknown`（不臆造为 `open`），下一次轮询自然回填；`unknown` 在视图层展示为「未知」，
+  告警计数保持 fail-open（仍计入 `firing`，直到确认终态）。
+
+**解析（`PollingSource.fetchPrLifecycles`，`PRCheckSyncSource` 可选方法）**：
+
+1. 监控器从该仓库既有行中取「生命周期未终态且本轮未产出快照」的 `prNumber` 集合
+   （本轮快照即 open 证据，已由信号采集覆盖）。
+2. 采集层先拉一次 `pulls.list(state: 'open')` 的全量编号：命中 → `open`（不额外发单 PR 请求）。
+3. 未命中的编号逐个 `pulls.get` 区分：`merged_at` 非空 → `merged`；否则 `state === 'open'` → `open`；
+   其余 → `closed`。单轮 `pulls.get` 上限 50，未解析项留给下一轮（确认终态后移出候选集）。
+4. 任一步失败 fail-open（本轮跳过，不阻断信号采集，候选集下一轮重试）。
+
+**状态机**：
+
+- `closed` / `merged` → 该 PR **全部 HEAD 行**同步 `prState` 且 `alertFiring=false`；
+  `acknowledgedAt` / `acknowledgedByUserId` / `signalsJson` / `failureSourcesJson` 保留
+  （历史信号只读可追溯）。
+- 关闭后该 PR 不再进入 open 快照，后续轮询不会把告警点回；`unknown` → `open` 的回填不改告警态。
+- `summary.firing` / `summary.acknowledged` 只统计 `prState ∉ {closed, merged}` 的行
+  （关闭的 PR 不会「回归 success」，两者同口径）；`total` / `byConclusion` 保持全量口径。
+
+**API**：`GET /api/pr-checks` 的 `conclusion` 参数改为严格枚举：非法值返回 400
+（`PR_CHECK_VALIDATION_FAILED`），不再静默退回全量；视图新增 `prState`。
+
+**UI**：列表新增「PR 状态」列（`open` / `closed` / `merged` / `unknown` 标签），筛选区新增结论下拉；
+关闭 / 合并行仍可展开查看历史信号（只读，不新增写路径）。
+
+**成本与边界**：
+
+- 每仓每轮：信号采集固定 1 次 open 列表分页；存在待解析编号时再加 1 次 open 列表分页
+  （生命周期解析用）+ ≤50 次单 PR 请求。
+- 关闭检出延迟 ≤ 一个轮询周期（默认 5min）；单轮上限未覆盖的编号顺延到下一轮。
+- `pulls.get` 返回 404（PR 已删除 / 转移）按 `closed` 处理，避免永久占用单轮解析名额。
+- `down()` 用原始索引名 + `DROP INDEX IF EXISTS`，与仓库既有迁移同形态；非默认前缀下若索引因「同列异名」被跳过创建，SQLite 的 `DROP COLUMN` 可能因残留索引失败（已知边界，未在本批收敛）。
+- 不引入 webhook 实时通道，不改 per-PR-head 数据模型。
+
 ## 4. 数据模型（两个选项）
 
 现有 `PRCheck` 是 `(repositoryId, prNumber, headSha)` 一行、单 `conclusion`。扩展有两种路径：

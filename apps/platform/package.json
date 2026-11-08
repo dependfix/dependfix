@@ -58,7 +58,7 @@
     "mysql2": "^3.24.6",
     "node-cron": "^4.6.0",
     "nodemailer": "^10.3.1",
-    "nuxt": "^4.6.3",
+    "nuxt": "^4.6.4",
     "pg": "^8.23.1",
     "reflect-metadata": "^0.2.2",
     "sass": "^1.107.1",

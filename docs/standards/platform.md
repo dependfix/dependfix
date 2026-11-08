@@ -75,6 +75,13 @@ Nuxt 4（全栈 SSR + API Routes，`app/` + `server/`）/ TypeScript strict / UI
 - **单一事实源**：`server/services/run-failure-classify.ts` 集中映射表 + `unknown` 兜底；前端 `app/utils/run-view.ts` 仅复制枚举词汇供筛选控件，标签经 i18n 渲染。
 - 参与分类的终态 = `failed` + 有错误码的 `dispatched`；成功态与 `degraded` 三列为 null；覆盖全部失败写路径（orchestrator · batch-executor · stale-cleanup · scan.post · force-fail）；`reuse=true` 复用既有 run 时三列随 `errorJson` / `summaryJson` 一并清空。存量行回填 `pnpm db:backfill:run-failure`（默认 dry-run，`--apply` + y/N，幂等）。**不建索引**：单组织 run 量级小（summary 窗口上限 500）。完整模型见 [run-failure-taxonomy.md](../design/governance/run-failure-taxonomy.md)；运行结果可信度（`exit_code` / `environmental_failure_count`、未修复 / 结果缺失口径）见该文 §5.7–§5.8；执行内存 / OOM 归因（`memory_max_bytes` / `peak_rss_bytes` / `oom_killed` / `resource_json`）见该文 §5.10 与 [executor-process-isolation.md §8.4](../design/governance/executor-process-isolation.md)；构建版本回执（`build_version` / `build_commit`，写入点与刷新语义）见该文 §5.11。
 
+### 6.3 仓库级跨大版本升级授权（`allowMajorUpgrade`）
+
+- **默认关闭**：跨 major 告警记 `alertsSkippedByReason['cross-major']` 并按人工处理披露；不得因「开关未开」与「准入不满足」混淆（前者是默认策略，后者是显式授权后的准入判定）。
+- **开启后的准入**：仅「根 manifest 直接依赖 + lockfile 单版本」的告警进入升级链；间接依赖与多版本共存维持人工（与 CLI 语义一致）。升级仍走完整验证链（install / lint / build / typecheck / test），失败自动回滚。
+- **配置面**：平台仓库级开关（默认关）；写入门槛 `admin` / `org_admin`，仅实际变化时登记 `major_upgrade_policy_update` 审计。**不新增** CLI / Action / env 隐式通道（Action 仍无 input，CLI 仍为显式参数）。
+- **可观测**：仓库视图返回开关状态；运行摘要的 `cross-major` 计数与人工标签共同表达「被跳过」事实；日志在授权开启但准入不满足时输出 `require a cross-major upgrade ... manual review`。
+
 ## 7. 前端规范（app/）
 
 - Vue 3 Composition API + `<script setup lang="ts">`；禁止 `any`；模板不写复杂逻辑（抽 computed / 函数）。

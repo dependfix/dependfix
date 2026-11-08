@@ -226,7 +226,16 @@
         "importOwner": "Resource owner",
         "importOwnerPlaceholder": "Select credential first",
         "importOwnerPersonalBadge": "Personal",
-        "importOwnerOrgBadge": "Organization"
+        "importOwnerOrgBadge": "Organization",
+        "executionLimitsTitle": "Execution budget (advanced)",
+        "executionLimitsInheritAll": "All inherited",
+        "executionLimitsCoveredSuffix": "override(s)",
+        "executionTimeout": "Execution limit (minutes)",
+        "executionTimeoutHint": "Empty = inherit global; must not exceed the platform ceiling",
+        "verifyCommandTimeout": "Verify command timeout (minutes)",
+        "installTimeout": "Install timeout (minutes)",
+        "cloneTimeout": "Clone timeout (minutes)",
+        "executionLimitsHint": "Empty inherits the platform default; changing the execution limit also affects worker locks and orphan detection windows"
     },
     "schedules": {
         "title": "Schedules",

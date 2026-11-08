@@ -226,7 +226,16 @@
         "importOwner": "Resource owner",
         "importOwnerPlaceholder": "请先选择凭据",
         "importOwnerPersonalBadge": "个人",
-        "importOwnerOrgBadge": "组织"
+        "importOwnerOrgBadge": "组织",
+        "executionLimitsTitle": "执行预算（高级）",
+        "executionLimitsInheritAll": "全部继承全局",
+        "executionLimitsCoveredSuffix": "项已覆盖",
+        "executionTimeout": "执行上限（分钟）",
+        "executionTimeoutHint": "留空 = 继承全局；不得超过平台封顶",
+        "verifyCommandTimeout": "验证命令超时（分钟）",
+        "installTimeout": "安装超时（分钟）",
+        "cloneTimeout": "clone 超时（分钟）",
+        "executionLimitsHint": "留空表示继承平台默认值；修改执行上限会同步影响 Worker 锁与孤儿判定窗口"
     },
     "schedules": {
         "title": "定时计划",

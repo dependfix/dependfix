@@ -40,6 +40,11 @@ interface RepoForm {
     focusNames: string
     /** 关注集来源类型（空数组 = 不限） */
     focusKinds: string[]
+    /** 执行预算（分钟文本；空 = 继承全局。库内毫秒，前端展示 / 输入一律分钟） */
+    executionTimeoutMinutes: string
+    verifyCommandTimeoutMinutes: string
+    installTimeoutMinutes: string
+    cloneTimeoutMinutes: string
 }
 
 /** 关注集来源类型选项（与 server/utils/pr-check-focus.ts 的 PR_CHECK_FOCUS_KINDS 同值域） */
@@ -69,6 +74,10 @@ const emptyForm = (): RepoForm => ({
     focusProviders: '',
     focusNames: '',
     focusKinds: [],
+    executionTimeoutMinutes: '',
+    verifyCommandTimeoutMinutes: '',
+    installTimeoutMinutes: '',
+    cloneTimeoutMinutes: '',
 })
 
 const form = ref<RepoForm>(emptyForm())
@@ -89,6 +98,55 @@ const focusKindOptions = computed(() => [
     { value: 'status', label: t('repos.focusKind.status') },
     { value: 'deployment', label: t('repos.focusKind.deployment') },
 ])
+
+/** 毫秒 → 分钟文本（空 = 继承）；整分钟才回填，非整分钟按四舍五入展示 */
+const toMinutes = (ms: number | null | undefined): string => (ms ? String(Math.round(ms / 60000)) : '')
+
+/** 分钟文本 → 毫秒（空 / 非数 / 非正 → null = 继承） */
+const toMilliseconds = (minutes: string): number | null => {
+    const value = Number.parseFloat(minutes.trim())
+    if (!Number.isFinite(value) || value <= 0) {
+        return null
+    }
+    return Math.round(value * 60000)
+}
+
+/** 已覆盖项数（折叠行摘要） */
+const coveredLimitCount = computed(() => [
+    form.value.executionTimeoutMinutes,
+    form.value.verifyCommandTimeoutMinutes,
+    form.value.installTimeoutMinutes,
+    form.value.cloneTimeoutMinutes,
+].filter((value) => value.trim() !== '').length)
+
+/** 全局生效值（「继承全局」占位的唯一来源；禁止前端硬编码默认分钟数） */
+const requestFetch = useRequestFetch()
+const { data: executionLimitsDefaults } = await useAsyncData<{
+    executionTimeoutMs: number
+    maxExecutionTimeoutMs: number
+    verifyCommandTimeoutMs: number
+    installTimeoutMs: number
+    cloneTimeoutMs: number
+} | null>('repo-form-execution-limits', async () => {
+    if (!props.visible) {
+        return null
+    }
+    try {
+        // 显式泛型规避 $fetch 路由类型推断的栈深限制（与 repos.vue 同模式）
+        return await requestFetch<{
+            executionTimeoutMs: number
+            maxExecutionTimeoutMs: number
+            verifyCommandTimeoutMs: number
+            installTimeoutMs: number
+            cloneTimeoutMs: number
+        }>('/api/settings/execution-limits')
+    } catch {
+        return null
+    }
+}, { default: () => null })
+
+const placeholderFor = (ms: number | undefined): string =>
+    (executionLimitsDefaults.value && ms !== undefined ? `${Math.round(ms / 60000)}` : '')
 
 /** 表单关注集 → 请求体（三维全空归一为 null = 不启用；服务端仍会做 trim / 去重 / 小写规范化） */
 const buildFocusPayload = (): PRCheckFocusView | null => {
@@ -127,6 +185,10 @@ watch(() => props.visible, (open) => {
                 focusProviders: (repo.prCheckFocus?.providers ?? []).join(', '),
                 focusNames: (repo.prCheckFocus?.names ?? []).join(', '),
                 focusKinds: [...(repo.prCheckFocus?.kinds ?? [])],
+                executionTimeoutMinutes: toMinutes(repo.executionTimeoutMs),
+                verifyCommandTimeoutMinutes: toMinutes(repo.verifyCommandTimeoutMs),
+                installTimeoutMinutes: toMinutes(repo.installTimeoutMs),
+                cloneTimeoutMinutes: toMinutes(repo.cloneTimeoutMs),
             }
         : emptyForm()
 })
@@ -149,6 +211,10 @@ const submit = async () => {
                 .map((line) => line.trim())
                 .filter(Boolean),
             prCheckFocus: buildFocusPayload(),
+            executionTimeoutMs: toMilliseconds(form.value.executionTimeoutMinutes),
+            verifyCommandTimeoutMs: toMilliseconds(form.value.verifyCommandTimeoutMinutes),
+            installTimeoutMs: toMilliseconds(form.value.installTimeoutMinutes),
+            cloneTimeoutMs: toMilliseconds(form.value.cloneTimeoutMinutes),
         }
         if (props.repo) {
             await $fetch(`/api/repos/${props.repo.id}`, {
@@ -270,6 +336,56 @@ const submit = async () => {
                 />
                 <small class="text-muted">{{ t('repos.fieldVerifyCommandsHint') }}</small>
             </div>
+            <details class="repo-form__limits">
+                <summary class="repo-form__limits-summary">
+                    {{ t('repos.executionLimitsTitle') }}
+                    <span class="text-muted">
+                        {{ coveredLimitCount > 0
+                            ? `${coveredLimitCount} ${t('repos.executionLimitsCoveredSuffix')}`
+                            : t('repos.executionLimitsInheritAll') }}
+                    </span>
+                </summary>
+                <div class="repo-form__limits-grid">
+                    <div class="repo-form__field">
+                        <label for="executionTimeoutMinutes">{{ t('repos.executionTimeout') }}</label>
+                        <CaomeiInput
+                            id="executionTimeoutMinutes"
+                            v-model="form.executionTimeoutMinutes"
+                            inputmode="numeric"
+                            :placeholder="placeholderFor(executionLimitsDefaults?.executionTimeoutMs)"
+                        />
+                        <small class="text-muted">{{ t('repos.executionTimeoutHint') }}</small>
+                    </div>
+                    <div class="repo-form__field">
+                        <label for="verifyCommandTimeoutMinutes">{{ t('repos.verifyCommandTimeout') }}</label>
+                        <CaomeiInput
+                            id="verifyCommandTimeoutMinutes"
+                            v-model="form.verifyCommandTimeoutMinutes"
+                            inputmode="numeric"
+                            :placeholder="placeholderFor(executionLimitsDefaults?.verifyCommandTimeoutMs)"
+                        />
+                    </div>
+                    <div class="repo-form__field">
+                        <label for="installTimeoutMinutes">{{ t('repos.installTimeout') }}</label>
+                        <CaomeiInput
+                            id="installTimeoutMinutes"
+                            v-model="form.installTimeoutMinutes"
+                            inputmode="numeric"
+                            :placeholder="placeholderFor(executionLimitsDefaults?.installTimeoutMs)"
+                        />
+                    </div>
+                    <div class="repo-form__field">
+                        <label for="cloneTimeoutMinutes">{{ t('repos.cloneTimeout') }}</label>
+                        <CaomeiInput
+                            id="cloneTimeoutMinutes"
+                            v-model="form.cloneTimeoutMinutes"
+                            inputmode="numeric"
+                            :placeholder="placeholderFor(executionLimitsDefaults?.cloneTimeoutMs)"
+                        />
+                    </div>
+                </div>
+                <small class="text-muted">{{ t('repos.executionLimitsHint') }}</small>
+            </details>
             <div class="repo-form__focus">
                 <div class="repo-form__focus-title">
                     {{ t('repos.fieldPrCheckFocus') }}
@@ -347,6 +463,28 @@ const submit = async () => {
 /* 表单布局规则随组件内聚：本弹窗自 repos.vue 拆出时样式段留在父页的
    `<style scoped>` 内，scoped 不穿透子组件 → 规则整段失效（label 贴输入框、操作区落到左下）。
    此处为唯一归属地，父页不再保留同名规则。 */
+.repo-form__limits {
+    margin-top: 8px;
+    padding: 8px 12px;
+    border: 1px solid var(--caomei-color-border, #d4d4d8);
+    border-radius: var(--caomei-radius-md, 8px);
+
+    &-summary {
+        cursor: pointer;
+        font-weight: 600;
+        display: flex;
+        gap: 8px;
+        align-items: baseline;
+    }
+
+    &-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px 16px;
+        margin-top: 8px;
+    }
+}
+
 .repo-form {
     display: flex;
     flex-direction: column;

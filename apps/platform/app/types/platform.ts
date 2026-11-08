@@ -33,6 +33,14 @@ export interface RepoView {
     verifyCommands: string[]
     /** PR Check 告警关注集（null = 未配置 = 全量只报警不阻断；见设计稿 §9） */
     prCheckFocus: PRCheckFocusView | null
+    /** 仓库级执行上限（毫秒；null = 继承全局，见 repo-execution-limits.md） */
+    executionTimeoutMs: number | null
+    /** 仓库级验证命令超时（毫秒；null = 继承全局） */
+    verifyCommandTimeoutMs: number | null
+    /** 仓库级安装超时（毫秒；null = 继承全局） */
+    installTimeoutMs: number | null
+    /** 仓库级 clone 超时（毫秒；null = 继承全局） */
+    cloneTimeoutMs: number | null
     /** AI 研判开关（todo.md §M26.1 + M25.2a 实体扩展；与 POST /api/repos/[id]/ai-config 联动） */
     aiEnabled: boolean
     /** AI 研判触发范围（failure / major / both） */

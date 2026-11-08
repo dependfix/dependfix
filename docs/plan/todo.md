@@ -111,7 +111,7 @@
 - **目标**：四个超时（执行上限 / 验证命令 / 安装 / clone）支持仓库级覆盖与平台封顶，生效值可见、越界可判、变更可审计；同步修复 `repositoryUpdateSchema.partial()` 注入默认值导致的 PUT 静默重置。
 - **优先级**：P1（慢仓库拖垮整平台默认值；新列落库前必须先修 schema）。
 - **范围**（按 [设计稿](../design/governance/repo-execution-limits.md) §13 分批；批 0 为本计划新增的设计稿外前置，故为三批）：
-  - **批 0（预算前置，独立文档 commit）**：`docs/standards/platform.md` §10.6 外移到 [executor-process-isolation.md](../design/governance/executor-process-isolation.md)，主文档留摘要 + 指针，腾出 ≥800 字符。
+  - **批 0（预算前置，独立文档 commit）**：`docs/standards/platform.md` §10.6 外移到 [executor-process-isolation.md](../design/governance/executor-process-isolation.md) §9，主文档留摘要 + 指针。**已完成（2026-11-08）**：platform.md 29,744 → 27,097 字符（腾出 2,647），引用更新 7 处（guide zh/en、configuration zh/en、检查点矩阵、queue-stale-recovery、platform-notification）；`gates:docs` 20 项通过。
   - **批 1（4a，分 4 个提交片，每片独立验收点）**：
     - **4a-1 数据与契约**：`entities/repository.ts`、`entities/scan-run.ts`、`database/migrations/3000000000000-AddRepositoryExecutionLimits.ts`、`database/index.ts`、`schemas/repository.ts`（create / update 拆分）、`utils/execution-limits.ts`（新）+ schema 单测 → AC2 / AC7。
     - **4a-2 执行面**：`services/scan-orchestrator.service.ts`、`services/executor/container-executor.ts`、`services/queue/scan-worker.ts`、`services/batch/stale-cleanup.ts`、`plugins/stale-cleanup.ts`、引擎 `app/index.ts` / `app/helpers.ts` / `app/verify-project.ts` / `helpers/index.ts` + 定向单测 → AC1 / AC3 / AC4 / AC4b / AC5 / AC6。

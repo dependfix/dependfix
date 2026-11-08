@@ -321,7 +321,7 @@ export DEPENDFIX_RETRY_FAILED=false
 | `QUEUE_WORKER` → `DEPENDFIX_QUEUE_WORKER` | — | compose `1` / 入口 `0` | 独立 worker 进程消费队列（消除 BullMQ 锁续期失败）；`0` 回退单进程。⚠️ **compose 侧名为 `QUEUE_WORKER`** |
 | `DEPENDFIX_QUEUE_WORKER_SOCKET` | — | `/tmp/dependfix-queue-worker.sock` | worker 内部 socket 路径（白名单外，容器内名） |
 | `DEPENDFIX_QUEUE_WORKER_SLOW_RETRY_SECONDS` | — | `300` | worker 连续快速失败超上限后的慢重试间隔（秒，范围 1-3600，非法 / 0 回退 300）；不永久放弃重启，避免任务无声挂起。compose 已转发 |
-| `DEPENDFIX_ROLE` | — | 入口按进程注入（worker / server） | 进程角色：`worker` 跳过 HTTP-only 插件（周期清理 / 版本戳），避免重复 DB 查询与日志噪声；单进程形态由入口归一化为 `server`（等价于未设置：不跳过任何插件）；直连进程不设置。白名单外，容器内名；口径见 [platform.md §10.6](../standards/platform.md#_10-6-队列执行进程隔离-独立-worker-进程) |
+| `DEPENDFIX_ROLE` | — | 入口按进程注入（worker / server） | 进程角色：`worker` 跳过 HTTP-only 插件（周期清理 / 版本戳），避免重复 DB 查询与日志噪声；单进程形态由入口归一化为 `server`（等价于未设置：不跳过任何插件）；直连进程不设置。白名单外，容器内名；口径见 [设计稿 §9](../design/governance/executor-process-isolation.md#_9-队列执行进程隔离-运行时形态) |
 | `IN_PROCESS_WORKER` → `NUXT_IN_PROCESS_WORKER` | — | `true`（compose）/ `false`（直连进程） | 进程内 worker（单进程部署唯一消费者）；默认值以 compose 转发为准 |
 | `STALE_CLEANUP_INTERVAL_MS` | — | `300000` | 孤儿任务清理节拍（毫秒） |
 | `STALE_CLEANUP_RUNNING_GRACE_MS` | — | `300000` | running run 超过执行超时后的宽限期（毫秒，> 0；非法 / 0 回退默认）；超过即判 `orphan_run`。compose 已转发 |

@@ -1,7 +1,7 @@
 # 队列僵尸任务终结与去重键释放设计
 
 > 状态：✅ 已落地（2026-10-18，Review Gate R2 Pass）
-> 关联：[平台规范 §10.4 / §10.6](../../standards/platform.md) · [运行失败分类](./run-failure-taxonomy.md) · [定时扫描与批量处理](./platform-scheduled-batch.md)
+> 关联：[平台规范 §10.4](../../standards/platform.md) / [执行进程隔离 §9](./executor-process-isolation.md#_9-队列执行进程隔离-运行时形态) · [运行失败分类](./run-failure-taxonomy.md) · [定时扫描与批量处理](./platform-scheduled-batch.md)
 
 ## 1. 背景与现象
 

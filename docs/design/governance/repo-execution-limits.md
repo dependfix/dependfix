@@ -1,6 +1,6 @@
-# 仓库级执行预算与超时配置设计（设计先行稿）
+# 仓库级执行预算与超时配置设计
 
-> **状态**：🔶 已上收 M55（2026-11-08 用户授权；任务条目见 [todo.md §M55.4](../../plan/todo.md)）——设计定稿（2026-10-30，用户裁定 D1-D3），待实现。实现时注意 `docs/standards/platform.md` 已接近 30,000 字符阻断线，需先做批 0 预算外移（见 todo M55.4 范围）。
+> **状态**：✅ 已落地（2026-11-08，M55.4 闭环归档；实现记录见 [归档 M55.4](../../plan/archive/todo-archive-phases-m55.md)）——设计定稿 2026-10-30（用户裁定 D1-D3）；批 0 已按预算前置把 `platform.md` §10.6 外移到 [executor-process-isolation.md §9](./executor-process-isolation.md)。
 > **范围**：`apps/platform`（实体 / 迁移 / schema / API / 编排 / 队列 / 清理 / 前端表单）+ `packages/engine`（验证 / 安装 / clone 超时透传）；不改修复策略与验证链条数
 > **目标**：把「只能整平台调」的四个超时改为「仓库可覆盖 + 平台封顶」，并让生效值可见、越界可判、变更可审计
 > **上游**：[运行失败分类与筛选设计](./run-failure-taxonomy.md)（失败归因）、[平台执行模型隔离设计](./executor-process-isolation.md)（锁与取消面）、[队列僵尸任务终结与去重键释放设计](./queue-stale-recovery.md)（孤儿阈值）
@@ -47,7 +47,7 @@
 **非目标**
 
 - 不放开 24 小时量级的仓库级上限（封顶 `[30min, 240min]`，见 §6.2）。
-- 不改验证链条数 / 顺序 / 短路语义，不改归因规则（基线豁免与预算夹取逻辑见 [todo.md M55.2](../../plan/todo.md#m55-2-p1-🚀-运行预算夹取与双跑成本收敛)，与本设计同阶段执行）。
+- 不改验证链条数 / 顺序 / 短路语义，不改归因规则（基线豁免与预算夹取逻辑见 [归档 M55.2](../../plan/archive/todo-archive-phases-m55.md#m55-2-p1-🚀-运行预算夹取与双跑成本收敛-已闭环-97d92c0b-a753e2fd)，与本设计同阶段执行）。
 - 不做「全局超时在 UI 里写 env」（`lockDuration` 在 worker 启动期固定，UI 写 env 必然出现「界面显示 60、实际 30」）。
 - 不改 CLI `--commands` / `--timeout` 语义（CLI 侧继续走 env 与参数）。
 

@@ -218,7 +218,7 @@
 - **邮件传输超时与周报节拍约束显式化（待评估，P2 🛠️）** —— 现象：`apps/platform/server/services/mailer/transport.ts` 的 `SMTPTransport.Options` 未声明 `connectionTimeout` / `socketTimeout` / `greetingTimeout`，当前靠 nodemailer 默认值（socket≈10 分钟）与周报 15 分钟检查间隔的隐式大小关系兜底；M50.3 引入重入守卫后，若某次发送永不 settle 且默认值或节拍被改动，周报会永久停摆（旧行为只是噪声）。**待评估点**：① 是否显式声明三个超时并在注释里锁定「必须小于周报检查间隔」；② 是否在启动期做一次配置断言（超时 < 节拍），失败 warn；③ 与平台请求超时 / 队列预算的口径是否统一。**触发条件**：调整周报节拍 / nodemailer 升级 / 再次出现周报停摆。
   - **按 [规划规范 §3.1](../standards/planning.md#_3-1-新需求默认走-评估-→-backlog-原则-hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
 
-**2026-10-30 批量运行超时复盘派生**（来源：`runs-logs-20261030-000646.txt` 第 1 页 10 条运行，2 条 `execution_timeout` + 1 条无日志失败；不占阶段编号；原 3 项中「双跑成本收敛」已上收 M55）：
+**2026-10-30 批量运行超时复盘派生**（来源：`runs-logs-20261030-000646.txt` 第 1 页 10 条运行，2 条 `execution_timeout` + 1 条无日志失败；不占阶段编号）：
 
 - **Nuxt / 框架类仓库默认验证链缺 `prepare` 前置（待评估，P2 🛠️）** —— 现象：momei 的 `quick-verify` 执行默认 `pnpm lint` 时 ESLint OOM（`Mark-Compact` 至约 1.95GB 后 `FATAL ERROR: Ineffective mark-compacts near heap limit`，GC 挣扎约 4 分钟才退出），与 `packages/engine/src/helpers/index.ts:86-90` 注释已记录的形态一致：默认链 `install → lint → build → typecheck → test` 中 lint 早于 build，`.nuxt/tsconfig.json` 尚未生成。平台侧该仓库未配置 `verifyCommands`，故走默认链。**待评估点**：① 引擎默认链是否在探测到 `nuxt.config.*` 时插入 `nuxt prepare`（影响全部仓库链口径）；② 或平台在新建 / 导入仓库时按框架写入 `verifyCommands` 模板（不污染默认链）；③ monorepo 根脚本形态（`pnpm -r --filter "./packages/*" lint`）下 prepare 应落在根还是各成员；④ OOM 的子进程退出应否作为独立诊断信号（当前只表现为 `exit code 1`）。**验收标准（草案）**：Nuxt 仓库在无自定义配置下 lint 不再 OOM；prepare 步骤失败有独立日志与报告条目。**不做**：不为单个仓库硬编码框架判断（探测失败须安全回退默认链）。**触发条件**：再次出现框架前置步骤缺失导致的 OOM / 假红。**2026-11-01 复现（2 例）**：`momei` 两次运行（2026-10-31T22:44 / 2026-11-01T05:15）均在 quick-verify 阶段以同一形态 OOM（`Mark-Compact 1947.0 (1961.6) MB` → `FATAL ERROR: Ineffective mark-compacts near heap limit`，GC 挣扎约 5 分钟）；容器与仓库脚本均未设 `NODE_OPTIONS` / `--max-old-space-size`（Node 默认 old-space ≈2GB），且基线阶段同命令已红（`exit code 1`）→ 属「链序 + 环境堆上限」双重因素，非本次升级引入。
 
@@ -227,7 +227,7 @@
 - **契约抽取器覆盖 `@Column(() => X)` 嵌入列与 env 解构（P3 🛠️，2026-10-31 M53.1 收口登记）** —— `check-contract-freeze` 的实体抽取覆盖 `@Column` 系列 / `@ManyToOne`+`@JoinColumn` / `@Entity`，遇到 `@Embedded`、`@ManyToMany` join table、env 解构与非字面量 `readEnv` 实参已 fail-closed（`extractor-coverage`），但**无 `@Embedded` 的 `@Column(() => X)` 嵌入列**未进哨兵：抽取会产出错误列名并与清单产生差异（响亮失败，不会静默漏键）。待评估：扩展抽取器（递归嵌入类型 / `getMetadataArgsStorage` 元数据）或把该形态纳入 fail-closed 哨兵。触发：仓库首次引入嵌入实体或该形态列。
 - **en-US 设计文档全量镜像（P2 📚，2026-10-30 M52 规划登记）** —— 现状：en 设计镜像仅 4 篇，zh 设计文档 67 篇（含 M44.4 拆分分片）；M52.3 只做「结构映射 + 索引补全」，不重译全文。待评估：1.0 后是否按「分片 → 镜像」逐篇补齐（成本随拆分增加、双维护风险高），或长期维持映射清单 + 关键路径翻译。触发：1.0 后文档国际化需求，或用户反馈英文站信息不足时。
 
-**2026-11-01 批量运行失败复盘派生**（来源：`runs-logs-20261101-062859.txt` 第 1 页 50 条运行：5 条 failed〔3 条 `execution_timeout` + 2 条无日志〕+ 2 条 `exitCode=1`；不占阶段编号；原 4 项中 3 项已上收 M55（版本化 override 生效校验 / 运行预算夹取 / 失败路径日志），剩余 1 项见下）：
+**2026-11-01 批量运行失败复盘派生**（来源：`runs-logs-20261101-062859.txt` 第 1 页 50 条运行：5 条 failed〔3 条 `execution_timeout` + 2 条无日志〕+ 2 条 `exitCode=1`；不占阶段编号）：
 
 - **取消后引擎未在宽限期落定 + 工作目录清理竞态（待评估，P2 🛡️）** —— 现象：`rss-resources-download` 在基线阶段被 30 分钟上限中止后，`[executor] ... 引擎在 10000ms 宽限期内未落定（不再等待）`，随后 `finally` 仍 `rm -rf` 工作目录；同批 `momei` 则在宽限期内落定。**根因未定位**（候选：重命令子进程未随进程组退出 / 管道未关闭 / 非受管 await）。**待评估点**：① 未落定的具体原因（重命令子进程未随进程组退出 / 管道未关闭 / 非受管 await），需在取消路径记录「仍有存活受管子进程数 + 最后启动命令」；② 宽限期是否按「是否仍有受管子进程存活」动态延长（而非固定 10s）；③ 未落定时是否延迟清理 workDir（保留诊断）或先强杀进程组再清理；④ 与 `executor-process-isolation.md` 取消契约的一致性。**验收标准（草案）**：构造「基线阶段被中止」→ 日志给出未落定原因；workDir 清理不早于子进程全部退出。**不做**：不改 30 分钟上限口径。**触发条件**：再次出现「宽限期内未落定」（本页 1 例）。
   - **按 [规划规范 §3.1](../standards/planning.md#_3-1-新需求默认走-评估-→-backlog-原则-hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
@@ -427,9 +427,9 @@
 
 | 内容类型 | 位置 |
 |:--|:--|
-| 当前阶段活跃任务 | **M55**（1.0.x 修复有效性与执行边界收口，2026-11-08 规划，见 [todo.md](todo.md)）；插队容量治理见 [planning.md §3.1.1](../standards/planning.md) |
-| 下一阶段（未规划） | 待 M55 收口后按 [规划规范 §3.1](../standards/planning.md#_3-1-新需求默认走-评估-→-backlog-原则-hard-requirement) 评估 |
+| 当前阶段活跃任务 | **无进行中阶段**（M55 已于 2026-11-08 归档，见 [todo.md](todo.md)）；插队容量治理见 [planning.md §3.1.1](../standards/planning.md) |
+| 下一阶段（未规划） | 待按 [规划规范 §3.1](../standards/planning.md#_3-1-新需求默认走-评估-→-backlog-原则-hard-requirement) 评估 |
 | 已完成阶段归档 | [todo-archive.md](todo-archive.md)（阶段索引 + [archive/](archive/) 分片） |
-| 里程碑与阶段交付 | [roadmap.md](roadmap.md)（M0-M54 已归档） |
+| 里程碑与阶段交付 | [roadmap.md](roadmap.md)（M0-M55 已归档） |
 | 长期主线 / 候选 / 待人工验收 / 已知边界 | 本文档（按四象限结构） |
 | 历史归档索引 | [archive/index.md](archive/index.md) |

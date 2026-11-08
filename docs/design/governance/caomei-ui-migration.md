@@ -1062,7 +1062,7 @@ e2e 侧共改写 14 个 spec（`.p-dialog*` / `.p-select*` / `.p-drawer` / `.p-c
 
 ## 16. caomei-ui 接线细则
 
-> 本节是接线细节的唯一完整声明；[平台规范 §7.4](../../standards/platform.md#_7-4-caomei-ui-接线约定) 保留 hard requirement 摘要 + 回链。迁移缘由与逐批结论见 §15。
+> 本节是接线细则的唯一完整声明；两条严格约束摘要（`SelectItem` 空串值 / `--caomei-dialog-width`）仍以 [平台规范 §7.4](../../standards/platform.md#_7-4-caomei-ui-接线约定) 为准。迁移缘由与逐批结论见 §15。
 
 - **token 覆盖分两处，不可合并**：`caomeiUI.theme` 只生成一条跨明暗的 `:root` 声明（适合跨明暗稳定实底色）；随明暗自适应的 token 必须落在 `app/assets/styles/_caomei-tokens.scss`，暗色档用 `:root.dark`（特异性 0,2,0）压过库内 `:is(.dark, …)`（0,1,0）。`_caomei-tokens.scss` **必须显式 `@use './variables' as *`**（漏写时唯 `build` 能暴露 `Undefined variable`）。
 - **主色 token 取值**：`--caomei-color-primary-solid: #0f766e`（teal-700）配白实测 5.47:1（≥ AA 4.5:1）；`--caomei-color-primary` 亮 `#0d9488` / 暗 `#5eead4`，其作底须配 `--caomei-color-primary-foreground: #0b0b0d`（库默认白字不达标）。

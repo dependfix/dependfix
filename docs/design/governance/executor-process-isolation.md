@@ -327,6 +327,6 @@ scan-queue.add(jobId = scan-<repositoryId>)   [scan-queue.ts]
 
 - in-process Worker **必须**显式配置 `lockDuration` / `lockRenewTime`（`SCAN_WORKER_LOCK_OPTIONS`，见 `server/services/queue/scan-worker.ts`），不得依赖 BullMQ 隐式默认（30 秒）——引擎同步子进程会阻塞 event loop 使续期定时器延后，易触发 `could not renew lock` / `Missing lock`，job 被判 stalled 重排（存在重复执行风险）。
 - **取值口径**：`lockDuration` 取平台执行**封顶值** `resolveExecutionCeilingMs()`（缺省 60 分钟，可经 `DEPENDFIX_MAX_EXECUTION_TIMEOUT_MS` 覆盖，范围 30 分钟–4 小时），`lockRenewTime` 取其一半；两处口径**同源联动**（单测锁定该对齐关系），env 变更需重启进程。
-- **为何取封顶而非全局默认**：仓库级执行上限可高于全局默认（见平台规范 §10.4），锁若按全局默认会被长预算运行耗到被判 stalled；代价是崩溃恢复窗口随封顶变长（`lockRenewTime` 取半缓解）。
+- **为何取封顶而非全局默认**：仓库级执行上限可高于全局默认（见 [repo-execution-limits.md](./repo-execution-limits.md)），锁若按全局默认会被长预算运行耗到被判 stalled；代价是崩溃恢复窗口随封顶变长（`lockRenewTime` 取半缓解）。
 - **锁问题观测**：Worker **必须**注册 `stalled` / `lockRenewalFailed` / `error` 事件并输出结构化日志（`[scan-worker] {json}`）；`stalled` / `lockRenewalFailed` 载荷含 `jobId` 并经注入的 `queue.getJob` 补全 `runId`（未解析显式 `null`）；`error` 载荷无 job 上下文（由配对的 `lockRenewalFailed` 承载）。
 - **同根因去重**：LockManager 续期失败会同时 emit `lockRenewalFailed` 与 `error`（message 前缀 `could not renew lock for job`）——`error` 日志须标 `duplicateOf: 'lockRenewalFailed'` 供聚合去重（与平台规范 §6.1「同一根因不重复告警」同思路）。

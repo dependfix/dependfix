@@ -229,6 +229,23 @@
 - **有意不动**：`GET /api/runs` 列表与 `scan-trigger.serializeScanRun` 的响应白名单不改（避免第二个事实源）；后续若在列表 / 触发响应展示，需同批扩展白名单并补等值断言。`sandbox` 执行器当前只回显最小 `RunResult`、不启动引擎，故无 `[build]` 行；其落库值仍是平台构建，启用真实引擎执行时需补 `buildVersion/buildCommit` 透传。
 - **不做什么**：不做部署回执（Jenkins webhook / 镜像推送对齐）；不回填历史 run；不把版本塞进 `summaryJson`（独立列，契约不变）；不改 exit code / 交付判定。
 
+### 5.12 平台写入 / 回填与部署版本戳接线
+
+**failure_* 三列的平台接线**：
+
+- `ScanRun.status='failed'` 语义过载，故落库三列支持筛选与汇总：`failure_code`（归一化原始码；`engine_delivery_failed` 从 message 回读细分，无法解析保留兜底码）/ `failure_stage`（source · clone · install · fix · verify · deliver · runtime · cleanup · unknown）/ `failure_kind`（transient / deterministic / unknown）。
+- **单一事实源**：`server/services/run-failure-classify.ts` 集中映射表 + `unknown` 兜底；前端 `app/utils/run-view.ts` 仅复制枚举词汇供筛选控件，标签经 i18n 渲染。
+- 参与分类的终态 = `failed` + 有错误码的 `dispatched`；成功态与 `degraded` 三列为 null；覆盖全部失败写路径（orchestrator · batch-executor · stale-cleanup · scan.post · force-fail）；`reuse=true` 复用既有 run 时三列随 `errorJson` / `summaryJson` 一并清空。
+- 存量行回填 `pnpm db:backfill:run-failure`（默认 dry-run，`--apply` + y/N，幂等）。**不建索引**：单组织 run 量级小（summary 窗口上限 500）。
+
+**部署产物版本戳**：
+
+- 链路为 CI `--build-arg BUILD_COMMIT/BUILD_VERSION` → Dockerfile `ARG` → `ENV NUXT_BUILD_COMMIT/NUXT_BUILD_VERSION` → Nuxt 以 `NUXT_` 前缀运行时覆盖 `runtimeConfig`（未注入缺省 `unknown`，不阻断启动）。
+- **暴露面**：`GET /api/health`（**公开只读，无鉴权**）返回 `{ version, commit, startedAt }`，启动日志输出 `[build] version=… commit=… startedAt=…`；用途是消除「代码已修复但线上仍复现」的陈旧产物误判。
+- **CI 接线**：`docker.yml` 三个构建步骤均传 `--build-arg`；镜像冒烟额外断言 `/api/health` 200 + JSON 字段与启动版本戳行；env 命名用 `NUXT_BUILD_*`（对齐 Nuxt 运行时覆盖通道，避免 esbuild define 折叠，与 [platform.md §3.6](../../standards/platform.md#_3-数据库规范-多后端兼容-时区) 同源原则）。
+- **运行级回执**：同一值经 `server/utils/run-build-info.ts` 写入每次 run 的 `scan_run.build_version` / `build_commit` 并透传 `RuntimeConfig.buildVersion/buildCommit`；引擎日志 `[build] dependfix version=… commit=… source=host|engine-package` 的口径与边界见 §5.11。
+
+
 ## 6. 验收标准（草案 → 实现结果）
 
 - [x] `classifyRunFailure` 纯函数 + 单测覆盖全部已知 code / category（含 `unknown` 兜底）——`server/services/run-failure-classify.ts` + 全映射表逐码用例。
@@ -254,19 +271,3 @@
 - [platform.md](../../standards/platform.md)
 - [M45.4](../../plan/todo-archive.md)（受约束重试入口落地条目）
 - [M37](../../plan/archive/todo-archive-phases-m37.md#m37-运行可观测性与体验记忆-m37-1-m37-6-全部已闭环-2026-10-08-归档)（M37.1 已闭环归档）
-
-### 5.12 平台写入 / 回填与部署版本戳接线
-
-**failure_* 三列的平台接线**：
-
-- `ScanRun.status='failed'` 语义过载，故落库三列支持筛选与汇总：`failure_code`（归一化原始码；`engine_delivery_failed` 从 message 回读细分，无法解析保留兜底码）/ `failure_stage`（source · clone · install · fix · verify · deliver · runtime · cleanup · unknown）/ `failure_kind`（transient / deterministic / unknown）。
-- **单一事实源**：`server/services/run-failure-classify.ts` 集中映射表 + `unknown` 兜底；前端 `app/utils/run-view.ts` 仅复制枚举词汇供筛选控件，标签经 i18n 渲染。
-- 参与分类的终态 = `failed` + 有错误码的 `dispatched`；成功态与 `degraded` 三列为 null；覆盖全部失败写路径（orchestrator · batch-executor · stale-cleanup · scan.post · force-fail）；`reuse=true` 复用既有 run 时三列随 `errorJson` / `summaryJson` 一并清空。
-- 存量行回填 `pnpm db:backfill:run-failure`（默认 dry-run，`--apply` + y/N，幂等）。**不建索引**：单组织 run 量级小（summary 窗口上限 500）。
-
-**部署产物版本戳**：
-
-- 链路为 CI `--build-arg BUILD_COMMIT/BUILD_VERSION` → Dockerfile `ARG` → `ENV NUXT_BUILD_COMMIT/NUXT_BUILD_VERSION` → Nuxt 以 `NUXT_` 前缀运行时覆盖 `runtimeConfig`（未注入缺省 `unknown`，不阻断启动）。
-- **暴露面**：`GET /api/health`（**公开只读，无鉴权**）返回 `{ version, commit, startedAt }`，启动日志输出 `[build] version=… commit=… startedAt=…`；用途是消除「代码已修复但线上仍复现」的陈旧产物误判。
-- **CI 接线**：`docker.yml` 三个构建步骤均传 `--build-arg`；镜像冒烟额外断言 `/api/health` 200 + JSON 字段与启动版本戳行；env 命名用 `NUXT_BUILD_*`（对齐 Nuxt 运行时覆盖通道，避免 esbuild define 折叠，与 [platform.md §3.6](../../standards/platform.md#_3-数据库规范-多后端兼容-时区) 同源原则）。
-- **运行级回执**：同一值经 `server/utils/run-build-info.ts` 写入每次 run 的 `scan_run.build_version` / `build_commit` 并透传 `RuntimeConfig.buildVersion/buildCommit`；引擎日志 `[build] dependfix version=… commit=… source=host|engine-package` 的口径与边界见 §5.11。

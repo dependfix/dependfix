@@ -332,7 +332,8 @@ export DEPENDFIX_RETRY_FAILED=false
 | 变量 | 必填 | 默认值 | 说明 |
 |:---|:---:|:---|:---|
 | `RUN_WORK_ROOT` | — | `data/runs` | 运行工作根目录（clone / 执行产物） |
-| `EXECUTION_TIMEOUT_MS` | — | `1800000`（30 分钟） | 单仓库执行超时；容器执行器与队列 Worker 锁时长同源联动（`resolveExecutionTimeoutMs()`）。越界（< 1 分钟 / > 24 小时）/ 非法值回退默认 |
+| `EXECUTION_TIMEOUT_MS` | — | `1800000`（30 分钟） | 单仓库执行**全局默认**超时；仓库可在「执行预算（高级）」覆盖，覆盖值受 `DEPENDFIX_MAX_EXECUTION_TIMEOUT_MS` 封顶约束。越界（< 1 分钟 / > 24 小时）/ 非法值回退默认 |
+| `DEPENDFIX_MAX_EXECUTION_TIMEOUT_MS` | — | `3600000`（60 分钟） | 执行上限**封顶值**（范围 30 分钟–4 小时，越界回退默认）；队列 Worker 锁时长按该值同源（`lockRenewTime` 取半），env 变更需重启进程 |
 | `DEPENDFIX_INSTALL_TIMEOUT_MS` | — | `300000`（5 分钟） | 安装类命令超时（引擎内依赖安装与锁文件修复链共用一处解析器）；越界（< 10 秒 / > 30 分钟）/ 非法值回退默认。超时后引擎按运行级取消终止子进程树 |
 | `DEPENDFIX_VERIFY_TIMEOUT_MS` | — | `600000`（10 分钟） | 验证链单命令超时（默认链与 CI 镜像脚本共用，**默认链内的 `pnpm install` 仍按本条计时**；修复器安装链的 `DEPENDFIX_INSTALL_TIMEOUT_MS` 不受影响）；严格正整数且落在 10 秒–30 分钟，越界 / 非法回退默认 |
 | `CLONE_TIMEOUT_MS` | — | `300000` | git clone 超时（毫秒） |

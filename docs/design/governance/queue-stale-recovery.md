@@ -32,7 +32,7 @@ Redis 中可见 `bull:scan:*` 的 job 长期处于 `waiting` / `active`，去重
 
 ### 4.1 running
 
-- 阈值 = `resolveExecutionTimeoutMs() + STALE_CLEANUP_RUNNING_GRACE_MS`（缺省 30m + 5m）。
+- 阈值 = 该 run 的**执行上限快照**（`scan_run.execution_timeout_ms`；存量行回退 `resolveExecutionTimeoutMs()`）+ `STALE_CLEANUP_RUNNING_GRACE_MS`（缺省 5m）。候选查询仍以全局默认做下界（走索引），命中后逐 run 按快照精判——避免长预算运行被误杀。
 - `startedAt` 为 NULL 的脏数据回退 `createdAt` 判断（避免 SQL `NULL < cutoff` 永不命中）。
 - 超阈值直接 `failed` + `orphan_run`（`runtime` / `transient`，可重试），不依赖队列状态。
 

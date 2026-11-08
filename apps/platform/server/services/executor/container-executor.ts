@@ -359,7 +359,7 @@ export class ContainerExecutor implements ScanExecutor {
                 commands: ctx.repository.verifyCommands?.length ? ctx.repository.verifyCommands : undefined,
                 // 容器内执行属设计内沙箱（非 root + 临时目录），不触发本地模式风险警告
                 executionEnvironment: 'container',
-                // 仓库级验证命令超时（M55.4）：与执行上限同源解析，未配置时走引擎 env / 默认
+                // 仓库级验证命令超时：与执行上限同源解析，未配置时走引擎 env / 默认
                 ...(this.verifyCommandTimeoutMs !== undefined ? { verifyCommandTimeoutMs: this.verifyCommandTimeoutMs } : {}),
                 // 注入 MemoryLogger 用于捕获执行日志
                 logger: memLogger,

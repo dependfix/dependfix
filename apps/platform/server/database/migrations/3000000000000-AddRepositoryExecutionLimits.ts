@@ -2,7 +2,7 @@ import type { MigrationInterface, QueryRunner } from 'typeorm'
 import { addColumnIfMissing, dropColumnIfExists } from './migration-helpers'
 
 /**
- * 仓库级执行预算与超时 + 运行预算快照列（M55.4 批 1）。
+ * 仓库级执行预算与超时 + 运行预算快照列。
  *
  * - repository：execution_timeout_ms / verify_command_timeout_ms / install_timeout_ms /
  *   clone_timeout_ms（integer NULL = 继承全局）

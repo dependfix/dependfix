@@ -180,7 +180,7 @@ const runScanInternal = async (
     // 执行器选择：显式指定优先，其次按 actionWorkflowFile 自动（B 模式）
     const executorKind = resolveExecutorKind(repository, request)
 
-    // 仓库级执行预算与超时（M55.4）：仓库值 > env > 内置默认，执行上限受平台封顶约束；
+    // 仓库级执行预算与超时：仓库值 > env > 内置默认，执行上限受平台封顶约束；
     // 解析在启动执行之前完成，快照随 scan_run 落库（stale-cleanup 据此逐 run 精判）。
     const executionLimits = resolveExecutionLimits(repository, process.env)
     for (const warning of executionLimits.warnings) {

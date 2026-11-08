@@ -145,7 +145,7 @@ export class Repository extends BaseEntity {
     prCheckFocus!: string | null
 
     // ---------------------------------------------------------------------
-    // 仓库级执行预算与超时（2026-11-08 M55.4；`null` = 继承全局）
+    // 仓库级执行预算与超时（2026-11-08；`null` = 继承全局）
     //
     // 口径见 [repo-execution-limits.md](../../../../docs/design/governance/repo-execution-limits.md) §4.1：
     // 库内一律毫秒（与引擎常量同源），前端输入 / 展示一律分钟。

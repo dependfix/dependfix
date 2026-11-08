@@ -382,9 +382,11 @@ const runScanInternal = async (
             }
             const executor = new ContainerExecutor({
                 workRoot: process.env.RUN_WORK_ROOT ?? 'data/runs',
-                // 有效执行上限 / 验证命令超时：仓库值 > env > 默认，且已按封顶夹取
+                // 有效执行上限 / 验证命令 / 安装 / clone 超时：仓库值 > env > 默认，且已按封顶夹取
                 timeoutMs: executionLimits.executionTimeoutMs,
                 verifyCommandTimeoutMs: executionLimits.verifyCommandTimeoutMs,
+                installTimeoutMs: executionLimits.installTimeoutMs,
+                cloneTimeoutMs: executionLimits.cloneTimeoutMs,
             })
             // 执行环境健康探测：container 无更底层回退，工作根不可写（磁盘满 / 只读 FS）
             // 属「环境不可用」而非单次运行结果 → 记 container_unavailable 环境事件（recordEnvAuditEvent）

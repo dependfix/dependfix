@@ -153,6 +153,48 @@ test.describe('仓库管理 CRUD', () => {
         expect(clearedRepos.find((r) => r.owner === owner)?.prCheckFocus).toBeNull()
     })
 
+    test('执行预算：填写 → 保存 → API 落库 → 编辑回显', async ({ page }) => {
+        await page.goto('/repos')
+        await waitForHydration(page)
+        await page.locator('button:has-text("添加仓库")').click()
+        await expect(page.locator('.caomei-dialog__header')).toContainText('添加仓库', { timeout: 15000 })
+
+        const stamp = Date.now()
+        const owner = `repos-limits-${stamp}`
+        await page.locator('input#owner').fill(owner)
+        await page.locator('input#name').fill(`repo-${stamp}`)
+
+        // 折叠区默认收起：展开后填分钟值，摘要显示覆盖项数
+        await page.locator('.repo-form__limits-summary').click()
+        await page.locator('input#executionTimeoutMinutes').fill('45')
+        await page.locator('input#verifyCommandTimeoutMinutes').fill('20')
+        await expect(page.locator('.repo-form__limits-summary')).toContainText('2')
+
+        await page.locator('.caomei-dialog__content button:has-text("保存")').click()
+        await expect(page.locator('.caomei-message--success')).toContainText('仓库已添加', { timeout: 15000 })
+
+        // API 落库：分钟换算为毫秒
+        const cookieHeader = await authedCookieHeader(page)
+        const response = await page.request.get('/api/repos', {
+            headers: { cookie: cookieHeader, origin: 'http://127.0.0.1:3101' },
+        })
+        const repos = await response.json() as {
+            owner: string
+            executionTimeoutMs: number | null
+            verifyCommandTimeoutMs: number | null
+        }[]
+        const created = repos.find((r) => r.owner === owner)
+        expect(created?.executionTimeoutMs).toBe(45 * 60000)
+        expect(created?.verifyCommandTimeoutMs).toBe(20 * 60000)
+
+        // 编辑回显：毫秒还原为分钟文本
+        const row = page.locator('.caomei-data-table__row', { hasText: owner })
+        await row.locator('button[aria-label="编辑"]').click()
+        await expect(page.locator('.caomei-dialog__header')).toContainText('编辑仓库', { timeout: 15000 })
+        await expect(page.locator('input#executionTimeoutMinutes')).toHaveValue('45')
+        await expect(page.locator('input#verifyCommandTimeoutMinutes')).toHaveValue('20')
+    })
+
     test('编辑仓库：点击编辑 → 改 defaultBranch → 保存 → 列表更新', async ({ page }) => {
         const stamp = Date.now()
         const owner = `repos-edit-${stamp}`

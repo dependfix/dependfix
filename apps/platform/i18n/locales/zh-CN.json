@@ -466,6 +466,16 @@
         },
         "confirm": {
             "unlinkAccount": "确认解绑 {provider} 账号？"
+        },
+        "executionLimits": {
+            "card": "当前运行限制",
+            "execution": "单仓执行上限",
+            "ceiling": "平台封顶",
+            "verifyCommand": "验证命令超时",
+            "install": "安装超时",
+            "clone": "clone 超时",
+            "minuteUnit": "分钟",
+            "hint": "只读展示，全局值由部署环境变量管理；仓库可在「添加 / 编辑仓库」的执行预算区按仓库覆盖"
         }
     },
     "notifications": {

@@ -466,6 +466,16 @@
         },
         "confirm": {
             "unlinkAccount": "Unlink the {provider} account?"
+        },
+        "executionLimits": {
+            "card": "Current runtime limits",
+            "execution": "Per-repo execution limit",
+            "ceiling": "Platform ceiling",
+            "verifyCommand": "Verify command timeout",
+            "install": "Install timeout",
+            "clone": "Clone timeout",
+            "minuteUnit": "min",
+            "hint": "Read-only; global values come from deployment env vars. A repository may override them in the execution budget section of the add/edit dialog"
         }
     },
     "notifications": {

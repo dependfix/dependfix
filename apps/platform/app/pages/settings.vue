@@ -275,6 +275,45 @@ interface NotificationPreferenceRow {
     reason?: 'viewer' | 'org_disabled' | 'mandatory'
 }
 
+// 当前运行限制（只读）：全局生效值与封顶值，来自只读端点（禁止前端硬编码默认分钟数）
+interface ExecutionLimitsView {
+    executionTimeoutMs: number
+    maxExecutionTimeoutMs: number
+    verifyCommandTimeoutMs: number
+    installTimeoutMs: number
+    cloneTimeoutMs: number
+}
+
+const requestFetch = useRequestFetch()
+const { data: executionLimits } = await useAsyncData<ExecutionLimitsView | null>(
+    'settings-execution-limits',
+    async () => {
+        try {
+            return await requestFetch<ExecutionLimitsView>('/api/settings/execution-limits')
+        } catch {
+            return null
+        }
+    },
+    { default: () => null },
+)
+
+/** 毫秒 → 分钟文案（只读展示；非整分钟保留一位小数） */
+const toMinutesLabel = (ms: number | undefined): string => {
+    if (ms === undefined) {
+        return '—'
+    }
+    const minutes = ms / 60000
+    return Number.isInteger(minutes) ? `${minutes}` : `${minutes.toFixed(1)}`
+}
+
+const executionLimitRows = computed(() => [
+    { key: 'execution', label: t('settings.executionLimits.execution'), value: toMinutesLabel(executionLimits.value?.executionTimeoutMs), unit: t('settings.executionLimits.minuteUnit') },
+    { key: 'ceiling', label: t('settings.executionLimits.ceiling'), value: toMinutesLabel(executionLimits.value?.maxExecutionTimeoutMs), unit: t('settings.executionLimits.minuteUnit') },
+    { key: 'verify', label: t('settings.executionLimits.verifyCommand'), value: toMinutesLabel(executionLimits.value?.verifyCommandTimeoutMs), unit: t('settings.executionLimits.minuteUnit') },
+    { key: 'install', label: t('settings.executionLimits.install'), value: toMinutesLabel(executionLimits.value?.installTimeoutMs), unit: t('settings.executionLimits.minuteUnit') },
+    { key: 'clone', label: t('settings.executionLimits.clone'), value: toMinutesLabel(executionLimits.value?.cloneTimeoutMs), unit: t('settings.executionLimits.minuteUnit') },
+])
+
 const notificationPreferences = ref<NotificationPreferenceRow[]>([])
 const notificationChannelAvailable = ref(true)
 const notificationDeploymentEnabled = ref(true)
@@ -571,6 +610,20 @@ onMounted(() => {
                     </CaomeiButton>
                     <small class="text-muted">{{ t('settings.scanPreferencesHint') }}</small>
                     <small class="text-muted">{{ scanEffectiveHint }}</small>
+                </div>
+            </CaomeiCard>
+
+            <CaomeiCard :title="t('settings.executionLimits.card')">
+                <div class="settings-form">
+                    <div
+                        v-for="row in executionLimitRows"
+                        :key="row.key"
+                        class="settings-form__field"
+                    >
+                        <label>{{ row.label }}</label>
+                        <small class="text-muted">{{ row.value }} {{ row.unit }}</small>
+                    </div>
+                    <small class="text-muted">{{ t('settings.executionLimits.hint') }}</small>
                 </div>
             </CaomeiCard>
 

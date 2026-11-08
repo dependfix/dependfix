@@ -2,7 +2,7 @@
 //
 // 自 helpers.ts 拆出：文件行数治理（max-lines 800）。行为与拆分前一致：
 // 家族锁步优先 → 直接升级 → 间接依赖回退 pnpm overrides（含保护名单与审计口径）。
-import { toErrorMessage, type FixAction, type NormalizedSecurityAlert } from '@dependfix/core'
+import { addSkipped, toErrorMessage, type FixAction, type NormalizedSecurityAlert } from '@dependfix/core'
 import {
     overrideTransitiveDependency,
     upgradeDependency,
@@ -110,6 +110,27 @@ export async function upgradeAlert(
 
         if (result.success && result.warning) {
             logger.warn(`[upgrade] ${result.packageName}: ${result.warning}`)
+        }
+
+        if (!result.success && result.manualReview) {
+            // peer-only 等不可自动修复形态：记跳过而非失败动作（与版本化 overrides 路径同口径），
+            // 否则常规单包 override 链路会把「无法自动修复」计入 alertsFailed。
+            addSkipped(ctx.summary, 'peer-only', 1)
+            recordSkippedAlerts(ctx, [alert], 'peer-only')
+            logger.warn(`[upgrade] ${result.packageName}: ${result.error ?? 'manual review required'}`)
+            return {
+                type: 'dependency-upgrade',
+                repository: alert.repository,
+                target: alert.packageName,
+                fromVersion: result.fromVersion,
+                toVersion: result.toVersion,
+                isMajor: result.isMajor,
+                strategy,
+                success: true,
+                noOp: true,
+                error: result.error,
+                durationMs: Date.now() - startMs,
+            }
         }
 
         // 环境性安装失败不归因目标仓库：记审计条目 + 动作标记，调用方不得计入失败（见记录 §12.16）

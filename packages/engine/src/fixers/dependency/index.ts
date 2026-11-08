@@ -20,7 +20,7 @@ export type { VersionedOverridesApplyResult, VersionedOverridesPlan } from './ov
 import { upsertOverride } from './override-key'
 import { parseMajorVersion } from './semver'
 import { readLockfileVersion, readLockfileVersions } from './lockfile-versions'
-import { remainingVersionsBelowTarget, verifyVersionedOverridesApplied } from './override-verification'
+import { remainingVersionsBelowTarget, classifyPeerOnlyFailure, verifyVersionedOverridesAppliedAll } from './override-verification'
 import { ensurePnpmOverrides, extractPrefix, findDependencyVersion, type PackageJson } from './manifest'
 import { applyManifestUpgrades, type ManifestUpgradeApplied } from './manifest-upgrades'
 import { applyWorkspaceOverrides, readOverridesSection, readWorkspaceDocument, rollbackWorkspaceOverrides } from './workspace-yaml'
@@ -71,6 +71,10 @@ export interface DependencyFixResult {
      * 调用方据此停止后续安装尝试——同一环境下逐包重试只会重复失败并耗尽运行预算。
      */
     environmental?: boolean
+    /**
+     * 无法自动修复、需人工处置（当前仅 peer-only 实例）。已回滚，调用方应记跳过而非失败动作。
+     */
+    manualReview?: boolean
 }
 
 /** 家族锁步升级结果：`updates` 在安装失败时也保留已尝试的声明，便于报告展示。 */
@@ -325,14 +329,19 @@ export async function overrideTransitiveDependency(
             lockBackup,
             workspaceBackup,
         })
+        // peer-only 实例不随 overrides 重解析：给出可判定的人工处置结论，不记为失败动作
+        const peerOnly = classifyPeerOnlyFailure(lockfilePath, packageName, remaining)
         return {
             packageName,
             fromVersion,
             toVersion,
             isMajor,
             success: false,
-            error: `override did not take effect: locked instance(s) ${remaining.join(', ')} remain below ${targetVersion}`
-                + `${pkgJsonOverrideWarning ? ` (${pkgJsonOverrideWarning})` : ''}; changes rolled back`,
+            ...(peerOnly ? { manualReview: true } : {}),
+            error: peerOnly
+                ? `manual review: peer-only instances do not follow pnpm overrides — locked instance(s) ${remaining.join(', ')} remain below ${targetVersion}; changes rolled back`
+                : `override did not take effect: locked instance(s) ${remaining.join(', ')} remain below ${targetVersion}`
+                    + `${pkgJsonOverrideWarning ? ` (${pkgJsonOverrideWarning})` : ''}; changes rolled back`,
         }
     }
 
@@ -396,6 +405,12 @@ export async function applyVersionedOverridesBatch(
     const lockfilePath = join(workDir, 'pnpm-lock.yaml')
 
     const usesWorkspaceYaml = existsSync(workspaceYamlPath)
+
+    // 写入前的锁定版本快照（From 列展示用）：仅单包路径消费（合批动作的 From 由调用方按包传入，
+    // 见 `VersionedOverrideBatchItem.fromVersion`）；多包时不重复读整份 lockfile
+    const fromVersionSnapshot = plans.length === 1
+        ? readLockfileVersions(lockfilePath, plans[0].packageName).join(', ')
+        : ''
 
     // ---- 1. 读取 package.json ----
     if (!existsSync(pkgPath)) {
@@ -518,16 +533,34 @@ export async function applyVersionedOverridesBatch(
     // ---- 5. 生效校验：回读 lockfile，确认每条 override 覆盖的实例都达到目标 ----
     // 与单包 override 同族：pnpm install 成功 ≠ override 真正生效（已存在 / 被更具体规则压过时
     // lockfile 可能保持旧版本）。未满足则整体回滚，不能把「无改动」当成功。
-    const verifyFailure = verifyVersionedOverridesApplied(lockfilePath, plans)
-    if (verifyFailure) {
+    const verifyFailures = verifyVersionedOverridesAppliedAll(lockfilePath, plans)
+    if (verifyFailures.length > 0) {
         rollback(pkgPath, pkgBackup, lockfilePath, lockBackup)
         if (usesWorkspaceYaml && workspaceBackup) {
             rollback(workspaceYamlPath, workspaceBackup, lockfilePath, null)
         }
         cleanupBackups({ pkgBackup, lockBackup, workspaceBackup })
+        // 逐 plan 归因：peer-only 包与普通失败分开（合批只跳过前者，其余逐包重试）
+        // 包级归因：只有该包**全部**失败项都是 peer-only 时才整包记人工处置；
+        // 同包混合版本线（pkg@4 peer + pkg@5 直接实例未达标）仍走逐包重试，避免静默放弃可修实例
+        const peerOnlyPackages = [...new Set(
+            verifyFailures.filter((failure) => failure.peerOnly).map((failure) => failure.packageName),
+        )].filter((packageName) => verifyFailures
+            .filter((failure) => failure.packageName === packageName)
+            .every((failure) => failure.peerOnly))
+        const firstNonPeer = verifyFailures.find((failure) => !failure.peerOnly)
+        const manualReview = firstNonPeer === undefined
+        // 披露同包父级 scoped 键：被 `parent>pkg` 遮蔽时不能只留一句「未生效」
+        const scopedHint = describeScopedOverrides(workDir, plans.map((plan) => plan.packageName))
+        const failureHead = manualReview
+            ? `manual review: peer-only instances do not follow pnpm overrides — ${verifyFailures.map((failure) => failure.message).join('; ')}`
+            : `versioned override did not take effect: ${firstNonPeer.message}`
         return {
             success: false,
-            error: `versioned override did not take effect: ${verifyFailure}; changes rolled back`,
+            fromVersion: fromVersionSnapshot,
+            ...(manualReview ? { manualReview: true } : {}),
+            ...(peerOnlyPackages.length > 0 ? { manualReviewPackages: peerOnlyPackages } : {}),
+            error: `${failureHead}${scopedHint}; changes rolled back`,
             failurePhase: 'verify',
         }
     }
@@ -535,7 +568,7 @@ export async function applyVersionedOverridesBatch(
     // 成功 — 清理备份文件
     cleanupBackups({ pkgBackup, lockBackup, workspaceBackup })
 
-    return { success: true, warning: pkgJsonOverrideWarning }
+    return { success: true, warning: pkgJsonOverrideWarning, fromVersion: fromVersionSnapshot }
 }
 
 /**
@@ -568,16 +601,37 @@ export async function applyVersionedOverrides(
 
     return {
         packageName,
-        fromVersion: '',
+        fromVersion: result.fromVersion ?? '',
         toVersion,
         isMajor: false,
         success: result.success,
         ...(result.error !== undefined ? { error: result.error } : {}),
         ...(result.warning !== undefined ? { warning: result.warning } : {}),
         ...(result.environmental !== undefined ? { environmental: result.environmental } : {}),
+        ...(result.manualReview !== undefined ? { manualReview: result.manualReview } : {}),
     }
 }
 
+
+/**
+ * 列出现存 `parent>pkg` 形式的 scoped override 键（段尾包名命中目标包）。
+ *
+ * 供生效校验失败消息披露「被哪条 scoped 规则遮蔽」：`buildVersionedOverrides` 只改写
+ * 有对应版本线目标的键，缺失线 / 无法比较的键会保持原样并导致实例不重解析。
+ */
+function describeScopedOverrides(workDir: string, packageNames: readonly string[]): string {
+    const existing = readExistingOverrides(workDir)
+    const hits = Object.keys(existing).filter((key) => {
+        if (!key.includes('>')) {
+            return false
+        }
+        const last = key.trim().split('>').pop()?.trim() ?? ''
+        const atIndex = last.startsWith('@') ? last.indexOf('@', 1) : last.indexOf('@')
+        const pkg = atIndex > 0 ? last.slice(0, atIndex) : last
+        return packageNames.includes(pkg)
+    })
+    return hits.length > 0 ? `; existing scoped overrides: ${hits.join(', ')}` : ''
+}
 
 // ---------------------------------------------------------------------------
 // Exported helpers (for unit testing)

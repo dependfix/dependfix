@@ -8,12 +8,15 @@
 //   的口径与逐包路径完全一致），并计入 fixed
 // - 失败（安装失败或组级验证失败）：回滚到合批前快照后返回 `false`，**不**产出动作、
 //   不计数、不写审计条目——真实归因交由调用方的逐包路径给出（保持既有失败粒度）
+// - peer-only 例外：不可自动修复的包在合批层直接记「跳过」（告警级展开）并经 `skipPackages`
+//   排除逐包重试，这是失败回退路径里唯一会写计数/审计的分支
 //
 // 拆出理由：`repo-fix.ts` 已处 `max-lines` 上限（该文件的既定处置是先拆分再改）。
-import type { NormalizedSecurityAlert } from '@dependfix/core'
+import { addSkipped, type NormalizedSecurityAlert } from '@dependfix/core'
 import { applyVersionedOverridesBatch, type VersionedOverridesPlan } from '../fixers/dependency'
 import { quickVerifyProject, restoreTrackedFiles, snapshotTrackedFiles } from '../helpers'
 import { getAbortReason, isAbortRequested } from '../runners/process-control'
+import { recordSkippedAlerts } from './alert-outcomes'
 import type { RepoFixCtx, RepoFixProgress } from './repo-fix'
 import { budgetAllows } from './budget'
 import { recordVerificationCheckpoint } from './verification-checkpoint'
@@ -23,6 +26,10 @@ export interface VersionedOverrideBatchItem {
     alert: NormalizedSecurityAlert
     versionedOverrides: Record<string, string>
     targets: string[]
+    /** 写入前的锁定实例（`From` 列展示用；多实例以 `, ` 连接） */
+    fromVersion: string
+    /** 该包在本次运行中的全部待修告警（跳过记录按告警级展开，与逐包路径同源） */
+    alerts: NormalizedSecurityAlert[]
 }
 
 /** 合批结果：是否已应用 + 是否应跳过逐包重试（环境性失败时逐包只会重复同一失败）。 */
@@ -31,6 +38,10 @@ export interface VersionedOverrideBatchOutcome {
     applied: boolean
     /** `true` = 环境性失败（信号 / 超时 / 无 stderr 诊断），调用方应跳过逐包重试 */
     skipSequential?: boolean
+    /** `true` = 全部条目均为 peer-only 等不可自动修复形态（已记跳过），调用方应直接继续后续步骤 */
+    manualReviewOnly?: boolean
+    /** 已记跳过、不得再逐包重试的包名（部分 peer-only 时其余包仍需重试） */
+    skipPackages?: string[]
     /** 失败原因（供日志 / 审计条目复用） */
     reason?: string
     /** 运行预算不足：调用方应停止本仓库剩余安装尝试（不重试、不停机判定） */
@@ -91,6 +102,35 @@ export async function tryBatchVersionedOverrides(
             )
             return { applied: false, skipSequential: true, reason: result.error }
         }
+        if (result.manualReviewPackages?.length) {
+            // peer-only 包不可自动修复（逐包重试只会得到同一结论）：只对它们记跳过；
+            // 其余包仍走逐包重试——合批回滚不影响它们的可修复性。
+            const peerOnlyPackages = new Set(result.manualReviewPackages)
+            for (const item of items) {
+                if (!peerOnlyPackages.has(item.alert.packageName)) {
+                    continue
+                }
+                // 告警级口径：同包全部告警都记跳过（与逐包路径同源）
+                addSkipped(ctx.summary, 'peer-only', item.alerts.length)
+                recordSkippedAlerts(ctx, item.alerts, 'peer-only')
+            }
+            if (peerOnlyPackages.size === items.length) {
+                ctx.logger.warn(
+                    `[multi-version] 合批命中不可自动修复形态（${result.error ?? 'manual review required'}）`
+                    + ' — 已回滚，跳过逐包重试',
+                )
+                return {
+                    applied: false,
+                    manualReviewOnly: true,
+                    skipPackages: [...peerOnlyPackages],
+                    reason: result.error,
+                }
+            }
+            ctx.logger.warn(
+                `[multi-version] 合批含 ${peerOnlyPackages.size} 个不可自动修复包 — 已回滚，逐包重试其余包`,
+            )
+            return { applied: false, skipPackages: [...peerOnlyPackages] }
+        }
         ctx.logger.warn(
             `[multi-version] 合批安装失败（${result.error ?? 'no error detail'}）— 已回滚，改为逐包重试`,
         )
@@ -109,7 +149,7 @@ export async function tryBatchVersionedOverrides(
             type: 'dependency-upgrade',
             repository: item.alert.repository,
             target: item.alert.packageName,
-            fromVersion: '',
+            fromVersion: item.fromVersion,
             toVersion: item.targets.join(', '),
             isMajor: false,
             strategy: 'versioned-override',

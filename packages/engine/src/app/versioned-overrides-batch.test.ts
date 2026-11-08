@@ -201,9 +201,54 @@ describe('DependfixApp 版本化 overrides 合批', () => {
         const versionedActions = result.actions.filter((a) => a.strategy === 'versioned-override')
         expect(versionedActions).toHaveLength(2)
         expect(versionedActions.every((a) => a.success)).toBe(true)
+        // From 列取写入前锁定实例（多实例 `, ` 连接），不再恒空
+        expect(versionedActions.find((a) => a.target === 'brace-expansion')?.fromVersion).toBe('1.1.11, 2.0.1')
+        expect(versionedActions.find((a) => a.target === 'js-yaml')?.fromVersion).toBe('3.14.1, 4.1.0')
         expect(result.summary.alertsFixed).toBe(2)
         expect(result.summary.alertsFailed).toBe(0)
         expect(logger.info).toHaveBeenCalledWith(expect.stringContaining('合批 2 个包'))
+    })
+
+    it('records peer-only skips instead of failed actions when the batch cannot be auto-fixed', async () => {
+        mockApplyVersionedOverridesBatch.mockResolvedValue({
+            success: false,
+            manualReview: true,
+            manualReviewPackages: ['brace-expansion', 'js-yaml'],
+            error: 'manual review: peer-only instances do not follow pnpm overrides — vite: 8.3.1 remain below 8.3.3; changes rolled back',
+            failurePhase: 'verify',
+        })
+        nockTwoPackageAlerts()
+
+        const logger = makeLogger()
+        const { result } = await runApp(logger)
+
+        // 不可自动修复 → 不逐包重试（重复安装只会得到同一结论）
+        expect(mockApplyVersionedOverridesBatch).toHaveBeenCalledTimes(1)
+        expect(mockApplyVersionedOverrides).not.toHaveBeenCalled()
+        // 记跳过（peer-only）而非失败动作
+        expect(result.actions.filter((a) => a.strategy === 'versioned-override' && !a.success)).toHaveLength(0)
+        expect(result.summary.alertsSkippedByReason['peer-only']).toBe(4)
+        expect(result.summary.alertsFailed).toBe(0)
+        expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('不可自动修复形态'))
+    })
+
+    it('skips only peer-only packages and retries the remaining ones per-package', async () => {
+        // 部分包不可自动修复：不能把可修包一并记成 peer-only 并回滚丢弃
+        mockApplyVersionedOverridesBatch.mockResolvedValue({
+            success: false,
+            manualReviewPackages: ['brace-expansion'],
+            error: 'versioned override did not take effect: js-yaml: 3.14.1 remain below 3.14.2; changes rolled back',
+            failurePhase: 'verify',
+        })
+        perPackageMockSuccess()
+        nockTwoPackageAlerts()
+
+        const { result } = await runApp(makeLogger())
+
+        // 合批一次 → 回滚 → 只对非 peer 包逐包重试一次
+        expect(mockApplyVersionedOverrides).toHaveBeenCalledTimes(1)
+        expect(result.summary.alertsSkippedByReason['peer-only']).toBe(2)
+        expect(result.summary.alertsFixed).toBe(1)
     })
 
     it('falls back to per-package when the batch install fails (workspace restored from snapshot)', async () => {

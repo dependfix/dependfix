@@ -31,6 +31,21 @@ export interface VersionedOverridesApplyResult {
     failurePhase?: 'precheck' | 'install' | 'verify'
     /** 安装失败是否由安装环境问题导致（信号终止 / 超时 / 无 stderr 诊断）；调用方据此停止逐包重试 */
     environmental?: boolean
+    /**
+     * 写入前的锁定版本快照（多实例以 `, ` 连接；无实例时为空串）。
+     * 供交付展示填充 `From` 列，避免版本化 override 路径长期显示空白。
+     */
+    fromVersion?: string
+    /**
+     * 无法通过 overrides 自动修复（当前仅 peer-only 实例）：已回滚，调用方应记人工处置
+     * 而不是失败动作。与 `environmental` 同属「非失败类」退出。
+     */
+    manualReview?: boolean
+    /**
+     * 判定为 peer-only 的包名（可能只占合批的一部分）。合批调用方据此只对这些包记跳过，
+     * 其余包仍走逐包重试——不能用一个布尔代表整批。
+     */
+    manualReviewPackages?: string[]
 }
 
 // ---------------------------------------------------------------------------

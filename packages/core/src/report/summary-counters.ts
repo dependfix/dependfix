@@ -125,6 +125,7 @@ const SKIP_REASON_LABELS: Record<SkipReason | 'other', string> = {
     'not-fixable': 'Not auto-fixable',
     'override-protected': 'Protected by policy',
     'repeated-failure': 'Repeated failure (attempt limit)',
+    'peer-only': 'Peer-only dependency (manual review)',
     other: 'Other / unclassified',
 }
 

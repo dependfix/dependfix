@@ -71,3 +71,48 @@ export function readLockfileVersion(lockfilePath: string, packageName: string): 
 function escapeRegExp(str: string): string {
     return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
+
+/**
+ * 扫描指定包在 lockfile 中的实例形态，判定是否**仅以 peer 后缀形态**存在。
+ *
+ * 背景（2026-11-01 rss-to-memos-sync vite 实证）：peer-only 依赖写入通用 override 后，
+ * pnpm 只把 `peerDependencies` 的 range 改成目标，已锁定实例不变（`--force` 亦不重解析），
+ * 生效校验会误判成「override 未生效」并回滚。上层据此给出 `peer-only` 人工处置结论。
+ *
+ * 判定口径：
+ * - `peerOnlyVersions`：snapshot 键带 peer 后缀（`pkg@1.2.3(peer@4.5.6)`）的版本
+ * - `hasDirectInstances`：存在 v9 `/pkg/ver:` 或 v10 裸键 `pkg@ver:` / `'pkg@ver'`
+ *
+ * 仅当「存在 peer 实例且不存在任何直接实例」时，才可把剩余未达标实例归因为 peer-only。
+ */
+export function scanPeerOnlyInstances(
+    lockfilePath: string,
+    packageName: string,
+): { peerOnlyVersions: string[], hasDirectInstances: boolean } {
+    const empty = { peerOnlyVersions: [] as string[], hasDirectInstances: false }
+    if (!existsSync(lockfilePath)) {
+        return empty
+    }
+
+    try {
+        const content = readFileSync(lockfilePath, 'utf-8')
+        const escapedName = escapeRegExp(packageName)
+        const versionCapture = '(\\d+(?:\\.\\d+(?:\\.\\d+)?(?:-[a-zA-Z0-9.]+)?))'
+        const peerVersions = new Set<string>()
+
+        // peer 后缀形态：pkg@ver(peer@x) / 'pkg@ver(peer@x)'（scoped 包带引号）
+        const peerPattern = new RegExp(`^\\s*'?${escapedName}@${versionCapture}\\(`, 'gm')
+        for (const match of content.matchAll(peerPattern)) {
+            peerVersions.add(match[1])
+        }
+
+        // 直接实例：v9 `/pkg/ver:` 与 v10 裸键 `pkg@ver:` / `'pkg@ver'`
+        const v9Pattern = new RegExp(`^\\s*/${escapedName}/${versionCapture}:`, 'gm')
+        const barePattern = new RegExp(`^\\s*'?${escapedName}@${versionCapture}(?::|')`, 'gm')
+        const hasDirectInstances = v9Pattern.test(content) || barePattern.test(content)
+
+        return { peerOnlyVersions: [...peerVersions].sort(compareSemver), hasDirectInstances }
+    } catch {
+        return empty
+    }
+}

@@ -15,6 +15,7 @@ export const SKIP_REASONS = [
     'not-fixable',
     'override-protected',
     'repeated-failure',
+    'peer-only',
 ] as const
 
 export type SkipReason = (typeof SKIP_REASONS)[number]

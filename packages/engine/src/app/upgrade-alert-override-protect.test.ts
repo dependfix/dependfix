@@ -55,6 +55,31 @@ describe('upgradeAlert overrides 保护名单（间接依赖 override 路径）'
         expect(ctx.summary.alertsSkippedByReason['override-protected']).toBe(1)
     })
 
+    it('peer-only 不可自动修复：记 peer-only 跳过 + noOp，不计失败', async () => {
+        mockUpgradeDependency.mockReset()
+        mockOverrideTransitiveDependency.mockReset()
+        mockUpgradeDependency.mockResolvedValue({ success: false, error: 'decode-uri-component not found in dependencies' })
+        mockOverrideTransitiveDependency.mockResolvedValue({
+            packageName: 'decode-uri-component',
+            fromVersion: '8.3.1',
+            toVersion: '',
+            isMajor: false,
+            success: false,
+            manualReview: true,
+            error: 'manual review: peer-only instances do not follow pnpm overrides — 8.3.1 remain below 8.3.3; changes rolled back',
+        })
+
+        const ctx = makeCtx()
+        const action = await upgradeAlert(ctx as never, alert)
+
+        // 不计 failed：success=true + noOp（调用侧 continue），跳过按原因归组
+        expect(action.success).toBe(true)
+        expect(action.noOp).toBe(true)
+        expect(action.error).toContain('manual review: peer-only')
+        expect(ctx.summary.alertsSkipped).toBe(1)
+        expect(ctx.summary.alertsSkippedByReason['peer-only']).toBe(1)
+    })
+
     it('未命中保护名单：正常走 override 路径（回归，行为不变）', async () => {
         mockUpgradeDependency.mockReset()
         mockOverrideTransitiveDependency.mockReset()

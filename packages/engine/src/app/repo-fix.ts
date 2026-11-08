@@ -438,7 +438,15 @@ async function applyLockfileFixes(
             recordConvergedAlerts(ctx, convergedAlerts, 'no vulnerable instances below targets')
             continue
         }
-        batchItems.push({ alert, versionedOverrides, targets })
+        batchItems.push({
+            alert,
+            versionedOverrides,
+            targets,
+            // From 列展示用：写入前该包的锁定实例（多实例以 `, ` 连接）
+            fromVersion: readLockfileVersions(lockfilePath, alert.packageName).join(', '),
+            // 同包全部告警：peer-only 跳过按告警级展开（与逐包路径同源）
+            alerts: multiVersionAlerts.filter((a) => a.packageName === alert.packageName),
+        })
     }
 
     // 合批快路径（≥2 个包）：把 K 次完整安装压到 1 次；失败则回滚并由下方逐包路径重试。
@@ -446,7 +454,10 @@ async function applyLockfileFixes(
     const batchOutcome = batchItems.length > 1
         ? await tryBatchVersionedOverrides(ctx, repo, progress, batchItems)
         : { applied: false }
-    const itemsToRetry = batchOutcome.applied || batchOutcome.skipSequential ? [] : batchItems
+    const skippedByBatch = new Set(batchOutcome.skipPackages ?? [])
+    const itemsToRetry = batchOutcome.applied || batchOutcome.skipSequential
+        ? []
+        : batchItems.filter((item) => !skippedByBatch.has(item.alert.packageName))
 
     if (batchOutcome.budgetStop) {
         stopReason = 'budget'
@@ -483,7 +494,7 @@ async function applyLockfileFixes(
             type: 'dependency-upgrade',
             repository: alert.repository,
             target: alert.packageName,
-            fromVersion: '',
+            fromVersion: result.fromVersion || '',
             toVersion: result.toVersion,
             isMajor: false,
             strategy: 'versioned-override',
@@ -507,6 +518,15 @@ async function applyLockfileFixes(
                 })
                 stopReason = 'environmental'
                 break
+            }
+            if (result.manualReview) {
+                // 无法通过 overrides 自动修复（当前仅 peer-only 实例）：已回滚，记跳过而非失败动作，
+                // 同包告警按告警级明细同步（与 convergent 计数口径一致）。
+                const packageAlerts = multiVersionAlerts.filter((a) => a.packageName === alert.packageName)
+                addSkipped(ctx.summary, 'peer-only', packageAlerts.length)
+                recordSkippedAlerts(ctx, packageAlerts, 'peer-only')
+                ctx.logger.warn(`[multi-version] ${alert.packageName}: ${result.error ?? 'manual review required'}`)
+                continue
             }
             ctx.allActions.push(action)
             recordUpgradeFailure(ctx, progress, 'multi-version', alert.packageName, result.error)

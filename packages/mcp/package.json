@@ -57,7 +57,7 @@
   "devDependencies": {
     "nock": "^15.0.5",
     "rimraf": "^6.1.4",
-    "tsdown": "^0.23.4",
+    "tsdown": "^0.23.5",
     "typescript": "^6.0.3"
   },
   "publishConfig": {

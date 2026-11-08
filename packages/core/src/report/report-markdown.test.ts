@@ -292,6 +292,16 @@ describe('generateMarkdownReport', () => {
         expect(md).toContain('^1.0.0 → ^2.0.0')
     })
 
+    it('renders placeholder for empty from version in key actions', () => {
+        // 版本化 override 的历史动作 fromVersion 可能为空串：渲染为 — 而非空白（`??` 不处理空串）
+        const result = {
+            ...EMPTY_RUN_RESULT,
+            actions: [makeAction({ fromVersion: '', toVersion: '^5.4.21', strategy: 'versioned-override' })],
+        }
+        const md = generateMarkdownReport(result)
+        expect(md).toContain('— → ^5.4.21')
+    })
+
     it('shows member upgrade manifest path in action details', () => {
         const result = {
             ...EMPTY_RUN_RESULT,

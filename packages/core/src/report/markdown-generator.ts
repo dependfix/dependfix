@@ -259,8 +259,8 @@ export function generateMarkdownReport(result: RunResult): string {
                     let icon: string
                     if (fixed && action) {
                         icon = '✅ Fixed'
-                        fromVer = action.fromVersion ?? '—'
-                        toVer = action.toVersion ?? '—'
+                        fromVer = action.fromVersion || '—'
+                        toVer = action.toVersion || '—'
                         if (action.isMajor === undefined) {
                             major = '—'
                         } else {
@@ -268,8 +268,8 @@ export function generateMarkdownReport(result: RunResult): string {
                         }
                     } else if (failedAction) {
                         icon = '❌ Failed'
-                        fromVer = failedAction.fromVersion ?? '—'
-                        toVer = failedAction.toVersion ?? '—'
+                        fromVer = failedAction.fromVersion || '—'
+                        toVer = failedAction.toVersion || '—'
                     } else {
                         icon = '⏭️ Skipped'
                         toVer = alert.recommendedVersion || '—'
@@ -504,7 +504,7 @@ function actionDetails(action: FixAction, error?: string): string {
         switch (action.type) {
             case 'dependency-upgrade':
                 // 成员级升级展示目标 manifest，根升级不受影响
-                return `${action.fromVersion ?? '?'} → ${action.toVersion ?? '?'}${action.filePath ? ` (${action.filePath})` : ''}`
+                return `${action.fromVersion || '—'} → ${action.toVersion || '—'}${action.filePath ? ` (${action.filePath})` : ''}`
             case 'lockfile-repair':
                 return action.strategy
                     ? `${action.strategy}: ${action.diff ?? ''}`

@@ -517,7 +517,11 @@ function aggregateUpgradeActions(
             continue
         }
         // 同包多条 action（同包多告警 / 重试路径）合并：
-        // from 取最早的起点，to 取最新的终点，任一 major 即标 ⚠️，strategy 优先 override
+        // from 取首个非空起点（版本化 override 早期动作可能无旧值），to 取最新的终点，
+        // 任一 major 即标 ⚠️，strategy 优先 override
+        if (!current.fromVersion && action.fromVersion) {
+            current.fromVersion = action.fromVersion
+        }
         current.toVersion = action.toVersion ?? current.toVersion
         current.isMajor = current.isMajor || action.isMajor === true
         current.strategy = action.strategy === 'override' ? action.strategy : current.strategy
@@ -659,11 +663,13 @@ export function generatePRBody(
                 strategy = 'member upgrade'
             } else if (u.strategy === 'family-lockstep') {
                 strategy = 'family lockstep'
+            } else if (u.strategy === 'versioned-override') {
+                strategy = 'pnpm overrides (versioned)'
             }
             const packageCell = u.filePath ? `\`${u.packageName}\` (${u.filePath})` : `\`${u.packageName}\``
             const cells = multiRepo
-                ? [u.repository, packageCell, u.fromVersion ?? '-', u.toVersion ?? '-', strategy, major]
-                : [packageCell, u.fromVersion ?? '-', u.toVersion ?? '-', strategy, major]
+                ? [u.repository, packageCell, u.fromVersion || '—', u.toVersion || '—', strategy, major]
+                : [packageCell, u.fromVersion || '—', u.toVersion || '—', strategy, major]
             if (hasFamilyColumn) {
                 cells.push(u.familyId ? `\`${escapeTableCell(u.familyId)}\`` : '—')
             }
@@ -732,7 +738,7 @@ export function generatePRBody(
         lines.push(`| ${headers.join(' | ')} |`)
         lines.push(`|${headers.map(() => '---').join('|')}|`)
         for (const f of failures) {
-            const target = f.toVersion ?? '-'
+            const target = f.toVersion || '—'
             const error = escapeTableCell(f.error ?? 'unknown error')
             const packageCell = f.filePath ? `\`${f.packageName}\` (${f.filePath})` : `\`${f.packageName}\``
             const cells = multiRepo

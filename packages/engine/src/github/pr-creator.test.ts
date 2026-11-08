@@ -1394,6 +1394,36 @@ describe('generatePRBody', () => {
         expect(body).not.toContain('GHSA-c')
     })
 
+    it('renders versioned override strategy and em-dash for empty from version', () => {
+        const result = buildRunResult()
+        result.alerts = [
+            makeBodyAlert({ packageName: 'vite', ruleId: 'GHSA-a', recommendedVersion: '5.4.21' }),
+        ]
+        result.actions = [
+            makeBodyAction({ target: 'vite', fromVersion: '', toVersion: '^5.4.21', strategy: 'versioned-override' }),
+        ]
+        const body = generatePRBody(result)
+
+        // 空 from 降级为 —（不再输出空单元格）；versioned-override 不再误标 direct
+        expect(body).toContain('| `vite` | — | ^5.4.21 | pnpm overrides (versioned) | No |')
+        expect(body).not.toContain('| `vite` |  | ^5.4.21 | direct |')
+    })
+
+    it('keeps the first non-empty from version when aggregating same-package actions', () => {
+        // 同包多动作：首个空值不应让后续真实旧值失效（聚合回填）
+        const result = buildRunResult()
+        result.alerts = [
+            makeBodyAlert({ packageName: 'vite', ruleId: 'GHSA-a', recommendedVersion: '5.4.21' }),
+        ]
+        result.actions = [
+            makeBodyAction({ target: 'vite', fromVersion: '', toVersion: '^5.4.21', strategy: 'versioned-override' }),
+            makeBodyAction({ target: 'vite', fromVersion: '5.4.14', toVersion: '^5.4.21', strategy: 'versioned-override' }),
+        ]
+        const body = generatePRBody(result)
+
+        expect(body).toContain('| `vite` | 5.4.14 | ^5.4.21 | pnpm overrides (versioned) | No |')
+    })
+
     it('lists fixed code-scanning alerts (template applied) and omits noOp actions', () => {
         const result = buildRunResult()
         result.alerts = [

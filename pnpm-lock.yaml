@@ -147,8 +147,8 @@ importers:
         specifier: ^4.6.1
         version: 4.6.1
       cron-parser:
-        specifier: ^5.10.2
-        version: 5.10.2
+        specifier: ^5.10.3
+        version: 5.10.3
       h3:
         specifier: ^1.15.11
         version: 1.15.11

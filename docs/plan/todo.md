@@ -62,6 +62,7 @@
   5. 定向单测覆盖状态派生与计数口径；e2e 覆盖「筛选 → 关闭态标签」。
 - **不做什么**：不纳入按作者筛选（用户 2026-11-08 明确延后）；不改三源信号归一化与归因口径；不改 per-PR-head 数据模型；不做 webhook 实时通道。
 - **依赖**：PR Check 三源采集与 `pr-check-view` 单一视图口径；与 G3.5「PR Check 真实 polling」验证路径同域。**设计稿**：实体 + 迁移 + API 视图变更，需在 [pr-build-deploy-signals.md](../design/governance/pr-build-deploy-signals.md) 补「PR 生命周期」小节后再实现。
+- **执行记录（2026-11-09）**：落库口径 = `pr_state`（open/closed/merged/unknown，迁移默认 unknown）+ 条件 UPDATE 同步全部 HEAD 行；`PollingSource.fetchPrLifecycles` = open 列表命中 + 非命中 `pulls.get` 区分 merged/closed（404 按 closed），单轮上限 50、fail-open；`summary.firing` / `acknowledged` 排除终态；`GET /api/pr-checks` 非法 `conclusion` 返回 400；前端新增结论筛选与 PR 状态列；e2e 覆盖「筛选 → 关闭标签 → 展开历史信号」，视觉基线同批重建；定向单测覆盖生命周期解析 / 监控器状态机 / 计数口径 / 客户端枚举一致性。实际 32 文件 / +910 −28（含 6 个单测文件与 2 张视觉基线），拆 6 个 commit 交付。
 - **交付物**：3-5 commits / 8-12 文件 / 400-700 行。**子批次与独立验收点**（§1.1 拆分依据）：① 数据与视图（实体 + 迁移 + polling + `pr-check-view` + `summary`）→ AC1 / AC2；② API 与前端（`index.get` 校验 + 页面 + i18n）→ AC3 / AC4；③ 测试与基线（定向单测 + e2e + 视觉如受影响）→ AC5。
 - **风险与缓解**：额外拉 closed PR 增加 GitHub API 调用 → `limit` + 节流（复用 `TERMINAL_REPOLL_QUIET_MS` 思路）；存量行回填失败留下 `unknown` → 视图 fail-open 展示并标注；关闭态与 `reuse` 路径交互 → 用例锁定「关闭后不重开告警」。
 

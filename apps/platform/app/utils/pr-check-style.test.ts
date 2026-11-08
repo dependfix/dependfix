@@ -1,7 +1,15 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { checkAttributionI18nKey, checkAttributionTone, conclusionTagTone, shouldShowAttribution } from './pr-check-style'
+import {
+    PR_CHECK_CONCLUSION_VALUES,
+    checkAttributionI18nKey,
+    checkAttributionTone,
+    conclusionTagTone,
+    prStateTagTone,
+    shouldShowAttribution,
+} from './pr-check-style'
+import { PR_CHECK_CONCLUSIONS } from '#server/entities/pr-check'
 
 describe('conclusionTagTone', () => {
     describe('danger（CI 异常失败）', () => {
@@ -41,6 +49,22 @@ describe('conclusionTagTone', () => {
         it('skipped → primary', () => {
             expect(conclusionTagTone('skipped')).toBe('primary')
         })
+    })
+})
+
+describe('PR_CHECK_CONCLUSION_VALUES', () => {
+    it('与服务端结论枚举逐值一致（client 常量不漂移）', () => {
+        expect([...PR_CHECK_CONCLUSION_VALUES]).toEqual([...PR_CHECK_CONCLUSIONS])
+    })
+})
+
+describe('prStateTagTone', () => {
+    it('open → success；merged → primary；closed / unknown → neutral', () => {
+        expect(prStateTagTone('open')).toBe('success')
+        expect(prStateTagTone('merged')).toBe('primary')
+        expect(prStateTagTone('closed')).toBe('neutral')
+        expect(prStateTagTone('unknown')).toBe('neutral')
+        expect(prStateTagTone('bogus')).toBe('neutral')
     })
 })
 

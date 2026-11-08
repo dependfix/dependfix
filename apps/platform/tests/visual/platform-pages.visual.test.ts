@@ -210,6 +210,16 @@ test.describe('平台页面视觉基线', () => {
         for (const label of ['仅 firing', '仅已 ack', 'OK']) {
             await expect(table).toContainText(label)
         }
+        // PR 生命周期四档文案（新增列覆盖）
+        for (const label of ['开启', '已关闭', '已合并', '未知']) {
+            await expect(table).toContainText(label)
+        }
+        // 逐行绑定生命周期色调：#103 merged → primary；#102 closed → neutral（文案对但色调回退可检出）
+        const lifecycleRows = table.locator('tbody .caomei-data-table__row')
+        await expect(lifecycleRows.filter({ hasText: '#103' }).locator('.pr-checks__pr-state .caomei-tag--primary'))
+            .toHaveCount(1)
+        await expect(lifecycleRows.filter({ hasText: '#102' }).locator('.pr-checks__pr-state .caomei-tag--neutral'))
+            .toHaveCount(1)
         /* 展开首行（默认按「最近采集」降序 → #101 失败行）覆盖三源信号面板：
            先断言语义再截图，避免面板未挂载时基线被落成缺面板形态。 */
         const firstRow = table.locator('tbody .caomei-data-table__row').first()

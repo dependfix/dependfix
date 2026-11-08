@@ -5,7 +5,7 @@ import { Repository } from '#server/entities/repository'
 import { ScanRun, SCAN_RUN_STATUSES } from '#server/entities/scan-run'
 import { RUN_FAILURE_KINDS, RUN_FAILURE_STAGES } from '#server/services/run-failure-classify'
 import { ScanResult } from '#server/entities/scan-result'
-import { PRCheck, PR_CHECK_CONCLUSIONS } from '#server/entities/pr-check'
+import { PRCheck, PR_CHECK_CONCLUSIONS, PR_CHECK_PR_STATES } from '#server/entities/pr-check'
 import { resolveOrganizationId } from '#server/utils/organization'
 import { summarizeFailureSources } from '#server/services/monitor/build-signals'
 import { repositoryTagsSchema } from '#server/schemas/repository'
@@ -230,6 +230,8 @@ const prCheckSchema = z.object({
     authorLogin: z.string().min(1).max(100),
     /** check 结论；复用实体枚举单点声明（避免 schema 与 entity 不同步） */
     conclusion: z.enum(PR_CHECK_CONCLUSIONS).default('pending'),
+    /** PR 生命周期状态（缺省 unknown = 生命周期列上线前的存量行形态） */
+    prState: z.enum(PR_CHECK_PR_STATES).optional(),
     checkRunId: z.string().max(64).nullable().optional(),
     detailsUrl: z.string().max(500).nullable().optional(),
     errorMessage: z.string().nullable().optional(),
@@ -474,6 +476,7 @@ export default defineEventHandler(async (event) => {
                 acknowledgedAt: pc.acknowledgedAt ? new Date(pc.acknowledgedAt) : null,
                 acknowledgedByUserId: pc.acknowledgedByUserId ?? null,
                 lastPolledAt: new Date(pc.lastPolledAt),
+                prState: pc.prState,
             }))
             prCheckResults.push({ repositoryId: repo.id, id: saved.id, created: true })
         }

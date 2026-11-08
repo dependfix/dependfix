@@ -282,6 +282,9 @@ export const VISUAL_FIXTURES: FixturesPayload = {
      * - #104 `pending` → 结论 warning 标签 + 「OK」success 标签
      * - #105 `cancelled` → 结论 primary 标签（补齐 `conclusionTagTone` 的第四档）+ 「OK」success 标签
      *
+     * PR 生命周期列四档覆盖：#101 open（success 色调）/ #102 closed（neutral）/
+     * #103 merged（primary）/ #105 unknown（neutral）；#104 为第二个 open 样本。
+     *
      * 标签色来源务必区分：结论列四档 = danger / success / warning / primary；Alert 状态列三态
      * = danger（firing）/ neutral（已 ack）/ success（OK）——`neutral` 只出现在状态列。
      *
@@ -301,6 +304,7 @@ export const VISUAL_FIXTURES: FixturesPayload = {
             detailsUrl: 'https://github.com/acme/web-app/pull/101',
             errorMessage: 'Test workflow failed on shard 2',
             alertFiring: true,
+            prState: 'open',
             lastPolledAt: '2026-08-28T02:00:00.000Z',
             overallStatus: 'failure',
             signals: [
@@ -345,6 +349,7 @@ export const VISUAL_FIXTURES: FixturesPayload = {
             errorMessage: 'Timed out after 60 minutes',
             alertFiring: false,
             acknowledgedAt: '2026-08-27T03:00:00.000Z',
+            prState: 'closed',
             lastPolledAt: '2026-08-27T02:00:00.000Z',
         },
         {
@@ -356,6 +361,7 @@ export const VISUAL_FIXTURES: FixturesPayload = {
             conclusion: 'success',
             checkRunId: '900000103',
             detailsUrl: 'https://github.com/acme/web-app/pull/103',
+            prState: 'merged',
             lastPolledAt: '2026-08-26T02:00:00.000Z',
             overallStatus: 'success',
             signals: [
@@ -379,6 +385,7 @@ export const VISUAL_FIXTURES: FixturesPayload = {
             conclusion: 'pending',
             checkRunId: '900000104',
             detailsUrl: 'https://github.com/acme/web-app/pull/104',
+            prState: 'open',
             lastPolledAt: '2026-08-25T02:00:00.000Z',
         },
         {
@@ -390,6 +397,7 @@ export const VISUAL_FIXTURES: FixturesPayload = {
             conclusion: 'cancelled',
             checkRunId: '900000105',
             detailsUrl: 'https://github.com/acme/web-app/pull/105',
+            prState: 'unknown',
             lastPolledAt: '2026-08-24T02:00:00.000Z',
         },
     ],

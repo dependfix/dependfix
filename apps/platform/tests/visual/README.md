@@ -75,7 +75,7 @@
 
 ## 覆盖边界（现状）
 
-- `pr-checks`：行级渲染已由 M33.4 覆盖——fixtures 端点新增可选 `prChecks` 写入路径（5 行覆盖结论标签四档 danger / success / warning / primary 与 Alert 状态三态 firing / 已 ack / OK）；时间列由 fixtures 钉死 `lastPolledAt` + 视觉环境固定 `locale` / `timezoneId` 保证 `toLocaleString()` 确定性，无需 `data-visual-mask`。**失败信号归因标签（2026-10-31）**：首行两个失败信号分别带 `attribution: self_caused`（danger 档）与 `external_noise`（neutral 档），用例断言两段文案（`本次改动导致` / `外部噪音`）与两个色调 class 同时存在——只断文案会漏色调映射改革，只断 class 会漏 i18n 键漂移。重建基线时该图变化 4242 px（ratio 0.01，新增两个标签）。注：fixtures 端点的信号写入映射此前漏透传 `attribution`（schema 允许但落库丢字段），已同批修复。
+- `pr-checks`：行级渲染已由 M33.4 覆盖——fixtures 端点新增可选 `prChecks` 写入路径（5 行覆盖结论标签四档 danger / success / warning / primary 与 Alert 状态三态 firing / 已 ack / OK；**PR 生命周期列**覆盖 `open` / `closed` / `merged` / `unknown` 四档，用例按行断言 `#103 merged` 为 primary、`#102 closed` 为 neutral）；时间列由 fixtures 钉死 `lastPolledAt` + 视觉环境固定 `locale` / `timezoneId` 保证 `toLocaleString()` 确定性，无需 `data-visual-mask`。**失败信号归因标签（2026-10-31）**：首行两个失败信号分别带 `attribution: self_caused`（danger 档）与 `external_noise`（neutral 档），用例断言两段文案（`本次改动导致` / `外部噪音`）与两个色调 class 同时存在——只断文案会漏色调映射改革，只断 class 会漏 i18n 键漂移。重建基线时该图变化 4242 px（ratio 0.01，新增两个标签）。注：fixtures 端点的信号写入映射此前漏透传 `attribution`（schema 允许但落库丢字段），已同批修复。
 - `alerts`：1440 视口下表格容器横向溢出（`clientWidth 1166 < scrollWidth 1318`），整页基线只覆盖可视区左端；最右 `链接` / `详情` 两列由 `alerts-right-<theme>.png` 覆盖（M33.5：容器横向滚到最右后的元素级补拍，仅改容器内部滚动位置，不动 viewport / 阈值 / 列宽）。
 - 弹窗内浮层（M34.3）：`dialog-select-open-<theme>.png` 覆盖弹窗内 Select **展开态**（light / dark 各一张）。用**视口级**截图而非元素级 / 整页——门户面板挂在 body、不在弹窗子树内（元素级取不到），整页截图又会把 fixed 定位的遮罩与面板混进拼接；截图前另断言「面板不是弹窗后代」，防止面板未挂载时基线被落成缺面板形态。
 - 两个页面仅取亮色（`pr-checks` / `dialog-import-repos`），明暗两态覆盖 `alerts` / `repos` / `notifications` / `settings` / `login` / `dialog-select-open`（后者因门户面板与遮罩存在叠色，分主题采基线）。

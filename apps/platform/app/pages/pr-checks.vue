@@ -15,8 +15,15 @@
 // hydration 阶段 data.value 已有完整数据，避免 DataTable processedData 重复计算问题。
 import { computed, reactive, ref } from 'vue'
 import type { DataTableColumn, DataTableSortMeta } from 'caomei-ui'
-import type { PRCheckConclusion } from '#server/entities/pr-check'
-import { checkAttributionI18nKey, checkAttributionTone, conclusionTagTone, shouldShowAttribution } from '~/utils/pr-check-style'
+import type { PRCheckConclusion, PRCheckPrState } from '#server/entities/pr-check'
+import {
+    PR_CHECK_CONCLUSION_VALUES,
+    checkAttributionI18nKey,
+    checkAttributionTone,
+    conclusionTagTone,
+    prStateTagTone,
+    shouldShowAttribution,
+} from '~/utils/pr-check-style'
 
 definePageMeta({
     middleware: 'auth',
@@ -56,6 +63,8 @@ interface PRCheckView {
     headSha: string
     authorLogin: string
     conclusion: string
+    /** PR 生命周期（open / closed / merged / unknown） */
+    prState: PRCheckPrState
     /** 聚合构建 / 部署状态（`failure` / `pending` / `success`；null = 本字段上线前的历史行） */
     overallStatus: string | null
     /** 归一化三源信号（null = 本字段上线前的历史行） */
@@ -88,17 +97,25 @@ const toast = useToast()
 interface Filters {
     repositoryId: string
     alertFiring: string
+    conclusion: string
 }
 
 const filters = reactive<Filters>({
     repositoryId: 'all',
     alertFiring: 'all',
+    conclusion: 'all',
 })
 
 const alertFiringOptions = computed(() => [
     { label: t('prChecks.alertFiringAll'), value: 'all' },
     { label: t('prChecks.alertFiringTrue'), value: 'true' },
     { label: t('prChecks.alertFiringFalse'), value: 'false' },
+])
+
+/** 结论筛选项（值直接使用 GitHub conclusion 原文，与结论列标签同源） */
+const conclusionOptions = computed(() => [
+    { label: t('prChecks.conclusionAll'), value: 'all' },
+    ...PR_CHECK_CONCLUSION_VALUES.map((value) => ({ label: value, value })),
 ])
 
 // SSR-aware 数据获取（SSR 阶段 handler 跑完拿数据，hydration 时迁移前组件库已能渲染）
@@ -125,9 +142,12 @@ const { data: rows, refresh } = await useAsyncData<PRCheckView[]>('pr-checks', a
     if (filters.alertFiring !== 'all') {
         params.set('alertFiring', filters.alertFiring)
     }
+    if (filters.conclusion !== 'all') {
+        params.set('conclusion', filters.conclusion)
+    }
     return await requestFetch<PRCheckView[]>(`/api/pr-checks?${params.toString()}`)
 }, {
-    watch: [() => filters.repositoryId, () => filters.alertFiring],
+    watch: [() => filters.repositoryId, () => filters.alertFiring, () => filters.conclusion],
     default: () => [],
 })
 
@@ -198,6 +218,20 @@ const signalStateLabel = (state: string): string => {
     }
 }
 
+/** PR 生命周期 → 文案（显式键，避免动态键） */
+const prStateLabel = (state: PRCheckPrState | string): string => {
+    switch (state) {
+        case 'open':
+            return t('prChecks.prState.open')
+        case 'closed':
+            return t('prChecks.prState.closed')
+        case 'merged':
+            return t('prChecks.prState.merged')
+        default:
+            return t('prChecks.prState.unknown')
+    }
+}
+
 /**
  * 列定义（caomei DataTable 用 `columns` 数组 + `#cell-{key}` 插槽替代迁移前的 `<Column>`）。
  * `key` 即排序字段；actions 列不可排序（原 `:exportable="false"` 非迁移前组件库/caomei 有效 prop，按评估 §5.3 删除）。
@@ -214,6 +248,7 @@ const columns = computed<DataTableColumn<PRCheckView>[]>(() => [
     { key: 'prNumber', header: t('prChecks.colPrNumber'), sortable: true },
     { key: 'authorLogin', header: t('prChecks.colAuthor'), sortable: true },
     { key: 'conclusion', header: t('prChecks.colConclusion'), sortable: true },
+    { key: 'prState', header: t('prChecks.colPrState'), sortable: true },
     { key: 'lastPolledAt', header: t('prChecks.colLastPolledAt'), sortable: true },
     { key: 'alertFiring', header: t('prChecks.colStatus'), sortable: true },
     { key: 'actions', header: t('prChecks.colActions') },
@@ -388,6 +423,17 @@ const handleAck = async (row: PRCheckView) => {
                         class="pr-checks__filter-dropdown"
                     />
                 </div>
+                <div class="pr-checks__filter-field">
+                    <label for="pr-check-conclusion">{{ t('prChecks.filterConclusion') }}</label>
+                    <CaomeiSelect
+                        id="pr-check-conclusion"
+                        v-model="filters.conclusion"
+                        :options="conclusionOptions"
+                        option-label="label"
+                        option-value="value"
+                        class="pr-checks__filter-dropdown"
+                    />
+                </div>
             </div>
         </section>
 
@@ -438,6 +484,13 @@ const handleAck = async (row: PRCheckView) => {
                     <CaomeiTag :tone="conclusionTagTone(row.conclusion as PRCheckConclusion)">
                         {{ row.conclusion }}
                     </CaomeiTag>
+                </template>
+                <template #cell-prState="{row}">
+                    <span class="pr-checks__pr-state">
+                        <CaomeiTag :tone="prStateTagTone(row.prState)">
+                            {{ prStateLabel(row.prState) }}
+                        </CaomeiTag>
+                    </span>
                 </template>
                 <!-- 提示挂在取值上（而非表头槽）：语义解释的是「这一格为什么可能很旧」 -->
                 <template #cell-lastPolledAt="{row}">

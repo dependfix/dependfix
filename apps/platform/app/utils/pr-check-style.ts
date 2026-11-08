@@ -31,6 +31,45 @@ export const conclusionTagTone = (conclusion: PRCheckConclusion): ComponentTone 
     return 'primary'
 }
 
+/**
+ * 结论筛选可选项（client 侧常量）。
+ *
+ * 不直接 import 服务端实体枚举：`#server/entities/pr-check` 带 TypeORM 装饰器，进客户端 bundle 会拖入
+ * 服务端依赖；此处以 `readonly PRCheckConclusion[]` 锁类型，并由 `pr-check-style.test.ts` 与服务端
+ * `PR_CHECK_CONCLUSIONS` 逐值核对，防止两处漂移。
+ */
+export const PR_CHECK_CONCLUSION_VALUES: readonly PRCheckConclusion[] = [
+    'success',
+    'failure',
+    'neutral',
+    'cancelled',
+    'timed_out',
+    'action_required',
+    'stale',
+    'pending',
+    'skipped',
+] as const
+
+/**
+ * PR 生命周期 → caomei Tag tone。
+ *
+ * 视觉策略：`open` → success（仍在推进）；`merged` → primary（已完成，非告警）；`closed` / `unknown` → neutral。
+ * 与 Alert 列（danger / neutral / success）分列呈现，避免生命周期色与告警态混淆。
+ */
+export const prStateTagTone = (state: string): ComponentTone => {
+    switch (state) {
+        case 'open':
+            return 'success'
+        case 'merged':
+            return 'primary'
+        case 'closed':
+        case 'unknown':
+            return 'neutral'
+        default:
+            return 'neutral'
+    }
+}
+
 /** 归因标签的 i18n key 集合（switch 返回字面量键，避免拼接；键存在性由单测对照两份 locale 校验）。 */
 export type CheckAttributionI18nKey =
     | 'prChecks.signalAttribution.selfCaused'

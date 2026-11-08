@@ -163,6 +163,7 @@
   7. 间接依赖 / 多版本共存仍维持人工口径（不上收）。
 - **不做什么**：不改默认值（保持关闭）；不绕过验证链或回滚；不为 GitHub Action 增加隐式跨线通道（Action 仍无 input / env 通道）；不放宽间接依赖与多版本共存人工口径；不改 CLI / MCP 既有语义。
 - **依赖**：M55.4（create / update schema 拆分、仓库表单「执行预算」区、审计模式）先完成；backlog 候选「仓库级 `allowMajorUpgrade` 开关」上收。
+- **执行记录（2026-11-08）**：授权列与迁移、schema 布尔、API 写入与视图、审计 `major_upgrade_policy_update`（仅变化）、编排层透传取代硬编码、表单开关与风险说明、e2e 回显均落地；契约清单同步可空列。CI：Test 绿；CodeQL 一次失败为 GitHub 下载 CodeQL bundle 504（基础设施，非代码问题）。
 - **交付物**：4-5 commits / 10-12 文件 / 600-900 行；文档增量 = `platform.md` §6 或 §10 新增策略段、`configuration.md`、`docs/guide/` 使用说明。
 - **风险与缓解**：
   - 跨 major 升级失败率高 → 默认关闭 + 完整验证 + 自动回滚不变，PR 正文强制风险提示。

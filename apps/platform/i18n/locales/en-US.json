@@ -235,7 +235,9 @@
         "verifyCommandTimeout": "Verify command timeout (minutes)",
         "installTimeout": "Install timeout (minutes)",
         "cloneTimeout": "Clone timeout (minutes)",
-        "executionLimitsHint": "Empty inherits the platform default; changing the execution limit also affects worker locks and orphan detection windows"
+        "executionLimitsHint": "Empty inherits the platform default; changing the execution limit also affects worker locks and orphan detection windows",
+        "allowMajorUpgrade": "Allow cross-major upgrades",
+        "allowMajorUpgradeHint": "Off by default; cross-major alerts are left for manual review. When on, only alerts that are root direct dependencies with a single lockfile version are auto-upgraded, still running the full verification chain and rolling back on failure; indirect dependencies and multi-version coexistence stay manual"
     },
     "schedules": {
         "title": "Schedules",

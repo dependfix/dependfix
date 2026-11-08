@@ -125,6 +125,8 @@ export const repositoryFieldShape = {
         .max(MAX_INSTALL_TIMEOUT_MS, '安装超时超出允许范围').nullable().optional(),
     cloneTimeoutMs: z.number().int().min(MIN_CLONE_TIMEOUT_MS, 'clone 超时至少 1 分钟')
         .max(MAX_CLONE_TIMEOUT_MS, 'clone 超时超出允许范围').nullable().optional(),
+    /** 仓库级跨大版本升级授权（默认关闭；开启后仍走完整验证与失败回滚） */
+    allowMajorUpgrade: z.boolean().optional(),
 } as const
 
 /** 子项超时不得超过执行上限（写入时交叉校验，错误挂在子项字段）。 */

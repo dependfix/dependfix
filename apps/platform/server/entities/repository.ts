@@ -169,6 +169,16 @@ export class Repository extends BaseEntity {
     cloneTimeoutMs!: number | null
 
     /**
+     * 仓库级跨大版本升级授权（默认关闭）。
+     *
+     * 关闭：跨 major 告警记 `cross-major` 跳过（人工处理）；开启：满足准入条件（根 manifest 直接依赖 +
+     * lockfile 单版本）的告警进入升级链，仍走完整验证与失败自动回滚。间接依赖 / 多版本共存维持人工。
+     * 仅平台显式配置面（CLI 走 `--allow-major-upgrade`，Action 与 env 均无隐式通道）。
+     */
+    @Column({ type: 'boolean', default: false })
+    allowMajorUpgrade!: boolean
+
+    /**
      * PR 回环反馈配置（JSON 文本；`null` = 全默认）。
      *
      * 形状：`{ comment, closeFailed, retryFailed, windowHours }`，解析与默认值见

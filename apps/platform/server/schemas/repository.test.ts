@@ -33,6 +33,13 @@ describe('repository schemas', () => {
         expect(parsed).not.toHaveProperty('platform')
     })
 
+    it('跨大版本授权：更新不注入默认值，显式布尔可解析', () => {
+        expect(repositoryUpdateSchema.parse({ note: 'x' })).toEqual({ note: 'x' })
+        expect(repositoryUpdateSchema.parse({ allowMajorUpgrade: true })).toEqual({ allowMajorUpgrade: true })
+        // 创建侧默认由 API 层补 false（schema 不注入，避免与部分更新语义混淆）
+        expect(repositorySchema.parse({ owner: 'a', name: 'b' }).allowMajorUpgrade).toBeUndefined()
+    })
+
     it('创建/更新：执行超时字段边界与交叉校验', () => {
         const ok = repositorySchema.safeParse({
             owner: 'a',

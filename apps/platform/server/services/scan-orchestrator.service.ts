@@ -309,7 +309,8 @@ const runScanInternal = async (
             alertSource: 'github-dependabot',
             codeScanningEnabled: false,
             codeQualityEnabled: false,
-            allowMajorUpgrade: false,
+            // 仓库级跨大版本授权（默认关闭）：关闭时跨 major 告警记 cross-major 跳过
+            allowMajorUpgrade: repository.allowMajorUpgrade,
             // 验证失败回滚粒度（默认 unit）：平台不经过 resolveRuntimeConfig，需在此贯通 env 逃生开关
             rollbackGranularity,
             // 构建版本回执透传给引擎启动日志（`[build]` 行）：与落库两列同源

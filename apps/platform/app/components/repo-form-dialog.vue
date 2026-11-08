@@ -45,6 +45,8 @@ interface RepoForm {
     verifyCommandTimeoutMinutes: string
     installTimeoutMinutes: string
     cloneTimeoutMinutes: string
+    /** 跨大版本升级授权（默认关闭） */
+    allowMajorUpgrade: boolean
 }
 
 /** 关注集来源类型选项（与 server/utils/pr-check-focus.ts 的 PR_CHECK_FOCUS_KINDS 同值域） */
@@ -78,6 +80,7 @@ const emptyForm = (): RepoForm => ({
     verifyCommandTimeoutMinutes: '',
     installTimeoutMinutes: '',
     cloneTimeoutMinutes: '',
+    allowMajorUpgrade: false,
 })
 
 const form = ref<RepoForm>(emptyForm())
@@ -189,6 +192,7 @@ watch(() => props.visible, (open) => {
                 verifyCommandTimeoutMinutes: toMinutes(repo.verifyCommandTimeoutMs),
                 installTimeoutMinutes: toMinutes(repo.installTimeoutMs),
                 cloneTimeoutMinutes: toMinutes(repo.cloneTimeoutMs),
+                allowMajorUpgrade: repo.allowMajorUpgrade === true,
             }
         : emptyForm()
 })
@@ -215,6 +219,7 @@ const submit = async () => {
             verifyCommandTimeoutMs: toMilliseconds(form.value.verifyCommandTimeoutMinutes),
             installTimeoutMs: toMilliseconds(form.value.installTimeoutMinutes),
             cloneTimeoutMs: toMilliseconds(form.value.cloneTimeoutMinutes),
+            allowMajorUpgrade: form.value.allowMajorUpgrade,
         }
         if (props.repo) {
             await $fetch(`/api/repos/${props.repo.id}`, {
@@ -386,6 +391,14 @@ const submit = async () => {
                 </div>
                 <small class="text-muted">{{ t('repos.executionLimitsHint') }}</small>
             </details>
+            <div class="repo-form__field">
+                <label for="allowMajorUpgrade">{{ t('repos.allowMajorUpgrade') }}</label>
+                <CaomeiSwitch
+                    id="allowMajorUpgrade"
+                    v-model="form.allowMajorUpgrade"
+                />
+                <small class="text-muted">{{ t('repos.allowMajorUpgradeHint') }}</small>
+            </div>
             <div class="repo-form__focus">
                 <div class="repo-form__focus-title">
                     {{ t('repos.fieldPrCheckFocus') }}

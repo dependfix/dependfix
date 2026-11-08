@@ -29,6 +29,7 @@ import { ScanRun } from './scan-run'
  *   该字段等价于远程命令执行面，变更必须留痕
  * - execution_limits_update：Repository 仓库级执行预算 / 超时配置更新（repo-execution-limits.md §8.2）——
  *   变更影响运行预算与锁窗口，必须留痕
+ * - major_upgrade_policy_update：Repository 跨大版本升级授权变更（repo-execution-limits 同批决策）
  * - pr_feedback_commented / pr_feedback_closed：PR 回环对交付 PR 的评论与自动关闭
  *   （[pr-feedback-loop.md](../design/governance/pr-feedback-loop.md)）——不可逆 / 对外可见，必须留痕
  *
@@ -46,6 +47,7 @@ export type AuditEventType =
     | 'ai_config_update'
     | 'verify_commands_update'
     | 'execution_limits_update'
+    | 'major_upgrade_policy_update'
     | 'notification_settings_update'
     | 'pr_feedback_commented'
     | 'pr_feedback_closed'
@@ -58,6 +60,7 @@ export const AUDIT_EVENT_TYPES: readonly AuditEventType[] = [
     'ai_config_update',
     'verify_commands_update',
     'execution_limits_update',
+    'major_upgrade_policy_update',
     'notification_settings_update',
     'pr_feedback_commented',
     'pr_feedback_closed',

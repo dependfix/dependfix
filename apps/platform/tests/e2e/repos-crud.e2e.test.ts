@@ -170,6 +170,11 @@ test.describe('仓库管理 CRUD', () => {
         await page.locator('input#verifyCommandTimeoutMinutes').fill('20')
         await expect(page.locator('.repo-form__limits-summary')).toContainText('2')
 
+        // 跨大版本授权：默认关闭，显式开启
+        await expect(page.locator('#allowMajorUpgrade')).toHaveAttribute('aria-checked', 'false')
+        await page.locator('#allowMajorUpgrade').click()
+        await expect(page.locator('#allowMajorUpgrade')).toHaveAttribute('aria-checked', 'true')
+
         await page.locator('.caomei-dialog__content button:has-text("保存")').click()
         await expect(page.locator('.caomei-message--success')).toContainText('仓库已添加', { timeout: 15000 })
 
@@ -182,10 +187,12 @@ test.describe('仓库管理 CRUD', () => {
             owner: string
             executionTimeoutMs: number | null
             verifyCommandTimeoutMs: number | null
+            allowMajorUpgrade: boolean
         }[]
         const created = repos.find((r) => r.owner === owner)
         expect(created?.executionTimeoutMs).toBe(45 * 60000)
         expect(created?.verifyCommandTimeoutMs).toBe(20 * 60000)
+        expect(created?.allowMajorUpgrade).toBe(true)
 
         // 编辑回显：毫秒还原为分钟文本
         const row = page.locator('.caomei-data-table__row', { hasText: owner })
@@ -193,6 +200,7 @@ test.describe('仓库管理 CRUD', () => {
         await expect(page.locator('.caomei-dialog__header')).toContainText('编辑仓库', { timeout: 15000 })
         await expect(page.locator('input#executionTimeoutMinutes')).toHaveValue('45')
         await expect(page.locator('input#verifyCommandTimeoutMinutes')).toHaveValue('20')
+        await expect(page.locator('#allowMajorUpgrade')).toHaveAttribute('aria-checked', 'true')
     })
 
     test('编辑仓库：点击编辑 → 改 defaultBranch → 保存 → 列表更新', async ({ page }) => {

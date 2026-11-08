@@ -345,4 +345,28 @@ describe('/api/repos/[id] 三角色鉴权（todo.md §M16.5）', () => {
         expect(event!.payloadJson).toContain('2700000')
     })
 
+    it('跨大版本授权：默认关闭、开启落库并登记审计、重复设置不新增审计', async () => {
+        mockRequireOrgResource.mockReset()
+        mockRequireOrgResource.mockImplementation(async () => undefined)
+        const created = await callIndex('POST', '/api/repos', { ...basePayload, name: 'major-upgrade' }) as { id: string }
+
+        const initial = await callId('GET', `/api/repos/${created.id}`, undefined, { id: created.id }) as Record<string, unknown>
+        expect(initial.allowMajorUpgrade).toBe(false)
+
+        await callId('PUT', `/api/repos/${created.id}`, { allowMajorUpgrade: true }, { id: created.id })
+        const enabled = await callId('GET', `/api/repos/${created.id}`, undefined, { id: created.id }) as Record<string, unknown>
+        expect(enabled.allowMajorUpgrade).toBe(true)
+
+        const ds = await ensureDatabaseInitialized()
+        const events = await ds.getRepository(AuditEvent).find({ where: { type: 'major_upgrade_policy_update' } })
+        const mine = events.filter((item) => item.repositoryId === created.id)
+        expect(mine).toHaveLength(1)
+        expect(mine[0]!.payloadJson).toContain('"next":true')
+
+        // 同值重复设置不新增审计
+        await callId('PUT', `/api/repos/${created.id}`, { allowMajorUpgrade: true }, { id: created.id })
+        const afterRepeat = await ds.getRepository(AuditEvent).find({ where: { type: 'major_upgrade_policy_update' } })
+        expect(afterRepeat.filter((item) => item.repositoryId === created.id)).toHaveLength(1)
+    })
+
 })

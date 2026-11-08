@@ -6,7 +6,7 @@ import { requireAuth, requireRole } from '#server/utils/guard'
 import { createLocalizedError } from '#server/utils/localized-error'
 import { resolveOrganizationId } from '#server/utils/organization'
 import { normalizePRCheckFocus, parsePRCheckFocus } from '#server/utils/pr-check-focus'
-import { recordExecutionLimitsAudit, recordVerifyCommandsAudit } from '#server/services/repository-audit'
+import { recordExecutionLimitsAudit, recordMajorUpgradePolicyAudit, recordVerifyCommandsAudit } from '#server/services/repository-audit'
 import { resolveExecutionCeilingMs } from '#server/utils/execution-limits'
 
 const toView = (r: Repository) => ({
@@ -29,6 +29,7 @@ const toView = (r: Repository) => ({
     verifyCommandTimeoutMs: r.verifyCommandTimeoutMs,
     installTimeoutMs: r.installTimeoutMs,
     cloneTimeoutMs: r.cloneTimeoutMs,
+    allowMajorUpgrade: r.allowMajorUpgrade,
     aiEnabled: r.aiEnabled,
     aiTrigger: r.aiTrigger,
     lastScanAt: r.lastScanAt,
@@ -145,6 +146,7 @@ const createRepository = async (event: H3Event) => {
         verifyCommandTimeoutMs: parsed.data.verifyCommandTimeoutMs ?? null,
         installTimeoutMs: parsed.data.installTimeoutMs ?? null,
         cloneTimeoutMs: parsed.data.cloneTimeoutMs ?? null,
+        allowMajorUpgrade: parsed.data.allowMajorUpgrade ?? false,
     })
     const saved = await repo.save(entity)
 
@@ -164,6 +166,17 @@ const createRepository = async (event: H3Event) => {
         where: { id: saved.id },
         relations: { credential: true },
     })
+    // 跨大版本授权审计：创建时开启才登记（默认关闭不产生噪声）
+    if (saved.allowMajorUpgrade) {
+        await recordMajorUpgradePolicyAudit(ds, {
+            repositoryId: saved.id,
+            owner: saved.owner,
+            name: saved.name,
+            previous: false,
+            next: true,
+        })
+    }
+
     // 执行预算配置审计：创建时非全空才登记（避免默认继承产生噪声）
     const createdLimits = {
         executionTimeoutMs: saved.executionTimeoutMs,

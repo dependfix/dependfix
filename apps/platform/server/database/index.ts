@@ -29,6 +29,7 @@ import { AddScanRunBuildColumns2900000000000 } from './migrations/2900000000000-
 import { AddScanRunPrNumber2900000000001 } from './migrations/2900000000001-AddScanRunPrNumber'
 import { AddRepositoryPrFeedback2900000000002 } from './migrations/2900000000002-AddRepositoryPrFeedback'
 import { AddRepositoryExecutionLimits3000000000000 } from './migrations/3000000000000-AddRepositoryExecutionLimits'
+import { AddRepositoryAllowMajorUpgrade3000000000001 } from './migrations/3000000000001-AddRepositoryAllowMajorUpgrade'
 import { runStartupBackup } from './backup'
 import { isQueueWorkerProcess } from '#server/utils/process-role'
 import { Account } from '#server/entities/account'
@@ -115,6 +116,7 @@ export const createDataSourceOptions = (): DataSourceOptions => {
             AddScanRunPrNumber2900000000001,
             AddRepositoryPrFeedback2900000000002,
             AddRepositoryExecutionLimits3000000000000,
+            AddRepositoryAllowMajorUpgrade3000000000001,
         ],
         migrationsRun,
         synchronize,

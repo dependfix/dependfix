@@ -41,6 +41,8 @@ export interface RepoView {
     installTimeoutMs: number | null
     /** 仓库级 clone 超时（毫秒；null = 继承全局） */
     cloneTimeoutMs: number | null
+    /** 仓库级跨大版本升级授权（默认关闭；开启后仍走完整验证与失败回滚） */
+    allowMajorUpgrade: boolean
     /** AI 研判开关（todo.md §M26.1 + M25.2a 实体扩展；与 POST /api/repos/[id]/ai-config 联动） */
     aiEnabled: boolean
     /** AI 研判触发范围（failure / major / both） */

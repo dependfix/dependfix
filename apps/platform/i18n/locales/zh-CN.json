@@ -235,7 +235,9 @@
         "verifyCommandTimeout": "验证命令超时（分钟）",
         "installTimeout": "安装超时（分钟）",
         "cloneTimeout": "clone 超时（分钟）",
-        "executionLimitsHint": "留空表示继承平台默认值；修改执行上限会同步影响 Worker 锁与孤儿判定窗口"
+        "executionLimitsHint": "留空表示继承平台默认值；修改执行上限会同步影响 Worker 锁与孤儿判定窗口",
+        "allowMajorUpgrade": "允许跨大版本升级",
+        "allowMajorUpgradeHint": "默认关闭，跨大版本告警按人工处理；开启后仅对根直接依赖且 lockfile 单版本的告警自动升级，仍走完整验证链并在失败时自动回滚；间接依赖与多版本共存保持人工"
     },
     "schedules": {
         "title": "定时计划",

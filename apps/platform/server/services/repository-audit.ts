@@ -95,3 +95,40 @@ export const recordExecutionLimitsAudit = async (
         console.error('[repos][execution_limits_update] failed to record audit event:', error)
     }
 }
+
+/**
+ * 登记仓库级跨大版本升级授权变更审计。
+ *
+ * 只在授权值实际变化时登记；策略变更影响交付语义（是否提交跨 major 升级），必须留痕。
+ */
+export interface MajorUpgradePolicyAuditParams {
+    repositoryId: string
+    owner: string
+    name: string
+    previous: boolean
+    next: boolean
+}
+
+export const recordMajorUpgradePolicyAudit = async (
+    ds: DataSource,
+    params: MajorUpgradePolicyAuditParams,
+): Promise<void> => {
+    try {
+        const auditRepo = ds.getRepository(AuditEvent)
+        await auditRepo.save(auditRepo.create({
+            type: 'major_upgrade_policy_update',
+            severity: 'info',
+            repositoryId: params.repositoryId,
+            scanRunId: null,
+            payloadJson: JSON.stringify({
+                repository: `${params.owner}/${params.name}`,
+                previous: params.previous,
+                next: params.next,
+            }),
+            notified: false,
+            notifiedVia: null,
+        } as AuditEvent))
+    } catch (error) {
+        console.error('[repos][major_upgrade_policy_update] failed to record audit event:', error)
+    }
+}

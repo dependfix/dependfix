@@ -5,7 +5,7 @@ import { repositoryUpdateSchema } from '#server/schemas/repository'
 import { requireAuth, requireOrgResource, requireRole } from '#server/utils/guard'
 import { createLocalizedError } from '#server/utils/localized-error'
 import { normalizePRCheckFocus, parsePRCheckFocus } from '#server/utils/pr-check-focus'
-import { recordExecutionLimitsAudit, recordVerifyCommandsAudit } from '#server/services/repository-audit'
+import { recordExecutionLimitsAudit, recordMajorUpgradePolicyAudit, recordVerifyCommandsAudit } from '#server/services/repository-audit'
 import { resolveExecutionCeilingMs } from '#server/utils/execution-limits'
 
 /** GET /api/repos/[id]：仓库详情 */
@@ -41,6 +41,7 @@ const getRepository = async (event: H3Event, id: string) => {
         verifyCommandTimeoutMs: found.verifyCommandTimeoutMs,
         installTimeoutMs: found.installTimeoutMs,
         cloneTimeoutMs: found.cloneTimeoutMs,
+        allowMajorUpgrade: found.allowMajorUpgrade,
         lastScanAt: found.lastScanAt,
         createdAt: found.createdAt,
         updatedAt: found.updatedAt,
@@ -131,6 +132,9 @@ const updateRepository = async (event: H3Event, id: string) => {
         prCheckFocusValue = normalized ? JSON.stringify(normalized) : null
     }
 
+    // 变更前的跨大版本授权（审计用；Object.assign 会原地修改 found）
+    const previousAllowMajorUpgrade = found.allowMajorUpgrade
+
     // 变更前的执行预算快照（审计用；Object.assign 会原地修改 found）
     const previousLimits = {
         executionTimeoutMs: found.executionTimeoutMs,
@@ -157,6 +161,7 @@ const updateRepository = async (event: H3Event, id: string) => {
         verifyCommandTimeoutMs: parsed.data.verifyCommandTimeoutMs !== undefined ? parsed.data.verifyCommandTimeoutMs : found.verifyCommandTimeoutMs,
         installTimeoutMs: parsed.data.installTimeoutMs !== undefined ? parsed.data.installTimeoutMs : found.installTimeoutMs,
         cloneTimeoutMs: parsed.data.cloneTimeoutMs !== undefined ? parsed.data.cloneTimeoutMs : found.cloneTimeoutMs,
+        allowMajorUpgrade: parsed.data.allowMajorUpgrade !== undefined ? parsed.data.allowMajorUpgrade : found.allowMajorUpgrade,
     })
     const saved = await repo.save(found)
 
@@ -169,6 +174,17 @@ const updateRepository = async (event: H3Event, id: string) => {
             name: saved.name,
             previous: previousCommands,
             next: nextCommands,
+        })
+    }
+
+    // 跨大版本授权审计：仅在实际变化时登记
+    if (previousAllowMajorUpgrade !== saved.allowMajorUpgrade) {
+        await recordMajorUpgradePolicyAudit(ds, {
+            repositoryId: saved.id,
+            owner: saved.owner,
+            name: saved.name,
+            previous: previousAllowMajorUpgrade,
+            next: saved.allowMajorUpgrade,
         })
     }
 

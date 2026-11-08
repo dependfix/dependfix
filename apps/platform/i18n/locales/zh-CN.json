@@ -868,7 +868,8 @@
                 "crossMajor": "跨大版本 / 人工复核",
                 "notFixable": "不可自动修复",
                 "overrideProtected": "保护名单",
-                "repeatedFailure": "同告警重复失败（尝试上限）"
+                "repeatedFailure": "同告警重复失败（尝试上限）",
+                "peerOnly": "仅 peer 依赖（需人工处置）"
             }
         },
         "failureStage": {

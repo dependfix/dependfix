@@ -54,6 +54,7 @@ export const SKIP_REASON_ORDER = [
     'not-fixable',
     'override-protected',
     'repeated-failure',
+    'peer-only',
 ] as const
 
 /** 严重级别展示顺序；与 `packages/core/src/alerts/index.ts#ALERT_SEVERITIES` 同序。 */

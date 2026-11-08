@@ -50,3 +50,48 @@ export const recordVerifyCommandsAudit = async (
         console.error('[repos][verify_commands_update] failed to record audit event:', error)
     }
 }
+
+/**
+ * 登记仓库级执行预算与超时变更审计。
+ *
+ * 口径见 [repo-execution-limits.md §8.2](../../../../docs/design/governance/repo-execution-limits.md)：
+ * 与 verifyCommands 同策略——审计失败只日志、不阻断保存；仅在**实际发生变化**时登记。
+ */
+export interface ExecutionLimitsAuditParams {
+    repositoryId: string
+    owner: string
+    name: string
+    previous: ExecutionLimitsSnapshot
+    next: ExecutionLimitsSnapshot
+}
+
+export interface ExecutionLimitsSnapshot {
+    executionTimeoutMs: number | null
+    verifyCommandTimeoutMs: number | null
+    installTimeoutMs: number | null
+    cloneTimeoutMs: number | null
+}
+
+export const recordExecutionLimitsAudit = async (
+    ds: DataSource,
+    params: ExecutionLimitsAuditParams,
+): Promise<void> => {
+    try {
+        const auditRepo = ds.getRepository(AuditEvent)
+        await auditRepo.save(auditRepo.create({
+            type: 'execution_limits_update',
+            severity: 'info',
+            repositoryId: params.repositoryId,
+            scanRunId: null,
+            payloadJson: JSON.stringify({
+                repository: `${params.owner}/${params.name}`,
+                previous: params.previous,
+                next: params.next,
+            }),
+            notified: false,
+            notifiedVia: null,
+        } as AuditEvent))
+    } catch (error) {
+        console.error('[repos][execution_limits_update] failed to record audit event:', error)
+    }
+}

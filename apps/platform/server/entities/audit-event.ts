@@ -27,11 +27,13 @@ import { ScanRun } from './scan-run'
  * - ai_config_update：Organization / Repository AI 研判配置更新（todo.md §M26.1 / [platform-ai-integration.md §8.3](../design/governance/platform-ai-integration-governance.md) 审计要求）
  * - verify_commands_update：Repository 自定义验证命令更新（todo.md §M32.1 / docs/standards/platform.md §3.8）——
  *   该字段等价于远程命令执行面，变更必须留痕
+ * - execution_limits_update：Repository 仓库级执行预算 / 超时配置更新（repo-execution-limits.md §8.2）——
+ *   变更影响运行预算与锁窗口，必须留痕
  * - pr_feedback_commented / pr_feedback_closed：PR 回环对交付 PR 的评论与自动关闭
  *   （[pr-feedback-loop.md](../design/governance/pr-feedback-loop.md)）——不可逆 / 对外可见，必须留痕
  *
  * 通知策略（见 notification/policy.ts）：仅「执行器不可用 / 降级」类发通知；
- * 配置留痕类（ai_config_update / verify_commands_update）与 PR 回环类
+ * 配置留痕类（ai_config_update / verify_commands_update / execution_limits_update）与 PR 回环类
  * （pr_feedback_commented / pr_feedback_closed）仅落库、不发通知。
  *
  * 类型扩展点：未来可加 `cgroup_limit_hit` / `runtime_swap` 等
@@ -43,6 +45,7 @@ export type AuditEventType =
     | 'container_unavailable'
     | 'ai_config_update'
     | 'verify_commands_update'
+    | 'execution_limits_update'
     | 'notification_settings_update'
     | 'pr_feedback_commented'
     | 'pr_feedback_closed'
@@ -54,6 +57,7 @@ export const AUDIT_EVENT_TYPES: readonly AuditEventType[] = [
     'container_unavailable',
     'ai_config_update',
     'verify_commands_update',
+    'execution_limits_update',
     'notification_settings_update',
     'pr_feedback_commented',
     'pr_feedback_closed',

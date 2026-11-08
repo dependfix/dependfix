@@ -6,7 +6,8 @@ import { requireAuth, requireRole } from '#server/utils/guard'
 import { createLocalizedError } from '#server/utils/localized-error'
 import { resolveOrganizationId } from '#server/utils/organization'
 import { normalizePRCheckFocus, parsePRCheckFocus } from '#server/utils/pr-check-focus'
-import { recordVerifyCommandsAudit } from '#server/services/repository-audit'
+import { recordExecutionLimitsAudit, recordVerifyCommandsAudit } from '#server/services/repository-audit'
+import { resolveExecutionCeilingMs } from '#server/utils/execution-limits'
 
 const toView = (r: Repository) => ({
     id: r.id,
@@ -24,6 +25,10 @@ const toView = (r: Repository) => ({
     sandboxLimits: parseSandboxLimits(r.sandboxLimits),
     verifyCommands: parseVerifyCommands(r.verifyCommands),
     prCheckFocus: parsePRCheckFocus(r.prCheckFocus),
+    executionTimeoutMs: r.executionTimeoutMs,
+    verifyCommandTimeoutMs: r.verifyCommandTimeoutMs,
+    installTimeoutMs: r.installTimeoutMs,
+    cloneTimeoutMs: r.cloneTimeoutMs,
     aiEnabled: r.aiEnabled,
     aiTrigger: r.aiTrigger,
     lastScanAt: r.lastScanAt,
@@ -61,6 +66,23 @@ const createRepository = async (event: H3Event) => {
             statusCode: 400,
             code: 'REPO_VALIDATION_FAILED',
             data: { issues: parsed.error.issues },
+        })
+    }
+
+    // 封顶校验（AC2）：仓库值不得超过平台封顶，超限 400 且不落库
+    const ceilingMs = resolveExecutionCeilingMs(process.env)
+    const requestedExecutionTimeoutMs = parsed.data.executionTimeoutMs
+    if (requestedExecutionTimeoutMs !== null && requestedExecutionTimeoutMs !== undefined
+        && requestedExecutionTimeoutMs > ceilingMs) {
+        throw createLocalizedError(event, {
+            statusCode: 400,
+            code: 'REPO_VALIDATION_FAILED',
+            data: {
+                issues: [{
+                    path: ['executionTimeoutMs'],
+                    message: `执行上限不能超过平台封顶 ${Math.floor(ceilingMs / 60000)} 分钟`,
+                }],
+            },
         })
     }
 
@@ -119,6 +141,10 @@ const createRepository = async (event: H3Event) => {
         sandboxLimits,
         verifyCommands: verifyCommandsValue,
         prCheckFocus: prCheckFocusValue ? JSON.stringify(prCheckFocusValue) : null,
+        executionTimeoutMs: parsed.data.executionTimeoutMs ?? null,
+        verifyCommandTimeoutMs: parsed.data.verifyCommandTimeoutMs ?? null,
+        installTimeoutMs: parsed.data.installTimeoutMs ?? null,
+        cloneTimeoutMs: parsed.data.cloneTimeoutMs ?? null,
     })
     const saved = await repo.save(entity)
 
@@ -138,6 +164,23 @@ const createRepository = async (event: H3Event) => {
         where: { id: saved.id },
         relations: { credential: true },
     })
+    // 执行预算配置审计：创建时非全空才登记（避免默认继承产生噪声）
+    const createdLimits = {
+        executionTimeoutMs: saved.executionTimeoutMs,
+        verifyCommandTimeoutMs: saved.verifyCommandTimeoutMs,
+        installTimeoutMs: saved.installTimeoutMs,
+        cloneTimeoutMs: saved.cloneTimeoutMs,
+    }
+    if (Object.values(createdLimits).some((value) => value !== null)) {
+        await recordExecutionLimitsAudit(ds, {
+            repositoryId: saved.id,
+            owner: saved.owner,
+            name: saved.name,
+            previous: { executionTimeoutMs: null, verifyCommandTimeoutMs: null, installTimeoutMs: null, cloneTimeoutMs: null },
+            next: createdLimits,
+        })
+    }
+
     return withRelation ? toView(withRelation) : toView(saved)
 }
 

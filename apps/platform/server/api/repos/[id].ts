@@ -5,7 +5,8 @@ import { repositoryUpdateSchema } from '#server/schemas/repository'
 import { requireAuth, requireOrgResource, requireRole } from '#server/utils/guard'
 import { createLocalizedError } from '#server/utils/localized-error'
 import { normalizePRCheckFocus, parsePRCheckFocus } from '#server/utils/pr-check-focus'
-import { recordVerifyCommandsAudit } from '#server/services/repository-audit'
+import { recordExecutionLimitsAudit, recordVerifyCommandsAudit } from '#server/services/repository-audit'
+import { resolveExecutionCeilingMs } from '#server/utils/execution-limits'
 
 /** GET /api/repos/[id]：仓库详情 */
 const getRepository = async (event: H3Event, id: string) => {
@@ -36,6 +37,10 @@ const getRepository = async (event: H3Event, id: string) => {
         sandboxLimits: parseSandboxLimits(found.sandboxLimits),
         verifyCommands: parseVerifyCommands(found.verifyCommands),
         prCheckFocus: parsePRCheckFocus(found.prCheckFocus),
+        executionTimeoutMs: found.executionTimeoutMs,
+        verifyCommandTimeoutMs: found.verifyCommandTimeoutMs,
+        installTimeoutMs: found.installTimeoutMs,
+        cloneTimeoutMs: found.cloneTimeoutMs,
         lastScanAt: found.lastScanAt,
         createdAt: found.createdAt,
         updatedAt: found.updatedAt,
@@ -53,6 +58,23 @@ const updateRepository = async (event: H3Event, id: string) => {
             statusCode: 400,
             code: 'REPO_VALIDATION_FAILED',
             data: { issues: parsed.error.issues },
+        })
+    }
+
+    // 封顶校验（AC2）：仓库值不得超过平台封顶，超限 400 且不落库
+    const ceilingMs = resolveExecutionCeilingMs(process.env)
+    const requestedExecutionTimeoutMs = parsed.data.executionTimeoutMs
+    if (requestedExecutionTimeoutMs !== null && requestedExecutionTimeoutMs !== undefined
+        && requestedExecutionTimeoutMs > ceilingMs) {
+        throw createLocalizedError(event, {
+            statusCode: 400,
+            code: 'REPO_VALIDATION_FAILED',
+            data: {
+                issues: [{
+                    path: ['executionTimeoutMs'],
+                    message: `执行上限不能超过平台封顶 ${Math.floor(ceilingMs / 60000)} 分钟`,
+                }],
+            },
         })
     }
 
@@ -109,6 +131,14 @@ const updateRepository = async (event: H3Event, id: string) => {
         prCheckFocusValue = normalized ? JSON.stringify(normalized) : null
     }
 
+    // 变更前的执行预算快照（审计用；Object.assign 会原地修改 found）
+    const previousLimits = {
+        executionTimeoutMs: found.executionTimeoutMs,
+        verifyCommandTimeoutMs: found.verifyCommandTimeoutMs,
+        installTimeoutMs: found.installTimeoutMs,
+        cloneTimeoutMs: found.cloneTimeoutMs,
+    }
+
     Object.assign(found, {
         owner: parsed.data.owner ?? found.owner,
         name: parsed.data.name ?? found.name,
@@ -123,6 +153,10 @@ const updateRepository = async (event: H3Event, id: string) => {
         sandboxLimits: sandboxLimitsValue,
         verifyCommands: verifyCommandsValue,
         prCheckFocus: prCheckFocusValue,
+        executionTimeoutMs: parsed.data.executionTimeoutMs !== undefined ? parsed.data.executionTimeoutMs : found.executionTimeoutMs,
+        verifyCommandTimeoutMs: parsed.data.verifyCommandTimeoutMs !== undefined ? parsed.data.verifyCommandTimeoutMs : found.verifyCommandTimeoutMs,
+        installTimeoutMs: parsed.data.installTimeoutMs !== undefined ? parsed.data.installTimeoutMs : found.installTimeoutMs,
+        cloneTimeoutMs: parsed.data.cloneTimeoutMs !== undefined ? parsed.data.cloneTimeoutMs : found.cloneTimeoutMs,
     })
     const saved = await repo.save(found)
 
@@ -135,6 +169,23 @@ const updateRepository = async (event: H3Event, id: string) => {
             name: saved.name,
             previous: previousCommands,
             next: nextCommands,
+        })
+    }
+
+    // 执行预算配置审计：仅在实际变化时登记
+    const nextLimits = {
+        executionTimeoutMs: saved.executionTimeoutMs,
+        verifyCommandTimeoutMs: saved.verifyCommandTimeoutMs,
+        installTimeoutMs: saved.installTimeoutMs,
+        cloneTimeoutMs: saved.cloneTimeoutMs,
+    }
+    if (JSON.stringify(previousLimits) !== JSON.stringify(nextLimits)) {
+        await recordExecutionLimitsAudit(ds, {
+            repositoryId: saved.id,
+            owner: saved.owner,
+            name: saved.name,
+            previous: previousLimits,
+            next: nextLimits,
         })
     }
 

@@ -293,4 +293,56 @@ describe('/api/repos/[id] 三角色鉴权（todo.md §M16.5）', () => {
         await expect(callId('PUT', `/api/repos/${created.id}`, { note: 'org-override' }, { id: created.id }))
             .rejects.toMatchObject({ statusCode: 403 })
     })
+    it('PUT 只改 note 不重置执行器与四个执行超时（AC7）', async () => {
+        // 隔离上一用例残留的 once mock（requireOrgResource）
+        mockRequireOrgResource.mockReset()
+        mockRequireOrgResource.mockImplementation(async () => undefined)
+        const created = await callIndex('POST', '/api/repos', {
+            ...basePayload,
+            name: 'partial-update',
+            executorKind: 'github-action',
+            actionWorkflowFile: 'ci.yml',
+            executionTimeoutMs: 2_700_000,
+            verifyCommandTimeoutMs: 1_200_000,
+        }) as { id: string }
+
+        await callId('PUT', `/api/repos/${created.id}`, { note: '仅改备注' }, { id: created.id })
+
+        const detail = await callId('GET', `/api/repos/${created.id}`, undefined, { id: created.id }) as Record<string, unknown>
+        expect(detail.executorKind).toBe('github-action')
+        expect(detail.executionTimeoutMs).toBe(2_700_000)
+        expect(detail.verifyCommandTimeoutMs).toBe(1_200_000)
+        expect(detail.note).toBe('仅改备注')
+    })
+
+    it('仓库执行上限超过平台封顶 → 400 且不落库（AC2）', async () => {
+        mockRequireOrgResource.mockReset()
+        mockRequireOrgResource.mockImplementation(async () => undefined)
+        const created = await callIndex('POST', '/api/repos', { ...basePayload, name: 'ceiling-check' }) as { id: string }
+
+        // 3.7h 在 schema 静态上限内，但超过默认封顶 60 分钟 → 由 API 层封顶校验拒绝
+        const err = await expectError(
+            callId('PUT', `/api/repos/${created.id}`, { executionTimeoutMs: 3_700_000 }, { id: created.id }),
+            400,
+        )
+        expect(JSON.stringify(err.data)).toContain('封顶')
+
+        const detail = await callId('GET', `/api/repos/${created.id}`, undefined, { id: created.id }) as Record<string, unknown>
+        expect(detail.executionTimeoutMs).toBeNull()
+    })
+
+    it('执行超时实际变化时登记 execution_limits_update 审计（AC9）', async () => {
+        mockRequireOrgResource.mockReset()
+        mockRequireOrgResource.mockImplementation(async () => undefined)
+        const created = await callIndex('POST', '/api/repos', { ...basePayload, name: 'limits-audit' }) as { id: string }
+
+        await callId('PUT', `/api/repos/${created.id}`, { executionTimeoutMs: 2_700_000 }, { id: created.id })
+
+        const ds = await ensureDatabaseInitialized()
+        const events = await ds.getRepository(AuditEvent).find({ where: { type: 'execution_limits_update' } })
+        const event = events.find((item) => item.repositoryId === created.id)
+        expect(event).toBeDefined()
+        expect(event!.payloadJson).toContain('2700000')
+    })
+
 })

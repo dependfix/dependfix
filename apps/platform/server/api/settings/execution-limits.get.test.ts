@@ -11,7 +11,13 @@ vi.mock('#server/utils/guard', () => ({
 
 describe('GET /api/settings/execution-limits', () => {
     it('返回解析后的全局生效值与封顶值', async () => {
-        const result = await handler(makeEvent('GET', '/api/settings/execution-limits')) as Record<string, number>
+        const result = await handler(makeEvent('GET', '/api/settings/execution-limits')) as {
+            executionTimeoutMs: number
+            maxExecutionTimeoutMs: number
+            verifyCommandTimeoutMs: number
+            installTimeoutMs: number
+            cloneTimeoutMs: number
+        }
 
         expect(result.executionTimeoutMs).toBeGreaterThan(0)
         expect(result.maxExecutionTimeoutMs).toBeGreaterThanOrEqual(result.executionTimeoutMs)

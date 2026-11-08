@@ -117,7 +117,7 @@
     - **4a-2 执行面**：`services/scan-orchestrator.service.ts`、`services/executor/container-executor.ts`、`services/queue/scan-worker.ts`、`services/batch/stale-cleanup.ts`、`plugins/stale-cleanup.ts`、引擎 `app/index.ts` / `app/helpers.ts` / `app/verify-project.ts` / `helpers/index.ts` + 定向单测 → AC1 / AC3 / AC4 / AC4b / AC5 / AC6。**已完成（2026-11-08）**：编排启动前解析并落快照、executor 按有效上限构造、worker 锁改封顶值、stale-cleanup 逐 run 精判、验证命令超时透传；CI 两轮修复（DB 契约清单缺列、源码注释阶段编号）。
     - **4a-3 API / 审计 / 只读端点**：`api/repos/{index,[id]}.ts`、`api/settings/execution-limits.get.ts`（新）、`services/repository-audit.ts` + 单测 → AC2 / AC9 / AC10。**已完成（2026-11-08）**：写入闸门含封顶 400、仅变化时登记 `execution_limits_update`、只读端点返回生效值与封顶值；CI 修复只读端点用例的严格类型断言。
     - **4a-4 前端 / i18n / 文档**：`app/components/repo-form-dialog.vue`、`app/types/platform.ts`、`i18n/locales/{zh-CN,en-US}.json`、`standards/platform.md §10.5` / `guide/configuration.md` + 组件测 + e2e → AC8 / AC11。**已完成（2026-11-08）**：执行预算折叠区（分钟输入、留空继承、占位取自只读端点、覆盖摘要）；`platform.md` §10.5 / §11、`configuration.md`、`queue-stale-recovery.md` 口径同步；e2e 未单独新增（由组件类型检查 + 既有 repos 用例覆盖，待 4b 收口补一条）。
-  - **批 2（4b）**：`fixers/install-timeouts.ts` 覆盖参数、clone 值透传、设置页「当前运行限制」只读卡片、剩余 i18n → AC12。
+  - **批 2（4b）**：`fixers/install-timeouts.ts` 覆盖参数、clone 值透传、设置页「当前运行限制」只读卡片、剩余 i18n → AC12。**已完成（2026-11-08）**：安装超时以运行级覆盖（入口设置 / 结束清除，四处底层调用自动消费）；clone 超时随执行器构造透传；设置页只读卡片（五个数值，来自只读端点）；e2e 覆盖折叠区填值 → 落库毫秒 → 编辑回显分钟；设置页与仓库弹窗视觉基线同步重建。
 - **验收标准**（设计稿 AC1-AC9 + AC4b；AC10-AC12 为本计划补充。映射：批 0 → AC11；4a-1 → AC2 / AC7；4a-2 → AC1 / AC3 / AC4 / AC4b / AC5 / AC6；4a-3 → AC2 / AC9 / AC10；4a-4 → AC8 / AC11；4b → AC12）：
   1. **AC1** 仓库配 45 min → 编排层传入 `timeoutMs=2700000` 且日志 `source=repo`。
   2. **AC2** 仓库值 > 封顶 → 400 且不落库。

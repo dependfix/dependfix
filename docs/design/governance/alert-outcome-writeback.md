@@ -31,11 +31,11 @@
 
 | 优先级 | 判定 | 结果 | 来源 |
 |:--|:--|:--|:--|
-| 1 | 显式记录（收敛 / 跨 major / 清单分区 / 不可修复） | 原样 | `recordConvergedAlerts` / `recordSkippedAlerts` |
+| 1 | 显式记录（收敛 / 跨 major / 清单分区 / 不可修复 / peer-only） | 原样 | `recordConvergedAlerts` / `recordSkippedAlerts` |
 | 2 | `isAlertFixedByActions` | `success` | 与 `alertsUnfixed` 同一谓词 |
 | 3 | Code Scanning `noOp` **且无 `error`**（模板已应用、文件无改动） | `converged` | actions 推导 |
 | 4 | 同告警失败动作 | `failed` | 排除 `environmentalFailure` / `preExisting` / `noOp` / AI 辅助动作 |
-| 5 | `override-protected` / `repeated-failure` 的 `noOp` 动作 | `skipped` | actions 推导 |
+| 5 | `override-protected` / `repeated-failure` 的 `noOp` 动作 | `skipped` | actions 推导（`peer-only` 走优先级 1 的显式记录） |
 | 6 | `fixable === false` | `skipped('not-fixable')` | 告警属性 |
 
 **显式记录优先于派生 `success`**：依赖升级的成功谓词是**包级**（同包任一清单升级到达标即命中），

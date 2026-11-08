@@ -194,7 +194,9 @@
 
 ### 5.8 跳过与截断披露
 
-- **数据模型**：`RunSummary.alertsUnfixed` 为告警级未修复数（逐条 `isAlertFixedByActions` 判定，converged 不计入；不能直接用 `alertsFixed` action 数做减法）。`RunSummary.alertsSkippedByReason` 按 `subdirectory-manifest` / `cross-major` / `not-fixable` / `override-protected` / `repeated-failure` 分组，满足 `sum(values) === alertsSkipped`；`RunSummary.alertsTruncatedBySeverity` 按 `critical` / `high` / `medium` / `low` / `unknown` 分组，满足 `sum(values) === alertsTruncated`。枚举唯一源为 `SKIP_REASONS` / `ALERT_SEVERITIES`；所有累加点经 `addSkipped` / `addTruncatedBySeverity`，禁止直接自增。
+- **数据模型**：`RunSummary.alertsUnfixed` 为告警级未修复数（逐条 `isAlertFixedByActions` 判定，converged 不计入；不能直接用 `alertsFixed` action 数做减法）。`RunSummary.alertsSkippedByReason` 按 `subdirectory-manifest` / `cross-major` / `not-fixable` / `override-protected` / `repeated-failure` / `peer-only` 分组，满足 `sum(values) === alertsSkipped`；`RunSummary.alertsTruncatedBySeverity` 按 `critical` / `high` / `medium` / `low` / `unknown` 分组，满足 `sum(values) === alertsTruncated`。枚举唯一源为 `SKIP_REASONS` / `ALERT_SEVERITIES`；所有累加点经 `addSkipped` / `addTruncatedBySeverity`，禁止直接自增。
+
+- **`peer-only` 累加点（2026-11-08）**：版本化 overrides 与常规 override 路径在回读 lockfile 发现「剩余未达标实例全部为 peer 后缀形态」时记跳过（`addSkipped` + `recordSkippedAlerts`），不产出失败动作、不计入 `alertsFailed`；合批路径按包内全部告警展开（与逐包路径同口径）。
 - **累加点**：`repo-fix.ts` 的子目录 / 根直接依赖 lockfile 桶 → `subdirectory-manifest`；跨大版本人工 review（含收敛判定后的低实例残留）→ `cross-major`；常规链路不可自动修复 / 缺推荐版本 → `not-fixable`；`override-protect.ts` 命中保护名单 → `override-protected`；`app/repeated-failure.ts` 的尝试上限命中 → `repeated-failure`（判定在安装与验证之前，读取失败 fail-open，口径见 [pr-delivery-closure.md §6](./pr-delivery-closure.md#_6-m48-3-同告警尝试指纹去重)）。`limitAlerts` 丢弃集合在 fix / report 两条抓取路径统一按 severity 累计。
 - **展示口径**：UI 详情显示 `未修复 X / 总数 Y · 截断 Z（未评估）· 跳过 W`，其中 `Y = alertsFound + alertsTruncated`、`X` 取 `alertsUnfixed`；分组 chips 固定顺序。列表只显示紧凑总数。PR 正文与 Markdown 报告输出 `Not Fixed / Skipped` 表，含跳过原因、截断严重级别与 `Failed / other not fixed` 残差；`Unfixed` 的分子分母按「已评估告警」表述，截断明确标注未评估。
 - **旧数据降级**：缺分组字段时按 `total - sum(known)` 补 `other` 行，不抛错且总数不丢；分组和大于总数时不再补 `other`（分组优先，异常数据原样展示）。

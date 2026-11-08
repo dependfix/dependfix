@@ -55,9 +55,9 @@
   4. 同一包先空值后真值的动作序列 → 聚合行 `fromVersion` 取首个非空值。
   5. 直接依赖 manifest 升级路径行为不回退（`pr-creator.test.ts` 既有断言仍绿）。
   6. 三条判定（父级 scoped 键遮蔽 / peer-only 实例 / 校验失败消息归因）的新增守卫经 ≥3 个 mutation 击杀（工件落 `artifacts/review-gate/`）。
-- **不做什么**：不改 overrides 写盘位置、提交面白名单与修复语义；不为填 `From` 新增 lockfile 解析调用；不改跨 major 准入规则（由 M55.5 处理）。
+- **不做什么**：不改 overrides 写盘位置、提交面白名单与修复语义；不为填 `From` 新增独立 lockfile 解析器或第三方依赖（复用既有 `readLockfileVersions`）；不改跨 major 准入规则（由 M55.5 处理）。
 - **依赖**：1.0.0 已发布（`v1.0.0`）；backlog 两条同域候选（生效校验 + 展示口径）合并上收；无前置代码改动。
-- **交付物**：3-4 commits / 约 7 文件 / 400-600 行；文档增量限 PR 模板与报告口径说明。
+- **交付物**：4-5 commits / 约 14 文件 / 500-700 行；文档增量 = PR 模板与报告口径说明 + 跳过原因分类学两处（`run-failure-taxonomy` / `alert-outcome-writeback`）。
 - **风险与缓解**：
   - 改写父级 scoped 键可能动到用户既有配置 → 只改「同包且仍低于目标版本」的键，写前留 diff 审计。
   - peer-only 判定误报 → 保守返回 `manual review` 并保留工作区，不整仓回滚。

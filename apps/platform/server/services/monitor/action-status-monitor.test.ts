@@ -16,11 +16,13 @@ const {
     prCheckFind,
     prCheckFindOne,
     prCheckSave,
+    prCheckUpdate,
     repoFind,
 } = vi.hoisted(() => ({
     prCheckFind: vi.fn(),
     prCheckFindOne: vi.fn(),
     prCheckSave: vi.fn(),
+    prCheckUpdate: vi.fn(),
     repoFind: vi.fn(),
 }))
 
@@ -29,6 +31,7 @@ const makeMockDataSource = (): DataSource => {
         find: prCheckFind,
         findOne: prCheckFindOne,
         save: prCheckSave,
+        update: prCheckUpdate,
     }
     const repositoryRepo = {
         find: repoFind,
@@ -92,6 +95,7 @@ describe('ActionStatusMonitor', () => {
         prCheckSave.mockImplementation(async (row) => row)
         prCheckFind.mockResolvedValue([]) // 默认无既有行（终态跳过集为空）
         prCheckFindOne.mockResolvedValue(null) // 默认无 existing
+        prCheckUpdate.mockResolvedValue({ affected: 1 })
         const ds = makeMockDataSource()
         mockSource = { fetchSnapshots: vi.fn() }
         monitor = new ActionStatusMonitor(ds, mockSource)
@@ -500,6 +504,152 @@ describe('ActionStatusMonitor', () => {
             await monitor.pollOnce({ organizationId: 'org-1' })
             const input = vi.mocked(mockSource.fetchSnapshots).mock.calls[0]?.[0]
             expect(input?.knownTerminalHeads?.size).toBe(0)
+        })
+    })
+
+    describe('PR 生命周期', () => {
+        const makeRow = (overrides: Record<string, unknown> = {}) => ({
+            id: 'row-1',
+            repositoryId: 'repo-1',
+            prNumber: 42,
+            headSha: 'a'.repeat(40),
+            prState: 'open',
+            overallStatus: 'failure',
+            conclusion: 'failure',
+            alertFiring: true,
+            acknowledgedAt: null as Date | null,
+            acknowledgedByUserId: null as string | null,
+            lastPolledAt: new Date(Date.now() - 60 * 60 * 1000),
+            ...overrides,
+        })
+
+        const lifecycleSource = (states: Map<number, 'open' | 'closed' | 'merged'>) => {
+            mockSource.fetchPrLifecycles = vi.fn(async () => states)
+        }
+
+        it('关闭的失败 PR → 条件更新 prState=closed + alertFiring=false，不动 ack 字段', async () => {
+            const acknowledgedAt = new Date('2026-09-01T00:00:00Z')
+            prCheckFind.mockResolvedValue([makeRow({ acknowledgedAt, acknowledgedByUserId: 'user-1' })])
+            vi.mocked(mockSource.fetchSnapshots).mockResolvedValue([])
+            lifecycleSource(new Map([[42, 'closed']]))
+
+            const result = await monitor.pollOnce({ organizationId: 'org-1' })
+
+            // 生命周期更新不计入 processed（信号处理计数口径不变）
+            expect(result).toEqual({ processed: 0, errors: 0 })
+            expect(mockSource.fetchPrLifecycles).toHaveBeenCalledWith({
+                owner: 'octocat',
+                repo: 'hello-world',
+                prNumbers: [42],
+            })
+            // 乐观锁 = 读取时 prState；payload 只含生命周期字段（不整行写回，避免 stale ack 覆盖）
+            expect(prCheckUpdate).toHaveBeenCalledWith(
+                { id: 'row-1', prState: 'open' },
+                { prState: 'closed', alertFiring: false },
+            )
+            expect(prCheckSave).not.toHaveBeenCalled()
+        })
+
+        it('合并的 PR → prState=merged 且关闭 firing', async () => {
+            prCheckFind.mockResolvedValue([makeRow()])
+            vi.mocked(mockSource.fetchSnapshots).mockResolvedValue([])
+            lifecycleSource(new Map([[42, 'merged']]))
+
+            await monitor.pollOnce({ organizationId: 'org-1' })
+
+            expect(prCheckUpdate).toHaveBeenCalledWith(
+                { id: 'row-1', prState: 'open' },
+                { prState: 'merged', alertFiring: false },
+            )
+        })
+
+        it('unknown 存量行确认 open → 回填 prState 且不改告警态', async () => {
+            prCheckFind.mockResolvedValue([makeRow({ prState: 'unknown' })])
+            vi.mocked(mockSource.fetchSnapshots).mockResolvedValue([])
+            lifecycleSource(new Map([[42, 'open']]))
+
+            await monitor.pollOnce({ organizationId: 'org-1' })
+
+            expect(prCheckUpdate).toHaveBeenCalledWith(
+                { id: 'row-1', prState: 'unknown' },
+                { prState: 'open' },
+            )
+        })
+
+        it('同 PR 多 HEAD 行 → 全部行同步终态（不提前中断）', async () => {
+            prCheckFind.mockResolvedValue([
+                makeRow({ id: 'row-new', headSha: 'b'.repeat(40) }),
+                makeRow({ id: 'row-old', headSha: 'c'.repeat(40) }),
+            ])
+            vi.mocked(mockSource.fetchSnapshots).mockResolvedValue([])
+            lifecycleSource(new Map([[42, 'closed']]))
+
+            await monitor.pollOnce({ organizationId: 'org-1' })
+
+            expect(prCheckUpdate).toHaveBeenCalledTimes(2)
+            expect(prCheckUpdate).toHaveBeenNthCalledWith(
+                1,
+                { id: 'row-new', prState: 'open' },
+                { prState: 'closed', alertFiring: false },
+            )
+            expect(prCheckUpdate).toHaveBeenNthCalledWith(
+                2,
+                { id: 'row-old', prState: 'open' },
+                { prState: 'closed', alertFiring: false },
+            )
+        })
+
+        it('并发写方先改行（affected=0）→ 本轮不覆盖对方结果', async () => {
+            prCheckFind.mockResolvedValue([makeRow()])
+            vi.mocked(mockSource.fetchSnapshots).mockResolvedValue([])
+            lifecycleSource(new Map([[42, 'closed']]))
+            // 模拟用户 ack / 另一轮 polling 已把该行 prState 改走 → 条件更新 0 行
+            prCheckUpdate.mockResolvedValue({ affected: 0 })
+
+            const result = await monitor.pollOnce({ organizationId: 'org-1' })
+
+            expect(result).toEqual({ processed: 0, errors: 0 })
+            expect(prCheckUpdate).toHaveBeenCalledTimes(1)
+            expect(prCheckSave).not.toHaveBeenCalled()
+        })
+
+        it('本轮快照覆盖的 PR 不进入生命周期候选（快照即 open 证据）', async () => {
+            prCheckFind.mockResolvedValue([makeRow({ prState: 'unknown' })])
+            vi.mocked(mockSource.fetchSnapshots).mockResolvedValue([makeSnapshot()])
+            lifecycleSource(new Map([[42, 'open']]))
+
+            await monitor.pollOnce({ organizationId: 'org-1' })
+
+            expect(mockSource.fetchPrLifecycles).not.toHaveBeenCalled()
+            expect(prCheckUpdate).not.toHaveBeenCalled()
+        })
+
+        it('生命周期解析失败 fail-open：不抛错、不写生命周期字段', async () => {
+            prCheckFind.mockResolvedValue([makeRow()])
+            vi.mocked(mockSource.fetchSnapshots).mockResolvedValue([])
+            mockSource.fetchPrLifecycles = vi.fn(async () => {
+                throw new Error('rate limited')
+            })
+            const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+
+            const result = await monitor.pollOnce({ organizationId: 'org-1' })
+
+            expect(result).toEqual({ processed: 0, errors: 0 })
+            expect(prCheckSave).not.toHaveBeenCalled()
+            expect(prCheckUpdate).not.toHaveBeenCalled()
+            expect(warn).toHaveBeenCalled()
+        })
+
+        it('关闭后下一轮不重开告警（终态行不再进入候选集）', async () => {
+            prCheckFind.mockResolvedValue([makeRow({ prState: 'closed', alertFiring: false })])
+            vi.mocked(mockSource.fetchSnapshots).mockResolvedValue([])
+            lifecycleSource(new Map([[42, 'open']]))
+
+            await monitor.pollOnce({ organizationId: 'org-1' })
+
+            expect(mockSource.fetchPrLifecycles).not.toHaveBeenCalled()
+            expect(prCheckSave).not.toHaveBeenCalled()
+            expect(prCheckUpdate).not.toHaveBeenCalled()
         })
     })
 

@@ -4,6 +4,7 @@ import {
     describe,
     expect,
     it,
+    vi,
 } from 'vitest'
 import nock from 'nock'
 import { Octokit } from '@octokit/rest'
@@ -345,5 +346,87 @@ describe('monitor/polling-source 三源采集', () => {
         expect(snapshots[0]!.overallStatus).toBe('pending')
         expect(snapshots[0]!.conclusion).toBe('pending')
         expect(isFailureConclusion(snapshots[0]!.conclusion)).toBe(false)
+    })
+})
+
+describe('monitor/polling-source 生命周期解析', () => {
+    beforeEach(() => {
+        nock.disableNetConnect()
+        nock.cleanAll()
+    })
+
+    afterEach(() => {
+        nock.cleanAll()
+        nock.enableNetConnect()
+    })
+
+    const mockOpenList = (numbers: number[]) => {
+        nock(API)
+            .get('/repos/acme/web-app/pulls')
+            .query((query) => query.state === 'open')
+            .reply(200, numbers.map((number) => ({ number, state: 'open' })))
+    }
+
+    it('open 列表命中 → open；未命中逐个 get 区分 merged / closed', async () => {
+        mockOpenList([101])
+        nock(API)
+            .get('/repos/acme/web-app/pulls/102')
+            .reply(200, { number: 102, state: 'closed', merged_at: '2026-09-01T00:00:00Z' })
+        nock(API)
+            .get('/repos/acme/web-app/pulls/103')
+            .reply(200, { number: 103, state: 'closed', merged_at: null })
+
+        const states = await source().fetchPrLifecycles({
+            owner: 'acme',
+            repo: 'web-app',
+            prNumbers: [101, 102, 103],
+        })
+
+        expect([...states.entries()].sort((a, b) => a[0] - b[0])).toEqual([
+            [101, 'open'],
+            [102, 'merged'],
+            [103, 'closed'],
+        ])
+        expect(nock.isDone()).toBe(true)
+    })
+
+    it('空编号集合 → 不发任何请求', async () => {
+        const states = await source().fetchPrLifecycles({
+            owner: 'acme',
+            repo: 'web-app',
+            prNumbers: [],
+        })
+        expect(states.size).toBe(0)
+        expect(nock.pendingMocks()).toEqual([])
+    })
+
+    it('单 PR 404（已删除 / 转移）→ 按 closed 处理，不占用后续解析名额', async () => {
+        mockOpenList([201])
+        nock(API).get('/repos/acme/web-app/pulls/202').reply(404, { message: 'Not Found' })
+        nock(API).get('/repos/acme/web-app/pulls/203').reply(200, { number: 203, state: 'closed', merged_at: null })
+
+        const states = await source().fetchPrLifecycles({
+            owner: 'acme',
+            repo: 'web-app',
+            prNumbers: [201, 202, 203],
+        })
+
+        expect(states.get(201)).toBe('open')
+        expect(states.get(202)).toBe('closed')
+        expect(states.get(203)).toBe('closed')
+    })
+
+    it('open 列表采集失败 → 返回空 map 且不抛错（fail-open）', async () => {
+        nock(API).get('/repos/acme/web-app/pulls').query(true).reply(404, { message: 'Not Found' })
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+
+        const states = await source().fetchPrLifecycles({
+            owner: 'acme',
+            repo: 'web-app',
+            prNumbers: [301],
+        })
+
+        expect(states.size).toBe(0)
+        expect(warn).toHaveBeenCalled()
     })
 })

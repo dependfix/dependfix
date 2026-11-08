@@ -33,6 +33,29 @@ export const PR_CHECK_CONCLUSIONS: readonly PRCheckConclusion[] = [
 ] as const
 
 /**
+ * PR 生命周期状态（口径见 [pr-build-deploy-signals.md §3.11](../../../../docs/design/governance/pr-build-deploy-signals.md)）。
+ *
+ * - `open`：轮询观测到的开启态（每轮快照写入）
+ * - `closed` / `merged`：生命周期解析确认的终态；不再计入 firing，后续轮询不再采集
+ * - `unknown`：迁移存量行 / 生命周期解析失败值（fail-open：仍按原 alertFiring 计数，视图展示「未知」）
+ */
+export type PRCheckPrState = 'open' | 'closed' | 'merged' | 'unknown'
+
+export const PR_CHECK_PR_STATES: readonly PRCheckPrState[] = [
+    'open',
+    'closed',
+    'merged',
+    'unknown',
+] as const
+
+/** 生命周期终态：关闭 / 合并的 PR 不再计入 firing，也不再产生新快照 */
+export const PR_CHECK_TERMINAL_PR_STATES: readonly PRCheckPrState[] = ['closed', 'merged'] as const
+
+/** 判定生命周期是否已终态（`unknown` / `null` 按未终态处理，保持 fail-open） */
+export const isTerminalPrState = (state: string | null | undefined): boolean =>
+    state === 'closed' || state === 'merged'
+
+/**
  * PR Check 状态监测实体（详见 docs/plan/todo.md §M24.1 Phase 1）。
  *
  * 业务定位：监测 dependfix 自身 PR（author 含 `dependfix[bot]`）+ dependabot PR
@@ -52,6 +75,7 @@ export const PR_CHECK_CONCLUSIONS: readonly PRCheckConclusion[] = [
  * - 类级复合索引 `(repositoryId, conclusion)`：dashboard 活跃失败查询
  *   （WHERE repositoryId = ? AND conclusion IN ('failure', 'timed_out')）。
  * - 类级复合索引 `(repositoryId, createdAt)`：仓库详情 PR 时间线。
+ * - 类级复合索引 `(repositoryId, prState)`：生命周期候选项查询 / 终态过滤。
  * - 类级单索引 `(repositoryId)` / `(authorLogin)` / `(alertFiring)`：service
  *   过滤 dependfix[bot] / dependabot[bot] + alerts firing 状态查询。
  *
@@ -68,6 +92,7 @@ export const PR_CHECK_CONCLUSIONS: readonly PRCheckConclusion[] = [
 @Index('idx_pr_check_repo_pr_head', ['repositoryId', 'prNumber', 'headSha'], { unique: true })
 @Index('idx_pr_check_repo_conclusion', ['repositoryId', 'conclusion'])
 @Index('idx_pr_check_repo_created', ['repositoryId', 'createdAt'])
+@Index('idx_pr_check_repo_pr_state', ['repositoryId', 'prState'])
 export class PRCheck extends BaseEntity {
     /** 所属仓库 id（冗余列：与 ScanResult 同模式，便于复合唯一索引 + dashboard 无 JOIN 统计） */
     @Column({ type: 'varchar', length: 36 })
@@ -92,6 +117,19 @@ export class PRCheck extends BaseEntity {
     /** Check 结论（GitHub check_run.conclusion / check_suite.conclusion） */
     @Column({ type: 'varchar', length: 32, default: 'pending' })
     conclusion!: PRCheckConclusion
+
+    /**
+     * PR 生命周期状态：`open` / `closed` / `merged` / `unknown`。
+     *
+     * 写入路径：
+     * - 信号快照落库 → `open`（快照仅来自 `state: 'open'` 的 PR）
+     * - 生命周期解析（`PollingSource.fetchPrLifecycles`）→ 关闭 / 合并的 PR 全部 HEAD 行同步终态
+     *
+     * `closed` / `merged` 行 `alertFiring` 强制为 false（历史 ack 与信号快照保留）；
+     * `unknown` = 迁移存量行 / 解析未完成，按 fail-open 继续参与 firing 统计，视图标注「未知」。
+     */
+    @Column({ type: 'varchar', length: 16, default: 'unknown' })
+    prState!: PRCheckPrState
 
     /** 关联 check_run.id（GitHub numeric bigint，作字符串存储便于跨库兼容；与 ScanResult.scanRunId 同模式） */
     @Column({ type: 'varchar', length: 64, nullable: true })

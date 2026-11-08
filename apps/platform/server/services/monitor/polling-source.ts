@@ -1,5 +1,7 @@
 import type { Octokit } from '@octokit/rest'
 import type {
+    PRCheckLifecycleInput,
+    PRCheckLifecycleState,
     PRCheckSnapshot,
     PRCheckSyncInput,
     PRCheckSyncSource,
@@ -125,6 +127,77 @@ export class PollingSource implements PRCheckSyncSource {
     }
 
     /**
+     * 解析待确认 PR 的生命周期（口径见 [pr-build-deploy-signals.md §3.11](../../../../docs/design/governance/pr-build-deploy-signals.md)）。
+     *
+     * 策略（控制额外 API 调用）：
+     * 1. 先拉一次 `pulls.list(state: 'open')` 的全量编号——命中即 `open`，不发单 PR 请求；
+     * 2. 未命中的编号逐个 `pulls.get`：`merged_at` 非空 → `merged`，仍为 open → `open`，其余 → `closed`；
+     * 3. 单轮 `pulls.get` 上限 `MAX_LIFECYCLE_GETS_PER_ROUND`，剩余编号留给下一轮；
+     * 4. 任一请求失败 fail-open（该编号不出现在返回 map 中，下一轮重试），不阻断信号采集。
+     */
+    async fetchPrLifecycles(input: PRCheckLifecycleInput): Promise<Map<number, PRCheckLifecycleState>> {
+        const { owner, repo } = input
+        const prNumbers = [...new Set(input.prNumbers)]
+        const states = new Map<number, PRCheckLifecycleState>()
+        if (prNumbers.length === 0) {
+            return states
+        }
+
+        // 1. open 列表一次分页取全：命中项直接判 open，避免逐个 pulls.get
+        let openNumbers: Set<number>
+        try {
+            const openPulls = await this.octokit.paginate(this.octokit.rest.pulls.list, {
+                owner,
+                repo,
+                state: 'open',
+                per_page: 100,
+            })
+            openNumbers = new Set(openPulls.map((pull) => pull.number))
+        } catch (error) {
+            // 列表失败时本轮整体跳过（逐个 get 无法区分「列表不可用」与「已关闭」的成本更高）
+            console.warn(`[pr-check-monitor] ${owner}/${repo} 生命周期 open 列表采集失败（fail-open）：`, error)
+            return states
+        }
+
+        const unresolved: number[] = []
+        for (const prNumber of prNumbers) {
+            if (openNumbers.has(prNumber)) {
+                states.set(prNumber, 'open')
+            } else {
+                unresolved.push(prNumber)
+            }
+        }
+
+        // 2. 非 open 的编号逐个确认（合并 / 关闭 / 分页竞态下的 open）
+        for (const prNumber of unresolved.slice(0, MAX_LIFECYCLE_GETS_PER_ROUND)) {
+            try {
+                const { data: pull } = await this.octokit.rest.pulls.get({
+                    owner,
+                    repo,
+                    pull_number: prNumber,
+                })
+                states.set(
+                    prNumber,
+                    classifyPullLifecycle(pull),
+                )
+            } catch (error) {
+                // PR 不存在（已删除 / 转移）→ 不可能再产生新信号，按 closed 处理；
+                // 否则这些编号会永久占用单轮解析名额，拖慢其余待解析项。
+                if ((error as { status?: number }).status === 404) {
+                    states.set(prNumber, 'closed')
+                    continue
+                }
+                console.warn(
+                    `[pr-check-monitor] ${owner}/${repo}#${prNumber} 生命周期解析失败（fail-open）：`,
+                    error,
+                )
+            }
+        }
+
+        return states
+    }
+
+    /**
      * 采集三源并归一化。每个源独立 try/catch（fail-open）：
      * 单源 API 失败只记录日志并跳过该源，其余源照常产出（AC ④）。
      */
@@ -226,6 +299,30 @@ export class PollingSource implements PRCheckSyncSource {
         return statuses[0] ?? null
     }
 }
+
+/**
+ * 单 PR 生命周期归类：`merged_at` 非空 → merged；仍 open → open；其余 → closed。
+ *
+ * 独立成函数而非嵌套三元：三元链可读性差且被 lint 禁止（`no-nested-ternary`）。
+ */
+const classifyPullLifecycle = (pull: { merged_at?: string | null, state?: string }): PRCheckLifecycleState => {
+    if (pull.merged_at) {
+        return 'merged'
+    }
+    if (pull.state === 'open') {
+        return 'open'
+    }
+    return 'closed'
+}
+
+/**
+ * 生命周期解析单轮单仓 `pulls.get` 上限。
+ *
+ * open 列表已覆盖绝大多数「仍开启」的 PR；剩余编号 = 已关闭 / 待回填存量行，
+ * 通常每轮只有个位数。上限用于约束首次回填与异常堆积时的 API 消耗，
+ * 未解析项保持 `unknown` 并在下一轮继续（fail-open）。
+ */
+export const MAX_LIFECYCLE_GETS_PER_ROUND = 50
 
 /**
  * 判定 PR 作者是否为监测目标（详见 docs/plan/todo.md §M24.1）。

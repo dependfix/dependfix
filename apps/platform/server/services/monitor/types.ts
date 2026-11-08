@@ -43,7 +43,28 @@ export interface PRCheckSyncSource {
      * @returns 快照数组；空数组表示该仓库无目标 PR / 全部 PR 已 close / 全部被节流跳过
      */
     fetchSnapshots(input: PRCheckSyncInput): Promise<PRCheckSnapshot[]>
+
+    /**
+     * 解析 PR 生命周期（可选）：仅需在「既有行未确认终态且本轮未产出快照」时调用。
+     *
+     * 实现约定（口径见 [pr-build-deploy-signals.md §3.11](../../../../docs/design/governance/pr-build-deploy-signals.md)）：
+     * - 返回 map 仅包含成功解析的 `prNumber`；缺失项保持 `unknown`，由下一轮重试
+     * - 实现方负责单轮请求上限与失败 fail-open（不得因生命周期解析失败阻断信号采集）
+     * - WebhookSource 等未来实现可不提供该方法（监控器跳过生命周期解析）
+     */
+    fetchPrLifecycles?(input: PRCheckLifecycleInput): Promise<Map<number, PRCheckLifecycleState>>
 }
+
+/** PR 生命周期解析输入（仓库 + 待解析 PR 编号集合） */
+export interface PRCheckLifecycleInput {
+    owner: string
+    repo: string
+    /** 待解析的 PR 编号（由监控器按「未终态且本轮无快照」筛出） */
+    prNumbers: readonly number[]
+}
+
+/** PR 生命周期状态（采集层只产出 open / closed / merged；unknown 由监控器按缺失回退） */
+export type PRCheckLifecycleState = 'open' | 'closed' | 'merged'
 
 /**
  * 归一化构建 / 部署信号状态（三源统一枚举，详见 [pr-build-deploy-signals.md §3.2](../../../../docs/design/governance/pr-build-deploy-signals.md)）。

@@ -1,6 +1,7 @@
 import type { DataSource } from 'typeorm'
 import {
     isFailureConclusion,
+    type PRCheckLifecycleState,
     type PRCheckSnapshot,
     type PRCheckSyncSource,
 } from './types'
@@ -15,7 +16,7 @@ import {
 } from './build-signals'
 import { filterSignalsByFocus, parsePRCheckFocus, type PRCheckFocus } from '#server/utils/pr-check-focus'
 import { Repository as RepositoryEntity } from '#server/entities/repository'
-import { PRCheck, type PRCheckConclusion } from '#server/entities/pr-check'
+import { PRCheck, isTerminalPrState, type PRCheckConclusion } from '#server/entities/pr-check'
 
 /**
  * 依赖更新 PR Check 状态监测器（详见 docs/plan/todo.md §M24.1 关键决策 D2/D3/D6）。
@@ -75,8 +76,10 @@ export class ActionStatusMonitor {
 
         for (const repo of repos) {
             try {
-                // 终态节流：读取既有行，构造「终态 + HEAD 未变 + 静默窗口内」的跳过集（省三源 API）
-                const knownTerminalHeads = await this.loadTerminalHeadMap(repo.id)
+                // 终态节流：读取既有行，构造「终态 + HEAD 未变 + 静默窗口内」的跳过集（省三源 API）；
+                // 同一份行快照同时用于生命周期候选，避免重复查询
+                const rows = await this.loadRepoRows(repo.id)
+                const knownTerminalHeads = this.buildTerminalHeadMap(rows, new Date())
                 // 关注集按仓库解析：null = 未配置（全量告警）；配置变更仅在下一轮 polling 生效
                 const focus = parsePRCheckFocus(repo.prCheckFocus)
                 const snapshots = await this.source.fetchSnapshots({
@@ -91,6 +94,8 @@ export class ActionStatusMonitor {
                         processed += 1
                     }
                 }
+                // 生命周期解析必须在快照落库后：本轮快照本身就是「仍 open」的证据
+                await this.applyPrLifecycles(repo, rows, new Set(snapshots.map((snapshot) => snapshot.prNumber)))
             } catch (error) {
                 // 单仓失败不影响其他仓库继续 polling（错误隔离 + fail-open）
                 console.error(
@@ -123,20 +128,23 @@ export class ActionStatusMonitor {
         return repo.find({ where })
     }
 
+    /** 读取仓库全部既有 PRCheck 行（生命周期解析与终态跳过共用同一份快照） */
+    private async loadRepoRows(repositoryId: string): Promise<PRCheck[]> {
+        // 同一 PR 可能有多行（不同 HEAD）：按 lastPolledAt 降序取「最新行」作为跳过判定依据，
+        // 避免 find 无 ORDER BY 时的 last-write-wins 不确定（最坏只是漏节流，此处求稳定）
+        return this.ds.getRepository(PRCheck).find({
+            where: { repositoryId },
+            order: { lastPolledAt: 'DESC' },
+        })
+    }
+
     /**
      * 构造「终态 + 静默窗口内」跳过集（`prNumber → headSha`）。
      *
      * 静默窗口外的终态行**不跳过**——同一 SHA 上可能发生 workflow 重跑 / 迟到写入的部署状态，
      * 永久跳过会漏掉本特性要捕获的失败场景（口径见 `build-signals.ts` 的 `TERMINAL_REPOLL_QUIET_MS`）。
      */
-    private async loadTerminalHeadMap(repositoryId: string): Promise<Map<number, string>> {
-        // 同一 PR 可能有多行（不同 HEAD）：按 lastPolledAt 降序取「最新行」作为跳过判定依据，
-        // 避免 find 无 ORDER BY 时的 last-write-wins 不确定（最坏只是漏节流，此处求稳定）
-        const rows = await this.ds.getRepository(PRCheck).find({
-            where: { repositoryId },
-            order: { lastPolledAt: 'DESC' },
-        })
-        const now = new Date()
+    private buildTerminalHeadMap(rows: PRCheck[], now: Date): Map<number, string> {
         const map = new Map<number, string>()
         for (const row of rows) {
             if (map.has(row.prNumber)) {
@@ -147,6 +155,67 @@ export class ActionStatusMonitor {
             }
         }
         return map
+    }
+
+    /**
+     * 生命周期解析与落库（口径见 [pr-build-deploy-signals.md §3.11](../../../../docs/design/governance/pr-build-deploy-signals.md)）。
+     *
+     * 候选项 = 既有行中「生命周期未终态」且本轮未产出快照的 PR（快照即 open 证据）。
+     * 解析结果 `closed` / `merged` → 该 PR 全部 HEAD 行同步终态并关闭 firing；`open` → 回填 unknown。
+     * `acknowledgedAt` / 信号快照保持不变（历史信号只读可追溯）。
+     *
+     * 失败 / 缺失项保持原状（`unknown` 或既有 `open`），下一轮重试；不改变 `processed` 计数。
+     */
+    private async applyPrLifecycles(
+        repo: RepositoryEntity,
+        rows: PRCheck[],
+        snapshotPrNumbers: ReadonlySet<number>,
+    ): Promise<void> {
+        if (!this.source.fetchPrLifecycles) {
+            return
+        }
+        const candidates = [...new Set(
+            rows
+                .filter((row) => !isTerminalPrState(row.prState) && !snapshotPrNumbers.has(row.prNumber))
+                .map((row) => row.prNumber),
+        )]
+        if (candidates.length === 0) {
+            return
+        }
+
+        let states: Map<number, PRCheckLifecycleState>
+        try {
+            states = await this.source.fetchPrLifecycles({
+                owner: repo.owner,
+                repo: repo.name,
+                prNumbers: candidates,
+            })
+        } catch (error) {
+            // 生命周期解析失败不影响信号采集结果（fail-open）
+            console.warn(`[pr-check-monitor] 仓库 ${repo.owner}/${repo.name} 生命周期解析失败（fail-open）：`, error)
+            return
+        }
+
+        const prCheckRepo = this.ds.getRepository(PRCheck)
+        for (const row of rows) {
+            const state = states.get(row.prNumber)
+            if (!state) {
+                continue
+            }
+            const terminal = isTerminalPrState(state)
+            // 已是目标状态且无需抑制 firing 的行跳过（减少无意义写盘）
+            if (row.prState === state && !(terminal && row.alertFiring)) {
+                continue
+            }
+            // 条件 UPDATE（乐观锁 = 读取时的 prState）而非整行 save：
+            // `rows` 是轮询开始时的快照，期间用户 ack / 另一轮 polling 可能已改写该行；
+            // 整行 save 会把 stale 的 acknowledgedAt / alertFiring 写回，静默撤销 ack。
+            // affected=0 表示行已被其它写方改动 → 让位于对方，本轮不覆盖。
+            await prCheckRepo.update(
+                { id: row.id, prState: row.prState },
+                terminal ? { prState: state, alertFiring: false } : { prState: state },
+            )
+        }
     }
 
     /**
@@ -212,6 +281,8 @@ export class ActionStatusMonitor {
             existing.errorMessage = errorMessage
             existing.authorLogin = snapshot.authorLogin
             existing.alertFiring = inferredAlertFiring
+            // 快照只来自 `state: 'open'` 的 PR：写入 open 即生命周期证据
+            existing.prState = 'open'
             // 聚合回归成功 → 自动 ack（清空 acknowledgedAt / acknowledgedByUserId）
             if (overallStatus === 'success') {
                 existing.acknowledgedAt = null
@@ -233,6 +304,7 @@ export class ActionStatusMonitor {
             row.detailsUrl = snapshot.detailsUrl
             row.errorMessage = errorMessage
             row.alertFiring = inferredAlertFiring
+            row.prState = 'open'
             row.acknowledgedAt = null
             row.acknowledgedByUserId = null
             row.lastPolledAt = snapshot.observedAt

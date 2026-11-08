@@ -137,7 +137,9 @@ describe('存量库真实迁移链（新列补齐）', () => {
         await upgraded.runMigrations()
 
         const names = await columnNames(upgraded, 'dependfix_pr_check')
-        expect(names).toEqual(expect.arrayContaining(['signals_json', 'overall_status', 'failure_sources_json']))
+        expect(names).toEqual(expect.arrayContaining(['signals_json', 'overall_status', 'failure_sources_json', 'pr_state']))
+        const indexes = await upgraded.query(`PRAGMA index_list('dependfix_pr_check')`) as { name: string }[]
+        expect(indexes.map((index) => index.name)).toContain('idx_pr_check_repo_pr_state')
     })
 
     it('旧库（已记录前序迁移、scan_run 缺构建版本列）经注册数组跑增量迁移后补上两列', async () => {

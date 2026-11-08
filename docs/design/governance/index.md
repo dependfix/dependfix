@@ -13,6 +13,7 @@
 | [.gitignore 自动管理](./gitignore-management.md) | 杂项治理 | ✅ 已落地 |
 | [仓库名自动推断](./repo-auto-inference.md) | 杂项设计 | ✅ 已落地 |
 | [Session Wisdom 蒸馏机制](./session-wisdom-distillation.md) | AI 治理（知识沉淀） | ✅ 已落地（2026-08-06） |
+| [AI 工作流与交付细则](./ai-delivery-protocols.md) | 治理细则（阶段归档 / 自检 / 审计校准 / CI 修复 / git 隔离；自 standards 下沉） | ✅ 已落地（2026-11-09，M56.6） |
 | [经验归档](./experience-archive.md) | 经验备份（持续追加，准入标准见文件头；§1-§99 共 77 条，按内容逻辑分片为 7 个分片文件，章节编号全局唯一） | ✅ 持续追加 |
 | [Skill 分发治理](./skill-distribution.md) | 专项治理（M5.5 Skill 编排） | ✅ 已落地（2026-08-07） |
 | [执行器设计与沙箱评估](./executor-sandbox.md) | 专项设计（T607 设计先行） | ✅ 设计已落地（M10 隔离基础设施 + M38 执行进程隔离；沙箱内真实引擎执行为占位；平台入口已临时关闭 2026-10-27） |

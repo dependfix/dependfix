@@ -173,25 +173,10 @@ commit message 应聚焦于"当次提交的改动"+"可供事后复查的信息"
 
 **边界**：本禁令只针对**工作区内容**的还原；`git restore --staged <file>`（仅把路径移出索引，不改工作区内容，用于 §3.2 / §3.4 / §3.7.1 的 staged diff 治理）不受约束。
 
-### 3.8 git 隔离语义：签名 + hooks，commit / push 双向隔离，不提供 opt-in（M29.2 + M32.4 + M43.5）
+### 3.8 git 隔离语义：签名 + hooks，commit / push 双向隔离，不提供 opt-in
 
-dependfix 的 commit / push 必须**不受宿主签名配置污染、也不受被修复仓库本地钩子约束**，否则行为不可复现（`-c` 是 git 全局选项、`--no-verify` 是子命令选项，**位置不可互换**）：
-
-| 隔离类 | 触发 / 钩子 | 污染表现 | 隔离参数 |
-|:--|:--|:--|:--|
-| 签名（commit） | 宿主 / repo `commit.gpgsign=true` | commit 带宿主个人签名（身份与被修复仓库 author 不一致）；宿主无可用 key / `gpg.program` 时直接 `fatal: failed to write commit object` | `-c commit.gpgsign=false` |
-| 签名（push） | 宿主 `push.gpgSign=true` | `git push` 自动带 `--signed`；服务端 `receive-pack` 不支持时 `the receiving end does not support --signed push` | `-c push.gpgSign=false` |
-| hooks（commit） | 目标仓库 `pre-commit` / `commit-msg` / `prepare-commit-msg` | husky / lint-staged 钩子依赖 `npx` 与目标仓库完整 `node_modules`，隔离环境下不可用 → 钩子非 0 退出（如 `npx: not found`，exit 127）→ `COMMIT_FAILED` → 修复回滚 | `--no-verify`（置于 `commit` 子命令**之后**） |
-| hooks（push） | 目标仓库 `pre-push` | 推送修复分支时 hook 非 0 退出 → `push_failed` → 交付链中断（当前生产日志无该实例，属**预防性收口**） | `--no-verify`（置于 `push` 子命令**之后**；亦适用于 `push --delete`） |
-
-**单一事实源 / 覆盖面**：`packages/engine/src/github/git-signing.ts` 导出 4 个常量——`GIT_COMMIT_SIGNING_ISOLATION_ARGS` / `GIT_COMMIT_HOOKS_ISOLATION_ARGS` / `GIT_PUSH_SIGNING_ISOLATION_ARGS` / `GIT_PUSH_HOOKS_ISOLATION_ARGS`（engine 与平台侧共用，禁止散落字面量）。**作用对象 = 被修复仓库**（自动 commit / push 修复分支与建 PR）：commit 侧 `stageAndCommit`；push 侧全部 4 处——`pr-creator.pushBranch` / `platform-delivery.pushFixBranchWithCredential` / `container-executor.pushFixBranch` + `cleanupRemoteBranch`（含 `--delete`）。**不适用**于作用对象为 **dependfix 自有仓库**的发布脚本（`release.yml` 调用的 `release:auto-version` / `release:push-tags`，仅在 CI 执行）——它们应沿用运行环境的签名与钩子配置。`--no-verify` 不跳过 `post-commit`（提交后运行、不能改变结果）；选型它而非空 `core.hooksPath` 目录——跨平台无需构造/保证目录存在，且对 husky 的 `core.hooksPath` 重定向等效。
-
-**只关开关、不屏蔽环境**：以 `-c <key>=false` 形式仅作用于该次调用——`-c` 优先级高于 repo local / worktree / host global / system 配置（git 配置键**大小写不敏感**，故表中 `commit.gpgsign` 与 `push.gpgSign` 的写法差异无功能影响，按代码实际取值列出），且不写回任何配置文件。刻意**不**注入 `GIT_CONFIG_GLOBAL` / `GIT_CONFIG_NOSYSTEM`——那会连带屏蔽宿主代理（`http.proxy`）等运行环境配置。**策略：不提供签名 / hooks opt-in**（无 CLI flag / env / action input / 平台配置）——签名会把 dependfix 绑定到调用方密钥环境（需额外设计密钥来源、失败语义、四层暴露面），而「目标仓库强制要求签名 commit」属罕见场景；目标仓库钩子面向本地开发流程，隔离执行环境下本就不可用。
-
-- **重开条件**（任一出现时重新评估）：① 用户明确要求对特定目标仓库产出签名 commit；② 目标仓库分支保护规则强制 `Require signed commits` 且无法通过 PAT / App 权限例外；③ 平台需要以可验证身份签名（合规审计要求）。重开时须统一密钥来源 / 失败语义 / 四层暴露面，且本表隔离参数默认值保持「关闭」。
-- **不做的边界**：不改宿主 `~/.gitconfig`；不关闭用户手工 git 操作的签名 / 钩子；不回溯已产生的 commit / push；不做目标仓库保护规则预检。
-
-**取证口径（可复现）**：反例对照必须能击破断言——`packages/engine/src/github/git-signing.test.ts` 在同一次执行内先证「宿主 `push.gpgSign=true` 时裸 `git push` 必失败（`does not support --signed push`）」，再证「`pushBranch` 成功」；push 侧 hooks 同理（先证裸 push 被植入的 `pre-push`（`exit 1`）拦截，再证 `pushBranch` 成功且 hook 标记文件不存在），避免"环境恰好不触发"导致的恒真断言。
+- **硬约束**：作用对象为被修复仓库的 `git commit` / `git push`（含 `push --delete`）必须复用 `git-signing.ts` 的 4 个隔离常量（`GIT_COMMIT_*` / `GIT_PUSH_*` 的 SIGNING / HOOKS），`--no-verify` 置于对应子命令之后；不得提供签名 / hooks opt-in。
+- **细节与边界**：隔离参数表、作用对象 4 处 push + commit 侧、`-c` 不写回配置、重开条件、不做边界与取证口径见 [ai-delivery-protocols.md §5](../design/governance/ai-delivery-protocols.md#_5-git-隔离语义与参数)。
 
 ## 4. AI 行为准则
 

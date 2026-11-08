@@ -85,6 +85,7 @@
 | zh source | 理由 |
 |:---|:---|
 | `docs/design/mirror-manifest.md` | 中文入口页（正文在 en 侧清单，站点要求 en 页有根 locale 对应页） |
+| `docs/design/governance/ai-delivery-protocols.md` | 未重译（结构映射口径见文档规范 §6；全量镜像属 1.0 后评估项） |
 | `docs/design/governance/alert-outcome-writeback.md` | 未重译（结构映射口径见文档规范 §6；全量镜像属 1.0 后评估项） |
 | `docs/design/governance/architecture-platform.md` | 部分镜像：§平台架构 / §主要风险与应对 / §端到端 AI 研判集成 已译入 en `architecture.md`（见 §English-side sections）；其余未译 |
 | `docs/design/governance/c22-manifest-flow-feasibility.md` | 未重译（结构映射口径见文档规范 §6；全量镜像属 1.0 后评估项） |

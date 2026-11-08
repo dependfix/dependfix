@@ -118,11 +118,7 @@ P 阶段在 `todo.md` 顶部 banner / 阶段 banner 写 ahead 状态时，**必�
 
 ## 2.4 阶段归档检查 + 沉淀工作流（PDTFC+ 闭环后必经）
 
-PDTFC+ 闭环（F 阶段提交后）的下一阶段启动前，必须执行「阶段归档检查 + 沉淀」独立流程——**不**是归档阶段本身，是阶段之间的衔接工作：
-
-- **① 阶段开工前归档检查（hard requirement）**：启动下一阶段 P 阶段前必须检查——`todo.md` 是否有未 `[x]` 条目（数据漂移信号，`rg "^- ### \[ \]" docs/plan/todo.md`）、`.session/wisdom.md` 活跃条目数（`pnpm distill:wisdom --check`，接近 20 阈值需蒸馏）、`experience-archive.md` 健康窗口（行数 + §号连续性）。**强制提醒**：当上一阶段 `todo.md` 仍有 `[ ]` 条目时，执行角色必须**主动询问**是否需要先归档，不得直接添加下一阶段待办。
-- **② 阶段闭环后沉淀工作流（必经）**：链路为 `F → 归档批次 → 沉淀工作流 → 下一阶段 P`。步骤：**结论提炼**（判断本阶段是否有值得沉淀的内容，准入标准见 [experience-archive.md 文件头](../design/governance/experience-archive.md)——未落入可执行方法论 / 需溯源的关键决策 / 同一模式已复现 >= 2 次 / 工具与环境陷阱）；**归档追加**（在 experience-archive 末尾追加新 §，编号连续，结构含案例 / 结论 / 与既有条目的关联 / 挂接治理检查点 / 准入标准复核）；**规范迁移**（把案例抽象出的可执行方法论挂接到 `docs/standards/*.md` / `.github/skills/*/SKILL.md` / `.github/agents/*.agent.md`，遵循单点声明原则，见 [documentation.md §4](./documentation.md)）；**session 沉淀**（活跃条目 >= 20 时执行 `pnpm distill:wisdom`；新 pattern 按 `pattern-*` / `principle-*` / `practice-*` 格式追加到 `.session/wisdom.md`）。
-- **③ 归档 / 沉淀 commits 必须经过 A 阶段 code-auditor 深度审计（hard requirement）**：涉及 `docs/standards/*.md` / `docs/design/governance/*.md` / `.github/agents/*.agent.md` 等治理定义修改的提交，必须与 feature commits 同等标准审计，不得因「仅文档改动」或「非业务代码」跳过。**审计必查项**：跨文件 cross-reference 完整性（新增 / 修改 / 迁出章节标题时必须 `rg -n "<标题>"` 全仓库扫描并同步更新）；锚点格式正确性（`pnpm run check:docs` 0 error，commit message 须含该证据）；规范单点声明（新规则仅在权威文档完整声明一次，其他文档 / skill / agent 仅一行链接引用）；活跃 wisdom 条目数（是否触达 20 阈值，触达则先蒸馏）；**④ 与既有规范的关联**：本节是 §2.3 P 阶段暂停协议在阶段间的延伸（阶段间衔接也是用户驱动工作流）；阶段间检查可能发现「上一阶段未完成事项需插队处理」，按 §2.1 决策；预防性迁出后须按 [规划规范 §4.4](./planning.md#_4-4-大批量归档批次操作规范) 更新 cross-reference；本节引用「PDTFC+ 闭环」「A 阶段」等术语时不得孤立编号标记，必须带文档路径或章节名。
+> 完整步骤（① 开工前归档检查 / ② 沉淀工作流 / ③ 审计必查项）见 [ai-delivery-protocols.md §1](../design/governance/ai-delivery-protocols.md#_1-阶段归档检查与沉淀工作流)。**hard requirement**：下一阶段 P 阶段前必须完成归档检查；`todo.md` 仍有 `[ ]` 时主动询问是否先归档；归档 / 沉淀 commits 必过 A 阶段 code-auditor 深度审计。
 
 ## 2.5 commit 前轻量级审核流程（PDTFC+ F 阶段必经）
 
@@ -136,13 +132,7 @@ PDTFC+ 闭环（F 阶段提交后）的下一阶段启动前，必须执行「�
 
 ## 2.6 阶段启动重复评估自检流程（PDTFC+ P 阶段必经 / M27.1 重复评估问题）
 
-**触发条件**：`todo.md` 当前阶段 banner 修改（新增阶段）；当前阶段新增 `M\d+\.\d+` 原子条目；当前阶段任务段范围 / 验收标准 / 交付物修改；用户决策修订方案上收 backlog 候选。
-
-**5 步自检流程（hard requirement）**：① **todo-archive.md 历史阶段表格扫描**——`rg -n "已闭环|不计入本批|不计入 M\d+|ahead=0.*已推" docs/plan/todo-archive.md docs/plan/archive/todo-archive-phases-*.md`，找到「已闭环」标注的子任务则从 `todo.md` 当前阶段任务段删除对应范围；② **git log 历史核验**——`git log --oneline -- <候选相关路径>` + `git log --all --grep="<候选标识>"` + `git rev-list HEAD ^origin/master --grep="<候选标识>" --count`，已 ahead=0 推送的从任务段删除；③ **实际代码侧 anchor 核对**——`rg -n "<候选特征字段>" <候选相关路径>` 并实际打开文件，验证候选描述与实际代码一致；④ **决策描述前提矛盾厘清**——出现「参考 NNN 实施」时先验证 NNN 是否已落地（`git log --grep="NNN"` + `rg -n "NNN" docs/plan/todo-archive.md`）：已落地则候选不需增强、仅「参考实施」则保留范围；⑤ **backlog 描述同步修订**——新增条目对应 backlog 候选时**必须**同步修订 backlog.md（已闭环子任务追加标注 + commit hash 回填；暂缓子任务追加原因；「保留为后续增强候选」措辞须基于「当前未落地」前提，否则删除）。
-
-**典型反模式**：仅读 `backlog.md` / `todo-archive.md` 文档侧资料而未打开实际代码验证；决策描述中出现「参考 NNN 实施」自相矛盾却未先厘清；决策 D 阶段前未用 `git log --oneline -- <相关路径>` 做 5 分钟核对；仅依赖 backlog 候选描述做规划，未对照 commit history + 实际代码 + todo-archive 表格三重交叉核验。
-
-**合规核验**：由 [code-auditor 主责边界「阶段启动重复评估自检」必查项](../../.github/agents/code-auditor.agent.md) 强制检查——commit 涉及 `todo.md` 当前阶段新增 / 修改时，五步自检任意一步未执行 / 未通过 → Reject 退回。**关联规范**：[planning.md §3.4](./planning.md#_3-4-阶段启动决策前置交叉核验硬要求-m27-1-重复评估问题-2026-09-10) + [归档 §六十四](../design/governance/experience-archive-§49-§69-recent-investigation.md#六十四、m27-1-c66-告警视图增强-重复评估教训-阶段启动决策时未对照-已闭环清单-导致规划无效工作-2026-09-10-commit-0ddd4e2-决策-d2-错误)（M27.1 重复评估问题闭环记录）。
+> 五步自检流程（归档扫描 / git log 核验 / 代码 anchor / 决策前提 / backlog 同步）、典型反模式与关联记录见 [ai-delivery-protocols.md §2](../design/governance/ai-delivery-protocols.md#_2-阶段启动重复评估自检流程)。**hard requirement**：触发条件命中时五步自检任意一步未执行 / 未通过 → 由 [code-auditor 主责边界](../../.github/agents/code-auditor.agent.md) Reject。
 
 ## 3. 安全红线
 
@@ -179,9 +169,7 @@ PDTFC+ 闭环（F 阶段提交后）的下一阶段启动前，必须执行「�
 
 ### 4.5 Code Auditor quick depth 时长校准（≤ 5min 时间盒，实测 ~79s）
 
-- quick depth 时间盒 ≤ 5min，实测常见约 60-100s（含完整 SUT 行号核对 + case 路径推演 + 验证证据矩阵 + 未覆盖边界列表），远低于阈值。
-- **适用**：(1) 测试补强 (2) 文档措辞 (3) 简单配置 (4) 重命名——核心是改动不引入新逻辑、diff < 800 行、不涉及鉴权 / 外部调用 / 数据写入。
-- **复审只审修复点（第 2+ 轮）**，不重发全量 diff（提升效率且符合 reviewer 边界）。与 §1.3 对照：`audit-depth: quick` 必须**主动声明**，未声明默认按 `deep` 防御执行（实测用时显著拖长）；**数据来源口径**：`60-100s` 数值来自 caller 宿主系统时钟事后实测的多次 quick depth 历史调用 elapsed 数据，**不含审计方自报**（审计方不自报时长、不检查时间，按 §1.3 防御方向）。
+> 校准数据、适用范围与返回打点口径见 [ai-delivery-protocols.md §3](../design/governance/ai-delivery-protocols.md#_3-code-auditor-quick-depth-时长校准)。`audit-depth: quick` 必须主动声明，未声明默认按 `deep` 执行；复审只审修复点。
 
 ### 4.6 audit warning 修复决策协议（修复 vs 登记 backlog）+ audit suggest 跨 batch 累积跟踪 + audit Reject 后针对性补修
 
@@ -191,7 +179,7 @@ PDTFC+ 闭环（F 阶段提交后）的下一阶段启动前，必须执行「�
 
 ### 4.7 CI 偶发错误三阶段协议（PDTFC+ F 阶段修复工作流）
 
-**阶段 1 穷举排查**：handler 逻辑 / 单测 / 本地复现全部走一遍；通过即接受兜底修复 + 根因 backlog 分离（不要在本地无限复现根因）；通过判定 = handler 单测全过 + vitest 集成测试通过 + 本地 fresh context 复现稳定。**阶段 2 helper 层兜底修复（而非 handler 层）**：测试代码改 helper，不动 server handler；helper 层加 `maxRetries` / `storageState: { cookies: [], origins: [] }` 等防御性参数，server 不感知、本地 / CI 行为等价。**阶段 3 根因 backlog 分离 + M 阶段规划时优先排查**：根因登记 backlog §已知边界衍生段；M 阶段规划时按 ROI 排序候选根因（3-4 项）并优先排查，避免「兜底修复 = 完成」心理陷阱。**JSDoc 精度要求**：helper 兜底代码必须穷举「哪些错误重试」+「哪些错误不重试」，避免维护者误判覆盖范围（例：`maxRetries: 2` 的 JSDoc 必须说明仅对 `e.code === 'ECONNRESET'` 触发 backoff 重试）。
+> 三阶段（穷举排查 → helper 层兜底 → 根因 backlog 分离）与 JSDoc 精度要求见 [ai-delivery-protocols.md §4](../design/governance/ai-delivery-protocols.md#_4-ci-偶发错误三阶段协议)。
 
 ## 5. 相关文档
 

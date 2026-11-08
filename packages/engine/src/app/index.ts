@@ -47,6 +47,7 @@ import { requestAbort, resetProcessControlState } from '../runners/process-contr
 import { collectSupplyChainWarnings } from '../supply-chain'
 import { loadRulesConfigFromEnv, resetActiveRulesConfig, setActiveRulesConfig } from '../code-scanning/rule-config'
 import type { CommandResult } from '../runners/verification-runner'
+import { setRunInstallTimeoutMs } from '../fixers/install-timeouts'
 import type { VerificationCheckpoint } from './verification-checkpoint'
 import { createConfiguredGitHubClient, createConfiguredGitHubClientOrNull } from './github-client'
 import { formatEngineBuildLine, resolveRunBuildInfo, type RunBuildInfo } from './build-info'
@@ -102,6 +103,8 @@ export interface DependfixAppOptions {
     commands?: string[]
     /** 仓库级验证命令超时（毫秒；缺省走 env / 内置默认，见 execute-limits） */
     verifyCommandTimeoutMs?: number
+    /** 仓库级安装类命令超时（毫秒；缺省走 env / 内置默认） */
+    installTimeoutMs?: number
     /**
      * 执行环境：`local`（CLI/MCP 等用户机器直接执行）| `container`（平台容器沙箱）。
      * 默认 `local`。容器内执行属于设计内隔离行为（非 root + 临时目录），
@@ -137,6 +140,7 @@ export class DependfixApp {
     private readonly verbose: boolean
     private readonly customCommands?: string[]
     private readonly verifyCommandTimeoutMs?: number
+    private readonly installTimeoutMs?: number
     private readonly executionEnvironment: 'local' | 'container'
     private readonly runId: string
     /** GitHub App 认证提供者（用于 commit author 真实 bot 身份；仅 fix/fix-and-pr 模式生效） */
@@ -185,6 +189,7 @@ export class DependfixApp {
         this.verbose = options.verbose ?? false
         this.customCommands = options.commands
         this.verifyCommandTimeoutMs = options.verifyCommandTimeoutMs
+        this.installTimeoutMs = options.installTimeoutMs
         this.executionEnvironment = options.executionEnvironment ?? 'local'
         this.runId = `dependfix-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
 
@@ -281,6 +286,8 @@ export class DependfixApp {
     /** 执行完整的编排流程，返回结构化结果和退出码。 */
     async run(): Promise<DependfixRunResult> {
         this.startedAt = new Date().toISOString()
+        // 仓库级安装超时：运行期上下文（安装类调用散布在无 ctx 的底层函数中）
+        setRunInstallTimeoutMs(this.installTimeoutMs)
         // 启动安全自检（best-effort，失败不阻断运行）
         await this.runStartupSecurityChecks()
         // 记录运行前工作区状态（验证门禁回滚时保护用户已有未提交改动）。
@@ -354,6 +361,8 @@ export class DependfixApp {
             r.alertsCount > 0 || r.fixed > 0 || r.verificationPassed === true,
         )
         logPartialSourceFailureSummary(this.allErrors, this.logger, isAnyRepoSuccessful)
+        // 清除运行级覆盖，避免同进程后续运行（测试 / 批量复用）继承上一次的仓库配置
+        setRunInstallTimeoutMs(undefined)
         return { result: runResult, exitCode }
     }
 

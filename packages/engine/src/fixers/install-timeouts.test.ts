@@ -9,6 +9,7 @@ import {
     MAX_INSTALL_TIMEOUT_MS,
     MIN_INSTALL_TIMEOUT_MS,
     resolveInstallTimeoutMs,
+    setRunInstallTimeoutMs,
 } from './install-timeouts'
 
 describe('resolveInstallTimeoutMs', () => {
@@ -41,4 +42,15 @@ describe('resolveInstallTimeoutMs', () => {
         expect(resolveInstallTimeoutMs({}, 12_345)).toBe(12_345)
         expect(resolveInstallTimeoutMs({ [INSTALL_TIMEOUT_ENV]: 'abc' }, 12_345)).toBe(12_345)
     })
+    it('运行级覆盖优先于 env 与 fallback，越界视为清除', () => {
+        setRunInstallTimeoutMs(120_000)
+        expect(resolveInstallTimeoutMs({ [INSTALL_TIMEOUT_ENV]: '45000' })).toBe(120_000)
+        // 越界值不接受覆盖
+        setRunInstallTimeoutMs(MIN_INSTALL_TIMEOUT_MS - 1)
+        expect(resolveInstallTimeoutMs({ [INSTALL_TIMEOUT_ENV]: '45000' })).toBe(45_000)
+        // 清除后回退 env
+        setRunInstallTimeoutMs(undefined)
+        expect(resolveInstallTimeoutMs({ [INSTALL_TIMEOUT_ENV]: '45000' })).toBe(45_000)
+    })
 })
+

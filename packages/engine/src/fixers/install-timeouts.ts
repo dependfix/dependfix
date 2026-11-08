@@ -44,6 +44,10 @@ export function resolveInstallTimeoutMs(
     env: NodeJS.ProcessEnv = process.env,
     fallback: number = DEFAULT_INSTALL_TIMEOUT_MS,
 ): number {
+    // 仓库级覆盖优先于 env（与平台 resolveExecutionLimits 的优先级一致）
+    if (runOverrideMs !== undefined) {
+        return runOverrideMs
+    }
     const raw = env[INSTALL_TIMEOUT_ENV]
     if (!raw) {
         return fallback
@@ -52,4 +56,28 @@ export function resolveInstallTimeoutMs(
     return Number.isInteger(value) && value >= MIN_INSTALL_TIMEOUT_MS && value <= MAX_INSTALL_TIMEOUT_MS
         ? value
         : fallback
+}
+
+/**
+ * 运行级安装超时覆盖（仓库配置；`undefined` = 不覆盖）。
+ *
+ * 安装类调用（安装 / lockfile 诊断 / frozen 校验 / 修复策略）散布在无 ctx 的底层函数里，
+ * 逐层透传签名会侵入 4 个模块；这里用与 `runners/process-control` 同类的运行级上下文承载，
+ * 由 `DependfixApp.run()` 在开跑时设置、结束时重置（单进程单运行，无并发歧义）。
+ */
+let runOverrideMs: number | undefined
+
+/** 设置运行级安装超时覆盖（越界 / 非法按默认回退；`undefined` = 清除覆盖）。 */
+export function setRunInstallTimeoutMs(overrideMs: number | undefined): void {
+    runOverrideMs = overrideMs !== undefined
+        && Number.isInteger(overrideMs)
+        && overrideMs >= MIN_INSTALL_TIMEOUT_MS
+        && overrideMs <= MAX_INSTALL_TIMEOUT_MS
+        ? overrideMs
+        : undefined
+}
+
+/** 当前运行级覆盖（供测试断言与诊断）。 */
+export function getRunInstallTimeoutMs(): number | undefined {
+    return runOverrideMs
 }

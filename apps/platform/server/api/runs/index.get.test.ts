@@ -39,6 +39,8 @@ const seedRun = async (repositoryId: string, overrides: {
     mode?: string
     severityThreshold?: string
     status?: 'pending' | 'running' | 'completed' | 'failed' | 'dispatched' | 'degraded'
+    startedAt?: Date | null
+    createdAt?: Date
     summaryJson?: string | null
     errorJson?: string | null
     exitCode?: number | null
@@ -58,6 +60,8 @@ const seedRun = async (repositoryId: string, overrides: {
         severityThreshold: overrides.severityThreshold ?? 'high',
         executorKind: 'container',
         status: overrides.status ?? 'completed',
+        startedAt: overrides.startedAt ?? null,
+        createdAt: overrides.createdAt,
         summaryJson: overrides.summaryJson ?? JSON.stringify({ alertsTotal: 2 }),
         errorJson: overrides.errorJson ?? null,
         exitCode: overrides.exitCode ?? null,
@@ -71,6 +75,11 @@ const seedRun = async (repositoryId: string, overrides: {
         failureKind: overrides.failureKind ?? null,
     })
     const saved = await ds.getRepository(ScanRun).save(entity)
+    if (overrides.createdAt) {
+        // @CreateDateColumn 在 insert 时会覆盖显式值；排序用例需要可控 createdAt → 原始 SQL 定点更新
+        const table = `${ds.options.entityPrefix ?? ''}scan_run`
+        await ds.query(`UPDATE ${table} SET created_at = ? WHERE id = ?`, [overrides.createdAt.toISOString(), saved.id])
+    }
     // TypeORM save 返回 Entity | Entity[]；单条保存断言为 ScanRun
     return Array.isArray(saved) ? saved[0] : saved
 }
@@ -244,6 +253,70 @@ describe('GET /api/runs', () => {
         const res = await call('GET', '/api/runs?pageSize=300&page=1') as PaginatedRunsResponse
         expect(res.pageSize).toBe(200)
         expect(res.page).toBe(1)
+    })
+
+    it('sorts by startedAt asc / desc with NULL rows last (stable tie-break)', async () => {
+        const early = await seedRun(repositoryId, { startedAt: new Date('2026-09-01T00:00:00Z') })
+        const late = await seedRun(repositoryId, { startedAt: new Date('2026-09-03T00:00:00Z') })
+        const middle = await seedRun(repositoryId, { startedAt: new Date('2026-09-02T00:00:00Z') })
+        const noStart = await seedRun(repositoryId, { startedAt: null })
+        const ids = [early.id, late.id, middle.id, noStart.id].join(',')
+
+        const asc = await call('GET', `/api/runs?ids=${ids}&sortBy=startedAt&sortOrder=asc`) as PaginatedRunsResponse
+        expect(asc.items.map((r) => r.id)).toEqual([early.id, middle.id, late.id, noStart.id])
+
+        const desc = await call('GET', `/api/runs?ids=${ids}&sortBy=startedAt&sortOrder=desc`) as PaginatedRunsResponse
+        expect(desc.items.map((r) => r.id)).toEqual([late.id, middle.id, early.id, noStart.id])
+    })
+
+    it('sorts by startedAt across pages (no overlap, page boundary ordered)', async () => {
+        const first = await seedRun(repositoryId, { startedAt: new Date('2026-08-01T00:00:00Z') })
+        const second = await seedRun(repositoryId, { startedAt: new Date('2026-08-02T00:00:00Z') })
+        const third = await seedRun(repositoryId, { startedAt: new Date('2026-08-03T00:00:00Z') })
+        const ids = [first.id, second.id, third.id].join(',')
+
+        const page1 = await call('GET', `/api/runs?ids=${ids}&sortBy=startedAt&sortOrder=asc&page=1&pageSize=1`) as PaginatedRunsResponse
+        const page2 = await call('GET', `/api/runs?ids=${ids}&sortBy=startedAt&sortOrder=asc&page=2&pageSize=1`) as PaginatedRunsResponse
+        const page3 = await call('GET', `/api/runs?ids=${ids}&sortBy=startedAt&sortOrder=asc&page=3&pageSize=1`) as PaginatedRunsResponse
+
+        expect([page1.items[0]!.id, page2.items[0]!.id, page3.items[0]!.id])
+            .toEqual([first.id, second.id, third.id])
+    })
+
+    it('default order remains createdAt DESC when sortBy is omitted', async () => {
+        const older = await seedRun(repositoryId, { createdAt: new Date('2026-07-01T00:00:00Z'), startedAt: new Date('2026-09-03T00:00:00Z') })
+        const newer = await seedRun(repositoryId, { createdAt: new Date('2026-07-02T00:00:00Z'), startedAt: new Date('2026-09-01T00:00:00Z') })
+
+        const res = await call('GET', `/api/runs?ids=${older.id},${newer.id}&sortOrder=asc`) as PaginatedRunsResponse
+        expect(res.items.map((r) => r.id)).toEqual([newer.id, older.id])
+
+        const asc = await call('GET', `/api/runs?ids=${older.id},${newer.id}&sortBy=createdAt&sortOrder=asc`) as PaginatedRunsResponse
+        expect(asc.items.map((r) => r.id)).toEqual([older.id, newer.id])
+    })
+
+    it('filters by startedAt inclusive from / to', async () => {
+        const outside = await seedRun(repositoryId, { startedAt: new Date('2026-06-01T00:00:00Z') })
+        const atFrom = await seedRun(repositoryId, { startedAt: new Date('2026-06-02T00:00:00Z') })
+        const atTo = await seedRun(repositoryId, { startedAt: new Date('2026-06-03T00:00:00Z') })
+        const ids = [outside.id, atFrom.id, atTo.id].join(',')
+
+        const res = await call(
+            'GET',
+            `/api/runs?ids=${ids}&from=${encodeURIComponent('2026-06-02T00:00:00.000Z')}&to=${encodeURIComponent('2026-06-03T00:00:00.000Z')}`,
+        ) as PaginatedRunsResponse
+        expect(res.items.map((r) => r.id).sort()).toEqual([atFrom.id, atTo.id].sort())
+        expect(res.total).toBe(2)
+        expect(res.page).toBe(1)
+    })
+
+    it('rejects from > to and invalid sort parameters', async () => {
+        await expect(call(
+            'GET',
+            `/api/runs?from=${encodeURIComponent('2026-06-03T00:00:00.000Z')}&to=${encodeURIComponent('2026-06-02T00:00:00.000Z')}`,
+        )).rejects.toMatchObject({ statusCode: 400 })
+        await expect(call('GET', '/api/runs?sortBy=bogus')).rejects.toMatchObject({ statusCode: 400 })
+        await expect(call('GET', '/api/runs?sortOrder=bogus')).rejects.toMatchObject({ statusCode: 400 })
+        await expect(call('GET', '/api/runs?from=not-a-date')).rejects.toMatchObject({ statusCode: 400 })
     })
 
     it('throws 400 on invalid page (<1)', async () => {

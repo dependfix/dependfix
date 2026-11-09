@@ -1,16 +1,23 @@
 import { z } from 'zod'
-import { In } from 'typeorm'
 import { ScanRun } from '#server/entities/scan-run'
 import { ensureDatabaseInitialized } from '#server/database'
 import { requireAuth } from '#server/utils/guard'
 import { createLocalizedError } from '#server/utils/localized-error'
 import { resolveOrganizationId } from '#server/utils/organization'
-import { buildRunsWhere, runsFilterSchema, runsPaginationShape } from '#server/utils/runs-query'
+import {
+    applyRunsOrder,
+    applyRunsWhere,
+    isValidRunsRange,
+    runsFilterShape,
+    runsPaginationShape,
+    runsSortShape,
+} from '#server/utils/runs-query'
 import { parseRunResource } from '#server/utils/run-resource'
 
 /**
  * 查询参数 schema（todo.md §M14.2 UX-R1 + §M16.1）：
- * - repositoryId / status / failureStage / failureKind：共用筛选（`runsFilterSchema`，列表与日志导出同口径）
+ * - repositoryId / status / failureStage / failureKind / from / to：共用筛选（`runsFilterShape`，列表与日志导出同口径）
+ * - sortBy / sortOrder：共用排序（`runsSortShape`；缺省 createdAt DESC，startedAt 排序 NULL 行固定末尾）
  * - ids：可选，逗号分隔 run id 列表（alerts.vue §openRunSidebar 复用，todo.md §T1306）
  *   —— 修复 silent bug：原 server 不识别 `ids`，alerts sidebar 实际拿到全量 run 而非该告警 affected runs
  * - page / pageSize：共用分页片段（`runsPaginationShape`，默认 1 / 100，`pageSize` 超上限静默钳制；
@@ -19,10 +26,15 @@ import { parseRunResource } from '#server/utils/run-resource'
  * organizationId 不暴露为 query 参数：服务端隐式从默认组织注入（单组织模型），
  * 与 batch-runs/schedules/repos 列表 handler 风格一致（todo.md §M16.1 组织隔离）。
  */
-const querySchema = runsFilterSchema.extend({
+const querySchema = z.object({
+    ...runsFilterShape,
+    ...runsPaginationShape,
+    ...runsSortShape,
     ids: z.string().optional()
         .transform((v) => (v && v.length > 0 ? v : undefined)),
-    ...runsPaginationShape,
+}).refine(isValidRunsRange, {
+    message: 'from must be less than or equal to to',
+    path: ['to'],
 })
 
 const toView = (r: ScanRun) => ({
@@ -73,29 +85,29 @@ export default defineEventHandler(async (event) => {
             data: { issues: parsed.error.issues },
         })
     }
-    const { repositoryId, ids, status, failureStage, failureKind, page, pageSize } = parsed.data
+    const { repositoryId, ids, status, failureStage, failureKind, from, to, page, pageSize, sortBy, sortOrder } = parsed.data
 
     const ds = await ensureDatabaseInitialized()
     const organizationId = await resolveOrganizationId(ds)
     const runRepo = ds.getRepository(ScanRun)
 
-    const where = buildRunsWhere({ repositoryId, status, failureStage, failureKind }, organizationId)
+    const qb = runRepo.createQueryBuilder('run')
+        .leftJoinAndSelect('run.repository', 'repository')
+    applyRunsWhere(qb, { repositoryId, status, failureStage, failureKind, from, to }, organizationId)
     if (ids) {
         const idList = ids.split(',').map((s) => s.trim()).filter(Boolean)
         if (idList.length > 0) {
-            where.id = In(idList)
+            qb.andWhere('run.id IN (:...ids)', { ids: idList })
         }
     }
-    // repositoryId + ids 同传：TypeORM AND 合并 → 既属于该仓库又是 ids 子集（AND 而非 OR）
+    // repositoryId + ids 同传：AND 合并 → 既属于该仓库又是 ids 子集（AND 而非 OR）
     // repository relation 加入组织隔离：跨组织 run 永远不可见（todo.md §M16.1 组织隔离）
 
-    const [runs, total] = await runRepo.findAndCount({
-        where,
-        order: { createdAt: 'DESC' },
-        skip: (page - 1) * pageSize,
-        take: pageSize,
-        relations: { repository: true },
-    })
+    applyRunsOrder(qb, { sortBy, sortOrder })
+    const [runs, total] = await qb
+        .skip((page - 1) * pageSize)
+        .take(pageSize)
+        .getManyAndCount()
 
     return {
         items: runs.map(toView),

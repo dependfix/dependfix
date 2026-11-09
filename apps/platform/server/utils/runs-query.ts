@@ -1,7 +1,7 @@
 import { z } from 'zod'
-import { In, type FindOptionsWhere } from 'typeorm'
-import { ScanRun, SCAN_RUN_STATUSES, type ScanRunStatus } from '#server/entities/scan-run'
-import { RUN_FAILURE_KINDS, RUN_FAILURE_STAGES, type RunFailureKind, type RunFailureStage } from '#server/services/run-failure-classify'
+import type { SelectQueryBuilder } from 'typeorm'
+import { ScanRun, SCAN_RUN_STATUSES } from '#server/entities/scan-run'
+import { RUN_FAILURE_KINDS, RUN_FAILURE_STAGES } from '#server/services/run-failure-classify'
 
 /**
  * runs 列表（GET /api/runs）与日志导出（GET /api/runs/logs-export）共用的筛选与分页解析。
@@ -31,18 +31,83 @@ const multiValueEnum = (allowed: readonly string[], field: string) =>
             message: `invalid ${field} value`,
         })
 
+/** ISO 8601 时间（必须带时区；前端统一 `toISOString()` 提交） */
+const isoDateTime = z.iso.datetime({ offset: true })
+
 /**
- * runs 共用筛选参数（`repositoryId` + 失败分类三维度）。
+ * runs 共用筛选参数（`repositoryId` + 失败分类三维度 + 开始时间区间）。
  * 注意：`organizationId` 不暴露为 query 参数——服务端隐式从默认组织注入（单组织模型）。
+ *
+ * `from` / `to` 是 **startedAt** 的闭区间；`startedAt` 为 NULL 的行在区间过滤时被排除
+ * （NULL 无法与时间点比较）。区间校验（`from <= to`）由端点对最终 schema 追加 refine，
+ * 见 `isValidRunsRange`——`z.object(...).refine()` 会变成 ZodEffects，无法再 `.extend`。
  */
-export const runsFilterSchema = z.object({
+export const runsFilterShape = {
     repositoryId: z.string().min(1).max(64).optional(),
     status: multiValueEnum(SCAN_RUN_STATUSES, 'status'),
     failureStage: multiValueEnum(RUN_FAILURE_STAGES, 'failureStage'),
     failureKind: multiValueEnum(RUN_FAILURE_KINDS, 'failureKind'),
-})
+    from: isoDateTime.optional(),
+    to: isoDateTime.optional(),
+}
 
-export type RunsFilterInput = z.infer<typeof runsFilterSchema>
+/** 仅用于类型推断的 filter 基础 schema；端点必须使用带区间 refine 的完整 schema，禁止单独把它接上 handler。 */
+export const runsFilterBaseSchema = z.object(runsFilterShape)
+
+export type RunsFilterInput = z.infer<typeof runsFilterBaseSchema>
+
+/** 区间合法性（两端都缺省视为合法；Date.parse 失败已被 schema 拦截） */
+export const isValidRunsRange = (filters: { from?: string, to?: string }): boolean =>
+    !filters.from || !filters.to || Date.parse(filters.from) <= Date.parse(filters.to)
+
+/** runs 可排序字段（白名单；缺省 createdAt） */
+export const RUNS_SORT_FIELDS = ['createdAt', 'startedAt'] as const
+export type RunsSortField = typeof RUNS_SORT_FIELDS[number]
+export type RunsSortOrder = 'asc' | 'desc'
+
+/**
+ * 排序参数（列表与导出共用）。
+ *
+ * - `sortBy` 缺省 → 既有 `createdAt DESC`（`sortOrder` 被忽略，保持向后兼容）
+ * - `sortBy` 显式传入（`createdAt` / `startedAt`）→ 按 `sortOrder` 排序
+ * - `sortOrder` 缺省 `desc`（与既有默认序方向一致）
+ */
+export const runsSortShape = {
+    sortBy: z.enum(RUNS_SORT_FIELDS).optional(),
+    sortOrder: z.enum(['asc', 'desc']).default('desc'),
+}
+
+export interface RunsSortInput {
+    sortBy?: RunsSortField
+    sortOrder: RunsSortOrder
+}
+
+/**
+ * 应用 runs 排序（列表 / 导出同源，禁止端点各自拼 order）。
+ *
+ * `startedAt` 排序的 NULL 语义：**NULL 行固定排在末尾**（与方向无关）。用
+ * `CASE WHEN startedAt IS NULL THEN 1 ELSE 0 END ASC` 实现，避免 PostgreSQL（DESC 默认
+ * NULLS FIRST）与 SQLite / MySQL 的差异；并列时按 `createdAt DESC, id DESC` 保证翻页稳定。
+ */
+export const applyRunsOrder = <T extends SelectQueryBuilder<ScanRun>>(
+    qb: T,
+    sort: RunsSortInput,
+): T => {
+    if (sort.sortBy === 'startedAt') {
+        // 计算列必须 addSelect 后再按别名排序：TypeORM 会把以 `CASE WHEN run` 开头的表达式
+        // 误判为实体别名（`"CASE WHEN run" alias was not found`）。
+        qb.addSelect('CASE WHEN run.startedAt IS NULL THEN 1 ELSE 0 END', 'startedAtNullRank')
+            .orderBy('startedAtNullRank', 'ASC')
+            .addOrderBy('run.startedAt', sort.sortOrder === 'asc' ? 'ASC' : 'DESC')
+            .addOrderBy('run.createdAt', 'DESC')
+            .addOrderBy('run.id', 'DESC')
+        return qb
+    }
+    // `sortBy` 缺省 → 既有默认序（忽略 sortOrder）；显式 `createdAt` → 按 sortOrder
+    const createdAtOrder = sort.sortBy === 'createdAt' && sort.sortOrder === 'asc' ? 'ASC' : 'DESC'
+    qb.orderBy('run.createdAt', createdAtOrder).addOrderBy('run.id', 'DESC')
+    return qb
+}
 
 /**
  * runs 分页参数（列表 `GET /api/runs` 与日志导出共用，单一事实源）。
@@ -65,26 +130,40 @@ export const runsPaginationShape = {
 }
 
 /**
- * 按筛选 + 组织隔离构建 where。
- * `repository.organizationId` 注入组织隔离：跨组织 run 永远不可见。
+ * 按筛选 + 组织隔离向 QueryBuilder 追加条件（列表 / 导出共用，禁止端点各自拼 where）。
+ *
+ * 必须使用 **QueryBuilder 属性路径**（`run.repositoryId` / `repository.organizationId`）而非
+ * FindOptionsWhere 对象：排序需要 `CASE WHEN startedAt IS NULL` 与稳定次键，列表 / 导出已统一走
+ * QueryBuilder，同一份对象 where 在自定义 join 别名下会与自动 join 冲突（实测返回空集）。
+ *
+ * `from` / `to` 是 **startedAt** 的闭区间；NULL startedAt 行在区间过滤时被排除。
+ *
+ * 用 `andWhere` 起手（而非 `where`）：调用方可继续追加条件，不会被重置 WHERE。
  */
-export const buildRunsWhere = (
-    filters: Pick<RunsFilterInput, 'repositoryId' | 'status' | 'failureStage' | 'failureKind'>,
+export const applyRunsWhere = <T extends SelectQueryBuilder<ScanRun>>(
+    qb: T,
+    filters: Pick<RunsFilterInput, 'repositoryId' | 'status' | 'failureStage' | 'failureKind' | 'from' | 'to'>,
     organizationId: string,
-): FindOptionsWhere<ScanRun> => {
-    const where: FindOptionsWhere<ScanRun> = { repository: { organizationId } }
+): T => {
+    qb.andWhere('repository.organizationId = :organizationId', { organizationId })
     if (filters.repositoryId) {
-        where.repositoryId = filters.repositoryId
+        qb.andWhere('run.repositoryId = :repositoryId', { repositoryId: filters.repositoryId })
     }
-    // 状态 / 失败阶段 / 处置建议多值过滤（白名单校验已在 schema 完成）
     if (filters.status) {
-        where.status = In(filters.status as ScanRunStatus[])
+        qb.andWhere('run.status IN (:...status)', { status: filters.status })
     }
     if (filters.failureStage) {
-        where.failureStage = In(filters.failureStage as RunFailureStage[])
+        qb.andWhere('run.failureStage IN (:...failureStage)', { failureStage: filters.failureStage })
     }
     if (filters.failureKind) {
-        where.failureKind = In(filters.failureKind as RunFailureKind[])
+        qb.andWhere('run.failureKind IN (:...failureKind)', { failureKind: filters.failureKind })
     }
-    return where
+    if (filters.from) {
+        qb.andWhere('run.startedAt >= :from', { from: new Date(filters.from) })
+    }
+    if (filters.to) {
+        qb.andWhere('run.startedAt <= :to', { to: new Date(filters.to) })
+    }
+    return qb
 }
+

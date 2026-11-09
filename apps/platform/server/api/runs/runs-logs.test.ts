@@ -165,6 +165,59 @@ describe('GET /api/runs/logs-export（批量日志导出）', () => {
         expect(body).toContain('# 筛选：status=failed')
     })
 
+    it('按 startedAt 排序导出（与列表同源）并在文件头记录 from / to', async () => {
+        const sortRepoId = await createRepo('logs-sort')
+        const late = await seedRun(sortRepoId, {
+            startedAt: new Date('2026-10-03T00:00:00Z'),
+            logsJson: JSON.stringify([{ timestamp: '2026-10-03T00:00:00.000Z', level: 'info', message: 'LATE-MARKER' }]),
+        })
+        const early = await seedRun(sortRepoId, {
+            startedAt: new Date('2026-10-01T00:00:00Z'),
+            logsJson: JSON.stringify([{ timestamp: '2026-10-01T00:00:00.000Z', level: 'info', message: 'EARLY-MARKER' }]),
+        })
+        const middle = await seedRun(sortRepoId, {
+            startedAt: new Date('2026-10-02T00:00:00Z'),
+            logsJson: JSON.stringify([{ timestamp: '2026-10-02T00:00:00.000Z', level: 'info', message: 'MIDDLE-MARKER' }]),
+        })
+        const from = encodeURIComponent('2026-10-01T00:00:00.000Z')
+        const to = encodeURIComponent('2026-10-03T00:00:00.000Z')
+
+        const body = await callExport(
+            `?repositoryId=${sortRepoId}&sortBy=startedAt&sortOrder=asc&from=${from}&to=${to}`,
+        ).promise as string
+
+        expect(body).toContain(`# 筛选：from=2026-10-01T00:00:00.000Z`)
+        expect(body).toContain(`# 筛选：to=2026-10-03T00:00:00.000Z`)
+        const order = [early.id, middle.id, late.id].map((id) => body.indexOf(`# Run ${id}`))
+        expect(order.every((index) => index >= 0)).toBe(true)
+        expect(order).toEqual([...order].sort((a, b) => a - b))
+    })
+
+    it('分页窗口导出与列表同序（startedAt asc 逐页不重不漏）', async () => {
+        const pageRepoId = await createRepo('logs-sort-page')
+        const runs = [
+            await seedRun(pageRepoId, { startedAt: new Date('2026-11-01T00:00:00Z') }),
+            await seedRun(pageRepoId, { startedAt: new Date('2026-11-02T00:00:00Z') }),
+            await seedRun(pageRepoId, { startedAt: new Date('2026-11-03T00:00:00Z') }),
+        ]
+
+        const page1 = await callExport(
+            `?repositoryId=${pageRepoId}&sortBy=startedAt&sortOrder=asc&page=1&pageSize=1`,
+        ).promise as string
+        const page2 = await callExport(
+            `?repositoryId=${pageRepoId}&sortBy=startedAt&sortOrder=asc&page=2&pageSize=1`,
+        ).promise as string
+        expect(page1).toContain(`# Run ${runs[0]!.id}`)
+        expect(page2).toContain(`# Run ${runs[1]!.id}`)
+    })
+
+    it('from > to → 400 RUNS_VALIDATION_FAILED', async () => {
+        const err = await expectError(callExport(
+            `?from=${encodeURIComponent('2026-10-03T00:00:00.000Z')}&to=${encodeURIComponent('2026-10-01T00:00:00.000Z')}`,
+        ).promise, 400)
+        expect(err.data.code).toBe('RUNS_VALIDATION_FAILED')
+    })
+
     it('无命中 → 404 RUN_LOGS_NOT_FOUND', async () => {
         const err = await expectError(callExport(`?repositoryId=${repositoryId}&status=running`).promise, 404)
         expect(err.data.code).toBe('RUN_LOGS_NOT_FOUND')
@@ -193,7 +246,7 @@ describe('GET /api/runs/logs-export（批量日志导出）', () => {
             logsJson: JSON.stringify([{ timestamp: '2026-10-01T00:00:02.000Z', level: 'info', message: 'OTHER-ORG-MARKER' }]),
         })
 
-        // 不带 repositoryId 的导出：foreign-org run 只能由 buildRunsWhere 的 repository.organizationId 排除
+        // 不带 repositoryId 的导出：foreign-org run 只能由 applyRunsWhere 的 repository.organizationId 排除
         const body = await callExport('').promise as string
         expect(body).not.toContain('OTHER-ORG-MARKER')
         expect(body).toContain('BOOM-MARKER')

@@ -65,11 +65,6 @@ const onRepoFormSaved = async () => {
     await fetchData()
 }
 
-/** 表单保存失败：按页面既有错误展示口径包装（与 loadFailed / deleteFailed 同模式） */
-const onRepoFormFailed = (message: string) => {
-    error.value = t('repos.errors.saveFailed', { message })
-}
-
 const remove = async (repo: RepoView) => {
     error.value = ''
     try {
@@ -656,7 +651,6 @@ const columns = computed<DataTableColumn<RepoView>[]>(() => [
             :credentials="credentials"
             :default-branch="defaultBranch"
             @saved="onRepoFormSaved"
-            @failed="onRepoFormFailed"
         />
 
         <import-repos-dialog

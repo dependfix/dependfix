@@ -17,6 +17,12 @@ describe('GET /api/settings/execution-limits', () => {
             verifyCommandTimeoutMs: number
             installTimeoutMs: number
             cloneTimeoutMs: number
+            bounds: {
+                execution: { minMs: number, maxMs: number }
+                verifyCommand: { minMs: number, maxMs: number }
+                install: { minMs: number, maxMs: number }
+                clone: { minMs: number, maxMs: number }
+            }
         }
 
         expect(result.executionTimeoutMs).toBeGreaterThan(0)
@@ -26,11 +32,20 @@ describe('GET /api/settings/execution-limits', () => {
         expect(result.cloneTimeoutMs).toBeGreaterThan(0)
         // 不返回 token / 路径等敏感字段
         expect(Object.keys(result).sort()).toEqual([
+            'bounds',
             'cloneTimeoutMs',
             'executionTimeoutMs',
             'installTimeoutMs',
             'maxExecutionTimeoutMs',
             'verifyCommandTimeoutMs',
         ])
+        // 客户端提示 / 校验边界：min <= 当前生效值 <= max，执行上限以运行期封顶为 max
+        expect(Object.keys(result.bounds).sort()).toEqual(['clone', 'execution', 'install', 'verifyCommand'])
+        for (const bounds of Object.values(result.bounds)) {
+            expect(bounds.minMs).toBeGreaterThan(0)
+            expect(bounds.maxMs).toBeGreaterThanOrEqual(bounds.minMs)
+        }
+        expect(result.bounds.execution.maxMs).toBe(result.maxExecutionTimeoutMs)
+        expect(result.bounds.execution.minMs).toBeLessThanOrEqual(result.executionTimeoutMs)
     })
 })

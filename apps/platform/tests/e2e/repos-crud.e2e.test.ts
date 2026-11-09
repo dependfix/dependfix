@@ -164,10 +164,10 @@ test.describe('仓库管理 CRUD', () => {
         await page.locator('input#owner').fill(owner)
         await page.locator('input#name').fill(`repo-${stamp}`)
 
-        // 折叠区默认收起：展开后填分钟值，摘要显示覆盖项数
+        // 折叠区默认收起：展开后填时长（纯数字按分钟），摘要显示覆盖项数
         await page.locator('.repo-form__limits-summary').click()
-        await page.locator('input#executionTimeoutMinutes').fill('45')
-        await page.locator('input#verifyCommandTimeoutMinutes').fill('20')
+        await page.locator('input#executionTimeout').fill('45')
+        await page.locator('input#verifyCommandTimeout').fill('20')
         await expect(page.locator('.repo-form__limits-summary')).toContainText('2')
 
         // 跨大版本授权：默认关闭，显式开启
@@ -194,13 +194,53 @@ test.describe('仓库管理 CRUD', () => {
         expect(created?.verifyCommandTimeoutMs).toBe(20 * 60000)
         expect(created?.allowMajorUpgrade).toBe(true)
 
-        // 编辑回显：毫秒还原为分钟文本
+        // 编辑回显：毫秒还原为可读单位
         const row = page.locator('.caomei-data-table__row', { hasText: owner })
         await row.locator('button[aria-label="编辑"]').click()
         await expect(page.locator('.caomei-dialog__header')).toContainText('编辑仓库', { timeout: 15000 })
-        await expect(page.locator('input#executionTimeoutMinutes')).toHaveValue('45')
-        await expect(page.locator('input#verifyCommandTimeoutMinutes')).toHaveValue('20')
+        await expect(page.locator('input#executionTimeout')).toHaveValue('45m')
+        await expect(page.locator('input#verifyCommandTimeout')).toHaveValue('20m')
         await expect(page.locator('#allowMajorUpgrade')).toHaveAttribute('aria-checked', 'true')
+    })
+
+    test('保存校验：错误在弹窗内定位到字段，且支持时长单位', async ({ page }) => {
+        await page.goto('/repos')
+        await waitForHydration(page)
+        await page.locator('button:has-text("添加仓库")').click()
+        await expect(page.locator('.caomei-dialog__header')).toContainText('添加仓库', { timeout: 15000 })
+
+        const stamp = Date.now()
+        await page.locator('input#owner').fill(`repos-invalid-${stamp}`)
+        await page.locator('input#name').fill(`repo-${stamp}`)
+        await page.locator('.repo-form__limits-summary').click()
+        // 执行上限 10 分钟、验证命令 20 分钟：子项超过执行上限 → 客户端报红并聚焦
+        await page.locator('input#executionTimeout').fill('10m')
+        await page.locator('input#verifyCommandTimeout').fill('20m')
+        await page.locator('.caomei-dialog__content button:has-text("保存")').click()
+
+        const dialog = page.locator('.caomei-dialog__content')
+        await expect(dialog.locator('.caomei-message--danger')).toContainText('请检查表单中标红的字段', { timeout: 15000 })
+        const verifyField = page.locator('#verifyCommandTimeout').locator('xpath=ancestor::div[contains(@class, "repo-form__field")]')
+        await expect(verifyField.locator('.text-danger')).toContainText('不能大于执行上限')
+        await expect(verifyField.locator('.caomei-field--invalid')).toBeVisible()
+        await expect(page.locator('#verifyCommandTimeout')).toBeFocused()
+
+        // 非法单位同样在字段行内报红
+        await page.locator('input#executionTimeout').fill('abc')
+        await page.locator('.caomei-dialog__content button:has-text("保存")').click()
+        await expect(page.locator('#executionTimeout').locator('xpath=ancestor::div[contains(@class, "repo-form__field")]'))
+            .toContainText('时长格式无效')
+
+        // 服务端校验（客户端未覆盖的条数上限）：issues 同样映射到行内字段
+        await page.locator('input#executionTimeout').fill('30m')
+        await page.locator('textarea#verifyCommands').fill(
+            Array.from({ length: 21 }, (_, index) => `echo ${index}`).join('\n'),
+        )
+        await page.locator('.caomei-dialog__content button:has-text("保存")').click()
+        const commandsField = page.locator('#verifyCommands').locator('xpath=ancestor::div[contains(@class, "repo-form__field")]')
+        await expect(commandsField.locator('.text-danger')).toContainText('最多 20 条验证命令', { timeout: 15000 })
+        // 错误未把弹窗关掉（页面级错误容器不在本用例断言范围）
+        await expect(page.locator('.caomei-dialog__header')).toContainText('添加仓库')
     })
 
     test('编辑仓库：点击编辑 → 改 defaultBranch → 保存 → 列表更新', async ({ page }) => {

@@ -1,3 +1,4 @@
+import { formatDurationMs } from '@dependfix/core'
 import { z } from 'zod'
 import {
     MAX_PR_CHECK_FOCUS_ENTRIES,
@@ -149,7 +150,7 @@ const validateExecutionLimitInvariant = (
             ctx.addIssue({
                 code: 'custom',
                 path: [field],
-                message: `${label}不能大于执行上限（${execution}ms）`,
+                message: `${label}不能大于执行上限（${formatDurationMs(execution)}）`,
             })
         }
     }

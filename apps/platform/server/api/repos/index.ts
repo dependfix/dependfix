@@ -1,3 +1,4 @@
+import { formatDurationMs } from '@dependfix/core'
 import type { H3Event } from 'h3'
 import { parseSandboxLimits, parseTags, parseVerifyCommands, Repository } from '#server/entities/repository'
 import { ensureDatabaseInitialized } from '#server/database'
@@ -81,7 +82,7 @@ const createRepository = async (event: H3Event) => {
             data: {
                 issues: [{
                     path: ['executionTimeoutMs'],
-                    message: `执行上限不能超过平台封顶 ${Math.floor(ceilingMs / 60000)} 分钟`,
+                    message: `执行上限不能超过平台封顶 ${formatDurationMs(ceilingMs)}`,
                 }],
             },
         })

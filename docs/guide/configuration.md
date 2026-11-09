@@ -45,9 +45,9 @@
 | `onBaselineRed` | `DEPENDFIX_ON_BASELINE_RED` | `skip` / `issue` / `draft` | `skip` | 修复后安装验证仍为既有失败（基线红）时的交付降级档位。`skip` 回滚并留痕（默认，行为与引入前一致）；`issue` 按「仓库集 + 失败命令集」指纹开 issue（同一指纹只开一次，关闭后不重开，需 `issues: write`），改动仍回滚；`draft` 不回滚，照常提交并创建**草稿** PR（正文带既有失败说明，`--wait-pr-checks` 不等待）。仅 `fix-and-pr` 生效；平台执行链只记录 `summary.deliverySkipped` 并在运行列表 / 详情展示「交付跳过」。三档均不改变 exit code（`PRE_EXISTING_FAILURE` 仍在跳过类白名单）。详见 [对外 PR 交付闭环设计 §16](../design/governance/pr-delivery-closure.md#_16-m51-4-基线红-安装失败的交付降级-2026-10-30) |
 | `waitPrChecks` | `DEPENDFIX_WAIT_PR_CHECKS` | `boolean` | `false` | 创建 PR 后等待 check 终态（CLI `--wait-pr-checks`；Action `wait-pr-checks`）。仅 `fix-and-pr` 生效：失败时默认评论失败 job 名 + URL + 尝试标记；宽限期（≥60s 且至少两轮）后仍无 check → `no_ci_detected`，**绝不判通过**；轮询 / 评论 / 关闭失败只记录，不改变修复结果与 exit code。详见 [对外 PR 交付闭环设计 §8](../design/governance/pr-delivery-closure.md#_8-m48-5-pr-创建后-ci-回环-cli-action-侧) |
 | `closeFailedPr` | `DEPENDFIX_CLOSE_FAILED_PR` | `boolean` | `false` | check 失败且聚合归因 `self_caused` 时关闭 PR 并删除分支（CLI `--close-failed-pr`；Action `close-failed-pr`）。需同时开启 `waitPrChecks`（配置校验拒绝单独开启）；`unknown` / `external_noise` / `pre_existing` 只评论不关闭，混合归因按 `unknown` 处理 |
-| `prCheckTimeoutMs` | `DEPENDFIX_PR_CHECK_TIMEOUT_MS` | `number` | `900000` | 单个 PR 的 check 等待上限（毫秒；60000-1800000）。超时记 `checksTimedOut`，保留 PR 交给后续运行 / 平台 |
-| `prCheckRunBudgetMs` | `DEPENDFIX_PR_CHECK_RUN_BUDGET_MS` | `number` | `1200000` | 运行级等待总预算（毫秒；60000-1800000），实际等待还受「剩余 job 预算 × 70%」约束 |
-| `jobBudgetMs` | `DEPENDFIX_JOB_BUDGET_MS` | `number` | 未设置 | job 总预算基线（毫秒；60000-7200000）。缺省只在 `GITHUB_ACTIONS=true` 时按 25 分钟套用（与 `security-auto-fix.yml` 的 `timeout-minutes` 对齐）；本地 / 平台执行不臆造 job 上限，显式设置后按其折算。注意 `startedAt` 从引擎启动计起，不含 Actions setup 步骤耗时 |
+| `prCheckTimeoutMs` | `DEPENDFIX_PR_CHECK_TIMEOUT_MS` | `number \| duration` | `900000` | 单个 PR 的 check 等待上限（毫秒；60000-1800000）。支持 `15m` 等写法。超时记 `checksTimedOut`，保留 PR 交给后续运行 / 平台 |
+| `prCheckRunBudgetMs` | `DEPENDFIX_PR_CHECK_RUN_BUDGET_MS` | `number \| duration` | `1200000` | 运行级等待总预算（毫秒；60000-1800000），支持 `20m` 等写法；实际等待还受「剩余 job 预算 × 70%」约束 |
+| `jobBudgetMs` | `DEPENDFIX_JOB_BUDGET_MS` | `number \| duration` | 未设置 | job 总预算基线（毫秒；60000-7200000），支持 `25m` / `1h` 等写法。缺省只在 `GITHUB_ACTIONS=true` 时按 25 分钟套用（与 `security-auto-fix.yml` 的 `timeout-minutes` 对齐）；本地 / 平台执行不臆造 job 上限，显式设置后按其折算。注意 `startedAt` 从引擎启动计起，不含 Actions setup 步骤耗时 |
 | `history` | —（仅 CLI `--history`） | `string` | — | 查询仓库历史运行摘要（读 `dependfix-reports/index.json`，倒序时间，计数为仓库级口径），**不执行扫描**、不要求 token/仓库配置；与运行参数并存时 history 优先、其余参数忽略 |
 
 ## GitHub 认证 Token 权限映射
@@ -245,7 +245,8 @@ export DEPENDFIX_RETRY_FAILED=false
 # 基线红（修复后安装仍既有失败）的交付降级：skip（默认）/ issue / draft
 # export DEPENDFIX_ON_BASELINE_RED=skip
 # 单条验证命令超时（默认 10 分钟；默认链与 CI 镜像脚本共用，默认链内的 pnpm install 仍按本条计时；修复器安装链超时不受影响）
-# export DEPENDFIX_VERIFY_TIMEOUT_MS=600000
+# 支持纯数字毫秒或 10m / 90s 等单位写法
+# export DEPENDFIX_VERIFY_TIMEOUT_MS=10m
 ```
 
 > `GITHUB_TOKEN` 环境变量会被自动识别，无需额外配置前缀。`DEPENDFIX_GITHUB_TOKEN` 优先级高于 `GITHUB_TOKEN`。
@@ -317,26 +318,26 @@ export DEPENDFIX_RETRY_FAILED=false
 |:---|:---:|:---|:---|
 | `REDIS_URL` | — | `redis://127.0.0.1:6379` | BullMQ 队列；Redis 可达 + 版本 ≥ 5.0 + 有消费者时异步，否则降级同步。默认 compose 将容器内 `NUXT_REDIS_URL` 硬编码为 `redis://redis:6379`（指向内置 redis），本变量仅自行编排 / 直连进程时生效 |
 | `QUEUE_ENABLED` | — | `auto` | `auto` / `true`（强制异步）/ `false`（强制同步）。compose 白名单内（→ `NUXT_QUEUE_ENABLED`） |
-| `QUEUE_JOB_RETRIES` / `QUEUE_BACKOFF_MS` | — | 空 | 队列任务重试次数 / 退避毫秒（compose 白名单内 → `NUXT_*`） |
+| `QUEUE_JOB_RETRIES` / `QUEUE_BACKOFF_MS` | — | 空 | 队列任务重试次数 / 退避时长（`5000` 或 `5s`；compose 白名单内 → `NUXT_*`） |
 | `QUEUE_WORKER` → `DEPENDFIX_QUEUE_WORKER` | — | compose `1` / 入口 `0` | 独立 worker 进程消费队列（消除 BullMQ 锁续期失败）；`0` 回退单进程。⚠️ **compose 侧名为 `QUEUE_WORKER`** |
 | `DEPENDFIX_QUEUE_WORKER_SOCKET` | — | `/tmp/dependfix-queue-worker.sock` | worker 内部 socket 路径（白名单外，容器内名） |
 | `DEPENDFIX_QUEUE_WORKER_SLOW_RETRY_SECONDS` | — | `300` | worker 连续快速失败超上限后的慢重试间隔（秒，范围 1-3600，非法 / 0 回退 300）；不永久放弃重启，避免任务无声挂起。compose 已转发 |
 | `DEPENDFIX_ROLE` | — | 入口按进程注入（worker / server） | 进程角色：`worker` 跳过 HTTP-only 插件（周期清理 / 版本戳），避免重复 DB 查询与日志噪声；单进程形态由入口归一化为 `server`（等价于未设置：不跳过任何插件）；直连进程不设置。白名单外，容器内名；口径见 [设计稿 §9](../design/governance/executor-process-isolation.md#_9-队列执行进程隔离-运行时形态) |
 | `IN_PROCESS_WORKER` → `NUXT_IN_PROCESS_WORKER` | — | `true`（compose）/ `false`（直连进程） | 进程内 worker（单进程部署唯一消费者）；默认值以 compose 转发为准 |
-| `STALE_CLEANUP_INTERVAL_MS` | — | `300000` | 孤儿任务清理节拍（毫秒） |
-| `STALE_CLEANUP_RUNNING_GRACE_MS` | — | `300000` | running run 超过执行超时后的宽限期（毫秒，> 0；非法 / 0 回退默认）；超过即判 `orphan_run`。compose 已转发 |
-| `STALE_CLEANUP_PENDING_GRACE_MS` | — | `300000` | pending run 在「无消费者 / job 归属终态」时进入孤儿判定前的最短等待（毫秒，> 0；非法 / 0 回退默认）；无消费者分支额外要求 job 年龄 ≥ 2× 该值。compose 已转发 |
+| `STALE_CLEANUP_INTERVAL_MS` | — | `300000` | 孤儿任务清理节拍（毫秒；支持 `5m`） |
+| `STALE_CLEANUP_RUNNING_GRACE_MS` | — | `300000` | running run 超过执行超时后的宽限期（毫秒，> 0；支持 `5m`；非法 / 0 回退默认）；超过即判 `orphan_run`。compose 已转发 |
+| `STALE_CLEANUP_PENDING_GRACE_MS` | — | `300000` | pending run 在「无消费者 / job 归属终态」时进入孤儿判定前的最短等待（毫秒，> 0；支持 `5m`；非法 / 0 回退默认）；无消费者分支额外要求 job 年龄 ≥ 2× 该值。compose 已转发 |
 
 ### 执行器 / 沙箱 / 扫描
 
 | 变量 | 必填 | 默认值 | 说明 |
 |:---|:---:|:---|:---|
 | `RUN_WORK_ROOT` | — | `data/runs` | 运行工作根目录（clone / 执行产物） |
-| `EXECUTION_TIMEOUT_MS` | — | `1800000`（30 分钟） | 单仓库执行**全局默认**超时；仓库可在「执行预算（高级）」覆盖，覆盖值受 `DEPENDFIX_MAX_EXECUTION_TIMEOUT_MS` 封顶约束。越界（< 1 分钟 / > 24 小时）/ 非法值回退默认 |
-| `DEPENDFIX_MAX_EXECUTION_TIMEOUT_MS` | — | `3600000`（60 分钟） | 执行上限**封顶值**（范围 30 分钟–4 小时，越界回退默认）；队列 Worker 锁时长按该值同源（`lockRenewTime` 取半），env 变更需重启进程 |
-| `DEPENDFIX_INSTALL_TIMEOUT_MS` | — | `300000`（5 分钟） | 安装类命令超时（引擎内依赖安装与锁文件修复链共用一处解析器）；越界（< 10 秒 / > 30 分钟）/ 非法值回退默认。超时后引擎按运行级取消终止子进程树 |
-| `DEPENDFIX_VERIFY_TIMEOUT_MS` | — | `600000`（10 分钟） | 验证链单命令超时（默认链与 CI 镜像脚本共用，**默认链内的 `pnpm install` 仍按本条计时**；修复器安装链的 `DEPENDFIX_INSTALL_TIMEOUT_MS` 不受影响）；严格正整数且落在 10 秒–30 分钟，越界 / 非法回退默认 |
-| `CLONE_TIMEOUT_MS` | — | `300000` | git clone 超时（毫秒） |
+| `EXECUTION_TIMEOUT_MS` | — | `1800000`（30 分钟） | 单仓库执行**全局默认**超时，支持 `30m` / `1h` 等写法；仓库可在「执行预算（高级）」覆盖，覆盖值受 `DEPENDFIX_MAX_EXECUTION_TIMEOUT_MS` 封顶约束。越界（< 1 分钟 / > 24 小时）/ 非法值回退默认 |
+| `DEPENDFIX_MAX_EXECUTION_TIMEOUT_MS` | — | `3600000`（60 分钟） | 执行上限**封顶值**（范围 30 分钟–4 小时，支持 `1h` / `90m`；越界回退默认）；队列 Worker 锁时长按该值同源（`lockRenewTime` 取半），env 变更需重启进程 |
+| `DEPENDFIX_INSTALL_TIMEOUT_MS` | — | `300000`（5 分钟） | 安装类命令超时（引擎内依赖安装与锁文件修复链共用一处解析器），支持 `5m` / `90s`；越界（< 10 秒 / > 30 分钟）/ 非法值回退默认。超时后引擎按运行级取消终止子进程树 |
+| `DEPENDFIX_VERIFY_TIMEOUT_MS` | — | `600000`（10 分钟） | 验证链单命令超时（默认链与 CI 镜像脚本共用，**默认链内的 `pnpm install` 仍按本条计时**；修复器安装链的 `DEPENDFIX_INSTALL_TIMEOUT_MS` 不受影响）；支持 `10m` / `90s`，须落在 10 秒–30 分钟，越界 / 非法回退默认 |
+| `CLONE_TIMEOUT_MS` | — | `300000` | git clone 超时（毫秒；支持 `5m`） |
 | `CLONE_MAX_RETRIES` | — | `3` | clone 最大重试次数 |
 | `PNPM_CONFIG_STORE_DIR` | — | `/app/data/pnpm-store`（入口派生） | 目标仓库依赖安装共用的 pnpm store 目录：默认在数据卷内，跨 run / 容器重建复用。入口以**运行身份写探针**判定可用性（覆盖只读挂载）；不可用（只读 / 权限不足 / 非绝对路径）时 warn 并回退 `$HOME` 下 pnpm 默认位置（每次冷安装，不阻断）。自定义路径的父目录须对 `PUID`/`PGID` 可进入，且与 `RUN_WORK_ROOT` 同文件系统才走硬链接。清理用 `pnpm store prune`（见 [pnpm store 与依赖缓存](./deployment.md#pnpm-store-与依赖缓存)） |
 | `SANDBOX_RUNTIME` | — | `runc` | 沙箱 OCI runtime |

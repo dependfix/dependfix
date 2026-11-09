@@ -182,10 +182,16 @@ Repository.verifyCommandTimeoutMs
 
 ```json
 { "executionTimeoutMs": 1800000, "maxExecutionTimeoutMs": 3600000,
-  "verifyCommandTimeoutMs": 600000, "installTimeoutMs": 300000, "cloneTimeoutMs": 300000 }
+  "verifyCommandTimeoutMs": 600000, "installTimeoutMs": 300000, "cloneTimeoutMs": 300000,
+  "bounds": {
+    "execution": { "minMs": 60000, "maxMs": 3600000 },
+    "verifyCommand": { "minMs": 10000, "maxMs": 1800000 },
+    "install": { "minMs": 10000, "maxMs": 1800000 },
+    "clone": { "minMs": 60000, "maxMs": 1800000 }
+  } }
 ```
 
-只返回解析后的数值，不含 token / 路径等敏感信息；不做写入口。
+返回解析后的数值与客户端校验边界（`bounds`，见 [时长输入与环境变量单位设计](./duration-input-and-env-units.md) §3.4），不含 token / 路径等敏感信息；不做写入口。
 
 ## 9. 前端交互
 
@@ -196,18 +202,18 @@ Repository.verifyCommandTimeoutMs
 ### 9.2 继承与回显
 
 - 输入留空 → 提交 `null`（继承），**占位符显示生效默认值**（数据来自 §8.3，禁止前端硬编码 30 / 10 / 5）。
-- 编辑态：仓库值非空时填入分钟数；折叠行摘要同步显示覆盖项数与最大值。
+- 编辑态：仓库值非空时填入可读单位（`30m` / `1h` / `90s`，见 [时长输入与环境变量单位设计](./duration-input-and-env-units.md)）；折叠行摘要同步显示覆盖项数与最大值。
 - 保存后重新拉取列表，回显生效值（沿用父组件 `saved` 刷新链路）。
 
 ### 9.3 校验与错误
 
-- `type="number"`、`min=1`、`step=1`，单位后缀「分钟」；空串归一为 `null`。
-- 客户端范围校验（与 §5.2 同值）+ 服务端 400 的**字段级错误**展示（现有表单只有全局 toast，需补 `fieldErrors` 映射）。
+- 文本输入接受 `30m` / `1h` / `90s` / `2.5m`，纯数字按分钟（兼容旧写法）；空串归一为 `null`。
+- 客户端范围校验（边界由 `/api/settings/execution-limits` 的 `bounds` 下发，与 §5.2 同值）+ 服务端 400 的**字段级错误**展示（issues path → 字段，红框 + 行内文案 + 顶部摘要，首个错误自动聚焦；不再上抛表格上方）。
 - 提交体改为**显式构造**（不再 `...form.value` 展开），避免夹带无关键扩大 PUT 面。
 
 ### 9.4 i18n 与可访问性
 
-`zh-CN` / `en-US` 各补 4 个字段标签 + 4 条 hint + 折叠区标题 / 摘要（项目有缺词门禁）；`label for` 绑定，hint 通过 `aria-describedby` 关联，折叠按钮用 `aria-expanded`。
+`zh-CN` / `en-US` 各补 4 个字段标签 + 范围 / 单位 hint + 校验文案 + 折叠区标题 / 摘要（项目有缺词门禁）；`label for` 绑定，hint 通过 `aria-describedby` 关联，折叠按钮用 `aria-expanded`。
 
 ### 9.5 运行回显
 

@@ -95,6 +95,7 @@
 | `docs/design/governance/doc-governance.md` | 治理执行规范（现行权威；en 索引行指向 zh，1.0 后评估） |
 | `docs/design/governance/docs-and-readme-i18n-rollout.md` | 记录 / 落地分片（随主文档演进，暂不翻译） |
 | `docs/design/governance/docs-and-readme-i18n.md` | 未重译（结构映射口径见文档规范 §6；全量镜像属 1.0 后评估项） |
+| `docs/design/governance/duration-input-and-env-units.md` | 未重译（结构映射口径见文档规范 §6；全量镜像属 1.0 后评估项） |
 | `docs/design/governance/engineering-practice-notes.md` | 未重译（结构映射口径见文档规范 §6；全量镜像属 1.0 后评估项） |
 | `docs/design/governance/executor-process-isolation.md` | 未重译（结构映射口径见文档规范 §6；全量镜像属 1.0 后评估项） |
 | `docs/design/governance/executor-sandbox-implementation.md` | 未重译（结构映射口径见文档规范 §6；全量镜像属 1.0 后评估项） |

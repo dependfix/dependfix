@@ -19,21 +19,23 @@
 
 ## M57：执行面可信与发布验证收口（2026-11-09 规划）
 
-**阶段目标**：把「执行端可信」从平台视图回收到运行时底座——沙箱执行器恢复 report-only 真实执行，队列终态不再被迟到 worker 覆盖，回归与审计门禁不再假绿，平台静态检查与列表顺序可复算，镜像发布有运行时冒烟证据。
+**阶段目标**：把「执行端可信」从平台视图回收到运行时底座——沙箱执行器恢复 report-only 真实执行，队列终态不再被迟到 worker 覆盖，回归与审计门禁不再假绿，平台静态检查与列表顺序可复算；仓库表单错误可定位到字段、时长以可读单位配置（平台与引擎环境变量同步支持单位写法）。
 
 **用户决策（2026-11-09）**：方向 A（执行面可信收口）；沙箱执行器「复用」已于 2026-11-09 裁定，本阶段只放行 report-only，fix / fix-and-pr 继续降级到 container。
 
 **容量基线**（测量方：执行角色，P 阶段预估；分母供 [§3.1.1](../standards/planning.md#_3-1-1-插队后的阶段容量再平衡-hard-requirement-2026-10-19) 再平衡使用）：
 
-- 6 原子 / 17-25 commits / 39-57 文件 / 2000-3300 行（= 各原子「交付物」逐条求和，不设倍数口径）。
-- **类型平衡**：🛡️3（M57.1 / M57.2 / M57.3）+ 🛠️2（M57.4 / M57.5）+ 🚀1（M57.6 兼 🧪）；测试覆盖内嵌各原子「范围 / 验收标准」，不单列 🧪 原子。本批按用户 2026-11-09 方向 A 以执行面可信为主，不含 UX 型候选（非遗漏）。
+- 5 原子 / 15-22 commits / 35-51 文件 / 1750-2900 行（= 各原子「交付物」逐条求和，不设倍数口径；2026-11-09 再平衡移出 M57.6 后的口径；不含 2 项追加临时待办的 ~554 / ~800-1050 行增量）。
+- **类型平衡**：🛡️3（M57.1 / M57.2 / M57.3）+ 🛠️2（M57.4 / M57.5）；测试覆盖内嵌各原子「范围 / 验收标准」，不单列 🧪 原子。发布冒烟（原 🚀🧪）已按下述再平衡移出；本批按用户 2026-11-09 方向 A 以执行面可信为主。
 - 执行期插队批次累计 ≥3 或插队工作量 ≥ 本基线 50% 时触发再平衡。
 
-**执行顺序**：M57.4 → M57.5 → M57.2 → M57.3 → M57.6 → M57.1。
+**执行顺序**：M57.4 → M57.5 → M57.2 → M57.3 → M57.1。
 
-- 前 5 项为小步可信度回补，可先恢复静态检查 / 分页稳定 / 队列终态 / 回归门禁 / 发布冒烟；沙箱需独立 rootless daemon 与最长验证窗口，放最后避免阻塞阶段。
+- 前 4 项为小步可信度回补，可先恢复静态检查 / 分页稳定 / 队列终态 / 回归门禁；沙箱需独立 rootless daemon 与最长验证窗口，放最后避免阻塞阶段。
 - M57.3 合并「周回归 registry 假绿」与「回归窗口插入点」两项（同属回归工具真实性，独立验收点保留）。
 - M57.1 的 fix / fix-and-pr 放行依赖出站白名单代理接入沙箱执行路径（T1002 代理候选），不在本阶段。
+
+**容量再平衡（2026-11-09，§3.1.1 阈值 2）**：已完成的生产事故插队（schema 漂移，~554 行）+ 本次用户授权追加（表单错误定位与时长单位，~800-1050 行）累计 1354-1604 行，达原基线 2000 行下界的 68%-80%。按用户 2026-11-09 决策移出最低优先级原子 M57.6（发布后镜像运行时冒烟）至 [backlog](backlog.md)（保留 8 要素并标注移出原因），阶段保留 5 原子 + 2 项追加临时待办（生产事故 schema 漂移 / 表单错误定位与时长单位）；插队批次 2（< 3），移出后满足再平衡要求。
 
 **上游证据**：
 
@@ -124,20 +126,6 @@
 - **交付物**：2-3 commits / 8-12 文件 / 250-400 行。
 - **风险与缓解**：次键为 `id`（主键）无需新索引；`runs/[id]` 有视觉基线 → 详情弹窗复跑视觉。
 
-### M57.6 [P2 🚀🧪] 发布后镜像运行时冒烟
-
-- **目标**：release 后用 `read:packages` 凭证拉取镜像跑 `/api/health`（amd64 + arm64），失败告警不阻断发布；补历史 tag 巡检。
-- **优先级**：P2（发布置信；arm64 目前只证 manifest 存在，不证可启动）。
-- **范围**：`release.yml` 后置步骤 / `docker.yml`、冒烟脚本、`docs/guide/release.md`、失败告警通道（issue / 日志）。
-- **验收标准**：
-  1. 发布后自动冒烟 amd64 + arm64（原生 arm runner，不用 QEMU），输出 `/api/health` 版本与 commit。
-  2. 冒烟失败不改变发布成功判定，但产生可见告警 / 记录。
-  3. 历史 tag 巡检产出报告（缺项写「未证实」）。
-- **不做什么**：不改镜像构建架构与发布判定；不引入 QEMU；不对每次 push 运行（仅 release / dispatch）。
-- **依赖**：M54.6 发布流水线；`GH_PAT` / packages 读权限。
-- **交付物**：2-3 commits / 4-6 文件 / 250-400 行。
-- **风险与缓解**：拉取凭证 / 网络失败 → fail-open（告警不阻断）；runner 成本 → 仅 release 触发。
-
 ### 追加临时待办（不占阶段条目编号）：线上 schema 漂移恢复清单 + 启动期漂移检测
 
 - **来源 / 授权**：2026-11-09 用户报告 `https://dependfix.dev` 多页面 `Server Error`，服务端日志 `SQLITE_ERROR: no such column: ScanRun.execution_timeout_ms`（生产可用性事故，属插队例外清单第 3 类），用户明确授权「先写恢复清单，再落地启动期漂移检测 + 测试」。
@@ -149,17 +137,43 @@
 - **依赖**：2026-11-09 生产事故取证；`server/database/migrations/*` 为 schema 事实源。
 - **交付物**：2 commits / 11 文件 / ~554 行（doc 清单 + 代码与测试 + review 修复；行数按 `git diff` + 新增文件行数实测）。
 - **风险与缓解**：检测误报（视图 / 特殊表）→ 只比对 `tableType=regular` 与实体声明列；启动成本 → 冷启动一次、跳过 worker 与 synchronize；信息面 → health 仅状态枚举。
-- **残余**：`docker/smoke-test.sh` 的 `schema` 字段断言并入 M57.6 发布冒烟（只断言存在，不锁 `ok`）。
-- **容量影响（§3.1.1）**：~2 commits / 11 文件 / ~554 行，低于 M57 基线 50%；本阶段第 1 个插队批次，未达再平衡阈值 1/2/3，不做移出。
+- **残余**：`docker/smoke-test.sh` 的 `schema` 字段断言并入 [backlog](backlog.md)「发布后镜像运行时冒烟」候选（只断言存在，不锁 `ok`）。
+- **容量影响（§3.1.1）**：~2 commits / 11 文件 / ~554 行；本阶段第 1 个插队批次。与第 2 批累计后触发阈值 2，阶段头已记录再平衡结论（移出 M57.6）。
+
+### 追加临时待办（不占阶段条目编号）：仓库表单错误定位与时长单位友好输入
+
+- **来源 / 授权**：2026-11-09 用户提供保存失败截图并明确要求：① 错误提示指明字段、表单报红、提示移入模态框、给出合法时间范围；② 时长默认不要填毫秒长数字，参照 momei 用 `ms` 工具包转换，用户手动配置的时间 / 时长环境变量同步支持。属 [规划规范 §3.1](../standards/planning.md#_3-1-新需求默认走-评估-→-backlog-原则-hard-requirement) 清单外**用户明确授权追加**（不分配阶段编号、不占既有条目位置）。
+- **评估结论**：现状 = 服务端 zod issues 已透传（`data.issues`）但前端只取 `message`（"参数校验失败"），字段错误丢失且上抛到表格上方；表单时长以纯分钟文本录入，env 仅接受纯数字毫秒（`parseInt` 还会把 `600ms` 截成 600）。范围收敛为「表单错误可见 + 时长可读 + env 单位兼容」，不改时长存储契约（仍为毫秒）、不改队列 / 执行语义。
+- **目标**：① 保存失败在弹窗内展示并定位到字段（红框 + 行内文案 + 首个错误聚焦）；② 时长输入支持 `30m` / `1h` / `90s`，纯数字按分钟兼容，并显示合法范围提示；③ 平台与引擎 / CLI 的时长环境变量支持 `ms` 工具包写法（纯数字按毫秒兼容），非法 / 越界回退默认并告警。
+- **范围**：
+  - 共享解析：`packages/core/src/utils/duration.ts`（`parseDurationMs` / `formatDurationMs`，`ms@2.1.3` + `@types/ms`）与单测。
+  - 表单：`repo-form-dialog.vue`（客户端校验、服务端 issues → 字段映射、弹窗内 `CaomeiMessage`、`invalid` + 行内错误、范围小字）；`repos.vue` 移除表单级页面错误；`/api/settings/execution-limits` 增补 `bounds` 供前端提示与校验。
+  - 平台 env：`server/utils/execution-limits.ts`、`services/executor/container-executor.ts`、`plugins/stale-cleanup.ts`、`services/queue/queue-mode.ts`。
+  - 引擎 env：`config/index.ts`（`PR_CHECK_TIMEOUT_MS` / `PR_CHECK_RUN_BUDGET_MS` / `JOB_BUDGET_MS` / `MAX_BACKOFF_MS`）、`runners/verification-runner.ts`、`fixers/install-timeouts.ts`。
+  - 文档：`docs/guide/configuration.md`（+ en 镜像）、`apps/platform/.env.full.example`、`docs/design/governance/repo-execution-limits.md`、`docs/standards/development.md`（时长 env 规则）、`docs/i18n/en-US/design/mirror-manifest.md`、新治理设计稿（跨 `packages/core` + `packages/engine` + `apps/platform`，按设计文档阈值补写）。
+- **验收标准**：
+  1. 构造 400（字段非法 / 执行上限超封顶 / 子项超执行上限）→ 弹窗内出现错误摘要与对应字段行内文案 + `invalid` 态，表格上方不再出现该错误；首个错误字段获得焦点。
+  2. 时长字段输入 `45` / `45m` / `1h` / `90s` 均换算为预期毫秒；`abc` / `0` / `-5` 判非法并报红；编辑回显为可读单位（`45m` / `1h`）。
+  3. 每个时长字段下方显示合法范围（执行上限用动态封顶值），并提示纯数字按分钟。
+  4. env `EXECUTION_TIMEOUT_MS=30m` 与 `1800000` 等效；`DEPENDFIX_MAX_EXECUTION_TIMEOUT_MS=2h` 生效；`DEPENDFIX_VERIFY_TIMEOUT_MS=90s` / `DEPENDFIX_INSTALL_TIMEOUT_MS=5m` / `JOB_BUDGET_MS=25m` 等价于对应毫秒；非法 / 越界回退默认并写警告。
+  5. 单测覆盖纯数字 / 单位 / 非法 / 越界；e2e 更新为 `45m` 并新增错误定位断言；视觉基线（如受影响）复跑。
+  6. `pnpm run lint:check` / `pnpm typecheck` / 定向测试 / `pnpm -r build` / `gates:docs` 全绿。
+- **不做什么**：不改仓库级 / 全局时长的毫秒存储契约与 API 字段名；不改队列与执行语义；不把 `ms` 用于非时长数字（并发 / 重试次数等）；不新增语言；不重写整个表单为 schema 驱动。
+- **依赖**：momei `utils/shared/duration.ts` 作为参考；`ms@^2.1.3` + `@types/ms`；M57.4 已恢复的平台 typecheck 门禁。
+- **交付物**：6-7 commits / 40-48 文件 / 1000-1250 行（实测约 1213 行）。
+- **风险与缓解**：纯数字语义歧义（表单分钟 vs env 毫秒）→ 字段小字与 env 文档分别写明；客户端校验与服务端 schema 漂移 → 范围值由只读端点下发，服务端仍为最终裁决，issues 回映射兜底；`ms` v2 为 CJS → 平台 / 核心均显式声明依赖，客户端与服务端各走自己的绑定。
+- **容量影响（§3.1.1）**：预估 800-1050 行，实测约 1213 行（原基线 2000 行的 60.6%）；与第 1 批累计约 1767 行（88%），触发阈值 2，按用户 2026-11-09 决策移出 M57.6 → backlog。
+- **执行记录（2026-11-09）**：共享解析落 `packages/core/src/utils/duration.ts`（`ms@2.1.3` + `@types/ms`），平台 / 引擎 6 处时长 env 全部改走 `parseDurationMs`（纯数字按毫秒兼容；非法 / 越界回退默认，引擎运行期解析器输出一次 warn）；表单改为可读单位输入（纯数字按分钟），服务端 issues 映射到字段行内错误 + 弹窗内摘要 + 首个错误聚焦，只读端点补 `bounds` 供范围提示。实测：`45m` / `1800000` 等价、`5m` / `300000` 等价；e2e 覆盖客户端与服务端两种定位路径；单测 4642 passed / 10 skipped，e2e 12 passed，视觉 4 passed，lint / typecheck / build / `gates:docs` 全绿。
 
 ---
+
 
 ## 阶段收口要求（M57）
 
 - **质量门**：逐原子 `pnpm run lint:check`（涉样式时另跑 `lint:css:check`）+ `pnpm typecheck` + 定向测试。
 - 改 `packages/*/src` 后先 `pnpm -r build` 再 typecheck；改平台页面 / 详情时跑受影响 e2e 与视觉回归。
 - **Review Gate**：每原子至少一轮 `Code Auditor`（standard；M57.1 因打包 / 容器 / 入口三闸升 deep），Reject 须闭环复审。
-- **证据**：M57.1 留 bundle 三连冒烟 + gated e2e；M57.2 留竞态用例；M57.3 留 registry 故障与插入点用例；M57.4 留注入负例；M57.5 留并列排序用例；M57.6 留双架构 health 回读。
+- **证据**：M57.1 留 bundle 三连冒烟 + gated e2e；M57.2 留竞态用例；M57.3 留 registry 故障与插入点用例；M57.4 留注入负例；M57.5 留并列排序用例；追加项留弹窗内字段定位 e2e + env 单位单测。
 - **不做**：不把 T1002 代理接入夹带进 M57.1；不宣称 fix 模式可用于 sandbox；不为通过门禁放宽阈值。
 - **归档**：按 [规划规范 §4](../standards/planning.md) 迁出为 `todo-archive-phases-m57.md` + 索引行 + roadmap 状态同步。
 

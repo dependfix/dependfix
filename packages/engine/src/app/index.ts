@@ -165,6 +165,8 @@ export class DependfixApp {
     private verificationBaseline: { value?: CommandResult[] } = {}
     /** 单元回滚 checkpoint（单元 probe 开始前记录，跨仓库传递）。 */
     private readonly verificationCheckpoints: VerificationCheckpoint[] = []
+    /** checkpoint 建立失败的去重键（run 级；同仓同因只记一条降级审计）。 */
+    private readonly checkpointFailures = new Set<string>()
     /** 验证链口径记录（run 级；`verifyProject` 写入，报告与 PR 正文消费） */
     private readonly ciAlignment: CiAlignmentRecord[] = []
     /** 最近关闭 PR 的尝试索引（run 级缓存；仅 fix-and-pr 模式参与判定） */
@@ -478,6 +480,7 @@ export class DependfixApp {
                 aiUsageRef: this.aiUsageRef,
                 verificationBaseline: this.verificationBaseline,
                 verificationCheckpoints: this.verificationCheckpoints,
+                checkpointFailures: this.checkpointFailures,
                 preExistingDirty: this.preExistingDirty,
             },
             client,

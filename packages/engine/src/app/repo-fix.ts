@@ -100,6 +100,11 @@ export interface RepoFixCtx extends AppContext {
     verificationCheckpoints?: VerificationCheckpoint[]
     /** 运行前工作区已有未提交改动：沿用门禁保护面，禁用选择性回滚。 */
     preExistingDirty?: boolean
+    /**
+     * checkpoint 建立失败的去重键（`仓库:原因`，run 级）。
+     * 逐单元重试同一失败原因时只记一条降级审计，避免刷屏。
+     */
+    checkpointFailures?: Set<string>
 }
 
 /** lockfile 依赖告警分区产物（供 lockfile / 成员 / 常规升级步骤共用）。 */

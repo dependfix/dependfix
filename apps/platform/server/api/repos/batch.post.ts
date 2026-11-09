@@ -4,6 +4,8 @@ import { ensureDatabaseInitialized } from '#server/database'
 import { requireRole } from '#server/utils/guard'
 import { createLocalizedError } from '#server/utils/localized-error'
 import { resolveOrganizationId } from '#server/utils/organization'
+import { resolveAllowMajorUpgradeDefault } from '#server/utils/allow-major-upgrade'
+import { recordMajorUpgradePolicyAudit } from '#server/services/repository-audit'
 import { batchImportSchema } from '#server/schemas/batch-import'
 
 /**
@@ -34,6 +36,8 @@ export default defineEventHandler(async (event) => {
     const repoRepo = ds.getRepository(Repository)
     const credentialRepo = ds.getRepository(Credential)
     const organizationId = await resolveOrganizationId(ds)
+    // 新建仓库默认值：与单个创建同口径（平台部署可统一开启；批量导入同样适用）
+    const allowMajorUpgradeDefault = resolveAllowMajorUpgradeDefault(event)
 
     // 前置校验（docs/plan/todo.md §PR3-3 C50）：defaultCredentialId 存在性 + 同组织（防跨组织误关联 FK 悬空）
     let defaultCredentialId: string | null = null
@@ -77,9 +81,20 @@ export default defineEventHandler(async (event) => {
             note: item.note ?? null,
             // 默认关联凭据（docs/plan/todo.md §PR3-3 C50：非空时透传到所有新建仓库；空时 null 保持兼容）
             credentialId: defaultCredentialId,
+            allowMajorUpgrade: item.allowMajorUpgrade ?? allowMajorUpgradeDefault,
         })
         try {
-            await repoRepo.save(entity)
+            const saved = await repoRepo.save(entity)
+            // 默认开启时与单个创建同口径登记审计（仅实际开启才产生事件）
+            if (saved.allowMajorUpgrade) {
+                await recordMajorUpgradePolicyAudit(ds, {
+                    repositoryId: saved.id,
+                    owner: saved.owner,
+                    name: saved.name,
+                    previous: false,
+                    next: true,
+                })
+            }
             results.push({ owner: item.owner, name: item.name, imported: true, skipped: false })
         } catch (error) {
             // 并发重复导入：唯一索引（owner+name+platform）冲突视为跳过，不整体失败

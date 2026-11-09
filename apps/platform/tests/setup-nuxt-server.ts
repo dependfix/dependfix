@@ -27,7 +27,7 @@ g.getRequestURL = getRequestURL
 // e2eFixturesAllowed（M22 阶段 fixtures 双门控第二门控；详见 todo.md §M22.6）：
 // 默认 false 表示 fixtures 端点禁止访问，需在测试内 stub 为 true 才能让
 // fixtures.post/delete.test.ts 的 200 路径通过。
-g.useRuntimeConfig = () => ({ encryptionKey: 'test-encryption-key-32-bytes!!', e2eFixturesAllowed: false })
+g.useRuntimeConfig = () => ({ encryptionKey: 'test-encryption-key-32-bytes!!', e2eFixturesAllowed: false, public: { allowMajorUpgradeDefault: false } })
 
 /**
  * better-auth 1.7 generic-oauth plugin 在 init 阶段会 fetch OIDC discovery URL，

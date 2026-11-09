@@ -23,6 +23,8 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
+/** 平台部署的新建仓库默认值（仅新增表单使用；编辑表单回显仓库自身存储值）。 */
+const allowMajorUpgradeDefault = useRuntimeConfig().public.allowMajorUpgradeDefault === true
 
 interface RepoForm {
     owner: string
@@ -148,7 +150,7 @@ const emptyForm = (): RepoForm => ({
     verifyCommandTimeout: '',
     installTimeout: '',
     cloneTimeout: '',
-    allowMajorUpgrade: false,
+    allowMajorUpgrade: allowMajorUpgradeDefault,
 })
 
 const form = ref<RepoForm>(emptyForm())
@@ -677,6 +679,7 @@ const submit = async () => {
                     v-model="form.allowMajorUpgrade"
                 />
                 <small class="text-muted">{{ t('repos.allowMajorUpgradeHint') }}</small>
+                <small v-if="allowMajorUpgradeDefault && !props.repo" class="text-muted">{{ t('repos.allowMajorUpgradeDefaultOn') }}</small>
             </div>
             <div class="repo-form__focus">
                 <div class="repo-form__focus-title">

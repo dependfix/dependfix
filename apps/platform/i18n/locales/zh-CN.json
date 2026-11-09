@@ -255,7 +255,8 @@
         "durationHint": "支持 30m / 1h / 90s 等单位，纯数字按分钟；留空继承平台默认值",
         "executionLimitsHint": "修改执行上限会同步影响 Worker 锁与孤儿判定窗口",
         "allowMajorUpgrade": "允许跨大版本升级",
-        "allowMajorUpgradeHint": "默认关闭，跨大版本告警按人工处理；开启后仅对根直接依赖且 lockfile 单版本的告警自动升级，仍走完整验证链并在失败时自动回滚；间接依赖与多版本共存保持人工"
+        "allowMajorUpgradeHint": "跨大版本告警按人工处理；开启后仅对根直接依赖且 lockfile 单版本的告警自动升级，仍走完整验证链并在失败时自动回滚；间接依赖与多版本共存保持人工",
+        "allowMajorUpgradeDefaultOn": "平台已将新建仓库默认设为开启；既有仓库保持原设置"
     },
     "schedules": {
         "title": "定时计划",

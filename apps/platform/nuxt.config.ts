@@ -133,6 +133,12 @@ export default defineNuxtConfig({
             appName: 'dependfix',
             // 新建仓库默认分支（DEFAULT_BRANCH 为构建时注入，运行期修改需重建镜像）
             defaultBranch: process.env.NUXT_PUBLIC_DEFAULT_BRANCH || process.env.DEFAULT_BRANCH || 'main',
+            // 新建仓库「允许跨大版本升级」开关的默认值（默认关闭；仅影响新建仓库，
+            // 既有仓库保持原值；与引擎 CLI / Action 的显式 flag 通道无关）
+            allowMajorUpgradeDefault:
+                process.env.NUXT_PUBLIC_ALLOW_MAJOR_UPGRADE_DEFAULT !== undefined
+                    ? process.env.NUXT_PUBLIC_ALLOW_MAJOR_UPGRADE_DEFAULT === 'true'
+                    : process.env.ALLOW_MAJOR_UPGRADE_DEFAULT === 'true',
             // 认证模式（enterprise | public）：登录/注册页按模式展示登录方式与注册策略
             authMode: process.env.NUXT_PUBLIC_AUTH_MODE || process.env.AUTH_MODE || 'public',
             // 注册域名名单（enterprise 白名单域提示用；黑名单不暴露，最小暴露原则）

@@ -255,7 +255,8 @@
         "durationHint": "Supports 30m / 1h / 90s; a plain number means minutes. Empty inherits the platform default",
         "executionLimitsHint": "Changing the execution limit also affects worker locks and orphan detection windows",
         "allowMajorUpgrade": "Allow cross-major upgrades",
-        "allowMajorUpgradeHint": "Off by default; cross-major alerts are left for manual review. When on, only alerts that are root direct dependencies with a single lockfile version are auto-upgraded, still running the full verification chain and rolling back on failure; indirect dependencies and multi-version coexistence stay manual"
+        "allowMajorUpgradeHint": "Cross-major alerts are left for manual review. When on, only alerts that are root direct dependencies with a single lockfile version are auto-upgraded, still running the full verification chain and rolling back on failure; indirect dependencies and multi-version coexistence stay manual",
+        "allowMajorUpgradeDefaultOn": "The platform defaults new repositories to enabled; existing repositories keep their current setting"
     },
     "schedules": {
         "title": "Schedules",

@@ -4,6 +4,7 @@ import { expectError, makeEvent, setupMemoryDatabase, teardownMemoryDatabase } f
 import reposHandler from './index'
 import { ensureDatabaseInitialized } from '#server/database'
 import { AuditEvent } from '#server/entities/audit-event'
+import { Repository } from '#server/entities/repository'
 
 // 鉴权由 guard.test.ts 单独覆盖：API handler 测试 mock guard 层，聚焦业务逻辑；
 // 但 todo.md §M16.5 T701-e2e 补强要求 API handler 测试也覆盖三角色鉴权——
@@ -77,6 +78,52 @@ describe('GET /api/repos', () => {
             // 错误码强契约位置：客户端通过 data.code 路由分支判断（h3 序列化保留 data）
             data: { code: 'REPO_DUPLICATE' },
         })
+    })
+
+    it('defaults allowMajorUpgrade to false when body omits it and no platform default is set', async () => {
+        const created = await call('POST', '/api/repos', {
+            owner: 'major-off',
+            name: 'repo',
+            platform: 'github',
+            packageManager: 'pnpm',
+            defaultBranch: 'main',
+            executorKind: 'container',
+        }) as { allowMajorUpgrade: boolean }
+        expect(created.allowMajorUpgrade).toBe(false)
+    })
+
+    it('uses runtime-config default for allowMajorUpgrade when body omits it', async () => {
+        const globalScope = globalThis as { useRuntimeConfig?: () => unknown }
+        const original = globalScope.useRuntimeConfig
+        globalScope.useRuntimeConfig = () => ({ public: { allowMajorUpgradeDefault: true } })
+        try {
+            const base = { platform: 'github', packageManager: 'pnpm', defaultBranch: 'main', executorKind: 'container' }
+            const created = await call('POST', '/api/repos', {
+                ...base,
+                owner: 'major-default',
+                name: 'repo',
+            }) as { allowMajorUpgrade: boolean }
+            expect(created.allowMajorUpgrade).toBe(true)
+
+            // 默认开启仍走审计留痕
+            const ds = await ensureDatabaseInitialized()
+            const saved = await ds.getRepository(Repository).findOneByOrFail({ owner: 'major-default', name: 'repo' })
+            const events = await ds.getRepository(AuditEvent).find({
+                where: { repositoryId: saved.id, type: 'major_upgrade_policy_update' },
+            })
+            expect(events).toHaveLength(1)
+
+            // 请求体显式 false 优先于平台默认值（表单编辑 / 显式关闭）
+            const explicit = await call('POST', '/api/repos', {
+                ...base,
+                owner: 'major-explicit',
+                name: 'repo',
+                allowMajorUpgrade: false,
+            }) as { allowMajorUpgrade: boolean }
+            expect(explicit.allowMajorUpgrade).toBe(false)
+        } finally {
+            globalScope.useRuntimeConfig = original
+        }
     })
 
     it('rejects invalid body with 400 + data.code: REPO_VALIDATION_FAILED + data.issues 透传', async () => {

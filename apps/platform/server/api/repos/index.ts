@@ -9,6 +9,7 @@ import { resolveOrganizationId } from '#server/utils/organization'
 import { normalizePRCheckFocus, parsePRCheckFocus } from '#server/utils/pr-check-focus'
 import { recordExecutionLimitsAudit, recordMajorUpgradePolicyAudit, recordVerifyCommandsAudit } from '#server/services/repository-audit'
 import { resolveExecutionCeilingMs } from '#server/utils/execution-limits'
+import { resolveAllowMajorUpgradeDefault } from '#server/utils/allow-major-upgrade'
 
 const toView = (r: Repository) => ({
     id: r.id,
@@ -128,6 +129,10 @@ const createRepository = async (event: H3Event) => {
     // prCheckFocus 对象 → JSON 字符串列（三维全空归一为 null = 未配置；规范化负责 trim / 去重 / 小写）
     const prCheckFocusValue = normalizePRCheckFocus(parsed.data.prCheckFocus)
 
+    // 新建仓库默认值：平台部署可通过 ALLOW_MAJOR_UPGRADE_DEFAULT / NUXT_PUBLIC_ALLOW_MAJOR_UPGRADE_DEFAULT
+    // 统一开启；请求体显式值优先（表单编辑既有仓库时始终显式提交当前开关状态）
+    const allowMajorUpgradeDefault = resolveAllowMajorUpgradeDefault(event)
+
     const entity = repo.create({
         organizationId,
         owner: parsed.data.owner,
@@ -147,7 +152,7 @@ const createRepository = async (event: H3Event) => {
         verifyCommandTimeoutMs: parsed.data.verifyCommandTimeoutMs ?? null,
         installTimeoutMs: parsed.data.installTimeoutMs ?? null,
         cloneTimeoutMs: parsed.data.cloneTimeoutMs ?? null,
-        allowMajorUpgrade: parsed.data.allowMajorUpgrade ?? false,
+        allowMajorUpgrade: parsed.data.allowMajorUpgrade ?? allowMajorUpgradeDefault,
     })
     const saved = await repo.save(entity)
 

@@ -7,6 +7,7 @@ import reposIndexHandler from './index'
 import { Repository } from '#server/entities/repository'
 import { Credential } from '#server/entities/credential'
 import { Organization } from '#server/entities/organization'
+import { AuditEvent } from '#server/entities/audit-event'
 import { ensureDatabaseInitialized } from '#server/database'
 
 vi.mock('#server/utils/guard', () => ({
@@ -238,4 +239,34 @@ describe('POST /api/repos/batch', () => {
             expect(list.find((r) => r.name === 'c50-no-default')?.credentialId).toBeNull()
         })
     })
+    it('applies the platform default to imported repositories and records the policy audit', async () => {
+        const globalScope = globalThis as { useRuntimeConfig?: () => unknown }
+        const original = globalScope.useRuntimeConfig
+        globalScope.useRuntimeConfig = () => ({ public: { allowMajorUpgradeDefault: true } })
+        try {
+            const result = await call({ repos: [repoItem('batch-major', 'repo')] }) as { imported: number }
+            expect(result.imported).toBe(1)
+
+            const ds = await ensureDatabaseInitialized()
+            const saved = await ds.getRepository(Repository).findOneByOrFail({ owner: 'batch-major', name: 'repo' })
+            expect(saved.allowMajorUpgrade).toBe(true)
+            const events = await ds.getRepository(AuditEvent).find({
+                where: { repositoryId: saved.id, type: 'major_upgrade_policy_update' },
+            })
+            expect(events).toHaveLength(1)
+
+            // 逐项显式 false 优先于平台默认 true
+            const explicit = await call({ repos: [{ ...repoItem('batch-major-off', 'repo'), allowMajorUpgrade: false }] }) as { imported: number }
+            expect(explicit.imported).toBe(1)
+            const off = await ds.getRepository(Repository).findOneByOrFail({ owner: 'batch-major-off', name: 'repo' })
+            expect(off.allowMajorUpgrade).toBe(false)
+            const offEvents = await ds.getRepository(AuditEvent).count({
+                where: { repositoryId: off.id, type: 'major_upgrade_policy_update' },
+            })
+            expect(offEvents).toBe(0)
+        } finally {
+            globalScope.useRuntimeConfig = original
+        }
+    })
+
 })

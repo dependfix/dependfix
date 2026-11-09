@@ -58,7 +58,7 @@ interface PaginatedData<T> {
 
 **NULL 语义（跨库统一）**：`startedAt` 排序时 NULL 行固定排在末尾（与 asc / desc 无关），实现为 `CASE WHEN started_at IS NULL THEN 1 ELSE 0 END ASC`，避免 PostgreSQL（`DESC` 默认 NULLS FIRST）与 SQLite / MySQL 的差异；主键并列时按 `createdAt DESC, id DESC` 保证翻页稳定。
 
-**UI 已知边界**：caomei `DataTable` 未暴露 `manualSorting`，受控排序后仍会对**当前页**做一次客户端排序；服务端的 NULL 末尾契约在「同一页同时含 NULL / 非 NULL」时可能被组件库重排。接口与导出以服务端结果为准，页面仅作为展示（上游修复候选登记于评审记录）。
+**UI 已知边界**：caomei `DataTable` 未暴露 `manualSorting`，受控排序后仍会对**当前页**做一次客户端排序；服务端的 NULL 末尾契约在「同一页同时含 NULL / 非 NULL」时可能被组件库重排。接口与导出以服务端结果为准，页面仅作展示。
 
 **导出**：窗口导出（显式 `page` / `pageSize`）与全量导出均应用同一 `sortBy` / `sortOrder` / `from` / `to`；文件头写 `# 筛选：from=...` / `# 筛选：to=...`，与列表同源。
 

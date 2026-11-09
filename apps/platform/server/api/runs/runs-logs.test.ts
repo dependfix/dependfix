@@ -209,6 +209,8 @@ describe('GET /api/runs/logs-export（批量日志导出）', () => {
         ).promise as string
         expect(page1).toContain(`# Run ${runs[0]!.id}`)
         expect(page2).toContain(`# Run ${runs[1]!.id}`)
+        expect(page1).not.toContain(`# Run ${runs[1]!.id}`)
+        expect(page2).not.toContain(`# Run ${runs[0]!.id}`)
     })
 
     it('from > to → 400 RUNS_VALIDATION_FAILED', async () => {

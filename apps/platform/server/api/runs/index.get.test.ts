@@ -267,6 +267,21 @@ describe('GET /api/runs', () => {
 
         const desc = await call('GET', `/api/runs?ids=${ids}&sortBy=startedAt&sortOrder=desc`) as PaginatedRunsResponse
         expect(desc.items.map((r) => r.id)).toEqual([late.id, middle.id, early.id, noStart.id])
+
+        // 并列主键：同一 startedAt 时按 createdAt DESC、id DESC 稳定排序（不被方向翻转）
+        const tieOld = await seedRun(repositoryId, {
+            startedAt: new Date('2026-09-05T00:00:00Z'),
+            createdAt: new Date('2026-07-01T00:00:00Z'),
+        })
+        const tieNew = await seedRun(repositoryId, {
+            startedAt: new Date('2026-09-05T00:00:00Z'),
+            createdAt: new Date('2026-07-02T00:00:00Z'),
+        })
+        const tie = await call(
+            'GET',
+            `/api/runs?ids=${tieOld.id},${tieNew.id}&sortBy=startedAt&sortOrder=asc`,
+        ) as PaginatedRunsResponse
+        expect(tie.items.map((r) => r.id)).toEqual([tieNew.id, tieOld.id])
     })
 
     it('sorts by startedAt across pages (no overlap, page boundary ordered)', async () => {

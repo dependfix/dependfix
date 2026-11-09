@@ -46,6 +46,22 @@ interface PaginatedData<T> {
 
 **排序确定性（严格约束）**：列表查询（含分页 / 截断 `take(N)`）必须显式排序；主排序键可并列（同毫秒时间戳、同分组名）时追加唯一列（通常主键）`DESC` 作次键——行序不得依赖数据库返回顺序，否则同一查询两次可能不同（视觉基线与截断集合抖动）。次键只保证确定性，业务意图顺序仍由数据显式决定。本约束自 2026-10-30 起对**新增 / 修改**的列表查询生效，存量清单与推进逐处见 [backlog](../plan/backlog.md)。已挂 [review 检查点矩阵](../../.github/skills/code-reviewer/references/code-quality-checklist.md)。
 
+### 4.1 runs 列表排序与开始时间区间（`GET /api/runs` / `GET /api/runs/logs-export`）
+
+两个端点共用同一套参数与排序实现（`server/utils/runs-query.ts`），导出取数顺序必须与列表一致：
+
+| 参数 | 取值 | 语义 |
+|:--|:--|:--|
+| `sortBy` | `createdAt`（缺省）/ `startedAt` | 主排序键；缺省为既有 `createdAt DESC`（此时忽略 `sortOrder`），显式传入时按 `sortOrder` 排序 |
+| `sortOrder` | `asc` / `desc`（缺省 `desc`） | 主排序键方向 |
+| `from` / `to` | ISO 8601（必须带时区，如 `2026-09-01T00:00:00.000Z`） | `startedAt` 闭区间；`from > to` → 400；`startedAt` 为 NULL 的行在区间过滤时被排除 |
+
+**NULL 语义（跨库统一）**：`startedAt` 排序时 NULL 行固定排在末尾（与 asc / desc 无关），实现为 `CASE WHEN started_at IS NULL THEN 1 ELSE 0 END ASC`，避免 PostgreSQL（`DESC` 默认 NULLS FIRST）与 SQLite / MySQL 的差异；主键并列时按 `createdAt DESC, id DESC` 保证翻页稳定。
+
+**UI 已知边界**：caomei `DataTable` 未暴露 `manualSorting`，受控排序后仍会对**当前页**做一次客户端排序；服务端的 NULL 末尾契约在「同一页同时含 NULL / 非 NULL」时可能被组件库重排。接口与导出以服务端结果为准，页面仅作为展示（上游修复候选登记于评审记录）。
+
+**导出**：窗口导出（显式 `page` / `pageSize`）与全量导出均应用同一 `sortBy` / `sortOrder` / `from` / `to`；文件头写 `# 筛选：from=...` / `# 筛选：to=...`，与列表同源。
+
 ## 5. 认证
 
 - 使用 better-auth 作为认证框架

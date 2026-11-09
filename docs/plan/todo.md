@@ -82,6 +82,7 @@
   5. `apps/platform` e2e（scans + sortable）全绿；视觉基线如受影响同批重建。
 - **不做什么**：不改 `/api/runs` 既有返回结构（保持 `{items,total,page,pageSize}`）；不改「按仓库」tab 的「最近状态」筛选语义；不做多列排序；不动 `repo-history-dialog` / 运行详情 dialog 的取数。
 - **依赖**：与候选「列表页筛选 / 分页能力的共享抽取」的关系——本阶段**不抽** composable，避免范围膨胀；该候选保持待评估（触发条件不变）。**设计稿**：`/api/runs` 查询契约变更，需在 [api.md §4](../standards/api.md) 或独立 governance 小节登记排序 / 区间参数与 NULL 语义后再实现。
+- **执行记录（2026-11-09）**：`runs-query.ts` 新增 `from` / `to`（ISO 8601 + 时区，闭区间、`from > to` → 400）与 `runsSortShape`（`createdAt` / `startedAt`；缺省 `createdAt DESC`，显式 `createdAt` 也支持 asc/desc）；`applyRunsWhere` / `applyRunsOrder` 由列表与导出共用，`startedAt` 排序 NULL 固定末尾（跨 SQLite / MySQL / PostgreSQL 同口径，计算列 `addSelect` 后按别名排序），并列按 `createdAt DESC, id DESC` 稳定翻页。列表 / 导出均走 QueryBuilder，导出文件头追加 `# 筛选：from/to`。前端 `scans.vue` 增加区间选择（`CaomeiDatePicker` + 时间）、受控服务端排序、非法区间本地提示、翻页 / 筛选保留参数、清除复位；排序三态清除回默认序。`scans.vue` 行数增长明确接受 `max-lines` warning 并在此登记（平台告警预算内）。api.md §4.1 登记排序 / 区间 / NULL 语义，并记录「DataTable 未暴露 manualSorting，当前页二次排序」的 UI 已知边界。实际 12 文件 / +451 −60（含 1 张视觉基线）/ 3 commits（后端 / 前端 / 文档）。
 - **交付物**：3-4 commits / 9-10 文件 / 500-800 行。
 - **风险与缓解**：`startedAt` 无索引（`BaseEntity` 仅 `createdAt` / `updatedAt`）→ 全表扫描 + 排序，当前 500 运行规模可接受；写明升索引触发阈值（运行数 > 5,000 或查询 > 1s）。缺省序保持不变（避免历史 NULL 行位置突变）。`scans.vue` 继续增长 → 同批抽筛选区子组件，或明确接受 `max-lines` warning 并在条目内登记。
 

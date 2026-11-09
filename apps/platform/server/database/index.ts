@@ -9,6 +9,7 @@ import pg from 'pg'
 import { SnakeCaseNamingStrategy } from './naming-strategy'
 import { resolveDatabaseType, type DatabaseType } from './type'
 import { isEmptySqliteDatabase } from './schema-guard'
+import { detectSchemaDrift, setSchemaStatus, type SchemaDrift } from './schema-drift'
 import { CreateInitialSchema1600000000000 } from './migrations/1600000000000-CreateInitialSchema'
 import { CreateAuditEventTable1700000000000 } from './migrations/1700000000000-CreateAuditEventTable'
 import { AddScanResultIdentifiers1750000000000 } from './migrations/1750000000000-AddScanResultIdentifiers'
@@ -264,6 +265,61 @@ const warnIfSchemaMissing = async (ds: DataSource): Promise<void> => {
     }
 }
 
+/** 漂移日志单类最多列出的条目数（完整结果由 `/api/health` 的状态与 `db:migrate:show` 提供） */
+const MAX_DRIFT_LOG_ITEMS = 5
+
+/**
+ * 启动期 schema 漂移检测（只读，fail-open）。
+ *
+ * 触发场景：存量库在 `DATABASE_MIGRATIONS_RUN=false` 下升级镜像，pending migration 不执行，
+ * 首次查询缺列表即 500（2026-11-09 生产事故）。检测把「逐请求失败」提前为启动期 ERROR +
+ * `/api/health` 的 `schema` 状态，便于部署后一条命令确认。
+ *
+ * 跳过条件（避免误报与重复成本）：
+ * - `synchronize=true`：TypeORM 初始化时自行补齐 schema，检测无意义；
+ * - 队列 worker 进程：不执行迁移且启动早于 HTTP 主进程，此刻缺列属预期（口径同空库告警）；
+ * - SQLite 空库：由 `warnIfSchemaMissing` 单独给出「空库 + 未开迁移」告警，避免同一启动打两条 ERROR。
+ *
+ * 检测本身失败只告警不阻断启动（状态记 `unknown`）。
+ */
+export const checkSchemaDrift = async (ds: DataSource): Promise<SchemaDrift | null> => {
+    if (ds.options.synchronize || isQueueWorkerProcess()) {
+        return null
+    }
+    try {
+        if (ds.options.type === 'better-sqlite3' && await isEmptySqliteDatabase(ds)) {
+            return null
+        }
+        const drift = await detectSchemaDrift(ds)
+        setSchemaStatus(drift.hasDrift ? 'drift' : 'ok')
+        if (!drift.hasDrift) {
+            return drift
+        }
+        const tables = drift.missingTables.slice(0, MAX_DRIFT_LOG_ITEMS)
+        const columns = drift.missingColumns
+            .slice(0, MAX_DRIFT_LOG_ITEMS)
+            .map((item) => `${item.table}.${item.column}`)
+        const ellipsis = (shown: number, total: number) => (total > shown ? ' …等' : '')
+        const tableSummary = tables.length
+            ? `（表：${tables.join(', ')}${ellipsis(tables.length, drift.missingTables.length)}）`
+            : ''
+        const columnSummary = columns.length
+            ? `（列：${columns.join(', ')}${ellipsis(columns.length, drift.missingColumns.length)}）`
+            : ''
+        console.error([
+            `[database] schema 漂移：缺 ${drift.missingTables.length} 张表 / ${drift.missingColumns.length} 列`,
+            tableSummary,
+            columnSummary,
+            '；请执行 pending migration（DATABASE_MIGRATIONS_RUN=true 或 docker/init-db.sh / pnpm db:migrate）后重启',
+        ].join(''))
+        return drift
+    } catch (error) {
+        setSchemaStatus('unknown')
+        console.warn('[database] schema 漂移检测失败（非致命）:', error)
+        return null
+    }
+}
+
 export const ensureDatabaseInitialized = async (): Promise<DataSource> => {
     // 启动期备份（once 保护；详见 docs/standards/development.md §5.1.18）
     // 注：ensureDatabaseInitialized 是 hot path，每次调用都会执行；备份仅在首次调用时执行一次
@@ -289,6 +345,7 @@ export const ensureDatabaseInitialized = async (): Promise<DataSource> => {
             // PRAGMA 应用必须在 initialize 之后（连接已建立）
             if (ds.isInitialized) {
                 await applySqlitePragmas(ds)
+                await checkSchemaDrift(ds)
                 await warnIfSchemaMissing(ds)
             }
         } catch (error) {

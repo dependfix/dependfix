@@ -242,7 +242,7 @@
 **部署产物版本戳**：
 
 - 链路为 CI `--build-arg BUILD_COMMIT/BUILD_VERSION` → Dockerfile `ARG` → `ENV NUXT_BUILD_COMMIT/NUXT_BUILD_VERSION` → Nuxt 以 `NUXT_` 前缀运行时覆盖 `runtimeConfig`（未注入缺省 `unknown`，不阻断启动）。
-- **暴露面**：`GET /api/health`（**公开只读，无鉴权**）返回 `{ version, commit, startedAt }`，启动日志输出 `[build] version=… commit=… startedAt=…`；用途是消除「代码已修复但线上仍复现」的陈旧产物误判。
+- **暴露面**：`GET /api/health`（**公开只读，无鉴权**）返回 `{ version, commit, startedAt, schema }`（`schema` 为启动期漂移检测状态枚举，口径与字段边界见 [platform.md §3.3 / §10.7](../../standards/platform.md)），启动日志输出 `[build] version=… commit=… startedAt=…`；用途是消除「代码已修复但线上仍复现」的陈旧产物误判与「库未迁移」误判。
 - **CI 接线**：`docker.yml` 三个构建步骤均传 `--build-arg`；镜像冒烟额外断言 `/api/health` 200 + JSON 字段与启动版本戳行；env 命名用 `NUXT_BUILD_*`（对齐 Nuxt 运行时覆盖通道，避免 esbuild define 折叠，与 [platform.md §3.6](../../standards/platform.md#_3-数据库规范-多后端兼容-时区) 同源原则）。
 - **运行级回执**：同一值经 `server/utils/run-build-info.ts` 写入每次 run 的 `scan_run.build_version` / `build_commit` 并透传 `RuntimeConfig.buildVersion/buildCommit`；引擎日志 `[build] dependfix version=… commit=… source=host|engine-package` 的口径与边界见 §5.11。
 

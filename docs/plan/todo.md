@@ -115,6 +115,7 @@
   4. 正常路径仍每变更单元一个 checkpoint，既有用例全绿。
 - **不做什么**：不重写 `git stash create` 为其它存储机制；不改回滚粒度本身的单元定义；不把降级写成失败（不改变 exit code 语义，除明确中止档）。
 - **依赖**：M51.5 的 checkpoint 异步化与取消期语义（未启动静默 / 已启动留痕）。
+- **执行记录（2026-11-09）**：`verification-checkpoint.ts` 新增文本快路径 `classifyCheckpointFailure` + 结构化探测 `probeWorktreeHealth`（git dir 的 `index.lock` 与写探针 errno；索引锁 / 权限失败时 `git stash create` 实测静默退出 1，纯文本判不出）+ `resolveCheckpointFailure` / `classifyProbeError`；新鲜索引锁（< 5s，可能为并发短锁）先重试一次。失败统一记 `ROLLBACK_GRANULARITY_DEGRADED`（stderr 尾部 + `git status --porcelain`（保留行首空格、保留开头）+ `git rev-parse HEAD`，异常路径 stderr 可为空），abort 档再 `requestAbort` + `recordRunAbort`（`ABORTED` 计入退出码，交付闸门据此不提交 / 不建 PR）；`RepoFixCtx.checkpointFailures` 以 `仓库:分类` 做 run 级去重。选择性回滚的「后续失败」判定改用实质性错误数（排除审计类降级条目），整仓回滚截断审计时保留该条。新增两个测试文件（分类表 / 同仓与跨仓去重；真实 git 索引锁 → 探测中止、审计类降级不误伤选择性回滚）；正常路径用例零改动。实际 8 文件 / +553 −11 / 计划 2 commits（引擎 / 文档）；文件数超「4-6」预算的原因是真实 git 形态与 mock 分类表必须分文件（前者不能 mock `runGit`）。
 - **交付物**：2-3 commits / 4-6 文件 / 200-350 行。
 - **风险与缓解**：分类误判导致中止过多 → 默认「降级继续」，仅索引损坏 / 权限 / 磁盘明确中止；中止档需在 PR 与报告中给出可操作提示。
 

@@ -207,6 +207,7 @@
 - **基线完整链**：修复前基线采样不再首失败即停，`install → lint → build → typecheck → test` 各段独立记录；`pnpm test` 的 `No tests found` 与工具链缺失按「同命令基线失败」豁免，不归因本次改动。修复后验证仍首失败即停（交付链语义不变）。
 - **单元回滚**：默认 `rollbackGranularity=unit`。依赖修复单元开始前记录工作树 checkpoint，成功时保留为可回退基线；最终验证存在本次引入失败时，回退最近单元并重跑一次完整验证，通过则保留更早 probe 并交付。重验仍失败时记 `ROLLBACK_GRANULARITY_DEGRADED`（跳过类审计，不影响 exit code），再由门禁执行整仓回滚。
 - **逃生开关**：`--rollback-granularity=repo` / `DEPENDFIX_ROLLBACK_GRANULARITY=repo` 恢复整仓回滚；`preExistingDirty` 保护面不变。
+- **checkpoint 建立失败（2026-11-09）**：`git stash create` 失败不再仅 warn——分类走「诊断文本 + 结构化探测」双通道：索引锁 / 权限（含只读挂载） / 磁盘 → 记 `ROLLBACK_GRANULARITY_DEGRADED`（含 stderr 尾部 + `git status --porcelain` + `git rev-parse HEAD` 证据快照）并 `ABORTED` 中止运行（计入退出码）——abort 后不再启动新的修复单元 / 仓库，且不提交 / 不建 PR；**不自动回滚**——工作区保留已落盘改动（当前单元的写入可能已开始；平台清理运行目录，CLI / 本地运行需人工处理）；其余（含无诊断文本）→ 仅记降级审计后退回整仓回滚继续交付。结构化探测不可省略：索引锁 / 权限失败时 `git stash create` 实测静默退出 1（stdout / stderr 均空），只读文本判不出原因；新鲜索引锁（< 5s，可能为并发 git 短锁）先重试一次再判定。同一仓库**同一失败分类**只记一条降级审计（逐单元重试不刷屏；`unknown` 会把细节不同的失败合并），日志逐次留痕。非 git 工作区与「工作区干净」不属失败态：前者静默跳过 checkpoint，后者以 HEAD 为基线。
 - **映射**：`ROLLBACK_GRANULARITY_DEGRADED` → `verify` + `deterministic`（审计性降级，非失败动作；用于解释「为何回退粒度退回整仓」）。
 
 ### 5.10 执行资源与 OOM 归因（M46.4）

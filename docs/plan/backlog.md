@@ -54,34 +54,20 @@
 
 ### 候选评估中（待评估 / 本阶段延后项）
 
-> **候选池概览（2026-11-08 机械复算）**：本区 **50 项**（`### 候选评估中` 段内 `^- \*\*` 逐行计数；M56 规划上收 6 项 + 移除已失效 1 项后读数）；P 标签覆盖不全（未标注者评估时补 P 标签，不默认升级）；本文件不维护分档统计，1.0 分档只见 [release-1.0-readiness.md](../design/governance/release-1.0-readiness.md)。
+> **候选池概览（2026-11-09 M57 规划复算）**：本区 **44 项**（`### 候选评估中` 段内 `^- \*\*` 逐行计数；M57 上收 7 项（6 项自本区 + 1 项自「待上收候选」→ M57.2）；本区「周回归 registry 假绿」与「回归窗口插入点」同题合并为 M57.3（独立验收点保留）。P 标签覆盖不全（未标注者评估时补 P 标签，不默认升级）；本文件不维护分档统计，1.0 分档只见 [release-1.0-readiness.md](../design/governance/release-1.0-readiness.md)。
 > **1.0 门槛与分档**：P0 23 / P1 8 / 1.0 后 15 的分档、门槛判定与批次计划见 [release-1.0-readiness.md](../design/governance/release-1.0-readiness.md)。
 
 - **备份 `.tmp` 清扫缺年龄门槛（P3 🛠️，2026-10-31 M53.2 收口登记）** —— `cleanupOldBackups` 对 `*.bak.tmp` 无条件回收；单实例串行路径不可达冲突，但并发 `db:restore` 或多实例共卷启动时可能删掉对端正在写的临时文件（rename ENOENT → 该轮快照丢失，fail-open 后仅剩日志）。待评估：加入 `mtime < now - 10min` 年龄门槛或按 PID 命名临时文件。触发：启用多实例 / 多容器共享数据卷，或出现并发恢复需求时。
 - **`check:release-security` 输出缺少采集时点（P3 🛠️，2026-11-03 预发布检查发现；2026-11-08 复核）** —— 告警汇总行与 PASS / FAIL 行都不带采集时间，落盘为发布证据时无法自证时点（只能靠文件 mtime 推断）；脚本当前无 `--json` 模式。**范围**：输出首行加 ISO 时间戳。**验收**：输出含采集时点，单测锁定。**不做**：不改告警判定与 fail-closed 语义、不新增 `--json`。**触发条件**：下次改动该脚本，或再次需要以该输出作为发布证据。
-- **发布后镜像运行时冒烟（P2 🚀 / 🧪，2026-11-01 登记；2026-11-08 合并「arm64 未冒烟」）** —— 已落地：双架构 manifest 回读门禁（`docker.yml` merge 后 `imagetools inspect` 断言 amd64 + arm64）、`push.paths` 过滤、1.0.0 health 人工复核。残余：① 发布后自动 smoke（release 后置步骤用 `read:packages` token 拉 `platform-x.y.z` 跑 `/api/health`，失败告警不阻断）；② 历史 tag 巡检；③ arm64 运行时冒烟——现有冒烟仅 amd64，回读只证存在不证可启动，待评估 arm 矩阵跑同一脚本。触发：下一次发布前。
 - **镜像构建冗余（P2 🚀，2026-11-07）** —— ① 每架构对三 registry 各构建一次（digest 相同，冷缓存最慢 41m32s）；② 发布提交被 push 与派发各构建一次。待评估：单次多 name 推送 / 复用 digest / push 腿跳过 release 提交。
 - **PR 回环有界重试（P2 🚀，2026-10-30 M51.3 用户裁定延后）** —— 设计稿 `pr-feedback-loop.md` §8 保留 `FeedbackRetryDispatcher` 契约（同 PR 失败后重新触发既有修复链，需配额与触发面）；平台当前无「同 PR 重试」入口，`retryFailed` 开启时每仓库每进程只 warn 一次。待评估：补触发面（API / UI）+ 配额后再实施。触发：出现「PR 红后无人处理、需自动重试」的实际需求时。
 - **门户面板左缘亚像素抖动（P2 🧪，2026-10-31 M52.4 收口登记）** —— `dialog-select-open-dark` 基线在连续 `--update-snapshots=all` 下约 1/10 轮出现 99 px / maxΔ2 的边缘窄带差异（bbox x 476-483 × y 303-723，位于门户面板左缘），低于门禁（`maxDiffPixels` 100 / `threshold` 0.1 → maxDelta 352）但仅剩 1 px 预算。已排除「update 落帧不稳定」这一主因（`waitForVisualStable` 已加两帧一致检查，全量集合 3/3 恒定）。待评估：定位面板定位的亚像素来源（门户定位取整 / 滚动条宽度），或对该基线改用元素级取景。触发：该基线偶发红，或差异放大到接近 / 超过 100 px。
-- **列表查询缺并列次键（P2 🛠️，2026-10-30 同 pattern 扫描）** —— alerts 原始列表已补 `result.id DESC` 次键（M51.6）；同一 pattern 已确认 6 处：`api/runs/index.get.ts`（分页 `skip/take` + 仅 `createdAt DESC`，翻页可能重复 / 丢失）、`api/runs/[id].get.ts`（`order: { severity }`，扫描详情弹窗有视觉基线）、`api/audit-events/index.get.ts`（`createdAt DESC` + `take(500)`）、`api/pr-checks/index.get.ts`、`api/notifications/index.get.ts`、`api/batch-runs/index.get.ts`（`createdAt DESC` + `take(50)`）；`repos` / `schedules` / `credentials` 等其余列表待逐处评估。影响：主排序键并列时行序取决于数据库返回顺序，同一查询两次可能不同（视觉基线 / 截断集合抖动，当前未暴露属潜伏）。待评估：统一口径「列表查询必须显式次键（唯一列 DESC）」并逐处补齐。触发：任一列表页出现视觉抖动或分页重复 / 丢失时。
-- **平台 typecheck 未覆盖 `.nuxt/tsconfig.node.json`（P2 🛠️，2026-10-30 审计发现）** —— `pnpm --filter @dependfix/platform typecheck`（`nuxt typecheck`）静默 exit 0，未覆盖 `.nuxt/tsconfig.json` 引用的 node 项目；实测该路径下 `nuxt.config.ts` 有 2 个既有类型错误（icon `rel` 联合不含 `'alternate icon'`、i18n `locales` readonly 不兼容），另有 `.nuxt/tsconfig.node.json` 自身的 `emitDecoratorMetadata` / `experimentalDecorators` 组合告警。影响：`nuxt.config.ts` 一类配置错误长期不在门禁内。待评估：修掉 2 个错误后把该 project 纳入 typecheck 脚本（`vue-tsc -p .nuxt/tsconfig.json`）。触发：下次修改 `nuxt.config.ts` 或平台门禁治理批次。
 - **验证跳过的交付可观测性（残余：`deliverySkips` 家族登记；P3 🎨，2026-11-09 更新）** —— 报告 `Verification Skipped` 段 + Summary 行、平台运行详情「验证跳过」与按原因 tooltip 已落地（`budget` / `no-write` 可区分），「修了 N 条、交付 0 条」可从报告与详情直接判读。残余：是否需要在 `deliverySkips` 家族里登记该跳过原因（当前独立 `verificationSkippedByReason`）。触发：出现「跳过原因需在交付载体（issue / 草稿 PR）中体现」的反馈时。
 - **平台侧交付载体（issue / 草稿 PR，P2 🎨）** —— 引擎 `fix-and-pr` 已按基线红档位产出载体（issue / 草稿 PR），平台执行链（`fix + commit` + `platform-delivery`）目前只记录 `summary.deliverySkipped*` 并在运行列表 / 详情展示；待评估：平台在交付决策处复用同一失败指纹开 issue / 创建草稿 PR，并补仓库级配置写入面（当前仅 env `DEPENDFIX_ON_BASELINE_RED`，UI / API 不暴露）。触发：平台用户反馈「基线红只有标签、没有可跟踪载体」时。口径见 [pr-delivery-closure.md §16.7](../design/governance/pr-delivery-closure.md#_16-7-已知边界)。
 - **镜像脚本只覆盖根 scripts 单一形态**（M48.2 边界）—— `pnpm --filter` / 递归 / env 前缀 / corepack 钉定只披露不执行；触发：目标仓库 CI 大量使用这些形态导致「本地假绿」再现。
 - **白名单内运行前未提交改动的归属**（M48.4 边界）—— 白名单内文件（典型 `package.json`）若在运行前已有用户改动，会与本次修复一并提交；触发：出现「PR 混入无关改动」的用户反馈时评估。
 - **`dependfix-remediator` REFERENCES 的 MCP 状态与入参映射过期（M49.4 边界；2026-11-08 复核）** —— `@dependfix/mcp` 已发布 1.0.0，但 `skills/` 与 `packages/skills/` 两份同文 `REFERENCES.md` 仍写「当前 MCP Server 未发布」；4 tool 能力映射表入参名已过期（文档 `owner` / `severityThreshold` / `includeCodeScanning`、`repo` / `createPr`、`dryRun` / `repo` ↔ 实际 `repo` / `severity` / `code_scanning`、`workDir` / `packageName` / `fix_type`、`dry_run` / 空 schema）；另有 4 个已注册 tool（`discover_repos` / `cleanup_branches` / `history` / `pnpm_audit`）完全未出现在 REFERENCES 中（原 4 tool 子集为刻意保留的最小集，扩面需决策）。触发：F2 技能文档批次，或下次修改 MCP schema 时。
-- **沙箱执行器复用：自包含入口 + report-only 真实执行 + 入口恢复（P1 🛡️，2026-11-09 用户裁定「复用」）** —— 用户 2026-11-09 决策：复用 `SandboxExecutor`，不弃用。**现状**：`buildCmd` 仍 `echo` 最小 `RunResult`（0 告警假成功）；runtime 镜像仅 `.output`（无 workspace CLI，`git` + `pnpm` 在）；CLI `tsdown` 未内联依赖、`@dependfix/skills` 走 `require.resolve` 读静态目录；CLI 无显式结果契约（归档 `summary.json` 是报告副产物，报告写入失败不阻断运行，不能作为执行结果来源）；入口三处硬闸（`schemas/repository.ts` / `scan-orchestrator.service.ts:373-381` / `repo-form-dialog.vue:91-95`）；compose 无 `sandbox-daemon`；无 sandbox 真实执行 e2e（仅入口禁用 / 迁移 e2e）。
-  - **目标**：sandbox 在独立 rootless 容器内真跑引擎，结果契约与 `ContainerExecutor` 同构；**先只放行 `report-only`**，fix / fix-and-pr 在出站白名单代理接入 sandbox 执行路径前继续降级。
-  - **范围**：① 自包含入口——`packages/cli` 增 sandbox 打包目标（`noExternal` 内联 + 复制 skills 静态目录）+ `DEPENDFIX_SKILLS_DIR` 覆盖 + `Dockerfile` 复制到 `/app/sandbox/`；② 真实执行——CLI 增 `--result-json`（显式 `{exitCode, result}`，不复用 `summary.json`），`buildCmd` 改 clone → 运行 CLI → 读结果，`parseRunResult` 契约不变；③ 入口恢复——移除编排 / schema / UI 三处闸、i18n、`quick-start.md` 入口状态段与前置条件段、`deployment.md` 已知限制段、可选 `sandbox-daemon` compose、gated e2e（`SANDBOX_E2E=true`，与 container 结果对照）；编排层新增守卫：`executorKind=sandbox` 且模式非 `report-only` 时降级 container 并记 `sandbox_fix_requires_egress_policy`（T1002 代理已闭环但未接入 `buildSpec`，非 report-only 仍 `bridge`）。
-  - **验收标准**：① 无 workspace node_modules 时 `node /app/sandbox/bin.mjs --version` 与平台一致、skills doctor 通过；② report-only 返回真实 `RunResult`（fixture 告警数与 container 一致）；③ API / UI 恢复且无 `sandbox_entry_disabled`；④ 降级矩阵不回归：daemon 不可用 → degraded；运行期 errno → failed；fix 模式 → degraded + `sandbox_fix_requires_egress_policy`；⑤ 安全基线逐项核验（非 root 100:100 / 不挂 docker.sock / 网络 / cgroup / 超时）+ 威胁建模评审（[security.md §5.3](../standards/security.md)）；⑥ gated e2e 有 docker 时通过、无 docker 时跳过可见。
-  - **不做什么**：不把 T1002 代理接入 sandbox 执行路径（另条候选）；不做 K8s / Helm；不自动安装 daemon；不改 container / action 路径；不为单可信仓库默认启用。
-  - **依赖**：外部 rootless daemon（quick-start 已有步骤）；`SANDBOX_RUNTIME` / `SANDBOX_IMAGE` 既有；T1002 代理接入是 fix 模式放行的前置。
-  - **交付物**：预估 6-9 commits / 14-20 文件 / 900-1400 行。
-  - **风险与缓解**：打包踩动态 `require` / 可选依赖 / `--version` 读 `package.json` → 冒烟三连（版本 / skills / 一次 report-only）；镜像体积 → 用 bundle 不用 `pnpm deploy`；fix 模式无出站白名单 → 只放 report-only 并留 `sandbox_fix_requires_egress_policy`；e2e 依赖 daemon → gated + 本地证据；版本漂移 → 同 commit 构建，不用全局 npm 安装。
-  - **触发条件**：用户要求恢复 sandbox 入口，或不可信仓库需要独立容器隔离时（2026-11-09 已裁定复用，等待排期）。
 - **`pnpm_audit` 的 token-free 回退意图与实现不一致（P2 🛡️）**—— `pnpm-audit.tool.ts` 注释与产品意图是「无 GitHub token 或 403 场景」的本地回退，但实现保留 `requireToken()`，缺失 `GITHUB_TOKEN` 时直接返回 `ok:false`；当前 README / tool description 已按实际行为修正。待评估：移除 `requireToken()`（或改为可选 token），补无 token 用例，恢复真正回退。触发：无 token 环境需要 pnpm-audit 回退时。
-- **周回归审计在 registry 故障时假绿（M49.3 边界，P2 🛡️）**—— 阻断命令按 AC1 在 registry 故障时 exit 0；`security:audit-deps` 在周回归仅按 exit code 判过，若 registry 故障且日志无审计结果行，run 会 success 但未实际审计。当前 §5.6 / 检查点已要求「证据 run 须含审计结果行」；待评估：为 `security:audit-deps` 增加输出断言（无结果行则非零）或落盘校验。触发：出现 registry 故障窗口或周回归连续 success 但日志无审计结果时。
-- **回归窗口 new-entry 插入点嵌套进上一条受管块（P2 🛡️，2026-10-27 审计发现）**—— `upsertRegressionWindowContent` 以第一条 `## YYYY-MM-DD` 标题为插入点，但该标题被上一条 `<!-- regression-window:start:id -->` 包裹；本地累积 / 重跑最旧 id 时新块嵌套进旧块标记区间（a→b→a 三次 upsert 后仅剩 1 块）。CI 每次全新 checkout 仅写 1 条不受影响；历史 `docs/reports/regression/current.md` 已呈嵌套（`0b0ff93b` 前）。待修复：锚点改为第一条记录 start 标记之前（无标记回退 `##`），补「不同 id 顺序 upsert 生成同级块 + 最旧 id 重跑不丢后续块」单测。触发：本地连续回归或修复窗口结构时。
 
 - **运行面漏洞检测：镜像基底 / 运行时二进制 / OS 包（待研究）** —— 背景（2026-10-22）：Node 24.18.1 基础镜像在 2026 年 10 月 21 日安全公告（CVE-2026-111497 Brotli 越界写、105483 / 106069 TLS 主机名校验绕过等）后仍只能靠**外部人工巡检**发现——Dependabot 未配置 docker 生态、基底此前为 digest 裸写（本轮已改为 tag + digest，但仍为手工钉定、无漂移与漏洞追踪）、`pnpm audit` 只覆盖 npm 依赖、GitHub 侧告警源为 Dependabot / Code Scanning / Code Quality findings（最后一类为代码静态分析），本地回退仅 `pnpm-audit`（同属 npm 依赖）；运行面与 OS 包无任何告警源。本批新增的 `check-node-version.mjs` 是**静态下限闸门**：只有人工抬升基线后才会拦截，**不能发现基线之后新披露的 CVE**。
   - **待研究问题**：① dependfix 自身的运行面（Docker 基底 / Node 二进制 / apk 包 / CI 运行时）能否自动检测并按严重级别分级？② 同一能力能否产品化，成为 dependfix 对**被管理仓库**的新告警源——扫描目标仓 Dockerfile / `.nvmrc` / `engines.node` 与已知运行时漏洞比对，复用现有验证链与 PR 创建提修复 PR？
@@ -233,11 +219,6 @@
   - **本批已闭环的部分**：决策点「是否在 `docs/standards/git.md §3.8` 扩展 hooks 隔离子节」已于 2026-10-13 M43.5 落地——§3.8 改为「签名 + hooks，commit / push 双向隔离」单表 + 4 常量清单 + push 侧 `--no-verify` 口径；`code-quality-checklist` 对应矩阵行同步扩展。
   - **待评估点**：是否将 `packages/engine/src/github/git-signing.ts` 更名为 `git-isolation.ts` 并同步 `github/index.ts` re-export（公开 API）、平台侧 import、测试与 `git.md §3.8` 的路径引用。**未纳入 M43.5** 的理由：触及公开 API re-export 与平台侧多处 import，宜单独批次以保持改动面可控。
   - **触发条件**：下次改动该模块 / 公开 API 面时；或治理批次收敛模块命名时。
-  - **按 [规划规范 §3.1](../standards/planning.md#_3-1-新需求默认走-评估-→-backlog-原则-hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
-
-- **孤儿清理终态被迟到 worker 覆盖（待评估）**（P2 🛡️ 技术债）—— 现象：清理侧以「条件更新（WHERE status IN pending/running）」把 run 置 `failed` 后，仍在执行的 worker 若随后完成，`runScanInternal` 的最终 `save` 会整行写回，可能把终态覆盖为 `completed` / `failed`；当前以 active 锁过期 + job remove 降低概率，未根治。**关联**：[队列僵尸任务终结与去重键释放设计 §9](../design/governance/queue-stale-recovery.md#_9-边界与残余风险)。
-  - **待评估点**：① 编排层最终写库改为条件更新（仅当库中仍为 `pending` / `running`）；② 或在 `save` 前重读状态并短路；③ 与 `reuse` / `force-fail` 路径的兼容（复用路径需要重置终态字段，不能简单短路）。
-  - **触发条件**：再次出现清理后终态被覆盖的实例；或下一次队列可靠性批次。
   - **按 [规划规范 §3.1](../standards/planning.md#_3-1-新需求默认走-评估-→-backlog-原则-hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
 
 - **批次级「继续执行未完成项」入口（待评估）**（P2 🎨 用户体验）—— 背景：2026-10-18 用户报告宿主机重启导致批量任务中断，明确希望「至少给用户一个选项：直接结束还是继续执行」；同批已落地 P0（僵尸任务终结 + 去重键释放 + 触发自愈 + worker 慢重试），用户裁定本入口作为后续批次，形态选**批次级继续执行**（否决「新状态 + 启动弹窗」与「仅保留单条重试」）。
@@ -404,9 +385,9 @@
 
 | 内容类型 | 位置 |
 |:--|:--|
-| 当前阶段活跃任务 | **无**（M56 已于 2026-11-09 归档；下一阶段按 [planning.md §3.1](../standards/planning.md#_3-1-新需求默认走-评估-→-backlog-原则-hard-requirement) 从本文件候选池评估）；插队容量治理见 [planning.md §3.1.1](../standards/planning.md) |
+| 当前阶段活跃任务 | **M57**（执行面可信与发布验证收口，2026-11-09 规划，见 [todo.md](todo.md)）；插队容量治理见 [planning.md §3.1.1](../standards/planning.md) |
 | 下一阶段（未规划） | 按 [规划规范 §3.1](../standards/planning.md#_3-1-新需求默认走-评估-→-backlog-原则-hard-requirement) 从候选池评估 |
 | 已完成阶段归档 | [todo-archive.md](todo-archive.md)（阶段索引 + [archive/](archive/) 分片） |
-| 里程碑与阶段交付 | [roadmap.md](roadmap.md)（M0-M56 已归档；无活跃阶段） |
+| 里程碑与阶段交付 | [roadmap.md](roadmap.md)（M0-M56 已归档；M57 进行中） |
 | 长期主线 / 候选 / 待人工验收 / 已知边界 | 本文档（按四象限结构） |
 | 历史归档索引 | [archive/index.md](archive/index.md) |

@@ -11,7 +11,7 @@
     "dev": "nuxt dev -o",
     "build": "nuxt build",
     "preview": "nuxt preview",
-    "typecheck": "nuxt typecheck",
+    "typecheck": "nuxt typecheck && vue-tsc --noEmit -p tsconfig.node.json",
     "lint": "cross-env NODE_ENV=production eslint . --fix --max-warnings 11",
     "lint:i18n": "cross-env NODE_ENV=production ESLINT_I18N=true eslint . --quiet",
     "lint:css": "stylelint \"**/*.{html,css,scss,sass,vue}\" --fix",

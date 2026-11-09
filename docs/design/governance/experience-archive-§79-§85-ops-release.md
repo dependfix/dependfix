@@ -1,6 +1,6 @@
-# 经验归档分片（§七十九 - §八十四）：运维实测与发布链沉淀
+# 经验归档分片（§七十九 - §八十五）：运维实测与发布链沉淀
 
-> 本分片为 [§70-§84 索引](./experience-archive-§70-§99-delivery-platform.md) 的第二片（原分片按 `^##` H2 边界拆分，章节编号与锚点不变）；正文只写结论与落点。
+> 本分片为 [§70-§85 索引](./experience-archive-§70-§99-delivery-platform.md) 的第二片（原分片按 `^##` H2 边界拆分，章节编号与锚点不变）；正文只写结论与落点。
 
 ## 七十九、M53.2 运维实测批次经验沉淀（惰性单例启动点 / WAL 备份 / 早退守卫）
 
@@ -138,3 +138,43 @@
 - **去重 / 跳过谓词要配反向用例**：改宽谓词（丢掉任一判定键）时正向用例仍全绿，行为从「重复记录」变成「静默丢记录」；为每个判定键补「另一实体同值仍各自记录」的反向例并用单键变异标定。
 - **lint-md 长表格会误配对行内代码**：一行同时含粗体 / 全角括号 / 多个行内代码时，`no-space-in-inline-code` 会把空格报在相邻正常代码段上，整文件 `--fix` 会静默丢空格；用「行拆分 + 前缀二分」定位最小触发片段再改写。
 - **落点**：[development.md §5.1.40 / §5.1.41 / §5.1.45 / §5.1.47](../../standards/development.md) + [testing.md §6.9](../../standards/testing.md) + [planning.md §2.5 / §3.1.1](../../standards/planning.md) + [documentation.md §2 / §6](../../standards/documentation.md) + [release-pipeline.md §4.3 / §6](release-pipeline.md) + [queue-stale-recovery.md](queue-stale-recovery.md) + 检查点矩阵（新增 7 行 + 扩展 1 行）。
+
+## 八十五、M56 归档批次经验沉淀（平台生命周期 / 三态跳过 / 静默失败探测 / QueryBuilder 排序 / e2e fixtures 幂等 / 分片追加）
+
+> **批次**：M56 1.0 后平台可信与运行成本收口（2026-11-09 归档）。以下 6 条按「现象 / 手法 / 落点」收敛。
+
+### 1. PR 生命周期写回用「读取时状态」做乐观锁
+
+- **现象**：存量 PR Check 行只有 `state: open` 采集通道，PR 关闭后仍按 firing 告警展示；若用整行 `save` 同步终态，会用 stale 行覆盖并发写入的 ack（`acknowledgedAt` 丢失）。
+- **手法**：新增生命周期列（open / closed / merged / unknown，迁移默认 unknown）；关闭态以 open 列表差集 + `pulls.get`（404 按 closed）补齐；终态同步用条件 UPDATE（`WHERE pr_state = 读取时值`）只写终态字段，读改写整行仅用于非终态路径；firing / acknowledged 统计均排除 closed / merged。
+- **落点**：[pr-build-deploy-signals.md §3.11](pr-build-deploy-signals.md) + [development.md §5.1.36](../../standards/development.md)（条件 UPDATE = 乐观锁）。
+
+### 2. 验证跳过的「原因」决定阻断语义
+
+- **现象**：把「未验证」与「验证失败」都折叠成 `verificationPassed` 布尔时，0 写入运行要么白付终验成本，要么被误判为通过；预算跳过与无写入跳过的交付影响也不同。
+- **手法**：跳过显式化（`verificationSkipped`）并与归因口径分流——`budget`（改动未验证）置 `verificationBlocking=true` 阻断整次交付；`no-write`（无改动可验证）置 `false`，不回滚、不记失败、不阻断同运行其他仓库。基线采样触发面按「可写工作」判定，跨 major 未授权只否决 lockfile 告警贡献（否则有写入却跳过基线 → 失败被误标既有失败）。
+- **落点**：[dependency-fixer-records.md §12.9](../modules/dependency-fixer-records.md) + [development.md §5.1.41](../../standards/development.md)（跳过 / 未验证不得折叠为通过）。
+
+### 3. 静默失败的判定必须结构化探测，不能只看 stderr
+
+- **现象**：`git stash create` 在索引锁 / 权限失败时**静默退出 1**（stdout / stderr 均空），只按文本分类永远判不出原因；继续在不可回滚的工作区写盘会把坏改动留在工作树。
+- **手法**：文本正则作快路径，未知时探测 git dir：`index.lock` 存在 → 索引锁（新鲜锁 < 5s 先重试一次，避免并发短锁误中止）；否则写探针文件读 errno（EACCES / EPERM / EROFS → 权限，ENOSPC / EDQUOT → 磁盘）。失败统一留证据（stderr 尾部 + 工作区状态 + HEAD），硬故障档中止运行且不自动回滚。
+- **落点**：[run-failure-taxonomy.md §5.9](run-failure-taxonomy.md) + [development.md §5.1.47](../../standards/development.md)（失败证据原文回退）。
+
+### 4. TypeORM QueryBuilder 的 `CASE WHEN` 必须 `addSelect` 别名后再排序
+
+- **现象**：`orderBy('CASE WHEN run.x IS NULL THEN 1 ELSE 0 END')` 会把 `CASE WHEN run` 当作实体别名，抛 `alias was not found`；NULL 固定末尾的跨库排序无法直接写进 `orderBy`。
+- **手法**：`addSelect(表达式, 'alias')` 后 `orderBy('alias')`；并列补唯一列次键（`createdAt DESC, id DESC`）保证翻页稳定；计数查询会自动清 order / select，不影响 `getCount`。
+- **落点**：本文件判例（development.md §5.1 规则表满 24 条，按「给不出触发面写判例」口径留此）。
+
+### 5. e2e fixtures 幂等 upsert 会返回旧行
+
+- **现象**：fixtures 端点按复合唯一索引 `(repositoryId, prNumber, headSha)` 查重复用、已存在不更新字段；用例复用同名 repo / 同号 PR 时，新增字段或新期望被静默忽略 → 「新字段缺失 / 展开无信号」的假失败。
+- **手法**：自包含用例先 `DELETE /api/e2e/fixtures` 清理同名 repo，或让每个用例使用唯一主键（时间戳 / 序号）；断言前先确认 fixture 写入结果包含本轮新增字段。e2e 跑 `.output` 产物，改源码后必须重建再跑。
+- **落点**：[testing.md §6.1](../../standards/testing.md)（E2E 幂等与构建产物）。
+
+### 6. 分片按实测范围命名后，追加条目要同批改名 / 计数 / 重指
+
+- **现象**：把规划上界命名的分片拆成实测范围命名后，往「最新片」追加新章节会让文件名范围立刻失真；原样追加会留下 `§79-§84` 的文件里装 §八十五。
+- **手法**：追加章节时同步重命名最新片（本次 `§79-§84` → `§79-§85`）、更新分片 H1 与维护约定的「最新片」指针、重指全部外链（索引表 / 镜像清单 / 归档分片）并复核计数（分片文件数 / 条目数）；拆分保真仍按非空行序列逐行比对。
+- **落点**：[planning.md §4.4 第 13 / 17 条](../../standards/planning.md) + [documentation.md §3](../../standards/documentation.md)（分片命名约定）。

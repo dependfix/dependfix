@@ -9,6 +9,7 @@
 
 | 阶段 | 主题 | 归档文件 | 归档日期 |
 |:--|:--|:--|:--|
+| M56 | 1.0 后平台可信与运行成本收口 | [M56](archive/todo-archive-phases-m56.md) | 2026-11-09 |
 | M55 | 1.0.x 修复有效性与执行边界收口 | [M55](archive/todo-archive-phases-m55.md) | 2026-11-08 |
 | M54 | 1.0.0 发布窗口决策与发布执行 | [M54](archive/todo-archive-phases-m54.md) | 2026-11-07 |
 | M53 | 发布工程（1.0-G 批次） | [M53](archive/todo-archive-phases-m53.md) | 2026-11-01 |

@@ -107,7 +107,7 @@
 | `docs/design/governance/experience-archive-§49-§69-recent-investigation.md` | 经验归档分片（中文判例语料，翻译无收益） |
 | `docs/design/governance/experience-archive-§70-§78-delivery-correctness.md` | 经验归档分片（中文判例语料，翻译无收益） |
 | `docs/design/governance/experience-archive-§70-§99-delivery-platform.md` | 经验归档分片索引（中文判例语料，翻译无收益） |
-| `docs/design/governance/experience-archive-§79-§84-ops-release.md` | 经验归档分片（中文判例语料，翻译无收益） |
+| `docs/design/governance/experience-archive-§79-§85-ops-release.md` | 经验归档分片（中文判例语料，翻译无收益） |
 | `docs/design/governance/experience-archive.md` | 经验归档分片（中文判例语料，翻译无收益） |
 | `docs/design/governance/github-action-workflow.md` | 未重译（结构映射口径见文档规范 §6；全量镜像属 1.0 后评估项） |
 | `docs/design/governance/gitignore-management.md` | 未重译（结构映射口径见文档规范 §6；全量镜像属 1.0 后评估项） |

@@ -437,6 +437,62 @@ test('case 9: /scans 展示交付跳过（列表 + 详情 + 载体计数）', as
 })
 
 /**
+ * 验证跳过：`summary.verificationsSkipped` > 0 时运行详情单列「验证跳过」与原因，
+ * 不得把「未验证」渲染成「验证通过」。
+ */
+test('case 10: /scans 运行详情展示验证跳过与原因', async ({ page }) => {
+    const stamp = Date.now()
+    const owner = `e2e-scans-verification-${stamp}`
+    const name = `app-${stamp}`
+    const created = await page.request.post('/api/e2e/fixtures', {
+        data: {
+            repos: [{ owner, name }],
+            scanRuns: [
+                {
+                    repositoryOwner: owner,
+                    repositoryName: name,
+                    status: 'completed',
+                    mode: 'fix',
+                    summary: {
+                        alertsFound: 2,
+                        alertsFixed: 0,
+                        alertsUnfixed: 2,
+                        verificationsSkipped: 2,
+                        verificationSkippedByReason: { 'no-write': 2 },
+                    },
+                    exitCode: 0,
+                },
+                {
+                    repositoryOwner: owner,
+                    repositoryName: name,
+                    status: 'completed',
+                    mode: 'fix',
+                    summary: { alertsFound: 1, alertsFixed: 0, alertsUnfixed: 1 },
+                    exitCode: 0,
+                },
+            ],
+        },
+    })
+    expect(created.status()).toBe(200)
+    const { scanRuns } = await created.json() as { scanRuns: { id: string }[] }
+
+    await page.goto(`/scans?run=${scanRuns[0]!.id}`)
+    await waitForHydration(page)
+    const dialog = page.locator('.caomei-dialog__content')
+    await expect(dialog).toBeVisible({ timeout: 15000 })
+    const outcome = dialog.locator('.repo-history__outcome')
+    await expect(outcome).toContainText('验证跳过 2 个仓库')
+    // 原因在正文内可见（不依赖悬停，触摸端 / 读屏同样可达）
+    await expect(outcome).toContainText('本次无写入: 2')
+
+    // 负向：summary 无验证跳过字段 → 不渲染该标签
+    await page.goto(`/scans?run=${scanRuns[1]!.id}`)
+    await waitForHydration(page)
+    await expect(dialog).toBeVisible({ timeout: 15000 })
+    await expect(dialog.locator('.repo-history__outcome')).not.toContainText('验证跳过')
+})
+
+/**
  * viewer 角色可见性：阶段扫描历史是只读数据，viewer 应可见（与 batch-runs 一致）；
  * 菜单项 + 页面均可访问。
  */

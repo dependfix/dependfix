@@ -19,6 +19,8 @@ import {
     environmentalFailureCount,
     isRunResultMissing,
     unfixedAlerts,
+    verificationSkipSummary,
+    verificationsSkipped,
 } from '~/utils/run-view'
 import { downloadFile } from '~/utils/download'
 
@@ -111,6 +113,8 @@ const page = computed(() => Math.floor(first.value / pageSize.value) + 1)
  * 列定义（caomei DataTable 用 `columns` 数组 + `#cell-{key}` 插槽）。
  * detail 表 value 由内联断言改为 computed `detailResults`（强类型）。
  */
+const verificationSkipSummaryText = computed(() => verificationSkipSummary(detail.value?.summary ?? null, t))
+
 const detailResults = computed<DetailResultRow[]>(() => (detail.value?.results ?? []) as DetailResultRow[])
 const detailColumns = computed<DataTableColumn<DetailResultRow>[]>(() => [
     { key: 'packageName', header: t('runs.colPackage') },
@@ -420,6 +424,17 @@ watch(() => route.query[props.queryKey], async (newVal) => {
                             </template>
                             <template v-if="deliverySkipDraftPrs(detail.summary ?? null) > 0">
                                 · {{ t('runs.deliverySkipDraftPrs', {count: deliverySkipDraftPrs(detail.summary ?? null)}) }}
+                            </template>
+                        </CaomeiTag>
+                    </span>
+                    <span
+                        v-if="verificationsSkipped(detail.summary ?? null) > 0"
+                        :title="t('runs.verificationsSkippedHint')"
+                    >
+                        <CaomeiTag tone="warning">
+                            {{ t('runs.verificationsSkipped', {count: verificationsSkipped(detail.summary ?? null)}) }}
+                            <template v-if="verificationSkipSummaryText">
+                                · {{ verificationSkipSummaryText }}
                             </template>
                         </CaomeiTag>
                     </span>

@@ -867,6 +867,13 @@
         "environmentalFailures": "环境性失败 {count}",
         "environmentalFailuresLabel": "环境性失败",
         "environmentalFailuresHint": "环境性失败（安装被信号杀死 / 超时 / 静默非零退出）不归因本次运行，仅在此提示可见",
+        "verificationsSkipped": "验证跳过 {count} 个仓库",
+        "verificationsSkippedLabel": "验证跳过",
+        "verificationsSkippedHint": "验证未执行（运行预算不足 / 本次无写入）；不计为失败，也不代表验证通过：预算跳过会阻断交付，本次无写入则无交付内容",
+        "verificationSkipReason": {
+            "budget": "运行预算不足",
+            "noWrite": "本次无写入"
+        },
         "deliverySkipped": "交付跳过 {count} 个仓库",
         "deliverySkippedLabel": "交付跳过",
         "deliverySkippedHint": "修复后安装验证仍为既有失败（本次改动前即为红），本次修复未交付（改动已回滚）；载体（issue / 草稿 PR）仅在引擎 fix-and-pr 路径按 DEPENDFIX_ON_BASELINE_RED 创建。exit code 不受影响",

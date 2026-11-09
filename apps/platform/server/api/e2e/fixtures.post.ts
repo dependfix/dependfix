@@ -107,6 +107,12 @@ const scanRunSchema = z.object({
         deliverySkipped: z.number().int().min(0).optional(),
         deliverySkipIssues: z.number().int().min(0).optional(),
         deliverySkipDraftPrs: z.number().int().min(0).optional(),
+        /** 验证跳过（预算不足 / 本次无写入）：受影响仓库数 + 按原因分组 */
+        verificationsSkipped: z.number().int().min(0).optional(),
+        verificationSkippedByReason: z.object({
+            budget: z.number().int().min(0).optional(),
+            'no-write': z.number().int().min(0).optional(),
+        }).optional(),
         /** 跳过总数与按原因分组（结果披露） */
         alertsSkipped: z.number().int().min(0).optional(),
         alertsSkippedByReason: z.object({

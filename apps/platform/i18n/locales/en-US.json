@@ -867,6 +867,13 @@
         "environmentalFailures": "{count} environmental failures",
         "environmentalFailuresLabel": "Environmental failures",
         "environmentalFailuresHint": "Environmental failures (killed by signal / timeout / silent non-zero exit) are not attributed to this run; shown for visibility",
+        "verificationsSkipped": "{count} repo(s) verification skipped",
+        "verificationsSkippedLabel": "Verification skipped",
+        "verificationsSkippedHint": "Verification did not run (budget exhausted / no writes in this run); not a failure and not a pass: budget skips block delivery, while no-write runs have nothing to deliver",
+        "verificationSkipReason": {
+            "budget": "Run budget exhausted",
+            "noWrite": "No writes in this run"
+        },
         "deliverySkipped": "{count} repo(s) delivery skipped",
         "deliverySkippedLabel": "Delivery skipped",
         "deliverySkippedHint": "Install verification is still failing (pre-existing) after the fix, so the fix was not delivered (changes rolled back). Carriers (issue / draft PR) are only created by the engine fix-and-pr path via DEPENDFIX_ON_BASELINE_RED. Exit code is unaffected",

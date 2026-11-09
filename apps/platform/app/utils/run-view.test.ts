@@ -1,4 +1,4 @@
-import { ALERT_SEVERITIES, SKIP_REASONS } from '@dependfix/core'
+import { ALERT_SEVERITIES, SKIP_REASONS, VERIFICATION_SKIP_REASONS } from '@dependfix/core'
 import { describe, expect, it } from 'vitest'
 import {
     alertsFound,
@@ -11,6 +11,7 @@ import {
     isRunResultMissing,
     SEVERITY_DISPLAY_ORDER,
     SKIP_REASON_ORDER,
+    VERIFICATION_SKIP_REASON_ORDER,
     skippedBreakdown,
     skippedTotal,
     summaryNumber,
@@ -18,6 +19,10 @@ import {
     truncatedBreakdown,
     truncatedTotal,
     unfixedAlerts,
+    verificationSkipBreakdown,
+    verificationSkipReasonLabel,
+    verificationSkipSummary,
+    verificationsSkipped,
 } from './run-view'
 
 /**
@@ -165,6 +170,7 @@ describe('展示顺序与 core 枚举同步', () => {
     it('跳过原因 / 严重级别顺序与 core 单一事实源一致', () => {
         expect(SKIP_REASON_ORDER).toEqual(SKIP_REASONS)
         expect(SEVERITY_DISPLAY_ORDER).toEqual(ALERT_SEVERITIES)
+        expect(VERIFICATION_SKIP_REASON_ORDER).toEqual(VERIFICATION_SKIP_REASONS)
     })
 
     it('同告警重复失败计入跳过分组（平台视图与 core 同键）', () => {
@@ -204,6 +210,32 @@ describe('formatBuildLabel', () => {
             .toEqual({ label: '2026.10.23', unknown: false })
         expect(formatBuildLabel('2026.10.23', null, '未知'))
             .toEqual({ label: '2026.10.23', unknown: false })
+    })
+})
+
+describe('verificationsSkipped', () => {
+    it('读取验证跳过计数与原因分组（缺失 / 脏数据降级）', () => {
+        expect(verificationsSkipped({ verificationsSkipped: 2 })).toBe(2)
+        expect(verificationsSkipped({})).toBe(0)
+        expect(verificationsSkipped(null)).toBe(0)
+        expect(verificationSkipBreakdown({
+            verificationsSkipped: 3,
+            verificationSkippedByReason: { 'no-write': 2, budget: 1, other: 9 },
+        })).toEqual([
+            { key: 'budget', count: 1 },
+            { key: 'no-write', count: 2 },
+        ])
+        expect(verificationSkipBreakdown({})).toEqual([])
+    })
+
+    it('原因文案使用静态 i18n 键', () => {
+        const t = (key: string) => `t:${key}`
+        expect(verificationSkipReasonLabel('budget', t)).toBe('t:runs.verificationSkipReason.budget')
+        expect(verificationSkipReasonLabel('no-write', t)).toBe('t:runs.verificationSkipReason.noWrite')
+        expect(verificationSkipReasonLabel('other', t)).toBe('other')
+        expect(verificationSkipSummary({ verificationSkippedByReason: { 'no-write': 2, budget: 1 } }, t))
+            .toBe('t:runs.verificationSkipReason.budget: 1 · t:runs.verificationSkipReason.noWrite: 2')
+        expect(verificationSkipSummary({}, t)).toBe('')
     })
 })
 

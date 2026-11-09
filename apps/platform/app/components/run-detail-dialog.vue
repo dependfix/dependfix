@@ -17,6 +17,8 @@ import {
     runModeLabel,
     shortRunId,
     unfixedAlerts,
+    verificationSkipSummary,
+    verificationsSkipped,
 } from '~/utils/run-view'
 import { scanSeverityLabel } from '~/utils/scan-options'
 import { downloadFile } from '~/utils/download'
@@ -140,6 +142,8 @@ const canRetry = computed(() => detail.value?.failureKind === 'transient')
  * 构建期未注入（`unknown`）与存量行（null）统一按「未知」降级展示——这是诊断信息缺失的正常形态，
  * 不进入错误态、不改变任何判定。口径见 docs/standards/platform.md §10.7。
  */
+const verificationSkipSummaryText = computed(() => verificationSkipSummary(detail.value?.summary ?? null, t))
+
 const buildInfo = computed(() =>
     formatBuildLabel(detail.value?.buildVersion, detail.value?.buildCommit, t('runs.buildUnknown')),
 )
@@ -341,6 +345,15 @@ watch(() => props.runId, (runId) => {
                         </template>
                         <template v-if="deliverySkipDraftPrs(detail.summary) > 0">
                             · {{ t('runs.deliverySkipDraftPrs', {count: deliverySkipDraftPrs(detail.summary)}) }}
+                        </template>
+                    </strong>
+                </div>
+                <div v-if="!isRunResultMissing(detail) && verificationsSkipped(detail.summary) > 0" class="run-detail__meta-item">
+                    <span class="run-detail__meta-label">{{ t('runs.verificationsSkippedLabel') }}</span>
+                    <strong :title="t('runs.verificationsSkippedHint')">
+                        {{ t('runs.verificationsSkipped', {count: verificationsSkipped(detail.summary)}) }}
+                        <template v-if="verificationSkipSummaryText">
+                            · {{ verificationSkipSummaryText }}
                         </template>
                     </strong>
                 </div>

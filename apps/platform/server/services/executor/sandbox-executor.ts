@@ -179,6 +179,8 @@ export class SandboxExecutor implements ScanExecutor {
                 lockfileRepairs: 0,
                 verificationsPassed: 0,
                 verificationsFailed: 0,
+                verificationsSkipped: 0,
+                verificationSkippedByReason: {},
                 prsOpened: 0,
                 prsSkippedByFingerprint: 0,
                 prsClosedAfterFailure: 0,

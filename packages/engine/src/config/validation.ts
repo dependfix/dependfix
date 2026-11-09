@@ -1,7 +1,28 @@
-import { AppError, isValidRepoIdentifier, type BaselineRedDelivery } from '@dependfix/core'
+import { AppError, isValidRepoIdentifier, parseDurationMs, type BaselineRedDelivery } from '@dependfix/core'
 import { isValidPnpmVersion } from '../fixers/pnpm'
 import { isValidConcurrency } from '../multirepo/scheduler'
 import type { GitHubAppConfig, RuntimeConfig } from './index'
+
+/**
+ * 时长环境变量解析：支持纯数字毫秒（历史口径）与 `30m` / `1h` / `90s` 等单位写法。
+ *
+ * 与整数解析分开：时长允许单位后缀，非法值仍按配置错误抛出（CLI / Action 需要尽早失败）。
+ * 放在本文件而非 `index.ts`：后者已接近 `max-lines` 阈值。
+ */
+export function normalizeDurationMs(value: string | undefined, fieldName: string): number | undefined {
+    if (value === undefined || value.trim() === '') {
+        return undefined
+    }
+
+    const parsed = parseDurationMs(value, { defaultUnit: 'ms' })
+    if (parsed === undefined) {
+        throw new AppError(
+            'CONFIG_VALIDATION_ERROR',
+            `${fieldName} must be a positive duration (e.g. 1800000 / 30m / 1h), got "${value}"`,
+        )
+    }
+    return parsed
+}
 
 /**
  * 运行时配置校验（从 `config/index.ts` 拆分以控制单文件行数）。
@@ -148,7 +169,7 @@ export function validateRuntimeConfig(config: RuntimeConfig): RuntimeConfig {
         if (!Number.isInteger(value) || value < 60_000 || value > upperBound) {
             throw new AppError(
                 'CONFIG_VALIDATION_ERROR',
-                `${key} must be an integer between 60000 and ${upperBound} (got ${value}).`,
+                `${key} must be a duration between 60000 and ${upperBound} (got ${value}).`,
             )
         }
     }

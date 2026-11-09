@@ -457,7 +457,27 @@ describe('resolveRuntimeConfig', () => {
         }).jobBudgetMs).toBe(1_800_000)
         expect(() => resolveRuntimeConfig({
             env: { ...base, DEPENDFIX_JOB_BUDGET_MS: '59999' },
-        })).toThrow(/jobBudgetMs must be an integer between 60000 and 7200000/)
+        })).toThrow(/jobBudgetMs must be a duration between 60000 and 7200000/)
+        // 时长单位与纯数字毫秒等价；非法单位 fail-fast
+        expect(resolveRuntimeConfig({
+            env: { ...base, DEPENDFIX_JOB_BUDGET_MS: '25m' },
+        }).jobBudgetMs).toBe(1_500_000)
+        expect(() => resolveRuntimeConfig({
+            env: { ...base, DEPENDFIX_JOB_BUDGET_MS: 'soon' },
+        })).toThrow(/must be a positive duration/)
+    })
+
+    it('时长 env 支持单位，无单位小数按毫秒向下取整', () => {
+        const base = { GITHUB_TOKEN: 't', DEPENDFIX_REPOSITORIES: 'foo/bar' }
+        expect(resolveRuntimeConfig({
+            env: { ...base, DEPENDFIX_MAX_BACKOFF_MS: '30s' },
+        }).maxBackoffMs).toBe(30_000)
+        expect(resolveRuntimeConfig({
+            env: { ...base, DEPENDFIX_MAX_BACKOFF_MS: '200.5' },
+        }).maxBackoffMs).toBe(200)
+        expect(resolveRuntimeConfig({
+            env: { ...base, DEPENDFIX_PR_CHECK_TIMEOUT_MS: '15m' },
+        }).prCheckTimeoutMs).toBe(900_000)
     })
 
     it('closeFailedPr 未开启等待 → CONFIG_VALIDATION_ERROR（不静默失活）', () => {
@@ -479,7 +499,7 @@ describe('resolveRuntimeConfig', () => {
             expect(() => resolveRuntimeConfig({
                 env: { GITHUB_TOKEN: 't', DEPENDFIX_REPOSITORIES: 'foo/bar', DEPENDFIX_MODE: 'fix-and-pr' },
                 cliOverrides: { waitPrChecks: true, prCheckTimeoutMs: value },
-            })).toThrow(/prCheckTimeoutMs must be an integer between 60000 and 1800000/)
+            })).toThrow(/prCheckTimeoutMs must be a duration between 60000 and 1800000/)
         }
     })
 
@@ -707,13 +727,7 @@ describe('resolveRuntimeConfig', () => {
                 DEPENDFIX_MAX_CONCURRENCY: '2.5',
             },
         })).toThrow('must be a positive integer')
-        expect(() => resolveRuntimeConfig({
-            env: {
-                GITHUB_TOKEN: 't',
-                DEPENDFIX_REPOSITORIES: 'foo/bar',
-                DEPENDFIX_MAX_BACKOFF_MS: '200.5',
-            },
-        })).toThrow('must be a positive integer')
+        // 时长类 env（MAX_BACKOFF_MS）走 parseDurationMs，允许小数并向下取整，见「时长单位」用例
     })
 
     it('rejects negative / malformed env integers', () => {

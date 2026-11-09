@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process'
+import { parseDurationMs } from '@dependfix/core'
 import {
     startNetworkAudit,
     extractUrlsFromOutput,
@@ -144,8 +145,12 @@ export const MIN_COMMAND_TIMEOUT_MS = 10_000
 /** 允许的最大单命令超时（30 分钟，与平台单仓执行上限同量级）。 */
 export const MAX_COMMAND_TIMEOUT_MS = 30 * 60 * 1000
 
+/** 已告警的非法 env 原值（避免同一进程内重复刷屏）。 */
+let warnedVerificationTimeoutRaw: string | undefined
+
 /**
- * 解析单命令超时（毫秒）：合法正整数且落在 [10s, 30min] 内才采纳，否则回退默认。
+ * 解析单命令超时：支持纯数字毫秒（历史口径）与 `10m` / `90s` 等单位写法；
+ * 解析成功且落在 [10s, 30min] 内才采纳，否则回退默认。
  * 与安装类超时（`fixers/install-timeouts.ts`）同族口径，但两者刻意不同源、互不覆盖。
  */
 export function resolveCommandTimeoutMs(
@@ -153,11 +158,13 @@ export function resolveCommandTimeoutMs(
     fallback: number = DEFAULT_COMMAND_TIMEOUT_MS,
 ): number {
     const raw = env[VERIFY_TIMEOUT_ENV]?.trim()
-    if (!raw || !/^\d+$/.test(raw)) {
-        return fallback
+    const value = parseDurationMs(raw, { defaultUnit: 'ms' })
+    if (raw && (value === undefined || value < MIN_COMMAND_TIMEOUT_MS || value > MAX_COMMAND_TIMEOUT_MS)
+        && warnedVerificationTimeoutRaw !== raw) {
+        warnedVerificationTimeoutRaw = raw
+        console.warn(`[verification] ${VERIFY_TIMEOUT_ENV}="${raw}" 非法或越界，回退 ${fallback}ms`)
     }
-    const value = Number(raw)
-    return Number.isInteger(value) && value >= MIN_COMMAND_TIMEOUT_MS && value <= MAX_COMMAND_TIMEOUT_MS
+    return value !== undefined && value >= MIN_COMMAND_TIMEOUT_MS && value <= MAX_COMMAND_TIMEOUT_MS
         ? value
         : fallback
 }

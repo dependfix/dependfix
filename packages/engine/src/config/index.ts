@@ -2,7 +2,7 @@ import { execSync } from 'node:child_process'
 import { AppError, type BaselineRedDelivery, type SeverityThreshold, type AlertSourceKind } from '@dependfix/core'
 import { parseOverrideProtectEntries } from '../github/repo-policy'
 import { resolveRepoList } from '../github/repo-selector'
-import { readBaselineRedDelivery, validateRuntimeConfig } from './validation'
+import { normalizeDurationMs, readBaselineRedDelivery, validateRuntimeConfig } from './validation'
 
 export const RUNTIME_MODES = ['report-only', 'fix', 'fix-and-pr', 'cleanup-branches'] as const
 export const SEVERITY_THRESHOLDS = ['critical', 'high', 'medium', 'all'] as const
@@ -639,13 +639,13 @@ export function readEnvConfig(env: NodeJS.ProcessEnv = process.env): CliConfigOv
         onBaselineRed: readBaselineRedDelivery(readEnv(env, 'ON_BASELINE_RED'), `${ENV_PREFIX}ON_BASELINE_RED`),
         waitPrChecks: normalizeBoolean(readEnv(env, 'WAIT_PR_CHECKS'), `${ENV_PREFIX}WAIT_PR_CHECKS`),
         closeFailedPr: normalizeBoolean(readEnv(env, 'CLOSE_FAILED_PR'), `${ENV_PREFIX}CLOSE_FAILED_PR`),
-        prCheckTimeoutMs: normalizeInteger(readEnv(env, 'PR_CHECK_TIMEOUT_MS'), `${ENV_PREFIX}PR_CHECK_TIMEOUT_MS`),
-        prCheckRunBudgetMs: normalizeInteger(readEnv(env, 'PR_CHECK_RUN_BUDGET_MS'), `${ENV_PREFIX}PR_CHECK_RUN_BUDGET_MS`),
-        jobBudgetMs: normalizeInteger(readEnv(env, 'JOB_BUDGET_MS'), `${ENV_PREFIX}JOB_BUDGET_MS`),
+        prCheckTimeoutMs: normalizeDurationMs(readEnv(env, 'PR_CHECK_TIMEOUT_MS'), `${ENV_PREFIX}PR_CHECK_TIMEOUT_MS`),
+        prCheckRunBudgetMs: normalizeDurationMs(readEnv(env, 'PR_CHECK_RUN_BUDGET_MS'), `${ENV_PREFIX}PR_CHECK_RUN_BUDGET_MS`),
+        jobBudgetMs: normalizeDurationMs(readEnv(env, 'JOB_BUDGET_MS'), `${ENV_PREFIX}JOB_BUDGET_MS`),
         maxAlertsPerRepository: normalizeInteger(readEnv(env, 'MAX_ALERTS_PER_REPOSITORY'), `${ENV_PREFIX}MAX_ALERTS_PER_REPOSITORY`),
         maxConcurrency: normalizeInteger(readEnv(env, 'MAX_CONCURRENCY'), `${ENV_PREFIX}MAX_CONCURRENCY`),
         maxRetries: normalizeNonNegativeInteger(readEnv(env, 'MAX_RETRIES'), `${ENV_PREFIX}MAX_RETRIES`),
-        maxBackoffMs: normalizeInteger(readEnv(env, 'MAX_BACKOFF_MS'), `${ENV_PREFIX}MAX_BACKOFF_MS`),
+        maxBackoffMs: normalizeDurationMs(readEnv(env, 'MAX_BACKOFF_MS'), `${ENV_PREFIX}MAX_BACKOFF_MS`),
         maxRepos: normalizeNonNegativeInteger(readEnv(env, 'MAX_REPOS'), `${ENV_PREFIX}MAX_REPOS`),
         upgradeGroups: normalizeUpgradeGroups(readEnv(env, 'UPGRADE_GROUPS')),
         toolchainPnpmVersion: readEnv(env, 'TOOLCHAIN_PNPM_VERSION')?.trim() || undefined,

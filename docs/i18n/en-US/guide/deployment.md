@@ -218,6 +218,77 @@ pnpm db:doctor                  # database self-check (file / PRAGMA / row count
 
 > The runtime image (`.output`-only) does not include `tsx` or the ops scripts, so these commands cannot run inside the container. In containers use `./docker/init-db.sh`; for `db:doctor` use a source checkout. See [`server/database/scripts/README.md`](../../../../apps/platform/server/database/scripts/README.md) for details.
 
+## Schema drift recovery checklist (`no such column`)
+
+Applies when a page / API returns `Server Error`, the server log shows `SQLITE_ERROR: no such column: <table>.<column>` (or the equivalent missing-column error on PostgreSQL / MySQL), and the column belongs to a recently added release.
+
+Cause: the running code's entity declares the column, but the database is still on the old schema — **pending migrations were not applied** (`DATABASE_MIGRATIONS_RUN` disabled / overridden by the deployment config / database restored from an old backup). This drift is silent: a fresh database, CI and unit tests (`synchronize=true`) are all green; only an existing database fails, and only when a query first touches the table that is missing the column.
+
+Observable signals: startup log `[database] schema 漂移：缺 N 张表 / M 列（列：…）`; the `schema` field of `GET /api/health` is `drift` (`unknown` = check not finished / skipped).
+
+> **Gather evidence before acting**: migrations write to the database. Do not keep restarting blindly, and do not hand-run `ALTER TABLE` for just the failing column — the migration chain usually has several pending entries, so one column only moves the error to the next one.
+
+- [ ] **1. Confirm the artifact and switches**
+
+    ```bash
+    curl -sS https://<host>/api/health           # commit should match this release; schema=ok|drift|unknown
+    docker compose logs platform | grep -E '\[build\]|\[database\]'
+    docker compose exec platform env | grep -E 'DATABASE_(MIGRATIONS_RUN|SYNCHRONIZE|PATH|ENTITY_PREFIX)'
+    ```
+
+    Reading: `migrationsRun=false` + missing column → this checklist applies; `migrationsRun=true` with a missing column → first look for `[database] initialization failed` (migration execution failed) and follow that error; do not edit the database directly.
+
+- [ ] **2. Read-only check of pending migrations and columns** (the runtime image has no `sqlite3` CLI; use its bundled better-sqlite3)
+
+    ```bash
+    docker compose exec -T platform node -e '
+    const Database = require("/app/.output/server/node_modules/better-sqlite3");
+    const db = new Database(process.env.DATABASE_PATH || "/app/data/dependfix.sqlite", { readonly: true });
+    console.log("migrations:", db.prepare("select name from migrations order by id desc limit 8").all());
+    console.log("scan_run:", db.prepare("pragma table_info(dependfix_scan_run)").all().map(c => c.name).join(","));
+    console.log("repository:", db.prepare("pragma table_info(dependfix_repository)").all().map(c => c.name).join(","));
+    '
+    ```
+
+    Expect the latest entries to be **absent** from `migrations` (pending) and the missing columns to match the log. If the migration row **exists** but the column is still missing, note the migration name and use the exception branch in step 4.
+
+    > Opening a WAL database read-only while the container runs can return `SQLITE_BUSY` in some environments: run `docker compose stop platform` first, then replace `docker compose exec -T platform` in the query above with `docker compose run --rm -T --no-deps -e DEPENDFIX_QUEUE_WORKER=0 platform` (keep the other arguments; the entrypoint drops to `PUID` / `PGID`, so no root-owned files are created, and the worker is disabled so the one-shot container does not run the command twice).
+
+- [ ] **3. Stop writes → apply pending migrations once → start**
+
+    ```bash
+    docker compose stop platform
+    cd apps/platform && ./docker/init-db.sh      # one-shot container: DATABASE_MIGRATIONS_RUN=true + DEPENDFIX_MIGRATIONS_ONLY=true
+    docker compose up -d platform
+    ```
+
+- [ ] **4. Verify**
+
+    ```bash
+    curl -sS https://<host>/api/health           # schema should be ok
+    docker compose logs platform | grep -E 'schema 漂移|启动期初始化完成'
+    ```
+
+    Check the pages too: run list / scan history summary / repository detail / PR checks recover, and `[stale-cleanup] 孤儿清理失败` stops appearing. `schema` may briefly read `unknown` right after startup (the check completes asynchronously); retry a few seconds later, or just look for `[database] schema 漂移` in the startup log.
+
+    Orphan convergence timing: `stale-cleanup` runs its first round 30 seconds after startup and then every 5 minutes; `pending` becomes an orphan after 5 minutes, while `running` only fails after the execution limit + grace (default 30m + 5m) — `running` rows stuck during the incident converge in the next cycle that meets the threshold, not immediately on restart.
+
+    **Exception branch (rare)**: the migration row exists but the column is missing (database restored from an old backup / `db:migrate:revert` was executed). **With writes stopped**, delete that `migrations` row and re-run step 3 so the migration replays; do not hand-add a single column.
+
+    ```bash
+    # replace <migration name> with the name found in step 2 (e.g. AddRepositoryExecutionLimits3000000000000)
+    # the service is stopped, so use a one-shot container (docker compose exec needs a running one)
+    docker compose run --rm -T --no-deps -e DEPENDFIX_QUEUE_WORKER=0 platform node -e '
+    const Database = require("/app/.output/server/node_modules/better-sqlite3");
+    const db = new Database(process.env.DATABASE_PATH || "/app/data/dependfix.sqlite");
+    db.prepare("delete from migrations where name = ?").run("<migration name>");
+    '
+    ```
+
+    Rollback basis: the startup backup under `data/backups/` or your own copy of the data volume.
+
+- [ ] **5. Close out**: make sure `DATABASE_MIGRATIONS_RUN=true` is persisted in the deployment config (the image already defaults to true; focus on `.env` / orchestration / PaaS environment variables overriding it to `false`), otherwise the next new column will drift again.
+
 ## Reverse proxy and HTTPS
 
 Behind a reverse proxy, forward the `Host` header and tell better-auth the public URL:
@@ -368,6 +439,7 @@ See the [release guide](../../../guide/release.md) "Auto-release enablement chec
 |:---|:---|
 | Startup log `no such table: dependfix_*` | Migrations were not applied. New images migrate automatically; if it still appears, make sure it is not overridden by `DATABASE_MIGRATIONS_RUN=false`, run `./docker/init-db.sh`, and upgrade to the latest image |
 | Startup log `数据库为空且未开启迁移` | Empty database with migrations explicitly disabled. Set `DATABASE_MIGRATIONS_RUN=true`, or run `./docker/init-db.sh` (from source: `pnpm db:init`) |
+| Page / API `Server Error`, log `no such column: <table>.<column>`, `/api/health` shows `schema=drift` | Existing database is missing columns (pending migrations not applied). Follow the [schema drift recovery checklist](#schema-drift-recovery-checklist-no-such-column): stop writes → `./docker/init-db.sh` → verify; do not hand-add one column |
 | Container restarts / permission errors | `PUID` / `PGID` mismatch with volume ownership; set them to the host user uid:gid, or let the entrypoint chown (default root start path) |
 | Cannot register the first user | `REGISTRATION_DISABLED=true` and the database has no user; register the first admin while registration is open |
 | Credential save fails with a key error | `NUXT_ENCRYPTION_KEY` is not set (32 random bytes) |

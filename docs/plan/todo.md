@@ -137,6 +137,20 @@
 - **交付物**：2-3 commits / 4-6 文件 / 250-400 行。
 - **风险与缓解**：拉取凭证 / 网络失败 → fail-open（告警不阻断）；runner 成本 → 仅 release 触发。
 
+### 追加临时待办（不占阶段条目编号）：线上 schema 漂移恢复清单 + 启动期漂移检测
+
+- **来源 / 授权**：2026-11-09 用户报告 `https://dependfix.dev` 多页面 `Server Error`，服务端日志 `SQLITE_ERROR: no such column: ScanRun.execution_timeout_ms`（生产可用性事故，属插队例外清单第 3 类），用户明确授权「先写恢复清单，再落地启动期漂移检测 + 测试」。
+- **评估结论**：根因 = 线上库 pending migration 未执行（`3000000000000` / `3000000000001` / `3100000000000`，库停在 2026-10-30 schema）；部署 commit `38c35ad0` 已含迁移，`/api/health` = `drift` 前无任何启动期信号。范围收敛为「运维恢复清单 + 只读检测 + health 状态枚举」，不改迁移语义、不做启动阻断。
+- **目标**：让「存量库缺列」在启动期与部署自检中可见，并给出可复制的恢复步骤。
+- **范围**：`docs/guide/deployment.md` + en-US 镜像（恢复清单 / 故障排查行）；`docs/standards/platform.md` §3.3 / §10.7；`server/database/schema-drift.ts`（检测 + 状态）、`server/database/index.ts`（启动接线）、`server/api/health.get.ts`（`schema` 字段）与对应测试。
+- **验收标准**：① 缺列 / 缺表 / 多列三种形态的检测用例通过，自定义 `entityPrefix` 生效；② `synchronize=true` 与 worker 进程跳过、检测异常 fail-open；③ `/api/health` 返回 `schema: ok|drift|unknown` 且无表名 / 列名；④ `pnpm run check:docs` 0 error、`lint-md` 0、定向 vitest 全绿。
+- **不做什么**：不做启动阻断 / 自动修复；不检测索引 / 类型差异；不新增公开端点；不在 health 暴露 schema 明细。
+- **依赖**：2026-11-09 生产事故取证；`server/database/migrations/*` 为 schema 事实源。
+- **交付物**：2 commits / 11 文件 / ~554 行（doc 清单 + 代码与测试 + review 修复；行数按 `git diff` + 新增文件行数实测）。
+- **风险与缓解**：检测误报（视图 / 特殊表）→ 只比对 `tableType=regular` 与实体声明列；启动成本 → 冷启动一次、跳过 worker 与 synchronize；信息面 → health 仅状态枚举。
+- **残余**：`docker/smoke-test.sh` 的 `schema` 字段断言并入 M57.6 发布冒烟（只断言存在，不锁 `ok`）。
+- **容量影响（§3.1.1）**：~2 commits / 11 文件 / ~554 行，低于 M57 基线 50%；本阶段第 1 个插队批次，未达再平衡阈值 1/2/3，不做移出。
+
 ---
 
 ## 阶段收口要求（M57）

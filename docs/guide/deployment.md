@@ -218,6 +218,77 @@ pnpm db:doctor                  # 数据库自检（文件 / PRAGMA / 各表行�
 
 > 运行期镜像（`.output`-only）不含 `tsx` 与运维脚本，容器内无法直接跑上述命令；容器场景用 `./docker/init-db.sh` 或 `pnpm db:doctor`（源码环境）。运维脚本详述见 [`server/database/scripts/README.md`](../../apps/platform/server/database/scripts/README.md)。
 
+## schema 漂移恢复清单（`no such column`）
+
+适用现象：页面 / 接口报 `Server Error`，服务端日志出现 `SQLITE_ERROR: no such column: <表>.<列>`（PostgreSQL / MySQL 为对应缺列错误），且缺的列属于近期版本新增列。
+
+根因：运行代码的实体已声明该列，但数据库仍是旧 schema——**pending migration 没有执行**（`DATABASE_MIGRATIONS_RUN` 未开启 / 被部署配置覆盖 / 库从旧备份恢复）。这类漂移是静默累积的：全新库、CI、单测（`synchronize=true`）全部为绿，只有存量库在首次查询到缺列的表时才 500。
+
+可观测信号：启动日志 `[database] schema 漂移：缺 N 张表 / M 列（列：…）`；`GET /api/health` 的 `schema` 字段为 `drift`（`unknown` = 检测未完成 / 被跳过）。
+
+> **先取证再动手**：迁移会写库。禁止在未确认状态时反复重启，也不要手工 `ALTER TABLE` 只补报错的那一列——迁移链通常有多条 pending，补一列只会让下一个缺列继续 500。
+
+- [ ] **1. 确认产物与开关**
+
+    ```bash
+    curl -sS https://<host>/api/health           # commit 应对得上本次发布；schema=ok|drift|unknown
+    docker compose logs platform | grep -E '\[build\]|\[database\]'
+    docker compose exec platform env | grep -E 'DATABASE_(MIGRATIONS_RUN|SYNCHRONIZE|PATH|ENTITY_PREFIX)'
+    ```
+
+    判读：`migrationsRun=false` + 缺列 → 本清单场景；`migrationsRun=true` 仍缺列 → 先找 `[database] initialization failed`（迁移执行失败），按日志报错处理，不要直接改库。
+
+- [ ] **2. 只读核对 pending 与缺列**（运行期镜像无 `sqlite3` CLI，用镜像自带的 better-sqlite3）
+
+    ```bash
+    docker compose exec -T platform node -e '
+    const Database = require("/app/.output/server/node_modules/better-sqlite3");
+    const db = new Database(process.env.DATABASE_PATH || "/app/data/dependfix.sqlite", { readonly: true });
+    console.log("migrations:", db.prepare("select name from migrations order by id desc limit 8").all());
+    console.log("scan_run:", db.prepare("pragma table_info(dependfix_scan_run)").all().map(c => c.name).join(","));
+    console.log("repository:", db.prepare("pragma table_info(dependfix_repository)").all().map(c => c.name).join(","));
+    '
+    ```
+
+    期望看到 `migrations` 中**没有**最近几条（pending），缺列与日志一致。若迁移记录**已存在**但列仍缺失，记下迁移名并走第 4 步异常分支。
+
+    > 容器运行中对 WAL 库只读打开个别环境会报 `SQLITE_BUSY`：先 `docker compose stop platform`，再把上一条查询的 `docker compose exec -T platform` 换成 `docker compose run --rm -T --no-deps -e DEPENDFIX_QUEUE_WORKER=0 platform`（其余参数不变；入口会按 `PUID` / `PGID` 降权，不产生 root 属主文件；关闭 worker 避免一次性容器按双进程形态重复执行）。
+
+- [ ] **3. 停写 → 一次性补迁移 → 启动**
+
+    ```bash
+    docker compose stop platform
+    cd apps/platform && ./docker/init-db.sh      # 一次性容器：DATABASE_MIGRATIONS_RUN=true + DEPENDFIX_MIGRATIONS_ONLY=true
+    docker compose up -d platform
+    ```
+
+- [ ] **4. 复核**
+
+    ```bash
+    curl -sS https://<host>/api/health           # schema 应为 ok
+    docker compose logs platform | grep -E 'schema 漂移|启动期初始化完成'
+    ```
+
+    页面复核：运行列表 / 扫描历史汇总 / 仓库详情 / PR Check 恢复正常；`[stale-cleanup] 孤儿清理失败` 不再出现。`schema` 在启动初期可能短暂为 `unknown`（检测随启动异步完成），数秒后重试即可；也可以直接看启动日志有无 `[database] schema 漂移`。
+
+    孤儿运行的收敛时机：`stale-cleanup` 在启动 30 秒后跑首轮、之后每 5 分钟一轮；`pending` 超过 5 分钟即判孤儿，`running` 需超过执行上限 + 宽限（缺省 30m + 5m）才判失败——事故期间卡住的 `running` 记录会在下一个满足阈值的周期收敛，不是重启即清。
+
+    **异常分支（少见）**：迁移记录已存在但列缺失（库从旧备份恢复 / 曾执行 `db:migrate:revert`）。**停写后**先删除对应 `migrations` 记录，再重跑第 3 步让迁移重放；不要只手工补一列。
+
+    ```bash
+    # 把 <迁移名> 换成第 2 步查到的 name（如 AddRepositoryExecutionLimits3000000000000）
+    # 服务已 stop，用一次性容器执行（docker compose exec 需要运行中的容器）
+    docker compose run --rm -T --no-deps -e DEPENDFIX_QUEUE_WORKER=0 platform node -e '
+    const Database = require("/app/.output/server/node_modules/better-sqlite3");
+    const db = new Database(process.env.DATABASE_PATH || "/app/data/dependfix.sqlite");
+    db.prepare("delete from migrations where name = ?").run("<迁移名>");
+    '
+    ```
+
+    回退依据：`data/backups/` 的启动期备份或自行复制的数据卷副本。
+
+- [ ] **5. 收口**：确认 `DATABASE_MIGRATIONS_RUN=true` 已固化在部署配置（镜像默认已是 true，重点检查 `.env` / 编排 / PaaS 环境变量是否覆盖成 `false`），否则下次新增列会再次漂移。
+
 ## 反向代理与 HTTPS
 
 反代场景需透传 `Host` 头，并把对外地址告知 better-auth：
@@ -369,6 +440,7 @@ docker compose up -d
 |:---|:---|
 | 启动日志 `no such table: dependfix_*` | 迁移未执行。新版镜像已默认自动迁移；若仍出现，确认未被 `DATABASE_MIGRATIONS_RUN=false` 覆盖，或执行 `./docker/init-db.sh`，并升级到最新镜像 |
 | 启动日志 `数据库为空且未开启迁移` | 空库 + 迁移被显式关闭。设 `DATABASE_MIGRATIONS_RUN=true`，或执行 `./docker/init-db.sh`（源码环境 `pnpm db:init`） |
+| 页面 / 接口 `Server Error`，日志 `no such column: <表>.<列>`，`/api/health` 的 `schema=drift` | 存量库缺列（pending migration 未执行）。按「[schema 漂移恢复清单](#schema-漂移恢复清单-no-such-column)」停写 → `./docker/init-db.sh` → 复核；不要手工只补一列 |
 | 容器反复重启 / 权限错误 | `PUID` / `PGID` 与数据卷归属不匹配；设为宿主用户 uid:gid，或让入口自动 chown（默认 root 启动路径） |
 | 无法注册首个用户 | `REGISTRATION_DISABLED=true` 且库中无用户；开放注册期完成首个管理员注册后再关闭 |
 | 凭据保存报密钥错误 | 未设置 `NUXT_ENCRYPTION_KEY`（32 字节随机值） |

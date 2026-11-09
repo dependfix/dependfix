@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect, type Request } from '@playwright/test'
 import { waitForHydration } from './helpers/hydration.helper'
 
 /**
@@ -44,6 +44,70 @@ test.describe('平台表格 sortable', () => {
         // 排序后批量选择 checkbox 仍可用（教训：selectedRows 不应被排序重置）
         const checkboxes = page.locator('.caomei-data-table .caomei-checkbox__control')
         await expect(checkboxes.first()).toBeVisible()
+    })
+
+    test('scans 全部运行：开始时间列服务端排序（asc → desc → 默认序）', async ({ page }) => {
+        const stamp = Date.now()
+        const owner = `e2e-sort-${stamp}`
+        const created = await page.request.post('/api/e2e/fixtures', {
+            data: {
+                repos: [{ owner, name: 'app' }],
+                scanRuns: [
+                    { repositoryOwner: owner, repositoryName: 'app', status: 'completed', startedAt: '2026-09-01T00:00:00.000Z' },
+                    { repositoryOwner: owner, repositoryName: 'app', status: 'completed', startedAt: '2026-09-02T00:00:00.000Z' },
+                    { repositoryOwner: owner, repositoryName: 'app', status: 'completed', startedAt: '2026-09-03T00:00:00.000Z' },
+                ],
+            },
+        })
+        expect(created.status()).toBe(200)
+        const { scanRuns } = await created.json() as { scanRuns: { repositoryId: string }[] }
+        const repositoryId = scanRuns[0]!.repositoryId
+
+        const requests: string[] = []
+        const onRequest = (request: Request) => {
+            if (request.url().includes('/api/runs?')) {
+                requests.push(request.url())
+            }
+        }
+        page.on('request', onRequest)
+
+        await page.goto(`/scans?repository=${repositoryId}`)
+        await waitForHydration(page)
+        const table = page.locator('.scans__run-list .caomei-data-table')
+        await expect(table).toBeVisible({ timeout: 15000 })
+        const header = table.locator('th:has-text("开始时间")').first()
+        const sortButton = header.locator('.caomei-data-table__sort')
+        await expect(sortButton).toBeVisible()
+
+        const ascResponse = page.waitForResponse(
+            (response) => response.url().includes('/api/runs?')
+                && response.url().includes('sortBy=startedAt')
+                && response.url().includes('sortOrder=asc'),
+        )
+        await sortButton.click()
+        await ascResponse
+        await expect(header).toHaveAttribute('aria-sort', 'ascending')
+        await expect(table.locator('tbody .caomei-data-table__row').first()).toContainText('2026/09/01')
+
+        const descResponse = page.waitForResponse(
+            (response) => response.url().includes('/api/runs?')
+                && response.url().includes('sortBy=startedAt')
+                && response.url().includes('sortOrder=desc'),
+        )
+        await sortButton.click()
+        await descResponse
+        await expect(header).toHaveAttribute('aria-sort', 'descending')
+        await expect(table.locator('tbody .caomei-data-table__row').first()).toContainText('2026/09/03')
+
+        const clearResponse = page.waitForResponse(
+            (response) => response.url().includes('/api/runs?') && !response.url().includes('sortBy='),
+        )
+        await sortButton.click()
+        await clearResponse
+        await expect(header).toHaveAttribute('aria-sort', 'none')
+        const lastUrl = new URL(requests.at(-1)!)
+        expect(lastUrl.searchParams.get('sortBy')).toBeNull()
+        page.off('request', onRequest)
     })
 
     test('schedules / credentials / users / batch-runs 页面 sortable 列存在', async ({ page }) => {

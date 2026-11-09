@@ -17,7 +17,7 @@
 // - 不引入多组织；不重写后端聚合；不动 dashboard.vue；不动 batch-runs 跨仓库视图
 // - 不破坏既有 alerts-rowgroup / history-dialog / 视图切换 / dedupe 行为
 import { Download, Eye, Funnel, RefreshCw, X } from '@lucide/vue'
-import type { DataTableColumn, DataTablePageEvent, SplitButtonMenuItem } from 'caomei-ui'
+import type { DataTableColumn, DataTablePageEvent, DataTableSortEvent, DataTableSortOrder, SplitButtonMenuItem } from 'caomei-ui'
 import {
     alertsFound,
     buildExportScopeItems,
@@ -132,6 +132,22 @@ const filters = reactive({
     status: FILTER_ALL,
     failureStage: FILTER_ALL,
     failureKind: FILTER_ALL,
+    from: '',
+    to: '',
+})
+
+/** 开始时间区间（DatePicker 使用 Date，提交时统一转 ISO；空串 = 未筛选） */
+const fromDate = computed<Date | null>({
+    get: () => (filters.from ? new Date(filters.from) : null),
+    set: (value) => {
+        filters.from = value ? value.toISOString() : ''
+    },
+})
+const toDate = computed<Date | null>({
+    get: () => (filters.to ? new Date(filters.to) : null),
+    set: (value) => {
+        filters.to = value ? value.toISOString() : ''
+    },
 })
 
 /** 状态下拉选项（顺序与 `SCAN_RUN_STATUSES` 一致；哨兵值 = 全部） */
@@ -190,9 +206,17 @@ const failureStageCounts = computed(() => {
         .sort((a, b) => b.count - a.count)
 })
 
-/** 状态 / 失败阶段 / 处置建议三维筛选是否有任一激活（用于「清除筛选」按钮可见性） */
+/** 全运行列表服务端排序（受控）：空 sortField = 默认序（createdAt DESC，不发送排序参数） */
+const sortField = ref('')
+const sortOrder = ref<DataTableSortOrder>('desc')
+
+/** 状态 / 失败阶段 / 处置建议 / 开始时间区间是否有任一激活（用于「清除筛选」按钮可见性） */
 const hasActiveFilters = computed(() => (
-    filters.status !== FILTER_ALL || filters.failureStage !== FILTER_ALL || filters.failureKind !== FILTER_ALL
+    filters.status !== FILTER_ALL
+    || filters.failureStage !== FILTER_ALL
+    || filters.failureKind !== FILTER_ALL
+    || filters.from !== ''
+    || filters.to !== ''
 ))
 
 /** 清除运行列表筛选（变更由 watch(filters) 统一驱动重新拉取并回到第 1 页） */
@@ -200,7 +224,13 @@ const clearRunFilters = () => {
     filters.status = FILTER_ALL
     filters.failureStage = FILTER_ALL
     filters.failureKind = FILTER_ALL
+    filters.from = ''
+    filters.to = ''
 }
+
+/** 开始时间区间是否合法（空端视为合法；Date.parse 已由 UI 产出 ISO 保证） */
+const hasValidRunRange = (): boolean =>
+    !filters.from || !filters.to || Date.parse(filters.from) <= Date.parse(filters.to)
 
 /**
  * 批量导出执行日志（合并单 txt 附件）。
@@ -214,6 +244,10 @@ const clearRunFilters = () => {
  * 范围参数**必须显式传入**（不给缺省值）：模板 `@click` 直绑会把 `MouseEvent` 当范围传进来。
  */
 const exportLogs = async (scope: 'page' | 'all') => {
+    if (!hasValidRunRange()) {
+        error.value = t('scans.runList.invalidRange')
+        return
+    }
     exporting.value = true
     error.value = ''
     try {
@@ -229,6 +263,16 @@ const exportLogs = async (scope: 'page' | 'all') => {
         }
         if (filters.failureKind !== FILTER_ALL) {
             query.set('failureKind', filters.failureKind)
+        }
+        if (filters.from) {
+            query.set('from', filters.from)
+        }
+        if (filters.to) {
+            query.set('to', filters.to)
+        }
+        if (sortField.value) {
+            query.set('sortBy', sortField.value)
+            query.set('sortOrder', sortOrder.value)
         }
         if (scope === 'page') {
             query.set('page', String(page.value))
@@ -334,6 +378,10 @@ let queuedRunFetch: { page: number, rows: number } | null = null
 
 /** runs 列表加载（paginated /api/runs） */
 const fetchRuns = async (page = 1, rows = pageSize.value) => {
+    if (!hasValidRunRange()) {
+        error.value = t('scans.runList.invalidRange')
+        return
+    }
     if (inflight.value) {
         queuedRunFetch = { page, rows }
         return
@@ -358,6 +406,16 @@ const fetchRuns = async (page = 1, rows = pageSize.value) => {
         }
         if (filters.failureKind !== FILTER_ALL) {
             query.failureKind = filters.failureKind
+        }
+        if (filters.from) {
+            query.from = filters.from
+        }
+        if (filters.to) {
+            query.to = filters.to
+        }
+        if (sortField.value) {
+            query.sortBy = sortField.value
+            query.sortOrder = sortOrder.value
         }
         const res = await $fetch('/api/runs', { query })
         const data = res as { items: RunView[], total: number }
@@ -388,6 +446,21 @@ const onPage = async (event: DataTablePageEvent) => {
     pageSize.value = event.rows
     first.value = event.first
     await fetchRuns(event.page, event.rows)
+}
+
+/**
+ * 服务端排序：受控 `sortField` / `sortOrder`（单列）。
+ * 三态循环由 DataTable 负责（asc → desc → 清除）；清除时 `sortField` 为空 → 不发送排序参数，
+ * 服务端回到默认 `createdAt DESC`（避免只排当前页的假排序）。
+ * 排序变化必须回到第 1 页，否则跨页顺序与页码会错位。
+ */
+const onSort = async (event: DataTableSortEvent) => {
+    sortField.value = event.sortField
+    if (event.sortOrder) {
+        sortOrder.value = event.sortOrder
+    }
+    first.value = 0
+    await fetchRuns(1, pageSize.value)
 }
 
 /** byRepo 客户端分页：受控 page / rows 回写（「最近状态」筛选变化时由 watch 重置到第 1 页） */
@@ -472,7 +545,7 @@ const runListColumns = computed<DataTableColumn<RunView>[]>(() => [
     { key: 'mode', header: t('runs.colMode') },
     { key: 'threshold', header: t('runs.colThreshold') },
     { key: 'executor', header: t('runs.colExecutor') },
-    { key: 'startedAt', header: t('runs.colStartedAt') },
+    { key: 'startedAt', header: t('runs.colStartedAt'), sortable: true },
     { key: 'alerts', header: t('runs.colAlerts') },
     { key: 'fixed', header: t('runs.colFixed') },
     { key: 'actions', header: t('runs.colActions'), width: '120px' },
@@ -489,6 +562,10 @@ watch(repositoryIdQuery, async () => {
 // 失败分类三维筛选变化：回到第 1 页并重新拉取列表（不动 summary 全量窗口）
 watch(filters, async () => {
     first.value = 0
+    if (!hasValidRunRange()) {
+        error.value = t('scans.runList.invalidRange')
+        return
+    }
     await fetchRuns(1, pageSize.value)
 })
 
@@ -709,6 +786,28 @@ onMounted(refresh)
                                 option-value="value"
                             />
                         </div>
+                        <div class="scans__run-filter-field">
+                            <label for="run-from">{{ t('scans.runList.filterFrom') }}</label>
+                            <CaomeiDatePicker
+                                id="run-from"
+                                v-model="fromDate"
+                                show-time
+                                hour-format="24"
+                                :placeholder="t('scans.runList.filterFromPlaceholder')"
+                                class="scans__run-date"
+                            />
+                        </div>
+                        <div class="scans__run-filter-field">
+                            <label for="run-to">{{ t('scans.runList.filterTo') }}</label>
+                            <CaomeiDatePicker
+                                id="run-to"
+                                v-model="toDate"
+                                show-time
+                                hour-format="24"
+                                :placeholder="t('scans.runList.filterToPlaceholder')"
+                                class="scans__run-date"
+                            />
+                        </div>
                         <div v-if="hasActiveFilters" class="scans__run-filter-field scans__run-filter-field--action">
                             <CaomeiButton
                                 tone="neutral"
@@ -764,8 +863,11 @@ onMounted(refresh)
                         :rows-per-page-options="[10, 25, 50]"
                         :loading="loading"
                         striped
+                        :sort-field="sortField"
+                        :sort-order="sortOrder"
                         :empty-text="t('scans.runList.empty')"
                         @page="onPage"
+                        @sort="onSort"
                     >
                         <template #cell-repo="{row}">
                             <span v-if="row.owner && row.name">{{ row.owner }}/{{ row.name }}</span>
@@ -977,6 +1079,10 @@ onMounted(refresh)
         &--action {
             min-width: 0;
         }
+    }
+
+    &__run-date {
+        width: 100%;
     }
 
     &__failure-summary {

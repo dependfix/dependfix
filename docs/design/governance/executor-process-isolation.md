@@ -242,7 +242,7 @@ scan-queue.add(jobId = scan-<repositoryId>)   [scan-queue.ts]
 
 1 次修复前基线链 + **至多 1 次合批安装**（可修包 ≥ 2 时把 K 次压到 1 次；失败回退逐包最坏 K+1 次）+ 1 次修复后验证链 + 锁文件修复链**最坏 7 次安装类调用**（1 次 frozen 诊断 + ≤3 次策略命令 + ≤3 次策略后 frozen 校验）。合批语义见 [dependency-fixer-records.md §12.10](../modules/dependency-fixer-records.md#_12-10-安装类命令的超时口径与版本化-overrides-合批-2026-10-17)。
 
-**快速失败收敛（2026-10-18）**：上述最坏次数只在"环境可装、单个 override 有问题"时才有归因价值。以下三条短路把环境性失败的预算压到常数级：① pristine 安装基线失败 → 跳过依赖安装链（版本化 overrides / 跨线 / 成员 / 分组），仍保留 lockfile repair 与修复后验证；② 合批安装以信号 / 超时失败 → 跳过逐包重试（记 `ENVIRONMENT_ERROR`，不归因）；③ 逐包安装以信号 / 超时失败 → 记录该包后立即停止本仓库剩余安装尝试。普通 exit 1 仍保留逐包回退，用于隔离单个坏 override。
+**快速失败收敛（2026-10-18）**：上述最坏次数只在"环境可装、单个 override 有问题"时才有归因价值。以下三条短路把环境性失败的预算压到常数级：① pristine 安装基线失败 → 跳过依赖安装链（版本化 overrides / 跨线 / 成员 / 分组），lockfile repair 与修复后验证照常启动（repair 未改文件且无成功升级时，终验按 0 写入跳过，见 [dependency-fixer-records.md §12.9](../modules/dependency-fixer-records.md#_12-9-验证链与既有失败基线-默认链-既有失败归因-零告警按需采样)）；② 合批安装以信号 / 超时失败 → 跳过逐包重试（记 `ENVIRONMENT_ERROR`，不归因）；③ 逐包安装以信号 / 超时失败 → 记录该包后立即停止本仓库剩余安装尝试。普通 exit 1 仍保留逐包回退，用于隔离单个坏 override。
 
 ### 8.4 资源口径与部署建议（2026-10-17 用户裁定：仅观测，不改默认注入；2026-10-21 补启动 / 运行期信号）
 
@@ -287,7 +287,7 @@ scan-queue.add(jobId = scan-<repositoryId>)   [scan-queue.ts]
 - 预算由**上层计算**为绝对截止时间：平台执行器在构造引擎 config 时注入 `deadlineAt = now + timeoutMs`（`RuntimeConfig.deadlineAt`，epoch ms）；引擎只消费不解析，CLI 本地运行不设置 ⇒ 不限预算。
 - 引擎把 `deadlineAt` 暴露为 `AppContext.deadlineAt`，并在**启动新工作前**检查剩余预算：剩余 ≥ `MIN_STEP_BUDGET_MS`（1 分钟）才启动；命中即跳过并写一条 `BUDGET_EXHAUSTED` 审计（跳过类白名单，不影响 exit code）。
 - 检查点：修复前基线采样、lockfile repair（含选择性回滚后的重做）、合批版本化 overrides、逐包（多版本 / 分组内 / 成员 / 跨线）、修复后验证。
-- **交付口径**：预算只跳过**未开始**的工作；已经跑完并全绿的终验按结果交付。若**终验本身**被预算跳过，则视为「未验证」——`verificationPassed` 保持 `undefined`、`RepositoryResult.verificationSkipped = 'budget'`，门禁**不交付**且**不回滚**（保留已通过单元供人工复核），不写 `VERIFICATION_FAILED`。
+- **交付口径**：预算只跳过**未开始**的工作；已经跑完并全绿的终验按结果交付。若**终验本身**被预算跳过，则视为「未验证」——`verificationPassed` 保持 `undefined`、`RepositoryResult.verificationSkipped = 'budget'`，门禁**不交付**且**不回滚**（保留已通过单元供人工复核），不写 `VERIFICATION_FAILED`。该字段另有 `no-write` 原因（本次无写入、无交付内容，语义见 [dependency-fixer-records.md §12.9](../modules/dependency-fixer-records.md#_12-9-验证链与既有失败基线-默认链-既有失败归因-零告警按需采样)），两者按原因可区分。
 - 预算与取消互不替代：预算只减少"启动新工作"，取消仍会终止在跑进程树。预算跳过属跳过类白名单（不参与 exit code / 不驱动仓库失败）；取消以 `ABORTED` 记录并可计入非零退出码（运行级，不归因具体仓库）。
 - **破坏性变更（0.x 内部 API）**：交付链导出的 `createFixBranch` / `stageAndCommit` / `pushBranch` / `commitStaged` / `stageScopedChanges` / `listChangedPaths` / `computeCommitScope` / `ensureGitConfig` / `branchExists` / `rollbackChanges` / `enforceVerificationGate` / `recordVerificationCheckpoint` / `commitLocalChanges` / `skipDeliveryForInstallFailure` / `rollbackForSkippedDelivery` 由同步改为异步；外部消费者必须 `await`（未 await 时 `Promise` 恒真，TypeScript 不报错）。发布说明需标注该项。
 - 时钟与窗口：预算按**墙钟** epoch ms 计算（依赖宿主时钟单调性，NTP 回跳会让引擎晚于平台超时停手）；窗口只覆盖引擎 `run()`（clone 与平台交付的 push / PR 不在其中），单次总墙钟上限约为 `timeoutMs + clone + delivery`。
@@ -300,7 +300,7 @@ scan-queue.add(jobId = scan-<repositoryId>)   [scan-queue.ts]
 - **宽限期结束后仍会清理工作目录**（`finally` 的 `rm`），此时引擎若仍在写盘存在"写 / 删并发"窗口——已用日志留痕区分，未做互斥。
 - 短状态查询（`git rev-parse` / `git diff --quiet` / `git remote get-url`，非穷举）仍为同步调用：极慢的巨型仓库下仍可能造成秒级事件循环停顿（非分钟级）。
 - 混合运行（同一 workDir 内 A 仓预算跳过终验 + B 仓真实验证失败）：存在真实失败时按失败路径整仓回滚，预算跳过仓随之回滚（真实失败优先，不回滚会留下未声明的坏改动）；「跳过不回滚」只适用于**全部**失败仓库都是预算跳过的情况。
-- 预算跳过终验时**不交付也不回滚**：已完成的修复留在工作区（平台删运行目录、CLI 由用户复核），报告记 `verificationSkipped`（平台运行详情暂不单独展示该字段）。
+- 预算跳过终验时**不交付也不回滚**：已完成的修复留在工作区（平台删运行目录、CLI 由用户复核），报告记 `verificationSkipped`；平台运行详情已展示「验证跳过」与原因（2026-11-09 起）。0 写入跳过（`no-write`）不阻断其他仓库交付，也不回滚。
 - 单条交付 git 命令的上限固定 5 分钟，不随剩余预算收缩（剩余不足时仍可能「启动合规、执行中被平台砍断」）。
 - 取消态下的回滚被前置守卫拦下（不启动子进程）：工作区保持"部分修复"状态，由调用方清理（平台删运行目录；CLI 用户自行 `git restore` / `git reset`），日志显式说明且不记 `ROLLBACK_FAILED`。
 - 预算粒度是「步骤」而非「命令」：`MIN_STEP_BUDGET_MS` 只保证"启动时还有 1 分钟"，单条命令仍可能超出剩余预算并被平台超时中止（此时按 `execution_timeout` 收尾）。

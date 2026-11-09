@@ -99,6 +99,7 @@
   5. 全量 `packages/engine` 与 `packages/core` 定向测试通过；exit code 既有用例零回归。
 - **不做什么**：不改 30 分钟单仓上限；不改基线红交付降级三档；不新增第四态；不把「跳过」折叠为「通过」。
 - **依赖**：M55.2 的 `hasWork` 判据与 `verificationSkipped='budget'` 现有字段。
+- **执行记录（2026-11-09）**：`verificationSkipped` 扩为 `'budget' | 'no-write'`（`VERIFICATION_SKIP_REASONS` 单点声明）；收尾判据改用**实际写入**（`alertsCount > 0` 且 `fixed === 0 && !lockfileRepaired`，预算可用时；判据完整口径见 [dependency-fixer-records.md §12.9](../design/modules/dependency-fixer-records.md#_12-9-验证链与既有失败基线-默认链-既有失败归因-零告警按需采样)），预算已耗尽时优先记 `budget`（`hasBudgetForNextStep` 无副作用判定）。0 写入仓库跳过后验证，结果写 `verificationPassed=undefined` + `verificationBlocking=false` + `verificationSkipped='no-write'`：无改动即无可归因失败，该仓库无交付内容、不回滚、不记 `VERIFICATION_FAILED`，也不阻断同一运行内其他仓库的交付；`budget` 跳过仍阻断交付（`verificationBlocking=true`，改动未验证），两者按原因可区分（门禁 warn 文案含原因、退出码用例覆盖 exit 0 / 1 边界）。`RunSummary` 新增 `verificationsSkipped` + `verificationSkippedByReason`；Markdown 新增 `Verification Skipped` 段与 Summary 行；平台运行详情（`repo-history-dialog` / `run-detail-dialog`）新增「验证跳过」与按原因 tooltip，e2e `scans` case 10 覆盖。零告警仓库仍走修复后验证（成功信号不变）。实际 34 文件 / +873 −87 / 3 commits（core+engine+mcp / 平台渲染 / 文档）：文件数与新增行数均超「8-12 文件 / 400-700 行」预算，原因是同一行为变更横跨报告模型、引擎判定与门禁、平台披露与 e2e、文档口径复扫；按「一个逻辑变更一个 commit」拆 3 个提交（首个提交 19 文件 / +683 −76，跨提交依赖合批优先于文件数，其余两个提交均低于 10 文件阈值）。基线采样面同步收窄为「可写工作」（可修复依赖 / 成员清单 / 自动修复模板告警），全部不可修复的告警不再付基线成本。
 - **交付物**：3-4 commits / 8-12 文件 / 400-700 行。
 - **风险与缓解**：三态拆分影响多仓 exit code 归因 → 先写「零告警 / 0 写入 / 预算跳过 / 混合」四类矩阵用例再改实现；下游消费方（报告 / 平台 / CLI 摘要）逐处核对，避免新增字段被静默忽略。
 

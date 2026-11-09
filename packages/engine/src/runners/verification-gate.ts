@@ -2,7 +2,7 @@
 // 验证门禁：修复（提交/PR）交付前的最后一道检查。
 // 任一仓库验证失败时，记录审计、回滚修复改动，防止把未通过 lint/build/typecheck/test/install
 // 的坏改动提交给用户（曾导致坏 PR 被创建）。
-import { toErrorMessage, type RepositoryResult } from '@dependfix/core'
+import { formatVerificationSkipReason, toErrorMessage, type RepositoryResult } from '@dependfix/core'
 import { isGitRepository, type AppContext } from '../app/helpers'
 import { GitCommandError, runGitOrThrow } from '../github/git-run'
 
@@ -71,21 +71,34 @@ export async function enforceVerificationGate(
 
     const { logger, workDir, allErrors } = ctx
 
-    // 预算跳过的终验（`verificationSkipped`）不得折叠成「验证通过」，也不等同「验证失败」：
+    // 主动跳过的终验（`verificationSkipped`）不得折叠成「验证通过」，也不等同「验证失败」：
     // 不交付（保守，未经完整验证的改动不上抛），但**不回滚**（保留已通过单元供人工复核），
-    // 且不写 `VERIFICATION_FAILED`（`BUDGET_EXHAUSTED` 已由验证入口记录）
-    const budgetOnly = failedRepos.every((repo) => (
-        ctx.repoResults.find((result) => result.repository === repo)?.verificationSkipped === 'budget'
+    // 且不写 `VERIFICATION_FAILED`（跳过原因已在验证入口 / 收尾记录）。
+    // 与真实失败并存时，仅对真实失败仓库走失败 / 回滚路径（共享 workDir 的回滚语义不变）。
+    // 0 写入跳过（`no-write`）不属于本分支：其 `verificationBlocking=false`（无改动即无可归因失败），
+    // 在 [findVerificationFailedRepos] 就已排除，不会阻断其他仓库的交付。
+    const skippedResults = ctx.repoResults.filter((result) => (
+        failedRepos.includes(result.repository) && result.verificationSkipped !== undefined
     ))
-    if (budgetOnly) {
+    const realFailedRepos = failedRepos.filter((repo) => (
+        !skippedResults.some((result) => result.repository === repo)
+    ))
+    if (skippedResults.length > 0 && realFailedRepos.length === 0) {
         logger.warn(
-            `Verification skipped by run budget for: ${failedRepos.join(', ')} — delivery skipped `
-            + '(worktree preserved; no changes were rolled back)',
+            `Verification skipped for: ${skippedResults
+                .map((result) => `${result.repository} (${formatVerificationSkipReason(result.verificationSkipped!)})`)
+                .join(', ')} — delivery skipped (worktree preserved; no changes were rolled back)`,
         )
         return true
     }
+    if (skippedResults.length > 0) {
+        logger.warn(
+            `Verification skipped for: ${skippedResults.map((result) => result.repository).join(', ')} `
+            + '— not counted as verification failures; continuing with real failures',
+        )
+    }
     const actionLabel = options.action === 'pr' ? 'PR creation' : 'local commit'
-    const repoList = failedRepos.join(', ')
+    const repoList = realFailedRepos.join(', ')
     logger.error(`Verification failed for: ${repoList} — skipping ${actionLabel}`)
 
     // 审计优先：先记录失败，再执行回滚（回滚失败也不丢失审计）

@@ -292,8 +292,8 @@ describe('DependfixApp verification gate', () => {
         rmSync(workDir, { recursive: true, force: true })
     })
 
-    it('rolls back and skips PR creation when verification fails (regression: bad PR #23)', async () => {
-        // 锁定「归属型验证失败必须阻断交付」：仓库须「有工作」才有归属前提（见 unfixableAlertPayload）
+    it('0 写入运行跳过后验证（no-write）：无交付内容、不回滚', async () => {
+        // 不可修告警 → 0 写入：后验证无对象（真实失败 / 回滚路径见 verification-gate.test.ts）
         nock('https://api.github.com')
             .get('/repos/foo/bar/dependabot/alerts')
             .query({ state: 'open', per_page: '100' })
@@ -319,14 +319,18 @@ describe('DependfixApp verification gate', () => {
         })
         const { exitCode, result } = await app.run()
 
-        expect(exitCode).toBe(2)
-        expect(result.errors.some((e) => e.category === 'VERIFICATION_FAILED')).toBe(true)
-        // 已跟踪文件已回滚（untracked 的 pnpm-lock.yaml / node_modules 是运行产物，保留为预期行为）
+        expect(exitCode).toBe(0)
+        expect(result.repositories[0]?.verificationSkipped).toBe('no-write')
+        // 无改动即无可归因失败：不阻断、不回滚
+        expect(result.repositories[0]?.verificationBlocking).toBe(false)
+        expect(result.errors.some((e) => e.category === 'VERIFICATION_FAILED')).toBe(false)
+        // 无写操作 → 工作区本就干净（不回滚也不需要回滚）
         expect(execSync('git status --porcelain --untracked-files=no', { cwd: workDir, encoding: 'utf-8' }).trim()).toBe('')
     }, 30_000) // 含真实 git init/回滚 + 验证子进程：Windows 并行负载下放宽超时
 
-    it('修复前即红的命令（既有失败）→ 记 PRE_EXISTING_FAILURE，不触发门禁回滚', async () => {
-        // 锁定「基线命中 → PRE_EXISTING_FAILURE」的端到端链路（仓库须「有工作」才会采样基线）
+    it('0 写入运行不再产生 PRE_EXISTING_FAILURE（后验证已跳过）', async () => {
+        // 锁定 0 写入语义切换：0 写入时基线可能命中既有失败，但后验证被跳过 → 不再产出
+        // PRE_EXISTING_FAILURE 动作；既有失败归因链路由 verify-project.test.ts 覆盖。
         nock('https://api.github.com')
             .get('/repos/foo/bar/dependabot/alerts')
             .query({ state: 'open', per_page: '100' })
@@ -334,7 +338,7 @@ describe('DependfixApp verification gate', () => {
         nock('https://api.github.com')
             .get('/repos/foo/bar')
             .reply(200, { default_branch: 'master' })
-        // 目标仓库 lint 长期为红：基线采样与修复后验证都会失败 → 归为既有失败，不归因本次改动
+        // 目标仓库 lint 长期为红：基线采样会失败，但 0 写入后验证跳过
         writeFileSync(join(workDir, 'package.json'), JSON.stringify({ scripts: { lint: 'exit 1' } }))
         execSync('git add . && git commit -qm init', { cwd: workDir })
 
@@ -355,12 +359,11 @@ describe('DependfixApp verification gate', () => {
         })
         const { result } = await app.run()
 
-        // 既有失败单列；门禁未阻断（不记 VERIFICATION_FAILED、不回滚）
-        expect(result.errors.some((e) => e.category === 'PRE_EXISTING_FAILURE')).toBe(true)
-        expect(result.errors.some((e) => e.category === 'VERIFICATION_FAILED')).toBe(false)
-        // 两个口径分工：链路未全绿（passed=false）但没有本次引入的失败（blocking=false）
-        expect(result.repositories[0]?.verificationPassed).toBe(false)
+        expect(result.repositories[0]?.verificationSkipped).toBe('no-write')
+        expect(result.repositories[0]?.verificationPassed).toBeUndefined()
         expect(result.repositories[0]?.verificationBlocking).toBe(false)
+        expect(result.errors.some((e) => e.category === 'PRE_EXISTING_FAILURE')).toBe(false)
+        expect(result.errors.some((e) => e.category === 'VERIFICATION_FAILED')).toBe(false)
     }, 30_000)
 })
 

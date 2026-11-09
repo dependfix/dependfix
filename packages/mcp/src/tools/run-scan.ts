@@ -119,6 +119,8 @@ export const runScan = async (input: {
                 failed: r.failed,
                 lockfileRepaired: r.lockfileRepaired,
                 verificationPassed: r.verificationPassed ?? undefined,
+                verificationBlocking: r.verificationBlocking ?? undefined,
+                verificationSkipped: r.verificationSkipped ?? undefined,
                 durationMs: r.durationMs,
             })),
             errors: result.errors.map((e) => ({

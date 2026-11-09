@@ -10,6 +10,7 @@ import {
     type AiUsageAggregate,
     type FixAction,
     type NormalizedSecurityAlert,
+    type VerificationSkipReason,
 } from '@dependfix/core'
 import {
     applyVersionedOverrides,
@@ -68,8 +69,8 @@ export interface RepoFixProgress {
     verificationPassed: boolean | undefined
     /** 是否存在本次改动引入的验证失败（决定交付回滚；见 RepositoryResult.verificationBlocking） */
     verificationBlocking: boolean | undefined
-    /** 主动跳过验证的原因（运行预算不足；见 RepositoryResult.verificationSkipped） */
-    verificationSkipped?: 'budget'
+    /** 主动跳过验证的原因（运行预算不足 / 本次无写入；见 RepositoryResult.verificationSkipped） */
+    verificationSkipped?: VerificationSkipReason
     defaultBranch: string
 }
 
@@ -148,9 +149,24 @@ export async function processRepoFix(
             && !ctx.config.allowMajorUpgrade
             && lockfileTargets.every((alert) => isCrossMajorFixRequired(join(ctx.workDir, 'pnpm-lock.yaml'), alert))
         // 修复前按需采样验证基线（首个有工作的仓库处采样，在任何改动之前；用于区分「本次引入」与「既有」失败）
-        const { exemptAttribution, baseline } = await ensureVerificationBaseline(ctx, repo, {
-            hasWork: alertInputs.length - planned.skippedCount > 0 && !crossMajorOnly,
-        })
+        // 「有工作」按**可能写盘**判定（可修复的依赖告警 / 成员清单告警 / 可自动修复的 Code Scanning 告警）：
+        // 全部不可修复的告警不会产生任何写入，其验证失败在 pristine 工作区下必然也是既有失败，无需付基线成本
+        const codeScanningFixable = alertInputs.some((alert) => (
+            alert.source === 'code-scanning' && alert.alertClass === 'auto-fixable'
+        ))
+        const manifestPathOf = (alert: NormalizedSecurityAlert) => alert.manifestPath.trim().replace(/\\/g, '/')
+        // 跨 major 未授权只否决 **lockfile 告警**这一贡献：package.json / 成员清单 / 模板修复
+        // 仍会写盘，不能被它一起否决（否则有写入却跳过基线 → 失败被误判既有失败）
+        const fixableLockfileRoot = planned.rootManifestAlerts.some((alert) => (
+            alert.fixable && alert.recommendedVersion && manifestPathOf(alert) === 'pnpm-lock.yaml'
+        ))
+        const fixableNonLockfileRoot = planned.rootManifestAlerts.some((alert) => (
+            alert.fixable && alert.recommendedVersion && manifestPathOf(alert) !== 'pnpm-lock.yaml'
+        ))
+        const fixableMemberAlerts = planned.memberManifestAlerts.some((item) => item.alert.recommendedVersion)
+        const hasWork = fixableNonLockfileRoot || fixableMemberAlerts || codeScanningFixable
+            || (fixableLockfileRoot && !crossMajorOnly)
+        const { exemptAttribution, baseline } = await ensureVerificationBaseline(ctx, repo, { hasWork })
         // pristine 安装失败 ⇒ overrides 安装必然同因失败；逐包重试只会耗尽预算，写盘前快速失败
         const installBaselineFailure = recordInstallBaselineFailure(ctx, repo, baseline)
         const sets = await prepareRepoFixSets(ctx, repo, planned, alertInputs, progress)
@@ -243,8 +259,6 @@ interface PlannedRepoFixAlerts {
     memberManifestAlerts: MemberManifestAlert[]
     /** 子目录 / 根直接依赖 lockfile 等需人工复核的告警（不进入修复链路） */
     submanifestAlerts: NormalizedSecurityAlert[]
-    /** 因同告警尝试上限被跳过的告警数（用于 hasWork 判定） */
-    skippedCount: number
 }
 
 /**
@@ -284,7 +298,6 @@ async function planRepoFixAlerts(
         rootManifestAlerts,
         memberManifestAlerts,
         submanifestAlerts: partition.sub,
-        skippedCount,
     }
 }
 

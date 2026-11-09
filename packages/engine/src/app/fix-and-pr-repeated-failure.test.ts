@@ -221,9 +221,10 @@ describe('DependfixApp fix-and-pr repeated failure attempts', () => {
         expect(exitCode).toBe(0)
         expect(mockUpgradeDependency).not.toHaveBeenCalled()
         expect(mockCreatePullRequest).not.toHaveBeenCalled()
-        // 全部告警被跳过 ⇒ 无写操作：不采样修复前基线（只有修复后一次验证）、不跑 lockfile repair
-        expect(mockRunVerification).toHaveBeenCalledTimes(1)
+        // 全部告警被跳过 ⇒ 无写操作：跳过基线采样、lockfile repair 与后验证
+        expect(mockRunVerification).not.toHaveBeenCalled()
         expect(mockTryLockfileRepair).not.toHaveBeenCalled()
+        expect(result.repositories[0]?.verificationSkipped).toBe('no-write')
         expect(result.summary.alertsSkipped).toBe(1)
         expect(result.summary.alertsSkippedByReason).toEqual({ 'repeated-failure': 1 })
         expect(result.summary.alertsFailed).toBe(0)

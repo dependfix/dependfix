@@ -76,6 +76,30 @@ function makeAlert(overrides: Partial<NormalizedSecurityAlert> = {}): Normalized
     }
 }
 
+/** 跨 major 未授权的 lockfile 告警（不得否决其他可写工作）。 */
+function makeCrossMajorLockfileAlert(overrides: Partial<NormalizedSecurityAlert> = {}): NormalizedSecurityAlert {
+    return makeAlert({
+        packageName: 'lodash',
+        manifestPath: 'pnpm-lock.yaml',
+        fixable: true,
+        fixStrategy: 'upgrade',
+        recommendedVersion: '4.17.21',
+        ...overrides,
+    })
+}
+
+/** 可自动修复的 Code Scanning 告警：有写盘可能（触发基线采样），模板修复本身由 mock 承担。 */
+function makeAutoFixableCodeScanningAlert(overrides: Partial<NormalizedSecurityAlert> = {}): NormalizedSecurityAlert {
+    return makeAlert({
+        source: 'code-scanning',
+        ruleId: 'js/sql-injection',
+        manifestPath: 'src/db.ts',
+        alertClass: 'auto-fixable',
+        fixable: false,
+        ...overrides,
+    })
+}
+
 function makeCtx(workDir: string): RepoFixCtx {
     return {
         config: {
@@ -153,6 +177,7 @@ describe('processRepoFix 修复前基线采样面', () => {
             repository: 'foo/bar',
             target: 'pnpm-lock.yaml',
             success: true,
+            noOp: true,
             durationMs: 1,
         })
         mockRunVerification.mockImplementation(async ({ commands }: { commands: string[] }) => ({
@@ -185,22 +210,62 @@ describe('processRepoFix 修复前基线采样面', () => {
         expect(ctx.repoResults[0].verificationBlocking).toBe(false)
     })
 
-    it('有告警仓库：仍采样一次基线（基线 + 修复后 = 两次验证链）', async () => {
-        mockFetchRepoAlerts.mockResolvedValue([makeAlert()])
+    it('有可写工作的仓库：采样一次基线；无实际写入时跳过终验', async () => {
+        // 自动修复模板告警 ⇒ 有写盘可能 → 采样基线；mock 修复计数为 0 ⇒ 终验无对象
+        mockFetchRepoAlerts.mockResolvedValue([makeAutoFixableCodeScanningAlert()])
         const ctx = makeCtx(workDir)
 
         await processRepoFix(ctx, null, 'foo/bar')
 
         expect(mockSampleVerificationBaseline).toHaveBeenCalledTimes(1)
-        // 基线阶段 1 次 + 修复后 1 次 = 2 次（对照零告警仓库的 1 次）
-        expect(mockRunVerification).toHaveBeenCalledTimes(2)
+        expect(mockRunVerification).toHaveBeenCalledTimes(1)
+        expect(ctx.repoResults[0].verificationSkipped).toBe('no-write')
     })
 
-    it('多仓共享 workDir：零告警仓库先处理不采样，有告警仓库采样一次（运行级首采复用不变）', async () => {
+    it('有告警但全部不可修复：不采样基线、也不跑终验（0 写入）', async () => {
+        mockFetchRepoAlerts.mockResolvedValue([makeAlert()])
+        const ctx = makeCtx(workDir)
+
+        await processRepoFix(ctx, null, 'foo/bar')
+
+        expect(mockSampleVerificationBaseline).not.toHaveBeenCalled()
+        expect(mockRunVerification).not.toHaveBeenCalled()
+        expect(ctx.repoResults[0].verificationSkipped).toBe('no-write')
+    })
+
+    it('跨 major 未授权的 lockfile 告警不得否决其他可写工作：仍采样基线且归因生效', async () => {
+        // pnpm-lock 中 lodash 3.x → 推荐 4.x：跨 major 未授权 ⇒ lockfile 这一贡献被否决；
+        // 但自动修复模板告警会写盘 ⇒ 必须采样基线，终验失败必须归因本次改动
+        writeFileSync(join(workDir, 'pnpm-lock.yaml'), [
+            'lockfileVersion: \'9.0\'',
+            '',
+            '  lodash@3.10.1:',
+            '    resolution: {integrity: sha512-a}',
+            '',
+        ].join('\n'))
+        mockFetchRepoAlerts.mockResolvedValue([makeCrossMajorLockfileAlert(), makeAutoFixableCodeScanningAlert()])
+        mockRunCodeScanningFixes.mockResolvedValue({ fixed: 1, failed: 0 })
+        let call = 0
+        mockRunVerification.mockImplementation(async ({ commands }: { commands: string[] }) => {
+            call += 1
+            // ① 基线（绿）② 修复后终验（红 = 本次引入）
+            return call === 2
+                ? { success: false, commandResults: failingResults(commands, 'pnpm test') }
+                : { success: true, commandResults: successResults(commands) }
+        })
+        const ctx = makeCtx(workDir)
+
+        await processRepoFix(ctx, null, 'foo/bar')
+
+        expect(mockSampleVerificationBaseline).toHaveBeenCalledTimes(1)
+        expect(ctx.repoResults[0].verificationBlocking).toBe(true)
+    })
+
+    it('多仓共享 workDir：零告警仓库先处理不采样，有可写工作的仓库采样一次（运行级首采复用不变）', async () => {
         mockFetchRepoAlerts
             .mockResolvedValueOnce([])
-            .mockResolvedValueOnce([makeAlert()])
-            .mockResolvedValueOnce([makeAlert({ id: 2 })])
+            .mockResolvedValueOnce([makeAutoFixableCodeScanningAlert()])
+            .mockResolvedValueOnce([makeAutoFixableCodeScanningAlert({ id: 2 })])
         const ctx = makeCtx(workDir)
 
         await processRepoFix(ctx, null, 'foo/zero')
@@ -209,11 +274,11 @@ describe('processRepoFix 修复前基线采样面', () => {
         await processRepoFix(ctx, null, 'foo/alerts')
         await processRepoFix(ctx, null, 'foo/alerts-2')
 
-        // 采样发生在「首个有工作的仓库」，且整个运行只发生一次（后续仓库——含第二个有工作的仓库——复用）
+        // 采样发生在「首个有可写工作的仓库」，且整个运行只发生一次（后续仓库复用）
         expect(mockSampleVerificationBaseline).toHaveBeenCalledTimes(1)
         expect(mockSampleVerificationBaseline.mock.calls[0]![1]).toBe('foo/alerts')
-        // zero 仓修复后 1 次 + 首个 alerts 仓基线 1 次 + 修复后 1 次 + 第二个 alerts 仓修复后 1 次（不再采样）
-        expect(mockRunVerification).toHaveBeenCalledTimes(4)
+        // zero 仓修复后 1 次 + 首个 alerts 仓基线 1 次（两个 alerts 仓均无实际写入 → 终验跳过）
+        expect(mockRunVerification).toHaveBeenCalledTimes(2)
     })
 
     it('零告警 + 既有失败：按既有失败豁免（不归因本次），出口码保持 0', async () => {
@@ -240,8 +305,9 @@ describe('processRepoFix 修复前基线采样面', () => {
         expect(computeExitCode(ctx)).toBe(0)
     })
 
-    it('混合形态：健康零告警仓库 + 有告警仓库真实失败 → exit 1（不得退化为 2）', async () => {
-        mockFetchRepoAlerts.mockResolvedValueOnce([]).mockResolvedValueOnce([makeAlert()])
+    it('混合形态：健康零告警仓库 + 有写盘仓库真实失败 → exit 1（不得退化为 2）', async () => {
+        mockFetchRepoAlerts.mockResolvedValueOnce([]).mockResolvedValueOnce([makeAutoFixableCodeScanningAlert()])
+        mockRunCodeScanningFixes.mockResolvedValue({ fixed: 1, failed: 0 })
         let call = 0
         mockRunVerification.mockImplementation(async ({ commands }: { commands: string[] }) => {
             call += 1

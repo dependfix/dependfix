@@ -35,6 +35,20 @@ describe('computeSummary', () => {
         expect(ctx.summary.reposWithAlertsDisabled).toBe(0)
     })
 
+    it('counts verification-skipped repos by reason', () => {
+        const ctx = makeCtx({
+            repoResults: [
+                { repository: 'foo/a', verificationSkipped: 'no-write' },
+                { repository: 'foo/b', verificationSkipped: 'budget' },
+                { repository: 'foo/c', verificationSkipped: 'no-write' },
+                { repository: 'foo/d', verificationPassed: true },
+            ] as never,
+        })
+        computeSummary(ctx)
+        expect(ctx.summary.verificationsSkipped).toBe(3)
+        expect(ctx.summary.verificationSkippedByReason).toEqual({ 'no-write': 2, budget: 1 })
+    })
+
     it('counts environmental failures from ENVIRONMENT_ERROR audit entries only', () => {
         const ctx = makeCtx({
             allErrors: [

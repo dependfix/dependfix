@@ -10,6 +10,7 @@ import {
     actionTypeLabel,
     isAlertFixedByActions,
     statusIcon,
+    formatVerificationSkipReason,
 } from './types'
 import { collectCodeScanningSuggestions } from './suggestions'
 import { collectCodeQualityFindings } from './code-quality-suggestions'
@@ -75,6 +76,7 @@ export function generateMarkdownReport(result: RunResult): string {
         `| Lockfile repairs | ${summary.lockfileRepairs} |`,
         `| Verifications passed | ${summary.verificationsPassed} |`,
         `| Verifications failed | ${summary.verificationsFailed} |`,
+        `| Verifications skipped | ${summary.verificationsSkipped} |`,
         '',
     )
 
@@ -145,6 +147,26 @@ export function generateMarkdownReport(result: RunResult): string {
                 ? record.failingCommands.map((command) => `\`${escapeMd(command)}\``).join('<br>')
                 : '—'
             sections.push(`| ${repos} | ${commands} | ${carrier} |`)
+        }
+        sections.push('')
+    }
+
+    // ---- 2.8 Verification Skipped（预算 / 0 写入；不计失败、不回滚）----
+    const verificationSkipped = repositories.filter((repo) => repo.verificationSkipped !== undefined)
+    if (verificationSkipped.length > 0) {
+        sections.push(
+            '## Verification Skipped',
+            '',
+            '> 验证未执行（运行预算不足 / 本次无写入）：不得视为验证通过，也不计入失败；'
+            + '预算跳过阻断交付，本次无写入则无交付内容。',
+            '',
+            '| Repository | Reason |',
+            '|------------|--------|',
+        )
+        for (const repo of verificationSkipped) {
+            sections.push(
+                `| \`${escapeMd(repo.repository)}\` | ${formatVerificationSkipReason(repo.verificationSkipped!)} |`,
+            )
         }
         sections.push('')
     }

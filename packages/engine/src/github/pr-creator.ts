@@ -595,6 +595,7 @@ export function generatePRBody(
         `| Lockfile repairs | ${summary.lockfileRepairs} |`,
         `| Verifications passed | ${summary.verificationsPassed} |`,
         `| Verifications failed | ${summary.verificationsFailed} |`,
+        `| Verifications skipped | ${summary.verificationsSkipped} |`,
         '',
     )
 

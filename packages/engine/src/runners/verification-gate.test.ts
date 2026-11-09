@@ -255,11 +255,65 @@ describe('enforceVerificationGate — 预算跳过', () => {
         const blocked = await enforceVerificationGate(ctx as never, { preExistingDirty: false, action: 'pr' })
 
         expect(blocked).toBe(true)
-        expect(ctx.logger.warn).toHaveBeenCalledWith(expect.stringContaining('Verification skipped by run budget'))
+        expect(ctx.logger.warn).toHaveBeenCalledWith(
+            expect.stringContaining('foo/a (run budget exhausted) — delivery skipped'),
+        )
         // 未验证不等于验证失败：不写 VERIFICATION_FAILED
         expect(ctx.allErrors).toEqual([])
         // 工作区保留（未回滚）：修复改动仍在
         expect(execSync('git status --porcelain package.json', { cwd: workDir, encoding: 'utf-8' }).trim()).not.toBe('')
+    })
+
+    it('0 写入跳过不阻断交付（无改动即无可归因失败），也不记 VERIFICATION_FAILED', async () => {
+        const ctx = {
+            logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+            workDir,
+            allErrors: [] as FixError[],
+            repoResults: [{
+                repository: 'foo/a',
+                verificationPassed: undefined,
+                verificationBlocking: false,
+                verificationSkipped: 'no-write' as const,
+            }],
+        }
+
+        const blocked = await enforceVerificationGate(ctx as never, { preExistingDirty: false, action: 'pr' })
+
+        // 未验证 ≠ 失败：不阻断（其他仓库已通过验证的修复照常交付），也不回滚
+        expect(blocked).toBe(false)
+        expect(ctx.allErrors).toEqual([])
+        expect(execSync('git status --porcelain package.json', { cwd: workDir, encoding: 'utf-8' }).trim()).not.toBe('')
+    })
+
+    it('预算跳过与真实失败并存 → 仅真实失败仓库记 VERIFICATION_FAILED 并回滚', async () => {
+        const ctx = {
+            logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+            workDir,
+            allErrors: [] as FixError[],
+            repoResults: [
+                {
+                    repository: 'foo/skip',
+                    verificationPassed: undefined,
+                    verificationBlocking: true,
+                    verificationSkipped: 'budget' as const,
+                },
+                {
+                    repository: 'foo/bad',
+                    verificationPassed: false,
+                    verificationBlocking: true,
+                },
+            ],
+        }
+
+        const blocked = await enforceVerificationGate(ctx as never, { preExistingDirty: false, action: 'pr' })
+
+        expect(blocked).toBe(true)
+        // 跳过仓库不进入失败归因
+        expect(ctx.allErrors.map((e) => e.category)).toEqual(['VERIFICATION_FAILED'])
+        expect(ctx.allErrors[0]!.repository).toContain('foo/bad')
+        expect(ctx.allErrors[0]!.repository).not.toContain('foo/skip')
+        // 真实失败触发整仓回滚
+        expect(execSync('git status --porcelain package.json', { cwd: workDir, encoding: 'utf-8' }).trim()).toBe('')
     })
 })
 

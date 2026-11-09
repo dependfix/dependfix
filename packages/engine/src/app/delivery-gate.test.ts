@@ -66,15 +66,12 @@ describe('DependfixApp delivery gate', () => {
         })
         const { result } = await app.run()
 
-        // 本用例覆盖「零修复 + 安装既有失败」的组合：不可修告警 + 安装命令失败。
-        // 安装守卫单独由 delivery.test.ts 的 findInstallBlockedReposWithFixes 与
-        // helpers.test.ts 的 commit 守卫覆盖（本用例不制造可交付动作，故先命中零修复守卫）。
-        expect(result.actions.some((a) => (
-            a.type === 'verification'
-            && a.target.includes('pnpm install')
-            && a.preExisting === true
-            && a.success === false
-        ))).toBe(true)
+        // 本用例覆盖「零修复 + 安装既有失败」的组合：不可修告警 + 安装命令失败 → 0 写入。
+        // 0 写入时后验证无对象：不跑验证、不交付，结果标 `no-write`；
+        // 安装守卫 / 既有失败归因分别由 delivery.test.ts / verify-project.test.ts 覆盖。
+        expect(result.actions.some((a) => a.type === 'verification')).toBe(false)
+        expect(result.repositories[0]?.verificationSkipped).toBe('no-write')
+        expect(result.summary.verificationsSkipped).toBe(1)
         expect(result.summary.alertsFixed).toBe(0)
         expect(result.errors.some((e) => e.category === 'PR_CREATION_FAILED')).toBe(false)
         expect(result.actions.some((a) => a.type === 'dependency-upgrade' && a.target.startsWith('PR #'))).toBe(false)

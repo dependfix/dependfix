@@ -8,7 +8,7 @@ import type { Octokit } from '@octokit/rest'
 import { formatVerificationError, type CommandResult } from '../runners/verification-runner'
 import { tryLockfileRepair } from './helpers'
 import type { RepoFixCtx, RepoFixProgress } from './repo-fix'
-import { budgetAllows } from './budget'
+import { budgetAllows, hasBudgetForNextStep } from './budget'
 import { findInstallBaselineFailure, sampleVerificationBaseline, verifyProject } from './verify-project'
 import { attemptSelectiveUnitRollback } from './verification-checkpoint'
 
@@ -18,7 +18,7 @@ import { attemptSelectiveUnitRollback } from './verification-checkpoint'
  *
  * 采样触发面按「本仓库是否有工作」收窄（口径见 docs/design/modules/dependency-fixer-records.md 验证链章节）：
  * - 已有基线（本次运行内任一仓库采样过）→ 复用，运行级「首采一次 + 跨仓库复用」语义不变
- * - 本仓库有工作（存在告警 → 会有写操作）→ 采样
+ * - 本仓库有可写工作（可修复的依赖 / 成员清单 / 自动修复模板告警 → 会有写操作）→ 采样
  * - 本仓库无工作且尚无基线 → 不采样，返回 `exemptAttribution: true`：pristine 工作区下修复后验证失败
  *   必然也会在基线中失败（同命令同工作区），故「无改动即豁免」与采样等价，省一次完整验证链成本
  */
@@ -44,7 +44,7 @@ export async function ensureVerificationBaseline(
     }
     if (!options.hasWork) {
         ctx.logger.info(
-            `[baseline] Skipping pre-fix baseline for ${repo}: no alerts → no writes in this run `
+            `[baseline] Skipping pre-fix baseline for ${repo}: no writable work → no writes in this run `
             + '(verification failures of this repository are not attributed to this change)',
         )
         return { exemptAttribution: true }
@@ -127,6 +127,23 @@ export async function finalizeRepoFix(
     const lockfileRepairChanged = progress.lockfileRepaired
 
     if (!ctx.config.dryRun) {
+        // 有告警但本次没有任何实际写入（全部跳过 / 仅跨 major 未授权 / lockfile repair 未改文件）
+        // → 工作区保持 pristine，后验证没有对象：跳过整条终验（`no-write`）。
+        // 不写「本次引入的失败」（`verificationBlocking=false`）：没有改动就没有可归因的失败，
+        // 该仓库既无交付内容也不得阻断其他仓库的交付；「未验证」由 `verificationSkipped` 表达。
+        // 零告警仓库不走此分支——其 `verificationPassed` 是唯一的「处理成功」信号（见用例约束）。
+        // 预算已耗尽时优先走预算跳过（硬门禁原因），不把「预算跳过」误标为 `no-write`。
+        if (progress.alertsCount > 0 && progress.fixed === 0 && !progress.lockfileRepaired
+            && hasBudgetForNextStep(ctx.deadlineAt)) {
+            ctx.logger.info(
+                `[skip] Verification for ${repo}: alerts present but no writes in this run — `
+                + 'skipping post-fix verification (nothing to verify or deliver; worktree unchanged)',
+            )
+            progress.verificationPassed = undefined
+            progress.verificationBlocking = false
+            progress.verificationSkipped = 'no-write'
+            return
+        }
         let budgetSkipped = false
         const verifyOptions = {
             baseline: currentBaseline(ctx),

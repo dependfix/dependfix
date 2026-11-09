@@ -466,4 +466,43 @@ describe('computeExitCode', () => {
         }))
         expect(exitCode).toBe(1)
     })
+
+    // 0 写入跳过不归因失败（blocking=false）：单仓 exit 0；混合真实失败时为 exit 1（部分失败），
+    // 不得因为「跳过」把整次运行判成通过（0）
+    it('keeps a mixed run with a no-write repo non-passing (exit 1, not 0)', () => {
+        const exitCode = computeExitCode(makeCtx({
+            config: { mode: 'fix' } as AppContext['config'],
+            allErrors: [{
+                repository: 'foo/bad',
+                stage: 'fix',
+                category: 'PROCESS_FAILED',
+                message: 'real failure',
+            } as never],
+            repoResults: [
+                {
+                    alertsCount: 1,
+                    fixed: 0,
+                    verificationPassed: undefined,
+                    verificationBlocking: false,
+                    verificationSkipped: 'no-write',
+                } as never,
+                { alertsCount: 0, fixed: 0 } as never,
+            ],
+        }))
+        expect(exitCode).toBe(1)
+    })
+
+    it('returns 0 for a run where every repo skipped verification due to no writes', () => {
+        const exitCode = computeExitCode(makeCtx({
+            config: { mode: 'fix' } as AppContext['config'],
+            repoResults: [{
+                alertsCount: 2,
+                fixed: 0,
+                verificationPassed: undefined,
+                verificationBlocking: false,
+                verificationSkipped: 'no-write',
+            } as never],
+        }))
+        expect(exitCode).toBe(0)
+    })
 })

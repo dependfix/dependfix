@@ -8,6 +8,7 @@ import {
     type RunResult,
     type AiUsageAggregate,
     type SupplyChainWarning,
+    type VerificationsSkippedByReason,
 } from '@dependfix/core'
 import type { AiUsage } from '../ai/usage'
 import { isRepoVerificationBlocked } from '../runners/verification-gate'
@@ -94,6 +95,17 @@ export function computeSummary(
     summary.lockfileRepairs = lockfileRepairs
     summary.verificationsPassed = verificationsPassed
     summary.verificationsFailed = verificationsFailed
+    // 主动跳过验证（预算 / 0 写入）：按仓库计数 + 按原因分组；不交付、不回滚，供报告 / 平台披露
+    const skippedByReason: VerificationsSkippedByReason = {}
+    for (const result of repoResults) {
+        const reason = result.verificationSkipped
+        if (!reason) {
+            continue
+        }
+        skippedByReason[reason] = (skippedByReason[reason] ?? 0) + 1
+    }
+    summary.verificationsSkipped = Object.values(skippedByReason).reduce((sum, count) => sum + (count ?? 0), 0)
+    summary.verificationSkippedByReason = skippedByReason
     // 交付跳过（基线红）：按去重后的仓库集计数；载体计数按 run 级记录派生（幂等，可重复调用）
     const deliverySkips = ctx.deliverySkips ?? []
     summary.deliverySkipped = new Set(deliverySkips.flatMap((record) => record.repositories)).size

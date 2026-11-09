@@ -20,6 +20,33 @@ export const SKIP_REASONS = [
 
 export type SkipReason = (typeof SKIP_REASONS)[number]
 
+/**
+ * 验证被主动跳过原因（`RepositoryResult.verificationSkipped`）。
+ *
+ * - `budget`：运行预算不足，终验未执行
+ * - `no-write`：本次运行对该仓库没有任何写操作（有告警但无可执行修复），后验证无对象
+ *
+ * 两者都表示「未验证」：不得渲染成验证通过，也不记 `VERIFICATION_FAILED`。
+ * 对交付的影响不同：`budget` 表示「改动未验证」→ 阻断整次运行的交付；
+ * `no-write` 表示「无改动可验证」→ 该仓库没有交付内容，不阻断同一运行内其他仓库。
+ */
+export const VERIFICATION_SKIP_REASONS = ['budget', 'no-write'] as const
+
+export type VerificationSkipReason = (typeof VERIFICATION_SKIP_REASONS)[number]
+
+/** 按原因分组的验证跳过计数；缺失 key 等价于 0。 */
+export type VerificationsSkippedByReason = Partial<Record<VerificationSkipReason, number>>
+
+/** 验证跳过原因文案表（穷举，新增原因时编译失败提醒补文案；平台 UI 用 i18n 同义键）。 */
+const VERIFICATION_SKIP_REASON_TEXT: Record<VerificationSkipReason, string> = {
+    budget: 'run budget exhausted',
+    'no-write': 'no writes (verification not needed)',
+}
+
+/** 验证跳过原因的人类可读文案（报告 / 日志）。 */
+export const formatVerificationSkipReason = (reason: VerificationSkipReason): string =>
+    VERIFICATION_SKIP_REASON_TEXT[reason]
+
 /** 按原因分组的跳过计数；缺失 key 等价于 0。 */
 export type AlertsSkippedByReason = Partial<Record<SkipReason, number>>
 
@@ -108,6 +135,15 @@ export interface RunSummary {
     lockfileRepairs: number
     verificationsPassed: number
     verificationsFailed: number
+    /**
+     * 验证被跳过的仓库数（预算不足 / 0 写入）。
+     *
+     * 不计入失败、不回滚；`verificationSkippedByReason` 给出按原因分组计数
+     * （`budget` 阻断交付，`no-write` 无交付内容）。
+     */
+    verificationsSkipped: number
+    /** 按原因分组的验证跳过计数；旧 summaryJson 缺失时展示层回退总数。 */
+    verificationSkippedByReason: VerificationsSkippedByReason
     /** 本次运行创建的 PR 数（fix-and-pr 恒为 0 或 1） */
     prsOpened: number
     /** 因内容指纹相同被跳过的 PR 数（已有同内容 PR） */
@@ -155,16 +191,20 @@ export interface RepositoryResult {
      *
      * 预算跳过终验时置 `true` 但**不回滚**（门禁据 `verificationSkipped` 分流）：
      * 语义是「不能确认可交付」，不是「存在本次引入的失败」。
+     * 0 写入跳过（`no-write`）时置 `false`：工作区保持 pristine，没有可归因的失败，
+     * 该仓库也没有交付内容，因此不阻断同一运行内其他仓库的交付。
      */
     verificationBlocking?: boolean
     /**
-     * 验证被**主动跳过**的原因（当前只有运行预算不足）。
+     * 验证被**主动跳过**的原因。
      *
      * 与 `verificationPassed === undefined` 的分工：后者是「未验证」（dry-run / 未走修复链），
-     * 本字段显式说明「验证本应运行，但预算不足被跳过」——门禁据此**不交付**（保守），
-     * 且不得把该仓库渲染成「验证通过」。
+     * 本字段显式说明「验证本应运行，但被预算或 0 写入跳过」——不得把该仓库渲染成「验证通过」；
+     * 跳过**不写** `VERIFICATION_FAILED`，也不把跳过折叠为「通过」。
+     * 是否阻断交付取决于是跳过原因：`budget` 阻断（`verificationBlocking=true`，改动未验证），
+     * `no-write` 不阻断（`verificationBlocking=false`，无改动可交付）。
      */
-    verificationSkipped?: 'budget'
+    verificationSkipped?: VerificationSkipReason
     durationMs: number
 }
 
@@ -771,6 +811,8 @@ export function createEmptyRunSummary(): RunSummary {
         lockfileRepairs: 0,
         verificationsPassed: 0,
         verificationsFailed: 0,
+        verificationsSkipped: 0,
+        verificationSkippedByReason: {},
         prsOpened: 0,
         prsSkippedByFingerprint: 0,
         prsClosedAfterFailure: 0,

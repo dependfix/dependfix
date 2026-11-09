@@ -23,8 +23,8 @@ export default defineNuxtConfig({
             ],
             link: [
                 { rel: 'icon', type: 'image/svg+xml', href: '/brand/favicon.svg' },
-                // PNG 兜底：浏览器/平台不支持 SVG 时的 fallback
-                { rel: 'alternate icon', type: 'image/png', sizes: '32x32', href: '/brand/favicon-32.png' },
+                // PNG 兜底：浏览器/平台不支持 SVG 时的 fallback（同一 rel=icon，按 type / sizes 选择）
+                { rel: 'icon', type: 'image/png', sizes: '32x32', href: '/brand/favicon-32.png' },
                 // iOS Safari 添加到主屏幕时强制 PNG
                 { rel: 'apple-touch-icon', sizes: '180x180', href: '/brand/apple-touch-icon.png' },
             ],
@@ -60,6 +60,8 @@ export default defineNuxtConfig({
     // 国际化：单点声明见 i18n/i18n.config.ts（locales / strategy / detectBrowserLanguage / detector 路径）
     i18n: {
         ...nuxtI18n,
+        // `nuxtI18n` 用 as const 锁定 code 字面量；模块契约要求 mutable 数组，此处显式复制
+        locales: [...nuxtI18n.locales],
         vueI18n: './i18n.config.ts',
         experimental: { localeDetector: localeDetectorFile },
     },

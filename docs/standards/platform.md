@@ -77,10 +77,10 @@ Nuxt 4（全栈 SSR + API Routes，`app/` + `server/`）/ TypeScript strict / UI
 
 ### 6.3 仓库级跨大版本升级授权（`allowMajorUpgrade`）
 
-- **默认关闭**：跨 major 告警记 `alertsSkippedByReason['cross-major']` 并按人工处理披露；不得因「开关未开」与「准入不满足」混淆（前者是默认策略，后者是显式授权后的准入判定）。
-- **开启后的准入**：仅「根 manifest 直接依赖 + lockfile 单版本」的告警进入升级链；间接依赖与多版本共存维持人工（与 CLI 语义一致）。升级仍走完整验证链（install / lint / build / typecheck / test），失败自动回滚。
-- **配置面**：平台仓库级开关（默认关）；写入门槛 `admin` / `org_admin`，仅实际变化时登记 `major_upgrade_policy_update` 审计。**不新增** CLI / Action / env 隐式通道（Action 仍无 input，CLI 仍为显式参数）。
-- **可观测**：仓库视图返回开关状态；运行摘要的 `cross-major` 计数与人工标签共同表达「被跳过」事实；日志在授权开启但准入不满足时输出 `require a cross-major upgrade ... manual review`。
+- **默认关闭**：跨 major 告警记 `alertsSkippedByReason['cross-major']` 并按人工处理披露；不得混淆「开关未开」与「准入不满足」。
+- **开启后的准入**：仅「根 manifest 直接依赖 + lockfile 单版本」的告警进入升级链；间接依赖与多版本共存维持人工。升级仍走完整验证链，失败自动回滚。
+- **配置面**：平台仓库级开关（默认关）；运行期 `NUXT_PUBLIC_ALLOW_MAJOR_UPGRADE_DEFAULT`（构建期 `ALLOW_MAJOR_UPGRADE_DEFAULT`，仅构建时生效）把**新建仓库**默认设为开启，既有仓库不变。写入 `admin` / `org_admin`，仅实际变化时登记 `major_upgrade_policy_update` 审计。**不新增**引擎 CLI / Action / env 隐式通道。
+- **可观测**：仓库视图返回开关状态；运行摘要的 `cross-major` 计数与人工标签表达「被跳过」；日志在授权开启但准入不满足时输出 `require a cross-major upgrade ... manual review`。
 
 ## 7. 前端规范（app/）
 

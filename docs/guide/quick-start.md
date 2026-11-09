@@ -366,7 +366,7 @@ A/B 场景差异化见 [executor-sandbox.md §7.8.1](../design/governance/execut
 2. **验证耗时**：每个跨线包执行一次完整 install + lint + build + typecheck + test（逐包串行），耗时显著高于常规 lint-only 组级验证。
 3. **回滚边界**：快照回滚覆盖 package.json / pnpm-lock.yaml 等受跟踪文件；`node_modules` 不还原（临时目录语义，可接受）。
 4. **语义变化**：跨线升级会改变依赖声明（如 `^5.4.0` → `^6.4.3`），影响面超出漏洞本身——升级后其他 API 用法可能失效。
-5. **Action 不可用**：GitHub Action 刻意**不暴露**该参数，且**无 `DEPENDFIX_ALLOW_MAJOR_UPGRADE` 环境变量通道**（结构性禁用，防止 CI 自动跨线引发意外破坏）。
+5. **Action 不可用**：GitHub Action 刻意**不暴露**该参数，且**无 `DEPENDFIX_ALLOW_MAJOR_UPGRADE` 环境变量通道**（结构性禁用，防止 CI 自动跨线引发意外破坏）。平台部署可用运行期 `NUXT_PUBLIC_ALLOW_MAJOR_UPGRADE_DEFAULT`（构建期 `ALLOW_MAJOR_UPGRADE_DEFAULT`）设置**新建仓库**的默认值，不影响 CLI / Action。
 
 > 默认不开启：不传 `--allow-major-upgrade` 时，跨线告警维持 skipped + 人工处理（PR #28 语义不变）。
 

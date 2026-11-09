@@ -347,7 +347,8 @@ verification: id, created_at, updated_at, identifier, value, expires_at
 ### 8.3 `--allow-major-upgrade` 没有环境变量通道
 
 - **受影响对象**：希望通过 env（`DEPENDFIX_*`）或 Action input 开启跨大版本自动升级的用户。
-- **变更**：该能力的唯一入口是 CLI 参数 `--allow-major-upgrade`；**刻意不提供**环境变量与 Action input（防 CI 自动跨线引发意外破坏）。`RuntimeConfig` 里存在 `allowMajorUpgrade` 字段，但 CLI / Action 之外的注入方式不受支持、不属契约。
+- **变更**：引擎侧唯一入口是 CLI 参数 `--allow-major-upgrade`（MCP 为等价显式入参）；**刻意不提供**环境变量与 Action input（防 CI 自动跨线引发意外破坏）。`RuntimeConfig` 里存在 `allowMajorUpgrade` 字段，但 CLI / Action 之外的注入方式不受支持、不属契约。
+- **平台默认值（不改变本节结论）**：平台部署可用运行期 `NUXT_PUBLIC_ALLOW_MAJOR_UPGRADE_DEFAULT`（构建期 `ALLOW_MAJOR_UPGRADE_DEFAULT`）设置**新建仓库**的开关默认值；既有仓库保持原值，每次扫描仍读取仓库自身的 `allowMajorUpgrade`。引擎的 `DEPENDFIX_ALLOW_MAJOR_UPGRADE` 仍不存在，Action 仍无 input。
 - **迁移动作**：需要跨线升级时本地显式传 flag；CI 场景改为人工处理跨线告警，或在下游脚本中显式调用 CLI。
 - **验证**：`dependfix fix --allow-major-upgrade --dry-run` 能识别跨线告警；不传 flag 时跨线告警进入人工处理。
 

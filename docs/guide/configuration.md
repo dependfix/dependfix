@@ -32,7 +32,7 @@
 | `alertSource` | `DEPENDFIX_ALERTS_SOURCE` | `string` | `github-dependabot` | 告警数据源：`github-dependabot`（GitHub Dependabot alerts API）/ `pnpm-audit`（本地无 token 回退，扫描当前工作区 lockfile；repository 解析优先显式 `--repo` → git remote → `local` 兜底）。`pnpm-audit` 下不要求 token、不支持 `fix-and-pr` 模式与多个 `--repo`。详见 [pnpm audit fallback 设计](../design/modules/pnpm-audit-fallback.md) |
 | `codeScanningEnabled` | `DEPENDFIX_CODE_SCANNING` | `boolean` | `false` | 是否同时拉取 Code Scanning alerts（与 Dependabot **并行源**，非回退；默认关闭，行为与 M2 一致）。开启后 Dependabot + Code Scanning 并行拉取、互不覆盖；Code Scanning 告警默认不可自动修复（A/B/C 规则分层按规则启用）。需要 token 具备 `security-events: read` 权限（GITHUB_TOKEN 默认具备）；`pnpm-audit` 本地数据源下不可用。详见 [Code Scanning 设计](../design/modules/data-model.md) |
 | `overrideProtect` | `DEPENDFIX_OVERRIDE_PROTECT` | `string` | — | overrides 保护名单（**按仓库粒度**）：`repo-glob:pkg1,pkg2;repo-glob2:pkg3`。命中时 dependfix **不写入**该包的 override，并记 `OVERRIDE_PROTECTED` 审计（防历史上被人工移除的破坏性 override 复发，实证 PR #1095）。仓库 glob 与 `repo-include/exclude` 同语义（单星号不跨斜杠，全局兜底需写两段通配）。详见 [overrides 保护名单设计](../design/governance/override-protect-policy.md)；该名单也可由目标仓库在 `.github/dependfix.yml` 中声明（**中央配置优先**：中央一旦指定即整体忽略仓库声明，防目标仓库绕过；见 [修复器设计 §12.7](../design/modules/dependency-fixer-records.md)） |
-| `allowMajorUpgrade` | **无 env 通道**（仅 CLI `--allow-major-upgrade`） | `boolean` | `false` | 跨线告警（推荐版本跨大版本，当前线内无修复版本）显式授权自动升级：仅根 package.json 直接依赖（workspace 成员独占声明维持人工）且 lockfile 单版本的告警自动跨线升级，升级后复核脆弱实例消除、强制完整验证（install+lint+build+typecheck+test），失败自动回滚；间接依赖 / 多版本共存跨线告警维持人工处理。**刻意不提供 `DEPENDFIX_ALLOW_MAJOR_UPGRADE` 环境变量**（配合 action.yml 不暴露 input → GitHub Action 结构性禁用，防止 CI 自动跨线引发意外破坏）。风险详见 [quick-start.md 跨大版本升级章节](../guide/quick-start.md) |
+| `allowMajorUpgrade` | **无 env 通道**（仅 CLI `--allow-major-upgrade`；平台新建仓库默认值见 `NUXT_PUBLIC_ALLOW_MAJOR_UPGRADE_DEFAULT`（运行期）） | `boolean` | `false` | 跨线告警（推荐版本跨大版本，当前线内无修复版本）显式授权自动升级：仅根 package.json 直接依赖（workspace 成员独占声明维持人工）且 lockfile 单版本的告警自动跨线升级，升级后复核脆弱实例消除、强制完整验证（install+lint+build+typecheck+test），失败自动回滚；间接依赖 / 多版本共存跨线告警维持人工处理。**刻意不提供 `DEPENDFIX_ALLOW_MAJOR_UPGRADE` 环境变量**（配合 action.yml 不暴露 input → GitHub Action 结构性禁用，防止 CI 自动跨线引发意外破坏）。风险详见 [quick-start.md 跨大版本升级章节](../guide/quick-start.md) |
 | `maxAlertsPerRepository` | `DEPENDFIX_MAX_ALERTS_PER_REPOSITORY` | `number` | `20` | 每仓库最大告警处理数 |
 | `maxConcurrency` | `DEPENDFIX_MAX_CONCURRENCY` | `number` | `1` | 多仓库并发窗口（1-16，默认 1 保守串行）。`>1` 时输出警告（可能触发 GitHub 限流）；**仅 `report-only` 模式允许并发**——`fix` / `fix-and-pr` 共享单一 workDir，并发写存在快照覆盖 / 互踩回滚 / install 竞争，配置校验 fail-fast 拒绝 |
 | `maxRetries` | `DEPENDFIX_MAX_RETRIES` | `number` | `3` | GitHub API 限流重试次数（0-10；0=关闭）。对 429 / primary rate limit（403 + remaining=0）/ secondary rate limit（403/429 特征）指数退避重试（reset 头优先，上限 30s）；权限类 403 不重试 |
@@ -275,6 +275,8 @@ export DEPENDFIX_RETRY_FAILED=false
 | `NUXT_PUBLIC_BETTER_AUTH_URL` | 建议（反代 / HTTPS 必填） | `http://localhost:3000` | 对外访问地址；OAuth 回调与 better-auth `trustedOrigins` 收紧依赖它（未设置走通配兜底） |
 | `NUXT_PUBLIC_BASE_URL` | — | 空 | 兼容旧变量名（`trustedOrigins` 读取回退）；新部署统一用 `NUXT_PUBLIC_BETTER_AUTH_URL` |
 | `NUXT_PUBLIC_DEFAULT_BRANCH` / `DEFAULT_BRANCH` | — | `main` | 新建仓库默认分支（构建期注入） |
+| `NUXT_PUBLIC_ALLOW_MAJOR_UPGRADE_DEFAULT` | — | `false` | 新建仓库「允许跨大版本升级」开关默认值（**运行期**生效；需自行加入 compose `environment:`，白名单外变量不会自动转发）。仅影响新建仓库，既有仓库保持原值；不改变引擎 CLI / Action 的显式 `--allow-major-upgrade` 通道 |
+| `ALLOW_MAJOR_UPGRADE_DEFAULT` | — | `false` | 同上（仅**构建期**生效：构建镜像时注入，运行期设置无效） |
 | `MACHINE_ID` | — | 进程 PID % 1024 | 雪花 ID 机器 ID（0-1023）；多实例建议显式指定 |
 
 ### 数据库与备份

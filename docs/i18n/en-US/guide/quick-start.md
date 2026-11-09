@@ -370,7 +370,7 @@ The full design, the RuntimeAdapter abstraction and the reserved K8s+Helm deploy
 2. **Verification cost**: each cross-line package runs a full install + lint + build + typecheck + test (serial per package), markedly slower than the usual lint-only group verification.
 3. **Rollback boundary**: snapshot rollback covers tracked files such as package.json / pnpm-lock.yaml; `node_modules` is not restored (temporary-directory semantics, acceptable).
 4. **Semantic change**: a cross-line upgrade changes the dependency declaration (e.g. `^5.4.0` → `^6.4.3`), and the impact goes beyond the vulnerability itself — other API usages may break.
-5. **Not available in the Action**: the GitHub Action deliberately **does not expose** this flag and there is **no `DEPENDFIX_ALLOW_MAJOR_UPGRADE` env channel** (structural disable, preventing CI from crossing lines and causing unexpected breakage).
+5. **Not available in the Action**: the GitHub Action deliberately **does not expose** this flag and there is **no `DEPENDFIX_ALLOW_MAJOR_UPGRADE` env channel** (structural disable, preventing CI from crossing lines and causing unexpected breakage). A platform deployment may set `NUXT_PUBLIC_ALLOW_MAJOR_UPGRADE_DEFAULT` (runtime) / `ALLOW_MAJOR_UPGRADE_DEFAULT` (build time) for **new repositories** only; CLI / Action are unaffected.
 
 > Off by default: without `--allow-major-upgrade`, cross-line alerts stay skipped + manual (the PR #28 semantics are unchanged).
 

@@ -232,6 +232,7 @@ describe('createScanQueue', () => {
         })
     })
 
+    // 兼容性用例：显式验证已弃用的 hasLiveJob 历史语义（新路径改用 inspect + hasConsumers）
     describe('hasLiveJob（pending 孤儿判定）', () => {
         it('job 不存在 → false', async () => {
             const queue = createScanQueue(makeConnection(), {})

@@ -1,7 +1,7 @@
 // typecheck-node-project.test.ts — 锁定平台 typecheck 覆盖生成的 Nuxt node project。
 //
 // 背景：`nuxt typecheck` 只检查主 project（`.nuxt/tsconfig.json`），`nuxt.config.ts` / `modules/**`
-// 所在的 node project 长期不在门禁内（M57.4 收口）。本用例守住脚本与 wrapper 两处声明，
+// 所在的 node project 长期不在门禁内。本用例守住脚本与 wrapper 两处声明，
 // 防止后续把 `typecheck` 改回单 project 或删掉 `experimentalDecorators` 覆盖（TS5052）。
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'

@@ -158,5 +158,12 @@ export default [
                 '@typescript-eslint/require-await': 0,
             },
         },
+        {
+            // 兼容性用例显式验证已弃用的 hasLiveJob 历史语义（新路径改用 inspect + hasConsumers）
+            files: ['server/services/queue/scan-queue.test.ts', 'server/services/queue/queue-integration.test.ts'],
+            rules: {
+                '@typescript-eslint/no-deprecated': 0,
+            },
+        },
     ),
 ]

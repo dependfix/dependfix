@@ -88,6 +88,12 @@ describe('parseRetryConfig（重试配置）', () => {
     it('retries=0 合法（不重试）', () => {
         expect(parseRetryConfig({ retriesRaw: '0' })).toEqual({ attempts: 0, backoffMs: 5_000 })
     })
+
+    it('backoff 支持时长单位（5s / 1m），NUXT_ 覆盖成 number 也能解析', () => {
+        expect(parseRetryConfig({ backoffMsRaw: '5s' })).toEqual({ attempts: 3, backoffMs: 5_000 })
+        expect(parseRetryConfig({ backoffMsRaw: '1m' })).toEqual({ attempts: 3, backoffMs: 60_000 })
+        expect(parseRetryConfig({ backoffMsRaw: 30_000 })).toEqual({ attempts: 3, backoffMs: 30_000 })
+    })
 })
 
 describe('SCAN_JOB_PRIORITY（优先级：手动 > webhook > 定时）', () => {

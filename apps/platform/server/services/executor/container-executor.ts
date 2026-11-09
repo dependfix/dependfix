@@ -2,7 +2,7 @@ import { mkdir, rename, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
-import type { RunResult } from '@dependfix/core'
+import { parseDurationMs, type RunResult } from '@dependfix/core'
 import {
     DependfixApp,
     type DependfixRunResult,
@@ -47,10 +47,8 @@ export const DEFAULT_EXECUTION_TIMEOUT_MS = 30 * 60 * 1000
 
 /**
  * 解析环境变量为正整数（NaN / 负数 / 0 → 返回默认值）。
- * 对齐 queue-mode.ts:79-84 的 parseRetryConfig 模式。
- *
- * 已知边界：基于 `parseInt`，尾随非数字字符会被截断接受（如 `'600ms'` → 600）——env 为运维持有，
- * 保持与 `CLONE_TIMEOUT_MS` 等复用同一函数的一致性，不做严格 `/^\d+$/` 校验。
+ * 仅用于重试次数等非时长参数；时长请用 {@link resolveExecutionTimeoutMs} /
+ * {@link resolveCloneTimeoutMs}（支持 `30m` / `1h` 等单位写法）。
  */
 export function parsePositiveInt(raw: string | undefined, defaultValue: number): number {
     if (!raw) {
@@ -74,10 +72,20 @@ export const MAX_EXECUTION_TIMEOUT_MS = 24 * 60 * 60 * 1000
  * queue Worker 锁参数在模块加载期读取同一解析器 → 二者联动；env 变更需重启进程。
  */
 export function resolveExecutionTimeoutMs(raw: string | undefined = process.env.EXECUTION_TIMEOUT_MS): number {
-    const value = parsePositiveInt(raw, DEFAULT_EXECUTION_TIMEOUT_MS)
+    const value = parseDurationMs(raw, { defaultUnit: 'ms' }) ?? DEFAULT_EXECUTION_TIMEOUT_MS
     return value >= MIN_EXECUTION_TIMEOUT_MS && value <= MAX_EXECUTION_TIMEOUT_MS
         ? value
         : DEFAULT_EXECUTION_TIMEOUT_MS
+}
+
+/**
+ * 解析 clone 超时（`CLONE_TIMEOUT_MS` env）。
+ *
+ * 支持纯数字毫秒（历史口径）与 `5m` / `1h` 等单位写法；非法 / 非正数回退默认值。
+ * 上限不单独设：clone 超时按运维显式配置采纳，运行级 abort 仍由执行上限兜底。
+ */
+export function resolveCloneTimeoutMs(raw: string | undefined = process.env.CLONE_TIMEOUT_MS): number {
+    return parseDurationMs(raw, { defaultUnit: 'ms' }) ?? DEFAULT_CLONE_TIMEOUT_MS
 }
 
 /**
@@ -262,7 +270,7 @@ export class ContainerExecutor implements ScanExecutor {
         this.timeoutMs = options.timeoutMs ?? resolveExecutionTimeoutMs()
         // clone 超时：优先构造参数 > 环境变量 > 默认值
         this.cloneTimeoutMs = options.cloneTimeoutMs
-            ?? parsePositiveInt(process.env.CLONE_TIMEOUT_MS, DEFAULT_CLONE_TIMEOUT_MS)
+            ?? resolveCloneTimeoutMs(process.env.CLONE_TIMEOUT_MS)
         this.verifyCommandTimeoutMs = options.verifyCommandTimeoutMs
         this.installTimeoutMs = options.installTimeoutMs
         // clone 重试次数：优先构造参数 > 环境变量 > 默认值

@@ -15,6 +15,8 @@
  * - QUEUE_ENABLED=false：强制同步。
  */
 
+import { parseDurationMs } from '@dependfix/core'
+
 export type QueueMode = 'async' | 'sync'
 
 export type QueueEnabled = 'auto' | 'true' | 'false'
@@ -86,17 +88,21 @@ export interface RetryConfig {
     backoffMs: number
 }
 
+/** 环境值归一：NUXT_ 运行时覆盖可能把纯数字解析成 number，统一转回字符串再解析。 */
+const normalizeRaw = (value: string | number | undefined): string | undefined =>
+    typeof value === 'number' ? String(value) : value?.trim()
+
 export const parseRetryConfig = (options: {
-    retriesRaw?: string
-    backoffMsRaw?: string
+    retriesRaw?: string | number
+    backoffMsRaw?: string | number
 }): RetryConfig => {
     // 空串/空白（env 未设置常见形态）回退默认：Number('') === 0 陷阱（会被误解析为"不重试"）
-    const retriesRaw = options.retriesRaw?.trim()
-    const backoffMsRaw = options.backoffMsRaw?.trim()
+    const retriesRaw = normalizeRaw(options.retriesRaw)
+    const backoffMsRaw = normalizeRaw(options.backoffMsRaw)
     const retries = Number(retriesRaw)
-    const backoffMs = Number(backoffMsRaw)
     return {
         attempts: retriesRaw && Number.isInteger(retries) && retries >= 0 ? retries : 3,
-        backoffMs: backoffMsRaw && Number.isInteger(backoffMs) && backoffMs > 0 ? backoffMs : 5_000,
+        // 时长支持 5000 / 5s / 1m；非法 / 非正数回退 5 秒
+        backoffMs: parseDurationMs(backoffMsRaw, { defaultUnit: 'ms' }) ?? 5_000,
     }
 }

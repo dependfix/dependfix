@@ -77,6 +77,7 @@ import {
     ContainerExecutor,
     extractBranchName,
     pushFixBranch,
+    resolveCloneTimeoutMs,
 } from './container-executor'
 import type { ScanExecutorContext } from './types'
 
@@ -870,6 +871,21 @@ describe('sanitizeErrorMessage (legacy import compatibility)', () => {
     it('leaves clean messages unchanged', () => {
         const input = 'fatal: repository not found'
         expect(sanitizeErrorMessage(input)).toBe(input)
+    })
+})
+
+describe('resolveCloneTimeoutMs', () => {
+    it('支持纯数字毫秒与单位写法', () => {
+        expect(resolveCloneTimeoutMs('300000')).toBe(300_000)
+        expect(resolveCloneTimeoutMs('5m')).toBe(300_000)
+        expect(resolveCloneTimeoutMs('1h')).toBe(3_600_000)
+    })
+
+    it('非法 / 非正数回退默认值', () => {
+        expect(resolveCloneTimeoutMs(undefined)).toBe(300_000)
+        expect(resolveCloneTimeoutMs('bogus')).toBe(300_000)
+        expect(resolveCloneTimeoutMs('0')).toBe(300_000)
+        expect(resolveCloneTimeoutMs('-1')).toBe(300_000)
     })
 })
 

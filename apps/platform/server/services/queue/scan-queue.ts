@@ -31,7 +31,7 @@ export interface ScanJobData {
 }
 
 /** 队列默认选项（纯函数便于单测：重试/backoff/清理策略） */
-export const buildScanQueueOptions = (options: { retriesRaw?: string, backoffMsRaw?: string }) => {
+export const buildScanQueueOptions = (options: { retriesRaw?: string | number, backoffMsRaw?: string | number }) => {
     const retry = parseRetryConfig(options)
     return {
         defaultJobOptions: {
@@ -127,7 +127,7 @@ export interface ScanQueue {
 /** BullMQ job 是否已达终态：仅 completed / failed 释放去重键（其余状态视为进行中） */
 export const isTerminalScanJobState = (state: string): boolean => state === 'completed' || state === 'failed'
 
-export const createScanQueue = (connection: Redis, options: { retriesRaw?: string, backoffMsRaw?: string }): ScanQueue => {
+export const createScanQueue = (connection: Redis, options: { retriesRaw?: string | number, backoffMsRaw?: string | number }): ScanQueue => {
     const queue = new Queue<ScanJobData>(SCAN_QUEUE_NAME, {
         connection,
         ...buildScanQueueOptions(options),

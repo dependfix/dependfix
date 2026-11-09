@@ -1,3 +1,4 @@
+import { parseDurationMs } from '@dependfix/core'
 import { defineNitroPlugin } from 'nitropack/runtime'
 import { cleanupStaleRuns, findRecentOrphanedRuns } from '#server/services/batch/stale-cleanup'
 import { reconcileRunningBatchRuns } from '#server/services/batch/batch-reconciler'
@@ -36,11 +37,9 @@ const FIRST_RUN_DELAY_MS = 30 * 1000
 const DEFAULT_RUNNING_GRACE_MS = 5 * 60 * 1000
 const DEFAULT_PENDING_GRACE_MS = 5 * 60 * 1000
 
-/** 解析正毫秒阈值（非法 / 空串 / 0 / 负数回退默认，避免 0 宽限造成误杀） */
-const resolveGraceMs = (raw: string | undefined, fallback: number): number => {
-    const value = Number(raw)
-    return Number.isFinite(value) && value > 0 ? value : fallback
-}
+/** 解析时长阈值（支持 `300000` / `5m`；非法 / 空串 / 0 / 负数回退默认，避免 0 宽限造成误杀） */
+const resolveGraceMs = (raw: string | undefined, fallback: number): number =>
+    parseDurationMs(raw, { defaultUnit: 'ms' }) ?? fallback
 
 /**
  * 单轮清理（导出便于单测覆盖）：孤儿 ScanRun/BatchRun → 释放去重键 → 兜底对账 → `_pending/` 过期 workDir。
@@ -155,7 +154,7 @@ export default defineNitroPlugin((nitroApp) => {
         return
     }
 
-    const intervalMs = Number(process.env.STALE_CLEANUP_INTERVAL_MS) || DEFAULT_INTERVAL_MS
+    const intervalMs = resolveGraceMs(process.env.STALE_CLEANUP_INTERVAL_MS, DEFAULT_INTERVAL_MS)
     let timer: ReturnType<typeof setInterval> | null = null
 
     // 首跑延迟 + 之后周期

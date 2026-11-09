@@ -1,3 +1,5 @@
+import { parseDurationMs } from '@dependfix/core'
+
 // execution-limits.ts — 仓库级执行预算与超时的解析（单一事实源）。
 //
 // 口径见 [repo-execution-limits.md](../../../../docs/design/governance/repo-execution-limits.md) §5：
@@ -46,13 +48,14 @@ export interface ResolvedExecutionLimits {
 
 type Env = Record<string, string | undefined>
 
-/** 正整数字符串解析（非法 / 非正数返回 undefined）。 */
-function parsePositiveInt(raw: string | undefined): number | undefined {
-    if (!raw) {
-        return undefined
-    }
-    const value = Number.parseInt(raw, 10)
-    return Number.isFinite(value) && value > 0 ? value : undefined
+/**
+ * 时长环境变量解析：支持纯数字毫秒（历史口径）与 `30m` / `1h` / `90s` 等单位写法。
+ *
+ * 纯数字默认按毫秒——变量名均以 `_MS` 结尾，且既有部署文档以毫秒示例；
+ * 非法 / 非正数返回 undefined，由调用方回退默认值（不阻断启动）。
+ */
+function parseDurationEnvMs(raw: string | undefined): number | undefined {
+    return parseDurationMs(raw, { defaultUnit: 'ms' })
 }
 
 /** 数值夹取到 [min, max]。 */
@@ -65,7 +68,7 @@ export function clampToBounds(value: number, min: number, max: number): number {
  * 越界 / 非法回退默认值——封顶配置错误不应让平台不可用。
  */
 export function resolveExecutionCeilingMs(env: Env = process.env): number {
-    const raw = parsePositiveInt(env.DEPENDFIX_MAX_EXECUTION_TIMEOUT_MS)
+    const raw = parseDurationEnvMs(env.DEPENDFIX_MAX_EXECUTION_TIMEOUT_MS)
     if (raw === undefined) {
         return DEFAULT_MAX_EXECUTION_TIMEOUT_MS
     }
@@ -77,7 +80,7 @@ export function resolveExecutionCeilingMs(env: Env = process.env): number {
 
 /** 全局执行默认值（`EXECUTION_TIMEOUT_MS`，缺省 30 分钟），并按封顶截断。 */
 export function resolveGlobalExecutionTimeoutMs(env: Env, ceilingMs: number): number {
-    const raw = parsePositiveInt(env.EXECUTION_TIMEOUT_MS) ?? DEFAULT_EXECUTION_TIMEOUT_MS
+    const raw = parseDurationEnvMs(env.EXECUTION_TIMEOUT_MS) ?? DEFAULT_EXECUTION_TIMEOUT_MS
     return clampToBounds(raw, MIN_EXECUTION_TIMEOUT_MS, ceilingMs)
 }
 
@@ -120,7 +123,7 @@ export function resolveExecutionLimits(
     const executionTimeoutMs = resolveBase({
         label: 'executionTimeoutMs',
         override: repo?.executionTimeoutMs,
-        envValue: parsePositiveInt(env.EXECUTION_TIMEOUT_MS),
+        envValue: parseDurationEnvMs(env.EXECUTION_TIMEOUT_MS),
         fallback: globalExecution,
         min: MIN_EXECUTION_TIMEOUT_MS,
         max: ceilingMs,
@@ -128,7 +131,7 @@ export function resolveExecutionLimits(
     const verifyCommandTimeoutMs = resolveBase({
         label: 'verifyCommandTimeoutMs',
         override: repo?.verifyCommandTimeoutMs,
-        envValue: parsePositiveInt(env.DEPENDFIX_VERIFY_TIMEOUT_MS),
+        envValue: parseDurationEnvMs(env.DEPENDFIX_VERIFY_TIMEOUT_MS),
         fallback: DEFAULT_COMMAND_TIMEOUT_MS,
         min: MIN_COMMAND_TIMEOUT_MS,
         max: Math.min(MAX_COMMAND_TIMEOUT_MS, executionTimeoutMs),
@@ -136,7 +139,7 @@ export function resolveExecutionLimits(
     const installTimeoutMs = resolveBase({
         label: 'installTimeoutMs',
         override: repo?.installTimeoutMs,
-        envValue: parsePositiveInt(env.DEPENDFIX_INSTALL_TIMEOUT_MS),
+        envValue: parseDurationEnvMs(env.DEPENDFIX_INSTALL_TIMEOUT_MS),
         fallback: DEFAULT_INSTALL_TIMEOUT_MS,
         min: MIN_INSTALL_TIMEOUT_MS,
         max: Math.min(MAX_INSTALL_TIMEOUT_MS, executionTimeoutMs),

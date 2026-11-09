@@ -23,6 +23,11 @@ describe('resolveExecutionCeilingMs', () => {
         expect(resolveExecutionCeilingMs({ DEPENDFIX_MAX_EXECUTION_TIMEOUT_MS: '7200000' })).toBe(7_200_000)
     })
 
+    it('accepts duration units for the ceiling', () => {
+        expect(resolveExecutionCeilingMs({ DEPENDFIX_MAX_EXECUTION_TIMEOUT_MS: '2h' })).toBe(7_200_000)
+        expect(resolveExecutionCeilingMs({ DEPENDFIX_MAX_EXECUTION_TIMEOUT_MS: '90m' })).toBe(5_400_000)
+    })
+
     it('falls back to the default for out-of-range or invalid values', () => {
         expect(resolveExecutionCeilingMs({ DEPENDFIX_MAX_EXECUTION_TIMEOUT_MS: '60000' })).toBe(DEFAULT_MAX_EXECUTION_TIMEOUT_MS)
         expect(resolveExecutionCeilingMs({ DEPENDFIX_MAX_EXECUTION_TIMEOUT_MS: String(MAX_MAX_EXECUTION_TIMEOUT_MS + 1) }))
@@ -71,6 +76,18 @@ describe('resolveExecutionLimits', () => {
         expect(resolved.executionTimeoutMs).toBe(120_000)
         expect(resolved.verifyCommandTimeoutMs).toBeLessThanOrEqual(120_000)
         expect(resolved.warnings.join('\n')).toContain('verifyCommandTimeoutMs')
+    })
+
+    it('accepts duration units for duration env vars', () => {
+        const resolved = resolveExecutionLimits({}, {
+            EXECUTION_TIMEOUT_MS: '45m',
+            DEPENDFIX_VERIFY_TIMEOUT_MS: '90s',
+            DEPENDFIX_INSTALL_TIMEOUT_MS: '10m',
+        })
+
+        expect(resolved.executionTimeoutMs).toBe(45 * 60_000)
+        expect(resolved.verifyCommandTimeoutMs).toBe(90_000)
+        expect(resolved.installTimeoutMs).toBe(10 * 60_000)
     })
 
     it('keeps the execution floor at one minute', () => {

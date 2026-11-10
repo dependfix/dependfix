@@ -1,15 +1,36 @@
-import { mkdir, rm } from 'node:fs/promises'
-import { join, relative } from 'node:path'
 import type { RunResult } from '@dependfix/core'
 import type { ScanExecutor, ScanExecutorContext, ScanExecutorResult } from './types'
 import { DockerAdapter, SANDBOX_DEFAULTS, type ContainerRunResult, type ContainerSpec, type RuntimeAdapter } from './runtime-adapter'
 import { sanitizeString } from '#server/utils/sanitize'
 
-/** SandboxExecutor 默认 workRoot(沿用 ContainerExecutor 约定) */
-const defaultWorkRoot = process.env.DATABASE_PATH ? join(process.env.DATABASE_PATH, '..', 'runs') : 'data/runs'
+/**
+ * 沙箱镜像默认值：优先显式 SANDBOX_IMAGE，其次平台容器镜像引用（compose 注入 DEPENDFIX_IMAGE）。
+ *
+ * 不复用 CI 发布镜像作为默认（版本漂移），也不假设本地 tag 存在——标准部署由 compose 注入
+ * `DEPENDFIX_IMAGE`，独立 `docker run` 需显式设置 `SANDBOX_IMAGE`。
+ */
+const DEFAULT_SANDBOX_IMAGE = process.env.SANDBOX_IMAGE?.trim()
+    || process.env.DEPENDFIX_IMAGE?.trim()
+    || 'dependfix-platform:latest'
 
-/** 沙箱镜像默认值(占位——实际部署由 ops 配置镜像名,复用 apps/platform/Dockerfile runtime 阶段) */
-const DEFAULT_SANDBOX_IMAGE = process.env.SANDBOX_IMAGE ?? 'dependfix-platform:latest'
+/** 自包含 CLI 入口（镜像内由 Dockerfile 复制；本地联调可经 env 指向工作区产物） */
+const DEFAULT_SANDBOX_ENTRY = process.env.DEPENDFIX_SANDBOX_ENTRY ?? '/app/sandbox/bin.mjs'
+
+/** 随 bundle 复制的产品 skill 根目录（其下为 dependfix-remediator） */
+const DEFAULT_SANDBOX_SKILLS_DIR = process.env.DEPENDFIX_SANDBOX_SKILLS_DIR ?? '/app/sandbox/skills'
+
+/** 容器内结果文件路径（容器私有文件系统；不依赖宿主与平台容器的路径映射） */
+const CONTAINER_RESULT_PATH = '/tmp/result.json'
+
+/** 结果回传哨兵：CLI 日志走 stdout，只有哨兵之间的内容是显式结果契约 */
+const RESULT_SENTINEL_START = '__DEPENDFIX_RESULT_JSON_START__'
+const RESULT_SENTINEL_END = '__DEPENDFIX_RESULT_JSON_END__'
+
+/** 仅放行的执行模式：fix / fix-and-pr 需先接入出站白名单代理 */
+const SANDBOX_ALLOWED_MODE = 'report-only'
+
+/** 仅放行的告警源：report-only 的隔离论证依赖「不执行目标仓库代码」 */
+const SANDBOX_ALLOWED_ALERT_SOURCE = 'github-dependabot'
 
 /** runId 字符白名单(防御性——拒绝任何路径分隔符或父目录引用,即使来源是数据库生成 ID) */
 const RUN_ID_PATTERN = /^[A-Za-z0-9_-]+$/
@@ -20,8 +41,10 @@ export interface SandboxExecutorOptions {
     runtimeAdapter?: RuntimeAdapter
     /** 沙箱镜像名 */
     image?: string
-    /** workRoot 根目录(每次执行在 workRoot/{runId}/ 下建临时目录) */
-    workRoot?: string
+    /** 自包含 CLI 入口（容器内路径） */
+    entry?: string
+    /** 产品 skill 根目录（容器内路径） */
+    skillsDir?: string
     /** 沙箱级资源限额(缺省走平台 SANDBOX_DEFAULTS;仓库级覆盖由 Repository 实体 sandboxLimits 字段承载) */
     sandboxLimits?: { memoryMb?: number, cpu?: number }
     /** 单次执行超时(默认 30 分钟——与 ContainerExecutor 对齐) */
@@ -31,34 +54,38 @@ export interface SandboxExecutorOptions {
 /**
  * 沙箱执行器(隔离执行用户脚本——独立 Docker 容器)。
  *
- * 设计要点(见 docs/design/governance/executor-sandbox.md §3 与 todo.md §M10 决策会议结论):
- * - **存在意义**:把 git clone / pnpm install / pnpm audit 等可能执行恶意脚本的副作用隔离在
- *   独立容器内(与平台容器即沙箱的 A 模式对照——M10 G5 治理登记
- *   见 todo.md §沙箱与恶意依赖防护治理登记)
- * - **不强绑定 rootless**:通过 RuntimeAdapter 抽象,daemon 不可用即降级回 ContainerExecutor
- *   (todo.md §M10 决策会议结论 Q6:并存,向后兼容)
- * - **零信任默认**:网络 `none`(白名单由后续应用层代理承载)+ user `100:100`(rootless 标配)
- * - **接口契约**:与 ContainerExecutor 同构——`kind: 'sandbox'` / `isAvailable()` / `execute(ctx)`,
- *   scan-orchestrator 路由按 `executorKind` 字段(见 todo.md §M10 决策会议结论 Q6)
+ * 设计要点(见 docs/design/governance/executor-sandbox.md §3):
+ * - **存在意义**:把可能执行恶意脚本的副作用隔离在独立容器内(与平台容器即沙箱的 A 模式对照)
+ * - **不强绑定 rootless**:通过 RuntimeAdapter 抽象,daemon 不可用即降级回 ContainerExecutor(并存,向后兼容)
+ * - **零信任默认**:user `100:100`(rootless 标配)+ cgroup 限额 + 不挂宿主 docker.sock
+ * - **接口契约**:与 ContainerExecutor 同构——`kind: 'sandbox'` / `isAvailable()` / `execute(ctx)`
+ *
+ * 结果回传：不 bind-mount 宿主目录（平台容器与宿主 daemon 的路径视角不一致），
+ * 由容器内自包含 CLI 写 `/tmp/result.json`，shell 用哨兵把内容打到 stdout；执行器只解析哨兵区间。
  *
  * 错误分类契约(caller 按 error.code 决定降级路径):
  * - `sandbox_unavailable`:RuntimeAdapter ENOENT/ENOTCONN/EACCES/ECONNREFUSED(daemon 不可用)
  * - `execution_timeout`:外层 withTimeout 触发 或 RuntimeAdapter 返回 exitCode 124
- * - `execution_failed`:其他(工作目录创建失败 / 解析失败 / 容器内执行失败)
+ * - `sandbox_image_unavailable`:docker exit 125 且 stderr 指向镜像缺失 / 无法拉取
+ * - `sandbox_fix_requires_egress_policy`:非 report-only 被第二道闸拒绝
+ * - `sandbox_alert_source_unsupported`:pnpm-audit 等会执行仓库代码的告警源被拒绝
+ * - `execution_failed`:其他(结果缺失 / 解析失败 / 容器内执行失败)
  */
 export class SandboxExecutor implements ScanExecutor {
     readonly kind = 'sandbox' as const
 
     private readonly adapter: RuntimeAdapter
     private readonly image: string
-    private readonly workRoot: string
+    private readonly entry: string
+    private readonly skillsDir: string
     private readonly sandboxLimits: { memoryMb?: number, cpu?: number }
     private readonly timeoutMs: number
 
     constructor(options: SandboxExecutorOptions = {}) {
         this.adapter = options.runtimeAdapter ?? new DockerAdapter()
         this.image = options.image ?? DEFAULT_SANDBOX_IMAGE
-        this.workRoot = options.workRoot ?? defaultWorkRoot
+        this.entry = options.entry ?? DEFAULT_SANDBOX_ENTRY
+        this.skillsDir = options.skillsDir ?? DEFAULT_SANDBOX_SKILLS_DIR
         this.sandboxLimits = options.sandboxLimits ?? {}
         this.timeoutMs = options.timeoutMs ?? SANDBOX_DEFAULTS.timeoutMs
     }
@@ -73,10 +100,9 @@ export class SandboxExecutor implements ScanExecutor {
 
     async execute(ctx: ScanExecutorContext): Promise<ScanExecutorResult> {
         const startedAt = new Date().toISOString()
-        const workDir = join(this.workRoot, ctx.runId)
 
-        // 防御性路径校验:防止 runId 包含 `..` 或路径分隔符导致 rm() 越界
-        if (!RUN_ID_PATTERN.test(ctx.runId) || relative(this.workRoot, workDir).startsWith('..')) {
+        // 防御性校验：runId 仅用于日志关联，仍拒绝异常形态（避免未来落盘时越界）
+        if (!RUN_ID_PATTERN.test(ctx.runId)) {
             return {
                 exitCode: 2,
                 error: { code: 'execution_failed', message: `非法的 runId: ${sanitizeErrorMessage(ctx.runId)}` },
@@ -85,42 +111,64 @@ export class SandboxExecutor implements ScanExecutor {
             }
         }
 
+        // fail-closed：沙箱仅放行 report-only + GitHub 告警源。fix / fix-and-pr 需要出站白名单代理
+        // 接入执行路径，否则 clone / install 的网络面不受控；编排层会先行降级并记
+        // `sandbox_fix_requires_egress_policy`，此处为绕过编排层时的第二道闸。
+        if (ctx.config.mode !== SANDBOX_ALLOWED_MODE) {
+            return {
+                exitCode: 2,
+                error: {
+                    code: 'sandbox_fix_requires_egress_policy',
+                    message: `沙箱执行器仅放行 ${SANDBOX_ALLOWED_MODE}；${ctx.config.mode} 需先接入出站白名单代理，已拒绝在沙箱内执行`,
+                },
+                startedAt,
+                finishedAt: new Date().toISOString(),
+            }
+        }
+        // pnpm-audit 会在工作目录执行目标仓库安装链，破坏「report-only 不执行仓库代码」的隔离前提
+        if (ctx.config.alertSource !== SANDBOX_ALLOWED_ALERT_SOURCE) {
+            return {
+                exitCode: 2,
+                error: {
+                    code: 'sandbox_alert_source_unsupported',
+                    message: `沙箱 report-only 仅支持 ${SANDBOX_ALLOWED_ALERT_SOURCE}（${ctx.config.alertSource} 会执行目标仓库代码）`,
+                },
+                startedAt,
+                finishedAt: new Date().toISOString(),
+            }
+        }
+
         try {
-            // 工作目录创建纳入结构化错误边界(EACCES/ENOSPC/ENOTDIR → execution_failed,
-            // 不归为 daemon 不可用——避免误报降级)
-            await mkdir(workDir, { recursive: true })
-
-            const spec = this.buildSpec(workDir, ctx)
+            const spec = this.buildSpec(ctx)
             const cmd = this.buildCmd(ctx)
-
             const runResult = await withTimeout(this.adapter.run(spec, cmd), this.timeoutMs)
-            return this.parseRunResult(runResult, ctx, startedAt)
+            return this.parseRunResult(runResult, startedAt)
         } catch (error) {
             return classifyError(error, this.timeoutMs, startedAt)
-        } finally {
-            // 临时工作目录清理(执行后不留存);清理失败不影响执行结果(已结构化返回)
-            await rm(workDir, { recursive: true, force: true }).catch(() => { /* 清理失败静默 */ })
         }
     }
 
     /**
-     * 拼装 ContainerSpec:bind-mount workDir + env 注入 token + cgroup 限额透传。
+     * 拼装 ContainerSpec:env 注入 token + cgroup 限额透传，不挂载宿主目录。
      * 限额优先级:仓库级 sandboxLimits(Repository 实体字段) > 沙箱级 sandboxLimits > SANDBOX_DEFAULTS。
+     *
+     * 网络：report-only 仍必须访问 GitHub API（Dependabot / Code Scanning alerts），故走 bridge。
+     * 该模式不在容器内执行目标仓库代码（无 clone / install / 验证），网络面仅 API 调用；
+     * fix / fix-and-pr 在出站白名单代理接入前被 `execute()` 拒绝，不会用到更大网络面。
      */
-    buildSpec(workDir: string, ctx: ScanExecutorContext): ContainerSpec {
+    buildSpec(ctx: ScanExecutorContext): ContainerSpec {
         return {
             image: this.image,
-            workDir: '/work',
-            mounts: [{ src: workDir, dst: '/work', readonly: false }],
+            // 容器私有可写目录（镜像内存在）；结果文件与报告都落在这里，不跨宿主路径
+            workDir: '/tmp',
             env: {
                 GITHUB_TOKEN: ctx.credential?.token ?? '',
                 GITHUB_REPOSITORY: `${ctx.repository.owner}/${ctx.repository.name}`,
-                DEPENDFIX_MODE: ctx.config.mode,
-                DEPENDFIX_SEVERITY: String(ctx.config.severityThreshold),
-                // AI 研判 env 注入（todo.md §M25.2a + [platform-ai-integration.md §4.1 B](../design/governance/platform-ai-integration.md)）
-                // engine 层 packages/engine/src/config/index.ts:499-505 从 DEPENDFIX_AI_* env 读取
-                // 仅在 ctx.config.ai 启用时注入（避免空字符串覆盖 engine 默认值）
-                ...(ctx.config.ai?.enabled && {
+                // 自包含产物不依赖 node_modules：skills 静态目录随 bundle 复制
+                DEPENDFIX_SKILLS_DIR: this.skillsDir,
+                // AI 研判 env 注入：report-only 不使用 AI，且只放行 report-only → 当前不注入；
+                // 保留条件供 fix 模式放行后复用（按仓库最小注入，不在 report-only 泄露组织级 Key）。
+                ...(ctx.config.mode !== 'report-only' && ctx.config.ai?.enabled && {
                     DEPENDFIX_AI: 'true',
                     DEPENDFIX_AI_PROVIDER: ctx.config.ai.provider,
                     DEPENDFIX_AI_MODEL: ctx.config.ai.model,
@@ -132,93 +180,60 @@ export class SandboxExecutor implements ScanExecutor {
             },
             memoryMb: this.sandboxLimits.memoryMb,
             cpu: this.sandboxLimits.cpu,
-            // 沙箱网络策略:report-only 无网络需求(none);fix/fix-and-pr 需 git clone(bridge,白名单由后续应用层代理接管)
-            network: ctx.config.mode === 'report-only' ? SANDBOX_DEFAULTS.network : 'bridge',
+            network: 'bridge',
             timeoutMs: this.timeoutMs,
             autoRemove: SANDBOX_DEFAULTS.autoRemove,
         }
     }
 
     /**
-     * 拼装容器内执行命令(当前阶段最小命令;后续集成阶段实现 git clone + pnpm install + dependfix-cli 完整序列)。
+     * 拼装容器内执行命令：自包含 CLI 在 `/tmp` 跑 report-only，把显式结果写入
+     * `/tmp/result.json`，随后用哨兵把结果打到 stdout（日志与结果同流，靠哨兵切分）。
      *
-     * 当前最小命令:
-     * - 验证容器启动 + bind-mount 双向读写 + 用户态 + cgroup 限额透传
-     * - 输出与 RunResult 同构的 JSON,便于 caller 直接解析为 ScanExecutorResult.result
+     * 凭据只走 env（`GITHUB_TOKEN`），不进 argv——避免 docker inspect / 错误回显泄露。
+     * 报告副产物 `dependfix-reports/**` 不作为结果来源（写报告失败不阻断运行）。
      */
     buildCmd(ctx: ScanExecutorContext): string[] {
         const repo = `${ctx.repository.owner}/${ctx.repository.name}`
-        // 最小合法 RunResult:所有必填字段填充 + `satisfies RunResult` 让 typecheck 捕获契约漂移
-        const minimalRunResult = {
-            runId: ctx.runId,
-            startedAt: new Date().toISOString(),
-            finishedAt: new Date().toISOString(),
-            config: {
-                mode: ctx.config.mode,
-                severityThreshold: String(ctx.config.severityThreshold),
-                repositories: [repo],
-                dryRun: ctx.config.dryRun,
-                createPullRequest: ctx.config.createPullRequest,
-                maxAlertsPerRepository: ctx.config.maxAlertsPerRepository,
-                alertSource: ctx.config.alertSource as 'github-dependabot' | 'pnpm-audit',
-            },
-            summary: {
-                repositoriesScanned: 1,
-                alertsFound: 0,
-                alertsFixable: 0,
-                alertsFixed: 0,
-                alertsUnfixed: 0,
-                alertsFailed: 0,
-                alertsSkipped: 0,
-                alertsSkippedByReason: {},
-                alertsConverged: 0,
-                environmentalFailures: 0,
-                alertsTruncated: 0,
-                alertsTruncatedBySeverity: {},
-                reposWithAlertsDisabled: 0,
-                lockfileRepairs: 0,
-                verificationsPassed: 0,
-                verificationsFailed: 0,
-                verificationsSkipped: 0,
-                verificationSkippedByReason: {},
-                prsOpened: 0,
-                prsSkippedByFingerprint: 0,
-                prsClosedAfterFailure: 0,
-                checksTimedOut: 0,
-                deliverySkipped: 0,
-                deliverySkipIssues: 0,
-                deliverySkipDraftPrs: 0,
-            },
-            repositories: [{
-                repository: repo,
-                defaultBranch: ctx.repository.defaultBranch,
-                alertsCount: 0,
-                fixable: 0,
-                fixed: 0,
-                failed: 0,
-                lockfileRepaired: false,
-                durationMs: 0,
-            }],
-            alerts: [],
-            actions: [],
-            errors: [],
-        } satisfies RunResult
-        const payload = JSON.stringify({ exitCode: 0, result: minimalRunResult })
-        // shell 转义:JSON 内含双引号——用单引号包裹 shell string 避免冲突
-        return ['sh', '-c', `echo '${payload.replace(/'/g, '\'\\\'\'')}'`]
+        const args = [
+            'node',
+            this.entry,
+            ctx.config.mode,
+            '--repo', repo,
+            '--severity-threshold', ctx.config.severityThreshold,
+            '--alerts-source', ctx.config.alertSource,
+            '--max-alerts-per-repository', String(ctx.config.maxAlertsPerRepository),
+            '--max-concurrency', String(ctx.config.maxConcurrency),
+            '--result-json', CONTAINER_RESULT_PATH,
+        ]
+        if (ctx.config.codeScanningEnabled) {
+            args.push('--code-scanning')
+        }
+        if (ctx.config.codeQualityEnabled) {
+            args.push('--code-quality')
+        }
+        const script = [
+            args.map(shQuote).join(' '),
+            'code=$?',
+            `printf '\\n${RESULT_SENTINEL_START}\\n'`,
+            `cat ${shQuote(CONTAINER_RESULT_PATH)} 2>/dev/null`,
+            `printf '\\n${RESULT_SENTINEL_END}\\n'`,
+            'exit $code',
+        ].join('; ')
+        return ['sh', '-c', script]
     }
 
     /**
-     * 解析容器 stdout 为 ScanExecutorResult(fail-closed:任何结构/语义异常归 execution_failed)。
+     * 解析 stdout 哨兵区间内的显式结果(fail-closed:任何结构/语义异常归 execution_failed)。
      *
      * 校验项:
-     * 1. stdout 是合法 JSON
+     * 1. 哨兵区间存在且是合法 JSON（缺失 / 非 JSON → execution_failed，附日志尾部便于归因）
      * 2. payload.exitCode 为有限整数
      * 3. transport(runResult.exitCode)与 payload.exitCode 不矛盾(transport 非 0 则 payload 也必须非 0)
      * 4. payload.exitCode === 0 时 result 必须存在且符合 RunResult 必填字段契约
-     * 5. 错误消息中的 stdout 一律经 sanitizeErrorMessage 防凭据泄露
+     * 5. 错误消息中的 stdout / stderr 一律经 sanitizeErrorMessage 防凭据泄露
      */
-    private parseRunResult(runResult: ContainerRunResult, ctx: ScanExecutorContext, startedAt: string): ScanExecutorResult {
+    private parseRunResult(runResult: ContainerRunResult, startedAt: string): ScanExecutorResult {
         const finishedAt = new Date().toISOString()
         const transportExitCode = runResult.exitCode
 
@@ -235,18 +250,53 @@ export class SandboxExecutor implements ScanExecutor {
             }
         }
 
+        // 镜像缺失 / 无法拉取：docker run 返回 125，错误文本指向镜像而非代码
+        if (transportExitCode === 125 && /unable to find image|manifest unknown|pull access denied/i.test(runResult.stderr)) {
+            return {
+                exitCode: 2,
+                error: {
+                    code: 'sandbox_image_unavailable',
+                    message: `沙箱镜像不可用（确认镜像已在目标 daemon 内可拉取 / 已存在）：${sanitizeErrorMessage(runResult.stderr.slice(0, 200))}`,
+                },
+                startedAt,
+                finishedAt,
+            }
+        }
+
+        const start = runResult.stdout.lastIndexOf(RESULT_SENTINEL_START)
+        const end = start >= 0
+            ? runResult.stdout.indexOf(RESULT_SENTINEL_END, start + RESULT_SENTINEL_START.length)
+            : -1
+        if (start < 0 || end < 0) {
+            return {
+                exitCode: 2,
+                error: {
+                    code: 'execution_failed',
+                    message: `沙箱未回传显式结果（stdout 头 200 字符:${sanitizeErrorMessage(runResult.stdout.slice(0, 200))}；stderr 头 200 字符:${sanitizeErrorMessage(runResult.stderr.slice(0, 200))}）`,
+                },
+                startedAt,
+                finishedAt,
+            }
+        }
+
+        const raw = runResult.stdout.slice(start + RESULT_SENTINEL_START.length, end).trim()
+        // 结果区间之外仍是 CLI 日志：剔除结果 JSON 后作为执行日志回传
+        const stdoutLogs = `${runResult.stdout.slice(0, start)}${runResult.stdout.slice(end + RESULT_SENTINEL_END.length)}`
+        const logsJson = buildLogsJson(stdoutLogs, runResult.stderr)
+
         let parsed: { exitCode?: number, result?: RunResult } | null = null
         try {
-            parsed = JSON.parse(runResult.stdout)
+            parsed = JSON.parse(raw) as { exitCode?: number, result?: RunResult }
         } catch {
             return {
                 exitCode: 2,
                 error: {
                     code: 'execution_failed',
-                    message: `沙箱输出非 JSON:${sanitizeErrorMessage(runResult.stdout.slice(0, 200))}`,
+                    message: `沙箱结果非 JSON:${sanitizeErrorMessage(raw.slice(0, 200))}`,
                 },
                 startedAt,
                 finishedAt,
+                logsJson,
             }
         }
 
@@ -255,10 +305,11 @@ export class SandboxExecutor implements ScanExecutor {
                 exitCode: 2,
                 error: {
                     code: 'execution_failed',
-                    message: `沙箱输出结构无效:缺少 exitCode(stdout 头 200 字符:${sanitizeErrorMessage(runResult.stdout.slice(0, 200))})`,
+                    message: `沙箱结果结构无效:缺少 exitCode(结果头 200 字符:${sanitizeErrorMessage(raw.slice(0, 200))})`,
                 },
                 startedAt,
                 finishedAt,
+                logsJson,
             }
         }
 
@@ -272,6 +323,7 @@ export class SandboxExecutor implements ScanExecutor {
                 },
                 startedAt,
                 finishedAt,
+                logsJson,
             }
         }
 
@@ -283,10 +335,11 @@ export class SandboxExecutor implements ScanExecutor {
                     exitCode: 2,
                     error: {
                         code: 'execution_failed',
-                        message: `沙箱输出 result 校验失败:${validation.reason}`,
+                        message: `沙箱结果 result 校验失败:${validation.reason}`,
                     },
                     startedAt,
                     finishedAt,
+                    logsJson,
                 }
             }
         }
@@ -296,8 +349,28 @@ export class SandboxExecutor implements ScanExecutor {
             result: parsed.result,
             startedAt,
             finishedAt,
+            logsJson,
         }
     }
+}
+
+/** POSIX shell 单引号转义（命令参数全部经此包装，避免注入） */
+function shQuote(value: string): string {
+    return `'${value.replace(/'/g, '\'\\\'\'')}'`
+}
+
+/** 把 stdout / stderr 尾部转为执行日志 JSON（与 MemoryLogger 同形：timestamp / level / message） */
+function buildLogsJson(stdout: string, stderr: string, maxLines = 100): string {
+    const now = new Date().toISOString()
+    const toLines = (text: string) => text.split('\n')
+        .map((line) => sanitizeString(line.trim()))
+        .filter(Boolean)
+        .slice(-maxLines)
+    const entries = [
+        ...toLines(stdout).map((message) => ({ timestamp: now, level: 'info', message })),
+        ...toLines(stderr).map((message) => ({ timestamp: now, level: 'error', message })),
+    ]
+    return JSON.stringify(entries)
 }
 
 /** 错误分类:统一从 catch 分支调用,避免错误分类逻辑散落 */
@@ -332,7 +405,7 @@ function classifyError(error: unknown, timeoutMs: number, startedAt: string): Sc
         }
     }
 
-    // 其他(工作目录创建失败 / 容器启动失败 / 业务执行失败等):execution_failed
+    // 其他(容器启动失败 / 业务执行失败等):execution_failed
     const raw = error instanceof Error ? error.message : String(error)
     return {
         exitCode: 2,
@@ -403,10 +476,6 @@ async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
 
 /**
  * 错误消息脱敏：抹除 URL 中可能内联的凭据（纵深防御，防 execFile argv 回显）。
- *
- * 覆盖模式：URL 内嵌凭据 / Authorization 头（basic / token / Bearer 三种 scheme）。
- * GitHub REST API v3+ 推荐 `Bearer`，但 legacy `token` 仍兼容——`Authorization: token ghp_xxx`
- * 与 `Authorization: Bearer ghp_xxx` 均需脱敏（C53-后-B + security.md §5.5）。
  *
  * 已迁移至 #server/utils/sanitize.ts，此处保留导出以兼容既有调用。
  */

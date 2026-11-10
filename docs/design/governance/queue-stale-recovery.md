@@ -97,6 +97,6 @@ Redis 中可见 `bull:scan:*` 的 job 长期处于 `waiting` / `active`，去重
 ## 9. 边界与残余风险
 
 1. **worker 存活但暂停 / 消费停滞**：`hasConsumers = true` 时 pending 不会被无消费者规则清理；当前不设绝对 pending 上限（批量 100 仓库 × 30 分钟可能合法排队数十小时）。观察信号为 `consumers=yes` + `waiting` 长期不降。
-2. **迟到 worker 覆盖终态**：清理把 run 置 `failed` 后，仍在执行的 worker 若随后完成，`runScanInternal` 的最终保存可能覆盖为 `completed` / `failed`。当前以 `active` 锁过期 + job remove 降低概率；彻底解决需把编排层最终写库改为条件更新（已登记 backlog 候选）。
-3. **手动 force-fail 与执行竞态**：与第 2 条同源，既有行为已存在，本批不扩大。
+2. **迟到 worker 覆盖终态（已闭环，2026-11-10）**：清理把 run 置 `failed` 后，仍在执行的 worker 若随后完成，`runScanInternal` 的最终保存可能覆盖为 `completed` / `failed`。现编排层两处终态写回（正常完成 / catch-all）均改为条件更新——只写终态迁移列，`WHERE id = :id AND status IN ('pending','running')`，`affected = 0` 时保留库内终态行、跳过终态通知（清理侧已就同一 run 发过）并输出结构化告警 `run_terminal_write_skipped`（含 attempted / observed 状态）。清理侧（`stale-cleanup`）本就以同一条件更新口径写入，两侧不再互相覆盖。「留痕走进程日志而非 `audit_event`」的判据：`AuditEvent` 只收执行器 / 环境健康、配置留痕与对外副作用，单次 run 的并发事实不在其语义边界内（见 `entities/audit-event.ts` 顶部说明）。残余：① 条件更新之前的 `reconcileAlerts` 仍会按本次执行结果写告警明细（终态行不承载该快照），跨 run 一致性由下一次扫描 reconcile 收敛；② 本次执行已产生的分支 / PR 副作用不回滚，由 PR 回环与下一次扫描收敛；③ **启动续用写仍是整行 `save`**（`runScanInternal` 续用分支把 `existing.status` 置 `running` 后整行保存）——同一竞态症状的窄窗口路径（清理侧刚判超时 → 启动写把 `failed` 复活为 `running`），同根因，已并入 backlog 候选的待评估范围。
+3. **手动 force-fail 与执行竞态（单向已覆盖，2026-11-10）**：worker → force-fail 方向已覆盖——force-fail 先行落 `failed` 后，迟到 worker 的终态写回被跳过，不覆盖失败归因。**反向仍未覆盖**：`force-fail` 端点自身仍是「读取 → 改内存实体 → 整行 `save`」，读-写间隙内完成的 run 会被写回 `failed`（worker 与 HTTP 分属不同进程，`withRepoLock` 不跨进程）。已登记 [backlog 候选](../../plan/backlog.md)（无阶段编号，待评估）。
 4. **`CLIENT LIST` 受限**：托管 Redis 禁用该命令时 BullMQ 可能返回伪 worker（探测为 `true`，假阳性但保守），不会误判为「无消费者」；需依赖 job 缺失 / 归属终态两条规则兜底。

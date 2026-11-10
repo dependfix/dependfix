@@ -54,7 +54,7 @@
 
 ### 候选评估中（待评估 / 本阶段延后项）
 
-> **候选池概览（2026-11-09 再平衡后复算）**：本区 **45 项**（`### 候选评估中` 段内 `^- \*\*` 逐行计数；M57 上收 7 项（6 项自本区 + 1 项自「待上收候选」）；本区「周回归 registry 假绿」与「回归窗口插入点」同题合并；2026-11-09 再平衡移回「发布后镜像运行时冒烟」1 项（见下方候选）。P 标签覆盖不全（未标注者评估时补 P 标签，不默认升级）；本文件不维护分档统计，1.0 分档只见 [release-1.0-readiness.md](../design/governance/release-1.0-readiness.md)。
+> **候选池概览（2026-11-10 M57.2 审计后复算）**：本区 **47 项**（`### 候选评估中` 段内 `^- \*\*` 逐行计数；46 项基线含 2026-11-10 M57.1 登记的「沙箱 fix 模式出站白名单代理接入」，本次新增「force-fail 整行写回覆盖刚完成的 run」1 项；M57 上收 7 项（6 项自本区 + 1 项自「待上收候选」）；本区「周回归 registry 假绿」与「回归窗口插入点」同题合并；2026-11-09 再平衡移回「发布后镜像运行时冒烟」1 项）。P 标签覆盖不全（未标注者评估时补 P 标签，不默认升级）；本文件不维护分档统计，1.0 分档只见 [release-1.0-readiness.md](../design/governance/release-1.0-readiness.md)。
 > **1.0 门槛与分档**：P0 23 / P1 8 / 1.0 后 15 的分档、门槛判定与批次计划见 [release-1.0-readiness.md](../design/governance/release-1.0-readiness.md)。
 
 - **备份 `.tmp` 清扫缺年龄门槛（P3 🛠️，2026-10-31 M53.2 收口登记）** —— `cleanupOldBackups` 对 `*.bak.tmp` 无条件回收；单实例串行路径不可达冲突，但并发 `db:restore` 或多实例共卷启动时可能删掉对端正在写的临时文件（rename ENOENT → 该轮快照丢失，fail-open 后仅剩日志）。待评估：加入 `mtime < now - 10min` 年龄门槛或按 PID 命名临时文件。触发：启用多实例 / 多容器共享数据卷，或出现并发恢复需求时。
@@ -214,6 +214,8 @@
 - **发布后镜像运行时冒烟（P2 🚀🧪，2026-11-09 因插队再平衡移出执行面可信阶段）** —— release 后用 `read:packages` 凭证拉取镜像跑 `/api/health`（amd64 + arm64，原生 arm runner，不用 QEMU），输出 `/api/health` 的版本与 commit；冒烟失败只告警、不阻断发布；并补历史 tag 巡检（缺项写「未证实」）。**范围**：`release.yml` 后置步骤 / `docker.yml`、冒烟脚本、`docs/guide/release.md`、失败告警通道（issue / 日志）。**验收**：① 双架构 health 回读通过；② 冒烟失败不改变发布成功判定但有可见告警 / 记录；③ 历史 tag 巡检产出报告。**不做**：不改镜像构建架构与发布判定；不引入 QEMU；不对每次 push 运行（仅 release / dispatch）。**依赖**：既有发布流水线；`GH_PAT` / packages 读权限。**风险**：拉取凭证 / 网络失败 → fail-open（告警不阻断）；runner 成本 → 仅 release 触发。**交付物**：2-3 commits / 4-6 文件 / 250-400 行。**触发条件**：下一次发版前，或需要 arm64 启动实证时。
 
 - **沙箱 fix 模式出站白名单代理接入（待评估，P1 🛡️，2026-11-09 沙箱真实执行边界）** —— 现状：sandbox 仅放行 report-only（不 clone / 不执行目标仓库代码）；fix / fix-and-pr 降级 `container` 并记 `sandbox_fix_requires_egress_policy`。**待评估**：把应用层出站白名单代理（T1002）接入 `SandboxExecutor.buildSpec`（代理 env / 域发现 / 外联日志），放行 fix 前保持 report-only。**触发条件**：需要在沙箱内执行不可信仓库修复时。
+
+- **force-fail 与启动续用的整行写回可能复活已终态 run（待评估，P3 🛡️，2026-11-10 M57.2 审计登记）** —— 现状：编排层**终态**写回已改条件更新（迟到 worker 不再覆盖清理侧 `failed`），但两处**起点写**仍是整行 `save`：① `api/batch-runs/[id]/force-fail.post.ts`「读取 → 改内存实体 → 整行 `save`」；② `scan-orchestrator.service.ts` 续用分支把 `existing.status` 置 `running` 后整行保存。worker 与 HTTP 进程分属不同进程、`withRepoLock` 不跨进程，读-写间隙内被清理侧置 `failed` 的行会被写回 `running` / `failed`。**待评估**：两处改用同一条件更新口径（仅 `pending` / `running` 可写 + `affected` 断言），并与编排层共用写回 helper。**不做**：不改 force-fail 入口语义与权限。**触发条件**：评估 [queue-stale-recovery.md §9](../design/governance/queue-stale-recovery.md) 残余项，或出现「已完成的 run 被 force-fail / 续用写复活」实例时。
 
 ### 待上收候选（评估完成，等待用户决策）
 

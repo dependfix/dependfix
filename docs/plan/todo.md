@@ -74,6 +74,8 @@
 
 ### M57.2 [P2 🛡️] 队列终态不被迟到 worker 覆盖
 
+- **状态**：✅ 已闭环（2026-11-10；审计 R1 deep Pass，0 blocker；RG-W1~W3 / RG-S1~S7 已修净）。
+
 - **目标**：清理侧（孤儿回收 / 超时）把 run 置 `failed` 后，仍在执行的 worker 不得用整行 `save` 覆盖终态。
 - **优先级**：P2（队列可靠性；已有清理后终态被覆盖的实例）。
 - **范围**：`apps/platform/server/services/scan-orchestrator.service.ts`（最终写库改条件更新 / 重读短路）、`scan-queue.ts` 相关路径、定向单测与集成用例、`platform.md` / 设计口径同步。
@@ -84,6 +86,7 @@
 - **不做什么**：不改队列驱动 / 重试语义；不改 force-fail 入口；不引入分布式锁。
 - **依赖**：M38 队列进程隔离；[开发规范 §5.1 规则表 5.1.36](../standards/development.md) 条件 UPDATE 口径。
 - **交付物**：2-3 commits / 3-5 文件 / 150-300 行。
+- **执行记录（2026-11-10）**：新增 `persistRunTerminalState`（`scan-orchestrator.service.ts`）——正常完成与 catch-all 两处终态写回由整行 `save` 改为条件更新：只写终态迁移列（status / finishedAt / summary / error / runUrl / exitCode / 环境性失败数 / 资源四列 / 失败分类三列 / logs / prNumber / updatedAt），`WHERE id = :id AND status IN ('pending','running')`；`affected = 0` 时**不改库**，回读库内终态行作为返回值（回执与真实状态一致）、**跳过终态通知**（清理侧已就同一 run 发过，避免重复投递），并输出 `run_terminal_write_skipped` 结构化告警（runId / repositoryId / attemptedStatus / observedStatus）；留痕选进程日志而非 `audit_event`，因后者语义边界只收执行器 / 环境健康、配置留痕与对外副作用。`affected` 缺省按成功处理，与 `stale-cleanup` 既有口径一致。用例独立成 `scan-orchestrator-terminal.test.ts`（编排主用例文件已接近 `max-lines` 上限）：① 执行期间模拟清理侧条件更新为 `failed` → 迟到 worker 正常完成；② 同前置 + executor 抛错；两例断言终态、失败归因、`finishedAt`、`summaryJson` 不被回写、告警含 attempted / observed、且通知不重复；③ 正常路径（pending → completed）不回归且通知只发一次；④ `reuse=true` 复用终态行后本轮写入生效、旧失败快照已重置。mutation 3/3（两处改回整行 `save` → ①② 失败；移除 `written` 守卫 → ① 的通知断言失败）。**实际规模**：6 文件（5 改 + 1 新增测试文件）/ +337 −12（`git diff --numstat` +94/−12，新测试文件 243 行；含 `platform.md` 指针条、`queue-stale-recovery §9` 残余翻转、backlog 候选与候选池复算、本条记录）。证据：定向 47 passed（新文件 4 例 + 主用例文件 43 例）；platform 全量 190 files / 2479 passed / 9 skipped；`lint:check` 0 error（root 8 / platform 4 存量 warning，平台上限 11）；`typecheck` exit 0；`gates:docs` 20 项；`lint-md:check` 通过。**残余**：① 条件更新之前的 `reconcileAlerts` 仍按本次执行结果写告警明细，跨 run 一致性由下一次扫描 reconcile 收敛；② 本次执行已产生的分支 / PR 副作用不回滚；③ force-fail 端点自身仍是整行 `save`（反向竞态）→ 已登记 backlog 候选。
 - **风险与缓解**：条件写过严会吞正常完成 → 以「重读 + 仅未终态才写」双保险，并用正常路径用例锁定。
 
 ### M57.3 [P2 🛡️] 回归与审计真实性

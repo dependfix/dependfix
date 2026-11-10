@@ -170,6 +170,7 @@ Nuxt 4（全栈 SSR + API Routes，`app/` + `server/`）/ TypeScript strict / UI
 - **env 口径**：Nuxt runtimeConfig 运行时覆盖只认 `NUXT_` 前缀（容器需 `NUXT_IN_PROCESS_WORKER`）；`.env.example` 的无前缀名只是 compose 插值源，直接注入容器无效。
 
 - **10.5 队列锁参数显式化与锁问题观测**：in-process Worker **必须**显式配置 `lockDuration`（取平台执行封顶 `resolveExecutionCeilingMs()`）/ `lockRenewTime`（取其一半），并注册 `stalled` / `lockRenewalFailed` / `error` 事件输出结构化日志。取值理由、载荷字段与同根因去重口径见 [executor-process-isolation.md §9.1](../design/governance/executor-process-isolation.md#_9-1-队列锁参数与观测)。
+- **编排层终态写回（关联 10.5 队列观测面）**：`runScanInternal` 的正常完成与 catch-all 两处终态写回**不得**用整行 `save`（会覆盖清理侧已写入的 `failed`），须按 [development.md §5.1.36](development.md) 条件更新（仅 `pending` / `running` 可写）；`affected = 0` 时保留库内终态行、跳过终态通知并输出 `run_terminal_write_skipped` 结构化告警。设计与残余见 [queue-stale-recovery.md](../design/governance/queue-stale-recovery.md)。
 
 ### 10.6 队列执行进程隔离（独立 worker 进程）
 

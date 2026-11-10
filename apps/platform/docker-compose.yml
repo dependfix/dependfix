@@ -25,6 +25,8 @@ services:
       - "${PORT:-3000}:3000"
     environment:
       PORT: 3000
+      # 平台镜像引用（沙箱执行器默认复用同一镜像；未设置时 SandboxExecutor 回退 dependfix-platform:latest）
+      DEPENDFIX_IMAGE: ${DEPENDFIX_IMAGE:-caomeiyouren/dependfix:latest}
       # 运行身份（控制 /app/data 数据卷与 $HOME 的宿主侧所有权）：
       # 默认 100:101 = 镜像内 dependfix 用户（uid 100 / gid 101）；NAS / 多用户场景设为宿主用户 uid:gid。
       # PUID/PGID 解析为 0 时入口 fail-closed 拒绝启动（保持非 root 执行基线）。

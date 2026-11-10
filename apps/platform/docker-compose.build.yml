@@ -12,6 +12,9 @@
 services:
   platform:
     image: ${DEPENDFIX_BUILD_IMAGE:-caomeiyouren/dependfix:local}
+    environment:
+      # 本地构建 tag 与沙箱默认镜像引用保持一致（否则沙箱会去找未构建的 :latest）
+      DEPENDFIX_IMAGE: ${DEPENDFIX_BUILD_IMAGE:-caomeiyouren/dependfix:local}
     build:
       context: ../..
       dockerfile: apps/platform/Dockerfile

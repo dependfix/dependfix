@@ -1,4 +1,5 @@
 import type { RunResult } from '@dependfix/core'
+import type { DataSource } from 'typeorm'
 import { resolveScanRunOutcome, resolveScanRunState } from './scan-run-state'
 import { isTerminalScanRunStatus } from './scan-run-status'
 import { applyFailureClassification } from './run-failure-classify'
@@ -136,6 +137,74 @@ export const runScanForRepository = async (
 ): Promise<ScanRun> =>
     // 同仓库互斥：同一仓库同时只允许一个扫描（防止容器执行器并发写同一 workDir）
     withRepoLock(repositoryId, () => runScanInternal(repositoryId, request, options))
+
+
+/**
+ * 终态写回（条件更新：仅 pending / running 可写）。
+ *
+ * 动机：`savedRun` 是执行开始时的快照，执行期间清理侧（stale-cleanup 孤儿回收 / 超时判定）
+ * 可能已把同一 run 条件更新为 `failed`。若此处用整行 `save`，迟到的 worker 会把终态覆盖回
+ * `completed`，导致「已被判失败并通知」的运行事后变绿（口径见
+ * [queue-stale-recovery.md](../../../../docs/design/governance/queue-stale-recovery.md)）。
+ *
+ * 语义：
+ * - 只写「终态迁移列」（结果快照 / 失败分类 / 日志 / 资源 / 时间戳），不整行覆盖；
+ *   **新增终态列时必须同步追加到下方 `.set()` 清单**——整行 `save` 的影子已消失，
+ *   漏列不会被既有断言发现（`prNumber` 等由用例锁定）。
+ * - `affected = 0`（库内已非 pending / running）→ 不改库，返回库内现存行 + `written = false`，
+ *   并输出结构化告警留审计痕迹（`run_terminal_write_skipped`）；调用方据此跳过终态通知，
+ *   避免与清理侧已发出的失败通知重复；
+ * - 成功时回读一行，保证返回值与库一致（`updatedAt` 等派生列）。
+ *
+ * 「留痕走进程日志而非 `audit_event`」：`AuditEvent` 的语义边界明确排除单次 run 结果
+ * （见 `entities/audit-event.ts` 顶部说明），终态写回冲突属单次运行的并发事实，故落平台
+ * 结构化日志通道。
+ */
+const persistRunTerminalState = async (
+    ds: DataSource,
+    run: ScanRun,
+): Promise<{ run: ScanRun, written: boolean }> => {
+    const runRepo = ds.getRepository(ScanRun)
+    const update = await runRepo.createQueryBuilder()
+        .update(ScanRun)
+        .set({
+            status: run.status,
+            finishedAt: run.finishedAt ?? null,
+            summaryJson: run.summaryJson ?? null,
+            errorJson: run.errorJson ?? null,
+            runUrl: run.runUrl ?? null,
+            exitCode: run.exitCode ?? null,
+            environmentalFailureCount: run.environmentalFailureCount ?? null,
+            memoryMaxBytes: run.memoryMaxBytes ?? null,
+            peakRssBytes: run.peakRssBytes ?? null,
+            oomKilled: run.oomKilled ?? null,
+            resourceJson: run.resourceJson ?? null,
+            failureCode: run.failureCode ?? null,
+            failureStage: run.failureStage ?? null,
+            failureKind: run.failureKind ?? null,
+            logsJson: run.logsJson ?? null,
+            prNumber: run.prNumber ?? null,
+            updatedAt: new Date(),
+        })
+        .where('id = :id', { id: run.id })
+        .andWhere('status IN (:...statuses)', { statuses: ['pending', 'running'] })
+        .execute()
+    // affected 缺省（部分驱动）按成功处理——与 stale-cleanup 的既有口径一致
+    if ((update.affected ?? 1) === 0) {
+        const current = await runRepo.findOne({ where: { id: run.id } })
+        logger.warn('[scan] run_terminal_write_skipped', {
+            runId: run.id,
+            repositoryId: run.repositoryId,
+            attemptedStatus: run.status,
+            observedStatus: current?.status ?? 'missing',
+        })
+        // 行已消失（仓库级联删除）时回落内存实体，但不视为已写回
+        return current
+            ? { run: current, written: false }
+            : { run, written: false }
+    }
+    return { run: (await runRepo.findOne({ where: { id: run.id } })) ?? run, written: true }
+}
 
 
 const runScanInternal = async (
@@ -527,7 +596,8 @@ const runScanInternal = async (
             savedRun.logsJson = logsJson
         }
 
-        const persistedRun = await runRepo.save(savedRun)
+        // 终态写回走条件更新：清理侧已置终态时不得被迟到 worker 覆盖（见 persistRunTerminalState）
+        const { run: persistedRun, written } = await persistRunTerminalState(ds, savedRun)
 
         // 环境事件审计（fire-and-forget）：
         // - A 场景 sandbox 启动降级 → sandbox_degraded 事件
@@ -535,10 +605,13 @@ const runScanInternal = async (
         // 不阻塞扫描主流程：失败仅日志 + audit_event 落库
         await recordEnvAuditEvent(persistedRun, decision, degradedReason, error)
 
-        // 业务通知 fire-and-forget：批次内 run 由批次终态合并；失败不阻断扫描
-        void notifyRunTerminal(persistedRun).catch((notifyError) => {
-            logger.error('[notification] run terminal notify failed', { error: notifyError })
-        })
+        // 业务通知 fire-and-forget：批次内 run 由批次终态合并；失败不阻断扫描。
+        // 未写回（清理侧已置终态）时跳过——清理侧已就同一 run 发过失败通知，避免重复投递。
+        if (written) {
+            void notifyRunTerminal(persistedRun).catch((notifyError) => {
+                logger.error('[notification] run terminal notify failed', { error: notifyError })
+            })
+        }
 
         return persistedRun
     } catch (error) {
@@ -561,10 +634,13 @@ const runScanInternal = async (
         }
         // 编排 catch-all 失败同样落失败分类（与状态机失败路径同源）
         applyFailureClassification(savedRun, { status: 'failed', error: orchestrationFailure })
-        const persisted = await runRepo.save(savedRun)
-        void notifyRunTerminal(persisted).catch((notifyError) => {
-            logger.error('[notification] run terminal notify failed', { error: notifyError })
-        })
+        // 编排 catch-all 同样走条件更新：与正常终态写回同一守卫
+        const { run: persisted, written } = await persistRunTerminalState(ds, savedRun)
+        if (written) {
+            void notifyRunTerminal(persisted).catch((notifyError) => {
+                logger.error('[notification] run terminal notify failed', { error: notifyError })
+            })
+        }
         return persisted
     }
 }

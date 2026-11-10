@@ -49,6 +49,8 @@ const e2eServerEnv = [
     'NUXT_PUBLIC_GITHUB_AVAILABLE=false',
     'NUXT_PUBLIC_GOOGLE_AVAILABLE=false',
     'NUXT_PUBLIC_OIDC_AVAILABLE=false',
+    // 沙箱 e2e（gated）：仅在显式提供镜像时透传，避免空串覆盖 SandboxExecutor 默认镜像
+    ...(process.env.SANDBOX_IMAGE ? [`SANDBOX_IMAGE=${process.env.SANDBOX_IMAGE}`] : []),
 ].join(' ')
 
 /** CI 强制串行（共享 SQLite 库）；本地默认并行 */

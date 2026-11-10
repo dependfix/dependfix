@@ -455,4 +455,4 @@ Database self-check (source environment): `pnpm --filter @dependfix/platform db:
 - **Never mount the host `/var/run/docker.sock`** and do not grant the container privileges; the process executing untrusted code is non-root by default.
 - Use strong random values for `AUTH_SECRET` / `NUXT_ENCRYPTION_KEY`; never commit them.
 - For public deployments, put the service behind an HTTPS reverse proxy and disable registration after setup.
-- The rootless sandbox executor is temporarily unavailable for multi-tenant / owner-mode scanning (UI disabled / API rejects new writes / legacy repositories fall back to the platform container). It will be restored after real execution lands; see [Quick Start](./quick-start.md).
+- Multi-tenant / owner-mode scanning can use the rootless sandbox executor (only `report-only` runs for real; `fix` / `fix-and-pr` fall back to the platform container until the egress allowlist proxy is wired in). Start the rootless Docker daemon on the host and mount only its unix socket (not the host `/var/run/docker.sock`) into the platform container; see [Quick Start](./quick-start.md).

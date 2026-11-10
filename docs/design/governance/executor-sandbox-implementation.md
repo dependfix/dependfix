@@ -9,12 +9,12 @@
 
 ### 7.1 抽象边界（不强绑定 Docker rootless）
 
-> **2026-10-27 入口关闭**：当前 scan-orchestrator 不再路由 `SandboxExecutor`，存量 `executorKind=sandbox` 强制 `ContainerExecutor` + `degradedReason.code=sandbox_entry_disabled`。以下抽象与路由图为**恢复后的目标形态**。
+> **2026-11-09 入口恢复（M57.1）**：report-only 路由回 `SandboxExecutor`（独立容器内跑自包含 CLI）；fix / fix-and-pr 仍降级 `ContainerExecutor` + `degradedReason.code=sandbox_fix_requires_egress_policy`（出站白名单代理接入前）。以下抽象与路由图为当前形态。
 
 `SandboxExecutor` 通过 §3 接口契约实现，**不与具体 OCI runtime 强绑定**——Runtime 形态作为配置项（`SANDBOX_RUNTIME` / Repository 字段）注入，避免今后切 Sysbox（`--runtime=sysbox-runc`）、Kata（`--runtime=kata-runtime`）等需要重写业务代码：
 
 ```text
-（恢复后）Repository.executorKind = 'sandbox'    → SandboxExecutor 路由
+Repository.executorKind = 'sandbox'（report-only）→ SandboxExecutor 路由
                   ↓
       scan-orchestrator 解析 → SandboxExecutor.execute(ctx)
                   ↓
@@ -39,7 +39,8 @@ export interface SandboxSpawnOpts {
     image: string                        // 复用平台镜像 tags（T1001-1）
     user: string                         // '100:100'（T1001）
     cgroupLimits?: { memoryMb: number; cpu: number }   // 透传 Repository.sandboxLimits
-    workDirBindMount: string             // /tmp/runs/{runId} → /workspace
+    /** 预留：宿主目录 → 容器挂载；当前沙箱不挂宿主目录（结果经 stdout 哨兵回传） */
+    workDirBindMount?: string
     networkEgressPolicy: 'allowlist'     // 白名单拦截代理对接（T1002）
     envSubset: NodeJS.ProcessEnv          // 仅解密后的 exec token（T1002 域名校验前置）
 }
@@ -55,16 +56,36 @@ export interface SandboxHandle {
 
 ### 7.2 镜像策略
 
-复用 `apps/platform/Dockerfile` runtime 阶段（T801 已落地 git + pnpm 11.18.0 工具链；C45 修复；2026-10-02 起 runtime 仅含 Nuxt `.output`，引擎由 Nitro 打包），**不维护双镜像**。Sandbox 容器启动命令与平台容器内执行 `DependfixApp.run()` 等价，差异仅在 UID/cgroup/网络隔离边界。**注意**：runtime 镜像不再随附 workspace CLI / `node_modules`，当前 `SandboxExecutor.buildCmd` 为占位实现；独立沙箱真实执行落地时须提供自包含入口（自包含 CLI bundle），不得依赖 workspace `node_modules`。镜像 tag 通过 `apps/platform/docker tag` 复用（与 C30 `Publish Docker` CI 链路解耦——CI 发布的镜像不可被 sandbox 直接拉，本场景使用平台内置镜像）。
+复用 `apps/platform/Dockerfile` runtime 阶段（T801 已落地 git + pnpm 11.18.0 工具链；C45 修复；2026-10-02 起 runtime 仅含 Nuxt `.output`，引擎由 Nitro 打包），**不维护双镜像**。**2026-11-09 起 runtime 另含沙箱自包含 CLI（`/app/sandbox/`）**：`packages/cli` 的 `tsdown.sandbox.config.ts` 内联全部运行期依赖（`deps.alwaysBundle`），并复制 `package.json` 与 `skills/dependfix-remediator`；因此沙箱容器不需要 workspace `node_modules`，`node /app/sandbox/bin.mjs` 即可跑 report-only。镜像引用由 `SANDBOX_IMAGE`（优先）或平台容器镜像引用 `DEPENDFIX_IMAGE`（compose 注入）提供；该镜像必须已在目标 rootless daemon 内可拉取 / 已存在。不使用 CI 发布镜像作为默认，避免 sandbox 与平台二进制版本漂移。
 
 ### 7.3 部署形态
 
 **自托管 docker-compose**（M10 目标，唯一交付形态）：
 
-- `apps/platform/docker-compose.yml` 增加 `sandbox-daemon` 服务（rootless Docker daemon 容器，挂载 `data/runs` 共享卷，映射 unix socket 给 platform 容器）
+- rootless daemon 由**宿主**启动（不在平台容器内启动 daemon）；平台容器只挂载其 unix socket（**不是**宿主 `/var/run/docker.sock`）
 - `apps/platform/Dockerfile` 工具链 / 非 root 链路不变（T801/C38 已落地）；runtime 自 2026-10-02 起仅含 Nuxt `.output`，不再随附 workspace `node_modules`，故 sandbox 独立入口须自包含（见 §7.2）
 - platform 镜像默认拉取已发布 tag（`docker compose pull && docker compose up -d`），本地构建经 `docker-compose.build.yml` 覆盖文件显式开启；运行身份默认 `dependfix`（uid 100 / gid 101），`PUID`/`PGID` 可对齐宿主用户以控制数据卷 / `$HOME` 所有权，且对 0 值 fail-closed（保持非 root 基线）
-- platform 容器通过 `DOCKER_HOST=unix:///var/run/docker.sock`（容器内 socket 路径，与 rootless daemon 共享）
+- **不需要**在宿主与平台容器间共享 `runs` 目录：沙箱容器不挂载宿主目录，结果经 stdout 哨兵回传（见 §7.2 / §7.8）；沙箱镜像须在目标 rootless daemon 内可拉取 / 已存在（`SANDBOX_IMAGE` 或 `DEPENDFIX_IMAGE`）
+- socket 属主是宿主启动 daemon 的用户（常见 uid 1000）；平台容器默认 uid 100 / gid 101 需通过 `PUID`/`PGID` 或 `group_add` 对齐，否则 `DockerAdapter` 探测失败 → 启动降级 `container`
+
+**可选 `sandbox-daemon` compose 片段（示例级，不纳入 M57.1 验收）**：
+
+rootless daemon 由宿主启动，平台只挂载其 socket：
+
+```yaml
+services:
+  platform:
+    environment:
+      # 宿主 rootless daemon 的 socket（不是 /var/run/docker.sock）
+      DOCKER_HOST: unix:///run/user/1000/docker.sock
+      # 沙箱镜像与平台容器镜像同源（compose 默认已注入；此处显式说明依赖关系）
+      DEPENDFIX_IMAGE: ${DEPENDFIX_IMAGE:-caomeiyouren/dependfix:latest}
+    volumes:
+      - /run/user/1000/docker.sock:/run/user/1000/docker.sock
+      - dependfix-data:/app/data
+```
+
+> 不要改为挂载宿主 `/var/run/docker.sock`（等价宿主 root），也不要在平台容器内启动 rootless daemon 自身作为 sandbox。真实生产请按 [Docker rootless 官方文档](https://docs.docker.com/engine/security/rootless/) 在宿主启动 daemon。
 
 **反模式登记**（绝对不可用）：
 - 挂宿主 `docker.sock` 直连：违反 [sandbox-security-governance.md §3 路径 D](./sandbox-security-governance.md)
@@ -81,10 +102,10 @@ export interface SandboxHandle {
 |:--|:--|:--|
 | `Repository.executorKind` = `undefined`  | `ContainerExecutor` | M6 默认，单机/无 rootless 场景仍可用 |
 | `Repository.executorKind` = `'container'` | `ContainerExecutor` | 显式声明，与 M6 一致 |
-| `Repository.executorKind` = `'sandbox'`（2026-10-27 起入口关闭） | `ContainerExecutor` 强制降级 → **`degraded`** | 当前行为：`degradedReason.code=sandbox_entry_disabled`；恢复后按下方 A/B |
-| `Repository.executorKind` = `'sandbox'` + SandboxRuntimeAdapter 可用（**恢复后**） | `SandboxExecutor` | M10 目标 |
-| `Repository.executorKind` = `'sandbox'` + adapter **启动时**不可用（`isAvailable()` 返回 false，**恢复后**） | `ContainerExecutor` 降级执行 → **`degraded` 状态** | **A 场景**（配置层降级）：业务结果完整，UI info 提示「未启用 rootless，已自动使用平台容器」 |
-| `Repository.executorKind` = `'sandbox'` + adapter **启动可用**但 `execute()` 抛 errno（ENOENT/ENOTCONN/EACCES/ECONNREFUSED，**恢复后**） | 不静默降级 → `error.code = 'sandbox_unavailable'` → **`failed` 状态** | **B 场景**（环境中途变化）：业务未完成，UI warn 告警「沙箱运行时不可用，环境配置可能已变化」 |
+| `Repository.executorKind` = `'sandbox'` + 模式 = `report-only` + SandboxRuntimeAdapter 可用 | `SandboxExecutor` | 已落地：独立容器跑自包含 CLI，结果经容器内 `/tmp/result.json` + stdout 哨兵回传（无宿主挂载） |
+| `Repository.executorKind` = `'sandbox'` + 模式 = `fix` / `fix-and-pr`（代理接入前） | `ContainerExecutor` 降级 → **`degraded`** | `degradedReason.code=sandbox_fix_requires_egress_policy`（不通知） |
+| `Repository.executorKind` = `'sandbox'` + adapter **启动时**不可用（`isAvailable()` 返回 false） | `ContainerExecutor` 降级执行 → **`degraded` 状态** | **A 场景**（配置层降级）：业务结果完整，UI info 提示「未启用 rootless，已自动使用平台容器」 |
+| `Repository.executorKind` = `'sandbox'` + adapter **启动可用**但 `execute()` 抛 errno（ENOENT/ENOTCONN/EACCES/ECONNREFUSED） | 不静默降级 → `error.code = 'sandbox_unavailable'` → **`failed` 状态** | **B 场景**（环境中途变化）：业务未完成，UI warn 告警「沙箱运行时不可用，环境配置可能已变化」 |
 | `Repository.executorKind` = `'github-action'` | `ActionTriggerExecutor` | M6 已有 |
 
 CLI 启动时（`@dependfix/cli` entrypoint）探测 SandboxRuntimeAdapter 可用性；不可用时输出 `[sandbox]` warn 提示管理员启动 rootless daemon，但**不阻断**运行（旧路径仍可用）。
@@ -111,7 +132,7 @@ CLI 启动时（`@dependfix/cli` entrypoint）探测 SandboxRuntimeAdapter 可�
 - **非 root 执行** → SandboxRuntimeAdapter 注入 `--user=100:100`（C38 路径延续）
 - **超时兜底** → T802 单命令超时（已落地）+ SandboxHandle.waitForExit 透传外层 30 分钟超时
 - **资源与网络** → T1002 白名单拦截代理 + T1003 cgroup v2
-- **工作目录隔离** → `runs/{runId}/` 临时目录 + bind-mount + 执行后 cleanup
+- **工作目录隔离** → 容器私有 `/tmp`（不挂宿主目录）+ `autoRemove` 执行后销毁
 - **新执行后端威胁建模评审** → [sandbox-security-governance.md §4.4](./sandbox-security-governance.md) 已要求；T1001 提交 Review Gate 时同节点触发 Code Auditor 复核
 - **规范单点声明** → 不在本节重复 [security.md §5.3](../../standards/security.md) 条款，仅挂引用
 
@@ -126,7 +147,7 @@ CLI 启动时（`@dependfix/cli` entrypoint）探测 SandboxRuntimeAdapter 可�
 
 ### 7.8 降级状态机契约（degraded vs failed）
 
-> **2026-10-27 入口临时关闭**：scan-orchestrator 不再路由 `SandboxExecutor`；存量 `executorKind=sandbox` 强制 `ContainerExecutor` + `degradedReason.code=sandbox_entry_disabled`（UI 禁用 / API 拒绝新写入）。以下 A/B 契约保留，供真实执行闭环后恢复。
+> **2026-11-09 入口恢复（M57.1）**：report-only 路由 `SandboxExecutor`；fix / fix-and-pr 策略降级 `ContainerExecutor` + `degradedReason.code=sandbox_fix_requires_egress_policy`。以下 A/B 契约对 report-only 生效。
 >
 > **状态**：🔶 M11 阶段登记（2026-08-20），T1005-C 实施中。**背景**：sandbox 路由在「启动时不可用」与「运行时不可用」两种场景下的语义边界——前者是**配置偏离**（业务完整），后者是**真实异常**（业务未完成）。统一归为 `failed` 会丢失降级路径的成功信息，统一归为 `degraded` 会掩盖运行时异常，故引入独立状态分流。
 
@@ -182,7 +203,7 @@ if (error && !result) {
 
 #### 7.8.3 orchestrator 降级信号传递
 
-> **当前实现（2026-10-27 起）**：入口关闭，sandbox 分支无条件走 `ContainerExecutor` + `degradedReason.code='sandbox_entry_disabled'`；以下代码为**恢复后目标形态**。
+> **当前实现（2026-11-09 起）**：report-only 走 `SandboxExecutor`（启动可用执行；不可用则降级并记 `sandbox_unavailable`）；fix / fix-and-pr 走策略降级并记 `sandbox_fix_requires_egress_policy`。以下代码为 sandbox 路由块形态。
 
 `scan-orchestrator.service.ts` 在 sandbox 路由块维护 `degradedReason` 内部变量：
 

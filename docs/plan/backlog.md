@@ -213,6 +213,8 @@
 
 - **发布后镜像运行时冒烟（P2 🚀🧪，2026-11-09 因插队再平衡移出执行面可信阶段）** —— release 后用 `read:packages` 凭证拉取镜像跑 `/api/health`（amd64 + arm64，原生 arm runner，不用 QEMU），输出 `/api/health` 的版本与 commit；冒烟失败只告警、不阻断发布；并补历史 tag 巡检（缺项写「未证实」）。**范围**：`release.yml` 后置步骤 / `docker.yml`、冒烟脚本、`docs/guide/release.md`、失败告警通道（issue / 日志）。**验收**：① 双架构 health 回读通过；② 冒烟失败不改变发布成功判定但有可见告警 / 记录；③ 历史 tag 巡检产出报告。**不做**：不改镜像构建架构与发布判定；不引入 QEMU；不对每次 push 运行（仅 release / dispatch）。**依赖**：既有发布流水线；`GH_PAT` / packages 读权限。**风险**：拉取凭证 / 网络失败 → fail-open（告警不阻断）；runner 成本 → 仅 release 触发。**交付物**：2-3 commits / 4-6 文件 / 250-400 行。**触发条件**：下一次发版前，或需要 arm64 启动实证时。
 
+- **沙箱 fix 模式出站白名单代理接入（待评估，P1 🛡️，2026-11-09 沙箱真实执行边界）** —— 现状：sandbox 仅放行 report-only（不 clone / 不执行目标仓库代码）；fix / fix-and-pr 降级 `container` 并记 `sandbox_fix_requires_egress_policy`。**待评估**：把应用层出站白名单代理（T1002）接入 `SandboxExecutor.buildSpec`（代理 env / 域发现 / 外联日志），放行 fix 前保持 report-only。**触发条件**：需要在沙箱内执行不可信仓库修复时。
+
 ### 待上收候选（评估完成，等待用户决策）
 
 > 本节为「评估完成、等待用户决策」候选的暂存区；候选**不含 `M\d+` 阶段编号**（[规划规范 §3.1](../standards/planning.md#_3-1-新需求默认走-评估-→-backlog-原则-hard-requirement)）。

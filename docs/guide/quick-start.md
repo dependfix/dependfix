@@ -216,17 +216,15 @@ jobs:
 - **PR 合入前人工检查**：跨线升级（PR body 带 ⚠️ Major 标记）以及新增/升级包带 lifecycle scripts 且被仓库批准时（供应链信号披露落地后见报告警示区），合入前应人工确认。
 - **平台部署**：默认拉取已发布镜像（`docker compose pull && docker compose up -d`；仅在需要本地打包时叠加 `docker-compose.build.yml` 覆盖文件构建，见 `apps/platform/docker-compose.yml` 顶部说明）。容器执行进程已**非 root 降权**（默认 `dependfix` 用户 uid 100 / gid 101；可用 `PUID`/`PGID` 对齐宿主机用户以控制数据卷 / `$HOME` 归属，解析为 0 时 fail-closed 拒绝启动，entrypoint 自动修复所有权）；部署时勿挂载 `docker.sock`、勿授予特权；`AUTH_SECRET` / `NUXT_ENCRYPTION_KEY` 使用强随机值。**首次启动自动建表**（compose 默认 `DATABASE_MIGRATIONS_RUN=true`）；完整步骤（环境变量 / 数据卷与权限 / 数据库初始化 / 升级 / 备份恢复 / 故障排查）见 [Docker 部署](./deployment.md)。
 
-#### sandbox 执行（实验性，当前暂不可用）
+#### sandbox 执行（实验性，仅 report-only）
 
-> **⛔ 当前入口已临时关闭（2026-10-27）**：UI 已禁用 sandbox 选项、API 拒绝新写入；存量 `executorKind=sandbox` 仓库扫描会强制降级到 `container` 并标记 `degraded`（`sandbox_entry_disabled`）。原因：`buildCmd` 仍为最小占位（不启动 dependfix 引擎），真实引擎执行未闭环（[backlog P1](../plan/backlog.md#候选评估中-待评估-本阶段延后项)）。生产修复请使用 `container` 或 `github-action`。
+> **✅ 入口已恢复（M57.1，2026-11-09）**：独立容器内运行自包含 CLI（`node /app/sandbox/bin.mjs`），结果经容器内 `/tmp/result.json` + stdout 哨兵回传，与 `ContainerExecutor` 同构。**当前仅放行 `report-only`**（只读扫描：拉取 Dependabot / Code Scanning 告警，不 clone、不执行目标仓库代码）；`fix` / `fix-and-pr` 在出站白名单代理接入沙箱执行路径前继续降级到 `container`，并记 `degraded`（`sandbox_fix_requires_egress_policy`）。
 >
-> **历史状态**：M11 T1005 路由接线已就位（2026-08-20）；平台 Web UI 曾暴露 sandbox 选项（仓库管理 → 添加/编辑 → 执行方式下拉）。以下为真实执行闭环后的设计适用范围。
->
-> **适用范围（真实执行闭环后）**：owner/org 多仓库扫描、`--allow-major-upgrade` 跨线升级、对不可信仓库 owner 模式修复——这些场景下恶意依赖脚本在容器内执行的风险显著高于单可信仓库场景，sandbox 执行把执行隔离在独立 rootless 容器内（与平台容器解耦），详见 [executor-sandbox.md §7](../design/governance/executor-sandbox-implementation.md#_7-sandbox-执行器设计)。
+> **适用范围**：owner/org 多仓库只读扫描、对不可信仓库先做告警盘点；修复请使用 `container` 或 `github-action`。sandbox 把执行隔离在独立 rootless 容器内（与平台容器解耦），详见 [executor-sandbox.md §7](../design/governance/executor-sandbox-implementation.md#_7-sandbox-执行器设计)。
 >
 > **不启用**：单可信仓库 + 本地开发场景下默认 `ContainerExecutor` 即可，无 rootless daemon 启动成本。
 
-**恢复后的前置条件 / 运维预配置**（入口关闭期间不会产生 sandbox 扫描，以下步骤可暂缓）：
+**前置条件 / 运维预配置**（启用 sandbox 执行前必须完成）：
 
 - Linux 内核（cgroup v2 推荐 ≥ 5.8；旧内核降级为 Node V8 软限制）
 - 已安装 Docker（≥ 20.10）
@@ -234,7 +232,7 @@ jobs:
 - `/etc/subuid` 与 `/etc/subgid` 中当前用户有 ≥ 65,536 个从属 UID/GID（`grep ^$(whoami): /etc/subuid` 应返回非空）
 - 系统已启用 user namespace（多数发行版默认开启；WSL2 / 容器内运行需额外配置）
 
-**恢复后启动 rootless Docker daemon**（参考 [Docker 官方 rootless 文档](https://docs.docker.com/engine/security/rootless/)）：
+**启动 rootless Docker daemon**（参考 [Docker 官方 rootless 文档](https://docs.docker.com/engine/security/rootless/)）：
 
 ```bash
 # 1. 安装 rootless 工具（Ubuntu/Debian 需 docker-ce-rootless-extras；20.10+ 通常已自带）
@@ -258,33 +256,33 @@ docker --context rootless info --format '{{.SecurityOptions}}'
 # 输出含 `rootless` 字样 → 真正连到 rootless daemon
 ```
 
-**入口关闭期间不可启用**（以下配置仅在真实执行闭环、入口恢复后适用；当前 UI 已禁用，API 写入 `executorKind=sandbox` 返回 400）：
+**启用 sandbox 执行**：
 
 ```bash
-# 恢复后：仓库级覆盖（当前执行会 400）
-# curl -X PUT /api/repos/{id} \
-#   -H 'Content-Type: application/json' \
-#   -d '{"executorKind": "sandbox"}'
+# 1) 平台可访问 rootless daemon：给平台容器设置 DOCKER_HOST（示例见
+#    docs/design/governance/executor-sandbox-implementation.md §7.3）
+# 2) 仓库级覆盖：执行方式改为 sandbox（仅 report-only 真实执行）
+curl -X PUT /api/repos/{id} \
+  -H 'Content-Type: application/json' \
+  -d '{"executorKind": "sandbox"}'
 
-# 恢复后：出站白名单——默认已含官方 registry + 常见镜像站 + GitHub API/资产域 + rolldown.rs
-# （权威默认清单与判定口径见 安全规范 §5.3.1：docs/standards/security.md）；并自动从 workDir 的
-# pnpm 配置面发现生效 registry host（pnpm config list --json，仅读本地不联网、异常时回退预置清单）。
-# 以下仅用于「预置清单未覆盖」的场景——例如企业私服自带独立 CDN 域（tarball 302 到非预置域）。
-# 生效进程：平台 Node 进程内的拦截代理判定（packages/engine/src/runners/network-audit.ts）；
-# sandbox 容器走 Docker bridge 直出网（本 env 不透传给 sandbox 容器内部）
-# export DEPENDFIX_ALLOWED_DOMAINS="registry.internal.example.com,artifacts.example.com"
-
-# 恢复后：自定义运行时（默认 runc；如部署了 Sysbox 可切换）——模块级读取，须在平台启动前设置
+# 3) 镜像：sandbox 复用平台镜像（默认取平台容器镜像引用 DEPENDFIX_IMAGE，compose 已注入；
+#    独立 docker run 需显式 SANDBOX_IMAGE）。镜像内已含 /app/sandbox/bin.mjs + skills 静态目录，
+#    且该镜像必须已在 rootless daemon 内可拉取 / 已存在。
+# 4) 自定义运行时（默认 runc；如部署了 Sysbox 可切换）——模块级读取，须在平台启动前设置
 # export SANDBOX_RUNTIME=sysbox-runc
 ```
 
-**当前降级行为（入口关闭期间）**：
+> **网络**：report-only 需要访问 GitHub API 拉取告警，sandbox 容器走 Docker bridge 直出网；`DEPENDFIX_ALLOWED_DOMAINS` 是平台进程内拦截代理的配置，**不透传给 sandbox 容器**。fix / fix-and-pr 在出站白名单代理接入沙箱执行路径前会被降级，不会用到更大网络面。
 
-- 存量 `executorKind=sandbox` 仓库扫描 → 强制 `ContainerExecutor` + `degradedReason.code=sandbox_entry_disabled` → **run 标 `degraded`**（业务结果完整，UI 提示「独立沙箱容器暂不可用，已自动使用平台容器」）。
-- 若平台容器也不可用 → **run 标 `failed`**（`container_unavailable`）。
-- 旧 §7.8 的 `sandbox_unavailable` A/B 场景在入口关闭期间不再发生；真实执行闭环、入口恢复后按 §7.8 契约执行。
+**降级与失败行为**：
 
-A/B 场景差异化见 [executor-sandbox.md §7.8.1](../design/governance/executor-sandbox-implementation.md)（恢复后适用）；治理登记见 [sandbox-security-governance.md §5 G5](../design/governance/sandbox-security-governance.md#_5-治理决议与登记) + [§7.1 验收段](../design/governance/sandbox-security-governance.md)。
+- `executorKind=sandbox` + `report-only` → 真实执行；daemon 不可用（启动探测失败）→ **降级 `container` + `degraded`**（`sandbox_unavailable`，业务结果完整）。
+- `executorKind=sandbox` + `fix` / `fix-and-pr` → **降级 `container` + `degraded`**（`sandbox_fix_requires_egress_policy`，策略限制，不通知）。
+- daemon 启动可用但运行时 errno（ENOENT / ENOTCONN / EACCES / ECONNREFUSED）→ **run 标 `failed`**（`sandbox_unavailable`），不静默降级、不掩盖真实环境异常。
+- 降级目标 container 也不可用 → **run 标 `failed`**（`container_unavailable`）。
+
+A/B 场景差异化见 [executor-sandbox.md §7.8.1](../design/governance/executor-sandbox-implementation.md)；治理登记见 [sandbox-security-governance.md §5 G5](../design/governance/sandbox-security-governance.md#_5-治理决议与登记) + [§7.2 降级场景验收](../design/governance/sandbox-security-governance.md#_7-2-降级场景验收-t1005-c-2026-08-20-已闭环——函数体-聚合-14-个新断言落地)。
 
 **反模式（绝对禁止）**：
 
@@ -327,6 +325,7 @@ A/B 场景差异化见 [executor-sandbox.md §7.8.1](../design/governance/execut
 | `--max-concurrency` | — | 多仓库并发窗口（1-16，默认 1 保守串行；>1 仅 report-only 允许） | `DEPENDFIX_MAX_CONCURRENCY` |
 | `--max-retries` | — | GitHub API 限流重试次数（0-10，默认 3） | `DEPENDFIX_MAX_RETRIES` |
 | `--history` | — | 查询仓库历史运行摘要（读 `dependfix-reports/index.json`，倒序；不执行扫描） | — |
+| `--result-json` | — | 把运行结果写入指定 JSON 文件（`{exitCode, result}`）；沙箱执行器据此读取，不复用报告副产物 | — |
 | `--code-scanning` | — | 同时拉取 Code Scanning alerts（与 Dependabot 并行源；需要 token 具备 `security-events: read`，GITHUB_TOKEN 默认具备） | `false`（env `DEPENDFIX_CODE_SCANNING`） |
 | `--allow-major-upgrade` | — | 跨线告警（推荐版本跨大版本，当前线内无修复版本）显式授权自动升级：仅根 package.json 直接依赖（workspace 成员独占声明维持人工）且 lockfile 单版本的告警自动跨线升级，升级后复核脆弱实例消除、强制完整验证（install+lint+build+typecheck+test），失败自动回滚；间接依赖 / 多版本共存跨线告警维持人工处理。**仅 CLI 可用，Action 不支持**（详见下方"跨大版本升级"风险章节） | `false`（**无 env 通道**） |
 | `--commands` | — | 自定义验证命令（逗号分隔）；整链替换默认链（不做合并），默认链内的条目须显式保留 | — |

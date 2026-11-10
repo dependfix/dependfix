@@ -28,7 +28,7 @@ Nuxt 4（全栈 SSR + API Routes，`app/` + `server/`）/ TypeScript strict / UI
 - `synchronize` / `migrationsRun` 全场景显式 opt-in（含 dev / test）；启动期日志打印两值与各自 env；初始化失败不抛致命错误（告警 + 功能降级）；幂等单例 + 并发初始化锁。
 - **迁移必须前缀感知 + 幂等**：统一用 `migration-helpers.ts`（`resolveTableName` 前缀回退 + `addColumnIfMissing` / `dropColumnIfExists` / `createIndexIfMissing`），并配「两种前缀 / 同时存在 / up-down 幂等 / 表缺失」用例；`queryRunner.connection` 已 deprecated，改用 `queryRunner.dataSource`。
 - **基线迁移与空库自举**：首条迁移从实体元数据建全部基础表 / 索引 / 外键（前缀感知 + 跨方言 + 幂等，存量库整表跳过）；全新部署走 `pnpm db:init` 或 compose 默认 `DATABASE_MIGRATIONS_RUN=true`。⚠️ **任何列 / 表变更必须编写独立迁移**——基线由元数据生成，漏写会让全新库 / CI 全绿而存量库永久缺列。**且新迁移类必须登记进 `createDataSourceOptions().migrations` 数组**（唯一登记点；未登记则生产 `DATABASE_MIGRATIONS_RUN=true` + `synchronize=false` 路径永不执行，存量库永久缺列；防护见 `server/database/migrations/migrations-registry.test.ts` 的登记一致性与存量库真实迁移链用例）。
-- **启动期 schema 漂移检测（2026-11-09 存量库缺列事故）**：`ensureDatabaseInitialized` 在 DataSource 初始化后调用 `checkSchemaDrift`（`server/database/schema-drift.ts`），比对实体元数据（普通列 + 关系外键列，含 `entityPrefix`）与实库表 / 列；缺失时输出 `[database] schema 漂移：缺 N 张表 / M 列` 的 ERROR 日志并把 `/api/health` 的 `schema` 置为 `drift`。**跳过条件**：`synchronize=true`（TypeORM 自行补 schema）与队列 worker 进程（不执行迁移，启动早于 HTTP 主进程）；检测自身失败 fail-open（状态 `unknown`，仅告警）。**检测只告警不阻断启动**——阻断语义会让「漏迁移」直接变成不可用，恢复路径以 [deployment.md「schema 漂移恢复清单」](../guide/deployment.md#schema-漂移恢复清单-no-such-column) 为准。
+- **启动期 schema 漂移检测**：启动时只读比对实体元数据与实库表 / 列，缺失时打 ERROR 并把 `/api/health` 的 `schema` 置为 `drift`；`synchronize=true` 与 worker 进程跳过、检测失败 fail-open（`unknown`）。**只告警不阻断启动**，恢复路径见 [deployment.md「schema 漂移恢复清单」](../guide/deployment.md#schema-漂移恢复清单-no-such-column)。
 
 - **3.4 实体规范**：继承 `BaseEntity`（雪花 ID + `getDateType()` 时间戳）；属性名 camelCase，列名由 `SnakeCaseNamingStrategy` 转 snake_case；better-auth 四表（`user` / `session` / `account` / `verification`）字段对齐默认 schema，**不得增删**，平台自有字段（如 `role`）经 `user.additionalFields` 声明并同步实体；跨库类型归一（SQLite `bigint` → `integer`；PG `bigint` → `integer`、长文本 → `text`），实体写法须保持三后端可编译。
 - **3.5 TypeORM 查询模式**：`find()` **不支持嵌套路径 order by**（仅顶层字段，否则抛 `EntityPropertyNotFoundError`），「按关联实体字段排序」一律用 QueryBuilder（`leftJoinAndSelect` + `orderBy` / `addOrderBy`）；统一代码路径优先，同一查询不并存 `find` 与 QueryBuilder 两条路径。
@@ -78,9 +78,9 @@ Nuxt 4（全栈 SSR + API Routes，`app/` + `server/`）/ TypeScript strict / UI
 ### 6.3 仓库级跨大版本升级授权（`allowMajorUpgrade`）
 
 - **默认关闭**：跨 major 告警记 `alertsSkippedByReason['cross-major']` 并按人工处理披露；不得混淆「开关未开」与「准入不满足」。
-- **开启后的准入**：仅「根 manifest 直接依赖 + lockfile 单版本」的告警进入升级链；间接依赖与多版本共存维持人工。升级仍走完整验证链，失败自动回滚。
-- **配置面**：平台仓库级开关（默认关）；运行期 `NUXT_PUBLIC_ALLOW_MAJOR_UPGRADE_DEFAULT`（构建期 `ALLOW_MAJOR_UPGRADE_DEFAULT`，仅构建时生效）把**新建仓库**默认设为开启，既有仓库不变。写入 `admin` / `org_admin`，仅实际变化时登记 `major_upgrade_policy_update` 审计。**不新增**引擎 CLI / Action / env 隐式通道。
-- **可观测**：仓库视图返回开关状态；运行摘要的 `cross-major` 计数与人工标签表达「被跳过」；日志在授权开启但准入不满足时输出 `require a cross-major upgrade ... manual review`。
+- **准入**：仅「根 manifest 直接依赖 + lockfile 单版本」进入升级链，间接依赖 / 多版本共存维持人工；升级仍走完整验证链，失败自动回滚。
+- **配置面**：`NUXT_PUBLIC_ALLOW_MAJOR_UPGRADE_DEFAULT`（构建期 `ALLOW_MAJOR_UPGRADE_DEFAULT`）只影响**新建仓库**；写入需 admin / org_admin，变化记 `major_upgrade_policy_update`；**不新增**引擎 CLI / Action / env 隐式通道。
+- **可观测**：仓库视图返回开关状态；运行摘要 `cross-major` 计数与人工标签表达「被跳过」，已授权但准入不满足时日志输出 `require a cross-major upgrade ... manual review`。
 
 ## 7. 前端规范（app/）
 
@@ -170,7 +170,7 @@ Nuxt 4（全栈 SSR + API Routes，`app/` + `server/`）/ TypeScript strict / UI
 - **env 口径**：Nuxt runtimeConfig 运行时覆盖只认 `NUXT_` 前缀（容器需 `NUXT_IN_PROCESS_WORKER`）；`.env.example` 的无前缀名只是 compose 插值源，直接注入容器无效。
 
 - **10.5 队列锁参数显式化与锁问题观测**：in-process Worker **必须**显式配置 `lockDuration`（取平台执行封顶 `resolveExecutionCeilingMs()`）/ `lockRenewTime`（取其一半），并注册 `stalled` / `lockRenewalFailed` / `error` 事件输出结构化日志。取值理由、载荷字段与同根因去重口径见 [executor-process-isolation.md §9.1](../design/governance/executor-process-isolation.md#_9-1-队列锁参数与观测)。
-- **编排层终态写回（关联 10.5 队列观测面）**：`runScanInternal` 的正常完成与 catch-all 两处终态写回**不得**用整行 `save`（会覆盖清理侧已写入的 `failed`），须按 [development.md §5.1.36](development.md) 条件更新（仅 `pending` / `running` 可写）；`affected = 0` 时保留库内终态行、跳过终态通知并输出 `run_terminal_write_skipped` 结构化告警。设计与残余见 [queue-stale-recovery.md](../design/governance/queue-stale-recovery.md)。
+- **编排层终态写回**：须按 [development.md §5.1.36](development.md) 条件更新（不得整行 `save`）；`affected = 0` 时保留库内终态、跳过通知并记 `run_terminal_write_skipped`，设计与残余见 [queue-stale-recovery.md](../design/governance/queue-stale-recovery.md)。
 
 ### 10.6 队列执行进程隔离（独立 worker 进程）
 

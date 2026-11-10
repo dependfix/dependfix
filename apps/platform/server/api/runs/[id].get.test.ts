@@ -134,6 +134,47 @@ describe('GET /api/runs/[id]', () => {
         })
     })
 
+    it('breaks result severity ties by id DESC (stable row order)', async () => {
+        const ds = await ensureDatabaseInitialized()
+        const tieRun = await ds.getRepository(ScanRun).save(ds.getRepository(ScanRun).create({
+            repositoryId,
+            mode: 'report-only',
+            severityThreshold: 'all',
+            executorKind: 'container',
+            status: 'completed',
+        }))
+        const resultRepo = ds.getRepository(ScanResult)
+        const seed = (upstreamId: string, severity: string) => resultRepo.save(resultRepo.create({
+            scanRunId: tieRun.id,
+            repositoryId,
+            upstreamId,
+            source: 'dependabot',
+            severity,
+            packageName: 'lodash',
+            manifestPath: 'package.json',
+            ruleId: null,
+            summary: 'same severity tie',
+            fixable: false,
+            fixStrategy: null,
+            recommendedVersion: null,
+            htmlUrl: null,
+            fixStatus: 'not-tried',
+            firstSeenAt: new Date('2026-08-01T00:00:00Z'),
+            lastSeenAt: new Date('2026-08-01T00:00:00Z'),
+            occurrenceCount: 1,
+            supersededAt: null,
+        }))
+
+        // 同 severity 两行 + 更低 severity 一行：并列必须按 id DESC，而非插入顺序
+        const tieOld = await seed('dependabot:tie-1', 'high')
+        const tieNew = await seed('dependabot:tie-2', 'high')
+        const lower = await seed('dependabot:tie-3', 'low')
+
+        const detail = await call('GET', `/api/runs/${tieRun.id}`, { id: tieRun.id }) as Record<string, unknown>
+        const ids = (detail.results as { id: string }[]).map((r) => r.id)
+        expect(ids).toEqual([tieNew.id, tieOld.id, lower.id])
+    })
+
     it('returns 404 for unknown run id', async () => {
         await expectError(call('GET', '/api/runs/nonexistent', { id: 'nonexistent' }), 404)
     })

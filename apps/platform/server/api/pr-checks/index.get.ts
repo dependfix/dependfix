@@ -62,6 +62,8 @@ const listHandler = async (event: H3Event) => {
     const qb = ds.getRepository(PRCheck).createQueryBuilder('prCheck')
         .leftJoinAndSelect('prCheck.repository', 'repository')
         .orderBy('prCheck.createdAt', 'DESC')
+        // 同毫秒并列时按主键 DESC 兜底，保证 take(500) 截断集合稳定（api.md §4）
+        .addOrderBy('prCheck.id', 'DESC')
         .take(500)
 
     if (repositoryId && repositoryId !== 'all') {

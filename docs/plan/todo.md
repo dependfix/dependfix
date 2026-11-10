@@ -117,6 +117,8 @@
 
 ### M57.5 [P2 🛠️] 列表查询并列次键
 
+- **状态**：✅ 已闭环（2026-11-10；审计 standard Pass，0 blocker；W 项已修净）。
+
 - **目标**：家族共 6 处列表在主排序键并列时顺序稳定（`runs/index` 已由 M56.2 覆盖，本原子补 5 处），分页不重不漏。
 - **优先级**：P2（视觉 / 截断集合抖动潜伏；M51.6 同 pattern 残余）。
 - **范围**：`api/runs/[id].get.ts`（severity）、`api/audit-events/index.get.ts`、`api/pr-checks/index.get.ts`、`api/notifications/index.get.ts`、`api/batch-runs/index.get.ts`（共 5 处新增；`runs/index` 已在 M56.2 完成）、对应单测；若新增检查点口径则同步 `code-quality-checklist` 矩阵（不新增条目则不登记）。
@@ -127,6 +129,7 @@
 - **不做什么**：不改筛选语义 / 返回结构；不统一抽列表 composable；不评估 / 不覆盖 `repos` / `schedules` / `credentials` 等其余列表（另条候选）。
 - **依赖**：M51.6 已确立的次键口径。
 - **交付物**：2-3 commits / 8-12 文件 / 250-400 行。
+- **执行记录（2026-11-10）**：5 处补次键——`runs/[id]` 结果明细 `severity ASC, id DESC`；`audit-events` / `pr-checks`（`createdAt DESC, id DESC`，`take(500)` 窗口）；`notifications`（`createdAt DESC, id DESC`，分页）；`batch-runs`（`createdAt DESC, id DESC`，`take(50)` 窗口）；`runs/index` 沿用 M56.2 既有实现，未改。用例统一按「同毫秒并列 + 插入顺序 ≠ id 倒序」构造：`notifications` 显式指定主键解耦插入序与主键序（否则 SQLite 并列返回序可能恰等于 id 倒序，用例失去区分度）、按 `pageSize=1` 翻三页验证不重不漏；`batch-runs` 以 52 行完全并列验证截断窗口固定取 id 最大的 50 行（最小 2 行必被截掉）；`pr-checks` / `audit-events` / `runs` 详情按并列顺序断言并复跑一次确认顺序一致。mutation 5/5（逐处移除次键 → 对应用例各自失败）。连带面：结果明细行序变更使 `scans-run-detail-light` 视觉基线检出 2065 px（ratio 0.01）差异 → 同批重建基线，更新后连跑两次通过、全量视觉 21 passed。`docs/standards/api.md §4` 平台覆盖进度由「见 backlog」改为逐处清单 + 非排他的「已知仍未纳入」口径（`repos` / `schedules` / `credentials`、`scan-history/summary` 统计窗口、`batch-runs/[id]` 子运行列表）。**实际规模**：13 文件 / +199 −5（10 个 ts + 1 张视觉基线 + 2 份文档；文件数超 §1.1 的 10 文件阈值，已按 fix / docs 拆 3 个 commit）。证据：定向 54 passed；platform 全量 2475 passed / 9 skipped；e2e scans / env-events / notifications 27 passed；`lint:check` exit 0（0 error / 4 存量 warning）；`typecheck` exit 0；platform build exit 0；`gates:docs` 20 项；新增行编号标记 0 命中。
 - **风险与缓解**：次键为 `id`（主键）无需新索引；`runs/[id]` 有视觉基线 → 详情弹窗复跑视觉。
 
 ### 追加临时待办（不占阶段条目编号）：线上 schema 漂移恢复清单 + 启动期漂移检测

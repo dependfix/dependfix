@@ -65,27 +65,27 @@
 | 1.0: 发布门槛收口 | E 通知可信度（= M50）+ F1 语义与数据（= M51）+ F2 文档与验证（= M52）+ G 发布工程（M53）+ 发布执行（M54） | P0-P1 | 已完成（2026-11-07 发布 1.0.0；G3 / G4 按已披露豁免、G7 残留面，不代表门槛全绿；E / F1 / F2 / G 批次工程与发布执行均已闭环并归档；**1.0.0 发布窗口已决策（M54，2026-11-01）**：先 0.7.0 再 1.0.0、有条件发布、目标 2026-11-15；台账见 [release-1.0-readiness.md](../design/governance/release-1.0-readiness.md)） |
 | M55: 1.0.x 修复有效性与执行边界收口 | 版本化 override 生效校验与交付展示同源 + 运行预算夹取与双跑成本收敛 + 失败路径可观测性 + 仓库级执行预算与超时配置（含 PUT partial 修复）+ 仓库级跨 major 开关 | P1-P2 | 已完成（2026-11-08 规划 / 2026-11-08 已闭环归档，见 [M55 详情分片](archive/roadmap-phases-m55.md) + [M55 归档分片](archive/todo-archive-phases-m55.md)） |
 | M56: 1.0 后平台可信与运行成本收口 | PR Check 生命周期状态与结论筛选 + 扫描页排序与时间区间 + 0 写入后验证三态 + checkpoint 降级可观测 + 经验归档分片 + 规范三文件瘦身 | P2-P3 | 已完成（2026-11-08 规划 / 2026-11-09 已闭环归档，见 [M56 详情分片](archive/roadmap-phases-m56.md) + [M56 归档分片](archive/todo-archive-phases-m56.md)） |
-| M57: 执行面可信与发布验证收口 | 沙箱执行器复用（report-only 真实执行）+ 队列终态条件写 + 回归与审计真实性 + 平台 typecheck 覆盖 node config + 列表并列次键；插队 2 批：生产事故 schema 漂移恢复 + 仓库表单错误定位与时长单位（含同批跨大版本默认值）；发布冒烟已再平衡移出 | P1-P2 | 进行中（2026-11-09 规划 / 同日再平衡） |
+| M57: 执行面可信与发布验证收口 | 沙箱执行器复用（report-only 真实执行）+ 队列终态条件写 + 回归与审计真实性 + 平台 typecheck 覆盖 node config + 列表并列次键；插队 2 批：生产事故 schema 漂移恢复 + 仓库表单错误定位与时长单位（含同批跨大版本默认值）；发布冒烟已再平衡移出 | P1-P2 | 已完成（2026-11-09 规划 / 2026-11-10 已闭环归档，见 [M57 详情分片](archive/roadmap-phases-m57.md) + [M57 归档分片](archive/todo-archive-phases-m57.md)） |
 
 > **本路线图定位**：按 [规划规范 §2.1](../standards/planning.md) 仅维护阶段概览（目标 / 优先级 / 状态）。详细实施记录 / commit 引用 / 关键决策 / 经验教训见对应归档段（详见下方"## 详细任务"索引）。
 
 > **M0 - M38 阶段详情已迁出**：见 [archive/roadmap-phases-m0-m38.md](archive/roadmap-phases-m0-m38.md)（2026-10-15 M44.4 批次③ 迁出；主文档保留概述表与最近阶段）。
 
-> **M39-M56 阶段详情已迁出**：M39-M48 见 [archive/roadmap-phases-m39-m48.md](archive/roadmap-phases-m39-m48.md)（2026-10-26 文档治理批次迁出）；M49 见 [archive/roadmap-phases-m49.md](archive/roadmap-phases-m49.md)（2026-10-29 归档批次迁出）；M50 见 [archive/roadmap-phases-m50.md](archive/roadmap-phases-m50.md)（2026-10-30 归档批次迁出）；M51 见 [archive/roadmap-phases-m51.md](archive/roadmap-phases-m51.md)（2026-10-30 归档批次迁出）；M52 见 [archive/roadmap-phases-m52.md](archive/roadmap-phases-m52.md)（2026-10-31 归档批次迁出）；M53 见 [archive/roadmap-phases-m53.md](archive/roadmap-phases-m53.md)（2026-11-01 归档批次迁出）；M54 见 [archive/roadmap-phases-m54.md](archive/roadmap-phases-m54.md)（2026-11-07 归档批次迁出）；M55 见 [archive/roadmap-phases-m55.md](archive/roadmap-phases-m55.md)（2026-11-08 归档批次迁出）；M56 见 [archive/roadmap-phases-m56.md](archive/roadmap-phases-m56.md)（2026-11-09 归档批次迁出）。主文档保留里程碑概述表与当前阶段状态。
+> **M39-M57 阶段详情已迁出**：M39-M48 见 [archive/roadmap-phases-m39-m48.md](archive/roadmap-phases-m39-m48.md)（2026-10-26 文档治理批次迁出）；M49 见 [archive/roadmap-phases-m49.md](archive/roadmap-phases-m49.md)（2026-10-29 归档批次迁出）；M50 见 [archive/roadmap-phases-m50.md](archive/roadmap-phases-m50.md)（2026-10-30 归档批次迁出）；M51 见 [archive/roadmap-phases-m51.md](archive/roadmap-phases-m51.md)（2026-10-30 归档批次迁出）；M52 见 [archive/roadmap-phases-m52.md](archive/roadmap-phases-m52.md)（2026-10-31 归档批次迁出）；M53 见 [archive/roadmap-phases-m53.md](archive/roadmap-phases-m53.md)（2026-11-01 归档批次迁出）；M54 见 [archive/roadmap-phases-m54.md](archive/roadmap-phases-m54.md)（2026-11-07 归档批次迁出）；M55 见 [archive/roadmap-phases-m55.md](archive/roadmap-phases-m55.md)（2026-11-08 归档批次迁出）；M56 见 [archive/roadmap-phases-m56.md](archive/roadmap-phases-m56.md)（2026-11-09 归档批次迁出）；M57 见 [archive/roadmap-phases-m57.md](archive/roadmap-phases-m57.md)（2026-11-10 归档批次迁出）。主文档保留里程碑概述表与当前阶段状态。
 
-## 当前阶段：M57（执行面可信与发布验证收口）
+## 当前阶段：无活跃阶段
 
-> 2026-11-09 用户决策方向 A（执行面可信收口）：5 原子 / 15-22 commits / 35-51 文件 / 1750-2900 行（逐原子求和口径，M57.6 再平衡移出后）；执行顺序 M57.4 → M57.5 → M57.2 → M57.3 → M57.1。沙箱执行器复用已于 2026-11-09 裁定，本阶段只放行 report-only；fix / fix-and-pr 依赖代理接入另有候选。2026-11-09 用户授权追加「仓库表单错误定位与时长单位」，因累计插队触发阈值 2，按用户决策移出 M57.6（发布冒烟）至 backlog。任务正文见 [todo.md](todo.md)。
+M57（执行面可信与发布验证收口）已于 2026-11-10 归档，详情见 [archive/roadmap-phases-m57.md](archive/roadmap-phases-m57.md)；执行记录见 [archive/todo-archive-phases-m57.md](archive/todo-archive-phases-m57.md)。
 
-M56（1.0 后平台可信与运行成本收口）已于 2026-11-09 归档，详情见 [archive/roadmap-phases-m56.md](archive/roadmap-phases-m56.md)；执行记录见 [archive/todo-archive-phases-m56.md](archive/todo-archive-phases-m56.md)。
+下一阶段（未规划）：按 [规划规范 §3.1](../standards/planning.md#_3-1-新需求默认走-评估-→-backlog-原则-hard-requirement) 从 [backlog.md](backlog.md) 候选池评估后启动。
 
 ---
 
 ## 详细任务
 
-- 当前阶段任务：M57（执行面可信与发布验证收口；见 [todo.md](todo.md)）
-- 已归档阶段：[todo-archive.md](todo-archive.md)（阶段索引 + 分片；M0-M56 全部已归档；分片治理见 [archive/index.md](archive/index.md)）
-- 下一阶段（未规划）：待 M57 收口后按 [规划规范 §3.1](../standards/planning.md#_3-1-新需求默认走-评估-→-backlog-原则-hard-requirement) 评估
+- 当前阶段任务：无（M0-M57 全部已归档）
+- 已归档阶段：[todo-archive.md](todo-archive.md)（阶段索引 + 分片；M0-M57 全部已归档；分片治理见 [archive/index.md](archive/index.md)）
+- 下一阶段（未规划）：按 [规划规范 §3.1](../standards/planning.md#_3-1-新需求默认走-评估-→-backlog-原则-hard-requirement) 从候选池评估
 - 后续阶段任务（延期项 + 未排期增强候选）：[backlog.md](backlog.md)
 
 ## 交付原则

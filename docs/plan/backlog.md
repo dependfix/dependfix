@@ -54,7 +54,7 @@
 
 ### 候选评估中（待评估 / 本阶段延后项）
 
-> **候选池概览（2026-11-10 M57.2 审计后复算）**：本区 **47 项**（`### 候选评估中` 段内 `^- \*\*` 逐行计数；46 项基线含 2026-11-10 M57.1 登记的「沙箱 fix 模式出站白名单代理接入」，本次新增「force-fail 整行写回覆盖刚完成的 run」1 项；M57 上收 7 项（6 项自本区 + 1 项自「待上收候选」）；本区「周回归 registry 假绿」与「回归窗口插入点」同题合并；2026-11-09 再平衡移回「发布后镜像运行时冒烟」1 项）。P 标签覆盖不全（未标注者评估时补 P 标签，不默认升级）；本文件不维护分档统计，1.0 分档只见 [release-1.0-readiness.md](../design/governance/release-1.0-readiness.md)。
+> **候选池概览（2026-11-10 M57.2 审计后复算）**：本区 **47 项**（`### 候选评估中` 段内 `^- \*\*` 逐行计数；46 项基线含 2026-11-10 M57.1 登记的「沙箱 fix 模式出站白名单代理接入」，本次新增「force-fail 与启动续用的整行写回」1 项；M57 上收 7 项（6 项自本区 + 1 项自「待上收候选」）；本区「周回归 registry 假绿」与「回归窗口插入点」同题合并；2026-11-09 再平衡移回「发布后镜像运行时冒烟」1 项）。P 标签覆盖不全（未标注者评估时补 P 标签，不默认升级）；本文件不维护分档统计，1.0 分档只见 [release-1.0-readiness.md](../design/governance/release-1.0-readiness.md)。
 > **1.0 门槛与分档**：P0 23 / P1 8 / 1.0 后 15 的分档、门槛判定与批次计划见 [release-1.0-readiness.md](../design/governance/release-1.0-readiness.md)。
 
 - **备份 `.tmp` 清扫缺年龄门槛（P3 🛠️，2026-10-31 M53.2 收口登记）** —— `cleanupOldBackups` 对 `*.bak.tmp` 无条件回收；单实例串行路径不可达冲突，但并发 `db:restore` 或多实例共卷启动时可能删掉对端正在写的临时文件（rename ENOENT → 该轮快照丢失，fail-open 后仅剩日志）。待评估：加入 `mtime < now - 10min` 年龄门槛或按 PID 命名临时文件。触发：启用多实例 / 多容器共享数据卷，或出现并发恢复需求时。
@@ -391,9 +391,9 @@
 
 | 内容类型 | 位置 |
 |:--|:--|
-| 当前阶段活跃任务 | **M57**（执行面可信与发布验证收口，2026-11-09 规划，见 [todo.md](todo.md)）；插队容量治理见 [planning.md §3.1.1](../standards/planning.md) |
+| 当前阶段活跃任务 | **无活跃阶段**（M57 已于 2026-11-10 归档；下一阶段待按 [规划规范 §3.1](../standards/planning.md#_3-1-新需求默认走-评估-→-backlog-原则-hard-requirement) 评估）；插队容量治理见 [planning.md §3.1.1](../standards/planning.md#_3-1-1-插队后的阶段容量再平衡-hard-requirement-2026-10-19) |
 | 下一阶段（未规划） | 按 [规划规范 §3.1](../standards/planning.md#_3-1-新需求默认走-评估-→-backlog-原则-hard-requirement) 从候选池评估 |
 | 已完成阶段归档 | [todo-archive.md](todo-archive.md)（阶段索引 + [archive/](archive/) 分片） |
-| 里程碑与阶段交付 | [roadmap.md](roadmap.md)（M0-M56 已归档；M57 进行中） |
+| 里程碑与阶段交付 | [roadmap.md](roadmap.md)（M0-M57 已归档） |
 | 长期主线 / 候选 / 待人工验收 / 已知边界 | 本文档（按四象限结构） |
 | 历史归档索引 | [archive/index.md](archive/index.md) |

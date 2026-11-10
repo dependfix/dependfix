@@ -44,7 +44,7 @@ interface PaginatedData<T> {
 }
 ```
 
-**排序确定性（严格约束）**：列表查询（含分页 / 截断 `take(N)`）必须显式排序；主排序键可并列（同毫秒时间戳、同分组名）时追加唯一列（通常主键）`DESC` 作次键——行序不得依赖数据库返回顺序，否则同一查询两次可能不同（视觉基线与截断集合抖动）。次键只保证确定性，业务意图顺序仍由数据显式决定。本约束自 2026-10-30 起对**新增 / 修改**的列表查询生效，存量清单与推进逐处见 [backlog](../plan/backlog.md)。已挂 [review 检查点矩阵](../../.github/skills/code-reviewer/references/code-quality-checklist.md)。
+**排序确定性（严格约束）**：列表查询（含分页 / 截断 `take(N)`）必须显式排序；主排序键可并列（同毫秒时间戳、同分组名）时追加唯一列（通常主键）`DESC` 作次键——行序不得依赖数据库返回顺序，否则同一查询两次可能不同（视觉基线与截断集合抖动）。次键只保证确定性，业务意图顺序仍由数据显式决定。本约束自 2026-10-30 起对**新增 / 修改**的列表查询生效，已挂 [review 检查点矩阵](../../.github/skills/code-reviewer/references/code-quality-checklist.md)。平台侧覆盖进度（2026-11-10）：已覆盖 alerts 分组、`runs`（列表 / 导出，见 §4.1）、`audit-events`、`pr-checks`、`notifications`、`batch-runs` 列表、`runs/[id]` 结果明细；**已知仍未纳入**（本次未做全量清单，需另立条目评估，属存量未覆盖而非违规）：`repos` / `schedules` / `credentials`、`scan-history/summary`（`take(500)` 统计窗口）、`batch-runs/[id]` 子运行列表。
 
 ### 4.1 runs 列表排序与开始时间区间（`GET /api/runs` / `GET /api/runs/logs-export`）
 

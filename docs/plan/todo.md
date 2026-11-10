@@ -102,6 +102,8 @@
 
 ### M57.4 [P2 🛠️] 平台 typecheck 覆盖 node config
 
+- **状态**：✅ 已闭环（2026-11-09；审计 R1 standard Pass 后按 W 项修复并拆为 3 commits，见「执行记录」）。
+
 - **目标**：`pnpm --filter @dependfix/platform typecheck` 实际检查 `.nuxt/tsconfig.node.json`，并修掉两个既有错误。
 - **优先级**：P2（配置面长期不在门禁内）。
 - **范围**：`apps/platform/package.json`（typecheck 脚本，脚本内先 `nuxt prepare` 且 CI 同序，可实证）、`nuxt.config.ts`（icon `rel` 联合、i18n locales readonly）、CI 注释 / 文档。
@@ -111,7 +113,7 @@
   3. CI 增量耗时可控（记录前后实测）。
 - **不做什么**：不关闭 strict / 不扩大 `skipLibCheck`；不改 Nuxt 大版本。
 - **依赖**：无（`nuxt prepare` 已在 CI 链内）。
-- **执行记录（2026-11-09）**：`nuxt typecheck` 只查主 project，新增 `apps/platform/tsconfig.node.json`（extends 生成的 node project，覆盖 `experimentalDecorators`）并把平台 typecheck 脚本改为 `nuxt typecheck && vue-tsc --noEmit -p tsconfig.node.json`；修复两个既有错误——favicon PNG 兜底由 `rel="alternate icon"` 改标准 `rel="icon"`（按 type / sizes 选择），`i18n.locales` spread 时显式复制可变数组（保留 `nuxtI18n` 的 `as const` 字面量）。负例实证：node project 注入 `const probe: string = 42` → `vue-tsc` exit 2（此前 `nuxt typecheck` 静默放过）；修复后 `pnpm --filter @dependfix/platform typecheck` exit 0（约 23s；纯 `nuxt typecheck` 约 19s + node 段约 2.5-2.9s）。`docs/guide/tech-stack.md` 同步覆盖说明。实际 5 文件（含新增 tsconfig）/ 2 commits（实现 / 文档）。
+- **执行记录（2026-11-09）**：`nuxt typecheck` 只查主 project，新增 `apps/platform/tsconfig.node.json`（extends 生成的 node project，覆盖 `experimentalDecorators`）并把平台 typecheck 脚本改为 `nuxt typecheck && vue-tsc --noEmit -p tsconfig.node.json`；修复两个既有错误——favicon PNG 兜底由 `rel="alternate icon"` 改标准 `rel="icon"`（按 type / sizes 选择），`i18n.locales` spread 时显式复制可变数组（保留 `nuxtI18n` 的 `as const` 字面量）。负例实证：node project 注入 `const probe: string = 42` → `vue-tsc` exit 2（此前 `nuxt typecheck` 静默放过）；修复后 `pnpm --filter @dependfix/platform typecheck` exit 0（约 23s；纯 `nuxt typecheck` 约 19s + node 段约 2.5-2.9s）。`docs/guide/tech-stack.md` 同步覆盖说明。实际 5 文件（含新增 tsconfig）/ 3 commits（fix / build / docs）。
 - **交付物**：2-3 commits / 3-5 文件 / 200-350 行。
 - **风险与缓解**：`nuxt typecheck` 内部先 `writeTypes` 生成 `.nuxt`（含 `tsconfig.node.json`），wrapper 的 base 恒存在；CI 已有 prepare 步骤，顺序与本地一致。
 

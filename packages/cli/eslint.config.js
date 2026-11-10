@@ -26,7 +26,7 @@ const strictRules = {
 export default defineConfig([
     cmyr,
     {
-        ignores: ['dist/**', 'node_modules/**'],
+        ignores: ['dist/**', 'sandbox/**', 'node_modules/**'],
     },
     {
         rules: {
@@ -45,6 +45,7 @@ export default defineConfig([
     {
         files: [
             'tsdown.config.ts',
+            'tsdown.sandbox.config.ts',
             'src/**/*.test.ts',
         ],
         languageOptions: createLanguageOptions({}, {

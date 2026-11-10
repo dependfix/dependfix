@@ -36,6 +36,18 @@ describe('runDoctor', () => {
         expect(findings.some((f) => f.level === 'warn' && f.message.includes('Claude Code') && f.message.includes('skills 目录缺失'))).toBe(true)
     })
 
+    it('产品 skill 内容目录可用 → ok（自包含产物可验证）', () => {
+        const findings = runDoctor({ homeDir: join(tempRoot, 'home'), projectRoot: tempRoot, productSourceDir: makeProductSource() })
+        expect(findings.some((f) => f.level === 'ok' && f.message.includes('产品 skill 内容目录可用'))).toBe(true)
+    })
+
+    it('产品 skill 内容目录缺 SKILL.md → error（复制不完整 / 环境变量指错）', () => {
+        const src = join(tempRoot, 'empty-product-src')
+        mkdirSync(src, { recursive: true })
+        const findings = runDoctor({ homeDir: join(tempRoot, 'home'), projectRoot: tempRoot, productSourceDir: src })
+        expect(findings.some((f) => f.level === 'error' && f.message.includes('缺少 SKILL.md'))).toBe(true)
+    })
+
     it('产品 skill 未安装 → ok 提示可 install', () => {
         const home = join(tempRoot, 'home')
         mkdirSync(join(home, '.claude', 'skills'), { recursive: true })

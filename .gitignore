@@ -44,6 +44,8 @@ sessions
 #public
 dist
 temp
+# 沙箱自包含 CLI 产物（tsdown.sandbox.config.ts 生成，由 Dockerfile 复制到 /app/sandbox）
+packages/cli/sandbox
 
 .session
 

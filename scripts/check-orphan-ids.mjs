@@ -55,6 +55,13 @@ export const EXCLUDED_DIRS = new Set([
     '.git', '.session', '.opencode', 'docs', 'artifacts', 'temp',
 ])
 
+/** 跳过的目录路径前缀（相对仓库根，精确匹配，不做任意层级同名匹配）。 */
+export const EXCLUDED_PATH_PREFIXES = [
+    // 沙箱自包含 CLI 产物（tsdown.sandbox.config.ts 生成，gitignored）：bundle 含第三方源码注释，
+    // 其中短 token 可能形似规划编号（本地构建后实测）
+    'packages/cli/sandbox',
+]
+
 /** 跳过的文件（相对仓库根的 basename）。 */
 export const EXCLUDED_FILES = new Set(['pnpm-lock.yaml'])
 
@@ -214,6 +221,10 @@ export function collectFiles(root = PROJECT_ROOT) {
             const full = join(dir, entry.name)
             if (entry.isDirectory()) {
                 if (EXCLUDED_DIRS.has(entry.name)) {
+                    continue
+                }
+                const rel = relative(root, full).split(sep).join('/')
+                if (EXCLUDED_PATH_PREFIXES.some((prefix) => rel === prefix || rel.startsWith(`${prefix}/`))) {
                     continue
                 }
                 walk(full)

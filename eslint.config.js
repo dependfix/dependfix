@@ -112,6 +112,8 @@ export default defineConfig([
         ignores: [
             '**/dist/**',
             '**/node_modules/**',
+            // 沙箱自包含 CLI 产物（打包生成的 bin.mjs；flat config 不读 .gitignore 需显式排除）
+            'packages/cli/sandbox/**',
             '**/.nuxt/**',
             '**/.output/**',
             '**/.data/**',

@@ -5,6 +5,7 @@ import { applyFailureClassification } from './run-failure-classify'
 import { withRepoLock } from './repo-lock'
 import { decryptToken, getEncryptionKey } from './credential.service'
 import { ContainerExecutor } from './executor/container-executor'
+import { SandboxExecutor } from './executor/sandbox-executor'
 import { ActionTriggerExecutor } from './executor/action-trigger-executor'
 import { ActionResultFetcher } from './executor/action-result-fetcher'
 import type { ExecutorResourceUsage, ScanExecutorContext } from './executor/types'
@@ -14,7 +15,7 @@ import type { NotificationEvent } from './notification/channel'
 import { reconcileAlerts } from './scan-reconcile'
 import { resolveAiConfig } from './ai-config-resolver'
 import { resolveExecutionLimits } from '#server/utils/execution-limits'
-import { Repository, parseVerifyCommands } from '#server/entities/repository'
+import { Repository, parseSandboxLimits, parseVerifyCommands } from '#server/entities/repository'
 import { Credential } from '#server/entities/credential'
 import { ScanRun } from '#server/entities/scan-run'
 import { Organization } from '#server/entities/organization'
@@ -30,7 +31,7 @@ import { logger } from '#server/utils/logger'
  * 流程：
  * 1. 读取 Repository + 关联 Credential（解密仅执行时内存）
  * 2. 按 executorKind 选择执行器（container 默认 / github-action 需配置 actionWorkflowFile；
- *    sandbox 入口临时关闭 → 强制 container + degraded）
+ *    sandbox 仅 report-only 真实执行，fix / fix-and-pr 降级 container + degraded）
  * 3. 执行 → 结果落库 ScanRun + ScanResult（原子写：失败不写半截结果）
  * 4. 回填 Repository.lastScanAt
  *
@@ -330,7 +331,7 @@ const runScanInternal = async (
 
     // 执行窗口资源快照：catch-all 也需保留已采集的真实值（不因后续落库失败清空审计事实）
     let resource: ExecutorResourceUsage | undefined
-    // 执行日志（MemoryLogger 输出，仅 container 执行器支持）：声明在 try 外，
+    // 执行日志（container 由 MemoryLogger 输出 / sandbox 由 stdout+stderr 尾部回传）：声明在 try 外，
     // 使 catch-all（reconcile / 落库抛错）也能把已采集的日志落库
     let logsJson: string | undefined | null
     try {
@@ -370,40 +371,60 @@ const runScanInternal = async (
                 }
             }
         } else {
+            // sandbox 路由（2026-11-09 恢复）：仅 report-only 真实执行；
+            // fix / fix-and-pr 需先接入出站白名单代理，降级 container 并留原因码。
+            let sandboxHandled = false
             if (executorKind === 'sandbox') {
-                // 2026-10-27 起 sandbox 入口临时关闭（用户裁定方案 A）：
-                // `SandboxExecutor.buildCmd` 仍为最小占位（回显 RunResult，不启动引擎），
-                // 直接调用会在 rootless Docker 可用时返回 0 告警假成功。这里强制降级到
-                // ContainerExecutor，并记录 degradedReason；真实引擎执行闭环后删除本分支、
-                // 恢复 sandbox 路由（docs/plan/backlog.md P1）。
-                degradedReason = {
-                    code: 'sandbox_entry_disabled',
-                    message: `独立沙箱容器暂不可用（真实执行尚未闭环），已自动降级到平台容器（${repository.owner}/${repository.name}）`,
+                if (ctx.config.mode !== 'report-only') {
+                    degradedReason = {
+                        code: 'sandbox_fix_requires_egress_policy',
+                        message: `沙箱执行器仅支持 report-only（${ctx.config.mode} 需先接入出站白名单代理），已自动降级到平台容器（${repository.owner}/${repository.name}）`,
+                    }
+                } else {
+                    const sandbox = new SandboxExecutor({
+                        sandboxLimits: parseSandboxLimits(repository.sandboxLimits),
+                        timeoutMs: executionLimits.executionTimeoutMs,
+                    })
+                    if (await sandbox.isAvailable()) {
+                        const execResult = await sandbox.execute(ctx)
+                        result = execResult.result
+                        error = execResult.error
+                        exitCode = execResult.exitCode
+                        logsJson = execResult.logsJson ?? null
+                        sandboxHandled = true
+                    } else {
+                        degradedReason = {
+                            code: 'sandbox_unavailable',
+                            message: `沙箱执行器启动时不可用（无 rootless daemon / user namespace 受限），已自动降级到平台容器（${repository.owner}/${repository.name}）`,
+                        }
+                    }
                 }
             }
-            const executor = new ContainerExecutor({
-                workRoot: process.env.RUN_WORK_ROOT ?? 'data/runs',
-                // 有效执行上限 / 验证命令 / 安装 / clone 超时：仓库值 > env > 默认，且已按封顶夹取
-                timeoutMs: executionLimits.executionTimeoutMs,
-                verifyCommandTimeoutMs: executionLimits.verifyCommandTimeoutMs,
-                installTimeoutMs: executionLimits.installTimeoutMs,
-                cloneTimeoutMs: executionLimits.cloneTimeoutMs,
-            })
-            // 执行环境健康探测：container 无更底层回退，工作根不可写（磁盘满 / 只读 FS）
-            // 属「环境不可用」而非单次运行结果 → 记 container_unavailable 环境事件（recordEnvAuditEvent）
-            // 并让该 run failed（不进入 execute，避免以 execution_failed 掩盖环境根因）。
-            const execResult = await runContainerExecutor(executor, ctx)
-            result = execResult.result
-            error = execResult.error
-            exitCode = execResult.exitCode
-            resource = execResult.resource
-            // A 模式（container）：fix / fix-and-pr 完成后 executor 端推送修复分支，
-            // runUrl 指向 GitHub branch tree 页（参见 container-executor.pushFixBranch 后置）
-            runUrl = execResult.runUrl
-            // PR 回环反馈的观察态锚点（fix-and-pr 交付时非空，见 pr-feedback-loop.md §3）
-            savedRun.prNumber = execResult.prNumber ?? null
-            // 捕获执行日志（MemoryLogger 输出）
-            logsJson = execResult.logsJson
+            if (!sandboxHandled) {
+                const executor = new ContainerExecutor({
+                    workRoot: process.env.RUN_WORK_ROOT ?? 'data/runs',
+                    // 有效执行上限 / 验证命令 / 安装 / clone 超时：仓库值 > env > 默认，且已按封顶夹取
+                    timeoutMs: executionLimits.executionTimeoutMs,
+                    verifyCommandTimeoutMs: executionLimits.verifyCommandTimeoutMs,
+                    installTimeoutMs: executionLimits.installTimeoutMs,
+                    cloneTimeoutMs: executionLimits.cloneTimeoutMs,
+                })
+                // 执行环境健康探测：container 无更底层回退，工作根不可写（磁盘满 / 只读 FS）
+                // 属「环境不可用」而非单次运行结果 → 记 container_unavailable 环境事件（recordEnvAuditEvent）
+                // 并让该 run failed（不进入 execute，避免以 execution_failed 掩盖环境根因）。
+                const execResult = await runContainerExecutor(executor, ctx)
+                result = execResult.result
+                error = execResult.error
+                exitCode = execResult.exitCode
+                resource = execResult.resource
+                // A 模式（container）：fix / fix-and-pr 完成后 executor 端推送修复分支，
+                // runUrl 指向 GitHub branch tree 页（参见 container-executor.pushFixBranch 后置）
+                runUrl = execResult.runUrl
+                // PR 回环反馈的观察态锚点（fix-and-pr 交付时非空，见 pr-feedback-loop.md §3）
+                savedRun.prNumber = execResult.prNumber ?? null
+                // 捕获执行日志（MemoryLogger 输出）
+                logsJson = execResult.logsJson
+            }
         }
 
         // 落库（状态机决策见 scan-run-state.ts 纯函数）：
@@ -424,7 +445,7 @@ const runScanInternal = async (
         if (executorKind === 'container') {
             resourceNote = 'container executor did not return resource usage'
         } else if (executorKind === 'sandbox') {
-            resourceNote = 'container fallback (sandbox entry disabled) did not return resource usage'
+            resourceNote = 'sandbox executor does not collect resource usage'
         }
         const resourceSnapshot = resource ?? unavailableResourceUsage(resourceNote)
         if (!resourceSnapshot.sigkillDetected) {
@@ -597,7 +618,7 @@ async function runContainerExecutor(
  * 环境事件审计：执行器 / 执行环境异常时落 AuditEvent + fire-and-forget 通知。
  *
  * 触发场景（与「运行失败分类」边界见 audit-event.ts 类型注释）：
- * - A 场景（sandbox 入口关闭 / 启动降级）→ sandbox_degraded / warn（入口关闭期间只落库、不通知）
+ * - A 场景（sandbox 启动降级 / fix 模式策略降级）→ sandbox_degraded / warn
  * - B 场景（sandbox 运行时失败）→ sandbox_unavailable / error
  * - C 场景（container 执行器环境不可用）→ container_unavailable / error
  *
@@ -619,15 +640,15 @@ async function recordEnvAuditEvent(
     let severity: 'info' | 'warn' | 'error' | 'critical' = 'warn'
     let payload: Record<string, unknown> = {}
 
-    if (decision.status === 'degraded' && (degradedReason?.code === 'sandbox_unavailable' || degradedReason?.code === 'sandbox_entry_disabled')) {
-        // sandbox 入口临时关闭 / 启动时不可用，已自动降级 ContainerExecutor（业务完整）
+    if (decision.status === 'degraded' && (degradedReason?.code === 'sandbox_unavailable' || degradedReason?.code === 'sandbox_fix_requires_egress_policy')) {
+        // sandbox 启动时不可用 / fix 模式策略降级，已自动降级 ContainerExecutor（业务完整）
         eventType = 'sandbox_degraded'
         severity = 'warn'
         payload = {
             degradedReason,
             fallback: 'container',
-            // 入口关闭期间的预期配置状态不通知；payload 显式标记，便于 /env-events 筛选区分
-            notificationSuppressed: degradedReason?.code === 'sandbox_entry_disabled',
+            // fix 模式在代理接入前是策略限制（预期状态）不通知；启动不可用属环境信号，保留通知
+            notificationSuppressed: degradedReason?.code === 'sandbox_fix_requires_egress_policy',
         }
     } else if (decision.status === 'failed' && error?.code === 'container_unavailable') {
         // C 场景：container 执行器环境不可用（工作根不可写 / 磁盘满 / 只读 FS）——默认部署下的环境健康信号
@@ -666,10 +687,10 @@ async function recordEnvAuditEvent(
         }))
 
         // 触发通知（fire-and-forget，不 await，避免阻塞扫描主流程）
-        // sandbox_entry_disabled 是入口关闭期间的预期配置状态：只落库、不通知，
-        // 避免存量仓库每次扫描都占用共享通知配额、稀释 container_unavailable 等真实环境事故信号。
+        // sandbox_fix_requires_egress_policy 是代理接入前的策略限制（预期配置状态）：只落库、不通知，
+        // 避免沙箱仓库每次 fix 扫描都占用共享通知配额、稀释 container_unavailable 等真实环境事故信号。
         // 注意仅对 sandbox_degraded 事件生效；降级目标 container 不可用时仍按 container_unavailable 通知。
-        if (eventType === 'sandbox_degraded' && degradedReason?.code === 'sandbox_entry_disabled') {
+        if (eventType === 'sandbox_degraded' && degradedReason?.code === 'sandbox_fix_requires_egress_policy') {
             return
         }
         const notificationEvent: NotificationEvent = {

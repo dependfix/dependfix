@@ -31,7 +31,7 @@ export interface BatchAggregation {
 }
 
 /** 终态状态集合（聚合计数口径：completed + failed + dispatched + degraded 均计终态）。
- * degraded 是 sandbox 入口关闭 / 启动时降级的终态——业务结果完整（与 completed 等价口径计入 alertsTotal/fixedCount），
+ * degraded 是 sandbox 启动时不可用 / fix 策略降级的终态——业务结果完整（与 completed 等价口径计入 alertsTotal/fixedCount），
  * 但因路径偏离不计入 completedCount；详见 executor-sandbox-implementation.md §7.8.4。
  * 集合本体统一由 `scan-run-status.ts` 提供，避免多处副本漂移。 */
 const TERMINAL_STATUSES = new Set<string>(TERMINAL_SCAN_RUN_STATUSES)

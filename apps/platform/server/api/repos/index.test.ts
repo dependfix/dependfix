@@ -1,6 +1,6 @@
 import 'reflect-metadata'
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { expectError, makeEvent, setupMemoryDatabase, teardownMemoryDatabase } from '../../../tests/api-helper'
+import { makeEvent, setupMemoryDatabase, teardownMemoryDatabase } from '../../../tests/api-helper'
 import reposHandler from './index'
 import { ensureDatabaseInitialized } from '#server/database'
 import { AuditEvent } from '#server/entities/audit-event'
@@ -154,7 +154,7 @@ describe('GET /api/repos', () => {
 
     it('persists sandboxLimits object as JSON column and reads back', async () => {
         // POST 路径序列化 sandboxLimits → toView 反序列化读取
-        // （sandbox 执行入口已临时关闭；字段本身仍保留，存量数据可读）
+        // （sandbox 入口已恢复：report-only 真实执行；字段用于仓库级资源限额）
         await call('POST', '/api/repos', {
             owner: 'sb-limits',
             name: 'repo',
@@ -169,15 +169,18 @@ describe('GET /api/repos', () => {
         expect(item?.sandboxLimits).toEqual({ memoryMb: 8192, cpu: 1.5 })
     })
 
-    it('rejects sandbox executor (entry temporarily disabled)', async () => {
-        await expectError(call('POST', '/api/repos', {
-            owner: 'sb-disabled',
+    it('accepts sandbox executor (entry restored)', async () => {
+        await call('POST', '/api/repos', {
+            owner: 'sb-enabled',
             name: 'repo',
             platform: 'github',
             packageManager: 'pnpm',
             defaultBranch: 'main',
             executorKind: 'sandbox',
-        }), 400)
+        })
+        const list = await call('GET', '/api/repos') as Record<string, unknown>[]
+        const item = list.find((r) => r.owner === 'sb-enabled')
+        expect(item?.executorKind).toBe('sandbox')
     })
 
     it('omits sandboxLimits when not provided (走平台 SANDBOX_DEFAULTS)', async () => {

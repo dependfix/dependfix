@@ -119,8 +119,6 @@
         "notLinked": "Not linked",
         "platformContainer": "Platform container",
         "sandboxContainer": "Isolated Sandbox Container",
-        "sandboxContainerUnavailable": "Isolated Sandbox Container (temporarily unavailable)",
-        "sandboxMigratedNotice": "This repository used the isolated sandbox container, which is temporarily unavailable. Saving will switch it to the platform container.",
         "githubAction": "GitHub Action",
         "privateRepo": "Private",
         "publicRepo": "Public",

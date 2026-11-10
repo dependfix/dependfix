@@ -14,12 +14,15 @@ import { AuditEvent } from '#server/entities/audit-event'
 // 外部执行器 mock（真实执行会跑引擎/触发 GitHub Action）
 // class 实例的 execute/fetch 字段指向共享 mock（实例在 runScanForRepository 执行时才创建，
 // 测试须在调用前即可设置行为）
-const { ContainerExecutorMock, ActionTriggerExecutorMock, ActionResultFetcherMock, containerIsAvailable, containerExecute, actionExecute, fetcherFetch, notifyEnvEvent } = vi.hoisted(() => ({
+const { ContainerExecutorMock, SandboxExecutorMock, ActionTriggerExecutorMock, ActionResultFetcherMock, containerIsAvailable, containerExecute, sandboxIsAvailable, sandboxExecute, actionExecute, fetcherFetch, notifyEnvEvent } = vi.hoisted(() => ({
     ContainerExecutorMock: vi.fn(),
+    SandboxExecutorMock: vi.fn(),
     ActionTriggerExecutorMock: vi.fn(),
     ActionResultFetcherMock: vi.fn(),
     containerIsAvailable: vi.fn(),
     containerExecute: vi.fn(),
+    sandboxIsAvailable: vi.fn(),
+    sandboxExecute: vi.fn(),
     actionExecute: vi.fn(),
     fetcherFetch: vi.fn(),
     notifyEnvEvent: vi.fn(),
@@ -34,12 +37,14 @@ vi.mock('./executor/container-executor', () => ({
         execute = containerExecute
     },
 }))
-// 回归护栏：sandbox 入口关闭期间编排层不得实例化 SandboxExecutor（防止未来误恢复占位执行器）。
 vi.mock('./executor/sandbox-executor', () => ({
     SandboxExecutor: class {
-        constructor() {
-            throw new Error('SandboxExecutor must not be instantiated while sandbox entry is disabled')
+        constructor(...args: unknown[]) {
+            SandboxExecutorMock(...args)
         }
+
+        isAvailable = sandboxIsAvailable
+        execute = sandboxExecute
     },
 }))
 vi.mock('./executor/action-trigger-executor', () => ({
@@ -96,40 +101,27 @@ const makeResult = (overrides: Record<string, unknown> = {}) => {
     }
 }
 
+/** 复用 repos API 创建仓库（guard 走 mock）；放在 describe 外避免单测函数体超行数上限。 */
+const createRepoForTest = async (credentialId: string, overrides: Record<string, unknown> = {}) => {
+    const suffix = Math.random().toString(36).slice(2, 8)
+    const created = await reposIndexHandler(makeEvent('POST', '/api/repos', {
+        owner: 'demo',
+        name: `app-${suffix}`,
+        platform: 'github',
+        packageManager: 'pnpm',
+        defaultBranch: 'main',
+        executorKind: 'container',
+        credentialId,
+        ...overrides,
+    })) as { id: string }
+    return created.id
+}
+
 describe('scan-orchestrator.service', () => {
     let repositoryId: string
     let credentialId: string
 
-    const createRepo = async (overrides: Record<string, unknown> = {}) => {
-        const suffix = Math.random().toString(36).slice(2, 8)
-        // 生产 schema 已拒绝 sandbox（2026-10-27 入口临时关闭）；测试存量仓库时直接落库，
-        // 走与真实 legacy 数据相同的编排层降级路径。
-        if (overrides.executorKind === 'sandbox') {
-            const ds = await ensureDatabaseInitialized()
-            const legacy = ds.getRepository(Repository).create({
-                owner: 'demo',
-                name: `app-${suffix}`,
-                platform: 'github',
-                packageManager: 'pnpm',
-                defaultBranch: 'main',
-                executorKind: 'sandbox',
-                credentialId,
-            })
-            await ds.getRepository(Repository).save(legacy)
-            return legacy.id
-        }
-        const created = await reposIndexHandler(makeEvent('POST', '/api/repos', {
-            owner: 'demo',
-            name: `app-${suffix}`,
-            platform: 'github',
-            packageManager: 'pnpm',
-            defaultBranch: 'main',
-            executorKind: 'container',
-            credentialId,
-            ...overrides,
-        })) as { id: string }
-        return created.id
-    }
+    const createRepo = (overrides: Record<string, unknown> = {}) => createRepoForTest(credentialId, overrides)
 
     beforeAll(async () => {
         setupMemoryDatabase()
@@ -158,9 +150,13 @@ describe('scan-orchestrator.service', () => {
         containerIsAvailable.mockReset()
         containerIsAvailable.mockResolvedValue(true)
         containerExecute.mockReset()
+        sandboxIsAvailable.mockReset()
+        sandboxIsAvailable.mockResolvedValue(true)
+        sandboxExecute.mockReset()
         actionExecute.mockReset()
         fetcherFetch.mockReset()
         ContainerExecutorMock.mockReset()
+        SandboxExecutorMock.mockReset()
         ActionTriggerExecutorMock.mockReset()
         ActionResultFetcherMock.mockReset()
     })
@@ -661,22 +657,41 @@ describe('scan-orchestrator.service', () => {
         })
     })
 
-    describe('runScanForRepository (legacy sandbox → container fallback)', () => {
+    describe('runScanForRepository (sandbox → container policy fallback)', () => {
         const sandboxRepo = async () => createRepo({ executorKind: 'sandbox' })
 
-        it('forces container fallback and marks degraded (sandbox entry disabled)', async () => {
+        it('report-only + sandbox available → executes sandbox and completes', async () => {
             const repoId = await sandboxRepo()
+            sandboxExecute.mockResolvedValue({
+                exitCode: 0,
+                result: makeResult(),
+                error: undefined,
+                logsJson: JSON.stringify([{ timestamp: new Date().toISOString(), level: 'info', message: 'sandbox log line' }]),
+            })
+
+            const run = await runScanForRepository(repoId, { mode: 'report-only', severityThreshold: 'high' })
+            expect(run.status).toBe('completed')
+            expect(run.executorKind).toBe('sandbox')
+            expect(run.summaryJson).toContain('alertsTotal')
+            expect(run.logsJson).toContain('sandbox log line')
+            expect(sandboxExecute).toHaveBeenCalledTimes(1)
+            expect(containerExecute).not.toHaveBeenCalled()
+        })
+        it('report-only + sandbox unavailable → degraded sandbox_unavailable with container fallback', async () => {
+            const repoId = await sandboxRepo()
+            sandboxIsAvailable.mockResolvedValue(false)
             containerExecute.mockResolvedValue({ result: makeResult(), error: undefined })
 
-            const run = await runScanForRepository(repoId, { mode: 'fix', severityThreshold: 'high' })
+            const run = await runScanForRepository(repoId, { mode: 'report-only', severityThreshold: 'high' })
             expect(run.status).toBe('degraded')
-            expect(run.errorJson).toContain('sandbox_entry_disabled')
+            expect(run.errorJson).toContain('sandbox_unavailable')
+            expect(run.errorJson).not.toContain('sandbox_entry_disabled')
             expect(run.summaryJson).toContain('alertsTotal')
-            expect(run.finishedAt).toBeTruthy()
             expect(containerExecute).toHaveBeenCalledTimes(1)
+            expect(sandboxExecute).not.toHaveBeenCalled()
         })
 
-        it('preserves runUrl from container fallback in degraded state (fix mode push succeed)', async () => {
+        it('fix mode + sandbox available → degraded sandbox_fix_requires_egress_policy (no sandbox call)', async () => {
             const repoId = await sandboxRepo()
             containerExecute.mockResolvedValue({
                 result: makeResult(),
@@ -687,18 +702,21 @@ describe('scan-orchestrator.service', () => {
             const run = await runScanForRepository(repoId, { mode: 'fix-and-pr', severityThreshold: 'high' })
             expect(run.status).toBe('degraded')
             expect(run.runUrl).toBe('https://github.com/demo/app/tree/dependfix/auto-fix-abc12345')
-            expect(run.errorJson).toContain('sandbox_entry_disabled')
+            expect(run.errorJson).toContain('sandbox_fix_requires_egress_policy')
+            expect(containerExecute).toHaveBeenCalledTimes(1)
+            expect(sandboxExecute).not.toHaveBeenCalled()
         })
 
         it('persists logsJson from container fallback in degraded state', async () => {
             const repoId = await sandboxRepo()
+            sandboxIsAvailable.mockResolvedValue(false)
             containerExecute.mockResolvedValue({
                 result: makeResult(),
                 error: undefined,
                 logsJson: JSON.stringify({ logs: ['[container] fallback log line'] }),
             })
 
-            const run = await runScanForRepository(repoId, { mode: 'fix', severityThreshold: 'high' })
+            const run = await runScanForRepository(repoId, { mode: 'report-only', severityThreshold: 'high' })
             expect(run.status).toBe('degraded')
             expect(run.logsJson).toContain('fallback log line')
             expect(containerExecute).toHaveBeenCalledTimes(1)
@@ -706,11 +724,25 @@ describe('scan-orchestrator.service', () => {
 
         it('fails with container_unavailable when fallback target is unavailable', async () => {
             const repoId = await sandboxRepo()
+            sandboxIsAvailable.mockResolvedValue(false)
             containerIsAvailable.mockResolvedValue(false)
 
-            const run = await runScanForRepository(repoId, { mode: 'fix', severityThreshold: 'high' })
+            const run = await runScanForRepository(repoId, { mode: 'report-only', severityThreshold: 'high' })
             expect(run.status).toBe('failed')
             expect(run.errorJson).toContain('container_unavailable')
+            expect(containerExecute).not.toHaveBeenCalled()
+        })
+
+        it('sandbox runtime errno → failed sandbox_unavailable (no silent fallback)', async () => {
+            const repoId = await sandboxRepo()
+            sandboxExecute.mockResolvedValue({
+                exitCode: 2,
+                error: { code: 'sandbox_unavailable', message: 'docker daemon ECONNREFUSED' },
+            })
+
+            const run = await runScanForRepository(repoId, { mode: 'report-only', severityThreshold: 'high' })
+            expect(run.status).toBe('failed')
+            expect(run.errorJson).toContain('sandbox_unavailable')
             expect(containerExecute).not.toHaveBeenCalled()
         })
     })
@@ -754,29 +786,13 @@ describe('scan-orchestrator.service', () => {
 
     // 跨模块集成测试——scan A/B 场景 → audit_event 落库 + notify 触发
     describe('scan → audit_event + notify 集成', () => {
-        // 存量 sandbox 仓库：生产 schema 已拒绝新写入（2026-10-27 入口临时关闭），
-        // 这里直接落库模拟 legacy 数据，验证编排层强制降级路径。
-        let sandboxCounter = 0
-        const sandboxRepo = async (): Promise<string> => {
-            sandboxCounter += 1
-            const ds = await ensureDatabaseInitialized()
-            const repo = ds.getRepository(Repository).create({
-                owner: 'demo',
-                name: `sandbox-app-${sandboxCounter}`,
-                platform: 'github',
-                packageManager: 'pnpm',
-                defaultBranch: 'main',
-                executorKind: 'sandbox',
-            })
-            await ds.getRepository(Repository).save(repo)
-            return repo.id
-        }
+        const sandboxRepo = (): Promise<string> => createRepo({ executorKind: 'sandbox' })
 
         beforeEach(() => {
             notifyEnvEvent.mockResolvedValue(undefined)
         })
 
-        it('存量 sandbox → container 降级 → audit_event sandbox_degraded 落库但不通知', async () => {
+        it('fix 模式 sandbox 策略降级 → audit_event sandbox_degraded 落库但不通知', async () => {
             const repoId = await sandboxRepo()
             containerExecute.mockResolvedValue({ result: makeResult(), error: undefined, runUrl: 'https://github.com/demo/sandbox-app/tree/dependfix-fix-xxx' })
 
@@ -792,19 +808,38 @@ describe('scan-orchestrator.service', () => {
             expect(events[0]?.severity).toBe('warn')
             expect(events[0]?.notified).toBe(false) // notify 触发后由 channel 异步更新
             const payload = JSON.parse(events[0]?.payloadJson ?? '{}') as Record<string, unknown>
-            expect(payload.degradedReason).toMatchObject({ code: 'sandbox_entry_disabled' })
+            expect(payload.degradedReason).toMatchObject({ code: 'sandbox_fix_requires_egress_policy' })
             expect(payload.fallback).toBe('container')
             expect(payload.notificationSuppressed).toBe(true)
 
-            // 入口关闭是预期配置状态：只落库、不通知，避免噪声
+            // 代理接入前的策略限制（预期状态）：只落库、不通知，避免噪声
             expect(notifyEnvEvent).not.toHaveBeenCalled()
+        })
+
+        it('report-only sandbox 启动不可用 → audit_event sandbox_degraded + notify 触发', async () => {
+            const repoId = await sandboxRepo()
+            sandboxIsAvailable.mockResolvedValue(false)
+            containerExecute.mockResolvedValue({ result: makeResult(), error: undefined })
+
+            const run = await runScanForRepository(repoId, { mode: 'report-only', severityThreshold: 'high' })
+            expect(run.status).toBe('degraded')
+
+            const ds = await ensureDatabaseInitialized()
+            const events = await ds.getRepository(AuditEvent).find({ where: { scanRunId: run.id } })
+            expect(events).toHaveLength(1)
+            expect(events[0]?.type).toBe('sandbox_degraded')
+            const payload = JSON.parse(events[0]?.payloadJson ?? '{}') as Record<string, unknown>
+            expect(payload.degradedReason).toMatchObject({ code: 'sandbox_unavailable' })
+            expect(payload.notificationSuppressed).toBe(false)
+            expect(notifyEnvEvent).toHaveBeenCalledOnce()
         })
 
         it('降级目标 container 亦不可用 → audit_event container_unavailable 落库（不落 sandbox_degraded）', async () => {
             const repoId = await sandboxRepo()
+            sandboxIsAvailable.mockResolvedValue(false)
             containerIsAvailable.mockResolvedValue(false)
 
-            const run = await runScanForRepository(repoId, { mode: 'fix', severityThreshold: 'high' })
+            const run = await runScanForRepository(repoId, { mode: 'report-only', severityThreshold: 'high' })
             expect(run.status).toBe('failed')
             expect(run.errorJson).toContain('container_unavailable')
             // 降级目标环境不可用 → 不进入 execute

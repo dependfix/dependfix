@@ -79,8 +79,11 @@ describe('GET /api/repos/[id]', () => {
         await expectError(callId('PUT', `/api/repos/${id}`, { executorKind: 'nope' }, { id }), 400)
     })
 
-    it('rejects sandbox executor (entry temporarily disabled)', async () => {
-        await expectError(callId('PUT', `/api/repos/${id}`, { executorKind: 'sandbox' }, { id }), 400)
+    it('accepts sandbox executor via PUT (entry restored)', async () => {
+        const result = await callId('PUT', `/api/repos/${id}`, { executorKind: 'sandbox' }, { id }) as { updated: boolean }
+        expect(result).toEqual({ id, updated: true })
+        const detail = await callId('GET', `/api/repos/${id}`, undefined, { id }) as Record<string, unknown>
+        expect(detail.executorKind).toBe('sandbox')
     })
 
     it('persists sandboxLimits JSON via PUT', async () => {

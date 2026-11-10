@@ -91,6 +91,8 @@
 
 ### M57.3 [P2 🛡️] 回归与审计真实性
 
+- **状态**：✅ 已闭环（2026-11-10；审计 R1 deep Reject → 修复 → R2 deep Pass → R3 quick Pass，0 blocker；N1 / S1~S3 已修净）。
+
 - **目标**：周回归的 `security:audit-deps` 在 registry 故障时不再上报通过；回归窗口新 entry 不再嵌套进上一条受管块。
 - **优先级**：P2（门禁假绿；日志结构污染）。
 - **范围**：`scripts/regression/run-periodic-regression.mjs`（registry 故障识别 → `unknown / pending` 而非 pass）、`scripts/shared/regression-window.mjs`（插入点改顶层）、单测与夹具、`testing.md` / `planning.md` 口径同步。
@@ -101,6 +103,7 @@
 - **不做什么**：不改周回归命令集与 profile；不改窗口日志字段（除插入点）。
 - **依赖**：M49.3 边界；M44 回归窗口初始化。
 - **交付物**：3-4 commits / 4-6 文件 / 250-450 行。
+- **执行记录（2026-11-10）**：① registry 假绿——`run-periodic-regression.mjs` 新增 `detectIndeterminateReason`（编排层内联标记，不再单独导出仅供测试的批量映射）：仅对 `security:audit-deps` 生效，命中 registry 网络特征（`ERR_PNPM_META_FETCH_FAIL` / `ETIMEDOUT` / `EAI_AGAIN` / `ENOTFOUND` / `ERR_SOCKET_TIMEOUT` / `fetch failed` 等）或「exit 0 但缺审计结论行」时标为 `indeterminate`；汇总层在 `ok` 判定前先分流为 warning（`结论未知`），**不冒充 blocker**（registry 抖动不整批阻断），也不再触发 blocker 短路；证据文档写 `结果: UNKNOWN` + `未知原因`、回归窗口写 `label=UNKNOWN`、JSON artifact 增 `indeterminate` / `indeterminateReason`，并新增「UNKNOWN 不升级 blocker 但必须 warning 可见」的 blocker 规则行。② 窗口嵌套——`regression-window.mjs` 插入点改为「首个受管块 `<!-- regression-window:start:` 标记」与「首个 `YYYY-MM-DD` 标题」中更早者（受管块的 `##` 日期标题在块内，只按标题定位会把新块插进上一条的 start/end 之间）；实测旧逻辑已在本地 `artifacts/regression/current.md` 留下 4 start / 4 end 全配对但三层嵌套交叉的受管块（阅读面只剩最外层标题）。③ 文档——`testing.md §6.9` 增「退出码 0 ≠ 通过（UNKNOWN 与 PASS 分离）」与「受管证据块插入必须顶层」两条，`planning.md §4.1` 增「回归记录结论强度」（UNKNOWN 不得作为归档放行证据）。用例：窗口新增 2 例（受管块在前插入到标记之前、连续写入两条为顶层且旧内容零改动），回归新增 14 例（registry 故障 exit 0 / 非 0、真实回显 + 漏洞行、真实回显 + 无结论行、ANSI 着色结论行、噪音 + 已取得结论、真实漏洞非 0、干净、非 audit 步骤、dry-run、真实回显漏洞失败汇总为 Reject、证据与窗口 UNKNOWN 可见性、汇总 warning 分流）；mutation 复核 4 组（插入点回退为标题定位 → 窗口 2 例失败；重加开关名特征并去掉回显剥离 → 回显用例失败；移除「结论行优先」→ 干净审计与噪音用例失败；移除 ANSI 剥离 → 着色用例失败）。**试运行**：`pnpm regression:weekly -- --dry-run` → `Review Gate: Prepared`，窗口新条目落顶层、既有条目未被嵌套。**实际规模**：9 文件 / +405 −10（脚本 2 / 测试 2 / 规范 2 / 检查点矩阵 1 / 周回归 workflow 1 / todo 记录 1）。证据：定向 72 passed（两个脚本测试文件）；`scripts/**` 全量 53 files / 1101 passed；`lint:check` 0 error（root 8 / platform 4 存量 warning）；`typecheck` exit 0；`gates:docs` 20 项（`lint:md:check` 通过）。**审计**：R1 deep **Reject**（RG-B1：`ignore-registry-errors` 是开关名而非故障信号——`pnpm run` 把整条命令回显进捕获输出，把它当特征会让每次真实执行都命中，真实漏洞失败被降级为 UNKNOWN 放行）→ 修复：删除该特征、新增 `stripCommandEcho` 剥离以 `$` / `>` 开头的回显行、非 0 分支改为「有结论行即以结论为准」；RG-W1 补真实回显形态夹具（含回显 + 漏洞行 / 含回显 + 无结论行）、RG-W2 补 `code-quality-checklist` 矩阵行、RG-W3 `summary.indeterminate` + 证据 / 窗口 / Job Summary 暴露未知步骤计数、RG-S1/S2 收口。R2 复审出 N1（`FORCE_COLOR` 下结论数字被 ANSI 包裹 → 真实漏洞失败可被误判未知）→ `stripCommandEcho` 增 ANSI 剥离 + 对应用例；同时补「真实回显 + 漏洞失败 → 汇总 Reject」整合断言。mutation 复核：重加开关名特征并移除回显剥离 → 回显用例失败；移除「结论行优先」→ 干净审计与噪音用例失败。
 - **风险与缓解**：fail-closed 会阻断周回归 → 用 `unknown / pending` 显式状态，仅在真实失败时阻断。
 
 ### M57.4 [P2 🛠️] 平台 typecheck 覆盖 node config

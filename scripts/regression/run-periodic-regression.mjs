@@ -111,6 +111,96 @@ export function resolveRegressionFailureSummary(result) {
 }
 
 /**
+ * registry 故障特征（pnpm / npm 网络层失败文本）。
+ *
+ * `security:audit-deps` 带 `--ignore-registry-errors`：registry 不可达时命令会以 exit 0 结束，
+ * 只看退出码会把「没查成」当成「查过且干净」（假绿）。命中特征且**没有审计结论行**时结果记为
+ * UNKNOWN + 可见告警；`ignore-registry-errors` 是开关名而非故障信号——`pnpm run` 会把整条命令
+ * 回显进输出，把它当特征会让每次真实执行都命中（本批审计实测的 over-match）。
+ */
+const REGISTRY_FAILURE_PATTERNS = [
+    /ERR_PNPM_META_FETCH_FAIL/u,
+    /ERR_PNPM_FETCH_5\d\d/u,
+    /ERR_SOCKET_TIMEOUT/u,
+    /ETIMEDOUT/u,
+    /ECONNREFUSED/u,
+    /ECONNRESET/u,
+    /EAI_AGAIN/u,
+    /ENOTFOUND/u,
+    /fetch failed/iu,
+]
+
+/**
+ * 审计结论证据行（pnpm audit 成功/失败都会输出；缺失即「没查成」）
+ */
+const AUDIT_RESULT_PATTERNS = [
+    /\d+ vulnerabilit/iu,
+    /No known vulnerabilities/iu,
+]
+
+/** 需要「结论未知」判定的步骤（联网取数、退出码不可信的步骤） */
+const INDETERMINATE_STEP_LABELS = new Set(['security:audit-deps'])
+
+/**
+ * ANSI 转义序列（强制着色时结论行被包裹，需先剥离再匹配）。
+ * 用 `new RegExp` 构造而不是字面量：`no-control-regex` 规则不接受源码里直接出现的控制字符。
+ */
+const ANSI_ESCAPE_PATTERN = new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*m`, 'gu')
+
+/**
+ * 剥离 pnpm 的命令回显行（`$ pnpm run …` / `> …`）。
+ *
+ * 回显里含脚本的完整命令行（包括 `--ignore-registry-errors` 这类开关名）；特征匹配必须在
+ * 剥离后做，否则「开关名」会被当成「故障信号」，把真实审计失败误判为结论未知。
+ * @param {string} output - 原始输出
+ * @returns {string} 剥离回显后的输出
+ */
+function stripCommandEcho(output) {
+    return output
+        // 强制着色（FORCE_COLOR / CI 着色）时结论行被 ANSI 包裹，先剥离转义序列再匹配
+        .replace(ANSI_ESCAPE_PATTERN, '')
+        .split(/\r?\n/u)
+        .filter((line) => !/^\s*[$>] /u.test(line))
+        .join('\n')
+}
+
+/**
+ * 判定步骤是否「未取得结论」（unknown）而非通过 / 失败。
+ *
+ * 仅对 `INDETERMINATE_STEP_LABELS` 内的步骤生效：
+ * - 有审计结论行（如 `N vulnerabilities found`）→ 结论可判定，按退出码走失败 / 通过；
+ * - 无审计结论行 + 退出码非 0 且带 registry 网络特征 → 未知（registry 挂了，没查成）；
+ * - 退出码 0 但缺审计结论行 → 未知（`--ignore-registry-errors` 吞掉了 registry 故障）。
+ * @param {object} result - 执行结果
+ * @returns {string|null} 未知原因；null 表示结论可判定
+ */
+export function detectIndeterminateReason(result) {
+    if (result.skipped || !INDETERMINATE_STEP_LABELS.has(result.label)) {
+        return null
+    }
+
+    const rawOutput = typeof result.output === 'string' ? result.output : ''
+    const output = stripCommandEcho(rawOutput)
+    const registryPattern = REGISTRY_FAILURE_PATTERNS.find((pattern) => pattern.test(output))
+    const hasAuditResult = AUDIT_RESULT_PATTERNS.some((pattern) => pattern.test(output))
+
+    // 有结论行 → 以结论为准（真实漏洞 / 干净都属「已判定」），不因日志里的网络噪音降级
+    if (hasAuditResult) {
+        return null
+    }
+
+    if (!result.ok) {
+        return registryPattern
+            ? `registry 不可达（${registryPattern.source}），审计未取得结论`
+            : null
+    }
+
+    return registryPattern
+        ? `registry 不可达（${registryPattern.source}），命令以 exit 0 吞掉故障`
+        : '输出缺少审计结论行，无法判定依赖是否干净'
+}
+
+/**
  * 周期性回归检查配置文件
  */
 export const PERIODIC_REGRESSION_PROFILES = {
@@ -239,8 +329,15 @@ export function assessRegressionLogWindow(content) {
 export function summarizeRegressionRun({ dryRun = false, logHealth, profile, results }) {
     const blockers = []
     const warnings = []
+    const indeterminate = []
 
     for (const result of results) {
+        if (result.indeterminate) {
+            indeterminate.push(result.label)
+            warnings.push(`${result.label} 结论未知（${result.indeterminateReason}）`)
+            continue
+        }
+
         if (result.ok || result.skipped) {
             continue
         }
@@ -272,6 +369,7 @@ export function summarizeRegressionRun({ dryRun = false, logHealth, profile, res
     return {
         blockers,
         conclusion,
+        indeterminate,
         warnings,
     }
 }
@@ -316,12 +414,18 @@ export function buildEvidence({ artifactJsonPath, artifactMarkdownPath, dryRun =
         let status = 'FAIL'
         if (result.skipped) {
             status = 'DRY RUN'
+        } else if (result.indeterminate) {
+            status = 'UNKNOWN'
         } else if (result.ok) {
             status = 'PASS'
         }
         lines.push(`- ${commandText}`)
         lines.push(`  - 结果: ${status}`)
         lines.push(`  - timeout budget: ${result.timeoutBudget}`)
+
+        if (result.indeterminate) {
+            lines.push(`  - 未知原因: ${result.indeterminateReason}`)
+        }
 
         if (!result.ok && !result.skipped) {
             const nestedFailureLabel = extractNestedFailureLabel(result.output, result.label)
@@ -350,9 +454,14 @@ export function buildEvidence({ artifactJsonPath, artifactMarkdownPath, dryRun =
     lines.push(`- 结论: ${summary.conclusion}`)
     lines.push(`- blocker 数量: ${summary.blockers.length}`)
     lines.push(`- warning 数量: ${summary.warnings.length}`)
+    const indeterminateLabels = summary.indeterminate ?? []
+    if (indeterminateLabels.length > 0) {
+        lines.push(`- 结论未知步骤: ${indeterminateLabels.length}（${indeterminateLabels.join('，')}）——不冒充通过，也不升级为 blocker`)
+    }
     lines.push('- blocker 规则:')
     lines.push('  - 任一 required 命令失败直接升级为 blocker。')
     lines.push(`  - 阶段收口前 profile 在活动日志超过 ${LOG_WINDOW_LIMITS.maxLines} 行或 ${LOG_WINDOW_LIMITS.maxEntries} 条记录时，归档未完成即视为 blocker。`)
+    lines.push('  - 结论未知（UNKNOWN，如 registry 不可达导致审计未取得结论）不升级为 blocker，但必须作为 warning 可见。')
 
     lines.push('')
     lines.push('## Findings')
@@ -423,6 +532,10 @@ function formatRegressionResultStatus(result) {
         return 'DRY RUN'
     }
 
+    if (result.indeterminate) {
+        return 'UNKNOWN'
+    }
+
     return result.ok ? 'PASS' : 'FAIL'
 }
 
@@ -472,7 +585,7 @@ export function buildRegressionWindowEntry({
         body: [
             `- 执行入口: \`pnpm regression:${profile.key}${dryRun ? ' -- --dry-run' : ''}\``,
             `- 证据 artifact: \`${artifactMarkdownRelative}\` / \`${artifactJsonRelative}\`（本地生成，不入 Git；CI 见 run artifacts）`,
-            `- 结果摘要: \`${summary.conclusion}\`；blocker=${summary.blockers.length}，warning=${summary.warnings.length}。`,
+            `- 结果摘要: \`${summary.conclusion}\`；blocker=${summary.blockers.length}，warning=${summary.warnings.length}，结论未知=${(summary.indeterminate ?? []).length}${(summary.indeterminate ?? []).length > 0 ? `（${summary.indeterminate.join('，')}）` : ''}。`,
             `- 已执行验证: ${executedSummary || '无'}`,
             `- 回归窗口: ${logHealth.lineCount} 行 / ${logHealth.entryCount} 条，归档判定=${logHealth.shouldArchive ? '需要滚动归档' : '窗口健康'}。`,
             `- Review Gate: \`${summary.conclusion}\` / \`${resolveGateSeverity(summary)}\`；主要问题=${formatFindingList(summary.blockers.length > 0 ? summary.blockers : summary.warnings)}。`,
@@ -560,6 +673,8 @@ async function writeArtifacts({ artifactDirectory, evidence, profile, summary, r
             command: result.command,
             commandArgs: result.commandArgs,
             durationMs: result.durationMs ?? 0,
+            indeterminate: result.indeterminate ?? false,
+            indeterminateReason: result.indeterminateReason ?? null,
             label: result.label,
             ok: result.ok,
             required: result.required,
@@ -629,10 +744,24 @@ export async function runPeriodicRegression(options = {}) {
         }
 
         const result = await runCommand(step)
-        results.push(result)
-        console.info(`  ${result.ok ? 'PASS' : 'FAIL'}  ${step.label} (${formatDuration(result.durationMs)})`)
+        const indeterminateReason = detectIndeterminateReason(result)
+        const markedResult = indeterminateReason
+            ? { ...result, indeterminate: true, indeterminateReason }
+            : result
+        results.push(markedResult)
+        let statusText = 'FAIL'
+        if (markedResult.indeterminate) {
+            statusText = 'UNKNOWN'
+        } else if (result.ok) {
+            statusText = 'PASS'
+        }
+        console.info(`  ${statusText}  ${step.label} (${formatDuration(result.durationMs)})`)
+        if (markedResult.indeterminate) {
+            console.warn(`  [periodic-regression] ${step.label} 结论未知：${markedResult.indeterminateReason}`)
+        }
 
-        if (!result.ok && step.required && options.mode === 'error') {
+        // 结论未知（如 registry 不可达）已降级为 warning，不触发 blocker 短路
+        if (!result.ok && !markedResult.indeterminate && step.required && options.mode === 'error') {
             console.error(`\n[periodic-regression] blocker: ${step.label} failed.`)
             break
         }

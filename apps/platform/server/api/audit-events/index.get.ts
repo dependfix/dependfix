@@ -56,7 +56,12 @@ export default defineEventHandler(async (event) => {
     const eventRepo = ds.getRepository(AuditEvent)
 
     // 使用 QueryBuilder 处理时间范围（TypeORM where.createdAt 直接传 Date 对象参数化失败）
-    const qb = eventRepo.createQueryBuilder('e').leftJoinAndSelect('e.repository', 'r').orderBy('e.createdAt', 'DESC').take(500)
+    const qb = eventRepo.createQueryBuilder('e')
+        .leftJoinAndSelect('e.repository', 'r')
+        .orderBy('e.createdAt', 'DESC')
+        // 同毫秒并列时按主键 DESC 兜底，保证 take(500) 截断集合稳定（api.md §4）
+        .addOrderBy('e.id', 'DESC')
+        .take(500)
     if (type && type !== 'all') {
         qb.andWhere('e.type = :type', { type })
     }

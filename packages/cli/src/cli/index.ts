@@ -22,6 +22,8 @@ export interface CliInvocation {
     mode?: RuntimeMode
     configOverrides: CliConfigOverrides
     rawArgs: string[]
+    /** `--result-json` 目标文件（仅执行层消费，不进入 RuntimeConfig） */
+    resultJsonPath?: string
 }
 
 // ---------------------------------------------------------------------------
@@ -157,6 +159,10 @@ export const argsDef = {
     history: {
         type: 'string' as const,
         description: '查询仓库历史运行摘要（读 dependfix-reports/index.json，倒序时间；不执行扫描）',
+    },
+    'result-json': {
+        type: 'string' as const,
+        description: '把运行结果写入指定 JSON 文件（{exitCode, result}）；沙箱执行器据此读取结果，不复用报告副产物',
     },
     'upgrade-groups': {
         type: 'string' as const,
@@ -604,10 +610,12 @@ export function parseUpgradeGroupsFlag(value: string): Record<string, string[]> 
 export function parseCliArgs(rawArgs: string[]): CliInvocation {
     const parsed = parseArgs<typeof argsDef>(rawArgs, argsDef)
     const configOverrides = parsedArgsToCliOverrides(parsed)
+    const resultJsonPath = parsed['result-json']?.trim() || undefined
 
     return {
         mode: configOverrides.mode,
         configOverrides,
         rawArgs: [...rawArgs],
+        ...(resultJsonPath ? { resultJsonPath } : {}),
     }
 }

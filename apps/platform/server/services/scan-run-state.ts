@@ -93,7 +93,7 @@ function hasEngineDeliveryFailure(result: RunResult | undefined): FixError | nul
  * **降级场景边界**：sandbox 路由的 `sandbox_unavailable` 错误码
  * 在两种场景下产生，但语义边界不同——状态机根据「是否拿到 result + 是否记录降级原因」分流：
  *
- * - **A 场景（入口关闭 / 启动时降级）**：sandbox 入口临时关闭（2026-10-27）或 `sandbox.isAvailable()` 返回 false →
+ * - **A 场景（启动时不可用 / fix 策略降级）**：`sandbox.isAvailable()` 返回 false 或 fix 模式未接入出站代理 →
  *   orchestrator 强制走 ContainerExecutor 降级并记录 `degradedReason` → 状态机拿到 result（业务完整）+ degradedReason → **degraded**（业务结果保留，路径偏离）
  * - **B 场景（运行时降级）**：`sandbox.isAvailable()` 通过但 `execute()` 抛 errno → 不静默降级（避免掩盖
  *   真实错误），result 为 undefined → 状态机 error.code === 'sandbox_unavailable' 且 !result → **failed**
@@ -125,7 +125,7 @@ export const resolveScanRunState = (
     executorKind: 'container' | 'github-action' | 'sandbox',
     error: { code: string, message: string } | undefined,
     result: RunResult | undefined,
-    /** A 场景降级信号（sandbox 入口关闭 / 启动时不可用触发） */
+    /** A 场景降级信号（sandbox 启动时不可用 / fix 策略降级触发） */
     degradedReason?: { code: string, message: string },
     /**
      * DependfixApp.run() 返回的进程级 exit code（0 / 1 / 2）。仅在 result 存在但 status 不明时
@@ -179,7 +179,7 @@ export const resolveScanRunState = (
             },
         }
     }
-    // 启动时降级（A 场景：sandbox 入口关闭 / 启动时不可用 → 自动降级 ContainerExecutor 跑成功）
+    // 启动时降级（A 场景：sandbox 启动时不可用 / fix 策略降级 → 自动降级 ContainerExecutor 跑成功）
     // 必须放在 error && !result 分支之前：degraded 场景 result 存在 + degradedReason 有值
     // 语义：「你让我做的事，做成了，但走的路不是你想要的那条」（业务结果完整，路径偏离）
     // 详见 executor-sandbox-implementation.md §7.8.1 A 场景

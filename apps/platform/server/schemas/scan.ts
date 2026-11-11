@@ -1,5 +1,4 @@
 import { z } from 'zod'
-import { SANDBOX_EXECUTOR_DISABLED_MESSAGE } from './repository'
 
 /**
  * 扫描请求校验（Zod）。
@@ -15,6 +14,9 @@ import { SANDBOX_EXECUTOR_DISABLED_MESSAGE } from './repository'
  * - 合并优先级：API override > Repository.aiEnabled / Repository.aiTrigger > Organization 共享 Key
  * - aiEnabled=true 但 Organization 未配置 Key → 服务端校验 400
  * - aiEnabled=true 但 Repository.aiEnabled=false 且 API 未传 aiEnabled → 服务端拒绝（防误启用）
+ *
+ * sandbox（入口已恢复）：report-only 真实执行；fix / fix-and-pr 由编排层降级 container
+ * 并记 `sandbox_fix_requires_egress_policy`，故此处不按模式拒绝。
  */
 export const scanRequestSchema = z.object({
     mode: z.enum(['report-only', 'fix', 'fix-and-pr']).default('report-only'),
@@ -25,15 +27,6 @@ export const scanRequestSchema = z.object({
     aiEnabled: z.boolean().optional(),
     /** AI 研判触发范围（运行时 override 仓库默认） */
     aiTrigger: z.enum(['failure', 'major', 'both']).optional(),
-}).superRefine((data, ctx) => {
-    // 2026-10-27 起 sandbox 入口临时关闭：显式请求也不得绕过（存量仓库走编排层降级）。
-    if (data.executorKind === 'sandbox') {
-        ctx.addIssue({
-            code: 'custom',
-            path: ['executorKind'],
-            message: SANDBOX_EXECUTOR_DISABLED_MESSAGE,
-        })
-    }
 })
 
 export type ScanRequestInput = z.infer<typeof scanRequestSchema>

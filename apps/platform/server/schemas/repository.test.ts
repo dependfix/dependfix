@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { repositorySchema, repositoryUpdateSchema, SANDBOX_EXECUTOR_DISABLED_MESSAGE } from './repository'
+import { repositorySchema, repositoryUpdateSchema } from './repository'
 import { parseSandboxLimits, parseTags, parseVerifyCommands } from '#server/entities/repository'
 
 describe('repository schemas', () => {
@@ -72,22 +72,16 @@ describe('repository schemas', () => {
         expect(repositoryUpdateSchema.safeParse({ actionWorkflowFile: 'ci.yml' }).success).toBe(true)
     })
 
-    it('创建：sandbox 执行器已临时关闭 → fail', () => {
-        const bad = repositorySchema.safeParse({ owner: 'a', name: 'b', executorKind: 'sandbox' })
-        expect(bad.success).toBe(false)
-        if (!bad.success) {
-            const issue = bad.error.issues.find((item) => item.path[0] === 'executorKind')
-            expect(issue?.message).toBe(SANDBOX_EXECUTOR_DISABLED_MESSAGE)
-        }
+    it('创建：sandbox 执行器可写入（入口已恢复，仅 report-only 真实执行）', () => {
+        const ok = repositorySchema.safeParse({ owner: 'a', name: 'b', executorKind: 'sandbox' })
+        expect(ok.success).toBe(true)
+        expect(ok.success && ok.data.executorKind).toBe('sandbox')
     })
 
-    it('更新：sandbox 执行器已临时关闭 → fail（存量仓库走编排层降级）', () => {
-        const bad = repositoryUpdateSchema.safeParse({ executorKind: 'sandbox' })
-        expect(bad.success).toBe(false)
-        if (!bad.success) {
-            const issue = bad.error.issues.find((item) => item.path[0] === 'executorKind')
-            expect(issue?.message).toBe(SANDBOX_EXECUTOR_DISABLED_MESSAGE)
-        }
+    it('更新：sandbox 执行器可写入', () => {
+        const ok = repositoryUpdateSchema.safeParse({ executorKind: 'sandbox' })
+        expect(ok.success).toBe(true)
+        expect(ok.success && ok.data.executorKind).toBe('sandbox')
     })
 
     describe('sandboxLimits（沙箱资源限额覆盖）', () => {

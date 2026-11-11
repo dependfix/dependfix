@@ -116,6 +116,17 @@ describe('installSkillToDir', () => {
         })
         expect(result.status).toBe('failed')
     })
+
+    it('权威源存在但缺 SKILL.md：failed（DEPENDFIX_SKILLS_DIR 指错时不假成功）', async () => {
+        const sourceDir = join(tempRoot, 'empty-source')
+        mkdirSync(sourceDir, { recursive: true })
+        const result = await installSkillToDir({
+            sourceDir,
+            targetDir: join(tempRoot, 'agents'),
+        })
+        expect(result.status).toBe('failed')
+        expect(result.detail).toContain('SKILL.md')
+    })
 })
 
 describe('isContentSame', () => {

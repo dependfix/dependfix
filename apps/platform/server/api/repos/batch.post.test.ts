@@ -47,10 +47,6 @@ describe('POST /api/repos/batch', () => {
         await expectError(call({}), 400)
     })
 
-    it('rejects sandbox executor with 400 (entry disabled)', async () => {
-        await expectError(call({ repos: [{ ...repoItem('demo', 'sandbox'), executorKind: 'sandbox' }] }), 400)
-    })
-
     it('imports new repositories and skips duplicates', async () => {
         await reposIndexHandler(makeEvent('POST', '/api/repos', repoItem('demo', 'existing')))
 
@@ -267,6 +263,15 @@ describe('POST /api/repos/batch', () => {
         } finally {
             globalScope.useRuntimeConfig = original
         }
+    })
+
+    it('imports sandbox executor (entry restored)', async () => {
+        const result = await call({ repos: [{ ...repoItem('demo', 'sandbox'), executorKind: 'sandbox' }] }) as Record<string, unknown>
+        expect(result).toEqual({
+            results: [{ owner: 'demo', name: 'sandbox', imported: true, skipped: false }],
+            imported: 1,
+            skipped: 0,
+        })
     })
 
 })

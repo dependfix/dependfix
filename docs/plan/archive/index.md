@@ -20,12 +20,12 @@
 4. 更新 `roadmap.md` 中对应里程碑状态；已闭环阶段详情迁入 `archive/roadmap-phases-*.md`。
 5. 在 `archive-log.md` 追加批次记录（日期 / 范围 / 结论 / commits / 导航）。
 6. 运行 `check:docs` + `check:doc-governance` + `check:doc-size`，全绿后提交。
-## 4. 当前基线（2026-11-09 实测）
+## 4. 当前基线（2026-11-10 M57 归档后实测）
 
-- `roadmap.md`：里程碑概览 + 当前阶段（**M57 进行中 — 执行面可信与发布验证收口，2026-11-09 规划**；M56 已于 2026-11-09 归档；`wc -l` 实测 95 行）；M0-M38 详情见 [roadmap-phases-m0-m38.md](roadmap-phases-m0-m38.md)，M39-M48 见 [roadmap-phases-m39-m48.md](roadmap-phases-m39-m48.md)，M49 见 [roadmap-phases-m49.md](roadmap-phases-m49.md)，M50 见 [roadmap-phases-m50.md](roadmap-phases-m50.md)，M51 见 [roadmap-phases-m51.md](roadmap-phases-m51.md)，M52 见 [roadmap-phases-m52.md](roadmap-phases-m52.md)，M53 见 [roadmap-phases-m53.md](roadmap-phases-m53.md)，M54 见 [roadmap-phases-m54.md](roadmap-phases-m54.md)，M55 见 [roadmap-phases-m55.md](roadmap-phases-m55.md)，M56 见 [roadmap-phases-m56.md](roadmap-phases-m56.md)。行数与字符预算见 [文档规范 §3](../../standards/documentation.md#_3-文档行数阈值) / [文档治理执行规范 §4.2](../../design/governance/doc-governance.md#_4-2-字符与密度预算)。
-- `todo.md`：**M57 进行中**（5 原子 + 2 批追加临时待办（3 个条目）；`wc -l` 实测 196 行；2026-11-09 再平衡移出发布冒烟）；下一阶段待 M57 收口后按 [规划规范 §3.1](../../standards/planning.md#_3-1-新需求默认走-评估-→-backlog-原则-hard-requirement) 评估；1.0 门槛台账见 [release-1.0-readiness.md](../../design/governance/release-1.0-readiness.md)（1.0.0 已发布，转为发布记录）。
-- `todo-archive.md`：**只保留阶段索引**（45 个阶段索引行，文件 56 行，覆盖 `archive/todo-archive-phases-*.md` 全部 45 个分片，倒序）；正文按阶段存放于分片，索引由 `check-doc-governance` 校验。
-- `backlog.md`：长期主线 / 周期性回归验证层 / 短期候选 / 待人工验收 / 已知边界保持活跃；行数 395（`wc -l`，< 500 阈值）、字符 40,397（code point，与 `check:doc-governance` 同口径；健康上限 45,000 内），候选条目数 **45**（`### 候选评估中` 段内 `^- \*\*` 机械复算；2026-11-09 再平衡移回发布冒烟 1 项后读数），分档统计不在此维护。
+- `roadmap.md`：里程碑概览 + 当前阶段（**无活跃阶段 — M57 已于 2026-11-10 归档，下一阶段待按规划规范 §3.1 评估**；`wc -l` 实测 95 行）；M0-M38 详情见 [roadmap-phases-m0-m38.md](roadmap-phases-m0-m38.md)，M39-M48 见 [roadmap-phases-m39-m48.md](roadmap-phases-m39-m48.md)，M49 见 [roadmap-phases-m49.md](roadmap-phases-m49.md)，M50 见 [roadmap-phases-m50.md](roadmap-phases-m50.md)，M51 见 [roadmap-phases-m51.md](roadmap-phases-m51.md)，M52 见 [roadmap-phases-m52.md](roadmap-phases-m52.md)，M53 见 [roadmap-phases-m53.md](roadmap-phases-m53.md)，M54 见 [roadmap-phases-m54.md](roadmap-phases-m54.md)，M55 见 [roadmap-phases-m55.md](roadmap-phases-m55.md)，M56 见 [roadmap-phases-m56.md](roadmap-phases-m56.md)，M57 见 [roadmap-phases-m57.md](roadmap-phases-m57.md)。行数与字符预算见 [文档规范 §3](../../standards/documentation.md#_3-文档行数阈值) / [文档治理执行规范 §4.2](../../design/governance/doc-governance.md#_4-2-字符与密度预算)。
+- `todo.md`：**无活跃阶段**（`wc -l` 实测 22 行；M0-M57 全部归档）；下一阶段按 [规划规范 §3.1](../../standards/planning.md#_3-1-新需求默认走-评估-→-backlog-原则-hard-requirement) 从候选池评估后启动；1.0 门槛台账见 [release-1.0-readiness.md](../../design/governance/release-1.0-readiness.md)（1.0.0 已发布，转为发布记录）。
+- `todo-archive.md`：**只保留阶段索引**（46 个阶段索引行，文件 57 行，覆盖 `archive/todo-archive-phases-*.md` 全部 46 个分片，倒序）；正文按阶段存放于分片，索引由 `check-doc-governance` 校验。
+- `backlog.md`：长期主线 / 周期性回归验证层 / 短期候选 / 待人工验收 / 已知边界保持活跃；行数 399（`wc -l`，< 500 阈值）、字符 41,517（code point，与 `check:doc-governance` 同口径；健康上限 45,000 内），候选条目数 **47**（`### 候选评估中` 段内 `^- \*\*` 机械复算；M57 上收 7 项已在规划阶段移除，M57.2 审计登记 1 项），分档统计不在此维护。
 - `archive-log.md`：追加型批次日志；本文件与 `todo-archive.md` 不再承载批次流水账。
 
 ## 5. 批次记录

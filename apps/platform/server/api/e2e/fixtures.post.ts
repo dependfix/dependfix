@@ -52,7 +52,7 @@ const repoSchema = z.object({
     name: z.string().min(1).max(100),
     platform: z.enum(['github']).default('github'),
     /**
-     * 执行器类型（默认 container）。生产仓库 schema 已拒绝 sandbox（2026-10-27 入口临时关闭）；
+     * 执行器类型（默认 container）。sandbox 入口已恢复（仅 report-only 真实执行）；
      * 本字段仅供 e2e 注入**存量** sandbox 仓库，验证 UI 迁移提示与编排层强制降级路径。
      */
     executorKind: z.enum(['container', 'github-action', 'sandbox']).default('container'),
@@ -89,7 +89,7 @@ const scanRunSchema = z.object({
     }).optional(),
     mode: z.enum(['report-only', 'fix', 'fix-and-pr']).default('report-only'),
     severityThreshold: z.enum(['low', 'medium', 'high', 'critical']).default('high'),
-    // 生产仓库 schema 已拒绝 sandbox（2026-10-27 入口临时关闭）；本 fixture 保留 sandbox 以模拟存量仓库降级路径。
+    // sandbox 入口已恢复（仅 report-only 真实执行）；fixture 保留 sandbox 以覆盖降级矩阵回放。
     executorKind: z.enum(['container', 'github-action', 'sandbox']).default('container'),
     /** 复用 ScanRunStatus 实体枚举（单点声明；避免 schema 与 entity 不同步） */
     status: z.enum(SCAN_RUN_STATUSES).default('completed'),

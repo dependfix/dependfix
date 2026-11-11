@@ -329,4 +329,13 @@ describe('parseCliArgs', () => {
             },
         })).toThrow('Invalid DEPENDFIX_AI_PROVIDER')
     })
+
+    it('parses --result-json as an execution-layer path (not a RuntimeConfig override)', () => {
+        const invocation = parseCliArgs(['report-only', '--repo', 'owner/repo', '--result-json', '/work/result.json'])
+
+        expect(invocation.resultJsonPath).toBe('/work/result.json')
+        expect(invocation.configOverrides).not.toHaveProperty('resultJsonPath')
+
+        expect(parseCliArgs(['report-only']).resultJsonPath).toBeUndefined()
+    })
 })

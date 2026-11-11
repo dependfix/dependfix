@@ -42,6 +42,11 @@ const providerOptions = computed(() => [
     { label: t('ai.providerOptions.anthropic'), value: 'anthropic' },
 ])
 
+// 占位符 URL 以常量绑定：模板属性值直写含 `//` 的 URL 会触发 vue-tsc 代码生成缺陷，
+// 把 v-model 目标误判为 ref 并报 `Property 'value' does not exist`（口径见 docs/guide/tech-stack.md）。
+const BASE_URL_PLACEHOLDER = 'https://api.deepseek.com'
+const ANTHROPIC_URL_PLACEHOLDER = 'https://api.anthropic.com'
+
 const fetchConfig = async () => {
     loading.value = true
     error.value = ''
@@ -144,7 +149,7 @@ onMounted(fetchConfig)
                 <CaomeiInput
                     id="aiBaseUrl"
                     v-model="form.aiBaseUrl"
-                    placeholder="https://api.deepseek.com"
+                    :placeholder="BASE_URL_PLACEHOLDER"
                 />
             </div>
             <div class="ai-config-form__field">
@@ -152,7 +157,7 @@ onMounted(fetchConfig)
                 <CaomeiInput
                     id="aiApiUrl"
                     v-model="form.aiApiUrl"
-                    placeholder="https://api.anthropic.com"
+                    :placeholder="ANTHROPIC_URL_PLACEHOLDER"
                 />
             </div>
             <div class="ai-config-form__field">

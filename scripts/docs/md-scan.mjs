@@ -28,7 +28,7 @@ export const EXTERNAL_LINK_RE = /^(https?:|mailto:|tel:|www\.|<)/
  * 的文件会被当成仓库文档参与链接 / 插值检查，本地报出成百上千与环境无关的错误
  * （CI 为干净检出，不受影响）。按路径前缀而非目录名 `data`：`data` 是通用名，按名排除会误伤同名正常目录。
  */
-export const RUNTIME_EXCLUDED_PATHS = ['apps/platform/data']
+export const RUNTIME_EXCLUDED_PATHS = ['apps/platform/data', 'packages/cli/sandbox']
 
 /** 宽松规范化：小写 + 移除标点/符号（含 emoji）/空白，用于跨平台锚点比较 */
 export function looseNorm(str) {

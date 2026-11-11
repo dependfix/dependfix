@@ -67,9 +67,9 @@ export default defineEventHandler(async (event) => {
     }
 
     // 参数由服务端按来源运行派生（前端不可声明）
-    // 2026-10-27 sandbox 入口关闭：存量 sandbox run 的重试统一降级为 container，
-    // 与 scan-orchestrator 的强制降级路径一致；否则 scanRequestSchema 会 409。
-    const retryExecutorKind = run.executorKind === 'sandbox' ? 'container' : run.executorKind
+    // sandbox 入口已恢复：重试保留原执行器；fix 模式由编排层按策略降级并留
+    // `sandbox_fix_requires_egress_policy`，不在 API 层改写用户配置。
+    const retryExecutorKind = run.executorKind
     const parsedParams = scanRequestSchema.safeParse({
         mode: run.mode,
         severityThreshold: run.severityThreshold,

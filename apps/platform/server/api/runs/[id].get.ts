@@ -29,7 +29,8 @@ export default defineEventHandler(async (event) => {
 
     const results = await resultRepo.find({
         where: { scanRunId: run.id },
-        order: { severity: 'ASC' },
+        // 同 severity 并列时按主键 DESC 兜底（api.md §4 排序确定性），避免结果明细行序抖动
+        order: { severity: 'ASC', id: 'DESC' },
     })
 
     // 解析执行日志

@@ -36,7 +36,8 @@ export default defineEventHandler(async (event) => {
     const organizationId = await resolveOrganizationId(ds)
     const rows = await ds.getRepository(BatchRun).find({
         where: { organizationId },
-        order: { createdAt: 'DESC' },
+        // 同毫秒并列时按主键 DESC 兜底，保证 take(50) 截断集合稳定（api.md §4）
+        order: { createdAt: 'DESC', id: 'DESC' },
         take: 50,
     })
     return rows.map(toView)

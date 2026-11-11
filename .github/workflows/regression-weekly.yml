@@ -161,9 +161,11 @@ jobs:
               CONCLUSION=$(node -e "const d=require('$(pwd)/$f'); console.log(d.summary.conclusion)")
               BLOCKERS=$(node -e "const d=require('$(pwd)/$f'); console.log(d.summary.blockers.length)")
               WARNINGS=$(node -e "const d=require('$(pwd)/$f'); console.log(d.summary.warnings.length)")
+              UNKNOWN=$(node -e "const d=require('$(pwd)/$f'); console.log((d.summary.indeterminate ?? []).length)")
               echo "| 回归门禁 | ${CONCLUSION} |" >> $GITHUB_STEP_SUMMARY
               echo "| Blocker | ${BLOCKERS} |" >> $GITHUB_STEP_SUMMARY
               echo "| Warning | ${WARNINGS} |" >> $GITHUB_STEP_SUMMARY
+              echo "| 结论未知步骤 | ${UNKNOWN} |" >> $GITHUB_STEP_SUMMARY
             fi
           done
 

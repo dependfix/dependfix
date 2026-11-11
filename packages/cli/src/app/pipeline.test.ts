@@ -1,3 +1,6 @@
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
 
 // Mock @dependfix/engine - 只 mock DependfixApp，保留其他导出
@@ -102,5 +105,42 @@ describe('createPipeline', () => {
         const exitCode = await pipeline.run(['fix', '--repo', 'owner/repo'])
 
         expect(exitCode).toBe(1)
+    })
+
+    it('writes explicit result JSON when --result-json is set', async () => {
+        const dir = mkdtempSync(join(tmpdir(), 'dfx-result-'))
+        const resultPath = join(dir, 'result.json')
+        try {
+            mockRun.mockResolvedValueOnce({
+                exitCode: 1,
+                result: { summary: { alertsFound: 2, alertsFixed: 0 } },
+            })
+
+            const exitCode = await createPipeline({ env: { GITHUB_TOKEN: 'test-token' } })
+                .run(['report-only', '--repo', 'owner/repo', '--result-json', resultPath])
+
+            expect(exitCode).toBe(1)
+            const payload = JSON.parse(readFileSync(resultPath, 'utf8')) as {
+                exitCode: number
+                result: { summary: { alertsFound: number } }
+            }
+            expect(payload.exitCode).toBe(1)
+            expect(payload.result.summary.alertsFound).toBe(2)
+        } finally {
+            rmSync(dir, { recursive: true, force: true })
+        }
+    })
+
+    it('fails closed when result JSON cannot be written', async () => {
+        mockRun.mockResolvedValueOnce({ exitCode: 0, result: {} })
+        const logger = { info: vi.fn(), error: vi.fn() }
+        const mockExit = vi.fn()
+
+        const exitCode = await createPipeline({ env: { GITHUB_TOKEN: 'test-token' }, logger, exit: mockExit })
+            .run(['report-only', '--repo', 'owner/repo', '--result-json', '/nonexistent-dir-dfx/result.json'])
+
+        expect(exitCode).toBe(1)
+        expect(mockExit).toHaveBeenCalledWith(1)
+        expect(logger.error).toHaveBeenCalledWith(expect.stringContaining('Failed to write result JSON'))
     })
 })

@@ -171,4 +171,50 @@ describe('notification APIs', () => {
         expect(res.items[0]?.category).toBe('security_high')
         expect(res.items[0]?.recipients).toEqual(['a@x.com'])
     })
+
+    it('同毫秒并列按 id DESC 稳定，跨页不重不漏', async () => {
+        const ds = await ensureDatabaseInitialized()
+        const repo = ds.getRepository(NotificationLog)
+        const tieTime = new Date('2026-05-01T00:00:00.000Z')
+        // 显式指定主键，使「插入顺序」与「id DESC」不一致——否则 SQLite 的并列返回顺序
+        // 可能恰好等于 id 倒序，用例会失去区分度
+        const plan = [
+            { id: '000000000000000000000000000000002', scopeId: 'p2' },
+            { id: '000000000000000000000000000000001', scopeId: 'p1' },
+            { id: '000000000000000000000000000000003', scopeId: 'p3' },
+        ]
+        for (const item of plan) {
+            await repo.save(repo.create({
+                id: item.id,
+                deliveryKey: null,
+                category: 'run_failure',
+                scopeType: 'run',
+                scopeId: item.scopeId,
+                channel: 'email',
+                fingerprint: null,
+                recipientUserId: null,
+                recipientsJson: JSON.stringify(['a@x.com']),
+                status: 'sent',
+                errorMessage: null,
+                sentAt: tieTime,
+                createdAt: tieTime,
+            }))
+        }
+        const expected = [
+            '000000000000000000000000000000003',
+            '000000000000000000000000000000002',
+            '000000000000000000000000000000001',
+        ]
+        const pages: string[] = []
+        for (const page of [1, 2, 3]) {
+            const res = await call(notificationsGet, 'GET', `/api/notifications?page=${page}&pageSize=1`) as {
+                items: { id: string }[]
+                total: number
+            }
+            expect(res.total).toBe(3)
+            pages.push(...res.items.map((item) => item.id))
+        }
+        expect(pages).toEqual(expected)
+        expect(new Set(pages).size).toBe(3)
+    })
 })

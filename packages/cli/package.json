@@ -42,6 +42,7 @@
   },
   "scripts": {
     "build": "tsdown",
+    "build:sandbox": "tsdown --config tsdown.sandbox.config.ts",
     "prebuild": "rimraf dist",
     "dev": "cross-env NODE_ENV=development tsx watch src/index.ts",
     "dev:tsdown": "cross-env NODE_ENV=development tsdown --watch",

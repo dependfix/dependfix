@@ -119,8 +119,6 @@
         "notLinked": "未关联",
         "platformContainer": "平台容器",
         "sandboxContainer": "独立沙箱容器",
-        "sandboxContainerUnavailable": "独立沙箱容器（暂不可用）",
-        "sandboxMigratedNotice": "该仓库原使用独立沙箱容器，当前暂不可用；保存后将改为平台容器。",
         "githubAction": "GitHub Action",
         "privateRepo": "私有",
         "publicRepo": "公开",

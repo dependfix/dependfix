@@ -251,6 +251,8 @@ export DEPENDFIX_RETRY_FAILED=false
 
 > `GITHUB_TOKEN` 环境变量会被自动识别，无需额外配置前缀。`DEPENDFIX_GITHUB_TOKEN` 优先级高于 `GITHUB_TOKEN`。
 
+> **沙箱自包含产物**：`DEPENDFIX_SKILLS_DIR` 指定包含 `dependfix-remediator` 的 skills 根目录（镜像内默认 `/app/sandbox/skills`）。仅供沙箱 bundle / 无 `node_modules` 环境覆盖 skill 解析，普通 CLI 安装无需设置。
+
 ## 平台配置（apps/platform）
 
 管理平台（`apps/platform`）通过 compose 的 `apps/platform/.env` 注入环境变量。
@@ -343,7 +345,9 @@ export DEPENDFIX_RETRY_FAILED=false
 | `CLONE_MAX_RETRIES` | — | `3` | clone 最大重试次数 |
 | `PNPM_CONFIG_STORE_DIR` | — | `/app/data/pnpm-store`（入口派生） | 目标仓库依赖安装共用的 pnpm store 目录：默认在数据卷内，跨 run / 容器重建复用。入口以**运行身份写探针**判定可用性（覆盖只读挂载）；不可用（只读 / 权限不足 / 非绝对路径）时 warn 并回退 `$HOME` 下 pnpm 默认位置（每次冷安装，不阻断）。自定义路径的父目录须对 `PUID`/`PGID` 可进入，且与 `RUN_WORK_ROOT` 同文件系统才走硬链接。清理用 `pnpm store prune`（见 [pnpm store 与依赖缓存](./deployment.md#pnpm-store-与依赖缓存)） |
 | `SANDBOX_RUNTIME` | — | `runc` | 沙箱 OCI runtime |
-| `SANDBOX_IMAGE` | — | `dependfix-platform:latest` | 沙箱镜像 |
+| `SANDBOX_IMAGE` | — | 取 `DEPENDFIX_IMAGE`；未设则 `dependfix-platform:latest` | 沙箱镜像（须在目标 rootless daemon 内可拉取 / 已存在） |
+| `DEPENDFIX_SANDBOX_ENTRY` | — | `/app/sandbox/bin.mjs` | 沙箱自包含 CLI 入口（仅本地联调 / 排障用） |
+| `DEPENDFIX_SANDBOX_SKILLS_DIR` | — | `/app/sandbox/skills` | 随 bundle 复制的 skills 根目录（仅排障用） |
 | `HTTP_PROXY` / `HTTPS_PROXY` / `ALL_PROXY` | — | 空 | 出站代理（引擎验证阶段） |
 | `DEPENDFIX_SUPPRESS_LOCAL_EXECUTION_WARNING` | — | `false` | 抑制「本地非容器执行」安全警告（仅本地排障） |
 | `ACTION_STATUS_MONITOR_ENABLED` | — | `false` | 依赖更新 PR check 状态监测总开关；启用前需 PAT credential + 有 PR 活动 |

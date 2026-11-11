@@ -242,6 +242,8 @@ export DEPENDFIX_RETRY_FAILED=false
 
 > The `GITHUB_TOKEN` environment variable is detected automatically and needs no prefix. `DEPENDFIX_GITHUB_TOKEN` takes precedence over `GITHUB_TOKEN`.
 
+> **Sandbox self-contained artifact**: `DEPENDFIX_SKILLS_DIR` points at the skills root containing `dependfix-remediator` (the image default is `/app/sandbox/skills`). It only overrides skill resolution for the sandbox bundle / environments without `node_modules`; a normal CLI install does not need it.
+
 ## Platform configuration (apps/platform)
 
 The management platform (`apps/platform`) is configured via env vars injected by compose from `apps/platform/.env`.
@@ -334,7 +336,9 @@ The management platform (`apps/platform`) is configured via env vars injected by
 | `CLONE_MAX_RETRIES` | — | `3` | Max clone retries |
 | `PNPM_CONFIG_STORE_DIR` | — | `/app/data/pnpm-store` (derived by the entrypoint) | pnpm store shared by target-repository installs: inside the data volume by default, reused across runs / container recreations. The entrypoint probes writability **as the run identity** (covering read-only mounts); when unusable (read-only / insufficient permissions / not absolute) it warns and falls back to pnpm's default location under `$HOME` (cold install every run; never blocks). A custom path's parent must be traversable by `PUID`/`PGID`, and the store must sit on the same filesystem as `RUN_WORK_ROOT` for hard links. Clean up with `pnpm store prune` (see [pnpm store and dependency cache](./deployment.md#pnpm-store-and-dependency-cache)) |
 | `SANDBOX_RUNTIME` | — | `runc` | Sandbox OCI runtime |
-| `SANDBOX_IMAGE` | — | `dependfix-platform:latest` | Sandbox image |
+| `SANDBOX_IMAGE` | — | Uses `DEPENDFIX_IMAGE`; otherwise `dependfix-platform:latest` | Sandbox image (must be pullable / present in the target rootless daemon) |
+| `DEPENDFIX_SANDBOX_ENTRY` | — | `/app/sandbox/bin.mjs` | Self-contained sandbox CLI entry (local debugging only) |
+| `DEPENDFIX_SANDBOX_SKILLS_DIR` | — | `/app/sandbox/skills` | Skills root copied with the bundle (debugging only) |
 | `HTTP_PROXY` / `HTTPS_PROXY` / `ALL_PROXY` | — | empty | Egress proxy (engine verification phase) |
 | `DEPENDFIX_SUPPRESS_LOCAL_EXECUTION_WARNING` | — | `false` | Suppress the "local non-container execution" security warning (local debugging only) |
 | `ACTION_STATUS_MONITOR_ENABLED` | — | `false` | Dependabot PR-check status monitor master switch; requires a PAT credential and PR activity |

@@ -224,17 +224,15 @@ After the run, the report content is written to the workflow summary and can be 
 - **Review before merging**: cross-line upgrades (PR body carries a ⚠️ Major marker) and newly added / upgraded packages that ship lifecycle scripts and were approved by the repository (see the report warning area once supply-chain signal disclosure lands) should be confirmed by a human before merge.
 - **Platform deployment**: pull the published image by default (`docker compose pull && docker compose up -d`; only layer the `docker-compose.build.yml` override for a local build, see the comment at the top of `apps/platform/docker-compose.yml`). The container execution process already **drops privileges from root** (default `dependfix` user, uid 100 / gid 101; align `PUID`/`PGID` with the host user to control data volume / `$HOME` ownership; resolving to 0 makes the entrypoint fail closed, and ownership is repaired automatically). Do not mount `docker.sock` and do not grant privileges when deploying; use strong random values for `AUTH_SECRET` / `NUXT_ENCRYPTION_KEY`. **Tables are created automatically on first start** (compose defaults to `DATABASE_MIGRATIONS_RUN=true`); full steps (environment variables / data volume and permissions / database initialization / upgrade / backup and restore / troubleshooting) are in [Docker deployment](./deployment.md).
 
-#### sandbox execution (experimental, currently unavailable)
+#### sandbox execution (experimental, report-only)
 
-> **⛔ The entry point is temporarily disabled (2026-10-27)**: the UI disables the sandbox option and the API rejects new writes; repos with an existing `executorKind=sandbox` degrade to `container` and are marked `degraded` (`sandbox_entry_disabled`). Reason: `buildCmd` is still a minimal placeholder (it does not start the dependfix engine) and real engine execution is not closed-loop yet ([backlog P1](https://github.com/dependfix/dependfix/blob/master/docs/plan/backlog.md)). Use `container` or `github-action` for production fixes.
+> **✅ Entry point restored (M57.1, 2026-11-09)**: a self-contained CLI runs inside a dedicated container (`node /app/sandbox/bin.mjs`), returning results through the container-local `/tmp/result.json` + a stdout sentinel, with the same contract as `ContainerExecutor`. **Only `report-only` is allowed** (read-only scan: fetch Dependabot / Code Scanning alerts, no clone, no target-repo code execution); `fix` / `fix-and-pr` keep degrading to `container` and record `degraded` (`sandbox_fix_requires_egress_policy`) until the egress allowlist proxy is wired into the sandbox execution path.
 >
-> **Historical state**: the M11 T1005 routing was wired up (2026-08-20); the platform Web UI once exposed the sandbox option (repository management → add/edit → executor dropdown). The scope below describes the design once real execution is closed-loop.
->
-> **Scope (once closed-loop)**: owner/org multi-repository scans, `--allow-major-upgrade` cross-line upgrades, and owner-mode fixes on untrusted repositories — in these scenarios the risk of a malicious dependency script running inside the container is markedly higher than with a single trusted repository, so sandbox execution isolates execution in a dedicated rootless container (decoupled from the platform container), see [executor-sandbox.md §7](https://github.com/dependfix/dependfix/blob/master/docs/design/governance/executor-sandbox-implementation.md).
+> **Scope**: owner/org multi-repository read-only scans, and alert inventories on untrusted repositories; use `container` or `github-action` for fixes. Sandbox isolates execution in a dedicated rootless container (decoupled from the platform container), see [executor-sandbox.md §7](https://github.com/dependfix/dependfix/blob/master/docs/design/governance/executor-sandbox-implementation.md).
 >
 > **Not enabled**: for a single trusted repository plus local development, the default `ContainerExecutor` is enough, with no rootless daemon startup cost.
 
-**Prerequisites / operational preconfiguration once restored** (no sandbox scan occurs while the entry point is disabled, so these steps can wait):
+**Prerequisites / operational preconfiguration** (complete these before enabling sandbox execution):
 
 - Linux kernel (cgroup v2 recommended ≥ 5.8; older kernels degrade to a Node V8 soft limit)
 - Docker installed (≥ 20.10)
@@ -242,7 +240,7 @@ After the run, the report content is written to the workflow summary and can be 
 - ≥ 65,536 subordinate UIDs/GIDs for the current user in `/etc/subuid` and `/etc/subgid` (`grep ^$(whoami): /etc/subuid` should return a non-empty line)
 - User namespaces enabled on the system (on by default in most distributions; WSL2 / in-container setups need extra configuration)
 
-**Starting the rootless Docker daemon once restored** (see the [official Docker rootless docs](https://docs.docker.com/engine/security/rootless/)):
+**Starting the rootless Docker daemon** (see the [official Docker rootless docs](https://docs.docker.com/engine/security/rootless/)):
 
 ```bash
 # 1. Install the rootless tooling (Ubuntu/Debian need docker-ce-rootless-extras; usually bundled with 20.10+)
@@ -266,37 +264,34 @@ docker --context rootless info --format '{{.SecurityOptions}}'
 # output containing `rootless` → truly connected to the rootless daemon
 ```
 
-**Not enableable while the entry point is disabled** (the following applies only once real execution is closed-loop and the entry point is restored; today the UI disables it and an API write with `executorKind=sandbox` returns 400):
+**Enabling sandbox execution**:
 
 ```bash
-# Once restored: repository-level override (currently returns 400)
-# curl -X PUT /api/repos/{id} \
-#   -H 'Content-Type: application/json' \
-#   -d '{"executorKind": "sandbox"}'
+# 1) Let the platform reach the rootless daemon: set DOCKER_HOST on the platform container
+#    (example in docs/design/governance/executor-sandbox-implementation.md §7.3)
+# 2) Repository-level override: switch the executor to sandbox (report-only only)
+curl -X PUT /api/repos/{id} \
+  -H 'Content-Type: application/json' \
+  -d '{"executorKind": "sandbox"}'
 
-# Once restored: egress allowlist — by default it already contains the official registry + common mirrors
-# + GitHub API/asset domains + rolldown.rs
-# (the authoritative default list and decision rules are in security standard §5.3.1: docs/standards/security.md);
-# effective registry hosts are also discovered from the workDir pnpm config surface
-# (pnpm config list --json, local reads only, falls back to the preset list on errors).
-# The following is only for cases the preset list does not cover — e.g. an enterprise private registry with its own CDN
-# (a tarball 302 to a non-preset domain).
-# Effective process: the interception proxy inside the platform Node process
-# (packages/engine/src/runners/network-audit.ts);
-# sandbox containers egress directly through the Docker bridge (this env is not forwarded into sandbox containers)
-# export DEPENDFIX_ALLOWED_DOMAINS="registry.internal.example.com,artifacts.example.com"
-
-# Once restored: custom runtime (default runc; switch to Sysbox if deployed) — read at module level, set before platform start
+# 3) Image: sandbox reuses the platform image (defaults to the platform container image reference
+#    DEPENDFIX_IMAGE, which compose injects; a standalone docker run must set SANDBOX_IMAGE).
+#    The image already contains /app/sandbox/bin.mjs + the skills static directory, and must be
+#    pullable / present in the rootless daemon.
+# 4) Custom runtime (default runc; switch to Sysbox if deployed) — read at module level, set before platform start
 # export SANDBOX_RUNTIME=sysbox-runc
 ```
 
-**Current degraded behavior (while the entry point is disabled)**:
+> **Network**: report-only must reach the GitHub API, so the sandbox container egresses through the Docker bridge; `DEPENDFIX_ALLOWED_DOMAINS` configures the platform's in-process interception proxy and is **not forwarded into sandbox containers**. `fix` / `fix-and-pr` are degraded before the egress allowlist proxy is wired into the sandbox path, so they never need a larger network surface.
 
-- A scan of a repo with an existing `executorKind=sandbox` → forced to `ContainerExecutor` + `degradedReason.code=sandbox_entry_disabled` → the run is marked `degraded` (business results are complete; the UI notes "dedicated sandbox container unavailable, using the platform container automatically").
-- If the platform container is also unavailable → the run is marked `failed` (`container_unavailable`).
-- The old §7.8 `sandbox_unavailable` A/B scenarios no longer occur while the entry point is disabled; they follow the §7.8 contract again once real execution is closed-loop and the entry point is restored.
+**Degraded / failed behavior**:
 
-A/B scenario differences are described in [executor-sandbox.md §7.8.1](https://github.com/dependfix/dependfix/blob/master/docs/design/governance/executor-sandbox-implementation.md) (applicable once restored); governance registration in [sandbox-security-governance.md §5 G5](https://github.com/dependfix/dependfix/blob/master/docs/design/governance/sandbox-security-governance.md).
+- `executorKind=sandbox` + `report-only` → real execution; daemon unavailable at startup → **degrade to `container` + `degraded`** (`sandbox_unavailable`, business results complete).
+- `executorKind=sandbox` + `fix` / `fix-and-pr` → **degrade to `container` + `degraded`** (`sandbox_fix_requires_egress_policy`, a policy limit, not notified).
+- Daemon available at startup but a runtime errno occurs (ENOENT / ENOTCONN / EACCES / ECONNREFUSED) → **run marked `failed`** (`sandbox_unavailable`), no silent fallback and no masking of real environment errors.
+- The fallback `container` is also unavailable → **run marked `failed`** (`container_unavailable`).
+
+A/B scenario differences are described in [executor-sandbox.md §7.8.1](https://github.com/dependfix/dependfix/blob/master/docs/design/governance/executor-sandbox-implementation.md); governance registration in [sandbox-security-governance.md §5 G5](https://github.com/dependfix/dependfix/blob/master/docs/design/governance/sandbox-security-governance.md).
 
 **Anti-patterns (strictly forbidden)**:
 
@@ -331,6 +326,7 @@ The full design, the RuntimeAdapter abstraction and the reserved K8s+Helm deploy
 | `--max-concurrency` | — | Multi-repository concurrency window (1-16, default 1 conservative sequential; `>1` allowed in report-only only) | `DEPENDFIX_MAX_CONCURRENCY` |
 | `--max-retries` | — | GitHub API rate-limit retries (0-10, default 3) | `DEPENDFIX_MAX_RETRIES` |
 | `--history` | — | Query a repository's run-history summary (reads `dependfix-reports/index.json`, reverse chronological; no scan) | — |
+| `--result-json` | — | Write the run result to a JSON file (`{exitCode, result}`); the sandbox executor reads it instead of report artifacts | — |
 | `--code-scanning` | — | Also fetch Code Scanning alerts (parallel source next to Dependabot; the token needs `security-events: read`, which GITHUB_TOKEN has by default) | `false` (env `DEPENDFIX_CODE_SCANNING`) |
 | `--allow-major-upgrade` | — | Explicitly authorize cross-line alerts (recommended version crosses a major boundary, no fix inside the current line) to auto-upgrade: only root package.json direct dependencies (workspace-member-only declarations stay manual) with a single lockfile version are upgraded across lines, followed by brittle-instance re-verification and forced full verification (install+lint+build+typecheck+test), with auto-rollback on failure; indirect dependencies / multi-version cross-line alerts stay manual. **CLI only, not supported by the Action** (see the "Cross-major upgrades" risk section below) | `false` (**no env channel**) |
 | `--commands` | — | Custom verification commands (comma-separated); replaces the whole default chain (no merging), so entries from the default chain must be listed explicitly | — |

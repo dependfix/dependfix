@@ -1,21 +1,16 @@
 import { describe, expect, it } from 'vitest'
-import { SANDBOX_EXECUTOR_DISABLED_MESSAGE } from './repository'
 import { scanRequestSchema } from './scan'
 
 /**
  * 扫描请求 schema 定向测试。
  *
- * 2026-10-27 起 sandbox 执行入口临时关闭：扫描请求显式指定 sandbox 必须在 schema 层拒绝，
- * 不能依赖编排层兜底（否则 API 会接受一个必然降级的请求，语义不清）。
+ * 2026-11-09 起 sandbox 入口恢复：report-only 真实执行，fix / fix-and-pr 由编排层
+ * 降级 container 并记 `sandbox_fix_requires_egress_policy`；schema 层不按模式拒绝。
  */
 describe('scan request schema', () => {
-    it('sandbox 执行器已临时关闭 → fail', () => {
-        const bad = scanRequestSchema.safeParse({ executorKind: 'sandbox' })
-        expect(bad.success).toBe(false)
-        if (!bad.success) {
-            const issue = bad.error.issues.find((item) => item.path[0] === 'executorKind')
-            expect(issue?.message).toBe(SANDBOX_EXECUTOR_DISABLED_MESSAGE)
-        }
+    it('sandbox 执行器可写入（report-only 与 fix 均通过 schema）', () => {
+        expect(scanRequestSchema.safeParse({ executorKind: 'sandbox' }).success).toBe(true)
+        expect(scanRequestSchema.safeParse({ executorKind: 'sandbox', mode: 'fix' }).success).toBe(true)
     })
 
     it('container / github-action / 缺省仍通过', () => {

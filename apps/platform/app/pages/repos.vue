@@ -304,7 +304,7 @@ const executorFilterOptions = computed(() => [
     { label: t('repos.filterAll'), value: 'all' },
     { label: t('repos.platformContainer'), value: 'container' },
     { label: t('repos.githubAction'), value: 'github-action' },
-    { label: t('repos.sandboxContainerUnavailable'), value: 'sandbox' },
+    { label: t('repos.sandboxContainer'), value: 'sandbox' },
 ])
 
 const packageManagerFilterOptions = computed(() => [
@@ -587,7 +587,7 @@ const columns = computed<DataTableColumn<RepoView>[]>(() => [
                     <span v-else class="text-muted">{{ t('repos.notLinked') }}</span>
                 </template>
                 <template #cell-executorKind="{row}">
-                    <CaomeiTag>{{ row.executorKind === 'github-action' ? t('repos.githubAction') : row.executorKind === 'sandbox' ? t('repos.sandboxContainerUnavailable') : t('repos.platformContainer') }}</CaomeiTag>
+                    <CaomeiTag>{{ row.executorKind === 'github-action' ? t('repos.githubAction') : row.executorKind === 'sandbox' ? t('repos.sandboxContainer') : t('repos.platformContainer') }}</CaomeiTag>
                 </template>
                 <template #cell-actions="{row}">
                     <CaomeiButton

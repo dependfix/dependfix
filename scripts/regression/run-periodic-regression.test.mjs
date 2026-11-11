@@ -5,10 +5,170 @@ import {
     PERIODIC_REGRESSION_PROFILES,
     assessRegressionLogWindow,
     buildRegressionWindowEntry,
+    buildEvidence,
+    detectIndeterminateReason,
     resolveRegressionFailureSummary,
     resolveRegressionProfile,
     summarizeRegressionRun,
 } from './run-periodic-regression.mjs'
+
+/** 与编排层同构的「未知结果标记」（生产代码内联，测试侧用同构辅助便于批量构造） */
+const mark = (results) => results.map((result) => {
+    const reason = detectIndeterminateReason(result)
+    return reason ? { ...result, indeterminate: true, indeterminateReason: reason } : result
+})
+
+describe('detectIndeterminateReason', () => {
+    const PNPM_BANNER = '$ pnpm audit --prod --audit-level=moderate --ignore-registry-errors --registry=https://registry.npmjs.org'
+    const auditResult = (overrides = {}) => ({
+        ok: true,
+        skipped: false,
+        required: true,
+        label: 'security:audit-deps',
+        output: '',
+        command: 'pnpm',
+        commandArgs: ['run', 'security:audit-deps'],
+        timeoutBudget: '10m',
+        ...overrides,
+    })
+
+    it('registry 故障 + exit 0 + 无审计结论行 → 未知（--ignore-registry-errors 吞掉故障）', () => {
+        const reason = detectIndeterminateReason(auditResult({
+            output: ' ERR_PNPM_META_FETCH_FAIL  GET https://registry.npmjs.org/-/npm/v1/security/audits: connect ETIMEDOUT',
+        }))
+        expect(reason).toContain('registry 不可达')
+        expect(reason).toContain('exit 0')
+    })
+
+    it('registry 故障 + 非 0 退出 → 未知（不误判为「有漏洞」）', () => {
+        const reason = detectIndeterminateReason(auditResult({
+            ok: false,
+            output: ' ERR_PNPM_META_FETCH_FAIL  request failed, reason: EAI_AGAIN',
+        }))
+        expect(reason).toContain('registry 不可达')
+    })
+
+    it('命令回显（含 --ignore-registry-errors 开关名）+ 真实漏洞行 + 非 0 → 可判定（不得降级为未知）', () => {
+        // pnpm run 会把整条命令回显进输出（含开关名）；把开关名当故障特征会让每次真实执行都命中
+        const reason = detectIndeterminateReason(auditResult({
+            ok: false,
+            output: `${PNPM_BANNER}\n2 vulnerabilities found\nSeverity: 1 moderate | 1 low`,
+        }))
+        expect(reason).toBeNull()
+    })
+
+    it('命令回显 + 无审计结论行 + exit 0 → 未知（回归实测形态：registry ENOTFOUND / fetch failed）', () => {
+        const reason = detectIndeterminateReason(auditResult({
+            output: `${PNPM_BANNER}\n[WARN] POST https://registry.npmjs.org/-/npm/v1/security/audits (ENOTFOUND)\nfetch failed`,
+        }))
+        expect(reason).toContain('registry 不可达')
+        expect(reason).toContain('exit 0')
+    })
+
+    it('强制着色（ANSI 包裹结论数字）+ 非 0 → 可判定（剥离转义序列后仍能识别结论行）', () => {
+        expect(detectIndeterminateReason(auditResult({
+            ok: false,
+            output: `${PNPM_BANNER}\n\u001B[31m2\u001B[39m vulnerabilities found\n[WARN] POST … (ETIMEDOUT)`,
+        }))).toBeNull()
+    })
+
+    it('registry 网络噪音 + 已取得漏洞结论 → 可判定（以结论为准，不因重试噪音降级）', () => {
+        expect(detectIndeterminateReason(auditResult({
+            ok: false,
+            output: 'request failed, reason: ETIMEDOUT\nretrying…\n2 vulnerabilities found',
+        }))).toBeNull()
+    })
+
+    it('真实审计结论（发现漏洞 → 非 0）→ 可判定（返回 null，按失败阻断）', () => {
+        expect(detectIndeterminateReason(auditResult({
+            ok: false,
+            output: '2 vulnerabilities found\nSeverity: 1 moderate | 1 low',
+        }))).toBeNull()
+    })
+
+    it('干净审计（exit 0 + 结论行）→ 可判定', () => {
+        expect(detectIndeterminateReason(auditResult({
+            output: 'No known vulnerabilities found',
+        }))).toBeNull()
+    })
+
+    it('非 audit 步骤不做未知判定', () => {
+        expect(detectIndeterminateReason(auditResult({
+            label: 'lint:check',
+            output: 'ETIMEDOUT',
+        }))).toBeNull()
+    })
+
+    it('dry-run（skipped）不做未知判定', () => {
+        expect(detectIndeterminateReason(auditResult({ skipped: true, output: 'ETIMEDOUT' }))).toBeNull()
+    })
+
+    it('真实回显形态下的漏洞失败 → 汇总为 Reject（不以 UNKNOWN 放行）', () => {
+        const results = mark([{
+            ...auditResult({
+                ok: false,
+                output: `${PNPM_BANNER}\n2 vulnerabilities found\nSeverity: 1 moderate | 1 low`,
+            }),
+        }])
+        const summary = summarizeRegressionRun({
+            logHealth: { shouldArchive: false, reasons: [], lineCount: 5, entryCount: 1, recordHeadings: [] },
+            profile: PERIODIC_REGRESSION_PROFILES.weekly,
+            results,
+        })
+        expect(summary.conclusion).not.toBe('Pass')
+        expect(summary.blockers).toHaveLength(1)
+        expect(summary.indeterminate).toEqual([])
+    })
+})
+
+describe('UNKNOWN 状态在证据与窗口中的可见性', () => {
+    const profile = PERIODIC_REGRESSION_PROFILES.weekly
+    const logHealth = { shouldArchive: false, reasons: [], lineCount: 5, entryCount: 1, recordHeadings: [] }
+    const results = mark([{
+        ok: true,
+        skipped: false,
+        required: true,
+        label: 'security:audit-deps',
+        output: 'ETIMEDOUT while contacting registry',
+        command: 'pnpm',
+        commandArgs: ['run', 'security:audit-deps'],
+        timeoutBudget: '10m',
+        durationMs: 1,
+    }])
+    const summary = summarizeRegressionRun({ logHealth, profile, results })
+
+    it('证据文档把该步骤标为 UNKNOWN 并给出原因', () => {
+        const evidence = buildEvidence({
+            artifactJsonPath: '/repo/artifacts/review-gate/x.json',
+            artifactMarkdownPath: '/repo/artifacts/review-gate/x.md',
+            logHealth,
+            mode: 'default',
+            profile,
+            projectRoot: '/repo',
+            results,
+            summary,
+        })
+        expect(evidence).toContain('结果: UNKNOWN')
+        expect(evidence).toContain('未知原因:')
+        expect(evidence).toContain('结论未知步骤: 1')
+        expect(evidence).not.toContain('结果: PASS')
+    })
+
+    it('回归窗口条目显示 UNKNOWN 而非 PASS', () => {
+        const entry = buildRegressionWindowEntry({
+            artifactJsonPath: '/repo/artifacts/review-gate/x.json',
+            artifactMarkdownPath: '/repo/artifacts/review-gate/x.md',
+            dateStr: '2026-11-10',
+            logHealth,
+            profile,
+            projectRoot: '/repo',
+            results,
+            summary,
+        })
+        expect(entry.body).toContain('security:audit-deps=UNKNOWN')
+        expect(entry.body).toContain('结论未知=1')
+    })
+})
 
 describe('resolveRegressionProfile', () => {
     it('返回 weekly 配置', () => {
@@ -131,6 +291,29 @@ describe('resolveRegressionFailureSummary', () => {
 describe('summarizeRegressionRun', () => {
     const logHealth = { shouldArchive: false, reasons: [], lineCount: 10, entryCount: 2, recordHeadings: [] }
     const profile = PERIODIC_REGRESSION_PROFILES.weekly
+
+    it('audit-deps 结论未知（registry 故障）→ warning 而非 blocker，且不计为通过', () => {
+        const results = mark([
+            {
+                ok: true,
+                skipped: false,
+                required: true,
+                label: 'security:audit-deps',
+                output: ' ERR_PNPM_META_FETCH_FAIL  request to https://registry.npmjs.org failed, reason: connect ETIMEDOUT',
+                command: 'pnpm',
+                commandArgs: ['run', 'security:audit-deps'],
+                timeoutBudget: '10m',
+            },
+        ])
+        const summary = summarizeRegressionRun({ logHealth, profile, results })
+        expect(summary.conclusion).toBe('Pass')
+        expect(summary.blockers).toEqual([])
+        expect(summary.warnings).toHaveLength(1)
+        expect(summary.warnings[0]).toContain('security:audit-deps')
+        expect(summary.warnings[0]).toContain('结论未知')
+        // 机读面暴露未知步骤（证据 / 窗口 / Job Summary 据此区分「Pass + 未查成」与真全绿）
+        expect(summary.indeterminate).toEqual(['security:audit-deps'])
+    })
 
     it('全部通过时结论为 Pass', () => {
         const results = [

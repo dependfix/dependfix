@@ -112,13 +112,17 @@ RUN pnpm config set verify-deps-before-run=false \
     && pnpm --filter @dependfix/core build \
     && pnpm --filter @dependfix/engine build \
     && pnpm --filter dependfix build \
+    && pnpm --filter dependfix build:sandbox \
     && pnpm --filter @dependfix/platform build
 
-# 阶段三：缩小（只保留运行时必需的 Nuxt 产物）
+# 阶段三：缩小（只保留运行时必需的 Nuxt 产物 + 沙箱自包含 CLI）
 FROM nodejs AS docker-minifier
 WORKDIR /app
 # .output 自带完整 node_modules（Nitro trace + 已编译 better-sqlite3），无需额外复制任何依赖树
 COPY --from=builder /app/apps/platform/.output ./.output
+# 沙箱自包含入口（bundle + skills 静态目录）：runtime 镜像不再随附 workspace node_modules，
+# SandboxExecutor 通过 `node /app/sandbox/bin.mjs` 在独立容器内跑 report-only。
+COPY --from=builder /app/packages/cli/sandbox ./sandbox
 
 # 阶段四：生产
 FROM runtime
@@ -174,6 +178,12 @@ RUN mkdir -p /app/data && chown -R dependfix:dependfix /app/data
 COPY apps/platform/docker/entrypoint.sh /usr/local/bin/dependfix-entrypoint.sh
 RUN chmod +x /usr/local/bin/dependfix-entrypoint.sh
 ENV HOME=/home/dependfix
+# 沙箱自包含入口自检（构建期 fail-closed）：无 workspace node_modules 时版本可解析、skills 目录完整
+RUN SANDBOX_VERSION="$(node /app/sandbox/bin.mjs --version)" \
+    && [ -n "$SANDBOX_VERSION" ] && [ "$SANDBOX_VERSION" != "0.0.0-unknown" ] \
+    && [ -s /app/sandbox/skills/dependfix-remediator/SKILL.md ] \
+    && [ -s /app/sandbox/skills/dependfix-remediator/REFERENCES.md ] \
+    && DEPENDFIX_SKILLS_DIR=/app/sandbox/skills node /app/sandbox/bin.mjs skills doctor
 ENTRYPOINT ["/usr/local/bin/dependfix-entrypoint.sh"]
 EXPOSE 3000
 CMD ["node", ".output/server/index.mjs"]

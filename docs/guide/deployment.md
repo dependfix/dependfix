@@ -456,4 +456,4 @@ docker compose up -d
 - **不要挂载宿主 `/var/run/docker.sock`**、不要授予容器特权（`privileged`）；执行不可信代码的进程默认非 root。
 - `AUTH_SECRET` / `NUXT_ENCRYPTION_KEY` 使用强随机值，勿提交到版本库。
 - 公网部署建议置于 HTTPS 反代之后，注册完成后关闭注册。
-- 多租户 / owner 模式扫描的 rootless sandbox 执行入口当前暂不可用（UI 禁用 / API 拒绝新写入 / 存量仓库降级到平台容器）；真实执行闭环后恢复，详见[快速开始](./quick-start.md)。
+- 多租户 / owner 模式扫描可使用 rootless sandbox 执行（仅 `report-only` 真实执行；`fix` / `fix-and-pr` 在出站白名单代理接入前降级到平台容器）。需在宿主启动 rootless Docker daemon，并只把其 unix socket（不是宿主 `/var/run/docker.sock`）挂入平台容器，详见[快速开始](./quick-start.md)。

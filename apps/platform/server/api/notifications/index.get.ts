@@ -24,7 +24,10 @@ export default defineEventHandler(async (event) => {
     }
     const { page, pageSize, category, status } = parsed.data
     const ds = await ensureDatabaseInitialized()
-    const qb = ds.getRepository(NotificationLog).createQueryBuilder('n').orderBy('n.createdAt', 'DESC')
+    // 同毫秒并列时按主键 DESC 兜底，翻页不重不漏（api.md §4 排序确定性）
+    const qb = ds.getRepository(NotificationLog).createQueryBuilder('n')
+        .orderBy('n.createdAt', 'DESC')
+        .addOrderBy('n.id', 'DESC')
     if (category) {
         qb.andWhere('n.category = :category', { category })
     }

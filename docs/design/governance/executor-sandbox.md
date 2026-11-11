@@ -1,6 +1,6 @@
 # 执行器设计与沙箱评估
 
-> 状态：✅ 设计已落地（T603 `ContainerExecutor` + M10 T1001 沙箱隔离基础设施 + M38 执行进程隔离）。⚠️ 沙箱内真实引擎执行仍为占位（`buildCmd` 回显最小 `RunResult`，见 [implementation §7.2](./executor-sandbox-implementation.md#_7-2-镜像策略)）；**平台入口已临时关闭（2026-10-27）**：UI 禁用、API 拒绝新写入、存量 `executorKind=sandbox` 扫描强制降级到 `container`（degraded `sandbox_entry_disabled`）。真实执行闭环后恢复，缺口见 [backlog](../../plan/backlog.md#候选评估中-待评估-本阶段延后项)。
+> 状态：✅ 设计已落地（T603 `ContainerExecutor` + M10 T1001 沙箱隔离基础设施 + M38 执行进程隔离）；**沙箱内真实执行已闭环（M57.1，2026-11-09）**：独立容器内运行自包含 CLI（`/app/sandbox/bin.mjs`），结果经容器内 `/tmp/result.json` + stdout 哨兵回传（无宿主挂载），**当前仅放行 `report-only`**；`fix` / `fix-and-pr` 需先接入出站白名单代理（T1002 前置），编排层降级 `container` 并记 `sandbox_fix_requires_egress_policy`。平台入口（UI / API / 路由）已于 2026-11-09 恢复。
 > 背景决策见 [M6 规划决策](../../plan/archive/todo-archive-phases-m6-m7-t711.md#m6-最小平台-mvp-已归档)（Q1 执行深度 A/B 双模式、Q4 沙箱=A、Q5 Action 触发=B）。
 > **安全评估（2026-08-14）**：评估结论、治理决议与不可简化的安全基线见 [沙箱与恶意依赖防护治理](./sandbox-security-governance.md)；本文档 §2.2 的 M6 缓解——USER 降权已修复（C38，2026-08-14）、外联日志已实现（C40/T805，2026-08-14），登记 [backlog C38/C40](../../plan/backlog.md)。
 > **A 模式 push + PR 闭环（2026-08-20，C53 实施）**：A 模式 fix / fix-and-pr 完成后新增推送修复分支到远程 + 创建 PR 两条链路，结束了 M6 阶段"修复结果仅在本地临时目录"问题；新的状态机 dispatched 语义（PR 失败但分支已推）、runUrl 兜底为 branch URL、workDir 保留 24h 供诊断 由分片 [executor-sandbox-implementation.md §8](./executor-sandbox-implementation.md) 记录。
@@ -19,7 +19,7 @@
 | GitHub Action（`ActionTriggerExecutor`） | GitHub 托管环境 | 目标仓库自带（action.yml 引用） | ✅ 触发实现（T607）+ 结果回填（C25） | 保留 |
 | 本地临时目录（`LocalExecutor`） | 无隔离（开发调试用） | 宿主工具链 | —（仅开发） | — |
 
-> 上表 M6 / M7 列为规划期快照；`SandboxExecutor` 的隔离基础设施已于 M10 T1001 落地，但沙箱内真实引擎执行仍为占位（`buildCmd` 回显最小 `RunResult`，见 [implementation §7.2](./executor-sandbox-implementation.md#_7-2-镜像策略)）；平台入口已于 2026-10-27 临时关闭（UI / API / 路由三处），真实执行闭环后恢复。
+> 上表 M6 / M7 列为规划期快照；`SandboxExecutor` 的隔离基础设施已于 M10 T1001 落地，真实执行已于 M57.1 闭环（自包含 CLI + report-only；fix / fix-and-pr 待出站白名单代理接入后放行）。
 
 ---
 
@@ -50,6 +50,8 @@ dependfix 的核心动作是**升级第三方依赖**，本质是"拉取并执�
 | 资源耗尽 | 中 | 子进程超时（默认 30 分钟可配）+ 磁盘配额随数据卷 | cgroup 内存/CPU 限制 |
 | 提权逃逸 | 低（单租户自托管） | 非 root + 不挂载 docker.sock + 容器只读部分 | 独立容器 + seccomp/apparmor 加固 |
 
+> **sandbox report-only 网络例外（2026-11-09）**：sandbox 的 report-only 固定 `--network bridge` 访问 GitHub API（不 clone / 不执行目标仓库代码），未接入下方出站白名单；fix / fix-and-pr 在代理接入前降级 `container`。偏离登记见 [sandbox-security-governance.md §7.1](./sandbox-security-governance.md#_7-1-m57-1-沙箱真实执行安全基线核验-2026-11-09)。
+>
 > **M6 结论**：平台容器即沙箱（进程级隔离）可接受——单租户自托管场景下威胁模型以"恶意依赖脚本"为主，通过非 root + 临时目录 + 凭据最小化 + 超时四项缓解即可达安全基线；更高隔离（网络出站限制、每任务容器）登记 backlog C26，M7 随 BullMQ worker 模型实现。
 >
 > **⚠️ 2026-08-14 评估修正**：M6 四项缓解中的"非 root 运行（镜像 `USER` 降权）"**已修复（C38，2026-08-14）**——entrypoint 降权方案（dependfix 用户 uid 100 + chown 数据卷 + su-exec），本地实证通过；"记录执行期外联日志"未实现——登记 C40。C26 独立沙箱提级为 M7 前置（并发共享容器交叉污染，见 [治理文档 §3 路径 D](./sandbox-security-governance.md)）。**实证补充**：容器内 git/pnpm 工具链从未安装（本文档声称"平台镜像内置 git/node/pnpm"与实际不符，仅 node 存在）——**已修复（C45/T801，2026-08-14）**：git + pnpm 11.18.0 + workspace node_modules 打包，容器内 fix 全链路实证通过。**2026-10-02 更新**：runtime 镜像改为只保留 Nuxt `.output`——Nitro trace 自带 `.output/server/node_modules`（含 better-sqlite3 musl prebuild），`@dependfix/engine` 已打包进 `.output/server/chunks`，故不再复制 workspace `node_modules` / dist；容器内执行（`DependfixApp` 程序化路径）仍完整可用，镜像体积显著下降（对齐 momei / caomei-auth 的 `.output`-only 形态）。

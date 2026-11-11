@@ -83,4 +83,35 @@ describe('GET /api/batch-runs', () => {
         const ts = updatedAt instanceof Date ? updatedAt.getTime() : new Date(updatedAt as string).getTime()
         expect(Number.isFinite(ts) && ts > 0).toBe(true)
     })
+
+    it('keeps order stable on identical createdAt and caps the window at 50 rows', async () => {
+        const ds = await ensureDatabaseInitialized()
+        const organizationId = await resolveOrganizationId(ds)
+        const repo = ds.getRepository(BatchRun)
+        const tieTime = new Date('2026-05-01T00:00:00.000Z')
+        const seeded: string[] = []
+        // 52 行完全并列 → 截断窗口必须固定取 id 最大的 50 行（最小 2 行被截掉）
+        for (let i = 0; i < 52; i++) {
+            const row = await repo.save(repo.create({
+                organizationId,
+                source: 'manual',
+                mode: 'report-only',
+                severityThreshold: 'all',
+                repositoryCount: 1,
+                status: 'completed',
+                createdAt: tieTime,
+            }))
+            seeded.push(row.id)
+        }
+        const newestFirst = [...seeded].reverse()
+        const ids = (await call('GET', '/api/batch-runs') as { id: string }[]).map((row) => row.id)
+        expect(ids).toHaveLength(50)
+        expect(ids).toEqual(newestFirst.slice(0, 50))
+
+        // 重复查询顺序一致；被截断的两行不因数据库返回顺序浮上来
+        const again = (await call('GET', '/api/batch-runs') as { id: string }[]).map((row) => row.id)
+        expect(again).toEqual(ids)
+        expect(ids).not.toContain(seeded[0])
+        expect(ids).not.toContain(seeded[1])
+    })
 })

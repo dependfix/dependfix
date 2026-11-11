@@ -13,6 +13,7 @@ import path from 'node:path'
 
 const REGRESSION_WINDOW_RELATIVE_PATH = path.join('artifacts', 'regression', 'current.md')
 const FIRST_RECORD_HEADING_PATTERN = /^## \d{4}-\d{2}-\d{2} /mu
+const FIRST_MANAGED_BLOCK_MARKER = '<!-- regression-window:start:'
 
 /**
  * 转义正则表达式特殊字符
@@ -62,6 +63,30 @@ export function toPosixRelativePath(fromFilePath, toFilePath) {
 }
 
 /**
+ * 计算新记录块的插入位置（顶层，永不落在上一条记录的受管块内部）。
+ *
+ * 受管块以 `<!-- regression-window:start:<id> -->` 开头、其 `## YYYY-MM-DD` 标题在块**内部**：
+ * 只按「第一条 `## ` 标题」定位会把新块插进上一条记录的 start / end 标记之间（嵌套污染受管块）。
+ * 故取「首个受管块 start 标记」与「首个日期标题」中更早的一个作为插入点。
+ * @param {string} content - 当前文件内容
+ * @returns {number} 插入位置（-1 表示文件内无记录标题，应追加到末尾）
+ */
+function findInsertionIndex(content) {
+    const firstRecordMatch = FIRST_RECORD_HEADING_PATTERN.exec(content)
+    const firstManagedIndex = content.indexOf(FIRST_MANAGED_BLOCK_MARKER)
+
+    if (firstManagedIndex === -1) {
+        return firstRecordMatch ? firstRecordMatch.index : -1
+    }
+
+    if (!firstRecordMatch) {
+        return firstManagedIndex
+    }
+
+    return Math.min(firstRecordMatch.index, firstManagedIndex)
+}
+
+/**
  * 更新或插入回归日志窗口内容
  * @param {string} content - 当前文件内容
  * @param {object} entry - 回归记录条目
@@ -82,17 +107,16 @@ export function upsertRegressionWindowContent(content, entry) {
         return `${nextContent.replace(markerPattern, `${block}\n`).trimEnd()}\n`
     }
 
-    // 查找第一条记录的位置
-    const firstRecordMatch = FIRST_RECORD_HEADING_PATTERN.exec(nextContent)
+    const insertionIndex = findInsertionIndex(nextContent)
 
     // 如果没有找到记录，则追加到文件末尾
-    if (!firstRecordMatch) {
+    if (insertionIndex === -1) {
         return `${nextContent}\n\n${block}\n`
     }
 
-    // 在第一条记录之前插入新记录
-    const before = nextContent.slice(0, firstRecordMatch.index).trimEnd()
-    const after = nextContent.slice(firstRecordMatch.index).trimStart()
+    // 在第一条记录（或其受管块标记）之前插入新记录
+    const before = nextContent.slice(0, insertionIndex).trimEnd()
+    const after = nextContent.slice(insertionIndex).trimStart()
 
     return `${before}\n\n${block}\n\n${after}`
 }

@@ -137,13 +137,13 @@ describe('POST /api/runs/[id]/retry', () => {
         expect(response).toMatchObject({ id: 'retry-run-1', retriedFromRunId: 'source-run' })
     })
 
-    it('normalizes legacy sandbox source to container (entry disabled)', async () => {
+    it('preserves sandbox executorKind on retry (entry restored; fix degrades in orchestrator)', async () => {
         const run = await makeRun({ executorKind: 'sandbox' })
         await call(run.id)
 
         expect(triggerMock.triggerScanForRepository).toHaveBeenCalledWith(
             repositoryId,
-            { mode: 'fix', severityThreshold: 'high', executorKind: 'container' },
+            { mode: 'fix', severityThreshold: 'high', executorKind: 'sandbox' },
             { retriedFromRunId: run.id, triggeredByUserId: 'u1' },
         )
     })

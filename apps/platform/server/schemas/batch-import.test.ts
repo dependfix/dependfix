@@ -35,11 +35,11 @@ describe('batch import schema', () => {
         expect(ok.success).toBe(true)
     })
 
-    it('sandbox 执行器已临时关闭 → 拒（与单仓库入口一致）', () => {
-        const bad = batchImportSchema.safeParse({
+    it('sandbox 执行器可导入（入口已恢复）', () => {
+        const ok = batchImportSchema.safeParse({
             repos: [{ owner: 'o', name: 'r', executorKind: 'sandbox' }],
         })
-        expect(bad.success).toBe(false)
+        expect(ok.success).toBe(true)
     })
 
     it('空数组拒绝、超过 100 个拒绝', () => {

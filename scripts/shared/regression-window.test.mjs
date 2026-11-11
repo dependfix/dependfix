@@ -112,6 +112,54 @@ describe('upsertRegressionWindowContent', () => {
         expect(result).toContain('内容')
         expect(result).not.toMatch(/内容\s{3,}/)
     })
+
+    it('已有受管块时新记录插入到其 start 标记之前（不嵌套进上一条记录）', () => {
+        const existing = [
+            '# 周期性回归日志窗口',
+            '',
+            '<!-- regression-window:start:periodic-regression:weekly:2026-11-09 -->',
+            '## 2026-11-09 周级周期性回归（自动回填）',
+            '',
+            '旧内容',
+            '',
+            '<!-- regression-window:end:periodic-regression:weekly:2026-11-09 -->',
+        ].join('\n')
+        const nextEntry = { id: 'periodic-regression:weekly:2026-11-10', title: '2026-11-10 周级周期性回归（自动回填）', body: '新内容' }
+
+        const result = upsertRegressionWindowContent(existing, nextEntry)
+
+        // 新块整体位于旧块 start 标记之前 → 顶层，旧块标记成对且内容零改动
+        const newBlockEnd = result.indexOf('<!-- regression-window:end:periodic-regression:weekly:2026-11-10 -->')
+        const oldBlockStart = result.indexOf('<!-- regression-window:start:periodic-regression:weekly:2026-11-09 -->')
+        expect(newBlockEnd).toBeGreaterThan(-1)
+        expect(newBlockEnd).toBeLessThan(oldBlockStart)
+        // 每个 start 标记在其 end 标记之前，且两两不交叉
+        const starts = [...result.matchAll(/<!-- regression-window:start:([^ ]+) -->/gu)].map((m) => m[1])
+        const ends = [...result.matchAll(/<!-- regression-window:end:([^ ]+) -->/gu)].map((m) => m[1])
+        expect(starts).toEqual(['periodic-regression:weekly:2026-11-10', 'periodic-regression:weekly:2026-11-09'])
+        expect(ends).toEqual(starts)
+        expect(result).toContain('旧内容')
+        expect(result.indexOf('旧内容')).toBeGreaterThan(oldBlockStart)
+    })
+
+    it('连续写入两个新记录 → 后者为顶层且内容位于前一条之前', () => {
+        const first = upsertRegressionWindowContent('# 周期性回归日志窗口\n', {
+            id: 'periodic-regression:weekly:2026-11-09',
+            title: '2026-11-09 周级周期性回归（自动回填）',
+            body: '第一条',
+        })
+        const second = upsertRegressionWindowContent(first, {
+            id: 'periodic-regression:weekly:2026-11-10',
+            title: '2026-11-10 周级周期性回归（自动回填）',
+            body: '第二条',
+        })
+        // 新记录在文件顶部（仅位于全局标题之后），旧记录完整保留在下方
+        expect(second.indexOf('第二条')).toBeLessThan(second.indexOf('第一条'))
+        expect(second.match(/^## /gmu)).toHaveLength(2)
+        // 受管块不交叉：第二条的 end 在第一条的 start 之前
+        expect(second.indexOf('<!-- regression-window:end:periodic-regression:weekly:2026-11-10 -->'))
+            .toBeLessThan(second.indexOf('<!-- regression-window:start:periodic-regression:weekly:2026-11-09 -->'))
+    })
 })
 
 describe('toPosixRelativePath', () => {

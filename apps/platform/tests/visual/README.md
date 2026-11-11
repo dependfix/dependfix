@@ -85,7 +85,7 @@
   - **纵向溢出**：`settings` 整页为 1440×1473（两张卡片位于 900 视口线以下），靠 `fullPage` 拼接覆盖；实测无粘性元素重复与懒加载区块，故不使用 `data-visual-mask`。与 `alerts` 的**横向**溢出边界（整页基线只覆盖左端 + `alerts-right-*` 补拍）是两类不同处理。
 - **浮层落点页（M45.5，light 4 张 + dark 1 张）**——均按视口级截图覆盖「页面 + 遮罩 + 浮层」的合成结果：
   - `schedules-form-layer-<theme>.png`：定时计划「新建计划」弹窗 + 业务类型 Select 的**门户面板展开态**。表单的 cron 预览是「当前时刻 + cron」派生值（逐日/逐周变化），已在 `schedules.vue` 标 `data-visual-mask`（遮蔽块入基线）；其余字段与提示文案静态。
-  - `scans-run-detail-light.png`：`/scans?run=` 深链触发的 `repo-history-dialog`（`scans.vue` 唯一弹窗落点）。该视图**不渲染运行元信息块**（id / 时间 / 时长），内容主体是结果表——故运行 ID 与时间戳不是本基线的检查面，时间列由底图运行列表覆盖。
+  - `scans-run-detail-light.png`：`/scans?run=` 深链触发的 `repo-history-dialog`（`scans.vue` 唯一弹窗落点）。该视图**不渲染运行元信息块**（id / 时间 / 时长），内容主体是结果表——故运行 ID 与时间戳不是本基线的检查面，时间列由底图运行列表覆盖。**重建记录（2026-11-10）**：结果明细补并列次键 `severity ASC, id DESC`（api.md §4）后，同 severity 组内行序反转，包名 / 来源 / 可修复 / 推荐版本与等级徽章均不变；旧基线检出 2065 px（ratio 0.01）差异，属预期行序变更，故同批重建（重建后连跑两遍通过）。
   - `alerts-run-drawer-light.png`：`alert-run-sidebar` 的 `CaomeiDrawer` 展开态（右侧滑入面板 + 遮罩）。
   - `pr-checks-toast-light.png`：`CaomeiToastProvider` 的门户轻提示，由「立即检查」在监测未启用时触发（视觉环境未设 `ACTION_STATUS_MONITOR_ENABLED` → 端点返回 `skipped`，**不触网、不改库**，故可与其它用例同批串行）。
 

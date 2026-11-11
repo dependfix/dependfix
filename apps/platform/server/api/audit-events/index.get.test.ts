@@ -163,6 +163,31 @@ describe('GET /api/audit-events', () => {
         await expectError(call('/api/audit-events?from=2099-01-01T00:00:00Z&to=2020-01-01T00:00:00Z'), 400)
     })
 
+    it('breaks createdAt ties by id DESC (stable take(500) window)', async () => {
+        const ds = await ensureDatabaseInitialized()
+        const repo = ds.getRepository(AuditEvent)
+        const tieTime = new Date('2020-06-01T00:00:00.000Z')
+        const seedTie = () => repo.save(repo.create({
+            type: 'sandbox_degraded',
+            severity: 'warn',
+            payloadJson: null,
+            notified: false,
+            notifiedVia: null,
+            createdAt: tieTime,
+        }))
+        const older = await seedTie()
+        const newer = await seedTie()
+
+        // 用时间区间隔离本用例自建的两行（同毫秒），断言主键倒序
+        const query = '/api/audit-events?from=2020-06-01T00:00:00Z&to=2020-06-02T00:00:00Z'
+        const list = await call(query) as Record<string, unknown>[]
+        expect(list.map((e) => e.id)).toEqual([newer.id, older.id])
+
+        // 重复查询顺序一致（不依赖数据库返回顺序）
+        const again = await call(query) as Record<string, unknown>[]
+        expect(again.map((e) => e.id)).toEqual([newer.id, older.id])
+    })
+
     // viewer 必须 403
     it('rejects viewer role with 403', async () => {
         vi.mocked((await import('#server/utils/guard')).requireRole).mockImplementationOnce(

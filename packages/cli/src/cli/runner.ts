@@ -48,12 +48,13 @@ async function runApp(rawArgs: string[]): Promise<number> {
 
 /**
  * 解析 CLI 版本：发布产物（dist/index.mjs）读 `../package.json`，源码运行
- * （src/cli/runner.ts）读 `../../package.json`；只接受包名匹配的 JSON，避免误读。
+ * （src/cli/runner.ts）读 `../../package.json`，沙箱自包含产物（sandbox/bin.mjs）
+ * 读同目录 `./package.json`；只接受包名匹配的 JSON，避免误读。
  * 不允许硬编码版本——否则 release 后 `--version` 会与 npm 包版本脱节。
  */
 function resolveCliVersion(): string {
     const require = createRequire(import.meta.url)
-    for (const specifier of ['../package.json', '../../package.json']) {
+    for (const specifier of ['./package.json', '../package.json', '../../package.json']) {
         try {
             const pkg = require(specifier) as { name?: string, version?: string }
             if (pkg?.name === 'dependfix' && pkg.version) {

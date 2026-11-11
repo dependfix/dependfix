@@ -311,48 +311,47 @@ test.describe('仓库管理 CRUD', () => {
         // /api/repos 单测已覆盖分页契约
     })
 
-    test('sandbox 入口临时关闭：新增不可选 + 存量编辑自动迁移', async ({ page }) => {
+    test('sandbox 入口已恢复：新增可选 + 编辑保持 sandbox', async ({ page }) => {
         const stamp = Date.now()
         const owner = `repos-sandbox-${stamp}`
         const cookieHeader = await authedCookieHeader(page)
 
-        // 生产 API 已拒绝 sandbox；用 e2e fixtures 注入存量仓库（仅测试端点，绕过生产 schema）
-        const fixtureRes = await page.request.post('/api/e2e/fixtures', {
+        // 生产 API 接受 sandbox（入口恢复；仅 report-only 真实执行）
+        const created = await page.request.post('/api/repos', {
             headers: { cookie: cookieHeader, origin: 'http://127.0.0.1:3101' },
-            data: { repos: [{ owner, name: 'app', executorKind: 'sandbox' }] },
+            data: {
+                owner,
+                name: 'app',
+                platform: 'github',
+                packageManager: 'pnpm',
+                defaultBranch: 'main',
+                executorKind: 'sandbox',
+            },
         })
-        expect(fixtureRes.ok()).toBe(true)
+        expect(created.ok()).toBe(true)
 
         await page.goto('/repos')
         await waitForHydration(page)
         const row = page.locator('.caomei-data-table__row', { hasText: owner })
         await expect(row).toBeVisible({ timeout: 15000 })
-        // 存量 sandbox 在列表标注暂不可用
-        await expect(row).toContainText('独立沙箱容器（暂不可用）')
+        await expect(row).toContainText('独立沙箱容器')
 
-        // 编辑：自动迁移为平台容器 + 提示；保存后 API 持久化为 container
+        // 编辑：执行方式保持 sandbox（不再自动迁移 container）
         await row.locator('button[aria-label="编辑"]').click()
         await expect(page.locator('.caomei-dialog__header')).toContainText('编辑仓库', { timeout: 15000 })
-        await expect(page.locator('#executorKind')).toContainText('平台容器')
-        await expect(page.locator('.caomei-dialog__content')).toContainText('该仓库原使用独立沙箱容器，当前暂不可用；保存后将改为平台容器。')
+        await expect(page.locator('#executorKind')).toContainText('独立沙箱容器')
         const putRequest = page.waitForRequest((req) => req.method() === 'PUT' && req.url().includes('/api/repos/'))
         await page.locator('.caomei-dialog__content button:has-text("保存")').click()
         const putBody = (await putRequest).postDataJSON() as { executorKind?: string }
-        expect(putBody.executorKind).toBe('container')
+        expect(putBody.executorKind).toBe('sandbox')
         await expect(page.locator('.caomei-message--success')).toContainText('仓库已更新', { timeout: 15000 })
 
-        const reposRes = await page.request.get('/api/repos', {
-            headers: { cookie: cookieHeader, origin: 'http://127.0.0.1:3101' },
-        })
-        const repos = await reposRes.json() as { owner: string, executorKind: string }[]
-        expect(repos.find((item) => item.owner === owner)?.executorKind).toBe('container')
-
-        // 新增：sandbox 选项 disabled，不能选择
+        // 新增：sandbox 选项可选择（不再 disabled）
         await page.locator('button:has-text("添加仓库")').click()
         await expect(page.locator('.caomei-dialog__header')).toContainText('添加仓库', { timeout: 15000 })
         await page.locator('#executorKind').click()
-        const sandboxOption = page.getByRole('option', { name: '独立沙箱容器（暂不可用）' })
-        await expect(sandboxOption).toHaveAttribute('aria-disabled', 'true')
+        const sandboxOption = page.getByRole('option', { name: '独立沙箱容器' })
+        await expect(sandboxOption).not.toHaveAttribute('aria-disabled', 'true')
     })
 })
 

@@ -28,7 +28,7 @@ Nuxt 4（全栈 SSR + API Routes，`app/` + `server/`）/ TypeScript strict / UI
 - `synchronize` / `migrationsRun` 全场景显式 opt-in（含 dev / test）；启动期日志打印两值与各自 env；初始化失败不抛致命错误（告警 + 功能降级）；幂等单例 + 并发初始化锁。
 - **迁移必须前缀感知 + 幂等**：统一用 `migration-helpers.ts`（`resolveTableName` 前缀回退 + `addColumnIfMissing` / `dropColumnIfExists` / `createIndexIfMissing`），并配「两种前缀 / 同时存在 / up-down 幂等 / 表缺失」用例；`queryRunner.connection` 已 deprecated，改用 `queryRunner.dataSource`。
 - **基线迁移与空库自举**：首条迁移从实体元数据建全部基础表 / 索引 / 外键（前缀感知 + 跨方言 + 幂等，存量库整表跳过）；全新部署走 `pnpm db:init` 或 compose 默认 `DATABASE_MIGRATIONS_RUN=true`。⚠️ **任何列 / 表变更必须编写独立迁移**——基线由元数据生成，漏写会让全新库 / CI 全绿而存量库永久缺列。**且新迁移类必须登记进 `createDataSourceOptions().migrations` 数组**（唯一登记点；未登记则生产 `DATABASE_MIGRATIONS_RUN=true` + `synchronize=false` 路径永不执行，存量库永久缺列；防护见 `server/database/migrations/migrations-registry.test.ts` 的登记一致性与存量库真实迁移链用例）。
-- **启动期 schema 漂移检测（2026-11-09 存量库缺列事故）**：`ensureDatabaseInitialized` 在 DataSource 初始化后调用 `checkSchemaDrift`（`server/database/schema-drift.ts`），比对实体元数据（普通列 + 关系外键列，含 `entityPrefix`）与实库表 / 列；缺失时输出 `[database] schema 漂移：缺 N 张表 / M 列` 的 ERROR 日志并把 `/api/health` 的 `schema` 置为 `drift`。**跳过条件**：`synchronize=true`（TypeORM 自行补 schema）与队列 worker 进程（不执行迁移，启动早于 HTTP 主进程）；检测自身失败 fail-open（状态 `unknown`，仅告警）。**检测只告警不阻断启动**——阻断语义会让「漏迁移」直接变成不可用，恢复路径以 [deployment.md「schema 漂移恢复清单」](../guide/deployment.md#schema-漂移恢复清单-no-such-column) 为准。
+- **启动期 schema 漂移检测**：启动时只读比对实体元数据与实库表 / 列，缺失时打 ERROR 并把 `/api/health` 的 `schema` 置为 `drift`；`synchronize=true` 与 worker 进程跳过、检测失败 fail-open（`unknown`）。**只告警不阻断启动**，恢复路径见 [deployment.md「schema 漂移恢复清单」](../guide/deployment.md#schema-漂移恢复清单-no-such-column)。
 
 - **3.4 实体规范**：继承 `BaseEntity`（雪花 ID + `getDateType()` 时间戳）；属性名 camelCase，列名由 `SnakeCaseNamingStrategy` 转 snake_case；better-auth 四表（`user` / `session` / `account` / `verification`）字段对齐默认 schema，**不得增删**，平台自有字段（如 `role`）经 `user.additionalFields` 声明并同步实体；跨库类型归一（SQLite `bigint` → `integer`；PG `bigint` → `integer`、长文本 → `text`），实体写法须保持三后端可编译。
 - **3.5 TypeORM 查询模式**：`find()` **不支持嵌套路径 order by**（仅顶层字段，否则抛 `EntityPropertyNotFoundError`），「按关联实体字段排序」一律用 QueryBuilder（`leftJoinAndSelect` + `orderBy` / `addOrderBy`）；统一代码路径优先，同一查询不并存 `find` 与 QueryBuilder 两条路径。
@@ -39,7 +39,7 @@ Nuxt 4（全栈 SSR + API Routes，`app/` + `server/`）/ TypeScript strict / UI
 
 - fixtures handler **默认无节流 / debounce / rate-limit**，依赖调用方（`tests/e2e/global-setup.ts` 与各 suite）顺序串行调用；调用频次低（global-setup ≤ 2 次），不存在并发资源竞态。**触发条件**：CI 偶现 fixtures DELETE 502/503 + 资源释放竞态时，先复现再启用轻量节流（`server/utils/fixtures-throttle.ts`，100ms；超限 429），不加复杂锁。
 
-- **3.8 仓库级自定义验证命令（verifyCommands，M32.1 C76）**：`Repository.verifyCommands`（text 列，JSON 数组字符串）声明该仓库验证命令链，覆盖引擎默认链，语义与 CLI `--commands` 对齐（空数组 / null 走默认链）。**单一事实源链路**：存储 `server/entities/repository.ts`（`parseVerifyCommands` 容错）→ 校验 `server/schemas/repository.ts`（≤ 20 条 / 每条非空且 ≤ 500 字符 / 禁换行与控制字符）→ 写入口 `POST /api/repos` + `PUT /api/repos/[id]`（`undefined` 不改 / `null` 或 `[]` 清空）→ 审计 `repository-audit.ts`（仅实际变化时记 `verify_commands_update`）→ 执行 `scan-orchestrator` → `ContainerExecutor` → 引擎 `{ commands }`。**安全边界（hard requirement）**：该字段等价于远程命令执行面（引擎以 `spawn(command, { shell: true })` 执行，不做脚本存在性校验）；写操作走 `requireRole(['admin', 'org_admin'])`（viewer 403）；变更登记 `AuditEvent`（审计失败仅日志不阻断保存）；**不**提供自由 shell 会话、**不**放宽单命令超时、**不**得当作沙箱已缓解该风险（`sandbox-executor.ts` 为最小占位；2026-10-27 起 sandbox 入口临时关闭——UI 禁用 / API 拒绝新写入 / 存量仓库强制降级 `container` + degraded，本配置仅对容器执行器生效）。**UI** 为仓库新增 / 编辑弹窗 `repo-form-dialog.vue`（多行文本一行一条）；review 检查点已由 code-auditor 必查项「修复执行安全基线」+「shell 命令安全」覆盖。
+- **3.8 仓库级自定义验证命令（verifyCommands，M32.1 C76）**：`Repository.verifyCommands`（text 列，JSON 数组字符串）声明该仓库验证命令链，覆盖引擎默认链，语义与 CLI `--commands` 对齐（空数组 / null 走默认链）。**单一事实源链路**：存储 `server/entities/repository.ts`（`parseVerifyCommands` 容错）→ 校验 `server/schemas/repository.ts`（≤ 20 条 / 每条非空且 ≤ 500 字符 / 禁换行与控制字符）→ 写入口 `POST /api/repos` + `PUT /api/repos/[id]`（`undefined` 不改 / `null` 或 `[]` 清空）→ 审计 `repository-audit.ts`（仅实际变化时记 `verify_commands_update`）→ 执行 `scan-orchestrator` → `ContainerExecutor` → 引擎 `{ commands }`。**安全边界（hard requirement）**：该字段等价于远程命令执行面（引擎以 `spawn(command, { shell: true })` 执行，不做脚本存在性校验）；写操作走 `requireRole(['admin', 'org_admin'])`（viewer 403）；变更登记 `AuditEvent`（审计失败仅日志不阻断保存）；**不**提供自由 shell 会话、**不**放宽单命令超时、**不**得当作沙箱已缓解该风险（`SandboxExecutor` 自 2026-11-09 起仅放行 report-only 真实执行，fix / fix-and-pr 降级 `container`；本配置仅对容器执行器生效）。**UI** 为仓库新增 / 编辑弹窗 `repo-form-dialog.vue`（多行文本一行一条）；review 检查点已由 code-auditor 必查项「修复执行安全基线」+「shell 命令安全」覆盖。
 - **3.9 目标仓库配置文件 `.github/dependfix.yml`（C85）**：目标仓库自声明配置（与 `dependabot.yml` 同范式），首批仅 `overrideProtect`；读取 / 合并 / 降级矩阵以 [依赖升级修复器 §12.7](../design/modules/dependency-fixer-records.md) 为唯一权威，本节只记平台侧接线。**平台侧无需额外接线**（`container-executor.ts` 在 fix / fix-and-pr 下先 clone 再构造引擎实例，引擎构造期读取 `<workDir>/.github/dependfix.yml`；报告模式（report-only）不 clone、不 commit → 行为不变）；**不提供 UI 入口**（随目标仓库走，平台不落库、不暴露表单，与 3.8 的「平台字段」形态刻意区分）；**中央优先**（平台透传的中央 `overrideProtect`（env / CLI）一旦指定，目标仓库声明即整体被忽略）；**可观测性**（生效 / 被中央覆盖 / 降级告警均写引擎日志，平台 `MemoryLogger` 捕获并展示在执行日志；命中保护记 `OVERRIDE_PROTECTED`，见 [override-protect-policy.md](../design/governance/override-protect-policy.md)）；**review 检查点挂接**——「中央优先（防绕过）」与「不提供 UI 入口」两条已挂 [review 检查点矩阵](../../.github/skills/code-reviewer/references/code-quality-checklist.md#规范条款-review-检查点矩阵-严格约束逐条挂接)。
 
 ## 4. 认证规范（better-auth）
@@ -78,9 +78,9 @@ Nuxt 4（全栈 SSR + API Routes，`app/` + `server/`）/ TypeScript strict / UI
 ### 6.3 仓库级跨大版本升级授权（`allowMajorUpgrade`）
 
 - **默认关闭**：跨 major 告警记 `alertsSkippedByReason['cross-major']` 并按人工处理披露；不得混淆「开关未开」与「准入不满足」。
-- **开启后的准入**：仅「根 manifest 直接依赖 + lockfile 单版本」的告警进入升级链；间接依赖与多版本共存维持人工。升级仍走完整验证链，失败自动回滚。
-- **配置面**：平台仓库级开关（默认关）；运行期 `NUXT_PUBLIC_ALLOW_MAJOR_UPGRADE_DEFAULT`（构建期 `ALLOW_MAJOR_UPGRADE_DEFAULT`，仅构建时生效）把**新建仓库**默认设为开启，既有仓库不变。写入 `admin` / `org_admin`，仅实际变化时登记 `major_upgrade_policy_update` 审计。**不新增**引擎 CLI / Action / env 隐式通道。
-- **可观测**：仓库视图返回开关状态；运行摘要的 `cross-major` 计数与人工标签表达「被跳过」；日志在授权开启但准入不满足时输出 `require a cross-major upgrade ... manual review`。
+- **准入**：仅「根 manifest 直接依赖 + lockfile 单版本」进入升级链，间接依赖 / 多版本共存维持人工；升级仍走完整验证链，失败自动回滚。
+- **配置面**：`NUXT_PUBLIC_ALLOW_MAJOR_UPGRADE_DEFAULT`（构建期 `ALLOW_MAJOR_UPGRADE_DEFAULT`）只影响**新建仓库**；写入需 admin / org_admin，变化记 `major_upgrade_policy_update`；**不新增**引擎 CLI / Action / env 隐式通道。
+- **可观测**：仓库视图返回开关状态；运行摘要 `cross-major` 计数与人工标签表达「被跳过」，已授权但准入不满足时日志输出 `require a cross-major upgrade ... manual review`。
 
 ## 7. 前端规范（app/）
 
@@ -170,6 +170,7 @@ Nuxt 4（全栈 SSR + API Routes，`app/` + `server/`）/ TypeScript strict / UI
 - **env 口径**：Nuxt runtimeConfig 运行时覆盖只认 `NUXT_` 前缀（容器需 `NUXT_IN_PROCESS_WORKER`）；`.env.example` 的无前缀名只是 compose 插值源，直接注入容器无效。
 
 - **10.5 队列锁参数显式化与锁问题观测**：in-process Worker **必须**显式配置 `lockDuration`（取平台执行封顶 `resolveExecutionCeilingMs()`）/ `lockRenewTime`（取其一半），并注册 `stalled` / `lockRenewalFailed` / `error` 事件输出结构化日志。取值理由、载荷字段与同根因去重口径见 [executor-process-isolation.md §9.1](../design/governance/executor-process-isolation.md#_9-1-队列锁参数与观测)。
+- **编排层终态写回**：须按 [development.md §5.1.36](development.md) 条件更新（不得整行 `save`）；`affected = 0` 时保留库内终态、跳过通知并记 `run_terminal_write_skipped`，设计与残余见 [queue-stale-recovery.md](../design/governance/queue-stale-recovery.md)。
 
 ### 10.6 队列执行进程隔离（独立 worker 进程）
 

@@ -46,7 +46,17 @@ jobs:
       # 平台 server 代码 import dependfix、@dependfix/core、@dependfix/engine 的 dist 类型声明（Nuxt tsconfig 不映射 workspace 源码）：
       # CI 中 pnpm i 不构建 workspace 包，必须先构建 core+engine+cli 否则 lint/typecheck 类型解析失败
       # （本地开发因存在 dist 不触发；顺序与 Dockerfile 的 core → engine → cli → platform 一致）
-      - run: pnpm --filter @dependfix/core build && pnpm --filter @dependfix/engine build && pnpm --filter dependfix build
+      - run: pnpm --filter @dependfix/core build && pnpm --filter @dependfix/engine build && pnpm --filter dependfix build && pnpm --filter dependfix build:sandbox
+      # 沙箱自包含入口冒烟（不依赖 workspace node_modules）：复制 bundle 到临时目录后运行版本与 skills doctor，
+      # 防止 bundle 漏内联依赖 / skills 静态目录缺失一路绿灯合入（部署期才暴露）。
+      - name: Smoke sandbox self-contained bundle
+        run: |
+          SANDBOX_DIR="$(mktemp -d)"
+          cp -r packages/cli/sandbox/. "$SANDBOX_DIR"
+          SANDBOX_VERSION="$(node "$SANDBOX_DIR/bin.mjs" --version)"
+          [ -n "$SANDBOX_VERSION" ] && [ "$SANDBOX_VERSION" != "0.0.0-unknown" ]
+          cd "$SANDBOX_DIR"
+          DEPENDFIX_SKILLS_DIR="$SANDBOX_DIR/skills" node "$SANDBOX_DIR/bin.mjs" skills doctor
       - run: pnpm run lint:check
       - run: pnpm run lint:css:check
       # i18n 校验：lint:i18n 单独执行（@intlify/vue-i18n 规则较慢，不并入常规 lint）；
@@ -104,6 +114,11 @@ jobs:
       # 自指面：本文件为 yml，不在脚本扫描面内，新增注释不参与判定。
       # 阻断强度：workflow 级阻断信号（仓库未配置 required status checks，与 visual job 同口径）。
       - run: pnpm run check:contract-freeze
+      # 部署编排 YAML 可解析性：compose 缩进 / 重复键错误无其它门禁覆盖（本轮曾把 platform 服务缩进进 redis 导致默认部署不可用）
+      - name: Validate compose files
+        run: |
+          docker compose -f apps/platform/docker-compose.yml config --quiet
+          docker compose -f apps/platform/docker-compose.yml -f apps/platform/docker-compose.build.yml config --quiet
       # 经验条目落点门禁：每个经验归档条目必须含非空「落点」（L1 脚本 / L2 检查点 / 规范条款），
       # 占位符视为空——对治「只留条目、不留落点」反模式。脚本零依赖，置于静态检查簇内。
       # 负例标定：新增无落点条目即 exit 1（本地已验），修复后删除脚手架。

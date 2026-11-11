@@ -15,9 +15,10 @@ const execFileAsync = promisify(execFile)
  *   user 默认 `100:100`（rootless 标配；rootful daemon 上亦生效但无 user namespace 隔离）
  *
  * 安全边界：凭据通过 `-e KEY=VALUE` 注入容器进程 env，不进 cmd 字段（避免 spy/test 日志
- * 泄露）、不进 git URL（避免 exec 错误回显）、不进 docker daemon 配置文件（避免 docker
- * inspect 可见）。当前仍走 docker CLI args，未来切 docker socket API 可换 stdin/env 注入。
- * bind mount 源 workDir 由 sandbox-executor 准备（沙箱进程内构造的临时目录）。
+ * 泄露）、不进 git URL（避免 exec 错误回显）。注意 `-e` 值会出现在容器 `Config.Env`
+ * （`docker inspect` 可见；rootless daemon 下仅 daemon 用户可读），不要把它当作对 inspect 隐藏。
+ * 当前仍走 docker CLI args，未来切 docker socket API 可换 stdin/env 注入。
+ * mounts 由调用方按需提供；沙箱执行器当前不挂载宿主目录（结果经 stdout 哨兵回传）。
  */
 
 /** 容器执行规格（OCI runtime 子集，足够 pnpm 脚本类场景） */
@@ -26,9 +27,9 @@ export interface ContainerSpec {
     image: string
     /** 容器内用户（默认 '100:100'——rootless 标配） */
     user?: string
-    /** 容器内工作目录（必须同时出现在 mounts 中） */
+    /** 容器内工作目录（可由 mounts 提供映射；沙箱执行器当前使用容器私有 /tmp） */
     workDir: string
-    /** bind mount 列表（沙箱场景至少一项：workDir → 容器内路径） */
+    /** bind mount 列表（可选；沙箱执行器当前不挂载宿主目录） */
     mounts?: { src: string, dst: string, readonly?: boolean }[]
     /** 环境变量（沙箱场景至少一项：GITHUB_TOKEN / GITHUB_REPOSITORY） */
     env?: Record<string, string>
@@ -183,7 +184,7 @@ export class DockerAdapter implements RuntimeAdapter {
         if (spec.cpu ?? SANDBOX_DEFAULTS.cpu) {
             args.push('--cpus', String(spec.cpu ?? SANDBOX_DEFAULTS.cpu))
         }
-        // 挂载点（沙箱场景必含 workDir）
+        // 挂载点（可选；沙箱执行器当前不挂载宿主目录）
         for (const mount of spec.mounts ?? []) {
             if (mount.readonly) {
                 args.push('--mount', `type=bind,source=${mount.src},target=${mount.dst},readonly`)

@@ -101,6 +101,9 @@ export async function installSkillToDir(options: InstallOptions): Promise<Instal
     if (!existsSync(sourceDir)) {
         return { status: 'failed', targetDir, detail: `权威源不存在: ${sourceDir}` }
     }
+    if (!existsSync(join(sourceDir, 'SKILL.md'))) {
+        return { status: 'failed', targetDir, detail: `权威源缺少 SKILL.md: ${sourceDir}` }
+    }
 
     if (dryRun) {
         try {

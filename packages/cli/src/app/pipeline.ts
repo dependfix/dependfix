@@ -3,6 +3,7 @@
 // DependfixApp.run → 退出码。process.env / console / process.exitCode
 // 全部经 PipelineDeps 注入，platform 可替换 env / logger / config resolver / exit。
 
+import { writeFile } from 'node:fs/promises'
 import { resolveRuntimeConfig, queryRepoHistory, formatHistory, DependfixApp, type CliConfigOverrides } from '@dependfix/engine'
 import { parseCliArgs, type CliInvocation } from '../cli'
 
@@ -70,7 +71,20 @@ export function createPipeline(deps: PipelineDeps = {}): Pipeline {
                 commands: invocation.configOverrides.commands,
             })
 
-            const { exitCode } = await app.run()
+            const { result, exitCode } = await app.run()
+
+            // 显式结果契约（沙箱执行器唯一读取源）：不复用报告副产物 summary.json——
+            // 报告写入失败只记日志、不阻断运行，不能作为执行结果依据。
+            if (invocation.resultJsonPath) {
+                try {
+                    await writeFile(invocation.resultJsonPath, JSON.stringify({ exitCode, result }), 'utf8')
+                } catch (error) {
+                    logger.error(`Failed to write result JSON to ${invocation.resultJsonPath}: ${error instanceof Error ? error.message : String(error)}`)
+                    exit(1)
+                    return 1
+                }
+            }
+
             exit(exitCode)
             return exitCode
         },

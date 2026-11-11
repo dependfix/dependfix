@@ -87,7 +87,7 @@ dependfix 批量处理仓库与依赖，若防护不足会成为恶意依赖的"
 | G2 | CLI 本地模式零防护 | P0 | ✅ **已修复（2026-08-14，T803）**：fix/fix-and-pr 本地执行风险警告（可 env 抑制）；容器环境（ContainerExecutor）不误报 | [backlog C39](../../plan/backlog.md) |
 | G3 | 网络外联无限制/无日志 | P1 | ✅ **已修复（2026-08-14，T805）**：执行期外联审计日志（本地审计代理 + 命令输出 URL 提取，双路径）；出站白名单随 M9 C26 | [backlog C40](../../plan/backlog.md) |
 | G4 | 验证命令无单命令超时/资源上限 | P1 | ✅ **已修复（2026-08-14，T802）**：单命令超时（默认 10 分钟可配）+ 进程树终止；cgroup 随 M9 C26 | [backlog C41](../../plan/backlog.md) |
-| G5 | M7 并发共享容器交叉污染 | P1 | ✅ **M10 已闭环（2026-08-20 归档）**——基于一手调研决策为 Docker rootless mode（runtime）+ 应用层白名单代理（网络）+ cgroup v2 + Node 20 自动识别（资源）。T1001-T1004 子任务已在 [todo-archive-phases-m10-c53-c59c61.md §M10](../../plan/archive/todo-archive-phases-m10-c53-c59c61.md#m10-独立沙箱容器-c26-实施规划-已归档) 拆解并落地（13 commits 当时待推送，后续已推送 origin/master），设计在 [executor-sandbox.md §7](./executor-sandbox-implementation.md#_7-sandbox-执行器设计) 落盘。`SandboxExecutor` 与 `ContainerExecutor` 并存（默认 `container`），K8s + Helm 仅规划登记；**T1005 路由接线 4 子任务全部闭环**（2026-08-20：A 前端 UI 暴露 `0ea8149` / B sandboxLimits 拆 2 commit `5542e33` + `b6bce6c` / C 状态机扩 degraded `64135ed` / D quick-start.md 同步 `809aa3b`）。详见 [executor-sandbox.md §7.8](./executor-sandbox-implementation.md) 降级状态机契约 + [backlog T1005](../../plan/backlog.md) |
+| G5 | M7 并发共享容器交叉污染 | P1 | ✅ **M10 已闭环（2026-08-20 归档）**——基于一手调研决策为 Docker rootless mode（runtime）+ 应用层白名单代理（网络）+ cgroup v2 + Node 20 自动识别（资源）。T1001-T1004 子任务已在 [todo-archive-phases-m10-c53-c59c61.md §M10](../../plan/archive/todo-archive-phases-m10-c53-c59c61.md#m10-独立沙箱容器-c26-实施规划-已归档) 拆解并落地（13 commits 当时待推送，后续已推送 origin/master），设计在 [executor-sandbox.md §7](./executor-sandbox-implementation.md#_7-sandbox-执行器设计) 落盘。`SandboxExecutor` 与 `ContainerExecutor` 并存（默认 `container`），K8s + Helm 仅规划登记；**T1005 路由接线 4 子任务全部闭环**（2026-08-20：A 前端 UI 暴露 `0ea8149` / B sandboxLimits 拆 2 commit `5542e33` + `b6bce6c` / C 状态机扩 degraded `64135ed` / D quick-start.md 同步 `809aa3b`）。详见 [executor-sandbox.md §7.8](./executor-sandbox-implementation.md) 降级状态机契约 + [backlog T1005](../../plan/backlog.md)。**2026-11-09 M57.1**：沙箱真实执行闭环（自包含 CLI + report-only；fix / fix-and-pr 在出站白名单代理接入前降级 `container` + `sandbox_fix_requires_egress_policy`），基线核验见 [§7.1](#_7-1-m57-1-沙箱真实执行安全基线核验-2026-11-09) |
 | G6 | Action 模式凭据暴露面 | P1 | ✅ **已修复（2026-08-14，T803）**：启动时探测 token 权限面，classic repo scope 超权限启动即警告（不强制阻断） | [backlog C42](../../plan/backlog.md) |
 | G7 | 升级研判缺供应链信号 | P2 | 报告/PR 增加 lifecycle scripts 信号披露 | [backlog C43](../../plan/backlog.md) |
 | G8 | 出站白名单未覆盖镜像站 / 企业私服 registry（install 被拦 → 门禁全量回滚） | P2 | ✅ **已修复（2026-10-10，M42.1）**：默认清单扩充常见镜像站（registry 与其 tarball CDN 域**成对登记**）+ `workDir` 配置面动态发现生效 registry（`pnpm config list --json` 抽取 `registry` / `@scope:registry` 的 host，host 粒度 + 严格形态校验 + fail-open 依次回退 `npm_config_registry` 环境变量与预置清单；不联网、不进 shell）；未列举域仍 deny-by-default，白名单不因命令输出 URL 扩展；镜像来源真实性不校验（用户 2026-10-10 裁定：恶意代码执行风险由沙箱承接）。**评审对照 [executor-sandbox.md §2.2 风险表](./executor-sandbox.md#_2-2-风险定级与缓解) 六类风险逐项评估**——**网络外联（本变更主体）**：白名单扩为「官方 registry + 常见镜像站（含 CDN）+ 配置面动态发现」，未列举域仍拦；**install scripts 代码执行 / 凭据泄露 / 文件系统破坏 / 提权逃逸**：不受影响（不改变脚本执行面、不引入新凭据通道、不改变文件系统与权限边界）；**资源耗尽**：新增一次只读子进程（5s 超时 + 按 workDir 缓存 + 上限 64 条）。残余风险 = 企业私服自带独立 CDN 域需显式 `DEPENDFIX_ALLOWED_DOMAINS`（已知限制，验收 ④ 覆盖） | [security.md §5.3.1](../../standards/security.md) + [todo.md §M42.1](../../plan/todo.md) + [§7 G8 验收](#_7-验收与持续治理) |
@@ -108,7 +108,32 @@ dependfix 批量处理仓库与依赖，若防护不足会成为恶意依赖的"
 
 - **G8 验收（✅ 已达成 2026-10-10，M42.1）**：**真实环境（镜像站路径）**——新白名单 + `workDir` 动态发现下，真实 `pnpm view is-odd version` 经审计代理 `exit = 0`（stdout `3.0.1`），代理捕获 `CONNECT registry.npmmirror.com:443`，**`violations = 0`**；**同环境反例对照**——改用修复前旧默认清单（无镜像站条目）其余条件相同，`violations = 2`（`registry.npmmirror.com:443` ×2）且命令被拦死（20s 内未完成）。**动态发现（非预置私服路径）**——临时目录 `.npmrc` 指向非预置域 `registry.example.org` → 发现结果 `{"hosts":["npm.jsr.io","registry.example.org"],"source":"pnpm-config"}`，证明「预置清单之外的配置面 registry 可被自动纳入」。**单测覆盖**——`registry-discovery.test.ts`（键匹配 / 非法值拒收 / 回退链 / 缓存上限 / userinfo 剥离 / 失败说明脱敏）+ `network-audit.test.ts`（镜像域与其 CDN 判定 / `extraAllowedDomains` 合并语义 / 未知域仍拦）+ `verification-runner.test.ts`（接线锁定：`startNetworkAudit` 实参 `extraAllowedDomains` = 发现结果、`networkAuditDisabled` 时跳过发现）。**mutation 标定**——M1 去 `extraAllowedDomains` 合并 / M2 去 registry 键过滤 / M3 host 校验恒真 / M4 去接线传递，四者均被击杀。
 
-### 7.1 降级场景验收（T1005-C，2026-08-20 已闭环——函数体 + 聚合 + 14 个新断言落地）
+### 7.1 M57.1 沙箱真实执行安全基线核验（2026-11-09）
+
+> 背景：`SandboxExecutor` 从占位 `echo` 改为独立容器内运行自包含 CLI（report-only）。按 §4 安全基线逐项复核，结论如下。
+
+| 基线项 | 实现 / 证据 | 结论 |
+|:--|:--|:--|
+| 非 root 执行 | `DockerAdapter.buildRunArgs` 固定 `--user 100:100`（`SANDBOX_DEFAULTS.user`）；单测断言参数落位 | ✅ |
+| 不挂宿主 docker.sock | `SandboxExecutor.buildSpec` **不挂任何宿主目录**（无 `mounts`）；容器只用自己的 `/tmp` | ✅ |
+| 网络 | report-only 固定 `--network bridge` 访问 GitHub API；该模式不 clone / 不安装 / 不执行目标仓库代码（`alertSource` 非 `github-dependabot` 直接 fail-closed `sandbox_alert_source_unsupported`）；fix / fix-and-pr 在代理接入前被 `execute()` 拒绝 | ✅（范围受控，见下方偏离登记） |
+| 资源上限 | `Repository.sandboxLimits` → `--memory` / `--cpus`；缺省 `SANDBOX_DEFAULTS`（2 GB / 1 CPU） | ✅ |
+| 超时兜底 | 外层 `withTimeout` 30 分钟 + `execFile` timeout；`exitCode 124` 归一 `execution_timeout` | ✅ |
+| 凭据最小化 | token 仅经 `-e GITHUB_TOKEN` 注入，不进 argv / 不进结果文件；report-only **不注入组织级 AI Key**；`DEPENDFIX_SKILLS_DIR` 只指向静态目录 | ✅ |
+| 结果契约 | 容器内 CLI 写 `/tmp/result.json`（`{exitCode, result}`），shell 用哨兵回传 stdout；哨兵缺失 / 非 JSON / 结构非法 / transport 矛盾一律 `execution_failed`；不复用报告副产物；不依赖宿主 / 平台容器路径映射 | ✅ |
+| 自包含入口 | `packages/cli/tsdown.sandbox.config.ts`（`deps.alwaysBundle` + `copy`）；镜像构建期断言 `--version` 非 `0.0.0-unknown` 且 skills 目录可用 | ✅（镜像构建期 fail-closed） |
+| 威胁建模 | report-only 不执行目标仓库代码（无 clone / install / 生命周期脚本），沿用 §4 对恶意依赖脚本的结论；fix 模式在代理接入前不放行 | ✅ 无新增不可接受风险 |
+
+**偏离登记（report-only 网络）**：§5.3 要求「执行期网络受限 + 外联日志」。report-only 容器固定 bridge 直出、未接入出站白名单代理，也未采集容器内 egress 日志；该偏离**仅限不执行目标仓库代码的 report-only**，理由是隔离面只剩 GitHub API 调用与 token 暴露（token 本就用于该 API），且 `alertSource` 已 fail-closed 到 `github-dependabot`。fix / fix-and-pr 在代理接入前一律降级 `container`。补齐路径见 [backlog](../../plan/backlog.md)「沙箱 fix 模式出站白名单代理接入」。
+
+**其他残余**：
+
+- `SandboxExecutor` 未采集 cgroup 资源快照（运行详情 `resourceJson` 记 `sandbox executor does not collect resource usage`），不是安全缺陷但影响 OOM 归因；执行日志以 stdout/stderr 尾部回传 `logsJson`。
+- rootless daemon 是部署前置（宿主启动，平台只挂 socket）；平台不自动安装、不在容器内启动 daemon。rootful daemon 亦放行（`--user 100:100` 仍非 root），但缺少 user namespace 隔离，属部署方选择。
+
+
+
+### 7.2 降级场景验收（T1005-C，2026-08-20 已闭环——函数体 + 聚合 + 14 个新断言落地）
 
 **A 场景（启动时降级）验收**：
 

@@ -57,6 +57,19 @@ export function runDoctor(options: DoctorOptions): DoctorFinding[] {
 
     // 2. 产品 skill 安装状态
     const sourceDir = options.productSourceDir ?? safeResolveSourceDir()
+    if (!sourceDir) {
+        findings.push({
+            level: 'error',
+            message: '产品 skill 源不可用：未设置 DEPENDFIX_SKILLS_DIR，且 @dependfix/skills 包无法解析',
+        })
+    } else if (!existsSync(join(sourceDir, 'SKILL.md'))) {
+        findings.push({
+            level: 'error',
+            message: `产品 skill 内容目录缺少 SKILL.md（${sourceDir}）——自包含产物复制不完整或 DEPENDFIX_SKILLS_DIR 指向错误`,
+        })
+    } else {
+        findings.push({ level: 'ok', message: `产品 skill 内容目录可用（${sourceDir}）` })
+    }
     if (sourceDir) {
         for (const agent of AGENTS) {
             if (!agent.detectInstalled(homeDir)) {

@@ -43,6 +43,8 @@
 
 > **node project 已纳入平台 typecheck**：`nuxt typecheck` 只查主 project，平台以 `tsconfig.node.json`（仅覆盖 `experimentalDecorators`，**不**覆盖 `include` / `exclude`，继承生成值并按 `.nuxt/` 目录解析）单独跑 `vue-tsc`，覆盖 `nuxt.config.ts` / `modules/**`；验证命令为 `pnpm --filter @dependfix/platform typecheck`。
 
+> **模板属性值不直写含 `//` 的字面量**：vue-tsc 3.3.14 引入的模板代码生成回归（[vuejs/language-tools#6322](https://github.com/vuejs/language-tools/issues/6322)，状态以 issue 为准）会让组件 prop 内的字面 URL 使 v-model 目标被误判为 ref，报 `TS2339 Property 'value' does not exist`（旧版本因逐条 `@ts-ignore` 掩盖未暴露）。URL 等含 `//` 的文本放脚本常量后以 `:placeholder` / `:href` 绑定。
+
 ### 认证
 
 | 依赖 | 用途 |

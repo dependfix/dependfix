@@ -209,6 +209,23 @@ release.yml Push release tags（全量推送，含 v tag，推送后核验）
 
 **工作流级负例（2026-11-12，run [`43210761634`](https://github.com/dependfix/dependfix/actions/runs/43210761634)）**：临时分支在根依赖注入 `lodash@4.17.15` 后 `workflow_dispatch` 触发发布工作流 → 第 7 步 `pnpm audit (prod, moderate+, blocking)` 失败（日志含 `high | Command Injection in lodash` / `GHSA-35jh-r3h4-6jhm` 等条目），其后 `Auto version`、质量门、`Release Publish`、tag 推送与 GitHub Release 全部 `skipped`——即「审计红不能进入发布」在 workflow 层成立，且负例本身无发布副作用。验证后临时分支已删除、未合并，`master` 依赖与锁文件未变。
 
+### 4.6 发布后镜像冒烟与历史 tag 巡检（2026-11-12，M58.4）
+
+**位置决策（非 D3；D3 只约束触发面）**：放在 `docker.yml` 的 `merge` 之后（`post-release-smoke`，`needs: merge`），而不是 `release.yml` 的发布 job 之后。理由：`release.yml` 只对 docker 做异步派发，镜像在 docker 工作流内构建；在 release.yml 内做冒烟需长时间轮询等镜像（构建 20-40 分钟）。触发面仍由发布 gate 收口（D3）：`if: inputs.platform_version != ''` → 仅 release 派发 / 手工 dispatch 带版本时运行，`push:master` 的 latest 构建不跑。
+
+**矩阵**：`ubuntu-latest`（amd64）与 `ubuntu-24.04-arm`（arm64）**原生 runner**（不用 QEMU）；`checkout` 取全量历史（`fetch-depth: 0`，历史 tag 巡检需要本地 tag 列表），各架构先 `docker pull ghcr.io/<repo>:platform-<version>`（`smoke-test.sh` 只检查本地镜像、不负责拉取），再跑 `apps/platform/docker/smoke-test.sh`，断言 `/api/health` 的 `version` = 发布版本、`commit` = 发布提交。commit 锚取 `github.sha`：发布路径由 `release.yml` 的 `--ref v<锚版本>` 钉住，因此工作流 HEAD 即发布提交，镜像构建期 `BUILD_COMMIT` 与之同源。
+
+**失败语义**：job 级 `continue-on-error: true`——冒烟失败不改变镜像发布 / 工作流结论，但 Job Summary 写入「失败（未证实）」并输出 `::warning::`，不得当作运行通过。
+
+**历史 tag 巡检**：amd64 腿执行 `scripts/release/scan-image-tags.mjs --window=10`，对近 10 个 `@dependfix/platform@*` 发布 tag 读取 registry manifest（**范围仅 GHCR**；Docker Hub / ACR 不在面内，`verified` 不代表三通道可用）：
+
+- `verified` = manifest 可解析且同时含 `linux/amd64` + `linux/arm64`；
+- `unverified` = 缺凭证 / 缺镜像 / 网络失败 / 单架构 / 输出不可解析，报告写「未证实 + 原因」，不写通过。
+
+巡检只读 manifest，不拉取、不运行（运行时证据在冒烟矩阵）。
+
+**未证实项（2026-11-12）**：arm64 原生 runner 首次真实运行与私有 GHCR 包读取（`packages: read`）待首个 release 派发实测；本地无 GHCR 凭证时巡检输出 401 Unauthorized 的「未证实」（已实跑，fail-open 生效）。
+
 ## 5. 文件映射
 
 ### 新增

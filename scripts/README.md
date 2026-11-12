@@ -21,6 +21,7 @@
 | `pnpm release:github` | `create-github-release.mjs` | 创建本轮聚合 GitHub Release（消费 `release-publish-result.json`：版本矩阵 + 根 CHANGELOG 段，core-only 取锚包包级段；alpha / beta / rc 标 prerelease（0.x 正式版不标，与 npm `latest` 一致）；幂等 + 失败 warn 不阻断）。`--dry-run` 预览 notes |
 | `pnpm release:preflight` | `release/preflight.mjs` | 发布前预演：全部 npm 发布包 `pnpm pack` → 临时工程用本地 tarball 安装（`pnpm-workspace.yaml` overrides，pnpm 11 不读 package.json 的 `pnpm` 字段）→ 断言 `dependfix --version` == 包版本；同时校验 tarball 内无 `workspace:` 协议、`bin`/`main`/`exports` 入口齐全、预演前后工作区不变。`--no-install` 仅做离线 tarball 校验；已接入 `release.yml`（build 之后） |
 | `pnpm tag:released` | `tag-released-versions.mjs` | 为"npm 已发布但本地无 tag"的版本补打锚点 tag（手动发布辅助）。`--dry-run` / `--at <commit>` |
+| — | `release/scan-image-tags.mjs` | 历史镜像 tag 巡检：近 `--window` 个 `@dependfix/platform@*` 发布 tag 读 registry manifest，输出 `verified`（双架构）/ `unverified`（缺凭证 / 缺镜像 / 网络失败 / 单架构，附原因）；fail-open、只读 manifest，不拉取不运行；`--json` 机读 |
 
 ### 文档与链接
 

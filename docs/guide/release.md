@@ -439,7 +439,7 @@ git status --porcelain           # 空（无版本 / 日志副作用）
    - 发布成功后本地创建 `<pkg>@<version>` 格式的 annotated git tag（如 `dependfix@0.1.1`）+ `v<锚版本>` 聚合 tag（锚 = 主交付物优先，见"GitHub Release 自动化"）；
    - **幂等自愈**：npm 已发布但本地无 tag（上次发布中途失败等中间态）时自动补 annotated tag（HEAD 锚点校验通过才打，否则安全跳过），并计入 v tag 锚点解析——重跑 CI 即可全链路恢复，无需手动补打（见"tag 策略与包版本不同步"）；
 8. `Push release tags`：将 `release:publish` 创建的本地 tag 推送到 GitHub（`git push <url> --tags`，显式 token URL + 推送后核验，通过 `GITHUB_TOKEN` 认证）；
-9. `Create GitHub Release`（`pnpm release:github`）：读 `release-publish-result.json` 为本轮发布创建聚合 GitHub Release——tag 为 `v<锚版本>`，notes 为版本矩阵 + 根 CHANGELOG 最新段（core-only 轮次取锚包包级段）；**alpha / beta / rc 标 pre-release，0.x 正式版不标**（与 npm `latest` 一致）；**追加**：`Trigger Docker build with platform-x.y.z tag` 以 `--ref v<锚版本>` 派发 docker workflow（镜像内容钉在发布提交上，见「Docker 镜像复核」）；Release 已存在则跳过，创建失败仅警告不阻断（npm 已发布完成，可后补 `gh release create`）。
+9. `Create GitHub Release`（`pnpm release:github`）：读 `release-publish-result.json` 为本轮发布创建聚合 GitHub Release——tag 为 `v<锚版本>`，notes 为版本矩阵 + 根 CHANGELOG 最新段（core-only 轮次取锚包包级段）；**alpha / beta / rc 标 pre-release，0.x 正式版不标**（与 npm `latest` 一致）；**追加**：`Trigger Docker build with platform-x.y.z tag` 以 `--ref v<锚版本>` 派发 docker workflow（镜像内容钉在发布提交上，见「Docker 镜像复核」）；Release 已存在则跳过，创建失败仅警告不阻断（npm 已发布完成，可后补 `gh release create`）。docker 工作流在 merge 后自动跑双架构原生冒烟与历史 tag 巡检（失败仅告警，见[发布管线设计 §4.6](../design/governance/release-pipeline.md#_4-6-发布后镜像冒烟与历史-tag-巡检-2026-11-12-m58-4)）。
 
 ### GitHub Release 自动化
 

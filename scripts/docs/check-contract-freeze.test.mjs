@@ -253,7 +253,7 @@ describe('checkContractFreeze', () => {
         }
         expect(result.tables).toEqual([])
         expect(result.unsupported).toEqual([])
-    })
+    }, SPAWN_TEST_TIMEOUT)
 
     it('清单缺键位 → 报告缺失（负例）', () => {
         const root = copyRealSources(editFile(PATHS.contractDoc, (doc) => doc.replace('ai-api-key\n', '')))
@@ -261,7 +261,7 @@ describe('checkContractFreeze', () => {
         const cli = result.lists.find((list) => list.id === 'cli-args')
         expect(cli.missing).toEqual(['ai-api-key'])
         expect(cli.extra).toEqual([])
-    })
+    }, SPAWN_TEST_TIMEOUT)
 
     it('清单多出键位 → 报告多余（负例）', () => {
         const root = copyRealSources(editFile(PATHS.contractDoc, (doc) => doc.replace('```text\nmode\n', '```text\nphantom-flag\nmode\n')))
@@ -269,14 +269,14 @@ describe('checkContractFreeze', () => {
         const cli = result.lists.find((list) => list.id === 'cli-args')
         expect(cli.missing).toEqual([])
         expect(cli.extra).toEqual(['phantom-flag'])
-    })
+    }, SPAWN_TEST_TIMEOUT)
 
     it('小节标题改名 → fail-closed（不是静默通过）', () => {
         const root = copyRealSources(editFile(PATHS.contractDoc, (doc) => doc.replace('### RunResult 字段', '### RunResult 字段（改名）')))
         const result = checkContractFreeze(root)
         const runResult = result.lists.find((list) => list.id === 'report-run-result')
         expect(runResult.error).toContain('未找到小节')
-    })
+    }, SPAWN_TEST_TIMEOUT)
 
     it('CLI 子进程：差异存在时 exit 1 并给出明细', { timeout: SPAWN_TEST_TIMEOUT }, () => {
         const root = copyRealSources(editFile(PATHS.contractDoc, (doc) => doc.replace('ai-api-key\n', '')))

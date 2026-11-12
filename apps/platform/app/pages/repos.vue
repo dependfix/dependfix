@@ -28,7 +28,48 @@ const defaultBranch = (config.public.defaultBranch as string) || 'main'
 // 批量扫描 / 行选择：`selectedRows` 是独立集合，刷新后按 id 重映射（见 use-repo-selection）
 const selectedRows = ref<RepoView[]>([])
 
+/** 每页条数候选与默认值（caomei DataTable 内建分页） */
+const ROWS_PER_PAGE = 10
+const ROWS_PER_PAGE_OPTIONS = [10, 25, 50]
+
+/** 当前页码（1 基，受控）：编辑保存保留，新增 / 删除回到第 1 页 */
+const currentPage = ref(1)
+/** 每页条数（受控）：保存刷新后保持用户选择 */
+const rowsPerPage = ref(ROWS_PER_PAGE)
+
+/** 新增（含批量导入）/ 删除后回到第 1 页；编辑保存保留当前页 */
+const resetToFirstPage = () => {
+    currentPage.value = 1
+}
+
+/**
+ * 刷新后把页码夹回最后一页：受控分页抑制了自动回首页，若当前页因数据减少而越界，
+ * 需自行收敛，避免停留在空白页（例如编辑后该行不再命中当前搜索条件）。
+ */
+const clampPageToLast = () => {
+    const pageCount = Math.max(1, Math.ceil(filteredRepos.value.length / rowsPerPage.value))
+    if (currentPage.value > pageCount) {
+        currentPage.value = pageCount
+    }
+}
+
+/**
+ * 数据刷新期间忽略分页器抛出的自动页码重置。
+ *
+ * 表格 `data` 引用变化会让 `@tanstack` 自动回到第 1 页（`autoResetPageIndex`）；
+ * 编辑保存后需保留当前页，所以刷新期间锁定 `update:page`，由调用方显式置 1（新增 / 删除）。
+ */
+let pageUpdateLocked = false
+
+const onPageChange = (page: number) => {
+    if (pageUpdateLocked) {
+        return
+    }
+    currentPage.value = page
+}
+
 const fetchData = async () => {
+    pageUpdateLocked = true
     loading.value = true
     error.value = ''
     try {
@@ -40,10 +81,14 @@ const fetchData = async () => {
         // 刷新生成新对象：按 id 把已选集合映射过去，避免「计数仍在、勾选态消失」
         selectedRows.value = remapSelectionById(selectedRows.value, repos.value)
         credentials.value = credRes as { id: string, name: string, type: string }[]
+        clampPageToLast()
     } catch (e: any) {
         error.value = t('repos.errors.loadFailed', { message: e?.data?.message ?? e?.message ?? t('common.errors.unknown') })
     } finally {
         loading.value = false
+        // 等本次刷新引发的表格重算落定后再解锁，避免自动重置覆盖当前页
+        await nextTick()
+        pageUpdateLocked = false
     }
 }
 
@@ -61,7 +106,11 @@ const openEdit = (repo: RepoView) => {
 
 /** 表单保存成功：刷新列表 + 按新增/编辑展示成功提示（表单状态由子组件负责重置） */
 const onRepoFormSaved = async () => {
-    success.value = editingRepo.value ? t('repos.success.updated') : t('repos.success.added')
+    const isCreate = !editingRepo.value
+    success.value = isCreate ? t('repos.success.added') : t('repos.success.updated')
+    if (isCreate) {
+        resetToFirstPage()
+    }
     await fetchData()
 }
 
@@ -70,10 +119,17 @@ const remove = async (repo: RepoView) => {
     try {
         await $fetch(`/api/repos/${repo.id}`, { method: 'DELETE' })
         success.value = t('repos.success.deleted')
+        resetToFirstPage()
         await fetchData()
     } catch (e: any) {
         error.value = t('repos.errors.deleteFailed', { message: e?.data?.message ?? e?.message ?? t('common.errors.unknown') })
     }
+}
+
+/** 批量导入等同新增：回到第 1 页查看新导入结果 */
+const onReposImported = async () => {
+    resetToFirstPage()
+    await fetchData()
 }
 
 const repoDisplay = (repo: RepoView) => `${repo.owner}/${repo.name}`
@@ -296,10 +352,6 @@ const repoFilters = reactive({
     credentialId: 'all',
 })
 
-/** 每页条数（caomei DataTable 内建分页，`rows` 为初值）与候选 */
-const ROWS_PER_PAGE = 10
-const ROWS_PER_PAGE_OPTIONS = [10, 25, 50]
-
 const executorFilterOptions = computed(() => [
     { label: t('repos.filterAll'), value: 'all' },
     { label: t('repos.platformContainer'), value: 'container' },
@@ -344,7 +396,8 @@ const resetRepoFilters = () => {
  * 因此被筛选隐藏的已选行会在下一次勾选时被静默移出（跨页选择不受影响）。
  * 「批量扫描」计数可能大于当前可见行数——筛选是视图态，不改变集合本身。
  *
- * 页码：`:data` 变化（搜索 / 筛选）时由 DataTable 内部（`@tanstack` autoResetPageIndex）回到第 1 页。
+ * 页码：`:data` 变化（搜索 / 筛选）时由 DataTable 内部（`@tanstack` autoResetPageIndex）回到第 1 页；
+ * 保存刷新走受控分页（`:page` + `:rows`），编辑保留当前页码与每页条数，新增 / 删除 / 批量导入回到第 1 页。
  *
  * 跨页全选：表头全选用上游 1.0.0 语义（当前页）；「全选全部筛选结果」由表格上方的选择栏承载，
  * 单次点击覆盖所有筛选结果（含跨页），并显示「已选 / 筛选总数」。
@@ -556,9 +609,12 @@ const columns = computed<DataTableColumn<RepoView>[]>(() => [
                 :selection="selectedRows"
                 striped
                 :paginator="true"
-                :rows="ROWS_PER_PAGE"
+                :rows="rowsPerPage"
                 :rows-per-page-options="ROWS_PER_PAGE_OPTIONS"
+                :page="currentPage"
                 :empty-text="reposEmptyText"
+                @update:page="onPageChange"
+                @update:rows="rowsPerPage = $event"
                 @update:selection="onSelectionChange"
             >
                 <template #cell-tags="{row}">
@@ -656,7 +712,7 @@ const columns = computed<DataTableColumn<RepoView>[]>(() => [
         <import-repos-dialog
             v-model:visible="importDialogVisible"
             :credentials="credentials"
-            @imported="fetchData"
+            @imported="onReposImported"
         />
 
         <CaomeiDialog

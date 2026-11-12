@@ -127,7 +127,14 @@ jobs:
       #   HEAD 锚点校验：HEAD 必须 touch 待发布包路径，防误发布）
       # - 幂等自愈：npm 已发布但本地无 tag（上次发布中途失败等中间态）时自动补
       #   annotated tag 并计入 v tag 锚点解析，重跑即可全链路恢复，无需手动补打
+      # - 发布前安全告警门禁：release:publish 自身会再执行一次同一门禁脚本
+      #   （本地 / CI 同一入口，fail-closed），故本步骤必须注入 token——否则 CI
+      #   会在发布器内被 fail-closed 拦下。三处执行（预检 / 阻断判定 / 发布器内）
+      #   同源同口径，多跑一次换取「本地也不可绕过」。
       - name: Release Publish
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: pnpm release:publish
 
       # release:publish 只创建本地 tag，需要显式推送（checkout 使用 persist-credentials: false，

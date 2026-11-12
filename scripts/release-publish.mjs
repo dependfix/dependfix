@@ -15,6 +15,11 @@
  *   pnpm release:publish                 # 发布所有未发布版本并按序打 tag
  *   pnpm release:publish --dry-run       # 仅预览将发布的包与将创建的 tag，不实际执行
  *   pnpm release:publish --otp 123456    # 本地 2FA 发布：OTP 透传给每包的 pnpm publish
+ *   pnpm release:publish --skip-security=<理由>  # 显式绕过发布前安全告警门禁（需留痕）
+ *
+ * 发布前安全告警门禁：非 dry-run 且本轮存在实际发布 / tag 动作时，先执行
+ * `scripts/check-release-security-alerts.mjs`（与 release.yml 同一脚本、同一
+ * fail-closed 口径），非零即中止——「门禁存在但本地通道没执行」不再可能。
  *
  * 发布 registry 固定为官方 `https://registry.npmjs.org/`（可用 `--registry` 覆盖），
  * 不继承用户级 pnpm / npm registry 配置——避免被镜像站（只读）配置带到错误的发布端点。
@@ -38,6 +43,8 @@ const repoRoot = fileURLToPath(new URL('..', import.meta.url))
 const RESULT_FILE = join(repoRoot, 'release-publish-result.json')
 /** 发布固定走官方 registry（本地镜像配置不得影响发布端点）。 */
 export const DEFAULT_PUBLISH_REGISTRY = 'https://registry.npmjs.org/'
+/** 发布前安全告警门禁脚本（与 release.yml 同源，见 security.md §5.9）。 */
+export const SECURITY_GATE_SCRIPT = join(repoRoot, 'scripts/check-release-security-alerts.mjs')
 const OTP_PATTERN = /^\d{6,8}$/
 
 function git(args) {
@@ -102,14 +109,29 @@ export function validateRegistry(value) {
     return value
 }
 
-/** 解析发布参数：`--dry-run` / `--otp <code>` / `--registry <url>`（等号或空格形式）。未知参数 fail-closed。 */
+/** 解析发布参数：`--dry-run` / `--otp <code>` / `--registry <url>` / `--skip-security=<理由>`（等号或空格形式）。未知参数 fail-closed。 */
 export function parsePublishArgs(argv = process.argv.slice(2)) {
-    const options = { dryRun: false, otp: null, registry: DEFAULT_PUBLISH_REGISTRY }
+    const options = { dryRun: false, otp: null, registry: DEFAULT_PUBLISH_REGISTRY, skipSecurityReason: null }
     for (let index = 0; index < argv.length; index += 1) {
         const arg = argv[index]
         const [key, inlineValue] = arg.includes('=') ? arg.split(/[=](.*)/s, 2) : [arg, undefined]
         if (key === '--dry-run') {
             options.dryRun = true
+            continue
+        }
+        if (key === '--skip-security') {
+            const value = inlineValue ?? argv[index + 1]
+            if (inlineValue === undefined) {
+                index += 1
+            }
+            // 理由本身是留痕载体：空 / 纯空白 / 误吞下一个参数都不算「有理由」；
+            // 单行化（理由会写进终端摘要与发布证据，换行可伪造后续日志行）
+            const raw = typeof value === 'string' && !value.startsWith('--') ? value : ''
+            const reason = raw.replace(/[\r\n]+/g, ' ').trim().slice(0, 200)
+            if (!reason) {
+                throw new Error('--skip-security 缺少理由（写法：--skip-security=<为什么可以绕过>）')
+            }
+            options.skipSecurityReason = reason
             continue
         }
         if (key === '--otp' || key === '--registry') {
@@ -188,6 +210,69 @@ export function ensureCleanWorkspace(statusText) {
     const shown = dirty.slice(0, 10).join('\n')
     const more = dirty.length > 10 ? `\n…另有 ${dirty.length - 10} 项` : ''
     throw new Error(`工作区存在未提交变更，发布物会与 tag 指向的提交不一致：\n${shown}${more}\n请先提交后再发布`)
+}
+
+/**
+ * 本轮是否需要执行发布前门禁（纯函数）：有任何 npm 发布 / 新 tag 动作即需要。
+ * 自愈轮（npm 已发布但本地缺 tag，HEAD touch 包路径会新建 tag）同样纳入，避免
+ * 「补 tag 不涉及 npm 发布所以不用查告警」的口径漏洞。
+ */
+export function planNeedsSecurityGate(plan, headTouches = headTouchesPath) {
+    return plan.some(
+        (p) => p.action === 'publish' || p.action === 'tag-only' || (p.action === 'skip-published' && headTouches(p.path)),
+    )
+}
+
+/**
+ * 发布前安全告警门禁（与 `release.yml` 同一脚本、同一 fail-closed 口径）。
+ *
+ * 口径：dry-run 与「本轮无实际发布动作（无 npm 发布 / 无新包 tag）」不消耗外部 API；
+ * 其余一律执行门禁，失败抛错中止发布。唯一例外是 `--skip-security=<理由>` 的显式绕过——
+ * 理由进日志，要求写入发布证据，避免「绕过后静默」。
+ *
+ * @returns {{status: 'passed'|'skipped-by-flag'|'skipped-no-action'|'skipped-dry-run', reason?: string}}
+ */
+export function runSecurityGate({
+    dryRun = false,
+    hasReleaseAction = true,
+    skipReason = null,
+    gate = invokeSecurityGate,
+    log = (line) => console.log(line),
+} = {}) {
+    if (dryRun) {
+        log('[security] dry-run：跳过发布前安全告警门禁（未执行任何发布动作）')
+        if (skipReason) {
+            log('[security] 本轮未执行门禁，--skip-security 理由未使用')
+        }
+        return { status: 'skipped-dry-run' }
+    }
+    if (!hasReleaseAction) {
+        log('[security] 本轮无实际发布动作（无 npm 发布、无新包 tag）：跳过发布前安全告警门禁')
+        if (skipReason) {
+            log('[security] 本轮未执行门禁，--skip-security 理由未使用')
+        }
+        return { status: 'skipped-no-action' }
+    }
+    if (skipReason) {
+        log(`[security] 警告：已显式跳过发布前安全告警门禁，理由：${skipReason}（必须写入发布证据）`)
+        return { status: 'skipped-by-flag', reason: skipReason }
+    }
+    log('[security] 执行发布前安全告警门禁（check-release-security-alerts.mjs，与 release.yml 同源）')
+    try {
+        gate()
+    } catch (failure) {
+        const detail = failure instanceof Error ? failure.message.split('\n')[0] || failure.message : String(failure)
+        throw new Error(
+            `发布前安全告警门禁未通过，发布中止：${detail}\n修复告警后重试；确需在可控风险下绕过时用 --skip-security=<理由> 显式跳过并留痕`,
+        )
+    }
+    log('[security] 发布前安全告警门禁通过')
+    return { status: 'passed' }
+}
+
+/** 门禁脚本以子进程执行（继承 stdio 保留其统计输出）。 */
+function invokeSecurityGate() {
+    execFileSync(process.execPath, [SECURITY_GATE_SCRIPT], { cwd: repoRoot, stdio: 'inherit' })
 }
 
 /**
@@ -305,7 +390,7 @@ function finalizeRelease(tagged) {
 }
 
 export async function main() {
-    const { dryRun, otp, registry } = parsePublishArgs()
+    const { dryRun, otp, registry, skipSecurityReason } = parsePublishArgs()
     if (!dryRun) {
         ensureCleanWorkspace(git('status --porcelain'))
     }
@@ -327,6 +412,13 @@ export async function main() {
     if (publishes.length === 0) {
         console.log('没有需要发布的版本（全部已发布 / 查询失败保守跳过）')
     }
+    // 发布前安全告警门禁：本轮有实际发布动作才执行（纯跳过轮次不消耗外部 API）。
+    // 自愈轮（npm 已发布但本地缺 tag、HEAD touch 包路径）会新建 tag，同样纳入门禁面。
+    runSecurityGate({
+        dryRun,
+        hasReleaseAction: planNeedsSecurityGate(plan),
+        skipReason: skipSecurityReason,
+    })
     // 本轮实际打 tag 的包（发布 + tag-only + 半发布状态补 tag），
     // v tag 锚点解析与 result.json 均以此为准
     const tagged = []

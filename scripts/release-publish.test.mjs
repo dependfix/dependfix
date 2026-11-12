@@ -3,6 +3,7 @@ import { writeFileSync } from 'node:fs'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
     DEFAULT_PUBLISH_REGISTRY,
+    SECURITY_GATE_SCRIPT,
     buildFinalizePlan,
     buildPublishArgs,
     buildPublishCommand,
@@ -10,7 +11,9 @@ import {
     ensureCleanWorkspace,
     main,
     parsePublishArgs,
+    planNeedsSecurityGate,
     resolveAnchorVersion,
+    runSecurityGate,
     tagOnly,
     tagRecovered,
     validateRegistry,
@@ -332,8 +335,36 @@ describe('main', () => {
 
         expect(console.log).toHaveBeenCalledWith(expect.stringContaining('[dry-run] would publish'))
         expect(console.log).toHaveBeenCalledWith(expect.stringContaining('dry-run 完成'))
-        // 无 pnpm publish 执行
+        // 无 pnpm publish 执行，也不执行安全门禁（dry-run 不消耗外部 API）
         expect(vi.mocked(execFileSync).mock.calls).toHaveLength(0)
+        expect(console.log).toHaveBeenCalledWith(expect.stringContaining('dry-run：跳过发布前安全告警门禁'))
+    })
+
+    it('安全门禁失败时在 npm 发布前中止（零发布副作用）', async () => {
+        stubRegistryUnpublished()
+        vi.mocked(execFileSync).mockImplementation((file) => {
+            if (file === process.execPath) {
+                throw new Error('Command failed: node scripts/check-release-security-alerts.mjs')
+            }
+            return undefined
+        })
+        process.argv = ['node', 'release-publish.mjs']
+
+        await expect(main()).rejects.toThrow(/安全告警门禁未通过/)
+        // 门禁先于 publish：不含任何 pnpm publish；也不打 tag（不留半发布态）
+        expect(vi.mocked(execFileSync).mock.calls.filter(([file]) => file === 'pnpm')).toHaveLength(0)
+        const commands = vi.mocked(execSync).mock.calls.map(([cmd]) => String(cmd))
+        expect(commands.some((cmd) => cmd.includes('git tag -a'))).toBe(false)
+    })
+
+    it('--skip-security=<理由> 绕过门禁并在终端摘要留痕', async () => {
+        stubRegistryUnpublished()
+        process.argv = ['node', 'release-publish.mjs', '--skip-security=上游无修复版本，已登记豁免台账']
+        await main()
+
+        expect(vi.mocked(execFileSync).mock.calls.filter(([file]) => file === process.execPath)).toHaveLength(0)
+        expect(console.log).toHaveBeenCalledWith(expect.stringContaining('上游无修复版本，已登记豁免台账'))
+        expect(vi.mocked(execFileSync).mock.calls.filter(([file]) => file === 'pnpm')).toHaveLength(5)
     })
 
     it('publishes 5 npm packages + tag-only platform, creates tags and finalizes v tag', async () => {
@@ -345,8 +376,10 @@ describe('main', () => {
         await main()
 
         const calls = vi.mocked(execSync).mock.calls.map((c) => String(c[0]))
-        // 5 包 pnpm publish（platform 跳过 pnpm；execFileSync 数组参数）
-        expect(vi.mocked(execFileSync).mock.calls).toHaveLength(5)
+        // 安全门禁 1 次（node 子进程）+ 5 包 pnpm publish（platform 跳过 pnpm；execFileSync 数组参数）
+        expect(vi.mocked(execFileSync).mock.calls).toHaveLength(6)
+        expect(vi.mocked(execFileSync).mock.calls[0][0]).toBe(process.execPath)
+        expect(vi.mocked(execFileSync).mock.calls[0][1]).toEqual([SECURITY_GATE_SCRIPT])
         // 5 包 npm tag + 1 platform tag + 1 v tag = 7
         expect(calls.filter((c) => c.includes('git tag -a'))).toHaveLength(7)
         expect(console.log).toHaveBeenCalledWith(
@@ -431,6 +464,8 @@ describe('main', () => {
 
         expect(console.log).toHaveBeenCalledWith('没有需要发布的版本（全部已发布 / 查询失败保守跳过）')
         expect(console.log).toHaveBeenCalledWith('skip v tag（本轮无锚包发布）')
+        // 纯跳过轮次不执行安全门禁
+        expect(vi.mocked(execFileSync).mock.calls).toHaveLength(0)
         expect(writeFileSync).toHaveBeenCalled()
     })
 
@@ -446,12 +481,84 @@ describe('main', () => {
 })
 
 
+describe('planNeedsSecurityGate', () => {
+    const item = (action, path = 'packages/core') => [{ pkg: '@dependfix/core', path, action }]
+
+    it('npm 发布 / 新包 tag 需要门禁', () => {
+        expect(planNeedsSecurityGate(item('publish'), () => false)).toBe(true)
+        expect(planNeedsSecurityGate(item('tag-only'), () => false)).toBe(true)
+    })
+
+    it('自愈补 tag 需要门禁；HEAD 不 touch 时不需要', () => {
+        expect(planNeedsSecurityGate(item('skip-published'), () => true)).toBe(true)
+        expect(planNeedsSecurityGate(item('skip-published'), () => false)).toBe(false)
+    })
+
+    it('纯跳过轮次不需要门禁', () => {
+        expect(planNeedsSecurityGate(item('skip-tag-exists'), () => true)).toBe(false)
+        expect(planNeedsSecurityGate(item('skip-registry-error'), () => true)).toBe(false)
+        expect(planNeedsSecurityGate([], () => true)).toBe(false)
+    })
+})
+
+describe('runSecurityGate', () => {
+    it('门禁通过返回 passed 并输出通过行', () => {
+        const gate = vi.fn()
+        const log = vi.fn()
+        expect(runSecurityGate({ gate, log })).toEqual({ status: 'passed' })
+        expect(gate).toHaveBeenCalledTimes(1)
+        expect(log).toHaveBeenCalledWith(expect.stringContaining('门禁通过'))
+    })
+
+    it('门禁非零（抛错）转成可操作错误，保留原始失败摘要', () => {
+        const gate = vi.fn(() => {
+            throw new Error('critical alert open\nfix it')
+        })
+        expect(() => runSecurityGate({ gate, log: () => {} })).toThrow(/安全告警门禁未通过.*critical alert open/)
+        expect(() => runSecurityGate({ gate, log: () => {} })).toThrow(/--skip-security/)
+    })
+
+    it('dry-run / 无实际动作 / 显式理由三种跳过均放行且不调用门禁', () => {
+        const gate = vi.fn()
+        const log = vi.fn()
+        expect(runSecurityGate({ dryRun: true, gate, log }).status).toBe('skipped-dry-run')
+        expect(runSecurityGate({ hasReleaseAction: false, gate, log }).status).toBe('skipped-no-action')
+        expect(runSecurityGate({ skipReason: '上游无修复版本', gate, log })).toEqual({
+            status: 'skipped-by-flag',
+            reason: '上游无修复版本',
+        })
+        expect(gate).not.toHaveBeenCalled()
+        expect(log).toHaveBeenCalledWith(expect.stringContaining('上游无修复版本'))
+    })
+})
+
 describe('发布参数与命令（本地 2FA 发布）', () => {
     it('解析 --otp / --registry / --dry-run（等号与空格）', () => {
-        expect(parsePublishArgs(['--dry-run'])).toEqual({ dryRun: true, otp: null, registry: DEFAULT_PUBLISH_REGISTRY })
+        expect(parsePublishArgs(['--dry-run'])).toEqual({
+            dryRun: true,
+            otp: null,
+            registry: DEFAULT_PUBLISH_REGISTRY,
+            skipSecurityReason: null,
+        })
         expect(parsePublishArgs(['--otp', '123456'])).toMatchObject({ otp: '123456' })
         expect(parsePublishArgs(['--otp=654321'])).toMatchObject({ otp: '654321' })
         expect(parsePublishArgs(['--registry', 'https://registry.npmjs.org/'])).toMatchObject({ registry: 'https://registry.npmjs.org/' })
+        expect(parsePublishArgs(['--skip-security=上游无修复版本'])).toMatchObject({ skipSecurityReason: '上游无修复版本' })
+        expect(parsePublishArgs(['--skip-security', '  发布窗口紧急  '])).toMatchObject({ skipSecurityReason: '发布窗口紧急' })
+    })
+
+    it('--skip-security 理由单行化并限长（防伪造后续日志行）', () => {
+        const reason = parsePublishArgs(['--skip-security=紧急\n[security] 发布前安全告警门禁通过']).skipSecurityReason
+        expect(reason).toBe('紧急 [security] 发布前安全告警门禁通过')
+        expect(reason).not.toContain('\n')
+        expect(parsePublishArgs([`--skip-security=${'长'.repeat(300)}`]).skipSecurityReason).toHaveLength(200)
+    })
+
+    it('--skip-security 无理由 / 空理由 / 误吞参数均报错', () => {
+        expect(() => parsePublishArgs(['--skip-security'])).toThrow(/缺少理由/)
+        expect(() => parsePublishArgs(['--skip-security='])).toThrow(/缺少理由/)
+        expect(() => parsePublishArgs(['--skip-security', '   '])).toThrow(/缺少理由/)
+        expect(() => parsePublishArgs(['--skip-security', '--dry-run'])).toThrow(/缺少理由/)
     })
 
     it('OTP 非 6-8 位数字 / registry 非 https / 缺值均报错', () => {

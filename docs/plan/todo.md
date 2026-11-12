@@ -45,6 +45,7 @@
 
 ### M58.2 发布工作流依赖审计与构建面同口径（P1 🛡️）
 
+- **状态**：✅ 已闭环（2026-11-12；审计 R1 deep Reject → R2 deep Pass，残留两项已同批收口）。
 - **目标**：`release.yml` 与 `test.yml` 的依赖审计强度一致（全量信号 + prod 阻断），并在发布前置阶段构建 platform，使「审计红或平台构建坏」不能进入发布。
 - **范围**：`.github/workflows/release.yml`（新增全量 `pnpm audit` 信号步 + prod 阻断步，命令同 `.github/workflows/test.yml:41` / `:43`，位置与预检同区、在 Auto version（`release.yml:67`）之前；build 步补 `pnpm --filter @dependfix/platform build`）、`docs/guide/release.md`（发布前门禁清单与时长记录）、`docs/design/governance/release-pipeline.md`（新增发布前门禁清单小节）。
 - **验收标准**：
@@ -56,6 +57,8 @@
 - **依赖**：`test.yml:41-43` 现行口径；根 `build` 只含 `./packages/*`（`package.json:59`）；`test.yml:184` / `:227` 已构建 platform。
 - **交付物**：2 commits / 3 files / 50-100 行。
 - **风险与缓解**：发布 job 时长增加（platform 构建约 1-2 min）→ 默认改为独立并行前置 job，超预算再降级为 job 内追加；记录两次实测时长，避免「体感通过」。
+- **执行记录（2026-11-12 闭环）**：`1c31eaaa` `release.yml` 在 install 后新增与 `test.yml` 逐字节同命令的两步审计（全量信号 `|| true` 不阻断 / prod 阻断无 `|| true` + `--ignore-registry-errors` + 显式公共 registry），位置在 `Auto version` 之前；`pnpm run build` 之后补 `Build platform`。`820a0b86` 文档：`release-pipeline` 新增 §4.5（阻断顺序表 + D1 决策 + 时长 + 负例）、`release.md` 同步 CI 行为清单与指针、`security.md §5.6/§5.8` 同批对齐发布链复跑口径；随后补 run `43210761634` 工作流级负例、`checklist §5.6` 第 ⑥ 项与 §4.5 行序。**D1 决策**：取「job 内追加」（实测增量 36-58s，低于 2 分钟预算；拆并行 job 需再切发布 job 并重复 checkout / install / build）。
+- **验证证据**：① 工作流级负例 run [`43210761634`](https://github.com/dependfix/dependfix/actions/runs/43210761634)——临时分支注入 `lodash@4.17.15` 后 dispatch，第 7 步 `pnpm audit (prod, moderate+, blocking)` **failure**（日志含 `high | Command Injection in lodash` / `GHSA-35jh-r3h4-6jhm`），其后 20 步全部 `skipped`（含 `Auto version` / `Release Publish` / tag / Release / Docker 派发），无发布副作用；分支已删除、master 未注入。② 时长：Test run `43156533722` 同一命令 E2E job 36s（04:43:02→04:43:38）/ Visual job 38s（04:43:04→04:43:42）；本地 warm 57.6s / 45.1s。③ 平台构建负例：注入语法错误 → exit 1（`[builtin:vite-transform] Unexpected token`），还原后 md5 一致且 exit 0。④ 仓库正例审计 exit 0（`2 vulnerabilities found / 1 low | 1 moderate (1 ignored)`；本地命令层口径——release 侧同命令日志与 `Build platform` 自身起止时刻待首个真实发布 run 回填，见发布管线设计 §4.5）。⑤ `check:verify-chain` OK、YAML 解析 OK、`gates:docs` 20 项、`check:doc-governance` 0/0、`lint:check` 0 error（4 存量 warning）、`typecheck` 7 项目。
 
 ### M58.3 CHANGELOG 新鲜度门禁（P2 🛠️）
 

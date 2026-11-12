@@ -77,7 +77,7 @@ P 阶段在 `todo.md` 顶部 banner / 阶段 banner 写 ahead 状态时，**必�
 
 **T (Test) — 质量检查**：编写测试用例；优先补当前缺陷会打断的断言、失败路径与边界行为。
 
-**F (Finish) — 任务完结与分批提交**：更新 `todo.md` 状态为 `已完成` 并同步相关文档；每个原子条目独立提交（长任务先回 P 阶段拆分，规模约束见 [规划规范 §1.1](./planning.md#_1-1-硬性约束)），每批提交前加载 `conventional-committer` skill；commit 后不得自动 `git push`，仅限用户明确要求时执行。
+**F (Finish) — 任务完结与分批提交**：更新 `todo.md` 状态为 `已完成` 并同步相关文档；每个原子条目独立提交（长任务先回 P 阶段拆分，规模约束见 [规划规范 §1.1](./planning.md#_1-1-硬性约束)），每批提交前加载 `conventional-committer` skill；commit 后不得自动 `git push`，仅限用户明确要求时执行（授权窗口见 [GitHub 协作规范 §4](./github-collaboration.md#_4-推送授权)）。
 
 ## 2.1 迭代中途发现事项处理
 

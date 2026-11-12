@@ -40,6 +40,7 @@
 - 技术栈：[docs/guide/tech-stack.md](docs/guide/tech-stack.md)
 - AI 协同指南：[docs/guide/ai-development.md](docs/guide/ai-development.md)
 - 项目规范：[docs/standards/index.md](docs/standards/index.md)
+- GitHub 协作（issue / PR / 推送授权）：[docs/standards/github-collaboration.md](docs/standards/github-collaboration.md)
 - 当前任务：[docs/plan/todo.md](docs/plan/todo.md)
 - 路线图：[docs/plan/roadmap.md](docs/plan/roadmap.md)
 - 竞品分析：[docs/research/2026-07-26-competitive-research.md](docs/research/2026-07-26-competitive-research.md)
@@ -57,6 +58,7 @@
 | 文档 | [docs/standards/documentation.md](docs/standards/documentation.md) |
 | 安全 | [docs/standards/security.md](docs/standards/security.md) |
 | Git | [docs/standards/git.md](docs/standards/git.md) |
+| GitHub 协作 | [docs/standards/github-collaboration.md](docs/standards/github-collaboration.md) |
 | 规划 | [docs/standards/planning.md](docs/standards/planning.md) |
 
 momei 仅作为 1.0.0 前的参考蓝本，1.0.0 后按本项目自身实践演进，形成自有规范体系。
@@ -172,8 +174,20 @@ A 阶段 `code-auditor` 审计必须触发的场景：
 2. **格式要求**：提交消息必须符合 Conventional Commits 规范（`type(scope): description`），且 `description` 统一使用**中文或用户使用的语言**。主题行最长 120 字符（commitlint 硬限制 140），消息格式细则见 [Git 规范 §3.1](docs/standards/git.md)。
 3. **质量前置**：提交前必须确认 A 阶段（`Code Auditor (代码审计员)`）已放行，且 `pnpm run lint:check`（涉及 CSS / SCSS / Vue 样式时另跑 `pnpm run lint:css:check`）、`pnpm typecheck` 和必要的定向测试均已通过。质量门禁未通过时不得提交。
 4. **原子粒度**：一个提交对应一个逻辑变更，关联且仅关联 `todo.md` 中的一个原子条目。
-5. **推送禁令**：`git commit` 后不得自动执行 `git push`，推送仅限用户明确要求时执行。提交完成后应告知用户"已提交到本地，等待推送确认"。
+5. **推送禁令**：`git commit` 后不得自动执行 `git push`，推送仅限用户明确要求时执行。提交完成后应告知用户"已提交到本地，等待推送确认"。**唯一例外**是 [GitHub 协作规范 §4](docs/standards/github-collaboration.md#_4-推送授权) 明列的两个窗口（CI 修复、条目完成收口），窗口外推送仍须用户明确指示。
 6. **src/dist 不一致时 build 在先（monorepo 纪律）**：改动涉及 `packages/*/src/**`（被其他 workspace 包 import）时，**提交前必须先 `pnpm -r build`（或定向 `pnpm --filter <changed-pkg> build`）重建 dist**，否则下游包的 typecheck 会报 TS2339（缺新字段）。CI 自动 rebuild 掩盖本地 dev 过期，导致 `pnpm exec tsc --noEmit` 通过但 `pnpm run typecheck`（含 nuxt typecheck pipeline）失败。**验证协议**：commit 前实测 `pnpm run typecheck` exit 0（覆盖 root tsc + nuxt typecheck）；如失败，第一动作是 `pnpm -r build` 而非修改源码。教训见 [经验归档 §五十五（M23.3 C66-C standard depth audit W1）](docs/design/governance/experience-archive.md)。
+
+## GitHub 协作与推送授权（hard requirement）
+
+issue、PR 与推送的处置口径以 [GitHub 协作规范](docs/standards/github-collaboration.md) 为唯一权威，本节只列必须遵守的结论：
+
+1. **来源核验**：先判来源——项目所有者（`author_association=OWNER`）、仓库协作者（`MEMBER`/`COLLABORATOR`），以及 `.user.type == "Bot"` 且 login 命中白名单（`dependabot[bot]` / `dependabot-preview[bot]` / `dependfix[bot]`）为可信；其他来源只审查与反馈。判定用 REST `gh api repos/<owner>/<repo>/{pulls,issues}/<n> --jq '.user.login, .user.type, .author_association'`，不按名字推断。
+2. **合并权限**：仅可信提交者的 PR 可合并；dependabot / dependfix 的 PR 继续走 Mergify，依赖升级风险由 CI 门禁承担；Mergify 未合并的按常规 PR 走审查 → 修复 → 合并或关闭。
+3. **issue 处理**：默认只做调研；外部 issue 核实后简短反馈（成立保留、不成立关闭并写依据）；入 backlog 候选按 §3.1 登记，上收为阶段任务需项目所有者审批。
+4. **推送**：仅 [GitHub 协作规范 §4](docs/standards/github-collaboration.md#_4-推送授权) 的两个窗口（CI 修复、条目完成收口）；推送前 A 阶段放行与本地必要验证齐备，推送后监控 CI；CI 结论未知时不叠加第二次推送；禁止 force push 与 `--no-verify`。
+5. **分支**：改动可能影响整体运行状态或规模过大时，走短生命周期分支 + PR，CI 通过后合并并清理分支。
+6. **上游反馈**：向上游项目提 issue 前先查重、按目标仓库模板撰写，并经用户审查授权。
+7. **巡检去重**：已评估且此后无实质更新的 PR / issue 不重复评论。
 
 ## 安全与行为红线
 

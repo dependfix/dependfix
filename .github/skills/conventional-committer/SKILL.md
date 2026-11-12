@@ -28,7 +28,7 @@ metadata:
 - [ ] Step 4: 执行提交 (conditional)
     - [ ] 4.1 仅在用户明确允许时执行 `git add` + `git commit`；也可走 `pnpm commit`（已绑定 `cz` 交互式 CLI）。
     - [ ] 4.2 husky `commit-msg`（commitlint）与 `pre-commit`（lint-staged）会自动执行，必须确保通过；环境不兼容时方可 `--no-verify`，并显式说明原因。
-    - [ ] 4.3 提交成功后**不得**自动 `git push`；必须明确告知用户「已提交到本地，等待推送确认」。
+    - [ ] 4.3 提交成功后**不得**自动 `git push`；必须明确告知用户「已提交到本地，等待推送确认」（授权窗口见 [GitHub 协作规范 §4](../../../docs/standards/github-collaboration.md#_4-推送授权)）。
     - [ ] 4.4 默认不添加 `Co-Authored-By`，除非确实是多人合作提交。
 
 ## type 决策规则
@@ -98,7 +98,7 @@ scope 反映改动所在的目录或职责，必须英文、小写、kebab-case�
 - 多类型变更没收敛主类型，导致 type 难以反映主体意图。
 - 把 `pnpm-lock.yaml` 单独提交，或锁文件与依赖声明分属不同 commit。
 - 单文件跨多 type 改动直接 `git add` 整文件（必须按 [git.md §3.2](../../../docs/standards/git.md) 拆分）。
-- 提交后自动 `git push`，违反推送禁令。
+- 提交后自动 `git push`，违反推送禁令（授权窗口见 [GitHub 协作规范 §4](../../../docs/standards/github-collaboration.md#_4-推送授权)）。
 - 提交超过 todo.md 原子条目粒度，把多个任务硬塞进一个 commit。
 - 撤销提交时不写明原 commit hash 或省略 `This reverts commit <hash>.` 引用。
 
@@ -111,5 +111,5 @@ scope 反映改动所在的目录或职责，必须英文、小写、kebab-case�
 - [ ] type / scope 使用英文，主题与正文使用简体中文（或用户指定语言）。
 - [ ] 多类型变更已收敛主类型；不向后兼容时已加 `!` 与 `BREAKING CHANGE:` 段。
 - [ ] 主题 ≤ 120 字符（硬上限 140），正文每行 ≤ 120 字符，未在主题中夹带括号备注。
-- [ ] 已告知用户「已提交到本地，等待推送确认」；未自动 `git push`。
+- [ ] 已告知用户「已提交到本地，等待推送确认」；未自动 `git push`（授权窗口见 [GitHub 协作规范 §4](../../../docs/standards/github-collaboration.md#_4-推送授权)）。
 - [ ] 已说明任何未完成的质量风险。

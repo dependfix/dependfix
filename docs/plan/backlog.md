@@ -54,8 +54,8 @@
 
 ### 候选评估中（待评估 / 本阶段延后项）
 
-> **候选池概览（2026-11-12 M58 归档后复算）**：本区 **41 项**（`### 候选评估中` 段内 `^- \*\*` 逐行计数）；M58 规划阶段上收 6 条候选为 5 原子（`release.yml` 审计与构建面两条并一 / CHANGELOG 新鲜度 / 本地发布门禁 / 发布后镜像运行时冒烟 / ACR 架构边界；47 → 41）。P 标签覆盖不全（未标注者评估时补 P 标签，不默认升级）；本文件不维护分档统计，1.0 分档只见 [release-1.0-readiness.md](../design/governance/release-1.0-readiness.md)。
-> **1.0 门槛与分档**：P0 23 / P1 8 / 1.0 后 15 的分档、门槛判定与批次计划见 [release-1.0-readiness.md](../design/governance/release-1.0-readiness.md)。
+> **候选池概览（2026-11-12 M59 规划后复算）**：本区 **37 项**（`### 候选评估中` 段内 `^- \*\*` 逐行计数）；M58 规划阶段上收 6 条为 5 原子（47 → 41）；M59 规划上收 4 条（沙箱 fix 出站策略 / 取消落定与清理 / force-fail 与续用起点写 / 资源采集扩展；41 → 37），另聚合 1 条 M57.1/M58.4 残余（镜像内 sandbox 双架构冒烟），不占候选计数。P 标签覆盖不全（未标注者评估时补 P 标签，不默认升级）；本文件不维护分档统计，1.0 分档只见 [release-1.0-readiness.md](../design/governance/release-1.0-readiness.md)。
+> **1.0 门槛与分档**：分档、门槛判定与批次计划单点声明于 [release-1.0-readiness.md](../design/governance/release-1.0-readiness.md)（2026-10-30 冻结口径，不随候选上收收缩；本文件不重复维护数字）。
 
 - **备份 `.tmp` 清扫缺年龄门槛（P3 🛠️，2026-10-31 M53.2 收口登记）** —— `cleanupOldBackups` 对 `*.bak.tmp` 无条件回收；单实例串行路径不可达冲突，但并发 `db:restore` 或多实例共卷启动时可能删掉对端正在写的临时文件（rename ENOENT → 该轮快照丢失，fail-open 后仅剩日志）。待评估：加入 `mtime < now - 10min` 年龄门槛或按 PID 命名临时文件。触发：启用多实例 / 多容器共享数据卷，或出现并发恢复需求时。
 - **`check:release-security` 输出缺少采集时点（P3 🛠️，2026-11-03 预发布检查发现；2026-11-08 复核）** —— 告警汇总行与 PASS / FAIL 行都不带采集时间，落盘为发布证据时无法自证时点（只能靠文件 mtime 推断）；脚本当前无 `--json` 模式。**范围**：输出首行加 ISO 时间戳。**验收**：输出含采集时点，单测锁定。**不做**：不改告警判定与 fail-closed 语义、不新增 `--json`。**触发条件**：下次改动该脚本，或再次需要以该输出作为发布证据。
@@ -161,11 +161,6 @@
   - **触发条件**：单仓安装次数成为主要耗时；或回滚粒度仍不足。
   - **按 [规划规范 §3.1](../standards/planning.md#_3-1-新需求默认走-评估-→-backlog-原则-hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
 
-- **执行资源采集覆盖面扩展（待评估，P2 🛠️）** —— 现象：M46.4 已采集 Linux cgroup v2/v1 内存上限 / 峰值 / `oom_kill`，但宿主级 OOM（未设容器 limit）不保证被 cgroup 捕获；sandbox / github-action 执行器未接入采集；容器 `executeRun` 抛错时监控快照丢弃；Redis 同步降级时 HTTP 进程也会执行安装，启动探测无法预知。
-  - **待评估点**：① 宿主 OOM 与 `journalctl -k` / `dmesg` 的关联口径；② sandbox / action 执行器的资源面；③ 异常路径快照保留；④ 同步降级信号接入启动 / 运行提示。
-  - **触发条件**：OOM 再次发生且 cgroup 标记无法解释；或 sandbox / action 成为主执行路径。
-  - **按 [规划规范 §3.1](../standards/planning.md#_3-1-新需求默认走-评估-→-backlog-原则-hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
-
 **2026-10-27 决策**：本地日志已上收 M49 追加临时待办（不占编号）；Sentry 官方 SaaS；Axiom 后续；其余 1.0 后。P 标签仅表优先级，新增 P1 未纳入 1.0 分档。
 
 - **平台 Sentry 错误 / 性能 / 日志接入（P1 🛠️，官方 SaaS，1.0 后）** —— 详见 [评估](../research/2026-10-27-third-party-observability-evaluation.md)。**目标**：官方 Sentry SaaS 补齐错误、性能（transaction + LCP / CLS / INP）与 warn/error 日志，无 DSN 零出网。**范围**：`@sentry/nuxt`、client/server config、`sourcemaps.disable`、`shared/utils/sanitize.ts` 抽取、≤10 处生命周期日志、脱敏。**验收**：① 无 DSN 零出网；② 浏览器 / API 500 / worker 异常带 release / commit / route；③ token / Cookie / URL / OAuth `code`·`state` 不进入事件与日志；④ `dataCollection` 关闭 URL query / GraphQL；⑤ Web Vitals 与采样率 env 可调；⑥ sourcemaps 默认关闭；⑦ 全量门禁通过。**不做**：Replay、source map 上传、CLI / Action 遥测、Umami / Clarity / GA / 百度、consoleLoggingIntegration。**依赖**：SaaS 项目与 DSN；Nuxt 4.6 兼容性 D 阶段验证。**交付物**：4-6 commits / 10-15 files / 500-800 行。**风险**：采集面宽 → 显式关闭 + 脱敏。
@@ -189,16 +184,9 @@
 - **契约抽取器覆盖 `@Column(() => X)` 嵌入列与 env 解构（P3 🛠️，2026-10-31 M53.1 收口登记）** —— `check-contract-freeze` 的实体抽取覆盖 `@Column` 系列 / `@ManyToOne`+`@JoinColumn` / `@Entity`，遇到 `@Embedded`、`@ManyToMany` join table、env 解构与非字面量 `readEnv` 实参已 fail-closed（`extractor-coverage`），但**无 `@Embedded` 的 `@Column(() => X)` 嵌入列**未进哨兵：抽取会产出错误列名并与清单产生差异（响亮失败，不会静默漏键）。待评估：扩展抽取器（递归嵌入类型 / `getMetadataArgsStorage` 元数据）或把该形态纳入 fail-closed 哨兵。触发：仓库首次引入嵌入实体或该形态列。
 - **en-US 设计文档全量镜像（P2 📚，2026-10-30 M52 规划登记）** —— 现状：en 设计镜像仅 4 篇，zh 设计文档 67 篇（含 M44.4 拆分分片）；M52.3 只做「结构映射 + 索引补全」，不重译全文。待评估：1.0 后是否按「分片 → 镜像」逐篇补齐（成本随拆分增加、双维护风险高），或长期维持映射清单 + 关键路径翻译。触发：1.0 后文档国际化需求，或用户反馈英文站信息不足时。
 
-**2026-11-01 批量运行失败复盘派生**（来源：`runs-logs-20261101-062859.txt` 第 1 页 50 条运行：5 条 failed〔3 条 `execution_timeout` + 2 条无日志〕+ 2 条 `exitCode=1`；不占阶段编号）：
-
-- **取消后引擎未在宽限期落定 + 工作目录清理竞态（待评估，P2 🛡️）** —— 现象：`rss-resources-download` 在基线阶段被 30 分钟上限中止后，`[executor] ... 引擎在 10000ms 宽限期内未落定（不再等待）`，随后 `finally` 仍 `rm -rf` 工作目录；同批 `momei` 则在宽限期内落定。**根因未定位**（候选：重命令子进程未随进程组退出 / 管道未关闭 / 非受管 await）。**待评估点**：① 未落定的具体原因（重命令子进程未随进程组退出 / 管道未关闭 / 非受管 await），需在取消路径记录「仍有存活受管子进程数 + 最后启动命令」；② 宽限期是否按「是否仍有受管子进程存活」动态延长（而非固定 10s）；③ 未落定时是否延迟清理 workDir（保留诊断）或先强杀进程组再清理；④ 与 `executor-process-isolation.md` 取消契约的一致性。**验收标准（草案）**：构造「基线阶段被中止」→ 日志给出未落定原因；workDir 清理不早于子进程全部退出。**不做**：不改 30 分钟上限口径。**触发条件**：再次出现「宽限期内未落定」（本页 1 例）。
-  - **按 [规划规范 §3.1](../standards/planning.md#_3-1-新需求默认走-评估-→-backlog-原则-hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
+**2026-11-08 上游提案研判派生**（来源：`cmyr-skills-agents` 治理提案对照与本仓 AI 资产核对；不占阶段编号）：
 
 - **AI 基建机检补强（P2 🛠️，2026-11-08 上游提案研判登记）** —— skill frontmatter / `metadata.internal`、`references` 索引、镜像符号链接、技能文档死链均已合规但**无机检**。**待评估**：① 新增 `check-ai-governance`（frontmatter 必填 + `references` / 镜像链接可达）并注册 `DOC_GATES` 复用 `gates:docs` 单入口，不另开 `ai:check` CI job；② `cmyr-skills-agents` 的 `docs/proposals/2026-11-02-governance-check-alignment.md` 中 #5 弃用引用 / #6 能力标记 optOut（无机器可读 deprecated 清单；跨仓读台账成第二事实源）。**触发**：新增或合并 skill、`references` 调整、回写上游台账时。
-
-- **沙箱 fix 模式出站白名单代理接入（待评估，P1 🛡️，2026-11-09 沙箱真实执行边界）** —— 现状：sandbox 仅放行 report-only（不 clone / 不执行目标仓库代码）；fix / fix-and-pr 降级 `container` 并记 `sandbox_fix_requires_egress_policy`。**待评估**：把应用层出站白名单代理（T1002）接入 `SandboxExecutor.buildSpec`（代理 env / 域发现 / 外联日志），放行 fix 前保持 report-only。**触发条件**：需要在沙箱内执行不可信仓库修复时。
-
-- **force-fail 与启动续用的整行写回可能复活已终态 run（待评估，P3 🛡️，2026-11-10 M57.2 审计登记）** —— 现状：编排层**终态**写回已改条件更新（迟到 worker 不再覆盖清理侧 `failed`），但两处**起点写**仍是整行 `save`：① `api/batch-runs/[id]/force-fail.post.ts`「读取 → 改内存实体 → 整行 `save`」；② `scan-orchestrator.service.ts` 续用分支把 `existing.status` 置 `running` 后整行保存。worker 与 HTTP 进程分属不同进程、`withRepoLock` 不跨进程，读-写间隙内被清理侧置 `failed` 的行会被写回 `running` / `failed`。**待评估**：两处改用同一条件更新口径（仅 `pending` / `running` 可写 + `affected` 断言），并与编排层共用写回 helper。**不做**：不改 force-fail 入口语义与权限。**触发条件**：评估 [queue-stale-recovery.md §9](../design/governance/queue-stale-recovery.md) 残余项，或出现「已完成的 run 被 force-fail / 续用写复活」实例时。
 
 ### 待上收候选（评估完成，等待用户决策）
 
@@ -349,6 +337,18 @@
 - **回填方式**：在 arm 环境一次性取证，结论写回 [发布管线设计 §4.7](../design/governance/release-pipeline.md#_4-7-镜像通道矩阵与-acr-架构边界-2026-11-12-m58-5)；未回填前 ACR 继续记为「amd64 备份通道」，不得写成 arm64 运行证据。
 - **触发条件**：具备 arm64 主机或需要把 ACR 作为 arm64 分发通道时。
 
+### 宿主级 OOM 与 cgroup 标记无法解释（持续观察）
+
+- **背景**：M46.4 的资源采集只覆盖容器 cgroup（v2/v1）；宿主级 OOM（未设容器 limit）不保证被 cgroup 捕获。M59.4 只扩展「sandbox / action 执行器 + 异常路径快照」，不采宿主 `dmesg` / `journalctl -k` 关联。
+- **触发条件**：OOM 再次发生且 cgroup 标记无法解释，或 sandbox 成为主执行路径。
+- **回填方式**：需要时单列候选（宿主 OOM 归因口径 + 可观测面），不得在资源采集扩展中顺手夹带。
+
+### Redis 同步降级时 HTTP 进程执行安装的启动提示缺口（持续观察）
+
+- **背景**：队列 Redis 不可用会同步降级，HTTP 进程也会执行安装；当前启动探测无法预知该状态，M59.4 不覆盖此提示面（原「执行资源采集覆盖面扩展」候选的第 ④ 点）。
+- **触发条件**：同步降级再次发生且用户无法从启动日志 / 健康端点判断。
+- **回填方式**：单列候选（启动期探测 + 运行提示），或并入平台可观测性批次。
+
 ### 全量 vitest 偶发失败（单次未复现，持续观察）
 
 - **背景**：2026-10-14 M44.4 批次② 的一次全量 `pnpm test` 出现失败，但输出被调用方截断、失败明细未捕获；随后同一工作区（仅文档与注释变更）连续多次复跑均全绿，未能复现（按 [AI 协作规范 §4.7](../standards/ai-collaboration.md) 阶段 3 登记根因观察项）。
@@ -388,9 +388,9 @@
 
 | 内容类型 | 位置 |
 |:--|:--|
-| 当前阶段活跃任务 | **无活跃阶段**（M58 已于 2026-11-12 归档，见 [todo-archive.md](todo-archive.md)）；插队容量治理见 [planning.md §3.1.1](../standards/planning.md#_3-1-1-插队后的阶段容量再平衡-hard-requirement-2026-10-19) |
-| 下一阶段（未规划） | 用户 2026-11-12 决策「全部纳入、分四期」：第二期「沙箱 fix 与执行可靠性」待规划，其后为平台减法与页面治理、文档与 AI 治理 |
+| 当前阶段活跃任务 | **M59 沙箱 fix 与执行可靠性**（2026-11-12 规划，5 原子，见 [todo.md](todo.md)）；插队容量治理见 [planning.md §3.1.1](../standards/planning.md#_3-1-1-插队后的阶段容量再平衡-hard-requirement-2026-10-19) |
+| 下一阶段（未规划） | 用户 2026-11-12 决策「全部纳入、分四期」：第三期「平台减法与页面治理」→ 第四期「文档与 AI 治理」 |
 | 已完成阶段归档 | [todo-archive.md](todo-archive.md)（阶段索引 + [archive/](archive/) 分片） |
-| 里程碑与阶段交付 | [roadmap.md](roadmap.md)（M0-M58 已归档；当前无进行中阶段） |
+| 里程碑与阶段交付 | [roadmap.md](roadmap.md)（M0-M58 已归档；M59 进行中） |
 | 长期主线 / 候选 / 待人工验收 / 已知边界 | 本文档（按四象限结构） |
 | 历史归档索引 | [archive/index.md](archive/index.md) |

@@ -62,6 +62,7 @@
 
 ### M58.3 CHANGELOG 新鲜度门禁（P2 🛠️）
 
+- **状态**：✅ 已闭环（2026-11-12；审计 R1 deep Reject → R2 deep Pass，S5 同批收口）。
 - **目标**：发布前发现「版本段存在但内容陈旧」——changelog 生成后又有新 commit 时门禁非零，而不是只校验版本段存在。
 - **范围**：`scripts/changelog.mjs`（抽出可复用的「按当前版本重算段」入口，import 不写盘）、`scripts/verify-changelog.mjs`（新增 `--fresh` 模式：内存重算并比对，差异非零，不写盘）、`scripts/verify-changelog.test.mjs`、`.github/workflows/release.yml`、`docs/guide/release.md`。
 - **验收标准**：
@@ -73,6 +74,8 @@
 - **依赖**：`changelog.mjs` 增量生成与 HEAD 日期幂等口径（模块头注释）；`verify-changelog.mjs` 现行 `extractSection`。
 - **交付物**：2 commits / 5 files（`scripts/changelog.mjs`、`scripts/verify-changelog.mjs`、`scripts/verify-changelog.test.mjs`、`.github/workflows/release.yml`、`docs/guide/release.md`）/ 100-180 行。
 - **风险与缓解**：重算与磁盘格式差异导致误报 → 只比对当前未发布版本段的条目集合而非整段字节，正例 / 负例各 2 组；`--fresh` 与默认模式互不影响。
+- **执行记录（2026-11-12 闭环）**：`changelog.mjs` 抽出 `computeUnreleasedSection`（增量重算未发布段 + 依赖 / 基线兜底，不写盘；两处 fallback 同样按 `root` 取数）并导出 `CHANGELOG_TARGETS`，`main()` 改为调用该函数（行为等价搬迁）；`verify-changelog.mjs` 新增 `--fresh`（条目集合多重集比较、已打 tag 的段跳过、浅克隆 / 无 tag 先校验存在性再 warning 放行、全程不写盘、`execFileSync` 数组参数避免 shell 拼接），`main` 改 async 返回退出码；`release.yml` 的 `Verify changelog is up to date` 改跑 `--fresh`；新增临时 git 仓库集成用例（生成 → 追加 feat → 陈旧 → 还原）。
+- **验证证据**：① 定向 `/tmp` 临时仓库：生成后追加 `feat` → 判定陈旧并点名文件，重算前后文件字节一致；② 真实仓库发布路径模拟（`packages/skills` 版本 1.0.0→1.0.1 + `pnpm changelog`）→ `--fresh` exit 0（无误报），删除该段 1 条条目 → exit 1 并点名 `packages/skills/CHANGELOG.md`，还原后 exit 0；③ 已发布态 `--fresh` exit 0 且 `git status` 前后一致；④ mutation 7/7 击杀（工件 `artifacts/review-gate/2026-11-12-m58-3-mutation.md`，基线 md5 `a4a249c7…3abf359`）；⑤ `pnpm exec vitest run scripts` 54 files / 1125 passed；`lint:check` 0 error（4 存量 warning）、`typecheck` 7 项目、`gates:docs` 20 项、`check:doc-governance` 0/0、`check:orphan-ids` 0、`check:doc-size` 超阈值 0。**偏差说明**：实际 8 文件 / 约 530 增行，高于预估「5 文件 / 100-180 行」——多出 `release-pipeline` D2 段、`scripts/README` 索引与新增 fresh 集成测试文件；审计要求的新鲜度护栏（已发布段跳过）与其反证用例占主要增量。
 
 ### M58.4 发布后镜像运行时冒烟与历史 tag 巡检（P2 🚀🧪）
 

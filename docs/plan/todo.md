@@ -74,11 +74,25 @@
 - **依赖**：`changelog.mjs` 增量生成与 HEAD 日期幂等口径（模块头注释）；`verify-changelog.mjs` 现行 `extractSection`。
 - **交付物**：2 commits / 5 files（`scripts/changelog.mjs`、`scripts/verify-changelog.mjs`、`scripts/verify-changelog.test.mjs`、`.github/workflows/release.yml`、`docs/guide/release.md`）/ 100-180 行。
 - **风险与缓解**：重算与磁盘格式差异导致误报 → 只比对当前未发布版本段的条目集合而非整段字节，正例 / 负例各 2 组；`--fresh` 与默认模式互不影响。
-- **执行记录（2026-11-12 闭环）**：`changelog.mjs` 抽出 `computeUnreleasedSection`（增量重算未发布段 + 依赖 / 基线兜底，不写盘；两处 fallback 同样按 `root` 取数）并导出 `CHANGELOG_TARGETS`，`main()` 改为调用该函数（行为等价搬迁）；`verify-changelog.mjs` 新增 `--fresh`（条目集合多重集比较、已打 tag 的段跳过、浅克隆 / 无 tag 先校验存在性再 warning 放行、全程不写盘、`execFileSync` 数组参数避免 shell 拼接），`main` 改 async 返回退出码；`release.yml` 的 `Verify changelog is up to date` 改跑 `--fresh`；新增临时 git 仓库集成用例（生成 → 追加 feat → 陈旧 → 还原）。
-- **验证证据**：① 定向 `/tmp` 临时仓库：生成后追加 `feat` → 判定陈旧并点名文件，重算前后文件字节一致；② 真实仓库发布路径模拟（`packages/skills` 版本 1.0.0→1.0.1 + `pnpm changelog`）→ `--fresh` exit 0（无误报），删除该段 1 条条目 → exit 1 并点名 `packages/skills/CHANGELOG.md`，还原后 exit 0；③ 已发布态 `--fresh` exit 0 且 `git status` 前后一致；④ mutation 7/7 击杀（工件 `artifacts/review-gate/2026-11-12-m58-3-mutation.md`，基线 md5 `a4a249c7…3abf359`）；⑤ `pnpm exec vitest run scripts` 54 files / 1125 passed；`lint:check` 0 error（4 存量 warning）、`typecheck` 7 项目、`gates:docs` 20 项、`check:doc-governance` 0/0、`check:orphan-ids` 0、`check:doc-size` 超阈值 0。**偏差说明**：实际 8 文件 / 约 530 增行，高于预估「5 文件 / 100-180 行」——多出 `release-pipeline` D2 段、`scripts/README` 索引与新增 fresh 集成测试文件；审计要求的新鲜度护栏（已发布段跳过）与其反证用例占主要增量。
+- **执行记录（2026-11-12 闭环）**：
+  - `changelog.mjs` 抽出 `computeUnreleasedSection`（增量重算未发布段 + 依赖 / 基线兜底，不写盘）；两处 fallback 同样按 `root` 取数；
+    导出 `CHANGELOG_TARGETS`，`main()` 改为调用该函数（行为等价搬迁）。
+  - `verify-changelog.mjs` 新增 `--fresh`：条目集合多重集比较、已打 tag 的段跳过、浅克隆 / 无 tag 先校验存在性再 warning 放行、
+    全程不写盘、`execFileSync` 数组参数避免 shell 拼接；`main` 改 async 返回退出码。
+  - `release.yml` 的 `Verify changelog is up to date` 改跑 `--fresh`；新增临时 git 仓库集成用例（生成 → 追加 feat → 陈旧 → 还原）。
+- **验证证据**：
+  - ① 临时 `/tmp` 仓库：生成后追加 `feat` → 判定陈旧并点名文件，重算前后文件字节一致。
+  - ② 真实仓库发布路径模拟（`packages/skills` 版本 1.0.0→1.0.1 + `pnpm changelog`）→ `--fresh` exit 0；删除该段 1 条条目 →
+    exit 1 并点名 `packages/skills/CHANGELOG.md`；还原后 exit 0。
+  - ③ 已发布态 `--fresh` exit 0 且 `git status` 前后一致。
+  - ④ mutation 7/7 击杀（工件 `artifacts/review-gate/2026-11-12-m58-3-mutation.md`，基线 md5 `a4a249c7…3abf359`）。
+  - ⑤ `pnpm exec vitest run scripts` 54 files / 1125 passed；`lint:check` 0 error（4 存量 warning）、`typecheck` 7 项目、
+    `gates:docs` 20 项、`check:doc-governance` 0/0、`check:orphan-ids` 0、`check:doc-size` 超阈值 0。
+  - **偏差说明**：实际 8 文件 / 约 530 增行，高于预估「5 文件 / 100-180 行」——多出 `release-pipeline` D2 段、`scripts/README` 索引与新增 fresh 集成测试文件。
 
 ### M58.4 发布后镜像运行时冒烟与历史 tag 巡检（P2 🚀🧪）
 
+- **状态**：✅ 已闭环（2026-11-12；审计 R1 deep Reject（3B）→ 修复 → R2 deep Pass，W7/S6-S9 同批收口）。
 - **目标**：release 后自动拉取 `platform-<版本>` 镜像在 amd64 + arm64 原生 runner 跑 `/api/health`，失败告警不阻断发布；并对历史 tag 产出「已验证 / 未证实」清单。
 - **范围**：`.github/workflows/release.yml`（post-release job，`needs` 发布 job、`continue-on-error: true`、`permissions: packages: read`）、新增 `scripts/release/scan-image-tags.mjs` + 测试（历史 tag 报告；`pathToFileURL` / `isDirectExecution` 入口守卫，供单测 import）、`apps/platform/docker/smoke-test.sh`（复用，必要时参数化版本断言）、`docs/guide/release.md`。
 - **验收标准**：
@@ -88,8 +102,22 @@
   4. 单测覆盖结论解析、失败分流与无凭证 fail-open；`pnpm run gates:docs` 通过。
 - **不做什么**：不改发布判定与镜像构建架构；不引入 QEMU；不对每次 push 运行（仅 release / dispatch）；不重建历史镜像。
 - **依赖**：`GH_PAT` 或 `GITHUB_TOKEN` 的 `read:packages`；`docker.yml` 双架构 manifest 回读；1.0.0 已人工复核 health（M54 记录）。
-- **交付物**：3 commits / 5 files / 250-400 行。
+- **交付物**：3 commits / 6 files / 250-450 行（实际 4 commits / 8 文件，含 `todo.md` / `backlog.md` 收口）。
 - **风险与缓解**：GHCR 权限 / 网络失败 → 全部 fail-open 但必须可见（summary + 日志）；arm runner 成本 → 仅 release 触发且各架构只跑一次冒烟。
+- **执行记录（2026-11-12 闭环）**：
+  - `docker.yml` 新增 `post-release-smoke`：`needs: merge`、`platform_version` 门控、job 级 `continue-on-error`、amd64 / arm64 原生矩阵、
+    `fetch-depth: 0` + `persist-credentials: false`、`docker pull` 后跑 `smoke-test.sh`（断言 `/api/health` 的版本与 commit）、
+    amd64 腿跑历史 tag 巡检写 Job Summary、失败写「未证实」+ `::warning::`。
+  - 新增 `scripts/release/scan-image-tags.mjs`（双架构 manifest 判定、fail-open、`--key=value` / `--key value` 两形态）
+    + 18 例单测；`release-pipeline §4.6`（位置决策、矩阵、失败语义、GHCR-only 范围、未证实项）、`release.md` 指针、`scripts/README` 索引。
+- **验证证据**：
+  - ① 巡检两形态实跑（无 GHCR 凭证）：空格 / 等号 argv 均 exit 0，全部 `unverified` + `401 Unauthorized` 原因，绝不写 `verified`。
+  - ② `docker.yml` YAML 解析 OK；步骤序 checkout(fetch-depth 0) → setup-node → setup-buildx → login → Pull image →
+    Run image smoke test → Scan → Summary；触发面与最小权限（contents/packages read）经解析核对。
+  - ③ 参数/进程边界单测 18 passed（含工作流同形 argv、全 unverified 返回 0、`--json` 结构、空窗口文案、参数 fail-closed）。
+  - ④ `lint:check` 0 error（4 存量 warning）、`typecheck` 7 项目、`gates:docs` 20 项、`check:doc-governance` 0/0、`check:orphan-ids` 0。
+  - **未证实**：arm64 原生 runner 首跑、私有 GHCR `packages: read`、全量历史下巡检真实输出、冒烟失败可见性——已登记 `backlog.md` 已知边界，
+    首个发布 run 回填 §4.6；回填前不得记为「已验证」。
 
 ### M58.5 ACR 多架构边界收口（P2 🚀📚）
 

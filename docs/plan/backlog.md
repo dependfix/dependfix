@@ -335,6 +335,13 @@
 - **影响**：类型侧由 `nuxt typecheck` 覆盖；但涉及 `packages/*/dist`（如 engine chunk 结构）变更后，容器 / 运行时冒烟前需重建 `apps/platform/.output`，否则可能引用旧产物。
 - **触发条件**：① 需要容器 / 运行时冒烟验证依赖 `packages/*/dist` 的变更时；② 跑 `apps/platform` e2e 或**视觉回归**（`pnpm --filter @dependfix/platform test:visual`，M32.5）前——两者都跑 `.output` 产物，源码改动不重建则验证的是旧产物（假绿；M32.1 / M32.5 均实证）。
 
+### 发布后镜像冒烟与历史 tag 巡检的真实性待首个发布 run 验证（持续观察）
+
+- **背景**：M58.4 新增 `docker.yml` 的 `post-release-smoke`（amd64 / arm64 原生 runner 拉镜像跑 `/api/health` 断言 + 历史 tag 巡检），本环境无法真实派发发布工作流（会实际发版）。
+- **未证实项**：① `ubuntu-24.04-arm` 原生 runner 首次运行；② 私有 GHCR 包 `packages: read` 读取；③ 历史 tag 巡检在全量历史 checkout 下的实际输出；④ 冒烟失败时 Job Summary / `::warning::` 的可见性。
+- **回填方式**：首个带 `platform_version` 的发布派发后，把 run id 与两架构结论回填 [发布管线设计 §4.6](../design/governance/release-pipeline.md#_4-6-发布后镜像冒烟与历史-tag-巡检-2026-11-12-m58-4)；未回填前该面不得记为「已验证」。
+- **触发条件**：下一次 `release.yml` 派发 `docker.yml`（`platform_version` 非空）。
+
 ### 全量 vitest 偶发失败（单次未复现，持续观察）
 
 - **背景**：2026-10-14 M44.4 批次② 的一次全量 `pnpm test` 出现失败，但输出被调用方截断、失败明细未捕获；随后同一工作区（仅文档与注释变更）连续多次复跑均全绿，未能复现（按 [AI 协作规范 §4.7](../standards/ai-collaboration.md) 阶段 3 登记根因观察项）。

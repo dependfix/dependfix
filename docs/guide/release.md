@@ -67,6 +67,8 @@
 每次发布（首次手动发布、`release:version` + `workflow_dispatch`、定时发布）都必须通过安全告警门禁。规则权威声明见 [安全规范 §5.9](../standards/security.md#_5-9-发布前安全告警门禁-dependabot-alerts-code-scanning-2026-10-29-用户决策)：
 
 - **CI 强制**：`release.yml` 在 `Auto version` 之前做只读预检、在 `release:publish` 之前做阻断判定（均为 `pnpm run check:release-security`）；critical 一律阻断（含 dismissed，禁止豁免），high 只有登记在 [`.github/release-security-exemptions.json`](../../.github/release-security-exemptions.json) 台账才放行（dismissed 同样需要），moderate / low 不阻断。token 缺失 / API 401·403·404 / 超时 / 级别无法判定均 fail-closed，不会当作「无告警」。
+- **本地备用通道同样强制**：`pnpm release:publish` 在真正执行 `pnpm publish` / 打 tag 前自动运行同一门禁脚本，非零即中止——不再依赖人工「记得先跑一次」。dry-run 与纯跳过轮次（无 npm 发布、无新包 tag）不执行门禁，避免无谓消耗外部 API。
+- **唯一绕过通道**：`pnpm release:publish --skip-security=<理由>`。缺理由 / 空理由直接非零退出；带理由时理由会打印到终端摘要，**必须**写入发布证据——绕过不等于通过。
 - **本地早期核对**（可选，提前暴露问题）：`GH_PAT=<token> pnpm run check:release-security`，仓库 slug 自动取 `GITHUB_REPOSITORY` 或 `origin` remote。
 - **前置 secret**：Dependabot alerts 无法用 `GITHUB_TOKEN` 读取（恒 403），仓库需配置 `GH_PAT`（fine-grained 仅 `Dependabot alerts: read`，classic 需 `security_events`）；Code Scanning 用 workflow 的 `GITHUB_TOKEN` + `security-events: read` 权限，不要求 PAT 具备该权限。
 - **豁免**：high 需在台账登记 9 个字段并同步 [backlog.md](../plan/backlog.md)；open 告警用 `no-fix` / `hard-fix`，dismissed 误报用 `false-positive`，Code Scanning 必须按实例 `location` 登记（同一 rule 不同文件分别登记）。新增条目须维护者批准（AI 不得自行豁免），见 [§5.9](../standards/security.md#_5-9-发布前安全告警门禁-dependabot-alerts-code-scanning-2026-10-29-用户决策)。复核条件满足（如上游发布修复版本）后立即移除；stale 台账只告警不阻断。
@@ -238,6 +240,7 @@ git push origin master
 ```
 
 > **本地手动发布（备用通道）**：`pnpm release:publish --otp <6-8 位数字>`。脚本固定 `--registry https://registry.npmjs.org/`（不继承本机 pnpm / npm registry 配置，避免被只读镜像配置带偏），并把 OTP 透传给每个包的 `pnpm publish`；发布成功后需用户自行 `git push` + `git push --tags`。CI OIDC 仍是默认通道，本地发布仅用于 CI 不可用时的兜底。OTP 有时效（约 30 秒），过期直接生成新码重跑即可，脚本不缓存 OTP。
+> 发布前脚本会自动执行安全告警门禁（与 `release.yml` 同一脚本、同一 fail-closed 口径）；本地缺 `GH_PAT`、网络不可达或存在未豁免 critical / high 时一律中止。确需在可控风险下绕过时用 `--skip-security=<理由>`，理由会打印到终端摘要并须写入发布证据（绕过不构成门禁通过）。
 
 #### 发布链预演与安装实测（本地，不发版）
 

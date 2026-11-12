@@ -120,6 +120,7 @@
 每次发布前必须核对本仓库的安全告警（`state=open` + `state=dismissed`），按严重级别决定是否放行；门禁已在 `release.yml` 中自动执行（`pnpm run check:release-security`），失败即中止发布。本节是**发布级门禁**，与 [§5.6](#_5-6-依赖审计阻断语义-信号级-→-阻断的转正条件-2026-09-30-用户决策方案-c) / [§5.7](#_5-7-无可用修复版本漏洞的审计豁免-audit-ignore-2026-10-05) 的 **CI 命令级阻断**互补：`pnpm audit` 绿灯不等于可发布（devDeps / 传递依赖 / 代码质量告警可能未被 audit 覆盖）；反之 `audit.ignore` 也不构成发布豁免。
 
 - **执行面**：`release.yml` 在质量门与 changelog 校验之后、`release:publish` 之前运行 `Check release security alerts` 步骤（阻断判定）；另在 `Auto version` 之前运行 `Pre-check release security alerts` 只读预检，避免定时发布先提升版本再被拦下。本地可在版本提升前跑同一命令做**早期核对**（提前暴露问题，不替代 CI）。判定实现见 `scripts/check-release-security-alerts.mjs`。
+- **本地备用通道同口径**：`pnpm release:publish` 在真正执行 `pnpm publish` / 打 tag 前自动运行同一脚本（dry-run 与无实际发布动作的轮次跳过）；CI 的 `Release Publish` 步骤注入同一组 token，故三处执行（预检 / 阻断判定 / 发布器内）同源同 fail-closed。**唯一绕过是 `--skip-security=<理由>`**：理由进终端摘要并须写入发布证据，**只跳过门禁执行、不构成任何豁免**（critical 仍需修复后才可发布），CI 通道不传该参数。
 - **分级口径**：
 
 | 级别 | 发布门禁 | 处置要求 |

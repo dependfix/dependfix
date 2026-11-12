@@ -18,14 +18,15 @@
 
 ## 2. 发布前门禁
 
-1. `pnpm run check:release-security`：Dependabot alerts + Code Scanning 门禁（critical 含 dismissed 一律阻断，high 需台账豁免；token / API 异常 fail-closed）。发布链内已强制；**本地备用通道（`release:publish --otp`）不内置该门禁**，走本地通道前必须手动执行本命令。
+1. `pnpm run check:release-security`：Dependabot alerts + Code Scanning 门禁（critical 含 dismissed 一律阻断，high 需台账豁免；token / API 异常 fail-closed）。发布链内已强制；**本地备用通道（`release:publish --otp`）会在发布前自动执行同一门禁**（`--skip-security=<理由>` 显式绕过并留痕），手动执行仍可用于提前核对。
 2. `pnpm run gates:docs`：20 项文档与治理门禁，含 `check:contract-freeze`（契约键位比对）与 `docs:check:anchors`。
 3. `pnpm run lint:check` + `pnpm run lint:css:check` + `pnpm typecheck` + `pnpm test` + `pnpm run build`。
-4. `pnpm verify:changelog`：七份日志均含当前版本段。
+4. `pnpm verify:changelog --fresh`：七份日志均含当前版本段，且未发布段的条目集合与当前 git 历史一致。
 5. `pnpm release:preflight`：真实 tarball 三路安装，断言 `dependfix --version` 等于新版本；**必须在 `build` 之后执行**（`pnpm pack` 打包当前 `dist`）。
 6. **豁免读数复核**：G3 保持 `pending`（无 G3.0–G3.9 实跑证据，G3.8 仅 `partial`）；G4 按「最近 10 次 master push 的 Test 0 失败」判据取值——**2026-11-02 冻结读数 9/10（未达成）**，唯一红为测试隔离缺陷（`scripts/release/preflight.test.mjs` 工作区留痕断言），0.6.0 以来 30/38（不含 0.6.0 发布自身 1 次；含则 31/39）。两者的实际读数写入发布说明「已知限制」，**不得**改写成 20 连绿 / 2 周无红。
 7. **G8 读数**：`GITHUB_TOKEN=<token> pnpm metrics:pr-health --repo=dependfix/dependfix --days=30 --limit=30`。**2026-11-02 复算：30 个 PR / CI 绿率 25/30 = 83.3% / 人工介入 0% / 误关 0%**（11-01 为 24/30 = 80%，窗口滚动已变化）。发布说明必须引用**发布当日**复算值与取数命令；缺 token 时脚本直接失败，不得把「没取到数」写成 0% 绿率。
-8. **非豁免门槛终态核对**：G1 / G5 / G6 / G7 按[就绪度台账 §2](../design/governance/release-1.0-readiness.md)逐项核对终态。其中 **G1 ④ 要求「周回归最近 3 次 `security:audit-deps` 通过」**，当前 **3 次达标**（`40693124400` 10-28 + `41101319146` 10-30 + `42017415845` 11-05 手动触发；末次日志含 `PASS security:audit-deps` 与审计结果行）。G1 其余三项：非豁免 critical / high = 0、code scanning 0、prod 阻断步骤在 `test.yml` 与周回归同一命令——G1 已转 ✅。
+8. **镜像通道限制落发布说明**：发布说明「已知限制」必须含一行镜像通道口径（ACR 个人版 = amd64 备份通道，按 tag 行为依推送路径而变；arm64 用 GHCR / Docker Hub 或 OCI digest）。
+9. **非豁免门槛终态核对**：G1 / G5 / G6 / G7 按[就绪度台账 §2](../design/governance/release-1.0-readiness.md)逐项核对终态。其中 **G1 ④ 要求「周回归最近 3 次 `security:audit-deps` 通过」**，当前 **3 次达标**（`40693124400` 10-28 + `41101319146` 10-30 + `42017415845` 11-05 手动触发；末次日志含 `PASS security:audit-deps` 与审计结果行）。G1 其余三项：非豁免 critical / high = 0、code scanning 0、prod 阻断步骤在 `test.yml` 与周回归同一命令——G1 已转 ✅。
 
 ## 3. 发布步骤（master，人工触发）
 
@@ -55,7 +56,7 @@
 
 - 三路安装：`npx --yes dependfix@1.0.0 --version`、全局安装、tarball 安装均等于 `1.0.0`。
 - GitHub Release 为 Latest 且非 prerelease（1.0.0 属正式版；仅 alpha / beta / rc 标 prerelease）。
-- 远端镜像（**以阿里云 ACR 为主通道**，用户 2026-11-05 决策）：`registry.cn-hangzhou.aliyuncs.com/caomeiyouren/dependfix:platform-<版本>` 匿名可拉 → `docker run --rm` 后 `/api/health` 的 `version` / `commit` 必须与发布提交一致（0.7.0 实测：`0.5.0` / `a049a561`）。**注意 ACR 个人版把 tag 解析为单一 amd64 manifest**（index 仅按 digest 可取），双架构证明须用 GHCR（需 `read:packages`）或 ACR 企业版；缺权限时记 blocked + retry_condition，不得记为通过。
+- 远端镜像（**以阿里云 ACR 为 amd64 备份通道（健康复核可用）；双架构主通道是 GHCR / Docker Hub**，用户 2026-11-05 决策）：`registry.cn-hangzhou.aliyuncs.com/caomeiyouren/dependfix:platform-<版本>` 匿名可拉 → `docker run --rm` 后 `/api/health` 的 `version` / `commit` 必须与发布提交一致（0.7.0 实测：`0.5.0` / `a049a561`）。**ACR 个人版的按 tag 行为依推送路径而变**：0.5.0（buildx 多平台直推）在 amd64 主机按 tag 只解析出单一 amd64；1.0.0 起（digest 合成）registry API 回读为双平台 index，但 arm64 主机实际拉取未实测——双架构证明须用 GHCR（需 `read:packages`）/ Docker Hub 或按 OCI digest 拉取；缺权限时记 blocked + retry_condition，不得记为通过。
 - 发布物审计：`pnpm audit --prod --registry=https://registry.npmjs.org` + Code Scanning 开放告警 0；非 §5.7 豁免的 critical / high 必须为 0。
 - G8 复算：发布当日重跑 `GITHUB_TOKEN=<token> pnpm metrics:pr-health --repo=dependfix/dependfix --days=30 --limit=30`，发布说明引用当日读数（窗口滚动，历史值不得当作当日值）。
 - 台账回填：G1 / G2 / G5 / G6 / G7 / G8 终态；G3 / G4 保持豁免记录与 retry_condition（[就绪度台账](../design/governance/release-1.0-readiness.md)）。
@@ -83,11 +84,11 @@
 | git tag | `git tag -a drill-rollback-20261102-1 -m ... HEAD` → `git cat-file -t` → `git tag -d` | 本地一次性 tag 可创建、是 tag 对象、删除后无残留；生产 tag 不受影响 | `tag` 类型确认；删除后 `git tag -l 'drill-rollback-*'` 计数 0；六个 0.7.0 tag 仍指向 `a049a561` → **通过（drill）**（远端删除 `git push origin :refs/tags/<tag>` 未执行） |
 | GitHub Release | `gh release view v0.7.0`（只读核对）；`gh release delete` **未执行** | 能判定当前 Release 归属与 Latest 状态；删除后可按修复提交重建 | `v0.7.0` 为 Latest、非 prerelease、tag 指向发布提交 → **判据可用**；删除与重建**未演练**（破坏性，保留残余） |
 | `@v1` | **已创建（2026-11-07，`097723a7` → `83c966fd`）**；回退命令未演练 | `git tag -f v1 <commit>` 后 `--force` 推送 | 回退属破坏性操作，随 1.0.1 演练 |
-| Docker | `docker run --rm registry.cn-hangzhou.aliyuncs.com/caomeiyouren/dependfix:platform-0.5.0` + `/api/health` | 版本戳与发布提交一致 | **health 通过**（2026-11-05 ACR 匿名拉取 + 冒烟：`0.5.0` / `a049a561`，15 张表）；**双架构未验证**——ACR tag 解析为单一 amd64 manifest，GHCR 缺 `read:packages`，故 Docker 面仍留残余 |
+| Docker | `docker run --rm registry.cn-hangzhou.aliyuncs.com/caomeiyouren/dependfix:platform-0.5.0` + `/api/health` | 版本戳与发布提交一致 | **health 通过**（2026-11-05 ACR 匿名拉取 + 冒烟：`0.5.0` / `a049a561`，15 张表）；**双架构未验证**——ACR tag 在 0.5.0 推送路径下按 tag 解析为单一 amd64 manifest（1.0.0 起回读双平台 index，arm64 主机未实测，见[§4.7](../design/governance/release-pipeline.md#_4-7-镜像通道矩阵与-acr-架构边界-2026-11-12-m58-5)）、GHCR 缺 `read:packages`，故 Docker 面仍留残余 |
 | 数据库 | 本轮无迁移，不触发；路径引用 [deployment.md](deployment.md) 备份恢复 | 迁移前滚后可回退 | 备份 / 恢复路径已在 M53.2 实测（备份 323,584 字节 → `db:restore` → 三方逐表 0 差异、`integrity_check: ok`）→ **通过（引用既有实测）** |
 
-- **逐面状态**：npm / git tag / 数据库 = drill 实测通过；GitHub Release = 仅判据核对（删除 / 重建未执行）；Docker = 标签 / 构建已实测，health 已于 2026-11-05 经 ACR 通过；双架构已回读验证（三 registry × 4 tag = 12/12 `linux/amd64 + linux/arm64`）；**ACR 个人版按 tag 解析仍为单 amd64 manifest**（平台限制未变）；1.0.0 镜像 `/api/health` 版本戳未复核；`@v1` = 已创建（`097723a7` → `83c966fd`），回退命令未演练。**不得**把本表读成「全部面已演练」。
-- **Docker 面 retry_condition**：0.7.0 面（`platform-0.5.0`）剩余 = 双架构 / 客户端 manifest 证明（需 `read:packages` 或 Docker Hub 可达）。**1.0.0 面已推进**：`imagetools inspect` 回读三 registry × 4 tag = **12/12 双架构**（run `42376735406`）；剩余 = **1.0.0 镜像 `/api/health` 版本戳复核**与 **ACR 按 tag 单 amd64 解析**（平台限制）。
+- **逐面状态**：npm / git tag / 数据库 = drill 实测通过；GitHub Release = 仅判据核对（删除 / 重建未执行）；Docker = 标签 / 构建已实测，health 已于 2026-11-05 经 ACR 通过；双架构已回读验证（三 registry × 4 tag = 12/12 `linux/amd64 + linux/arm64`）；**ACR 个人版按 tag 行为依推送路径而变**（0.5.0 单 amd64；1.0.0 起回读双平台 index，arm64 主机未实测）；1.0.0 镜像 `/api/health` 版本戳未复核；`@v1` = 已创建（`097723a7` → `83c966fd`），回退命令未演练。**不得**把本表读成「全部面已演练」。
+- **Docker 面 retry_condition**：0.7.0 面（`platform-0.5.0`）剩余 = 双架构 / 客户端 manifest 证明（需 `read:packages` 或 Docker Hub 可达）。**1.0.0 面已推进**：`imagetools inspect` 回读三 registry × 4 tag = **12/12 双架构**（run `42376735406`）；剩余 = **1.0.0 镜像 `/api/health` 版本戳复核**与 **ACR 在 arm64 主机的按 tag 拉取未实测**（口径见[§4.7](../design/governance/release-pipeline.md#_4-7-镜像通道矩阵与-acr-架构边界-2026-11-12-m58-5)）。
 - **残余**：Release 删除 / 重建与远端 tag 删除属破坏性，仅按命令与判据演练；npm 真实 `deprecate` 未对任何已发布版本执行（`0.6.0` 是否弃用属用户决策，见[发布指南](release.md)「0.7.0 发布记录」）。
 
 ## 6. 产物校验和
@@ -119,6 +120,7 @@
 - Google OAuth 登录未验证（无可用 Google 账号）
 - CI 稳定性（G4）未达 20 连绿 / 2 周无红；降级判据「最近 10 次 master push 的 Test 0 失败」也**未达成**——实测 9/10（唯一红为测试隔离缺陷，0.6.0 以来 30/38），按豁免披露实际读数（retry_condition：最近 10 次 master push 的 Test 全部成功即关闭本豁免）
 - 设计文档全量英译不在 1.0（指南平价已完成）
+- 镜像通道：阿里云 ACR 个人版定位为 amd64 备份通道（按 tag 行为依推送路径而变：0.5.0 为单 amd64，1.0.0 起 registry 回读为双平台 index，但 arm64 主机实际拉取未实测）；arm64 请用 GHCR（需 `read:packages`）或 Docker Hub，或按 OCI digest 拉取——按 tag 拉取不代表 arm64 可运行
 
 ### 已知非目标
 - 1.0 后项（运行面漏洞检测 / 独立 installer 容器 / 仓库级 allowMajorUpgrade / PostgreSQL+Helm 等）见就绪度台账 §3.3

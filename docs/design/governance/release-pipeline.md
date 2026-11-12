@@ -226,6 +226,18 @@ release.yml Push release tags（全量推送，含 v tag，推送后核验）
 
 **未证实项（2026-11-12）**：arm64 原生 runner 首次真实运行与私有 GHCR 包读取（`packages: read`）待首个 release 派发实测；本地无 GHCR 凭证时巡检输出 401 Unauthorized 的「未证实」（已实跑，fail-open 生效）。
 
+### 4.7 镜像通道矩阵与 ACR 架构边界（2026-11-12，M58.5）
+
+| 通道 | 按 tag 获取 | 双架构 | 定位 |
+|:--|:--|:--:|:--|
+| GHCR `ghcr.io/dependfix/dependfix` | manifest list | ✅（三 registry × 4 tag 回读 12/12，run `42381362295`） | 双架构主通道（需 `read:packages`；包为私有） |
+| Docker Hub `caomeiyouren/dependfix` | manifest list | ✅ 同上 | 双架构主通道（可匿名拉取） |
+| 阿里云 ACR（个人版） | **依推送路径而变**：0.5.0（buildx 多平台直推）在 amd64 主机按 tag 只解析出 amd64；1.0.0 起（digest 合成）registry API 回读为双平台 index（4/4 tag，run `42381362295`） | ⚠️ arm64 主机实际拉取未实测 | **amd64 备份通道**（健康复核可用）；不得作为 arm64 运行证据 |
+
+- **统一口径**：三篇文档统一写作「amd64 备份通道（健康复核可用）」；arm64 用户用 GHCR / Docker Hub，或按 OCI digest 拉取（digest 是绕开平台选择的确定路径，但 ACR 在 arm64 主机上的实际拉取未实测）。
+- **证据边界**：2026-11-05 ACR 匿名拉取 + 冒烟只证明 **amd64 运行时 health**（`0.5.0` / `a049a561`，当时 tag 按平台解析为单一 amd64）；2026-11-07 1.0.0 的 registry API 回读证明 index 含双平台。两者证明面不同；**历史 tag 不可假定双架构**（0.5.0 与 1.0.0 的推送路径不同）。
+- **不做什么**：不迁 ACR 企业版、不改主通道与推送逻辑、不重建历史 tag。
+
 ## 5. 文件映射
 
 ### 新增

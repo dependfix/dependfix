@@ -71,6 +71,8 @@ DEPENDFIX_IMAGE=caomeiyouren/dependfix:v0.3.0 docker compose up -d
 docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
 ```
 
+> **镜像通道定位**：GHCR / Docker Hub 提供双架构 manifest（amd64 + arm64），是推荐主通道（**GHCR 包为私有，需 `read:packages` 令牌登录；匿名拉取用 Docker Hub**）；**阿里云 ACR 个人版定位为 amd64 备份通道**——按 tag 行为依推送路径而变（0.5.0 在 amd64 主机只取到 amd64；1.0.0 起 registry 回读为双平台 index，但 arm64 主机实际拉取未实测），故不作 arm64 运行证据。口径见[发布管线设计 §4.7](../design/governance/release-pipeline.md#_4-7-镜像通道矩阵与-acr-架构边界-2026-11-12-m58-5)。
+
 > 本地源码构建会从 Docker Hub 拉取基础镜像（`docker.io/library/node:24.22.1-alpine`，digest 固定）；受限网络需先配置 registry mirror 或代理，否则会卡在 `failed to resolve source metadata`。
 
 > 可用仓库内脚本对任意镜像做「首次启动可用性」自检（验证自动建表 + HTTP 200 + 13 张业务表）：

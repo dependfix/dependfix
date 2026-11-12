@@ -48,7 +48,7 @@
 | G3 豁免边界 | **不宣称 G3 通过** | G3.0–G3.9 实跑未完成，G3.8 仅 `partial`；资源到位后按真实环境矩阵补测 |
 | 版本方案（2026-11-05 用户） | **六个发布包全部随 1.0.0** | `dependfix` / `core` / `engine` / `mcp` / `skills` / `platform` 均 `major` → `1.0.0`；`platform` 仍走 tag-only + 镜像 `platform-1.0.0`；`release-plan.md` 按此手写（docs-only 窗口下 `release:plan` 不产计划） |
 | 发布通道（2026-11-05 用户） | **`release.yml` 的 OIDC dispatch** | 本地通道仅应急；dispatch 会以 `--ref v1.0.0` 自动派发 docker 并带 `platform_version=1.0.0` |
-| 镜像复核通道（2026-11-05 用户） | **经阿里云 ACR 核实** | 匿名拉取 + `docker run` 冒烟验证 `/api/health`；ACR 个人版 tag 为 amd64-only，双架构仍需 GHCR / 企业版 ACR |
+| 镜像复核通道（2026-11-05 用户） | **经阿里云 ACR 核实** | 匿名拉取 + `docker run` 冒烟验证 `/api/health`；ACR 个人版定位为 amd64 备份通道（按 tag 行为依推送路径而变）；双架构用 GHCR / Docker Hub 或 OCI digest（ACR 企业版路径 1.0 不采用，见[发布管线设计 §4.7](release-pipeline.md)） |
 | G1 ④ 第 3 次周回归（2026-11-05 用户） | 等 11-06 计划运行或手动触发一次 | 2026-11-05 已手动触发 `42017415845`（同 `weekly` profile），成功即满足 3 次 |
 
 ### 2.3 G5 关键模块清单（3 条链，2026-11-02 M54.3）

@@ -19,6 +19,7 @@ metadata:
 - [AI 协作规范](../../../docs/standards/ai-collaboration.md)
 - [开发规范](../../../docs/standards/development.md)
 - [安全规范](../../../docs/standards/security.md)
+- [GitHub 协作规范](../../../docs/standards/github-collaboration.md)
 - [测试规范](../../../docs/standards/testing.md)
 - [SOLID 审查清单](./references/solid-checklist.md)
 - [安全检查清单](./references/security-checklist.md)

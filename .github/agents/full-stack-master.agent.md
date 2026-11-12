@@ -17,7 +17,7 @@ description: 全局一体化开发与协作工作流技能，覆盖需求评估�
 
 ## 优先复用的 Skills 与规范
 
-- **权威规则**：[AGENTS.md](../../AGENTS.md)、[AI 协作规范](../../docs/standards/ai-collaboration.md)、[规划规范](../../docs/standards/planning.md)
+- **权威规则**：[AGENTS.md](../../AGENTS.md)、[AI 协作规范](../../docs/standards/ai-collaboration.md)、[规划规范](../../docs/standards/planning.md)、[GitHub 协作规范](../../docs/standards/github-collaboration.md)
 - **规划技能**：[requirement-analyst](../../.github/skills/requirement-analyst/SKILL.md)、[context-analyzer](../../.github/skills/context-analyzer/SKILL.md)
 - **实现技能**：按需使用对应技术栈 skill（`nuxt`、`vue`、`pnpm`、`tsdown` 等）
 - **质量技能**：[code-reviewer](../../.github/skills/code-reviewer/SKILL.md)、[test-engineer](../../.github/skills/test-engineer/SKILL.md)、[security-guardian](../../.github/skills/security-guardian/SKILL.md)

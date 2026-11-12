@@ -21,6 +21,7 @@
 | 安全规范 | [security.md](security.md) | 安全红线、密钥管理、输入校验、AI 输出安全 |
 | 项目规划 | [planning.md](planning.md) | 路线图维护、里程碑定义、任务分解、归档流程 |
 | Git 规范 | [git.md](git.md) | 分支策略、提交规范、Review 前置 |
+| GitHub 协作规范 | [github-collaboration.md](github-collaboration.md) | 可信提交者、issue / PR 处理、推送授权、上游反馈 |
 | API 规范 | [api.md](api.md) | REST API 设计、错误码、分页规范 |
 | 性能规范 | [performance.md](performance.md) | Lighthouse 基线、资源预算（平台阶段适用） |
 | 外部 Skills | [external-skills-intake.md](external-skills-intake.md) | 外部 skill 准入清单与失效处理 |

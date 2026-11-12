@@ -89,6 +89,7 @@ const zhSidebar = {
                 { text: '文档规范', link: '/standards/documentation' },
                 { text: '安全规范', link: '/standards/security' },
                 { text: 'Git 规范', link: '/standards/git' },
+                { text: 'GitHub 协作规范', link: '/standards/github-collaboration' },
                 { text: '规划规范', link: '/standards/planning' },
                 { text: 'API 规范', link: '/standards/api' },
                 { text: '平台规范', link: '/standards/platform' },

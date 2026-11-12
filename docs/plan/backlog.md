@@ -54,7 +54,7 @@
 
 ### 候选评估中（待评估 / 本阶段延后项）
 
-> **候选池概览（2026-11-12 M59 规划后复算）**：本区 **37 项**（`### 候选评估中` 段内 `^- \*\*` 逐行计数）；M58 规划阶段上收 6 条为 5 原子（47 → 41）；M59 规划上收 4 条（沙箱 fix 出站策略 / 取消落定与清理 / force-fail 与续用起点写 / 资源采集扩展；41 → 37），另聚合 1 条 M57.1/M58.4 残余（镜像内 sandbox 双架构冒烟），不占候选计数。P 标签覆盖不全（未标注者评估时补 P 标签，不默认升级）；本文件不维护分档统计，1.0 分档只见 [release-1.0-readiness.md](../design/governance/release-1.0-readiness.md)。
+> **候选池概览（2026-11-12 运行日志复盘后复算）**：本区 **39 项**（`### 候选评估中` 段内 `^- \*\*` 逐行计数）；M58 规划阶段上收 6 条为 5 原子（47 → 41）；M59 规划上收 4 条（沙箱 fix 出站策略 / 取消落定与清理 / force-fail 与续用起点写 / 资源采集扩展；41 → 37），另聚合 1 条 M57.1/M58.4 残余（镜像内 sandbox 双架构冒烟），不占候选计数；2026-11-12 运行日志复盘登记 2 条 P1（红仓库 baseline 短路 / 子进程 OOM 信号分离；37 → 39）。P 标签覆盖不全（未标注者评估时补 P 标签，不默认升级）；本文件不维护分档统计，1.0 分档只见 [release-1.0-readiness.md](../design/governance/release-1.0-readiness.md)。
 > **1.0 门槛与分档**：分档、门槛判定与批次计划单点声明于 [release-1.0-readiness.md](../design/governance/release-1.0-readiness.md)（2026-10-30 冻结口径，不随候选上收收缩；本文件不重复维护数字）。
 
 - **备份 `.tmp` 清扫缺年龄门槛（P3 🛠️，2026-10-31 M53.2 收口登记）** —— `cleanupOldBackups` 对 `*.bak.tmp` 无条件回收；单实例串行路径不可达冲突，但并发 `db:restore` 或多实例共卷启动时可能删掉对端正在写的临时文件（rename ENOENT → 该轮快照丢失，fail-open 后仅剩日志）。待评估：加入 `mtime < now - 10min` 年龄门槛或按 PID 命名临时文件。触发：启用多实例 / 多容器共享数据卷，或出现并发恢复需求时。
@@ -187,6 +187,12 @@
 **2026-11-08 上游提案研判派生**（来源：`cmyr-skills-agents` 治理提案对照与本仓 AI 资产核对；不占阶段编号）：
 
 - **AI 基建机检补强（P2 🛠️，2026-11-08 上游提案研判登记）** —— skill frontmatter / `metadata.internal`、`references` 索引、镜像符号链接、技能文档死链均已合规但**无机检**。**待评估**：① 新增 `check-ai-governance`（frontmatter 必填 + `references` / 镜像链接可达）并注册 `DOC_GATES` 复用 `gates:docs` 单入口，不另开 `ai:check` CI job；② `cmyr-skills-agents` 的 `docs/proposals/2026-11-02-governance-check-alignment.md` 中 #5 弃用引用 / #6 能力标记 optOut（无机器可读 deprecated 清单；跨仓读台账成第二事实源）。**触发**：新增或合并 skill、`references` 调整、回写上游台账时。
+
+**2026-11-12 运行日志复盘派生**（来源：`runs-logs-20261112-143354.txt` 第 1 页 50 条运行，2 次交付 / 3 次 `execution_timeout`；不占阶段编号）：
+
+- **红仓库 baseline 预失败后的短路（P1 🛠️，2026-11-12 运行日志复盘登记）** —— 现象：`CaoMeiYouRen/momei` 每轮 pre-fix baseline 20-21 分钟，`lint` / `build` / `typecheck` / `test` 全部预失败，随后 post-fix 验证按 `pre-existing` 全量豁免（`quick-verify` 直接 skip），baseline 只产出「不归因」；`CaoMeiYouRen/rss-impact-server` 同形（baseline 9-18 分钟，`test` 每轮 `timed out`）。两仓合计占该窗口 63% 机时（227/358 分钟），仅贡献 2 次交付中的 1 次；全窗口约 48% 时长是 pre-fix baseline。**待评估点**：① 短路口径（同一命令已红即跳过全部后续命令，还是只跳过依赖它的命令）；② 与 `onBaselineRed` / `verificationSkippedByReason` 的衔接（跳过原因需能与「预算耗尽」「无写入」区分）；③ 短路后报告与平台详情如何表达「未跑 ≠ 通过」；④ 红仓库是否需降频（每 N 轮重建一次 baseline）。**验收标准（草案）**：红仓库单轮耗时下降 ≥ 50%；跳过项全部带原因且报告可判读；非红仓库链条零回归。**不做**：不改验证链条数与顺序本身（[repo-execution-limits.md](../design/governance/repo-execution-limits.md) 边界），不为单仓硬编码。**触发条件**：再次出现红仓库吃满执行预算或 `execution_timeout`。
+
+- **子进程 OOM 信号与运行终止的状态分离（P1 🛠️，2026-11-12 运行日志复盘登记）** —— 现象：同一「子进程 OOM」信号在日志里落成三种终态——`rss-impact-server` 在 2026-11-06 / 11-10 / 11-11 标 `OOM 终止：是`（峰值 RSS 2883-2994 MB）但终态 `completed` + `exitCode:0`，11-07 同形运行 `failed`；`momei` 的 lint OOM（`Mark-Compact 1947.0 (1961.6) MB` → `FATAL ERROR: ... heap limit`）则吃满 30 分钟上限报 `execution_timeout`。`OOM 终止` 字面读作 run 级终止，与实际「命令级 OOM + 基线豁免放行」不符。**待评估点**：① 归因字段拆分（run 级 `oomKilled` vs 命令级 OOM，后者带命令名与退出码）；② 命令级 OOM 是否阻断交付（当前按 pre-existing 豁免放行）；③ 平台列表 / 详情的展示口径（命令级 OOM 不计入运行失败率）；④ 与 2026-10-30 条 ④「OOM 子进程退出应作独立诊断信号」合并评估，不重复实现。**验收标准（草案）**：同一信号只落一个字段层级，`completed` 运行不再出现「OOM 终止」字样；`execution_timeout` 与其子进程 OOM 可分别判读。**不做**：不采宿主级 OOM / `dmesg`（[已知边界](#宿主级-oom-与-cgroup-标记无法解释-持续观察) 已单列）；不改 30 分钟上限口径。**触发条件**：再次出现「completed + OOM」并置，或 OOM 与超时仍不可区分。
 
 ### 待上收候选（评估完成，等待用户决策）
 

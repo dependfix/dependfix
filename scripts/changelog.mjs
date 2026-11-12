@@ -67,9 +67,9 @@ const targets = [
     })),
 ]
 
-async function generate({ commits, tags, pkg, releaseCount = 0, headDate }) {
+async function generate({ commits, tags, pkg, releaseCount = 0, headDate, root = repoRoot }) {
     let out = ''
-    const cc = new ConventionalChangelog(repoRoot)
+    const cc = new ConventionalChangelog(root)
         .loadPreset('conventional-changelog-cmyr-config')
         .options({
             releaseCount,
@@ -91,7 +91,7 @@ async function generate({ commits, tags, pkg, releaseCount = 0, headDate }) {
         .commits(commits)
         .tags(tags)
         .context({ date: headDate })
-        .readPackage(join(repoRoot, pkg))
+        .readPackage(join(root, pkg))
     for await (const detail of cc.write(true)) {
         // 跳过空版本段：段内无任何 commit 条目行（`* ` 列表）的段，仅剩版本标题行。
         // 典型场景：pkg 版本 == 最新 tag 且该 tag 后无对应路径 commit（如发布后立即
@@ -406,10 +406,10 @@ export function findPrevTag(prefix, currentVersion, execList) {
  * 注意：依赖失败（git show 失败 / package.json 解析失败）一律保守返回空串而非抛错——
  * fallback 是"补充输出"机制，不该阻断主 changelog 流程。
  */
-async function buildDependencyFallback({ pkgPath, currentPkgJson, prefix, version, repo, headDate }) {
+async function buildDependencyFallback({ pkgPath, currentPkgJson, prefix, version, repo, headDate, root = repoRoot }) {
     const listTags = () => {
         try {
-            return execSync(`git tag --list "${prefix}*"`, { cwd: repoRoot })
+            return execSync(`git tag --list "${prefix}*"`, { cwd: root })
                 .toString()
                 .split('\n')
                 .filter(Boolean)
@@ -425,7 +425,7 @@ async function buildDependencyFallback({ pkgPath, currentPkgJson, prefix, versio
 
     const readPkgJsonAtRef = (ref, path) => {
         try {
-            const out = execSync(`git show "${ref}:${path}/package.json"`, { cwd: repoRoot, stdio: ['pipe', 'pipe', 'pipe'] })
+            const out = execSync(`git show "${ref}:${path}/package.json"`, { cwd: root, stdio: ['pipe', 'pipe', 'pipe'] })
                 .toString()
                 .trim()
             return out ? JSON.parse(out) : null
@@ -445,7 +445,7 @@ async function buildDependencyFallback({ pkgPath, currentPkgJson, prefix, versio
     const prevDepVersions = {}
     for (const p of PUBLISHABLE_PACKAGES) {
         try {
-            const curPkg = JSON.parse(await readFile(join(repoRoot, p.path, 'package.json'), 'utf8'))
+            const curPkg = JSON.parse(await readFile(join(root, p.path, 'package.json'), 'utf8'))
             currentDepVersions[p.pkg] = curPkg.version
         } catch {
             // 跳过：当前版本无法解析时让纯函数自然忽略
@@ -464,10 +464,10 @@ async function buildDependencyFallback({ pkgPath, currentPkgJson, prefix, versio
  * 基线兜底：无包内可渲染 commit、无依赖变化，但版本相对上一 tag 已提升时，
  * 写一个「运行时基线更新」段；无历史 tag / 版本未提升 → 空串（保持幂等）。
  */
-function buildBaselineFallback({ prefix, version, repo, headDate }) {
+function buildBaselineFallback({ prefix, version, repo, headDate, root = repoRoot }) {
     const listTags = () => {
         try {
-            return execSync(`git tag --list "${prefix}*"`, { cwd: repoRoot })
+            return execSync(`git tag --list "${prefix}*"`, { cwd: root })
                 .toString()
                 .split('\n')
                 .filter(Boolean)
@@ -485,6 +485,44 @@ function buildBaselineFallback({ prefix, version, repo, headDate }) {
     }
     return renderBaselineSection({ version, prevVersion, prefix, repo, headDate })
 }
+
+/**
+ * 按当前版本重算「未发布版本段」（不写盘，供 changelog 生成与 verify:changelog --fresh 共用）。
+ * 与 `main()` 的增量分支同源：先按 releaseCount: 1 重算，空段依次走依赖 / 基线兜底。
+ * `root` 仅供测试指向临时 git 仓库（默认真实仓库根）：影响 preset 解析、readPackage 与
+ * git 侧 tag / package.json 读取（两处 fallback 同样按 root 取数）。
+ *
+ * @returns {Promise<string>} 版本段文本（空串 = 当前版本无未发布内容）
+ */
+export async function computeUnreleasedSection(target, { version, currentPkgJson, repo, headDate, root = repoRoot }) {
+    let unreleased = await generate({ ...target, releaseCount: 1, headDate, root })
+    if (!unreleased) {
+        // fallback：path-filter 空 + 版本未发布 → 可能是"被动依赖升级"（依赖传导触发的 patch 跟随，
+        // 该包路径下从上次 tag 后无自身 commit）。构造 Dependencies 段填充空段，让 verify-changelog 通过。
+        // 边界：仅在历史 tag 存在且 workspace 依赖确实有版本变化时输出空串以外的内容（重跑幂等语义保留）。
+        unreleased = await buildDependencyFallback({
+            pkgPath: target.path,
+            currentPkgJson,
+            prefix: target.tags.prefix,
+            version,
+            repo,
+            headDate,
+            root,
+        })
+        if (!unreleased) {
+            unreleased = buildBaselineFallback({
+                prefix: target.tags.prefix,
+                version,
+                repo,
+                headDate,
+                root,
+            })
+        }
+    }
+    return unreleased
+}
+
+export { targets as CHANGELOG_TARGETS }
 
 export async function main() {
     const headDate = headDateOf()
@@ -540,31 +578,10 @@ export async function main() {
             continue
         }
         // 增量追加：仅重算未发布版本段（releaseCount: 1 = 最新 tag 之后）
-        let unreleased = await generate({ ...target, releaseCount: 1, headDate })
+        const unreleased = await computeUnreleasedSection(target, { version, currentPkgJson, repo, headDate })
         if (!unreleased) {
-            // fallback：path-filter 空 + 版本未发布 → 可能是"被动依赖升级"（依赖传导触发的 patch 跟随，
-            // 该包路径下从上次 tag 后无自身 commit）。构造 Dependencies 段填充空段，让 verify-changelog 通过。
-            // 边界：仅在历史 tag 存在且 workspace 依赖确实有版本变化时输出空串以外的内容（重跑幂等语义保留）。
-            unreleased = await buildDependencyFallback({
-                pkgPath: target.path,
-                currentPkgJson,
-                prefix: target.tags.prefix,
-                version,
-                repo,
-                headDate,
-            })
-            if (!unreleased) {
-                unreleased = buildBaselineFallback({
-                    prefix: target.tags.prefix,
-                    version,
-                    repo,
-                    headDate,
-                })
-            }
-            if (!unreleased) {
-                console.log(`unchanged ${target.file}`)
-                continue
-            }
+            console.log(`unchanged ${target.file}`)
+            continue
         }
         const merged = mergeUnreleased(existing, version, unreleased)
         if (merged === existing) {

@@ -185,6 +185,26 @@ release.yml Push release tags（全量推送，含 v tag，推送后核验）
 
 ---
 
+### 4.5 发布前门禁清单与实测时长（2026-11-12，M58.2）
+
+`release.yml` 的阻断顺序固定如下，任一步非零即中止，不进入发布：
+
+| 阶段 | 步骤 | 阻断 | 说明 |
+|:--|:--|:--:|:--|
+| 依赖面 | `pnpm audit --audit-level=moderate --registry=… \|\| true` | 否 | prod + devDeps 全量信号，与 `test.yml` 同命令 |
+| 依赖面 | `pnpm audit --prod --audit-level=moderate --ignore-registry-errors --registry=…` | 是 | 判据为 exit 0 **且日志含审计结果行**（`No known vulnerabilities found`，或 `N vulnerabilities found` + `Severity: … (N ignored)` 两行；仅 registry 故障 + exit 0 不计证据，[安全规范 §5.6](../../standards/security.md#_5-6-依赖审计阻断语义-信号级-→-阻断的转正条件-2026-09-30-用户决策方案-c)） |
+| 静态 | `lint:check` / `lint:css:check` / `gates:docs` / `typecheck` / `test` | 是 | 与 Test 的 lint / `gates:docs` 集合一致；compose 校验与 sandbox bundle 冒烟不在发布链内 |
+| 构建 | `pnpm run build`（packages）+ `pnpm --filter @dependfix/platform build` | 是 | 根 `build` 只含 `./packages/*`，平台构建必须单独前置 |
+| 安全（只读预检） | `Pre-check release security alerts` | 是 | 位于 `Auto version` 之前，只读；阻断判定在下方 |
+| 日志 | `pnpm verify:changelog` | 是 | 只校验当前版本段存在（新鲜度见后续原子） |
+| 安全 | `pnpm run check:release-security` | 是 | [安全规范 §5.9](../../standards/security.md#_5-9-发布前安全告警门禁-dependabot-alerts-code-scanning-2026-10-29-用户决策) 口径 |
+| 预演 | `pnpm release:preflight` | 是 | 真实 tarball 安装 + 版本断言 |
+| 发布 | `pnpm release:publish` | 是 | 内部再执行一次同源安全门禁（M58.1） |
+
+**D1 决策（2026-11-12）**：平台构建取「发布 job 内追加」，不拆独立并行前置 job。理由：整条发布链目前在单一 job 内共用 checkout / install / 工作区，拆并行 job 需再切一个发布 job 并重复 checkout、install 与 packages 构建；实测增量 36-58s（CI 侧：Test run `43156533722` 中同一命令 E2E job 04:43:02→04:43:38 共 36s、Visual job 04:43:04→04:43:42 共 38s；本地 warm 57.6s / 45.1s，packages 构建 11.7s 对照），低于 2 分钟预算，按 D1 的「超预算降级」分支落地。release job 环境（cache 命中差异）待首个真实发布 run 回填自身起止时刻。
+
+**负例标定（2026-11-12）**：① 命令层——依赖审计在临时工程注入 `lodash@4.17.15` 后 exit 1（5 条：2 moderate / 3 high）；平台构建在 `app/utils/duration.ts` 注入语法错误后 exit 1（`[builtin:vite-transform] Unexpected token`），还原后 exit 0 且文件 md5 与 HEAD 一致。② 工作流层——见下方「工作流级负例」。
+
 ## 5. 文件映射
 
 ### 新增
@@ -254,7 +274,7 @@ release.yml Push release tags（全量推送，含 v tag，推送后核验）
 | 本地无法端到端验证 gh release create | 低 | 纯函数单测 + dry-run；CI 端到端为最终裁决（同发布链路惯例） |
 | 发布提交不是 master tip | 高 | `release:publish` 的 HEAD 锚点要求「HEAD 自身 touch 待发布包路径」，push 后再落任何提交都会让发布中止。顺序刚性：commit → push → 核验 `origin/master` 即发布提交 → 立即 `workflow_dispatch`；发布窗口内冻结 master。tags 推送后若 Release 创建失败，重跑不会补建，需 `gh release create` 手工兜底 |
 | 发布物存在性误判 | 中 | 「已手动发布」不等于每类产物都存在：npm 看 `npm view`、tag 看 `git tag --points-at`、Release 看 `gh release view`、镜像看构建 run + digest；缺哪项写「未证实」并给前置条件，不把 401 / 超时误读成「没权限」 |
-| 预发布 profile 不覆盖发版专属门禁 | 中 | `regression:pre-release` 只跑测试 / 审计 / 文档 / lint / typecheck / build / changelog，不含 `check:release-security`、`release:preflight`、platform e2e / 视觉；发版前须补跑四类并分别落盘，不得用 profile 的 Pass 代替发版结论 |
+| 预发布 profile 不覆盖发版专属门禁 | 中 | `regression:pre-release` 只跑测试 / 审计 / 文档 / lint / typecheck / build / changelog，不含 `check:release-security`、`release:preflight`、platform build、platform e2e / 视觉；发版前须补跑四类并分别落盘，不得用 profile 的 Pass 代替发版结论 |
 
 ## 7. 执行顺序与提交拆分
 

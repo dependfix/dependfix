@@ -80,7 +80,7 @@
 - **统计命令（第三方可复现，需 `gh` 已认证）**：仅统计翻转后的 run（前置 run 无该步骤，jq 空输出不可作证据）。`gh run list --workflow test.yml --branch master --event push --limit 3 --json databaseId` 取 3 个 run id；对每个 id 执行 `gh run view <id> --json jobs --jq '.jobs[] | select(.name=="Test") | .steps[] | select(.name=="pnpm audit (prod, moderate+, blocking)") | .conclusion'` 期望 `success`，并检查步骤日志含审计结果行（`No known vulnerabilities found`；或 `N vulnerabilities found` + `Severity: ... (N ignored)` 两行；仅 `fetch failed` + success 不计）。
 - **转正记录（2026-10-27，证据 2026-10-28 回填）**：转正日期 2026-10-27；原「翻转前连续 3 次 clean」未达成（计数挂起），按 §5.7 修订通道转正。**证据**：翻转后 3 次 `master` push 的 prod 阻断步骤均 `success` 且日志含审计结果行——`40372808067`（`84615ce2`，1 high ignored）、`40466448172`（`ea07afa9`，1 high ignored）、`40690157020`（`16a19b6c`，1 low + 1 high ignored）；其中 `40690157020` 的 Test job 整体因 `check:doc-governance`（文档字符预算）失败，与审计步骤无关，已由 `ea89e7ec` 修复。Weekly Regression `40693124400`（`16a19b6c`，2026-10-28）`success`，gate 日志含审计结果行（2 found / 1 low + 1 high ignored）。
 - **本地复现**：`pnpm audit --prod --audit-level=moderate --registry=https://registry.npmjs.org`；仓库脚本 `security:audit-deps` 已内置 `--ignore-registry-errors --registry=https://registry.npmjs.org`。
-- **审计必查项**：阻断步骤必须无 `|| true`、必须含 `--registry=https://registry.npmjs.org` + `--ignore-registry-errors`；全量信号步骤必须保留；§5.6 / §5.8 与检查点矩阵必须同批更新；转正记录必须有**翻转后**连续 3 个 `master` push run id 且日志含审计结果行，不得只写「按记录」或以 `fetch failed` + success 充数。
+- **审计必查项**：阻断步骤必须无 `|| true`、必须含 `--registry=https://registry.npmjs.org` + `--ignore-registry-errors`；全量信号步骤必须保留；`release.yml` 必须在 `Auto version` 之前以同一命令复跑 prod 阻断（发布链不得比 Test 弱；dispatch 触发的 release run 不适用于 3 次 push 判据）；§5.6 / §5.8 与检查点矩阵必须同批更新；转正记录必须有**翻转后**连续 3 个 `master` push run id 且日志含审计结果行，不得只写「按记录」或以 `fetch failed` + success 充数。
 
 ### 5.7 无可用修复版本漏洞的审计豁免（audit.ignore，2026-10-05）
 
@@ -111,7 +111,7 @@
 ### 5.8 仓库自身安全门禁与 Security Auto Fix 停用（2026-10-25 用户决策）
 
 - **Security Auto Fix 定时任务保持停用**：本仓库的 `.github/workflows/security-auto-fix.yml` 自 2026-10-17 起 `disabled_manually`。理由：dependfix 自身（及平台）已会创建修复 PR，定时 Action 再建同类 PR 会与人工 / 平台 PR 冲突；**本仓库不再依赖该 Action 做自修**。
-- **替代为 Security 门禁**：Dependabot alerts 作发现面 → 依赖审计作**阻断面**（命令与判据见 [§5.6](#_5-6-依赖审计阻断语义-信号级-→-阻断的转正条件-2026-09-30-用户决策方案-c)，周回归使用同一命令）→ 全量依赖审计仅作 `test.yml` 的信号步骤（不进周回归）→ code scanning 覆盖代码质量告警。1.0 门槛另要求「未被 §5.7 豁免的 critical / high 为 0」；**每次发布的放行口径见 [§5.9](#_5-9-发布前安全告警门禁-dependabot-alerts-code-scanning-2026-10-29-用户决策)**（critical 一律不得豁免）。
+- **替代为 Security 门禁**：Dependabot alerts 作发现面 → 依赖审计作**阻断面**（命令与判据见 [§5.6](#_5-6-依赖审计阻断语义-信号级-→-阻断的转正条件-2026-09-30-用户决策方案-c)，周回归使用同一命令）→ 全量依赖审计在 `test.yml` 与 `release.yml` 均作信号步骤（不进周回归；`release.yml` 另有 prod 阻断步，位置在 `Auto version` 之前）→ code scanning 覆盖代码质量告警。1.0 门槛另要求「未被 §5.7 豁免的 critical / high 为 0」；**每次发布的放行口径见 [§5.9](#_5-9-发布前安全告警门禁-dependabot-alerts-code-scanning-2026-10-29-用户决策)**（critical 一律不得豁免）。
 - **门禁强度不得回退**：禁止用 `--ignore` / `--ignore-unfixable` 放宽；无修复版本的豁免按 [§5.7](#_5-7-无可用修复版本漏洞的审计豁免-audit-ignore-2026-10-05) 逐条登记；转正判据见 [§5.6](#_5-6-依赖审计阻断语义-信号级-→-阻断的转正条件-2026-09-30-用户决策方案-c)（2026-10-27 已转正；阻断步骤 exit 0 且日志含审计结果行 + 3 个 `master` push run id）。
 - **1.0 门槛**：依赖审计必须为阻断级、**未被 §5.7 豁免的** critical / high 为 0（critical 一律不得豁免；本条不因 [§5.9](#_5-9-发布前安全告警门禁-dependabot-alerts-code-scanning-2026-10-29-用户决策) 的「修复难度大」类豁免放宽），详见 [release-1.0-readiness.md](../design/governance/release-1.0-readiness.md#_2-门槛与判定-g1-g8)。
 

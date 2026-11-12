@@ -94,12 +94,15 @@ jobs:
       - name: Build platform
         run: pnpm --filter @dependfix/platform build
 
-      # CHANGELOG 校验：发布前确认各份 CHANGELOG（根级 + 全部发布包级）已包含当前版本段。
+      # CHANGELOG 校验：发布前确认各份 CHANGELOG（根级 + 全部发布包级）已包含当前版本段，
+      # 且该段条目与当前 git 历史重算结果一致（--fresh：发现「生成后又有新 commit」的陈旧日志）。
+      # 已打 tag 的段视为已发布、允许人工编辑，不参与新鲜度比对；浅克隆 / 无 tag 时
+      # --fresh 输出 warning 后放行（只降级新鲜度比对，版本段存在性仍校验，不作为通过证据）。
       # 包清单来自单点配置 scripts/packages.config.mjs（新增发布包自动生效）。
       # CHANGELOG 由本地 `pnpm changelog` 生成并随发布提交入库，CI 不重新生成；
-      # 若版本已提升但日志缺失，说明漏跑了生成步骤，禁止发布（详见 scripts/verify-changelog.mjs）。
+      # 若版本已提升但日志缺失 / 陈旧，说明漏跑了生成步骤，禁止发布（详见 scripts/verify-changelog.mjs）。
       - name: Verify changelog is up to date
-        run: pnpm verify:changelog
+        run: pnpm verify:changelog --fresh
 
       # 发布级安全告警门禁（安全规范 §5.9）：Dependabot + Code Scanning 的告警中，
       # critical 一律阻断（含 dismissed，禁止任何形式豁免）；high 仅当豁免台账登记后才放行

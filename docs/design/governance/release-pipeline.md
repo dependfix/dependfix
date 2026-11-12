@@ -196,12 +196,14 @@ release.yml Push release tags（全量推送，含 v tag，推送后核验）
 | 安全（只读预检） | `Pre-check release security alerts` | 是 | 在静态 / 构建之前、`Auto version` 之前；只读，阻断判定在下方 |
 | 静态 | `lint:check` / `lint:css:check` / `gates:docs` / `typecheck` / `test` | 是 | 与 Test 的 lint / `gates:docs` 集合一致；compose 校验与 sandbox bundle 冒烟不在发布链内 |
 | 构建 | `pnpm run build`（packages）+ `pnpm --filter @dependfix/platform build` | 是 | 根 `build` 只含 `./packages/*`，平台构建必须单独前置 |
-| 日志 | `pnpm verify:changelog` | 是 | 只校验当前版本段存在（新鲜度见后续原子） |
+| 日志 | `pnpm verify:changelog --fresh` | 是 | 版本段存在，且条目集合与当前 git 历史重算一致；已打 tag 的段（已发布，允许人工编辑）不参与比对；浅克隆 / 无 tag 时 warning 放行、不作为通过证据 |
 | 安全 | `pnpm run check:release-security` | 是 | [安全规范 §5.9](../../standards/security.md#_5-9-发布前安全告警门禁-dependabot-alerts-code-scanning-2026-10-29-用户决策) 口径 |
 | 预演 | `pnpm release:preflight` | 是 | 真实 tarball 安装 + 版本断言 |
 | 发布 | `pnpm release:publish` | 是 | 内部再执行一次同源安全门禁（M58.1） |
 
 **D1 决策（2026-11-12）**：平台构建取「发布 job 内追加」，不拆独立并行前置 job。理由：整条发布链目前在单一 job 内共用 checkout / install / 工作区，拆并行 job 需再切一个发布 job 并重复 checkout、install 与 packages 构建；实测增量 36-58s（CI 侧：Test run `43156533722` 中同一命令 E2E job 04:43:02→04:43:38 共 36s、Visual job 04:43:04→04:43:42 共 38s；本地 warm 57.6s / 45.1s，packages 构建 11.7s 对照），低于 2 分钟预算，按 D1 的「超预算降级」分支落地。release job 环境（cache 命中差异）待首个真实发布 run 回填自身起止时刻。
+
+**D2 决策（2026-11-12）**：`--fresh` 的比对粒度取「当前未发布版本段的条目集合」——只取列表条目行（`*` 开头）、归一空白后做多重集比较，不做整段字节比对（标题日期 / compare 链接 / 非条目的说明段落不参与判定；条目行一律参与）。已打 tag 的段视为已发布（允许人工编辑，1.0.0 段即含手写说明）跳过比对；浅克隆 / 无 tag 无法可靠重算 → `::warning::` 后放行，但不作为新鲜度通过证据（版本段存在性仍校验）。`--fresh` 全程不写盘（`git status` 前后一致）。
 
 **负例标定（2026-11-12）**：① 命令层——依赖审计在临时工程注入 `lodash@4.17.15` 后 exit 1（5 条：2 moderate / 3 high）；平台构建在 `app/utils/duration.ts` 注入语法错误后 exit 1（`[builtin:vite-transform] Unexpected token`），还原后 exit 0 且文件 md5 与 HEAD 一致。② 工作流层——见下方「工作流级负例」。
 

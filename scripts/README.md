@@ -15,7 +15,7 @@
 | `pnpm release:plan` | `create-release-plan.mjs` | 从 git log 推导各包版本提升级别（feat→minor / fix→patch / BREAKING→0.x minor），生成 `release-plan.md` 供人工 review/修正 |
 | `pnpm release:version` | `release-version.mjs` | 消费 `release-plan.md`：依赖传导闭包计算 + 写回各包版本号 + 删除计划文件。`--dry-run` 预览 / `--force` 跳过工作区干净检查 |
 | `pnpm changelog` | `changelog.mjs` | 生成/更新根级与包级 CHANGELOG.md（conventional-changelog-cmyr-config，增量追加） |
-| `pnpm verify:changelog` | `verify-changelog.mjs` | 发布前校验各份 CHANGELOG（根级 + 包级）已包含当前版本段（缺失即非零退出，禁止发布） |
+| `pnpm verify:changelog` | `verify-changelog.mjs` | 发布前校验各份 CHANGELOG（根级 + 包级）已包含当前版本段（缺失即非零退出，禁止发布）；`--fresh` 按当前 git 历史在内存重算该段条目并与磁盘比对（已打 tag 的段不参与；浅克隆 / 无 tag warning 放行；不写盘） |
 | `pnpm release:publish` | `release-publish.mjs` | 按 `publishOrder` 发布"本地版本未在 npm registry"的包（`pnpm publish`，OIDC 直通）+ 创建 `<pkg>@<version>` annotated tag + `v<锚版本>` 聚合 tag + 写 `release-publish-result.json`。发布前自动执行安全告警门禁（与 `release.yml` 同源，`--skip-security=<理由>` 显式绕过并留痕；`--dry-run` 与无实际发布动作的轮次不执行）；`--dry-run` 预览；`--otp <6-8 位>` 透传本地 2FA；发布 registry 固定官方（`--registry` 可覆盖）；HEAD 锚点校验防误发布 |
 | `pnpm release:push-tags` | `push-release-tags.mjs` | 发布 tag 推送 + 核验（CI）：显式 token URL push → 本地/远程集合对比，缺失即报错（教训见 [经验归档 §二十六](../docs/design/governance/experience-archive.md)） |
 | `pnpm release:github` | `create-github-release.mjs` | 创建本轮聚合 GitHub Release（消费 `release-publish-result.json`：版本矩阵 + 根 CHANGELOG 段，core-only 取锚包包级段；alpha / beta / rc 标 prerelease（0.x 正式版不标，与 npm `latest` 一致）；幂等 + 失败 warn 不阻断）。`--dry-run` 预览 notes |

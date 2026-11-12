@@ -428,7 +428,7 @@ git status --porcelain           # 空（无版本 / 日志副作用）
 1. `pnpm audit` 两步（全量信号 `|| true` 不阻断 + prod 阻断 `--ignore-registry-errors` + 显式公共 registry，命令同 `test.yml`）与 `Pre-check release security alerts` 只读预检：都在自动版本提升之前——审计红 / 告警红不得先提升版本并推送 master；
 2. （仅 `schedule` 触发）`Auto version & changelog`：自动版本提升 + CHANGELOG 生成 + 提交推送（`pnpm release:auto-version` 脚本化执行）；
 3. lint → **文档与治理门禁**（`pnpm run gates:docs`，与 `test.yml` 同集合，单点声明见 `scripts/run-doc-gates.mjs`）→ typecheck → test → build（质量门，任一失败即中止）→ `Build platform`（`pnpm --filter @dependfix/platform build`；根 build 只含 `./packages/*`，平台构建必须单独前置）；
-4. `Verify changelog is up to date`：校验七份 CHANGELOG（根级 + `packages/cli` / `packages/core` / `packages/engine` / `packages/skills` / `packages/mcp` / `apps/platform`）已包含当前版本段（防止漏跑 `pnpm changelog` 直接发布；普通提交版本未变时自动通过）；
+4. `Verify changelog is up to date`：校验七份 CHANGELOG（根级 + `packages/cli` / `packages/core` / `packages/engine` / `packages/skills` / `packages/mcp` / `apps/platform`）已包含当前版本段，并用 `--fresh` 按当前 git 历史重算该段条目、拦截「生成后又有新 commit」的陈旧日志；已打 tag 的段允许人工编辑不参与比对，浅克隆 / 无 tag 时 warning 放行（不当通过证据）；该步骤依赖完整历史（`checkout` 为 `fetch-depth: 0`，改浅会使 `--fresh` 降级为 warning 放行）；
 5. `Check release security alerts`：发布前安全告警门禁（`pnpm run check:release-security`）——critical 一律阻断（含 dismissed）、high 需台账豁免、API / token 异常 fail-closed（口径见 [安全规范 §5.9](../standards/security.md#_5-9-发布前安全告警门禁-dependabot-alerts-code-scanning-2026-10-29-用户决策)）；
 6. `Release preflight`：`pnpm release:preflight` 用真实 tarball 安装并断言 `dependfix --version` 等于包版本（放在便宜门禁之后：被拦下的轮次不必付安装成本；见「发布链预演与安装实测」）；
 7. `pnpm release:publish`：

@@ -28,6 +28,7 @@
 
 ### M58.1 本地发布通道接入安全告警门禁（P1 🛡️）
 
+- **状态**：✅ 已闭环（2026-11-12；审计 R1 standard Reject → R2 quick Pass）。
 - **目标**：`pnpm release:publish` 在本地通道发布前执行与 `release.yml` 同一安全告警门禁；绕过必须显式 `--skip-security=<理由>` 并留痕，使「门禁存在但本地未执行」不再可能。
 - **范围**：`scripts/release-publish.mjs`（npm 发布前调用 `node scripts/check-release-security-alerts.mjs`，非零中止；新增 `--skip-security` 解析、理由校验与日志记录）、`scripts/release-publish.test.mjs`（门禁失败 / 跳过 / 理由缺失三支）、`docs/guide/release.md`（本地备用通道步骤、绕过口径与证据要求）、`package.json`（如需门禁命令别名）。
 - **验收标准**：
@@ -39,6 +40,8 @@
 - **依赖**：`scripts/check-release-security-alerts.mjs`（现状无采集时点，另有独立候选）；`release.yml` 门禁两步；本地通道曾在 0.6.0 使用（M49 归档记录）。
 - **交付物**：2 commits / 3-4 files（`scripts/release-publish.mjs`、`scripts/release-publish.test.mjs`、`docs/guide/release.md`，可选 `package.json`）/ 80-140 行。
 - **风险与缓解**：本地无 `GH_PAT` 或网络不可达会阻断发布 → 与 CI 同口径 fail-closed，文档提供 `--skip-security=<理由>` 显式通道并要求写入发布证据；用例覆盖两条分支，避免「绕过后静默」。
+- **执行记录（2026-11-12 闭环）**：`33c3940b` `release:publish` 在 publish / tag 循环前以 `process.execPath` 执行同一门禁脚本（同源同 fail-closed），新增 `runSecurityGate`（dry-run / 无动作轮次跳过，理由未使用时显式提示）与 `planNeedsSecurityGate`（npm 发布 + tag-only + 自愈补 tag 才触发）；`--skip-security=<理由>` 缺 / 空 / 误吞下一个 flag 一律非零退出，理由单行化并限长 200；`c9044cf5` 文档同步（`security.md §5.9` 本地通道同口径与「绕过不构成豁免」、`release.md` 与脚本索引）。**审计 R1 发现的 CI 阻断缺陷已修**：`release.yml` 的 `Release Publish` 步骤补齐 `GH_PAT` + `GITHUB_TOKEN`——否则发布器内第三次同源门禁会 fail-closed 拦死 CI 发布（文件未改 ≠ 行为不变）。
+- **验证证据**：定向 `scripts/release-publish.test.mjs` 45 passed；mutation 3/3 击杀（`artifacts/review-gate/2026-11-12-m58-1-mutation.md`，基线 md5 `573b5e73…cfe`）；真实门禁负例（去除全部 token）EXIT=1；`lint:check` 0 error（4 存量 warning）、`typecheck` 7 项目、`gates:docs` 20 项、`check:doc-governance` 阻断 0 / warning 0、`check:verify-chain` OK；`release.yml` YAML 解析通过且 `Release Publish.env` 读回两键。
 
 ### M58.2 发布工作流依赖审计与构建面同口径（P1 🛡️）
 

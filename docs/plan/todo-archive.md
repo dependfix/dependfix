@@ -9,6 +9,7 @@
 
 | 阶段 | 主题 | 归档文件 | 归档日期 |
 |:--|:--|:--|:--|
+| M58 | 发布链可信收口 | [M58](archive/todo-archive-phases-m58.md) | 2026-11-12 |
 | M57 | 执行面可信与发布验证收口 | [M57](archive/todo-archive-phases-m57.md) | 2026-11-10 |
 | M56 | 1.0 后平台可信与运行成本收口 | [M56](archive/todo-archive-phases-m56.md) | 2026-11-09 |
 | M55 | 1.0.x 修复有效性与执行边界收口 | [M55](archive/todo-archive-phases-m55.md) | 2026-11-08 |

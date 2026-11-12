@@ -1,4 +1,4 @@
-# 经验归档分片（§七十九 - §八十六）：运维实测与发布链沉淀
+# 经验归档分片（§七十九 - §八十七）：运维实测与发布链沉淀
 
 > 本分片为 [§70-§85 索引](./experience-archive-§70-§99-delivery-platform.md) 的第二片（原分片按 `^##` H2 边界拆分，章节编号与锚点不变；自 §八十六 起只更新范围标签与 H1，**文件名沿用建立时规划上界** `-§79-§85-`）；正文只写结论与落点。
 
@@ -213,3 +213,31 @@
 - **现象**：结果明细补 `id DESC` 次键后，同 severity 组内行序反转，`scans-run-detail` 视口级基线检出 2065 px（ratio 0.01）差异。
 - **手法**：确认差异只落在行序（包名 / 来源 / 徽章集合不变）后同批重建基线，更新后连跑两遍确认稳定，并在视觉 README 记录因果；重建前的失败读数保留为「基线对该变更敏感」的证据。
 - **落点**：[testing.md §6.7](../../standards/testing.md)（视觉回归）+ `apps/platform/tests/visual/README.md` 覆盖边界段。
+
+## 八十七、M58 归档批次经验沉淀（发布执行器内嵌门禁与 token / 产物所在工作流验证 / 文档机制断言取证 / 工作流级负例）
+
+> **批次**：M58 发布链可信收口（2026-11-12）。**准入依据**：② 决策需溯源（为何把发布后冒烟放在 docker 工作流、为何本地通道允许显式绕过）+ ④ 工具 / 环境陷阱（workflow 环境变量注入面、异步 dispatch 的产物时序）。落点见各条目末行。
+
+### 1. 执行器内嵌门禁必须同时核「调用它的 workflow 步骤」的 token 注入
+
+- **现象**：给本地 / CI 共用的发布执行器（`release:publish`）内嵌 fail-closed 门禁后，「workflow 文件没改」被当成「CI 行为不变」；实际 CI 的发布步骤没有注入门禁所需 secret 的环境变量，于是在执行器内被自己的门禁拦死——且失败点落在 15 分钟 preflight 之后，白付成本。
+- **手法**：接入门禁时列出执行器的全部调用点（本地脚本 / workflow 步骤 / 其他脚本），逐点核对 token、registry、工作目录等前置；workflow 侧补 `env` 并在注释说明「第 N 次同源执行」；触发面覆盖「自愈补 tag」轮（并非只有 `publish` 动作）；绕过参数的理由必须单行化 + 限长（它会进终端摘要与发布证据，换行可伪造后续日志行）。
+- **落点**：[release.md](../../guide/release.md) 发布前安全检查 + [security.md §5.9](../../standards/security.md#_5-9-发布前安全告警门禁-dependabot-alerts-code-scanning-2026-10-29-用户决策) 本地通道同口径段 + 检查点矩阵 §5.9 行。
+
+### 2. 「发布后验证」放产物所在工作流，不在派发方轮询
+
+- **现象**：发布工作流对镜像只做异步 `workflow_dispatch`，镜像在另一个工作流里构建（20-40 分钟）；若把 post-release 冒烟写在发布工作流，只能长时间轮询等镜像，把验证变成发布阻塞点。
+- **手法**：把验证 job 放到产物工作流的产物合成之后（`needs: <publish job>` + 版本入参门控，`push` 构建不跑），矩阵用原生 runner 分架构拉取并运行，job 级 `continue-on-error` + Job Summary / `::warning::` 让失败可见但不改发布结论；历史 tag 巡检与当前版本冒烟分开（前者只读 manifest，后者运行时断言）。
+- **落点**：[release-pipeline.md §4.6](../../design/governance/release-pipeline.md#_4-6-发布后镜像冒烟与历史-tag-巡检-2026-11-12-m58-4) + `docker.yml` 的 `post-release-smoke`。
+
+### 3. 文档写「通道机制」必须以最新 run 日志回读为准，并写明推送路径分层
+
+- **现象**：把一次历史取样（0.5.0 在 amd64 主机按 tag 取到单架构）写成 registry 的恒定属性；实际推送路径从 buildx 多平台直推改为 digest 合成后，同一 registry 的 tag 已回读为双平台 index（1.0.0 run 日志 4/4）。文档因此与自家 CI 回读门禁语义相反。
+- **手法**：机制类断言先回读对应 run 日志取证，再按「推送路径 / 客户端平台 / registry API」分层表述（哪层已验证、哪层未实测）；历史 tag 不可假定与当前路径同行为；无法取证的维度写「未实测」，不以「平台限制」一词概括。
+- **落点**：[release-pipeline.md §4.7](../../design/governance/release-pipeline.md#_4-7-镜像通道矩阵与-acr-架构边界-2026-11-12-m58-5) + [deployment.md](../../guide/deployment.md) 镜像通道定位 + [release-1.0.md](../../guide/release-1.0.md) 发布说明限制行。
+
+### 4. 「门禁能拦住」要有工作流级负例，且负例本身必须零发布副作用
+
+- **现象**：只在命令层证明审计失败（临时工程注入漏洞依赖）仍不能证明 workflow 接线正确：步骤顺序、`if` 条件、`|| true`、前置 job 跳过语义都可能让门禁形同虚设。
+- **手法**：建短生命周期分支注入已知漏洞依赖并推送，`workflow_dispatch` 触发发布工作流，按预期在阻断步失败；用 `gh run view --json jobs` 核对**其后所有发布步骤为 skipped**，日志含漏洞条目；随后删除分支、确认默认分支 lockfile 未变。负例 run id 与失败步骤写入设计稿，作为「阻断面成立」的证据。
+- **落点**：[release-pipeline.md §4.5](../../design/governance/release-pipeline.md#_4-5-发布前门禁清单与实测时长-2026-11-12-m58-2) 工作流级负例段 + 检查点矩阵 §5.6 第 ⑥ 项。

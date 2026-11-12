@@ -121,16 +121,27 @@
 
 ### M58.5 ACR 多架构边界收口（P2 🚀📚）
 
+- **状态**：✅ 已闭环（2026-11-12；审计 R1 standard Reject（B1 机制表述与实证相反）→ 修复 → R2 standard Pass，W4/W5/W6 同批收口）。
 - **目标**：消除 ACR「按 tag 只拿 amd64」造成的双架构误读；默认按「amd64 备份通道」在发布说明与部署指南单一口径标注，并保留 digest 取双架构的指引。
 - **范围**：`docs/guide/release.md`（ACR 通道定位与 digest 指引）、`docs/guide/release-1.0.md`（1.0 记录口径）、`docs/guide/deployment.md`（镜像来源说明，若涉及）、`docs/design/governance/release-pipeline.md`（新增镜像通道矩阵，含 ACR）。
 - **验收标准**：
-  1. 文档对 ACR 的表述一致：个人版按 tag 为 amd64、双架构按 OCI digest 或 GHCR 获取；不再称 ACR 为双架构运行证据。
+  1. 文档对 ACR 的表述一致：个人版按 tag 行为依推送路径而变（0.5.0 单 amd64；1.0.0 起 registry 回读双平台 index，arm64 主机未实测），双架构按 OCI digest / GHCR / Docker Hub 获取；不再称 ACR 为双架构运行证据。
   2. 发布说明模板含该限制一行（`release.md` 或 `release-1.0.md`）。
   3. `rg -n "ACR|registry.cn-hangzhou" docs/guide docs/design` 复核无相反表述；`pnpm run gates:docs` 通过。
 - **不做什么**：不迁 ACR 企业版；不改 GHCR / Docker Hub 主通道与 `docker.yml` 推送逻辑；不重建历史 tag。
-- **依赖**：2026-11-05 ACR 复核证据（tag 解析单 amd64 / OCI index 仅按 digest）；M54 归档发布记录。
-- **交付物**：2 commits / 3-4 files（`docs/guide/release.md`、`docs/guide/release-1.0.md`、`docs/design/governance/release-pipeline.md`，可选 `docs/guide/deployment.md`）/ 80-150 行。
+- **依赖**：2026-11-05 ACR 复核（0.5.0 客户端按 tag 单 amd64）+ 2026-11-07 run `42381362295`（三 registry × 4 tag 回读双架构，ACR 4/4）；M54 归档发布记录。
+- **交付物**：2 commits / 5 files / 80-150 行（`release.md`、`release-1.0.md`、`deployment.md`、`release-pipeline.md`、`release-1.0-readiness.md`）。
 - **风险与缓解**：文档降级可能被读成「放弃 arm64」→ 同段写明 GHCR / docker.io 双架构可用性与 digest 取法；D 阶段若用户改选按架构 tag，按验收① 另案并补 CI 断言。
+- **执行记录（2026-11-12 闭环）**：
+  - `release-pipeline` 新增 §4.7 通道矩阵（GHCR / Docker Hub 双架构主通道；ACR 个人版 = amd64 备份通道）与「按 tag 行为依推送路径」的证据边界；
+  - `deployment.md` 通道定位（含 GHCR 私有 / `read:packages` 前提）；`release-1.0.md` 定位句 + 发布说明骨架限制行 + 发布前门禁第 8 条常驻检查项，
+    并顺带订正「本地备用通道不内置门禁」的历史漂移；`release.md` ACR 复核小节补定位分层；`release-1.0-readiness.md` 企业版路径表述收口。
+- **验证证据**：
+  - ① run `42381362295` 日志实测：ACR 4 个 tag（`latest` / `2026-11-07` / `platform-1.0.0` / `sha-5c81058`）均 `linux/amd64 linux/arm64`（digest 合成路径）；
+    0.5.0 的单 amd64 样本限定为「amd64 主机按 tag 拉取的客户端行为」，不再写成通道恒定属性。
+  - ② `gates:docs` 20 项（179 页 / 855 锚点全命中）；`check:doc-governance` 阻断 0 / warning 0；`check:doc-size` 超阈值 0。
+  - ③ `rg -n "ACR|registry.cn-hangzhou" docs/guide docs/design` 复核：无「ACR 双架构运行证据」类表述；arm64 主机实际拉取统一标「未实测」。
+  - **未证实**：ACR 在 arm64 主机的按 tag 实际拉取（需 arm 环境一次性取证后回填 §4.7）。
 
 ### 质量门
 

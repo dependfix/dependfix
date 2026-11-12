@@ -13,6 +13,7 @@
 import { CircleStop, RefreshCw } from '@lucide/vue'
 import type { DataTableColumn } from 'caomei-ui'
 import type { BatchRunRun, BatchRunSummary, BatchRunView } from '~/types/platform'
+import { useTablePagination } from '~/composables/use-table-pagination'
 import { reconcileBatchRuns } from '~/utils/reconcile-batch-runs'
 import { runModeLabel } from '~/utils/run-view'
 import { scanSeverityLabel } from '~/utils/scan-options'
@@ -38,6 +39,24 @@ const loading = ref(false)
 const inflight = ref(false)
 const error = ref('')
 const batchRuns = ref<BatchRunView[]>([])
+/** 每页条数候选与默认值（caomei DataTable 内建分页） */
+const BATCH_ROWS_PER_PAGE = 10
+const BATCH_ROWS_PER_PAGE_OPTIONS = [10, 25, 50]
+
+/**
+ * 分页状态（受控）：轮询 / 手动刷新 / 强制结束后保留当前页码，避免读列表时被拉回第 1 页。
+ * 刷新期间抑制 `@tanstack` 自动回首页，详见 `use-table-pagination`。
+ */
+const {
+    page: batchPage,
+    rows: batchRows,
+    onPageChange: onBatchPageChange,
+    onRowsChange: onBatchRowsChange,
+    withRefresh: withBatchRefresh,
+} = useTablePagination({
+    totalRows: () => filteredBatchRuns.value.length,
+    initialRows: BATCH_ROWS_PER_PAGE,
+})
 // caomei DataTable 的行展开为「行 key 数组」（迁移前的 `expandedRows` 是 Record<key, boolean>，
 // 迁移时按 caomei 契约改写；row-key 同为 'id'）
 const expandedRows = ref<string[]>([])
@@ -102,11 +121,13 @@ const fetchBatchRuns = async () => {
     loading.value = true
     error.value = ''
     try {
-        const fresh = await $fetch<BatchRunView[]>('/api/batch-runs')
-        // 排序键派生：status 走业务语义排序（running 优先）；reconcile 不重排已排序数组
-        const enriched = withStatusRank(fresh)
-        reconcileBatchRuns(batchRuns.value, enriched)
-        firstLoad.value = false // 首次 fetch 成功后关闭骨架；失败保留骨架允许重试
+        await withBatchRefresh(async () => {
+            const fresh = await $fetch<BatchRunView[]>('/api/batch-runs')
+            // 排序键派生：status 走业务语义排序（running 优先）；reconcile 不重排已排序数组
+            const enriched = withStatusRank(fresh)
+            reconcileBatchRuns(batchRuns.value, enriched)
+            firstLoad.value = false // 首次 fetch 成功后关闭骨架；失败保留骨架允许重试
+        })
     } catch (e: any) {
         error.value = t('batchRuns.errors.loadFailed', { message: e?.data?.message ?? e?.message ?? t('common.errors.unknown') })
     } finally {
@@ -243,10 +264,6 @@ const batchFilters = reactive({
     status: 'all',
 })
 
-/** 每页条数（caomei DataTable 内建分页，`rows` 为初值）与候选 */
-const BATCH_ROWS_PER_PAGE = 10
-const BATCH_ROWS_PER_PAGE_OPTIONS = [10, 25, 50]
-
 const batchSourceFilterOptions = computed(() => [
     { label: t('batchRuns.filterAll'), value: 'all' },
     { label: t('batchRuns.sourceScheduled'), value: 'scheduled' },
@@ -376,9 +393,12 @@ const nestedColumns = computed<DataTableColumn<BatchRunRun>[]>(() => [
                 striped
                 :expanded-rows="expandedRows"
                 :paginator="true"
-                :rows="BATCH_ROWS_PER_PAGE"
+                :rows="batchRows"
                 :rows-per-page-options="BATCH_ROWS_PER_PAGE_OPTIONS"
+                :page="batchPage"
                 :empty-text="batchRunsEmptyText"
+                @update:page="onBatchPageChange"
+                @update:rows="onBatchRowsChange"
                 @update:expanded-rows="onUpdateExpandedRows"
                 @row-expand="onRowExpand"
             >

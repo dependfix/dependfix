@@ -3,6 +3,7 @@
 import { Check, List, Pencil, Play, Plus, RotateCcwClock, Trash, Upload } from '@lucide/vue'
 import type { DataTableColumn } from 'caomei-ui'
 import type { RepoView } from '~/types/platform'
+import { useTablePagination } from '~/composables/use-table-pagination'
 import { DEFAULT_SCAN_MODE, DEFAULT_SCAN_SEVERITY } from '~/composables/use-scan-preferences'
 import { scanModeOptions, scanSeverityOptions } from '~/utils/scan-options'
 
@@ -32,44 +33,23 @@ const selectedRows = ref<RepoView[]>([])
 const ROWS_PER_PAGE = 10
 const ROWS_PER_PAGE_OPTIONS = [10, 25, 50]
 
-/** 当前页码（1 基，受控）：编辑保存保留，新增 / 删除回到第 1 页 */
-const currentPage = ref(1)
-/** 每页条数（受控）：保存刷新后保持用户选择 */
-const rowsPerPage = ref(ROWS_PER_PAGE)
-
-/** 新增（含批量导入）/ 删除后回到第 1 页；编辑保存保留当前页 */
-const resetToFirstPage = () => {
-    currentPage.value = 1
-}
-
 /**
- * 刷新后把页码夹回最后一页：受控分页抑制了自动回首页，若当前页因数据减少而越界，
- * 需自行收敛，避免停留在空白页（例如编辑后该行不再命中当前搜索条件）。
+ * 分页状态（受控）：编辑保存后保留当前页码与每页条数，新增 / 删除 / 批量导入回到第 1 页。
+ * 刷新期间抑制 `@tanstack` 自动回首页，详见 `use-table-pagination`。
  */
-const clampPageToLast = () => {
-    const pageCount = Math.max(1, Math.ceil(filteredRepos.value.length / rowsPerPage.value))
-    if (currentPage.value > pageCount) {
-        currentPage.value = pageCount
-    }
-}
+const {
+    page: currentPage,
+    rows: rowsPerPage,
+    onPageChange,
+    onRowsChange,
+    reset: resetToFirstPage,
+    withRefresh,
+} = useTablePagination({
+    totalRows: () => filteredRepos.value.length,
+    initialRows: ROWS_PER_PAGE,
+})
 
-/**
- * 数据刷新期间忽略分页器抛出的自动页码重置。
- *
- * 表格 `data` 引用变化会让 `@tanstack` 自动回到第 1 页（`autoResetPageIndex`）；
- * 编辑保存后需保留当前页，所以刷新期间锁定 `update:page`，由调用方显式置 1（新增 / 删除）。
- */
-let pageUpdateLocked = false
-
-const onPageChange = (page: number) => {
-    if (pageUpdateLocked) {
-        return
-    }
-    currentPage.value = page
-}
-
-const fetchData = async () => {
-    pageUpdateLocked = true
+const fetchData = () => withRefresh(async () => {
     loading.value = true
     error.value = ''
     try {
@@ -81,16 +61,12 @@ const fetchData = async () => {
         // 刷新生成新对象：按 id 把已选集合映射过去，避免「计数仍在、勾选态消失」
         selectedRows.value = remapSelectionById(selectedRows.value, repos.value)
         credentials.value = credRes as { id: string, name: string, type: string }[]
-        clampPageToLast()
     } catch (e: any) {
         error.value = t('repos.errors.loadFailed', { message: e?.data?.message ?? e?.message ?? t('common.errors.unknown') })
     } finally {
         loading.value = false
-        // 等本次刷新引发的表格重算落定后再解锁，避免自动重置覆盖当前页
-        await nextTick()
-        pageUpdateLocked = false
     }
-}
+})
 
 onMounted(fetchData)
 
@@ -614,7 +590,7 @@ const columns = computed<DataTableColumn<RepoView>[]>(() => [
                 :page="currentPage"
                 :empty-text="reposEmptyText"
                 @update:page="onPageChange"
-                @update:rows="rowsPerPage = $event"
+                @update:rows="onRowsChange"
                 @update:selection="onSelectionChange"
             >
                 <template #cell-tags="{row}">

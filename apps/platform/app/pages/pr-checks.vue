@@ -24,6 +24,11 @@ import {
     prStateTagTone,
     shouldShowAttribution,
 } from '~/utils/pr-check-style'
+import { useTablePagination } from '~/composables/use-table-pagination'
+
+/** 每页条数候选与默认值（caomei DataTable 内建分页） */
+const PR_CHECKS_ROWS_PER_PAGE = 20
+const PR_CHECKS_ROWS_PER_PAGE_OPTIONS = [20, 50, 100]
 
 definePageMeta({
     middleware: 'auth',
@@ -171,6 +176,24 @@ const onUpdateExpandedRows = (rows: string[]) => {
     expandedRows.value = rows
 }
 
+/**
+ * 分页状态（受控）：确认与手动轮询刷新后保留当前页码，避免读者被拉回第 1 页。
+ * 刷新期间抑制 `@tanstack` 自动回首页，详见 `use-table-pagination`。
+ */
+const {
+    page: currentPage,
+    rows: rowsPerPage,
+    onPageChange,
+    onRowsChange,
+    withRefresh,
+} = useTablePagination({
+    totalRows: () => rows.value?.length ?? 0,
+    initialRows: PR_CHECKS_ROWS_PER_PAGE,
+})
+
+/** 刷新列表但保留当前页（确认 / 手动轮询不打断分页阅读） */
+const refreshPreservingPage = () => withRefresh(refresh)
+
 /** 信号状态 → 标签色调（聚合状态与单条信号共用取值域） */
 const signalStateTone = (state: string): 'danger' | 'success' | 'warning' | 'neutral' => {
     switch (state) {
@@ -298,7 +321,7 @@ const handlePoll = async () => {
             title: t('prChecks.poll.success', { processed: res.processed, errors: res.errors }),
             duration: 3000,
         })
-        await refresh()
+        await refreshPreservingPage()
     } catch (error) {
         const message = (error as { data?: { message?: string }, message?: string }).data?.message
             ?? (error as { message?: string }).message
@@ -323,7 +346,7 @@ const handleAck = async (row: PRCheckView) => {
             title: t('prChecks.ack.success', { prNumber: row.prNumber }),
             duration: 3000,
         })
-        await refresh()
+        await refreshPreservingPage()
     } catch (error) {
         const message = (error as { data?: { message?: string }, message?: string }).data?.message
             ?? (error as { message?: string }).message
@@ -447,11 +470,14 @@ const handleAck = async (row: PRCheckView) => {
                 sort-mode="multiple"
                 :multi-sort-meta="sortMeta"
                 :paginator="true"
-                :rows="20"
-                :rows-per-page-options="[20, 50, 100]"
+                :rows="rowsPerPage"
+                :rows-per-page-options="PR_CHECKS_ROWS_PER_PAGE_OPTIONS"
+                :page="currentPage"
                 :empty-text="t('prChecks.empty')"
                 :expanded-rows="expandedRows"
                 class="pr-checks__table"
+                @update:page="onPageChange"
+                @update:rows="onRowsChange"
                 @update:multi-sort-meta="onUpdateMultiSortMeta"
                 @update:expanded-rows="onUpdateExpandedRows"
             >

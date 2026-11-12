@@ -435,10 +435,9 @@ const fetchRuns = async (page = 1, rows = pageSize.value) => {
     }
 }
 
-/** 并发刷新 summary + runs（保留 in-flight 守卫） */
+/** 并发刷新 summary + runs（保留 in-flight 守卫）；保留当前页码，避免手动刷新把读者甩回第 1 页 */
 const refresh = async () => {
-    await Promise.all([fetchSummary(), fetchRuns(1, pageSize.value)])
-    first.value = 0
+    await Promise.all([fetchSummary(), fetchRuns(page.value, pageSize.value)])
 }
 
 /** caomei DataTable @page 事件：page 1-based（对齐后端 page 参数，不再 +1）；既有重新请求副作用不变 */

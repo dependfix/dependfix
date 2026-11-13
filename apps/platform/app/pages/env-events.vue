@@ -59,6 +59,7 @@ const typeOptions = computed(() => [
     { label: t('envEvents.typeSandboxDegraded'), value: 'sandbox_degraded' },
     { label: t('envEvents.typeSandboxEgressBlocked'), value: 'sandbox_egress_blocked' },
     { label: t('envEvents.typeContainerUnavailable'), value: 'container_unavailable' },
+    { label: t('envEvents.typeDeliveryBranchCleanup'), value: 'delivery_branch_cleanup' },
     { label: t('envEvents.typeAiConfigUpdate'), value: 'ai_config_update' },
     { label: t('envEvents.typeVerifyCommandsUpdate'), value: 'verify_commands_update' },
     { label: t('envEvents.typeExecutionLimitsUpdate'), value: 'execution_limits_update' },
@@ -107,6 +108,8 @@ const typeLabel = (type: string) => {
             return t('envEvents.typeSandboxEgressBlocked')
         case 'container_unavailable':
             return t('envEvents.typeContainerUnavailable')
+        case 'delivery_branch_cleanup':
+            return t('envEvents.typeDeliveryBranchCleanup')
         case 'ai_config_update':
             return t('envEvents.typeAiConfigUpdate')
         case 'verify_commands_update':

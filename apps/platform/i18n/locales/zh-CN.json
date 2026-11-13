@@ -771,7 +771,8 @@
         },
         "typeSandboxEgressBlocked": "出站策略拦截",
         "typeExecutionLimitsUpdate": "执行预算更新",
-        "typeMajorUpgradePolicyUpdate": "跨大版本策略更新"
+        "typeMajorUpgradePolicyUpdate": "跨大版本策略更新",
+        "typeDeliveryBranchCleanup": "交付分支清理"
     },
     "credentials": {
         "title": "凭据管理",
@@ -993,7 +994,9 @@
         "networkViolations": "拦截 {count} 次",
         "networkViolationsHint": "非白名单外联已被本地审计代理拦截（502）；出现违规时该运行不得判定为验证通过",
         "networkAudited": "已审计 {count} 条",
-        "networkViolationFailure": "本次运行拦截到非白名单外联，已判定失败（详见外联违规与报告）"
+        "networkViolationFailure": "本次运行拦截到非白名单外联，已判定失败（详见外联违规与报告）",
+        "deliveryLabel": "交付",
+        "deliveryBranch": "分支 {branch}"
     },
     "scans": {
         "title": "扫描",

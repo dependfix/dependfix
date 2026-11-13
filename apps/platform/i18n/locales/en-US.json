@@ -771,7 +771,8 @@
         },
         "typeSandboxEgressBlocked": "Egress policy blocked",
         "typeExecutionLimitsUpdate": "Execution limits update",
-        "typeMajorUpgradePolicyUpdate": "Major upgrade policy update"
+        "typeMajorUpgradePolicyUpdate": "Major upgrade policy update",
+        "typeDeliveryBranchCleanup": "Delivery branch cleanup"
     },
     "credentials": {
         "title": "Credentials",
@@ -993,7 +994,9 @@
         "networkViolations": "{count} blocked",
         "networkViolationsHint": "Non-allowlisted outbound requests were blocked by the local audit proxy (502); such a run must not be reported as verified",
         "networkAudited": "audited {count}",
-        "networkViolationFailure": "Non-allowlisted outbound traffic was blocked; this run is marked as failed (see blocked egress and the report)"
+        "networkViolationFailure": "Non-allowlisted outbound traffic was blocked; this run is marked as failed (see blocked egress and the report)",
+        "deliveryLabel": "Delivery",
+        "deliveryBranch": "Branch {branch}"
     },
     "scans": {
         "title": "Scans",

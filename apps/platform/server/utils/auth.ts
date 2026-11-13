@@ -351,7 +351,7 @@ export type AuthInstance = ReturnType<typeof buildAuth>
 
 export const getAuthInstance = async (options: {
     authSecret: string
-    smtpEnabled: boolean
+    smtpHost: string
     registrationDisabled: boolean
     authMode: AuthMode
     allowedEmailDomains: string[]
@@ -375,7 +375,10 @@ export const getAuthInstance = async (options: {
     await ensureDefaultOrganization(ds)
     await migrateLegacyRoles(ds)
 
-    return buildAuth(ds, options)
+    // SMTP 启用判定在运行时派生：smtpHost 非空即启用。
+    // 不读 runtimeConfig 的独立开关——它在构建期被烘焙，容器内 NUXT_SMTP_HOST 生效时会与之脱节。
+    const { smtpHost, ...rest } = options
+    return buildAuth(ds, { ...rest, smtpEnabled: Boolean(smtpHost) })
 }
 
 /** 供 server/api/auth/[...].ts 使用的惰性单例（globalThis 挂载，跨 HMR 存活） */
@@ -415,7 +418,7 @@ export const getAuth = async (): Promise<AuthInstance> => {
         const authMode = assertAuthMode(config.authMode)
         scope[GLOBAL_AUTH_KEY] = await getAuthInstance({
             authSecret: config.authSecret,
-            smtpEnabled: config.smtpEnabled,
+            smtpHost: config.smtpHost,
             registrationDisabled: config.registrationDisabled,
             authMode,
             allowedEmailDomains: parseDomainList(config.allowedEmailDomains),

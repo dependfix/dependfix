@@ -44,7 +44,7 @@ Nuxt 4（全栈 SSR + API Routes，`app/` + `server/`）/ TypeScript strict / UI
 
 ## 4. 认证规范（better-auth）
 
-- **4.1 实例配置（`server/utils/auth.ts`）**：邮箱密码登录；`requireEmailVerification` + `sendVerificationEmail` 由 `smtpEnabled`（`SMTP_HOST` 是否配置）驱动——**SMTP 未配置自动跳过验证**；会话 `expiresIn 30d` / `updateAge 1d` / `storeSessionInDatabase: true`，`advanced.database.generateId` 用雪花 ID（与实体 `@BeforeInsert` 同源）；**首用户自动 admin**（`databaseHooks.user.create.before` 判断用户数，首个注册用户 `role = 'admin'`），`role` 经 `user.additionalFields` 声明（`input: false`，防客户端注入）；认证 API 挂载 `server/api/auth/[...].ts`，客户端 `app/utils/auth-client.ts` + `app/composables/use-session.ts` + `app/middleware/auth.ts`（未登录跳 `/login`）。
+- **4.1 实例配置（`server/utils/auth.ts`）**：邮箱密码登录；`requireEmailVerification` + `sendVerificationEmail` 由服务端按 `smtpHost`（运行时 `NUXT_SMTP_HOST`）是否非空派生——**SMTP 未配置自动跳过验证**；裸 `SMTP_*` 只在构建期求值，容器运行期必须用 `NUXT_SMTP_*`；会话 `expiresIn 30d` / `updateAge 1d` / `storeSessionInDatabase: true`，`advanced.database.generateId` 用雪花 ID（与实体 `@BeforeInsert` 同源）；**首用户自动 admin**（`databaseHooks.user.create.before` 判断用户数，首个注册用户 `role = 'admin'`），`role` 经 `user.additionalFields` 声明（`input: false`，防客户端注入）；认证 API 挂载 `server/api/auth/[...].ts`，客户端 `app/utils/auth-client.ts` + `app/composables/use-session.ts` + `app/middleware/auth.ts`（未登录跳 `/login`）。
 
 ### 4.2 TypeORM adapter（`server/database/typeorm-adapter.ts`）
 
@@ -187,7 +187,7 @@ Nuxt 4（全栈 SSR + API Routes，`app/` + `server/`）/ TypeScript strict / UI
 
 - **执行 / 队列**：`EXECUTION_TIMEOUT_MS`、`DEPENDFIX_MAX_EXECUTION_TIMEOUT_MS`、`DEPENDFIX_QUEUE_WORKER` / `DEPENDFIX_ROLE`、`DEPENDFIX_QUEUE_WORKER_SLOW_RETRY_SECONDS`、`STALE_CLEANUP_*_GRACE_MS`——取值与边界见 [设计稿 §9](../design/governance/executor-process-isolation.md#_9-队列执行进程隔离-运行时形态) 与 [queue-stale-recovery.md](../design/governance/queue-stale-recovery.md)；队列锁来源见 10.5。
 - **构建 / 存储 / 日志**：`NUXT_BUILD_*`（10.7）、`PNPM_CONFIG_STORE_DIR`（10.8）、`LOG_*`（10.9）、`DEPENDFIX_WEEKLY_DIGEST_HOUR`（[platform-notification.md §6.5](../design/governance/platform-notification.md#_6-5-周汇总触发)）。
-- **数据 / 认证 / 监测**：`DATABASE_*` 见 [§3](#_3-数据库规范-多后端兼容-时区)；`NUXT_ENCRYPTION_KEY` 见 [§5](#_5-凭据安全规范-t602-起生效)；`ACTION_STATUS_MONITOR_ENABLED` 见 [§7.6](#_7-6-运行时-env-开关的-ui-状态暴露用只读端点)；`AUTH_SECRET` / `SMTP_*` / `NUXT_PUBLIC_BETTER_AUTH_URL` / `PORT` / `MACHINE_ID` 见 [`.env.full.example`](../../apps/platform/.env.full.example)。
+- **数据 / 认证 / 监测**：`DATABASE_*` 见 [§3](#_3-数据库规范-多后端兼容-时区)；`NUXT_ENCRYPTION_KEY` 见 [§5](#_5-凭据安全规范-t602-起生效)；`ACTION_STATUS_MONITOR_ENABLED` 见 [§7.6](#_7-6-运行时-env-开关的-ui-状态暴露用只读端点)；`AUTH_SECRET` / `SMTP_*`（compose 插值名，容器运行期 `NUXT_SMTP_*`） / `NUXT_PUBLIC_BETTER_AUTH_URL` / `PORT` / `MACHINE_ID` 见 [`.env.full.example`](../../apps/platform/.env.full.example)。
 
 ## 12. 决策记录（2026-08-07 人工审查确认）
 

@@ -305,7 +305,7 @@ The management platform (`apps/platform`) is configured via env vars injected by
 
 | Variable | Required | Default | Description |
 |:---|:---:|:---|:---|
-| `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASS` / `SMTP_FROM` | — | empty / `587` | Configuring it enables email verification and password reset; otherwise skipped |
+| `SMTP_*` (compose interpolation) → container `NUXT_SMTP_*` | — | empty / `587` | Configuring it enables email verification and password reset; otherwise skipped. **Runtime overrides only honor `NUXT_SMTP_*`** (bare `SMTP_*` is evaluated at build time only); enablement is derived from a non-empty `smtpHost` at runtime, with no separate switch |
 
 ### Scan queue & Redis
 

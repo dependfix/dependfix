@@ -111,7 +111,7 @@ Account / Session / Verification（better-auth 标准，不变）
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | public | Google OAuth；未配置自动隐藏 |
 | `OIDC_DISCOVERY_URL` / `OIDC_CLIENT_ID` / `OIDC_CLIENT_SECRET` | enterprise | OIDC SSO（支持 `OIDC_ISSUER` / `OIDC_AUTHORIZATION_URL` / `OIDC_TOKEN_URL` / `OIDC_USERINFO_URL` / `OIDC_SCOPES` 覆盖，兼容无 discovery 的 IdP） |
 
-> runtimeConfig 私有侧挂载（`authMode` / `allowedEmailDomains` / `blockedEmailDomains` / `oidc.*` / `github.*` / `google.*`），与现有 `authSecret` / `smtpEnabled` / `registrationDisabled` 并列；生产禁止默认密钥校验延续 `assertAuthSecret`。
+> runtimeConfig 私有侧挂载（`authMode` / `allowedEmailDomains` / `blockedEmailDomains` / `oidc.*` / `github.*` / `google.*`），与现有 `authSecret` / `smtpHost` / `registrationDisabled` 并列；生产禁止默认密钥校验延续 `assertAuthSecret`。
 
 ## 6. API 与权限守卫
 

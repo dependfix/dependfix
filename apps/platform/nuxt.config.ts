@@ -78,8 +78,11 @@ export default defineNuxtConfig({
         // 构建期默认值仅用于开发；生产必须通过 NUXT_AUTH_SECRET 注入（getAuth 启动校验强制）
         authSecret: process.env.AUTH_SECRET || 'dev-secret-change-me',
         encryptionKey: process.env.NUXT_ENCRYPTION_KEY || '',
-        // SMTP 配置（私有，运行时 NUXT_ 前缀可覆盖；不进 public bundle）。
-        // smtpEnabled 派生自 smtpHost 存在性，向后兼容旧 env-only 行为。
+        // SMTP 配置（私有；不进 public bundle）。
+        // 运行时覆盖只认 NUXT_ 前缀（NUXT_SMTP_HOST / NUXT_SMTP_PORT / NUXT_SMTP_USER /
+        // NUXT_SMTP_PASS / NUXT_SMTP_FROM）——裸 SMTP_* 只在构建期求值，容器运行时注入无效。
+        // 「是否启用 SMTP」由服务端按 smtpHost 是否非空派生，不单设 runtimeConfig key
+        // （单设 key 会在构建期被烘焙成 false，导致「能发信但不强制验证」的割裂）。
         // 端口默认 587（STARTTLS 明文升级）；SMTP_PORT=465 走 TLS；user/pass 可选（匿名 relay 场景）。
         // SMTP_PASS 仅在服务端私有 config 读取；不暴露给前端（runtimeConfig.public 不引用）。
         smtpHost: process.env.SMTP_HOST || '',
@@ -87,7 +90,6 @@ export default defineNuxtConfig({
         smtpUser: process.env.SMTP_USER || '',
         smtpPass: process.env.SMTP_PASS || '',
         smtpFrom: process.env.SMTP_FROM || '',
-        smtpEnabled: !!process.env.SMTP_HOST,
         // 关闭注册（保留登录）：公开部署时设置 REGISTRATION_DISABLED=true
         registrationDisabled: process.env.REGISTRATION_DISABLED === 'true',
         // 认证部署模式（enterprise | public，互斥二选一，缺省 public）：

@@ -45,6 +45,13 @@ services:
       # 注意：首次部署需保持 false 注册首个管理员后再关闭，否则平台无管理员。
       NUXT_REGISTRATION_DISABLED: ${REGISTRATION_DISABLED:-false}
       NUXT_PUBLIC_BETTER_AUTH_URL: ${NUXT_PUBLIC_BETTER_AUTH_URL:-http://localhost:3000}
+      # SMTP（可选）：compose 侧名 SMTP_*，注入容器时改用 NUXT_ 前缀
+      # （Nuxt runtimeConfig 运行时覆盖只认 NUXT_ 前缀；裸 SMTP_* 只在构建期求值）。
+      NUXT_SMTP_HOST: ${SMTP_HOST:-}
+      NUXT_SMTP_PORT: ${SMTP_PORT:-587}
+      NUXT_SMTP_USER: ${SMTP_USER:-}
+      NUXT_SMTP_PASS: ${SMTP_PASS:-}
+      NUXT_SMTP_FROM: ${SMTP_FROM:-}
       # 扫描任务队列（渐进式降级）：Redis 可达且版本 >= 5.0 时异步队列，否则自动降级同步。
       # 运行时覆盖需 NUXT_ 前缀（构建产物烘焙默认值）
       NUXT_REDIS_URL: redis://redis:6379

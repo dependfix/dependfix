@@ -314,7 +314,7 @@ export DEPENDFIX_RETRY_FAILED=false
 
 | 变量 | 必填 | 默认值 | 说明 |
 |:---|:---:|:---|:---|
-| `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASS` / `SMTP_FROM` | — | 空 / `587` | 配置后启用邮箱验证与密码重置；未配置自动跳过 |
+| `SMTP_*`（compose 插值名）→ 容器 `NUXT_SMTP_*` | — | 空 / `587` | 配置后启用邮箱验证与密码重置；未配置自动跳过。**运行时覆盖只认 `NUXT_SMTP_*`**（裸 `SMTP_*` 只在构建期求值，容器内注入无效）；是否启用由 `smtpHost` 是否非空在运行时派生，无独立开关变量 |
 
 ### 扫描队列与 Redis
 

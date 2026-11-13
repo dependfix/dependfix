@@ -15,6 +15,7 @@ import { notifyRunTerminal } from './notification/run-notification.service'
 import type { NotificationEvent } from './notification/channel'
 import { reconcileAlerts } from './scan-reconcile'
 import { persistPostCompletionOutcome } from './scan-run-post-completion'
+import { beginScanRunExecution } from './scan-run-start'
 import { resolveAiConfig } from './ai-config-resolver'
 import { resolveExecutionLimits } from '#server/utils/execution-limits'
 import { Repository, parseSandboxLimits, parseVerifyCommands } from '#server/entities/repository'
@@ -277,52 +278,51 @@ const runScanInternal = async (
         if (!options.reuse && isTerminalScanRunStatus(existing.status)) {
             throw new Error(`[scan] run ${existing.id} 已处于终态 ${existing.status}，跳过重复执行`)
         }
-        existing.status = 'running'
-        existing.startedAt = existing.startedAt ?? new Date()
-        // 构建版本回执随执行者刷新：队列续跑 / 用户复用都可能跨部署发生，
-        // 记录「本次实际执行者」而不是「最初入队者」
-        existing.buildVersion = buildStamp.buildVersion
-        existing.buildCommit = buildStamp.buildCommit
-        // 本次实际生效的执行上限快照（启动前写入；进程中途死亡时 stale-cleanup 仍能按它判定）
-        existing.executionTimeoutMs = executionLimits.executionTimeoutMs
-        // reuse=true 时重置终态字段：让既有 record 复用为新执行的载体（finishedAt / errorJson /
-        // summaryJson 来自上一次执行，重置以避免新执行的 summaryJson 与旧 finishedAt 时间戳错位）
-        if (options.reuse) {
-            // per-alert 模型下不再需要清空该 run 的 ScanResult：reconcile 函数
-            // 会按 upstreamId 复用现有行（上游消失时 fixStatus='success' 不被 supersede，决策 1；
-            // 告警仍活跃时按本次结论覆盖）；
-            // 而新出现的告警会 INSERT；上游消失的告警会 supersede。
-            // 旧 ScanResult 行无需删除 —— 让 reconcile 自然处理。
-            // 注意：per-alert 模型之前 `resultRepo.delete({ scanRunId })` 是为避免"按 scanRunId JOIN
-            // 出现旧 + 新并存"——但 per-alert 模型下 ScanResult 不再按 scanRunId JOIN（每行是独立告警），
-            // 此删除逻辑已无意义。
-            existing.finishedAt = null
-            existing.errorJson = null
-            existing.summaryJson = null
-            existing.runUrl = null
-            // 复用既有记录时一并清空上次执行的失败分类（避免旧 stage/kind 残留到新执行）
-            existing.failureCode = null
-            existing.failureStage = null
-            existing.failureKind = null
-            // 运行结果可信度两列同属「上一次执行」快照，复用为本次执行载体时一并清空
-            existing.exitCode = null
-            existing.environmentalFailureCount = null
-            existing.memoryMaxBytes = null
-            existing.peakRssBytes = null
-            existing.oomKilled = null
-            existing.resourceJson = null
-            // 同时更新 mode / severityThreshold 以匹配本次请求（用户从 report-only 切到 fix）
-            existing.mode = request.mode
-            existing.severityThreshold = request.severityThreshold
-            existing.executorKind = executorKind
-            // 复用既有 run 作为新执行载体时，触发者更新为本次操作者（未提供则保留历史值）
-            existing.triggeredByUserId = options.triggeredByUserId ?? existing.triggeredByUserId
-            // reuse 时也刷新 AI 配置快照（apiKey 不写入快照；hasApiKey 标记替代）
-            existing.aiConfigSnapshot = aiConfigResolution.snapshot
-                ? JSON.stringify(aiConfigResolution.snapshot)
-                : null
+        // 起点写回走条件更新（见 scan-run-start.ts）：禁止整行 save 复活已被并发清理的终态
+        const observedStatus = existing.status
+        const startPatch: Partial<ScanRun> = {
+            startedAt: existing.startedAt ?? new Date(),
+            buildVersion: buildStamp.buildVersion,
+            buildCommit: buildStamp.buildCommit,
+            executionTimeoutMs: executionLimits.executionTimeoutMs,
         }
-        savedRun = await runRepo.save(existing)
+        if (options.reuse) {
+            Object.assign(startPatch, {
+                finishedAt: null,
+                errorJson: null,
+                summaryJson: null,
+                runUrl: null,
+                failureCode: null,
+                failureStage: null,
+                failureKind: null,
+                exitCode: null,
+                environmentalFailureCount: null,
+                memoryMaxBytes: null,
+                peakRssBytes: null,
+                oomKilled: null,
+                resourceJson: null,
+                mode: request.mode,
+                severityThreshold: request.severityThreshold,
+                executorKind,
+                triggeredByUserId: options.triggeredByUserId ?? existing.triggeredByUserId,
+                aiConfigSnapshot: aiConfigResolution.snapshot
+                    ? JSON.stringify(aiConfigResolution.snapshot)
+                    : null,
+            })
+        }
+        const startWrite = await beginScanRunExecution({
+            ds,
+            runId: existing.id,
+            observedStatus,
+            allowTerminalReuse: options.reuse === true,
+            patch: startPatch,
+        })
+        if (!startWrite.started || !startWrite.run) {
+            throw new Error(
+                `[scan] run ${existing.id} 起点状态已变化（${observedStatus} → ${startWrite.currentStatus ?? 'unknown'}），跳过重复执行`,
+            )
+        }
+        savedRun = startWrite.run
     } else {
         const run = runRepo.create({
             repositoryId: repository.id,

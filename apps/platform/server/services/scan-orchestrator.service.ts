@@ -738,8 +738,8 @@ async function recordEnvAuditEvent(
         payload = { degradedReason, fallback: 'container', notificationSuppressed: false }
     } else if (decision.status === 'failed' && error?.code === 'sandbox_fix_requires_egress_policy') {
         // fix 类出站策略缺失（审计关闭 / 白名单被清空）：执行器第二道闸拒绝——
-        // 属配置偏离而非运行事故，落 warn 事件；不通知（避免每次 fix 扫描占用共享配额）
-        eventType = 'sandbox_degraded'
+        // 属配置偏离而非运行事故，用专用事件类型（不与「降级」语义混淆）
+        eventType = 'sandbox_egress_blocked'
         severity = 'warn'
         payload = { code: error.code, message: error.message, fallback: 'none', notificationSuppressed: true }
     } else if (decision.status === 'failed' && error?.code === 'container_unavailable') {

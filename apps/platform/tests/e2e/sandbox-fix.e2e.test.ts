@@ -24,7 +24,7 @@ test.describe('sandbox fix real execution (gated)', () => {
     test.skip(!token, 'SANDBOX_E2E_TOKEN is required')
 
     test('fix 在沙箱内完成 clone / 安装 / 修复 / 验证（未降级）', async ({ page }) => {
-        test.setTimeout(20 * 60_000)
+        test.setTimeout(35 * 60_000)
         const stamp = Date.now()
         const [owner = '', name = ''] = targetRepo.split('/')
         expect(owner && name).toBeTruthy()

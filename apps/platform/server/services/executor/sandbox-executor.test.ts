@@ -359,6 +359,39 @@ describe('SandboxExecutor', () => {
             expect(script).not.toContain('clone')
         })
 
+        it('only injects the credential header for https github.com sources', () => {
+            const executor = new SandboxExecutor({
+                runtimeAdapter: new SpyRuntimeAdapter(),
+                cloneBaseUrl: 'https://gitlab.com',
+            })
+            const script = executor.buildCmd(makeCtx({ config: { ...defaultRuntimeConfig, mode: 'fix' } })).join(' ')
+            // 条件里必须同时校验 host 与协议（GitLab 源走匿名分支）
+            expect(script).toMatch(/'gitlab\.com' = 'github\.com'/)
+            expect(script).toMatch(/'https:' = 'https:'/)
+        })
+
+        it('rejects a clone base outside the allowlist (fail-closed)', async () => {
+            const adapter = new SimulatedSandboxAdapter()
+            const executor = new SandboxExecutor({
+                runtimeAdapter: adapter,
+                cloneBaseUrl: 'https://evil.example.com',
+            })
+            const result = await executor.execute(makeCtx({ config: { ...defaultRuntimeConfig, mode: 'fix' } }))
+            expect(result.error?.code).toBe('sandbox_clone_host_not_allowed')
+            expect(adapter.calls).toHaveLength(0)
+        })
+
+        it('rejects an invalid clone base URL (fail-closed)', async () => {
+            const adapter = new SimulatedSandboxAdapter()
+            const executor = new SandboxExecutor({
+                runtimeAdapter: adapter,
+                cloneBaseUrl: 'not-a-url',
+            })
+            const result = await executor.execute(makeCtx({ config: { ...defaultRuntimeConfig, mode: 'fix' } }))
+            expect(result.error?.code).toBe('sandbox_clone_host_not_allowed')
+            expect(adapter.calls).toHaveLength(0)
+        })
+
         it('resolveEgressPolicy merges required domains and honors the audit switch', () => {
             vi.stubEnv('DEPENDFIX_ALLOWED_DOMAINS', 'registry.example.com')
             try {

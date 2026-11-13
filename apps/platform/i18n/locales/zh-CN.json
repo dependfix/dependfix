@@ -768,7 +768,8 @@
         "collapse": "收起",
         "errors": {
             "loadFailed": "加载失败：{message}"
-        }
+        },
+        "typeSandboxEgressBlocked": "出站策略拦截"
     },
     "credentials": {
         "title": "凭据管理",

@@ -768,7 +768,8 @@
         "collapse": "Collapse",
         "errors": {
             "loadFailed": "Failed to load: {message}"
-        }
+        },
+        "typeSandboxEgressBlocked": "Egress policy blocked"
     },
     "credentials": {
         "title": "Credentials",

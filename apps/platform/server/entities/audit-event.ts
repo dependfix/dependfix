@@ -22,6 +22,7 @@ import { ScanRun } from './scan-run'
  * 触发源：
  * - sandbox_unavailable：sandbox.execute 抛 errno（B 场景运行时失败）
  * - sandbox_degraded：scan-orchestrator 产出的 degradedReason（A 场景 sandbox 启动降级）
+ * - sandbox_egress_blocked：fix 类出站策略缺失（执行器第二道闸拒绝，属配置偏离而非运行事故）
  * - container_unavailable：container 路由前 `ContainerExecutor.isAvailable()` 返回 false
  *   （工作根不可写 / 磁盘满 / 只读 FS）——默认部署下的执行环境健康信号
  * - ai_config_update：Organization / Repository AI 研判配置更新（todo.md §M26.1 / [platform-ai-integration.md §8.3](../design/governance/platform-ai-integration-governance.md) 审计要求）
@@ -43,6 +44,7 @@ import { ScanRun } from './scan-run'
 export type AuditEventType =
     | 'sandbox_unavailable'
     | 'sandbox_degraded'
+    | 'sandbox_egress_blocked'
     | 'container_unavailable'
     | 'ai_config_update'
     | 'verify_commands_update'
@@ -56,6 +58,7 @@ export type AuditEventType =
 export const AUDIT_EVENT_TYPES: readonly AuditEventType[] = [
     'sandbox_unavailable',
     'sandbox_degraded',
+    'sandbox_egress_blocked',
     'container_unavailable',
     'ai_config_update',
     'verify_commands_update',
@@ -121,6 +124,7 @@ export class AuditEvent extends BaseEntity {
      * 事件原始 payload（JSON 字符串）：
      * - sandbox_unavailable: `{ errno, code, adapter, message }`
      * - sandbox_degraded: `{ degradedReason: { code, message }, fallback: 'container' }`
+     * - sandbox_egress_blocked: `{ code, message, fallback: 'none', notificationSuppressed: true }`
      * - container_unavailable: `{ code, executor: 'container', message }`
      * - pr_feedback_commented / pr_feedback_closed: `{ prNumber, headSha, conclusion }`
      */

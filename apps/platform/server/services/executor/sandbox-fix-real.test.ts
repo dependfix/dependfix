@@ -1,7 +1,7 @@
 // sandbox-fix-real.test.ts — 沙箱 fix 的**真实容器**冒烟（gated）。
 //
-// 启用：`SANDBOX_FIX_E2E=true`，且本机 Docker daemon 可用、镜像内含自包含入口
-// （默认 `dependfix-sandbox:m59`；构建方式：`pnpm --filter dependfix build:sandbox` 后由
+// 启用：`SANDBOX_FIX_E2E=true`（未启用时整组 skip，报告可见），且本机 Docker daemon 可用、镜像内含自包含入口
+// （默认 `dependfix-sandbox:local`；构建方式：`pnpm --filter dependfix build:sandbox` 后由
 //  `FROM dependfix-platform:e2e` + `COPY packages/cli/sandbox /app/sandbox` 生成）。
 //
 // 本用例不依赖 GitHub token：对公开仓库做匿名 clone（GitLab 夹具，github.com 在本环境被阻断），证明
@@ -13,7 +13,7 @@ import type { ScanExecutorContext } from './types'
 import { SandboxExecutor, resolveEgressPolicy } from './sandbox-executor'
 
 const enabled = process.env.SANDBOX_FIX_E2E === 'true'
-const image = process.env.SANDBOX_FIX_E2E_IMAGE ?? 'dependfix-sandbox:m59'
+const image = process.env.SANDBOX_FIX_E2E_IMAGE ?? 'dependfix-sandbox:local'
 const repo = process.env.SANDBOX_FIX_E2E_REPO ?? 'gitlab-org/gitlab-test'
 // 本环境 github.com 被网络策略阻断（api / codeload 可达），用 GitLab 公开夹具验证容器内 clone
 const cloneBaseUrl = process.env.SANDBOX_FIX_E2E_CLONE_BASE ?? 'https://gitlab.com'
@@ -49,7 +49,7 @@ const makeCtx = (): ScanExecutorContext => {
     }
 }
 
-describe.runIf(enabled)('sandbox fix real bootstrap (gated)', () => {
+describe.skipIf(!enabled)('sandbox fix real bootstrap (gated)', () => {
     it('clones inside the container without host mounts and reaches the CLI', async () => {
         const executor = new SandboxExecutor({ image, entry: '/app/sandbox/bin.mjs', timeoutMs: 240_000, cloneBaseUrl })
 

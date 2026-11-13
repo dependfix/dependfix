@@ -816,29 +816,6 @@ describe('scan-orchestrator.service', () => {
             expect(notifyEnvEvent).not.toHaveBeenCalled()
         })
 
-        it('出站策略缺失（执行器拒绝）→ audit_event sandbox_degraded 落库但不通知', async () => {
-            const repoId = await sandboxRepo()
-            sandboxExecute.mockResolvedValue({
-                exitCode: 2,
-                error: { code: 'sandbox_fix_requires_egress_policy', message: 'egress policy missing' },
-            })
-
-            const run = await runScanForRepository(repoId, { mode: 'fix', severityThreshold: 'high' })
-            expect(run.status).toBe('failed')
-
-            const ds = await ensureDatabaseInitialized()
-            const events = await ds.getRepository(AuditEvent).find({ where: { scanRunId: run.id } })
-            expect(events).toHaveLength(1)
-            expect(events[0]?.type).toBe('sandbox_degraded')
-            const payload = JSON.parse(events[0]?.payloadJson ?? '{}') as Record<string, unknown>
-            expect(payload).toMatchObject({
-                code: 'sandbox_fix_requires_egress_policy',
-                fallback: 'none',
-                notificationSuppressed: true,
-            })
-            expect(notifyEnvEvent).not.toHaveBeenCalled()
-        })
-
         it('report-only sandbox 启动不可用 → audit_event sandbox_degraded + notify 触发', async () => {
             const repoId = await sandboxRepo()
             sandboxIsAvailable.mockResolvedValue(false)
@@ -938,5 +915,54 @@ describe('scan-orchestrator.service', () => {
             expect(events).toHaveLength(1)
             expect(events[0]?.type).toBe('container_unavailable')
         })
+    })
+})
+
+describe('scan-orchestrator 出站策略拒绝的审计事件', () => {
+    let repositoryId: string
+
+    beforeAll(async () => {
+        setupMemoryDatabase()
+        const created = await reposIndexHandler(makeEvent('POST', '/api/repos', {
+            owner: 'demo',
+            name: `egress-blocked-${Math.random().toString(36).slice(2, 8)}`,
+            platform: 'github',
+            packageManager: 'pnpm',
+            defaultBranch: 'main',
+            executorKind: 'sandbox',
+        })) as { id: string }
+        repositoryId = created.id
+    })
+
+    afterAll(() => {
+        teardownMemoryDatabase()
+    })
+
+    beforeEach(() => {
+        vi.clearAllMocks()
+        sandboxIsAvailable.mockResolvedValue(true)
+        notifyEnvEvent.mockResolvedValue(undefined)
+    })
+
+    it('策略缺失（执行器拒绝）→ sandbox_egress_blocked 事件落库且不通知', async () => {
+        sandboxExecute.mockResolvedValue({
+            exitCode: 2,
+            error: { code: 'sandbox_fix_requires_egress_policy', message: 'egress policy missing' },
+        })
+
+        const run = await runScanForRepository(repositoryId, { mode: 'fix', severityThreshold: 'high' })
+        expect(run.status).toBe('failed')
+
+        const ds = await ensureDatabaseInitialized()
+        const events = await ds.getRepository(AuditEvent).find({ where: { scanRunId: run.id } })
+        expect(events).toHaveLength(1)
+        expect(events[0]?.type).toBe('sandbox_egress_blocked')
+        const payload = JSON.parse(events[0]?.payloadJson ?? '{}') as Record<string, unknown>
+        expect(payload).toMatchObject({
+            code: 'sandbox_fix_requires_egress_policy',
+            fallback: 'none',
+            notificationSuppressed: true,
+        })
+        expect(notifyEnvEvent).not.toHaveBeenCalled()
     })
 })

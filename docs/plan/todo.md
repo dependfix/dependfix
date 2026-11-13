@@ -155,7 +155,7 @@
 
 ### 追加临时待办（不占阶段条目编号）：未验证邮箱用户登录锁死与自助恢复（P1 🛠️）
 
-> **状态**：🚧 部分交付（2026-11-13；AC1 / AC2 / AC4 已落地，AC5 为「除相关 e2e 外通过」，**AC3 转为 `accepted as blocked`**）。已交付：登录页按 `EMAIL_NOT_VERIFIED` 分流 + 重发入口、`sendOnSignIn` 自动补发、429 可读提示、纯分类器与 auth 断言。待用户裁决：管理端代他人重发（better-auth 原生端点在会话内要求 `session.user.email === body.email`，否则 400 `EMAIL_MISMATCH`）已登记 [backlog](backlog.md#待上收候选-评估完成-等待用户决策) 候选「管理端代他人重发验证邮件（admin-only + 操作者审计）」，需决策是否放宽本条目「不新增后端重发端点」约束。审计：R1 standard **Reject**（RG-B1 管理端必然 400 / RG-B2 SMTP 关时新增入口）→ 范围收缩 → R2 quick **Reject**（RG-B3 todo 未同步）→ R3 quick **Reject**（RG-B4 审计轨迹记录失真）→ 文本修正 → R4 quick **Pass**。残余：① 无「未验证登录 → 重发」e2e（默认 e2e 环境 `requireEmailVerification` 不可达，需专用 SMTP fixture）；② mailer fail-quiet 下「已发送」提示可能为假（既有邮件通道语义）；③ `sendOnSignIn` + 手动重发会重复发信（同一邮箱短时多封）。
+> **状态**：✅ 已闭环（2026-11-13；AC1 / AC2 / AC4 已落地，AC5 为「除相关 e2e 外通过」，**AC3 按用户 2026-11-13 决策延后**）。已交付：登录页按 `EMAIL_NOT_VERIFIED` 分流 + 重发入口、`sendOnSignIn` 自动补发、429 可读提示、纯分类器与 auth 断言。用户决策（2026-11-13）：管理端代他人重发**延后**（方案逻辑待重新推敲），登记 [backlog](backlog.md#延期-暂缓项) 暂缓项；手动置位 `email_verified` **不提供**。审计：R1 standard **Reject**（RG-B1 管理端必然 400 / RG-B2 SMTP 关时新增入口）→ 范围收缩 → R2 quick **Reject**（RG-B3 todo 未同步）→ R3 quick **Reject**（RG-B4 审计轨迹记录失真）→ 文本修正 → R4 quick **Pass**。残余：① 无「未验证登录 → 重发」e2e（默认 e2e 环境 `requireEmailVerification` 不可达，需专用 SMTP fixture）；② mailer fail-quiet 下「已发送」提示可能为假（既有邮件通道语义）；③ `sendOnSignIn` + 手动重发会重复发信（同一邮箱短时多封）。
 
 > **来源与授权**：2026-11-13 用户提交登录失败截图（DevTools 响应体 `{ message: "Email not verified", code: "EMAIL_NOT_VERIFIED" }`；截图未显示状态码，better-auth 1.7.18 源码映射为 403）后明确授权插队到当前阶段。按 [规划规范 §3.1](../standards/planning.md#_3-1-新需求默认走-评估-→-backlog-原则-hard-requirement)「追加临时待办」口径登记：追加在阶段末尾、不分配编号、不占既有条目位置。
 
@@ -171,7 +171,7 @@
 - **验收标准**：
   1. 未验证账号登录：页面显示「邮箱未验证」类文案并提供重发，不显示「邮箱或密码错误」；密码错误仍显示原文案（正 / 反向用例各一）。
   2. 重发调用成功后有明确提示；重发端点受 better-auth 内置特殊规则限制 **60s / 3 次**（`rate-limiter/index.mjs:314-320`；`/sign-in*` 为 10s / 3 次，平台全局 60s / 60 次仅作兜底，`auth.ts:69-80`）时提示可读，不暴露内部错误码；E2E 因 `disableIpTracking` 不限流，429 路径需单测或生产口径验证。
-  3. **`accepted as blocked`（2026-11-13）**：管理端代他人重发无法复用 better-auth 原生端点（会话内要求 `session.user.email === body.email`，否则 400 `EMAIL_MISMATCH`），本条目「不新增后端端点」约束下不可实现 → 用户列表仅保留未验证标签并引导登录页自助恢复；带操作者审计的管理端重发已登记 [backlog](backlog.md#待上收候选-评估完成-等待用户决策) 候选，待用户裁决后再实施。手动置位 `email_verified` 仍未实现（安全侧决策）。
+  3. **按用户决策延后（2026-11-13）**：管理端代他人重发无法复用 better-auth 原生端点（会话内要求 `session.user.email === body.email`，否则 400 `EMAIL_MISMATCH`）→ 用户列表仅保留未验证标签并引导登录页自助恢复；代发方案延后（登录 [backlog](backlog.md#延期-暂缓项) 暂缓项），手动置位 `email_verified` 明确不提供。
   4. `NUXT_SMTP_HOST`（容器运行期名）未配置时行为零变化：无重发入口、无新增阻断、注册后直接可用。
   5. `pnpm run lint:check` / `pnpm typecheck` / 定向 vitest 通过；相关 e2e 未落地（见残余①）。
 - **不做**：不放宽 `requireEmailVerification` 与 SMTP 开关的绑定语义；不改本项之外的认证流程；不做存量账号批量置 verified 的自动迁移（口径待评估，若需要单列）；不新增后端重发端点（复用 better-auth 既有端点）；重发入口只在「已确认凭证正确但邮箱未验证」的响应后出现，避免新增邮箱枚举面。

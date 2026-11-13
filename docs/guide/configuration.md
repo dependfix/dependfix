@@ -317,7 +317,7 @@ export DEPENDFIX_RETRY_FAILED=false
 | `SMTP_*`（compose 插值名）→ 容器 `NUXT_SMTP_*` | — | 空 / `587` | 配置后启用邮箱验证与密码重置；未配置自动跳过。**运行时覆盖只认 `NUXT_SMTP_*`**（裸 `SMTP_*` 只在构建期求值，容器内注入无效）；是否启用由 `smtpHost` 是否非空在运行时派生，无独立开关变量 |
 
 > ⚠️ **启用顺序（存量账号）**：邮箱验证一旦启用，`email_verified = false` 的存量账号登录会直接返回 `EMAIL_NOT_VERIFIED`（403）。
-> 注入 `NUXT_SMTP_HOST` 前须先二选一：① 先上线「未验证邮箱自助恢复」（登录页重发验证邮件）；② 先由 DBA 备份后直接更新存量账号的 `user.email_verified`（暂无管理端点）。
+> 注入 `NUXT_SMTP_HOST` 前须先二选一：① 先上线「未验证邮箱自助恢复」（登录页重发验证邮件）；② 由 DBA 备份后直接更新存量账号的 `user.email_verified`（属运维兜底，非产品能力，平台不提供手动置位）。
 > **生效前提**：新镜像 + 新 `docker-compose.yml`（5 项 `NUXT_SMTP_*` 转发）**同时到位**；只换镜像而沿用旧 compose，`.env` 里的 `SMTP_*` 仍不会进容器（表现为症状完全不变）。
 > **回滚**：移除 `NUXT_SMTP_HOST` 即回到「不强制验证」（派生值转 false）。旧镜像的开关在构建期被烘焙为 false，需重建镜像后才会按 host 派生。
 

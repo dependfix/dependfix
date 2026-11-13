@@ -58,6 +58,7 @@ const {
     deliverFixAndPr,
     planFixAndPrDelivery,
     pushFixBranchWithCredential,
+    shouldPlatformDeliver,
     PlatformDeliveryError,
 } = await import('./platform-delivery')
 
@@ -341,5 +342,35 @@ describe('deliverFixAndPr', () => {
 
         expect(result.runUrl).toBe('https://github.com/o/r/pull/200') // 主交付成功
         expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('关 supersede PR 失败'))
+    })
+})
+
+describe('shouldPlatformDeliver（双路径守卫）', () => {
+    it('delivers when the result carries no delivery record (存量 / report-only)', () => {
+        expect(shouldPlatformDeliver({})).toBe(true)
+    })
+
+    it('delivers when the engine left delivery to the platform', () => {
+        expect(shouldPlatformDeliver({
+            delivery: { deliveredBy: 'platform', status: 'none', branch: 'main' },
+        })).toBe(true)
+    })
+
+    it('skips when the engine already pushed a branch', () => {
+        expect(shouldPlatformDeliver({
+            delivery: { deliveredBy: 'engine', status: 'pushed', branch: 'dependfix/auto-fix-abcd1234' },
+        })).toBe(false)
+    })
+
+    it('skips when the engine already created a PR', () => {
+        expect(shouldPlatformDeliver({
+            delivery: {
+                deliveredBy: 'engine',
+                status: 'pr-created',
+                branch: 'dependfix/auto-fix-abcd1234',
+                prUrl: 'https://github.com/o/r/pull/9',
+                prNumber: 9,
+            },
+        })).toBe(false)
     })
 })

@@ -234,7 +234,7 @@ export class SandboxExecutor implements ScanExecutor {
             const spec = this.buildSpec(ctx)
             const cmd = this.buildCmd(ctx)
             const runResult = await withTimeout(this.adapter.run(spec, cmd), this.timeoutMs)
-            return this.parseRunResult(runResult, startedAt)
+            return this.parseRunResult(runResult, startedAt, ctx)
         } catch (error) {
             return classifyError(error, this.timeoutMs, startedAt)
         }
@@ -306,6 +306,14 @@ export class SandboxExecutor implements ScanExecutor {
             '--max-concurrency', String(ctx.config.maxConcurrency),
             '--result-json', CONTAINER_RESULT_PATH,
         ]
+        if (ctx.config.mode === 'fix') {
+            // 沙箱内没有平台侧 workDir 可以接管交付：提交在容器内完成；
+            // 仅 GitHub HTTPS 源具备凭据 helper → 才额外推送（其它源强制 push 必然失败）
+            cliArgs.push('--commit')
+            if (shouldInjectCloneCredential(this.cloneBaseUrl)) {
+                cliArgs.push('--push')
+            }
+        }
         if (ctx.config.codeScanningEnabled) {
             cliArgs.push('--code-scanning')
         }
@@ -323,12 +331,18 @@ export class SandboxExecutor implements ScanExecutor {
             + `git -c http.extraheader="Authorization: basic $h" clone --depth 1 ${cloneUrl} ${CONTAINER_REPO_PATH}; `
             + `else git clone --depth 1 ${cloneUrl} ${CONTAINER_REPO_PATH}; fi || exit 1`
             : `git clone --depth 1 ${cloneUrl} ${CONTAINER_REPO_PATH} || exit 1`
+        // 容器内 push（fix / fix-and-pr）复用同一 token：写 credential helper（只含命令，不含密钥），
+        // 避免把 token 落进 .git/config；非 GitHub 源不注入
+        const credentialHelper = shouldInjectCloneCredential(this.cloneBaseUrl)
+            ? `git config --local credential.https://github.com.helper '!f() { echo username=x-access-token; echo "password=$GITHUB_TOKEN"; }; f'`
+            : null
         const bootstrap = ctx.config.mode === SANDBOX_REPORT_ONLY
             ? []
             : [
                 `rm -rf ${CONTAINER_REPO_PATH}`,
                 cloneCommand,
                 `cd ${CONTAINER_REPO_PATH} || exit 1`,
+                ...(credentialHelper ? [credentialHelper] : []),
             ]
         const script = [
             ...bootstrap,
@@ -343,6 +357,27 @@ export class SandboxExecutor implements ScanExecutor {
     }
 
     /**
+     * 从结果交付记录映射平台字段（runUrl / prNumber）：
+     * - `pr-created`：runUrl = PR 地址（平台不再二次创建 PR）
+     * - `pushed`：runUrl = 分支页（PR 失败时用于定位已推分支）
+     * - 其余：不映射（未交付）
+     */
+    private mapDeliveryResult(ctx: ScanExecutorContext, result: RunResult | undefined): { runUrl?: string, prNumber?: number } {
+        const delivery = result?.delivery
+        if (!delivery) {
+            return {}
+        }
+        if (delivery.status === 'pr-created' && delivery.prUrl) {
+            return { runUrl: delivery.prUrl, ...(delivery.prNumber !== undefined ? { prNumber: delivery.prNumber } : {}) }
+        }
+        if (delivery.status === 'pushed' && delivery.branch && shouldInjectCloneCredential(this.cloneBaseUrl)) {
+            const { host } = parseBaseUrl(this.cloneBaseUrl)
+            return { runUrl: `https://${host || 'github.com'}/${ctx.repository.owner}/${ctx.repository.name}/tree/${delivery.branch}` }
+        }
+        return {}
+    }
+
+    /**
      * 解析 stdout 哨兵区间内的显式结果(fail-closed:任何结构/语义异常归 execution_failed)。
      *
      * 校验项:
@@ -352,7 +387,7 @@ export class SandboxExecutor implements ScanExecutor {
      * 4. payload.exitCode === 0 时 result 必须存在且符合 RunResult 必填字段契约
      * 5. 错误消息中的 stdout / stderr 一律经 sanitizeErrorMessage 防凭据泄露
      */
-    private parseRunResult(runResult: ContainerRunResult, startedAt: string): ScanExecutorResult {
+    private parseRunResult(runResult: ContainerRunResult, startedAt: string, ctx: ScanExecutorContext): ScanExecutorResult {
         const finishedAt = new Date().toISOString()
         const transportExitCode = runResult.exitCode
 
@@ -466,6 +501,7 @@ export class SandboxExecutor implements ScanExecutor {
         return {
             exitCode: parsed.exitCode,
             result: parsed.result,
+            ...this.mapDeliveryResult(ctx, parsed.result),
             startedAt,
             finishedAt,
             logsJson,

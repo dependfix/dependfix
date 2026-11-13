@@ -151,6 +151,8 @@ const FAILURE_CODE_MAP: Readonly<Record<string, FailureCodeMapping>> = {
 
     // deliver — commit / push / PR 交付
     COMMIT_FAILED: { stage: 'deliver', kind: 'deterministic' },
+    // 自包含交付推送失败（引擎 `PUSH_FAILED`）：分支未推，确定性失败
+    PUSH_FAILED: { stage: 'deliver', kind: 'deterministic' },
     // 提交集合判定：未声明的已跟踪改动 / 只有生成物或未跟踪文件 → 未交付，需人工清理工作区
     UNEXPECTED_CHANGES: { stage: 'deliver', kind: 'deterministic' },
     NO_CHANGES: { stage: 'deliver', kind: 'deterministic' },

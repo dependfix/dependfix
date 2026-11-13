@@ -299,6 +299,81 @@ describe('SandboxExecutor', () => {
             expect(result.error).toBeUndefined()
         })
 
+        it('requests commit + push for fix mode (self-contained delivery)', () => {
+            const script = new SandboxExecutor({ runtimeAdapter: new SpyRuntimeAdapter() })
+                .buildCmd(makeCtx({ config: { ...defaultRuntimeConfig, mode: 'fix' } })).join(' ')
+            expect(script).toContain('--commit')
+            expect(script).toContain('--push')
+            // 容器内 push 复用 env token：credential helper 只写命令、限定 github.com，不含密钥
+            expect(script).toContain('credential.https://github.com.helper')
+            expect(script).toContain('$GITHUB_TOKEN')
+        })
+
+        it('does not request push for non-GitHub clone sources (no push credential)', () => {
+            const script = new SandboxExecutor({
+                runtimeAdapter: new SpyRuntimeAdapter(),
+                cloneBaseUrl: 'https://gitlab.com',
+                egress: { allowlist: ['gitlab.com'] },
+            }).buildCmd(makeCtx({ config: { ...defaultRuntimeConfig, mode: 'fix' } })).join(' ')
+            expect(script).toContain('--commit')
+            expect(script).not.toContain('--push')
+            expect(script).not.toContain('credential.https://github.com.helper')
+        })
+
+        it('does not request commit/push for report-only or fix-and-pr', () => {
+            const build = (mode: 'report-only' | 'fix-and-pr') => new SandboxExecutor({ runtimeAdapter: new SpyRuntimeAdapter() })
+                .buildCmd(makeCtx({ config: { ...defaultRuntimeConfig, mode } })).join(' ')
+            expect(build('report-only')).not.toContain('--commit')
+            expect(build('fix-and-pr')).not.toContain('--commit')
+            // fix-and-pr 由引擎在容器内 push + 建 PR：同样需要 credential helper
+            expect(build('fix-and-pr')).toContain('credential.https://github.com.helper')
+            expect(build('report-only')).not.toContain('credential.helper')
+        })
+
+        it('maps a self-contained PR delivery to runUrl and prNumber', async () => {
+            const ctx = makeCtx({ config: { ...defaultRuntimeConfig, mode: 'fix-and-pr' } })
+            const payload = JSON.stringify({
+                exitCode: 0,
+                result: {
+                    ...makeLegalRunResult(ctx),
+                    delivery: {
+                        deliveredBy: 'engine',
+                        status: 'pr-created',
+                        branch: 'dependfix/auto-fix-abcd1234',
+                        commitSha: 'deadbeef',
+                        prUrl: 'https://github.com/owner-a/repo-b/pull/9',
+                        prNumber: 9,
+                    },
+                },
+            })
+            const executor = new SandboxExecutor({ runtimeAdapter: new SimulatedSandboxAdapter({ stdout: wrapWithSentinel(payload) }) })
+            const result = await executor.execute(ctx)
+            expect(result.runUrl).toBe('https://github.com/owner-a/repo-b/pull/9')
+            expect(result.prNumber).toBe(9)
+        })
+
+        it('maps a pushed branch delivery to the branch page', async () => {
+            const ctx = makeCtx({ config: { ...defaultRuntimeConfig, mode: 'fix' } })
+            const payload = JSON.stringify({
+                exitCode: 0,
+                result: {
+                    ...makeLegalRunResult(ctx),
+                    delivery: { deliveredBy: 'engine', status: 'pushed', branch: 'main', commitSha: 'deadbeef' },
+                },
+            })
+            const executor = new SandboxExecutor({ runtimeAdapter: new SimulatedSandboxAdapter({ stdout: wrapWithSentinel(payload) }) })
+            const result = await executor.execute(ctx)
+            expect(result.runUrl).toBe('https://github.com/owner-a/repo-b/tree/main')
+            expect(result.prNumber).toBeUndefined()
+        })
+
+        it('leaves runUrl empty when the result carries no delivery record', async () => {
+            const ctx = makeCtx()
+            const executor = new SandboxExecutor({ runtimeAdapter: new SimulatedSandboxAdapter({ stdout: wrapWithSentinel(legalPayload(ctx)) }) })
+            const result = await executor.execute(ctx)
+            expect(result.runUrl).toBeUndefined()
+        })
+
         it('builds CLI command with explicit result contract, sentinel and no credentials in argv', () => {
             const executor = new SandboxExecutor({
                 runtimeAdapter: new SpyRuntimeAdapter(),

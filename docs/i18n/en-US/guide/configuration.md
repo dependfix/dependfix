@@ -25,6 +25,7 @@
 | `dryRun` | `DEPENDFIX_DRY_RUN` | `boolean` | `false` | Dry-run mode, do not actually modify files |
 | `createPullRequest` | `DEPENDFIX_CREATE_PR` | `boolean` | `false` | Whether to create PR (auto-enabled in `fix-and-pr` mode) |
 | `commit` | `DEPENDFIX_COMMIT` | `boolean` | `false` | After fix, commit locally on current branch (`fix` mode only; mutually exclusive with `--dry-run` / `--create-pr`) |
+| `push` | `DEPENDFIX_PUSH` | `boolean` | `false` | After committing, push the current branch (fix mode only, together with `commit`; no PR). The container path leaves pushing to the platform — do **not** enable it for the platform container executor |
 | `cleanupBranches` | `DEPENDFIX_CLEANUP_BRANCHES` | `boolean` | `false` | (fix-and-pr mode) After run, list merged `dependfix/` branches in report cleanup list (no auto delete; deletion requires `cleanup-branches` mode interactive confirmation) |
 | `cleanupBranchesAuto` | `DEPENDFIX_CLEANUP_BRANCHES_AUTO` | `boolean` | `false` | (fix-and-pr mode) After run, auto-delete merged/closed `dependfix/` branches (non-interactive; never deletes branches with open PRs) |
 | `githubToken` | `DEPENDFIX_GITHUB_TOKEN` / `GITHUB_TOKEN` | `string` | — | GitHub auth token (optional under `pnpm-audit` source) |
@@ -207,6 +208,7 @@ export DEPENDFIX_REPOSITORIES=owner/repo-a,owner/repo-b
 export DEPENDFIX_DRY_RUN=true
 export DEPENDFIX_MAX_ALERTS_PER_REPOSITORY=20
 export DEPENDFIX_COMMIT=false
+export DEPENDFIX_PUSH=false
 export DEPENDFIX_CLEANUP_BRANCHES=false
 # M4 multi-repo governance (optional)
 # owner-level auto-discovery (merged with DEPENDFIX_REPOSITORIES and deduped, explicit wins)

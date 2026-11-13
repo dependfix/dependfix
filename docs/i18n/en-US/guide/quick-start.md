@@ -282,6 +282,8 @@ curl -X PUT /api/repos/{id} \
 # export SANDBOX_RUNTIME=sysbox-runc
 ```
 
+> **Delivery**: `fix` commits and pushes the current branch inside the container (`--commit --push`); `fix-and-pr` creates the branch, pushes, and opens the PR inside the container, returning branch / commit / PR in the result contract so the platform never pushes or opens a PR twice. On failure or cancellation the platform deletes only the declared `dependfix/` branch (never the default branch) and records a `delivery_branch_cleanup` audit event. A failed push (protected default branch / invalid credential) marks the run `failed`; non-GitHub clone sources have no push credential, so `fix` commits without pushing (use `fix-and-pr` or a GitHub source instead).
+>
 > **Network**: report-only reaches the GitHub API; fix modes clone + install + verify inside the container, with egress constrained by the CLI's run-level audit proxy using `DEPENDFIX_ALLOWED_DOMAINS` (injected by the platform) on a deny-by-default basis — non-allowlisted traffic gets 502 and the run is marked `failed` (`network_violation`). `SANDBOX_CLONE_BASE_URL` can point clone at an enterprise mirror / self-hosted Git (the credential header is only injected for GitHub sources; other sources clone anonymously) and that host must be in the same allowlist.
 
 **Degraded / failed behavior**:
@@ -316,6 +318,7 @@ The full design, the RuntimeAdapter abstraction and the reserved K8s+Helm deploy
 | `--dry-run` | — | Dry run, writes no files. Defaults to `true` in report-only | `false` (fix/fix-and-pr) |
 | `--create-pr` | — | Create a Pull Request | `false` |
 | `--commit` | — | Commit to the current local branch right after the fixes (fix mode only; no push, no PR) | `false` |
+| `--push` | — | After committing, push the current branch (fix mode only, with `--commit`; no PR). The container path leaves pushing to the platform | `false` |
 | `--cleanup-branches` | — | (fix-and-pr mode) after the run, list merged dependfix branches in the report without deleting them | `false` |
 | `--cleanup-branches-auto` | — | (fix-and-pr mode) after the run, auto-delete merged / closed dependfix branches (non-interactive; never deletes branches with an open PR) | `false` |
 | `--max-alerts-per-repository` | — | Max alerts processed per repository | `20` |

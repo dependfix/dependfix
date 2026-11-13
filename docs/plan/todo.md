@@ -54,6 +54,8 @@
 
 ### M59.2 沙箱 fix 自包含交付与失败副作用（P1 🛡️）
 
+> **状态**：🚧 进行中（2026-11-14 起）。已交付：`RunResult.delivery` 契约（status / deliveredBy / branch / commitSha / prUrl / prNumber，可选字段）；引擎 fix 模式 `--push`（自包含 push + delivery 记录）与 fix-and-pr 的 `pushed` → `pr-created` 过渡；沙箱 `fix` 传 `--commit --push`、容器内 credential helper（token 不落 `.git/config`）、执行器按 delivery 映射 `runUrl` / `prNumber`；平台 `shouldPlatformDeliver` 双路径守卫（容器路径正 / 反向用例）；失败 / 取消后的 `dependfix/` 分支清理与 `delivery_branch_cleanup` 审计事件；`summaryJson.delivery` + 运行详情「交付」项。**待办（本原子内）**：gated e2e 两分支（fix 无 PR / fix-and-pr 建 PR）与失败清理的真实容器取证（需 token + `github.com` 可达）。
+
 - **目标**：容器内完成 commit → push 修复分支 →（`fix-and-pr`）创建 PR，平台接收 branch / PR URL；取消或交付失败时远端分支与工作区副作用可清理、可观测。
 - **范围**：
   - `sandbox-executor.ts` + `packages/cli`：`fix-and-pr` 参数与结果契约（branch / prUrl / commitSha / `delivery: pushed|pr-created|none`）在沙箱内产出并经 `--result-json` 回传；沙箱内 `fix` 的 push 语义等价于现 `platform-delivery` 的 push 段，**branch 名复用平台 fingerprint 单一来源**（容器内不另造命名）。

@@ -385,3 +385,21 @@ C53 引入 A 模式 `fix-and-pr` 链路完成的关键代价是 **凭据权限�
 - **`sanitizeErrorMessage` 补充 `Authorization: token xxx` 模式**：当前实现不覆盖 GitHub REST API 实际形态；C53-2 RG-W2 登记后续 patch
 - **A 模式 dispatched UI 提示**：用户看到 dispatched 状态需明确"PR 创建失败，分支已推，可手动开 PR"——当前 UI 通用 dispatched 提示，需后续优化
 - **录入 M11 阶段**：C53 + T1005 sandbox 路由 + C28 security.md 凭据设计 共同组成 M11（业务可见性 + 沙箱落地 + 安全文档）阶段
+### 8.6 沙箱自包含交付（M59.2，2026-11-14）
+
+沙箱没有平台侧 workDir，A 模式的「引擎只 commit、平台 push」不成立。M59.2 起沙箱路径的交付在执行进程内完成：
+
+| 模式 | 容器内动作 | 结果契约（`RunResult.delivery`） |
+|:--|:--|:--|
+| `fix`（`https://github.com` 源） | `--commit --push`：修复 → 本地提交 → 推送当前分支 | `{ deliveredBy: 'engine', status: 'pushed', branch, commitSha }`（无新提交 → `status: 'none'`） |
+| `fix`（其它 clone 源） | 只 `--commit`：无 push 凭据，**不推送** | `{ deliveredBy: 'platform', status: 'none' }` → 沙箱路径无人接管，视为未交付（需改用 `fix-and-pr` 或 GitHub 源） |
+| `fix-and-pr` | 引擎自带 `createFixBranch → commit → push → createPullRequest` | 推送后 `pushed`；PR 建成或复用 `status: 'pr-created'` + `prUrl` / `prNumber` |
+| container（对照） | 引擎只 commit | `{ deliveredBy: 'platform', status: 'none' }`，平台接管 push / PR |
+
+关键约束：
+
+- **凭据**：容器内 `git config --local credential.helper` 注入只读 env 的 helper（token 不落 `.git/config`），仅 `https://github.com` 源启用；`fix` 与 `fix-and-pr` 共用同一 token。
+- **平台映射**：执行器按 `delivery` 映射 `runUrl` / `prNumber`（PR 地址或分支页），平台不再二次 push / 建 PR；`shouldPlatformDeliver()` 守卫容器路径，正向（`deliveredBy=platform` / 无记录）与反向（`pushed` / `pr-created`）都有用例。
+- **失败副作用**：分支已推但 PR 失败 / 取消时，平台按结果声明的 `branch` 清理 **仅 `dependfix/` 前缀**分支（默认分支直推不在范围），删除成功 / 失败 / 跳过（无凭据、越界）都落 `delivery_branch_cleanup` 审计事件。push 失败（受保护默认分支 / 凭据失效 / 网络）以 `PUSH_FAILED` 进入状态机交付失败白名单 → 运行判 `failed`（不再静默完成）；失败 run 不落 `runUrl`（避免指向已清理或不存在的分支）。
+- **落库与披露**：`summaryJson.delivery` 携带 status / deliveredBy / branch / commitSha（不新增 DB 列），运行详情「交付」项展示 `branch @ shortSha`。
+

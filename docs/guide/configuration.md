@@ -25,6 +25,7 @@
 | `dryRun` | `DEPENDFIX_DRY_RUN` | `boolean` | `false` | 预演模式，不实际修改文件 |
 | `createPullRequest` | `DEPENDFIX_CREATE_PR` | `boolean` | `false` | 是否创建 PR（`fix-and-pr` 模式自动启用） |
 | `commit` | `DEPENDFIX_COMMIT` | `boolean` | `false` | 修复完成后在本地当前分支直接提交（仅 `fix` 模式生效；与 `--dry-run` / `--create-pr` 互斥） |
+| `push` | `DEPENDFIX_PUSH` | `boolean` | `false` | 提交后把当前分支推到远端（仅 `fix` 模式，配合 `commit`；不创建 PR）。容器路径由平台接管推送，**不要**在平台容器执行器上开启 |
 | `cleanupBranches` | `DEPENDFIX_CLEANUP_BRANCHES` | `boolean` | `false` | （fix-and-pr 模式）结束后将已合并的 dependfix 分支列入报告待清理清单（不自动删除；删除需 `cleanup-branches` 模式交互确认） |
 | `cleanupBranchesAuto` | `DEPENDFIX_CLEANUP_BRANCHES_AUTO` | `boolean` | `false` | （fix-and-pr 模式）结束后自动删除已合并/已关闭的 dependfix 分支（非交互；不删有 open PR 的分支） |
 | `githubToken` | `DEPENDFIX_GITHUB_TOKEN` / `GITHUB_TOKEN` | `string` | — | GitHub 认证 Token（`pnpm-audit` 数据源下可省略） |
@@ -216,6 +217,7 @@ export DEPENDFIX_REPOSITORIES=owner/repo-a,owner/repo-b
 export DEPENDFIX_DRY_RUN=true
 export DEPENDFIX_MAX_ALERTS_PER_REPOSITORY=20
 export DEPENDFIX_COMMIT=false
+export DEPENDFIX_PUSH=false
 export DEPENDFIX_CLEANUP_BRANCHES=false
 # M4 多仓库治理（可选）
 # owner 级自动发现（与 DEPENDFIX_REPOSITORIES 合并去重，显式优先）

@@ -21,5 +21,10 @@ export function redactNetworkTarget(target: string): string {
     if (slashIdx >= 0) {
         t = t.slice(0, slashIdx)
     }
+    // 剥离 URL 内联凭据（`user:pass@host`）：token-in-userinfo 形态不得进报告 / 导出
+    const atIdx = t.lastIndexOf('@')
+    if (atIdx >= 0) {
+        t = t.slice(atIdx + 1)
+    }
     return t || '<unknown-target>'
 }

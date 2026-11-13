@@ -19,7 +19,7 @@ import { connect, type Socket } from 'node:net'
  */
 
 // 形状与 `@dependfix/core` 的报告契约同源（RunResult.networkAudit 直接落同一类型）
-import type { NetworkAuditEntry, NetworkAuditSource } from '@dependfix/core'
+import { redactNetworkTarget, type NetworkAuditEntry, type NetworkAuditSource } from '@dependfix/core'
 export type { NetworkAuditEntry, NetworkAuditSource }
 
 export interface NetworkAudit {
@@ -138,16 +138,8 @@ export function isDomainAllowed(hostname: string, allowedDomains: readonly strin
  * - 空/无法解析 → `<unknown-target>`（防报告出现空目标）
  */
 export function redactUrlForReport(target: string): string {
-    let t = target.trim()
-    const protoIdx = t.indexOf('://')
-    if (protoIdx >= 0) {
-        t = t.slice(protoIdx + 3)
-    }
-    const slashIdx = t.indexOf('/')
-    if (slashIdx >= 0) {
-        t = t.slice(0, slashIdx)
-    }
-    return t || '<unknown-target>'
+    // 与 @dependfix/core 的报告脱敏同源（剥离协议 / 路径 / 查询串 / URL 内联凭据）
+    return redactNetworkTarget(target)
 }
 
 export interface StartNetworkAuditOptions {

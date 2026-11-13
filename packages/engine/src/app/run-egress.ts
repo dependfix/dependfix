@@ -3,7 +3,7 @@
 // 拆出理由：`app/index.ts` 已压在 max-lines 上限，审计的启动 / 收口 / 结果附加属于可独立测试的
 // 机械接线，集中在此处也避免主流程继续膨胀。
 
-import type { FixError, RunResult } from '@dependfix/core'
+import { redactNetworkTarget, type FixError, type RunResult } from '@dependfix/core'
 import { discoverRegistryHosts } from '../runners/registry-discovery'
 import { startRunEgressAudit, stopRunEgressAudit, type RunEgressSnapshot } from '../runners/egress-audit'
 
@@ -42,7 +42,7 @@ export function attachRunEgressResult(
         stage: 'verify',
         category: 'NETWORK_VIOLATION',
         message: `non-allowlisted outbound target(s) blocked: ${snapshot.violations
-            .map((entry) => `${entry.method} ${entry.target}`)
+            .map((entry) => `${entry.method} ${redactNetworkTarget(entry.target)}`)
             .slice(0, 5)
             .join(', ')}`,
     })

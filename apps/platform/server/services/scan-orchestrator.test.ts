@@ -816,6 +816,29 @@ describe('scan-orchestrator.service', () => {
             expect(notifyEnvEvent).not.toHaveBeenCalled()
         })
 
+        it('出站策略缺失（执行器拒绝）→ audit_event sandbox_degraded 落库但不通知', async () => {
+            const repoId = await sandboxRepo()
+            sandboxExecute.mockResolvedValue({
+                exitCode: 2,
+                error: { code: 'sandbox_fix_requires_egress_policy', message: 'egress policy missing' },
+            })
+
+            const run = await runScanForRepository(repoId, { mode: 'fix', severityThreshold: 'high' })
+            expect(run.status).toBe('failed')
+
+            const ds = await ensureDatabaseInitialized()
+            const events = await ds.getRepository(AuditEvent).find({ where: { scanRunId: run.id } })
+            expect(events).toHaveLength(1)
+            expect(events[0]?.type).toBe('sandbox_degraded')
+            const payload = JSON.parse(events[0]?.payloadJson ?? '{}') as Record<string, unknown>
+            expect(payload).toMatchObject({
+                code: 'sandbox_fix_requires_egress_policy',
+                fallback: 'none',
+                notificationSuppressed: true,
+            })
+            expect(notifyEnvEvent).not.toHaveBeenCalled()
+        })
+
         it('report-only sandbox 启动不可用 → audit_event sandbox_degraded + notify 触发', async () => {
             const repoId = await sandboxRepo()
             sandboxIsAvailable.mockResolvedValue(false)

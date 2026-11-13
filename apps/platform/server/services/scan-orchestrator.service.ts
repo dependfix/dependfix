@@ -731,16 +731,17 @@ async function recordEnvAuditEvent(
     let severity: 'info' | 'warn' | 'error' | 'critical' = 'warn'
     let payload: Record<string, unknown> = {}
 
-    if (decision.status === 'degraded' && (degradedReason?.code === 'sandbox_unavailable' || degradedReason?.code === 'sandbox_fix_requires_egress_policy')) {
-        // sandbox 启动时不可用 / fix 模式策略降级，已自动降级 ContainerExecutor（业务完整）
+    if (decision.status === 'degraded' && degradedReason?.code === 'sandbox_unavailable') {
+        // sandbox 启动时不可用，已自动降级 ContainerExecutor（业务完整，环境信号保留通知）
         eventType = 'sandbox_degraded'
         severity = 'warn'
-        payload = {
-            degradedReason,
-            fallback: 'container',
-            // fix 模式在代理接入前是策略限制（预期状态）不通知；启动不可用属环境信号，保留通知
-            notificationSuppressed: degradedReason?.code === 'sandbox_fix_requires_egress_policy',
-        }
+        payload = { degradedReason, fallback: 'container', notificationSuppressed: false }
+    } else if (decision.status === 'failed' && error?.code === 'sandbox_fix_requires_egress_policy') {
+        // fix 类出站策略缺失（审计关闭 / 白名单被清空）：执行器第二道闸拒绝——
+        // 属配置偏离而非运行事故，落 warn 事件；不通知（避免每次 fix 扫描占用共享配额）
+        eventType = 'sandbox_degraded'
+        severity = 'warn'
+        payload = { code: error.code, message: error.message, fallback: 'none', notificationSuppressed: true }
     } else if (decision.status === 'failed' && error?.code === 'container_unavailable') {
         // C 场景：container 执行器环境不可用（工作根不可写 / 磁盘满 / 只读 FS）——默认部署下的环境健康信号
         eventType = 'container_unavailable'
@@ -778,10 +779,8 @@ async function recordEnvAuditEvent(
         }))
 
         // 触发通知（fire-and-forget，不 await，避免阻塞扫描主流程）
-        // sandbox_fix_requires_egress_policy 是代理接入前的策略限制（预期配置状态）：只落库、不通知，
-        // 避免沙箱仓库每次 fix 扫描都占用共享通知配额、稀释 container_unavailable 等真实环境事故信号。
-        // 注意仅对 sandbox_degraded 事件生效；降级目标 container 不可用时仍按 container_unavailable 通知。
-        if (eventType === 'sandbox_degraded' && degradedReason?.code === 'sandbox_fix_requires_egress_policy') {
+        // 出站策略缺失（预期配置状态）只落库、不通知；启动不可用与环境事故仍照常通知。
+        if (payload.notificationSuppressed === true) {
             return
         }
         const notificationEvent: NotificationEvent = {

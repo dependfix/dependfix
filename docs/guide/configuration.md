@@ -351,6 +351,8 @@ export DEPENDFIX_RETRY_FAILED=false
 | `PNPM_CONFIG_STORE_DIR` | — | `/app/data/pnpm-store`（入口派生） | 目标仓库依赖安装共用的 pnpm store 目录：默认在数据卷内，跨 run / 容器重建复用。入口以**运行身份写探针**判定可用性（覆盖只读挂载）；不可用（只读 / 权限不足 / 非绝对路径）时 warn 并回退 `$HOME` 下 pnpm 默认位置（每次冷安装，不阻断）。自定义路径的父目录须对 `PUID`/`PGID` 可进入，且与 `RUN_WORK_ROOT` 同文件系统才走硬链接。清理用 `pnpm store prune`（见 [pnpm store 与依赖缓存](./deployment.md#pnpm-store-与依赖缓存)） |
 | `SANDBOX_RUNTIME` | — | `runc` | 沙箱 OCI runtime |
 | `SANDBOX_IMAGE` | — | 取 `DEPENDFIX_IMAGE`；未设则 `dependfix-platform:latest` | 沙箱镜像（须在目标 rootless daemon 内可拉取 / 已存在） |
+| `SANDBOX_CLONE_BASE_URL` | — | `https://github.com` | 沙箱 fix 的 clone 基地址（企业镜像 / 自建 GitLab / Gitee 用；仅对 GitHub 源注入凭据头，其它源匿名 clone） |
+| `DEPENDFIX_ALLOWED_DOMAINS` | — | 空（仅默认白名单） | 出站白名单追加域（逗号分隔）；沙箱 fix 的最小集合为 github.com / api.github.com / *.npmjs.org |
 | `DEPENDFIX_SANDBOX_ENTRY` | — | `/app/sandbox/bin.mjs` | 沙箱自包含 CLI 入口（仅本地联调 / 排障用） |
 | `DEPENDFIX_SANDBOX_SKILLS_DIR` | — | `/app/sandbox/skills` | 随 bundle 复制的 skills 根目录（仅排障用） |
 | `HTTP_PROXY` / `HTTPS_PROXY` / `ALL_PROXY` | — | 空 | 出站代理（引擎验证阶段） |

@@ -29,7 +29,11 @@
 
 ### M59.1 沙箱 fix 自包含执行与出站策略（P1 🛡️）
 
-> **状态**：🚧 进行中（2026-11-13 起）。已交付：运行级外联审计（安装链 / 验证链 / 交付命令共用代理与记录；`RunResult.networkAudit` / `networkViolations` / `summary.networkViolations|networkAudited`；报告 `Network Violations` 段、运行详情与导出披露；违规使出口码非 0）；沙箱 fix / fix-and-pr 放行（出站策略第二道闸、容器内 clone→CLI、allowlist env 注入；`sandbox_fix_requires_egress_policy` 仅剩策略缺失分支）；编排层不再对 fix 降级。**待办（本原子内）**：gated sandbox e2e 真实取证（`SANDBOX_E2E=true` + Docker + 可达夹具仓库）、M59.2 交付契约；直连外联（undici 绕过代理 env）按 AC2 口径对齐转 backlog 候选。
+> **状态**：🚧 进行中（2026-11-13 起）。已交付：运行级外联审计（安装链 / 验证链 / 交付命令共用代理与记录；`RunResult.networkAudit` / `networkViolations` / `summary.networkViolations|networkAudited`；报告 `Network Violations` 段、运行详情与导出披露；违规使出口码非 0 且运行判 `failed`）；沙箱 fix / fix-and-pr 放行（出站策略第二道闸、容器内 clone→CLI、allowlist env 注入；策略缺失落 `sandbox_degraded` 审计事件且不通知）；编排层不再对 fix 降级；`SANDBOX_CLONE_BASE_URL` 支持镜像 / 自建 Git 源。
+>
+> **真实容器取证（2026-11-14）**：`pnpm --filter dependfix build:sandbox` 重建 bundle → `FROM dependfix-platform:e2e + COPY packages/cli/sandbox` 生成镜像 → gated 用例 `server/services/executor/sandbox-fix-real.test.ts`（`SANDBOX_FIX_E2E=true`）通过：出站策略未被拒绝、容器内 `/tmp/repo` clone 成功、自包含 CLI 启动并经哨兵回传结构化结果（占位 token → API 401，`errors` 非空、exit≠0）、`spec.mounts` 为空；本环境 `github.com` 被网络策略阻断，clone 用 GitLab 公开夹具（`SANDBOX_CLONE_BASE_URL=https://gitlab.com`）。
+>
+> **待办（本原子内）**：完整「clone → 安装 → 修复 → 验证」需真实 Dependabot 凭据（新增 `tests/e2e/sandbox-fix.e2e.test.ts`，`SANDBOX_E2E_TOKEN` 就位即可跑）；M59.2 交付契约；直连外联按 AC2 口径转 backlog 候选。
 
 - **目标**：sandbox 容器内可完成 clone → 安装 → 修复 → 验证的 fix 执行链；尊重代理 env 的工具在连接级走 deny-by-default 白名单（非白名单 502 拒绝并判运行失败），命令输出中的 URL 只入审计记录（依据 [security.md §5.3.1](../standards/security.md)），undici 直连属已知边界（backlog 候选）；执行面仍不挂载宿主目录。
 - **范围**：

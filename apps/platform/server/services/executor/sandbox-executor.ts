@@ -39,6 +39,12 @@ const SANDBOX_REQUIRED_EGRESS_DOMAINS = ['github.com', 'api.github.com', '*.npmj
 /** 容器内 clone 目标目录（平台不挂载宿主目录） */
 const CONTAINER_REPO_PATH = '/tmp/repo'
 
+/**
+ * clone 基地址（默认 GitHub；企业镜像 / 自建 GitLab / Gitee 可用 SANDBOX_CLONE_BASE_URL 覆盖）。
+ * 目标仓库仍由平台构造（owner/name），不接受仓库级配置——避免被扫描目标改写 clone 源。
+ */
+const DEFAULT_CLONE_BASE_URL = process.env.SANDBOX_CLONE_BASE_URL?.trim().replace(/\/+$/, '') || 'https://github.com'
+
 /** 仅放行的告警源：report-only 的隔离论证依赖「不执行目标仓库代码」 */
 const SANDBOX_ALLOWED_ALERT_SOURCE = 'github-dependabot'
 
@@ -59,6 +65,8 @@ export interface SandboxExecutorOptions {
     sandboxLimits?: { memoryMb?: number, cpu?: number }
     /** 单次执行超时(默认 30 分钟——与 ContainerExecutor 对齐) */
     timeoutMs?: number
+    /** clone 基地址覆盖（默认读 SANDBOX_CLONE_BASE_URL，回退 https://github.com） */
+    cloneBaseUrl?: string
     /** 出站策略覆盖（缺省读 env：DEPENDFIX_NETWORK_AUDIT / DEPENDFIX_ALLOWED_DOMAINS） */
     egress?: {
         enabled?: boolean
@@ -121,6 +129,7 @@ export class SandboxExecutor implements ScanExecutor {
     private readonly sandboxLimits: { memoryMb?: number, cpu?: number }
     private readonly timeoutMs: number
     private readonly egress: SandboxEgressPolicy
+    private readonly cloneBaseUrl: string
 
     constructor(options: SandboxExecutorOptions = {}) {
         this.adapter = options.runtimeAdapter ?? new DockerAdapter()
@@ -130,6 +139,7 @@ export class SandboxExecutor implements ScanExecutor {
         this.sandboxLimits = options.sandboxLimits ?? {}
         this.timeoutMs = options.timeoutMs ?? SANDBOX_DEFAULTS.timeoutMs
         this.egress = resolveEgressPolicy(options.egress)
+        this.cloneBaseUrl = (options.cloneBaseUrl ?? DEFAULT_CLONE_BASE_URL).replace(/\/+$/, '')
     }
 
     /**
@@ -273,14 +283,17 @@ export class SandboxExecutor implements ScanExecutor {
         }
         const cli = cliArgs.map(shQuote).join(' ')
         // fix 类：容器内 bootstrap —— clone 到容器私有目录后在该目录执行 CLI（不挂载宿主目录）
+        // 凭据 header 只用于 GitHub 源（其它源不接受 GitHub 的 basic 头，会退化成交互式用户名询问）
+        const cloneHost = safeHost(this.cloneBaseUrl)
         const bootstrap = ctx.config.mode === SANDBOX_REPORT_ONLY
             ? []
             : [
                 `rm -rf ${CONTAINER_REPO_PATH}`,
-                // 凭据只从 env 读取并转成 basic header，不落 argv 明文
-                `header=$(printf 'x-access-token:%s' "$GITHUB_TOKEN" | base64 | tr -d '\\n')`,
-                `git -c http.extraheader="Authorization: basic $header" clone --depth 1 `
-                + `${shQuote(`https://github.com/${repo}.git`)} ${CONTAINER_REPO_PATH} || exit 1`,
+                // 凭据只从 env 读取并转成 basic header，不落 argv 明文；无 token 时匿名 clone（公开仓库）
+                `if [ -n "$GITHUB_TOKEN" ] && [ ${shQuote(cloneHost)} = 'github.com' ]; then `
+                + `h=$(printf 'x-access-token:%s' "$GITHUB_TOKEN" | base64 | tr -d '\\n'); `
+                + `git -c http.extraheader="Authorization: basic $h" clone --depth 1 ${shQuote(`${this.cloneBaseUrl}/${repo}.git`)} ${CONTAINER_REPO_PATH}; `
+                + `else git clone --depth 1 ${shQuote(`${this.cloneBaseUrl}/${repo}.git`)} ${CONTAINER_REPO_PATH}; fi || exit 1`,
                 `cd ${CONTAINER_REPO_PATH} || exit 1`,
             ]
         const script = [
@@ -423,6 +436,15 @@ export class SandboxExecutor implements ScanExecutor {
             finishedAt,
             logsJson,
         }
+    }
+}
+
+/** 从基地址取 host（非法形态回退空串：不注入凭据头） */
+function safeHost(baseUrl: string): string {
+    try {
+        return new URL(baseUrl).host
+    } catch {
+        return ''
     }
 }
 

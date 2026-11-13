@@ -136,27 +136,33 @@
 
 > **来源与授权**：2026-11-13 用户提交 `runs-logs-20261113-045612.txt`（733 条运行第 1 页）复盘后明确授权插队并优先于 M59 原子执行。按 [规划规范 §3.1](../standards/planning.md#_3-1-新需求默认走-评估-→-backlog-原则-hard-requirement)「追加临时待办」口径登记：追加在阶段末尾、不分配编号、不占既有条目位置。
 
-- **目标**：让「本次无写入」只表示「告警确实都处理完了」，而不是把「全部被拦截 / 前置失败 / 回滚」一并说成无事可做；同时消除「有提交却判 failed」的状态矛盾。
+- **目标**：让「本次无写入」只表示「告警确实都处理完了」，而不是把「全部被拦截 / 前置失败 / 回滚」一并说成无事可做；同时消除「有提交却判 failed」的状态矛盾，并保证 `pnpm-lock.yaml` 结构损坏可自动修复交付。
+- **子目标（锁文件损坏自动修复，2026-11-13 用户明确要求）**：
+  1. 内容一致的重复键 → 自动去重（保留其余条目与版本解析不变）；无法安全去重时备份后由 manifest 重建锁文件，并在报告标注 `packagesChanged` / `lockfileVersionChanged`。
+  2. 成功判据只有一个：`pnpm install --frozen-lockfile` 通过；策略命令 exit 0 不算修复，不得据此收尾。
+  3. 基线已判安装失败（含 `ERR_PNPM_BROKEN_LOCKFILE` 特征）时，禁止输出 `Lockfile already compliant`：要么本次修复并提交，要么显式 `PRECONDITION_FAILED` + 原因。
+  4. 4 个实测仓库（`picgo-plugin-optimization` / `hono-template` / `rsshub-never-die` / `tinyfish-mcp`）在下一轮应自动产出 `chore(deps):` 锁文件修复提交（或 dry-run 可复现同一动作）。
 - **现象（2026-11-13 第 1 页实证）**：
   1. 有告警的 completed 运行 21 条全部 0 写入；仅 1 条实际提交（`cmyr-skills-agents` undici overrides），且该 run 平台态为 `failed / orchestration_failed`，日志却是 `completed exitCode 0` + `Committed fix changes`。
-  2. 4 条运行 pristine install 因 `ERR_PNPM_BROKEN_LOCKFILE ... duplicated mapping key` 失败、依赖升级链已跳过，随后仍输出 `Lockfile already compliant — no repair needed`（`picgo-plugin-optimization` / `hono-template` / `rsshub-never-die` / `tinyfish-mcp`）——基线失败与「已合规」在 1.7s 内自相矛盾。
+  2. 4 条运行 pristine install 因 `ERR_PNPM_BROKEN_LOCKFILE ... duplicated mapping key` 失败、依赖升级链已跳过，随后仍输出 `Lockfile already compliant — no repair needed`（`picgo-plugin-optimization` / `hono-template` / `rsshub-never-die` / `tinyfish-mcp`）——基线失败与「已合规」在 1.7s 内自相矛盾。**本地复现（pnpm 11.28.5 / 10.5.2）**：`repairLockfile` 的 `REGENERATE` 策略可修复同形 duplicated mapping key（`changed:true`、`-3 lines`），说明修复能力已存在；缺的是「基线已判安装失败时不得走 compliant 捷径」与「in-place 策略无效时的结构兜底」。
   3. 单包多告警逐条打印：`rss-image-download` 12 条 nodemailer、`auto-backup-database` 13 条、`rss-resources-download` 13 条，日志无法判读「12 条 = 1 个包」。
   4. 运行级终点只有 `[skip] Verification ... no writes in this run`，不汇总拦截构成；报告侧已有 `alertOutcomes` / `summary.skipped`（cross-major / subdirectory-manifest / peer-only / override-protected），但日志与平台运行详情没有把它变成结论。
 - **范围（≤10 文件）**：
-  - `packages/engine/src/fixers/pnpm/index.ts`：定位 `classifyLockfileFailure` 与基线安装结论不一致的输入 / 时序；前置失败时不得返回「合规」。
-  - `packages/engine/src/app/repo-fix-finalize.ts`：收官结论改为「0 修复 + 按原因汇总」，`no-write` 保留为「未验证」原因，不再作为唯一结论。
+  - `packages/engine/src/fixers/pnpm/index.ts`：① 定位 `classifyLockfileFailure` 与基线安装结论不一致的输入 / 时序（保留 run 目录取证）；② 新增结构损坏兜底策略 `REGENERATE_FROM_MANIFEST`（备份 → 移出损坏锁文件 → 由 manifest 重建 → frozen 验证，失败回滚）；③ 接入 `knownBrokenLockfile` 不变式（基线已判安装失败时禁用 compliant 捷径）。
+  - `packages/engine/src/app/repo-fix-finalize.ts`：把基线安装失败（命令 + 诊断特征）透传给 `tryLockfileRepair`，并按「修复成功 / 复检通过 / 前置失败」三态输出；收官结论改为「0 修复 + 按原因汇总」，`no-write` 保留为「未验证」原因，不再作为唯一结论。
   - `packages/core/src/report/alert-outcomes.ts`（或同级聚合 helper）：按包聚合 skipped（同包取最高 target + 条数），供日志与报告共用。
   - `apps/platform/app/components/run-detail-dialog.vue` + i18n：运行详情展示拦截构成与交付状态。
   - 对应单测 / e2e。
 - **验收标准**：
-  1. 四类样本可重放或单测命中：12 条 nodemailer → 日志 / 报告聚合为 1 个包 + 12 条被拦截；4 个 broken lockfile → 不再出现 `Lockfile already compliant`；vite peer-only → 明确「需人工」原因；undici 提交 run → 状态与交付字段一致。
+  1. 四类样本可重放或单测命中：12 条 nodemailer → 日志 / 报告聚合为 1 个包 + 12 条被拦截；4 个 broken lockfile → 修复成功且 `pnpm install --frozen-lockfile` 通过（`duplicated mapping key` fixture 覆盖「去重」与「重建」两条路径）；vite peer-only → 明确「需人工」原因；undici 提交 run → 状态与交付字段一致。
   2. 存在 blocked / failed 告警的运行，报告与运行详情不得把「无写入」作为唯一结论；`verificationSkipped='no-write'` 语义不变（只描述未验证），另设告警处置汇总。
   3. 同一包多条告警在日志与报告中聚合为一行。
-  4. `pnpm run lint:check` / `pnpm typecheck` / 定向 vitest / `check:contract-freeze` 通过；报告字段变化同步契约冻结清单。
-- **不做**：不放宽跨 major 自动升级门槛；不自动修目标仓库 `pnpm-lock.yaml` 损坏（只诊断 + 提示人工）；不改验证链条数与顺序；peer-only 的「改 manifest 直接依赖」修复路径单列 backlog（见候选），不在本项夹带。
+  4. 基线已判安装失败的运行，日志 / 报告不得出现 `Lockfile already compliant`（grep 负例断言）；结构损坏修复产物必须带 `lockfile-repair` action（`success` + `changed`）与 diff 摘要。
+  5. `pnpm run lint:check` / `pnpm typecheck` / 定向 vitest / `check:contract-freeze` 通过；报告字段变化同步契约冻结清单。
+- **不做**：不放宽跨 major 自动升级门槛；不改验证链条数与顺序；peer-only 的「改 manifest 直接依赖」修复路径单列 backlog（见候选），不在本项夹带；结构损坏修复不得在无法安全去重时静默丢弃条目（重建路径必须标注 package 变化并在报告给出 diff 摘要）。
 - **依赖与风险**：日志 / 报告文案变更会触及既有断言与平台导出，须同批更新；聚合改变 skipped 计数口径，须在 [dependency-fixer-records.md](../design/modules/dependency-fixer-records.md) 与契约冻结清单同步；若 `classifyLockfileFailure` 根因落在基线工作区差异（执行器面），改动面可能越过 10 文件阈值 → 按设计文档硬阈值补 governance 设计稿或拆批。
-- **交付物**：6-8 commits / 8-11 files / 500-750 行。
-- **容量影响评估（§3.1.1）**：约 20-30% 阶段基线（分母 19-25 commits / 2500-3800 行）；累计插队 1 批（<3）；无既定外部窗口冲突 → 不触发再平衡；执行顺序置于 M59.1 之前。
+- **交付物**：7-10 commits / 9-12 files / 700-1000 行。
+- **容量影响评估（§3.1.1）**：约 25-40% 阶段基线（分母 19-25 commits / 2500-3800 行）；累计插队 1 批（<3）；无既定外部窗口冲突 → 不触发再平衡；执行顺序置于 M59.1 之前。
 - **§3.4 交叉核验（2026-11-13）**：① 归档扫描 `无写入|no writes|no-write|Lockfile already compliant` → M56 已闭环 `verificationSkipped='no-write'`（仅验证跳过原因）与 M51 `deliverySkips`，均不含「逐告警处置汇总 / 前置失败与合规互斥」；② `git log --oneline -- packages/engine/src/app/repo-fix-finalize.ts packages/engine/src/fixers/pnpm/index.ts` → 最近为 `7a3df7f8`（0 写入跳过后验证），无本项实现；③ 代码 anchor：`repo-fix-finalize.ts:131-145`（no-write 仅看 `fixed===0 && !lockfileRepaired`）、`helpers.ts:543-566`（classify ok → "already compliant"）、`pnpm/index.ts:548-553`（ok → `changed:false`）、`repo-fix.ts:160-180`（install 基线失败只跳过升级链）、`upgrade-alert.ts:116-119`（peer-only 记 skipped）。
 
 ---

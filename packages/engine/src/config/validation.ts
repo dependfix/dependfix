@@ -142,6 +142,10 @@ export function validateRuntimeConfig(config: RuntimeConfig): RuntimeConfig {
         throw new AppError('CONFIG_VALIDATION_ERROR', 'commit cannot be enabled together with createPullRequest. Use fix-and-pr mode instead.')
     }
 
+    if (config.push && !config.commit) {
+        throw new AppError('CONFIG_VALIDATION_ERROR', 'push requires commit: enable both, or neither.')
+    }
+
     // PR check 回环只在创建 PR 之后成立（fix-and-pr）；其余模式无 PR 载体
     if (config.waitPrChecks && config.mode !== 'fix-and-pr') {
         throw new AppError('CONFIG_VALIDATION_ERROR', 'waitPrChecks is only supported in fix-and-pr mode.')

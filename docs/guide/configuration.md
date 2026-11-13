@@ -263,7 +263,7 @@ export DEPENDFIX_RETRY_FAILED=false
 
 > ⚠️ **注入方式（关键）**：默认 `docker-compose.yml` **无 `env_file`**，仅把一组白名单变量经 `${...}` 插值转发进容器（**compose 名 → 容器名**）：
 > `PORT` · `PUID`/`PGID` · `AUTH_SECRET`→`NUXT_AUTH_SECRET` · `DATABASE_PATH` · `DATABASE_MIGRATIONS_RUN` · `NUXT_ENCRYPTION_KEY` · `REGISTRATION_DISABLED`→`NUXT_REGISTRATION_DISABLED` · `NUXT_PUBLIC_BETTER_AUTH_URL` · `NUXT_REDIS_URL`（硬编码） · `QUEUE_ENABLED`/`QUEUE_JOB_RETRIES`/`QUEUE_BACKOFF_MS`→`NUXT_*` · `QUEUE_WORKER`→`DEPENDFIX_QUEUE_WORKER` · `DEPENDFIX_QUEUE_WORKER_SLOW_RETRY_SECONDS` · `IN_PROCESS_WORKER`→`NUXT_IN_PROCESS_WORKER` · `STALE_CLEANUP_RUNNING_GRACE_MS`/`STALE_CLEANUP_PENDING_GRACE_MS` · `PNPM_CONFIG_STORE_DIR` · `LOG_DIR`/`LOG_LEVEL`/`LOGFILES` · `SMTP_HOST`/`SMTP_PORT`/`SMTP_USER`/`SMTP_PASS`/`SMTP_FROM`→`NUXT_SMTP_*` · `SANDBOX_IMAGE`/`SANDBOX_CLONE_BASE_URL`/`DEPENDFIX_ALLOWED_DOMAINS` · `DEPENDFIX_IMAGE`/`DEPENDFIX_BUILD_IMAGE`。
-> 下方表中**白名单之外**的变量（OAuth / OIDC / `AUTH_MODE` / `DATABASE_TYPE|URL|SSL|SYNCHRONIZE` / `BACKUP_*` / `RUN_WORK_ROOT` / `SANDBOX_*` / `DEPENDFIX_AI_*` / `ACTION_STATUS_MONITOR_ENABLED` / 通知类等）**默认不会进容器**，需自行追加到 compose 的 `environment:`（Nuxt runtimeConfig 变量须用 `NUXT_` 前缀）或用 `docker run -e` 注入。
+> 下方表中**白名单之外**的变量（OAuth / OIDC / `AUTH_MODE` / `DATABASE_TYPE|URL|SSL|SYNCHRONIZE` / `BACKUP_*` / `RUN_WORK_ROOT` / `SANDBOX_RUNTIME` / `DEPENDFIX_AI_*` / `ACTION_STATUS_MONITOR_ENABLED` / 通知类等）**默认不会进容器**，需自行追加到 compose 的 `environment:`（Nuxt runtimeConfig 变量须用 `NUXT_` 前缀）或用 `docker run -e` 注入。
 >
 > ⚠️ **Nuxt 运行时覆盖前缀**：平台是 Nuxt 应用，`runtimeConfig` 运行时覆盖**只认 `NUXT_` 前缀**——compose 变量 `AUTH_SECRET` → 容器 `NUXT_AUTH_SECRET`；`REGISTRATION_DISABLED` → `NUXT_REGISTRATION_DISABLED`。构建期烘焙的 env（如 `AUTH_MODE`）运行期须用 `NUXT_` 前缀覆盖，否则静默回退默认值。直读 `process.env` 的服务端变量（`DATABASE_*` / `CLONE_*` / `DEPENDFIX_*` 等）按原名注入。
 
@@ -351,8 +351,8 @@ export DEPENDFIX_RETRY_FAILED=false
 | `PNPM_CONFIG_STORE_DIR` | — | `/app/data/pnpm-store`（入口派生） | 目标仓库依赖安装共用的 pnpm store 目录：默认在数据卷内，跨 run / 容器重建复用。入口以**运行身份写探针**判定可用性（覆盖只读挂载）；不可用（只读 / 权限不足 / 非绝对路径）时 warn 并回退 `$HOME` 下 pnpm 默认位置（每次冷安装，不阻断）。自定义路径的父目录须对 `PUID`/`PGID` 可进入，且与 `RUN_WORK_ROOT` 同文件系统才走硬链接。清理用 `pnpm store prune`（见 [pnpm store 与依赖缓存](./deployment.md#pnpm-store-与依赖缓存)） |
 | `SANDBOX_RUNTIME` | — | `runc` | 沙箱 OCI runtime |
 | `SANDBOX_IMAGE` | — | 取 `DEPENDFIX_IMAGE`；未设则 `dependfix-platform:latest` | 沙箱镜像（须在目标 rootless daemon 内可拉取 / 已存在） |
-| `SANDBOX_CLONE_BASE_URL` | — | `https://github.com` | 沙箱 fix 的 clone 基地址（企业镜像 / 自建 GitLab / Gitee 用；仅对 GitHub 源注入凭据头，其它源匿名 clone） |
-| `DEPENDFIX_ALLOWED_DOMAINS` | — | 空（仅默认白名单） | 出站白名单追加域（逗号分隔）；沙箱 fix 的最小集合为 github.com / api.github.com / *.npmjs.org |
+| `SANDBOX_CLONE_BASE_URL` | — | `https://github.com` | 沙箱 fix 的 clone 基地址（企业镜像 / 自建 GitLab / Gitee 用，**必须为 https**；仅对 `https://github.com` 注入凭据头，其它源匿名 clone）。**其 host 必须同时加入 `DEPENDFIX_ALLOWED_DOMAINS`**，否则运行判 `failed`（`sandbox_clone_host_not_allowed`） |
+| `DEPENDFIX_ALLOWED_DOMAINS` | — | 空（仅默认白名单） | 出站白名单追加域（逗号分隔，支持 `*.example.com`）；默认必需域为 github.com / api.github.com / *.npmjs.org。条目只写 host（不带协议与端口，`*.example.com` 表示子域）。换 clone 源时必须把该 host 追加进来 |
 | `DEPENDFIX_SANDBOX_ENTRY` | — | `/app/sandbox/bin.mjs` | 沙箱自包含 CLI 入口（仅本地联调 / 排障用） |
 | `DEPENDFIX_SANDBOX_SKILLS_DIR` | — | `/app/sandbox/skills` | 随 bundle 复制的 skills 根目录（仅排障用） |
 | `HTTP_PROXY` / `HTTPS_PROXY` / `ALL_PROXY` | — | 空 | 出站代理（引擎验证阶段） |

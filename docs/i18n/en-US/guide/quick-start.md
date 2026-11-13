@@ -287,7 +287,8 @@ curl -X PUT /api/repos/{id} \
 **Degraded / failed behavior**:
 
 - `executorKind=sandbox` + `report-only` → real execution; daemon unavailable at startup → **degrade to `container` + `degraded`** (`sandbox_unavailable`, business results complete).
-- `executorKind=sandbox` + `fix` / `fix-and-pr` → **degrade to `container` + `degraded`** (`sandbox_fix_requires_egress_policy`, a policy limit, not notified).
+- `executorKind=sandbox` + `fix` / `fix-and-pr` → real execution inside the sandbox when the egress policy is in place; **audit disabled** (`DEPENDFIX_NETWORK_AUDIT=false`) → **`failed`** (`sandbox_fix_requires_egress_policy`, recorded as a `sandbox_egress_blocked` audit event, not notified).
+- The clone base URL is invalid or its host is not in the outbound allowlist (the `SANDBOX_CLONE_BASE_URL` host is missing from `DEPENDFIX_ALLOWED_DOMAINS`) → **`failed`** (`sandbox_clone_host_not_allowed`, no clone, no execution).
 - Daemon available at startup but a runtime errno occurs (ENOENT / ENOTCONN / EACCES / ECONNREFUSED) → **run marked `failed`** (`sandbox_unavailable`), no silent fallback and no masking of real environment errors.
 - The fallback `container` is also unavailable → **run marked `failed`** (`container_unavailable`).
 

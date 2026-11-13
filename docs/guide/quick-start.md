@@ -278,7 +278,8 @@ curl -X PUT /api/repos/{id} \
 **降级与失败行为**：
 
 - `executorKind=sandbox` + `report-only` → 真实执行；daemon 不可用（启动探测失败）→ **降级 `container` + `degraded`**（`sandbox_unavailable`，业务结果完整）。
-- `executorKind=sandbox` + `fix` / `fix-and-pr` → 出站策略就位时在沙箱内执行；审计关闭 / 白名单显式清空 → **`failed`**（`sandbox_fix_requires_egress_policy`，落 `sandbox_egress_blocked` 审计事件，不通知）。
+- `executorKind=sandbox` + `fix` / `fix-and-pr` → 出站策略就位时在沙箱内执行；**审计关闭**（`DEPENDFIX_NETWORK_AUDIT=false`）→ **`failed`**（`sandbox_fix_requires_egress_policy`，落 `sandbox_egress_blocked` 审计事件，不通知）。
+- clone 基地址非法或不在出站白名单内（`SANDBOX_CLONE_BASE_URL` 的 host 未加入 `DEPENDFIX_ALLOWED_DOMAINS`）→ **`failed`**（`sandbox_clone_host_not_allowed`，不 clone、不执行）。
 - daemon 启动可用但运行时 errno（ENOENT / ENOTCONN / EACCES / ECONNREFUSED）→ **run 标 `failed`**（`sandbox_unavailable`），不静默降级、不掩盖真实环境异常。
 - 降级目标 container 也不可用 → **run 标 `failed`**（`container_unavailable`）。
 

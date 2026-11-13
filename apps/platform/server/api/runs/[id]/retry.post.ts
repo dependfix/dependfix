@@ -67,8 +67,8 @@ export default defineEventHandler(async (event) => {
     }
 
     // 参数由服务端按来源运行派生（前端不可声明）
-    // sandbox 入口已恢复：重试保留原执行器；fix 模式由编排层按策略降级并留
-    // `sandbox_fix_requires_egress_policy`，不在 API 层改写用户配置。
+    // sandbox 入口已恢复：重试保留原执行器；出站策略由执行器第二道闸校验
+    // （缺失时返回 `sandbox_fix_requires_egress_policy`），不在 API 层改写用户配置。
     const retryExecutorKind = run.executorKind
     const parsedParams = scanRequestSchema.safeParse({
         mode: run.mode,

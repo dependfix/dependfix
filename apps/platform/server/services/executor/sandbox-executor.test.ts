@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { SandboxExecutor, resolveEgressPolicy } from './sandbox-executor'
+import { SandboxExecutor, resolveEgressPolicy, shouldInjectCloneCredential } from './sandbox-executor'
 import type { ScanExecutorContext } from './types'
 import {
     SpyRuntimeAdapter,
@@ -357,6 +357,108 @@ describe('SandboxExecutor', () => {
             const executor = new SandboxExecutor({ runtimeAdapter: new SpyRuntimeAdapter() })
             const script = executor.buildCmd(makeCtx()).join(' ')
             expect(script).not.toContain('clone')
+        })
+
+        it('only injects the credential header for https github.com sources', () => {
+            const build = (baseUrl: string) => new SandboxExecutor({
+                runtimeAdapter: new SpyRuntimeAdapter(),
+                cloneBaseUrl: baseUrl,
+            }).buildCmd(makeCtx({ config: { ...defaultRuntimeConfig, mode: 'fix' } })).join(' ')
+
+            // 非 GitHub 源：匿名 clone（脚本里没有 extraheader 分支）
+            expect(build('https://gitlab.com')).not.toContain('extraheader')
+            expect(build('https://gitlab.com')).toContain('git clone --depth 1')
+            // GitHub 源：注入 basic header，且 token 只从 env 读取
+            expect(build('https://github.com')).toContain('extraheader')
+            expect(build('https://github.com')).toContain('$GITHUB_TOKEN')
+        })
+
+        it('decides credential injection from protocol + hostname only', () => {
+            expect(shouldInjectCloneCredential('https://github.com')).toBe(true)
+            expect(shouldInjectCloneCredential('https://github.com/')).toBe(true)
+            expect(shouldInjectCloneCredential('http://github.com')).toBe(false)
+            expect(shouldInjectCloneCredential('https://gitlab.com')).toBe(false)
+            expect(shouldInjectCloneCredential('https://github.com.evil.example')).toBe(false)
+            expect(shouldInjectCloneCredential('not-a-url')).toBe(false)
+        })
+
+        it('rejects a clone base outside the allowlist (fail-closed)', async () => {
+            const adapter = new SimulatedSandboxAdapter()
+            const executor = new SandboxExecutor({
+                runtimeAdapter: adapter,
+                cloneBaseUrl: 'https://evil.example.com',
+            })
+            const result = await executor.execute(makeCtx({ config: { ...defaultRuntimeConfig, mode: 'fix' } }))
+            expect(result.error?.code).toBe('sandbox_clone_host_not_allowed')
+            expect(adapter.calls).toHaveLength(0)
+        })
+
+        it('rejects a plaintext http clone base (fail-closed)', async () => {
+            const adapter = new SimulatedSandboxAdapter()
+            const executor = new SandboxExecutor({
+                runtimeAdapter: adapter,
+                cloneBaseUrl: 'http://github.com',
+            })
+            const result = await executor.execute(makeCtx({ config: { ...defaultRuntimeConfig, mode: 'fix' } }))
+            expect(result.error?.code).toBe('sandbox_clone_host_not_allowed')
+            expect(adapter.calls).toHaveLength(0)
+        })
+
+        it('rejects an invalid clone base URL (fail-closed)', async () => {
+            const adapter = new SimulatedSandboxAdapter()
+            const executor = new SandboxExecutor({
+                runtimeAdapter: adapter,
+                cloneBaseUrl: 'not-a-url',
+            })
+            const result = await executor.execute(makeCtx({ config: { ...defaultRuntimeConfig, mode: 'fix' } }))
+            expect(result.error?.code).toBe('sandbox_clone_host_not_allowed')
+            expect(adapter.calls).toHaveLength(0)
+        })
+
+        it('never injects the credential header for non-https github sources', () => {
+            const script = new SandboxExecutor({
+                runtimeAdapter: new SpyRuntimeAdapter(),
+                cloneBaseUrl: 'http://github.com',
+            }).buildCmd(makeCtx({ config: { ...defaultRuntimeConfig, mode: 'fix' } })).join(' ')
+            // 明文 http 源整体走匿名 clone，脚本里连 token 都不出现
+            expect(script).not.toContain('extraheader')
+            expect(script).not.toContain('$GITHUB_TOKEN')
+        })
+
+        it('matches wildcard allowlist entries by suffix only', async () => {
+            const cases = [
+                { base: 'https://gitlab.example.com', allowlist: ['*.example.com'], allowed: true },
+                { base: 'https://example.com', allowlist: ['*.example.com'], allowed: false },
+                { base: 'https://evilexample.com', allowlist: ['*.example.com'], allowed: false },
+            ]
+            for (const item of cases) {
+                const adapter = new SimulatedSandboxAdapter()
+                const executor = new SandboxExecutor({
+                    runtimeAdapter: adapter,
+                    cloneBaseUrl: item.base,
+                    egress: { allowlist: item.allowlist },
+                })
+                const result = await executor.execute(makeCtx({ config: { ...defaultRuntimeConfig, mode: 'fix' } }))
+                if (item.allowed) {
+                    expect(result.error?.code).not.toBe('sandbox_clone_host_not_allowed')
+                    expect(adapter.calls).toHaveLength(1)
+                } else {
+                    expect(result.error?.code).toBe('sandbox_clone_host_not_allowed')
+                    expect(adapter.calls).toHaveLength(0)
+                }
+            }
+        })
+
+        it('ignores the port when matching the clone host against the allowlist', async () => {
+            const adapter = new SimulatedSandboxAdapter()
+            const executor = new SandboxExecutor({
+                runtimeAdapter: adapter,
+                cloneBaseUrl: 'https://github.com:443',
+                egress: { allowlist: ['github.com'] },
+            })
+            const result = await executor.execute(makeCtx({ config: { ...defaultRuntimeConfig, mode: 'fix' } }))
+            expect(result.error?.code).not.toBe('sandbox_clone_host_not_allowed')
+            expect(adapter.calls).toHaveLength(1)
         })
 
         it('resolveEgressPolicy merges required domains and honors the audit switch', () => {

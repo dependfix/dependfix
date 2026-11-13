@@ -112,6 +112,8 @@ dependfix 批量处理仓库与依赖，若防护不足会成为恶意依赖的"
 
 > 背景：`SandboxExecutor` 从占位 `echo` 改为独立容器内运行自包含 CLI（report-only）。按 §4 安全基线逐项复核，结论如下。
 
+> **时点快照**：本节复核于 M57.1（2026-11-09），「fix 模式不放行 / 被拒绝」描述的是当时状态。2026-11-13 M59.1 起 fix / fix-and-pr 在出站策略就位时放行，网络面改由容器内 CLI 的运行级审计代理 deny-by-default 约束（非白名单外联使运行 `failed`），详见 [executor-sandbox-implementation.md §7.8](./executor-sandbox-implementation.md#_7-8-降级状态机契约-degraded-vs-failed)。
+
 | 基线项 | 实现 / 证据 | 结论 |
 |:--|:--|:--|
 | 非 root 执行 | `DockerAdapter.buildRunArgs` 固定 `--user 100:100`（`SANDBOX_DEFAULTS.user`）；单测断言参数落位 | ✅ |
@@ -124,7 +126,7 @@ dependfix 批量处理仓库与依赖，若防护不足会成为恶意依赖的"
 | 自包含入口 | `packages/cli/tsdown.sandbox.config.ts`（`deps.alwaysBundle` + `copy`）；镜像构建期断言 `--version` 非 `0.0.0-unknown` 且 skills 目录可用 | ✅（镜像构建期 fail-closed） |
 | 威胁建模 | report-only 不执行目标仓库代码（无 clone / install / 生命周期脚本），沿用 §4 对恶意依赖脚本的结论；fix 模式在代理接入前不放行 | ✅ 无新增不可接受风险 |
 
-**偏离登记（report-only 网络）**：§5.3 要求「执行期网络受限 + 外联日志」。report-only 容器固定 bridge 直出、未接入出站白名单代理，也未采集容器内 egress 日志；该偏离**仅限不执行目标仓库代码的 report-only**，理由是隔离面只剩 GitHub API 调用与 token 暴露（token 本就用于该 API），且 `alertSource` 已 fail-closed 到 `github-dependabot`。fix / fix-and-pr 在代理接入前一律降级 `container`。补齐路径见 [backlog](../../plan/backlog.md)「沙箱 fix 模式出站白名单代理接入」。
+**偏离登记（report-only 网络）**：§5.3 要求「执行期网络受限 + 外联日志」。report-only 容器固定 bridge 直出、未接入出站白名单代理，也未采集容器内 egress 日志；该偏离**仅限不执行目标仓库代码的 report-only**，理由是隔离面只剩 GitHub API 调用与 token 暴露（token 本就用于该 API），且 `alertSource` 已 fail-closed 到 `github-dependabot`。fix / fix-and-pr 在代理接入前一律降级 `container`（M59.1 起已接入运行级审计代理，改为放行）。
 
 **其他残余**：
 

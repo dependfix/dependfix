@@ -1,6 +1,6 @@
 # 执行器设计与沙箱评估
 
-> 状态：✅ 设计已落地（T603 `ContainerExecutor` + M10 T1001 沙箱隔离基础设施 + M38 执行进程隔离）；**沙箱内真实执行已闭环（M57.1，2026-11-09）**：独立容器内运行自包含 CLI（`/app/sandbox/bin.mjs`），结果经容器内 `/tmp/result.json` + stdout 哨兵回传（无宿主挂载），**当前仅放行 `report-only`**；`fix` / `fix-and-pr` 需先接入出站白名单代理（T1002 前置），编排层降级 `container` 并记 `sandbox_fix_requires_egress_policy`。平台入口（UI / API / 路由）已于 2026-11-09 恢复。
+> 状态：✅ 设计已落地（T603 `ContainerExecutor` + M10 T1001 沙箱隔离基础设施 + M38 执行进程隔离）；**沙箱内真实执行已闭环（M57.1，2026-11-09）**：独立容器内运行自包含 CLI（`/app/sandbox/bin.mjs`），结果经容器内 `/tmp/result.json` + stdout 哨兵回传（无宿主挂载）；**2026-11-13 M59.1 起 `fix` / `fix-and-pr` 在出站策略就位时同路径放行**（容器内 clone → CLI + 运行级审计代理，策略缺失由第二道闸拒绝），不再降级 `container`。平台入口（UI / API / 路由）已于 2026-11-09 恢复。
 > 背景决策见 [M6 规划决策](../../plan/archive/todo-archive-phases-m6-m7-t711.md#m6-最小平台-mvp-已归档)（Q1 执行深度 A/B 双模式、Q4 沙箱=A、Q5 Action 触发=B）。
 > **安全评估（2026-08-14）**：评估结论、治理决议与不可简化的安全基线见 [沙箱与恶意依赖防护治理](./sandbox-security-governance.md)；本文档 §2.2 的 M6 缓解——USER 降权已修复（C38，2026-08-14）、外联日志已实现（C40/T805，2026-08-14），登记 [backlog C38/C40](../../plan/backlog.md)。
 > **A 模式 push + PR 闭环（2026-08-20，C53 实施）**：A 模式 fix / fix-and-pr 完成后新增推送修复分支到远程 + 创建 PR 两条链路，结束了 M6 阶段"修复结果仅在本地临时目录"问题；新的状态机 dispatched 语义（PR 失败但分支已推）、runUrl 兜底为 branch URL、workDir 保留 24h 供诊断 由分片 [executor-sandbox-implementation.md §8](./executor-sandbox-implementation.md) 记录。

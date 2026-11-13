@@ -39,6 +39,14 @@ const SANDBOX_REQUIRED_EGRESS_DOMAINS = ['github.com', 'api.github.com', '*.npmj
 /** 容器内 clone 目标目录（平台不挂载宿主目录） */
 const CONTAINER_REPO_PATH = '/tmp/repo'
 
+/**
+ * clone 基地址（默认 GitHub；企业镜像 / 自建 GitLab / Gitee 可用 SANDBOX_CLONE_BASE_URL 覆盖）。
+ * 目标仓库仍由平台构造（owner/name），不接受仓库级配置——避免被扫描目标改写 clone 源。
+ */
+const DEFAULT_CLONE_BASE_URL = process.env.SANDBOX_CLONE_BASE_URL?.trim().replace(/\/+$/, '') || 'https://github.com'
+
+// 注：与 SANDBOX_IMAGE 同模式——模块加载期读取 env；实例选项可覆盖（测试 / 多实例场景）
+
 /** 仅放行的告警源：report-only 的隔离论证依赖「不执行目标仓库代码」 */
 const SANDBOX_ALLOWED_ALERT_SOURCE = 'github-dependabot'
 
@@ -59,6 +67,8 @@ export interface SandboxExecutorOptions {
     sandboxLimits?: { memoryMb?: number, cpu?: number }
     /** 单次执行超时(默认 30 分钟——与 ContainerExecutor 对齐) */
     timeoutMs?: number
+    /** clone 基地址覆盖（默认读 SANDBOX_CLONE_BASE_URL，回退 https://github.com） */
+    cloneBaseUrl?: string
     /** 出站策略覆盖（缺省读 env：DEPENDFIX_NETWORK_AUDIT / DEPENDFIX_ALLOWED_DOMAINS） */
     egress?: {
         enabled?: boolean
@@ -73,7 +83,8 @@ export interface SandboxEgressPolicy {
 }
 
 /**
- * 解析出站策略：默认启用（可用 `DEPENDFIX_NETWORK_AUDIT=false` 关闭），
+ * 解析出站策略：默认启用（可用 `DEPENDFIX_NETWORK_AUDIT=false` 关闭；env 路径总会并入必需域，
+ * 「白名单被清空」仅经 options 可达，用于运维显式禁用或测试），
  * 白名单 = 平台必需域 ∪ 操作方配置域（`DEPENDFIX_ALLOWED_DOMAINS`，逗号分隔）。
  */
 export function resolveEgressPolicy(overrides?: { enabled?: boolean, allowlist?: string[] }): SandboxEgressPolicy {
@@ -108,6 +119,7 @@ export function resolveEgressPolicy(overrides?: { enabled?: boolean, allowlist?:
  * - `execution_timeout`:外层 withTimeout 触发 或 RuntimeAdapter 返回 exitCode 124
  * - `sandbox_image_unavailable`:docker exit 125 且 stderr 指向镜像缺失 / 无法拉取
  * - `sandbox_fix_requires_egress_policy`:非 report-only 被第二道闸拒绝
+ * - `sandbox_clone_host_not_allowed`:clone 基地址非法或不在出站白名单内（配置偏离，不执行）
  * - `sandbox_alert_source_unsupported`:pnpm-audit 等会执行仓库代码的告警源被拒绝
  * - `execution_failed`:其他(结果缺失 / 解析失败 / 容器内执行失败)
  */
@@ -121,6 +133,7 @@ export class SandboxExecutor implements ScanExecutor {
     private readonly sandboxLimits: { memoryMb?: number, cpu?: number }
     private readonly timeoutMs: number
     private readonly egress: SandboxEgressPolicy
+    private readonly cloneBaseUrl: string
 
     constructor(options: SandboxExecutorOptions = {}) {
         this.adapter = options.runtimeAdapter ?? new DockerAdapter()
@@ -130,6 +143,7 @@ export class SandboxExecutor implements ScanExecutor {
         this.sandboxLimits = options.sandboxLimits ?? {}
         this.timeoutMs = options.timeoutMs ?? SANDBOX_DEFAULTS.timeoutMs
         this.egress = resolveEgressPolicy(options.egress)
+        this.cloneBaseUrl = (options.cloneBaseUrl ?? DEFAULT_CLONE_BASE_URL).replace(/\/+$/, '')
     }
 
     /**
@@ -175,6 +189,32 @@ export class SandboxExecutor implements ScanExecutor {
                 },
                 startedAt,
                 finishedAt: new Date().toISOString(),
+            }
+        }
+        if (ctx.config.mode !== SANDBOX_REPORT_ONLY) {
+            // clone 发生在容器内但仍属外联：目标 host 必须命中出站白名单（fail-closed）。
+            // 比对用 hostname（不含端口），与引擎侧 isDomainAllowed 口径一致；只允许 https 源
+            // （明文源会让代码来源完整性失去传输层保护）
+            const { protocol: cloneProtocol, hostname: cloneHostname } = parseBaseUrl(this.cloneBaseUrl)
+            const allowed = cloneProtocol === 'https:' && cloneHostname.length > 0 && this.egress.allowlist.some((pattern) => {
+                const p = pattern.trim().toLowerCase()
+                return p.startsWith('*.')
+                    ? cloneHostname.toLowerCase().endsWith(p.slice(1))
+                    : cloneHostname.toLowerCase() === p
+            })
+            if (!allowed) {
+                const reason = cloneProtocol !== 'https:'
+                    ? `必须为 https 基地址（当前 ${cloneProtocol || '非法 URL'}）`
+                    : `不在出站白名单内（${this.egress.allowlist.join(', ')}）`
+                return {
+                    exitCode: 2,
+                    error: {
+                        code: 'sandbox_clone_host_not_allowed',
+                        message: `clone 基地址 ${sanitizeErrorMessage(this.cloneBaseUrl)} ${reason}`,
+                    },
+                    startedAt,
+                    finishedAt: new Date().toISOString(),
+                }
             }
         }
         // pnpm-audit 会在工作目录执行目标仓库安装链，破坏「report-only 不执行仓库代码」的隔离前提
@@ -246,7 +286,8 @@ export class SandboxExecutor implements ScanExecutor {
      * stdout（日志与结果同流，靠哨兵切分）。
      *
      * fix / fix-and-pr：先 clone 目标仓库到容器私有目录（不挂载宿主目录），再在该目录执行 CLI；
-     * clone 目标由平台构造（必为 github.com 白名单域），审计面由容器内 CLI 的运行级代理覆盖
+     * clone 源由平台构造（默认 github.com，可经 SANDBOX_CLONE_BASE_URL 指向镜像 / 自建 Git，
+     * 其 host 必须命中出站白名单），审计面由容器内 CLI 的运行级代理覆盖
      * 安装 / 验证 / 修复命令。
      *
      * 凭据只走 env（`GITHUB_TOKEN`），不进 argv——避免 docker inspect / 错误回显泄露。
@@ -273,14 +314,20 @@ export class SandboxExecutor implements ScanExecutor {
         }
         const cli = cliArgs.map(shQuote).join(' ')
         // fix 类：容器内 bootstrap —— clone 到容器私有目录后在该目录执行 CLI（不挂载宿主目录）
+        // 凭据 header 的注入源在构建期静态判定（仅 https://github.com），脚本里不再出现源判断
+        const cloneUrl = shQuote(`${this.cloneBaseUrl}/${repo}.git`)
+        const cloneCommand = shouldInjectCloneCredential(this.cloneBaseUrl)
+            // 凭据只从 env 读取并转成 basic header，不落 argv 明文；无 token 时匿名 clone（公开仓库）
+            ? `if [ -n "$GITHUB_TOKEN" ]; then `
+            + `h=$(printf 'x-access-token:%s' "$GITHUB_TOKEN" | base64 | tr -d '\\n'); `
+            + `git -c http.extraheader="Authorization: basic $h" clone --depth 1 ${cloneUrl} ${CONTAINER_REPO_PATH}; `
+            + `else git clone --depth 1 ${cloneUrl} ${CONTAINER_REPO_PATH}; fi || exit 1`
+            : `git clone --depth 1 ${cloneUrl} ${CONTAINER_REPO_PATH} || exit 1`
         const bootstrap = ctx.config.mode === SANDBOX_REPORT_ONLY
             ? []
             : [
                 `rm -rf ${CONTAINER_REPO_PATH}`,
-                // 凭据只从 env 读取并转成 basic header，不落 argv 明文
-                `header=$(printf 'x-access-token:%s' "$GITHUB_TOKEN" | base64 | tr -d '\\n')`,
-                `git -c http.extraheader="Authorization: basic $header" clone --depth 1 `
-                + `${shQuote(`https://github.com/${repo}.git`)} ${CONTAINER_REPO_PATH} || exit 1`,
+                cloneCommand,
                 `cd ${CONTAINER_REPO_PATH} || exit 1`,
             ]
         const script = [
@@ -423,6 +470,25 @@ export class SandboxExecutor implements ScanExecutor {
             finishedAt,
             logsJson,
         }
+    }
+}
+
+/**
+ * 是否对 clone 源注入 GitHub 凭据头：仅 `https://github.com`（其它源不接受 GitHub 的 basic 头，
+ * 且不应把 token 交给非 GitHub 主机）。
+ */
+export function shouldInjectCloneCredential(baseUrl: string): boolean {
+    const { protocol, hostname } = parseBaseUrl(baseUrl)
+    return protocol === 'https:' && hostname === 'github.com'
+}
+
+/** 从基地址取协议 + host / hostname（非法形态回退空串：不注入凭据头，且在出站策略校验处 fail-closed） */
+function parseBaseUrl(baseUrl: string): { protocol: string, host: string, hostname: string } {
+    try {
+        const url = new URL(baseUrl)
+        return { protocol: url.protocol, host: url.host, hostname: url.hostname }
+    } catch {
+        return { protocol: '', host: '', hostname: '' }
     }
 }
 

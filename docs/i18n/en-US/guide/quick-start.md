@@ -224,11 +224,11 @@ After the run, the report content is written to the workflow summary and can be 
 - **Review before merging**: cross-line upgrades (PR body carries a ⚠️ Major marker) and newly added / upgraded packages that ship lifecycle scripts and were approved by the repository (see the report warning area once supply-chain signal disclosure lands) should be confirmed by a human before merge.
 - **Platform deployment**: pull the published image by default (`docker compose pull && docker compose up -d`; only layer the `docker-compose.build.yml` override for a local build, see the comment at the top of `apps/platform/docker-compose.yml`). The container execution process already **drops privileges from root** (default `dependfix` user, uid 100 / gid 101; align `PUID`/`PGID` with the host user to control data volume / `$HOME` ownership; resolving to 0 makes the entrypoint fail closed, and ownership is repaired automatically). Do not mount `docker.sock` and do not grant privileges when deploying; use strong random values for `AUTH_SECRET` / `NUXT_ENCRYPTION_KEY`. **Tables are created automatically on first start** (compose defaults to `DATABASE_MIGRATIONS_RUN=true`); full steps (environment variables / data volume and permissions / database initialization / upgrade / backup and restore / troubleshooting) are in [Docker deployment](./deployment.md).
 
-#### sandbox execution (experimental, report-only)
+#### sandbox execution (report-only / fix / fix-and-pr)
 
-> **✅ Entry point restored (M57.1, 2026-11-09)**: a self-contained CLI runs inside a dedicated container (`node /app/sandbox/bin.mjs`), returning results through the container-local `/tmp/result.json` + a stdout sentinel, with the same contract as `ContainerExecutor`. **Only `report-only` is allowed** (read-only scan: fetch Dependabot / Code Scanning alerts, no clone, no target-repo code execution); `fix` / `fix-and-pr` keep degrading to `container` and record `degraded` (`sandbox_fix_requires_egress_policy`) until the egress allowlist proxy is wired into the sandbox execution path.
+> **Entry point restored (M57.1, 2026-11-09; fix allowed since M59.1, 2026-11-13)**: a self-contained CLI runs inside a dedicated container (`node /app/sandbox/bin.mjs`), returning results through the container-local `/tmp/result.json` + a stdout sentinel, with the same contract as `ContainerExecutor`. `report-only` stays read-only; `fix` / `fix-and-pr` clone → install → fix → verify inside the container when the egress policy is in place (no host mounts), and only degrade to `container` when the daemon is unavailable (`sandbox_unavailable`).
 >
-> **Scope**: owner/org multi-repository read-only scans, and alert inventories on untrusted repositories; use `container` or `github-action` for fixes. Sandbox isolates execution in a dedicated rootless container (decoupled from the platform container), see [executor-sandbox.md §7](https://github.com/dependfix/dependfix/blob/master/docs/design/governance/executor-sandbox-implementation.md).
+> **Scope**: owner/org multi-repository scans and fixes; read-only inventories are still preferred for untrusted repositories. Sandbox isolates execution in a dedicated rootless container (decoupled from the platform container), see [executor-sandbox.md §7](https://github.com/dependfix/dependfix/blob/master/docs/design/governance/executor-sandbox-implementation.md).
 >
 > **Not enabled**: for a single trusted repository plus local development, the default `ContainerExecutor` is enough, with no rootless daemon startup cost.
 
@@ -282,12 +282,13 @@ curl -X PUT /api/repos/{id} \
 # export SANDBOX_RUNTIME=sysbox-runc
 ```
 
-> **Network**: report-only must reach the GitHub API, so the sandbox container egresses through the Docker bridge; `DEPENDFIX_ALLOWED_DOMAINS` configures the platform's in-process interception proxy and is **not forwarded into sandbox containers**. `fix` / `fix-and-pr` are degraded before the egress allowlist proxy is wired into the sandbox path, so they never need a larger network surface.
+> **Network**: report-only reaches the GitHub API; fix modes clone + install + verify inside the container, with egress constrained by the CLI's run-level audit proxy using `DEPENDFIX_ALLOWED_DOMAINS` (injected by the platform) on a deny-by-default basis — non-allowlisted traffic gets 502 and the run is marked `failed` (`network_violation`). `SANDBOX_CLONE_BASE_URL` can point clone at an enterprise mirror / self-hosted Git (the credential header is only injected for GitHub sources; other sources clone anonymously) and that host must be in the same allowlist.
 
 **Degraded / failed behavior**:
 
 - `executorKind=sandbox` + `report-only` → real execution; daemon unavailable at startup → **degrade to `container` + `degraded`** (`sandbox_unavailable`, business results complete).
-- `executorKind=sandbox` + `fix` / `fix-and-pr` → **degrade to `container` + `degraded`** (`sandbox_fix_requires_egress_policy`, a policy limit, not notified).
+- `executorKind=sandbox` + `fix` / `fix-and-pr` → real execution inside the sandbox when the egress policy is in place; **audit disabled** (`DEPENDFIX_NETWORK_AUDIT=false`) → **`failed`** (`sandbox_fix_requires_egress_policy`, recorded as a `sandbox_egress_blocked` audit event, not notified).
+- The clone base URL is invalid or its host is not in the outbound allowlist (the `SANDBOX_CLONE_BASE_URL` host is missing from `DEPENDFIX_ALLOWED_DOMAINS`) → **`failed`** (`sandbox_clone_host_not_allowed`, no clone, no execution).
 - Daemon available at startup but a runtime errno occurs (ENOENT / ENOTCONN / EACCES / ECONNREFUSED) → **run marked `failed`** (`sandbox_unavailable`), no silent fallback and no masking of real environment errors.
 - The fallback `container` is also unavailable → **run marked `failed`** (`container_unavailable`).
 

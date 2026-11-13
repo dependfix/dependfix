@@ -216,11 +216,11 @@ jobs:
 - **PR 合入前人工检查**：跨线升级（PR body 带 ⚠️ Major 标记）以及新增/升级包带 lifecycle scripts 且被仓库批准时（供应链信号披露落地后见报告警示区），合入前应人工确认。
 - **平台部署**：默认拉取已发布镜像（`docker compose pull && docker compose up -d`；仅在需要本地打包时叠加 `docker-compose.build.yml` 覆盖文件构建，见 `apps/platform/docker-compose.yml` 顶部说明）。容器执行进程已**非 root 降权**（默认 `dependfix` 用户 uid 100 / gid 101；可用 `PUID`/`PGID` 对齐宿主机用户以控制数据卷 / `$HOME` 归属，解析为 0 时 fail-closed 拒绝启动，entrypoint 自动修复所有权）；部署时勿挂载 `docker.sock`、勿授予特权；`AUTH_SECRET` / `NUXT_ENCRYPTION_KEY` 使用强随机值。**首次启动自动建表**（compose 默认 `DATABASE_MIGRATIONS_RUN=true`）；完整步骤（环境变量 / 数据卷与权限 / 数据库初始化 / 升级 / 备份恢复 / 故障排查）见 [Docker 部署](./deployment.md)。
 
-#### sandbox 执行（实验性，仅 report-only）
+#### sandbox 执行（report-only / fix / fix-and-pr）
 
-> **✅ 入口已恢复（M57.1，2026-11-09）**：独立容器内运行自包含 CLI（`node /app/sandbox/bin.mjs`），结果经容器内 `/tmp/result.json` + stdout 哨兵回传，与 `ContainerExecutor` 同构。**当前仅放行 `report-only`**（只读扫描：拉取 Dependabot / Code Scanning 告警，不 clone、不执行目标仓库代码）；`fix` / `fix-and-pr` 在出站白名单代理接入沙箱执行路径前继续降级到 `container`，并记 `degraded`（`sandbox_fix_requires_egress_policy`）。
+> **入口已恢复（M57.1，2026-11-09；M59.1 2026-11-13 起放行 fix）**：独立容器内运行自包含 CLI（`node /app/sandbox/bin.mjs`），结果经容器内 `/tmp/result.json` + stdout 哨兵回传，与 `ContainerExecutor` 同构。`report-only` 只读扫描；`fix` / `fix-and-pr` 在出站策略就位时于容器内 clone → 安装 → 修复 → 验证（不挂载宿主目录），daemon 启动不可用才降级 `container`（`sandbox_unavailable`）。
 >
-> **适用范围**：owner/org 多仓库只读扫描、对不可信仓库先做告警盘点；修复请使用 `container` 或 `github-action`。sandbox 把执行隔离在独立 rootless 容器内（与平台容器解耦），详见 [executor-sandbox.md §7](../design/governance/executor-sandbox-implementation.md#_7-sandbox-执行器设计)。
+> **适用范围**：owner/org 多仓库扫描与修复；对不可信仓库仍建议只读盘点。sandbox 把执行隔离在独立 rootless 容器内（与平台容器解耦），详见 [executor-sandbox.md §7](../design/governance/executor-sandbox-implementation.md#_7-sandbox-执行器设计)。
 >
 > **不启用**：单可信仓库 + 本地开发场景下默认 `ContainerExecutor` 即可，无 rootless daemon 启动成本。
 
@@ -273,12 +273,13 @@ curl -X PUT /api/repos/{id} \
 # export SANDBOX_RUNTIME=sysbox-runc
 ```
 
-> **网络**：report-only 需要访问 GitHub API 拉取告警，sandbox 容器走 Docker bridge 直出网；`DEPENDFIX_ALLOWED_DOMAINS` 是平台进程内拦截代理的配置，**不透传给 sandbox 容器**。fix / fix-and-pr 在出站白名单代理接入沙箱执行路径前会被降级，不会用到更大网络面。
+> **网络**：report-only 访问 GitHub API；fix 类在容器内 clone + 安装 + 验证，出站由容器内 CLI 的运行级审计代理按 `DEPENDFIX_ALLOWED_DOMAINS`（平台注入）deny-by-default 约束——非白名单外联直接 502，运行判 `failed`（`network_violation`）。clone 基地址可用 `SANDBOX_CLONE_BASE_URL` 指向企业镜像 / 自建 Git（仅 GitHub 源注入凭据头，其它源匿名 clone），且该 host 必须命中同一白名单。
 
 **降级与失败行为**：
 
 - `executorKind=sandbox` + `report-only` → 真实执行；daemon 不可用（启动探测失败）→ **降级 `container` + `degraded`**（`sandbox_unavailable`，业务结果完整）。
-- `executorKind=sandbox` + `fix` / `fix-and-pr` → **降级 `container` + `degraded`**（`sandbox_fix_requires_egress_policy`，策略限制，不通知）。
+- `executorKind=sandbox` + `fix` / `fix-and-pr` → 出站策略就位时在沙箱内执行；**审计关闭**（`DEPENDFIX_NETWORK_AUDIT=false`）→ **`failed`**（`sandbox_fix_requires_egress_policy`，落 `sandbox_egress_blocked` 审计事件，不通知）。
+- clone 基地址非法或不在出站白名单内（`SANDBOX_CLONE_BASE_URL` 的 host 未加入 `DEPENDFIX_ALLOWED_DOMAINS`）→ **`failed`**（`sandbox_clone_host_not_allowed`，不 clone、不执行）。
 - daemon 启动可用但运行时 errno（ENOENT / ENOTCONN / EACCES / ECONNREFUSED）→ **run 标 `failed`**（`sandbox_unavailable`），不静默降级、不掩盖真实环境异常。
 - 降级目标 container 也不可用 → **run 标 `failed`**（`container_unavailable`）。
 

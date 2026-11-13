@@ -29,7 +29,11 @@
 
 ### M59.1 沙箱 fix 自包含执行与出站策略（P1 🛡️）
 
-> **状态**：🚧 进行中（2026-11-13 起）。已交付：运行级外联审计（安装链 / 验证链 / 交付命令共用代理与记录；`RunResult.networkAudit` / `networkViolations` / `summary.networkViolations|networkAudited`；报告 `Network Violations` 段、运行详情与导出披露；违规使出口码非 0）；沙箱 fix / fix-and-pr 放行（出站策略第二道闸、容器内 clone→CLI、allowlist env 注入；`sandbox_fix_requires_egress_policy` 仅剩策略缺失分支）；编排层不再对 fix 降级。**待办（本原子内）**：gated sandbox e2e 真实取证（`SANDBOX_E2E=true` + Docker + 可达夹具仓库）、M59.2 交付契约；直连外联（undici 绕过代理 env）按 AC2 口径对齐转 backlog 候选。
+> **状态**：🚧 进行中（2026-11-13 起）。已交付：运行级外联审计（安装链 / 验证链 / 交付命令共用代理与记录；`RunResult.networkAudit` / `networkViolations` / `summary.networkViolations|networkAudited`；报告 `Network Violations` 段、运行详情与导出披露；违规使出口码非 0 且运行判 `failed`）；沙箱 fix / fix-and-pr 放行（出站策略第二道闸、容器内 clone→CLI、allowlist env 注入；策略缺失落 `sandbox_egress_blocked` 审计事件且不通知，与「启动降级」的 `sandbox_degraded` 区分）；编排层不再对 fix 降级；`SANDBOX_CLONE_BASE_URL` 支持镜像 / 自建 Git 源（其 host 必须命中出站白名单，否则 `sandbox_clone_host_not_allowed`）。
+>
+> **真实容器取证（2026-11-14）**：`pnpm --filter dependfix build:sandbox` 重建 bundle → `FROM dependfix-platform:e2e + COPY packages/cli/sandbox` 生成镜像 → gated 用例 `server/services/executor/sandbox-fix-real.test.ts`（`SANDBOX_FIX_E2E=true`）通过（镜像 tag `dependfix-sandbox:local`，可用 `SANDBOX_FIX_E2E_IMAGE` 覆盖）：出站策略未被拒绝、容器内 `/tmp/repo` clone 成功、自包含 CLI 启动并经哨兵回传结构化结果（占位 token → API 401，`errors` 非空、exit≠0）、`spec.mounts` 为空；本环境 `github.com` 被网络策略阻断，clone 用 GitLab 公开夹具（用例变量 `SANDBOX_FIX_E2E_CLONE_BASE`，默认 `https://gitlab.com`，用例会把该 host 并入 allowlist——生产等价做法是写入 `DEPENDFIX_ALLOWED_DOMAINS`）。
+>
+> **待办（本原子内）**：完整「clone → 安装 → 修复 → 验证」需真实 Dependabot 凭据（新增 `tests/e2e/sandbox-fix.e2e.test.ts`，`SANDBOX_E2E_TOKEN` 就位即可跑）；M59.2 交付契约；直连外联按 AC2 口径转 backlog 候选。
 
 - **目标**：sandbox 容器内可完成 clone → 安装 → 修复 → 验证的 fix 执行链；尊重代理 env 的工具在连接级走 deny-by-default 白名单（非白名单 502 拒绝并判运行失败），命令输出中的 URL 只入审计记录（依据 [security.md §5.3.1](../standards/security.md)），undici 直连属已知边界（backlog 候选）；执行面仍不挂载宿主目录。
 - **范围**：
@@ -38,7 +42,7 @@
   - 引擎出站审计：`packages/engine/src/runners/network-audit.ts` + `packages/engine/src/fixers/*`（安装链注入代理 env，与验证链同源）；`packages/core` 的 `RunResult` **需新增**外联审计字段（引擎侧现为 `verification-runner.ts` 的 `networkAudit` / `networkViolations`，平台零消费）。
   - 平台结果面：结果持久化 + 执行详情 / 导出展示 fix 路径的外联违规与 allowlist 命中摘要（新增数据面，不是只改展示）。
 - **验收标准**：
-  1. sandbox + `fix` 在夹具仓库完成容器内 clone + 安装 + 修复 + 验证，宿主无工作目录、无挂载（`docker inspect` 断言）。
+  1. sandbox + `fix` 在夹具仓库完成容器内 clone + 安装 + 修复 + 验证，宿主无工作目录、无挂载（`docker inspect` 断言）。**等价性依据**：gated 用例断言 `buildSpec(ctx).mounts` 为空，且 `DockerAdapter` 的挂载参数（`--mount` / `--volume`）都由 `spec.mounts ?? []` 循环生成、为空时不追加——两条合起来与 `docker inspect` 的 Mounts 为空等价，无需额外拉取容器元数据。
   2. 尊重代理的客户端访问非白名单域名被连接级拦截（502），进入结果 `networkViolations` 并在执行详情与导出可见；违规不写成「成功」（平台状态机判 `failed` / `network_violation`）。**口径对齐（2026-11-13）**：命令输出里的 URL 只入审计记录、不构成违规（[security.md §5.3.1](../../docs/standards/security.md) 2026-08-25 误报实证后定稿）；undici 直连绕过代理 env 属**已知边界**，纳入 backlog 候选（评估 `NODE_USE_ENV_PROXY` 路线），不在本原子内强行落地。
   3. 白名单命中（registry / GitHub API / 镜像站）不误报；仓库级 registry 发现（`registry-discovery`）扩展域在沙箱内同样生效。
   4. `report-only` 行为不回归；sandbox 不可用仍降级 container 并保留 `sandbox_unavailable` 事件。（直连外联负例见「不做什么」。）

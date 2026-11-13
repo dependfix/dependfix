@@ -52,6 +52,7 @@ const EXPECTED_MAPPINGS: Record<string, { stage: RunFailureStage, kind: RunFailu
     network_violation: { stage: 'verify', kind: 'deterministic' },
     NETWORK_VIOLATION: { stage: 'verify', kind: 'deterministic' },
     sandbox_fix_requires_egress_policy: { stage: 'runtime', kind: 'deterministic' },
+    sandbox_clone_host_not_allowed: { stage: 'runtime', kind: 'deterministic' },
     // deliver
     COMMIT_FAILED: { stage: 'deliver', kind: 'deterministic' },
     UNEXPECTED_CHANGES: { stage: 'deliver', kind: 'deterministic' },

@@ -709,9 +709,13 @@ async function runContainerExecutor(
  * 环境事件审计：执行器 / 执行环境异常时落 AuditEvent + fire-and-forget 通知。
  *
  * 触发场景（与「运行失败分类」边界见 audit-event.ts 类型注释）：
- * - A 场景（sandbox 启动降级 / fix 模式策略降级）→ sandbox_degraded / warn
+ * - A 场景（sandbox 启动降级）→ sandbox_degraded / warn
+ * - fix 类出站策略偏离（策略缺失 / clone 基地址未命中白名单，执行器执行前拒绝）→ sandbox_egress_blocked / warn
  * - B 场景（sandbox 运行时失败）→ sandbox_unavailable / error
  * - C 场景（container 执行器环境不可用）→ container_unavailable / error
+ *
+ * 通知策略：配置偏离类（`sandbox_egress_blocked`）只落库、不发通知（`notificationSuppressed`）；
+ * 启动降级（A）与环境事故（B / C）照常通知。
  *
  * 单次运行结果类错误（execution_timeout / clone_timeout / execution_failed 等）
  * 不在此落事件——它们由 failure_code / failure_stage / failure_kind 承载。
@@ -731,16 +735,18 @@ async function recordEnvAuditEvent(
     let severity: 'info' | 'warn' | 'error' | 'critical' = 'warn'
     let payload: Record<string, unknown> = {}
 
-    if (decision.status === 'degraded' && (degradedReason?.code === 'sandbox_unavailable' || degradedReason?.code === 'sandbox_fix_requires_egress_policy')) {
-        // sandbox 启动时不可用 / fix 模式策略降级，已自动降级 ContainerExecutor（业务完整）
+    if (decision.status === 'degraded' && degradedReason?.code === 'sandbox_unavailable') {
+        // sandbox 启动时不可用，已自动降级 ContainerExecutor（业务完整，环境信号保留通知）
         eventType = 'sandbox_degraded'
         severity = 'warn'
-        payload = {
-            degradedReason,
-            fallback: 'container',
-            // fix 模式在代理接入前是策略限制（预期状态）不通知；启动不可用属环境信号，保留通知
-            notificationSuppressed: degradedReason?.code === 'sandbox_fix_requires_egress_policy',
-        }
+        payload = { degradedReason, fallback: 'container', notificationSuppressed: false }
+    } else if (decision.status === 'failed'
+        && (error?.code === 'sandbox_fix_requires_egress_policy' || error?.code === 'sandbox_clone_host_not_allowed')) {
+        // fix 类出站策略偏离（审计关闭 / 白名单被清空 / clone 基地址未命中白名单）：执行器执行前拒绝——
+        // 属配置偏离而非运行事故，用专用事件类型（不与「降级」语义混淆）
+        eventType = 'sandbox_egress_blocked'
+        severity = 'warn'
+        payload = { code: error.code, message: error.message, fallback: 'none', notificationSuppressed: true }
     } else if (decision.status === 'failed' && error?.code === 'container_unavailable') {
         // C 场景：container 执行器环境不可用（工作根不可写 / 磁盘满 / 只读 FS）——默认部署下的环境健康信号
         eventType = 'container_unavailable'
@@ -778,10 +784,8 @@ async function recordEnvAuditEvent(
         }))
 
         // 触发通知（fire-and-forget，不 await，避免阻塞扫描主流程）
-        // sandbox_fix_requires_egress_policy 是代理接入前的策略限制（预期配置状态）：只落库、不通知，
-        // 避免沙箱仓库每次 fix 扫描都占用共享通知配额、稀释 container_unavailable 等真实环境事故信号。
-        // 注意仅对 sandbox_degraded 事件生效；降级目标 container 不可用时仍按 container_unavailable 通知。
-        if (eventType === 'sandbox_degraded' && degradedReason?.code === 'sandbox_fix_requires_egress_policy') {
+        // 出站策略缺失（预期配置状态）只落库、不通知；启动不可用与环境事故仍照常通知。
+        if (payload.notificationSuppressed === true) {
             return
         }
         const notificationEvent: NotificationEvent = {

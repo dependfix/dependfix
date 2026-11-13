@@ -17,6 +17,7 @@ import {
     type RunSummary,
     type AlertFixOutcome,
     type DeliverySkipRecord,
+    type RunDelivery,
 } from '@dependfix/core'
 import { stageAndCommit } from '../github/pr-creator'
 import { collectDeclaredPaths } from '../github/commit-scope'
@@ -131,6 +132,11 @@ export interface AppContext {
     customCommands?: string[]
     /** 仓库级验证命令超时（毫秒；缺省走 env / 内置默认） */
     verifyCommandTimeoutMs?: number
+    /**
+     * 交付结果（仅 fix / fix-and-pr 模式由引擎写入；report-only 缺省）。
+     * 进程内完成 push / PR 时由引擎维护，平台据此映射 runUrl / PR 与失败清理。
+     */
+    delivery?: RunDelivery
     runId: string
     allAlerts: NormalizedSecurityAlert[]
     allActions: FixAction[]

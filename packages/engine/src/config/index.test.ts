@@ -21,6 +21,7 @@ describe('resolveRuntimeConfig', () => {
             dryRun: true,
             createPullRequest: false,
             commit: false,
+            push: false,
             cleanupBranches: false,
             cleanupBranchesAuto: false,
             githubToken: 'token-from-env',
@@ -184,6 +185,27 @@ describe('resolveRuntimeConfig', () => {
         expect(config.commit).toBe(false)
     })
 
+
+})
+
+describe('resolveRuntimeConfig — commit / push 交付开关', () => {
+    it('rejects push without commit', () => {
+        expect(() => resolveRuntimeConfig({
+            env: { GITHUB_TOKEN: 't', DEPENDFIX_REPOSITORIES: 'owner/repo-a', DEPENDFIX_MODE: 'fix', DEPENDFIX_PUSH: 'true' },
+        })).toThrow(/push requires commit/)
+    })
+
+    it('reads push from env and lets cli override it', () => {
+        const fromEnv = resolveRuntimeConfig({
+            env: { GITHUB_TOKEN: 't', DEPENDFIX_REPOSITORIES: 'owner/repo-a', DEPENDFIX_MODE: 'fix', DEPENDFIX_COMMIT: 'true', DEPENDFIX_PUSH: 'true' },
+        })
+        expect(fromEnv.push).toBe(true)
+        const fromCli = resolveRuntimeConfig({
+            env: { GITHUB_TOKEN: 't', DEPENDFIX_REPOSITORIES: 'owner/repo-a', DEPENDFIX_MODE: 'fix', DEPENDFIX_COMMIT: 'true', DEPENDFIX_PUSH: 'true' },
+            cliOverrides: { push: false },
+        })
+        expect(fromCli.push).toBe(false)
+    })
 
     it('rejects commit while dry-run is enabled', () => {
         expect(() => resolveRuntimeConfig({

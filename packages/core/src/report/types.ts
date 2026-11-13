@@ -164,6 +164,10 @@ export interface RunSummary {
     deliverySkipIssues: number
     /** 交付降级载体创建的草稿 PR 数（`draft` 档；同时计入 `prsOpened`） */
     deliverySkipDraftPrs: number
+    /** 本次运行拦截的非白名单外联数（缺失按 0；> 0 时运行详情 / 导出必须披露，不得写成「验证通过」）。 */
+    networkViolations?: number
+    /** 本次运行记录的外联审计条数（含白名单命中；用于「allowlist 命中摘要」）。 */
+    networkAudited?: number
 }
 
 /**
@@ -401,6 +405,31 @@ export interface RunResult {
      * [pr-delivery-closure.md §16](../../../../docs/design/governance/pr-delivery-closure.md)。
      */
     deliverySkips?: DeliverySkipRecord[]
+    /**
+     * 执行期外联审计记录（安装链 / 验证链 / 交付命令共用的运行级审计）。
+     *
+     * 仅记录方法与目标（host / URL），不含请求 / 响应体；`violation` 标记 deny-by-default
+     * 拦截的非白名单外联。形状与引擎 `runners/network-audit` 同源，平台据此在运行详情与导出披露。
+     */
+    networkAudit?: NetworkAuditEntry[]
+    /** 非白名单外联（`networkAudit` 的子集；非空即不得把该仓库写成「成功」） */
+    networkViolations?: NetworkAuditEntry[]
+}
+
+/** 外联审计来源：本地拦截代理 / 命令输出 URL 提取。 */
+export type NetworkAuditSource = 'proxy' | 'command-output'
+
+/** 单条外联审计记录（与引擎 `NetworkAuditEntry` 同形）。 */
+export interface NetworkAuditEntry {
+    /** 记录时间（ISO） */
+    time: string
+    source: NetworkAuditSource
+    /** 请求方法（CONNECT / GET / POST / …） */
+    method: string
+    /** 外联目标（proxy：host:port；command-output：完整 URL） */
+    target: string
+    /** deny-by-default 拦截的违规外联 */
+    violation?: boolean
 }
 
 /**

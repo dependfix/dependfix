@@ -21,6 +21,7 @@ import { describeCiAlignment } from './ci-alignment'
 import { collectFamilySummaries } from './family'
 import { countUnfixedAlerts, formatSeverity, formatSkipReason, skippedBreakdown, truncatedBreakdown } from './summary-counters'
 import { summarizeSkippedByPackage } from './skipped-packages'
+import { redactNetworkTarget } from './network-audit-target'
 
 /**
  * 生成 Markdown 格式报告字符串。
@@ -133,6 +134,28 @@ export function generateMarkdownReport(result: RunResult): string {
                 `| ${escapeMd(row.repository)} | \`${escapeMd(row.packageName)}\` | ${row.count} `
                 + `| ${row.highestTarget ? `\`${escapeMd(row.highestTarget)}\`` : '—'} | ${reasons} |`,
             )
+        }
+        sections.push('')
+    }
+
+    // ---- 2.5.2 Network Violations（deny-by-default 拦截的非白名单外联）----
+    const networkViolations = result.networkViolations ?? []
+    if (networkViolations.length > 0) {
+        sections.push(
+            '## Network Violations',
+            '',
+            '> 非白名单外联已被本地审计代理拦截（502）；运行不得因此判定为「验证通过」。',
+            '',
+            '| Source | Method | Target |',
+            '|--------|--------|--------|',
+        )
+        for (const violation of networkViolations.slice(0, 50)) {
+            sections.push(
+                `| ${escapeMd(violation.source)} | ${escapeMd(violation.method)} | \`${escapeMd(redactNetworkTarget(violation.target))}\` |`,
+            )
+        }
+        if (networkViolations.length > 50) {
+            sections.push('', `> 其余 ${networkViolations.length - 50} 条见 JSON 报告。`)
         }
         sections.push('')
     }

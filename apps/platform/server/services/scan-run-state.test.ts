@@ -245,6 +245,12 @@ describe('resolveScanRunState — 外联违规', () => {
         expect(decision.errorJson).toEqual({ code: 'network_violation', message: 'blocked evil.example.com' })
     })
 
+    it('also fails in github-action mode (artifact report carries the same error)', () => {
+        const decision = resolveScanRunState('github-action', undefined, baseResult, undefined, undefined)
+        expect(decision.status).toBe('failed')
+        expect(decision.errorJson).toMatchObject({ code: 'network_violation' })
+    })
+
     it('keeps completed when there is no network violation', () => {
         const decision = resolveScanRunState('container', undefined, { errors: [] } as never, undefined, 1)
         expect(decision.status).toBe('completed')

@@ -4,7 +4,7 @@
 // 后续仓库争抢资源。本文件锁定：超时会先请求运行级取消，再以专属错误收尾；
 // 取消回调抛错不得掩盖超时判定；宽限期等待有界且不抛错。
 import { describe, expect, it, vi } from 'vitest'
-import { ABORT_GRACE_MS, ExecutionTimeoutError, settleWithin, withTimeout } from './engine-run'
+import { ABORT_GRACE_MS, describeUnsettledRun, ExecutionTimeoutError, settleWithin, withTimeout } from './engine-run'
 
 /** 永不落定的 promise（模拟悬挂的引擎运行）。 */
 function pending(): Promise<never> {
@@ -77,5 +77,29 @@ describe('settleWithin', () => {
     it('defaults to a bounded grace period', () => {
         // 宽限期是运维面常量：取值依据（取消已同步终止子进程树，剩余只是收尾落盘）见模块头注释
         expect(ABORT_GRACE_MS).toBe(10_000)
+    })
+})
+
+describe('describeUnsettledRun', () => {
+    it('reports grace, surviving children, last command and abort reason', () => {
+        const text = describeUnsettledRun({
+            graceMs: 10_000,
+            childProcessCount: 2,
+            lastCommand: 'pnpm install --frozen-lockfile',
+            abortReason: 'execution timeout (30 分钟上限)',
+        })
+
+        expect(text).toContain('未在 10000ms 宽限期内落定')
+        expect(text).toContain('取消时刻在管受管子进程 2 个')
+        expect(text).toContain('最后命令：pnpm install --frozen-lockfile')
+        expect(text).toContain('取消原因：execution timeout (30 分钟上限)')
+    })
+
+    it('keeps placeholders when no command / reason was recorded', () => {
+        const text = describeUnsettledRun({ graceMs: ABORT_GRACE_MS, childProcessCount: 0 })
+
+        expect(text).toContain('取消时刻在管受管子进程 0 个')
+        expect(text).toContain('最后命令：（无受管命令记录）')
+        expect(text).toContain('取消原因：（未记录）')
     })
 })

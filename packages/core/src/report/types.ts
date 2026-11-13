@@ -268,6 +268,13 @@ export interface FixAction {
     durationMs?: number
     diff?: string
     /**
+     * 仅 `type === 'lockfile-repair'` 时有意义：本次修复是否**实际改写**了锁文件。
+     *
+     * 与 `noOp` 互斥组合表达三种收尾结论：`success + changed`（修复生效）、
+     * `success + noOp`（复检通过 / 已合规）、`!success`（前置失败或策略失败）。
+     */
+    changed?: boolean
+    /**
      * 标记"无需修改"（code-scanning 修复时文件已合规）。
      * 不计入 fixed/failed 统计（summary 与 repoResults 口径一致）。
      */

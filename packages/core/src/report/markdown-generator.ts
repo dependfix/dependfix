@@ -4,9 +4,11 @@ import {
     type FixAction,
     type RepeatedAttemptStatus,
     type DeliverySkipCarrier,
+    type SkipReason,
     aggregateSeverity,
     groupByRepository,
     formatDuration,
+    SKIP_REASONS,
     actionTypeLabel,
     isAlertFixedByActions,
     statusIcon,
@@ -18,6 +20,7 @@ import { groupCheckAttributions } from './check-attribution'
 import { describeCiAlignment } from './ci-alignment'
 import { collectFamilySummaries } from './family'
 import { countUnfixedAlerts, formatSeverity, formatSkipReason, skippedBreakdown, truncatedBreakdown } from './summary-counters'
+import { summarizeSkippedByPackage } from './skipped-packages'
 
 /**
  * 生成 Markdown 格式报告字符串。
@@ -102,6 +105,34 @@ export function generateMarkdownReport(result: RunResult): string {
         }
         if (failedResidual > 0) {
             sections.push(`| Failed / other not fixed | ${failedResidual} |`)
+        }
+        sections.push('')
+    }
+
+    // ---- 2.5.1 Skipped by Package（同一包多条告警收敛为一行；有汇总时渲染）----
+    // 运行级结论的「无写入」只说明未验证，不解释告警被拦的构成；
+    // 此处按包给出条数与原因，避免 12 条同包告警在报告里看起来像 12 个包。
+    const skippedPackages = summarizeSkippedByPackage(alerts, result.alertOutcomes)
+    if (skippedPackages.length > 0) {
+        sections.push(
+            '## Skipped by Package',
+            '',
+            '> 同一包的多条告警合并为一行；`Highest target` 为该包被告警要求升级到的最高版本。',
+            '',
+            '| Repository | Package | Alerts | Highest target | Reasons |',
+            '|------------|---------|--------|----------------|---------|',
+        )
+        for (const row of skippedPackages) {
+            // 未知原因原样输出（不渲染 undefined）
+            const reasons = row.reasons.length > 0
+                ? row.reasons.map((reason) => (SKIP_REASONS as readonly string[]).includes(reason)
+                    ? formatSkipReason(reason as SkipReason)
+                    : reason).join(', ')
+                : '—'
+            sections.push(
+                `| ${escapeMd(row.repository)} | \`${escapeMd(row.packageName)}\` | ${row.count} `
+                + `| ${row.highestTarget ? `\`${escapeMd(row.highestTarget)}\`` : '—'} | ${reasons} |`,
+            )
         }
         sections.push('')
     }

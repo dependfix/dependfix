@@ -20,6 +20,7 @@ import {
     verificationSkipSummary,
     networkViolations,
     networkViolationSummary,
+    runDelivery,
     verificationsSkipped,
 } from '~/utils/run-view'
 import { scanSeverityLabel } from '~/utils/scan-options'
@@ -146,6 +147,16 @@ const canRetry = computed(() => detail.value?.failureKind === 'transient')
  */
 const verificationSkipSummaryText = computed(() => verificationSkipSummary(detail.value?.summary ?? null, t))
 const networkViolationText = computed(() => networkViolationSummary(detail.value?.summary ?? null, t))
+/** 自包含交付记录（branch + commit）；无记录时不渲染该项 */
+const deliveryInfo = computed(() => runDelivery(detail.value?.summary ?? null))
+const deliveryText = computed(() => {
+    const info = deliveryInfo.value
+    if (!info?.branch) {
+        return ''
+    }
+    const commit = info.commitSha ? ` @ ${info.commitSha.slice(0, 7)}` : ''
+    return `${t('runs.deliveryBranch', { branch: info.branch })}${commit}`
+})
 
 /** 失败横幅文案：已知错误码走本地化，其余保持引擎原文（附 code 便于排查）。 */
 const localizedRunError = (error: { code?: string | null, message?: string }): string =>
@@ -369,6 +380,10 @@ watch(() => props.runId, (runId) => {
                     <strong :title="networkViolationText || t('runs.networkViolationsHint')">
                         {{ t('runs.networkViolations', {count: networkViolations(detail.summary)}) }}
                     </strong>
+                </div>
+                <div v-if="deliveryInfo?.status === 'pushed' && deliveryInfo.branch && (detail.status === 'completed' || detail.status === 'degraded')" class="run-detail__meta-item">
+                    <span class="run-detail__meta-label">{{ t('runs.deliveryLabel') }}</span>
+                    <strong>{{ deliveryText }}</strong>
                 </div>
                 <div v-if="!isRunResultMissing(detail) && environmentalFailureCount(detail) > 0" class="run-detail__meta-item">
                     <span class="run-detail__meta-label">{{ t('runs.environmentalFailuresLabel') }}</span>

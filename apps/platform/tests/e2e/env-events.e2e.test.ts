@@ -38,9 +38,10 @@ test.describe('C-ENV env-events UI', () => {
         await waitForHydration(page)
         await page.locator('#type').click()
         const items = page.locator('.caomei-select__item')
-        await expect(items).toHaveCount(12) // 全部类型 + 11 类（与 AUDIT_EVENT_TYPES 对齐）
+        await expect(items).toHaveCount(13) // 全部类型 + 12 类（与 AUDIT_EVENT_TYPES 对齐）
         const optionsText = (await items.allInnerTexts()).join('\n')
         expect(optionsText).toContain('出站策略拦截')
+        expect(optionsText).toContain('交付分支清理')
         expect(optionsText).toContain('容器执行器不可用')
         expect(optionsText).toContain('AI 配置更新')
         expect(optionsText).toContain('验证命令更新')

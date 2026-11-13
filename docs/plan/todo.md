@@ -29,6 +29,8 @@
 
 ### M59.1 沙箱 fix 自包含执行与出站策略（P1 🛡️）
 
+> **状态**：🚧 进行中（2026-11-13 起）。已交付：运行级外联审计（安装链 / 验证链 / 交付命令共用代理与记录；`RunResult.networkAudit` / `networkViolations` / `summary.networkViolations|networkAudited`；报告 `Network Violations` 段、运行详情与导出披露；违规使出口码非 0）；沙箱 fix / fix-and-pr 放行（出站策略第二道闸、容器内 clone→CLI、allowlist env 注入；`sandbox_fix_requires_egress_policy` 仅剩策略缺失分支）；编排层不再对 fix 降级。**待办（本原子内）**：gated sandbox e2e 真实取证（`SANDBOX_E2E=true` + Docker + 可达夹具仓库）、allowlist 命中摘要的 UI 进一步细化、M59.2 交付契约。
+
 - **目标**：sandbox 容器内可完成 clone → 安装 → 修复 → 验证的 fix 执行链；尊重代理 env 的工具在连接级走 deny-by-default 白名单（非白名单 502 拒绝），undici 直连由命令输出 URL 提取归类违规，违规在执行结果与平台可见；执行面仍不挂载宿主目录。
 - **范围**：
   - `apps/platform/server/services/executor/sandbox-executor.ts`：`buildSpec` 注入代理/白名单与最小 token；`buildCmd` 增加容器内 bootstrap（`git clone` 到 `/tmp/repo` 后 `cd` 执行 CLI fix）；`SANDBOX_ALLOWED_MODE` 第二道闸**收紧为策略判定并保留拒绝分支**（未注入代理 / allowlist 为空时 fix 仍返回 `sandbox_fix_requires_egress_policy` 且不 clone）。

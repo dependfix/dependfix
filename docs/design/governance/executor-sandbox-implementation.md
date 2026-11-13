@@ -149,6 +149,8 @@ CLI 启动时（`@dependfix/cli` entrypoint）探测 SandboxRuntimeAdapter 可�
 
 > **2026-11-09 入口恢复（M57.1）**：report-only 路由 `SandboxExecutor`；fix / fix-and-pr 策略降级 `ContainerExecutor` + `degradedReason.code=sandbox_fix_requires_egress_policy`。以下 A/B 契约对 report-only 生效。
 >
+> **2026-11-13 M59.1：fix / fix-and-pr 在沙箱内执行**：出站策略就位时（`DEPENDFIX_NETWORK_AUDIT` 未关闭且白名单非空）沙箱在容器内完成 clone → 安装 → 修复 → 验证，不再降级 container；仅 daemon 启动不可用仍降级（A 场景，`sandbox_unavailable`）。第二道闸保留拒绝分支：审计关闭或白名单被显式清空时，fix 返回 `sandbox_fix_requires_egress_policy` 且**不 clone**。容器内 clone 目标由平台构造（必属 `github.com` 白名单域），审计面从 CLI 启动后覆盖安装 / 验证 / 修复命令（运行级审计代理，见 [run-conclusion-semantics.md](./run-conclusion-semantics.md) 与 `runners/egress-audit.ts`）；非白名单外联记为 `networkViolations`，运行出口码不得为 0。
+>
 > **状态**：🔶 M11 阶段登记（2026-08-20），T1005-C 实施中。**背景**：sandbox 路由在「启动时不可用」与「运行时不可用」两种场景下的语义边界——前者是**配置偏离**（业务完整），后者是**真实异常**（业务未完成）。统一归为 `failed` 会丢失降级路径的成功信息，统一归为 `degraded` 会掩盖运行时异常，故引入独立状态分流。
 
 #### 7.8.1 两种降级场景的语义边界

@@ -78,6 +78,7 @@ import { prepareDeliveryHygiene } from './git-exclude'
 import { runPrCheckWatch } from './pr-check-watch-run'
 import { handleBaselineRedDelivery, rollbackForSkippedDelivery } from './skipped-delivery'
 import { logPartialSourceFailureSummary } from './source-failure-summary'
+import { logSkippedByPackageSummary } from './result-assembly'
 import { pullRequestCreationHint } from './token-hints'
 import { handleDuplicatePRs } from './duplicate-prs'
 
@@ -325,6 +326,7 @@ export class DependfixApp {
         const supplyChainWarnings = collectSupplyChainWarnings(this.workDir, this.allActions)
 
         const runResult = buildRunResult(this.ctx, this.aiUsageRef.aggregate, supplyChainWarnings)
+        logSkippedByPackageSummary(this.logger, runResult)
         const exitCode = computeExitCode(this.ctx)
 
         // 生成并写入报告

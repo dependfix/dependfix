@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { createEmptyRunSummary } from '@dependfix/core'
-import { computeSummary } from './result-assembly'
+import { computeSummary, formatSkippedByPackageSummary } from './result-assembly'
 import type { AppContext } from './helpers'
 
 function makeCtx(overrides: Partial<Pick<AppContext, 'allActions' | 'allAlerts' | 'allErrors' | 'alertsDisabled' | 'repoResults' | 'deliverySkips'>> = {}): Pick<AppContext, 'allActions' | 'allAlerts' | 'allErrors' | 'alertsDisabled' | 'repoResults' | 'summary'> & Pick<AppContext, 'deliverySkips'> {
@@ -195,5 +195,53 @@ describe('computeSummary — delivery skip', () => {
         expect(ctx.summary.deliverySkipped).toBe(0)
         expect(ctx.summary.deliverySkipIssues).toBe(0)
         expect(ctx.summary.deliverySkipDraftPrs).toBe(0)
+    })
+})
+
+describe('formatSkippedByPackageSummary', () => {
+    const makeAlert = (upstreamId: string, packageName: string, recommendedVersion: string) => ({
+        repository: 'foo/bar',
+        source: 'dependabot' as const,
+        upstreamId,
+        packageName,
+        currentVersion: '1.0.0',
+        recommendedVersion,
+        severity: 'high' as const,
+        manifestPath: 'pnpm-lock.yaml',
+        fixable: true,
+    })
+
+    it('returns undefined when nothing was skipped or left unfixed', () => {
+        expect(formatSkippedByPackageSummary({ alerts: [], alertOutcomes: [] })).toBeUndefined()
+    })
+
+    it('falls back to the not-fixed count when no skipped outcome was recorded', () => {
+        const line = formatSkippedByPackageSummary({
+            alerts: [],
+            alertOutcomes: [],
+            summary: { ...createEmptyRunSummary(), alertsUnfixed: 4 },
+        })
+        expect(line).toBe('[summary] 4 alert(s) not fixed — no skipped outcome recorded')
+    })
+
+    it('summarizes blocked alerts per package with target and reasons', () => {
+        const alerts = [
+            ...Array.from({ length: 12 }, (_, index) => makeAlert(`dependabot:${index}`, 'nodemailer', `6.9.${index + 1}`)),
+            makeAlert('dependabot:99', 'vite', '7.0.0'),
+        ]
+        const outcomes = alerts.map((item) => ({
+            repository: item.repository,
+            source: item.source,
+            upstreamId: item.upstreamId,
+            manifestPath: item.manifestPath,
+            status: 'skipped' as const,
+            reason: item.packageName === 'vite' ? 'peer-only' : 'cross-major',
+        }))
+
+        const line = formatSkippedByPackageSummary({ alerts, alertOutcomes: outcomes } as never)
+
+        expect(line).toContain('[summary] 13 alert(s) blocked across 2 package group(s)')
+        expect(line).toContain('foo/bar:nodemailer→6.9.12 ×12 (cross-major)')
+        expect(line).toContain('foo/bar:vite→7.0.0 ×1 (peer-only)')
     })
 })

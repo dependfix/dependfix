@@ -145,7 +145,7 @@ const canRetry = computed(() => detail.value?.failureKind === 'transient')
  * 不进入错误态、不改变任何判定。口径见 docs/standards/platform.md §10.7。
  */
 const verificationSkipSummaryText = computed(() => verificationSkipSummary(detail.value?.summary ?? null, t))
-const networkViolationText = computed(() => networkViolationSummary(detail.value?.summary ?? null))
+const networkViolationText = computed(() => networkViolationSummary(detail.value?.summary ?? null, t))
 
 const buildInfo = computed(() =>
     formatBuildLabel(detail.value?.buildVersion, detail.value?.buildCommit, t('runs.buildUnknown')),

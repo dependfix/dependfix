@@ -69,6 +69,16 @@ const ENGINE_DELIVERY_FAILED_CATEGORIES: ReadonlySet<string> = new Set([
     'FATAL',
 ])
 
+/**
+ * 本次运行是否被 deny-by-default 拦截过非白名单外联（引擎 `NETWORK_VIOLATION` 审计错误）。
+ *
+ * 返回可读消息（含最小化目标，已脱敏）；无违规返回 null。
+ */
+function hasNetworkViolation(result: RunResult | undefined): string | null {
+    const violation = result?.errors?.find((error) => error.category === 'NETWORK_VIOLATION')
+    return violation?.message ?? null
+}
+
 function hasEngineDeliveryFailure(result: RunResult | undefined): FixError | null {
     if (!result) {
         return null
@@ -166,6 +176,15 @@ export const resolveScanRunState = (
                 code: 'engine_delivery_failed',
                 message: `引擎交付阶段失败（${engineDeliveryErr.category}）：${engineDeliveryErr.message}`,
             },
+        }
+    }
+    // 外联违规：deny-by-default 拦截了非白名单外联 → 不得判「已完成」（AC2「违规不写成成功」）。
+    // 放在 exitCode=2 兜底之前：exit=1（部分成功）+ 违规同样要落 failed。
+    const networkViolation = hasNetworkViolation(result)
+    if (networkViolation) {
+        return {
+            status: 'failed',
+            errorJson: { code: 'network_violation', message: networkViolation },
         }
     }
     // 进程级兜底：exitCode=2（catastrophic：所有仓库失败/回滚 + 仍产出 result）→ failed

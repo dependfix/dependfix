@@ -50,6 +50,7 @@ const EXPECTED_MAPPINGS: Record<string, { stage: RunFailureStage, kind: RunFailu
     BUDGET_EXHAUSTED: { stage: 'runtime', kind: 'transient' },
     SCRIPT_NOT_FOUND: { stage: 'verify', kind: 'deterministic' },
     network_violation: { stage: 'verify', kind: 'deterministic' },
+    NETWORK_VIOLATION: { stage: 'verify', kind: 'deterministic' },
     // deliver
     COMMIT_FAILED: { stage: 'deliver', kind: 'deterministic' },
     UNEXPECTED_CHANGES: { stage: 'deliver', kind: 'deterministic' },

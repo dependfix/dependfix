@@ -281,7 +281,7 @@ export class SandboxExecutor implements ScanExecutor {
                 `header=$(printf 'x-access-token:%s' "$GITHUB_TOKEN" | base64 | tr -d '\\n')`,
                 `git -c http.extraheader="Authorization: basic $header" clone --depth 1 `
                 + `${shQuote(`https://github.com/${repo}.git`)} ${CONTAINER_REPO_PATH} || exit 1`,
-                `cd ${CONTAINER_REPO_PATH}`,
+                `cd ${CONTAINER_REPO_PATH} || exit 1`,
             ]
         const script = [
             ...bootstrap,

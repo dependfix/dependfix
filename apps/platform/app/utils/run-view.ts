@@ -147,7 +147,10 @@ export const networkViolationTargets = (summary: Record<string, unknown> | null)
  * 外联审计提示文本（tooltip）：`已审计 N 条 · proxy GET evil.example.com · …`。
  * 无违规目标时只给审计条数（allowlist 命中摘要）；两者都没有时为空串。
  */
-export const networkViolationSummary = (summary: Record<string, unknown> | null): string => {
+export const networkViolationSummary = (
+    summary: Record<string, unknown> | null,
+    t?: Translator,
+): string => {
     const audited = networkAudited(summary)
     const targets = networkViolationTargets(summary)
         .map((entry) => `${entry.source} ${entry.method} ${entry.target}`)
@@ -155,7 +158,11 @@ export const networkViolationSummary = (summary: Record<string, unknown> | null)
     if (!audited && !targets) {
         return ''
     }
-    return [audited ? `audited ${audited}` : '', targets].filter(Boolean).join(' · ')
+    let auditedText = ''
+    if (audited) {
+        auditedText = t ? t('runs.networkAudited', { count: audited }) : `audited ${audited}`
+    }
+    return [auditedText, targets].filter(Boolean).join(' · ')
 }
 
 /** 跳过总数（`summary.alertsSkipped`）。 */

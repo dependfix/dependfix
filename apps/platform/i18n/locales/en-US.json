@@ -988,7 +988,8 @@
         },
         "networkViolationsLabel": "Blocked egress",
         "networkViolations": "{count} blocked",
-        "networkViolationsHint": "Non-allowlisted outbound requests were blocked by the local audit proxy (502); such a run must not be reported as verified"
+        "networkViolationsHint": "Non-allowlisted outbound requests were blocked by the local audit proxy (502); such a run must not be reported as verified",
+        "networkAudited": "audited {count}"
     },
     "scans": {
         "title": "Scans",

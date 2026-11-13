@@ -568,7 +568,7 @@ const runScanInternal = async (
                 const found = typeof result.summary.alertsFound === 'number' ? result.summary.alertsFound : 0
                 const converged = typeof result.summary.alertsConverged === 'number' ? result.summary.alertsConverged : 0
                 savedRun.summaryJson = JSON.stringify({
-                    ...result.summary,
+                    ...buildRunSummarySnapshot(result),
                     alertsFixed: 0,
                     alertsUnfixed: Math.max(0, found - converged),
                 })

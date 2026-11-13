@@ -135,9 +135,9 @@ describe('resolveScanRunState（状态机纯函数）', () => {
         })
 
         it('failed for each engine delivery category in whitelist', () => {
-            // 覆盖白名单全部 7 个 category（COMMIT_FAILED / UNEXPECTED_CHANGES / NO_CHANGES /
-            // PR_CREATION_FAILED / VERIFICATION_FAILED / ROLLBACK_FAILED / FATAL）
-            for (const category of ['COMMIT_FAILED', 'UNEXPECTED_CHANGES', 'NO_CHANGES', 'PR_CREATION_FAILED', 'VERIFICATION_FAILED', 'ROLLBACK_FAILED', 'FATAL'] as const) {
+            // 覆盖白名单全部 8 个 category（COMMIT_FAILED / PUSH_FAILED / UNEXPECTED_CHANGES /
+            // NO_CHANGES / PR_CREATION_FAILED / VERIFICATION_FAILED / ROLLBACK_FAILED / FATAL）
+            for (const category of ['COMMIT_FAILED', 'PUSH_FAILED', 'UNEXPECTED_CHANGES', 'NO_CHANGES', 'PR_CREATION_FAILED', 'VERIFICATION_FAILED', 'ROLLBACK_FAILED', 'FATAL'] as const) {
                 const result = resultWithErrors({ category, message: 'x' })
                 expect(resolveScanRunState('container', undefined, result).status).toBe('failed')
             }

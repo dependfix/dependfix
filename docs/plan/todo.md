@@ -23,7 +23,7 @@
 > **来源**：用户 2026-11-12 四期决策第二期「沙箱 fix 与执行可靠性」（同日决策：交付模型取 **A 沙箱内完全自包含**、四项可靠性全部纳入，见下方决策记录）；backlog 上收 4 条候选（沙箱 fix 出站白名单代理 / 取消后落定与清理竞态 / force-fail 与续用整行写回 / 执行资源采集扩展）+ 聚合 1 条 M57.1 / M58.4 残余（镜像内 sandbox 入口双架构冒烟与安全姿态）。
 > **用户决策（2026-11-12）**：① 交付模型 = 容器内 clone + fix + commit + push + PR，平台只接收结果；② 执行可靠性四项全部纳入本阶段。
 > **容量基线（逐原子交付物求和，执行角色预估口径）**：19-25 commits / 55-75 files / 2500-3800 行。**类型平衡**：主类型 🛡️3（M59.1 / M59.2 / M59.3）+ 🛠️1（M59.4）+ 🚀1（M59.5，兼 📚 次标签）；🧪 内嵌各原子（M59.1 新增测试文件 3-4 / M59.3 新增用例 ≥6）；🎨 缺口显式标注——源于用户 2026-11-12「四项全部纳入」决策（非 AI 裁剪），UX 面由第三期「平台减法与页面治理」承接。
-> **执行顺序**：M59.1 → M59.2 → M59.3 → M59.4 → M59.5（先放开沙箱执行面，再补自包含交付，随后收口运行状态与资源可观测，最后做镜像双架构取证与文档）。**2026-11-13 插队**：追加临时待办「运行结论语义与状态一致性」先于 M59.1 执行（用户决策；不分配阶段编号，容量评估见该条目正文，未触发再平衡）。
+> **执行顺序**：M59.1 → M59.2 → M59.3 → M59.4 → M59.5（先放开沙箱执行面，再补自包含交付，随后收口运行状态与资源可观测，最后做镜像双架构取证与文档）。**2026-11-13 插队**：追加临时待办「运行结论语义与状态一致性」先于 M59.1 执行（用户决策；不分配阶段编号，容量评估见该条目正文，未触发再平衡）。**同日第二批插队**：追加临时待办「未验证邮箱用户登录锁死与自助恢复」排在前一项之后、M59.1 之前（用户决策；不分配编号；累计插队 2 批 < 3，未触发再平衡）。
 > **D 阶段决策点**：D1 出站代理启动位置（默认容器内 CLI 进程内复用 network-audit，不引入 sidecar）；D2 交付失败时远端分支清理归属（默认平台依据结果 branch 名清理，容器内不重复清理）；D3 取消宽限期策略（默认保持 10s 上限 + 未落定则延迟清理并落 `_pending` 诊断，不做无限延长）；D4 action 执行器资源采集口径（默认显式标注「不适用」并保持字段存在，不采集宿主）。
 > **§3.4 阶段启动交叉核验（2026-11-12 实测）**：① 归档扫描 `sandbox fix|出站白名单|取消后落定|force-fail|资源采集|sandbox 冒烟` → 无同题闭环（M57.1 仅 report-only，其镜像内 `/app/sandbox` 构建期自检已覆盖双架构、M58.4 仅镜像 health、M10 T1002 仅验证链、M46.4 仅 container、M57.2 仅终态写回）；② `git log --oneline -- <相关路径>` + `git log --all --grep="sandbox fix|egress|force-fail|资源采集"` → 无同题实现批次；③ 代码 anchor：`sandbox-executor.ts:30` 仅 `report-only`、`:114-134` 第二道闸、`scan-orchestrator.service.ts:449` 降级判定、`engine-run.ts` 的 `ABORT_GRACE_MS=10_000`、`container-executor.ts:496/521/524` 宽限后仍清理、`force-fail.post.ts:84` 整行 save、`scan-orchestrator.service.ts:273-318` 续用起点整行 save、`resource-usage` 仅 container 接入；④ backlog 4 条候选前提与当前代码一致，残余聚合项见 M57.1 / M58.4 归档正文；⑤ backlog 上收 4 条（41 → 37），速查表与基线同步。
 
@@ -164,6 +164,32 @@
 - **交付物**：7-10 commits / 9-12 files / 700-1000 行。
 - **容量影响评估（§3.1.1）**：约 25-40% 阶段基线（分母 19-25 commits / 2500-3800 行）；累计插队 1 批（<3）；无既定外部窗口冲突 → 不触发再平衡；执行顺序置于 M59.1 之前。
 - **§3.4 交叉核验（2026-11-13）**：① 归档扫描 `无写入|no writes|no-write|Lockfile already compliant` → M56 已闭环 `verificationSkipped='no-write'`（仅验证跳过原因）与 M51 `deliverySkips`，均不含「逐告警处置汇总 / 前置失败与合规互斥」；② `git log --oneline -- packages/engine/src/app/repo-fix-finalize.ts packages/engine/src/fixers/pnpm/index.ts` → 最近为 `7a3df7f8`（0 写入跳过后验证），无本项实现；③ 代码 anchor：`repo-fix-finalize.ts:131-145`（no-write 仅看 `fixed===0 && !lockfileRepaired`）、`helpers.ts:543-566`（classify ok → "already compliant"）、`pnpm/index.ts:548-553`（ok → `changed:false`）、`repo-fix.ts:160-180`（install 基线失败只跳过升级链）、`upgrade-alert.ts:116-119`（peer-only 记 skipped）。
+
+### 追加临时待办（不占阶段条目编号）：未验证邮箱用户登录锁死与自助恢复（P1 🛠️）
+
+> **来源与授权**：2026-11-13 用户提交登录失败截图（DevTools 响应体 `{ message: "Email not verified", code: "EMAIL_NOT_VERIFIED" }`；截图未显示状态码，better-auth 1.7.18 源码映射为 403）后明确授权插队到当前阶段。按 [规划规范 §3.1](../standards/planning.md#_3-1-新需求默认走-评估-→-backlog-原则-hard-requirement)「追加临时待办」口径登记：追加在阶段末尾、不分配编号、不占既有条目位置。
+
+- **目标**：让「邮箱未验证」成为用户看得懂、能自救的状态，而不是被伪装成「邮箱或密码错误」、只能改库解封的死局。
+- **现象与根因（2026-11-13 实读）**：`apps/platform/nuxt.config.ts:90` `smtpEnabled: !!process.env.SMTP_HOST` → `apps/platform/server/utils/auth.ts:208` `requireEmailVerification: options.smtpEnabled`（`:251` `sendOnSignUp` 同源）→ better-auth 1.7.18 对 `email_verified = false` 的账号在 sign-in 抛 `APIError.from("FORBIDDEN", EMAIL_NOT_VERIFIED)`（`node_modules/better-auth/dist/api/routes/sign-in.mjs:350`，`better-call` 把 FORBIDDEN 映射为 403）。锁死成因：① 配置 SMTP 之前创建的存量账号；② 验证邮件发送失败被 fail-quiet 吞成日志（`auth.ts:253-270`）；③ 链接过期 / 一次性 token 已用；④（待验证假设）OAuth 账号 IdP 未返回邮箱时可能保持未验证，需实测 social 回调下 `requireEmailVerification` 是否同样生效（同错误码在 OAuth 回调路径也存在，`sign-in.mjs:206`）。无法自救的原因：`login.vue:66-68` 把任意 `signInError` 统一映射为 `invalidCredentials`；登录页无重发入口；`users.vue:265-269` 只渲染未验证标签，无重发 / 置位动作。
+- **范围（源文件 ≤6 + 测试 1-2，合计 5-8 文件）**：
+  - `apps/platform/app/pages/login.vue`：按 `signInError.code` 分支；`EMAIL_NOT_VERIFIED` 走独立文案 + 重发入口，其余错误保持现文案。
+  - 先评估复用 better-auth 内建 `emailVerification.sendOnSignIn`（sign-in 被拒时自动重发，`sign-in.mjs:339-349`）；若满足需求则前端只补文案与提示，自建重发入口仅在「需明确提示 / 管理端触发」时保留。
+  - `apps/platform/app/utils/auth-client.ts`（或同级 composable）：封装 `send-verification-email` 调用、频控与结果提示。
+  - `apps/platform/app/pages/users.vue` + `apps/platform/i18n/locales/{zh-CN,en-US}.json`：管理端对未验证用户提供重发；手动置位仅在安全侧决策通过后实施。
+  - `apps/platform/server/utils/auth.ts`（如需）：验证邮件发送失败从静默日志改为可观测（事件或注册响应 hint）。
+  - 测试：登录页分支用例（正 / 反向）+ 未验证账号登录 → 重发成功的定向 e2e。
+- **验收标准**：
+  1. 未验证账号登录：页面显示「邮箱未验证」类文案并提供重发，不显示「邮箱或密码错误」；密码错误仍显示原文案（正 / 反向用例各一）。
+  2. 重发调用成功后有明确提示；重发端点受 better-auth 内置特殊规则限制 **60s / 3 次**（`rate-limiter/index.mjs:314-320`；`/sign-in*` 为 10s / 3 次，平台全局 60s / 60 次仅作兜底，`auth.ts:69-80`）时提示可读，不暴露内部错误码；E2E 因 `disableIpTracking` 不限流，429 路径需单测或生产口径验证。
+  3. 管理端可对未验证用户重发并留痕；是否允许手动置位由安全侧决策，未决策前不实现绕过路径。
+  4. `SMTP_HOST` 未配置时行为零变化：无重发入口、无新增阻断、注册后直接可用。
+  5. `pnpm run lint:check` / `pnpm typecheck` / 定向 vitest / 相关 e2e 通过。
+- **不做**：不放宽 `requireEmailVerification` 与 SMTP 开关的绑定语义；不改本项之外的认证流程；不做存量账号批量置 verified 的自动迁移（口径待评估，若需要单列）；不新增后端重发端点（复用 better-auth 既有端点）；重发入口只在「已确认凭证正确但邮箱未验证」的响应后出现，避免新增邮箱枚举面。
+- **依赖**：better-auth 1.7.18 的 `emailVerification.sendOnSignIn` 与 `/send-verification-email` 端点（含内置特殊限流规则，`rate-limiter/index.mjs:306-320`）；平台全局 `rateLimit`（`auth.ts:69-80`）；执行顺序前置为「运行结论语义」临时待办之后、M59.1 之前。backlog 无同题候选（2026-11-13 检索），无关联未闭环条目。
+- **风险与缓解**：邮件发送与限流交互 → 复用 better-auth 端点并做可读提示；i18n 双语文案 → 同批更新 `zh-CN` / `en-US`；管理端置位属安全决策 → 需用户确认后才实现；重发暴露「该邮箱已注册」的信息面 → 仅在 `EMAIL_NOT_VERIFIED` 响应后提供，文案统一为「若账号存在且未验证，验证邮件已发送」。
+- **交付物**：3-4 commits / 5-8 files（`login.vue`、`auth-client.ts`、`users.vue`、i18n ×2、`auth.ts`（如需）、测试 1-2）/ 250-400 行；文档：无新增设计稿，实施时同步 [platform-auth-users.md](../design/governance/platform-auth-users.md) 的认证行为口径（若改动 `sendOnSignIn` 取舍）。
+- **容量影响评估（§3.1.1）**：约 10-15% 阶段基线（分母 19-25 commits / 2500-3800 行）；累计插队 2 批（<3，未命中阈值 1）；阈值 2 按单批计（本批 10-15% < 50%，两批合计 35-55% 仅作参考）；剩余窗口可容纳 → 阈值 3 未命中，不触发再平衡；执行顺序置于「运行结论语义」之后、M59.1 之前。
+- **§3.4 交叉核验（2026-11-13）**：① 归档扫描 `邮箱验证|EMAIL_NOT_VERIFIED|emailVerified|验证邮件|requireEmailVerification` → 仅 `todo-archive-phases-m6-m7-t711.md:33` 记「SMTP 未配置自动跳过邮箱验证」，无本项实现；② `git log --oneline -- apps/platform/app/pages/login.vue apps/platform/app/pages/users.vue apps/platform/server/utils/auth.ts` → 最近为 `ca0f82e9` 登录页品牌化 / `d0e4a497` trustedOrigins / `c2644ccf` 注释清理，无本项；③ 代码 anchor：`login.vue:66-68` 仍统一映射 `invalidCredentials`；`apps/platform/app` 层 `send-verification-email|sendVerificationEmail` 零命中，服务端仅 `auth.ts` 配置 + `auth.test.ts` 用例 + mailer 注释；`users.vue:265-269` 仅渲染标签。
 
 ---
 

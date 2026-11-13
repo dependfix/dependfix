@@ -35,7 +35,7 @@ const childProcessMock = vi.hoisted(() => {
 
 vi.mock('node:child_process', () => childProcessMock)
 
-import { moveToPending, cleanupRemoteBranch } from './container-executor'
+import { disposeWorkDirAfterRun, moveToPending, cleanupRemoteBranch } from './container-executor'
 
 describe('moveToPending', () => {
     let tempRoot: string
@@ -99,12 +99,23 @@ describe('moveToPending', () => {
         expect(targetDir).toBe(join(pendingRoot, runId))
     })
 
+    it('records the custom reason (取消未落定的延迟清理)', async () => {
+        const workDir = join(tempRoot, runId)
+        await mkdir(workDir, { recursive: true })
+        const pendingRoot = join(tempRoot, '_pending')
+
+        const targetDir = await moveToPending(workDir, runId, pendingRoot, { reason: 'execution_timeout_unsettled' })
+
+        const meta = JSON.parse(await readFile(join(targetDir, '.meta.json'), 'utf-8')) as { reason: string }
+        expect(meta.reason).toBe('execution_timeout_unsettled')
+    })
+
     it('supports custom retentionMs (压测 1h 短期窗口)', async () => {
         const workDir = join(tempRoot, runId)
         await mkdir(workDir, { recursive: true })
 
         const pendingRoot = join(tempRoot, '_pending')
-        const targetDir = await moveToPending(workDir, runId, pendingRoot, 60 * 60 * 1000)
+        const targetDir = await moveToPending(workDir, runId, pendingRoot, { retentionMs: 60 * 60 * 1000 })
 
         const meta = JSON.parse(await readFile(join(targetDir, '.meta.json'), 'utf-8'))
         expect(meta.retentionMs).toBe(60 * 60 * 1000)
@@ -157,5 +168,50 @@ describe('cleanupRemoteBranch', () => {
         const [, args] = callArgs
         // hooks 隔离：`push --no-verify` 跳过被修复仓库 pre-push（与 commit 侧同一事实源）
         expect(args).toEqual(['-c', 'push.gpgSign=false', 'push', '--no-verify', 'origin', '--delete', 'dependfix/auto-fix-abc12345'])
+    })
+})
+
+describe('disposeWorkDirAfterRun', () => {
+    it('moves an unsettled workDir into _pending with the diagnosis instead of deleting it', async () => {
+        const move = vi.fn(async () => '/tmp/_pending/run-1')
+        const remove = vi.fn(async () => undefined)
+
+        const outcome = await disposeWorkDirAfterRun({
+            workDir: '/tmp/work/run-1',
+            runId: 'run-1',
+            pendingRoot: '/tmp/_pending',
+            unsettledDiagnosis: '未在 10000ms 宽限期内落定；取消时刻在管受管子进程 1 个',
+            move,
+            remove,
+        })
+
+        expect(outcome).toBe('moved')
+        expect(remove).not.toHaveBeenCalled()
+        expect(move).toHaveBeenCalledWith(
+            '/tmp/work/run-1',
+            'run-1',
+            '/tmp/_pending',
+            {
+                reason: 'execution_timeout_unsettled',
+                extraMeta: { diagnosis: '未在 10000ms 宽限期内落定；取消时刻在管受管子进程 1 个' },
+            },
+        )
+    })
+
+    it('deletes the workDir when the run settled', async () => {
+        const move = vi.fn(async () => '/tmp/_pending/run-2')
+        const remove = vi.fn(async () => undefined)
+
+        const outcome = await disposeWorkDirAfterRun({
+            workDir: '/tmp/work/run-2',
+            runId: 'run-2',
+            pendingRoot: '/tmp/_pending',
+            move,
+            remove,
+        })
+
+        expect(outcome).toBe('removed')
+        expect(move).not.toHaveBeenCalled()
+        expect(remove).toHaveBeenCalledWith('/tmp/work/run-2')
     })
 })

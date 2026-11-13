@@ -1,7 +1,7 @@
 import 'reflect-metadata'
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { setupMemoryDatabase, teardownMemoryDatabase, makeEvent } from '../../../../tests/api-helper'
-import forceFailHandler from './force-fail.post'
+import forceFailHandler, { forceFailScanRun } from './force-fail.post'
 import { BatchRun } from '#server/entities/batch-run'
 import { ScanRun } from '#server/entities/scan-run'
 import { Repository } from '#server/entities/repository'
@@ -215,5 +215,47 @@ describe('POST /api/batch-runs/[id]/force-fail', () => {
 
         expect(inspect).toHaveBeenCalledWith(run.repositoryId)
         expect(remove).toHaveBeenCalledWith(run.repositoryId, run.id)
+    })
+})
+
+describe('forceFailScanRun（run 级条件写）', () => {
+    const makeRepo = (affected: number) => {
+        const builder = {
+            update: vi.fn(),
+            set: vi.fn(),
+            where: vi.fn(),
+            andWhere: vi.fn(),
+            execute: vi.fn(async () => ({ affected })),
+        }
+        builder.update.mockReturnValue(builder)
+        builder.set.mockReturnValue(builder)
+        builder.where.mockReturnValue(builder)
+        builder.andWhere.mockReturnValue(builder)
+        return { repo: { createQueryBuilder: () => builder } as never, builder }
+    }
+
+    it('writes only pending / running rows', async () => {
+        const { repo, builder } = makeRepo(1)
+
+        const written = await forceFailScanRun(repo, 'run-1', new Date('2026-11-13T00:00:00.000Z'))
+
+        expect(written).toBe(true)
+        expect(builder.andWhere).toHaveBeenCalledWith(
+            'status IN (:...startable)',
+            { startable: ['running', 'pending'] },
+        )
+        expect(builder.set).toHaveBeenCalledWith(expect.objectContaining({
+            status: 'failed',
+            failureStage: 'runtime',
+            failureKind: 'deterministic',
+        }))
+    })
+
+    it('reports a skipped write when the run became terminal concurrently', async () => {
+        const { repo } = makeRepo(0)
+
+        const written = await forceFailScanRun(repo, 'run-2', new Date())
+
+        expect(written).toBe(false)
     })
 })

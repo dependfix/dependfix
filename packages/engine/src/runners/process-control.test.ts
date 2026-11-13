@@ -10,6 +10,8 @@ import { join } from 'node:path'
 import { describe, expect, it, beforeEach } from 'vitest'
 import {
     getAbortReason,
+    getAbortSnapshot,
+    getLastTrackedCommand,
     isAbortRequested,
     killAllTrackedChildProcesses,
     requestAbort,
@@ -63,6 +65,48 @@ describe('运行级取消状态', () => {
 
         expect(isAbortRequested()).toBe(false)
         expect(trackedChildProcessCount()).toBe(0)
+    })
+
+    it('记录最近一条受管命令并随复位清空（取消未落定的诊断面）', async () => {
+        expect(getLastTrackedCommand()).toBeUndefined()
+
+        await runTrackedCommand({ binary: process.execPath, args: ['-e', 'process.exit(0)'], cwd: tmpdir(), timeoutMs: 5_000 })
+        expect(getLastTrackedCommand()).toBe(`${process.execPath} -e process.exit(0)`)
+
+        resetProcessControlState()
+        expect(getLastTrackedCommand()).toBeUndefined()
+    })
+
+    it('受管命令超过 200 字符时截断记录', async () => {
+        const longArg = `process.exit(0)${' '.repeat(300)}`
+        await runTrackedCommand({ binary: process.execPath, args: ['-e', longArg], cwd: tmpdir(), timeoutMs: 5_000 })
+
+        const recorded = getLastTrackedCommand() ?? ''
+        expect(recorded.endsWith('…')).toBe(true)
+        expect(recorded.length).toBeLessThanOrEqual(201)
+    })
+
+    it('取消时刻快照记录在管子进程数（kill 清空登记表后仍可回答）', async () => {
+        const command = sleepCommand(2_000)
+        const run = runTrackedCommand({ ...command, cwd: tmpdir(), timeoutMs: 5_000 })
+        // 等子进程真正登记（spawn 是异步的）
+        for (let i = 0; i < 50 && trackedChildProcessCount() === 0; i++) {
+            await new Promise((resolve) => setTimeout(resolve, 10))
+        }
+        expect(trackedChildProcessCount()).toBe(1)
+
+        requestAbort('execution timeout')
+
+        // 登记表被立即清空，但快照保留取消当刻的现场
+        expect(trackedChildProcessCount()).toBe(0)
+        expect(getAbortSnapshot()).toMatchObject({ trackedCount: 1 })
+        expect(getAbortSnapshot()?.lastCommand).toContain('setTimeout')
+
+        // 重复取消（引擎自取消 + 平台超时）不覆盖首次现场：与 abortReason 同口径
+        requestAbort('execution timeout again')
+        expect(getAbortReason()).toBe('execution timeout')
+        expect(getAbortSnapshot()).toMatchObject({ trackedCount: 1 })
+        await run
     })
 
     it('trackChildProcess 忽略非法 PID，untrackChildProcess 幂等', () => {

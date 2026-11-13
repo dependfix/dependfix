@@ -91,3 +91,31 @@ export async function settleWithin(promise: Promise<unknown>, ms: number): Promi
         clearTimeout(timer)
     }
 }
+
+/** 取消后未落定的诊断快照（存活子进程 / 最后命令 / 取消原因）。 */
+export interface UnsettledRunSnapshot {
+    /** 已等待的宽限期（毫秒） */
+    graceMs: number
+    /** 取消时刻仍在管的受管子进程数（登记表在 kill 时清空，此后读数恒为 0） */
+    childProcessCount: number
+    /** 最近一条受管命令（`binary args…`） */
+    lastCommand?: string
+    /** 取消原因（平台注入，如 `execution timeout`） */
+    abortReason?: string
+}
+
+/**
+ * 取消宽限期结束仍未落定时的诊断文本（落执行日志，供 `_pending` 目录与运行详情归因）。
+ *
+ * 宽限期保持固定上限、不做无限延长；未落定则延迟清理（`_pending`）并留下证据，
+ * 让「为什么没落定」可判读，而不是只看到「超时」。
+ */
+export function describeUnsettledRun(snapshot: UnsettledRunSnapshot): string {
+    const parts = [
+        `未在 ${snapshot.graceMs}ms 宽限期内落定`,
+        `取消时刻在管受管子进程 ${snapshot.childProcessCount} 个`,
+        `最后命令：${snapshot.lastCommand ?? '（无受管命令记录）'}`,
+        `取消原因：${snapshot.abortReason ?? '（未记录）'}`,
+    ]
+    return parts.join('；')
+}

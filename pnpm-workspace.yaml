@@ -37,7 +37,12 @@ overrides:
   node-forge: ^1.4.2
   svgo: ^4.1.0
   "@vitest/mocker": ^4.1.12
-  hono: ^4.13.5
+  # 安全补丁（GHSA-4m76-xfj5-7975 / GHSA-h7mg-cq63-vhpq / GHSA-46wx-v44x-9hh2 /
+  # GHSA-4h7h-rv7c-7m2v / GHSA-jpvv-r467-5p4w 等）：advisory 声明补丁线
+  # hono >=4.13.16、@hono/node-server >=2.1.6；消费者为 @dependfix/mcp 的 MCP SDK 传递依赖，
+  # 跨 minor（4.14.x / 2.2.x）需按 development.md §5.1.56 重新评估后再改此处。
+  hono: ^4.13.16
+  "@hono/node-server": ^2.1.6
   vitest: ^4.1.12
   undici: ^8.12.2
   body-parser: ^2.4.0

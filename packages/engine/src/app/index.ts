@@ -79,6 +79,7 @@ import { runPrCheckWatch } from './pr-check-watch-run'
 import { handleBaselineRedDelivery, rollbackForSkippedDelivery } from './skipped-delivery'
 import { logPartialSourceFailureSummary } from './source-failure-summary'
 import { logSkippedByPackageSummary } from './result-assembly'
+import { attachRunEgressResult, beginRunEgressAudit, finishRunEgressAudit } from './run-egress'
 import { pullRequestCreationHint } from './token-hints'
 import { handleDuplicatePRs } from './duplicate-prs'
 
@@ -202,11 +203,10 @@ export class DependfixApp {
             minLevel: this.verbose ? 'debug' : 'info',
         })
 
-        // 目标仓库专属配置（`.github/dependfix.yml`）：workDir 即目标仓库检出（平台在 clone 之后才构造本 app），
-        // 读取后按「中央配置优先」合并（当前仅 overrideProtect）。需在 logger 之后（降级 / 生效告警走 logger），
-        // 且合并结果作为**唯一 config 来源**单次赋值（保持 readonly 不可变语义）；非法配置一律降级不中断运行。
+        // 目标仓库专属配置（`.github/dependfix.yml`）：按「中央配置优先」合并（当前仅 overrideProtect），
+        // 在 logger 之后读取、结果作为唯一 config 来源单次赋值；非法配置降级不中断。
         this.config = applyRepoConfig(options.config, this.workDir, this.logger)
-        // 构建版本回执：平台注入值（容器镜像构建期）优先，本地执行回退引擎包版本
+        // 构建版本回执：平台注入值优先，本地回退引擎包版本
         this.buildInfo = resolveRunBuildInfo(this.config)
 
         // GitHub App 认证提供者（用于 commit author 真实 bot 身份）
@@ -222,8 +222,7 @@ export class DependfixApp {
         // 均降级默认（向后兼容）。错误信息已由 loadRulesConfigFromEnv 写入 stderr，
         // 此处不重复（避免双写）。
         //
-        // 进程级状态生命周期：active config 是模块级单例，每次构造 DependfixApp 先 reset 再按需 set，
-        // 避免前一个 app 残留配置污染当前 run（同一进程多次 new DependfixApp 场景，如 cli 测试 / 多 batch 调度）。
+        // 进程级状态生命周期：active config 是模块级单例，每次构造先 reset 再按需 set（同进程多次构造场景）。
         resetActiveRulesConfig()
         const ruleConfig = loadRulesConfigFromEnv(process.env)
         if (ruleConfig) {
@@ -293,18 +292,18 @@ export class DependfixApp {
         setRunInstallTimeoutMs(this.installTimeoutMs)
         // 启动安全自检（best-effort，失败不阻断运行）
         await this.runStartupSecurityChecks()
-        // 记录运行前工作区状态（验证门禁回滚时保护用户已有未提交改动）。
-        // 显式前置 `isGitRepository`（纵深防御，不依赖 `hasGitChanges` 的内部守卫）：非仓库目录
-        // ⇒ 视为「无既有改动」；门禁在非仓库下另跳过回滚（无可回滚工作树），故两处语义自洽。
+        // 运行前工作区状态（验证门禁回滚时保护用户已有未提交改动；非仓库目录视为无既有改动）。
         this.preExistingDirty = isGitRepository(this.workDir) && hasGitChanges(this.workDir)
         // 提交卫生：安装产物不得进入交付提交。必须在安装 / 验证前落盘（只写 .git/info/exclude，幂等）
         prepareDeliveryHygiene(this.workDir, this.config, this.logger)
-        // 构建版本回执：先于业务日志输出，让「线上构建旧 / 代码路径未覆盖」可判读（口径见 app/build-info.ts）
+        // 构建版本回执：先于业务日志输出（口径见 app/build-info.ts）
         this.logger.info(formatEngineBuildLine(this.buildInfo))
         this.logger.info(`Starting dependfix run ${this.runId}`, {
             mode: this.config.mode,
             repositories: this.config.repositories,
         })
+
+        await beginRunEgressAudit(this.workDir)
 
         try {
             await this.executeMode()
@@ -320,12 +319,16 @@ export class DependfixApp {
         }
 
         this.finishedAt = new Date().toISOString()
+        const egress = await finishRunEgressAudit()
         computeSummary(this.ctx)
 
-        // 供应链信号收集（路径 A 投毒合入前确认依据）：本次升级包带脚本且被目标仓库批准
+        // 供应链信号（投毒合入前确认依据）：本次升级包带脚本且被目标仓库批准
         const supplyChainWarnings = collectSupplyChainWarnings(this.workDir, this.allActions)
 
         const runResult = buildRunResult(this.ctx, this.aiUsageRef.aggregate, supplyChainWarnings)
+        if (attachRunEgressResult(runResult, egress, this.allErrors)) {
+            this.logger.warn('[network-audit] non-allowlisted outbound targets were blocked in this run')
+        }
         logSkippedByPackageSummary(this.logger, runResult)
         const exitCode = computeExitCode(this.ctx)
 
@@ -357,10 +360,8 @@ export class DependfixApp {
                 `[ai] run 总计: ${u.calls} 次调用, ${u.inputTokens} in / ${u.outputTokens} out tokens${costText}`,
             )
         }
-        // 部分源拉取失败汇总（todo.md §M19.5 C8）：
-        // 仅当至少 1 个源成功 + 至少 1 个源失败时输出（避免与"全部源失败"语义重叠）。
-        // 注：此处 `verificationPassed === true` 是「该仓库产出了结果」的启发式（仅用于日志汇总门控），
-        // 不是失败判定——与 `computeExitCode` 的归因口径（`isRepoVerificationBlocked`）分工不同，刻意保留原始口径。
+        // 部分源拉取失败汇总：仅当至少 1 个源成功 + 1 个失败时输出；`verificationPassed === true` 在此
+        // 只是「该仓库产出了结果」的启发式（仅用于日志汇总门控），不是失败判定（归因口径见 `isRepoVerificationBlocked`）。
         const isAnyRepoSuccessful = this.repoResults.some((r) =>
             r.alertsCount > 0 || r.fixed > 0 || r.verificationPassed === true,
         )

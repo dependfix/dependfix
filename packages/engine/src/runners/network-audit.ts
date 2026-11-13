@@ -18,20 +18,9 @@ import { connect, type Socket } from 'node:net'
  * 无敏感信息：仅记录方法 + 目标（host/URL），不记录请求体与响应体。
  */
 
-export type NetworkAuditSource = 'proxy' | 'command-output'
-
-export interface NetworkAuditEntry {
-    /** 记录时间（ISO） */
-    time: string
-    /** 来源：proxy = 审计代理捕获；command-output = 命令输出 URL 提取 */
-    source: NetworkAuditSource
-    /** 请求方法（CONNECT / GET / POST / ...） */
-    method: string
-    /** 外联目标（proxy：host:port；command-output：完整 URL） */
-    target: string
-    /** deny-by-default 拦截的违规外联标记（白名单校验失败的外联为 true） */
-    violation?: boolean
-}
+// 形状与 `@dependfix/core` 的报告契约同源（RunResult.networkAudit 直接落同一类型）
+import type { NetworkAuditEntry, NetworkAuditSource } from '@dependfix/core'
+export type { NetworkAuditEntry, NetworkAuditSource }
 
 export interface NetworkAudit {
     /** 审计代理地址（未注入时为 undefined） */

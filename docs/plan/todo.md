@@ -31,7 +31,7 @@
 
 > **状态**：🚧 进行中（2026-11-13 起）。已交付：运行级外联审计（安装链 / 验证链 / 交付命令共用代理与记录；`RunResult.networkAudit` / `networkViolations` / `summary.networkViolations|networkAudited`；报告 `Network Violations` 段、运行详情与导出披露；违规使出口码非 0）；沙箱 fix / fix-and-pr 放行（出站策略第二道闸、容器内 clone→CLI、allowlist env 注入；`sandbox_fix_requires_egress_policy` 仅剩策略缺失分支）；编排层不再对 fix 降级。**待办（本原子内）**：gated sandbox e2e 真实取证（`SANDBOX_E2E=true` + Docker + 可达夹具仓库）、M59.2 交付契约；直连外联（undici 绕过代理 env）按 AC2 口径对齐转 backlog 候选。
 
-- **目标**：sandbox 容器内可完成 clone → 安装 → 修复 → 验证的 fix 执行链；尊重代理 env 的工具在连接级走 deny-by-default 白名单（非白名单 502 拒绝），undici 直连由命令输出 URL 提取归类违规，违规在执行结果与平台可见；执行面仍不挂载宿主目录。
+- **目标**：sandbox 容器内可完成 clone → 安装 → 修复 → 验证的 fix 执行链；尊重代理 env 的工具在连接级走 deny-by-default 白名单（非白名单 502 拒绝并判运行失败），命令输出中的 URL 只入审计记录（依据 [security.md §5.3.1](../standards/security.md)），undici 直连属已知边界（backlog 候选）；执行面仍不挂载宿主目录。
 - **范围**：
   - `apps/platform/server/services/executor/sandbox-executor.ts`：`buildSpec` 注入代理/白名单与最小 token；`buildCmd` 增加容器内 bootstrap（`git clone` 到 `/tmp/repo` 后 `cd` 执行 CLI fix）；`SANDBOX_ALLOWED_MODE` 第二道闸**收紧为策略判定并保留拒绝分支**（未注入代理 / allowlist 为空时 fix 仍返回 `sandbox_fix_requires_egress_policy` 且不 clone）。
   - `apps/platform/server/services/scan-orchestrator.service.ts:449`：fix / fix-and-pr 不再因 `sandbox_fix_requires_egress_policy` 降级；保留 sandbox 不可用降级，事件语义同步（`orchestrator:719-769`）。
@@ -41,12 +41,12 @@
   1. sandbox + `fix` 在夹具仓库完成容器内 clone + 安装 + 修复 + 验证，宿主无工作目录、无挂载（`docker inspect` 断言）。
   2. 尊重代理的客户端访问非白名单域名被连接级拦截（502），进入结果 `networkViolations` 并在执行详情与导出可见；违规不写成「成功」（平台状态机判 `failed` / `network_violation`）。**口径对齐（2026-11-13）**：命令输出里的 URL 只入审计记录、不构成违规（[security.md §5.3.1](../../docs/standards/security.md) 2026-08-25 误报实证后定稿）；undici 直连绕过代理 env 属**已知边界**，纳入 backlog 候选（评估 `NODE_USE_ENV_PROXY` 路线），不在本原子内强行落地。
   3. 白名单命中（registry / GitHub API / 镜像站）不误报；仓库级 registry 发现（`registry-discovery`）扩展域在沙箱内同样生效。
-  4. `report-only` 行为不回归；sandbox 不可用仍降级 container 并保留 `sandbox_unavailable` 事件。直连外联负例（绕过代理 env）**当前不落违规**（见 AC2 口径对齐），待 backlog 候选落地后回填。
+  4. `report-only` 行为不回归；sandbox 不可用仍降级 container 并保留 `sandbox_unavailable` 事件。（直连外联负例见「不做什么」。）
   5. `pnpm run lint:check` / `pnpm typecheck` / 定向 vitest / gated sandbox e2e 通过；`packages/*/src` 改动后先 `pnpm -r build`。
-- **不做什么**：不做 push / PR（归 M59.2）；不改 container 执行语义与镜像非 root 基线；不引入宿主挂载；不放宽 `report-only` 的告警源白名单。
+- **不做什么**：不做 push / PR（归 M59.2）；不改 container 执行语义与镜像非 root 基线；不引入宿主挂载；不放宽 `report-only` 的告警源白名单；**不把命令输出 URL 判为违规**（`security.md §5.3.1`），**不为 undici 直连落连接级拦截**（已知边界，backlog 候选评估 `NODE_USE_ENV_PROXY`）。
 - **依赖**：M57.1 自包含入口（`/app/sandbox/bin.mjs` + `--result-json`）；`network-audit` 验证链实现；M10 T1002 代理设计。
 - **交付物**：6-8 commits / 19-25 files（executor 3 / engine 4-6 / core 2-3 / platform 持久化·详情·导出与测试 7-9 / 文档 3-4）/ 1000-1400 行。
-- **风险与缓解**：代理 env 只覆盖尊重代理的工具（undici 直连）→ 以命令输出 URL 提取 + 违规判定冗余；token 暴露面 → 仅注入本次运行凭据、日志脱敏、结果不回传 token；容器内 clone 网络抖动 → 复用 clone 超时/重试口径并在结果归因。
+- **风险与缓解**：代理 env 只覆盖尊重代理的工具（undici 直连 → 已知边界，输出 URL 仅审计）；token 暴露面 → 仅注入本次运行凭据、日志脱敏、结果不回传 token；容器内 clone 网络抖动 → 复用 clone 超时/重试口径并在结果归因。
 
 ### M59.2 沙箱 fix 自包含交付与失败副作用（P1 🛡️）
 

@@ -147,6 +147,15 @@ export const resolveScanRunState = (
      */
     exitCode?: number,
 ): ScanRunStateDecision => {
+    // 外联违规对所有执行器一致：deny-by-default 拦截过非白名单外联的运行不得判「已完成」。
+    // （B 模式：artifact 回传的 JSON 报告同样携带 errors；错过此处会出现「分类认得、状态不认」）
+    const networkViolation = hasNetworkViolation(result)
+    if (networkViolation && !(error && !result)) {
+        return {
+            status: 'failed',
+            errorJson: { code: 'network_violation', message: networkViolation },
+        }
+    }
     if (executorKind === 'github-action') {
         const acceptedButPending = error?.code === 'result_fetch_failed' || error?.code === 'run_url_not_resolved'
         if (acceptedButPending) {
@@ -176,15 +185,6 @@ export const resolveScanRunState = (
                 code: 'engine_delivery_failed',
                 message: `引擎交付阶段失败（${engineDeliveryErr.category}）：${engineDeliveryErr.message}`,
             },
-        }
-    }
-    // 外联违规：deny-by-default 拦截了非白名单外联 → 不得判「已完成」（AC2「违规不写成成功」）。
-    // 放在 exitCode=2 兜底之前：exit=1（部分成功）+ 违规同样要落 failed。
-    const networkViolation = hasNetworkViolation(result)
-    if (networkViolation) {
-        return {
-            status: 'failed',
-            errorJson: { code: 'network_violation', message: networkViolation },
         }
     }
     // 进程级兜底：exitCode=2（catastrophic：所有仓库失败/回滚 + 仍产出 result）→ failed

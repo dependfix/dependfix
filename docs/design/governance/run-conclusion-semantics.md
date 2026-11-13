@@ -32,7 +32,7 @@
 - deny-by-default：白名单 = 默认清单 + `DEPENDFIX_ALLOWED_DOMAINS` + workDir 配置面 registry 发现；非白名单目标被 502 拒绝并记为违规。
 - 违规使运行**不得为成功**：引擎记 `NETWORK_VIOLATION` 审计错误 → 出口码非 0 → 平台状态机判 `failed`（`network_violation`），报告 `Network Violations` 段、运行详情与日志导出披露最小化目标。
 - 命令输出中的 URL 只入审计记录、不构成违规（口径见 [security.md §5.3.1](../../standards/security.md)）；undici 直连绕过代理 env 属已知边界（见 backlog）。
-- 仓库配置可扩展 registry 域（`.npmrc`）：这是 install 链的必需行为，同时也意味着「仓库能把自有域加入白名单」——按受控越权面登记，白名单来源随审计记录可见。
+- 仓库配置可扩展 registry 域（`.npmrc`）：这是 install 链的必需行为，同时也意味着「仓库能把自有域加入白名单」——按受控越权面登记；发现域只体现在审计记录的目标里（记录本身不含「白名单来源」字段）。
 
 ## 6. 已知边界
 

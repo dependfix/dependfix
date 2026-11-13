@@ -989,7 +989,8 @@
         "networkViolationsLabel": "外联违规",
         "networkViolations": "拦截 {count} 次",
         "networkViolationsHint": "非白名单外联已被本地审计代理拦截（502）；出现违规时该运行不得判定为验证通过",
-        "networkAudited": "已审计 {count} 条"
+        "networkAudited": "已审计 {count} 条",
+        "networkViolationFailure": "本次运行拦截到非白名单外联，已判定失败（详见外联违规与报告）"
     },
     "scans": {
         "title": "扫描",

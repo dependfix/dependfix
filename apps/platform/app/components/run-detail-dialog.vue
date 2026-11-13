@@ -147,6 +147,10 @@ const canRetry = computed(() => detail.value?.failureKind === 'transient')
 const verificationSkipSummaryText = computed(() => verificationSkipSummary(detail.value?.summary ?? null, t))
 const networkViolationText = computed(() => networkViolationSummary(detail.value?.summary ?? null, t))
 
+/** 失败横幅文案：已知错误码走本地化，其余保持引擎原文（附 code 便于排查）。 */
+const localizedRunError = (error: { code?: string | null, message?: string }): string =>
+    error.code === 'network_violation' ? t('runs.networkViolationFailure') : (error.message ?? '')
+
 const buildInfo = computed(() =>
     formatBuildLabel(detail.value?.buildVersion, detail.value?.buildCommit, t('runs.buildUnknown')),
 )
@@ -492,7 +496,7 @@ watch(() => props.runId, (runId) => {
             >
                 <strong>{{ t('runs.errorTitle', {code: detail.error?.code ?? 'UNKNOWN'}) }}</strong>
                 <p v-if="detail.error" class="run-detail__error-message">
-                    {{ detail.error.message }}
+                    {{ localizedRunError(detail.error) }}
                 </p>
                 <p v-else class="run-detail__error-message text-muted">
                     {{ t('runs.errorNoDetail') }}

@@ -709,9 +709,13 @@ async function runContainerExecutor(
  * 环境事件审计：执行器 / 执行环境异常时落 AuditEvent + fire-and-forget 通知。
  *
  * 触发场景（与「运行失败分类」边界见 audit-event.ts 类型注释）：
- * - A 场景（sandbox 启动降级 / fix 模式策略降级）→ sandbox_degraded / warn
+ * - A 场景（sandbox 启动降级）→ sandbox_degraded / warn
+ * - fix 类出站策略偏离（策略缺失 / clone 基地址未命中白名单，执行器执行前拒绝）→ sandbox_egress_blocked / warn
  * - B 场景（sandbox 运行时失败）→ sandbox_unavailable / error
  * - C 场景（container 执行器环境不可用）→ container_unavailable / error
+ *
+ * 通知策略：配置偏离类（`sandbox_egress_blocked`）只落库、不发通知（`notificationSuppressed`）；
+ * 启动降级（A）与环境事故（B / C）照常通知。
  *
  * 单次运行结果类错误（execution_timeout / clone_timeout / execution_failed 等）
  * 不在此落事件——它们由 failure_code / failure_stage / failure_kind 承载。
@@ -736,8 +740,9 @@ async function recordEnvAuditEvent(
         eventType = 'sandbox_degraded'
         severity = 'warn'
         payload = { degradedReason, fallback: 'container', notificationSuppressed: false }
-    } else if (decision.status === 'failed' && error?.code === 'sandbox_fix_requires_egress_policy') {
-        // fix 类出站策略缺失（审计关闭 / 白名单被清空）：执行器第二道闸拒绝——
+    } else if (decision.status === 'failed'
+        && (error?.code === 'sandbox_fix_requires_egress_policy' || error?.code === 'sandbox_clone_host_not_allowed')) {
+        // fix 类出站策略偏离（审计关闭 / 白名单被清空 / clone 基地址未命中白名单）：执行器执行前拒绝——
         // 属配置偏离而非运行事故，用专用事件类型（不与「降级」语义混淆）
         eventType = 'sandbox_egress_blocked'
         severity = 'warn'

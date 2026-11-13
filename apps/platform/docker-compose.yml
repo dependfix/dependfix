@@ -80,6 +80,10 @@ services:
       # 孤儿清理宽限（毫秒，空值回退 300000；不要设 0）。
       STALE_CLEANUP_RUNNING_GRACE_MS: ${STALE_CLEANUP_RUNNING_GRACE_MS:-}
       STALE_CLEANUP_PENDING_GRACE_MS: ${STALE_CLEANUP_PENDING_GRACE_MS:-}
+      # 沙箱（可选）：镜像 / clone 基地址 / 出站白名单（仅启用沙箱执行时需要）
+      SANDBOX_IMAGE: ${SANDBOX_IMAGE:-}
+      SANDBOX_CLONE_BASE_URL: ${SANDBOX_CLONE_BASE_URL:-}
+      DEPENDFIX_ALLOWED_DOMAINS: ${DEPENDFIX_ALLOWED_DOMAINS:-}
     depends_on:
       - redis
     volumes:

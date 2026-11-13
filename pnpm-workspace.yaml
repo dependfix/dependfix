@@ -53,6 +53,7 @@ overrides:
   "@intlify/shared": ^11.4.14
   "@intlify/message-compiler": ^11.4.14
   seroval: ~1.6.11
+  "@hono/node-server": ^2.1.6
 
 # 依赖审计豁免：advisory 声明的 patched 版本尚未发布，overrides / pnpm update 无法修复。
 # 机制与复核条件见 docs/standards/security.md §5.7；修复版本发布后必须移除对应条目。

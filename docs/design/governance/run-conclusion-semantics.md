@@ -26,7 +26,15 @@
 - 保留成功状态、`summaryJson`、`runUrl`、PR 号与失败分类清空；`degraded` 的 `errorJson` 仍保留降级原因（`sandbox_unavailable` 等），并继续记录 `sandbox_degraded` / `sandbox_unavailable` 环境事件。
 - 异常本身追加进 `logsJson`（`LogEntry[]` 末尾一条 error），运行记录可直接看到原因；终态条件写回守卫不变，清理侧已置终态时仍以库内状态为准且不重复通知。
 
-## 5. 已知边界
+## 5. 外联审计与运行结论
+
+- 每次 `DependfixApp.run()` 启动一个运行级审计代理（`runners/egress-audit.ts`）：受管命令（安装 / 验证 / 交付 git）默认注入代理 env；环境已有代理时仅收集命令输出 URL，不覆盖用户代理（`DEPENDFIX_NETWORK_AUDIT=false` 可关闭）。
+- deny-by-default：白名单 = 默认清单 + `DEPENDFIX_ALLOWED_DOMAINS` + workDir 配置面 registry 发现；非白名单目标被 502 拒绝并记为违规。
+- 违规使运行**不得为成功**：引擎记 `NETWORK_VIOLATION` 审计错误 → 出口码非 0 → 平台状态机判 `failed`（`network_violation`），报告 `Network Violations` 段、运行详情与日志导出披露最小化目标。
+- 命令输出中的 URL 只入审计记录、不构成违规（口径见 [security.md §5.3.1](../../standards/security.md)）；undici 直连绕过代理 env 属已知边界（见 backlog）。
+- 仓库配置可扩展 registry 域（`.npmrc`）：这是 install 链的必需行为，同时也意味着「仓库能把自有域加入白名单」——按受控越权面登记；发现域只体现在审计记录的目标里（记录本身不含「白名单来源」字段）。
+
+## 6. 已知边界
 
 - 平台守卫只在状态机已判定成功且已产出 result 时生效；decision 之前的异常仍落 `orchestration_failed`。
 - 逐告警 `fixStatus` 回写依赖 `reconcileAlerts`；收尾异常时可能未回写（`summaryJson` 仍是权威计数），需人工复核时以日志中的 `post-completion error` 行为线索。

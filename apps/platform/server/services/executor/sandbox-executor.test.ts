@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest'
-import { SandboxExecutor } from './sandbox-executor'
+import { describe, expect, it, vi } from 'vitest'
+import { SandboxExecutor, resolveEgressPolicy } from './sandbox-executor'
 import type { ScanExecutorContext } from './types'
 import {
     SpyRuntimeAdapter,
@@ -320,16 +320,98 @@ describe('SandboxExecutor', () => {
         })
     })
 
+    describe('fix 模式的出站策略与容器内 bootstrap', () => {
+        it('injects the allowlist env for fix mode', () => {
+            const executor = new SandboxExecutor({
+                runtimeAdapter: new SpyRuntimeAdapter(),
+                egress: { enabled: true, allowlist: ['github.com', 'registry.example.com'] },
+            })
+            const spec = executor.buildSpec(makeCtx({ config: { ...defaultRuntimeConfig, mode: 'fix' } }))
+            expect(spec.env?.DEPENDFIX_ALLOWED_DOMAINS).toContain('github.com')
+            expect(spec.env?.DEPENDFIX_ALLOWED_DOMAINS).toContain('registry.example.com')
+        })
+
+        it('does not inject the allowlist env for report-only', () => {
+            const executor = new SandboxExecutor({ runtimeAdapter: new SpyRuntimeAdapter() })
+            const spec = executor.buildSpec(makeCtx())
+            expect(spec.env?.DEPENDFIX_ALLOWED_DOMAINS).toBeUndefined()
+        })
+
+        it('clones into the container-private repo dir before running the CLI', () => {
+            const executor = new SandboxExecutor({
+                runtimeAdapter: new SpyRuntimeAdapter(),
+                entry: '/app/sandbox/bin.mjs',
+            })
+            const script = executor.buildCmd(makeCtx({ config: { ...defaultRuntimeConfig, mode: 'fix' } })).join(' ')
+
+            expect(script).toContain('clone --depth 1')
+            expect(script).toContain('https://github.com/owner-a/repo-b.git')
+            expect(script).toContain('/tmp/repo')
+            expect(script).toContain('cd /tmp/repo')
+            // 凭据不进 argv / 脚本明文：只从 env 读取后转成 basic header
+            expect(script).not.toContain('ghp_')
+            expect(script).toContain('$GITHUB_TOKEN')
+        })
+
+        it('does not clone in report-only mode', () => {
+            const executor = new SandboxExecutor({ runtimeAdapter: new SpyRuntimeAdapter() })
+            const script = executor.buildCmd(makeCtx()).join(' ')
+            expect(script).not.toContain('clone')
+        })
+
+        it('resolveEgressPolicy merges required domains and honors the audit switch', () => {
+            vi.stubEnv('DEPENDFIX_ALLOWED_DOMAINS', 'registry.example.com')
+            try {
+                const policy = resolveEgressPolicy()
+                expect(policy.allowlist).toEqual(expect.arrayContaining([
+                    'github.com', 'api.github.com', '*.npmjs.org', 'registry.example.com',
+                ]))
+            } finally {
+                vi.unstubAllEnvs()
+            }
+            expect(resolveEgressPolicy({ enabled: false }).enabled).toBe(false)
+            // 显式白名单（含空数组）以其为准：操作方清空 → 第二道闸拒绝 fix
+            expect(resolveEgressPolicy({ allowlist: [] }).allowlist).toEqual([])
+        })
+    })
+
     describe('execute() fail-closed 错误分类', () => {
-        it('returns sandbox_fix_requires_egress_policy for fix mode (no adapter call)', async () => {
+        it('returns sandbox_fix_requires_egress_policy when the egress policy is disabled (no adapter call)', async () => {
             const adapter = new SimulatedSandboxAdapter()
-            const executor = new SandboxExecutor({ runtimeAdapter: adapter })
+            const executor = new SandboxExecutor({
+                runtimeAdapter: adapter,
+                egress: { enabled: false, allowlist: ['github.com'] },
+            })
             const result = await executor.execute(makeCtx({
                 config: { ...defaultRuntimeConfig, mode: 'fix' },
             }))
             expect(result.exitCode).toBe(2)
             expect(result.error?.code).toBe('sandbox_fix_requires_egress_policy')
             expect(adapter.calls).toHaveLength(0)
+        })
+
+        it('returns sandbox_fix_requires_egress_policy when the allowlist is empty', async () => {
+            const adapter = new SimulatedSandboxAdapter()
+            const executor = new SandboxExecutor({
+                runtimeAdapter: adapter,
+                egress: { enabled: true, allowlist: [] },
+            })
+            const result = await executor.execute(makeCtx({
+                config: { ...defaultRuntimeConfig, mode: 'fix' },
+            }))
+            expect(result.error?.code).toBe('sandbox_fix_requires_egress_policy')
+            expect(adapter.calls).toHaveLength(0)
+        })
+
+        it('runs fix mode inside the sandbox when the egress policy is in place', async () => {
+            const adapter = new SimulatedSandboxAdapter({ available: true })
+            const executor = new SandboxExecutor({ runtimeAdapter: adapter })
+            const result = await executor.execute(makeCtx({
+                config: { ...defaultRuntimeConfig, mode: 'fix' },
+            }))
+            // 适配器返回空 stdout：结果缺失按 execution_failed 归类（关键断言是「已调用适配器」）
+            expect(adapter.calls).toHaveLength(1)
+            expect(result.error?.code).toBe('execution_failed')
         })
 
         it('returns sandbox_alert_source_unsupported for pnpm-audit (would execute repo code)', async () => {

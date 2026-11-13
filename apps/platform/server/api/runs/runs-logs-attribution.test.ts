@@ -68,6 +68,33 @@ describe('日志导出：失败归因', () => {
         expect(body).toContain('# 失败归因：错误码：execution_timeout | 失败阶段：execute | 失败类别：timeout | 峰值 RSS：64 MB')
     })
 
+    it('外联违规随导出可见（计数 + 最小化目标）', async () => {
+        const ds = await ensureDatabaseInitialized()
+        const repo = ds.getRepository(ScanRun)
+        await repo.save(repo.create({
+            repositoryId,
+            mode: 'fix',
+            severityThreshold: 'high',
+            executorKind: 'sandbox',
+            status: 'completed',
+            startedAt: new Date('2026-10-02T00:00:00Z'),
+            summaryJson: JSON.stringify({
+                repositoriesScanned: 1,
+                networkViolations: 2,
+                networkViolationTargets: [
+                    { source: 'proxy', method: 'CONNECT', target: 'evil.example.com' },
+                    { source: 'command-output', method: 'GET', target: 'cdn.example.com' },
+                ],
+            }),
+            logsJson: JSON.stringify([{ timestamp: '2026-10-02T00:00:00.000Z', level: 'info', message: 'fix done' }]),
+        }))
+
+        const body = await callExport(`?repositoryId=${repositoryId}`) as string
+
+        expect(body).toContain('外联违规：2')
+        expect(body).toContain('外联目标：evil.example.com, cdn.example.com')
+    })
+
     it('成功运行不输出失败归因行', async () => {
         const ds = await ensureDatabaseInitialized()
         const repo = ds.getRepository(ScanRun)

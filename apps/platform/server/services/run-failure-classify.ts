@@ -133,6 +133,10 @@ const FAILURE_CODE_MAP: Readonly<Record<string, FailureCodeMapping>> = {
     ROLLBACK_GRANULARITY_DEGRADED: { stage: 'verify', kind: 'deterministic' },
     SCRIPT_NOT_FOUND: { stage: 'verify', kind: 'deterministic' },
     network_violation: { stage: 'verify', kind: 'deterministic' },
+    // 运行级外联违规（引擎 `NETWORK_VIOLATION`，deny-by-default 拦截）：与验证链同类，确定性失败
+    NETWORK_VIOLATION: { stage: 'verify', kind: 'deterministic' },
+    // 沙箱出站策略缺失（审计关闭 / 白名单被清空）：执行器第二道闸拒绝，属确定性配置错误
+    sandbox_fix_requires_egress_policy: { stage: 'runtime', kind: 'deterministic' },
 
     // 运行预算不足：主动跳过未开始的工作（引擎侧属跳过类白名单，正常路径不可达；防御性映射）
     BUDGET_EXHAUSTED: { stage: 'runtime', kind: 'transient' },

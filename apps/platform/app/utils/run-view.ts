@@ -114,6 +114,57 @@ export const verificationSkipSummary = (
     .map((row) => `${verificationSkipReasonLabel(row.key, t)}: ${row.count}`)
     .join(' · ')
 
+/** 本次运行拦截的非白名单外联数（`summary.networkViolations`）。 */
+export const networkViolations = (summary: Record<string, unknown> | null) => summaryNumber(summary, 'networkViolations')
+
+/** 本次运行记录的外联审计条数（`summary.networkAudited`，含白名单命中）。 */
+export const networkAudited = (summary: Record<string, unknown> | null) => summaryNumber(summary, 'networkAudited')
+
+/** 落库的最小化外联目标（最多 20 条；旧 summaryJson 缺该字段时为空）。 */
+export const networkViolationTargets = (summary: Record<string, unknown> | null) => {
+    const value = summary?.networkViolationTargets
+    if (!Array.isArray(value)) {
+        return [] as { source: string, method: string, target: string }[]
+    }
+    return value.flatMap((item) => {
+        if (!item || typeof item !== 'object') {
+            return []
+        }
+        const record = item as Record<string, unknown>
+        const target = typeof record.target === 'string' ? record.target : ''
+        if (!target) {
+            return []
+        }
+        return [{
+            source: typeof record.source === 'string' ? record.source : 'proxy',
+            method: typeof record.method === 'string' ? record.method : 'GET',
+            target,
+        }]
+    })
+}
+
+/**
+ * 外联审计提示文本（tooltip）：`已审计 N 条 · proxy GET evil.example.com · …`。
+ * 无违规目标时只给审计条数（allowlist 命中摘要）；两者都没有时为空串。
+ */
+export const networkViolationSummary = (
+    summary: Record<string, unknown> | null,
+    t?: Translator,
+): string => {
+    const audited = networkAudited(summary)
+    const targets = networkViolationTargets(summary)
+        .map((entry) => `${entry.source} ${entry.method} ${entry.target}`)
+        .join(' · ')
+    if (!audited && !targets) {
+        return ''
+    }
+    let auditedText = ''
+    if (audited) {
+        auditedText = t ? t('runs.networkAudited', { count: audited }) : `audited ${audited}`
+    }
+    return [auditedText, targets].filter(Boolean).join(' · ')
+}
+
 /** 跳过总数（`summary.alertsSkipped`）。 */
 export const skippedTotal = (summary: Record<string, unknown> | null) => summaryNumber(summary, 'alertsSkipped')
 

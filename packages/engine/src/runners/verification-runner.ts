@@ -1,5 +1,6 @@
 import { spawn } from 'node:child_process'
 import { parseDurationMs } from '@dependfix/core'
+import { getActiveEgressAudit, getEgressProxyUrl } from './egress-audit'
 import {
     startNetworkAudit,
     extractUrlsFromOutput,
@@ -244,19 +245,22 @@ export async function runVerification(params: VerificationParams): Promise<Verif
     // 白名单 = 默认清单 + 环境变量扩展 + workDir 配置面动态发现的 registry host——
     // registry 指向镜像源 / 企业私服时，非白名单 registry 的 CONNECT 被拒会弄挂
     // `pnpm install` 并触发门禁全量回滚（安装链路的合法外联不应被误拦）。
-    let audit: NetworkAudit | undefined
-    if (!params.networkAuditDisabled) {
+    // 运行级审计（安装链 / 交付命令共用）：存在时直接复用同一代理与记录，不另起第二份
+    let audit: NetworkAudit | undefined = getActiveEgressAudit()
+    let ownsAudit = false
+    if (!audit && !params.networkAuditDisabled) {
         const discovery = discoverRegistryHosts(params.workDir)
         if (discovery.warning) {
             console.warn(`[network-audit] registry 动态发现降级（fail-open）：${discovery.warning}`)
         }
         audit = await startNetworkAudit({ extraAllowedDomains: discovery.hosts }).catch(() => undefined)
+        ownsAudit = true
     }
     const hasExistingProxy = Boolean(
         process.env.HTTP_PROXY || process.env.HTTPS_PROXY || process.env.ALL_PROXY
         || process.env.http_proxy || process.env.https_proxy || process.env.all_proxy,
     )
-    const proxyUrl = audit && !hasExistingProxy ? audit.proxyUrl : undefined
+    const proxyUrl = getEgressProxyUrl() ?? (audit && !hasExistingProxy ? audit.proxyUrl : undefined)
 
     try {
         for (const command of commands) {
@@ -308,7 +312,8 @@ export async function runVerification(params: VerificationParams): Promise<Verif
             }
         }
     } finally {
-        if (audit) {
+        // 仅停止自建的审计：运行级审计由 DependfixApp 统一收口（后续命令仍要用同一代理）
+        if (audit && ownsAudit) {
             await audit.stop().catch(() => { /* 停止失败静默 */ })
         }
     }

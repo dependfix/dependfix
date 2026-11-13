@@ -24,6 +24,7 @@
 // （口径同 `runners/verification-gate.ts` 的「非必要不外露」）。
 import { spawn, spawnSync } from 'node:child_process'
 import { StringDecoder } from 'node:string_decoder'
+import { getEgressProxyEnv } from './egress-audit'
 
 /** 单流捕获上限（与 `execSync` 默认 `maxBuffer` 同量级）：超限后继续 drain 但不再累积。 */
 const MAX_STREAM_CAPTURE_BYTES = 1024 * 1024
@@ -273,6 +274,13 @@ export function runTrackedCommand(params: TrackedCommandParams): Promise<Tracked
     // 诊断面：记录最近一条受管命令（取消未落定时可归因到具体步骤）
     recordTrackedCommand([params.binary, ...params.args].join(' '))
 
+    // 运行级外联审计：默认把代理注入所有受管命令（安装链 / 验证链 / 交付 git）。
+    // 显式 env 里已带代理时不覆盖（调用方自知其网络路径）。
+    const egressProxyEnv = getEgressProxyEnv()
+    const mergedEnv = egressProxyEnv && params.env
+        ? { ...egressProxyEnv, ...params.env }
+        : (params.env ?? egressProxyEnv)
+
     return new Promise((resolve) => {
         const startedAt = Date.now()
         let timedOut = false
@@ -292,7 +300,7 @@ export function runTrackedCommand(params: TrackedCommandParams): Promise<Tracked
             shell: params.shell ?? resolveShellOption(),
             // POSIX 下创建独立进程组，超时 / abort 时可终止整个进程树
             detached: process.platform !== 'win32',
-            ...(params.env ? { env: params.env } : {}),
+            ...(mergedEnv ? { env: mergedEnv } : {}),
         })
 
         trackChildProcess(cp.pid)

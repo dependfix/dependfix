@@ -94,6 +94,26 @@ export const describeRunAttribution = (run: ScanRun): string | null => {
     if (typeof run.peakRssBytes === 'number' && run.peakRssBytes > 0) {
         parts.push(`峰值 RSS：${Math.round(run.peakRssBytes / 1024 / 1024)} MB`)
     }
+    // 外联审计：违规数与最小化目标随导出可见（离线复盘需区分「验证通过」与「外联被拦」）
+    const summary = parseJsonObject(run.summaryJson)
+    const violations = typeof summary?.networkViolations === 'number' ? summary.networkViolations : 0
+    if (violations > 0) {
+        parts.push(`外联违规：${violations}`)
+        const targets = Array.isArray(summary?.networkViolationTargets)
+            ? summary.networkViolationTargets
+                .flatMap((item) => {
+                    if (!item || typeof item !== 'object') {
+                        return []
+                    }
+                    const record = item as Record<string, unknown>
+                    return typeof record.target === 'string' ? [record.target] : []
+                })
+                .slice(0, 5)
+            : []
+        if (targets.length > 0) {
+            parts.push(`外联目标：${targets.join(', ')}`)
+        }
+    }
     return parts.length > 0 ? `# 失败归因：${parts.join(' | ')}` : null
 }
 

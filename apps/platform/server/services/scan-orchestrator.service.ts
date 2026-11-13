@@ -18,6 +18,7 @@ import { persistPostCompletionOutcome } from './scan-run-post-completion'
 import { beginScanRunExecution } from './scan-run-start'
 import { resolveAiConfig } from './ai-config-resolver'
 import { resolveExecutionLimits } from '#server/utils/execution-limits'
+import { buildRunSummarySnapshot } from '#server/utils/run-summary-snapshot'
 import { Repository, parseSandboxLimits, parseVerifyCommands } from '#server/entities/repository'
 import { Credential } from '#server/entities/credential'
 import { ScanRun } from '#server/entities/scan-run'
@@ -448,32 +449,25 @@ const runScanInternal = async (
                 }
             }
         } else {
-            // sandbox 路由（2026-11-09 恢复）：仅 report-only 真实执行；
-            // fix / fix-and-pr 需先接入出站白名单代理，降级 container 并留原因码。
+            // sandbox 路由：report-only 与 fix / fix-and-pr 都在容器内执行（fix 由容器内 CLI 的
+            // 运行级审计代理约束出站）；daemon 不可用时仍降级 container 并留 `sandbox_unavailable`。
             let sandboxHandled = false
             if (executorKind === 'sandbox') {
-                if (ctx.config.mode !== 'report-only') {
-                    degradedReason = {
-                        code: 'sandbox_fix_requires_egress_policy',
-                        message: `沙箱执行器仅支持 report-only（${ctx.config.mode} 需先接入出站白名单代理），已自动降级到平台容器（${repository.owner}/${repository.name}）`,
-                    }
+                const sandbox = new SandboxExecutor({
+                    sandboxLimits: parseSandboxLimits(repository.sandboxLimits),
+                    timeoutMs: executionLimits.executionTimeoutMs,
+                })
+                if (await sandbox.isAvailable()) {
+                    const execResult = await sandbox.execute(ctx)
+                    result = execResult.result
+                    error = execResult.error
+                    exitCode = execResult.exitCode
+                    logsJson = execResult.logsJson ?? null
+                    sandboxHandled = true
                 } else {
-                    const sandbox = new SandboxExecutor({
-                        sandboxLimits: parseSandboxLimits(repository.sandboxLimits),
-                        timeoutMs: executionLimits.executionTimeoutMs,
-                    })
-                    if (await sandbox.isAvailable()) {
-                        const execResult = await sandbox.execute(ctx)
-                        result = execResult.result
-                        error = execResult.error
-                        exitCode = execResult.exitCode
-                        logsJson = execResult.logsJson ?? null
-                        sandboxHandled = true
-                    } else {
-                        degradedReason = {
-                            code: 'sandbox_unavailable',
-                            message: `沙箱执行器启动时不可用（无 rootless daemon / user namespace 受限），已自动降级到平台容器（${repository.owner}/${repository.name}）`,
-                        }
+                    degradedReason = {
+                        code: 'sandbox_unavailable',
+                        message: `沙箱执行器启动时不可用（无 rootless daemon / user namespace 受限），已自动降级到平台容器（${repository.owner}/${repository.name}）`,
                     }
                 }
             }
@@ -574,7 +568,7 @@ const runScanInternal = async (
                 const found = typeof result.summary.alertsFound === 'number' ? result.summary.alertsFound : 0
                 const converged = typeof result.summary.alertsConverged === 'number' ? result.summary.alertsConverged : 0
                 savedRun.summaryJson = JSON.stringify({
-                    ...result.summary,
+                    ...buildRunSummarySnapshot(result),
                     alertsFixed: 0,
                     alertsUnfixed: Math.max(0, found - converged),
                 })
@@ -585,14 +579,14 @@ const runScanInternal = async (
             savedRun.finishedAt = new Date()
             savedRun.errorJson = decision.errorJson ? JSON.stringify(decision.errorJson) : null
             if (result) {
-                savedRun.summaryJson = JSON.stringify(result.summary)
+                savedRun.summaryJson = JSON.stringify(buildRunSummarySnapshot(result))
                 savedRun.runUrl = runUrl
                 await reconcileRunResult(repository, savedRun.id, result as RunResult)
             }
         } else if (result) {
             savedRun.status = 'completed'
             savedRun.finishedAt = new Date()
-            savedRun.summaryJson = JSON.stringify(result.summary)
+            savedRun.summaryJson = JSON.stringify(buildRunSummarySnapshot(result))
             savedRun.runUrl = runUrl
             await reconcileRunResult(repository, savedRun.id, result as RunResult)
         }

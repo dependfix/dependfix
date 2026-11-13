@@ -9,7 +9,8 @@
 
 ### 7.1 抽象边界（不强绑定 Docker rootless）
 
-> **2026-11-09 入口恢复（M57.1）**：report-only 路由回 `SandboxExecutor`（独立容器内跑自包含 CLI）；fix / fix-and-pr 仍降级 `ContainerExecutor` + `degradedReason.code=sandbox_fix_requires_egress_policy`（出站白名单代理接入前）。以下抽象与路由图为当前形态。
+> **2026-11-09 入口恢复（M57.1）**：report-only 路由回 `SandboxExecutor`（独立容器内跑自包含 CLI）。
+> **2026-11-13（M59.1）**：fix / fix-and-pr 在出站策略就位时同样在沙箱内执行（容器内 clone → CLI，运行级审计代理约束出站）；仅 adapter 启动不可用时降级 `ContainerExecutor`。以下抽象与路由图为当前形态。
 
 `SandboxExecutor` 通过 §3 接口契约实现，**不与具体 OCI runtime 强绑定**——Runtime 形态作为配置项（`SANDBOX_RUNTIME` / Repository 字段）注入，避免今后切 Sysbox（`--runtime=sysbox-runc`）、Kata（`--runtime=kata-runtime`）等需要重写业务代码：
 
@@ -103,7 +104,8 @@ services:
 | `Repository.executorKind` = `undefined`  | `ContainerExecutor` | M6 默认，单机/无 rootless 场景仍可用 |
 | `Repository.executorKind` = `'container'` | `ContainerExecutor` | 显式声明，与 M6 一致 |
 | `Repository.executorKind` = `'sandbox'` + 模式 = `report-only` + SandboxRuntimeAdapter 可用 | `SandboxExecutor` | 已落地：独立容器跑自包含 CLI，结果经容器内 `/tmp/result.json` + stdout 哨兵回传（无宿主挂载） |
-| `Repository.executorKind` = `'sandbox'` + 模式 = `fix` / `fix-and-pr`（代理接入前） | `ContainerExecutor` 降级 → **`degraded`** | `degradedReason.code=sandbox_fix_requires_egress_policy`（不通知） |
+| `Repository.executorKind` = `'sandbox'` + 模式 = `fix` / `fix-and-pr` + 出站策略就位 | `SandboxExecutor` | 容器内 clone 到 `/tmp/repo` 后执行 CLI；运行级审计代理按白名单 deny-by-default，非白名单外联使运行 `failed`（`network_violation`） |
+| `Repository.executorKind` = `'sandbox'` + 模式 = `fix` / `fix-and-pr` + 审计关闭或白名单被显式清空 | 不降级 → **`failed`** | 执行器第二道闸返回 `sandbox_fix_requires_egress_policy` 且不 clone |
 | `Repository.executorKind` = `'sandbox'` + adapter **启动时**不可用（`isAvailable()` 返回 false） | `ContainerExecutor` 降级执行 → **`degraded` 状态** | **A 场景**（配置层降级）：业务结果完整，UI info 提示「未启用 rootless，已自动使用平台容器」 |
 | `Repository.executorKind` = `'sandbox'` + adapter **启动可用**但 `execute()` 抛 errno（ENOENT/ENOTCONN/EACCES/ECONNREFUSED） | 不静默降级 → `error.code = 'sandbox_unavailable'` → **`failed` 状态** | **B 场景**（环境中途变化）：业务未完成，UI warn 告警「沙箱运行时不可用，环境配置可能已变化」 |
 | `Repository.executorKind` = `'github-action'` | `ActionTriggerExecutor` | M6 已有 |
@@ -148,6 +150,8 @@ CLI 启动时（`@dependfix/cli` entrypoint）探测 SandboxRuntimeAdapter 可�
 ### 7.8 降级状态机契约（degraded vs failed）
 
 > **2026-11-09 入口恢复（M57.1）**：report-only 路由 `SandboxExecutor`；fix / fix-and-pr 策略降级 `ContainerExecutor` + `degradedReason.code=sandbox_fix_requires_egress_policy`。以下 A/B 契约对 report-only 生效。
+>
+> **2026-11-13 M59.1：fix / fix-and-pr 在沙箱内执行**：出站策略就位时（`DEPENDFIX_NETWORK_AUDIT` 未关闭且白名单非空）沙箱在容器内完成 clone → 安装 → 修复 → 验证，不再降级 container；仅 daemon 启动不可用仍降级（A 场景，`sandbox_unavailable`）。第二道闸保留拒绝分支：审计关闭或白名单被显式清空时，fix 返回 `sandbox_fix_requires_egress_policy` 且**不 clone**。容器内 clone 目标由平台构造（必属 `github.com` 白名单域），审计面从 CLI 启动后覆盖安装 / 验证 / 修复命令（运行级审计代理，见 [run-conclusion-semantics.md](./run-conclusion-semantics.md) 与 `runners/egress-audit.ts`）；非白名单外联记为 `networkViolations`，运行出口码不得为 0。
 >
 > **状态**：🔶 M11 阶段登记（2026-08-20），T1005-C 实施中。**背景**：sandbox 路由在「启动时不可用」与「运行时不可用」两种场景下的语义边界——前者是**配置偏离**（业务完整），后者是**真实异常**（业务未完成）。统一归为 `failed` 会丢失降级路径的成功信息，统一归为 `degraded` 会掩盖运行时异常，故引入独立状态分流。
 
@@ -203,7 +207,7 @@ if (error && !result) {
 
 #### 7.8.3 orchestrator 降级信号传递
 
-> **当前实现（2026-11-09 起）**：report-only 走 `SandboxExecutor`（启动可用执行；不可用则降级并记 `sandbox_unavailable`）；fix / fix-and-pr 走策略降级并记 `sandbox_fix_requires_egress_policy`。以下代码为 sandbox 路由块形态。
+> **当前实现（2026-11-13 起）**：report-only 与 fix / fix-and-pr 均走 `SandboxExecutor`（启动可用执行；不可用则降级并记 `sandbox_unavailable`）；出站策略缺失由执行器第二道闸拒绝。以下代码为 sandbox 路由块形态。
 
 `scan-orchestrator.service.ts` 在 sandbox 路由块维护 `degradedReason` 内部变量：
 

@@ -69,6 +69,16 @@ const ENGINE_DELIVERY_FAILED_CATEGORIES: ReadonlySet<string> = new Set([
     'FATAL',
 ])
 
+/**
+ * 本次运行是否被 deny-by-default 拦截过非白名单外联（引擎 `NETWORK_VIOLATION` 审计错误）。
+ *
+ * 返回可读消息（含最小化目标，已脱敏）；无违规返回 null。
+ */
+function hasNetworkViolation(result: RunResult | undefined): string | null {
+    const violation = result?.errors?.find((error) => error.category === 'NETWORK_VIOLATION')
+    return violation?.message ?? null
+}
+
 function hasEngineDeliveryFailure(result: RunResult | undefined): FixError | null {
     if (!result) {
         return null
@@ -137,6 +147,15 @@ export const resolveScanRunState = (
      */
     exitCode?: number,
 ): ScanRunStateDecision => {
+    // 外联违规对所有执行器一致：deny-by-default 拦截过非白名单外联的运行不得判「已完成」。
+    // （B 模式：artifact 回传的 JSON 报告同样携带 errors；错过此处会出现「分类认得、状态不认」）
+    const networkViolation = hasNetworkViolation(result)
+    if (networkViolation && !(error && !result)) {
+        return {
+            status: 'failed',
+            errorJson: { code: 'network_violation', message: networkViolation },
+        }
+    }
     if (executorKind === 'github-action') {
         const acceptedButPending = error?.code === 'result_fetch_failed' || error?.code === 'run_url_not_resolved'
         if (acceptedButPending) {

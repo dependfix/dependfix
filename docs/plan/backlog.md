@@ -202,6 +202,16 @@
 
 - **沙箱镜像双架构自包含冒烟与安全姿态（P2 🚀📚，2026-11-13 因插队再平衡移出）** —— 原 M59.5。**目标**：镜像内 sandbox 自包含入口在 amd64 / arm64 都可运行，发版后自动取证；安全姿态（rootful / userns / 网络面）单一口径成文。**范围**：`apps/platform/docker/smoke-test.sh` 新增 sandbox 入口断言（容器内 `node /app/sandbox/bin.mjs --version` + `skills doctor`），由构建期冒烟与 `post-release-smoke` 共同消费并把结果写入 Job Summary（构建期 `Dockerfile:181-186` 的 sandbox 自检已存在，属依赖而非新增）；`docs/design/governance/executor-sandbox.md` / `executor-sandbox-implementation.md` / `sandbox-security-governance.md` 翻转 fix 放行后的状态、网络面偏离、rootful / userns 边界；`docs/guide/deployment.md` 按需补运行面提示。**验收标准**：① amd64 构建期冒烟与 arm64 发版后原生冒烟均通过（无发布窗口时记「未证实」），注入回归（移除 `/app/sandbox/skills` 或改坏版本串）使断言失败以证明灵敏；② `post-release-smoke` Job Summary 含 sandbox 入口断言结果，失败仅告警不改发布结论；③ 三篇设计稿同批翻转且无 stale 表述；④ `pnpm run gates:docs` 20 项通过。**不做**：不改镜像构建架构与 QEMU 口径；不重建历史镜像；不引入 rootless 之外的新隔离机制。**依赖**：M59.1 / M59.2 闭环（沙箱 fix 放行与自包含交付）；M58.4 的 `post-release-smoke` 与 `scan-image-tags`；构建期双架构自检见 `apps/platform/Dockerfile:181-186`（`e548c332`，run `43156533556` 双架构 success）。**交付物**：2-3 commits / 6-8 files / 200-350 行。**风险与缓解**：arm runner 成本 → 仅构建期与发版冒烟各一次；文档状态翻转遗漏 → 按检查点矩阵三处同源扫描。**触发条件**：M59.1 / M59.2 闭环后，或出现发布窗口需要 arm64 取证时；或镜像 sandbox 入口出现回归怀疑。**移出原因**：依赖 M59.1/M59.2 完成、且发版后取证受发布窗口约束，是当前阶段延期成本最低的原子（用户 2026-11-13 确认）。
 
+- **沙箱 fix 的 undici 直连外联纳入连接级拦截（评估 `NODE_USE_ENV_PROXY`）**（P2 🛡️）—— 背景：2026-11-13 M59.1 落地运行级审计代理后，尊重代理 env 的工具（pnpm / git / npm CLI）已被 deny-by-default 拦截；Node 内置 fetch / undici 默认不读代理 env，此类直连只能靠命令输出 URL 提取留痕（仅 audit、不构成违规，见 [security.md §5.3.1](../standards/security.md)）。
+  - **待评估点**：① Node 24+ `NODE_USE_ENV_PROXY=1` 对 `fetch` / undici 的实际覆盖范围与副作用（需最小对照实验）；② 对未支持该开关的 Node 版本的回退策略（注入全局 dispatcher 需改被测仓库代码，不可行）；③ 是否只对沙箱 fix 路径启用，避免影响 CLI 本地运行。
+  - **触发条件**：出现「恶意依赖脚本用 fetch 外带数据」的实际案例；或 Node 版本基线统一到 24+ 之后。
+  - **按 [规划规范 §3.1](../standards/planning.md#_3-1-新需求默认走-评估-→-backlog-原则-hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
+
+- **外联审计在既有代理环境下的注入失效可见化**（P3 🛡️）—— 背景：2026-11-13 M59.1 的运行级审计代理在宿主/容器已有 `HTTP(S)_PROXY` 时不覆盖用户代理（稳定性优先），此时 deny-by-default 不生效，但平台第二道闸仍按配置判「策略就位」。
+  - **待评估点**：① 在结果 / 运行详情标注「代理未被注入（环境已有代理）」；② `NO_PROXY` 改为追加而非替换既有值；③ 是否对沙箱 fix 路径强制要求「注入生效」（拒绝在既有代理环境运行）。
+  - **触发条件**：部署环境统一经过企业代理 / 网关时；或需要按 run 统计「审计实际覆盖面」时。
+  - **按 [规划规范 §3.1](../standards/planning.md#_3-1-新需求默认走-评估-→-backlog-原则-hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
+
 ### 待上收候选（评估完成，等待用户决策）
 
 > 本节为「评估完成、等待用户决策」候选的暂存区；候选**不含 `M\d+` 阶段编号**（[规划规范 §3.1](../standards/planning.md#_3-1-新需求默认走-评估-→-backlog-原则-hard-requirement)）。

@@ -95,6 +95,21 @@ export function recordInstallBaselineFailure(
 }
 
 /**
+ * 基线安装失败是否带「锁文件本身有问题」的诊断特征。
+ *
+ * 只有这类失败才把 known-broken 证据传给锁文件修复：纯环境性失败（超时 / OOM / 网络）下
+ * 强制按 manifest 重建会引入与告警无关的解析漂移，故退回既有分类链。
+ */
+const LOCKFILE_FAILURE_PATTERN = /ERR_PNPM_BROKEN_LOCKFILE|ERR_PNPM_OUTDATED_LOCKFILE|broken.*lockfile|duplicated mapping key|lockfileVersion|Cannot read.*lockfile/i
+
+export function isLockfileBaselineFailure(failure?: CommandResult): boolean {
+    if (!failure || failure.timedOut) {
+        return false
+    }
+    return LOCKFILE_FAILURE_PATTERN.test(`${failure.stderr}\n${failure.stdout}`)
+}
+
+/**
  * 步骤 5：收尾——lockfile repair + 完整验证（dry-run 跳过验证）。零告警仓库跳过 lockfile repair
  * （无升级改动即无锁文件待修复）+ 跳过修复前基线采样（无改动即无「本次引入」可归因，
  * 见 `ensureVerificationBaseline`；`options.exemptAttribution` 承载该判定），
@@ -104,15 +119,31 @@ export async function finalizeRepoFix(
     ctx: RepoFixCtx,
     repo: string,
     progress: RepoFixProgress,
-    options: { exemptAttribution?: boolean, client?: Octokit | null } = {},
+    options: {
+        exemptAttribution?: boolean
+        client?: Octokit | null
+        /**
+         * 修复前基线中失败的安装命令（`recordInstallBaselineFailure` 产物）。
+         *
+         * 传入即表示「基线已判安装失败」：lockfile 修复不得走「已合规」捷径，
+         * 结构兜底失败以 `PRECONDITION_FAILED` 上报（见 `tryLockfileRepair`）。
+         */
+        installBaselineFailure?: CommandResult
+    } = {},
 ): Promise<void> {
     let lockfileRepairFailed = false
+    // 仅锁文件特征的基线失败才禁用「已合规」捷径（见 isLockfileBaselineFailure）
+    const knownBrokenBaseline = isLockfileBaselineFailure(options.installBaselineFailure)
+        ? options.installBaselineFailure
+        : undefined
     // 归因豁免（`exemptAttribution`）的前提是「本次没有写过任何文件」——因此零工作仓库
     // 连 lockfile repair 也不跑：repair 若真改了文件，`noChanges` 豁免就不再成立，
     // repair 引起的失败会被误标为既有失败（修复器尝试前缀的归因评审项）。
     if (progress.alertsCount > 0 && options.exemptAttribution !== true
         && budgetAllows(ctx, { repository: repo, stage: 'repair', work: 'lockfile repair' })) {
-        const repairAction = await tryLockfileRepair(ctx, repo)
+        const repairAction = await tryLockfileRepair(ctx, repo, {
+            ...(knownBrokenBaseline ? { installBaselineFailure: knownBrokenBaseline } : {}),
+        })
         ctx.allActions.push(repairAction)
         lockfileRepairFailed = !repairAction.success && !repairAction.noOp
         if (repairAction.success && !repairAction.noOp) {
@@ -178,7 +209,9 @@ export async function finalizeRepoFix(
                         // 这一修复一并回退导致重验假红。
                         if (lockfileRepairChanged && progress.alertsCount > 0
                             && budgetAllows(ctx, { repository: repo, stage: 'repair', work: 'lockfile repair after selective rollback' })) {
-                            const repairAction = await tryLockfileRepair(ctx, repo)
+                            const repairAction = await tryLockfileRepair(ctx, repo, {
+                                ...(knownBrokenBaseline ? { installBaselineFailure: knownBrokenBaseline } : {}),
+                            })
                             ctx.allActions.push(repairAction)
                             if (repairAction.success && !repairAction.noOp) {
                                 progress.lockfileRepaired = true

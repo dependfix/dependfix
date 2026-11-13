@@ -1,4 +1,4 @@
-import { copyFileSync, existsSync, readFileSync, rmSync } from 'node:fs'
+import { copyFileSync, existsSync, readFileSync, renameSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { resolveInstallTimeoutMs } from '../install-timeouts'
 import {
@@ -28,12 +28,20 @@ export type LockfileFailureCategory =
     | 'ENVIRONMENT_ERROR'
     // 本次运行已被取消（平台执行超时 / 运维中止）：命令未启动即返回，不伪装成环境性失败
     | 'ABORTED'
+    /**
+     * 前置结论冲突：修复前基线已判定安装失败（如 `ERR_PNPM_BROKEN_LOCKFILE`），
+     * 但本次诊断复检却通过。此时**不得**走「已合规」捷径（会把基线失败说成合规），
+     * 改为走结构兜底链，全部失败时用本类别上报。
+     */
+    | 'PRECONDITION_FAILED'
     | 'UNKNOWN'
 
 export type RepairStrategy =
     | 'REGENERATE'
     | 'FIX_ENTRIES'
     | 'PIN_TOOLCHAIN'
+    /** 结构兜底：移出损坏锁文件后由 manifest 重建（不解析原文件） */
+    | 'REGENERATE_FROM_MANIFEST'
     | 'REINSTALL'
     | 'SKIP'
 
@@ -43,6 +51,18 @@ export interface RepairLockfileParams {
     /** 可选：期望的 pnpm 版本（优先于 packageManager 字段） */
     toolchain?: {
         pnpmVersion?: string
+    }
+    /**
+     * 修复前基线已判定安装失败的证据（命令 + 诊断）。
+     *
+     * 提供时禁止「已合规」捷径：即使本次诊断复检通过，也按结构兜底链重建成可冻结安装的锁文件；
+     * 全部策略失败时以 `PRECONDITION_FAILED` 上报（附基线证据），不输出「已合规」。
+     */
+    knownBrokenLockfile?: {
+        /** 基线中失败的安装命令（如 `pnpm install --frozen-lockfile`） */
+        command?: string
+        /** 基线失败诊断（截断后的特征文本） */
+        detail?: string
     }
 }
 
@@ -263,7 +283,9 @@ function getStrategyChain(category: LockfileFailureCategory): RepairStrategy[] {
         case 'MANIFEST_MISMATCH':
             return ['REGENERATE', 'REINSTALL']
         case 'CORRUPTED_LOCKFILE':
-            return ['FIX_ENTRIES', 'REGENERATE', 'REINSTALL']
+            // 结构损坏（如 duplicated mapping key）：原地策略可能无法解析原文件，
+            // 末尾追加「移出后由 manifest 重建」的兜底（见 REGENERATE_FROM_MANIFEST）。
+            return ['FIX_ENTRIES', 'REGENERATE', 'REGENERATE_FROM_MANIFEST', 'REINSTALL']
         case 'LOCKFILE_VERSION_MISMATCH':
             return ['PIN_TOOLCHAIN', 'REGENERATE', 'REINSTALL']
         case 'RESOLVE_ERROR':
@@ -274,6 +296,10 @@ function getStrategyChain(category: LockfileFailureCategory): RepairStrategy[] {
             return ['REGENERATE', 'REINSTALL']
         case 'UNKNOWN':
             return ['REGENERATE', 'REINSTALL']
+        // 前置结论冲突（基线已判安装失败但复检通过）：不信任复检结论，
+        // 直接由 manifest 重建（原文件先移出），失败则以 PRECONDITION_FAILED 上报
+        case 'PRECONDITION_FAILED':
+            return ['REGENERATE_FROM_MANIFEST', 'REGENERATE', 'REINSTALL']
         // 环境性安装失败：策略链与 UNKNOWN 同源（保留尝试以免遗漏「环境已恢复」的机会性修复）；
         // 失败时由 `environmental` 标记驱动「不归因目标仓库」口径（见 LockfileRepairResult.environmental）
         case 'ENVIRONMENT_ERROR':
@@ -305,6 +331,9 @@ function getStrategyCommand(strategy: RepairStrategy, pnpmVersion?: string | nul
             return { binary: 'pnpm', args: ['install', '--fix-lockfile', '--lockfile-only'] }
         case 'REINSTALL':
             return { binary: 'pnpm', args: ['install', '--no-frozen-lockfile'] }
+        case 'REGENERATE_FROM_MANIFEST':
+            // 原锁文件已由调用方移出（见 repairLockfile），此处只按 manifest 重建
+            return { binary: 'pnpm', args: ['install', '--lockfile-only'] }
         case 'PIN_TOOLCHAIN':
             if (!pnpmVersion) {
                 return { binary: 'pnpm', args: ['install', '--lockfile-only'] }
@@ -501,6 +530,67 @@ function rollback(bakPath: string, workDir: string): void {
 }
 
 /**
+ * 结构兜底的前置动作：把当前锁文件移到 `<name>.broken` 并返回该路径。
+ *
+ * 移出而不是删除——覆盖 rename 失败等异常的兜底由调用方处理；文件不存在时返回 undefined。
+ */
+function moveLockfileAside(workDir: string): string | undefined {
+    const src = join(workDir, LOCKFILE_NAME)
+    if (!existsSync(src)) {
+        return undefined
+    }
+    const aside = `${src}.broken`
+    try {
+        removeQuietly(aside)
+        renameSync(src, aside)
+        return aside
+    } catch {
+        // 移出失败：保留原文件，退化为原地策略（策略命令自身会失败并被记为一次尝试）
+        return undefined
+    }
+}
+
+/**
+ * 从 .bak 复制回锁文件但**保留** .bak（供后续策略与最终回滚继续使用）。
+ *
+ * 返回是否已恢复到本次修复前的状态：`false` 时调用方**不得**删除移出件
+ * （宁可留下 `.broken` 证据，也不能让锁文件凭空消失）。
+ */
+function restoreLockfileFromBackup(bakPath: string, workDir: string): boolean {
+    if (!existsSync(bakPath)) {
+        // 原本就没有锁文件：清掉策略可能生成的部分产物，回到「无锁文件」起点
+        removeQuietly(join(workDir, LOCKFILE_NAME))
+        return true
+    }
+    try {
+        copyFileSync(bakPath, join(workDir, LOCKFILE_NAME))
+        return true
+    } catch {
+        return false
+    }
+}
+
+function removeQuietly(path: string): void {
+    try {
+        rmSync(path, { force: true })
+    } catch {
+        /* ignore */
+    }
+}
+
+/**
+ * 前置结论冲突的诊断文本：把基线失败证据写进失败详情，
+ * 避免「基线已判安装失败 / 本次复检通过」这种自相矛盾只留在日志里。
+ */
+function describePreconditionConflict(knownBroken?: RepairLockfileParams['knownBrokenLockfile']): string {
+    const command = knownBroken?.command?.trim() || 'pnpm install --frozen-lockfile'
+    const detail = knownBroken?.detail?.trim()
+    return `baseline install already failed (${command})`
+        + `${detail ? `: ${truncateTail(detail, 300)}` : ''}`
+        + ' — refusing the "already compliant" shortcut (structural rebuild required)'
+}
+
+/**
  * 检测并修复 pnpm frozen-lockfile 漂移。
  *
  * 流程：
@@ -542,7 +632,12 @@ export async function repairLockfile(params: RepairLockfileParams): Promise<Lock
     // ---- 2. 诊断 ----
     const classification = await classifyLockfileFailure(workDir_)
 
-    if (classification.ok) {
+    // 前置结论冲突：基线已判安装失败（已知损坏），本次复检却通过 → 不信任「已合规」，
+    // 继续走结构兜底链（失败时以 PRECONDITION_FAILED 上报基线证据）。
+    const knownBroken = params.knownBrokenLockfile
+    const preconditionConflict = Boolean(knownBroken) && classification.ok
+
+    if (classification.ok && !knownBroken) {
         // 已合规，无需修复
         try {
             rmSync(bakPath)
@@ -557,8 +652,12 @@ export async function repairLockfile(params: RepairLockfileParams): Promise<Lock
         }
     }
 
-    const category = classification.category ?? 'UNKNOWN'
-    const diagnostics = classification.diagnostics ?? ''
+    const category: LockfileFailureCategory = preconditionConflict
+        ? 'PRECONDITION_FAILED'
+        : (classification.category ?? 'UNKNOWN')
+    const diagnostics = preconditionConflict
+        ? describePreconditionConflict(knownBroken)
+        : (classification.diagnostics ?? '')
 
     // ---- 3. 不可修复的分类：凭据错误（需人工）/ 运行被取消（不空转） ----
     if (category === 'CREDENTIAL_ERROR' || category === 'ABORTED') {
@@ -592,6 +691,13 @@ export async function repairLockfile(params: RepairLockfileParams): Promise<Lock
         const command = [cmd.binary, ...cmd.args].join(' ')
         const t0 = Date.now()
 
+        // 结构兜底：先移出（解析不了的）原锁文件，让 pnpm 只按 manifest 重建。
+        // 原文件仍由 `.bak` 保留，失败时回到本次修复前的状态，成功时删除移出件。
+        let movedAsidePath: string | undefined
+        if (strategy === 'REGENERATE_FROM_MANIFEST') {
+            movedAsidePath = moveLockfileAside(workDir_)
+        }
+
         let strategySuccess = false
         let strategyError: string | undefined
         let strategyExitCode: number | null = null
@@ -621,6 +727,16 @@ export async function repairLockfile(params: RepairLockfileParams): Promise<Lock
 
         if (!strategySuccess) {
             lastError = strategyError ?? lastError
+            // 策略未生效：恢复本次修复前的锁文件（保留 .bak 供后续策略 / 最终回滚），
+            // 避免「原文件被移出」影响后续策略的输入假设。
+            if (movedAsidePath) {
+                if (restoreLockfileFromBackup(bakPath, workDir_)) {
+                    removeQuietly(movedAsidePath)
+                } else {
+                    // 恢复失败：后续策略会在「锁文件缺失」的错误前提下运行，直接走最终回滚
+                    break
+                }
+            }
             continue
         }
 
@@ -633,10 +749,9 @@ export async function repairLockfile(params: RepairLockfileParams): Promise<Lock
             const diff = computeLockfileDiff(bakPath, lockfilePath)
             const changed = !filesEqual(bakPath, lockfilePath)
             const afterLockfileVersion = readLockfileVersionOf(workDir_)
-            try {
-                rmSync(bakPath)
-            } catch {
-                /* ignore */
+            removeQuietly(bakPath)
+            if (movedAsidePath) {
+                removeQuietly(movedAsidePath)
             }
             return {
                 success: true,
@@ -651,6 +766,13 @@ export async function repairLockfile(params: RepairLockfileParams): Promise<Lock
             }
         }
 
+        // 命令成功但冻结安装仍失败：回到本次修复前状态，继续下一个策略
+        if (movedAsidePath) {
+            if (!restoreLockfileFromBackup(bakPath, workDir_)) {
+                break
+            }
+            removeQuietly(movedAsidePath)
+        }
         lastError = verify.stderr
     }
 
@@ -695,7 +817,7 @@ export async function repairLockfile(params: RepairLockfileParams): Promise<Lock
     return {
         success: false,
         failureCategory: category,
-        failureDetail: `${categoryNote}${truncateTail(lastError, 500)}`,
+        failureDetail: `${category === 'PRECONDITION_FAILED' ? `${describePreconditionConflict(knownBroken)}; ` : ''}${categoryNote}${truncateTail(lastError, 500)}`,
         attemptHistory: attempts,
     }
 }

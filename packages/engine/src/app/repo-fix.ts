@@ -193,7 +193,11 @@ export async function processRepoFix(
                 }
             }
         }
-        await finalizeRepoFix(ctx, repo, progress, { exemptAttribution, client })
+        await finalizeRepoFix(ctx, repo, progress, {
+            exemptAttribution,
+            client,
+            ...(installBaselineFailure ? { installBaselineFailure } : {}),
+        })
     } catch (error: unknown) {
         const message = toErrorMessage(error)
         const hint = alertsFetchTokenHint(error)

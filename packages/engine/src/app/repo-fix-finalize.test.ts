@@ -13,7 +13,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { NormalizedSecurityAlert } from '@dependfix/core'
 import type { AppContext } from './helpers'
 import { processRepoFix, type RepoFixCtx, type RepoFixProgress } from './repo-fix'
-import { finalizeRepoFix } from './repo-fix-finalize'
+import { finalizeRepoFix, isLockfileBaselineFailure } from './repo-fix-finalize'
 
 const {
     mockFetchRepoAlerts,
@@ -257,5 +257,28 @@ describe('processRepoFix 收尾守卫（零告警跳过）', () => {
 
         expect(mockTryLockfileRepair).toHaveBeenCalledTimes(1)
         expect(progress.lockfileRepaired).toBe(false)
+    })
+})
+
+describe('isLockfileBaselineFailure', () => {
+    const base = { command: 'pnpm install --frozen-lockfile', exitCode: 1, durationMs: 10, stdout: '' }
+
+    it('recognizes lockfile-specific diagnostics', () => {
+        expect(isLockfileBaselineFailure({
+            ...base,
+            stderr: 'ERR_PNPM_BROKEN_LOCKFILE: duplicated mapping key "packages"',
+        })).toBe(true)
+        expect(isLockfileBaselineFailure({ ...base, stderr: 'ERR_PNPM_OUTDATED_LOCKFILE' })).toBe(true)
+        expect(isLockfileBaselineFailure({
+            ...base,
+            stderr: '',
+            stdout: 'Cannot read lockfile: duplicated mapping key',
+        })).toBe(true)
+    })
+
+    it('does not treat environmental failures as a broken lockfile', () => {
+        expect(isLockfileBaselineFailure({ ...base, stderr: 'ENOSPC: no space left on device' })).toBe(false)
+        expect(isLockfileBaselineFailure({ ...base, stderr: '', timedOut: true })).toBe(false)
+        expect(isLockfileBaselineFailure(undefined)).toBe(false)
     })
 })

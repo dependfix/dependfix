@@ -170,4 +170,91 @@ describe('tryLockfileRepair', () => {
         expect(action.environmentalFailure).toBeUndefined()
         expect(allErrors).toHaveLength(0)
     })
+
+    const baselineFailure = {
+        command: 'pnpm install --frozen-lockfile',
+        exitCode: 1,
+        durationMs: 1200,
+        stdout: '',
+        stderr: 'ERR_PNPM_BROKEN_LOCKFILE: duplicated mapping key "packages"',
+    }
+
+    it('passes the baseline install failure to repairLockfile as known-broken evidence', async () => {
+        pnpmFixerMock.repairLockfile.mockResolvedValue({
+            success: true,
+            strategy: 'REGENERATE_FROM_MANIFEST',
+            diff: { summary: 'lockfile updated: -3 lines', linesChanged: -3, packagesChanged: 0 },
+            changed: true,
+            attemptHistory: [],
+        })
+
+        const action = await tryLockfileRepair({
+            config: { dryRun: false } as AppContext['config'],
+            logger,
+            workDir: '/tmp/work',
+            allErrors: [],
+        }, 'foo/bar', { installBaselineFailure: baselineFailure })
+
+        expect(pnpmFixerMock.repairLockfile).toHaveBeenCalledWith({
+            workDir: '/tmp/work',
+            knownBrokenLockfile: {
+                command: baselineFailure.command,
+                detail: baselineFailure.stderr,
+            },
+        })
+        expect(action.changed).toBe(true)
+        expect(action.noOp).toBeUndefined()
+        expect(loggerMocks.info).toHaveBeenCalledWith(
+            'Lockfile repair applied for foo/bar (strategy: REGENERATE_FROM_MANIFEST)',
+        )
+    })
+
+    // 基线已判安装失败时，「复检通过且内容未变」不得说成「已合规」（grep 负例）。
+    it('never reports "already compliant" when the baseline install had failed', async () => {
+        pnpmFixerMock.repairLockfile.mockResolvedValue({
+            success: true,
+            diff: { summary: 'lockfile unchanged', linesChanged: 0, packagesChanged: 0 },
+            changed: false,
+            attemptHistory: [],
+        })
+
+        await tryLockfileRepair({
+            config: { dryRun: false } as AppContext['config'],
+            logger,
+            workDir: '/tmp/work',
+            allErrors: [],
+        }, 'foo/bar', { installBaselineFailure: baselineFailure })
+
+        expect(loggerMocks.info).toHaveBeenCalledWith(
+            'Lockfile recheck passed for foo/bar after baseline install failure '
+            + '(pnpm install --frozen-lockfile) — content unchanged',
+        )
+        expect(JSON.stringify(loggerMocks.info.mock.calls)).not.toContain('Lockfile already compliant')
+    })
+
+    it('logs the precondition failure with the baseline evidence', async () => {
+        pnpmFixerMock.repairLockfile.mockResolvedValue({
+            success: false,
+            failureCategory: 'PRECONDITION_FAILED',
+            failureDetail: 'baseline install already failed (pnpm install --frozen-lockfile) — refusing the shortcut',
+            attemptHistory: [],
+        })
+        const allErrors: FixError[] = []
+
+        const action = await tryLockfileRepair({
+            config: { dryRun: false } as AppContext['config'],
+            logger,
+            workDir: '/tmp/work',
+            allErrors,
+        }, 'foo/bar', { installBaselineFailure: baselineFailure })
+
+        expect(action.success).toBe(false)
+        expect(loggerMocks.info).toHaveBeenCalledWith(
+            'Lockfile repair precondition failed for foo/bar: '
+            + 'baseline install already failed (pnpm install --frozen-lockfile) — refusing the shortcut',
+        )
+        // 前置失败不是「本次引入」，也不伪造环境性归因
+        expect(action.environmentalFailure).toBeUndefined()
+        expect(allErrors).toHaveLength(0)
+    })
 })

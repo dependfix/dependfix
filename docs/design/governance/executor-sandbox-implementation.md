@@ -151,7 +151,7 @@ CLI 启动时（`@dependfix/cli` entrypoint）探测 SandboxRuntimeAdapter 可�
 
 > **2026-11-09 入口恢复（M57.1）**：report-only 路由 `SandboxExecutor`；fix / fix-and-pr 策略降级 `ContainerExecutor` + `degradedReason.code=sandbox_fix_requires_egress_policy`。以下 A/B 契约对 report-only 生效。
 >
-> **2026-11-13 M59.1：fix / fix-and-pr 在沙箱内执行**（clone 基地址可经 `SANDBOX_CLONE_BASE_URL` 指向企业镜像 / 自建 Git；仅 GitHub 源注入凭据头）：出站策略就位时（`DEPENDFIX_NETWORK_AUDIT` 未关闭且白名单非空）沙箱在容器内完成 clone → 安装 → 修复 → 验证，不再降级 container；仅 daemon 启动不可用仍降级（A 场景，`sandbox_unavailable`）。第二道闸保留拒绝分支：审计关闭或白名单被显式清空时，fix 返回 `sandbox_fix_requires_egress_policy` 且**不 clone**。容器内 clone 目标由平台构造（必属 `github.com` 白名单域），审计面从 CLI 启动后覆盖安装 / 验证 / 修复命令（运行级审计代理，见 [run-conclusion-semantics.md](./run-conclusion-semantics.md) 与 `runners/egress-audit.ts`）；非白名单外联记为 `networkViolations`，运行出口码不得为 0。
+> **2026-11-13 M59.1：fix / fix-and-pr 在沙箱内执行**（审计事件类型：策略缺失记 `sandbox_egress_blocked`，与「启动降级」的 `sandbox_degraded` 区分；两者都只落库不通知。注意 `notificationSuppressed` 只抑制环境事件，业务失败通知仍按 run 终态发送）（clone 基地址可经 `SANDBOX_CLONE_BASE_URL` 指向企业镜像 / 自建 Git；仅 https + `github.com` 源注入凭据头，其它源匿名 clone；clone host 必须命中出站白名单，否则 `sandbox_clone_host_not_allowed`）：出站策略就位时（`DEPENDFIX_NETWORK_AUDIT` 未关闭且白名单非空）沙箱在容器内完成 clone → 安装 → 修复 → 验证，不再降级 container；仅 daemon 启动不可用仍降级（A 场景，`sandbox_unavailable`）。第二道闸保留拒绝分支：审计关闭或白名单被显式清空时，fix 返回 `sandbox_fix_requires_egress_policy` 且**不 clone**。容器内 clone 目标由平台构造（必属 `github.com` 白名单域），审计面从 CLI 启动后覆盖安装 / 验证 / 修复命令（运行级审计代理，见 [run-conclusion-semantics.md](./run-conclusion-semantics.md) 与 `runners/egress-audit.ts`）；非白名单外联记为 `networkViolations`，运行出口码不得为 0。
 >
 > **状态**：🔶 M11 阶段登记（2026-08-20），T1005-C 实施中。**背景**：sandbox 路由在「启动时不可用」与「运行时不可用」两种场景下的语义边界——前者是**配置偏离**（业务完整），后者是**真实异常**（业务未完成）。统一归为 `failed` 会丢失降级路径的成功信息，统一归为 `degraded` 会掩盖运行时异常，故引入独立状态分流。
 

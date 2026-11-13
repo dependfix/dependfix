@@ -103,6 +103,8 @@ describe('getAuthInstance', () => {
         }) as AuthInstance
         expect(auth.options.emailAndPassword?.requireEmailVerification).toBe(true)
         expect(auth.options.emailVerification?.sendOnSignUp).toBe(true)
+        // 登录被 EMAIL_NOT_VERIFIED 拒绝时自动补发验证邮件（自助恢复的兜底通道）
+        expect(auth.options.emailVerification?.sendOnSignIn).toBe(true)
         const changeEmail = (auth.options.user as unknown as {
             changeEmail?: { updateEmailWithoutVerification?: boolean }
         })?.changeEmail
@@ -113,6 +115,7 @@ describe('getAuthInstance', () => {
         const auth = await getAuthInstance(baseOptions) as AuthInstance
         expect(auth.options.emailAndPassword?.requireEmailVerification).toBe(false)
         expect(auth.options.emailVerification?.sendOnSignUp).toBe(false)
+        expect(auth.options.emailVerification?.sendOnSignIn).toBe(false)
         const changeEmail = (auth.options.user as unknown as {
             changeEmail?: { updateEmailWithoutVerification?: boolean }
         })?.changeEmail

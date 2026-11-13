@@ -2,6 +2,7 @@
 import { Moon, Sun } from '@lucide/vue'
 import { useColorMode } from '~/composables/use-color-mode'
 import { authClient } from '~/utils/auth-client'
+import { isEmailNotVerifiedError, isRateLimitedError } from '~/utils/auth-errors'
 import { type SocialProvider, resolveSocialProviderName, resolveSocialProviders } from '~/utils/social-providers'
 
 definePageMeta({
@@ -43,6 +44,9 @@ const email = ref('')
 const password = ref('')
 const loading = ref(false)
 const error = ref('')
+/** 登录被拒的原因是「邮箱未验证」：此时给重发入口，而不是让用户以为是密码错误 */
+const emailNotVerified = ref(false)
+const resendState = ref<'idle' | 'sending' | 'sent' | 'rate-limited' | 'failed'>('idle')
 
 const onSocialSignIn = async (provider: SocialProvider) => {
     error.value = ''
@@ -55,8 +59,27 @@ const onSocialSignIn = async (provider: SocialProvider) => {
     }
 }
 
+/** 复用 better-auth 既有端点重发验证邮件（限流 60s / 3 次，429 给可读提示）。 */
+const onResendVerification = async () => {
+    if (!email.value || resendState.value === 'sending') {
+        return
+    }
+    resendState.value = 'sending'
+    const { error: resendError } = await authClient.sendVerificationEmail({
+        email: email.value,
+        callbackURL: '/login',
+    })
+    if (!resendError) {
+        resendState.value = 'sent'
+        return
+    }
+    resendState.value = isRateLimitedError(resendError) ? 'rate-limited' : 'failed'
+}
+
 const onSubmit = async () => {
     error.value = ''
+    emailNotVerified.value = false
+    resendState.value = 'idle'
     loading.value = true
     try {
         const { error: signInError } = await authClient.signIn.email({
@@ -64,7 +87,16 @@ const onSubmit = async () => {
             password: password.value,
         })
         if (signInError) {
-            error.value = t('auth.login.errors.invalidCredentials')
+            // 未验证邮箱（better-auth FORBIDDEN / EMAIL_NOT_VERIFIED）与密码错误分开呈现：
+            // 前者可自助恢复，后者才提示「邮箱或密码错误」
+            if (isEmailNotVerifiedError(signInError)) {
+                emailNotVerified.value = true
+                error.value = t('auth.login.errors.emailNotVerified')
+            } else if (isRateLimitedError(signInError)) {
+                error.value = t('auth.login.errors.tooManyRequests')
+            } else {
+                error.value = t('auth.login.errors.invalidCredentials')
+            }
             return
         }
         // 刷新会话缓存后再导航：signIn 后 session atom 可能尚未就绪，
@@ -119,6 +151,27 @@ const onSubmit = async () => {
                     >
                         {{ error }}
                     </CaomeiMessage>
+                    <!-- 未验证邮箱：给出自助恢复入口（复用 better-auth 端点，不新增后端能力） -->
+                    <div v-if="emailNotVerified" class="auth-form__resend">
+                        <CaomeiButton
+                            type="button"
+                            variant="secondary"
+                            size="sm"
+                            :disabled="resendState === 'sending'"
+                            @click="onResendVerification"
+                        >
+                            {{ resendState === 'sending' ? t('auth.login.resend.sending') : t('auth.login.resend.action') }}
+                        </CaomeiButton>
+                        <p v-if="resendState === 'sent'" class="auth-form__resend-hint">
+                            {{ t('auth.login.resend.sent') }}
+                        </p>
+                        <p v-else-if="resendState === 'rate-limited'" class="auth-form__resend-hint">
+                            {{ t('auth.login.resend.rateLimited') }}
+                        </p>
+                        <p v-else-if="resendState === 'failed'" class="auth-form__resend-hint">
+                            {{ t('auth.login.resend.failed') }}
+                        </p>
+                    </div>
                     <CaomeiButton
                         type="submit"
                         :loading="loading"
@@ -178,6 +231,20 @@ const onSubmit = async () => {
             font-size: $font-size-sm;
             font-weight: 500;
         }
+    }
+
+    // 未验证邮箱的自助恢复入口：与错误提示同组，提示文案随发送结果切换
+    &__resend {
+        display: flex;
+        flex-direction: column;
+        gap: $space-2;
+        margin-top: -$space-2;
+    }
+
+    &__resend-hint {
+        margin: 0;
+        font-size: $font-size-sm;
+        color: var(--caomei-color-text-muted);
     }
 }
 

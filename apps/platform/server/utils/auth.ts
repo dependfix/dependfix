@@ -249,6 +249,8 @@ const buildAuth = (ds: Awaited<ReturnType<typeof ensureDatabaseInitialized>>, op
         },
         emailVerification: {
             sendOnSignUp: options.smtpEnabled,
+            // 登录被「邮箱未验证」拒绝时自动补发（失败仍返回 403，前端据此显示自助入口）
+            sendOnSignIn: options.smtpEnabled,
             autoSignInAfterVerification: true,
             sendVerificationEmail: async ({ user, url }) => {
             // SMTP 未配置时：不发验证邮件（注册自动通过）

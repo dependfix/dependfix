@@ -358,7 +358,16 @@
             "toggleDarkMode": "Toggle dark mode",
             "errors": {
                 "loginFailed": "Sign in failed: {message}",
-                "invalidCredentials": "Sign in failed: incorrect email or password"
+                "invalidCredentials": "Sign in failed: incorrect email or password",
+                "emailNotVerified": "Sign-in failed: email not verified yet",
+                "tooManyRequests": "Too many attempts, try again later"
+            },
+            "resend": {
+                "action": "Resend verification email",
+                "sending": "Sending…",
+                "sent": "Verification email resent — check your inbox (and spam)",
+                "rateLimited": "Too many requests, try again in about a minute",
+                "failed": "Could not send the verification email, try again later"
             }
         },
         "register": {

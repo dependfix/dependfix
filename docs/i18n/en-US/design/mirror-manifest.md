@@ -127,6 +127,7 @@
 | `docs/design/governance/queue-stale-recovery.md` | 未重译（结构映射口径见文档规范 §6；全量镜像属 1.0 后评估项） |
 | `docs/design/governance/release-1.0-readiness.md` | 1.0 台账（内部发布计划；en 索引行指向 zh） |
 | `docs/design/governance/release-pipeline.md` | 未重译（结构映射口径见文档规范 §6；全量镜像属 1.0 后评估项） |
+| `docs/design/governance/run-conclusion-semantics.md` | 未重译（结构映射口径见文档规范 §6；全量镜像属 1.0 后评估项） |
 | `docs/design/governance/release-security-gate.md` | 未重译（结构映射口径见文档规范 §6；全量镜像属 1.0 后评估项） |
 | `docs/design/governance/repo-auto-inference.md` | 未重译（结构映射口径见文档规范 §6；全量镜像属 1.0 后评估项） |
 | `docs/design/governance/repo-execution-limits.md` | 未重译（结构映射口径见文档规范 §6；全量镜像属 1.0 后评估项） |

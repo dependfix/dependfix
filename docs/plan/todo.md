@@ -118,6 +118,8 @@
 
 ### 追加临时待办（不占阶段条目编号）：运行结论「无写入」语义与状态一致性修复（P1 🛡️）
 
+> **状态**：✅ 已闭环（2026-11-13；`fix(deps)` 之外的 5 个 commit：core 报告聚合 / engine 锁文件前置不变式 / engine 运行结论 / platform 终态守卫 / 文档）。审计 deep **R1 Reject**（RG-B1 degraded 诊断被清空 + W1-W6）→ 修复 → **R2 Pass**（W1-W4 同批收口）。残余：真实 4 仓库重放未执行（以真实 pnpm 的 duplicated-key 修复 + known-broken 重建两例替代，见 `index-real-pnpm.test.ts`）；sandbox bundle 为旧副本（发版镜像重建）；`ERR_PNPM_LOCKFILE_*` 同族诊断码未全部纳入（登记 backlog）。
+
 > **来源与授权**：2026-11-13 用户提交 `runs-logs-20261113-045612.txt`（733 条运行第 1 页）复盘后明确授权插队并优先于 M59 原子执行。按 [规划规范 §3.1](../standards/planning.md#_3-1-新需求默认走-评估-→-backlog-原则-hard-requirement)「追加临时待办」口径登记：追加在阶段末尾、不分配编号、不占既有条目位置。
 
 - **目标**：让「本次无写入」只表示「告警确实都处理完了」，而不是把「全部被拦截 / 前置失败 / 回滚」一并说成无事可做；同时消除「有提交却判 failed」的状态矛盾，并保证 `pnpm-lock.yaml` 结构损坏可自动修复交付。

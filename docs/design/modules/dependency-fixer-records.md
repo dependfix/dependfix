@@ -272,7 +272,7 @@ T108 (报告生成器)
 - **问题**：`tryLockfileRepair` 对「lockfile 本就合规、`repairLockfile` 未改动文件」与「真的改写了 lockfile」输出同一句 `Lockfile repaired for …`，读者把前者读成「修好了但没提交」（2026-10-17 生产复盘）。
 - **落点**：`packages/engine/src/app/helpers.ts#tryLockfileRepair` 按 `repairLockfile` 的 `changed` 分流——`changed === false` → `Lockfile already compliant for <repo> — no repair needed`；`changed === true` → `Lockfile repair applied for <repo> (strategy: …)`（语义不变，措辞与前者区分）；`changed` 缺省（类型可选，当前无生产路径）→ `Lockfile repair completed for <repo> (change status unknown)`，不把「可能改动」说成「已修复」；失败路径文案不变。`FixAction.noOp` 判据与日志同源（同一个 `noChange`），不出现「日志说已合规、动作却算交付」的错位。
 - **契约核对**：旧串 `Lockfile repaired` 在**生产源码**零残留（`rg -n "Lockfile repaired" packages apps --glob '!**/*.test.ts'` = 0）；测试保留负例断言、规范 / 规划文档保留问题陈述，故「全仓」口径不成立、不作为验收判据；报告 / PR 正文 / 通知均不解析该日志文案，消费的是 action 的 `success / noOp / strategy / diff` 结构化字段。
-- **不做什么**：不改 `changed` 判定（`fixers/pnpm` 的内容比较）；不改 `noOp` 对交付判定的既有语义（noOp 不计可交付修复）。
+- **不做什么**：不改 `changed` 判定（`fixers/pnpm` 的内容比较）；不改 `noOp` 对交付判定的既有语义（noOp 不计可交付修复）。**2026-11-13 补充**：基线已知损坏时禁用「已合规」、报告与日志按包聚合、平台收尾异常不翻转成功结论——口径与边界见 [run-conclusion-semantics.md](../governance/run-conclusion-semantics.md)。
 
 ### 12.16 环境性失败判据单点化与升级链路归因对齐（M47.3，2026-10-23）
 

@@ -98,7 +98,10 @@ describe('persistPostCompletionOutcome', () => {
         const run = makeRun()
         const notify = vi.fn()
         const onPersisted = vi.fn()
-        const persist = vi.fn(async () => ({ run: { ...run, status: 'failed' } as ScanRun, written: false }))
+        const persist = vi.fn(async (_ds: DataSource, target: ScanRun) => {
+            target.status = 'failed'
+            return { run: target, written: false }
+        })
 
         const persisted = await persistPostCompletionOutcome({
             ds: {} as DataSource,

@@ -769,7 +769,9 @@
         "errors": {
             "loadFailed": "加载失败：{message}"
         },
-        "typeSandboxEgressBlocked": "出站策略拦截"
+        "typeSandboxEgressBlocked": "出站策略拦截",
+        "typeExecutionLimitsUpdate": "执行预算更新",
+        "typeMajorUpgradePolicyUpdate": "跨大版本策略更新"
     },
     "credentials": {
         "title": "凭据管理",

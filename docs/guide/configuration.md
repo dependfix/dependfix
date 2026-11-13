@@ -262,8 +262,8 @@ export DEPENDFIX_RETRY_FAILED=false
 - **完整部署步骤**：见 [Docker 部署](./deployment.md)。
 
 > ⚠️ **注入方式（关键）**：默认 `docker-compose.yml` **无 `env_file`**，仅把一组白名单变量经 `${...}` 插值转发进容器（**compose 名 → 容器名**）：
-> `PORT` · `PUID`/`PGID` · `AUTH_SECRET`→`NUXT_AUTH_SECRET` · `DATABASE_PATH` · `DATABASE_MIGRATIONS_RUN` · `NUXT_ENCRYPTION_KEY` · `REGISTRATION_DISABLED`→`NUXT_REGISTRATION_DISABLED` · `NUXT_PUBLIC_BETTER_AUTH_URL` · `NUXT_REDIS_URL`（硬编码） · `QUEUE_ENABLED`/`QUEUE_JOB_RETRIES`/`QUEUE_BACKOFF_MS`→`NUXT_*` · `QUEUE_WORKER`→`DEPENDFIX_QUEUE_WORKER` · `IN_PROCESS_WORKER`→`NUXT_IN_PROCESS_WORKER` · `PNPM_CONFIG_STORE_DIR` · `LOG_DIR`/`LOG_LEVEL`/`LOGFILES` · `DEPENDFIX_IMAGE`/`DEPENDFIX_BUILD_IMAGE`。
-> 下方表中**白名单之外**的变量（邮件 / OAuth / OIDC / `AUTH_MODE` / `DATABASE_TYPE|URL|SSL|SYNCHRONIZE` / `BACKUP_*` / `RUN_WORK_ROOT` / `SANDBOX_*` / `DEPENDFIX_AI_*` / `ACTION_STATUS_MONITOR_ENABLED` / 通知类等）**默认不会进容器**，需自行追加到 compose 的 `environment:`（Nuxt runtimeConfig 变量须用 `NUXT_` 前缀）或用 `docker run -e` 注入。
+> `PORT` · `PUID`/`PGID` · `AUTH_SECRET`→`NUXT_AUTH_SECRET` · `DATABASE_PATH` · `DATABASE_MIGRATIONS_RUN` · `NUXT_ENCRYPTION_KEY` · `REGISTRATION_DISABLED`→`NUXT_REGISTRATION_DISABLED` · `NUXT_PUBLIC_BETTER_AUTH_URL` · `NUXT_REDIS_URL`（硬编码） · `QUEUE_ENABLED`/`QUEUE_JOB_RETRIES`/`QUEUE_BACKOFF_MS`→`NUXT_*` · `QUEUE_WORKER`→`DEPENDFIX_QUEUE_WORKER` · `DEPENDFIX_QUEUE_WORKER_SLOW_RETRY_SECONDS` · `IN_PROCESS_WORKER`→`NUXT_IN_PROCESS_WORKER` · `STALE_CLEANUP_RUNNING_GRACE_MS`/`STALE_CLEANUP_PENDING_GRACE_MS` · `PNPM_CONFIG_STORE_DIR` · `LOG_DIR`/`LOG_LEVEL`/`LOGFILES` · `SMTP_HOST`/`SMTP_PORT`/`SMTP_USER`/`SMTP_PASS`/`SMTP_FROM`→`NUXT_SMTP_*` · `DEPENDFIX_IMAGE`/`DEPENDFIX_BUILD_IMAGE`。
+> 下方表中**白名单之外**的变量（OAuth / OIDC / `AUTH_MODE` / `DATABASE_TYPE|URL|SSL|SYNCHRONIZE` / `BACKUP_*` / `RUN_WORK_ROOT` / `SANDBOX_*` / `DEPENDFIX_AI_*` / `ACTION_STATUS_MONITOR_ENABLED` / 通知类等）**默认不会进容器**，需自行追加到 compose 的 `environment:`（Nuxt runtimeConfig 变量须用 `NUXT_` 前缀）或用 `docker run -e` 注入。
 >
 > ⚠️ **Nuxt 运行时覆盖前缀**：平台是 Nuxt 应用，`runtimeConfig` 运行时覆盖**只认 `NUXT_` 前缀**——compose 变量 `AUTH_SECRET` → 容器 `NUXT_AUTH_SECRET`；`REGISTRATION_DISABLED` → `NUXT_REGISTRATION_DISABLED`。构建期烘焙的 env（如 `AUTH_MODE`）运行期须用 `NUXT_` 前缀覆盖，否则静默回退默认值。直读 `process.env` 的服务端变量（`DATABASE_*` / `CLONE_*` / `DEPENDFIX_*` 等）按原名注入。
 
@@ -315,6 +315,11 @@ export DEPENDFIX_RETRY_FAILED=false
 | 变量 | 必填 | 默认值 | 说明 |
 |:---|:---:|:---|:---|
 | `SMTP_*`（compose 插值名）→ 容器 `NUXT_SMTP_*` | — | 空 / `587` | 配置后启用邮箱验证与密码重置；未配置自动跳过。**运行时覆盖只认 `NUXT_SMTP_*`**（裸 `SMTP_*` 只在构建期求值，容器内注入无效）；是否启用由 `smtpHost` 是否非空在运行时派生，无独立开关变量 |
+
+> ⚠️ **启用顺序（存量账号）**：邮箱验证一旦启用，`email_verified = false` 的存量账号登录会直接返回 `EMAIL_NOT_VERIFIED`（403）。
+> 注入 `NUXT_SMTP_HOST` 前须先二选一：① 先上线「未验证邮箱自助恢复」（登录页重发验证邮件）；② 先由 DBA 备份后直接更新存量账号的 `user.email_verified`（暂无管理端点）。
+> **生效前提**：新镜像 + 新 `docker-compose.yml`（5 项 `NUXT_SMTP_*` 转发）**同时到位**；只换镜像而沿用旧 compose，`.env` 里的 `SMTP_*` 仍不会进容器（表现为症状完全不变）。
+> **回滚**：移除 `NUXT_SMTP_HOST` 即回到「不强制验证」（派生值转 false）。旧镜像的开关在构建期被烘焙为 false，需重建镜像后才会按 host 派生。
 
 ### 扫描队列与 Redis
 

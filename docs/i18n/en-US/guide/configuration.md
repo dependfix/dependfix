@@ -253,8 +253,8 @@ The management platform (`apps/platform`) is configured via env vars injected by
 - **Full deployment steps**: see [Docker deployment](./deployment.md).
 
 > ⚠️ **Injection model (important)**: the default `docker-compose.yml` has **no `env_file`** — it forwards only a whitelist of variables via `${...}` interpolation into the container (**compose name → container name**):
-> `PORT` · `PUID`/`PGID` · `AUTH_SECRET`→`NUXT_AUTH_SECRET` · `DATABASE_PATH` · `DATABASE_MIGRATIONS_RUN` · `NUXT_ENCRYPTION_KEY` · `REGISTRATION_DISABLED`→`NUXT_REGISTRATION_DISABLED` · `NUXT_PUBLIC_BETTER_AUTH_URL` · `NUXT_REDIS_URL` (hard-coded) · `QUEUE_ENABLED`/`QUEUE_JOB_RETRIES`/`QUEUE_BACKOFF_MS`→`NUXT_*` · `QUEUE_WORKER`→`DEPENDFIX_QUEUE_WORKER` · `IN_PROCESS_WORKER`→`NUXT_IN_PROCESS_WORKER` · `PNPM_CONFIG_STORE_DIR` · `LOG_DIR`/`LOG_LEVEL`/`LOGFILES` · `DEPENDFIX_IMAGE`/`DEPENDFIX_BUILD_IMAGE`.
-> Variables **outside** the whitelist below (email / OAuth / OIDC / `AUTH_MODE` / `DATABASE_TYPE|URL|SSL|SYNCHRONIZE` / `BACKUP_*` / `RUN_WORK_ROOT` / `SANDBOX_*` / `DEPENDFIX_AI_*` / `ACTION_STATUS_MONITOR_ENABLED` / notification, etc.) are **not injected by default** — add them to the compose `environment:` (Nuxt runtimeConfig vars need the `NUXT_` prefix) or via `docker run -e`.
+> `PORT` · `PUID`/`PGID` · `AUTH_SECRET`→`NUXT_AUTH_SECRET` · `DATABASE_PATH` · `DATABASE_MIGRATIONS_RUN` · `NUXT_ENCRYPTION_KEY` · `REGISTRATION_DISABLED`→`NUXT_REGISTRATION_DISABLED` · `NUXT_PUBLIC_BETTER_AUTH_URL` · `NUXT_REDIS_URL` (hard-coded) · `QUEUE_ENABLED`/`QUEUE_JOB_RETRIES`/`QUEUE_BACKOFF_MS`→`NUXT_*` · `QUEUE_WORKER`→`DEPENDFIX_QUEUE_WORKER` · `DEPENDFIX_QUEUE_WORKER_SLOW_RETRY_SECONDS` · `IN_PROCESS_WORKER`→`NUXT_IN_PROCESS_WORKER` · `STALE_CLEANUP_RUNNING_GRACE_MS`/`STALE_CLEANUP_PENDING_GRACE_MS` · `PNPM_CONFIG_STORE_DIR` · `LOG_DIR`/`LOG_LEVEL`/`LOGFILES` · `SMTP_HOST`/`SMTP_PORT`/`SMTP_USER`/`SMTP_PASS`/`SMTP_FROM`→`NUXT_SMTP_*` · `DEPENDFIX_IMAGE`/`DEPENDFIX_BUILD_IMAGE`.
+> Variables **outside** the whitelist below (OAuth / OIDC / `AUTH_MODE` / `DATABASE_TYPE|URL|SSL|SYNCHRONIZE` / `BACKUP_*` / `RUN_WORK_ROOT` / `SANDBOX_*` / `DEPENDFIX_AI_*` / `ACTION_STATUS_MONITOR_ENABLED` / notification, etc.) are **not injected by default** — add them to the compose `environment:` (Nuxt runtimeConfig vars need the `NUXT_` prefix) or via `docker run -e`.
 >
 > ⚠️ **Nuxt runtime override prefix**: the platform is a Nuxt app; `runtimeConfig` runtime overrides **only honor the `NUXT_` prefix** — compose var `AUTH_SECRET` → container `NUXT_AUTH_SECRET`; `REGISTRATION_DISABLED` → `NUXT_REGISTRATION_DISABLED`. Build-time-baked env (e.g. `AUTH_MODE`) needs the `NUXT_` prefix at runtime, otherwise it silently falls back to the default. Server vars read directly via `process.env` (`DATABASE_*` / `CLONE_*` / `DEPENDFIX_*`, etc.) are injected under their original names.
 
@@ -306,6 +306,11 @@ The management platform (`apps/platform`) is configured via env vars injected by
 | Variable | Required | Default | Description |
 |:---|:---:|:---|:---|
 | `SMTP_*` (compose interpolation) → container `NUXT_SMTP_*` | — | empty / `587` | Configuring it enables email verification and password reset; otherwise skipped. **Runtime overrides only honor `NUXT_SMTP_*`** (bare `SMTP_*` is evaluated at build time only); enablement is derived from a non-empty `smtpHost` at runtime, with no separate switch |
+
+> ⚠️ **Enable order (existing accounts)**: once email verification is on, existing accounts with `email_verified = false` get `EMAIL_NOT_VERIFIED` (403) at sign-in.
+> Before injecting `NUXT_SMTP_HOST`, do one of: ① ship self-service recovery (resend the verification email from the login page); ② have a DBA back up and update `user.email_verified` directly (no admin endpoint yet).
+> **Prerequisites**: the new image **and** the new `docker-compose.yml` (5 `NUXT_SMTP_*` forwards) must both be in place; swapping only the image while keeping the old compose leaves `SMTP_*` out of the container (symptoms unchanged).
+> **Rollback**: removing `NUXT_SMTP_HOST` returns to "verification not enforced" (derived value becomes false). Old images bake the switch to false at build time, so a rebuild is required before host derivation applies.
 
 ### Scan queue & Redis
 

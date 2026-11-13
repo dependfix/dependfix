@@ -67,6 +67,8 @@
 
 ### M59.3 运行状态一致性：取消落定与起点条件写（P2 🛡️）
 
+> **状态**：✅ 已闭环（2026-11-13）。取消未落定：记录存活受管子进程 / 最后受管命令 / 取消原因（`describeUnsettledRun`），工作目录移入 `_pending` 延迟清理（reason=`execution_timeout_unsettled`）而非当场删除；起点写回与 force-fail 均改为条件更新（`scan-run-start.ts` 乐观锁 + `affected` 断言 + 结构化跳过日志），批次行同口径。审计：standard **R1 Reject**（RG-B1 取消后计数恒 0）→ 修复 → **R2 Pass**（W7/W8 同批收口）。
+
 - **目标**：取消后引擎落定与工作目录清理不再竞态；force-fail 与续用起点写不再复活已终态 run。
 - **范围**：
   - `apps/platform/server/services/executor/engine-run.ts` + `container-executor.ts:496/521-524`：未落定时输出存活受管子进程数 / 最后启动命令，延迟清理并落 `_pending` 诊断（D3 决策）。

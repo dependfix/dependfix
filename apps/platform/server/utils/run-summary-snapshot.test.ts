@@ -44,4 +44,49 @@ describe('buildRunSummarySnapshot', () => {
         expect(snapshot.networkViolationTargets).toHaveLength(20)
         expect(snapshot.networkViolations).toBe(30)
     })
+
+    it('adds the self-contained delivery record (branch + commit)', () => {
+        const snapshot = buildRunSummarySnapshot({
+            summary,
+            networkViolations: [],
+            delivery: {
+                deliveredBy: 'engine',
+                status: 'pushed',
+                branch: 'dependfix/auto-fix-abcd1234',
+                commitSha: 'deadbeefcafe',
+            },
+        })
+        expect(snapshot.delivery).toEqual({
+            status: 'pushed',
+            deliveredBy: 'engine',
+            branch: 'dependfix/auto-fix-abcd1234',
+            commitSha: 'deadbeefcafe',
+        })
+    })
+
+    it('omits the delivery key when the result carries none', () => {
+        expect(buildRunSummarySnapshot({ summary, networkViolations: [] })).toBe(summary)
+    })
+
+    it('keeps pr-created delivery minimal (no prUrl in the snapshot)', () => {
+        const snapshot = buildRunSummarySnapshot({
+            summary,
+            networkViolations: [],
+            delivery: {
+                deliveredBy: 'engine',
+                status: 'pr-created',
+                branch: 'dependfix/auto-fix-abcd1234',
+                commitSha: 'deadbeefcafe',
+                prUrl: 'https://github.com/o/r/pull/7',
+                prNumber: 7,
+            },
+        })
+        expect(snapshot.delivery).toEqual({
+            status: 'pr-created',
+            deliveredBy: 'engine',
+            branch: 'dependfix/auto-fix-abcd1234',
+            commitSha: 'deadbeefcafe',
+        })
+        expect(JSON.stringify(snapshot)).not.toContain('pull/7')
+    })
 })

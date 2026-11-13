@@ -19,6 +19,7 @@ import type { ScanExecutor, ScanExecutorContext, ScanExecutorResult } from './ty
 import {
     deliverFixAndPr,
     planFixAndPrDelivery,
+    shouldPlatformDeliver,
     PlatformDeliveryError,
     createPlatformOctokit,
 } from './platform-delivery'
@@ -443,7 +444,7 @@ export class ContainerExecutor implements ScanExecutor {
             // 触发条件比原 `exitCode === 0` 更严格：exitCode 1 也算"有部分成功"，但只有真产生 commit 才推
             let runUrl: string | undefined
             let prNumber: number | undefined
-            if (needsPush && result && ctx.credential?.token) {
+            if (needsPush && result && ctx.credential?.token && shouldPlatformDeliver(result)) {
                 const hasNewCommit = await checkHasNewCommit(workDir, preRunHead)
                 if (!hasNewCommit) {
                     // 引擎未产生新 commit（无告警 / 告警已收敛 / 全部 failed 已被回滚）→ 不推

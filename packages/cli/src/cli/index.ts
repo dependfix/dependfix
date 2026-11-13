@@ -90,6 +90,11 @@ export const argsDef = {
         description: '修复完成后在本地当前分支直接提交（不推送、不创建 PR）',
         negativeDescription: '不自动提交（默认）',
     },
+    push: {
+        type: 'boolean' as const,
+        description: '提交后把当前分支推到远端（仅 fix 模式，配合 --commit；不创建 PR）',
+        negativeDescription: '不推送（默认；容器路径由平台接管推送）',
+    },
     'cleanup-branches': {
         type: 'boolean' as const,
         description: '（fix-and-pr 模式）结束后列出已合并的 dependfix 分支到报告，不自动删除',
@@ -373,6 +378,11 @@ function parsedArgsToCliOverrides(parsed: ParsedArgs<typeof argsDef>): CliConfig
     // commit (three-state: true / false / undefined)
     if (parsed.commit !== undefined) {
         overrides.commit = parsed.commit
+    }
+
+    // push (three-state: true / false / undefined)
+    if (parsed.push !== undefined) {
+        overrides.push = parsed.push
     }
 
     // cleanup-branches (three-state: true / false / undefined)

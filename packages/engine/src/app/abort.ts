@@ -4,14 +4,25 @@
 // 取消相关的三处策略（审计留痕、跳过后续仓库、放弃交付）都是"围绕 `runners/process-control`
 // 的编排决策"，与 `DependfixApp` 的其余编排职责不同源；集中在本模块便于单点复核。
 //
-// 语义边界：本模块只做决策与留痕，**不**终止进程（那是 `runners/process-control.requestAbort` 的职责）。
+// 语义边界：决策与留痕在本模块；`abortRun` 是接入面，终止进程由 `runners/process-control.requestAbort` 执行。
 import type { FixError, Logger } from '@dependfix/core'
-import { getAbortReason, isAbortRequested } from '../runners/process-control'
+import { getAbortReason, isAbortRequested, requestAbort } from '../runners/process-control'
 
 /** 本模块所需的上下文切片（`allErrors` 用于审计留痕，`logger` 用于人读日志）。 */
 export interface AbortContext {
     logger: Pick<Logger, 'warn' | 'info'>
     allErrors: FixError[]
+}
+
+/**
+ * 请求中止本次运行（平台执行超时 / 运维中止的接入点；协作式、可重复调用）。
+ *
+ * ① 终止在跑子进程树；② 停止启动新工作；③ 放弃交付。不抛错、不中断调用栈；
+ * 审计留痕由 `recordRunAbort` 完成。
+ */
+export function abortRun(ctx: AbortContext, reason: string): void {
+    requestAbort(reason)
+    recordRunAbort(ctx, reason)
 }
 
 /**
@@ -68,7 +79,7 @@ export function logSkippedRepos(logger: Pick<Logger, 'warn'>, skipped: string[])
  *
  * 理由：中止可能发生在任意阶段，工作区处于"部分修复 + 未完整验证"状态，交付即坏改动落地。
  */
-export function abortBlocksDelivery(ctx: Pick<AbortContext, 'logger'>, action: 'local commit' | 'PR creation'): boolean {
+export function abortBlocksDelivery(ctx: Pick<AbortContext, 'logger'>, action: 'local commit' | 'PR creation' | 'branch push'): boolean {
     if (!isAbortRequested()) {
         return false
     }

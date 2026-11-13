@@ -7,6 +7,7 @@ import {
     deliverySkipped,
     environmentalFailureCount,
     formatBuildLabel,
+    runDelivery,
     formatBytes,
     isRunResultMissing,
     SEVERITY_DISPLAY_ORDER,
@@ -252,5 +253,24 @@ describe('deliverySkipped', () => {
         expect(deliverySkipDraftPrs({ deliverySkipDraftPrs: 1 })).toBe(1)
         expect(deliverySkipIssues({})).toBe(0)
         expect(deliverySkipDraftPrs({})).toBe(0)
+    })
+
+    it('reads the self-contained delivery record and rejects malformed values', () => {
+        expect(runDelivery({
+            delivery: {
+                status: 'pushed',
+                deliveredBy: 'engine',
+                branch: 'dependfix/auto-fix-abcd1234',
+                commitSha: 'deadbeef',
+            },
+        })).toEqual({
+            status: 'pushed',
+            deliveredBy: 'engine',
+            branch: 'dependfix/auto-fix-abcd1234',
+            commitSha: 'deadbeef',
+        })
+        expect(runDelivery({ delivery: { status: 'pushed' } })).toBeUndefined()
+        expect(runDelivery({ delivery: 'pushed' })).toBeUndefined()
+        expect(runDelivery(null)).toBeUndefined()
     })
 })

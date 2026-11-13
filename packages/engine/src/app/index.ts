@@ -18,12 +18,14 @@ import {
     type RepeatedAttemptRecord,
     type PrCheckWatchReport,
     type DeliverySkipRecord,
+    type RunDelivery,
 } from '@dependfix/core'
 import { fromApp, type AuthProvider } from '../auth'
 import {
     createFixBranch,
     stageAndCommit,
     pushBranch,
+    readHeadCommit,
     createPullRequest,
     generatePRBody,
     computeFixFingerprint,
@@ -36,14 +38,13 @@ import {
     discoverRepositories,
     mergeRepositories,
     filterExplicitRepositories,
-    checkTokenPermissions,
     type RepoPolicy,
 } from '../github'
 import { runWithConcurrency } from '../multirepo/scheduler'
 import { writeArchive } from '../report/archiver'
 import type { RuntimeConfig } from '../config'
 import { enforceVerificationGate } from '../runners/verification-gate'
-import { requestAbort, resetProcessControlState } from '../runners/process-control'
+import { resetProcessControlState } from '../runners/process-control'
 import { collectSupplyChainWarnings } from '../supply-chain'
 import { loadRulesConfigFromEnv, resetActiveRulesConfig, setActiveRulesConfig } from '../code-scanning/rule-config'
 import type { CommandResult } from '../runners/verification-runner'
@@ -52,7 +53,7 @@ import type { VerificationCheckpoint } from './verification-checkpoint'
 import { createConfiguredGitHubClient, createConfiguredGitHubClientOrNull } from './github-client'
 import { formatEngineBuildLine, resolveRunBuildInfo, type RunBuildInfo } from './build-info'
 import { fetchDefaultBranch } from './repo-alerts'
-import { abortAwareRepoTask, abortBlocksDelivery, logSkippedRepos, recordRunAbort } from './abort'
+import { abortAwareRepoTask, abortBlocksDelivery, abortRun, logSkippedRepos } from './abort'
 import { processRepoForReport } from './repo-report'
 import { processRepoFix, type AiUsageRef } from './repo-fix'
 import { applyRepoConfig } from './repo-config'
@@ -81,6 +82,8 @@ import { logPartialSourceFailureSummary } from './source-failure-summary'
 import { logSkippedByPackageSummary } from './result-assembly'
 import { attachRunEgressResult, beginRunEgressAudit, finishRunEgressAudit } from './run-egress'
 import { pullRequestCreationHint } from './token-hints'
+import { runStartupSecurityChecks as runStartupSecurityChecksImpl } from './startup-checks'
+import { deliveryBranchPushed, deliveryPrCreated, deliveryPrReused, recordFixModeDelivery } from './self-delivery'
 import { handleDuplicatePRs } from './duplicate-prs'
 
 // 仅 re-export 平台直接调用的辅助函数（PR 创建在平台 A 模式复用）
@@ -239,19 +242,13 @@ export class DependfixApp {
         resetProcessControlState()
     }
 
-    /**
-     * 请求中止本次运行（平台执行超时 / 运维中止的接入点；协作式、可重复调用）。
-     *
-     * 语义与留痕口径见 [app/abort.ts](./abort.ts) 的 `recordRunAbort`；核心三步：
-     * ① 立即终止在跑子进程树；② 不再启动新工作（仓库边界 / 验证链 / 安装命令三重短路）；
-     * ③ 放弃交付（半成品不落地）。不抛错、不中断调用栈。
-     */
+    /** 请求中止本次运行（协作式；留痕口径见 app/abort.ts）。 */
     abort(reason = 'abort requested'): void {
-        requestAbort(reason)
-        recordRunAbort(this.ctx, reason)
+        abortRun(this.ctx, reason)
     }
 
-    /** 供辅助方法使用的状态切片。 */
+    private deliveryRecord?: RunDelivery // getter 每次新建 ctx，故状态留在实例字段
+
     private get ctx(): AppContext {
         return {
             config: this.config,
@@ -276,6 +273,7 @@ export class DependfixApp {
             prCheckWatch: this.prCheckWatchReport,
             alertOutcomes: this.alertOutcomes,
             deliverySkips: this.deliverySkips,
+            delivery: this.deliveryRecord,
             deadlineAt: this.config.deadlineAt,
             budgetSkips: this.budgetSkips,
         }
@@ -383,29 +381,11 @@ export class DependfixApp {
      *   Code Scanning 开启但缺 security-events 权限时提示。
      */
     private async runStartupSecurityChecks(): Promise<void> {
-        const isLocalFix = this.executionEnvironment === 'local'
-            && !this.config.dryRun
-            && (this.config.mode === 'fix' || this.config.mode === 'fix-and-pr')
-        if (isLocalFix && process.env.DEPENDFIX_SUPPRESS_LOCAL_EXECUTION_WARNING !== '1') {
-            this.logger.warn(
-                '[local-exec] 本地模式将直接执行目标仓库的依赖安装/验证脚本（install/lint/build/typecheck/test 钩子，属不可信代码）'
-                + '——若仓库或依赖被恶意控制，脚本可读取本机环境变量（含 GITHUB_TOKEN）。'
-                + '建议：使用专用低权限 token，并在专用环境（容器/VM/CI runner）运行；'
-                + '已确认风险可设置 DEPENDFIX_SUPPRESS_LOCAL_EXECUTION_WARNING=1 抑制本提示'
-                + '（详见 quick-start 安全注意事项）。',
-            )
-        }
-
-        if (this.config.alertSource === 'github-dependabot' && this.config.githubToken) {
-            const result = await checkTokenPermissions(createConfiguredGitHubClient(this.config), {
-                codeScanningEnabled: this.config.codeScanningEnabled,
-            })
-            if (result.ok && result.warnings.length > 0) {
-                for (const warning of result.warnings) {
-                    this.logger.warn(`[token-scope] ${warning.message}`)
-                }
-            }
-        }
+        await runStartupSecurityChecksImpl({
+            config: this.config,
+            logger: this.logger,
+            executionEnvironment: this.executionEnvironment,
+        })
     }
 
     // -----------------------------------------------------------------------
@@ -459,6 +439,7 @@ export class DependfixApp {
                 return
             }
 
+            const headBeforeCommit = await readHeadCommit(this.workDir).catch(() => undefined)
             try {
                 await commitLocalChanges(this.ctx)
             } catch (error: unknown) {
@@ -472,6 +453,18 @@ export class DependfixApp {
                     category: isScopeError ? error.category : 'COMMIT_FAILED',
                     message,
                 })
+            }
+            const delivery = await recordFixModeDelivery({
+                commit: this.config.commit,
+                ...(this.config.push !== undefined ? { push: this.config.push } : {}),
+                workDir: this.workDir,
+                logger: this.logger,
+                allErrors: this.allErrors,
+                ...(headBeforeCommit ? { headBeforeCommit } : {}),
+                abortBlocked: () => abortBlocksDelivery(this.ctx, 'branch push'),
+            })
+            if (delivery) {
+                this.deliveryRecord = delivery
             }
         }
     }
@@ -594,6 +587,8 @@ export class DependfixApp {
                     `Open PR #${plan.sameContentPR.number} already contains identical fixes — skipping PR creation`,
                 )
                 this.summary.prsSkippedByFingerprint += 1
+                // 同内容 PR 复用也算已交付：平台据此落 runUrl / PR 编号，不重复创建
+                this.deliveryRecord = deliveryPrReused(plan.sameContentPR)
                 this.allActions.push({
                     type: 'dependency-upgrade',
                     repository: firstRepo,
@@ -649,7 +644,10 @@ export class DependfixApp {
             }
 
             this.logger.info(`Pushing branch: ${branchName}`)
+            const commitSha = await readHeadCommit(this.workDir).catch(() => undefined)
             await pushBranch(branchName, this.workDir)
+            // 分支已推：先落 `pushed`（后续 PR 失败 / 取消时平台据 branch 清理，不推测命名）
+            this.deliveryRecord = deliveryBranchPushed(branchName, commitSha)
 
             // 6. Create PR (one PR covering all repos)
             const defaultBranch = await fetchDefaultBranch(client, owner, repo)
@@ -679,6 +677,7 @@ export class DependfixApp {
 
             this.logger.info(`PR created: ${pr.htmlUrl}`)
             this.summary.prsOpened += 1
+            this.deliveryRecord = deliveryPrCreated(branchName, commitSha, pr)
             if (this.baselineRedDraft) {
                 this.baselineRedDraft.carrier.draftPr = { number: pr.number, htmlUrl: pr.htmlUrl }
                 this.logger.warn(

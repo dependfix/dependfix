@@ -43,6 +43,8 @@ const platformDeliveryMock = vi.hoisted(() => ({
     planFixAndPrDelivery: vi.fn(),
     deliverFixAndPr: vi.fn(),
     createPlatformOctokit: vi.fn(),
+    // 双路径守卫：容器路径按真实语义放行（结果带 platform/none 或无 delivery 记录）
+    shouldPlatformDeliver: vi.fn(() => true),
 }))
 
 vi.mock('./platform-delivery', () => platformDeliveryMock)
@@ -140,6 +142,7 @@ beforeEach(async () => {
     platformDeliveryMock.planFixAndPrDelivery.mockReset()
     platformDeliveryMock.deliverFixAndPr.mockReset()
     platformDeliveryMock.createPlatformOctokit.mockReset()
+    platformDeliveryMock.shouldPlatformDeliver.mockReset().mockReturnValue(true)
     dependfixAppMock.mockReset()
     engineMock.createFixBranch.mockReset()
 
@@ -333,6 +336,33 @@ describe('ContainerExecutor.execute - fix-and-pr mode', () => {
         expect(platformDeliveryMock.planFixAndPrDelivery).toHaveBeenCalledWith(fakeOctokit, 'owner-a', 'repo-b', runResult)
         expect(engineMock.createFixBranch).toHaveBeenCalledWith('dependfix/auto-fix-test', expect.any(String))
         expect(platformDeliveryMock.deliverFixAndPr).toHaveBeenCalled()
+    })
+
+    it('skips platform delivery when the engine already delivered in-process', async () => {
+        const runResult = makeRunResult({
+            delivery: {
+                deliveredBy: 'engine',
+                status: 'pr-created',
+                branch: 'dependfix/auto-fix-abcd1234',
+                prUrl: 'https://github.com/owner-a/repo-b/pull/7',
+                prNumber: 7,
+            },
+        })
+        dependfixAppMock.mockImplementation(function (this: { run: ReturnType<typeof vi.fn> }) {
+            this.run = vi.fn().mockResolvedValue(fakeDependfixRunResult(runResult, 0))
+        } as never)
+        platformDeliveryMock.shouldPlatformDeliver.mockReturnValue(false)
+
+        childProcessMock.execFile
+            .mockResolvedValueOnce({ stdout: '', stderr: 'Cloning into \'.\'...' })
+            .mockResolvedValueOnce({ stdout: 'aaa\n', stderr: '' })
+
+        const executor = new ContainerExecutor({ workRoot: tempRoot, timeoutMs: 10_000 })
+        const result = await executor.execute(makeCtx({ config: { ...baseConfig, mode: 'fix-and-pr' } }))
+
+        expect(result.exitCode).toBe(0)
+        expect(platformDeliveryMock.planFixAndPrDelivery).not.toHaveBeenCalled()
+        expect(platformDeliveryMock.deliverFixAndPr).not.toHaveBeenCalled()
     })
 
     it('returns pr_creation_failed + moves to pending + runUrl fallback when PR creation fails', async () => {

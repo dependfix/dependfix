@@ -66,6 +66,21 @@ export async function planFixAndPrDelivery(
     }
 }
 
+/**
+ * 平台是否需要接管交付（双路径守卫）。
+ *
+ * 引擎自包含执行（沙箱）在进程内完成 push / PR 后把结果写入 `RunResult.delivery`；
+ * 此时平台不得再次 push 或创建 PR。容器路径引擎只写 `{ deliveredBy: 'platform', status: 'none' }`，
+ * 守卫放行。缺省（存量结果 / report-only）按容器路径处理。
+ */
+export function shouldPlatformDeliver(result: Pick<RunResult, 'delivery'>): boolean {
+    const delivery = result.delivery
+    if (!delivery) {
+        return true
+    }
+    return !(delivery.status !== 'none' || delivery.deliveredBy === 'engine')
+}
+
 /** 平台交付决策结果。 */
 export interface FixAndPrDeliveryPlan {
     /** 内容指纹（8 位 hex） */

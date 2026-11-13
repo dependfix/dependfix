@@ -118,7 +118,7 @@ export function computeSummary(
 }
 
 export function buildRunResult(
-    ctx: Pick<AppContext, 'config' | 'runId' | 'startedAt' | 'finishedAt' | 'summary' | 'repoResults' | 'allAlerts' | 'allActions' | 'allErrors' | 'alertsDisabled' | 'ciAlignment' | 'attemptTracking' | 'prCheckWatch' | 'alertOutcomes' | 'deliverySkips'>,
+    ctx: Pick<AppContext, 'config' | 'runId' | 'startedAt' | 'finishedAt' | 'summary' | 'repoResults' | 'allAlerts' | 'allActions' | 'allErrors' | 'alertsDisabled' | 'ciAlignment' | 'attemptTracking' | 'prCheckWatch' | 'alertOutcomes' | 'deliverySkips' | 'delivery'>,
     aiUsage?: AiUsageAggregate, supplyChainWarnings?: SupplyChainWarning[],
 ): RunResult {
     const reportConfig: RunReportConfig = {
@@ -153,6 +153,7 @@ export function buildRunResult(
         alertOutcomes: alertOutcomes.length > 0 ? alertOutcomes : undefined,
         prCheckWatch: ctx.prCheckWatch && ctx.prCheckWatch.attempts.length > 0 ? ctx.prCheckWatch : undefined,
         deliverySkips: ctx.deliverySkips && ctx.deliverySkips.length > 0 ? ctx.deliverySkips : undefined,
+        delivery: ctx.delivery,
     }
 }
 

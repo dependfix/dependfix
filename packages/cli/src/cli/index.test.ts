@@ -82,6 +82,7 @@ describe('parseCliArgs', () => {
             dryRun: false,
             createPullRequest: false,
             commit: false,
+            push: false,
             cleanupBranches: false,
             cleanupBranchesAuto: false,
             githubToken: 'token-from-cli',

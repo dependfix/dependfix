@@ -55,6 +55,7 @@ const EXPECTED_MAPPINGS: Record<string, { stage: RunFailureStage, kind: RunFailu
     sandbox_clone_host_not_allowed: { stage: 'runtime', kind: 'deterministic' },
     // deliver
     COMMIT_FAILED: { stage: 'deliver', kind: 'deterministic' },
+    PUSH_FAILED: { stage: 'deliver', kind: 'deterministic' },
     UNEXPECTED_CHANGES: { stage: 'deliver', kind: 'deterministic' },
     NO_CHANGES: { stage: 'deliver', kind: 'deterministic' },
     push_failed: { stage: 'deliver', kind: 'unknown' },

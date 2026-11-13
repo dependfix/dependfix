@@ -165,6 +165,26 @@ export const networkViolationSummary = (
     return [auditedText, targets].filter(Boolean).join(' · ')
 }
 
+/** 自包含交付记录（`summary.delivery`；旧 summaryJson 缺该字段时为 undefined）。 */
+export const runDelivery = (summary: Record<string, unknown> | null) => {
+    const value = summary?.delivery
+    if (!value || typeof value !== 'object') {
+        return undefined
+    }
+    const record = value as Record<string, unknown>
+    const status = typeof record.status === 'string' ? record.status : ''
+    const deliveredBy = typeof record.deliveredBy === 'string' ? record.deliveredBy : ''
+    if (!status || !deliveredBy) {
+        return undefined
+    }
+    return {
+        status,
+        deliveredBy,
+        branch: typeof record.branch === 'string' ? record.branch : undefined,
+        commitSha: typeof record.commitSha === 'string' ? record.commitSha : undefined,
+    }
+}
+
 /** 跳过总数（`summary.alertsSkipped`）。 */
 export const skippedTotal = (summary: Record<string, unknown> | null) => summaryNumber(summary, 'alertsSkipped')
 

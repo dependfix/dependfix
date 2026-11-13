@@ -273,6 +273,8 @@ curl -X PUT /api/repos/{id} \
 # export SANDBOX_RUNTIME=sysbox-runc
 ```
 
+> **交付**：`fix` 在容器内提交并推送当前分支（`--commit --push`）；`fix-and-pr` 在容器内建分支、推送并创建 PR，结果契约回传 branch / commit / PR，平台不再二次 push / 建 PR。失败或取消时平台只清理结果声明的 `dependfix/` 分支（默认分支不动），并落 `delivery_branch_cleanup` 审计事件。push 失败（受保护的默认分支 / 凭据失效）使运行判 `failed`；非 GitHub clone 源没有 push 凭据，`fix` 只提交不推送（需改用 `fix-and-pr` 或 GitHub 源）。
+>
 > **网络**：report-only 访问 GitHub API；fix 类在容器内 clone + 安装 + 验证，出站由容器内 CLI 的运行级审计代理按 `DEPENDFIX_ALLOWED_DOMAINS`（平台注入）deny-by-default 约束——非白名单外联直接 502，运行判 `failed`（`network_violation`）。clone 基地址可用 `SANDBOX_CLONE_BASE_URL` 指向企业镜像 / 自建 Git（仅 GitHub 源注入凭据头，其它源匿名 clone），且该 host 必须命中同一白名单。
 
 **降级与失败行为**：
@@ -315,6 +317,7 @@ A/B 场景差异化见 [executor-sandbox.md §7.8.1](../design/governance/execut
 | `--dry-run` | — | 试运行，不写入文件。report-only 模式默认 `true` | `false`（fix/fix-and-pr） |
 | `--create-pr` | — | 创建 Pull Request | `false` |
 | `--commit` | — | 修复完成后在本地当前分支直接提交（仅 fix 模式；不推送、不创建 PR） | `false` |
+| `--push` | — | 提交后把当前分支推到远端（仅 fix 模式，配合 `--commit`；不创建 PR）。容器路径由平台接管推送 | `false` |
 | `--cleanup-branches` | — | （fix-and-pr 模式）结束后列出已合并的 dependfix 分支到报告，不自动删除 | `false` |
 | `--cleanup-branches-auto` | — | （fix-and-pr 模式）结束后自动删除已合并/已关闭的 dependfix 分支（非交互；不删有 open PR 的分支） | `false` |
 | `--max-alerts-per-repository` | — | 每仓库最大处理数 | `20` |

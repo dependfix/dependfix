@@ -14,6 +14,7 @@ import { notifyEnvEvent } from './notification'
 import { notifyRunTerminal } from './notification/run-notification.service'
 import type { NotificationEvent } from './notification/channel'
 import { reconcileAlerts } from './scan-reconcile'
+import { persistPostCompletionOutcome } from './scan-run-post-completion'
 import { resolveAiConfig } from './ai-config-resolver'
 import { resolveExecutionLimits } from '#server/utils/execution-limits'
 import { Repository, parseSandboxLimits, parseVerifyCommands } from '#server/entities/repository'
@@ -204,6 +205,12 @@ const persistRunTerminalState = async (
             : { run, written: false }
     }
     return { run: (await runRepo.findOne({ where: { id: run.id } })) ?? run, written: true }
+}
+
+const notifyTerminalSafe = (run: ScanRun): void => {
+    void notifyRunTerminal(run).catch((notifyError) => {
+        logger.error('[notification] run terminal notify failed', { error: notifyError })
+    })
 }
 
 
@@ -403,6 +410,10 @@ const runScanInternal = async (
     // 执行日志（container 由 MemoryLogger 输出 / sandbox 由 stdout+stderr 尾部回传）：声明在 try 外，
     // 使 catch-all（reconcile / 落库抛错）也能把已采集的日志落库
     let logsJson: string | undefined | null
+    let decision: ReturnType<typeof resolveScanRunState> | undefined
+    let decidedResult: RunResult | undefined
+    let decidedRunUrl: string | null = null
+    let degradedReason: { code: string, message: string } | undefined
     try {
         // 执行器路由
         let result: RunResult | undefined
@@ -412,9 +423,6 @@ const runScanInternal = async (
         // 引擎交付类 category 识别之外的进程级兜底（exitCode=2 + result 存在 → 标记 failed）。
         // B 模式（github-action）executor 不会透传 exitCode，保持 undefined。
         let exitCode: number | undefined
-        // 降级信号（todo.md §M11 T1005-C）：sandbox 启动时不可用 → 自动降级 ContainerExecutor → degradedReason 记录原 sandbox_unavailable
-        // 范围：try 块顶层，确保 decision 处理块可见（degraded 状态机决策的输入）
-        let degradedReason: { code: string, message: string } | undefined
         if (executorKind === 'github-action') {
             const executor = new ActionTriggerExecutor(token ?? '')
             const execResult = await executor.execute(ctx)
@@ -503,7 +511,9 @@ const runScanInternal = async (
         //   仅触发级失败（workflow 未配置/不存在/无权限等，action 未运行）→ failed
         // - sandbox 启动时降级（A 场景，详见 executor-sandbox-implementation.md §7.8）：degraded + summaryJson + runUrl + errorJson
         //   （业务结果完整，路径偏离；errorJson 保留 sandbox_unavailable 错误码便于审计）
-        const decision = resolveScanRunState(executorKind, error, result, degradedReason, exitCode)
+        decision = resolveScanRunState(executorKind, error, result, degradedReason, exitCode)
+        decidedResult = result
+        decidedRunUrl = runUrl
         // 运行结果可信度落库（纯函数映射）：exit_code 独立于终态；环境性失败计数只在有 result 时写，
         // 无 result 的失败保持 null，供 UI 判「结果缺失」而不是显示误导性的「告警 0」。
         const outcome = resolveScanRunOutcome(result, exitCode)
@@ -608,13 +618,26 @@ const runScanInternal = async (
         // 业务通知 fire-and-forget：批次内 run 由批次终态合并；失败不阻断扫描。
         // 未写回（清理侧已置终态）时跳过——清理侧已就同一 run 发过失败通知，避免重复投递。
         if (written) {
-            void notifyRunTerminal(persistedRun).catch((notifyError) => {
-                logger.error('[notification] run terminal notify failed', { error: notifyError })
-            })
+            notifyTerminalSafe(persistedRun)
         }
 
         return persistedRun
     } catch (error) {
+        if (decision && (decision.status === 'completed' || decision.status === 'degraded') && decidedResult) {
+            const completed = decision
+            return await persistPostCompletionOutcome({
+                ds, run: savedRun, status: completed.status === 'degraded' ? 'degraded' : 'completed',
+                result: decidedResult, runUrl: decidedRunUrl,
+                resource, logsJson, error,
+                errorJson: completed.status === 'degraded' ? (completed.errorJson ?? null) : null,
+                persist: persistRunTerminalState, notify: notifyTerminalSafe, logger,
+                onPersisted: async (persisted) => {
+                    await recordEnvAuditEvent(persisted, completed, degradedReason, undefined)
+                    repository.lastScanAt = new Date()
+                    await repoRepo.save(repository)
+                },
+            })
+        }
         savedRun.status = 'failed'
         savedRun.finishedAt = new Date()
         const orchestrationFailure = {
@@ -637,9 +660,7 @@ const runScanInternal = async (
         // 编排 catch-all 同样走条件更新：与正常终态写回同一守卫
         const { run: persisted, written } = await persistRunTerminalState(ds, savedRun)
         if (written) {
-            void notifyRunTerminal(persisted).catch((notifyError) => {
-                logger.error('[notification] run terminal notify failed', { error: notifyError })
-            })
+            notifyTerminalSafe(persisted)
         }
         return persisted
     }

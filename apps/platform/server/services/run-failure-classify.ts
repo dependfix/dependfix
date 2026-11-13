@@ -108,6 +108,9 @@ const FAILURE_CODE_MAP: Readonly<Record<string, FailureCodeMapping>> = {
     CREDENTIAL_ERROR: { stage: 'install', kind: 'deterministic' },
     RESOLVE_ERROR: { stage: 'install', kind: 'unknown' },
     MINIMUM_RELEASE_AGE: { stage: 'install', kind: 'deterministic' },
+    // 基线已判安装失败但复检通过（拒绝「已合规」捷径后结构兜底全败）：
+    // 锁文件本身需要人工确认，属确定性失败（当前仅在环境性失败外写审计，防御性登记）。
+    PRECONDITION_FAILED: { stage: 'install', kind: 'deterministic' },
     // 环境性安装失败（诊断步无 stderr 诊断：被信号杀死 / 超时 / 静默非零退出）。
     // 引擎侧记 `ENVIRONMENT_ERROR` 并标记为**非归因**（`SKIPPED_AUDIT_CATEGORIES` +
     // `FixAction.environmentalFailure`）→ 不驱动 status=failed、不参与 exit code；

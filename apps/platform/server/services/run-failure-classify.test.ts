@@ -37,6 +37,7 @@ const EXPECTED_MAPPINGS: Record<string, { stage: RunFailureStage, kind: RunFailu
     CREDENTIAL_ERROR: { stage: 'install', kind: 'deterministic' },
     RESOLVE_ERROR: { stage: 'install', kind: 'unknown' },
     MINIMUM_RELEASE_AGE: { stage: 'install', kind: 'deterministic' },
+    PRECONDITION_FAILED: { stage: 'install', kind: 'deterministic' },
     ENVIRONMENT_ERROR: { stage: 'install', kind: 'transient' },
     // fix
     PROCESS_FAILED: { stage: 'fix', kind: 'unknown' },

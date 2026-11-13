@@ -4,6 +4,7 @@ import { makeEvent, setupMemoryDatabase, teardownMemoryDatabase } from '../../te
 import reposIndexHandler from '../api/repos/index'
 import { runScanForRepository } from './scan-orchestrator.service'
 import { ensureDatabaseInitialized } from '#server/database'
+import { AuditEvent } from '#server/entities/audit-event'
 import { ScanRun } from '#server/entities/scan-run'
 import { logger } from '#server/utils/logger'
 
@@ -17,15 +18,24 @@ import { logger } from '#server/utils/logger'
  * 与 [development.md §5.1.36](../../../../docs/standards/development.md)。
  */
 
-const { containerIsAvailable, containerExecute } = vi.hoisted(() => ({
+const { containerIsAvailable, containerExecute, sandboxIsAvailable } = vi.hoisted(() => ({
     containerIsAvailable: vi.fn(),
     containerExecute: vi.fn(),
+    sandboxIsAvailable: vi.fn(),
 }))
 
 vi.mock('./executor/container-executor', () => ({
     ContainerExecutor: class {
         isAvailable = containerIsAvailable
         execute = containerExecute
+    },
+}))
+
+// sandbox 路由：只用于「启动时不可用 → 降级 container → degraded」组合路径
+vi.mock('./executor/sandbox-executor', () => ({
+    SandboxExecutor: class {
+        isAvailable = sandboxIsAvailable
+        execute = vi.fn()
     },
 }))
 
@@ -36,6 +46,14 @@ vi.mock('#server/utils/guard', () => ({
 
 const { notifyRunTerminal } = vi.hoisted(() => ({ notifyRunTerminal: vi.fn(() => Promise.resolve()) }))
 vi.mock('./notification/run-notification.service', () => ({ notifyRunTerminal }))
+
+// 收尾 reconcile 的失败注入点（post-completion 异常）：其余导出保持真实实现
+const { reconcileAlertsMock } = vi.hoisted(() => ({ reconcileAlertsMock: vi.fn() }))
+vi.mock('./scan-reconcile', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('./scan-reconcile')>()
+    reconcileAlertsMock.mockImplementation(actual.reconcileAlerts)
+    return { ...actual, reconcileAlerts: reconcileAlertsMock }
+})
 
 let upstreamCounter = 0
 const makeResult = () => {
@@ -60,6 +78,7 @@ const makeResult = () => {
 
 describe('scan-orchestrator terminal write guard', () => {
     let repositoryId: string
+    let sandboxRepositoryId: string
 
     beforeAll(async () => {
         setupMemoryDatabase()
@@ -72,6 +91,15 @@ describe('scan-orchestrator terminal write guard', () => {
             executorKind: 'container',
         })) as { id: string }
         repositoryId = created.id
+        const sandboxCreated = await reposIndexHandler(makeEvent('POST', '/api/repos', {
+            owner: 'demo',
+            name: 'terminal-guard-sandbox',
+            platform: 'github',
+            packageManager: 'pnpm',
+            defaultBranch: 'main',
+            executorKind: 'sandbox',
+        })) as { id: string }
+        sandboxRepositoryId = sandboxCreated.id
     })
 
     afterAll(() => {
@@ -83,6 +111,8 @@ describe('scan-orchestrator terminal write guard', () => {
         containerIsAvailable.mockReset()
         containerIsAvailable.mockResolvedValue(true)
         containerExecute.mockReset()
+        sandboxIsAvailable.mockReset()
+        sandboxIsAvailable.mockResolvedValue(false)
     })
 
     /** 建一条 pending run（模拟队列预创建、由 worker 续用） */
@@ -181,6 +211,56 @@ describe('scan-orchestrator terminal write guard', () => {
         } finally {
             warnSpy.mockRestore()
         }
+    })
+
+    it('keeps the completed outcome when the post-completion reconcile throws', async () => {
+        const pending = await createPendingRun()
+        const errorSpy = vi.spyOn(logger, 'error').mockReturnValue(undefined)
+        try {
+            containerExecute.mockResolvedValue({ result: makeResult(), error: undefined, prNumber: 777 })
+            // 收尾（告警明细 reconcile）抛错：业务结论已 completed，状态与交付字段必须保留
+            reconcileAlertsMock.mockRejectedValueOnce(new Error('sqlite busy'))
+
+            const run = await runScanForRepository(
+                repositoryId,
+                { mode: 'report-only', severityThreshold: 'high' },
+                { runId: pending.id },
+            )
+
+            const ds = await ensureDatabaseInitialized()
+            const persisted = await ds.getRepository(ScanRun).findOne({ where: { id: pending.id } })
+            expect(run.status).toBe('completed')
+            expect(persisted?.status).toBe('completed')
+            // 交付字段保留（有提交的运行不得被翻成 failed / orchestration_failed）
+            expect(persisted?.errorJson).toBeNull()
+            expect(persisted?.failureCode).toBeNull()
+            expect(persisted?.summaryJson).toContain('alertsTotal')
+            expect(persisted?.prNumber).toBe(777)
+            expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('post-completion error'))
+        } finally {
+            errorSpy.mockRestore()
+        }
+    })
+
+    it('keeps the degraded outcome (with its reason) when reconcile throws after a sandbox fallback', async () => {
+        containerExecute.mockResolvedValue({ result: makeResult(), error: undefined })
+        reconcileAlertsMock.mockRejectedValueOnce(new Error('sqlite busy'))
+
+        const run = await runScanForRepository(
+            sandboxRepositoryId,
+            { mode: 'report-only', severityThreshold: 'high' },
+        )
+
+        const ds = await ensureDatabaseInitialized()
+        const persisted = await ds.getRepository(ScanRun).findOne({ where: { id: run.id } })
+        expect(run.status).toBe('degraded')
+        expect(persisted?.status).toBe('degraded')
+        // 降级原因必须随终态保留（completed 才清空 errorJson）
+        expect(persisted?.errorJson).toContain('sandbox_unavailable')
+        expect(persisted?.logsJson).toContain('post-completion error')
+        // 降级审计事件不因收尾异常丢失
+        const audits = await ds.getRepository(AuditEvent).find({ where: { scanRunId: run.id } })
+        expect(audits.some((audit) => audit.type === 'sandbox_degraded')).toBe(true)
     })
 
     it('still writes the terminal state on the normal path (pending → completed)', async () => {

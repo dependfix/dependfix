@@ -23,7 +23,7 @@
 > **来源**：用户 2026-11-12 四期决策第二期「沙箱 fix 与执行可靠性」（同日决策：交付模型取 **A 沙箱内完全自包含**、四项可靠性全部纳入，见下方决策记录）；backlog 上收 4 条候选（沙箱 fix 出站白名单代理 / 取消后落定与清理竞态 / force-fail 与续用整行写回 / 执行资源采集扩展）+ 聚合 1 条 M57.1 / M58.4 残余（镜像内 sandbox 入口双架构冒烟与安全姿态）。
 > **用户决策（2026-11-12）**：① 交付模型 = 容器内 clone + fix + commit + push + PR，平台只接收结果；② 执行可靠性四项全部纳入本阶段。
 > **容量基线（逐原子交付物求和，执行角色预估口径）**：19-25 commits / 55-75 files / 2500-3800 行。**类型平衡**：主类型 🛡️3（M59.1 / M59.2 / M59.3）+ 🛠️1（M59.4）+ 🚀1（M59.5，兼 📚 次标签）；🧪 内嵌各原子（M59.1 新增测试文件 3-4 / M59.3 新增用例 ≥6）；🎨 缺口显式标注——源于用户 2026-11-12「四项全部纳入」决策（非 AI 裁剪），UX 面由第三期「平台减法与页面治理」承接。
-> **执行顺序**：M59.1 → M59.2 → M59.3 → M59.4 → M59.5（先放开沙箱执行面，再补自包含交付，随后收口运行状态与资源可观测，最后做镜像双架构取证与文档）。
+> **执行顺序**：M59.1 → M59.2 → M59.3 → M59.4 → M59.5（先放开沙箱执行面，再补自包含交付，随后收口运行状态与资源可观测，最后做镜像双架构取证与文档）。**2026-11-13 插队**：追加临时待办「运行结论语义与状态一致性」先于 M59.1 执行（用户决策；不分配阶段编号，容量评估见该条目正文，未触发再平衡）。
 > **D 阶段决策点**：D1 出站代理启动位置（默认容器内 CLI 进程内复用 network-audit，不引入 sidecar）；D2 交付失败时远端分支清理归属（默认平台依据结果 branch 名清理，容器内不重复清理）；D3 取消宽限期策略（默认保持 10s 上限 + 未落定则延迟清理并落 `_pending` 诊断，不做无限延长）；D4 action 执行器资源采集口径（默认显式标注「不适用」并保持字段存在，不采集宿主）。
 > **§3.4 阶段启动交叉核验（2026-11-12 实测）**：① 归档扫描 `sandbox fix|出站白名单|取消后落定|force-fail|资源采集|sandbox 冒烟` → 无同题闭环（M57.1 仅 report-only，其镜像内 `/app/sandbox` 构建期自检已覆盖双架构、M58.4 仅镜像 health、M10 T1002 仅验证链、M46.4 仅 container、M57.2 仅终态写回）；② `git log --oneline -- <相关路径>` + `git log --all --grep="sandbox fix|egress|force-fail|资源采集"` → 无同题实现批次；③ 代码 anchor：`sandbox-executor.ts:30` 仅 `report-only`、`:114-134` 第二道闸、`scan-orchestrator.service.ts:449` 降级判定、`engine-run.ts` 的 `ABORT_GRACE_MS=10_000`、`container-executor.ts:496/521/524` 宽限后仍清理、`force-fail.post.ts:84` 整行 save、`scan-orchestrator.service.ts:273-318` 续用起点整行 save、`resource-usage` 仅 container 接入；④ backlog 4 条候选前提与当前代码一致，残余聚合项见 M57.1 / M58.4 归档正文；⑤ backlog 上收 4 条（41 → 37），速查表与基线同步。
 
@@ -131,6 +131,33 @@
 - M59.1-M59.5 全部闭环，验收证据落 `artifacts/`（gitignored）并在归档块引用命令与 run id。
 - 沙箱 fix 的负例必须留痕：非白名单外联被拦 / 交付失败分支清理 / 取消未落定 / force-fail 终态不变各一组。
 - 未验证项（arm runner 首跑、真实 GHCR 拉取、真实目标仓库 PR）写「未证实」并登记 backlog，不以「设计已覆盖」替代。
+
+### 追加临时待办（不占阶段条目编号）：运行结论「无写入」语义与状态一致性修复（P1 🛡️）
+
+> **来源与授权**：2026-11-13 用户提交 `runs-logs-20261113-045612.txt`（733 条运行第 1 页）复盘后明确授权插队并优先于 M59 原子执行。按 [规划规范 §3.1](../standards/planning.md#_3-1-新需求默认走-评估-→-backlog-原则-hard-requirement)「追加临时待办」口径登记：追加在阶段末尾、不分配编号、不占既有条目位置。
+
+- **目标**：让「本次无写入」只表示「告警确实都处理完了」，而不是把「全部被拦截 / 前置失败 / 回滚」一并说成无事可做；同时消除「有提交却判 failed」的状态矛盾。
+- **现象（2026-11-13 第 1 页实证）**：
+  1. 有告警的 completed 运行 21 条全部 0 写入；仅 1 条实际提交（`cmyr-skills-agents` undici overrides），且该 run 平台态为 `failed / orchestration_failed`，日志却是 `completed exitCode 0` + `Committed fix changes`。
+  2. 4 条运行 pristine install 因 `ERR_PNPM_BROKEN_LOCKFILE ... duplicated mapping key` 失败、依赖升级链已跳过，随后仍输出 `Lockfile already compliant — no repair needed`（`picgo-plugin-optimization` / `hono-template` / `rsshub-never-die` / `tinyfish-mcp`）——基线失败与「已合规」在 1.7s 内自相矛盾。
+  3. 单包多告警逐条打印：`rss-image-download` 12 条 nodemailer、`auto-backup-database` 13 条、`rss-resources-download` 13 条，日志无法判读「12 条 = 1 个包」。
+  4. 运行级终点只有 `[skip] Verification ... no writes in this run`，不汇总拦截构成；报告侧已有 `alertOutcomes` / `summary.skipped`（cross-major / subdirectory-manifest / peer-only / override-protected），但日志与平台运行详情没有把它变成结论。
+- **范围（≤10 文件）**：
+  - `packages/engine/src/fixers/pnpm/index.ts`：定位 `classifyLockfileFailure` 与基线安装结论不一致的输入 / 时序；前置失败时不得返回「合规」。
+  - `packages/engine/src/app/repo-fix-finalize.ts`：收官结论改为「0 修复 + 按原因汇总」，`no-write` 保留为「未验证」原因，不再作为唯一结论。
+  - `packages/core/src/report/alert-outcomes.ts`（或同级聚合 helper）：按包聚合 skipped（同包取最高 target + 条数），供日志与报告共用。
+  - `apps/platform/app/components/run-detail-dialog.vue` + i18n：运行详情展示拦截构成与交付状态。
+  - 对应单测 / e2e。
+- **验收标准**：
+  1. 四类样本可重放或单测命中：12 条 nodemailer → 日志 / 报告聚合为 1 个包 + 12 条被拦截；4 个 broken lockfile → 不再出现 `Lockfile already compliant`；vite peer-only → 明确「需人工」原因；undici 提交 run → 状态与交付字段一致。
+  2. 存在 blocked / failed 告警的运行，报告与运行详情不得把「无写入」作为唯一结论；`verificationSkipped='no-write'` 语义不变（只描述未验证），另设告警处置汇总。
+  3. 同一包多条告警在日志与报告中聚合为一行。
+  4. `pnpm run lint:check` / `pnpm typecheck` / 定向 vitest / `check:contract-freeze` 通过；报告字段变化同步契约冻结清单。
+- **不做**：不放宽跨 major 自动升级门槛；不自动修目标仓库 `pnpm-lock.yaml` 损坏（只诊断 + 提示人工）；不改验证链条数与顺序；peer-only 的「改 manifest 直接依赖」修复路径单列 backlog（见候选），不在本项夹带。
+- **依赖与风险**：日志 / 报告文案变更会触及既有断言与平台导出，须同批更新；聚合改变 skipped 计数口径，须在 [dependency-fixer-records.md](../design/modules/dependency-fixer-records.md) 与契约冻结清单同步；若 `classifyLockfileFailure` 根因落在基线工作区差异（执行器面），改动面可能越过 10 文件阈值 → 按设计文档硬阈值补 governance 设计稿或拆批。
+- **交付物**：6-8 commits / 8-11 files / 500-750 行。
+- **容量影响评估（§3.1.1）**：约 20-30% 阶段基线（分母 19-25 commits / 2500-3800 行）；累计插队 1 批（<3）；无既定外部窗口冲突 → 不触发再平衡；执行顺序置于 M59.1 之前。
+- **§3.4 交叉核验（2026-11-13）**：① 归档扫描 `无写入|no writes|no-write|Lockfile already compliant` → M56 已闭环 `verificationSkipped='no-write'`（仅验证跳过原因）与 M51 `deliverySkips`，均不含「逐告警处置汇总 / 前置失败与合规互斥」；② `git log --oneline -- packages/engine/src/app/repo-fix-finalize.ts packages/engine/src/fixers/pnpm/index.ts` → 最近为 `7a3df7f8`（0 写入跳过后验证），无本项实现；③ 代码 anchor：`repo-fix-finalize.ts:131-145`（no-write 仅看 `fixed===0 && !lockfileRepaired`）、`helpers.ts:543-566`（classify ok → "already compliant"）、`pnpm/index.ts:548-553`（ok → `changed:false`）、`repo-fix.ts:160-180`（install 基线失败只跳过升级链）、`upgrade-alert.ts:116-119`（peer-only 记 skipped）。
 
 ---
 

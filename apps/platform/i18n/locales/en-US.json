@@ -985,7 +985,10 @@
             "loadFailed": "Failed to load: {message}",
             "detailLoadFailed": "Failed to load details: {message}",
             "logsDownloadFailed": "Failed to download logs: {message}"
-        }
+        },
+        "networkViolationsLabel": "Blocked egress",
+        "networkViolations": "{count} blocked",
+        "networkViolationsHint": "Non-allowlisted outbound requests were blocked by the local audit proxy (502); such a run must not be reported as verified"
     },
     "scans": {
         "title": "Scans",

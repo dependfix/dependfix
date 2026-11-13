@@ -11,6 +11,7 @@ import { applyFailureClassification } from './run-failure-classify'
 import type { ExecutorResourceUsage } from './executor/types'
 import type { ScanRun } from '#server/entities/scan-run'
 import { unavailableResourceUsage } from '#server/utils/resource-usage'
+import { buildRunSummarySnapshot } from '#server/utils/run-summary-snapshot'
 
 /** 已判定的成功终态（completed / degraded 语义同为业务完整）。 */
 export type PostCompletionStatus = 'completed' | 'degraded'
@@ -54,7 +55,7 @@ export async function persistPostCompletionOutcome(deps: PostCompletionDeps): Pr
     )
     run.status = status
     run.finishedAt = new Date()
-    run.summaryJson = JSON.stringify(result.summary)
+    run.summaryJson = JSON.stringify(buildRunSummarySnapshot(result))
     run.runUrl = deps.runUrl ?? run.runUrl
     run.errorJson = deps.errorJson ? JSON.stringify(deps.errorJson) : null
     applyFailureClassification(run, { status, error: deps.errorJson ?? null })

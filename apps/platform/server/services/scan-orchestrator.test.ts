@@ -691,20 +691,31 @@ describe('scan-orchestrator.service', () => {
             expect(sandboxExecute).not.toHaveBeenCalled()
         })
 
-        it('fix mode + sandbox available → degraded sandbox_fix_requires_egress_policy (no sandbox call)', async () => {
+        it('fix-and-pr + sandbox available → executes inside the sandbox (no container fallback)', async () => {
             const repoId = await sandboxRepo()
-            containerExecute.mockResolvedValue({
-                result: makeResult(),
-                error: undefined,
-                runUrl: 'https://github.com/demo/app/tree/dependfix/auto-fix-abc12345',
-            })
+            sandboxExecute.mockResolvedValue({ exitCode: 0, result: makeResult() })
 
             const run = await runScanForRepository(repoId, { mode: 'fix-and-pr', severityThreshold: 'high' })
-            expect(run.status).toBe('degraded')
-            expect(run.runUrl).toBe('https://github.com/demo/app/tree/dependfix/auto-fix-abc12345')
-            expect(run.errorJson).toContain('sandbox_fix_requires_egress_policy')
-            expect(containerExecute).toHaveBeenCalledTimes(1)
-            expect(sandboxExecute).not.toHaveBeenCalled()
+            expect(run.status).toBe('completed')
+            expect(sandboxExecute).toHaveBeenCalledTimes(1)
+            expect(containerExecute).not.toHaveBeenCalled()
+        })
+        it('fix + sandbox available but egress audit disabled → executor gate rejects (no fallback)', async () => {
+            const repoId = await sandboxRepo()
+            // 执行器第二道闸的返回形态（策略关闭时拒绝执行且不 clone）
+            sandboxExecute.mockResolvedValue({
+                exitCode: 2,
+                error: { code: 'sandbox_fix_requires_egress_policy', message: 'egress policy missing' },
+            })
+            vi.stubEnv('DEPENDFIX_NETWORK_AUDIT', 'false')
+            try {
+                const run = await runScanForRepository(repoId, { mode: 'fix', severityThreshold: 'high' })
+                expect(run.status).toBe('failed')
+                expect(run.errorJson).toContain('sandbox_fix_requires_egress_policy')
+                expect(containerExecute).not.toHaveBeenCalled()
+            } finally {
+                vi.unstubAllEnvs()
+            }
         })
 
         it('persists logsJson from container fallback in degraded state', async () => {
@@ -792,27 +803,16 @@ describe('scan-orchestrator.service', () => {
             notifyEnvEvent.mockResolvedValue(undefined)
         })
 
-        it('fix 模式 sandbox 策略降级 → audit_event sandbox_degraded 落库但不通知', async () => {
+        it('fix 模式 sandbox 可用 → 不产生 sandbox_degraded 事件（不再降级 container）', async () => {
             const repoId = await sandboxRepo()
-            containerExecute.mockResolvedValue({ result: makeResult(), error: undefined, runUrl: 'https://github.com/demo/sandbox-app/tree/dependfix-fix-xxx' })
+            sandboxExecute.mockResolvedValue({ exitCode: 0, result: makeResult() })
 
             const run = await runScanForRepository(repoId, { mode: 'fix', severityThreshold: 'high' })
-            expect(run.status).toBe('degraded')
+            expect(run.status).toBe('completed')
 
             const ds = await ensureDatabaseInitialized()
-            const events = await ds.getRepository(AuditEvent).find({
-                where: { scanRunId: run.id },
-            })
-            expect(events).toHaveLength(1)
-            expect(events[0]?.type).toBe('sandbox_degraded')
-            expect(events[0]?.severity).toBe('warn')
-            expect(events[0]?.notified).toBe(false) // notify 触发后由 channel 异步更新
-            const payload = JSON.parse(events[0]?.payloadJson ?? '{}') as Record<string, unknown>
-            expect(payload.degradedReason).toMatchObject({ code: 'sandbox_fix_requires_egress_policy' })
-            expect(payload.fallback).toBe('container')
-            expect(payload.notificationSuppressed).toBe(true)
-
-            // 代理接入前的策略限制（预期状态）：只落库、不通知，避免噪声
+            const events = await ds.getRepository(AuditEvent).find({ where: { scanRunId: run.id } })
+            expect(events).toHaveLength(0)
             expect(notifyEnvEvent).not.toHaveBeenCalled()
         })
 

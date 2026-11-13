@@ -18,6 +18,8 @@ import {
     shortRunId,
     unfixedAlerts,
     verificationSkipSummary,
+    networkViolations,
+    networkViolationSummary,
     verificationsSkipped,
 } from '~/utils/run-view'
 import { scanSeverityLabel } from '~/utils/scan-options'
@@ -143,6 +145,7 @@ const canRetry = computed(() => detail.value?.failureKind === 'transient')
  * 不进入错误态、不改变任何判定。口径见 docs/standards/platform.md §10.7。
  */
 const verificationSkipSummaryText = computed(() => verificationSkipSummary(detail.value?.summary ?? null, t))
+const networkViolationText = computed(() => networkViolationSummary(detail.value?.summary ?? null))
 
 const buildInfo = computed(() =>
     formatBuildLabel(detail.value?.buildVersion, detail.value?.buildCommit, t('runs.buildUnknown')),
@@ -355,6 +358,12 @@ watch(() => props.runId, (runId) => {
                         <template v-if="verificationSkipSummaryText">
                             · {{ verificationSkipSummaryText }}
                         </template>
+                    </strong>
+                </div>
+                <div v-if="!isRunResultMissing(detail) && networkViolations(detail.summary) > 0" class="run-detail__meta-item">
+                    <span class="run-detail__meta-label">{{ t('runs.networkViolationsLabel') }}</span>
+                    <strong :title="networkViolationText || t('runs.networkViolationsHint')">
+                        {{ t('runs.networkViolations', {count: networkViolations(detail.summary)}) }}
                     </strong>
                 </div>
                 <div v-if="!isRunResultMissing(detail) && environmentalFailureCount(detail) > 0" class="run-detail__meta-item">

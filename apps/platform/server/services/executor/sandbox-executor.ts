@@ -26,8 +26,18 @@ const CONTAINER_RESULT_PATH = '/tmp/result.json'
 const RESULT_SENTINEL_START = '__DEPENDFIX_RESULT_JSON_START__'
 const RESULT_SENTINEL_END = '__DEPENDFIX_RESULT_JSON_END__'
 
-/** 仅放行的执行模式：fix / fix-and-pr 需先接入出站白名单代理 */
-const SANDBOX_ALLOWED_MODE = 'report-only'
+/** 放行的执行模式（fix / fix-and-pr 需出站策略就位，见 resolveEgressPolicy / 第二道闸） */
+const SANDBOX_REPORT_ONLY = 'report-only'
+const SANDBOX_ALLOWED_MODES: ReadonlySet<string> = new Set([SANDBOX_REPORT_ONLY, 'fix', 'fix-and-pr'])
+
+/**
+ * 沙箱 fix 的必需出站域（平台侧最小集合，与引擎默认白名单一致的相关项）。
+ * 操作方可用 DEPENDFIX_ALLOWED_DOMAINS 追加；追加后并集作为容器内审计代理的白名单。
+ */
+const SANDBOX_REQUIRED_EGRESS_DOMAINS = ['github.com', 'api.github.com', '*.npmjs.org'] as const
+
+/** 容器内 clone 目标目录（平台不挂载宿主目录） */
+const CONTAINER_REPO_PATH = '/tmp/repo'
 
 /** 仅放行的告警源：report-only 的隔离论证依赖「不执行目标仓库代码」 */
 const SANDBOX_ALLOWED_ALERT_SOURCE = 'github-dependabot'
@@ -49,6 +59,36 @@ export interface SandboxExecutorOptions {
     sandboxLimits?: { memoryMb?: number, cpu?: number }
     /** 单次执行超时(默认 30 分钟——与 ContainerExecutor 对齐) */
     timeoutMs?: number
+    /** 出站策略覆盖（缺省读 env：DEPENDFIX_NETWORK_AUDIT / DEPENDFIX_ALLOWED_DOMAINS） */
+    egress?: {
+        enabled?: boolean
+        allowlist?: string[]
+    }
+}
+
+/** 解析后的出站策略（fix 模式的第二道闸依据）。 */
+export interface SandboxEgressPolicy {
+    enabled: boolean
+    allowlist: string[]
+}
+
+/**
+ * 解析出站策略：默认启用（可用 `DEPENDFIX_NETWORK_AUDIT=false` 关闭），
+ * 白名单 = 平台必需域 ∪ 操作方配置域（`DEPENDFIX_ALLOWED_DOMAINS`，逗号分隔）。
+ */
+export function resolveEgressPolicy(overrides?: { enabled?: boolean, allowlist?: string[] }): SandboxEgressPolicy {
+    const enabled = overrides?.enabled
+        ?? process.env.DEPENDFIX_NETWORK_AUDIT?.trim().toLowerCase() !== 'false'
+    // 显式传入白名单时以其为准（空数组 = 操作方清空 → 第二道闸拒绝 fix）
+    if (overrides?.allowlist) {
+        return { enabled, allowlist: [...overrides.allowlist] }
+    }
+    const configured = (process.env.DEPENDFIX_ALLOWED_DOMAINS ?? '')
+        .split(',').map((item) => item.trim()).filter(Boolean)
+    return {
+        enabled,
+        allowlist: [...new Set([...SANDBOX_REQUIRED_EGRESS_DOMAINS, ...configured])],
+    }
 }
 
 /**
@@ -80,6 +120,7 @@ export class SandboxExecutor implements ScanExecutor {
     private readonly skillsDir: string
     private readonly sandboxLimits: { memoryMb?: number, cpu?: number }
     private readonly timeoutMs: number
+    private readonly egress: SandboxEgressPolicy
 
     constructor(options: SandboxExecutorOptions = {}) {
         this.adapter = options.runtimeAdapter ?? new DockerAdapter()
@@ -88,6 +129,7 @@ export class SandboxExecutor implements ScanExecutor {
         this.skillsDir = options.skillsDir ?? DEFAULT_SANDBOX_SKILLS_DIR
         this.sandboxLimits = options.sandboxLimits ?? {}
         this.timeoutMs = options.timeoutMs ?? SANDBOX_DEFAULTS.timeoutMs
+        this.egress = resolveEgressPolicy(options.egress)
     }
 
     /**
@@ -111,15 +153,25 @@ export class SandboxExecutor implements ScanExecutor {
             }
         }
 
-        // fail-closed：沙箱仅放行 report-only + GitHub 告警源。fix / fix-and-pr 需要出站白名单代理
-        // 接入执行路径，否则 clone / install 的网络面不受控；编排层会先行降级并记
-        // `sandbox_fix_requires_egress_policy`，此处为绕过编排层时的第二道闸。
-        if (ctx.config.mode !== SANDBOX_ALLOWED_MODE) {
+        // fail-closed 第二道闸：只放行 report-only / fix / fix-and-pr；fix 类要求出站策略就位
+        // （审计开启 + 白名单非空），否则拒绝执行且不 clone——这是绕过编排层时的兜底。
+        if (!SANDBOX_ALLOWED_MODES.has(ctx.config.mode)) {
+            return {
+                exitCode: 2,
+                error: {
+                    code: 'sandbox_mode_unsupported',
+                    message: `沙箱执行器不支持模式 ${ctx.config.mode}（支持 ${[...SANDBOX_ALLOWED_MODES].join(' / ')}）`,
+                },
+                startedAt,
+                finishedAt: new Date().toISOString(),
+            }
+        }
+        if (ctx.config.mode !== SANDBOX_REPORT_ONLY && (!this.egress.enabled || this.egress.allowlist.length === 0)) {
             return {
                 exitCode: 2,
                 error: {
                     code: 'sandbox_fix_requires_egress_policy',
-                    message: `沙箱执行器仅放行 ${SANDBOX_ALLOWED_MODE}；${ctx.config.mode} 需先接入出站白名单代理，已拒绝在沙箱内执行`,
+                    message: `沙箱 ${ctx.config.mode} 需要出站审计策略（DEPENDFIX_NETWORK_AUDIT 未关闭且白名单非空），已拒绝执行`,
                 },
                 startedAt,
                 finishedAt: new Date().toISOString(),
@@ -152,9 +204,8 @@ export class SandboxExecutor implements ScanExecutor {
      * 拼装 ContainerSpec:env 注入 token + cgroup 限额透传，不挂载宿主目录。
      * 限额优先级:仓库级 sandboxLimits(Repository 实体字段) > 沙箱级 sandboxLimits > SANDBOX_DEFAULTS。
      *
-     * 网络：report-only 仍必须访问 GitHub API（Dependabot / Code Scanning alerts），故走 bridge。
-     * 该模式不在容器内执行目标仓库代码（无 clone / install / 验证），网络面仅 API 调用；
-     * fix / fix-and-pr 在出站白名单代理接入前被 `execute()` 拒绝，不会用到更大网络面。
+     * 网络：report-only 访问 GitHub API；fix / fix-and-pr 在容器内 clone + install + 验证，
+     * 出站面由 CLI 的运行级审计代理按 deny-by-default 白名单约束（`DEPENDFIX_ALLOWED_DOMAINS`）。
      */
     buildSpec(ctx: ScanExecutorContext): ContainerSpec {
         return {
@@ -166,6 +217,10 @@ export class SandboxExecutor implements ScanExecutor {
                 GITHUB_REPOSITORY: `${ctx.repository.owner}/${ctx.repository.name}`,
                 // 自包含产物不依赖 node_modules：skills 静态目录随 bundle 复制
                 DEPENDFIX_SKILLS_DIR: this.skillsDir,
+                // fix 类：把出站策略交给容器内 CLI（其运行级审计代理按此白名单做 deny-by-default）
+                ...(ctx.config.mode !== SANDBOX_REPORT_ONLY && {
+                    DEPENDFIX_ALLOWED_DOMAINS: this.egress.allowlist.join(','),
+                }),
                 // AI 研判 env 注入：report-only 不使用 AI，且只放行 report-only → 当前不注入；
                 // 保留条件供 fix 模式放行后复用（按仓库最小注入，不在 report-only 泄露组织级 Key）。
                 ...(ctx.config.mode !== 'report-only' && ctx.config.ai?.enabled && {
@@ -187,15 +242,19 @@ export class SandboxExecutor implements ScanExecutor {
     }
 
     /**
-     * 拼装容器内执行命令：自包含 CLI 在 `/tmp` 跑 report-only，把显式结果写入
-     * `/tmp/result.json`，随后用哨兵把结果打到 stdout（日志与结果同流，靠哨兵切分）。
+     * 拼装容器内执行命令：自包含 CLI 把显式结果写入 `/tmp/result.json`，随后用哨兵把结果打到
+     * stdout（日志与结果同流，靠哨兵切分）。
+     *
+     * fix / fix-and-pr：先 clone 目标仓库到容器私有目录（不挂载宿主目录），再在该目录执行 CLI；
+     * clone 目标由平台构造（必为 github.com 白名单域），审计面由容器内 CLI 的运行级代理覆盖
+     * 安装 / 验证 / 修复命令。
      *
      * 凭据只走 env（`GITHUB_TOKEN`），不进 argv——避免 docker inspect / 错误回显泄露。
      * 报告副产物 `dependfix-reports/**` 不作为结果来源（写报告失败不阻断运行）。
      */
     buildCmd(ctx: ScanExecutorContext): string[] {
         const repo = `${ctx.repository.owner}/${ctx.repository.name}`
-        const args = [
+        const cliArgs = [
             'node',
             this.entry,
             ctx.config.mode,
@@ -207,13 +266,26 @@ export class SandboxExecutor implements ScanExecutor {
             '--result-json', CONTAINER_RESULT_PATH,
         ]
         if (ctx.config.codeScanningEnabled) {
-            args.push('--code-scanning')
+            cliArgs.push('--code-scanning')
         }
         if (ctx.config.codeQualityEnabled) {
-            args.push('--code-quality')
+            cliArgs.push('--code-quality')
         }
+        const cli = cliArgs.map(shQuote).join(' ')
+        // fix 类：容器内 bootstrap —— clone 到容器私有目录后在该目录执行 CLI（不挂载宿主目录）
+        const bootstrap = ctx.config.mode === SANDBOX_REPORT_ONLY
+            ? []
+            : [
+                `rm -rf ${CONTAINER_REPO_PATH}`,
+                // 凭据只从 env 读取并转成 basic header，不落 argv 明文
+                `header=$(printf 'x-access-token:%s' "$GITHUB_TOKEN" | base64 | tr -d '\\n')`,
+                `git -c http.extraheader="Authorization: basic $header" clone --depth 1 `
+                + `${shQuote(`https://github.com/${repo}.git`)} ${CONTAINER_REPO_PATH} || exit 1`,
+                `cd ${CONTAINER_REPO_PATH}`,
+            ]
         const script = [
-            args.map(shQuote).join(' '),
+            ...bootstrap,
+            cli,
             'code=$?',
             `printf '\\n${RESULT_SENTINEL_START}\\n'`,
             `cat ${shQuote(CONTAINER_RESULT_PATH)} 2>/dev/null`,

@@ -49,6 +49,7 @@ severity-threshold
 dry-run
 create-pr
 commit
+push
 cleanup-branches
 cleanup-branches-auto
 github-token
@@ -150,6 +151,7 @@ overrideProtect
 dryRun
 createPullRequest
 commit
+push
 cleanupBranches
 cleanupBranchesAuto
 githubToken
@@ -200,6 +202,7 @@ DEPENDFIX_CLOSE_FAILED_PR
 DEPENDFIX_CODE_QUALITY
 DEPENDFIX_CODE_SCANNING
 DEPENDFIX_COMMIT
+DEPENDFIX_PUSH
 DEPENDFIX_CREATE_PR
 DEPENDFIX_DRY_RUN
 DEPENDFIX_GITHUB_APP_CONFIG
@@ -262,6 +265,7 @@ prCheckWatch
 deliverySkips
 networkAudit
 networkViolations
+delivery
 ```
 
 ### RepositoryResult 字段

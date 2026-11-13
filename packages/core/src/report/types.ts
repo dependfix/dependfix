@@ -2,6 +2,8 @@ import type { NormalizedSecurityAlert, AlertSeverity } from '../alerts'
 import type { CiAlignmentRecord } from './ci-alignment'
 import type { CheckAttribution } from './check-attribution'
 import type { AlertFixOutcome } from './alert-outcomes'
+import type { NetworkAuditEntry } from './network-audit'
+import type { RunDelivery } from './run-delivery'
 
 /**
  * 跳过原因枚举（`alertsSkippedByReason` 的 key）。
@@ -414,22 +416,14 @@ export interface RunResult {
     networkAudit?: NetworkAuditEntry[]
     /** 非白名单外联（`networkAudit` 的子集；非空即不得把该仓库写成「成功」） */
     networkViolations?: NetworkAuditEntry[]
-}
-
-/** 外联审计来源：本地拦截代理 / 命令输出 URL 提取。 */
-export type NetworkAuditSource = 'proxy' | 'command-output'
-
-/** 单条外联审计记录（与引擎 `NetworkAuditEntry` 同形）。 */
-export interface NetworkAuditEntry {
-    /** 记录时间（ISO） */
-    time: string
-    source: NetworkAuditSource
-    /** 请求方法（CONNECT / GET / POST / …） */
-    method: string
-    /** 外联目标（proxy：host:port；command-output：完整 URL） */
-    target: string
-    /** deny-by-default 拦截的违规外联 */
-    violation?: boolean
+    /**
+     * 修复交付结果（仅 fix / fix-and-pr 模式记录；report-only 无交付概念，字段缺省）。
+     *
+     * 引擎在**执行进程内**完成交付时（沙箱自包含）由引擎写入；容器路径由平台接管，
+     * 引擎只写 `{ deliveredBy: 'platform', status: 'none' }`，平台据此避免二次交付。
+     * 消费方：平台执行器映射 `runUrl` / `prNumber`、失败清理与运行详情披露。
+     */
+    delivery?: RunDelivery
 }
 
 /**
@@ -858,3 +852,6 @@ export function createEmptyRunSummary(): RunSummary {
         deliverySkipDraftPrs: 0,
     }
 }
+
+export type { NetworkAuditEntry, NetworkAuditSource } from './network-audit'
+export type { RunDelivery, RunDeliveryActor, RunDeliveryStatus } from './run-delivery'

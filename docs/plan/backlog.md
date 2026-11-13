@@ -54,7 +54,7 @@
 
 ### 候选评估中（待评估 / 本阶段延后项）
 
-> **候选池概览（2026-11-13 运行日志复盘后复算）**：本区 **40 项**（`### 候选评估中` 段内 `^- \*\*` 逐行计数）；M58 规划阶段上收 6 条为 5 原子（47 → 41）；M59 规划上收 4 条（沙箱 fix 出站策略 / 取消落定与清理 / force-fail 与续用起点写 / 资源采集扩展；41 → 37），另聚合 1 条 M57.1/M58.4 残余（镜像内 sandbox 双架构冒烟），不占候选计数；2026-11-12 运行日志复盘登记 2 条 P1（红仓库 baseline 短路 / 子进程 OOM 信号分离；37 → 39）；2026-11-13 追加 1 条 P2（peer-only 同 major 修复回退；39 → 40），「无写入」结论语义与状态一致性已按用户授权作为 M59 追加临时待办，不占候选计数。P 标签覆盖不全（未标注者评估时补 P 标签，不默认升级）；本文件不维护分档统计，1.0 分档只见 [release-1.0-readiness.md](../design/governance/release-1.0-readiness.md)。
+> **候选池概览（2026-11-13 运行日志复盘后复算）**：本区 **41 项**（`### 候选评估中` 段内 `^- \*\*` 逐行计数）；M58 规划阶段上收 6 条为 5 原子（47 → 41）；M59 规划上收 4 条（沙箱 fix 出站策略 / 取消落定与清理 / force-fail 与续用起点写 / 资源采集扩展；41 → 37），另聚合 1 条 M57.1/M58.4 残余（镜像内 sandbox 双架构冒烟），不占候选计数；2026-11-12 运行日志复盘登记 2 条 P1（红仓库 baseline 短路 / 子进程 OOM 信号分离；37 → 39）；2026-11-13 追加 1 条 P2（peer-only 同 major 修复回退；39 → 40）；2026-11-13 M59 插队再平衡移出 M59.5（40 → 41；该项原为「聚合 1 条 M57.1/M58.4 残余、不占候选计数」，移出后转为正式候选并计入），「无写入」结论语义与状态一致性已按用户授权作为 M59 追加临时待办，不占候选计数。P 标签覆盖不全（未标注者评估时补 P 标签，不默认升级）；本文件不维护分档统计，1.0 分档只见 [release-1.0-readiness.md](../design/governance/release-1.0-readiness.md)。
 > **1.0 门槛与分档**：分档、门槛判定与批次计划单点声明于 [release-1.0-readiness.md](../design/governance/release-1.0-readiness.md)（2026-10-30 冻结口径，不随候选上收收缩；本文件不重复维护数字）。
 
 - **备份 `.tmp` 清扫缺年龄门槛（P3 🛠️，2026-10-31 M53.2 收口登记）** —— `cleanupOldBackups` 对 `*.bak.tmp` 无条件回收；单实例串行路径不可达冲突，但并发 `db:restore` 或多实例共卷启动时可能删掉对端正在写的临时文件（rename ENOENT → 该轮快照丢失，fail-open 后仅剩日志）。待评估：加入 `mtime < now - 10min` 年龄门槛或按 PID 命名临时文件。触发：启用多实例 / 多容器共享数据卷，或出现并发恢复需求时。
@@ -197,6 +197,10 @@
 **2026-11-13 运行日志复盘派生**（来源：`runs-logs-20261113-045612.txt` 第 1 页；不占阶段编号）：
 
 - **peer-only 同 major 修复回退到 manifest 直接依赖（P2 🛠️，2026-11-13 登记）** —— 现象：`rss-to-memos-sync` 的 vite 8.3.1 → ^8.3.3 属同 major，经 versioned overrides 应用后验证提示 `peer-only instances do not follow pnpm overrides`，回滚并按「无写入」收尾；`sharp-cloud-uploader` 在 2026-11-06 同一形态（8.1.0 < 8.1.6，override 未生效）。现有路径只在 overrides 层面尝试，未回退到「提升声明该包的 manifest 直接依赖」，因此同 major 可修告警也交付不了。**待评估点**：① override 未覆盖 peer-only 时改为提升根 / 成员 manifest 的直接依赖（含锁定范围与回滚单元）；② 或稳定输出「需人工」并附具体文件与版本建议；③ 与 `peer-only` / `override-protected` skipped 口径及「无写入」结论的关系。**触发条件**：再次出现同 major 可修但 overrides 失效（peer-only / 非依赖树可达）。
+
+**2026-11-13 阶段容量再平衡移出**（来源：M59 同日三批插队命中 §3.1.1 阈值 1，用户确认移出；不占阶段编号）：
+
+- **沙箱镜像双架构自包含冒烟与安全姿态（P2 🚀📚，2026-11-13 因插队再平衡移出）** —— 原 M59.5。**目标**：镜像内 sandbox 自包含入口在 amd64 / arm64 都可运行，发版后自动取证；安全姿态（rootful / userns / 网络面）单一口径成文。**范围**：`apps/platform/docker/smoke-test.sh` 新增 sandbox 入口断言（容器内 `node /app/sandbox/bin.mjs --version` + `skills doctor`），由构建期冒烟与 `post-release-smoke` 共同消费并把结果写入 Job Summary（构建期 `Dockerfile:181-186` 的 sandbox 自检已存在，属依赖而非新增）；`docs/design/governance/executor-sandbox.md` / `executor-sandbox-implementation.md` / `sandbox-security-governance.md` 翻转 fix 放行后的状态、网络面偏离、rootful / userns 边界；`docs/guide/deployment.md` 按需补运行面提示。**验收标准**：① amd64 构建期冒烟与 arm64 发版后原生冒烟均通过（无发布窗口时记「未证实」），注入回归（移除 `/app/sandbox/skills` 或改坏版本串）使断言失败以证明灵敏；② `post-release-smoke` Job Summary 含 sandbox 入口断言结果，失败仅告警不改发布结论；③ 三篇设计稿同批翻转且无 stale 表述；④ `pnpm run gates:docs` 20 项通过。**不做**：不改镜像构建架构与 QEMU 口径；不重建历史镜像；不引入 rootless 之外的新隔离机制。**依赖**：M59.1 / M59.2 闭环（沙箱 fix 放行与自包含交付）；M58.4 的 `post-release-smoke` 与 `scan-image-tags`；构建期双架构自检见 `apps/platform/Dockerfile:181-186`（`e548c332`，run `43156533556` 双架构 success）。**交付物**：2-3 commits / 6-8 files / 200-350 行。**风险与缓解**：arm runner 成本 → 仅构建期与发版冒烟各一次；文档状态翻转遗漏 → 按检查点矩阵三处同源扫描。**触发条件**：M59.1 / M59.2 闭环后，或出现发布窗口需要 arm64 取证时；或镜像 sandbox 入口出现回归怀疑。**移出原因**：依赖 M59.1/M59.2 完成、且发版后取证受发布窗口约束，是当前阶段延期成本最低的原子（用户 2026-11-13 确认）。
 
 ### 待上收候选（评估完成，等待用户决策）
 
@@ -398,7 +402,7 @@
 
 | 内容类型 | 位置 |
 |:--|:--|
-| 当前阶段活跃任务 | **M59 沙箱 fix 与执行可靠性**（2026-11-12 规划，5 原子，见 [todo.md](todo.md)）；插队容量治理见 [planning.md §3.1.1](../standards/planning.md#_3-1-1-插队后的阶段容量再平衡-hard-requirement-2026-10-19) |
+| 当前阶段活跃任务 | **M59 沙箱 fix 与执行可靠性**（2026-11-12 规划，4 原子 + 3 批插队；原 M59.5 于 2026-11-13 再平衡移出，见 [todo.md](todo.md)）；插队容量治理见 [planning.md §3.1.1](../standards/planning.md#_3-1-1-插队后的阶段容量再平衡-hard-requirement-2026-10-19) |
 | 下一阶段（未规划） | 用户 2026-11-12 决策「全部纳入、分四期」：第三期「平台减法与页面治理」→ 第四期「文档与 AI 治理」 |
 | 已完成阶段归档 | [todo-archive.md](todo-archive.md)（阶段索引 + [archive/](archive/) 分片） |
 | 里程碑与阶段交付 | [roadmap.md](roadmap.md)（M0-M58 已归档；M59 进行中） |

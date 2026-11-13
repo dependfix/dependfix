@@ -8,7 +8,7 @@
 
 | 内容类型 | 位置 |
 |:--|:--|
-| 当前阶段任务 | **M59 沙箱 fix 与执行可靠性**（2026-11-12 规划；5 原子） |
+| 当前阶段任务 | **M59 沙箱 fix 与执行可靠性**（2026-11-12 规划；4 原子 + 3 批插队，原 M59.5 于 2026-11-13 再平衡移出） |
 | 下一阶段（未规划） | 用户 2026-11-12 四期决策第三期「平台减法与页面治理」；第四期「文档与 AI 治理」；候选不预先分配阶段编号 |
 | 已完成阶段归档 | [todo-archive.md](todo-archive.md)（阶段索引 + [archive/](archive/) 分片；M0-M58 全部已归档） |
 | 里程碑与阶段交付 | [roadmap.md](roadmap.md)（M0-M58 已归档；M59 进行中） |
@@ -19,13 +19,13 @@
 
 ## 当前阶段：M59 沙箱 fix 与执行可靠性
 
-> **目标**：把沙箱从「只跑 report-only」推进到「可在容器内自包含执行 fix / fix-and-pr 并交付」，同时收口三类执行可靠性缺口（取消落定与工作目录竞态、run 起点条件写、资源采集覆盖面）；镜像面补双架构自包含入口冒烟与安全姿态文档。
-> **来源**：用户 2026-11-12 四期决策第二期「沙箱 fix 与执行可靠性」（同日决策：交付模型取 **A 沙箱内完全自包含**、四项可靠性全部纳入，见下方决策记录）；backlog 上收 4 条候选（沙箱 fix 出站白名单代理 / 取消后落定与清理竞态 / force-fail 与续用整行写回 / 执行资源采集扩展）+ 聚合 1 条 M57.1 / M58.4 残余（镜像内 sandbox 入口双架构冒烟与安全姿态）。
+> **目标**：把沙箱从「只跑 report-only」推进到「可在容器内自包含执行 fix / fix-and-pr 并交付」，同时收口三类执行可靠性缺口（取消落定与工作目录竞态、run 起点条件写、资源采集覆盖面）。镜像面双架构冒烟与安全姿态原 M59.5 已按 §3.1.1 再平衡移出 backlog（2026-11-13）。
+> **来源**：用户 2026-11-12 四期决策第二期「沙箱 fix 与执行可靠性」（同日决策：交付模型取 **A 沙箱内完全自包含**、四项可靠性全部纳入，见下方决策记录）；backlog 上收 4 条候选（沙箱 fix 出站白名单代理 / 取消后落定与清理竞态 / force-fail 与续用整行写回 / 执行资源采集扩展）+ 聚合 1 条 M57.1 / M58.4 残余（镜像内 sandbox 入口双架构冒烟与安全姿态；**2026-11-13 再平衡移出 backlog**）。
 > **用户决策（2026-11-12）**：① 交付模型 = 容器内 clone + fix + commit + push + PR，平台只接收结果；② 执行可靠性四项全部纳入本阶段。
-> **容量基线（逐原子交付物求和，执行角色预估口径）**：19-25 commits / 55-75 files / 2500-3800 行。**类型平衡**：主类型 🛡️3（M59.1 / M59.2 / M59.3）+ 🛠️1（M59.4）+ 🚀1（M59.5，兼 📚 次标签）；🧪 内嵌各原子（M59.1 新增测试文件 3-4 / M59.3 新增用例 ≥6）；🎨 缺口显式标注——源于用户 2026-11-12「四项全部纳入」决策（非 AI 裁剪），UX 面由第三期「平台减法与页面治理」承接。
-> **执行顺序**：M59.1 → M59.2 → M59.3 → M59.4 → M59.5（先放开沙箱执行面，再补自包含交付，随后收口运行状态与资源可观测，最后做镜像双架构取证与文档）。**2026-11-13 插队**：追加临时待办「运行结论语义与状态一致性」先于 M59.1 执行（用户决策；不分配阶段编号，容量评估见该条目正文，未触发再平衡）。**同日第二批插队**：追加临时待办「未验证邮箱用户登录锁死与自助恢复」排在前一项之后、M59.1 之前（用户决策；不分配编号；累计插队 2 批 < 3，未触发再平衡）。
+> **容量基线（逐原子交付物求和，执行角色预估口径）**：17-22 commits / 49-67 files / 2300-3450 行（2026-11-13 再平衡后重算：M59.1 6-8 + M59.2 4-5 + M59.3 4-5 + M59.4 3-4；files 19-25 + 12-16 + 10-14 + 8-12；行 1000-1400 + 500-800 + 450-700 + 350-550）。**类型平衡**：主类型 🛡️3（M59.1 / M59.2 / M59.3）+ 🛠️1（M59.4）；🚀 缺口显式标注（原 M59.5 已移出 backlog）；🧪 内嵌各原子（M59.1 新增测试文件 3-4 / M59.3 新增用例 ≥6）；🎨 缺口显式标注——源于用户 2026-11-12「四项全部纳入」决策（非 AI 裁剪），UX 面由第三期「平台减法与页面治理」承接。
+> **执行顺序**：M59.1 → M59.2 → M59.3 → M59.4（先放开沙箱执行面，再补自包含交付，随后收口运行状态与资源可观测）。**2026-11-13 插队**：追加临时待办「运行结论语义与状态一致性」先于 M59.1 执行（用户决策；不分配阶段编号，容量评估见该条目正文）。**同日第二批插队**：追加临时待办「未验证邮箱用户登录锁死与自助恢复」排在前一项之后、M59.1 之前（用户决策；不分配编号）。**同日第三批插队**：追加临时待办「SMTP 配置在容器运行时不生效」排在最前（用户决策；不分配编号；累计 3 批 → 命中 §3.1.1 阈值 1）。**容量再平衡（2026-11-13，用户确认）**：移出 M59.5 → backlog；插队 3 批（2026-11-13）。
 > **D 阶段决策点**：D1 出站代理启动位置（默认容器内 CLI 进程内复用 network-audit，不引入 sidecar）；D2 交付失败时远端分支清理归属（默认平台依据结果 branch 名清理，容器内不重复清理）；D3 取消宽限期策略（默认保持 10s 上限 + 未落定则延迟清理并落 `_pending` 诊断，不做无限延长）；D4 action 执行器资源采集口径（默认显式标注「不适用」并保持字段存在，不采集宿主）。
-> **§3.4 阶段启动交叉核验（2026-11-12 实测）**：① 归档扫描 `sandbox fix|出站白名单|取消后落定|force-fail|资源采集|sandbox 冒烟` → 无同题闭环（M57.1 仅 report-only，其镜像内 `/app/sandbox` 构建期自检已覆盖双架构、M58.4 仅镜像 health、M10 T1002 仅验证链、M46.4 仅 container、M57.2 仅终态写回）；② `git log --oneline -- <相关路径>` + `git log --all --grep="sandbox fix|egress|force-fail|资源采集"` → 无同题实现批次；③ 代码 anchor：`sandbox-executor.ts:30` 仅 `report-only`、`:114-134` 第二道闸、`scan-orchestrator.service.ts:449` 降级判定、`engine-run.ts` 的 `ABORT_GRACE_MS=10_000`、`container-executor.ts:496/521/524` 宽限后仍清理、`force-fail.post.ts:84` 整行 save、`scan-orchestrator.service.ts:273-318` 续用起点整行 save、`resource-usage` 仅 container 接入；④ backlog 4 条候选前提与当前代码一致，残余聚合项见 M57.1 / M58.4 归档正文；⑤ backlog 上收 4 条（41 → 37），速查表与基线同步。
+> **§3.4 阶段启动交叉核验（2026-11-12 实测）**：① 归档扫描 `sandbox fix|出站白名单|取消后落定|force-fail|资源采集|sandbox 冒烟` → 无同题闭环（M57.1 仅 report-only，其镜像内 `/app/sandbox` 构建期自检已覆盖双架构、M58.4 仅镜像 health、M10 T1002 仅验证链、M46.4 仅 container、M57.2 仅终态写回）；② `git log --oneline -- <相关路径>` + `git log --all --grep="sandbox fix|egress|force-fail|资源采集"` → 无同题实现批次；③ 代码 anchor：`sandbox-executor.ts:30` 仅 `report-only`、`:114-134` 第二道闸、`scan-orchestrator.service.ts:449` 降级判定、`engine-run.ts` 的 `ABORT_GRACE_MS=10_000`、`container-executor.ts:496/521/524` 宽限后仍清理、`force-fail.post.ts:84` 整行 save、`scan-orchestrator.service.ts:273-318` 续用起点整行 save、`resource-usage` 仅 container 接入；④ backlog 4 条候选前提与当前代码一致，残余聚合项见 M57.1 / M58.4 归档正文；⑤ backlog 上收 4 条（41 → 37），速查表与基线同步；2026-11-13 再平衡移出 M59.5（40 → 41）。
 
 ### M59.1 沙箱 fix 自包含执行与出站策略（P1 🛡️）
 
@@ -102,23 +102,6 @@
 - **交付物**：3-4 commits / 8-12 files / 350-550 行。
 - **风险与缓解**：docker stats 采样开销 → 低频采样 + 超时保护；字段缺失被读成 0 → 显式 unavailableReason + 视图断言。
 
-### M59.5 沙箱镜像双架构自包含冒烟与安全姿态（P2 🚀📚）
-
-- **目标**：镜像内 sandbox 自包含入口在 amd64 / arm64 都可运行，发版后自动取证；安全姿态（rootful / userns / 网络面）单一口径成文。
-- **范围**：
-  - `apps/platform/docker/smoke-test.sh`：新增 sandbox 入口断言（容器内 `node /app/sandbox/bin.mjs --version` + `skills doctor`），由构建期冒烟与 `post-release-smoke` 共同消费；`.github/workflows/docker.yml` 的 `post-release-smoke` 把该断言结果写入 Job Summary。构建期 `Dockerfile:181-186` 的 sandbox 自检已存在（M57.1，`e548c332`），作为依赖而非本批新增。
-  - `docs/design/governance/executor-sandbox.md`、`executor-sandbox-implementation.md`、`sandbox-security-governance.md`：fix 放行后的状态、网络面偏离收口、rootful / userns 边界与已知限制。
-  - `docs/guide/deployment.md`（如需）：运行面提示。
-- **验收标准**：
-  1. `smoke-test.sh` 新增 sandbox 断言后，amd64 构建期冒烟与 arm64 发版后原生冒烟均通过（arm64 档由 `post-release-smoke` 取证；无发布窗口时按阶段收口要求记「未证实」）；注入回归（移除镜像内 `/app/sandbox/skills` 或改坏版本串）使断言失败，证明其灵敏。
-  2. 发版后 `post-release-smoke` 的 Job Summary 含 sandbox 入口断言结果；失败仅告警不改发布结论。
-  3. 三篇设计稿状态 / 偏离 / 已知限制同批翻转且无 stale 表述（`rg` 复核）。
-  4. `pnpm run gates:docs` 20 项通过。
-- **不做什么**：不改镜像构建架构与 QEMU 口径；不重建历史镜像；不引入 rootless 之外的新隔离机制。
-- **依赖**：M59.1 / M59.2；M58.4 的 `post-release-smoke` 与 `scan-image-tags`；构建期双架构自检见 `apps/platform/Dockerfile:181-186`（`e548c332`，run `43156533556` 双架构 success）。
-- **交付物**：2-3 commits / 6-8 files / 200-350 行。
-- **风险与缓解**：arm runner 成本 → 仅构建期与发版冒烟各一次；文档状态翻转遗漏 → 按检查点矩阵三处同源扫描。
-
 ### 质量门
 
 - 逐原子：`pnpm run lint:check`（涉样式另跑 `lint:css:check`）+ `pnpm typecheck` + 定向 vitest；改 `packages/*/src` 后先 `pnpm -r build` 再 typecheck；含测试改动的原子至少跑一次 workspace 全量 `pnpm test`。
@@ -128,9 +111,10 @@
 
 ### 阶段收口要求
 
-- M59.1-M59.5 全部闭环，验收证据落 `artifacts/`（gitignored）并在归档块引用命令与 run id。
+- M59.1-M59.4 全部闭环 + 3 批追加临时待办闭环，验收证据落 `artifacts/`（gitignored）并在归档块引用命令与 run id。
 - 沙箱 fix 的负例必须留痕：非白名单外联被拦 / 交付失败分支清理 / 取消未落定 / force-fail 终态不变各一组。
-- 未验证项（arm runner 首跑、真实 GHCR 拉取、真实目标仓库 PR）写「未证实」并登记 backlog，不以「设计已覆盖」替代。
+- 未验证项（真实 GHCR 拉取、真实目标仓库 PR）写「未证实」并登记 backlog，不以「设计已覆盖」替代；arm runner 首跑随 M59.5 移出，由 backlog 候选承接。
+- 归档时在 [archive/index.md](archive/index.md) 批次记录统计「插队批次数量（本阶段 3 批）/ 再平衡移出数量（1 项）」。
 
 ### 追加临时待办（不占阶段条目编号）：运行结论「无写入」语义与状态一致性修复（P1 🛡️）
 
@@ -162,7 +146,7 @@
 - **不做**：不放宽跨 major 自动升级门槛；不改验证链条数与顺序；peer-only 的「改 manifest 直接依赖」修复路径单列 backlog（见候选），不在本项夹带；结构损坏修复不得在无法安全去重时静默丢弃条目（重建路径必须标注 package 变化并在报告给出 diff 摘要）。
 - **依赖与风险**：日志 / 报告文案变更会触及既有断言与平台导出，须同批更新；聚合改变 skipped 计数口径，须在 [dependency-fixer-records.md](../design/modules/dependency-fixer-records.md) 与契约冻结清单同步；若 `classifyLockfileFailure` 根因落在基线工作区差异（执行器面），改动面可能越过 10 文件阈值 → 按设计文档硬阈值补 governance 设计稿或拆批。
 - **交付物**：7-10 commits / 9-12 files / 700-1000 行。
-- **容量影响评估（§3.1.1）**：约 25-40% 阶段基线（分母 19-25 commits / 2500-3800 行）；累计插队 1 批（<3）；无既定外部窗口冲突 → 不触发再平衡；执行顺序置于 M59.1 之前。
+- **容量影响评估（§3.1.1）**：约 25-40% 阶段基线（再平衡前分母 19-25 commits / 2500-3800 行）；累计插队 1 批（<3）；无既定外部窗口冲突 → 不触发再平衡；执行顺序置于 M59.1 之前。
 - **§3.4 交叉核验（2026-11-13）**：① 归档扫描 `无写入|no writes|no-write|Lockfile already compliant` → M56 已闭环 `verificationSkipped='no-write'`（仅验证跳过原因）与 M51 `deliverySkips`，均不含「逐告警处置汇总 / 前置失败与合规互斥」；② `git log --oneline -- packages/engine/src/app/repo-fix-finalize.ts packages/engine/src/fixers/pnpm/index.ts` → 最近为 `7a3df7f8`（0 写入跳过后验证），无本项实现；③ 代码 anchor：`repo-fix-finalize.ts:131-145`（no-write 仅看 `fixed===0 && !lockfileRepaired`）、`helpers.ts:543-566`（classify ok → "already compliant"）、`pnpm/index.ts:548-553`（ok → `changed:false`）、`repo-fix.ts:160-180`（install 基线失败只跳过升级链）、`upgrade-alert.ts:116-119`（peer-only 记 skipped）。
 
 ### 追加临时待办（不占阶段条目编号）：未验证邮箱用户登录锁死与自助恢复（P1 🛠️）
@@ -170,7 +154,7 @@
 > **来源与授权**：2026-11-13 用户提交登录失败截图（DevTools 响应体 `{ message: "Email not verified", code: "EMAIL_NOT_VERIFIED" }`；截图未显示状态码，better-auth 1.7.18 源码映射为 403）后明确授权插队到当前阶段。按 [规划规范 §3.1](../standards/planning.md#_3-1-新需求默认走-评估-→-backlog-原则-hard-requirement)「追加临时待办」口径登记：追加在阶段末尾、不分配编号、不占既有条目位置。
 
 - **目标**：让「邮箱未验证」成为用户看得懂、能自救的状态，而不是被伪装成「邮箱或密码错误」、只能改库解封的死局。
-- **现象与根因（2026-11-13 实读）**：`apps/platform/nuxt.config.ts:90` `smtpEnabled: !!process.env.SMTP_HOST` → `apps/platform/server/utils/auth.ts:208` `requireEmailVerification: options.smtpEnabled`（`:251` `sendOnSignUp` 同源）→ better-auth 1.7.18 对 `email_verified = false` 的账号在 sign-in 抛 `APIError.from("FORBIDDEN", EMAIL_NOT_VERIFIED)`（`node_modules/better-auth/dist/api/routes/sign-in.mjs:350`，`better-call` 把 FORBIDDEN 映射为 403）。锁死成因：① 配置 SMTP 之前创建的存量账号；② 验证邮件发送失败被 fail-quiet 吞成日志（`auth.ts:253-270`）；③ 链接过期 / 一次性 token 已用；④（待验证假设）OAuth 账号 IdP 未返回邮箱时可能保持未验证，需实测 social 回调下 `requireEmailVerification` 是否同样生效（同错误码在 OAuth 回调路径也存在，`sign-in.mjs:206`）。无法自救的原因：`login.vue:66-68` 把任意 `signInError` 统一映射为 `invalidCredentials`；登录页无重发入口；`users.vue:265-269` 只渲染未验证标签，无重发 / 置位动作。
+- **现象与根因（2026-11-13 实读）**：`apps/platform/nuxt.config.ts`（当时 `:90`）`smtpEnabled: !!process.env.SMTP_HOST` → `apps/platform/server/utils/auth.ts:208` `requireEmailVerification: options.smtpEnabled`（`:251` `sendOnSignUp` 同源；`smtpEnabled` 已由第三批临时待办删除，改为运行时按 `smtpHost` 派生）→ better-auth 1.7.18 对 `email_verified = false` 的账号在 sign-in 抛 `APIError.from("FORBIDDEN", EMAIL_NOT_VERIFIED)`（`node_modules/better-auth/dist/api/routes/sign-in.mjs:350`，`better-call` 把 FORBIDDEN 映射为 403）。锁死成因：① 配置 SMTP 之前创建的存量账号；② 验证邮件发送失败被 fail-quiet 吞成日志（`auth.ts:253-270`）；③ 链接过期 / 一次性 token 已用；④（待验证假设）OAuth 账号 IdP 未返回邮箱时可能保持未验证，需实测 social 回调下 `requireEmailVerification` 是否同样生效（同错误码在 OAuth 回调路径也存在，`sign-in.mjs:206`）。无法自救的原因：`login.vue:66-68` 把任意 `signInError` 统一映射为 `invalidCredentials`；登录页无重发入口；`users.vue:265-269` 只渲染未验证标签，无重发 / 置位动作。
 - **范围（源文件 ≤6 + 测试 1-2，合计 5-8 文件）**：
   - `apps/platform/app/pages/login.vue`：按 `signInError.code` 分支；`EMAIL_NOT_VERIFIED` 走独立文案 + 重发入口，其余错误保持现文案。
   - 先评估复用 better-auth 内建 `emailVerification.sendOnSignIn`（sign-in 被拒时自动重发，`sign-in.mjs:339-349`）；若满足需求则前端只补文案与提示，自建重发入口仅在「需明确提示 / 管理端触发」时保留。
@@ -182,14 +166,41 @@
   1. 未验证账号登录：页面显示「邮箱未验证」类文案并提供重发，不显示「邮箱或密码错误」；密码错误仍显示原文案（正 / 反向用例各一）。
   2. 重发调用成功后有明确提示；重发端点受 better-auth 内置特殊规则限制 **60s / 3 次**（`rate-limiter/index.mjs:314-320`；`/sign-in*` 为 10s / 3 次，平台全局 60s / 60 次仅作兜底，`auth.ts:69-80`）时提示可读，不暴露内部错误码；E2E 因 `disableIpTracking` 不限流，429 路径需单测或生产口径验证。
   3. 管理端可对未验证用户重发并留痕；是否允许手动置位由安全侧决策，未决策前不实现绕过路径。
-  4. `SMTP_HOST` 未配置时行为零变化：无重发入口、无新增阻断、注册后直接可用。
+  4. `NUXT_SMTP_HOST`（容器运行期名）未配置时行为零变化：无重发入口、无新增阻断、注册后直接可用。
   5. `pnpm run lint:check` / `pnpm typecheck` / 定向 vitest / 相关 e2e 通过。
 - **不做**：不放宽 `requireEmailVerification` 与 SMTP 开关的绑定语义；不改本项之外的认证流程；不做存量账号批量置 verified 的自动迁移（口径待评估，若需要单列）；不新增后端重发端点（复用 better-auth 既有端点）；重发入口只在「已确认凭证正确但邮箱未验证」的响应后出现，避免新增邮箱枚举面。
-- **依赖**：better-auth 1.7.18 的 `emailVerification.sendOnSignIn` 与 `/send-verification-email` 端点（含内置特殊限流规则，`rate-limiter/index.mjs:306-320`）；平台全局 `rateLimit`（`auth.ts:69-80`）；执行顺序前置为「运行结论语义」临时待办之后、M59.1 之前。backlog 无同题候选（2026-11-13 检索），无关联未闭环条目。
+- **依赖**：better-auth 1.7.18 的 `emailVerification.sendOnSignIn` 与 `/send-verification-email` 端点（含内置特殊限流规则，`rate-limiter/index.mjs:306-320`）；平台全局 `rateLimit`（`auth.ts:69-80`）；执行顺序前置为「运行结论语义」临时待办之后、M59.1 之前。第三批临时待办已将 `getAuthInstance` 入参由 `smtpEnabled` 改为 `smtpHost`，本批按新签名实施。backlog 无同题候选（2026-11-13 检索），无关联未闭环条目。
 - **风险与缓解**：邮件发送与限流交互 → 复用 better-auth 端点并做可读提示；i18n 双语文案 → 同批更新 `zh-CN` / `en-US`；管理端置位属安全决策 → 需用户确认后才实现；重发暴露「该邮箱已注册」的信息面 → 仅在 `EMAIL_NOT_VERIFIED` 响应后提供，文案统一为「若账号存在且未验证，验证邮件已发送」。
 - **交付物**：3-4 commits / 5-8 files（`login.vue`、`auth-client.ts`、`users.vue`、i18n ×2、`auth.ts`（如需）、测试 1-2）/ 250-400 行；文档：无新增设计稿，实施时同步 [platform-auth-users.md](../design/governance/platform-auth-users.md) 的认证行为口径（若改动 `sendOnSignIn` 取舍）。
-- **容量影响评估（§3.1.1）**：约 10-15% 阶段基线（分母 19-25 commits / 2500-3800 行）；累计插队 2 批（<3，未命中阈值 1）；阈值 2 按单批计（本批 10-15% < 50%，两批合计 35-55% 仅作参考）；剩余窗口可容纳 → 阈值 3 未命中，不触发再平衡；执行顺序置于「运行结论语义」之后、M59.1 之前。
+- **容量影响评估（§3.1.1）**：约 10-15% 阶段基线（再平衡前分母 19-25 commits / 2500-3800 行）；累计插队 2 批（<3，未命中阈值 1）；阈值 2 按单批计（本批 10-15% < 50%，两批合计 35-55% 仅作参考）；剩余窗口可容纳 → 阈值 3 未命中，不触发再平衡；执行顺序置于「运行结论语义」之后、M59.1 之前。
 - **§3.4 交叉核验（2026-11-13）**：① 归档扫描 `邮箱验证|EMAIL_NOT_VERIFIED|emailVerified|验证邮件|requireEmailVerification` → 仅 `todo-archive-phases-m6-m7-t711.md:33` 记「SMTP 未配置自动跳过邮箱验证」，无本项实现；② `git log --oneline -- apps/platform/app/pages/login.vue apps/platform/app/pages/users.vue apps/platform/server/utils/auth.ts` → 最近为 `ca0f82e9` 登录页品牌化 / `d0e4a497` trustedOrigins / `c2644ccf` 注释清理，无本项；③ 代码 anchor：`login.vue:66-68` 仍统一映射 `invalidCredentials`；`apps/platform/app` 层 `send-verification-email|sendVerificationEmail` 零命中，服务端仅 `auth.ts` 配置 + `auth.test.ts` 用例 + mailer 注释；`users.vue:265-269` 仅渲染标签。
+
+### 追加临时待办（不占阶段条目编号）：SMTP 配置在容器运行时不生效（runtimeConfig 构建期烘焙）（P1 🛠️）
+
+> **来源与授权**：2026-11-13 用户报告「本地已配置 SMTP、线上通知页显示 SMTP 未配置」，调查后明确选择方案 B（代码根治）并授权插队到当前阶段。按 [规划规范 §3.1](../standards/planning.md#_3-1-新需求默认走-评估-→-backlog-原则-hard-requirement)「追加临时待办」口径登记：追加在阶段末尾、不分配编号、不占既有条目位置。
+
+- **目标**：线上仅凭 `NUXT_SMTP_HOST`（+port/user/pass/from）即可生效，并消除「`smtpHost` 有值但 `smtpEnabled=false`」的行为割裂。
+- **现象与根因（2026-11-13 实读）**：`nuxt.config.ts:85-90` 用 `process.env.SMTP_*` 生成 runtimeConfig 默认值 → 构建期求值并烘焙进产物（`.output/server/chunks/nitro/nitro.mjs` 实测 `"smtpHost": ""` / `"smtpEnabled": false`，`nitro.envPrefix: "NUXT_"`）；`Dockerfile:108` `COPY . .` 而 `.dockerignore:17` 排除 `.env*`，构建期无 SMTP 配置；`docker-compose.yml` 的 `environment:` 白名单无 SMTP 项。运行时普通 `SMTP_*` 既不进容器、也不会映射到 runtimeConfig → `EmailNotificationChannel.isAvailable()`（`email-channel.ts:29-31`，`Boolean(config.smtpHost)`）为 false → 通知页 `channelAvailable=false` 显示「SMTP 未配置」，mailer 走 `{delivered:false, mode:'noop'}`。本地 `nuxt dev` 每次启动重新求值 nuxt.config 并加载 `.env`，故正常。
+- **范围（≤9 文件：源文件/配置 4 + 规范与文档 4 + 测试 1）**：
+  - `apps/platform/server/utils/auth.ts`：删除 `smtpEnabled` 入参（`getAuthInstance` options 与 `getAuth` 调用处），改为运行时派生 `Boolean(config.smtpHost)` 传给 `buildAuth`；`buildAuth` 内部 `smtpEnabled` 语义不变。
+  - `apps/platform/nuxt.config.ts`：删除 `smtpEnabled` key，注释改为「由服务端按 `smtpHost` 非空派生，运行期覆盖只认 `NUXT_SMTP_*`」。
+  - `apps/platform/docker-compose.yml`：`environment:` 补 `NUXT_SMTP_HOST` / `NUXT_SMTP_PORT` / `NUXT_SMTP_USER` / `NUXT_SMTP_PASS` / `NUXT_SMTP_FROM`（`${SMTP_*}` 插值），注释写明运行时前缀规则。
+  - `apps/platform/.env.full.example` + `docs/guide/configuration.md`（含 `docs/i18n/en-US/guide/configuration.md` 镜像）：SMTP 段区分「compose 插值名 `SMTP_*`」与「容器运行期名 `NUXT_SMTP_*`」，并注明不再需要 `NUXT_SMTP_ENABLED`。
+  - `docs/standards/platform.md` §4.1 + `docs/design/governance/platform-auth-users.md` §11：认证配置口径由 `smtpEnabled` 改为按 `smtpHost` 运行时派生，与代码同批同步。
+  - 测试：`apps/platform/server/utils/auth.test.ts` 补「`smtpHost` 非空 → `requireEmailVerification` / `sendOnSignUp` 为 true、`updateEmailWithoutVerification` 为 false」断言；保留现有 `smtpEnabled=false` 降级用例（改为空 host）。
+- **验收标准**：
+  1. 仅设 `NUXT_SMTP_HOST`（不设任何 `*_SMTP_ENABLED`）时，`requireEmailVerification` / `sendOnSignUp` 为 true、`updateEmailWithoutVerification` 为 false（单测断言，不依赖构建期 env）。
+  2. `smtpHost` 为空时既有降级行为零变化（fail-quiet 回调 + noop 投递用例全绿）。
+  3. `rg "smtpEnabled" apps/platform/nuxt.config.ts apps/platform/server/utils/auth.ts` 只剩 `buildAuth` 内部派生变量，无 runtimeConfig key 残留。
+  4. compose `environment:` 含 5 个 `NUXT_SMTP_*` 且注释写明「运行时覆盖只认 NUXT_ 前缀」。
+  5. 文档五处（`.env.full.example` / `configuration.md` / en-US 镜像 / `platform.md` §4.1 / `platform-auth-users.md` §11）不再把裸 `SMTP_*` 描述为容器运行期变量；`pnpm run check:docs` 通过。
+  6. `pnpm run lint:check` / `pnpm typecheck` / 定向 vitest 通过；不涉及 `packages/*/src`，无需 `pnpm -r build`。
+- **不做**：不改 SMTP 未配置时的降级语义；不引入独立 `SMTP_ENABLED` 开关（派生即可）；不改邮件模板、投递策略与通知渠道逻辑；不做 `NUXT_SMTP_PORT` 非数字的额外容错（超出本项范围）。
+- **依赖**：无前置任务；口径依据 [platform.md §7.6](../standards/platform.md#_7-6-运行时-env-开关的-ui-状态暴露用只读端点) 与 [§10.4](../standards/platform.md#_10-4-队列模式自动降级必须含「消费者维度」) 的「runtimeConfig 只认 NUXT_ 前缀」既有规范；契约冻结清单只覆盖 DB 表列，删 `smtpEnabled` key 不触发契约变更。
+- **风险与缓解**：删除 runtimeConfig key 会让「显式 `NUXT_SMTP_ENABLED=false` 关闭验证」这一非文档化用法失效 → 属预期收敛，文档同步说明；旧镜像已烘焙 `false` 需重建镜像才生效 → 交付说明标注；`smtpPort` 运行期覆盖为字符串的形态由 destr 解析为数字，无需额外处理。
+- **交付物**：2-3 commits / 7-9 files（`auth.ts`、`nuxt.config.ts`、`docker-compose.yml`、`.env.full.example`、`configuration.md` ×2、`platform.md` §4.1、`platform-auth-users.md` §11、测试）/ 150-260 行。
+- **容量影响评估（§3.1.1）**：约 5-15% 阶段基线（再平衡后分母 17-22 commits / 2300-3450 行）；累计插队 3 批 → 命中阈值 1；**再平衡已执行（用户确认 2026-11-13）**：移出 M59.5 至 backlog（见阶段头部「容量再平衡」行与 backlog「2026-11-13 阶段容量再平衡移出」）；阈值 2 单批 5% < 50%（若按累计口径并以再平衡前分母计，commits 约 48-89%、行约 28-65%，但阈值 1 已触发并完成再平衡，结论不变），阈值 3 未命中。
+- **§3.4 交叉核验（2026-11-13）**：① 归档扫描 `smtpEnabled|SMTP_HOST|NUXT_SMTP` → `todo-archive.md` / `archive/*.md` 零命中（机制层认知见 [experience-archive §三十/§三十四](../design/governance/experience-archive-§29-§35-integration.md)，无本项实现）；② `git log --oneline -- apps/platform/nuxt.config.ts apps/platform/server/utils/auth.ts apps/platform/docker-compose.yml` → 最近为 `e548c332` 镜像沙箱入口 / `ace9307b` 跨大版本默认值 / `c9cc7e96` nuxt.config 类型修正，主题检索 `smtpEnabled|NUXT_SMTP` 仅 `6f009378`（better-auth 三邮件回调接入 mailer，即该 key 的引入批次），无修复；③ 代码 anchor：`nuxt.config.ts:90` 仍为 `!!process.env.SMTP_HOST`、`auth.ts:418` 仍传 `config.smtpEnabled`、`docker-compose.yml` environment 无 SMTP 项、产物 `nitro.mjs` 烘焙 `smtpHost: ""`。
 
 ---
 

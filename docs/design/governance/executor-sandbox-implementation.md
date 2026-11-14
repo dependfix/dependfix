@@ -262,6 +262,25 @@ if (executorKind === 'sandbox') {
 
 ---
 
+### 7.9 执行资源采集（M59.4，2026-11-14）
+
+三类执行器的资源口径统一为 `ExecutorResourceUsage`（`null` 一律表示不可采集，不写 0）：
+
+| 执行器 | 采集方式 | 字段口径 |
+|:--|:--|:--|
+| container | 平台进程内 cgroup 采样（`startResourceMonitor`） | 既有实现不变；未预期抛错也返回执行窗口快照 |
+| sandbox | 容器内 `sh` 后台采样自身 cgroup（200ms；v2 `memory.current/max/events`、v1 `memory.usage_in_bytes/limit_in_bytes/oom_control`），窗口覆盖容器内 clone + CLI | `memoryMaxBytes` / `peakRssBytes` 必采；`oomKilled` 用前后计数差；任一项不可读 → null + `degradedReason`（含 `oom_kill counter unavailable`） |
+| github-action | 不采集（执行发生在目标仓库 workflow） | 显式 `{ source: 'none', degradedReason }`，UI / 导出不显示为 0 |
+
+实现要点：
+
+- 采样器与 CLI 共用同一 `sh -c`，脚本以换行分隔（后台采样器以 `&` 结尾，`;` 拼接会形成 `& ;` 语法错误）。
+- 读数经独立哨兵（`__DEPENDFIX_RESOURCE_JSON_*`）回传，解析后从执行日志中剥离；哨兵缺失 / 非 JSON 按 unavailable 处理，**不影响主结果解析与退出码**。
+- 上限为 v1 unlimited 哨兵（≥ 9223372036854771712）或 v2 `max` 时落 `null` + `limitReason=unlimited`；文件缺失 / 空值 → `null` 且不带原因（未知 ≠ 无上限）。
+- bootstrap 失败（clone / `cd`）也先停采样并回传读数再以原退出码结束（结果哨兵缺失仍按「未回传显式结果」处理）。
+- 超时 / 异常 / 容器整体 OOM 被杀：采样器随容器终止，无法回传 → 平台写 `unavailable` + 原因（sandbox 侧无法像 container 那样保留进程内快照，属设计边界）。
+- 采样停止后才回传（`touch` 停止标记 + `wait`），CLI 退出码先于停止标记保存。
+
 ## 8. A 模式 push + PR 推送机制
 
 > 状态：✅ 设计落盘（C53，2026-08-20 实施）——A 模式（`ContainerExecutor`）fix / fix-and-pr 完成后新增推送修复分支到远程 + 创建 PR 两条链路，落盘 commit `83ec736` / `46b7c15` / `3ed8303`。

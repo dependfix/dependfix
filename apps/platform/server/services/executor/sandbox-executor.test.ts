@@ -1,3 +1,7 @@
+import { execFileSync } from 'node:child_process'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
 import { SandboxExecutor, resolveEgressPolicy, shouldInjectCloneCredential } from './sandbox-executor'
 import type { ScanExecutorContext } from './types'
@@ -97,6 +101,11 @@ const legalPayload = (ctx: ScanExecutorContext, exitCode = 0): string =>
 /** 模拟容器 stdout：CLI 日志 + 哨兵结果（与真实 buildCmd 输出同形） */
 const wrapWithSentinel = (payload: string, logs = '[sandbox] log line'): string =>
     `${logs}\n__DEPENDFIX_RESULT_JSON_START__\n${payload}\n__DEPENDFIX_RESULT_JSON_END__\n`
+
+/** 真实 buildCmd 的输出顺序：资源读数哨兵在前，结果哨兵在后 */
+const wrapWithResource = (payload: string, resource: string, logs = '[sandbox] log line'): string =>
+    `${logs}\n__DEPENDFIX_RESOURCE_JSON_START__\n${resource}\n__DEPENDFIX_RESOURCE_JSON_END__\n`
+    + `__DEPENDFIX_RESULT_JSON_START__\n${payload}\n__DEPENDFIX_RESULT_JSON_END__\n`
 
 interface SimulatedAdapterOptions {
     available?: boolean
@@ -274,6 +283,51 @@ describe('SandboxExecutor', () => {
             expect(result.logsJson).not.toContain('__DEPENDFIX_RESULT_JSON')
         })
 
+        it('attaches the cgroup resource snapshot and strips its sentinel from logs', async () => {
+            const ctx = makeCtx()
+            const resource = JSON.stringify({
+                memoryMaxBytes: 2 * 1024 ** 3,
+                peakRssBytes: 64 * 1024 * 1024,
+                oomKilled: false,
+                samples: 21,
+                source: 'cgroup-v2',
+                limitReason: '',
+            })
+            const adapter = new SimulatedSandboxAdapter({ stdout: wrapWithResource(legalPayload(ctx), resource) })
+            const result = await new SandboxExecutor({ runtimeAdapter: adapter }).execute(ctx)
+            expect(result.resource).toMatchObject({
+                memoryMaxBytes: 2 * 1024 ** 3,
+                peakRssBytes: 64 * 1024 * 1024,
+                oomKilled: false,
+                samples: 21,
+                source: 'cgroup-v2',
+            })
+            expect(result.resource?.degradedReason).toBeUndefined()
+            expect(result.logsJson ?? '').not.toContain('DEPENDFIX_RESOURCE_JSON')
+        })
+
+        it('marks missing resource readings as unavailable instead of zero', async () => {
+            const ctx = makeCtx()
+            const adapter = new SimulatedSandboxAdapter({ stdout: wrapWithSentinel(legalPayload(ctx)) })
+            const result = await new SandboxExecutor({ runtimeAdapter: adapter }).execute(ctx)
+            expect(result.resource).toMatchObject({
+                memoryMaxBytes: null,
+                peakRssBytes: null,
+                oomKilled: null,
+                source: 'none',
+            })
+            expect(result.resource?.degradedReason).toContain('cgroup')
+        })
+
+        it('treats a malformed resource payload as unavailable', async () => {
+            const ctx = makeCtx()
+            const adapter = new SimulatedSandboxAdapter({ stdout: wrapWithResource(legalPayload(ctx), 'not-json') })
+            const result = await new SandboxExecutor({ runtimeAdapter: adapter }).execute(ctx)
+            expect(result.exitCode).toBe(0)
+            expect(result.resource?.source).toBe('none')
+            expect(result.resource?.degradedReason).toMatch(/cgroup|采样/)
+        })
+
         it('sanitizes credentials in logsJson (stdout/stderr tail)', async () => {
             const ctx = makeCtx()
             const adapter = new SimulatedSandboxAdapter({
@@ -390,6 +444,11 @@ describe('SandboxExecutor', () => {
             expect(script).toContain('--result-json')
             expect(script).toContain('/tmp/result.json')
             expect(script).toContain('__DEPENDFIX_RESULT_JSON_START__')
+            // 资源采样：cgroup v2 / v1 双路径 + 停止标记 + 读数哨兵
+            expect(script).toContain('/sys/fs/cgroup/memory.current')
+            expect(script).toContain('/sys/fs/cgroup/memory/memory.usage_in_bytes')
+            expect(script).toContain('/tmp/dependfix-resource.stop')
+            expect(script).toContain('__DEPENDFIX_RESOURCE_JSON_START__')
             expect(script).not.toContain('ghp_')
             expect(script).not.toContain('dependfix-reports')
         })
@@ -426,6 +485,45 @@ describe('SandboxExecutor', () => {
             // 凭据不进 argv / 脚本明文：只从 env 读取后转成 basic header
             expect(script).not.toContain('ghp_')
             expect(script).toContain('$GITHUB_TOKEN')
+            // 采样必须先于 bootstrap：窗口覆盖容器内 clone；bootstrap 失败也先回传读数
+            expect(script.indexOf('/sys/fs/cgroup/memory.current')).toBeLessThan(script.indexOf('clone --depth 1'))
+            expect(script).toContain('|| { touch /tmp/dependfix-resource.stop')
+        })
+
+        it.skipIf(process.platform === 'win32')('produces a valid resource JSON when the sampler runs under a real shell', () => {
+            const root = mkdtempSync(join(tmpdir(), 'sandbox-cgroup-'))
+            try {
+                const cgroup = join(root, 'cgroup')
+                mkdirSync(cgroup)
+                writeFileSync(join(cgroup, 'memory.current'), '12345678\n')
+                writeFileSync(join(cgroup, 'memory.max'), 'max\n')
+                writeFileSync(join(cgroup, 'memory.events'), 'low 0\nhigh 0\noom 0\noom_kill 0\n')
+                const resourcePath = join(root, 'resource.json')
+                const stopPath = join(root, 'resource.stop')
+
+                const executor = new SandboxExecutor({ runtimeAdapter: new SpyRuntimeAdapter() })
+                const script = executor.buildCmd(makeCtx())[2]!
+                    .split('\n')
+                    // 只验证采样器本身：CLI 行替换为固定睡眠
+                    .map((line) => line.includes('\'--result-json\'') ? 'sleep 0.5' : line)
+                    .join('\n')
+                    .replaceAll('/sys/fs/cgroup', cgroup)
+                    .replaceAll('/tmp/dependfix-resource.json', resourcePath)
+                    .replaceAll('/tmp/dependfix-resource.stop', stopPath)
+
+                execFileSync('sh', ['-c', script], { stdio: 'ignore', timeout: 15_000 })
+                const raw = JSON.parse(readFileSync(resourcePath, 'utf8')) as Record<string, unknown>
+                expect(raw).toMatchObject({
+                    memoryMaxBytes: null,
+                    peakRssBytes: 12345678,
+                    oomKilled: false,
+                    source: 'cgroup-v2',
+                    limitReason: 'unlimited',
+                })
+                expect(raw.samples as number).toBeGreaterThan(0)
+            } finally {
+                rmSync(root, { recursive: true, force: true })
+            }
         })
 
         it('does not clone in report-only mode', () => {

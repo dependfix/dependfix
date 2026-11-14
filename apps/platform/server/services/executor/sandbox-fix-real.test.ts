@@ -93,5 +93,13 @@ describe.skipIf(!enabled)('sandbox fix real bootstrap (gated)', () => {
         expect(result.result?.errors?.length ?? 0).toBeGreaterThan(0)
         // clone 真的发生在容器内（日志含 /tmp/repo），且未发生宿主挂载
         expect(result.logsJson ?? '').toContain('/tmp/repo')
+        // 资源读数：容器内 cgroup 采样必须给出真实读数（不可读时 source=none + 原因）。
+        // 这是人工门控证据（SANDBOX_FIX_E2E），不进门禁；上界断言用于捕获「读到父 cgroup」的放大
+        expect(result.resource?.source, result.resource?.degradedReason).not.toBe('none')
+        expect(result.resource?.samples ?? 0).toBeGreaterThan(0)
+        expect(result.resource?.peakRssBytes ?? 0).toBeGreaterThan(0)
+        if (result.resource?.memoryMaxBytes !== null && result.resource?.memoryMaxBytes !== undefined) {
+            expect(result.resource.peakRssBytes ?? 0).toBeLessThanOrEqual(result.resource.memoryMaxBytes)
+        }
     }, 300_000)
 })

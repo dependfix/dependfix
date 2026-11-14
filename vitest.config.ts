@@ -13,6 +13,10 @@ export default defineConfig({
             // （与 apps/platform/.nuxt/tsconfig.json 的 paths 保持一致，vitest 转换时不自动读取）
             '#server': resolve(import.meta.dirname, 'apps/platform/server'),
             '#server/*': resolve(import.meta.dirname, 'apps/platform/server/*'),
+            // Nuxt 4 shared 别名：App 与 Nitro server 共用 `#shared/*`（源码侧一致）；
+            // vitest 不读 Nuxt 别名，必须在此与包级配置同步声明
+            '#shared': resolve(import.meta.dirname, 'apps/platform/shared'),
+            '#shared/*': resolve(import.meta.dirname, 'apps/platform/shared/*'),
         },
     },
     test: {

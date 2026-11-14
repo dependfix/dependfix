@@ -13,6 +13,7 @@
         "i18n/**/*",
         "playwright.config.ts",
         "playwright.visual.config.ts",
+        "vitest.config.ts",
         "tests/**/*"
     ],
     "exclude": [

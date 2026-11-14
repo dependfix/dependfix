@@ -311,6 +311,7 @@ docker compose up -d
 - Pending migrations are applied at startup; before migrating, the app snapshots the current SQLite database to `/app/data/backups`.
 - Back up the data volume beforehand (see below).
 - Pin a version to roll back the image tag; to roll back a migration use `pnpm db:migrate:revert -- --yes` (source environment).
+- **Sandbox image upgrade (2026-11-14+)**: the sandbox now defaults to the separately published `dependfix-sandbox:<platform version>` (slim, ~320MB) and no longer falls back to `DEPENDFIX_IMAGE`. If the target daemon cannot reach ghcr, runs fail with `sandbox_image_unavailable`; set `SANDBOX_IMAGE_REPO` (e.g. the ACR `registry.cn-hangzhou.aliyuncs.com/caomeiyouren/dependfix-sandbox`) or a repository-level image. Repositories that need native source builds should use `dependfix-sandbox-full`.
 
 ## Backup and restore
 

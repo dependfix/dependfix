@@ -226,15 +226,30 @@
 
 ### 追加临时待办（不占阶段条目编号）：沙箱镜像不可配置导致线上执行失败（P1 🛠️）
 
-> **状态**：✅ 已闭环（2026-11-14；PR #245，merge `91c2e3e1`；审计 R1 standard Reject（UI 证据缺失）→ 补 e2e / 迁移 / 证伪用例 → R2 quick Pass）。线上沙箱运行 `sandbox_image_unavailable`：默认镜像名 `dependfix-platform:latest` 只存在于本地构建，外置 rootless daemon 无法解析 Docker Hub 引用；仓库级无镜像字段。本批新增 `Repository.sandboxImage`（迁移 `3100000000001`）、docker 镜像语法校验、仓库表单输入、编排层按仓库镜像创建执行器，并把 `sandbox_image_unavailable` 纳入 `runtime / deterministic` 失败分类（此前截图显示「未知阶段」）。修复后：仓库编辑弹窗（执行方式 = 独立沙箱容器）可直接填写镜像，留空回退平台默认；e2e 覆盖可见 / 校验 / 保存 / 回显 / 隐藏。
+> **状态**：✅ 已闭环（2026-11-14；PR #245，merge `91c2e3e1`；审计 R1 Reject（UI 证据缺失）→ 补 e2e / 迁移 / 证伪用例 → R2 Pass）。线上 `sandbox_image_unavailable` 根因：默认镜像名 `dependfix-platform:latest` 仅本地存在，外置 daemon 无法解析；仓库级无镜像字段。已交付仓库级 `sandboxImage`（迁移 `3100000000001`）、镜像语法校验、表单输入、编排层按仓库镜像创建执行器、`sandbox_image_unavailable` → `runtime / deterministic`；e2e 覆盖可见 / 校验 / 保存 / 回显 / 隐藏。
 
-> **来源与授权**：2026-11-14 用户报告截图（`扫描执行失败（sandbox_image_unavailable）`）+ 明确要求「应该要可以配置 docker 镜像地址」。属 [规划规范 §3.1](../standards/planning.md#_3-1-新需求默认走-评估-→-backlog-原则-hard-requirement) 插队例外第 3 类（用户报告的 blocker 级功能缺失），按「追加临时待办」口径登记：不分配编号、不占既有条目位置。
+> **来源与授权**：2026-11-14 用户报告截图（`扫描执行失败（sandbox_image_unavailable）`）+ 明确要求「应该要可以配置 docker 镜像地址」。属 [规划规范 §3.1](../standards/planning.md#_3-1-新需求默认走-评估-→-backlog-原则-hard-requirement) 插队例外第 3 类（用户报告的 blocker 级功能缺失），按「追加临时待办」登记：不分配编号。
 
 - **范围**：`Repository.sandboxImage` + 迁移与契约清单；`utils/docker-image.ts`；`schemas/repository.ts`；`api/repos/index.ts` / `[id].ts`；`scan-orchestrator.service.ts`（镜像优先级）；`run-failure-classify.ts`；`repo-form-dialog.vue` + `types/platform.ts` + 中英 i18n；迁移 / API / 编排 / 校验测试；configuration / quick-start / 设计稿 §7.2。
-- **验收标准**：① 仓库级镜像优先于 `SANDBOX_IMAGE` → `DEPENDFIX_IMAGE` → 默认（正 / 反向用例）；② 非法引用 400、空值归一为 null；③ 表单在 sandbox 执行方式下可见并可保存 / 回显，切换容器后隐藏；④ `sandbox_image_unavailable` 落 `runtime / deterministic`；⑤ `lint:check` / `typecheck` / 定向 vitest / e2e 通过。
+- **验收标准**：① 仓库级镜像优先于 `SANDBOX_IMAGE` → 默认（正 / 反向用例）；② 非法引用 400、空值归一为 null；③ 表单在 sandbox 执行方式下可见并可保存 / 回显，切换容器后隐藏；④ `sandbox_image_unavailable` 落 `runtime / deterministic`；⑤ `lint:check` / `typecheck` / 定向 vitest / e2e 通过。
 - **不做**：不做镜像可达性预检（执行期 docker 拉取即判定）；不改沙箱非 root / cgroup / 超时基线；不引入 digest 强制（文档建议钉定）。
 - **容量影响评估（§3.1.1）**：约 3-5% 阶段基线（约 25 文件 / ~250 行）；阶段累计插队 4 批；阈值 1 已于 2026-11-13 通过移出 M59.5 消化，本次不再触发新的再平衡；剩余验证预算按阶段质量门执行。
+
+#### 后续：沙箱镜像与平台镜像解耦（2026-11-14 用户决策 A，🚧 进行中）
+
+> **决策**：用户指出「只为沙箱却拉整个平台运行镜像不合理」，选择方案 A —— **同一 Dockerfile 多 target**（`sandbox` slim / `sandbox-full`，独立发布），默认镜像改为发布 slim 沙箱镜像（按平台构建版本取 tag）。本轮实施，不拆独立 workflow。
+
+- **优先级**：P1（用户已确认本轮实施）。
+- **范围**：Dockerfile（`cli-builder`、精简/共用工具链、`sandbox`+`sandbox-full` target）；docker.yml（两变体 smoke、三 registry digest/manifest、sandbox 裸版本 tag）；`sandbox-executor.ts` 默认镜像解析与测试；compose/env 示例/configuration/quick-start/设计稿 §7.2。
+- **体积实测**：平台 815MB / slim 320MB / full 744MB；默认 slim，需源码编译回退用 `-full`。
+- **验收标准**：① 两 target 均可 `--user 100:100` 运行（slim 另验无 g++）；② 均不触发 Nuxt 构建；③ 两变体推送三 registry + 双架构 manifest；④ 默认解析有单测；⑤ 门禁通过；⑥ 平台镜像与 `smoke-test.sh` 零回归。
+- **不做**：不拆独立 workflow / Dockerfile；不移除平台镜像内的 `/app/sandbox`（保留显式指定兼容路径）；不做镜像版本握手（登记为后续候选）。
+- **依赖**：`#245` 仓库级镜像字段；release 的 `platform_version`；ghcr/ACR 新镜像名推送权限。
+- **交付物**：22 文件 / +550 −67（Dockerfile 1 / workflow 1 / 执行器与注释 7 / 配置与 i18n 5 / 文档 8）。
+- **风险与缓解**：slim 缺编译工具链 → `-full` + 文档/表单提示；存量部署默认镜像变化 → 升级说明；发布链未取证 → 合并后 `workflow_dispatch` 验冒烟与双架构。
+- **容量影响评估（§3.1.1）**：同一临时待办的后续细化，不新增批次计数；发布链需 CI 取证。
 
 ## 上一阶段
 
 M58（发布链可信收口）已于 2026-11-12 归档：执行记录见 [archive/todo-archive-phases-m58.md](archive/todo-archive-phases-m58.md)，路线图详情见 [archive/roadmap-phases-m58.md](archive/roadmap-phases-m58.md)，本批经验沉淀见 [experience-archive §八十七](../design/governance/experience-archive-§79-§85-ops-release.md#八十七、m58-归档批次经验沉淀-发布执行器内嵌门禁与-token-产物所在工作流验证-文档机制断言取证-工作流级负例)。
+

@@ -247,13 +247,9 @@ const runDetailVisible = ref(false)
 const selectedRunId = ref<string | null>(null)
 
 /**
- * 一键修复：
- * - 复用既有 run_id：服务端 skip createPendingScanRun，直接以复用 run 进入 fix 流程
- * - 状态机（fixingRunId / fixError / fixSuccess）抽出到 composables/use-fix-now.ts
- *   （utility 抽取的反向时机 —— audit warning 触发的单向提前抽取）
- * - 成功后 toast 提示并跳转到扫描历史（/scans?repository=）查看 fix 进度
+ * 一键修复：由详情侧栏 `alert-run-sidebar` 内承载（状态机见 `composables/use-fix-now.ts`）。
+ * 页面只负责打开侧栏与转发 run 详情；修复入口与进度提示不在此处重复实例化。
  */
-const { fixingRunId, fixError, fixSuccess, triggerFix } = useFixNow()
 
 const openRunSidebar = async (alert: AlertView) => {
     sidebarAlert.value = alert

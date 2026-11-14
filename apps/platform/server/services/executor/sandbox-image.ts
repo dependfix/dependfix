@@ -1,14 +1,16 @@
 // sandbox-image.ts — 沙箱镜像候选解析（三源分发消费侧）。
 //
 // 只做「选用哪个镜像」：显式 SANDBOX_IMAGE 固定单源；否则跟随平台镜像 registry，
-// 再回退 ghcr / ACR / Docker Hub。真正的可达性由执行器的逐源 inspect / pull 预检定夺。
+// 再回退 Docker Hub → ghcr → ACR（ACR 置末以减少其负荷）。可达性由执行器逐源 inspect / pull 预检定夺。
 
 /**
  * 沙箱镜像候选（按顺序尝试；显式 `SANDBOX_IMAGE` 时只有一项）。
  *
  * 顺序：显式值 → `SANDBOX_IMAGE_REPO` 覆盖 → 从平台镜像（`DEPENDFIX_IMAGE`）推导同 registry 的
- * 沙箱镜像 → 发布默认（ghcr）→ ACR → Docker Hub。平台镜像来自哪个 registry，沙箱优先用同一个，
+ * 沙箱镜像 → Docker Hub → ghcr → ACR。平台镜像来自哪个 registry，沙箱优先用同一个，
  * 避免「平台走 ACR、沙箱却拉 ghcr」的跨网慢速；不可达时依次回退。
+ * ACR 放在最后（其带宽/配额有限，只在其余源都取不到时才用）；若平台本身走 ACR，
+ * 推导出的 ACR 镜像仍排首位——那说明该部署本来就在用 ACR。
  */
 export function resolveSandboxImageCandidates(env: NodeJS.ProcessEnv = process.env): string[] {
     const explicit = env.SANDBOX_IMAGE?.trim()
@@ -26,9 +28,9 @@ export function resolveSandboxImageCandidates(env: NodeJS.ProcessEnv = process.e
         candidates.push(`${derived}:${tag}`)
     }
     candidates.push(
+        `caomeiyouren/dependfix-sandbox:${tag}`,
         `ghcr.io/dependfix/dependfix-sandbox:${tag}`,
         `registry.cn-hangzhou.aliyuncs.com/caomeiyouren/dependfix-sandbox:${tag}`,
-        `caomeiyouren/dependfix-sandbox:${tag}`,
     )
     return [...new Set(candidates)]
 }

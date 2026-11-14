@@ -454,7 +454,7 @@ const runScanInternal = async (
             let sandboxHandled = false
             if (executorKind === 'sandbox') {
                 const sandbox = new SandboxExecutor({
-                    // 仓库级镜像 > SANDBOX_IMAGE > 三源候选（平台 registry → ghcr → ACR → Docker Hub）
+                    // 仓库级镜像 > SANDBOX_IMAGE > 三源候选（平台 registry → Docker Hub → ghcr → ACR）
                     ...(repository.sandboxImage?.trim() ? { image: repository.sandboxImage.trim() } : {}),
                     sandboxLimits: parseSandboxLimits(repository.sandboxLimits),
                     timeoutMs: executionLimits.executionTimeoutMs,

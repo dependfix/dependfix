@@ -828,14 +828,23 @@ describe('resolveSandboxImageCandidates', () => {
         const candidates = resolveSandboxImageCandidates({
             DEPENDFIX_IMAGE: 'registry.cn-hangzhou.aliyuncs.com/caomeiyouren/dependfix:platform-2.0.0',
         } as NodeJS.ProcessEnv)
-        expect(candidates[0]).toBe('registry.cn-hangzhou.aliyuncs.com/caomeiyouren/dependfix-sandbox:2.0.0')
-        expect(candidates).toEqual(expect.arrayContaining([
-            'ghcr.io/dependfix/dependfix-sandbox:2.0.0',
+        // 平台走 ACR → 沙箱先走 ACR；回退依次 Docker Hub、ghcr（ACR 置末且与首项去重）
+        expect(candidates).toEqual([
             'registry.cn-hangzhou.aliyuncs.com/caomeiyouren/dependfix-sandbox:2.0.0',
             'caomeiyouren/dependfix-sandbox:2.0.0',
-        ]))
-        // 去重：同一 ACR 镜像只出现一次
-        expect(candidates.filter((item) => item.startsWith('registry.cn-hangzhou'))).toHaveLength(1)
+            'ghcr.io/dependfix/dependfix-sandbox:2.0.0',
+        ])
+    })
+
+    it('follows a ghcr platform and keeps ACR as the last fallback', () => {
+        const candidates = resolveSandboxImageCandidates({
+            DEPENDFIX_IMAGE: 'ghcr.io/dependfix/dependfix:platform-2.0.0',
+        } as NodeJS.ProcessEnv)
+        expect(candidates).toEqual([
+            'ghcr.io/dependfix/dependfix-sandbox:2.0.0',
+            'caomeiyouren/dependfix-sandbox:2.0.0',
+            'registry.cn-hangzhou.aliyuncs.com/caomeiyouren/dependfix-sandbox:2.0.0',
+        ])
     })
 
     it('uses a single explicit image when SANDBOX_IMAGE is set', () => {
@@ -850,7 +859,11 @@ describe('resolveSandboxImageCandidates', () => {
             DEPENDFIX_IMAGE: 'dependfix-platform:local',
             SANDBOX_IMAGE_TAG: 'edge',
         } as NodeJS.ProcessEnv)
-        expect(candidates[0]).toBe('ghcr.io/dependfix/dependfix-sandbox:edge')
+        expect(candidates).toEqual([
+            'caomeiyouren/dependfix-sandbox:edge',
+            'ghcr.io/dependfix/dependfix-sandbox:edge',
+            'registry.cn-hangzhou.aliyuncs.com/caomeiyouren/dependfix-sandbox:edge',
+        ])
     })
 
     it('resolves the pull timeout from env with a safe fallback', async () => {
@@ -899,7 +912,7 @@ describe('resolveDefaultSandboxImage', () => {
             NUXT_BUILD_VERSION: '2.3.4',
         } as NodeJS.ProcessEnv)).toBe('registry.example.com/team/dependfix-sandbox:2.3.4')
         expect(resolveDefaultSandboxImage({ NUXT_BUILD_VERSION: '2.3.4' } as NodeJS.ProcessEnv))
-            .toBe('ghcr.io/dependfix/dependfix-sandbox:2.3.4')
+            .toBe('caomeiyouren/dependfix-sandbox:2.3.4')
     })
 
     it('treats blank values as unset and tolerates a trailing slash on the repo', () => {
@@ -911,14 +924,14 @@ describe('resolveDefaultSandboxImage', () => {
         expect(resolveDefaultSandboxImage({
             SANDBOX_IMAGE: '   ',
             NUXT_BUILD_VERSION: '',
-        } as NodeJS.ProcessEnv)).toBe('ghcr.io/dependfix/dependfix-sandbox:latest')
+        } as NodeJS.ProcessEnv)).toBe('caomeiyouren/dependfix-sandbox:latest')
     })
 
     it('falls back to latest when the build version is unknown, and honors an explicit tag', () => {
         expect(resolveDefaultSandboxImage({ NUXT_BUILD_VERSION: 'unknown' } as NodeJS.ProcessEnv))
-            .toBe('ghcr.io/dependfix/dependfix-sandbox:latest')
+            .toBe('caomeiyouren/dependfix-sandbox:latest')
         expect(resolveDefaultSandboxImage({ NUXT_BUILD_VERSION: '2.3.4', SANDBOX_IMAGE_TAG: 'edge' } as NodeJS.ProcessEnv))
-            .toBe('ghcr.io/dependfix/dependfix-sandbox:edge')
+            .toBe('caomeiyouren/dependfix-sandbox:edge')
     })
 })
 

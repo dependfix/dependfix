@@ -237,7 +237,7 @@
 
 #### 后续：沙箱镜像与平台镜像解耦（✅ 2026-11-14）
 
-> **状态**：PR #246（`5d4be34b`）双变体发布、PR #247（`36bd6c71`）三源回退；Docker run `43570307949` 双架构 6 镜像 manifest 全绿。
+> **状态**：PR #246（`5d4be34b`）双变体、#247（`36bd6c71`）三源、#248（`c62ebe59`）ACR 置末；Docker run `43570307949` 双架构 6 manifest 绿。
 >
 > **决策**：用户指出「只为沙箱却拉整个平台运行镜像不合理」，选择方案 A —— **同一 Dockerfile 多 target**（`sandbox` slim / `sandbox-full`，独立发布），默认镜像改为发布 slim 沙箱镜像（按平台构建版本取 tag）。本轮实施，不拆独立 workflow。
 
@@ -248,8 +248,8 @@
 - **不做**：不拆独立 workflow / Dockerfile；不移除平台镜像内的 `/app/sandbox`（保留显式指定兼容路径）；不做镜像版本握手（登记为后续候选）。
 - **依赖**：`#245` 仓库级镜像字段；release 的 `platform_version`；ghcr/ACR 新镜像名推送权限。
 - **交付物**：22 文件 / +550 −67（Dockerfile 1 / workflow 1 / 执行器与注释 7 / 配置与 i18n 5 / 文档 8）。
-- **三源回退（追加）**：跟随平台 registry，回退 Docker Hub / ghcr / ACR（ACR 置末）；逐源 inspect/pull，全失败报 `sandbox_image_unavailable`。
-- **残余**：arm64 运行冒烟、编译回退提示、失败源原因待后续。
+- **三源回退（追加）**：跟随平台 registry，回退 Docker Hub / ghcr / ACR；逐源 inspect/pull，全失败报 `sandbox_image_unavailable`。
+- **残余**：arm64 冒烟、编译回退提示待后续。
 - **容量影响评估（§3.1.1）**：同一临时待办的后续细化，不新增批次计数；发布链需 CI 取证。
 
 ## 上一阶段

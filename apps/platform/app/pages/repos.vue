@@ -4,6 +4,8 @@ import { Check, List, Pencil, Play, Plus, RotateCcwClock, Trash, Upload } from '
 import type { DataTableColumn } from 'caomei-ui'
 import type { RepoView } from '~/types/platform'
 import { useTablePagination } from '~/composables/use-table-pagination'
+import { useRepoFilters } from '~/composables/use-repo-filters'
+import { useRepoScanTrigger, type ScanRunPollResult, type ScanTriggerResponse } from '~/composables/use-repo-scan-trigger'
 import { DEFAULT_SCAN_MODE, DEFAULT_SCAN_SEVERITY } from '~/composables/use-scan-preferences'
 import { scanModeOptions, scanSeverityOptions } from '~/utils/scan-options'
 
@@ -108,121 +110,27 @@ const onReposImported = async () => {
     await fetchData()
 }
 
-const repoDisplay = (repo: RepoView) => `${repo.owner}/${repo.name}`
-
 // 扫描触发（异步队列：入队立即返回 + 轮询状态；同步降级：请求内完成）
-const scanningId = ref<string | null>(null)
-const scanError = ref('')
-const scanMerged = ref('')
-const scanSuccess = ref('')
-const lastRunUrl = ref<string | null>(null)
+// 状态机与轮询抽出到 `use-repo-scan-trigger`（页面行数治理）
+/** 动态路径以 `string` 返回：避免 `$fetch` 对模板字面量做路由类型推断时递归过深（Nuxt 4 已知问题） */
+const scanEndpoint = (repoId: string): string => `/api/repos/${repoId}/scan`
 
-/** 轮询扫描状态（间隔 2s；容器模式 10min / B 模式 30min 上限，超时提示去历史查看） */
-const pollTimeoutMs = 10 * 60_000
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
-
-/** 轮询取消标志：组件卸载时置位，避免 SPA 导航离开后继续轮询 */
-let pollCancelled = false
-
-const pollRun = async (runId: string, executorKind: string) => {
-    const startedAt = Date.now()
-    const timeout = executorKind === 'github-action' ? 30 * 60_000 : pollTimeoutMs
-    while (!pollCancelled && Date.now() - startedAt < timeout) {
-        await sleep(2000)
+const { scanningId, scanError, scanMerged, scanSuccess, lastRunUrl, triggerScan } = useRepoScanTrigger({
+    t,
+    request: async (repoId, body) => {
+        const run = await $fetch(scanEndpoint(repoId), { method: 'POST', body })
+        return run as unknown as ScanTriggerResponse
+    },
+    poll: async (runId) => {
         // 原生 fetch（$fetch 对动态 URL 的路由类型推断递归过深；同源请求自动携带会话 cookie）
         const response = await fetch(`/api/runs/${runId}`)
         if (!response.ok) {
-            scanError.value = t('repos.scanStatusQueryFailed')
-            return
+            return { ok: false }
         }
-        const run = await response.json() as { status: string, runUrl: string | null, error?: { code?: string, message?: string } | null }
-        if (run.status === 'completed') {
-            scanSuccess.value = t('repos.scanCompleted')
-            return
-        }
-        if (run.status === 'failed') {
-            // SCAN_PENDING_MERGED（去重合并，与 ServerErrorCode 口径对齐）：非执行失败，走 warning 提示合并语义。
-            // 防御分支（按测试规范 §6.5 登记）：异步合并已在**立即响应**阶段（triggerScan 的 `runData.merged`）
-            // 短路，本分支在生产不可达；同步路径不产出 merged。保留以防后续轮询观测到被合并 run 的终态。
-            // 文案用共享 i18n 键（与 alerts「立即修复此仓库」入口口径一致；服务端 message 不参与渲染以保证双语文案）
-            if (run.error?.code === 'SCAN_PENDING_MERGED') {
-                scanSuccess.value = ''
-                scanMerged.value = t('common.scanTriggerMerged')
-            } else {
-                scanError.value = t('repos.scanFailed', { message: run.error?.message ?? t('common.errors.unknown') })
-            }
-            return
-        }
-        if (run.status === 'dispatched') {
-            lastRunUrl.value = run.runUrl
-            scanSuccess.value = run.runUrl ? t('repos.scanDispatchedWithUrl') : t('repos.scanDispatched')
-            return
-        }
-        // pending / running：继续轮询
-    }
-    if (!pollCancelled) {
-        scanSuccess.value = t('repos.scanInProgress')
-    }
-}
-
-onUnmounted(() => {
-    pollCancelled = true
+        return { ok: true, run: await response.json() as ScanRunPollResult }
+    },
+    refresh: fetchData,
 })
-
-const triggerScan = async (
-    repo: RepoView,
-    mode: string,
-    severity: string,
-    aiEnabled: boolean = false,
-    aiTrigger: 'failure' | 'major' | 'both' = 'both',
-) => {
-    pollCancelled = false
-    scanError.value = ''
-    scanMerged.value = ''
-    scanSuccess.value = ''
-    lastRunUrl.value = null
-    scanningId.value = repo.id
-    // B 模式（GitHub Action）异步队列下由 worker 后台执行（不再同步挂起 30 分钟）
-    if (repo.executorKind === 'github-action') {
-        scanSuccess.value = t('repos.scanTriggering')
-    }
-    try {
-        const run = await $fetch(`/api/repos/${repo.id}/scan`, {
-            method: 'POST',
-            body: {
-                mode,
-                severityThreshold: severity,
-                executorKind: repo.executorKind === 'github-action' ? 'github-action' : undefined,
-                aiEnabled,
-                aiTrigger,
-            },
-        })
-        const runData = run as unknown as { id: string, status: string, runUrl: string | null, merged?: { code: string, message: string } }
-        if (runData.merged) {
-            // 去重合并：本次触发未真正执行（新建路径的 pending run 已被置 failed + SCAN_PENDING_MERGED）
-            // → 只提示合并语义，不轮询、不按失败呈现（与 alerts 入口口径一致）；
-            // 清掉异步预置的「正在触发…」success，避免同屏 warning + success 语义冲突
-            scanSuccess.value = ''
-            scanMerged.value = t('common.scanTriggerMerged')
-        } else if (runData.status === 'pending') {
-            // 队列模式：已入队，轮询状态
-            scanSuccess.value = t('repos.scanQueued')
-            await pollRun(runData.id, repo.executorKind ?? 'container')
-        } else if (runData.status === 'dispatched') {
-            lastRunUrl.value = runData.runUrl
-            scanSuccess.value = runData.runUrl ? t('repos.scanDispatchedWithUrl') : t('repos.scanDispatched')
-        } else if (runData.status === 'completed') {
-            scanSuccess.value = t('repos.scanCompleted')
-        } else {
-            scanError.value = t('repos.scanFailed', { message: (run as { error?: { message?: string } }).error?.message ?? t('common.errors.unknown') })
-        }
-        await fetchData()
-    } catch (e: any) {
-        scanError.value = t('repos.errors.triggerFailed', { message: e?.data?.message ?? e?.message ?? t('common.errors.unknown') })
-    } finally {
-        scanningId.value = null
-    }
-}
 
 const toastMessage = computed(() => success.value)
 watch(toastMessage, (v) => {
@@ -319,92 +227,17 @@ const importDialogVisible = ref(false)
 
 // ===== 列表筛选 / 搜索 / 分页（客户端实现；服务端 `/api/repos` 契约不变）=====
 // 评估结论（用户 2026-10-10）：客户端筛选 + 客户端分页——`/api/repos` 返回全量，无需后端分页参数。
-const searchQuery = ref('')
-
-/** 筛选态（`'all'` = 不筛选；凭据列 `'none'` = 仅未关联） */
-const repoFilters = reactive({
-    executorKind: 'all',
-    packageManager: 'all',
-    credentialId: 'all',
-})
-
-const executorFilterOptions = computed(() => [
-    { label: t('repos.filterAll'), value: 'all' },
-    { label: t('repos.platformContainer'), value: 'container' },
-    { label: t('repos.githubAction'), value: 'github-action' },
-    { label: t('repos.sandboxContainer'), value: 'sandbox' },
-])
-
-const packageManagerFilterOptions = computed(() => [
-    { label: t('repos.filterAll'), value: 'all' },
-    { label: 'pnpm', value: 'pnpm' },
-    { label: 'npm', value: 'npm' },
-    { label: 'yarn', value: 'yarn' },
-])
-
-const credentialFilterOptions = computed(() => [
-    { label: t('repos.filterAll'), value: 'all' },
-    { label: t('repos.filterNotLinked'), value: 'none' },
-    ...credentials.value.map((credential) => ({ label: credential.name, value: credential.id })),
-])
-
-/** 是否存在生效中的搜索 / 筛选（用于空态文案与「重置」按钮可用性） */
-const hasActiveRepoFilter = computed(() => Boolean(
-    searchQuery.value.trim()
-    || repoFilters.executorKind !== 'all'
-    || repoFilters.packageManager !== 'all'
-    || repoFilters.credentialId !== 'all',
-))
-
-const resetRepoFilters = () => {
-    searchQuery.value = ''
-    repoFilters.executorKind = 'all'
-    repoFilters.packageManager = 'all'
-    repoFilters.credentialId = 'all'
-}
-
-/**
- * 客户端「搜索（owner / 仓库名 / 标签 / 凭据名）+ 筛选（执行方式 / 包管理器 / 凭据）」叠加结果。
- *
- * 与行选择的交互：`selectedRows` 是独立持有的已选集合，筛选变化本身不清空它；
- * 列表刷新（保存 / 删除 / 重新拉取）后按 id 重映射到新对象（库内受控选择按对象引用解析）；
- * 但**任意一次勾选 / 取消勾选都会以当前过滤后的集合回写选择**（caomei DataTable 行为），
- * 因此被筛选隐藏的已选行会在下一次勾选时被静默移出（跨页选择不受影响）。
- * 「批量扫描」计数可能大于当前可见行数——筛选是视图态，不改变集合本身。
- *
- * 页码：`:data` 变化（搜索 / 筛选）时由 DataTable 内部（`@tanstack` autoResetPageIndex）回到第 1 页；
- * 保存刷新走受控分页（`:page` + `:rows`），编辑保留当前页码与每页条数，新增 / 删除 / 批量导入回到第 1 页。
- *
- * 跨页全选：表头全选用上游 1.0.0 语义（当前页）；「全选全部筛选结果」由表格上方的选择栏承载，
- * 单次点击覆盖所有筛选结果（含跨页），并显示「已选 / 筛选总数」。
- */
-const filteredRepos = computed(() => {
-    const keyword = searchQuery.value.trim().toLowerCase()
-    return repos.value.filter((repo) => {
-        if (repoFilters.executorKind !== 'all' && repo.executorKind !== repoFilters.executorKind) {
-            return false
-        }
-        if (repoFilters.packageManager !== 'all' && repo.packageManager !== repoFilters.packageManager) {
-            return false
-        }
-        if (repoFilters.credentialId === 'none') {
-            if (repo.credentialId) {
-                return false
-            }
-        } else if (repoFilters.credentialId !== 'all' && repo.credentialId !== repoFilters.credentialId) {
-            return false
-        }
-        if (!keyword) {
-            return true
-        }
-        return [
-            repo.owner,
-            repo.name,
-            (repo.tags ?? []).join(' '),
-            repo.credentialName ?? '',
-        ].some((field) => field.toLowerCase().includes(keyword))
-    })
-})
+// 搜索 / 筛选状态与派生结果见 `use-repo-filters`（含与行选择的交互口径）。
+const {
+    searchQuery,
+    filters: repoFilters,
+    executorFilterOptions,
+    packageManagerFilterOptions,
+    credentialFilterOptions,
+    hasActiveFilter: hasActiveRepoFilter,
+    reset: resetRepoFilters,
+    filteredRepos,
+} = useRepoFilters({ repos, credentials, t })
 
 const reposEmptyText = computed(() => (
     hasActiveRepoFilter.value ? t('repos.emptyFiltered') : t('repos.empty')
@@ -474,55 +307,17 @@ const columns = computed<DataTableColumn<RepoView>[]>(() => [
         </div>
 
         <!-- 列表筛选 / 搜索（客户端；服务端 `/api/repos` 契约不变） -->
-        <section class="repos__filters">
-            <div class="repos__filter-field repos__filter-field--search">
-                <label for="repos-filter-search">{{ t('repos.filterSearch') }}</label>
-                <CaomeiInput
-                    id="repos-filter-search"
-                    v-model="searchQuery"
-                    :placeholder="t('repos.filterSearchPlaceholder')"
-                />
-            </div>
-            <div class="repos__filter-field">
-                <label for="repos-filter-executor">{{ t('repos.colExecutor') }}</label>
-                <CaomeiSelect
-                    id="repos-filter-executor"
-                    v-model="repoFilters.executorKind"
-                    :options="executorFilterOptions"
-                    option-label="label"
-                    option-value="value"
-                />
-            </div>
-            <div class="repos__filter-field">
-                <label for="repos-filter-package-manager">{{ t('repos.colPackageManager') }}</label>
-                <CaomeiSelect
-                    id="repos-filter-package-manager"
-                    v-model="repoFilters.packageManager"
-                    :options="packageManagerFilterOptions"
-                    option-label="label"
-                    option-value="value"
-                />
-            </div>
-            <div class="repos__filter-field">
-                <label for="repos-filter-credential">{{ t('repos.colCredential') }}</label>
-                <CaomeiSelect
-                    id="repos-filter-credential"
-                    v-model="repoFilters.credentialId"
-                    :options="credentialFilterOptions"
-                    option-label="label"
-                    option-value="value"
-                />
-            </div>
-            <CaomeiButton
-                v-if="hasActiveRepoFilter"
-                tone="neutral"
-                size="sm"
-                class="repos__filter-reset"
-                @click="resetRepoFilters"
-            >
-                {{ t('repos.filterReset') }}
-            </CaomeiButton>
-        </section>
+        <repo-filter-bar
+            v-model:search-query="searchQuery"
+            v-model:executor-kind="repoFilters.executorKind"
+            v-model:package-manager="repoFilters.packageManager"
+            v-model:credential-id="repoFilters.credentialId"
+            :executor-options="executorFilterOptions"
+            :package-manager-options="packageManagerFilterOptions"
+            :credential-options="credentialFilterOptions"
+            :active="hasActiveRepoFilter"
+            @reset="resetRepoFilters"
+        />
 
         <CaomeiMessage
             v-if="error"
@@ -691,71 +486,17 @@ const columns = computed<DataTableColumn<RepoView>[]>(() => [
             @imported="onReposImported"
         />
 
-        <CaomeiDialog
-            v-model:open="batchDialogVisible"
-            :title="t('repos.batchHeader', {count: selectedRows.length})"
-            modal
-            :style="{width: '480px'}"
-        >
-            <div class="batch-form">
-                <CaomeiMessage
-                    v-if="batchError"
-                    tone="danger"
-                    :closable="false"
-                >
-                    {{ batchError }}
-                </CaomeiMessage>
-                <div class="batch-form__repos">
-                    <span
-                        v-for="repo in selectedRows"
-                        :key="repo.id"
-                        class="batch-form__repo"
-                    >
-                        {{ repoDisplay(repo) }}
-                    </span>
-                </div>
-                <div class="batch-form__row">
-                    <div class="batch-form__field">
-                        <label for="batchMode">{{ t('repos.batchMode') }}</label>
-                        <CaomeiSelect
-                            id="batchMode"
-                            v-model="batchMode"
-                            :options="modeOptions"
-                            option-label="label"
-                            option-value="value"
-                        />
-                    </div>
-                    <div class="batch-form__field">
-                        <label for="batchSeverity">{{ t('repos.batchSeverity') }}</label>
-                        <CaomeiSelect
-                            id="batchSeverity"
-                            v-model="batchSeverityThreshold"
-                            :options="severityOptions"
-                            option-label="label"
-                            option-value="value"
-                        />
-                    </div>
-                </div>
-                <div class="batch-form__actions">
-                    <CaomeiButton
-                        variant="ghost"
-                        tone="neutral"
-                        @click="batchDialogVisible = false"
-                    >
-                        {{ t('common.actions.cancel') }}
-                    </CaomeiButton>
-                    <CaomeiButton
-                        :loading="batchSubmitting"
-                        @click="submitBatchScan"
-                    >
-                        <template #icon>
-                            <CaomeiIcon :icon="Play" />
-                        </template>
-                        {{ t('repos.batchStart') }}
-                    </CaomeiButton>
-                </div>
-            </div>
-        </CaomeiDialog>
+        <repo-batch-scan-dialog
+            v-model:visible="batchDialogVisible"
+            v-model:mode="batchMode"
+            v-model:severity="batchSeverityThreshold"
+            :repos="selectedRows"
+            :submitting="batchSubmitting"
+            :error="batchError"
+            :mode-options="modeOptions"
+            :severity-options="severityOptions"
+            @submit="submitBatchScan"
+        />
 
         <scan-config-dialog
             v-model:visible="scanConfigDialogVisible"
@@ -797,36 +538,7 @@ const columns = computed<DataTableColumn<RepoView>[]>(() => [
         }
     }
 
-    // 列表筛选 / 搜索工具栏（客户端筛选与分页，服务端契约不变）
-    &__filters {
-        display: flex;
-        flex-wrap: wrap;
-        align-items: flex-end;
-        gap: $space-3;
-        margin-bottom: $space-4;
-    }
-
-    &__filter-field {
-        display: flex;
-        flex-direction: column;
-        gap: $space-1;
-        min-width: 160px;
-
-        label {
-            font-size: $font-size-sm;
-            color: $color-text-muted;
-        }
-    }
-
-    &__filter-field--search {
-        flex: 1 1 220px;
-        max-width: 320px;
-    }
-
-    &__filter-reset {
-        margin-bottom: 1px;
-    }
-
+    // 列表筛选 / 搜索工具栏样式随组件迁至 `repo-filter-bar.vue`
     &__header-actions {
         display: flex;
         align-items: center;
@@ -838,48 +550,5 @@ const columns = computed<DataTableColumn<RepoView>[]>(() => [
     display: flex;
     flex-wrap: wrap;
     gap: $space-1;
-}
-
-.batch-form {
-    display: flex;
-    flex-direction: column;
-    gap: $space-4;
-
-    &__repos {
-        display: flex;
-        flex-wrap: wrap;
-        gap: $space-1;
-        max-height: 120px;
-        overflow-y: auto;
-    }
-
-    &__repo {
-        font-size: $font-size-sm;
-        background-color: rgba($color-primary, 0.08);
-        border-radius: $radius-sm;
-        padding: $space-1 $space-2;
-    }
-
-    &__row {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: $space-3;
-    }
-
-    &__field {
-        @include field-stack;
-
-        label {
-            font-size: $font-size-sm;
-            font-weight: 500;
-        }
-    }
-
-    &__actions {
-        display: flex;
-        justify-content: flex-end;
-        gap: $space-2;
-        margin-top: $space-2;
-    }
 }
 </style>

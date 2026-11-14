@@ -5,18 +5,17 @@
 //
 // 详情侧栏已抽出为 components/alert-run-sidebar.vue（audit 触发的 max-lines 抽取）
 // 一键修复状态机抽出为 composables/use-fix-now.ts
-import { Funnel, List } from '@lucide/vue'
-import { SEVERITY_RANK, withFixStatusRank, withSeverityRank } from '~/utils/sort-helpers'
+import { List } from '@lucide/vue'
 import {
     alertsRuleIdTone,
     alertsSeverityTone,
     alertsStatusLabel,
     buildAlertsQuery,
-    summarizePackageGroups,
     type AlertsFilters,
     type AlertsViewMode,
 } from '~/utils/alerts-view'
-import type { DataTableColumn, DataTableSortMeta } from 'caomei-ui'
+import { useAlertGroups } from '~/composables/use-alert-groups'
+import type { DataTableColumn } from 'caomei-ui'
 
 definePageMeta({
     middleware: 'auth',
@@ -184,40 +183,33 @@ watch(filters, () => {
     void refreshAlerts()
 }, { deep: true })
 
+/** 「应用筛选」按钮：与筛选控件变化后的自动刷新同源（保留按钮作为显式重试入口） */
+const applyFilters = () => {
+    void refreshAlerts()
+}
+
 /** repositories 派生：注入 allRepositories 选项 + 防御性空值 fallback */
 const repositories = computed<{ id: string, name: string }[]>(() => [
     { id: 'all', name: t('alerts.allRepositories') },
     ...((reposData.value ?? []).map((r) => ({ id: r.id, name: `${r.owner}/${r.name}` }))),
 ])
 
-/** alerts 派生：排序键派生（severity / fixStatus 走业务语义排序，非字典序） */
-const rankedAlerts = computed(() => withFixStatusRank(withSeverityRank(alertsData.value ?? [])))
-
-/**
- * 「按包」组信息：包名 → 组内最高 severity + 组排序键（聚合逻辑见 `summarizePackageGroups`）。
- * 数据源为**过滤后**的 `alertsData`：组信息应反映当前可见集合，而非全量。
- */
-const packageGroupSummary = computed(() => summarizePackageGroups(alertsData.value ?? []))
-
-/**
- * 告警数组派生（含业务语义排序键）。
- *
- * 「按包」模式预排序为「包名升序 → 组内 severity 降序」：作为「无排序键」（用户清空排序）时的
- * 展示基线，并为组内稳定排序提供行级 severity 降序的基线顺序（组排序键组间唯一，同包各行同值 →
- * 稳定保留本顺序）。其它视图模式（repository / none）保持服务端原始顺序，行为不变。
- */
-const alerts = computed<AlertView[]>(() => {
-    const rows = rankedAlerts.value
-    if (viewMode.value !== 'package') {
-        return rows
-    }
-    return [...rows].sort((a, b) => {
-        if (a.packageName !== b.packageName) {
-            return a.packageName < b.packageName ? -1 : 1
-        }
-        return (b._severityRank ?? 0) - (a._severityRank ?? 0)
-    })
-})
+// 分组 / 排序状态机抽出到 `use-alert-groups`（页面行数治理）
+const {
+    alerts,
+    groupCounts,
+    groupHeaderLabel,
+    groupMaxSeverity,
+    multiSortMeta,
+    expandedPackages,
+    isPackageExpanded,
+    togglePackage,
+    dataTableAttrs,
+    groupSeveritySortValue,
+    onUpdateMultiSortMeta,
+    onUpdateExpandedRowGroups,
+    onViewModeChange,
+} = useAlertGroups<AlertView>({ source: alertsData, viewMode, t })
 
 /** loading / error 派生自 useAsyncData 状态（保持现有模板契约） */
 const loading = computed(() => alertsPending.value)
@@ -231,20 +223,6 @@ const error = computed(() => {
         message: err.data?.message ?? err.message ?? t('common.errors.unknown'),
     })
 })
-
-/**
- * 切换视图模式：重置 multiSortMeta + expandedPackages，避免上一个视图的排序 / 折叠状态污染。
- *
- * 默认严重级别优先（severity desc）：
- * - 业务依据：docs/standards/platform.md §7.1（severity Rank 是 highest-first 设计，desc 才符合
- *   「critical 优先」的业务期望）
- * - 分组连续性由**组排序键**保证（详见下方 multiSortMeta 注释），客户端不设分组字段次排序键
- */
-const onViewModeChange = () => {
-    // 排序键固定为严重级别降序；「按包」的组内相邻性由组排序键保证（见 multiSortMeta 注释）
-    multiSortMeta.value = [{ field: '_severityRank', order: -1 }]
-    expandedPackages.value = []
-}
 
 // per-alert 模型下每行 1 个 runId；详情侧栏（右侧滑出，
 // 显示该告警关联 run 列表 + 立即修复此仓库按钮）
@@ -321,94 +299,7 @@ const closeSidebar = () => {
     selectedRunId.value = null
 }
 
-// rowGroup 模式：按 viewMode 聚合计数（subheader 显示该组告警数）
-// viewMode='none' 时不渲染 subheader，该 computed 仅用于 package/repository 模式。
-const groupKeyOf = (a: AlertView): string => {
-    if (viewMode.value === 'repository') {
-        return a.repository ?? t('alerts.repositoryUnknown')
-    }
-    return a.packageName
-}
-const groupCounts = computed(() => {
-    const counts = new Map<string, number>()
-    for (const a of alerts.value) {
-        const key = groupKeyOf(a)
-        counts.set(key, (counts.get(key) ?? 0) + 1)
-    }
-    return counts
-})
-// groupHeader 显示的标签：package 模式显示 packageName，repository 模式显示 repository 字段
-const groupHeaderLabel = (data: AlertView): string => {
-    if (viewMode.value === 'repository') {
-        return data.repository ?? t('alerts.repositoryUnknown')
-    }
-    return data.packageName
-}
-/** 「按包」模式该组的最高严重级别（组头 Tag 展示）；非按包模式不展示。 */
-const groupMaxSeverity = (data: AlertView): string | null => packageGroupSummary.value.get(data.packageName)?.severity ?? null
-
-// 行分组（rowGroup）与排序状态说明：
-// - 折叠状态用 `string[]` 跟踪（分组键数组）；caomei 受控模式经 `@update:expanded-row-groups` 回写，
-//   不回写则内建折叠按钮点击无效果
-// - caomei 在 `expandableRowGroups` 下会在 `#groupheader` 槽之前渲染内建折叠按钮
-//   （`.caomei-data-table__row-group-toggle`，含 aria-expanded），槽内不再叠加自定义 chevron，避免双 chevron
-/**
- * 默认排序：严重级别降序。
- *
- * 分组连续性由**组排序键**保证：caomei 的相邻行分组要求同组行相邻，而分组字段列已从
- * `columns` 剔除，TanStack 只对「列模型中存在的列」排序（`createSortedRowModel` 以 `getColumn(sort.id)`
- * 为门槛），无法直接以 `packageName` 作排序键。改为让「严重级别」列在「按包」模式下返回**组排序键**
- * （组间唯一，含最高级别 rank 与包名序号，见 `packageGroupSummary`）→ 同包所有行共享同一排序值且
- * 键组间唯一，任何排序下同包行都相邻 → 「一个包一组」为硬不变量。`alerts` 预排序提供同值内的稳定基线
- * （包名升序 → 组内 severity 降序）。「按仓库」视图沿用既有口径（服务端 `orderBy` + 行级 severity 降序），
- * 本条目不改其分组行为。
- * 详见 docs/design/governance/caomei-ui-migration.md §15.10
- */
-const multiSortMeta = ref<DataTableSortMeta[]>([
-    { field: '_severityRank', order: -1 },
-])
-const expandedPackages = ref<string[]>([])
-// 自定义 span 整体可点击 + 键盘 enter/space 触发（验收要求）。
-// 迁移前组件库 4.x 的 rowToggleButton 在 groupheader 之前渲染（渲染顺序实证见迁移评估 §15.10），
-// 自定义 toggle 与其内部 toggle 走不同路径但修改同一 ref，不会重复 toggle。
-const isPackageExpanded = (packageName: string) => expandedPackages.value.includes(packageName)
-const togglePackage = (packageName: string) => {
-    expandedPackages.value = isPackageExpanded(packageName)
-        ? expandedPackages.value.filter((p) => p !== packageName)
-        : [...expandedPackages.value, packageName]
-}
-
-// DataTable 动态属性：rowGroupMode / groupRowsBy / expandableRowGroups 按 viewMode 切换
-const dataTableAttrs = computed(() => {
-    if (viewMode.value === 'none') {
-        return {
-            rowGroupMode: undefined,
-            groupRowsBy: undefined,
-            expandableRowGroups: false,
-        }
-    }
-    return {
-        rowGroupMode: 'subheader' as const,
-        groupRowsBy: viewMode.value === 'package' ? 'packageName' : 'repository',
-        expandableRowGroups: true,
-    }
-})
-
-/**
- * 「严重级别」列的排序取值。
- *
- * 「按包」分组模式取**组排序键** `packageGroupSummary.sortKey`（组间唯一，见其上注释）——这是
- * 「一个包一组」的关键：行级 severity 排序会把同包跨档行拆到不同 severity 区块，相邻性破坏后
- * 同名分组头重复出现；组间唯一键则保证任何排序下同包行都相邻。非分组模式（repository / none）
- * 仍取行级 rank。展示不受影响：`#cell-_severityRank` 槽读行级 `severity`。
- * 注：`??` 回退为防御性分支——行数据均来自 `alertsData`，其包名必在 `packageGroupSummary` 中（当前不可达）。
- */
-const groupSeveritySortValue = (row: AlertView): number => {
-    if (viewMode.value === 'package') {
-        return packageGroupSummary.value.get(row.packageName)?.sortKey ?? (SEVERITY_RANK[row.severity] ?? 0)
-    }
-    return SEVERITY_RANK[row.severity] ?? 0
-}
+// 行分组 / 排序状态与派生（groupCounts / multiSortMeta / groupSeveritySortValue 等）见 `use-alert-groups`
 
 /**
  * 列定义：caomei DataTable 用 `columns` 数组 + `#cell-{key}` 插槽替代迁移前的 `<Column>`。
@@ -443,36 +334,6 @@ const columns = computed<DataTableColumn<AlertView>[]>(() => {
 })
 
 /**
- * 受控排序回写：提供 `multi-sort-meta` 时 caomei 进入受控模式，不回写则点击列头不改变排序
- * （等价迁移前的 `v-model:multi-sort-meta`）。
- *
- * 不用 caomei 的全局 `sort-desc-first`：实测该开关会把列头点击循环变成「desc → asc → 移除」，
- * 与迁移前组件库的「asc → desc → 移除」不一致（且叠加首次点击纠正后 desc 状态不可达）。
- * 默认排序方向仅由 `multiSortMeta` 初值承载（severity desc）。
- *
- * 「按包」模式：把严重级别（组排序键）固定为第一排序键——迁移前组件库在多列排序下会自动
- * 保留 `groupRowsBy` 为首键以免分组被打散，本仓库以「严重级别列排序取值 = 组排序键（组间唯一）」
- * 等价实现。用户移除严重级别键但保留其它键时补回默认降序（保证「一个包一组」）；全部清空时交由
- * `alerts` 预排序基线（同包同值稳定），分组仍连续。
- */
-const onUpdateMultiSortMeta = (meta: DataTableSortMeta[]) => {
-    if (viewMode.value !== 'package') {
-        multiSortMeta.value = meta
-        return
-    }
-    const severity = meta.find((item) => item.field === '_severityRank')
-    const others = meta.filter((item) => item.field !== '_severityRank')
-    multiSortMeta.value = others.length > 0
-        ? [{ field: '_severityRank', order: severity?.order ?? -1 }, ...others]
-        : meta
-}
-
-/** 受控分组展开回写（等价 `v-model:expanded-row-groups`；不回写则内建折叠按钮点击无效果） */
-const onUpdateExpandedRowGroups = (groups: string[]) => {
-    expandedPackages.value = groups
-}
-
-/**
  * Identifiers 列 URL 构造：
  * - GHSA → GitHub Advisory Database（github.com/advisories/{GHSA-id}）
  * - CVE → NVD（nvd.nist.gov/vuln/detail/{CVE-id}）
@@ -496,73 +357,19 @@ const alertCveUrl = (cveId: string): string => `https://nvd.nist.gov/vuln/detail
         <!-- 顶部图表区块已删除：与 dashboard.vue 完全重复，全量聚合与 alerts 过滤无关，
              用户需要全局统计去 dashboard；alerts 聚焦表格 + 详情 -->
 
-        <CaomeiCard class="alerts__filters">
-            <div class="alerts__filter-row">
-                <div class="alerts__filter-field">
-                    <label for="view-mode">{{ t('alerts.viewMode') }}</label>
-                    <CaomeiSelect
-                        id="view-mode"
-                        v-model="viewMode"
-                        :options="viewModeOptions"
-                        option-label="label"
-                        option-value="value"
-                        @update:model-value="onViewModeChange"
-                    />
-                </div>
-                <div class="alerts__filter-field">
-                    <label for="repo">{{ t('alerts.filterRepository') }}</label>
-                    <CaomeiSelect
-                        id="repo"
-                        v-model="filters.repositoryId"
-                        :options="repositories"
-                        option-label="name"
-                        option-value="id"
-                        :placeholder="t('alerts.allRepositories')"
-                    />
-                </div>
-                <div class="alerts__filter-field">
-                    <label for="severity">{{ t('alerts.filterSeverity') }}</label>
-                    <CaomeiSelect
-                        id="severity"
-                        v-model="filters.severity"
-                        :options="severityOptions"
-                        option-label="label"
-                        option-value="value"
-                    />
-                </div>
-                <div class="alerts__filter-field">
-                    <label for="source">{{ t('alerts.filterSource') }}</label>
-                    <CaomeiSelect
-                        id="source"
-                        v-model="filters.source"
-                        :options="sourceOptions"
-                        option-label="label"
-                        option-value="value"
-                    />
-                </div>
-                <div class="alerts__filter-field">
-                    <label for="include-superseded">{{ t('alerts.filter.includeSuperseded') }}</label>
-                    <div class="alerts__filter-control">
-                        <CaomeiSwitch
-                            id="include-superseded"
-                            v-model="filters.includeSuperseded"
-                        />
-                    </div>
-                </div>
-                <div class="alerts__filter-field">
-                    <CaomeiButton
-                        @click="() => {
-                            void refreshAlerts()
-                        }"
-                    >
-                        <template #icon>
-                            <CaomeiIcon :icon="Funnel" />
-                        </template>
-                        {{ t('alerts.filterApply') }}
-                    </CaomeiButton>
-                </div>
-            </div>
-        </CaomeiCard>
+        <alert-filter-bar
+            v-model:view-mode="viewMode"
+            v-model:repository-id="filters.repositoryId"
+            v-model:severity="filters.severity"
+            v-model:source="filters.source"
+            v-model:include-superseded="filters.includeSuperseded"
+            :view-mode-options="viewModeOptions"
+            :repositories="repositories"
+            :severity-options="severityOptions"
+            :source-options="sourceOptions"
+            @update:view-mode="onViewModeChange"
+            @apply="applyFilters"
+        />
 
         <CaomeiMessage
             v-if="error"
@@ -803,37 +610,7 @@ const alertCveUrl = (cveId: string): string => `https://nvd.nist.gov/vuln/detail
         font-size: $font-size-sm;
     }
 
-    &__filters {
-        margin-bottom: $space-4;
-    }
-
-    &__filter-row {
-        display: flex;
-        align-items: flex-end;
-        gap: $space-4;
-        flex-wrap: wrap;
-    }
-
-    &__filter-field {
-        @include field-stack;
-
-        min-width: 160px;
-    }
-
-    /* Switch 本体高度低于控件档高度（`--caomei-switch-height` < `--caomei-control-height-md`）：
-       直接放进字段会让该字段整体变矮，在行 flex-end 对齐下其 label 被下压。控件区统一按
-       控制档高度补足并垂直居中，使同排各字段的 label 与控件上下缘都对齐。 */
-    &__filter-control {
-        display: flex;
-        align-items: center;
-        min-height: var(--caomei-control-height-md);
-    }
-
-    &__filter-field label {
-        font-size: $font-size-sm;
-        font-weight: 500;
-    }
-
+    // 筛选栏样式随组件迁至 `alert-filter-bar.vue`
     // rowGroup 模式：subheader 显示包名 + 该包告警数
     &__group-header {
         display: inline-flex;

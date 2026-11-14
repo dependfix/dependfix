@@ -118,6 +118,16 @@ export class Repository extends BaseEntity {
     sandboxLimits!: string | null
 
     /**
+     * 仓库级沙箱镜像引用（可选；示例 `ghcr.io/owner/dependfix:latest`）。
+     *
+     * 缺省 → 平台 `SANDBOX_IMAGE` → `DEPENDFIX_IMAGE` → `dependfix-platform:latest`。
+     * 外置 rootless daemon 通常没有本地构建的镜像，需显式配置仓库级值或平台 env；
+     * 语法校验见 `utils/docker-image.ts`（执行期仍以 docker 拉取结果为准）。
+     */
+    @Column({ type: 'varchar', length: 255, nullable: true })
+    sandboxImage!: string | null
+
+    /**
      * 仓库级自定义验证命令（JSON 数组字符串，如 `'["pnpm install --frozen-lockfile","pnpm test"]'`）；
      * 覆盖引擎默认验证链（`DEFAULT_VERIFY_COMMANDS`），空数组存 null。
      *

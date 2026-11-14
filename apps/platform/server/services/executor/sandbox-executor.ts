@@ -517,7 +517,8 @@ export class SandboxExecutor implements ScanExecutor {
                 exitCode: 2,
                 error: {
                     code: 'sandbox_image_unavailable',
-                    message: `沙箱镜像不可用（确认镜像已在目标 daemon 内可拉取 / 已存在）：${sanitizeErrorMessage(runResult.stderr.slice(0, 200))}`,
+                    message: `沙箱镜像不可用（${sanitizeErrorMessage(this.image)}）：请在仓库设置填写「沙箱镜像」，或配置 SANDBOX_IMAGE；`
+                        + `镜像须在目标 daemon 内可拉取 / 已存在：${sanitizeErrorMessage(runResult.stderr.slice(0, 200))}`,
                 },
                 resource,
                 startedAt,

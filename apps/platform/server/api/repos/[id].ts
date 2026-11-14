@@ -1,5 +1,6 @@
 import { formatDurationMs } from '@dependfix/core'
 import type { H3Event } from 'h3'
+import { normalizeDockerImage } from '#server/utils/docker-image'
 import { parseSandboxLimits, parseTags, parseVerifyCommands, Repository } from '#server/entities/repository'
 import { ensureDatabaseInitialized } from '#server/database'
 import { repositoryUpdateSchema } from '#server/schemas/repository'
@@ -36,6 +37,7 @@ const getRepository = async (event: H3Event, id: string) => {
         note: found.note,
         tags: parseTags(found.tags),
         sandboxLimits: parseSandboxLimits(found.sandboxLimits),
+        sandboxImage: found.sandboxImage,
         verifyCommands: parseVerifyCommands(found.verifyCommands),
         prCheckFocus: parsePRCheckFocus(found.prCheckFocus),
         executionTimeoutMs: found.executionTimeoutMs,
@@ -117,6 +119,11 @@ const updateRepository = async (event: H3Event, id: string) => {
             : null
     }
 
+    // 仓库级沙箱镜像：undefined=不修改 / null 或空串=清空（回退平台默认）
+    const sandboxImageValue: string | null = parsed.data.sandboxImage !== undefined
+        ? normalizeDockerImage(parsed.data.sandboxImage)
+        : found.sandboxImage
+
     // verifyCommands 数组 → JSON 字符串列（与 tags 同模式；更新语义：undefined=不修改 / null 或 [] = 清空 → 走默认链）
     const previousCommands = parseVerifyCommands(found.verifyCommands)
     let verifyCommandsValue: string | null = found.verifyCommands
@@ -156,6 +163,7 @@ const updateRepository = async (event: H3Event, id: string) => {
         note: parsed.data.note !== undefined ? parsed.data.note : found.note,
         tags: tagsValue,
         sandboxLimits: sandboxLimitsValue,
+        sandboxImage: sandboxImageValue,
         verifyCommands: verifyCommandsValue,
         prCheckFocus: prCheckFocusValue,
         executionTimeoutMs: parsed.data.executionTimeoutMs !== undefined ? parsed.data.executionTimeoutMs : found.executionTimeoutMs,

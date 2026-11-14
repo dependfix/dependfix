@@ -8,7 +8,7 @@
 
 | 内容类型 | 位置 |
 |:--|:--|
-| 当前阶段任务 | **M59 沙箱 fix 与执行可靠性**（2026-11-12 规划；4 原子 + 3 批插队，原 M59.5 于 2026-11-13 再平衡移出） |
+| 当前阶段任务 | **M59 沙箱 fix 与执行可靠性**（2026-11-12 规划；4 原子 + 4 批插队，原 M59.5 于 2026-11-13 再平衡移出） |
 | 下一阶段（未规划） | 用户 2026-11-12 四期决策第三期「平台减法与页面治理」；第四期「文档与 AI 治理」；候选不预先分配阶段编号 |
 | 已完成阶段归档 | [todo-archive.md](todo-archive.md)（阶段索引 + [archive/](archive/) 分片；M0-M58 全部已归档） |
 | 里程碑与阶段交付 | [roadmap.md](roadmap.md)（M0-M58 已归档；M59 进行中） |
@@ -23,7 +23,7 @@
 > **来源**：用户 2026-11-12 四期决策第二期「沙箱 fix 与执行可靠性」（同日决策：交付模型取 **A 沙箱内完全自包含**、四项可靠性全部纳入，见下方决策记录）；backlog 上收 4 条候选（沙箱 fix 出站白名单代理 / 取消后落定与清理竞态 / force-fail 与续用整行写回 / 执行资源采集扩展）+ 聚合 1 条 M57.1 / M58.4 残余（镜像内 sandbox 入口双架构冒烟与安全姿态；**2026-11-13 再平衡移出 backlog**）。
 > **用户决策（2026-11-12）**：① 交付模型 = 容器内 clone + fix + commit + push + PR，平台只接收结果；② 执行可靠性四项全部纳入本阶段。
 > **容量基线（逐原子交付物求和，执行角色预估口径）**：17-22 commits / 49-67 files / 2300-3450 行（2026-11-13 再平衡后重算：M59.1 6-8 + M59.2 4-5 + M59.3 4-5 + M59.4 3-4；files 19-25 + 12-16 + 10-14 + 8-12；行 1000-1400 + 500-800 + 450-700 + 350-550）。**类型平衡**：主类型 🛡️3（M59.1 / M59.2 / M59.3）+ 🛠️1（M59.4）；🚀 缺口显式标注（原 M59.5 已移出 backlog）；🧪 内嵌各原子（M59.1 新增测试文件 3-4 / M59.3 新增用例 ≥6）；🎨 缺口显式标注——源于用户 2026-11-12「四项全部纳入」决策（非 AI 裁剪），UX 面由第三期「平台减法与页面治理」承接。
-> **执行顺序**：M59.1 → M59.2 → M59.3 → M59.4（先放开沙箱执行面，再补自包含交付，随后收口运行状态与资源可观测）。**2026-11-13 插队**：追加临时待办「运行结论语义与状态一致性」先于 M59.1 执行（用户决策；不分配阶段编号，容量评估见该条目正文）。**同日第二批插队**：追加临时待办「未验证邮箱用户登录锁死与自助恢复」排在前一项之后、M59.1 之前（用户决策；不分配编号）。**同日第三批插队**：追加临时待办「SMTP 配置在容器运行时不生效」排在最前（用户决策；不分配编号；累计 3 批 → 命中 §3.1.1 阈值 1）。**容量再平衡（2026-11-13，用户确认）**：移出 M59.5 → backlog；插队 3 批（2026-11-13）。
+> **执行顺序**：M59.1 → M59.2 → M59.3 → M59.4（先放开沙箱执行面，再补自包含交付，随后收口运行状态与资源可观测）。**2026-11-13 插队**：追加临时待办「运行结论语义与状态一致性」先于 M59.1 执行（用户决策；不分配阶段编号，容量评估见该条目正文）。**同日第二批插队**：追加临时待办「未验证邮箱用户登录锁死与自助恢复」排在前一项之后、M59.1 之前（用户决策；不分配编号）。**同日第三批插队**：追加临时待办「SMTP 配置在容器运行时不生效」排在最前（用户决策；不分配编号；累计 3 批 → 命中 §3.1.1 阈值 1）。**容量再平衡（2026-11-13，用户确认）**：移出 M59.5 → backlog；插队 3 批（2026-11-13）。**同日第四批插队（2026-11-14）**：沙箱镜像不可配置导致线上执行失败（用户报障，blocker 级功能缺失）——阈值 1 已由 2026-11-13 再平衡消化，本次约占阶段基线 3-5%，不再触发新移出。
 > **D 阶段决策点**：D1 出站代理启动位置（默认容器内 CLI 进程内复用 network-audit，不引入 sidecar）；D2 交付失败时远端分支清理归属（默认平台依据结果 branch 名清理，容器内不重复清理）；D3 取消宽限期策略（默认保持 10s 上限 + 未落定则延迟清理并落 `_pending` 诊断，不做无限延长）；D4 action 执行器资源采集口径（默认显式标注「不适用」并保持字段存在，不采集宿主）。
 > **§3.4 阶段启动交叉核验（2026-11-12 实测）**：① 归档扫描 `sandbox fix|出站白名单|取消后落定|force-fail|资源采集|sandbox 冒烟` → 无同题闭环（M57.1 仅 report-only，其镜像内 `/app/sandbox` 构建期自检已覆盖双架构、M58.4 仅镜像 health、M10 T1002 仅验证链、M46.4 仅 container、M57.2 仅终态写回）；② `git log --oneline -- <相关路径>` + `git log --all --grep="sandbox fix|egress|force-fail|资源采集"` → 无同题实现批次；③ 代码 anchor：`sandbox-executor.ts:30` 仅 `report-only`、`:114-134` 第二道闸、`scan-orchestrator.service.ts:449` 降级判定、`engine-run.ts` 的 `ABORT_GRACE_MS=10_000`、`container-executor.ts:496/521/524` 宽限后仍清理、`force-fail.post.ts:84` 整行 save、`scan-orchestrator.service.ts:273-318` 续用起点整行 save、`resource-usage` 仅 container 接入；④ backlog 4 条候选前提与当前代码一致，残余聚合项见 M57.1 / M58.4 归档正文；⑤ backlog 上收 4 条（41 → 37），速查表与基线同步；2026-11-13 再平衡移出 M59.5（40 → 41）。
 
@@ -128,7 +128,7 @@
 - M59.1-M59.4 全部闭环 + 3 批追加临时待办闭环，验收证据落 `artifacts/`（gitignored）并在归档块引用命令与 run id。
 - 沙箱 fix 的负例必须留痕：非白名单外联被拦 / 交付失败分支清理 / 取消未落定 / force-fail 终态不变各一组。
 - 未验证项（真实 GHCR 拉取、真实目标仓库 PR）写「未证实」并登记 backlog，不以「设计已覆盖」替代；arm runner 首跑随 M59.5 移出，由 backlog 候选承接。
-- 归档时在 [archive/index.md](archive/index.md) 批次记录统计「插队批次数量（本阶段 3 批）/ 再平衡移出数量（1 项）」。
+- 归档时在 [archive/index.md](archive/index.md) 批次记录统计「插队批次数量（本阶段 4 批）/ 再平衡移出数量（1 项）」。
 
 ### 追加临时待办（不占阶段条目编号）：运行结论「无写入」语义与状态一致性修复（P1 🛡️）
 
@@ -223,6 +223,17 @@
 - **§3.4 交叉核验（2026-11-13）**：① 归档扫描 `smtpEnabled|SMTP_HOST|NUXT_SMTP` → `todo-archive.md` / `archive/*.md` 零命中（机制层认知见 [experience-archive §三十/§三十四](../design/governance/experience-archive-§29-§35-integration.md)，无本项实现）；② `git log --oneline -- apps/platform/nuxt.config.ts apps/platform/server/utils/auth.ts apps/platform/docker-compose.yml` → 最近为 `e548c332` 镜像沙箱入口 / `ace9307b` 跨大版本默认值 / `c9cc7e96` nuxt.config 类型修正，主题检索 `smtpEnabled|NUXT_SMTP` 仅 `6f009378`（better-auth 三邮件回调接入 mailer，即该 key 的引入批次），无修复；③ 代码 anchor：`nuxt.config.ts:90` 仍为 `!!process.env.SMTP_HOST`、`auth.ts:418` 仍传 `config.smtpEnabled`、`docker-compose.yml` environment 无 SMTP 项、产物 `nitro.mjs` 烘焙 `smtpHost: ""`。
 
 ---
+
+### 追加临时待办（不占阶段条目编号）：沙箱镜像不可配置导致线上执行失败（P1 🛠️）
+
+> **状态**：🚧 进行中（2026-11-14）。线上沙箱运行 `sandbox_image_unavailable`：默认镜像名 `dependfix-platform:latest` 只存在于本地构建，外置 rootless daemon 无法解析 Docker Hub 引用；仓库级无镜像字段。本批新增 `Repository.sandboxImage`（迁移 `3100000000001`）、docker 镜像语法校验、仓库表单输入、编排层按仓库镜像创建执行器，并把 `sandbox_image_unavailable` 纳入 `runtime / deterministic` 失败分类（此前截图显示「未知阶段」）。
+
+> **来源与授权**：2026-11-14 用户报告截图（`扫描执行失败（sandbox_image_unavailable）`）+ 明确要求「应该要可以配置 docker 镜像地址」。属 [规划规范 §3.1](../standards/planning.md#_3-1-新需求默认走-评估-→-backlog-原则-hard-requirement) 插队例外第 3 类（用户报告的 blocker 级功能缺失），按「追加临时待办」口径登记：不分配编号、不占既有条目位置。
+
+- **范围**：`Repository.sandboxImage` + 迁移与契约清单；`utils/docker-image.ts`；`schemas/repository.ts`；`api/repos/index.ts` / `[id].ts`；`scan-orchestrator.service.ts`（镜像优先级）；`run-failure-classify.ts`；`repo-form-dialog.vue` + `types/platform.ts` + 中英 i18n；迁移 / API / 编排 / 校验测试；configuration / quick-start / 设计稿 §7.2。
+- **验收标准**：① 仓库级镜像优先于 `SANDBOX_IMAGE` → `DEPENDFIX_IMAGE` → 默认（正 / 反向用例）；② 非法引用 400、空值归一为 null；③ 表单在 sandbox 执行方式下可见并可保存 / 回显，切换容器后隐藏；④ `sandbox_image_unavailable` 落 `runtime / deterministic`；⑤ `lint:check` / `typecheck` / 定向 vitest / e2e 通过。
+- **不做**：不做镜像可达性预检（执行期 docker 拉取即判定）；不改沙箱非 root / cgroup / 超时基线；不引入 digest 强制（文档建议钉定）。
+- **容量影响评估（§3.1.1）**：约 3-5% 阶段基线（约 25 文件 / ~250 行）；阶段累计插队 4 批；阈值 1 已于 2026-11-13 通过移出 M59.5 消化，本次不再触发新的再平衡；剩余验证预算按阶段质量门执行。
 
 ## 上一阶段
 

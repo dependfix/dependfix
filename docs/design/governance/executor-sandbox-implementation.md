@@ -57,7 +57,7 @@ export interface SandboxHandle {
 
 ### 7.2 镜像策略
 
-复用 `apps/platform/Dockerfile` runtime 阶段（T801 已落地 git + pnpm 11.18.0 工具链；C45 修复；2026-10-02 起 runtime 仅含 Nuxt `.output`，引擎由 Nitro 打包），**不维护双镜像**。**2026-11-09 起 runtime 另含沙箱自包含 CLI（`/app/sandbox/`）**：`packages/cli` 的 `tsdown.sandbox.config.ts` 内联全部运行期依赖（`deps.alwaysBundle`），并复制 `package.json` 与 `skills/dependfix-remediator`；因此沙箱容器不需要 workspace `node_modules`，`node /app/sandbox/bin.mjs` 即可跑 report-only。镜像引用由 `SANDBOX_IMAGE`（优先）或平台容器镜像引用 `DEPENDFIX_IMAGE`（compose 注入）提供；该镜像必须已在目标 rootless daemon 内可拉取 / 已存在。不使用 CI 发布镜像作为默认，避免 sandbox 与平台二进制版本漂移。
+复用 `apps/platform/Dockerfile` runtime 阶段（T801 已落地 git + pnpm 11.18.0 工具链；C45 修复；2026-10-02 起 runtime 仅含 Nuxt `.output`，引擎由 Nitro 打包），**不维护双镜像**。**2026-11-09 起 runtime 另含沙箱自包含 CLI（`/app/sandbox/`）**：`packages/cli` 的 `tsdown.sandbox.config.ts` 内联全部运行期依赖（`deps.alwaysBundle`），并复制 `package.json` 与 `skills/dependfix-remediator`；因此沙箱容器不需要 workspace `node_modules`，`node /app/sandbox/bin.mjs` 即可跑 report-only。镜像引用解析顺序：`Repository.sandboxImage`（仓库设置）→ `SANDBOX_IMAGE` → `DEPENDFIX_IMAGE`（compose 注入）→ `dependfix-platform:latest`；该镜像必须已在目标 rootless daemon 内可拉取 / 已存在。不使用 CI 发布镜像作为默认，避免 sandbox 与平台二进制版本漂移；**仓库级配置可用任意镜像，等于把版本同源责任交给配置者**（镜像须包含与平台版本匹配的 `/app/sandbox/bin.mjs` 与 skills，建议用 digest 或发布 tag 钉定）。镜像缺失 / 不可拉取以 `sandbox_image_unavailable` 判 `failed`（runtime / deterministic）。
 
 ### 7.3 部署形态
 
@@ -66,7 +66,7 @@ export interface SandboxHandle {
 - rootless daemon 由**宿主**启动（不在平台容器内启动 daemon）；平台容器只挂载其 unix socket（**不是**宿主 `/var/run/docker.sock`）
 - `apps/platform/Dockerfile` 工具链 / 非 root 链路不变（T801/C38 已落地）；runtime 自 2026-10-02 起仅含 Nuxt `.output`，不再随附 workspace `node_modules`，故 sandbox 独立入口须自包含（见 §7.2）
 - platform 镜像默认拉取已发布 tag（`docker compose pull && docker compose up -d`），本地构建经 `docker-compose.build.yml` 覆盖文件显式开启；运行身份默认 `dependfix`（uid 100 / gid 101），`PUID`/`PGID` 可对齐宿主用户以控制数据卷 / `$HOME` 所有权，且对 0 值 fail-closed（保持非 root 基线）
-- **不需要**在宿主与平台容器间共享 `runs` 目录：沙箱容器不挂载宿主目录，结果经 stdout 哨兵回传（见 §7.2 / §7.8）；沙箱镜像须在目标 rootless daemon 内可拉取 / 已存在（`SANDBOX_IMAGE` 或 `DEPENDFIX_IMAGE`）
+- **不需要**在宿主与平台容器间共享 `runs` 目录：沙箱容器不挂载宿主目录，结果经 stdout 哨兵回传（见 §7.2 / §7.8）；沙箱镜像须在目标 rootless daemon 内可拉取 / 已存在（解析顺序见 §7.2：仓库设置 → `SANDBOX_IMAGE` → `DEPENDFIX_IMAGE`）
 - socket 属主是宿主启动 daemon 的用户（常见 uid 1000）；平台容器默认 uid 100 / gid 101 需通过 `PUID`/`PGID` 或 `group_add` 对齐，否则 `DockerAdapter` 探测失败 → 启动降级 `container`
 
 **可选 `sandbox-daemon` compose 片段（示例级，不纳入 M57.1 验收）**：
@@ -110,6 +110,8 @@ services:
 | `Repository.executorKind` = `'sandbox'` + adapter **启动时**不可用（`isAvailable()` 返回 false） | `ContainerExecutor` 降级执行 → **`degraded` 状态** | **A 场景**（配置层降级）：业务结果完整，UI info 提示「未启用 rootless，已自动使用平台容器」 |
 | `Repository.executorKind` = `'sandbox'` + adapter **启动可用**但 `execute()` 抛 errno（ENOENT/ENOTCONN/EACCES/ECONNREFUSED） | 不静默降级 → `error.code = 'sandbox_unavailable'` → **`failed` 状态** | **B 场景**（环境中途变化）：业务未完成，UI warn 告警「沙箱运行时不可用，环境配置可能已变化」 |
 | `Repository.executorKind` = `'github-action'` | `ActionTriggerExecutor` | M6 已有 |
+
+**镜像来源**：解析顺序与版本同源约束见 §7.2；外置 rootless daemon 通常没有平台本地镜像名，仓库级 `sandboxImage` 避免为单个仓库改全局 env。
 
 CLI 启动时（`@dependfix/cli` entrypoint）探测 SandboxRuntimeAdapter 可用性；不可用时输出 `[sandbox]` warn 提示管理员启动 rootless daemon，但**不阻断**运行（旧路径仍可用）。
 

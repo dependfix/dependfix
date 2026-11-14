@@ -92,6 +92,45 @@ describe('GET /api/repos', () => {
         expect(created.allowMajorUpgrade).toBe(false)
     })
 
+    it('stores a repository-level sandbox image and returns it in views', async () => {
+        const created = await call('POST', '/api/repos', {
+            owner: 'sandbox-image',
+            name: 'repo',
+            platform: 'github',
+            packageManager: 'pnpm',
+            defaultBranch: 'main',
+            executorKind: 'sandbox',
+            sandboxImage: 'ghcr.io/owner/dependfix:1.2.3',
+        }) as { sandboxImage: string | null }
+        expect(created.sandboxImage).toBe('ghcr.io/owner/dependfix:1.2.3')
+
+        const list = await call('GET', '/api/repos') as { owner: string, sandboxImage: string | null }[]
+        expect(list.find((item) => item.owner === 'sandbox-image')?.sandboxImage).toBe('ghcr.io/owner/dependfix:1.2.3')
+    })
+
+    it('normalizes a blank sandbox image to null and rejects invalid references', async () => {
+        const blank = await call('POST', '/api/repos', {
+            owner: 'sandbox-blank',
+            name: 'repo',
+            platform: 'github',
+            packageManager: 'pnpm',
+            defaultBranch: 'main',
+            executorKind: 'sandbox',
+            sandboxImage: '   ',
+        }) as { sandboxImage: string | null }
+        expect(blank.sandboxImage).toBeNull()
+
+        await expect(call('POST', '/api/repos', {
+            owner: 'sandbox-bad',
+            name: 'repo',
+            platform: 'github',
+            packageManager: 'pnpm',
+            defaultBranch: 'main',
+            executorKind: 'sandbox',
+            sandboxImage: 'https://ghcr.io/owner/dependfix:latest',
+        })).rejects.toMatchObject({ statusCode: 400 })
+    })
+
     it('uses runtime-config default for allowMajorUpgrade when body omits it', async () => {
         const globalScope = globalThis as { useRuntimeConfig?: () => unknown }
         const original = globalScope.useRuntimeConfig

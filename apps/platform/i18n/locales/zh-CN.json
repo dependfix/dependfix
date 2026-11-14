@@ -254,7 +254,10 @@
         "executionLimitsHint": "修改执行上限会同步影响 Worker 锁与孤儿判定窗口",
         "allowMajorUpgrade": "允许跨大版本升级",
         "allowMajorUpgradeHint": "跨大版本告警按人工处理；开启后仅对根直接依赖且 lockfile 单版本的告警自动升级，仍走完整验证链并在失败时自动回滚；间接依赖与多版本共存保持人工",
-        "allowMajorUpgradeDefaultOn": "平台已将新建仓库默认设为开启；既有仓库保持原设置"
+        "allowMajorUpgradeDefaultOn": "平台已将新建仓库默认设为开启；既有仓库保持原设置",
+        "fieldSandboxImage": "沙箱镜像",
+        "fieldSandboxImagePlaceholder": "ghcr.io/owner/dependfix:latest",
+        "fieldSandboxImageHint": "留空 = 平台默认（SANDBOX_IMAGE / 平台镜像）。镜像须能在目标 rootless daemon 内拉取或已存在"
     },
     "schedules": {
         "title": "定时计划",

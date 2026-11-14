@@ -254,7 +254,10 @@
         "executionLimitsHint": "Changing the execution limit also affects worker locks and orphan detection windows",
         "allowMajorUpgrade": "Allow cross-major upgrades",
         "allowMajorUpgradeHint": "Cross-major alerts are left for manual review. When on, only alerts that are root direct dependencies with a single lockfile version are auto-upgraded, still running the full verification chain and rolling back on failure; indirect dependencies and multi-version coexistence stay manual",
-        "allowMajorUpgradeDefaultOn": "The platform defaults new repositories to enabled; existing repositories keep their current setting"
+        "allowMajorUpgradeDefaultOn": "The platform defaults new repositories to enabled; existing repositories keep their current setting",
+        "fieldSandboxImage": "Sandbox image",
+        "fieldSandboxImagePlaceholder": "ghcr.io/owner/dependfix:latest",
+        "fieldSandboxImageHint": "Leave empty to use the platform default (SANDBOX_IMAGE / platform image). The image must be pullable by, or already present in, the target rootless daemon"
     },
     "schedules": {
         "title": "Schedules",

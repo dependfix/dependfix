@@ -404,7 +404,7 @@ test.describe('仓库管理 CRUD', () => {
         await expect(rows).toHaveCount(10, { timeout: 15000 })
     })
 
-    test('sandbox 入口已恢复：新增可选 + 编辑保持 sandbox', async ({ page }) => {
+    test('sandbox 入口已恢复：镜像字段可见 / 校验 / 回显，编辑保持 sandbox', async ({ page }) => {
         const stamp = Date.now()
         const owner = `repos-sandbox-${stamp}`
         const cookieHeader = await authedCookieHeader(page)
@@ -429,15 +429,35 @@ test.describe('仓库管理 CRUD', () => {
         await expect(row).toBeVisible({ timeout: 15000 })
         await expect(row).toContainText('独立沙箱容器')
 
-        // 编辑：执行方式保持 sandbox（不再自动迁移 container）
+        // 编辑：执行方式保持 sandbox（不再自动迁移 container）；沙箱镜像字段可见
         await row.locator('button[aria-label="编辑"]').click()
         await expect(page.locator('.caomei-dialog__header')).toContainText('编辑仓库', { timeout: 15000 })
         await expect(page.locator('#executorKind')).toContainText('独立沙箱容器')
+        await expect(page.locator('#sandboxImage')).toBeVisible()
+
+        // 非法镜像地址：服务端 400 → 行内错误（字段保持 sandbox 可见）
+        await page.locator('#sandboxImage').fill('https://ghcr.io/owner/dependfix:latest')
+        const badResponse = page.waitForResponse((res) => res.request().method() === 'PUT' && res.status() === 400)
+        await page.locator('.caomei-dialog__content button:has-text("保存")').click()
+        await badResponse
+        await expect(page.locator('.text-danger').filter({ hasText: '镜像地址' })).toBeVisible({ timeout: 15000 })
+
+        // 合法镜像地址：随 PUT 提交并回读
+        await page.locator('#sandboxImage').fill('ghcr.io/owner/dependfix:1.2.3')
         const putRequest = page.waitForRequest((req) => req.method() === 'PUT' && req.url().includes('/api/repos/'))
         await page.locator('.caomei-dialog__content button:has-text("保存")').click()
-        const putBody = (await putRequest).postDataJSON() as { executorKind?: string }
+        const putBody = (await putRequest).postDataJSON() as { executorKind?: string, sandboxImage?: string | null }
         expect(putBody.executorKind).toBe('sandbox')
+        expect(putBody.sandboxImage).toBe('ghcr.io/owner/dependfix:1.2.3')
         await expect(page.locator('.caomei-message--success')).toContainText('仓库已更新', { timeout: 15000 })
+
+        // 再次编辑：镜像回显；切到平台容器后字段隐藏
+        await row.locator('button[aria-label="编辑"]').click()
+        await expect(page.locator('#sandboxImage')).toHaveValue('ghcr.io/owner/dependfix:1.2.3')
+        await page.locator('#executorKind').click()
+        await page.getByRole('option', { name: '平台容器' }).click()
+        await expect(page.locator('#sandboxImage')).toHaveCount(0)
+        await page.locator('.caomei-dialog__content button:has-text("取消")').click()
 
         // 新增：sandbox 选项可选择（不再 disabled）
         await page.locator('button:has-text("添加仓库")').click()

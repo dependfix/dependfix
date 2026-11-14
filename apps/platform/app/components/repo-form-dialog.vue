@@ -1,9 +1,6 @@
 <script setup lang="ts">
-// 仓库新增 / 编辑表单弹窗（自 repos.vue 拆出：页面行数治理 max-lines 800；
-// 与 scan-config-dialog / import-repos-dialog 同模式——父组件只持有 visible / 编辑对象）。
-// 表单状态与提交逻辑内聚在组件内；保存成功 emit `saved`（父组件刷新列表 + 成功提示）。
-// 保存失败不再上抛页面，统一在弹窗内展示：服务端 zod issues 按字段路径映射到行内错误，
-// 未知失败回落到弹窗顶部摘要（避免错误出现在表格上方、也避免用户不知道改哪个字段）。
+// 仓库新增 / 编辑表单弹窗（与 scan-config-dialog 同模式：父组件只持有 visible / 编辑对象）。
+// 表单状态与提交逻辑内聚；失败按 zod issues 映射到行内错误，未知失败回落弹窗顶部摘要。
 import { Check } from '@lucide/vue'
 import type { PRCheckFocusView, RepoView } from '~/types/platform'
 import { formatDurationInput, parseDurationInput } from '~/utils/duration'
@@ -34,6 +31,8 @@ interface RepoForm {
     credentialId: string | null
     actionWorkflowFile: string
     executorKind: 'container' | 'github-action' | 'sandbox'
+    /** 沙箱镜像（空 = 平台默认；仅 sandbox 执行方式显示） */
+    sandboxImage: string
     note: string
     tags: string[]
     /** 自定义验证命令（多行文本，一行一条；提交时拆分为数组，空行忽略 → 空数组走默认链） */
@@ -58,6 +57,7 @@ type FieldKey = 'owner'
     | 'defaultBranch'
     | 'actionWorkflowFile'
     | 'executorKind'
+    | 'sandboxImage'
     | 'verifyCommands'
     | 'focusProviders'
     | 'focusNames'
@@ -76,6 +76,7 @@ const FIELD_INPUT_IDS: Record<FieldKey, string> = {
     defaultBranch: 'defaultBranch',
     actionWorkflowFile: 'actionWorkflowFile',
     executorKind: 'executorKind',
+    sandboxImage: 'sandboxImage',
     verifyCommands: 'verifyCommands',
     focusProviders: 'focusProviders',
     focusNames: 'focusNames',
@@ -95,6 +96,7 @@ const ISSUE_PATH_FIELDS: Record<string, FieldKey> = {
     defaultBranch: 'defaultBranch',
     actionWorkflowFile: 'actionWorkflowFile',
     executorKind: 'executorKind',
+    sandboxImage: 'sandboxImage',
     verifyCommands: 'verifyCommands',
     tags: 'tags',
     note: 'note',
@@ -140,6 +142,7 @@ const emptyForm = (): RepoForm => ({
     credentialId: null,
     actionWorkflowFile: '',
     executorKind: 'container',
+    sandboxImage: '',
     note: '',
     tags: [],
     verifyCommands: '',
@@ -417,6 +420,7 @@ watch(() => props.visible, (open) => {
                 credentialId: repo.credentialId,
                 actionWorkflowFile: repo.actionWorkflowFile ?? '',
                 executorKind: repo.executorKind as RepoForm['executorKind'],
+                sandboxImage: repo.sandboxImage ?? '',
                 note: repo.note ?? '',
                 tags: [...(repo.tags ?? [])],
                 verifyCommands: (repo.verifyCommands ?? []).join('\n'),
@@ -453,6 +457,7 @@ const submit = async () => {
             credentialId: form.value.credentialId,
             actionWorkflowFile: form.value.actionWorkflowFile.trim() || null,
             executorKind: form.value.executorKind,
+            sandboxImage: form.value.sandboxImage.trim() || null,
             note: form.value.note.trim() || null,
             tags: form.value.tags.length > 0 ? form.value.tags : null,
             // 多行文本 → 命令数组（按行拆分 + 去空白 + 丢弃空行；空数组 = 走引擎默认验证链）
@@ -577,6 +582,20 @@ const submit = async () => {
                     />
                     <small v-if="fieldErrors.executorKind" class="text-danger">{{ fieldErrors.executorKind }}</small>
                 </div>
+            </div>
+            <div
+                v-if="form.executorKind === 'sandbox'"
+                class="repo-form__field"
+            >
+                <label for="sandboxImage">{{ t('repos.fieldSandboxImage') }}</label>
+                <CaomeiInput
+                    id="sandboxImage"
+                    v-model="form.sandboxImage"
+                    :placeholder="t('repos.fieldSandboxImagePlaceholder')"
+                    :invalid="!!fieldErrors.sandboxImage"
+                />
+                <small v-if="fieldErrors.sandboxImage" class="text-danger">{{ fieldErrors.sandboxImage }}</small>
+                <small v-else class="text-muted">{{ t('repos.fieldSandboxImageHint') }}</small>
             </div>
             <div
                 v-if="form.executorKind === 'github-action'"

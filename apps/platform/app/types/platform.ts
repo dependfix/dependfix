@@ -24,6 +24,8 @@ export interface RepoView {
     credentialName: string | null
     actionWorkflowFile: string | null
     executorKind: string
+    /** 仓库级沙箱镜像（null = 平台 SANDBOX_IMAGE / DEPENDFIX_IMAGE / dependfix-platform:latest） */
+    sandboxImage: string | null
     note: string | null
     tags: string[]
     /**

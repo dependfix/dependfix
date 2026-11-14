@@ -248,7 +248,7 @@
 - **不做**：不拆独立 workflow / Dockerfile；不移除平台镜像内的 `/app/sandbox`（保留显式指定兼容路径）；不做镜像版本握手（登记为后续候选）。
 - **依赖**：`#245` 仓库级镜像字段；release 的 `platform_version`；ghcr/ACR 新镜像名推送权限。
 - **交付物**：22 文件 / +550 −67（Dockerfile 1 / workflow 1 / 执行器与注释 7 / 配置与 i18n 5 / 文档 8）。
-- **三源回退（追加）**：默认跟随平台 registry，回退 ghcr / ACR / Docker Hub；逐源 inspect + 限时 pull，全失败报 `sandbox_image_unavailable`。
+- **三源回退（追加）**：跟随平台 registry，回退 Docker Hub / ghcr / ACR（ACR 置末）；逐源 inspect/pull，全失败报 `sandbox_image_unavailable`。
 - **残余**：arm64 运行冒烟、编译回退提示、失败源原因待后续。
 - **容量影响评估（§3.1.1）**：同一临时待办的后续细化，不新增批次计数；发布链需 CI 取证。
 

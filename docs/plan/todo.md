@@ -226,7 +226,7 @@
 
 ### 追加临时待办（不占阶段条目编号）：沙箱镜像不可配置导致线上执行失败（P1 🛠️）
 
-> **状态**：🚧 进行中（2026-11-14）。线上沙箱运行 `sandbox_image_unavailable`：默认镜像名 `dependfix-platform:latest` 只存在于本地构建，外置 rootless daemon 无法解析 Docker Hub 引用；仓库级无镜像字段。本批新增 `Repository.sandboxImage`（迁移 `3100000000001`）、docker 镜像语法校验、仓库表单输入、编排层按仓库镜像创建执行器，并把 `sandbox_image_unavailable` 纳入 `runtime / deterministic` 失败分类（此前截图显示「未知阶段」）。
+> **状态**：✅ 已闭环（2026-11-14；PR #245，merge `91c2e3e1`；审计 R1 standard Reject（UI 证据缺失）→ 补 e2e / 迁移 / 证伪用例 → R2 quick Pass）。线上沙箱运行 `sandbox_image_unavailable`：默认镜像名 `dependfix-platform:latest` 只存在于本地构建，外置 rootless daemon 无法解析 Docker Hub 引用；仓库级无镜像字段。本批新增 `Repository.sandboxImage`（迁移 `3100000000001`）、docker 镜像语法校验、仓库表单输入、编排层按仓库镜像创建执行器，并把 `sandbox_image_unavailable` 纳入 `runtime / deterministic` 失败分类（此前截图显示「未知阶段」）。修复后：仓库编辑弹窗（执行方式 = 独立沙箱容器）可直接填写镜像，留空回退平台默认；e2e 覆盖可见 / 校验 / 保存 / 回显 / 隐藏。
 
 > **来源与授权**：2026-11-14 用户报告截图（`扫描执行失败（sandbox_image_unavailable）`）+ 明确要求「应该要可以配置 docker 镜像地址」。属 [规划规范 §3.1](../standards/planning.md#_3-1-新需求默认走-评估-→-backlog-原则-hard-requirement) 插队例外第 3 类（用户报告的 blocker 级功能缺失），按「追加临时待办」口径登记：不分配编号、不占既有条目位置。
 

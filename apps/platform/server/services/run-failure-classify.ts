@@ -139,6 +139,8 @@ const FAILURE_CODE_MAP: Readonly<Record<string, FailureCodeMapping>> = {
     sandbox_fix_requires_egress_policy: { stage: 'runtime', kind: 'deterministic' },
     // 沙箱 clone 基地址非法或不在出站白名单内：执行器执行前拒绝，属确定性配置错误
     sandbox_clone_host_not_allowed: { stage: 'runtime', kind: 'deterministic' },
+    // 沙箱镜像缺失 / 不可拉取：配置 / 环境问题，确定性失败（此前落未知阶段）
+    sandbox_image_unavailable: { stage: 'runtime', kind: 'deterministic' },
 
     // 运行预算不足：主动跳过未开始的工作（引擎侧属跳过类白名单，正常路径不可达；防御性映射）
     BUDGET_EXHAUSTED: { stage: 'runtime', kind: 'transient' },

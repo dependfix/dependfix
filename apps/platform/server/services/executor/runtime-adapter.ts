@@ -69,6 +69,11 @@ export interface RuntimeAdapter {
     /** 探测 daemon/runtime 可用性（不抛错，返回布尔） */
     isAvailable(): Promise<boolean>
     /**
+     * 确保镜像可用（可选能力）：本地存在直接返回 true，否则尝试拉取。
+     * 未实现的 adapter（测试替身）视为「跳过预检」，由 `run` 的镜像错误兜底。
+     */
+    ensureImage?(image: string, options?: { timeoutMs?: number }): Promise<boolean>
+    /**
      * 启动容器执行命令。
      *
      * 抛错语义：daemon 不可用 / 镜像缺失 / 启动失败 → 抛 Error（caller 决定降级路径）；
@@ -121,6 +126,29 @@ export class DockerAdapter implements RuntimeAdapter {
             const version = stdout.trim()
             // ServerVersion 存在即 daemon 运行中（rootless/rootful 都通过——本探测不区分）
             return version.length > 0
+        } catch {
+            return false
+        }
+    }
+
+    /**
+     * 确保镜像可用：先本地 inspect（快），缺失再 `docker pull`（限时）。
+     * 拉取失败返回 false，由调用方尝试下一个镜像源；不抛错、不输出凭据。
+     */
+    async ensureImage(image: string, options: { timeoutMs?: number } = {}): Promise<boolean> {
+        const dockerBin = this.options.dockerBin ?? 'docker'
+        try {
+            await execFileAsync(dockerBin, ['image', 'inspect', image], { timeout: 10_000, maxBuffer: 64 * 1024 })
+            return true
+        } catch {
+            // 本地缺失 → 尝试拉取
+        }
+        try {
+            await execFileAsync(dockerBin, ['pull', image], {
+                timeout: options.timeoutMs ?? 300_000,
+                maxBuffer: 2 * 1024 * 1024,
+            })
+            return true
         } catch {
             return false
         }

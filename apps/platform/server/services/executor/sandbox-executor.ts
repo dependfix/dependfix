@@ -1,5 +1,8 @@
 import type { RunResult } from '@dependfix/core'
 import type { ExecutorResourceUsage, ScanExecutor, ScanExecutorContext, ScanExecutorResult } from './types'
+import { resolveDefaultSandboxImage, resolveSandboxImageCandidates, resolveImagePullTimeoutMs } from './sandbox-image'
+
+export { deriveSandboxRepoFromPlatformImage, resolveDefaultSandboxImage, resolveSandboxImageCandidates } from './sandbox-image'
 import { DockerAdapter, SANDBOX_DEFAULTS, type ContainerRunResult, type ContainerSpec, type RuntimeAdapter } from './runtime-adapter'
 import { sanitizeString } from '#server/utils/sanitize'
 import {
@@ -7,30 +10,6 @@ import {
     unavailableResourceUsage,
     type SandboxResourceSample,
 } from '#server/utils/resource-usage'
-
-/**
- * 沙箱镜像默认值（发布镜像名 + 版本 tag）。
- *
- * 解析顺序：`SANDBOX_IMAGE` 显式值 → `SANDBOX_IMAGE_REPO`（默认 ghcr 沙箱镜像）
- * + `SANDBOX_IMAGE_TAG`（默认取平台构建版本 `NUXT_BUILD_VERSION`，未知则 `latest`）。
- * 不再回退 `DEPENDFIX_IMAGE`：那是平台运行镜像（含 Nuxt / 控制面），作为沙箱镜像会放大拉取体积。
- * 仓库级 `sandboxImage` 仍优先于本默认（见 scan-orchestrator）。
- */
-export function resolveDefaultSandboxImage(env: NodeJS.ProcessEnv = process.env): string {
-    const explicit = env.SANDBOX_IMAGE?.trim()
-    if (explicit) {
-        return explicit
-    }
-    // 容忍仓库地址尾部斜杠，避免拼出 `repo//:tag`
-    const repo = (env.SANDBOX_IMAGE_REPO?.trim() || 'ghcr.io/dependfix/dependfix-sandbox').replace(/\/+$/, '')
-    const buildVersion = env.NUXT_BUILD_VERSION?.trim()
-    const tag = env.SANDBOX_IMAGE_TAG?.trim()
-        || (buildVersion && buildVersion !== 'unknown' ? buildVersion : 'latest')
-    return `${repo}:${tag}`
-}
-
-/** 模块加载期解析一次（与 SANDBOX_IMAGE / SANDBOX_* 同模式；实例可覆盖） */
-const DEFAULT_SANDBOX_IMAGE = resolveDefaultSandboxImage()
 
 /** 自包含 CLI 入口（镜像内由 Dockerfile 复制；本地联调可经 env 指向工作区产物） */
 const DEFAULT_SANDBOX_ENTRY = process.env.DEPENDFIX_SANDBOX_ENTRY ?? '/app/sandbox/bin.mjs'
@@ -159,16 +138,22 @@ export class SandboxExecutor implements ScanExecutor {
     private readonly timeoutMs: number
     private readonly egress: SandboxEgressPolicy
     private readonly cloneBaseUrl: string
+    /** 镜像候选（预检时按序尝试；显式 image / SANDBOX_IMAGE 时只有一项） */
+    private readonly imageCandidates: string[]
+    /** 单个镜像拉取上限（预检用） */
+    private readonly imagePullTimeoutMs: number
 
     constructor(options: SandboxExecutorOptions = {}) {
         this.adapter = options.runtimeAdapter ?? new DockerAdapter()
-        this.image = options.image ?? DEFAULT_SANDBOX_IMAGE
+        this.image = options.image ?? resolveDefaultSandboxImage()
         this.entry = options.entry ?? DEFAULT_SANDBOX_ENTRY
         this.skillsDir = options.skillsDir ?? DEFAULT_SANDBOX_SKILLS_DIR
         this.sandboxLimits = options.sandboxLimits ?? {}
         this.timeoutMs = options.timeoutMs ?? SANDBOX_DEFAULTS.timeoutMs
         this.egress = resolveEgressPolicy(options.egress)
         this.cloneBaseUrl = (options.cloneBaseUrl ?? DEFAULT_CLONE_BASE_URL).replace(/\/+$/, '')
+        this.imageCandidates = options.image ? [options.image] : resolveSandboxImageCandidates()
+        this.imagePullTimeoutMs = resolveImagePullTimeoutMs()
     }
 
     /**
@@ -255,8 +240,22 @@ export class SandboxExecutor implements ScanExecutor {
             }
         }
 
+        const image = await this.resolveAvailableImage()
+        if (!image) {
+            return {
+                exitCode: 2,
+                error: {
+                    code: 'sandbox_image_unavailable',
+                    message: `沙箱镜像均不可用（已尝试：${this.imageCandidates.join('、')}）：请检查目标 daemon 的 registry 可达性，`
+                        + '或在仓库设置填写「沙箱镜像」/ 配置 SANDBOX_IMAGE、SANDBOX_IMAGE_REPO',
+                },
+                resource: unavailableResourceUsage('沙箱镜像预检失败，未启动容器'),
+                startedAt,
+                finishedAt: new Date().toISOString(),
+            }
+        }
         try {
-            const spec = this.buildSpec(ctx)
+            const spec = this.buildSpec(ctx, image)
             const cmd = this.buildCmd(ctx)
             const runResult = await withTimeout(this.adapter.run(spec, cmd), this.timeoutMs)
             return this.parseRunResult(runResult, startedAt, ctx)
@@ -269,15 +268,32 @@ export class SandboxExecutor implements ScanExecutor {
     }
 
     /**
+     * 预检并选择镜像：adapter 支持 `ensureImage` 时按候选顺序（本地 inspect → 拉取），
+     * 第一个可用即返回；不支持（测试替身）时直接用首个候选，由 run 的镜像错误兜底。
+     */
+    private async resolveAvailableImage(): Promise<string | undefined> {
+        const ensureImage = this.adapter.ensureImage?.bind(this.adapter)
+        if (!ensureImage) {
+            return this.image
+        }
+        for (const candidate of this.imageCandidates) {
+            if (await ensureImage(candidate, { timeoutMs: this.imagePullTimeoutMs })) {
+                return candidate
+            }
+        }
+        return undefined
+    }
+
+    /**
      * 拼装 ContainerSpec:env 注入 token + cgroup 限额透传，不挂载宿主目录。
      * 限额优先级:仓库级 sandboxLimits(Repository 实体字段) > 沙箱级 sandboxLimits > SANDBOX_DEFAULTS。
      *
      * 网络：report-only 访问 GitHub API；fix / fix-and-pr 在容器内 clone + install + 验证，
      * 出站面由 CLI 的运行级审计代理按 deny-by-default 白名单约束（`DEPENDFIX_ALLOWED_DOMAINS`）。
      */
-    buildSpec(ctx: ScanExecutorContext): ContainerSpec {
+    buildSpec(ctx: ScanExecutorContext, image: string = this.image): ContainerSpec {
         return {
-            image: this.image,
+            image,
             // 容器私有可写目录（镜像内存在）；结果文件与报告都落在这里，不跨宿主路径
             workDir: '/tmp',
             env: {

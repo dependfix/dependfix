@@ -145,7 +145,7 @@ Nuxt 4（全栈 SSR + API Routes，`app/` + `server/`）/ TypeScript strict / UI
 
 - `pnpm run lint:check` / `pnpm run lint:css:check` / `pnpm typecheck`（根目录）：前两者无 `--fix`，且 `lint:check` 链式跑平台配置；Test / Release / Docker 均执行前三者。
 - **两套 ESLint 配置不是同一规则集**：根用 type-aware 子集；平台（`eslint-config-cmyr/nuxt`）另启 `strictTypeChecked` / stylistic（`array-type`、`consistent-type-definitions`、`vue/object-curly-spacing`）。平台改动须同时满足。
-- 平台告警预算 `--max-warnings 11`（9 条有意保留的 `no-deprecated` + 2 条存量 `max-lines`），只可随清理下调。
+- 平台告警预算 `--max-warnings 11`（当前实际 2 条：1 条有意保留的 `no-deprecated` + 1 条测试文件 `max-lines`），只可随清理下调。
 - `nuxt build` 必须通过（Docker 构建前置）；平台相关改动须运行平台 `test`；提交走 [conventional-committer 流程](./git.md)，scope 用 `platform`；注释禁止规划编号标记（[开发规范 §3](./development.md)）。
 
 ## 10. 运行时与部署（容器镜像 / 启动 / 队列降级）

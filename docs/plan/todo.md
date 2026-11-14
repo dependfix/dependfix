@@ -40,6 +40,7 @@
 - **依赖**：无前置；`repo-history-dialog` 的挂载位置由 M60.2 判定后再动（本原子只搬不删）。
 - **交付物**：7-10 commits / 12-18 files / 1050-1560 行（含移动），三个子任务各自独立验收；文档面不新增 `docs/standards/platform.md` 篇幅（该文件已在字符健康上限），必要时先压缩或落 `docs/design/`。
 - **风险与缓解**：抽取导致响应式状态漂移 → 每抽一层跑一次定向 e2e + visual；`v-model` / provide-inject 边界不清 → 先抽无状态展示组件，逻辑层单独提交。
+- **执行记录（2026-11-15，3 commits）**：`5eda5bb7` 仓库页（筛选栏 + 批量扫描弹窗 + `use-repo-filters` / `use-repo-scan-trigger`，非空 816 → 509）/ `b1fa6636` 告警页（筛选栏 + `use-alert-groups`，842 → 632）/ `c0a70252` 扫描页（汇总卡片 + 运行筛选条 + `use-run-filters` + 新增主视图视觉基线，1033 → 792）。分层口径与和计划的差异见 [页面体量治理设计](../design/governance/platform-page-decomposition.md)。证据：platform 单测 2643 passed、e2e 定向 45 passed + 1 flaky（重试通过）、视觉 22 passed 零差异、`lint:check` 0 error（2 存量 warning）、根 typecheck / `lint:css:check` / `gates:docs` 20 项通过；审计 R1 三分区 Pass（4 warning）+ 文档 Reject（§10 误引）→ 修复 → R2 全 Pass。偏差：repos 列表行、alerts 运行侧栏（已在 `alert-run-sidebar`）、scans 扫描行未抽（强耦合收益低，行级抽取登记 backlog），验收标准未变。
 
 ### M60.2 死代码与闲置绑定清理（P3 🛠️）
 

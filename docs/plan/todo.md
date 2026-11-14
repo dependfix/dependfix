@@ -96,7 +96,9 @@
 
 ### M59.4 执行资源采集扩展（P2 🛠️）
 
-> **状态**：🚧 进行中（2026-11-14 起）。已交付：沙箱容器内 cgroup 采样（v2 / v1 双路径，200ms，独立哨兵回传，解析后从日志剥离）；`buildSandboxResourceUsage` 统一口径（上限为哨兵 / `max` → null + `limitReason=unlimited`；缺失 / 空 → null 但不带原因，未知 ≠ 无上限）；沙箱异常 / 超时 → 显式 unavailable；action 执行器结果带 `{ source: 'none', degradedReason }`；container 未预期抛错路径保留执行窗口快照；gated 真实容器用例断言 `source !== none` 且 `peakRssBytes > 0`。**待办（本原子内）**：gated 取证读数归档；container 抛错路径缺自动化用例（构造困难，已披露）。
+> **状态**：✅ 已闭环（2026-11-14）。已交付：沙箱容器内 cgroup 采样（v2 / v1 双路径，200ms，覆盖容器内 clone + CLI；bootstrap 失败先回传读数再退出）；独立哨兵回传并在解析后从日志剥离；`buildSandboxResourceUsage` 统一口径（source 白名单、数值有限性校验、`oomKilled=null` 补原因；上限为哨兵 / `max` → null + `limitReason=unlimited`，缺失 / 空 → null 不带原因）；沙箱异常 / 超时 → 显式 unavailable；action 执行器所有返回带 `{ source: 'none', degradedReason }`；container 未预期抛错保留执行窗口快照并留 error 日志；gated 真实容器用例断言 `source !== none`、`samples>0`、`peakRssBytes>0` 且 `peak ≤ limit`。审计：standard **R1 Pass**（W1-W6 / S1-S7）→ 修复 → **R2 Pass**（W7 bootstrap 失败丢快照 + S8-S10 同批收口）。CI：PR #244 Test / E2E / Coverage / Visual / CodeQL 全绿，merge `52d6561d` 的 Test success。
+>
+> **残余（已披露）**：container 未预期抛错路径缺自动化用例（构造需 mock 内部抛出）；`--cgroupns=host` 等非默认 runtime 下读数会放大到父 cgroup（默认配置实测正常）；容器整体 OOM 被杀时采样器无法回传 → unavailable（物理边界，§7.9 已写明）。
 
 - **目标**：sandbox 执行器与异常路径也能产出资源快照；action 执行器对「不适用」显式标注而非静默缺失。
 - **范围**：

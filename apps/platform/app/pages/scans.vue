@@ -16,18 +16,14 @@
 // 非目标：
 // - 不引入多组织；不重写后端聚合；不动 dashboard.vue；不动 batch-runs 跨仓库视图
 // - 不破坏既有 alerts-rowgroup / history-dialog / 视图切换 / dedupe 行为
-import { Download, Eye, Funnel, RefreshCw, X } from '@lucide/vue'
+import { Eye, Funnel, RefreshCw, X } from '@lucide/vue'
 import type { DataTableColumn, DataTablePageEvent, DataTableSortEvent, DataTableSortOrder, SplitButtonMenuItem } from 'caomei-ui'
 import {
     alertsFound,
     buildExportScopeItems,
     deliverySkipped,
     environmentalFailureCount,
-    failureKindLabel,
-    failureStageLabel,
     isRunResultMissing,
-    RUN_FAILURE_KIND_OPTIONS,
-    RUN_FAILURE_STAGE_OPTIONS,
     runExecutorLabel,
     runModeLabel,
     skippedTotal,
@@ -37,6 +33,7 @@ import {
 } from '~/utils/run-view'
 import { scanSeverityLabel } from '~/utils/scan-options'
 import { downloadFile } from '~/utils/download'
+import { FILTER_ALL, useRunFilters } from '~/composables/use-run-filters'
 
 definePageMeta({
     middleware: 'auth',
@@ -121,60 +118,6 @@ interface RunView {
 }
 
 /**
- * 运行列表筛选：状态 / 失败阶段 / 处置建议三维度。
- * 「全部」用哨兵值而非空串——caomei Select 的 SelectItem 不允许 `value` 为空字符串
- * （空串被组件保留用于「清除选择显示占位符」，传入会直接抛错）；提交查询前哨兵值不传递。
- * 阶段与建议选项由 `~/utils/run-view` 提供（与服务端分类枚举同序）。
- */
-const FILTER_ALL = '__all__'
-
-const filters = reactive({
-    status: FILTER_ALL,
-    failureStage: FILTER_ALL,
-    failureKind: FILTER_ALL,
-    from: '',
-    to: '',
-})
-
-/** 开始时间区间（DatePicker 使用 Date，提交时统一转 ISO；空串 = 未筛选） */
-const fromDate = computed<Date | null>({
-    get: () => (filters.from ? new Date(filters.from) : null),
-    set: (value) => {
-        filters.from = value ? value.toISOString() : ''
-    },
-})
-const toDate = computed<Date | null>({
-    get: () => (filters.to ? new Date(filters.to) : null),
-    set: (value) => {
-        filters.to = value ? value.toISOString() : ''
-    },
-})
-
-/** 状态下拉选项（顺序与 `SCAN_RUN_STATUSES` 一致；哨兵值 = 全部） */
-const SCAN_RUN_STATUS_OPTIONS = ['pending', 'running', 'completed', 'failed', 'dispatched', 'degraded'] as const
-
-const statusFilterOptions = computed(() => [
-    { label: t('scans.runList.filterAll'), value: FILTER_ALL },
-    ...SCAN_RUN_STATUS_OPTIONS.map((status) => ({ label: statusLabel(status), value: status })),
-])
-
-const failureStageFilterOptions = computed(() => [
-    { label: t('scans.runList.filterAll'), value: FILTER_ALL },
-    ...RUN_FAILURE_STAGE_OPTIONS.map((stage) => ({
-        label: failureStageLabel(stage, t) ?? stage,
-        value: stage,
-    })),
-])
-
-const failureKindFilterOptions = computed(() => [
-    { label: t('scans.runList.filterAll'), value: FILTER_ALL },
-    ...RUN_FAILURE_KIND_OPTIONS.map((kind) => ({
-        label: failureKindLabel(kind, t) ?? kind,
-        value: kind,
-    })),
-])
-
-/**
  * 页面分区（Tabs）：默认「全部运行」——与既有首屏语义（runs 列表可见）一致；
  * 「按仓库」聚合列表的「最近状态」筛选与分页状态独立于 runs 列表的三维筛选。
  * 类型放宽到 `string | number | undefined` 以匹配 `CaomeiTabs` 的受控 `modelValue`（Tab 值恒为字符串）。
@@ -188,49 +131,26 @@ const byRepoStatus = ref(FILTER_ALL)
 const byRepoPage = ref(1)
 const byRepoRows = ref(10)
 
-/** byRepo「最近状态」下拉选项（状态集与 runs 列表同源，仅文案/用途不同） */
-const byRepoStatusOptions = computed(() => [
-    { label: t('scans.runList.filterAll'), value: FILTER_ALL },
-    ...SCAN_RUN_STATUS_OPTIONS.map((status) => ({ label: statusLabel(status), value: status })),
-])
-
-/** 阶段分布汇总（仅展示非零项，计数降序）——与「阶段」下拉同源口径 */
-const failureStageCounts = computed(() => {
-    const byStage = summary.value?.byFailureStage
-    if (!byStage) {
-        return []
-    }
-    return RUN_FAILURE_STAGE_OPTIONS
-        .map((stage) => ({ stage, label: failureStageLabel(stage, t) ?? stage, count: byStage[stage] ?? 0 }))
-        .filter((item) => item.count > 0)
-        .sort((a, b) => b.count - a.count)
-})
+// 筛选状态 / 选项 / 阶段计数 / 状态文案见 `use-run-filters`（页面行数治理）
+const {
+    filters,
+    fromDate,
+    toDate,
+    statusFilterOptions,
+    failureStageFilterOptions,
+    failureKindFilterOptions,
+    byRepoStatusOptions,
+    failureStageCounts,
+    hasActiveFilters,
+    clearRunFilters,
+    hasValidRunRange,
+    statusTone,
+    statusLabelWithStage,
+} = useRunFilters({ t, summary })
 
 /** 全运行列表服务端排序（受控）：空 sortField = 默认序（createdAt DESC，不发送排序参数） */
 const sortField = ref('')
 const sortOrder = ref<DataTableSortOrder>('desc')
-
-/** 状态 / 失败阶段 / 处置建议 / 开始时间区间是否有任一激活（用于「清除筛选」按钮可见性） */
-const hasActiveFilters = computed(() => (
-    filters.status !== FILTER_ALL
-    || filters.failureStage !== FILTER_ALL
-    || filters.failureKind !== FILTER_ALL
-    || filters.from !== ''
-    || filters.to !== ''
-))
-
-/** 清除运行列表筛选（变更由 watch(filters) 统一驱动重新拉取并回到第 1 页） */
-const clearRunFilters = () => {
-    filters.status = FILTER_ALL
-    filters.failureStage = FILTER_ALL
-    filters.failureKind = FILTER_ALL
-    filters.from = ''
-    filters.to = ''
-}
-
-/** 开始时间区间是否合法（空端视为合法；Date.parse 已由 UI 产出 ISO 保证） */
-const hasValidRunRange = (): boolean =>
-    !filters.from || !filters.to || Date.parse(filters.from) <= Date.parse(filters.to)
 
 /**
  * 批量导出执行日志（合并单 txt 附件）。
@@ -311,6 +231,11 @@ const exportScopeItems = computed<SplitButtonMenuItem[]>(() => buildExportScopeI
         void exportLogs('all')
     },
 })))
+
+/** 主按钮（当前页）导出：模板事件不带参数，这里显式传范围避免 MouseEvent 被当作范围 */
+const exportCurrentPage = () => {
+    void exportLogs('page')
+}
 
 // query ?repository= 与 query ?run= 解析（scans 页面三态入口）
 const repositoryIdQuery = computed(() => {
@@ -468,41 +393,7 @@ const onByRepoPage = (event: DataTablePageEvent) => {
     byRepoRows.value = event.rows
 }
 
-/** 状态 Tag 颜色 + 文案（与 `repo-history-dialog` 风格一致） */
-const statusTone = (status: string) => {
-    switch (status) {
-        case 'completed':
-            return 'success' as const
-        case 'failed':
-            return 'danger' as const
-        case 'dispatched':
-            return 'primary' as const
-        case 'degraded':
-            return 'warning' as const
-        default:
-            return 'neutral' as const
-    }
-}
-
-const statusLabel = (status: string) => ({
-    completed: t('runs.statusCompleted'),
-    failed: t('runs.statusFailed'),
-    dispatched: t('runs.statusDispatched'),
-    running: t('runs.statusRunning'),
-    pending: t('common.status.pending'),
-    degraded: t('runs.statusDegraded'),
-})[status] ?? status
-
-/**
- * 状态文案：`failed` 且有失败阶段时追加「· {阶段}」（如「失败 · 验证门禁」），
- * 使用户一眼区分网络可重试失败与验证 / 交付类需研判失败；其余状态保持原文案。
- */
-const statusLabelWithStage = (status: string, stage: string | null | undefined) => {
-    const base = statusLabel(status)
-    const stageText = failureStageLabel(stage, t)
-    return status === 'failed' && stageText ? `${base} · ${stageText}` : base
-}
-
+/** 状态 Tag 颜色 / 文案见 `use-run-filters` */
 /** 进入 run 详情（list 行点击 → 跳 /scans?run=） */
 const openRunDetail = (runId: string) => {
     void router.push({ path: '/scans', query: { ...route.query, run: runId } })
@@ -641,40 +532,12 @@ onMounted(refresh)
         </CaomeiMessage>
 
         <!-- 4 块汇总卡片 -->
-        <div class="scans__summary">
-            <CaomeiCard class="scans__stat">
-                <div class="scans__stat-value">
-                    {{ summary?.totals.runs ?? 0 }}
-                </div>
-                <div class="scans__stat-label text-muted">
-                    {{ t('scans.summary.totalRuns') }}
-                </div>
-            </CaomeiCard>
-            <CaomeiCard class="scans__stat">
-                <div class="scans__stat-value">
-                    {{ summary?.totals.totalAlerts ?? 0 }}
-                </div>
-                <div class="scans__stat-label text-muted">
-                    {{ t('scans.summary.totalAlerts') }}
-                </div>
-            </CaomeiCard>
-            <CaomeiCard class="scans__stat">
-                <div class="scans__stat-value">
-                    {{ summary?.totals.totalFixed ?? 0 }}
-                </div>
-                <div class="scans__stat-label text-muted">
-                    {{ t('scans.summary.totalFixed') }}
-                </div>
-            </CaomeiCard>
-            <CaomeiCard class="scans__stat">
-                <div class="scans__stat-value scans__stat-value--sm">
-                    {{ summary?.lastRunAt ? d(new Date(summary.lastRunAt), 'short') : '—' }}
-                </div>
-                <div class="scans__stat-label text-muted">
-                    {{ t('scans.summary.lastRunAt') }}
-                </div>
-            </CaomeiCard>
-        </div>
+        <scans-summary-cards
+            :runs="summary?.totals.runs ?? 0"
+            :total-alerts="summary?.totals.totalAlerts ?? 0"
+            :total-fixed="summary?.totals.totalFixed ?? 0"
+            :last-run-at="summary?.lastRunAt ?? null"
+        />
 
         <CaomeiTabs v-model="activeTab" class="scans__tabs">
             <CaomeiTabList>
@@ -690,8 +553,8 @@ onMounted(refresh)
                  「最近状态」筛选 + 客户端分页 + 统计窗口提示 -->
             <CaomeiTabContent value="repo">
                 <CaomeiCard class="scans__byrepo-toolbar">
-                    <div class="scans__run-filter-row">
-                        <div class="scans__run-filter-field">
+                    <div class="scans__byrepo-filter-row">
+                        <div class="scans__byrepo-filter-field">
                             <label for="byrepo-status">{{ t('scans.byRepo.filterStatus') }}</label>
                             <CaomeiSelect
                                 id="byrepo-status"
@@ -753,102 +616,23 @@ onMounted(refresh)
             <!-- 全部运行（paginated DataTable；点击行进入 ?run= 详情）：
                  失败分类筛选条（状态 / 失败阶段 / 处置建议三维度 + 阶段分布计数） -->
             <CaomeiTabContent value="runs">
-                <CaomeiCard class="scans__run-filters">
-                    <div class="scans__run-filter-row">
-                        <div class="scans__run-filter-field">
-                            <label for="run-status">{{ t('scans.runList.filterStatus') }}</label>
-                            <CaomeiSelect
-                                id="run-status"
-                                v-model="filters.status"
-                                :options="statusFilterOptions"
-                                option-label="label"
-                                option-value="value"
-                            />
-                        </div>
-                        <div class="scans__run-filter-field">
-                            <label for="run-failure-stage">{{ t('scans.runList.filterFailureStage') }}</label>
-                            <CaomeiSelect
-                                id="run-failure-stage"
-                                v-model="filters.failureStage"
-                                :options="failureStageFilterOptions"
-                                option-label="label"
-                                option-value="value"
-                            />
-                        </div>
-                        <div class="scans__run-filter-field">
-                            <label for="run-failure-kind">{{ t('scans.runList.filterFailureKind') }}</label>
-                            <CaomeiSelect
-                                id="run-failure-kind"
-                                v-model="filters.failureKind"
-                                :options="failureKindFilterOptions"
-                                option-label="label"
-                                option-value="value"
-                            />
-                        </div>
-                        <div class="scans__run-filter-field">
-                            <label for="run-from">{{ t('scans.runList.filterFrom') }}</label>
-                            <CaomeiDatePicker
-                                id="run-from"
-                                v-model="fromDate"
-                                show-time
-                                hour-format="24"
-                                :placeholder="t('scans.runList.filterFromPlaceholder')"
-                                class="scans__run-date"
-                            />
-                        </div>
-                        <div class="scans__run-filter-field">
-                            <label for="run-to">{{ t('scans.runList.filterTo') }}</label>
-                            <CaomeiDatePicker
-                                id="run-to"
-                                v-model="toDate"
-                                show-time
-                                hour-format="24"
-                                :placeholder="t('scans.runList.filterToPlaceholder')"
-                                class="scans__run-date"
-                            />
-                        </div>
-                        <div v-if="hasActiveFilters" class="scans__run-filter-field scans__run-filter-field--action">
-                            <CaomeiButton
-                                tone="neutral"
-                                variant="ghost"
-                                size="sm"
-                                @click="clearRunFilters"
-                            >
-                                <template #icon>
-                                    <CaomeiIcon :icon="X" />
-                                </template>
-                                {{ t('scans.runList.clearFilters') }}
-                            </CaomeiButton>
-                        </div>
-                        <div class="scans__run-filter-field scans__run-filter-field--action">
-                            <CaomeiSplitButton
-                                tone="neutral"
-                                variant="ghost"
-                                size="sm"
-                                :model="exportScopeItems"
-                                :disabled="total === 0 || exporting"
-                                :loading="exporting"
-                                :menu-label="t('scans.runList.exportMenuLabel')"
-                                @click="exportLogs('page')"
-                            >
-                                <template #icon>
-                                    <CaomeiIcon :icon="Download" />
-                                </template>
-                                {{ t('scans.runList.exportLogs') }}
-                            </CaomeiSplitButton>
-                        </div>
-                    </div>
-                    <div v-if="failureStageCounts.length > 0" class="scans__failure-summary">
-                        <span class="text-muted">{{ t('scans.runList.failureStageSummary') }}</span>
-                        <CaomeiTag
-                            v-for="item in failureStageCounts"
-                            :key="item.stage"
-                            tone="neutral"
-                        >
-                            {{ item.label }} · {{ item.count }}
-                        </CaomeiTag>
-                    </div>
-                </CaomeiCard>
+                <run-filter-bar
+                    v-model:status="filters.status"
+                    v-model:failure-stage="filters.failureStage"
+                    v-model:failure-kind="filters.failureKind"
+                    v-model:from-date="fromDate"
+                    v-model:to-date="toDate"
+                    :status-options="statusFilterOptions"
+                    :failure-stage-options="failureStageFilterOptions"
+                    :failure-kind-options="failureKindFilterOptions"
+                    :failure-stage-counts="failureStageCounts"
+                    :has-active-filters="hasActiveFilters"
+                    :export-items="exportScopeItems"
+                    :export-disabled="total === 0 || exporting"
+                    :exporting="exporting"
+                    @clear="clearRunFilters"
+                    @export-page="exportCurrentPage"
+                />
                 <CaomeiCard v-if="!firstLoad" class="scans__run-list">
                     <CaomeiDataTable
                         :data="runs"
@@ -1018,29 +802,7 @@ onMounted(refresh)
         gap: $space-2;
     }
 
-    &__summary {
-        display: grid;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
-        gap: $space-4;
-        margin-bottom: $space-5;
-    }
-
-    &__stat-value {
-        font-size: $font-size-xl;
-        font-weight: 600;
-        color: var(--caomei-color-primary);
-
-        &--sm {
-            font-size: $font-size-base;
-            font-weight: 500;
-        }
-    }
-
-    &__stat-label {
-        margin-top: $space-1;
-        font-size: $font-size-sm;
-    }
-
+    // 顶部汇总卡片样式随组件迁至 `scans-summary-cards.vue`
     &__tabs {
         margin-top: $space-2;
     }
@@ -1049,23 +811,15 @@ onMounted(refresh)
         margin-bottom: $space-3;
     }
 
-    &__window-hint {
-        margin: $space-3 0 0;
-        font-size: $font-size-sm;
-    }
-
-    &__run-filters {
-        margin-bottom: $space-3;
-    }
-
-    &__run-filter-row {
+    // 按仓库分区的筛选栏留在页面内（仅一个字段，不拆子组件）；样式与运行筛选条同源但不跨组件复用
+    &__byrepo-filter-row {
         display: flex;
         flex-wrap: wrap;
         align-items: flex-end;
         gap: $space-3;
     }
 
-    &__run-filter-field {
+    &__byrepo-filter-field {
         display: flex;
         flex-direction: column;
         gap: $space-1;
@@ -1074,25 +828,14 @@ onMounted(refresh)
         label {
             font-size: $font-size-sm;
         }
-
-        &--action {
-            min-width: 0;
-        }
     }
 
-    &__run-date {
-        width: 100%;
-    }
-
-    &__failure-summary {
-        display: flex;
-        flex-wrap: wrap;
-        align-items: center;
-        gap: $space-2;
-        margin-top: $space-3;
+    &__window-hint {
+        margin: $space-3 0 0;
         font-size: $font-size-sm;
     }
 
+    // 运行筛选条样式随组件迁至 `run-filter-bar.vue`
     &__status-wrap {
         display: inline-flex;
         cursor: help;
@@ -1104,12 +847,6 @@ onMounted(refresh)
         flex-wrap: wrap;
         align-items: center;
         gap: $space-1;
-    }
-}
-
-@media (width <= 900px) {
-    .scans__summary {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 }
 </style>

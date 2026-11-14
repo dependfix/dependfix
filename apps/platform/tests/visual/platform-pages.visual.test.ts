@@ -20,7 +20,7 @@ import {
  * 不再依赖一次性人工判读。数据由 `tests/visual/global-setup.ts` 注入的确定性 fixtures 提供
  * （独立 SQLite 库 + 固定时间戳，见 helpers/fixtures.ts）。
  *
- * 覆盖：亮色 5 张（alerts / repos / pr-checks / dialog-import-repos / login）+
+ * 覆盖：亮色 6 张（alerts / repos / pr-checks / dialog-import-repos / scans 主视图 / login）+
  * 暗色 3 张（alerts / repos / login）+ 浮层落点页 5 张（todo.md §M45.5：schedules 表单浮层 light / dark、
  * scans 运行详情弹窗、alerts 运行抽屉、pr-checks Toast）。基线快照入仓库（`tests/visual/__screenshots__/`）。
  *
@@ -258,6 +258,28 @@ test.describe('平台页面视觉基线', () => {
         await expectThemeApplied(page, 'light')
         /* 浮层用元素级截图：避免整页截图下 fixed 定位元素与背景叠加带来的不稳定 */
         await expectLocatorScreenshot(dialog, 'dialog-import-repos-light.png')
+    })
+
+    /* scans 主视图（4 块汇总 + 运行筛选条 + 运行列表）：覆盖抽取出的汇总卡片与筛选条两个展示块。
+       此前只有运行详情弹窗基线，主视图缺少快照 → 组件样式回归无法被像素比对捕获。 */
+    test('scans 主视图汇总与筛选（light）', async ({ page }) => {
+        await applyTheme(page, 'light')
+        await page.goto('/scans')
+        await waitForHydration(page)
+
+        await expect(page.getByText('总运行数').first()).toBeVisible({ timeout: 15000 })
+        const table = page.locator('.scans__run-list .caomei-data-table')
+        await expect(table).toBeVisible({ timeout: 15000 })
+        /* 前置断言：筛选条三个控件 + 筛选卡片可见（样式块若丢失，仍可能渲染但布局脱形，
+           故同时断言容器存在；行数取自钉死的 fixtures）。 */
+        await expect(page.locator('#run-status')).toBeVisible()
+        await expect(page.locator('#run-from')).toBeVisible()
+        await expect(page.locator('.scans__run-filters')).toHaveCount(1)
+        await expect(table.locator('tbody .caomei-data-table__row')).toHaveCount(VISUAL_FIXTURES.scanRuns.length)
+
+        await waitForVisualStable(page)
+        await expectThemeApplied(page, 'light')
+        await expectPageScreenshot(page, 'scans-main-light.png')
     })
 
     /* scans 页的运行详情弹窗（`/scans?run=` 深链触发的 repo-history-dialog，页面唯一弹窗落点）。

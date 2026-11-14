@@ -54,7 +54,7 @@
 
 ### 候选评估中（待评估 / 本阶段延后项）
 
-> **候选池概览（2026-11-14 复算）**：本区 **47 项**（`### 候选评估中` 段内 `^- \*\*` 逐行计数）；M58 规划阶段上收 6 条为 5 原子（47 → 41）；M59 规划上收 4 条（沙箱 fix 出站策略 / 取消落定与清理 / force-fail 与续用起点写 / 资源采集扩展；41 → 37），另聚合 1 条 M57.1/M58.4 残余（镜像内 sandbox 双架构冒烟），不占候选计数；2026-11-12 运行日志复盘登记 2 条 P1（红仓库 baseline 短路 / 子进程 OOM 信号分离；37 → 39）；2026-11-13 追加 1 条 P2（peer-only 同 major 修复回退；39 → 40）；2026-11-13 M59 插队再平衡移出 M59.5（40 → 41；该项原为「聚合 1 条 M57.1/M58.4 残余、不占候选计数」，移出后转为正式候选并计入），「无写入」结论语义与状态一致性已按用户授权作为 M59 追加临时待办，不占候选计数。2026-11-14 另追加 3 条（沙箱 install 不可达快速失败 P2 / 执行子进程 env 硬化 P1 / 沙箱启用与故障排查文档 P2），段内 `^- \*\*` 实测终态 **47 项**（单一口径，概览首句与本处一致）。P 标签覆盖不全（未标注者评估时补 P 标签，不默认升级）；本文件不维护分档统计，1.0 分档只见 [release-1.0-readiness.md](../design/governance/release-1.0-readiness.md)。
+> **候选池概览（2026-11-14 复算）**：本区 **39 项**（`### 候选评估中` 段内 `^- \*\*` 逐行计数）；M58 规划阶段上收 6 条为 5 原子（47 → 41）；M59 规划上收 4 条（沙箱 fix 出站策略 / 取消落定与清理 / force-fail 与续用起点写 / 资源采集扩展；41 → 37），另聚合 1 条 M57.1/M58.4 残余（镜像内 sandbox 双架构冒烟），不占候选计数；2026-11-12 运行日志复盘登记 2 条 P1（红仓库 baseline 短路 / 子进程 OOM 信号分离；37 → 39）；2026-11-13 追加 1 条 P2（peer-only 同 major 修复回退；39 → 40）；2026-11-13 M59 插队再平衡移出 M59.5（40 → 41；该项原为「聚合 1 条 M57.1/M58.4 残余、不占候选计数」，移出后转为正式候选并计入），「无写入」结论语义与状态一致性已按用户授权作为 M59 追加临时待办，不占候选计数。2026-11-14 另追加 3 条（沙箱 install 不可达快速失败 P2 / 执行子进程 env 硬化 P1 / 沙箱启用与故障排查文档 P2）；**概览此时已漂移**（上述链 41 + 3 = 44，段内实测 47，差额 3 条为此前未入式子的候选），故以段内实测校正为 47；同日 M60 规划上收 8 条（页面体量 / 闲置解构 / 死代码 / 筛选抽取 / 标签 helper / severity 单点化 / 容器部署启用沙箱 / 启用与排障文档）→ 段内 `^- \*\*` 实测终态 **39 项**（单一口径，概览首句与本处一致）。P 标签覆盖不全（未标注者评估时补 P 标签，不默认升级）；本文件不维护分档统计，1.0 分档只见 [release-1.0-readiness.md](../design/governance/release-1.0-readiness.md)。
 > **1.0 门槛与分档**：分档、门槛判定与批次计划单点声明于 [release-1.0-readiness.md](../design/governance/release-1.0-readiness.md)（2026-10-30 冻结口径，不随候选上收收缩；本文件不重复维护数字）。
 
 - **备份 `.tmp` 清扫缺年龄门槛（P3 🛠️，2026-10-31 M53.2 收口登记）** —— `cleanupOldBackups` 对 `*.bak.tmp` 无条件回收；单实例串行路径不可达冲突，但并发 `db:restore` 或多实例共卷启动时可能删掉对端正在写的临时文件（rename ENOENT → 该轮快照丢失，fail-open 后仅剩日志）。待评估：加入 `mtime < now - 10min` 年龄门槛或按 PID 命名临时文件。触发：启用多实例 / 多容器共享数据卷，或出现并发恢复需求时。
@@ -89,36 +89,11 @@
 - **PR Check 三源信号的 provider 原生日志富化（待评估）** —— 现象：M43.2 已完成三源（Checks + Commit Statuses + Deployments）归一化、聚合状态与失败源清单，但失败详情只到 provider / 信号层，**无 provider 原生 API 日志**（D2 裁定首批不做，留后续增量）。待评估点：是否接入 Vercel / Cloudflare / GitHub Actions 的原生失败日志拉取（需 provider 凭据承载面 + 配额控制 + 输出脱敏 + 单行 JSON 膨胀控制）。触发条件：用户报告「信号已失败但无日志可看」时。
   - **按 [规划规范 §3.1](../standards/planning.md#_3-1-新需求默认走-评估-→-backlog-原则-hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
 
-- **`alerts.vue` 存在一处闲置的 `useFixNow()` 解构（待评估）** —— 现象：`apps/platform/app/pages/alerts.vue` 顶部解构 `{ fixingRunId, fixError, fixSuccess, triggerFix }` 但全文件未使用（真正的「立即修复此仓库」入口在子组件 `alert-run-sidebar.vue`），伴随的注释也仍在描述已抽走的流程；该孤立实例同样不消费后加的 `fixMerged`。
-  - **待评估点**：① 直接删除该解构 + 收敛注释（零行为风险）；② 或反向确认是否存在未接线的预期入口（若存在则补齐而非删除）。
-  - **触发条件**：下次改动 `alerts.vue` 时（该文件已处 max-lines warning 带，顺带减法更划算）。
-  - **按 [规划规范 §3.1](../standards/planning.md#_3-1-新需求默认走-评估-→-backlog-原则-hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
-
 - **扫描偏好服务端跨设备默认（延后，保留待评估）** —— **来源**：[issue #136](https://github.com/dependfix/dependfix/issues/136)（该 issue 的设备级需求已随 M37.2 交付，2026-10-15 关闭；本条保留其范围外的服务端默认部分）。设备级方案 C 混合（localStorage：上次选择 + 可选配置化默认 + 重置）已落地；服务端用户 / 组织级默认偏好（跨设备、可管理，需实体 / API / 设置页，预计触发 governance 文档）按用户 2026-10-06 决策延后。**现状锚点**：`apps/platform/app/composables/use-scan-preferences.ts`。触发条件：① 用户实测多设备切换痛点；② 组织级统一默认诉求。
-
-- **`repo-history-dialog` history 模式与 legacy `/repos/[id]/runs` 页疑似无入口死代码（待评估）** —— 现象：全仓仅 `scans.vue` 以 `:query-key="'run'"` 挂载 `repo-history-dialog`；`repos.vue` 的历史入口已改为跳 `/scans?repository=`，故组件的 history 模式（list 视图 / 「返回列表」分支 / `queryKey='history'` 默认值）当前**不可达**；legacy 页 `app/pages/repos/[id]/runs.vue` 亦无站内链接（其注释引用的 backlog 删除候选已不存在）。
-  - **待评估点**：① 删除 history 模式分支 + 收敛组件为单一 run 模式（减法）；② 或恢复 history 挂载点（若确有按仓库浏览历史的需求，可复用扫描页 `/scans?repository=` 路径）；③ legacy `/repos/[id]/runs` 页是否随 history 模式一并删除。
-  - **触发条件**：组件 / 页面维护（如再次改动 `repo-history-dialog`）；或用户要求清理死代码。
-  - **按 [规划规范 §3.1](../standards/planning.md#_3-1-新需求默认走-评估-→-backlog-原则-hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
 
 - **`platform-scheduled-batch.md` 设计快照端点表 / 实体清单陈旧（待评估）** —— 现象：设计稿 `docs/design/governance/platform-scheduled-batch.md §6.1` 的定时计划 CRUD 端点表未登记新增的 `GET /api/schedules/monitor-status`（只读总开关状态端点），§3.1 实体清单仍无 `Schedule.kind` 列。该稿状态为「🔶 设计先行」快照，若后续被当作 API 契约参考会漏看新端点。
   - **待评估点**：① 是否将 design 快照视为需持续同步的契约（补 §6.1 端点表 + §3.1 实体字段）；② 或明确定位为「时点快照」并在阶段归档时统一回填。
   - **触发条件**：后续以该文档为 API 契约参考产生歧义；或用户要求同步设计稿。
-  - **按 [规划规范 §3.1](../standards/planning.md#_3-1-新需求默认走-评估-→-backlog-原则-hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
-
-- **`scans.vue` / `alerts.vue` / `repos.vue` 体量超 `max-lines` 上限（待评估）** —— 现象（2026-10-24 `wc -l` 实测）：`apps/platform/app/pages/scans.vue` 1001 行、`alerts.vue` 900 行、`repos.vue` 840 行，均 >800 触发 `max-lines` warning。当前 lint 以 `--max-warnings 10` 通过，未阻断。
-  - **待评估点**：① 抽取运行列表筛选工具栏（模板约 60 行）为独立组件，或抽 `exportLogs` 到 composable；② 是否一并治理 `alerts.vue` / `repos.vue`；③ 是否收紧 `max-lines` 阈值或引入 per-file 例外。
-  - **触发条件**：三页继续增长致 warning 逼近上限；或用户要求清理。
-  - **按 [规划规范 §3.1](../standards/planning.md#_3-1-新需求默认走-评估-→-backlog-原则-hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
-
-- **列表页筛选能力的共享抽取（待评估）** —— 现象：`repos.vue` 与 `batch-runs.vue` 各自实现客户端筛选 + 重置（形态相近但字段与语义不同），`scans.vue` 另有按仓库筛选；三处筛选样板重复。展示口径统一批次（M42.5）判定两页形态尚未完全一致，故先页面内实现。**分页面板已收敛**：`use-table-pagination` 统一了受控 `page` / `rows`、刷新期间抑制自动回首页、越界收敛与显式回首页（`repos` / `batch-runs` / `pr-checks`；`scans` 服务端分页保留自身 `first` 口径），本候选只剩筛选 / 搜索面。
-  - **待评估点**：① 抽取 `useClientTableFilter`（搜索关键字 + 筛选态 + 重置 + 过滤结果）的收益与形态约束；② 或仅抽「搜索 + 重置」最小面；③ 与组件内建分页、`use-table-pagination` 的职责边界（分页状态已抽出，筛选组合式只消费结果行数）。
-  - **触发条件**：第四处列表页需要同类能力时；或筛选逻辑变更需多处同步时。
-  - **按 [规划规范 §3.1](../standards/planning.md#_3-1-新需求默认走-评估-→-backlog-原则-hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
-
-- **设置页严重级别查找与展示标签 helper 收敛（待评估）** —— 现象：`settings.vue` 内联实现 `find((option) => option.value === x)?.label ?? x`，与展示口径单一事实源的 helper 等价；该批次判定其已满足「同源查找」故未动。
-  - **待评估点**：① 收敛到同一 helper（需处理设置页使用本地 computed 选项数组的差异）；② 或保持等价实现并注明。
-  - **触发条件**：选项数组结构变更时；或设置页重构时。
   - **按 [规划规范 §3.1](../standards/planning.md#_3-1-新需求默认走-评估-→-backlog-原则-hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
 
 - **镜像白名单：企业私服自带独立 CDN 域的补录（待评估）** —— 现象：镜像源动态发现只覆盖「配置面 registry 键的 host」；企业私服 tarball 若 302 到**独立 CDN 域**（与 registry 不同域），该域不在预置清单内 → 仍被 deny-by-default 拦截（交付时已登记为已知限制，需显式 `DEPENDFIX_ALLOWED_DOMAINS`）。
@@ -171,9 +146,6 @@
 
 **2026-10-29 通知与邮件残余**（不占阶段编号）：
 
-- **通知严重级别标签的跨 runtime 单点化（待评估，P3 🛠️）** —— 现象：`Critical` / `High` 标签存在三处口径——`apps/platform/app/utils/scan-options.ts`（前端单一事实源）、`apps/platform/server/services/notification/business-templates.ts`（邮件模板 zh / en 各一份）与 i18n 模板占位符；服务端无法直接 import app 层 util，M50.2 只能保证前端与 i18n 侧同源。**待评估点**：① 是否下沉到 `packages/core` 共享常量并让邮件模板消费；② 或维持现状（前端单点 + 服务端注释互指 + 用例锁定）；③ 与 i18n 占位符拼接口径的关系。**触发条件**：再次改动通知文案，或新增第三处严重级别消费方。
-  - **按 [规划规范 §3.1](../standards/planning.md#_3-1-新需求默认走-评估-→-backlog-原则-hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
-
 - **邮件传输超时与周报节拍约束显式化（待评估，P2 🛠️）** —— 现象：`apps/platform/server/services/mailer/transport.ts` 的 `SMTPTransport.Options` 未声明 `connectionTimeout` / `socketTimeout` / `greetingTimeout`，当前靠 nodemailer 默认值（socket≈10 分钟）与周报 15 分钟检查间隔的隐式大小关系兜底；M50.3 引入重入守卫后，若某次发送永不 settle 且默认值或节拍被改动，周报会永久停摆（旧行为只是噪声）。**待评估点**：① 是否显式声明三个超时并在注释里锁定「必须小于周报检查间隔」；② 是否在启动期做一次配置断言（超时 < 节拍），失败 warn；③ 与平台请求超时 / 队列预算的口径是否统一。**触发条件**：调整周报节拍 / nodemailer 升级 / 再次出现周报停摆。
   - **按 [规划规范 §3.1](../standards/planning.md#_3-1-新需求默认走-评估-→-backlog-原则-hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
 
@@ -221,17 +193,6 @@
   - **待评估点**：① 以 denylist（`NUXT_*` / `AUTH_SECRET` / `DATABASE_*` / `SMTP_*` / `DEPENDFIX_AI_*`）在基线 env 派生处过滤，保留 `PATH` / `HOME` / registry / store / 代理键；② 是否改为白名单派生（更严，但需枚举所有依赖 env 的工具链变量）；③ sandbox 执行器已是精选 env，是否把 container 路径对齐同一注入模型。
   - **触发条件**：container 执行器承接第三方 / 不可信仓库；或安全审计把该暴露面列为发布阻断项。
   - **按 [规划规范 §3.1](../standards/planning.md#_3-1-新需求默认走-评估-→-backlog-原则-hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
-
-- **容器部署下启用沙箱执行器的官方支持**（P2 🛠️，2026-11-14 用户提问登记）—— 背景：平台运行时镜像不含 docker CLI（`Dockerfile` 仅装 `git` / `python3` / `make` / `g++` / `unzip` / `su-exec`），且 compose 未挂 daemon socket，因此容器部署下 `SandboxExecutor.isAvailable()` 恒为 false，仓库选「独立沙箱容器」也会显示「已降级」并回落 container 执行器。当前可用路径只有宿主 / Dev 模式，或自建镜像（加 `docker-cli`）+ 挂 rootless socket（`/run/user/<uid>/docker.sock`）。
-  - **待评估点**：① 是否在平台镜像内置 `docker-cli`（体积 + 攻击面权衡）；② rootless socket 的挂载与权限最小化（禁止宿主 root `/var/run/docker.sock`）；③ 降级原因在 UI / 运行详情中的可见性（当前只有状态标签「已降级」）；④ 是否提供 `sandbox` 可用性自检端点。
-  - **触发条件**：容器部署用户要求 sandbox 隔离；或沙箱 fix 成为默认执行路径。
-  - **按 [规划规范 §3.1](../standards/planning.md#_3-1-新需求默认走-评估-→-backlog-原则-hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
-
-- **沙箱执行器启用与故障排查文档（P2 📚，2026-11-14 用户反馈登记）** —— 背景：用户按仓库设置选了「独立沙箱容器」，结果长期显示「已降级」且无从判断原因，文档里只有零散段落（quick-start 一行提示、deployment 一句 rootless socket），没有「启用条件 / 部署形态矩阵 / 降级原因对照表」。
-  - **内容要求**：① 部署形态矩阵（宿主 / Dev、容器 + rootless socket、容器无 daemon）与各自可行的执行器；② `sandbox_unavailable` / `sandbox_image_unavailable` / `sandbox_egress_blocked` / `sandbox_clone_host_not_allowed` 的判读与处置；③ 镜像选择（slim / full）、`SANDBOX_NPM_REGISTRY`、出站白名单三项必备配置；④ 「已降级」在 UI / 日志中的定位路径。
-  - **触发条件**：用户再次询问沙箱启用；或第三期「平台减法与页面治理」涉及执行器页面时。
-  - **按 [规划规范 §3.1](../standards/planning.md#_3-1-新需求默认走-评估-→-backlog-原则-hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
-
 
 ### 待上收候选（评估完成，等待用户决策）
 
@@ -338,7 +299,7 @@
 - 需真实 GitHub token + 可达出站网络（`github.com` / registry）环境跑一次完整 `fix-and-pr`：容器内 clone → 安装 → 修复 → 验证 → 推送 → 建 PR，核对 `runUrl` / `prNumber` / 网络审计记录。
 - 现有证据仅到 bootstrap 级（gated `sandbox-fix-real.test.ts`，占位 token 走 401），本机 `github.com` 出站被阻断，CI 无 token。
 - **M59.2 残余（同批登记）**：沙箱自包含交付的 gated e2e 两分支（fix 无 PR / fix-and-pr 建 PR）与交付失败分支清理，均需真实容器 + token 取证；实现已交付，未取得证据即不得声称已闭环。
-- 前置：先在目标环境确认沙箱可用（见 backlog「容器部署下启用沙箱执行器的官方支持」）。
+- 前置：先在目标环境确认沙箱可用（实现与自检端点见 [todo.md](todo.md) M60.4）。
 
 ### 发布管线收尾（P3）
 
@@ -442,9 +403,9 @@
 
 | 内容类型 | 位置 |
 |:--|:--|
-| 当前阶段活跃任务 | 无（M59 于 2026-11-14 归档，见 [todo.md](todo.md)；下一阶段「平台减法与页面治理」待规划）；插队容量治理见 [planning.md §3.1.1](../standards/planning.md#_3-1-1-插队后的阶段容量再平衡-hard-requirement-2026-10-19) |
-| 下一阶段（未规划） | 用户 2026-11-12 决策「全部纳入、分四期」：第三期「平台减法与页面治理」→ 第四期「文档与 AI 治理」 |
+| 当前阶段活跃任务 | **M60 平台减法与沙箱可用性**（2026-11-14 规划，混合方案 C：减法 3 原子 + 沙箱 2 原子，见 [todo.md](todo.md)）；插队容量治理见 [planning.md §3.1.1](../standards/planning.md#_3-1-1-插队后的阶段容量再平衡-hard-requirement-2026-10-19) |
+| 下一阶段（未规划） | 用户 2026-11-12 决策第四期「文档与 AI 治理」；M59 残余（交付载体 / 视觉抖动 / env 硬化 / registry 预检）留在本文件 |
 | 已完成阶段归档 | [todo-archive.md](todo-archive.md)（阶段索引 + [archive/](archive/) 分片） |
-| 里程碑与阶段交付 | [roadmap.md](roadmap.md)（M0-M59 已归档；下一阶段待规划） |
+| 里程碑与阶段交付 | [roadmap.md](roadmap.md)（M0-M59 已归档；M60 进行中） |
 | 长期主线 / 候选 / 待人工验收 / 已知边界 | 本文档（按四象限结构） |
 | 历史归档索引 | [archive/index.md](archive/index.md) |

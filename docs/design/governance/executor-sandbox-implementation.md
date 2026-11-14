@@ -66,6 +66,7 @@ export interface SandboxHandle {
 | 沙箱镜像 `sandbox-full` | `executor-base`（+ python3 / make / g++）+ `/app/sandbox` | 目标仓库原生模块无 prebuild、需 node-gyp 源码编译时使用 |
 
 - **构建**：沙箱 target 只依赖 `cli-builder`（core → engine → cli + `build:sandbox`），不触发 Nuxt 构建；`docker.yml` 按架构分别构建两个 target 并各自合成多架构 manifest。
+- **registry 可控**：沙箱容器不继承宿主 `~/.npmrc`；`SANDBOX_NPM_REGISTRY` 注入 `pnpm_config_registry`（pnpm 11 只认该前缀）/ `npm_config_registry`（npm / yarn），HTTPS 且无内嵌凭据时自动并入出站白名单（阻断 npmjs 的网络必须设置，否则安装停在 TCP 连接）。超时结果回传容器输出末尾 + `logs_json`，避免"结果缺失"。
 - **发布名**：slim 为 `…/dependfix-sandbox`、full 为 `…/dependfix-sandbox-full`（docker.io / ghcr.io / ACR 三处同名）；tag 与平台镜像一致（`latest`、`YYYY-MM-DD`、`sha-*`、发布时 `platform-x.y.z`），沙箱镜像**额外发裸版本 tag**（如 `1.0.0`）供默认解析使用。构建期自检 `--version` 非 unknown + skills doctor。
 - **体积取舍（2026-11-14 实测）**：平台镜像 815MB；slim 沙箱约 320MB（Node + git + pnpm + bundle），full 约 744MB（多出编译工具链）。默认 slim；需要源码编译回退的仓库改用 full（仓库级 `sandboxImage` 或 `SANDBOX_IMAGE_REPO` 指向 `-full`）。
 - **默认解析（三源）**：`Repository.sandboxImage` → `SANDBOX_IMAGE` → `SANDBOX_IMAGE_REPO` + `SANDBOX_IMAGE_TAG`；未显式指定时按「**平台镜像同 registry**（由 `DEPENDFIX_IMAGE` 推导 `dependfix-sandbox`）→ Docker Hub → ghcr → ACR（ACR 置末以减少其负荷）」生成候选，执行前逐个 inspect / pull（`SANDBOX_IMAGE_PULL_TIMEOUT_MS`，默认 300s/个），首个可用即用。平台走 ACR 时沙箱自动走 ACR，避免跨网慢速；全部失败才报 `sandbox_image_unavailable`（消息列出已尝试镜像）。不再把 `DEPENDFIX_IMAGE` 本身当沙箱镜像。

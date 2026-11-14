@@ -313,6 +313,7 @@ docker compose up -d
 - 启动时自动补 pending migration；迁移前应用会先把当前 SQLite 快照到 `/app/data/backups`。
 - 升级前建议额外备份数据卷（见下节）。
 - 固定版本可回滚镜像 tag；数据库迁移回退用 `pnpm db:migrate:revert -- --yes`（源码环境）。
+- **沙箱内依赖安装卡住 / `execution_timeout`（2026-11-14）**：沙箱容器不继承宿主 `~/.npmrc`，默认直连 `registry.npmjs.org`；被阻断的网络里 `pnpm install` 会停在 TCP 连接阶段，随后 `lint/build/typecheck/test` 每条命令都各自耗到超时，最终整仓报 `execution_timeout`（表现为"结果缺失"）。设置 `SANDBOX_NPM_REGISTRY`（如 `https://registry.npmmirror.com`）即可，该 host 会自动并入出站白名单；超时结果现会附带容器输出末尾，便于定位卡点。
 - **沙箱镜像升级说明（2026-11-14 起）**：沙箱默认镜像改为独立发布的 `dependfix-sandbox:<平台版本>`（slim，约 320MB），不再回退 `DEPENDFIX_IMAGE`。默认会**跟随平台镜像 registry** 并依次回退 Docker Hub / ghcr / ACR（ACR 置末；逐源 inspect + 限时 pull），全部不可达才报 `sandbox_image_unavailable`；也可用 `SANDBOX_IMAGE_REPO` 固定单源。需要原生模块源码编译的仓库改用 `dependfix-sandbox-full`。
 
 ## 备份与恢复

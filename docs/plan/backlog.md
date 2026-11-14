@@ -212,6 +212,11 @@
   - **触发条件**：部署环境统一经过企业代理 / 网关时；或需要按 run 统计「审计实际覆盖面」时。
   - **按 [规划规范 §3.1](../standards/planning.md#_3-1-新需求默认走-评估-→-backlog-原则-hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
 
+- **沙箱 install 网络不可达的快速失败与预算透传**（P2 🛠️，2026-11-14 线上 `execution_timeout` 复盘登记）—— 背景：沙箱容器不继承宿主 `~/.npmrc`，直连 `registry.npmjs.org` 被阻断时 `pnpm install` 停在 TCP 连接阶段（ETIMEDOUT）而非快速失败；随后 `lint / build / typecheck / test` 每条命令各自耗满命令超时，最终整仓 `execution_timeout` 且结果缺失。已交付 `SANDBOX_NPM_REGISTRY`（注入 `pnpm_config_registry` / `npm_config_registry` + 自动并入白名单）与超时输出回传。
+  - **待评估点**：① 安装前对生效 registry 做 5s 连通性预检（容器内 TCP 探测），不可达即报可读错误而非进入安装；② 把平台执行预算（`deadlineAt`）透传给容器内 CLI，让验证链在预算见底时主动收口并回传部分结果；③ 外层 `withTimeout` 触发（adapter 卡死）时同样带回已捕获输出。
+  - **触发条件**：出现除 npm registry 之外的安装源不可达案例（私有 registry / 代理环境），或再次出现「超时但结果缺失」的运行。
+  - **按 [规划规范 §3.1](../standards/planning.md#_3-1-新需求默认走-评估-→-backlog-原则-hard-requirement) 不带 `M\d+` 阶段编号**：等待评估与用户决策。
+
 ### 待上收候选（评估完成，等待用户决策）
 
 > 本节为「评估完成、等待用户决策」候选的暂存区；候选**不含 `M\d+` 阶段编号**（[规划规范 §3.1](../standards/planning.md#_3-1-新需求默认走-评估-→-backlog-原则-hard-requirement)）。

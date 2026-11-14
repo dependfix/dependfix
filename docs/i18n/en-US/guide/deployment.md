@@ -311,6 +311,7 @@ docker compose up -d
 - Pending migrations are applied at startup; before migrating, the app snapshots the current SQLite database to `/app/data/backups`.
 - Back up the data volume beforehand (see below).
 - Pin a version to roll back the image tag; to roll back a migration use `pnpm db:migrate:revert -- --yes` (source environment).
+- **Sandbox installs stall / `execution_timeout` (2026-11-14)**: the sandbox container does not inherit the host `~/.npmrc` and defaults to `registry.npmjs.org`; on networks where it is blocked, `pnpm install` stalls in TCP connect, then each of `lint/build/typecheck/test` burns its own command timeout until the run ends as `execution_timeout` ("missing results"). Set `SANDBOX_NPM_REGISTRY` (e.g. `https://registry.npmmirror.com`); that host joins the egress allowlist automatically. Timeout results now carry the tail of container output so the stall point is visible.
 - **Sandbox image upgrade (2026-11-14+)**: the sandbox now defaults to the separately published `dependfix-sandbox:<platform version>` (slim, ~320MB) and no longer falls back to `DEPENDFIX_IMAGE`. By default it follows the platform image registry and then falls back across Docker Hub / ghcr / ACR (ACR last; inspect + bounded pull per source); all sources failing yields `sandbox_image_unavailable`. Pin one source with `SANDBOX_IMAGE_REPO`. Repositories that need native source builds should use `dependfix-sandbox-full`.
 
 ## Backup and restore

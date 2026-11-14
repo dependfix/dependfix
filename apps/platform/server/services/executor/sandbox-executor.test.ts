@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
-import { SandboxExecutor, resolveDefaultSandboxImage, resolveEgressPolicy, shouldInjectCloneCredential } from './sandbox-executor'
+import { SandboxExecutor, resolveDefaultSandboxImage, resolveEgressPolicy, resolveSandboxImageCandidates, shouldInjectCloneCredential } from './sandbox-executor'
 import type { ScanExecutorContext } from './types'
 import {
     SpyRuntimeAdapter,
@@ -823,6 +823,70 @@ describe('SandboxExecutor', () => {
     })
 })
 
+describe('resolveSandboxImageCandidates', () => {
+    it('follows the platform image registry first, then publishes fallbacks', () => {
+        const candidates = resolveSandboxImageCandidates({
+            DEPENDFIX_IMAGE: 'registry.cn-hangzhou.aliyuncs.com/caomeiyouren/dependfix:platform-2.0.0',
+        } as NodeJS.ProcessEnv)
+        expect(candidates[0]).toBe('registry.cn-hangzhou.aliyuncs.com/caomeiyouren/dependfix-sandbox:2.0.0')
+        expect(candidates).toEqual(expect.arrayContaining([
+            'ghcr.io/dependfix/dependfix-sandbox:2.0.0',
+            'registry.cn-hangzhou.aliyuncs.com/caomeiyouren/dependfix-sandbox:2.0.0',
+            'caomeiyouren/dependfix-sandbox:2.0.0',
+        ]))
+        // 去重：同一 ACR 镜像只出现一次
+        expect(candidates.filter((item) => item.startsWith('registry.cn-hangzhou'))).toHaveLength(1)
+    })
+
+    it('uses a single explicit image when SANDBOX_IMAGE is set', () => {
+        expect(resolveSandboxImageCandidates({
+            SANDBOX_IMAGE: 'local/sandbox:1',
+            DEPENDFIX_IMAGE: 'ghcr.io/dependfix/dependfix:latest',
+        } as NodeJS.ProcessEnv)).toEqual(['local/sandbox:1'])
+    })
+
+    it('does not derive from a local platform image name', () => {
+        const candidates = resolveSandboxImageCandidates({
+            DEPENDFIX_IMAGE: 'dependfix-platform:local',
+            SANDBOX_IMAGE_TAG: 'edge',
+        } as NodeJS.ProcessEnv)
+        expect(candidates[0]).toBe('ghcr.io/dependfix/dependfix-sandbox:edge')
+    })
+
+    it('resolves the pull timeout from env with a safe fallback', async () => {
+        const { resolveImagePullTimeoutMs } = await import('./sandbox-image')
+        expect(resolveImagePullTimeoutMs({ SANDBOX_IMAGE_PULL_TIMEOUT_MS: '45000' } as NodeJS.ProcessEnv)).toBe(45_000)
+        expect(resolveImagePullTimeoutMs({ SANDBOX_IMAGE_PULL_TIMEOUT_MS: 'nope' } as NodeJS.ProcessEnv)).toBe(300_000)
+        expect(resolveImagePullTimeoutMs({} as NodeJS.ProcessEnv)).toBe(300_000)
+    })
+
+    it('ignores non-published platform tags (local / dev) and falls back to latest', () => {
+        const candidates = resolveSandboxImageCandidates({
+            DEPENDFIX_IMAGE: 'ghcr.io/team/dependfix:local',
+        } as NodeJS.ProcessEnv)
+        expect(candidates[0]).toBe('ghcr.io/team/dependfix-sandbox:latest')
+    })
+})
+
+describe('deriveSandboxRepoFromPlatformImage', () => {
+    it('maps published platform images in any registry', async () => {
+        const { deriveSandboxRepoFromPlatformImage } = await import('./sandbox-image')
+        expect(deriveSandboxRepoFromPlatformImage('ghcr.io/dependfix/dependfix:latest'))
+            .toBe('ghcr.io/dependfix/dependfix-sandbox')
+        expect(deriveSandboxRepoFromPlatformImage('registry.example.com:5000/team/dependfix-platform:platform-1.0.0'))
+            .toBe('registry.example.com:5000/team/dependfix-sandbox')
+        expect(deriveSandboxRepoFromPlatformImage(`dependfix/dependfix@sha256:${'a'.repeat(64)}`))
+            .toBe('dependfix/dependfix-sandbox')
+    })
+
+    it('ignores local names and unrelated repositories', async () => {
+        const { deriveSandboxRepoFromPlatformImage } = await import('./sandbox-image')
+        expect(deriveSandboxRepoFromPlatformImage('dependfix-platform:local')).toBeNull()
+        expect(deriveSandboxRepoFromPlatformImage('ghcr.io/team/my-app:1')).toBeNull()
+        expect(deriveSandboxRepoFromPlatformImage(undefined)).toBeNull()
+    })
+})
+
 describe('resolveDefaultSandboxImage', () => {
     it('prefers an explicit SANDBOX_IMAGE', () => {
         expect(resolveDefaultSandboxImage({ SANDBOX_IMAGE: ' local/sandbox:1 ' } as NodeJS.ProcessEnv))
@@ -855,5 +919,55 @@ describe('resolveDefaultSandboxImage', () => {
             .toBe('ghcr.io/dependfix/dependfix-sandbox:latest')
         expect(resolveDefaultSandboxImage({ NUXT_BUILD_VERSION: '2.3.4', SANDBOX_IMAGE_TAG: 'edge' } as NodeJS.ProcessEnv))
             .toBe('ghcr.io/dependfix/dependfix-sandbox:edge')
+    })
+})
+
+describe('sandbox image failover', () => {
+    class ImageAwareAdapter implements RuntimeAdapter {
+        readonly name = 'image-aware'
+        readonly attempts: string[] = []
+        private readonly availability: boolean[]
+
+        constructor(availability: boolean[]) {
+            this.availability = [...availability]
+        }
+
+        async isAvailable(): Promise<boolean> {
+            return true
+        }
+
+        async ensureImage(image: string): Promise<boolean> {
+            this.attempts.push(image)
+            return this.availability.shift() ?? false
+        }
+
+        async run(spec: ContainerSpec): Promise<ContainerRunResult> {
+            this.attempts.push(`run:${spec.image}`)
+            return { stdout: '', stderr: '', exitCode: 0 }
+        }
+    }
+
+    it('falls back to the next registry when a candidate cannot be pulled', async () => {
+        const candidates = resolveSandboxImageCandidates()
+        const adapter = new ImageAwareAdapter([false, true])
+        const executor = new SandboxExecutor({
+            runtimeAdapter: adapter,
+            egress: { allowlist: ['github.com'] },
+            cloneBaseUrl: 'https://github.com',
+        })
+        await executor.execute(makeCtx())
+        // 逐源预检：首个失败 → 第二个成功 → 用第二个镜像启动容器
+        expect(adapter.attempts[0]).toBe(candidates[0])
+        expect(adapter.attempts[1]).toBe(candidates[1])
+        expect(adapter.attempts[2]).toBe(`run:${candidates[1]}`)
+    })
+
+    it('reports sandbox_image_unavailable when every candidate fails', async () => {
+        const adapter = new ImageAwareAdapter([false, false, false, false])
+        const executor = new SandboxExecutor({ runtimeAdapter: adapter })
+        const result = await executor.execute(makeCtx())
+        expect(result.error?.code).toBe('sandbox_image_unavailable')
+        expect(result.error?.message).toContain('已尝试')
+        expect(adapter.attempts.some((item) => item.startsWith('run:'))).toBe(false)
     })
 })

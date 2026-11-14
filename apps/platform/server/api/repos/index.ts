@@ -10,6 +10,7 @@ import { normalizePRCheckFocus, parsePRCheckFocus } from '#server/utils/pr-check
 import { recordExecutionLimitsAudit, recordMajorUpgradePolicyAudit, recordVerifyCommandsAudit } from '#server/services/repository-audit'
 import { resolveExecutionCeilingMs } from '#server/utils/execution-limits'
 import { resolveAllowMajorUpgradeDefault } from '#server/utils/allow-major-upgrade'
+import { normalizeDockerImage } from '#server/utils/docker-image'
 
 const toView = (r: Repository) => ({
     id: r.id,
@@ -25,6 +26,7 @@ const toView = (r: Repository) => ({
     note: r.note,
     tags: parseTags(r.tags),
     sandboxLimits: parseSandboxLimits(r.sandboxLimits),
+    sandboxImage: r.sandboxImage,
     verifyCommands: parseVerifyCommands(r.verifyCommands),
     prCheckFocus: parsePRCheckFocus(r.prCheckFocus),
     executionTimeoutMs: r.executionTimeoutMs,
@@ -146,6 +148,7 @@ const createRepository = async (event: H3Event) => {
         note: parsed.data.note ?? null,
         tags,
         sandboxLimits,
+        sandboxImage: normalizeDockerImage(parsed.data.sandboxImage),
         verifyCommands: verifyCommandsValue,
         prCheckFocus: prCheckFocusValue ? JSON.stringify(prCheckFocusValue) : null,
         executionTimeoutMs: parsed.data.executionTimeoutMs ?? null,

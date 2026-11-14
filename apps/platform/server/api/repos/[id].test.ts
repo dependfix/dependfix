@@ -67,6 +67,21 @@ describe('GET /api/repos/[id]', () => {
         expect(detail.tags).toEqual(['prod'])
     })
 
+    it('updates and clears the repository-level sandbox image', async () => {
+        await callId('PUT', `/api/repos/${id}`, { sandboxImage: 'ghcr.io/owner/dependfix:2.0.0' }, { id })
+        let detail = await callId('GET', `/api/repos/${id}`, undefined, { id }) as Record<string, unknown>
+        expect(detail.sandboxImage).toBe('ghcr.io/owner/dependfix:2.0.0')
+
+        // 省略字段的局部 PUT 不清空既有值
+        await callId('PUT', `/api/repos/${id}`, { note: '只改备注' }, { id })
+        detail = await callId('GET', `/api/repos/${id}`, undefined, { id }) as Record<string, unknown>
+        expect(detail.sandboxImage).toBe('ghcr.io/owner/dependfix:2.0.0')
+
+        await callId('PUT', `/api/repos/${id}`, { sandboxImage: null }, { id })
+        detail = await callId('GET', `/api/repos/${id}`, undefined, { id }) as Record<string, unknown>
+        expect(detail.sandboxImage).toBeNull()
+    })
+
     it('rejects owner/name conflict with 409', async () => {
         await callIndex('POST', '/api/repos', { ...basePayload, owner: 'other', name: 'repo' })
         await expectError(

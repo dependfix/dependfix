@@ -11,6 +11,7 @@ import {
     MAX_REPOSITORY_TAG_LENGTH,
     normalizeRepositoryTags,
 } from '#server/utils/repository-tags'
+import { isValidDockerImage, MAX_DOCKER_IMAGE_LENGTH } from '#server/utils/docker-image'
 import {
     MAX_CLONE_TIMEOUT_MS,
     MAX_COMMAND_TIMEOUT_MS,
@@ -84,6 +85,14 @@ export const repositoryFieldShape = {
         memoryMb: z.number().int().min(64, 'memoryMb 至少 64MB').max(32768, 'memoryMb 至多 32768MB (32GB)').optional(),
         cpu: z.number().min(0.1, 'cpu 至少 0.1').max(16, 'cpu 至多 16').optional(),
     }).strict().nullable().optional(),
+    /**
+     * 仓库级沙箱镜像（可选；空 / null = 平台默认 SANDBOX_IMAGE / DEPENDFIX_IMAGE / dependfix-platform:latest）。
+     * 只校验语法，镜像可达性由执行期 docker 拉取决定。
+     */
+    sandboxImage: z.string().trim()
+        .max(MAX_DOCKER_IMAGE_LENGTH, `镜像地址最长 ${MAX_DOCKER_IMAGE_LENGTH} 字符`)
+        .refine((value) => value.length === 0 || isValidDockerImage(value), '镜像地址格式不合法（示例：ghcr.io/owner/dependfix:latest）')
+        .nullable().optional(),
     /**
      * 仓库级自定义验证命令（覆盖引擎默认验证链）；安全边界与语义见实体字段注释。
      */

@@ -32,6 +32,7 @@ import { AddRepositoryPrFeedback2900000000002 } from './migrations/2900000000002
 import { AddRepositoryExecutionLimits3000000000000 } from './migrations/3000000000000-AddRepositoryExecutionLimits'
 import { AddRepositoryAllowMajorUpgrade3000000000001 } from './migrations/3000000000001-AddRepositoryAllowMajorUpgrade'
 import { AddPrCheckLifecycleState3100000000000 } from './migrations/3100000000000-AddPrCheckLifecycleState'
+import { AddRepositorySandboxImage3100000000001 } from './migrations/3100000000001-AddRepositorySandboxImage'
 import { runStartupBackup } from './backup'
 import { isQueueWorkerProcess } from '#server/utils/process-role'
 import { Account } from '#server/entities/account'
@@ -120,6 +121,7 @@ export const createDataSourceOptions = (): DataSourceOptions => {
             AddRepositoryExecutionLimits3000000000000,
             AddRepositoryAllowMajorUpgrade3000000000001,
             AddPrCheckLifecycleState3100000000000,
+            AddRepositorySandboxImage3100000000001,
         ],
         migrationsRun,
         synchronize,

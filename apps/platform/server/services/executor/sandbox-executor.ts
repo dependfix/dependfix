@@ -1,6 +1,8 @@
 import type { RunResult } from '@dependfix/core'
 import type { ExecutorResourceUsage, ScanExecutor, ScanExecutorContext, ScanExecutorResult } from './types'
 import { resolveDefaultSandboxImage, resolveSandboxImageCandidates, resolveImagePullTimeoutMs } from './sandbox-image'
+import { buildLogsJson, lastLines, registryHostname } from './sandbox-diagnostics'
+import { classifyError, withTimeout } from './sandbox-errors'
 
 export { deriveSandboxRepoFromPlatformImage, resolveDefaultSandboxImage, resolveSandboxImageCandidates } from './sandbox-image'
 import { DockerAdapter, SANDBOX_DEFAULTS, type ContainerRunResult, type ContainerSpec, type RuntimeAdapter } from './runtime-adapter'
@@ -49,6 +51,16 @@ const CONTAINER_REPO_PATH = '/tmp/repo'
  */
 const DEFAULT_CLONE_BASE_URL = process.env.SANDBOX_CLONE_BASE_URL?.trim().replace(/\/+$/, '') || 'https://github.com'
 
+/**
+ * 传输层超时相对执行上限的宽限：让 RuntimeAdapter 先于外层 withTimeout 触发，
+ * 从而把容器已产出的 stdout/stderr（pnpm 卡在哪一步）随超时结果一起落库；
+ * 外层仍保留兜底（adapter 自身卡死时终止）。
+ */
+const TRANSPORT_TIMEOUT_GRACE_MS = 30_000
+
+/** 超时诊断文本上限（落 error.message 的容器输出末尾长度）。 */
+const TIMEOUT_DIAGNOSTIC_CHARS = 600
+
 // 注：与 SANDBOX_IMAGE 同模式——模块加载期读取 env；实例选项可覆盖（测试 / 多实例场景）
 
 /** 仅放行的告警源：report-only 的隔离论证依赖「不执行目标仓库代码」 */
@@ -71,8 +83,18 @@ export interface SandboxExecutorOptions {
     sandboxLimits?: { memoryMb?: number, cpu?: number }
     /** 单次执行超时(默认 30 分钟——与 ContainerExecutor 对齐) */
     timeoutMs?: number
+    /** 传输层超时宽限（adapter 先触发以带回输出；默认 30s，测试可缩短） */
+    timeoutGraceMs?: number
     /** clone 基地址覆盖（默认读 SANDBOX_CLONE_BASE_URL，回退 https://github.com） */
     cloneBaseUrl?: string
+    /**
+     * 容器内 npm registry 覆盖（默认读 `SANDBOX_NPM_REGISTRY`）。
+     *
+     * 沙箱容器不继承宿主 `~/.npmrc`：在直连 registry.npmjs.org 被阻断的网络里，
+     * `pnpm install` 会停在 TCP 连接阶段（ETIMEDOUT）而不是快速失败，逐条验证命令
+     * 各吃掉一个命令超时，最终表现为整仓 `execution_timeout`。显式配置后同时并入出站白名单。
+     */
+    npmRegistry?: string
     /** 出站策略覆盖（缺省读 env：DEPENDFIX_NETWORK_AUDIT / DEPENDFIX_ALLOWED_DOMAINS） */
     egress?: {
         enabled?: boolean
@@ -136,12 +158,15 @@ export class SandboxExecutor implements ScanExecutor {
     private readonly skillsDir: string
     private readonly sandboxLimits: { memoryMb?: number, cpu?: number }
     private readonly timeoutMs: number
+    private readonly timeoutGraceMs: number
     private readonly egress: SandboxEgressPolicy
     private readonly cloneBaseUrl: string
     /** 镜像候选（预检时按序尝试；显式 image / SANDBOX_IMAGE 时只有一项） */
     private readonly imageCandidates: string[]
     /** 单个镜像拉取上限（预检用） */
     private readonly imagePullTimeoutMs: number
+    /** 容器内 npm registry（空 = 不覆盖，沿用仓库 / pnpm 默认） */
+    private readonly npmRegistry: string
 
     constructor(options: SandboxExecutorOptions = {}) {
         this.adapter = options.runtimeAdapter ?? new DockerAdapter()
@@ -150,7 +175,18 @@ export class SandboxExecutor implements ScanExecutor {
         this.skillsDir = options.skillsDir ?? DEFAULT_SANDBOX_SKILLS_DIR
         this.sandboxLimits = options.sandboxLimits ?? {}
         this.timeoutMs = options.timeoutMs ?? SANDBOX_DEFAULTS.timeoutMs
-        this.egress = resolveEgressPolicy(options.egress)
+        this.timeoutGraceMs = options.timeoutGraceMs ?? TRANSPORT_TIMEOUT_GRACE_MS
+        const configuredRegistry = (options.npmRegistry ?? process.env.SANDBOX_NPM_REGISTRY ?? '').trim()
+        const registryHost = registryHostname(configuredRegistry)
+        if (configuredRegistry && !registryHost) {
+            // 不接受明文 / 内嵌凭据：整体忽略该配置（行为回到仓库 / pnpm 默认），避免半个生效
+            console.warn('[sandbox] SANDBOX_NPM_REGISTRY 已忽略：必须是 https 且不含内嵌凭据')
+        }
+        this.npmRegistry = registryHost ? configuredRegistry : ''
+        const egress = resolveEgressPolicy(options.egress)
+        this.egress = registryHost && !egress.allowlist.includes(registryHost)
+            ? { ...egress, allowlist: [...egress.allowlist, registryHost] }
+            : egress
         this.cloneBaseUrl = (options.cloneBaseUrl ?? DEFAULT_CLONE_BASE_URL).replace(/\/+$/, '')
         this.imageCandidates = options.image ? [options.image] : resolveSandboxImageCandidates()
         this.imagePullTimeoutMs = resolveImagePullTimeoutMs()
@@ -257,7 +293,8 @@ export class SandboxExecutor implements ScanExecutor {
         try {
             const spec = this.buildSpec(ctx, image)
             const cmd = this.buildCmd(ctx)
-            const runResult = await withTimeout(this.adapter.run(spec, cmd), this.timeoutMs)
+            // adapter 侧按 spec.timeoutMs 先触发（返回 124 + 已捕获输出），外层多给宽限做兜底
+            const runResult = await withTimeout(this.adapter.run(spec, cmd), this.timeoutMs + this.timeoutGraceMs)
             return this.parseRunResult(runResult, startedAt, ctx)
         } catch (error) {
             const result = classifyError(error, this.timeoutMs, startedAt)
@@ -301,6 +338,12 @@ export class SandboxExecutor implements ScanExecutor {
                 GITHUB_REPOSITORY: `${ctx.repository.owner}/${ctx.repository.name}`,
                 // 自包含产物不依赖 node_modules：skills 静态目录随 bundle 复制
                 DEPENDFIX_SKILLS_DIR: this.skillsDir,
+                // registry 覆盖（含镜像站）：pnpm 只认 pnpm_config_*，npm / yarn 认 npm_config_*
+                ...(this.npmRegistry && {
+                    pnpm_config_registry: this.npmRegistry,
+                    npm_config_registry: this.npmRegistry,
+                    NPM_CONFIG_REGISTRY: this.npmRegistry,
+                }),
                 // fix 类：把出站策略交给容器内 CLI（其运行级审计代理按此白名单做 deny-by-default）
                 ...(ctx.config.mode !== SANDBOX_REPORT_ONLY && {
                     DEPENDFIX_ALLOWED_DOMAINS: this.egress.allowlist.join(','),
@@ -529,12 +572,22 @@ export class SandboxExecutor implements ScanExecutor {
 
         // transport 超时分支:RuntimeAdapter 返回 exitCode 124(与 timeout(1) 命令一致语义)
         if (transportExitCode === 124) {
+            // 超时最容易「结果缺失」：把容器已产出的输出末尾带回，指明卡在哪一步
+            const stderrTail = lastLines(runResult.stderr, TIMEOUT_DIAGNOSTIC_CHARS / 2)
+            const stdoutTail = lastLines(stdout, TIMEOUT_DIAGNOSTIC_CHARS / 2)
+            const tail = [
+                stderrTail ? `stderr 末尾：${stderrTail}` : '',
+                stdoutTail ? `stdout 末尾：${stdoutTail}` : '',
+            ].filter(Boolean).join('；')
             return {
                 exitCode: 2,
                 error: {
                     code: 'execution_timeout',
-                    message: `执行超时(${this.timeoutMs}ms 上限)`,
+                    message: `执行超时(${this.timeoutMs}ms 上限)${tail ? `；容器输出${tail.replace(/^(stderr|stdout)/, ' $1')}` : ''}`,
                 },
+                ...(tail || stdout || runResult.stderr
+                    ? { logsJson: buildLogsJson(stdout, runResult.stderr) }
+                    : {}),
                 resource,
                 startedAt,
                 finishedAt,
@@ -678,65 +731,6 @@ function shQuote(value: string): string {
     return `'${value.replace(/'/g, '\'\\\'\'')}'`
 }
 
-/** 把 stdout / stderr 尾部转为执行日志 JSON（与 MemoryLogger 同形：timestamp / level / message） */
-function buildLogsJson(stdout: string, stderr: string, maxLines = 100): string {
-    const now = new Date().toISOString()
-    const toLines = (text: string) => text.split('\n')
-        .map((line) => sanitizeString(line.trim()))
-        .filter(Boolean)
-        .slice(-maxLines)
-    const entries = [
-        ...toLines(stdout).map((message) => ({ timestamp: now, level: 'info', message })),
-        ...toLines(stderr).map((message) => ({ timestamp: now, level: 'error', message })),
-    ]
-    return JSON.stringify(entries)
-}
-
-/** 错误分类:统一从 catch 分支调用,避免错误分类逻辑散落 */
-function classifyError(error: unknown, timeoutMs: number, startedAt: string): ScanExecutorResult {
-    const finishedAt = new Date().toISOString()
-
-    // 外层 withTimeout 触发的超时:ExecutionTimeoutError → execution_timeout
-    if (error instanceof ExecutionTimeoutError) {
-        return {
-            exitCode: 2,
-            error: {
-                code: 'execution_timeout',
-                message: `执行超时(${timeoutMs}ms 上限)`,
-            },
-            startedAt,
-            finishedAt,
-        }
-    }
-
-    // daemon 不可用:ENOENT(docker CLI 缺失)/ ENOTCONN(daemon 卡死)/ EACCES(无权限)/ ECONNREFUSED
-    const code = (error as NodeJS.ErrnoException | undefined)?.code
-    if (code === 'ENOENT' || code === 'ENOTCONN' || code === 'EACCES' || code === 'ECONNREFUSED') {
-        const raw = error instanceof Error ? error.message : String(error)
-        return {
-            exitCode: 2,
-            error: {
-                code: 'sandbox_unavailable',
-                message: `沙箱执行器不可用:${sanitizeErrorMessage(raw)}`,
-            },
-            startedAt,
-            finishedAt,
-        }
-    }
-
-    // 其他(容器启动失败 / 业务执行失败等):execution_failed
-    const raw = error instanceof Error ? error.message : String(error)
-    return {
-        exitCode: 2,
-        error: {
-            code: 'execution_failed',
-            message: sanitizeErrorMessage(raw),
-        },
-        startedAt,
-        finishedAt,
-    }
-}
-
 /**
  * 校验 RunResult 必填字段契约(运行时校验,弥补 `JSON.parse(...) as RunResult` 类型断言的盲点)。
  * 当前校验粒度:顶层必填字段类型 + summary 必填子字段数字类型 + repositories 非空数组。
@@ -771,26 +765,6 @@ function validateRunResult(result: unknown): { valid: true } | { valid: false, r
         return { valid: false, reason: 'alerts/actions/errors 不是数组' }
     }
     return { valid: true }
-}
-
-/** 带超时的 Promise 包装(私有——与 container-executor.ts 同语义但独立,避免交叉依赖) */
-class ExecutionTimeoutError extends Error {
-    constructor(ms: number) {
-        super(`operation timeout after ${ms}ms`)
-        this.name = 'ExecutionTimeoutError'
-    }
-}
-
-async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
-    let timer: NodeJS.Timeout | undefined
-    const timeoutPromise = new Promise<never>((_, reject) => {
-        timer = setTimeout(() => reject(new ExecutionTimeoutError(ms)), ms)
-    })
-    try {
-        return await Promise.race([promise, timeoutPromise])
-    } finally {
-        clearTimeout(timer)
-    }
 }
 
 /**

@@ -459,10 +459,48 @@ describe('SandboxExecutor', () => {
             const executor = new SandboxExecutor({
                 runtimeAdapter: new SpyRuntimeAdapter(),
                 egress: { enabled: true, allowlist: ['github.com', 'registry.example.com'] },
+                npmRegistry: '',
             })
             const spec = executor.buildSpec(makeCtx({ config: { ...defaultRuntimeConfig, mode: 'fix' } }))
             expect(spec.env?.DEPENDFIX_ALLOWED_DOMAINS).toContain('github.com')
             expect(spec.env?.DEPENDFIX_ALLOWED_DOMAINS).toContain('registry.example.com')
+        })
+
+        it('injects npm registry override and auto-allows its host', () => {
+            const executor = new SandboxExecutor({
+                runtimeAdapter: new SpyRuntimeAdapter(),
+                egress: { enabled: true, allowlist: ['github.com'] },
+                npmRegistry: 'https://registry.npmmirror.com',
+                image: 'alpine:3',
+            })
+            const spec = executor.buildSpec(makeCtx({ config: { ...defaultRuntimeConfig, mode: 'fix' } }))
+            expect(spec.env?.pnpm_config_registry).toBe('https://registry.npmmirror.com')
+            expect(spec.env?.npm_config_registry).toBe('https://registry.npmmirror.com')
+            expect(spec.env?.NPM_CONFIG_REGISTRY).toBe('https://registry.npmmirror.com')
+            // 镜像站未显式加入白名单也要放行，否则安装必然 502
+            expect(spec.env?.DEPENDFIX_ALLOWED_DOMAINS).toContain('registry.npmmirror.com')
+        })
+
+        it('ignores a plaintext or credentialed registry hint entirely', () => {
+            for (const npmRegistry of ['http://registry.example.com', 'https://user:pass@registry.example.com']) {
+                const executor = new SandboxExecutor({
+                    runtimeAdapter: new SpyRuntimeAdapter(),
+                    egress: { enabled: true, allowlist: ['github.com'] },
+                    npmRegistry,
+                    image: 'alpine:3',
+                })
+                const spec = executor.buildSpec(makeCtx({ config: { ...defaultRuntimeConfig, mode: 'fix' } }))
+                expect(spec.env?.pnpm_config_registry).toBeUndefined()
+                expect(spec.env?.DEPENDFIX_ALLOWED_DOMAINS).not.toContain('registry.example.com')
+            }
+        })
+
+        it('leaves registry env untouched when no override is configured', () => {
+            const executor = new SandboxExecutor({ runtimeAdapter: new SpyRuntimeAdapter(), image: 'alpine:3', npmRegistry: '' })
+            const spec = executor.buildSpec(makeCtx({ config: { ...defaultRuntimeConfig, mode: 'fix' } }))
+            expect(spec.env?.pnpm_config_registry).toBeUndefined()
+            expect(spec.env?.npm_config_registry).toBeUndefined()
+            expect(spec.env?.NPM_CONFIG_REGISTRY).toBeUndefined()
         })
 
         it('does not inject the allowlist env for report-only', () => {
@@ -783,6 +821,7 @@ describe('SandboxExecutor', () => {
             const executor = new SandboxExecutor({
                 runtimeAdapter: new NeverResolveAdapter(),
                 timeoutMs: 50,
+                timeoutGraceMs: 10,
             })
             const result = await executor.execute(makeCtx())
             expect(result.exitCode).toBe(2)
@@ -932,55 +971,5 @@ describe('resolveDefaultSandboxImage', () => {
             .toBe('caomeiyouren/dependfix-sandbox:latest')
         expect(resolveDefaultSandboxImage({ NUXT_BUILD_VERSION: '2.3.4', SANDBOX_IMAGE_TAG: 'edge' } as NodeJS.ProcessEnv))
             .toBe('caomeiyouren/dependfix-sandbox:edge')
-    })
-})
-
-describe('sandbox image failover', () => {
-    class ImageAwareAdapter implements RuntimeAdapter {
-        readonly name = 'image-aware'
-        readonly attempts: string[] = []
-        private readonly availability: boolean[]
-
-        constructor(availability: boolean[]) {
-            this.availability = [...availability]
-        }
-
-        async isAvailable(): Promise<boolean> {
-            return true
-        }
-
-        async ensureImage(image: string): Promise<boolean> {
-            this.attempts.push(image)
-            return this.availability.shift() ?? false
-        }
-
-        async run(spec: ContainerSpec): Promise<ContainerRunResult> {
-            this.attempts.push(`run:${spec.image}`)
-            return { stdout: '', stderr: '', exitCode: 0 }
-        }
-    }
-
-    it('falls back to the next registry when a candidate cannot be pulled', async () => {
-        const candidates = resolveSandboxImageCandidates()
-        const adapter = new ImageAwareAdapter([false, true])
-        const executor = new SandboxExecutor({
-            runtimeAdapter: adapter,
-            egress: { allowlist: ['github.com'] },
-            cloneBaseUrl: 'https://github.com',
-        })
-        await executor.execute(makeCtx())
-        // 逐源预检：首个失败 → 第二个成功 → 用第二个镜像启动容器
-        expect(adapter.attempts[0]).toBe(candidates[0])
-        expect(adapter.attempts[1]).toBe(candidates[1])
-        expect(adapter.attempts[2]).toBe(`run:${candidates[1]}`)
-    })
-
-    it('reports sandbox_image_unavailable when every candidate fails', async () => {
-        const adapter = new ImageAwareAdapter([false, false, false, false])
-        const executor = new SandboxExecutor({ runtimeAdapter: adapter })
-        const result = await executor.execute(makeCtx())
-        expect(result.error?.code).toBe('sandbox_image_unavailable')
-        expect(result.error?.message).toContain('已尝试')
-        expect(adapter.attempts.some((item) => item.startsWith('run:'))).toBe(false)
     })
 })

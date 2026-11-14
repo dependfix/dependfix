@@ -274,13 +274,13 @@ curl -X PUT /api/repos/{id} \
   -H 'Content-Type: application/json' \
   -d '{"executorKind": "sandbox"}'
 
-# 3) Image: the dedicated slim sandbox image is the default
-#    (ghcr.io/dependfix/dependfix-sandbox:<platform build version|latest>; override with
-#    SANDBOX_IMAGE or SANDBOX_IMAGE_REPO + SANDBOX_IMAGE_TAG). Use the -full variant when
-#    target native modules need source builds. It contains /app/sandbox/bin.mjs + skills.
+# 3) Image: the sandbox follows the platform image registry first (ACR platform → ACR sandbox),
+#    then falls back across ghcr / ACR / Docker Hub; each source is inspected and pulled with a
+#    timeout, first hit wins. Pin one source with SANDBOX_IMAGE or SANDBOX_IMAGE_REPO + TAG.
+#    Use the -full variant when target native modules need source builds.
 # 4) Custom runtime (default runc; switch to Sysbox if deployed) — read at module level, set before platform start
 # export SANDBOX_RUNTIME=sysbox-runc
-# The image defaults to the ghcr sandbox image; set "Sandbox image" per repository to override
+# The image follows the platform registry and falls back across ghcr / ACR / Docker Hub; set "Sandbox image" per repository to override
 ```
 
 > **Delivery**: `fix` commits and pushes the current branch inside the container (`--commit --push`); `fix-and-pr` creates the branch, pushes, and opens the PR inside the container, returning branch / commit / PR in the result contract so the platform never pushes or opens a PR twice. On failure or cancellation the platform deletes only the declared `dependfix/` branch (never the default branch) and records a `delivery_branch_cleanup` audit event. A failed push (protected default branch / invalid credential) marks the run `failed`; non-GitHub clone sources have no push credential, so `fix` commits without pushing (use `fix-and-pr` or a GitHub source instead).

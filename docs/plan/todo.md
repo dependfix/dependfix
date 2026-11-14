@@ -226,7 +226,7 @@
 
 ### 追加临时待办（不占阶段条目编号）：沙箱镜像不可配置导致线上执行失败（P1 🛠️）
 
-> **状态**：✅ 已闭环（2026-11-14；PR #245，merge `91c2e3e1`；审计 R1 Reject（UI 证据缺失）→ 补 e2e / 迁移 / 证伪用例 → R2 Pass）。线上 `sandbox_image_unavailable` 根因：默认镜像名 `dependfix-platform:latest` 仅本地存在，外置 daemon 无法解析；仓库级无镜像字段。已交付仓库级 `sandboxImage`（迁移 `3100000000001`）、镜像语法校验、表单输入、编排层按仓库镜像创建执行器、`sandbox_image_unavailable` → `runtime / deterministic`；e2e 覆盖可见 / 校验 / 保存 / 回显 / 隐藏。
+> **状态**：✅ 已闭环（2026-11-14；PR #245，merge `91c2e3e1`；审计 R1 Reject（UI 证据缺失）→ 补 e2e / 迁移 / 证伪用例 → R2 Pass）。根因：默认镜像名 `dependfix-platform:latest` 仅本地存在、仓库级无镜像字段。已交付仓库级 `sandboxImage`、语法校验、表单与编排接线、失败分类；e2e 覆盖显隐 / 校验 / 回显。
 
 > **来源与授权**：2026-11-14 用户报告截图（`扫描执行失败（sandbox_image_unavailable）`）+ 明确要求「应该要可以配置 docker 镜像地址」。属 [规划规范 §3.1](../standards/planning.md#_3-1-新需求默认走-评估-→-backlog-原则-hard-requirement) 插队例外第 3 类（用户报告的 blocker 级功能缺失），按「追加临时待办」登记：不分配编号。
 
@@ -235,7 +235,7 @@
 - **不做**：不做镜像可达性预检（执行期 docker 拉取即判定）；不改沙箱非 root / cgroup / 超时基线；不引入 digest 强制（文档建议钉定）。
 - **容量影响评估（§3.1.1）**：约 3-5% 阶段基线（约 25 文件 / ~250 行）；阶段累计插队 4 批；阈值 1 已于 2026-11-13 通过移出 M59.5 消化，本次不再触发新的再平衡；剩余验证预算按阶段质量门执行。
 
-#### 后续：沙箱镜像与平台镜像解耦（✅ 2026-11-14）
+#### 后续：沙箱镜像与平台镜像解耦（🚧 2026-11-14）
 
 > **状态**：PR #246（merge `5d4be34b`）；Docker run `43570307949` 双架构与 6 镜像 manifest 全绿。
 >
@@ -248,6 +248,7 @@
 - **不做**：不拆独立 workflow / Dockerfile；不移除平台镜像内的 `/app/sandbox`（保留显式指定兼容路径）；不做镜像版本握手（登记为后续候选）。
 - **依赖**：`#245` 仓库级镜像字段；release 的 `platform_version`；ghcr/ACR 新镜像名推送权限。
 - **交付物**：22 文件 / +550 −67（Dockerfile 1 / workflow 1 / 执行器与注释 7 / 配置与 i18n 5 / 文档 8）。
+- **三源回退（追加）**：默认跟随平台 registry，回退 ghcr / ACR / Docker Hub；逐源 inspect + 限时 pull，全失败报 `sandbox_image_unavailable`。
 - **残余**：arm64 运行冒烟、编译回退提示待后续验证。
 - **容量影响评估（§3.1.1）**：同一临时待办的后续细化，不新增批次计数；发布链需 CI 取证。
 

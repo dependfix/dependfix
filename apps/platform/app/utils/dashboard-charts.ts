@@ -1,3 +1,5 @@
+import { severityLabel } from '#shared/severity-labels'
+
 /**
  * dashboard 图表纯数据派生（apps/platform/app/utils/dashboard-charts.ts）。
  *
@@ -50,7 +52,7 @@ const SEVERITY_ORDER = ['critical', 'high', 'medium', 'low', 'unknown'] as const
 export function buildSeverityChartData(stats: DashboardStats | null) {
     const counts = stats?.severityCounts ?? {}
     return {
-        labels: SEVERITY_ORDER.map((k) => k),
+        labels: SEVERITY_ORDER.map((k) => severityLabel(k)),
         datasets: [
             {
                 data: SEVERITY_ORDER.map((k) => counts[k] ?? 0),

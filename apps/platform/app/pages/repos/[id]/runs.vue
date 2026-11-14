@@ -6,6 +6,7 @@
 // - 保留理由：本页是 `<repo-ai-toggle>` 的唯一挂载点（仓库级 AI 研判开关），删除会丢失该配置 UI，
 //   需先把开关迁移到仓库表单或其他页面，再按下述候选物理删除；
 // - 删除候选与前置条件见 docs/plan/backlog.md「兼容路由与 history 模式物理删除」。
+import { severityLabel } from '#shared/severity-labels'
 import { ArrowLeft, ExternalLink, Eye } from '@lucide/vue'
 import { scanSeverityLabel } from '~/utils/scan-options'
 import type { DataTableColumn } from 'caomei-ui'
@@ -270,7 +271,7 @@ const resultsColumns = computed<DataTableColumn<RunResultView>[]>(() => [
                 >
                     <template #cell-severity="{row}">
                         <CaomeiTag :tone="row.severity === 'critical' ? 'danger' : row.severity === 'high' ? 'warning' : 'primary'">
-                            {{ row.severity }}
+                            {{ severityLabel(row.severity) }}
                         </CaomeiTag>
                     </template>
                     <template #cell-fixable="{row}">

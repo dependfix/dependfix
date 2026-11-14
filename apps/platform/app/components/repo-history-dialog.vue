@@ -10,6 +10,7 @@
 //
 // 分页：服务端分页（lazy DataTable + Paginator）。
 // 默认 pageSize=10，rows-per-page-options=[10, 25, 50]，最大 200 由 server 钳制。
+import { severityLabel } from '#shared/severity-labels'
 import type { DataTableColumn, DataTablePageEvent } from 'caomei-ui'
 import { ArrowLeft, Copy, Download, ExternalLink, Eye } from '@lucide/vue'
 import { scanSeverityLabel } from '~/utils/scan-options'
@@ -509,7 +510,7 @@ watch(() => route.query[props.queryKey], async (newVal) => {
                     <CaomeiTag
                         :tone="row.severity === 'critical' ? 'danger' : row.severity === 'high' ? 'warning' : 'primary'"
                     >
-                        {{ row.severity }}
+                        {{ severityLabel(row.severity) }}
                     </CaomeiTag>
                 </template>
                 <template #cell-fixable="{row}">

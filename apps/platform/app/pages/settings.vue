@@ -4,7 +4,7 @@
 import { Check, Lock, Mail, X } from '@lucide/vue'
 import { authClient } from '~/utils/auth-client'
 import { resolveScanDefaults, type ScanMode, type ScanSeverity } from '~/composables/use-scan-preferences'
-import { scanModeOptions as buildScanModeOptions, scanSeverityOptions as buildScanSeverityOptions } from '~/utils/scan-options'
+import { scanModeLabel, scanModeOptions as buildScanModeOptions, scanSeverityLabel, scanSeverityOptions as buildScanSeverityOptions } from '~/utils/scan-options'
 
 definePageMeta({
     middleware: 'auth',
@@ -55,8 +55,8 @@ const scanPreferenceSourceLabels = computed(() => ({
 /** 当前生效默认（含来源），让设备级偏好的实际取值可见——否则「跟随上次选择」是隐式的 */
 const scanEffectiveHint = computed(() => {
     const resolved = resolveScanDefaults(scanPreferences.preferences.value)
-    const modeLabel = scanModeOptions.value.find((option) => option.value === resolved.mode)?.label ?? resolved.mode
-    const severityLabel = scanSeverityOptions.value.find((option) => option.value === resolved.severity)?.label ?? resolved.severity
+    const modeLabel = scanModeLabel(resolved.mode, t)
+    const severityLabel = scanSeverityLabel(resolved.severity, t)
     const sources = scanPreferenceSourceLabels.value
     return t('settings.scanPreferencesEffective', {
         mode: modeLabel,

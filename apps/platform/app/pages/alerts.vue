@@ -6,6 +6,7 @@
 // 详情侧栏已抽出为 components/alert-run-sidebar.vue（audit 触发的 max-lines 抽取）
 // 一键修复状态机抽出为 composables/use-fix-now.ts
 import { List } from '@lucide/vue'
+import { SCAN_SEVERITY_VALUES, severityLabel } from '#shared/severity-labels'
 import {
     alertsRuleIdTone,
     alertsSeverityTone,
@@ -117,11 +118,7 @@ const viewModeOptions = computed(() => [
 
 const severityOptions = computed(() => [
     { label: t('alerts.severityAll'), value: 'all' },
-    { label: 'Critical', value: 'critical' },
-    { label: 'High', value: 'high' },
-    { label: 'Medium', value: 'medium' },
-    { label: 'Low', value: 'low' },
-    { label: 'Unknown', value: 'unknown' },
+    ...SCAN_SEVERITY_VALUES.map((value) => ({ label: severityLabel(value), value })),
 ])
 
 const sourceOptions = computed(() => [
@@ -415,7 +412,7 @@ const alertCveUrl = (cveId: string): string => `https://nvd.nist.gov/vuln/detail
                 </template>
                 <template #cell-_severityRank="{row}">
                     <CaomeiTag :tone="alertsSeverityTone(row.severity)">
-                        {{ row.severity }}
+                        {{ severityLabel(row.severity) }}
                     </CaomeiTag>
                 </template>
                 <template #cell-source="{row}">

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { severityLabel } from '#shared/severity-labels'
 // 仪表板：仓库数/告警数（按严重级别）/已修复数/最近扫描
 // 图表配置抽取为 useDashboardStats composable（apps/platform/app/composables/use-dashboard-stats.ts），
 // 供 alerts.vue 复用，消除代码重复（Nuxt auto-import）
@@ -102,7 +103,7 @@ const severityTagTone = (severity: string) => {
                         :key="severity"
                         class="dashboard__severity-item"
                     >
-                        <CaomeiTag :tone="severityTagTone(severity)">{{ severity }}</CaomeiTag>
+                        <CaomeiTag :tone="severityTagTone(severity)">{{ severityLabel(severity) }}</CaomeiTag>
                         <span class="dashboard__severity-count">
                             {{ stats.severityCounts[severity] ?? 0 }}
                         </span>

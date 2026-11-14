@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { severityLabel } from '#shared/severity-labels'
 import type { DataTableColumn } from 'caomei-ui'
 import { Copy, Download, RefreshCw } from '@lucide/vue'
 import {
@@ -639,7 +640,7 @@ watch(() => props.runId, (runId) => {
                     <CaomeiTag
                         :tone="row.severity === 'critical' ? 'danger' : row.severity === 'high' ? 'warning' : 'primary'"
                     >
-                        {{ row.severity }}
+                        {{ severityLabel(row.severity) }}
                     </CaomeiTag>
                 </template>
                 <template #cell-fixable="{row}">

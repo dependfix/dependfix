@@ -1,7 +1,7 @@
 import { escapeHtml, type NotificationLocale } from './templates'
 import { NOTIFICATION_CATEGORY_TAGS, type SecurityNotificationCategory } from './types'
 import type { RenderedNotification } from './channel'
-
+import { severityLabel as severityDisplayLabel } from '#shared/severity-labels'
 export interface SecurityNotificationData {
     scopeLabel: 'run' | 'batch'
     scopeId: string
@@ -72,9 +72,9 @@ const ZH: Strings = {
     completedTitle: (scope, fixed, found) => `${scope}完成 — 修复 ${fixed} / 告警 ${found}`,
     digestTitle: (repos, critical, high) => critical + high === 0
         ? '本周无未修复告警'
-        : `${repos} 个仓库存在未修复告警 — Critical ${critical} / High ${high}`,
-    critical: 'Critical',
-    high: 'High',
+        : `${repos} 个仓库存在未修复告警 — ${severityDisplayLabel('critical')} ${critical} / ${severityDisplayLabel('high')} ${high}`,
+    critical: severityDisplayLabel('critical'),
+    high: severityDisplayLabel('high'),
     total: '合计',
     repository: '仓库',
     repositories: '仓库',
@@ -98,9 +98,9 @@ const EN: Strings = {
     completedTitle: (scope, fixed, found) => `${scope} completed — ${fixed} fixed / ${found} alerts`,
     digestTitle: (repos, critical, high) => critical + high === 0
         ? 'No unfixed alerts this week'
-        : `${repos} repositories have unfixed alerts — Critical ${critical} / High ${high}`,
-    critical: 'Critical',
-    high: 'High',
+        : `${repos} repositories have unfixed alerts — ${severityDisplayLabel('critical')} ${critical} / ${severityDisplayLabel('high')} ${high}`,
+    critical: severityDisplayLabel('critical'),
+    high: severityDisplayLabel('high'),
     total: 'Total',
     repository: 'Repository',
     repositories: 'Repositories',

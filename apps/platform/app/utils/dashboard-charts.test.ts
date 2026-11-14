@@ -31,7 +31,7 @@ describe('dashboard-charts 纯函数', () => {
     describe('buildSeverityChartData', () => {
         it('null stats 返回 5 桶全 0', () => {
             const data = buildSeverityChartData(null)
-            expect(data.labels).toEqual(['critical', 'high', 'medium', 'low', 'unknown'])
+            expect(data.labels).toEqual(['Critical', 'High', 'Medium', 'Low', 'Unknown'])
             expect(data.datasets[0]?.data).toEqual([0, 0, 0, 0, 0])
         })
 

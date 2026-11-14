@@ -9,6 +9,7 @@
 
 | 阶段 | 主题 | 归档文件 | 归档日期 |
 |:--|:--|:--|:--|
+| M59 | 沙箱 fix 与执行可靠性 | [M59](archive/todo-archive-phases-m59.md) | 2026-11-14 |
 | M58 | 发布链可信收口 | [M58](archive/todo-archive-phases-m58.md) | 2026-11-12 |
 | M57 | 执行面可信与发布验证收口 | [M57](archive/todo-archive-phases-m57.md) | 2026-11-10 |
 | M56 | 1.0 后平台可信与运行成本收口 | [M56](archive/todo-archive-phases-m56.md) | 2026-11-09 |

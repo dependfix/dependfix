@@ -57,7 +57,19 @@ export interface SandboxHandle {
 
 ### 7.2 镜像策略
 
-复用 `apps/platform/Dockerfile` runtime 阶段（T801 已落地 git + pnpm 11.18.0 工具链；C45 修复；2026-10-02 起 runtime 仅含 Nuxt `.output`，引擎由 Nitro 打包），**不维护双镜像**。**2026-11-09 起 runtime 另含沙箱自包含 CLI（`/app/sandbox/`）**：`packages/cli` 的 `tsdown.sandbox.config.ts` 内联全部运行期依赖（`deps.alwaysBundle`），并复制 `package.json` 与 `skills/dependfix-remediator`；因此沙箱容器不需要 workspace `node_modules`，`node /app/sandbox/bin.mjs` 即可跑 report-only。镜像引用解析顺序：`Repository.sandboxImage`（仓库设置）→ `SANDBOX_IMAGE` → `DEPENDFIX_IMAGE`（compose 注入）→ `dependfix-platform:latest`；该镜像必须已在目标 rootless daemon 内可拉取 / 已存在。不使用 CI 发布镜像作为默认，避免 sandbox 与平台二进制版本漂移；**仓库级配置可用任意镜像，等于把版本同源责任交给配置者**（镜像须包含与平台版本匹配的 `/app/sandbox/bin.mjs` 与 skills，建议用 digest 或发布 tag 钉定）。镜像缺失 / 不可拉取以 `sandbox_image_unavailable` 判 `failed`（runtime / deterministic）。
+**双镜像（2026-11-14 起）**：平台镜像与沙箱镜像由同一 `apps/platform/Dockerfile` 的两个 target 产出，共享 `executor-base`（Node + pnpm 11.18.0 + git + python3/make/g++ 执行工具链）：
+
+| 镜像 | 内容 | 用途 |
+|:--|:--|:--|
+| 平台镜像（默认 target） | `.output`（Nuxt + 引擎）+ `/app/sandbox` + 控制面 | 平台自身部署；`ContainerExecutor` 在同一进程内执行 |
+| 沙箱镜像 `sandbox`（默认，slim） | `executor-base-slim`（Node + pnpm + git）+ `/app/sandbox` | 外置 rootless daemon 内跑 `node /app/sandbox/bin.mjs`；体积最小 |
+| 沙箱镜像 `sandbox-full` | `executor-base`（+ python3 / make / g++）+ `/app/sandbox` | 目标仓库原生模块无 prebuild、需 node-gyp 源码编译时使用 |
+
+- **构建**：沙箱 target 只依赖 `cli-builder`（core → engine → cli + `build:sandbox`），不触发 Nuxt 构建；`docker.yml` 按架构分别构建两个 target 并各自合成多架构 manifest。
+- **发布名**：slim 为 `…/dependfix-sandbox`、full 为 `…/dependfix-sandbox-full`（docker.io / ghcr.io / ACR 三处同名）；tag 与平台镜像一致（`latest`、`YYYY-MM-DD`、`sha-*`、发布时 `platform-x.y.z`），沙箱镜像**额外发裸版本 tag**（如 `1.0.0`）供默认解析使用。构建期自检 `--version` 非 unknown + skills doctor。
+- **体积取舍（2026-11-14 实测）**：平台镜像 815MB；slim 沙箱约 320MB（Node + git + pnpm + bundle），full 约 744MB（多出编译工具链）。默认 slim；需要源码编译回退的仓库改用 full（仓库级 `sandboxImage` 或 `SANDBOX_IMAGE_REPO` 指向 `-full`）。
+- **默认解析**：`Repository.sandboxImage`（仓库设置）→ `SANDBOX_IMAGE` → `SANDBOX_IMAGE_REPO` + `SANDBOX_IMAGE_TAG`（repo 默认 `ghcr.io/dependfix/dependfix-sandbox`（slim），tag 默认平台构建版本 `NUXT_BUILD_VERSION`，未知则 `latest`）。**不再回退 `DEPENDFIX_IMAGE`**：平台镜像虽仍含 `/app/sandbox`（可显式指定作为兼容路径），但体积与攻击面都更大。
+- **约束**：镜像必须包含与平台版本匹配的 `/app/sandbox/bin.mjs` 与 skills；发布 tag 同源，仓库级自定义镜像由配置者承担版本同源责任（建议 digest 或固定发布 tag）。镜像缺失 / 不可拉取以 `sandbox_image_unavailable` 判 `failed`（runtime / deterministic）。
 
 ### 7.3 部署形态
 
@@ -66,7 +78,7 @@ export interface SandboxHandle {
 - rootless daemon 由**宿主**启动（不在平台容器内启动 daemon）；平台容器只挂载其 unix socket（**不是**宿主 `/var/run/docker.sock`）
 - `apps/platform/Dockerfile` 工具链 / 非 root 链路不变（T801/C38 已落地）；runtime 自 2026-10-02 起仅含 Nuxt `.output`，不再随附 workspace `node_modules`，故 sandbox 独立入口须自包含（见 §7.2）
 - platform 镜像默认拉取已发布 tag（`docker compose pull && docker compose up -d`），本地构建经 `docker-compose.build.yml` 覆盖文件显式开启；运行身份默认 `dependfix`（uid 100 / gid 101），`PUID`/`PGID` 可对齐宿主用户以控制数据卷 / `$HOME` 所有权，且对 0 值 fail-closed（保持非 root 基线）
-- **不需要**在宿主与平台容器间共享 `runs` 目录：沙箱容器不挂载宿主目录，结果经 stdout 哨兵回传（见 §7.2 / §7.8）；沙箱镜像须在目标 rootless daemon 内可拉取 / 已存在（解析顺序见 §7.2：仓库设置 → `SANDBOX_IMAGE` → `DEPENDFIX_IMAGE`）
+- **不需要**在宿主与平台容器间共享 `runs` 目录：沙箱容器不挂载宿主目录，结果经 stdout 哨兵回传（见 §7.2 / §7.8）；沙箱镜像须在目标 rootless daemon 内可拉取 / 已存在（独立精简镜像，解析顺序见 §7.2）
 - socket 属主是宿主启动 daemon 的用户（常见 uid 1000）；平台容器默认 uid 100 / gid 101 需通过 `PUID`/`PGID` 或 `group_add` 对齐，否则 `DockerAdapter` 探测失败 → 启动降级 `container`
 
 **可选 `sandbox-daemon` compose 片段（示例级，不纳入 M57.1 验收）**：

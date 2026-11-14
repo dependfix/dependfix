@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
-import { SandboxExecutor, resolveEgressPolicy, shouldInjectCloneCredential } from './sandbox-executor'
+import { SandboxExecutor, resolveDefaultSandboxImage, resolveEgressPolicy, shouldInjectCloneCredential } from './sandbox-executor'
 import type { ScanExecutorContext } from './types'
 import {
     SpyRuntimeAdapter,
@@ -820,5 +820,40 @@ describe('SandboxExecutor', () => {
             expect(result.error?.code).toBe('execution_failed')
             expect(adapter.calls).toHaveLength(0)
         })
+    })
+})
+
+describe('resolveDefaultSandboxImage', () => {
+    it('prefers an explicit SANDBOX_IMAGE', () => {
+        expect(resolveDefaultSandboxImage({ SANDBOX_IMAGE: ' local/sandbox:1 ' } as NodeJS.ProcessEnv))
+            .toBe('local/sandbox:1')
+    })
+
+    it('builds the published sandbox image from repo + platform version', () => {
+        expect(resolveDefaultSandboxImage({
+            SANDBOX_IMAGE_REPO: 'registry.example.com/team/dependfix-sandbox',
+            NUXT_BUILD_VERSION: '2.3.4',
+        } as NodeJS.ProcessEnv)).toBe('registry.example.com/team/dependfix-sandbox:2.3.4')
+        expect(resolveDefaultSandboxImage({ NUXT_BUILD_VERSION: '2.3.4' } as NodeJS.ProcessEnv))
+            .toBe('ghcr.io/dependfix/dependfix-sandbox:2.3.4')
+    })
+
+    it('treats blank values as unset and tolerates a trailing slash on the repo', () => {
+        expect(resolveDefaultSandboxImage({
+            SANDBOX_IMAGE: '',
+            SANDBOX_IMAGE_REPO: 'registry.example.com/team/dependfix-sandbox/',
+            NUXT_BUILD_VERSION: '2.3.4',
+        } as NodeJS.ProcessEnv)).toBe('registry.example.com/team/dependfix-sandbox:2.3.4')
+        expect(resolveDefaultSandboxImage({
+            SANDBOX_IMAGE: '   ',
+            NUXT_BUILD_VERSION: '',
+        } as NodeJS.ProcessEnv)).toBe('ghcr.io/dependfix/dependfix-sandbox:latest')
+    })
+
+    it('falls back to latest when the build version is unknown, and honors an explicit tag', () => {
+        expect(resolveDefaultSandboxImage({ NUXT_BUILD_VERSION: 'unknown' } as NodeJS.ProcessEnv))
+            .toBe('ghcr.io/dependfix/dependfix-sandbox:latest')
+        expect(resolveDefaultSandboxImage({ NUXT_BUILD_VERSION: '2.3.4', SANDBOX_IMAGE_TAG: 'edge' } as NodeJS.ProcessEnv))
+            .toBe('ghcr.io/dependfix/dependfix-sandbox:edge')
     })
 })

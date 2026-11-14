@@ -313,6 +313,7 @@ docker compose up -d
 - 启动时自动补 pending migration；迁移前应用会先把当前 SQLite 快照到 `/app/data/backups`。
 - 升级前建议额外备份数据卷（见下节）。
 - 固定版本可回滚镜像 tag；数据库迁移回退用 `pnpm db:migrate:revert -- --yes`（源码环境）。
+- **沙箱镜像升级说明（2026-11-14 起）**：沙箱默认镜像改为独立发布的 `dependfix-sandbox:<平台版本>`（slim，约 320MB），不再回退 `DEPENDFIX_IMAGE`。升级后若目标 daemon 无法访问 ghcr，将报 `sandbox_image_unavailable`；可设置 `SANDBOX_IMAGE_REPO`（如 ACR `registry.cn-hangzhou.aliyuncs.com/caomeiyouren/dependfix-sandbox`）或按仓库设置镜像。需要原生模块源码编译的仓库改用 `dependfix-sandbox-full`。
 
 ## 备份与恢复
 

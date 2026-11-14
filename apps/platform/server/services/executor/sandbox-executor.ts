@@ -9,14 +9,28 @@ import {
 } from '#server/utils/resource-usage'
 
 /**
- * 沙箱镜像默认值：优先显式 SANDBOX_IMAGE，其次平台容器镜像引用（compose 注入 DEPENDFIX_IMAGE）。
+ * 沙箱镜像默认值（发布镜像名 + 版本 tag）。
  *
- * 不复用 CI 发布镜像作为默认（版本漂移），也不假设本地 tag 存在——标准部署由 compose 注入
- * `DEPENDFIX_IMAGE`，独立 `docker run` 需显式设置 `SANDBOX_IMAGE`。
+ * 解析顺序：`SANDBOX_IMAGE` 显式值 → `SANDBOX_IMAGE_REPO`（默认 ghcr 沙箱镜像）
+ * + `SANDBOX_IMAGE_TAG`（默认取平台构建版本 `NUXT_BUILD_VERSION`，未知则 `latest`）。
+ * 不再回退 `DEPENDFIX_IMAGE`：那是平台运行镜像（含 Nuxt / 控制面），作为沙箱镜像会放大拉取体积。
+ * 仓库级 `sandboxImage` 仍优先于本默认（见 scan-orchestrator）。
  */
-const DEFAULT_SANDBOX_IMAGE = process.env.SANDBOX_IMAGE?.trim()
-    || process.env.DEPENDFIX_IMAGE?.trim()
-    || 'dependfix-platform:latest'
+export function resolveDefaultSandboxImage(env: NodeJS.ProcessEnv = process.env): string {
+    const explicit = env.SANDBOX_IMAGE?.trim()
+    if (explicit) {
+        return explicit
+    }
+    // 容忍仓库地址尾部斜杠，避免拼出 `repo//:tag`
+    const repo = (env.SANDBOX_IMAGE_REPO?.trim() || 'ghcr.io/dependfix/dependfix-sandbox').replace(/\/+$/, '')
+    const buildVersion = env.NUXT_BUILD_VERSION?.trim()
+    const tag = env.SANDBOX_IMAGE_TAG?.trim()
+        || (buildVersion && buildVersion !== 'unknown' ? buildVersion : 'latest')
+    return `${repo}:${tag}`
+}
+
+/** 模块加载期解析一次（与 SANDBOX_IMAGE / SANDBOX_* 同模式；实例可覆盖） */
+const DEFAULT_SANDBOX_IMAGE = resolveDefaultSandboxImage()
 
 /** 自包含 CLI 入口（镜像内由 Dockerfile 复制；本地联调可经 env 指向工作区产物） */
 const DEFAULT_SANDBOX_ENTRY = process.env.DEPENDFIX_SANDBOX_ENTRY ?? '/app/sandbox/bin.mjs'

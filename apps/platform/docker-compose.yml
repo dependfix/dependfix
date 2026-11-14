@@ -25,7 +25,7 @@ services:
       - "${PORT:-3000}:3000"
     environment:
       PORT: 3000
-      # 平台镜像引用（沙箱执行器默认复用同一镜像；未设置时 SandboxExecutor 回退 dependfix-platform:latest）
+      # 平台镜像引用（仅平台自身；沙箱默认使用独立精简镜像，见 SANDBOX_IMAGE*）
       DEPENDFIX_IMAGE: ${DEPENDFIX_IMAGE:-caomeiyouren/dependfix:latest}
       # 运行身份（控制 /app/data 数据卷与 $HOME 的宿主侧所有权）：
       # 默认 100:101 = 镜像内 dependfix 用户（uid 100 / gid 101）；NAS / 多用户场景设为宿主用户 uid:gid。
@@ -82,6 +82,8 @@ services:
       STALE_CLEANUP_PENDING_GRACE_MS: ${STALE_CLEANUP_PENDING_GRACE_MS:-}
       # 沙箱（可选）：镜像 / clone 基地址 / 出站白名单（仅启用沙箱执行时需要）
       SANDBOX_IMAGE: ${SANDBOX_IMAGE:-}
+      SANDBOX_IMAGE_REPO: ${SANDBOX_IMAGE_REPO:-}
+      SANDBOX_IMAGE_TAG: ${SANDBOX_IMAGE_TAG:-}
       SANDBOX_CLONE_BASE_URL: ${SANDBOX_CLONE_BASE_URL:-}
       DEPENDFIX_ALLOWED_DOMAINS: ${DEPENDFIX_ALLOWED_DOMAINS:-}
     depends_on:

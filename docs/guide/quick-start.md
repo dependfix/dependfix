@@ -266,12 +266,12 @@ curl -X PUT /api/repos/{id} \
   -H 'Content-Type: application/json' \
   -d '{"executorKind": "sandbox"}'
 
-# 3) 镜像：sandbox 复用平台镜像（默认取平台容器镜像引用 DEPENDFIX_IMAGE，compose 已注入；
-#    独立 docker run 需显式 SANDBOX_IMAGE）。镜像内已含 /app/sandbox/bin.mjs + skills 静态目录，
-#    且该镜像必须已在 rootless daemon 内可拉取 / 已存在。
+# 3) 镜像：默认使用独立精简沙箱镜像 ghcr.io/dependfix/dependfix-sandbox:<平台构建版本|latest>
+#    （SANDBOX_IMAGE / SANDBOX_IMAGE_REPO + SANDBOX_IMAGE_TAG 可覆盖）。目标仓库原生模块需源码
+#    编译时改用 -full 变体；镜像内已含 /app/sandbox/bin.mjs + skills，且必须已可拉取 / 已存在。
 # 4) 自定义运行时（默认 runc；如部署了 Sysbox 可切换）——模块级读取，须在平台启动前设置
 # export SANDBOX_RUNTIME=sysbox-runc
-# 镜像默认继承 DEPENDFIX_IMAGE / dependfix-platform:latest；也可在仓库设置里按仓库填写「沙箱镜像」
+# 镜像默认取 ghcr 沙箱镜像；也可在仓库设置里按仓库填写「沙箱镜像」
 ```
 
 > **交付**：`fix` 在容器内提交并推送当前分支（`--commit --push`）；`fix-and-pr` 在容器内建分支、推送并创建 PR，结果契约回传 branch / commit / PR，平台不再二次 push / 建 PR。失败或取消时平台只清理结果声明的 `dependfix/` 分支（默认分支不动），并落 `delivery_branch_cleanup` 审计事件。push 失败（受保护的默认分支 / 凭据失效）使运行判 `failed`；非 GitHub clone 源没有 push 凭据，`fix` 只提交不推送（需改用 `fix-and-pr` 或 GitHub 源）。

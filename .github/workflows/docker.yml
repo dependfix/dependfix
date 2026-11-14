@@ -142,6 +142,23 @@ jobs:
           # 该 tag 仅用于生成 labels，不参与推送（推送发生在 merge job）。
           tags: |
             type=raw,value=${{ steps.platform-version.outputs.platform_version || github.sha }}
+      # 沙箱镜像的 OCI 标签（独立镜像名，仅用于构建期 labels；tags 同样不参与推送）
+      - name: Extract Docker metadata (sandbox labels)
+        id: metadata-sandbox
+        uses: docker/metadata-action@v6
+        with:
+          images: caomeiyouren/dependfix-sandbox
+          tags: |
+            type=raw,value=${{ steps.platform-version.outputs.platform_version || github.sha }}
+
+      - name: Extract Docker metadata (sandbox-full labels)
+        id: metadata-sandbox-full
+        uses: docker/metadata-action@v6
+        with:
+          images: caomeiyouren/dependfix-sandbox-full
+          tags: |
+            type=raw,value=${{ steps.platform-version.outputs.platform_version || github.sha }}
+
       # ── 镜像可用性冒烟（推送前门禁，仅 amd64）─────────────────────
       # 先构建单架构本地镜像并加载到 runner，跑 apps/platform/docker/smoke-test.sh：
       # 验证「不依赖部署侧 compose 注入 env」时首次启动自动建表（HTTP 200 + 13 业务表 + 无 no such table）。
@@ -171,6 +188,61 @@ jobs:
           SMOKE_EXPECT_VERSION: smoke-version
           SMOKE_EXPECT_COMMIT: smoke-commit
         run: SMOKE_IMAGE=dependfix-smoke:ci sh apps/platform/docker/smoke-test.sh
+      # 沙箱镜像冒烟：只构建 sandbox target（不触发 Nuxt），以运行时同参数验证自包含入口
+      - name: Build sandbox image for smoke test (amd64)
+        if: ${{ matrix.arch == 'amd64' }}
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: apps/platform/Dockerfile
+          target: sandbox
+          push: false
+          load: true
+          tags: dependfix-sandbox-smoke:ci
+          platforms: linux/amd64
+          build-args: |
+            BUILD_COMMIT=smoke-commit
+            BUILD_VERSION=smoke-version
+          cache-from: type=gha,scope=${{ matrix.arch }}
+      - name: Smoke test sandbox image
+        if: ${{ matrix.arch == 'amd64' }}
+        run: |
+          set -euo pipefail
+          docker run --rm --user 100:100 dependfix-sandbox-smoke:ci node /app/sandbox/bin.mjs --version
+          docker run --rm --user 100:100 -e DEPENDFIX_SKILLS_DIR=/app/sandbox/skills \
+            dependfix-sandbox-smoke:ci node /app/sandbox/bin.mjs skills doctor
+          # slim 不应含编译工具链：逐项反向断言（多参数 command -v 只在全缺时非零）
+          for tool in python3 make g++; do
+            if docker run --rm --user 100:100 --entrypoint sh dependfix-sandbox-smoke:ci \
+              -c "command -v ${tool} >/dev/null 2>&1"; then
+              echo "::error::slim 沙箱镜像包含 ${tool}（应使用 slim 工具链基底）"; exit 1
+            fi
+          done
+
+      - name: Build sandbox-full image for smoke test (amd64)
+        if: ${{ matrix.arch == 'amd64' }}
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: apps/platform/Dockerfile
+          target: sandbox-full
+          push: false
+          load: true
+          tags: dependfix-sandbox-full-smoke:ci
+          platforms: linux/amd64
+          build-args: |
+            BUILD_COMMIT=smoke-commit
+            BUILD_VERSION=smoke-version
+          cache-from: type=gha,scope=${{ matrix.arch }}
+      - name: Smoke test sandbox-full image
+        if: ${{ matrix.arch == 'amd64' }}
+        run: |
+          set -euo pipefail
+          docker run --rm --user 100:100 dependfix-sandbox-full-smoke:ci node /app/sandbox/bin.mjs --version
+          for tool in python3 make g++; do
+            docker run --rm --user 100:100 --entrypoint sh dependfix-sandbox-full-smoke:ci -c "command -v ${tool} >/dev/null"
+          done
+
       # ── 按 digest 推送（每个 registry 一次，共用层缓存）─────────────────
       # 三个 registry 的镜像名不同（Docker Hub / ACR 为 caomeiyouren/dependfix，GHCR 为
       # dependfix/dependfix），digest 各自独立，故每个 registry 各推一次并在 merge job
@@ -223,6 +295,110 @@ jobs:
             BUILD_VERSION=${{ steps.platform-version.outputs.platform_version }}
           cache-from: type=gha,scope=${{ matrix.arch }}
           cache-to: type=gha,mode=max,scope=${{ matrix.arch }}
+      - name: Build and push sandbox by digest (Docker Hub)
+        id: build-sandbox-dockerhub
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: apps/platform/Dockerfile
+          target: sandbox
+          platforms: ${{ matrix.platform }}
+          outputs: type=image,name=caomeiyouren/dependfix-sandbox,push-by-digest=true,name-canonical=true,push=true
+          labels: ${{ steps.metadata-sandbox.outputs.labels }}
+          provenance: false
+          build-args: |
+            BUILD_COMMIT=${{ github.sha }}
+            BUILD_VERSION=${{ steps.platform-version.outputs.platform_version }}
+          cache-from: |
+            type=gha,scope=${{ matrix.arch }}
+            type=gha,scope=${{ matrix.arch }}-sandbox
+          cache-to: type=gha,mode=max,scope=${{ matrix.arch }}-sandbox
+      - name: Build and push sandbox by digest (GHCR)
+        id: build-sandbox-ghcr
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: apps/platform/Dockerfile
+          target: sandbox
+          platforms: ${{ matrix.platform }}
+          outputs: type=image,name=ghcr.io/dependfix/dependfix-sandbox,push-by-digest=true,name-canonical=true,push=true
+          labels: ${{ steps.metadata-sandbox.outputs.labels }}
+          provenance: false
+          build-args: |
+            BUILD_COMMIT=${{ github.sha }}
+            BUILD_VERSION=${{ steps.platform-version.outputs.platform_version }}
+          cache-from: |
+            type=gha,scope=${{ matrix.arch }}
+            type=gha,scope=${{ matrix.arch }}-sandbox
+      - name: Build and push sandbox by digest (Alibaba Cloud ACR)
+        id: build-sandbox-acr
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: apps/platform/Dockerfile
+          target: sandbox
+          platforms: ${{ matrix.platform }}
+          outputs: type=image,name=registry.cn-hangzhou.aliyuncs.com/caomeiyouren/dependfix-sandbox,push-by-digest=true,name-canonical=true,push=true
+          labels: ${{ steps.metadata-sandbox.outputs.labels }}
+          provenance: false
+          build-args: |
+            BUILD_COMMIT=${{ github.sha }}
+            BUILD_VERSION=${{ steps.platform-version.outputs.platform_version }}
+          cache-from: |
+            type=gha,scope=${{ matrix.arch }}
+            type=gha,scope=${{ matrix.arch }}-sandbox
+      - name: Build and push sandbox-full by digest (Docker Hub)
+        id: build-sandbox-full-dockerhub
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: apps/platform/Dockerfile
+          target: sandbox-full
+          platforms: ${{ matrix.platform }}
+          outputs: type=image,name=caomeiyouren/dependfix-sandbox-full,push-by-digest=true,name-canonical=true,push=true
+          labels: ${{ steps.metadata-sandbox-full.outputs.labels }}
+          provenance: false
+          build-args: |
+            BUILD_COMMIT=${{ github.sha }}
+            BUILD_VERSION=${{ steps.platform-version.outputs.platform_version }}
+          cache-from: |
+            type=gha,scope=${{ matrix.arch }}
+            type=gha,scope=${{ matrix.arch }}-sandbox-full
+          cache-to: type=gha,mode=max,scope=${{ matrix.arch }}-sandbox-full
+      - name: Build and push sandbox-full by digest (GHCR)
+        id: build-sandbox-full-ghcr
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: apps/platform/Dockerfile
+          target: sandbox-full
+          platforms: ${{ matrix.platform }}
+          outputs: type=image,name=ghcr.io/dependfix/dependfix-sandbox-full,push-by-digest=true,name-canonical=true,push=true
+          labels: ${{ steps.metadata-sandbox-full.outputs.labels }}
+          provenance: false
+          build-args: |
+            BUILD_COMMIT=${{ github.sha }}
+            BUILD_VERSION=${{ steps.platform-version.outputs.platform_version }}
+          cache-from: |
+            type=gha,scope=${{ matrix.arch }}
+            type=gha,scope=${{ matrix.arch }}-sandbox-full
+      - name: Build and push sandbox-full by digest (Alibaba Cloud ACR)
+        id: build-sandbox-full-acr
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: apps/platform/Dockerfile
+          target: sandbox-full
+          platforms: ${{ matrix.platform }}
+          outputs: type=image,name=registry.cn-hangzhou.aliyuncs.com/caomeiyouren/dependfix-sandbox-full,push-by-digest=true,name-canonical=true,push=true
+          labels: ${{ steps.metadata-sandbox-full.outputs.labels }}
+          provenance: false
+          build-args: |
+            BUILD_COMMIT=${{ github.sha }}
+            BUILD_VERSION=${{ steps.platform-version.outputs.platform_version }}
+          cache-from: |
+            type=gha,scope=${{ matrix.arch }}
+            type=gha,scope=${{ matrix.arch }}-sandbox-full
       - name: Export digests
         run: |
           set -euo pipefail
@@ -230,6 +406,12 @@ jobs:
           printf '%s' "${{ steps.build-dockerhub.outputs.digest }}" > "${RUNNER_TEMP}/digests/dockerhub-${{ matrix.arch }}.digest"
           printf '%s' "${{ steps.build-ghcr.outputs.digest }}" > "${RUNNER_TEMP}/digests/ghcr-${{ matrix.arch }}.digest"
           printf '%s' "${{ steps.build-acr.outputs.digest }}" > "${RUNNER_TEMP}/digests/acr-${{ matrix.arch }}.digest"
+          printf '%s' "${{ steps.build-sandbox-dockerhub.outputs.digest }}" > "${RUNNER_TEMP}/digests/sandbox-dockerhub-${{ matrix.arch }}.digest"
+          printf '%s' "${{ steps.build-sandbox-ghcr.outputs.digest }}" > "${RUNNER_TEMP}/digests/sandbox-ghcr-${{ matrix.arch }}.digest"
+          printf '%s' "${{ steps.build-sandbox-acr.outputs.digest }}" > "${RUNNER_TEMP}/digests/sandbox-acr-${{ matrix.arch }}.digest"
+          printf '%s' "${{ steps.build-sandbox-full-dockerhub.outputs.digest }}" > "${RUNNER_TEMP}/digests/sandbox-full-dockerhub-${{ matrix.arch }}.digest"
+          printf '%s' "${{ steps.build-sandbox-full-ghcr.outputs.digest }}" > "${RUNNER_TEMP}/digests/sandbox-full-ghcr-${{ matrix.arch }}.digest"
+          printf '%s' "${{ steps.build-sandbox-full-acr.outputs.digest }}" > "${RUNNER_TEMP}/digests/sandbox-full-acr-${{ matrix.arch }}.digest"
           # 空 digest 会让 merge 阶段拼出 `image@` 的晦涩报错，这里提前失败
           for f in "${RUNNER_TEMP}"/digests/*.digest; do
             [ -s "$f" ] || { echo "::error::digest 为空：${f}"; exit 1; }
@@ -318,6 +500,78 @@ jobs:
             type=sha,format=short,prefix=sha-,enable=true
             type=raw,value=platform-${{ inputs.platform_version }},enable=${{ inputs.platform_version != '' }}
           flavor: latest=false
+      - name: Extract Docker metadata (sandbox Docker Hub)
+        id: metadata-sandbox-dockerhub
+        uses: docker/metadata-action@v6
+        with:
+          images: caomeiyouren/dependfix-sandbox
+          tags: |
+            type=raw,value=latest,enable=true
+            type=raw,value={{date 'YYYY-MM-DD' tz='Asia/Shanghai'}},enable=true
+            type=sha,format=short,prefix=sha-,enable=true
+            type=raw,value=platform-${{ inputs.platform_version }},enable=${{ inputs.platform_version != '' }}
+            type=raw,value=${{ inputs.platform_version }},enable=${{ inputs.platform_version != '' }}
+          flavor: latest=false
+      - name: Extract Docker metadata (sandbox GHCR)
+        id: metadata-sandbox-ghcr
+        uses: docker/metadata-action@v6
+        with:
+          images: ghcr.io/dependfix/dependfix-sandbox
+          tags: |
+            type=raw,value=latest,enable=true
+            type=raw,value={{date 'YYYY-MM-DD' tz='Asia/Shanghai'}},enable=true
+            type=sha,format=short,prefix=sha-,enable=true
+            type=raw,value=platform-${{ inputs.platform_version }},enable=${{ inputs.platform_version != '' }}
+            type=raw,value=${{ inputs.platform_version }},enable=${{ inputs.platform_version != '' }}
+          flavor: latest=false
+      - name: Extract Docker metadata (sandbox Alibaba Cloud ACR)
+        id: metadata-sandbox-acr
+        uses: docker/metadata-action@v6
+        with:
+          images: registry.cn-hangzhou.aliyuncs.com/caomeiyouren/dependfix-sandbox
+          tags: |
+            type=raw,value=latest,enable=true
+            type=raw,value={{date 'YYYY-MM-DD' tz='Asia/Shanghai'}},enable=true
+            type=sha,format=short,prefix=sha-,enable=true
+            type=raw,value=platform-${{ inputs.platform_version }},enable=${{ inputs.platform_version != '' }}
+            type=raw,value=${{ inputs.platform_version }},enable=${{ inputs.platform_version != '' }}
+          flavor: latest=false
+      - name: Extract Docker metadata (sandbox-full Docker Hub)
+        id: metadata-sandbox-full-dockerhub
+        uses: docker/metadata-action@v6
+        with:
+          images: caomeiyouren/dependfix-sandbox-full
+          tags: |
+            type=raw,value=latest,enable=true
+            type=raw,value={{date 'YYYY-MM-DD' tz='Asia/Shanghai'}},enable=true
+            type=sha,format=short,prefix=sha-,enable=true
+            type=raw,value=platform-${{ inputs.platform_version }},enable=${{ inputs.platform_version != '' }}
+            type=raw,value=${{ inputs.platform_version }},enable=${{ inputs.platform_version != '' }}
+          flavor: latest=false
+      - name: Extract Docker metadata (sandbox-full GHCR)
+        id: metadata-sandbox-full-ghcr
+        uses: docker/metadata-action@v6
+        with:
+          images: ghcr.io/dependfix/dependfix-sandbox-full
+          tags: |
+            type=raw,value=latest,enable=true
+            type=raw,value={{date 'YYYY-MM-DD' tz='Asia/Shanghai'}},enable=true
+            type=sha,format=short,prefix=sha-,enable=true
+            type=raw,value=platform-${{ inputs.platform_version }},enable=${{ inputs.platform_version != '' }}
+            type=raw,value=${{ inputs.platform_version }},enable=${{ inputs.platform_version != '' }}
+          flavor: latest=false
+      - name: Extract Docker metadata (sandbox-full Alibaba Cloud ACR)
+        id: metadata-sandbox-full-acr
+        uses: docker/metadata-action@v6
+        with:
+          images: registry.cn-hangzhou.aliyuncs.com/caomeiyouren/dependfix-sandbox-full
+          tags: |
+            type=raw,value=latest,enable=true
+            type=raw,value={{date 'YYYY-MM-DD' tz='Asia/Shanghai'}},enable=true
+            type=sha,format=short,prefix=sha-,enable=true
+            type=raw,value=platform-${{ inputs.platform_version }},enable=${{ inputs.platform_version != '' }}
+            type=raw,value=${{ inputs.platform_version }},enable=${{ inputs.platform_version != '' }}
+          flavor: latest=false
       - name: Create and push multi-arch manifests (Docker Hub)
         env:
           IMAGE: caomeiyouren/dependfix
@@ -363,6 +617,78 @@ jobs:
             docker buildx imagetools create -t "${tag}" ${sources}
             echo "::endgroup::"
           done <<< "${TAGS}"
+      - name: Create and push multi-arch manifests (sandbox Docker Hub)
+        env:
+          IMAGE: caomeiyouren/dependfix-sandbox
+          TAGS: ${{ steps.metadata-sandbox-dockerhub.outputs.tags }}
+        run: |
+          set -euo pipefail
+          digest_dir="${RUNNER_TEMP}/digests"
+          sources="${IMAGE}@$(cat "${digest_dir}/sandbox-dockerhub-amd64.digest") ${IMAGE}@$(cat "${digest_dir}/sandbox-dockerhub-arm64.digest")"
+          while IFS= read -r tag; do
+            [ -z "$tag" ] && continue
+            docker buildx imagetools create -t "${tag}" ${sources}
+          done <<< "${TAGS}"
+      - name: Create and push multi-arch manifests (sandbox GHCR)
+        env:
+          IMAGE: ghcr.io/dependfix/dependfix-sandbox
+          TAGS: ${{ steps.metadata-sandbox-ghcr.outputs.tags }}
+        run: |
+          set -euo pipefail
+          digest_dir="${RUNNER_TEMP}/digests"
+          sources="${IMAGE}@$(cat "${digest_dir}/sandbox-ghcr-amd64.digest") ${IMAGE}@$(cat "${digest_dir}/sandbox-ghcr-arm64.digest")"
+          while IFS= read -r tag; do
+            [ -z "$tag" ] && continue
+            docker buildx imagetools create -t "${tag}" ${sources}
+          done <<< "${TAGS}"
+      - name: Create and push multi-arch manifests (sandbox Alibaba Cloud ACR)
+        env:
+          IMAGE: registry.cn-hangzhou.aliyuncs.com/caomeiyouren/dependfix-sandbox
+          TAGS: ${{ steps.metadata-sandbox-acr.outputs.tags }}
+        run: |
+          set -euo pipefail
+          digest_dir="${RUNNER_TEMP}/digests"
+          sources="${IMAGE}@$(cat "${digest_dir}/sandbox-acr-amd64.digest") ${IMAGE}@$(cat "${digest_dir}/sandbox-acr-arm64.digest")"
+          while IFS= read -r tag; do
+            [ -z "$tag" ] && continue
+            docker buildx imagetools create -t "${tag}" ${sources}
+          done <<< "${TAGS}"
+      - name: Create and push multi-arch manifests (sandbox-full Docker Hub)
+        env:
+          IMAGE: caomeiyouren/dependfix-sandbox-full
+          TAGS: ${{ steps.metadata-sandbox-full-dockerhub.outputs.tags }}
+        run: |
+          set -euo pipefail
+          digest_dir="${RUNNER_TEMP}/digests"
+          sources="${IMAGE}@$(cat "${digest_dir}/sandbox-full-dockerhub-amd64.digest") ${IMAGE}@$(cat "${digest_dir}/sandbox-full-dockerhub-arm64.digest")"
+          while IFS= read -r tag; do
+            [ -z "$tag" ] && continue
+            docker buildx imagetools create -t "${tag}" ${sources}
+          done <<< "${TAGS}"
+      - name: Create and push multi-arch manifests (sandbox-full GHCR)
+        env:
+          IMAGE: ghcr.io/dependfix/dependfix-sandbox-full
+          TAGS: ${{ steps.metadata-sandbox-full-ghcr.outputs.tags }}
+        run: |
+          set -euo pipefail
+          digest_dir="${RUNNER_TEMP}/digests"
+          sources="${IMAGE}@$(cat "${digest_dir}/sandbox-full-ghcr-amd64.digest") ${IMAGE}@$(cat "${digest_dir}/sandbox-full-ghcr-arm64.digest")"
+          while IFS= read -r tag; do
+            [ -z "$tag" ] && continue
+            docker buildx imagetools create -t "${tag}" ${sources}
+          done <<< "${TAGS}"
+      - name: Create and push multi-arch manifests (sandbox-full Alibaba Cloud ACR)
+        env:
+          IMAGE: registry.cn-hangzhou.aliyuncs.com/caomeiyouren/dependfix-sandbox-full
+          TAGS: ${{ steps.metadata-sandbox-full-acr.outputs.tags }}
+        run: |
+          set -euo pipefail
+          digest_dir="${RUNNER_TEMP}/digests"
+          sources="${IMAGE}@$(cat "${digest_dir}/sandbox-full-acr-amd64.digest") ${IMAGE}@$(cat "${digest_dir}/sandbox-full-acr-arm64.digest")"
+          while IFS= read -r tag; do
+            [ -z "$tag" ] && continue
+            docker buildx imagetools create -t "${tag}" ${sources}
+          done <<< "${TAGS}"
       # 双架构门禁：manifest 由 digest 合成后回读 index，确认 amd64 + arm64 都在
       # （0.4.0 曾出现 tag 从未产出、1.0.0 首轮 QEMU 构建被取消，均属「以为发了其实没有」；
       # 这里用 registry 回读做终态断言，失败即红，不留静默单架构 tag）。
@@ -371,6 +697,12 @@ jobs:
           TAGS_DOCKERHUB: ${{ steps.metadata-dockerhub.outputs.tags }}
           TAGS_GHCR: ${{ steps.metadata-ghcr.outputs.tags }}
           TAGS_ACR: ${{ steps.metadata-acr.outputs.tags }}
+          TAGS_SANDBOX_DOCKERHUB: ${{ steps.metadata-sandbox-dockerhub.outputs.tags }}
+          TAGS_SANDBOX_GHCR: ${{ steps.metadata-sandbox-ghcr.outputs.tags }}
+          TAGS_SANDBOX_ACR: ${{ steps.metadata-sandbox-acr.outputs.tags }}
+          TAGS_SANDBOX_FULL_DOCKERHUB: ${{ steps.metadata-sandbox-full-dockerhub.outputs.tags }}
+          TAGS_SANDBOX_FULL_GHCR: ${{ steps.metadata-sandbox-full-ghcr.outputs.tags }}
+          TAGS_SANDBOX_FULL_ACR: ${{ steps.metadata-sandbox-full-acr.outputs.tags }}
         run: |
           set -euo pipefail
           verify() {
@@ -384,7 +716,9 @@ jobs:
               *) echo "::error::${tag} 不是双架构（${plats}）"; exit 1 ;;
             esac
           }
-          for t in ${TAGS_DOCKERHUB} ${TAGS_GHCR} ${TAGS_ACR}; do verify "$t"; done
+          for t in ${TAGS_DOCKERHUB} ${TAGS_GHCR} ${TAGS_ACR} \
+            ${TAGS_SANDBOX_DOCKERHUB} ${TAGS_SANDBOX_GHCR} ${TAGS_SANDBOX_ACR} \
+            ${TAGS_SANDBOX_FULL_DOCKERHUB} ${TAGS_SANDBOX_FULL_GHCR} ${TAGS_SANDBOX_FULL_ACR}; do verify "$t"; done
 
       - name: Docker Hub README & description sync
         uses: meeDamian/sync-readme@v1.0.6

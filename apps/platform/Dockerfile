@@ -64,6 +64,34 @@ RUN rm -rf /usr/local/lib/node_modules/npm \
         /usr/local/bin/yarn /usr/local/bin/yarnpkg \
     && node /usr/local/bin/dependfix-check-node-version.mjs
 
+# 执行工具链基底：容器执行器与沙箱镜像共用（git clone + 原生模块回退编译）。
+# 单源定义避免两镜像工具链漂移；unzip / su-exec 仅平台镜像需要，留在平台阶段。
+FROM runtime AS executor-base
+ARG APK_MIRROR=
+RUN if [ -n "$APK_MIRROR" ]; then \
+        case "$APK_MIRROR" in \
+        https://*[!A-Za-z0-9.:/_-]*) echo "APK_MIRROR 含非法字符" >&2; exit 1 ;; \
+        https://*) ;; \
+        *) echo "APK_MIRROR 必须以 https:// 开头" >&2; exit 1 ;; \
+        esac; \
+        sed -i "s#https://dl-cdn.alpinelinux.org#$APK_MIRROR#" /etc/apk/repositories; \
+    fi \
+    && apk add --no-cache git python3 make g++ && rm -rf /var/cache/apk/*
+
+# 精简工具链基底（沙箱默认镜像）：只保留 git，不含原生模块源码编译链，镜像显著更小。
+# 需要编译回退的仓库改用 `sandbox-full` 变体（或仓库级镜像）。
+FROM runtime AS executor-base-slim
+ARG APK_MIRROR=
+RUN if [ -n "$APK_MIRROR" ]; then \
+        case "$APK_MIRROR" in \
+        https://*[!A-Za-z0-9.:/_-]*) echo "APK_MIRROR 含非法字符" >&2; exit 1 ;; \
+        https://*) ;; \
+        *) echo "APK_MIRROR 必须以 https:// 开头" >&2; exit 1 ;; \
+        esac; \
+        sed -i "s#https://dl-cdn.alpinelinux.org#$APK_MIRROR#" /etc/apk/repositories; \
+    fi \
+    && apk add --no-cache git && rm -rf /var/cache/apk/*
+
 # 阶段一：依赖安装（better-sqlite3 在 alpine 需源码编译；工具链仅 deps 阶段临时安装，
 # runtime 阶段另行保留目标仓库原生模块回退所需的最小工具链）
 FROM nodejs AS deps
@@ -99,8 +127,8 @@ RUN if [ -n "$NPM_REGISTRY" ]; then \
 fi \
     && pnpm install --frozen-lockfile --filter @dependfix/platform... --filter dependfix... --filter @dependfix/core... --filter @dependfix/skills...
 
-# 阶段二：构建（core → engine → cli → platform）
-FROM nodejs AS builder
+# 阶段二：CLI 构建（core → engine → cli 普通产物 + 沙箱自包含 bundle；不跑 Nuxt 构建）
+FROM nodejs AS cli-builder
 WORKDIR /app
 # 复制 deps 阶段完整目录（含各 workspace 项目内的 node_modules 依赖链接，如 apps/platform/node_modules/@dependfix），
 # 仅复制根 node_modules 会导致项目内依赖链接缺失（COPY . . 排除 node_modules，见 .dockerignore）
@@ -112,8 +140,11 @@ RUN pnpm config set verify-deps-before-run=false \
     && pnpm --filter @dependfix/core build \
     && pnpm --filter @dependfix/engine build \
     && pnpm --filter dependfix build \
-    && pnpm --filter dependfix build:sandbox \
-    && pnpm --filter @dependfix/platform build
+    && pnpm --filter dependfix build:sandbox
+
+# 阶段二·平台：在 CLI 产物基础上构建 Nuxt（沙箱镜像不依赖本阶段）
+FROM cli-builder AS builder
+RUN pnpm --filter @dependfix/platform build
 
 # 阶段三：缩小（只保留运行时必需的 Nuxt 产物 + 沙箱自包含 CLI）
 FROM nodejs AS docker-minifier
@@ -124,8 +155,53 @@ COPY --from=builder /app/apps/platform/.output ./.output
 # SandboxExecutor 通过 `node /app/sandbox/bin.mjs` 在独立容器内跑 report-only。
 COPY --from=builder /app/packages/cli/sandbox ./sandbox
 
-# 阶段四：生产
-FROM runtime
+# 阶段四：沙箱执行镜像（slim）（默认 slim：仅自包含 CLI + git；不含 Nuxt / 平台控制面）
+#
+# 目标：只跑 `node /app/sandbox/bin.mjs` 的 rootless 沙箱镜像，避免外置 daemon 为沙箱拉取
+# 平台运行镜像。构建只依赖 cli-builder（不触发 Nuxt 构建），发布为独立镜像名。
+FROM executor-base-slim AS sandbox
+ARG BUILD_COMMIT=unknown
+ARG BUILD_VERSION=unknown
+LABEL org.opencontainers.image.title="dependfix-sandbox" \
+    org.opencontainers.image.description="dependfix sandbox executor (slim: self-contained CLI + git)" \
+    org.opencontainers.image.revision="${BUILD_COMMIT}" \
+    org.opencontainers.image.version="${BUILD_VERSION}"
+COPY --from=cli-builder /app/packages/cli/sandbox /app/sandbox
+ENV NODE_ENV=production \
+    HOME=/tmp \
+    PNPM_CONFIG_STORE_DIR=/tmp/pnpm-store \
+    DEPENDFIX_SKILLS_DIR=/app/sandbox/skills
+RUN SANDBOX_VERSION="$(node /app/sandbox/bin.mjs --version)" \
+    && [ -n "$SANDBOX_VERSION" ] && [ "$SANDBOX_VERSION" != "0.0.0-unknown" ] \
+    && [ -s /app/sandbox/skills/dependfix-remediator/SKILL.md ] \
+    && [ -s /app/sandbox/skills/dependfix-remediator/REFERENCES.md ] \
+    && DEPENDFIX_SKILLS_DIR=/app/sandbox/skills node /app/sandbox/bin.mjs skills doctor
+WORKDIR /tmp
+USER 100:100
+
+# 阶段五：沙箱完整变体（含 python3 / make / g++）：目标仓库原生模块无 prebuild 时使用
+FROM executor-base AS sandbox-full
+ARG BUILD_COMMIT=unknown
+ARG BUILD_VERSION=unknown
+LABEL org.opencontainers.image.title="dependfix-sandbox-full" \
+    org.opencontainers.image.description="dependfix sandbox executor (full: + native build toolchain)" \
+    org.opencontainers.image.revision="${BUILD_COMMIT}" \
+    org.opencontainers.image.version="${BUILD_VERSION}"
+COPY --from=cli-builder /app/packages/cli/sandbox /app/sandbox
+ENV NODE_ENV=production \
+    HOME=/tmp \
+    PNPM_CONFIG_STORE_DIR=/tmp/pnpm-store \
+    DEPENDFIX_SKILLS_DIR=/app/sandbox/skills
+RUN SANDBOX_VERSION="$(node /app/sandbox/bin.mjs --version)" \
+    && [ -n "$SANDBOX_VERSION" ] && [ "$SANDBOX_VERSION" != "0.0.0-unknown" ] \
+    && [ -s /app/sandbox/skills/dependfix-remediator/SKILL.md ] \
+    && [ -s /app/sandbox/skills/dependfix-remediator/REFERENCES.md ] \
+    && DEPENDFIX_SKILLS_DIR=/app/sandbox/skills node /app/sandbox/bin.mjs skills doctor
+WORKDIR /tmp
+USER 100:100
+
+# 阶段六：生产（平台镜像，文件最后一个 stage = 默认 target）
+FROM executor-base
 ENV NODE_ENV=production
 # 部署产物版本戳：构建期由 CI `--build-arg BUILD_COMMIT/BUILD_VERSION` 注入（commit / 版本），
 # 未注入时缺省 unknown（不阻断启动）；运行时经 NUXT_ 前缀覆盖 runtimeConfig.buildVersion/buildCommit，
@@ -141,25 +217,6 @@ ENV DATABASE_MIGRATIONS_RUN=true
 # pnpm store 持久化由入口脚本派生（默认 $DATA_DIR/pnpm-store，可经 PNPM_CONFIG_STORE_DIR 覆盖），
 # 不在此固化 ENV：DATA_DIR 被覆盖时入口能跟着走，而固化值会与自定义数据目录脱节。
 # 口径见 docs/standards/platform.md §10.8 与 docs/guide/deployment.md「pnpm store 与依赖缓存」。
-# 容器工具链（ContainerExecutor 依赖）：git（clone）+ pnpm（install/audit）——
-# unzip：B mode result fetch（ActionResultFetcher unzip artifact）需要
-# git 随 alpine 滚动 index（与 unzip/su-exec 同惯例，实证版本 2.54.0）；可复现性以基础镜像 digest 为基线
-#
-# python3 / make / g++：目标仓库的原生模块（better-sqlite3 / bcrypt / sharp 等）首选下载
-# prebuild 二进制；当预编译包下载失败或目标平台无对应 prebuild 时，install 脚本会回退
-# node-gyp 源码编译。缺少工具链时该回退以 `gyp ERR! find Python` 失败，整次安装被误判为
-# 「静默 exit 1」——stderr 为空、错误文本只写在 stdout。runtime 必须保留最小构建工具链，
-# 与 deps 阶段（平台自身的 better-sqlite3）保持同一口径。
-ARG APK_MIRROR=
-RUN if [ -n "$APK_MIRROR" ]; then \
-        case "$APK_MIRROR" in \
-            https://*[!A-Za-z0-9.:/_-]*) echo "APK_MIRROR 含非法字符" >&2; exit 1 ;; \
-            https://*) ;; \
-            *) echo "APK_MIRROR 必须以 https:// 开头" >&2; exit 1 ;; \
-        esac; \
-        sed -i "s#https://dl-cdn.alpinelinux.org#$APK_MIRROR#" /etc/apk/repositories; \
-    fi \
-    && apk add --no-cache unzip git python3 make g++ && rm -rf /var/cache/apk/*
 # pnpm：继承 nodejs 阶段的全局安装（`npm i -g --ignore-scripts pnpm@11.18.0`），无需再从 docker-minifier 拷贝。
 # 与 package.json packageManager 声明（pnpm@11.17.0）的 minor 差异由 toolchainPnpmVersion 验证链处理。
 # pnpm 为自包含 npm 全局包结构。
@@ -171,7 +228,8 @@ RUN set -eux; \
     if ! getent passwd dependfix > /dev/null 2>&1; then \
         addgroup -S dependfix && adduser -S -G dependfix -h /home/dependfix dependfix; \
     fi; \
-    apk add --no-cache su-exec && rm -rf /var/cache/apk/*
+    # unzip：B mode result fetch（ActionResultFetcher 解压 artifact）；与 su-exec 同层
+    apk add --no-cache unzip su-exec && rm -rf /var/cache/apk/*
 # 数据目录预建 + 授权：命名卷首次挂载继承目录所有权（entrypoint 再幂等 chown，兼容既有 root 卷）
 RUN mkdir -p /app/data && chown -R dependfix:dependfix /app/data
 # entrypoint：root 启动 → chown 数据目录 → su-exec 降权执行（恶意脚本仅能在非 root 权限下运行）
@@ -187,3 +245,4 @@ RUN SANDBOX_VERSION="$(node /app/sandbox/bin.mjs --version)" \
 ENTRYPOINT ["/usr/local/bin/dependfix-entrypoint.sh"]
 EXPOSE 3000
 CMD ["node", ".output/server/index.mjs"]
+

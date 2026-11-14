@@ -45,6 +45,12 @@ gh api repos/dependfix/dependfix/issues/<n> --jq '{login: .user.login, type: .us
 - `dependabot[bot]` / `dependfix[bot]` 的 PR 继续走 Mergify 自动合并；依赖升级的风险由 CI 门禁承担（Test / Coverage / E2E / Visual Regression，集合以 `.github/mergify.yml` 为准，漂移由 `pnpm run check:mergify` 阻断），不额外增加人工评审门槛。
 - `github-actions[bot]`（Actions 内置 token 建的 PR，如 dogfood 自动修复）**不纳入 Mergify，也不视为可合并来源**：按常规 PR 审查并反馈；确需合并时由项目所有者本人操作，或由可信身份重新提交。
 - Mergify 未自动合并的 PR（缺 label、check 失败、冲突、规则不匹配）按常规 PR 处理：审查 → 修复 → 合并或关闭。
+
+- **合并方式（2026-11-14 用户决策）**：手动合并**默认 rebase**（`gh pr merge <n> --rebase --delete-branch`），与 `.github/mergify.yml` 的 `method: rebase` 对齐，保持线性历史、单条 commit 可回链。仅以下情形才用 `--merge`，并在 PR 评论写明理由：
+  - 分支自身已包含 merge commit（rebase 会要求逐条重放，冲突面不可控）；
+  - 需要保留 PR 作为合并节点以定位多方协作边界（同一 PR 含多位作者的分支合流）。
+  分支落后于 master 时不要用「Update branch」（会产生 merge commit），直接用 rebase merge 或 `git rebase origin/master` 后 force-push 到**自己的 PR 分支**（禁止对 master / 他人分支 force push）。
+  **SHA 回填**：rebase 后 commit SHA 全部变化，收口文档 / todo / PR 描述里的 SHA 必须在合并后按 master 重新取值（`git log --oneline -n`），不得沿用分支上的旧 SHA。
 - 可信提交者的 PR 存在冲突或简单错误时，可直接修改后合并——范围限机械性修复：冲突解决、lint / 类型 / 断言、锁文件、文案。涉及行为变更、接口契约、执行链路或跨模块改动的，走完整 PDTFC+ 流程，不在 PR 上临时扩写。
 - 外部 PR 只审查与反馈：不代改合并，不合并不可信来源的提交。
 

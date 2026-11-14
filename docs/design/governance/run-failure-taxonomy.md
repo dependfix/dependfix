@@ -97,7 +97,7 @@
 | `cleanup` | 分支 / PR 清理（best-effort） | `BRANCH_DELETE_FAILED`、`PR_CLOSE_FAILED`、`CLEANUP_*` |
 | `unknown` | 无法判定 | `engine_delivery_failed` 无细分、缺失信息 |
 
-> **实现期补充映射**（完整权威表见 `apps/platform/server/services/run-failure-classify.ts` 的 `FAILURE_CODE_MAP`，未命中的码一律归 `unknown`）：`workflow_not_configured` → `runtime` + `deterministic`；`enqueue_failed` / `orphan_run` → `runtime` + `transient`；`force_failed` / `SCAN_PENDING_MERGED` → `runtime` + `deterministic`；`supersede_failed` → `cleanup` + `unknown`；`engine_delivery_failed`（message 无法细分类别时）→ `unknown` + `deterministic`。
+> **实现期补充映射**（完整权威表见 `apps/platform/server/services/run-failure-classify.ts` 的 `FAILURE_CODE_MAP`，未命中的码一律归 `unknown`）：`workflow_not_configured` → `runtime` + `deterministic`；`enqueue_failed` / `orphan_run` → `runtime` + `transient`；`force_failed` / `SCAN_PENDING_MERGED` → `runtime` + `deterministic`；`supersede_failed` → `cleanup` + `unknown`；`engine_delivery_failed`（message 无法细分类别时）→ `unknown` + `deterministic`；`sandbox_image_unavailable` / `sandbox_fix_requires_egress_policy` / `sandbox_clone_host_not_allowed` → `runtime` + `deterministic`（沙箱配置 / 环境偏离）。
 
 ### 4.2 `failureKind`（处置建议）
 

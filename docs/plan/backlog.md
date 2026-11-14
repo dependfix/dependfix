@@ -218,6 +218,7 @@
 - **T703 跨平台 Git**（GitLab + Bitbucket）—— 2026-08-12 用户指示暂缓排期
 - **caomei-ui 0.x → 1.0 升级回归** —— 库处于 0.x（平台当前 `0.6.0`，2026-10-11 由 dependabot 升级、2026-10-12 完成升级回归，见 [caomei-ui-migration.md §15.15](../design/governance/caomei-ui-migration.md#_15-15-caomei-ui-0-6-0-升级回归实证-插队热修-2026-10-12)）。**剩余观察**：`1.0.0` 发布后的正式升级回归与「平台需跟进新组件能力」「用户明确恢复」两条触发条件。届时按 M31 迁移期实证索引（[caomei-ui-migration.md §15](../design/governance/caomei-ui-migration.md)）做回归；**升级回归的像素兜底已就位**（视觉回归基线 `apps/platform/tests/visual/`，覆盖 alerts / repos / pr-checks / dialog-import-repos / login，口径见 [测试规范 §6.7](../standards/testing.md)）
 - **ScanResult 数据层去重（upsert 唯一索引）** —— 决策暂缓：应用层去重（fingerprint + occurrenceCount / firstSeenAt / lastSeenAt / affectedRunIds）已实施且满足当前业务需求；恢复条件：出现"fix 复用同一 `scan_run_id` 跨次刷新"或"历史 fixStatus 跨次保留"需求时迁移到数据层 upsert
+- **兼容路由 `/repos/[id]/runs` 与 `repo-history-dialog` history 模式物理删除**（P3 🛠️，**2026-11-15 判定暂缓**）—— 现状：兼容路由无应用内入口，但仍是 `<repo-ai-toggle>`（仓库级 AI 研判开关）的唯一挂载点；history 模式（列表视图）应用内无挂载点，`/repos?history={id}` 也无页面解析，属死代码。**暂缓原因**：直接删页会丢失 AI 开关配置 UI。恢复条件：先把 AI 开关迁移到仓库表单 / 设置页（需 UX 决策），再删除兼容路由与 history 分支（保留 `run` 模式）。
 
 ### 远期登记 / 未排期增强候选
 

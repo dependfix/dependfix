@@ -1,7 +1,11 @@
 <script setup lang="ts">
 // 扫描历史：按仓库查看运行列表与详情
-// 注意：本页面已被应用层修复迁入 `repo-history-dialog`，但保留兼容——
-// 用户直接访问 /repos/{id}/runs 仍可使用（候选删除条目见 docs/plan/backlog.md）。
+//
+// 入口判定（M60.2）：**保留**。
+// - 触发路径：仅外部直接访问 `/repos/{id}/runs`（应用内链接已改为 `/scans?repository=`）；
+// - 保留理由：本页是 `<repo-ai-toggle>` 的唯一挂载点（仓库级 AI 研判开关），删除会丢失该配置 UI，
+//   需先把开关迁移到仓库表单或其他页面，再按下述候选物理删除；
+// - 删除候选与前置条件见 docs/plan/backlog.md「兼容路由与 history 模式物理删除」。
 import { ArrowLeft, ExternalLink, Eye } from '@lucide/vue'
 import { scanSeverityLabel } from '~/utils/scan-options'
 import type { DataTableColumn } from 'caomei-ui'

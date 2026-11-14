@@ -3,8 +3,10 @@
 // 用 query 传仓库 id，绕开 `:id()` dynamic segment 与 path-to-regexp 8.x 不兼容的根因）。
 //
 // 当前唯一挂载点：scans.vue 的 `/scans?run={id}`（`:query-key="'run'"`）。
-// history 模式（list 视图 / 「返回列表」）实现保留，但 `repos.vue` 的历史入口已改为跳
-// `/scans?repository=`，故当前无 history 挂载点（去留见 docs/plan/backlog.md 候选）。
+// history 模式（list 视图 / 「返回列表」）为**死代码待清理**：应用内无挂载点，`repos.vue` 也不再挂载
+// 本组件，`/repos?history={id}` 同样无页面解析；`query-key` 默认值仅为兼容旧调用签名而保留。
+// 物理删除登记为 backlog 候选（需先确认无外部深链依赖 history 列表视图）。兼容路由
+// `/repos/{id}/runs` 因承载 `<repo-ai-toggle>` 唯一挂载点而保留，见该页文件头。
 //
 // 分页：服务端分页（lazy DataTable + Paginator）。
 // 默认 pageSize=10，rows-per-page-options=[10, 25, 50]，最大 200 由 server 钳制。

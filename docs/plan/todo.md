@@ -51,6 +51,7 @@
 - **不做什么**：不做大范围重构；不对「疑似死代码」直接删除（判定链必须完整）；不删对外路由（`/repos/[id]/runs` 若保留需给出跳转指针）。
 - **依赖**：M60.1 的抽取完成后再删（避免同时移动与删除导致 diff 难审）。
 - **交付物**：2-3 commits / 4-6 files / 净删 100-200 行。
+- **执行记录（2026-11-15，2 commits）**：`26c5a162` 移除告警页闲置 `useFixNow` 解构；其余为入口判定 → **保留** `repos/[id]/runs.vue`（唯一 `<repo-ai-toggle>` 挂载点，删除会丢失仓库级 AI 开关 UI；文件头已补触发路径与保留理由）+ `repo-history-dialog` history 模式标为死代码待清理 + backlog 登记删除前置（先迁移 AI 开关）。口径见 [页面体量治理设计 §3.2](../design/governance/platform-page-decomposition.md)。证据：platform 单测 2643 passed、alerts e2e 16 passed、视觉 22 passed、build / typecheck / `lint:check` / `gates:docs` 全通过；审计 R1 Reject（B1 删页丢失 AI 开关挂载点）→ 保留页 → R2 Pass（B1 + 4 warning 全 closed）。偏差：净删量低于计划（0 行代码删除，仅 6 行闲置绑定），原因是死代码判定链证明其余两项应保留。
 - **风险与缓解**：误删仍被深链使用的页面 → 保留路由 + 重定向，先观察一个发布周期再物理删除；视觉基线连带变化 → 删除后重跑 visual 并复核差异来源。
 
 ### M60.3 列表筛选与标签展示单点化（P2 🎨）

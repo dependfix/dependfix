@@ -7,7 +7,7 @@ import { expect, test } from '@playwright/test'
  * - `SANDBOX_E2E=true`
  * - `SANDBOX_E2E_TOKEN`：可读取目标仓库 Dependabot alerts 的 GitHub token
  * - 平台进程可达 rootless Docker daemon（`SandboxExecutor.isAvailable()`），且 `SANDBOX_IMAGE`
- *   指向已含 `/app/sandbox/` 自包含入口的镜像（默认 ghcr 沙箱镜像；测试环境按需 SANDBOX_IMAGE 覆盖）
+ *   指向已含 `/app/sandbox/` 自包含入口的镜像（默认三源候选；测试环境按需 SANDBOX_IMAGE 覆盖）
  * - `SANDBOX_E2E_REPO`（默认 `dependfix/dependfix`）存在可读告警
  *
  * 断言：同一仓库分别用 container / sandbox 跑 report-only，两者告警数一致；

@@ -24,7 +24,7 @@ export interface RepoView {
     credentialName: string | null
     actionWorkflowFile: string | null
     executorKind: string
-    /** 仓库级沙箱镜像（null = 平台 SANDBOX_IMAGE / SANDBOX_IMAGE_REPO + TAG，默认 ghcr 沙箱镜像） */
+    /** 仓库级沙箱镜像（null = 平台 SANDBOX_IMAGE / SANDBOX_IMAGE_REPO + TAG，默认三源候选） */
     sandboxImage: string | null
     note: string | null
     tags: string[]

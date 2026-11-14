@@ -266,12 +266,12 @@ curl -X PUT /api/repos/{id} \
   -H 'Content-Type: application/json' \
   -d '{"executorKind": "sandbox"}'
 
-# 3) 镜像：默认跟随平台镜像的 registry（如平台用 ACR 则沙箱也走 ACR），再回退 ghcr / ACR / Docker Hub；
+# 3) 镜像：默认跟随平台镜像的 registry（如平台用 ACR 则沙箱也走 ACR），再回退 Docker Hub / ghcr / ACR；
 #    每个源先 inspect 再限时 pull，首个可用即用。可用 SANDBOX_IMAGE 或 SANDBOX_IMAGE_REPO + TAG 固定单源。
 #    原生模块需源码编译时改用 -full 变体；镜像内已含 /app/sandbox/bin.mjs + skills。
 # 4) 自定义运行时（默认 runc；如部署了 Sysbox 可切换）——模块级读取，须在平台启动前设置
 # export SANDBOX_RUNTIME=sysbox-runc
-# 镜像默认跟随平台 registry 并回退 ghcr / ACR / Docker Hub；也可在仓库设置里按仓库填写「沙箱镜像」
+# 镜像默认跟随平台 registry 并回退 Docker Hub / ghcr / ACR；也可在仓库设置里按仓库填写「沙箱镜像」
 ```
 
 > **交付**：`fix` 在容器内提交并推送当前分支（`--commit --push`）；`fix-and-pr` 在容器内建分支、推送并创建 PR，结果契约回传 branch / commit / PR，平台不再二次 push / 建 PR。失败或取消时平台只清理结果声明的 `dependfix/` 分支（默认分支不动），并落 `delivery_branch_cleanup` 审计事件。push 失败（受保护的默认分支 / 凭据失效）使运行判 `failed`；非 GitHub clone 源没有 push 凭据，`fix` 只提交不推送（需改用 `fix-and-pr` 或 GitHub 源）。

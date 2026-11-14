@@ -64,6 +64,7 @@
 - **依赖**：M60.1 完成后（页面结构稳定再抽）。
 - **交付物**：3-4 commits / 5-8 files / 150-250 行。
 - **风险与缓解**：抽骨架时把某页特有交互带偏 → 每页保留薄封装 + 逐页对照清单；URL 状态同步回归 → 补一条 query 往返用例。
+- **执行记录（2026-11-15，4 commits）**：`2eaf163b` 共享骨架 `filter-bar` / `filter-field` 接入三页；`e1fc4806` `shared/severity-labels.ts` 单源 + 根/包级 Vitest `#shared` 别名；`befec6b9` 九处展示点改用共享标签（含仪表板 / 通知摘要）；`47b0833f` 六张视觉基线同步（仅级别文本大写化）。行为对照清单见 [页面体量治理设计 §3.3](../design/governance/platform-page-decomposition.md)。AC② 实测：`rg "'Critical'|'High'" server app --glob '!**/*.test.ts'` 仅 2 处命中（`notification/templates.ts` 的环境告警枚举，独立域），单一事实源在 `shared/severity-labels.ts`。证据：platform 单测 2645 passed、根全量 413 files / 6154 passed、e2e 定向（table-filters 2 / scans 12 / sortable + batch + alerts 32）通过、视觉 22 passed、lint / typecheck / build / `gates:docs` 20 项通过。审计：筛选分区 R1 Pass（2W）→ R2 Pass；级别单源分区 R1 **Reject**（根/包级 Vitest 配置遮蔽与 `#shared` 缺失）→ R2 Reject（展示点未全覆盖）→ R3 Pass（7/7 覆盖）。残余 suggest：载荷窄化 1 行函数 4 份、`run-outcome-breakdown` 本地大写 helper、环境告警枚举独立保留。
 
 ### M60.4 沙箱执行器可用性收口（P1 🛡️🚀）
 

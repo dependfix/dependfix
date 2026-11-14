@@ -34,6 +34,8 @@
 
 搬迁后行数（非空行，`awk 'NF' | wc -l`）：`repos` 509、`alerts` 632、`scans` 792，均 ≤800 且 `lint:check` 不再报 `max-lines`。
 
+共用件（M60.3）：`app/components/filter-bar.vue`（字段行 + 重置）、`app/components/filter-field.vue`（label + 控件堆叠）、`shared/severity-labels.ts`（扫描级别展示标签，App 与 Nitro server 同源）。
+
 ### 3.1 与阶段计划的差异
 
 阶段计划（[todo.md](../../plan/todo.md) M60.1a/b/c）按页面列出了抽取对象，D 阶段按「展示块优先、逻辑次之、先达成健康区间」微调，差异如下（验收标准未变）：
@@ -52,9 +54,20 @@
 | `repos/[id]/runs.vue` 兼容页 | **保留** | 无应用内入口（仅外部深链），但是 `<repo-ai-toggle>` 的唯一挂载点；删除会丢失仓库级 AI 开关 UI。文件头已补触发路径与保留理由，AI 开关迁移后进入删除 |
 | `repo-history-dialog` history 模式 | **暂留**（死代码） | 应用内无挂载点，`/repos?history={id}` 无页面解析；`query-key` 默认值仅为兼容旧签名。删除需先确认无外部依赖，登记 backlog |
 
+### 3.3 列表筛选行为对照清单（M60.3）
+
+共享骨架 `filter-bar`（字段行 + 重置按钮）+ `filter-field`（label + 控件堆叠）；字段语义与取值仍由各页持有。定向断言见对应 e2e 文件。
+
+| 页面 | 字段 | 重置 | URL 同步 | 空态文案 | 定向用例 |
+|:---|:---|:---|:---|:---|:---|
+| `repos` | 搜索（owner / 仓库名 / 标签 / 凭据名）+ 执行方式 + 包管理器 + 凭据（含「未关联」） | 清空搜索与三维筛选，回到第 1 页 | 不同步（客户端筛选） | `repos.emptyFiltered` / `repos.empty` | `table-filters.e2e.test.ts`（搜索 / 叠加筛选 / 重置） |
+| `batch-runs` | 来源 + 状态 | 两维回 `all` | 不同步 | `batchRuns.emptyFiltered` / `batchRuns.empty` | `table-filters.e2e.test.ts`（控件与重置）、`batch.e2e.test.ts`（数据面） |
+| `scans`（全部运行） | 状态 + 失败阶段 + 处置建议 + 开始时间区间 | 五维回默认（区间清空） | 不同步；`repository` / `run` 由 query 驱动 | `scans.runList.empty`；非法区间本地提示且不发请求 | `scans.e2e.test.ts` case 4（阶段筛选 / 清除）、`sortable.e2e.test.ts`（排序 / 分页） |
+| `scans`（按仓库） | 最近状态 | 下拉回 `all`（无独立重置按钮） | 不同步 | `scans.byRepo.empty` | `scans.e2e.test.ts` case 5（最近状态筛选 + 客户端分页） |
+
 ## 4. 行为不变式（验收口径）
-1. **DOM 契约不变**：筛选控件 id（`#repos-filter-search` / `#view-mode` / `#run-status` 等）、表格类名、按钮文案与 `aria-label` 保持原样，e2e 选择器无需改写。
-2. **视觉等价**：`test:visual` 两主题零像素差异（搬迁不产生新样式规则，仅改变 `scoped` 归属）。
+1. **DOM 契约稳定**：筛选控件 id（`#repos-filter-search` / `#view-mode` / `#run-status` 等）、表格类名、按钮文案与 `aria-label` 保持原样。已登记的有意偏离：重置按钮统一为共享类 `.filter-bar__reset`（原页面私有类），对应 e2e 选择器同步更新。
+2. **视觉等价**：`test:visual` 两主题零像素差异。已登记的有意偏离：严重级别展示统一走共享标签表后，由小写直出改为首字母大写（`Critical` / `High` / `Medium` / `Low` / `Unknown`），影响扫描阈值列与告警 / 结果级别标签；`scans-main-light`、`alerts-light`、`alerts-dark`、`alerts-right-light`、`alerts-right-dark`、`scans-run-detail-light` 基线已同步更新，差异仅为该文本，无布局位移。
 3. **交互等价**：筛选 / 重置 / 分页 / 勾选 / 分组折叠 / 排序 / 导出入口的事件与副作用顺序不变；`alerts` 视图切换仍重置排序与折叠态。
 4. **可测性**：组合式以参数注入依赖，单测不加载 Nuxt 运行时；组件由既有 e2e 断言覆盖展示与交互。
 

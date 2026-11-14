@@ -120,7 +120,8 @@ export class Repository extends BaseEntity {
     /**
      * 仓库级沙箱镜像引用（可选；示例 `ghcr.io/owner/dependfix:latest`）。
      *
-     * 缺省 → 平台 `SANDBOX_IMAGE` → `DEPENDFIX_IMAGE` → `dependfix-platform:latest`。
+     * 缺省 → 平台 `SANDBOX_IMAGE` → `SANDBOX_IMAGE_REPO` + `SANDBOX_IMAGE_TAG`
+     * （默认 `ghcr.io/dependfix/dependfix-sandbox:<平台构建版本|latest>`）。
      * 外置 rootless daemon 通常没有本地构建的镜像，需显式配置仓库级值或平台 env；
      * 语法校验见 `utils/docker-image.ts`（执行期仍以 docker 拉取结果为准）。
      */

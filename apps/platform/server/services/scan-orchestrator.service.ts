@@ -454,7 +454,7 @@ const runScanInternal = async (
             let sandboxHandled = false
             if (executorKind === 'sandbox') {
                 const sandbox = new SandboxExecutor({
-                    // 仓库级镜像 > 平台 SANDBOX_IMAGE > DEPENDFIX_IMAGE > dependfix-platform:latest
+                    // 仓库级镜像 > SANDBOX_IMAGE > SANDBOX_IMAGE_REPO:TAG（默认 ghcr 沙箱镜像）
                     ...(repository.sandboxImage?.trim() ? { image: repository.sandboxImage.trim() } : {}),
                     sandboxLimits: parseSandboxLimits(repository.sandboxLimits),
                     timeoutMs: executionLimits.executionTimeoutMs,

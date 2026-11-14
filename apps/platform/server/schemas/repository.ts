@@ -86,7 +86,7 @@ export const repositoryFieldShape = {
         cpu: z.number().min(0.1, 'cpu 至少 0.1').max(16, 'cpu 至多 16').optional(),
     }).strict().nullable().optional(),
     /**
-     * 仓库级沙箱镜像（可选；空 / null = 平台默认 SANDBOX_IMAGE / DEPENDFIX_IMAGE / dependfix-platform:latest）。
+     * 仓库级沙箱镜像（可选；空 / null = 平台默认：SANDBOX_IMAGE 或 SANDBOX_IMAGE_REPO + TAG）。
      * 只校验语法，镜像可达性由执行期 docker 拉取决定。
      */
     sandboxImage: z.string().trim()

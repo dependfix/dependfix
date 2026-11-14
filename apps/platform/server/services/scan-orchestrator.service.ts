@@ -429,6 +429,7 @@ const runScanInternal = async (
             result = execResult.result
             error = execResult.error
             runUrl = execResult.runUrl ?? null
+            resource = execResult.resource
 
             // 触发成功且定位到 run → 等待 action 完成并拉取报告回填（结果回填见 docs/design/governance/executor-sandbox.md §4）
             if (!error && execResult.runId) {
@@ -465,6 +466,7 @@ const runScanInternal = async (
                     // 沙箱内自包含交付：runUrl / PR 编号来自结果契约（fix 直推为分支页，fix-and-pr 为 PR 地址）
                     runUrl = execResult.runUrl ?? null
                     savedRun.prNumber = execResult.prNumber ?? null
+                    resource = execResult.resource
                     sandboxHandled = true
                 } else {
                     degradedReason = {
@@ -520,7 +522,7 @@ const runScanInternal = async (
         if (executorKind === 'container') {
             resourceNote = 'container executor did not return resource usage'
         } else if (executorKind === 'sandbox') {
-            resourceNote = 'sandbox executor does not collect resource usage'
+            resourceNote = 'sandbox 执行未产出资源读数（执行前拒绝 / 采样不可用）'
         }
         const resourceSnapshot = resource ?? unavailableResourceUsage(resourceNote)
         if (!resourceSnapshot.sigkillDetected) {

@@ -8,7 +8,8 @@ export type ExecutorKind = 'container' | 'sandbox' | 'github-action' | 'local'
 export type ResourceSource = 'cgroup-v2' | 'cgroup-v1' | 'none'
 
 /**
- * 执行窗口的资源快照（容器执行器采集；其他执行器可缺省）。
+ * 执行窗口的资源快照（container 进程内采样 / sandbox 容器内 cgroup 采样；
+ * action 执行器显式 `source: 'none'` + 原因）。
  *
  * `null` 一律表示「不可采集」，不得由消费方推断为 0：
  * - `memoryMaxBytes`：cgroup 内存上限；无限制 / 不可读 → null（`limitReason` 说明）

@@ -7,6 +7,7 @@ import {
     readCgroupMemoryState,
     startResourceMonitor,
     unavailableResourceUsage,
+    buildSandboxResourceUsage,
 } from './resource-usage'
 
 const dirs: string[] = []
@@ -158,5 +159,40 @@ describe('resource helpers', () => {
             source: 'none',
             degradedReason: 'executor-unsupported',
         })
+    })
+
+    it('maps sandbox cgroup readings and keeps unlimited limits explicit', () => {
+        expect(buildSandboxResourceUsage({
+            memoryMaxBytes: null,
+            peakRssBytes: 42 * 1024 * 1024,
+            oomKilled: false,
+            samples: 12,
+            source: 'cgroup-v2',
+            limitReason: 'unlimited',
+        })).toMatchObject({
+            memoryMaxBytes: null,
+            peakRssBytes: 42 * 1024 * 1024,
+            oomKilled: false,
+            samples: 12,
+            source: 'cgroup-v2',
+            limitReason: 'unlimited',
+        })
+        expect(buildSandboxResourceUsage({
+            memoryMaxBytes: 2 * 1024 ** 3,
+            peakRssBytes: 1024,
+            oomKilled: null,
+            samples: 3,
+            source: 'cgroup-v1',
+        })).toMatchObject({ memoryMaxBytes: 2 * 1024 ** 3, oomKilled: null, source: 'cgroup-v1' })
+    })
+
+    it('marks missing / unreadable sandbox readings as unavailable instead of zero', () => {
+        const missing = buildSandboxResourceUsage(null)
+        expect(missing).toMatchObject({ memoryMaxBytes: null, peakRssBytes: null, oomKilled: null, source: 'none' })
+        expect(missing.degradedReason).toContain('cgroup')
+
+        const empty = buildSandboxResourceUsage({ samples: 0, source: 'cgroup-v2' })
+        expect(empty.samples).toBe(0)
+        expect(empty.degradedReason).toContain('采样')
     })
 })

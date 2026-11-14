@@ -249,6 +249,51 @@ export const startResourceMonitor = (options: ResourceMonitorOptions = {}): Reso
 export const detectSigkill = (messages: (string | undefined | null)[]): boolean =>
     messages.some((message) => typeof message === 'string' && /sigkill/i.test(message))
 
+/** 沙箱内采样器回传的原始资源读数（cgroup v2 / v1；缺字段表示不可读）。 */
+export interface SandboxResourceSample {
+    memoryMaxBytes?: number | null
+    peakRssBytes?: number | null
+    oomKilled?: boolean | null
+    samples?: number
+    /** 运行时白名单校验后才采用（JSON 来自容器内，不信任任意字符串） */
+    source?: ResourceSource
+    limitReason?: string
+}
+
+/**
+ * 沙箱资源快照：把容器内采样器的原始读数映射为统一口径。
+ *
+ * - 缺失 / 非法一律 null（不伪造 0）；`source: none` 或峰值缺失时带 `degradedReason`
+ * - `memoryMaxBytes` 为 `unlimited` 时保留 `limitReason`（与 container 执行器同口径）
+ * - `oomKilled` 允许中继 `null`（v1 `oom_control` / v2 `memory.events` 不可读）
+ */
+export function buildSandboxResourceUsage(raw: SandboxResourceSample | null): ExecutorResourceUsage {
+    // 容器内 JSON 不信任：source 只接受白名单枚举，数值必须有限
+    const source: ResourceSource = raw?.source === 'cgroup-v2' || raw?.source === 'cgroup-v1' ? raw.source : 'none'
+    const memoryMaxBytes = Number.isFinite(raw?.memoryMaxBytes) ? raw!.memoryMaxBytes! : null
+    const peakRssBytes = Number.isFinite(raw?.peakRssBytes) ? raw!.peakRssBytes! : null
+    const oomKilled = typeof raw?.oomKilled === 'boolean' ? raw.oomKilled : null
+    const samples = Number.isInteger(raw?.samples) && (raw!.samples as number) >= 0 ? raw!.samples! : 0
+    const reasons: string[] = []
+    if (source === 'none') {
+        reasons.push('sandbox cgroup 不可读（容器内 /sys/fs/cgroup 未暴露内存控制器）')
+    } else if (samples === 0 || peakRssBytes === null) {
+        reasons.push('sandbox 资源采样无有效读数')
+    }
+    if (samples > 0 && source !== 'none' && oomKilled === null) {
+        reasons.push('sandbox oom_kill counter unavailable')
+    }
+    return {
+        memoryMaxBytes,
+        peakRssBytes,
+        oomKilled,
+        source,
+        samples,
+        ...(raw?.limitReason ? { limitReason: raw.limitReason } : {}),
+        ...(reasons.length > 0 ? { degradedReason: reasons.join('；') } : {}),
+    }
+}
+
 /** 供调用方兜底的空快照（B 模式 / 执行器未接入采集时）。 */
 export const unavailableResourceUsage = (reason: string): ExecutorResourceUsage => ({
     memoryMaxBytes: null,

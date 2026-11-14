@@ -1,7 +1,12 @@
 import type { RunResult } from '@dependfix/core'
-import type { ScanExecutor, ScanExecutorContext, ScanExecutorResult } from './types'
+import type { ExecutorResourceUsage, ScanExecutor, ScanExecutorContext, ScanExecutorResult } from './types'
 import { DockerAdapter, SANDBOX_DEFAULTS, type ContainerRunResult, type ContainerSpec, type RuntimeAdapter } from './runtime-adapter'
 import { sanitizeString } from '#server/utils/sanitize'
+import {
+    buildSandboxResourceUsage,
+    unavailableResourceUsage,
+    type SandboxResourceSample,
+} from '#server/utils/resource-usage'
 
 /**
  * 沙箱镜像默认值：优先显式 SANDBOX_IMAGE，其次平台容器镜像引用（compose 注入 DEPENDFIX_IMAGE）。
@@ -21,6 +26,12 @@ const DEFAULT_SANDBOX_SKILLS_DIR = process.env.DEPENDFIX_SANDBOX_SKILLS_DIR ?? '
 
 /** 容器内结果文件路径（容器私有文件系统；不依赖宿主与平台容器的路径映射） */
 const CONTAINER_RESULT_PATH = '/tmp/result.json'
+
+/** 容器内资源采样输出（cgroup v2 / v1）与停止标记 */
+const RESOURCE_RESULT_PATH = '/tmp/dependfix-resource.json'
+const RESOURCE_STOP_PATH = '/tmp/dependfix-resource.stop'
+const RESOURCE_SENTINEL_START = '__DEPENDFIX_RESOURCE_JSON_START__'
+const RESOURCE_SENTINEL_END = '__DEPENDFIX_RESOURCE_JSON_END__'
 
 /** 结果回传哨兵：CLI 日志走 stdout，只有哨兵之间的内容是显式结果契约 */
 const RESULT_SENTINEL_START = '__DEPENDFIX_RESULT_JSON_START__'
@@ -236,7 +247,10 @@ export class SandboxExecutor implements ScanExecutor {
             const runResult = await withTimeout(this.adapter.run(spec, cmd), this.timeoutMs)
             return this.parseRunResult(runResult, startedAt, ctx)
         } catch (error) {
-            return classifyError(error, this.timeoutMs, startedAt)
+            const result = classifyError(error, this.timeoutMs, startedAt)
+            // 异常 / 超时无法取回容器内读数：显式 unavailable，不写 0
+            result.resource = unavailableResourceUsage('沙箱执行异常或超时，资源读数未回传')
+            return result
         }
     }
 
@@ -324,13 +338,18 @@ export class SandboxExecutor implements ScanExecutor {
         // fix 类：容器内 bootstrap —— clone 到容器私有目录后在该目录执行 CLI（不挂载宿主目录）
         // 凭据 header 的注入源在构建期静态判定（仅 https://github.com），脚本里不再出现源判断
         const cloneUrl = shQuote(`${this.cloneBaseUrl}/${repo}.git`)
+        // bootstrap 失败（clone / cd）也要先停采样并回传读数再退出：回传只含资源哨兵，
+        // 结果哨兵缺失仍按「未回传显式结果」处理，退出码语义不变
+        const flushResource = `touch ${RESOURCE_STOP_PATH}; wait 2>/dev/null; `
+            + `printf '\\n${RESOURCE_SENTINEL_START}\\n'; cat ${RESOURCE_RESULT_PATH} 2>/dev/null; `
+            + `printf '\\n${RESOURCE_SENTINEL_END}\\n'`
         const cloneCommand = shouldInjectCloneCredential(this.cloneBaseUrl)
             // 凭据只从 env 读取并转成 basic header，不落 argv 明文；无 token 时匿名 clone（公开仓库）
             ? `if [ -n "$GITHUB_TOKEN" ]; then `
             + `h=$(printf 'x-access-token:%s' "$GITHUB_TOKEN" | base64 | tr -d '\\n'); `
             + `git -c http.extraheader="Authorization: basic $h" clone --depth 1 ${cloneUrl} ${CONTAINER_REPO_PATH}; `
-            + `else git clone --depth 1 ${cloneUrl} ${CONTAINER_REPO_PATH}; fi || exit 1`
-            : `git clone --depth 1 ${cloneUrl} ${CONTAINER_REPO_PATH} || exit 1`
+            + `else git clone --depth 1 ${cloneUrl} ${CONTAINER_REPO_PATH}; fi || { ${flushResource}; exit 1; }`
+            : `git clone --depth 1 ${cloneUrl} ${CONTAINER_REPO_PATH} || { ${flushResource}; exit 1; }`
         // 容器内 push（fix / fix-and-pr）复用同一 token：写 credential helper（只含命令，不含密钥），
         // 避免把 token 落进 .git/config；非 GitHub 源不注入
         const credentialHelper = shouldInjectCloneCredential(this.cloneBaseUrl)
@@ -341,19 +360,102 @@ export class SandboxExecutor implements ScanExecutor {
             : [
                 `rm -rf ${CONTAINER_REPO_PATH}`,
                 cloneCommand,
-                `cd ${CONTAINER_REPO_PATH} || exit 1`,
+                `cd ${CONTAINER_REPO_PATH} || { ${flushResource}; exit 1; }`,
                 ...(credentialHelper ? [credentialHelper] : []),
             ]
         const script = [
+            // 采样先于 bootstrap：覆盖容器内 clone + 安装 + 修复（与 container 路径窗口对齐）
+            this.buildResourceSamplerInit(),
+            this.buildResourceSampler(),
             ...bootstrap,
             cli,
             'code=$?',
+            // 先停采样并等待写盘，再回传读数；采样失败不影响 CLI 退出码
+            `touch ${RESOURCE_STOP_PATH}`,
+            'wait 2>/dev/null',
+            `printf '\\n${RESOURCE_SENTINEL_START}\\n'`,
+            `cat ${RESOURCE_RESULT_PATH} 2>/dev/null`,
+            `printf '\\n${RESOURCE_SENTINEL_END}\\n'`,
             `printf '\\n${RESULT_SENTINEL_START}\\n'`,
             `cat ${shQuote(CONTAINER_RESULT_PATH)} 2>/dev/null`,
             `printf '\\n${RESULT_SENTINEL_END}\\n'`,
             'exit $code',
-        ].join('; ')
+            // 换行分隔：后台采样器以 `&` 结尾，不能用 `;` 拼接（`& ;` 是语法错误）
+        ].join('\n')
         return ['sh', '-c', script]
+    }
+
+    /**
+     * 资源采样初始化：判定 cgroup 版本与文件路径（容器内 cgroup namespace 私有）。
+     * 采样器与 CLI 共用同一个 `sh -c` 进程，变量由前一条命令设置。
+     */
+    private buildResourceSamplerInit(): string {
+        return `RESOURCE_FILE=${RESOURCE_RESULT_PATH}; STOP_FILE=${RESOURCE_STOP_PATH}; `
+            + 'rm -f "$RESOURCE_FILE" "$STOP_FILE"; '
+            + 'CG=none; '
+            + 'if [ -f /sys/fs/cgroup/memory.current ]; then '
+            + 'CG=v2; LIMIT_FILE=/sys/fs/cgroup/memory.max; '
+            + 'USAGE_FILE=/sys/fs/cgroup/memory.current; OOM_FILE=/sys/fs/cgroup/memory.events; '
+            + 'elif [ -f /sys/fs/cgroup/memory/memory.usage_in_bytes ]; then '
+            + 'CG=v1; LIMIT_FILE=/sys/fs/cgroup/memory/memory.limit_in_bytes; '
+            + 'USAGE_FILE=/sys/fs/cgroup/memory/memory.usage_in_bytes; OOM_FILE=/sys/fs/cgroup/memory/memory.oom_control; '
+            + 'else LIMIT_FILE=; USAGE_FILE=; OOM_FILE=; fi'
+    }
+
+    /**
+     * 后台低频采样容器自身 cgroup（200ms）：记录峰值用量、内存上限与 oom_kill 增量，
+     * 停止时写一份 JSON。任一文件不可读 → 对应字段 null，由平台补 `degradedReason`。
+     */
+    private buildResourceSampler(): string {
+        return ' ( src=none; base_oom=; final_oom=; '
+            + 'if [ -n "$OOM_FILE" ]; then base_oom=$(sed -n "s/^oom_kill //p" "$OOM_FILE" 2>/dev/null | head -1); fi; '
+            + 'peak=0; samples=0; '
+            + 'while [ ! -f "$STOP_FILE" ]; do '
+            + 'cur=$(cat "$USAGE_FILE" 2>/dev/null); '
+            + 'if [ -n "$cur" ]; then samples=$((samples+1)); if [ "$cur" -gt "$peak" ] 2>/dev/null; then peak=$cur; fi; fi; '
+            + 'sleep 0.2 2>/dev/null || sleep 1; '
+            + 'done; '
+            + 'limit=$(cat "$LIMIT_FILE" 2>/dev/null); limit_json=null; limit_reason=; '
+            // v1 unlimited 哨兵 ≈ 2^60（与 resource-usage 同源）；v2 为字符串 max（非数字）→ 同样落 null + unlimited。
+            // 文件缺失 / 空 → null 且不带原因（未知 ≠ 无上限）
+            + 'if [ -n "$limit" ]; then '
+            + 'if [ "$limit" -lt 9223372036854771712 ] 2>/dev/null; then limit_json=$limit; else limit_reason=unlimited; fi; '
+            + 'fi; '
+            + 'peak_json=null; if [ "$samples" -gt 0 ] 2>/dev/null; then peak_json=$peak; fi; '
+            + 'if [ -n "$OOM_FILE" ]; then final_oom=$(sed -n "s/^oom_kill //p" "$OOM_FILE" 2>/dev/null | head -1); fi; '
+            + 'oom=null; if [ -n "$base_oom" ] && [ -n "$final_oom" ]; then '
+            + 'if [ "$final_oom" -gt "$base_oom" ] 2>/dev/null; then oom=true; else oom=false; fi; fi; '
+            + 'if [ "$samples" -gt 0 ] 2>/dev/null; then '
+            + 'if [ "$CG" = v2 ]; then src=cgroup-v2; elif [ "$CG" = v1 ]; then src=cgroup-v1; fi; fi; '
+            + `printf '{"memoryMaxBytes":%s,"peakRssBytes":%s,"oomKilled":%s,"samples":%s,"source":"%s","limitReason":"%s"}' `
+            + '"$limit_json" "$peak_json" "$oom" "$samples" "$src" "$limit_reason" > "$RESOURCE_FILE" ) &'
+    }
+
+    /**
+     * 从 stdout 分离资源读数哨兵区间：返回去掉该区间的日志文本与统一资源快照。
+     *
+     * 缺失 / 非 JSON 一律按 unavailable 处理（不伪造 0），不影响主结果解析。
+     */
+    private extractSandboxResource(stdout: string): { stdout: string, resource: ExecutorResourceUsage } {
+        const start = stdout.indexOf(RESOURCE_SENTINEL_START)
+        const end = start >= 0
+            ? stdout.indexOf(RESOURCE_SENTINEL_END, start + RESOURCE_SENTINEL_START.length)
+            : -1
+        if (start < 0 || end < 0) {
+            return {
+                stdout,
+                resource: unavailableResourceUsage('沙箱资源采样器未回传读数（容器内 cgroup 不可读或采样器未启动）'),
+            }
+        }
+        const raw = stdout.slice(start + RESOURCE_SENTINEL_START.length, end).trim()
+        const stripped = `${stdout.slice(0, start)}${stdout.slice(end + RESOURCE_SENTINEL_END.length)}`
+        let sample: SandboxResourceSample | null = null
+        try {
+            sample = JSON.parse(raw) as SandboxResourceSample
+        } catch {
+            sample = null
+        }
+        return { stdout: stripped, resource: buildSandboxResourceUsage(sample) }
     }
 
     /**
@@ -390,6 +492,10 @@ export class SandboxExecutor implements ScanExecutor {
     private parseRunResult(runResult: ContainerRunResult, startedAt: string, ctx: ScanExecutorContext): ScanExecutorResult {
         const finishedAt = new Date().toISOString()
         const transportExitCode = runResult.exitCode
+        // 资源读数与结果契约分开传：采样缺失不影响运行结论，只落 unavailable 原因
+        const extracted = this.extractSandboxResource(runResult.stdout)
+        const stdout = extracted.stdout
+        const resource = extracted.resource
 
         // transport 超时分支:RuntimeAdapter 返回 exitCode 124(与 timeout(1) 命令一致语义)
         if (transportExitCode === 124) {
@@ -399,6 +505,7 @@ export class SandboxExecutor implements ScanExecutor {
                     code: 'execution_timeout',
                     message: `执行超时(${this.timeoutMs}ms 上限)`,
                 },
+                resource,
                 startedAt,
                 finishedAt,
             }
@@ -412,30 +519,32 @@ export class SandboxExecutor implements ScanExecutor {
                     code: 'sandbox_image_unavailable',
                     message: `沙箱镜像不可用（确认镜像已在目标 daemon 内可拉取 / 已存在）：${sanitizeErrorMessage(runResult.stderr.slice(0, 200))}`,
                 },
+                resource,
                 startedAt,
                 finishedAt,
             }
         }
 
-        const start = runResult.stdout.lastIndexOf(RESULT_SENTINEL_START)
+        const start = stdout.lastIndexOf(RESULT_SENTINEL_START)
         const end = start >= 0
-            ? runResult.stdout.indexOf(RESULT_SENTINEL_END, start + RESULT_SENTINEL_START.length)
+            ? stdout.indexOf(RESULT_SENTINEL_END, start + RESULT_SENTINEL_START.length)
             : -1
         if (start < 0 || end < 0) {
             return {
                 exitCode: 2,
                 error: {
                     code: 'execution_failed',
-                    message: `沙箱未回传显式结果（stdout 头 200 字符:${sanitizeErrorMessage(runResult.stdout.slice(0, 200))}；stderr 头 200 字符:${sanitizeErrorMessage(runResult.stderr.slice(0, 200))}）`,
+                    message: `沙箱未回传显式结果（stdout 头 200 字符:${sanitizeErrorMessage(stdout.slice(0, 200))}；stderr 头 200 字符:${sanitizeErrorMessage(runResult.stderr.slice(0, 200))}）`,
                 },
+                resource,
                 startedAt,
                 finishedAt,
             }
         }
 
-        const raw = runResult.stdout.slice(start + RESULT_SENTINEL_START.length, end).trim()
+        const raw = stdout.slice(start + RESULT_SENTINEL_START.length, end).trim()
         // 结果区间之外仍是 CLI 日志：剔除结果 JSON 后作为执行日志回传
-        const stdoutLogs = `${runResult.stdout.slice(0, start)}${runResult.stdout.slice(end + RESULT_SENTINEL_END.length)}`
+        const stdoutLogs = `${stdout.slice(0, start)}${stdout.slice(end + RESULT_SENTINEL_END.length)}`
         const logsJson = buildLogsJson(stdoutLogs, runResult.stderr)
 
         let parsed: { exitCode?: number, result?: RunResult } | null = null
@@ -448,6 +557,7 @@ export class SandboxExecutor implements ScanExecutor {
                     code: 'execution_failed',
                     message: `沙箱结果非 JSON:${sanitizeErrorMessage(raw.slice(0, 200))}`,
                 },
+                resource,
                 startedAt,
                 finishedAt,
                 logsJson,
@@ -461,6 +571,7 @@ export class SandboxExecutor implements ScanExecutor {
                     code: 'execution_failed',
                     message: `沙箱结果结构无效:缺少 exitCode(结果头 200 字符:${sanitizeErrorMessage(raw.slice(0, 200))})`,
                 },
+                resource,
                 startedAt,
                 finishedAt,
                 logsJson,
@@ -475,6 +586,7 @@ export class SandboxExecutor implements ScanExecutor {
                     code: 'execution_failed',
                     message: `transport exitCode ${transportExitCode} 与 payload exitCode 0 矛盾(stderr 头 200 字符:${sanitizeErrorMessage(runResult.stderr.slice(0, 200))})`,
                 },
+                resource,
                 startedAt,
                 finishedAt,
                 logsJson,
@@ -491,6 +603,7 @@ export class SandboxExecutor implements ScanExecutor {
                         code: 'execution_failed',
                         message: `沙箱结果 result 校验失败:${validation.reason}`,
                     },
+                    resource,
                     startedAt,
                     finishedAt,
                     logsJson,
@@ -502,6 +615,7 @@ export class SandboxExecutor implements ScanExecutor {
             exitCode: parsed.exitCode,
             result: parsed.result,
             ...this.mapDeliveryResult(ctx, parsed.result),
+            resource,
             startedAt,
             finishedAt,
             logsJson,

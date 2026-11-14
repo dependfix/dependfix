@@ -71,6 +71,14 @@ describe('ActionTriggerExecutor', () => {
         expect(result.exitCode).toBe(0)
         expect(result.error).toBeUndefined()
         expect(result.result?.summary).toBeDefined()
+        // 资源字段显式 unavailable：UI / 导出不显示为 0
+        expect(result.resource).toMatchObject({
+            memoryMaxBytes: null,
+            peakRssBytes: null,
+            oomKilled: null,
+            source: 'none',
+        })
+        expect(result.resource?.degradedReason).toContain('action')
     })
 
     it('fails when workflow file is not configured', async () => {
@@ -81,6 +89,7 @@ describe('ActionTriggerExecutor', () => {
 
         expect(result.exitCode).toBe(2)
         expect(result.error?.code).toBe('workflow_not_configured')
+        expect(result.resource?.source).toBe('none')
     })
 
     it('fails when workflow file does not exist (404)', async () => {

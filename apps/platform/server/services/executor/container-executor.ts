@@ -339,6 +339,7 @@ export class ContainerExecutor implements ScanExecutor {
     }
 
     async execute(ctx: ScanExecutorContext): Promise<ScanExecutorResult> {
+        const startedAt = new Date().toISOString()
         const monitor = startResourceMonitor()
         try {
             const result = await this.executeRun(ctx)
@@ -349,6 +350,20 @@ export class ContainerExecutor implements ScanExecutor {
             ])
             result.resource = resource
             return result
+        } catch (error) {
+            // 未预期抛错也要保留执行窗口快照（此前会在 finally 丢弃，运行详情显示「无资源读数」）。
+            // 归类沿用执行器契约的 execution_failed（编排层不再走 orchestration_failed），并留 error 日志。
+            const message = sanitizeErrorMessage(error instanceof Error ? error.message : String(error))
+            platformLogger.error('[container-executor] unexpected failure during execute', { error })
+            const resource = monitor.stop()
+            resource.sigkillDetected = detectSigkill([message])
+            return {
+                exitCode: 2,
+                error: { code: 'execution_failed', message },
+                resource,
+                startedAt,
+                finishedAt: new Date().toISOString(),
+            }
         } finally {
             // 异常路径也停止采样；stop 幂等，不覆盖已生成的快照
             monitor.stop()

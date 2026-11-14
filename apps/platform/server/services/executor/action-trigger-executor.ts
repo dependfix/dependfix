@@ -1,6 +1,10 @@
 import { Octokit } from '@octokit/rest'
 import { createEmptyRunSummary } from '@dependfix/core'
 import type { ScanExecutor, ScanExecutorContext, ScanExecutorResult } from './types'
+import { unavailableResourceUsage } from '#server/utils/resource-usage'
+
+/** B 模式没有平台侧执行窗口：资源字段显式 unavailable，避免 UI / 导出显示为 0。 */
+const ACTION_RESOURCE_UNAVAILABLE = 'action 执行器不采集执行资源（执行发生在目标仓库 workflow，平台侧无进程窗口）'
 
 /**
  * B 模式执行器：对已配置 action 的仓库触发 `workflow_dispatch`。
@@ -41,6 +45,7 @@ export class ActionTriggerExecutor implements ScanExecutor {
                     code: 'workflow_not_configured',
                     message: '仓库未配置 actionWorkflowFile，无法触发 workflow_dispatch',
                 },
+                resource: unavailableResourceUsage(ACTION_RESOURCE_UNAVAILABLE),
                 startedAt,
                 finishedAt: new Date().toISOString(),
             }
@@ -65,6 +70,7 @@ export class ActionTriggerExecutor implements ScanExecutor {
                     code,
                     message: `目标 workflow 预检失败（${actionWorkflowFile}）：${error instanceof Error ? error.message : String(error)}`,
                 },
+                resource: unavailableResourceUsage(ACTION_RESOURCE_UNAVAILABLE),
                 startedAt,
                 finishedAt: new Date().toISOString(),
             }
@@ -116,6 +122,7 @@ export class ActionTriggerExecutor implements ScanExecutor {
                     code,
                     message: `workflow_dispatch 触发失败：${error instanceof Error ? error.message : String(error)}`,
                 },
+                resource: unavailableResourceUsage(ACTION_RESOURCE_UNAVAILABLE),
                 startedAt,
                 finishedAt: new Date().toISOString(),
             }
@@ -127,6 +134,7 @@ export class ActionTriggerExecutor implements ScanExecutor {
 
         return {
             exitCode: 0,
+            resource: unavailableResourceUsage(ACTION_RESOURCE_UNAVAILABLE),
             startedAt,
             finishedAt,
             result: {

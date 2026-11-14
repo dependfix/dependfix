@@ -96,6 +96,8 @@
 
 ### M59.4 执行资源采集扩展（P2 🛠️）
 
+> **状态**：🚧 进行中（2026-11-14 起）。已交付：沙箱容器内 cgroup 采样（v2 / v1 双路径，200ms，独立哨兵回传，解析后从日志剥离）；`buildSandboxResourceUsage` 统一口径（上限为哨兵 / `max` → null + `limitReason=unlimited`；缺失 / 空 → null 但不带原因，未知 ≠ 无上限）；沙箱异常 / 超时 → 显式 unavailable；action 执行器结果带 `{ source: 'none', degradedReason }`；container 未预期抛错路径保留执行窗口快照；gated 真实容器用例断言 `source !== none` 且 `peakRssBytes > 0`。**待办（本原子内）**：gated 取证读数归档；container 抛错路径缺自动化用例（构造困难，已披露）。
+
 - **目标**：sandbox 执行器与异常路径也能产出资源快照；action 执行器对「不适用」显式标注而非静默缺失。
 - **范围**：
   - `apps/platform/server/utils/resource-usage.ts`：采集口径与字段复用；sandbox 容器 stats / cgroup 读取接缝。

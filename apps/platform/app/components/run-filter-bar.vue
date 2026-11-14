@@ -38,14 +38,17 @@ const emit = defineEmits<{
 const { t } = useI18n()
 
 /** caomei Select 载荷窄化（筛选项恒为字符串） */
-const asOptionValue = (value: string | number | null | undefined) => String(value ?? '')
+const asOptionValue = (value: string | number | null | undefined) => (value === null || value === undefined) ? 'all' : String(value)
 </script>
 
 <template>
     <CaomeiCard class="scans__run-filters">
         <div class="scans__run-filter-row">
-            <div class="scans__run-filter-field">
-                <label for="run-status">{{ t('scans.runList.filterStatus') }}</label>
+            <filter-field
+                :label="t('scans.runList.filterStatus')"
+                for-id="run-status"
+                wide
+            >
                 <CaomeiSelect
                     id="run-status"
                     :model-value="status"
@@ -54,9 +57,12 @@ const asOptionValue = (value: string | number | null | undefined) => String(valu
                     option-value="value"
                     @update:model-value="emit('update:status', asOptionValue($event))"
                 />
-            </div>
-            <div class="scans__run-filter-field">
-                <label for="run-failure-stage">{{ t('scans.runList.filterFailureStage') }}</label>
+            </filter-field>
+            <filter-field
+                :label="t('scans.runList.filterFailureStage')"
+                for-id="run-failure-stage"
+                wide
+            >
                 <CaomeiSelect
                     id="run-failure-stage"
                     :model-value="failureStage"
@@ -65,9 +71,12 @@ const asOptionValue = (value: string | number | null | undefined) => String(valu
                     option-value="value"
                     @update:model-value="emit('update:failureStage', asOptionValue($event))"
                 />
-            </div>
-            <div class="scans__run-filter-field">
-                <label for="run-failure-kind">{{ t('scans.runList.filterFailureKind') }}</label>
+            </filter-field>
+            <filter-field
+                :label="t('scans.runList.filterFailureKind')"
+                for-id="run-failure-kind"
+                wide
+            >
                 <CaomeiSelect
                     id="run-failure-kind"
                     :model-value="failureKind"
@@ -76,9 +85,12 @@ const asOptionValue = (value: string | number | null | undefined) => String(valu
                     option-value="value"
                     @update:model-value="emit('update:failureKind', asOptionValue($event))"
                 />
-            </div>
-            <div class="scans__run-filter-field">
-                <label for="run-from">{{ t('scans.runList.filterFrom') }}</label>
+            </filter-field>
+            <filter-field
+                :label="t('scans.runList.filterFrom')"
+                for-id="run-from"
+                wide
+            >
                 <CaomeiDatePicker
                     id="run-from"
                     :model-value="fromDate"
@@ -88,9 +100,12 @@ const asOptionValue = (value: string | number | null | undefined) => String(valu
                     class="scans__run-date"
                     @update:model-value="emit('update:fromDate', $event)"
                 />
-            </div>
-            <div class="scans__run-filter-field">
-                <label for="run-to">{{ t('scans.runList.filterTo') }}</label>
+            </filter-field>
+            <filter-field
+                :label="t('scans.runList.filterTo')"
+                for-id="run-to"
+                wide
+            >
                 <CaomeiDatePicker
                     id="run-to"
                     :model-value="toDate"
@@ -100,8 +115,8 @@ const asOptionValue = (value: string | number | null | undefined) => String(valu
                     class="scans__run-date"
                     @update:model-value="emit('update:toDate', $event)"
                 />
-            </div>
-            <div v-if="hasActiveFilters" class="scans__run-filter-field scans__run-filter-field--action">
+            </filter-field>
+            <div v-if="hasActiveFilters" class="scans__run-filter-action">
                 <CaomeiButton
                     tone="neutral"
                     variant="ghost"
@@ -114,7 +129,7 @@ const asOptionValue = (value: string | number | null | undefined) => String(valu
                     {{ t('scans.runList.clearFilters') }}
                 </CaomeiButton>
             </div>
-            <div class="scans__run-filter-field scans__run-filter-field--action">
+            <div class="scans__run-filter-action">
                 <CaomeiSplitButton
                     tone="neutral"
                     variant="ghost"
@@ -157,19 +172,11 @@ const asOptionValue = (value: string | number | null | undefined) => String(valu
     gap: $space-3;
 }
 
-.scans__run-filter-field {
+// 字段布局（label + 控件堆叠）由 `filter-field` 承载；此处仅保留动作按钮占位（无 label）
+.scans__run-filter-action {
     display: flex;
     flex-direction: column;
-    gap: $space-1;
-    min-width: 180px;
-
-    label {
-        font-size: $font-size-sm;
-    }
-
-    &--action {
-        min-width: 0;
-    }
+    min-width: 0;
 }
 
 .scans__run-date {

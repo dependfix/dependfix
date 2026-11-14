@@ -10,6 +10,7 @@
 //   running 批次平均 30s+ 进度变化有限，60s 已足够；保留 BATCH_POLL_INTERVAL_MS 常量便于后续微调）
 // - sortable 字段：sortable + removableSort 三态（asc/desc/none）；与增量 reconcile 并存——
 //   reconcile 只替换 updatedAt 变化行引用，不重排已排序数组；用户手动排序状态保留
+import { severityLabel } from '#shared/severity-labels'
 import { CircleStop, RefreshCw } from '@lucide/vue'
 import type { DataTableColumn } from 'caomei-ui'
 import type { BatchRunRun, BatchRunSummary, BatchRunView } from '~/types/platform'
@@ -279,6 +280,9 @@ const batchStatusFilterOptions = computed(() => [
 
 const hasActiveBatchFilter = computed(() => batchFilters.source !== 'all' || batchFilters.status !== 'all')
 
+/** caomei Select 载荷窄化（筛选项恒为字符串） */
+const asFilterValue = (value: string | number | null | undefined) => (value === null || value === undefined) ? 'all' : String(value)
+
 const resetBatchFilters = () => {
     batchFilters.source = 'all'
     batchFilters.status = 'all'
@@ -353,37 +357,40 @@ const nestedColumns = computed<DataTableColumn<BatchRunRun>[]>(() => [
         </CaomeiMessage>
 
         <!-- 列表筛选（客户端；服务端 `/api/batch-runs` 契约与增量 reconcile 不变） -->
-        <section class="batch-runs__filters">
-            <div class="batch-runs__filter-field">
-                <label for="batch-runs-filter-source">{{ t('batchRuns.colSource') }}</label>
+        <filter-bar
+            :active="hasActiveBatchFilter"
+            :reset-label="t('batchRuns.filterReset')"
+            @reset="resetBatchFilters"
+        >
+            <filter-field
+                :label="t('batchRuns.colSource')"
+                for-id="batch-runs-filter-source"
+                muted
+            >
                 <CaomeiSelect
                     id="batch-runs-filter-source"
-                    v-model="batchFilters.source"
+                    :model-value="batchFilters.source"
                     :options="batchSourceFilterOptions"
                     option-label="label"
                     option-value="value"
+                    @update:model-value="batchFilters.source = asFilterValue($event)"
                 />
-            </div>
-            <div class="batch-runs__filter-field">
-                <label for="batch-runs-filter-status">{{ t('batchRuns.colStatus') }}</label>
+            </filter-field>
+            <filter-field
+                :label="t('batchRuns.colStatus')"
+                for-id="batch-runs-filter-status"
+                muted
+            >
                 <CaomeiSelect
                     id="batch-runs-filter-status"
-                    v-model="batchFilters.status"
+                    :model-value="batchFilters.status"
                     :options="batchStatusFilterOptions"
                     option-label="label"
                     option-value="value"
+                    @update:model-value="batchFilters.status = asFilterValue($event)"
                 />
-            </div>
-            <CaomeiButton
-                v-if="hasActiveBatchFilter"
-                tone="neutral"
-                size="sm"
-                class="batch-runs__filter-reset"
-                @click="resetBatchFilters"
-            >
-                {{ t('batchRuns.filterReset') }}
-            </CaomeiButton>
-        </section>
+            </filter-field>
+        </filter-bar>
 
         <CaomeiCard v-if="!firstLoad">
             <CaomeiDataTable
@@ -468,7 +475,7 @@ const nestedColumns = computed<DataTableColumn<BatchRunRun>[]>(() => [
                                 class="batch-runs__stat"
                             >
                                 <span class="batch-runs__stat-value">{{ count }}</span>
-                                <span class="batch-runs__stat-label">{{ severity }}</span>
+                                <span class="batch-runs__stat-label">{{ severityLabel(severity) }}</span>
                             </div>
                         </div>
 
@@ -546,31 +553,7 @@ const nestedColumns = computed<DataTableColumn<BatchRunRun>[]>(() => [
         font-size: $font-size-sm;
     }
 
-    // 列表筛选工具栏（客户端筛选与分页，服务端契约不变）
-    &__filters {
-        display: flex;
-        flex-wrap: wrap;
-        align-items: flex-end;
-        gap: $space-3;
-        margin-bottom: $space-4;
-    }
-
-    &__filter-field {
-        display: flex;
-        flex-direction: column;
-        gap: $space-1;
-        min-width: 160px;
-
-        label {
-            font-size: $font-size-sm;
-            color: $color-text-muted;
-        }
-    }
-
-    &__filter-reset {
-        margin-bottom: 1px;
-    }
-
+    // 列表筛选工具栏样式由 `filter-bar` / `filter-field` 承载
     &__detail {
         display: flex;
         flex-direction: column;

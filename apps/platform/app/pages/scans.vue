@@ -554,16 +554,20 @@ onMounted(refresh)
             <CaomeiTabContent value="repo">
                 <CaomeiCard class="scans__byrepo-toolbar">
                     <div class="scans__byrepo-filter-row">
-                        <div class="scans__byrepo-filter-field">
-                            <label for="byrepo-status">{{ t('scans.byRepo.filterStatus') }}</label>
+                        <filter-field
+                            :label="t('scans.byRepo.filterStatus')"
+                            for-id="byrepo-status"
+                            wide
+                        >
                             <CaomeiSelect
                                 id="byrepo-status"
-                                v-model="byRepoStatus"
+                                :model-value="byRepoStatus"
                                 :options="byRepoStatusOptions"
                                 option-label="label"
                                 option-value="value"
+                                @update:model-value="byRepoStatus = ($event === null || $event === undefined) ? 'all' : String($event)"
                             />
-                        </div>
+                        </filter-field>
                     </div>
                     <p class="scans__window-hint text-muted">
                         {{ t('scans.byRepo.windowHint', {included: summary?.window.included ?? 0, limit: summary?.window.limit ?? 0}) }}
@@ -811,23 +815,12 @@ onMounted(refresh)
         margin-bottom: $space-3;
     }
 
-    // 按仓库分区的筛选栏留在页面内（仅一个字段，不拆子组件）；样式与运行筛选条同源但不跨组件复用
+    // 按仓库分区的筛选栏留在页面内（仅一个字段，不拆子组件）；字段布局由 `filter-field` 承载
     &__byrepo-filter-row {
         display: flex;
         flex-wrap: wrap;
         align-items: flex-end;
         gap: $space-3;
-    }
-
-    &__byrepo-filter-field {
-        display: flex;
-        flex-direction: column;
-        gap: $space-1;
-        min-width: 180px;
-
-        label {
-            font-size: $font-size-sm;
-        }
     }
 
     &__window-hint {

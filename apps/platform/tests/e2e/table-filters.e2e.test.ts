@@ -100,9 +100,9 @@ test.describe('仓库列表筛选与分页', () => {
         await expect(rows).toHaveCount(4, { timeout: 10000 })
 
         // 重置 → 搜索框清空且筛选态消失（重置按钮随 hasActiveRepoFilter 隐藏）
-        await page.locator('.repos__filter-reset').click()
+        await page.locator('.filter-bar__reset').click()
         await expect(page.locator('#repos-filter-search')).toHaveValue('')
-        await expect(page.locator('.repos__filter-reset')).toHaveCount(0)
+        await expect(page.locator('.filter-bar__reset')).toHaveCount(0)
     })
 })
 
@@ -118,10 +118,10 @@ test.describe('批量运行列表筛选', () => {
         // 选择「定时触发」→ 进入筛选态（重置按钮出现）
         await page.locator('#batch-runs-filter-source').click()
         await page.locator('.caomei-select__content .caomei-select__item').filter({ hasText: '定时触发' }).click()
-        await expect(page.locator('.batch-runs__filter-reset')).toBeVisible({ timeout: 5000 })
+        await expect(page.locator('.filter-bar__reset')).toBeVisible({ timeout: 5000 })
 
         // 重置 → 筛选态清除
-        await page.locator('.batch-runs__filter-reset').click()
-        await expect(page.locator('.batch-runs__filter-reset')).toHaveCount(0)
+        await page.locator('.filter-bar__reset').click()
+        await expect(page.locator('.filter-bar__reset')).toHaveCount(0)
     })
 })

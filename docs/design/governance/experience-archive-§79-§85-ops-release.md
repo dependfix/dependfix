@@ -1,4 +1,4 @@
-# 经验归档分片（§七十九 - §八十七）：运维实测与发布链沉淀
+# 经验归档分片（§七十九 - §八十八）：运维实测与发布链沉淀
 
 > 本分片为 [§70-§85 索引](./experience-archive-§70-§99-delivery-platform.md) 的第二片（原分片按 `^##` H2 边界拆分，章节编号与锚点不变；自 §八十六 起只更新范围标签与 H1，**文件名沿用建立时规划上界** `-§79-§85-`）；正文只写结论与落点。
 
@@ -241,3 +241,31 @@
 - **现象**：只在命令层证明审计失败（临时工程注入漏洞依赖）仍不能证明 workflow 接线正确：步骤顺序、`if` 条件、`|| true`、前置 job 跳过语义都可能让门禁形同虚设。
 - **手法**：建短生命周期分支注入已知漏洞依赖并推送，`workflow_dispatch` 触发发布工作流，按预期在阻断步失败；用 `gh run view --json jobs` 核对**其后所有发布步骤为 skipped**，日志含漏洞条目；随后删除分支、确认默认分支 lockfile 未变。负例 run id 与失败步骤写入设计稿，作为「阻断面成立」的证据。
 - **落点**：[release-pipeline.md §4.5](../../design/governance/release-pipeline.md#_4-5-发布前门禁清单与实测时长-2026-11-12-m58-2) 工作流级负例段 + 检查点矩阵 §5.6 第 ⑥ 项。
+
+## 八十八、M60 归档批次经验沉淀（页面拆分 / 级别单源 / 沙箱自检 / 部署命令一致性）
+
+> **批次**：M60 平台减法与沙箱可用性（2026-11-15 归档）。**准入依据**：② 决策需溯源（拆分边界、单源表位置、自检权限面）+ ④ 工具 / 环境陷阱（Vitest 嵌套配置、多步部署命令、视觉差异归因）。落点见各条目末行。
+
+### 1. 包级 Vitest 配置必须 mergeConfig 根配置
+
+- **现象**：给平台新增 `#shared` 别名时在包内直接 `defineConfig`，`pnpm --filter @dependfix/platform test` 丢掉根配置的 `setupFiles`（h3 全局注入）、`#server` 别名与 e2e/visual 排除，Playwright 规格被收集、server 测试初始化失败；根 `pnpm test` 则因根配置缺别名而全挂。
+- **手法**：包级配置 `mergeConfig(rootConfig, { resolve: { alias } })`；新别名在根与包级两处同步；验收用根 / 包级双跑（两者文件数应分别覆盖全仓与单包）。
+- **落点**：[testing.md §6.1](../../standards/testing.md)（包级配置条款）+ `apps/platform/vitest.config.ts` / `vitest.config.ts`。
+
+### 2. 视觉基线差异归因：bbox + 裁剪目检
+
+- **现象**：大量抽取后视觉基线出现数百到数千像素差异，只看「失败 / 通过」无法判断是布局回归还是文本规范化。
+- **手法**：`ImageChops.difference().getbbox()` 取差异区域，按 bbox 裁剪放大对照；确认差异为「级别文本小写 → 首字母大写」且无布局位移后更新基线，并在设计文档登记有意偏离；不用整体放宽阈值。
+- **落点**：[testing.md §6.7](../../standards/testing.md)（基线差异归因）+ [platform-page-decomposition.md](platform-page-decomposition.md) §4。
+
+### 3. 删除页面必须核对「该页提供什么」，不只「谁引用它」
+
+- **现象**：兼容页 `repos/[id]/runs.vue` 无应用内入口，按「零引用」判定删除后，其唯一挂载的 `<repo-ai-toggle>`（仓库级 AI 开关）一并消失。
+- **手法**：删除链四项证据之外补「反向依赖」扫描——该页挂载的组件 / 路由 / 查询参数是否还有替代落点；无替代时保留页面并在文件头写触发路径、保留理由与删除前置。
+- **落点**：[platform-page-decomposition.md §3.2](platform-page-decomposition.md) + `apps/platform/app/pages/repos/[id]/runs.vue` 文件头。
+
+### 4. 多步部署命令按「构建产物 → 启动引用」端到端核验
+
+- **现象**：文档「先 build 再 up」两步各自正确，但 build 产出 `:local`、up 解析 `:latest`（不含 docker CLI），照抄后沙箱静默降级。
+- **手法**：对多步命令用 `docker compose ... config` 核对最终 `image:` 与关键 env，而不是只读命令文字；文档把「单一事实源」落在矩阵 / 表格处，其余章节只链接，避免同事实两处漂移。
+- **落点**：[quick-start.md](../../guide/quick-start.md) 部署形态矩阵 + [deployment.md](../../guide/deployment.md) 容器 opt-in 段。

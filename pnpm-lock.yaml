@@ -148,8 +148,8 @@ importers:
         specifier: ^4.6.1
         version: 4.6.1
       cron-parser:
-        specifier: ^5.10.3
-        version: 5.10.3
+        specifier: ^5.10.5
+        version: 5.10.5
       h3:
         specifier: ^1.15.11
         version: 1.15.11
@@ -4238,12 +4238,12 @@ packages:
     resolution: {integrity: sha512-IBWsY8xznyQrcHn8h4bC8/4ErNke5elzgG8GcqF4RFPw6aHkWWRc7Tgw6upjaTX/CT/yQgqYENkxYsTYN+hW2g==}
     engines: {node: '>=18'}
 
-  cron-parser@5.10.3:
-    resolution: {integrity: sha512-Fwlmlgiyoj5e7XDCy5T3ueFd3imgt714k7xjAzhkOBUrUgQxWtsjS7kWSEN3efDX34bebxBJAmPoCSisHvjlpw==}
-    engines: {node: '>=18'}
-
   cron-parser@5.10.4:
     resolution: {integrity: sha512-TagNqYzoV/C7Ty7VAQjrQg+57WsEOuQEUh0tWT5Dc+l/GOuoAdWVIzFU0CqYdQswqdjUalrdmOvaMtQhErYZTA==}
+    engines: {node: '>=18'}
+
+  cron-parser@5.10.5:
+    resolution: {integrity: sha512-zxFew0gkBdb9HudAqeNLIZ2Phczw8oQDGDMYc1HUYvAaxZqhML2gZyUwVqaOs23YKDWXRRvd/nNo0ycGdXt80A==}
     engines: {node: '>=18'}
 
   croner@10.0.1:
@@ -12197,11 +12197,11 @@ snapshots:
       crc-32: 1.2.2
       readable-stream: 4.8.0
 
-  cron-parser@5.10.3:
+  cron-parser@5.10.4:
     dependencies:
       luxon: 3.7.2
 
-  cron-parser@5.10.4:
+  cron-parser@5.10.5:
     dependencies:
       luxon: 3.7.2
 

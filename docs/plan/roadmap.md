@@ -93,7 +93,7 @@
 
 - 当前阶段任务：[todo.md](todo.md)（**M61 文档与 AI 治理**，6 原子；2026-11-15 规划）
 - 已归档阶段：[todo-archive.md](todo-archive.md)（阶段索引 + 分片；M0-M60 全部已归档；分片治理见 [archive/index.md](archive/index.md)）
-- 下一阶段（未规划）：第四期「文档与 AI 治理」已由 M61 承接；M61 归档后再评估下一方向（候选池 32 条，见 [backlog.md](backlog.md)）
+- 下一阶段（未规划）：第四期「文档与 AI 治理」已由 M61 承接；M61 归档后再评估下一方向（候选池 33 条，见 [backlog.md](backlog.md)）
 - 后续阶段任务（延期项 + 未排期增强候选）：[backlog.md](backlog.md)
 
 ## 交付原则

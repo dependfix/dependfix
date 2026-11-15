@@ -1,0 +1,23 @@
+# 沙箱执行器启用覆盖文件（opt-in，默认不启用）
+#
+# 前置：
+#   1) 宿主已启动 **rootless** Docker daemon（`dockerd-rootless-setuptool.sh install`），
+#      默认 socket 位于 `/run/user/<uid>/docker.sock`；
+#   2) 平台镜像以 `--build-arg WITH_DOCKER_CLI=true` 构建（默认不内置 docker CLI）。
+#
+# 用法：
+#   docker compose -f docker-compose.yml -f docker-compose.sandbox.yml --profile sandbox up -d
+#
+# 安全边界：只挂 rootless socket，**禁止**挂载宿主 `/var/run/docker.sock`（等同宿主 root 控制面）。
+# 说明见 docs/standards/security.md §5.3 与 docs/guide/deployment.md「沙箱执行器（可选）」。
+services:
+  platform:
+    profiles: ["sandbox"]
+    environment:
+      # Docker CLI 通过 DOCKER_HOST 指向 rootless socket（路径与宿主机一致）
+      DOCKER_HOST: unix:///run/user/${SANDBOX_DOCKER_UID:-1000}/docker.sock
+      # 容器进程需与 socket 属主同 uid/gid 才能访问（rootless socket 默认属宿主用户）
+      PUID: ${SANDBOX_DOCKER_UID:-1000}
+      PGID: ${SANDBOX_DOCKER_GID:-1000}
+    volumes:
+      - /run/user/${SANDBOX_DOCKER_UID:-1000}/docker.sock:/run/user/${SANDBOX_DOCKER_UID:-1000}/docker.sock

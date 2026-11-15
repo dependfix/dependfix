@@ -119,6 +119,7 @@ jobs:
         run: |
           docker compose -f apps/platform/docker-compose.yml config --quiet
           docker compose -f apps/platform/docker-compose.yml -f apps/platform/docker-compose.build.yml config --quiet
+          docker compose -f apps/platform/docker-compose.yml -f apps/platform/docker-compose.sandbox.yml --profile sandbox config --quiet
       # 经验条目落点门禁：每个经验归档条目必须含非空「落点」（L1 脚本 / L2 检查点 / 规范条款），
       # 占位符视为空——对治「只留条目、不留落点」反模式。脚本零依赖，置于静态检查簇内。
       # 负例标定：新增无落点条目即 exit 1（本地已验），修复后删除脚手架。

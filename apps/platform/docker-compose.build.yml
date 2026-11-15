@@ -18,3 +18,6 @@ services:
     build:
       context: ../..
       dockerfile: apps/platform/Dockerfile
+      args:
+        # 沙箱 opt-in：默认 false（不安装 docker CLI）；本地构建 `WITH_DOCKER_CLI=true` 启用
+        WITH_DOCKER_CLI: ${WITH_DOCKER_CLI:-false}

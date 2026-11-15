@@ -202,6 +202,13 @@ USER 100:100
 
 # 阶段六：生产（平台镜像，文件最后一个 stage = 默认 target）
 FROM executor-base
+# 沙箱执行器：默认**不内置** docker CLI（缩小默认攻击面；见 M60.4 决策 D3）。
+# 需要平台容器内直连 rootless daemon 时显式 `--build-arg WITH_DOCKER_CLI=true`；
+# 仅允许挂载 rootless socket（`/run/user/<uid>/docker.sock`），禁止宿主 `/var/run/docker.sock`。
+ARG WITH_DOCKER_CLI=false
+RUN if [ "$WITH_DOCKER_CLI" = "true" ]; then \
+        apk add --no-cache docker-cli && rm -rf /var/cache/apk/*; \
+    fi
 ENV NODE_ENV=production
 # 部署产物版本戳：构建期由 CI `--build-arg BUILD_COMMIT/BUILD_VERSION` 注入（commit / 版本），
 # 未注入时缺省 unknown（不阻断启动）；运行时经 NUXT_ 前缀覆盖 runtimeConfig.buildVersion/buildCommit，

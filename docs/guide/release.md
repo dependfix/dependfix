@@ -205,7 +205,7 @@ gh release create v0.1.0 --generate-notes
 - **每轮只保留一个计划文件**：固定文件名为根目录 `release-plan.md`（gitignore 临时产物：生成 → 人工 review → `release:version` 消费后删除）；脚本检测到该文件已存在时会拒绝覆盖（防止丢失人工修正），需先删除或人工合并；
 - **人工兜底（生成后必须 review）**：
   - breaking 判定只识别 commit 中显式标注的 `!` / `BREAKING CHANGE:` footer，未标注的破坏性变更（如以 `build:` 类型提交的纯 ESM 改造）需手动修正计划文件的 bump 级别；
-  - 推导基线为最新 git tag，若存在"手动发布但未打 tag"的版本（如 `@dependfix/skills` 0.1.0 手动发布晚于 `v0.1.0` tag），推导会包含已发布内容——按实际发布决策剔除本轮不发布的包；
+  - 推导基线为最新 git tag，但**排除滚动别名 tag `v1` / `v2`**：别名是可变引用（`git tag -f` 可移动），`creatordate`（annotated tag）反映创建 / 移动时间而非发布顺序，被 `--sort=-creatordate` 选中后落点不可预期（可能漏算后续提交，也可能重复计入已发布内容）；若滚动别名是**仅存**的 tag，脚本回退全量历史并输出 `::warning::`，此时推导可能重复计入已发布提交，须人工核对；若存在"手动发布但未打 tag"的版本（如 `@dependfix/skills` 0.1.0 手动发布晚于 `v0.1.0` tag），推导会包含已发布内容——按实际发布决策剔除本轮不发布的包；
   - summary 仅为 git 追踪可读说明，不进 CHANGELOG（见"CHANGELOG 策略"），无需精心撰写。
 
 ### 常规流程

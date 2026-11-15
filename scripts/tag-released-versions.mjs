@@ -4,7 +4,7 @@
  * 背景：`release:publish`（CI）会自动创建 `<pkg>@<version>` git tag，
  * 但**手动发布**（首次 0.1.0 / 补发，走 `pnpm publish`）不会创建 tag——
  * changelog 分段锚点（scripts/changelog.mjs 的 tags.prefix）与 release:plan
- * 推导基线（scripts/create-release-plan.mjs 的"最新 tag"）都依赖该格式 tag，
+ * 推导基线（scripts/create-release-plan.mjs 的"最新 tag"，已排除 `vN` 滚动别名 tag）都依赖该格式 tag，
  * 缺失会导致后续 changelog 把全部历史并入当前版本段。
  *
  * 用法：

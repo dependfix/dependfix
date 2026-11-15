@@ -12,7 +12,7 @@
 | pnpm 命令 | 脚本 | 用途 |
 |---|---|---|
 | `pnpm release:auto-version` | `auto-version.mjs` | 定时自动发布版本提升（CI schedule 专属）：release:plan 条件消费 + changelog + 版本选择 + commit + 显式 token URL push；无变更安全 no-op |
-| `pnpm release:plan` | `create-release-plan.mjs` | 从 git log 推导各包版本提升级别（feat→minor / fix→patch / BREAKING→0.x minor），生成 `release-plan.md` 供人工 review/修正 |
+| `pnpm release:plan` | `create-release-plan.mjs` | 从 git log 推导各包版本提升级别（feat→minor / fix→patch / BREAKING→0.x minor），生成 `release-plan.md` 供人工 review/修正；基线取最新 git tag 但排除滚动别名 tag（`v1`） |
 | `pnpm release:version` | `release-version.mjs` | 消费 `release-plan.md`：依赖传导闭包计算 + 写回各包版本号 + 删除计划文件。`--dry-run` 预览 / `--force` 跳过工作区干净检查 |
 | `pnpm changelog` | `changelog.mjs` | 生成/更新根级与包级 CHANGELOG.md（conventional-changelog-cmyr-config，增量追加） |
 | `pnpm verify:changelog` | `verify-changelog.mjs` | 发布前校验各份 CHANGELOG（根级 + 包级）已包含当前版本段（缺失即非零退出，禁止发布）；`--fresh` 按当前 git 历史在内存重算该段条目并与磁盘比对（已打 tag 的段不参与；浅克隆 / 无 tag warning 放行；不写盘） |

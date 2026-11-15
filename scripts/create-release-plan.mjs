@@ -107,10 +107,26 @@ function git(args) {
     return execSync(`git ${args}`, { cwd: repoRoot, encoding: 'utf8' }).trim()
 }
 
-/** 最新 tag（按创建时间，且已合并进 HEAD）；无 tag 返回 null（回退全量历史） */
+/** 滚动别名 tag（`v1` / `v2`）：可变引用，随大版本移动，不能作为版本推导基线 */
+const ROLLING_TAG_RE = /^v\d+$/
+
+/**
+ * 最新 tag（按创建时间，且已合并进 HEAD，排除滚动别名 tag）；无 tag 返回 null（回退全量历史）。
+ *
+ * 排除理由：别名是可变引用，`creatordate` 反映创建 / 移动时间而非发布顺序，被
+ * `--sort=-creatordate` 选中后落点不可预期（可能漏算，也可能重复计入），故一律排除。
+ */
 function getLatestTag() {
-    const tags = git('tag --merged HEAD --sort=-creatordate').split('\n').filter(Boolean)
-    return tags[0] ?? null
+    const all = git('tag --merged HEAD --sort=-creatordate').split('\n').filter(Boolean)
+    if (all.length === 0) {
+        return null
+    }
+    const tags = all.filter((tag) => !ROLLING_TAG_RE.test(tag))
+    if (tags.length === 0) {
+        console.log('::warning::仅存在滚动别名 tag（vN），已回退全量历史，可能重复计入已发布提交，请人工核对')
+        return null
+    }
+    return tags[0]
 }
 
 /** 收集自基线以来的 commits：hash + subject + 改动文件 + breaking 标志 */

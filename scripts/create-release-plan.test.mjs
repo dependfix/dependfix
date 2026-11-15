@@ -211,6 +211,45 @@ describe('main', () => {
         expect(console.log).toHaveBeenCalledWith(expect.stringContaining('@dependfix/core: minor'))
     })
 
+    it('skips rolling alias tags (v1) when picking the baseline', async () => {
+        vi.mocked(execSync).mockImplementation((cmd) => {
+            const c = String(cmd)
+            if (c.includes('tag --merged')) {
+                return 'v1\nv1.0.0\n@dependfix/core@1.0.0'
+            }
+            if (c.includes('--grep=')) {
+                return ''
+            }
+            if (c.includes('git log')) {
+                return 'abc1234\x1ffeat(core): 新功能\npackages/core/src/b.ts\n'
+            }
+            return ''
+        })
+        main()
+        expect(console.log).toHaveBeenCalledWith('基线 tag：v1.0.0')
+        expect(console.log).toHaveBeenCalledWith(expect.stringContaining('@dependfix/core: minor'))
+    })
+
+    it('falls back to full history when only rolling alias tags exist', async () => {
+        vi.mocked(execSync).mockImplementation((cmd) => {
+            const c = String(cmd)
+            if (c.includes('tag --merged')) {
+                return 'v1'
+            }
+            if (c.includes('--grep=')) {
+                return ''
+            }
+            if (c.includes('git log')) {
+                return 'abc1234\x1ffeat(core): 新功能\npackages/core/src/b.ts\n'
+            }
+            return ''
+        })
+        main()
+        expect(console.log).toHaveBeenCalledWith('基线 tag：无（使用全量历史）')
+        expect(console.log).toHaveBeenCalledWith(expect.stringContaining('::warning::仅存在滚动别名 tag'))
+        expect(console.log).toHaveBeenCalledWith(expect.stringContaining('@dependfix/core: minor'))
+    })
+
     it('exits 1 when plan file already exists', async () => {
         const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => {})
         vi.mocked(existsSync).mockReturnValue(true)

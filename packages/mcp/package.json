@@ -55,7 +55,7 @@
     "@dependfix/engine": "workspace:*"
   },
   "devDependencies": {
-    "nock": "^15.0.5",
+    "nock": "^15.0.6",
     "rimraf": "^6.1.4",
     "tsdown": "^0.23.5",
     "typescript": "^6.0.3"
